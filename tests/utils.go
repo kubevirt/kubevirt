@@ -3815,7 +3815,7 @@ func GetValidSourceNodeAndTargetNodeForHostModelMigration(virtCli kubecli.Kubevi
 			}
 			supportedInTarget := false
 			for key, _ := range potentialTargetNode.Labels {
-				if (strings.HasPrefix(key, v1.HostModelCPULabel) || strings.HasPrefix(key, v1.CPUModelLabel)) && strings.Contains(key, sourceHostCpuModel) {
+				if strings.HasPrefix(key, v1.SupportedHostModelMigrationCPU) && strings.Contains(key, sourceHostCpuModel) {
 					supportedInTarget = true
 					break
 				}
