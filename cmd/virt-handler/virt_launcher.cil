@@ -26,14 +26,17 @@
     ;
     ;
     ; Allowing virt-launcher to read files under /proc
-    ; libvirtd seems to run fine without it, but it will trigger AVCs without the permission.
-    ; This could potentially be replaced by a dontaudit, here or upstream (better)
-    (allow process proc_type (file (getattr open read)))
+    ; This is needed by libvirt/qemu to read at least /proc/cpuinfo and /proc/uptime
+    ; The permission below already exists on container_t, but not on its parent attribute container_domain
+    ; This is therefore not blocking the switch to container_t
+    (allow process proc_type (file (open read)))
     ;
     ; Allowing libvirtd to relay network-related debug messages
     ; libvirtd seems to run fine without it.
     ; There is already a dontaudit covering it, removing the permission would not trigger AVCs.
     ; However, without this permission, there would be a lot of warnings poluting the logs.
+    ; The permission below already exists on container_t, but not on its parent attribute container_domain
+    ; This is therefore not blocking the switch to container_t
     (allow process self (netlink_audit_socket (nlmsg_relay)))
     ;
     ; Allowing tun sockets to be relabelled from "virt_launcher.process" to itself.
@@ -41,13 +44,14 @@
     ;   that triggers a relabelling, even if the label is already correct.
     ; "relabelfrom" and "relabelto" were added upstream and won't be necessary in the future.
     ; It is unclear if "attach_queue" is actually needed
+    ; The permission below already exists on container_t, but not on its parent attribute container_domain
+    ; This is therefore not blocking the switch to container_t
     (allow process self (tun_socket (relabelfrom relabelto attach_queue)))
     ;
     ; Allowing libvirtd to access the hugetlbfs to setup huge tables.
     ; Huge tables won't work without it, unless the memory backend is memfd.
-    ; The 2 following rules could be removed if memfd was the only supported memoty backend.
-    (allow process hugetlbfs_t (dir (add_name create write remove_name rmdir setattr)))
-    (allow process hugetlbfs_t (file (create unlink)))
+    ; The following rule could be removed if memfd was the only supported memoty backend.
+    (allow process hugetlbfs_t (dir (create rmdir setattr)))
     ;
     ; This is needed to allow virtiofs to mount filesystem and access NFS
     (allow process nfs_t (dir (mounton)))
