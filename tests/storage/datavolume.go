@@ -540,7 +540,7 @@ var _ = SIGDescribe("DataVolume Integration", func() {
 				Eventually(ThisVMIWith(vm.Namespace, vm.Name), 100).Should(BeInPhase(v1.Pending))
 
 				By("Creating a service which makes the registry reachable")
-				virtClient.CoreV1().Services(vm.Namespace).Create(context.Background(), &k8sv1.Service{
+				_, err = virtClient.CoreV1().Services(vm.Namespace).Create(context.Background(), &k8sv1.Service{
 					ObjectMeta: metav1.ObjectMeta{
 						Name: fakeRegistryName,
 					},
@@ -549,6 +549,7 @@ var _ = SIGDescribe("DataVolume Integration", func() {
 						ExternalName: realRegistryName,
 					},
 				}, metav1.CreateOptions{})
+				Expect(err).ToNot(HaveOccurred())
 
 				By("Wait for DataVolume to complete")
 				Eventually(ThisDV(dataVolume), 160).Should(HaveSucceeded())
