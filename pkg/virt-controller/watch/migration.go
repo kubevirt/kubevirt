@@ -1553,7 +1553,7 @@ func (c *MigrationController) alertIfHostModelIsUnschedulable(vmi *virtv1.Virtua
 
 	requiredNodeLabels := map[string]string{}
 	for key, value := range targetPod.Spec.NodeSelector {
-		if strings.HasPrefix(key, virtv1.CPUModelLabel) || strings.HasPrefix(key, virtv1.CPUFeatureLabel) {
+		if strings.HasPrefix(key, virtv1.SupportedHostModelMigrationCPU) || strings.HasPrefix(key, virtv1.CPUFeatureLabel) {
 			requiredNodeLabels[key] = value
 		}
 	}
@@ -1586,7 +1586,7 @@ func prepareNodeSelectorForHostCpuModel(node *k8sv1.Node, pod *k8sv1.Pod, source
 
 	// if the vmi already migrated before it should include node selector that consider CPUModelLabel
 	for key, value := range sourcePod.Spec.NodeSelector {
-		if strings.Contains(key, virtv1.CPUFeatureLabel) || strings.Contains(key, virtv1.CPUModelLabel) {
+		if strings.Contains(key, virtv1.CPUFeatureLabel) || strings.Contains(key, virtv1.SupportedHostModelMigrationCPU) {
 			pod.Spec.NodeSelector[key] = value
 			migratedAtLeastOnce = true
 		}
@@ -1609,7 +1609,7 @@ func prepareNodeSelectorForHostCpuModel(node *k8sv1.Node, pod *k8sv1.Pod, source
 			return fmt.Errorf("node does not contain labal \"%s\" with information about host cpu model", virtv1.HostModelCPULabel)
 		}
 
-		nodeSelectorKeyForHostModel = virtv1.CPUModelLabel + hostCpuModel
+		nodeSelectorKeyForHostModel = virtv1.SupportedHostModelMigrationCPU + hostCpuModel
 		pod.Spec.NodeSelector[nodeSelectorKeyForHostModel] = hostModelLabelValue
 
 		log.Log.Object(pod).Infof("cpu model label selector (\"%s\") defined for migration target pod", nodeSelectorKeyForHostModel)
