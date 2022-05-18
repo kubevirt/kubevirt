@@ -291,6 +291,8 @@ func NewApiServerDeployment(namespace string, repository string, imagePrefix str
 	container := &deployment.Spec.Template.Spec.Containers[0]
 	container.Command = []string{
 		VirtAPIName,
+	}
+	container.Args = []string{
 		portName,
 		"8443",
 		"--console-server-port",
@@ -357,6 +359,8 @@ func NewControllerDeployment(namespace string, repository string, imagePrefix st
 	container := &deployment.Spec.Template.Spec.Containers[0]
 	container.Command = []string{
 		VirtControllerName,
+	}
+	container.Args = []string{
 		"--launcher-image",
 		fmt.Sprintf("%s/%s%s%s", repository, imagePrefix, "virt-launcher", launcherVersion),
 		portName,
@@ -467,6 +471,8 @@ func NewOperatorDeployment(namespace string, repository string, imagePrefix stri
 							ImagePullPolicy: pullPolicy,
 							Command: []string{
 								VirtOperatorName,
+							},
+							Args: []string{
 								portName,
 								"8443",
 								"-v",

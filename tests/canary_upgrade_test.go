@@ -25,6 +25,8 @@ import (
 	"sync"
 	"time"
 
+	"kubevirt.io/kubevirt/tests/framework/checks"
+
 	appsv1 "k8s.io/api/apps/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/client-go/informers"
@@ -57,6 +59,10 @@ var _ = Describe("[Serial][sig-operator]virt-handler canary upgrade", func() {
 
 	BeforeEach(func() {
 		tests.BeforeTestCleanup()
+
+		if !checks.HasAtLeastTwoNodes() {
+			Skip("this test requires at least 2 nodes")
+		}
 
 		virtCli, err = kubecli.GetKubevirtClient()
 		Expect(err).ToNot(HaveOccurred())

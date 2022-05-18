@@ -222,13 +222,7 @@ func SkipIfMigrationIsNotPossible() {
 		ginkgo.Skip("LiveMigration feature gate is not enabled in kubevirt-config")
 	}
 
-	virtClient, err := kubecli.GetKubevirtClient()
-	util.PanicOnError(err)
-
-	nodes := libnode.GetAllSchedulableNodes(virtClient)
-	gomega.Expect(nodes.Items).ToNot(gomega.BeEmpty(), "There should be some compute node")
-
-	if len(nodes.Items) < 2 {
+	if !HasAtLeastTwoNodes() {
 		ginkgo.Skip("Migration tests require at least 2 nodes")
 	}
 }

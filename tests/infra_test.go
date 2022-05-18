@@ -36,6 +36,8 @@ import (
 
 	"k8s.io/apimachinery/pkg/api/resource"
 
+	"kubevirt.io/kubevirt/tests/framework/checks"
+
 	expect "github.com/google/goexpect"
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
@@ -1118,6 +1120,9 @@ var _ = Describe("[Serial][sig-compute]Infrastructure", func() {
 
 		Context("when the controller pod is not running and an election happens", func() {
 			It("[test_id:4642]should succeed afterwards", func() {
+				// This test needs at least 2 controller pods. Skip on single-replica.
+				checks.SkipIfSingleReplica(virtClient)
+
 				newLeaderPod := getNewLeaderPod(virtClient)
 				Expect(newLeaderPod).NotTo(BeNil())
 
