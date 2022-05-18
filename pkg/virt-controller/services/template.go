@@ -1163,11 +1163,11 @@ func (t *templateService) renderLaunchManifest(vmi *v1.VirtualMachineInstance, i
 		compute.Env = append(compute.Env,
 			k8sv1.EnvVar{
 				Name:  "XDG_CACHE_HOME",
-				Value: varRun,
+				Value: util.VirtPrivateDir,
 			},
 			k8sv1.EnvVar{
 				Name:  "XDG_CONFIG_HOME",
-				Value: varRun,
+				Value: util.VirtPrivateDir,
 			},
 			k8sv1.EnvVar{
 				Name:  "XDG_RUNTIME_DIR",
