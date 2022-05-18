@@ -67,7 +67,6 @@ type DeploymentOperatorParams struct {
 	CnaoVersion         string
 	SspVersion          string
 	TtoVersion          string
-	NmoVersion          string
 	HppoVersion         string
 	Env                 []corev1.EnvVar
 }
@@ -520,15 +519,6 @@ func GetClusterPermissions() []rbacv1.PolicyRule {
 			APIGroups: stringListToSlice("operator.openshift.io"),
 			Resources: stringListToSlice("consoles"),
 			Verbs:     stringListToSlice("get", "list", "watch", "update"),
-		},
-		{
-			APIGroups: stringListToSlice("nodemaintenance.kubevirt.io"),
-			Resources: stringListToSlice("nodemaintenances"),
-			Verbs:     stringListToSlice("get", "list", "watch"),
-		}, {
-			APIGroups: stringListToSlice("nodemaintenance.medik8s.io"),
-			Resources: stringListToSlice("nodemaintenances"),
-			Verbs:     stringListToSlice("get", "list", "watch", "create"),
 		},
 	}
 }

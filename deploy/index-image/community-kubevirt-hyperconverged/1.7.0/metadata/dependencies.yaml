@@ -1,6 +1,0 @@
-dependencies:
-  - type: olm.gvk
-    value:
-      group: nodemaintenance.medik8s.io
-      kind: NodeMaintenance
-      version: v1beta1

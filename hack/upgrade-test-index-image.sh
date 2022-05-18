@@ -313,14 +313,6 @@ VIRTIOWIN_IMAGE_CM=$(${CMD} get cm virtio-win -n ${HCO_NAMESPACE} -o jsonpath='{
 
 [[ "${VIRTIOWIN_IMAGE_CSV}" == "${VIRTIOWIN_IMAGE_CM}" ]]
 
-Msg "check that node-maintenance-operator was deployed as a dependency"
-NMO_CSV=$( ${CMD} get csv -o name -n ${HCO_NAMESPACE} | grep node-maintenance-operator)
-# Make sure the CSV is in Succeeded phase
-./hack/retry.sh 30 10 "${CMD} get ${NMO_CSV} -n ${HCO_NAMESPACE} -o jsonpath='{ .status.phase }' | grep 'Succeeded'"
-
-# Make sure the CSV was deployed as a dependency - should use the same operator group
-[ "$(${CMD} get ${NMO_CSV} -n ${HCO_NAMESPACE} -o jsonpath='{.metadata.annotations.olm\.operatorGroup}')" == "${HCO_OPERATORGROUP_NAME}" ]
-
 Msg "Read the HCO operator log before it been deleted"
 HCO_POD=$( ${CMD} get -n ${HCO_NAMESPACE} pods -l "name=hyperconverged-cluster-operator" -o name)
 ${CMD} logs -n ${HCO_NAMESPACE} "${HCO_POD}"

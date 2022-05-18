@@ -40,11 +40,6 @@ require (
 )
 
 require (
-	github.com/medik8s/node-maintenance-operator v0.12.1
-	kubevirt.io/node-maintenance-operator v0.11.3
-)
-
-require (
 	cloud.google.com/go v0.97.0 // indirect
 	github.com/PuerkitoBio/purell v1.1.1 // indirect
 	github.com/PuerkitoBio/urlesc v0.0.0-20170810143723-de5bf2ad4578 // indirect

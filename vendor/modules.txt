@@ -109,9 +109,6 @@ github.com/mailru/easyjson/jwriter
 # github.com/matttproud/golang_protobuf_extensions v1.0.2-0.20181231171920-c182affec369
 ## explicit; go 1.9
 github.com/matttproud/golang_protobuf_extensions/pbutil
-# github.com/medik8s/node-maintenance-operator v0.12.1
-## explicit; go 1.16
-github.com/medik8s/node-maintenance-operator/api/v1beta1
 # github.com/modern-go/concurrent v0.0.0-20180306012644-bacd9c7ef1dd
 ## explicit
 github.com/modern-go/concurrent
@@ -624,9 +621,6 @@ kubevirt.io/controller-lifecycle-operator-sdk/pkg/sdk/api
 # kubevirt.io/controller-lifecycle-operator-sdk/api v0.2.4
 ## explicit; go 1.17
 kubevirt.io/controller-lifecycle-operator-sdk/api
-# kubevirt.io/node-maintenance-operator v0.11.3
-## explicit; go 1.16
-kubevirt.io/node-maintenance-operator/api/v1beta1
 # kubevirt.io/ssp-operator/api v0.15.0
 ## explicit; go 1.17
 kubevirt.io/ssp-operator/api/v1beta1

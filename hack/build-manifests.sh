@@ -268,15 +268,6 @@ annotations:
   operators.operatorframework.io.bundle.package.v1: ${PACKAGE_NAME}
 EOF
 
-# add node-maintenance-operator as a dependency
-cat << EOF > "${CSV_DIR}/metadata/dependencies.yaml"
-dependencies:
-  - type: olm.gvk
-    value:
-      group: nodemaintenance.medik8s.io
-      kind: NodeMaintenance
-      version: v1beta1
-EOF
 
 SMBIOS=$(cat <<- EOM
 Family: KubeVirt

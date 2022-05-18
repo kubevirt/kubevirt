@@ -38,8 +38,6 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/manager"
 	"sigs.k8s.io/controller-runtime/pkg/manager/signals"
 
-	nmoapiv1beta1 "github.com/medik8s/node-maintenance-operator/api/v1beta1"
-
 	networkaddonsv1 "github.com/kubevirt/cluster-network-addons-operator/pkg/apis/networkaddonsoperator/v1"
 	"github.com/kubevirt/hyperconverged-cluster-operator/api"
 	hcov1beta1 "github.com/kubevirt/hyperconverged-cluster-operator/api/v1beta1"
@@ -50,7 +48,6 @@ import (
 	ttov1alpha1 "github.com/kubevirt/tekton-tasks-operator/api/v1alpha1"
 	kubevirtcorev1 "kubevirt.io/api/core/v1"
 	cdiv1beta1 "kubevirt.io/containerized-data-importer-api/pkg/apis/core/v1beta1"
-	nmoapioldv1beta1 "kubevirt.io/node-maintenance-operator/api/v1beta1"
 	sspv1beta1 "kubevirt.io/ssp-operator/api/v1beta1"
 )
 
@@ -81,8 +78,6 @@ var (
 		coordinationv1.AddToScheme,
 		operatorsapiv2.AddToScheme,
 		imagev1.Install,
-		nmoapiv1beta1.AddToScheme,
-		nmoapioldv1beta1.AddToScheme,
 	}
 )
 

@@ -9,7 +9,7 @@ metadata:
     certified: "false"
     console.openshift.io/disable-operand-delete: "true"
     containerImage: quay.io/kubevirt/hyperconverged-cluster-operator:1.7.0-unstable
-    createdAt: "2022-05-17 05:36:54"
+    createdAt: "2022-05-18 12:08:45"
     description: A unified operator deploying and controlling KubeVirt and its supporting
       operators with opinionated defaults
     operatorframework.io/initialization-resource: '{"apiVersion":"hco.kubevirt.io/v1beta1","kind":"HyperConverged","metadata":{"annotations":{"deployOVS":"false"},"name":"kubevirt-hyperconverged","namespace":"kubevirt-hyperconverged"},"spec":{}}'
@@ -499,23 +499,6 @@ spec:
           - list
           - watch
           - update
-        - apiGroups:
-          - nodemaintenance.kubevirt.io
-          resources:
-          - nodemaintenances
-          verbs:
-          - get
-          - list
-          - watch
-        - apiGroups:
-          - nodemaintenance.medik8s.io
-          resources:
-          - nodemaintenances
-          verbs:
-          - get
-          - list
-          - watch
-          - create
         serviceAccountName: hyperconverged-cluster-operator
       - rules:
         - apiGroups:
