@@ -15680,9 +15680,15 @@ func schema_kubevirtio_api_core_v1_DomainMemoryDumpInfo(ref common.ReferenceCall
 				Description: "DomainMemoryDumpInfo represents the memory dump information",
 				Type:        []string{"object"},
 				Properties: map[string]spec.Schema{
-					"dumpTimestamp": {
+					"startTimestamp": {
 						SchemaProps: spec.SchemaProps{
-							Description: "DumpTimestamp is the time when the memory dump occured",
+							Description: "StartTimestamp is the time when the memory dump started",
+							Ref:         ref("k8s.io/apimachinery/pkg/apis/meta/v1.Time"),
+						},
+					},
+					"endTimestamp": {
+						SchemaProps: spec.SchemaProps{
+							Description: "EndTimestamp is the time when the memory dump completed",
 							Ref:         ref("k8s.io/apimachinery/pkg/apis/meta/v1.Time"),
 						},
 					},
@@ -21626,9 +21632,15 @@ func schema_kubevirtio_api_core_v1_VirtualMachineMemoryDumpRequest(ref common.Re
 							Format:      "",
 						},
 					},
-					"timestamp": {
+					"startTimestamp": {
 						SchemaProps: spec.SchemaProps{
-							Description: "Timestamp represents the time the memory dump was completed",
+							Description: "StartTimestamp represents the time the memory dump started",
+							Ref:         ref("k8s.io/apimachinery/pkg/apis/meta/v1.Time"),
+						},
+					},
+					"endTimestamp": {
+						SchemaProps: spec.SchemaProps{
+							Description: "EndTimestamp represents the time the memory dump was completed",
 							Ref:         ref("k8s.io/apimachinery/pkg/apis/meta/v1.Time"),
 						},
 					},

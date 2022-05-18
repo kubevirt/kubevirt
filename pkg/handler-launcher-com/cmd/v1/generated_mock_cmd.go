@@ -398,13 +398,13 @@ func (_mr *_MockCmdClientRecorder) GuestPing(arg0, arg1 interface{}, arg2 ...int
 	return _mr.mock.ctrl.RecordCall(_mr.mock, "GuestPing", _s...)
 }
 
-func (_m *MockCmdClient) VirtualMachineMemoryDump(ctx context.Context, in *MemoryDumpRequest, opts ...grpc.CallOption) (*MemoryDumpResponse, error) {
+func (_m *MockCmdClient) VirtualMachineMemoryDump(ctx context.Context, in *MemoryDumpRequest, opts ...grpc.CallOption) (*Response, error) {
 	_s := []interface{}{ctx, in}
 	for _, _x := range opts {
 		_s = append(_s, _x)
 	}
 	ret := _m.ctrl.Call(_m, "VirtualMachineMemoryDump", _s...)
-	ret0, _ := ret[0].(*MemoryDumpResponse)
+	ret0, _ := ret[0].(*Response)
 	ret1, _ := ret[1].(error)
 	return ret0, ret1
 }
@@ -688,9 +688,9 @@ func (_mr *_MockCmdServerRecorder) GuestPing(arg0, arg1 interface{}) *gomock.Cal
 	return _mr.mock.ctrl.RecordCall(_mr.mock, "GuestPing", arg0, arg1)
 }
 
-func (_m *MockCmdServer) VirtualMachineMemoryDump(_param0 context.Context, _param1 *MemoryDumpRequest) (*MemoryDumpResponse, error) {
+func (_m *MockCmdServer) VirtualMachineMemoryDump(_param0 context.Context, _param1 *MemoryDumpRequest) (*Response, error) {
 	ret := _m.ctrl.Call(_m, "VirtualMachineMemoryDump", _param0, _param1)
-	ret0, _ := ret[0].(*MemoryDumpResponse)
+	ret0, _ := ret[0].(*Response)
 	ret1, _ := ret[1].(error)
 	return ret0, ret1
 }

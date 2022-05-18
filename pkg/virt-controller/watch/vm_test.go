@@ -1897,9 +1897,11 @@ var _ = Describe("VirtualMachine", func() {
 				now := metav1.Now()
 				vmi.Status.VolumeStatus = []virtv1.VolumeStatus{
 					{
-						Name: testPVCName,
+						Name:  testPVCName,
+						Phase: virtv1.MemoryDumpVolumeCompleted,
 						MemoryDumpVolume: &virtv1.DomainMemoryDumpInfo{
-							DumpTimestamp:  &now,
+							StartTimestamp: &now,
+							EndTimestamp:   &now,
 							ClaimName:      testPVCName,
 							TargetFileName: "memory.dump",
 						},
@@ -1909,10 +1911,11 @@ var _ = Describe("VirtualMachine", func() {
 				vmiFeeder.Add(vmi)
 
 				updatedMemoryDump := &virtv1.VirtualMachineMemoryDumpRequest{
-					ClaimName: testPVCName,
-					Phase:     virtv1.MemoryDumpUnmounting,
-					Timestamp: &now,
-					FileName:  &vmi.Status.VolumeStatus[0].MemoryDumpVolume.TargetFileName,
+					ClaimName:      testPVCName,
+					Phase:          virtv1.MemoryDumpUnmounting,
+					EndTimestamp:   &now,
+					StartTimestamp: &now,
+					FileName:       &vmi.Status.VolumeStatus[0].MemoryDumpVolume.TargetFileName,
 				}
 
 				vmInterface.EXPECT().UpdateStatus(gomock.Any()).Do(func(arg interface{}) {
@@ -1934,13 +1937,15 @@ var _ = Describe("VirtualMachine", func() {
 				vm.Spec.Template.Spec = *applyVMIMemoryDumpVol(&vm.Spec.Template.Spec)
 				addVirtualMachine(vm)
 				vmi.Spec = vm.Spec.Template.Spec
+				now := metav1.Now()
 				vmi.Status.VolumeStatus = []virtv1.VolumeStatus{
 					{
 						Name:    testPVCName,
 						Phase:   virtv1.MemoryDumpVolumeFailed,
 						Message: "Memory dump failed",
 						MemoryDumpVolume: &virtv1.DomainMemoryDumpInfo{
-							ClaimName: testPVCName,
+							ClaimName:    testPVCName,
+							EndTimestamp: &now,
 						},
 					},
 				}
@@ -1948,9 +1953,10 @@ var _ = Describe("VirtualMachine", func() {
 				vmiFeeder.Add(vmi)
 
 				updatedMemoryDump := &virtv1.VirtualMachineMemoryDumpRequest{
-					ClaimName: testPVCName,
-					Phase:     virtv1.MemoryDumpFailed,
-					Message:   vmi.Status.VolumeStatus[0].Message,
+					ClaimName:    testPVCName,
+					Phase:        virtv1.MemoryDumpFailed,
+					Message:      vmi.Status.VolumeStatus[0].Message,
+					EndTimestamp: &now,
 				}
 
 				vmInterface.EXPECT().UpdateStatus(gomock.Any()).Do(func(arg interface{}) {
@@ -1998,9 +2004,9 @@ var _ = Describe("VirtualMachine", func() {
 				vm.Status.Ready = true
 				now := metav1.Now()
 				vm.Status.MemoryDumpRequest = &virtv1.VirtualMachineMemoryDumpRequest{
-					ClaimName: testPVCName,
-					Phase:     virtv1.MemoryDumpUnmounting,
-					Timestamp: &now,
+					ClaimName:    testPVCName,
+					Phase:        virtv1.MemoryDumpUnmounting,
+					EndTimestamp: &now,
 				}
 
 				vm.Spec.Template.Spec = *applyVMIMemoryDumpVol(&vm.Spec.Template.Spec)
@@ -2010,9 +2016,9 @@ var _ = Describe("VirtualMachine", func() {
 
 				// in case the volume is not in vmi volume status we should update status to completed
 				updatedMemoryDump := &virtv1.VirtualMachineMemoryDumpRequest{
-					ClaimName: testPVCName,
-					Phase:     virtv1.MemoryDumpCompleted,
-					Timestamp: &now,
+					ClaimName:    testPVCName,
+					Phase:        virtv1.MemoryDumpCompleted,
+					EndTimestamp: &now,
 				}
 
 				vmInterface.EXPECT().UpdateStatus(gomock.Any()).Do(func(arg interface{}) {

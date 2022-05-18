@@ -27,7 +27,7 @@ service Cmd {
   rpc Ping(EmptyRequest) returns (Response) {}
   rpc Exec(ExecRequest) returns (ExecResponse) {}
   rpc GuestPing(GuestPingRequest) returns (GuestPingResponse) {}
-  rpc VirtualMachineMemoryDump(MemoryDumpRequest) returns (MemoryDumpResponse) {}
+  rpc VirtualMachineMemoryDump(MemoryDumpRequest) returns (Response) {}
 }
 
 message VMI {
@@ -163,9 +163,4 @@ message FreezeRequest {
 message MemoryDumpRequest {
   VMI vmi = 1;
   string dumpPath = 2;
-}
-
-message MemoryDumpResponse {
-  Response response = 1;
-  bool completed = 2;
 }

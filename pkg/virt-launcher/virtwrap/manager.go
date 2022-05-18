@@ -54,6 +54,7 @@ import (
 	"k8s.io/apimachinery/pkg/api/resource"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/types"
+	utilwait "k8s.io/apimachinery/pkg/util/wait"
 	"libvirt.org/go/libvirt"
 
 	v1 "kubevirt.io/api/core/v1"
@@ -126,7 +127,7 @@ type DomainManager interface {
 	GetGuestOSInfo() *api.GuestOSInfo
 	Exec(string, string, []string, int32) (string, error)
 	GuestPing(string) error
-	MemoryDump(vmi *v1.VirtualMachineInstance, dumpPath string) (bool, error)
+	MemoryDump(vmi *v1.VirtualMachineInstance, dumpPath string) error
 }
 
 type LibvirtDomainManager struct {
@@ -155,13 +156,6 @@ type LibvirtDomainManager struct {
 	disksInfo                map[string]*cmdv1.DiskInfo
 	cancelSafetyUnfreezeChan chan struct{}
 	migrateInfoStats         *stats.DomainJobInfo
-	lastMemoryDump           lastMemoryDumpInfo
-}
-
-type lastMemoryDumpInfo struct {
-	fileName  string
-	err       error
-	completed bool
 }
 
 type pausedVMIs struct {
@@ -1145,64 +1139,135 @@ func removePreviousMemoryDump(dir string) {
 	}
 }
 
-func (l *LibvirtDomainManager) completeMemoryDump(err error) {
-	defer func() { <-l.memoryDumpInProgress }()
-	l.lastMemoryDump.err = err
-	l.lastMemoryDump.completed = true
-}
-
-func (l *LibvirtDomainManager) MemoryDump(vmi *v1.VirtualMachineInstance, dumpPath string) (bool, error) {
+func (l *LibvirtDomainManager) MemoryDump(vmi *v1.VirtualMachineInstance, dumpPath string) error {
 	select {
 	case l.memoryDumpInProgress <- struct{}{}:
 	default:
 		log.Log.Object(vmi).Infof("memory-dump is in progress")
-		return false, nil
+		return nil
 	}
-
-	if l.lastMemoryDump.fileName == filepath.Base(dumpPath) {
-		<-l.memoryDumpInProgress
-		return l.lastMemoryDump.completed, l.lastMemoryDump.err
-	}
-	// keep trying to do memory dump even if remove previous one failed
-	removePreviousMemoryDump(filepath.Dir(dumpPath))
-	l.lastMemoryDump.fileName = filepath.Base(dumpPath)
 
 	go func() {
-		var err error
-		if err = l.memoryDump(vmi, dumpPath); err != nil {
-			log.Log.Object(vmi).Errorf("Memory dump faild: %v", err)
-		} else {
-			log.Log.Object(vmi).Infof("Memory dump completed succeefully")
+		defer func() { <-l.memoryDumpInProgress }()
+		if err := l.memoryDump(vmi, dumpPath); err != nil {
+			log.Log.Object(vmi).Reason(err).Error(failedDomainMemoryDump)
 		}
-		l.completeMemoryDump(err)
 	}()
-	return false, nil
+	return nil
 }
 
 func (l *LibvirtDomainManager) memoryDump(vmi *v1.VirtualMachineInstance, dumpPath string) error {
 	logger := log.Log.Object(vmi)
 
-	domName := util.VMINamespaceKeyFunc(vmi)
-	dom, err := l.virConn.LookupDomainByName(domName)
-	if err != nil {
-		// If the VirtualMachineInstance does not exist, we are done
-		if domainerrors.IsNotFound(err) {
-			return fmt.Errorf("Domain not found.")
-		} else {
-			logger.Reason(err).Error("Getting the domain failed during get memory dump.")
-			return err
-		}
+	dom, err := l.initializeMemoryDumpMetadata(vmi, dumpPath)
+	if dom == nil || err != nil {
+		return err
 	}
 	defer dom.Free()
+	// keep trying to do memory dump even if remove previous one failed
+	removePreviousMemoryDump(filepath.Dir(dumpPath))
 
 	logger.Infof("Starting memory dump")
+	failed := false
+	reason := ""
 	err = dom.CoreDumpWithFormat(dumpPath, libvirt.DOMAIN_CORE_DUMP_FORMAT_RAW, libvirt.DUMP_MEMORY_ONLY)
 	if err != nil {
-		logger.Reason(err).Error(failedDomainMemoryDump)
+		failed = true
+		reason = fmt.Sprintf("%s: %s", failedDomainMemoryDump, err)
+	} else {
+		logger.Infof("Completed memory dump successfully")
+	}
+
+	l.setMemoryDumpResult(vmi, failed, reason)
+	return err
+}
+
+func (l *LibvirtDomainManager) initializeMemoryDumpMetadata(vmi *v1.VirtualMachineInstance, dumpPath string) (cli.VirDomain, error) {
+	l.domainModifyLock.Lock()
+	defer l.domainModifyLock.Unlock()
+
+	domName := api.VMINamespaceKeyFunc(vmi)
+	dom, err := l.virConn.LookupDomainByName(domName)
+	if err != nil {
+		return nil, err
+	}
+
+	defer dom.Free()
+	domainSpec, err := l.getDomainSpec(dom)
+	if err != nil {
+		return nil, err
+	}
+
+	memoryDumpMetadata := domainSpec.Metadata.KubeVirt.MemoryDump
+	if memoryDumpMetadata != nil && memoryDumpMetadata.FileName == filepath.Base(dumpPath) {
+		// memory dump still in progress or have just completed
+		return nil, nil
+	}
+
+	now := metav1.Now()
+	domainSpec.Metadata.KubeVirt.MemoryDump = &api.MemoryDumpMetadata{
+		FileName:       filepath.Base(dumpPath),
+		StartTimestamp: &now,
+	}
+	d, err := l.setDomainSpecWithHooks(vmi, domainSpec)
+	if err != nil {
+		return nil, err
+	}
+	return d, nil
+}
+
+func (l *LibvirtDomainManager) setMemoryDumpResultHelper(vmi *v1.VirtualMachineInstance, failed bool, reason string) error {
+	l.domainModifyLock.Lock()
+	defer l.domainModifyLock.Unlock()
+
+	domName := api.VMINamespaceKeyFunc(vmi)
+	dom, err := l.virConn.LookupDomainByName(domName)
+	if err != nil {
+		log.Log.Object(vmi).Reason(err).Error("Getting the domain for completed memory dump failed.")
+		return err
+	}
+	defer dom.Free()
+	domainSpec, err := l.getDomainSpec(dom)
+	if err != nil {
 		return err
 	}
 
+	memoryDumpMetadata := domainSpec.Metadata.KubeVirt.MemoryDump
+	if memoryDumpMetadata == nil {
+		// nothing to report if memory dump metadata is empty
+		return nil
+	}
+
+	now := metav1.Now()
+	domainSpec.Metadata.KubeVirt.MemoryDump.Completed = true
+	domainSpec.Metadata.KubeVirt.MemoryDump.EndTimestamp = &now
+	if failed {
+		domainSpec.Metadata.KubeVirt.MemoryDump.Failed = true
+		domainSpec.Metadata.KubeVirt.MemoryDump.FailureReason = reason
+	}
+	d, err := l.setDomainSpecWithHooks(vmi, domainSpec)
+	if err != nil {
+		return err
+	}
+	defer d.Free()
 	return nil
+}
+
+func (l *LibvirtDomainManager) setMemoryDumpResult(vmi *v1.VirtualMachineInstance, failed bool, reason string) {
+	connectionInterval := 10 * time.Second
+	connectionTimeout := 60 * time.Second
+
+	err := utilwait.PollImmediate(connectionInterval, connectionTimeout, func() (done bool, err error) {
+		err = l.setMemoryDumpResultHelper(vmi, failed, reason)
+		if err != nil {
+			return false, nil
+		}
+		return true, nil
+	})
+
+	if err != nil {
+		log.Log.Object(vmi).Reason(err).Error("Unable to post memory dump results to libvirt after multiple tries")
+	}
 }
 
 func (l *LibvirtDomainManager) PauseVMI(vmi *v1.VirtualMachineInstance) error {

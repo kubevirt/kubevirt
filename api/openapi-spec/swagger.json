@@ -14389,8 +14389,12 @@
       "description": "ClaimName is the name of the pvc the memory was dumped to",
       "type": "string"
      },
-     "dumpTimestamp": {
-      "description": "DumpTimestamp is the time when the memory dump occured",
+     "endTimestamp": {
+      "description": "EndTimestamp is the time when the memory dump completed",
+      "$ref": "#/definitions/k8s.io.apimachinery.pkg.apis.meta.v1.Time"
+     },
+     "startTimestamp": {
+      "description": "StartTimestamp is the time when the memory dump started",
       "$ref": "#/definitions/k8s.io.apimachinery.pkg.apis.meta.v1.Time"
      },
      "targetFileName": {
@@ -17526,6 +17530,10 @@
       "description": "ClaimName is the name of the pvc that will contain the memory dump",
       "type": "string"
      },
+     "endTimestamp": {
+      "description": "EndTimestamp represents the time the memory dump was completed",
+      "$ref": "#/definitions/k8s.io.apimachinery.pkg.apis.meta.v1.Time"
+     },
      "fileName": {
       "description": "FileName represents the name of the output file",
       "type": "string"
@@ -17538,8 +17546,8 @@
       "description": "Phase represents the memory dump phase",
       "type": "string"
      },
-     "timestamp": {
-      "description": "Timestamp represents the time the memory dump was completed",
+     "startTimestamp": {
+      "description": "StartTimestamp represents the time the memory dump started",
       "$ref": "#/definitions/k8s.io.apimachinery.pkg.apis.meta.v1.Time"
      }
     }

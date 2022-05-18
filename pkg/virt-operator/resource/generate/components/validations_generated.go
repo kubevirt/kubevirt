@@ -6541,6 +6541,10 @@ var CRDsValidation map[string]string = map[string]string{
               description: ClaimName is the name of the pvc that will contain the
                 memory dump
               type: string
+            endTimestamp:
+              description: EndTimestamp represents the time the memory dump was completed
+              format: date-time
+              type: string
             fileName:
               description: FileName represents the name of the output file
               type: string
@@ -6551,8 +6555,8 @@ var CRDsValidation map[string]string = map[string]string{
             phase:
               description: Phase represents the memory dump phase
               type: string
-            timestamp:
-              description: Timestamp represents the time the memory dump was completed
+            startTimestamp:
+              description: StartTimestamp represents the time the memory dump started
               format: date-time
               type: string
           required:
@@ -10584,8 +10588,12 @@ var CRDsValidation map[string]string = map[string]string{
                     description: ClaimName is the name of the pvc the memory was dumped
                       to
                     type: string
-                  dumpTimestamp:
-                    description: DumpTimestamp is the time when the memory dump occured
+                  endTimestamp:
+                    description: EndTimestamp is the time when the memory dump completed
+                    format: date-time
+                    type: string
+                  startTimestamp:
+                    description: StartTimestamp is the time when the memory dump started
                     format: date-time
                     type: string
                   targetFileName:
@@ -22944,6 +22952,11 @@ var CRDsValidation map[string]string = map[string]string{
                           description: ClaimName is the name of the pvc that will
                             contain the memory dump
                           type: string
+                        endTimestamp:
+                          description: EndTimestamp represents the time the memory
+                            dump was completed
+                          format: date-time
+                          type: string
                         fileName:
                           description: FileName represents the name of the output
                             file
@@ -22955,9 +22968,9 @@ var CRDsValidation map[string]string = map[string]string{
                         phase:
                           description: Phase represents the memory dump phase
                           type: string
-                        timestamp:
-                          description: Timestamp represents the time the memory dump
-                            was completed
+                        startTimestamp:
+                          description: StartTimestamp represents the time the memory
+                            dump started
                           format: date-time
                           type: string
                       required:

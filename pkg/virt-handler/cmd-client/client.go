@@ -101,7 +101,7 @@ type LauncherClient interface {
 	Ping() error
 	GuestPing(string, int32) error
 	Close()
-	VirtualMachineMemoryDump(vmi *v1.VirtualMachineInstance, dumpPath string) (bool, error)
+	VirtualMachineMemoryDump(vmi *v1.VirtualMachineInstance, dumpPath string) error
 }
 
 type VirtLauncherClient struct {
@@ -446,10 +446,10 @@ func (c *VirtLauncherClient) UnfreezeVirtualMachine(vmi *v1.VirtualMachineInstan
 	return c.genericSendVMICmd("Unfreeze", c.v1client.UnfreezeVirtualMachine, vmi, &cmdv1.VirtualMachineOptions{})
 }
 
-func (c *VirtLauncherClient) VirtualMachineMemoryDump(vmi *v1.VirtualMachineInstance, dumpPath string) (bool, error) {
+func (c *VirtLauncherClient) VirtualMachineMemoryDump(vmi *v1.VirtualMachineInstance, dumpPath string) error {
 	vmiJson, err := json.Marshal(vmi)
 	if err != nil {
-		return false, err
+		return err
 	}
 
 	request := &cmdv1.MemoryDumpRequest{
@@ -461,18 +461,9 @@ func (c *VirtLauncherClient) VirtualMachineMemoryDump(vmi *v1.VirtualMachineInst
 
 	ctx, cancel := context.WithTimeout(context.Background(), longTimeout)
 	defer cancel()
-	mResponse, err := c.v1client.VirtualMachineMemoryDump(ctx, request)
-	var response *cmdv1.Response
-	var completed bool
-	if mResponse != nil {
-		response = mResponse.Response
-		completed = mResponse.Completed
-	}
-
-	if err = handleError(err, "Memorydump", response); err != nil {
-		return false, err
-	}
-	return completed, err
+	response, err := c.v1client.VirtualMachineMemoryDump(ctx, request)
+	err = handleError(err, "Memorydump", response)
+	return err
 }
 
 func (c *VirtLauncherClient) SoftRebootVirtualMachine(vmi *v1.VirtualMachineInstance) error {

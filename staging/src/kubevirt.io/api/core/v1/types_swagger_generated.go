@@ -107,7 +107,8 @@ func (VolumeStatus) SwaggerDoc() map[string]string {
 func (DomainMemoryDumpInfo) SwaggerDoc() map[string]string {
 	return map[string]string{
 		"":               "DomainMemoryDumpInfo represents the memory dump information",
-		"dumpTimestamp":  "DumpTimestamp is the time when the memory dump occured",
+		"startTimestamp": "StartTimestamp is the time when the memory dump started",
+		"endTimestamp":   "EndTimestamp is the time when the memory dump completed",
 		"claimName":      "ClaimName is the name of the pvc the memory was dumped to",
 		"targetFileName": "TargetFileName is the name of the memory dump output",
 	}
@@ -603,12 +604,13 @@ func (FreezeUnfreezeTimeout) SwaggerDoc() map[string]string {
 
 func (VirtualMachineMemoryDumpRequest) SwaggerDoc() map[string]string {
 	return map[string]string{
-		"":          "VirtualMachineMemoryDumpRequest represent the memory dump request phase and info",
-		"claimName": "ClaimName is the name of the pvc that will contain the memory dump",
-		"phase":     "Phase represents the memory dump phase",
-		"timestamp": "Timestamp represents the time the memory dump was completed",
-		"fileName":  "FileName represents the name of the output file",
-		"message":   "Message is a detailed message about failure of the memory dump",
+		"":               "VirtualMachineMemoryDumpRequest represent the memory dump request phase and info",
+		"claimName":      "ClaimName is the name of the pvc that will contain the memory dump",
+		"phase":          "Phase represents the memory dump phase",
+		"startTimestamp": "StartTimestamp represents the time the memory dump started",
+		"endTimestamp":   "EndTimestamp represents the time the memory dump was completed",
+		"fileName":       "FileName represents the name of the output file",
+		"message":        "Message is a detailed message about failure of the memory dump",
 	}
 }
 

@@ -2174,13 +2174,17 @@ func (c *VMController) updateMemoryDumpRequest(vm *virtv1.VirtualMachine, vmi *v
 			for _, volumeStatus := range vmi.Status.VolumeStatus {
 				if volumeStatus.Name == vm.Status.MemoryDumpRequest.ClaimName &&
 					volumeStatus.MemoryDumpVolume != nil {
-					if volumeStatus.MemoryDumpVolume.DumpTimestamp != nil {
+					if volumeStatus.MemoryDumpVolume.StartTimestamp != nil {
+						updatedMemoryDumpReq.StartTimestamp = volumeStatus.MemoryDumpVolume.StartTimestamp
+					}
+					if volumeStatus.Phase == virtv1.MemoryDumpVolumeCompleted {
 						updatedMemoryDumpReq.Phase = virtv1.MemoryDumpUnmounting
-						updatedMemoryDumpReq.Timestamp = volumeStatus.MemoryDumpVolume.DumpTimestamp
+						updatedMemoryDumpReq.EndTimestamp = volumeStatus.MemoryDumpVolume.EndTimestamp
 						updatedMemoryDumpReq.FileName = &volumeStatus.MemoryDumpVolume.TargetFileName
 					} else if volumeStatus.Phase == virtv1.MemoryDumpVolumeFailed {
 						updatedMemoryDumpReq.Phase = virtv1.MemoryDumpFailed
 						updatedMemoryDumpReq.Message = volumeStatus.Message
+						updatedMemoryDumpReq.EndTimestamp = volumeStatus.MemoryDumpVolume.EndTimestamp
 					}
 				}
 			}

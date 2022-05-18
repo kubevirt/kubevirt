@@ -225,32 +225,19 @@ func (l *Launcher) UnpauseVirtualMachine(_ context.Context, request *cmdv1.VMIRe
 	return response, nil
 }
 
-func (l *Launcher) VirtualMachineMemoryDump(_ context.Context, request *cmdv1.MemoryDumpRequest) (*cmdv1.MemoryDumpResponse, error) {
-	response := &cmdv1.MemoryDumpResponse{
-		Response: &cmdv1.Response{
-			Success: true,
-		},
-	}
-	vmi, resp := getVMIFromRequest(request.Vmi)
-	if !resp.Success {
-		response.Response.Success = false
-		response.Response.Message = resp.Message
+func (l *Launcher) VirtualMachineMemoryDump(_ context.Context, request *cmdv1.MemoryDumpRequest) (*cmdv1.Response, error) {
+	vmi, response := getVMIFromRequest(request.Vmi)
+	if !response.Success {
 		return response, nil
 	}
 
-	completed, err := l.domainManager.MemoryDump(vmi, request.DumpPath)
-	if err != nil {
+	if err := l.domainManager.MemoryDump(vmi, request.DumpPath); err != nil {
 		log.Log.Object(vmi).Reason(err).Errorf("Failed to Dump vmi memory")
-		response.Response.Success = false
-		response.Response.Message = getErrorMessage(err)
-		response.Completed = completed
+		response.Success = false
+		response.Message = getErrorMessage(err)
 		return response, nil
 	}
 
-	if completed {
-		log.Log.Object(vmi).Info("Dumped vmi memory")
-		response.Completed = completed
-	}
 	return response, nil
 }
 

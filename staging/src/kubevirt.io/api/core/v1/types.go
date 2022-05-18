@@ -309,8 +309,10 @@ type VolumeStatus struct {
 
 // DomainMemoryDumpInfo represents the memory dump information
 type DomainMemoryDumpInfo struct {
-	// DumpTimestamp is the time when the memory dump occured
-	DumpTimestamp *metav1.Time `json:"dumpTimestamp,omitempty"`
+	// StartTimestamp is the time when the memory dump started
+	StartTimestamp *metav1.Time `json:"startTimestamp,omitempty"`
+	// EndTimestamp is the time when the memory dump completed
+	EndTimestamp *metav1.Time `json:"endTimestamp,omitempty"`
 	// ClaimName is the name of the pvc the memory was dumped to
 	ClaimName string `json:"claimName,omitempty"`
 	// TargetFileName is the name of the memory dump output
@@ -2029,8 +2031,10 @@ type VirtualMachineMemoryDumpRequest struct {
 	ClaimName string `json:"claimName"`
 	// Phase represents the memory dump phase
 	Phase MemoryDumpPhase `json:"phase"`
-	// Timestamp represents the time the memory dump was completed
-	Timestamp *metav1.Time `json:"timestamp,omitempty"`
+	// StartTimestamp represents the time the memory dump started
+	StartTimestamp *metav1.Time `json:"startTimestamp,omitempty"`
+	// EndTimestamp represents the time the memory dump was completed
+	EndTimestamp *metav1.Time `json:"endTimestamp,omitempty"`
 	// FileName represents the name of the output file
 	FileName *string `json:"fileName,omitempty"`
 	// Message is a detailed message about failure of the memory dump
