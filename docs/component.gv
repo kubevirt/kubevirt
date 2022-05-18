@@ -24,7 +24,6 @@ digraph component {
 		"deployment/cluster-network-addons-operator" [label="deployment/cluster-network-addons-operator"]
 		"deployment/kubemacpool-cert-manager" [label="deployment/kubemacpool-cert-manager"]
 		"deployment/kubemacpool-mac-controller-manager" [label="deployment/kubemacpool-mac-controller-manager"]
-		"deployment/node-maintenance-operator" [label="deployment/node-maintenance-operator"]
 	}
 	subgraph cluster_schedule {
 		fontname="Courier-Bold" fontsize=42 group=schedule label=schedule rank=same style=dashed
@@ -52,6 +51,7 @@ digraph component {
 	subgraph cluster_unassigned {
 		fontname="Courier-Bold" fontsize=42 group=unassigned label=unassigned rank=same style=dashed
 		"HyperConverged/kubevirt-hyperconverged" [label="HyperConverged/kubevirt-hyperconverged"]
+		"deployment/node-maintenance-operator-controller-manager" [label="deployment/node-maintenance-operator-controller-manager"]
 	}
 	edge [style=invis]
 	"KubeVirt/kubevirt-kubevirt-hyperconverged" -> "deployment/hco-operator"
