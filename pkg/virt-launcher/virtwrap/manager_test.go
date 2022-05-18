@@ -1589,14 +1589,20 @@ var _ = Describe("Manager", func() {
 
 	Context("on successful GetAllDomainStats", func() {
 		It("should return content", func() {
-			fake_jobinfo := stats.DomainJobInfo{}
-			mockConn.EXPECT().GetDomainStats(
-				gomock.Eq(libvirt.DOMAIN_STATS_BALLOON|libvirt.DOMAIN_STATS_CPU_TOTAL|libvirt.DOMAIN_STATS_VCPU|libvirt.DOMAIN_STATS_INTERFACE|libvirt.DOMAIN_STATS_BLOCK|libvirt.DOMAIN_STATS_DIRTYRATE),
-				&fake_jobinfo,
-				gomock.Eq(libvirt.CONNECT_GET_ALL_DOMAINS_STATS_RUNNING),
-			).Return([]*stats.DomainStats{
+			const (
+				domainStats = libvirt.DOMAIN_STATS_BALLOON |
+					libvirt.DOMAIN_STATS_CPU_TOTAL |
+					libvirt.DOMAIN_STATS_VCPU |
+					libvirt.DOMAIN_STATS_INTERFACE |
+					libvirt.DOMAIN_STATS_BLOCK |
+					libvirt.DOMAIN_STATS_DIRTYRATE
+				flags = libvirt.CONNECT_GET_ALL_DOMAINS_STATS_RUNNING
+			)
+			fakeDomainStats := []*stats.DomainStats{
 				{},
-			}, nil)
+			}
+
+			mockConn.EXPECT().GetDomainStats(domainStats, gomock.Any(), flags).Return(fakeDomainStats, nil)
 
 			manager, _ := NewLibvirtDomainManager(mockConn, testVirtShareDir, testEphemeralDiskDir, nil, "/usr/share/OVMF", ephemeralDiskCreatorMock, metadataCache)
 			domStats, err := manager.GetDomainStats()
