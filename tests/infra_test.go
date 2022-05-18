@@ -1294,14 +1294,6 @@ var _ = Describe("[Serial][sig-compute]Infrastructure", func() {
 				}
 			})
 
-			It("[test_id:6248] should set default min cpu model filter when min-cpu is not set in kubevirt config", func() {
-				node := nodesWithKVM[0]
-
-				for key := range node.Labels {
-					Expect(key).ToNot(Equal(v1.CPUFeatureLabel+"apic"), "Node can't contain label with apic feature (it is feature of default min cpu)")
-				}
-			})
-
 			It("[test_id:6995]should expose tsc frequency and tsc scalability", func() {
 				node := nodesWithKVM[0]
 				Expect(node.Labels).To(HaveKey("cpu-timer.node.kubevirt.io/tsc-frequency"))
@@ -1360,21 +1352,6 @@ var _ = Describe("[Serial][sig-compute]Infrastructure", func() {
 				}
 
 				Fail("No node contains label " + v1.CPUModelVendorLabel)
-			})
-
-			It("[test_id:6251] should update node with new cpu feature label set", func() {
-				node := nodesWithKVM[0]
-
-				numberOfLabelsBeforeUpdate := len(node.Labels)
-				minCPU := "Haswell"
-
-				kvConfig := originalKubeVirt.Spec.Configuration.DeepCopy()
-				kvConfig.MinCPUModel = minCPU
-				tests.UpdateKubeVirtConfigValueAndWait(*kvConfig)
-
-				expectNodeLabels(node.Name, func(m map[string]string) (valid bool, errorMsg string) {
-					return len(m) != numberOfLabelsBeforeUpdate, fmt.Sprintf("node %s should have different number of labels", node.Name)
-				})
 			})
 
 			It("[test_id:6252] should remove all cpu model labels (all cpu model are in obsolete list)", func() {
