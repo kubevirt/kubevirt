@@ -29,6 +29,8 @@ import (
 	"strings"
 	"time"
 
+	"kubevirt.io/kubevirt/pkg/util/migrations"
+
 	cmdv1 "kubevirt.io/kubevirt/pkg/handler-launcher-com/cmd/v1"
 	"kubevirt.io/kubevirt/pkg/virt-launcher/virtwrap/api"
 
@@ -482,7 +484,7 @@ func (l *LibvirtDomainManager) cancelMigration(vmi *v1.VirtualMachineInstance) e
 	migration := domain.Metadata.KubeVirt.Migration
 	if migration == nil || migration.Completed ||
 		migration.Failed || migration.StartTimestamp == nil {
-		return fmt.Errorf("failed to cancel migration - vmi is not migrating")
+		return fmt.Errorf(migrations.CancelMigrationFailedVmiNotMigratingErr)
 	}
 
 	err = l.setMigrationAbortStatus(vmi, v1.MigrationAbortInProgress)

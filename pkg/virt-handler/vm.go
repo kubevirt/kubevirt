@@ -2411,12 +2411,9 @@ func (d *VirtualMachineController) vmUpdateHelperMigrationSource(origVMI *v1.Vir
 	}
 
 	if origVMI.Status.MigrationState.AbortRequested {
-		if origVMI.Status.MigrationState.AbortStatus != v1.MigrationAbortInProgress {
-			err = client.CancelVirtualMachineMigration(origVMI)
-			if err != nil {
-				return err
-			}
-			d.recorder.Event(origVMI, k8sv1.EventTypeNormal, v1.Migrating.String(), "VirtualMachineInstance is aborting migration.")
+		err = d.handleMigrationAbort(origVMI, client)
+		if err != nil {
+			return err
 		}
 	} else {
 		if isMigrationInProgress(origVMI, domain) {
@@ -3005,5 +3002,21 @@ func (d *VirtualMachineController) reportTargetTopologyForMigratingVMI(vmi *v1.V
 		return err
 	}
 	vmi.Status.MigrationState.TargetNodeTopology = string(topology)
+	return nil
+}
+
+func (d *VirtualMachineController) handleMigrationAbort(vmi *v1.VirtualMachineInstance, client cmdclient.LauncherClient) error {
+	if vmi.Status.MigrationState.AbortStatus == v1.MigrationAbortInProgress {
+		return nil
+	}
+
+	err := client.CancelVirtualMachineMigration(vmi)
+	if err != nil && err.Error() == migrations.CancelMigrationFailedVmiNotMigratingErr {
+		// If migration did not even start there is no need to cancel it
+		log.Log.Object(vmi).Infof("skipping migration cancellation since vmi is not migrating")
+		return err
+	}
+
+	d.recorder.Event(vmi, k8sv1.EventTypeNormal, v1.Migrating.String(), "VirtualMachineInstance is aborting migration.")
 	return nil
 }

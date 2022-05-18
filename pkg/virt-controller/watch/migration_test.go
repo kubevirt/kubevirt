@@ -25,6 +25,8 @@ import (
 	"strings"
 	"time"
 
+	virtcontroller "kubevirt.io/kubevirt/pkg/controller"
+
 	"github.com/prometheus/client_golang/prometheus"
 	prometheustestutil "github.com/prometheus/client_golang/prometheus/testutil"
 
@@ -1220,6 +1222,7 @@ var _ = Describe("Migration watcher", func() {
 				TargetNodeAddress: "10.10.10.10:1234",
 				StartTimestamp:    now(),
 			}
+			controller.addHandOffKey(virtcontroller.MigrationKey(migration))
 			addMigration(migration)
 			addVirtualMachineInstance(vmi)
 			podFeeder.Add(pod)

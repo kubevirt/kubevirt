@@ -9,6 +9,8 @@ import (
 	virtconfig "kubevirt.io/kubevirt/pkg/virt-config"
 )
 
+const CancelMigrationFailedVmiNotMigratingErr = "failed to cancel migration - vmi is not migrating"
+
 func ListUnfinishedMigrations(informer cache.SharedIndexInformer) []*v1.VirtualMachineInstanceMigration {
 	objs := informer.GetStore().List()
 	migrations := []*v1.VirtualMachineInstanceMigration{}
