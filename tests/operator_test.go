@@ -1366,7 +1366,7 @@ spec:
 
 		It("test VirtualMachineInstancesPerNode", func() {
 			newVirtualMachineInstancesPerNode := 10
-			maxDevicesCommandArgument := fmt.Sprintf("--maxDevices %d", newVirtualMachineInstancesPerNode)
+			maxDevicesCommandArgument := fmt.Sprintf("--max-devices %d", newVirtualMachineInstancesPerNode)
 
 			By("Updating KubeVirt Object")
 			kv, err := virtClient.KubeVirt(flags.KubeVirtInstallNamespace).Get(originalKv.Name, &metav1.GetOptions{})
