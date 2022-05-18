@@ -18,6 +18,7 @@ latest_kubevirt_commit=$(curl -sL "https://storage.googleapis.com/kubevirt-prow/
 
 # Update HCO dependencies
 go mod edit -require "kubevirt.io/kubevirt@${latest_kubevirt_commit}"
+go mod tidy
 go mod vendor
 rm -rf kubevirt
 
@@ -27,6 +28,7 @@ git clone https://github.com/kubevirt/kubevirt.git
 go mod edit -replace kubevirt.io/client-go=./kubevirt/staging/src/kubevirt.io/client-go
 go mod edit -replace kubevirt.io/api=./kubevirt/staging/src/kubevirt.io/api
 go mod edit -replace kubevirt.io/containerized-data-importer-api=$(grep "kubevirt.io/containerized-data-importer-api v" go.mod | xargs | sed "s/ /@/g")
+go mod tidy
 go mod vendor
 
 # set envs
