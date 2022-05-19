@@ -13,7 +13,7 @@ var projectNames = []*projectName{
 	{"CDI", "containerized-data-importer"},
 	{"NETWORK_ADDONS", "cluster-network-addons-operator"},
 	{"SSP", "ssp-operator"},
-	{"TTO", "tto-operator"},
+	{"TTO", "tekton-tasks-operator"},
 	{"HPPO", "hostpath-provisioner-operator"},
 	{"HPP", "hostpath-provisioner"},
 	{"VM_IMPORT", "vm-import-operator"},
