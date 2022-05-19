@@ -26,6 +26,7 @@ import (
 
 	"os/exec"
 	"strconv"
+	"strings"
 	"syscall"
 
 	"github.com/vishvananda/netlink"
@@ -308,10 +309,9 @@ func (b *PasstLibvirtSpecGenerator) Generate() error {
 		return fmt.Errorf("failed to find interface %s in vmi spec", b.vmiSpecIface.Name)
 	}
 
-	args := []string{"--runas", "107"}
-
+	ports := b.generatePorts()
+	args := append([]string{"--runas", "107", "-e"}, ports...)
 	cmd := exec.Command("/usr/bin/passt", args...)
-
 	cmd.SysProcAttr = &syscall.SysProcAttr{
 		AmbientCaps: []uintptr{unix.CAP_NET_BIND_SERVICE},
 	}
@@ -335,6 +335,7 @@ func (b *PasstLibvirtSpecGenerator) Generate() error {
 			log.Log.Reason(err).Error("failed to read passt logs")
 		}
 	}()
+
 	err = cmd.Start()
 	if err != nil {
 		log.Log.Reason(err).Error("failed to start passt")
@@ -348,4 +349,32 @@ func (b *PasstLibvirtSpecGenerator) Generate() error {
 	}
 
 	return nil
+}
+
+func (b *PasstLibvirtSpecGenerator) generatePorts() []string {
+	tcpPorts := []string{}
+	udpPorts := []string{}
+
+	if len(b.vmiSpecIface.Ports) == 0 {
+		tcpPorts = append(tcpPorts, "all")
+		udpPorts = append(udpPorts, "all")
+	}
+	for _, port := range b.vmiSpecIface.Ports {
+		if port.Protocol == "TCP" {
+			tcpPorts = append(tcpPorts, fmt.Sprintf("%d", port.Port))
+		} else if port.Protocol == "UDP" {
+			udpPorts = append(udpPorts, fmt.Sprintf("%d", port.Port))
+		} else {
+			log.Log.Errorf("protocol %s is not supported by passt", port.Protocol)
+		}
+	}
+
+	if len(tcpPorts) != 0 {
+		tcpPorts = append([]string{"-t"}, strings.Join(tcpPorts, ","))
+	}
+
+	if len(udpPorts) != 0 {
+		udpPorts = append([]string{"-u"}, strings.Join(udpPorts, ","))
+	}
+	return append(tcpPorts, udpPorts...)
 }

@@ -24,6 +24,7 @@ import (
 	"net"
 	"os"
 	"runtime"
+	"strings"
 
 	"github.com/golang/mock/gomock"
 	. "github.com/onsi/ginkgo/v2"
@@ -143,6 +144,52 @@ var _ = Describe("Pod Network", func() {
 						}), "should have an unmanaged interface")
 				Expect(domain.Spec.Devices.Interfaces[0].MAC).To(Equal(&api.MAC{MAC: fakeMac.String()}), "should have the expected MAC address")
 				Expect(domain.Spec.Devices.Interfaces[0].MTU).To(Equal(&api.MTU{Size: "1410"}), "should have the expected MTU")
+			})
+		})
+		Context("Passt plug", func() {
+			var specGenerator *PasstLibvirtSpecGenerator
+
+			getPorts := func(specGenerator *PasstLibvirtSpecGenerator) string {
+				return strings.Join(specGenerator.generatePorts(), " ")
+			}
+
+			createPasstInterface := func() *v1.Interface {
+				return &v1.Interface{
+					Name: "passt_test",
+					InterfaceBindingMethod: v1.InterfaceBindingMethod{
+						Passt: &v1.InterfacePasst{},
+					},
+				}
+			}
+
+			It("Should forward all ports if ports are not specified in spec.interfaces", func() {
+				specGenerator = NewPasstLibvirtSpecGenerator(
+					createPasstInterface(), nil)
+				Expect(getPorts(specGenerator)).To(Equal("-t all -u all"))
+			})
+
+			It("Should forward the specified tcp and udp ports", func() {
+				passtIface := createPasstInterface()
+				passtIface.Ports = []v1.Port{{Protocol: "TCP", Port: 1}, {Protocol: "UDP", Port: 2}, {Protocol: "UDP", Port: 3}, {Protocol: "TCP", Port: 4}}
+				specGenerator = NewPasstLibvirtSpecGenerator(
+					passtIface, nil)
+				Expect(getPorts(specGenerator)).To(Equal("-t 1,4 -u 2,3"))
+			})
+
+			It("Should forward the specified tcp ports", func() {
+				passtIface := createPasstInterface()
+				passtIface.Ports = []v1.Port{{Protocol: "TCP", Port: 1}, {Protocol: "TCP", Port: 4}}
+				specGenerator = NewPasstLibvirtSpecGenerator(
+					passtIface, nil)
+				Expect(getPorts(specGenerator)).To(Equal("-t 1,4"))
+			})
+
+			It("Should forward the specified udp ports", func() {
+				passtIface := createPasstInterface()
+				passtIface.Ports = []v1.Port{{Protocol: "UDP", Port: 2}, {Protocol: "UDP", Port: 3}}
+				specGenerator = NewPasstLibvirtSpecGenerator(
+					passtIface, nil)
+				Expect(getPorts(specGenerator)).To(Equal("-u 2,3"))
 			})
 		})
 	})
