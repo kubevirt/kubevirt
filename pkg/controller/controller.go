@@ -284,13 +284,21 @@ func CurrentVMIPod(vmi *v1.VirtualMachineInstance, podInformer cache.SharedIndex
 }
 
 func VMIActivePodsCount(vmi *v1.VirtualMachineInstance, vmiPodInformer cache.SharedIndexInformer) int {
-
-	objs, err := vmiPodInformer.GetIndexer().ByIndex(cache.NamespaceIndex, vmi.Namespace)
+	activePods, err := VMIActivePods(vmi, vmiPodInformer)
 	if err != nil {
 		return 0
 	}
 
-	running := 0
+	return len(activePods)
+}
+
+func VMIActivePods(vmi *v1.VirtualMachineInstance, vmiPodInformer cache.SharedIndexInformer) (activePod []*k8sv1.Pod, err error) {
+
+	objs, err := vmiPodInformer.GetIndexer().ByIndex(cache.NamespaceIndex, vmi.Namespace)
+	if err != nil {
+		return nil, err
+	}
+
 	for _, obj := range objs {
 		pod := obj.(*k8sv1.Pod)
 
@@ -301,10 +309,10 @@ func VMIActivePodsCount(vmi *v1.VirtualMachineInstance, vmiPodInformer cache.Sha
 			// not interested pods not associated with the vmi
 			continue
 		}
-		running++
+		activePod = append(activePod, pod)
 	}
 
-	return running
+	return activePod, err
 }
 
 func GeneratePatchBytes(ops []string) []byte {
