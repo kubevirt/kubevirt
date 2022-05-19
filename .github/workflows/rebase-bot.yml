@@ -36,5 +36,5 @@ jobs:
               issue_number: context.issue.number,
               owner: context.repo.owner,
               repo: context.repo.repo,
-              body: 'Rebase Bot action has failed.'
+              body: "Rebase Bot action has failed.\nAction URL: ${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}"
             })
