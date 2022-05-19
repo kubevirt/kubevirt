@@ -824,11 +824,22 @@ func (c *MigrationController) handleTargetPodCreation(key string, migration *vir
 	if c.podExpectations.AllPendingCreations() > 0 {
 		c.Queue.AddAfter(key, 1*time.Second)
 		return nil
-	} else if controller.VMIActivePodsCount(vmi, c.podInformer) > 1 {
+	}
+
+	activePods, err := controller.VMIActivePods(vmi, c.podInformer)
+	if err != nil {
+		return err
+	}
+
+	activePods, err = c.cleanOrphanPods(activePods)
+	if err != nil {
+		return err
+	}
+
+	if len(activePods) > 1 {
 		log.Log.Object(migration).Infof("Waiting to schedule target pod for migration because there are already multiple pods running for vmi %s/%s", vmi.Namespace, vmi.Name)
 		c.Queue.AddAfter(key, 1*time.Second)
 		return nil
-
 	}
 
 	// Don't start new migrations if we wait for migration object updates because of new target pods
@@ -1774,4 +1785,47 @@ func (c *MigrationController) removeHandOffKey(migrationKey string) {
 	defer c.handOffLock.Unlock()
 
 	delete(c.handOffMap, migrationKey)
+}
+
+// cleanOrphanPods checks which pods are migration target pods, but the migration does not exist anymore.
+// If that's the case, the target pod would hang until it would be killed after timeout expires. As long as
+// target pods exist new migrations are blocked, therefore this cleans them to allow a second migration.
+func (c *MigrationController) cleanOrphanPods(pods []*k8sv1.Pod) (nonOrphanPods []*k8sv1.Pod, err error) {
+	if len(pods) == 0 {
+		return pods, nil
+	}
+
+	namespace := pods[0].Namespace
+	migrationObjs, err := c.migrationInformer.GetIndexer().ByIndex(cache.NamespaceIndex, namespace)
+	if err != nil {
+		return nonOrphanPods, err
+	}
+
+	// Create a set of migration UIDs within the relevant namespace
+	migrationUIDs := make(map[types.UID]struct{})
+	for _, migrationObj := range migrationObjs {
+		migration := migrationObj.(*virtv1.VirtualMachineInstanceMigration)
+		migrationUIDs[migration.UID] = struct{}{}
+	}
+
+	for _, pod := range pods {
+		orphan := false
+
+		if migrationUID, exists := pod.Labels[virtv1.MigrationJobLabel]; exists {
+			if _, migrationIsAlive := migrationUIDs[types.UID(migrationUID)]; !migrationIsAlive {
+				// This means that the pod is created by a migration that does not exist and should be cleaned
+				err := c.clientset.CoreV1().Pods(pod.Namespace).Delete(context.Background(), pod.Name, v1.DeleteOptions{})
+				if err != nil {
+					return nonOrphanPods, err
+				}
+				orphan = true
+			}
+		}
+
+		if !orphan {
+			nonOrphanPods = append(nonOrphanPods, pod)
+		}
+	}
+
+	return nonOrphanPods, nil
 }
