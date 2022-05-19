@@ -278,7 +278,7 @@ var _ = Describe("[sig-compute]Configurations", func() {
 				if computeContainer == nil {
 					util.PanicOnError(fmt.Errorf("could not find the compute container"))
 				}
-				Expect(computeContainer.Resources.Requests.Memory().ToDec().ScaledValue(resource.Mega)).To(Equal(int64(339)))
+				Expect(computeContainer.Resources.Requests.Memory().ToDec().ScaledValue(resource.Mega)).To(Equal(int64(340)))
 
 				Expect(err).ToNot(HaveOccurred())
 			})
@@ -2941,6 +2941,12 @@ var _ = Describe("[sig-compute]Configurations", func() {
 		})
 	})
 	Context("virt-launcher processes memory usage", func() {
+		doesntExceedMemoryUsage := func(processRss *map[string]resource.Quantity, process string, memoryLimit resource.Quantity) {
+			actual := (*processRss)[process]
+			ExpectWithOffset(1, (&actual).Cmp(memoryLimit)).To(Equal(-1),
+				"the %s process is taking too much RAM! (%s > %s). All processes: %v",
+				process, actual.String(), memoryLimit.String(), processRss)
+		}
 		It("should be lower than allocated size", func() {
 			By("Starting a VirtualMachineInstance")
 			vmi := tests.NewRandomFedoraVMI()
@@ -2989,22 +2995,13 @@ var _ = Describe("[sig-compute]Configurations", func() {
 			}
 
 			By("Ensuring no process is using too much ram")
-			expected := resource.MustParse(services.VirtLauncherMonitorOverhead)
-			actual := processRss["virt-launcher-monitor"]
-			Expect((&actual).Cmp(expected)).To(Equal(-1), "the virt-launcher-monitor process is taking too much RAM! (%s > %s)", actual.String(), expected.String())
-			expected = resource.MustParse(services.VirtLauncherOverhead)
-			actual = processRss["virt-launcher"]
-			Expect((&actual).Cmp(expected)).To(Equal(-1), "the /usr/bin/virt-launcher process is taking too much RAM! (%s > %s)", actual.String(), expected.String())
-			expected = resource.MustParse(services.VirtlogdOverhead)
-			actual = processRss["virtlogd"]
-			Expect((&actual).Cmp(expected)).To(Equal(-1), "the virtlogd process is taking too much RAM! (%s > %s)", actual.String(), expected.String())
-			expected = resource.MustParse(services.LibvirtdOverhead)
-			actual = processRss["libvirtd"]
-			Expect((&actual).Cmp(expected)).To(Equal(-1), "the libvirtd process is taking too much RAM! (%s > %s)", actual.String(), expected.String())
-			expected = resource.MustParse(services.QemuOverhead)
-			expected.Add(vmi.Spec.Domain.Resources.Requests[k8sv1.ResourceMemory])
-			actual = processRss["qemu-kvm"]
-			Expect((&actual).Cmp(expected)).To(Equal(-1), "the qemu-kvm process is taking too much RAM! (%s > %s)", actual.String(), expected.String())
+			doesntExceedMemoryUsage(&processRss, "virt-launcher-monitor", resource.MustParse(services.VirtLauncherMonitorOverhead))
+			doesntExceedMemoryUsage(&processRss, "virt-launcher", resource.MustParse(services.VirtLauncherOverhead))
+			doesntExceedMemoryUsage(&processRss, "virtlogd", resource.MustParse(services.VirtlogdOverhead))
+			doesntExceedMemoryUsage(&processRss, "libvirtd", resource.MustParse(services.LibvirtdOverhead))
+			qemuExpected := resource.MustParse(services.QemuOverhead)
+			qemuExpected.Add(vmi.Spec.Domain.Resources.Requests[k8sv1.ResourceMemory])
+			doesntExceedMemoryUsage(&processRss, "qemu-kvm", qemuExpected)
 		})
 	})
 })
