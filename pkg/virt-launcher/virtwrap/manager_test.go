@@ -41,6 +41,7 @@ import (
 	k8sv1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/api/resource"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	"k8s.io/apimachinery/pkg/util/rand"
 	"libvirt.org/go/libvirt"
 
 	api2 "kubevirt.io/client-go/api"
@@ -2208,6 +2209,181 @@ var _ = Describe("Manager", func() {
 
 		err := libvirtmanager.generateCloudInitEmptyISO(vmi, nil)
 		Expect(err).To(MatchError(ContainSubstring("failed to find the status of volume test1")))
+	})
+
+	Describe("executes buildDevicesMetadata", func() {
+		var envVars []string
+
+		setenv := func(key, value string) {
+			err := os.Setenv(key, value)
+			Expect(err).NotTo(HaveOccurred())
+
+			envVars = append(envVars, key)
+		}
+
+		addDomain := func(libvirtmanager *LibvirtDomainManager, vmi *v1.VirtualMachineInstance) {
+			domain := &api.Domain{}
+			c, err := libvirtmanager.generateConverterContext(vmi, true, nil, false)
+			Expect(err).NotTo(HaveOccurred())
+			Expect(converter.Convert_v1_VirtualMachineInstance_To_api_Domain(vmi, domain, c)).To(Succeed())
+			api.NewDefaulter(runtime.GOARCH).SetObjectDefaults_Domain(domain)
+			domainSpec := domain.Spec
+
+			domainXml, err := xml.MarshalIndent(domainSpec, "", "\t")
+			Expect(err).ToNot(HaveOccurred())
+
+			mockDomain.EXPECT().GetXMLDesc(gomock.Any()).MaxTimes(1).Return(string(domainXml), nil)
+		}
+
+		type prepareVMIOpts struct {
+			sriovInterfaceCnt   int
+			genericInterfaceCnt int
+			hostDeviceCnt       int
+			gpuCnt              int
+			useTags             bool
+		}
+
+		prepareVMI := func(opts prepareVMIOpts) (vmi *v1.VirtualMachineInstance) {
+			vmi = newVMI(testNamespace, testVmName)
+			vmi.Spec.Domain.CPU = &v1.CPU{}
+
+			for i := 0; i < opts.sriovInterfaceCnt; i++ {
+				name := fmt.Sprintf("sriovif%d", i)
+
+				setenv("KUBEVIRT_RESOURCE_NAME_"+name, fmt.Sprintf("127.0.0.%d", i))
+				setenv(fmt.Sprintf("PCIDEVICE_127_0_0_%d", i), fmt.Sprintf("05EA:Fc:1d.%d", i))
+
+				sriovInterface := v1.Interface{
+					Name: name,
+					InterfaceBindingMethod: v1.InterfaceBindingMethod{
+						SRIOV: &v1.InterfaceSRIOV{},
+					},
+					MacAddress: "de:ad:00:00:be:af",
+				}
+				if opts.useTags {
+					sriovInterface.Tag = rand.String(10)
+				}
+				network := v1.Network{
+					Name: name,
+					NetworkSource: v1.NetworkSource{
+						Multus: &v1.MultusNetwork{NetworkName: name},
+					},
+				}
+
+				vmi.Spec.Domain.Devices.Interfaces = append(vmi.Spec.Domain.Devices.Interfaces, sriovInterface)
+				vmi.Spec.Networks = append(vmi.Spec.Networks, network)
+			}
+
+			for i := 0; i < opts.genericInterfaceCnt; i++ {
+				name := fmt.Sprintf("genif%d", i)
+
+				genericInterface := v1.Interface{
+					Name:       name,
+					MacAddress: "de:ad:00:00:be:af",
+					PciAddress: fmt.Sprintf("15EA:Fc:1d.%d", i),
+				}
+				if opts.useTags {
+					genericInterface.Tag = rand.String(10)
+				}
+				network := v1.Network{
+					Name: name,
+					NetworkSource: v1.NetworkSource{
+						Multus: &v1.MultusNetwork{NetworkName: name},
+					},
+				}
+
+				vmi.Spec.Domain.Devices.Interfaces = append(vmi.Spec.Domain.Devices.Interfaces, genericInterface)
+				vmi.Spec.Networks = append(vmi.Spec.Networks, network)
+			}
+
+			for i := 0; i < opts.hostDeviceCnt; i++ {
+				name := fmt.Sprintf("hostdevice%d", i)
+
+				setenv(fmt.Sprintf("PCI_RESOURCE_%s", strings.ToUpper(name)), fmt.Sprintf("BEEF:Fc:1d.%d", i))
+
+				hostDevice := v1.HostDevice{
+					Name:       name,
+					DeviceName: name,
+				}
+				if opts.useTags {
+					hostDevice.Tag = rand.String(10)
+				}
+				vmi.Spec.Domain.Devices.HostDevices = append(vmi.Spec.Domain.Devices.HostDevices, hostDevice)
+			}
+
+			for i := 0; i < opts.gpuCnt; i++ {
+				name := fmt.Sprintf("gpu%d", i)
+
+				// TODO: This doesn't work setenv(fmt.Sprintf("MDEV_PCI_RESOURCE_%s", strings.ToUpper(name)), fmt.Sprintf("FEED:Fc:1d.%d", i))
+				setenv(fmt.Sprintf("PCI_RESOURCE_%s", strings.ToUpper(name)), fmt.Sprintf("FEED:Fc:1d.%d", i))
+
+				gpu := v1.GPU{
+					Name:       name,
+					DeviceName: name,
+				}
+				if opts.useTags {
+					gpu.Tag = rand.String(10)
+				}
+				vmi.Spec.Domain.Devices.GPUs = append(vmi.Spec.Domain.Devices.GPUs, gpu)
+			}
+			return
+		}
+
+		AfterEach(func() {
+			for _, envVar := range envVars {
+				err := os.Unsetenv(envVar)
+				Expect(err).NotTo(HaveOccurred())
+			}
+		})
+
+		It("should not build devices metadata if devices are not tagged", func() {
+			manager, _ := NewLibvirtDomainManager(mockConn, testVirtShareDir, testEphemeralDiskDir, nil, "/usr/share/OVMF", ephemeralDiskCreatorMock, metadataCache)
+			libvirtmanager := manager.(*LibvirtDomainManager)
+
+			opts := prepareVMIOpts{
+				sriovInterfaceCnt:   1,
+				genericInterfaceCnt: 1,
+				hostDeviceCnt:       1,
+				gpuCnt:              1,
+				useTags:             false,
+			}
+			vmi := prepareVMI(opts)
+
+			addDomain(libvirtmanager, vmi)
+
+			devicesData, err := libvirtmanager.buildDevicesMetadata(vmi, mockDomain)
+			Expect(err).NotTo(HaveOccurred())
+			Expect(devicesData).To(BeEmpty())
+		})
+
+		It("should correctly build devices metadata with tagged devices", func() {
+			manager, _ := NewLibvirtDomainManager(mockConn, testVirtShareDir, testEphemeralDiskDir, nil, "/usr/share/OVMF", ephemeralDiskCreatorMock, metadataCache)
+			libvirtmanager := manager.(*LibvirtDomainManager)
+
+			opts := prepareVMIOpts{
+				sriovInterfaceCnt:   1,
+				genericInterfaceCnt: 1,
+				hostDeviceCnt:       1,
+				gpuCnt:              1,
+				useTags:             true,
+			}
+			vmi := prepareVMI(opts)
+
+			addDomain(libvirtmanager, vmi)
+
+			devicesData, err := libvirtmanager.buildDevicesMetadata(vmi, mockDomain)
+			Expect(err).NotTo(HaveOccurred())
+			Expect(devicesData).To(HaveLen(opts.sriovInterfaceCnt + opts.genericInterfaceCnt + opts.hostDeviceCnt + opts.gpuCnt))
+			devicesTypes := make(map[cloudinit.DeviceMetadataType]int)
+			for _, deviceData := range devicesData {
+				Expect(deviceData.Bus).To(Equal("pci"))
+				Expect(deviceData.Tags).To(HaveLen(1))
+				Expect(deviceData.Address).NotTo(BeEmpty())
+				devicesTypes[deviceData.Type]++
+			}
+			Expect(devicesTypes[cloudinit.NICMetadataType]).To(Equal(opts.sriovInterfaceCnt + opts.genericInterfaceCnt))
+			Expect(devicesTypes[cloudinit.HostDevMetadataType]).To(Equal(opts.hostDeviceCnt + opts.genericInterfaceCnt))
+		})
 	})
 
 	// TODO: test error reporting on non successful VirtualMachineInstance syncs and kill attempts

@@ -1766,7 +1766,7 @@ func (l *LibvirtDomainManager) buildDevicesMetadata(vmi *v1.VirtualMachineInstan
 			deviceNumaNode, deviceAlignedCPUs := getDeviceNUMACPUAffinity(dev, vmi, domainSpec)
 			devicesMetadata = addToDeviceMetadata(devicesMetadata,
 				cloudinit.NICMetadataType,
-				dev.Address,
+				dev.Source.Address,
 				"",
 				tag,
 				deviceNumaNode,
@@ -1777,7 +1777,7 @@ func (l *LibvirtDomainManager) buildDevicesMetadata(vmi *v1.VirtualMachineInstan
 			deviceNumaNode, deviceAlignedCPUs := getDeviceNUMACPUAffinity(dev, vmi, domainSpec)
 			devicesMetadata = addToDeviceMetadata(devicesMetadata,
 				cloudinit.HostDevMetadataType,
-				dev.Address,
+				dev.Source.Address,
 				"",
 				tag,
 				deviceNumaNode,
@@ -1788,7 +1788,7 @@ func (l *LibvirtDomainManager) buildDevicesMetadata(vmi *v1.VirtualMachineInstan
 			deviceNumaNode, deviceAlignedCPUs := getDeviceNUMACPUAffinity(dev, vmi, domainSpec)
 			devicesMetadata = addToDeviceMetadata(devicesMetadata,
 				cloudinit.HostDevMetadataType,
-				dev.Address,
+				dev.Source.Address,
 				"",
 				tag,
 				deviceNumaNode,
