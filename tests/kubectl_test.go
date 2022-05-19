@@ -4,6 +4,8 @@ import (
 	"strings"
 	"time"
 
+	"kubevirt.io/kubevirt/tests/framework/checks"
+
 	"kubevirt.io/kubevirt/tests/libvmi"
 
 	"kubevirt.io/kubevirt/tests/clientcmd"
@@ -150,6 +152,8 @@ var _ = Describe("[sig-compute]oc/kubectl integration", func() {
 		var virtClient kubecli.KubevirtClient
 
 		BeforeEach(func() {
+			checks.SkipIfMigrationIsNotPossible()
+
 			virtClient, err = kubecli.GetKubevirtClient()
 			Expect(err).ToNot(HaveOccurred())
 		})

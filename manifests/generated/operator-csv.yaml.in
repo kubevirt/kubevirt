@@ -1027,12 +1027,13 @@ spec:
                       topologyKey: kubernetes.io/hostname
                     weight: 1
               containers:
-              - command:
-                - virt-operator
+              - args:
                 - --port
                 - "8443"
                 - -v
                 - {{.Verbosity}}
+                command:
+                - virt-operator
                 env:
                 - name: OPERATOR_IMAGE
                   value: {{.DockerPrefix}}/virt-operator{{if .VirtOperatorSha}}@{{.VirtOperatorSha}}{{else}}:{{.DockerTag}}{{end}}
