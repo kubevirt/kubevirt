@@ -53,4 +53,8 @@
     (allow process nfs_t (dir (mounton)))
     (allow process proc_t (dir (mounton)))
     (allow process proc_t (filesystem (mount unmount)))
+    ;
+    ; This is needed for passt.
+    ; The policy will be removed from here once it will be installed via the passt package.
+    (allow process tmpfs_t (filesystem (mount)))
 )
