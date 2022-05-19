@@ -43,9 +43,9 @@
     {
       "semverRange": "<=1.6.0",
       "groupVersionKind": {
-        "Group": "",
-        "Version": "v1",
-        "Kind": "ConfigMap"
+        "group": "",
+        "version": "v1",
+        "kind": "ConfigMap"
       },
       "objectKey": {
         "name": "v2v-vmware",
@@ -55,9 +55,9 @@
     {
       "semverRange": "<=1.6.0",
       "groupVersionKind": {
-        "Group": "",
-        "Version": "v1",
-        "Kind": "ConfigMap"
+        "group": "",
+        "version": "v1",
+        "kind": "ConfigMap"
       },
       "objectKey": {
         "name": "vm-import-controller-config",
@@ -67,9 +67,9 @@
     {
       "semverRange": "<1.7.0",
       "groupVersionKind": {
-        "Group": "",
-        "Version": "v1",
-        "Kind": "ConfigMap"
+        "group": "",
+        "version": "v1",
+        "kind": "ConfigMap"
       },
       "objectKey": {
         "name": "kubevirt-storage-class-defaults",
@@ -79,9 +79,9 @@
     {
       "semverRange": "<1.7.0",
       "groupVersionKind": {
-        "Group": "rbac.authorization.k8s.io",
-        "Version": "v1",
-        "Kind": "Role"
+        "group": "rbac.authorization.k8s.io",
+        "version": "v1",
+        "kind": "Role"
       },
       "objectKey": {
         "name": "hco.kubevirt.io:config-reader",
@@ -91,9 +91,9 @@
     {
       "semverRange": "<1.7.0",
       "groupVersionKind": {
-        "Group": "rbac.authorization.k8s.io",
-        "Version": "v1",
-        "Kind": "RoleBinding"
+        "group": "rbac.authorization.k8s.io",
+        "version": "v1",
+        "kind": "RoleBinding"
       },
       "objectKey": {
         "name": "hco.kubevirt.io:config-reader",
