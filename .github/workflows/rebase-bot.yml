@@ -21,6 +21,7 @@ jobs:
 
       - name: Rebase and rebuild manifests
         id: rebase_rebuild
+        continue-on-error: true
         run: ./automation/rebase-bot/rebase-bot.sh
         env:
           GITHUB_TOKEN: ${{ secrets.HCO_BOT_TOKEN }}
