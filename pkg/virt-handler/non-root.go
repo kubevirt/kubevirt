@@ -8,21 +8,44 @@ import (
 	"strconv"
 	"strings"
 
+	k8sv1 "k8s.io/api/core/v1"
+
 	v1 "kubevirt.io/api/core/v1"
 	diskutils "kubevirt.io/kubevirt/pkg/ephemeral-disk-utils"
 	hostdisk "kubevirt.io/kubevirt/pkg/host-disk"
+	"kubevirt.io/kubevirt/pkg/util/types"
 	"kubevirt.io/kubevirt/pkg/virt-handler/isolation"
 	"kubevirt.io/kubevirt/pkg/virt-handler/selinux"
 )
 
-func changeOwnershipOfBlockDevices(vmiWithOnlyBlockPVCs *v1.VirtualMachineInstance, res isolation.IsolationResult) error {
-	for i := range vmiWithOnlyBlockPVCs.Spec.Volumes {
-		if volumeSource := &vmiWithOnlyBlockPVCs.Spec.Volumes[i].VolumeSource; volumeSource.PersistentVolumeClaim != nil {
-			devPath := filepath.Join(string(filepath.Separator), "dev", vmiWithOnlyBlockPVCs.Spec.Volumes[i].Name)
-			if err := diskutils.DefaultOwnershipManager.SetFileOwnership(filepath.Join(res.MountRoot(), devPath)); err != nil {
-				return err
-			}
+func changeOwnershipOfBlockDevices(vmi *v1.VirtualMachineInstance, res isolation.IsolationResult) error {
+	volumeModes := map[string]*k8sv1.PersistentVolumeMode{}
+	for _, volumeStatus := range vmi.Status.VolumeStatus {
+		if volumeStatus.PersistentVolumeClaimInfo != nil {
+			volumeModes[volumeStatus.Name] = volumeStatus.PersistentVolumeClaimInfo.VolumeMode
 		}
+	}
+
+	for i := range vmi.Spec.Volumes {
+		volume := vmi.Spec.Volumes[i]
+		if volume.VolumeSource.PersistentVolumeClaim == nil {
+			continue
+		}
+
+		volumeMode, exists := volumeModes[volume.Name]
+		if !exists {
+			return fmt.Errorf("missing volume status for volume %s", volume.Name)
+		}
+
+		if !types.IsPVCBlock(volumeMode) {
+			continue
+		}
+
+		devPath := filepath.Join(string(filepath.Separator), "dev", volume.Name)
+		if err := diskutils.DefaultOwnershipManager.SetFileOwnership(filepath.Join(res.MountRoot(), devPath)); err != nil {
+			return err
+		}
+
 	}
 	return nil
 }
@@ -45,6 +68,7 @@ func changeOwnershipAndRelabel(path string) error {
 	return err
 }
 
+// changeOwnershipOfHostDisks needs unmodified vmi (not passed to ReplacePVCByHostDisk function)
 func changeOwnershipOfHostDisks(vmiWithAllPVCs *v1.VirtualMachineInstance, res isolation.IsolationResult) error {
 	for i := range vmiWithAllPVCs.Spec.Volumes {
 		if volumeSource := &vmiWithAllPVCs.Spec.Volumes[i].VolumeSource; volumeSource.HostDisk != nil {
@@ -73,11 +97,11 @@ func changeOwnershipOfHostDisks(vmiWithAllPVCs *v1.VirtualMachineInstance, res i
 	return nil
 }
 
-func (d *VirtualMachineController) prepareStorage(vmiWithOnlyBlockPVCS, vmiWithAllPVCs *v1.VirtualMachineInstance, res isolation.IsolationResult) error {
-	if err := changeOwnershipOfBlockDevices(vmiWithOnlyBlockPVCS, res); err != nil {
+func (d *VirtualMachineController) prepareStorage(vmi *v1.VirtualMachineInstance, res isolation.IsolationResult) error {
+	if err := changeOwnershipOfBlockDevices(vmi, res); err != nil {
 		return err
 	}
-	return changeOwnershipOfHostDisks(vmiWithAllPVCs, res)
+	return changeOwnershipOfHostDisks(vmi, res)
 }
 
 func getTapDevices(vmi *v1.VirtualMachineInstance) []string {
@@ -153,7 +177,7 @@ func (d *VirtualMachineController) nonRootSetup(origVMI, vmi *v1.VirtualMachineI
 	if err != nil {
 		return err
 	}
-	if err := d.prepareStorage(vmi, origVMI, res); err != nil {
+	if err := d.prepareStorage(origVMI, res); err != nil {
 		return err
 	}
 	if err := d.prepareTap(origVMI, res); err != nil {
