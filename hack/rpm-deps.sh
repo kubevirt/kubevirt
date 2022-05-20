@@ -9,6 +9,7 @@ source hack/config.sh
 LIBVIRT_VERSION=${LIBVIRT_VERSION:-0:8.0.0-2.module_el8.6.0+1087+b42c8331}
 QEMU_VERSION=${QEMU_VERSION:-15:6.2.0-5.module_el8.6.0+1087+b42c8331}
 SEABIOS_VERSION=${SEABIOS_VERSION:-0:1.15.0-1.module_el8.6.0+1087+b42c8331}
+IPTABLES_VERSION=${IPTABLES_VERSION:-0:1.4.21-35.el7}
 EDK2_VERSION=${EDK2_VERSION:-0:20220126gitbb1bba3d77-2.el8}
 LIBGUESTFS_VERSION=${LIBGUESTFS_VERSION:-1:1.44.0-5.module_el8.6.0+1087+b42c8331}
 SINGLE_ARCH=${SINGLE_ARCH:-""}
@@ -92,7 +93,7 @@ launcherbase_aarch64="
 launcherbase_extra="
   ethtool
   findutils
-  iptables
+  iptables-${IPTABLES_VERSION}
   nftables
   nmap-ncat
   procps-ng
@@ -109,7 +110,7 @@ handler_base="
 handlerbase_extra="
   findutils
   iproute
-  iptables
+  iptables-${IPTABLES_VERSION}
   nftables
   procps-ng
   selinux-policy

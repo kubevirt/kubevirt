@@ -26,6 +26,9 @@ import (
 	"net"
 	"os"
 	"os/exec"
+	"strconv"
+	"strings"
+	"syscall"
 
 	"github.com/coreos/go-iptables/iptables"
 	"github.com/vishvananda/netlink"
@@ -255,7 +258,44 @@ func (h *NetworkUtilsHandler) GetNFTIPString(proto iptables.Protocol) string {
 	return "ip"
 }
 
+func getKernelMajorMinor() (int64, int64, error) {
+	kernel := make([]int64, 2)
+	uts := syscall.Utsname{}
+	syscall.Uname(&uts)
+	release := make([]byte, len(uts.Release))
+	for i, c := range uts.Release {
+		release[i] = byte(c)
+	}
+	split := strings.Split(string(release), "-")
+	result := strings.Split(split[0], ".")
+	if len(result) < 2 {
+		return -1, -1, fmt.Errorf("Kernel invalid")
+	}
+	for i := 0; i < 2; i++ {
+		val, err := strconv.ParseInt(result[i], 16, 32)
+		if err != nil {
+			return -1, -1, err
+		}
+		kernel[i] = val
+	}
+	return kernel[0], kernel[1], nil
+}
+
+func checkKernelForNft() bool {
+	major, minor, err := getKernelMajorMinor()
+	if err != nil {
+		return false
+	}
+	if major > 3 || (major == 3 && minor >= 18) {
+		return true
+	}
+	return false
+}
+
 func (h *NetworkUtilsHandler) NftablesLoad(proto iptables.Protocol) error {
+	if !checkKernelForNft() {
+		return fmt.Errorf("Kernel invalid")
+	}
 	ipVersion := "4"
 	if proto == iptables.ProtocolIPv6 {
 		ipVersion = "6"

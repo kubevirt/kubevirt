@@ -1754,30 +1754,15 @@ rpm(
 )
 
 rpm(
-    name = "iptables-0__1.8.4-22.el8.x86_64",
-    sha256 = "8993bf1f075984412a57cf5b2c0110984a4dd1125d60048872c85f9c496f9e66",
-    urls = [
-        "http://mirror.centos.org/centos/8-stream/BaseOS/x86_64/os/Packages/iptables-1.8.4-22.el8.x86_64.rpm",
-        "https://storage.googleapis.com/builddeps/8993bf1f075984412a57cf5b2c0110984a4dd1125d60048872c85f9c496f9e66",
-    ],
+    name = "iptables-0__1.4.21-35.el7.aarch64",
+    sha256 = "53cc2bd47614463eb76ffc727ec838b9d92e0239d68ab5cd38fb2e5f18380431",
+    urls = ["http://mirror.centos.org/altarch/7/os/aarch64/Packages/iptables-1.4.21-35.el7.aarch64.rpm"],
 )
 
 rpm(
-    name = "iptables-libs-0__1.8.4-22.el8.aarch64",
-    sha256 = "2c99183b888b75ae3b1d7665836757fb7a1ba130b03454177331f9efe33ca630",
-    urls = [
-        "http://mirror.centos.org/centos/8-stream/BaseOS/aarch64/os/Packages/iptables-libs-1.8.4-22.el8.aarch64.rpm",
-        "https://storage.googleapis.com/builddeps/2c99183b888b75ae3b1d7665836757fb7a1ba130b03454177331f9efe33ca630",
-    ],
-)
-
-rpm(
-    name = "iptables-libs-0__1.8.4-22.el8.x86_64",
-    sha256 = "84cef50494317f6e968c8a27134e6f442a1898b137715bd69573d6d72e7b6fb1",
-    urls = [
-        "http://mirror.centos.org/centos/8-stream/BaseOS/x86_64/os/Packages/iptables-libs-1.8.4-22.el8.x86_64.rpm",
-        "https://storage.googleapis.com/builddeps/84cef50494317f6e968c8a27134e6f442a1898b137715bd69573d6d72e7b6fb1",
-    ],
+    name = "iptables-0__1.4.21-35.el7.x86_64",
+    sha256 = "c260f06c1e71850dc7d69a4fc54f05a6edf5dfac7bc7e27f38a9f22f774f5d01",
+    urls = ["http://mirror.centos.org/centos/7/os/x86_64/Packages/iptables-1.4.21-35.el7.x86_64.rpm"],
 )
 
 rpm(
