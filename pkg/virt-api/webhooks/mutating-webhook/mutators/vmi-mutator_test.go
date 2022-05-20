@@ -465,6 +465,28 @@ var _ = Describe("VirtualMachineInstance Mutator", func() {
 		Entry("networks is non-empty", []v1.Interface{}, []v1.Network{{Name: "b"}}),
 	)
 
+	It("should add a missing volume disk", func() {
+		presentVolumeName := "present-vol"
+		missingVolumeName := "missing-vol"
+		vmi.Spec.Domain.Devices.Disks = []v1.Disk{
+			v1.Disk{
+				Name: presentVolumeName,
+			},
+		}
+		vmi.Spec.Volumes = []v1.Volume{
+			v1.Volume{
+				Name: presentVolumeName,
+			},
+			v1.Volume{
+				Name: missingVolumeName,
+			},
+		}
+		_, vmiSpec, _ := getMetaSpecStatusFromAdmit()
+		Expect(vmiSpec.Domain.Devices.Disks).To(HaveLen(2))
+		Expect(vmiSpec.Domain.Devices.Disks[0].Name).To(Equal(presentVolumeName))
+		Expect(vmiSpec.Domain.Devices.Disks[1].Name).To(Equal(missingVolumeName))
+	})
+
 	It("should not override specified properties with defaults on VMI create", func() {
 		testutils.UpdateFakeKubeVirtClusterConfig(kvInformer, &v1.KubeVirt{
 			Spec: v1.KubeVirtSpec{

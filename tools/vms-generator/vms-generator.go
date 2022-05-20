@@ -76,6 +76,7 @@ func main() {
 		utils.VmAlpineMultiPvc:   utils.GetVMMultiPvc(),
 		utils.VmAlpineDataVolume: utils.GetVMDataVolume(),
 		utils.VMPriorityClass:    utils.GetVMPriorityClass(),
+		utils.VmCirrosSata:       utils.GetVMCirrosSata(),
 	}
 
 	var vmis = map[string]*v1.VirtualMachineInstance{

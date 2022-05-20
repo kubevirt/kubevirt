@@ -44,9 +44,6 @@ objects:
           devices:
             disks:
             - disk:
-                bus: sata
-              name: pvcdisk
-            - disk:
                 bus: virtio
               name: disk0
             interfaces:

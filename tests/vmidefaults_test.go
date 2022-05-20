@@ -90,6 +90,23 @@ var _ = Describe("[Serial][sig-compute]VMIDefaults", func() {
 			Expect(disk.Disk.Bus).ToNot(BeEmpty(), "DiskTarget's bus should not be empty")
 		})
 
+		It("[test_id:]Should be applied to any auto attached volume disks", func() {
+
+			// Drop the disks to ensure they are added in by setDefaultVolumeDisk
+			vmi.Spec.Domain.Devices.Disks = []v1.Disk{}
+
+			_, err = virtClient.VirtualMachineInstance(util.NamespaceTestDefault).Create(vmi)
+			Expect(err).ToNot(HaveOccurred())
+
+			newVMI, err := virtClient.VirtualMachineInstance(util.NamespaceTestDefault).Get(vmi.Name, &metav1.GetOptions{})
+			Expect(err).ToNot(HaveOccurred())
+
+			Expect(newVMI.Spec.Domain.Devices.Disks).To(HaveLen(1))
+			Expect(newVMI.Spec.Domain.Devices.Disks[0].Name).To(Equal(vmi.Spec.Volumes[0].Name))
+			Expect(newVMI.Spec.Domain.Devices.Disks[0].Disk).ToNot(BeNil(), "DiskTarget should not be nil")
+			Expect(newVMI.Spec.Domain.Devices.Disks[0].Disk.Bus).ToNot(BeEmpty(), "DiskTarget's bus should not be empty")
+		})
+
 	})
 
 	Context("MemBalloon defaults", func() {

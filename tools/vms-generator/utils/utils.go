@@ -85,6 +85,7 @@ const (
 	VmAlpineMultiPvc   = "vm-alpine-multipvc"
 	VmAlpineDataVolume = "vm-alpine-datavolume"
 	VMPriorityClass    = "vm-priorityclass"
+	VmCirrosSata       = "vm-cirros-sata"
 )
 
 const VmiReplicaSetCirros = "vmi-replicaset-cirros"
@@ -195,15 +196,18 @@ func addRNG(spec *v1.VirtualMachineInstanceSpec) *v1.VirtualMachineInstanceSpec 
 }
 
 func addContainerDisk(spec *v1.VirtualMachineInstanceSpec, image string, bus v1.DiskBus) *v1.VirtualMachineInstanceSpec {
-	disk := &v1.Disk{
-		Name: "containerdisk",
-		DiskDevice: v1.DiskDevice{
-			Disk: &v1.DiskTarget{
-				Bus: bus,
+	// Only add a reference to the disk if it isn't using the default v1.DiskBusSATA bus
+	if bus != v1.DiskBusSATA {
+		disk := &v1.Disk{
+			Name: "containerdisk",
+			DiskDevice: v1.DiskDevice{
+				Disk: &v1.DiskTarget{
+					Bus: bus,
+				},
 			},
-		},
+		}
+		spec.Domain.Devices.Disks = append(spec.Domain.Devices.Disks, *disk)
 	}
-	spec.Domain.Devices.Disks = append(spec.Domain.Devices.Disks, *disk)
 	volume := &v1.Volume{
 		Name: "containerdisk",
 		VolumeSource: v1.VolumeSource{
@@ -302,14 +306,18 @@ func addEmptyDisk(spec *v1.VirtualMachineInstanceSpec, size string) *v1.VirtualM
 }
 
 func addDataVolumeDisk(spec *v1.VirtualMachineInstanceSpec, dataVolumeName string, bus v1.DiskBus, diskName string) *v1.VirtualMachineInstanceSpec {
-	spec.Domain.Devices.Disks = append(spec.Domain.Devices.Disks, v1.Disk{
-		Name: diskName,
-		DiskDevice: v1.DiskDevice{
-			Disk: &v1.DiskTarget{
-				Bus: bus,
+
+	// Only add a reference to the disk if it isn't using the default v1.DiskBusSATA bus
+	if bus != v1.DiskBusSATA {
+		spec.Domain.Devices.Disks = append(spec.Domain.Devices.Disks, v1.Disk{
+			Name: diskName,
+			DiskDevice: v1.DiskDevice{
+				Disk: &v1.DiskTarget{
+					Bus: bus,
+				},
 			},
-		},
-	})
+		})
+	}
 
 	spec.Volumes = append(spec.Volumes, v1.Volume{
 		Name: diskName,
@@ -323,14 +331,18 @@ func addDataVolumeDisk(spec *v1.VirtualMachineInstanceSpec, dataVolumeName strin
 }
 
 func addPVCDisk(spec *v1.VirtualMachineInstanceSpec, claimName string, bus v1.DiskBus, diskName string) *v1.VirtualMachineInstanceSpec {
-	spec.Domain.Devices.Disks = append(spec.Domain.Devices.Disks, v1.Disk{
-		Name: diskName,
-		DiskDevice: v1.DiskDevice{
-			Disk: &v1.DiskTarget{
-				Bus: bus,
+
+	// Only add a reference to the disk if it isn't using the default v1.DiskBusSATA bus
+	if bus != v1.DiskBusSATA {
+		spec.Domain.Devices.Disks = append(spec.Domain.Devices.Disks, v1.Disk{
+			Name: diskName,
+			DiskDevice: v1.DiskDevice{
+				Disk: &v1.DiskTarget{
+					Bus: bus,
+				},
 			},
-		},
-	})
+		})
+	}
 
 	spec.Volumes = append(spec.Volumes, v1.Volume{
 		Name: diskName,
@@ -344,14 +356,18 @@ func addPVCDisk(spec *v1.VirtualMachineInstanceSpec, claimName string, bus v1.Di
 }
 
 func addEphemeralPVCDisk(spec *v1.VirtualMachineInstanceSpec, claimName string, bus v1.DiskBus, diskName string) *v1.VirtualMachineInstanceSpec {
-	spec.Domain.Devices.Disks = append(spec.Domain.Devices.Disks, v1.Disk{
-		Name: diskName,
-		DiskDevice: v1.DiskDevice{
-			Disk: &v1.DiskTarget{
-				Bus: bus,
+
+	// Only add a reference to the disk if it isn't using the default v1.DiskBusSATA bus
+	if bus != v1.DiskBusSATA {
+		spec.Domain.Devices.Disks = append(spec.Domain.Devices.Disks, v1.Disk{
+			Name: diskName,
+			DiskDevice: v1.DiskDevice{
+				Disk: &v1.DiskTarget{
+					Bus: bus,
+				},
 			},
-		},
-	})
+		})
+	}
 
 	spec.Volumes = append(spec.Volumes, v1.Volume{
 		Name: diskName,
@@ -711,6 +727,17 @@ func GetVMCirros() *v1.VirtualMachine {
 
 	addContainerDisk(&vm.Spec.Template.Spec, fmt.Sprintf(strFmt, DockerPrefix, imageCirros, DockerTag), v1.DiskBusVirtio)
 	addNoCloudDisk(&vm.Spec.Template.Spec)
+	return vm
+}
+
+func GetVMCirrosSata() *v1.VirtualMachine {
+	vm := getBaseVM(VmCirrosSata, map[string]string{
+		kubevirtIoVM: VmCirrosSata,
+	})
+
+	addContainerDisk(&vm.Spec.Template.Spec, fmt.Sprintf(strFmt, DockerPrefix, imageCirros, DockerTag), v1.DiskBusSATA)
+	addNoCloudDisk(&vm.Spec.Template.Spec)
+	vm.Spec.Template.Spec.Domain.Devices = v1.Devices{}
 	return vm
 }
 
