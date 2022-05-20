@@ -73,6 +73,7 @@ func (VirtualMachineInstanceStatus) SwaggerDoc() map[string]string {
 		"fsFreezeStatus":                "FSFreezeStatus is the state of the fs of the guest\nit can be either frozen or thawed\n+optional",
 		"topologyHints":                 "+optional",
 		"virtualMachineRevisionName":    "VirtualMachineRevisionName is used to get the vm revision of the vmi when doing\nan online vm snapshot\n+optional",
+		"runtimeUser":                   "RuntimeUser is used to determine what user will be used in launcher\n+optional",
 	}
 }
 
@@ -423,19 +424,20 @@ func (KubeVirtWorkloadUpdateStrategy) SwaggerDoc() map[string]string {
 
 func (KubeVirtSpec) SwaggerDoc() map[string]string {
 	return map[string]string{
-		"imageTag":               "The image tag to use for the continer images installed.\nDefaults to the same tag as the operator's container image.",
-		"imageRegistry":          "The image registry to pull the container images from\nDefaults to the same registry the operator's container image is pulled from.",
-		"imagePullPolicy":        "The ImagePullPolicy to use.",
-		"monitorNamespace":       "The namespace Prometheus is deployed in\nDefaults to openshift-monitor",
-		"monitorAccount":         "The name of the Prometheus service account that needs read-access to KubeVirt endpoints\nDefaults to prometheus-k8s",
-		"workloadUpdateStrategy": "WorkloadUpdateStrategy defines at the cluster level how to handle\nautomated workload updates",
-		"uninstallStrategy":      "Specifies if kubevirt can be deleted if workloads are still present.\nThis is mainly a precaution to avoid accidental data loss",
-		"productVersion":         "Designate the apps.kubevirt.io/version label for KubeVirt components.\nUseful if KubeVirt is included as part of a product.\nIf ProductVersion is not specified, KubeVirt's version will be used.",
-		"productName":            "Designate the apps.kubevirt.io/part-of label for KubeVirt components.\nUseful if KubeVirt is included as part of a product.\nIf ProductName is not specified, the part-of label will be omitted.",
-		"productComponent":       "Designate the apps.kubevirt.io/component label for KubeVirt components.\nUseful if KubeVirt is included as part of a product.\nIf ProductComponent is not specified, the component label default value is kubevirt.",
-		"configuration":          "holds kubevirt configurations.\nsame as the virt-configMap",
-		"infra":                  "selectors and tolerations that should apply to KubeVirt infrastructure components\n+optional",
-		"workloads":              "selectors and tolerations that should apply to KubeVirt workloads\n+optional",
+		"imageTag":                "The image tag to use for the continer images installed.\nDefaults to the same tag as the operator's container image.",
+		"imageRegistry":           "The image registry to pull the container images from\nDefaults to the same registry the operator's container image is pulled from.",
+		"imagePullPolicy":         "The ImagePullPolicy to use.",
+		"monitorNamespace":        "The namespace Prometheus is deployed in\nDefaults to openshift-monitor",
+		"serviceMonitorNamespace": "The namespace the service monitor will be deployed\n When ServiceMonitorNamespace is set, then we'll install the service monitor object in that namespace\notherwise we will use the monitoring namespace.",
+		"monitorAccount":          "The name of the Prometheus service account that needs read-access to KubeVirt endpoints\nDefaults to prometheus-k8s",
+		"workloadUpdateStrategy":  "WorkloadUpdateStrategy defines at the cluster level how to handle\nautomated workload updates",
+		"uninstallStrategy":       "Specifies if kubevirt can be deleted if workloads are still present.\nThis is mainly a precaution to avoid accidental data loss",
+		"productVersion":          "Designate the apps.kubevirt.io/version label for KubeVirt components.\nUseful if KubeVirt is included as part of a product.\nIf ProductVersion is not specified, KubeVirt's version will be used.",
+		"productName":             "Designate the apps.kubevirt.io/part-of label for KubeVirt components.\nUseful if KubeVirt is included as part of a product.\nIf ProductName is not specified, the part-of label will be omitted.",
+		"productComponent":        "Designate the apps.kubevirt.io/component label for KubeVirt components.\nUseful if KubeVirt is included as part of a product.\nIf ProductComponent is not specified, the component label default value is kubevirt.",
+		"configuration":           "holds kubevirt configurations.\nsame as the virt-configMap",
+		"infra":                   "selectors and tolerations that should apply to KubeVirt infrastructure components\n+optional",
+		"workloads":               "selectors and tolerations that should apply to KubeVirt workloads\n+optional",
 	}
 }
 
@@ -734,9 +736,8 @@ func (ClusterProfilerRequest) SwaggerDoc() map[string]string {
 
 func (FlavorMatcher) SwaggerDoc() map[string]string {
 	return map[string]string{
-		"":        "FlavorMatcher references a flavor that is used to fill fields in the VMI template.",
-		"name":    "Name is the name of the VirtualMachineFlavor or VirtualMachineClusterFlavor",
-		"kind":    "Kind specifies which flavor resource is referenced.\nAllowed values are: \"VirtualMachineFlavor\" and \"VirtualMachineClusterFlavor\".\nIf not specified, \"VirtualMachineClusterFlavor\" is used by default.\n\n+optional",
-		"profile": "Profile is the name of a custom profile in the flavor. If left empty, the default profile is used.\n+optional",
+		"":     "FlavorMatcher references a flavor that is used to fill fields in the VMI template.",
+		"name": "Name is the name of the VirtualMachineFlavor or VirtualMachineClusterFlavor",
+		"kind": "Kind specifies which flavor resource is referenced.\nAllowed values are: \"VirtualMachineFlavor\" and \"VirtualMachineClusterFlavor\".\nIf not specified, \"VirtualMachineClusterFlavor\" is used by default.\n\n+optional",
 	}
 }

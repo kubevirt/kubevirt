@@ -229,8 +229,10 @@ ${TESTS_BINARY} \
     -ginkgo.skip='(Slirp Networking)|(with CPU spec)|(with TX offload disabled)|(with cni flannel and ptp plugin interface)|(with ovs-cni plugin)|(test_id:1752)|(SRIOV)|(with EFI)|(Operator)|(GPU)|(DataVolume Integration)|(when virt-handler is not responsive)|(with default cpu model)|(should set the default MachineType when created without explicit value)|(should fail to start when a volume is backed by PVC created by DataVolume instead of the DataVolume itself)|(test_id:3468)|(test_id:3466)|(test_id:1015)|(rfe_id:393)|(test_id:4646)|(test_id:4647)|(test_id:4648)|(test_id:4649)|(test_id:4650)|(test_id:4651)|(test_id:4652)|(test_id:4654)|(test_id:4655)|(test_id:4656)|(test_id:4657)|(test_id:4658)|(test_id:4659)|(should obey the disk verification limits in the KubeVirt CR)' \
     -ginkgo.slowSpecThreshold=60 \
     -ginkgo.succinct \
+    -ginkgo.flake-attempts=3 \
     -oc-path="$(which oc)" \
     -kubectl-path="$(which oc)" \
     -utility-container-prefix=quay.io/kubevirt \
-    -test.timeout=2h \
+    -test.timeout=3h \
+    -ginkgo.timeout=3h \
     -artifacts=${ARTIFACT_DIR}/kubevirt_dump

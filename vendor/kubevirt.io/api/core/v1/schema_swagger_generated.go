@@ -245,6 +245,7 @@ func (Devices) SwaggerDoc() map[string]string {
 		"hostDevices":                "Whether to attach a host device to the vmi.\n+optional\n+listType=atomic",
 		"clientPassthrough":          "To configure and access client devices such as redirecting USB\n+optional",
 		"sound":                      "Whether to emulate a sound device.\n+optional",
+		"tpm":                        "Whether to emulate a TPM device.\n+optional",
 	}
 }
 
@@ -260,6 +261,10 @@ func (SoundDevice) SwaggerDoc() map[string]string {
 		"name":  "User's defined name for this sound device",
 		"model": "We only support ich9 or ac97.\nIf SoundDevice is not set: No sound card is emulated.\nIf SoundDevice is set but Model is not: ich9\n+optional",
 	}
+}
+
+func (TPMDevice) SwaggerDoc() map[string]string {
+	return map[string]string{}
 }
 
 func (Input) SwaggerDoc() map[string]string {
@@ -641,23 +646,33 @@ func (InterfaceBindingMethod) SwaggerDoc() map[string]string {
 }
 
 func (InterfaceBridge) SwaggerDoc() map[string]string {
-	return map[string]string{}
+	return map[string]string{
+		"": "InterfaceBridge connects to a given network via a linux bridge.",
+	}
 }
 
 func (InterfaceSlirp) SwaggerDoc() map[string]string {
-	return map[string]string{}
+	return map[string]string{
+		"": "InterfaceSlirp connects to a given network using QEMU user networking mode.",
+	}
 }
 
 func (InterfaceMasquerade) SwaggerDoc() map[string]string {
-	return map[string]string{}
+	return map[string]string{
+		"": "InterfaceMasquerade connects to a given network using netfilter rules to nat the traffic.",
+	}
 }
 
 func (InterfaceSRIOV) SwaggerDoc() map[string]string {
-	return map[string]string{}
+	return map[string]string{
+		"": "InterfaceSRIOV connects to a given network by passing-through an SR-IOV PCI device via vfio.",
+	}
 }
 
 func (InterfaceMacvtap) SwaggerDoc() map[string]string {
-	return map[string]string{}
+	return map[string]string{
+		"": "InterfaceMacvtap connects to a given network by extending the Kubernetes node's L2 networks via a macvtap interface.",
+	}
 }
 
 func (Port) SwaggerDoc() map[string]string {

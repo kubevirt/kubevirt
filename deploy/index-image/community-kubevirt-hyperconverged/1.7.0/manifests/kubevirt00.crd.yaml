@@ -1490,9 +1490,11 @@ spec:
                         type: array
                     type: object
                   replicas:
-                    description: replicas indicates how many replicas should be created
+                    description: 'replicas indicates how many replicas should be created
                       for each KubeVirt infrastructure component (like virt-api or
-                      virt-controller). Defaults to 2.
+                      virt-controller). Defaults to 2. WARNING: this is an advanced
+                      feature that prevents auto-scaling for core kubevirt components.
+                      Please use with caution!'
                     type: integer
                 type: object
               monitorAccount:
@@ -1517,6 +1519,11 @@ spec:
                 description: Designate the apps.kubevirt.io/version label for KubeVirt
                   components. Useful if KubeVirt is included as part of a product.
                   If ProductVersion is not specified, KubeVirt's version will be used.
+                type: string
+              serviceMonitorNamespace:
+                description: The namespace the service monitor will be deployed  When
+                  ServiceMonitorNamespace is set, then we'll install the service monitor
+                  object in that namespace otherwise we will use the monitoring namespace.
                 type: string
               uninstallStrategy:
                 description: Specifies if kubevirt can be deleted if workloads are
@@ -2519,9 +2526,11 @@ spec:
                         type: array
                     type: object
                   replicas:
-                    description: replicas indicates how many replicas should be created
+                    description: 'replicas indicates how many replicas should be created
                       for each KubeVirt infrastructure component (like virt-api or
-                      virt-controller). Defaults to 2.
+                      virt-controller). Defaults to 2. WARNING: this is an advanced
+                      feature that prevents auto-scaling for core kubevirt components.
+                      Please use with caution!'
                     type: integer
                 type: object
             type: object
@@ -2595,6 +2604,9 @@ spec:
                 type: string
               observedDeploymentID:
                 type: string
+              observedGeneration:
+                format: int64
+                type: integer
               observedKubeVirtRegistry:
                 type: string
               observedKubeVirtVersion:
@@ -4095,9 +4107,11 @@ spec:
                         type: array
                     type: object
                   replicas:
-                    description: replicas indicates how many replicas should be created
+                    description: 'replicas indicates how many replicas should be created
                       for each KubeVirt infrastructure component (like virt-api or
-                      virt-controller). Defaults to 2.
+                      virt-controller). Defaults to 2. WARNING: this is an advanced
+                      feature that prevents auto-scaling for core kubevirt components.
+                      Please use with caution!'
                     type: integer
                 type: object
               monitorAccount:
@@ -4122,6 +4136,11 @@ spec:
                 description: Designate the apps.kubevirt.io/version label for KubeVirt
                   components. Useful if KubeVirt is included as part of a product.
                   If ProductVersion is not specified, KubeVirt's version will be used.
+                type: string
+              serviceMonitorNamespace:
+                description: The namespace the service monitor will be deployed  When
+                  ServiceMonitorNamespace is set, then we'll install the service monitor
+                  object in that namespace otherwise we will use the monitoring namespace.
                 type: string
               uninstallStrategy:
                 description: Specifies if kubevirt can be deleted if workloads are
@@ -5124,9 +5143,11 @@ spec:
                         type: array
                     type: object
                   replicas:
-                    description: replicas indicates how many replicas should be created
+                    description: 'replicas indicates how many replicas should be created
                       for each KubeVirt infrastructure component (like virt-api or
-                      virt-controller). Defaults to 2.
+                      virt-controller). Defaults to 2. WARNING: this is an advanced
+                      feature that prevents auto-scaling for core kubevirt components.
+                      Please use with caution!'
                     type: integer
                 type: object
             type: object
@@ -5200,6 +5221,9 @@ spec:
                 type: string
               observedDeploymentID:
                 type: string
+              observedGeneration:
+                format: int64
+                type: integer
               observedKubeVirtRegistry:
                 type: string
               observedKubeVirtVersion:

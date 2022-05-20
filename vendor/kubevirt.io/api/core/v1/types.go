@@ -249,6 +249,10 @@ type VirtualMachineInstanceStatus struct {
 	// an online vm snapshot
 	// +optional
 	VirtualMachineRevisionName string `json:"virtualMachineRevisionName,omitempty"`
+
+	// RuntimeUser is used to determine what user will be used in launcher
+	// +optional
+	RuntimeUser uint64 `json:"runtimeUser"`
 }
 
 // PersistentVolumeClaimInfo contains the relavant information virt-handler needs cached about a PVC
@@ -793,7 +797,7 @@ const (
 	MigrationSelectorLabel = "kubevirt.io/vmi-name"
 
 	// This annotation represents vmi running nonroot implementation
-	NonRootVMIAnnotation = "kubevirt.io/nonroot"
+	DeprecatedNonRootVMIAnnotation = "kubevirt.io/nonroot"
 
 	// This annotation is to keep virt launcher container alive when an VMI encounters a failure for debugging purpose
 	KeepLauncherAfterFailureAnnotation string = "kubevirt.io/keep-launcher-alive-after-failure"
@@ -1628,6 +1632,11 @@ type KubeVirtSpec struct {
 	// Defaults to openshift-monitor
 	MonitorNamespace string `json:"monitorNamespace,omitempty"`
 
+	// The namespace the service monitor will be deployed
+	//  When ServiceMonitorNamespace is set, then we'll install the service monitor object in that namespace
+	// otherwise we will use the monitoring namespace.
+	ServiceMonitorNamespace string `json:"serviceMonitorNamespace,omitempty"`
+
 	// The name of the Prometheus service account that needs read-access to KubeVirt endpoints
 	// Defaults to prometheus-k8s
 	MonitorAccount string `json:"monitorAccount,omitempty"`
@@ -1746,6 +1755,7 @@ type KubeVirtStatus struct {
 	ObservedDeploymentConfig                string              `json:"observedDeploymentConfig,omitempty" optional:"true"`
 	ObservedDeploymentID                    string              `json:"observedDeploymentID,omitempty" optional:"true"`
 	OutdatedVirtualMachineInstanceWorkloads *int                `json:"outdatedVirtualMachineInstanceWorkloads,omitempty" optional:"true"`
+	ObservedGeneration                      *int64              `json:"observedGeneration,omitempty"`
 	// +listType=atomic
 	Generations []GenerationStatus `json:"generations,omitempty" optional:"true"`
 }
@@ -1800,6 +1810,7 @@ const (
 const (
 	EvictionStrategyNone        EvictionStrategy = "None"
 	EvictionStrategyLiveMigrate EvictionStrategy = "LiveMigrate"
+	EvictionStrategyExternal    EvictionStrategy = "External"
 )
 
 // RestartOptions may be provided when deleting an API object.
@@ -2219,8 +2230,4 @@ type FlavorMatcher struct {
 	//
 	// +optional
 	Kind string `json:"kind,omitempty"`
-
-	// Profile is the name of a custom profile in the flavor. If left empty, the default profile is used.
-	// +optional
-	Profile string `json:"profile,omitempty"`
 }
