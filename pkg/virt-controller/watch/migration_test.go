@@ -512,7 +512,8 @@ var _ = Describe("Migration watcher", func() {
 			controller.Execute()
 			testutils.ExpectEvents(recorder, SuccessfulCreatePodReason)
 		})
-		It("should not create target pod if multiple pods exist in a non finalized state for VMI", func() {
+
+		It("should create target pod and clean orphan pods if target pods exist but the vmim was already deleted", func() {
 			vmi := newVirtualMachine("testvmi", virtv1.Running)
 			migration := newMigration("testmigration", vmi.Name, virtv1.MigrationPending)
 
@@ -525,6 +526,49 @@ var _ = Describe("Migration watcher", func() {
 
 			addMigration(migration)
 			addVirtualMachineInstance(vmi)
+
+			By("Expecting the orphan pods to be cleaned up")
+			var isPod1Deleted, isPod2Deleted bool
+			kubeClient.Fake.PrependReactor("delete", "pods", func(action testing.Action) (handled bool, obj k8sruntime.Object, err error) {
+				_, ok := action.(testing.DeleteAction)
+				Expect(ok).To(BeTrue())
+
+				podName := action.(testing.DeleteAction).GetName()
+				Expect(podName).To(Or(Equal(pod1.Name), Equal(pod2.Name)), "the pod that has been deleted is not the expected pod")
+
+				if podName == pod1.Name {
+					isPod1Deleted = true
+				} else if podName == pod2.Name {
+					isPod2Deleted = true
+				}
+
+				return true, nil, nil
+			})
+
+			By("Expecting the target pod to be created")
+			shouldExpectPodCreation(vmi.UID, migration.UID, 1, 0, 0)
+
+			controller.Execute()
+			testutils.ExpectEvents(recorder, SuccessfulCreatePodReason)
+			Expect(isPod1Deleted).To(BeTrue(), fmt.Sprintf("orphan migration pod %s is expected to be cleaned up", pod1.Name))
+			Expect(isPod2Deleted).To(BeTrue(), fmt.Sprintf("orphan migration pod %s is expected to be cleaned up", pod2.Name))
+		})
+
+		It("should not create target pod if multiple pods exist for a vmim that exist", func() {
+			vmi := newVirtualMachine("testvmi", virtv1.Running)
+			migration := newMigration("testmigration", vmi.Name, virtv1.MigrationPending)
+			migration2 := newMigration("testmigration2", vmi.Name, virtv1.MigrationPending)
+
+			pod1 := newTargetPodForVirtualMachine(vmi, migration, k8sv1.PodPending)
+			pod1.Labels[virtv1.MigrationJobLabel] = string(migration2.UID)
+			pod2 := newTargetPodForVirtualMachine(vmi, migration, k8sv1.PodRunning)
+			pod2.Labels[virtv1.MigrationJobLabel] = string(migration2.UID)
+			podInformer.GetStore().Add(pod1)
+			podInformer.GetStore().Add(pod2)
+
+			addMigration(migration)
+			addVirtualMachineInstance(vmi)
+			migrationInformer.GetStore().Add(migration2)
 
 			controller.Execute()
 		})
