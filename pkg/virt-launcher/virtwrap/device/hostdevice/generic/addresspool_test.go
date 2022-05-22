@@ -37,9 +37,6 @@ type envData struct {
 }
 
 const (
-	pciResourcePrefix  = "PCI_RESOURCE"
-	mdevResourcePrefix = "MDEV_PCI_RESOURCE"
-
 	hostdevName0 = "hostdev_name0"
 	hostdevName1 = "hostdev_name1"
 
@@ -91,8 +88,8 @@ var _ = Describe("Generic Address Pool", func() {
 				Expect(pool.Pop(hostdevResource0)).To(Equal(address1))
 			})
 		},
-		Entry("PCI", generic.NewPCIAddressPool, pciResourcePrefix, hostdevPCIAddress0, hostdevPCIAddress1),
-		Entry("MDEV", generic.NewMDEVAddressPool, mdevResourcePrefix, hostdevMDEVAddress0, hostdevMDEVAddress1),
+		Entry("PCI", generic.NewPCIAddressPool, v1.PCIResourcePrefix, hostdevPCIAddress0, hostdevPCIAddress1),
+		Entry("MDEV", generic.NewMDEVAddressPool, v1.MDevResourcePrefix, hostdevMDEVAddress0, hostdevMDEVAddress1),
 	)
 
 	DescribeTable("succeeds to pop 2 addresses from two resources",
@@ -111,8 +108,8 @@ var _ = Describe("Generic Address Pool", func() {
 				Expect(pool.Pop(hostdevResource1)).To(Equal(address1))
 			})
 		},
-		Entry("PCI", generic.NewPCIAddressPool, pciResourcePrefix, hostdevPCIAddress0, hostdevPCIAddress1),
-		Entry("MDEV", generic.NewMDEVAddressPool, mdevResourcePrefix, hostdevMDEVAddress0, hostdevMDEVAddress1),
+		Entry("PCI", generic.NewPCIAddressPool, v1.PCIResourcePrefix, hostdevPCIAddress0, hostdevPCIAddress1),
+		Entry("MDEV", generic.NewMDEVAddressPool, v1.MDevResourcePrefix, hostdevMDEVAddress0, hostdevMDEVAddress1),
 	)
 })
 

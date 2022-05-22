@@ -33,13 +33,10 @@ import (
 	"golang.org/x/net/context"
 	"google.golang.org/grpc"
 
+	v1 "kubevirt.io/api/core/v1"
 	"kubevirt.io/client-go/log"
 	"kubevirt.io/kubevirt/pkg/util"
 	pluginapi "kubevirt.io/kubevirt/pkg/virt-handler/device-manager/deviceplugin/v1beta1"
-)
-
-const (
-	MDEV_RESOURCE_PREFIX = "MDEV_PCI_RESOURCE"
 )
 
 // Not a const for static test purposes
@@ -172,7 +169,7 @@ func (dpi *MediatedDevicePlugin) GetDeviceName() string {
 func (dpi *MediatedDevicePlugin) Allocate(_ context.Context, r *pluginapi.AllocateRequest) (*pluginapi.AllocateResponse, error) {
 	log.DefaultLogger().Infof("Allocate: resourceName: %s", dpi.resourceName)
 	log.DefaultLogger().Infof("Allocate: iommuMap: %v", dpi.iommuToMDEVMap)
-	resourceNameEnvVar := util.ResourceNameToEnvVar(MDEV_RESOURCE_PREFIX, dpi.resourceName)
+	resourceNameEnvVar := util.ResourceNameToEnvVar(v1.MDevResourcePrefix, dpi.resourceName)
 	log.DefaultLogger().Infof("Allocate: resourceNameEnvVar: %s", resourceNameEnvVar)
 	allocatedDevices := []string{}
 	resp := new(pluginapi.AllocateResponse)

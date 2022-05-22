@@ -33,16 +33,16 @@ import (
 	"golang.org/x/net/context"
 	"google.golang.org/grpc"
 
+	v1 "kubevirt.io/api/core/v1"
 	"kubevirt.io/client-go/log"
 	"kubevirt.io/kubevirt/pkg/util"
 	pluginapi "kubevirt.io/kubevirt/pkg/virt-handler/device-manager/deviceplugin/v1beta1"
 )
 
 const (
-	vfioDevicePath      = "/dev/vfio/"
-	vfioMount           = "/dev/vfio/vfio"
-	pciBasePath         = "/sys/bus/pci/devices"
-	PCI_RESOURCE_PREFIX = "PCI_RESOURCE"
+	vfioDevicePath = "/dev/vfio/"
+	vfioMount      = "/dev/vfio/vfio"
+	pciBasePath    = "/sys/bus/pci/devices"
 )
 
 type PCIDevice struct {
@@ -196,7 +196,7 @@ func (dpi *PCIDevicePlugin) ListAndWatch(_ *pluginapi.Empty, s pluginapi.DeviceP
 }
 
 func (dpi *PCIDevicePlugin) Allocate(_ context.Context, r *pluginapi.AllocateRequest) (*pluginapi.AllocateResponse, error) {
-	resourceNameEnvVar := util.ResourceNameToEnvVar(PCI_RESOURCE_PREFIX, dpi.resourceName)
+	resourceNameEnvVar := util.ResourceNameToEnvVar(v1.PCIResourcePrefix, dpi.resourceName)
 	allocatedDevices := []string{}
 	resp := new(pluginapi.AllocateResponse)
 	containerResponse := new(pluginapi.ContainerAllocateResponse)
