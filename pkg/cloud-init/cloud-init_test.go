@@ -36,6 +36,8 @@ import (
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 
 	v1 "kubevirt.io/api/core/v1"
+
+	"kubevirt.io/kubevirt/pkg/virt-launcher/virtwrap/api"
 )
 
 var _ = Describe("CloudInit", func() {
@@ -123,7 +125,7 @@ var _ = Describe("CloudInit", func() {
 				devices := []DeviceData{
 					{
 						Type:    NICMetadataType,
-						Bus:     "pci",
+						Bus:     api.AddressPCI,
 						Address: "0000:01:00:0",
 						MAC:     "02:00:00:84:e9:58",
 						Tags:    []string{"testtag"},
@@ -169,7 +171,7 @@ var _ = Describe("CloudInit", func() {
 				devices := []DeviceData{
 					{
 						Type:        HostDevMetadataType,
-						Bus:         "pci",
+						Bus:         api.AddressPCI,
 						Address:     "0000:65:10:0",
 						MAC:         "",
 						NumaNode:    uint32(1),

@@ -72,11 +72,11 @@ var _ = Describe("GPU HostDevice", func() {
 		mdevPool := newAddressPoolStub()
 		mdevPool.AddResource(gpuResource1, gpuMDEVAddress1)
 
-		hostPCIAddress := api.Address{Type: "pci", Domain: "0x0000", Bus: "0x81", Slot: "0x01", Function: "0x0"}
+		hostPCIAddress := api.Address{Type: api.AddressPCI, Domain: "0x0000", Bus: "0x81", Slot: "0x01", Function: "0x0"}
 		expectHostDevice0 := api.HostDevice{
 			Alias:   api.NewUserDefinedAlias(gpu.AliasPrefix + gpuName0),
 			Source:  api.HostDeviceSource{Address: &hostPCIAddress},
-			Type:    "pci",
+			Type:    api.HostDevicePCI,
 			Managed: "no",
 		}
 
@@ -84,7 +84,7 @@ var _ = Describe("GPU HostDevice", func() {
 		expectHostDevice1 := api.HostDevice{
 			Alias:   api.NewUserDefinedAlias(gpu.AliasPrefix + gpuName1),
 			Source:  api.HostDeviceSource{Address: &hostMDEVAddress},
-			Type:    "mdev",
+			Type:    api.HostDeviceMDev,
 			Mode:    "subsystem",
 			Model:   "vfio-pci",
 			Display: "on",
@@ -116,7 +116,7 @@ var _ = Describe("GPU HostDevice", func() {
 		expectHostDevice1 := api.HostDevice{
 			Alias:  api.NewUserDefinedAlias(gpu.AliasPrefix + gpuName1),
 			Source: api.HostDeviceSource{Address: &hostMDEVAddress},
-			Type:   "mdev",
+			Type:   api.HostDeviceMDev,
 			Mode:   "subsystem",
 			Model:  "vfio-pci",
 		}
@@ -148,7 +148,7 @@ var _ = Describe("GPU HostDevice", func() {
 		expectHostDevice1 := api.HostDevice{
 			Alias:   api.NewUserDefinedAlias(gpu.AliasPrefix + gpuName1),
 			Source:  api.HostDeviceSource{Address: &hostMDEVAddress},
-			Type:    "mdev",
+			Type:    api.HostDeviceMDev,
 			Mode:    "subsystem",
 			Model:   "vfio-pci",
 			Display: "on",
@@ -176,7 +176,7 @@ var _ = Describe("GPU HostDevice", func() {
 		expectHostDevice1 := api.HostDevice{
 			Alias:   api.NewUserDefinedAlias(gpu.AliasPrefix + gpuName1),
 			Source:  api.HostDeviceSource{Address: &hostMDEVAddress},
-			Type:    "mdev",
+			Type:    api.HostDeviceMDev,
 			Mode:    "subsystem",
 			Model:   "vfio-pci",
 			Display: "on",

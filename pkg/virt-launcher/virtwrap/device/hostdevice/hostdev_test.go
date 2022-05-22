@@ -110,19 +110,19 @@ var _ = Describe("HostDevice", func() {
 
 	Context("PCI", func() {
 		const pciAddress0 = "0000:81:01.0"
-		hostPCIAddress1 := api.Address{Type: "pci", Domain: "0x0000", Bus: "0x81", Slot: "0x01", Function: "0x0"}
+		hostPCIAddress1 := api.Address{Type: api.AddressPCI, Domain: "0x0000", Bus: "0x81", Slot: "0x01", Function: "0x0"}
 		expectHostDevice1 := api.HostDevice{
 			Alias:   newAlias(devName0),
 			Source:  api.HostDeviceSource{Address: &hostPCIAddress1},
-			Type:    "pci",
+			Type:    api.HostDevicePCI,
 			Managed: "no",
 		}
 		const pciAddress1 = "0000:81:01.1"
-		hostPCIAddress2 := api.Address{Type: "pci", Domain: "0x0000", Bus: "0x81", Slot: "0x01", Function: "0x1"}
+		hostPCIAddress2 := api.Address{Type: api.AddressPCI, Domain: "0x0000", Bus: "0x81", Slot: "0x01", Function: "0x1"}
 		expectHostDevice2 := api.HostDevice{
 			Alias:   newAlias(devName1),
 			Source:  api.HostDeviceSource{Address: &hostPCIAddress2},
-			Type:    "pci",
+			Type:    api.HostDevicePCI,
 			Managed: "no",
 		}
 
@@ -163,14 +163,14 @@ var _ = Describe("HostDevice", func() {
 			expectHostDevice1 = api.HostDevice{
 				Alias:  newAlias(devName0),
 				Source: api.HostDeviceSource{Address: &hostMDEVAddress0},
-				Type:   "mdev",
+				Type:   api.HostDeviceMDev,
 				Mode:   "subsystem",
 				Model:  "vfio-pci",
 			}
 			expectHostDevice2 = api.HostDevice{
 				Alias:  newAlias(devName1),
 				Source: api.HostDeviceSource{Address: &hostMDEVAddress1},
-				Type:   "mdev",
+				Type:   api.HostDeviceMDev,
 				Mode:   "subsystem",
 				Model:  "vfio-pci",
 			}

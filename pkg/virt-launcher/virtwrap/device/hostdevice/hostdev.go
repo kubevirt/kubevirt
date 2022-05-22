@@ -96,7 +96,7 @@ func createPCIHostDevice(hostDeviceData HostDeviceMetaData, hostPCIAddress strin
 	domainHostDevice := &api.HostDevice{
 		Alias:   api.NewUserDefinedAlias(hostDeviceData.AliasPrefix + hostDeviceData.Name),
 		Source:  api.HostDeviceSource{Address: hostAddr},
-		Type:    "pci",
+		Type:    api.HostDevicePCI,
 		Managed: "no",
 	}
 	return domainHostDevice, nil
@@ -132,7 +132,7 @@ func createMDEVHostDevice(hostDeviceData HostDeviceMetaData, mdevUUID string) (*
 				UUID: mdevUUID,
 			},
 		},
-		Type:  "mdev",
+		Type:  api.HostDeviceMDev,
 		Mode:  "subsystem",
 		Model: "vfio-pci",
 	}

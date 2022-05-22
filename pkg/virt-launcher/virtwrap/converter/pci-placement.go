@@ -17,7 +17,7 @@ func PlacePCIDevicesOnRootComplex(spec *api.DomainSpec) (err error) {
 		}
 	}
 	for i, hostDev := range spec.Devices.HostDevices {
-		if hostDev.Type != "pci" {
+		if hostDev.Type != api.HostDevicePCI {
 			continue
 		}
 		spec.Devices.HostDevices[i].Address, err = assigner.PlacePCIDeviceAtNextSlot(hostDev.Address)
@@ -107,7 +107,7 @@ func (p *pciRootSlotAssigner) PlacePCIDeviceAtNextSlot(address *api.Address) (*a
 	if address == nil {
 		address = &api.Address{}
 	}
-	if address.Type != "pci" && address.Type != "" {
+	if address.Type != api.AddressPCI && address.Type != "" {
 		return address, nil
 	}
 
@@ -120,7 +120,7 @@ func (p *pciRootSlotAssigner) PlacePCIDeviceAtNextSlot(address *api.Address) (*a
 	if err != nil {
 		return nil, err
 	}
-	address.Type = "pci"
+	address.Type = api.AddressPCI
 	address.Domain = "0x0000"
 	address.Bus = "0x00"
 	address.Slot = fmt.Sprintf("%#02x", slot)

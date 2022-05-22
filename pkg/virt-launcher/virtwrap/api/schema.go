@@ -96,6 +96,10 @@ const (
 	FSThawed      = "thawed"
 	FSFrozen      = "frozen"
 	SchedulerFIFO = "fifo"
+
+	HostDevicePCI  = "pci"
+	HostDeviceMDev = "mdev"
+	AddressPCI     = "pci"
 )
 
 // +k8s:deepcopy-gen:interfaces=k8s.io/apimachinery/pkg/runtime.Object

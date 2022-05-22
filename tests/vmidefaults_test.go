@@ -144,7 +144,7 @@ var _ = Describe("[Serial][sig-compute]VMIDefaults", Serial, func() {
 					Period: 10,
 				},
 				Address: &api.Address{
-					Type:     "pci",
+					Type:     api.AddressPCI,
 					Domain:   "0x0000",
 					Bus:      "0x04",
 					Slot:     "0x00",
@@ -181,7 +181,7 @@ var _ = Describe("[Serial][sig-compute]VMIDefaults", Serial, func() {
 					Period: 12,
 				},
 				Address: &api.Address{
-					Type:     "pci",
+					Type:     api.AddressPCI,
 					Domain:   "0x0000",
 					Bus:      "0x04",
 					Slot:     "0x00",
@@ -191,7 +191,7 @@ var _ = Describe("[Serial][sig-compute]VMIDefaults", Serial, func() {
 			Entry("[test_id:4558]with period 0", uint32(0), api.MemBalloon{
 				Model: "virtio-non-transitional",
 				Address: &api.Address{
-					Type:     "pci",
+					Type:     api.AddressPCI,
 					Domain:   "0x0000",
 					Bus:      "0x04",
 					Slot:     "0x00",
