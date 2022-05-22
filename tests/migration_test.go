@@ -2835,6 +2835,40 @@ var _ = Describe("[rfe_id:393][crit:high][vendor:cnv-qe@redhat.com][level:system
 
 			})
 
+			It("if target pods exist for dead VMIM - should clean target pods for dead VMIM and crate target pod for new migration", func() {
+				By("Creating VMI")
+				vmi := libvmi.NewCirros(
+					libvmi.WithInterface(libvmi.InterfaceDeviceWithMasqueradeBinding()),
+					libvmi.WithNetwork(v1.DefaultPodNetwork()),
+				)
+				vmi = tests.RunVMIAndExpectLaunch(vmi, 240)
+				Expect(console.LoginToCirros(vmi)).To(Succeed())
+
+				By("Limiting the bandwidth of migrations in the test namespace")
+				Expect(limitMigrationBadwidth(resource.MustParse("1Mi"))).To(Succeed())
+
+				By("Creating a migration target orphan pod")
+				// This pod is simulated to be a virt-launcher pod that is the target of a migration that has already
+				// been deleted.
+				orphanPod := tests.RenderPod("test-migration-orphan", []string{"sleep"}, []string{"9999"})
+				orphanPod.Labels = map[string]string{
+					v1.CreatedByLabel:    string(vmi.UID),
+					v1.MigrationJobLabel: "uid-for-dead-vmim",
+					v1.AppLabel:          "virt-launcher",
+				}
+				orphanPod = tests.RunPod(orphanPod)
+
+				By("Starting a migration and expecting to succeed")
+				migration := tests.NewRandomMigration(vmi.Name, vmi.Namespace)
+				migrationUID := tests.RunMigrationAndExpectCompletion(virtClient, migration, 180)
+				tests.ConfirmVMIPostMigration(virtClient, vmi, migrationUID)
+
+				By("Expect orphan pod to disappear")
+				Eventually(func() bool {
+					_, err = virtClient.CoreV1().Pods(orphanPod.Namespace).Get(context.Background(), orphanPod.Name, metav1.GetOptions{})
+					return errors.IsNotFound(err)
+				}, 45*time.Second, 3*time.Second).Should(BeTrue(), "orphan pod is expected to be deleted")
+			})
 		})
 
 		Context("with a host-model cpu", func() {
