@@ -440,6 +440,8 @@ spec:
           resources:
           - virtualmachineflavors
           - virtualmachineclusterflavors
+          - virtualmachinepreferences
+          - virtualmachineclusterpreferences
           verbs:
           - list
           - watch
@@ -641,6 +643,8 @@ spec:
           resources:
           - virtualmachineflavors
           - virtualmachineclusterflavors
+          - virtualmachinepreferences
+          - virtualmachineclusterpreferences
           verbs:
           - list
           - watch
@@ -800,6 +804,8 @@ spec:
           resources:
           - virtualmachineflavors
           - virtualmachineclusterflavors
+          - virtualmachinepreferences
+          - virtualmachineclusterpreferences
           verbs:
           - get
           - delete
@@ -898,6 +904,8 @@ spec:
           resources:
           - virtualmachineflavors
           - virtualmachineclusterflavors
+          - virtualmachinepreferences
+          - virtualmachineclusterpreferences
           verbs:
           - get
           - delete
@@ -968,6 +976,8 @@ spec:
           resources:
           - virtualmachineflavors
           - virtualmachineclusterflavors
+          - virtualmachinepreferences
+          - virtualmachineclusterpreferences
           verbs:
           - get
           - list

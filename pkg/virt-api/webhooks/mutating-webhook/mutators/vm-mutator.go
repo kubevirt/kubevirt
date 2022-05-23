@@ -27,6 +27,7 @@ import (
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 
 	v1 "kubevirt.io/api/core/v1"
+	apiflavor "kubevirt.io/api/flavor"
 	"kubevirt.io/client-go/log"
 	utiltypes "kubevirt.io/kubevirt/pkg/util/types"
 	webhookutils "kubevirt.io/kubevirt/pkg/util/webhooks"
@@ -59,6 +60,8 @@ func (mutator *VMsMutator) Mutate(ar *admissionv1.AdmissionReview) *admissionv1.
 	// Set VM defaults
 	log.Log.Object(&vm).V(4).Info("Apply defaults")
 	mutator.setDefaultMachineType(&vm)
+	mutator.setDefaultFlavorKind(&vm)
+	mutator.setDefaultPreferenceKind(&vm)
 
 	var patch []utiltypes.PatchOperation
 	var value interface{}
@@ -108,5 +111,25 @@ func (mutator *VMsMutator) setDefaultMachineType(vm *v1.VirtualMachine) {
 		}
 	} else {
 		vm.Spec.Template.Spec.Domain.Machine = &v1.Machine{Type: machineType}
+	}
+}
+
+func (mutator *VMsMutator) setDefaultFlavorKind(vm *v1.VirtualMachine) {
+	if vm.Spec.Flavor == nil {
+		return
+	}
+
+	if vm.Spec.Flavor.Kind == "" {
+		vm.Spec.Flavor.Kind = apiflavor.ClusterSingularResourceName
+	}
+}
+
+func (mutator *VMsMutator) setDefaultPreferenceKind(vm *v1.VirtualMachine) {
+	if vm.Spec.Preference == nil {
+		return
+	}
+
+	if vm.Spec.Preference.Kind == "" {
+		vm.Spec.Preference.Kind = apiflavor.ClusterSingularPreferenceResourceName
 	}
 }

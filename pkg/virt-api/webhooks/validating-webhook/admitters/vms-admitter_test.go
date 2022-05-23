@@ -1433,6 +1433,10 @@ var _ = Describe("Validating VM Admitter", func() {
 						Name: "test",
 						Kind: flavorapi.SingularResourceName,
 					},
+					Preference: &v1.PreferenceMatcher{
+						Name: "test",
+						Kind: flavorapi.SingularPreferenceResourceName,
+					},
 					Running: &notRunning,
 					Template: &v1.VirtualMachineInstanceTemplateSpec{
 						Spec: vmi.Spec,
@@ -1453,6 +1457,18 @@ var _ = Describe("Validating VM Admitter", func() {
 			Expect(response.Result.Details.Causes[0].Field).To(Equal("spec.flavor"))
 		})
 
+		It("should reject if preference is not found", func() {
+			flavorMethods.FindPreferenceSpecFunc = func(_ *v1.VirtualMachine) (*flavorv1alpha1.VirtualMachinePreferenceSpec, error) {
+				return nil, fmt.Errorf("preference not found")
+			}
+
+			response := admitVm(vmsAdmitter, vm)
+			Expect(response.Allowed).To(BeFalse())
+			Expect(response.Result.Details.Causes).To(HaveLen(1))
+			Expect(response.Result.Details.Causes[0].Type).To(Equal(metav1.CauseTypeFieldValueNotFound))
+			Expect(response.Result.Details.Causes[0].Field).To(Equal("spec.preference"))
+		})
+
 		It("should reject if flavor fails to apply to VMI", func() {
 			var (
 				basePath = k8sfield.NewPath("spec", "template", "spec")
@@ -1462,7 +1478,13 @@ var _ = Describe("Validating VM Admitter", func() {
 			flavorMethods.FindFlavorSpecFunc = func(_ *v1.VirtualMachine) (*flavorv1alpha1.VirtualMachineFlavorSpec, error) {
 				return &flavorv1alpha1.VirtualMachineFlavorSpec{}, nil
 			}
-			flavorMethods.ApplyToVmiFunc = func(_ *k8sfield.Path, _ *flavorv1alpha1.VirtualMachineFlavorSpec, _ *v1.VirtualMachineInstanceSpec) flavor.Conflicts {
+			flavorMethods.FindFlavorSpecFunc = func(_ *v1.VirtualMachine) (*flavorv1alpha1.VirtualMachineFlavorSpec, error) {
+				return &flavorv1alpha1.VirtualMachineFlavorSpec{}, nil
+			}
+			flavorMethods.FindPreferenceSpecFunc = func(_ *v1.VirtualMachine) (*flavorv1alpha1.VirtualMachinePreferenceSpec, error) {
+				return &flavorv1alpha1.VirtualMachinePreferenceSpec{}, nil
+			}
+			flavorMethods.ApplyToVmiFunc = func(_ *k8sfield.Path, _ *flavorv1alpha1.VirtualMachineFlavorSpec, _ *flavorv1alpha1.VirtualMachinePreferenceSpec, _ *v1.VirtualMachineInstanceSpec) flavor.Conflicts {
 				return flavor.Conflicts{path1, path2}
 			}
 
@@ -1484,7 +1506,7 @@ var _ = Describe("Validating VM Admitter", func() {
 			flavorMethods.FindFlavorSpecFunc = func(_ *v1.VirtualMachine) (*flavorv1alpha1.VirtualMachineFlavorSpec, error) {
 				return &flavorv1alpha1.VirtualMachineFlavorSpec{}, nil
 			}
-			flavorMethods.ApplyToVmiFunc = func(_ *k8sfield.Path, _ *flavorv1alpha1.VirtualMachineFlavorSpec, vmiSpec *v1.VirtualMachineInstanceSpec) flavor.Conflicts {
+			flavorMethods.ApplyToVmiFunc = func(_ *k8sfield.Path, _ *flavorv1alpha1.VirtualMachineFlavorSpec, _ *flavorv1alpha1.VirtualMachinePreferenceSpec, vmiSpec *v1.VirtualMachineInstanceSpec) flavor.Conflicts {
 				vmiSpec.Domain.Resources.Requests[k8sv1.ResourceMemory] = resource.MustParse("-1Mi")
 				return nil
 			}

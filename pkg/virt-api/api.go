@@ -762,6 +762,12 @@ func (app *virtAPIApp) registerValidatingWebhooks(informers *webhooks.Informers)
 	http.HandleFunc(components.VMClusterFlavorValidatePath, func(w http.ResponseWriter, r *http.Request) {
 		validating_webhook.ServeVmClusterFlavors(w, r, app.clusterConfig, app.virtCli)
 	})
+	http.HandleFunc(components.VMPreferenceValidatePath, func(w http.ResponseWriter, r *http.Request) {
+		validating_webhook.ServeVmPreferences(w, r, app.clusterConfig, app.virtCli)
+	})
+	http.HandleFunc(components.VMClusterPreferenceValidatePath, func(w http.ResponseWriter, r *http.Request) {
+		validating_webhook.ServeVmClusterPreferences(w, r, app.clusterConfig, app.virtCli)
+	})
 	http.HandleFunc(components.StatusValidatePath, func(w http.ResponseWriter, r *http.Request) {
 		validating_webhook.ServeStatusValidation(w, r, app.clusterConfig, app.virtCli, informers)
 	})
@@ -941,6 +947,9 @@ func (app *virtAPIApp) Run() {
 	flavorInformer := kubeInformerFactory.VirtualMachineFlavor()
 	clusterFlavorInformer := kubeInformerFactory.VirtualMachineClusterFlavor()
 
+	preferenceInformer := kubeInformerFactory.VirtualMachinePreference()
+	clusterPreferenceInformer := kubeInformerFactory.VirtualMachineClusterPreference()
+
 	// It is safe to call kubeInformerFactory.Start multiple times.
 	// The function is idempotent and will only start the informers that
 	// have not been started yet
@@ -948,12 +957,14 @@ func (app *virtAPIApp) Run() {
 	kubeInformerFactory.WaitForCacheSync(stopChan)
 
 	webhookInformers := &webhooks.Informers{
-		VMIPresetInformer:       vmiPresetInformer,
-		NamespaceLimitsInformer: namespaceLimitsInformer,
-		VMRestoreInformer:       vmRestoreInformer,
-		DataSourceInformer:      dataSourceInformer,
-		FlavorInformer:          flavorInformer,
-		ClusterFlavorInformer:   clusterFlavorInformer,
+		VMIPresetInformer:         vmiPresetInformer,
+		NamespaceLimitsInformer:   namespaceLimitsInformer,
+		VMRestoreInformer:         vmRestoreInformer,
+		DataSourceInformer:        dataSourceInformer,
+		FlavorInformer:            flavorInformer,
+		ClusterFlavorInformer:     clusterFlavorInformer,
+		PreferenceInformer:        preferenceInformer,
+		ClusterPreferenceInformer: clusterPreferenceInformer,
 	}
 
 	// Build webhook subresources

@@ -28,7 +28,9 @@ import (
 type FlavorV1alpha1Interface interface {
 	RESTClient() rest.Interface
 	VirtualMachineClusterFlavorsGetter
+	VirtualMachineClusterPreferencesGetter
 	VirtualMachineFlavorsGetter
+	VirtualMachinePreferencesGetter
 }
 
 // FlavorV1alpha1Client is used to interact with features provided by the flavor.kubevirt.io group.
@@ -40,8 +42,16 @@ func (c *FlavorV1alpha1Client) VirtualMachineClusterFlavors() VirtualMachineClus
 	return newVirtualMachineClusterFlavors(c)
 }
 
+func (c *FlavorV1alpha1Client) VirtualMachineClusterPreferences() VirtualMachineClusterPreferenceInterface {
+	return newVirtualMachineClusterPreferences(c)
+}
+
 func (c *FlavorV1alpha1Client) VirtualMachineFlavors(namespace string) VirtualMachineFlavorInterface {
 	return newVirtualMachineFlavors(c, namespace)
+}
+
+func (c *FlavorV1alpha1Client) VirtualMachinePreferences(namespace string) VirtualMachinePreferenceInterface {
+	return newVirtualMachinePreferences(c, namespace)
 }
 
 // NewForConfig creates a new FlavorV1alpha1Client for the given config.

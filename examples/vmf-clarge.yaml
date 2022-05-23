@@ -1,0 +1,10 @@
+---
+apiVersion: flavor.kubevirt.io/v1alpha1
+kind: VirtualMachineFlavor
+metadata:
+  name: vmf-clarge
+spec:
+  cpu:
+    guest: 4
+  memory:
+    guest: 2Gi
