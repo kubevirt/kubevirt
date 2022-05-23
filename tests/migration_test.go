@@ -2578,6 +2578,9 @@ var _ = Describe("[rfe_id:393][crit:high][vendor:cnv-qe@redhat.com][level:system
 		})
 
 		Context("live migration cancelation", func() {
+
+			const vmiNameLabelKey = "vmi-name-test-label"
+
 			type vmiBuilder func() *v1.VirtualMachineInstance
 
 			newVirtualMachineInstanceWithFedoraContainerDisk := func() *v1.VirtualMachineInstance {
@@ -2604,10 +2607,10 @@ var _ = Describe("[rfe_id:393][crit:high][vendor:cnv-qe@redhat.com][level:system
 				return vmi
 			}
 
-			limitMigrationBadwidth := func(quantity resource.Quantity) error {
+			limitMigrationBandwidth := func(vmi *v1.VirtualMachineInstance, quantity resource.Quantity) error {
 				migrationPolicy := &v1alpha1.MigrationPolicy{
 					ObjectMeta: metav1.ObjectMeta{
-						Name: util.NamespaceTestDefault,
+						Name: vmi.Name,
 						Labels: map[string]string{
 							cleanup.TestLabelForNamespace(util.NamespaceTestDefault): "",
 						},
@@ -2615,7 +2618,8 @@ var _ = Describe("[rfe_id:393][crit:high][vendor:cnv-qe@redhat.com][level:system
 					Spec: v1alpha1.MigrationPolicySpec{
 						BandwidthPerMigration: &quantity,
 						Selectors: &v1alpha1.Selectors{
-							NamespaceSelector: v1alpha1.LabelSelector{cleanup.TestLabelForNamespace(util.NamespaceTestDefault): ""},
+							NamespaceSelector:              v1alpha1.LabelSelector{cleanup.TestLabelForNamespace(util.NamespaceTestDefault): ""},
+							VirtualMachineInstanceSelector: v1alpha1.LabelSelector{vmiNameLabelKey: vmi.Name},
 						},
 					},
 				}
@@ -2624,28 +2628,37 @@ var _ = Describe("[rfe_id:393][crit:high][vendor:cnv-qe@redhat.com][level:system
 				return err
 			}
 
-			unlimitMigrationBadwidth := func() {
-				err := virtClient.MigrationPolicy().Delete(context.Background(), util.NamespaceTestDefault, metav1.DeleteOptions{})
+			unlimitMigrationBandwidth := func(vmi *v1.VirtualMachineInstance) {
+				err := virtClient.MigrationPolicy().Delete(context.Background(), vmi.Name, metav1.DeleteOptions{})
 				if errors.IsNotFound(err) {
 					return
 				}
 				Expect(err).ToNot(HaveOccurred())
 
 				Eventually(func() bool {
-					_, err = virtClient.MigrationPolicy().Get(context.Background(), util.NamespaceTestDefault, metav1.GetOptions{})
+					_, err = virtClient.MigrationPolicy().Get(context.Background(), vmi.Name, metav1.GetOptions{})
 					return errors.IsNotFound(err)
 				}, 45*time.Second, 3*time.Second).Should(BeTrue(), "migration policy should disappear after deletion")
+			}
+
+			runVMIAndExpectLaunch := func(vmi *v1.VirtualMachineInstance) *v1.VirtualMachineInstance {
+				if vmi.Labels == nil {
+					vmi.Labels = make(map[string]string)
+				}
+
+				vmi.Labels[vmiNameLabelKey] = vmi.Name
+				return tests.RunVMIAndExpectLaunch(vmi, 240)
 			}
 
 			DescribeTable("should be able to cancel a migration", func(createVMI vmiBuilder, with_virtctl bool) {
 				vmi := createVMI()
 				vmi.Spec.Domain.Resources.Requests[k8sv1.ResourceMemory] = resource.MustParse(fedoraVMSize)
 
-				By("Limiting the bandwidth of migrations in the test namespace")
-				Expect(limitMigrationBadwidth(resource.MustParse("1Mi"))).To(Succeed())
-
 				By("Starting the VirtualMachineInstance")
 				vmi = tests.RunVMIAndExpectLaunch(vmi, 240)
+
+				By("Limiting the bandwidth of migrations in the test namespace")
+				Expect(limitMigrationBandwidth(vmi, resource.MustParse("1Mi"))).To(Succeed())
 
 				By("Starting the Migration")
 				migration := tests.NewRandomMigration(vmi.Name, vmi.Namespace)
@@ -2672,11 +2685,11 @@ var _ = Describe("[rfe_id:393][crit:high][vendor:cnv-qe@redhat.com][level:system
 				vmi := tests.NewRandomFedoraVMIWithGuestAgent()
 				vmi.Spec.Domain.Resources.Requests[k8sv1.ResourceMemory] = resource.MustParse(fedoraVMSize)
 
-				By("Limiting the bandwidth of migrations in the test namespace")
-				Expect(limitMigrationBadwidth(resource.MustParse("1Mi"))).To(Succeed())
-
 				By("Starting the VirtualMachineInstance")
 				vmi = tests.RunVMIAndExpectLaunch(vmi, 240)
+
+				By("Limiting the bandwidth of migrations in the test namespace")
+				Expect(limitMigrationBandwidth(vmi, resource.MustParse("1Mi"))).To(Succeed())
 
 				// execute a migration, wait for finalized state
 				By("Starting the Migration")
@@ -2706,7 +2719,7 @@ var _ = Describe("[rfe_id:393][crit:high][vendor:cnv-qe@redhat.com][level:system
 				vmi.Spec.Domain.Resources.Requests[k8sv1.ResourceMemory] = resource.MustParse(fedoraVMSize)
 
 				By("Limiting the bandwidth of migrations in the test namespace")
-				Expect(limitMigrationBadwidth(resource.MustParse("1Ki"))).To(Succeed())
+				Expect(limitMigrationBandwidth(vmi, resource.MustParse("1Ki"))).To(Succeed())
 
 				By("Starting the VirtualMachineInstance")
 				vmi = tests.RunVMIAndExpectLaunch(vmi, 240)
@@ -2858,7 +2871,7 @@ var _ = Describe("[rfe_id:393][crit:high][vendor:cnv-qe@redhat.com][level:system
 				Expect(console.LoginToCirros(vmi)).To(Succeed())
 
 				By("Limiting the bandwidth of migrations in the test namespace")
-				Expect(limitMigrationBadwidth(resource.MustParse("1Mi"))).To(Succeed())
+				Expect(limitMigrationBandwidth(vmi, resource.MustParse("1Mi"))).To(Succeed())
 
 				By("Creating a migration target orphan pod")
 				// This pod is simulated to be a virt-launcher pod that is the target of a migration that has already
@@ -2889,10 +2902,10 @@ var _ = Describe("[rfe_id:393][crit:high][vendor:cnv-qe@redhat.com][level:system
 				vmi.Spec.Domain.Resources.Requests[k8sv1.ResourceMemory] = resource.MustParse(fedoraVMSize)
 
 				By("Limiting the bandwidth of migrations in the test namespace")
-				Expect(limitMigrationBadwidth(resource.MustParse("1Ki"))).To(Succeed())
+				Expect(limitMigrationBandwidth(vmi, resource.MustParse("1Ki"))).To(Succeed())
 
 				By("Starting the VirtualMachineInstance")
-				vmi = runVMIAndExpectLaunch(vmi, 240)
+				vmi = runVMIAndExpectLaunch(vmi)
 
 				By(fmt.Sprintf("Starting and immediately cancelling migration for %d times", numberOfCancellations))
 				for i := 0; i < numberOfCancellations; i++ {
@@ -2906,7 +2919,7 @@ var _ = Describe("[rfe_id:393][crit:high][vendor:cnv-qe@redhat.com][level:system
 				}
 
 				By("Remove limitation from migration bandwidth")
-				unlimitMigrationBadwidth()
+				unlimitMigrationBandwidth(vmi)
 
 				By("Starting a migration and expect completion")
 				migration := tests.NewRandomMigration(vmi.Name, vmi.Namespace)
