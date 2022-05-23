@@ -54,7 +54,6 @@ digraph "managed-by" {
 	"deployment/kubevirt-plugin" [label="deployment/kubevirt-plugin"]
 	"deployment/hco-operator" [label="deployment/hco-operator"]
 	"deployment/hco-operator" -> "deployment/kubevirt-plugin"
-	"deployment/node-maintenance-operator-controller-manager" [label="deployment/node-maintenance-operator-controller-manager"]
 	"deployment/ssp-operator" [label="deployment/ssp-operator"]
 	olm [label=olm]
 	olm -> "deployment/ssp-operator"
