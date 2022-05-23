@@ -1351,6 +1351,9 @@ var _ = Describe("[Serial][rfe_id:393][crit:high][vendor:cnv-qe@redhat.com][leve
 				config := defaultKVConfig()
 				config.MigrationConfiguration.AllowPostCopy = pointer.BoolPtr(true)
 				config.MigrationConfiguration.CompletionTimeoutPerGiB = pointer.Int64Ptr(1)
+
+				bwLimit := resource.MustParse("40Mi")
+				config.MigrationConfiguration.BandwidthPerMigration = &bwLimit
 				tests.UpdateKubeVirtConfigValueAndWait(config)
 
 				vmi := tests.NewRandomFedoraVMIWithGuestAgent()
@@ -1365,7 +1368,7 @@ var _ = Describe("[Serial][rfe_id:393][crit:high][vendor:cnv-qe@redhat.com][leve
 				// Need to wait for cloud init to finish and start the agent inside the vmi.
 				tests.WaitAgentConnected(virtClient, vmi)
 
-				runStressTest(vmi, "800", stressdefaultTimeout)
+				runStressTest(vmi, "400", stressdefaultTimeout)
 
 				// execute a migration, wait for finalized state
 				By("Starting the Migration")
