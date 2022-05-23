@@ -21,7 +21,6 @@ package storage
 
 import (
 	"context"
-	"encoding/base64"
 	"fmt"
 	"path/filepath"
 	"strings"
@@ -242,16 +241,13 @@ var _ = SIGDescribe("Export", func() {
 	}
 
 	createCaConfigMap := func(name, namespace, data string) *k8sv1.ConfigMap {
-		decodedData, err := base64.StdEncoding.DecodeString(data)
-		Expect(err).ToNot(HaveOccurred())
-
 		dst := &k8sv1.ConfigMap{
 			ObjectMeta: metav1.ObjectMeta{
 				Name:      name,
 				Namespace: namespace,
 			},
 			Data: map[string]string{
-				caBundleKey: string(decodedData),
+				caBundleKey: data,
 			},
 		}
 

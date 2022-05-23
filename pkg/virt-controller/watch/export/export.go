@@ -22,7 +22,6 @@ package export
 import (
 	"context"
 	"crypto/rsa"
-	"encoding/base64"
 	"fmt"
 	"path"
 	"time"
@@ -796,11 +795,11 @@ func (ctrl *VMExportController) base64EncodeExportCa() (string, error) {
 	}
 	cm := obj.(*corev1.ConfigMap).DeepCopy()
 	bundle := cm.Data[caBundle]
-	return base64.StdEncoding.EncodeToString([]byte(bundle)), nil
+	return bundle, nil
 }
 
 func (ctrl *VMExportController) isSourcePvc(source *exportv1.VirtualMachineExportSpec) bool {
-	return source != nil && source.Source.APIGroup != nil && *source.Source.APIGroup == corev1.SchemeGroupVersion.Group && source.Source.Kind == "PersistentVolumeClaim"
+	return source != nil && (source.Source.APIGroup == nil || *source.Source.APIGroup == corev1.SchemeGroupVersion.Group) && source.Source.Kind == "PersistentVolumeClaim"
 }
 
 func (ctrl *VMExportController) getPvc(namespace, name string) (*corev1.PersistentVolumeClaim, bool, error) {
