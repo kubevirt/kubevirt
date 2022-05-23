@@ -2624,6 +2624,19 @@ var _ = Describe("[rfe_id:393][crit:high][vendor:cnv-qe@redhat.com][level:system
 				return err
 			}
 
+			unlimitMigrationBadwidth := func() {
+				err := virtClient.MigrationPolicy().Delete(context.Background(), util.NamespaceTestDefault, metav1.DeleteOptions{})
+				if errors.IsNotFound(err) {
+					return
+				}
+				Expect(err).ToNot(HaveOccurred())
+
+				Eventually(func() bool {
+					_, err = virtClient.MigrationPolicy().Get(context.Background(), util.NamespaceTestDefault, metav1.GetOptions{})
+					return errors.IsNotFound(err)
+				}, 45*time.Second, 3*time.Second).Should(BeTrue(), "migration policy should disappear after deletion")
+			}
+
 			DescribeTable("should be able to cancel a migration", func(createVMI vmiBuilder, with_virtctl bool) {
 				vmi := createVMI()
 				vmi.Spec.Domain.Resources.Requests[k8sv1.ResourceMemory] = resource.MustParse(fedoraVMSize)
@@ -2869,6 +2882,40 @@ var _ = Describe("[rfe_id:393][crit:high][vendor:cnv-qe@redhat.com][level:system
 					return errors.IsNotFound(err)
 				}, 45*time.Second, 3*time.Second).Should(BeTrue(), "orphan pod is expected to be deleted")
 			})
+
+			DescribeTable("should be able to migrate immediately after cancelling migration for a few times", func(withVirtctl bool) {
+				const numberOfCancellations = 3
+				vmi := tests.NewRandomFedoraVMIWithGuestAgent()
+				vmi.Spec.Domain.Resources.Requests[k8sv1.ResourceMemory] = resource.MustParse(fedoraVMSize)
+
+				By("Limiting the bandwidth of migrations in the test namespace")
+				Expect(limitMigrationBadwidth(resource.MustParse("1Ki"))).To(Succeed())
+
+				By("Starting the VirtualMachineInstance")
+				vmi = runVMIAndExpectLaunch(vmi, 240)
+
+				By(fmt.Sprintf("Starting and immediately cancelling migration for %d times", numberOfCancellations))
+				for i := 0; i < numberOfCancellations; i++ {
+					migration := tests.NewRandomMigration(vmi.Name, vmi.Namespace)
+					migration = runAndImmediatelyCancelMigration(migration, vmi, withVirtctl, 180)
+
+					Eventually(func() bool {
+						_, err = virtClient.VirtualMachineInstanceMigration(vmi.Namespace).Get(migration.Name, &metav1.GetOptions{})
+						return errors.IsNotFound(err)
+					}, 45*time.Second, 3*time.Second).Should(BeTrue(), fmt.Sprintf("migration %s is expected to disappear", migration.Name))
+				}
+
+				By("Remove limitation from migration bandwidth")
+				unlimitMigrationBadwidth()
+
+				By("Starting a migration and expect completion")
+				migration := tests.NewRandomMigration(vmi.Name, vmi.Namespace)
+				tests.RunMigrationAndExpectCompletion(virtClient, migration, tests.MigrationWaitTime)
+			},
+				Entry("with virtctl", true),
+				Entry("with deleting migration object", false),
+			)
+
 		})
 
 		Context("with a host-model cpu", func() {
