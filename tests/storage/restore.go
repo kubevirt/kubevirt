@@ -11,7 +11,7 @@ import (
 
 	"kubevirt.io/api/core"
 
-	"kubevirt.io/kubevirt/tests/libvmi"
+	"kubevirt.io/kubevirt/tests/libstorage"
 	"kubevirt.io/kubevirt/tests/util"
 
 	expect "github.com/google/goexpect"
@@ -196,6 +196,15 @@ var _ = SIGDescribe("VirtualMachineRestore Tests", func() {
 			err = nil
 		}
 		Expect(err).ToNot(HaveOccurred())
+	}
+
+	deletePVC := func(pvc *corev1.PersistentVolumeClaim) {
+		err := virtClient.CoreV1().PersistentVolumeClaims(pvc.Namespace).Delete(context.Background(), pvc.Name, metav1.DeleteOptions{})
+		if errors.IsNotFound(err) {
+			err = nil
+		}
+		Expect(err).ToNot(HaveOccurred())
+		pvc = nil
 	}
 
 	getMacAddressCloningPatch := func(sourceVM *v1.VirtualMachine) string {
@@ -718,6 +727,13 @@ var _ = SIGDescribe("VirtualMachineRestore Tests", func() {
 				return vm
 			}
 
+			checkNewVMEquality := func() {
+				Expect(newVM.Spec.Template.Spec.Volumes).To(HaveLen(len(vm.Spec.Template.Spec.Volumes)))
+				Expect(newVM.Spec.Template.Spec.Domain.Devices.Disks).To(HaveLen(len(vm.Spec.Template.Spec.Domain.Devices.Disks)))
+				Expect(newVM.Spec.Template.Spec.Domain.Devices.Interfaces).To(HaveLen(len(vm.Spec.Template.Spec.Domain.Devices.Interfaces)))
+				Expect(newVM.Spec.DataVolumeTemplates).To(HaveLen(len(vm.Spec.DataVolumeTemplates)))
+			}
+
 			doRestore := func(device string, login console.LoginToFunction, onlineSnapshot bool, expectedRestores int, targetVMName string) {
 				isRestoreToDifferentVM := targetVMName != vm.Name
 
@@ -773,11 +789,6 @@ var _ = SIGDescribe("VirtualMachineRestore Tests", func() {
 				verifyOriginalContent(device, targetVMI)
 
 				if isRestoreToDifferentVM {
-					Expect(targetVM.Spec.Template.Spec.Volumes).To(HaveLen(len(vm.Spec.Template.Spec.Volumes)))
-					Expect(targetVM.Spec.Template.Spec.Domain.Devices.Disks).To(HaveLen(len(vm.Spec.Template.Spec.Domain.Devices.Disks)))
-					Expect(targetVM.Spec.Template.Spec.Domain.Devices.Interfaces).To(HaveLen(len(vm.Spec.Template.Spec.Domain.Devices.Interfaces)))
-					Expect(targetVM.Spec.DataVolumeTemplates).To(HaveLen(len(vm.Spec.DataVolumeTemplates)))
-
 					newVM = targetVM
 				} else {
 					vm = targetVM
@@ -864,6 +875,7 @@ var _ = SIGDescribe("VirtualMachineRestore Tests", func() {
 
 				doRestore("", console.LoginToCirros, false, 1, getTargetVMName(restoreToNewVM, newVmName))
 				if restoreToNewVM {
+					checkNewVMEquality()
 					Expect(restore.Status.DeletedDataVolumes).To(HaveLen(0))
 				} else {
 					Expect(restore.Status.DeletedDataVolumes).To(HaveLen(1))
@@ -900,6 +912,9 @@ var _ = SIGDescribe("VirtualMachineRestore Tests", func() {
 
 				vm, vmi = createAndStartVM(vm)
 				doRestore("", console.LoginToCirros, false, 1, getTargetVMName(restoreToNewVM, newVmName))
+				if restoreToNewVM {
+					checkNewVMEquality()
+				}
 				Expect(restore.Status.DeletedDataVolumes).To(BeEmpty())
 
 				_, err = virtClient.CdiClient().CdiV1beta1().DataVolumes(vm.Namespace).Get(context.Background(), dv.Name, metav1.GetOptions{})
@@ -959,6 +974,9 @@ var _ = SIGDescribe("VirtualMachineRestore Tests", func() {
 				vm, vmi = createAndStartVM(vm)
 
 				doRestore("", console.LoginToCirros, false, 1, getTargetVMName(restoreToNewVM, newVmName))
+				if restoreToNewVM {
+					checkNewVMEquality()
+				}
 
 				Expect(restore.Status.DeletedDataVolumes).To(BeEmpty())
 				_, err = virtClient.CoreV1().PersistentVolumeClaims(vm.Namespace).Get(context.Background(), originalPVCName, metav1.GetOptions{})
@@ -1040,6 +1058,7 @@ var _ = SIGDescribe("VirtualMachineRestore Tests", func() {
 				doRestore("/dev/vdc", console.LoginToCirros, false, 1, getTargetVMName(restoreToNewVM, newVmName))
 
 				if restoreToNewVM {
+					checkNewVMEquality()
 					Expect(restore.Status.DeletedDataVolumes).To(HaveLen(0))
 				} else {
 					Expect(restore.Status.DeletedDataVolumes).To(HaveLen(1))
@@ -1161,6 +1180,9 @@ var _ = SIGDescribe("VirtualMachineRestore Tests", func() {
 				))
 
 				doRestore("", console.LoginToCirros, true, 1, getTargetVMName(restoreToNewVM, newVmName))
+				if restoreToNewVM {
+					checkNewVMEquality()
+				}
 
 			},
 				Entry("[test_id:6053] to the same VM", false),
@@ -1217,6 +1239,9 @@ var _ = SIGDescribe("VirtualMachineRestore Tests", func() {
 				tests.WaitAgentConnected(virtClient, vmi)
 
 				doRestore("/dev/vdc", console.LoginToFedora, true, 1, getTargetVMName(restoreToNewVM, newVmName))
+				if restoreToNewVM {
+					checkNewVMEquality()
+				}
 
 			},
 				Entry("[test_id:6766] to the same VM", false),
@@ -1237,6 +1262,7 @@ var _ = SIGDescribe("VirtualMachineRestore Tests", func() {
 				doRestore("", console.LoginToFedora, true, 1, getTargetVMName(restoreToNewVM, newVmName))
 				if restoreToNewVM {
 					Expect(restore.Status.DeletedDataVolumes).To(HaveLen(0))
+					checkNewVMEquality()
 				} else {
 					Expect(restore.Status.DeletedDataVolumes).To(HaveLen(1))
 					Expect(restore.Status.DeletedDataVolumes).To(ContainElement(originalDVName))
@@ -1312,6 +1338,9 @@ var _ = SIGDescribe("VirtualMachineRestore Tests", func() {
 				tempVolName := libvmi.AddVolumeAndVerify(virtClient, snapshotStorageClass, vm, true)
 
 				doRestore("", console.LoginToFedora, true, 2, getTargetVMName(restoreToNewVM, newVmName))
+				if restoreToNewVM {
+					checkNewVMEquality()
+				}
 
 				targetVM := getTargetVM(restoreToNewVM)
 				targetVMI, err := virtClient.VirtualMachineInstance(targetVM.Namespace).Get(targetVM.Name, &metav1.GetOptions{})
@@ -1332,6 +1361,84 @@ var _ = SIGDescribe("VirtualMachineRestore Tests", func() {
 				Entry("[test_id:7425] to the same VM", false),
 				Entry("to a new VM", true),
 			)
+
+			Context("with memory dump", func() {
+				var memoryDumpPVC *corev1.PersistentVolumeClaim
+				var memoryDumpPVCName string
+
+				BeforeEach(func() {
+					memoryDumpPVCName = "fs-pvc" + rand.String(5)
+					memoryDumpPVC = libstorage.NewPVC(memoryDumpPVCName, "1.5Gi", snapshotStorageClass)
+					volumeMode := corev1.PersistentVolumeFilesystem
+					memoryDumpPVC.Spec.VolumeMode = &volumeMode
+					var err error
+					memoryDumpPVC, err = virtClient.CoreV1().PersistentVolumeClaims(util.NamespaceTestDefault).Create(context.Background(), memoryDumpPVC, metav1.CreateOptions{})
+					if err != nil {
+						Skip(fmt.Sprintf("Skiping test, no filesystem pvc available, err: %s", err))
+					}
+				})
+
+				AfterEach(func() {
+					if memoryDumpPVC != nil {
+						deletePVC(memoryDumpPVC)
+					}
+				})
+
+				getMemoryDump := func(vmName, namespace, claimName string) {
+					Eventually(func() error {
+						memoryDumpRequest := &v1.VirtualMachineMemoryDumpRequest{
+							ClaimName: claimName,
+						}
+
+						return virtClient.VirtualMachine(namespace).MemoryDump(vmName, memoryDumpRequest)
+					}, 3*time.Second, 1*time.Second).ShouldNot(HaveOccurred())
+				}
+
+				waitMemoryDumpCompletion := func(vm *v1.VirtualMachine) {
+					Eventually(func() bool {
+						updatedVM, err := virtClient.VirtualMachine(vm.Namespace).Get(vm.Name, &metav1.GetOptions{})
+						Expect(err).ToNot(HaveOccurred())
+						if updatedVM.Status.MemoryDumpRequest == nil ||
+							updatedVM.Status.MemoryDumpRequest.Phase != v1.MemoryDumpCompleted {
+							return false
+						}
+
+						return true
+					}, 60*time.Second, time.Second).Should(BeTrue())
+				}
+
+				DescribeTable("should not restore memory dump volume", func(restoreToNewVM bool) {
+					vm, vmi = createAndStartVM(tests.NewRandomVMWithDataVolumeWithRegistryImport(
+						cd.DataVolumeImportUrlForContainerDisk(cd.ContainerDiskFedoraTestTooling),
+						util.NamespaceTestDefault,
+						snapshotStorageClass,
+						corev1.ReadWriteOnce))
+					tests.WaitAgentConnected(virtClient, vmi)
+					Expect(console.LoginToFedora(vmi)).To(Succeed())
+
+					By("Get VM memory dump")
+					getMemoryDump(vm.Name, vm.Namespace, memoryDumpPVCName)
+					waitMemoryDumpCompletion(vm)
+
+					doRestore("", console.LoginToFedora, true, 1, getTargetVMName(restoreToNewVM, newVmName))
+
+					targetVM := getTargetVM(restoreToNewVM)
+					targetVMI, err := virtClient.VirtualMachineInstance(targetVM.Namespace).Get(targetVM.Name, &metav1.GetOptions{})
+					Expect(err).ToNot(HaveOccurred())
+					Expect(targetVMI.Spec.Volumes).To(HaveLen(1))
+					foundMemoryDump := false
+					for _, volume := range targetVMI.Spec.Volumes {
+						if volume.Name == memoryDumpPVCName {
+							foundMemoryDump = true
+							break
+						}
+					}
+					Expect(foundMemoryDump).To(BeFalse())
+				},
+					Entry("to the same VM", false),
+					Entry("to a new VM", true),
+				)
+			})
 		})
 	})
 })

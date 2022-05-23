@@ -735,27 +735,45 @@ func (ctrl *VMSnapshotController) getVolumeSnapshotStatus(vm *kubevirtv1.Virtual
 
 func (ctrl *VMSnapshotController) isVolumeSnapshottable(volume *kubevirtv1.Volume) bool {
 	return volume.VolumeSource.PersistentVolumeClaim != nil ||
-		volume.VolumeSource.DataVolume != nil
+		volume.VolumeSource.DataVolume != nil ||
+		volume.VolumeSource.MemoryDump != nil
+}
+
+func (ctrl *VMSnapshotController) getStorageClassNameForPVC(pvcKey string) (string, error) {
+	obj, exists, err := ctrl.PVCInformer.GetStore().GetByKey(pvcKey)
+	if err != nil {
+		return "", err
+	}
+
+	if !exists {
+		log.Log.V(3).Infof("PVC not in cache [%s]", pvcKey)
+		return "", fmt.Errorf("PVC not found")
+	}
+	pvc := obj.(*corev1.PersistentVolumeClaim)
+	if pvc.Spec.StorageClassName != nil {
+		return *pvc.Spec.StorageClassName, nil
+	}
+	return "", nil
 }
 
 func (ctrl *VMSnapshotController) getVolumeStorageClass(namespace string, volume *kubevirtv1.Volume) (string, error) {
 	// TODO Add Ephemeral (add "|| volume.VolumeSource.Ephemeral != nil" to the `if` below)
 	if volume.VolumeSource.PersistentVolumeClaim != nil {
 		pvcKey := cacheKeyFunc(namespace, volume.VolumeSource.PersistentVolumeClaim.ClaimName)
-		obj, exists, err := ctrl.PVCInformer.GetStore().GetByKey(pvcKey)
+		storageClassName, err := ctrl.getStorageClassNameForPVC(pvcKey)
 		if err != nil {
 			return "", err
 		}
+		return storageClassName, nil
+	}
 
-		if !exists {
-			log.Log.V(3).Infof("PVC not in cache [%s]", pvcKey)
-			return "", fmt.Errorf("PVC not found")
+	if volume.VolumeSource.MemoryDump != nil {
+		pvcKey := cacheKeyFunc(namespace, volume.VolumeSource.MemoryDump.ClaimName)
+		storageClassName, err := ctrl.getStorageClassNameForPVC(pvcKey)
+		if err != nil {
+			return "", err
 		}
-		pvc := obj.(*corev1.PersistentVolumeClaim)
-		if pvc.Spec.StorageClassName != nil {
-			return *pvc.Spec.StorageClassName, nil
-		}
-		return "", nil
+		return storageClassName, nil
 	}
 
 	if volume.VolumeSource.DataVolume != nil {
@@ -817,23 +835,7 @@ func (ctrl *VMSnapshotController) getStorageClassNameForDV(namespace string, dvN
 	pvcKey := cacheKeyFunc(namespace, dvName)
 	// TODO Change when PVC rename PR is implemented
 
-	obj, exists, err = ctrl.PVCInformer.GetStore().GetByKey(pvcKey)
-	if err != nil {
-		return "", err
-	}
-
-	if !exists {
-		log.Log.V(3).Infof("PVC not in cache [%s]", pvcKey)
-		return "", fmt.Errorf("PVC for the DataVolume `%s` not found", dvName)
-	}
-
-	pvc := obj.(*corev1.PersistentVolumeClaim)
-	if pvc.Spec.StorageClassName != nil {
-		return *pvc.Spec.StorageClassName, nil
-	}
-
-	log.Log.V(3).Info("PVC has no StorageClassName")
-	return "", nil
+	return ctrl.getStorageClassNameForPVC(pvcKey)
 }
 
 func (ctrl *VMSnapshotController) getVM(vmSnapshot *snapshotv1.VirtualMachineSnapshot) (*kubevirtv1.VirtualMachine, error) {
@@ -905,27 +907,6 @@ func checkVMRunning(vm *kubevirtv1.VirtualMachine) (bool, error) {
 	}
 
 	return rs != kubevirtv1.RunStrategyHalted, nil
-}
-
-func getPVCsFromVolumes(volumes []kubevirtv1.Volume) map[string]string {
-	pvcs := map[string]string{}
-
-	for _, volume := range volumes {
-		var pvcName string
-
-		if volume.PersistentVolumeClaim != nil {
-			pvcName = volume.PersistentVolumeClaim.ClaimName
-		} else if volume.DataVolume != nil {
-			// TODO Change when PVC Renaming is merged.
-			pvcName = volume.DataVolume.Name
-		} else {
-			continue
-		}
-
-		pvcs[volume.Name] = pvcName
-	}
-
-	return pvcs
 }
 
 func updateSnapshotCondition(ss *snapshotv1.VirtualMachineSnapshot, c snapshotv1.Condition) {
