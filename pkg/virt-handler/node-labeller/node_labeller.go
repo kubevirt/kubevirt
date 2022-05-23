@@ -252,8 +252,8 @@ func (n *NodeLabeller) prepareLabels(cpuModels []string, cpuFeatures cpuFeatures
 		newLabels[kubevirtv1.SupportedHostModelMigrationCPU+value] = "true"
 	}
 
-	if _, hostModelObsolete := obsoleteCPUsx86[hostCpuModel.Name]; !hostModelObsolete {
-		newLabels[kubevirtv1.SupportedHostModelMigrationCPU+hostCpuModel.Name] = "true"
+	if _, hostModelObsolete := obsoleteCPUsx86[hostCpuModel.name]; !hostModelObsolete {
+		newLabels[kubevirtv1.SupportedHostModelMigrationCPU+hostCpuModel.name] = "true"
 	}
 
 	for _, key := range n.hypervFeatures.items {
