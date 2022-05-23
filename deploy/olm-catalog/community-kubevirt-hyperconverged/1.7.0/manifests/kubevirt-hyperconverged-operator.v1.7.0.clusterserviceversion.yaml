@@ -3,13 +3,13 @@ apiVersion: operators.coreos.com/v1alpha1
 kind: ClusterServiceVersion
 metadata:
   annotations:
-    alm-examples: '[{"apiVersion":"hco.kubevirt.io/v1beta1","kind":"HyperConverged","metadata":{"annotations":{"deployOVS":"false"},"name":"kubevirt-hyperconverged","namespace":"kubevirt-hyperconverged"},"spec":{}},{"apiVersion":"networkaddonsoperator.network.kubevirt.io/v1","kind":"NetworkAddonsConfig","metadata":{"name":"cluster"},"spec":{"imagePullPolicy":"IfNotPresent","kubeMacPool":{"rangeEnd":"FD:FF:FF:FF:FF:FF","rangeStart":"02:00:00:00:00:00"},"linuxBridge":{},"macvtap":{},"multus":{},"ovs":{}}},{"apiVersion":"kubevirt.io/v1","kind":"KubeVirt","metadata":{"name":"kubevirt","namespace":"kubevirt"},"spec":{"imagePullPolicy":"Always"}},{"apiVersion":"ssp.kubevirt.io/v1beta1","kind":"SSP","metadata":{"name":"ssp-sample","namespace":"kubevirt"},"spec":{"commonTemplates":{"namespace":"kubevirt"},"templateValidator":{"replicas":2}}},{"apiVersion":"tektontasks.kubevirt.io/v1alpha1","kind":"TektonTasks","metadata":{"name":"tektontasks-sample","namespace":"kubevirt"},"spec":{"featureGates":{"deployTektonTaskResources":true},"pipelines":{"namespace":"kubevirt"}}},{"apiVersion":"cdi.kubevirt.io/v1beta1","kind":"CDI","metadata":{"name":"cdi","namespace":"cdi"},"spec":{"imagePullPolicy":"IfNotPresent"}},{"apiVersion":"hostpathprovisioner.kubevirt.io/v1beta1","kind":"HostPathProvisioner","metadata":{"name":"hostpath-provisioner"},"spec":{"imagePullPolicy":"IfNotPresent","storagePools":[{"name":"local","path":"/var/hpvolumes","pvcTemplate":{"accessModes":"ReadWriteOnce","resources":{"requests":{"storage":"50Gi"}}}}],"workload":{"nodeSelector":{"kubernetes.io/os":"linux"}}}}]'
+    alm-examples: '[{"apiVersion":"hco.kubevirt.io/v1beta1","kind":"HyperConverged","metadata":{"annotations":{"deployOVS":"false"},"name":"kubevirt-hyperconverged","namespace":"kubevirt-hyperconverged"},"spec":{}},{"apiVersion":"networkaddonsoperator.network.kubevirt.io/v1","kind":"NetworkAddonsConfig","metadata":{"name":"cluster"},"spec":{"imagePullPolicy":"IfNotPresent","kubeMacPool":{"rangeEnd":"FD:FF:FF:FF:FF:FF","rangeStart":"02:00:00:00:00:00"},"linuxBridge":{},"macvtap":{},"multus":{},"ovs":{}}},{"apiVersion":"kubevirt.io/v1","kind":"KubeVirt","metadata":{"name":"kubevirt","namespace":"kubevirt"},"spec":{"imagePullPolicy":"Always"}},{"apiVersion":"ssp.kubevirt.io/v1beta1","kind":"SSP","metadata":{"name":"ssp-sample","namespace":"kubevirt"},"spec":{"commonTemplates":{"namespace":"kubevirt"},"templateValidator":{"replicas":2}}},{"apiVersion":"tektontasks.kubevirt.io/v1alpha1","kind":"TektonTasks","metadata":{"name":"tektontasks-sample","namespace":"kubevirt"},"spec":{"featureGates":{"deployTektonTaskResources":true},"pipelines":{"namespace":"kubevirt"}}},{"apiVersion":"cdi.kubevirt.io/v1beta1","kind":"CDI","metadata":{"name":"cdi","namespace":"cdi"},"spec":{"imagePullPolicy":"IfNotPresent"}},{"apiVersion":"hostpathprovisioner.kubevirt.io/v1beta1","kind":"HostPathProvisioner","metadata":{"name":"hostpath-provisioner"},"spec":{"imagePullPolicy":"IfNotPresent","storagePools":[{"name":"local","path":"/var/hpvolumes","pvcTemplate":{"accessModes":["ReadWriteOnce"],"resources":{"requests":{"storage":"50Gi"}}}}],"workload":{"nodeSelector":{"kubernetes.io/os":"linux"}}}}]'
     capabilities: Deep Insights
     categories: OpenShift Optional
     certified: "false"
     console.openshift.io/disable-operand-delete: "true"
     containerImage: quay.io/kubevirt/hyperconverged-cluster-operator:1.7.0-unstable
-    createdAt: "2022-05-18 20:05:10"
+    createdAt: "2022-05-22 10:02:34"
     description: A unified operator deploying and controlling KubeVirt and its supporting
       operators with opinionated defaults
     operatorframework.io/initialization-resource: '{"apiVersion":"hco.kubevirt.io/v1beta1","kind":"HyperConverged","metadata":{"annotations":{"deployOVS":"false"},"name":"kubevirt-hyperconverged","namespace":"kubevirt-hyperconverged"},"spec":{}}'
@@ -2406,7 +2406,7 @@ spec:
                 - name: TTO_VERSION
                   value: v0.3.0
                 - name: HPPO_VERSION
-                  value: v0.12.1
+                  value: v0.13.0
                 - name: KV_CONSOLE_PLUGIN_IMAGE
                   value: quay.io/kubevirt-ui/kubevirt-plugin@sha256:341713582ed3d5ea2aff4325e28d86a5633025b35ff252846910c955f1917aca
                 image: quay.io/kubevirt/hyperconverged-cluster-operator:1.7.0-unstable
@@ -2990,7 +2990,7 @@ spec:
                 - name: OPERATOR_NAME
                   value: hostpath-provisioner-operator
                 - name: OPERATOR_IMAGE
-                  value: quay.io/kubevirt/hostpath-provisioner-operator@sha256:4b1a5fdcb41ae0ae9360374ae9f9830441f60d0c088beb02c614dc26315ae194
+                  value: quay.io/kubevirt/hostpath-provisioner-operator@sha256:ffde3b1c4b682de6c3ca1932bbb9526a794b214560a262608d3a4c43b9aa7481
                 - name: PROVISIONER_IMAGE
                   value: quay.io/kubevirt/hostpath-provisioner@sha256:4cb822e4bf8f4a60fc93a6b86321bf4bb595408f5e6efb3ee8a00f2c5be126fe
                 - name: CSI_PROVISIONER_IMAGE
@@ -3008,7 +3008,7 @@ spec:
                 - name: MONITORING_NAMESPACE
                 - name: PRIORITY_CLASS
                   value: kubevirt-cluster-critical
-                image: quay.io/kubevirt/hostpath-provisioner-operator@sha256:4b1a5fdcb41ae0ae9360374ae9f9830441f60d0c088beb02c614dc26315ae194
+                image: quay.io/kubevirt/hostpath-provisioner-operator@sha256:ffde3b1c4b682de6c3ca1932bbb9526a794b214560a262608d3a4c43b9aa7481
                 imagePullPolicy: IfNotPresent
                 livenessProbe:
                   failureThreshold: 1
@@ -3456,7 +3456,7 @@ spec:
     name: hostpath-csi-driver
   - image: quay.io/kubevirt/hostpath-provisioner@sha256:4cb822e4bf8f4a60fc93a6b86321bf4bb595408f5e6efb3ee8a00f2c5be126fe
     name: hostpath-provisioner
-  - image: quay.io/kubevirt/hostpath-provisioner-operator@sha256:4b1a5fdcb41ae0ae9360374ae9f9830441f60d0c088beb02c614dc26315ae194
+  - image: quay.io/kubevirt/hostpath-provisioner-operator@sha256:ffde3b1c4b682de6c3ca1932bbb9526a794b214560a262608d3a4c43b9aa7481
     name: hostpath-provisioner-operator
   - image: quay.io/kubevirt/hyperconverged-cluster-operator:1.7.0-unstable
     name: hyperconverged-cluster-operator
