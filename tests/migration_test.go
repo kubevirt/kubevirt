@@ -2699,7 +2699,7 @@ var _ = Describe("[rfe_id:393][crit:high][vendor:cnv-qe@redhat.com][level:system
 				expectFeatureToBeSupportedOnNode(newNode, requiredFeatures)
 			})
 
-			Context("[Serial]Should trigger event", func() {
+			Context("[Serial]Should trigger event if vmi with host-model start on source node with uniq host-model", func() {
 
 				var originalNodeLabels map[string]string
 				var originalNodeAnnotations map[string]string
@@ -2760,6 +2760,89 @@ var _ = Describe("[rfe_id:393][crit:high][vendor:cnv-qe@redhat.com][level:system
 						labelValue, ok := node.Labels[v1.HostModelCPULabel+"fake-model"]
 						return ok && labelValue == "true"
 					}, 10*time.Second, 1*time.Second).Should(BeTrue(), "Node should have fake host model")
+
+					By("Starting the migration")
+					migration := tests.NewRandomMigration(vmi.Name, vmi.Namespace)
+					_ = tests.RunMigration(virtClient, migration)
+
+					By("Expecting for an alert to be triggered")
+					Eventually(func() []k8sv1.Event {
+						events, err := virtClient.CoreV1().Events(vmi.Namespace).List(
+							context.Background(),
+							metav1.ListOptions{
+								FieldSelector: fmt.Sprintf("type=%s,reason=%s", k8sv1.EventTypeWarning, watch.NoSuitableNodesForHostModelMigration),
+							},
+						)
+						Expect(err).ToNot(HaveOccurred())
+
+						return events.Items
+					}, 30*time.Second, 1*time.Second).Should(HaveLen(1), "Exactly one alert is expected")
+				})
+
+			})
+
+			Context("[Serial]Should trigger event if the nodes doesn't contain MigrationSelectorLabel for the vmi host-model type", func() {
+
+				var originalNodeLabels []map[string]string
+				var originalNodeAnnotations []map[string]string
+				var vmi *v1.VirtualMachineInstance
+				var backupNodes []k8sv1.Node
+
+				BeforeEach(func() {
+					backupNodes = libnode.GetAllSchedulableNodes(virtClient).Items
+					if len(backupNodes) == 1 || len(backupNodes) > 10 {
+						Skip("This test can't run with single node and it's too slow to run with more than 10 nodes")
+					}
+					originalNodeLabels = make([]map[string]string, len(backupNodes))
+					originalNodeAnnotations = make([]map[string]string, len(backupNodes))
+					By("Creating a VMI with default CPU mode")
+					vmi = alpineVMIWithEvictionStrategy()
+					vmi.Spec.Domain.CPU = &v1.CPU{Model: v1.CPUModeHostModel}
+
+					By("Starting the VirtualMachineInstance")
+					vmi = runVMIAndExpectLaunch(vmi, 240)
+
+					for indx, node := range backupNodes {
+						originalNodeLabels[indx] = copyMap(node.Labels)
+						originalNodeAnnotations[indx] = copyMap(node.Annotations)
+						disableNodeLabeller(&node, virtClient)
+					}
+				})
+
+				AfterEach(func() {
+					By("Restore node to its original state")
+					for indx, node := range backupNodes {
+						currNode, err := virtClient.CoreV1().Nodes().Get(context.Background(), node.Name, metav1.GetOptions{})
+						Expect(err).ShouldNot(HaveOccurred())
+						currNode.Labels = originalNodeLabels[indx]
+						currNode.Annotations = originalNodeAnnotations[indx]
+						_, err = virtClient.CoreV1().Nodes().Update(context.Background(), currNode, metav1.UpdateOptions{})
+						Expect(err).ShouldNot(HaveOccurred())
+					}
+					for indx, node := range backupNodes {
+						var currNode *k8sv1.Node
+						Eventually(func() map[string]string {
+							currNode, err = virtClient.CoreV1().Nodes().Get(context.Background(), node.Name, metav1.GetOptions{})
+							Expect(err).ShouldNot(HaveOccurred())
+							return currNode.Labels
+						}, 10*time.Second, 1*time.Second).Should(Equal(originalNodeLabels[indx]), "Node should have original labels")
+						Expect(currNode.Annotations).To(Equal(originalNodeAnnotations[indx]))
+					}
+
+				})
+
+				It(" no node contain suited SupportedHostModelMigrationCPU label", func() {
+					By("Changing node labels to support fake host model")
+					// Remove all supported host models
+					for _, node := range backupNodes {
+						currNode, err := virtClient.CoreV1().Nodes().Get(context.Background(), node.Name, metav1.GetOptions{})
+						Expect(err).ShouldNot(HaveOccurred())
+						for key, _ := range currNode.Labels {
+							if strings.HasPrefix(key, v1.SupportedHostModelMigrationCPU) {
+								delete(currNode.Labels, key)
+							}
+						}
+					}
 
 					By("Starting the migration")
 					migration := tests.NewRandomMigration(vmi.Name, vmi.Namespace)
