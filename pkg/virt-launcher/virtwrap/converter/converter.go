@@ -65,15 +65,11 @@ import (
 
 const deviceTypeNotCompatibleFmt = "device %s is of type lun. Not compatible with a file based disk"
 
-type HostDeviceType string
-
 // The location of uefi boot loader on ARM64 is different from that on x86
 const (
-	defaultIOThread                 = uint(1)
-	HostDevicePCI    HostDeviceType = "pci"
-	HostDeviceMDEV   HostDeviceType = "mdev"
-	resolvConf                      = "/etc/resolv.conf"
-	SEVPolicyNoDebug                = "0x1"
+	defaultIOThread  = uint(1)
+	resolvConf       = "/etc/resolv.conf"
+	SEVPolicyNoDebug = "0x1"
 )
 
 const (
@@ -84,11 +80,6 @@ const (
 type deviceNamer struct {
 	existingNameMap map[string]string
 	usedDeviceMap   map[string]string
-}
-
-type HostDevicesList struct {
-	Type     HostDeviceType
-	AddrList []string
 }
 
 type EFIConfiguration struct {
