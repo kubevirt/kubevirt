@@ -93,18 +93,20 @@ var _ = Describe("[Serial][sig-compute]MediatedDevices", func() {
 	noGPUDevicesAreAvailable := func() {
 		Eventually(checkAllMDEVRemoved, 2*time.Minute, 10*time.Second).Should(BeInPhase(k8sv1.PodSucceeded))
 
-		Eventually(func() bool {
+		Eventually(func() int64 {
 			nodes, err := virtClient.CoreV1().Nodes().List(context.Background(), metav1.ListOptions{})
 			Expect(err).ToNot(HaveOccurred())
 			for _, node := range nodes.Items {
 				for key, amount := range node.Status.Capacity {
-					if strings.HasPrefix(string(key), "nvidia.com/") && !amount.IsZero() {
-						return true
+					if strings.HasPrefix(string(key), "nvidia.com/") {
+						ret, ok := amount.AsInt64()
+						Expect(ok).To(BeTrue())
+						return ret
 					}
 				}
 			}
-			return false
-		}, 60).Should(BeFalse(), "wait for the kubelet to stop promoting unconfigured devices")
+			return 0
+		}, 60).Should(BeZero(), "wait for the kubelet to stop promoting unconfigured devices")
 	}
 	Context("with mediated devices configuration", func() {
 		var vmi *v1.VirtualMachineInstance
