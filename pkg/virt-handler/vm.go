@@ -909,7 +909,7 @@ func (d *VirtualMachineController) updateLiveMigrationConditions(vmi *v1.Virtual
 
 	evictable := migrations.VMIMigratableOnEviction(d.clusterConfig, vmi)
 	if evictable && liveMigrationCondition.Status == k8sv1.ConditionFalse {
-		d.recorder.Event(vmi, k8sv1.EventTypeWarning, v1.Migrated.String(), "EvictionStrategy is set but vmi is not migratable")
+		d.recorder.Eventf(vmi, k8sv1.EventTypeWarning, v1.Migrated.String(), "EvictionStrategy is set but vmi is not migratable; %s", liveMigrationCondition.Message)
 	}
 }
 
