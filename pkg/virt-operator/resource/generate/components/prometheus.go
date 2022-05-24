@@ -19,6 +19,7 @@ const (
 	partOfAlertLabelValue         = "kubevirt"
 	componentAlertLabelKey        = "kubernetes_operator_component"
 	componentAlertLabelValue      = "kubevirt"
+	infraAlertLabelKey            = "infra_alert"
 	durationFiveMinutes           = "5 minutes"
 )
 
@@ -110,6 +111,7 @@ func NewPrometheusRuleSpec(ns string, workloadUpdatesEnabled bool) *v1.Prometheu
 						},
 						Labels: map[string]string{
 							severityAlertLabelKey: "critical",
+							infraAlertLabelKey:    "true",
 						},
 					},
 					{
@@ -126,6 +128,7 @@ func NewPrometheusRuleSpec(ns string, workloadUpdatesEnabled bool) *v1.Prometheu
 						},
 						Labels: map[string]string{
 							severityAlertLabelKey: "warning",
+							infraAlertLabelKey:    "true",
 						},
 					},
 					{
@@ -143,6 +146,7 @@ func NewPrometheusRuleSpec(ns string, workloadUpdatesEnabled bool) *v1.Prometheu
 						},
 						Labels: map[string]string{
 							severityAlertLabelKey: "warning",
+							infraAlertLabelKey:    "true",
 						},
 					},
 					{
@@ -167,6 +171,7 @@ func NewPrometheusRuleSpec(ns string, workloadUpdatesEnabled bool) *v1.Prometheu
 						},
 						Labels: map[string]string{
 							severityAlertLabelKey: "warning",
+							infraAlertLabelKey:    "true",
 						},
 					},
 					{
@@ -179,6 +184,7 @@ func NewPrometheusRuleSpec(ns string, workloadUpdatesEnabled bool) *v1.Prometheu
 						},
 						Labels: map[string]string{
 							severityAlertLabelKey: "critical",
+							infraAlertLabelKey:    "true",
 						},
 					},
 					{
@@ -191,6 +197,7 @@ func NewPrometheusRuleSpec(ns string, workloadUpdatesEnabled bool) *v1.Prometheu
 						},
 						Labels: map[string]string{
 							severityAlertLabelKey: "critical",
+							infraAlertLabelKey:    "true",
 						},
 					},
 					{
@@ -203,6 +210,7 @@ func NewPrometheusRuleSpec(ns string, workloadUpdatesEnabled bool) *v1.Prometheu
 						},
 						Labels: map[string]string{
 							severityAlertLabelKey: "warning",
+							infraAlertLabelKey:    "true",
 						},
 					},
 					{
@@ -214,6 +222,7 @@ func NewPrometheusRuleSpec(ns string, workloadUpdatesEnabled bool) *v1.Prometheu
 						},
 						Labels: map[string]string{
 							severityAlertLabelKey: "warning",
+							infraAlertLabelKey:    "true",
 						},
 					},
 					{
@@ -226,6 +235,7 @@ func NewPrometheusRuleSpec(ns string, workloadUpdatesEnabled bool) *v1.Prometheu
 						},
 						Labels: map[string]string{
 							severityAlertLabelKey: "critical",
+							infraAlertLabelKey:    "true",
 						},
 					},
 					{
@@ -244,6 +254,7 @@ func NewPrometheusRuleSpec(ns string, workloadUpdatesEnabled bool) *v1.Prometheu
 						},
 						Labels: map[string]string{
 							severityAlertLabelKey: "critical",
+							infraAlertLabelKey:    "true",
 						},
 					},
 					{
@@ -256,6 +267,7 @@ func NewPrometheusRuleSpec(ns string, workloadUpdatesEnabled bool) *v1.Prometheu
 						},
 						Labels: map[string]string{
 							severityAlertLabelKey: "warning",
+							infraAlertLabelKey:    "true",
 						},
 					},
 					{
@@ -267,6 +279,7 @@ func NewPrometheusRuleSpec(ns string, workloadUpdatesEnabled bool) *v1.Prometheu
 						},
 						Labels: map[string]string{
 							severityAlertLabelKey: "warning",
+							infraAlertLabelKey:    "true",
 						},
 					},
 					{
@@ -279,6 +292,7 @@ func NewPrometheusRuleSpec(ns string, workloadUpdatesEnabled bool) *v1.Prometheu
 						},
 						Labels: map[string]string{
 							severityAlertLabelKey: "critical",
+							infraAlertLabelKey:    "true",
 						},
 					},
 					{
@@ -303,6 +317,7 @@ func NewPrometheusRuleSpec(ns string, workloadUpdatesEnabled bool) *v1.Prometheu
 						},
 						Labels: map[string]string{
 							severityAlertLabelKey: "warning",
+							infraAlertLabelKey:    "true",
 						},
 					},
 					{
@@ -315,6 +330,7 @@ func NewPrometheusRuleSpec(ns string, workloadUpdatesEnabled bool) *v1.Prometheu
 						},
 						Labels: map[string]string{
 							severityAlertLabelKey: "critical",
+							infraAlertLabelKey:    "true",
 						},
 					},
 					{
@@ -327,6 +343,7 @@ func NewPrometheusRuleSpec(ns string, workloadUpdatesEnabled bool) *v1.Prometheu
 						},
 						Labels: map[string]string{
 							severityAlertLabelKey: "critical",
+							infraAlertLabelKey:    "true",
 						},
 					},
 					{
@@ -346,6 +363,7 @@ func NewPrometheusRuleSpec(ns string, workloadUpdatesEnabled bool) *v1.Prometheu
 						},
 						Labels: map[string]string{
 							severityAlertLabelKey: "warning",
+							infraAlertLabelKey:    "true",
 						},
 					},
 					{
@@ -357,6 +375,7 @@ func NewPrometheusRuleSpec(ns string, workloadUpdatesEnabled bool) *v1.Prometheu
 						},
 						Labels: map[string]string{
 							severityAlertLabelKey: "warning",
+							infraAlertLabelKey:    "true",
 						},
 					},
 					{
@@ -369,6 +388,7 @@ func NewPrometheusRuleSpec(ns string, workloadUpdatesEnabled bool) *v1.Prometheu
 						},
 						Labels: map[string]string{
 							severityAlertLabelKey: "critical",
+							infraAlertLabelKey:    "true",
 						},
 					},
 					{
@@ -379,6 +399,7 @@ func NewPrometheusRuleSpec(ns string, workloadUpdatesEnabled bool) *v1.Prometheu
 						},
 						Labels: map[string]string{
 							severityAlertLabelKey: "warning",
+							infraAlertLabelKey:    "true",
 						},
 					},
 					{
@@ -390,6 +411,7 @@ func NewPrometheusRuleSpec(ns string, workloadUpdatesEnabled bool) *v1.Prometheu
 						},
 						Labels: map[string]string{
 							severityAlertLabelKey: "critical",
+							infraAlertLabelKey:    "true",
 						},
 					},
 					{
@@ -415,6 +437,7 @@ func NewPrometheusRuleSpec(ns string, workloadUpdatesEnabled bool) *v1.Prometheu
 						},
 						Labels: map[string]string{
 							severityAlertLabelKey: "warning",
+							infraAlertLabelKey:    "false",
 						},
 					},
 					{
@@ -431,6 +454,7 @@ func NewPrometheusRuleSpec(ns string, workloadUpdatesEnabled bool) *v1.Prometheu
 						},
 						Labels: map[string]string{
 							severityAlertLabelKey: "warning",
+							infraAlertLabelKey:    "true",
 						},
 					},
 					{
@@ -444,6 +468,7 @@ func NewPrometheusRuleSpec(ns string, workloadUpdatesEnabled bool) *v1.Prometheu
 						},
 						Labels: map[string]string{
 							severityAlertLabelKey: "warning",
+							infraAlertLabelKey:    "false",
 						},
 					},
 					{
@@ -457,6 +482,7 @@ func NewPrometheusRuleSpec(ns string, workloadUpdatesEnabled bool) *v1.Prometheu
 						},
 						Labels: map[string]string{
 							severityAlertLabelKey: "warning",
+							infraAlertLabelKey:    "true",
 						},
 					},
 					{
@@ -472,6 +498,7 @@ func NewPrometheusRuleSpec(ns string, workloadUpdatesEnabled bool) *v1.Prometheu
 						},
 						Labels: map[string]string{
 							severityAlertLabelKey: "warning",
+							infraAlertLabelKey:    "true",
 						},
 					},
 					{
@@ -503,6 +530,7 @@ func NewPrometheusRuleSpec(ns string, workloadUpdatesEnabled bool) *v1.Prometheu
 			},
 			Labels: map[string]string{
 				severityAlertLabelKey: "warning",
+				infraAlertLabelKey:    "true",
 			},
 		})
 	}
