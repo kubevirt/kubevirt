@@ -70,7 +70,6 @@ type AppComponent string
 const (
 	AppComponentCompute    AppComponent = "compute"
 	AppComponentStorage    AppComponent = "storage"
-	AppComponentImport     AppComponent = "import"
 	AppComponentNetwork    AppComponent = "network"
 	AppComponentMonitoring AppComponent = "monitoring"
 	AppComponentSchedule   AppComponent = "schedule"

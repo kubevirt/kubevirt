@@ -1,14 +1,10 @@
 package util
 
 import (
-	"context"
-
-	"github.com/go-logr/logr"
 	csvv1alpha1 "github.com/operator-framework/api/pkg/operators/v1alpha1"
 	corev1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/client-go/tools/record"
-	"sigs.k8s.io/controller-runtime/pkg/client"
 )
 
 var (
@@ -20,7 +16,7 @@ func GetEventEmitter() EventEmitter {
 }
 
 type EventEmitter interface {
-	Init(ctx context.Context, cl client.Client, recorder record.EventRecorder, logger logr.Logger)
+	Init(pod *corev1.Pod, csv *csvv1alpha1.ClusterServiceVersion, recorder record.EventRecorder)
 	EmitEvent(object runtime.Object, eventType, reason, msg string)
 }
 
@@ -30,9 +26,10 @@ type eventEmitter struct {
 	csv      *csvv1alpha1.ClusterServiceVersion
 }
 
-func (ee *eventEmitter) Init(ctx context.Context, cl client.Client, recorder record.EventRecorder, logger logr.Logger) {
+func (ee *eventEmitter) Init(pod *corev1.Pod, csv *csvv1alpha1.ClusterServiceVersion, recorder record.EventRecorder) {
 	ee.recorder = recorder //mgr.GetEventRecorderFor(HyperConvergedName)
-	ee.getResource(ctx, cl, logger)
+	ee.pod = pod
+	ee.csv = csv
 }
 
 func (ee eventEmitter) EmitEvent(object runtime.Object, eventType, reason, msg string) {
@@ -46,26 +43,5 @@ func (ee eventEmitter) EmitEvent(object runtime.Object, eventType, reason, msg s
 
 	if ee.csv != nil {
 		ee.recorder.Event(ee.csv, eventType, reason, msg)
-	}
-}
-
-func (ee *eventEmitter) getResource(ctx context.Context, cl client.Reader, logger logr.Logger) {
-	if !GetClusterInfo().IsRunningLocally() {
-		var err error
-
-		ee.pod, err = GetPod(ctx, cl, logger)
-		if err != nil {
-			ee.pod = nil
-			logger.Error(err, "Can't get self pod")
-		}
-	}
-
-	if GetClusterInfo().IsOpenshift() {
-		var err error
-		ee.csv, err = GetCSVfromPod(ee.pod, cl, logger)
-		if err != nil {
-			logger.Error(err, "Can't get CSV")
-			ee.csv = nil
-		}
 	}
 }

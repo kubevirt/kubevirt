@@ -21,16 +21,19 @@ DO=eval
 export JOB_TYPE=prow
 endif
 
-sanity: generate generate-doc validate-no-offensive-lang
+sanity: generate generate-doc validate-no-offensive-lang goimport
 	go version
 	go fmt ./...
-	go install golang.org/x/tools/cmd/goimports@latest
-	goimports -w -local="kubevirt.io,github.com/kubevirt,github.com/kubevirt/hyperconverged-cluster-operator"  $(shell find . -type f -name '*.go' ! -path "*/vendor/*" ! -path "./_kubevirtci/*" ! -path "*zz_generated*" )
 	go mod tidy -v
 	go mod vendor
 	./hack/build-manifests.sh
 	git add -N vendor
 	git difftool -y --trust-exit-code --extcmd=./hack/diff-csv.sh
+
+goimport:
+	go install golang.org/x/tools/cmd/goimports@latest
+	goimports -w -local="kubevirt.io,github.com/kubevirt,github.com/kubevirt/hyperconverged-cluster-operator"  $(shell find . -type f -name '*.go' ! -path "*/vendor/*" ! -path "./_kubevirtci/*" ! -path "*zz_generated*" )
+
 
 lint:
 	golangci-lint run
@@ -261,4 +264,6 @@ validate-no-offensive-lang:
 		build-docgen \
 		generate \
 		generate-doc \
-		validate-no-offensive-lang
+		validate-no-offensive-lang \
+		sanity \
+		goimport

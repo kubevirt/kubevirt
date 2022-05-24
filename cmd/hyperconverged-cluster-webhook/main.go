@@ -94,7 +94,7 @@ func main() {
 	cmdHelper.ExitOnError(err, "Cannot detect cluster type")
 
 	eventEmitter := hcoutil.GetEventEmitter()
-	eventEmitter.Init(ctx, apiClient, mgr.GetEventRecorderFor(hcoutil.HyperConvergedName), logger)
+	eventEmitter.Init(ci.GetPod(), ci.GetCSV(), mgr.GetEventRecorderFor(hcoutil.HyperConvergedName))
 
 	err = mgr.AddHealthzCheck("ping", healthz.Ping)
 	cmdHelper.ExitOnError(err, "unable to add health check")

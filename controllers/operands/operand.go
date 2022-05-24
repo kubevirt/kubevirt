@@ -5,16 +5,13 @@ import (
 	"errors"
 	"fmt"
 	"os"
-	"reflect"
 	"strings"
 
 	jsonpatch "github.com/evanphx/json-patch"
 	conditionsv1 "github.com/openshift/custom-resource-status/conditions/v1"
-	objectreferencesv1 "github.com/openshift/custom-resource-status/objectreferences/v1"
 	apierrors "k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/runtime"
-	"k8s.io/client-go/tools/reference"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 	"sigs.k8s.io/controller-runtime/pkg/client/config"
 	"sigs.k8s.io/controller-runtime/pkg/controller/controllerutil"
@@ -192,25 +189,15 @@ func (h *genericOperand) completeEnsureOperands(req *common.HcoRequest, opr hcoO
 }
 
 func (h *genericOperand) addCrToTheRelatedObjectList(req *common.HcoRequest, found client.Object) error {
-	// Add it to the list of RelatedObjects if found
-	objectRef, err := reference.GetReference(h.Scheme, found)
+
+	changed, err := hcoutil.AddCrToTheRelatedObjectList(&req.Instance.Status.RelatedObjects, found, h.Scheme)
 	if err != nil {
 		return err
 	}
 
-	existingRef, err := objectreferencesv1.FindObjectReference(req.Instance.Status.RelatedObjects, *objectRef)
-	if err != nil {
-		return err
-	}
-	if existingRef != nil && !reflect.DeepEqual(existingRef, *objectRef) {
+	if changed {
 		req.StatusDirty = true
 	}
-
-	err = objectreferencesv1.SetObjectReference(&req.Instance.Status.RelatedObjects, *objectRef)
-	if err != nil {
-		return err
-	}
-
 	return nil
 }
 
@@ -425,13 +412,7 @@ func getLabels(hc *hcov1beta1.HyperConverged, component hcoutil.AppComponent) ma
 		hcoName = hc.Name
 	}
 
-	return map[string]string{
-		hcoutil.AppLabel:          hcoName,
-		hcoutil.AppLabelManagedBy: hcoutil.OperatorName,
-		hcoutil.AppLabelVersion:   hcoutil.GetHcoKvIoVersion(),
-		hcoutil.AppLabelPartOf:    hcoutil.HyperConvergedCluster,
-		hcoutil.AppLabelComponent: string(component),
-	}
+	return hcoutil.GetLabels(hcoName, component)
 }
 
 func applyAnnotationPatch(obj runtime.Object, annotation string) error {

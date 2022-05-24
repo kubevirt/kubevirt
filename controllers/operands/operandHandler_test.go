@@ -94,11 +94,6 @@ var _ = Describe("Test operandHandler", func() {
 				{
 					EventType: corev1.EventTypeNormal,
 					Reason:    "Created",
-					Msg:       "Created PrometheusRule kubevirt-hyperconverged-prometheus-rule",
-				},
-				{
-					EventType: corev1.EventTypeNormal,
-					Reason:    "Created",
 					Msg:       "Created ConsoleQuickStart test-quick-start",
 				},
 				{

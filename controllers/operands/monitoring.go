@@ -2,7 +2,6 @@ package operands
 
 import (
 	"errors"
-	"fmt"
 	"os"
 	"reflect"
 
@@ -21,27 +20,10 @@ import (
 )
 
 const (
-	operatorPortName              = "http-metrics"
-	defaultOperatorName           = "hyperconverged-cluster-operator"
-	operatorNameEnv               = "OPERATOR_NAME"
-	metricsSuffix                 = "-operator-metrics"
-	alertRuleGroup                = "kubevirt.hyperconverged.rules"
-	outOfBandUpdateAlert          = "KubevirtHyperconvergedClusterOperatorCRModification"
-	unsafeModificationAlert       = "KubevirtHyperconvergedClusterOperatorUSModification"
-	installationNotCompletedAlert = "KubevirtHyperconvergedClusterOperatorInstallationNotCompletedAlert"
-	severityAlertLabelKey         = "severity"
-	partOfAlertLabelKey           = "kubernetes_operator_part_of"
-	partOfAlertLabelValue         = "kubevirt"
-	componentAlertLabelKey        = "kubernetes_operator_component"
-	componentAlertLabelValue      = "hyperconverged-cluster-operator"
-)
-
-var (
-	runbookUrlTemplate = "https://kubevirt.io/monitoring/runbooks/%s"
-
-	outOfBandUpdateRunbookUrl          = fmt.Sprintf(runbookUrlTemplate, outOfBandUpdateAlert)
-	unsafeModificationRunbookUrl       = fmt.Sprintf(runbookUrlTemplate, unsafeModificationAlert)
-	installationNotCompletedRunbookUrl = fmt.Sprintf(runbookUrlTemplate, installationNotCompletedAlert)
+	operatorPortName    = "http-metrics"
+	defaultOperatorName = "hyperconverged-cluster-operator"
+	operatorNameEnv     = "OPERATOR_NAME"
+	metricsSuffix       = "-operator-metrics"
 )
 
 // NewMetricsService creates service for prometheus metrics
@@ -141,130 +123,5 @@ func NewServiceMonitor(hc *hcov1beta1.HyperConverged, namespace string) *monitor
 			Namespace: namespace,
 		},
 		Spec: spec,
-	}
-}
-
-type monitoringPrometheusRuleHandler genericOperand
-
-func newMonitoringPrometheusRuleHandler(Client client.Client, Scheme *runtime.Scheme) *monitoringPrometheusRuleHandler {
-	return &monitoringPrometheusRuleHandler{
-		Client:                 Client,
-		Scheme:                 Scheme,
-		crType:                 "PrometheusRule",
-		removeExistingOwner:    false,
-		setControllerReference: true,
-		hooks:                  &prometheusRuleHooks{},
-	}
-}
-
-type prometheusRuleHooks struct{}
-
-func (h prometheusRuleHooks) getFullCr(hc *hcov1beta1.HyperConverged) (client.Object, error) {
-	return NewPrometheusRule(hc, hc.Namespace), nil
-}
-func (h prometheusRuleHooks) getEmptyCr() client.Object { return &monitoringv1.PrometheusRule{} }
-func (h prometheusRuleHooks) getObjectMeta(cr runtime.Object) *metav1.ObjectMeta {
-	return &cr.(*monitoringv1.PrometheusRule).ObjectMeta
-}
-func (h prometheusRuleHooks) reset( /* No implementation */ ) {}
-
-func (h *prometheusRuleHooks) updateCr(req *common.HcoRequest, Client client.Client, exists runtime.Object, required runtime.Object) (bool, bool, error) {
-	rule, ok1 := required.(*monitoringv1.PrometheusRule)
-	found, ok2 := exists.(*monitoringv1.PrometheusRule)
-	if !ok1 || !ok2 {
-		return false, false, errors.New("can't convert to PrometheusRule")
-	}
-	if !reflect.DeepEqual(found.Spec, rule.Spec) ||
-		!reflect.DeepEqual(found.Labels, rule.Labels) {
-		if req.HCOTriggered {
-			req.Logger.Info("Updating existing PrometheusRule Spec to new opinionated values")
-		} else {
-			req.Logger.Info("Reconciling an externally updated PrometheusRule Spec to its opinionated values")
-		}
-		rule.Spec.DeepCopyInto(&found.Spec)
-		util.DeepCopyLabels(&rule.ObjectMeta, &found.ObjectMeta)
-		err := Client.Update(req.Ctx, found)
-		if err != nil {
-			return false, false, err
-		}
-		return true, !req.HCOTriggered, nil
-	}
-	return false, false, nil
-}
-
-func (h prometheusRuleHooks) justBeforeComplete(_ *common.HcoRequest) { /* no implementation */ }
-
-// NewPrometheusRule creates PrometheusRule resource to define alert rules
-func NewPrometheusRule(hc *hcov1beta1.HyperConverged, namespace string) *monitoringv1.PrometheusRule {
-	return &monitoringv1.PrometheusRule{
-		TypeMeta: metav1.TypeMeta{
-			APIVersion: monitoringv1.SchemeGroupVersion.String(),
-			Kind:       "PrometheusRule",
-		},
-		ObjectMeta: metav1.ObjectMeta{
-			Name:      hc.Name + "-prometheus-rule",
-			Labels:    getLabels(hc, hcoutil.AppComponentMonitoring),
-			Namespace: namespace,
-		},
-		Spec: *NewPrometheusRuleSpec(),
-	}
-}
-
-// NewPrometheusRuleSpec creates PrometheusRuleSpec for alert rules
-func NewPrometheusRuleSpec() *monitoringv1.PrometheusRuleSpec {
-	return &monitoringv1.PrometheusRuleSpec{
-		Groups: []monitoringv1.RuleGroup{{
-			Name: alertRuleGroup,
-			Rules: []monitoringv1.Rule{
-				{
-					Alert: outOfBandUpdateAlert,
-					Expr:  intstr.FromString("sum by(component_name) ((round(increase(kubevirt_hco_out_of_band_modifications_count[10m]))>0 and kubevirt_hco_out_of_band_modifications_count offset 10m) or (kubevirt_hco_out_of_band_modifications_count != 0 unless kubevirt_hco_out_of_band_modifications_count offset 10m))"),
-					Annotations: map[string]string{
-						"description": "Out-of-band modification for {{ $labels.component_name }}.",
-						"summary":     "{{ $value }} out-of-band CR modifications were detected in the last 10 minutes.",
-						"runbook_url": outOfBandUpdateRunbookUrl,
-					},
-					Labels: map[string]string{
-						severityAlertLabelKey:  "warning",
-						partOfAlertLabelKey:    partOfAlertLabelValue,
-						componentAlertLabelKey: componentAlertLabelValue,
-					},
-				},
-				{
-					Alert: unsafeModificationAlert,
-					Expr:  intstr.FromString("sum by(annotation_name) ((kubevirt_hco_unsafe_modification_count)>0)"),
-					Annotations: map[string]string{
-						"description": "unsafe modification for the {{ $labels.annotation_name }} annotation in the HyperConverged resource.",
-						"summary":     "{{ $value }} unsafe modifications were detected in the HyperConverged resource.",
-						"runbook_url": unsafeModificationRunbookUrl,
-					},
-					Labels: map[string]string{
-						severityAlertLabelKey:  "info",
-						partOfAlertLabelKey:    partOfAlertLabelValue,
-						componentAlertLabelKey: componentAlertLabelValue,
-					},
-				},
-				{
-					Alert: installationNotCompletedAlert,
-					Expr:  intstr.FromString("kubevirt_hco_hyperconverged_cr_exists == 0"),
-					Annotations: map[string]string{
-						"description": "the installation was not completed; the HyperConverged custom resource is missing. In order to complete the installation of the Hyperconverged Cluster Operator you should create the HyperConverged custom resource.",
-						"summary":     "the installation was not completed; to complete the installation, create a HyperConverged custom resource.",
-						"runbook_url": installationNotCompletedRunbookUrl,
-					},
-					For: "1h",
-					Labels: map[string]string{
-						severityAlertLabelKey:  "info",
-						partOfAlertLabelKey:    partOfAlertLabelValue,
-						componentAlertLabelKey: componentAlertLabelValue,
-					},
-				},
-				// Recording rules for openshift/cluster-monitoring-operator
-				{
-					Record: "cluster:vmi_request_cpu_cores:sum",
-					Expr:   intstr.FromString(`sum(kube_pod_container_resource_requests{resource="cpu"} and on (pod) kube_pod_status_phase{phase="Running"} * on (pod) group_left kube_pod_labels{ label_kubevirt_io="virt-launcher"} > 0)`),
-				},
-			},
-		}},
 	}
 }

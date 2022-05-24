@@ -3,22 +3,23 @@ package util
 import (
 	"context"
 	"encoding/json"
-	"errors"
 	"fmt"
 	"io/ioutil"
 	"os"
+	"reflect"
 	"strings"
 	"time"
 
 	"github.com/go-logr/logr"
-	csvv1alpha1 "github.com/operator-framework/api/pkg/operators/v1alpha1"
-	appsv1 "k8s.io/api/apps/v1"
+	objectreferencesv1 "github.com/openshift/custom-resource-status/objectreferences/v1"
 	corev1 "k8s.io/api/core/v1"
 	apierrors "k8s.io/apimachinery/pkg/api/errors"
 	"k8s.io/apimachinery/pkg/api/meta"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
+	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/apimachinery/pkg/types"
+	"k8s.io/client-go/tools/reference"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 )
 
@@ -86,106 +87,6 @@ func GetWatchNamespace() (string, error) {
 		return "", fmt.Errorf("%s must be set", WatchNamespaceEnvVar)
 	}
 	return ns, nil
-}
-
-func GetPod(ctx context.Context, c client.Reader, logger logr.Logger) (*corev1.Pod, error) {
-	ci := GetClusterInfo()
-	operatorNs, err := GetOperatorNamespace(logger)
-	if err != nil {
-		logger.Error(err, "Failed to get HCO namespace")
-		return nil, err
-	}
-
-	// This is taken from k8sutil.GetPod. This method only receives client. But the client is not always ready. We'll
-	// use --- instead
-	if ci.IsRunningLocally() {
-		return nil, nil
-	}
-	podName := os.Getenv(PodNameEnvVar)
-	if podName == "" {
-		return nil, fmt.Errorf("required env %s not set, please configure downward API", PodNameEnvVar)
-	}
-
-	pod := &corev1.Pod{}
-	key := client.ObjectKey{Namespace: operatorNs, Name: podName}
-	err = c.Get(ctx, key, pod)
-	if err != nil {
-		logger.Error(err, "Failed to get Pod", "Pod.Namespace", operatorNs, "Pod.Name", podName)
-		return nil, err
-	}
-
-	// .Get() clears the APIVersion and Kind,
-	// so we need to set them before returning the object.
-	pod.TypeMeta.APIVersion = "v1"
-	pod.TypeMeta.Kind = "Pod"
-
-	logger.Info("Found Pod", "Pod.Namespace", operatorNs, "Pod.Name", pod.Name)
-
-	return pod, nil
-}
-
-func GetCSVfromPod(pod *corev1.Pod, c client.Reader, logger logr.Logger) (*csvv1alpha1.ClusterServiceVersion, error) {
-	if pod == nil {
-		return nil, nil
-	}
-	operatorNs, err := GetOperatorNamespace(logger)
-	if err != nil {
-		return nil, err
-	}
-	rsReference := metav1.GetControllerOf(pod)
-	if rsReference == nil || rsReference.Kind != "ReplicaSet" {
-		err = errors.New("failed getting HCO replicaSet reference")
-		logger.Error(err, "Failed getting HCO replicaSet reference")
-		return nil, err
-	}
-	rs := &appsv1.ReplicaSet{}
-	err = c.Get(context.TODO(), client.ObjectKey{
-		Namespace: operatorNs,
-		Name:      rsReference.Name,
-	}, rs)
-	if err != nil {
-		logger.Error(err, "Failed to get HCO ReplicaSet")
-		return nil, err
-	}
-
-	dReference := metav1.GetControllerOf(rs)
-	if dReference == nil || dReference.Kind != "Deployment" {
-		err = errors.New("failed getting HCO deployment reference")
-		logger.Error(err, "Failed getting HCO deployment reference")
-		return nil, err
-	}
-	d := &appsv1.Deployment{}
-	err = c.Get(context.TODO(), client.ObjectKey{
-		Namespace: operatorNs,
-		Name:      dReference.Name,
-	}, d)
-	if err != nil {
-		logger.Error(err, "Failed to get HCO Deployment")
-		return nil, err
-	}
-
-	var csvReference *metav1.OwnerReference
-	for _, owner := range d.GetOwnerReferences() {
-		if owner.Kind == "ClusterServiceVersion" {
-			csvReference = &owner
-		}
-	}
-	if csvReference == nil {
-		err = errors.New("failed getting HCO CSV reference")
-		logger.Error(err, "Failed getting HCO CSV reference")
-		return nil, err
-	}
-	csv := &csvv1alpha1.ClusterServiceVersion{}
-	err = c.Get(context.TODO(), client.ObjectKey{
-		Namespace: operatorNs,
-		Name:      csvReference.Name,
-	}, csv)
-	if err != nil {
-		logger.Error(err, "Failed to get HCO CSV")
-		return nil, err
-	}
-
-	return csv, nil
 }
 
 // ToUnstructured converts an arbitrary object (which MUST obey the
@@ -339,4 +240,36 @@ func GetHcoKvIoVersion() string {
 		hcoKvIoVersion = os.Getenv(HcoKvIoVersionName)
 	}
 	return hcoKvIoVersion
+}
+
+func AddCrToTheRelatedObjectList(relatedObjects *[]corev1.ObjectReference, found client.Object, scheme *runtime.Scheme) (bool, error) {
+	// Add it to the list of RelatedObjects if found
+	objectRef, err := reference.GetReference(scheme, found)
+	if err != nil {
+		return false, err
+	}
+
+	existingRef, err := objectreferencesv1.FindObjectReference(*relatedObjects, *objectRef)
+	if err != nil {
+		return false, err
+	}
+	if existingRef == nil || !reflect.DeepEqual(existingRef, objectRef) {
+		err = objectreferencesv1.SetObjectReference(relatedObjects, *objectRef)
+		if err != nil {
+			return false, err
+		}
+		return true, nil
+	}
+
+	return false, nil
+}
+
+func GetLabels(hcName string, component AppComponent) map[string]string {
+	return map[string]string{
+		AppLabel:          hcName,
+		AppLabelManagedBy: OperatorName,
+		AppLabelVersion:   GetHcoKvIoVersion(),
+		AppLabelPartOf:    HyperConvergedCluster,
+		AppLabelComponent: string(component),
+	}
 }

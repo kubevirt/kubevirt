@@ -122,7 +122,7 @@ func main() {
 	cmdHelper.ExitOnError(err, "Cannot detect cluster type")
 
 	eventEmitter := hcoutil.GetEventEmitter()
-	eventEmitter.Init(ctx, apiClient, mgr.GetEventRecorderFor(hcoutil.HyperConvergedName), logger)
+	eventEmitter.Init(ci.GetPod(), ci.GetCSV(), mgr.GetEventRecorderFor(hcoutil.HyperConvergedName))
 
 	err = mgr.AddHealthzCheck("ping", healthz.Ping)
 	cmdHelper.ExitOnError(err, "unable to add health check")
@@ -159,7 +159,7 @@ func main() {
 
 	// Create a new reconciler
 	if err := hyperconverged.RegisterReconciler(mgr, ci, upgradeableCondition); err != nil {
-		logger.Error(err, "")
+		logger.Error(err, "failed to register the HyperConverged controller")
 		eventEmitter.EmitEvent(nil, corev1.EventTypeWarning, "InitError", "Unable to register HyperConverged controller; "+err.Error())
 		os.Exit(1)
 	}

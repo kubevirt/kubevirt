@@ -3,11 +3,11 @@ package main
 import (
 	"encoding/json"
 
+	"github.com/kubevirt/hyperconverged-cluster-operator/controllers/alerts"
+
 	"fmt"
 	"io/ioutil"
 	"os"
-
-	"github.com/kubevirt/hyperconverged-cluster-operator/controllers/operands"
 )
 
 func verifyArgs(args []string) error {
@@ -26,7 +26,7 @@ func main() {
 
 	targetFile := os.Args[1]
 
-	promRuleSpec := operands.NewPrometheusRuleSpec()
+	promRuleSpec := alerts.NewPrometheusRuleSpec()
 	b, err := json.Marshal(promRuleSpec)
 	if err != nil {
 		panic(err)

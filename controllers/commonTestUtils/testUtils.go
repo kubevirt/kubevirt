@@ -4,24 +4,26 @@ import (
 	"context"
 	"fmt"
 
-	openshiftconfigv1 "github.com/openshift/api/config/v1"
-
 	"github.com/go-logr/logr"
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
 	gomegatypes "github.com/onsi/gomega/types"
+	openshiftconfigv1 "github.com/openshift/api/config/v1"
 	consolev1 "github.com/openshift/api/console/v1"
 	consolev1alpha1 "github.com/openshift/api/console/v1alpha1"
 	imagev1 "github.com/openshift/api/image/v1"
 	operatorv1 "github.com/openshift/api/operator/v1"
 	routev1 "github.com/openshift/api/route/v1"
+	csvv1alpha1 "github.com/operator-framework/api/pkg/operators/v1alpha1"
 	monitoringv1 "github.com/prometheus-operator/prometheus-operator/pkg/apis/monitoring/v1"
+	appsv1 "k8s.io/api/apps/v1"
 	corev1 "k8s.io/api/core/v1"
 	apiextensionsv1 "k8s.io/apiextensions-apiserver/pkg/apis/apiextensions/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/apimachinery/pkg/types"
 	"k8s.io/client-go/kubernetes/scheme"
+	"k8s.io/utils/pointer"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 	"sigs.k8s.io/controller-runtime/pkg/log/zap"
 	"sigs.k8s.io/controller-runtime/pkg/reconcile"
@@ -210,6 +212,63 @@ func (matcher *RepresentConditionMatcher) NegatedFailureMessage(actual interface
 	return fmt.Sprintf("Expected\n\t%#v\nnot to match the condition\n\t%#v", actual, matcher.expected)
 }
 
+const (
+	RSName  = "hco-operator"
+	podName = RSName + "-12345"
+)
+
+var ( // own resources
+	csv = &csvv1alpha1.ClusterServiceVersion{
+		TypeMeta: metav1.TypeMeta{
+			Kind:       "ClusterServiceVersion",
+			APIVersion: "operators.coreos.com/v1alpha1",
+		},
+		ObjectMeta: metav1.ObjectMeta{
+			Name:      RSName,
+			Namespace: Namespace,
+		},
+	}
+
+	deployment = &appsv1.Deployment{
+		TypeMeta: metav1.TypeMeta{
+			Kind:       "Deployment",
+			APIVersion: "apps/v1",
+		},
+		ObjectMeta: metav1.ObjectMeta{
+			Name:      RSName,
+			Namespace: Namespace,
+			OwnerReferences: []metav1.OwnerReference{
+				{
+					APIVersion: "operators.coreos.com/v1alpha1",
+					Kind:       csvv1alpha1.ClusterServiceVersionKind,
+					Name:       RSName,
+					Controller: pointer.BoolPtr(true),
+				},
+			},
+			UID: "1234567890",
+		},
+	}
+
+	pod = &corev1.Pod{
+		TypeMeta: metav1.TypeMeta{
+			Kind:       "Pod",
+			APIVersion: "v1",
+		},
+		ObjectMeta: metav1.ObjectMeta{
+			Name:      podName,
+			Namespace: Namespace,
+			OwnerReferences: []metav1.OwnerReference{
+				{
+					APIVersion: "apps/v1",
+					Kind:       "ReplicaSet",
+					Name:       RSName,
+					Controller: pointer.BoolPtr(true),
+				},
+			},
+		},
+	}
+)
+
 // ClusterInfoMock mocks regular Openshift
 type ClusterInfoMock struct{}
 
@@ -236,6 +295,17 @@ func (ClusterInfoMock) GetDomain() string {
 }
 func (c ClusterInfoMock) IsConsolePluginImageProvided() bool {
 	return true
+}
+func (c ClusterInfoMock) GetPod() *corev1.Pod {
+	return pod
+}
+
+func (c ClusterInfoMock) GetDeployment() *appsv1.Deployment {
+	return deployment
+}
+
+func (c ClusterInfoMock) GetCSV() *csvv1alpha1.ClusterServiceVersion {
+	return csv
 }
 func (ClusterInfoMock) GetTLSSecurityProfile(_ *openshiftconfigv1.TLSSecurityProfile) *openshiftconfigv1.TLSSecurityProfile {
 	return &openshiftconfigv1.TLSSecurityProfile{
@@ -271,6 +341,17 @@ func (ClusterInfoSNOMock) IsInfrastructureHighlyAvailable() bool {
 func (ClusterInfoSNOMock) GetDomain() string {
 	return "domain"
 }
+func (c ClusterInfoSNOMock) GetPod() *corev1.Pod {
+	return pod
+}
+
+func (c ClusterInfoSNOMock) GetDeployment() *appsv1.Deployment {
+	return deployment
+}
+
+func (c ClusterInfoSNOMock) GetCSV() *csvv1alpha1.ClusterServiceVersion {
+	return csv
+}
 func (ClusterInfoSNOMock) GetTLSSecurityProfile(_ *openshiftconfigv1.TLSSecurityProfile) *openshiftconfigv1.TLSSecurityProfile {
 	return &openshiftconfigv1.TLSSecurityProfile{
 		Type:         openshiftconfigv1.TLSProfileIntermediateType,
@@ -305,6 +386,17 @@ func (ClusterInfoSRCPHAIMock) IsControlPlaneHighlyAvailable() bool {
 }
 func (ClusterInfoSRCPHAIMock) IsInfrastructureHighlyAvailable() bool {
 	return true
+}
+func (ClusterInfoSRCPHAIMock) GetPod() *corev1.Pod {
+	return pod
+}
+
+func (ClusterInfoSRCPHAIMock) GetDeployment() *appsv1.Deployment {
+	return deployment
+}
+
+func (ClusterInfoSRCPHAIMock) GetCSV() *csvv1alpha1.ClusterServiceVersion {
+	return csv
 }
 func (ClusterInfoSRCPHAIMock) GetDomain() string {
 	return "domain"

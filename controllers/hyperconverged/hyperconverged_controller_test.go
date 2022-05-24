@@ -8,15 +8,15 @@ import (
 	"os"
 	"time"
 
-	rbacv1 "k8s.io/api/rbac/v1"
-
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
 	openshiftconfigv1 "github.com/openshift/api/config/v1"
 	consolev1 "github.com/openshift/api/console/v1"
 	conditionsv1 "github.com/openshift/custom-resource-status/conditions/v1"
 	v1 "github.com/openshift/custom-resource-status/objectreferences/v1"
+	monitoringv1 "github.com/prometheus-operator/prometheus-operator/pkg/apis/monitoring/v1"
 	corev1 "k8s.io/api/core/v1"
+	rbacv1 "k8s.io/api/rbac/v1"
 	apiextensionsv1 "k8s.io/apiextensions-apiserver/pkg/apis/apiextensions/v1"
 	apierrors "k8s.io/apimachinery/pkg/api/errors"
 	apimetav1 "k8s.io/apimachinery/pkg/api/meta"
@@ -32,6 +32,7 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/reconcile"
 
 	hcov1beta1 "github.com/kubevirt/hyperconverged-cluster-operator/api/v1beta1"
+	"github.com/kubevirt/hyperconverged-cluster-operator/controllers/alerts"
 	"github.com/kubevirt/hyperconverged-cluster-operator/controllers/common"
 	"github.com/kubevirt/hyperconverged-cluster-operator/controllers/commonTestUtils"
 	"github.com/kubevirt/hyperconverged-cluster-operator/controllers/operands"
@@ -57,6 +58,17 @@ var _ = Describe("HyperconvergedController", func() {
 	getClusterInfo := hcoutil.GetClusterInfo
 
 	Describe("Reconcile HyperConverged", func() {
+
+		BeforeEach(func() {
+			hcoutil.GetClusterInfo = func() hcoutil.ClusterInfo {
+				return commonTestUtils.ClusterInfoMock{}
+			}
+		})
+
+		AfterEach(func() {
+			hcoutil.GetClusterInfo = getClusterInfo
+		})
+
 		Context("HCO Lifecycle", func() {
 
 			var (
@@ -123,14 +135,17 @@ var _ = Describe("HyperconvergedController", func() {
 			})
 
 			It("should create all managed resources", func() {
+
 				hco := commonTestUtils.NewHco()
 				hco.Spec.FeatureGates = hcov1beta1.HyperConvergedFeatureGates{
 					WithHostPassthroughCPU: true,
 				}
 
 				cl := commonTestUtils.InitClient([]runtime.Object{hcoNamespace, hco})
+				alertReconciler := alerts.NewAlertRuleReconciler(cl, hcoutil.GetClusterInfo(), commonTestUtils.NewEventEmitterMock(), commonTestUtils.GetScheme())
 
 				r := initReconciler(cl, nil)
+				r.alertReconciler = alertReconciler
 
 				// Do the reconcile
 				res, err := r.Reconcile(context.TODO(), request)
@@ -203,6 +218,30 @@ var _ = Describe("HyperconvergedController", func() {
 				Expect(kv.Spec.Configuration.DeveloperConfiguration).ToNot(BeNil())
 				Expect(kv.Spec.Configuration.DeveloperConfiguration.FeatureGates).To(HaveLen(len(expectedFeatureGates)))
 				Expect(kv.Spec.Configuration.DeveloperConfiguration.FeatureGates).To(ContainElements(expectedFeatureGates))
+
+				res, err = r.Reconcile(context.TODO(), request)
+				Expect(err).ToNot(HaveOccurred())
+				Expect(res).Should(Equal(reconcile.Result{Requeue: false}))
+				validateOperatorCondition(r, metav1.ConditionTrue, hcoutil.UpgradeableAllowReason, hcoutil.UpgradeableAllowMessage)
+				verifyHyperConvergedCRExistsMetricTrue()
+
+				// Get the HCO
+				foundResource = &hcov1beta1.HyperConverged{}
+				Expect(
+					cl.Get(context.TODO(),
+						types.NamespacedName{Name: hco.Name, Namespace: hco.Namespace},
+						foundResource),
+				).ToNot(HaveOccurred())
+				// Check conditions
+				Expect(foundResource.Status.RelatedObjects).To(HaveLen(19))
+				expectedRef := corev1.ObjectReference{
+					Kind:            "PrometheusRule",
+					Namespace:       namespace,
+					Name:            "kubevirt-hyperconverged-prometheus-rule",
+					APIVersion:      "monitoring.coreos.com/v1",
+					ResourceVersion: "1",
+				}
+				Expect(foundResource.Status.RelatedObjects).To(ContainElement(expectedRef))
 			})
 
 			It("should find all managed resources", func() {
@@ -214,9 +253,27 @@ var _ = Describe("HyperconvergedController", func() {
 				expected.cna.Status.Conditions = nil
 				expected.ssp.Status.Conditions = nil
 				expected.tto.Status.Conditions = nil
-				cl := expected.initClient()
+
+				pm := &monitoringv1.PrometheusRule{
+					TypeMeta: metav1.TypeMeta{
+						Kind:       monitoringv1.PrometheusRuleKind,
+						APIVersion: "monitoring.coreos.com/v1",
+					},
+					ObjectMeta: metav1.ObjectMeta{
+						Namespace:       namespace,
+						Name:            "kubevirt-hyperconverged-prometheus-rule",
+						UID:             "1234567890",
+						ResourceVersion: "123",
+					},
+					Spec: monitoringv1.PrometheusRuleSpec{},
+				}
+
+				resources := expected.toArray()
+				resources = append(resources, pm)
+				cl := commonTestUtils.InitClient(resources)
 
 				r := initReconciler(cl, nil)
+				r.alertReconciler = alerts.NewAlertRuleReconciler(cl, hcoutil.GetClusterInfo(), commonTestUtils.NewEventEmitterMock(), commonTestUtils.GetScheme())
 
 				// Do the reconcile
 				res, err := r.Reconcile(context.TODO(), request)
@@ -258,6 +315,17 @@ var _ = Describe("HyperconvergedController", func() {
 					Reason:  "SSPConditions",
 					Message: "SSP resource has no conditions",
 				})))
+
+				Expect(foundResource.Status.RelatedObjects).To(HaveLen(18))
+				expectedRef := corev1.ObjectReference{
+					Kind:            "PrometheusRule",
+					Namespace:       namespace,
+					Name:            "kubevirt-hyperconverged-prometheus-rule",
+					APIVersion:      "monitoring.coreos.com/v1",
+					ResourceVersion: "124",
+					UID:             "1234567890",
+				}
+				Expect(foundResource.Status.RelatedObjects).To(ContainElement(expectedRef))
 			})
 
 			It("should label all managed resources", func() {
@@ -714,7 +782,7 @@ var _ = Describe("HyperconvergedController", func() {
 				).To(BeNil())
 
 				Expect(foundResource.Status.RelatedObjects).ToNot(BeNil())
-				Expect(len(foundResource.Status.RelatedObjects)).Should(Equal(18))
+				Expect(len(foundResource.Status.RelatedObjects)).Should(Equal(17))
 				Expect(foundResource.ObjectMeta.Finalizers).Should(Equal([]string{FinalizerName}))
 
 				// Now, delete HCO

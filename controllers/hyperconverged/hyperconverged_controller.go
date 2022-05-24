@@ -11,6 +11,7 @@ import (
 	jsonpatch "github.com/evanphx/json-patch"
 	"github.com/go-logr/logr"
 	"github.com/google/uuid"
+	openshiftconfigv1 "github.com/openshift/api/config/v1"
 	consolev1 "github.com/openshift/api/console/v1"
 	imagev1 "github.com/openshift/api/image/v1"
 	routev1 "github.com/openshift/api/route/v1"
@@ -37,10 +38,9 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/reconcile"
 	"sigs.k8s.io/controller-runtime/pkg/source"
 
-	openshiftconfigv1 "github.com/openshift/api/config/v1"
-
 	networkaddonsv1 "github.com/kubevirt/cluster-network-addons-operator/pkg/apis/networkaddonsoperator/v1"
 	hcov1beta1 "github.com/kubevirt/hyperconverged-cluster-operator/api/v1beta1"
+	"github.com/kubevirt/hyperconverged-cluster-operator/controllers/alerts"
 	"github.com/kubevirt/hyperconverged-cluster-operator/controllers/common"
 	"github.com/kubevirt/hyperconverged-cluster-operator/controllers/operands"
 	"github.com/kubevirt/hyperconverged-cluster-operator/pkg/metrics"
@@ -107,7 +107,7 @@ func newReconciler(mgr manager.Manager, ci hcoutil.ClusterInfo, upgradeableCond 
 		ownVersion = version.Version
 	}
 
-	return &ReconcileHyperConverged{
+	r := &ReconcileHyperConverged{
 		client:               mgr.GetClient(),
 		scheme:               mgr.GetScheme(),
 		operandHandler:       operands.NewOperandHandler(mgr.GetClient(), mgr.GetScheme(), ci, hcoutil.GetEventEmitter()),
@@ -117,6 +117,12 @@ func newReconciler(mgr manager.Manager, ci hcoutil.ClusterInfo, upgradeableCond 
 		firstLoop:            true,
 		upgradeableCondition: upgradeableCond,
 	}
+
+	if ci.IsOpenshift() {
+		r.alertReconciler = alerts.NewAlertRuleReconciler(r.client, ci, hcoutil.GetEventEmitter(), r.scheme)
+	}
+
+	return r
 }
 
 // newCRDremover returns a new CRDRemover
@@ -251,6 +257,7 @@ type ReconcileHyperConverged struct {
 	eventEmitter         hcoutil.EventEmitter
 	firstLoop            bool
 	upgradeableCondition hcoutil.Condition
+	alertReconciler      *alerts.AlertRuleReconciler
 }
 
 // Reconcile reads that state of the cluster for a HyperConverged object and makes changes based on the state read
@@ -266,6 +273,11 @@ func (r *ReconcileHyperConverged) Reconcile(ctx context.Context, request reconci
 		return reconcile.Result{}, err
 	}
 	hcoRequest := common.NewHcoRequest(ctx, resolvedRequest, log, r.upgradeMode, hcoTriggered)
+
+	err = r.alertReconciler.Reconcile(ctx, hcoRequest.Logger)
+	if err != nil {
+		return reconcile.Result{}, err
+	}
 
 	// Fetch the HyperConverged instance
 	instance, err := r.getHyperConverged(hcoRequest)
@@ -289,6 +301,11 @@ func (r *ReconcileHyperConverged) Reconcile(ctx context.Context, request reconci
 			r.eventEmitter.EmitEvent(hcoRequest.Instance, corev1.EventTypeWarning, "Failed validating upgrade patches file", err.Error())
 			os.Exit(1)
 		}
+	}
+
+	if err = r.alertReconciler.UpdateRelatedObjects(hcoRequest); err != nil {
+		logger.Error(err, "Failed to update the PrometheusRule as a related object")
+		return reconcile.Result{}, err
 	}
 
 	result, err := r.doReconcile(hcoRequest)

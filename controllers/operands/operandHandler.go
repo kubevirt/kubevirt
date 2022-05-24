@@ -58,7 +58,6 @@ func NewOperandHandler(client client.Client, scheme *runtime.Scheme, ci hcoutil.
 			newSspHandler(client, scheme),
 			(*genericOperand)(newServiceHandler(client, scheme, NewMetricsService)),
 			(*genericOperand)(newMetricsServiceMonitorHandler(client, scheme)),
-			(*genericOperand)(newMonitoringPrometheusRuleHandler(client, scheme)),
 			(*genericOperand)(newCliDownloadHandler(client, scheme)),
 			(*genericOperand)(newCliDownloadsRouteHandler(client, scheme)),
 			(*genericOperand)(newServiceHandler(client, scheme, NewCliDownloadsService)),

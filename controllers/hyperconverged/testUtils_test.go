@@ -119,7 +119,6 @@ type BasicExpected struct {
 	tto                  *ttov1alpha1.TektonTasks
 	mService             *corev1.Service
 	serviceMonitor       *monitoringv1.ServiceMonitor
-	promRule             *monitoringv1.PrometheusRule
 	cliDownload          *consolev1.ConsoleCLIDownload
 	cliDownloadsRoute    *routev1.Route
 	cliDownloadsService  *corev1.Service
@@ -145,7 +144,6 @@ func (be BasicExpected) toArray() []runtime.Object {
 		be.tto,
 		be.mService,
 		be.serviceMonitor,
-		be.promRule,
 		be.cliDownload,
 		be.cliDownloadsRoute,
 		be.cliDownloadsService,
@@ -208,7 +206,6 @@ func getBasicDeployment() *BasicExpected {
 	res.pc = operands.NewKubeVirtPriorityClass(hco)
 	res.mService = operands.NewMetricsService(hco)
 	res.serviceMonitor = operands.NewServiceMonitor(hco, namespace)
-	res.promRule = operands.NewPrometheusRule(hco, namespace)
 
 	expectedKV, err := operands.NewKubeVirt(hco, namespace)
 	ExpectWithOffset(1, err).ToNot(HaveOccurred())

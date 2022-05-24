@@ -4,6 +4,9 @@ import (
 	"context"
 	"os"
 
+	csvv1alpha1 "github.com/operator-framework/api/pkg/operators/v1alpha1"
+	appsv1 "k8s.io/api/apps/v1"
+
 	corev1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/labels"
 	"k8s.io/apimachinery/pkg/selection"
@@ -27,6 +30,9 @@ type ClusterInfo interface {
 	IsConsolePluginImageProvided() bool
 	GetTLSSecurityProfile(hcoTLSSecurityProfile *openshiftconfigv1.TLSSecurityProfile) *openshiftconfigv1.TLSSecurityProfile
 	RefreshAPIServerCR(ctx context.Context, c client.Client) error
+	GetPod() *corev1.Pod
+	GetDeployment() *appsv1.Deployment
+	GetCSV() *csvv1alpha1.ClusterServiceVersion
 }
 
 type ClusterInfoImp struct {
@@ -37,6 +43,7 @@ type ClusterInfoImp struct {
 	infrastructureHighlyAvailable bool
 	consolePluginImageProvided    bool
 	domain                        string
+	ownResources                  *OwnResources
 }
 
 var clusterInfo ClusterInfo
@@ -76,6 +83,7 @@ func (c *ClusterInfoImp) Init(ctx context.Context, cl client.Client, logger logr
 		return err
 	}
 
+	c.ownResources = findOwnResources(ctx, cl, logger)
 	return nil
 }
 
@@ -157,6 +165,18 @@ func (c ClusterInfoImp) IsInfrastructureHighlyAvailable() bool {
 
 func (c ClusterInfoImp) GetDomain() string {
 	return c.domain
+}
+
+func (c ClusterInfoImp) GetPod() *corev1.Pod {
+	return c.ownResources.GetPod()
+}
+
+func (c ClusterInfoImp) GetDeployment() *appsv1.Deployment {
+	return c.ownResources.GetDeployment()
+}
+
+func (c ClusterInfoImp) GetCSV() *csvv1alpha1.ClusterServiceVersion {
+	return c.ownResources.GetCSV()
 }
 
 func getClusterDomain(ctx context.Context, cl client.Client) (string, error) {
