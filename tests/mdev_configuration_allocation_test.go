@@ -4,6 +4,7 @@ import (
 	"context"
 	"fmt"
 	"strings"
+	"time"
 
 	"kubevirt.io/kubevirt/tests/framework/cleanup"
 
@@ -50,10 +51,10 @@ var _ = Describe("[Serial][sig-compute]MediatedDevices", func() {
 		  fi
 		  exit 0
 		done`, expectedInstancesCount, mdevTypeName)
-		testPod := tests.RenderPod("test-pod", []string{"/bin/bash", "-c"}, []string{check})
+		testPod := tests.RenderPod("test-all-mdev-created", []string{"/bin/bash", "-c"}, []string{check})
 		testPod, err = virtClient.CoreV1().Pods(util.NamespaceTestDefault).Create(context.Background(), testPod, metav1.CreateOptions{})
 		Expect(err).ToNot(HaveOccurred())
-		Eventually(ThisPod(testPod), 120).Should(BeInPhase(k8sv1.PodSucceeded))
+		Eventually(ThisPod(testPod), 3*time.Minute, 5*time.Second).Should(BeInPhase(k8sv1.PodSucceeded))
 	}
 	checkAllMDEVRemoved := func() {
 		check := fmt.Sprintf(`set -x
