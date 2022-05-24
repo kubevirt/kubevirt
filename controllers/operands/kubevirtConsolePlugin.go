@@ -256,7 +256,8 @@ func (h consolePluginHooks) updateCr(req *common.HcoRequest, Client client.Clien
 		return false, false, errors.New("can't convert to ConsolePlugin")
 	}
 
-	if !reflect.DeepEqual(found.Spec, h.required.Spec) {
+	if !reflect.DeepEqual(found.Spec, h.required.Spec) ||
+		!reflect.DeepEqual(found.Labels, h.required.Labels) {
 		if req.HCOTriggered {
 			req.Logger.Info("Updating existing ConsolePlugin to new opinionated values", "name", h.required.Name)
 		} else {

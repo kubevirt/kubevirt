@@ -3,6 +3,7 @@ package operands
 import (
 	"context"
 	"fmt"
+	"reflect"
 
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
@@ -82,7 +83,7 @@ var _ = Describe("Kubevirt Console Plugin", func() {
 			Expect(hco.Status.RelatedObjects).To(ContainElement(*objectRef))
 		})
 
-		It("should reconcile plugin to default if changed", func() {
+		It("should reconcile plugin spec to default if changed", func() {
 			expectedResource := NewKvConsolePlugin(hco)
 			outdatedResource := NewKvConsolePlugin(hco)
 
@@ -106,12 +107,7 @@ var _ = Describe("Kubevirt Console Plugin", func() {
 					foundResource),
 			).ToNot(HaveOccurred())
 
-			Expect(foundResource.Spec.Service.Port).ToNot(Equal(outdatedResource.Spec.Service.Port))
-			Expect(foundResource.Spec.Service.Port).To(Equal(int32(hcoutil.UiPluginServerPort)))
-			Expect(foundResource.Spec.Service.BasePath).ToNot(Equal(outdatedResource.Spec.Service.BasePath))
-			Expect(foundResource.Spec.Service.BasePath).To(Equal(expectedResource.Spec.Service.BasePath))
-			Expect(foundResource.Spec.DisplayName).ToNot(Equal(outdatedResource.Spec.DisplayName))
-			Expect(foundResource.Spec.DisplayName).To(Equal(expectedResource.Spec.DisplayName))
+			Expect(reflect.DeepEqual(expectedResource.Spec, foundResource.Spec)).To(BeTrue())
 
 			// ObjectReference should have been updated
 			Expect(hco.Status.RelatedObjects).To(Not(BeNil()))
@@ -121,6 +117,81 @@ var _ = Describe("Kubevirt Console Plugin", func() {
 			Expect(err).ToNot(HaveOccurred())
 			Expect(hco.Status.RelatedObjects).To(Not(ContainElement(*objectRefOutdated)))
 			Expect(hco.Status.RelatedObjects).To(ContainElement(*objectRefFound))
+		})
+
+		It("should reconcile plugin labels to default if changed", func() {
+			expectedResource := NewKvConsolePlugin(hco)
+			outdatedResource := NewKvConsolePlugin(hco)
+
+			outdatedResource.Labels[hcoutil.AppLabel] = "changed"
+
+			cl := commonTestUtils.InitClient([]runtime.Object{hco, outdatedResource, expectedConsoleConfig})
+			handler, err := newKvUiPluginCRHandler(logger, cl, commonTestUtils.GetScheme(), hco)
+			Expect(err).ToNot(HaveOccurred())
+
+			res := handler[0].ensure(req)
+			Expect(res.UpgradeDone).To(BeFalse())
+			Expect(res.Updated).To(BeTrue())
+			Expect(res.Err).ToNot(HaveOccurred())
+
+			foundResource := &consolev1alpha1.ConsolePlugin{}
+			Expect(
+				cl.Get(context.TODO(),
+					types.NamespacedName{Name: expectedResource.Name, Namespace: expectedResource.Namespace},
+					foundResource),
+			).ToNot(HaveOccurred())
+
+			Expect(reflect.DeepEqual(foundResource.Labels, expectedResource.Labels))
+		})
+
+		It("should reconcile plugin labels to default if added", func() {
+			expectedResource := NewKvConsolePlugin(hco)
+			outdatedResource := NewKvConsolePlugin(hco)
+
+			outdatedResource.Labels["fake_label"] = "something"
+
+			cl := commonTestUtils.InitClient([]runtime.Object{hco, outdatedResource, expectedConsoleConfig})
+			handler, err := newKvUiPluginCRHandler(logger, cl, commonTestUtils.GetScheme(), hco)
+			Expect(err).ToNot(HaveOccurred())
+
+			res := handler[0].ensure(req)
+			Expect(res.UpgradeDone).To(BeFalse())
+			Expect(res.Updated).To(BeTrue())
+			Expect(res.Err).ToNot(HaveOccurred())
+
+			foundResource := &consolev1alpha1.ConsolePlugin{}
+			Expect(
+				cl.Get(context.TODO(),
+					types.NamespacedName{Name: expectedResource.Name, Namespace: expectedResource.Namespace},
+					foundResource),
+			).ToNot(HaveOccurred())
+
+			Expect(reflect.DeepEqual(foundResource.Labels, expectedResource.Labels))
+		})
+
+		It("should reconcile plugin labels to default if deleted", func() {
+			expectedResource := NewKvConsolePlugin(hco)
+			outdatedResource := NewKvConsolePlugin(hco)
+
+			delete(outdatedResource.Labels, hcoutil.AppLabel)
+
+			cl := commonTestUtils.InitClient([]runtime.Object{hco, outdatedResource, expectedConsoleConfig})
+			handler, err := newKvUiPluginCRHandler(logger, cl, commonTestUtils.GetScheme(), hco)
+			Expect(err).ToNot(HaveOccurred())
+
+			res := handler[0].ensure(req)
+			Expect(res.UpgradeDone).To(BeFalse())
+			Expect(res.Updated).To(BeTrue())
+			Expect(res.Err).ToNot(HaveOccurred())
+
+			foundResource := &consolev1alpha1.ConsolePlugin{}
+			Expect(
+				cl.Get(context.TODO(),
+					types.NamespacedName{Name: expectedResource.Name, Namespace: expectedResource.Namespace},
+					foundResource),
+			).ToNot(HaveOccurred())
+
+			Expect(reflect.DeepEqual(foundResource.Labels, expectedResource.Labels))
 		})
 	})
 
