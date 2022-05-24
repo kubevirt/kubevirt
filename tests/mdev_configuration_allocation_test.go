@@ -106,7 +106,7 @@ var _ = Describe("[Serial][sig-compute]MediatedDevices", func() {
 				}
 			}
 			return 0
-		}, 60).Should(BeZero(), "wait for the kubelet to stop promoting unconfigured devices")
+		}, 2*time.Minute, 5*time.Second).Should(BeZero(), "wait for the kubelet to stop promoting unconfigured devices")
 	}
 	Context("with mediated devices configuration", func() {
 		var vmi *v1.VirtualMachineInstance
