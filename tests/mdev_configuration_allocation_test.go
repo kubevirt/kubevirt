@@ -14,6 +14,7 @@ import (
 	k8sv1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/api/resource"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	"k8s.io/apimachinery/pkg/util/wait"
 
 	"kubevirt.io/kubevirt/tests/util"
 
@@ -56,18 +57,42 @@ var _ = Describe("[Serial][sig-compute]MediatedDevices", func() {
 		Expect(err).ToNot(HaveOccurred())
 		Eventually(ThisPod(testPod), 3*time.Minute, 5*time.Second).Should(BeInPhase(k8sv1.PodSucceeded))
 	}
-	checkAllMDEVRemoved := func() {
-		check := fmt.Sprintf(`set -x
+
+	var latestPod *k8sv1.Pod
+	waitForPod := func(fetchPod func() (*k8sv1.Pod, error)) wait.ConditionFunc {
+		return func() (bool, error) {
+
+			latestPod, err = fetchPod()
+			if err != nil {
+				return false, err
+			}
+
+			phase := latestPod.Status.Phase
+
+			return phase == k8sv1.PodFailed || phase == k8sv1.PodSucceeded, nil
+
+		}
+	}
+
+	checkAllMDEVRemoved := func() (*k8sv1.Pod, error) {
+		check := `set -x
 		files_num=$(ls -A /sys/bus/mdev/devices/| wc -l)
 		if [[ $files_num != 0 ]] ; then
 		  echo "failed, not all mdevs removed"
 		  exit 1
 		fi
-	        exit 0`)
-		testPod := tests.RenderPod("test-pod", []string{"/bin/bash", "-c"}, []string{check})
+	        exit 0`
+		testPod := tests.RenderPod("test-all-mdev-removed", []string{"/bin/bash", "-c"}, []string{check})
 		testPod, err = virtClient.CoreV1().Pods(util.NamespaceTestDefault).Create(context.Background(), testPod, metav1.CreateOptions{})
 		Expect(err).ToNot(HaveOccurred())
-		Eventually(ThisPod(testPod), 120).Should(BeInPhase(k8sv1.PodSucceeded))
+
+		err := wait.PollImmediate(time.Second, 2*time.Minute, waitForPod(ThisPod(testPod)))
+		return latestPod, err
+	}
+
+	noGPUDevicesAreAvailable := func() {
+		Eventually(checkAllMDEVRemoved, 2*time.Minute, 10*time.Second).Should(BeInPhase(k8sv1.PodSucceeded))
+
 		Eventually(func() bool {
 			nodes, err := virtClient.CoreV1().Nodes().List(context.Background(), metav1.ListOptions{})
 			Expect(err).ToNot(HaveOccurred())
@@ -128,7 +153,7 @@ var _ = Describe("[Serial][sig-compute]MediatedDevices", func() {
 			config.MediatedDevicesConfiguration = &v1.MediatedDevicesConfiguration{}
 			tests.UpdateKubeVirtConfigValueAndWait(config)
 			By("Verifying that an expected amount of devices has been created")
-			checkAllMDEVRemoved()
+			noGPUDevicesAreAvailable()
 		}
 
 		AfterEach(func() {
