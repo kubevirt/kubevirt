@@ -169,7 +169,7 @@ func securityContext(userId int64, privileged bool, requiredCapabilities *k8sv1.
 }
 
 func getPortsFromVMI(vmi *v1.VirtualMachineInstance) []k8sv1.ContainerPort {
-	ports := make([]k8sv1.ContainerPort, 0)
+	var ports []k8sv1.ContainerPort
 
 	for _, iface := range vmi.Spec.Domain.Devices.Interfaces {
 		if iface.Ports != nil {
@@ -181,10 +181,6 @@ func getPortsFromVMI(vmi *v1.VirtualMachineInstance) []k8sv1.ContainerPort {
 				ports = append(ports, k8sv1.ContainerPort{Protocol: k8sv1.Protocol(port.Protocol), Name: port.Name, ContainerPort: port.Port})
 			}
 		}
-	}
-
-	if len(ports) == 0 {
-		return nil
 	}
 
 	return ports
