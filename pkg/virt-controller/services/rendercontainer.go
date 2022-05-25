@@ -109,7 +109,7 @@ func WithResourceRequirements(resources k8sv1.ResourceRequirements) Option {
 
 func WithPorts(vmi *v1.VirtualMachineInstance) Option {
 	return func(renderer *ContainerSpecRenderer) {
-		renderer.ports = getPortsFromVMI(vmi)
+		renderer.ports = containerPortsFromVMI(vmi)
 	}
 }
 
@@ -168,7 +168,7 @@ func securityContext(userId int64, privileged bool, requiredCapabilities *k8sv1.
 	return context
 }
 
-func getPortsFromVMI(vmi *v1.VirtualMachineInstance) []k8sv1.ContainerPort {
+func containerPortsFromVMI(vmi *v1.VirtualMachineInstance) []k8sv1.ContainerPort {
 	var ports []k8sv1.ContainerPort
 
 	for _, iface := range vmi.Spec.Domain.Devices.Interfaces {
