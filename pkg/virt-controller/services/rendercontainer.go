@@ -83,7 +83,7 @@ func WithPrivileged() Option {
 func WithCapabilities(vmi *v1.VirtualMachineInstance) Option {
 	return func(renderer *ContainerSpecRenderer) {
 		renderer.capabilities = &k8sv1.Capabilities{
-			Add:  getRequiredCapabilities(vmi),
+			Add:  requiredCapabilities(vmi),
 			Drop: []k8sv1.Capability{CAP_NET_RAW},
 		}
 	}
@@ -206,7 +206,7 @@ func updateLivenessProbe(vmi *v1.VirtualMachineInstance, computeProbe *k8sv1.Pro
 	computeProbe.InitialDelaySeconds = computeProbe.InitialDelaySeconds + LibvirtStartupDelay
 }
 
-func getRequiredCapabilities(vmi *v1.VirtualMachineInstance) []k8sv1.Capability {
+func requiredCapabilities(vmi *v1.VirtualMachineInstance) []k8sv1.Capability {
 	// These capabilies are always required because we set them on virt-launcher binary
 	// add CAP_SYS_PTRACE capability needed by libvirt + swtpm
 	// TODO: drop SYS_PTRACE after updating libvirt to a release containing:
