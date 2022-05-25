@@ -513,7 +513,7 @@ var _ = SIGDescribe("[rfe_id:694][crit:medium][vendor:cnv-qe@redhat.com][level:c
 	Context("VirtualMachineInstance with dhcp options", func() {
 		It("[test_id:1778]should offer extra dhcp options to pod iface", func() {
 			libnet.SkipWhenClusterNotSupportIpv4(virtClient)
-			dhcpVMI := libvmi.NewFedora()
+			dhcpVMI := libvmi.NewAlpineWithTestTooling()
 			tests.AddExplicitPodNetworkInterface(dhcpVMI)
 
 			dhcpVMI.Spec.Domain.Resources.Requests[k8sv1.ResourceName("memory")] = resource.MustParse("1024M")
@@ -530,7 +530,7 @@ var _ = SIGDescribe("[rfe_id:694][crit:medium][vendor:cnv-qe@redhat.com][level:c
 				PrivateOptions: []v1.DHCPPrivateOptions{{Option: 240, Value: "private.options.kubevirt.io"}},
 			}
 
-			dhcpVMI = tests.WaitUntilVMIReady(tests.RunVMI(dhcpVMI, 40), console.LoginToFedora)
+			dhcpVMI = tests.WaitUntilVMIReady(tests.RunVMI(dhcpVMI, 40), console.LogingToAlpine)
 
 			err = console.SafeExpectBatch(dhcpVMI, []expect.Batcher{
 				&expect.BSnd{S: "\n"},
@@ -619,7 +619,7 @@ var _ = SIGDescribe("[rfe_id:694][crit:medium][vendor:cnv-qe@redhat.com][level:c
 
 			net := v1.DefaultPodNetwork()
 			net.Pod.VMIPv6NetworkCIDR = ipv6NetworkCIDR
-			vmi := libvmi.NewFedora(
+			vmi := libvmi.NewAlpineWithTestTooling(
 				libvmi.WithInterface(libvmi.InterfaceDeviceWithMasqueradeBinding(ports...)),
 				libvmi.WithNetwork(net),
 				libvmi.WithCloudInitNoCloudNetworkData(networkData, false),
@@ -754,7 +754,7 @@ var _ = SIGDescribe("[rfe_id:694][crit:medium][vendor:cnv-qe@redhat.com][level:c
 				Expect(err).ToNot(HaveOccurred())
 				clientVMI, err = virtClient.VirtualMachineInstance(util.NamespaceTestDefault).Create(clientVMI)
 				Expect(err).ToNot(HaveOccurred())
-				clientVMI = tests.WaitUntilVMIReady(clientVMI, console.LoginToFedora)
+				clientVMI = tests.WaitUntilVMIReady(clientVMI, console.LogingToAlpine)
 
 				Expect(configureIpv6(clientVMI, networkCIDR)).To(Succeed(), "failed to configure ipv6 on client vmi")
 
@@ -764,7 +764,7 @@ var _ = SIGDescribe("[rfe_id:694][crit:medium][vendor:cnv-qe@redhat.com][level:c
 				serverVMI.Labels = map[string]string{"expose": "server"}
 				serverVMI, err = virtClient.VirtualMachineInstance(util.NamespaceTestDefault).Create(serverVMI)
 				Expect(err).ToNot(HaveOccurred())
-				serverVMI = tests.WaitUntilVMIReady(serverVMI, console.LoginToFedora)
+				serverVMI = tests.WaitUntilVMIReady(serverVMI, console.LogingToAlpine)
 
 				Expect(configureIpv6(serverVMI, networkCIDR)).To(Succeed(), "failed to configure ipv6  on server vmi")
 
@@ -796,7 +796,7 @@ var _ = SIGDescribe("[rfe_id:694][crit:medium][vendor:cnv-qe@redhat.com][level:c
 				Expect(err).ToNot(HaveOccurred())
 				vmi, err = virtClient.VirtualMachineInstance(util.NamespaceTestDefault).Create(vmi)
 				Expect(err).ToNot(HaveOccurred())
-				vmi = tests.WaitUntilVMIReady(vmi, console.LoginToFedora)
+				vmi = tests.WaitUntilVMIReady(vmi, console.LogingToAlpine)
 				Expect(configureIpv6(vmi, api.DefaultVMIpv6CIDR)).To(Succeed(), "failed to configure ipv6 on vmi")
 
 				By("Checking ping (IPv6) from vmi to cluster nodes gateway")
@@ -909,7 +909,7 @@ var _ = SIGDescribe("[rfe_id:694][crit:medium][vendor:cnv-qe@redhat.com][level:c
 
 				vmi, err = virtClient.VirtualMachineInstance(util.NamespaceTestDefault).Create(vmi)
 				Expect(err).ToNot(HaveOccurred())
-				vmi = tests.WaitUntilVMIReady(vmi, console.LoginToFedora)
+				vmi = tests.WaitUntilVMIReady(vmi, console.LogingToAlpine)
 				virtHandlerPod, err := getVirtHandlerPod()
 				Expect(err).ToNot(HaveOccurred())
 
@@ -930,8 +930,8 @@ var _ = SIGDescribe("[rfe_id:694][crit:medium][vendor:cnv-qe@redhat.com][level:c
 				Expect(ping(podIP)).To(Succeed())
 
 				By("Initiating DHCP client request after migration")
-				Expect(console.RunCommand(vmi, "sudo dhclient -6 -r eth0\n", time.Second*time.Duration(15))).To(Succeed(), "failed to release dhcp client")
-				Expect(console.RunCommand(vmi, "sudo dhclient -6 eth0\n", time.Second*time.Duration(15))).To(Succeed(), "failed to run dhcp client")
+				Expect(console.RunCommand(vmi, "dhclient -6 -r eth0\n", time.Second*time.Duration(15))).To(Succeed(), "failed to release dhcp client")
+				Expect(console.RunCommand(vmi, "dhclient -6 eth0\n", time.Second*time.Duration(15))).To(Succeed(), "failed to run dhcp client")
 
 				Expect(ping(podIP)).To(Succeed())
 			})
@@ -963,7 +963,7 @@ var _ = SIGDescribe("[rfe_id:694][crit:medium][vendor:cnv-qe@redhat.com][level:c
 				networkData, err := libnet.CreateDefaultCloudInitNetworkData()
 				Expect(err).NotTo(HaveOccurred())
 
-				vmi = libvmi.NewFedora(
+				vmi = libvmi.NewAlpineWithTestTooling(
 					libvmi.WithInterface(libvmi.InterfaceDeviceWithMasqueradeBinding()),
 					libvmi.WithNetwork(v1.DefaultPodNetwork()),
 					libvmi.WithCloudInitNoCloudNetworkData(networkData, false),
@@ -982,7 +982,7 @@ var _ = SIGDescribe("[rfe_id:694][crit:medium][vendor:cnv-qe@redhat.com][level:c
 				By("Wait for VMIs to be ready")
 				anotherVmi = tests.WaitUntilVMIReady(anotherVmi, console.LoginToAlpine)
 
-				vmi = tests.WaitUntilVMIReady(vmi, console.LoginToFedora)
+				vmi = tests.WaitUntilVMIReady(vmi, console.LogingToAlpine)
 			})
 
 			DescribeTable("should have the correct MTU", func(ipFamily k8sv1.IPFamily) {
