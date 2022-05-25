@@ -2033,30 +2033,6 @@ func wrapGuestAgentPingWithVirtProbe(vmi *v1.VirtualMachineInstance, probe *k8sv
 	return
 }
 
-func wrapExecProbeWithVirtProbe(vmi *v1.VirtualMachineInstance, probe *k8sv1.Probe) {
-	if probe == nil || probe.ProbeHandler.Exec == nil {
-		return
-	}
-
-	originalCommand := probe.ProbeHandler.Exec.Command
-	if len(originalCommand) < 1 {
-		return
-	}
-
-	wrappedCommand := []string{
-		"virt-probe",
-		"--domainName", api.VMINamespaceKeyFunc(vmi),
-		"--timeoutSeconds", strconv.FormatInt(int64(probe.TimeoutSeconds), 10),
-		"--command", originalCommand[0],
-		"--",
-	}
-	wrappedCommand = append(wrappedCommand, originalCommand[1:]...)
-
-	probe.ProbeHandler.Exec.Command = wrappedCommand
-	// we add 1s to the pod probe to compensate for the additional steps in probing
-	probe.TimeoutSeconds += 1
-}
-
 func alignPodMultiCategorySecurity(pod *k8sv1.Pod, selinuxType string) {
 	pod.Spec.SecurityContext.SELinuxOptions = &k8sv1.SELinuxOptions{Type: selinuxType}
 	// more info on https://github.com/kubernetes/kubernetes/issues/90759

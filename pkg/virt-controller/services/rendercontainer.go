@@ -1,10 +1,13 @@
 package services
 
 import (
+	"strconv"
+
 	k8sv1 "k8s.io/api/core/v1"
 
 	v1 "kubevirt.io/api/core/v1"
 	"kubevirt.io/kubevirt/pkg/util"
+	"kubevirt.io/kubevirt/pkg/virt-launcher/virtwrap/api"
 )
 
 const (
@@ -204,6 +207,30 @@ func updateLivenessProbe(vmi *v1.VirtualMachineInstance, computeProbe *k8sv1.Pro
 	}
 	wrapExecProbeWithVirtProbe(vmi, computeProbe)
 	computeProbe.InitialDelaySeconds = computeProbe.InitialDelaySeconds + LibvirtStartupDelay
+}
+
+func wrapExecProbeWithVirtProbe(vmi *v1.VirtualMachineInstance, probe *k8sv1.Probe) {
+	if probe == nil || probe.ProbeHandler.Exec == nil {
+		return
+	}
+
+	originalCommand := probe.ProbeHandler.Exec.Command
+	if len(originalCommand) < 1 {
+		return
+	}
+
+	wrappedCommand := []string{
+		"virt-probe",
+		"--domainName", api.VMINamespaceKeyFunc(vmi),
+		"--timeoutSeconds", strconv.FormatInt(int64(probe.TimeoutSeconds), 10),
+		"--command", originalCommand[0],
+		"--",
+	}
+	wrappedCommand = append(wrappedCommand, originalCommand[1:]...)
+
+	probe.ProbeHandler.Exec.Command = wrappedCommand
+	// we add 1s to the pod probe to compensate for the additional steps in probing
+	probe.TimeoutSeconds += 1
 }
 
 func requiredCapabilities(vmi *v1.VirtualMachineInstance) []k8sv1.Capability {
