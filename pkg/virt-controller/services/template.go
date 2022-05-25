@@ -1938,26 +1938,6 @@ func addProbeOverhead(probe *v1.Probe, to *resource.Quantity) bool {
 	return false
 }
 
-func updateReadinessProbe(vmi *v1.VirtualMachineInstance, computeProbe *k8sv1.Probe) {
-	if vmi.Spec.ReadinessProbe.GuestAgentPing != nil {
-		wrapGuestAgentPingWithVirtProbe(vmi, computeProbe)
-		computeProbe.InitialDelaySeconds = computeProbe.InitialDelaySeconds + LibvirtStartupDelay
-		return
-	}
-	wrapExecProbeWithVirtProbe(vmi, computeProbe)
-	computeProbe.InitialDelaySeconds = computeProbe.InitialDelaySeconds + LibvirtStartupDelay
-}
-
-func updateLivenessProbe(vmi *v1.VirtualMachineInstance, computeProbe *k8sv1.Probe) {
-	if vmi.Spec.LivenessProbe.GuestAgentPing != nil {
-		wrapGuestAgentPingWithVirtProbe(vmi, computeProbe)
-		computeProbe.InitialDelaySeconds = computeProbe.InitialDelaySeconds + LibvirtStartupDelay
-		return
-	}
-	wrapExecProbeWithVirtProbe(vmi, computeProbe)
-	computeProbe.InitialDelaySeconds = computeProbe.InitialDelaySeconds + LibvirtStartupDelay
-}
-
 func HaveMasqueradeInterface(interfaces []v1.Interface) bool {
 	for _, iface := range interfaces {
 		if iface.Masquerade != nil {

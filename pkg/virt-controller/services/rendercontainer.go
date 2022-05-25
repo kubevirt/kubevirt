@@ -185,3 +185,23 @@ func containerPortsFromVMI(vmi *v1.VirtualMachineInstance) []k8sv1.ContainerPort
 
 	return ports
 }
+
+func updateReadinessProbe(vmi *v1.VirtualMachineInstance, computeProbe *k8sv1.Probe) {
+	if vmi.Spec.ReadinessProbe.GuestAgentPing != nil {
+		wrapGuestAgentPingWithVirtProbe(vmi, computeProbe)
+		computeProbe.InitialDelaySeconds = computeProbe.InitialDelaySeconds + LibvirtStartupDelay
+		return
+	}
+	wrapExecProbeWithVirtProbe(vmi, computeProbe)
+	computeProbe.InitialDelaySeconds = computeProbe.InitialDelaySeconds + LibvirtStartupDelay
+}
+
+func updateLivenessProbe(vmi *v1.VirtualMachineInstance, computeProbe *k8sv1.Probe) {
+	if vmi.Spec.LivenessProbe.GuestAgentPing != nil {
+		wrapGuestAgentPingWithVirtProbe(vmi, computeProbe)
+		computeProbe.InitialDelaySeconds = computeProbe.InitialDelaySeconds + LibvirtStartupDelay
+		return
+	}
+	wrapExecProbeWithVirtProbe(vmi, computeProbe)
+	computeProbe.InitialDelaySeconds = computeProbe.InitialDelaySeconds + LibvirtStartupDelay
+}
