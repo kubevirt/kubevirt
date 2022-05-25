@@ -1102,9 +1102,6 @@ func (t *templateService) renderLaunchManifest(vmi *v1.VirtualMachineInstance, i
 		command = append(command, "--simulate-crash")
 	}
 
-	// Add ports from interfaces to the pod manifest
-	ports := getPortsFromVMI(vmi)
-
 	networkToResourceMap, err := getNetworkToResourceMap(t.virtClient, vmi)
 	if err != nil {
 		return nil, err
@@ -1138,55 +1135,30 @@ func (t *templateService) renderLaunchManifest(vmi *v1.VirtualMachineInstance, i
 		requestResource(&resources, SevDevice)
 	}
 
-	// VirtualMachineInstance target container
-	compute := k8sv1.Container{
-		Name:            "compute",
-		Image:           t.launcherImage,
-		ImagePullPolicy: imagePullPolicy,
-		SecurityContext: &k8sv1.SecurityContext{
-			RunAsUser:  &userId,
-			Privileged: &privileged,
-			Capabilities: &k8sv1.Capabilities{
-				Add:  getRequiredCapabilities(vmi),
-				Drop: []k8sv1.Capability{CAP_NET_RAW},
-			},
-		},
-		Command:       command,
-		VolumeDevices: volumeDevices,
-		VolumeMounts:  volumeMounts,
-		Resources:     resources,
-		Ports:         ports,
+	computeContainerOpts := []Option{
+		WithVolumeDevices(volumeDevices...),
+		WithVolumeMounts(volumeMounts...),
+		WithResourceRequirements(resources),
+		WithPorts(vmi),
+		WithCapabilities(vmi),
 	}
 	if nonRoot {
-		compute.SecurityContext.RunAsGroup = &userId
-		compute.SecurityContext.RunAsNonRoot = &nonRoot
-		compute.Env = append(compute.Env,
-			k8sv1.EnvVar{
-				Name:  "XDG_CACHE_HOME",
-				Value: util.VirtPrivateDir,
-			},
-			k8sv1.EnvVar{
-				Name:  "XDG_CONFIG_HOME",
-				Value: util.VirtPrivateDir,
-			},
-			k8sv1.EnvVar{
-				Name:  "XDG_RUNTIME_DIR",
-				Value: varRun,
-			},
-		)
+		computeContainerOpts = append(computeContainerOpts, WithNonRoot(userId))
 	}
-
+	if t.IsPPC64() {
+		computeContainerOpts = append(computeContainerOpts, WithPrivileged())
+	}
 	if vmi.Spec.ReadinessProbe != nil {
-		v1.SetDefaults_Probe(vmi.Spec.ReadinessProbe)
-		compute.ReadinessProbe = copyProbe(vmi.Spec.ReadinessProbe)
-		updateReadinessProbe(vmi, compute.ReadinessProbe)
+		computeContainerOpts = append(computeContainerOpts, WithReadinessProbe(vmi))
 	}
 
 	if vmi.Spec.LivenessProbe != nil {
-		v1.SetDefaults_Probe(vmi.Spec.LivenessProbe)
-		compute.LivenessProbe = copyProbe(vmi.Spec.LivenessProbe)
-		updateLivenessProbe(vmi, compute.LivenessProbe)
+		computeContainerOpts = append(computeContainerOpts, WithLivelinessProbe(vmi))
 	}
+
+	const computeContainerName = "compute"
+	compute := NewContainerSpecRenderer(
+		computeContainerName, t.launcherImage, imagePullPolicy, computeContainerOpts...).Render(command)
 
 	for networkName, resourceName := range networkToResourceMap {
 		varName := fmt.Sprintf("KUBEVIRT_RESOURCE_NAME_%s", networkName)
@@ -1327,29 +1299,22 @@ func (t *templateService) renderLaunchManifest(vmi *v1.VirtualMachineInstance, i
 			resources.Limits[k8sv1.ResourceCPU] = resource.MustParse("200m")
 			resources.Limits[k8sv1.ResourceMemory] = resource.MustParse("64M")
 		}
-		sidecar := k8sv1.Container{
-			Name:            fmt.Sprintf("hook-sidecar-%d", i),
-			Image:           requestedHookSidecar.Image,
-			ImagePullPolicy: requestedHookSidecar.ImagePullPolicy,
-			Command:         requestedHookSidecar.Command,
-			Args:            requestedHookSidecar.Args,
-			Resources:       resources,
-			SecurityContext: &k8sv1.SecurityContext{
-				RunAsUser:  &userId,
-				Privileged: &privileged,
-			},
-			VolumeMounts: []k8sv1.VolumeMount{
-				{
-					Name:      hookSidecarSocks,
-					MountPath: hooks.HookSocketsSharedDirectory,
-				},
-			},
+
+		sidecarOpts := []Option{
+			WithResourceRequirements(resources),
+			WithVolumeMounts(sidecarVolumeMount()),
+			WithArgs(requestedHookSidecar.Args),
 		}
+
 		if nonRoot {
-			sidecar.SecurityContext.RunAsGroup = &userId
-			sidecar.SecurityContext.RunAsNonRoot = &nonRoot
+			sidecarOpts = append(sidecarOpts, WithNonRoot(userId))
 		}
-		containers = append(containers, sidecar)
+
+		containers = append(containers, NewContainerSpecRenderer(
+			sidecarContainerName(i),
+			requestedHookSidecar.Image,
+			requestedHookSidecar.ImagePullPolicy,
+			sidecarOpts...).Render(requestedHookSidecar.Command))
 	}
 
 	podAnnotations, err := generatePodAnnotations(vmi)
@@ -1365,11 +1330,9 @@ func (t *templateService) renderLaunchManifest(vmi *v1.VirtualMachineInstance, i
 
 	if HaveContainerDiskVolume(vmi.Spec.Volumes) || util.HasKernelBootContainerImage(vmi) {
 
-		initContainerVolumeMounts := []k8sv1.VolumeMount{
-			{
-				Name:      virtBinDir,
-				MountPath: "/init/usr/bin",
-			},
+		initContainerVolumeMount := k8sv1.VolumeMount{
+			Name:      virtBinDir,
+			MountPath: "/init/usr/bin",
 		}
 
 		initContainerResources := k8sv1.ResourceRequirements{}
@@ -1392,24 +1355,22 @@ func (t *templateService) renderLaunchManifest(vmi *v1.VirtualMachineInstance, i
 			"/usr/bin/container-disk",
 			"/init/usr/bin/container-disk",
 		}
-		cpInitContainer := k8sv1.Container{
-			Name:            "container-disk-binary",
-			Image:           t.launcherImage,
-			ImagePullPolicy: imagePullPolicy,
-			SecurityContext: &k8sv1.SecurityContext{
-				RunAsUser:  &userId,
-				Privileged: &privileged,
-			},
-			Command:      initContainerCommand,
-			VolumeMounts: initContainerVolumeMounts,
-			Resources:    initContainerResources,
-		}
-		if nonRoot {
-			cpInitContainer.SecurityContext.RunAsGroup = &userId
-			cpInitContainer.SecurityContext.RunAsNonRoot = &nonRoot
+
+		const containerDisk = "container-disk-binary"
+		cpInitContainerOpts := []Option{
+			WithVolumeMounts(initContainerVolumeMount),
+			WithResourceRequirements(initContainerResources),
 		}
 
-		initContainers = append(initContainers, cpInitContainer)
+		if nonRoot {
+			cpInitContainerOpts = append(cpInitContainerOpts, WithNonRoot(userId))
+		}
+		if privileged {
+			cpInitContainerOpts = append(cpInitContainerOpts, WithPrivileged())
+		}
+
+		initContainers = append(initContainers, NewContainerSpecRenderer(
+			containerDisk, t.launcherImage, imagePullPolicy, cpInitContainerOpts...).Render(initContainerCommand))
 
 		// this causes containerDisks to be pre-pulled before virt-launcher starts.
 		initContainers = append(initContainers, containerdisk.GenerateInitContainers(vmi, imageIDs, containerDisks, virtBinDir)...)
@@ -1507,6 +1468,17 @@ func (t *templateService) renderLaunchManifest(vmi *v1.VirtualMachineInstance, i
 	}
 
 	return &pod, nil
+}
+
+func sidecarVolumeMount() k8sv1.VolumeMount {
+	return k8sv1.VolumeMount{
+		Name:      hookSidecarSocks,
+		MountPath: hooks.HookSocketsSharedDirectory,
+	}
+}
+
+func sidecarContainerName(i int) string {
+	return fmt.Sprintf("hook-sidecar-%d", i)
 }
 
 func validatePermittedHostDevices(spec *v1.VirtualMachineInstanceSpec, config *virtconfig.ClusterConfig) error {
