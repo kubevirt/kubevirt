@@ -2740,33 +2740,39 @@ var _ = Describe("VirtualMachineInstance", func() {
 		})
 
 		It("should succeed with empty VMI and basic commands", func() {
-			result := isGuestAgentSupported(vmi, basicCommands)
+			result, reason := isGuestAgentSupported(vmi, basicCommands)
 			Expect(result).To(BeTrue())
+			Expect(reason).To(Equal(""))
 		})
 
 		It("should succeed with empty VMI and all commands", func() {
-			result := isGuestAgentSupported(vmi, allCommands)
+			result, reason := isGuestAgentSupported(vmi, allCommands)
 			Expect(result).To(BeTrue())
+			Expect(reason).To(Equal(""))
 		})
 
 		It("should fail with password and basic commands", func() {
-			result := isGuestAgentSupported(vmiWithPassword, basicCommands)
+			result, reason := isGuestAgentSupported(vmiWithPassword, basicCommands)
 			Expect(result).To(BeFalse())
+			Expect(reason).To(Equal("This guest agent doesn't support required password commands"))
 		})
 
 		It("should succeed with password and all commands", func() {
-			result := isGuestAgentSupported(vmiWithPassword, allCommands)
+			result, reason := isGuestAgentSupported(vmiWithPassword, allCommands)
 			Expect(result).To(BeTrue())
+			Expect(reason).To(Equal(""))
 		})
 
 		It("should fail with SSH and basic commands", func() {
-			result := isGuestAgentSupported(vmiWithSSH, basicCommands)
+			result, reason := isGuestAgentSupported(vmiWithSSH, basicCommands)
 			Expect(result).To(BeFalse())
+			Expect(reason).To(Equal("This guest agent doesn't support required public key commands"))
 		})
 
 		It("should succeed with SSH and all commands", func() {
-			result := isGuestAgentSupported(vmiWithSSH, allCommands)
+			result, reason := isGuestAgentSupported(vmiWithSSH, allCommands)
 			Expect(result).To(BeTrue())
+			Expect(reason).To(Equal(""))
 		})
 	})
 })
