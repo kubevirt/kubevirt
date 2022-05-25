@@ -423,13 +423,13 @@ func applyDevicePreferences(preferenceSpec *flavorv1alpha1.VirtualMachinePrefere
 		vmiSpec.Domain.Devices.TPM = preferenceSpec.Devices.PreferredTPM.DeepCopy()
 	}
 
-	applyDiskPreferences(preferenceSpec, vmiSpec)
+	ApplyDiskPreferences(preferenceSpec, vmiSpec)
 	ApplyInterfacePreferences(preferenceSpec, vmiSpec)
 	applyInputPreferences(preferenceSpec, vmiSpec)
 
 }
 
-func applyDiskPreferences(preferenceSpec *flavorv1alpha1.VirtualMachinePreferenceSpec, vmiSpec *virtv1.VirtualMachineInstanceSpec) {
+func ApplyDiskPreferences(preferenceSpec *flavorv1alpha1.VirtualMachinePreferenceSpec, vmiSpec *virtv1.VirtualMachineInstanceSpec) {
 	for diskIndex := range vmiSpec.Domain.Devices.Disks {
 		vmiDisk := &vmiSpec.Domain.Devices.Disks[diskIndex]
 		// If we don't have a target device defined default to a DiskTarget so we can apply preferences

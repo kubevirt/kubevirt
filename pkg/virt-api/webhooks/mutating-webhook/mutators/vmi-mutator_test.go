@@ -1082,6 +1082,7 @@ var _ = Describe("VirtualMachineInstance Mutator", func() {
 				},
 				Devices: &flavorv1alpha1.DevicePreferences{
 					PreferredInterfaceModel: "virtio",
+					PreferredDiskBus:        v1.DiskBusVirtio,
 				},
 			}
 			p = &flavorv1alpha1.VirtualMachinePreference{
@@ -1314,6 +1315,44 @@ var _ = Describe("VirtualMachineInstance Mutator", func() {
 			_, vmiSpec, _ := getMetaSpecStatusFromAdmit()
 
 			Expect(vmiSpec.Domain.Devices.Interfaces[0].Model).To(Equal(p.Spec.Devices.PreferredInterfaceModel))
+
+		})
+
+		It("should apply Flavor and Preferences to any added volume disks", func() {
+
+			presentVolumeName := "present-vol"
+			missingVolumeName := "missing-vol"
+
+			vmi.Spec.Preference = &v1.PreferenceMatcher{
+				Name: p.Name,
+				Kind: apiflavor.SingularPreferenceResourceName,
+			}
+
+			vmi.Spec.Domain.Devices.Disks = []v1.Disk{
+				v1.Disk{
+					Name: presentVolumeName,
+					DiskDevice: v1.DiskDevice{
+						Disk: &v1.DiskTarget{
+							Bus: v1.DiskBusSCSI,
+						},
+					},
+				},
+			}
+			vmi.Spec.Volumes = []v1.Volume{
+				v1.Volume{
+					Name: presentVolumeName,
+				},
+				v1.Volume{
+					Name: missingVolumeName,
+				},
+			}
+			_, vmiSpec, _ := getMetaSpecStatusFromAdmit()
+
+			Expect(vmiSpec.Domain.Devices.Disks).To(HaveLen(2))
+			Expect(vmiSpec.Domain.Devices.Disks[0].Name).To(Equal(presentVolumeName))
+			Expect(vmiSpec.Domain.Devices.Disks[0].DiskDevice.Disk.Bus).To(Equal(v1.DiskBusSCSI))
+			Expect(vmiSpec.Domain.Devices.Disks[1].Name).To(Equal(missingVolumeName))
+			Expect(vmiSpec.Domain.Devices.Disks[1].DiskDevice.Disk.Bus).To(Equal(p.Spec.Devices.PreferredDiskBus))
 
 		})
 	})

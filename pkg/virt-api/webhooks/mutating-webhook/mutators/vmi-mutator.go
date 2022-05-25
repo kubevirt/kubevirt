@@ -102,7 +102,7 @@ func (mutator *VMIsMutator) Mutate(ar *admissionv1.AdmissionReview) *admissionv1
 		if err != nil {
 			return webhookutils.ToAdmissionResponseError(err)
 		}
-		mutator.setDefaultVolumeDisk(newVMI)
+		mutator.setDefaultVolumeDisk(newVMI, preferenceSpec)
 		v1.SetObjectDefaults_VirtualMachineInstance(newVMI)
 
 		// In a future, yet undecided, release either libvirt or QEMU are going to check the hyperv dependencies, so we can get rid of this code.
@@ -294,7 +294,7 @@ func (mutator *VMIsMutator) setDefaultNetworkInterface(obj *v1.VirtualMachineIns
 	return nil
 }
 
-func (mutator *VMIsMutator) setDefaultVolumeDisk(obj *v1.VirtualMachineInstance) {
+func (mutator *VMIsMutator) setDefaultVolumeDisk(obj *v1.VirtualMachineInstance, preferenceSpec *flavorv1alpha1.VirtualMachinePreferenceSpec) {
 
 	diskAndFilesystemNames := make(map[string]struct{})
 
@@ -315,6 +315,10 @@ func (mutator *VMIsMutator) setDefaultVolumeDisk(obj *v1.VirtualMachineInstance)
 				},
 			)
 		}
+	}
+
+	if preferenceSpec != nil && preferenceSpec.Devices != nil {
+		flavor.ApplyDiskPreferences(preferenceSpec, &obj.Spec)
 	}
 }
 
