@@ -17629,7 +17629,7 @@
     "type": "object",
     "properties": {
      "preferredCPUTopology": {
-      "description": "PreferredCPUTopology optionally defines the preferred guest visible CPU topology, defaults to PreferCores.",
+      "description": "PreferredCPUTopology optionally defines the preferred guest visible CPU topology, defaults to PreferSockets.",
       "type": "string"
      }
     }

@@ -231,8 +231,8 @@ func applyCpu(field *k8sfield.Path, flavorSpec *flavorv1alpha1.VirtualMachineFla
 		Realtime:              flavorSpec.CPU.Realtime.DeepCopy(),
 	}
 
-	// Default to PreferCores when a PreferredCPUTopology isn't provided
-	preferredTopology := flavorv1alpha1.PreferCores
+	// Default to PreferSockets when a PreferredCPUTopology isn't provided
+	preferredTopology := flavorv1alpha1.PreferSockets
 	if preferenceSpec != nil && preferenceSpec.CPU != nil && preferenceSpec.CPU.PreferredCPUTopology != "" {
 		preferredTopology = preferenceSpec.CPU.PreferredCPUTopology
 	}

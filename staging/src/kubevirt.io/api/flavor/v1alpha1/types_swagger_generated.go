@@ -103,7 +103,7 @@ func (VirtualMachinePreferenceSpec) SwaggerDoc() map[string]string {
 func (CPUPreferences) SwaggerDoc() map[string]string {
 	return map[string]string{
 		"":                     "CPUPreferences contains various optional CPU preferences.",
-		"preferredCPUTopology": "PreferredCPUTopology optionally defines the preferred guest visible CPU topology, defaults to PreferCores.\n\n+optional",
+		"preferredCPUTopology": "PreferredCPUTopology optionally defines the preferred guest visible CPU topology, defaults to PreferSockets.\n\n+optional",
 	}
 }
 
