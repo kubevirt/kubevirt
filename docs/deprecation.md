@@ -10,6 +10,20 @@ be a "live document" which updates and refines itself over time.
 ## Process
 
 ### Feature Gates
+#### Introduction
+A feature gate should be introduced for every new feature, capability, configuration or any other change that
+is not yet stable and can jeopardize the cluster.
+
+A feature gate serves as:
+* A way to warn the user about a possible danger that could be caused by an unstable logic.
+* A way for the users to explicitly state that they would like to take the risk and enable the feature.
+* A way for the user to explicitly confirm that some feature / HW is available on the cluster.
+
+Over time the new features would stabilize and graduate their API versions (i.e. from alpha, to beta to stable). When
+that happens, and therefore the risk of jeopardizing the user decreases significantly, the feature should be enabled
+by default and the feature gate should be deprecated (see section below).
+
+#### Deprecation
 A feature gate should be deprecated for one of the following reasons:
 * When a feature stabilizes and there is no need to guard it by a feature gate.
 * When a feature (that's guarded with a feature gate) did not show as useful, therefore is deprecated.
