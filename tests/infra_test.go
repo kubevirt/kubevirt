@@ -82,6 +82,10 @@ import (
 	"kubevirt.io/kubevirt/tests/libnet"
 )
 
+const (
+	remoteCmdErrPattern = "failed running `%s` with stdout:\n %v \n stderr:\n %v \n err: \n %v \n"
+)
+
 var _ = Describe("[Serial][sig-compute]Infrastructure", func() {
 	var (
 		virtClient       kubecli.KubevirtClient
@@ -587,35 +591,28 @@ var _ = Describe("[Serial][sig-compute]Infrastructure", func() {
 
 			// We need a token from a service account that can view all namespaces in the cluster
 			By("extracting virt-operator sa token")
-			token, _, err := tests.ExecuteCommandOnPodV2(virtClient,
-				&op,
-				"virt-operator",
-				[]string{
-					"cat",
-					"/var/run/secrets/kubernetes.io/serviceaccount/token",
-				})
-			Expect(err).ToNot(HaveOccurred(), "failed executing command on virt-operator")
+			cmd := []string{"cat", "/var/run/secrets/kubernetes.io/serviceaccount/token"}
+			token, stderr, err := tests.ExecuteCommandOnPodV2(virtClient, &op, "virt-operator", cmd)
+			Expect(err).ToNot(HaveOccurred(), fmt.Sprintf(remoteCmdErrPattern, strings.Join(cmd, " "), token, stderr, err))
 			Expect(token).ToNot(BeEmpty(), "virt-operator sa token returned empty")
 
 			By("querying Prometheus API endpoint for a VMI exported metric")
-			stdout, _, err := tests.ExecuteCommandOnPodV2(virtClient,
-				&op,
-				"virt-operator",
-				[]string{
-					"curl",
-					"-L",
-					"-k",
-					fmt.Sprintf("https://%s:%d/api/v1/query", promIP, promPort),
-					"-H",
-					fmt.Sprintf("Authorization: Bearer %s", token),
-					"--data-urlencode",
-					fmt.Sprintf(
-						`query=kubevirt_vmi_memory_resident_bytes{namespace="%s",name="%s"}`,
-						vmi.Namespace,
-						vmi.Name,
-					),
-				})
-			Expect(err).ToNot(HaveOccurred(), "failed to execute query")
+			cmd = []string{
+				"curl",
+				"-L",
+				"-k",
+				fmt.Sprintf("https://%s:%d/api/v1/query", promIP, promPort),
+				"-H",
+				fmt.Sprintf("Authorization: Bearer %s", token),
+				"--data-urlencode",
+				fmt.Sprintf(
+					`query=kubevirt_vmi_memory_resident_bytes{namespace="%s",name="%s"}`,
+					vmi.Namespace,
+					vmi.Name,
+				)}
+
+			stdout, stderr, err := tests.ExecuteCommandOnPodV2(virtClient, &op, "virt-operator", cmd)
+			Expect(err).ToNot(HaveOccurred(), fmt.Sprintf(remoteCmdErrPattern, strings.Join(cmd, " "), stdout, stderr, err))
 
 			// the Prometheus go-client does not export queryResult, and
 			// using an HTTP client for queries would require a port-forwarding
@@ -753,15 +750,11 @@ var _ = Describe("[Serial][sig-compute]Infrastructure", func() {
 				if !strings.HasPrefix(ep.TargetRef.Name, "virt-controller") {
 					continue
 				}
-				stdout, _, err := tests.ExecuteCommandOnPodV2(
-					virtClient,
-					pod,
-					"virt-handler",
-					[]string{
-						"curl", "-L", "-k",
-						fmt.Sprintf("https://%s:8443/metrics", tests.FormatIPForURL(ep.IP)),
-					})
-				Expect(err).ToNot(HaveOccurred())
+
+				cmd := fmt.Sprintf("curl -L -k https://%s:8443/metrics", tests.FormatIPForURL(ep.IP))
+				stdout, stderr, err := tests.ExecuteCommandOnPodV2(virtClient, pod, "virt-handler", strings.Fields(cmd))
+				Expect(err).ToNot(HaveOccurred(), fmt.Sprintf(remoteCmdErrPattern, cmd, stdout, stderr, err))
+
 				scrapedData := strings.Split(stdout, "\n")
 				for _, data := range scrapedData {
 					if strings.HasPrefix(data, "#") {
@@ -792,15 +785,11 @@ var _ = Describe("[Serial][sig-compute]Infrastructure", func() {
 				if !strings.HasPrefix(ep.TargetRef.Name, "virt-operator") {
 					continue
 				}
-				stdout, _, err := tests.ExecuteCommandOnPodV2(
-					virtClient,
-					pod,
-					"virt-handler",
-					[]string{
-						"curl", "-L", "-k",
-						fmt.Sprintf("https://%s:8443/metrics", tests.FormatIPForURL(ep.IP)),
-					})
-				Expect(err).ToNot(HaveOccurred())
+
+				cmd := fmt.Sprintf("curl -L -k https://%s:8443/metrics", tests.FormatIPForURL(ep.IP))
+				stdout, stderr, err := tests.ExecuteCommandOnPodV2(virtClient, pod, "virt-handler", strings.Fields(cmd))
+				Expect(err).ToNot(HaveOccurred(), fmt.Sprintf(remoteCmdErrPattern, cmd, stdout, stderr, err))
+
 				scrapedData := strings.Split(stdout, "\n")
 				for _, data := range scrapedData {
 					if strings.HasPrefix(data, "#") {
@@ -849,16 +838,9 @@ var _ = Describe("[Serial][sig-compute]Infrastructure", func() {
 			endpoint, err := virtClient.CoreV1().Endpoints(flags.KubeVirtInstallNamespace).Get(context.Background(), "kubevirt-prometheus-metrics", metav1.GetOptions{})
 			Expect(err).ToNot(HaveOccurred())
 			for _, ep := range endpoint.Subsets[0].Addresses {
-				stdout, _, err := tests.ExecuteCommandOnPodV2(virtClient,
-					pod,
-					"virt-handler",
-					[]string{
-						"curl",
-						"-L",
-						"-k",
-						fmt.Sprintf("https://%s:%s/metrics", tests.FormatIPForURL(ep.IP), "8443"),
-					})
-				Expect(err).ToNot(HaveOccurred())
+				cmd := fmt.Sprintf("curl -L -k https://%s:8443/metrics", tests.FormatIPForURL(ep.IP))
+				stdout, stderr, err := tests.ExecuteCommandOnPodV2(virtClient, pod, "virt-handler", strings.Fields(cmd))
+				Expect(err).ToNot(HaveOccurred(), fmt.Sprintf(remoteCmdErrPattern, cmd, stdout, stderr, err))
 				Expect(stdout).To(ContainSubstring("go_goroutines"))
 			}
 		})
