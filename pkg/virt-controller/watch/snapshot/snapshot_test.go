@@ -1912,6 +1912,11 @@ func expectVMSnapshotContentCreate(client *kubevirtfake.Clientset, content *snap
 		Expect(ok).To(BeTrue())
 
 		createObj := create.GetObject().(*snapshotv1.VirtualMachineSnapshotContent)
+		Expect(createObj.ObjectMeta).To(Equal(content.ObjectMeta))
+		Expect(createObj.Spec.Source).To(Equal(content.Spec.Source))
+		Expect(*createObj.Spec.VirtualMachineSnapshotName).To(Equal(*content.Spec.VirtualMachineSnapshotName))
+		Expect(createObj.Spec.VolumeBackups).To(Equal(content.Spec.VolumeBackups))
+		Expect(createObj.Status).To(Equal(content.Status))
 		Expect(createObj).To(Equal(content))
 
 		return true, create.GetObject(), nil
