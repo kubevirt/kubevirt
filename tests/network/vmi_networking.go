@@ -774,11 +774,9 @@ var _ = FSIGDescribe("[rfe_id:694][crit:medium][vendor:cnv-qe@redhat.com][level:
 				By("starting a http server")
 				tests.StartPythonHttpServer(serverVMI, tcpPort)
 
-				By("DELETEME: Waiting for manual intervention")
-				time.Sleep(time.Hour)
 				Expect(verifyClientServerConnectivity(clientVMI, serverVMI, tcpPort, k8sv1.IPv6Protocol)).To(Succeed())
 			},
-				FEntry("with a specific port number [IPv6]", []v1.Port{{Name: "http", Port: 8080}}, 8080, ""),
+				Entry("with a specific port number [IPv6]", []v1.Port{{Name: "http", Port: 8080}}, 8080, ""),
 				Entry("with a specific port used by live migration", portsUsedByLiveMigration(), LibvirtDirectMigrationPort, ""),
 				Entry("without a specific port number [IPv6]", []v1.Port{}, 8080, ""),
 				Entry("with custom CIDR [IPv6]", []v1.Port{}, 8080, "fd10:10:10::/120"),
