@@ -276,7 +276,7 @@ var _ = Describe("[Serial]SRIOV", func() {
 				metadataStruct := cloudinit.ConfigDriveMetadata{
 					InstanceID: fmt.Sprintf("%s.%s", vmi.Name, vmi.Namespace),
 					Hostname:   dns.SanitizeHostname(vmi),
-					UUID:       string(vmi.UID),
+					UUID:       string(vmi.Spec.Domain.Firmware.UUID),
 					Devices:    &deviceData,
 				}
 
@@ -339,7 +339,7 @@ var _ = Describe("[Serial]SRIOV", func() {
 					InstanceID:   fmt.Sprintf("%s.%s", vmi.Name, vmi.Namespace),
 					InstanceType: testFlavor,
 					Hostname:     dns.SanitizeHostname(vmi),
-					UUID:         string(vmi.UID),
+					UUID:         string(vmi.Spec.Domain.Firmware.UUID),
 					Devices:      &deviceData,
 				}
 
