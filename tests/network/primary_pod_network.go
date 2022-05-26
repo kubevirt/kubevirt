@@ -93,7 +93,7 @@ var _ = SIGDescribe("Primary Pod Network", func() {
 					libnet.SkipWhenClusterNotSupportIpv4(virtClient)
 					var err error
 
-					vmi, err = newFedoraWithGuestAgentAndDefaultInterface(libvmi.InterfaceDeviceWithBridgeBinding(libvmi.DefaultInterfaceName))
+					vmi, err = newAlpineWithGuestAgentAndDefaultInterface(libvmi.InterfaceDeviceWithBridgeBinding(libvmi.DefaultInterfaceName))
 					Expect(err).NotTo(HaveOccurred())
 
 					vmi, err = virtClient.VirtualMachineInstance(util.NamespaceTestDefault).Create(vmi)
@@ -136,12 +136,12 @@ var _ = SIGDescribe("Primary Pod Network", func() {
 				var vmi *v1.VirtualMachineInstance
 
 				BeforeEach(func() {
-					tmpVmi, err := newFedoraWithGuestAgentAndDefaultInterface(libvmi.InterfaceDeviceWithMasqueradeBinding())
+					tmpVmi, err := newAlpineWithGuestAgentAndDefaultInterface(libvmi.InterfaceDeviceWithMasqueradeBinding())
 					Expect(err).NotTo(HaveOccurred())
 
 					tmpVmi, err = virtClient.VirtualMachineInstance(util.NamespaceTestDefault).Create(tmpVmi)
 					Expect(err).NotTo(HaveOccurred())
-					vmi = tests.WaitUntilVMIReady(tmpVmi, console.LoginToFedora)
+					vmi = tests.WaitUntilVMIReady(tmpVmi, console.LoginToAlpine)
 
 					tests.WaitAgentConnected(virtClient, vmi)
 				})
@@ -226,13 +226,13 @@ func vmiWithMasqueradeBinding() *v1.VirtualMachineInstance {
 	return vmi
 }
 
-func newFedoraWithGuestAgentAndDefaultInterface(iface v1.Interface) (*v1.VirtualMachineInstance, error) {
+func newAlpineWithGuestAgentAndDefaultInterface(iface v1.Interface) (*v1.VirtualMachineInstance, error) {
 	networkData, err := libnet.CreateDefaultCloudInitNetworkData()
 	if err != nil {
 		return nil, err
 	}
 
-	vmi := libvmi.NewFedora(
+	vmi := libvmi.NewAlpineWithTestTooling(
 		libvmi.WithInterface(iface),
 		libvmi.WithNetwork(v1.DefaultPodNetwork()),
 		libvmi.WithCloudInitNoCloudNetworkData(networkData, false),

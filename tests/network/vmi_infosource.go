@@ -77,7 +77,7 @@ var _ = SIGDescribe("Infosource", func() {
 			defaultBridgeInterface := libvmi.InterfaceDeviceWithBridgeBinding(primaryNetwork)
 			secondaryLinuxBridgeInterface1 := libvmi.InterfaceDeviceWithBridgeBinding(secondaryNetwork1.Name)
 			secondaryLinuxBridgeInterface2 := libvmi.InterfaceDeviceWithBridgeBinding(secondaryNetwork2.Name)
-			vmiSpec := libvmi.NewFedora(
+			vmiSpec := libvmi.NewAlpineWithTestTooling(
 				libvmi.WithInterface(*libvmi.InterfaceWithMac(&defaultBridgeInterface, primaryInterfaceMac)),
 				libvmi.WithNetwork(kvirtv1.DefaultPodNetwork()),
 				libvmi.WithInterface(*libvmi.InterfaceWithMac(&secondaryLinuxBridgeInterface1, secondaryInterface1Mac)),

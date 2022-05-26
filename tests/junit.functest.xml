@@ -1,9 +1,0 @@
-<?xml version="1.0" encoding="UTF-8"?>
-  <testsuite name="Tests Suite" tests="18" failures="0" errors="0" time="0">
-      <testcase name="BeforeSuite" classname="Tests Suite" time="0.000178553">
-          <failure type="Failure">/home/ellorent/Documents/cnv/upstream/kubevirt/tests/tests_suite_test.go:92&#xA;Unexpected error:&#xA;    &lt;*fs.PathError | 0xc001cfc060&gt;: {&#xA;        Op: &#34;open&#34;,&#xA;        Path: &#34;tests/default-config.json&#34;,&#xA;        Err: &lt;syscall.Errno&gt;0x2,&#xA;    }&#xA;    open tests/default-config.json: no such file or directory&#xA;occurred&#xA;/home/ellorent/Documents/cnv/upstream/kubevirt/tests/testsuite/fixture.go:83</failure>
-      </testcase>
-      <testcase name="AfterSuite" classname="Tests Suite" time="0.000245748">
-          <failure type="Panic">/home/ellorent/Documents/cnv/upstream/kubevirt/tests/tests_suite_test.go:94&#xA;Test Panicked&#xA;/home/ellorent/Documents/cnv/upstream/kubevirt/tests/util/util.go:19</failure>
-      </testcase>
-  </testsuite>

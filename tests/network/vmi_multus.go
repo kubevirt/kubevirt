@@ -435,7 +435,7 @@ var _ = SIGDescribe("[Serial]Multus", func() {
 			customMacAddress := "50:00:00:00:90:0d"
 			It("[test_id:676]should configure valid custom MAC address on Linux bridge CNI interface.", func() {
 				By("Creating a VM with Linux bridge CNI network interface and default MAC address.")
-				vmiTwo := libvmi.NewFedora(
+				vmiTwo := libvmi.NewAlpineWithTestTooling(
 					libvmi.WithInterface(libvmi.InterfaceDeviceWithMasqueradeBinding()),
 					libvmi.WithNetwork(v1.DefaultPodNetwork()),
 					libvmi.WithInterface(linuxBridgeInterface),
@@ -446,7 +446,7 @@ var _ = SIGDescribe("[Serial]Multus", func() {
 				By("Creating another VM with custom MAC address on its Linux bridge CNI interface.")
 				linuxBridgeInterfaceWithCustomMac := linuxBridgeInterface
 				linuxBridgeInterfaceWithCustomMac.MacAddress = customMacAddress
-				vmiOne := libvmi.NewFedora(
+				vmiOne := libvmi.NewAlpineWithTestTooling(
 					libvmi.WithInterface(libvmi.InterfaceDeviceWithMasqueradeBinding()),
 					libvmi.WithNetwork(v1.DefaultPodNetwork()),
 					libvmi.WithInterface(linuxBridgeInterfaceWithCustomMac),
@@ -454,7 +454,7 @@ var _ = SIGDescribe("[Serial]Multus", func() {
 					libvmi.WithCloudInitNoCloudNetworkData(cloudInitNetworkDataWithStaticIPsByMac(linuxBridgeInterfaceWithCustomMac.Name, customMacAddress, ptpSubnetIP1+ptpSubnetMask), false))
 				vmiOne = tests.CreateVmiOnNode(vmiOne, nodes.Items[0].Name)
 
-				vmiOne = tests.WaitUntilVMIReady(vmiOne, console.LoginToFedora)
+				vmiOne = tests.WaitUntilVMIReady(vmiOne, console.LoginToAlpine)
 				tests.WaitAgentConnected(virtClient, vmiOne)
 
 				By("Verifying the desired custom MAC is the one that were actually configured on the interface.")
@@ -474,7 +474,7 @@ var _ = SIGDescribe("[Serial]Multus", func() {
 				Expect(strings.Contains(out, customMacAddress)).To(BeFalse())
 
 				By("Ping from the VM with the custom MAC to the other VM.")
-				tests.WaitUntilVMIReady(vmiTwo, console.LoginToFedora)
+				tests.WaitUntilVMIReady(vmiTwo, console.LoginToAlpine)
 				Expect(libnet.PingFromVMConsole(vmiOne, ptpSubnetIP2)).To(Succeed())
 			})
 		})
@@ -540,7 +540,7 @@ var _ = SIGDescribe("[Serial]Multus", func() {
 
 				}
 
-				vmi := libvmi.NewFedora(
+				vmi := libvmi.NewAlpineWithTestTooling(
 					libvmi.WithInterface(linuxBridgeInterface),
 					libvmi.WithNetwork(&linuxBridgeNetwork),
 				)
@@ -548,7 +548,7 @@ var _ = SIGDescribe("[Serial]Multus", func() {
 				vmi, err = virtClient.VirtualMachineInstance(util.NamespaceTestDefault).Create(vmi)
 				Expect(err).ToNot(HaveOccurred())
 
-				vmi = tests.WaitUntilVMIReady(vmi, console.LoginToFedora)
+				vmi = tests.WaitUntilVMIReady(vmi, console.LoginToAlpine)
 				Expect(getPodInterfaceMtu(vmi)).To(Equal(getVmiInterfaceMtu(vmi)))
 			})
 		})
@@ -616,21 +616,21 @@ var _ = SIGDescribe("[Serial]Multus", func() {
 				linuxBridgeInterfaceWithCustomMac := linuxBridgeInterfaceWithMACSpoofCheck
 				libvmi.InterfaceWithMac(&linuxBridgeInterfaceWithCustomMac, initialMacAddressStr)
 
-				vmiUnderTest := libvmi.NewFedora(
+				vmiUnderTest := libvmi.NewAlpineWithTestTooling(
 					libvmi.WithInterface(linuxBridgeInterfaceWithCustomMac),
 					libvmi.WithNetwork(libvmi.MultusNetwork(linuxBridgeWithMACSpoofCheckNetwork, linuxBridgeWithMACSpoofCheckNetwork)),
 					libvmi.WithCloudInitNoCloudNetworkData(cloudInitNetworkDataWithStaticIPsByMac(linuxBridgeInterfaceWithCustomMac.Name, linuxBridgeInterfaceWithCustomMac.MacAddress, vmUnderTestIPAddress+bridgeSubnetMask), false))
 				vmiUnderTest = tests.CreateVmiOnNode(vmiUnderTest, nodes.Items[0].Name)
 
 				By("Creating a target VM with Linux bridge CNI network interface and default MAC address.")
-				targetVmi := libvmi.NewFedora(
+				targetVmi := libvmi.NewAlpineWithTestTooling(
 					libvmi.WithInterface(linuxBridgeInterfaceWithMACSpoofCheck),
 					libvmi.WithNetwork(libvmi.MultusNetwork(linuxBridgeWithMACSpoofCheckNetwork, linuxBridgeWithMACSpoofCheckNetwork)),
 					libvmi.WithCloudInitNoCloudNetworkData(cloudInitNetworkDataWithStaticIPsByDevice("eth0", targetVMIPAddress+bridgeSubnetMask), false))
 				targetVmi = tests.CreateVmiOnNode(targetVmi, nodes.Items[0].Name)
 
-				vmiUnderTest = tests.WaitUntilVMIReady(vmiUnderTest, console.LoginToFedora)
-				tests.WaitUntilVMIReady(targetVmi, console.LoginToFedora)
+				vmiUnderTest = tests.WaitUntilVMIReady(vmiUnderTest, console.LoginToAlpine)
+				tests.WaitUntilVMIReady(targetVmi, console.LoginToAlpine)
 
 				Expect(libnet.PingFromVMConsole(vmiUnderTest, targetVMIPAddress)).To(Succeed(), "Ping target IP with original MAC should succeed")
 
@@ -675,7 +675,7 @@ var _ = SIGDescribe("[Serial]Multus", func() {
                     ip addr add %s dev ep1
                     ip addr add %s dev ep2
                 `, ep1Cidr, ep2Cidr, ep1CidrV6, ep2CidrV6)
-				agentVMI := libvmi.NewFedora(libvmi.WithCloudInitNoCloudUserData(userdata, false))
+				agentVMI := libvmi.NewAlpineWithTestTooling(libvmi.WithCloudInitNoCloudUserData(userdata, false))
 
 				agentVMI.Spec.Domain.Devices.Interfaces = interfaces
 				agentVMI.Spec.Networks = networks

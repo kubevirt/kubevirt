@@ -89,16 +89,6 @@ var _ = SIGDescribe("Macvtap", func() {
 			libvmi.WithNetwork(libvmi.MultusNetwork(macvtapNetworkName, macvtapNetworkName)))
 	}
 
-	newFedoraVMIWithExplicitMacAndGuestAgent := func(macvtapNetworkName string, mac string) *v1.VirtualMachineInstance {
-		return libvmi.NewFedora(
-			libvmi.WithInterface(libvmi.InterfaceDeviceWithMasqueradeBinding()),
-			libvmi.WithInterface(
-				*libvmi.InterfaceWithMac(
-					v1.DefaultMacvtapNetworkInterface(macvtapNetworkName), mac)),
-			libvmi.WithNetwork(v1.DefaultPodNetwork()),
-			libvmi.WithNetwork(libvmi.MultusNetwork(macvtapNetworkName, macvtapNetworkName)))
-	}
-
 	createAlpineVMIStaticIPOnNode := func(nodeName string, networkName string, ifaceName string, ipCIDR string, mac *string) *v1.VirtualMachineInstance {
 		var vmi *v1.VirtualMachineInstance
 		if mac != nil {
@@ -120,15 +110,6 @@ var _ = SIGDescribe("Macvtap", func() {
 			180,
 		)
 		err := console.LoginToAlpine(runningVMI)
-		return runningVMI, err
-	}
-
-	createFedoraVMIRandomNode := func(networkName string, mac string) (*v1.VirtualMachineInstance, error) {
-		runningVMI := tests.RunVMIAndExpectLaunch(
-			newFedoraVMIWithExplicitMacAndGuestAgent(networkName, mac),
-			180,
-		)
-		err := console.LoginToFedora(runningVMI)
 		return runningVMI, err
 	}
 
@@ -244,8 +225,8 @@ var _ = SIGDescribe("Macvtap", func() {
 				Expect(err).ToNot(HaveOccurred())
 				macAddress := macAddressHW.String()
 
-				serverVMI, err = createFedoraVMIRandomNode(macvtapNetworkName, macAddress)
-				Expect(err).NotTo(HaveOccurred(), "must have succeeded creating a fedora VMI on a random node")
+				serverVMI, err = createAlpineVMIRandomNode(macvtapNetworkName, macAddress)
+				Expect(err).NotTo(HaveOccurred(), "must have succeeded creating a alpine VMI on a random node")
 				Expect(serverVMI.Status.Interfaces).NotTo(BeEmpty(), "a migrate-able VMI must have network interfaces")
 				serverVMIPodName = tests.GetVmPodName(virtClient, serverVMI)
 

@@ -60,7 +60,7 @@ const (
 	catResolvConf       = "cat /etc/resolv.conf\n"
 )
 
-var _ = SIGDescribe("[rfe_id:694][crit:medium][vendor:cnv-qe@redhat.com][level:component]Networking", func() {
+var _ = FSIGDescribe("[rfe_id:694][crit:medium][vendor:cnv-qe@redhat.com][level:component]Networking", func() {
 
 	var err error
 	var virtClient kubecli.KubevirtClient
@@ -530,7 +530,7 @@ var _ = SIGDescribe("[rfe_id:694][crit:medium][vendor:cnv-qe@redhat.com][level:c
 				PrivateOptions: []v1.DHCPPrivateOptions{{Option: 240, Value: "private.options.kubevirt.io"}},
 			}
 
-			dhcpVMI = tests.WaitUntilVMIReady(tests.RunVMI(dhcpVMI, 40), console.LogingToAlpine)
+			dhcpVMI = tests.WaitUntilVMIReady(tests.RunVMI(dhcpVMI, 40), console.LoginToAlpine)
 
 			err = console.SafeExpectBatch(dhcpVMI, []expect.Batcher{
 				&expect.BSnd{S: "\n"},
@@ -606,7 +606,7 @@ var _ = SIGDescribe("[rfe_id:694][crit:medium][vendor:cnv-qe@redhat.com][level:c
 			)
 		}
 
-		fedoraMasqueradeVMI := func(ports []v1.Port, ipv6NetworkCIDR string) (*v1.VirtualMachineInstance, error) {
+		alpineMasqueradeVMI := func(ports []v1.Port, ipv6NetworkCIDR string) (*v1.VirtualMachineInstance, error) {
 			networkData, err := libnet.NewNetworkData(
 				libnet.WithEthernet("eth0",
 					libnet.WithDHCP4Enabled(),
@@ -750,21 +750,21 @@ var _ = SIGDescribe("[rfe_id:694][crit:medium][vendor:cnv-qe@redhat.com][level:c
 				var serverVMI *v1.VirtualMachineInstance
 				var clientVMI *v1.VirtualMachineInstance
 
-				clientVMI, err = fedoraMasqueradeVMI([]v1.Port{}, networkCIDR)
+				clientVMI, err = alpineMasqueradeVMI([]v1.Port{}, networkCIDR)
 				Expect(err).ToNot(HaveOccurred())
 				clientVMI, err = virtClient.VirtualMachineInstance(util.NamespaceTestDefault).Create(clientVMI)
 				Expect(err).ToNot(HaveOccurred())
-				clientVMI = tests.WaitUntilVMIReady(clientVMI, console.LogingToAlpine)
+				clientVMI = tests.WaitUntilVMIReady(clientVMI, console.LoginToAlpine)
 
 				Expect(configureIpv6(clientVMI, networkCIDR)).To(Succeed(), "failed to configure ipv6 on client vmi")
 
-				serverVMI, err = fedoraMasqueradeVMI(ports, networkCIDR)
+				serverVMI, err = alpineMasqueradeVMI(ports, networkCIDR)
 				Expect(err).ToNot(HaveOccurred())
 
 				serverVMI.Labels = map[string]string{"expose": "server"}
 				serverVMI, err = virtClient.VirtualMachineInstance(util.NamespaceTestDefault).Create(serverVMI)
 				Expect(err).ToNot(HaveOccurred())
-				serverVMI = tests.WaitUntilVMIReady(serverVMI, console.LogingToAlpine)
+				serverVMI = tests.WaitUntilVMIReady(serverVMI, console.LoginToAlpine)
 
 				Expect(configureIpv6(serverVMI, networkCIDR)).To(Succeed(), "failed to configure ipv6  on server vmi")
 
@@ -774,9 +774,11 @@ var _ = SIGDescribe("[rfe_id:694][crit:medium][vendor:cnv-qe@redhat.com][level:c
 				By("starting a http server")
 				tests.StartPythonHttpServer(serverVMI, tcpPort)
 
+				By("DELETEME: Waiting for manual intervention")
+				time.Sleep(time.Hour)
 				Expect(verifyClientServerConnectivity(clientVMI, serverVMI, tcpPort, k8sv1.IPv6Protocol)).To(Succeed())
 			},
-				Entry("with a specific port number [IPv6]", []v1.Port{{Name: "http", Port: 8080}}, 8080, ""),
+				FEntry("with a specific port number [IPv6]", []v1.Port{{Name: "http", Port: 8080}}, 8080, ""),
 				Entry("with a specific port used by live migration", portsUsedByLiveMigration(), LibvirtDirectMigrationPort, ""),
 				Entry("without a specific port number [IPv6]", []v1.Port{}, 8080, ""),
 				Entry("with custom CIDR [IPv6]", []v1.Port{}, 8080, "fd10:10:10::/120"),
@@ -792,11 +794,11 @@ var _ = SIGDescribe("[rfe_id:694][crit:medium][vendor:cnv-qe@redhat.com][level:c
 					ipv6Address = flags.IPV6ConnectivityCheckAddress
 				}
 
-				vmi, err := fedoraMasqueradeVMI([]v1.Port{}, "")
+				vmi, err := alpineMasqueradeVMI([]v1.Port{}, "")
 				Expect(err).ToNot(HaveOccurred())
 				vmi, err = virtClient.VirtualMachineInstance(util.NamespaceTestDefault).Create(vmi)
 				Expect(err).ToNot(HaveOccurred())
-				vmi = tests.WaitUntilVMIReady(vmi, console.LogingToAlpine)
+				vmi = tests.WaitUntilVMIReady(vmi, console.LoginToAlpine)
 				Expect(configureIpv6(vmi, api.DefaultVMIpv6CIDR)).To(Succeed(), "failed to configure ipv6 on vmi")
 
 				By("Checking ping (IPv6) from vmi to cluster nodes gateway")
@@ -904,12 +906,12 @@ var _ = SIGDescribe("[rfe_id:694][crit:medium][vendor:cnv-qe@redhat.com][level:c
 				var err error
 
 				By("Create VMI")
-				vmi, err = fedoraMasqueradeVMI([]v1.Port{}, "")
+				vmi, err = alpineMasqueradeVMI([]v1.Port{}, "")
 				Expect(err).ToNot(HaveOccurred())
 
 				vmi, err = virtClient.VirtualMachineInstance(util.NamespaceTestDefault).Create(vmi)
 				Expect(err).ToNot(HaveOccurred())
-				vmi = tests.WaitUntilVMIReady(vmi, console.LogingToAlpine)
+				vmi = tests.WaitUntilVMIReady(vmi, console.LoginToAlpine)
 				virtHandlerPod, err := getVirtHandlerPod()
 				Expect(err).ToNot(HaveOccurred())
 
@@ -982,7 +984,7 @@ var _ = SIGDescribe("[rfe_id:694][crit:medium][vendor:cnv-qe@redhat.com][level:c
 				By("Wait for VMIs to be ready")
 				anotherVmi = tests.WaitUntilVMIReady(anotherVmi, console.LoginToAlpine)
 
-				vmi = tests.WaitUntilVMIReady(vmi, console.LogingToAlpine)
+				vmi = tests.WaitUntilVMIReady(vmi, console.LoginToAlpine)
 			})
 
 			DescribeTable("should have the correct MTU", func(ipFamily k8sv1.IPFamily) {

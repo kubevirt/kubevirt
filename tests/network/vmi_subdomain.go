@@ -83,18 +83,18 @@ var _ = SIGDescribe("Subdomain", func() {
 
 			vmi, err := virtClient.VirtualMachineInstance(util.NamespaceTestDefault).Create(vmiSpec)
 			Expect(err).ToNot(HaveOccurred())
-			vmi = tests.WaitUntilVMIReady(vmi, console.LoginToFedora)
+			vmi = tests.WaitUntilVMIReady(vmi, console.LoginToAlpine)
 
 			Expect(assertFQDNinGuest(vmi, expectedFQDN)).To(Succeed(), "failed to get expected FQDN")
 		},
-			Entry("with Masquerade binding and subdomain", fedoraMasqueradeVMI, subdomain),
-			Entry("with Bridge binding and subdomain", fedoraBridgeBindingVMI, subdomain),
-			Entry("with Masquerade binding without subdomain", fedoraMasqueradeVMI, ""),
-			Entry("with Bridge binding without subdomain", fedoraBridgeBindingVMI, ""),
+			Entry("with Masquerade binding and subdomain", alpineMasqueradeVMI, subdomain),
+			Entry("with Bridge binding and subdomain", alpineBridgeBindingVMI, subdomain),
+			Entry("with Masquerade binding without subdomain", alpineMasqueradeVMI, ""),
+			Entry("with Bridge binding without subdomain", alpineBridgeBindingVMI, ""),
 		)
 
 		It("VMI with custom DNSPolicy should have the expected FQDN", func() {
-			vmiSpec := fedoraBridgeBindingVMI()
+			vmiSpec := alpineBridgeBindingVMI()
 			vmiSpec.Spec.Subdomain = subdomain
 			expectedFQDN := fmt.Sprintf("%s.%s.%s.svc.cluster.local", vmiSpec.Name, subdomain, util.NamespaceTestDefault)
 			vmiSpec.Labels = map[string]string{selectorLabelKey: selectorLabelValue}
@@ -111,14 +111,14 @@ var _ = SIGDescribe("Subdomain", func() {
 
 			vmi, err := virtClient.VirtualMachineInstance(util.NamespaceTestDefault).Create(vmiSpec)
 			Expect(err).ToNot(HaveOccurred())
-			vmi = tests.WaitUntilVMIReady(vmi, console.LoginToFedora)
+			vmi = tests.WaitUntilVMIReady(vmi, console.LoginToAlpine)
 
 			Expect(assertFQDNinGuest(vmi, expectedFQDN)).To(Succeed(), "failed to get expected FQDN")
 		})
 	})
 
 	It("VMI with custom DNSPolicy, a subdomain and no service entry, should not include the subdomain in the searchlist", func() {
-		vmiSpec := fedoraBridgeBindingVMI()
+		vmiSpec := alpineBridgeBindingVMI()
 		vmiSpec.Spec.Subdomain = subdomain
 		expectedFQDN := fmt.Sprintf("%s.%s.%s.svc.cluster.local", vmiSpec.Name, subdomain, util.NamespaceTestDefault)
 		vmiSpec.Labels = map[string]string{selectorLabelKey: selectorLabelValue}
@@ -134,21 +134,21 @@ var _ = SIGDescribe("Subdomain", func() {
 
 		vmi, err := virtClient.VirtualMachineInstance(util.NamespaceTestDefault).Create(vmiSpec)
 		Expect(err).ToNot(HaveOccurred())
-		vmi = tests.WaitUntilVMIReady(vmi, console.LoginToFedora)
+		vmi = tests.WaitUntilVMIReady(vmi, console.LoginToAlpine)
 
 		Expect(assertFQDNinGuest(vmi, expectedFQDN)).To(Not(Succeed()), "found unexpected FQDN")
 		Expect(assertSearchEntriesinGuest(vmi, "search example.com")).To(Succeed(), "failed to get expected search entries")
 	})
 })
 
-func fedoraMasqueradeVMI() *v1.VirtualMachineInstance {
-	return libvmi.NewFedora(
+func alpineMasqueradeVMI() *v1.VirtualMachineInstance {
+	return libvmi.NewAlpineWithTestTooling(
 		libvmi.WithInterface(libvmi.InterfaceDeviceWithMasqueradeBinding()),
 		libvmi.WithNetwork(v1.DefaultPodNetwork()))
 }
 
-func fedoraBridgeBindingVMI() *v1.VirtualMachineInstance {
-	return libvmi.NewFedora(
+func alpineBridgeBindingVMI() *v1.VirtualMachineInstance {
+	return libvmi.NewAlpineWithTestTooling(
 		libvmi.WithInterface(libvmi.InterfaceDeviceWithBridgeBinding(libvmi.DefaultInterfaceName)),
 		libvmi.WithNetwork(v1.DefaultPodNetwork()))
 }
