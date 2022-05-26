@@ -107,10 +107,10 @@ var _ = Describe("Node-labeller config", func() {
 		err = nlController.loadHostCapabilities()
 		Expect(err).ToNot(HaveOccurred())
 
-		cpuModels := nlController.getSupportedCpuModels()
+		cpuModels := nlController.getSupportedCpuModels(nlController.clusterConfig.GetObsoleteCPUModels())
 		cpuFeatures := nlController.getSupportedCpuFeatures()
 
-		Expect(cpuModels).To(HaveLen(4), "number of models must match")
+		Expect(cpuModels).To(HaveLen(3), "number of models must match")
 
 		Expect(cpuFeatures).To(HaveLen(2), "number of features must match")
 		counter, err := nlController.capabilities.GetTSCCounter()
@@ -128,10 +128,10 @@ var _ = Describe("Node-labeller config", func() {
 		err = nlController.loadCPUInfo()
 		Expect(err).ToNot(HaveOccurred())
 
-		cpuModels := nlController.getSupportedCpuModels()
+		cpuModels := nlController.getSupportedCpuModels(nlController.clusterConfig.GetObsoleteCPUModels())
 		cpuFeatures := nlController.getSupportedCpuFeatures()
 
-		Expect(cpuModels).To(HaveLen(1), "number of models doesn't match")
+		Expect(cpuModels).To(BeEmpty(), "no CPU models are expected to be supported")
 
 		Expect(cpuFeatures).To(HaveLen(2), "number of features doesn't match")
 	})

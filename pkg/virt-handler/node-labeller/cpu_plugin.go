@@ -49,10 +49,9 @@ func (n *NodeLabeller) getMinCpuFeature() cpuFeatures {
 	return n.cpuInfo.models[minCPUModel]
 }
 
-func (n *NodeLabeller) getSupportedCpuModels() []string {
+func (n *NodeLabeller) getSupportedCpuModels(obsoleteCPUsx86 map[string]bool) []string {
 	supportedCPUModels := make([]string, 0)
 
-	obsoleteCPUsx86 := n.clusterConfig.GetObsoleteCPUModels()
 	if obsoleteCPUsx86 == nil {
 		obsoleteCPUsx86 = util.DefaultObsoleteCPUModels
 	}
@@ -111,7 +110,6 @@ func (n *NodeLabeller) loadDomCapabilities() error {
 					n.hostCPUModel.requiredFeatures[feature.Name] = true
 				}
 			}
-			usableModels = append(usableModels, hostCpuModel.Name)
 		}
 
 		for _, model := range mode.Model {
