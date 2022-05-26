@@ -955,13 +955,14 @@ func (d *VirtualMachineController) updateGuestAgentConditions(vmi *v1.VirtualMac
 		}
 
 		var supported = false
+		var reason = ""
 
 		// For current versions, virt-launcher's supported commands will always contain data.
 		// For backwards compatibility: during upgrade from a previous version of KubeVirt,
 		// virt-launcher might not provide any supported commands. If the list of supported
 		// commands is empty, fall back to previous behavior.
 		if len(guestInfo.SupportedCommands) > 0 {
-			supported = isGuestAgentSupported(vmi, guestInfo.SupportedCommands)
+			supported, reason = isGuestAgentSupported(vmi, guestInfo.SupportedCommands)
 		} else {
 			for _, version := range d.clusterConfig.GetSupportedAgentVersions() {
 				supported = supported || regexp.MustCompile(version).MatchString(guestInfo.GAVersion)
@@ -974,6 +975,7 @@ func (d *VirtualMachineController) updateGuestAgentConditions(vmi *v1.VirtualMac
 					Type:          v1.VirtualMachineInstanceUnsupportedAgent,
 					LastProbeTime: metav1.Now(),
 					Status:        k8sv1.ConditionTrue,
+					Reason:        reason,
 				}
 				vmi.Status.Conditions = append(vmi.Status.Conditions, agentCondition)
 			}
@@ -1182,11 +1184,12 @@ func _guestAgentCommandSubsetSupported(requiredCommands []string, commands []v1.
 
 }
 
-func isGuestAgentSupported(vmi *v1.VirtualMachineInstance, commands []v1.GuestAgentCommandInfo) bool {
+func isGuestAgentSupported(vmi *v1.VirtualMachineInstance, commands []v1.GuestAgentCommandInfo) (bool, string) {
 	log.Log.V(3).Object(vmi).Infof("checking guest agent: %v", commands)
 	if !_guestAgentCommandSubsetSupported(RequiredGuestAgentCommands, commands) {
-		log.Log.V(3).Object(vmi).Info("This guest agent doesn't support required basic commands")
-		return false
+		basicCommandsUnsupportedReason := "This guest agent doesn't support required basic commands"
+		log.Log.V(3).Object(vmi).Info(basicCommandsUnsupportedReason)
+		return false, basicCommandsUnsupportedReason
 	}
 
 	checkSSH := false
@@ -1202,22 +1205,23 @@ func isGuestAgentSupported(vmi *v1.VirtualMachineInstance, commands []v1.GuestAg
 				// defer checking the command list so we only do that once
 				checkPasswd = true
 			}
-
 		}
 	}
 
 	if checkSSH && !_guestAgentCommandSubsetSupported(SSHRelatedGuestAgentCommands, commands) {
-		log.Log.V(3).Object(vmi).Info("This guest agent doesn't support required public key commands")
-		return false
+		publicKeyCommandsUnsupportedReason := "This guest agent doesn't support required public key commands"
+		log.Log.V(3).Object(vmi).Info(publicKeyCommandsUnsupportedReason)
+		return false, publicKeyCommandsUnsupportedReason
 	}
 
 	if checkPasswd && !_guestAgentCommandSubsetSupported(PasswordRelatedGuestAgentCommands, commands) {
-		log.Log.V(3).Object(vmi).Info("This guest agent doesn't support required password commands")
-		return false
+		passwordCommandsUnsupportedReason := "This guest agent doesn't support required password commands"
+		log.Log.V(3).Object(vmi).Info(passwordCommandsUnsupportedReason)
+		return false, passwordCommandsUnsupportedReason
 	}
 
 	log.Log.V(3).Object(vmi).Info("This guest agent is supported")
-	return true
+	return true, ""
 }
 
 func calculatePausedCondition(vmi *v1.VirtualMachineInstance, reason api.StateChangeReason) {
