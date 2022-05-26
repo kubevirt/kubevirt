@@ -22,6 +22,7 @@ import (
 	framework "k8s.io/client-go/tools/cache/testing"
 	"k8s.io/client-go/tools/record"
 
+	v1 "kubevirt.io/api/core/v1"
 	virtv1 "kubevirt.io/api/core/v1"
 	"kubevirt.io/client-go/api"
 	cdifake "kubevirt.io/client-go/generated/containerized-data-importer/clientset/versioned/fake"
@@ -1321,6 +1322,21 @@ var _ = Describe("VirtualMachine", func() {
 			}).Return(nil, nil)
 
 			controller.Execute()
+		})
+
+		It("should sync FlavorMatcher and PreferenceMatcher from VirtualMachine", func() {
+			vm, _ := DefaultVirtualMachineWithNames(true, "testvm1", "testvmi1")
+			vm.Spec.Flavor = &v1.FlavorMatcher{
+				Name: "flavor",
+			}
+			vm.Spec.Preference = &v1.PreferenceMatcher{
+				Name: "Preference",
+			}
+
+			vmi := controller.setupVMIFromVM(vm)
+
+			Expect(*vmi.Spec.Flavor).To(Equal(*vm.Spec.Flavor))
+			Expect(*vmi.Spec.Preference).To(Equal(*vm.Spec.Preference))
 		})
 
 		It("should have stable firmware UUIDs", func() {
