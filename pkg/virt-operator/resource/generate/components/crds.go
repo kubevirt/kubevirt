@@ -28,7 +28,6 @@ import (
 
 	migrationsv1 "kubevirt.io/api/migrations/v1alpha1"
 
-	corev1 "k8s.io/api/core/v1"
 	schedulingv1 "k8s.io/api/scheduling/v1"
 	extv1 "k8s.io/apiextensions-apiserver/pkg/apis/apiextensions/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
@@ -663,37 +662,6 @@ func NewMigrationPolicyCrd() (*extv1.CustomResourceDefinition, error) {
 		return nil, err
 	}
 	return crd, nil
-}
-
-// Used by manifest generation
-func NewKubeVirtCR(namespace string, pullPolicy corev1.PullPolicy, featureGates string, infraReplicas uint8) *virtv1.KubeVirt {
-	cr := &virtv1.KubeVirt{
-		TypeMeta: metav1.TypeMeta{
-			APIVersion: virtv1.GroupVersion.String(),
-			Kind:       "KubeVirt",
-		},
-		ObjectMeta: metav1.ObjectMeta{
-			Namespace: namespace,
-			Name:      "kubevirt",
-		},
-		Spec: virtv1.KubeVirtSpec{
-			ImagePullPolicy: pullPolicy,
-		},
-	}
-
-	if featureGates != "" {
-		cr.Spec.Configuration = virtv1.KubeVirtConfiguration{
-			DeveloperConfiguration: &virtv1.DeveloperConfiguration{
-				FeatureGates: strings.Split(featureGates, ","),
-			},
-		}
-	}
-
-	cr.Spec.Infra = &virtv1.ComponentConfig{
-		Replicas: &infraReplicas,
-	}
-
-	return cr
 }
 
 // NewKubeVirtPriorityClassCR is used for manifest generation
