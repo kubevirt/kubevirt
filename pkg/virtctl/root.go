@@ -93,6 +93,7 @@ func NewVirtctlCommand() (*cobra.Command, clientcmd.ClientConfig) {
 		vm.NewFSListCommand(clientConfig),
 		vm.NewAddVolumeCommand(clientConfig),
 		vm.NewRemoveVolumeCommand(clientConfig),
+		vm.NewMemoryDumpCommand(clientConfig),
 		pause.NewPauseCommand(clientConfig),
 		pause.NewUnpauseCommand(clientConfig),
 		softreboot.NewSoftRebootCommand(clientConfig),

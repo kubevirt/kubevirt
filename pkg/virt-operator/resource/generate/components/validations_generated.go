@@ -6387,6 +6387,26 @@ var CRDsValidation map[string]string = map[string]string{
                         - path
                         - type
                         type: object
+                      memoryDump:
+                        description: MemoryDump is attached to the virt launcher and
+                          is populated with a memory dump of the vmi
+                        properties:
+                          claimName:
+                            description: 'ClaimName is the name of a PersistentVolumeClaim
+                              in the same namespace as the pod using this volume.
+                              More info: https://kubernetes.io/docs/concepts/storage/persistent-volumes#persistentvolumeclaims'
+                            type: string
+                          hotpluggable:
+                            description: Hotpluggable indicates whether the volume
+                              can be hotplugged and hotunplugged.
+                            type: boolean
+                          readOnly:
+                            description: Will force the ReadOnly setting in VolumeMounts.
+                              Default false.
+                            type: boolean
+                        required:
+                        - claimName
+                        type: object
                       name:
                         description: 'Volume''s name. Must be a DNS_LABEL and unique
                           within the vmi. More info: https://kubernetes.io/docs/concepts/overview/working-with-objects/names/#names'
@@ -6512,6 +6532,37 @@ var CRDsValidation map[string]string = map[string]string{
           description: Created indicates if the virtual machine is created in the
             cluster
           type: boolean
+        memoryDumpRequest:
+          description: MemoryDumpRequest tracks memory dump request phase and info
+            of getting a memory dump to the given pvc
+          nullable: true
+          properties:
+            claimName:
+              description: ClaimName is the name of the pvc that will contain the
+                memory dump
+              type: string
+            endTimestamp:
+              description: EndTimestamp represents the time the memory dump was completed
+              format: date-time
+              type: string
+            fileName:
+              description: FileName represents the name of the output file
+              type: string
+            message:
+              description: Message is a detailed message about failure of the memory
+                dump
+              type: string
+            phase:
+              description: Phase represents the memory dump phase
+              type: string
+            startTimestamp:
+              description: StartTimestamp represents the time the memory dump started
+              format: date-time
+              type: string
+          required:
+          - claimName
+          - phase
+          type: object
         printableStatus:
           description: PrintableStatus is a human readable, high-level representation
             of the status of the virtual machine
@@ -10132,6 +10183,26 @@ var CRDsValidation map[string]string = map[string]string{
                 - path
                 - type
                 type: object
+              memoryDump:
+                description: MemoryDump is attached to the virt launcher and is populated
+                  with a memory dump of the vmi
+                properties:
+                  claimName:
+                    description: 'ClaimName is the name of a PersistentVolumeClaim
+                      in the same namespace as the pod using this volume. More info:
+                      https://kubernetes.io/docs/concepts/storage/persistent-volumes#persistentvolumeclaims'
+                    type: string
+                  hotpluggable:
+                    description: Hotpluggable indicates whether the volume can be
+                      hotplugged and hotunplugged.
+                    type: boolean
+                  readOnly:
+                    description: Will force the ReadOnly setting in VolumeMounts.
+                      Default false.
+                    type: boolean
+                required:
+                - claimName
+                type: object
               name:
                 description: 'Volume''s name. Must be a DNS_LABEL and unique within
                   the vmi. More info: https://kubernetes.io/docs/concepts/overview/working-with-objects/names/#names'
@@ -10507,6 +10578,26 @@ var CRDsValidation map[string]string = map[string]string{
                   attachPodUID:
                     description: AttachPodUID is the UID of the pod used to attach
                       the volume to the node.
+                    type: string
+                type: object
+              memoryDumpVolume:
+                description: If the volume is memorydump volume, this will contain
+                  the memorydump info.
+                properties:
+                  claimName:
+                    description: ClaimName is the name of the pvc the memory was dumped
+                      to
+                    type: string
+                  endTimestamp:
+                    description: EndTimestamp is the time when the memory dump completed
+                    format: date-time
+                    type: string
+                  startTimestamp:
+                    description: StartTimestamp is the time when the memory dump started
+                    format: date-time
+                    type: string
+                  targetFileName:
+                    description: TargetFileName is the name of the memory dump output
                     type: string
                 type: object
               message:
@@ -14411,6 +14502,26 @@ var CRDsValidation map[string]string = map[string]string{
                         - path
                         - type
                         type: object
+                      memoryDump:
+                        description: MemoryDump is attached to the virt launcher and
+                          is populated with a memory dump of the vmi
+                        properties:
+                          claimName:
+                            description: 'ClaimName is the name of a PersistentVolumeClaim
+                              in the same namespace as the pod using this volume.
+                              More info: https://kubernetes.io/docs/concepts/storage/persistent-volumes#persistentvolumeclaims'
+                            type: string
+                          hotpluggable:
+                            description: Hotpluggable indicates whether the volume
+                              can be hotplugged and hotunplugged.
+                            type: boolean
+                          readOnly:
+                            description: Will force the ReadOnly setting in VolumeMounts.
+                              Default false.
+                            type: boolean
+                        required:
+                        - claimName
+                        type: object
                       name:
                         description: 'Volume''s name. Must be a DNS_LABEL and unique
                           within the vmi. More info: https://kubernetes.io/docs/concepts/overview/working-with-objects/names/#names'
@@ -18120,6 +18231,26 @@ var CRDsValidation map[string]string = map[string]string{
                                 required:
                                 - path
                                 - type
+                                type: object
+                              memoryDump:
+                                description: MemoryDump is attached to the virt launcher
+                                  and is populated with a memory dump of the vmi
+                                properties:
+                                  claimName:
+                                    description: 'ClaimName is the name of a PersistentVolumeClaim
+                                      in the same namespace as the pod using this
+                                      volume. More info: https://kubernetes.io/docs/concepts/storage/persistent-volumes#persistentvolumeclaims'
+                                    type: string
+                                  hotpluggable:
+                                    description: Hotpluggable indicates whether the
+                                      volume can be hotplugged and hotunplugged.
+                                    type: boolean
+                                  readOnly:
+                                    description: Will force the ReadOnly setting in
+                                      VolumeMounts. Default false.
+                                    type: boolean
+                                required:
+                                - claimName
                                 type: object
                               name:
                                 description: 'Volume''s name. Must be a DNS_LABEL
@@ -22655,6 +22786,27 @@ var CRDsValidation map[string]string = map[string]string{
                                     - path
                                     - type
                                     type: object
+                                  memoryDump:
+                                    description: MemoryDump is attached to the virt
+                                      launcher and is populated with a memory dump
+                                      of the vmi
+                                    properties:
+                                      claimName:
+                                        description: 'ClaimName is the name of a PersistentVolumeClaim
+                                          in the same namespace as the pod using this
+                                          volume. More info: https://kubernetes.io/docs/concepts/storage/persistent-volumes#persistentvolumeclaims'
+                                        type: string
+                                      hotpluggable:
+                                        description: Hotpluggable indicates whether
+                                          the volume can be hotplugged and hotunplugged.
+                                        type: boolean
+                                      readOnly:
+                                        description: Will force the ReadOnly setting
+                                          in VolumeMounts. Default false.
+                                        type: boolean
+                                    required:
+                                    - claimName
+                                    type: object
                                   name:
                                     description: 'Volume''s name. Must be a DNS_LABEL
                                       and unique within the vmi. More info: https://kubernetes.io/docs/concepts/overview/working-with-objects/names/#names'
@@ -22791,6 +22943,40 @@ var CRDsValidation map[string]string = map[string]string{
                       description: Created indicates if the virtual machine is created
                         in the cluster
                       type: boolean
+                    memoryDumpRequest:
+                      description: MemoryDumpRequest tracks memory dump request phase
+                        and info of getting a memory dump to the given pvc
+                      nullable: true
+                      properties:
+                        claimName:
+                          description: ClaimName is the name of the pvc that will
+                            contain the memory dump
+                          type: string
+                        endTimestamp:
+                          description: EndTimestamp represents the time the memory
+                            dump was completed
+                          format: date-time
+                          type: string
+                        fileName:
+                          description: FileName represents the name of the output
+                            file
+                          type: string
+                        message:
+                          description: Message is a detailed message about failure
+                            of the memory dump
+                          type: string
+                        phase:
+                          description: Phase represents the memory dump phase
+                          type: string
+                        startTimestamp:
+                          description: StartTimestamp represents the time the memory
+                            dump started
+                          format: date-time
+                          type: string
+                      required:
+                      - claimName
+                      - phase
+                      type: object
                     printableStatus:
                       description: PrintableStatus is a human readable, high-level
                         representation of the status of the virtual machine

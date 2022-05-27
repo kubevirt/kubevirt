@@ -177,6 +177,7 @@ func newAdminClusterRole() *rbacv1.ClusterRole {
 					"virtualmachines/addvolume",
 					"virtualmachines/removevolume",
 					"virtualmachines/migrate",
+					"virtualmachines/memorydump",
 				},
 				Verbs: []string{
 					"update",
@@ -308,6 +309,7 @@ func newEditClusterRole() *rbacv1.ClusterRole {
 					"virtualmachines/addvolume",
 					"virtualmachines/removevolume",
 					"virtualmachines/migrate",
+					"virtualmachines/memorydump",
 				},
 				Verbs: []string{
 					"update",

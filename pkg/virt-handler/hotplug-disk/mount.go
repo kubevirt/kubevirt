@@ -241,7 +241,7 @@ func (m *volumeMounter) writePathToMountRecord(path string, vmi *v1.VirtualMachi
 	return nil
 }
 
-func (m *volumeMounter) mountHotplugVolume(vmi *v1.VirtualMachineInstance, volumeName string, sourceUID types.UID, record *vmiMountTargetRecord) error {
+func (m *volumeMounter) mountHotplugVolume(vmi *v1.VirtualMachineInstance, volumeName string, sourceUID types.UID, record *vmiMountTargetRecord, mountDirectory bool) error {
 	logger := log.DefaultLogger()
 	logger.V(4).Infof("Hotplug check volume name: %s", volumeName)
 	if sourceUID != types.UID("") {
@@ -252,7 +252,7 @@ func (m *volumeMounter) mountHotplugVolume(vmi *v1.VirtualMachineInstance, volum
 			}
 		} else {
 			logger.V(4).Infof("Mounting file system volume: %s", volumeName)
-			if err := m.mountFileSystemHotplugVolume(vmi, volumeName, sourceUID, record); err != nil {
+			if err := m.mountFileSystemHotplugVolume(vmi, volumeName, sourceUID, record, mountDirectory); err != nil {
 				return err
 			}
 		}
@@ -270,8 +270,12 @@ func (m *volumeMounter) Mount(vmi *v1.VirtualMachineInstance) error {
 			// Skip non hotplug volumes
 			continue
 		}
+		mountDirectory := false
+		if volumeStatus.MemoryDumpVolume != nil {
+			mountDirectory = true
+		}
 		sourceUID := volumeStatus.HotplugVolume.AttachPodUID
-		if err := m.mountHotplugVolume(vmi, volumeStatus.Name, sourceUID, record); err != nil {
+		if err := m.mountHotplugVolume(vmi, volumeStatus.Name, sourceUID, record, mountDirectory); err != nil {
 			return err
 		}
 	}
@@ -288,11 +292,24 @@ func (m *volumeMounter) MountFromPod(vmi *v1.VirtualMachineInstance, sourceUID t
 			// Skip non hotplug volumes
 			continue
 		}
-		if err := m.mountHotplugVolume(vmi, volumeStatus.Name, sourceUID, record); err != nil {
+		mountDirectory := false
+		if volumeStatus.MemoryDumpVolume != nil {
+			mountDirectory = true
+		}
+		if err := m.mountHotplugVolume(vmi, volumeStatus.Name, sourceUID, record, mountDirectory); err != nil {
 			return err
 		}
 	}
 	return nil
+}
+
+func (m *volumeMounter) isDirectoryMounted(vmiStatus *v1.VirtualMachineInstanceStatus, volumeName string) bool {
+	for _, status := range vmiStatus.VolumeStatus {
+		if status.Name == volumeName {
+			return status.MemoryDumpVolume != nil
+		}
+	}
+	return false
 }
 
 // isBlockVolume checks if the volumeDevices directory exists in the pod path, we assume there is a single volume associated with
@@ -503,19 +520,25 @@ func (m *volumeMounter) createBlockDeviceFile(deviceName string, major, minor in
 	return deviceName, nil
 }
 
-func (m *volumeMounter) mountFileSystemHotplugVolume(vmi *v1.VirtualMachineInstance, volume string, sourceUID types.UID, record *vmiMountTargetRecord) error {
+func (m *volumeMounter) mountFileSystemHotplugVolume(vmi *v1.VirtualMachineInstance, volume string, sourceUID types.UID, record *vmiMountTargetRecord, mountDirectory bool) error {
 	virtlauncherUID := m.findVirtlauncherUID(vmi)
 	if virtlauncherUID == "" {
 		// This is not the node the pod is running on.
 		return nil
 	}
-	targetDisk, err := m.hotplugDiskManager.GetFileSystemDiskTargetPathFromHostView(virtlauncherUID, volume, false)
+	var target string
+	var err error
+	if mountDirectory {
+		target, err = m.hotplugDiskManager.GetFileSystemDirectoryTargetPathFromHostView(virtlauncherUID, volume, false)
+	} else {
+		target, err = m.hotplugDiskManager.GetFileSystemDiskTargetPathFromHostView(virtlauncherUID, volume, false)
+	}
 	if err != nil {
 		return err
 	}
 
-	if isMounted, err := isMounted(targetDisk); err != nil {
-		return fmt.Errorf("failed to determine if %s is already mounted: %v", targetDisk, err)
+	if isMounted, err := isMounted(target); err != nil {
+		return fmt.Errorf("failed to determine if %s is already mounted: %v", target, err)
 	} else if !isMounted {
 		sourcePath, err := m.getSourcePodFilePath(sourceUID, vmi, volume)
 		if err != nil {
@@ -524,18 +547,28 @@ func (m *volumeMounter) mountFileSystemHotplugVolume(vmi *v1.VirtualMachineInsta
 			// to get mounted on the node, and this will error until the volume is mounted.
 			return nil
 		}
-		if err := m.writePathToMountRecord(targetDisk, vmi, record); err != nil {
+		if err := m.writePathToMountRecord(target, vmi, record); err != nil {
 			return err
 		}
-		targetDisk, err := m.hotplugDiskManager.GetFileSystemDiskTargetPathFromHostView(virtlauncherUID, volume, true)
-		if err != nil {
-			return err
-		}
-		if out, err := mountCommand(filepath.Join(sourcePath, "disk.img"), targetDisk); err != nil {
-			return fmt.Errorf("failed to bindmount hotplug-disk %v: %v : %v", volume, string(out), err)
+		if mountDirectory {
+			target, err = m.hotplugDiskManager.GetFileSystemDirectoryTargetPathFromHostView(virtlauncherUID, volume, true)
+			if err != nil {
+				return err
+			}
+			if out, err := mountCommand(sourcePath, target); err != nil {
+				return fmt.Errorf("failed to bindmount hotplug directory %v: %v : %v", volume, string(out), err)
+			}
+		} else {
+			target, err = m.hotplugDiskManager.GetFileSystemDiskTargetPathFromHostView(virtlauncherUID, volume, true)
+			if err != nil {
+				return err
+			}
+			if out, err := mountCommand(filepath.Join(sourcePath, "disk.img"), target); err != nil {
+				return fmt.Errorf("failed to bindmount hotplug-disk %v: %v : %v", volume, string(out), err)
+			}
 		}
 	}
-	return m.ownershipManager.SetFileOwnership(targetDisk)
+	return m.ownershipManager.SetFileOwnership(target)
 }
 
 func (m *volumeMounter) findVirtlauncherUID(vmi *v1.VirtualMachineInstance) (uid types.UID) {
@@ -620,6 +653,12 @@ func (m *volumeMounter) Unmount(vmi *v1.VirtualMachineInstance) error {
 			}
 			if m.isBlockVolume(&vmi.Status, volumeStatus.Name) {
 				path := filepath.Join(basePath, volumeStatus.Name)
+				currentHotplugPaths[path] = virtlauncherUID
+			} else if m.isDirectoryMounted(&vmi.Status, volumeStatus.Name) {
+				path, err := m.hotplugDiskManager.GetFileSystemDirectoryTargetPathFromHostView(virtlauncherUID, volumeStatus.Name, false)
+				if err != nil {
+					return err
+				}
 				currentHotplugPaths[path] = virtlauncherUID
 			} else {
 				path, err := m.hotplugDiskManager.GetFileSystemDiskTargetPathFromHostView(virtlauncherUID, volumeStatus.Name, false)
@@ -751,6 +790,10 @@ func (m *volumeMounter) IsMounted(vmi *v1.VirtualMachineInstance, volume string,
 		deviceName := filepath.Join(targetPath, volume)
 		isBlockExists, _ := isBlockDevice(deviceName)
 		return isBlockExists, nil
+	}
+
+	if m.isDirectoryMounted(&vmi.Status, volume) {
+		return isMounted(filepath.Join(targetPath, volume))
 	}
 	return isMounted(filepath.Join(targetPath, fmt.Sprintf("%s.img", volume)))
 }

@@ -365,6 +365,12 @@ spec:
           - patch
           - update
         - apiGroups:
+          - ""
+          resources:
+          - persistentvolumeclaims
+          verbs:
+          - get
+        - apiGroups:
           - kubevirt.io
           resources:
           - virtualmachines/status
@@ -766,6 +772,7 @@ spec:
           - virtualmachines/addvolume
           - virtualmachines/removevolume
           - virtualmachines/migrate
+          - virtualmachines/memorydump
           verbs:
           - update
         - apiGroups:
@@ -869,6 +876,7 @@ spec:
           - virtualmachines/addvolume
           - virtualmachines/removevolume
           - virtualmachines/migrate
+          - virtualmachines/memorydump
           verbs:
           - update
         - apiGroups:

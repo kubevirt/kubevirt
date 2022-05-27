@@ -484,6 +484,7 @@ type VirDomain interface {
 	IsPersistent() (bool, error)
 	AbortJob() error
 	Free() error
+	CoreDumpWithFormat(to string, format libvirt.DomainCoreDumpFormat, flags libvirt.DomainCoreDumpFlags) error
 }
 
 func NewConnection(uri string, user string, pass string, checkInterval time.Duration) (Connection, error) {

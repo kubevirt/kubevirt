@@ -352,11 +352,21 @@ type KubeVirtMetadata struct {
 	GracePeriod      *GracePeriodMetadata      `xml:"graceperiod,omitempty"`
 	Migration        *MigrationMetadata        `xml:"migration,omitempty"`
 	AccessCredential *AccessCredentialMetadata `xml:"accessCredential,omitempty"`
+	MemoryDump       *MemoryDumpMetadata       `xml:"memoryDump,omitempty"`
 }
 
 type AccessCredentialMetadata struct {
 	Succeeded bool   `xml:"succeeded,omitempty"`
 	Message   string `xml:"message,omitempty"`
+}
+
+type MemoryDumpMetadata struct {
+	FileName       string       `xml:"fileName,omitempty"`
+	StartTimestamp *metav1.Time `xml:"startTimestamp,omitempty"`
+	EndTimestamp   *metav1.Time `xml:"endTimestamp,omitempty"`
+	Completed      bool         `xml:"completed,omitempty"`
+	Failed         bool         `xml:"failed,omitempty"`
+	FailureReason  string       `xml:"failureReason,omitempty"`
 }
 
 type MigrationMetadata struct {

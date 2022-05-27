@@ -712,6 +712,34 @@ func CreateHostPathPvWithSizeAndStorageClass(osName, hostPath, size, sc string) 
 	return libnode.SchedulableNode
 }
 
+func CheckNoProvisionerStorageClassPVs(storageClassName string, numExpectedPVs int) {
+	virtClient, err := kubecli.GetKubevirtClient()
+	util2.PanicOnError(err)
+	sc, err := virtClient.StorageV1().StorageClasses().Get(context.Background(), storageClassName, metav1.GetOptions{})
+	Expect(err).ToNot(HaveOccurred())
+
+	if sc.Provisioner != "" && sc.Provisioner != "kubernetes.io/no-provisioner" {
+		return
+	}
+
+	// Verify we have at least `numExpectedPVs` available file system PVs
+	pvList, err := virtClient.CoreV1().PersistentVolumes().List(context.TODO(), metav1.ListOptions{})
+	Expect(err).ToNot(HaveOccurred())
+	count := 0
+	for _, pv := range pvList.Items {
+		if pv.Spec.StorageClassName != storageClassName || pv.Spec.NodeAffinity == nil || pv.Spec.NodeAffinity.Required == nil || len(pv.Spec.NodeAffinity.Required.NodeSelectorTerms) == 0 || (pv.Spec.VolumeMode != nil && *pv.Spec.VolumeMode == k8sv1.PersistentVolumeBlock) {
+			// Not a local volume filesystem PV
+			continue
+		}
+		if pv.Spec.ClaimRef == nil {
+			count++
+		}
+	}
+	if count < numExpectedPVs {
+		Skip("Not enough available filesystem local storage PVs available, expected: %d", numExpectedPVs)
+	}
+}
+
 func ServiceMonitorEnabled() bool {
 	virtClient, err := kubecli.GetKubevirtClient()
 	util2.PanicOnError(err)
@@ -1969,6 +1997,16 @@ func addVolumeMounts(volumeName string) []k8sv1.VolumeMount {
 		},
 	}
 	return volumeMounts
+}
+
+// CreateExecutorPodWithPVC creates a Pod with the passed in PVC mounted under /pvc. You can then use the executor utilities to
+// run commands against the PVC through this Pod.
+func CreateExecutorPodWithPVC(podName string, pvc *k8sv1.PersistentVolumeClaim) *k8sv1.Pod {
+	return RunPod(newExecutorPodWithPVC(podName, pvc))
+}
+
+func newExecutorPodWithPVC(podName string, pvc *k8sv1.PersistentVolumeClaim) *k8sv1.Pod {
+	return RenderPodWithPVC(podName, []string{"/bin/bash", "-c", "while true; do echo hello; sleep 2;done"}, nil, pvc)
 }
 
 func RunPod(pod *k8sv1.Pod) *k8sv1.Pod {

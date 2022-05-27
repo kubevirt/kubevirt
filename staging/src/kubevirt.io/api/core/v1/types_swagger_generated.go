@@ -100,6 +100,17 @@ func (VolumeStatus) SwaggerDoc() map[string]string {
 		"persistentVolumeClaimInfo": "PersistentVolumeClaimInfo is information about the PVC that handler requires during start flow",
 		"hotplugVolume":             "If the volume is hotplug, this will contain the hotplug status.",
 		"size":                      "Represents the size of the volume",
+		"memoryDumpVolume":          "If the volume is memorydump volume, this will contain the memorydump info.",
+	}
+}
+
+func (DomainMemoryDumpInfo) SwaggerDoc() map[string]string {
+	return map[string]string{
+		"":               "DomainMemoryDumpInfo represents the memory dump information",
+		"startTimestamp": "StartTimestamp is the time when the memory dump started",
+		"endTimestamp":   "EndTimestamp is the time when the memory dump completed",
+		"claimName":      "ClaimName is the name of the pvc the memory was dumped to",
+		"targetFileName": "TargetFileName is the name of the memory dump output",
 	}
 }
 
@@ -325,6 +336,7 @@ func (VirtualMachineStatus) SwaggerDoc() map[string]string {
 		"volumeRequests":         "VolumeRequests indicates a list of volumes add or remove from the VMI template and\nhotplug on an active running VMI.\n+listType=atomic",
 		"volumeSnapshotStatuses": "VolumeSnapshotStatuses indicates a list of statuses whether snapshotting is\nsupported by each volume.",
 		"startFailure":           "StartFailure tracks consecutive VMI startup failures for the purposes of\ncrash loop backoffs\n+nullable\n+optional",
+		"memoryDumpRequest":      "MemoryDumpRequest tracks memory dump request phase and info of getting a memory\ndump to the given pvc\n+nullable\n+optional",
 	}
 }
 
@@ -587,6 +599,18 @@ func (VirtualMachineInstanceFileSystem) SwaggerDoc() map[string]string {
 func (FreezeUnfreezeTimeout) SwaggerDoc() map[string]string {
 	return map[string]string{
 		"": "FreezeUnfreezeTimeout represent the time unfreeze will be triggered if guest was not unfrozen by unfreeze command",
+	}
+}
+
+func (VirtualMachineMemoryDumpRequest) SwaggerDoc() map[string]string {
+	return map[string]string{
+		"":               "VirtualMachineMemoryDumpRequest represent the memory dump request phase and info",
+		"claimName":      "ClaimName is the name of the pvc that will contain the memory dump",
+		"phase":          "Phase represents the memory dump phase",
+		"startTimestamp": "StartTimestamp represents the time the memory dump started",
+		"endTimestamp":   "EndTimestamp represents the time the memory dump was completed",
+		"fileName":       "FileName represents the name of the output file",
+		"message":        "Message is a detailed message about failure of the memory dump",
 	}
 }
 

@@ -1599,7 +1599,7 @@ func getHotplugVolumes(vmi *virtv1.VirtualMachineInstance, virtlauncherPod *k8sv
 		podVolumeMap[podVolume.Name] = podVolume
 	}
 	for _, vmiVolume := range vmiVolumes {
-		if _, ok := podVolumeMap[vmiVolume.Name]; !ok && (vmiVolume.DataVolume != nil || vmiVolume.PersistentVolumeClaim != nil) {
+		if _, ok := podVolumeMap[vmiVolume.Name]; !ok && (vmiVolume.DataVolume != nil || vmiVolume.PersistentVolumeClaim != nil || vmiVolume.MemoryDump != nil) {
 			hotplugVolumes = append(hotplugVolumes, vmiVolume.DeepCopy())
 		}
 	}
@@ -1797,6 +1797,8 @@ func (c *VMIController) volumeReadyToAttachToNode(namespace string, volume virtv
 		name = volume.DataVolume.Name
 	} else if volume.PersistentVolumeClaim != nil {
 		name = volume.PersistentVolumeClaim.ClaimName
+	} else if volume.MemoryDump != nil {
+		name = volume.MemoryDump.ClaimName
 	}
 
 	dataVolumeFunc := dataVolumeByNameFunc(c.dataVolumeInformer, dataVolumes)
@@ -2036,6 +2038,11 @@ func (c *VMIController) updateVolumeStatus(vmi *virtv1.VirtualMachineInstance, v
 			if status.HotplugVolume == nil {
 				status.HotplugVolume = &virtv1.HotplugVolumeStatus{}
 			}
+			if volume.MemoryDump != nil && status.MemoryDumpVolume == nil {
+				status.MemoryDumpVolume = &virtv1.DomainMemoryDumpInfo{
+					ClaimName: volume.Name,
+				}
+			}
 			attachmentPod := c.findAttachmentPodByVolumeName(volume.Name, attachmentPods)
 			if attachmentPod == nil {
 				status.HotplugVolume.AttachPodName = ""
@@ -2059,13 +2066,15 @@ func (c *VMIController) updateVolumeStatus(vmi *virtv1.VirtualMachineInstance, v
 			}
 		}
 
-		if volume.VolumeSource.PersistentVolumeClaim != nil || volume.VolumeSource.DataVolume != nil {
+		if volume.VolumeSource.PersistentVolumeClaim != nil || volume.VolumeSource.DataVolume != nil || volume.VolumeSource.MemoryDump != nil {
 
 			var pvcName string
 			if volume.VolumeSource.PersistentVolumeClaim != nil {
 				pvcName = volume.VolumeSource.PersistentVolumeClaim.ClaimName
 			} else if volume.VolumeSource.DataVolume != nil {
 				pvcName = volume.VolumeSource.DataVolume.Name
+			} else if volume.VolumeSource.MemoryDump != nil {
+				pvcName = volume.VolumeSource.MemoryDump.ClaimName
 			}
 
 			pvcInterface, pvcExists, _ := c.pvcInformer.GetStore().GetByKey(fmt.Sprintf("%s/%s", vmi.Namespace, pvcName))
@@ -2165,10 +2174,12 @@ func (c *VMIController) getVolumePhaseMessageReason(volume *virtv1.Volume, names
 	if volume.DataVolume != nil {
 		// Using fact that PVC name = DV name.
 		claimName = volume.DataVolume.Name
-	}
-	if volume.PersistentVolumeClaim != nil {
+	} else if volume.PersistentVolumeClaim != nil {
 		claimName = volume.PersistentVolumeClaim.ClaimName
+	} else if volume.MemoryDump != nil {
+		claimName = volume.MemoryDump.ClaimName
 	}
+
 	pvcInterface, pvcExists, _ := c.pvcInformer.GetStore().GetByKey(fmt.Sprintf("%s/%s", namespace, claimName))
 	if !pvcExists {
 		return virtv1.VolumePending, FailedPvcNotFoundReason, "Unable to determine PVC name"

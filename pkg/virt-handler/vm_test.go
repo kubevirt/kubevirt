@@ -1474,6 +1474,145 @@ var _ = Describe("VirtualMachineInstance", func() {
 			})
 		})
 
+		Context("memory dump status events", func() {
+			It("Should trigger memory dump and generate InProgress event once mounted", func() {
+				vmi := api2.NewMinimalVMI("testvmi")
+				vmi.UID = vmiTestUUID
+				vmi.Status.Phase = v1.Running
+				vmi.Spec.Volumes = append(vmi.Spec.Volumes, v1.Volume{
+					Name: "test",
+				})
+				volumeStatus := v1.VolumeStatus{
+					Name:    "test",
+					Phase:   v1.HotplugVolumeMounted,
+					Reason:  "reason",
+					Message: "message",
+					HotplugVolume: &v1.HotplugVolumeStatus{
+						AttachPodName: "testpod",
+						AttachPodUID:  "1234",
+					},
+					MemoryDumpVolume: &v1.DomainMemoryDumpInfo{
+						ClaimName: "test",
+					},
+				}
+				vmi.Status.VolumeStatus = append(vmi.Status.VolumeStatus, volumeStatus)
+				domain := api.NewMinimalDomainWithUUID("testvmi", vmiTestUUID)
+				domain.Status.Status = api.Running
+				vmiFeeder.Add(vmi)
+				domainFeeder.Add(domain)
+
+				updatedVolumeStatus := *volumeStatus.DeepCopy()
+				updatedVolumeStatus.MemoryDumpVolume.TargetFileName = dumpTargetFile(volumeStatus.Name)
+				mockHotplugVolumeMounter.EXPECT().IsMounted(vmi, "test", gomock.Any()).Return(true, nil)
+				hasHotplug := controller.updateVolumeStatusesFromDomain(vmi, domain)
+				Expect(hasHotplug).To(BeTrue())
+
+				Expect(vmi.Status.VolumeStatus[0].Phase).To(Equal(v1.MemoryDumpVolumeInProgress))
+				Expect(vmi.Status.VolumeStatus[0].MemoryDumpVolume.TargetFileName).To(Equal(dumpTargetFile(volumeStatus.Name)))
+				testutils.ExpectEvent(recorder, "Memory dump Volume test is attached, getting memory dump")
+				By("Calling it again with updated status, no new events are generated as long as memory dump not completed")
+				mockHotplugVolumeMounter.EXPECT().IsMounted(vmi, "test", gomock.Any()).Return(true, nil)
+				controller.updateVolumeStatusesFromDomain(vmi, domain)
+			})
+
+			It("Should generate memory dump completed event once memory dump completed", func() {
+				vmi := api2.NewMinimalVMI("testvmi")
+				vmi.UID = vmiTestUUID
+				vmi.Status.Phase = v1.Running
+				vmi.Spec.Volumes = append(vmi.Spec.Volumes, v1.Volume{
+					Name: "test",
+				})
+				volumeStatus := v1.VolumeStatus{
+					Name:    "test",
+					Phase:   v1.MemoryDumpVolumeInProgress,
+					Reason:  "reason",
+					Message: "message",
+					HotplugVolume: &v1.HotplugVolumeStatus{
+						AttachPodName: "testpod",
+						AttachPodUID:  "1234",
+					},
+					MemoryDumpVolume: &v1.DomainMemoryDumpInfo{
+						ClaimName:      "test",
+						TargetFileName: dumpTargetFile("test"),
+					},
+				}
+				vmi.Status.VolumeStatus = append(vmi.Status.VolumeStatus, volumeStatus)
+				domain := api.NewMinimalDomainWithUUID("testvmi", vmiTestUUID)
+				now := metav1.Now()
+				domain.Spec.Metadata.KubeVirt.MemoryDump = &api.MemoryDumpMetadata{
+					FileName:       dumpTargetFile("test"),
+					StartTimestamp: &now,
+					EndTimestamp:   &now,
+					Completed:      true,
+				}
+				domain.Status.Status = api.Running
+				vmiFeeder.Add(vmi)
+				domainFeeder.Add(domain)
+
+				mockHotplugVolumeMounter.EXPECT().IsMounted(vmi, "test", gomock.Any()).Return(true, nil)
+				hasHotplug := controller.updateVolumeStatusesFromDomain(vmi, domain)
+				Expect(hasHotplug).To(BeTrue())
+
+				Expect(vmi.Status.VolumeStatus[0].Phase).To(Equal(v1.MemoryDumpVolumeCompleted))
+				Expect(vmi.Status.VolumeStatus[0].MemoryDumpVolume.StartTimestamp).ToNot(BeNil())
+				Expect(vmi.Status.VolumeStatus[0].MemoryDumpVolume.EndTimestamp).ToNot(BeNil())
+				testutils.ExpectEvent(recorder, "Memory dump to Volume test has completed successfully")
+				By("Calling it again with updated status, no new events are generated as long as memory dump not completed")
+				mockHotplugVolumeMounter.EXPECT().IsMounted(vmi, "test", gomock.Any()).Return(true, nil)
+				controller.updateVolumeStatusesFromDomain(vmi, domain)
+			})
+
+			It("Should generate memory dump failed event if memory dump failed", func() {
+				vmi := api2.NewMinimalVMI("testvmi")
+				vmi.UID = vmiTestUUID
+				vmi.Status.Phase = v1.Running
+				vmi.Spec.Volumes = append(vmi.Spec.Volumes, v1.Volume{
+					Name: "test",
+				})
+				volumeStatus := v1.VolumeStatus{
+					Name:    "test",
+					Phase:   v1.MemoryDumpVolumeInProgress,
+					Reason:  "reason",
+					Message: "message",
+					HotplugVolume: &v1.HotplugVolumeStatus{
+						AttachPodName: "testpod",
+						AttachPodUID:  "1234",
+					},
+					MemoryDumpVolume: &v1.DomainMemoryDumpInfo{
+						ClaimName:      "test",
+						TargetFileName: dumpTargetFile("test"),
+					},
+				}
+				vmi.Status.VolumeStatus = append(vmi.Status.VolumeStatus, volumeStatus)
+				domain := api.NewMinimalDomainWithUUID("testvmi", vmiTestUUID)
+				domain.Status.Status = api.Running
+				now := metav1.Now()
+				failureReason := "memory dump failed"
+				domain.Spec.Metadata.KubeVirt.MemoryDump = &api.MemoryDumpMetadata{
+					FileName:       dumpTargetFile("test"),
+					StartTimestamp: &now,
+					EndTimestamp:   &now,
+					Failed:         true,
+					FailureReason:  failureReason,
+				}
+				vmiFeeder.Add(vmi)
+				domainFeeder.Add(domain)
+
+				mockHotplugVolumeMounter.EXPECT().IsMounted(vmi, "test", gomock.Any()).Return(true, nil)
+				hasHotplug := controller.updateVolumeStatusesFromDomain(vmi, domain)
+				Expect(hasHotplug).To(BeTrue())
+
+				Expect(vmi.Status.VolumeStatus[0].Phase).To(Equal(v1.MemoryDumpVolumeFailed))
+				Expect(vmi.Status.VolumeStatus[0].MemoryDumpVolume.StartTimestamp).ToNot(BeNil())
+				Expect(vmi.Status.VolumeStatus[0].MemoryDumpVolume.EndTimestamp).ToNot(BeNil())
+				testutils.ExpectEvent(recorder, fmt.Sprintf("Memory dump to pvc %s failed: %s", volumeStatus.Name, failureReason))
+				By("Calling it again with updated status, no new events are generated as long as memory dump not completed")
+				mockHotplugVolumeMounter.EXPECT().IsMounted(vmi, "test", gomock.Any()).Return(true, nil)
+				controller.updateVolumeStatusesFromDomain(vmi, domain)
+			})
+
+		})
+
 		DescribeTable("should leave the VirtualMachineInstance alone if it is in the final phase", func(phase v1.VirtualMachineInstancePhase) {
 			vmi := api2.NewMinimalVMI("testvmi")
 			vmi.Status.Phase = phase

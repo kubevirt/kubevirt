@@ -228,6 +228,23 @@ func (v *vm) Migrate(name string, migrateOptions *v1.MigrateOptions) error {
 	return v.restClient.Put().RequestURI(uri).Body(optsJson).Do(context.Background()).Error()
 }
 
+func (v *vm) MemoryDump(name string, memoryDumpRequest *v1.VirtualMachineMemoryDumpRequest) error {
+	uri := fmt.Sprintf(vmSubresourceURLFmt, v1.ApiStorageVersion, v.namespace, name, "memorydump")
+
+	JSON, err := json.Marshal(memoryDumpRequest)
+	if err != nil {
+		return err
+	}
+
+	return v.restClient.Put().RequestURI(uri).Body([]byte(JSON)).Do(context.Background()).Error()
+}
+
+func (v *vm) RemoveMemoryDump(name string) error {
+	uri := fmt.Sprintf(vmSubresourceURLFmt, v1.ApiStorageVersion, v.namespace, name, "removememorydump")
+
+	return v.restClient.Put().RequestURI(uri).Do(context.Background()).Error()
+}
+
 func (v *vm) AddVolume(name string, addVolumeOptions *v1.AddVolumeOptions) error {
 	uri := fmt.Sprintf(vmSubresourceURLFmt, v1.ApiStorageVersion, v.namespace, name, "addvolume")
 
