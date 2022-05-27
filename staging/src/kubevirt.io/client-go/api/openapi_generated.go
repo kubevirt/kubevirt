@@ -16334,6 +16334,13 @@ func schema_kubevirtio_api_core_v1_FlavorMatcher(ref common.ReferenceCallback) c
 							Format:      "",
 						},
 					},
+					"revisionName": {
+						SchemaProps: spec.SchemaProps{
+							Description: "RevisionName specifies a ControllerRevision containing a specific copy of the VirtualMachineFlavor or VirtualMachineClusterFlavor to be used. This is initially captured the first time the flavor is applied to the VirtualMachineInstance.",
+							Type:        []string{"string"},
+							Format:      "",
+						},
+					},
 				},
 				Required: []string{"name"},
 			},
@@ -18722,6 +18729,13 @@ func schema_kubevirtio_api_core_v1_PreferenceMatcher(ref common.ReferenceCallbac
 					"kind": {
 						SchemaProps: spec.SchemaProps{
 							Description: "Kind specifies which preference resource is referenced. Allowed values are: \"VirtualMachinePreference\" and \"VirtualMachineClusterPreference\". If not specified, \"VirtualMachineClusterPreference\" is used by default.",
+							Type:        []string{"string"},
+							Format:      "",
+						},
+					},
+					"revisionName": {
+						SchemaProps: spec.SchemaProps{
+							Description: "RevisionName specifies a ControllerRevision containing a specific copy of the VirtualMachinePreference or VirtualMachineClusterPreference to be used. This is initially captured the first time the flavor is applied to the VirtualMachineInstance.",
 							Type:        []string{"string"},
 							Format:      "",
 						},
