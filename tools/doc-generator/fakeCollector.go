@@ -32,6 +32,7 @@ func (fc fakeCollector) Collect(ch chan<- prometheus.Metric) {
 	inDomInfo := &libvirt.DomainInfo{}
 	jobInfo := stats.DomainJobInfo{}
 	out := stats.DomainStats{}
+	fs := k6tv1.VirtualMachineInstanceFileSystemList{}
 	ident := statsconv.DomainIdentifier(&fakeIdentifier{})
 	devAliasMap := make(map[string]string)
 
@@ -50,13 +51,23 @@ func (fc fakeCollector) Collect(ch chan<- prometheus.Metric) {
 	out.Memory.MajorFaultSet = true
 	out.CPUMapSet = true
 
+	fs.Items = []k6tv1.VirtualMachineInstanceFileSystem{
+		{
+			DiskName:       "disk1",
+			MountPoint:     "/",
+			FileSystemType: "EXT4",
+			TotalBytes:     1000,
+			UsedBytes:      10,
+		},
+	}
+
 	vmi := k6tv1.VirtualMachineInstance{
 		Status: k6tv1.VirtualMachineInstanceStatus{
 			Phase:    k6tv1.Running,
 			NodeName: "test",
 		},
 	}
-	ps.Report("test", &vmi, &out)
+	ps.Report("test", &vmi, &domainstats.VirtualMachineInstanceStats{DomainStats: &out, FsStats: fs})
 }
 
 type fakeIdentifier struct {
