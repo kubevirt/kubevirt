@@ -671,7 +671,6 @@ func (vca *VirtControllerApp) initExportController() {
 		VMExportInformer:   vca.vmExportInformer,
 		PVCInformer:        vca.persistentVolumeClaimInformer,
 		PodInformer:        vca.allPodInformer,
-		VMInformer:         vca.vmInformer,
 		DataVolumeInformer: vca.dataVolumeInformer,
 		ServiceInformer:    vca.exportServiceInformer,
 		Recorder:           recorder,

@@ -152,7 +152,7 @@ type KubeInformerFactory interface {
 	// Watches for the kubevirt export CA config map
 	KubeVirtExportCAConfigMap() cache.SharedIndexInformer
 
-	// Watches for the kubevirt export CA config map
+	// Watches for the kubevirt export service
 	ExportService() cache.SharedIndexInformer
 
 	// ConfigMaps which are managed by the operator

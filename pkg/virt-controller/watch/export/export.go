@@ -146,7 +146,6 @@ type VMExportController struct {
 	VMExportInformer   cache.SharedIndexInformer
 	PVCInformer        cache.SharedIndexInformer
 	PodInformer        cache.SharedIndexInformer
-	VMInformer         cache.SharedIndexInformer
 	DataVolumeInformer cache.SharedIndexInformer
 	ConfigMapInformer  cache.SharedIndexInformer
 	ServiceInformer    cache.SharedIndexInformer
@@ -205,6 +204,10 @@ func (ctrl *VMExportController) Run(threadiness int, stopCh <-chan struct{}) err
 		stopCh,
 		ctrl.VMExportInformer.HasSynced,
 		ctrl.PVCInformer.HasSynced,
+		ctrl.PodInformer.HasSynced,
+		ctrl.DataVolumeInformer.HasSynced,
+		ctrl.ConfigMapInformer.HasSynced,
+		ctrl.ServiceInformer.HasSynced,
 	) {
 		return fmt.Errorf("failed to wait for caches to sync")
 	}
