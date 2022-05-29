@@ -3162,10 +3162,6 @@ func IsRunningOnKindInfra() bool {
 	return strings.HasPrefix(provider, "kind")
 }
 
-func IsUsingBuiltinNodeDrainKey() bool {
-	return libnode.GetNodeDrainKey() == "node.kubernetes.io/unschedulable"
-}
-
 func RandTmpDir() string {
 	return filepath.Join(tmpPath, rand.String(10))
 }
