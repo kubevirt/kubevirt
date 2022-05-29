@@ -1,18 +1,35 @@
-<!--  Thanks for sending a pull request!  Here are some tips for you:
-1. Follow the instructions for writing a release note from k8s: https://git.k8s.io/community/contributors/guide/release-notes.md
+<!-- Thanks for sending a pull request!
+Please make sure you read our contributing guidelines: https://github.com/kubevirt/kubevirt/blob/main/CONTRIBUTING.md#getting-started
 -->
 
-**What this PR does / why we need it**:
+### **What are these changes and why are they needed**:
 
-**Which issue(s) this PR fixes** *(optional, in `fixes #<issue number>(, fixes #<issue_number>, ...)` format, will close the issue(s) when PR gets merged)*:
-Fixes #
+<!--
+Describe your changes here.
+-->
 
-**Special notes for your reviewer**:
+### **What issue are you fixing**:
 
-**Release note**:
-<!--  Write your release note:
-1. Enter your extended release note in the below block. If the PR requires additional action from users switching to the new release, include the string "action required".
-2. If no release note is required, just write "NONE".
+<!--
+*Automatically closes linked issue when PR is merged.
+Usage: `Fixes #<issue number>`, or `Fixes (paste link of issue)`.
+_If PR is about `failing-tests or flakes`, please post the related issues/tests in a comment and do not use `Fixes`_*
+-->
+Fixes # (issue)
+
+### **Special notes for your reviewer**:
+
+<!--
+Something your reviewer should know.
+-->
+
+### **Release note**:
+<!--
+If no, just write "NONE" in the release-note block below.
+If yes, a release note is required:
+Enter your extended release note in the block below. If the PR requires additional action from users switching to the new release, include the string "action required".
+
+For more information on release notes see: https://git.k8s.io/community/contributors/guide/release-notes.md
 -->
 ```release-note
 
