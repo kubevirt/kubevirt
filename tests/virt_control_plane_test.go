@@ -273,7 +273,7 @@ var _ = Describe("[Serial][ref_id:2717][sig-compute]KubeVirt control plane resil
 				pods, err := virtCli.CoreV1().Pods(flags.KubeVirtInstallNamespace).List(context.Background(), metav1.ListOptions{LabelSelector: fmt.Sprintf("kubevirt.io=%s", componentName)})
 				Expect(err).NotTo(HaveOccurred())
 
-				serviceIp, err := tests.GetKubernetesApiServiceIp(virtCli)
+				serviceIp, err := getKubernetesApiServiceIp(virtCli)
 				Expect(err).NotTo(HaveOccurred())
 
 				for _, pod := range pods.Items {
@@ -314,3 +314,14 @@ var _ = Describe("[Serial][ref_id:2717][sig-compute]KubeVirt control plane resil
 	})
 
 })
+
+func getKubernetesApiServiceIp(virtClient kubecli.KubevirtClient) (string, error) {
+	kubernetesServiceName := "kubernetes"
+	kubernetesServiceNamespace := "default"
+
+	kubernetesService, err := virtClient.CoreV1().Services(kubernetesServiceNamespace).Get(context.Background(), kubernetesServiceName, metav1.GetOptions{})
+	if err != nil {
+		return "", err
+	}
+	return kubernetesService.Spec.ClusterIP, nil
+}
