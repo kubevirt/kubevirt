@@ -1096,7 +1096,7 @@ var _ = Describe("[rfe_id:393][crit:high][vendor:cnv-qe@redhat.com][level:system
 				tests.ConfirmVMIPostMigration(virtClient, vmi, migrationUID)
 
 				// ensure the libvirt domain is persistent
-				persistent, err := tests.LibvirtDomainIsPersistent(virtClient, vmi)
+				persistent, err := libvirtDomainIsPersistent(virtClient, vmi)
 				Expect(err).ToNot(HaveOccurred(), "Should list libvirt domains successfully")
 				Expect(persistent).To(BeTrue(), "The VMI was not found in the list of libvirt persistent domains")
 				tests.EnsureNoMigrationMetadataInPersistentXML(vmi)
@@ -4127,4 +4127,30 @@ func disableNodeLabeller(node *k8sv1.Node, virtClient kubecli.KubevirtClient) *k
 	}, 30*time.Second, time.Second).Should(BeTrue())
 
 	return node
+}
+
+func libvirtDomainIsPersistent(virtClient kubecli.KubevirtClient, vmi *v1.VirtualMachineInstance) (bool, error) {
+	vmiPod := tests.GetRunningPodByVirtualMachineInstance(vmi, util.NamespaceTestDefault)
+	found := false
+	containerIdx := 0
+	for idx, container := range vmiPod.Spec.Containers {
+		if container.Name == "compute" {
+			containerIdx = idx
+			found = true
+		}
+	}
+	if !found {
+		return false, fmt.Errorf(tests.CouldNotFindComputeContainer)
+	}
+
+	stdout, stderr, err := tests.ExecuteCommandOnPodV2(
+		virtClient,
+		vmiPod,
+		vmiPod.Spec.Containers[containerIdx].Name,
+		[]string{"virsh", "--quiet", "list", "--persistent", "--name"},
+	)
+	if err != nil {
+		return false, fmt.Errorf("could not dump libvirt domxml (remotely on pod): %v: %s", err, stderr)
+	}
+	return strings.Contains(stdout, vmi.Namespace+"_"+vmi.Name), nil
 }

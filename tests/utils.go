@@ -2197,36 +2197,6 @@ func LibvirtDomainIsPaused(virtClient kubecli.KubevirtClient, vmi *v1.VirtualMac
 	return strings.Contains(stdout, "paused"), nil
 }
 
-func LibvirtDomainIsPersistent(virtClient kubecli.KubevirtClient, vmi *v1.VirtualMachineInstance) (bool, error) {
-	vmiPod, err := getRunningPodByVirtualMachineInstance(vmi, util2.NamespaceTestDefault)
-	if err != nil {
-		return false, err
-	}
-
-	found := false
-	containerIdx := 0
-	for idx, container := range vmiPod.Spec.Containers {
-		if container.Name == "compute" {
-			containerIdx = idx
-			found = true
-		}
-	}
-	if !found {
-		return false, fmt.Errorf(CouldNotFindComputeContainer)
-	}
-
-	stdout, stderr, err := ExecuteCommandOnPodV2(
-		virtClient,
-		vmiPod,
-		vmiPod.Spec.Containers[containerIdx].Name,
-		[]string{"virsh", "--quiet", "list", "--persistent", "--name"},
-	)
-	if err != nil {
-		return false, fmt.Errorf("could not dump libvirt domxml (remotely on pod): %v: %s", err, stderr)
-	}
-	return strings.Contains(stdout, vmi.Namespace+"_"+vmi.Name), nil
-}
-
 // Deprecated: DeprecatedBeforeAll must not be used. Tests need to be self-contained to allow sane cleanup, accurate reporting and
 // parallel execution.
 func DeprecatedBeforeAll(fn func()) {
