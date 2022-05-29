@@ -6,7 +6,6 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
-
 	"os"
 	"path/filepath"
 	"regexp"
@@ -959,18 +958,52 @@ func (r *KubernetesReporter) logClusterOverview() {
 	} else {
 		return
 	}
-
-	stdout, stderr, err := clientcmd.RunCommandWithNS("", binary, "get", "all", "--all-namespaces", "-o", "wide")
-	if err != nil {
-		fmt.Fprintf(os.Stderr, "failed to fetch cluster overview: %v, %s\n", err, stderr)
-		return
-	}
 	filePath := filepath.Join(r.artifactsDir, fmt.Sprintf("%d_overview.log", r.failureCount))
-	err = writeStringToFile(filePath, stdout)
+
+	resourcesOutput, err := getApiResourcesOutput(binary)
 	if err != nil {
-		fmt.Fprintf(os.Stderr, "failed to write cluster overview: %v\n", err)
+		fmt.Fprintf(os.Stderr, "failed to fetch cluster overview of resources: %v, %s\n", err, resourcesOutput)
 		return
 	}
+	err = writeStringToFile(filePath, resourcesOutput)
+	if err != nil {
+		fmt.Fprintf(os.Stderr, "failed to write cluster overview resources: %v\n", err)
+		return
+	}
+
+}
+
+func getApiResourcesOutput(binary string) (string, error) {
+	resourcesListString, err := getApiResourcesCommand(binary)
+	if err != nil {
+		return "", err
+	}
+	resourcesList := strings.Split(resourcesListString, "\n")
+
+	var resourceOutput bytes.Buffer
+	for _, resource := range resourcesList {
+		if strings.Contains(resource, "events") || resource == "" {
+			continue
+		}
+
+		stdout, stderr, err := clientcmd.RunCommandWithNS("", binary, "get", resource, "--ignore-not-found", "-A", "-owide")
+		if err != nil {
+			return "", fmt.Errorf("failed to get %s resource: %v, %s\n%s\n", resource, err, stderr, stdout)
+		}
+		if stdout != "" {
+			resourceOutput.WriteString(fmt.Sprintf("Resource: %s:\n%s\n", resource, stdout))
+		}
+	}
+
+	return resourceOutput.String(), nil
+}
+
+func getApiResourcesCommand(binary string) (string, error) {
+	stdout, stderr, err := clientcmd.RunCommandWithNS("", binary, "api-resources", "--verbs=list", "-oname", "--sort-by=name")
+	if err != nil {
+		return "", fmt.Errorf("failed to fetch api-resources list of resources: %v, %s\n", err, stderr)
+	}
+	return stdout, nil
 }
 
 //getNodesWithVirtLauncher returns all node where a virt-launcher pod ran (finished) or still runs
