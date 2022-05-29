@@ -90,7 +90,7 @@ var _ = Describe("[rfe_id:588][crit:medium][vendor:cnv-qe@redhat.com][level:comp
 		vmi = tests.RunVMIAndExpectScheduling(vmi, 60)
 		Expect(vmi.Spec.Volumes[0].ContainerDisk.ImagePullPolicy).To(Equal(expectedPolicy))
 		pod := libvmi.GetPodByVirtualMachineInstance(vmi, vmi.Namespace)
-		container := tests.GetContainerDiskContainerOfPod(pod, vmi.Spec.Volumes[0].Name)
+		container := getContainerDiskContainerOfPod(pod, vmi.Spec.Volumes[0].Name)
 		Expect(container.ImagePullPolicy).To(Equal(expectedPolicy))
 	},
 		Entry("[test_id:3246]generate and set Always pull policy", "test", k8sv1.PullPolicy(""), k8sv1.PullAlways),
@@ -273,3 +273,8 @@ var _ = Describe("[rfe_id:588][crit:medium][vendor:cnv-qe@redhat.com][level:comp
 		})
 	})
 })
+
+func getContainerDiskContainerOfPod(pod *k8sv1.Pod, volumeName string) *k8sv1.Container {
+	diskContainerName := fmt.Sprintf("volume%s", volumeName)
+	return tests.GetContainerOfPod(pod, diskContainerName)
+}
