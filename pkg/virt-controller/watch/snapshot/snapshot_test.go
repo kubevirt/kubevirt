@@ -392,6 +392,15 @@ var _ = Describe("Snapshot controlleer", func() {
 			mockCRDQueue.Wait()
 		}
 
+		addVolumeSnapshotClass := func(volumeSnapshotClasses ...vsv1.VolumeSnapshotClass) {
+			syncCaches(stop)
+			for i := range volumeSnapshotClasses {
+				mockVMQueue.ExpectAdds(1)
+				volumeSnapshotClassSource.Add(&volumeSnapshotClasses[i])
+				mockVMQueue.Wait()
+			}
+		}
+
 		Context("with VolumeSnapshot and VolumeSnapshotContent informers", func() {
 
 			BeforeEach(func() {
@@ -832,18 +841,18 @@ var _ = Describe("Snapshot controlleer", func() {
 				vmSnapshot := createVMSnapshotInProgress()
 				vm := createLockedVM()
 				storageClass := createStorageClass()
-				volumeSnapshotClass := &createVolumeSnapshotClasses()[0]
+				volumeSnapshotClass := createVolumeSnapshotClasses()[0]
 				pvcs := createPersistentVolumeClaims()
 				vmSnapshotContent := createVMSnapshotContent()
 
 				vmSource.Add(vm)
 				storageClassSource.Add(storageClass)
-				volumeSnapshotClassSource.Add(volumeSnapshotClass)
 				for i := range pvcs {
 					pvcSource.Add(&pvcs[i])
 				}
 				expectVMSnapshotContentCreate(vmSnapshotClient, vmSnapshotContent)
-				addVirtualMachineSnapshot(vmSnapshot)
+				vmSnapshotSource.Add(vmSnapshot)
+				addVolumeSnapshotClass(volumeSnapshotClass)
 
 				updatedSnapshot := vmSnapshot.DeepCopy()
 				updatedSnapshot.ResourceVersion = "1"
@@ -895,14 +904,14 @@ var _ = Describe("Snapshot controlleer", func() {
 				vmSource.Add(vm)
 				storageClass := createStorageClass()
 				storageClassSource.Add(storageClass)
-				volumeSnapshotClass := &createVolumeSnapshotClasses()[0]
-				volumeSnapshotClassSource.Add(volumeSnapshotClass)
+				volumeSnapshotClass := createVolumeSnapshotClasses()[0]
 				pvcs := createPersistentVolumeClaims()
 				for i := range pvcs {
 					pvcSource.Add(&pvcs[i])
 				}
 				expectVMSnapshotContentCreate(vmSnapshotClient, expectedContent)
-				addVirtualMachineSnapshot(vmSnapshot)
+				vmSnapshotSource.Add(vmSnapshot)
+				addVolumeSnapshotClass(volumeSnapshotClass)
 
 				updatedSnapshot := vmSnapshot.DeepCopy()
 				updatedSnapshot.ResourceVersion = "1"
@@ -959,7 +968,7 @@ var _ = Describe("Snapshot controlleer", func() {
 				vm := createLockedVM()
 				storageClass := createStorageClass()
 				vmSnapshot := createVMSnapshotInProgress()
-				volumeSnapshotClass := &createVolumeSnapshotClasses()[0]
+				volumeSnapshotClass := createVolumeSnapshotClasses()[0]
 				pvcs := createPersistentVolumeClaims()
 				vmSnapshotContent := createVMSnapshotContent()
 				vmSnapshotContent.UID = contentUID
@@ -980,15 +989,15 @@ var _ = Describe("Snapshot controlleer", func() {
 
 				vmSource.Add(vm)
 				storageClassSource.Add(storageClass)
-				volumeSnapshotClassSource.Add(volumeSnapshotClass)
 				for i := range pvcs {
 					pvcSource.Add(&pvcs[i])
 				}
 
 				expectVolumeSnapshotCreates(k8sSnapshotClient, volumeSnapshotClass.Name, vmSnapshotContent)
 				expectVMSnapshotContentUpdate(vmSnapshotClient, updatedContent)
-				addVirtualMachineSnapshot(vmSnapshot)
-				addVirtualMachineSnapshotContent(vmSnapshotContent)
+				vmSnapshotContentSource.Add(vmSnapshotContent)
+				vmSnapshotSource.Add(vmSnapshot)
+				addVolumeSnapshotClass(volumeSnapshotClass)
 				controller.processVMSnapshotContentWorkItem()
 				testutils.ExpectEvent(recorder, "SuccessfulVolumeSnapshotCreate")
 			})
@@ -1018,17 +1027,15 @@ var _ = Describe("Snapshot controlleer", func() {
 
 				vmSource.Add(vm)
 				storageClassSource.Add(storageClass)
-				for i := range volumeSnapshotClasses {
-					volumeSnapshotClassSource.Add(&volumeSnapshotClasses[i])
-				}
 				for i := range pvcs {
 					pvcSource.Add(&pvcs[i])
 				}
 
 				expectVolumeSnapshotCreates(k8sSnapshotClient, volumeSnapshotClasses[0].Name, vmSnapshotContent)
 				expectVMSnapshotContentUpdate(vmSnapshotClient, updatedContent)
-				addVirtualMachineSnapshot(vmSnapshot)
-				addVirtualMachineSnapshotContent(vmSnapshotContent)
+				vmSnapshotSource.Add(vmSnapshot)
+				vmSnapshotContentSource.Add(vmSnapshotContent)
+				addVolumeSnapshotClass(volumeSnapshotClasses...)
 				controller.processVMSnapshotContentWorkItem()
 				testutils.ExpectEvent(recorder, "SuccessfulVolumeSnapshotCreate")
 			})
@@ -1037,7 +1044,7 @@ var _ = Describe("Snapshot controlleer", func() {
 				vm := createLockedVM()
 				storageClass := createStorageClass()
 				vmSnapshot := createVMSnapshotInProgress()
-				volumeSnapshotClass := &createVolumeSnapshotClasses()[0]
+				volumeSnapshotClass := createVolumeSnapshotClasses()[0]
 				pvcs := createPersistentVolumeClaims()
 				vmSnapshotContent := createVMSnapshotContent()
 				vmSnapshotContent.UID = contentUID
@@ -1064,7 +1071,6 @@ var _ = Describe("Snapshot controlleer", func() {
 				}
 
 				storageClassSource.Add(storageClass)
-				volumeSnapshotClassSource.Add(volumeSnapshotClass)
 				for i := range pvcs {
 					pvcSource.Add(&pvcs[i])
 				}
@@ -1072,7 +1078,8 @@ var _ = Describe("Snapshot controlleer", func() {
 				expectVMSnapshotUpdate(vmSnapshotClient, updatedVMSnapshot)
 				expectVolumeSnapshotCreates(k8sSnapshotClient, volumeSnapshotClass.Name, vmSnapshotContent)
 				expectVMSnapshotContentUpdate(vmSnapshotClient, updatedContent)
-				addVirtualMachineSnapshot(vmSnapshot)
+				vmSnapshotSource.Add(vmSnapshot)
+				addVolumeSnapshotClass(volumeSnapshotClass)
 				controller.processVMSnapshotContentWorkItem()
 				testutils.ExpectEvent(recorder, "SuccessfulVolumeSnapshotCreate")
 			})
@@ -1080,7 +1087,7 @@ var _ = Describe("Snapshot controlleer", func() {
 			It("should freeze vm with online snapshot and guest agent", func() {
 				storageClass := createStorageClass()
 				vmSnapshot := createVMSnapshotInProgress()
-				volumeSnapshotClass := &createVolumeSnapshotClasses()[0]
+				volumeSnapshotClass := createVolumeSnapshotClasses()[0]
 				pvcs := createPersistentVolumeClaims()
 				vmSnapshotContent := createVMSnapshotContent()
 				vmSnapshotContent.UID = contentUID
@@ -1118,7 +1125,6 @@ var _ = Describe("Snapshot controlleer", func() {
 				}
 
 				storageClassSource.Add(storageClass)
-				volumeSnapshotClassSource.Add(volumeSnapshotClass)
 				for i := range pvcs {
 					pvcSource.Add(&pvcs[i])
 				}
@@ -1127,7 +1133,8 @@ var _ = Describe("Snapshot controlleer", func() {
 				expectVMSnapshotUpdate(vmSnapshotClient, updatedVMSnapshot)
 				expectVolumeSnapshotCreates(k8sSnapshotClient, volumeSnapshotClass.Name, vmSnapshotContent)
 				expectVMSnapshotContentUpdate(vmSnapshotClient, updatedContent)
-				addVirtualMachineSnapshot(vmSnapshot)
+				vmSnapshotSource.Add(vmSnapshot)
+				addVolumeSnapshotClass(volumeSnapshotClass)
 				controller.processVMSnapshotContentWorkItem()
 				testutils.ExpectEvent(recorder, "SuccessfulVolumeSnapshotCreate")
 			})
@@ -1261,8 +1268,7 @@ var _ = Describe("Snapshot controlleer", func() {
 			It("should unfreeze vm with online snapshot and guest agent", func() {
 				storageClass := createStorageClass()
 				storageClassSource.Add(storageClass)
-				volumeSnapshotClass := &createVolumeSnapshotClasses()[0]
-				volumeSnapshotClassSource.Add(volumeSnapshotClass)
+				volumeSnapshotClass := createVolumeSnapshotClasses()[0]
 				pvcs := createPersistentVolumeClaims()
 				for i := range pvcs {
 					pvcSource.Add(&pvcs[i])
@@ -1324,7 +1330,8 @@ var _ = Describe("Snapshot controlleer", func() {
 				vmiInterface.EXPECT().Unfreeze(vm.Name).Return(nil)
 				expectVMSnapshotUpdate(vmSnapshotClient, updatedVMSnapshot)
 				expectVMSnapshotContentUpdate(vmSnapshotClient, updatedContent)
-				addVirtualMachineSnapshot(vmSnapshot)
+				vmSnapshotSource.Add(vmSnapshot)
+				addVolumeSnapshotClass(volumeSnapshotClass)
 				controller.processVMSnapshotContentWorkItem()
 			})
 
