@@ -96,7 +96,6 @@ import (
 	"kubevirt.io/kubevirt/pkg/virt-controller/services"
 	launcherApi "kubevirt.io/kubevirt/pkg/virt-launcher/virtwrap/api"
 	"kubevirt.io/kubevirt/pkg/virt-operator/util"
-	vmsgen "kubevirt.io/kubevirt/tools/vms-generator/utils"
 
 	"kubevirt.io/kubevirt/tests/console"
 	cd "kubevirt.io/kubevirt/tests/containerdisk"
@@ -2301,19 +2300,6 @@ func GenerateVMIJson(vmi *v1.VirtualMachineInstance, generateDirectory string) (
 	err = ioutil.WriteFile(jsonFile, data, 0644)
 	if err != nil {
 		return "", fmt.Errorf("failed to write json file %s", jsonFile)
-	}
-	return jsonFile, nil
-}
-
-func GenerateTemplateJson(template *vmsgen.Template, generateDirectory string) (string, error) {
-	data, err := json.Marshal(template)
-	if err != nil {
-		return "", fmt.Errorf("failed to generate json for template %q: %v", template.Name, err)
-	}
-
-	jsonFile := filepath.Join(generateDirectory, template.Name+".json")
-	if err = ioutil.WriteFile(jsonFile, data, 0644); err != nil {
-		return "", fmt.Errorf("failed to write json to file %q: %v", jsonFile, err)
 	}
 	return jsonFile, nil
 }
