@@ -2238,20 +2238,6 @@ func GenerateVMJson(vm *v1.VirtualMachine, generateDirectory string) (string, er
 	return jsonFile, nil
 }
 
-func GenerateVMIJson(vmi *v1.VirtualMachineInstance, generateDirectory string) (string, error) {
-	data, err := json.Marshal(vmi)
-	if err != nil {
-		return "", fmt.Errorf("failed to generate json for vmi %s", vmi.Name)
-	}
-
-	jsonFile := filepath.Join(generateDirectory, fmt.Sprintf("%s.json", vmi.Name))
-	err = ioutil.WriteFile(jsonFile, data, 0644)
-	if err != nil {
-		return "", fmt.Errorf("failed to write json file %s", jsonFile)
-	}
-	return jsonFile, nil
-}
-
 func GenerateTemplateJson(template *vmsgen.Template, generateDirectory string) (string, error) {
 	data, err := json.Marshal(template)
 	if err != nil {
