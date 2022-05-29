@@ -21,8 +21,11 @@ package tests_test
 
 import (
 	"context"
+	"encoding/json"
 	"fmt"
+	"io/ioutil"
 	"net/http"
+	"path/filepath"
 	"strings"
 	"time"
 
@@ -317,7 +320,7 @@ var _ = Describe("[Serial][sig-compute]Windows VirtualMachineInstance", func() {
 		var yamlFile string
 		BeforeEach(func() {
 			clientcmd.SkipIfNoCmd("kubectl")
-			yamlFile, err = tests.GenerateVMIJson(windowsVMI, GinkgoT().TempDir())
+			yamlFile, err = generateVMIJson(windowsVMI, GinkgoT().TempDir())
 			Expect(err).ToNot(HaveOccurred())
 		})
 
@@ -416,4 +419,18 @@ func runCommandAndExpectOutput(virtClient kubecli.KubevirtClient, winrmcliPod *k
 		Expect(err).ToNot(HaveOccurred())
 		return output
 	}, time.Minute*1, time.Second*10).Should(MatchRegexp(expectedOutputRegex))
+}
+
+func generateVMIJson(vmi *v1.VirtualMachineInstance, generateDirectory string) (string, error) {
+	data, err := json.Marshal(vmi)
+	if err != nil {
+		return "", fmt.Errorf("failed to generate json for vmi %s", vmi.Name)
+	}
+
+	jsonFile := filepath.Join(generateDirectory, fmt.Sprintf("%s.json", vmi.Name))
+	err = ioutil.WriteFile(jsonFile, data, 0644)
+	if err != nil {
+		return "", fmt.Errorf("failed to write json file %s", jsonFile)
+	}
+	return jsonFile, nil
 }
