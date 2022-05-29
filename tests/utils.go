@@ -173,13 +173,6 @@ const (
 	tmpPath = "/var/provision/kubevirt.io/tests"
 )
 
-const (
-	capNetRaw         k8sv1.Capability = "NET_RAW"
-	capSysNice        k8sv1.Capability = "SYS_NICE"
-	capSysPTrace      k8sv1.Capability = "SYS_PTRACE"
-	capNetBindService k8sv1.Capability = "NET_BIND_SERVICE"
-)
-
 const MigrationWaitTime = 240
 const ContainerCompletionWaitTime = 60
 
@@ -3343,26 +3336,6 @@ func DetectLatestUpstreamOfficialTag() (string, error) {
 
 	By(fmt.Sprintf("By detecting latest upstream official tag %s for current branch", tag))
 	return tag, nil
-}
-
-func IsLauncherCapabilityValid(capability k8sv1.Capability) bool {
-	switch capability {
-	case
-		capNetBindService,
-		capSysNice,
-		capSysPTrace:
-		return true
-	}
-	return false
-}
-
-func IsLauncherCapabilityDropped(capability k8sv1.Capability) bool {
-	switch capability {
-	case
-		capNetRaw:
-		return true
-	}
-	return false
 }
 
 // VMILauncherIgnoreWarnings waiting for the VMI to be up but ignoring warnings like a disconnected guest-agent

@@ -40,6 +40,13 @@ import (
 	"kubevirt.io/kubevirt/tests/libvmi"
 )
 
+const (
+	capNetRaw         k8sv1.Capability = "NET_RAW"
+	capSysNice        k8sv1.Capability = "SYS_NICE"
+	capSysPTrace      k8sv1.Capability = "SYS_PTRACE"
+	capNetBindService k8sv1.Capability = "NET_BIND_SERVICE"
+)
+
 var _ = Describe("[Serial][sig-compute]SecurityFeatures", func() {
 	var err error
 	var virtClient kubecli.KubevirtClient
@@ -248,13 +255,33 @@ var _ = Describe("[Serial][sig-compute]SecurityFeatures", func() {
 
 			By("Checking virt-launcher Pod's compute container has precisely the documented extra capabilities")
 			for _, capa := range caps.Add {
-				Expect(tests.IsLauncherCapabilityValid(capa)).To(BeTrue(), "Expected compute container of virt_launcher to be granted only specific capabilities")
+				Expect(isLauncherCapabilityValid(capa)).To(BeTrue(), "Expected compute container of virt_launcher to be granted only specific capabilities")
 			}
 			By("Checking virt-launcher Pod's compute container has precisely the documented dropped capabilities")
 			Expect(caps.Drop).To(HaveLen(1))
 			for _, capa := range caps.Drop {
-				Expect(tests.IsLauncherCapabilityDropped(capa)).To(BeTrue(), "Expected compute container of virt_launcher to drop only specific capabilities")
+				Expect(isLauncherCapabilityDropped(capa)).To(BeTrue(), "Expected compute container of virt_launcher to drop only specific capabilities")
 			}
 		})
 	})
 })
+
+func isLauncherCapabilityValid(capability k8sv1.Capability) bool {
+	switch capability {
+	case
+		capNetBindService,
+		capSysNice,
+		capSysPTrace:
+		return true
+	}
+	return false
+}
+
+func isLauncherCapabilityDropped(capability k8sv1.Capability) bool {
+	switch capability {
+	case
+		capNetRaw:
+		return true
+	}
+	return false
+}
