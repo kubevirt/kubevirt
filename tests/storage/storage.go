@@ -968,7 +968,7 @@ var _ = SIGDescribe("Storage", func() {
 						tests.WaitForVirtualMachineToDisappearWithTimeout(vmi, 120)
 					}
 					Expect(virtClient.CoreV1().Pods(pod.Namespace).Delete(context.Background(), pod.Name, metav1.DeleteOptions{})).To(Succeed())
-					tests.WaitForPodToDisappearWithTimeout(pod.Name, 120)
+					waitForPodToDisappearWithTimeout(pod.Name, 120)
 				})
 
 				configureToleration := func(toleration int) {
@@ -1393,3 +1393,12 @@ var _ = SIGDescribe("Storage", func() {
 		})
 	})
 })
+
+func waitForPodToDisappearWithTimeout(podName string, seconds int) {
+	virtClient, err := kubecli.GetKubevirtClient()
+	ExpectWithOffset(1, err).ToNot(HaveOccurred())
+	EventuallyWithOffset(1, func() bool {
+		_, err := virtClient.CoreV1().Pods(util.NamespaceTestDefault).Get(context.Background(), podName, metav1.GetOptions{})
+		return errors.IsNotFound(err)
+	}, seconds, 1*time.Second).Should(BeTrue())
+}
