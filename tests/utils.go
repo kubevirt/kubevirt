@@ -969,11 +969,6 @@ func GetComputeContainerOfPod(pod *k8sv1.Pod) *k8sv1.Container {
 	return GetContainerOfPod(pod, "compute")
 }
 
-func GetContainerDiskContainerOfPod(pod *k8sv1.Pod, volumeName string) *k8sv1.Container {
-	diskContainerName := fmt.Sprintf("volume%s", volumeName)
-	return GetContainerOfPod(pod, diskContainerName)
-}
-
 func GetContainerOfPod(pod *k8sv1.Pod, containerName string) *k8sv1.Container {
 	var computeContainer *k8sv1.Container
 	for _, container := range pod.Spec.Containers {
