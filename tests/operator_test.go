@@ -43,6 +43,7 @@ import (
 	"time"
 
 	jsonpatch "github.com/evanphx/json-patch"
+	"github.com/google/go-github/v32/github"
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
 	v12 "k8s.io/api/apps/v1"
@@ -1522,7 +1523,7 @@ spec:
 				deleteOperator(flags.OperatorManifestPath)
 
 				By("Installing previous release of virt-operator")
-				manifestURL := tests.GetUpstreamReleaseAssetURL(previousImageTag, "kubevirt-operator.yaml")
+				manifestURL := getUpstreamReleaseAssetURL(previousImageTag, "kubevirt-operator.yaml")
 				installOperator(manifestURL)
 			}
 
@@ -2816,4 +2817,26 @@ func verifyOperatorWebhookCertificate() {
 	// we got the first pod with the new certificate, now let's wait until every pod sees it
 	// this can take additional time since nodes are not synchronizing at the same moment
 	tests.EnsurePodsCertIsSynced(fmt.Sprintf("%s=%s", v1.AppLabel, "virt-operator"), flags.KubeVirtInstallNamespace, "8444")
+}
+
+func getUpstreamReleaseAssetURL(tag string, assetName string) string {
+	client := github.NewClient(nil)
+
+	var err error
+	var release *github.RepositoryRelease
+
+	Eventually(func() error {
+		release, _, err = client.Repositories.GetReleaseByTag(context.Background(), "kubevirt", "kubevirt", tag)
+
+		return err
+	}, 10*time.Second, 1*time.Second).ShouldNot(HaveOccurred())
+
+	for _, asset := range release.Assets {
+		if asset.GetName() == assetName {
+			return asset.GetBrowserDownloadURL()
+		}
+	}
+
+	Fail(fmt.Sprintf("Asset %s not found in release %s of kubevirt upstream repo", assetName, tag))
+	return ""
 }
