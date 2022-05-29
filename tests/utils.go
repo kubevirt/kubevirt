@@ -3251,17 +3251,6 @@ func FormatIPForURL(ip string) string {
 	return ip
 }
 
-func GetKubernetesApiServiceIp(virtClient kubecli.KubevirtClient) (string, error) {
-	kubernetesServiceName := "kubernetes"
-	kubernetesServiceNamespace := "default"
-
-	kubernetesService, err := virtClient.CoreV1().Services(kubernetesServiceNamespace).Get(context.Background(), kubernetesServiceName, metav1.GetOptions{})
-	if err != nil {
-		return "", err
-	}
-	return kubernetesService.Spec.ClusterIP, nil
-}
-
 func IsRunningOnKindInfra() bool {
 	provider := os.Getenv("KUBEVIRT_PROVIDER")
 	return strings.HasPrefix(provider, "kind")
