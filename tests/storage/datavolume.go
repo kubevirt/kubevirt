@@ -101,7 +101,7 @@ var _ = SIGDescribe("DataVolume Integration", func() {
 					Skip("Skip test when Filesystem storage is not present")
 				}
 			}
-			volumeExpansionAllowed := tests.VolumeExpansionAllowed(sc)
+			volumeExpansionAllowed := volumeExpansionAllowed(sc)
 			if !volumeExpansionAllowed {
 				Skip("Skip when volume expansion storage class not available")
 			}
@@ -1097,4 +1097,13 @@ func addClonePermission(client kubecli.KubevirtClient, role *rbacv1.Role, sa, sa
 	Expect(err).ToNot(HaveOccurred())
 
 	return role, rb
+}
+
+func volumeExpansionAllowed(sc string) bool {
+	virtClient, err := kubecli.GetKubevirtClient()
+	Expect(err).ToNot(HaveOccurred())
+	storageClass, err := virtClient.StorageV1().StorageClasses().Get(context.Background(), sc, metav1.GetOptions{})
+	Expect(err).ToNot(HaveOccurred())
+	return storageClass.AllowVolumeExpansion != nil &&
+		*storageClass.AllowVolumeExpansion
 }
