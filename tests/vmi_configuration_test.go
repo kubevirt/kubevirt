@@ -39,6 +39,7 @@ import (
 	"github.com/pborman/uuid"
 	k8sv1 "k8s.io/api/core/v1"
 	kubev1 "k8s.io/api/core/v1"
+	nodev1 "k8s.io/api/node/v1beta1"
 	"k8s.io/apimachinery/pkg/api/resource"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/types"
@@ -1615,12 +1616,12 @@ var _ = Describe("[sig-compute]Configurations", func() {
 
 			BeforeEach(func() {
 				By("Creating a runtime class")
-				tests.CreateRuntimeClass(runtimeClassName, "custom-handler")
+				createRuntimeClass(runtimeClassName, "custom-handler")
 			})
 
 			AfterEach(func() {
 				By("Cleaning up runtime class")
-				err = tests.DeleteRuntimeClass(runtimeClassName)
+				err = deleteRuntimeClass(runtimeClassName)
 				Expect(err).NotTo(HaveOccurred())
 			})
 
@@ -2990,3 +2991,28 @@ var _ = Describe("[sig-compute]Configurations", func() {
 		})
 	})
 })
+
+func createRuntimeClass(name, handler string) (*nodev1.RuntimeClass, error) {
+	virtCli, err := kubecli.GetKubevirtClient()
+	if err != nil {
+		return nil, err
+	}
+
+	return virtCli.NodeV1beta1().RuntimeClasses().Create(
+		context.Background(),
+		&nodev1.RuntimeClass{
+			ObjectMeta: metav1.ObjectMeta{Name: name},
+			Handler:    handler,
+		},
+		metav1.CreateOptions{},
+	)
+}
+
+func deleteRuntimeClass(name string) error {
+	virtCli, err := kubecli.GetKubevirtClient()
+	if err != nil {
+		return err
+	}
+
+	return virtCli.NodeV1beta1().RuntimeClasses().Delete(context.Background(), name, metav1.DeleteOptions{})
+}

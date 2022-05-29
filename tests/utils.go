@@ -51,7 +51,6 @@ import (
 	. "github.com/onsi/gomega"
 	"golang.org/x/crypto/ssh"
 	k8sv1 "k8s.io/api/core/v1"
-	nodev1 "k8s.io/api/node/v1beta1"
 	storagev1 "k8s.io/api/storage/v1"
 	"k8s.io/apimachinery/pkg/api/errors"
 	"k8s.io/apimachinery/pkg/api/meta"
@@ -494,31 +493,6 @@ func CreatePVC(os, size, storageClass string, recycledPV bool) *k8sv1.Persistent
 		util2.PanicOnError(err)
 	}
 	return pvc
-}
-
-func CreateRuntimeClass(name, handler string) (*nodev1.RuntimeClass, error) {
-	virtCli, err := kubecli.GetKubevirtClient()
-	if err != nil {
-		return nil, err
-	}
-
-	return virtCli.NodeV1beta1().RuntimeClasses().Create(
-		context.Background(),
-		&nodev1.RuntimeClass{
-			ObjectMeta: metav1.ObjectMeta{Name: name},
-			Handler:    handler,
-		},
-		metav1.CreateOptions{},
-	)
-}
-
-func DeleteRuntimeClass(name string) error {
-	virtCli, err := kubecli.GetKubevirtClient()
-	if err != nil {
-		return err
-	}
-
-	return virtCli.NodeV1beta1().RuntimeClasses().Delete(context.Background(), name, metav1.DeleteOptions{})
 }
 
 func newPVC(os, size, storageClass string, recycledPV bool) *k8sv1.PersistentVolumeClaim {
