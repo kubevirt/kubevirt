@@ -2746,10 +2746,6 @@ func IsStorageClassBindingModeWaitForFirstConsumer(sc string) bool {
 		*storageClass.VolumeBindingMode == wffc
 }
 
-func HasExperimentalIgnitionSupport() bool {
-	return checks.HasFeature("ExperimentalIgnitionSupport")
-}
-
 func GetVmPodName(virtCli kubecli.KubevirtClient, vmi *v1.VirtualMachineInstance) string {
 	namespace := vmi.GetObjectMeta().GetNamespace()
 	uid := vmi.GetObjectMeta().GetUID()
