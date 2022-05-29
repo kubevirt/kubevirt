@@ -2680,15 +2680,6 @@ func EnableFeatureGate(feature string) *v1.KubeVirt {
 	return UpdateKubeVirtConfigValueAndWait(kv.Spec.Configuration)
 }
 
-func VolumeExpansionAllowed(sc string) bool {
-	virtClient, err := kubecli.GetKubevirtClient()
-	Expect(err).ToNot(HaveOccurred())
-	storageClass, err := virtClient.StorageV1().StorageClasses().Get(context.Background(), sc, metav1.GetOptions{})
-	Expect(err).ToNot(HaveOccurred())
-	return storageClass.AllowVolumeExpansion != nil &&
-		*storageClass.AllowVolumeExpansion
-}
-
 func SetDataVolumeForceBindAnnotation(dv *cdiv1.DataVolume) {
 	annotations := dv.GetAnnotations()
 	if annotations == nil {
