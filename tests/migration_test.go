@@ -3123,7 +3123,7 @@ var _ = Describe("[rfe_id:393][crit:high][vendor:cnv-qe@redhat.com][level:system
 				BeforeEach(func() {
 					// Taints defined by k8s are special and can't be applied manually.
 					// Temporarily configure KubeVirt to use something else for the duration of these tests.
-					if tests.IsUsingBuiltinNodeDrainKey() {
+					if isUsingBuiltinNodeDrainKey() {
 						drain := "kubevirt.io/drain"
 						cfg := getCurrentKv()
 						cfg.MigrationConfiguration.NodeDrainTaintKey = &drain
@@ -4236,4 +4236,8 @@ func libvirtDomainIsPersistent(virtClient kubecli.KubevirtClient, vmi *v1.Virtua
 		return false, fmt.Errorf("could not dump libvirt domxml (remotely on pod): %v: %s", err, stderr)
 	}
 	return strings.Contains(stdout, vmi.Namespace+"_"+vmi.Name), nil
+}
+
+func isUsingBuiltinNodeDrainKey() bool {
+	return libnode.GetNodeDrainKey() == "node.kubernetes.io/unschedulable"
 }
