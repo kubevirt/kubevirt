@@ -26,6 +26,7 @@ import (
 	"strconv"
 	"time"
 
+	"kubevirt.io/kubevirt/pkg/virt-operator/resource/generate/components"
 	"kubevirt.io/kubevirt/tests/framework/checks"
 	"kubevirt.io/kubevirt/tests/util"
 
@@ -159,15 +160,20 @@ var _ = Describe("[Serial][sig-monitoring]Prometheus Alerts", func() {
 
 	Context("Alerts runbooks", func() {
 		It("Should have available URLs", func() {
-			alerts, err := getAlerts(virtClient)
+			monv1 := virtClient.PrometheusClient().MonitoringV1()
+			prometheusRule, err := monv1.PrometheusRules(flags.KubeVirtInstallNamespace).Get(context.Background(), components.KUBEVIRT_PROMETHEUS_RULE_NAME, metav1.GetOptions{})
 			Expect(err).ToNot(HaveOccurred())
-			for _, alert := range alerts {
-				Expect(alert.Annotations).ToNot(BeNil())
-				url, ok := alert.Annotations["runbook_url"]
-				Expect(ok).To(BeTrue())
-				resp, err := http.Head(string(url))
-				Expect(err).ToNot(HaveOccurred())
-				Expect(resp.StatusCode).Should(Equal(http.StatusOK))
+			for _, group := range prometheusRule.Spec.Groups {
+				for _, rule := range group.Rules {
+					if len(rule.Alert) > 0 {
+						Expect(rule.Annotations).ToNot(BeNil())
+						url, ok := rule.Annotations["runbook_url"]
+						Expect(ok).To(BeTrue())
+						resp, err := http.Head(url)
+						Expect(err).ToNot(HaveOccurred())
+						Expect(resp.StatusCode).Should(Equal(http.StatusOK))
+					}
+				}
 			}
 		})
 	})
