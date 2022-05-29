@@ -4005,7 +4005,7 @@ var _ = Describe("[rfe_id:393][crit:high][vendor:cnv-qe@redhat.com][level:system
 			Expect(err).ToNot(HaveOccurred())
 
 			By("determining cgroups version")
-			cgroupVersion = tests.GetVMIsCgroupVersion(vmi, virtClient)
+			cgroupVersion = getVMIsCgroupVersion(vmi, virtClient)
 
 			By("ensuring the VMI started on the correct node")
 			Expect(vmi.Status.NodeName).To(Equal(nodes[0].Name))
@@ -4236,4 +4236,29 @@ func libvirtDomainIsPersistent(virtClient kubecli.KubevirtClient, vmi *v1.Virtua
 		return false, fmt.Errorf("could not dump libvirt domxml (remotely on pod): %v: %s", err, stderr)
 	}
 	return strings.Contains(stdout, vmi.Namespace+"_"+vmi.Name), nil
+}
+
+func getVMIsCgroupVersion(vmi *v1.VirtualMachineInstance, virtClient kubecli.KubevirtClient) cgroup.CgroupVersion {
+	pod, err := tests.GetRunningPodByLabel(string(vmi.GetUID()), v1.CreatedByLabel, vmi.Namespace, vmi.Status.NodeName)
+	Expect(err).ToNot(HaveOccurred())
+
+	return getPodsCgroupVersion(pod, virtClient)
+}
+
+func getPodsCgroupVersion(pod *k8sv1.Pod, virtClient kubecli.KubevirtClient) cgroup.CgroupVersion {
+	stdout, stderr, err := tests.ExecuteCommandOnPodV2(virtClient,
+		pod,
+		"compute",
+		[]string{"stat", "/sys/fs/cgroup/", "-f", "-c", "%T"})
+
+	Expect(err).ToNot(HaveOccurred())
+	Expect(stderr).To(BeEmpty())
+
+	cgroupFsType := strings.TrimSpace(stdout)
+
+	if cgroupFsType == "cgroup2fs" {
+		return cgroup.V2
+	} else {
+		return cgroup.V1
+	}
 }
