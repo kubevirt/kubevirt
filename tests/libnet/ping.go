@@ -38,17 +38,21 @@ func PingFromVMConsole(vmi *v1.VirtualMachineInstance, ipAddr string, args ...st
 	const maxCommandTimeout = 20 * time.Second
 
 	pingString := "ping"
-	if net.IsIPv6String(ipAddr) {
-		pingString = "ping -6"
-	}
 
 	if len(args) == 0 {
 		args = []string{"-c 5", "-w 10"}
 	}
-	args = append([]string{pingString, ipAddr}, args...)
-	cmdCheck := strings.Join(args, " ")
+	if net.IsIPv6String(ipAddr) {
+		args = append(args, "-6")
+	}
 
-	err := console.RunCommand(vmi, cmdCheck, maxCommandTimeout)
+	// Destination has to be the last argument, at some ping implementation
+	// it fails if we don't do so
+	args = append(args, ipAddr)
+
+	cmd := strings.Join(append([]string{pingString}, args...), " ")
+
+	err := console.RunCommand(vmi, cmd, maxCommandTimeout)
 	if err != nil {
 		return fmt.Errorf("Failed to ping VMI %s, error: %v", vmi.Name, err)
 	}
