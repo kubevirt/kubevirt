@@ -99,21 +99,9 @@ func emptyDirVolume(name string) k8sv1.Volume {
 
 func withVMIVolumes(pvcStore cache.Store, vmiSpecVolumes []v1.Volume, vmiVolumeStatus []v1.VolumeStatus) VolumeRendererOption {
 	return func(renderer *VolumeRenderer) error {
-		hotplugVolumes := make(map[string]bool)
-		for _, volumeStatus := range vmiVolumeStatus {
-			if volumeStatus.HotplugVolume != nil {
-				hotplugVolumes[volumeStatus.Name] = true
-			}
-		}
-		// This detects hotplug volumes for a started but not ready VMI
+		hotplugVolumesByName := hotplugVolumes(vmiVolumeStatus, vmiSpecVolumes)
 		for _, volume := range vmiSpecVolumes {
-			if (volume.DataVolume != nil && volume.DataVolume.Hotpluggable) || (volume.PersistentVolumeClaim != nil && volume.PersistentVolumeClaim.Hotpluggable) {
-				hotplugVolumes[volume.Name] = true
-			}
-		}
-
-		for _, volume := range vmiSpecVolumes {
-			if hotplugVolumes[volume.Name] {
+			if _, isHotplugVolume := hotplugVolumesByName[volume.Name]; isHotplugVolume {
 				continue
 			}
 			if volume.PersistentVolumeClaim != nil {
@@ -374,6 +362,22 @@ func withVMIVolumes(pvcStore cache.Store, vmiSpecVolumes []v1.Volume, vmiVolumeS
 		}
 		return nil
 	}
+}
+
+func hotplugVolumes(vmiVolumeStatus []v1.VolumeStatus, vmiSpecVolumes []v1.Volume) map[string]struct{} {
+	var hotplugVolumeSet map[string]struct{}
+	for _, volumeStatus := range vmiVolumeStatus {
+		if volumeStatus.HotplugVolume != nil {
+			hotplugVolumeSet[volumeStatus.Name] = struct{}{}
+		}
+	}
+	// This detects hotplug volumes for a started but not ready VMI
+	for _, volume := range vmiSpecVolumes {
+		if (volume.DataVolume != nil && volume.DataVolume.Hotpluggable) || (volume.PersistentVolumeClaim != nil && volume.PersistentVolumeClaim.Hotpluggable) {
+			hotplugVolumeSet[volume.Name] = struct{}{}
+		}
+	}
+	return hotplugVolumeSet
 }
 
 func withAccessCredentials(accessCredentials []v1.AccessCredential) VolumeRendererOption {
