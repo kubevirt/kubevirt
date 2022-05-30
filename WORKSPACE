@@ -337,7 +337,7 @@ container_pull(
 
 container_pull(
     name = "alpine_with_test_tooling",
-    digest = "sha256:2409034f1990bf72b9fb8a593cab1f05def148fb2b4c9bc52b4b8a5f3cff4fd5",
+    digest = "sha256:5767d7b0ae9ba736a6866174c81d2f4febe3973471704434f29070541279463f",
     registry = "quay.io",
     repository = "ellorent/alpine-cloud-init",
     tag = "devel",
