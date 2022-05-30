@@ -1568,7 +1568,21 @@ var _ = Describe("[sig-compute]Configurations", func() {
 		})
 
 		Context("with TSC timer", func() {
+			featureSupportedInAtLeastOneNode := func(nodes *k8sv1.NodeList, feature string) bool {
+				for _, node := range nodes.Items {
+					for label := range node.Labels {
+						if strings.Contains(label, services.NFD_CPU_FEATURE_PREFIX) && strings.Contains(label, feature) {
+							return true
+						}
+					}
+				}
+				return false
+			}
 			It("[test_id:6843]should set a TSC fequency and have the CPU flag avaliable in the guest", func() {
+				nodes := libnode.GetAllSchedulableNodes(virtClient)
+				if !featureSupportedInAtLeastOneNode(nodes, "invtsc") {
+					Skip("To run this test at least one node should support invtsc feature")
+				}
 				vmi := libvmi.NewCirros()
 				vmi.Spec.Domain.CPU = &v1.CPU{
 					Features: []v1.CPUFeature{
