@@ -2906,53 +2906,30 @@ var _ = Describe("[rfe_id:393][crit:high][vendor:cnv-qe@redhat.com][level:system
 				Expect(supportedFeatures).Should(Not(ContainElement(false)),
 					"copy features must be supported on node")
 			}
-			getOtherNodes := func(nodeList *k8sv1.NodeList, node *k8sv1.Node) (others []*k8sv1.Node) {
-				for _, curNode := range nodeList.Items {
-					if curNode.Name != node.Name {
-						others = append(others, &curNode)
-					}
-				}
-				return others
-			}
-			isHeterogeneousCluster := func() bool {
-				nodes := libnode.GetAllSchedulableNodes(virtClient)
-				for _, node := range nodes.Items {
-					hostModel := getNodeHostModel(&node)
-					otherNodes := getOtherNodes(nodes, &node)
-
-					foundSupportedNode := false
-					foundUnsupportedNode := false
-					for _, otherNode := range otherNodes {
-						if isModelSupportedOnNode(otherNode, hostModel) {
-							foundSupportedNode = true
-						} else {
-							foundUnsupportedNode = true
-						}
-
-						if foundSupportedNode && foundUnsupportedNode {
-							return true
-						}
-					}
-				}
-
-				return false
-			}
 
 			It("[test_id:6981]should migrate only to nodes supporting right cpu model", func() {
-				if !isHeterogeneousCluster() {
-					log.Log.Warning("all nodes have the same CPU model. Therefore the test is a happy-path since " +
-						"VMIs with default CPU can be migrated to every other node")
+				sourceNode, targetNode, err := tests.GetValidSourceNodeAndTargetNodeForHostModelMigration(virtClient)
+				if err != nil {
+					Skip(err.Error())
 				}
 
-				By("Creating a VMI with default CPU mode")
-				vmi := alpineVMIWithEvictionStrategy()
-
-				if cpu := vmi.Spec.Domain.CPU; cpu != nil && cpu.Model != v1.CPUModeHostModel {
-					log.Log.Warning("test is not expected to pass with CPU model other than host-model")
+				vmi := libvmi.NewAlpine(
+					libvmi.WithInterface(libvmi.InterfaceDeviceWithMasqueradeBinding()),
+					libvmi.WithNetwork(v1.DefaultPodNetwork()),
+					withEvictionStrategy(v1.EvictionStrategyLiveMigrate),
+				)
+				By("Creating a VMI with default CPU mode to land in source node")
+				vmi.Spec.Domain.CPU = &v1.CPU{Model: v1.CPUModeHostModel}
+				By("Making sure the vmi start running on the source node and will be able to run only in source/target nodes")
+				nodeAffinityRule, err := tests.AffinityToMigrateFromSourceToTargetAndBack(sourceNode, targetNode)
+				Expect(err).ToNot(HaveOccurred())
+				vmi.Spec.Affinity = &k8sv1.Affinity{
+					NodeAffinity: nodeAffinityRule,
 				}
 
 				By("Starting the VirtualMachineInstance")
 				vmi = tests.RunVMIAndExpectLaunch(vmi, 240)
+				Expect(vmi.Spec.Domain.CPU.Model).To(Equal(v1.CPUModeHostModel))
 
 				By("Fetching original host CPU model & supported CPU features")
 				originalNode, err := virtClient.CoreV1().Nodes().Get(context.Background(), vmi.Status.NodeName, metav1.GetOptions{})
@@ -4587,5 +4564,11 @@ func getPodsCgroupVersion(pod *k8sv1.Pod, virtClient kubecli.KubevirtClient) cgr
 		return cgroup.V2
 	} else {
 		return cgroup.V1
+	}
+}
+
+func withEvictionStrategy(evictionStrategy v1.EvictionStrategy) libvmi.Option {
+	return func(vmi *v1.VirtualMachineInstance) {
+		vmi.Spec.EvictionStrategy = &evictionStrategy
 	}
 }
