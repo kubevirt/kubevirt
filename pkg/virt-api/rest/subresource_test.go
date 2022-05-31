@@ -337,23 +337,24 @@ var _ = Describe("VirtualMachineInstance Subresources", func() {
 				ExpectStatusErrorWithCode(recorder, http.StatusInternalServerError)
 			})
 
-			It("should fail with no graphics device at VNC connections", func() {
-
+			DescribeTable("request validation", func(autoattachGraphicsDevice bool, phase v1.VirtualMachineInstancePhase) {
 				request.PathParameters()["name"] = testVMIName
 				request.PathParameters()["namespace"] = k8smetav1.NamespaceDefault
 
-				flag := false
 				vmi := api.NewMinimalVMI(testVMIName)
-				vmi.Status.Phase = v1.Running
+				vmi.Status.Phase = phase
 				vmi.ObjectMeta.SetUID(uuid.NewUUID())
-				vmi.Spec.Domain.Devices.AutoattachGraphicsDevice = &flag
+				vmi.Spec.Domain.Devices.AutoattachGraphicsDevice = &autoattachGraphicsDevice
 
 				vmiClient.EXPECT().Get(context.Background(), testVMIName, &k8smetav1.GetOptions{}).Return(vmi, nil)
 
 				app.VNCRequestHandler(request, response)
-				ExpectStatusErrorWithCode(recorder, http.StatusBadRequest)
-			})
 
+				ExpectStatusErrorWithCode(recorder, http.StatusBadRequest)
+			},
+				Entry("should fail if there is no graphics device", false, v1.Running),
+				Entry("should fail if vmi is not running", true, v1.Scheduling),
+			)
 		})
 
 		Context("PortForward", func() {
@@ -400,22 +401,23 @@ var _ = Describe("VirtualMachineInstance Subresources", func() {
 		})
 
 		Context("console", func() {
-			It("should fail with no serial console at console connections", func() {
-
+			DescribeTable("request validation", func(autoattachSerialConsole bool, phase v1.VirtualMachineInstancePhase) {
 				request.PathParameters()["name"] = testVMIName
 				request.PathParameters()["namespace"] = k8smetav1.NamespaceDefault
 
-				flag := false
 				vmi := api.NewMinimalVMI(testVMIName)
-				vmi.Status.Phase = v1.Running
+				vmi.Status.Phase = phase
 				vmi.ObjectMeta.SetUID(uuid.NewUUID())
-				vmi.Spec.Domain.Devices.AutoattachSerialConsole = &flag
+				vmi.Spec.Domain.Devices.AutoattachSerialConsole = &autoattachSerialConsole
 
 				vmiClient.EXPECT().Get(context.Background(), vmi.Name, &k8smetav1.GetOptions{}).Return(vmi, nil)
 
 				app.ConsoleRequestHandler(request, response)
 				ExpectStatusErrorWithCode(recorder, http.StatusBadRequest)
-			})
+			},
+				Entry("should fail if there is no serial console", false, v1.Running),
+				Entry("should fail if vmi is not running", true, v1.Scheduling),
+			)
 
 			It("should fail to connect to the serial console if the VMI is Failed", func() {
 
