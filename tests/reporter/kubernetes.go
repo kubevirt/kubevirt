@@ -41,6 +41,7 @@ const (
 	failedOpenFileFmt            = "failed to open the file: %v\n"
 	failedGetVirtHandlerPodFmt   = "failed to get virt-handler pod on node %s: %v\n"
 	virtHandlerName              = "virt-handler"
+	computeContainer             = "compute"
 	virtLauncherNameFmt          = "%s=virt-launcher"
 	failedCreateLogsDirectoryFmt = "failed to create directory %s: %v\n"
 	logFileNameFmt               = "%d_%s_%s.log"
@@ -467,13 +468,23 @@ func (r *KubernetesReporter) logVirtLauncherCommands(virtCli kubecli.KubevirtCli
 			continue
 		}
 
-		if found := podHasComputeContainer(pod); found != true {
-			fmt.Fprintf(os.Stderr, "could not find compute container for pod %s\n", pod.ObjectMeta.Name)
+		if !isContainerReady(pod.Status.ContainerStatuses, computeContainer) {
+			fmt.Fprintf(os.Stderr, "could not find healty compute container for pod %s\n", pod.ObjectMeta.Name)
 			continue
 		}
 
 		r.executeVirtLauncherCommands(virtCli, logsdir, pod)
 	}
+}
+
+func isContainerReady(containerStatuses []v1.ContainerStatus, containerName string) bool {
+	for _, containerStatus := range containerStatuses {
+		if containerStatus.Name == containerName {
+			return containerStatus.Ready
+		}
+	}
+
+	return false
 }
 
 func (r *KubernetesReporter) logNodeCommands(virtCli kubecli.KubevirtClient, nodes []string) {
@@ -1043,16 +1054,6 @@ func prepareVmiConsole(vmi v12.VirtualMachineInstance, vmiType string) error {
 	}
 }
 
-func podHasComputeContainer(pod v1.Pod) bool {
-	for _, container := range pod.Spec.Containers {
-		if container.Name == "compute" {
-			return true
-		}
-	}
-
-	return false
-}
-
 func (r *KubernetesReporter) executeNodeCommands(virtCli kubecli.KubevirtClient, logsdir string, pod *v1.Pod) {
 	const networkPrefix = "nsenter -t 1 -n -- "
 	hostPrefix := fmt.Sprintf("%s --mount %s exec -- ", virt_chroot.GetChrootBinaryPath(), virt_chroot.GetChrootMountNamespace())
@@ -1085,7 +1086,7 @@ func (r *KubernetesReporter) executeVirtLauncherCommands(virtCli kubecli.Kubevir
 		{command: "ls -lsh -Z -St /dev/vfio", fileNameSuffix: "vfio-devices"},
 	}
 
-	r.executeContainerCommands(virtCli, logsdir, &pod, "compute", cmds)
+	r.executeContainerCommands(virtCli, logsdir, &pod, computeContainer, cmds)
 }
 
 func (r *KubernetesReporter) executeContainerCommands(virtCli kubecli.KubevirtClient, logsdir string, pod *v1.Pod, container string, cmds []commands) {
