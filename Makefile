@@ -188,6 +188,12 @@ format:
 
 fmt: format
 
+lint:
+	# tests/utils.go is too long already. Don't make it worse.
+	# this is a placeholder for a proper linter.
+	git diff --numstat $$(git merge-base HEAD origin/main) -- tests/utils.go | \
+		awk '{if ($$1-$$2 > 0) {print $$3 " grew longer"; exit 1} }'
+
 .PHONY: \
 	build-verify \
 	conformance \
@@ -222,4 +228,6 @@ fmt: format
 	fossa \
 	realtime-perftest \
 	format \
-	fmt
+	fmt \
+	lint \
+	$(NULL)
