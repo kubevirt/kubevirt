@@ -5,6 +5,7 @@ go_library(
     srcs = [
         "config.go",
         "datavolume.go",
+        "pvc.go",
         "storageclass.go",
     ],
     importpath = "kubevirt.io/kubevirt/tests/libstorage",
