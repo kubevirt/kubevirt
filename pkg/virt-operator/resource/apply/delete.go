@@ -26,6 +26,7 @@ import (
 	"strings"
 
 	promv1 "github.com/coreos/prometheus-operator/pkg/apis/monitoring/v1"
+	routev1 "github.com/openshift/api/route/v1"
 	secv1 "github.com/openshift/api/security/v1"
 	admissionregistrationv1 "k8s.io/api/admissionregistration/v1"
 	appsv1 "k8s.io/api/apps/v1"
@@ -435,6 +436,24 @@ func DeleteAll(kv *v1.KubeVirt,
 				if err != nil {
 					expectations.SCC.DeletionObserved(kvkey, key)
 					log.Log.Errorf("Failed to delete SecurityContextConstraints %+v: %v", s, err)
+					return err
+				}
+			}
+		} else if !ok {
+			log.Log.Errorf(castFailedFmt, obj)
+			return nil
+		}
+	}
+
+	objects = stores.RouteCache.List()
+	for _, obj := range objects {
+		if route, ok := obj.(*routev1.Route); ok && route.DeletionTimestamp == nil {
+			if key, err := controller.KeyFunc(route); err == nil {
+				expectations.Route.AddExpectedDeletion(kvkey, key)
+				err := clientset.RouteClient().Routes(kv.Namespace).Delete(context.Background(), route.Name, deleteOptions)
+				if err != nil {
+					expectations.Route.DeletionObserved(kvkey, key)
+					log.Log.Errorf("Failed to delete route %+v: %v", route, err)
 					return err
 				}
 			}

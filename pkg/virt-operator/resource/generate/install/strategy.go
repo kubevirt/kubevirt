@@ -32,10 +32,8 @@ import (
 	promv1 "github.com/coreos/prometheus-operator/pkg/apis/monitoring/v1"
 	"github.com/ghodss/yaml"
 	"github.com/golang/glog"
+	routev1 "github.com/openshift/api/route/v1"
 	secv1 "github.com/openshift/api/security/v1"
-	k8coresv1 "k8s.io/client-go/kubernetes/typed/core/v1"
-	apiregv1 "k8s.io/kube-aggregator/pkg/apis/apiregistration/v1"
-
 	admissionregistrationv1 "k8s.io/api/admissionregistration/v1"
 	appsv1 "k8s.io/api/apps/v1"
 	corev1 "k8s.io/api/core/v1"
@@ -47,6 +45,8 @@ import (
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/apimachinery/pkg/types"
+	k8coresv1 "k8s.io/client-go/kubernetes/typed/core/v1"
+	apiregv1 "k8s.io/kube-aggregator/pkg/apis/apiregistration/v1"
 
 	v1 "kubevirt.io/api/core/v1"
 	"kubevirt.io/client-go/kubecli"
@@ -92,6 +92,7 @@ type Strategy struct {
 	serviceMonitors                 []*promv1.ServiceMonitor
 	prometheusRules                 []*promv1.PrometheusRule
 	configMaps                      []*corev1.ConfigMap
+	routes                          []*routev1.Route
 }
 
 func (ins *Strategy) ServiceAccounts() []*corev1.ServiceAccount {
@@ -201,6 +202,10 @@ func (ins *Strategy) ConfigMaps() []*corev1.ConfigMap {
 
 func (ins *Strategy) CRDs() []*extv1.CustomResourceDefinition {
 	return ins.crds
+}
+
+func (ins *Strategy) Routes() []*routev1.Route {
+	return ins.routes
 }
 
 func encodeManifests(manifests []byte) (string, error) {
@@ -377,6 +382,9 @@ func dumpInstallStrategyToBytes(strategy *Strategy) []byte {
 	for _, entry := range strategy.configMaps {
 		marshalutil.MarshallObject(entry, writer)
 	}
+	for _, entry := range strategy.routes {
+		marshalutil.MarshallObject(entry, writer)
+	}
 	writer.Flush()
 
 	return b.Bytes()
@@ -514,6 +522,7 @@ func GenerateCurrentInstallStrategy(config *operatorutil.KubeVirtDeploymentConfi
 	strategy.certificateSecrets = components.NewCertSecrets(config.GetNamespace(), operatorNamespace)
 	strategy.certificateSecrets = append(strategy.certificateSecrets, components.NewCACertSecrets(operatorNamespace)...)
 	strategy.configMaps = append(strategy.configMaps, components.NewCAConfigMaps(operatorNamespace)...)
+	strategy.routes = append(strategy.routes, components.GetAllRoutes(operatorNamespace)...)
 
 	return strategy, nil
 }
@@ -735,6 +744,12 @@ func loadInstallStrategyFromBytes(data string) (*Strategy, error) {
 				return nil, err
 			}
 			strategy.configMaps = append(strategy.configMaps, configMap)
+		case "Route":
+			route := &routev1.Route{}
+			if err := yaml.Unmarshal([]byte(entry), &route); err != nil {
+				return nil, err
+			}
+			strategy.routes = append(strategy.routes, route)
 		default:
 			return nil, fmt.Errorf("UNKNOWN TYPE %s detected", obj.Kind)
 

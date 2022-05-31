@@ -231,11 +231,15 @@ func Execute() {
 		log.Log.Info("we are on openshift")
 		app.informers.SCC = app.informerFactory.OperatorSCC()
 		app.stores.SCCCache = app.informerFactory.OperatorSCC().GetStore()
+		app.informers.Route = app.informerFactory.OperatorRoute()
+		app.stores.RouteCache = app.informerFactory.OperatorRoute().GetStore()
 		app.stores.IsOnOpenshift = true
 	} else {
 		log.Log.Info("we are on kubernetes")
 		app.informers.SCC = app.informerFactory.DummyOperatorSCC()
 		app.stores.SCCCache = app.informerFactory.DummyOperatorSCC().GetStore()
+		app.informers.Route = app.informerFactory.DummyOperatorRoute()
+		app.stores.RouteCache = app.informerFactory.DummyOperatorRoute().GetStore()
 	}
 
 	serviceMonitorEnabled, err := util.IsServiceMonitorEnabled(app.clientSet)

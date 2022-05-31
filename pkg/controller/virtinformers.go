@@ -26,10 +26,9 @@ import (
 	"sync"
 	"time"
 
-	"kubevirt.io/api/flavor"
-
 	promv1 "github.com/coreos/prometheus-operator/pkg/apis/monitoring/v1"
 	vsv1 "github.com/kubernetes-csi/external-snapshotter/client/v4/apis/volumesnapshot/v1"
+	routev1 "github.com/openshift/api/route/v1"
 	secv1 "github.com/openshift/api/security/v1"
 	admissionregistrationv1 "k8s.io/api/admissionregistration/v1"
 	appsv1 "k8s.io/api/apps/v1"
@@ -50,11 +49,11 @@ import (
 	aggregatorclient "k8s.io/kube-aggregator/pkg/client/clientset_generated/clientset"
 
 	"kubevirt.io/api/core"
-	"kubevirt.io/api/migrations"
-
 	kubev1 "kubevirt.io/api/core/v1"
 	exportv1 "kubevirt.io/api/export/v1alpha1"
+	"kubevirt.io/api/flavor"
 	flavorv1 "kubevirt.io/api/flavor/v1alpha1"
+	"kubevirt.io/api/migrations"
 	migrationsv1 "kubevirt.io/api/migrations/v1alpha1"
 	poolv1 "kubevirt.io/api/pool/v1alpha1"
 	snapshotv1 "kubevirt.io/api/snapshot/v1alpha1"
@@ -229,6 +228,12 @@ type KubeInformerFactory interface {
 
 	// Fake SecurityContextConstraints informer used when not on openshift
 	DummyOperatorSCC() cache.SharedIndexInformer
+
+	// Routes
+	OperatorRoute() cache.SharedIndexInformer
+
+	// Fake Routes informer used when not on openshift
+	DummyOperatorRoute() cache.SharedIndexInformer
 
 	// ConfigMaps for operator install strategies
 	OperatorInstallStrategyConfigMaps() cache.SharedIndexInformer
@@ -960,6 +965,25 @@ func (f *kubeInformerFactory) OperatorSCC() cache.SharedIndexInformer {
 func (f *kubeInformerFactory) DummyOperatorSCC() cache.SharedIndexInformer {
 	return f.getInformer("FakeOperatorSCC", func() cache.SharedIndexInformer {
 		informer, _ := testutils.NewFakeInformerFor(&secv1.SecurityContextConstraints{})
+		return informer
+	})
+}
+
+func (f *kubeInformerFactory) OperatorRoute() cache.SharedIndexInformer {
+	return f.getInformer("OperatorRoute", func() cache.SharedIndexInformer {
+		labelSelector, err := labels.Parse(OperatorLabel)
+		if err != nil {
+			panic(err)
+		}
+		restClient := f.clientSet.RouteClient().RESTClient()
+		lw := NewListWatchFromClient(restClient, "routes", f.kubevirtNamespace, fields.Everything(), labelSelector)
+		return cache.NewSharedIndexInformer(lw, &routev1.Route{}, f.defaultResync, cache.Indexers{cache.NamespaceIndex: cache.MetaNamespaceIndexFunc})
+	})
+}
+
+func (f *kubeInformerFactory) DummyOperatorRoute() cache.SharedIndexInformer {
+	return f.getInformer("FakeOperatorRoute", func() cache.SharedIndexInformer {
+		informer, _ := testutils.NewFakeInformerFor(&routev1.Route{})
 		return informer
 	})
 }

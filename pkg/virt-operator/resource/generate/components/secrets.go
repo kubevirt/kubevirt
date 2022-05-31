@@ -133,10 +133,10 @@ var populationStrategy = map[string]CertificateCreationCallback{
 		}
 		keyPair, _ := triple.NewServerKeyPair(
 			caKeyPair,
-			fmt.Sprintf(localPodDNStemplateString, VirtExportProxyServiceName, secret.Namespace),
+			fmt.Sprintf(LocalPodDNStemplateString, VirtExportProxyServiceName, secret.Namespace),
 			VirtExportProxyServiceName,
 			secret.Namespace,
-			caClusterLocal,
+			CaClusterLocal,
 			nil,
 			nil,
 			duration,

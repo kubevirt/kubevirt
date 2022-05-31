@@ -30,6 +30,7 @@ import (
 
 const (
 	GroupNameSecurity = "security.openshift.io"
+	GroupNameRoute    = "route.openshift.io"
 	serviceAccountFmt = "%s:%s:%s"
 )
 const OperatorServiceAccountName = "kubevirt-operator"
@@ -494,6 +495,33 @@ func NewOperatorRole(namespace string) *rbacv1.Role {
 					"watch",
 					"patch",
 					"delete",
+				},
+			},
+			{
+				APIGroups: []string{
+					GroupNameRoute,
+				},
+				Resources: []string{
+					"routes",
+				},
+				Verbs: []string{
+					"create",
+					"get",
+					"list",
+					"watch",
+					"patch",
+					"delete",
+				},
+			},
+			{
+				APIGroups: []string{
+					GroupNameRoute,
+				},
+				Resources: []string{
+					"routes/custom-host",
+				},
+				Verbs: []string{
+					"create",
 				},
 			},
 		},
