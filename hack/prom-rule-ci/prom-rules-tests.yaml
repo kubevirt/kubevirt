@@ -487,11 +487,11 @@ tests:
   # Memory utilization less than 20MB close to requested memory - based on memory working set
   - interval: 1m
     input_series:
-      - series: 'kube_pod_container_resource_requests{pod="virt-launcher-testvm-123", container="compute", resource="memory"}'
+      - series: 'kube_pod_container_resource_requests{pod="virt-launcher-testvm-123", container="compute", resource="memory", namespace="ns-test"}'
         values: "67108864 67108864 67108864 67108864"
-      - series: 'container_memory_working_set_bytes{pod="virt-launcher-testvm-123", container="compute"}'
+      - series: 'container_memory_working_set_bytes{pod="virt-launcher-testvm-123", container="compute", namespace="ns-test"}'
         values: "47185920 48234496 48234496 49283072"
-      - series: 'container_memory_rss{pod="virt-launcher-testvm-123", container="compute"}'
+      - series: 'container_memory_rss{pod="virt-launcher-testvm-123", container="compute", namespace="ns-test"}'
         values: "19922944 18874368 18874368 17825792"
 
     alert_rule_test:
@@ -499,7 +499,7 @@ tests:
         alertname: KubevirtVmHighMemoryUsage
         exp_alerts:
           - exp_annotations:
-              description: "Container compute in pod virt-launcher-testvm-123 free memory is less than 20 MB and it is close to requested memory"
+              description: "Container compute in pod virt-launcher-testvm-123 in namespace ns-test free memory is less than 20 MB and it is close to requested memory"
               summary: "VM is at risk of being evicted and in serious cases of memory exhaustion being terminated by the runtime."
               runbook_url: "https://kubevirt.io/monitoring/runbooks/KubevirtVmHighMemoryUsage"
             exp_labels:
@@ -508,15 +508,16 @@ tests:
               kubernetes_operator_component: "kubevirt"
               pod: "virt-launcher-testvm-123"
               container: "compute"
+              namespace: "ns-test"
 
   # Memory utilization less than 20MB close to requested memory - based on memory RSS
   - interval: 1m
     input_series:
-      - series: 'kube_pod_container_resource_requests{pod="virt-launcher-testvm-123", container="compute", resource="memory"}'
+      - series: 'kube_pod_container_resource_requests{pod="virt-launcher-testvm-123", container="compute", resource="memory", namespace="ns-test"}'
         values: "67108864 67108864 67108864 67108864"
-      - series: 'container_memory_working_set_bytes{pod="virt-launcher-testvm-123", container="compute"}'
+      - series: 'container_memory_working_set_bytes{pod="virt-launcher-testvm-123", container="compute", namespace="ns-test"}'
         values: "19922944 18874368 18874368 17825792"
-      - series: 'container_memory_rss{pod="virt-launcher-testvm-123", container="compute"}'
+      - series: 'container_memory_rss{pod="virt-launcher-testvm-123", container="compute", namespace="ns-test"}'
         values: "47185920 48234496 48234496 49283072"
 
     alert_rule_test:
@@ -524,7 +525,7 @@ tests:
         alertname: KubevirtVmHighMemoryUsage
         exp_alerts:
           - exp_annotations:
-              description: "Container compute in pod virt-launcher-testvm-123 free memory is less than 20 MB and it is close to requested memory"
+              description: "Container compute in pod virt-launcher-testvm-123 in namespace ns-test free memory is less than 20 MB and it is close to requested memory"
               summary: "VM is at risk of being evicted and in serious cases of memory exhaustion being terminated by the runtime."
               runbook_url: "https://kubevirt.io/monitoring/runbooks/KubevirtVmHighMemoryUsage"
             exp_labels:
@@ -533,15 +534,16 @@ tests:
               kubernetes_operator_component: "kubevirt"
               pod: "virt-launcher-testvm-123"
               container: "compute"
+              namespace: "ns-test"
 
   # Memory utilization less than 20MB close to requested memory - based on memory RSS and memory working set
   - interval: 1m
     input_series:
-      - series: 'kube_pod_container_resource_requests{pod="virt-launcher-testvm-123", container="compute", resource="memory"}'
+      - series: 'kube_pod_container_resource_requests{pod="virt-launcher-testvm-123", container="compute", resource="memory", namespace="ns-test"}'
         values: "67108864 67108864 67108864 67108864"
-      - series: 'container_memory_working_set_bytes{pod="virt-launcher-testvm-123", container="compute"}'
+      - series: 'container_memory_working_set_bytes{pod="virt-launcher-testvm-123", container="compute", namespace="ns-test"}'
         values: "47185920 48234496 48234496 49283072"
-      - series: 'container_memory_rss{pod="virt-launcher-testvm-123", container="compute"}'
+      - series: 'container_memory_rss{pod="virt-launcher-testvm-123", container="compute", namespace="ns-test"}'
         values: "47185920 48234496 48234496 49283072"
 
     alert_rule_test:
@@ -549,7 +551,7 @@ tests:
         alertname: KubevirtVmHighMemoryUsage
         exp_alerts:
           - exp_annotations:
-              description: "Container compute in pod virt-launcher-testvm-123 free memory is less than 20 MB and it is close to requested memory"
+              description: "Container compute in pod virt-launcher-testvm-123 in namespace ns-test free memory is less than 20 MB and it is close to requested memory"
               summary: "VM is at risk of being evicted and in serious cases of memory exhaustion being terminated by the runtime."
               runbook_url: "https://kubevirt.io/monitoring/runbooks/KubevirtVmHighMemoryUsage"
             exp_labels:
@@ -558,15 +560,16 @@ tests:
               kubernetes_operator_component: "kubevirt"
               pod: "virt-launcher-testvm-123"
               container: "compute"
+              namespace: "ns-test"
 
   # Memory utilization more than 20MB close to requested memory
   - interval: 30s
     input_series:
-      - series: 'kube_pod_container_resource_requests{pod="virt-launcher-testvm-123", container="compute", resource="memory"}'
+      - series: 'kube_pod_container_resource_requests{pod="virt-launcher-testvm-123", container="compute", resource="memory", namespace="ns-test"}'
         values: "67108864 67108864 67108864 67108864"
-      - series: 'container_memory_working_set_bytes{pod="virt-launcher-testvm-123", container="compute"}'
+      - series: 'container_memory_working_set_bytes{pod="virt-launcher-testvm-123", container="compute", namespace="ns-test"}'
         values: "19922944 18874368 18874368 17825792"
-      - series: 'container_memory_rss{pod="virt-launcher-testvm-123", container="compute"}'
+      - series: 'container_memory_rss{pod="virt-launcher-testvm-123", container="compute", namespace="ns-test"}'
         values: "19922944 18874368 18874368 17825792"
 
     alert_rule_test:
