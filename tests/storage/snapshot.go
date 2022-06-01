@@ -17,6 +17,7 @@ import (
 	"k8s.io/apimachinery/pkg/api/resource"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/types"
+	"k8s.io/apimachinery/pkg/util/rand"
 
 	v1 "kubevirt.io/api/core/v1"
 	snapshotv1 "kubevirt.io/api/snapshot/v1alpha1"
@@ -39,7 +40,7 @@ const (
 	operationComplete        = "Operation complete"
 )
 
-var _ = SIGDescribe("[Serial]VirtualMachineSnapshot Tests", func() {
+var _ = SIGDescribe("VirtualMachineSnapshot Tests", func() {
 
 	var (
 		err        error
@@ -75,35 +76,21 @@ var _ = SIGDescribe("[Serial]VirtualMachineSnapshot Tests", func() {
 		}, 180*time.Second, time.Second).Should(BeTrue())
 	}
 
-	waitDeleted := func(deleteFunc func() error) {
-		Eventually(func() bool {
-			err := deleteFunc()
-			if errors.IsNotFound(err) {
-				return true
-			}
-			Expect(err).ToNot(HaveOccurred())
-			return false
-		}, 180*time.Second, time.Second).Should(BeTrue())
-	}
-
-	deleteVM := func() {
-		waitDeleted(func() error {
-			return virtClient.VirtualMachine(vm.Namespace).Delete(vm.Name, &metav1.DeleteOptions{})
-		})
-		vm = nil
-	}
-
 	deleteSnapshot := func() {
-		waitDeleted(func() error {
-			return virtClient.VirtualMachineSnapshot(snapshot.Namespace).Delete(context.Background(), snapshot.Name, metav1.DeleteOptions{})
-		})
+		err := virtClient.VirtualMachineSnapshot(snapshot.Namespace).Delete(context.Background(), snapshot.Name, metav1.DeleteOptions{})
+		if errors.IsNotFound(err) {
+			err = nil
+		}
+		Expect(err).ToNot(HaveOccurred())
 		snapshot = nil
 	}
 
 	deleteWebhook := func() {
-		waitDeleted(func() error {
-			return virtClient.AdmissionregistrationV1().ValidatingWebhookConfigurations().Delete(context.Background(), webhook.Name, metav1.DeleteOptions{})
-		})
+		err := virtClient.AdmissionregistrationV1().ValidatingWebhookConfigurations().Delete(context.Background(), webhook.Name, metav1.DeleteOptions{})
+		if errors.IsNotFound(err) {
+			err = nil
+		}
+		Expect(err).ToNot(HaveOccurred())
 		webhook = nil
 	}
 
@@ -114,7 +101,7 @@ var _ = SIGDescribe("[Serial]VirtualMachineSnapshot Tests", func() {
 		whName := "dummy-webhook-deny-volume-snapshot-create.kubevirt.io"
 		wh := &admissionregistrationv1.ValidatingWebhookConfiguration{
 			ObjectMeta: metav1.ObjectMeta{
-				Name: "temp-webhook-deny-volume-snapshot-create",
+				Name: "temp-webhook-deny-volume-snapshot-create-" + rand.String(5),
 			},
 			Webhooks: []admissionregistrationv1.ValidatingWebhook{
 				{
@@ -137,6 +124,11 @@ var _ = SIGDescribe("[Serial]VirtualMachineSnapshot Tests", func() {
 							Namespace: util.NamespaceTestDefault,
 							Name:      "nonexistant",
 							Path:      &whPath,
+						},
+					},
+					ObjectSelector: &metav1.LabelSelector{
+						MatchLabels: map[string]string{
+							"snapshot.kubevirt.io/source-vm-name": vm.Name,
 						},
 					},
 				},
@@ -170,12 +162,11 @@ var _ = SIGDescribe("[Serial]VirtualMachineSnapshot Tests", func() {
 	BeforeEach(func() {
 		virtClient, err = kubecli.GetKubevirtClient()
 		util.PanicOnError(err)
+
+		tests.BeforeTestCleanup()
 	})
 
 	AfterEach(func() {
-		if vm != nil {
-			deleteVM()
-		}
 		if snapshot != nil {
 			deleteSnapshot()
 		}
@@ -540,7 +531,6 @@ var _ = SIGDescribe("[Serial]VirtualMachineSnapshot Tests", func() {
 				Expect(console.LoginToFedora(vmi)).To(Succeed())
 
 				createDenyVolumeSnapshotCreateWebhook()
-				defer deleteWebhook()
 				snapshot = newSnapshot()
 
 				_, err = virtClient.VirtualMachineSnapshot(snapshot.Namespace).Create(context.Background(), snapshot, metav1.CreateOptions{})
