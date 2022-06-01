@@ -2551,6 +2551,8 @@ spec:
 				panic(err)
 			}
 
+			By("Looking for pods with " + productComponent + " component")
+
 			pods, err := virtClient.CoreV1().Pods(flags.KubeVirtInstallNamespace).List(context.Background(), metav1.ListOptions{
 				LabelSelector: labels.NewSelector().Add(
 					*labelReq,
