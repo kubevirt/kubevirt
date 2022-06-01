@@ -1355,6 +1355,101 @@ var _ = Describe("VirtualMachineInstance Mutator", func() {
 			Expect(vmiSpec.Domain.Devices.Disks[1].DiskDevice.Disk.Bus).To(Equal(p.Spec.Devices.PreferredDiskBus))
 
 		})
+
+		It("Should allow update of a VirtualMachineInstance without changes to the Flavor or Preference", func() {
+
+			vmi.Spec.Flavor = &v1.FlavorMatcher{
+				Name: f.Name,
+				Kind: apiflavor.SingularResourceName,
+			}
+
+			vmi.Spec.Preference = &v1.PreferenceMatcher{
+				Name: p.Name,
+				Kind: apiflavor.SingularPreferenceResourceName,
+			}
+
+			newVMI := vmi.DeepCopy()
+
+			oldVMIBytes, err := json.Marshal(vmi)
+			Expect(err).ToNot(HaveOccurred())
+			newVMIBytes, err := json.Marshal(newVMI)
+			Expect(err).ToNot(HaveOccurred())
+
+			ar := &admissionv1.AdmissionReview{
+				Request: &admissionv1.AdmissionRequest{
+					UserInfo: v12.UserInfo{
+						Username: "foo",
+					},
+					Operation: admissionv1.Update,
+					Resource:  k8smetav1.GroupVersionResource{Group: v1.VirtualMachineInstanceGroupVersionKind.Group, Version: v1.VirtualMachineInstanceGroupVersionKind.Version, Resource: "virtualmachineinstances"},
+					Object: runtime.RawExtension{
+						Raw: newVMIBytes,
+					},
+					OldObject: runtime.RawExtension{
+						Raw: oldVMIBytes,
+					},
+				},
+			}
+
+			resp := mutator.Mutate(ar)
+			Expect(resp.Allowed).To(BeTrue())
+
+		})
+
+		It("Should reject any attempt to update the Flavor or Preference of a VirtualMachineInstance", func() {
+
+			vmi.Spec.Flavor = &v1.FlavorMatcher{
+				Name: f.Name,
+				Kind: apiflavor.SingularResourceName,
+			}
+
+			vmi.Spec.Preference = &v1.PreferenceMatcher{
+				Name: p.Name,
+				Kind: apiflavor.SingularPreferenceResourceName,
+			}
+
+			newVMI := vmi.DeepCopy()
+
+			newVMI.Spec.Flavor = &v1.FlavorMatcher{
+				Name: "New-Flavor",
+				Kind: apiflavor.SingularResourceName,
+			}
+
+			newVMI.Spec.Preference = &v1.PreferenceMatcher{
+				Name: "New-Preference",
+				Kind: apiflavor.SingularPreferenceResourceName,
+			}
+
+			oldVMIBytes, err := json.Marshal(vmi)
+			Expect(err).ToNot(HaveOccurred())
+			newVMIBytes, err := json.Marshal(newVMI)
+			Expect(err).ToNot(HaveOccurred())
+
+			ar := &admissionv1.AdmissionReview{
+				Request: &admissionv1.AdmissionRequest{
+					UserInfo: v12.UserInfo{
+						Username: "foo",
+					},
+					Operation: admissionv1.Update,
+					Resource:  k8smetav1.GroupVersionResource{Group: v1.VirtualMachineInstanceGroupVersionKind.Group, Version: v1.VirtualMachineInstanceGroupVersionKind.Version, Resource: "virtualmachineinstances"},
+					Object: runtime.RawExtension{
+						Raw: newVMIBytes,
+					},
+					OldObject: runtime.RawExtension{
+						Raw: oldVMIBytes,
+					},
+				},
+			}
+
+			resp := mutator.Mutate(ar)
+			Expect(resp.Allowed).To(BeFalse())
+			Expect(resp.Result.Message).To(ContainSubstring("Unable to update Flavor of VirtualMachineInstance"))
+			Expect(resp.Result.Message).To(ContainSubstring("Unable to update Preference of VirtualMachineInstance"))
+			Expect(resp.Result.Reason).To(Equal(k8smetav1.StatusReasonInvalid))
+			Expect(resp.Result.Code).To(Equal(int32(http.StatusUnprocessableEntity)))
+			Expect(resp.Result.Details.Causes[0].Field).To(Equal("spec.flavor"))
+			Expect(resp.Result.Details.Causes[1].Field).To(Equal("spec.preference"))
+		})
 	})
 
 })

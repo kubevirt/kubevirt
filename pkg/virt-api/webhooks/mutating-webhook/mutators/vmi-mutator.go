@@ -68,6 +68,7 @@ func (mutator *VMIsMutator) Mutate(ar *admissionv1.AdmissionReview) *admissionv1
 	}
 
 	var patch []utiltypes.PatchOperation
+	var causes []metav1.StatusCause
 
 	// Patch the spec, metadata and status with defaults if we deal with a create operation
 	if ar.Request.Operation == admissionv1.Create {
@@ -197,6 +198,26 @@ func (mutator *VMIsMutator) Mutate(ar *admissionv1.AdmissionReview) *admissionv1
 					Value: oldVMI.Status,
 				})
 			}
+		}
+
+		if !equality.Semantic.DeepEqual(newVMI.Spec.Flavor, oldVMI.Spec.Flavor) {
+			causes = append(causes, metav1.StatusCause{
+				Type:    metav1.CauseTypeFieldValueInvalid,
+				Message: fmt.Sprintf("Unable to update Flavor of VirtualMachineInstance"),
+				Field:   k8sfield.NewPath("spec", "flavor").String(),
+			})
+		}
+
+		if !equality.Semantic.DeepEqual(newVMI.Spec.Preference, oldVMI.Spec.Preference) {
+			causes = append(causes, metav1.StatusCause{
+				Type:    metav1.CauseTypeFieldValueInvalid,
+				Message: fmt.Sprintf("Unable to update Preference of VirtualMachineInstance"),
+				Field:   k8sfield.NewPath("spec", "preference").String(),
+			})
+		}
+
+		if len(causes) > 0 {
+			return webhookutils.ToAdmissionResponse(causes)
 		}
 
 	}
