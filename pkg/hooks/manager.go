@@ -209,10 +209,6 @@ func (m *Manager) OnDefineDomain(domainSpec *virtwrapApi.DomainSpec, vmi *v1.Vir
 }
 
 func (m *Manager) onDefineDomainCallback(callback *callBackClient, domainSpecXML, vmiJSON []byte) ([]byte, error) {
-	if callback.Version != hooksV1alpha1.Version && callback.Version != hooksV1alpha2.Version {
-		return domainSpecXML, nil
-	}
-
 	conn, err := grpcutil.DialSocketWithTimeout(callback.SocketPath, 1)
 	if err != nil {
 		log.Log.Reason(err).Infof(dialSockErr, callback.SocketPath)
@@ -245,7 +241,7 @@ func (m *Manager) onDefineDomainCallback(callback *callBackClient, domainSpecXML
 		}
 		domainSpecXML = result.GetDomainXML()
 	default:
-		panic("Should never happen, version compatibility check is done during Info call")
+		log.Log.Errorf("Unsupported callback version: %s", callback.Version)
 	}
 
 	return domainSpecXML, nil
