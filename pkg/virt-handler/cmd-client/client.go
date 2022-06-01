@@ -567,18 +567,18 @@ func (c *VirtLauncherClient) GetDomainStats() (*stats.DomainStats, bool, error) 
 	ctx, cancel := context.WithTimeout(context.Background(), shortTimeout)
 	defer cancel()
 
-	domainStatsRespose, err := c.v1client.GetDomainStats(ctx, request)
+	domainStatsResponse, err := c.v1client.GetDomainStats(ctx, request)
 	var response *cmdv1.Response
-	if domainStatsRespose != nil {
-		response = domainStatsRespose.Response
+	if domainStatsResponse != nil {
+		response = domainStatsResponse.Response
 	}
 
 	if err = handleError(err, "GetDomainStats", response); err != nil {
 		return stats, exists, err
 	}
 
-	if domainStatsRespose.DomainStats != "" {
-		if err := json.Unmarshal([]byte(domainStatsRespose.DomainStats), stats); err != nil {
+	if domainStatsResponse.DomainStats != "" {
+		if err := json.Unmarshal([]byte(domainStatsResponse.DomainStats), stats); err != nil {
 			log.Log.Reason(err).Error("error unmarshalling domain")
 			return stats, exists, err
 		}
