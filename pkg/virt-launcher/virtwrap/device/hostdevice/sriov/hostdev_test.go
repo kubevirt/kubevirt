@@ -302,7 +302,7 @@ var _ = Describe("SRIOV HostDevice", func() {
 			c.sendEvent("foo")
 			d := deviceDetacherStub{}
 			Expect(sriov.SafelyDetachHostDevices(domainSpec, c, d, 0)).To(Succeed())
-			Expect(len(c.EventChannel())).To(Equal(1))
+			Expect(c.EventChannel()).To(HaveLen(1))
 		})
 
 		It("fails to register a callback", func() {
@@ -312,7 +312,7 @@ var _ = Describe("SRIOV HostDevice", func() {
 			c.sendEvent("foo")
 			d := deviceDetacherStub{}
 			Expect(sriov.SafelyDetachHostDevices(domainSpec, c, d, 0)).To(HaveOccurred())
-			Expect(len(c.EventChannel())).To(Equal(1))
+			Expect(c.EventChannel()).To(HaveLen(1))
 		})
 
 		It("fails to detach device", func() {
@@ -322,7 +322,7 @@ var _ = Describe("SRIOV HostDevice", func() {
 			c.sendEvent("foo")
 			d := deviceDetacherStub{fail: true}
 			Expect(sriov.SafelyDetachHostDevices(domainSpec, c, d, 0)).To(HaveOccurred())
-			Expect(len(c.EventChannel())).To(Equal(1))
+			Expect(c.EventChannel()).To(HaveLen(1))
 		})
 
 		It("fails on timeout due to no detach event", func() {
@@ -340,7 +340,7 @@ var _ = Describe("SRIOV HostDevice", func() {
 			c.sendEvent("non-sriov")
 			d := deviceDetacherStub{}
 			Expect(sriov.SafelyDetachHostDevices(domainSpec, c, d, 10*time.Millisecond)).To(HaveOccurred())
-			Expect(len(c.EventChannel())).To(Equal(0))
+			Expect(c.EventChannel()).To(BeEmpty())
 		})
 
 		// Failure to deregister the callback only emits a logging error.

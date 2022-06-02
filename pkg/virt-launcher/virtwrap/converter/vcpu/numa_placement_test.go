@@ -134,7 +134,6 @@ var _ = Describe("NumaPlacement", func() {
 			givenSpec.Memory, err = QuantityToByte(memory)
 			Expect(err).ToNot(HaveOccurred())
 			givenVMI.Spec.Domain.Memory.Guest = &memory
-			Expect(err).ToNot(HaveOccurred())
 			Expect(numaMapping(givenVMI, givenSpec, givenTopology)).ToNot(Succeed())
 		})
 

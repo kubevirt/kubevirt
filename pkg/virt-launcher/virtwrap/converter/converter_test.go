@@ -22,6 +22,7 @@ package converter
 import (
 	"encoding/xml"
 	"fmt"
+	"io/fs"
 	"io/ioutil"
 	"os"
 	"path"
@@ -216,8 +217,7 @@ var _ = Describe("Converter", func() {
   <blockio logical_block_size="1234" physical_block_size="1234"></blockio>
 </Disk>`
 			libvirtDisk := &api.Disk{}
-			err := Convert_v1_BlockSize_To_api_BlockIO(kubevirtDisk, libvirtDisk)
-			Expect(err).ToNot(HaveOccurred())
+			Expect(Convert_v1_BlockSize_To_api_BlockIO(kubevirtDisk, libvirtDisk)).To(Succeed())
 			data, err := xml.MarshalIndent(libvirtDisk, "", "  ")
 			Expect(err).ToNot(HaveOccurred())
 			xml := string(data)
@@ -1741,7 +1741,7 @@ var _ = Describe("Converter", func() {
 			v1.SetObjectDefaults_VirtualMachineInstance(vmi)
 			vmi.Spec.Domain.Devices.Sound = nil
 			domain := vmiToDomain(vmi, c)
-			Expect(len(domain.Spec.Devices.SoundCards)).To(Equal(0))
+			Expect(domain.Spec.Devices.SoundCards).To(BeEmpty())
 		})
 
 		It("should enable default sound card with existing but empty sound devices", func() {
@@ -1751,7 +1751,7 @@ var _ = Describe("Converter", func() {
 				Name: name,
 			}
 			domain := vmiToDomain(vmi, c)
-			Expect(len(domain.Spec.Devices.SoundCards)).To(Equal(1))
+			Expect(domain.Spec.Devices.SoundCards).To(HaveLen(1))
 			Expect(domain.Spec.Devices.SoundCards).To(ContainElement(api.SoundCard{
 				Alias: api.NewUserDefinedAlias(name),
 				Model: "ich9",
@@ -1766,7 +1766,7 @@ var _ = Describe("Converter", func() {
 				Model: "ac97",
 			}
 			domain := vmiToDomain(vmi, c)
-			Expect(len(domain.Spec.Devices.SoundCards)).To(Equal(1))
+			Expect(domain.Spec.Devices.SoundCards).To(HaveLen(1))
 			Expect(domain.Spec.Devices.SoundCards).To(ContainElement(api.SoundCard{
 				Alias: api.NewUserDefinedAlias(name),
 				Model: "ac97",
@@ -1777,7 +1777,7 @@ var _ = Describe("Converter", func() {
 			v1.SetObjectDefaults_VirtualMachineInstance(vmi)
 			vmi.Spec.Domain.Devices.ClientPassthrough = &v1.ClientPassthroughDevices{}
 			domain := vmiToDomain(vmi, c)
-			Expect(len(domain.Spec.Devices.Redirs)).To(Equal(4))
+			Expect(domain.Spec.Devices.Redirs).To(HaveLen(4))
 			Expect(domain.Spec.Devices.Controllers).To(ContainElement(api.Controller{
 				Type:  "usb",
 				Index: "0",
@@ -1836,9 +1836,7 @@ var _ = Describe("Converter", func() {
 
 		DescribeTable("should calculate mebibyte from a quantity", func(quantity string, mebibyte int) {
 			mi64, _ := resource.ParseQuantity(quantity)
-			q, err := vcpu.QuantityToMebiByte(mi64)
-			Expect(err).ToNot(HaveOccurred())
-			Expect(q).To(BeNumerically("==", mebibyte))
+			Expect(vcpu.QuantityToMebiByte(mi64)).To(BeNumerically("==", mebibyte))
 		},
 			Entry("when 0M is given", "0M", 0),
 			Entry("when 0 is given", "0", 0),
@@ -1921,20 +1919,17 @@ var _ = Describe("Converter", func() {
 		DescribeTable("Validate that QEMU SeaBios debug logs are ",
 			func(toDefineVerbosityEnvVariable bool, virtLauncherLogVerbosity int, shouldEnableDebugLogs bool) {
 
-				var err error
 				if toDefineVerbosityEnvVariable {
-					err = os.Setenv(services.ENV_VAR_VIRT_LAUNCHER_LOG_VERBOSITY, strconv.Itoa(virtLauncherLogVerbosity))
-					Expect(err).To(BeNil())
+					Expect(os.Setenv(services.ENV_VAR_VIRT_LAUNCHER_LOG_VERBOSITY, strconv.Itoa(virtLauncherLogVerbosity))).
+						To(Succeed())
 					defer func() {
-						err = os.Unsetenv(services.ENV_VAR_VIRT_LAUNCHER_LOG_VERBOSITY)
-						Expect(err).To(BeNil())
+						Expect(os.Unsetenv(services.ENV_VAR_VIRT_LAUNCHER_LOG_VERBOSITY)).To(Succeed())
 					}()
 				}
 
 				domain := api.Domain{}
 
-				err = Convert_v1_VirtualMachineInstance_To_api_Domain(vmi, &domain, c)
-				Expect(err).To(BeNil())
+				Expect(Convert_v1_VirtualMachineInstance_To_api_Domain(vmi, &domain, c)).To(Succeed())
 
 				if domain.Spec.QEMUCmd == nil || (domain.Spec.QEMUCmd.QEMUArg == nil) {
 					return
@@ -2007,8 +2002,7 @@ var _ = Describe("Converter", func() {
 			iface.InterfaceBindingMethod.Slirp = &v1.InterfaceSlirp{}
 			qemuArg := api.Arg{Value: fmt.Sprintf("user,id=%s", iface.Name)}
 
-			err := configPortForward(&qemuArg, iface)
-			Expect(err).ToNot(HaveOccurred())
+			Expect(configPortForward(&qemuArg, iface)).To(Succeed())
 			Expect(qemuArg.Value).To(Equal(fmt.Sprintf("user,id=%s,hostfwd=tcp::80-:80", iface.Name)))
 		})
 		It("should not fail for duplicate port with different protocol configuration", func() {
@@ -2016,8 +2010,7 @@ var _ = Describe("Converter", func() {
 			iface.InterfaceBindingMethod.Slirp = &v1.InterfaceSlirp{}
 			qemuArg := api.Arg{Value: fmt.Sprintf("user,id=%s", iface.Name)}
 
-			err := configPortForward(&qemuArg, iface)
-			Expect(err).ToNot(HaveOccurred())
+			Expect(configPortForward(&qemuArg, iface)).To(Succeed())
 			Expect(qemuArg.Value).To(Equal(fmt.Sprintf("user,id=%s,hostfwd=tcp::80-:80,hostfwd=udp::80-:80", iface.Name)))
 		})
 		It("Should create network configuration for slirp device", func() {
@@ -2032,7 +2025,7 @@ var _ = Describe("Converter", func() {
 
 			domain := vmiToDomain(vmi, c)
 			Expect(domain).ToNot(BeNil())
-			Expect(len(domain.Spec.QEMUCmd.QEMUArg)).To(Equal(2))
+			Expect(domain.Spec.QEMUCmd.QEMUArg).To(HaveLen(2))
 		})
 		It("Should create two network configuration for slirp device", func() {
 			v1.SetObjectDefaults_VirtualMachineInstance(vmi)
@@ -2054,7 +2047,7 @@ var _ = Describe("Converter", func() {
 
 			domain := vmiToDomain(vmi, c)
 			Expect(domain).ToNot(BeNil())
-			Expect(len(domain.Spec.QEMUCmd.QEMUArg)).To(Equal(4))
+			Expect(domain.Spec.QEMUCmd.QEMUArg).To(HaveLen(4))
 		})
 		It("Should create two network configuration one for slirp device and one for bridge device", func() {
 			v1.SetObjectDefaults_VirtualMachineInstance(vmi)
@@ -2076,8 +2069,8 @@ var _ = Describe("Converter", func() {
 
 			domain := vmiToDomain(vmi, c)
 			Expect(domain).ToNot(BeNil())
-			Expect(len(domain.Spec.QEMUCmd.QEMUArg)).To(Equal(2))
-			Expect(len(domain.Spec.Devices.Interfaces)).To(Equal(2))
+			Expect(domain.Spec.QEMUCmd.QEMUArg).To(HaveLen(2))
+			Expect(domain.Spec.Devices.Interfaces).To(HaveLen(2))
 			Expect(domain.Spec.Devices.Interfaces[0].Type).To(Equal("ethernet"))
 			Expect(domain.Spec.Devices.Interfaces[0].Model.Type).To(Equal("virtio-non-transitional"))
 			Expect(domain.Spec.Devices.Interfaces[1].Type).To(Equal("user"))
@@ -2698,8 +2691,8 @@ var _ = Describe("Converter", func() {
 			}
 			apiDisk := api.Disk{}
 			devicePerBus := map[string]deviceNamer{}
-			err := Convert_v1_Disk_To_api_Disk(context, &v1Disk, &apiDisk, devicePerBus, nil, make(map[string]v1.VolumeStatus))
-			Expect(err).ToNot(HaveOccurred())
+			Expect(Convert_v1_Disk_To_api_Disk(context, &v1Disk, &apiDisk, devicePerBus, nil, make(map[string]v1.VolumeStatus))).
+				To(Succeed())
 			Expect(apiDisk.Device).To(Equal("disk"), "expected disk device to be defined")
 			Expect(apiDisk.Driver.Queues).To(BeNil(), "expected no queues to be requested")
 		})
@@ -2771,8 +2764,7 @@ var _ = Describe("Converter", func() {
 			domain.Spec.IOThreads = &api.IOThreads{}
 			domain.Spec.IOThreads.IOThreads = uint(6)
 
-			err := vcpu.FormatDomainIOThreadPin(vmi, domain, 0, c.CPUSet)
-			Expect(err).ToNot(HaveOccurred())
+			Expect(vcpu.FormatDomainIOThreadPin(vmi, domain, 0, c.CPUSet)).To(Succeed())
 			expectedLayout := []api.CPUTuneIOThreadPin{
 				{IOThread: 1, CPUSet: "5,6,7"},
 				{IOThread: 2, CPUSet: "8,9,10"},
@@ -2804,8 +2796,7 @@ var _ = Describe("Converter", func() {
 			domain.Spec.IOThreads = &api.IOThreads{}
 			domain.Spec.IOThreads.IOThreads = uint(6)
 
-			err := vcpu.FormatDomainIOThreadPin(vmi, domain, 0, c.CPUSet)
-			Expect(err).ToNot(HaveOccurred())
+			Expect(vcpu.FormatDomainIOThreadPin(vmi, domain, 0, c.CPUSet)).To(Succeed())
 			expectedLayout := []api.CPUTuneIOThreadPin{
 				{IOThread: 1, CPUSet: "6"},
 				{IOThread: 2, CPUSet: "5"},
@@ -3100,7 +3091,7 @@ var _ = Describe("Converter", func() {
 
 		It("should automatically add virtio-scsi controller", func() {
 			domain := vmiToDomain(vmi, c)
-			Expect(len(domain.Spec.Devices.Controllers)).To(Equal(3))
+			Expect(domain.Spec.Devices.Controllers).To(HaveLen(3))
 			foundScsiController := false
 			for _, controller := range domain.Spec.Devices.Controllers {
 				if controller.Type == "scsi" {
@@ -3115,7 +3106,7 @@ var _ = Describe("Converter", func() {
 		It("should not automatically add virtio-scsi controller, if hotplug disabled", func() {
 			vmi.Spec.Domain.Devices.DisableHotplug = true
 			domain := vmiToDomain(vmi, c)
-			Expect(len(domain.Spec.Devices.Controllers)).To(Equal(2))
+			Expect(domain.Spec.Devices.Controllers).To(HaveLen(2))
 		})
 
 		DescribeTable("should convert",
@@ -3299,14 +3290,12 @@ var _ = Describe("direct IO checker", func() {
 		tmpDir, err = os.MkdirTemp("", "direct-io-checker")
 		Expect(err).ToNot(HaveOccurred())
 		existingFile = filepath.Join(tmpDir, "disk.img")
-		err = ioutil.WriteFile(existingFile, []byte("test"), 0644)
-		Expect(err).ToNot(HaveOccurred())
+		Expect(ioutil.WriteFile(existingFile, []byte("test"), 0644)).To(Succeed())
 		nonExistingFile = filepath.Join(tmpDir, "non-existing-file")
 	})
 
 	AfterEach(func() {
-		err = os.RemoveAll(tmpDir)
-		Expect(err).ToNot(HaveOccurred())
+		Expect(os.RemoveAll(tmpDir)).To(Succeed())
 	})
 
 	It("should not fail when file/device exists", func() {
@@ -3320,29 +3309,24 @@ var _ = Describe("direct IO checker", func() {
 		_, err := directIOChecker.CheckFile(nonExistingFile)
 		Expect(err).ToNot(HaveOccurred())
 		_, err = os.Stat(nonExistingFile)
-		Expect(err).To(HaveOccurred())
-		Expect(os.IsNotExist(err)).To(BeTrue())
+		Expect(err).To(MatchError(fs.ErrNotExist))
 	})
 
 	It("should fail when device does not exist", func() {
 		_, err := directIOChecker.CheckBlockDevice(nonExistingFile)
 		Expect(err).To(HaveOccurred())
 		_, err = os.Stat(nonExistingFile)
-		Expect(err).To(HaveOccurred())
-		Expect(os.IsNotExist(err)).To(BeTrue())
+		Expect(err).To(MatchError(fs.ErrNotExist))
 	})
 
 	It("should fail when the path does not exist", func() {
 		nonExistingPath := "/non/existing/path/disk.img"
 		_, err = directIOChecker.CheckFile(nonExistingPath)
-		Expect(err).To(HaveOccurred())
-		Expect(os.IsNotExist(err)).To(BeTrue())
+		Expect(err).To(MatchError(fs.ErrNotExist))
 		_, err = directIOChecker.CheckBlockDevice(nonExistingPath)
-		Expect(err).To(HaveOccurred())
-		Expect(os.IsNotExist(err)).To(BeTrue())
+		Expect(err).To(MatchError(fs.ErrNotExist))
 		_, err = os.Stat(nonExistingPath)
-		Expect(err).To(HaveOccurred())
-		Expect(os.IsNotExist(err)).To(BeTrue())
+		Expect(err).To(MatchError(fs.ErrNotExist))
 	})
 })
 
@@ -3426,10 +3410,9 @@ func vmiToDomain(vmi *v1.VirtualMachineInstance, c *ConverterContext) *api.Domai
 
 func xmlToDomainSpec(data string) *api.DomainSpec {
 	newDomain := &api.DomainSpec{}
-	err := xml.Unmarshal([]byte(data), newDomain)
+	ExpectWithOffset(1, xml.Unmarshal([]byte(data), newDomain)).To(Succeed())
 	newDomain.XMLName.Local = ""
 	newDomain.XmlNS = "http://libvirt.org/schemas/domain/qemu/1.0"
-	Expect(err).To(BeNil())
 	return newDomain
 }
 

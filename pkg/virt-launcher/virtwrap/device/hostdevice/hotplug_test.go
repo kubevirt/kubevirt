@@ -71,7 +71,7 @@ var _ = Describe("Hot(un)Plug HostDevice", func() {
 			c.sendEvent("foo")
 			d := deviceDetacherStub{}
 			Expect(hostdevice.SafelyDetachHostDevices(domainSpec.Devices.HostDevices, c, d, 0)).To(Succeed())
-			Expect(len(c.EventChannel())).To(Equal(1))
+			Expect(c.EventChannel()).To(HaveLen(1))
 		})
 
 		It("fails to register a callback", func() {
@@ -80,8 +80,8 @@ var _ = Describe("Hot(un)Plug HostDevice", func() {
 			c := newCallbackerStub(true, false)
 			c.sendEvent("foo")
 			d := deviceDetacherStub{}
-			Expect(hostdevice.SafelyDetachHostDevices(domainSpec.Devices.HostDevices, c, d, 0)).To(HaveOccurred())
-			Expect(len(c.EventChannel())).To(Equal(1))
+			Expect(hostdevice.SafelyDetachHostDevices(domainSpec.Devices.HostDevices, c, d, 0)).ToNot(Succeed())
+			Expect(c.EventChannel()).To(HaveLen(1))
 		})
 
 		It("fails to detach device", func() {
@@ -90,8 +90,8 @@ var _ = Describe("Hot(un)Plug HostDevice", func() {
 			c := newCallbackerStub(false, false)
 			c.sendEvent("foo")
 			d := deviceDetacherStub{fail: true}
-			Expect(hostdevice.SafelyDetachHostDevices(domainSpec.Devices.HostDevices, c, d, 0)).To(HaveOccurred())
-			Expect(len(c.EventChannel())).To(Equal(1))
+			Expect(hostdevice.SafelyDetachHostDevices(domainSpec.Devices.HostDevices, c, d, 0)).ToNot(Succeed())
+			Expect(c.EventChannel()).To(HaveLen(1))
 		})
 
 		It("fails on timeout due to no detach event", func() {
@@ -99,7 +99,7 @@ var _ = Describe("Hot(un)Plug HostDevice", func() {
 
 			c := newCallbackerStub(false, false)
 			d := deviceDetacherStub{}
-			Expect(hostdevice.SafelyDetachHostDevices(domainSpec.Devices.HostDevices, c, d, 0)).To(HaveOccurred())
+			Expect(hostdevice.SafelyDetachHostDevices(domainSpec.Devices.HostDevices, c, d, 0)).ToNot(Succeed())
 		})
 
 		It("fails due to a missing event from a device", func() {
@@ -108,8 +108,8 @@ var _ = Describe("Hot(un)Plug HostDevice", func() {
 			c := newCallbackerStub(false, false)
 			c.sendEvent("unknown-device")
 			d := deviceDetacherStub{}
-			Expect(hostdevice.SafelyDetachHostDevices(domainSpec.Devices.HostDevices, c, d, 10*time.Millisecond)).To(HaveOccurred())
-			Expect(len(c.EventChannel())).To(Equal(0))
+			Expect(hostdevice.SafelyDetachHostDevices(domainSpec.Devices.HostDevices, c, d, 10*time.Millisecond)).ToNot(Succeed())
+			Expect(c.EventChannel()).To(BeEmpty())
 		})
 
 		// Failure to deregister the callback only emits a logging error.

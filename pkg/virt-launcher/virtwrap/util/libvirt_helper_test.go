@@ -146,23 +146,21 @@ var _ = Describe("LibvirtHelper", func() {
 
 		for scanner.Scan() {
 			entry := map[string]string{}
-			err := json.Unmarshal(scanner.Bytes(), &entry)
-			Expect(err).To(Not(HaveOccurred()))
+			Expect(json.Unmarshal(scanner.Bytes(), &entry)).To(Succeed())
 			//delete(entry, "timestamp")
 			loggedLines = append(loggedLines, entry)
 		}
-		Expect(scanner.Err()).To(Not(HaveOccurred()))
+		Expect(scanner.Err()).ToNot(HaveOccurred())
 
 		expectedLines := []map[string]string{}
 		scanner = bufio.NewScanner(strings.NewReader(formattedLogs))
 		for scanner.Scan() {
 			entry := map[string]string{}
-			err := json.Unmarshal(scanner.Bytes(), &entry)
-			Expect(err).To(Not(HaveOccurred()))
+			Expect(json.Unmarshal(scanner.Bytes(), &entry)).To(Succeed())
 			//delete(entry, "timestamp")
 			expectedLines = append(expectedLines, entry)
 		}
-		Expect(scanner.Err()).To(Not(HaveOccurred()))
+		Expect(scanner.Err()).ToNot(HaveOccurred())
 
 		Expect(loggedLines).To(Equal(expectedLines))
 	})
@@ -185,23 +183,21 @@ var _ = Describe("LibvirtHelper", func() {
 
 		for scanner.Scan() {
 			entry := map[string]string{}
-			err := json.Unmarshal(scanner.Bytes(), &entry)
-			Expect(err).To(Not(HaveOccurred()))
+			Expect(json.Unmarshal(scanner.Bytes(), &entry)).To(Succeed())
 			delete(entry, "timestamp")
 			loggedLines = append(loggedLines, entry)
 		}
-		Expect(scanner.Err()).To(Not(HaveOccurred()))
+		Expect(scanner.Err()).ToNot(HaveOccurred())
 
 		expectedLines := []map[string]string{}
 		scanner = bufio.NewScanner(strings.NewReader(qemuFormattedLogs))
 		for scanner.Scan() {
 			entry := map[string]string{}
-			err := json.Unmarshal(scanner.Bytes(), &entry)
-			Expect(err).To(Not(HaveOccurred()))
+			Expect(json.Unmarshal(scanner.Bytes(), &entry)).To(Succeed())
 			delete(entry, "timestamp")
 			expectedLines = append(expectedLines, entry)
 		}
-		Expect(scanner.Err()).To(Not(HaveOccurred()))
+		Expect(scanner.Err()).ToNot(HaveOccurred())
 
 		Expect(loggedLines).To(Equal(expectedLines))
 	})

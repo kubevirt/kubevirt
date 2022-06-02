@@ -197,12 +197,8 @@ var _ = Describe("Qemu agent poller", func() {
 
 		It("should parse FSFreezeStatus", func() {
 			jsonInput := `{"return":"frozen"}`
-
-			fsFreezeStatus, err := ParseFSFreezeStatus(jsonInput)
 			expectedFSFreezeStatus := api.FSFreeze{Status: "frozen"}
-
-			Expect(err).ToNot(HaveOccurred(), "FSFreezeStatus should be parsed normally")
-			Expect(fsFreezeStatus).To(Equal(expectedFSFreezeStatus))
+			Expect(ParseFSFreezeStatus(jsonInput)).To(Equal(expectedFSFreezeStatus))
 		})
 
 		It("should not parse FSFreezeStatus", func() {
@@ -224,11 +220,7 @@ var _ = Describe("Qemu agent poller", func() {
                 }
             }`
 
-			hostname, err := parseHostname(jsonInput)
-			expectedHostname := "TestHost"
-
-			Expect(err).ToNot(HaveOccurred(), "hostname should be parser normally")
-			Expect(hostname).To(Equal(expectedHostname))
+			Expect(parseHostname(jsonInput)).To(Equal("TestHost"))
 		})
 
 		It("should parse Agent", func() {
@@ -238,11 +230,8 @@ var _ = Describe("Qemu agent poller", func() {
                 }
             }`
 
-			agent, err := parseAgent(jsonInput)
 			expectedAgent := AgentInfo{Version: "4.1"}
-
-			Expect(err).ToNot(HaveOccurred(), "agent version should be parsed normally")
-			Expect(agent).To(Equal(expectedAgent))
+			Expect(parseAgent(jsonInput)).To(Equal(expectedAgent))
 		})
 
 		It("should strip Agent response", func() {
@@ -263,14 +252,11 @@ var _ = Describe("Qemu agent poller", func() {
                 }
             }`
 
-			timezone, err := parseTimezone(jsonInput)
 			expectedTimezone := api.Timezone{
 				Zone:   "Prague",
 				Offset: 2,
 			}
-
-			Expect(err).ToNot(HaveOccurred(), "timezone should be parsed normally")
-			Expect(timezone).To(Equal(expectedTimezone))
+			Expect(parseTimezone(jsonInput)).To(Equal(expectedTimezone))
 		})
 
 		It("should parse Filesystem", func() {
@@ -287,7 +273,6 @@ var _ = Describe("Qemu agent poller", func() {
                 ]
             }`
 
-			filesystem, err := parseFilesystem(jsonInput)
 			expectedFilesystem := []api.Filesystem{
 				{
 					Name:       "main",
@@ -297,9 +282,7 @@ var _ = Describe("Qemu agent poller", func() {
 					UsedBytes:  33333,
 				},
 			}
-
-			Expect(err).ToNot(HaveOccurred(), "filesystem should be parsed normally")
-			Expect(filesystem).To(Equal(expectedFilesystem))
+			Expect(parseFilesystem(jsonInput)).To(Equal(expectedFilesystem))
 		})
 
 		It("should parse Users", func() {
@@ -314,7 +297,6 @@ var _ = Describe("Qemu agent poller", func() {
                 ]
             }`
 
-			users, err := parseUsers(jsonInput)
 			expectedUsers := []api.User{
 				{
 					Name:      "bob",
@@ -322,9 +304,7 @@ var _ = Describe("Qemu agent poller", func() {
 					LoginTime: 99999,
 				},
 			}
-
-			Expect(err).ToNot(HaveOccurred(), "users should be parsed normally")
-			Expect(users).To(Equal(expectedUsers))
+			Expect(parseUsers(jsonInput)).To(Equal(expectedUsers))
 		})
 	})
 })
