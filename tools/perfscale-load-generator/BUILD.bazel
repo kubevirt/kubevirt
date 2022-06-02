@@ -12,6 +12,7 @@ go_library(
         "//tools/perfscale-load-generator/config:go_default_library",
         "//tools/perfscale-load-generator/flags:go_default_library",
         "//tools/perfscale-load-generator/steady-state:go_default_library",
+        "//vendor/github.com/google/uuid:go_default_library",
     ],
 )
 
