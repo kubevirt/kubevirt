@@ -106,6 +106,8 @@ func (w *ObjListWatcher) Run() {
 	if !cache.WaitForCacheSync(timeoutCh, w.informer.HasSynced) {
 		panic(fmt.Errorf("watcher timed out waiting for caches to sync"))
 	}
+	// waiting 1s to prevent the watcher miss events from the test
+	time.Sleep(1 * time.Second)
 }
 
 func (w *ObjListWatcher) Stop() {
@@ -121,6 +123,9 @@ func (w *ObjListWatcher) handleUpdate(obj interface{}) {
 		}
 		if vmi.Status.Phase == kvv1.Running {
 			w.addObj(string(vmi.GetUID()))
+		}
+		if vmi.Status.Phase == kvv1.Succeeded {
+			w.deleteObj(string(vmi.GetUID()))
 		}
 
 	case objUtils.VMResource:
@@ -147,13 +152,6 @@ func (w *ObjListWatcher) handleUpdate(obj interface{}) {
 
 func (w *ObjListWatcher) handleDeleted(obj interface{}) {
 	switch w.ResourceKind {
-	case objUtils.VMIResource:
-		vmi, ok := obj.(*kvv1.VirtualMachineInstance)
-		if !ok {
-			log.Log.V(2).Errorf("Could not convert VirtualMachineInstance obj: %v", w.ResourceKind)
-		}
-		w.deleteObj(string(vmi.GetUID()))
-
 	case objUtils.VMResource:
 		vm, ok := obj.(*kvv1.VirtualMachine)
 		if !ok {
@@ -169,7 +167,6 @@ func (w *ObjListWatcher) handleDeleted(obj interface{}) {
 		w.deleteObj(string(replicaSet.GetUID()))
 
 	default:
-		log.Log.V(2).Errorf("Watcher does not support object type %s", w.ResourceKind)
 		return
 	}
 }
