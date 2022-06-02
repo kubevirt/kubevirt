@@ -31,6 +31,7 @@ var (
 	Kubemaster         string
 	Verbosity          int
 	WorkloadConfigFile string
+	Run                bool
 	Delete             bool
 )
 
@@ -41,6 +42,7 @@ func init() {
 	flag.StringVar(&Kubemaster, "master", "", "kubernetes master url")
 	flag.IntVar(&Verbosity, "v", 2, "log level for V logs")
 	flag.StringVar(&WorkloadConfigFile, "workload", "tools/perfscale-load-generator/examples/workload/kubevirt-density/kubevirt-density.yaml", "path to the file containing the worload configuration")
+	flag.BoolVar(&Run, "run", true, "Run a workload")
 	flag.BoolVar(&Delete, "delete", false, "Delete a workload")
 
 	if Kubeconfig == "" {
