@@ -66,7 +66,7 @@ const (
 	pvcNotFoundReason = "pvcNotFound"
 )
 
-var _ = SIGDescribe("Export", func() {
+var _ = PSIGDescribe("Export", func() {
 	var err error
 	var token *k8sv1.Secret
 	var virtClient kubecli.KubevirtClient
