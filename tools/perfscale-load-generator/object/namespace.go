@@ -32,7 +32,7 @@ import (
 	"kubevirt.io/client-go/log"
 )
 
-func CreateNamespace(virtCli kubecli.KubevirtClient, name, scenarioLabel, uuid string) error {
+func CreateNamespaceIfNotExist(virtCli kubecli.KubevirtClient, name, scenarioLabel, uuid string) error {
 	ns := &k8sv1.Namespace{
 		ObjectMeta: metav1.ObjectMeta{
 			Name: name,
@@ -41,6 +41,7 @@ func CreateNamespace(virtCli kubecli.KubevirtClient, name, scenarioLabel, uuid s
 			},
 		},
 	}
+	log.Log.V(2).Infof("Namespace %s created", name)
 	_, err := virtCli.CoreV1().Namespaces().Create(context.Background(), ns, metav1.CreateOptions{})
 	if !errors.IsAlreadyExists(err) {
 		if err != nil {
