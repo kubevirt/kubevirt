@@ -93,7 +93,7 @@ func (c *NetStat) UpdateStatus(vmi *v1.VirtualMachineInstance, domain *api.Domai
 		interfacesStatus = ifacesStatusFromGuestAgent(interfacesStatus, domain.Status.Interfaces)
 
 		natedIfacesSpec := netvmispec.FilterInterfacesSpec(vmi.Spec.Domain.Devices.Interfaces, func(i v1.Interface) bool {
-			return i.Masquerade != nil || i.Slirp != nil
+			return i.Masquerade != nil || i.Slirp != nil || i.Passt != nil
 		})
 		if interfacesStatus, err = c.updateIfacesStatusFromPodCache(interfacesStatus, natedIfacesSpec, vmi); err != nil {
 			return err
