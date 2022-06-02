@@ -2383,7 +2383,7 @@ var _ = Describe("VirtualMachineInstance", func() {
 		})
 
 		Context("check that migration is not supported when using Host Devices", func() {
-			envName := util.ResourceNameToEnvVar("PCI_RESOURCE", "dev1")
+			envName := util.ResourceNameToEnvVar(v1.PCIResourcePrefix, "dev1")
 
 			BeforeEach(func() {
 				_ = os.Setenv(envName, "0000:81:01.0")
@@ -2410,7 +2410,7 @@ var _ = Describe("VirtualMachineInstance", func() {
 			})
 
 			It("should not be allowed to live-migrate if the VMI uses PCI GPU", func() {
-				envName := util.ResourceNameToEnvVar("PCI_RESOURCE", "dev1")
+				envName := util.ResourceNameToEnvVar(v1.PCIResourcePrefix, "dev1")
 				_ = os.Setenv(envName, "0000:81:01.0")
 				defer func() {
 					_ = os.Unsetenv(envName)

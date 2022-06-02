@@ -89,11 +89,6 @@ const (
 	failedDomainMemoryDump = "Domain memory dump failed"
 )
 
-const (
-	PCI_RESOURCE_PREFIX  = "PCI_RESOURCE"
-	MDEV_RESOURCE_PREFIX = "MDEV_PCI_RESOURCE"
-)
-
 const maxConcurrentHotplugHostDevices = 1
 const maxConcurrentMemoryDumps = 1
 

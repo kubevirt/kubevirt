@@ -24,21 +24,16 @@ import (
 	"kubevirt.io/kubevirt/pkg/virt-launcher/virtwrap/device/hostdevice"
 )
 
-const (
-	pciResourcePrefix  = "PCI_RESOURCE"
-	mdevResourcePrefix = "MDEV_PCI_RESOURCE"
-)
-
 // NewPCIAddressPool creates a PCI address pool based on the provided list of host-devices and
 // the environment variables that describe the resource.
 func NewPCIAddressPool(hostDevices []v1.HostDevice) *hostdevice.AddressPool {
-	return hostdevice.NewAddressPool(pciResourcePrefix, extractResources(hostDevices))
+	return hostdevice.NewAddressPool(v1.PCIResourcePrefix, extractResources(hostDevices))
 }
 
 // NewMDEVAddressPool creates a MDEV address pool based on the provided list of host-devices and
 // the environment variables that describe the resource.
 func NewMDEVAddressPool(hostDevices []v1.HostDevice) *hostdevice.AddressPool {
-	return hostdevice.NewAddressPool(mdevResourcePrefix, extractResources(hostDevices))
+	return hostdevice.NewAddressPool(v1.MDevResourcePrefix, extractResources(hostDevices))
 }
 
 func extractResources(hostDevices []v1.HostDevice) []string {

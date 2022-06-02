@@ -37,9 +37,6 @@ type envData struct {
 }
 
 const (
-	pciResourcePrefix  = "PCI_RESOURCE"
-	mdevResourcePrefix = "MDEV_PCI_RESOURCE"
-
 	gpuName0 = "gpu_name0"
 	gpuName1 = "gpu_name1"
 
@@ -91,8 +88,8 @@ var _ = Describe("GPU Address Pool", func() {
 				Expect(pool.Pop(gpuResource0)).To(Equal(address1))
 			})
 		},
-		Entry("PCI", gpu.NewPCIAddressPool, pciResourcePrefix, gpuPCIAddress0, gpuPCIAddress1),
-		Entry("MDEV", gpu.NewMDEVAddressPool, mdevResourcePrefix, gpuMDEVAddress0, gpuMDEVAddress1),
+		Entry("PCI", gpu.NewPCIAddressPool, v1.PCIResourcePrefix, gpuPCIAddress0, gpuPCIAddress1),
+		Entry("MDEV", gpu.NewMDEVAddressPool, v1.MDevResourcePrefix, gpuMDEVAddress0, gpuMDEVAddress1),
 	)
 
 	DescribeTable("succeeds to pop 2 addresses from two resources",
@@ -111,8 +108,8 @@ var _ = Describe("GPU Address Pool", func() {
 				Expect(pool.Pop(gpuResource1)).To(Equal(address1))
 			})
 		},
-		Entry("PCI", gpu.NewPCIAddressPool, pciResourcePrefix, gpuPCIAddress0, gpuPCIAddress1),
-		Entry("MDEV", gpu.NewMDEVAddressPool, mdevResourcePrefix, gpuMDEVAddress0, gpuMDEVAddress1),
+		Entry("PCI", gpu.NewPCIAddressPool, v1.PCIResourcePrefix, gpuPCIAddress0, gpuPCIAddress1),
+		Entry("MDEV", gpu.NewMDEVAddressPool, v1.MDevResourcePrefix, gpuMDEVAddress0, gpuMDEVAddress1),
 	)
 })
 

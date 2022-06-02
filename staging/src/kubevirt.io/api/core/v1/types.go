@@ -2212,6 +2212,11 @@ type LogVerbosity struct {
 	NodeVerbosity map[string]uint `json:"nodeVerbosity,omitempty"`
 }
 
+const (
+	PCIResourcePrefix  = "PCI_RESOURCE"
+	MDevResourcePrefix = "MDEV_PCI_RESOURCE"
+)
+
 // PermittedHostDevices holds information about devices allowed for passthrough
 type PermittedHostDevices struct {
 	// +listType=atomic
