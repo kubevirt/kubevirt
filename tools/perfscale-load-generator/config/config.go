@@ -101,7 +101,7 @@ func GetListOpts(label string, uuid string) *metav1.ListOptions {
 
 func AddLabels(obj *unstructured.Unstructured, uuid string) {
 	labels := map[string]string{
-		WorkloadLabel: uuid,
+		WorkloadUUIDLabel: uuid,
 	}
 	obj.SetLabels(labels)
 }
