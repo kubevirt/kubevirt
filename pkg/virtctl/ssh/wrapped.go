@@ -14,9 +14,9 @@ var runCommand = func(cmd *exec.Cmd) error {
 
 func (o *SSH) runLocalCommandClient(kind, namespace, name string) error {
 
-	args := []string{}
+	args := []string{"-o"}
 	args = append(args, o.buildProxyCommandOption(kind, namespace, name))
-	args = append(args, o.buildSSHTarget(kind, namespace, name))
+	args = append(args, o.buildSSHTarget(kind, namespace, name)...)
 
 	cmd := exec.Command("ssh", args...)
 	fmt.Println("running:", cmd)
@@ -29,7 +29,7 @@ func (o *SSH) runLocalCommandClient(kind, namespace, name string) error {
 
 func (o *SSH) buildProxyCommandOption(kind, namespace, name string) string {
 	proxyCommand := strings.Builder{}
-	proxyCommand.WriteString("-o ProxyCommand=")
+	proxyCommand.WriteString("ProxyCommand=")
 	proxyCommand.WriteString(os.Args[0])
 	proxyCommand.WriteString(" port-forward --stdio=true ")
 	proxyCommand.WriteString(fmt.Sprintf("%s/%s.%s", kind, name, namespace))
@@ -40,10 +40,13 @@ func (o *SSH) buildProxyCommandOption(kind, namespace, name string) string {
 	return proxyCommand.String()
 }
 
-func (o *SSH) buildSSHTarget(kind, namespace, name string) string {
+func (o *SSH) buildSSHTarget(kind, namespace, name string) (opts []string) {
 	target := strings.Builder{}
+	if len(o.options.AdditionalSSHLocalOptions) > 0 {
+		opts = append(opts, o.options.AdditionalSSHLocalOptions...)
+	}
 	if o.options.IdentityFilePathProvided {
-		target.WriteString(fmt.Sprintf(" -i %s ", o.options.IdentityFilePath))
+		opts = append(opts, "-i", o.options.IdentityFilePath)
 	}
 	if len(o.options.SshUsername) > 0 {
 		target.WriteString(o.options.SshUsername)
@@ -54,5 +57,10 @@ func (o *SSH) buildSSHTarget(kind, namespace, name string) string {
 	target.WriteString(name)
 	target.WriteRune('.')
 	target.WriteString(namespace)
-	return target.String()
+
+	opts = append(opts, target.String())
+	if o.options.Command != "" {
+		opts = append(opts, o.options.Command)
+	}
+	return
 }

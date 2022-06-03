@@ -39,6 +39,8 @@ const (
 	usernameFlag, usernameFlagShort                 = "username", "l"
 	IdentityFilePathFlag, identityFilePathFlagShort = "identity-file", "i"
 	knownHostsFilePathFlag                          = "known-hosts"
+	commandToExecute, commandToExecuteShort         = "command", "c"
+	additionalOpts, additionalOptsShort             = "local-ssh-opts", "t"
 )
 
 func NewCommand(clientConfig clientcmd.ClientConfig) *cobra.Command {
@@ -75,6 +77,10 @@ func AddCommandlineArgs(flagset *pflag.FlagSet, opts *SSHOptions) {
 		fmt.Sprintf("--%s=/home/jdoe/.ssh/kubevirt_known_hosts: Set the path to the known_hosts file.", knownHostsFilePathFlag))
 	flagset.IntVarP(&opts.SshPort, portFlag, portFlagShort, opts.SshPort,
 		fmt.Sprintf(`--%s=22: Specify a port on the VM to send SSH traffic to`, portFlag))
+	flagset.StringVarP(&opts.Command, commandToExecute, commandToExecuteShort, opts.Command,
+		fmt.Sprintf(`--%s='ls /': Specify a command to execute the VM`, commandToExecute))
+	flagset.StringArrayVarP(&opts.AdditionalSSHLocalOptions, additionalOpts, additionalOptsShort, opts.AdditionalSSHLocalOptions,
+		fmt.Sprintf(`--%s="-o StrictHostKeyChecking=no" : Additional options to be passed to the local ssh. This is applied only if local-ssh=true `, commandToExecute))
 }
 
 func DefaultSSHOptions() SSHOptions {
@@ -89,6 +95,7 @@ func DefaultSSHOptions() SSHOptions {
 		IdentityFilePathProvided:  false,
 		KnownHostsFilePath:        "",
 		KnownHostsFilePathDefault: "",
+		AdditionalSSHLocalOptions: []string{},
 	}
 
 	if len(homeDir) > 0 {
@@ -110,6 +117,8 @@ type SSHOptions struct {
 	IdentityFilePathProvided  bool
 	KnownHostsFilePath        string
 	KnownHostsFilePathDefault string
+	Command                   string
+	AdditionalSSHLocalOptions []string
 }
 
 func (o *SSH) Run(cmd *cobra.Command, args []string) error {
