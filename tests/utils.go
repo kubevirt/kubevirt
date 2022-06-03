@@ -1261,23 +1261,7 @@ func NewRandomVMIWithHostDisk(diskPath string, diskType v1.HostDiskType, nodeNam
 	vmi := NewRandomVMI()
 	AddHostDisk(vmi, diskPath, diskType, "host-disk")
 	if nodeName != "" {
-		vmi.Spec.Affinity = &k8sv1.Affinity{
-			NodeAffinity: &k8sv1.NodeAffinity{
-				RequiredDuringSchedulingIgnoredDuringExecution: &k8sv1.NodeSelector{
-					NodeSelectorTerms: []k8sv1.NodeSelectorTerm{
-						{
-							MatchExpressions: []k8sv1.NodeSelectorRequirement{
-								{
-									Key:      KubernetesIoHostName,
-									Operator: k8sv1.NodeSelectorOpIn,
-									Values:   []string{nodeName},
-								},
-							},
-						},
-					},
-				},
-			},
-		}
+		vmi.Spec.Affinity = nodeAffinity(KubernetesIoHostName, nodeName)
 	}
 	return vmi
 }
@@ -2078,12 +2062,8 @@ func RenderHostPathPod(podName string, dir string, hostPathType k8sv1.HostPathTy
 	return pod
 }
 
-// CreateVmiOnNodeLabeled creates a VMI a node that has a give label set to a given value
-func CreateVmiOnNodeLabeled(vmi *v1.VirtualMachineInstance, nodeLabel, labelValue string) *v1.VirtualMachineInstance {
-	virtClient, err := kubecli.GetKubevirtClient()
-	util2.PanicOnError(err)
-
-	vmi.Spec.Affinity = &k8sv1.Affinity{
+func nodeAffinity(nodeLabel, labelValue string) *k8sv1.Affinity {
+	return &k8sv1.Affinity{
 		NodeAffinity: &k8sv1.NodeAffinity{
 			RequiredDuringSchedulingIgnoredDuringExecution: &k8sv1.NodeSelector{
 				NodeSelectorTerms: []k8sv1.NodeSelectorTerm{
@@ -2096,6 +2076,14 @@ func CreateVmiOnNodeLabeled(vmi *v1.VirtualMachineInstance, nodeLabel, labelValu
 			},
 		},
 	}
+}
+
+// CreateVmiOnNodeLabeled creates a VMI a node that has a give label set to a given value
+func CreateVmiOnNodeLabeled(vmi *v1.VirtualMachineInstance, nodeLabel, labelValue string) *v1.VirtualMachineInstance {
+	virtClient, err := kubecli.GetKubevirtClient()
+	util2.PanicOnError(err)
+
+	vmi.Spec.Affinity = nodeAffinity(nodeLabel, labelValue)
 
 	vmi, err = virtClient.VirtualMachineInstance(util2.NamespaceTestDefault).Create(vmi)
 	ExpectWithOffset(1, err).ToNot(HaveOccurred())
