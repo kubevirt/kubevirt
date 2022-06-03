@@ -733,6 +733,8 @@ type VolumeSource struct {
 	// DownwardMetrics adds a very small disk to VMIs which contains a limited view of host and guest
 	// metrics. The disk content is compatible with vhostmd (https://github.com/vhostmd/vhostmd) and vm-dump-metrics.
 	DownwardMetrics *DownwardMetricsVolumeSource `json:"downwardMetrics,omitempty"`
+	// MemoryDump is attached to the virt launcher and is populated with a memory dump of the vmi
+	MemoryDump *MemoryDumpVolumeSource `json:"memoryDump,omitempty"`
 }
 
 // HotplugVolumeSource Represents the source of a volume to mount which are capable
@@ -766,6 +768,13 @@ type PersistentVolumeClaimVolumeSource struct {
 	// Hotpluggable indicates whether the volume can be hotplugged and hotunplugged.
 	// +optional
 	Hotpluggable bool `json:"hotpluggable,omitempty"`
+}
+
+type MemoryDumpVolumeSource struct {
+	// PersistentVolumeClaimVolumeSource represents a reference to a PersistentVolumeClaim in the same namespace.
+	// Directly attached to the virt launcher
+	// +optional
+	PersistentVolumeClaimVolumeSource `json:",inline"`
 }
 
 type EphemeralVolumeSource struct {
