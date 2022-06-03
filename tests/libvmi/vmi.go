@@ -38,6 +38,7 @@ type Option func(vmi *kvirtv1.VirtualMachineInstance)
 func New(name string, opts ...Option) *kvirtv1.VirtualMachineInstance {
 	vmi := baseVmi(name)
 
+	WithTerminationGracePeriod(0)(vmi)
 	for _, f := range opts {
 		f(vmi)
 	}

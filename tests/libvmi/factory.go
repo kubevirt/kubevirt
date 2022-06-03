@@ -27,17 +27,11 @@ import (
 	"kubevirt.io/kubevirt/tests/testsuite"
 )
 
-// Default VMI values
-const (
-	DefaultTestGracePeriod int64 = 0
-)
-
 // NewFedora instantiates a new Fedora based VMI configuration,
 // building its extra properties based on the specified With* options.
 // This image has tooling for the guest agent, stress, SR-IOV and more.
 func NewFedora(opts ...Option) *kvirtv1.VirtualMachineInstance {
 	fedoraOptions := []Option{
-		WithTerminationGracePeriod(DefaultTestGracePeriod),
 		WithResourceMemory("512M"),
 		WithRng(),
 		WithContainerImage(cd.ContainerDiskFor(cd.ContainerDiskFedoraTestTooling)),
@@ -55,7 +49,6 @@ func NewCirros(opts ...Option) *kvirtv1.VirtualMachineInstance {
 		WithContainerImage(cd.ContainerDiskFor(cd.ContainerDiskCirros)),
 		withNonEmptyUserData,
 		WithResourceMemory(cirrosMemory()),
-		WithTerminationGracePeriod(DefaultTestGracePeriod),
 	}
 	cirrosOpts = append(cirrosOpts, opts...)
 	return New(RandName(), cirrosOpts...)
@@ -68,7 +61,6 @@ func NewAlpine(opts ...Option) *kvirtv1.VirtualMachineInstance {
 		WithContainerImage(cd.ContainerDiskFor(cd.ContainerDiskAlpine)),
 		WithResourceMemory(alpineMemory()),
 		WithRng(),
-		WithTerminationGracePeriod(DefaultTestGracePeriod),
 	}
 	alpineOpts = append(alpineOpts, opts...)
 	return New(RandName(), alpineOpts...)
@@ -80,7 +72,6 @@ func NewAlpineWithTestTooling(opts ...Option) *kvirtv1.VirtualMachineInstance {
 		WithContainerImage(cd.ContainerDiskFor(cd.ContainerDiskAlpineTestTooling)),
 		WithResourceMemory(alpineMemory()),
 		WithRng(),
-		WithTerminationGracePeriod(DefaultTestGracePeriod),
 	}
 	alpineOpts = append(alpineOpts, opts...)
 	return New(RandName(), alpineOpts...)
