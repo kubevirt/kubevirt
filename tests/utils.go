@@ -344,21 +344,7 @@ func createSeparateDeviceHostPathPv(osName, nodeName string) {
 				},
 			},
 			StorageClassName: StorageClassHostPathSeparateDevice,
-			NodeAffinity: &k8sv1.VolumeNodeAffinity{
-				Required: &k8sv1.NodeSelector{
-					NodeSelectorTerms: []k8sv1.NodeSelectorTerm{
-						{
-							MatchExpressions: []k8sv1.NodeSelectorRequirement{
-								{
-									Key:      KubernetesIoHostName,
-									Operator: k8sv1.NodeSelectorOpIn,
-									Values:   []string{nodeName},
-								},
-							},
-						},
-					},
-				},
-			},
+			NodeAffinity:     hostnameVolumeNodeAffinity(nodeName),
 		},
 	}
 
@@ -375,6 +361,24 @@ func CreateHostPathPv(osName, hostPath string) string {
 func createHostPathPvWithSize(osName, hostPath, size string) string {
 	sc := "manual"
 	return CreateHostPathPvWithSizeAndStorageClass(osName, hostPath, size, sc)
+}
+
+func hostnameVolumeNodeAffinity(hostname string) *k8sv1.VolumeNodeAffinity {
+	return &k8sv1.VolumeNodeAffinity{
+		Required: &k8sv1.NodeSelector{
+			NodeSelectorTerms: []k8sv1.NodeSelectorTerm{
+				{
+					MatchExpressions: []k8sv1.NodeSelectorRequirement{
+						{
+							Key:      KubernetesIoHostName,
+							Operator: k8sv1.NodeSelectorOpIn,
+							Values:   []string{hostname},
+						},
+					},
+				},
+			},
+		},
+	}
 }
 
 func CreateHostPathPvWithSizeAndStorageClass(osName, hostPath, size, sc string) string {
@@ -408,21 +412,7 @@ func CreateHostPathPvWithSizeAndStorageClass(osName, hostPath, size, sc string) 
 				},
 			},
 			StorageClassName: sc,
-			NodeAffinity: &k8sv1.VolumeNodeAffinity{
-				Required: &k8sv1.NodeSelector{
-					NodeSelectorTerms: []k8sv1.NodeSelectorTerm{
-						{
-							MatchExpressions: []k8sv1.NodeSelectorRequirement{
-								{
-									Key:      KubernetesIoHostName,
-									Operator: k8sv1.NodeSelectorOpIn,
-									Values:   []string{libnode.SchedulableNode},
-								},
-							},
-						},
-					},
-				},
-			},
+			NodeAffinity:     hostnameVolumeNodeAffinity(libnode.SchedulableNode),
 		},
 	}
 
