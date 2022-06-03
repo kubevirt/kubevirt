@@ -30,7 +30,6 @@ import (
 // Default VMI values
 const (
 	DefaultTestGracePeriod int64 = 0
-	DefaultVmiName               = "testvmi"
 )
 
 // NewFedora instantiates a new Fedora based VMI configuration,
@@ -44,7 +43,7 @@ func NewFedora(opts ...Option) *kvirtv1.VirtualMachineInstance {
 		WithContainerImage(cd.ContainerDiskFor(cd.ContainerDiskFedoraTestTooling)),
 	}
 	opts = append(fedoraOptions, opts...)
-	return New(RandName(DefaultVmiName), opts...)
+	return New(RandName(), opts...)
 }
 
 // NewCirros instantiates a new CirrOS based VMI configuration
@@ -59,7 +58,7 @@ func NewCirros(opts ...Option) *kvirtv1.VirtualMachineInstance {
 		WithTerminationGracePeriod(DefaultTestGracePeriod),
 	}
 	cirrosOpts = append(cirrosOpts, opts...)
-	return New(RandName(DefaultVmiName), cirrosOpts...)
+	return New(RandName(), cirrosOpts...)
 }
 
 // NewAlpine instantiates a new Alpine based VMI configuration
@@ -72,7 +71,7 @@ func NewAlpine(opts ...Option) *kvirtv1.VirtualMachineInstance {
 		WithTerminationGracePeriod(DefaultTestGracePeriod),
 	}
 	alpineOpts = append(alpineOpts, opts...)
-	return New(RandName(DefaultVmiName), alpineOpts...)
+	return New(RandName(), alpineOpts...)
 }
 
 func NewAlpineWithTestTooling(opts ...Option) *kvirtv1.VirtualMachineInstance {
@@ -84,7 +83,7 @@ func NewAlpineWithTestTooling(opts ...Option) *kvirtv1.VirtualMachineInstance {
 		WithTerminationGracePeriod(DefaultTestGracePeriod),
 	}
 	alpineOpts = append(alpineOpts, opts...)
-	return New(RandName(DefaultVmiName), alpineOpts...)
+	return New(RandName(), alpineOpts...)
 }
 
 func cirrosMemory() string {

@@ -1043,7 +1043,7 @@ func NewRandomVMI() *v1.VirtualMachineInstance {
 }
 
 func NewRandomVMIWithNS(namespace string) *v1.VirtualMachineInstance {
-	vmi := v1.NewVMIReferenceFromNameWithNS(namespace, libvmi.RandName(libvmi.DefaultVmiName))
+	vmi := v1.NewVMIReferenceFromNameWithNS(namespace, libvmi.RandName())
 	vmi.Spec = v1.VirtualMachineInstanceSpec{Domain: v1.DomainSpec{}}
 	vmi.Spec.Domain.Resources.Requests = k8sv1.ResourceList{}
 	vmi.TypeMeta = metav1.TypeMeta{
