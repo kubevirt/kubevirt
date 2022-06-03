@@ -67,6 +67,7 @@ import (
 	"kubevirt.io/kubevirt/tests/libstorage"
 	"kubevirt.io/kubevirt/tests/libvmi"
 	"kubevirt.io/kubevirt/tests/testsuite"
+	"kubevirt.io/kubevirt/tests/watcher"
 )
 
 type VMICreationFuncWithEFI func() *v1.VirtualMachineInstance
@@ -563,7 +564,7 @@ var _ = Describe("[sig-compute]Configurations", func() {
 			vmi, err = virtClient.VirtualMachineInstance(util.NamespaceTestDefault).Create(vmi)
 			Expect(err).ToNot(HaveOccurred())
 
-			wp := tests.WarningsPolicy{FailOnWarnings: false}
+			wp := watcher.WarningsPolicy{FailOnWarnings: false}
 			tests.WaitForVMIStartOrFailed(vmi, 180, wp)
 			vmiMeta, err := virtClient.VirtualMachineInstance(vmi.Namespace).Get(vmi.Name, &metav1.GetOptions{})
 			ExpectWithOffset(1, err).ToNot(HaveOccurred())
