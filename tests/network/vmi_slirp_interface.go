@@ -194,7 +194,7 @@ var _ = SIGDescribe("Slirp Networking", func() {
 		})
 		It("should reject VMIs with default interface slirp when it's not permitted", func() {
 			var t int64 = 0
-			vmi := tests.NewRandomVMIWithNS(util.NamespaceTestDefault)
+			vmi := tests.NewRandomVMI()
 			vmi.Spec.TerminationGracePeriodSeconds = &t
 			// Reset memory, devices and networks
 			vmi.Spec.Domain.Resources.Requests[k8sv1.ResourceMemory] = resource.MustParse("128Mi")
