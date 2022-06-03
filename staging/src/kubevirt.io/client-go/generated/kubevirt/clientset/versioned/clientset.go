@@ -25,6 +25,7 @@ import (
 	rest "k8s.io/client-go/rest"
 	flowcontrol "k8s.io/client-go/util/flowcontrol"
 
+	exportv1alpha1 "kubevirt.io/client-go/generated/kubevirt/clientset/versioned/typed/export/v1alpha1"
 	flavorv1alpha1 "kubevirt.io/client-go/generated/kubevirt/clientset/versioned/typed/flavor/v1alpha1"
 	migrationsv1alpha1 "kubevirt.io/client-go/generated/kubevirt/clientset/versioned/typed/migrations/v1alpha1"
 	poolv1alpha1 "kubevirt.io/client-go/generated/kubevirt/clientset/versioned/typed/pool/v1alpha1"
@@ -33,6 +34,7 @@ import (
 
 type Interface interface {
 	Discovery() discovery.DiscoveryInterface
+	ExportV1alpha1() exportv1alpha1.ExportV1alpha1Interface
 	FlavorV1alpha1() flavorv1alpha1.FlavorV1alpha1Interface
 	MigrationsV1alpha1() migrationsv1alpha1.MigrationsV1alpha1Interface
 	PoolV1alpha1() poolv1alpha1.PoolV1alpha1Interface
@@ -43,10 +45,16 @@ type Interface interface {
 // version included in a Clientset.
 type Clientset struct {
 	*discovery.DiscoveryClient
+	exportV1alpha1     *exportv1alpha1.ExportV1alpha1Client
 	flavorV1alpha1     *flavorv1alpha1.FlavorV1alpha1Client
 	migrationsV1alpha1 *migrationsv1alpha1.MigrationsV1alpha1Client
 	poolV1alpha1       *poolv1alpha1.PoolV1alpha1Client
 	snapshotV1alpha1   *snapshotv1alpha1.SnapshotV1alpha1Client
+}
+
+// ExportV1alpha1 retrieves the ExportV1alpha1Client
+func (c *Clientset) ExportV1alpha1() exportv1alpha1.ExportV1alpha1Interface {
+	return c.exportV1alpha1
 }
 
 // FlavorV1alpha1 retrieves the FlavorV1alpha1Client
@@ -90,6 +98,10 @@ func NewForConfig(c *rest.Config) (*Clientset, error) {
 	}
 	var cs Clientset
 	var err error
+	cs.exportV1alpha1, err = exportv1alpha1.NewForConfig(&configShallowCopy)
+	if err != nil {
+		return nil, err
+	}
 	cs.flavorV1alpha1, err = flavorv1alpha1.NewForConfig(&configShallowCopy)
 	if err != nil {
 		return nil, err
@@ -118,6 +130,7 @@ func NewForConfig(c *rest.Config) (*Clientset, error) {
 // panics if there is an error in the config.
 func NewForConfigOrDie(c *rest.Config) *Clientset {
 	var cs Clientset
+	cs.exportV1alpha1 = exportv1alpha1.NewForConfigOrDie(c)
 	cs.flavorV1alpha1 = flavorv1alpha1.NewForConfigOrDie(c)
 	cs.migrationsV1alpha1 = migrationsv1alpha1.NewForConfigOrDie(c)
 	cs.poolV1alpha1 = poolv1alpha1.NewForConfigOrDie(c)
@@ -130,6 +143,7 @@ func NewForConfigOrDie(c *rest.Config) *Clientset {
 // New creates a new Clientset for the given RESTClient.
 func New(c rest.Interface) *Clientset {
 	var cs Clientset
+	cs.exportV1alpha1 = exportv1alpha1.New(c)
 	cs.flavorV1alpha1 = flavorv1alpha1.New(c)
 	cs.migrationsV1alpha1 = migrationsv1alpha1.New(c)
 	cs.poolV1alpha1 = poolv1alpha1.New(c)

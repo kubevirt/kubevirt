@@ -18,7 +18,6 @@ package cert
 
 import (
 	"crypto"
-	"crypto/rand"
 	cryptorand "crypto/rand"
 	"crypto/rsa"
 	"crypto/x509"
@@ -26,6 +25,7 @@ import (
 	"errors"
 	"math"
 	"math/big"
+	mathrand "math/rand"
 	"net"
 	"time"
 )
@@ -59,7 +59,7 @@ func NewPrivateKey() (*rsa.PrivateKey, error) {
 func NewSelfSignedCACert(cfg Config, key crypto.Signer, duration time.Duration) (*x509.Certificate, error) {
 	now := time.Now()
 	tmpl := x509.Certificate{
-		SerialNumber: new(big.Int).SetInt64(0),
+		SerialNumber: new(big.Int).SetInt64(randomSerialNumber()),
 		Subject: pkix.Name{
 			CommonName:   cfg.CommonName,
 			Organization: cfg.Organization,
@@ -80,7 +80,7 @@ func NewSelfSignedCACert(cfg Config, key crypto.Signer, duration time.Duration) 
 
 // NewSignedCert creates a signed certificate using the given CA certificate and key
 func NewSignedCert(cfg Config, key crypto.Signer, caCert *x509.Certificate, caKey crypto.Signer, duration time.Duration) (*x509.Certificate, error) {
-	serial, err := rand.Int(rand.Reader, new(big.Int).SetInt64(math.MaxInt64))
+	serial, err := cryptorand.Int(cryptorand.Reader, new(big.Int).SetInt64(math.MaxInt64))
 	if err != nil {
 		return nil, err
 	}
@@ -109,4 +109,13 @@ func NewSignedCert(cfg Config, key crypto.Signer, caCert *x509.Certificate, caKe
 		return nil, err
 	}
 	return x509.ParseCertificate(certDERBytes)
+}
+
+// randomSerialNumber returns a random int64 serial number based on
+// time.Now. It is defined separately from the generator interface so
+// that the caller doesn't have to worry about an input template or
+// error - these are unnecessary when creating a random serial.
+func randomSerialNumber() int64 {
+	r := mathrand.New(mathrand.NewSource(time.Now().UTC().UnixNano()))
+	return r.Int63()
 }

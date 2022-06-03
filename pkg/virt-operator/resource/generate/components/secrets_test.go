@@ -133,7 +133,13 @@ var _ = Describe("Certificate Management", func() {
 
 		It("should set notBefore on the certificate to notBefore value of the CA certificate ", func() {
 			duration := &v1.Duration{Duration: 5 * time.Hour}
-			caSecret := NewCACertSecret("test")
+			caSecrets := NewCACertSecrets("test")
+			var caSecret *v12.Secret
+			for _, ca := range caSecrets {
+				if ca.Name == KubeVirtCASecretName {
+					caSecret = ca
+				}
+			}
 			Expect(PopulateSecretWithCertificate(caSecret, nil, duration)).To(Succeed())
 			caCrt, err := LoadCertificates(caSecret)
 			Expect(err).NotTo(HaveOccurred())
@@ -146,7 +152,13 @@ var _ = Describe("Certificate Management", func() {
 
 		DescribeTable("should set the notAfter on the certificate according to the supplied duration", func(caDuration time.Duration) {
 			crtDuration := &v1.Duration{Duration: 2 * time.Hour}
-			caSecret := NewCACertSecret("test")
+			caSecrets := NewCACertSecrets("test")
+			var caSecret *v12.Secret
+			for _, ca := range caSecrets {
+				if ca.Name == KubeVirtCASecretName {
+					caSecret = ca
+				}
+			}
 			now := time.Now()
 			Expect(PopulateSecretWithCertificate(caSecret, nil, &v1.Duration{Duration: caDuration})).To(Succeed())
 			caCrt, err := LoadCertificates(caSecret)
@@ -165,7 +177,13 @@ var _ = Describe("Certificate Management", func() {
 		DescribeTable("should suggest a rotation on the certificate according to its expiration", func(caDuration time.Duration) {
 			crtDuration := &v1.Duration{Duration: 2 * time.Hour}
 			crtRenewBefore := &v1.Duration{Duration: 1 * time.Hour}
-			caSecret := NewCACertSecret("test")
+			caSecrets := NewCACertSecrets("test")
+			var caSecret *v12.Secret
+			for _, ca := range caSecrets {
+				if ca.Name == KubeVirtCASecretName {
+					caSecret = ca
+				}
+			}
 			Expect(PopulateSecretWithCertificate(caSecret, nil, &v1.Duration{Duration: caDuration})).To(Succeed())
 			caCrt, err := LoadCertificates(caSecret)
 			now := time.Now()
@@ -187,7 +205,13 @@ var _ = Describe("Certificate Management", func() {
 
 		DescribeTable("should successfully sign with the current CA the certificate for", func(scretName string) {
 			duration := &v1.Duration{Duration: 5 * time.Hour}
-			caSecret := NewCACertSecret("test")
+			caSecrets := NewCACertSecrets("test")
+			var caSecret *v12.Secret
+			for _, ca := range caSecrets {
+				if ca.Name == KubeVirtCASecretName {
+					caSecret = ca
+				}
+			}
 			Expect(PopulateSecretWithCertificate(caSecret, nil, duration)).To(Succeed())
 			caCrt, err := LoadCertificates(caSecret)
 			Expect(err).NotTo(HaveOccurred())
@@ -214,7 +238,13 @@ var _ = Describe("Certificate Management", func() {
 			caDuration := 6 * time.Hour
 			crtDuration := &v1.Duration{Duration: 24 * time.Hour}
 			crtRenewBefore := &v1.Duration{Duration: 18 * time.Hour}
-			caSecret := NewCACertSecret("test")
+			caSecrets := NewCACertSecrets("test")
+			var caSecret *v12.Secret
+			for _, ca := range caSecrets {
+				if ca.Name == KubeVirtCASecretName {
+					caSecret = ca
+				}
+			}
 			Expect(PopulateSecretWithCertificate(caSecret, nil, &v1.Duration{Duration: caDuration})).To(Succeed())
 			caCrt, err := LoadCertificates(caSecret)
 			now := time.Now()
@@ -242,13 +272,25 @@ var _ = Describe("Certificate Management", func() {
 	})
 
 	It("should create the kubevirt-ca configmap for the right namespace", func() {
-		configMap := NewKubeVirtCAConfigMap("namespace")
+		configMaps := NewCAConfigMaps("namespace")
+		var configMap *v12.ConfigMap
+		for _, cm := range configMaps {
+			if cm.Name == KubeVirtCASecretName {
+				configMap = cm
+			}
+		}
 		Expect(configMap.Namespace).To(Equal("namespace"))
 	})
 
 	It("should populate secrets with certificates", func() {
 		secrets := NewCertSecrets("install_namespace", "operator_namespace")
-		caSecret := NewCACertSecret("operator_namespace")
+		caSecrets := NewCACertSecrets("test")
+		var caSecret *v12.Secret
+		for _, ca := range caSecrets {
+			if ca.Name == KubeVirtCASecretName {
+				caSecret = ca
+			}
+		}
 		Expect(PopulateSecretWithCertificate(caSecret, nil, &v1.Duration{Duration: 1 * time.Hour})).To(Succeed())
 		Expect(caSecret.Data).To(HaveKey(bootstrap.CertBytesValue))
 		Expect(caSecret.Data).To(HaveKey(bootstrap.KeyBytesValue))

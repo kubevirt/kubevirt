@@ -353,6 +353,7 @@ github.com/openshift/client-go/security/clientset/versioned/typed/security/v1/fa
 github.com/openshift/custom-resource-status/conditions/v1
 # github.com/openshift/library-go v0.0.0-20210205203934-9eb0d970f2f4
 ## explicit; go 1.13
+github.com/openshift/library-go/pkg/build/naming
 github.com/openshift/library-go/pkg/operator/resource/resourcemerge
 # github.com/operator-framework/go-appr v0.0.0-20180917210448-f2aef88446f2
 ## explicit
@@ -1084,6 +1085,8 @@ k8s.io/utils/trace
 ## explicit; go 1.17
 kubevirt.io/api/core
 kubevirt.io/api/core/v1
+kubevirt.io/api/export
+kubevirt.io/api/export/v1alpha1
 kubevirt.io/api/flavor
 kubevirt.io/api/flavor/v1alpha1
 kubevirt.io/api/migrations
@@ -1110,6 +1113,8 @@ kubevirt.io/client-go/generated/external-snapshotter/clientset/versioned/typed/v
 kubevirt.io/client-go/generated/kubevirt/clientset/versioned
 kubevirt.io/client-go/generated/kubevirt/clientset/versioned/fake
 kubevirt.io/client-go/generated/kubevirt/clientset/versioned/scheme
+kubevirt.io/client-go/generated/kubevirt/clientset/versioned/typed/export/v1alpha1
+kubevirt.io/client-go/generated/kubevirt/clientset/versioned/typed/export/v1alpha1/fake
 kubevirt.io/client-go/generated/kubevirt/clientset/versioned/typed/flavor/v1alpha1
 kubevirt.io/client-go/generated/kubevirt/clientset/versioned/typed/flavor/v1alpha1/fake
 kubevirt.io/client-go/generated/kubevirt/clientset/versioned/typed/migrations/v1alpha1

@@ -144,9 +144,15 @@ var _ = Describe("Apply", func() {
 		})
 
 		It("should not patch ConfigMap on sync", func() {
-			requiredCM := components.NewKubeVirtCAConfigMap(operatorNamespace)
+			requiredCMs := components.NewCAConfigMaps(operatorNamespace)
+			var requiredCM *corev1.ConfigMap
+			for _, cm := range requiredCMs {
+				if cm.Name == components.KubeVirtCASecretName {
+					requiredCM = cm
+				}
+			}
 			version, imageRegistry, id := getTargetVersionRegistryID(kv)
-			injectOperatorMetadata(kv, &requiredCM.ObjectMeta, version, imageRegistry, id, true)
+			injectOperatorMetadata(kv, &requiredCMs[0].ObjectMeta, version, imageRegistry, id, true)
 
 			existingCM := requiredCM.DeepCopy()
 			crt := createCrt()
@@ -173,7 +179,13 @@ var _ = Describe("Apply", func() {
 
 		It("should patch ConfigMap on sync when not parsable", func() {
 			notRSAParsableString := "something not parsable"
-			requiredCM := components.NewKubeVirtCAConfigMap(operatorNamespace)
+			requiredCMs := components.NewCAConfigMaps(operatorNamespace)
+			var requiredCM *corev1.ConfigMap
+			for _, cm := range requiredCMs {
+				if cm.Name == components.KubeVirtCASecretName {
+					requiredCM = cm
+				}
+			}
 			version, imageRegistry, id := getTargetVersionRegistryID(kv)
 			injectOperatorMetadata(kv, &requiredCM.ObjectMeta, version, imageRegistry, id, true)
 
@@ -218,7 +230,13 @@ var _ = Describe("Apply", func() {
 		})
 
 		It("should patch ConfigMap on sync when CA expired", func() {
-			requiredCM := components.NewKubeVirtCAConfigMap(operatorNamespace)
+			requiredCMs := components.NewCAConfigMaps(operatorNamespace)
+			var requiredCM *corev1.ConfigMap
+			for _, cm := range requiredCMs {
+				if cm.Name == components.KubeVirtCASecretName {
+					requiredCM = cm
+				}
+			}
 			version, imageRegistry, id := getTargetVersionRegistryID(kv)
 			injectOperatorMetadata(kv, &requiredCM.ObjectMeta, version, imageRegistry, id, true)
 

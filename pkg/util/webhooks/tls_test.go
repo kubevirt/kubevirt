@@ -12,6 +12,7 @@ import (
 
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
+	k8sv1 "k8s.io/api/core/v1"
 	v1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/client-go/util/certificate"
 
@@ -61,7 +62,14 @@ var _ = Describe("TLS", func() {
 	BeforeEach(func() {
 		// Bootstrap TLS for kubevirt
 		certmanagers = map[string]certificate.Manager{}
-		caSecret := components.NewCACertSecret("whatever")
+		caSecrets := components.NewCACertSecrets("whatever")
+		var caSecret *k8sv1.Secret
+		for _, ca := range caSecrets {
+			if ca.Name == components.KubeVirtCASecretName {
+				caSecret = ca
+			}
+		}
+
 		secrets := components.NewCertSecrets("install_namespace", "operator_namespace")
 		Expect(components.PopulateSecretWithCertificate(caSecret, nil, &v1.Duration{Duration: 1 * time.Hour})).To(Succeed())
 		caCert, err := components.LoadCertificates(caSecret)

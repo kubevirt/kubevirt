@@ -50,6 +50,7 @@ import (
 	cdiclient "kubevirt.io/client-go/generated/containerized-data-importer/clientset/versioned"
 	k8ssnapshotclient "kubevirt.io/client-go/generated/external-snapshotter/clientset/versioned"
 	generatedclient "kubevirt.io/client-go/generated/kubevirt/clientset/versioned"
+	vmexportv1alpha1 "kubevirt.io/client-go/generated/kubevirt/clientset/versioned/typed/export/v1alpha1"
 	flavorv1alpha1 "kubevirt.io/client-go/generated/kubevirt/clientset/versioned/typed/flavor/v1alpha1"
 	poolv1 "kubevirt.io/client-go/generated/kubevirt/clientset/versioned/typed/pool/v1alpha1"
 	vmsnapshotv1alpha1 "kubevirt.io/client-go/generated/kubevirt/clientset/versioned/typed/snapshot/v1alpha1"
@@ -68,6 +69,7 @@ type KubevirtClient interface {
 	VirtualMachineSnapshot(namespace string) vmsnapshotv1alpha1.VirtualMachineSnapshotInterface
 	VirtualMachineSnapshotContent(namespace string) vmsnapshotv1alpha1.VirtualMachineSnapshotContentInterface
 	VirtualMachineRestore(namespace string) vmsnapshotv1alpha1.VirtualMachineRestoreInterface
+	VirtualMachineExport(namespace string) vmexportv1alpha1.VirtualMachineExportInterface
 	VirtualMachineFlavor(namespace string) flavorv1alpha1.VirtualMachineFlavorInterface
 	VirtualMachineClusterFlavor() flavorv1alpha1.VirtualMachineClusterFlavorInterface
 	VirtualMachinePreference(namespace string) flavorv1alpha1.VirtualMachinePreferenceInterface
@@ -159,6 +161,10 @@ func (k kubevirt) VirtualMachineSnapshotContent(namespace string) vmsnapshotv1al
 
 func (k kubevirt) VirtualMachineRestore(namespace string) vmsnapshotv1alpha1.VirtualMachineRestoreInterface {
 	return k.generatedKubeVirtClient.SnapshotV1alpha1().VirtualMachineRestores(namespace)
+}
+
+func (k kubevirt) VirtualMachineExport(namespace string) vmexportv1alpha1.VirtualMachineExportInterface {
+	return k.generatedKubeVirtClient.ExportV1alpha1().VirtualMachineExports(namespace)
 }
 
 func (k kubevirt) VirtualMachineFlavor(namespace string) flavorv1alpha1.VirtualMachineFlavorInterface {

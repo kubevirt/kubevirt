@@ -36,8 +36,9 @@ func NewCA(name string, duration time.Duration) (*KeyPair, error) {
 		return nil, fmt.Errorf("unable to create a private key for a new CA: %v", err)
 	}
 
+	signerName := fmt.Sprintf("%s@%d", name, time.Now().Unix())
 	config := certutil.Config{
-		CommonName: name,
+		CommonName: signerName,
 	}
 
 	cert, err := certutil.NewSelfSignedCACert(config, key, duration)

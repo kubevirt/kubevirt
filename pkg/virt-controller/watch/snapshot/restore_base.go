@@ -35,6 +35,7 @@ import (
 	"kubevirt.io/client-go/kubecli"
 	"kubevirt.io/client-go/log"
 	"kubevirt.io/kubevirt/pkg/util/status"
+	watchutil "kubevirt.io/kubevirt/pkg/virt-controller/watch/util"
 )
 
 // VMRestoreController is resonsible for restoring VMs
@@ -121,7 +122,7 @@ func (ctrl *VMRestoreController) vmRestoreWorker() {
 }
 
 func (ctrl *VMRestoreController) processVMRestoreWorkItem() bool {
-	return processWorkItem(ctrl.vmRestoreQueue, func(key string) (time.Duration, error) {
+	return watchutil.ProcessWorkItem(ctrl.vmRestoreQueue, func(key string) (time.Duration, error) {
 		log.Log.V(3).Infof("vmRestore worker processing key [%s]", key)
 
 		storeObj, exists, err := ctrl.VMRestoreInformer.GetStore().GetByKey(key)

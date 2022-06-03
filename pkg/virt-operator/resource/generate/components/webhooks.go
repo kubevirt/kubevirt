@@ -14,6 +14,7 @@ import (
 	migrationsv1 "kubevirt.io/api/migrations/v1alpha1"
 
 	virtv1 "kubevirt.io/api/core/v1"
+	exportv1 "kubevirt.io/api/export/v1alpha1"
 	flavorv1alpha1 "kubevirt.io/api/flavor/v1alpha1"
 	poolv1 "kubevirt.io/api/pool/v1alpha1"
 	snapshotv1 "kubevirt.io/api/snapshot/v1alpha1"
@@ -244,6 +245,7 @@ func NewVirtAPIValidatingWebhookConfiguration(installNamespace string) *admissio
 	migrationUpdatePath := MigrationUpdateValidatePath
 	vmSnapshotValidatePath := VMSnapshotValidatePath
 	vmRestoreValidatePath := VMRestoreValidatePath
+	vmExportValidatePath := VMExportValidatePath
 	VmFlavorValidatePath := VMFlavorValidatePath
 	VmClusterFlavorValidatePath := VMClusterFlavorValidatePath
 	vmPreferenceValidatePath := VMPreferenceValidatePath
@@ -543,6 +545,31 @@ func NewVirtAPIValidatingWebhookConfiguration(installNamespace string) *admissio
 				},
 			},
 			{
+				Name:                    "virtualmachineexport-validator.export.kubevirt.io",
+				AdmissionReviewVersions: []string{"v1", "v1beta1"},
+				FailurePolicy:           &failurePolicy,
+				TimeoutSeconds:          &defaultTimeoutSeconds,
+				SideEffects:             &sideEffectNone,
+				Rules: []admissionregistrationv1.RuleWithOperations{{
+					Operations: []admissionregistrationv1.OperationType{
+						admissionregistrationv1.Create,
+						admissionregistrationv1.Update,
+					},
+					Rule: admissionregistrationv1.Rule{
+						APIGroups:   []string{exportv1.SchemeGroupVersion.Group},
+						APIVersions: []string{exportv1.SchemeGroupVersion.Version},
+						Resources:   []string{"virtualmachineexports"},
+					},
+				}},
+				ClientConfig: admissionregistrationv1.WebhookClientConfig{
+					Service: &admissionregistrationv1.ServiceReference{
+						Namespace: installNamespace,
+						Name:      VirtApiServiceName,
+						Path:      &vmExportValidatePath,
+					},
+				},
+			},
+			{
 				Name:                    "virtualmachineflavor-validator.flavor.kubevirt.io",
 				AdmissionReviewVersions: []string{"v1", "v1beta1"},
 				FailurePolicy:           &failurePolicy,
@@ -743,6 +770,8 @@ const KubeVirtOperatorValidatingWebhookName = "virt-operator-validator"
 const VMSnapshotValidatePath = "/virtualmachinesnapshots-validate"
 
 const VMRestoreValidatePath = "/virtualmachinerestores-validate"
+
+const VMExportValidatePath = "/virtualmachineexports-validate"
 
 const VMFlavorValidatePath = "/virtualmachineflavors-validate"
 

@@ -54,6 +54,7 @@ import (
 	"kubevirt.io/kubevirt/pkg/healthz"
 	"kubevirt.io/kubevirt/pkg/monitoring/profiler"
 
+	exportv1 "kubevirt.io/api/export/v1alpha1"
 	poolv1 "kubevirt.io/api/pool/v1alpha1"
 	snapshotv1 "kubevirt.io/api/snapshot/v1alpha1"
 	"kubevirt.io/client-go/kubecli"
@@ -73,6 +74,7 @@ import (
 	"kubevirt.io/kubevirt/pkg/virt-controller/services"
 	"kubevirt.io/kubevirt/pkg/virt-controller/watch/drain/disruptionbudget"
 	"kubevirt.io/kubevirt/pkg/virt-controller/watch/drain/evacuation"
+	"kubevirt.io/kubevirt/pkg/virt-controller/watch/export"
 	"kubevirt.io/kubevirt/pkg/virt-controller/watch/snapshot"
 	workloadupdater "kubevirt.io/kubevirt/pkg/virt-controller/watch/workload-updater"
 )
@@ -83,6 +85,7 @@ const (
 	defaultHost = "0.0.0.0"
 
 	launcherImage       = "virt-launcher"
+	exporterImage       = "virt-exportserver"
 	launcherQemuTimeout = 240
 
 	imagePullSecret = ""
@@ -170,8 +173,12 @@ type VirtControllerApp struct {
 
 	workloadUpdateController *workloadupdater.WorkloadUpdateController
 
+	caExportConfigMapInformer cache.SharedIndexInformer
+	exportServiceInformer     cache.SharedIndexInformer
+	exportController          *export.VMExportController
 	snapshotController        *snapshot.VMSnapshotController
 	restoreController         *snapshot.VMRestoreController
+	vmExportInformer          cache.SharedIndexInformer
 	vmSnapshotInformer        cache.SharedIndexInformer
 	vmSnapshotContentInformer cache.SharedIndexInformer
 	vmRestoreInformer         cache.SharedIndexInformer
@@ -190,6 +197,7 @@ type VirtControllerApp struct {
 	LeaderElection leaderelectionconfig.Configuration
 
 	launcherImage              string
+	exporterImage              string
 	launcherQemuTimeout        int
 	imagePullSecret            string
 	virtShareDir               string
@@ -220,6 +228,7 @@ type VirtControllerApp struct {
 	evacuationControllerThreads       int
 	disruptionBudgetControllerThreads int
 	launcherSubGid                    int64
+	exportControllerThreads           int
 	snapshotControllerThreads         int
 	restoreControllerThreads          int
 	snapshotControllerResyncPeriod    time.Duration
@@ -238,6 +247,7 @@ var _ service.Service = &VirtControllerApp{}
 func init() {
 	vsv1.AddToScheme(scheme.Scheme)
 	snapshotv1.AddToScheme(scheme.Scheme)
+	exportv1.AddToScheme(scheme.Scheme)
 	poolv1.AddToScheme(scheme.Scheme)
 
 	prometheus.MustRegister(leaderGauge)
@@ -338,11 +348,14 @@ func Execute() {
 
 	app.controllerRevisionInformer = app.informerFactory.ControllerRevision()
 
+	app.vmExportInformer = app.informerFactory.VirtualMachineExport()
 	app.vmSnapshotInformer = app.informerFactory.VirtualMachineSnapshot()
 	app.vmSnapshotContentInformer = app.informerFactory.VirtualMachineSnapshotContent()
 	app.vmRestoreInformer = app.informerFactory.VirtualMachineRestore()
 	app.storageClassInformer = app.informerFactory.StorageClass()
+	app.caExportConfigMapInformer = app.informerFactory.KubeVirtExportCAConfigMap()
 	app.allPodInformer = app.informerFactory.Pod()
+	app.exportServiceInformer = app.informerFactory.ExportService()
 
 	if app.hasCDI {
 		app.dataVolumeInformer = app.informerFactory.DataVolume()
@@ -374,6 +387,7 @@ func Execute() {
 	app.initEvacuationController()
 	app.initSnapshotController()
 	app.initRestoreController()
+	app.initExportController()
 	app.initWorkloadUpdaterController()
 	go app.Run()
 
@@ -467,6 +481,7 @@ func (vca *VirtControllerApp) onStartedLeading() func(ctx context.Context) {
 		go vca.migrationController.Run(vca.migrationControllerThreads, stop)
 		go vca.snapshotController.Run(vca.snapshotControllerThreads, stop)
 		go vca.restoreController.Run(vca.restoreControllerThreads, stop)
+		go vca.exportController.Run(vca.exportControllerThreads, stop)
 		go vca.workloadUpdateController.Run(stop)
 		go vca.nodeTopologyUpdater.Run(vca.nodeTopologyUpdatePeriod, stop)
 
@@ -503,6 +518,7 @@ func (vca *VirtControllerApp) initCommon() {
 		virtClient,
 		vca.clusterConfig,
 		vca.launcherSubGid,
+		vca.exporterImage,
 	)
 
 	topologyHinter := topology.NewTopologyHinter(vca.nodeInformer.GetStore(), vca.vmiInformer.GetStore(), runtime.GOARCH, vca.clusterConfig)
@@ -647,6 +663,24 @@ func (vca *VirtControllerApp) initRestoreController() {
 	vca.restoreController.Init()
 }
 
+func (vca *VirtControllerApp) initExportController() {
+	recorder := vca.newRecorder(k8sv1.NamespaceAll, "export-controller")
+	vca.exportController = &export.VMExportController{
+		TemplateService:    vca.templateService,
+		Client:             vca.clientSet,
+		VMExportInformer:   vca.vmExportInformer,
+		PVCInformer:        vca.persistentVolumeClaimInformer,
+		PodInformer:        vca.allPodInformer,
+		DataVolumeInformer: vca.dataVolumeInformer,
+		ServiceInformer:    vca.exportServiceInformer,
+		Recorder:           recorder,
+		ResyncPeriod:       vca.snapshotControllerResyncPeriod,
+		ConfigMapInformer:  vca.caExportConfigMapInformer,
+		KubevirtNamespace:  vca.kubevirtNamespace,
+	}
+	vca.exportController.Init()
+}
+
 func (vca *VirtControllerApp) leaderProbe(_ *restful.Request, response *restful.Response) {
 	res := map[string]interface{}{}
 
@@ -675,6 +709,9 @@ func (vca *VirtControllerApp) AddFlags() {
 
 	flag.StringVar(&vca.launcherImage, "launcher-image", launcherImage,
 		"Shim container for containerized VMIs")
+
+	flag.StringVar(&vca.exporterImage, "exporter-image", exporterImage,
+		"Container for exporting VMs and VM images")
 
 	flag.IntVar(&vca.launcherQemuTimeout, "launcher-qemu-timeout", launcherQemuTimeout,
 		"Amount of time to wait for qemu")
@@ -730,6 +767,9 @@ func (vca *VirtControllerApp) AddFlags() {
 
 	flag.IntVar(&vca.restoreControllerThreads, "restore-controller-threads", defaultControllerThreads,
 		"Number of goroutines to run for restore controller")
+
+	flag.IntVar(&vca.exportControllerThreads, "export-controller-threads", defaultControllerThreads,
+		"Number of goroutines to run for virtual machine export controller")
 
 	flag.DurationVar(&vca.snapshotControllerResyncPeriod, "snapshot-controller-resync-period", defaultSnapshotControllerResyncPeriod,
 		"Number of goroutines to run for snapshot controller")

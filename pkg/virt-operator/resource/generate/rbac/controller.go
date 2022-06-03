@@ -85,7 +85,7 @@ func newControllerClusterRole() *rbacv1.ClusterRole {
 					"",
 				},
 				Resources: []string{
-					"pods", "configmaps", "endpoints",
+					"pods", "configmaps", "endpoints", "services",
 				},
 				Verbs: []string{
 					"get", "list", "watch", "delete", "update", "create",
@@ -100,6 +100,17 @@ func newControllerClusterRole() *rbacv1.ClusterRole {
 				},
 				Verbs: []string{
 					"update", "create", "patch",
+				},
+			},
+			{
+				APIGroups: []string{
+					"",
+				},
+				Resources: []string{
+					"secrets",
+				},
+				Verbs: []string{
+					"create",
 				},
 			},
 			{
@@ -185,6 +196,17 @@ func newControllerClusterRole() *rbacv1.ClusterRole {
 			{
 				APIGroups: []string{
 					"snapshot.kubevirt.io",
+				},
+				Resources: []string{
+					"*",
+				},
+				Verbs: []string{
+					"*",
+				},
+			},
+			{
+				APIGroups: []string{
+					"export.kubevirt.io",
 				},
 				Resources: []string{
 					"*",

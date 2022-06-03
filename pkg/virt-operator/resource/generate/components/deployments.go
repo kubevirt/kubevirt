@@ -363,6 +363,8 @@ func NewControllerDeployment(namespace string, repository string, imagePrefix st
 	container.Args = []string{
 		"--launcher-image",
 		fmt.Sprintf("%s/%s%s%s", repository, imagePrefix, "virt-launcher", launcherVersion),
+		"--exporter-image",
+		"ghcr.io/mhenriks/virt-exportserver@sha256:a26c053a80dbf4cfc35e7ed15d0d45c0c06a54d8ad9a49a2832b317c6ef30067",
 		portName,
 		"8443",
 		"-v",
@@ -406,6 +408,7 @@ func NewControllerDeployment(namespace string, repository string, imagePrefix st
 	}
 
 	attachCertificateSecret(pod, VirtControllerCertSecretName, "/etc/virt-controller/certificates")
+	attachCertificateSecret(pod, KubeVirtExportCASecretName, "/etc/virt-controller/exportca")
 	attachProfileVolume(pod)
 
 	container.Resources = corev1.ResourceRequirements{

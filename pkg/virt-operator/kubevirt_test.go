@@ -85,8 +85,8 @@ const (
 
 	NAMESPACE = "kubevirt-test"
 
-	resourceCount = 59
-	patchCount    = 40
+	resourceCount = 62
+	patchCount    = 43
 	updateCount   = 20
 )
 
@@ -1148,6 +1148,7 @@ func (k *KubeVirtTestData) addAllWithExclusionMap(config *util.KubeVirtDeploymen
 		components.NewVirtualMachineInstanceCrd, components.NewPresetCrd, components.NewReplicaSetCrd,
 		components.NewVirtualMachineCrd, components.NewVirtualMachineInstanceMigrationCrd,
 		components.NewVirtualMachineSnapshotCrd, components.NewVirtualMachineSnapshotContentCrd,
+		components.NewVirtualMachineExportCrd,
 		components.NewVirtualMachineRestoreCrd, components.NewVirtualMachineFlavorCrd,
 		components.NewVirtualMachineClusterFlavorCrd, components.NewVirtualMachinePoolCrd,
 		components.NewMigrationPolicyCrd, components.NewVirtualMachinePreferenceCrd,
@@ -1182,15 +1183,44 @@ func (k *KubeVirtTestData) addAllWithExclusionMap(config *util.KubeVirtDeploymen
 	all = append(all, components.NewServiceMonitorCR(NAMESPACE, config.GetPotentialMonitorNamespaces()[0], true))
 
 	// ca certificate
-	caSecret := components.NewCACertSecret(NAMESPACE)
+	caSecrets := components.NewCACertSecrets(NAMESPACE)
+	var caSecret *k8sv1.Secret
+	var caExportSecret *k8sv1.Secret
+	for _, ca := range caSecrets {
+		if ca.Name == components.KubeVirtCASecretName {
+			caSecret = ca
+		}
+		if ca.Name == components.KubeVirtExportCASecretName {
+			caExportSecret = ca
+		}
+	}
 	components.PopulateSecretWithCertificate(caSecret, nil, &metav1.Duration{Duration: apply.Duration7d})
 	caCert, _ := components.LoadCertificates(caSecret)
 	caBundle := cert.EncodeCertPEM(caCert.Leaf)
 	all = append(all, caSecret)
 
-	caConfigMap := components.NewKubeVirtCAConfigMap(NAMESPACE)
+	caExportDuration := metav1.Duration{Duration: time.Hour * 24 * 7} // 7 Days
+	components.PopulateSecretWithCertificate(caExportSecret, nil, &caExportDuration)
+	caExportCert, _ := components.LoadCertificates(caExportSecret)
+	caExportBundle := cert.EncodeCertPEM(caExportCert.Leaf)
+	all = append(all, caExportSecret)
+
+	configMaps := components.NewCAConfigMaps(NAMESPACE)
+	var caConfigMap *k8sv1.ConfigMap
+	var caExportConfigMap *k8sv1.ConfigMap
+	for _, cm := range configMaps {
+		if cm.Name == components.KubeVirtCASecretName {
+			caConfigMap = cm
+		}
+		if cm.Name == components.KubeVirtExportCASecretName {
+			caExportConfigMap = cm
+		}
+	}
+
 	caConfigMap.Data = map[string]string{components.CABundleKey: string(caBundle)}
 	all = append(all, caConfigMap)
+	caExportConfigMap.Data = map[string]string{components.CABundleKey: string(caExportBundle)}
+	all = append(all, caExportConfigMap)
 
 	// webhooks and apiservice
 	validatingWebhook := components.NewVirtAPIValidatingWebhookConfiguration(config.GetNamespace())
@@ -1312,7 +1342,7 @@ func (k *KubeVirtTestData) shouldExpectInstallStrategyDeletion() {
 
 		deleted, ok := action.(testing.DeleteAction)
 		Expect(ok).To(BeTrue())
-		if deleted.GetName() == "kubevirt-ca" {
+		if deleted.GetName() == components.KubeVirtCASecretName || deleted.GetName() == components.KubeVirtExportCASecretName {
 			return false, nil, nil
 		}
 		var key string
@@ -2231,7 +2261,7 @@ var _ = Describe("KubeVirt Operator", func() {
 			Expect(kvTestData.controller.stores.ClusterRoleBindingCache.List()).To(HaveLen(5))
 			Expect(kvTestData.controller.stores.RoleCache.List()).To(HaveLen(3))
 			Expect(kvTestData.controller.stores.RoleBindingCache.List()).To(HaveLen(3))
-			Expect(kvTestData.controller.stores.CrdCache.List()).To(HaveLen(14))
+			Expect(kvTestData.controller.stores.CrdCache.List()).To(HaveLen(15))
 			Expect(kvTestData.controller.stores.ServiceCache.List()).To(HaveLen(3))
 			Expect(kvTestData.controller.stores.DeploymentCache.List()).To(HaveLen(1))
 			Expect(kvTestData.controller.stores.DaemonSetCache.List()).To(BeEmpty())

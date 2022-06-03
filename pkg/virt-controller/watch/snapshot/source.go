@@ -33,6 +33,7 @@ import (
 	snapshotv1 "kubevirt.io/api/snapshot/v1alpha1"
 	"kubevirt.io/client-go/log"
 	"kubevirt.io/kubevirt/pkg/controller"
+	watchutil "kubevirt.io/kubevirt/pkg/virt-controller/watch/util"
 	launcherapi "kubevirt.io/kubevirt/pkg/virt-launcher/virtwrap/api"
 )
 
@@ -82,7 +83,7 @@ func (s *vmSnapshotSource) Lock() (bool, error) {
 
 	if !vmOnline {
 		pvcNames := s.pvcNames()
-		pods, err := podsUsingPVCs(s.controller.PodInformer, s.vm.Namespace, pvcNames)
+		pods, err := watchutil.PodsUsingPVCs(s.controller.PodInformer, s.vm.Namespace, pvcNames)
 		if err != nil {
 			return false, err
 		}

@@ -5,6 +5,7 @@ go_library(
     srcs = [
         "datavolume.go",
         "events.go",
+        "export.go",
         "framework.go",
         "guestfs.go",
         "hotplug.go",
@@ -24,6 +25,7 @@ go_library(
         "//pkg/virtctl/vm:go_default_library",
         "//staging/src/kubevirt.io/api/core:go_default_library",
         "//staging/src/kubevirt.io/api/core/v1:go_default_library",
+        "//staging/src/kubevirt.io/api/export/v1alpha1:go_default_library",
         "//staging/src/kubevirt.io/api/snapshot/v1alpha1:go_default_library",
         "//staging/src/kubevirt.io/client-go/kubecli:go_default_library",
         "//staging/src/kubevirt.io/client-go/log:go_default_library",

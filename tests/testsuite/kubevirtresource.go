@@ -93,6 +93,7 @@ func AdjustKubeVirtResource() {
 		virtconfig.MacvtapGate,
 		virtconfig.ExpandDisksGate,
 		virtconfig.WorkloadEncryptionSEV,
+		virtconfig.VMExportGate,
 	)
 	kv.Spec.Configuration.SELinuxLauncherType = "virt_launcher.process"
 

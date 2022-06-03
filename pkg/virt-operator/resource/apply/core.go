@@ -305,8 +305,8 @@ func (r *Reconciler) createOrUpdateCertificateSecrets(queue workqueue.RateLimiti
 
 	for _, secret := range r.targetStrategy.CertificateSecrets() {
 
-		// The CA certificate needs to be handled separately and before other secrets
-		if secret.Name == components.KubeVirtCASecretName {
+		// The CA certificate needs to be handled separately and before other secrets, and ignore export CA
+		if secret.Name == components.KubeVirtCASecretName || secret.Name == components.KubeVirtExportCASecretName {
 			continue
 		}
 
@@ -320,18 +320,32 @@ func (r *Reconciler) createOrUpdateCertificateSecrets(queue workqueue.RateLimiti
 
 func (r *Reconciler) createOrUpdateComponentsWithCertificates(queue workqueue.RateLimitingInterface) error {
 	caDuration := GetCADuration(r.kv.Spec.CertificateRotationStrategy.SelfSigned)
+	caExportDuration := metav1.Duration{Duration: time.Hour * 24 * 7} // 7 days
 	caRenewBefore := GetCARenewBefore(r.kv.Spec.CertificateRotationStrategy.SelfSigned)
 	certDuration := GetCertDuration(r.kv.Spec.CertificateRotationStrategy.SelfSigned)
 	certRenewBefore := GetCertRenewBefore(r.kv.Spec.CertificateRotationStrategy.SelfSigned)
+	caExportRenewBefore := metav1.Duration{Duration: time.Hour * 24 * 5} // 5 days
 
 	// create/update CA Certificate secret
-	caCert, err := r.createOrUpdateCACertificateSecret(queue, caDuration, caRenewBefore)
+	caCert, err := r.createOrUpdateCACertificateSecret(queue, components.KubeVirtCASecretName, caDuration, caRenewBefore)
+	if err != nil {
+		return err
+	}
+
+	// create/update CA Certificate secret
+	caExportCert, err := r.createOrUpdateCACertificateSecret(queue, components.KubeVirtExportCASecretName, &caExportDuration, &caExportRenewBefore)
 	if err != nil {
 		return err
 	}
 
 	// create/update CA config map
-	caBundle, err := r.createOrUpdateKubeVirtCAConfigMap(queue, caCert, caRenewBefore, findRequiredCAConfigMap(r.targetStrategy.ConfigMaps()))
+	caBundle, err := r.createOrUpdateKubeVirtCAConfigMap(queue, caCert, caRenewBefore, findRequiredCAConfigMap(components.KubeVirtCASecretName, r.targetStrategy.ConfigMaps()))
+	if err != nil {
+		return err
+	}
+
+	// create/update export CA config map
+	_, err = r.createOrUpdateKubeVirtCAConfigMap(queue, caExportCert, &caExportRenewBefore, findRequiredCAConfigMap(components.KubeVirtExportCASecretName, r.targetStrategy.ConfigMaps()))
 	if err != nil {
 		return err
 	}
@@ -359,6 +373,7 @@ func (r *Reconciler) createOrUpdateComponentsWithCertificates(queue workqueue.Ra
 	if err != nil {
 		return err
 	}
+
 	return nil
 }
 
@@ -521,9 +536,9 @@ func (r *Reconciler) createOrUpdateRbac() error {
 	return nil
 }
 
-func findRequiredCAConfigMap(configmaps []*corev1.ConfigMap) *corev1.ConfigMap {
+func findRequiredCAConfigMap(name string, configmaps []*corev1.ConfigMap) *corev1.ConfigMap {
 	for _, cm := range configmaps {
-		if cm.Name != components.KubeVirtCASecretName {
+		if cm.Name != name {
 			continue
 		}
 
@@ -635,16 +650,17 @@ func createConfigMapPatch(configMap *corev1.ConfigMap) ([]string, error) {
 	return ops, nil
 }
 
-func (r *Reconciler) createOrUpdateCACertificateSecret(queue workqueue.RateLimitingInterface, duration *metav1.Duration, renewBefore *metav1.Duration) (caCert *tls.Certificate, err error) {
-
+func (r *Reconciler) createOrUpdateCACertificateSecret(queue workqueue.RateLimitingInterface, name string, duration *metav1.Duration, renewBefore *metav1.Duration) (caCert *tls.Certificate, err error) {
 	for _, secret := range r.targetStrategy.CertificateSecrets() {
-		// Only work on the ca secret
-		if secret.Name != components.KubeVirtCASecretName {
+		// Only work on the ca secrets
+		if secret.Name != name {
 			continue
 		}
-
-		return r.createOrUpdateCertificateSecret(queue, nil, secret, duration, renewBefore, nil)
+		cert, err := r.createOrUpdateCertificateSecret(queue, nil, secret, duration, renewBefore, nil)
+		if err != nil {
+			return nil, err
+		}
+		caCert = cert
 	}
-
-	return nil, nil
+	return caCert, nil
 }

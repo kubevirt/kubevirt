@@ -484,6 +484,7 @@ spec:
           - pods
           - configmaps
           - endpoints
+          - services
           verbs:
           - get
           - list
@@ -499,6 +500,12 @@ spec:
           - update
           - create
           - patch
+        - apiGroups:
+          - ""
+          resources:
+          - secrets
+          verbs:
+          - create
         - apiGroups:
           - ""
           resources:
@@ -556,6 +563,12 @@ spec:
           - patch
         - apiGroups:
           - snapshot.kubevirt.io
+          resources:
+          - '*'
+          verbs:
+          - '*'
+        - apiGroups:
+          - export.kubevirt.io
           resources:
           - '*'
           verbs:

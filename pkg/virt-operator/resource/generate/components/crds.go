@@ -37,6 +37,7 @@ import (
 	k8syaml "k8s.io/apimachinery/pkg/util/yaml"
 
 	virtv1 "kubevirt.io/api/core/v1"
+	exportv1 "kubevirt.io/api/export/v1alpha1"
 	flavorv1alpha1 "kubevirt.io/api/flavor/v1alpha1"
 	poolv1 "kubevirt.io/api/pool/v1alpha1"
 	snapshotv1 "kubevirt.io/api/snapshot/v1alpha1"
@@ -59,6 +60,7 @@ var (
 	VIRTUALMACHINEPOOL               = "virtualmachinepools." + poolv1.SchemeGroupVersion.Group
 	VIRTUALMACHINESNAPSHOT           = "virtualmachinesnapshots." + snapshotv1.SchemeGroupVersion.Group
 	VIRTUALMACHINESNAPSHOTCONTENT    = "virtualmachinesnapshotcontents." + snapshotv1.SchemeGroupVersion.Group
+	VIRTUALMACHINEEXPORT             = "virtualmachineexports." + exportv1.SchemeGroupVersion.Group
 	MIGRATIONPOLICY                  = "migrationpolicies." + migrationsv1.MigrationPolicyKind.Group
 )
 
@@ -511,6 +513,45 @@ func NewVirtualMachineRestoreCrd() (*extv1.CustomResourceDefinition, error) {
 		{Name: "Complete", Type: "boolean", JSONPath: ".status.complete"},
 		{Name: "RestoreTime", Type: "date", JSONPath: ".status.restoreTime"},
 		{Name: "Error", Type: "string", JSONPath: errorMessageJSONPath},
+	})
+	if err != nil {
+		return nil, err
+	}
+
+	if err = patchValidationForAllVersions(crd); err != nil {
+		return nil, err
+	}
+	return crd, nil
+}
+
+func NewVirtualMachineExportCrd() (*extv1.CustomResourceDefinition, error) {
+	crd := newBlankCrd()
+
+	crd.ObjectMeta.Name = "virtualmachineexports." + exportv1.SchemeGroupVersion.Group
+	crd.Spec = extv1.CustomResourceDefinitionSpec{
+		Group: exportv1.SchemeGroupVersion.Group,
+		Versions: []extv1.CustomResourceDefinitionVersion{
+			{
+				Name:    exportv1.SchemeGroupVersion.Version,
+				Served:  true,
+				Storage: true,
+			},
+		},
+		Scope: "Namespaced",
+		Names: extv1.CustomResourceDefinitionNames{
+			Plural:     "virtualmachineexports",
+			Singular:   "virtualmachineexport",
+			Kind:       "VirtualMachineExport",
+			ShortNames: []string{"vmexport", "vmexports"},
+			Categories: []string{
+				"all",
+			},
+		},
+	}
+	err := addFieldsToAllVersions(crd, []extv1.CustomResourceColumnDefinition{
+		{Name: "SourceKind", Type: "string", JSONPath: ".spec.source.kind"},
+		{Name: "SourceName", Type: "string", JSONPath: ".spec.source.name"},
+		{Name: "Phase", Type: "string", JSONPath: phaseJSONPath},
 	})
 	if err != nil {
 		return nil, err

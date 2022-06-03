@@ -46,6 +46,7 @@ import (
 	io_prometheus_client "github.com/prometheus/client_model/go"
 
 	v1 "kubevirt.io/api/core/v1"
+	exportv1 "kubevirt.io/api/export/v1alpha1"
 	snapshotv1 "kubevirt.io/api/snapshot/v1alpha1"
 	"kubevirt.io/client-go/kubecli"
 	cdiv1 "kubevirt.io/containerized-data-importer-api/pkg/apis/core/v1beta1"
@@ -55,6 +56,7 @@ import (
 	"kubevirt.io/kubevirt/pkg/virt-controller/services"
 	"kubevirt.io/kubevirt/pkg/virt-controller/watch/drain/disruptionbudget"
 	"kubevirt.io/kubevirt/pkg/virt-controller/watch/drain/evacuation"
+	"kubevirt.io/kubevirt/pkg/virt-controller/watch/export"
 	"kubevirt.io/kubevirt/pkg/virt-controller/watch/snapshot"
 
 	storagev1 "k8s.io/api/storage/v1"
@@ -100,8 +102,11 @@ var _ = Describe("Application", func() {
 		storageClassInformer, _ := testutils.NewFakeInformerFor(&storagev1.StorageClass{})
 		crdInformer, _ := testutils.NewFakeInformerFor(&extv1.CustomResourceDefinition{})
 		vmRestoreInformer, _ := testutils.NewFakeInformerFor(&snapshotv1.VirtualMachineRestore{})
+		vmExportInformer, _ := testutils.NewFakeInformerFor(&exportv1.VirtualMachineExport{})
+		configMapInformer, _ := testutils.NewFakeInformerFor(&kubev1.ConfigMap{})
 		dvInformer, _ := testutils.NewFakeInformerFor(&cdiv1.DataVolume{})
 		flavorMethods := testutils.NewMockFlavorMethods()
+		exportServiceInformer, _ := testutils.NewFakeInformerFor(&k8sv1.Service{})
 
 		var qemuGid int64 = 107
 
@@ -111,7 +116,7 @@ var _ = Describe("Application", func() {
 		app.evacuationController = evacuation.NewEvacuationController(vmiInformer, migrationInformer, nodeInformer, podInformer, recorder, virtClient, config)
 		app.disruptionBudgetController = disruptionbudget.NewDisruptionBudgetController(vmiInformer, pdbInformer, podInformer, migrationInformer, recorder, virtClient, config)
 		app.nodeController = NewNodeController(virtClient, nodeInformer, vmiInformer, recorder)
-		app.vmiController = NewVMIController(services.NewTemplateService("a", 240, "b", "c", "d", "e", "f", "g", pvcInformer.GetStore(), virtClient, config, qemuGid),
+		app.vmiController = NewVMIController(services.NewTemplateService("a", 240, "b", "c", "d", "e", "f", "g", pvcInformer.GetStore(), virtClient, config, qemuGid, "h"),
 			vmiInformer,
 			vmInformer,
 			podInformer,
@@ -133,7 +138,7 @@ var _ = Describe("Application", func() {
 			flavorMethods,
 			recorder,
 			virtClient)
-		app.migrationController = NewMigrationController(services.NewTemplateService("a", 240, "b", "c", "d", "e", "f", "g", pvcInformer.GetStore(), virtClient, config, qemuGid),
+		app.migrationController = NewMigrationController(services.NewTemplateService("a", 240, "b", "c", "d", "e", "f", "g", pvcInformer.GetStore(), virtClient, config, qemuGid, "h"),
 			vmiInformer,
 			podInformer,
 			migrationInformer,
@@ -173,6 +178,18 @@ var _ = Describe("Application", func() {
 			Recorder:                  recorder,
 		}
 		app.restoreController.Init()
+		app.exportController = &export.VMExportController{
+			Client:             virtClient,
+			TemplateService:    services.NewTemplateService("a", 240, "b", "c", "d", "e", "f", "g", pvcInformer.GetStore(), virtClient, config, qemuGid, "h"),
+			VMExportInformer:   vmExportInformer,
+			PVCInformer:        pvcInformer,
+			PodInformer:        podInformer,
+			DataVolumeInformer: dataVolumeInformer,
+			ServiceInformer:    exportServiceInformer,
+			ConfigMapInformer:  configMapInformer,
+			Recorder:           recorder,
+		}
+		app.exportController.Init()
 		app.persistentVolumeClaimInformer = pvcInformer
 		app.nodeInformer = nodeInformer
 
