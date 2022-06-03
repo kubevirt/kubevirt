@@ -6,10 +6,10 @@ import (
 	"flag"
 	"fmt"
 	"net/http"
-	"strings"
 	"time"
 
 	openshiftroutev1 "github.com/openshift/api/route/v1"
+	authenticationv1 "k8s.io/api/authentication/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 
 	kvtutil "kubevirt.io/kubevirt/tests/util"
@@ -140,24 +140,21 @@ func initializePromClient(prometheusUrl string, token string) promApiv1.API {
 func getAuthorizationTokenForPrometheus(cli kubecli.KubevirtClient) string {
 	var token string
 	Eventually(func() bool {
-		var secretName string
-		sa, err := cli.CoreV1().ServiceAccounts("openshift-monitoring").Get(context.TODO(), "prometheus-k8s", metav1.GetOptions{})
+		treq, err := cli.CoreV1().ServiceAccounts("openshift-monitoring").CreateToken(
+			context.TODO(),
+			"prometheus-k8s",
+			&authenticationv1.TokenRequest{
+				Spec: authenticationv1.TokenRequestSpec{
+					// Avoid specifying any audiences so that the token will be
+					// issued for the default audience of the issuer.
+				},
+			},
+			metav1.CreateOptions{},
+		)
 		if err != nil {
 			return false
 		}
-		for _, secret := range sa.Secrets {
-			if strings.HasPrefix(secret.Name, "prometheus-k8s-token") {
-				secretName = secret.Name
-			}
-		}
-		secret, err := cli.CoreV1().Secrets("openshift-monitoring").Get(context.TODO(), secretName, metav1.GetOptions{})
-		if err != nil {
-			return false
-		}
-		if _, ok := secret.Data["token"]; !ok {
-			return false
-		}
-		token = string(secret.Data["token"])
+		token = treq.Status.Token
 		return true
 	}, 10*time.Second, time.Second).Should(BeTrue())
 	return token

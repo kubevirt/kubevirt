@@ -1,6 +1,6 @@
 FROM quay.io/fedora/fedora:33-x86_64 AS builder
-ARG INITIAL_VERSION=1.7.0
-ARG INITIAL_VERSION_SED="1\.7\.0"
+ARG INITIAL_VERSION=1.8.0
+ARG INITIAL_VERSION_SED="1\.8\.0"
 ARG TARGET_VERSION=100.0.0
 ARG PACKAGE_NAME=community-kubevirt-hyperconverged
 ARG CSV_FILE=/manifests/kubevirt-hyperconverged-operator.v${TARGET_VERSION}.clusterserviceversion.yaml
