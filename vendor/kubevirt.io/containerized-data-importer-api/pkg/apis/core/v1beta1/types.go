@@ -654,13 +654,13 @@ type CDICloneStrategy string
 
 const (
 	// CloneStrategyHostAssisted specifies slower, host-assisted copy
-	CloneStrategyHostAssisted = "copy"
+	CloneStrategyHostAssisted CDICloneStrategy = "copy"
 
 	// CloneStrategySnapshot specifies snapshot-based copying
-	CloneStrategySnapshot = "snapshot"
+	CloneStrategySnapshot CDICloneStrategy = "snapshot"
 
 	// CloneStrategyCsiClone specifies csi volume clone based cloning
-	CloneStrategyCsiClone = "csi-clone"
+	CloneStrategyCsiClone CDICloneStrategy = "csi-clone"
 )
 
 // CDIUninstallStrategy defines the state to leave CDI on uninstall
@@ -742,6 +742,9 @@ type CDIConfigSpec struct {
 	Preallocation *bool `json:"preallocation,omitempty"`
 	// InsecureRegistries is a list of TLS disabled registries
 	InsecureRegistries []string `json:"insecureRegistries,omitempty"`
+	// dataVolumeTTLSeconds is the time in seconds after DataVolume completion it can be garbage collected.
+	// +optional
+	DataVolumeTTLSeconds *int32 `json:"dataVolumeTTLSeconds,omitempty"`
 }
 
 //CDIConfigStatus provides the most recently observed status of the CDI Config resource

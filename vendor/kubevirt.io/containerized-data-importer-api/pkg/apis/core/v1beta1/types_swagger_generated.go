@@ -362,6 +362,7 @@ func (CDIConfigSpec) SwaggerDoc() map[string]string {
 		"filesystemOverhead":       "FilesystemOverhead describes the space reserved for overhead when using Filesystem volumes. A value is between 0 and 1, if not defined it is 0.055 (5.5% overhead)",
 		"preallocation":            "Preallocation controls whether storage for DataVolumes should be allocated in advance.",
 		"insecureRegistries":       "InsecureRegistries is a list of TLS disabled registries",
+		"dataVolumeTTLSeconds":     "dataVolumeTTLSeconds is the time in seconds after DataVolume completion it can be garbage collected.\n+optional",
 	}
 }
 

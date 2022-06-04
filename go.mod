@@ -30,7 +30,7 @@ require (
 	k8s.io/kube-openapi v0.0.0-20220124234850-424119656bbf
 	k8s.io/utils v0.0.0-20220210201930-3a6ce19ff2f9
 	kubevirt.io/api v0.54.0-rc.0
-	kubevirt.io/containerized-data-importer-api v1.49.0
+	kubevirt.io/containerized-data-importer-api v1.50.0
 	// Remove this once SSP will also consume v0.2.4
 	kubevirt.io/controller-lifecycle-operator-sdk v0.2.3 // indirect
 	kubevirt.io/controller-lifecycle-operator-sdk/api v0.2.4
