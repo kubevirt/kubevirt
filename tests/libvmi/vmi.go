@@ -35,8 +35,8 @@ type Option func(vmi *kvirtv1.VirtualMachineInstance)
 
 // New instantiates a new VMI configuration,
 // building its properties based on the specified With* options.
-func New(name string, opts ...Option) *kvirtv1.VirtualMachineInstance {
-	vmi := baseVmi(name)
+func New(opts ...Option) *kvirtv1.VirtualMachineInstance {
+	vmi := baseVmi(randName())
 
 	WithTerminationGracePeriod(0)(vmi)
 	for _, f := range opts {
@@ -46,8 +46,8 @@ func New(name string, opts ...Option) *kvirtv1.VirtualMachineInstance {
 	return vmi
 }
 
-// RandName returns a random name for a virtual machine
-func RandName() string {
+// randName returns a random name for a virtual machine
+func randName() string {
 	return "testvmi" + "-" + rand.String(5)
 }
 

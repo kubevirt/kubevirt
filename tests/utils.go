@@ -999,7 +999,6 @@ func NewRandomVMIWithNS(namespace string) *v1.VirtualMachineInstance {
 	// To avoid mac address issue in the tests change the pod interface binding to masquerade
 	// https://github.com/kubevirt/kubevirt/issues/1494
 	vmi := libvmi.New(
-		libvmi.RandName(),
 		libvmi.WithInterface(libvmi.InterfaceDeviceWithMasqueradeBinding()),
 		libvmi.WithNetwork(v1.DefaultPodNetwork()),
 	)
