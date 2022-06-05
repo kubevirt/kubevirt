@@ -996,24 +996,16 @@ func NewRandomVMI() *v1.VirtualMachineInstance {
 }
 
 func NewRandomVMIWithNS(namespace string) *v1.VirtualMachineInstance {
-	vmi := v1.NewVMIReferenceFromNameWithNS(namespace, libvmi.RandName())
-	vmi.Spec = v1.VirtualMachineInstanceSpec{Domain: v1.DomainSpec{}}
-	vmi.Spec.Domain.Resources.Requests = k8sv1.ResourceList{}
-	vmi.TypeMeta = metav1.TypeMeta{
-		APIVersion: v1.GroupVersion.String(),
-		Kind:       "VirtualMachineInstance",
-	}
-
-	t := defaultTestGracePeriod
-	vmi.Spec.TerminationGracePeriodSeconds = &t
-
 	// To avoid mac address issue in the tests change the pod interface binding to masquerade
 	// https://github.com/kubevirt/kubevirt/issues/1494
-	vmi.Spec.Domain.Devices = v1.Devices{Interfaces: []v1.Interface{{Name: "default",
-		InterfaceBindingMethod: v1.InterfaceBindingMethod{
-			Masquerade: &v1.InterfaceMasquerade{}}}}}
+	vmi := libvmi.New(
+		libvmi.RandName(),
+		libvmi.WithInterface(libvmi.InterfaceDeviceWithMasqueradeBinding()),
+		libvmi.WithNetwork(v1.DefaultPodNetwork()),
+	)
+	vmi.ObjectMeta.Namespace = namespace
+	vmi.Spec.Domain.Resources.Requests = k8sv1.ResourceList{}
 
-	vmi.Spec.Networks = []v1.Network{*v1.DefaultPodNetwork()}
 	if checks.IsARM64(testsuite.Arch) {
 		// Cirros image need 256M to boot on ARM64,
 		// this issue is traced in https://github.com/kubevirt/kubevirt/issues/6363
