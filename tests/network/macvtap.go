@@ -187,10 +187,10 @@ var _ = SIGDescribe("Macvtap", decorators.Macvtap, func() {
 		It("should be successful when the VMI MAC address is defined in its spec", func() {
 			By("starting the migration")
 			migration := tests.NewRandomMigration(clientVMI.Name, clientVMI.Namespace)
-			migrationUID := tests.RunMigrationAndExpectCompletion(virtClient, migration, tests.MigrationWaitTime)
+			migration = tests.RunMigrationAndExpectCompletion(virtClient, migration, tests.MigrationWaitTime)
 
 			// check VMI, confirm migration state
-			tests.ConfirmVMIPostMigration(virtClient, clientVMI, migrationUID)
+			tests.ConfirmVMIPostMigration(virtClient, clientVMI, migration)
 		})
 
 		Context("with live traffic", func() {

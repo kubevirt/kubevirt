@@ -620,10 +620,10 @@ var _ = Describe("[Serial][sig-monitoring]Prometheus Alerts", Serial, decorators
 			By("Migrating the VMI 13 times")
 			for i := 0; i < 13; i++ {
 				migration := tests.NewRandomMigration(vmi.Name, vmi.Namespace)
-				migrationUID := tests.RunMigrationAndExpectCompletion(virtClient, migration, tests.MigrationWaitTime)
+				migration = tests.RunMigrationAndExpectCompletion(virtClient, migration, tests.MigrationWaitTime)
 
 				// check VMI, confirm migration state
-				tests.ConfirmVMIPostMigration(virtClient, vmi, migrationUID)
+				tests.ConfirmVMIPostMigration(virtClient, vmi, migration)
 			}
 
 			By("Verifying KubeVirtVMIExcessiveMigration alert exists")

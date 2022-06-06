@@ -668,10 +668,9 @@ var _ = Describe("[rfe_id:393][crit:high][vendor:cnv-qe@redhat.com][level:system
 			// execute a migration, wait for finalized state
 			By("Starting the Migration for iteration")
 			migration := tests.NewRandomMigration(vmi.Name, vmi.Namespace)
-			migrationUID := tests.RunMigrationAndExpectCompletion(virtClient, migration, tests.MigrationWaitTime)
-
+			migration = tests.RunMigrationAndExpectCompletion(virtClient, migration, tests.MigrationWaitTime)
 			By("Checking VMI, confirm migration state")
-			tests.ConfirmVMIPostMigration(virtClient, vmi, migrationUID)
+			tests.ConfirmVMIPostMigration(virtClient, vmi, migration)
 			confirmMigrationMode(vmi, mode)
 
 			By("Is agent connected after migration")
@@ -744,10 +743,10 @@ var _ = Describe("[rfe_id:393][crit:high][vendor:cnv-qe@redhat.com][level:system
 
 					By("starting the migration")
 					migration := tests.NewRandomMigration(vmi.Name, vmi.Namespace)
-					migrationUID := tests.RunMigrationAndExpectCompletion(virtClient, migration, tests.MigrationWaitTime)
+					migration = tests.RunMigrationAndExpectCompletion(virtClient, migration, tests.MigrationWaitTime)
 
 					// check VMI, confirm migration state
-					tests.ConfirmVMIPostMigration(virtClient, vmi, migrationUID)
+					tests.ConfirmVMIPostMigration(virtClient, vmi, migration)
 
 					vmi, err := virtClient.VirtualMachineInstance(vmi.Namespace).Get(context.Background(), vmi.Name, &metav1.GetOptions{})
 					Expect(err).ToNot(HaveOccurred())
@@ -791,10 +790,10 @@ var _ = Describe("[rfe_id:393][crit:high][vendor:cnv-qe@redhat.com][level:system
 
 				By("starting the migration")
 				migration := tests.NewRandomMigration(vmi.Name, vmi.Namespace)
-				migrationUID := tests.RunMigrationAndExpectCompletion(virtClient, migration, tests.MigrationWaitTime)
+				migration = tests.RunMigrationAndExpectCompletion(virtClient, migration, tests.MigrationWaitTime)
 
 				// check VMI, confirm migration state
-				tests.ConfirmVMIPostMigration(virtClient, vmi, migrationUID)
+				tests.ConfirmVMIPostMigration(virtClient, vmi, migration)
 
 				// delete VMI
 				By("Deleting the VMI")
@@ -817,10 +816,10 @@ var _ = Describe("[rfe_id:393][crit:high][vendor:cnv-qe@redhat.com][level:system
 
 				By("starting the migration")
 				migration := tests.NewRandomMigration(vmi.Name, vmi.Namespace)
-				migrationUID := tests.RunMigrationAndExpectCompletion(virtClient, migration, tests.MigrationWaitTime)
+				migration = tests.RunMigrationAndExpectCompletion(virtClient, migration, tests.MigrationWaitTime)
 
 				// check VMI, confirm migration state
-				tests.ConfirmVMIPostMigration(virtClient, vmi, migrationUID)
+				tests.ConfirmVMIPostMigration(virtClient, vmi, migration)
 
 				runningVMISpec, err := tests.GetRunningVMIDomainSpec(vmi)
 				Expect(err).ToNot(HaveOccurred())
@@ -854,10 +853,10 @@ var _ = Describe("[rfe_id:393][crit:high][vendor:cnv-qe@redhat.com][level:system
 				// execute a migration, wait for finalized state
 				By("starting the migration")
 				migration := tests.NewRandomMigration(vmi.Name, vmi.Namespace)
-				migrationUID := tests.RunMigrationAndExpectCompletion(virtClient, migration, tests.MigrationWaitTime)
+				migration = tests.RunMigrationAndExpectCompletion(virtClient, migration, tests.MigrationWaitTime)
 
 				// check VMI, confirm migration state
-				tests.ConfirmVMIPostMigration(virtClient, vmi, migrationUID)
+				tests.ConfirmVMIPostMigration(virtClient, vmi, migration)
 			})
 
 			It("should migrate vmi and use Live Migration method with read-only disks", func() {
@@ -874,10 +873,10 @@ var _ = Describe("[rfe_id:393][crit:high][vendor:cnv-qe@redhat.com][level:system
 				// execute a migration, wait for finalized state
 				By("starting the migration")
 				migration := tests.NewRandomMigration(vmi.Name, vmi.Namespace)
-				migrationUID := tests.RunMigrationAndExpectCompletion(virtClient, migration, tests.MigrationWaitTime)
+				migration = tests.RunMigrationAndExpectCompletion(virtClient, migration, tests.MigrationWaitTime)
 
 				// check VMI, confirm migration state
-				tests.ConfirmVMIPostMigration(virtClient, vmi, migrationUID)
+				tests.ConfirmVMIPostMigration(virtClient, vmi, migration)
 
 				By("Ensuring migration is using Live Migration method")
 				Eventually(func() v1.VirtualMachineInstanceMigrationMethod {
@@ -898,9 +897,9 @@ var _ = Describe("[rfe_id:393][crit:high][vendor:cnv-qe@redhat.com][level:system
 
 				By("starting the migration")
 				migration := tests.NewRandomMigration(vmi.Name, vmi.Namespace)
-				migrationUID := tests.RunMigrationAndExpectCompletion(virtClient, migration, tests.MigrationWaitTime)
+				migration = tests.RunMigrationAndExpectCompletion(virtClient, migration, tests.MigrationWaitTime)
 
-				tests.ConfirmVMIPostMigration(virtClient, vmi, migrationUID)
+				tests.ConfirmVMIPostMigration(virtClient, vmi, migration)
 
 				By("checking if the metrics are still updated after the migration")
 				Eventually(func() error {
@@ -952,9 +951,9 @@ var _ = Describe("[rfe_id:393][crit:high][vendor:cnv-qe@redhat.com][level:system
 
 				By("starting the migration")
 				migration := tests.NewRandomMigration(vmi.Name, vmi.Namespace)
-				migrationUID := tests.RunMigrationAndExpectCompletion(virtClient, migration, tests.MigrationWaitTime)
+				migration = tests.RunMigrationAndExpectCompletion(virtClient, migration, tests.MigrationWaitTime)
 
-				tests.ConfirmVMIPostMigration(virtClient, vmi, migrationUID)
+				tests.ConfirmVMIPostMigration(virtClient, vmi, migration)
 
 				By("Checking the TSC frequency on the Domain XML on the new node")
 				domainSpec, err = tests.GetRunningVMIDomainSpec(vmi)
@@ -985,10 +984,10 @@ var _ = Describe("[rfe_id:393][crit:high][vendor:cnv-qe@redhat.com][level:system
 				// execute a migration, wait for finalized state
 				By("starting the migration")
 				migration := tests.NewRandomMigration(vmi.Name, vmi.Namespace)
-				migrationUID := tests.RunMigrationAndExpectCompletion(virtClient, migration, tests.MigrationWaitTime)
+				migration = tests.RunMigrationAndExpectCompletion(virtClient, migration, tests.MigrationWaitTime)
 
 				// check VMI, confirm migration state
-				tests.ConfirmVMIPostMigration(virtClient, vmi, migrationUID)
+				tests.ConfirmVMIPostMigration(virtClient, vmi, migration)
 
 				By("checking that we really migrated a VMI with only the root bus")
 				domSpec, err := tests.GetRunningVMIDomainSpec(vmi)
@@ -1026,10 +1025,10 @@ var _ = Describe("[rfe_id:393][crit:high][vendor:cnv-qe@redhat.com][level:system
 				// execute a migration, wait for finalized state
 				By("starting the migration")
 				migration := tests.NewRandomMigration(vmi.Name, vmi.Namespace)
-				migrationUID := tests.RunMigrationAndExpectCompletion(virtClient, migration, tests.MigrationWaitTime)
+				migration = tests.RunMigrationAndExpectCompletion(virtClient, migration, tests.MigrationWaitTime)
 
 				// check VMI, confirm migration state
-				tests.ConfirmVMIPostMigration(virtClient, vmi, migrationUID)
+				tests.ConfirmVMIPostMigration(virtClient, vmi, migration)
 			})
 
 			It("[test_id:1783]should be successfully migrated multiple times with cloud-init disk", func() {
@@ -1049,10 +1048,11 @@ var _ = Describe("[rfe_id:393][crit:high][vendor:cnv-qe@redhat.com][level:system
 					// execute a migration, wait for finalized state
 					By(fmt.Sprintf("Starting the Migration for iteration %d", i))
 					migration := tests.NewRandomMigration(vmi.Name, vmi.Namespace)
-					migrationUID := tests.RunMigrationAndExpectCompletion(virtClient, migration, tests.MigrationWaitTime)
+					migration = tests.RunMigrationAndExpectCompletion(virtClient, migration, tests.MigrationWaitTime)
 
 					// check VMI, confirm migration state
-					tests.ConfirmVMIPostMigration(virtClient, vmi, migrationUID)
+					tests.ConfirmVMIPostMigration(virtClient, vmi, migration)
+					tests.ConfirmMigrationDataIsStored(virtClient, migration, vmi)
 
 					By("Check if Migrated VMI has updated IP and IPs fields")
 					Eventually(func() error {
@@ -1118,10 +1118,10 @@ var _ = Describe("[rfe_id:393][crit:high][vendor:cnv-qe@redhat.com][level:system
 				// execute a migration, wait for finalized state
 				By(fmt.Sprintf("Starting the Migration"))
 				migration := tests.NewRandomMigration(vmi.Name, vmi.Namespace)
-				migrationUID := tests.RunMigrationAndExpectCompletion(virtClient, migration, tests.MigrationWaitTime)
+				migration = tests.RunMigrationAndExpectCompletion(virtClient, migration, tests.MigrationWaitTime)
 
 				// check VMI, confirm migration state
-				tests.ConfirmVMIPostMigration(virtClient, vmi, migrationUID)
+				tests.ConfirmVMIPostMigration(virtClient, vmi, migration)
 
 				// delete VMI
 				By("Deleting the VMI")
@@ -1146,10 +1146,10 @@ var _ = Describe("[rfe_id:393][crit:high][vendor:cnv-qe@redhat.com][level:system
 				// execute a migration, wait for finalized state
 				By(fmt.Sprintf("Starting the Migration"))
 				migration := tests.NewRandomMigration(vmi.Name, vmi.Namespace)
-				migrationUID := tests.RunMigrationAndExpectCompletion(virtClient, migration, tests.MigrationWaitTime)
+				migration = tests.RunMigrationAndExpectCompletion(virtClient, migration, tests.MigrationWaitTime)
 
 				// check VMI, confirm migration state
-				tests.ConfirmVMIPostMigration(virtClient, vmi, migrationUID)
+				tests.ConfirmVMIPostMigration(virtClient, vmi, migration)
 
 				// ensure the libvirt domain is persistent
 				persistent, err := libvirtDomainIsPersistent(virtClient, vmi)
@@ -1187,10 +1187,10 @@ var _ = Describe("[rfe_id:393][crit:high][vendor:cnv-qe@redhat.com][level:system
 
 				By("starting the migration")
 				migration := tests.NewRandomMigration(vmi.Name, vmi.Namespace)
-				migrationUID := tests.RunMigrationAndExpectCompletion(virtClient, migration, tests.MigrationWaitTime)
+				migration = tests.RunMigrationAndExpectCompletion(virtClient, migration, tests.MigrationWaitTime)
 
 				// check VMI, confirm migration state
-				tests.ConfirmVMIPostMigration(virtClient, vmi, migrationUID)
+				tests.ConfirmVMIPostMigration(virtClient, vmi, migration)
 
 				By("verifying that the vmi is still paused after migration")
 				isPaused, err := tests.LibvirtDomainIsPaused(virtClient, vmi)
@@ -1372,10 +1372,10 @@ var _ = Describe("[rfe_id:393][crit:high][vendor:cnv-qe@redhat.com][level:system
 				// execute a migration, wait for finalized state
 				By("Starting the Migration")
 				migration := tests.NewRandomMigration(vmi.Name, vmi.Namespace)
-				migrationUID := tests.RunMigrationAndExpectCompletion(virtClient, migration, tests.MigrationWaitTime)
+				migration = tests.RunMigrationAndExpectCompletion(virtClient, migration, tests.MigrationWaitTime)
 
 				// check VMI, confirm migration state
-				tests.ConfirmVMIPostMigration(virtClient, vmi, migrationUID)
+				tests.ConfirmVMIPostMigration(virtClient, vmi, migration)
 
 				// delete VMI
 				By("Deleting the VMI")
@@ -1409,10 +1409,10 @@ var _ = Describe("[rfe_id:393][crit:high][vendor:cnv-qe@redhat.com][level:system
 				// execute a migration, wait for finalized state
 				By("Starting the Migration")
 				migration := tests.NewRandomMigration(vmi.Name, vmi.Namespace)
-				migrationUID := tests.RunMigrationAndExpectCompletion(virtClient, migration, tests.MigrationWaitTime)
+				migration = tests.RunMigrationAndExpectCompletion(virtClient, migration, tests.MigrationWaitTime)
 
 				// check VMI, confirm migration state
-				tests.ConfirmVMIPostMigration(virtClient, vmi, migrationUID)
+				tests.ConfirmVMIPostMigration(virtClient, vmi, migration)
 				Eventually(matcher.ThisVMI(vmi), 12*time.Minute, 2*time.Second).Should(matcher.HaveConditionTrue(v1.VirtualMachineInstanceAgentConnected))
 
 				By("Checking that the migrated VirtualMachineInstance has an updated time")
@@ -1497,10 +1497,10 @@ var _ = Describe("[rfe_id:393][crit:high][vendor:cnv-qe@redhat.com][level:system
 
 				By("Starting a Migration")
 				migration := tests.NewRandomMigration(vmi.Name, vmi.Namespace)
-				migrationUID := tests.RunMigrationAndExpectCompletion(virtClient, migration, tests.MigrationWaitTime)
+				migration = tests.RunMigrationAndExpectCompletion(virtClient, migration, tests.MigrationWaitTime)
 
 				// check VMI, confirm migration state
-				tests.ConfirmVMIPostMigration(virtClient, vmi, migrationUID)
+				tests.ConfirmVMIPostMigration(virtClient, vmi, migration)
 
 				// delete VMI
 				By("Deleting the VMI")
@@ -1573,10 +1573,10 @@ var _ = Describe("[rfe_id:393][crit:high][vendor:cnv-qe@redhat.com][level:system
 
 				By("Starting a Migration")
 				migration := tests.NewRandomMigration(vmi.Name, vmi.Namespace)
-				migrationUID := tests.RunMigrationAndExpectCompletion(virtClient, migration, tests.MigrationWaitTime)
+				migration = tests.RunMigrationAndExpectCompletion(virtClient, migration, tests.MigrationWaitTime)
 
 				// check VMI, confirm migration state
-				tests.ConfirmVMIPostMigration(virtClient, vmi, migrationUID)
+				tests.ConfirmVMIPostMigration(virtClient, vmi, migration)
 
 				// delete VMI
 				By("Deleting the VMI")
@@ -1595,10 +1595,10 @@ var _ = Describe("[rfe_id:393][crit:high][vendor:cnv-qe@redhat.com][level:system
 
 				// execute a migration, wait for finalized state
 				migration := tests.NewRandomMigration(vmi.Name, vmi.Namespace)
-				migrationUID := tests.RunMigrationAndExpectCompletion(virtClient, migration, 180)
+				migration = tests.RunMigrationAndExpectCompletion(virtClient, migration, 180)
 
 				// check VMI, confirm migration state
-				tests.ConfirmVMIPostMigration(virtClient, vmi, migrationUID)
+				tests.ConfirmVMIPostMigration(virtClient, vmi, migration)
 
 				// delete VMI
 				By("Deleting the VMI")
@@ -1627,10 +1627,10 @@ var _ = Describe("[rfe_id:393][crit:high][vendor:cnv-qe@redhat.com][level:system
 				// execute a migration, wait for finalized state
 				By("Starting the Migration for iteration")
 				migration := tests.NewRandomMigration(vmi.Name, vmi.Namespace)
-				migrationUID := tests.RunMigrationAndExpectCompletion(virtClient, migration, tests.MigrationWaitTime)
+				migration = tests.RunMigrationAndExpectCompletion(virtClient, migration, tests.MigrationWaitTime)
 
 				// check VMI, confirm migration state
-				tests.ConfirmVMIPostMigration(virtClient, vmi, migrationUID)
+				tests.ConfirmVMIPostMigration(virtClient, vmi, migration)
 
 				// delete VMI
 				By("Deleting the VMI")
@@ -1774,10 +1774,10 @@ var _ = Describe("[rfe_id:393][crit:high][vendor:cnv-qe@redhat.com][level:system
 
 				By("Starting new migration and waiting for it to succeed")
 				migration := tests.NewRandomMigration(vmi.Name, vmi.Namespace)
-				migrationUID := tests.RunMigrationAndExpectCompletion(virtClient, migration, 340)
+				migration = tests.RunMigrationAndExpectCompletion(virtClient, migration, 340)
 
 				By("Verifying Second Migration Succeeeds")
-				tests.ConfirmVMIPostMigration(virtClient, vmi, migrationUID)
+				tests.ConfirmVMIPostMigration(virtClient, vmi, migration)
 
 				By("Checking that the launcher is running as qemu")
 				Expect(tests.GetIdOfLauncher(vmi)).To(Equal("107"))
@@ -1861,10 +1861,10 @@ var _ = Describe("[rfe_id:393][crit:high][vendor:cnv-qe@redhat.com][level:system
 
 				By("Starting new migration and waiting for it to succeed")
 				migration := tests.NewRandomMigration(vmi.Name, vmi.Namespace)
-				migrationUID := tests.RunMigrationAndExpectCompletion(virtClient, migration, 340)
+				migration = tests.RunMigrationAndExpectCompletion(virtClient, migration, 340)
 
 				By("Verifying Second Migration Succeeeds")
-				tests.ConfirmVMIPostMigration(virtClient, vmi, migrationUID)
+				tests.ConfirmVMIPostMigration(virtClient, vmi, migration)
 
 				By("Checking that the launcher is running as qemu")
 				Expect(tests.GetIdOfLauncher(vmi)).To(Equal("0"))
@@ -1924,10 +1924,10 @@ var _ = Describe("[rfe_id:393][crit:high][vendor:cnv-qe@redhat.com][level:system
 
 					By("starting the migration")
 					migration := tests.NewRandomMigration(vmi.Name, vmi.Namespace)
-					migrationUID := tests.RunMigrationAndExpectCompletion(virtClient, migration, tests.MigrationWaitTime)
+					migration = tests.RunMigrationAndExpectCompletion(virtClient, migration, tests.MigrationWaitTime)
 
 					// check VMI, confirm migration state
-					tests.ConfirmVMIPostMigration(virtClient, vmi, migrationUID)
+					tests.ConfirmVMIPostMigration(virtClient, vmi, migration)
 
 					// delete VMI
 					By("Deleting the VMI")
@@ -2160,10 +2160,10 @@ var _ = Describe("[rfe_id:393][crit:high][vendor:cnv-qe@redhat.com][level:system
 				// execute a migration, wait for finalized state
 				By("Starting the Migration")
 				migration := tests.NewRandomMigration(vmi.Name, vmi.Namespace)
-				migrationUID := tests.RunMigrationAndExpectCompletion(virtClient, migration, 180)
+				migration = tests.RunMigrationAndExpectCompletion(virtClient, migration, 180)
 
 				// check VMI, confirm migration state
-				tests.ConfirmVMIPostMigration(virtClient, vmi, migrationUID)
+				tests.ConfirmVMIPostMigration(virtClient, vmi, migration)
 				confirmMigrationMode(vmi, v1.MigrationPostCopy)
 
 				// delete VMI
@@ -2311,10 +2311,10 @@ var _ = Describe("[rfe_id:393][crit:high][vendor:cnv-qe@redhat.com][level:system
 
 				By("Starting new migration and waiting for it to succeed")
 				migration = tests.NewRandomMigration(vmi.Name, vmi.Namespace)
-				migrationUID = tests.RunMigrationAndExpectCompletion(virtClient, migration, 340)
+				migration = tests.RunMigrationAndExpectCompletion(virtClient, migration, 340)
 
 				By("Verifying Second Migration Succeeeds")
-				tests.ConfirmVMIPostMigration(virtClient, vmi, migrationUID)
+				tests.ConfirmVMIPostMigration(virtClient, vmi, migration)
 
 				// delete VMI
 				By("Deleting the VMI")
@@ -2646,10 +2646,9 @@ var _ = Describe("[rfe_id:393][crit:high][vendor:cnv-qe@redhat.com][level:system
 				migration := tests.NewRandomMigration(vmi.Name, vmi.Namespace)
 
 				migration = runAndCancelMigration(migration, vmi, with_virtctl, 180)
-				migrationUID := string(migration.UID)
 
 				// check VMI, confirm migration state
-				confirmVMIPostMigrationAborted(vmi, migrationUID, 180)
+				confirmVMIPostMigrationAborted(vmi, string(migration.UID), 180)
 
 				By("Waiting for the migration object to disappear")
 				libwait.WaitForMigrationToDisappearWithTimeout(migration, 240)
@@ -3103,10 +3102,10 @@ var _ = Describe("[rfe_id:393][crit:high][vendor:cnv-qe@redhat.com][level:system
 
 				By("Starting the Migration")
 				migration := tests.NewRandomMigration(vmi.Name, vmi.Namespace)
-				migrationUID := tests.RunMigrationAndExpectCompletion(virtClient, migration, 180)
+				migration = tests.RunMigrationAndExpectCompletion(virtClient, migration, 180)
 
 				// check VMI, confirm migration state
-				tests.ConfirmVMIPostMigration(virtClient, vmi, migrationUID)
+				tests.ConfirmVMIPostMigration(virtClient, vmi, migration)
 
 				By("Retrieving the VMI post migration")
 				vmi, err = virtClient.VirtualMachineInstance(vmi.Namespace).Get(context.Background(), vmi.Name, &metav1.GetOptions{})
@@ -3135,10 +3134,10 @@ var _ = Describe("[rfe_id:393][crit:high][vendor:cnv-qe@redhat.com][level:system
 			// execute a migration, wait for finalized state
 			By("Starting the Migration")
 			migration := tests.NewRandomMigration(vmi.Name, vmi.Namespace)
-			migrationUID := tests.RunMigrationAndExpectCompletion(virtClient, migration, tests.MigrationWaitTime)
+			migration = tests.RunMigrationAndExpectCompletion(virtClient, migration, tests.MigrationWaitTime)
 
 			// check VMI, confirm migration state
-			tests.ConfirmVMIPostMigration(virtClient, vmi, migrationUID)
+			tests.ConfirmVMIPostMigration(virtClient, vmi, migration)
 
 			// delete VMI
 			By("Deleting the VMI")
@@ -3779,10 +3778,10 @@ var _ = Describe("[rfe_id:393][crit:high][vendor:cnv-qe@redhat.com][level:system
 
 			By("starting the migration")
 			migration := tests.NewRandomMigration(hugepagesVmi.Name, hugepagesVmi.Namespace)
-			migrationUID := tests.RunMigrationAndExpectCompletion(virtClient, migration, tests.MigrationWaitTime)
+			migration = tests.RunMigrationAndExpectCompletion(virtClient, migration, tests.MigrationWaitTime)
 
 			// check VMI, confirm migration state
-			tests.ConfirmVMIPostMigration(virtClient, hugepagesVmi, migrationUID)
+			tests.ConfirmVMIPostMigration(virtClient, hugepagesVmi, migration)
 
 			// delete VMI
 			By("Deleting the VMI")
@@ -4204,8 +4203,8 @@ var _ = Describe("[rfe_id:393][crit:high][vendor:cnv-qe@redhat.com][level:system
 			libnode.AddLabelToNode(nodes[1].Name, testLabel1, "true")
 			cpuSetSource := getVirtLauncherCPUSet(vmi)
 			migration := tests.NewRandomMigration(vmi.Name, vmi.Namespace)
-			migrationUID := tests.RunMigrationAndExpectCompletion(virtClient, migration, tests.MigrationWaitTime)
-			tests.ConfirmVMIPostMigration(virtClient, vmi, migrationUID)
+			migration = tests.RunMigrationAndExpectCompletion(virtClient, migration, tests.MigrationWaitTime)
+			tests.ConfirmVMIPostMigration(virtClient, vmi, migration)
 
 			By("ensuring the target cpuset is different from the source")
 			vmi, err = virtClient.VirtualMachineInstance(vmi.Namespace).Get(context.Background(), vmi.Name, &metav1.GetOptions{})
@@ -4254,10 +4253,10 @@ var _ = Describe("[rfe_id:393][crit:high][vendor:cnv-qe@redhat.com][level:system
 
 			By("Starting the migration")
 			migration := tests.NewRandomMigration(vmi.Name, vmi.Namespace)
-			migrationUID := tests.RunMigrationAndExpectCompletion(virtClient, migration, tests.MigrationWaitTime)
+			migration = tests.RunMigrationAndExpectCompletion(virtClient, migration, tests.MigrationWaitTime)
 
 			By("Checking if the migration happened, and over the right network")
-			vmi = tests.ConfirmVMIPostMigration(virtClient, vmi, migrationUID)
+			vmi = tests.ConfirmVMIPostMigration(virtClient, vmi, migration)
 			Expect(vmi.Status.MigrationState.TargetNodeAddress).To(HavePrefix("172.21.42."), "The migration did not appear to go over the dedicated migration network")
 
 			// delete VMI
@@ -4276,8 +4275,8 @@ var _ = Describe("[rfe_id:393][crit:high][vendor:cnv-qe@redhat.com][level:system
 
 		By("Starting a Migration")
 		migration := tests.NewRandomMigration(vmi.Name, vmi.Namespace)
-		migrationUID := tests.RunMigrationAndExpectCompletion(virtClient, migration, 180)
-		tests.ConfirmVMIPostMigration(virtClient, vmi, migrationUID)
+		migration = tests.RunMigrationAndExpectCompletion(virtClient, migration, 180)
+		tests.ConfirmVMIPostMigration(virtClient, vmi, migration)
 
 		By("Ensuring MigrationConfiguration is updated")
 		vmi, err = virtClient.VirtualMachineInstance(vmi.Namespace).Get(context.Background(), vmi.Name, &metav1.GetOptions{})

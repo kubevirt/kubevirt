@@ -21335,8 +21335,8 @@ func schema_kubevirtio_api_core_v1_VirtualMachineInstanceMigrationStatus(ref com
 									},
 								},
 							},
-                        },
-                    },
+						},
+					},
 					"migrationState": {
 						SchemaProps: spec.SchemaProps{
 							Description: "Represents the status of a live migration",

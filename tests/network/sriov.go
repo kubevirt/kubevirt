@@ -355,8 +355,8 @@ var _ = Describe("[Serial]SRIOV", Serial, decorators.SRIOV, func() {
 			It("should be successful with a running VMI on the target", func() {
 				By("starting the migration")
 				migration := tests.NewRandomMigration(vmi.Name, vmi.Namespace)
-				migrationUID := tests.RunMigrationAndExpectCompletion(virtClient, migration, tests.MigrationWaitTime)
-				tests.ConfirmVMIPostMigration(virtClient, vmi, migrationUID)
+				migration = tests.RunMigrationAndExpectCompletion(virtClient, migration, tests.MigrationWaitTime)
+				tests.ConfirmVMIPostMigration(virtClient, vmi, migration)
 
 				// It may take some time for the VMI interface status to be updated with the information reported by
 				// the guest-agent.

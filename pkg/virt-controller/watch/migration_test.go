@@ -208,9 +208,11 @@ var _ = Describe("Migration watcher", func() {
 			return arg, nil
 		})
 	}
-	shouldExpectMigrationStateUpdated := func(migration *virtv1.VirtualMachineInstanceMigration, mState *virtv1.VirtualMachineInstanceMigrationState) {
+
+	shouldExpectMigrationStateUpdatedAndFinalizerRemoved := func(migration *virtv1.VirtualMachineInstanceMigration, mState *virtv1.VirtualMachineInstanceMigrationState) {
 		migrationInterface.EXPECT().UpdateStatus(gomock.Any()).Do(func(arg interface{}) (interface{}, interface{}) {
 			Expect(arg.(*virtv1.VirtualMachineInstanceMigration).Status.MigrationState).To(Equal(mState))
+			Expect(arg.(*virtv1.VirtualMachineInstanceMigration).Finalizers).To(BeEmpty())
 			return arg, nil
 		})
 	}
@@ -1218,6 +1220,31 @@ var _ = Describe("Migration watcher", func() {
 			controller.Execute()
 			testutils.ExpectEvent(recorder, SuccessfulMigrationReason)
 		})
+		It("should expect MigrationState to be updated on a completed migration", func() {
+			vmi := newVirtualMachine("testvmi", virtv1.Running)
+			vmi.Status.NodeName = "node02"
+			migration := newMigration("testmigration", vmi.Name, virtv1.MigrationSucceeded)
+			pod := newTargetPodForVirtualMachine(vmi, migration, k8sv1.PodRunning)
+			pod.Spec.NodeName = "node01"
+
+			vmi.Status.MigrationState = &virtv1.VirtualMachineInstanceMigrationState{
+				MigrationUID:      migration.UID,
+				TargetNode:        "node01",
+				SourceNode:        "node02",
+				TargetNodeAddress: "10.10.10.10:1234",
+				StartTimestamp:    now(),
+				EndTimestamp:      now(),
+				Failed:            false,
+				Completed:         true,
+			}
+			addMigration(migration)
+			addVirtualMachineInstance(vmi)
+			podFeeder.Add(pod)
+
+			shouldExpectMigrationStateUpdatedAndFinalizerRemoved(migration, vmi.Status.MigrationState)
+
+			controller.Execute()
+		})
 		It("should delete itself if VMI no longer exists", func() {
 			migration := newMigration("testmigration", "somevmi", virtv1.MigrationRunning)
 			addMigration(migration)
@@ -1280,7 +1307,7 @@ var _ = Describe("Migration watcher", func() {
 				// This finalizer is added by the mutation webhook during creation
 				migration.Finalizers = append(migration.Finalizers, virtv1.VirtualMachineInstanceMigrationFinalizer)
 				if initializeMigrationState {
-					shouldExpectMigrationStateUpdated(migration, vmi.Status.MigrationState)
+					shouldExpectMigrationStateUpdatedAndFinalizerRemoved(migration, vmi.Status.MigrationState)
 				} else {
 					shouldExpectMigrationFinalizerRemoval(migration)
 				}
