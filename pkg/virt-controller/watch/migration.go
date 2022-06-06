@@ -414,6 +414,10 @@ func (c *MigrationController) updateStatus(migration *virtv1.VirtualMachineInsta
 
 	// Remove the finalizer and conditions if the migration has already completed
 	if migration.IsFinal() {
+		// store the finalized migration state data from the VMI status in the migration object
+		migrationCopy.Status.MigrationState = vmi.Status.MigrationState
+
+		// remove the migration finalizaer
 		controller.RemoveFinalizer(migrationCopy, virtv1.VirtualMachineInstanceMigrationFinalizer)
 
 		// Status checking of active Migration job.
@@ -548,6 +552,7 @@ func (c *MigrationController) updateStatus(migration *virtv1.VirtualMachineInsta
 		if err != nil {
 			return err
 		}
+
 	} else if !equality.Semantic.DeepEqual(migration.Finalizers, migrationCopy.Finalizers) {
 		_, err := c.clientset.VirtualMachineInstanceMigration(migrationCopy.Namespace).Update(migrationCopy)
 		if err != nil {

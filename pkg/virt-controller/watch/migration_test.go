@@ -208,6 +208,12 @@ var _ = Describe("Migration watcher", func() {
 			return arg, nil
 		})
 	}
+	shouldExpectMigrationStateUpdated := func(migration *virtv1.VirtualMachineInstanceMigration, mState *virtv1.VirtualMachineInstanceMigrationState) {
+		migrationInterface.EXPECT().UpdateStatus(gomock.Any()).Do(func(arg interface{}) (interface{}, interface{}) {
+			Expect(arg.(*virtv1.VirtualMachineInstanceMigration).Status.MigrationState).To(Equal(mState))
+			return arg, nil
+		})
+	}
 
 	shouldExpectMigrationFailedState := func(migration *virtv1.VirtualMachineInstanceMigration) {
 		migrationInterface.EXPECT().UpdateStatus(gomock.Any()).Do(func(arg interface{}) (interface{}, interface{}) {
@@ -1273,7 +1279,11 @@ var _ = Describe("Migration watcher", func() {
 			if phase == virtv1.MigrationFailed {
 				// This finalizer is added by the mutation webhook during creation
 				migration.Finalizers = append(migration.Finalizers, virtv1.VirtualMachineInstanceMigrationFinalizer)
-				shouldExpectMigrationFinalizerRemoval(migration)
+				if initializeMigrationState {
+					shouldExpectMigrationStateUpdated(migration, vmi.Status.MigrationState)
+				} else {
+					shouldExpectMigrationFinalizerRemoval(migration)
+				}
 			} else {
 				shouldExpectMigrationFailedState(migration)
 			}
