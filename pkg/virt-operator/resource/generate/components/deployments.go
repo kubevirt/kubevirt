@@ -371,7 +371,7 @@ func NewApiServerDeployment(namespace string, repository string, imagePrefix str
 	return deployment, nil
 }
 
-func NewControllerDeployment(namespace string, repository string, imagePrefix string, controllerVersion string, launcherVersion string, productName string, productVersion string, productComponent string, pullPolicy corev1.PullPolicy, verbosity string, extraEnv map[string]string) (*appsv1.Deployment, error) {
+func NewControllerDeployment(namespace string, repository string, imagePrefix string, controllerVersion string, launcherVersion string, exportServerVersion string, productName string, productVersion string, productComponent string, pullPolicy corev1.PullPolicy, verbosity string, extraEnv map[string]string) (*appsv1.Deployment, error) {
 	podAntiAffinity := newPodAntiAffinity(kubevirtLabelKey, kubernetesHostnameTopologyKey, metav1.LabelSelectorOpIn, []string{VirtControllerName})
 	deploymentName := VirtControllerName
 	imageName := fmt.Sprintf("%s%s", imagePrefix, deploymentName)
@@ -388,6 +388,7 @@ func NewControllerDeployment(namespace string, repository string, imagePrefix st
 	}
 
 	launcherVersion = AddVersionSeparatorPrefix(launcherVersion)
+	exportServerVersion = AddVersionSeparatorPrefix(exportServerVersion)
 
 	container := &deployment.Spec.Template.Spec.Containers[0]
 	container.Command = []string{
@@ -397,7 +398,7 @@ func NewControllerDeployment(namespace string, repository string, imagePrefix st
 		"--launcher-image",
 		fmt.Sprintf("%s/%s%s%s", repository, imagePrefix, "virt-launcher", launcherVersion),
 		"--exporter-image",
-		"ghcr.io/mhenriks/virt-exportserver@sha256:a26c053a80dbf4cfc35e7ed15d0d45c0c06a54d8ad9a49a2832b317c6ef30067",
+		fmt.Sprintf("%s/%s%s%s", repository, imagePrefix, "virt-exportserver", exportServerVersion),
 		portName,
 		"8443",
 		"-v",
@@ -458,7 +459,7 @@ func NewControllerDeployment(namespace string, repository string, imagePrefix st
 func NewOperatorDeployment(namespace string, repository string, imagePrefix string, version string,
 	pullPolicy corev1.PullPolicy, verbosity string,
 	kubeVirtVersionEnv string, virtApiShaEnv string, virtControllerShaEnv string,
-	virtHandlerShaEnv string, virtLauncherShaEnv string, virtExportProxyShaEnv string, gsShaEnv string) (*appsv1.Deployment, error) {
+	virtHandlerShaEnv string, virtLauncherShaEnv string, virtExportProxyShaEnv string, virtExportServerShaEnv string, gsShaEnv string) (*appsv1.Deployment, error) {
 
 	podAntiAffinity := newPodAntiAffinity(kubevirtLabelKey, kubernetesHostnameTopologyKey, metav1.LabelSelectorOpIn, []string{VirtOperatorName})
 	version = AddVersionSeparatorPrefix(version)
@@ -596,6 +597,10 @@ func NewOperatorDeployment(namespace string, repository string, imagePrefix stri
 				Name:  operatorutil.VirtExportProxyShasumEnvName,
 				Value: virtExportProxyShaEnv,
 			},
+			{
+				Name:  operatorutil.VirtExportServerShasumEnvName,
+				Value: virtExportServerShaEnv,
+			},
 		}
 		if gsShaEnv != "" {
 			shaSums = append(shaSums, corev1.EnvVar{
@@ -623,13 +628,9 @@ func NewExportProxyDeployment(namespace string, repository string, imagePrefix s
 	if err != nil {
 		return nil, err
 	}
-	// do we really need more?
-	//deployment.Spec.Replicas = int32Ptr(1)
 
 	attachCertificateSecret(&deployment.Spec.Template.Spec, VirtExportProxyCertSecretName, "/etc/virt-exportproxy/certificates")
-	// TODO XXX - exportserver ca cert
-	//attachCertificateSecret(&deployment.Spec.Template.Spec, VirtHandlerCertSecretName, "/etc/virt-handler/clientcertificates")
-	//attachProfileVolume(&deployment.Spec.Template.Spec)
+	attachProfileVolume(&deployment.Spec.Template.Spec)
 
 	pod := &deployment.Spec.Template.Spec
 	pod.ServiceAccountName = rbac.ExportProxyServiceAccountName

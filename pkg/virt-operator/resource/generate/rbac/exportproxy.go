@@ -34,6 +34,8 @@ func GetAllExportProxy(namespace string) []runtime.Object {
 		newExportProxyServiceAccount(namespace),
 		newExportProxyClusterRole(),
 		newExportProxyClusterRoleBinding(namespace),
+		newExportProxyRole(namespace),
+		newExportProxyRoleBinding(namespace),
 	}
 }
 
@@ -96,6 +98,66 @@ func newExportProxyClusterRoleBinding(namespace string) *rbacv1.ClusterRoleBindi
 		RoleRef: rbacv1.RoleRef{
 			APIGroup: "rbac.authorization.k8s.io",
 			Kind:     "ClusterRole",
+			Name:     ExportProxyServiceAccountName,
+		},
+		Subjects: []rbacv1.Subject{
+			{
+				Kind:      "ServiceAccount",
+				Namespace: namespace,
+				Name:      ExportProxyServiceAccountName,
+			},
+		},
+	}
+}
+
+func newExportProxyRole(namespace string) *rbacv1.Role {
+	return &rbacv1.Role{
+		TypeMeta: metav1.TypeMeta{
+			APIVersion: "rbac.authorization.k8s.io/v1",
+			Kind:       "Role",
+		},
+		ObjectMeta: metav1.ObjectMeta{
+			Namespace: namespace,
+			Name:      ExportProxyServiceAccountName,
+			Labels: map[string]string{
+				virtv1.AppLabel: "",
+			},
+		},
+		Rules: []rbacv1.PolicyRule{
+			{
+				APIGroups: []string{
+					"",
+				},
+				Resources: []string{
+					"configmaps",
+				},
+				Verbs: []string{
+					"get", "list", "watch",
+				},
+				ResourceNames: []string{
+					"kubevirt-export-ca",
+				},
+			},
+		},
+	}
+}
+
+func newExportProxyRoleBinding(namespace string) *rbacv1.RoleBinding {
+	return &rbacv1.RoleBinding{
+		TypeMeta: metav1.TypeMeta{
+			APIVersion: "rbac.authorization.k8s.io/v1",
+			Kind:       "RoleBinding",
+		},
+		ObjectMeta: metav1.ObjectMeta{
+			Namespace: namespace,
+			Name:      ExportProxyServiceAccountName,
+			Labels: map[string]string{
+				virtv1.AppLabel: "",
+			},
+		},
+		RoleRef: rbacv1.RoleRef{
+			APIGroup: "rbac.authorization.k8s.io",
+			Kind:     "Role",
 			Name:     ExportProxyServiceAccountName,
 		},
 		Subjects: []rbacv1.Subject{

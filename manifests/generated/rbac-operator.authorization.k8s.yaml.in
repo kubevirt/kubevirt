@@ -673,6 +673,16 @@ rules:
   - list
   - watch
 - apiGroups:
+  - ""
+  resourceNames:
+  - kubevirt-export-ca
+  resources:
+  - configmaps
+  verbs:
+  - get
+  - list
+  - watch
+- apiGroups:
   - subresources.kubevirt.io
   resources:
   - version

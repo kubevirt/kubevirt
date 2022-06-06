@@ -53,6 +53,7 @@ testimage_base="
   qemu-img-${QEMU_VERSION}
   util-linux
   which
+  tar
 "
 
 # create a rpmtree for libvirt-devel. libvirt-devel is needed for compilation and unit-testing.

@@ -29,11 +29,18 @@ import (
 	"regexp"
 
 	"github.com/prometheus/client_golang/prometheus/promhttp"
+	"k8s.io/client-go/tools/cache"
 	certificate2 "k8s.io/client-go/util/certificate"
+	aggregatorclient "k8s.io/kube-aggregator/pkg/client/clientset_generated/clientset"
 
+	exportv1 "kubevirt.io/api/export/v1alpha1"
+	"kubevirt.io/client-go/kubecli"
 	"kubevirt.io/client-go/log"
+	clientutil "kubevirt.io/client-go/util"
 	"kubevirt.io/kubevirt/pkg/certificates/bootstrap"
+	"kubevirt.io/kubevirt/pkg/controller"
 	"kubevirt.io/kubevirt/pkg/service"
+	webhooksutils "kubevirt.io/kubevirt/pkg/util/webhooks"
 )
 
 const (
@@ -51,6 +58,8 @@ type exportProxyApp struct {
 	tlsCertFilePath string
 	tlsKeyFilePath  string
 	certManager     certificate2.Manager
+	caManager       webhooksutils.ClientCAManager
+	exportInformer  cache.SharedIndexInformer
 }
 
 func NewExportProxyApp() service.Service {
@@ -68,8 +77,11 @@ func (app *exportProxyApp) AddFlags() {
 }
 
 func (app *exportProxyApp) Run() {
-	app.prepareCertManager()
+	stopChan := make(chan struct{}, 1)
+	defer close(stopChan)
+	app.prepareInformers(stopChan)
 
+	app.prepareCertManager()
 	go app.certManager.Start()
 
 	mux := http.NewServeMux()
@@ -109,9 +121,32 @@ func (app *exportProxyApp) proxyHandler(w http.ResponseWriter, r *http.Request) 
 		return
 	}
 
-	// TODO lookup export resource and get service
-	host := fmt.Sprintf("virt-export-%s.%s.svc:443", match[2], match[1])
+	key := fmt.Sprintf("%s/%s", match[1], match[2])
+	obj, exists, err := app.exportInformer.GetStore().GetByKey(key)
+	if err != nil {
+		w.WriteHeader(http.StatusInternalServerError)
+		return
+	}
+
+	if !exists {
+		w.WriteHeader(http.StatusNotFound)
+		return
+	}
+
+	export := obj.(*exportv1.VirtualMachineExport)
+	if export.Status.Phase != exportv1.Ready {
+		w.WriteHeader(http.StatusServiceUnavailable)
+		return
+	}
+
+	host := fmt.Sprintf("%s.%s.svc:443", export.Status.ServiceName, match[1])
 	targetPath := "/" + match[3]
+
+	certPool, err := app.caManager.GetCurrent()
+	if err != nil {
+		w.WriteHeader(http.StatusInternalServerError)
+		return
+	}
 
 	p := &httputil.ReverseProxy{
 		Director: func(req *http.Request) {
@@ -124,10 +159,9 @@ func (app *exportProxyApp) proxyHandler(w http.ResponseWriter, r *http.Request) 
 				req.Header.Set("User-Agent", "")
 			}
 		},
-		// TODO handle server ca
 		Transport: &http.Transport{
 			TLSClientConfig: &tls.Config{
-				InsecureSkipVerify: true,
+				RootCAs: certPool,
 			},
 		},
 	}
@@ -135,9 +169,33 @@ func (app *exportProxyApp) proxyHandler(w http.ResponseWriter, r *http.Request) 
 	p.ServeHTTP(w, r)
 }
 
+func (app *exportProxyApp) prepareInformers(stopChan <-chan struct{}) {
+	namespace, err := clientutil.GetNamespace()
+	if err != nil {
+		panic(err)
+	}
+
+	clientConfig, err := kubecli.GetKubevirtClientConfig()
+	if err != nil {
+		panic(err)
+	}
+	virtCli, err := kubecli.GetKubevirtClientFromRESTConfig(clientConfig)
+	if err != nil {
+		panic(err)
+	}
+	aggregatorClient := aggregatorclient.NewForConfigOrDie(clientConfig)
+
+	kubeInformerFactory := controller.NewKubeInformerFactory(virtCli.RestClient(), virtCli, aggregatorClient, namespace)
+	caInformer := kubeInformerFactory.KubeVirtExportCAConfigMap()
+	app.exportInformer = kubeInformerFactory.VirtualMachineExport()
+	kubeInformerFactory.Start(stopChan)
+	kubeInformerFactory.WaitForCacheSync(stopChan)
+
+	app.caManager = webhooksutils.NewCAManager(caInformer.GetStore(), namespace, "kubevirt-export-ca")
+}
+
 func (app *exportProxyApp) prepareCertManager() {
 	app.certManager = bootstrap.NewFileCertificateManager(app.tlsCertFilePath, app.tlsKeyFilePath)
-	//app.handlerCertManager = bootstrap.NewFileCertificateManager(app.handlerCertFilePath, app.handlerKeyFilePath)
 }
 
 func main() {

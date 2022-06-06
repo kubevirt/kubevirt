@@ -29,10 +29,6 @@ import (
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
 
-	cdiv1 "kubevirt.io/containerized-data-importer-api/pkg/apis/core/v1beta1"
-	"kubevirt.io/kubevirt/tests/libstorage"
-	"kubevirt.io/kubevirt/tests/util"
-
 	k8sv1 "k8s.io/api/core/v1"
 	storagev1 "k8s.io/api/storage/v1"
 	"k8s.io/apimachinery/pkg/api/errors"
@@ -44,8 +40,12 @@ import (
 	exportv1 "kubevirt.io/api/export/v1alpha1"
 	"kubevirt.io/client-go/kubecli"
 	"kubevirt.io/client-go/log"
+	cdiv1 "kubevirt.io/containerized-data-importer-api/pkg/apis/core/v1beta1"
 	"kubevirt.io/kubevirt/tests"
 	cd "kubevirt.io/kubevirt/tests/containerdisk"
+	"kubevirt.io/kubevirt/tests/flags"
+	"kubevirt.io/kubevirt/tests/libstorage"
+	"kubevirt.io/kubevirt/tests/util"
 )
 
 const (
@@ -64,18 +64,32 @@ const (
 	certificates = "certificates"
 
 	pvcNotFoundReason = "pvcNotFound"
+
+	proxyUrlBase = "https://virt-exportproxy.%s.svc/api/export.kubevirt.io/v1alpha1/namespaces/%s/virtualmachineexports/%s%s"
 )
 
-var _ = PSIGDescribe("Export", func() {
+var _ = SIGDescribe("Export", func() {
 	var err error
 	var token *k8sv1.Secret
 	var virtClient kubecli.KubevirtClient
+
+	waitExportProxyReady := func() {
+		Eventually(func() bool {
+			d, err := virtClient.AppsV1().Deployments(flags.KubeVirtInstallNamespace).Get(context.TODO(), "virt-exportproxy", metav1.GetOptions{})
+			if errors.IsNotFound(err) {
+				return false
+			}
+			Expect(err).ToNot(HaveOccurred())
+			return d.Status.AvailableReplicas > 0
+		}, 90*time.Second, 1*time.Second).Should(Equal(true))
+	}
 
 	BeforeEach(func() {
 		virtClient, err = kubecli.GetKubevirtClient()
 		util.PanicOnError(err)
 
 		tests.BeforeTestCleanup()
+		waitExportProxyReady()
 	})
 
 	AfterEach(func() {
@@ -262,6 +276,16 @@ var _ = PSIGDescribe("Export", func() {
 		return cm
 	}
 
+	createCaConfigMapInternal := func(name, namespace string, export *exportv1.VirtualMachineExport) *k8sv1.ConfigMap {
+		return createCaConfigMap(name, namespace, export.Status.Links.Internal.Cert)
+	}
+
+	createCaConfigMapProxy := func(name, namespace string, export *exportv1.VirtualMachineExport) *k8sv1.ConfigMap {
+		cm, err := virtClient.CoreV1().ConfigMaps(flags.KubeVirtInstallNamespace).Get(context.TODO(), "kubevirt-ca", metav1.GetOptions{})
+		Expect(err).ToNot(HaveOccurred())
+		return createCaConfigMap(name, namespace, cm.Data["ca-bundle"])
+	}
+
 	md5Command := func(fileName string) []string {
 		return []string{
 			"md5sum",
@@ -392,12 +416,51 @@ var _ = PSIGDescribe("Export", func() {
 		return service
 	}
 
+	urlGeneratorInternal := func(expectedFormat exportv1.ExportVolumeFormat, pvcName, template, token string, export *exportv1.VirtualMachineExport) (string, string) {
+		downloadUrl := ""
+		fileName := ""
+		for _, volume := range export.Status.Links.Internal.Volumes {
+			if volume.Name == pvcName {
+				for _, format := range volume.Formats {
+					if format.Format == expectedFormat {
+						downloadUrl = fmt.Sprintf(template, format.Url, token)
+						fileName = filepath.Base(format.Url)
+					}
+				}
+			}
+		}
+		return downloadUrl, fileName
+	}
+
+	urlGeneratorProxy := func(expectedFormat exportv1.ExportVolumeFormat, pvcName, template, token string, export *exportv1.VirtualMachineExport) (string, string) {
+		downloadUrl := ""
+		fileName := ""
+		for _, volume := range export.Status.Links.Internal.Volumes {
+			if volume.Name == pvcName {
+				for _, format := range volume.Formats {
+					if format.Format == expectedFormat {
+						i := strings.Index(format.Url, ".svc/")
+						if i >= 0 {
+							uri := fmt.Sprintf(template, format.Url[i+4:], token)
+							downloadUrl = fmt.Sprintf(proxyUrlBase, flags.KubeVirtInstallNamespace, export.Namespace, export.Name, uri)
+							fileName = filepath.Base(format.Url)
+						}
+					}
+				}
+			}
+		}
+		return downloadUrl, fileName
+	}
+
 	type populateFunction func(string, k8sv1.PersistentVolumeMode) (*k8sv1.PersistentVolumeClaim, string)
 	type verifyFunction func(string, string, *k8sv1.Pod, k8sv1.PersistentVolumeMode)
 	type storageClassFunction func() (string, bool)
+	type caBundleGenerator func(string, string, *exportv1.VirtualMachineExport) *k8sv1.ConfigMap
+	type urlGenerator func(exportv1.ExportVolumeFormat, string, string, string, *exportv1.VirtualMachineExport) (string, string)
 
-	DescribeTable("should make a PVC export available", func(populateFunction populateFunction,
-		verifyFunction verifyFunction, storageClassFunction storageClassFunction, expectedFormat exportv1.ExportVolumeFormat, urlTemplate string, volumeMode k8sv1.PersistentVolumeMode) {
+	DescribeTable("should make a PVC export available", func(populateFunction populateFunction, verifyFunction verifyFunction,
+		storageClassFunction storageClassFunction, caBundleGenerator caBundleGenerator, urlGenerator urlGenerator,
+		expectedFormat exportv1.ExportVolumeFormat, urlTemplate string, volumeMode k8sv1.PersistentVolumeMode) {
 		sc, exists := storageClassFunction()
 		if !exists {
 			Skip("Skip test when right storage is not present")
@@ -455,22 +518,15 @@ var _ = PSIGDescribe("Export", func() {
 		By("Creating target PVC, so we can inspect if the export worked")
 		targetPvc, err = virtClient.CoreV1().PersistentVolumeClaims(targetPvc.Namespace).Create(context.Background(), targetPvc, metav1.CreateOptions{})
 		Expect(err).ToNot(HaveOccurred())
-		caConfigMap := createCaConfigMap("export-cacerts", targetPvc.Namespace, export.Status.Links.Internal.Cert)
+
+		caConfigMap := caBundleGenerator("export-cacerts", targetPvc.Namespace, export)
+
 		downloadPod := createDownloadPodForPvc(targetPvc, caConfigMap)
-		downloadUrl := ""
-		fileName := ""
-		for _, volume := range export.Status.Links.Internal.Volumes {
-			if volume.Name == pvc.Name {
-				for _, format := range volume.Formats {
-					if format.Format == expectedFormat {
-						downloadUrl = fmt.Sprintf(urlTemplate, format.Url, pvc.Name)
-						fileName = filepath.Base(format.Url)
-					}
-				}
-			}
-		}
+
+		downloadUrl, fileName := urlGenerator(expectedFormat, pvc.Name, urlTemplate, pvc.Name, export)
 		Expect(downloadUrl).ToNot(BeEmpty())
 		Expect(fileName).ToNot(BeEmpty())
+
 		fileAndPathName := filepath.Join(dataPath, fileName)
 		if volumeMode == k8sv1.PersistentVolumeBlock {
 			fileAndPathName = blockVolumeMountPath
@@ -490,11 +546,18 @@ var _ = PSIGDescribe("Export", func() {
 
 		verifyFunction(fileName, comparison, downloadPod, volumeMode)
 	},
-		Entry("with RAW kubevirt content type", populateKubeVirtContent, verifyKubeVirtRawContent, libstorage.GetRWOFileSystemStorageClass, exportv1.KubeVirtRaw, kubevirtcontentUrlTemplate, k8sv1.PersistentVolumeFilesystem),
-		Entry("with RAW gzipped kubevirt content type", populateKubeVirtContent, verifyKubeVirtGzContent, libstorage.GetRWOFileSystemStorageClass, exportv1.KubeVirtGz, kubevirtcontentUrlTemplate, k8sv1.PersistentVolumeFilesystem),
-		Entry("with archive content type", populateArchiveContent, verifyKubeVirtRawContent, libstorage.GetRWOFileSystemStorageClass, exportv1.Dir, archiveDircontentUrlTemplate, k8sv1.PersistentVolumeFilesystem),
-		Entry("with archive tarred gzipped content type", populateArchiveContent, verifyArchiveGzContent, libstorage.GetRWOFileSystemStorageClass, exportv1.ArchiveGz, kubevirtcontentUrlTemplate, k8sv1.PersistentVolumeFilesystem),
-		Entry("with RAW kubevirt content type block", populateKubeVirtContent, verifyKubeVirtRawContent, libstorage.GetRWOBlockStorageClass, exportv1.KubeVirtRaw, kubevirtcontentUrlTemplate, k8sv1.PersistentVolumeBlock),
+		// "internal" tests
+		Entry("with RAW kubevirt content type", populateKubeVirtContent, verifyKubeVirtRawContent, libstorage.GetRWOFileSystemStorageClass, createCaConfigMapInternal, urlGeneratorInternal, exportv1.KubeVirtRaw, kubevirtcontentUrlTemplate, k8sv1.PersistentVolumeFilesystem),
+		Entry("with RAW gzipped kubevirt content type", populateKubeVirtContent, verifyKubeVirtGzContent, libstorage.GetRWOFileSystemStorageClass, createCaConfigMapInternal, urlGeneratorInternal, exportv1.KubeVirtGz, kubevirtcontentUrlTemplate, k8sv1.PersistentVolumeFilesystem),
+		Entry("with archive content type", populateArchiveContent, verifyKubeVirtRawContent, libstorage.GetRWOFileSystemStorageClass, createCaConfigMapInternal, urlGeneratorInternal, exportv1.Dir, archiveDircontentUrlTemplate, k8sv1.PersistentVolumeFilesystem),
+		Entry("with archive tarred gzipped content type", populateArchiveContent, verifyArchiveGzContent, libstorage.GetRWOFileSystemStorageClass, createCaConfigMapInternal, urlGeneratorInternal, exportv1.ArchiveGz, kubevirtcontentUrlTemplate, k8sv1.PersistentVolumeFilesystem),
+		Entry("with RAW kubevirt content type block", populateKubeVirtContent, verifyKubeVirtRawContent, libstorage.GetRWOBlockStorageClass, createCaConfigMapInternal, urlGeneratorInternal, exportv1.KubeVirtRaw, kubevirtcontentUrlTemplate, k8sv1.PersistentVolumeBlock),
+		// "proxy" tests
+		Entry("with RAW kubevirt content type", populateKubeVirtContent, verifyKubeVirtRawContent, libstorage.GetRWOFileSystemStorageClass, createCaConfigMapProxy, urlGeneratorProxy, exportv1.KubeVirtRaw, kubevirtcontentUrlTemplate, k8sv1.PersistentVolumeFilesystem),
+		Entry("with RAW gzipped kubevirt content type", populateKubeVirtContent, verifyKubeVirtGzContent, libstorage.GetRWOFileSystemStorageClass, createCaConfigMapProxy, urlGeneratorProxy, exportv1.KubeVirtGz, kubevirtcontentUrlTemplate, k8sv1.PersistentVolumeFilesystem),
+		Entry("with archive content type", populateArchiveContent, verifyKubeVirtRawContent, libstorage.GetRWOFileSystemStorageClass, createCaConfigMapProxy, urlGeneratorProxy, exportv1.Dir, archiveDircontentUrlTemplate, k8sv1.PersistentVolumeFilesystem),
+		Entry("with archive tarred gzipped content type", populateArchiveContent, verifyArchiveGzContent, libstorage.GetRWOFileSystemStorageClass, createCaConfigMapProxy, urlGeneratorProxy, exportv1.ArchiveGz, kubevirtcontentUrlTemplate, k8sv1.PersistentVolumeFilesystem),
+		Entry("with RAW kubevirt content type block", populateKubeVirtContent, verifyKubeVirtRawContent, libstorage.GetRWOBlockStorageClass, createCaConfigMapProxy, urlGeneratorProxy, exportv1.KubeVirtRaw, kubevirtcontentUrlTemplate, k8sv1.PersistentVolumeBlock),
 	)
 
 	createExportObject := func(name, namespace string, token *k8sv1.Secret) *exportv1.VirtualMachineExport {

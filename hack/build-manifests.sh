@@ -96,6 +96,7 @@ for arg in $args; do
         --virt-handler-sha=${VIRT_HANDLER_SHA} \
         --virt-launcher-sha=${VIRT_LAUNCHER_SHA} \
         --virt-exportproxy-sha=${VIRT_EXPORTPROXY_SHA} \
+        --virt-exportserver-sha=${VIRT_EXPORTSERVER_SHA} \
         --gs-sha=${GS_SHA} \
         --feature-gates=${feature_gates} \
         --infra-replicas=${infra_replicas} \

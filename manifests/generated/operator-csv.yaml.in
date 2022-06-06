@@ -754,6 +754,16 @@ spec:
           - list
           - watch
         - apiGroups:
+          - ""
+          resourceNames:
+          - kubevirt-export-ca
+          resources:
+          - configmaps
+          verbs:
+          - get
+          - list
+          - watch
+        - apiGroups:
           - subresources.kubevirt.io
           resources:
           - version
@@ -1098,6 +1108,8 @@ spec:
                   value: {{if .VirtLauncherSha}}{{.VirtLauncherSha}}{{end}}
                 - name: VIRT_EXPORTPROXY_SHASUM
                   value: {{if .VirtExportProxySha}}{{.VirtExportProxySha}}{{end}}
+                - name: VIRT_EXPORTSERVER_SHASUM
+                  value: {{if .VirtExportServerSha}}{{.VirtExportServerSha}}{{end}}
                 - name: GS_SHASUM
                   value: {{if .GsSha}}{{.GsSha}}{{end}}
                 image: {{.DockerPrefix}}/virt-operator{{if .VirtOperatorSha}}@{{.VirtOperatorSha}}{{else}}:{{.DockerTag}}{{end}}

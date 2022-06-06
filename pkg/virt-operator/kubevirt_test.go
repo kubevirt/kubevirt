@@ -84,9 +84,9 @@ const (
 
 	NAMESPACE = "kubevirt-test"
 
-	resourceCount = 70
+	resourceCount = 72
 	patchCount    = 49
-	updateCount   = 22
+	updateCount   = 24
 )
 
 type KubeVirtTestData struct {
@@ -1232,7 +1232,7 @@ func (k *KubeVirtTestData) addAllWithExclusionMap(config *util.KubeVirtDeploymen
 
 	apiDeployment, _ := components.NewApiServerDeployment(NAMESPACE, config.GetImageRegistry(), config.GetImagePrefix(), config.GetApiVersion(), "", "", "", config.GetImagePullPolicy(), config.GetVerbosity(), config.GetExtraEnv())
 	apiDeploymentPdb := components.NewPodDisruptionBudgetForDeployment(apiDeployment)
-	controller, _ := components.NewControllerDeployment(NAMESPACE, config.GetImageRegistry(), config.GetImagePrefix(), config.GetControllerVersion(), config.GetLauncherVersion(), "", "", "", config.GetImagePullPolicy(), config.GetVerbosity(), config.GetExtraEnv())
+	controller, _ := components.NewControllerDeployment(NAMESPACE, config.GetImageRegistry(), config.GetImagePrefix(), config.GetControllerVersion(), config.GetLauncherVersion(), config.GetExportServerVersion(), "", "", "", config.GetImagePullPolicy(), config.GetVerbosity(), config.GetExtraEnv())
 	controllerPdb := components.NewPodDisruptionBudgetForDeployment(controller)
 
 	handler, _ := components.NewHandlerDaemonSet(NAMESPACE, config.GetImageRegistry(), config.GetImagePrefix(), config.GetHandlerVersion(), "", "", "", config.GetLauncherVersion(), config.GetImagePullPolicy(), nil, config.GetVerbosity(), config.GetExtraEnv())
@@ -1593,7 +1593,7 @@ func (k *KubeVirtTestData) addPodsWithIndividualConfigs(config *util.KubeVirtDep
 	k.addPod(pod)
 	deployments = append(deployments, apiDeployment)
 
-	controller, _ := components.NewControllerDeployment(NAMESPACE, configController.GetImageRegistry(), configController.GetImagePrefix(), configController.GetControllerVersion(), configController.GetLauncherVersion(), "", "", "", configController.GetImagePullPolicy(), configController.GetVerbosity(), configController.GetExtraEnv())
+	controller, _ := components.NewControllerDeployment(NAMESPACE, configController.GetImageRegistry(), configController.GetImagePrefix(), configController.GetControllerVersion(), configController.GetLauncherVersion(), config.GetExportServerVersion(), "", "", "", configController.GetImagePullPolicy(), configController.GetVerbosity(), configController.GetExtraEnv())
 	pod = &k8sv1.Pod{
 		ObjectMeta: controller.Spec.Template.ObjectMeta,
 		Spec:       controller.Spec.Template.Spec,
@@ -2168,7 +2168,7 @@ var _ = Describe("KubeVirt Operator", func() {
 			envVal := rand.String(10)
 			config.PassthroughEnvVars = map[string]string{envKey: envVal}
 
-			controllerDeployment, err := components.NewControllerDeployment(NAMESPACE, config.GetImageRegistry(), config.GetImagePrefix(), config.GetControllerVersion(), config.GetLauncherVersion(), "", "", "", config.GetImagePullPolicy(), config.GetVerbosity(), config.GetExtraEnv())
+			controllerDeployment, err := components.NewControllerDeployment(NAMESPACE, config.GetImageRegistry(), config.GetImagePrefix(), config.GetControllerVersion(), config.GetLauncherVersion(), config.GetExportServerVersion(), "", "", "", config.GetImagePullPolicy(), config.GetVerbosity(), config.GetExtraEnv())
 
 			Expect(err).ToNot(HaveOccurred())
 			Expect(controllerDeployment.Spec.Template.Spec.Containers[0].Env).To(ContainElement(k8sv1.EnvVar{Name: envKey, Value: envVal}))
@@ -2347,8 +2347,8 @@ var _ = Describe("KubeVirt Operator", func() {
 			Expect(kvTestData.controller.stores.ServiceAccountCache.List()).To(HaveLen(4))
 			Expect(kvTestData.controller.stores.ClusterRoleCache.List()).To(HaveLen(8))
 			Expect(kvTestData.controller.stores.ClusterRoleBindingCache.List()).To(HaveLen(6))
-			Expect(kvTestData.controller.stores.RoleCache.List()).To(HaveLen(3))
-			Expect(kvTestData.controller.stores.RoleBindingCache.List()).To(HaveLen(3))
+			Expect(kvTestData.controller.stores.RoleCache.List()).To(HaveLen(4))
+			Expect(kvTestData.controller.stores.RoleBindingCache.List()).To(HaveLen(4))
 			Expect(kvTestData.controller.stores.CrdCache.List()).To(HaveLen(15))
 			Expect(kvTestData.controller.stores.ServiceCache.List()).To(HaveLen(4))
 			Expect(kvTestData.controller.stores.DeploymentCache.List()).To(HaveLen(1))
@@ -2980,8 +2980,8 @@ var _ = Describe("KubeVirt Operator", func() {
 
 			kvTestData.controller.Execute()
 
-			Expect(kvTestData.controller.stores.RoleCache.List()).To(HaveLen(2))
-			Expect(kvTestData.controller.stores.RoleBindingCache.List()).To(HaveLen(2))
+			Expect(kvTestData.controller.stores.RoleCache.List()).To(HaveLen(3))
+			Expect(kvTestData.controller.stores.RoleBindingCache.List()).To(HaveLen(3))
 			Expect(kvTestData.controller.stores.ServiceMonitorCache.List()).To(BeEmpty())
 		})
 	})
