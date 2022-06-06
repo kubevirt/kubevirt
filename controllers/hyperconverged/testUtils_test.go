@@ -22,11 +22,13 @@ import (
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/apimachinery/pkg/types"
+	"k8s.io/utils/pointer"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 	"sigs.k8s.io/controller-runtime/pkg/reconcile"
 
 	networkaddonsv1 "github.com/kubevirt/cluster-network-addons-operator/pkg/apis/networkaddonsoperator/v1"
 	hcov1beta1 "github.com/kubevirt/hyperconverged-cluster-operator/api/v1beta1"
+	"github.com/kubevirt/hyperconverged-cluster-operator/controllers/alerts"
 	"github.com/kubevirt/hyperconverged-cluster-operator/controllers/common"
 	"github.com/kubevirt/hyperconverged-cluster-operator/controllers/commonTestUtils"
 	"github.com/kubevirt/hyperconverged-cluster-operator/controllers/operands"
@@ -204,8 +206,17 @@ func getBasicDeployment() *BasicExpected {
 	}
 
 	res.pc = operands.NewKubeVirtPriorityClass(hco)
-	res.mService = operands.NewMetricsService(hco)
-	res.serviceMonitor = operands.NewServiceMonitor(hco, namespace)
+
+	deploymentRef := metav1.OwnerReference{
+		APIVersion:         appsv1.SchemeGroupVersion.String(),
+		Kind:               "Deployment",
+		Name:               "hco-operator",
+		UID:                "1234567890",
+		BlockOwnerDeletion: pointer.BoolPtr(false),
+		Controller:         pointer.BoolPtr(false),
+	}
+	res.mService = alerts.NewMetricsService(namespace, deploymentRef)
+	res.serviceMonitor = alerts.NewServiceMonitor(namespace, deploymentRef)
 
 	expectedKV, err := operands.NewKubeVirt(hco, namespace)
 	ExpectWithOffset(1, err).ToNot(HaveOccurred())

@@ -119,7 +119,7 @@ func newReconciler(mgr manager.Manager, ci hcoutil.ClusterInfo, upgradeableCond 
 	}
 
 	if ci.IsOpenshift() {
-		r.alertReconciler = alerts.NewAlertRuleReconciler(r.client, ci, hcoutil.GetEventEmitter(), r.scheme)
+		r.monitoringReconciler = alerts.NewMonitoringReconciler(ci, r.client, hcoutil.GetEventEmitter(), r.scheme)
 	}
 
 	return r
@@ -257,7 +257,7 @@ type ReconcileHyperConverged struct {
 	eventEmitter         hcoutil.EventEmitter
 	firstLoop            bool
 	upgradeableCondition hcoutil.Condition
-	alertReconciler      *alerts.AlertRuleReconciler
+	monitoringReconciler *alerts.MonitoringReconciler
 }
 
 // Reconcile reads that state of the cluster for a HyperConverged object and makes changes based on the state read
@@ -274,7 +274,7 @@ func (r *ReconcileHyperConverged) Reconcile(ctx context.Context, request reconci
 	}
 	hcoRequest := common.NewHcoRequest(ctx, resolvedRequest, log, r.upgradeMode, hcoTriggered)
 
-	err = r.alertReconciler.Reconcile(ctx, hcoRequest.Logger)
+	err = r.monitoringReconciler.Reconcile(ctx, hcoRequest.Logger)
 	if err != nil {
 		return reconcile.Result{}, err
 	}
@@ -303,7 +303,7 @@ func (r *ReconcileHyperConverged) Reconcile(ctx context.Context, request reconci
 		}
 	}
 
-	if err = r.alertReconciler.UpdateRelatedObjects(hcoRequest); err != nil {
+	if err = r.monitoringReconciler.UpdateRelatedObjects(hcoRequest); err != nil {
 		logger.Error(err, "Failed to update the PrometheusRule as a related object")
 		return reconcile.Result{}, err
 	}

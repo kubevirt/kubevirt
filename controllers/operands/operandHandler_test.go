@@ -84,16 +84,6 @@ var _ = Describe("Test operandHandler", func() {
 				{
 					EventType: corev1.EventTypeNormal,
 					Reason:    "Created",
-					Msg:       "Created Service kubevirt-hyperconverged-operator-metrics",
-				},
-				{
-					EventType: corev1.EventTypeNormal,
-					Reason:    "Created",
-					Msg:       "Created ServiceMonitor kubevirt-hyperconverged-operator-metrics",
-				},
-				{
-					EventType: corev1.EventTypeNormal,
-					Reason:    "Created",
 					Msg:       "Created ConsoleQuickStart test-quick-start",
 				},
 				{

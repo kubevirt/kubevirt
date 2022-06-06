@@ -142,10 +142,10 @@ var _ = Describe("HyperconvergedController", func() {
 				}
 
 				cl := commonTestUtils.InitClient([]runtime.Object{hcoNamespace, hco})
-				alertReconciler := alerts.NewAlertRuleReconciler(cl, hcoutil.GetClusterInfo(), commonTestUtils.NewEventEmitterMock(), commonTestUtils.GetScheme())
+				monitoringReconciler := alerts.NewMonitoringReconciler(hcoutil.GetClusterInfo(), cl, commonTestUtils.NewEventEmitterMock(), commonTestUtils.GetScheme())
 
 				r := initReconciler(cl, nil)
-				r.alertReconciler = alertReconciler
+				r.monitoringReconciler = monitoringReconciler
 
 				// Do the reconcile
 				res, err := r.Reconcile(context.TODO(), request)
@@ -233,7 +233,7 @@ var _ = Describe("HyperconvergedController", func() {
 						foundResource),
 				).ToNot(HaveOccurred())
 				// Check conditions
-				Expect(foundResource.Status.RelatedObjects).To(HaveLen(19))
+				Expect(foundResource.Status.RelatedObjects).To(HaveLen(21))
 				expectedRef := corev1.ObjectReference{
 					Kind:            "PrometheusRule",
 					Namespace:       namespace,
@@ -273,7 +273,7 @@ var _ = Describe("HyperconvergedController", func() {
 				cl := commonTestUtils.InitClient(resources)
 
 				r := initReconciler(cl, nil)
-				r.alertReconciler = alerts.NewAlertRuleReconciler(cl, hcoutil.GetClusterInfo(), commonTestUtils.NewEventEmitterMock(), commonTestUtils.GetScheme())
+				r.monitoringReconciler = alerts.NewMonitoringReconciler(hcoutil.GetClusterInfo(), cl, commonTestUtils.NewEventEmitterMock(), commonTestUtils.GetScheme())
 
 				// Do the reconcile
 				res, err := r.Reconcile(context.TODO(), request)
@@ -316,7 +316,7 @@ var _ = Describe("HyperconvergedController", func() {
 					Message: "SSP resource has no conditions",
 				})))
 
-				Expect(foundResource.Status.RelatedObjects).To(HaveLen(18))
+				Expect(foundResource.Status.RelatedObjects).To(HaveLen(20))
 				expectedRef := corev1.ObjectReference{
 					Kind:            "PrometheusRule",
 					Namespace:       namespace,
@@ -770,6 +770,9 @@ var _ = Describe("HyperconvergedController", func() {
 				expected := getBasicDeployment()
 				cl := expected.initClient()
 				r := initReconciler(cl, nil)
+				monitoringReconciler := alerts.NewMonitoringReconciler(hcoutil.GetClusterInfo(), cl, commonTestUtils.NewEventEmitterMock(), commonTestUtils.GetScheme())
+				r.monitoringReconciler = monitoringReconciler
+
 				res, err := r.Reconcile(context.TODO(), request)
 				Expect(err).To(BeNil())
 				Expect(res).Should(Equal(reconcile.Result{}))
@@ -782,7 +785,7 @@ var _ = Describe("HyperconvergedController", func() {
 				).To(BeNil())
 
 				Expect(foundResource.Status.RelatedObjects).ToNot(BeNil())
-				Expect(len(foundResource.Status.RelatedObjects)).Should(Equal(17))
+				Expect(len(foundResource.Status.RelatedObjects)).Should(Equal(20))
 				Expect(foundResource.ObjectMeta.Finalizers).Should(Equal([]string{FinalizerName}))
 
 				// Now, delete HCO

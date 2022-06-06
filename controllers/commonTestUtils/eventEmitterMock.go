@@ -2,6 +2,7 @@ package commonTestUtils
 
 import (
 	"context"
+	"reflect"
 	"sync"
 
 	csvv1alpha1 "github.com/operator-framework/api/pkg/operators/v1alpha1"
@@ -81,7 +82,7 @@ func (eem EventEmitterMock) CheckNoEventEmitted() bool {
 
 func eventInArray(eventList []MockEvent, event MockEvent) bool {
 	for _, expectedEvent := range eventList {
-		if event == expectedEvent {
+		if reflect.DeepEqual(event, expectedEvent) {
 			return true
 		}
 	}
