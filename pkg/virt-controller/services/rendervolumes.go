@@ -355,9 +355,9 @@ func serviceAccount(volumes ...v1.Volume) string {
 	return ""
 }
 
-func addPVCToLaunchManifest(pvcStore cache.Store, volume v1.Volume, claimName string, namespace string, volumeMounts *[]k8sv1.VolumeMount, volumeDevices *[]k8sv1.VolumeDevice) error {
+func (vr *VolumeRenderer) addPVCToLaunchManifest(pvcStore cache.Store, volume v1.Volume, claimName string) error {
 	logger := log.DefaultLogger()
-	_, exists, isBlock, err := types.IsPVCBlockFromStore(pvcStore, namespace, claimName)
+	_, exists, isBlock, err := types.IsPVCBlockFromStore(pvcStore, vr.namespace, claimName)
 	if err != nil {
 		logger.Errorf("error getting PVC: %v", claimName)
 		return err
@@ -370,20 +370,20 @@ func addPVCToLaunchManifest(pvcStore cache.Store, volume v1.Volume, claimName st
 			Name:       volume.Name,
 			DevicePath: devicePath,
 		}
-		*volumeDevices = append(*volumeDevices, device)
+		vr.volumeDevices = append(vr.volumeDevices, device)
 	} else {
 		volumeMount := k8sv1.VolumeMount{
 			Name:      volume.Name,
 			MountPath: hostdisk.GetMountedHostDiskDir(volume.Name),
 		}
-		*volumeMounts = append(*volumeMounts, volumeMount)
+		vr.podVolumeMounts = append(vr.podVolumeMounts, volumeMount)
 	}
 	return nil
 }
 
 func (vr *VolumeRenderer) handlePVCVolume(volume v1.Volume, pvcStore cache.Store) error {
 	claimName := volume.PersistentVolumeClaim.ClaimName
-	if err := addPVCToLaunchManifest(pvcStore, volume, claimName, vr.namespace, &vr.podVolumeMounts, &vr.volumeDevices); err != nil {
+	if err := vr.addPVCToLaunchManifest(pvcStore, volume, claimName); err != nil {
 		return err
 	}
 	vr.podVolumes = append(vr.podVolumes, k8sv1.Volume{
@@ -400,7 +400,7 @@ func (vr *VolumeRenderer) handlePVCVolume(volume v1.Volume, pvcStore cache.Store
 
 func (vr *VolumeRenderer) handleEphemeralVolume(volume v1.Volume, pvcStore cache.Store) error {
 	claimName := volume.Ephemeral.PersistentVolumeClaim.ClaimName
-	if err := addPVCToLaunchManifest(pvcStore, volume, claimName, vr.namespace, &vr.podVolumeMounts, &vr.volumeDevices); err != nil {
+	if err := vr.addPVCToLaunchManifest(pvcStore, volume, claimName); err != nil {
 		return err
 	}
 	vr.podVolumes = append(vr.podVolumes, k8sv1.Volume{
@@ -414,7 +414,7 @@ func (vr *VolumeRenderer) handleEphemeralVolume(volume v1.Volume, pvcStore cache
 
 func (vr *VolumeRenderer) handleDataVolume(volume v1.Volume, pvcStore cache.Store) error {
 	claimName := volume.DataVolume.Name
-	if err := addPVCToLaunchManifest(pvcStore, volume, claimName, vr.namespace, &vr.podVolumeMounts, &vr.volumeDevices); err != nil {
+	if err := vr.addPVCToLaunchManifest(pvcStore, volume, claimName); err != nil {
 		return err
 	}
 	vr.podVolumes = append(vr.podVolumes, k8sv1.Volume{
