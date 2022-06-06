@@ -13,7 +13,6 @@ import (
 	k8sfield "k8s.io/apimachinery/pkg/util/validation/field"
 
 	"kubevirt.io/client-go/api"
-	"kubevirt.io/client-go/kubecli"
 
 	v1 "kubevirt.io/api/core/v1"
 	apiflavor "kubevirt.io/api/flavor"
@@ -22,6 +21,8 @@ import (
 	"kubevirt.io/kubevirt/pkg/testutils"
 )
 
+const namespace = "test-vm-namespace"
+
 var _ = Describe("Flavor and Preferences", func() {
 	var (
 		flavorInformer            cache.SharedIndexInformer
@@ -29,11 +30,9 @@ var _ = Describe("Flavor and Preferences", func() {
 		preferenceInformer        cache.SharedIndexInformer
 		clusterPreferenceInformer cache.SharedIndexInformer
 		flavorMethods             flavor.Methods
-		vm                        *v1.VirtualMachine
 		vmi                       *v1.VirtualMachineInstance
 		flavorMatcher             *v1.FlavorMatcher
 		preferenceMatcher         *v1.PreferenceMatcher
-		namespace                 string
 	)
 
 	BeforeEach(func() {
@@ -42,7 +41,6 @@ var _ = Describe("Flavor and Preferences", func() {
 		preferenceInformer, _ = testutils.NewFakeInformerFor(&flavorv1alpha1.VirtualMachinePreference{})
 		clusterPreferenceInformer, _ = testutils.NewFakeInformerFor(&flavorv1alpha1.VirtualMachineClusterPreference{})
 		flavorMethods = flavor.NewMethods(flavorInformer.GetStore(), clusterFlavorInformer.GetStore(), preferenceInformer.GetStore(), clusterPreferenceInformer.GetStore())
-		namespace = "test-vm-namespace"
 	})
 
 	Context("Find Flavor Spec", func() {
@@ -144,9 +142,8 @@ var _ = Describe("Flavor and Preferences", func() {
 			})
 
 			It("fails when flavor is in different namespace", func() {
-				namespace = "other-namespace"
 
-				_, err := flavorMethods.FindFlavorSpec(flavorMatcher, namespace)
+				_, err := flavorMethods.FindFlavorSpec(flavorMatcher, "other-namespace")
 				Expect(err).To(HaveOccurred())
 				Expect(errors.IsNotFound(err)).To(BeTrue())
 			})
@@ -192,19 +189,6 @@ var _ = Describe("Flavor and Preferences", func() {
 	})
 
 	Context("Find Preference Spec", func() {
-
-		BeforeEach(func() {
-			namespace = "test-vm-namespace"
-			vm = &v1.VirtualMachine{
-				ObjectMeta: metav1.ObjectMeta{
-					Name:      "test-vm",
-					Namespace: namespace,
-				},
-				Spec: v1.VirtualMachineSpec{
-					Preference: &v1.PreferenceMatcher{},
-				},
-			}
-		})
 
 		It("returns nil when no preference is specified", func() {
 			preferenceMatcher = nil
@@ -303,9 +287,8 @@ var _ = Describe("Flavor and Preferences", func() {
 			})
 
 			It("fails when preference is in different namespace", func() {
-				namespace = "other-namespace"
 
-				_, err := flavorMethods.FindPreferenceSpec(preferenceMatcher, namespace)
+				_, err := flavorMethods.FindPreferenceSpec(preferenceMatcher, "other-namespace")
 				Expect(err).To(HaveOccurred())
 				Expect(errors.IsNotFound(err)).To(BeTrue())
 			})
@@ -359,10 +342,7 @@ var _ = Describe("Flavor and Preferences", func() {
 		)
 
 		BeforeEach(func() {
-			vm = kubecli.NewMinimalVM("testvm")
-			vm.Namespace = "test-namespace"
 			vmi = api.NewMinimalVMI("testvmi")
-
 			vmi.Spec = v1.VirtualMachineInstanceSpec{
 				Domain: v1.DomainSpec{},
 			}

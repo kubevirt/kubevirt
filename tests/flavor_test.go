@@ -3,7 +3,6 @@ package tests_test
 import (
 	"context"
 	goerrors "errors"
-	"time"
 
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
@@ -27,14 +26,12 @@ var _ = Describe("[crit:medium][vendor:cnv-qe@redhat.com][level:component][sig-c
 
 	var (
 		virtClient kubecli.KubevirtClient
-		err        error
 	)
 
 	BeforeEach(func() {
 		var err error
 		virtClient, err = kubecli.GetKubevirtClient()
 		Expect(err).ToNot(HaveOccurred())
-
 		tests.BeforeTestCleanup()
 	})
 
@@ -321,7 +318,7 @@ var _ = Describe("[crit:medium][vendor:cnv-qe@redhat.com][level:component][sig-c
 			)
 
 			flavor := newVirtualMachineFlavor(vmi)
-			flavor, err = virtClient.VirtualMachineFlavor(util.NamespaceTestDefault).
+			flavor, err := virtClient.VirtualMachineFlavor(util.NamespaceTestDefault).
 				Create(context.Background(), flavor, metav1.CreateOptions{})
 			Expect(err).ToNot(HaveOccurred())
 
@@ -371,12 +368,6 @@ var _ = Describe("[crit:medium][vendor:cnv-qe@redhat.com][level:component][sig-c
 			vmi, err = virtClient.VirtualMachineInstance(util.NamespaceTestDefault).Create(vmi)
 			Expect(err).ToNot(HaveOccurred())
 
-			// Observe the VirtualMachineInstance created
-			Eventually(func() error {
-				_, err := virtClient.VirtualMachineInstance(vmi.Namespace).Get(vmi.Name, &metav1.GetOptions{})
-				return err
-			}, 300*time.Second, 1*time.Second).Should(Succeed())
-
 			// Assert we've used sockets as flavorv1alpha1.PreferSockets was requested
 			Expect(vmi.Spec.Domain.CPU.Sockets).To(Equal(flavor.Spec.CPU.Guest))
 			Expect(*vmi.Spec.Domain.Memory.Guest).To(Equal(*flavor.Spec.Memory.Guest))
@@ -398,10 +389,10 @@ var _ = Describe("[crit:medium][vendor:cnv-qe@redhat.com][level:component][sig-c
 			Expect(vmi.Spec.Domain.Machine.Type).To(Equal(preference.Spec.Machine.PreferredMachineType))
 
 			// Assert the correct annotations have been set
-			Expect(vmi.Annotations[v1.FlavorAnnotation]).To(Equal(flavor.Name))
-			Expect(vmi.Annotations[v1.ClusterFlavorAnnotation]).To(Equal(""))
-			Expect(vmi.Annotations[v1.PreferenceAnnotation]).To(Equal(preference.Name))
-			Expect(vmi.Annotations[v1.ClusterPreferenceAnnotation]).To(Equal(""))
+			Expect(vmi.Annotations).To(HaveKeyWithValue(v1.FlavorAnnotation, flavor.Name))
+			Expect(vmi.Annotations).To(HaveKeyWithValue(v1.PreferenceAnnotation, preference.Name))
+			Expect(vmi.Annotations).ToNot(HaveKey(v1.ClusterFlavorAnnotation))
+			Expect(vmi.Annotations).ToNot(HaveKey(v1.ClusterPreferenceAnnotation))
 		})
 
 		It("[test_id:TODO] should add missing network and apply any interface preferences to VirtualMachineInstance", func() {
@@ -412,7 +403,7 @@ var _ = Describe("[crit:medium][vendor:cnv-qe@redhat.com][level:component][sig-c
 				},
 			})
 
-			preference, err = virtClient.VirtualMachinePreference(util.NamespaceTestDefault).
+			preference, err := virtClient.VirtualMachinePreference(util.NamespaceTestDefault).
 				Create(context.Background(), preference, metav1.CreateOptions{})
 			Expect(err).ToNot(HaveOccurred())
 
@@ -430,12 +421,6 @@ var _ = Describe("[crit:medium][vendor:cnv-qe@redhat.com][level:component][sig-c
 			vmi, err = virtClient.VirtualMachineInstance(util.NamespaceTestDefault).Create(vmi)
 			Expect(err).ToNot(HaveOccurred())
 
-			// Observe the VirtualMachineInstance created
-			Eventually(func() error {
-				_, err := virtClient.VirtualMachineInstance(vmi.Namespace).Get(vmi.Name, &metav1.GetOptions{})
-				return err
-			}, 300*time.Second, 1*time.Second).Should(Succeed())
-
 			Expect(vmi.Spec.Domain.Devices.Interfaces[0].Model).To(Equal(preference.Spec.Devices.PreferredInterfaceModel))
 
 		})
@@ -448,7 +433,7 @@ var _ = Describe("[crit:medium][vendor:cnv-qe@redhat.com][level:component][sig-c
 				},
 			})
 
-			preference, err = virtClient.VirtualMachinePreference(util.NamespaceTestDefault).
+			preference, err := virtClient.VirtualMachinePreference(util.NamespaceTestDefault).
 				Create(context.Background(), preference, metav1.CreateOptions{})
 			Expect(err).ToNot(HaveOccurred())
 
@@ -464,12 +449,6 @@ var _ = Describe("[crit:medium][vendor:cnv-qe@redhat.com][level:component][sig-c
 
 			vmi, err = virtClient.VirtualMachineInstance(util.NamespaceTestDefault).Create(vmi)
 			Expect(err).ToNot(HaveOccurred())
-
-			// Observe the VirtualMachineInstance created
-			Eventually(func() error {
-				_, err := virtClient.VirtualMachineInstance(vmi.Namespace).Get(vmi.Name, &metav1.GetOptions{})
-				return err
-			}, 300*time.Second, 1*time.Second).Should(Succeed())
 
 			for diskIndex := range vmi.Spec.Domain.Devices.Disks {
 				if vmi.Spec.Domain.Devices.Disks[diskIndex].DiskDevice.Disk != nil {
