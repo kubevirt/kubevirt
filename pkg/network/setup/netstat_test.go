@@ -518,6 +518,69 @@ var _ = Describe("netstat", func() {
 		})
 	})
 
+	Describe("primary interface position in Status.Interfaces", func() {
+		const (
+			prNetworkName   = "primary"
+			secNetworkName1 = "secondary1"
+			secNetworkName2 = "secondary2"
+			podIP           = "1.1.1.1"
+			MAC             = "1C:CE:C0:01:BE:E7"
+			MAC1            = "1C:CE:C0:01:BE:E8"
+			MAC2            = "1C:CE:C0:01:BE:E9"
+		)
+
+		const (
+			PRIMARY_IFACE_IND = iota
+			SECONDARY_IFACE1_IND
+			SECONDARY_IFACE2_IND
+		)
+
+		var vmiSpecIfaces []v1.Interface
+		var vmiSpecNetworks []v1.Network
+		var domainSpecIfaces []api.Interface
+
+		BeforeEach(func() {
+			vmiSpecIfaces = []v1.Interface{
+				newVMISpecIfaceWithMasqueradeBinding(prNetworkName),
+				newVMISpecIfaceWithBridgeBinding(secNetworkName1),
+				newVMISpecIfaceWithBridgeBinding(secNetworkName2),
+			}
+			vmiSpecNetworks = []v1.Network{
+				newVMISpecPodNetwork(prNetworkName),
+				newVMISpecMultusNetwork(secNetworkName1),
+				newVMISpecMultusNetwork(secNetworkName2),
+			}
+			domainSpecIfaces = []api.Interface{
+				newDomainSpecIface(prNetworkName, MAC),
+				newDomainSpecIface(secNetworkName1, MAC1),
+				newDomainSpecIface(secNetworkName2, MAC2),
+			}
+		})
+
+		DescribeTable("verify primary interface is always first in Status.Interfaces list", func(ifaceIndexArr []int) {
+			for index := range ifaceIndexArr {
+				Expect(setup.addNetworkInterface(
+					vmiSpecIfaces[index],
+					vmiSpecNetworks[index],
+					domainSpecIfaces[index],
+					podIP,
+				)).To(Succeed())
+			}
+
+			Expect(setup.NetStat.UpdateStatus(setup.Vmi, setup.Domain)).To(Succeed())
+
+			Expect(setup.Vmi.Status.Interfaces).To(Equal([]v1.VirtualMachineInstanceNetworkInterface{
+				newVMIStatusIface(prNetworkName, []string{podIP}, MAC, "", netvmispec.InfoSourceDomain, netsetup.DefaultInterfaceQueueCount),
+				newVMIStatusIface(secNetworkName1, []string{podIP}, MAC1, "", netvmispec.InfoSourceDomain, netsetup.DefaultInterfaceQueueCount),
+				newVMIStatusIface(secNetworkName2, []string{podIP}, MAC2, "", netvmispec.InfoSourceDomain, netsetup.DefaultInterfaceQueueCount),
+			}))
+		},
+			Entry("primary interface defined first in spec", []int{PRIMARY_IFACE_IND, SECONDARY_IFACE1_IND, SECONDARY_IFACE2_IND}),
+			Entry("primary interface defined last in spec", []int{SECONDARY_IFACE1_IND, SECONDARY_IFACE2_IND, PRIMARY_IFACE_IND}),
+			Entry("primary interface defined in the middle in spec", []int{SECONDARY_IFACE1_IND, PRIMARY_IFACE_IND, SECONDARY_IFACE2_IND}),
+		)
+	})
+
 	Context("misc scenario", func() {
 		const (
 			networkName = "primary"

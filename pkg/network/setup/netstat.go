@@ -81,6 +81,7 @@ func (c *NetStat) CachePodInterfaceVolatileData(vmi *v1.VirtualMachineInstance, 
 // - Pod interface cache: interfaces data (IP/s) collected from the cache (which was populated during the network setup).
 // - domain.Spec: interfaces configuration as seen by the (libvirt) domain.
 // - domain.Status.Interfaces: interfaces reported by the guest agent (empty if Qemu agent not running).
+// Podnet nic has to be the first one in vmi.Status.Interfaces list to match vmi crd wide columns definition
 func (c *NetStat) UpdateStatus(vmi *v1.VirtualMachineInstance, domain *api.Domain) error {
 	if domain == nil {
 		return nil
@@ -116,7 +117,13 @@ func (c *NetStat) UpdateStatus(vmi *v1.VirtualMachineInstance, domain *api.Domai
 		}
 	}
 
+	primaryInterfaceStatus, interfacesStatus := netvmispec.PopInterfaceByNetwork(interfacesStatus, netvmispec.LookupPodNetwork(vmi.Spec.Networks))
+	if primaryInterfaceStatus != nil {
+		interfacesStatus = append([]v1.VirtualMachineInstanceNetworkInterface{*primaryInterfaceStatus}, interfacesStatus...)
+	}
+
 	vmi.Status.Interfaces = interfacesStatus
+
 	return nil
 }
 

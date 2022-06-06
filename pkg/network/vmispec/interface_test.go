@@ -101,6 +101,39 @@ var _ = Describe("VMI network spec", func() {
 		Entry("more then one interface", vmiSpecInterfaces(iface1, iface2, iface3), []string{iface1, iface2, iface3}),
 	)
 
+	Context("pop interface by network", func() {
+		const netName = "net1"
+		network := podNetwork(netName)
+		expectedStatusIfaces := vmiStatusInterfaces(iface1, iface2)
+
+		It("has no network", func() {
+			statusIface, statusIfaces := netvmispec.PopInterfaceByNetwork(vmiStatusInterfaces(iface1, iface2), nil)
+			Expect(statusIface).To(BeNil())
+			Expect(statusIfaces).To(Equal(expectedStatusIfaces))
+		})
+
+		It("has no interfaces", func() {
+			statusIface, _ := netvmispec.PopInterfaceByNetwork(nil, &network)
+			Expect(statusIface).To(BeNil())
+		})
+
+		It("interface not found", func() {
+			statusIface, _ := netvmispec.PopInterfaceByNetwork(vmiStatusInterfaces(iface1, iface2), &network)
+			Expect(statusIface).To(BeNil())
+		})
+
+		DescribeTable("pop interface from position", func(statusIfaces []v1.VirtualMachineInstanceNetworkInterface) {
+			expectedStatusIface := v1.VirtualMachineInstanceNetworkInterface{Name: netName}
+			statusIface, statusIfaces := netvmispec.PopInterfaceByNetwork(statusIfaces, &network)
+			Expect(*statusIface).To(Equal(expectedStatusIface))
+			Expect(statusIfaces).To(Equal(expectedStatusIfaces))
+		},
+			Entry("first", vmiStatusInterfaces(netName, iface1, iface2)),
+			Entry("last", vmiStatusInterfaces(iface1, iface2, netName)),
+			Entry("mid", vmiStatusInterfaces(iface1, netName, iface2)),
+		)
+	})
+
 	It("filter status interfaces, given 0 interfaces and 0 names", func() {
 		Expect(netvmispec.FilterStatusInterfacesByNames(nil, nil)).To(BeEmpty())
 	})
@@ -126,6 +159,7 @@ func podNetwork(name string) v1.Network {
 		NetworkSource: v1.NetworkSource{Pod: &v1.PodNetwork{}},
 	}
 }
+
 func interfaceWithBridgeBinding(name string) v1.Interface {
 	return v1.Interface{
 		Name:                   name,
