@@ -2139,6 +2139,9 @@ func (c *VMIController) getFilesystemOverhead(pvc *k8sv1.PersistentVolumeClaim) 
 	if !ok {
 		return "0", fmt.Errorf("Failed to convert CDIConfig object %v to type CDIConfig", cdiConfigInterface)
 	}
+	if cdiConfig.Status.FilesystemOverhead == nil {
+		return "0", fmt.Errorf("Failed to get FilesystemOverhead from CDIConfig's status")
+	}
 	if pvc.Spec.VolumeMode != nil && *pvc.Spec.VolumeMode == k8sv1.PersistentVolumeBlock {
 		return "0", nil
 	}
