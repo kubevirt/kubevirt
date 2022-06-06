@@ -8,8 +8,6 @@ import (
 
 	v1 "kubevirt.io/api/core/v1"
 	cdiv1beta1 "kubevirt.io/containerized-data-importer-api/pkg/apis/core/v1beta1"
-	sspv1beta1 "kubevirt.io/ssp-operator/api/v1beta1"
-
 	sdkapi "kubevirt.io/controller-lifecycle-operator-sdk/api"
 )
 
@@ -111,7 +109,7 @@ type HyperConvergedSpec struct {
 	// DataImportCronTemplates holds list of data import cron templates (golden images)
 	// +optional
 	// +listType=atomic
-	DataImportCronTemplates []sspv1beta1.DataImportCronTemplate `json:"dataImportCronTemplates,omitempty"`
+	DataImportCronTemplates []DataImportCronTemplate `json:"dataImportCronTemplates,omitempty"`
 
 	// FilesystemOverhead describes the space reserved for overhead when using Filesystem volumes.
 	// A value is between 0 and 1, if not defined it is 0.055 (5.5 percent overhead)
@@ -468,9 +466,17 @@ type DataImportCronStatus struct {
 	Modified bool `json:"modified,omitempty"`
 }
 
+// DataImportCronTemplate defines the template type for DataImportCrons.
+// It requires metadata.name to be specified while leaving namespace as optional.
+type DataImportCronTemplate struct {
+	metav1.ObjectMeta `json:"metadata,omitempty"`
+
+	Spec *cdiv1beta1.DataImportCronSpec `json:"spec,omitempty"`
+}
+
 // DataImportCronTemplateStatus is a copy of a dataImportCronTemplate as defined in the spec, or in the HCO image.
 type DataImportCronTemplateStatus struct {
-	sspv1beta1.DataImportCronTemplate `json:",inline"`
+	DataImportCronTemplate `json:",inline"`
 
 	Status DataImportCronStatus `json:"status,omitempty"`
 }

@@ -844,8 +844,6 @@ spec:
                       - schedule
                       - template
                       type: object
-                  required:
-                  - spec
                   type: object
                 type: array
                 x-kubernetes-list-type: atomic
@@ -4065,8 +4063,6 @@ spec:
                             customized. Always false for custom templates.
                           type: boolean
                       type: object
-                  required:
-                  - spec
                   type: object
                 type: array
               dataImportSchedule:

@@ -5,6 +5,7 @@ import (
 	"errors"
 	"fmt"
 	"reflect"
+	"strings"
 	"sync"
 	"time"
 
@@ -56,6 +57,10 @@ func (wh WebhookHandler) ValidateCreate(hc *v1beta1.HyperConverged) error {
 		return fmt.Errorf("invalid namespace for v1beta1.HyperConverged - please use the %s namespace", wh.namespace)
 	}
 
+	if err := wh.validateDataImportCronTemplates(hc); err != nil {
+		return err
+	}
+
 	if _, err := operands.NewKubeVirt(hc); err != nil {
 		return err
 	}
@@ -74,6 +79,10 @@ func (wh WebhookHandler) ValidateCreate(hc *v1beta1.HyperConverged) error {
 // ValidateUpdate is the ValidateUpdate webhook implementation. It calls all the resources in parallel, to dry-run the
 // upgrade.
 func (wh WebhookHandler) ValidateUpdate(requested *v1beta1.HyperConverged, exists *v1beta1.HyperConverged) error {
+	if err := wh.validateDataImportCronTemplates(requested); err != nil {
+		return err
+	}
+
 	wh.logger.Info("Validating update", "name", requested.Name)
 	ctx, cancel := context.WithTimeout(context.Background(), updateDryRunTimeOut)
 	defer cancel()
@@ -256,6 +265,25 @@ func (wh WebhookHandler) validateCertConfig(hc *v1beta1.HyperConverged) error {
 
 	if hc.Spec.CertConfig.CA.Duration.Duration < hc.Spec.CertConfig.Server.Duration.Duration {
 		return errors.New("spec.certConfig: ca.duration is smaller than server.duration")
+	}
+
+	return nil
+}
+
+func (wh WebhookHandler) validateDataImportCronTemplates(hc *v1beta1.HyperConverged) error {
+
+	for _, dict := range hc.Spec.DataImportCronTemplates {
+		val, ok := dict.Annotations[hcoutil.DataImportCronEnabledAnnotation]
+		val = strings.ToLower(val)
+		if ok && !(val == "false" || val == "true") {
+			return fmt.Errorf(`the %s annotation of a dataImportCronTemplate must be either "true" or "false"`, hcoutil.DataImportCronEnabledAnnotation)
+		}
+
+		enabled := !ok || val == "true"
+
+		if enabled && dict.Spec == nil {
+			return fmt.Errorf("dataImportCronTemplate spec is empty for an enabled DataImportCronTemplate")
+		}
 	}
 
 	return nil

@@ -355,9 +355,9 @@ var _ = Describe("SSP Operands", func() {
 			url3 := "docker://someregistry/image3"
 			url4 := "docker://someregistry/image4"
 
-			image1 := sspv1beta1.DataImportCronTemplate{
+			image1 := hcov1beta1.DataImportCronTemplate{
 				ObjectMeta: metav1.ObjectMeta{Name: "image1"},
-				Spec: cdiv1beta1.DataImportCronSpec{
+				Spec: &cdiv1beta1.DataImportCronSpec{
 					Schedule: "1 */12 * * *",
 					Template: cdiv1beta1.DataVolume{
 						Spec: cdiv1beta1.DataVolumeSpec{
@@ -378,9 +378,9 @@ var _ = Describe("SSP Operands", func() {
 				},
 			}
 
-			image2 := sspv1beta1.DataImportCronTemplate{
+			image2 := hcov1beta1.DataImportCronTemplate{
 				ObjectMeta: metav1.ObjectMeta{Name: "image2"},
-				Spec: cdiv1beta1.DataImportCronSpec{
+				Spec: &cdiv1beta1.DataImportCronSpec{
 					Schedule: "2 */12 * * *",
 					Template: cdiv1beta1.DataVolume{
 						Spec: cdiv1beta1.DataVolumeSpec{
@@ -401,9 +401,9 @@ var _ = Describe("SSP Operands", func() {
 				},
 			}
 
-			image3 := sspv1beta1.DataImportCronTemplate{
+			image3 := hcov1beta1.DataImportCronTemplate{
 				ObjectMeta: metav1.ObjectMeta{Name: "image3"},
-				Spec: cdiv1beta1.DataImportCronSpec{
+				Spec: &cdiv1beta1.DataImportCronSpec{
 					Schedule: "3 */12 * * *",
 					Template: cdiv1beta1.DataVolume{
 						Spec: cdiv1beta1.DataVolumeSpec{
@@ -424,9 +424,9 @@ var _ = Describe("SSP Operands", func() {
 				},
 			}
 
-			image4 := sspv1beta1.DataImportCronTemplate{
+			image4 := hcov1beta1.DataImportCronTemplate{
 				ObjectMeta: metav1.ObjectMeta{Name: "image4"},
-				Spec: cdiv1beta1.DataImportCronSpec{
+				Spec: &cdiv1beta1.DataImportCronSpec{
 					Schedule: "4 */12 * * *",
 					Template: cdiv1beta1.DataVolume{
 						Spec: cdiv1beta1.DataVolumeSpec{
@@ -497,17 +497,17 @@ var _ = Describe("SSP Operands", func() {
 
 				It("should not return the hard coded list dataImportCron FeatureGate is false", func() {
 					hco := commonTestUtils.NewHco()
-					dataImportCronTemplateHardCodedMap = map[string]sspv1beta1.DataImportCronTemplate{
+					dataImportCronTemplateHardCodedMap = map[string]hcov1beta1.DataImportCronTemplate{
 						image1.Name: image1,
 						image2.Name: image2,
 					}
-					hco.Spec.DataImportCronTemplates = []sspv1beta1.DataImportCronTemplate{image3, image4}
+					hco.Spec.DataImportCronTemplates = []hcov1beta1.DataImportCronTemplate{image3, image4}
 					list, err := getDataImportCronTemplates(hco)
 					Expect(err).ToNot(HaveOccurred())
 					Expect(list).To(HaveLen(2))
 					Expect(list).To(ContainElements(statusImage3, statusImage4))
 
-					hco.Spec.DataImportCronTemplates = []sspv1beta1.DataImportCronTemplate{}
+					hco.Spec.DataImportCronTemplates = []hcov1beta1.DataImportCronTemplate{}
 					list, err = getDataImportCronTemplates(hco)
 					Expect(err).ToNot(HaveOccurred())
 					Expect(list).To(BeEmpty())
@@ -516,7 +516,7 @@ var _ = Describe("SSP Operands", func() {
 				It("should return an empty list if both the hard-coded list and the list from HC are empty", func() {
 					hcoWithEmptyList := commonTestUtils.NewHco()
 					hcoWithEmptyList.Spec.FeatureGates.EnableCommonBootImageImport = true
-					hcoWithEmptyList.Spec.DataImportCronTemplates = []sspv1beta1.DataImportCronTemplate{}
+					hcoWithEmptyList.Spec.DataImportCronTemplates = []hcov1beta1.DataImportCronTemplate{}
 					hcoWithNilList := commonTestUtils.NewHco()
 					hcoWithNilList.Spec.FeatureGates.EnableCommonBootImageImport = true
 					hcoWithNilList.Spec.DataImportCronTemplates = nil
@@ -524,19 +524,19 @@ var _ = Describe("SSP Operands", func() {
 					dataImportCronTemplateHardCodedMap = nil
 					Expect(getDataImportCronTemplates(hcoWithNilList)).To(BeNil())
 					Expect(getDataImportCronTemplates(hcoWithEmptyList)).To(BeNil())
-					dataImportCronTemplateHardCodedMap = make(map[string]sspv1beta1.DataImportCronTemplate)
+					dataImportCronTemplateHardCodedMap = make(map[string]hcov1beta1.DataImportCronTemplate)
 					Expect(getDataImportCronTemplates(hcoWithNilList)).To(BeNil())
 					Expect(getDataImportCronTemplates(hcoWithEmptyList)).To(BeNil())
 				})
 
 				It("Should add the CR list to the hard-coded list", func() {
-					dataImportCronTemplateHardCodedMap = map[string]sspv1beta1.DataImportCronTemplate{
+					dataImportCronTemplateHardCodedMap = map[string]hcov1beta1.DataImportCronTemplate{
 						image1.Name: image1,
 						image2.Name: image2,
 					}
 					hco := commonTestUtils.NewHco()
 					hco.Spec.FeatureGates.EnableCommonBootImageImport = true
-					hco.Spec.DataImportCronTemplates = []sspv1beta1.DataImportCronTemplate{image3, image4}
+					hco.Spec.DataImportCronTemplates = []hcov1beta1.DataImportCronTemplate{image3, image4}
 					goldenImageList, err := getDataImportCronTemplates(hco)
 					Expect(err).ToNot(HaveOccurred())
 					Expect(goldenImageList).To(HaveLen(4))
@@ -545,7 +545,7 @@ var _ = Describe("SSP Operands", func() {
 				})
 
 				It("Should not add a common DIC template if it marked as disabled", func() {
-					dataImportCronTemplateHardCodedMap = map[string]sspv1beta1.DataImportCronTemplate{
+					dataImportCronTemplateHardCodedMap = map[string]hcov1beta1.DataImportCronTemplate{
 						image1.Name: image1,
 						image2.Name: image2,
 					}
@@ -557,7 +557,7 @@ var _ = Describe("SSP Operands", func() {
 					enabledImage2 := image2.DeepCopy()
 					enableDict(enabledImage2)
 
-					hco.Spec.DataImportCronTemplates = []sspv1beta1.DataImportCronTemplate{*disabledImage1, *enabledImage2, image3, image4}
+					hco.Spec.DataImportCronTemplates = []hcov1beta1.DataImportCronTemplate{*disabledImage1, *enabledImage2, image3, image4}
 					goldenImageList, err := getDataImportCronTemplates(hco)
 					Expect(err).ToNot(HaveOccurred())
 					Expect(goldenImageList).To(HaveLen(3))
@@ -570,7 +570,7 @@ var _ = Describe("SSP Operands", func() {
 				})
 
 				It("Should reject if the CR list contain DIC templates with the same name, when there are also common DIC templates", func() {
-					dataImportCronTemplateHardCodedMap = map[string]sspv1beta1.DataImportCronTemplate{
+					dataImportCronTemplateHardCodedMap = map[string]hcov1beta1.DataImportCronTemplate{
 						image1.Name: image1,
 						image2.Name: image2,
 					}
@@ -580,7 +580,7 @@ var _ = Describe("SSP Operands", func() {
 					image3Modified := image3.DeepCopy()
 					image3Modified.Name = image4.Name
 
-					hco.Spec.DataImportCronTemplates = []sspv1beta1.DataImportCronTemplate{*image3Modified, image4}
+					hco.Spec.DataImportCronTemplates = []hcov1beta1.DataImportCronTemplate{*image3Modified, image4}
 					_, err := getDataImportCronTemplates(hco)
 					Expect(err).To(HaveOccurred())
 				})
@@ -592,14 +592,14 @@ var _ = Describe("SSP Operands", func() {
 					image3Modified := image3.DeepCopy()
 					image3Modified.Name = image4.Name
 
-					hco.Spec.DataImportCronTemplates = []sspv1beta1.DataImportCronTemplate{*image3Modified, image4}
+					hco.Spec.DataImportCronTemplates = []hcov1beta1.DataImportCronTemplate{*image3Modified, image4}
 					_, err := getDataImportCronTemplates(hco)
 					Expect(err).To(HaveOccurred())
 				})
 
 				It("Should not add the CR list to the hard-coded list, if it's empty", func() {
 					By("CR list is nil")
-					dataImportCronTemplateHardCodedMap = map[string]sspv1beta1.DataImportCronTemplate{
+					dataImportCronTemplateHardCodedMap = map[string]hcov1beta1.DataImportCronTemplate{
 						image1.Name: image1,
 						image2.Name: image2,
 					}
@@ -614,7 +614,7 @@ var _ = Describe("SSP Operands", func() {
 					Expect(goldenImageList).To(ContainElements(statusImage1, statusImage2))
 
 					By("CR list is empty")
-					hco.Spec.DataImportCronTemplates = []sspv1beta1.DataImportCronTemplate{}
+					hco.Spec.DataImportCronTemplates = []hcov1beta1.DataImportCronTemplate{}
 					goldenImageList, err = getDataImportCronTemplates(hco)
 					Expect(err).ToNot(HaveOccurred())
 					Expect(goldenImageList).To(HaveLen(2))
@@ -624,7 +624,7 @@ var _ = Describe("SSP Operands", func() {
 				It("Should return only the CR list, if the hard-coded list is empty", func() {
 					hco := commonTestUtils.NewHco()
 					hco.Spec.FeatureGates.EnableCommonBootImageImport = true
-					hco.Spec.DataImportCronTemplates = []sspv1beta1.DataImportCronTemplate{image3, image4}
+					hco.Spec.DataImportCronTemplates = []hcov1beta1.DataImportCronTemplate{image3, image4}
 
 					By("when dataImportCronTemplateHardCodedList is nil")
 					dataImportCronTemplateHardCodedMap = nil
@@ -635,7 +635,7 @@ var _ = Describe("SSP Operands", func() {
 					Expect(goldenImageList).To(ContainElements(statusImage3, statusImage4))
 
 					By("when dataImportCronTemplateHardCodedList is empty")
-					dataImportCronTemplateHardCodedMap = map[string]sspv1beta1.DataImportCronTemplate{}
+					dataImportCronTemplateHardCodedMap = map[string]hcov1beta1.DataImportCronTemplate{}
 					goldenImageList, err = getDataImportCronTemplates(hco)
 					Expect(err).ToNot(HaveOccurred())
 					Expect(goldenImageList).To(HaveLen(2))
@@ -653,7 +653,7 @@ var _ = Describe("SSP Operands", func() {
 						Registry: &cdiv1beta1.DataVolumeSourceRegistry{URL: &modifiedURL},
 					}
 
-					dataImportCronTemplateHardCodedMap = map[string]sspv1beta1.DataImportCronTemplate{
+					dataImportCronTemplateHardCodedMap = map[string]hcov1beta1.DataImportCronTemplate{
 						image1.Name: *image1FromFile,
 						image2.Name: image2,
 					}
@@ -669,7 +669,7 @@ var _ = Describe("SSP Operands", func() {
 					By("check that if the CR schedule is empty, HCO adds it from the common dict")
 					modifiedImage1.Spec.Schedule = ""
 
-					hco.Spec.DataImportCronTemplates = []sspv1beta1.DataImportCronTemplate{*modifiedImage1, image3, image4}
+					hco.Spec.DataImportCronTemplates = []hcov1beta1.DataImportCronTemplate{*modifiedImage1, image3, image4}
 
 					goldenImageList, err := getDataImportCronTemplates(hco)
 					Expect(err).ToNot(HaveOccurred())
@@ -699,7 +699,7 @@ var _ = Describe("SSP Operands", func() {
 					}
 					image1FromFile.Spec.Template.Spec.Storage = storageFromFile
 
-					dataImportCronTemplateHardCodedMap = map[string]sspv1beta1.DataImportCronTemplate{
+					dataImportCronTemplateHardCodedMap = map[string]hcov1beta1.DataImportCronTemplate{
 						image1.Name: *image1FromFile,
 						image2.Name: image2,
 					}
@@ -721,7 +721,7 @@ var _ = Describe("SSP Operands", func() {
 					modifiedImage1.Spec.Template.Spec.Storage = storageFromCr.DeepCopy()
 					modifiedImage1.Spec.Schedule = image1.Spec.Schedule
 
-					hco.Spec.DataImportCronTemplates = []sspv1beta1.DataImportCronTemplate{*modifiedImage1, image3, image4}
+					hco.Spec.DataImportCronTemplates = []hcov1beta1.DataImportCronTemplate{*modifiedImage1, image3, image4}
 
 					goldenImageList, err := getDataImportCronTemplates(hco)
 					Expect(err).ToNot(HaveOccurred())
@@ -785,21 +785,21 @@ var _ = Describe("SSP Operands", func() {
 
 					hco := commonTestUtils.NewHco()
 					hco.Spec.FeatureGates.EnableCommonBootImageImport = true
-					hco.Spec.DataImportCronTemplates = []sspv1beta1.DataImportCronTemplate{image3, image4}
+					hco.Spec.DataImportCronTemplates = []hcov1beta1.DataImportCronTemplate{image3, image4}
 					ssp, _, err := NewSSP(hco)
 					Expect(err).ToNot(HaveOccurred())
 
 					Expect(ssp.Spec.CommonTemplates.DataImportCronTemplates).ShouldNot(BeNil())
 					Expect(ssp.Spec.CommonTemplates.DataImportCronTemplates).Should(HaveLen(4))
 
-					var commonImages []sspv1beta1.DataImportCronTemplate
+					var commonImages []hcov1beta1.DataImportCronTemplate
 					for _, dict := range dataImportCronTemplateHardCodedMap {
 						commonImages = append(commonImages, dict)
 					}
 					commonImages = append(commonImages, image3)
 					commonImages = append(commonImages, image4)
 
-					Expect(ssp.Spec.CommonTemplates.DataImportCronTemplates).Should(ContainElements(commonImages))
+					Expect(ssp.Spec.CommonTemplates.DataImportCronTemplates).Should(ContainElements(hcoDictSliceToSSSP(commonImages)))
 				})
 
 				It("Should not add a common DIC template if it marked as disabled", func() {
@@ -823,11 +823,12 @@ var _ = Describe("SSP Operands", func() {
 					fedoraDic := commonFedora.DeepCopy()
 					disableDict(fedoraDic)
 
-					hco.Spec.DataImportCronTemplates = []sspv1beta1.DataImportCronTemplate{*fedoraDic, image3, image4}
+					hco.Spec.DataImportCronTemplates = []hcov1beta1.DataImportCronTemplate{*fedoraDic, image3, image4}
 					ssp, _, err := NewSSP(hco)
 					Expect(err).ToNot(HaveOccurred())
 					Expect(ssp.Spec.CommonTemplates.DataImportCronTemplates).Should(HaveLen(3))
-					Expect(ssp.Spec.CommonTemplates.DataImportCronTemplates).Should(ContainElements(commonCentos8), image3, image4)
+					expected := hcoDictSliceToSSSP([]hcov1beta1.DataImportCronTemplate{commonCentos8, image3, image4})
+					Expect(ssp.Spec.CommonTemplates.DataImportCronTemplates).Should(ContainElements(expected))
 					Expect(ssp.Spec.CommonTemplates.DataImportCronTemplates).ShouldNot(ContainElement(commonFedora))
 				})
 
@@ -849,7 +850,7 @@ var _ = Describe("SSP Operands", func() {
 					image3Modified := image3.DeepCopy()
 					image3Modified.Name = image4.Name
 
-					hco.Spec.DataImportCronTemplates = []sspv1beta1.DataImportCronTemplate{*image3Modified, image4}
+					hco.Spec.DataImportCronTemplates = []hcov1beta1.DataImportCronTemplate{*image3Modified, image4}
 					ssp, _, err := NewSSP(hco)
 					Expect(err).To(HaveOccurred())
 					Expect(ssp).To(BeNil())
@@ -865,7 +866,7 @@ var _ = Describe("SSP Operands", func() {
 					image3Modified := image3.DeepCopy()
 					image3Modified.Name = image4.Name
 
-					hco.Spec.DataImportCronTemplates = []sspv1beta1.DataImportCronTemplate{*image3Modified, image4}
+					hco.Spec.DataImportCronTemplates = []hcov1beta1.DataImportCronTemplate{*image3Modified, image4}
 					ssp, _, err := NewSSP(hco)
 					Expect(err).To(HaveOccurred())
 					Expect(ssp).To(BeNil())
@@ -877,13 +878,14 @@ var _ = Describe("SSP Operands", func() {
 
 					hco := commonTestUtils.NewHco()
 					hco.Spec.FeatureGates.EnableCommonBootImageImport = true
-					hco.Spec.DataImportCronTemplates = []sspv1beta1.DataImportCronTemplate{image3, image4}
+					hco.Spec.DataImportCronTemplates = []hcov1beta1.DataImportCronTemplate{image3, image4}
 					ssp, _, err := NewSSP(hco)
 					Expect(err).ToNot(HaveOccurred())
 
 					Expect(ssp.Spec.CommonTemplates.DataImportCronTemplates).ShouldNot(BeNil())
 					Expect(ssp.Spec.CommonTemplates.DataImportCronTemplates).Should(HaveLen(2))
-					Expect(ssp.Spec.CommonTemplates.DataImportCronTemplates).Should(ContainElements(image3, image4))
+					expected := hcoDictSliceToSSSP([]hcov1beta1.DataImportCronTemplate{image3, image4})
+					Expect(ssp.Spec.CommonTemplates.DataImportCronTemplates).Should(ContainElements(expected))
 				})
 
 				It("should not return the common templates, if feature gate is false", func() {
@@ -899,12 +901,13 @@ var _ = Describe("SSP Operands", func() {
 
 					hco := commonTestUtils.NewHco()
 					hco.Spec.FeatureGates.EnableCommonBootImageImport = false
-					hco.Spec.DataImportCronTemplates = []sspv1beta1.DataImportCronTemplate{image3, image4}
+					hco.Spec.DataImportCronTemplates = []hcov1beta1.DataImportCronTemplate{image3, image4}
 					ssp, _, err := NewSSP(hco)
 					Expect(err).ToNot(HaveOccurred())
 
 					Expect(ssp.Spec.CommonTemplates.DataImportCronTemplates).Should(HaveLen(2))
-					Expect(ssp.Spec.CommonTemplates.DataImportCronTemplates).Should(ContainElements(image3, image4))
+					expected := hcoDictSliceToSSSP([]hcov1beta1.DataImportCronTemplate{image3, image4})
+					Expect(ssp.Spec.CommonTemplates.DataImportCronTemplates).Should(ContainElements(expected))
 				})
 
 				It("should modify a common dic if it exist in the HyperConverged CR", func() {
@@ -938,18 +941,19 @@ var _ = Describe("SSP Operands", func() {
 					}
 					fedoraDic.Spec.Template.Spec.Storage = &cdiv1beta1.StorageSpec{StorageClassName: pointer.StringPtr("someOtherStorageClass")}
 
-					hco.Spec.DataImportCronTemplates = []sspv1beta1.DataImportCronTemplate{*fedoraDic, image3, image4}
+					hco.Spec.DataImportCronTemplates = []hcov1beta1.DataImportCronTemplate{*fedoraDic, image3, image4}
 					ssp, _, err := NewSSP(hco)
 					Expect(err).ToNot(HaveOccurred())
 					Expect(ssp.Spec.CommonTemplates.DataImportCronTemplates).Should(HaveLen(4))
-					Expect(ssp.Spec.CommonTemplates.DataImportCronTemplates).Should(ContainElements(*fedoraDic, commonCentos8, image3, image4))
+					expected := hcoDictSliceToSSSP([]hcov1beta1.DataImportCronTemplate{*fedoraDic, commonCentos8, image3, image4})
+					Expect(ssp.Spec.CommonTemplates.DataImportCronTemplates).Should(ContainElements(expected))
 				})
 			})
 
 			Context("test applyDataImportSchedule", func() {
 				It("should not set the schedule filed if missing from the status", func() {
 					hco := commonTestUtils.NewHco()
-					dataImportCronTemplateHardCodedMap = map[string]sspv1beta1.DataImportCronTemplate{
+					dataImportCronTemplateHardCodedMap = map[string]hcov1beta1.DataImportCronTemplate{
 						image1.Name: image1,
 						image2.Name: image2,
 					}
@@ -965,7 +969,7 @@ var _ = Describe("SSP Operands", func() {
 					hco := commonTestUtils.NewHco()
 					hco.Status.DataImportSchedule = schedule
 
-					dataImportCronTemplateHardCodedMap = map[string]sspv1beta1.DataImportCronTemplate{
+					dataImportCronTemplateHardCodedMap = map[string]hcov1beta1.DataImportCronTemplate{
 						image1.Name: image1,
 						image2.Name: image2,
 					}
@@ -1024,7 +1028,7 @@ var _ = Describe("SSP Operands", func() {
 
 					It("should create ssp with 2 custom DICTs", func() {
 						hco.Spec.FeatureGates.EnableCommonBootImageImport = false
-						hco.Spec.DataImportCronTemplates = []sspv1beta1.DataImportCronTemplate{image3, image4}
+						hco.Spec.DataImportCronTemplates = []hcov1beta1.DataImportCronTemplate{image3, image4}
 						expectedResource, _, err := NewSSP(hco)
 						Expect(err).ToNot(HaveOccurred())
 						cl := commonTestUtils.InitClient([]runtime.Object{})
@@ -1053,7 +1057,7 @@ var _ = Describe("SSP Operands", func() {
 
 					It("should create ssp with 2 common and 2 custom DICTs", func() {
 						hco.Spec.FeatureGates.EnableCommonBootImageImport = true
-						hco.Spec.DataImportCronTemplates = []sspv1beta1.DataImportCronTemplate{image3, image4}
+						hco.Spec.DataImportCronTemplates = []hcov1beta1.DataImportCronTemplate{image3, image4}
 						expectedResource, _, err := NewSSP(hco)
 						Expect(err).ToNot(HaveOccurred())
 						cl := commonTestUtils.InitClient([]runtime.Object{})
@@ -1091,7 +1095,7 @@ var _ = Describe("SSP Operands", func() {
 						disabledCentos8 := sspCentos8.DeepCopy()
 						disableDict(disabledCentos8)
 
-						hco.Spec.DataImportCronTemplates = []sspv1beta1.DataImportCronTemplate{*disabledCentos8, image3, image4}
+						hco.Spec.DataImportCronTemplates = []hcov1beta1.DataImportCronTemplate{*disabledCentos8, image3, image4}
 						expectedResource, _, err := NewSSP(hco)
 						Expect(err).ToNot(HaveOccurred())
 						cl := commonTestUtils.InitClient([]runtime.Object{})
@@ -1135,7 +1139,7 @@ var _ = Describe("SSP Operands", func() {
 						}
 
 						modifiedCentos8.Spec.Template.Spec.Storage = modifiedStorage.DeepCopy()
-						hco.Spec.DataImportCronTemplates = []sspv1beta1.DataImportCronTemplate{*modifiedCentos8, image3, image4}
+						hco.Spec.DataImportCronTemplates = []hcov1beta1.DataImportCronTemplate{*modifiedCentos8, image3, image4}
 						expectedResource, _, err := NewSSP(hco)
 						Expect(err).ToNot(HaveOccurred())
 						cl := commonTestUtils.InitClient([]runtime.Object{})
@@ -1213,7 +1217,7 @@ var _ = Describe("SSP Operands", func() {
 						expectedResource, _, err := NewSSP(hco)
 						Expect(err).ToNot(HaveOccurred())
 
-						hco.Spec.DataImportCronTemplates = []sspv1beta1.DataImportCronTemplate{image3, image4}
+						hco.Spec.DataImportCronTemplates = []hcov1beta1.DataImportCronTemplate{image3, image4}
 
 						cl := commonTestUtils.InitClient([]runtime.Object{expectedResource})
 						handler := newSspHandler(cl, commonTestUtils.GetScheme())
@@ -1245,7 +1249,7 @@ var _ = Describe("SSP Operands", func() {
 						expectedResource, _, err := NewSSP(hco)
 						Expect(err).ToNot(HaveOccurred())
 
-						hco.Spec.DataImportCronTemplates = []sspv1beta1.DataImportCronTemplate{image3, image4}
+						hco.Spec.DataImportCronTemplates = []hcov1beta1.DataImportCronTemplate{image3, image4}
 
 						cl := commonTestUtils.InitClient([]runtime.Object{expectedResource})
 						handler := newSspHandler(cl, commonTestUtils.GetScheme())
@@ -1285,7 +1289,7 @@ var _ = Describe("SSP Operands", func() {
 						disabledCentos8 := sspCentos8.DeepCopy()
 						disableDict(disabledCentos8)
 
-						hco.Spec.DataImportCronTemplates = []sspv1beta1.DataImportCronTemplate{*disabledCentos8, image3, image4}
+						hco.Spec.DataImportCronTemplates = []hcov1beta1.DataImportCronTemplate{*disabledCentos8, image3, image4}
 
 						cl := commonTestUtils.InitClient([]runtime.Object{expectedResource})
 						handler := newSspHandler(cl, commonTestUtils.GetScheme())
@@ -1327,7 +1331,7 @@ var _ = Describe("SSP Operands", func() {
 						scName := "anotherStorageClassName"
 						modifiedCentos8.Spec.Template.Spec.Storage = &cdiv1beta1.StorageSpec{StorageClassName: &scName}
 
-						hco.Spec.DataImportCronTemplates = []sspv1beta1.DataImportCronTemplate{*modifiedCentos8, image3, image4}
+						hco.Spec.DataImportCronTemplates = []hcov1beta1.DataImportCronTemplate{*modifiedCentos8, image3, image4}
 
 						cl := commonTestUtils.InitClient([]runtime.Object{expectedResource})
 						handler := newSspHandler(cl, commonTestUtils.GetScheme())
@@ -1371,7 +1375,7 @@ var _ = Describe("SSP Operands", func() {
 			})
 
 			Context("test isDataImportCronTemplateEnabled", func() {
-				var image *sspv1beta1.DataImportCronTemplate
+				var image *hcov1beta1.DataImportCronTemplate
 
 				BeforeEach(func() {
 					image = image1.DeepCopy()
@@ -1388,32 +1392,32 @@ var _ = Describe("SSP Operands", func() {
 				})
 
 				It("should be true if the annotation is set to 'true'", func() {
-					image.Annotations = map[string]string{dataImportCronEnabledAnnotation: "true"}
+					image.Annotations = map[string]string{hcoutil.DataImportCronEnabledAnnotation: "true"}
 					Expect(isDataImportCronTemplateEnabled(*image)).To(BeTrue())
 				})
 
 				It("should be true if the annotation is set to 'TRUE'", func() {
-					image.Annotations = map[string]string{dataImportCronEnabledAnnotation: "TRUE"}
+					image.Annotations = map[string]string{hcoutil.DataImportCronEnabledAnnotation: "TRUE"}
 					Expect(isDataImportCronTemplateEnabled(*image)).To(BeTrue())
 				})
 
 				It("should be true if the annotation is set to 'TrUe'", func() {
-					image.Annotations = map[string]string{dataImportCronEnabledAnnotation: "TrUe"}
+					image.Annotations = map[string]string{hcoutil.DataImportCronEnabledAnnotation: "TrUe"}
 					Expect(isDataImportCronTemplateEnabled(*image)).To(BeTrue())
 				})
 
 				It("should be false if the annotation is empty", func() {
-					image.Annotations = map[string]string{dataImportCronEnabledAnnotation: ""}
+					image.Annotations = map[string]string{hcoutil.DataImportCronEnabledAnnotation: ""}
 					Expect(isDataImportCronTemplateEnabled(*image)).To(BeFalse())
 				})
 
 				It("should be false if the annotation is set to 'false'", func() {
-					image.Annotations = map[string]string{dataImportCronEnabledAnnotation: "false"}
+					image.Annotations = map[string]string{hcoutil.DataImportCronEnabledAnnotation: "false"}
 					Expect(isDataImportCronTemplateEnabled(*image)).To(BeFalse())
 				})
 
 				It("should be false if the annotation is set to 'something-else'", func() {
-					image.Annotations = map[string]string{dataImportCronEnabledAnnotation: "something-else"}
+					image.Annotations = map[string]string{hcoutil.DataImportCronEnabledAnnotation: "something-else"}
 					Expect(isDataImportCronTemplateEnabled(*image)).To(BeFalse())
 				})
 			})
@@ -1421,16 +1425,16 @@ var _ = Describe("SSP Operands", func() {
 	})
 })
 
-func enableDict(dict *sspv1beta1.DataImportCronTemplate) {
+func enableDict(dict *hcov1beta1.DataImportCronTemplate) {
 	if dict.Annotations == nil {
 		dict.Annotations = make(map[string]string)
 	}
-	dict.Annotations[dataImportCronEnabledAnnotation] = "true"
+	dict.Annotations[hcoutil.DataImportCronEnabledAnnotation] = "true"
 }
 
-func disableDict(dict *sspv1beta1.DataImportCronTemplate) {
+func disableDict(dict *hcov1beta1.DataImportCronTemplate) {
 	if dict.Annotations == nil {
 		dict.Annotations = make(map[string]string)
 	}
-	dict.Annotations[dataImportCronEnabledAnnotation] = "false"
+	dict.Annotations[hcoutil.DataImportCronEnabledAnnotation] = "false"
 }

@@ -63,6 +63,8 @@ const (
 	UiPluginServerPort     int32 = 9443
 
 	ApiServerCRName = "cluster"
+
+	DataImportCronEnabledAnnotation = "dataimportcrontemplate.kubevirt.io/enable"
 )
 
 type AppComponent string

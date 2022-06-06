@@ -15,6 +15,7 @@ import (
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/client-go/kubernetes/scheme"
+	"k8s.io/utils/pointer"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 	"sigs.k8s.io/controller-runtime/pkg/client/fake"
 	"sigs.k8s.io/controller-runtime/pkg/log/zap"
@@ -202,6 +203,148 @@ var _ = Describe("webhooks validator", func() {
 				}
 				err := wh.ValidateCreate(cr)
 				Expect(err).ToNot(HaveOccurred())
+			})
+		})
+
+		Context("Test DataImportCronTemplates", func() {
+			var image1, image2, image3, image4 v1beta1.DataImportCronTemplate
+
+			BeforeEach(func() {
+				image1 = v1beta1.DataImportCronTemplate{
+					ObjectMeta: metav1.ObjectMeta{Name: "image1"},
+					Spec: &cdiv1beta1.DataImportCronSpec{
+						Schedule: "1 */12 * * *",
+						Template: cdiv1beta1.DataVolume{
+							Spec: cdiv1beta1.DataVolumeSpec{
+								Source: &cdiv1beta1.DataVolumeSource{
+									Registry: &cdiv1beta1.DataVolumeSourceRegistry{URL: pointer.String("docker://someregistry/image1")},
+								},
+							},
+						},
+						ManagedDataSource: "image1",
+					},
+				}
+
+				image2 = v1beta1.DataImportCronTemplate{
+					ObjectMeta: metav1.ObjectMeta{Name: "image2"},
+					Spec: &cdiv1beta1.DataImportCronSpec{
+						Schedule: "2 */12 * * *",
+						Template: cdiv1beta1.DataVolume{
+							Spec: cdiv1beta1.DataVolumeSpec{
+								Source: &cdiv1beta1.DataVolumeSource{
+									Registry: &cdiv1beta1.DataVolumeSourceRegistry{URL: pointer.String("docker://someregistry/image2")},
+								},
+							},
+						},
+						ManagedDataSource: "image2",
+					},
+				}
+
+				image3 = v1beta1.DataImportCronTemplate{
+					ObjectMeta: metav1.ObjectMeta{Name: "image3"},
+					Spec: &cdiv1beta1.DataImportCronSpec{
+						Schedule: "3 */12 * * *",
+						Template: cdiv1beta1.DataVolume{
+							Spec: cdiv1beta1.DataVolumeSpec{
+								Source: &cdiv1beta1.DataVolumeSource{
+									Registry: &cdiv1beta1.DataVolumeSourceRegistry{URL: pointer.String("docker://someregistry/image3")},
+								},
+							},
+						},
+						ManagedDataSource: "image3",
+					},
+				}
+
+				image4 = v1beta1.DataImportCronTemplate{
+					ObjectMeta: metav1.ObjectMeta{Name: "image4"},
+					Spec: &cdiv1beta1.DataImportCronSpec{
+						Schedule: "4 */12 * * *",
+						Template: cdiv1beta1.DataVolume{
+							Spec: cdiv1beta1.DataVolumeSpec{
+								Source: &cdiv1beta1.DataVolumeSource{
+									Registry: &cdiv1beta1.DataVolumeSourceRegistry{URL: pointer.String("docker://someregistry/image4")},
+								},
+							},
+						},
+						ManagedDataSource: "image4",
+					},
+				}
+
+				cr.Spec.DataImportCronTemplates = []v1beta1.DataImportCronTemplate{image1, image2, image3, image4}
+			})
+
+			It("should allow setting the annotation to true", func() {
+				cr.Spec.DataImportCronTemplates[0].Annotations = map[string]string{util.DataImportCronEnabledAnnotation: "true"}
+				cr.Spec.DataImportCronTemplates[1].Annotations = map[string]string{util.DataImportCronEnabledAnnotation: "TRUE"}
+				cr.Spec.DataImportCronTemplates[2].Annotations = map[string]string{util.DataImportCronEnabledAnnotation: "TrUe"}
+				cr.Spec.DataImportCronTemplates[3].Annotations = map[string]string{util.DataImportCronEnabledAnnotation: "tRuE"}
+
+				err := wh.ValidateCreate(cr)
+				Expect(err).ToNot(HaveOccurred())
+			})
+
+			It("should allow setting the annotation to false", func() {
+				cr.Spec.DataImportCronTemplates[0].Annotations = map[string]string{util.DataImportCronEnabledAnnotation: "false"}
+				cr.Spec.DataImportCronTemplates[1].Annotations = map[string]string{util.DataImportCronEnabledAnnotation: "FALSE"}
+				cr.Spec.DataImportCronTemplates[2].Annotations = map[string]string{util.DataImportCronEnabledAnnotation: "FaLsE"}
+				cr.Spec.DataImportCronTemplates[3].Annotations = map[string]string{util.DataImportCronEnabledAnnotation: "fAlSe"}
+
+				err := wh.ValidateCreate(cr)
+				Expect(err).ToNot(HaveOccurred())
+			})
+
+			It("should allow setting no annotation", func() {
+				err := wh.ValidateCreate(cr)
+				Expect(err).ToNot(HaveOccurred())
+			})
+
+			It("should not allow empty annotation", func() {
+				cr.Spec.DataImportCronTemplates[0].Annotations = map[string]string{util.DataImportCronEnabledAnnotation: ""}
+				cr.Spec.DataImportCronTemplates[1].Annotations = map[string]string{util.DataImportCronEnabledAnnotation: ""}
+
+				err := wh.ValidateCreate(cr)
+				Expect(err).To(HaveOccurred())
+			})
+
+			It("should not allow unknown annotation values", func() {
+				cr.Spec.DataImportCronTemplates[0].Annotations = map[string]string{util.DataImportCronEnabledAnnotation: "wrong"}
+				cr.Spec.DataImportCronTemplates[1].Annotations = map[string]string{util.DataImportCronEnabledAnnotation: "mistake"}
+
+				err := wh.ValidateCreate(cr)
+				Expect(err).To(HaveOccurred())
+			})
+
+			Context("Empty DICT spec", func() {
+				It("don't allow if the annotation does not exist", func() {
+					// empty annotation map
+					cr.Spec.DataImportCronTemplates[0].Annotations = map[string]string{}
+					cr.Spec.DataImportCronTemplates[0].Spec = nil
+					// no annotation map
+					cr.Spec.DataImportCronTemplates[1].Spec = nil
+
+					err := wh.ValidateCreate(cr)
+					Expect(err).To(HaveOccurred())
+				})
+
+				It("don't allow if the annotation is true", func() {
+					cr.Spec.DataImportCronTemplates[0].Annotations = map[string]string{util.DataImportCronEnabledAnnotation: "True"}
+					cr.Spec.DataImportCronTemplates[0].Spec = nil
+					cr.Spec.DataImportCronTemplates[1].Annotations = map[string]string{util.DataImportCronEnabledAnnotation: "true"}
+					cr.Spec.DataImportCronTemplates[1].Spec = nil
+
+					err := wh.ValidateCreate(cr)
+					Expect(err).To(HaveOccurred())
+				})
+
+				It("allow if the annotation is false", func() {
+					cr.Spec.DataImportCronTemplates[0].Annotations = map[string]string{util.DataImportCronEnabledAnnotation: "False"}
+					cr.Spec.DataImportCronTemplates[0].Spec = nil
+					cr.Spec.DataImportCronTemplates[1].Annotations = map[string]string{util.DataImportCronEnabledAnnotation: "false"}
+					cr.Spec.DataImportCronTemplates[1].Spec = nil
+
+					err := wh.ValidateCreate(cr)
+					Expect(err).ToNot(HaveOccurred())
+				})
 			})
 		})
 	})

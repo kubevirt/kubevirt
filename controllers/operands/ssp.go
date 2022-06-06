@@ -11,6 +11,8 @@ import (
 	"sort"
 	"strings"
 
+	cdiv1beta1 "kubevirt.io/containerized-data-importer-api/pkg/apis/core/v1beta1"
+
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/runtime"
 	"sigs.k8s.io/controller-runtime/pkg/client"
@@ -32,14 +34,12 @@ const (
 	defaultCommonTemplatesNamespace = hcoutil.OpenshiftNamespace
 
 	dataImportCronTemplatesFileLocation = "./dataImportCronTemplates"
-
-	dataImportCronEnabledAnnotation = "dataimportcrontemplate.kubevirt.io/enable"
 )
 
 var (
 	// dataImportCronTemplateHardCodedMap are set of data import cron template configurations. The handler reads a list
 	// of data import cron templates from a local file and updates SSP with the up-to-date list
-	dataImportCronTemplateHardCodedMap map[string]sspv1beta1.DataImportCronTemplate
+	dataImportCronTemplateHardCodedMap map[string]hcov1beta1.DataImportCronTemplate
 )
 
 func init() {
@@ -144,7 +144,7 @@ func NewSSP(hc *hcov1beta1.HyperConverged, _ ...string) (*sspv1beta1.SSP, []hcov
 		return nil, nil, err
 	}
 
-	var dataImportCronTemplates []sspv1beta1.DataImportCronTemplate
+	var dataImportCronTemplates []hcov1beta1.DataImportCronTemplate
 	for _, dictStatus := range dataImportCronStatuses {
 		dataImportCronTemplates = append(dataImportCronTemplates, dictStatus.DataImportCronTemplate)
 	}
@@ -155,7 +155,7 @@ func NewSSP(hc *hcov1beta1.HyperConverged, _ ...string) (*sspv1beta1.SSP, []hcov
 		},
 		CommonTemplates: sspv1beta1.CommonTemplates{
 			Namespace:               templatesNamespace,
-			DataImportCronTemplates: dataImportCronTemplates,
+			DataImportCronTemplates: hcoDictSliceToSSSP(dataImportCronTemplates),
 		},
 		// NodeLabeller field is explicitly initialized to its zero-value,
 		// in order to future-proof from bugs if SSP changes it to pointer-type,
@@ -192,7 +192,7 @@ var getDataImportCronTemplatesFileLocation = func() string {
 }
 
 func readDataImportCronTemplatesFromFile() error {
-	dataImportCronTemplateHardCodedMap = make(map[string]sspv1beta1.DataImportCronTemplate)
+	dataImportCronTemplateHardCodedMap = make(map[string]hcov1beta1.DataImportCronTemplate)
 
 	fileLocation := getDataImportCronTemplatesFileLocation()
 
@@ -213,7 +213,7 @@ func readDataImportCronTemplatesFromFile() error {
 				return internalErr
 			}
 
-			dataImportCronTemplateFromFile := make([]sspv1beta1.DataImportCronTemplate, 0)
+			dataImportCronTemplateFromFile := make([]hcov1beta1.DataImportCronTemplate, 0)
 			internalErr = util.UnmarshalYamlFileToObject(file, &dataImportCronTemplateFromFile)
 			if internalErr != nil {
 				return internalErr
@@ -245,7 +245,7 @@ func getDataImportCronTemplates(hc *hcov1beta1.HyperConverged) ([]hcov1beta1.Dat
 	return dictList, nil
 }
 
-func getCommonDicts(list []hcov1beta1.DataImportCronTemplateStatus, crDicts map[string]sspv1beta1.DataImportCronTemplate) []hcov1beta1.DataImportCronTemplateStatus {
+func getCommonDicts(list []hcov1beta1.DataImportCronTemplateStatus, crDicts map[string]hcov1beta1.DataImportCronTemplate) []hcov1beta1.DataImportCronTemplateStatus {
 	for dictName, commonDict := range dataImportCronTemplateHardCodedMap {
 		targetDict := hcov1beta1.DataImportCronTemplateStatus{
 			DataImportCronTemplate: *commonDict.DeepCopy(),
@@ -263,7 +263,7 @@ func getCommonDicts(list []hcov1beta1.DataImportCronTemplateStatus, crDicts map[
 			if len(crDict.Spec.Schedule) == 0 {
 				crDict.Spec.Schedule = targetDict.Spec.Schedule
 			}
-			targetDict.Spec = *crDict.Spec.DeepCopy()
+			targetDict.Spec = crDict.Spec.DeepCopy()
 			targetDict.Status.Modified = true
 		}
 		list = append(list, targetDict)
@@ -272,12 +272,12 @@ func getCommonDicts(list []hcov1beta1.DataImportCronTemplateStatus, crDicts map[
 	return list
 }
 
-func isDataImportCronTemplateEnabled(dict sspv1beta1.DataImportCronTemplate) bool {
-	annotationVal, found := dict.Annotations[dataImportCronEnabledAnnotation]
+func isDataImportCronTemplateEnabled(dict hcov1beta1.DataImportCronTemplate) bool {
+	annotationVal, found := dict.Annotations[hcoutil.DataImportCronEnabledAnnotation]
 	return !found || strings.ToLower(annotationVal) == "true"
 }
 
-func getCustomDicts(list []hcov1beta1.DataImportCronTemplateStatus, crDicts map[string]sspv1beta1.DataImportCronTemplate) []hcov1beta1.DataImportCronTemplateStatus {
+func getCustomDicts(list []hcov1beta1.DataImportCronTemplateStatus, crDicts map[string]hcov1beta1.DataImportCronTemplate) []hcov1beta1.DataImportCronTemplateStatus {
 	for dictName, crDict := range crDicts {
 		if _, isCommon := dataImportCronTemplateHardCodedMap[dictName]; !isCommon {
 			list = append(list, hcov1beta1.DataImportCronTemplateStatus{
@@ -292,8 +292,8 @@ func getCustomDicts(list []hcov1beta1.DataImportCronTemplateStatus, crDicts map[
 	return list
 }
 
-func getDicMapFromCr(hc *hcov1beta1.HyperConverged) (map[string]sspv1beta1.DataImportCronTemplate, error) {
-	dictMap := make(map[string]sspv1beta1.DataImportCronTemplate)
+func getDicMapFromCr(hc *hcov1beta1.HyperConverged) (map[string]hcov1beta1.DataImportCronTemplate, error) {
+	dictMap := make(map[string]hcov1beta1.DataImportCronTemplate)
 	for _, dict := range hc.Spec.DataImportCronTemplates {
 		_, foundCustom := dictMap[dict.Name]
 		if foundCustom {
@@ -324,3 +324,29 @@ type dataImportTemplateSlice []hcov1beta1.DataImportCronTemplateStatus
 func (d dataImportTemplateSlice) Len() int           { return len(d) }
 func (d dataImportTemplateSlice) Swap(i, j int)      { d[i], d[j] = d[j], d[i] }
 func (d dataImportTemplateSlice) Less(i, j int) bool { return d[i].Name < d[j].Name }
+
+func hcoDictToSSSP(hcoDict hcov1beta1.DataImportCronTemplate) sspv1beta1.DataImportCronTemplate {
+	spec := cdiv1beta1.DataImportCronSpec{}
+	if hcoDict.Spec != nil {
+		hcoDict.Spec.DeepCopyInto(&spec)
+	}
+
+	return sspv1beta1.DataImportCronTemplate{
+		ObjectMeta: *hcoDict.ObjectMeta.DeepCopy(),
+		Spec:       spec,
+	}
+}
+
+func hcoDictSliceToSSSP(hcoDicts []hcov1beta1.DataImportCronTemplate) []sspv1beta1.DataImportCronTemplate {
+	if len(hcoDicts) == 0 {
+		return nil
+	}
+
+	res := make([]sspv1beta1.DataImportCronTemplate, len(hcoDicts))
+
+	for i, hcoDict := range hcoDicts {
+		res[i] = hcoDictToSSSP(hcoDict)
+	}
+
+	return res
+}
