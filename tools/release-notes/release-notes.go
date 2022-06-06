@@ -3,145 +3,119 @@ package main
 import (
 	"flag"
 	"fmt"
+	"io"
 	"io/ioutil"
 	"log"
 	"os"
 	"strings"
 
+	"github.com/kubevirt/hyperconverged-cluster-operator/tools/release-notes/git"
+
+	"github.com/golang/glog"
 	"github.com/joho/godotenv"
 )
 
-func (r *releaseData) writeHeader(span string) error {
-	tagUrl := fmt.Sprintf("https://github.com/kubevirt/hyperconverged-cluster-operator/releases/tag/%s", r.hco.currentTag)
+func (r *releaseData) writeHeader() {
+	tagUrl := fmt.Sprintf("https://github.com/kubevirt/hyperconverged-cluster-operator/releases/tag/%s", r.hco.CurrentTag)
 
-	numChanges, err := r.hco.gitGetNumChanges(span)
+	numChanges, err := r.hco.GetNumChanges()
 	if err != nil {
-		return err
+		glog.Fatalf("ERROR failed to get num changes: %s\n", err)
 	}
 
-	typeOfChanges, err := r.hco.gitGetTypeOfChanges(span)
+	typeOfChanges, err := r.hco.GetTypeOfChanges()
 	if err != nil {
-		return err
+		glog.Fatalf("ERROR failed to get type of changes: %s\n", err)
 	}
 
-	r.outFile.WriteString(fmt.Sprintf("This release follows %s and consists of %d changes, leading to %s.\n", r.hco.previousTag, numChanges, typeOfChanges))
-	r.outFile.WriteString("\n")
-	r.outFile.WriteString(fmt.Sprintf("The source code and selected binaries are available for download at: %s.\n", tagUrl))
-	r.outFile.WriteString("\n")
-	r.outFile.WriteString("The primary release artifact of hyperconverged-cluster-operator is the git tree. The release tag is\n")
-	r.outFile.WriteString(fmt.Sprintf("signed and can be verified using `git tag -v %s`.\n", r.hco.currentTag))
-	r.outFile.WriteString("\n")
-	r.outFile.WriteString("Pre-built containers are published on Quay and can be viewed at: <https://quay.io/kubevirt/>.\n")
-	r.outFile.WriteString("\n")
-
-	return nil
+	io.WriteString(r.writer, fmt.Sprintf("This release follows %s and consists of %d changes, leading to %s.\n", r.hco.PreviousTag, numChanges, typeOfChanges))
+	io.WriteString(r.writer, "\n")
+	io.WriteString(r.writer, fmt.Sprintf("The source code and selected binaries are available for download at: %s.\n", tagUrl))
+	io.WriteString(r.writer, "\n")
+	io.WriteString(r.writer, "The primary release artifact of hyperconverged-cluster-operator is the git tree. The release tag is\n")
+	io.WriteString(r.writer, fmt.Sprintf("signed and can be verified using `git tag -v %s`.\n", r.hco.CurrentTag))
+	io.WriteString(r.writer, "\n")
+	io.WriteString(r.writer, "Pre-built containers are published on Quay and can be viewed at: <https://quay.io/kubevirt/>.\n")
+	io.WriteString(r.writer, "\n")
 }
 
-func (r *releaseData) writeHcoChanges(span string) error {
-	releaseNotes, err := r.hco.gitGetReleaseNotes(span)
+func (r *releaseData) writeHcoChanges() {
+	releaseNotes, err := r.hco.GetReleaseNotes()
 	if err != nil {
-		return err
+		glog.Fatalf("ERROR failed to get release notes of %s: %s\n", r.hco.Name, err)
 	}
 
-	r.outFile.WriteString(fmt.Sprintf("### %s - %s\n", r.hco.name, r.hco.currentTag))
+	io.WriteString(r.writer, fmt.Sprintf("### %s - %s\n", r.hco.Name, r.hco.CurrentTag))
 	if len(releaseNotes) > 0 {
 		for _, note := range releaseNotes {
-			r.outFile.WriteString(fmt.Sprintf("- %s\n", note))
+			io.WriteString(r.writer, fmt.Sprintf("- %s\n", note))
 		}
 	} else {
-		r.outFile.WriteString("No notable changes\n")
+		io.WriteString(r.writer, "No notable changes\n")
 	}
-	r.outFile.WriteString("\n")
-
-	return nil
+	io.WriteString(r.writer, "\n")
 }
 
-func (p *project) writeOtherChangesIfVersionUpdated(f *os.File) error {
-	span := fmt.Sprintf("%s..%s", p.previousTag, p.currentTag)
-	releaseNotes, err := p.gitGetReleaseNotes(span)
+func (r *releaseData) writeOtherChangesIfVersionUpdated(g *git.Project) {
+	releaseNotes, err := g.GetReleaseNotes()
 	if err != nil {
-		return err
+		glog.Fatalf("ERROR failed to get release notes of %s: %s\n", g.Name, err)
 	}
 
-	f.WriteString(fmt.Sprintf("### %s: %s -> %s\n", p.name, p.previousTag, p.currentTag))
+	io.WriteString(r.writer, fmt.Sprintf("### %s: %s -> %s\n", g.Name, g.PreviousTag, g.CurrentTag))
 	if len(releaseNotes) > 0 {
 		for _, note := range releaseNotes {
-			f.WriteString(fmt.Sprintf("- %s\n", note))
+			io.WriteString(r.writer, fmt.Sprintf("- %s\n", note))
 		}
 	} else {
-		f.WriteString("No notable changes\n")
+		io.WriteString(r.writer, "No notable changes\n")
 	}
-
-	return nil
 }
 
-func (r *releaseData) writeOtherChanges() error {
+func (r *releaseData) writeOtherChanges() {
 	for _, p := range r.projects {
-		if len(p.previousTag) == 0 || p.previousTag == p.currentTag {
-			r.outFile.WriteString(fmt.Sprintf("### %s: %s\n", p.name, p.currentTag))
-			r.outFile.WriteString("Not updated\n")
+		if len(p.PreviousTag) == 0 || p.PreviousTag == p.CurrentTag {
+			io.WriteString(r.writer, fmt.Sprintf("### %s: %s\n", p.Name, p.CurrentTag))
+			io.WriteString(r.writer, "Not updated\n")
 		} else {
-			p.writeOtherChangesIfVersionUpdated(r.outFile)
+			r.writeOtherChangesIfVersionUpdated(p)
 		}
 
-		r.outFile.WriteString("\n")
+		io.WriteString(r.writer, "\n")
 	}
-
-	return nil
 }
 
-func (r *releaseData) getConfig(branch string) (map[string]string, error) {
-	err := r.hco.gitSwitchToBranch(branch)
+func (r *releaseData) getConfig(tag string) map[string]string {
+	err := r.hco.SwitchToTag(tag)
 	if err != nil {
-		return nil, err
+		glog.Fatalf("ERROR failed to switch to tag %s in %s: %s\n", tag, r.hco.Name, err)
 	}
 
-	config, err := godotenv.Read(r.hco.repoDir + "/hack/config")
+	config, err := godotenv.Read(r.hco.Directory + "/hack/config")
 	if err != nil {
-		return nil, err
+		glog.Fatalf("ERROR failed to read /hack/config file : %s\n", err)
 	}
 
-	return config, nil
+	return config
 }
 
-func (r *releaseData) findProjectsCurrentAndPreviousReleases() error {
-	newConfig, err := r.getConfig(r.hco.currentTag)
-	if err != nil {
-		return err
-	}
-	oldConfig, err := r.getConfig(r.hco.previousTag)
-	if err != nil {
-		return err
-	}
+func (r *releaseData) findProjectsCurrentAndPreviousReleases() {
+	newConfig := r.getConfig(r.hco.CurrentTag)
+	oldConfig := r.getConfig(r.hco.PreviousTag)
 
 	for _, p := range r.projects {
-		p.currentTag = newConfig[p.short+"_VERSION"]
-		p.previousTag = oldConfig[p.short+"_VERSION"]
+		p.CurrentTag = newConfig[p.Short+"_VERSION"]
+		p.PreviousTag = oldConfig[p.Short+"_VERSION"]
 	}
-
-	return nil
 }
 
-func (r *releaseData) writeNotableChanges(span string) error {
-	r.outFile.WriteString("Notable changes\n---------------\n")
-	r.outFile.WriteString("\n")
+func (r *releaseData) writeNotableChanges() {
+	io.WriteString(r.writer, "Notable changes\n---------------\n")
+	io.WriteString(r.writer, "\n")
 
-	err := r.writeHcoChanges(span)
-	if err != nil {
-		return err
-	}
-
-	err = r.findProjectsCurrentAndPreviousReleases()
-	if err != nil {
-		return err
-	}
-
-	err = r.writeOtherChanges()
-	if err != nil {
-		return err
-	}
-
-	return nil
+	r.writeHcoChanges()
+	r.findProjectsCurrentAndPreviousReleases()
+	r.writeOtherChanges()
 }
 
 func isNotBot(contributor string) bool {
@@ -159,10 +133,10 @@ func isNotBot(contributor string) bool {
 	return true
 }
 
-func (r *releaseData) writeContributors(span string) error {
-	contributorList, err := r.hco.gitGetContributors(span)
+func (r *releaseData) writeContributors() {
+	contributorList, err := r.hco.GetContributors()
 	if err != nil {
-		return err
+		glog.Fatalf("ERROR failed to get contributor list: %s\n", err)
 	}
 
 	var sb strings.Builder
@@ -174,13 +148,11 @@ func (r *releaseData) writeContributors(span string) error {
 		}
 	}
 
-	r.outFile.WriteString("\n")
-	r.outFile.WriteString("Contributors\n------------\n")
-	r.outFile.WriteString(fmt.Sprintf("%d people contributed to this HCO release:\n\n", numContributors))
-	r.outFile.WriteString(sb.String())
-	r.outFile.WriteString("\n")
-
-	return nil
+	io.WriteString(r.writer, "\n")
+	io.WriteString(r.writer, "Contributors\n------------\n")
+	io.WriteString(r.writer, fmt.Sprintf("%d people contributed to this HCO release:\n\n", numContributors))
+	io.WriteString(r.writer, sb.String())
+	io.WriteString(r.writer, "\n")
 }
 
 const additionalResources = `Additional Resources
@@ -192,52 +164,33 @@ const additionalResources = `Additional Resources
 - [License][license]
 
 
-[contributing]: https://github.com/kubevirt/hyperconverged-cluster-operator/blob/main/CONTRIBUTING.md
-[license]: https://github.com/kubevirt/hyperconverged-cluster-operator/blob/main/LICENSE
+Contributing: https://github.com/kubevirt/hyperconverged-cluster-operator/blob/main/CONTRIBUTING.md
+
+License: https://github.com/kubevirt/hyperconverged-cluster-operator/blob/main/LICENSE
+
 ---
 `
 
-func (r *releaseData) generateReleaseNotes() error {
-	releaseNotesFile := fmt.Sprintf("%s-release-notes.md", r.hco.currentTag)
+func (r *releaseData) generateReleaseNotes() {
+	releaseNotesFile := fmt.Sprintf("%s-release-notes.md", r.hco.CurrentTag)
 
 	var err error
-	r.outFile, err = os.Create(releaseNotesFile)
+	r.writer, err = os.OpenFile(releaseNotesFile, os.O_WRONLY|os.O_CREATE|os.O_TRUNC, 0644)
 	if err != nil {
-		return err
-	}
-	defer r.outFile.Close()
-
-	span := fmt.Sprintf("%s..%s", r.hco.previousTag, r.hco.currentTag)
-
-	err = r.writeHeader(span)
-	if err != nil {
-		return err
+		glog.Fatalf("ERROR failed to create release notes file: %s\n", err)
 	}
 
-	err = r.writeNotableChanges(span)
-	if err != nil {
-		return err
-	}
+	r.writeHeader()
+	r.writeNotableChanges()
+	r.writeContributors()
 
-	err = r.writeContributors(span)
-	if err != nil {
-		return err
-	}
-
-	r.outFile.WriteString(additionalResources)
-
-	return nil
+	io.WriteString(r.writer, additionalResources)
 }
 
-func createProjects(baseDir string, token string) []*project {
-	var projects []*project
+func createProjects(baseDir string, token string) []*git.Project {
+	var projects []*git.Project
 	for _, n := range projectNames {
-		projects = append(projects, &project{
-			short:   n.short,
-			name:    n.name,
-			repoDir: baseDir + n.name,
-			repoUrl: fmt.Sprintf("https://%s@github.com/kubevirt/%s.git", token, n.name),
-		})
+		projects = append(projects, git.InitProject("kubevirt", n.name, n.short, baseDir+n.name, "", token))
 	}
 
 	return projects
@@ -268,32 +221,25 @@ func parseArguments() *releaseData {
 	hco := "hyperconverged-cluster-operator"
 
 	gitToken := getToken(*githubTokenFile)
-	gitHubInitClient(gitToken)
 
 	return &releaseData{
-		org: "kubevirt",
-		hco: project{
-			name:       hco,
-			currentTag: *release,
-			repoDir:    baseDir + hco,
-			repoUrl:    fmt.Sprintf("https://%s@github.com/kubevirt/%s.git", gitToken, hco),
-		},
+		hco:      git.InitProject("kubevirt", hco, "HCO", baseDir+hco, *release, gitToken),
 		projects: createProjects(baseDir, gitToken),
 	}
 }
 
 func (r *releaseData) checkoutProjects() {
-	err := r.hco.gitCheckoutUpstream()
+	err := r.hco.CheckoutUpstream()
 	if err != nil {
 		log.Fatalf("ERROR checking out upstream: %s\n", err)
 	}
-	err = r.hco.gitCheckCurrentTagExists()
+	err = r.hco.CheckCurrentTagExists()
 	if err != nil {
 		log.Fatalf("ERROR checking out upstream: %s\n", err)
 	}
 
 	for _, p := range r.projects {
-		err = p.gitCheckoutUpstream()
+		err = p.CheckoutUpstream()
 		if err != nil {
 			log.Fatalf("ERROR checking out upstream: %s\n", err)
 		}
@@ -304,13 +250,10 @@ func main() {
 	r := parseArguments()
 	r.checkoutProjects()
 
-	err := r.semverVerifyTag()
+	err := r.hco.VerifySemverTag()
 	if err != nil {
-		log.Fatalf("ERROR generating release notes: %s\n", err)
+		log.Fatalf("ERROR requested tag invalid: %s\n", err)
 	}
 
-	err = r.generateReleaseNotes()
-	if err != nil {
-		log.Fatalf("ERROR generating release notes: %s\n", err)
-	}
+	r.generateReleaseNotes()
 }

@@ -1,12 +1,10 @@
 package main
 
 import (
-	"os"
+	"io"
 
-	"github.com/google/go-github/v32/github"
+	"github.com/kubevirt/hyperconverged-cluster-operator/tools/release-notes/git"
 )
-
-var githubClient *github.Client
 
 var projectNames = []*projectName{
 	{"KUBEVIRT", "kubevirt"},
@@ -24,24 +22,9 @@ type projectName struct {
 	name  string
 }
 
-type project struct {
-	short       string
-	name        string
-	currentTag  string
-	previousTag string
-
-	repoDir string
-	repoUrl string
-
-	// github cached results
-	allReleases []*github.RepositoryRelease
-	allBranches []*github.Branch
-}
-
 type releaseData struct {
-	org      string
-	hco      project
-	projects []*project
+	hco      *git.Project
+	projects []*git.Project
 
-	outFile *os.File
+	writer io.Writer
 }
