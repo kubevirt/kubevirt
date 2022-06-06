@@ -19,6 +19,7 @@ jobs:
       QUAY_USERNAME: ${{ secrets.QUAY_USERNAME }}
       QUAY_PASSWORD: ${{ secrets.QUAY_PASSWORD }}
       REGISTRY_NAMESPACE: kubevirt
+      OPM_VERSION: v1.23.0
     steps:
       - name: Checkout the latest code
         uses: actions/checkout@v2
@@ -66,7 +67,7 @@ jobs:
           sed -i "/^ \+replaces:/d" ${PACKAGE_DIR}/${CSV_VERSION}/manifests/kubevirt-hyperconverged-operator.v${CSV_VERSION}.clusterserviceversion.yaml
       - name: Get opm client
         run: |
-          wget https://github.com/operator-framework/operator-registry/releases/download/v1.15.1/linux-amd64-opm
+          wget https://github.com/operator-framework/operator-registry/releases/download/${OPM_VERSION}/linux-amd64-opm
           chmod +x linux-amd64-opm
       - name: Build and Push the Index Image
         run: |
