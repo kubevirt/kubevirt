@@ -11293,6 +11293,113 @@ var CRDsValidation map[string]string = map[string]string{
             - type
             type: object
           type: array
+        migrationState:
+          description: Represents the status of a live migration
+          properties:
+            abortRequested:
+              description: Indicates that the migration has been requested to abort
+              type: boolean
+            abortStatus:
+              description: Indicates the final status of the live migration abortion
+              type: string
+            completed:
+              description: Indicates the migration completed
+              type: boolean
+            endTimestamp:
+              description: The time the migration action ended
+              format: date-time
+              nullable: true
+              type: string
+            failed:
+              description: Indicates that the migration failed
+              type: boolean
+            migrationConfiguration:
+              description: Migration configurations to apply
+              properties:
+                allowAutoConverge:
+                  type: boolean
+                allowPostCopy:
+                  type: boolean
+                bandwidthPerMigration:
+                  anyOf:
+                  - type: integer
+                  - type: string
+                  pattern: ^(\+|-)?(([0-9]+(\.[0-9]*)?)|(\.[0-9]+))(([KMGTPE]i)|[numkMGTPE]|([eE](\+|-)?(([0-9]+(\.[0-9]*)?)|(\.[0-9]+))))?$
+                  x-kubernetes-int-or-string: true
+                completionTimeoutPerGiB:
+                  format: int64
+                  type: integer
+                disableTLS:
+                  type: boolean
+                network:
+                  type: string
+                nodeDrainTaintKey:
+                  type: string
+                parallelMigrationsPerCluster:
+                  format: int32
+                  type: integer
+                parallelOutboundMigrationsPerNode:
+                  format: int32
+                  type: integer
+                progressTimeout:
+                  format: int64
+                  type: integer
+                unsafeMigrationOverride:
+                  type: boolean
+              type: object
+            migrationPolicyName:
+              description: Name of the migration policy. If string is empty, no policy
+                is matched
+              type: string
+            migrationUid:
+              description: The VirtualMachineInstanceMigration object associated with
+                this migration
+              type: string
+            mode:
+              description: Lets us know if the vmi is currently running pre or post
+                copy migration
+              type: string
+            sourceNode:
+              description: The source node that the VMI originated on
+              type: string
+            startTimestamp:
+              description: The time the migration action began
+              format: date-time
+              nullable: true
+              type: string
+            targetAttachmentPodUID:
+              description: The UID of the target attachment pod for hotplug volumes
+              type: string
+            targetCPUSet:
+              description: If the VMI requires dedicated CPUs, this field will hold
+                the dedicated CPU set on the target node
+              items:
+                type: integer
+              type: array
+              x-kubernetes-list-type: atomic
+            targetDirectMigrationNodePorts:
+              additionalProperties:
+                type: integer
+              description: The list of ports opened for live migration on the destination
+                node
+              type: object
+            targetNode:
+              description: The target node that the VMI is moving to
+              type: string
+            targetNodeAddress:
+              description: The address of the target node to use for the migration
+              type: string
+            targetNodeDomainDetected:
+              description: The Target Node has seen the Domain Start Event
+              type: boolean
+            targetNodeTopology:
+              description: If the VMI requires dedicated CPUs, this field will hold
+                the numa topology on the target node
+              type: string
+            targetPod:
+              description: The target pod that the VMI is moving to
+              type: string
+          type: object
         phase:
           description: VirtualMachineInstanceMigrationPhase is a label for the condition
             of a VirtualMachineInstanceMigration at the current time.

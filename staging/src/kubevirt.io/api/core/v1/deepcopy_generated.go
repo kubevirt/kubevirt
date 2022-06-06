@@ -4341,6 +4341,11 @@ func (in *VirtualMachineInstanceMigrationStatus) DeepCopyInto(out *VirtualMachin
 			(*in)[i].DeepCopyInto(&(*out)[i])
 		}
 	}
+	if in.MigrationState != nil {
+		in, out := &in.MigrationState, &out.MigrationState
+		*out = new(VirtualMachineInstanceMigrationState)
+		(*in).DeepCopyInto(*out)
+	}
 	return
 }
 

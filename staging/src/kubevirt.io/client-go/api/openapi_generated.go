@@ -21335,13 +21335,19 @@ func schema_kubevirtio_api_core_v1_VirtualMachineInstanceMigrationStatus(ref com
 									},
 								},
 							},
+                        },
+                    },
+					"migrationState": {
+						SchemaProps: spec.SchemaProps{
+							Description: "Represents the status of a live migration",
+							Ref:         ref("kubevirt.io/api/core/v1.VirtualMachineInstanceMigrationState"),
 						},
 					},
 				},
 			},
 		},
 		Dependencies: []string{
-			"kubevirt.io/api/core/v1.VirtualMachineInstanceMigrationCondition", "kubevirt.io/api/core/v1.VirtualMachineInstanceMigrationPhaseTransitionTimestamp"},
+			"kubevirt.io/api/core/v1.VirtualMachineInstanceMigrationCondition", "kubevirt.io/api/core/v1.VirtualMachineInstanceMigrationPhaseTransitionTimestamp", "kubevirt.io/api/core/v1.VirtualMachineInstanceMigrationState"},
 	}
 }
 
