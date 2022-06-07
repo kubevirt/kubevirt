@@ -2545,11 +2545,20 @@ spec:
 
 		It("[test_id:8235]should check if kubevirt components have linux node selector", func() {
 			By("Listing only kubevirt components")
-			labelReq, err := labels.NewRequirement("app.kubernetes.io/component", selection.In, []string{"kubevirt"})
+
+			kv := util2.GetCurrentKv(virtClient)
+			productComponent := kv.Spec.ProductComponent
+			if productComponent == "" {
+				productComponent = "kubevirt"
+			}
+
+			labelReq, err := labels.NewRequirement("app.kubernetes.io/component", selection.In, []string{productComponent})
 
 			if err != nil {
 				panic(err)
 			}
+
+			By("Looking for pods with " + productComponent + " component")
 
 			pods, err := virtClient.CoreV1().Pods(flags.KubeVirtInstallNamespace).List(context.Background(), metav1.ListOptions{
 				LabelSelector: labels.NewSelector().Add(
