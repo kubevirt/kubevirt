@@ -575,15 +575,6 @@ var _ = Describe("[rfe_id:393][crit:high][vendor:cnv-qe@redhat.com][level:system
 		cfg.MigrationConfiguration.BandwidthPerMigration = &migrationBandwidth
 		tests.UpdateKubeVirtConfigValueAndWait(cfg)
 	}
-	copyMap := func(originalMap map[string]string) map[string]string {
-		newMap := make(map[string]string, len(originalMap))
-
-		for key, value := range originalMap {
-			newMap[key] = value
-		}
-
-		return newMap
-	}
 
 	Describe("Starting a VirtualMachineInstance ", func() {
 
@@ -2790,10 +2781,10 @@ var _ = Describe("[rfe_id:393][crit:high][vendor:cnv-qe@redhat.com][level:system
 
 			Context("[Serial]Should trigger event if vmi with host-model start on source node with uniq host-model", func() {
 
-				var originalNodeLabels map[string]string
-				var originalNodeAnnotations map[string]string
 				var vmi *v1.VirtualMachineInstance
 				var node *k8sv1.Node
+
+				const fakeHostModelLabel = v1.HostModelCPULabel + "fake-model"
 
 				BeforeEach(func() {
 					By("Creating a VMI with default CPU mode")
@@ -2807,26 +2798,14 @@ var _ = Describe("[rfe_id:393][crit:high][vendor:cnv-qe@redhat.com][level:system
 					node, err = virtClient.CoreV1().Nodes().Get(context.Background(), vmi.Status.NodeName, metav1.GetOptions{})
 					Expect(err).ToNot(HaveOccurred())
 
-					originalNodeLabels = copyMap(node.Labels)
-					originalNodeAnnotations = copyMap(node.Annotations)
-
-					node = disableNodeLabeller(node, virtClient)
+					node = stopNodeLabeller(node.Name, virtClient)
 				})
 
 				AfterEach(func() {
-					By("Restore node to its original state")
-					node.Labels = originalNodeLabels
-					node.Annotations = originalNodeAnnotations
-					node, err = virtClient.CoreV1().Nodes().Update(context.Background(), node, metav1.UpdateOptions{})
-					Expect(err).ShouldNot(HaveOccurred())
-
-					Eventually(func() map[string]string {
-						node, err = virtClient.CoreV1().Nodes().Get(context.Background(), node.Name, metav1.GetOptions{})
-						Expect(err).ShouldNot(HaveOccurred())
-
-						return node.Labels
-					}, 10*time.Second, 1*time.Second).Should(Equal(originalNodeLabels), "Node should have fake host model")
-					Expect(node.Annotations).To(Equal(originalNodeAnnotations))
+					By("Resuming node labeller")
+					node = resumeNodeLabeller(node.Name, virtClient)
+					_, doesFakeHostLabelExists := node.Labels[fakeHostModelLabel]
+					Expect(doesFakeHostLabelExists).To(BeFalse(), fmt.Sprintf("label %s is expected to disappear from node %s", fakeHostModelLabel, node.Name))
 				})
 
 				It("[test_id:7505]when no node is suited for host model", func() {
@@ -2837,7 +2816,7 @@ var _ = Describe("[rfe_id:393][crit:high][vendor:cnv-qe@redhat.com][level:system
 							delete(node.Labels, key)
 						}
 					}
-					node.Labels[v1.HostModelCPULabel+"fake-model"] = "true"
+					node.Labels[fakeHostModelLabel] = "true"
 
 					node, err = virtClient.CoreV1().Nodes().Update(context.Background(), node, metav1.UpdateOptions{})
 					Expect(err).ShouldNot(HaveOccurred())
@@ -2872,18 +2851,15 @@ var _ = Describe("[rfe_id:393][crit:high][vendor:cnv-qe@redhat.com][level:system
 
 			Context("[Serial]Should trigger event if the nodes doesn't contain MigrationSelectorLabel for the vmi host-model type", func() {
 
-				var originalNodeLabels []map[string]string
-				var originalNodeAnnotations []map[string]string
 				var vmi *v1.VirtualMachineInstance
-				var backupNodes []k8sv1.Node
+				var nodes []k8sv1.Node
 
 				BeforeEach(func() {
-					backupNodes = libnode.GetAllSchedulableNodes(virtClient).Items
-					if len(backupNodes) == 1 || len(backupNodes) > 10 {
+					nodes = libnode.GetAllSchedulableNodes(virtClient).Items
+					if len(nodes) == 1 || len(nodes) > 10 {
 						Skip("This test can't run with single node and it's too slow to run with more than 10 nodes")
 					}
-					originalNodeLabels = make([]map[string]string, len(backupNodes))
-					originalNodeAnnotations = make([]map[string]string, len(backupNodes))
+
 					By("Creating a VMI with default CPU mode")
 					vmi = alpineVMIWithEvictionStrategy()
 					vmi.Spec.Domain.CPU = &v1.CPU{Model: v1.CPUModeHostModel}
@@ -2891,39 +2867,33 @@ var _ = Describe("[rfe_id:393][crit:high][vendor:cnv-qe@redhat.com][level:system
 					By("Starting the VirtualMachineInstance")
 					vmi = runVMIAndExpectLaunch(vmi, 240)
 
-					for indx, node := range backupNodes {
-						originalNodeLabels[indx] = copyMap(node.Labels)
-						originalNodeAnnotations[indx] = copyMap(node.Annotations)
-						disableNodeLabeller(&node, virtClient)
+					for indx, node := range nodes {
+						patchedNode := stopNodeLabeller(node.Name, virtClient)
+						Expect(patchedNode).ToNot(BeNil())
+						nodes[indx] = *patchedNode
 					}
 				})
 
 				AfterEach(func() {
 					By("Restore node to its original state")
-					for indx, node := range backupNodes {
-						currNode, err := virtClient.CoreV1().Nodes().Get(context.Background(), node.Name, metav1.GetOptions{})
-						Expect(err).ShouldNot(HaveOccurred())
-						currNode.Labels = originalNodeLabels[indx]
-						currNode.Annotations = originalNodeAnnotations[indx]
-						_, err = virtClient.CoreV1().Nodes().Update(context.Background(), currNode, metav1.UpdateOptions{})
-						Expect(err).ShouldNot(HaveOccurred())
-					}
-					for indx, node := range backupNodes {
-						var currNode *k8sv1.Node
-						Eventually(func() map[string]string {
-							currNode, err = virtClient.CoreV1().Nodes().Get(context.Background(), node.Name, metav1.GetOptions{})
-							Expect(err).ShouldNot(HaveOccurred())
-							return currNode.Labels
-						}, 10*time.Second, 1*time.Second).Should(Equal(originalNodeLabels[indx]), "Node should have original labels")
-						Expect(currNode.Annotations).To(Equal(originalNodeAnnotations[indx]))
-					}
+					for _, node := range nodes {
+						updatedNode := resumeNodeLabeller(node.Name, virtClient)
 
+						supportedHostModelLabelExists := false
+						for labelKey, _ := range updatedNode.Labels {
+							if strings.HasPrefix(labelKey, v1.SupportedHostModelMigrationCPU) {
+								supportedHostModelLabelExists = true
+								break
+							}
+						}
+						Expect(supportedHostModelLabelExists).To(BeTrue(), fmt.Sprintf("label with %s prefix is supposed to exist for node %s", v1.SupportedHostModelMigrationCPU, updatedNode.Name))
+					}
 				})
 
 				It(" no node contain suited SupportedHostModelMigrationCPU label", func() {
 					By("Changing node labels to support fake host model")
 					// Remove all supported host models
-					for _, node := range backupNodes {
+					for _, node := range nodes {
 						currNode, err := virtClient.CoreV1().Nodes().Get(context.Background(), node.Name, metav1.GetOptions{})
 						Expect(err).ShouldNot(HaveOccurred())
 						for key, _ := range currNode.Labels {
@@ -3786,51 +3756,33 @@ var _ = Describe("[rfe_id:393][crit:high][vendor:cnv-qe@redhat.com][level:system
 	})
 	Context("[Serial]Testing host-model cpuModel edge cases in the cluster if the cluster is host-model migratable", func() {
 
-		var originalTargetNodeLabels map[string]string
-		var originalTargetNodeAnnotations map[string]string
-		var backedUpTargetNode *k8sv1.Node
 		var sourceNode *k8sv1.Node
 		var targetNode *k8sv1.Node
+
+		const fakeRequiredFeature = v1.HostModelRequiredFeaturesLabel + "fakeFeature"
+		const fakeHostModel = v1.HostModelCPULabel + "fakeHostModel"
 
 		BeforeEach(func() {
 			sourceNode, targetNode, err = tests.GetValidSourceNodeAndTargetNodeForHostModelMigration(virtClient)
 			if err != nil {
 				Skip(err.Error())
 			}
-			originalTargetNodeLabels = copyMap(targetNode.Labels)
-			originalTargetNodeAnnotations = copyMap(targetNode.Annotations)
-			disableNodeLabeller(targetNode, virtClient)
+			targetNode = stopNodeLabeller(targetNode.Name, virtClient)
 		})
 
 		AfterEach(func() {
-			By("Restore node to its original state")
-			targetNode, err := virtClient.CoreV1().Nodes().Get(context.Background(), targetNode.Name, metav1.GetOptions{})
-			Expect(err).ShouldNot(HaveOccurred())
-			targetNode.Labels = originalTargetNodeLabels
-			targetNode.Annotations = originalTargetNodeAnnotations
+			By("Resuming node labeller")
+			targetNode = resumeNodeLabeller(targetNode.Name, virtClient)
 
-			_, err = virtClient.CoreV1().Nodes().Update(context.Background(), targetNode, metav1.UpdateOptions{})
-			Expect(err).ShouldNot(HaveOccurred())
-
-			Eventually(func() map[string]string {
-				backedUpTargetNode, err = virtClient.CoreV1().Nodes().Get(context.Background(), targetNode.Name, metav1.GetOptions{})
-				Expect(err).ShouldNot(HaveOccurred())
-
-				return backedUpTargetNode.Labels
-			}, 10*time.Second, 1*time.Second).Should(Equal(originalTargetNodeLabels), "Node should not have amazingFeature after the test")
-
+			By("Validating that fake labels are being removed")
+			for _, labelKey := range []string{fakeRequiredFeature, fakeHostModel} {
+				_, fakeLabelExists := targetNode.Labels[labelKey]
+				Expect(fakeLabelExists).To(BeFalse(), fmt.Sprintf("fake feature %s is expected to disappear form node %s", labelKey, targetNode.Name))
+			}
 		})
 
 		It("Should be able to migrate back to the initial node from target node with host-model even if target is newer than source", func() {
-			targetNode, err := virtClient.CoreV1().Nodes().Get(context.Background(), targetNode.Name, metav1.GetOptions{})
-			Expect(err).ShouldNot(HaveOccurred())
-			targetNode.Labels[v1.HostModelRequiredFeaturesLabel+"amazingFeature"] = "true"
-			Eventually(func() error {
-				if targetNode, err = virtClient.CoreV1().Nodes().Update(context.Background(), targetNode, metav1.UpdateOptions{}); err != nil {
-					return err
-				}
-				return nil
-			}, 30*time.Second, time.Second).ShouldNot(HaveOccurred())
+			libnode.AddLabelToNode(targetNode.Name, fakeRequiredFeature, "true")
 
 			vmiToMigrate := libvmi.NewFedora(
 				libvmi.WithInterface(libvmi.InterfaceDeviceWithMasqueradeBinding()),
@@ -3886,17 +3838,12 @@ var _ = Describe("[rfe_id:393][crit:high][vendor:cnv-qe@redhat.com][level:system
 		})
 
 		It("vmi with host-model should be able to migrate to node that support the initial node's host-model even if this model isn't the target's host-model", func() {
-			targetNode, err := virtClient.CoreV1().Nodes().Get(context.Background(), targetNode.Name, metav1.GetOptions{})
+			targetNode, err = virtClient.CoreV1().Nodes().Get(context.Background(), targetNode.Name, metav1.GetOptions{})
 			Expect(err).ShouldNot(HaveOccurred())
+
 			targetHostModel := tests.GetNodeHostModel(targetNode)
-			delete(targetNode.Labels, v1.HostModelCPULabel+targetHostModel)
-			targetNode.Labels[v1.HostModelCPULabel+"amazingHostModel"] = "true"
-			Eventually(func() error {
-				if targetNode, err = virtClient.CoreV1().Nodes().Update(context.Background(), targetNode, metav1.UpdateOptions{}); err != nil {
-					return err
-				}
-				return nil
-			}, 30*time.Second, time.Second).ShouldNot(HaveOccurred())
+			targetNode = libnode.RemoveLabelFromNode(targetNode.Name, v1.HostModelCPULabel+targetHostModel)
+			targetNode = libnode.AddLabelToNode(targetNode.Name, fakeHostModel, "true")
 
 			vmiToMigrate := libvmi.NewFedora(
 				libvmi.WithInterface(libvmi.InterfaceDeviceWithMasqueradeBinding()),
@@ -4281,23 +4228,95 @@ func temporaryTLSConfig() *tls.Config {
 	}
 }
 
-func disableNodeLabeller(node *k8sv1.Node, virtClient kubecli.KubevirtClient) *k8sv1.Node {
+func stopNodeLabeller(nodeName string, virtClient kubecli.KubevirtClient) *k8sv1.Node {
 	var err error
+	var node *k8sv1.Node
 
-	By(fmt.Sprintf("Patching node to %s include %s label", node.Name, v1.LabellerSkipNodeAnnotation))
+	suiteConfig, _ := GinkgoConfiguration()
+	Expect(suiteConfig.ParallelTotal).To(Equal(1), "stopping / resuming node-labeller is supported for serial tests only")
+
+	By(fmt.Sprintf("Patching node to %s include %s label", nodeName, v1.LabellerSkipNodeAnnotation))
 	key, value := v1.LabellerSkipNodeAnnotation, "true"
-	libnode.AddAnnotationToNode(node.Name, key, value)
+	libnode.AddAnnotationToNode(nodeName, key, value)
 
-	By(fmt.Sprintf("Expecting node %s to include %s label", node.Name, v1.LabellerSkipNodeAnnotation))
+	By(fmt.Sprintf("Expecting node %s to include %s label", nodeName, v1.LabellerSkipNodeAnnotation))
 	Eventually(func() bool {
-		node, err = virtClient.CoreV1().Nodes().Get(context.Background(), node.Name, metav1.GetOptions{})
-		Expect(err).ShouldNot(HaveOccurred())
+		node, err = virtClient.CoreV1().Nodes().Get(context.Background(), nodeName, metav1.GetOptions{})
+		Expect(err).ToNot(HaveOccurred())
 
-		value, ok := node.Annotations[v1.LabellerSkipNodeAnnotation]
-		return ok && value == "true"
-	}, 30*time.Second, time.Second).Should(BeTrue())
+		value, exists := node.Annotations[v1.LabellerSkipNodeAnnotation]
+		return exists && value == "true"
+	}, 30*time.Second, time.Second).Should(BeTrue(), fmt.Sprintf("node %s is expected to have annotation %s", nodeName, v1.LabellerSkipNodeAnnotation))
 
 	return node
+}
+
+func resumeNodeLabeller(nodeName string, virtClient kubecli.KubevirtClient) *k8sv1.Node {
+	var err error
+	var node *k8sv1.Node
+
+	node, err = virtClient.CoreV1().Nodes().Get(context.Background(), nodeName, metav1.GetOptions{})
+	Expect(err).ToNot(HaveOccurred())
+
+	if _, isNodeLabellerStopped := node.Annotations[v1.LabellerSkipNodeAnnotation]; !isNodeLabellerStopped {
+		// Nothing left to do
+		return node
+	}
+
+	By(fmt.Sprintf("Patching node to %s not include %s annotation", nodeName, v1.LabellerSkipNodeAnnotation))
+	libnode.RemoveAnnotationFromNode(nodeName, v1.LabellerSkipNodeAnnotation)
+
+	// In order to make sure node-labeller has updated the node, the host-model label (which node-labeller
+	// makes sure always resides on any node) will be removed. After node-labeller is enabled again, the
+	// host model label would be expected to show up again on the node.
+	By(fmt.Sprintf("Removing host model label %s from node %s (so we can later expect it to return)", v1.HostModelCPULabel, nodeName))
+	for _, label := range node.Labels {
+		if strings.HasPrefix(label, v1.HostModelCPULabel) {
+			libnode.RemoveLabelFromNode(nodeName, label)
+		}
+	}
+
+	wakeNodeLabellerUp(virtClient)
+
+	By(fmt.Sprintf("Expecting node %s to not include %s annotation", nodeName, v1.LabellerSkipNodeAnnotation))
+	Eventually(func() error {
+		node, err = virtClient.CoreV1().Nodes().Get(context.Background(), nodeName, metav1.GetOptions{})
+		Expect(err).ShouldNot(HaveOccurred())
+
+		_, exists := node.Annotations[v1.LabellerSkipNodeAnnotation]
+		if exists {
+			return fmt.Errorf("node %s is expected to not have annotation %s", node.Name, v1.LabellerSkipNodeAnnotation)
+		}
+
+		foundHostModelLabel := false
+		for labelKey, _ := range node.Labels {
+			if strings.HasPrefix(labelKey, v1.HostModelCPULabel) {
+				foundHostModelLabel = true
+				break
+			}
+		}
+		if !foundHostModelLabel {
+			return fmt.Errorf("node %s is expected to have a label with %s prefix. this means node-labeller is not enabled for the node", nodeName, v1.HostModelCPULabel)
+		}
+
+		return nil
+	}, 30*time.Second, time.Second).ShouldNot(HaveOccurred())
+
+	return node
+}
+
+func wakeNodeLabellerUp(virtClient kubecli.KubevirtClient) {
+	const fakeModel = "fake-model-1423"
+
+	By("Updating Kubevirt CR to wake node-labeller up")
+	kvConfig := util.GetCurrentKv(virtClient).Spec.Configuration.DeepCopy()
+	if kvConfig.ObsoleteCPUModels == nil {
+		kvConfig.ObsoleteCPUModels = make(map[string]bool)
+	}
+	kvConfig.ObsoleteCPUModels[fakeModel] = true
+	tests.UpdateKubeVirtConfigValueAndWait(*kvConfig)
+	delete(kvConfig.ObsoleteCPUModels, fakeModel)
+	tests.UpdateKubeVirtConfigValueAndWait(*kvConfig)
 }
 
 func libvirtDomainIsPersistent(virtClient kubecli.KubevirtClient, vmi *v1.VirtualMachineInstance) (bool, error) {
