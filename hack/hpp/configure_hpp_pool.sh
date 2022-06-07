@@ -21,7 +21,7 @@ CLUSTER_PLATFORM=$(
 
 case "${CLUSTER_PLATFORM}" in
   Azure)
-    HPP_BACKEND_STORAGE_CLASS=managed-premium
+    HPP_BACKEND_STORAGE_CLASS=managed-csi
     HPP_VOLUME_SIZE=128Gi
     ;;
   AWS)
