@@ -39,7 +39,7 @@ func (r metricServiceReconciler) ResourceName() string {
 }
 
 func (r metricServiceReconciler) GetFullResource() client.Object {
-	return r.theService
+	return r.theService.DeepCopy()
 }
 
 func (r metricServiceReconciler) EmptyObject() client.Object {

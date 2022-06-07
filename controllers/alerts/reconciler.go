@@ -134,7 +134,7 @@ func (r *MonitoringReconciler) ReconcileOneResource(ctx context.Context, reconci
 			required := reconciler.GetFullResource()
 			err := r.client.Create(ctx, required)
 			if err != nil {
-				logger.Error(err, "failed to create PrometheusRule")
+				logger.Error(err, fmt.Sprintf("failed to create %s", reconciler.Kind()))
 				r.eventEmitter.EmitEvent(nil, corev1.EventTypeWarning, "UnexpectedError", fmt.Sprintf("failed to create the %s %s", reconciler.ResourceName(), reconciler.Kind()))
 				return nil, err
 			}

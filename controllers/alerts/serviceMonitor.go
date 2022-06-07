@@ -29,7 +29,7 @@ func (r serviceMonitorReconciler) ResourceName() string {
 }
 
 func (r serviceMonitorReconciler) GetFullResource() client.Object {
-	return r.theServiceMonitor
+	return r.theServiceMonitor.DeepCopy()
 }
 
 func (r serviceMonitorReconciler) EmptyObject() client.Object {
