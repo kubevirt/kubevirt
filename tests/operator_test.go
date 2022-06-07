@@ -30,17 +30,9 @@ import (
 	"os"
 	"os/exec"
 	"path/filepath"
-	"sort"
-
-	"kubevirt.io/kubevirt/tests/clientcmd"
-	"kubevirt.io/kubevirt/tests/framework/checks"
-	"kubevirt.io/kubevirt/tests/testsuite"
-
-	"kubevirt.io/kubevirt/pkg/virt-operator/resource/apply"
-	. "kubevirt.io/kubevirt/tests/framework/matcher"
-	util2 "kubevirt.io/kubevirt/tests/util"
-
+	"reflect"
 	"regexp"
+	"sort"
 	"strings"
 	"time"
 
@@ -73,13 +65,19 @@ import (
 	cdiv1 "kubevirt.io/containerized-data-importer-api/pkg/apis/core/v1beta1"
 	sdkapi "kubevirt.io/controller-lifecycle-operator-sdk/pkg/sdk/api"
 	"kubevirt.io/kubevirt/pkg/controller"
+	"kubevirt.io/kubevirt/pkg/virt-operator/resource/apply"
 	"kubevirt.io/kubevirt/pkg/virt-operator/resource/generate/components"
 	"kubevirt.io/kubevirt/pkg/virt-operator/util"
 	"kubevirt.io/kubevirt/tests"
+	"kubevirt.io/kubevirt/tests/clientcmd"
 	"kubevirt.io/kubevirt/tests/console"
 	cd "kubevirt.io/kubevirt/tests/containerdisk"
 	"kubevirt.io/kubevirt/tests/flags"
+	"kubevirt.io/kubevirt/tests/framework/checks"
+	. "kubevirt.io/kubevirt/tests/framework/matcher"
 	"kubevirt.io/kubevirt/tests/libstorage"
+	"kubevirt.io/kubevirt/tests/testsuite"
+	util2 "kubevirt.io/kubevirt/tests/util"
 )
 
 type vmSnapshotDef struct {
@@ -2790,6 +2788,63 @@ spec:
 		})
 	})
 
+	Context("with VMExport feature gate toggled", func() {
+
+		waitExportProxyReady := func() {
+			Eventually(func() bool {
+				d, err := virtClient.AppsV1().Deployments(originalKv.Namespace).Get(context.TODO(), "virt-exportproxy", metav1.GetOptions{})
+				if errors.IsNotFound(err) {
+					return false
+				}
+				Expect(err).ToNot(HaveOccurred())
+				return d.Status.AvailableReplicas > 0
+			}, time.Minute*5, 2*time.Second).Should(Equal(true))
+		}
+
+		setOrigFeatureGates := func() {
+			kv, err := virtClient.KubeVirt(originalKv.Namespace).Get(originalKv.Name, &metav1.GetOptions{})
+			Expect(err).ToNot(HaveOccurred())
+			ofg := originalKv.Spec.Configuration.DeveloperConfiguration.FeatureGates
+			if !reflect.DeepEqual(kv.Spec.Configuration.DeveloperConfiguration.FeatureGates, ofg) {
+				kv.Spec.Configuration.DeveloperConfiguration.FeatureGates = ofg
+				_, err = virtClient.KubeVirt(kv.Namespace).Update(kv)
+				Expect(err).ToNot(HaveOccurred())
+			}
+		}
+
+		AfterEach(func() {
+			setOrigFeatureGates()
+		})
+
+		It("should delete and recreate virt-exportproxy", func() {
+			var newFeatureGates []string
+			exportEnabled := false
+			kv, err := virtClient.KubeVirt(originalKv.Namespace).Get(originalKv.Name, &metav1.GetOptions{})
+			Expect(err).ToNot(HaveOccurred())
+			for _, fg := range kv.Spec.Configuration.DeveloperConfiguration.FeatureGates {
+				if fg == "VMExport" {
+					exportEnabled = true
+					continue
+				}
+				newFeatureGates = append(newFeatureGates, fg)
+			}
+			Expect(exportEnabled).To(BeTrue())
+
+			waitExportProxyReady()
+
+			kv.Spec.Configuration.DeveloperConfiguration.FeatureGates = newFeatureGates
+			_, err = virtClient.KubeVirt(kv.Namespace).Update(kv)
+			Expect(err).ToNot(HaveOccurred())
+
+			Eventually(func() bool {
+				_, err := virtClient.AppsV1().Deployments(originalKv.Namespace).Get(context.TODO(), "virt-exportproxy", metav1.GetOptions{})
+				return errors.IsNotFound(err)
+			}, time.Minute*5, time.Second*2).Should(BeTrue())
+
+			setOrigFeatureGates()
+			waitExportProxyReady()
+		})
+	})
 })
 
 func patchCRD(orig *extv1.CustomResourceDefinition, modified *extv1.CustomResourceDefinition) []byte {
