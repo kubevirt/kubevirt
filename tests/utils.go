@@ -3642,13 +3642,13 @@ func GetPolicyMatchedToVmi(name string, vmi *v1.VirtualMachineInstance, namespac
 
 	if policy.Spec.Selectors == nil {
 		policy.Spec.Selectors = &migrationsv1.Selectors{
-			VirtualMachineInstanceSelector: &metav1.LabelSelector{MatchLabels: map[string]string{}},
-			NamespaceSelector:              &metav1.LabelSelector{MatchLabels: map[string]string{}},
+			VirtualMachineInstanceSelector: migrationsv1.LabelSelector{}, //&metav1.LabelSelector{MatchLabels: map[string]string{}},
+			NamespaceSelector:              migrationsv1.LabelSelector{},
 		}
 	} else if policy.Spec.Selectors.VirtualMachineInstanceSelector == nil {
-		policy.Spec.Selectors.VirtualMachineInstanceSelector = &metav1.LabelSelector{MatchLabels: map[string]string{}}
+		policy.Spec.Selectors.VirtualMachineInstanceSelector = migrationsv1.LabelSelector{}
 	} else if policy.Spec.Selectors.NamespaceSelector == nil {
-		policy.Spec.Selectors.NamespaceSelector = &metav1.LabelSelector{MatchLabels: map[string]string{}}
+		policy.Spec.Selectors.NamespaceSelector = migrationsv1.LabelSelector{}
 	}
 
 	labelKeyPattern := "mp-key-%d"
@@ -3664,8 +3664,8 @@ func GetPolicyMatchedToVmi(name string, vmi *v1.VirtualMachineInstance, namespac
 		}
 	}
 
-	applyLabels(policy.Spec.Selectors.VirtualMachineInstanceSelector.MatchLabels, vmi.Labels, matchingVmiLabels)
-	applyLabels(policy.Spec.Selectors.NamespaceSelector.MatchLabels, namespace.Labels, matchingNSLabels)
+	applyLabels(policy.Spec.Selectors.VirtualMachineInstanceSelector, vmi.Labels, matchingVmiLabels)
+	applyLabels(policy.Spec.Selectors.NamespaceSelector, namespace.Labels, matchingNSLabels)
 
 	return policy
 }

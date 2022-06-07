@@ -1646,7 +1646,7 @@ func (c *MigrationController) matchMigrationPolicy(vmi *virtv1.VirtualMachineIns
 	policiesListObj := v1alpha1.MigrationPolicyList{Items: policies}
 
 	// Override cluster-wide migration configuration if migration policy is matched
-	matchedPolicy := policiesListObj.MatchPolicy(vmi, vmiNamespace)
+	matchedPolicy := MatchPolicy(&policiesListObj, vmi, vmiNamespace)
 
 	if matchedPolicy == nil {
 		log.Log.Object(vmi).Reason(err).Infof("no migration policy matched for VMI %s", vmi.Name)
