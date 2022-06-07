@@ -576,6 +576,40 @@ var _ = Describe("[rfe_id:393][crit:high][vendor:cnv-qe@redhat.com][level:system
 		tests.UpdateKubeVirtConfigValueAndWait(cfg)
 	}
 
+	expectSerialRun := func() {
+		suiteConfig, _ := GinkgoConfiguration()
+		Expect(suiteConfig.ParallelTotal).To(Equal(1), "this test is supported for serial tests only")
+	}
+
+	expectEvents := func(eventListOpts metav1.ListOptions, expectedEventsAmount int) {
+		// This function is dangerous to use from parallel tests as events might override each other.
+		// This can be removed in the future if these functions are used with great caution.
+		expectSerialRun()
+
+		Eventually(func() []k8sv1.Event {
+			events, err := virtClient.CoreV1().Events(util.NamespaceTestDefault).List(context.Background(), eventListOpts)
+			Expect(err).ToNot(HaveOccurred())
+
+			return events.Items
+		}, 30*time.Second, 1*time.Second).Should(HaveLen(expectedEventsAmount))
+	}
+
+	deleteEvents := func(eventListOpts metav1.ListOptions) {
+		// See comment in expectEvents() for more info on why that's needed.
+		expectSerialRun()
+
+		err = virtClient.CoreV1().Events(util.NamespaceTestDefault).DeleteCollection(context.Background(), metav1.DeleteOptions{}, eventListOpts)
+		Expect(err).ToNot(HaveOccurred())
+
+		By("Expecting alert to be removed")
+		Eventually(func() []k8sv1.Event {
+			events, err := virtClient.CoreV1().Events(util.NamespaceTestDefault).List(context.Background(), eventListOpts)
+			Expect(err).ToNot(HaveOccurred())
+
+			return events.Items
+		}, 30*time.Second, 1*time.Second).Should(BeEmpty())
+	}
+
 	Describe("Starting a VirtualMachineInstance ", func() {
 
 		var pvName string
@@ -2813,13 +2847,10 @@ var _ = Describe("[rfe_id:393][crit:high][vendor:cnv-qe@redhat.com][level:system
 					// Remove all supported host models
 					for key, _ := range node.Labels {
 						if strings.HasPrefix(key, v1.HostModelCPULabel) {
-							delete(node.Labels, key)
+							libnode.RemoveLabelFromNode(node.Name, key)
 						}
 					}
-					node.Labels[fakeHostModelLabel] = "true"
-
-					node, err = virtClient.CoreV1().Nodes().Update(context.Background(), node, metav1.UpdateOptions{})
-					Expect(err).ShouldNot(HaveOccurred())
+					node = libnode.AddLabelToNode(node.Name, fakeHostModelLabel, "true")
 
 					Eventually(func() bool {
 						node, err = virtClient.CoreV1().Nodes().Get(context.Background(), node.Name, metav1.GetOptions{})
@@ -2834,17 +2865,11 @@ var _ = Describe("[rfe_id:393][crit:high][vendor:cnv-qe@redhat.com][level:system
 					_ = tests.RunMigration(virtClient, migration)
 
 					By("Expecting for an alert to be triggered")
-					Eventually(func() []k8sv1.Event {
-						events, err := virtClient.CoreV1().Events(vmi.Namespace).List(
-							context.Background(),
-							metav1.ListOptions{
-								FieldSelector: fmt.Sprintf("type=%s,reason=%s", k8sv1.EventTypeWarning, watch.NoSuitableNodesForHostModelMigration),
-							},
-						)
-						Expect(err).ToNot(HaveOccurred())
-
-						return events.Items
-					}, 30*time.Second, 1*time.Second).Should(HaveLen(1), "Exactly one alert is expected")
+					eventListOpts := metav1.ListOptions{
+						FieldSelector: fmt.Sprintf("type=%s,reason=%s", k8sv1.EventTypeWarning, watch.NoSuitableNodesForHostModelMigration),
+					}
+					expectEvents(eventListOpts, 1)
+					deleteEvents(eventListOpts)
 				})
 
 			})
