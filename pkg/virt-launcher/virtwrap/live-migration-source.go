@@ -55,6 +55,12 @@ import (
 
 const liveMigrationFailed = "Live migration failed."
 
+const (
+	monitorSleepPeriodMS = 400
+	monitorLogPeriodMS   = 4000
+	monitorLogInterval   = monitorLogPeriodMS / monitorSleepPeriodMS
+)
+
 type migrationDisks struct {
 	shared    map[string]bool
 	generated map[string]bool
@@ -798,8 +804,10 @@ func (m *migrationMonitor) startMonitor() {
 	}
 	defer dom.Free()
 
+	logInterval := 0
+
 	for {
-		time.Sleep(400 * time.Millisecond)
+		time.Sleep(monitorSleepPeriodMS * time.Millisecond)
 
 		err := m.hasMigrationErr()
 		if err != nil && m.migrationFailedWithError == nil {
@@ -837,6 +845,10 @@ func (m *migrationMonitor) startMonitor() {
 				m.l.setMigrationResult(vmi, true, aborted.message, aborted.abortStatus)
 				return
 			}
+			logInterval++
+			if logInterval%monitorLogInterval == 0 {
+				logMigrationInfo(logger, string(vmi.Status.MigrationState.MigrationUID), stats)
+			}
 		case libvirt.DOMAIN_JOB_NONE:
 			completedJobInfo = m.determineNonRunningMigrationStatus(dom)
 		case libvirt.DOMAIN_JOB_COMPLETED:
@@ -853,6 +865,19 @@ func (m *migrationMonitor) startMonitor() {
 			return
 		}
 	}
+}
+
+// logMigrationInfo logs the same migration info as `virsh -r domjobinfo`
+func logMigrationInfo(logger *log.FilteredLogger, uid string, info *libvirt.DomainJobInfo) {
+	logger.V(4).Info(fmt.Sprintf(`Migration info for %s: TimeElapsed:%dms DataProcessed:%dB DataRemaining:%dB DataTotal:%dB `+
+		`MemoryProcessed:%dB MemoryRemaining:%dB MemoryTotal:%dB MemoryBandwidth:%dB/s DirtyRate:%dB/s `+
+		`Iteration:%d PostcopyRequests:%d ConstantPages:%d NormalPages:%d NormalData:%dB ExpectedDowntime:%dms `+
+		`DiskBps:%d`,
+		uid, info.TimeElapsed, info.DataProcessed, info.DataRemaining, info.DataTotal,
+		info.MemProcessed, info.MemRemaining, info.MemTotal, info.MemBps, info.MemDirtyRate*info.MemPageSize,
+		info.MemIteration, info.MemPostcopyReqs, info.MemConstant, info.MemNormal, info.MemNormalBytes, info.Downtime,
+		info.DiskBps,
+	))
 }
 
 func (l *LibvirtDomainManager) asyncMigrationAbort(vmi *v1.VirtualMachineInstance) {
