@@ -2915,7 +2915,7 @@ var _ = Describe("[rfe_id:393][crit:high][vendor:cnv-qe@redhat.com][level:system
 					}
 				})
 
-				It(" no node contain suited SupportedHostModelMigrationCPU label", func() {
+				It("no node contain suited SupportedHostModelMigrationCPU label", func() {
 					By("Changing node labels to support fake host model")
 					// Remove all supported host models
 					for _, node := range nodes {
@@ -2923,7 +2923,7 @@ var _ = Describe("[rfe_id:393][crit:high][vendor:cnv-qe@redhat.com][level:system
 						Expect(err).ShouldNot(HaveOccurred())
 						for key, _ := range currNode.Labels {
 							if strings.HasPrefix(key, v1.SupportedHostModelMigrationCPU) {
-								delete(currNode.Labels, key)
+								libnode.RemoveLabelFromNode(currNode.Name, key)
 							}
 						}
 					}
@@ -2933,17 +2933,9 @@ var _ = Describe("[rfe_id:393][crit:high][vendor:cnv-qe@redhat.com][level:system
 					_ = tests.RunMigration(virtClient, migration)
 
 					By("Expecting for an alert to be triggered")
-					Eventually(func() []k8sv1.Event {
-						events, err := virtClient.CoreV1().Events(vmi.Namespace).List(
-							context.Background(),
-							metav1.ListOptions{
-								FieldSelector: fmt.Sprintf("type=%s,reason=%s", k8sv1.EventTypeWarning, watch.NoSuitableNodesForHostModelMigration),
-							},
-						)
-						Expect(err).ToNot(HaveOccurred())
-
-						return events.Items
-					}, 30*time.Second, 1*time.Second).Should(HaveLen(1), "Exactly one alert is expected")
+					eventListOpts := metav1.ListOptions{FieldSelector: fmt.Sprintf("type=%s,reason=%s", k8sv1.EventTypeWarning, watch.NoSuitableNodesForHostModelMigration)}
+					expectEvents(eventListOpts, 1)
+					deleteEvents(eventListOpts)
 				})
 
 			})
