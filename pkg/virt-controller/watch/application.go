@@ -329,7 +329,7 @@ func Execute() {
 
 	app.vmiInformer = app.informerFactory.VMI()
 	app.kvPodInformer = app.informerFactory.KubeVirtPod()
-	app.nodeInformer = app.informerFactory.KubeVirtNode()
+	app.nodeInformer = app.informerFactory.KubeVirtNodes()
 
 	app.vmiCache = app.vmiInformer.GetStore()
 	app.vmiRecorder = app.newRecorder(k8sv1.NamespaceAll, "virtualmachine-controller")
