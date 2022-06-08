@@ -79,11 +79,7 @@ func newImageStreamHandler(Client client.Client, Scheme *runtime.Scheme, require
 			Client: Client,
 			Scheme: Scheme,
 			crType: "ImageStream",
-			// Previous versions used to have HCO-operator (scope namespace)
-			// as the owner of NetworkAddons (scope cluster).
-			// It's not legal, so remove that.
-			removeExistingOwner: false,
-			hooks:               newIsHook(required),
+			hooks:  newIsHook(required),
 		},
 	}
 }
@@ -112,10 +108,6 @@ func (h isHooks) getEmptyCr() client.Object {
 			Namespace: h.required.Namespace,
 		},
 	}
-}
-
-func (h isHooks) getObjectMeta(cr runtime.Object) *metav1.ObjectMeta {
-	return &cr.(*imagev1.ImageStream).ObjectMeta
 }
 
 func (h isHooks) updateCr(req *common.HcoRequest, Client client.Client, exists runtime.Object, _ runtime.Object) (bool, bool, error) {

@@ -5,7 +5,6 @@ import (
 	"reflect"
 
 	corev1 "k8s.io/api/core/v1"
-	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/runtime"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 
@@ -18,11 +17,10 @@ type genericServiceHandler genericOperand
 
 func newServiceHandler(Client client.Client, Scheme *runtime.Scheme, newCrFunc newSvcFunc) *genericServiceHandler {
 	h := &genericServiceHandler{
-		Client:              Client,
-		Scheme:              Scheme,
-		crType:              "Service",
-		removeExistingOwner: false,
-		hooks:               &serviceHooks{newCrFunc: newCrFunc},
+		Client: Client,
+		Scheme: Scheme,
+		crType: "Service",
+		hooks:  &serviceHooks{newCrFunc: newCrFunc},
 	}
 
 	return h
@@ -40,10 +38,6 @@ func (h *serviceHooks) getFullCr(hc *hcov1beta1.HyperConverged) (client.Object, 
 
 func (h serviceHooks) getEmptyCr() client.Object {
 	return &corev1.Service{}
-}
-
-func (h serviceHooks) getObjectMeta(cr runtime.Object) *metav1.ObjectMeta {
-	return &cr.(*corev1.Service).ObjectMeta
 }
 
 func (h serviceHooks) reset() { /* no implementation */ }

@@ -23,7 +23,6 @@ func newTtoHandler(Client client.Client, Scheme *runtime.Scheme) *ttoHandler {
 		Client:                 Client,
 		Scheme:                 Scheme,
 		crType:                 "TektonTasks",
-		removeExistingOwner:    false,
 		setControllerReference: true,
 		hooks:                  &ttoHooks{},
 	}
@@ -49,9 +48,6 @@ func (h ttoHooks) getConditions(cr runtime.Object) []metav1.Condition {
 func (h ttoHooks) checkComponentVersion(cr runtime.Object) bool {
 	found := cr.(*ttov1alpha1.TektonTasks)
 	return checkComponentVersion(hcoutil.TtoVersionEnvV, found.Status.ObservedVersion)
-}
-func (h ttoHooks) getObjectMeta(cr runtime.Object) *metav1.ObjectMeta {
-	return &cr.(*ttov1alpha1.TektonTasks).ObjectMeta
 }
 func (h *ttoHooks) reset() {
 	h.cache = nil

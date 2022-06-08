@@ -27,11 +27,7 @@ func newCnaHandler(Client client.Client, Scheme *runtime.Scheme) *cnaHandler {
 		Client: Client,
 		Scheme: Scheme,
 		crType: "NetworkAddonsConfig",
-		// Previous versions used to have HCO-operator (scope namespace)
-		// as the owner of NetworkAddons (scope cluster).
-		// It's not legal, so remove that.
-		removeExistingOwner: true,
-		hooks:               &cnaHooks{},
+		hooks:  &cnaHooks{},
 	}
 }
 
@@ -57,9 +53,6 @@ func (h cnaHooks) getConditions(cr runtime.Object) []metav1.Condition {
 func (h cnaHooks) checkComponentVersion(cr runtime.Object) bool {
 	found := cr.(*networkaddonsv1.NetworkAddonsConfig)
 	return checkComponentVersion(hcoutil.CnaoVersionEnvV, found.Status.ObservedVersion)
-}
-func (h cnaHooks) getObjectMeta(cr runtime.Object) *metav1.ObjectMeta {
-	return &cr.(*networkaddonsv1.NetworkAddonsConfig).ObjectMeta
 }
 func (h *cnaHooks) reset() {
 	h.cache = nil

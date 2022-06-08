@@ -221,11 +221,10 @@ func NewKvConsolePlugin(hc *hcov1beta1.HyperConverged) *consolev1alpha1.ConsoleP
 
 func newConsolePluginHandler(Client client.Client, Scheme *runtime.Scheme, required *consolev1alpha1.ConsolePlugin) Operand {
 	h := &genericOperand{
-		Client:              Client,
-		Scheme:              Scheme,
-		crType:              "ConsolePlugin",
-		removeExistingOwner: false,
-		hooks:               &consolePluginHooks{required: required},
+		Client: Client,
+		Scheme: Scheme,
+		crType: "ConsolePlugin",
+		hooks:  &consolePluginHooks{required: required},
 	}
 
 	return h
@@ -245,10 +244,6 @@ func (h consolePluginHooks) getEmptyCr() client.Object {
 			Name: h.required.Name,
 		},
 	}
-}
-
-func (h consolePluginHooks) getObjectMeta(cr runtime.Object) *metav1.ObjectMeta {
-	return &cr.(*consolev1alpha1.ConsolePlugin).ObjectMeta
 }
 
 func (h consolePluginHooks) reset() { /* no implementation */ }

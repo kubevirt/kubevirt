@@ -58,7 +58,6 @@ func newSspHandler(Client client.Client, Scheme *runtime.Scheme) *sspHandler {
 			Client:                 Client,
 			Scheme:                 Scheme,
 			crType:                 "SSP",
-			removeExistingOwner:    false,
 			setControllerReference: false,
 			hooks:                  &sspHooks{},
 		},
@@ -89,9 +88,6 @@ func (h sspHooks) getConditions(cr runtime.Object) []metav1.Condition {
 func (h sspHooks) checkComponentVersion(cr runtime.Object) bool {
 	found := cr.(*sspv1beta1.SSP)
 	return checkComponentVersion(hcoutil.SspVersionEnvV, found.Status.ObservedVersion)
-}
-func (h sspHooks) getObjectMeta(cr runtime.Object) *metav1.ObjectMeta {
-	return &cr.(*sspv1beta1.SSP).ObjectMeta
 }
 func (h *sspHooks) reset() {
 	h.cache = nil

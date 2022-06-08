@@ -172,7 +172,6 @@ func newKubevirtHandler(Client client.Client, Scheme *runtime.Scheme) *kubevirtH
 		Client:                 Client,
 		Scheme:                 Scheme,
 		crType:                 "KubeVirt",
-		removeExistingOwner:    false,
 		setControllerReference: true,
 		hooks:                  &kubevirtHooks{},
 	}
@@ -200,9 +199,6 @@ func (h kubevirtHooks) getConditions(cr runtime.Object) []metav1.Condition {
 func (h kubevirtHooks) checkComponentVersion(cr runtime.Object) bool {
 	found := cr.(*kubevirtcorev1.KubeVirt)
 	return checkComponentVersion(hcoutil.KubevirtVersionEnvV, found.Status.ObservedKubeVirtVersion)
-}
-func (h kubevirtHooks) getObjectMeta(cr runtime.Object) *metav1.ObjectMeta {
-	return &cr.(*kubevirtcorev1.KubeVirt).ObjectMeta
 }
 func (h *kubevirtHooks) reset() {
 	h.cache = nil
@@ -544,7 +540,6 @@ func newKvPriorityClassHandler(Client client.Client, Scheme *runtime.Scheme) *kv
 		Client:                 Client,
 		Scheme:                 Scheme,
 		crType:                 "KubeVirtPriorityClass",
-		removeExistingOwner:    false,
 		setControllerReference: false,
 		hooks:                  &kvPriorityClassHooks{},
 	}
@@ -556,9 +551,6 @@ func (h kvPriorityClassHooks) getFullCr(hc *hcov1beta1.HyperConverged) (client.O
 	return NewKubeVirtPriorityClass(hc), nil
 }
 func (h kvPriorityClassHooks) getEmptyCr() client.Object { return &schedulingv1.PriorityClass{} }
-func (h kvPriorityClassHooks) getObjectMeta(cr runtime.Object) *metav1.ObjectMeta {
-	return &cr.(*schedulingv1.PriorityClass).ObjectMeta
-}
 
 func (h *kvPriorityClassHooks) updateCr(req *common.HcoRequest, Client client.Client, exists runtime.Object, required runtime.Object) (bool, bool, error) {
 	pc, ok1 := required.(*schedulingv1.PriorityClass)

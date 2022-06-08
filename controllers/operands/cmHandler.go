@@ -16,11 +16,10 @@ import (
 
 func newCmHandler(Client client.Client, Scheme *runtime.Scheme, required *corev1.ConfigMap) Operand {
 	h := &genericOperand{
-		Client:              Client,
-		Scheme:              Scheme,
-		crType:              "ConfigMap",
-		removeExistingOwner: false,
-		hooks:               &cmHooks{required: required},
+		Client: Client,
+		Scheme: Scheme,
+		crType: "ConfigMap",
+		hooks:  &cmHooks{required: required},
 	}
 
 	return h
@@ -40,10 +39,6 @@ func (h cmHooks) getEmptyCr() client.Object {
 			Name: h.required.Name,
 		},
 	}
-}
-
-func (h cmHooks) getObjectMeta(cr runtime.Object) *metav1.ObjectMeta {
-	return &cr.(*corev1.ConfigMap).ObjectMeta
 }
 
 func (h cmHooks) reset() { /* no implementation */ }

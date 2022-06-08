@@ -21,7 +21,6 @@ func newRoleHandler(Client client.Client, Scheme *runtime.Scheme, required *rbac
 		Client:                 Client,
 		Scheme:                 Scheme,
 		crType:                 "Role",
-		removeExistingOwner:    false,
 		setControllerReference: true,
 		hooks:                  &roleHooks{required: required},
 	}
@@ -40,9 +39,6 @@ func (h roleHooks) getEmptyCr() client.Object {
 			Name: h.required.Name,
 		},
 	}
-}
-func (h roleHooks) getObjectMeta(cr runtime.Object) *metav1.ObjectMeta {
-	return &cr.(*rbacv1.Role).ObjectMeta
 }
 func (h *roleHooks) updateCr(req *common.HcoRequest, Client client.Client, exists runtime.Object, _ runtime.Object) (bool, bool, error) {
 	role := h.required
@@ -81,7 +77,6 @@ func newRoleBindingHandler(Client client.Client, Scheme *runtime.Scheme, require
 		Client:                 Client,
 		Scheme:                 Scheme,
 		crType:                 "RoleBinding",
-		removeExistingOwner:    false,
 		setControllerReference: true,
 		hooks:                  &roleBindingHooks{required: required},
 	}
@@ -100,9 +95,6 @@ func (h roleBindingHooks) getEmptyCr() client.Object {
 			Name: h.required.Name,
 		},
 	}
-}
-func (h roleBindingHooks) getObjectMeta(cr runtime.Object) *metav1.ObjectMeta {
-	return &cr.(*rbacv1.RoleBinding).ObjectMeta
 }
 func (h *roleBindingHooks) updateCr(req *common.HcoRequest, Client client.Client, exists runtime.Object, _ runtime.Object) (bool, bool, error) {
 	configReaderRoleBinding := h.required

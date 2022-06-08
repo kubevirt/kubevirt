@@ -36,11 +36,7 @@ func newQuickStartHandler(Client client.Client, Scheme *runtime.Scheme, required
 		Client: Client,
 		Scheme: Scheme,
 		crType: "ConsoleQuickStart",
-		// Previous versions used to have HCO-operator (scope namespace)
-		// as the owner of NetworkAddons (scope cluster).
-		// It's not legal, so remove that.
-		removeExistingOwner: false,
-		hooks:               &qsHooks{required: required},
+		hooks:  &qsHooks{required: required},
 	}
 
 	return h
@@ -60,10 +56,6 @@ func (h qsHooks) getEmptyCr() client.Object {
 			Name: h.required.Name,
 		},
 	}
-}
-
-func (h qsHooks) getObjectMeta(cr runtime.Object) *metav1.ObjectMeta {
-	return &cr.(*consolev1.ConsoleQuickStart).ObjectMeta
 }
 
 func (h qsHooks) updateCr(req *common.HcoRequest, Client client.Client, exists runtime.Object, _ runtime.Object) (bool, bool, error) {

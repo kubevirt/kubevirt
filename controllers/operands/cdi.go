@@ -27,11 +27,7 @@ func newCdiHandler(Client client.Client, Scheme *runtime.Scheme) *cdiHandler {
 		Client: Client,
 		Scheme: Scheme,
 		crType: "CDI",
-		// Previous versions used to have HCO-operator (scope namespace)
-		// as the owner of CDI (scope cluster).
-		// It's not legal, so remove that.
-		removeExistingOwner: true,
-		hooks:               &cdiHooks{Client: Client, Scheme: Scheme},
+		hooks:  &cdiHooks{Client: Client, Scheme: Scheme},
 	}
 }
 
@@ -58,9 +54,6 @@ func (h cdiHooks) getConditions(cr runtime.Object) []metav1.Condition {
 func (h cdiHooks) checkComponentVersion(cr runtime.Object) bool {
 	found := cr.(*cdiv1beta1.CDI)
 	return checkComponentVersion(hcoutil.CdiVersionEnvV, found.Status.ObservedVersion)
-}
-func (h cdiHooks) getObjectMeta(cr runtime.Object) *metav1.ObjectMeta {
-	return &cr.(*cdiv1beta1.CDI).ObjectMeta
 }
 func (h *cdiHooks) reset() {
 	h.cache = nil

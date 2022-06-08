@@ -33,10 +33,6 @@ type genericOperand struct {
 	Scheme *runtime.Scheme
 	// printable resource name
 	crType string
-	// In some cases, Previous versions used to have HCO-operator (scope namespace)
-	// as the owner of some resources (scope cluster).
-	// It's not legal, so remove that.
-	removeExistingOwner bool
 	// Should the handler add the controller reference
 	setControllerReference bool
 	// Set of resource handler hooks, to be implemented in each handler
@@ -52,8 +48,6 @@ type hcoResourceHooks interface {
 	getEmptyCr() client.Object
 	// check if there is a change between the required resource and the resource read from K8s, and update K8s accordingly.
 	updateCr(*common.HcoRequest, client.Client, runtime.Object, runtime.Object) (bool, bool, error)
-	// cast he specific resource to *metav1.ObjectMeta
-	getObjectMeta(runtime.Object) *metav1.ObjectMeta
 	// last hook before completing the operand handling
 	justBeforeComplete(req *common.HcoRequest)
 }
@@ -116,8 +110,6 @@ func (h *genericOperand) ensure(req *common.HcoRequest) *EnsureResult {
 
 func (h *genericOperand) handleExistingCr(req *common.HcoRequest, key client.ObjectKey, found client.Object, cr client.Object, res *EnsureResult) *EnsureResult {
 	req.Logger.Info(h.crType+" already exists", h.crType+".Namespace", key.Namespace, h.crType+".Name", key.Name)
-
-	h.doRemoveExistingOwners(req, found)
 
 	updated, overwritten, err := h.hooks.updateCr(req, h.Client, found, cr)
 	if err != nil {
@@ -212,24 +204,6 @@ func (h *genericOperand) doSetControllerReference(req *common.HcoRequest, cr cli
 		}
 	}
 	return nil
-}
-
-func (h *genericOperand) doRemoveExistingOwners(req *common.HcoRequest, found client.Object) {
-	if h.removeExistingOwner {
-		existingOwners := h.hooks.getObjectMeta(found).GetOwnerReferences()
-
-		if len(existingOwners) > 0 {
-			req.Logger.Info(h.crType + " has owners, removing...")
-			err := h.Client.Update(req.Ctx, found)
-			if err != nil {
-				req.Logger.Error(err, fmt.Sprintf("Failed to remove %s's previous owners", h.crType))
-				return
-			}
-		}
-
-		// do that only once
-		h.removeExistingOwner = false
-	}
 }
 
 func (h *genericOperand) createNewCr(req *common.HcoRequest, cr client.Object, res *EnsureResult) *EnsureResult {

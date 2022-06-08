@@ -34,7 +34,6 @@ func newCliDownloadHandler(Client client.Client, Scheme *runtime.Scheme) *cliDow
 		Client:                 Client,
 		Scheme:                 Scheme,
 		crType:                 "ConsoleCLIDownload",
-		removeExistingOwner:    false,
 		setControllerReference: false,
 		hooks:                  &cliDownloadHooks{},
 	}
@@ -48,10 +47,6 @@ func (h cliDownloadHooks) getFullCr(hc *hcov1beta1.HyperConverged) (client.Objec
 
 func (h cliDownloadHooks) getEmptyCr() client.Object {
 	return &consolev1.ConsoleCLIDownload{}
-}
-
-func (h cliDownloadHooks) getObjectMeta(cr runtime.Object) *metav1.ObjectMeta {
-	return &cr.(*consolev1.ConsoleCLIDownload).ObjectMeta
 }
 
 func (h *cliDownloadHooks) updateCr(req *common.HcoRequest, Client client.Client, exists runtime.Object, required runtime.Object) (bool, bool, error) {
@@ -145,7 +140,6 @@ func newCliDownloadsRouteHandler(Client client.Client, Scheme *runtime.Scheme) *
 		Client:                 Client,
 		Scheme:                 Scheme,
 		crType:                 "Route",
-		removeExistingOwner:    false,
 		setControllerReference: true,
 		hooks:                  &cliDownloadsRouteHooks{},
 	}
@@ -159,10 +153,6 @@ func (h cliDownloadsRouteHooks) getFullCr(hc *hcov1beta1.HyperConverged) (client
 
 func (h cliDownloadsRouteHooks) getEmptyCr() client.Object {
 	return &routev1.Route{}
-}
-
-func (h cliDownloadsRouteHooks) getObjectMeta(cr runtime.Object) *metav1.ObjectMeta {
-	return &cr.(*routev1.Route).ObjectMeta
 }
 
 func (h *cliDownloadsRouteHooks) updateCr(req *common.HcoRequest, Client client.Client, exists runtime.Object, required runtime.Object) (bool, bool, error) {

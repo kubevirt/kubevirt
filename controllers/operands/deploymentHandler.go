@@ -16,11 +16,10 @@ import (
 
 func newDeploymentHandler(Client client.Client, Scheme *runtime.Scheme, required *appsv1.Deployment) Operand {
 	h := &genericOperand{
-		Client:              Client,
-		Scheme:              Scheme,
-		crType:              "Deployment",
-		removeExistingOwner: false,
-		hooks:               &deploymentHooks{required: required},
+		Client: Client,
+		Scheme: Scheme,
+		crType: "Deployment",
+		hooks:  &deploymentHooks{required: required},
 	}
 
 	return h
@@ -40,10 +39,6 @@ func (h deploymentHooks) getEmptyCr() client.Object {
 			Name: h.required.Name,
 		},
 	}
-}
-
-func (h deploymentHooks) getObjectMeta(cr runtime.Object) *metav1.ObjectMeta {
-	return &cr.(*appsv1.Deployment).ObjectMeta
 }
 
 func (h deploymentHooks) reset() { /* no implementation */ }
