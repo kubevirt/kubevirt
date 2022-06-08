@@ -1,11 +1,11 @@
 package components
 
 import (
-	cryptorand "crypto/rand"
 	"crypto/tls"
 	"crypto/x509"
 	"crypto/x509/pkix"
 	"math/big"
+	"math/rand"
 	"time"
 
 	. "github.com/onsi/ginkgo/v2"
@@ -325,7 +325,8 @@ func NewSelfSignedCert(notBefore time.Time, notAfter time.Time) *tls.Certificate
 		IsCA:                  true,
 	}
 
-	certDERBytes, err := x509.CreateCertificate(cryptorand.Reader, &tmpl, &tmpl, key.Public(), key)
+	r := rand.New(rand.NewSource(time.Now().Unix()))
+	certDERBytes, err := x509.CreateCertificate(r, &tmpl, &tmpl, key.Public(), key)
 	Expect(err).ToNot(HaveOccurred())
 	leaf, err := x509.ParseCertificate(certDERBytes)
 	Expect(err).ToNot(HaveOccurred())
