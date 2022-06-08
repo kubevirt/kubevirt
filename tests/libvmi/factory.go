@@ -27,24 +27,17 @@ import (
 	"kubevirt.io/kubevirt/tests/testsuite"
 )
 
-// Default VMI values
-const (
-	DefaultTestGracePeriod int64 = 0
-	DefaultVmiName               = "testvmi"
-)
-
 // NewFedora instantiates a new Fedora based VMI configuration,
 // building its extra properties based on the specified With* options.
 // This image has tooling for the guest agent, stress, SR-IOV and more.
 func NewFedora(opts ...Option) *kvirtv1.VirtualMachineInstance {
 	fedoraOptions := []Option{
-		WithTerminationGracePeriod(DefaultTestGracePeriod),
 		WithResourceMemory("512M"),
 		WithRng(),
 		WithContainerImage(cd.ContainerDiskFor(cd.ContainerDiskFedoraTestTooling)),
 	}
 	opts = append(fedoraOptions, opts...)
-	return New(RandName(DefaultVmiName), opts...)
+	return New(RandName(), opts...)
 }
 
 // NewCirros instantiates a new CirrOS based VMI configuration
@@ -56,10 +49,9 @@ func NewCirros(opts ...Option) *kvirtv1.VirtualMachineInstance {
 		WithContainerImage(cd.ContainerDiskFor(cd.ContainerDiskCirros)),
 		withNonEmptyUserData,
 		WithResourceMemory(cirrosMemory()),
-		WithTerminationGracePeriod(DefaultTestGracePeriod),
 	}
 	cirrosOpts = append(cirrosOpts, opts...)
-	return New(RandName(DefaultVmiName), cirrosOpts...)
+	return New(RandName(), cirrosOpts...)
 }
 
 // NewAlpine instantiates a new Alpine based VMI configuration
@@ -69,10 +61,9 @@ func NewAlpine(opts ...Option) *kvirtv1.VirtualMachineInstance {
 		WithContainerImage(cd.ContainerDiskFor(cd.ContainerDiskAlpine)),
 		WithResourceMemory(alpineMemory()),
 		WithRng(),
-		WithTerminationGracePeriod(DefaultTestGracePeriod),
 	}
 	alpineOpts = append(alpineOpts, opts...)
-	return New(RandName(DefaultVmiName), alpineOpts...)
+	return New(RandName(), alpineOpts...)
 }
 
 func NewAlpineWithTestTooling(opts ...Option) *kvirtv1.VirtualMachineInstance {
@@ -81,10 +72,9 @@ func NewAlpineWithTestTooling(opts ...Option) *kvirtv1.VirtualMachineInstance {
 		WithContainerImage(cd.ContainerDiskFor(cd.ContainerDiskAlpineTestTooling)),
 		WithResourceMemory(alpineMemory()),
 		WithRng(),
-		WithTerminationGracePeriod(DefaultTestGracePeriod),
 	}
 	alpineOpts = append(alpineOpts, opts...)
-	return New(RandName(DefaultVmiName), alpineOpts...)
+	return New(RandName(), alpineOpts...)
 }
 
 func cirrosMemory() string {

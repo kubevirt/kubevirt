@@ -38,6 +38,7 @@ type Option func(vmi *kvirtv1.VirtualMachineInstance)
 func New(name string, opts ...Option) *kvirtv1.VirtualMachineInstance {
 	vmi := baseVmi(name)
 
+	WithTerminationGracePeriod(0)(vmi)
 	for _, f := range opts {
 		f(vmi)
 	}
@@ -45,9 +46,9 @@ func New(name string, opts ...Option) *kvirtv1.VirtualMachineInstance {
 	return vmi
 }
 
-// RandName returns a random name by concatenating the given name with a hyphen and a random string.
-func RandName(name string) string {
-	return name + "-" + rand.String(5)
+// RandName returns a random name for a virtual machine
+func RandName() string {
+	return "testvmi" + "-" + rand.String(5)
 }
 
 // WithLabel sets a label with specified value
