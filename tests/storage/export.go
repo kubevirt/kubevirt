@@ -764,12 +764,14 @@ var _ = SIGDescribe("Export", func() {
 		}
 		newExportPod, err := virtClient.CoreV1().Pods(newExportPod.Namespace).Create(context.TODO(), newExportPod, metav1.CreateOptions{})
 		Expect(err).ToNot(HaveOccurred())
+		defer func() {
+			err = virtClient.CoreV1().Pods(newExportPod.Namespace).Delete(context.Background(), newExportPod.Name, metav1.DeleteOptions{})
+			Expect(err).ToNot(HaveOccurred())
+		}()
 		Eventually(func() bool {
 			p, err := virtClient.CoreV1().Pods(exporterPod.Namespace).Get(context.TODO(), newExportPod.Name, metav1.GetOptions{})
 			Expect(err).ToNot(HaveOccurred())
 			return p.Status.Phase == k8sv1.PodSucceeded
 		}, 90*time.Second, 1*time.Second).Should(BeTrue())
-		err = virtClient.CoreV1().Pods(newExportPod.Namespace).Delete(context.Background(), newExportPod.Name, metav1.DeleteOptions{})
-		Expect(err).ToNot(HaveOccurred())
 	})
 })
