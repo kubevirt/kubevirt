@@ -241,6 +241,19 @@ func newApiServerClusterRole() *rbacv1.ClusterRole {
 					"get", "list", "watch",
 				},
 			},
+			{
+				APIGroups: []string{
+					"apps",
+				},
+				Resources: []string{
+					"controllerrevisions",
+				},
+				Verbs: []string{
+					"create",
+					"list",
+					"get",
+				},
+			},
 		},
 	}
 }

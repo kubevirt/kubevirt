@@ -380,6 +380,14 @@ rules:
   - list
   - watch
 - apiGroups:
+  - apps
+  resources:
+  - controllerrevisions
+  verbs:
+  - create
+  - list
+  - get
+- apiGroups:
   - ""
   resources:
   - configmaps
@@ -469,6 +477,7 @@ rules:
   - list
   - create
   - delete
+  - get
 - apiGroups:
   - ""
   resources:

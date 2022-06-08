@@ -461,6 +461,14 @@ spec:
           - list
           - watch
         - apiGroups:
+          - apps
+          resources:
+          - controllerrevisions
+          verbs:
+          - create
+          - list
+          - get
+        - apiGroups:
           - ""
           resources:
           - configmaps
@@ -550,6 +558,7 @@ spec:
           - list
           - create
           - delete
+          - get
         - apiGroups:
           - ""
           resources:
