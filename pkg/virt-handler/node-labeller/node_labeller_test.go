@@ -60,13 +60,27 @@ var _ = Describe("Node-labeller ", func() {
 	var nodeInformer cache.SharedIndexInformer
 	var nodeSource *framework.FakeControllerSource
 	var kvInformer cache.SharedIndexInformer
-	//var kvSource *framework.FakeControllerSource
+	var kvSource *framework.FakeControllerSource
+	var kv *kubevirtv1.KubeVirt
 
 	addNode := func(node *v1.Node) {
 		mockQueue.ExpectAdds(1)
 		nodeSource.Add(node)
 		mockQueue.Wait()
 		addedNode = node
+	}
+
+	modifyNode := func(node *v1.Node) {
+		mockQueue.ExpectAdds(1)
+		nodeSource.Modify(node)
+		mockQueue.Wait()
+		addedNode = node
+	}
+
+	addKubevirtCR := func(kv *kubevirtv1.KubeVirt) {
+		mockQueue.ExpectAdds(1)
+		kvSource.Add(kv)
+		mockQueue.Wait()
 	}
 
 	expectNodePatch := func(expectedPatches ...string) {
@@ -78,6 +92,16 @@ var _ = Describe("Node-labeller ", func() {
 			}
 			return true, nil, nil
 		})
+	}
+
+	emptyQueue := func() {
+		By("Running node labeller once")
+		expectNodePatch()
+		res := nlController.execute()
+		Expect(res).To(BeTrue(), "labeller should end with true result")
+
+		By("Making sure queue is empty")
+		Expect(nlController.queue.Len()).To(Equal(0), "queue is expected to be empty")
 	}
 
 	syncCaches := func(stop chan struct{}) {
@@ -97,7 +121,7 @@ var _ = Describe("Node-labeller ", func() {
 		stop = make(chan struct{})
 		ctrl = gomock.NewController(GinkgoT())
 		nodeInformer, nodeSource = testutils.NewFakeInformerFor(&v1.Node{})
-		kvInformer, _ = testutils.NewFakeInformerFor(&kubevirtv1.KubeVirt{})
+		kvInformer, kvSource = testutils.NewFakeInformerFor(&kubevirtv1.KubeVirt{})
 
 		kubeClient = fake.NewSimpleClientset()
 		virtClient = kubecli.NewMockKubevirtClient(ctrl)
@@ -108,7 +132,7 @@ var _ = Describe("Node-labeller ", func() {
 
 		virtClient.EXPECT().CoreV1().Return(kubeClient.CoreV1()).AnyTimes()
 
-		kv := &kubevirtv1.KubeVirt{
+		kv = &kubevirtv1.KubeVirt{
 			ObjectMeta: metav1.ObjectMeta{
 				Name:      "kubevirt",
 				Namespace: "kubevirt",
@@ -179,6 +203,62 @@ var _ = Describe("Node-labeller ", func() {
 		expectNodePatch(kubevirtv1.SEVLabel)
 		res := nlController.execute()
 		Expect(res).To(BeTrue())
+	})
+
+	DescribeTable("should re-enqueue node if its updating its", func(updateNode func(node *v1.Node)) {
+		emptyQueue()
+
+		updatedNode := addedNode.DeepCopy()
+		updateNode(updatedNode)
+		modifyNode(updatedNode)
+
+		Eventually(func() int {
+			return nlController.queue.Len()
+		}, 5*time.Second, time.Second).Should(Equal(1), "queue is expected to with length of 1")
+	},
+		Entry("labels", func(node *v1.Node) { node.Labels["new-key"] = "new-value" }),
+		Entry("annotations", func(node *v1.Node) { node.Annotations["new-key"] = "new-value" }),
+	)
+
+	It("should not re-enqueue node if it updated something other than labels / annotations", func() {
+		emptyQueue()
+
+		updatedNode := addedNode.DeepCopy()
+		updatedNode.Spec.PodCIDR = "fake"
+		mockQueue.ExpectAdds(1)
+		nodeSource.Modify(updatedNode)
+
+		Consistently(func() int {
+			return nlController.queue.Len()
+		}, 3*time.Second, time.Second).Should(Equal(0), "queue is expected to be empty")
+	})
+
+	It("should re-enqueue node if KubvevirtCR updates Configuration", func() {
+		emptyQueue()
+
+		updatedKv := kv.DeepCopy()
+		updatedKv.Spec.Configuration.OVMFPath = "fake-path"
+		addKubevirtCR(updatedKv)
+
+		Eventually(func() int {
+			return nlController.queue.Len()
+		}, 5*time.Second, time.Second).Should(Equal(1), "queue is expected to with length of 1")
+	})
+
+	It("should not re-enqueue node if KubvevirtCR updates anything other than Configuration", func() {
+		emptyQueue()
+
+		err := kvInformer.GetStore().Add(kv)
+		Expect(err).ShouldNot(HaveOccurred())
+
+		updatedKv := kv.DeepCopy()
+		updatedKv.Spec.ImageTag = "fake-tag"
+		mockQueue.ExpectAdds(1)
+		kvSource.Modify(updatedKv)
+
+		Consistently(func() int {
+			return nlController.queue.Len()
+		}, 3*time.Second, time.Second).Should(Equal(0), "queue is expected to be empty")
 	})
 
 	AfterEach(func() {
