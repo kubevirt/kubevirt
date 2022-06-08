@@ -310,7 +310,10 @@ func (app *virtHandlerApp) Run() {
 	var capabilities *api.Capabilities
 	var hostCpuModel string
 	if virtconfig.IsAMD64(runtime.GOARCH) {
-		nodeLabellerController, err := nodelabeller.NewNodeLabeller(app.clusterConfig, app.virtCli, app.HostOverride, app.namespace)
+		nodeInformer := factory.KubeVirtNode(app.HostOverride)
+		kvInformer := factory.KubeVirt()
+
+		nodeLabellerController, err := nodelabeller.NewNodeLabeller(app.clusterConfig, app.virtCli, app.HostOverride, app.namespace, nodeInformer, kvInformer)
 		if err != nil {
 			panic(err)
 		}

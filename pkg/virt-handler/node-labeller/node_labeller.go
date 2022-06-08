@@ -27,6 +27,8 @@ import (
 	"strings"
 	"time"
 
+	"k8s.io/client-go/tools/cache"
+
 	v1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/api/equality"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
@@ -61,13 +63,15 @@ type NodeLabeller struct {
 	capabilities            *api.Capabilities
 	hostCPUModel            hostCPUModel
 	SEV                     SEVConfiguration
+	nodeInformer            cache.SharedIndexInformer
+	kvInformer              cache.SharedIndexInformer
 }
 
-func NewNodeLabeller(clusterConfig *virtconfig.ClusterConfig, clientset kubecli.KubevirtClient, host, namespace string) (*NodeLabeller, error) {
-	return newNodeLabeller(clusterConfig, clientset, host, namespace, nodeLabellerVolumePath)
-
+func NewNodeLabeller(clusterConfig *virtconfig.ClusterConfig, clientset kubecli.KubevirtClient, host, namespace string, nodeInformer, kvInformer cache.SharedIndexInformer) (*NodeLabeller, error) {
+	return newNodeLabeller(clusterConfig, clientset, host, namespace, nodeInformer, kvInformer, nodeLabellerVolumePath)
 }
-func newNodeLabeller(clusterConfig *virtconfig.ClusterConfig, clientset kubecli.KubevirtClient, host, namespace string, volumePath string) (*NodeLabeller, error) {
+
+func newNodeLabeller(clusterConfig *virtconfig.ClusterConfig, clientset kubecli.KubevirtClient, host, namespace string, nodeInformer, kvInformer cache.SharedIndexInformer, volumePath string) (*NodeLabeller, error) {
 	n := &NodeLabeller{
 		clientset:               clientset,
 		host:                    host,
@@ -78,7 +82,19 @@ func newNodeLabeller(clusterConfig *virtconfig.ClusterConfig, clientset kubecli.
 		volumePath:              volumePath,
 		domCapabilitiesFileName: "virsh_domcapabilities.xml",
 		hostCPUModel:            hostCPUModel{requiredFeatures: make(map[string]bool, 0)},
+		nodeInformer:            nodeInformer,
+		kvInformer:              kvInformer,
 	}
+
+	n.nodeInformer.AddEventHandler(cache.ResourceEventHandlerFuncs{
+		AddFunc:    func(_ interface{}) { n.requeueHost() },
+		UpdateFunc: func(oldObj, newObj interface{}) { n.handleNodeUpdate(oldObj, newObj) },
+	})
+
+	n.kvInformer.AddEventHandler(cache.ResourceEventHandlerFuncs{
+		AddFunc:    func(_ interface{}) { n.requeueHost() },
+		UpdateFunc: func(oldObj, newObj interface{}) { n.handleKubevirtCRUpdate(oldObj, newObj) },
+	})
 
 	err := n.loadAll()
 	if err != nil {
@@ -90,19 +106,20 @@ func newNodeLabeller(clusterConfig *virtconfig.ClusterConfig, clientset kubecli.
 //Run runs node-labeller
 func (n *NodeLabeller) Run(threadiness int, stop chan struct{}) {
 	defer n.queue.ShutDown()
+	defer n.logger.Infof("node-labeller is shutting down")
 
 	n.logger.Infof("node-labeller is running")
 
 	n.clusterConfig.SetConfigModifiedCallback(func() {
-		n.queue.Add(n.host)
+		n.requeueHost()
 	})
 
-	interval := 3 * time.Minute
-	go wait.JitterUntil(func() { n.queue.Add(n.host) }, interval, 1.2, true, stop)
+	cache.WaitForCacheSync(stop, n.nodeInformer.HasSynced, n.kvInformer.HasSynced)
 
 	for i := 0; i < threadiness; i++ {
 		go wait.Until(n.runWorker, time.Second, stop)
 	}
+
 	<-stop
 }
 
@@ -124,6 +141,7 @@ func (n *NodeLabeller) execute() bool {
 		n.logger.Errorf("node-labeller sync error encountered: %v", err)
 		n.queue.AddRateLimited(key)
 	} else {
+		n.logger.V(3).Infof("forgetting key %s", key)
 		n.queue.Forget(key)
 	}
 	return true
@@ -165,11 +183,15 @@ func (n *NodeLabeller) run() error {
 	cpuFeatures := n.getSupportedCpuFeatures()
 	hostCPUModel := n.GetHostCpuModel()
 
-	originalNode, err := n.clientset.CoreV1().Nodes().Get(context.Background(), n.host, metav1.GetOptions{})
+	//originalNode, err := n.clientset.CoreV1().Nodes().Get(context.Background(), n.host, metav1.GetOptions{})
+	originalNodeObj, exists, err := n.nodeInformer.GetStore().GetByKey(n.host)
 	if err != nil {
 		return err
+	} else if !exists {
+		return fmt.Errorf("node %s cannot be fetched from informer - does not exist", n.host)
 	}
 
+	originalNode := originalNodeObj.(*v1.Node)
 	node := originalNode.DeepCopy()
 
 	if skipNode(node) {
@@ -339,4 +361,28 @@ func isNodeRealtimeCapable() (bool, error) {
 	}
 	st := strings.Trim(string(ret), "\n")
 	return fmt.Sprintf("%s = -1", kernelSchedRealtimeRuntimeInMicrosecods) == st, nil
+}
+
+func (n *NodeLabeller) handleNodeUpdate(oldObj, newObj interface{}) {
+	oldNode := oldObj.(*v1.Node)
+	newNode := newObj.(*v1.Node)
+
+	if !equality.Semantic.DeepEqual(oldNode.Labels, newNode.Labels) ||
+		!equality.Semantic.DeepEqual(oldNode.Annotations, newNode.Annotations) {
+		n.requeueHost()
+	}
+}
+
+func (n *NodeLabeller) handleKubevirtCRUpdate(oldObj, newObj interface{}) {
+	oldKv := oldObj.(*kubevirtv1.KubeVirt)
+	newKv := newObj.(*kubevirtv1.KubeVirt)
+
+	if !equality.Semantic.DeepEqual(oldKv.Spec.Configuration, newKv.Spec.Configuration) {
+		n.requeueHost()
+	}
+}
+
+func (n *NodeLabeller) requeueHost() {
+	n.logger.V(3).Infof("reenqueuing node %s", n.host)
+	n.queue.Add(n.host)
 }
