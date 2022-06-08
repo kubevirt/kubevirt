@@ -738,4 +738,38 @@ var _ = SIGDescribe("Export", func() {
 			return condReady
 		}, 60*time.Second, 1*time.Second).Should(BeTrue(), "export is expected to become ready")
 	})
+
+	It("should be possibe to observe exportserver pod exiting", func() {
+		sc, exists := libstorage.GetRWOFileSystemStorageClass()
+		if !exists {
+			Skip("Skip test when Filesystem storage is not present")
+		}
+		vmExport := createRunningExport(sc, k8sv1.PersistentVolumeFilesystem)
+		By("looking up the exporter pod")
+		exporterPod := getExporterPod(vmExport)
+		Expect(exporterPod).ToNot(BeNil())
+		By("creating new exporterpod")
+		newExportPod := exporterPod.DeepCopy()
+		newExportPod.ObjectMeta = metav1.ObjectMeta{
+			Name:      exporterPod.Name + "-xxx",
+			Namespace: exporterPod.Namespace,
+		}
+		newExportPod.Status = k8sv1.PodStatus{}
+		deadline := time.Now().Add(10 * time.Second).Format(time.RFC3339)
+		for i, e := range newExportPod.Spec.Containers[0].Env {
+			if e.Name == "DEADLINE" {
+				newExportPod.Spec.Containers[0].Env[i].Value = deadline
+				break
+			}
+		}
+		newExportPod, err := virtClient.CoreV1().Pods(newExportPod.Namespace).Create(context.TODO(), newExportPod, metav1.CreateOptions{})
+		Expect(err).ToNot(HaveOccurred())
+		Eventually(func() bool {
+			p, err := virtClient.CoreV1().Pods(exporterPod.Namespace).Get(context.TODO(), newExportPod.Name, metav1.GetOptions{})
+			Expect(err).ToNot(HaveOccurred())
+			return p.Status.Phase == k8sv1.PodSucceeded
+		}, 90*time.Second, 1*time.Second).Should(BeTrue())
+		err = virtClient.CoreV1().Pods(newExportPod.Namespace).Delete(context.Background(), newExportPod.Name, metav1.DeleteOptions{})
+		Expect(err).ToNot(HaveOccurred())
+	})
 })

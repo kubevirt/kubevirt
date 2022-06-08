@@ -1182,7 +1182,6 @@ func exportProxyEnabled(kv *v1.KubeVirt) bool {
 		return false
 	}
 	for _, fg := range kv.Spec.Configuration.DeveloperConfiguration.FeatureGates {
-		// XXX TODO confirm this
 		if fg == "VMExport" {
 			return true
 		}

@@ -47,6 +47,7 @@ import (
 	"kubevirt.io/kubevirt/pkg/certificates/triple"
 	"kubevirt.io/kubevirt/pkg/certificates/triple/cert"
 	"kubevirt.io/kubevirt/pkg/controller"
+	virtconfig "kubevirt.io/kubevirt/pkg/virt-config"
 	"kubevirt.io/kubevirt/pkg/virt-operator/resource/generate/install"
 	"kubevirt.io/kubevirt/pkg/virt-operator/util"
 )
@@ -500,7 +501,6 @@ func (r *Reconciler) Sync(queue workqueue.RateLimitingInterface) (bool, error) {
 	apiDeploymentsRolledOver := haveApiDeploymentsRolledOver(r.targetStrategy, r.kv, r.stores)
 	controllerDeploymentsRolledOver := haveControllerDeploymentsRolledOver(r.targetStrategy, r.kv, r.stores)
 
-	// XXX TODO update with appropriate featuregate
 	exportProxyEnabled := r.exportProxyEnabled()
 	exportProxyDeploymentsRolledOver := !exportProxyEnabled || haveExportProxyDeploymentsRolledOver(r.targetStrategy, r.kv, r.stores)
 
@@ -673,7 +673,6 @@ func (r *Reconciler) createOrRollBackSystem(apiDeploymentsRolledOver bool) (bool
 
 	// create/update ExportProxy Deployments
 	for _, deployment := range r.targetStrategy.ExportProxyDeployments() {
-		// XXX TODO use appropriate feature gate
 		if r.exportProxyEnabled() {
 			deployment, err := r.syncDeployment(deployment)
 			if err != nil {
@@ -1211,8 +1210,7 @@ func (r *Reconciler) exportProxyEnabled() bool {
 	}
 
 	for _, fg := range r.kv.Spec.Configuration.DeveloperConfiguration.FeatureGates {
-		// XXX TODO use const
-		if fg == "VMExport" {
+		if fg == virtconfig.VMExportGate {
 			return true
 		}
 	}
