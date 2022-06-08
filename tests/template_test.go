@@ -20,7 +20,9 @@
 package tests_test
 
 import (
+	"encoding/json"
 	"fmt"
+	"io/ioutil"
 	"os"
 	"path/filepath"
 	"strconv"
@@ -99,7 +101,7 @@ var _ = Describe("[Serial][sig-compute]Templates", func() {
 				ExpectWithOffset(1, template).NotTo(BeNil(), "template object was not provided")
 				By("Creating the Template JSON file")
 				var err error
-				templateFile, err = tests.GenerateTemplateJson(template, workDir)
+				templateFile, err = generateTemplateJson(template, workDir)
 				ExpectWithOffset(1, err).ToNot(HaveOccurred(), "failed to write template JSON file: %v", err)
 				ExpectWithOffset(1, templateFile).To(BeAnExistingFile(), "template JSON file %q was not created", templateFile)
 
@@ -275,3 +277,16 @@ var _ = Describe("[Serial][sig-compute]Templates", func() {
 		})
 	})
 })
+
+func generateTemplateJson(template *vmsgen.Template, generateDirectory string) (string, error) {
+	data, err := json.Marshal(template)
+	if err != nil {
+		return "", fmt.Errorf("failed to generate json for template %q: %v", template.Name, err)
+	}
+
+	jsonFile := filepath.Join(generateDirectory, template.Name+".json")
+	if err = ioutil.WriteFile(jsonFile, data, 0644); err != nil {
+		return "", fmt.Errorf("failed to write json to file %q: %v", jsonFile, err)
+	}
+	return jsonFile, nil
+}

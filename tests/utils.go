@@ -37,16 +37,12 @@ import (
 	"net"
 	"net/http"
 	"os"
-	"os/exec"
 	"path/filepath"
 	"reflect"
-	"sort"
 	"strconv"
 	"strings"
 	"sync"
 	"time"
-
-	"kubevirt.io/kubevirt/pkg/virt-handler/cgroup"
 
 	migrationsv1 "kubevirt.io/api/migrations/v1alpha1"
 
@@ -55,7 +51,6 @@ import (
 	. "github.com/onsi/gomega"
 	"golang.org/x/crypto/ssh"
 	k8sv1 "k8s.io/api/core/v1"
-	nodev1 "k8s.io/api/node/v1beta1"
 	storagev1 "k8s.io/api/storage/v1"
 	"k8s.io/apimachinery/pkg/api/errors"
 	"k8s.io/apimachinery/pkg/api/meta"
@@ -96,7 +91,6 @@ import (
 	"kubevirt.io/kubevirt/pkg/virt-controller/services"
 	launcherApi "kubevirt.io/kubevirt/pkg/virt-launcher/virtwrap/api"
 	"kubevirt.io/kubevirt/pkg/virt-operator/util"
-	vmsgen "kubevirt.io/kubevirt/tools/vms-generator/utils"
 
 	"kubevirt.io/kubevirt/tests/console"
 	cd "kubevirt.io/kubevirt/tests/containerdisk"
@@ -107,9 +101,6 @@ import (
 	"kubevirt.io/kubevirt/tests/libstorage"
 	"kubevirt.io/kubevirt/tests/libvmi"
 	"kubevirt.io/kubevirt/tests/testsuite"
-
-	"github.com/Masterminds/semver"
-	"github.com/google/go-github/v32/github"
 )
 
 const (
@@ -171,13 +162,6 @@ const VMIResource = "virtualmachineinstances"
 
 const (
 	tmpPath = "/var/provision/kubevirt.io/tests"
-)
-
-const (
-	capNetRaw         k8sv1.Capability = "NET_RAW"
-	capSysNice        k8sv1.Capability = "SYS_NICE"
-	capSysPTrace      k8sv1.Capability = "SYS_PTRACE"
-	capNetBindService k8sv1.Capability = "NET_BIND_SERVICE"
 )
 
 const MigrationWaitTime = 240
@@ -509,31 +493,6 @@ func CreatePVC(os, size, storageClass string, recycledPV bool) *k8sv1.Persistent
 		util2.PanicOnError(err)
 	}
 	return pvc
-}
-
-func CreateRuntimeClass(name, handler string) (*nodev1.RuntimeClass, error) {
-	virtCli, err := kubecli.GetKubevirtClient()
-	if err != nil {
-		return nil, err
-	}
-
-	return virtCli.NodeV1beta1().RuntimeClasses().Create(
-		context.Background(),
-		&nodev1.RuntimeClass{
-			ObjectMeta: metav1.ObjectMeta{Name: name},
-			Handler:    handler,
-		},
-		metav1.CreateOptions{},
-	)
-}
-
-func DeleteRuntimeClass(name string) error {
-	virtCli, err := kubecli.GetKubevirtClient()
-	if err != nil {
-		return err
-	}
-
-	return virtCli.NodeV1beta1().RuntimeClasses().Delete(context.Background(), name, metav1.DeleteOptions{})
 }
 
 func newPVC(os, size, storageClass string, recycledPV bool) *k8sv1.PersistentVolumeClaim {
@@ -976,11 +935,6 @@ func GetRunningPodByLabel(label string, labelType string, namespace string, node
 
 func GetComputeContainerOfPod(pod *k8sv1.Pod) *k8sv1.Container {
 	return GetContainerOfPod(pod, "compute")
-}
-
-func GetContainerDiskContainerOfPod(pod *k8sv1.Pod, volumeName string) *k8sv1.Container {
-	diskContainerName := fmt.Sprintf("volume%s", volumeName)
-	return GetContainerOfPod(pod, diskContainerName)
 }
 
 func GetContainerOfPod(pod *k8sv1.Pod, containerName string) *k8sv1.Container {
@@ -1802,15 +1756,6 @@ func WaitForSuccessfulVMIStartWithTimeoutIgnoreWarnings(vmi runtime.Object, seco
 	return waitForVMIStart(ctx, vmi, seconds, wp)
 }
 
-func WaitForPodToDisappearWithTimeout(podName string, seconds int) {
-	virtClient, err := kubecli.GetKubevirtClient()
-	ExpectWithOffset(1, err).ToNot(HaveOccurred())
-	EventuallyWithOffset(1, func() bool {
-		_, err := virtClient.CoreV1().Pods(util2.NamespaceTestDefault).Get(context.Background(), podName, metav1.GetOptions{})
-		return errors.IsNotFound(err)
-	}, seconds, 1*time.Second).Should(BeTrue())
-}
-
 func WaitForVirtualMachineToDisappearWithTimeout(vmi *v1.VirtualMachineInstance, seconds int) {
 	virtClient, err := kubecli.GetKubevirtClient()
 	ExpectWithOffset(1, err).ToNot(HaveOccurred())
@@ -2261,33 +2206,6 @@ func GenerateVMJson(vm *v1.VirtualMachine, generateDirectory string) (string, er
 	return jsonFile, nil
 }
 
-func GenerateVMIJson(vmi *v1.VirtualMachineInstance, generateDirectory string) (string, error) {
-	data, err := json.Marshal(vmi)
-	if err != nil {
-		return "", fmt.Errorf("failed to generate json for vmi %s", vmi.Name)
-	}
-
-	jsonFile := filepath.Join(generateDirectory, fmt.Sprintf("%s.json", vmi.Name))
-	err = ioutil.WriteFile(jsonFile, data, 0644)
-	if err != nil {
-		return "", fmt.Errorf("failed to write json file %s", jsonFile)
-	}
-	return jsonFile, nil
-}
-
-func GenerateTemplateJson(template *vmsgen.Template, generateDirectory string) (string, error) {
-	data, err := json.Marshal(template)
-	if err != nil {
-		return "", fmt.Errorf("failed to generate json for template %q: %v", template.Name, err)
-	}
-
-	jsonFile := filepath.Join(generateDirectory, template.Name+".json")
-	if err = ioutil.WriteFile(jsonFile, data, 0644); err != nil {
-		return "", fmt.Errorf("failed to write json to file %q: %v", jsonFile, err)
-	}
-	return jsonFile, nil
-}
-
 func NotDeleted(vmis *v1.VirtualMachineInstanceList) (notDeleted []v1.VirtualMachineInstance) {
 	for _, vmi := range vmis.Items {
 		if vmi.DeletionTimestamp == nil {
@@ -2687,15 +2605,6 @@ func EnableFeatureGate(feature string) *v1.KubeVirt {
 	return UpdateKubeVirtConfigValueAndWait(kv.Spec.Configuration)
 }
 
-func VolumeExpansionAllowed(sc string) bool {
-	virtClient, err := kubecli.GetKubevirtClient()
-	Expect(err).ToNot(HaveOccurred())
-	storageClass, err := virtClient.StorageV1().StorageClasses().Get(context.Background(), sc, metav1.GetOptions{})
-	Expect(err).ToNot(HaveOccurred())
-	return storageClass.AllowVolumeExpansion != nil &&
-		*storageClass.AllowVolumeExpansion
-}
-
 func SetDataVolumeForceBindAnnotation(dv *cdiv1.DataVolume) {
 	annotations := dv.GetAnnotations()
 	if annotations == nil {
@@ -2714,10 +2623,6 @@ func IsStorageClassBindingModeWaitForFirstConsumer(sc string) bool {
 	}
 	return storageClass.VolumeBindingMode != nil &&
 		*storageClass.VolumeBindingMode == wffc
-}
-
-func HasExperimentalIgnitionSupport() bool {
-	return checks.HasFeature("ExperimentalIgnitionSupport")
 }
 
 func GetVmPodName(virtCli kubecli.KubevirtClient, vmi *v1.VirtualMachineInstance) string {
@@ -3221,148 +3126,13 @@ func FormatIPForURL(ip string) string {
 	return ip
 }
 
-func GetKubernetesApiServiceIp(virtClient kubecli.KubevirtClient) (string, error) {
-	kubernetesServiceName := "kubernetes"
-	kubernetesServiceNamespace := "default"
-
-	kubernetesService, err := virtClient.CoreV1().Services(kubernetesServiceNamespace).Get(context.Background(), kubernetesServiceName, metav1.GetOptions{})
-	if err != nil {
-		return "", err
-	}
-	return kubernetesService.Spec.ClusterIP, nil
-}
-
 func IsRunningOnKindInfra() bool {
 	provider := os.Getenv("KUBEVIRT_PROVIDER")
 	return strings.HasPrefix(provider, "kind")
 }
 
-func IsUsingBuiltinNodeDrainKey() bool {
-	return libnode.GetNodeDrainKey() == "node.kubernetes.io/unschedulable"
-}
-
 func RandTmpDir() string {
 	return filepath.Join(tmpPath, rand.String(10))
-}
-
-func getTagHint() string {
-	//git describe --tags --abbrev=0 "$(git rev-parse HEAD)"
-	cmd := exec.Command("git", "rev-parse", "HEAD")
-	cmdOutput, err := cmd.Output()
-	if err != nil {
-		return ""
-	}
-
-	cmd = exec.Command("git", "describe", "--tags", "--abbrev=0", strings.TrimSpace(string(cmdOutput)))
-	cmdOutput, err = cmd.Output()
-	if err != nil {
-		return ""
-	}
-
-	return strings.TrimSpace(strings.Split(string(cmdOutput), "-rc")[0])
-
-}
-
-func GetUpstreamReleaseAssetURL(tag string, assetName string) string {
-	client := github.NewClient(nil)
-
-	var err error
-	var release *github.RepositoryRelease
-
-	Eventually(func() error {
-		release, _, err = client.Repositories.GetReleaseByTag(context.Background(), "kubevirt", "kubevirt", tag)
-
-		return err
-	}, 10*time.Second, 1*time.Second).ShouldNot(HaveOccurred())
-
-	for _, asset := range release.Assets {
-		if asset.GetName() == assetName {
-			return asset.GetBrowserDownloadURL()
-		}
-	}
-
-	Fail(fmt.Sprintf("Asset %s not found in release %s of kubevirt upstream repo", assetName, tag))
-	return ""
-}
-
-func DetectLatestUpstreamOfficialTag() (string, error) {
-	client := github.NewClient(nil)
-
-	var err error
-	var releases []*github.RepositoryRelease
-
-	Eventually(func() error {
-		releases, _, err = client.Repositories.ListReleases(context.Background(), "kubevirt", "kubevirt", &github.ListOptions{PerPage: 10000})
-
-		return err
-	}, 10*time.Second, 1*time.Second).ShouldNot(HaveOccurred())
-
-	var vs []*semver.Version
-
-	for _, release := range releases {
-		if *release.Draft ||
-			*release.Prerelease ||
-			len(release.Assets) == 0 {
-
-			continue
-		}
-		v, err := semver.NewVersion(*release.TagName)
-		if err != nil {
-			panic(err)
-		}
-		vs = append(vs, v)
-	}
-
-	if len(vs) == 0 {
-		return "", fmt.Errorf("no kubevirt releases found")
-	}
-
-	// decending order from most recent.
-	sort.Sort(sort.Reverse(semver.Collection(vs)))
-
-	// most recent tag
-	tag := fmt.Sprintf("v%v", vs[0])
-
-	// tag hint gives us information about the most recent tag in the current branch
-	// this is executing in. We want to make sure we are using the previous most
-	// recent official release from the branch we're in if possible. Note that this is
-	// all best effort. If a tag hint can't be detected, we move on with the most
-	// recent release from master.
-	tagHint := getTagHint()
-	hint, err := semver.NewVersion(tagHint)
-
-	if tagHint != "" && err == nil {
-		for _, v := range vs {
-			if v.LessThan(hint) || v.Equal(hint) {
-				tag = fmt.Sprintf("v%v", v)
-				By(fmt.Sprintf("Choosing tag %s influenced by tag hint %s", tag, tagHint))
-				break
-			}
-		}
-	}
-
-	By(fmt.Sprintf("By detecting latest upstream official tag %s for current branch", tag))
-	return tag, nil
-}
-
-func IsLauncherCapabilityValid(capability k8sv1.Capability) bool {
-	switch capability {
-	case
-		capNetBindService,
-		capSysNice,
-		capSysPTrace:
-		return true
-	}
-	return false
-}
-
-func IsLauncherCapabilityDropped(capability k8sv1.Capability) bool {
-	switch capability {
-	case
-		capNetRaw:
-		return true
-	}
-	return false
 }
 
 // VMILauncherIgnoreWarnings waiting for the VMI to be up but ignoring warnings like a disconnected guest-agent
@@ -3668,31 +3438,6 @@ func GetPolicyMatchedToVmi(name string, vmi *v1.VirtualMachineInstance, namespac
 	applyLabels(policy.Spec.Selectors.NamespaceSelector, namespace.Labels, matchingNSLabels)
 
 	return policy
-}
-
-func GetVMIsCgroupVersion(vmi *v1.VirtualMachineInstance, virtClient kubecli.KubevirtClient) cgroup.CgroupVersion {
-	pod, err := GetRunningPodByLabel(string(vmi.GetUID()), v1.CreatedByLabel, vmi.Namespace, vmi.Status.NodeName)
-	Expect(err).ToNot(HaveOccurred())
-
-	return GetPodsCgroupVersion(pod, virtClient)
-}
-
-func GetPodsCgroupVersion(pod *k8sv1.Pod, virtClient kubecli.KubevirtClient) cgroup.CgroupVersion {
-	stdout, stderr, err := ExecuteCommandOnPodV2(virtClient,
-		pod,
-		"compute",
-		[]string{"stat", "/sys/fs/cgroup/", "-f", "-c", "%T"})
-
-	Expect(err).ToNot(HaveOccurred())
-	Expect(stderr).To(BeEmpty())
-
-	cgroupFsType := strings.TrimSpace(stdout)
-
-	if cgroupFsType == "cgroup2fs" {
-		return cgroup.V2
-	} else {
-		return cgroup.V1
-	}
 }
 
 func GetIdOfLauncher(vmi *v1.VirtualMachineInstance) string {
