@@ -28,6 +28,14 @@ func (VirtualMachineClusterFlavorList) SwaggerDoc() map[string]string {
 	}
 }
 
+func (VirtualMachineFlavorSpecRevision) SwaggerDoc() map[string]string {
+	return map[string]string{
+		"":           "VirtualMachineFlavorSpecRevision is used to capture a versioned copy of VirtualMachineFlavorSpec within a ControllerRevision\n\n**WARNING** This struct should never change ensuring it can always be unmarshaled from a ControllerRevision",
+		"apiVersion": "The specific version of VirtualMachineFlavorSpec that is contained below",
+		"spec":       "This is a marshaled version of the VirtualMachineFlavorSpec\n+listType=atomic",
+	}
+}
+
 func (VirtualMachineFlavorSpec) SwaggerDoc() map[string]string {
 	return map[string]string{
 		"":                "VirtualMachineFlavorSpec is a description of the VirtualMachineFlavor or VirtualMachineClusterFlavor.\n\nCPU and Memory are required attributes with both requiring that their Guest attribute is defined, ensuring a number of vCPUs and amount of RAM is always provided by each flavor.",
@@ -85,6 +93,14 @@ func (VirtualMachineClusterPreferenceList) SwaggerDoc() map[string]string {
 	return map[string]string{
 		"":      "VirtualMachineClusterPreferenceList is a list of VirtualMachineClusterPreference resources.\n\n+k8s:deepcopy-gen:interfaces=k8s.io/apimachinery/pkg/runtime.Object",
 		"items": "+listType=set",
+	}
+}
+
+func (VirtualMachinePreferenceSpecRevision) SwaggerDoc() map[string]string {
+	return map[string]string{
+		"":           "VirtualMachinePreferenceSpecRevision is used to capture a versioned copy of VirtualMachinePreferenceSpec within a ControllerRevision\n\n**WARNING** This struct should never change ensuring it can always be unmarshaled from a ControllerRevision",
+		"apiVersion": "The specific version of VirtualMachinePreferenceSpec that is contained below",
+		"spec":       "This is a marshaled version of the VirtualMachinePreferenceSpec\n+listType=atomic",
 	}
 }
 
