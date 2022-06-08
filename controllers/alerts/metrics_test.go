@@ -2,6 +2,7 @@ package alerts
 
 import (
 	"context"
+	"errors"
 	"fmt"
 	"testing"
 
@@ -32,14 +33,23 @@ func TestAlerts(t *testing.T) {
 }
 
 var _ = Describe("alert tests", func() {
-	ci := commonTestUtils.ClusterInfoMock{}
-	ee := commonTestUtils.NewEventEmitterMock()
+	var (
+		ci = commonTestUtils.ClusterInfoMock{}
+		ee = commonTestUtils.NewEventEmitterMock()
+		ns *corev1.Namespace
+	)
 
 	BeforeEach(func() {
 		ee.Reset()
+		ns = &corev1.Namespace{
+			ObjectMeta: metav1.ObjectMeta{
+				Name: commonTestUtils.Namespace,
+			},
+		}
 	})
 
 	Context("test reconciler", func() {
+
 		expectedEvents := []commonTestUtils.MockEvent{
 			{
 				EventType: corev1.EventTypeNormal,
@@ -69,7 +79,7 @@ var _ = Describe("alert tests", func() {
 		}
 
 		It("should create all the resources if missing", func() {
-			cl := commonTestUtils.InitClient([]runtime.Object{})
+			cl := commonTestUtils.InitClient([]runtime.Object{ns})
 			r := NewMonitoringReconciler(ci, cl, ee, commonTestUtils.GetScheme())
 
 			Expect(r.Reconcile(context.Background(), logger)).Should(Succeed())
@@ -95,7 +105,7 @@ var _ = Describe("alert tests", func() {
 		})
 
 		It("should fail on error", func() {
-			cl := commonTestUtils.InitClient([]runtime.Object{})
+			cl := commonTestUtils.InitClient([]runtime.Object{ns})
 			fakeError := fmt.Errorf("fake error")
 			cl.InitiateCreateErrors(func(obj client.Object) error {
 				if obj.GetObjectKind().GroupVersionKind().Kind == "Service" {
@@ -129,7 +139,7 @@ var _ = Describe("alert tests", func() {
 				"wrongKey3": "wrongValue3",
 			}
 
-			cl := commonTestUtils.InitClient([]runtime.Object{existRule})
+			cl := commonTestUtils.InitClient([]runtime.Object{ns, existRule})
 			r := NewMonitoringReconciler(ci, cl, ee, commonTestUtils.GetScheme())
 
 			Expect(r.Reconcile(context.Background(), logger)).Should(Succeed())
@@ -145,7 +155,7 @@ var _ = Describe("alert tests", func() {
 			existRule := newPrometheusRule(commonTestUtils.Namespace, owner)
 			existRule.Labels = nil
 
-			cl := commonTestUtils.InitClient([]runtime.Object{existRule})
+			cl := commonTestUtils.InitClient([]runtime.Object{ns, existRule})
 			r := NewMonitoringReconciler(ci, cl, ee, commonTestUtils.GetScheme())
 
 			Expect(r.Reconcile(context.Background(), logger)).Should(Succeed())
@@ -166,7 +176,7 @@ var _ = Describe("alert tests", func() {
 				UID:                "0987654321",
 			}
 			existRule := newPrometheusRule(commonTestUtils.Namespace, owner)
-			cl := commonTestUtils.InitClient([]runtime.Object{existRule})
+			cl := commonTestUtils.InitClient([]runtime.Object{ns, existRule})
 			r := NewMonitoringReconciler(ci, cl, ee, commonTestUtils.GetScheme())
 
 			Expect(r.Reconcile(context.Background(), logger)).Should(Succeed())
@@ -188,7 +198,7 @@ var _ = Describe("alert tests", func() {
 			owner := metav1.OwnerReference{}
 			existRule := newPrometheusRule(commonTestUtils.Namespace, owner)
 			existRule.OwnerReferences = nil
-			cl := commonTestUtils.InitClient([]runtime.Object{existRule})
+			cl := commonTestUtils.InitClient([]runtime.Object{ns, existRule})
 			r := NewMonitoringReconciler(ci, cl, ee, commonTestUtils.GetScheme())
 
 			Expect(r.Reconcile(context.Background(), logger)).Should(Succeed())
@@ -218,7 +228,7 @@ var _ = Describe("alert tests", func() {
 			// modify the first rule
 			existRule.Spec.Groups[0].Rules[0].Alert = "modified alert"
 
-			cl := commonTestUtils.InitClient([]runtime.Object{existRule})
+			cl := commonTestUtils.InitClient([]runtime.Object{ns, existRule})
 			r := NewMonitoringReconciler(ci, cl, ee, commonTestUtils.GetScheme())
 
 			Expect(r.Reconcile(context.Background(), logger)).Should(Succeed())
@@ -235,7 +245,7 @@ var _ = Describe("alert tests", func() {
 
 			existRule.Spec = monitoringv1.PrometheusRuleSpec{}
 
-			cl := commonTestUtils.InitClient([]runtime.Object{existRule})
+			cl := commonTestUtils.InitClient([]runtime.Object{ns, existRule})
 			r := NewMonitoringReconciler(ci, cl, ee, commonTestUtils.GetScheme())
 
 			Expect(r.Reconcile(context.Background(), logger)).Should(Succeed())
@@ -265,7 +275,7 @@ var _ = Describe("alert tests", func() {
 				"wrongKey3": "wrongValue3",
 			}
 
-			cl := commonTestUtils.InitClient([]runtime.Object{existRole})
+			cl := commonTestUtils.InitClient([]runtime.Object{ns, existRole})
 			r := NewMonitoringReconciler(ci, cl, ee, commonTestUtils.GetScheme())
 
 			Expect(r.Reconcile(context.Background(), logger)).Should(Succeed())
@@ -281,7 +291,7 @@ var _ = Describe("alert tests", func() {
 			existRole := newRole(owner, commonTestUtils.Namespace)
 			existRole.Labels = nil
 
-			cl := commonTestUtils.InitClient([]runtime.Object{existRole})
+			cl := commonTestUtils.InitClient([]runtime.Object{ns, existRole})
 			r := NewMonitoringReconciler(ci, cl, ee, commonTestUtils.GetScheme())
 
 			Expect(r.Reconcile(context.Background(), logger)).Should(Succeed())
@@ -302,7 +312,7 @@ var _ = Describe("alert tests", func() {
 				UID:                "0987654321",
 			}
 			existRole := newRole(owner, commonTestUtils.Namespace)
-			cl := commonTestUtils.InitClient([]runtime.Object{existRole})
+			cl := commonTestUtils.InitClient([]runtime.Object{ns, existRole})
 			r := NewMonitoringReconciler(ci, cl, ee, commonTestUtils.GetScheme())
 
 			Expect(r.Reconcile(context.Background(), logger)).Should(Succeed())
@@ -324,7 +334,7 @@ var _ = Describe("alert tests", func() {
 			owner := metav1.OwnerReference{}
 			existRole := newRole(owner, commonTestUtils.Namespace)
 			existRole.OwnerReferences = nil
-			cl := commonTestUtils.InitClient([]runtime.Object{existRole})
+			cl := commonTestUtils.InitClient([]runtime.Object{ns, existRole})
 			r := NewMonitoringReconciler(ci, cl, ee, commonTestUtils.GetScheme())
 
 			Expect(r.Reconcile(context.Background(), logger)).Should(Succeed())
@@ -358,7 +368,7 @@ var _ = Describe("alert tests", func() {
 				},
 			}
 
-			cl := commonTestUtils.InitClient([]runtime.Object{existRole})
+			cl := commonTestUtils.InitClient([]runtime.Object{ns, existRole})
 			r := NewMonitoringReconciler(ci, cl, ee, commonTestUtils.GetScheme())
 
 			Expect(r.Reconcile(context.Background(), logger)).Should(Succeed())
@@ -378,7 +388,7 @@ var _ = Describe("alert tests", func() {
 
 			existRole.Rules = nil
 
-			cl := commonTestUtils.InitClient([]runtime.Object{existRole})
+			cl := commonTestUtils.InitClient([]runtime.Object{ns, existRole})
 			r := NewMonitoringReconciler(ci, cl, ee, commonTestUtils.GetScheme())
 
 			Expect(r.Reconcile(context.Background(), logger)).Should(Succeed())
@@ -411,7 +421,7 @@ var _ = Describe("alert tests", func() {
 				"wrongKey3": "wrongValue3",
 			}
 
-			cl := commonTestUtils.InitClient([]runtime.Object{existRB})
+			cl := commonTestUtils.InitClient([]runtime.Object{ns, existRB})
 			r := NewMonitoringReconciler(ci, cl, ee, commonTestUtils.GetScheme())
 
 			Expect(r.Reconcile(context.Background(), logger)).Should(Succeed())
@@ -427,7 +437,7 @@ var _ = Describe("alert tests", func() {
 			existRB := newRoleBinding(owner, commonTestUtils.Namespace)
 			existRB.Labels = nil
 
-			cl := commonTestUtils.InitClient([]runtime.Object{existRB})
+			cl := commonTestUtils.InitClient([]runtime.Object{ns, existRB})
 			r := NewMonitoringReconciler(ci, cl, ee, commonTestUtils.GetScheme())
 
 			Expect(r.Reconcile(context.Background(), logger)).Should(Succeed())
@@ -448,7 +458,7 @@ var _ = Describe("alert tests", func() {
 				UID:                "0987654321",
 			}
 			existRB := newRoleBinding(owner, commonTestUtils.Namespace)
-			cl := commonTestUtils.InitClient([]runtime.Object{existRB})
+			cl := commonTestUtils.InitClient([]runtime.Object{ns, existRB})
 			r := NewMonitoringReconciler(ci, cl, ee, commonTestUtils.GetScheme())
 
 			Expect(r.Reconcile(context.Background(), logger)).Should(Succeed())
@@ -470,7 +480,7 @@ var _ = Describe("alert tests", func() {
 			owner := metav1.OwnerReference{}
 			existRB := newRoleBinding(owner, commonTestUtils.Namespace)
 			existRB.OwnerReferences = nil
-			cl := commonTestUtils.InitClient([]runtime.Object{existRB})
+			cl := commonTestUtils.InitClient([]runtime.Object{ns, existRB})
 			r := NewMonitoringReconciler(ci, cl, ee, commonTestUtils.GetScheme())
 
 			Expect(r.Reconcile(context.Background(), logger)).Should(Succeed())
@@ -498,7 +508,7 @@ var _ = Describe("alert tests", func() {
 				Name:     "wrongName",
 			}
 
-			cl := commonTestUtils.InitClient([]runtime.Object{existRB})
+			cl := commonTestUtils.InitClient([]runtime.Object{ns, existRB})
 			r := NewMonitoringReconciler(ci, cl, ee, commonTestUtils.GetScheme())
 
 			Expect(r.Reconcile(context.Background(), logger)).Should(Succeed())
@@ -517,7 +527,7 @@ var _ = Describe("alert tests", func() {
 
 			existRB.RoleRef = rbacv1.RoleRef{}
 
-			cl := commonTestUtils.InitClient([]runtime.Object{existRB})
+			cl := commonTestUtils.InitClient([]runtime.Object{ns, existRB})
 			r := NewMonitoringReconciler(ci, cl, ee, commonTestUtils.GetScheme())
 
 			Expect(r.Reconcile(context.Background(), logger)).Should(Succeed())
@@ -547,7 +557,7 @@ var _ = Describe("alert tests", func() {
 				},
 			}
 
-			cl := commonTestUtils.InitClient([]runtime.Object{existRB})
+			cl := commonTestUtils.InitClient([]runtime.Object{ns, existRB})
 			r := NewMonitoringReconciler(ci, cl, ee, commonTestUtils.GetScheme())
 
 			Expect(r.Reconcile(context.Background(), logger)).Should(Succeed())
@@ -567,7 +577,7 @@ var _ = Describe("alert tests", func() {
 
 			existRB.Subjects = nil
 
-			cl := commonTestUtils.InitClient([]runtime.Object{existRB})
+			cl := commonTestUtils.InitClient([]runtime.Object{ns, existRB})
 			r := NewMonitoringReconciler(ci, cl, ee, commonTestUtils.GetScheme())
 
 			Expect(r.Reconcile(context.Background(), logger)).Should(Succeed())
@@ -601,7 +611,7 @@ var _ = Describe("alert tests", func() {
 				"wrongKey3": "wrongValue3",
 			}
 
-			cl := commonTestUtils.InitClient([]runtime.Object{existSM})
+			cl := commonTestUtils.InitClient([]runtime.Object{ns, existSM})
 			r := NewMonitoringReconciler(ci, cl, ee, commonTestUtils.GetScheme())
 
 			Expect(r.Reconcile(context.Background(), logger)).Should(Succeed())
@@ -617,7 +627,7 @@ var _ = Describe("alert tests", func() {
 			existSM := NewMetricsService(commonTestUtils.Namespace, owner)
 			existSM.Labels = nil
 
-			cl := commonTestUtils.InitClient([]runtime.Object{existSM})
+			cl := commonTestUtils.InitClient([]runtime.Object{ns, existSM})
 			r := NewMonitoringReconciler(ci, cl, ee, commonTestUtils.GetScheme())
 
 			Expect(r.Reconcile(context.Background(), logger)).Should(Succeed())
@@ -638,7 +648,7 @@ var _ = Describe("alert tests", func() {
 				UID:                "0987654321",
 			}
 			existSM := NewMetricsService(commonTestUtils.Namespace, owner)
-			cl := commonTestUtils.InitClient([]runtime.Object{existSM})
+			cl := commonTestUtils.InitClient([]runtime.Object{ns, existSM})
 			r := NewMonitoringReconciler(ci, cl, ee, commonTestUtils.GetScheme())
 
 			Expect(r.Reconcile(context.Background(), logger)).Should(Succeed())
@@ -660,7 +670,7 @@ var _ = Describe("alert tests", func() {
 			owner := metav1.OwnerReference{}
 			existSM := NewMetricsService(commonTestUtils.Namespace, owner)
 			existSM.OwnerReferences = nil
-			cl := commonTestUtils.InitClient([]runtime.Object{existSM})
+			cl := commonTestUtils.InitClient([]runtime.Object{ns, existSM})
 			r := NewMonitoringReconciler(ci, cl, ee, commonTestUtils.GetScheme())
 
 			Expect(r.Reconcile(context.Background(), logger)).Should(Succeed())
@@ -700,7 +710,7 @@ var _ = Describe("alert tests", func() {
 				},
 			}
 
-			cl := commonTestUtils.InitClient([]runtime.Object{existSM})
+			cl := commonTestUtils.InitClient([]runtime.Object{ns, existSM})
 			r := NewMonitoringReconciler(ci, cl, ee, commonTestUtils.GetScheme())
 
 			Expect(r.Reconcile(context.Background(), logger)).Should(Succeed())
@@ -721,7 +731,7 @@ var _ = Describe("alert tests", func() {
 
 			existSM.Spec = corev1.ServiceSpec{}
 
-			cl := commonTestUtils.InitClient([]runtime.Object{existSM})
+			cl := commonTestUtils.InitClient([]runtime.Object{ns, existSM})
 			r := NewMonitoringReconciler(ci, cl, ee, commonTestUtils.GetScheme())
 
 			Expect(r.Reconcile(context.Background(), logger)).Should(Succeed())
@@ -755,7 +765,7 @@ var _ = Describe("alert tests", func() {
 				"wrongKey3": "wrongValue3",
 			}
 
-			cl := commonTestUtils.InitClient([]runtime.Object{existSM})
+			cl := commonTestUtils.InitClient([]runtime.Object{ns, existSM})
 			r := NewMonitoringReconciler(ci, cl, ee, commonTestUtils.GetScheme())
 
 			Expect(r.Reconcile(context.Background(), logger)).Should(Succeed())
@@ -771,7 +781,7 @@ var _ = Describe("alert tests", func() {
 			existSM := NewServiceMonitor(commonTestUtils.Namespace, owner)
 			existSM.Labels = nil
 
-			cl := commonTestUtils.InitClient([]runtime.Object{existSM})
+			cl := commonTestUtils.InitClient([]runtime.Object{ns, existSM})
 			r := NewMonitoringReconciler(ci, cl, ee, commonTestUtils.GetScheme())
 
 			Expect(r.Reconcile(context.Background(), logger)).Should(Succeed())
@@ -792,7 +802,7 @@ var _ = Describe("alert tests", func() {
 				UID:                "0987654321",
 			}
 			existSM := NewServiceMonitor(commonTestUtils.Namespace, owner)
-			cl := commonTestUtils.InitClient([]runtime.Object{existSM})
+			cl := commonTestUtils.InitClient([]runtime.Object{ns, existSM})
 			r := NewMonitoringReconciler(ci, cl, ee, commonTestUtils.GetScheme())
 
 			Expect(r.Reconcile(context.Background(), logger)).Should(Succeed())
@@ -814,7 +824,7 @@ var _ = Describe("alert tests", func() {
 			owner := metav1.OwnerReference{}
 			existSM := NewServiceMonitor(commonTestUtils.Namespace, owner)
 			existSM.OwnerReferences = nil
-			cl := commonTestUtils.InitClient([]runtime.Object{existSM})
+			cl := commonTestUtils.InitClient([]runtime.Object{ns, existSM})
 			r := NewMonitoringReconciler(ci, cl, ee, commonTestUtils.GetScheme())
 
 			Expect(r.Reconcile(context.Background(), logger)).Should(Succeed())
@@ -846,7 +856,7 @@ var _ = Describe("alert tests", func() {
 				Endpoints: []monitoringv1.Endpoint{{Port: "wrongPort", Path: "/metrics"}},
 			}
 
-			cl := commonTestUtils.InitClient([]runtime.Object{existSM})
+			cl := commonTestUtils.InitClient([]runtime.Object{ns, existSM})
 			r := NewMonitoringReconciler(ci, cl, ee, commonTestUtils.GetScheme())
 
 			Expect(r.Reconcile(context.Background(), logger)).Should(Succeed())
@@ -864,7 +874,7 @@ var _ = Describe("alert tests", func() {
 
 			existSM.Spec = monitoringv1.ServiceMonitorSpec{}
 
-			cl := commonTestUtils.InitClient([]runtime.Object{existSM})
+			cl := commonTestUtils.InitClient([]runtime.Object{ns, existSM})
 			r := NewMonitoringReconciler(ci, cl, ee, commonTestUtils.GetScheme())
 
 			Expect(r.Reconcile(context.Background(), logger)).Should(Succeed())
@@ -874,6 +884,115 @@ var _ = Describe("alert tests", func() {
 			Expect(sm.Spec.Endpoints[0].Port).Should(Equal(operatorPortName))
 
 			Expect(ee.CheckEvents(expectedEvents)).To(BeTrue())
+		})
+	})
+
+	Context("test Namespace", func() {
+
+		DescribeTable("validate the annotation and the label", func(nsGenerator func() *corev1.Namespace) {
+			cl := commonTestUtils.InitClient([]runtime.Object{nsGenerator()})
+			r := NewMonitoringReconciler(ci, cl, ee, commonTestUtils.GetScheme())
+
+			Expect(r.Reconcile(context.Background(), logger)).Should(Succeed())
+
+			foundNS := &corev1.Namespace{}
+			Expect(cl.Get(context.Background(), client.ObjectKey{Name: r.namespace}, foundNS)).Should(Succeed())
+			Expect(foundNS.Annotations).ShouldNot(BeEmpty())
+			annotation, ok := foundNS.Annotations[hcoutil.OpenshiftNodeSelectorAnn]
+			Expect(ok).To(BeTrue())
+			Expect(annotation).To(BeEmpty())
+
+			label, ok := foundNS.Labels[hcoutil.PrometheusNSLabel]
+			Expect(ok).To(BeTrue())
+			Expect(label).To(Equal("true"))
+		},
+			Entry("when the annotations and the labels fields are nil", func() *corev1.Namespace { return ns }),
+			Entry("when the annotations and the labels fields are empty", func() *corev1.Namespace {
+				ns.Annotations = map[string]string{}
+				ns.Labels = map[string]string{}
+				return ns
+			}),
+			Entry("when the annotation is not empty", func() *corev1.Namespace {
+				ns.Annotations = map[string]string{hcoutil.OpenshiftNodeSelectorAnn: "notEmpty"}
+				return ns
+			}),
+			Entry("when the label is empty", func() *corev1.Namespace {
+				ns.Labels = map[string]string{hcoutil.PrometheusNSLabel: ""}
+				return ns
+			}),
+			Entry("when the label is false", func() *corev1.Namespace {
+				ns.Labels = map[string]string{hcoutil.PrometheusNSLabel: "false"}
+				return ns
+			}),
+			Entry("when the label is wrong", func() *corev1.Namespace {
+				ns.Labels = map[string]string{hcoutil.PrometheusNSLabel: "wrong"}
+				return ns
+			}),
+		)
+
+		It("should not modify other labels", func() {
+			ns.Labels = map[string]string{"aaa": "AAA", "bbb": "BBB"}
+			cl := commonTestUtils.InitClient([]runtime.Object{ns})
+			r := NewMonitoringReconciler(ci, cl, ee, commonTestUtils.GetScheme())
+
+			Expect(r.Reconcile(context.Background(), logger)).Should(Succeed())
+
+			foundNS := &corev1.Namespace{}
+			Expect(cl.Get(context.Background(), client.ObjectKey{Name: r.namespace}, foundNS)).Should(Succeed())
+
+			Expect(foundNS.Labels).Should(HaveLen(3))
+			Expect(foundNS.Labels).Should(HaveKeyWithValue("aaa", "AAA"))
+			Expect(foundNS.Labels).Should(HaveKeyWithValue("bbb", "BBB"))
+			Expect(foundNS.Labels).Should(HaveKeyWithValue(hcoutil.PrometheusNSLabel, "true"))
+		})
+
+		It("should not modify other annotations", func() {
+			ns.Annotations = map[string]string{"aaa": "AAA", "bbb": "BBB"}
+			cl := commonTestUtils.InitClient([]runtime.Object{ns})
+			r := NewMonitoringReconciler(ci, cl, ee, commonTestUtils.GetScheme())
+
+			Expect(r.Reconcile(context.Background(), logger)).Should(Succeed())
+
+			foundNS := &corev1.Namespace{}
+			Expect(cl.Get(context.Background(), client.ObjectKey{Name: r.namespace}, foundNS)).Should(Succeed())
+
+			Expect(foundNS.Annotations).Should(HaveLen(3))
+			Expect(foundNS.Annotations).Should(HaveKeyWithValue("aaa", "AAA"))
+			Expect(foundNS.Annotations).Should(HaveKeyWithValue("bbb", "BBB"))
+			Expect(foundNS.Annotations).Should(HaveKeyWithValue(hcoutil.OpenshiftNodeSelectorAnn, ""))
+		})
+
+		It("should return error if can't read the namespace", func() {
+			cl := commonTestUtils.InitClient([]runtime.Object{})
+			r := NewMonitoringReconciler(ci, cl, ee, commonTestUtils.GetScheme())
+
+			Expect(r.Reconcile(context.Background(), logger)).Should(HaveOccurred())
+		})
+
+		It("should return error if failed to read the namespace", func() {
+			cl := commonTestUtils.InitClient([]runtime.Object{ns})
+			err := errors.New("fake error")
+			cl.InitiateGetErrors(func(_ client.ObjectKey) error {
+				return err
+			})
+			r := NewMonitoringReconciler(ci, cl, ee, commonTestUtils.GetScheme())
+
+			retErr := r.Reconcile(context.Background(), logger)
+			Expect(retErr).Should(HaveOccurred())
+			Expect(retErr).Should(MatchError(err))
+		})
+
+		It("should return error if can't update the namespace", func() {
+			cl := commonTestUtils.InitClient([]runtime.Object{ns})
+			err := errors.New("fake error")
+			cl.InitiateUpdateErrors(func(_ client.Object) error {
+				return err
+			})
+			r := NewMonitoringReconciler(ci, cl, ee, commonTestUtils.GetScheme())
+
+			retErr := r.Reconcile(context.Background(), logger)
+			Expect(retErr).Should(HaveOccurred())
+			Expect(retErr).Should(MatchError(err))
 		})
 	})
 })

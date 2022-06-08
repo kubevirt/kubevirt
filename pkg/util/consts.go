@@ -42,6 +42,9 @@ const (
 	OpenshiftNodeSelectorAnn = "openshift.io/node-selector"
 	KubernetesMetadataName   = "kubernetes.io/metadata.name"
 
+	// PrometheusNSLabel is the monitoring NS enable label, if the value is "true"
+	PrometheusNSLabel = "openshift.io/cluster-monitoring"
+
 	// HyperConvergedName is the name of the HyperConverged resource that will be reconciled
 	HyperConvergedName          = "kubevirt-hyperconverged"
 	MetricsHost                 = "0.0.0.0"

@@ -62,6 +62,10 @@ func (r *MonitoringReconciler) Reconcile(ctx context.Context, logger logr.Logger
 		return nil
 	}
 
+	if err := reconcileNamespace(ctx, r.client, r.namespace, logger); err != nil {
+		return err
+	}
+
 	toCtx, cancel := context.WithTimeout(ctx, time.Second*10)
 	defer cancel()
 
