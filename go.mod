@@ -55,7 +55,7 @@ require (
 	github.com/spf13/pflag v1.0.5
 	github.com/vishvananda/netlink v1.1.1-0.20201029203352-d40f9887b852
 	github.com/wadey/gocovmerge v0.0.0-20160331181800-b5bfa59ec0ad
-	golang.org/x/crypto v0.0.0-20220321153916-2c7772ba3064
+	golang.org/x/crypto v0.0.0-20220525230936-793ad666bf5e
 	golang.org/x/net v0.0.0-20220225172249-27dd8689420f
 	golang.org/x/sys v0.0.0-20220209214540-3681064d5158
 	golang.org/x/term v0.0.0-20210927222741-03fcf44c2211
