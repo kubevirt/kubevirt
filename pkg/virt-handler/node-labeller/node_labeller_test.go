@@ -22,7 +22,11 @@
 package nodelabeller
 
 import (
+	"fmt"
 	"time"
+
+	"k8s.io/client-go/tools/cache"
+	framework "k8s.io/client-go/tools/cache/testing"
 
 	"github.com/golang/mock/gomock"
 	. "github.com/onsi/ginkgo/v2"
@@ -43,6 +47,8 @@ import (
 )
 
 var _ = Describe("Node-labeller ", func() {
+	const nodeName = "testNode"
+
 	var nlController *NodeLabeller
 	var virtClient *kubecli.MockKubevirtClient
 	var stop chan struct{}
@@ -51,12 +57,16 @@ var _ = Describe("Node-labeller ", func() {
 	var mockQueue *testutils.MockWorkQueue
 	var config *virtconfig.ClusterConfig
 	var addedNode *v1.Node
+	var nodeInformer cache.SharedIndexInformer
+	var nodeSource *framework.FakeControllerSource
+	var kvInformer cache.SharedIndexInformer
+	//var kvSource *framework.FakeControllerSource
 
 	addNode := func(node *v1.Node) {
 		mockQueue.ExpectAdds(1)
-		nlController.queue.Add(node)
-		addedNode = node
+		nodeSource.Add(node)
 		mockQueue.Wait()
+		addedNode = node
 	}
 
 	expectNodePatch := func(expectedPatches ...string) {
@@ -70,10 +80,24 @@ var _ = Describe("Node-labeller ", func() {
 		})
 	}
 
+	syncCaches := func(stop chan struct{}) {
+		go nodeInformer.Run(stop)
+		go kvInformer.Run(stop)
+
+		Expect(
+			cache.WaitForCacheSync(stop,
+				nodeInformer.HasSynced,
+				kvInformer.HasSynced,
+			),
+		).To(BeTrue())
+	}
+
 	BeforeEach(func() {
 		var err error
 		stop = make(chan struct{})
 		ctrl = gomock.NewController(GinkgoT())
+		nodeInformer, nodeSource = testutils.NewFakeInformerFor(&v1.Node{})
+		kvInformer, _ = testutils.NewFakeInformerFor(&kubevirtv1.KubeVirt{})
 
 		kubeClient = fake.NewSimpleClientset()
 		virtClient = kubecli.NewMockKubevirtClient(ctrl)
@@ -99,13 +123,21 @@ var _ = Describe("Node-labeller ", func() {
 
 		config, _, _ = testutils.NewFakeClusterConfigUsingKV(kv)
 
-		nlController, err = newNodeLabeller(config, virtClient, "testNode", k8sv1.NamespaceDefault, "testdata")
+		nlController, err = newNodeLabeller(config, virtClient, nodeName, k8sv1.NamespaceDefault, nodeInformer, kvInformer, "testdata")
 		Expect(err).ToNot(HaveOccurred())
 
 		mockQueue = testutils.NewMockWorkQueue(nlController.queue)
 
+		syncCaches(stop)
+
 		nlController.queue = mockQueue
-		addNode(newNode("testNode"))
+		addNode(newNode(nodeName))
+
+		// Make sure that all unexpected calls to kubeClient will fail
+		kubeClient.Fake.PrependReactor("*", "*", func(action testing.Action) (handled bool, obj runtime.Object, err error) {
+			Expect(action).To(BeNil())
+			return true, nil, nil
+		})
 	})
 
 	It("should run node-labelling", func() {
@@ -119,6 +151,12 @@ var _ = Describe("Node-labeller ", func() {
 
 	It("should re-queue node if node-labelling fail", func() {
 		// node labelling will fail because the Patch executed inside execute() will fail due to missed Reactor
+		kubeClient.Fake.PrependReactor("patch", "nodes", func(action testing.Action) (handled bool, obj runtime.Object, err error) {
+			_, ok := action.(testing.PatchAction)
+			Expect(ok).To(BeTrue())
+
+			return true, nil, fmt.Errorf("fake error")
+		})
 		res := nlController.execute()
 		Expect(res).To(BeTrue(), "labeller should end with true result")
 		Eventually(func() int {
