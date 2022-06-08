@@ -1407,6 +1407,9 @@ var _ = Describe("[Serial][sig-compute]Infrastructure", func() {
 					if strings.Contains(key, v1.CPUModelLabel) {
 						obsoleteModels[strings.TrimPrefix(key, v1.CPUModelLabel)] = true
 					}
+					if strings.Contains(key, v1.SupportedHostModelMigrationCPU) {
+						obsoleteModels[strings.TrimPrefix(key, v1.SupportedHostModelMigrationCPU)] = true
+					}
 				}
 
 				kvConfig := originalKubeVirt.Spec.Configuration.DeepCopy()
@@ -1418,7 +1421,7 @@ var _ = Describe("[Serial][sig-compute]Infrastructure", func() {
 				found := false
 				label := ""
 				for key := range node.Labels {
-					if strings.Contains(key, v1.CPUModelLabel) {
+					if strings.Contains(key, v1.CPUModelLabel) || strings.Contains(key, v1.SupportedHostModelMigrationCPU) {
 						found = true
 						label = key
 						break
