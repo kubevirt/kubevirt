@@ -22,12 +22,12 @@ var _ = Describe("Certificate Management", func() {
 
 		It("should drop expired CAs", func() {
 			now := time.Now()
-			current := NewSelfSignedCert(now, now.Add(1*time.Hour))
+			current := newSelfSignedCert(now, now.Add(1*time.Hour))
 			given := []*tls.Certificate{
-				NewSelfSignedCert(now.Add(-20*time.Minute), now.Add(-10*time.Minute)),
+				newSelfSignedCert(now.Add(-20*time.Minute), now.Add(-10*time.Minute)),
 			}
-			givenBundle := CACertsToBundle(given)
-			expectBundle := CACertsToBundle([]*tls.Certificate{current})
+			givenBundle := caCertsToBundle(given)
+			expectBundle := caCertsToBundle([]*tls.Certificate{current})
 			bundle, count, err := MergeCABundle(current, givenBundle, 2*time.Minute)
 			Expect(err).ToNot(HaveOccurred())
 			Expect(count).To(Equal(1))
@@ -36,12 +36,12 @@ var _ = Describe("Certificate Management", func() {
 
 		It("should be properly appended when within the overlap period", func() {
 			now := time.Now()
-			current := NewSelfSignedCert(now, now.Add(1*time.Hour))
+			current := newSelfSignedCert(now, now.Add(1*time.Hour))
 			given := []*tls.Certificate{
-				NewSelfSignedCert(now.Add(-20*time.Minute), now.Add(1*time.Hour)),
+				newSelfSignedCert(now.Add(-20*time.Minute), now.Add(1*time.Hour)),
 			}
-			givenBundle := CACertsToBundle(given)
-			expectBundle := CACertsToBundle([]*tls.Certificate{current, given[0]})
+			givenBundle := caCertsToBundle(given)
+			expectBundle := caCertsToBundle([]*tls.Certificate{current, given[0]})
 			bundle, count, err := MergeCABundle(current, givenBundle, 2*time.Minute)
 			Expect(err).ToNot(HaveOccurred())
 			Expect(count).To(Equal(2))
@@ -50,12 +50,12 @@ var _ = Describe("Certificate Management", func() {
 
 		It("should kick out the first CA cert if it is outside of the overlap period", func() {
 			now := time.Now()
-			current := NewSelfSignedCert(now.Add(-3*time.Minute), now.Add(1*time.Hour))
+			current := newSelfSignedCert(now.Add(-3*time.Minute), now.Add(1*time.Hour))
 			given := []*tls.Certificate{
-				NewSelfSignedCert(now.Add(-20*time.Minute), now.Add(1*time.Hour)),
+				newSelfSignedCert(now.Add(-20*time.Minute), now.Add(1*time.Hour)),
 			}
-			givenBundle := CACertsToBundle(given)
-			expectBundle := CACertsToBundle([]*tls.Certificate{current})
+			givenBundle := caCertsToBundle(given)
+			expectBundle := caCertsToBundle([]*tls.Certificate{current})
 			bundle, count, err := MergeCABundle(current, givenBundle, 2*time.Minute)
 			Expect(err).ToNot(HaveOccurred())
 			Expect(count).To(Equal(1))
@@ -64,13 +64,13 @@ var _ = Describe("Certificate Management", func() {
 
 		It("should kick out a CA cert which are outside of the overlap period", func() {
 			now := time.Now()
-			current := NewSelfSignedCert(now, now.Add(1*time.Hour))
+			current := newSelfSignedCert(now, now.Add(1*time.Hour))
 			given := []*tls.Certificate{
-				NewSelfSignedCert(now.Add(-20*time.Minute), now.Add(1*time.Hour)),
-				NewSelfSignedCert(now.Add(-10*time.Minute), now.Add(1*time.Hour)),
+				newSelfSignedCert(now.Add(-20*time.Minute), now.Add(1*time.Hour)),
+				newSelfSignedCert(now.Add(-10*time.Minute), now.Add(1*time.Hour)),
 			}
-			givenBundle := CACertsToBundle(given)
-			expectBundle := CACertsToBundle([]*tls.Certificate{current, given[1]})
+			givenBundle := caCertsToBundle(given)
+			expectBundle := caCertsToBundle([]*tls.Certificate{current, given[1]})
 			bundle, count, err := MergeCABundle(current, givenBundle, 2*time.Minute)
 			Expect(err).ToNot(HaveOccurred())
 			Expect(count).To(Equal(2))
@@ -79,14 +79,14 @@ var _ = Describe("Certificate Management", func() {
 
 		It("should kick out multiple CA certs which are outside of the overlap period", func() {
 			now := time.Now()
-			current := NewSelfSignedCert(now.Add(-5*time.Minute), now.Add(-5*time.Minute).Add(1*time.Hour))
+			current := newSelfSignedCert(now.Add(-5*time.Minute), now.Add(-5*time.Minute).Add(1*time.Hour))
 			given := []*tls.Certificate{
-				NewSelfSignedCert(now.Add(-20*time.Minute), now.Add(1*time.Hour)),
-				NewSelfSignedCert(now.Add(-10*time.Minute), now.Add(1*time.Hour)),
-				NewSelfSignedCert(now.Add(-5*time.Minute), now.Add(1*time.Hour)),
+				newSelfSignedCert(now.Add(-20*time.Minute), now.Add(1*time.Hour)),
+				newSelfSignedCert(now.Add(-10*time.Minute), now.Add(1*time.Hour)),
+				newSelfSignedCert(now.Add(-5*time.Minute), now.Add(1*time.Hour)),
 			}
-			givenBundle := CACertsToBundle(given)
-			expectBundle := CACertsToBundle([]*tls.Certificate{current})
+			givenBundle := caCertsToBundle(given)
+			expectBundle := caCertsToBundle([]*tls.Certificate{current})
 			bundle, count, err := MergeCABundle(current, givenBundle, 2*time.Minute)
 			Expect(err).ToNot(HaveOccurred())
 			Expect(count).To(Equal(1))
@@ -95,14 +95,14 @@ var _ = Describe("Certificate Management", func() {
 
 		It("should ensure that the current CA is not added over and over again", func() {
 			now := time.Now()
-			current := NewSelfSignedCert(now, now.Add(1*time.Hour))
+			current := newSelfSignedCert(now, now.Add(1*time.Hour))
 			given := []*tls.Certificate{
-				NewSelfSignedCert(now.Add(-20*time.Minute), now.Add(1*time.Hour)),
+				newSelfSignedCert(now.Add(-20*time.Minute), now.Add(1*time.Hour)),
 				current,
 				current,
 			}
-			givenBundle := CACertsToBundle(given)
-			expectBundle := CACertsToBundle([]*tls.Certificate{current, given[0]})
+			givenBundle := caCertsToBundle(given)
+			expectBundle := caCertsToBundle([]*tls.Certificate{current, given[0]})
 			bundle, count, err := MergeCABundle(current, givenBundle, 2*time.Minute)
 			Expect(err).ToNot(HaveOccurred())
 			Expect(count).To(Equal(2))
@@ -111,12 +111,12 @@ var _ = Describe("Certificate Management", func() {
 
 		It("should be protected against misuse by cropping big arrays", func() {
 			now := time.Now()
-			current := NewSelfSignedCert(now, now.Add(1*time.Hour))
+			current := newSelfSignedCert(now, now.Add(1*time.Hour))
 			given := []*tls.Certificate{}
 			for i := 1; i < 20; i++ {
-				given = append(given, NewSelfSignedCert(now.Add(-1*time.Minute), now.Add(1*time.Hour)))
+				given = append(given, newSelfSignedCert(now.Add(-1*time.Minute), now.Add(1*time.Hour)))
 			}
-			givenBundle := CACertsToBundle(given)
+			givenBundle := caCertsToBundle(given)
 			_, count, err := MergeCABundle(current, givenBundle, 2*time.Minute)
 			Expect(err).ToNot(HaveOccurred())
 			Expect(count).To(Equal(11))
@@ -124,8 +124,8 @@ var _ = Describe("Certificate Management", func() {
 
 		It("should immediately suggest a rotation if the cert is not signed by the provided CA", func() {
 			now := time.Now()
-			current := NewSelfSignedCert(now, now.Add(1*time.Hour))
-			ca := NewSelfSignedCert(now, now.Add(1*time.Hour))
+			current := newSelfSignedCert(now, now.Add(1*time.Hour))
+			ca := newSelfSignedCert(now, now.Add(1*time.Hour))
 			renewal := &v1.Duration{Duration: 4 * time.Hour}
 			deadline := NextRotationDeadline(current, ca, renewal, nil)
 			Expect(deadline.Before(time.Now())).To(BeTrue())
@@ -308,8 +308,8 @@ var _ = Describe("Certificate Management", func() {
 	})
 })
 
-// NewSelfSignedCert creates a CA certificate
-func NewSelfSignedCert(notBefore time.Time, notAfter time.Time) *tls.Certificate {
+// newSelfSignedCert creates a CA certificate
+func newSelfSignedCert(notBefore time.Time, notAfter time.Time) *tls.Certificate {
 	key, err := certutil.NewPrivateKey()
 	Expect(err).ToNot(HaveOccurred())
 	tmpl := x509.Certificate{
@@ -340,7 +340,7 @@ func NewSelfSignedCert(notBefore time.Time, notAfter time.Time) *tls.Certificate
 	return &crt
 }
 
-func CACertsToBundle(crts []*tls.Certificate) []byte {
+func caCertsToBundle(crts []*tls.Certificate) []byte {
 	var caBundle []byte
 	for _, crt := range crts {
 		caBundle = append(caBundle, certutil.EncodeCertPEM(crt.Leaf)...)
