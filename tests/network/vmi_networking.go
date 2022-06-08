@@ -257,16 +257,17 @@ var _ = SIGDescribe("[rfe_id:694][crit:medium][vendor:cnv-qe@redhat.com][level:c
 
 		Context("VirtualMachineInstance with default interface model", func() {
 			BeforeEach(func() {
-				inboundVMI = libvmi.NewAlpine()
-				outboundVMI = libvmi.NewAlpine()
+				libnet.SkipWhenClusterNotSupportIpv4(virtClient)
+				inboundVMI = libvmi.NewCirros()
+				outboundVMI = libvmi.NewCirros()
 
 				inboundVMI, err = virtClient.VirtualMachineInstance(util.NamespaceTestDefault).Create(inboundVMI)
 				Expect(err).ToNot(HaveOccurred())
 				outboundVMI, err = virtClient.VirtualMachineInstance(util.NamespaceTestDefault).Create(outboundVMI)
 				Expect(err).ToNot(HaveOccurred())
 
-				inboundVMI = tests.WaitUntilVMIReady(inboundVMI, console.LoginToAlpine)
-				outboundVMI = tests.WaitUntilVMIReady(outboundVMI, console.LoginToAlpine)
+				inboundVMI = tests.WaitUntilVMIReady(inboundVMI, console.LoginToCirros)
+				outboundVMI = tests.WaitUntilVMIReady(outboundVMI, console.LoginToCirros)
 			})
 
 			// Unless an explicit interface model is specified, the default interface model is virtio.
@@ -287,7 +288,7 @@ var _ = SIGDescribe("[rfe_id:694][crit:medium][vendor:cnv-qe@redhat.com][level:c
 					// Create a virtual machine with an unsupported interface model
 					masqIface := libvmi.InterfaceDeviceWithMasqueradeBinding()
 					masqIface.Model = "gibberish"
-					customIfVMI := libvmi.NewAlpine(
+					customIfVMI := libvmi.NewCirros(
 						libvmi.WithInterface(masqIface),
 						libvmi.WithNetwork(v1.DefaultPodNetwork()),
 					)
@@ -361,17 +362,18 @@ var _ = SIGDescribe("[rfe_id:694][crit:medium][vendor:cnv-qe@redhat.com][level:c
 
 	Context("VirtualMachineInstance with custom MAC address in non-conventional format", func() {
 		It("[test_id:1772]should configure custom MAC address", func() {
+			libnet.SkipWhenClusterNotSupportIpv4(virtClient)
 			By(checkingEth0MACAddr)
 			masqIface := libvmi.InterfaceDeviceWithMasqueradeBinding()
 			masqIface.MacAddress = "BE-AF-00-00-DE-AD"
-			beafdeadVMI := libvmi.NewAlpine(
+			beafdeadVMI := libvmi.NewCirros(
 				libvmi.WithInterface(masqIface),
 				libvmi.WithNetwork(v1.DefaultPodNetwork()),
 			)
 			beafdeadVMI, err = virtClient.VirtualMachineInstance(util.NamespaceTestDefault).Create(beafdeadVMI)
 			Expect(err).ToNot(HaveOccurred())
 
-			tests.WaitUntilVMIReady(beafdeadVMI, console.LoginToAlpine)
+			tests.WaitUntilVMIReady(beafdeadVMI, console.LoginToCirros)
 			checkMacAddress(beafdeadVMI, "be:af:00:00:de:ad")
 		})
 	})
