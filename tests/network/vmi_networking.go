@@ -271,6 +271,8 @@ var _ = SIGDescribe("[rfe_id:694][crit:medium][vendor:cnv-qe@redhat.com][level:c
 
 			// Unless an explicit interface model is specified, the default interface model is virtio.
 			It("[test_id:1550]should expose the right device type to the guest", func() {
+				libnet.SkipWhenClusterNotSupportIpv4(virtClient)
+
 				By("checking the device vendor in /sys/class")
 
 				// Taken from https://wiki.osdev.org/Virtio#Technical_Details
@@ -284,6 +286,8 @@ var _ = SIGDescribe("[rfe_id:694][crit:medium][vendor:cnv-qe@redhat.com][level:c
 
 			Context("VirtualMachineInstance with unsupported interface model", func() {
 				It("[test_id:1551]should reject the creation of virtual machine with unsupported interface model", func() {
+					libnet.SkipWhenClusterNotSupportIpv4(virtClient)
+
 					// Create a virtual machine with an unsupported interface model
 					masqIface := libvmi.InterfaceDeviceWithMasqueradeBinding()
 					masqIface.Model = "gibberish"
