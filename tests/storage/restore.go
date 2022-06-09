@@ -969,7 +969,7 @@ var _ = SIGDescribe("VirtualMachineRestore Tests", func() {
 				Expect(err).ToNot(HaveOccurred())
 
 				if !restoreToNewVM {
-					for _, v := range vm.Spec.Template.Spec.Volumes {
+					for _, v := range targetVM.Spec.Template.Spec.Volumes {
 						if v.PersistentVolumeClaim != nil {
 							Expect(v.PersistentVolumeClaim.ClaimName).ToNot(Equal(originalPVCName))
 							pvc, err := virtClient.CoreV1().PersistentVolumeClaims(vm.Namespace).Get(context.Background(), v.PersistentVolumeClaim.ClaimName, metav1.GetOptions{})
@@ -1291,7 +1291,7 @@ var _ = SIGDescribe("VirtualMachineRestore Tests", func() {
 				restore = waitRestoreComplete(restore, newVM.Name, &newVM.UID)
 				Expect(restore.Status.Restores).To(HaveLen(1))
 
-				newVM = tests.StartVirtualMachine(newVM)
+				tests.StartVirtualMachine(newVM)
 				vmi, err = virtClient.VirtualMachineInstance(vm.Namespace).Get(vm.Name, &metav1.GetOptions{})
 				Expect(err).ToNot(HaveOccurred())
 				Expect(vmi.Spec.Domain.Resources.Requests[corev1.ResourceMemory]).To(Equal(initialMemory))

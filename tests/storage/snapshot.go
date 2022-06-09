@@ -12,7 +12,6 @@ import (
 	. "github.com/onsi/gomega"
 	admissionregistrationv1 "k8s.io/api/admissionregistration/v1"
 	corev1 "k8s.io/api/core/v1"
-	k8sv1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/api/errors"
 	"k8s.io/apimachinery/pkg/api/resource"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
@@ -417,7 +416,7 @@ var _ = SIGDescribe("VirtualMachineSnapshot Tests", func() {
 				updatedVM.Spec.Template.Spec.Domain.Resources.Requests = corev1.ResourceList{
 					corev1.ResourceMemory: newMemory,
 				}
-				updatedVM, err = virtClient.VirtualMachine(updatedVM.Namespace).Update(updatedVM)
+				_, err = virtClient.VirtualMachine(updatedVM.Namespace).Update(updatedVM)
 				Expect(err).ToNot(HaveOccurred())
 
 				snapshot = newSnapshot()
@@ -875,7 +874,7 @@ var _ = SIGDescribe("VirtualMachineSnapshot Tests", func() {
 
 					By(fmt.Sprintf("VM Statuses: %+v", vm2.Status))
 					return len(vm2.Status.VolumeSnapshotStatuses) == 1 &&
-						vm2.Status.VolumeSnapshotStatuses[0].Enabled == true
+						vm2.Status.VolumeSnapshotStatuses[0].Enabled
 				}, 180*time.Second, time.Second).Should(BeTrue())
 			})
 
@@ -1082,8 +1081,8 @@ var _ = SIGDescribe("VirtualMachineSnapshot Tests", func() {
 					cd.DataVolumeImportUrlForContainerDisk(cd.ContainerDiskAlpine),
 					util.NamespaceTestDefault,
 					snapshotStorageClass,
-					k8sv1.ReadWriteOnce,
-					k8sv1.PersistentVolumeFilesystem,
+					corev1.ReadWriteOnce,
+					corev1.PersistentVolumeFilesystem,
 				)
 				vmi := vmif(dataVolume.Name)
 				vm = tests.NewRandomVirtualMachine(vmi, false)

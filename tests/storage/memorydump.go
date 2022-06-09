@@ -285,7 +285,6 @@ var _ = SIGDescribe("Memory dump", func() {
 		Eventually(func() error {
 			memoryDumpRequest := &v1.VirtualMachineMemoryDumpRequest{
 				ClaimName: claimName,
-				Phase:     v1.MemoryDumpAssociating,
 			}
 
 			return virtClient.VirtualMachine(namespace).MemoryDump(vmName, memoryDumpRequest)
