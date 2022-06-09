@@ -992,17 +992,13 @@ func NewRandomVirtualMachineInstanceWithBlockDisk(imageUrl, namespace string, ac
 }
 
 func NewRandomVMI() *v1.VirtualMachineInstance {
-	return NewRandomVMIWithNS(util2.NamespaceTestDefault)
-}
-
-func NewRandomVMIWithNS(namespace string) *v1.VirtualMachineInstance {
 	// To avoid mac address issue in the tests change the pod interface binding to masquerade
 	// https://github.com/kubevirt/kubevirt/issues/1494
 	vmi := libvmi.New(
 		libvmi.WithInterface(libvmi.InterfaceDeviceWithMasqueradeBinding()),
 		libvmi.WithNetwork(v1.DefaultPodNetwork()),
 	)
-	vmi.ObjectMeta.Namespace = namespace
+	vmi.ObjectMeta.Namespace = util2.NamespaceTestDefault
 	vmi.Spec.Domain.Resources.Requests = k8sv1.ResourceList{}
 
 	if checks.IsARM64(testsuite.Arch) {
