@@ -27,6 +27,7 @@ import (
 	"kubevirt.io/kubevirt/tests/console"
 	cd "kubevirt.io/kubevirt/tests/containerdisk"
 	"kubevirt.io/kubevirt/tests/libstorage"
+	"kubevirt.io/kubevirt/tests/libvmi"
 	"kubevirt.io/kubevirt/tests/util"
 )
 
@@ -608,9 +609,9 @@ var _ = SIGDescribe("VirtualMachineSnapshot Tests", func() {
 				Expect(console.LoginToFedora(vmi)).To(Succeed())
 
 				By("Add persistent hotplug disk")
-				persistVolName := tests.AddVolumeAndVerify(virtClient, snapshotStorageClass, vm, false)
+				persistVolName := libvmi.AddVolumeAndVerify(virtClient, snapshotStorageClass, vm, false)
 				By("Add temporary hotplug disk")
-				tempVolName := tests.AddVolumeAndVerify(virtClient, snapshotStorageClass, vm, true)
+				tempVolName := libvmi.AddVolumeAndVerify(virtClient, snapshotStorageClass, vm, true)
 				By("Create Snapshot")
 				snapshot = newSnapshot()
 				_, err = virtClient.VirtualMachineSnapshot(snapshot.Namespace).Create(context.Background(), snapshot, metav1.CreateOptions{})

@@ -11,6 +11,7 @@ import (
 
 	"kubevirt.io/api/core"
 
+	"kubevirt.io/kubevirt/tests/libvmi"
 	"kubevirt.io/kubevirt/tests/util"
 
 	expect "github.com/google/goexpect"
@@ -1306,9 +1307,9 @@ var _ = SIGDescribe("VirtualMachineRestore Tests", func() {
 				Expect(console.LoginToFedora(vmi)).To(Succeed())
 
 				By("Add persistent hotplug disk")
-				persistVolName := tests.AddVolumeAndVerify(virtClient, snapshotStorageClass, vm, false)
+				persistVolName := libvmi.AddVolumeAndVerify(virtClient, snapshotStorageClass, vm, false)
 				By("Add temporary hotplug disk")
-				tempVolName := tests.AddVolumeAndVerify(virtClient, snapshotStorageClass, vm, true)
+				tempVolName := libvmi.AddVolumeAndVerify(virtClient, snapshotStorageClass, vm, true)
 
 				doRestore("", console.LoginToFedora, true, 2, getTargetVMName(restoreToNewVM, newVmName))
 
