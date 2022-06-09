@@ -401,13 +401,13 @@ var _ = Describe("Flavor and Preferences", func() {
 				}
 			})
 
-			It("should default to PreferCores", func() {
+			It("should default to PreferSockets", func() {
 
 				conflicts := flavorMethods.ApplyToVmi(field, flavorSpec, preferenceSpec, &vmi.Spec)
 				Expect(conflicts).To(BeEmpty())
 
-				Expect(vmi.Spec.Domain.CPU.Sockets).To(Equal(uint32(1)))
-				Expect(vmi.Spec.Domain.CPU.Cores).To(Equal(flavorSpec.CPU.Guest))
+				Expect(vmi.Spec.Domain.CPU.Sockets).To(Equal(flavorSpec.CPU.Guest))
+				Expect(vmi.Spec.Domain.CPU.Cores).To(Equal(uint32(1)))
 				Expect(vmi.Spec.Domain.CPU.Threads).To(Equal(uint32(1)))
 				Expect(vmi.Spec.Domain.CPU.Model).To(Equal(flavorSpec.CPU.Model))
 				Expect(vmi.Spec.Domain.CPU.DedicatedCPUPlacement).To(Equal(flavorSpec.CPU.DedicatedCPUPlacement))

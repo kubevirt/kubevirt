@@ -7046,7 +7046,7 @@ var CRDsValidation map[string]string = map[string]string{
           properties:
             preferredCPUTopology:
               description: PreferredCPUTopology optionally defines the preferred guest
-                visible CPU topology, defaults to PreferCores.
+                visible CPU topology, defaults to PreferSockets.
               type: string
           type: object
         devices:
@@ -18614,7 +18614,7 @@ var CRDsValidation map[string]string = map[string]string{
           properties:
             preferredCPUTopology:
               description: PreferredCPUTopology optionally defines the preferred guest
-                visible CPU topology, defaults to PreferCores.
+                visible CPU topology, defaults to PreferSockets.
               type: string
           type: object
         devices:

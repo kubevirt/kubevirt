@@ -239,10 +239,10 @@ type PreferredCPUTopology string
 
 const (
 
-	// Prefer vCPUs to be exposed as cores to the guest, this is the default for the PreferredCPUTopology attribute of CPUPreferences.
+	// Prefer vCPUs to be exposed as cores to the guest
 	PreferCores PreferredCPUTopology = "preferCores"
 
-	// Prefer vCPUs to be exposed as sockets to the guest
+	// Prefer vCPUs to be exposed as sockets to the guest, this is the default for the PreferredCPUTopology attribute of CPUPreferences.
 	PreferSockets PreferredCPUTopology = "preferSockets"
 
 	// Prefer vCPUs to be exposed as threads to the guest
@@ -252,7 +252,7 @@ const (
 // CPUPreferences contains various optional CPU preferences.
 type CPUPreferences struct {
 
-	// PreferredCPUTopology optionally defines the preferred guest visible CPU topology, defaults to PreferCores.
+	// PreferredCPUTopology optionally defines the preferred guest visible CPU topology, defaults to PreferSockets.
 	//
 	//+optional
 	PreferredCPUTopology PreferredCPUTopology `json:"preferredCPUTopology,omitempty"`

@@ -22764,7 +22764,7 @@ func schema_kubevirtio_api_flavor_v1alpha1_CPUPreferences(ref common.ReferenceCa
 				Properties: map[string]spec.Schema{
 					"preferredCPUTopology": {
 						SchemaProps: spec.SchemaProps{
-							Description: "PreferredCPUTopology optionally defines the preferred guest visible CPU topology, defaults to PreferCores.",
+							Description: "PreferredCPUTopology optionally defines the preferred guest visible CPU topology, defaults to PreferSockets.",
 							Type:        []string{"string"},
 							Format:      "",
 						},
