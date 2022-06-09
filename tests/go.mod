@@ -224,8 +224,9 @@ replace (
 	github.com/dgrijalva/jwt-go => github.com/dgrijalva/jwt-go/v4 v4.0.0-preview1
 	github.com/gorilla/websocket => github.com/gorilla/websocket v1.4.2
 	github.com/kubernetes-csi/external-snapshotter/v2 => github.com/kubernetes-csi/external-snapshotter/v2 v2.1.3
-	golang.org/x/crypto => golang.org/x/crypto v0.0.0-20201221181555-eec23a3978ad
-	golang.org/x/crypto/ssh/terminal => golang.org/x/crypto/ssh/terminal v0.0.0-20201221181555-eec23a3978ad
+	golang.org/x/crypto => golang.org/x/crypto v0.0.0-20220525230936-793ad666bf5e
+	golang.org/x/crypto/ssh => golang.org/x/crypto/ssh v0.0.0-20220525230936-793ad666bf5e
+	golang.org/x/crypto/ssh/terminal => golang.org/x/crypto/ssh/terminal v0.0.0-20220525230936-793ad666bf5e
 )
 
 replace github.com/opencontainers/runc => github.com/opencontainers/runc v1.0.3

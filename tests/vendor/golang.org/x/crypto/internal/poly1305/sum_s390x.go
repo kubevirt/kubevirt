@@ -2,6 +2,7 @@
 // Use of this source code is governed by a BSD-style
 // license that can be found in the LICENSE file.
 
+//go:build gc && !purego
 // +build gc,!purego
 
 package poly1305
@@ -13,6 +14,7 @@ import (
 // updateVX is an assembly implementation of Poly1305 that uses vector
 // instructions. It must only be called if the vector facility (vx) is
 // available.
+//
 //go:noescape
 func updateVX(state *macState, msg []byte)
 
