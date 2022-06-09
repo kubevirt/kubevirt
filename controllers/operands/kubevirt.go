@@ -13,7 +13,6 @@ import (
 	"k8s.io/apimachinery/pkg/api/resource"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/runtime"
-	"k8s.io/apimachinery/pkg/types"
 	"k8s.io/apimachinery/pkg/util/yaml"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 
@@ -583,11 +582,7 @@ func (h *kvPriorityClassHooks) updateCr(req *common.HcoRequest, Client client.Cl
 		return false, false, err
 	}
 
-	// update found object for object references
-	err = Client.Get(req.Ctx, types.NamespacedName{Name: found.Name, Namespace: found.Namespace}, found)
-	if err != nil {
-		return true, !req.HCOTriggered, err
-	}
+	pc.DeepCopyInto(found)
 
 	return true, !req.HCOTriggered, nil
 }
