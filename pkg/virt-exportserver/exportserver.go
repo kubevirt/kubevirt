@@ -111,6 +111,12 @@ func (s *exportServer) initHandler() {
 }
 
 func (s *exportServer) getHandlerMap(vi VolumeInfo) map[string]http.Handler {
+	fi, err := os.Stat(vi.Path)
+	if err != nil {
+		log.Log.Reason(err).Errorf("error statting %s", vi.Path)
+		return nil
+	}
+
 	var result = make(map[string]http.Handler)
 
 	if vi.ArchiveURI != "" {
@@ -121,30 +127,17 @@ func (s *exportServer) getHandlerMap(vi VolumeInfo) map[string]http.Handler {
 		result[vi.DirURI] = s.DirHandler(vi.DirURI, vi.Path)
 	}
 
+	p := vi.Path
+	if fi.IsDir() {
+		p = path.Join(p, "disk.img")
+	}
+
 	if vi.RawURI != "" {
-		fi, err := os.Stat(vi.Path)
-		if err != nil {
-			log.Log.Reason(err).Errorf("error statting %s", vi.Path)
-		} else {
-			if fi.IsDir() {
-				result[vi.RawURI] = s.FileHandler(path.Join(vi.Path, "disk.img"))
-			} else {
-				result[vi.RawURI] = s.FileHandler(vi.Path)
-			}
-		}
+		result[vi.RawURI] = s.FileHandler(p)
 	}
 
 	if vi.RawGzURI != "" {
-		fi, err := os.Stat(vi.Path)
-		if err != nil {
-			log.Log.Reason(err).Errorf("error statting %s", vi.Path)
-		} else {
-			if fi.IsDir() {
-				result[vi.RawGzURI] = s.GzipHandler(path.Join(vi.Path, "disk.img"))
-			} else {
-				result[vi.RawGzURI] = s.GzipHandler(vi.Path)
-			}
-		}
+		result[vi.RawGzURI] = s.GzipHandler(p)
 	}
 
 	return result
