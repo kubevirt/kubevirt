@@ -1,3 +1,4 @@
+//go:build !nofilesystem
 // +build !nofilesystem
 
 package stats

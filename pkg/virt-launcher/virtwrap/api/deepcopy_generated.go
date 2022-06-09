@@ -807,6 +807,11 @@ func (in *Disk) DeepCopyInto(out *Disk) {
 		*out = new(int64)
 		**out = **in
 	}
+	if in.IOTune != nil {
+		in, out := &in.IOTune, &out.IOTune
+		*out = new(IOTune)
+		**out = **in
+	}
 	if in.Shareable != nil {
 		in, out := &in.Shareable, &out.Shareable
 		*out = new(Shareable)

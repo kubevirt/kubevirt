@@ -25,7 +25,6 @@ import (
 	goerror "errors"
 	"fmt"
 	"io"
-	"io/ioutil"
 	"net"
 	"os"
 	"path"

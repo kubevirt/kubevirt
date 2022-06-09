@@ -15546,6 +15546,12 @@ func schema_kubevirtio_api_core_v1_Disk(ref common.ReferenceCallback) common.Ope
 							Ref:         ref("kubevirt.io/api/core/v1.BlockSize"),
 						},
 					},
+					"ioTune": {
+						SchemaProps: spec.SchemaProps{
+							Description: "If specified, will set the disk qos",
+							Ref:         ref("kubevirt.io/api/core/v1.IOTune"),
+						},
+					},
 					"shareable": {
 						SchemaProps: spec.SchemaProps{
 							Description: "If specified the disk is made sharable and multiple write from different VMs are permitted",
@@ -15558,7 +15564,7 @@ func schema_kubevirtio_api_core_v1_Disk(ref common.ReferenceCallback) common.Ope
 			},
 		},
 		Dependencies: []string{
-			"kubevirt.io/api/core/v1.BlockSize", "kubevirt.io/api/core/v1.CDRomTarget", "kubevirt.io/api/core/v1.DiskTarget", "kubevirt.io/api/core/v1.LunTarget"},
+			"kubevirt.io/api/core/v1.BlockSize", "kubevirt.io/api/core/v1.CDRomTarget", "kubevirt.io/api/core/v1.DiskTarget", "kubevirt.io/api/core/v1.IOTune", "kubevirt.io/api/core/v1.LunTarget"},
 	}
 }
 

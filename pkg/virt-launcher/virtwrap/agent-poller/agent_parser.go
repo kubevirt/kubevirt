@@ -8,7 +8,6 @@ import (
 	"kubevirt.io/client-go/log"
 
 	v1 "kubevirt.io/api/core/v1"
-	netvmispec "kubevirt.io/kubevirt/pkg/network/vmispec"
 	"kubevirt.io/kubevirt/pkg/virt-launcher/virtwrap/api"
 )
 
