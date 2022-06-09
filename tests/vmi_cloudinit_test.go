@@ -47,7 +47,6 @@ import (
 	"kubevirt.io/kubevirt/tests"
 	"kubevirt.io/kubevirt/tests/console"
 	cd "kubevirt.io/kubevirt/tests/containerdisk"
-	"kubevirt.io/kubevirt/tests/testsuite"
 )
 
 const (
@@ -321,7 +320,7 @@ var _ = Describe("[rfe_id:151][crit:high][vendor:cnv-qe@redhat.com][level:compon
 						Name:      secretID,
 						Namespace: vmi.Namespace,
 						Labels: map[string]string{
-							testsuite.SecretLabel: secretID,
+							util.SecretLabel: secretID,
 						},
 					},
 					Type: "Opaque",
@@ -400,7 +399,7 @@ var _ = Describe("[rfe_id:151][crit:high][vendor:cnv-qe@redhat.com][level:compon
 							Name:      secretID,
 							Namespace: vmi.Namespace,
 							Labels: map[string]string{
-								testsuite.SecretLabel: secretID,
+								util.SecretLabel: secretID,
 							},
 						},
 						Type: "Opaque",
@@ -543,7 +542,7 @@ var _ = Describe("[rfe_id:151][crit:high][vendor:cnv-qe@redhat.com][level:compon
 							Name:      secretID,
 							Namespace: vmi.Namespace,
 							Labels: map[string]string{
-								testsuite.SecretLabel: secretID,
+								util.SecretLabel: secretID,
 							},
 						},
 						Type: "Opaque",
@@ -601,7 +600,7 @@ var _ = Describe("[rfe_id:151][crit:high][vendor:cnv-qe@redhat.com][level:compon
 							Name:      uSecretID,
 							Namespace: vmi.Namespace,
 							Labels: map[string]string{
-								testsuite.SecretLabel: uSecretID,
+								util.SecretLabel: uSecretID,
 							},
 						},
 						Type: "Opaque",
@@ -616,7 +615,7 @@ var _ = Describe("[rfe_id:151][crit:high][vendor:cnv-qe@redhat.com][level:compon
 							Name:      nSecretID,
 							Namespace: vmi.Namespace,
 							Labels: map[string]string{
-								testsuite.SecretLabel: nSecretID,
+								util.SecretLabel: nSecretID,
 							},
 						},
 						Type: "Opaque",

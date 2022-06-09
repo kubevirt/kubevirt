@@ -134,7 +134,7 @@ func CleanNamespaces() {
 		}
 
 		// Remove all VirtualMachineInstance Secrets
-		labelSelector := fmt.Sprintf("%s", SecretLabel)
+		labelSelector := util.SecretLabel
 		util.PanicOnError(
 			virtCli.CoreV1().Secrets(namespace).DeleteCollection(context.Background(),
 				metav1.DeleteOptions{}, metav1.ListOptions{LabelSelector: labelSelector},
