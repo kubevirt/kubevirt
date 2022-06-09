@@ -120,8 +120,6 @@ func (admitter *VMICreateAdmitter) Admit(ar *admissionv1.AdmissionReview) *admis
 
 func ValidateVirtualMachineInstanceSpec(field *k8sfield.Path, spec *v1.VirtualMachineInstanceSpec, config *virtconfig.ClusterConfig) []metav1.StatusCause {
 	var causes []metav1.StatusCause
-	volumeNameMap := make(map[string]*v1.Volume)
-	networkNameMap := make(map[string]*v1.Network)
 
 	maxNumberOfDisksExceeded := len(spec.Domain.Devices.Disks) > arrayLenMax
 	if maxNumberOfDisksExceeded {
@@ -161,22 +159,17 @@ func ValidateVirtualMachineInstanceSpec(field *k8sfield.Path, spec *v1.VirtualMa
 	if maxNumberOfNetworksExceeded {
 		return appendStatusCauseMaxNumberOfNetworksExceeded(field, causes)
 	}
-	moreThanOnePodInterface := getNumberOfPodInterfaces(spec) > 1
-	if moreThanOnePodInterface {
+	podInterfaceCount := getNumberOfPodInterfaces(spec)
+	if podInterfaceCount > 1 {
 		return appendStatusCauseForMoreThanOnePodInterface(field, causes)
 	}
 
+	volumeNameMap := make(map[string]*v1.Volume)
 	bootOrderMap, newCauses := validateBootOrder(field, spec, volumeNameMap)
 	causes = append(causes, newCauses...)
-	podExists, multusDefaultCount, newCauses := validateNetworks(field, spec, networkNameMap)
-	causes = append(causes, newCauses...)
 
-	if multusDefaultCount > 1 {
-		causes = appendStatusCaseForMoreThanOneMultusDefaultNetwork(field, causes)
-	}
-	if podExists && multusDefaultCount > 0 {
-		causes = appendStatusCauseForPodNetworkDefinedWithMultusDefaultNetworkDefined(field, causes)
-	}
+	networkNameMap := make(map[string]*v1.Network)
+	causes = append(causes, validateNetworks(field, spec, networkNameMap)...)
 
 	networkInterfaceMap, newCauses, done := validateNetworksMatchInterfaces(field, spec, config, networkNameMap, bootOrderMap)
 	causes = append(causes, newCauses...)
@@ -191,7 +184,7 @@ func ValidateVirtualMachineInstanceSpec(field *k8sfield.Path, spec *v1.VirtualMa
 	causes = append(causes, validateProbe(field.Child("readinessProbe"), spec.ReadinessProbe)...)
 	causes = append(causes, validateProbe(field.Child("livenessProbe"), spec.LivenessProbe)...)
 
-	if getNumberOfPodInterfaces(spec) < 1 {
+	if podInterfaceCount == 0 {
 		causes = appendStatusCauseForProbeNotAllowedWithNoPodNetworkPresent(field.Child("readinessProbe"), spec.ReadinessProbe, causes)
 		causes = appendStatusCauseForProbeNotAllowedWithNoPodNetworkPresent(field.Child("livenessProbe"), spec.LivenessProbe, causes)
 	}
@@ -893,39 +886,38 @@ func appendStatusCaseForMoreThanOneMultusDefaultNetwork(field *k8sfield.Path, ca
 	})
 }
 
-func validateNetworks(field *k8sfield.Path, spec *v1.VirtualMachineInstanceSpec, networkNameMap map[string]*v1.Network) (podExists bool, multusDefaultCount int, causes []metav1.StatusCause) {
-
-	podExists = false
-	multusDefaultCount = 0
+func validateNetworks(field *k8sfield.Path, spec *v1.VirtualMachineInstanceSpec, networkNameMap map[string]*v1.Network) (causes []metav1.StatusCause) {
+	podExists := false
+	multusDefaultCount := 0
 
 	for idx, network := range spec.Networks {
-
-		cniTypesCount := 0
-		// network name not needed by default
-		networkNameExistsOrNotNeeded := true
-
 		if network.Pod != nil {
-			cniTypesCount++
 			podExists = true
 		}
 
+		causes = validateNetworkHasOnlyOneType(field, &network, causes, idx)
+
 		if network.NetworkSource.Multus != nil {
-			cniTypesCount++
-			networkNameExistsOrNotNeeded = network.Multus.NetworkName != ""
 			if network.NetworkSource.Multus.Default {
 				multusDefaultCount++
 			}
-		}
 
-		causes = validateNetworkHasOnlyOneType(field, cniTypesCount, causes, idx)
-
-		if !networkNameExistsOrNotNeeded {
-			causes = appendStatusCauseForCNIPluginHasNoNetworkName(field, causes, idx)
+			if network.Multus.NetworkName == "" {
+				causes = appendStatusCauseForCNIPluginHasNoNetworkName(field, causes, idx)
+			}
 		}
 
 		networkNameMap[spec.Networks[idx].Name] = &spec.Networks[idx]
 	}
-	return podExists, multusDefaultCount, causes
+
+	if multusDefaultCount > 1 {
+		causes = appendStatusCaseForMoreThanOneMultusDefaultNetwork(field, causes)
+	}
+	if podExists && multusDefaultCount > 0 {
+		causes = appendStatusCauseForPodNetworkDefinedWithMultusDefaultNetworkDefined(field, causes)
+	}
+
+	return causes
 }
 
 func appendStatusCauseForCNIPluginHasNoNetworkName(field *k8sfield.Path, incomingCauses []metav1.StatusCause, idx int) (causes []metav1.StatusCause) {
@@ -937,15 +929,24 @@ func appendStatusCauseForCNIPluginHasNoNetworkName(field *k8sfield.Path, incomin
 	return causes
 }
 
-func validateNetworkHasOnlyOneType(field *k8sfield.Path, cniTypesCount int, causes []metav1.StatusCause, idx int) []metav1.StatusCause {
+func validateNetworkHasOnlyOneType(field *k8sfield.Path, network *v1.Network, causes []metav1.StatusCause, idx int) []metav1.StatusCause {
+	cniTypesCount := 0
+	if network.Pod != nil {
+		cniTypesCount++
+	}
+	if network.Multus != nil {
+		cniTypesCount++
+	}
+
 	if cniTypesCount == 0 {
-		causes = append(causes, metav1.StatusCause{
+		return append(causes, metav1.StatusCause{
 			Type:    metav1.CauseTypeFieldValueRequired,
 			Message: "should have a network type",
 			Field:   field.Child("networks").Index(idx).String(),
 		})
-	} else if cniTypesCount > 1 {
-		causes = append(causes, metav1.StatusCause{
+	}
+	if cniTypesCount > 1 {
+		return append(causes, metav1.StatusCause{
 			Type:    metav1.CauseTypeFieldValueRequired,
 			Message: "should have only one network type",
 			Field:   field.Child("networks").Index(idx).String(),
