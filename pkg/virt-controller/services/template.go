@@ -1167,14 +1167,7 @@ func (t *templateService) RenderHotplugAttachmentPodTemplate(volumes []*v1.Volum
 					},
 				},
 			},
-			Volumes: []k8sv1.Volume{
-				{
-					Name: hotplugDisks,
-					VolumeSource: k8sv1.VolumeSource{
-						EmptyDir: &k8sv1.EmptyDirVolumeSource{},
-					},
-				},
-			},
+			Volumes:                       []k8sv1.Volume{emptyDirVolume(hotplugDisks)},
 			TerminationGracePeriodSeconds: &zero,
 		},
 	}
@@ -1312,12 +1305,7 @@ func (t *templateService) RenderHotplugAttachmentTriggerPodTemplate(volume *v1.V
 						},
 					},
 				},
-				{
-					Name: hotplugDisks,
-					VolumeSource: k8sv1.VolumeSource{
-						EmptyDir: &k8sv1.EmptyDirVolumeSource{},
-					},
-				},
+				emptyDirVolume(hotplugDisks),
 			},
 			TerminationGracePeriodSeconds: &zero,
 		},

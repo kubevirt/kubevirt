@@ -283,12 +283,7 @@ func withAccessCredentials(accessCredentials []v1.AccessCredential) VolumeRender
 func withSidecarVolumes(hookSidecars hooks.HookSidecarList) VolumeRendererOption {
 	return func(renderer *VolumeRenderer) error {
 		if len(hookSidecars) != 0 {
-			renderer.podVolumes = append(renderer.podVolumes, k8sv1.Volume{
-				Name: hookSidecarSocks,
-				VolumeSource: k8sv1.VolumeSource{
-					EmptyDir: &k8sv1.EmptyDirVolumeSource{},
-				},
-			})
+			renderer.podVolumes = append(renderer.podVolumes, emptyDirVolume(hookSidecarSocks))
 			renderer.podVolumeMounts = append(renderer.podVolumeMounts, k8sv1.VolumeMount{
 				Name:      hookSidecarSocks,
 				MountPath: hooks.HookSocketsSharedDirectory,
@@ -324,12 +319,7 @@ func withHotplugSupport(hotplugDiskDir string) VolumeRendererOption {
 			MountPath:        hotplugDiskDir,
 			MountPropagation: &prop,
 		})
-		renderer.podVolumes = append(renderer.podVolumes, k8sv1.Volume{
-			Name: hotplugDisks,
-			VolumeSource: k8sv1.VolumeSource{
-				EmptyDir: &k8sv1.EmptyDirVolumeSource{},
-			},
-		})
+		renderer.podVolumes = append(renderer.podVolumes, emptyDirVolume(hotplugDisks))
 		return nil
 	}
 }
