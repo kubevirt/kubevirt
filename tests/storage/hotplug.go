@@ -1017,8 +1017,8 @@ var _ = SIGDescribe("Hotplug", func() {
 
 		BeforeEach(func() {
 			libstorage.CreateStorageClass(storageClassHostPath, &immediateBinding)
-			pvNode := tests.CreateHostPathPvWithSizeAndStorageClass(tests.CustomHostPath, hotplugPvPath, "1Gi", storageClassHostPath)
-			tests.CreatePVC(tests.CustomHostPath, "1Gi", storageClassHostPath, false)
+			pvNode := libstorage.CreateHostPathPvWithSizeAndStorageClass(tests.CustomHostPath, hotplugPvPath, "1Gi", storageClassHostPath)
+			libstorage.CreatePVC(tests.CustomHostPath, "1Gi", storageClassHostPath, false)
 			template := libvmi.NewCirros()
 			if pvNode != "" {
 				template.Spec.NodeSelector = make(map[string]string)
@@ -1117,7 +1117,7 @@ var _ = SIGDescribe("Hotplug", func() {
 		)
 
 		BeforeEach(func() {
-			tests.CreateAllSeparateDeviceHostPathPvs(tests.CustomHostPath)
+			libstorage.CreateAllSeparateDeviceHostPathPvs(tests.CustomHostPath)
 			vm = createVirtualMachine(true, libvmi.NewCirros())
 			Eventually(func() bool {
 				vm, err := virtClient.VirtualMachine(util.NamespaceTestDefault).Get(vm.Name, &metav1.GetOptions{})
@@ -1127,11 +1127,11 @@ var _ = SIGDescribe("Hotplug", func() {
 		})
 
 		AfterEach(func() {
-			tests.DeleteAllSeparateDeviceHostPathPvs()
+			libstorage.DeleteAllSeparateDeviceHostPathPvs()
 		})
 
 		It("should attach a hostpath based volume to running VM", func() {
-			dv := libstorage.NewRandomBlankDataVolume(util.NamespaceTestDefault, tests.StorageClassHostPathSeparateDevice, "64Mi", corev1.ReadWriteOnce, corev1.PersistentVolumeFilesystem)
+			dv := libstorage.NewRandomBlankDataVolume(util.NamespaceTestDefault, libstorage.StorageClassHostPathSeparateDevice, "64Mi", corev1.ReadWriteOnce, corev1.PersistentVolumeFilesystem)
 			_, err := virtClient.CdiClient().CdiV1beta1().DataVolumes(dv.Namespace).Create(context.TODO(), dv, metav1.CreateOptions{})
 			Expect(err).To(BeNil())
 

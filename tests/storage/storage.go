@@ -105,7 +105,7 @@ var _ = SIGDescribe("Storage", func() {
 			nfsIP := libnet.GetPodIpByFamily(nfsPod, ipFamily)
 			ExpectWithOffset(1, nfsIP).NotTo(BeEmpty())
 			os := string(cd.ContainerDiskAlpine)
-			tests.CreateNFSPvAndPvc(pvName, util.NamespaceTestDefault, "1Gi", nfsIP, os)
+			libstorage.CreateNFSPvAndPvc(pvName, util.NamespaceTestDefault, "1Gi", nfsIP, os)
 			return pvName
 		}
 
@@ -403,13 +403,13 @@ var _ = SIGDescribe("Storage", func() {
 			BeforeEach(func() {
 				checks.SkipTestIfNoFeatureGate(virtconfig.VirtIOFSGate)
 				checks.SkipIfNonRoot("VirtioFS")
-				tests.CreateHostPathPv(pvc, filepath.Join(testsuite.HostPathBase, pvc))
-				tests.CreateHostPathPVC(pvc, "1G")
+				libstorage.CreateHostPathPv(pvc, filepath.Join(testsuite.HostPathBase, pvc))
+				libstorage.CreateHostPathPVC(pvc, "1G")
 			})
 
 			AfterEach(func() {
-				tests.DeletePVC(pvc)
-				tests.DeletePV(pvc)
+				libstorage.DeletePVC(pvc)
+				libstorage.DeletePV(pvc)
 			})
 
 			It("should be successfully started and virtiofs could be accessed", func() {
@@ -641,8 +641,8 @@ var _ = SIGDescribe("Storage", func() {
 		Context("[rfe_id:3106][crit:medium][vendor:cnv-qe@redhat.com][level:component]With VirtualMachineInstance with two PVCs", func() {
 			BeforeEach(func() {
 				// Setup second PVC to use in this context
-				tests.CreateHostPathPv(tests.CustomHostPath, testsuite.HostPathCustom)
-				tests.CreateHostPathPVC(tests.CustomHostPath, "1Gi")
+				libstorage.CreateHostPathPv(tests.CustomHostPath, testsuite.HostPathCustom)
+				libstorage.CreateHostPathPVC(tests.CustomHostPath, "1Gi")
 			})
 
 			// Not a candidate for testing on NFS because the VMI is restarted and NFS PVC can't be re-used
@@ -868,8 +868,8 @@ var _ = SIGDescribe("Storage", func() {
 					}
 					for _, pvc := range pvcs {
 						hostpath := filepath.Join(testsuite.HostPathBase, pvc)
-						node = tests.CreateHostPathPv(pvc, hostpath)
-						tests.CreateHostPathPVC(pvc, "1G")
+						node = libstorage.CreateHostPathPv(pvc, hostpath)
+						libstorage.CreateHostPathPVC(pvc, "1G")
 						if checks.HasFeature(virtconfig.NonRoot) {
 							nodeSelector = map[string]string{"kubernetes.io/hostname": node}
 							By("changing permissions to qemu")
@@ -884,8 +884,8 @@ var _ = SIGDescribe("Storage", func() {
 
 				AfterEach(func() {
 					for _, pvc := range pvcs {
-						tests.DeletePVC(pvc)
-						tests.DeletePV(pvc)
+						libstorage.DeletePVC(pvc)
+						libstorage.DeletePV(pvc)
 					}
 				})
 
@@ -1306,8 +1306,7 @@ var _ = SIGDescribe("Storage", func() {
 
 				diskName := "disk1"
 				pvcClaim := "pvc-test-disk1"
-				size, _ := resource.ParseQuantity("500Mi")
-				tests.CreateBlockPVC(virtClient, pvcClaim, size)
+				libstorage.CreateBlockPVC(pvcClaim, "500Mi")
 				tests.AddPVCDisk(vmi1, diskName, v1.DiskBusVirtio, pvcClaim)
 				tests.AddPVCDisk(vmi2, diskName, v1.DiskBusVirtio, pvcClaim)
 
