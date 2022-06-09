@@ -397,25 +397,29 @@ func validateInterfaceBootOrder(field *k8sfield.Path, iface v1.Interface, idx in
 	return causes
 }
 
-func validateMacAddress(field *k8sfield.Path, iface v1.Interface, idx int) (causes []metav1.StatusCause) {
-	if iface.MacAddress != "" {
-		mac, err := net.ParseMAC(iface.MacAddress)
-		if err != nil {
-			causes = append(causes, metav1.StatusCause{
-				Type:    metav1.CauseTypeFieldValueInvalid,
-				Message: fmt.Sprintf("interface %s has malformed MAC address (%s).", field.Child("domain", "devices", "interfaces").Index(idx).Child("name").String(), iface.MacAddress),
-				Field:   field.Child("domain", "devices", "interfaces").Index(idx).Child("macAddress").String(),
-			})
-		}
-		if len(mac) > 6 {
-			causes = append(causes, metav1.StatusCause{
-				Type:    metav1.CauseTypeFieldValueInvalid,
-				Message: fmt.Sprintf("interface %s has MAC address (%s) that is too long.", field.Child("domain", "devices", "interfaces").Index(idx).Child("name").String(), iface.MacAddress),
-				Field:   field.Child("domain", "devices", "interfaces").Index(idx).Child("macAddress").String(),
-			})
-		}
+func validateMacAddress(field *k8sfield.Path, iface v1.Interface, idx int) []metav1.StatusCause {
+	if iface.MacAddress == "" {
+		return nil
 	}
-	return causes
+
+	mac, err := net.ParseMAC(iface.MacAddress)
+	if err != nil {
+		return []metav1.StatusCause{{
+			Type:    metav1.CauseTypeFieldValueInvalid,
+			Message: fmt.Sprintf("interface %s has malformed MAC address (%s).", field.Child("domain", "devices", "interfaces").Index(idx).Child("name").String(), iface.MacAddress),
+			Field:   field.Child("domain", "devices", "interfaces").Index(idx).Child("macAddress").String(),
+		}}
+	}
+
+	if len(mac) > 6 {
+		return []metav1.StatusCause{{
+			Type:    metav1.CauseTypeFieldValueInvalid,
+			Message: fmt.Sprintf("interface %s has MAC address (%s) that is too long.", field.Child("domain", "devices", "interfaces").Index(idx).Child("name").String(), iface.MacAddress),
+			Field:   field.Child("domain", "devices", "interfaces").Index(idx).Child("macAddress").String(),
+		}}
+	}
+
+	return nil
 }
 
 func validateInterfaceModel(field *k8sfield.Path, iface v1.Interface, idx int) (causes []metav1.StatusCause) {
@@ -835,13 +839,19 @@ func validateSoundDevices(field *k8sfield.Path, spec *v1.VirtualMachineInstanceS
 
 func validateLaunchSecurity(field *k8sfield.Path, spec *v1.VirtualMachineInstanceSpec, config *virtconfig.ClusterConfig) (causes []metav1.StatusCause) {
 	launchSecurity := spec.Domain.LaunchSecurity
-	if launchSecurity != nil && !config.WorkloadEncryptionSEVEnabled() {
-		causes = append(causes, metav1.StatusCause{
+	if launchSecurity == nil {
+		return nil
+	}
+
+	if !config.WorkloadEncryptionSEVEnabled() {
+		return []metav1.StatusCause{{
 			Type:    metav1.CauseTypeFieldValueInvalid,
 			Message: fmt.Sprintf("%s feature gate is not enabled in kubevirt-config", virtconfig.WorkloadEncryptionSEV),
 			Field:   field.Child("launchSecurity").String(),
-		})
-	} else if launchSecurity != nil && launchSecurity.SEV != nil {
+		}}
+	}
+
+	if launchSecurity.SEV != nil {
 		firmware := spec.Domain.Firmware
 		if firmware == nil || firmware.Bootloader == nil || firmware.Bootloader.EFI == nil {
 			causes = append(causes, metav1.StatusCause{
@@ -965,8 +975,6 @@ func validateBootOrder(field *k8sfield.Path, spec *v1.VirtualMachineInstanceSpec
 
 	// Validate disks match volumes correctly
 	for idx, disk := range spec.Domain.Devices.Disks {
-		var matchingVolume *v1.Volume
-
 		matchingVolume, volumeExists := volumeNameMap[disk.Name]
 
 		if !volumeExists {
@@ -1249,225 +1257,246 @@ func validateMemoryLimitAndRequestProvided(field *k8sfield.Path, spec *v1.Virtua
 	return causes
 }
 
-func validateCpuRequestDoesNotExceedLimit(field *k8sfield.Path, spec *v1.VirtualMachineInstanceSpec) (causes []metav1.StatusCause) {
+func validateCpuRequestDoesNotExceedLimit(field *k8sfield.Path, spec *v1.VirtualMachineInstanceSpec) []metav1.StatusCause {
 	if spec.Domain.Resources.Limits.Cpu().MilliValue() > 0 &&
 		spec.Domain.Resources.Requests.Cpu().MilliValue() > spec.Domain.Resources.Limits.Cpu().MilliValue() {
-		causes = append(causes, metav1.StatusCause{
+		return []metav1.StatusCause{{
 			Type: metav1.CauseTypeFieldValueInvalid,
 			Message: fmt.Sprintf("%s '%s' is greater than %s '%s'", field.Child("domain", "resources", "requests", "cpu").String(),
 				spec.Domain.Resources.Requests.Cpu(),
 				field.Child("domain", "resources", "limits", "cpu").String(),
 				spec.Domain.Resources.Limits.Cpu()),
 			Field: field.Child("domain", "resources", "requests", "cpu").String(),
-		})
+		}}
 	}
-	return causes
+	return nil
 }
 
-func validateCPULimitNotNegative(field *k8sfield.Path, spec *v1.VirtualMachineInstanceSpec) (causes []metav1.StatusCause) {
+func validateCPULimitNotNegative(field *k8sfield.Path, spec *v1.VirtualMachineInstanceSpec) []metav1.StatusCause {
 	if spec.Domain.Resources.Limits.Cpu().MilliValue() < 0 {
-		causes = append(causes, metav1.StatusCause{
+		return []metav1.StatusCause{{
 			Type: metav1.CauseTypeFieldValueInvalid,
 			Message: fmt.Sprintf(valueMustBePositiveMessagePattern, field.Child("domain", "resources", "limits", "cpu").String(),
 				spec.Domain.Resources.Limits.Cpu()),
 			Field: field.Child("domain", "resources", "limits", "cpu").String(),
-		})
+		}}
 	}
-	return causes
+	return nil
 }
 
-func validateCPURequestNotNegative(field *k8sfield.Path, spec *v1.VirtualMachineInstanceSpec) (causes []metav1.StatusCause) {
+func validateCPURequestNotNegative(field *k8sfield.Path, spec *v1.VirtualMachineInstanceSpec) []metav1.StatusCause {
 	if spec.Domain.Resources.Requests.Cpu().MilliValue() < 0 {
-		causes = append(causes, metav1.StatusCause{
+		return []metav1.StatusCause{{
 			Type: metav1.CauseTypeFieldValueInvalid,
 			Message: fmt.Sprintf(valueMustBePositiveMessagePattern, field.Child("domain", "resources", "requests", "cpu").String(),
 				spec.Domain.Resources.Requests.Cpu()),
 			Field: field.Child("domain", "resources", "requests", "cpu").String(),
-		})
+		}}
 	}
-	return causes
+	return nil
 }
 
-func validateFirmwareSerial(field *k8sfield.Path, spec *v1.VirtualMachineInstanceSpec) (causes []metav1.StatusCause) {
-	if spec.Domain.Firmware != nil && len(spec.Domain.Firmware.Serial) > 0 {
-		// Verify serial number is within valid length, if provided
-		if len(spec.Domain.Firmware.Serial) > maxStrLen {
-			causes = append(causes, metav1.StatusCause{
-				Type: metav1.CauseTypeFieldValueInvalid,
-				Message: fmt.Sprintf("%s must be less than or equal to %d in length, if specified",
-					field.Child("domain", "firmware", "serial").String(),
-					maxStrLen,
-				),
-				Field: field.Child("domain", "firmware", "serial").String(),
-			})
-		}
-		// Verify serial number is made up of valid characters for libvirt, if provided
-		isValid := regexp.MustCompile(`^[A-Za-z0-9_.+-]+$`).MatchString
-		if !isValid(spec.Domain.Firmware.Serial) {
-			causes = append(causes, metav1.StatusCause{
-				Type:    metav1.CauseTypeFieldValueInvalid,
-				Message: fmt.Sprintf("%s must be made up of the following characters [A-Za-z0-9_.+-], if specified", field.Child("domain", "firmware", "serial").String()),
-				Field:   field.Child("domain", "firmware", "serial").String(),
-			})
-		}
+func validateFirmwareSerial(field *k8sfield.Path, spec *v1.VirtualMachineInstanceSpec) []metav1.StatusCause {
+	if spec.Domain.Firmware == nil || len(spec.Domain.Firmware.Serial) == 0 {
+		return nil
 	}
-	return causes
+
+	// Verify serial number is within valid length, if provided
+	if len(spec.Domain.Firmware.Serial) > maxStrLen {
+		return []metav1.StatusCause{{
+			Type: metav1.CauseTypeFieldValueInvalid,
+			Message: fmt.Sprintf("%s must be less than or equal to %d in length, if specified",
+				field.Child("domain", "firmware", "serial").String(),
+				maxStrLen,
+			),
+			Field: field.Child("domain", "firmware", "serial").String(),
+		}}
+	}
+	// Verify serial number is made up of valid characters for libvirt, if provided
+	isValid := regexp.MustCompile(`^[A-Za-z0-9_.+-]+$`).MatchString
+	if !isValid(spec.Domain.Firmware.Serial) {
+		return []metav1.StatusCause{{
+			Type:    metav1.CauseTypeFieldValueInvalid,
+			Message: fmt.Sprintf("%s must be made up of the following characters [A-Za-z0-9_.+-], if specified", field.Child("domain", "firmware", "serial").String()),
+			Field:   field.Child("domain", "firmware", "serial").String(),
+		}}
+	}
+
+	return nil
 }
 
-func validateEmulatedMachine(field *k8sfield.Path, spec *v1.VirtualMachineInstanceSpec, config *virtconfig.ClusterConfig) (causes []metav1.StatusCause) {
-	if machine := spec.Domain.Machine; machine != nil && len(machine.Type) > 0 {
-		supportedMachines := config.GetEmulatedMachines()
-		var match = false
-		for _, val := range supportedMachines {
-			if regexp.MustCompile(val).MatchString(machine.Type) {
-				match = true
-				break
-			}
-		}
-		if !match {
-			causes = append(causes, metav1.StatusCause{
-				Type: metav1.CauseTypeFieldValueInvalid,
-				Message: fmt.Sprintf("%s is not supported: %s (allowed values: %v)",
-					field.Child("domain", "machine", "type").String(),
-					machine.Type,
-					supportedMachines,
-				),
-				Field: field.Child("domain", "machine", "type").String(),
-			})
+func validateEmulatedMachine(field *k8sfield.Path, spec *v1.VirtualMachineInstanceSpec, config *virtconfig.ClusterConfig) []metav1.StatusCause {
+	machine := spec.Domain.Machine
+	if machine == nil || len(machine.Type) == 0 {
+		return nil
+	}
+
+	supportedMachines := config.GetEmulatedMachines()
+	for _, val := range supportedMachines {
+		if regexp.MustCompile(val).MatchString(machine.Type) {
+			return nil
 		}
 	}
-	return causes
+
+	return []metav1.StatusCause{{
+		Type: metav1.CauseTypeFieldValueInvalid,
+		Message: fmt.Sprintf("%s is not supported: %s (allowed values: %v)",
+			field.Child("domain", "machine", "type").String(),
+			machine.Type,
+			supportedMachines,
+		),
+		Field: field.Child("domain", "machine", "type").String(),
+	}}
 }
 
-func validateGuestMemoryLimit(field *k8sfield.Path, spec *v1.VirtualMachineInstanceSpec) (causes []metav1.StatusCause) {
-	if spec.Domain.Memory != nil && spec.Domain.Memory.Guest != nil {
-		limits := spec.Domain.Resources.Limits.Memory().Value()
-		guest := spec.Domain.Memory.Guest.Value()
-		if limits < guest && limits != 0 {
-			causes = append(causes, metav1.StatusCause{
-				Type: metav1.CauseTypeFieldValueInvalid,
-				Message: fmt.Sprintf("%s '%s' must be equal to or less than the memory limit %s '%s'",
-					field.Child("domain", "memory", "guest").String(),
-					spec.Domain.Memory.Guest,
-					field.Child("domain", "resources", "limits", "memory").String(),
-					spec.Domain.Resources.Limits.Memory(),
-				),
-				Field: field.Child("domain", "memory", "guest").String(),
-			})
-		}
+func validateGuestMemoryLimit(field *k8sfield.Path, spec *v1.VirtualMachineInstanceSpec) []metav1.StatusCause {
+	if spec.Domain.Memory == nil || spec.Domain.Memory.Guest == nil {
+		return nil
 	}
-	return causes
-}
 
-func validateHugepagesMemoryRequests(field *k8sfield.Path, spec *v1.VirtualMachineInstanceSpec) (causes []metav1.StatusCause) {
-	if spec.Domain.Memory != nil && spec.Domain.Memory.Hugepages != nil {
-		hugepagesSize, err := resource.ParseQuantity(spec.Domain.Memory.Hugepages.PageSize)
-		if err != nil {
-			causes = append(causes, metav1.StatusCause{
-				Type: metav1.CauseTypeFieldValueInvalid,
-				Message: fmt.Sprintf("%s '%s': %s",
-					field.Child("domain", "hugepages", "size").String(),
-					spec.Domain.Memory.Hugepages.PageSize,
-					resource.ErrFormatWrong,
-				),
-				Field: field.Child("domain", "hugepages", "size").String(),
-			})
-		} else {
-			vmMemory := spec.Domain.Resources.Requests.Memory().Value()
-			if vmMemory < hugepagesSize.Value() {
-				causes = append(causes, metav1.StatusCause{
-					Type: metav1.CauseTypeFieldValueInvalid,
-					Message: fmt.Sprintf("%s '%s' must be equal to or larger than page size %s '%s'",
-						field.Child("domain", "resources", "requests", "memory").String(),
-						spec.Domain.Resources.Requests.Memory(),
-						field.Child("domain", "hugepages", "size").String(),
-						spec.Domain.Memory.Hugepages.PageSize,
-					),
-					Field: field.Child("domain", "resources", "requests", "memory").String(),
-				})
-			} else if vmMemory%hugepagesSize.Value() != 0 {
-				causes = append(causes, metav1.StatusCause{
-					Type: metav1.CauseTypeFieldValueInvalid,
-					Message: fmt.Sprintf("%s '%s' is not a multiple of the page size %s '%s'",
-						field.Child("domain", "resources", "requests", "memory").String(),
-						spec.Domain.Resources.Requests.Memory(),
-						field.Child("domain", "hugepages", "size").String(),
-						spec.Domain.Memory.Hugepages.PageSize,
-					),
-					Field: field.Child("domain", "resources", "requests", "memory").String(),
-				})
-			}
-		}
+	limits := spec.Domain.Resources.Limits.Memory().Value()
+	guest := spec.Domain.Memory.Guest.Value()
+	if limits < guest && limits != 0 {
+		return []metav1.StatusCause{{
+			Type: metav1.CauseTypeFieldValueInvalid,
+			Message: fmt.Sprintf("%s '%s' must be equal to or less than the memory limit %s '%s'",
+				field.Child("domain", "memory", "guest").String(),
+				spec.Domain.Memory.Guest,
+				field.Child("domain", "resources", "limits", "memory").String(),
+				spec.Domain.Resources.Limits.Memory(),
+			),
+			Field: field.Child("domain", "memory", "guest").String(),
+		}}
 	}
-	return causes
+
+	return nil
 }
 
-func validateMemoryLimitsNegativeOrNull(field *k8sfield.Path, spec *v1.VirtualMachineInstanceSpec) (causes []metav1.StatusCause) {
+func validateHugepagesMemoryRequests(field *k8sfield.Path, spec *v1.VirtualMachineInstanceSpec) []metav1.StatusCause {
+	if spec.Domain.Memory == nil || spec.Domain.Memory.Hugepages == nil {
+		return nil
+	}
+
+	hugepagesSize, err := resource.ParseQuantity(spec.Domain.Memory.Hugepages.PageSize)
+	if err != nil {
+		return []metav1.StatusCause{{
+			Type: metav1.CauseTypeFieldValueInvalid,
+			Message: fmt.Sprintf("%s '%s': %s",
+				field.Child("domain", "hugepages", "size").String(),
+				spec.Domain.Memory.Hugepages.PageSize,
+				resource.ErrFormatWrong,
+			),
+			Field: field.Child("domain", "hugepages", "size").String(),
+		}}
+	}
+
+	vmMemory := spec.Domain.Resources.Requests.Memory().Value()
+	if vmMemory < hugepagesSize.Value() {
+		return []metav1.StatusCause{{
+			Type: metav1.CauseTypeFieldValueInvalid,
+			Message: fmt.Sprintf("%s '%s' must be equal to or larger than page size %s '%s'",
+				field.Child("domain", "resources", "requests", "memory").String(),
+				spec.Domain.Resources.Requests.Memory(),
+				field.Child("domain", "hugepages", "size").String(),
+				spec.Domain.Memory.Hugepages.PageSize,
+			),
+			Field: field.Child("domain", "resources", "requests", "memory").String(),
+		}}
+	}
+	if vmMemory%hugepagesSize.Value() != 0 {
+		return []metav1.StatusCause{{
+			Type: metav1.CauseTypeFieldValueInvalid,
+			Message: fmt.Sprintf("%s '%s' is not a multiple of the page size %s '%s'",
+				field.Child("domain", "resources", "requests", "memory").String(),
+				spec.Domain.Resources.Requests.Memory(),
+				field.Child("domain", "hugepages", "size").String(),
+				spec.Domain.Memory.Hugepages.PageSize,
+			),
+			Field: field.Child("domain", "resources", "requests", "memory").String(),
+		}}
+	}
+
+	return nil
+}
+
+func validateMemoryLimitsNegativeOrNull(field *k8sfield.Path, spec *v1.VirtualMachineInstanceSpec) []metav1.StatusCause {
 	if spec.Domain.Resources.Limits.Memory().Value() < 0 {
-		causes = append(causes, metav1.StatusCause{
+		return []metav1.StatusCause{{
 			Type: metav1.CauseTypeFieldValueInvalid,
 			Message: fmt.Sprintf(valueMustBePositiveMessagePattern, field.Child("domain", "resources", "limits", "memory").String(),
 				spec.Domain.Resources.Limits.Memory()),
 			Field: field.Child("domain", "resources", "limits", "memory").String(),
-		})
+		}}
 	}
 
 	if spec.Domain.Resources.Limits.Memory().Value() > 0 &&
 		spec.Domain.Resources.Requests.Memory().Value() > spec.Domain.Resources.Limits.Memory().Value() {
-		causes = append(causes, metav1.StatusCause{
+		return []metav1.StatusCause{{
 			Type: metav1.CauseTypeFieldValueInvalid,
 			Message: fmt.Sprintf("%s '%s' is greater than %s '%s'", field.Child("domain", "resources", "requests", "memory").String(),
 				spec.Domain.Resources.Requests.Memory(),
 				field.Child("domain", "resources", "limits", "memory").String(),
 				spec.Domain.Resources.Limits.Memory()),
 			Field: field.Child("domain", "resources", "requests", "memory").String(),
-		})
+		}}
 	}
-	return causes
+	return nil
 }
 
-func validateMemoryRequestsNegativeOrNull(field *k8sfield.Path, spec *v1.VirtualMachineInstanceSpec) (causes []metav1.StatusCause) {
+func validateMemoryRequestsNegativeOrNull(field *k8sfield.Path, spec *v1.VirtualMachineInstanceSpec) []metav1.StatusCause {
 	if spec.Domain.Resources.Requests.Memory().Value() < 0 {
-		causes = append(causes, metav1.StatusCause{
+		return []metav1.StatusCause{{
 			Type: metav1.CauseTypeFieldValueInvalid,
 			Message: fmt.Sprintf(valueMustBePositiveMessagePattern, field.Child("domain", "resources", "requests", "memory").String(),
 				spec.Domain.Resources.Requests.Memory()),
 			Field: field.Child("domain", "resources", "requests", "memory").String(),
-		})
-	} else if spec.Domain.Resources.Requests.Memory().Value() > 0 && spec.Domain.Resources.Requests.Memory().Cmp(resource.MustParse("1M")) < 0 {
-		causes = append(causes, metav1.StatusCause{
+		}}
+	}
+	if spec.Domain.Resources.Requests.Memory().Value() > 0 && spec.Domain.Resources.Requests.Memory().Cmp(resource.MustParse("1M")) < 0 {
+		return []metav1.StatusCause{{
 			Type: metav1.CauseTypeFieldValueInvalid,
 			Message: fmt.Sprintf("%s '%s': must be greater than or equal to 1M.", field.Child("domain", "resources", "requests", "memory").String(),
 				spec.Domain.Resources.Requests.Memory()),
 			Field: field.Child("domain", "resources", "requests", "memory").String(),
-		})
+		}}
 	}
-	return causes
+	return nil
 }
 
-func validateSubdomainDNSSubdomainRules(field *k8sfield.Path, spec *v1.VirtualMachineInstanceSpec) (causes []metav1.StatusCause) {
-	if spec.Subdomain != "" {
-		errors := validation.IsDNS1123Subdomain(spec.Subdomain)
-		if len(errors) != 0 {
-			causes = append(causes, metav1.StatusCause{
-				Type: metav1.CauseTypeFieldValueInvalid,
-				Message: fmt.Sprintf("%s does not conform to the kubernetes DNS_SUBDOMAIN rules : %s",
-					field.Child("subdomain").String(), strings.Join(errors, ", ")),
-				Field: field.Child("subdomain").String(),
-			})
-		}
+func validateSubdomainDNSSubdomainRules(field *k8sfield.Path, spec *v1.VirtualMachineInstanceSpec) []metav1.StatusCause {
+	if spec.Subdomain == "" {
+		return nil
 	}
-	return causes
+
+	errors := validation.IsDNS1123Subdomain(spec.Subdomain)
+	if len(errors) != 0 {
+		return []metav1.StatusCause{{
+			Type: metav1.CauseTypeFieldValueInvalid,
+			Message: fmt.Sprintf("%s does not conform to the kubernetes DNS_SUBDOMAIN rules : %s",
+				field.Child("subdomain").String(), strings.Join(errors, ", ")),
+			Field: field.Child("subdomain").String(),
+		}}
+	}
+
+	return nil
 }
 
-func validateHostNameNotConformingToDNSLabelRules(field *k8sfield.Path, spec *v1.VirtualMachineInstanceSpec) (causes []metav1.StatusCause) {
-	if spec.Hostname != "" {
-		errors := validation.IsDNS1123Label(spec.Hostname)
-		if len(errors) != 0 {
-			causes = appendNewStatusCauseForHostNameNotConformingToDNSLabelRules(field, causes, errors)
-		}
+func validateHostNameNotConformingToDNSLabelRules(field *k8sfield.Path, spec *v1.VirtualMachineInstanceSpec) []metav1.StatusCause {
+	if spec.Hostname == "" {
+		return nil
 	}
-	return causes
+
+	errors := validation.IsDNS1123Label(spec.Hostname)
+	if len(errors) != 0 {
+		return []metav1.StatusCause{{
+			Type: metav1.CauseTypeFieldValueInvalid,
+			Message: fmt.Sprintf("%s does not conform to the kubernetes DNS_LABEL rules : %s",
+				field.Child("hostname").String(), strings.Join(errors, ", ")),
+			Field: field.Child("hostname").String(),
+		}}
+	}
+
+	return nil
 }
 
 func validateRealtime(field *k8sfield.Path, spec *v1.VirtualMachineInstanceSpec, nonroot bool) (causes []metav1.StatusCause) {
@@ -1553,15 +1582,6 @@ func validateMemoryRealtime(field *k8sfield.Path, spec *v1.VirtualMachineInstanc
 	return causes
 }
 
-func appendNewStatusCauseForHostNameNotConformingToDNSLabelRules(field *k8sfield.Path, causes []metav1.StatusCause, errors []string) []metav1.StatusCause {
-	return append(causes, metav1.StatusCause{
-		Type: metav1.CauseTypeFieldValueInvalid,
-		Message: fmt.Sprintf("%s does not conform to the kubernetes DNS_LABEL rules : %s",
-			field.Child("hostname").String(), strings.Join(errors, ", ")),
-		Field: field.Child("hostname").String(),
-	})
-}
-
 func appendNewStatusCauseForMaxNumberOfVolumesExceeded(field *k8sfield.Path, causes []metav1.StatusCause) []metav1.StatusCause {
 	return append(causes, metav1.StatusCause{
 		Type:    metav1.CauseTypeFieldValueInvalid,
@@ -1581,22 +1601,19 @@ func appendNewStatusCauseForNumberOfDisksExceeded(field *k8sfield.Path, causes [
 // ValidateVirtualMachineInstanceMandatoryFields should be invoked after all defaults and presets are applied.
 // It is only meant to be used for VMI reviews, not if they are templates on other objects
 func ValidateVirtualMachineInstanceMandatoryFields(field *k8sfield.Path, spec *v1.VirtualMachineInstanceSpec) []metav1.StatusCause {
-	var causes []metav1.StatusCause
-
 	requests := spec.Domain.Resources.Requests.Memory().Value()
-
 	if requests == 0 &&
 		(spec.Domain.Memory == nil || spec.Domain.Memory != nil &&
 			spec.Domain.Memory.Guest == nil && spec.Domain.Memory.Hugepages == nil) {
-		causes = append(causes, metav1.StatusCause{
+		return []metav1.StatusCause{{
 			Type: metav1.CauseTypeFieldValueRequired,
 			Message: fmt.Sprintf("no memory requested, at least one of '%s', '%s' or '%s' must be set",
 				field.Child("domain", "memory", "guest").String(),
 				field.Child("domain", "memory", "hugepages", "size").String(),
 				field.Child("domain", "resources", "requests", "memory").String()),
-		})
+		}}
 	}
-	return causes
+	return nil
 }
 
 func ValidateVirtualMachineInstanceMetadata(field *k8sfield.Path, metadata *metav1.ObjectMeta, config *virtconfig.ClusterConfig, accountName string) []metav1.StatusCause {
@@ -1652,28 +1669,25 @@ func ValidateDuplicateDHCPPrivateOptions(PrivateOptions []v1.DHCPPrivateOptions)
 
 // Copied from kubernetes/pkg/apis/core/validation/validation.go
 func validatePodDNSConfig(dnsConfig *k8sv1.PodDNSConfig, dnsPolicy *k8sv1.DNSPolicy, field *k8sfield.Path) []metav1.StatusCause {
-	var causes []metav1.StatusCause
-
 	// Validate DNSNone case. Must provide at least one DNS name server.
 	if dnsPolicy != nil && *dnsPolicy == k8sv1.DNSNone {
 		if dnsConfig == nil {
-			causes = append(causes, metav1.StatusCause{
+			return []metav1.StatusCause{{
 				Type:    metav1.CauseTypeFieldValueRequired,
 				Message: fmt.Sprintf("must provide `dnsConfig` when `dnsPolicy` is %s", k8sv1.DNSNone),
 				Field:   field.String(),
-			})
-			return causes
+			}}
 		}
 		if len(dnsConfig.Nameservers) == 0 {
-			causes = append(causes, metav1.StatusCause{
+			return []metav1.StatusCause{{
 				Type:    metav1.CauseTypeFieldValueRequired,
 				Message: fmt.Sprintf("must provide at least one DNS nameserver when `dnsPolicy` is %s", k8sv1.DNSNone),
 				Field:   "nameservers",
-			})
-			return causes
+			}}
 		}
 	}
 
+	var causes []metav1.StatusCause
 	if dnsConfig != nil {
 		// Validate nameservers.
 		if len(dnsConfig.Nameservers) > maxDNSNameservers {
@@ -1748,27 +1762,24 @@ func validateDNSPolicy(dnsPolicy *k8sv1.DNSPolicy, field *k8sfield.Path) []metav
 }
 
 func validateBootloader(field *k8sfield.Path, bootloader *v1.Bootloader) []metav1.StatusCause {
-	var causes []metav1.StatusCause
-
 	if bootloader != nil && bootloader.EFI != nil && bootloader.BIOS != nil {
-		causes = append(causes, metav1.StatusCause{
+		return []metav1.StatusCause{{
 			Type:    metav1.CauseTypeFieldValueInvalid,
 			Message: fmt.Sprintf("%s has both EFI and BIOS configured, but they are mutually exclusive.", field.String()),
 			Field:   field.String(),
-		})
+		}}
 	}
-
-	return causes
+	return nil
 }
 
 func validateFirmware(field *k8sfield.Path, firmware *v1.Firmware) []metav1.StatusCause {
-	var causes []metav1.StatusCause
-
-	if firmware != nil {
-		causes = append(causes, validateBootloader(field.Child("bootloader"), firmware.Bootloader)...)
-		causes = append(causes, validateKernelBoot(field.Child("kernelBoot"), firmware.KernelBoot)...)
+	if firmware == nil {
+		return nil
 	}
 
+	var causes []metav1.StatusCause
+	causes = append(causes, validateBootloader(field.Child("bootloader"), firmware.Bootloader)...)
+	causes = append(causes, validateKernelBoot(field.Child("kernelBoot"), firmware.KernelBoot)...)
 	return causes
 }
 
@@ -1792,16 +1803,13 @@ func validateDomainSpec(field *k8sfield.Path, spec *v1.DomainSpec) []metav1.Stat
 }
 
 func validateAccessCredentials(field *k8sfield.Path, accessCredentials []v1.AccessCredential, volumes []v1.Volume) []metav1.StatusCause {
-	var causes []metav1.StatusCause
-
 	if len(accessCredentials) > arrayLenMax {
-		causes = append(causes, metav1.StatusCause{
+		// We won't process anything over the limit
+		return []metav1.StatusCause{{
 			Type:    metav1.CauseTypeFieldValueInvalid,
 			Message: fmt.Sprintf(listExceedsLimitMessagePattern, field.String(), arrayLenMax),
 			Field:   field.String(),
-		})
-		// We won't process anything over the limit
-		return causes
+		}}
 	}
 
 	hasConfigDriveVolume := false
@@ -1812,86 +1820,18 @@ func validateAccessCredentials(field *k8sfield.Path, accessCredentials []v1.Acce
 		}
 	}
 
+	var causes []metav1.StatusCause
 	for idx, accessCred := range accessCredentials {
-
 		count := 0
 		// one access cred type must be selected
 		if accessCred.SSHPublicKey != nil {
 			count++
-
-			sourceCount := 0
-			methodCount := 0
-			if accessCred.SSHPublicKey.Source.Secret != nil {
-				sourceCount++
-			}
-
-			if accessCred.SSHPublicKey.PropagationMethod.ConfigDrive != nil {
-				methodCount++
-				if !hasConfigDriveVolume {
-					causes = append(causes, metav1.StatusCause{
-						Type:    metav1.CauseTypeFieldValueInvalid,
-						Message: fmt.Sprintf("%s requires a configDrive volume to exist when the configDrive propagationMethod is in use.", field.Index(idx).String()),
-						Field:   field.Index(idx).Child("sshPublicKey", "propagationMethod").String(),
-					})
-
-				}
-			}
-			if accessCred.SSHPublicKey.PropagationMethod.QemuGuestAgent != nil {
-
-				if len(accessCred.SSHPublicKey.PropagationMethod.QemuGuestAgent.Users) == 0 {
-					causes = append(causes, metav1.StatusCause{
-						Type:    metav1.CauseTypeFieldValueInvalid,
-						Message: fmt.Sprintf("%s requires at least one user to be present in the users list", field.Index(idx).String()),
-						Field:   field.Index(idx).Child("sshPublicKey", "propagationMethod", "qemuGuestAgent", "users").String(),
-					})
-				}
-
-				methodCount++
-			}
-
-			if sourceCount != 1 {
-				causes = append(causes, metav1.StatusCause{
-					Type:    metav1.CauseTypeFieldValueInvalid,
-					Message: fmt.Sprintf("%s must have exactly one source set", field.Index(idx).String()),
-					Field:   field.Index(idx).Child("sshPublicKey", "source").String(),
-				})
-			}
-			if methodCount != 1 {
-				causes = append(causes, metav1.StatusCause{
-					Type:    metav1.CauseTypeFieldValueInvalid,
-					Message: fmt.Sprintf("%s must have exactly one propagationMethod set", field.Index(idx).String()),
-					Field:   field.Index(idx).Child("sshPublicKey", "propagationMethod").String(),
-				})
-			}
+			causes = append(causes, validateAccessCredentialSSH(field.Index(idx), accessCred.SSHPublicKey, hasConfigDriveVolume)...)
 		}
 
 		if accessCred.UserPassword != nil {
 			count++
-
-			sourceCount := 0
-			methodCount := 0
-			if accessCred.UserPassword.Source.Secret != nil {
-				sourceCount++
-			}
-
-			if accessCred.UserPassword.PropagationMethod.QemuGuestAgent != nil {
-				methodCount++
-			}
-
-			if sourceCount != 1 {
-				causes = append(causes, metav1.StatusCause{
-					Type:    metav1.CauseTypeFieldValueInvalid,
-					Message: fmt.Sprintf("%s must have exactly one source set", field.Index(idx).String()),
-					Field:   field.Index(idx).Child("userPassword", "source").String(),
-				})
-			}
-			if methodCount != 1 {
-				causes = append(causes, metav1.StatusCause{
-					Type:    metav1.CauseTypeFieldValueInvalid,
-					Message: fmt.Sprintf("%s must have exactly one propagationMethod set", field.Index(idx).String()),
-					Field:   field.Index(idx).Child("userPassword", "propagationMethod").String(),
-				})
-			}
+			causes = append(causes, validateAccessCredentialUserPassword(field.Index(idx), accessCred.UserPassword)...)
 		}
 
 		if count != 1 {
@@ -1901,7 +1841,93 @@ func validateAccessCredentials(field *k8sfield.Path, accessCredentials []v1.Acce
 				Field:   field.Index(idx).String(),
 			})
 		}
+	}
 
+	return causes
+}
+
+func validateAccessCredentialSSH(field *k8sfield.Path, sshPublicKey *v1.SSHPublicKeyAccessCredential, hasConfigDriveVolume bool) []metav1.StatusCause {
+	if sshPublicKey == nil {
+		return nil
+	}
+
+	var causes []metav1.StatusCause
+
+	sourceCount := 0
+	if sshPublicKey.Source.Secret != nil {
+		sourceCount++
+	}
+
+	methodCount := 0
+	if sshPublicKey.PropagationMethod.ConfigDrive != nil {
+		methodCount++
+		if !hasConfigDriveVolume {
+			causes = append(causes, metav1.StatusCause{
+				Type:    metav1.CauseTypeFieldValueInvalid,
+				Message: fmt.Sprintf("%s requires a configDrive volume to exist when the configDrive propagationMethod is in use.", field.String()),
+				Field:   field.Child("sshPublicKey", "propagationMethod").String(),
+			})
+
+		}
+	}
+	if sshPublicKey.PropagationMethod.QemuGuestAgent != nil {
+		if len(sshPublicKey.PropagationMethod.QemuGuestAgent.Users) == 0 {
+			causes = append(causes, metav1.StatusCause{
+				Type:    metav1.CauseTypeFieldValueInvalid,
+				Message: fmt.Sprintf("%s requires at least one user to be present in the users list", field.String()),
+				Field:   field.Child("sshPublicKey", "propagationMethod", "qemuGuestAgent", "users").String(),
+			})
+		}
+		methodCount++
+	}
+
+	if sourceCount != 1 {
+		causes = append(causes, metav1.StatusCause{
+			Type:    metav1.CauseTypeFieldValueInvalid,
+			Message: fmt.Sprintf("%s must have exactly one source set", field.String()),
+			Field:   field.Child("sshPublicKey", "source").String(),
+		})
+	}
+	if methodCount != 1 {
+		causes = append(causes, metav1.StatusCause{
+			Type:    metav1.CauseTypeFieldValueInvalid,
+			Message: fmt.Sprintf("%s must have exactly one propagationMethod set", field.String()),
+			Field:   field.Child("sshPublicKey", "propagationMethod").String(),
+		})
+	}
+
+	return causes
+}
+
+func validateAccessCredentialUserPassword(field *k8sfield.Path, userPassword *v1.UserPasswordAccessCredential) []metav1.StatusCause {
+	if userPassword == nil {
+		return nil
+	}
+
+	sourceCount := 0
+	if userPassword.Source.Secret != nil {
+		sourceCount++
+	}
+
+	var causes []metav1.StatusCause
+	if sourceCount != 1 {
+		causes = append(causes, metav1.StatusCause{
+			Type:    metav1.CauseTypeFieldValueInvalid,
+			Message: fmt.Sprintf("%s must have exactly one source set", field.String()),
+			Field:   field.Child("userPassword", "source").String(),
+		})
+	}
+
+	methodCount := 0
+	if userPassword.PropagationMethod.QemuGuestAgent != nil {
+		methodCount++
+	}
+	if methodCount != 1 {
+		causes = append(causes, metav1.StatusCause{
+			Type:    metav1.CauseTypeFieldValueInvalid,
+			Message: fmt.Sprintf("%s must have exactly one propagationMethod set", field.String()),
+			Field:   field.Child("userPassword", "propagationMethod").String(),
+		})
 	}
 
 	return causes
