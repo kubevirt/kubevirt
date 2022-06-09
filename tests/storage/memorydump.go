@@ -337,7 +337,7 @@ var _ = SIGDescribe("Memory dump", func() {
 			if !exists {
 				Skip("Skip no filesystem storage class available")
 			}
-			tests.CheckNoProvisionerStorageClassPVs(sc, numPVs)
+			libstorage.CheckNoProvisionerStorageClassPVs(sc, numPVs)
 
 			vm = createAndStartVM()
 

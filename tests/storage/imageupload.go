@@ -211,7 +211,7 @@ var _ = SIGDescribe("[Serial]ImageUpload", func() {
 	Context("Create upload volume with force-bind flag", func() {
 		DescribeTable("Should succeed", func(resource, targetName string, validateFunc func(string), deleteFunc func(string)) {
 			storageClass, exists := libstorage.GetRWOFileSystemStorageClass()
-			if !exists || !tests.IsStorageClassBindingModeWaitForFirstConsumer(storageClass) {
+			if !exists || !libstorage.IsStorageClassBindingModeWaitForFirstConsumer(storageClass) {
 				Skip("Skip no wffc storage class available")
 			}
 			defer deleteFunc(targetName)

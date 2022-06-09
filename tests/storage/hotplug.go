@@ -513,10 +513,10 @@ var _ = SIGDescribe("Hotplug", func() {
 		BeforeEach(func() {
 			var exists bool
 			sc, exists = libstorage.GetRWOFileSystemStorageClass()
-			if !exists || !tests.IsStorageClassBindingModeWaitForFirstConsumer(sc) {
+			if !exists || !libstorage.IsStorageClassBindingModeWaitForFirstConsumer(sc) {
 				Skip("Skip no wffc storage class available")
 			}
-			tests.CheckNoProvisionerStorageClassPVs(sc, numPVs)
+			libstorage.CheckNoProvisionerStorageClassPVs(sc, numPVs)
 
 			vm = createAndStartWFFCStorageHotplugVM()
 		})
@@ -1167,7 +1167,7 @@ var _ = SIGDescribe("Hotplug", func() {
 		BeforeEach(func() {
 			var exists bool
 			sc, exists = libstorage.GetRWOFileSystemStorageClass()
-			if !exists || !tests.IsStorageClassBindingModeWaitForFirstConsumer(sc) {
+			if !exists || !libstorage.IsStorageClassBindingModeWaitForFirstConsumer(sc) {
 				Skip("Skip no wffc storage class available")
 			}
 			vm = createAndStartWFFCStorageHotplugVM()

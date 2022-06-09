@@ -51,7 +51,6 @@ import (
 	. "github.com/onsi/gomega"
 	"golang.org/x/crypto/ssh"
 	k8sv1 "k8s.io/api/core/v1"
-	storagev1 "k8s.io/api/storage/v1"
 	"k8s.io/apimachinery/pkg/api/errors"
 	"k8s.io/apimachinery/pkg/api/resource"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
@@ -154,8 +153,6 @@ const (
 )
 
 const StorageClassHostPathSeparateDevice = "host-path-sd"
-
-var wffc = storagev1.VolumeBindingWaitForFirstConsumer
 
 func TestCleanup() {
 	testsuite.CleanNamespaces()
@@ -433,34 +430,6 @@ func CreateHostPathPvWithSizeAndStorageClass(osName, hostPath, size, sc string) 
 		util2.PanicOnError(err)
 	}
 	return libnode.SchedulableNode
-}
-
-func CheckNoProvisionerStorageClassPVs(storageClassName string, numExpectedPVs int) {
-	virtClient, err := kubecli.GetKubevirtClient()
-	util2.PanicOnError(err)
-	sc, err := virtClient.StorageV1().StorageClasses().Get(context.Background(), storageClassName, metav1.GetOptions{})
-	Expect(err).ToNot(HaveOccurred())
-
-	if sc.Provisioner != "" && sc.Provisioner != "kubernetes.io/no-provisioner" {
-		return
-	}
-
-	// Verify we have at least `numExpectedPVs` available file system PVs
-	pvList, err := virtClient.CoreV1().PersistentVolumes().List(context.TODO(), metav1.ListOptions{})
-	Expect(err).ToNot(HaveOccurred())
-	count := 0
-	for _, pv := range pvList.Items {
-		if pv.Spec.StorageClassName != storageClassName || pv.Spec.NodeAffinity == nil || pv.Spec.NodeAffinity.Required == nil || len(pv.Spec.NodeAffinity.Required.NodeSelectorTerms) == 0 || (pv.Spec.VolumeMode != nil && *pv.Spec.VolumeMode == k8sv1.PersistentVolumeBlock) {
-			// Not a local volume filesystem PV
-			continue
-		}
-		if pv.Spec.ClaimRef == nil {
-			count++
-		}
-	}
-	if count < numExpectedPVs {
-		Skip("Not enough available filesystem local storage PVs available, expected: %d", numExpectedPVs)
-	}
 }
 
 func ServiceMonitorEnabled() bool {
@@ -2317,17 +2286,6 @@ func SetDataVolumeForceBindAnnotation(dv *cdiv1.DataVolume) {
 	}
 	annotations["cdi.kubevirt.io/storage.bind.immediate.requested"] = "true"
 	dv.SetAnnotations(annotations)
-}
-
-func IsStorageClassBindingModeWaitForFirstConsumer(sc string) bool {
-	virtClient, err := kubecli.GetKubevirtClient()
-	Expect(err).ToNot(HaveOccurred())
-	storageClass, err := virtClient.StorageV1().StorageClasses().Get(context.Background(), sc, metav1.GetOptions{})
-	if err != nil {
-		return false
-	}
-	return storageClass.VolumeBindingMode != nil &&
-		*storageClass.VolumeBindingMode == wffc
 }
 
 func GetVmPodName(virtCli kubecli.KubevirtClient, vmi *v1.VirtualMachineInstance) string {
