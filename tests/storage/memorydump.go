@@ -58,6 +58,7 @@ const (
 	waitMemoryDumpRequestRemove      = "waiting on memory dump request to be remove from vm status"
 	waitMemoryDumpPvcVolumeRemove    = "waiting on memory dump pvc to be remove from vm volumes"
 	waitMemoryDumpCompletion         = "waiting on memory dump completion in vm, phase: %s"
+	waitMemoryDumpAnnotation         = "waiting on memory dump annotation on pvc"
 	waitVMIMemoryDumpPvcVolume       = "waiting memory dump not to be in vmi volumes list"
 	waitVMIMemoryDumpPvcVolumeStatus = "waiting memory dump not to be in vmi volumeStatus list"
 )
@@ -189,6 +190,13 @@ var _ = SIGDescribe("Memory dump", func() {
 			if !foundPvc {
 				return fmt.Errorf(waitMemoryDumpPvcVolume)
 			}
+
+			pvc, err := virtClient.CoreV1().PersistentVolumeClaims(vm.Namespace).Get(context.Background(), memoryDumpPVC, metav1.GetOptions{})
+			if err != nil {
+				return err
+			}
+			Expect(pvc.GetAnnotations()).ToNot(BeNil())
+			Expect(pvc.Annotations[v1.PVCMemoryDumpAnnotation]).To(Equal(*updatedVM.Status.MemoryDumpRequest.FileName))
 
 			return nil
 		}, 90*time.Second, 1*time.Second).ShouldNot(HaveOccurred())

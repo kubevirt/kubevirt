@@ -868,6 +868,10 @@ const (
 
 	// VirtualMachineNameLabel is the name of the Virtual Machine
 	VirtualMachineNameLabel string = "vm.kubevirt.io/name"
+
+	// PVCMemoryDumpAnnotation is the name of the memory dump representing the vm name,
+	// pvc name and the timestamp the memory dump was collected
+	PVCMemoryDumpAnnotation string = "kubevirt.io/memory-dump"
 )
 
 func NewVMI(name string, uid types.UID) *VirtualMachineInstance {

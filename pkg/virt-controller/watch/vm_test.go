@@ -1799,7 +1799,8 @@ var _ = Describe("VirtualMachine", func() {
 
 		Context("VM memory dump", func() {
 			const (
-				testPVCName = "testPVC"
+				testPVCName    = "testPVC"
+				targetFileName = "memory.dump"
 			)
 
 			shouldExpectVMIVolumesAddPatched := func(vmi *virtv1.VirtualMachineInstance) {
@@ -1837,6 +1838,22 @@ var _ = Describe("VirtualMachine", func() {
 				spec.Volumes = append(spec.Volumes, newVolume)
 
 				return spec
+			}
+
+			expectPVCAnnotationUpdate := func(expectedAnnotation string, pvcAnnotationUpdated chan bool) {
+				virtClient.EXPECT().CoreV1().Return(k8sClient.CoreV1()).AnyTimes()
+				k8sClient.Fake.PrependReactor("update", "persistentvolumeclaims", func(action testing.Action) (bool, runtime.Object, error) {
+					update, ok := action.(testing.UpdateAction)
+					Expect(ok).To(BeTrue())
+
+					pvc, ok := update.GetObject().(*k8sv1.PersistentVolumeClaim)
+					Expect(ok).To(BeTrue())
+					Expect(pvc.Name).To(Equal(testPVCName))
+					Expect(pvc.Annotations[virtv1.PVCMemoryDumpAnnotation]).To(Equal(expectedAnnotation))
+					pvcAnnotationUpdated <- true
+
+					return true, nil, nil
+				})
 			}
 
 			It("should add memory dump volume and update vmi volumes", func() {
@@ -1912,7 +1929,7 @@ var _ = Describe("VirtualMachine", func() {
 							StartTimestamp: &now,
 							EndTimestamp:   &now,
 							ClaimName:      testPVCName,
-							TargetFileName: "memory.dump",
+							TargetFileName: targetFileName,
 						},
 					},
 				}
@@ -1975,13 +1992,17 @@ var _ = Describe("VirtualMachine", func() {
 				controller.Execute()
 			})
 
-			DescribeTable("should remove memory dump volume from vmi volumes", func(phase virtv1.MemoryDumpPhase) {
+			DescribeTable("should remove memory dump volume from vmi volumes and update pvc annotation", func(phase virtv1.MemoryDumpPhase, expectedAnnotation string) {
 				vm, vmi := DefaultVirtualMachine(true)
 				vm.Status.Created = true
 				vm.Status.Ready = true
 				vm.Status.MemoryDumpRequest = &virtv1.VirtualMachineMemoryDumpRequest{
 					ClaimName: testPVCName,
 					Phase:     phase,
+				}
+				if phase != virtv1.MemoryDumpFailed {
+					fileName := targetFileName
+					vm.Status.MemoryDumpRequest.FileName = &fileName
 				}
 
 				vm.Spec.Template.Spec = *applyVMIMemoryDumpVol(&vm.Spec.Template.Spec)
@@ -1997,14 +2018,32 @@ var _ = Describe("VirtualMachine", func() {
 				}
 				markAsReady(vmi)
 				vmiFeeder.Add(vmi)
+				pvc := k8sv1.PersistentVolumeClaim{
+					ObjectMeta: metav1.ObjectMeta{
+						Name:      testPVCName,
+						Namespace: vm.Namespace,
+					},
+				}
+				pvcInformer.GetStore().Add(&pvc)
 
+				pvcAnnotationUpdated := make(chan bool, 1)
+				defer close(pvcAnnotationUpdated)
+				expectPVCAnnotationUpdate(expectedAnnotation, pvcAnnotationUpdated)
 				shouldExpectVMIVolumesRemovePatched(vmi)
 				vmInterface.EXPECT().UpdateStatus(gomock.Any()).Times(1).Return(vm, nil)
 
 				controller.Execute()
+				Eventually(func() bool {
+					select {
+					case updated := <-pvcAnnotationUpdated:
+						return updated
+					default:
+					}
+					return false
+				}, 10*time.Second, 2).Should(BeTrue(), "failed, pvc annotation wasn't updated")
 			},
-				Entry("when phase is Unmounting", virtv1.MemoryDumpUnmounting),
-				Entry("when phase is Failed", virtv1.MemoryDumpFailed),
+				Entry("when phase is Unmounting", virtv1.MemoryDumpUnmounting, targetFileName),
+				Entry("when phase is Failed", virtv1.MemoryDumpFailed, "Memory dump failed"),
 			)
 
 			It("should update memory dump to complete once memory dump volume unmounted", func() {

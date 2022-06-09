@@ -75,6 +75,7 @@ const (
 	failedCreateCRforVmErrMsg             = "Failed to create controller revision for VirtualMachine."
 	failedProcessDeleteNotificationErrMsg = "Failed to process delete notification"
 	failureDeletingVmiErrFormat           = "Failure attempting to delete VMI: %v"
+	memoryDumpFailed                      = "Memory dump failed"
 )
 
 const (
@@ -624,6 +625,43 @@ func (c *VMController) generateVMIMemoryDumpVolumePatch(vmi *virtv1.VirtualMachi
 	return err
 }
 
+func needUpdatePVCMemoryDumpAnnotation(pvc *k8score.PersistentVolumeClaim, request *virtv1.VirtualMachineMemoryDumpRequest) bool {
+	if pvc.GetAnnotations() == nil {
+		return true
+	}
+	annotation, hasAnnotation := pvc.Annotations[virtv1.PVCMemoryDumpAnnotation]
+	return !hasAnnotation || (request.Phase == virtv1.MemoryDumpUnmounting && annotation != *request.FileName) || (request.Phase == virtv1.MemoryDumpFailed && annotation != memoryDumpFailed)
+}
+
+func (c *VMController) updatePVCMemoryDumpAnnotation(vm *virtv1.VirtualMachine) error {
+	request := vm.Status.MemoryDumpRequest
+	pvc, err := c.getPersistentVolumeClaimFromCache(vm.Namespace, request.ClaimName)
+	if err != nil {
+		log.Log.Object(vm).Errorf("Error getting PersistentVolumeClaim to update memory dump annotation: %v", err)
+		return err
+	} else if pvc == nil {
+		log.Log.Object(vm).Errorf("Error getting PersistentVolumeClaim to update memory dump annotation: %v", err)
+		return fmt.Errorf("Error when trying to update memory dump annotation, pvc %s not found", request.ClaimName)
+	}
+
+	if needUpdatePVCMemoryDumpAnnotation(pvc, request) {
+		if pvc.GetAnnotations() == nil {
+			pvc.SetAnnotations(make(map[string]string, 0))
+		}
+		if request.Phase == virtv1.MemoryDumpUnmounting {
+			pvc.Annotations[virtv1.PVCMemoryDumpAnnotation] = *request.FileName
+		} else if request.Phase == virtv1.MemoryDumpFailed {
+			pvc.Annotations[virtv1.PVCMemoryDumpAnnotation] = memoryDumpFailed
+		}
+		pvc, err = c.clientset.CoreV1().PersistentVolumeClaims(pvc.Namespace).Update(context.Background(), pvc, v1.UpdateOptions{})
+		if err != nil {
+			return err
+		}
+	}
+
+	return nil
+}
+
 func (c *VMController) handleMemoryDumpRequest(vm *virtv1.VirtualMachine, vmi *virtv1.VirtualMachineInstance) error {
 	if vm.Status.MemoryDumpRequest == nil {
 		return nil
@@ -652,6 +690,9 @@ func (c *VMController) handleMemoryDumpRequest(vm *virtv1.VirtualMachine, vmi *v
 			return err
 		}
 	case virtv1.MemoryDumpUnmounting, virtv1.MemoryDumpFailed:
+		if err := c.updatePVCMemoryDumpAnnotation(vm); err != nil {
+			return err
+		}
 		// Check if the memory dump is in the vmi list of volumes,
 		// if it still there remove it to make it unmount from virt launcher
 		if _, exists := vmiVolumeMap[vm.Status.MemoryDumpRequest.ClaimName]; !exists {
