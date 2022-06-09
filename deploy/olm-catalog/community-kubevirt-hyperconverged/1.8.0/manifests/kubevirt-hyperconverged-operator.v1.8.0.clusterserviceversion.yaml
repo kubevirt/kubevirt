@@ -9,7 +9,7 @@ metadata:
     certified: "false"
     console.openshift.io/disable-operand-delete: "true"
     containerImage: quay.io/kubevirt/hyperconverged-cluster-operator:1.8.0-unstable
-    createdAt: "2022-06-04 05:13:53"
+    createdAt: "2022-06-09 05:15:10"
     description: A unified operator deploying and controlling KubeVirt and its supporting
       operators with opinionated defaults
     operatorframework.io/initialization-resource: '{"apiVersion":"hco.kubevirt.io/v1beta1","kind":"HyperConverged","metadata":{"annotations":{"deployOVS":"false"},"name":"kubevirt-hyperconverged","namespace":"kubevirt-hyperconverged"},"spec":{}}'
@@ -2420,7 +2420,7 @@ spec:
                 - name: HCO_KV_IO_VERSION
                   value: 1.8.0
                 - name: KUBEVIRT_VERSION
-                  value: v0.54.0-rc.0
+                  value: v0.54.0
                 - name: CDI_VERSION
                   value: v1.50.0
                 - name: NETWORK_ADDONS_VERSION
@@ -2702,24 +2702,24 @@ spec:
                 - virt-operator
                 env:
                 - name: OPERATOR_IMAGE
-                  value: quay.io/kubevirt/virt-operator@sha256:1740346cf2a96990ce303f7af6f66b373c96a72a554497e1467662ee9bc39db7
+                  value: quay.io/kubevirt/virt-operator@sha256:e1292fbe580bd6324788fa54c228f5a9547ff0f07f208cdd31cae7403a622ebd
                 - name: WATCH_NAMESPACE
                   valueFrom:
                     fieldRef:
                       fieldPath: metadata.annotations['olm.targetNamespaces']
                 - name: KUBEVIRT_VERSION
-                  value: v0.54.0-rc.0
+                  value: v0.54.0
                 - name: VIRT_API_SHASUM
-                  value: sha256:81e1bf282c7882444d29a47e635b5c2aa46610808ca4b6510b0b1e9f9ea1cc72
+                  value: sha256:62a9587885dc4601a730b58e3c833e21f51ce601c7d9f89e81f858f1e505bcdf
                 - name: VIRT_CONTROLLER_SHASUM
-                  value: sha256:88abee05eddf56edad3a0d52a185ea59fdb815571f836176f7f32ed89155e895
+                  value: sha256:6db6439ead30ef3e7a4a42346751eaf8113cc67b21610499cebd1c72cc6aa41f
                 - name: VIRT_HANDLER_SHASUM
-                  value: sha256:9275f08a4ac9937d18ca3121586de8f25edd619c0c25806cc6fd6f05e2025b3b
+                  value: sha256:3b4e527333c97c4af6a1d2394f87a4bbbc0d406a5a8865926a0005ebd94d7ddd
                 - name: VIRT_LAUNCHER_SHASUM
-                  value: sha256:6d39016f96033398e5ac3060e37743a895a86b124b40bc06e60af086565c466a
+                  value: sha256:4d22ae20262f81ab427cfb73c5a9f99f30fbc47b8be67710f8d6773acadd0b6b
                 - name: GS_SHASUM
-                  value: sha256:02a4d04327c6617c8cd466a101e423dc266ff0892b1936a24583a0f7c1f4da60
-                image: quay.io/kubevirt/virt-operator@sha256:1740346cf2a96990ce303f7af6f66b373c96a72a554497e1467662ee9bc39db7
+                  value: sha256:447b087da1b0489c7bc89387fd76e7c9c87e4d6d3a09f6a5d8d6d4a5fc08bc88
+                image: quay.io/kubevirt/virt-operator@sha256:e1292fbe580bd6324788fa54c228f5a9547ff0f07f208cdd31cae7403a622ebd
                 imagePullPolicy: IfNotPresent
                 name: virt-operator
                 ports:
@@ -3491,7 +3491,7 @@ spec:
     name: kubemacpool
   - image: quay.io/kubevirt-ui/kubevirt-plugin@sha256:341713582ed3d5ea2aff4325e28d86a5633025b35ff252846910c955f1917aca
     name: kubevirt-plugin
-  - image: quay.io/kubevirt/libguestfs-tools@sha256:02a4d04327c6617c8cd466a101e423dc266ff0892b1936a24583a0f7c1f4da60
+  - image: quay.io/kubevirt/libguestfs-tools@sha256:447b087da1b0489c7bc89387fd76e7c9c87e4d6d3a09f6a5d8d6d4a5fc08bc88
     name: libguestfs-tools
   - image: k8s.gcr.io/sig-storage/livenessprobe@sha256:1b7c978a792a8fa4e96244e8059bd71bb49b07e2e5a897fb0c867bdc6db20d5d
     name: livenessprobe
@@ -3509,15 +3509,15 @@ spec:
     name: ssp-operator
   - image: quay.io/kubevirt/tekton-tasks-operator@sha256:aa8ed6cd59dc235c02f8170e4b272e67801e87fe35767d2c6b31891e534a2295
     name: tekton-tasks-operator
-  - image: quay.io/kubevirt/virt-api@sha256:81e1bf282c7882444d29a47e635b5c2aa46610808ca4b6510b0b1e9f9ea1cc72
+  - image: quay.io/kubevirt/virt-api@sha256:62a9587885dc4601a730b58e3c833e21f51ce601c7d9f89e81f858f1e505bcdf
     name: virt-api
-  - image: quay.io/kubevirt/virt-controller@sha256:88abee05eddf56edad3a0d52a185ea59fdb815571f836176f7f32ed89155e895
+  - image: quay.io/kubevirt/virt-controller@sha256:6db6439ead30ef3e7a4a42346751eaf8113cc67b21610499cebd1c72cc6aa41f
     name: virt-controller
-  - image: quay.io/kubevirt/virt-handler@sha256:9275f08a4ac9937d18ca3121586de8f25edd619c0c25806cc6fd6f05e2025b3b
+  - image: quay.io/kubevirt/virt-handler@sha256:3b4e527333c97c4af6a1d2394f87a4bbbc0d406a5a8865926a0005ebd94d7ddd
     name: virt-handler
-  - image: quay.io/kubevirt/virt-launcher@sha256:6d39016f96033398e5ac3060e37743a895a86b124b40bc06e60af086565c466a
+  - image: quay.io/kubevirt/virt-launcher@sha256:4d22ae20262f81ab427cfb73c5a9f99f30fbc47b8be67710f8d6773acadd0b6b
     name: virt-launcher
-  - image: quay.io/kubevirt/virt-operator@sha256:1740346cf2a96990ce303f7af6f66b373c96a72a554497e1467662ee9bc39db7
+  - image: quay.io/kubevirt/virt-operator@sha256:e1292fbe580bd6324788fa54c228f5a9547ff0f07f208cdd31cae7403a622ebd
     name: virt-operator
   - image: quay.io/kubevirt/virtio-container-disk@sha256:3e88b9bde8792ba21d6cdaad70c79d5e9b339ef676402e932c6fcc2bda100d04
     name: virtio-container-disk
