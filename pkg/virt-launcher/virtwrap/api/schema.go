@@ -132,7 +132,6 @@ type GuestOSInfo struct {
 }
 
 type InterfaceStatus struct {
-	Name          string
 	Mac           string
 	Ip            string
 	IPs           []string
@@ -331,6 +330,8 @@ type FeatureVendorID struct {
 
 type FeatureEnabled struct {
 }
+
+type Shareable struct{}
 
 type FeatureState struct {
 	State string `xml:"state,attr,omitempty"`
@@ -587,6 +588,7 @@ type Disk struct {
 	Capacity           *int64         `xml:"capacity,omitempty"`
 	ExpandDisksEnabled bool           `xml:"expandDisksEnabled,omitempty"`
 	IOTune             *IOTune        `xml:"iotune,omitempty"`
+	Shareable          *Shareable     `xml:"shareable,omitempty"`
 }
 
 type DiskAuth struct {

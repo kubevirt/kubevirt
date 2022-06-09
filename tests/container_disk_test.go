@@ -65,14 +65,10 @@ var _ = Describe("[rfe_id:588][crit:medium][vendor:cnv-qe@redhat.com][level:comp
 		return obj
 	}
 
-	VerifyContainerDiskVMI := func(vmi *v1.VirtualMachineInstance, obj runtime.Object, ignoreWarnings bool) {
+	verifyContainerDiskVMI := func(vmi *v1.VirtualMachineInstance, obj runtime.Object) {
 		_, ok := obj.(*v1.VirtualMachineInstance)
 		Expect(ok).To(BeTrue(), "Object is not of type *v1.VirtualMachineInstance")
-		if ignoreWarnings == true {
-			tests.WaitForSuccessfulVMIStartIgnoreWarnings(obj)
-		} else {
-			tests.WaitForSuccessfulVMIStart(obj)
-		}
+		tests.WaitForSuccessfulVMIStart(obj)
 
 		// Verify Registry Disks are Online
 		pods, err := virtClient.CoreV1().Pods(util.NamespaceTestDefault).List(context.Background(), tests.UnfinishedVMIPodSelector(vmi))
@@ -196,14 +192,7 @@ var _ = Describe("[rfe_id:588][crit:medium][vendor:cnv-qe@redhat.com][level:comp
 				}
 
 				for idx, vmi := range vmis {
-					// TODO once networking is implemented properly set ignoreWarnings == false here.
-					// We have to ignore warnings because VMIs started in parallel
-					// may cause libvirt to fail to create the macvtap device in
-					// the host network.
-					// The new network implementation we're working on should resolve this.
-					// NOTE the VirtualMachineInstance still starts successfully regardless of this warning.
-					// It just requires virt-handler to retry the Start command at the moment.
-					VerifyContainerDiskVMI(vmi, objs[idx], true)
+					verifyContainerDiskVMI(vmi, objs[idx])
 				}
 			}) // Timeout is long because this test involves multiple parallel VirtualMachineInstance launches.
 		})

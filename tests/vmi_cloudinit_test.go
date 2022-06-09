@@ -91,7 +91,7 @@ var _ = Describe("[rfe_id:151][crit:high][vendor:cnv-qe@redhat.com][level:compon
 		By("Waiting the VirtualMachineInstance start")
 		vmi, ok := obj.(*v1.VirtualMachineInstance)
 		Expect(ok).To(BeTrue(), "Object is not of type *v1.VirtualMachineInstance")
-		Expect(tests.WaitForSuccessfulVMIStart(obj)).ToNot(BeEmpty())
+		Expect(tests.WaitForSuccessfulVMIStart(obj).Status.NodeName).ToNot(BeEmpty())
 		return vmi
 	}
 
@@ -403,10 +403,15 @@ var _ = Describe("[rfe_id:151][crit:high][vendor:cnv-qe@redhat.com][level:compon
 				CheckCloudInitFile(vmi, "openstack/latest/network_data.json", testNetworkData)
 			})
 			It("[test_id:4622]should have cloud-init meta_data with tagged devices", func() {
+				testFlavor := "testFlavor"
 				vmi := tests.NewRandomVMIWithEphemeralDiskAndConfigDriveUserdataNetworkData(
 					cd.ContainerDiskFor(cd.ContainerDiskCirros), "", testNetworkData, false)
 				vmi.Spec.Domain.Devices.Interfaces = []v1.Interface{{Name: "default", Tag: "specialNet", InterfaceBindingMethod: v1.InterfaceBindingMethod{Masquerade: &v1.InterfaceMasquerade{}}}}
 				vmi.Spec.Networks = []v1.Network{*v1.DefaultPodNetwork()}
+				if vmi.Annotations == nil {
+					vmi.Annotations = make(map[string]string)
+				}
+				vmi.Annotations[v1.FlavorAnnotation] = testFlavor
 				LaunchVMI(vmi)
 				tests.WaitUntilVMIReady(vmi, libnet.WithIPv6(console.LoginToCirros))
 				CheckCloudInitIsoSize(vmi, cloudinit.DataSourceConfigDrive)
@@ -418,7 +423,7 @@ var _ = Describe("[rfe_id:151][crit:high][vendor:cnv-qe@redhat.com][level:compon
 				Expect(xml.Unmarshal([]byte(domXml), domSpec)).To(Succeed())
 				nic := domSpec.Devices.Interfaces[0]
 				address := nic.Address
-				pciAddrStr := fmt.Sprintf("%s:%s:%s:%s", address.Domain[2:], address.Bus[2:], address.Slot[2:], address.Function[2:])
+				pciAddrStr := fmt.Sprintf("%s:%s:%s.%s", address.Domain[2:], address.Bus[2:], address.Slot[2:], address.Function[2:])
 				deviceData := []cloudinit.DeviceData{
 					{
 						Type:    cloudinit.NICMetadataType,
@@ -432,10 +437,11 @@ var _ = Describe("[rfe_id:151][crit:high][vendor:cnv-qe@redhat.com][level:compon
 				Expect(err).ToNot(HaveOccurred())
 
 				metadataStruct := cloudinit.ConfigDriveMetadata{
-					InstanceID: fmt.Sprintf("%s.%s", vmi.Name, vmi.Namespace),
-					Hostname:   dns.SanitizeHostname(vmi),
-					UUID:       string(vmi.UID),
-					Devices:    &deviceData,
+					InstanceID:   fmt.Sprintf("%s.%s", vmi.Name, vmi.Namespace),
+					InstanceType: testFlavor,
+					Hostname:     dns.SanitizeHostname(vmi),
+					UUID:         string(vmi.UID),
+					Devices:      &deviceData,
 				}
 
 				buf, err := json.Marshal(metadataStruct)

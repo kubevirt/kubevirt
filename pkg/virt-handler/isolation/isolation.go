@@ -40,8 +40,6 @@ import (
 
 // IsolationResult is the result of a successful PodIsolationDetector.Detect
 type IsolationResult interface {
-	// cgroup slice
-	Slice() string
 	// process ID
 	Pid() int
 	// parent process ID
@@ -57,22 +55,16 @@ type IsolationResult interface {
 }
 
 type RealIsolationResult struct {
-	pid        int
-	ppid       int
-	slice      string
-	controller []string
+	pid  int
+	ppid int
 }
 
-func NewIsolationResult(pid, ppid int, slice string, controller []string) IsolationResult {
-	return &RealIsolationResult{pid: pid, ppid: ppid, slice: slice, controller: controller}
+func NewIsolationResult(pid, ppid int) IsolationResult {
+	return &RealIsolationResult{pid: pid, ppid: ppid}
 }
 
 func (r *RealIsolationResult) PIDNamespace() string {
 	return fmt.Sprintf("/proc/%d/ns/pid", r.pid)
-}
-
-func (r *RealIsolationResult) Slice() string {
-	return r.slice
 }
 
 func (r *RealIsolationResult) MountNamespace() string {
@@ -130,10 +122,6 @@ func (r *RealIsolationResult) Pid() int {
 
 func (r *RealIsolationResult) PPid() int {
 	return r.ppid
-}
-
-func (r *RealIsolationResult) Controller() []string {
-	return r.controller
 }
 
 func NodeIsolationResult() *RealIsolationResult {

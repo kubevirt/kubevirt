@@ -237,7 +237,7 @@ var _ = SIGDescribe("[Serial]ImageUpload", func() {
 		var archivePath string
 
 		BeforeEach(func() {
-			archivePath = tests.ArchiveFiles("archive", os.TempDir(), imagePath)
+			archivePath = tests.CreateArchive("archive", os.TempDir(), imagePath)
 		})
 
 		AfterEach(func() {

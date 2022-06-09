@@ -1059,6 +1059,10 @@ func (t *templateService) renderLaunchManifest(vmi *v1.VirtualMachineInstance, i
 		if nonRoot {
 			command = append(command, "--run-as-nonroot")
 		}
+		if customDebugFilters, exists := vmi.Annotations[v1.CustomLibvirtLogFiltersAnnotation]; exists {
+			log.Log.Object(vmi).Infof("Applying custom debug filters for vmi %s: %s", vmi.Name, customDebugFilters)
+			command = append(command, "--libvirt-log-filters", customDebugFilters)
+		}
 	}
 
 	allowEmulation := t.clusterConfig.AllowEmulation()
@@ -1188,6 +1192,13 @@ func (t *templateService) renderLaunchManifest(vmi *v1.VirtualMachineInstance, i
 		verbosityStr := fmt.Sprint(virtLauncherLogVerbosity)
 		if isSet {
 			verbosityStr = verbosity
+
+			verbosityInt, err := strconv.Atoi(verbosity)
+			if err != nil {
+				return nil, fmt.Errorf("verbosity %s cannot cast to int: %v", verbosity, err)
+			}
+
+			virtLauncherLogVerbosity = uint(verbosityInt)
 		}
 		compute.Env = append(compute.Env, k8sv1.EnvVar{Name: ENV_VAR_VIRT_LAUNCHER_LOG_VERBOSITY, Value: verbosityStr})
 	}
@@ -1288,6 +1299,8 @@ func (t *templateService) renderLaunchManifest(vmi *v1.VirtualMachineInstance, i
 		nodeSelector[k] = v
 	}
 
+	hostName := dns.SanitizeHostname(vmi)
+
 	podLabels := map[string]string{}
 
 	for k, v := range vmi.Labels {
@@ -1295,6 +1308,7 @@ func (t *templateService) renderLaunchManifest(vmi *v1.VirtualMachineInstance, i
 	}
 	podLabels[v1.AppLabel] = "virt-launcher"
 	podLabels[v1.CreatedByLabel] = string(vmi.UID)
+	podLabels[v1.VirtualMachineNameLabel] = hostName
 
 	for i, requestedHookSidecar := range requestedHookSidecarList {
 		resources := k8sv1.ResourceRequirements{}
@@ -1329,8 +1343,6 @@ func (t *templateService) renderLaunchManifest(vmi *v1.VirtualMachineInstance, i
 		}
 		containers = append(containers, sidecar)
 	}
-
-	hostName := dns.SanitizeHostname(vmi)
 
 	podAnnotations, err := generatePodAnnotations(vmi)
 	if err != nil {
@@ -1816,9 +1828,7 @@ func getRequiredCapabilities(vmi *v1.VirtualMachineInstance, config *virtconfig.
 
 func getRequiredResources(vmi *v1.VirtualMachineInstance, allowEmulation bool) k8sv1.ResourceList {
 	res := k8sv1.ResourceList{}
-	if (len(vmi.Spec.Domain.Devices.Interfaces) > 0) ||
-		(vmi.Spec.Domain.Devices.AutoattachPodInterface == nil) ||
-		(*vmi.Spec.Domain.Devices.AutoattachPodInterface == true) {
+	if util.NeedTunDevice(vmi) {
 		res[TunDevice] = resource.MustParse("1")
 	}
 	if util.NeedVirtioNetDevice(vmi, allowEmulation) {
@@ -2092,7 +2102,7 @@ func copyProbe(probe *v1.Probe) *k8sv1.Probe {
 		PeriodSeconds:       probe.PeriodSeconds,
 		SuccessThreshold:    probe.SuccessThreshold,
 		FailureThreshold:    probe.FailureThreshold,
-		Handler: k8sv1.Handler{
+		ProbeHandler: k8sv1.ProbeHandler{
 			Exec:      probe.Exec,
 			HTTPGet:   probe.HTTPGet,
 			TCPSocket: probe.TCPSocket,
@@ -2107,18 +2117,18 @@ func wrapGuestAgentPingWithVirtProbe(vmi *v1.VirtualMachineInstance, probe *k8sv
 		"--timeoutSeconds", strconv.FormatInt(int64(probe.TimeoutSeconds), 10),
 		"--guestAgentPing",
 	}
-	probe.Handler.Exec = &k8sv1.ExecAction{Command: pingCommand}
+	probe.ProbeHandler.Exec = &k8sv1.ExecAction{Command: pingCommand}
 	// we add 1s to the pod probe to compensate for the additional steps in probing
 	probe.TimeoutSeconds += 1
 	return
 }
 
 func wrapExecProbeWithVirtProbe(vmi *v1.VirtualMachineInstance, probe *k8sv1.Probe) {
-	if probe == nil || probe.Handler.Exec == nil {
+	if probe == nil || probe.ProbeHandler.Exec == nil {
 		return
 	}
 
-	originalCommand := probe.Handler.Exec.Command
+	originalCommand := probe.ProbeHandler.Exec.Command
 	if len(originalCommand) < 1 {
 		return
 	}
@@ -2132,7 +2142,7 @@ func wrapExecProbeWithVirtProbe(vmi *v1.VirtualMachineInstance, probe *k8sv1.Pro
 	}
 	wrappedCommand = append(wrappedCommand, originalCommand[1:]...)
 
-	probe.Handler.Exec.Command = wrappedCommand
+	probe.ProbeHandler.Exec.Command = wrappedCommand
 	// we add 1s to the pod probe to compensate for the additional steps in probing
 	probe.TimeoutSeconds += 1
 }

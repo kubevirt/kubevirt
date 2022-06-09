@@ -133,6 +133,14 @@ var _ = SIGDescribe("Infosource", func() {
 				return dummyInterfaceExists(vmi)
 			}, 120*time.Second, 2*time.Second).Should(Equal(true))
 
+			networkInterface := netvmispec.LookupInterfaceStatusByMac(vmi.Status.Interfaces, primaryInterfaceMac)
+			Expect(networkInterface).NotTo(BeNil(), "interface not found")
+			Expect(networkInterface.IP).To(BeEmpty())
+
+			guestInterface := netvmispec.LookupInterfaceStatusByMac(vmi.Status.Interfaces, primaryInterfaceNewMac)
+			Expect(guestInterface).NotTo(BeNil(), "interface not found")
+			Expect(guestInterface.IP).NotTo(BeEmpty())
+
 			for i := range vmi.Status.Interfaces {
 				vmi.Status.Interfaces[i].IP = ""
 				vmi.Status.Interfaces[i].IPs = nil

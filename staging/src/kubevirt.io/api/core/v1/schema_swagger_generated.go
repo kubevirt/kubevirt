@@ -230,7 +230,7 @@ func (Devices) SwaggerDoc() map[string]string {
 	return map[string]string{
 		"useVirtioTransitional":      "Fall back to legacy virtio 0.9 support if virtio bus is selected on devices.\nThis is helpful for old machines like CentOS6 or RHEL6 which\ndo not understand virtio_non_transitional (virtio 1.0).",
 		"disableHotplug":             "DisableHotplug disabled the ability to hotplug disks.",
-		"disks":                      "Disks describes disks, cdroms, floppy and luns which are connected to the vmi.",
+		"disks":                      "Disks describes disks, cdroms and luns which are connected to the vmi.",
 		"watchdog":                   "Watchdog describes a watchdog device which can be added to the vmi.",
 		"interfaces":                 "Interfaces describe network interfaces which are added to the vmi.",
 		"inputs":                     "Inputs describe input devices",
@@ -285,6 +285,7 @@ func (FilesystemVirtiofs) SwaggerDoc() map[string]string {
 func (GPU) SwaggerDoc() map[string]string {
 	return map[string]string{
 		"name": "Name of the GPU device as exposed by a device plugin",
+		"tag":  "If specified, the virtual network interface address and its tag will be provided to the guest via config drive\n+optional",
 	}
 }
 
@@ -302,6 +303,7 @@ func (VGPUDisplayOptions) SwaggerDoc() map[string]string {
 func (HostDevice) SwaggerDoc() map[string]string {
 	return map[string]string{
 		"deviceName": "DeviceName is the resource name of the host device exposed by a device plugin",
+		"tag":        "If specified, the virtual network interface address and its tag will be provided to the guest via config drive\n+optional",
 	}
 }
 
@@ -316,6 +318,7 @@ func (Disk) SwaggerDoc() map[string]string {
 		"tag":               "If specified, disk address and its tag will be provided to the guest via config drive metadata\n+optional",
 		"blockSize":         "If specified, the virtual disk will be presented with the given block sizes.\n+optional",
 		"ioTune":            "If specified, will set the disk qos\n+optional",
+		"shareable":         "If specified the disk is made sharable and multiple write from different VMs are permitted\n+optional",
 	}
 }
 
@@ -345,11 +348,10 @@ func (IOTune) SwaggerDoc() map[string]string {
 
 func (DiskDevice) SwaggerDoc() map[string]string {
 	return map[string]string{
-		"":       "Represents the target of a volume to mount.\nOnly one of its members may be specified.",
-		"disk":   "Attach a volume as a disk to the vmi.",
-		"lun":    "Attach a volume as a LUN to the vmi.",
-		"floppy": "Attach a volume as a floppy to the vmi.",
-		"cdrom":  "Attach a volume as a cdrom to the vmi.",
+		"":      "Represents the target of a volume to mount.\nOnly one of its members may be specified.",
+		"disk":  "Attach a volume as a disk to the vmi.",
+		"lun":   "Attach a volume as a LUN to the vmi.",
+		"cdrom": "Attach a volume as a cdrom to the vmi.",
 	}
 }
 
@@ -375,13 +377,6 @@ func (LunTarget) SwaggerDoc() map[string]string {
 	return map[string]string{
 		"bus":      "Bus indicates the type of disk device to emulate.\nsupported values: virtio, sata, scsi.",
 		"readonly": "ReadOnly.\nDefaults to false.",
-	}
-}
-
-func (FloppyTarget) SwaggerDoc() map[string]string {
-	return map[string]string{
-		"readonly": "ReadOnly.\nDefaults to false.",
-		"tray":     "Tray indicates if the tray of the device is open or closed.\nAllowed values are \"open\" and \"closed\".\nDefaults to closed.\n+optional",
 	}
 }
 

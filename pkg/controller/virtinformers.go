@@ -26,6 +26,8 @@ import (
 	"sync"
 	"time"
 
+	"kubevirt.io/api/flavor"
+
 	promv1 "github.com/coreos/prometheus-operator/pkg/apis/monitoring/v1"
 	vsv1beta1 "github.com/kubernetes-csi/external-snapshotter/v2/pkg/apis/volumesnapshot/v1beta1"
 	secv1 "github.com/openshift/api/security/v1"
@@ -597,14 +599,14 @@ func (f *kubeInformerFactory) VirtualMachineRestore() cache.SharedIndexInformer 
 
 func (f *kubeInformerFactory) VirtualMachineFlavor() cache.SharedIndexInformer {
 	return f.getInformer("vmFlavorInformer", func() cache.SharedIndexInformer {
-		lw := cache.NewListWatchFromClient(f.clientSet.GeneratedKubeVirtClient().FlavorV1alpha1().RESTClient(), "virtualmachineflavors", k8sv1.NamespaceAll, fields.Everything())
+		lw := cache.NewListWatchFromClient(f.clientSet.GeneratedKubeVirtClient().FlavorV1alpha1().RESTClient(), flavor.PluralResourceName, k8sv1.NamespaceAll, fields.Everything())
 		return cache.NewSharedIndexInformer(lw, &flavorv1.VirtualMachineFlavor{}, f.defaultResync, cache.Indexers{})
 	})
 }
 
 func (f *kubeInformerFactory) VirtualMachineClusterFlavor() cache.SharedIndexInformer {
 	return f.getInformer("vmClusterFlavorInformer", func() cache.SharedIndexInformer {
-		lw := cache.NewListWatchFromClient(f.clientSet.GeneratedKubeVirtClient().FlavorV1alpha1().RESTClient(), "virtualmachineclusterflavors", k8sv1.NamespaceAll, fields.Everything())
+		lw := cache.NewListWatchFromClient(f.clientSet.GeneratedKubeVirtClient().FlavorV1alpha1().RESTClient(), flavor.ClusterPluralResourceName, k8sv1.NamespaceAll, fields.Everything())
 		return cache.NewSharedIndexInformer(lw, &flavorv1.VirtualMachineClusterFlavor{}, f.defaultResync, cache.Indexers{})
 	})
 }
@@ -720,6 +722,20 @@ func GetControllerRevisionInformerIndexers() cache.Indexers {
 
 			for _, ref := range cr.OwnerReferences {
 				if ref.Kind == "VirtualMachine" {
+					return []string{string(ref.UID)}, nil
+				}
+			}
+
+			return nil, nil
+		},
+		"vmpool": func(obj interface{}) ([]string, error) {
+			cr, ok := obj.(*appsv1.ControllerRevision)
+			if !ok {
+				return nil, unexpectedObjectError
+			}
+
+			for _, ref := range cr.OwnerReferences {
+				if ref.Kind == "VirtualMachinePool" {
 					return []string{string(ref.UID)}, nil
 				}
 			}

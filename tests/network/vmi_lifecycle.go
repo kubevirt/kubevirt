@@ -69,7 +69,7 @@ var _ = SIGDescribe("[crit:high][arm64][vendor:cnv-qe@redhat.com][level:componen
 				Expect(err).To(BeNil(), "Should submit VMI successfully")
 
 				// Start a VirtualMachineInstance with bridged networking
-				nodeName := tests.WaitForSuccessfulVMIStart(bridgeVMI)
+				nodeName := tests.WaitForSuccessfulVMIStart(bridgeVMI).Status.NodeName
 
 				tests.VerifyDummyNicForBridgeNetwork(bridgeVMI)
 

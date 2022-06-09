@@ -57,7 +57,7 @@ workloads:
         inputVars:
           // containerPrefix defines the repository prefix for all images
           // if the value is empty (i.e., "") the default value defined in the cmd flag will be used
-          containerPrefix: registry:5000/kubevirt/
+          containerPrefix: registry:5000/kubevirt
           // containerImg defines the VMI image in the 
           containerImg: cirros-container-disk-demo
           // containerTag defines the image tag
@@ -76,4 +76,4 @@ workloads:
 - Each workload iteration might sleep X times before each iteration to avoid being affected by a previous execution
 
 ## Comments
-Note that the containerPrefix can also be defined via command line to make it easier to run the workload in different environments. For example, when creating a cluster using the kubevirtci, the containerPrefix = `registry:5000/kubevirt/`, but then creating the cluster using kubespray the containerPrefix = `localhost:5000/kubevirt/`.
+Note that the containerPrefix can also be defined via command line to make it easier to run the workload in different environments. For example, when creating a cluster using the kubevirtci, the containerPrefix = `registry:5000/kubevirt`, but then creating the cluster using kubespray the containerPrefix = `localhost:5000/kubevirt`.

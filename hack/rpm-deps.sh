@@ -204,7 +204,7 @@ if [ -z "${SINGLE_ARCH}" ] || [ "${SINGLE_ARCH}" == "x86_64" ]; then
         $libguestfstools_x86_64 \
         ${bazeldnf_repos} \
         --force-ignore-with-dependencies '^(kernel-|linux-firmware)' \
-        --force-ignore-with-dependencies '^(python[3]{0,1}-|perl[3]{0,1}-)' \
+        --force-ignore-with-dependencies '^(python[3]{0,1}-)' \
         --force-ignore-with-dependencies '^mozjs60' \
         --force-ignore-with-dependencies '^(libvirt-daemon-kvm|swtpm)' \
         --force-ignore-with-dependencies '^(man-db|mandoc)' \

@@ -60,6 +60,11 @@ import (
 	"kubevirt.io/kubevirt/pkg/virt-launcher/virtwrap/stats"
 )
 
+var (
+	expectedThawedOutput = `{"return":"thawed"}`
+	expectedFrozenOutput = `{"return":"frozen"}`
+)
+
 var _ = Describe("Manager", func() {
 	var mockConn *cli.MockConnection
 	var mockDomain *cli.MockVirDomain
@@ -293,8 +298,7 @@ var _ = Describe("Manager", func() {
 		It("should freeze a VirtualMachineInstance", func() {
 			vmi := newVMI(testNamespace, testVmName)
 
-			expectedOutput := `{"return":"thawed"}`
-			mockConn.EXPECT().QemuAgentCommand(`{"execute":"`+string(agentpoller.GET_FSFREEZE_STATUS)+`"}`, testDomainName).Return(expectedOutput, nil)
+			mockConn.EXPECT().QemuAgentCommand(`{"execute":"`+string(agentpoller.GET_FSFREEZE_STATUS)+`"}`, testDomainName).Return(expectedThawedOutput, nil)
 			mockConn.EXPECT().QemuAgentCommand(`{"execute":"guest-fsfreeze-freeze"}`, testDomainName).Return("1", nil)
 			manager, _ := NewLibvirtDomainManager(mockConn, testVirtShareDir, nil, "/usr/share/OVMF", ephemeralDiskCreatorMock)
 
@@ -304,6 +308,7 @@ var _ = Describe("Manager", func() {
 		It("should unfreeze a VirtualMachineInstance", func() {
 			vmi := newVMI(testNamespace, testVmName)
 
+			mockConn.EXPECT().QemuAgentCommand(`{"execute":"`+string(agentpoller.GET_FSFREEZE_STATUS)+`"}`, testDomainName).Return(expectedFrozenOutput, nil)
 			mockConn.EXPECT().QemuAgentCommand(`{"execute":"guest-fsfreeze-thaw"}`, testDomainName).Return("1", nil)
 			manager, _ := NewLibvirtDomainManager(mockConn, testVirtShareDir, nil, "/usr/share/OVMF", ephemeralDiskCreatorMock)
 
@@ -313,9 +318,9 @@ var _ = Describe("Manager", func() {
 		It("should automatically unfreeze after a timeout a frozen VirtualMachineInstance", func() {
 			vmi := newVMI(testNamespace, testVmName)
 
-			expectedOutput := `{"return":"thawed"}`
-			mockConn.EXPECT().QemuAgentCommand(`{"execute":"`+string(agentpoller.GET_FSFREEZE_STATUS)+`"}`, testDomainName).Return(expectedOutput, nil)
+			mockConn.EXPECT().QemuAgentCommand(`{"execute":"`+string(agentpoller.GET_FSFREEZE_STATUS)+`"}`, testDomainName).Return(expectedThawedOutput, nil)
 			mockConn.EXPECT().QemuAgentCommand(`{"execute":"guest-fsfreeze-freeze"}`, testDomainName).Return("1", nil)
+			mockConn.EXPECT().QemuAgentCommand(`{"execute":"`+string(agentpoller.GET_FSFREEZE_STATUS)+`"}`, testDomainName).Return(expectedFrozenOutput, nil)
 			mockConn.EXPECT().QemuAgentCommand(`{"execute":"guest-fsfreeze-thaw"}`, testDomainName).Return("1", nil)
 			manager, _ := NewLibvirtDomainManager(mockConn, testVirtShareDir, nil, "/usr/share/OVMF", ephemeralDiskCreatorMock)
 
@@ -328,9 +333,9 @@ var _ = Describe("Manager", func() {
 		It("should freeze and unfreeze a VirtualMachineInstance without a trigger to the unfreeze timeout", func() {
 			vmi := newVMI(testNamespace, testVmName)
 
-			expectedOutput := `{"return":"thawed"}`
-			mockConn.EXPECT().QemuAgentCommand(`{"execute":"`+string(agentpoller.GET_FSFREEZE_STATUS)+`"}`, testDomainName).Return(expectedOutput, nil)
+			mockConn.EXPECT().QemuAgentCommand(`{"execute":"`+string(agentpoller.GET_FSFREEZE_STATUS)+`"}`, testDomainName).Return(expectedThawedOutput, nil)
 			mockConn.EXPECT().QemuAgentCommand(`{"execute":"guest-fsfreeze-freeze"}`, testDomainName).Return("1", nil)
+			mockConn.EXPECT().QemuAgentCommand(`{"execute":"`+string(agentpoller.GET_FSFREEZE_STATUS)+`"}`, testDomainName).Return(expectedFrozenOutput, nil)
 			mockConn.EXPECT().QemuAgentCommand(`{"execute":"guest-fsfreeze-thaw"}`, testDomainName).Return("1", nil)
 
 			manager, _ := NewLibvirtDomainManager(mockConn, testVirtShareDir, nil, "/usr/share/OVMF", ephemeralDiskCreatorMock)
@@ -1106,11 +1111,97 @@ var _ = Describe("Manager", func() {
 				Expect(err).To(BeNil())
 				return string(xmlOriginal), nil
 			})
-			mockDomain.EXPECT().MigrateStartPostCopy(gomock.Eq(uint32(0))).AnyTimes().Return(nil)
+			mockDomain.EXPECT().MigrateStartPostCopy(gomock.Eq(uint32(0))).Times(1).Return(nil)
 			mockDomain.EXPECT().GetMetadata(libvirt.DOMAIN_METADATA_ELEMENT, "http://kubevirt.io", libvirt.DOMAIN_AFFECT_CONFIG).
 				DoAndReturn(func(_ libvirt.DomainMetadataType, _ string, _ libvirt.DomainModificationImpact) (string, error) {
-					metadata, err := xml.MarshalIndent(domainSpec.Metadata, "", "\t")
+					metadata, err := xml.MarshalIndent(domainSpec.Metadata.KubeVirt, "", "\t")
 					Expect(err).ShouldNot(HaveOccurred())
+					return string(metadata), nil
+				}).AnyTimes()
+			mockConn.EXPECT().DomainDefineXML(gomock.Any()).AnyTimes().DoAndReturn(func(xml string) (cli.VirDomain, error) {
+				Expect(strings.Contains(xml, "<mode>PostCopy</mode>")).To(BeTrue())
+
+				if domainSpec.Metadata.KubeVirt.Migration == nil {
+					domainSpec.Metadata.KubeVirt.Migration = &api.MigrationMetadata{}
+				}
+				domainSpec.Metadata.KubeVirt.Migration.Mode = v1.MigrationPostCopy
+
+				return mockDomain, nil
+			})
+
+			monitor := newMigrationMonitor(vmi, manager, options, migrationErrorChan)
+			monitor.startMonitor()
+		})
+
+		It("migration should switch to PostCopy eventually", func() {
+			migrationErrorChan := make(chan error)
+			defer close(migrationErrorChan)
+			// Make sure that we always free the domain after use
+			var migrationData = 32479827394
+			mockDomain.EXPECT().Free().AnyTimes()
+			fake_jobinfo := func() *libvirt.DomainJobInfo {
+				// stop decreasing data and send a different event otherwise this
+				// job will run indefinitely until timeout
+				if migrationData <= 32479826519 {
+					return &libvirt.DomainJobInfo{
+						Type: libvirt.DOMAIN_JOB_COMPLETED,
+					}
+				}
+
+				migrationData -= 125
+				return &libvirt.DomainJobInfo{
+					Type:          libvirt.DOMAIN_JOB_UNBOUNDED,
+					DataRemaining: uint64(migrationData),
+				}
+			}
+
+			options := &cmdclient.MigrationOptions{
+				Bandwidth:               resource.MustParse("64Mi"),
+				ProgressTimeout:         3,
+				CompletionTimeoutPerGiB: 1,
+				AllowPostCopy:           true,
+			}
+			vmi := newVMI(testNamespace, testVmName)
+			vmi.Status.MigrationState = &v1.VirtualMachineInstanceMigrationState{
+				MigrationUID: "111222333",
+			}
+
+			domainSpec := expectIsolationDetectionForVMI(vmi)
+			manager := &LibvirtDomainManager{
+				virConn:      mockConn,
+				virtShareDir: testVirtShareDir,
+			}
+			mockDomain.EXPECT().GetState().AnyTimes().Return(libvirt.DOMAIN_RUNNING, 1, nil)
+			mockConn.EXPECT().LookupDomainByName(testDomainName).Times(2).Return(mockDomain, nil)
+
+			mockDomain.EXPECT().GetJobStats(libvirt.DomainGetJobStatsFlags(0)).AnyTimes().DoAndReturn(func(flag libvirt.DomainGetJobStatsFlags) (*libvirt.DomainJobInfo, error) {
+				return fake_jobinfo(), nil
+			})
+			mockDomain.EXPECT().GetXMLDesc(gomock.Eq(libvirt.DomainXMLFlags(0))).AnyTimes().DoAndReturn(func(_ libvirt.DomainXMLFlags) (string, error) {
+				xmlOriginal, err := xml.MarshalIndent(domainSpec, "", "\t")
+				Expect(err).To(BeNil())
+				return string(xmlOriginal), nil
+			})
+
+			counter := 0
+			mockDomain.EXPECT().MigrateStartPostCopy(gomock.Eq(uint32(0))).Times(2).DoAndReturn(func(flag uint32) error {
+				if counter == 0 {
+					counter += 1
+					return libvirt.Error{
+
+						Code:    1,
+						Domain:  1,
+						Message: "internal error: unable to execute QEMU command 'migrate-start-postcopy': Postcopy must be started after migration has been started",
+						Level:   libvirt.ERR_ERROR,
+					}
+				}
+				return nil
+			})
+			mockDomain.EXPECT().GetMetadata(libvirt.DOMAIN_METADATA_ELEMENT, "http://kubevirt.io", libvirt.DOMAIN_AFFECT_CONFIG).
+				DoAndReturn(func(_ libvirt.DomainMetadataType, _ string, _ libvirt.DomainModificationImpact) (string, error) {
+					metadata, err := xml.MarshalIndent(domainSpec.Metadata.KubeVirt, "", "\t")
+					Expect(err).ShouldNot(HaveOccurred())
+
 					return string(metadata), nil
 				}).AnyTimes()
 			mockConn.EXPECT().DomainDefineXML(gomock.Any()).AnyTimes().DoAndReturn(func(xml string) (cli.VirDomain, error) {
@@ -1726,65 +1817,25 @@ var _ = Describe("Manager", func() {
 		Context("on call to InterfacesStatus", func() {
 			var libvirtmanager DomainManager
 			var agentStore agentpoller.AsyncAgentStore
-			fakeDomInterfaces := []api.Interface{
-				{
-					MAC: &api.MAC{
-						MAC: "00:00:00:00:00:01",
-					},
-					Alias: api.NewUserDefinedAlias("eth1"),
-				},
-			}
-			fakeInterfaces := []api.InterfaceStatus{
-				{
-					Name: "eth2",
-					Mac:  "00:00:00:00:00:02",
-				},
-			}
 
 			BeforeEach(func() {
 				agentStore = agentpoller.NewAsyncAgentStore()
 				libvirtmanager, _ = NewLibvirtDomainManager(mockConn, testVirtShareDir, &agentStore, "/usr/share/OVMF", ephemeralDiskCreatorMock)
 			})
 
-			It("should return nil when no interfaces exists in the cache, nor as argument", func() {
-				Expect(libvirtmanager.InterfacesStatus(nil)).To(BeNil())
-			})
-
 			It("should return nil when no interfaces exists in the cache", func() {
-				Expect(libvirtmanager.InterfacesStatus(fakeDomInterfaces)).To(BeNil())
+				Expect(libvirtmanager.InterfacesStatus()).To(BeNil())
 			})
 
-			It("should return merged list when interfaces exists on both the cache and argument", func() {
-				expectedResult := []api.InterfaceStatus{
-					{
-						Name:       fakeInterfaces[0].Name,
-						Mac:        fakeInterfaces[0].Mac,
-						InfoSource: netvmispec.InfoSourceGuestAgent,
-					},
-					{
-						Name:       fakeDomInterfaces[0].Alias.GetName(),
-						Mac:        fakeDomInterfaces[0].MAC.MAC,
-						InfoSource: netvmispec.InfoSourceDomain,
-					},
-				}
+			It("should report interfaces info when interfaces exists", func() {
+				fakeInterfaces := []api.InterfaceStatus{{
+					InterfaceName: "eth1",
+					Mac:           "00:00:00:00:00:01",
+				}}
 				agentStore.Store(agentpoller.GET_INTERFACES, fakeInterfaces)
+				interfacesStatus := agentStore.GetInterfaceStatus()
 
-				interfaces := libvirtmanager.InterfacesStatus(fakeDomInterfaces)
-				Expect(interfaces).To(Equal(expectedResult))
-			})
-
-			It("should return merged list when interfaces exists on the cache only", func() {
-				expectedResult := []api.InterfaceStatus{
-					{
-						Name:       fakeInterfaces[0].Name,
-						Mac:        fakeInterfaces[0].Mac,
-						InfoSource: netvmispec.InfoSourceGuestAgent,
-					},
-				}
-				agentStore.Store(agentpoller.GET_INTERFACES, fakeInterfaces)
-
-				interfaces := libvirtmanager.InterfacesStatus(nil)
-				Expect(interfaces).To(Equal(expectedResult))
+				Expect(interfacesStatus).To(Equal(fakeInterfaces))
 			})
 		})
 	})
@@ -2340,7 +2391,7 @@ var _ = Describe("Manager helper functions", func() {
 		BeforeEach(func() {
 			fakePercentFloat = 0.7648
 			fakePercent := cdiv1beta1.Percent(fmt.Sprint(fakePercentFloat))
-			fakeCapacity := int64(123000)
+			fakeCapacity := int64(2345 * 3456) // We need (1-0.7648)*fakeCapacity to be > 1MiB and misaligned
 
 			properDisk = api.Disk{
 				FilesystemOverhead: &fakePercent,
@@ -2355,6 +2406,8 @@ var _ = Describe("Manager helper functions", func() {
 			Expect(capacity).ToNot(Equal(nil))
 
 			expectedSize := int64((1 - fakePercentFloat) * float64(*capacity))
+			// The size is expected to be 1MiB-aligned
+			expectedSize = expectedSize - expectedSize%(1024*1024)
 
 			Expect(size).To(Equal(expectedSize))
 		})
@@ -2364,19 +2417,7 @@ var _ = Describe("Manager helper functions", func() {
 		},
 			table.Entry("disk capacity is nil", func() api.Disk {
 				disk := properDisk
-				disk.Capacity = nil
-				return disk
-			}),
-			table.Entry("filesystem overhead is nil", func() api.Disk {
-				disk := properDisk
-				disk.FilesystemOverhead = nil
-				return disk
-			}),
-			table.Entry("filesystem overhead is non-float", func() api.Disk {
-				disk := properDisk
-				fakePercent := cdiv1beta1.Percent(fmt.Sprint("abcdefg"))
 				disk.FilesystemOverhead = &fakePercent
-				return disk
 			}),
 		)
 

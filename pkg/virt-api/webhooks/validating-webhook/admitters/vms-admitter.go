@@ -44,7 +44,7 @@ import (
 	virtconfig "kubevirt.io/kubevirt/pkg/virt-config"
 )
 
-var validRunStrategies = []v1.VirtualMachineRunStrategy{v1.RunStrategyHalted, v1.RunStrategyManual, v1.RunStrategyAlways, v1.RunStrategyRerunOnFailure}
+var validRunStrategies = []v1.VirtualMachineRunStrategy{v1.RunStrategyHalted, v1.RunStrategyManual, v1.RunStrategyAlways, v1.RunStrategyRerunOnFailure, v1.RunStrategyOnce}
 
 type CloneAuthFunc func(pvcNamespace, pvcName, saNamespace, saName string) (bool, string, error)
 
@@ -179,10 +179,15 @@ func (admitter *VMsAdmitter) applyFlavorToVm(vm *v1.VirtualMachine) []metav1.Sta
 		return nil
 	}
 
+	vmi := &v1.VirtualMachineInstance{
+		ObjectMeta: vm.Spec.Template.ObjectMeta,
+		Spec:       vm.Spec.Template.Spec,
+	}
 	conflicts := admitter.FlavorMethods.ApplyToVmi(
 		k8sfield.NewPath("spec", "template", "spec"),
 		flavorProfile,
-		&vm.Spec.Template.Spec,
+		vm,
+		vmi,
 	)
 	if len(conflicts) == 0 {
 		return nil

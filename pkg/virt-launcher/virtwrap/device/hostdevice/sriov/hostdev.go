@@ -24,13 +24,10 @@ import (
 	"time"
 
 	v1 "kubevirt.io/api/core/v1"
+	"kubevirt.io/kubevirt/pkg/network/sriov"
 	"kubevirt.io/kubevirt/pkg/virt-launcher/virtwrap/api"
 	"kubevirt.io/kubevirt/pkg/virt-launcher/virtwrap/device"
 	"kubevirt.io/kubevirt/pkg/virt-launcher/virtwrap/device/hostdevice"
-)
-
-const (
-	AliasPrefix = "sriov-"
 )
 
 func CreateHostDevices(vmi *v1.VirtualMachineInstance) ([]api.HostDevice, error) {
@@ -47,30 +44,34 @@ func createHostDevicesMetadata(ifaces []v1.Interface) []hostdevice.HostDeviceMet
 	var hostDevicesMetaData []hostdevice.HostDeviceMetaData
 	for _, iface := range ifaces {
 		hostDevicesMetaData = append(hostDevicesMetaData, hostdevice.HostDeviceMetaData{
-			AliasPrefix:  AliasPrefix,
+			AliasPrefix:  sriov.AliasPrefix,
 			Name:         iface.Name,
 			ResourceName: iface.Name,
-			DecorateHook: func(hostDevice *api.HostDevice) error {
-				if guestPCIAddress := iface.PciAddress; guestPCIAddress != "" {
-					addr, err := device.NewPciAddressField(guestPCIAddress)
-					if err != nil {
-						return fmt.Errorf("failed to interpret the guest PCI address: %v", err)
-					}
-					hostDevice.Address = addr
-				}
-
-				if iface.BootOrder != nil {
-					hostDevice.BootOrder = &api.BootOrder{Order: *iface.BootOrder}
-				}
-				return nil
-			},
+			DecorateHook: newDecorateHook(iface),
 		})
 	}
 	return hostDevicesMetaData
 }
 
+func newDecorateHook(iface v1.Interface) func(hostDevice *api.HostDevice) error {
+	return func(hostDevice *api.HostDevice) error {
+		if guestPCIAddress := iface.PciAddress; guestPCIAddress != "" {
+			addr, err := device.NewPciAddressField(guestPCIAddress)
+			if err != nil {
+				return fmt.Errorf("failed to interpret the guest PCI address: %v", err)
+			}
+			hostDevice.Address = addr
+		}
+
+		if iface.BootOrder != nil {
+			hostDevice.BootOrder = &api.BootOrder{Order: *iface.BootOrder}
+		}
+		return nil
+	}
+}
+
 func SafelyDetachHostDevices(domainSpec *api.DomainSpec, eventDetach hostdevice.EventRegistrar, dom hostdevice.DeviceDetacher, timeout time.Duration) error {
-	sriovDevices := hostdevice.FilterHostDevicesByAlias(domainSpec, AliasPrefix)
+	sriovDevices := hostdevice.FilterHostDevicesByAlias(domainSpec.Devices.HostDevices, sriov.AliasPrefix)
 	return hostdevice.SafelyDetachHostDevices(sriovDevices, eventDetach, dom, timeout)
 }
 
@@ -79,7 +80,7 @@ func GetHostDevicesToAttach(vmi *v1.VirtualMachineInstance, domainSpec *api.Doma
 	if err != nil {
 		return nil, err
 	}
-	currentAttachedSRIOVHostDevices := hostdevice.FilterHostDevicesByAlias(domainSpec, AliasPrefix)
+	currentAttachedSRIOVHostDevices := hostdevice.FilterHostDevicesByAlias(domainSpec.Devices.HostDevices, sriov.AliasPrefix)
 
 	sriovHostDevicesToAttach := hostdevice.DifferenceHostDevicesByAlias(sriovDevices, currentAttachedSRIOVHostDevices)
 

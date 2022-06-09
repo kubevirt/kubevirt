@@ -205,21 +205,6 @@ var _ = Describe("Defaults", func() {
 								},
 							},
 							{
-								Name: "floppy_tray_unspecified",
-								DiskDevice: v1.DiskDevice{
-									Floppy: &v1.FloppyTarget{},
-								},
-							},
-							{
-								Name: "floppy_tray_open",
-								DiskDevice: v1.DiskDevice{
-									Floppy: &v1.FloppyTarget{
-										Tray:     v1.TrayStateOpen,
-										ReadOnly: true,
-									},
-								},
-							},
-							{
 								Name: "should_default_to_disk",
 							},
 						},
@@ -236,14 +221,8 @@ var _ = Describe("Defaults", func() {
 		Expect(disks[1].CDRom.Tray).To(Equal(v1.TrayStateOpen), "Tray state was explicitly set to open")
 		Expect(*disks[1].CDRom.ReadOnly).To(BeFalse(), "ReadOnly state was explicitly set to true")
 		Expect(disks[1].DedicatedIOThread).To(BeNil(), "Default DedicatedIOThread state should be nil")
-		Expect(disks[2].Floppy.Tray).To(Equal(v1.TrayStateClosed), "Default tray state for Floppy should be closed")
-		Expect(disks[2].Floppy.ReadOnly).To(BeFalse(), "Default ReadOnly state for Floppy should be false")
+		Expect(disks[2].Disk).ToNot(BeNil(), "Default type should be Disk")
 		Expect(disks[2].DedicatedIOThread).To(BeNil(), "Default DedicatedIOThread state should be nil")
-		Expect(disks[3].Floppy.Tray).To(Equal(v1.TrayStateOpen), "TrayState was explicitly set to open")
-		Expect(disks[3].Floppy.ReadOnly).To(BeTrue(), "ReadOnly was explicitly set to true")
-		Expect(disks[3].DedicatedIOThread).To(BeNil(), "Default DedicatedIOThread state should be nil")
-		Expect(disks[4].Disk).ToNot(BeNil(), "Default type should be Disk")
-		Expect(disks[4].DedicatedIOThread).To(BeNil(), "Default DedicatedIOThread state should be nil")
 	})
 
 	It("should set the default watchdog and the default watchdog action", func() {

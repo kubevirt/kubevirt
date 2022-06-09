@@ -26,7 +26,6 @@ var _ = Describe("Generated deepcopy functions", func() {
 			&v1.DiskDevice{},
 			&v1.DiskTarget{},
 			&v1.LunTarget{},
-			&v1.FloppyTarget{},
 			&v1.CDRomTarget{},
 			&v1.Volume{},
 			&v1.VolumeSource{},

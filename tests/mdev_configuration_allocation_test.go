@@ -5,6 +5,8 @@ import (
 	"fmt"
 	"strings"
 
+	"kubevirt.io/kubevirt/tests/framework/cleanup"
+
 	expect "github.com/google/goexpect"
 	. "github.com/onsi/ginkgo"
 	. "github.com/onsi/gomega"
@@ -87,6 +89,7 @@ var _ = Describe("[Serial][sig-compute]MediatedDevices", func() {
 		var desiredMdevTypeName string = "nvidia-222"
 		var expectedInstancesNum int = 16
 		var config v1.KubeVirtConfiguration
+		var mdevTestLabel = "mdevTestLabel1"
 
 		BeforeEach(func() {
 			tests.BeforeTestCleanup()
@@ -197,7 +200,7 @@ var _ = Describe("[Serial][sig-compute]MediatedDevices", func() {
 			config.MediatedDevicesConfiguration.NodeMediatedDeviceTypes = []v1.NodeMediatedDeviceTypesConfig{
 				{
 					NodeSelector: map[string]string{
-						"mdevTestLabel1": "true",
+						cleanup.TestLabelForNamespace(util.NamespaceTestDefault): mdevTestLabel,
 					},
 					MediatedDevicesTypes: []string{
 						"nvidia-223",
@@ -211,7 +214,7 @@ var _ = Describe("[Serial][sig-compute]MediatedDevices", func() {
 			By("Adding a mdevTestLabel1 that should trigger mdev config change")
 			// There should be only one node in this lane
 			singleNode := util.GetAllSchedulableNodes(virtClient).Items[0]
-			tests.AddLabelToNode(singleNode.Name, "mdevTestLabel1", "true")
+			tests.AddLabelToNode(singleNode.Name, cleanup.TestLabelForNamespace(util.NamespaceTestDefault), mdevTestLabel)
 
 			By("Creating a Fedora VMI")
 			vmi = tests.NewRandomFedoraVMIWithGuestAgent()

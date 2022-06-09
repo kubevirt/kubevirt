@@ -69,12 +69,45 @@ var CRDsValidation map[string]string = map[string]string{
             dataSource:
               description: 'This field can be used to specify either: * An existing
                 VolumeSnapshot object (snapshot.storage.k8s.io/VolumeSnapshot) * An
-                existing PVC (PersistentVolumeClaim) * An existing custom resource
-                that implements data population (Alpha) In order to use custom resource
-                types that implement data population, the AnyVolumeDataSource feature
-                gate must be enabled. If the provisioner or an external controller
-                can support the specified data source, it will create a new volume
-                based on the contents of the specified data source.'
+                existing PVC (PersistentVolumeClaim) If the provisioner or an external
+                controller can support the specified data source, it will create a
+                new volume based on the contents of the specified data source. If
+                the AnyVolumeDataSource feature gate is enabled, this field will always
+                have the same contents as the DataSourceRef field.'
+              properties:
+                apiGroup:
+                  description: APIGroup is the group for the resource being referenced.
+                    If APIGroup is not specified, the specified Kind must be in the
+                    core API group. For any other third-party types, APIGroup is required.
+                  type: string
+                kind:
+                  description: Kind is the type of resource being referenced
+                  type: string
+                name:
+                  description: Name is the name of resource being referenced
+                  type: string
+              required:
+              - kind
+              - name
+              type: object
+            dataSourceRef:
+              description: 'Specifies the object from which to populate the volume
+                with data, if a non-empty volume is desired. This may be any local
+                object from a non-empty API group (non core object) or a PersistentVolumeClaim
+                object. When this field is specified, volume binding will only succeed
+                if the type of the specified object matches some installed volume
+                populator or dynamic provisioner. This field will replace the functionality
+                of the DataSource field and as such if both fields are non-empty,
+                they must have the same value. For backwards compatibility, both fields
+                (DataSource and DataSourceRef) will be set to the same value automatically
+                if one of them is empty and the other is non-empty. There are two
+                important differences between DataSource and DataSourceRef: * While
+                DataSource only allows two specific types of objects, DataSourceRef   allows
+                any non-core object, as well as PersistentVolumeClaim objects. * While
+                DataSource ignores disallowed values (dropping them), DataSourceRef   preserves
+                all values, and generates an error if a disallowed value is   specified.
+                (Alpha) Using this field requires the AnyVolumeDataSource feature
+                gate to be enabled.'
               properties:
                 apiGroup:
                   description: APIGroup is the group for the resource being referenced.
@@ -93,7 +126,10 @@ var CRDsValidation map[string]string = map[string]string{
               type: object
             resources:
               description: 'Resources represents the minimum resources the volume
-                should have. More info: https://kubernetes.io/docs/concepts/storage/persistent-volumes#resources'
+                should have. If RecoverVolumeExpansionFailure feature is enabled users
+                are allowed to specify resource requirements that are lower than previous
+                value but must still be higher than capacity recorded in the status
+                field of the claim. More info: https://kubernetes.io/docs/concepts/storage/persistent-volumes#resources'
               properties:
                 limits:
                   additionalProperties:
@@ -103,7 +139,7 @@ var CRDsValidation map[string]string = map[string]string{
                     pattern: ^(\+|-)?(([0-9]+(\.[0-9]*)?)|(\.[0-9]+))(([KMGTPE]i)|[numkMGTPE]|([eE](\+|-)?(([0-9]+(\.[0-9]*)?)|(\.[0-9]+))))?$
                     x-kubernetes-int-or-string: true
                   description: 'Limits describes the maximum amount of compute resources
-                    allowed. More info: https://kubernetes.io/docs/concepts/configuration/manage-compute-resources-container/'
+                    allowed. More info: https://kubernetes.io/docs/concepts/configuration/manage-resources-containers/'
                   type: object
                 requests:
                   additionalProperties:
@@ -115,7 +151,7 @@ var CRDsValidation map[string]string = map[string]string{
                   description: 'Requests describes the minimum amount of compute resources
                     required. If Requests is omitted for a container, it defaults
                     to Limits if that is explicitly specified, otherwise to an implementation-defined
-                    value. More info: https://kubernetes.io/docs/concepts/configuration/manage-compute-resources-container/'
+                    value. More info: https://kubernetes.io/docs/concepts/configuration/manage-resources-containers/'
                   type: object
               type: object
             selector:
@@ -191,6 +227,19 @@ var CRDsValidation map[string]string = map[string]string{
                     a Certificate Authority(CA) public key, and a base64 encoded pem
                     certificate
                   type: string
+                extraHeaders:
+                  description: ExtraHeaders is a list of strings containing extra
+                    headers to include with HTTP transfer requests
+                  items:
+                    type: string
+                  type: array
+                secretExtraHeaders:
+                  description: SecretExtraHeaders is a list of Secret references,
+                    each containing an extra HTTP header that may include sensitive
+                    information
+                  items:
+                    type: string
+                  type: array
                 secretRef:
                   description: SecretRef A Secret reference, the secret should contain
                     accessKeyId (user name) base64 encoded, and secretKey (password)
@@ -376,7 +425,7 @@ var CRDsValidation map[string]string = map[string]string{
                     pattern: ^(\+|-)?(([0-9]+(\.[0-9]*)?)|(\.[0-9]+))(([KMGTPE]i)|[numkMGTPE]|([eE](\+|-)?(([0-9]+(\.[0-9]*)?)|(\.[0-9]+))))?$
                     x-kubernetes-int-or-string: true
                   description: 'Limits describes the maximum amount of compute resources
-                    allowed. More info: https://kubernetes.io/docs/concepts/configuration/manage-compute-resources-container/'
+                    allowed. More info: https://kubernetes.io/docs/concepts/configuration/manage-resources-containers/'
                   type: object
                 requests:
                   additionalProperties:
@@ -388,7 +437,7 @@ var CRDsValidation map[string]string = map[string]string{
                   description: 'Requests describes the minimum amount of compute resources
                     required. If Requests is omitted for a container, it defaults
                     to Limits if that is explicitly specified, otherwise to an implementation-defined
-                    value. More info: https://kubernetes.io/docs/concepts/configuration/manage-compute-resources-container/'
+                    value. More info: https://kubernetes.io/docs/concepts/configuration/manage-resources-containers/'
                   type: object
               type: object
             selector:
@@ -659,6 +708,12 @@ var CRDsValidation map[string]string = map[string]string{
               items:
                 type: string
               type: array
+            evictionStrategy:
+              description: EvictionStrategy defines at the cluster level if the VirtualMachineInstance
+                should be migrated instead of shut-off in case of a node drain. If
+                the VirtualMachineInstance specific field is set it overrides the
+                cluster level one.
+              type: string
             handlerConfiguration:
               description: ReloadableComponentConfiguration holds all generic k8s
                 configuration options which can be reloaded by components without
@@ -697,7 +752,7 @@ var CRDsValidation map[string]string = map[string]string{
             machineType:
               type: string
             mediatedDevicesConfiguration:
-              description: MediatedDevicesConfiguration holds inforamtion about MDEV
+              description: MediatedDevicesConfiguration holds information about MDEV
                 types to be defined, if available
               properties:
                 mediatedDevicesTypes:
@@ -707,7 +762,7 @@ var CRDsValidation map[string]string = map[string]string{
                   x-kubernetes-list-type: atomic
                 nodeMediatedDeviceTypes:
                   items:
-                    description: NodeMediatedDeviceTypesConfig holds inforamtion about
+                    description: NodeMediatedDeviceTypesConfig holds information about
                       MDEV types to be defined in a specifc node that matches the
                       NodeSelector field.
                     properties:
@@ -787,7 +842,7 @@ var CRDsValidation map[string]string = map[string]string{
             ovmfPath:
               type: string
             permittedHostDevices:
-              description: PermittedHostDevices holds inforamtion about devices allowed
+              description: PermittedHostDevices holds information about devices allowed
                 for passthrough
               properties:
                 mediatedDevices:
@@ -1234,10 +1289,72 @@ var CRDsValidation map[string]string = map[string]string{
                                           "value". The requirements are ANDed.
                                         type: object
                                     type: object
+                                  namespaceSelector:
+                                    description: A label query over the set of namespaces
+                                      that the term applies to. The term is applied
+                                      to the union of the namespaces selected by this
+                                      field and the ones listed in the namespaces
+                                      field. null selector and null or empty namespaces
+                                      list means "this pod's namespace". An empty
+                                      selector ({}) matches all namespaces. This field
+                                      is beta-level and is only honored when PodAffinityNamespaceSelector
+                                      feature is enabled.
+                                    properties:
+                                      matchExpressions:
+                                        description: matchExpressions is a list of
+                                          label selector requirements. The requirements
+                                          are ANDed.
+                                        items:
+                                          description: A label selector requirement
+                                            is a selector that contains values, a
+                                            key, and an operator that relates the
+                                            key and values.
+                                          properties:
+                                            key:
+                                              description: key is the label key that
+                                                the selector applies to.
+                                              type: string
+                                            operator:
+                                              description: operator represents a key's
+                                                relationship to a set of values. Valid
+                                                operators are In, NotIn, Exists and
+                                                DoesNotExist.
+                                              type: string
+                                            values:
+                                              description: values is an array of string
+                                                values. If the operator is In or NotIn,
+                                                the values array must be non-empty.
+                                                If the operator is Exists or DoesNotExist,
+                                                the values array must be empty. This
+                                                array is replaced during a strategic
+                                                merge patch.
+                                              items:
+                                                type: string
+                                              type: array
+                                          required:
+                                          - key
+                                          - operator
+                                          type: object
+                                        type: array
+                                      matchLabels:
+                                        additionalProperties:
+                                          type: string
+                                        description: matchLabels is a map of {key,value}
+                                          pairs. A single {key,value} in the matchLabels
+                                          map is equivalent to an element of matchExpressions,
+                                          whose key field is "key", the operator is
+                                          "In", and the values array contains only
+                                          "value". The requirements are ANDed.
+                                        type: object
+                                    type: object
                                   namespaces:
-                                    description: namespaces specifies which namespaces
-                                      the labelSelector applies to (matches against);
-                                      null or empty list means "this pod's namespace"
+                                    description: namespaces specifies a static list
+                                      of namespace names that the term applies to.
+                                      The term is applied to the union of the namespaces
+                                      listed in this field and the ones selected by
+                                      namespaceSelector. null or empty namespaces
+                                      list and null namespaceSelector means "this
+                                      pod's namespace"
                                     items:
                                       type: string
                                     type: array
@@ -1331,10 +1448,68 @@ var CRDsValidation map[string]string = map[string]string{
                                       The requirements are ANDed.
                                     type: object
                                 type: object
+                              namespaceSelector:
+                                description: A label query over the set of namespaces
+                                  that the term applies to. The term is applied to
+                                  the union of the namespaces selected by this field
+                                  and the ones listed in the namespaces field. null
+                                  selector and null or empty namespaces list means
+                                  "this pod's namespace". An empty selector ({}) matches
+                                  all namespaces. This field is beta-level and is
+                                  only honored when PodAffinityNamespaceSelector feature
+                                  is enabled.
+                                properties:
+                                  matchExpressions:
+                                    description: matchExpressions is a list of label
+                                      selector requirements. The requirements are
+                                      ANDed.
+                                    items:
+                                      description: A label selector requirement is
+                                        a selector that contains values, a key, and
+                                        an operator that relates the key and values.
+                                      properties:
+                                        key:
+                                          description: key is the label key that the
+                                            selector applies to.
+                                          type: string
+                                        operator:
+                                          description: operator represents a key's
+                                            relationship to a set of values. Valid
+                                            operators are In, NotIn, Exists and DoesNotExist.
+                                          type: string
+                                        values:
+                                          description: values is an array of string
+                                            values. If the operator is In or NotIn,
+                                            the values array must be non-empty. If
+                                            the operator is Exists or DoesNotExist,
+                                            the values array must be empty. This array
+                                            is replaced during a strategic merge patch.
+                                          items:
+                                            type: string
+                                          type: array
+                                      required:
+                                      - key
+                                      - operator
+                                      type: object
+                                    type: array
+                                  matchLabels:
+                                    additionalProperties:
+                                      type: string
+                                    description: matchLabels is a map of {key,value}
+                                      pairs. A single {key,value} in the matchLabels
+                                      map is equivalent to an element of matchExpressions,
+                                      whose key field is "key", the operator is "In",
+                                      and the values array contains only "value".
+                                      The requirements are ANDed.
+                                    type: object
+                                type: object
                               namespaces:
-                                description: namespaces specifies which namespaces
-                                  the labelSelector applies to (matches against);
-                                  null or empty list means "this pod's namespace"
+                                description: namespaces specifies a static list of
+                                  namespace names that the term applies to. The term
+                                  is applied to the union of the namespaces listed
+                                  in this field and the ones selected by namespaceSelector.
+                                  null or empty namespaces list and null namespaceSelector
+                                  means "this pod's namespace"
                                 items:
                                   type: string
                                 type: array
@@ -1430,10 +1605,72 @@ var CRDsValidation map[string]string = map[string]string{
                                           "value". The requirements are ANDed.
                                         type: object
                                     type: object
+                                  namespaceSelector:
+                                    description: A label query over the set of namespaces
+                                      that the term applies to. The term is applied
+                                      to the union of the namespaces selected by this
+                                      field and the ones listed in the namespaces
+                                      field. null selector and null or empty namespaces
+                                      list means "this pod's namespace". An empty
+                                      selector ({}) matches all namespaces. This field
+                                      is beta-level and is only honored when PodAffinityNamespaceSelector
+                                      feature is enabled.
+                                    properties:
+                                      matchExpressions:
+                                        description: matchExpressions is a list of
+                                          label selector requirements. The requirements
+                                          are ANDed.
+                                        items:
+                                          description: A label selector requirement
+                                            is a selector that contains values, a
+                                            key, and an operator that relates the
+                                            key and values.
+                                          properties:
+                                            key:
+                                              description: key is the label key that
+                                                the selector applies to.
+                                              type: string
+                                            operator:
+                                              description: operator represents a key's
+                                                relationship to a set of values. Valid
+                                                operators are In, NotIn, Exists and
+                                                DoesNotExist.
+                                              type: string
+                                            values:
+                                              description: values is an array of string
+                                                values. If the operator is In or NotIn,
+                                                the values array must be non-empty.
+                                                If the operator is Exists or DoesNotExist,
+                                                the values array must be empty. This
+                                                array is replaced during a strategic
+                                                merge patch.
+                                              items:
+                                                type: string
+                                              type: array
+                                          required:
+                                          - key
+                                          - operator
+                                          type: object
+                                        type: array
+                                      matchLabels:
+                                        additionalProperties:
+                                          type: string
+                                        description: matchLabels is a map of {key,value}
+                                          pairs. A single {key,value} in the matchLabels
+                                          map is equivalent to an element of matchExpressions,
+                                          whose key field is "key", the operator is
+                                          "In", and the values array contains only
+                                          "value". The requirements are ANDed.
+                                        type: object
+                                    type: object
                                   namespaces:
-                                    description: namespaces specifies which namespaces
-                                      the labelSelector applies to (matches against);
-                                      null or empty list means "this pod's namespace"
+                                    description: namespaces specifies a static list
+                                      of namespace names that the term applies to.
+                                      The term is applied to the union of the namespaces
+                                      listed in this field and the ones selected by
+                                      namespaceSelector. null or empty namespaces
+                                      list and null namespaceSelector means "this
+                                      pod's namespace"
                                     items:
                                       type: string
                                     type: array
@@ -1527,10 +1764,68 @@ var CRDsValidation map[string]string = map[string]string{
                                       The requirements are ANDed.
                                     type: object
                                 type: object
+                              namespaceSelector:
+                                description: A label query over the set of namespaces
+                                  that the term applies to. The term is applied to
+                                  the union of the namespaces selected by this field
+                                  and the ones listed in the namespaces field. null
+                                  selector and null or empty namespaces list means
+                                  "this pod's namespace". An empty selector ({}) matches
+                                  all namespaces. This field is beta-level and is
+                                  only honored when PodAffinityNamespaceSelector feature
+                                  is enabled.
+                                properties:
+                                  matchExpressions:
+                                    description: matchExpressions is a list of label
+                                      selector requirements. The requirements are
+                                      ANDed.
+                                    items:
+                                      description: A label selector requirement is
+                                        a selector that contains values, a key, and
+                                        an operator that relates the key and values.
+                                      properties:
+                                        key:
+                                          description: key is the label key that the
+                                            selector applies to.
+                                          type: string
+                                        operator:
+                                          description: operator represents a key's
+                                            relationship to a set of values. Valid
+                                            operators are In, NotIn, Exists and DoesNotExist.
+                                          type: string
+                                        values:
+                                          description: values is an array of string
+                                            values. If the operator is In or NotIn,
+                                            the values array must be non-empty. If
+                                            the operator is Exists or DoesNotExist,
+                                            the values array must be empty. This array
+                                            is replaced during a strategic merge patch.
+                                          items:
+                                            type: string
+                                          type: array
+                                      required:
+                                      - key
+                                      - operator
+                                      type: object
+                                    type: array
+                                  matchLabels:
+                                    additionalProperties:
+                                      type: string
+                                    description: matchLabels is a map of {key,value}
+                                      pairs. A single {key,value} in the matchLabels
+                                      map is equivalent to an element of matchExpressions,
+                                      whose key field is "key", the operator is "In",
+                                      and the values array contains only "value".
+                                      The requirements are ANDed.
+                                    type: object
+                                type: object
                               namespaces:
-                                description: namespaces specifies which namespaces
-                                  the labelSelector applies to (matches against);
-                                  null or empty list means "this pod's namespace"
+                                description: namespaces specifies a static list of
+                                  namespace names that the term applies to. The term
+                                  is applied to the union of the namespaces listed
+                                  in this field and the ones selected by namespaceSelector.
+                                  null or empty namespaces list and null namespaceSelector
+                                  means "this pod's namespace"
                                 items:
                                   type: string
                                 type: array
@@ -1954,10 +2249,72 @@ var CRDsValidation map[string]string = map[string]string{
                                           "value". The requirements are ANDed.
                                         type: object
                                     type: object
+                                  namespaceSelector:
+                                    description: A label query over the set of namespaces
+                                      that the term applies to. The term is applied
+                                      to the union of the namespaces selected by this
+                                      field and the ones listed in the namespaces
+                                      field. null selector and null or empty namespaces
+                                      list means "this pod's namespace". An empty
+                                      selector ({}) matches all namespaces. This field
+                                      is beta-level and is only honored when PodAffinityNamespaceSelector
+                                      feature is enabled.
+                                    properties:
+                                      matchExpressions:
+                                        description: matchExpressions is a list of
+                                          label selector requirements. The requirements
+                                          are ANDed.
+                                        items:
+                                          description: A label selector requirement
+                                            is a selector that contains values, a
+                                            key, and an operator that relates the
+                                            key and values.
+                                          properties:
+                                            key:
+                                              description: key is the label key that
+                                                the selector applies to.
+                                              type: string
+                                            operator:
+                                              description: operator represents a key's
+                                                relationship to a set of values. Valid
+                                                operators are In, NotIn, Exists and
+                                                DoesNotExist.
+                                              type: string
+                                            values:
+                                              description: values is an array of string
+                                                values. If the operator is In or NotIn,
+                                                the values array must be non-empty.
+                                                If the operator is Exists or DoesNotExist,
+                                                the values array must be empty. This
+                                                array is replaced during a strategic
+                                                merge patch.
+                                              items:
+                                                type: string
+                                              type: array
+                                          required:
+                                          - key
+                                          - operator
+                                          type: object
+                                        type: array
+                                      matchLabels:
+                                        additionalProperties:
+                                          type: string
+                                        description: matchLabels is a map of {key,value}
+                                          pairs. A single {key,value} in the matchLabels
+                                          map is equivalent to an element of matchExpressions,
+                                          whose key field is "key", the operator is
+                                          "In", and the values array contains only
+                                          "value". The requirements are ANDed.
+                                        type: object
+                                    type: object
                                   namespaces:
-                                    description: namespaces specifies which namespaces
-                                      the labelSelector applies to (matches against);
-                                      null or empty list means "this pod's namespace"
+                                    description: namespaces specifies a static list
+                                      of namespace names that the term applies to.
+                                      The term is applied to the union of the namespaces
+                                      listed in this field and the ones selected by
+                                      namespaceSelector. null or empty namespaces
+                                      list and null namespaceSelector means "this
+                                      pod's namespace"
                                     items:
                                       type: string
                                     type: array
@@ -2051,10 +2408,68 @@ var CRDsValidation map[string]string = map[string]string{
                                       The requirements are ANDed.
                                     type: object
                                 type: object
+                              namespaceSelector:
+                                description: A label query over the set of namespaces
+                                  that the term applies to. The term is applied to
+                                  the union of the namespaces selected by this field
+                                  and the ones listed in the namespaces field. null
+                                  selector and null or empty namespaces list means
+                                  "this pod's namespace". An empty selector ({}) matches
+                                  all namespaces. This field is beta-level and is
+                                  only honored when PodAffinityNamespaceSelector feature
+                                  is enabled.
+                                properties:
+                                  matchExpressions:
+                                    description: matchExpressions is a list of label
+                                      selector requirements. The requirements are
+                                      ANDed.
+                                    items:
+                                      description: A label selector requirement is
+                                        a selector that contains values, a key, and
+                                        an operator that relates the key and values.
+                                      properties:
+                                        key:
+                                          description: key is the label key that the
+                                            selector applies to.
+                                          type: string
+                                        operator:
+                                          description: operator represents a key's
+                                            relationship to a set of values. Valid
+                                            operators are In, NotIn, Exists and DoesNotExist.
+                                          type: string
+                                        values:
+                                          description: values is an array of string
+                                            values. If the operator is In or NotIn,
+                                            the values array must be non-empty. If
+                                            the operator is Exists or DoesNotExist,
+                                            the values array must be empty. This array
+                                            is replaced during a strategic merge patch.
+                                          items:
+                                            type: string
+                                          type: array
+                                      required:
+                                      - key
+                                      - operator
+                                      type: object
+                                    type: array
+                                  matchLabels:
+                                    additionalProperties:
+                                      type: string
+                                    description: matchLabels is a map of {key,value}
+                                      pairs. A single {key,value} in the matchLabels
+                                      map is equivalent to an element of matchExpressions,
+                                      whose key field is "key", the operator is "In",
+                                      and the values array contains only "value".
+                                      The requirements are ANDed.
+                                    type: object
+                                type: object
                               namespaces:
-                                description: namespaces specifies which namespaces
-                                  the labelSelector applies to (matches against);
-                                  null or empty list means "this pod's namespace"
+                                description: namespaces specifies a static list of
+                                  namespace names that the term applies to. The term
+                                  is applied to the union of the namespaces listed
+                                  in this field and the ones selected by namespaceSelector.
+                                  null or empty namespaces list and null namespaceSelector
+                                  means "this pod's namespace"
                                 items:
                                   type: string
                                 type: array
@@ -2150,10 +2565,72 @@ var CRDsValidation map[string]string = map[string]string{
                                           "value". The requirements are ANDed.
                                         type: object
                                     type: object
+                                  namespaceSelector:
+                                    description: A label query over the set of namespaces
+                                      that the term applies to. The term is applied
+                                      to the union of the namespaces selected by this
+                                      field and the ones listed in the namespaces
+                                      field. null selector and null or empty namespaces
+                                      list means "this pod's namespace". An empty
+                                      selector ({}) matches all namespaces. This field
+                                      is beta-level and is only honored when PodAffinityNamespaceSelector
+                                      feature is enabled.
+                                    properties:
+                                      matchExpressions:
+                                        description: matchExpressions is a list of
+                                          label selector requirements. The requirements
+                                          are ANDed.
+                                        items:
+                                          description: A label selector requirement
+                                            is a selector that contains values, a
+                                            key, and an operator that relates the
+                                            key and values.
+                                          properties:
+                                            key:
+                                              description: key is the label key that
+                                                the selector applies to.
+                                              type: string
+                                            operator:
+                                              description: operator represents a key's
+                                                relationship to a set of values. Valid
+                                                operators are In, NotIn, Exists and
+                                                DoesNotExist.
+                                              type: string
+                                            values:
+                                              description: values is an array of string
+                                                values. If the operator is In or NotIn,
+                                                the values array must be non-empty.
+                                                If the operator is Exists or DoesNotExist,
+                                                the values array must be empty. This
+                                                array is replaced during a strategic
+                                                merge patch.
+                                              items:
+                                                type: string
+                                              type: array
+                                          required:
+                                          - key
+                                          - operator
+                                          type: object
+                                        type: array
+                                      matchLabels:
+                                        additionalProperties:
+                                          type: string
+                                        description: matchLabels is a map of {key,value}
+                                          pairs. A single {key,value} in the matchLabels
+                                          map is equivalent to an element of matchExpressions,
+                                          whose key field is "key", the operator is
+                                          "In", and the values array contains only
+                                          "value". The requirements are ANDed.
+                                        type: object
+                                    type: object
                                   namespaces:
-                                    description: namespaces specifies which namespaces
-                                      the labelSelector applies to (matches against);
-                                      null or empty list means "this pod's namespace"
+                                    description: namespaces specifies a static list
+                                      of namespace names that the term applies to.
+                                      The term is applied to the union of the namespaces
+                                      listed in this field and the ones selected by
+                                      namespaceSelector. null or empty namespaces
+                                      list and null namespaceSelector means "this
+                                      pod's namespace"
                                     items:
                                       type: string
                                     type: array
@@ -2247,10 +2724,68 @@ var CRDsValidation map[string]string = map[string]string{
                                       The requirements are ANDed.
                                     type: object
                                 type: object
+                              namespaceSelector:
+                                description: A label query over the set of namespaces
+                                  that the term applies to. The term is applied to
+                                  the union of the namespaces selected by this field
+                                  and the ones listed in the namespaces field. null
+                                  selector and null or empty namespaces list means
+                                  "this pod's namespace". An empty selector ({}) matches
+                                  all namespaces. This field is beta-level and is
+                                  only honored when PodAffinityNamespaceSelector feature
+                                  is enabled.
+                                properties:
+                                  matchExpressions:
+                                    description: matchExpressions is a list of label
+                                      selector requirements. The requirements are
+                                      ANDed.
+                                    items:
+                                      description: A label selector requirement is
+                                        a selector that contains values, a key, and
+                                        an operator that relates the key and values.
+                                      properties:
+                                        key:
+                                          description: key is the label key that the
+                                            selector applies to.
+                                          type: string
+                                        operator:
+                                          description: operator represents a key's
+                                            relationship to a set of values. Valid
+                                            operators are In, NotIn, Exists and DoesNotExist.
+                                          type: string
+                                        values:
+                                          description: values is an array of string
+                                            values. If the operator is In or NotIn,
+                                            the values array must be non-empty. If
+                                            the operator is Exists or DoesNotExist,
+                                            the values array must be empty. This array
+                                            is replaced during a strategic merge patch.
+                                          items:
+                                            type: string
+                                          type: array
+                                      required:
+                                      - key
+                                      - operator
+                                      type: object
+                                    type: array
+                                  matchLabels:
+                                    additionalProperties:
+                                      type: string
+                                    description: matchLabels is a map of {key,value}
+                                      pairs. A single {key,value} in the matchLabels
+                                      map is equivalent to an element of matchExpressions,
+                                      whose key field is "key", the operator is "In",
+                                      and the values array contains only "value".
+                                      The requirements are ANDed.
+                                    type: object
+                                type: object
                               namespaces:
-                                description: namespaces specifies which namespaces
-                                  the labelSelector applies to (matches against);
-                                  null or empty list means "this pod's namespace"
+                                description: namespaces specifies a static list of
+                                  namespace names that the term applies to. The term
+                                  is applied to the union of the namespaces listed
+                                  in this field and the ones selected by namespaceSelector.
+                                  null or empty namespaces list and null namespaceSelector
+                                  means "this pod's namespace"
                                 items:
                                   type: string
                                 type: array
@@ -2653,13 +3188,50 @@ var CRDsValidation map[string]string = map[string]string{
                       dataSource:
                         description: 'This field can be used to specify either: *
                           An existing VolumeSnapshot object (snapshot.storage.k8s.io/VolumeSnapshot)
-                          * An existing PVC (PersistentVolumeClaim) * An existing
-                          custom resource that implements data population (Alpha)
-                          In order to use custom resource types that implement data
-                          population, the AnyVolumeDataSource feature gate must be
-                          enabled. If the provisioner or an external controller can
-                          support the specified data source, it will create a new
-                          volume based on the contents of the specified data source.'
+                          * An existing PVC (PersistentVolumeClaim) If the provisioner
+                          or an external controller can support the specified data
+                          source, it will create a new volume based on the contents
+                          of the specified data source. If the AnyVolumeDataSource
+                          feature gate is enabled, this field will always have the
+                          same contents as the DataSourceRef field.'
+                        properties:
+                          apiGroup:
+                            description: APIGroup is the group for the resource being
+                              referenced. If APIGroup is not specified, the specified
+                              Kind must be in the core API group. For any other third-party
+                              types, APIGroup is required.
+                            type: string
+                          kind:
+                            description: Kind is the type of resource being referenced
+                            type: string
+                          name:
+                            description: Name is the name of resource being referenced
+                            type: string
+                        required:
+                        - kind
+                        - name
+                        type: object
+                      dataSourceRef:
+                        description: 'Specifies the object from which to populate
+                          the volume with data, if a non-empty volume is desired.
+                          This may be any local object from a non-empty API group
+                          (non core object) or a PersistentVolumeClaim object. When
+                          this field is specified, volume binding will only succeed
+                          if the type of the specified object matches some installed
+                          volume populator or dynamic provisioner. This field will
+                          replace the functionality of the DataSource field and as
+                          such if both fields are non-empty, they must have the same
+                          value. For backwards compatibility, both fields (DataSource
+                          and DataSourceRef) will be set to the same value automatically
+                          if one of them is empty and the other is non-empty. There
+                          are two important differences between DataSource and DataSourceRef:
+                          * While DataSource only allows two specific types of objects,
+                          DataSourceRef   allows any non-core object, as well as PersistentVolumeClaim
+                          objects. * While DataSource ignores disallowed values (dropping
+                          them), DataSourceRef   preserves all values, and generates
+                          an error if a disallowed value is   specified. (Alpha) Using
+                          this field requires the AnyVolumeDataSource feature gate
+                          to be enabled.'
                         properties:
                           apiGroup:
                             description: APIGroup is the group for the resource being
@@ -2679,7 +3251,11 @@ var CRDsValidation map[string]string = map[string]string{
                         type: object
                       resources:
                         description: 'Resources represents the minimum resources the
-                          volume should have. More info: https://kubernetes.io/docs/concepts/storage/persistent-volumes#resources'
+                          volume should have. If RecoverVolumeExpansionFailure feature
+                          is enabled users are allowed to specify resource requirements
+                          that are lower than previous value but must still be higher
+                          than capacity recorded in the status field of the claim.
+                          More info: https://kubernetes.io/docs/concepts/storage/persistent-volumes#resources'
                         properties:
                           limits:
                             additionalProperties:
@@ -2689,7 +3265,7 @@ var CRDsValidation map[string]string = map[string]string{
                               pattern: ^(\+|-)?(([0-9]+(\.[0-9]*)?)|(\.[0-9]+))(([KMGTPE]i)|[numkMGTPE]|([eE](\+|-)?(([0-9]+(\.[0-9]*)?)|(\.[0-9]+))))?$
                               x-kubernetes-int-or-string: true
                             description: 'Limits describes the maximum amount of compute
-                              resources allowed. More info: https://kubernetes.io/docs/concepts/configuration/manage-compute-resources-container/'
+                              resources allowed. More info: https://kubernetes.io/docs/concepts/configuration/manage-resources-containers/'
                             type: object
                           requests:
                             additionalProperties:
@@ -2702,7 +3278,7 @@ var CRDsValidation map[string]string = map[string]string{
                               compute resources required. If Requests is omitted for
                               a container, it defaults to Limits if that is explicitly
                               specified, otherwise to an implementation-defined value.
-                              More info: https://kubernetes.io/docs/concepts/configuration/manage-compute-resources-container/'
+                              More info: https://kubernetes.io/docs/concepts/configuration/manage-resources-containers/'
                             type: object
                         type: object
                       selector:
@@ -2782,6 +3358,19 @@ var CRDsValidation map[string]string = map[string]string{
                               a Certificate Authority(CA) public key, and a base64
                               encoded pem certificate
                             type: string
+                          extraHeaders:
+                            description: ExtraHeaders is a list of strings containing
+                              extra headers to include with HTTP transfer requests
+                            items:
+                              type: string
+                            type: array
+                          secretExtraHeaders:
+                            description: SecretExtraHeaders is a list of Secret references,
+                              each containing an extra HTTP header that may include
+                              sensitive information
+                            items:
+                              type: string
+                            type: array
                           secretRef:
                             description: SecretRef A Secret reference, the secret
                               should contain accessKeyId (user name) base64 encoded,
@@ -2971,7 +3560,7 @@ var CRDsValidation map[string]string = map[string]string{
                               pattern: ^(\+|-)?(([0-9]+(\.[0-9]*)?)|(\.[0-9]+))(([KMGTPE]i)|[numkMGTPE]|([eE](\+|-)?(([0-9]+(\.[0-9]*)?)|(\.[0-9]+))))?$
                               x-kubernetes-int-or-string: true
                             description: 'Limits describes the maximum amount of compute
-                              resources allowed. More info: https://kubernetes.io/docs/concepts/configuration/manage-compute-resources-container/'
+                              resources allowed. More info: https://kubernetes.io/docs/concepts/configuration/manage-resources-containers/'
                             type: object
                           requests:
                             additionalProperties:
@@ -2984,7 +3573,7 @@ var CRDsValidation map[string]string = map[string]string{
                               compute resources required. If Requests is omitted for
                               a container, it defaults to Limits if that is explicitly
                               specified, otherwise to an implementation-defined value.
-                              More info: https://kubernetes.io/docs/concepts/configuration/manage-compute-resources-container/'
+                              More info: https://kubernetes.io/docs/concepts/configuration/manage-resources-containers/'
                             type: object
                         type: object
                       selector:
@@ -3477,10 +4066,72 @@ var CRDsValidation map[string]string = map[string]string{
                                           "value". The requirements are ANDed.
                                         type: object
                                     type: object
+                                  namespaceSelector:
+                                    description: A label query over the set of namespaces
+                                      that the term applies to. The term is applied
+                                      to the union of the namespaces selected by this
+                                      field and the ones listed in the namespaces
+                                      field. null selector and null or empty namespaces
+                                      list means "this pod's namespace". An empty
+                                      selector ({}) matches all namespaces. This field
+                                      is beta-level and is only honored when PodAffinityNamespaceSelector
+                                      feature is enabled.
+                                    properties:
+                                      matchExpressions:
+                                        description: matchExpressions is a list of
+                                          label selector requirements. The requirements
+                                          are ANDed.
+                                        items:
+                                          description: A label selector requirement
+                                            is a selector that contains values, a
+                                            key, and an operator that relates the
+                                            key and values.
+                                          properties:
+                                            key:
+                                              description: key is the label key that
+                                                the selector applies to.
+                                              type: string
+                                            operator:
+                                              description: operator represents a key's
+                                                relationship to a set of values. Valid
+                                                operators are In, NotIn, Exists and
+                                                DoesNotExist.
+                                              type: string
+                                            values:
+                                              description: values is an array of string
+                                                values. If the operator is In or NotIn,
+                                                the values array must be non-empty.
+                                                If the operator is Exists or DoesNotExist,
+                                                the values array must be empty. This
+                                                array is replaced during a strategic
+                                                merge patch.
+                                              items:
+                                                type: string
+                                              type: array
+                                          required:
+                                          - key
+                                          - operator
+                                          type: object
+                                        type: array
+                                      matchLabels:
+                                        additionalProperties:
+                                          type: string
+                                        description: matchLabels is a map of {key,value}
+                                          pairs. A single {key,value} in the matchLabels
+                                          map is equivalent to an element of matchExpressions,
+                                          whose key field is "key", the operator is
+                                          "In", and the values array contains only
+                                          "value". The requirements are ANDed.
+                                        type: object
+                                    type: object
                                   namespaces:
-                                    description: namespaces specifies which namespaces
-                                      the labelSelector applies to (matches against);
-                                      null or empty list means "this pod's namespace"
+                                    description: namespaces specifies a static list
+                                      of namespace names that the term applies to.
+                                      The term is applied to the union of the namespaces
+                                      listed in this field and the ones selected by
+                                      namespaceSelector. null or empty namespaces
+                                      list and null namespaceSelector means "this
+                                      pod's namespace"
                                     items:
                                       type: string
                                     type: array
@@ -3574,10 +4225,68 @@ var CRDsValidation map[string]string = map[string]string{
                                       The requirements are ANDed.
                                     type: object
                                 type: object
+                              namespaceSelector:
+                                description: A label query over the set of namespaces
+                                  that the term applies to. The term is applied to
+                                  the union of the namespaces selected by this field
+                                  and the ones listed in the namespaces field. null
+                                  selector and null or empty namespaces list means
+                                  "this pod's namespace". An empty selector ({}) matches
+                                  all namespaces. This field is beta-level and is
+                                  only honored when PodAffinityNamespaceSelector feature
+                                  is enabled.
+                                properties:
+                                  matchExpressions:
+                                    description: matchExpressions is a list of label
+                                      selector requirements. The requirements are
+                                      ANDed.
+                                    items:
+                                      description: A label selector requirement is
+                                        a selector that contains values, a key, and
+                                        an operator that relates the key and values.
+                                      properties:
+                                        key:
+                                          description: key is the label key that the
+                                            selector applies to.
+                                          type: string
+                                        operator:
+                                          description: operator represents a key's
+                                            relationship to a set of values. Valid
+                                            operators are In, NotIn, Exists and DoesNotExist.
+                                          type: string
+                                        values:
+                                          description: values is an array of string
+                                            values. If the operator is In or NotIn,
+                                            the values array must be non-empty. If
+                                            the operator is Exists or DoesNotExist,
+                                            the values array must be empty. This array
+                                            is replaced during a strategic merge patch.
+                                          items:
+                                            type: string
+                                          type: array
+                                      required:
+                                      - key
+                                      - operator
+                                      type: object
+                                    type: array
+                                  matchLabels:
+                                    additionalProperties:
+                                      type: string
+                                    description: matchLabels is a map of {key,value}
+                                      pairs. A single {key,value} in the matchLabels
+                                      map is equivalent to an element of matchExpressions,
+                                      whose key field is "key", the operator is "In",
+                                      and the values array contains only "value".
+                                      The requirements are ANDed.
+                                    type: object
+                                type: object
                               namespaces:
-                                description: namespaces specifies which namespaces
-                                  the labelSelector applies to (matches against);
-                                  null or empty list means "this pod's namespace"
+                                description: namespaces specifies a static list of
+                                  namespace names that the term applies to. The term
+                                  is applied to the union of the namespaces listed
+                                  in this field and the ones selected by namespaceSelector.
+                                  null or empty namespaces list and null namespaceSelector
+                                  means "this pod's namespace"
                                 items:
                                   type: string
                                 type: array
@@ -3673,10 +4382,72 @@ var CRDsValidation map[string]string = map[string]string{
                                           "value". The requirements are ANDed.
                                         type: object
                                     type: object
+                                  namespaceSelector:
+                                    description: A label query over the set of namespaces
+                                      that the term applies to. The term is applied
+                                      to the union of the namespaces selected by this
+                                      field and the ones listed in the namespaces
+                                      field. null selector and null or empty namespaces
+                                      list means "this pod's namespace". An empty
+                                      selector ({}) matches all namespaces. This field
+                                      is beta-level and is only honored when PodAffinityNamespaceSelector
+                                      feature is enabled.
+                                    properties:
+                                      matchExpressions:
+                                        description: matchExpressions is a list of
+                                          label selector requirements. The requirements
+                                          are ANDed.
+                                        items:
+                                          description: A label selector requirement
+                                            is a selector that contains values, a
+                                            key, and an operator that relates the
+                                            key and values.
+                                          properties:
+                                            key:
+                                              description: key is the label key that
+                                                the selector applies to.
+                                              type: string
+                                            operator:
+                                              description: operator represents a key's
+                                                relationship to a set of values. Valid
+                                                operators are In, NotIn, Exists and
+                                                DoesNotExist.
+                                              type: string
+                                            values:
+                                              description: values is an array of string
+                                                values. If the operator is In or NotIn,
+                                                the values array must be non-empty.
+                                                If the operator is Exists or DoesNotExist,
+                                                the values array must be empty. This
+                                                array is replaced during a strategic
+                                                merge patch.
+                                              items:
+                                                type: string
+                                              type: array
+                                          required:
+                                          - key
+                                          - operator
+                                          type: object
+                                        type: array
+                                      matchLabels:
+                                        additionalProperties:
+                                          type: string
+                                        description: matchLabels is a map of {key,value}
+                                          pairs. A single {key,value} in the matchLabels
+                                          map is equivalent to an element of matchExpressions,
+                                          whose key field is "key", the operator is
+                                          "In", and the values array contains only
+                                          "value". The requirements are ANDed.
+                                        type: object
+                                    type: object
                                   namespaces:
-                                    description: namespaces specifies which namespaces
-                                      the labelSelector applies to (matches against);
-                                      null or empty list means "this pod's namespace"
+                                    description: namespaces specifies a static list
+                                      of namespace names that the term applies to.
+                                      The term is applied to the union of the namespaces
+                                      listed in this field and the ones selected by
+                                      namespaceSelector. null or empty namespaces
+                                      list and null namespaceSelector means "this
+                                      pod's namespace"
                                     items:
                                       type: string
                                     type: array
@@ -3770,10 +4541,68 @@ var CRDsValidation map[string]string = map[string]string{
                                       The requirements are ANDed.
                                     type: object
                                 type: object
+                              namespaceSelector:
+                                description: A label query over the set of namespaces
+                                  that the term applies to. The term is applied to
+                                  the union of the namespaces selected by this field
+                                  and the ones listed in the namespaces field. null
+                                  selector and null or empty namespaces list means
+                                  "this pod's namespace". An empty selector ({}) matches
+                                  all namespaces. This field is beta-level and is
+                                  only honored when PodAffinityNamespaceSelector feature
+                                  is enabled.
+                                properties:
+                                  matchExpressions:
+                                    description: matchExpressions is a list of label
+                                      selector requirements. The requirements are
+                                      ANDed.
+                                    items:
+                                      description: A label selector requirement is
+                                        a selector that contains values, a key, and
+                                        an operator that relates the key and values.
+                                      properties:
+                                        key:
+                                          description: key is the label key that the
+                                            selector applies to.
+                                          type: string
+                                        operator:
+                                          description: operator represents a key's
+                                            relationship to a set of values. Valid
+                                            operators are In, NotIn, Exists and DoesNotExist.
+                                          type: string
+                                        values:
+                                          description: values is an array of string
+                                            values. If the operator is In or NotIn,
+                                            the values array must be non-empty. If
+                                            the operator is Exists or DoesNotExist,
+                                            the values array must be empty. This array
+                                            is replaced during a strategic merge patch.
+                                          items:
+                                            type: string
+                                          type: array
+                                      required:
+                                      - key
+                                      - operator
+                                      type: object
+                                    type: array
+                                  matchLabels:
+                                    additionalProperties:
+                                      type: string
+                                    description: matchLabels is a map of {key,value}
+                                      pairs. A single {key,value} in the matchLabels
+                                      map is equivalent to an element of matchExpressions,
+                                      whose key field is "key", the operator is "In",
+                                      and the values array contains only "value".
+                                      The requirements are ANDed.
+                                    type: object
+                                type: object
                               namespaces:
-                                description: namespaces specifies which namespaces
-                                  the labelSelector applies to (matches against);
-                                  null or empty list means "this pod's namespace"
+                                description: namespaces specifies a static list of
+                                  namespace names that the term applies to. The term
+                                  is applied to the union of the namespaces listed
+                                  in this field and the ones selected by namespaceSelector.
+                                  null or empty namespaces list and null namespaceSelector
+                                  means "this pod's namespace"
                                 items:
                                   type: string
                                 type: array
@@ -4088,8 +4917,8 @@ var CRDsValidation map[string]string = map[string]string{
                             disks.
                           type: boolean
                         disks:
-                          description: Disks describes disks, cdroms, floppy and luns
-                            which are connected to the vmi.
+                          description: Disks describes disks, cdroms and luns which
+                            are connected to the vmi.
                           items:
                             properties:
                               blockSize:
@@ -4171,18 +5000,6 @@ var CRDsValidation map[string]string = map[string]string{
                                     description: ReadOnly. Defaults to false.
                                     type: boolean
                                 type: object
-                              floppy:
-                                description: Attach a volume as a floppy to the vmi.
-                                properties:
-                                  readonly:
-                                    description: ReadOnly. Defaults to false.
-                                    type: boolean
-                                  tray:
-                                    description: Tray indicates if the tray of the
-                                      device is open or closed. Allowed values are
-                                      "open" and "closed". Defaults to closed.
-                                    type: string
-                                type: object
                               io:
                                 description: 'IO specifies which QEMU disk IO mode
                                   should be used. Supported values are: native, default,
@@ -4235,6 +5052,10 @@ var CRDsValidation map[string]string = map[string]string{
                                 description: Serial provides the ability to specify
                                   a serial number for the disk device.
                                 type: string
+                              shareable:
+                                description: If specified the disk is made sharable
+                                  and multiple write from different VMs are permitted
+                                type: boolean
                               tag:
                                 description: If specified, disk address and its tag
                                   will be provided to the guest via config drive metadata
@@ -4269,6 +5090,11 @@ var CRDsValidation map[string]string = map[string]string{
                               name:
                                 description: Name of the GPU device as exposed by
                                   a device plugin
+                                type: string
+                              tag:
+                                description: If specified, the virtual network interface
+                                  address and its tag will be provided to the guest
+                                  via config drive
                                 type: string
                               virtualGPUOptions:
                                 properties:
@@ -4307,6 +5133,11 @@ var CRDsValidation map[string]string = map[string]string{
                                   host device exposed by a device plugin
                                 type: string
                               name:
+                                type: string
+                              tag:
+                                description: If specified, the virtual network interface
+                                  address and its tag will be provided to the guest
+                                  via config drive
                                 type: string
                             required:
                             - deviceName
@@ -5821,18 +6652,6 @@ var CRDsValidation map[string]string = map[string]string{
                             description: ReadOnly. Defaults to false.
                             type: boolean
                         type: object
-                      floppy:
-                        description: Attach a volume as a floppy to the vmi.
-                        properties:
-                          readonly:
-                            description: ReadOnly. Defaults to false.
-                            type: boolean
-                          tray:
-                            description: Tray indicates if the tray of the device
-                              is open or closed. Allowed values are "open" and "closed".
-                              Defaults to closed.
-                            type: string
-                        type: object
                       io:
                         description: 'IO specifies which QEMU disk IO mode should
                           be used. Supported values are: native, default, threads.'
@@ -5883,6 +6702,10 @@ var CRDsValidation map[string]string = map[string]string{
                         description: Serial provides the ability to specify a serial
                           number for the disk device.
                         type: string
+                      shareable:
+                        description: If specified the disk is made sharable and multiple
+                          write from different VMs are permitted
+                        type: boolean
                       tag:
                         description: If specified, disk address and its tag will be
                           provided to the guest via config drive metadata
@@ -6645,10 +7468,65 @@ var CRDsValidation map[string]string = map[string]string{
                                   contains only "value". The requirements are ANDed.
                                 type: object
                             type: object
+                          namespaceSelector:
+                            description: A label query over the set of namespaces
+                              that the term applies to. The term is applied to the
+                              union of the namespaces selected by this field and the
+                              ones listed in the namespaces field. null selector and
+                              null or empty namespaces list means "this pod's namespace".
+                              An empty selector ({}) matches all namespaces. This
+                              field is beta-level and is only honored when PodAffinityNamespaceSelector
+                              feature is enabled.
+                            properties:
+                              matchExpressions:
+                                description: matchExpressions is a list of label selector
+                                  requirements. The requirements are ANDed.
+                                items:
+                                  description: A label selector requirement is a selector
+                                    that contains values, a key, and an operator that
+                                    relates the key and values.
+                                  properties:
+                                    key:
+                                      description: key is the label key that the selector
+                                        applies to.
+                                      type: string
+                                    operator:
+                                      description: operator represents a key's relationship
+                                        to a set of values. Valid operators are In,
+                                        NotIn, Exists and DoesNotExist.
+                                      type: string
+                                    values:
+                                      description: values is an array of string values.
+                                        If the operator is In or NotIn, the values
+                                        array must be non-empty. If the operator is
+                                        Exists or DoesNotExist, the values array must
+                                        be empty. This array is replaced during a
+                                        strategic merge patch.
+                                      items:
+                                        type: string
+                                      type: array
+                                  required:
+                                  - key
+                                  - operator
+                                  type: object
+                                type: array
+                              matchLabels:
+                                additionalProperties:
+                                  type: string
+                                description: matchLabels is a map of {key,value} pairs.
+                                  A single {key,value} in the matchLabels map is equivalent
+                                  to an element of matchExpressions, whose key field
+                                  is "key", the operator is "In", and the values array
+                                  contains only "value". The requirements are ANDed.
+                                type: object
+                            type: object
                           namespaces:
-                            description: namespaces specifies which namespaces the
-                              labelSelector applies to (matches against); null or
-                              empty list means "this pod's namespace"
+                            description: namespaces specifies a static list of namespace
+                              names that the term applies to. The term is applied
+                              to the union of the namespaces listed in this field
+                              and the ones selected by namespaceSelector. null or
+                              empty namespaces list and null namespaceSelector means
+                              "this pod's namespace"
                             items:
                               type: string
                             type: array
@@ -6737,10 +7615,64 @@ var CRDsValidation map[string]string = map[string]string{
                               only "value". The requirements are ANDed.
                             type: object
                         type: object
+                      namespaceSelector:
+                        description: A label query over the set of namespaces that
+                          the term applies to. The term is applied to the union of
+                          the namespaces selected by this field and the ones listed
+                          in the namespaces field. null selector and null or empty
+                          namespaces list means "this pod's namespace". An empty selector
+                          ({}) matches all namespaces. This field is beta-level and
+                          is only honored when PodAffinityNamespaceSelector feature
+                          is enabled.
+                        properties:
+                          matchExpressions:
+                            description: matchExpressions is a list of label selector
+                              requirements. The requirements are ANDed.
+                            items:
+                              description: A label selector requirement is a selector
+                                that contains values, a key, and an operator that
+                                relates the key and values.
+                              properties:
+                                key:
+                                  description: key is the label key that the selector
+                                    applies to.
+                                  type: string
+                                operator:
+                                  description: operator represents a key's relationship
+                                    to a set of values. Valid operators are In, NotIn,
+                                    Exists and DoesNotExist.
+                                  type: string
+                                values:
+                                  description: values is an array of string values.
+                                    If the operator is In or NotIn, the values array
+                                    must be non-empty. If the operator is Exists or
+                                    DoesNotExist, the values array must be empty.
+                                    This array is replaced during a strategic merge
+                                    patch.
+                                  items:
+                                    type: string
+                                  type: array
+                              required:
+                              - key
+                              - operator
+                              type: object
+                            type: array
+                          matchLabels:
+                            additionalProperties:
+                              type: string
+                            description: matchLabels is a map of {key,value} pairs.
+                              A single {key,value} in the matchLabels map is equivalent
+                              to an element of matchExpressions, whose key field is
+                              "key", the operator is "In", and the values array contains
+                              only "value". The requirements are ANDed.
+                            type: object
+                        type: object
                       namespaces:
-                        description: namespaces specifies which namespaces the labelSelector
-                          applies to (matches against); null or empty list means "this
-                          pod's namespace"
+                        description: namespaces specifies a static list of namespace
+                          names that the term applies to. The term is applied to the
+                          union of the namespaces listed in this field and the ones
+                          selected by namespaceSelector. null or empty namespaces
+                          list and null namespaceSelector means "this pod's namespace"
                         items:
                           type: string
                         type: array
@@ -6826,10 +7758,65 @@ var CRDsValidation map[string]string = map[string]string{
                                   contains only "value". The requirements are ANDed.
                                 type: object
                             type: object
+                          namespaceSelector:
+                            description: A label query over the set of namespaces
+                              that the term applies to. The term is applied to the
+                              union of the namespaces selected by this field and the
+                              ones listed in the namespaces field. null selector and
+                              null or empty namespaces list means "this pod's namespace".
+                              An empty selector ({}) matches all namespaces. This
+                              field is beta-level and is only honored when PodAffinityNamespaceSelector
+                              feature is enabled.
+                            properties:
+                              matchExpressions:
+                                description: matchExpressions is a list of label selector
+                                  requirements. The requirements are ANDed.
+                                items:
+                                  description: A label selector requirement is a selector
+                                    that contains values, a key, and an operator that
+                                    relates the key and values.
+                                  properties:
+                                    key:
+                                      description: key is the label key that the selector
+                                        applies to.
+                                      type: string
+                                    operator:
+                                      description: operator represents a key's relationship
+                                        to a set of values. Valid operators are In,
+                                        NotIn, Exists and DoesNotExist.
+                                      type: string
+                                    values:
+                                      description: values is an array of string values.
+                                        If the operator is In or NotIn, the values
+                                        array must be non-empty. If the operator is
+                                        Exists or DoesNotExist, the values array must
+                                        be empty. This array is replaced during a
+                                        strategic merge patch.
+                                      items:
+                                        type: string
+                                      type: array
+                                  required:
+                                  - key
+                                  - operator
+                                  type: object
+                                type: array
+                              matchLabels:
+                                additionalProperties:
+                                  type: string
+                                description: matchLabels is a map of {key,value} pairs.
+                                  A single {key,value} in the matchLabels map is equivalent
+                                  to an element of matchExpressions, whose key field
+                                  is "key", the operator is "In", and the values array
+                                  contains only "value". The requirements are ANDed.
+                                type: object
+                            type: object
                           namespaces:
-                            description: namespaces specifies which namespaces the
-                              labelSelector applies to (matches against); null or
-                              empty list means "this pod's namespace"
+                            description: namespaces specifies a static list of namespace
+                              names that the term applies to. The term is applied
+                              to the union of the namespaces listed in this field
+                              and the ones selected by namespaceSelector. null or
+                              empty namespaces list and null namespaceSelector means
+                              "this pod's namespace"
                             items:
                               type: string
                             type: array
@@ -6918,10 +7905,64 @@ var CRDsValidation map[string]string = map[string]string{
                               only "value". The requirements are ANDed.
                             type: object
                         type: object
+                      namespaceSelector:
+                        description: A label query over the set of namespaces that
+                          the term applies to. The term is applied to the union of
+                          the namespaces selected by this field and the ones listed
+                          in the namespaces field. null selector and null or empty
+                          namespaces list means "this pod's namespace". An empty selector
+                          ({}) matches all namespaces. This field is beta-level and
+                          is only honored when PodAffinityNamespaceSelector feature
+                          is enabled.
+                        properties:
+                          matchExpressions:
+                            description: matchExpressions is a list of label selector
+                              requirements. The requirements are ANDed.
+                            items:
+                              description: A label selector requirement is a selector
+                                that contains values, a key, and an operator that
+                                relates the key and values.
+                              properties:
+                                key:
+                                  description: key is the label key that the selector
+                                    applies to.
+                                  type: string
+                                operator:
+                                  description: operator represents a key's relationship
+                                    to a set of values. Valid operators are In, NotIn,
+                                    Exists and DoesNotExist.
+                                  type: string
+                                values:
+                                  description: values is an array of string values.
+                                    If the operator is In or NotIn, the values array
+                                    must be non-empty. If the operator is Exists or
+                                    DoesNotExist, the values array must be empty.
+                                    This array is replaced during a strategic merge
+                                    patch.
+                                  items:
+                                    type: string
+                                  type: array
+                              required:
+                              - key
+                              - operator
+                              type: object
+                            type: array
+                          matchLabels:
+                            additionalProperties:
+                              type: string
+                            description: matchLabels is a map of {key,value} pairs.
+                              A single {key,value} in the matchLabels map is equivalent
+                              to an element of matchExpressions, whose key field is
+                              "key", the operator is "In", and the values array contains
+                              only "value". The requirements are ANDed.
+                            type: object
+                        type: object
                       namespaces:
-                        description: namespaces specifies which namespaces the labelSelector
-                          applies to (matches against); null or empty list means "this
-                          pod's namespace"
+                        description: namespaces specifies a static list of namespace
+                          names that the term applies to. The term is applied to the
+                          union of the namespaces listed in this field and the ones
+                          selected by namespaceSelector. null or empty namespaces
+                          list and null namespaceSelector means "this pod's namespace"
                         items:
                           type: string
                         type: array
@@ -7213,8 +8254,8 @@ var CRDsValidation map[string]string = map[string]string{
                   description: DisableHotplug disabled the ability to hotplug disks.
                   type: boolean
                 disks:
-                  description: Disks describes disks, cdroms, floppy and luns which
-                    are connected to the vmi.
+                  description: Disks describes disks, cdroms and luns which are connected
+                    to the vmi.
                   items:
                     properties:
                       blockSize:
@@ -7291,18 +8332,6 @@ var CRDsValidation map[string]string = map[string]string{
                             description: ReadOnly. Defaults to false.
                             type: boolean
                         type: object
-                      floppy:
-                        description: Attach a volume as a floppy to the vmi.
-                        properties:
-                          readonly:
-                            description: ReadOnly. Defaults to false.
-                            type: boolean
-                          tray:
-                            description: Tray indicates if the tray of the device
-                              is open or closed. Allowed values are "open" and "closed".
-                              Defaults to closed.
-                            type: string
-                        type: object
                       io:
                         description: 'IO specifies which QEMU disk IO mode should
                           be used. Supported values are: native, default, threads.'
@@ -7353,6 +8382,10 @@ var CRDsValidation map[string]string = map[string]string{
                         description: Serial provides the ability to specify a serial
                           number for the disk device.
                         type: string
+                      shareable:
+                        description: If specified the disk is made sharable and multiple
+                          write from different VMs are permitted
+                        type: boolean
                       tag:
                         description: If specified, disk address and its tag will be
                           provided to the guest via config drive metadata
@@ -7387,6 +8420,10 @@ var CRDsValidation map[string]string = map[string]string{
                       name:
                         description: Name of the GPU device as exposed by a device
                           plugin
+                        type: string
+                      tag:
+                        description: If specified, the virtual network interface address
+                          and its tag will be provided to the guest via config drive
                         type: string
                       virtualGPUOptions:
                         properties:
@@ -7424,6 +8461,10 @@ var CRDsValidation map[string]string = map[string]string{
                           exposed by a device plugin
                         type: string
                       name:
+                        type: string
+                      tag:
+                        description: If specified, the virtual network interface address
+                          and its tag will be provided to the guest via config drive
                         type: string
                     required:
                     - deviceName
@@ -9362,8 +10403,8 @@ var CRDsValidation map[string]string = map[string]string{
                   description: DisableHotplug disabled the ability to hotplug disks.
                   type: boolean
                 disks:
-                  description: Disks describes disks, cdroms, floppy and luns which
-                    are connected to the vmi.
+                  description: Disks describes disks, cdroms and luns which are connected
+                    to the vmi.
                   items:
                     properties:
                       blockSize:
@@ -9440,18 +10481,6 @@ var CRDsValidation map[string]string = map[string]string{
                             description: ReadOnly. Defaults to false.
                             type: boolean
                         type: object
-                      floppy:
-                        description: Attach a volume as a floppy to the vmi.
-                        properties:
-                          readonly:
-                            description: ReadOnly. Defaults to false.
-                            type: boolean
-                          tray:
-                            description: Tray indicates if the tray of the device
-                              is open or closed. Allowed values are "open" and "closed".
-                              Defaults to closed.
-                            type: string
-                        type: object
                       io:
                         description: 'IO specifies which QEMU disk IO mode should
                           be used. Supported values are: native, default, threads.'
@@ -9502,6 +10531,10 @@ var CRDsValidation map[string]string = map[string]string{
                         description: Serial provides the ability to specify a serial
                           number for the disk device.
                         type: string
+                      shareable:
+                        description: If specified the disk is made sharable and multiple
+                          write from different VMs are permitted
+                        type: boolean
                       tag:
                         description: If specified, disk address and its tag will be
                           provided to the guest via config drive metadata
@@ -9536,6 +10569,10 @@ var CRDsValidation map[string]string = map[string]string{
                       name:
                         description: Name of the GPU device as exposed by a device
                           plugin
+                        type: string
+                      tag:
+                        description: If specified, the virtual network interface address
+                          and its tag will be provided to the guest via config drive
                         type: string
                       virtualGPUOptions:
                         properties:
@@ -9573,6 +10610,10 @@ var CRDsValidation map[string]string = map[string]string{
                           exposed by a device plugin
                         type: string
                       name:
+                        type: string
+                      tag:
+                        description: If specified, the virtual network interface address
+                          and its tag will be provided to the guest via config drive
                         type: string
                     required:
                     - deviceName
@@ -10610,10 +11651,72 @@ var CRDsValidation map[string]string = map[string]string{
                                           "value". The requirements are ANDed.
                                         type: object
                                     type: object
+                                  namespaceSelector:
+                                    description: A label query over the set of namespaces
+                                      that the term applies to. The term is applied
+                                      to the union of the namespaces selected by this
+                                      field and the ones listed in the namespaces
+                                      field. null selector and null or empty namespaces
+                                      list means "this pod's namespace". An empty
+                                      selector ({}) matches all namespaces. This field
+                                      is beta-level and is only honored when PodAffinityNamespaceSelector
+                                      feature is enabled.
+                                    properties:
+                                      matchExpressions:
+                                        description: matchExpressions is a list of
+                                          label selector requirements. The requirements
+                                          are ANDed.
+                                        items:
+                                          description: A label selector requirement
+                                            is a selector that contains values, a
+                                            key, and an operator that relates the
+                                            key and values.
+                                          properties:
+                                            key:
+                                              description: key is the label key that
+                                                the selector applies to.
+                                              type: string
+                                            operator:
+                                              description: operator represents a key's
+                                                relationship to a set of values. Valid
+                                                operators are In, NotIn, Exists and
+                                                DoesNotExist.
+                                              type: string
+                                            values:
+                                              description: values is an array of string
+                                                values. If the operator is In or NotIn,
+                                                the values array must be non-empty.
+                                                If the operator is Exists or DoesNotExist,
+                                                the values array must be empty. This
+                                                array is replaced during a strategic
+                                                merge patch.
+                                              items:
+                                                type: string
+                                              type: array
+                                          required:
+                                          - key
+                                          - operator
+                                          type: object
+                                        type: array
+                                      matchLabels:
+                                        additionalProperties:
+                                          type: string
+                                        description: matchLabels is a map of {key,value}
+                                          pairs. A single {key,value} in the matchLabels
+                                          map is equivalent to an element of matchExpressions,
+                                          whose key field is "key", the operator is
+                                          "In", and the values array contains only
+                                          "value". The requirements are ANDed.
+                                        type: object
+                                    type: object
                                   namespaces:
-                                    description: namespaces specifies which namespaces
-                                      the labelSelector applies to (matches against);
-                                      null or empty list means "this pod's namespace"
+                                    description: namespaces specifies a static list
+                                      of namespace names that the term applies to.
+                                      The term is applied to the union of the namespaces
+                                      listed in this field and the ones selected by
+                                      namespaceSelector. null or empty namespaces
+                                      list and null namespaceSelector means "this
+                                      pod's namespace"
                                     items:
                                       type: string
                                     type: array
@@ -10707,10 +11810,68 @@ var CRDsValidation map[string]string = map[string]string{
                                       The requirements are ANDed.
                                     type: object
                                 type: object
+                              namespaceSelector:
+                                description: A label query over the set of namespaces
+                                  that the term applies to. The term is applied to
+                                  the union of the namespaces selected by this field
+                                  and the ones listed in the namespaces field. null
+                                  selector and null or empty namespaces list means
+                                  "this pod's namespace". An empty selector ({}) matches
+                                  all namespaces. This field is beta-level and is
+                                  only honored when PodAffinityNamespaceSelector feature
+                                  is enabled.
+                                properties:
+                                  matchExpressions:
+                                    description: matchExpressions is a list of label
+                                      selector requirements. The requirements are
+                                      ANDed.
+                                    items:
+                                      description: A label selector requirement is
+                                        a selector that contains values, a key, and
+                                        an operator that relates the key and values.
+                                      properties:
+                                        key:
+                                          description: key is the label key that the
+                                            selector applies to.
+                                          type: string
+                                        operator:
+                                          description: operator represents a key's
+                                            relationship to a set of values. Valid
+                                            operators are In, NotIn, Exists and DoesNotExist.
+                                          type: string
+                                        values:
+                                          description: values is an array of string
+                                            values. If the operator is In or NotIn,
+                                            the values array must be non-empty. If
+                                            the operator is Exists or DoesNotExist,
+                                            the values array must be empty. This array
+                                            is replaced during a strategic merge patch.
+                                          items:
+                                            type: string
+                                          type: array
+                                      required:
+                                      - key
+                                      - operator
+                                      type: object
+                                    type: array
+                                  matchLabels:
+                                    additionalProperties:
+                                      type: string
+                                    description: matchLabels is a map of {key,value}
+                                      pairs. A single {key,value} in the matchLabels
+                                      map is equivalent to an element of matchExpressions,
+                                      whose key field is "key", the operator is "In",
+                                      and the values array contains only "value".
+                                      The requirements are ANDed.
+                                    type: object
+                                type: object
                               namespaces:
-                                description: namespaces specifies which namespaces
-                                  the labelSelector applies to (matches against);
-                                  null or empty list means "this pod's namespace"
+                                description: namespaces specifies a static list of
+                                  namespace names that the term applies to. The term
+                                  is applied to the union of the namespaces listed
+                                  in this field and the ones selected by namespaceSelector.
+                                  null or empty namespaces list and null namespaceSelector
+                                  means "this pod's namespace"
                                 items:
                                   type: string
                                 type: array
@@ -10806,10 +11967,72 @@ var CRDsValidation map[string]string = map[string]string{
                                           "value". The requirements are ANDed.
                                         type: object
                                     type: object
+                                  namespaceSelector:
+                                    description: A label query over the set of namespaces
+                                      that the term applies to. The term is applied
+                                      to the union of the namespaces selected by this
+                                      field and the ones listed in the namespaces
+                                      field. null selector and null or empty namespaces
+                                      list means "this pod's namespace". An empty
+                                      selector ({}) matches all namespaces. This field
+                                      is beta-level and is only honored when PodAffinityNamespaceSelector
+                                      feature is enabled.
+                                    properties:
+                                      matchExpressions:
+                                        description: matchExpressions is a list of
+                                          label selector requirements. The requirements
+                                          are ANDed.
+                                        items:
+                                          description: A label selector requirement
+                                            is a selector that contains values, a
+                                            key, and an operator that relates the
+                                            key and values.
+                                          properties:
+                                            key:
+                                              description: key is the label key that
+                                                the selector applies to.
+                                              type: string
+                                            operator:
+                                              description: operator represents a key's
+                                                relationship to a set of values. Valid
+                                                operators are In, NotIn, Exists and
+                                                DoesNotExist.
+                                              type: string
+                                            values:
+                                              description: values is an array of string
+                                                values. If the operator is In or NotIn,
+                                                the values array must be non-empty.
+                                                If the operator is Exists or DoesNotExist,
+                                                the values array must be empty. This
+                                                array is replaced during a strategic
+                                                merge patch.
+                                              items:
+                                                type: string
+                                              type: array
+                                          required:
+                                          - key
+                                          - operator
+                                          type: object
+                                        type: array
+                                      matchLabels:
+                                        additionalProperties:
+                                          type: string
+                                        description: matchLabels is a map of {key,value}
+                                          pairs. A single {key,value} in the matchLabels
+                                          map is equivalent to an element of matchExpressions,
+                                          whose key field is "key", the operator is
+                                          "In", and the values array contains only
+                                          "value". The requirements are ANDed.
+                                        type: object
+                                    type: object
                                   namespaces:
-                                    description: namespaces specifies which namespaces
-                                      the labelSelector applies to (matches against);
-                                      null or empty list means "this pod's namespace"
+                                    description: namespaces specifies a static list
+                                      of namespace names that the term applies to.
+                                      The term is applied to the union of the namespaces
+                                      listed in this field and the ones selected by
+                                      namespaceSelector. null or empty namespaces
+                                      list and null namespaceSelector means "this
+                                      pod's namespace"
                                     items:
                                       type: string
                                     type: array
@@ -10903,10 +12126,68 @@ var CRDsValidation map[string]string = map[string]string{
                                       The requirements are ANDed.
                                     type: object
                                 type: object
+                              namespaceSelector:
+                                description: A label query over the set of namespaces
+                                  that the term applies to. The term is applied to
+                                  the union of the namespaces selected by this field
+                                  and the ones listed in the namespaces field. null
+                                  selector and null or empty namespaces list means
+                                  "this pod's namespace". An empty selector ({}) matches
+                                  all namespaces. This field is beta-level and is
+                                  only honored when PodAffinityNamespaceSelector feature
+                                  is enabled.
+                                properties:
+                                  matchExpressions:
+                                    description: matchExpressions is a list of label
+                                      selector requirements. The requirements are
+                                      ANDed.
+                                    items:
+                                      description: A label selector requirement is
+                                        a selector that contains values, a key, and
+                                        an operator that relates the key and values.
+                                      properties:
+                                        key:
+                                          description: key is the label key that the
+                                            selector applies to.
+                                          type: string
+                                        operator:
+                                          description: operator represents a key's
+                                            relationship to a set of values. Valid
+                                            operators are In, NotIn, Exists and DoesNotExist.
+                                          type: string
+                                        values:
+                                          description: values is an array of string
+                                            values. If the operator is In or NotIn,
+                                            the values array must be non-empty. If
+                                            the operator is Exists or DoesNotExist,
+                                            the values array must be empty. This array
+                                            is replaced during a strategic merge patch.
+                                          items:
+                                            type: string
+                                          type: array
+                                      required:
+                                      - key
+                                      - operator
+                                      type: object
+                                    type: array
+                                  matchLabels:
+                                    additionalProperties:
+                                      type: string
+                                    description: matchLabels is a map of {key,value}
+                                      pairs. A single {key,value} in the matchLabels
+                                      map is equivalent to an element of matchExpressions,
+                                      whose key field is "key", the operator is "In",
+                                      and the values array contains only "value".
+                                      The requirements are ANDed.
+                                    type: object
+                                type: object
                               namespaces:
-                                description: namespaces specifies which namespaces
-                                  the labelSelector applies to (matches against);
-                                  null or empty list means "this pod's namespace"
+                                description: namespaces specifies a static list of
+                                  namespace names that the term applies to. The term
+                                  is applied to the union of the namespaces listed
+                                  in this field and the ones selected by namespaceSelector.
+                                  null or empty namespaces list and null namespaceSelector
+                                  means "this pod's namespace"
                                 items:
                                   type: string
                                 type: array
@@ -11221,8 +12502,8 @@ var CRDsValidation map[string]string = map[string]string{
                             disks.
                           type: boolean
                         disks:
-                          description: Disks describes disks, cdroms, floppy and luns
-                            which are connected to the vmi.
+                          description: Disks describes disks, cdroms and luns which
+                            are connected to the vmi.
                           items:
                             properties:
                               blockSize:
@@ -11304,18 +12585,6 @@ var CRDsValidation map[string]string = map[string]string{
                                     description: ReadOnly. Defaults to false.
                                     type: boolean
                                 type: object
-                              floppy:
-                                description: Attach a volume as a floppy to the vmi.
-                                properties:
-                                  readonly:
-                                    description: ReadOnly. Defaults to false.
-                                    type: boolean
-                                  tray:
-                                    description: Tray indicates if the tray of the
-                                      device is open or closed. Allowed values are
-                                      "open" and "closed". Defaults to closed.
-                                    type: string
-                                type: object
                               io:
                                 description: 'IO specifies which QEMU disk IO mode
                                   should be used. Supported values are: native, default,
@@ -11368,6 +12637,10 @@ var CRDsValidation map[string]string = map[string]string{
                                 description: Serial provides the ability to specify
                                   a serial number for the disk device.
                                 type: string
+                              shareable:
+                                description: If specified the disk is made sharable
+                                  and multiple write from different VMs are permitted
+                                type: boolean
                               tag:
                                 description: If specified, disk address and its tag
                                   will be provided to the guest via config drive metadata
@@ -11402,6 +12675,11 @@ var CRDsValidation map[string]string = map[string]string{
                               name:
                                 description: Name of the GPU device as exposed by
                                   a device plugin
+                                type: string
+                              tag:
+                                description: If specified, the virtual network interface
+                                  address and its tag will be provided to the guest
+                                  via config drive
                                 type: string
                               virtualGPUOptions:
                                 properties:
@@ -11440,6 +12718,11 @@ var CRDsValidation map[string]string = map[string]string{
                                   host device exposed by a device plugin
                                 type: string
                               name:
+                                type: string
+                              tag:
+                                description: If specified, the virtual network interface
+                                  address and its tag will be provided to the guest
+                                  via config drive
                                 type: string
                             required:
                             - deviceName
@@ -12981,14 +14264,56 @@ var CRDsValidation map[string]string = map[string]string{
                               dataSource:
                                 description: 'This field can be used to specify either:
                                   * An existing VolumeSnapshot object (snapshot.storage.k8s.io/VolumeSnapshot)
-                                  * An existing PVC (PersistentVolumeClaim) * An existing
-                                  custom resource that implements data population
-                                  (Alpha) In order to use custom resource types that
-                                  implement data population, the AnyVolumeDataSource
-                                  feature gate must be enabled. If the provisioner
-                                  or an external controller can support the specified
-                                  data source, it will create a new volume based on
-                                  the contents of the specified data source.'
+                                  * An existing PVC (PersistentVolumeClaim) If the
+                                  provisioner or an external controller can support
+                                  the specified data source, it will create a new
+                                  volume based on the contents of the specified data
+                                  source. If the AnyVolumeDataSource feature gate
+                                  is enabled, this field will always have the same
+                                  contents as the DataSourceRef field.'
+                                properties:
+                                  apiGroup:
+                                    description: APIGroup is the group for the resource
+                                      being referenced. If APIGroup is not specified,
+                                      the specified Kind must be in the core API group.
+                                      For any other third-party types, APIGroup is
+                                      required.
+                                    type: string
+                                  kind:
+                                    description: Kind is the type of resource being
+                                      referenced
+                                    type: string
+                                  name:
+                                    description: Name is the name of resource being
+                                      referenced
+                                    type: string
+                                required:
+                                - kind
+                                - name
+                                type: object
+                              dataSourceRef:
+                                description: 'Specifies the object from which to populate
+                                  the volume with data, if a non-empty volume is desired.
+                                  This may be any local object from a non-empty API
+                                  group (non core object) or a PersistentVolumeClaim
+                                  object. When this field is specified, volume binding
+                                  will only succeed if the type of the specified object
+                                  matches some installed volume populator or dynamic
+                                  provisioner. This field will replace the functionality
+                                  of the DataSource field and as such if both fields
+                                  are non-empty, they must have the same value. For
+                                  backwards compatibility, both fields (DataSource
+                                  and DataSourceRef) will be set to the same value
+                                  automatically if one of them is empty and the other
+                                  is non-empty. There are two important differences
+                                  between DataSource and DataSourceRef: * While DataSource
+                                  only allows two specific types of objects, DataSourceRef   allows
+                                  any non-core object, as well as PersistentVolumeClaim
+                                  objects. * While DataSource ignores disallowed values
+                                  (dropping them), DataSourceRef   preserves all values,
+                                  and generates an error if a disallowed value is   specified.
+                                  (Alpha) Using this field requires the AnyVolumeDataSource
+                                  feature gate to be enabled.'
                                 properties:
                                   apiGroup:
                                     description: APIGroup is the group for the resource
@@ -13011,7 +14336,11 @@ var CRDsValidation map[string]string = map[string]string{
                                 type: object
                               resources:
                                 description: 'Resources represents the minimum resources
-                                  the volume should have. More info: https://kubernetes.io/docs/concepts/storage/persistent-volumes#resources'
+                                  the volume should have. If RecoverVolumeExpansionFailure
+                                  feature is enabled users are allowed to specify
+                                  resource requirements that are lower than previous
+                                  value but must still be higher than capacity recorded
+                                  in the status field of the claim. More info: https://kubernetes.io/docs/concepts/storage/persistent-volumes#resources'
                                 properties:
                                   limits:
                                     additionalProperties:
@@ -13021,7 +14350,7 @@ var CRDsValidation map[string]string = map[string]string{
                                       pattern: ^(\+|-)?(([0-9]+(\.[0-9]*)?)|(\.[0-9]+))(([KMGTPE]i)|[numkMGTPE]|([eE](\+|-)?(([0-9]+(\.[0-9]*)?)|(\.[0-9]+))))?$
                                       x-kubernetes-int-or-string: true
                                     description: 'Limits describes the maximum amount
-                                      of compute resources allowed. More info: https://kubernetes.io/docs/concepts/configuration/manage-compute-resources-container/'
+                                      of compute resources allowed. More info: https://kubernetes.io/docs/concepts/configuration/manage-resources-containers/'
                                     type: object
                                   requests:
                                     additionalProperties:
@@ -13035,7 +14364,7 @@ var CRDsValidation map[string]string = map[string]string{
                                       omitted for a container, it defaults to Limits
                                       if that is explicitly specified, otherwise to
                                       an implementation-defined value. More info:
-                                      https://kubernetes.io/docs/concepts/configuration/manage-compute-resources-container/'
+                                      https://kubernetes.io/docs/concepts/configuration/manage-resources-containers/'
                                     type: object
                                 type: object
                               selector:
@@ -13119,6 +14448,20 @@ var CRDsValidation map[string]string = map[string]string{
                                       containing a Certificate Authority(CA) public
                                       key, and a base64 encoded pem certificate
                                     type: string
+                                  extraHeaders:
+                                    description: ExtraHeaders is a list of strings
+                                      containing extra headers to include with HTTP
+                                      transfer requests
+                                    items:
+                                      type: string
+                                    type: array
+                                  secretExtraHeaders:
+                                    description: SecretExtraHeaders is a list of Secret
+                                      references, each containing an extra HTTP header
+                                      that may include sensitive information
+                                    items:
+                                      type: string
+                                    type: array
                                   secretRef:
                                     description: SecretRef A Secret reference, the
                                       secret should contain accessKeyId (user name)
@@ -13317,7 +14660,7 @@ var CRDsValidation map[string]string = map[string]string{
                                       pattern: ^(\+|-)?(([0-9]+(\.[0-9]*)?)|(\.[0-9]+))(([KMGTPE]i)|[numkMGTPE]|([eE](\+|-)?(([0-9]+(\.[0-9]*)?)|(\.[0-9]+))))?$
                                       x-kubernetes-int-or-string: true
                                     description: 'Limits describes the maximum amount
-                                      of compute resources allowed. More info: https://kubernetes.io/docs/concepts/configuration/manage-compute-resources-container/'
+                                      of compute resources allowed. More info: https://kubernetes.io/docs/concepts/configuration/manage-resources-containers/'
                                     type: object
                                   requests:
                                     additionalProperties:
@@ -13331,7 +14674,7 @@ var CRDsValidation map[string]string = map[string]string{
                                       omitted for a container, it defaults to Limits
                                       if that is explicitly specified, otherwise to
                                       an implementation-defined value. More info:
-                                      https://kubernetes.io/docs/concepts/configuration/manage-compute-resources-container/'
+                                      https://kubernetes.io/docs/concepts/configuration/manage-resources-containers/'
                                     type: object
                                 type: object
                               selector:
@@ -13862,11 +15205,81 @@ var CRDsValidation map[string]string = map[string]string{
                                                   ANDed.
                                                 type: object
                                             type: object
+                                          namespaceSelector:
+                                            description: A label query over the set
+                                              of namespaces that the term applies
+                                              to. The term is applied to the union
+                                              of the namespaces selected by this field
+                                              and the ones listed in the namespaces
+                                              field. null selector and null or empty
+                                              namespaces list means "this pod's namespace".
+                                              An empty selector ({}) matches all namespaces.
+                                              This field is beta-level and is only
+                                              honored when PodAffinityNamespaceSelector
+                                              feature is enabled.
+                                            properties:
+                                              matchExpressions:
+                                                description: matchExpressions is a
+                                                  list of label selector requirements.
+                                                  The requirements are ANDed.
+                                                items:
+                                                  description: A label selector requirement
+                                                    is a selector that contains values,
+                                                    a key, and an operator that relates
+                                                    the key and values.
+                                                  properties:
+                                                    key:
+                                                      description: key is the label
+                                                        key that the selector applies
+                                                        to.
+                                                      type: string
+                                                    operator:
+                                                      description: operator represents
+                                                        a key's relationship to a
+                                                        set of values. Valid operators
+                                                        are In, NotIn, Exists and
+                                                        DoesNotExist.
+                                                      type: string
+                                                    values:
+                                                      description: values is an array
+                                                        of string values. If the operator
+                                                        is In or NotIn, the values
+                                                        array must be non-empty. If
+                                                        the operator is Exists or
+                                                        DoesNotExist, the values array
+                                                        must be empty. This array
+                                                        is replaced during a strategic
+                                                        merge patch.
+                                                      items:
+                                                        type: string
+                                                      type: array
+                                                  required:
+                                                  - key
+                                                  - operator
+                                                  type: object
+                                                type: array
+                                              matchLabels:
+                                                additionalProperties:
+                                                  type: string
+                                                description: matchLabels is a map
+                                                  of {key,value} pairs. A single {key,value}
+                                                  in the matchLabels map is equivalent
+                                                  to an element of matchExpressions,
+                                                  whose key field is "key", the operator
+                                                  is "In", and the values array contains
+                                                  only "value". The requirements are
+                                                  ANDed.
+                                                type: object
+                                            type: object
                                           namespaces:
-                                            description: namespaces specifies which
-                                              namespaces the labelSelector applies
-                                              to (matches against); null or empty
-                                              list means "this pod's namespace"
+                                            description: namespaces specifies a static
+                                              list of namespace names that the term
+                                              applies to. The term is applied to the
+                                              union of the namespaces listed in this
+                                              field and the ones selected by namespaceSelector.
+                                              null or empty namespaces list and null
+                                              namespaceSelector means "this pod's
+                                              namespace"
                                             items:
                                               type: string
                                             type: array
@@ -13968,10 +15381,74 @@ var CRDsValidation map[string]string = map[string]string{
                                               only "value". The requirements are ANDed.
                                             type: object
                                         type: object
+                                      namespaceSelector:
+                                        description: A label query over the set of
+                                          namespaces that the term applies to. The
+                                          term is applied to the union of the namespaces
+                                          selected by this field and the ones listed
+                                          in the namespaces field. null selector and
+                                          null or empty namespaces list means "this
+                                          pod's namespace". An empty selector ({})
+                                          matches all namespaces. This field is beta-level
+                                          and is only honored when PodAffinityNamespaceSelector
+                                          feature is enabled.
+                                        properties:
+                                          matchExpressions:
+                                            description: matchExpressions is a list
+                                              of label selector requirements. The
+                                              requirements are ANDed.
+                                            items:
+                                              description: A label selector requirement
+                                                is a selector that contains values,
+                                                a key, and an operator that relates
+                                                the key and values.
+                                              properties:
+                                                key:
+                                                  description: key is the label key
+                                                    that the selector applies to.
+                                                  type: string
+                                                operator:
+                                                  description: operator represents
+                                                    a key's relationship to a set
+                                                    of values. Valid operators are
+                                                    In, NotIn, Exists and DoesNotExist.
+                                                  type: string
+                                                values:
+                                                  description: values is an array
+                                                    of string values. If the operator
+                                                    is In or NotIn, the values array
+                                                    must be non-empty. If the operator
+                                                    is Exists or DoesNotExist, the
+                                                    values array must be empty. This
+                                                    array is replaced during a strategic
+                                                    merge patch.
+                                                  items:
+                                                    type: string
+                                                  type: array
+                                              required:
+                                              - key
+                                              - operator
+                                              type: object
+                                            type: array
+                                          matchLabels:
+                                            additionalProperties:
+                                              type: string
+                                            description: matchLabels is a map of {key,value}
+                                              pairs. A single {key,value} in the matchLabels
+                                              map is equivalent to an element of matchExpressions,
+                                              whose key field is "key", the operator
+                                              is "In", and the values array contains
+                                              only "value". The requirements are ANDed.
+                                            type: object
+                                        type: object
                                       namespaces:
-                                        description: namespaces specifies which namespaces
-                                          the labelSelector applies to (matches against);
-                                          null or empty list means "this pod's namespace"
+                                        description: namespaces specifies a static
+                                          list of namespace names that the term applies
+                                          to. The term is applied to the union of
+                                          the namespaces listed in this field and
+                                          the ones selected by namespaceSelector.
+                                          null or empty namespaces list and null namespaceSelector
+                                          means "this pod's namespace"
                                         items:
                                           type: string
                                         type: array
@@ -14076,11 +15553,81 @@ var CRDsValidation map[string]string = map[string]string{
                                                   ANDed.
                                                 type: object
                                             type: object
+                                          namespaceSelector:
+                                            description: A label query over the set
+                                              of namespaces that the term applies
+                                              to. The term is applied to the union
+                                              of the namespaces selected by this field
+                                              and the ones listed in the namespaces
+                                              field. null selector and null or empty
+                                              namespaces list means "this pod's namespace".
+                                              An empty selector ({}) matches all namespaces.
+                                              This field is beta-level and is only
+                                              honored when PodAffinityNamespaceSelector
+                                              feature is enabled.
+                                            properties:
+                                              matchExpressions:
+                                                description: matchExpressions is a
+                                                  list of label selector requirements.
+                                                  The requirements are ANDed.
+                                                items:
+                                                  description: A label selector requirement
+                                                    is a selector that contains values,
+                                                    a key, and an operator that relates
+                                                    the key and values.
+                                                  properties:
+                                                    key:
+                                                      description: key is the label
+                                                        key that the selector applies
+                                                        to.
+                                                      type: string
+                                                    operator:
+                                                      description: operator represents
+                                                        a key's relationship to a
+                                                        set of values. Valid operators
+                                                        are In, NotIn, Exists and
+                                                        DoesNotExist.
+                                                      type: string
+                                                    values:
+                                                      description: values is an array
+                                                        of string values. If the operator
+                                                        is In or NotIn, the values
+                                                        array must be non-empty. If
+                                                        the operator is Exists or
+                                                        DoesNotExist, the values array
+                                                        must be empty. This array
+                                                        is replaced during a strategic
+                                                        merge patch.
+                                                      items:
+                                                        type: string
+                                                      type: array
+                                                  required:
+                                                  - key
+                                                  - operator
+                                                  type: object
+                                                type: array
+                                              matchLabels:
+                                                additionalProperties:
+                                                  type: string
+                                                description: matchLabels is a map
+                                                  of {key,value} pairs. A single {key,value}
+                                                  in the matchLabels map is equivalent
+                                                  to an element of matchExpressions,
+                                                  whose key field is "key", the operator
+                                                  is "In", and the values array contains
+                                                  only "value". The requirements are
+                                                  ANDed.
+                                                type: object
+                                            type: object
                                           namespaces:
-                                            description: namespaces specifies which
-                                              namespaces the labelSelector applies
-                                              to (matches against); null or empty
-                                              list means "this pod's namespace"
+                                            description: namespaces specifies a static
+                                              list of namespace names that the term
+                                              applies to. The term is applied to the
+                                              union of the namespaces listed in this
+                                              field and the ones selected by namespaceSelector.
+                                              null or empty namespaces list and null
+                                              namespaceSelector means "this pod's
+                                              namespace"
                                             items:
                                               type: string
                                             type: array
@@ -14183,10 +15730,74 @@ var CRDsValidation map[string]string = map[string]string{
                                               only "value". The requirements are ANDed.
                                             type: object
                                         type: object
+                                      namespaceSelector:
+                                        description: A label query over the set of
+                                          namespaces that the term applies to. The
+                                          term is applied to the union of the namespaces
+                                          selected by this field and the ones listed
+                                          in the namespaces field. null selector and
+                                          null or empty namespaces list means "this
+                                          pod's namespace". An empty selector ({})
+                                          matches all namespaces. This field is beta-level
+                                          and is only honored when PodAffinityNamespaceSelector
+                                          feature is enabled.
+                                        properties:
+                                          matchExpressions:
+                                            description: matchExpressions is a list
+                                              of label selector requirements. The
+                                              requirements are ANDed.
+                                            items:
+                                              description: A label selector requirement
+                                                is a selector that contains values,
+                                                a key, and an operator that relates
+                                                the key and values.
+                                              properties:
+                                                key:
+                                                  description: key is the label key
+                                                    that the selector applies to.
+                                                  type: string
+                                                operator:
+                                                  description: operator represents
+                                                    a key's relationship to a set
+                                                    of values. Valid operators are
+                                                    In, NotIn, Exists and DoesNotExist.
+                                                  type: string
+                                                values:
+                                                  description: values is an array
+                                                    of string values. If the operator
+                                                    is In or NotIn, the values array
+                                                    must be non-empty. If the operator
+                                                    is Exists or DoesNotExist, the
+                                                    values array must be empty. This
+                                                    array is replaced during a strategic
+                                                    merge patch.
+                                                  items:
+                                                    type: string
+                                                  type: array
+                                              required:
+                                              - key
+                                              - operator
+                                              type: object
+                                            type: array
+                                          matchLabels:
+                                            additionalProperties:
+                                              type: string
+                                            description: matchLabels is a map of {key,value}
+                                              pairs. A single {key,value} in the matchLabels
+                                              map is equivalent to an element of matchExpressions,
+                                              whose key field is "key", the operator
+                                              is "In", and the values array contains
+                                              only "value". The requirements are ANDed.
+                                            type: object
+                                        type: object
                                       namespaces:
-                                        description: namespaces specifies which namespaces
-                                          the labelSelector applies to (matches against);
-                                          null or empty list means "this pod's namespace"
+                                        description: namespaces specifies a static
+                                          list of namespace names that the term applies
+                                          to. The term is applied to the union of
+                                          the namespaces listed in this field and
+                                          the ones selected by namespaceSelector.
+                                          null or empty namespaces list and null namespaceSelector
+                                          means "this pod's namespace"
                                         items:
                                           type: string
                                         type: array
@@ -14524,8 +16135,8 @@ var CRDsValidation map[string]string = map[string]string{
                                     to hotplug disks.
                                   type: boolean
                                 disks:
-                                  description: Disks describes disks, cdroms, floppy
-                                    and luns which are connected to the vmi.
+                                  description: Disks describes disks, cdroms and luns
+                                    which are connected to the vmi.
                                   items:
                                     properties:
                                       blockSize:
@@ -14615,20 +16226,6 @@ var CRDsValidation map[string]string = map[string]string{
                                             description: ReadOnly. Defaults to false.
                                             type: boolean
                                         type: object
-                                      floppy:
-                                        description: Attach a volume as a floppy to
-                                          the vmi.
-                                        properties:
-                                          readonly:
-                                            description: ReadOnly. Defaults to false.
-                                            type: boolean
-                                          tray:
-                                            description: Tray indicates if the tray
-                                              of the device is open or closed. Allowed
-                                              values are "open" and "closed". Defaults
-                                              to closed.
-                                            type: string
-                                        type: object
                                       io:
                                         description: 'IO specifies which QEMU disk
                                           IO mode should be used. Supported values
@@ -14683,6 +16280,11 @@ var CRDsValidation map[string]string = map[string]string{
                                         description: Serial provides the ability to
                                           specify a serial number for the disk device.
                                         type: string
+                                      shareable:
+                                        description: If specified the disk is made
+                                          sharable and multiple write from different
+                                          VMs are permitted
+                                        type: boolean
                                       tag:
                                         description: If specified, disk address and
                                           its tag will be provided to the guest via
@@ -14719,6 +16321,11 @@ var CRDsValidation map[string]string = map[string]string{
                                       name:
                                         description: Name of the GPU device as exposed
                                           by a device plugin
+                                        type: string
+                                      tag:
+                                        description: If specified, the virtual network
+                                          interface address and its tag will be provided
+                                          to the guest via config drive
                                         type: string
                                       virtualGPUOptions:
                                         properties:
@@ -14760,6 +16367,11 @@ var CRDsValidation map[string]string = map[string]string{
                                           of the host device exposed by a device plugin
                                         type: string
                                       name:
+                                        type: string
+                                      tag:
+                                        description: If specified, the virtual network
+                                          interface address and its tag will be provided
+                                          to the guest via config drive
                                         type: string
                                     required:
                                     - deviceName
@@ -16567,14 +18179,59 @@ var CRDsValidation map[string]string = map[string]string{
                                     description: 'This field can be used to specify
                                       either: * An existing VolumeSnapshot object
                                       (snapshot.storage.k8s.io/VolumeSnapshot) * An
-                                      existing PVC (PersistentVolumeClaim) * An existing
-                                      custom resource that implements data population
-                                      (Alpha) In order to use custom resource types
-                                      that implement data population, the AnyVolumeDataSource
-                                      feature gate must be enabled. If the provisioner
-                                      or an external controller can support the specified
-                                      data source, it will create a new volume based
-                                      on the contents of the specified data source.'
+                                      existing PVC (PersistentVolumeClaim) If the
+                                      provisioner or an external controller can support
+                                      the specified data source, it will create a
+                                      new volume based on the contents of the specified
+                                      data source. If the AnyVolumeDataSource feature
+                                      gate is enabled, this field will always have
+                                      the same contents as the DataSourceRef field.'
+                                    properties:
+                                      apiGroup:
+                                        description: APIGroup is the group for the
+                                          resource being referenced. If APIGroup is
+                                          not specified, the specified Kind must be
+                                          in the core API group. For any other third-party
+                                          types, APIGroup is required.
+                                        type: string
+                                      kind:
+                                        description: Kind is the type of resource
+                                          being referenced
+                                        type: string
+                                      name:
+                                        description: Name is the name of resource
+                                          being referenced
+                                        type: string
+                                    required:
+                                    - kind
+                                    - name
+                                    type: object
+                                  dataSourceRef:
+                                    description: 'Specifies the object from which
+                                      to populate the volume with data, if a non-empty
+                                      volume is desired. This may be any local object
+                                      from a non-empty API group (non core object)
+                                      or a PersistentVolumeClaim object. When this
+                                      field is specified, volume binding will only
+                                      succeed if the type of the specified object
+                                      matches some installed volume populator or dynamic
+                                      provisioner. This field will replace the functionality
+                                      of the DataSource field and as such if both
+                                      fields are non-empty, they must have the same
+                                      value. For backwards compatibility, both fields
+                                      (DataSource and DataSourceRef) will be set to
+                                      the same value automatically if one of them
+                                      is empty and the other is non-empty. There are
+                                      two important differences between DataSource
+                                      and DataSourceRef: * While DataSource only allows
+                                      two specific types of objects, DataSourceRef   allows
+                                      any non-core object, as well as PersistentVolumeClaim
+                                      objects. * While DataSource ignores disallowed
+                                      values (dropping them), DataSourceRef   preserves
+                                      all values, and generates an error if a disallowed
+                                      value is   specified. (Alpha) Using this field
+                                      requires the AnyVolumeDataSource feature gate
+                                      to be enabled.'
                                     properties:
                                       apiGroup:
                                         description: APIGroup is the group for the
@@ -16597,8 +18254,12 @@ var CRDsValidation map[string]string = map[string]string{
                                     type: object
                                   resources:
                                     description: 'Resources represents the minimum
-                                      resources the volume should have. More info:
-                                      https://kubernetes.io/docs/concepts/storage/persistent-volumes#resources'
+                                      resources the volume should have. If RecoverVolumeExpansionFailure
+                                      feature is enabled users are allowed to specify
+                                      resource requirements that are lower than previous
+                                      value but must still be higher than capacity
+                                      recorded in the status field of the claim. More
+                                      info: https://kubernetes.io/docs/concepts/storage/persistent-volumes#resources'
                                     properties:
                                       limits:
                                         additionalProperties:
@@ -16609,7 +18270,7 @@ var CRDsValidation map[string]string = map[string]string{
                                           x-kubernetes-int-or-string: true
                                         description: 'Limits describes the maximum
                                           amount of compute resources allowed. More
-                                          info: https://kubernetes.io/docs/concepts/configuration/manage-compute-resources-container/'
+                                          info: https://kubernetes.io/docs/concepts/configuration/manage-resources-containers/'
                                         type: object
                                       requests:
                                         additionalProperties:
@@ -16623,7 +18284,7 @@ var CRDsValidation map[string]string = map[string]string{
                                           Requests is omitted for a container, it
                                           defaults to Limits if that is explicitly
                                           specified, otherwise to an implementation-defined
-                                          value. More info: https://kubernetes.io/docs/concepts/configuration/manage-compute-resources-container/'
+                                          value. More info: https://kubernetes.io/docs/concepts/configuration/manage-resources-containers/'
                                         type: object
                                     type: object
                                   selector:
@@ -16711,6 +18372,21 @@ var CRDsValidation map[string]string = map[string]string{
                                           reference, containing a Certificate Authority(CA)
                                           public key, and a base64 encoded pem certificate
                                         type: string
+                                      extraHeaders:
+                                        description: ExtraHeaders is a list of strings
+                                          containing extra headers to include with
+                                          HTTP transfer requests
+                                        items:
+                                          type: string
+                                        type: array
+                                      secretExtraHeaders:
+                                        description: SecretExtraHeaders is a list
+                                          of Secret references, each containing an
+                                          extra HTTP header that may include sensitive
+                                          information
+                                        items:
+                                          type: string
+                                        type: array
                                       secretRef:
                                         description: SecretRef A Secret reference,
                                           the secret should contain accessKeyId (user
@@ -16921,7 +18597,7 @@ var CRDsValidation map[string]string = map[string]string{
                                           x-kubernetes-int-or-string: true
                                         description: 'Limits describes the maximum
                                           amount of compute resources allowed. More
-                                          info: https://kubernetes.io/docs/concepts/configuration/manage-compute-resources-container/'
+                                          info: https://kubernetes.io/docs/concepts/configuration/manage-resources-containers/'
                                         type: object
                                       requests:
                                         additionalProperties:
@@ -16935,7 +18611,7 @@ var CRDsValidation map[string]string = map[string]string{
                                           Requests is omitted for a container, it
                                           defaults to Limits if that is explicitly
                                           specified, otherwise to an implementation-defined
-                                          value. More info: https://kubernetes.io/docs/concepts/configuration/manage-compute-resources-container/'
+                                          value. More info: https://kubernetes.io/docs/concepts/configuration/manage-resources-containers/'
                                         type: object
                                     type: object
                                   selector:
@@ -17489,11 +19165,86 @@ var CRDsValidation map[string]string = map[string]string{
                                                       are ANDed.
                                                     type: object
                                                 type: object
+                                              namespaceSelector:
+                                                description: A label query over the
+                                                  set of namespaces that the term
+                                                  applies to. The term is applied
+                                                  to the union of the namespaces selected
+                                                  by this field and the ones listed
+                                                  in the namespaces field. null selector
+                                                  and null or empty namespaces list
+                                                  means "this pod's namespace". An
+                                                  empty selector ({}) matches all
+                                                  namespaces. This field is beta-level
+                                                  and is only honored when PodAffinityNamespaceSelector
+                                                  feature is enabled.
+                                                properties:
+                                                  matchExpressions:
+                                                    description: matchExpressions
+                                                      is a list of label selector
+                                                      requirements. The requirements
+                                                      are ANDed.
+                                                    items:
+                                                      description: A label selector
+                                                        requirement is a selector
+                                                        that contains values, a key,
+                                                        and an operator that relates
+                                                        the key and values.
+                                                      properties:
+                                                        key:
+                                                          description: key is the
+                                                            label key that the selector
+                                                            applies to.
+                                                          type: string
+                                                        operator:
+                                                          description: operator represents
+                                                            a key's relationship to
+                                                            a set of values. Valid
+                                                            operators are In, NotIn,
+                                                            Exists and DoesNotExist.
+                                                          type: string
+                                                        values:
+                                                          description: values is an
+                                                            array of string values.
+                                                            If the operator is In
+                                                            or NotIn, the values array
+                                                            must be non-empty. If
+                                                            the operator is Exists
+                                                            or DoesNotExist, the values
+                                                            array must be empty. This
+                                                            array is replaced during
+                                                            a strategic merge patch.
+                                                          items:
+                                                            type: string
+                                                          type: array
+                                                      required:
+                                                      - key
+                                                      - operator
+                                                      type: object
+                                                    type: array
+                                                  matchLabels:
+                                                    additionalProperties:
+                                                      type: string
+                                                    description: matchLabels is a
+                                                      map of {key,value} pairs. A
+                                                      single {key,value} in the matchLabels
+                                                      map is equivalent to an element
+                                                      of matchExpressions, whose key
+                                                      field is "key", the operator
+                                                      is "In", and the values array
+                                                      contains only "value". The requirements
+                                                      are ANDed.
+                                                    type: object
+                                                type: object
                                               namespaces:
                                                 description: namespaces specifies
-                                                  which namespaces the labelSelector
-                                                  applies to (matches against); null
-                                                  or empty list means "this pod's
+                                                  a static list of namespace names
+                                                  that the term applies to. The term
+                                                  is applied to the union of the namespaces
+                                                  listed in this field and the ones
+                                                  selected by namespaceSelector. null
+                                                  or empty namespaces list and null
+                                                  namespaceSelector means "this pod's
                                                   namespace"
                                                 items:
                                                   type: string
@@ -17604,11 +19355,81 @@ var CRDsValidation map[string]string = map[string]string{
                                                   ANDed.
                                                 type: object
                                             type: object
+                                          namespaceSelector:
+                                            description: A label query over the set
+                                              of namespaces that the term applies
+                                              to. The term is applied to the union
+                                              of the namespaces selected by this field
+                                              and the ones listed in the namespaces
+                                              field. null selector and null or empty
+                                              namespaces list means "this pod's namespace".
+                                              An empty selector ({}) matches all namespaces.
+                                              This field is beta-level and is only
+                                              honored when PodAffinityNamespaceSelector
+                                              feature is enabled.
+                                            properties:
+                                              matchExpressions:
+                                                description: matchExpressions is a
+                                                  list of label selector requirements.
+                                                  The requirements are ANDed.
+                                                items:
+                                                  description: A label selector requirement
+                                                    is a selector that contains values,
+                                                    a key, and an operator that relates
+                                                    the key and values.
+                                                  properties:
+                                                    key:
+                                                      description: key is the label
+                                                        key that the selector applies
+                                                        to.
+                                                      type: string
+                                                    operator:
+                                                      description: operator represents
+                                                        a key's relationship to a
+                                                        set of values. Valid operators
+                                                        are In, NotIn, Exists and
+                                                        DoesNotExist.
+                                                      type: string
+                                                    values:
+                                                      description: values is an array
+                                                        of string values. If the operator
+                                                        is In or NotIn, the values
+                                                        array must be non-empty. If
+                                                        the operator is Exists or
+                                                        DoesNotExist, the values array
+                                                        must be empty. This array
+                                                        is replaced during a strategic
+                                                        merge patch.
+                                                      items:
+                                                        type: string
+                                                      type: array
+                                                  required:
+                                                  - key
+                                                  - operator
+                                                  type: object
+                                                type: array
+                                              matchLabels:
+                                                additionalProperties:
+                                                  type: string
+                                                description: matchLabels is a map
+                                                  of {key,value} pairs. A single {key,value}
+                                                  in the matchLabels map is equivalent
+                                                  to an element of matchExpressions,
+                                                  whose key field is "key", the operator
+                                                  is "In", and the values array contains
+                                                  only "value". The requirements are
+                                                  ANDed.
+                                                type: object
+                                            type: object
                                           namespaces:
-                                            description: namespaces specifies which
-                                              namespaces the labelSelector applies
-                                              to (matches against); null or empty
-                                              list means "this pod's namespace"
+                                            description: namespaces specifies a static
+                                              list of namespace names that the term
+                                              applies to. The term is applied to the
+                                              union of the namespaces listed in this
+                                              field and the ones selected by namespaceSelector.
+                                              null or empty namespaces list and null
+                                              namespaceSelector means "this pod's
+                                              namespace"
                                             items:
                                               type: string
                                             type: array
@@ -17720,11 +19541,86 @@ var CRDsValidation map[string]string = map[string]string{
                                                       are ANDed.
                                                     type: object
                                                 type: object
+                                              namespaceSelector:
+                                                description: A label query over the
+                                                  set of namespaces that the term
+                                                  applies to. The term is applied
+                                                  to the union of the namespaces selected
+                                                  by this field and the ones listed
+                                                  in the namespaces field. null selector
+                                                  and null or empty namespaces list
+                                                  means "this pod's namespace". An
+                                                  empty selector ({}) matches all
+                                                  namespaces. This field is beta-level
+                                                  and is only honored when PodAffinityNamespaceSelector
+                                                  feature is enabled.
+                                                properties:
+                                                  matchExpressions:
+                                                    description: matchExpressions
+                                                      is a list of label selector
+                                                      requirements. The requirements
+                                                      are ANDed.
+                                                    items:
+                                                      description: A label selector
+                                                        requirement is a selector
+                                                        that contains values, a key,
+                                                        and an operator that relates
+                                                        the key and values.
+                                                      properties:
+                                                        key:
+                                                          description: key is the
+                                                            label key that the selector
+                                                            applies to.
+                                                          type: string
+                                                        operator:
+                                                          description: operator represents
+                                                            a key's relationship to
+                                                            a set of values. Valid
+                                                            operators are In, NotIn,
+                                                            Exists and DoesNotExist.
+                                                          type: string
+                                                        values:
+                                                          description: values is an
+                                                            array of string values.
+                                                            If the operator is In
+                                                            or NotIn, the values array
+                                                            must be non-empty. If
+                                                            the operator is Exists
+                                                            or DoesNotExist, the values
+                                                            array must be empty. This
+                                                            array is replaced during
+                                                            a strategic merge patch.
+                                                          items:
+                                                            type: string
+                                                          type: array
+                                                      required:
+                                                      - key
+                                                      - operator
+                                                      type: object
+                                                    type: array
+                                                  matchLabels:
+                                                    additionalProperties:
+                                                      type: string
+                                                    description: matchLabels is a
+                                                      map of {key,value} pairs. A
+                                                      single {key,value} in the matchLabels
+                                                      map is equivalent to an element
+                                                      of matchExpressions, whose key
+                                                      field is "key", the operator
+                                                      is "In", and the values array
+                                                      contains only "value". The requirements
+                                                      are ANDed.
+                                                    type: object
+                                                type: object
                                               namespaces:
                                                 description: namespaces specifies
-                                                  which namespaces the labelSelector
-                                                  applies to (matches against); null
-                                                  or empty list means "this pod's
+                                                  a static list of namespace names
+                                                  that the term applies to. The term
+                                                  is applied to the union of the namespaces
+                                                  listed in this field and the ones
+                                                  selected by namespaceSelector. null
+                                                  or empty namespaces list and null
+                                                  namespaceSelector means "this pod's
                                                   namespace"
                                                 items:
                                                   type: string
@@ -17835,11 +19731,81 @@ var CRDsValidation map[string]string = map[string]string{
                                                   ANDed.
                                                 type: object
                                             type: object
+                                          namespaceSelector:
+                                            description: A label query over the set
+                                              of namespaces that the term applies
+                                              to. The term is applied to the union
+                                              of the namespaces selected by this field
+                                              and the ones listed in the namespaces
+                                              field. null selector and null or empty
+                                              namespaces list means "this pod's namespace".
+                                              An empty selector ({}) matches all namespaces.
+                                              This field is beta-level and is only
+                                              honored when PodAffinityNamespaceSelector
+                                              feature is enabled.
+                                            properties:
+                                              matchExpressions:
+                                                description: matchExpressions is a
+                                                  list of label selector requirements.
+                                                  The requirements are ANDed.
+                                                items:
+                                                  description: A label selector requirement
+                                                    is a selector that contains values,
+                                                    a key, and an operator that relates
+                                                    the key and values.
+                                                  properties:
+                                                    key:
+                                                      description: key is the label
+                                                        key that the selector applies
+                                                        to.
+                                                      type: string
+                                                    operator:
+                                                      description: operator represents
+                                                        a key's relationship to a
+                                                        set of values. Valid operators
+                                                        are In, NotIn, Exists and
+                                                        DoesNotExist.
+                                                      type: string
+                                                    values:
+                                                      description: values is an array
+                                                        of string values. If the operator
+                                                        is In or NotIn, the values
+                                                        array must be non-empty. If
+                                                        the operator is Exists or
+                                                        DoesNotExist, the values array
+                                                        must be empty. This array
+                                                        is replaced during a strategic
+                                                        merge patch.
+                                                      items:
+                                                        type: string
+                                                      type: array
+                                                  required:
+                                                  - key
+                                                  - operator
+                                                  type: object
+                                                type: array
+                                              matchLabels:
+                                                additionalProperties:
+                                                  type: string
+                                                description: matchLabels is a map
+                                                  of {key,value} pairs. A single {key,value}
+                                                  in the matchLabels map is equivalent
+                                                  to an element of matchExpressions,
+                                                  whose key field is "key", the operator
+                                                  is "In", and the values array contains
+                                                  only "value". The requirements are
+                                                  ANDed.
+                                                type: object
+                                            type: object
                                           namespaces:
-                                            description: namespaces specifies which
-                                              namespaces the labelSelector applies
-                                              to (matches against); null or empty
-                                              list means "this pod's namespace"
+                                            description: namespaces specifies a static
+                                              list of namespace names that the term
+                                              applies to. The term is applied to the
+                                              union of the namespaces listed in this
+                                              field and the ones selected by namespaceSelector.
+                                              null or empty namespaces list and null
+                                              namespaceSelector means "this pod's
+                                              namespace"
                                             items:
                                               type: string
                                             type: array
@@ -18187,9 +20153,8 @@ var CRDsValidation map[string]string = map[string]string{
                                         to hotplug disks.
                                       type: boolean
                                     disks:
-                                      description: Disks describes disks, cdroms,
-                                        floppy and luns which are connected to the
-                                        vmi.
+                                      description: Disks describes disks, cdroms and
+                                        luns which are connected to the vmi.
                                       items:
                                         properties:
                                           blockSize:
@@ -18282,21 +20247,6 @@ var CRDsValidation map[string]string = map[string]string{
                                                   false.
                                                 type: boolean
                                             type: object
-                                          floppy:
-                                            description: Attach a volume as a floppy
-                                              to the vmi.
-                                            properties:
-                                              readonly:
-                                                description: ReadOnly. Defaults to
-                                                  false.
-                                                type: boolean
-                                              tray:
-                                                description: Tray indicates if the
-                                                  tray of the device is open or closed.
-                                                  Allowed values are "open" and "closed".
-                                                  Defaults to closed.
-                                                type: string
-                                            type: object
                                           io:
                                             description: 'IO specifies which QEMU
                                               disk IO mode should be used. Supported
@@ -18353,6 +20303,11 @@ var CRDsValidation map[string]string = map[string]string{
                                               to specify a serial number for the disk
                                               device.
                                             type: string
+                                          shareable:
+                                            description: If specified the disk is
+                                              made sharable and multiple write from
+                                              different VMs are permitted
+                                            type: boolean
                                           tag:
                                             description: If specified, disk address
                                               and its tag will be provided to the
@@ -18389,6 +20344,12 @@ var CRDsValidation map[string]string = map[string]string{
                                           name:
                                             description: Name of the GPU device as
                                               exposed by a device plugin
+                                            type: string
+                                          tag:
+                                            description: If specified, the virtual
+                                              network interface address and its tag
+                                              will be provided to the guest via config
+                                              drive
                                             type: string
                                           virtualGPUOptions:
                                             properties:
@@ -18432,6 +20393,12 @@ var CRDsValidation map[string]string = map[string]string{
                                               device plugin
                                             type: string
                                           name:
+                                            type: string
+                                          tag:
+                                            description: If specified, the virtual
+                                              network interface address and its tag
+                                              will be provided to the guest via config
+                                              drive
                                             type: string
                                         required:
                                         - deviceName
@@ -20087,19 +22054,6 @@ var CRDsValidation map[string]string = map[string]string{
                                         description: ReadOnly. Defaults to false.
                                         type: boolean
                                     type: object
-                                  floppy:
-                                    description: Attach a volume as a floppy to the
-                                      vmi.
-                                    properties:
-                                      readonly:
-                                        description: ReadOnly. Defaults to false.
-                                        type: boolean
-                                      tray:
-                                        description: Tray indicates if the tray of
-                                          the device is open or closed. Allowed values
-                                          are "open" and "closed". Defaults to closed.
-                                        type: string
-                                    type: object
                                   io:
                                     description: 'IO specifies which QEMU disk IO
                                       mode should be used. Supported values are: native,
@@ -20152,6 +22106,10 @@ var CRDsValidation map[string]string = map[string]string{
                                     description: Serial provides the ability to specify
                                       a serial number for the disk device.
                                     type: string
+                                  shareable:
+                                    description: If specified the disk is made sharable
+                                      and multiple write from different VMs are permitted
+                                    type: boolean
                                   tag:
                                     description: If specified, disk address and its
                                       tag will be provided to the guest via config
@@ -20299,13 +22257,50 @@ var CRDsValidation map[string]string = map[string]string{
                       dataSource:
                         description: 'This field can be used to specify either: *
                           An existing VolumeSnapshot object (snapshot.storage.k8s.io/VolumeSnapshot)
-                          * An existing PVC (PersistentVolumeClaim) * An existing
-                          custom resource that implements data population (Alpha)
-                          In order to use custom resource types that implement data
-                          population, the AnyVolumeDataSource feature gate must be
-                          enabled. If the provisioner or an external controller can
-                          support the specified data source, it will create a new
-                          volume based on the contents of the specified data source.'
+                          * An existing PVC (PersistentVolumeClaim) If the provisioner
+                          or an external controller can support the specified data
+                          source, it will create a new volume based on the contents
+                          of the specified data source. If the AnyVolumeDataSource
+                          feature gate is enabled, this field will always have the
+                          same contents as the DataSourceRef field.'
+                        properties:
+                          apiGroup:
+                            description: APIGroup is the group for the resource being
+                              referenced. If APIGroup is not specified, the specified
+                              Kind must be in the core API group. For any other third-party
+                              types, APIGroup is required.
+                            type: string
+                          kind:
+                            description: Kind is the type of resource being referenced
+                            type: string
+                          name:
+                            description: Name is the name of resource being referenced
+                            type: string
+                        required:
+                        - kind
+                        - name
+                        type: object
+                      dataSourceRef:
+                        description: 'Specifies the object from which to populate
+                          the volume with data, if a non-empty volume is desired.
+                          This may be any local object from a non-empty API group
+                          (non core object) or a PersistentVolumeClaim object. When
+                          this field is specified, volume binding will only succeed
+                          if the type of the specified object matches some installed
+                          volume populator or dynamic provisioner. This field will
+                          replace the functionality of the DataSource field and as
+                          such if both fields are non-empty, they must have the same
+                          value. For backwards compatibility, both fields (DataSource
+                          and DataSourceRef) will be set to the same value automatically
+                          if one of them is empty and the other is non-empty. There
+                          are two important differences between DataSource and DataSourceRef:
+                          * While DataSource only allows two specific types of objects,
+                          DataSourceRef   allows any non-core object, as well as PersistentVolumeClaim
+                          objects. * While DataSource ignores disallowed values (dropping
+                          them), DataSourceRef   preserves all values, and generates
+                          an error if a disallowed value is   specified. (Alpha) Using
+                          this field requires the AnyVolumeDataSource feature gate
+                          to be enabled.'
                         properties:
                           apiGroup:
                             description: APIGroup is the group for the resource being
@@ -20325,7 +22320,11 @@ var CRDsValidation map[string]string = map[string]string{
                         type: object
                       resources:
                         description: 'Resources represents the minimum resources the
-                          volume should have. More info: https://kubernetes.io/docs/concepts/storage/persistent-volumes#resources'
+                          volume should have. If RecoverVolumeExpansionFailure feature
+                          is enabled users are allowed to specify resource requirements
+                          that are lower than previous value but must still be higher
+                          than capacity recorded in the status field of the claim.
+                          More info: https://kubernetes.io/docs/concepts/storage/persistent-volumes#resources'
                         properties:
                           limits:
                             additionalProperties:
@@ -20335,7 +22334,7 @@ var CRDsValidation map[string]string = map[string]string{
                               pattern: ^(\+|-)?(([0-9]+(\.[0-9]*)?)|(\.[0-9]+))(([KMGTPE]i)|[numkMGTPE]|([eE](\+|-)?(([0-9]+(\.[0-9]*)?)|(\.[0-9]+))))?$
                               x-kubernetes-int-or-string: true
                             description: 'Limits describes the maximum amount of compute
-                              resources allowed. More info: https://kubernetes.io/docs/concepts/configuration/manage-compute-resources-container/'
+                              resources allowed. More info: https://kubernetes.io/docs/concepts/configuration/manage-resources-containers/'
                             type: object
                           requests:
                             additionalProperties:
@@ -20348,7 +22347,7 @@ var CRDsValidation map[string]string = map[string]string{
                               compute resources required. If Requests is omitted for
                               a container, it defaults to Limits if that is explicitly
                               specified, otherwise to an implementation-defined value.
-                              More info: https://kubernetes.io/docs/concepts/configuration/manage-compute-resources-container/'
+                              More info: https://kubernetes.io/docs/concepts/configuration/manage-resources-containers/'
                             type: object
                         type: object
                       selector:

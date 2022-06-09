@@ -21,7 +21,6 @@ package network
 
 import (
 	"fmt"
-	"reflect"
 	"strings"
 	"sync"
 
@@ -29,12 +28,13 @@ import (
 
 	v1 "kubevirt.io/api/core/v1"
 	"kubevirt.io/kubevirt/pkg/network/cache"
+	"kubevirt.io/kubevirt/pkg/network/sriov"
 	netvmispec "kubevirt.io/kubevirt/pkg/network/vmispec"
 	"kubevirt.io/kubevirt/pkg/virt-launcher/virtwrap/api"
 )
 
 type NetStat struct {
-	ifaceCacheFactory cache.InterfaceCacheFactory
+	cacheCreator cacheCreator
 
 	// In memory cache, storing pod interface information.
 	// key is the file path, value is the contents.
@@ -42,9 +42,13 @@ type NetStat struct {
 	podInterfaceVolatileCache sync.Map
 }
 
-func NewNetStat(ifaceCacheFactory cache.InterfaceCacheFactory) *NetStat {
+func NewNetStat() *NetStat {
+	return NewNetStateWithCustomFactory(cache.CacheCreator{})
+}
+
+func NewNetStateWithCustomFactory(cacheCreator cacheCreator) *NetStat {
 	return &NetStat{
-		ifaceCacheFactory:         ifaceCacheFactory,
+		cacheCreator:              cacheCreator,
 		podInterfaceVolatileCache: sync.Map{},
 	}
 }
@@ -63,170 +67,165 @@ func (c *NetStat) PodInterfaceVolatileDataIsCached(vmi *v1.VirtualMachineInstanc
 	return exists
 }
 
-func (c *NetStat) CachePodInterfaceVolatileData(vmi *v1.VirtualMachineInstance, ifaceName string, data *cache.PodCacheInterface) {
+func (c *NetStat) CachePodInterfaceVolatileData(vmi *v1.VirtualMachineInstance, ifaceName string, data *cache.PodIfaceCacheData) {
 	c.podInterfaceVolatileCache.Store(vmiInterfaceKey(vmi.UID, ifaceName), data)
 }
 
+// UpdateStatus calculates the vmi.Status.Interfaces based on the following data sets:
+// - Pod interface cache: interfaces data (IP/s) collected from the cache (which was populated during the network setup).
+// - domain.Spec: interfaces configuration as seen by the (libvirt) domain.
+// - domain.Status.Interfaces: interfaces reported by the guest agent (empty if Qemu agent not running).
 func (c *NetStat) UpdateStatus(vmi *v1.VirtualMachineInstance, domain *api.Domain) error {
 	if domain == nil {
 		return nil
 	}
 
-	interfacesStatus, err := c.ifacesStatusFromPod(vmi)
-	if err != nil {
-		return err
+	vmiInterfacesSpecByName := netvmispec.IndexInterfaceSpecByName(vmi.Spec.Domain.Devices.Interfaces)
+
+	interfacesStatus := ifacesStatusFromDomainInterfaces(domain.Spec.Devices.Interfaces)
+	interfacesStatus = append(interfacesStatus,
+		sriovIfacesStatusFromDomainHostDevices(domain.Spec.Devices.HostDevices, vmiInterfacesSpecByName)...,
+	)
+
+	var err error
+	if len(domain.Status.Interfaces) > 0 {
+		interfacesStatus = ifacesStatusFromGuestAgent(interfacesStatus, domain.Status.Interfaces)
+
+		natedIfacesSpec := netvmispec.FilterInterfacesSpec(vmi.Spec.Domain.Devices.Interfaces, func(i v1.Interface) bool {
+			return i.Masquerade != nil || i.Slirp != nil
+		})
+		if interfacesStatus, err = c.updateIfacesStatusFromPodCache(interfacesStatus, natedIfacesSpec, vmi); err != nil {
+			return err
+		}
+	} else {
+		interfacesStatus, err = c.updateIfacesStatusFromPodCache(interfacesStatus, vmi.Spec.Domain.Devices.Interfaces, vmi)
+		if err != nil {
+			return err
+		}
 	}
+
 	vmi.Status.Interfaces = interfacesStatus
-
-	if len(domain.Spec.Devices.Interfaces) > 0 || len(domain.Status.Interfaces) > 0 {
-		// This calculates the vmi.Status.Interfaces based on the following data sets:
-		// - vmi.Status.Interfaces - interfaces data (IP/s) collected from the pod (non-volatile cache).
-		// - domain.Spec - interfaces form the Spec
-		// - domain.Status.Interfaces - interfaces reported by guest agent (empty if Qemu agent not running)
-		newInterfaces := []v1.VirtualMachineInstanceNetworkInterface{}
-
-		existingInterfaceStatusByName := map[string]v1.VirtualMachineInstanceNetworkInterface{}
-		for _, existingInterfaceStatus := range vmi.Status.Interfaces {
-			if existingInterfaceStatus.Name != "" {
-				existingInterfaceStatusByName[existingInterfaceStatus.Name] = existingInterfaceStatus
-			}
-		}
-
-		domainInterfaceStatusByMac := map[string]api.InterfaceStatus{}
-		for _, domainInterfaceStatus := range domain.Status.Interfaces {
-			domainInterfaceStatusByMac[domainInterfaceStatus.Mac] = domainInterfaceStatus
-		}
-
-		existingInterfacesSpecByName := map[string]v1.Interface{}
-		for _, existingInterfaceSpec := range vmi.Spec.Domain.Devices.Interfaces {
-			existingInterfacesSpecByName[existingInterfaceSpec.Name] = existingInterfaceSpec
-		}
-		existingNetworksByName := map[string]v1.Network{}
-		for _, existingNetwork := range vmi.Spec.Networks {
-			existingNetworksByName[existingNetwork.Name] = existingNetwork
-		}
-
-		// Iterate through all domain.Spec interfaces
-		for _, domainInterface := range domain.Spec.Devices.Interfaces {
-			interfaceMAC := domainInterface.MAC.MAC
-			var newInterface v1.VirtualMachineInstanceNetworkInterface
-			var isForwardingBindingInterface = false
-
-			if existingInterfacesSpecByName[domainInterface.Alias.GetName()].Masquerade != nil || existingInterfacesSpecByName[domainInterface.Alias.GetName()].Slirp != nil {
-				isForwardingBindingInterface = true
-			}
-
-			if existingInterface, exists := existingInterfaceStatusByName[domainInterface.Alias.GetName()]; exists {
-				// Reuse previously calculated interface from vmi.Status.Interfaces, updating the MAC from domain.Spec
-				// Only interfaces defined in domain.Spec are handled here
-				newInterface = existingInterface
-				newInterface.MAC = interfaceMAC
-
-				// If it is a Combination of Masquerade+Pod network, check IP from file cache
-				if existingInterfacesSpecByName[domainInterface.Alias.GetName()].Masquerade != nil && existingNetworksByName[domainInterface.Alias.GetName()].NetworkSource.Pod != nil {
-					iface, err := c.getPodInterfacefromFileCache(vmi, domainInterface.Alias.GetName())
-					if err != nil {
-						return err
-					}
-
-					if !reflect.DeepEqual(iface.PodIPs, existingInterfaceStatusByName[domainInterface.Alias.GetName()].IPs) {
-						newInterface.Name = domainInterface.Alias.GetName()
-						newInterface.IP = iface.PodIP
-						newInterface.IPs = iface.PodIPs
-					}
-				}
-			} else {
-				// If not present in vmi.Status.Interfaces, create a new one based on domain.Spec
-				newInterface = v1.VirtualMachineInstanceNetworkInterface{
-					MAC:  interfaceMAC,
-					Name: domainInterface.Alias.GetName(),
-				}
-			}
-
-			// Update IP info based on information from domain.Status.Interfaces (Qemu guest)
-			// Remove the interface from domainInterfaceStatusByMac to mark it as handled
-			if interfaceStatus, exists := domainInterfaceStatusByMac[interfaceMAC]; exists {
-				newInterface.InterfaceName = interfaceStatus.InterfaceName
-				newInterface.InfoSource = interfaceStatus.InfoSource
-				// Do not update if interface has Masquerede binding
-				// virt-controller should update VMI status interface with Pod IP instead
-				if !isForwardingBindingInterface {
-					newInterface.IP = interfaceStatus.Ip
-					newInterface.IPs = interfaceStatus.IPs
-				}
-				delete(domainInterfaceStatusByMac, interfaceMAC)
-			} else {
-				newInterface.InfoSource = netvmispec.InfoSourceDomain
-			}
-
-			newInterfaces = append(newInterfaces, newInterface)
-		}
-
-		// If any of domain.Status.Interfaces were not handled above, it means that the vm contains additional
-		// interfaces not defined in domain.Spec.Devices.Interfaces (most likely added by user on VM or a SRIOV interface)
-		// Add them to vmi.Status.Interfaces
-		setMissingSRIOVInterfacesNames(existingInterfacesSpecByName, domainInterfaceStatusByMac)
-		for interfaceMAC, domainInterfaceStatus := range domainInterfaceStatusByMac {
-			newInterface := v1.VirtualMachineInstanceNetworkInterface{
-				Name:          domainInterfaceStatus.Name,
-				MAC:           interfaceMAC,
-				IP:            domainInterfaceStatus.Ip,
-				IPs:           domainInterfaceStatus.IPs,
-				InterfaceName: domainInterfaceStatus.InterfaceName,
-				InfoSource:    domainInterfaceStatus.InfoSource,
-			}
-			newInterfaces = append(newInterfaces, newInterface)
-		}
-		vmi.Status.Interfaces = newInterfaces
-	}
 	return nil
 }
 
-func (c *NetStat) ifacesStatusFromPod(vmi *v1.VirtualMachineInstance) ([]v1.VirtualMachineInstanceNetworkInterface, error) {
-	ifacesStatus := []v1.VirtualMachineInstanceNetworkInterface{}
-	for _, network := range vmi.Spec.Networks {
-		podIface, err := c.getPodInterfacefromFileCache(vmi, network.Name)
+// updateIfacesStatusFromPodCache updates the provided interfaces statuses with data (IP/s) from the pod-cache.
+func (c *NetStat) updateIfacesStatusFromPodCache(ifacesStatus []v1.VirtualMachineInstanceNetworkInterface, ifacesSpec []v1.Interface, vmi *v1.VirtualMachineInstance) ([]v1.VirtualMachineInstanceNetworkInterface, error) {
+	for _, iface := range ifacesSpec {
+		ifaceStatus := netvmispec.LookupInterfaceStatusByName(ifacesStatus, iface.Name)
+		if ifaceStatus == nil {
+			continue
+		}
+
+		podIface, err := c.getPodInterfacefromFileCache(vmi, iface.Name)
 		if err != nil {
 			return nil, err
 		}
 
-		ifacesStatus = append(ifacesStatus, v1.VirtualMachineInstanceNetworkInterface{
-			Name: network.Name,
-			IP:   podIface.PodIP,
-			IPs:  podIface.PodIPs,
-		})
+		ifaceStatus.IP = podIface.PodIP
+		ifaceStatus.IPs = podIface.PodIPs
 	}
 	return ifacesStatus, nil
 }
 
-func (c *NetStat) getPodInterfacefromFileCache(vmi *v1.VirtualMachineInstance, ifaceName string) (*cache.PodCacheInterface, error) {
+func (c *NetStat) getPodInterfacefromFileCache(vmi *v1.VirtualMachineInstance, ifaceName string) (*cache.PodIfaceCacheData, error) {
 	// Once the Interface files are set on the handler, they don't change
 	// If already present in the map, don't read again
 	cacheData, exists := c.podInterfaceVolatileCache.Load(vmiInterfaceKey(vmi.UID, ifaceName))
 	if exists {
-		return cacheData.(*cache.PodCacheInterface), nil
+		return cacheData.(*cache.PodIfaceCacheData), nil
 	}
 
-	//FIXME error handling?
-	podInterface, _ := c.ifaceCacheFactory.CacheForVMI(vmi).Read(ifaceName)
+	podInterface := &cache.PodIfaceCacheData{}
+	if data, err := cache.ReadPodInterfaceCache(c.cacheCreator, string(vmi.UID), ifaceName); err == nil {
+		//FIXME error handling?
+		podInterface = data
+	}
 
 	c.podInterfaceVolatileCache.Store(vmiInterfaceKey(vmi.UID, ifaceName), podInterface)
 
 	return podInterface, nil
 }
 
-func setMissingSRIOVInterfacesNames(interfacesSpecByName map[string]v1.Interface, interfacesStatusByMac map[string]api.InterfaceStatus) {
-	for name, ifaceSpec := range interfacesSpecByName {
-		if ifaceSpec.SRIOV == nil || ifaceSpec.MacAddress == "" {
-			continue
+func vmiInterfaceKey(vmiUID types.UID, interfaceName string) string {
+	return fmt.Sprintf("%s/%s", vmiUID, interfaceName)
+}
+
+func ifacesStatusFromDomainInterfaces(domainSpecIfaces []api.Interface) []v1.VirtualMachineInstanceNetworkInterface {
+	var vmiStatusIfaces []v1.VirtualMachineInstanceNetworkInterface
+
+	for _, domainSpecIface := range domainSpecIfaces {
+		vmiStatusIfaces = append(vmiStatusIfaces, v1.VirtualMachineInstanceNetworkInterface{
+			Name:       domainSpecIface.Alias.GetName(),
+			MAC:        domainSpecIface.MAC.MAC,
+			InfoSource: netvmispec.InfoSourceDomain,
+		})
+	}
+	return vmiStatusIfaces
+}
+
+func sriovIfacesStatusFromDomainHostDevices(hostDevices []api.HostDevice, vmiIfacesSpecByName map[string]v1.Interface) []v1.VirtualMachineInstanceNetworkInterface {
+	var vmiStatusIfaces []v1.VirtualMachineInstanceNetworkInterface
+
+	for _, hostDevice := range filterHostDevicesByAlias(hostDevices, sriov.AliasPrefix) {
+		vmiStatusIface := v1.VirtualMachineInstanceNetworkInterface{
+			Name:       hostDevice.Alias.GetName()[len(sriov.AliasPrefix):],
+			InfoSource: netvmispec.InfoSourceDomain,
 		}
-		if domainIfaceStatus, exists := interfacesStatusByMac[ifaceSpec.MacAddress]; exists {
-			domainIfaceStatus.Name = name
-			interfacesStatusByMac[ifaceSpec.MacAddress] = domainIfaceStatus
+		if iface, exists := vmiIfacesSpecByName[vmiStatusIface.Name]; exists {
+			vmiStatusIface.MAC = iface.MacAddress
 		}
+		vmiStatusIfaces = append(vmiStatusIfaces, vmiStatusIface)
+	}
+	return vmiStatusIfaces
+}
+
+func ifacesStatusFromGuestAgent(vmiIfacesStatus []v1.VirtualMachineInstanceNetworkInterface, guestAgentInterfaces []api.InterfaceStatus) []v1.VirtualMachineInstanceNetworkInterface {
+	for _, guestAgentInterface := range guestAgentInterfaces {
+		if vmiIfaceStatus := netvmispec.LookupInterfaceStatusByMac(vmiIfacesStatus, guestAgentInterface.Mac); vmiIfaceStatus != nil {
+			updateVMIIfaceStatusWithGuestAgentData(vmiIfaceStatus, guestAgentInterface)
+			if !isGuestAgentIfaceOriginatedFromOldVirtLauncher(guestAgentInterface) {
+				vmiIfaceStatus.InfoSource = netvmispec.InfoSourceDomainAndGA
+			}
+		} else {
+			newVMIIfaceStatus := newVMIIfaceStatusFromGuestAgentData(guestAgentInterface)
+			newVMIIfaceStatus.InfoSource = netvmispec.InfoSourceGuestAgent
+			vmiIfacesStatus = append(vmiIfacesStatus, newVMIIfaceStatus)
+		}
+	}
+	return vmiIfacesStatus
+}
+
+// For backward compatability with older virt-launchers, apply this logic:
+// - When the domain status `InterfaceName` field is set, the data originates from the guest-agent.
+//   This is true for old virt-launchers and new ones alike.
+// - When the domain status `InterfaceName` field is not set (empty), the data originates from a merge
+//   at an old virt-launcher and comes from the domain spec. In such cases, no action is to be taken.
+func isGuestAgentIfaceOriginatedFromOldVirtLauncher(guestAgentInterface api.InterfaceStatus) bool {
+	return guestAgentInterface.InterfaceName == ""
+}
+
+func updateVMIIfaceStatusWithGuestAgentData(ifaceStatus *v1.VirtualMachineInstanceNetworkInterface, guestAgentIface api.InterfaceStatus) {
+	ifaceStatus.InterfaceName = guestAgentIface.InterfaceName
+	ifaceStatus.IP = guestAgentIface.Ip
+	ifaceStatus.IPs = guestAgentIface.IPs
+}
+
+func newVMIIfaceStatusFromGuestAgentData(guestAgentInterface api.InterfaceStatus) v1.VirtualMachineInstanceNetworkInterface {
+	return v1.VirtualMachineInstanceNetworkInterface{
+		MAC:           guestAgentInterface.Mac,
+		IP:            guestAgentInterface.Ip,
+		IPs:           guestAgentInterface.IPs,
+		InterfaceName: guestAgentInterface.InterfaceName,
 	}
 }
 
-func vmiInterfaceKey(vmiUID types.UID, interfaceName string) string {
-	return fmt.Sprintf("%s/%s", vmiUID, interfaceName)
+func filterHostDevicesByAlias(hostDevices []api.HostDevice, prefix string) []api.HostDevice {
+	var filteredHostDevices []api.HostDevice
+
+	for _, hostDevice := range hostDevices {
+		if hostDevice.Alias != nil && strings.HasPrefix(hostDevice.Alias.GetName(), prefix) {
+			filteredHostDevices = append(filteredHostDevices, hostDevice)
+		}
+	}
+	return filteredHostDevices
 }

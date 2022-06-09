@@ -72,6 +72,7 @@ import (
 	containerdisk "kubevirt.io/kubevirt/pkg/container-disk"
 	"kubevirt.io/kubevirt/pkg/controller"
 	diskutils "kubevirt.io/kubevirt/pkg/ephemeral-disk-utils"
+	"kubevirt.io/kubevirt/pkg/executor"
 	hostdisk "kubevirt.io/kubevirt/pkg/host-disk"
 	neterrors "kubevirt.io/kubevirt/pkg/network/errors"
 	virtutil "kubevirt.io/kubevirt/pkg/util"
@@ -95,7 +96,7 @@ type netstat interface {
 	UpdateStatus(vmi *v1.VirtualMachineInstance, domain *api.Domain) error
 	Teardown(vmi *v1.VirtualMachineInstance)
 	PodInterfaceVolatileDataIsCached(vmi *v1.VirtualMachineInstance, ifaceName string) bool
-	CachePodInterfaceVolatileData(vmi *v1.VirtualMachineInstance, ifaceName string, data *netcache.PodCacheInterface)
+	CachePodInterfaceVolatileData(vmi *v1.VirtualMachineInstance, ifaceName string, data *netcache.PodIfaceCacheData)
 }
 
 const (
@@ -197,12 +198,13 @@ func NewController(
 		watchdogTimeoutSeconds:      watchdogTimeoutSeconds,
 		migrationProxy:              migrationProxy,
 		podIsolationDetector:        podIsolationDetector,
-		containerDiskMounter:        container_disk.NewMounter(podIsolationDetector, virtPrivateDir+"/container-disk-mount-state", clusterConfig),
-		hotplugVolumeMounter:        hotplug_volume.NewVolumeMounter(podIsolationDetector, virtPrivateDir+"/hotplug-volume-mount-state"),
+		containerDiskMounter:        container_disk.NewMounter(podIsolationDetector, filepath.Join(virtPrivateDir, "container-disk-mount-state"), clusterConfig),
+		hotplugVolumeMounter:        hotplug_volume.NewVolumeMounter(filepath.Join(virtPrivateDir, "hotplug-volume-mount-state")),
 		clusterConfig:               clusterConfig,
 		virtLauncherFSRunDirPattern: "/proc/%d/root/var/run",
 		capabilities:                capabilities,
 		vmiExpectations:             controller.NewUIDTrackingControllerExpectations(controller.NewControllerExpectations()),
+		sriovHotplugExecutorPool:    executor.NewRateLimitedExecutorPool(executor.NewExponentialLimitedBackoffCreator()),
 	}
 
 	vmiSourceInformer.AddEventHandler(cache.ResourceEventHandlerFuncs{
@@ -231,9 +233,8 @@ func NewController(
 
 	c.launcherClients = virtcache.LauncherClientInfoByVMI{}
 
-	ifaceCacheFactory := netcache.NewInterfaceCacheFactory()
-	c.netConf = netsetup.NewNetConf(ifaceCacheFactory)
-	c.netStat = netsetup.NewNetStat(ifaceCacheFactory)
+	c.netConf = netsetup.NewNetConf()
+	c.netStat = netsetup.NewNetStat()
 
 	c.domainNotifyPipes = make(map[string]string)
 
@@ -249,7 +250,7 @@ func NewController(
 		permissions = "rwm"
 	}
 
-	c.deviceManagerController = device_manager.NewDeviceController(c.host, maxDevices, permissions, clusterConfig, clientset.CoreV1())
+	c.deviceManagerController = device_manager.NewDeviceController(c.host, device_manager.PermanentHostDevicePlugins(maxDevices, permissions), clusterConfig, clientset.CoreV1())
 	c.heartBeat = heartbeat.NewHeartBeat(clientset.CoreV1(), c.deviceManagerController, clusterConfig, host)
 
 	return c
@@ -276,6 +277,7 @@ type VirtualMachineController struct {
 	containerDiskMounter     container_disk.Mounter
 	hotplugVolumeMounter     hotplug_volume.VolumeMounter
 	clusterConfig            *virtconfig.ClusterConfig
+	sriovHotplugExecutorPool *executor.RateLimitedExecutorPool
 
 	netConf netconf
 	netStat netstat
@@ -504,12 +506,16 @@ func (d *VirtualMachineController) setupNetwork(vmi *v1.VirtualMachineInstance) 
 		return fmt.Errorf(failedDetectIsolationFmt, err)
 	}
 	rootMount := isolationRes.MountRoot()
-	requiresDeviceClaim := virtutil.IsNonRootVMI(vmi) && virtutil.WantVirtioNetDevice(vmi)
 
 	return d.netConf.Setup(vmi, isolationRes.Pid(), func() error {
-		if requiresDeviceClaim {
+		if virtutil.WantVirtioNetDevice(vmi) {
 			if err := d.claimDeviceOwnership(rootMount, "vhost-net"); err != nil {
 				return neterrors.CreateCriticalNetworkError(fmt.Errorf("failed to set up vhost-net device, %s", err))
+			}
+		}
+		if virtutil.NeedTunDevice(vmi) {
+			if err := d.claimDeviceOwnership(rootMount, "/net/tun"); err != nil {
+				return neterrors.CreateCriticalNetworkError(fmt.Errorf("failed to set up tun device, %s", err))
 			}
 		}
 		return nil
@@ -753,7 +759,11 @@ func (d *VirtualMachineController) updateHotplugVolumeStatus(vmi *v1.VirtualMach
 	needsRefresh := false
 	if volumeStatus.Target == "" {
 		needsRefresh = true
-		if mounted, _ := d.hotplugVolumeMounter.IsMounted(vmi, volumeStatus.Name, volumeStatus.HotplugVolume.AttachPodUID); mounted {
+		mounted, err := d.hotplugVolumeMounter.IsMounted(vmi, volumeStatus.Name, volumeStatus.HotplugVolume.AttachPodUID)
+		if err != nil {
+			log.Log.Object(vmi).Errorf("error occurred while checking if volume is mounted: %v", err)
+		}
+		if mounted {
 			if _, ok := specVolumeMap[volumeStatus.Name]; ok && canUpdateToMounted(volumeStatus.Phase) {
 				log.DefaultLogger().Infof("Marking volume %s as mounted in pod, it can now be attached", volumeStatus.Name)
 				// mounted, and still in spec, and in phase we can change, update status to mounted.
@@ -895,7 +905,9 @@ func (d *VirtualMachineController) updateLiveMigrationConditions(vmi *v1.Virtual
 			vmi.Status.Conditions = append(vmi.Status.Conditions, *liveMigrationCondition)
 		}
 	}
-	if vmi.IsEvictable() && liveMigrationCondition.Status == k8sv1.ConditionFalse {
+
+	evictable := migrations.VMIMigratableOnEviction(d.clusterConfig, vmi)
+	if evictable && liveMigrationCondition.Status == k8sv1.ConditionFalse {
 		d.recorder.Event(vmi, k8sv1.EventTypeWarning, v1.Migrated.String(), "EvictionStrategy is set but vmi is not migratable")
 	}
 }
@@ -1807,9 +1819,6 @@ func (d *VirtualMachineController) processVmCleanup(vmi *v1.VirtualMachineInstan
 	d.migrationProxy.StopSourceListener(vmiId)
 
 	// Unmount container disks and clean up remaining files
-	if err := d.containerDiskMounter.UnmountKernelArtifacts(vmi); err != nil {
-		return err
-	}
 	if err := d.containerDiskMounter.Unmount(vmi); err != nil {
 		return err
 	}
@@ -1818,6 +1827,8 @@ func (d *VirtualMachineController) processVmCleanup(vmi *v1.VirtualMachineInstan
 	}
 
 	d.teardownNetwork(vmi)
+
+	d.sriovHotplugExecutorPool.Delete(vmi.UID)
 
 	// Watch dog file and command client must be the last things removed here
 	err = d.closeLauncherClient(vmi)
@@ -2390,10 +2401,6 @@ func (d *VirtualMachineController) vmUpdateHelperMigrationTarget(origVMI *v1.Vir
 		return err
 	}
 
-	if err := d.containerDiskMounter.MountKernelArtifacts(vmi, false); err != nil {
-		return fmt.Errorf("failed to mount kernel artifacts: %v", err)
-	}
-
 	// Mount hotplug disks
 	if attachmentPodUID := vmi.Status.MigrationState.TargetAttachmentPodUID; attachmentPodUID != types.UID("") {
 		if err := d.hotplugVolumeMounter.MountFromPod(vmi, attachmentPodUID); err != nil {
@@ -2482,10 +2489,6 @@ func (d *VirtualMachineController) vmUpdateHelperDefault(origVMI *v1.VirtualMach
 			return err
 		}
 
-		if err := d.containerDiskMounter.MountKernelArtifacts(vmi, true); err != nil {
-			return fmt.Errorf("failed to mount kernel artifacts: %v", err)
-		}
-
 		// Try to mount hotplug volume if there is any during startup.
 		if err := d.hotplugVolumeMounter.Mount(vmi); err != nil {
 			return err
@@ -2535,6 +2538,10 @@ func (d *VirtualMachineController) vmUpdateHelperDefault(origVMI *v1.VirtualMach
 			return fmt.Errorf("failed to adjust resources: %v", err)
 		}
 	} else if vmi.IsRunning() {
+		if err := d.hotplugSriovInterfaces(vmi); err != nil {
+			log.Log.Object(vmi).Error(err.Error())
+		}
+
 		if err := d.hotplugVolumeMounter.Mount(vmi); err != nil {
 			return err
 		}
@@ -2564,6 +2571,41 @@ func (d *VirtualMachineController) vmUpdateHelperDefault(origVMI *v1.VirtualMach
 			return err
 		}
 	}
+	return nil
+}
+
+func (d *VirtualMachineController) hotplugSriovInterfaces(vmi *v1.VirtualMachineInstance) error {
+	sriovSpecInterfaces := netvmispec.FilterSRIOVInterfaces(vmi.Spec.Domain.Devices.Interfaces)
+	sriovStatusInterfaces := netvmispec.FilterStatusInterfacesByNames(vmi.Status.Interfaces, netvmispec.InterfacesNames(sriovSpecInterfaces))
+	if len(sriovSpecInterfaces) == len(sriovStatusInterfaces) {
+		d.sriovHotplugExecutorPool.Delete(vmi.UID)
+		return nil
+	}
+
+	rateLimitedExecutor := d.sriovHotplugExecutorPool.LoadOrStore(vmi.UID)
+	return rateLimitedExecutor.Exec(func() error {
+		return d.hotplugSriovInterfacesCommand(vmi)
+	})
+}
+
+func (d *VirtualMachineController) hotplugSriovInterfacesCommand(vmi *v1.VirtualMachineInstance) error {
+	const errMsgPrefix = "failed to hot-plug SR-IOV interfaces"
+
+	client, err := d.getVerifiedLauncherClient(vmi)
+	if err != nil {
+		return fmt.Errorf("%s: %v", errMsgPrefix, err)
+	}
+
+	if err := isolation.AdjustQemuProcessMemoryLimits(d.podIsolationDetector, vmi); err != nil {
+		d.recorder.Event(vmi, k8sv1.EventTypeWarning, err.Error(), err.Error())
+		return fmt.Errorf("%s: %v", errMsgPrefix, err)
+	}
+
+	log.Log.V(3).Object(vmi).Info("sending hot-plug host-devices command")
+	if err := client.HotplugHostDevices(vmi); err != nil {
+		return fmt.Errorf("%s: %v", errMsgPrefix, err)
+	}
+
 	return nil
 }
 
@@ -2722,18 +2764,21 @@ func (d *VirtualMachineController) updateDomainFunc(old, new interface{}) {
 
 func (d *VirtualMachineController) finalizeMigration(vmi *v1.VirtualMachineInstance) error {
 	const errorMessage = "failed to finalize migration"
+
 	client, err := d.getVerifiedLauncherClient(vmi)
 	if err != nil {
-		return err
+		return fmt.Errorf("%s: %v", errorMessage, err)
 	}
 
+	// adjust QEMU process memlock limits in order to enable old virt-launcher pod's to
+	// perform hotplug host-devices on post migration.
 	if err := isolation.AdjustQemuProcessMemoryLimits(d.podIsolationDetector, vmi); err != nil {
 		d.recorder.Event(vmi, k8sv1.EventTypeWarning, err.Error(), errorMessage)
 	}
 
 	if err := client.FinalizeVirtualMachineMigration(vmi); err != nil {
 		log.Log.Object(vmi).Reason(err).Error(errorMessage)
-		return err
+		return fmt.Errorf("%s: %v", errorMessage, err)
 	}
 
 	return nil
@@ -2776,14 +2821,14 @@ func (d *VirtualMachineController) isHostModelMigratable(vmi *v1.VirtualMachineI
 }
 
 func (d *VirtualMachineController) claimDeviceOwnership(virtLauncherRootMount, deviceName string) error {
-	kvmPath := filepath.Join(virtLauncherRootMount, "dev", deviceName)
+	devicePath := filepath.Join(virtLauncherRootMount, "dev", deviceName)
 
-	softwareEmulation, err := util.UseSoftwareEmulationForDevice(kvmPath, d.clusterConfig.AllowEmulation())
+	softwareEmulation, err := util.UseSoftwareEmulationForDevice(devicePath, d.clusterConfig.AllowEmulation())
 	if err != nil || softwareEmulation {
 		return err
 	}
 
-	return diskutils.DefaultOwnershipManager.SetFileOwnership(kvmPath)
+	return diskutils.DefaultOwnershipManager.SetFileOwnership(devicePath)
 }
 
 func nodeHasHostModelLabel(node *k8sv1.Node) bool {
@@ -2796,20 +2841,17 @@ func nodeHasHostModelLabel(node *k8sv1.Node) bool {
 }
 
 func (d *VirtualMachineController) reportDedicatedCPUSetForMigratingVMI(vmi *v1.VirtualMachineInstance) error {
-	isoRes, err := d.podIsolationDetector.Detect(vmi)
+	cgroupManager, err := cgroup.NewManagerFromVM(vmi)
 	if err != nil {
 		return err
 	}
 
-	rootPath := "/proc/1/root"
-	cpuSetPath := cgroup.CPUSetPath(isoRes.Slice())
-	cpusetFilePath := filepath.Join(rootPath, cpuSetPath)
-	cpuSetStr, err := ioutil.ReadFile(cpusetFilePath)
+	cpusetStr, err := cgroupManager.GetCpuSet()
 	if err != nil {
-		return fmt.Errorf("failed to read target VMI cpuset: %v", err)
+		return err
 	}
 
-	cpuSet, err := hardware.ParseCPUSetLine(strings.TrimSpace(string(cpuSetStr)), 50000)
+	cpuSet, err := hardware.ParseCPUSetLine(cpusetStr, 50000)
 	if err != nil {
 		return fmt.Errorf("failed to parse target VMI cpuset: %v", err)
 	}
@@ -2826,6 +2868,5 @@ func (d *VirtualMachineController) reportTargetTopologyForMigratingVMI(vmi *v1.V
 		return err
 	}
 	vmi.Status.MigrationState.TargetNodeTopology = string(topology)
-
 	return nil
 }

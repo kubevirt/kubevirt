@@ -484,7 +484,9 @@ func (c *MigrationController) updateStatus(migration *virtv1.VirtualMachineInsta
 				}
 			}
 		case virtv1.MigrationScheduled:
-			if vmi.Status.MigrationState != nil && vmi.Status.MigrationState.TargetNode != "" {
+			if vmi.Status.MigrationState != nil &&
+				vmi.Status.MigrationState.MigrationUID == migration.UID &&
+				vmi.Status.MigrationState.TargetNode != "" {
 				migrationCopy.Status.Phase = virtv1.MigrationPreparingTarget
 			}
 		case virtv1.MigrationPreparingTarget:
@@ -779,7 +781,7 @@ func (c *MigrationController) handleTargetPodCreation(key string, migration *vir
 	// migration was accepted into the system, now see if we
 	// should create the target pod
 	if vmi.IsRunning() {
-		if migrations.MigrationNeedsProtection(vmi) {
+		if migrations.VMIMigratableOnEviction(c.clusterConfig, vmi) {
 			pdbs, err := pdbs.PDBsForVMI(vmi, c.pdbInformer)
 			if err != nil {
 				return err

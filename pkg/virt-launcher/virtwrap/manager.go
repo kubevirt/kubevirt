@@ -38,11 +38,14 @@ import (
 	"sync"
 	"time"
 
+	util2 "kubevirt.io/kubevirt/pkg/util"
+
 	"kubevirt.io/kubevirt/pkg/virt-launcher/virtwrap/device/hostdevice/generic"
 	"kubevirt.io/kubevirt/pkg/virt-launcher/virtwrap/device/hostdevice/gpu"
 
 	"kubevirt.io/kubevirt/pkg/downwardmetrics"
 	"kubevirt.io/kubevirt/pkg/network/cache"
+	"kubevirt.io/kubevirt/pkg/util/hardware"
 	cmdclient "kubevirt.io/kubevirt/pkg/virt-handler/cmd-client"
 	"kubevirt.io/kubevirt/pkg/virt-launcher/virtwrap/agent"
 	"kubevirt.io/kubevirt/pkg/virt-launcher/virtwrap/converter"
@@ -67,13 +70,13 @@ import (
 	"kubevirt.io/kubevirt/pkg/hooks"
 	"kubevirt.io/kubevirt/pkg/ignition"
 	netsetup "kubevirt.io/kubevirt/pkg/network/setup"
+	netsriov "kubevirt.io/kubevirt/pkg/network/sriov"
 	kutil "kubevirt.io/kubevirt/pkg/util"
 	accesscredentials "kubevirt.io/kubevirt/pkg/virt-launcher/virtwrap/access-credentials"
 	agentpoller "kubevirt.io/kubevirt/pkg/virt-launcher/virtwrap/agent-poller"
 	"kubevirt.io/kubevirt/pkg/virt-launcher/virtwrap/api"
 	"kubevirt.io/kubevirt/pkg/virt-launcher/virtwrap/cli"
 	"kubevirt.io/kubevirt/pkg/virt-launcher/virtwrap/device/hostdevice"
-	"kubevirt.io/kubevirt/pkg/virt-launcher/virtwrap/device/hostdevice/legacy"
 	"kubevirt.io/kubevirt/pkg/virt-launcher/virtwrap/device/hostdevice/sriov"
 	domainerrors "kubevirt.io/kubevirt/pkg/virt-launcher/virtwrap/errors"
 	"kubevirt.io/kubevirt/pkg/virt-launcher/virtwrap/stats"
@@ -92,6 +95,8 @@ const (
 
 	baseEphemeralDiskDir = "/var/run/kubevirt-ephemeral-disks/"
 )
+
+const maxConcurrentHotplugHostDevices = 1
 
 var (
 	getEphemeralDiskBaseDir = func() string {
@@ -124,7 +129,8 @@ type DomainManager interface {
 	GetUsers() ([]v1.VirtualMachineInstanceGuestOSUser, error)
 	GetFilesystems() ([]v1.VirtualMachineInstanceFileSystem, error)
 	FinalizeVirtualMachineMigration(*v1.VirtualMachineInstance) error
-	InterfacesStatus(domainInterfaces []api.Interface) []api.InterfaceStatus
+	HotplugHostDevices(vmi *v1.VirtualMachineInstance) error
+	InterfacesStatus() []api.InterfaceStatus
 	GetGuestOSInfo() *api.GuestOSInfo
 	Exec(string, string, []string, int32) (string, error)
 	GuestPing(string) error
@@ -140,6 +146,8 @@ type LibvirtDomainManager struct {
 
 	credManager *accesscredentials.AccessCredentialManager
 
+	hotplugHostDevicesInProgress chan struct{}
+
 	virtShareDir             string
 	paused                   pausedVMIs
 	agentData                *agentpoller.AsyncAgentStore
@@ -147,7 +155,6 @@ type LibvirtDomainManager struct {
 	setGuestTimeContextPtr   *contextStore
 	efiEnvironment           *efi.EFIEnvironment
 	ovmfPath                 string
-	networkCacheStoreFactory cache.InterfaceCacheFactory
 	ephemeralDiskCreator     ephemeraldisk.EphemeralDiskCreatorInterface
 	directIOChecker          converter.DirectIOChecker
 	disksInfo                map[string]*cmdv1.DiskInfo
@@ -191,29 +198,38 @@ func newLibvirtDomainManager(connection cli.Connection, virtShareDir string, age
 		},
 		agentData:                agentStore,
 		efiEnvironment:           efi.DetectEFIEnvironment(runtime.GOARCH, ovmfPath),
-		networkCacheStoreFactory: cache.NewInterfaceCacheFactory(),
 		ephemeralDiskCreator:     ephemeralDiskCreator,
 		directIOChecker:          directIOChecker,
 		disksInfo:                map[string]*cmdv1.DiskInfo{},
 		cancelSafetyUnfreezeChan: make(chan struct{}),
 	}
+
+	manager.hotplugHostDevicesInProgress = make(chan struct{}, maxConcurrentHotplugHostDevices)
 	manager.credManager = accesscredentials.NewManager(connection, &manager.domainModifyLock)
 
 	return &manager, nil
 }
 
-func getAllDomainDevices(dom cli.VirDomain) (api.Devices, error) {
+func getDomainSpec(dom cli.VirDomain) (*api.DomainSpec, error) {
+	var newSpec api.DomainSpec
 	xmlstr, err := dom.GetXMLDesc(0)
 	if err != nil {
-		return api.Devices{}, err
+		return &newSpec, err
 	}
-	var newSpec api.DomainSpec
 	err = xml.Unmarshal([]byte(xmlstr), &newSpec)
 	if err != nil {
-		return api.Devices{}, err
+		return &newSpec, err
 	}
 
-	return newSpec.Devices, nil
+	return &newSpec, nil
+}
+
+func getAllDomainDevices(dom cli.VirDomain) (api.Devices, error) {
+	domSpec, err := getDomainSpec(dom)
+	if err != nil {
+		return domSpec.Devices, err
+	}
+	return domSpec.Devices, nil
 }
 
 func getAllDomainDisks(dom cli.VirDomain) ([]api.Disk, error) {
@@ -321,31 +337,50 @@ func (l *LibvirtDomainManager) FinalizeVirtualMachineMigration(vmi *v1.VirtualMa
 	return l.finalizeMigrationTarget(vmi)
 }
 
-// hotPlugHostDevices attach host-devices to running domain
-// Currently only SRIOV host-devices are supported
+// HotplugHostDevices attach host-devices to running domain, currently only SRIOV host-devices are supported.
+// This operation runs in the background, only one hotplug operation can occur at a time.
+func (l *LibvirtDomainManager) HotplugHostDevices(vmi *v1.VirtualMachineInstance) error {
+	select {
+	case l.hotplugHostDevicesInProgress <- struct{}{}:
+	default:
+		return fmt.Errorf("hot-plug host-devices is in progress")
+	}
+
+	go func() {
+		defer func() { <-l.hotplugHostDevicesInProgress }()
+
+		if err := l.hotPlugHostDevices(vmi); err != nil {
+			log.Log.Object(vmi).Error(err.Error())
+		}
+	}()
+	return nil
+}
+
 func (l *LibvirtDomainManager) hotPlugHostDevices(vmi *v1.VirtualMachineInstance) error {
 	l.domainModifyLock.Lock()
 	defer l.domainModifyLock.Unlock()
 
+	const errMsgPrefix = "failed to hot-plug host-devices"
+
 	domainName := api.VMINamespaceKeyFunc(vmi)
 	domain, err := l.virConn.LookupDomainByName(domainName)
 	if err != nil {
-		return err
+		return fmt.Errorf("%s: %v", errMsgPrefix, err)
 	}
 	defer domain.Free()
 
 	domainSpec, err := util.GetDomainSpecWithFlags(domain, 0)
 	if err != nil {
-		return err
+		return fmt.Errorf("%s: %v", errMsgPrefix, err)
 	}
 
 	sriovHostDevices, err := sriov.GetHostDevicesToAttach(vmi, domainSpec)
 	if err != nil {
-		return err
+		return fmt.Errorf("%s: %v", errMsgPrefix, err)
 	}
 
 	if err := hostdevice.AttachHostDevices(domain, sriovHostDevices); err != nil {
-		return err
+		return fmt.Errorf("%s: %v", errMsgPrefix, hostdevice.AttachHostDevices(domain, sriovHostDevices))
 	}
 
 	return nil
@@ -434,7 +469,14 @@ func (l *LibvirtDomainManager) generateSomeCloudInitISO(vmi *v1.VirtualMachineIn
 		if size != 0 {
 			err = cloudinit.GenerateEmptyIso(vmi.Name, vmi.Namespace, cloudInitDataStore, size)
 		} else {
-			err = cloudinit.GenerateLocalData(vmi.Name, vmi.Namespace, cloudInitDataStore)
+			// ClusterFlavor will take precedence over a namespaced Flavor
+			// for setting instance_type in the metadata
+			flavor := vmi.Annotations[v1.ClusterFlavorAnnotation]
+			if flavor == "" {
+				flavor = vmi.Annotations[v1.FlavorAnnotation]
+			}
+
+			err = cloudinit.GenerateLocalData(vmi.Name, vmi.Namespace, flavor, cloudInitDataStore)
 		}
 		if err != nil {
 			return fmt.Errorf("generating local cloud-init data failed: %v", err)
@@ -521,7 +563,7 @@ func (l *LibvirtDomainManager) preStartHook(vmi *v1.VirtualMachineInstance, doma
 		}
 	}
 
-	err = netsetup.NewVMNetworkConfigurator(vmi, l.networkCacheStoreFactory).SetupPodNetworkPhase2(domain)
+	err = netsetup.NewVMNetworkConfigurator(vmi, cache.CacheCreator{}).SetupPodNetworkPhase2(domain)
 	if err != nil {
 		return domain, fmt.Errorf("preparing the pod network failed: %v", err)
 	}
@@ -611,10 +653,14 @@ func expandDiskImageOffline(imagePath string, size int64) error {
 	} else {
 		preallocateFlag = "--preallocation=off"
 	}
+	size = util2.AlignImageSizeTo1MiB(size, log.Log.With("image", imagePath))
+	if size == 0 {
+		return fmt.Errorf("%s must be at least 1MiB", imagePath)
+	}
 	cmd := exec.Command("/usr/bin/qemu-img", "resize", preallocateFlag, imagePath, strconv.FormatInt(size, 10))
 	out, err := cmd.CombinedOutput()
 	if err != nil {
-		return fmt.Errorf("Expanding image failed with error: %v, output: %s", err, out)
+		return fmt.Errorf("expanding image failed with error: %v, output: %s", err, out)
 	}
 	return nil
 }
@@ -634,7 +680,12 @@ func possibleGuestSize(disk api.Disk) (int64, bool) {
 		log.DefaultLogger().Reason(err).Error("Failed to parse filesystem overhead as float")
 		return 0, false
 	}
-	return int64((1 - filesystemOverhead) * float64(preferredSize)), true
+	size := int64((1 - filesystemOverhead) * float64(preferredSize))
+	size = util2.AlignImageSizeTo1MiB(size, log.DefaultLogger())
+	if size == 0 {
+		return 0, false
+	}
+	return size, true
 }
 
 func shouldExpandOffline(disk api.Disk) bool {
@@ -759,17 +810,6 @@ func (l *LibvirtDomainManager) generateConverterContext(vmi *v1.VirtualMachineIn
 
 		c.HotplugVolumes = hotplugVolumes
 		c.SRIOVDevices = sriovDevices
-
-		legacyGPUDevices, err := legacy.CreateGPUHostDevices()
-		if err != nil {
-			return nil, err
-		}
-		legacyVGPUDevices, err := legacy.CreateVGPUHostDevices()
-		if err != nil {
-			return nil, err
-		}
-		c.LegacyHostDevices = legacyGPUDevices
-		c.LegacyHostDevices = append(c.LegacyHostDevices, legacyVGPUDevices...)
 
 		genericHostDevices, err := generic.CreateHostDevices(vmi.Spec.Domain.Devices.HostDevices)
 		if err != nil {
@@ -1191,22 +1231,31 @@ func (l *LibvirtDomainManager) cancelSafetyUnfreeze() {
 	}
 }
 
+func (l *LibvirtDomainManager) getParsedFSStatus(domainName string) (string, error) {
+	cmdResult, err := l.virConn.QemuAgentCommand(`{"execute":"`+string(agentpoller.GET_FSFREEZE_STATUS)+`"}`, domainName)
+	if err != nil {
+		return "", err
+	}
+	fsfreezeStatus, err := agentpoller.ParseFSFreezeStatus(cmdResult)
+	if err != nil {
+		return "", err
+	}
+
+	return fsfreezeStatus.Status, nil
+}
+
 func (l *LibvirtDomainManager) FreezeVMI(vmi *v1.VirtualMachineInstance, unfreezeTimeoutSeconds int32) error {
 	domainName := api.VMINamespaceKeyFunc(vmi)
 	safetyUnfreezeTimeout := time.Duration(unfreezeTimeoutSeconds) * time.Second
 
-	cmdResult, err := l.virConn.QemuAgentCommand(`{"execute":"`+string(agentpoller.GET_FSFREEZE_STATUS)+`"}`, domainName)
+	fsfreezeStatus, err := l.getParsedFSStatus(domainName)
 	if err != nil {
-		log.Log.Errorf("Failed to get status before freeze vmi, %s", err.Error())
+		log.Log.Errorf("Failed to get fs status before freeze vmi %s, %s", vmi.Name, err.Error())
 		return err
 	}
-	fsfreezeStatus, err := agentpoller.ParseFSFreezeStatus(cmdResult)
-	if err != nil {
-		log.Log.Errorf("Failed to parse status before freeze vmi, %s", err.Error())
-		return err
-	}
+
 	// idempotent - prevent failuer in case fs is already frozen
-	if fsfreezeStatus.Status == api.FSFrozen {
+	if fsfreezeStatus == api.FSFrozen {
 		return nil
 	}
 	_, err = l.virConn.QemuAgentCommand(`{"execute":"guest-fsfreeze-freeze"}`, domainName)
@@ -1225,8 +1274,15 @@ func (l *LibvirtDomainManager) FreezeVMI(vmi *v1.VirtualMachineInstance, unfreez
 func (l *LibvirtDomainManager) UnfreezeVMI(vmi *v1.VirtualMachineInstance) error {
 	l.cancelSafetyUnfreeze()
 	domainName := api.VMINamespaceKeyFunc(vmi)
-	// fs thaw is idempotent by itself
-	_, err := l.virConn.QemuAgentCommand(`{"execute":"guest-fsfreeze-thaw"}`, domainName)
+	fsfreezeStatus, err := l.getParsedFSStatus(domainName)
+	if err == nil {
+		// prevent initating fs thaw to prevent rerunning the thaw hook
+		if fsfreezeStatus == api.FSThawed {
+			return nil
+		}
+	}
+	// even if failed we should still try to unfreeze the fs
+	_, err = l.virConn.QemuAgentCommand(`{"execute":"guest-fsfreeze-thaw"}`, domainName)
 	if err != nil {
 		log.Log.Errorf("Failed to unfreeze vmi, %s", err.Error())
 		return err
@@ -1488,8 +1544,12 @@ func (l *LibvirtDomainManager) GetDomainStats() ([]*stats.DomainStats, error) {
 	return list, err
 }
 
-func addToDeviceMetadata(metadataType cloudinit.DeviceMetadataType, address *api.Address, mac string, tag string, devicesMetadata []cloudinit.DeviceData) []cloudinit.DeviceData {
-	pciAddrStr := fmt.Sprintf("%s:%s:%s:%s", address.Domain[2:], address.Bus[2:], address.Slot[2:], address.Function[2:])
+func formatPCIAddressStr(address *api.Address) string {
+	return fmt.Sprintf("%s:%s:%s.%s", address.Domain[2:], address.Bus[2:], address.Slot[2:], address.Function[2:])
+}
+
+func addToDeviceMetadata(metadataType cloudinit.DeviceMetadataType, address *api.Address, mac string, tag string, devicesMetadata []cloudinit.DeviceData, numa *uint32, numaAlignedCPUs []uint32) []cloudinit.DeviceData {
+	pciAddrStr := formatPCIAddressStr(address)
 	deviceData := cloudinit.DeviceData{
 		Type:    metadataType,
 		Bus:     address.Type,
@@ -1497,12 +1557,38 @@ func addToDeviceMetadata(metadataType cloudinit.DeviceMetadataType, address *api
 		MAC:     mac,
 		Tags:    []string{tag},
 	}
+	if numa != nil {
+		deviceData.NumaNode = *numa
+	}
+	if len(numaAlignedCPUs) > 0 {
+		deviceData.AlignedCPUs = numaAlignedCPUs
+	}
 	devicesMetadata = append(devicesMetadata, deviceData)
 	return devicesMetadata
 }
 
+func getDeviceNUMACPUAffinity(dev api.HostDevice, vmi *v1.VirtualMachineInstance, domainSpec *api.DomainSpec) (numaNodePtr *uint32, cpuList []uint32) {
+	if dev.Source.Address != nil {
+		pciAddress := formatPCIAddressStr(dev.Source.Address)
+		if vmi.Spec.Domain.CPU.NUMA != nil && vmi.Spec.Domain.CPU.NUMA.GuestMappingPassthrough != nil {
+			if numa, err := hardware.GetDeviceNumaNode(pciAddress); err == nil {
+				numaNodePtr = numa
+				return
+			}
+		} else if vmi.IsCPUDedicated() {
+			if vCPUList, err := hardware.LookupDeviceVCPUAffinity(pciAddress, domainSpec); err == nil {
+				cpuList = vCPUList
+				return
+			}
+		}
+	}
+	return
+}
+
 func (l *LibvirtDomainManager) buildDevicesMetadata(vmi *v1.VirtualMachineInstance, dom cli.VirDomain) ([]cloudinit.DeviceData, error) {
 	taggedInterfaces := make(map[string]v1.Interface)
+	taggedHostDevices := make(map[string]v1.HostDevice)
+	taggedGPUs := make(map[string]v1.GPU)
 	var devicesMetadata []cloudinit.DeviceData
 
 	// Get all tagged interfaces for lookup
@@ -1512,11 +1598,25 @@ func (l *LibvirtDomainManager) buildDevicesMetadata(vmi *v1.VirtualMachineInstan
 		}
 	}
 
-	devices, err := getAllDomainDevices(dom)
+	// Get all tagged host devices for lookup
+	for _, dev := range vmi.Spec.Domain.Devices.HostDevices {
+		if dev.Tag != "" {
+			taggedHostDevices[dev.Name] = dev
+		}
+	}
+
+	// Get all tagged gpus for lookup
+	for _, dev := range vmi.Spec.Domain.Devices.GPUs {
+		if dev.Tag != "" {
+			taggedGPUs[dev.Name] = dev
+		}
+	}
+
+	domainSpec, err := getDomainSpec(dom)
 	if err != nil {
 		return nil, err
 	}
-
+	devices := domainSpec.Devices
 	interfaces := devices.Interfaces
 	for _, nic := range interfaces {
 		if data, exist := taggedInterfaces[nic.Alias.GetName()]; exist {
@@ -1524,27 +1624,59 @@ func (l *LibvirtDomainManager) buildDevicesMetadata(vmi *v1.VirtualMachineInstan
 			if nic.MAC != nil {
 				mac = nic.MAC.MAC
 			}
+			// currently network Interfaces do not contain host devices thus have no NUMA alignment.
+			deviceAlignedCPUs := []uint32{}
 			devicesMetadata = addToDeviceMetadata(cloudinit.NICMetadataType,
 				nic.Address,
 				mac,
 				data.Tag,
-				devicesMetadata)
+				devicesMetadata,
+				nil,
+				deviceAlignedCPUs,
+			)
 		}
 	}
 
 	hostDevices := devices.HostDevices
 	for _, dev := range hostDevices {
-		devAliasNoPrefix := strings.Replace(dev.Alias.GetName(), sriov.AliasPrefix, "", -1)
+		devAliasNoPrefix := strings.Replace(dev.Alias.GetName(), netsriov.AliasPrefix, "", -1)
+		hostDevAliasNoPrefix := strings.Replace(dev.Alias.GetName(), generic.AliasPrefix, "", -1)
+		gpuDevAliasNoPrefix := strings.Replace(dev.Alias.GetName(), gpu.AliasPrefix, "", -1)
 		if data, exist := taggedInterfaces[devAliasNoPrefix]; exist {
+			deviceNumaNode, deviceAlignedCPUs := getDeviceNUMACPUAffinity(dev, vmi, domainSpec)
 			devicesMetadata = addToDeviceMetadata(cloudinit.NICMetadataType,
 				dev.Address,
 				"",
 				data.Tag,
-				devicesMetadata)
+				devicesMetadata,
+				deviceNumaNode,
+				deviceAlignedCPUs,
+			)
+		}
+		if data, exist := taggedHostDevices[hostDevAliasNoPrefix]; exist {
+			deviceNumaNode, deviceAlignedCPUs := getDeviceNUMACPUAffinity(dev, vmi, domainSpec)
+			devicesMetadata = addToDeviceMetadata(cloudinit.HostDevMetadataType,
+				dev.Address,
+				"",
+				data.Tag,
+				devicesMetadata,
+				deviceNumaNode,
+				deviceAlignedCPUs,
+			)
+		}
+		if data, exist := taggedHostDevices[gpuDevAliasNoPrefix]; exist {
+			deviceNumaNode, deviceAlignedCPUs := getDeviceNUMACPUAffinity(dev, vmi, domainSpec)
+			devicesMetadata = addToDeviceMetadata(cloudinit.HostDevMetadataType,
+				dev.Address,
+				"",
+				data.Tag,
+				devicesMetadata,
+				deviceNumaNode,
+				deviceAlignedCPUs,
+			)
 		}
 	}
 	return devicesMetadata, nil
-
 }
 
 // GetGuestInfo queries the agent store and return the aggregated data from Guest agent
@@ -1596,12 +1728,8 @@ func (l *LibvirtDomainManager) GetGuestInfo() (v1.VirtualMachineInstanceGuestAge
 }
 
 // InterfacesStatus returns the interfaces Guest Agent reported
-func (l *LibvirtDomainManager) InterfacesStatus(domainInterfaces []api.Interface) []api.InterfaceStatus {
-	if interfaces := l.agentData.GetInterfaceStatus(); interfaces != nil {
-		return agentpoller.MergeAgentStatusesWithDomainData(domainInterfaces, interfaces)
-	}
-
-	return nil
+func (l *LibvirtDomainManager) InterfacesStatus() []api.InterfaceStatus {
+	return l.agentData.GetInterfaceStatus()
 }
 
 // GetGuestOSInfo returns the Guest OS version and architecture

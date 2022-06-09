@@ -26,6 +26,8 @@ import (
 	"strconv"
 	"time"
 
+	"kubevirt.io/client-go/log"
+
 	expect "github.com/google/goexpect"
 	. "github.com/onsi/ginkgo"
 	"github.com/onsi/ginkgo/extensions/table"
@@ -41,7 +43,6 @@ import (
 
 	v1 "kubevirt.io/api/core/v1"
 	"kubevirt.io/client-go/kubecli"
-	"kubevirt.io/client-go/log"
 	cdiv1 "kubevirt.io/containerized-data-importer-api/pkg/apis/core/v1beta1"
 	"kubevirt.io/kubevirt/tests"
 	"kubevirt.io/kubevirt/tests/console"
@@ -279,7 +280,6 @@ var _ = SIGDescribe("Hotplug", func() {
 			}
 			foundVolume := 0
 			for _, volumeStatus := range currentVMI.Status.VolumeStatus {
-				log.Log.Infof("Volume Status, name: %s, target [%s], phase:%s, reason: %s", volumeStatus.Name, volumeStatus.Target, volumeStatus.Phase, volumeStatus.Reason)
 				if _, ok := volumeNamesMap[volumeStatus.Name]; ok && volumeStatus.HotplugVolume != nil && volumeStatus.Target != "" {
 					if volumeStatus.Phase == v1.VolumeReady {
 						foundVolume++

@@ -186,8 +186,8 @@ var _ = Describe("Mediated Device", func() {
 			fakeClusterConfig, _, kvInformer := testutils.NewFakeClusterConfigUsingKV(kv)
 
 			By("creating an empty device controller")
-			deviceController := NewDeviceController("master", 10, "rw", fakeClusterConfig, clientTest.CoreV1())
-			deviceController.devicePlugins = make(map[string]ControlledDevice)
+			var noDevices []Device
+			deviceController := NewDeviceController("master", noDevices, fakeClusterConfig, clientTest.CoreV1())
 
 			By("adding a host device to the cluster config")
 			kvConfig := kv.DeepCopy()
@@ -206,12 +206,16 @@ var _ = Describe("Mediated Device", func() {
 			Expect(len(permittedDevices.MediatedDevices)).To(Equal(1), "the fake device was not found")
 
 			By("ensuring a device plugin gets created for our fake device")
-			enabledDevicePlugins, disabledDevicePlugins := deviceController.updatePermittedHostDevicePlugins()
+			enabledDevicePlugins, disabledDevicePlugins := deviceController.splitPermittedDevices(
+				deviceController.updatePermittedHostDevicePlugins(),
+			)
 			Expect(len(enabledDevicePlugins)).To(Equal(1), "a device plugin wasn't created for the fake device")
 			Expect(len(disabledDevicePlugins)).To(Equal(0))
 			Ω(enabledDevicePlugins).Should(HaveKey(fakeMdevResourceName))
 			// Manually adding the enabled plugin, since the device controller is not actually running
-			deviceController.devicePlugins[fakeMdevResourceName] = enabledDevicePlugins[fakeMdevResourceName]
+			deviceController.startedPlugins[fakeMdevResourceName] = controlledDevice{
+				devicePlugin: enabledDevicePlugins[fakeMdevResourceName],
+			}
 
 			By("deletting the device from the configmap")
 			kvConfig.Spec.Configuration.PermittedHostDevices = &v1.PermittedHostDevices{}
@@ -221,7 +225,9 @@ var _ = Describe("Mediated Device", func() {
 			Expect(len(permittedDevices.MediatedDevices)).To(Equal(0), "the fake device was not deleted")
 
 			By("ensuring the device plugin gets stopped")
-			enabledDevicePlugins, disabledDevicePlugins = deviceController.updatePermittedHostDevicePlugins()
+			enabledDevicePlugins, disabledDevicePlugins = deviceController.splitPermittedDevices(
+				deviceController.updatePermittedHostDevicePlugins(),
+			)
 			Expect(len(enabledDevicePlugins)).To(Equal(0))
 			Expect(len(disabledDevicePlugins)).To(Equal(1), "the fake device plugin did not get disabled")
 			Ω(disabledDevicePlugins).Should(HaveKey(fakeMdevResourceName))

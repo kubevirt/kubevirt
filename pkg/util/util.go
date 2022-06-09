@@ -6,6 +6,7 @@ import (
 	"strings"
 
 	v1 "kubevirt.io/api/core/v1"
+	"kubevirt.io/client-go/log"
 )
 
 const (
@@ -97,6 +98,12 @@ func NeedVirtioNetDevice(vmi *v1.VirtualMachineInstance, allowEmulation bool) bo
 	return WantVirtioNetDevice(vmi) && !allowEmulation
 }
 
+func NeedTunDevice(vmi *v1.VirtualMachineInstance) bool {
+	return (len(vmi.Spec.Domain.Devices.Interfaces) > 0) ||
+		(vmi.Spec.Domain.Devices.AutoattachPodInterface == nil) ||
+		(*vmi.Spec.Domain.Devices.AutoattachPodInterface == true)
+}
+
 // UseSoftwareEmulationForDevice determines whether to fallback to software emulation for the given device.
 // This happens when the given device doesn't exist, and software emulation is enabled.
 func UseSoftwareEmulationForDevice(devicePath string, allowEmulation bool) (bool, error) {
@@ -143,4 +150,24 @@ func IsReadOnlyDisk(disk *v1.Disk) bool {
 	isReadOnlyCDRom := disk.CDRom != nil && (disk.CDRom.ReadOnly == nil || *disk.CDRom.ReadOnly == true)
 
 	return isReadOnlyCDRom
+}
+
+// AlignImageSizeTo1MiB rounds down the size to the nearest multiple of 1MiB
+// A warning or an error may get logged
+// The caller is responsible for ensuring the rounded-down size is not 0
+func AlignImageSizeTo1MiB(size int64, logger *log.FilteredLogger) int64 {
+	remainder := size % (1024 * 1024)
+	if remainder == 0 {
+		return size
+	} else {
+		newSize := size - remainder
+		if logger != nil {
+			if newSize == 0 {
+				logger.Errorf("disks must be at least 1MiB, %d bytes is too small", size)
+			} else {
+				logger.Warningf("disk size is not 1MiB-aligned. Adjusting from %d down to %d.", size, newSize)
+			}
+		}
+		return newSize
+	}
 }

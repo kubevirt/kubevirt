@@ -18,6 +18,7 @@ import (
 
 	v12 "kubevirt.io/api/core/v1"
 
+	virtv1 "kubevirt.io/api/core/v1"
 	"kubevirt.io/client-go/kubecli"
 	"kubevirt.io/kubevirt/pkg/virtctl/templates"
 )
@@ -172,6 +173,7 @@ func (o *Command) RunE(args []string) error {
 		ports = podNetworkPorts(&vmi.Spec)
 		// remove unwanted labels
 		delete(serviceSelector, "kubevirt.io/nodeName")
+		delete(serviceSelector, virtv1.VirtualMachinePoolRevisionName)
 	case "vm", "vms", "virtualmachine", "virtualmachines":
 		// get the VM
 		vm, err := virtClient.VirtualMachine(namespace).Get(vmName, &options)
@@ -182,6 +184,7 @@ func (o *Command) RunE(args []string) error {
 			ports = podNetworkPorts(&vm.Spec.Template.Spec)
 		}
 		serviceSelector = vm.Spec.Template.ObjectMeta.Labels
+		delete(serviceSelector, virtv1.VirtualMachinePoolRevisionName)
 	case "vmirs", "vmirss", "virtualmachineinstancereplicaset", "virtualmachineinstancereplicasets":
 		// get the VM replica set
 		vmirs, err := virtClient.ReplicaSet(namespace).Get(vmName, options)

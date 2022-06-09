@@ -21,6 +21,7 @@ package kubecli
 
 import (
 	"net/http"
+	"path"
 
 	. "github.com/onsi/ginkgo"
 	. "github.com/onsi/gomega"
@@ -36,7 +37,7 @@ var _ = Describe("Kubevirt VirtualMachineInstancePreset Client", func() {
 	var server *ghttp.Server
 	var client KubevirtClient
 	basePath := "/apis/kubevirt.io/v1alpha3/namespaces/default/virtualmachineinstancepresets"
-	presetPath := basePath + "/testpreset"
+	presetPath := path.Join(basePath, "testpreset")
 
 	BeforeEach(func() {
 		var err error

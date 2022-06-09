@@ -69,15 +69,15 @@ func SafelyDetachHostDevices(hostDevices []api.HostDevice, eventDetach EventRegi
 	return waitHostDevicesToDetach(eventDetach, hostDevices, timeout)
 }
 
-func FilterHostDevicesByAlias(domainSpec *api.DomainSpec, prefix string) []api.HostDevice {
-	var hostDevices []api.HostDevice
+func FilterHostDevicesByAlias(hostDevices []api.HostDevice, prefix string) []api.HostDevice {
+	var filteredHostDevices []api.HostDevice
 
-	for _, hostDevice := range domainSpec.Devices.HostDevices {
+	for _, hostDevice := range hostDevices {
 		if hostDevice.Alias != nil && strings.HasPrefix(hostDevice.Alias.GetName(), prefix) {
-			hostDevices = append(hostDevices, hostDevice)
+			filteredHostDevices = append(filteredHostDevices, hostDevice)
 		}
 	}
-	return hostDevices
+	return filteredHostDevices
 }
 
 func detachHostDevices(dom DeviceDetacher, hostDevices []api.HostDevice) error {

@@ -10,12 +10,15 @@ import (
 	"os/exec"
 	"path"
 	"path/filepath"
-	"reflect"
+	"strconv"
 	"strings"
 	"syscall"
 	"time"
 
+	"kubevirt.io/kubevirt/pkg/virt-controller/services"
+
 	"golang.org/x/sys/unix"
+	"k8s.io/apimachinery/pkg/api/equality"
 	k8sv1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/types"
 	"libvirt.org/go/libvirt"
@@ -199,7 +202,7 @@ func GetDomainSpec(status libvirt.DomainState, dom cli.VirDomain) (*api.DomainSp
 		}
 	}
 
-	if !reflect.DeepEqual(spec.Metadata, inactiveSpec.Metadata) {
+	if !equality.Semantic.DeepEqual(spec.Metadata, inactiveSpec.Metadata) {
 		// Metadata is updated on offline config only. As a result,
 		// We have to merge updates to metadata into the domain spec.
 		metadata := &inactiveSpec.Metadata
@@ -485,7 +488,7 @@ func copyFile(from, to string) error {
 	return err
 }
 
-func (l LibvirtWrapper) SetupLibvirt() (err error) {
+func (l LibvirtWrapper) SetupLibvirt(customLogFilters *string) (err error) {
 	runtimeQemuConfPath := qemuConfPath
 	if !l.root() {
 		runtimeQemuConfPath = qemuNonRootConfPath
@@ -504,21 +507,86 @@ func (l LibvirtWrapper) SetupLibvirt() (err error) {
 		return err
 	}
 
-	if envVarValue, ok := os.LookupEnv("LIBVIRT_DEBUG_LOGS"); ok && (envVarValue == "1") {
+	var libvirtLogVerbosityEnvVar *string
+	if envVarValue, envVarDefined := os.LookupEnv(services.ENV_VAR_VIRT_LAUNCHER_LOG_VERBOSITY); envVarDefined {
+		libvirtLogVerbosityEnvVar = &envVarValue
+	}
+	_, libvirtDebugLogsEnvVarDefined := os.LookupEnv(services.ENV_VAR_LIBVIRT_DEBUG_LOGS)
+
+	if logFilters, enableDebugLogs := getLibvirtLogFilters(customLogFilters, libvirtLogVerbosityEnvVar, libvirtDebugLogsEnvVarDefined); enableDebugLogs {
 		libvirdDConf, err := os.OpenFile(runtimeLibvirtdConfPath, os.O_APPEND|os.O_WRONLY, 0644)
 		if err != nil {
 			return err
 		}
 		defer util.CloseIOAndCheckErr(libvirdDConf, &err)
 
-		// see https://libvirt.org/kbase/debuglogs.html for details
-		_, err = libvirdDConf.WriteString("log_filters=\"3:remote 4:event 3:util.json 3:util.object 3:util.dbus 3:util.netlink 3:node_device 3:rpc 3:access 1:*\"\n")
+		log.Log.Infof("Enabling libvirt log filters: %s", logFilters)
+		_, err = libvirdDConf.WriteString(fmt.Sprintf("log_filters=\"%s\"\n", logFilters))
 		if err != nil {
 			return err
 		}
 	}
 
 	return nil
+}
+
+// getLibvirtLogFilters returns libvirt debug log filters that should be enabled if enableDebugLogs is true.
+// The decision is based on the following logic:
+// - If custom log filters are defined - they should be enabled and used.
+// - If verbosity is defined and beyond threshold then debug logs would be enabled and determined by verbosity level
+// - If verbosity level is below threshold but debug logs environment variable is defined, debug logs would be enabled
+// 	 and set to the highest verbosity level.
+// - If verbosity level is below threshold and debug logs environment variable is not defined - debug logs are disabled.
+func getLibvirtLogFilters(customLogFilters, libvirtLogVerbosityEnvVar *string, libvirtDebugLogsEnvVarDefined bool) (logFilters string, enableDebugLogs bool) {
+
+	if customLogFilters != nil && *customLogFilters != "" {
+		return *customLogFilters, true
+	}
+
+	var libvirtLogVerbosity int
+	var err error
+
+	if libvirtLogVerbosityEnvVar != nil {
+		libvirtLogVerbosity, err = strconv.Atoi(*libvirtLogVerbosityEnvVar)
+		if err != nil {
+			log.Log.Infof("cannot apply %s value %s - must be a number", services.ENV_VAR_VIRT_LAUNCHER_LOG_VERBOSITY, *libvirtLogVerbosityEnvVar)
+			libvirtLogVerbosity = -1
+		}
+	} else {
+		libvirtLogVerbosity = -1
+	}
+
+	const verbosityThreshold = services.EXT_LOG_VERBOSITY_THRESHOLD
+
+	if libvirtLogVerbosity < verbosityThreshold {
+		if libvirtDebugLogsEnvVarDefined {
+			libvirtLogVerbosity = verbosityThreshold + 5
+		} else {
+			return "", false
+		}
+	}
+
+	// Higher log level means higher verbosity
+	const logsLevel4 = "3:remote 4:event 3:util.json 3:util.object 3:util.dbus 3:util.netlink 3:node_device 3:rpc 3:access"
+	const logsLevel3 = logsLevel4 + " 3:util.threadjob 3:cpu.cpu"
+	const logsLevel2 = logsLevel3 + " 3:qemu.qemu_monitor"
+	const logsLevel1 = logsLevel2 + " 3:qemu.qemu_monitor_json 3:conf.domain_addr"
+	const allowAllOtherCategories = " 1:*"
+
+	switch libvirtLogVerbosity {
+	case verbosityThreshold:
+		logFilters = logsLevel1
+	case verbosityThreshold + 1:
+		logFilters = logsLevel2
+	case verbosityThreshold + 2:
+		logFilters = logsLevel3
+	case verbosityThreshold + 3:
+		logFilters = logsLevel4
+	default:
+		logFilters = logsLevel4
+	}
+
+	return logFilters + allowAllOtherCategories, true
 }
 
 func getDomainModificationImpactFlag(dom cli.VirDomain) (libvirt.DomainModificationImpact, error) {

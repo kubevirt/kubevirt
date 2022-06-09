@@ -135,6 +135,30 @@ func (app *SubresourceAPIApp) putRequestHandler(request *restful.Request, respon
 	}
 }
 
+func (app *SubresourceAPIApp) httpGetRequestHandler(request *restful.Request, response *restful.Response, validate validation, getURL URLResolver, v interface{}) {
+	_, url, conn, err := app.prepareConnection(request, validate, getURL)
+	if err != nil {
+		log.Log.Errorf(prepConnectionErrFmt, err.Error())
+		response.WriteError(http.StatusInternalServerError, err)
+		return
+	}
+
+	resp, conErr := conn.Get(url, app.handlerTLSConfiguration)
+	if conErr != nil {
+		log.Log.Errorf(getRequestErrFmt, conErr.Error())
+		response.WriteError(http.StatusInternalServerError, conErr)
+		return
+	}
+
+	if err := json.Unmarshal([]byte(resp), &v); err != nil {
+		log.Log.Reason(err).Error("error unmarshalling response")
+		response.WriteError(http.StatusInternalServerError, err)
+		return
+	}
+
+	response.WriteEntity(v)
+}
+
 // get either the interface with the provided name or the first available interface
 // if no interface is present, return error
 func getTargetInterfaceIP(vmi *v1.VirtualMachineInstance) (string, error) {
@@ -296,6 +320,7 @@ func (app *SubresourceAPIApp) RestartVMRequestHandler(request *restful.Request, 
 	// RunStrategyManual         -> send restart request
 	// RunStrategyAlways         -> send restart request
 	// RunStrategyRerunOnFailure -> send restart request
+	// RunStrategyOnce           -> doesn't make sense
 	name := request.PathParameter("name")
 	namespace := request.PathParameter("namespace")
 
@@ -332,8 +357,8 @@ func (app *SubresourceAPIApp) RestartVMRequestHandler(request *restful.Request, 
 		writeError(errors.NewInternalError(err), response)
 		return
 	}
-	if runStrategy == v1.RunStrategyHalted {
-		writeError(errors.NewConflict(v1.Resource("virtualmachine"), name, fmt.Errorf("%v does not support manual restart requests", v1.RunStrategyHalted)), response)
+	if runStrategy == v1.RunStrategyHalted || runStrategy == v1.RunStrategyOnce {
+		writeError(errors.NewConflict(v1.Resource("virtualmachine"), name, fmt.Errorf("%v does not support manual restart requests", runStrategy)), response)
 		return
 	}
 
@@ -475,6 +500,7 @@ func (app *SubresourceAPIApp) StartVMRequestHandler(request *restful.Request, re
 	// RunStrategyManual         -> send start request
 	// RunStrategyAlways         -> doesn't make sense
 	// RunStrategyRerunOnFailure -> doesn't make sense
+	// RunStrategyOnce           -> doesn't make sense
 	switch runStrategy {
 	case v1.RunStrategyHalted:
 		pausedStartStrategy := v1.StartStrategyPaused
@@ -522,8 +548,8 @@ func (app *SubresourceAPIApp) StartVMRequestHandler(request *restful.Request, re
 		}
 		log.Log.Object(vm).V(4).Infof(patchingVMStatusFmt, bodyString)
 		patchErr = app.statusUpdater.PatchStatus(vm, types.JSONPatchType, []byte(bodyString), &k8smetav1.PatchOptions{DryRun: bodyStruct.DryRun})
-	case v1.RunStrategyAlways:
-		writeError(errors.NewConflict(v1.Resource("virtualmachine"), name, fmt.Errorf("%v does not support manual start requests", v1.RunStrategyAlways)), response)
+	case v1.RunStrategyAlways, v1.RunStrategyOnce:
+		writeError(errors.NewConflict(v1.Resource("virtualmachine"), name, fmt.Errorf("%v does not support manual start requests", runStrategy)), response)
 		return
 	}
 
@@ -544,6 +570,7 @@ func (app *SubresourceAPIApp) StopVMRequestHandler(request *restful.Request, res
 	// RunStrategyManual         -> send stop request
 	// RunStrategyAlways         -> spec.running = false
 	// RunStrategyRerunOnFailure -> spec.running = false
+	// RunStrategyOnce           -> spec.running = false
 
 	name := request.PathParameter("name")
 	namespace := request.PathParameter("namespace")
@@ -617,7 +644,7 @@ func (app *SubresourceAPIApp) StopVMRequestHandler(request *restful.Request, res
 		}
 		log.Log.Object(vm).V(4).Infof(patchingVMStatusFmt, bodyString)
 		patchErr = app.statusUpdater.PatchStatus(vm, patchType, []byte(bodyString), &k8smetav1.PatchOptions{DryRun: bodyStruct.DryRun})
-	case v1.RunStrategyRerunOnFailure, v1.RunStrategyAlways:
+	case v1.RunStrategyRerunOnFailure, v1.RunStrategyAlways, v1.RunStrategyOnce:
 		bodyString := getRunningJson(vm, false)
 		log.Log.Object(vm).V(4).Infof(patchingVMFmt, bodyString)
 		_, patchErr = app.virtCli.VirtualMachine(namespace).Patch(vm.GetName(), patchType, []byte(bodyString), &k8smetav1.PatchOptions{DryRun: bodyStruct.DryRun})
@@ -847,28 +874,7 @@ func (app *SubresourceAPIApp) GuestOSInfo(request *restful.Request, response *re
 		return conn.GuestInfoURI(vmi)
 	}
 
-	_, url, conn, err := app.prepareConnection(request, validate, getURL)
-	if err != nil {
-		log.Log.Errorf(prepConnectionErrFmt, err.Error())
-		response.WriteError(http.StatusInternalServerError, err)
-		return
-	}
-
-	resp, conErr := conn.Get(url, app.handlerTLSConfiguration)
-	if conErr != nil {
-		log.Log.Errorf(getRequestErrFmt, conErr.Error())
-		response.WriteError(http.StatusInternalServerError, conErr)
-		return
-	}
-
-	guestInfo := v1.VirtualMachineInstanceGuestAgentInfo{}
-	if err := json.Unmarshal([]byte(resp), &guestInfo); err != nil {
-		log.Log.Reason(err).Error("error unmarshalling guest agent response")
-		response.WriteError(http.StatusInternalServerError, err)
-		return
-	}
-
-	response.WriteEntity(guestInfo)
+	app.httpGetRequestHandler(request, response, validate, getURL, v1.VirtualMachineInstanceGuestAgentInfo{})
 }
 
 // UserList handles the subresource for providing VM guest user list
@@ -887,28 +893,7 @@ func (app *SubresourceAPIApp) UserList(request *restful.Request, response *restf
 		return conn.UserListURI(vmi)
 	}
 
-	_, url, conn, err := app.prepareConnection(request, validate, getURL)
-	if err != nil {
-		log.Log.Errorf(prepConnectionErrFmt, err.Error())
-		response.WriteError(http.StatusInternalServerError, err)
-		return
-	}
-
-	resp, conErr := conn.Get(url, app.handlerTLSConfiguration)
-	if conErr != nil {
-		log.Log.Errorf(getRequestErrFmt, conErr.Error())
-		response.WriteError(http.StatusInternalServerError, conErr)
-		return
-	}
-
-	userList := v1.VirtualMachineInstanceGuestOSUserList{}
-	if err := json.Unmarshal([]byte(resp), &userList); err != nil {
-		log.Log.Reason(err).Error("error unmarshalling user list response")
-		response.WriteError(http.StatusInternalServerError, err)
-		return
-	}
-
-	response.WriteEntity(userList)
+	app.httpGetRequestHandler(request, response, validate, getURL, v1.VirtualMachineInstanceGuestOSUserList{})
 }
 
 // FilesystemList handles the subresource for providing guest filesystem list
@@ -927,28 +912,7 @@ func (app *SubresourceAPIApp) FilesystemList(request *restful.Request, response 
 		return conn.FilesystemListURI(vmi)
 	}
 
-	_, url, conn, err := app.prepareConnection(request, validate, getURL)
-	if err != nil {
-		log.Log.Errorf(prepConnectionErrFmt, err.Error())
-		response.WriteError(http.StatusInternalServerError, err)
-		return
-	}
-
-	resp, conErr := conn.Get(url, app.handlerTLSConfiguration)
-	if conErr != nil {
-		log.Log.Errorf(getRequestErrFmt, conErr.Error())
-		response.WriteError(http.StatusInternalServerError, conErr)
-		return
-	}
-
-	filesystemList := v1.VirtualMachineInstanceFileSystemList{}
-	if err := json.Unmarshal([]byte(resp), &filesystemList); err != nil {
-		log.Log.Reason(err).Error("error unmarshalling file system list response")
-		response.WriteError(http.StatusInternalServerError, err)
-		return
-	}
-
-	response.WriteEntity(filesystemList)
+	app.httpGetRequestHandler(request, response, validate, getURL, v1.VirtualMachineInstanceFileSystemList{})
 }
 
 func generateVMVolumeRequestPatch(vm *v1.VirtualMachine, volumeRequest *v1.VirtualMachineVolumeRequest) (string, error) {

@@ -122,6 +122,32 @@ func (d *VirtualMachineController) prepareTap(vmi *v1.VirtualMachineInstance, re
 
 }
 
+func (*VirtualMachineController) prepareVFIO(vmi *v1.VirtualMachineInstance, res isolation.IsolationResult) error {
+	vfioPath := filepath.Join(res.MountRoot(), "dev", "vfio")
+	err := os.Chmod(filepath.Join(vfioPath, "vfio"), 0666)
+	if err != nil {
+		if os.IsNotExist(err) {
+			return nil
+		}
+		return err
+	}
+
+	groups, err := ioutil.ReadDir(vfioPath)
+	if err != nil {
+		return err
+	}
+
+	for _, group := range groups {
+		if group.Name() == "vfio" {
+			continue
+		}
+		if err := diskutils.DefaultOwnershipManager.SetFileOwnership(filepath.Join(vfioPath, group.Name())); err != nil {
+			return err
+		}
+	}
+	return nil
+}
+
 func (d *VirtualMachineController) nonRootSetup(origVMI, vmi *v1.VirtualMachineInstance) error {
 	res, err := d.podIsolationDetector.Detect(origVMI)
 	if err != nil {
@@ -131,6 +157,9 @@ func (d *VirtualMachineController) nonRootSetup(origVMI, vmi *v1.VirtualMachineI
 		return err
 	}
 	if err := d.prepareTap(origVMI, res); err != nil {
+		return err
+	}
+	if err := d.prepareVFIO(origVMI, res); err != nil {
 		return err
 	}
 	return nil

@@ -11350,11 +11350,15 @@
       }
      },
      "dataSource": {
-      "description": "This field can be used to specify either: * An existing VolumeSnapshot object (snapshot.storage.k8s.io/VolumeSnapshot) * An existing PVC (PersistentVolumeClaim) * An existing custom resource that implements data population (Alpha) In order to use custom resource types that implement data population, the AnyVolumeDataSource feature gate must be enabled. If the provisioner or an external controller can support the specified data source, it will create a new volume based on the contents of the specified data source.",
+      "description": "This field can be used to specify either: * An existing VolumeSnapshot object (snapshot.storage.k8s.io/VolumeSnapshot) * An existing PVC (PersistentVolumeClaim) If the provisioner or an external controller can support the specified data source, it will create a new volume based on the contents of the specified data source. If the AnyVolumeDataSource feature gate is enabled, this field will always have the same contents as the DataSourceRef field.",
+      "$ref": "#/definitions/k8s.io.api.core.v1.TypedLocalObjectReference"
+     },
+     "dataSourceRef": {
+      "description": "Specifies the object from which to populate the volume with data, if a non-empty volume is desired. This may be any local object from a non-empty API group (non core object) or a PersistentVolumeClaim object. When this field is specified, volume binding will only succeed if the type of the specified object matches some installed volume populator or dynamic provisioner. This field will replace the functionality of the DataSource field and as such if both fields are non-empty, they must have the same value. For backwards compatibility, both fields (DataSource and DataSourceRef) will be set to the same value automatically if one of them is empty and the other is non-empty. There are two important differences between DataSource and DataSourceRef: * While DataSource only allows two specific types of objects, DataSourceRef\n  allows any non-core object, as well as PersistentVolumeClaim objects.\n* While DataSource ignores disallowed values (dropping them), DataSourceRef\n  preserves all values, and generates an error if a disallowed value is\n  specified.\n(Alpha) Using this field requires the AnyVolumeDataSource feature gate to be enabled.",
       "$ref": "#/definitions/k8s.io.api.core.v1.TypedLocalObjectReference"
      },
      "resources": {
-      "description": "Resources represents the minimum resources the volume should have. More info: https://kubernetes.io/docs/concepts/storage/persistent-volumes#resources",
+      "description": "Resources represents the minimum resources the volume should have. If RecoverVolumeExpansionFailure feature is enabled users are allowed to specify resource requirements that are lower than previous value but must still be higher than capacity recorded in the status field of the claim. More info: https://kubernetes.io/docs/concepts/storage/persistent-volumes#resources",
       "$ref": "#/definitions/k8s.io.api.core.v1.ResourceRequirements"
      },
      "selector": {
@@ -11423,8 +11427,12 @@
       "description": "A label query over a set of resources, in this case pods.",
       "$ref": "#/definitions/k8s.io.apimachinery.pkg.apis.meta.v1.LabelSelector"
      },
+     "namespaceSelector": {
+      "description": "A label query over the set of namespaces that the term applies to. The term is applied to the union of the namespaces selected by this field and the ones listed in the namespaces field. null selector and null or empty namespaces list means \"this pod's namespace\". An empty selector ({}) matches all namespaces. This field is beta-level and is only honored when PodAffinityNamespaceSelector feature is enabled.",
+      "$ref": "#/definitions/k8s.io.apimachinery.pkg.apis.meta.v1.LabelSelector"
+     },
      "namespaces": {
-      "description": "namespaces specifies which namespaces the labelSelector applies to (matches against); null or empty list means \"this pod's namespace\"",
+      "description": "namespaces specifies a static list of namespace names that the term applies to. The term is applied to the union of the namespaces listed in this field and the ones selected by namespaceSelector. null or empty namespaces list and null namespaceSelector means \"this pod's namespace\"",
       "type": "array",
       "items": {
        "type": "string"
@@ -11541,14 +11549,14 @@
     "type": "object",
     "properties": {
      "limits": {
-      "description": "Limits describes the maximum amount of compute resources allowed. More info: https://kubernetes.io/docs/concepts/configuration/manage-compute-resources-container/",
+      "description": "Limits describes the maximum amount of compute resources allowed. More info: https://kubernetes.io/docs/concepts/configuration/manage-resources-containers/",
       "type": "object",
       "additionalProperties": {
        "$ref": "#/definitions/k8s.io.apimachinery.pkg.api.resource.Quantity"
       }
      },
      "requests": {
-      "description": "Requests describes the minimum amount of compute resources required. If Requests is omitted for a container, it defaults to Limits if that is explicitly specified, otherwise to an implementation-defined value. More info: https://kubernetes.io/docs/concepts/configuration/manage-compute-resources-container/",
+      "description": "Requests describes the minimum amount of compute resources required. If Requests is omitted for a container, it defaults to Limits if that is explicitly specified, otherwise to an implementation-defined value. More info: https://kubernetes.io/docs/concepts/configuration/manage-resources-containers/",
       "type": "object",
       "additionalProperties": {
        "$ref": "#/definitions/k8s.io.apimachinery.pkg.api.resource.Quantity"
@@ -11959,6 +11967,10 @@
      },
      "operation": {
       "description": "Operation is the type of operation which lead to this ManagedFieldsEntry being created. The only valid values for this field are 'Apply' and 'Update'.",
+      "type": "string"
+     },
+     "subresource": {
+      "description": "Subresource is the name of the subresource used to update that object, or empty string if the object was updated through the main resource. The value of this field is used to distinguish between managers, even if they share the same name. For example, a status update will be distinct from a regular update using the same manager name. Note that the APIVersion field is not related to the Subresource field and it always corresponds to the version of the main resource.",
       "type": "string"
      },
      "time": {
@@ -12865,7 +12877,7 @@
       "type": "boolean"
      },
      "disks": {
-      "description": "Disks describes disks, cdroms, floppy and luns which are connected to the vmi.",
+      "description": "Disks describes disks, cdroms and luns which are connected to the vmi.",
       "type": "array",
       "items": {
        "$ref": "#/definitions/v1.Disk"
@@ -12962,10 +12974,6 @@
       "description": "Attach a volume as a disk to the vmi.",
       "$ref": "#/definitions/v1.DiskTarget"
      },
-     "floppy": {
-      "description": "Attach a volume as a floppy to the vmi.",
-      "$ref": "#/definitions/v1.FloppyTarget"
-     },
      "io": {
       "description": "IO specifies which QEMU disk IO mode should be used. Supported values are: native, default, threads.",
       "type": "string"
@@ -12985,6 +12993,10 @@
      "serial": {
       "description": "Serial provides the ability to specify a serial number for the disk device.",
       "type": "string"
+     },
+     "shareable": {
+      "description": "If specified the disk is made sharable and multiple write from different VMs are permitted",
+      "type": "boolean"
      },
      "tag": {
       "description": "If specified, disk address and its tag will be provided to the guest via config drive metadata",
@@ -13362,19 +13374,6 @@
      }
     }
    },
-   "v1.FloppyTarget": {
-    "type": "object",
-    "properties": {
-     "readonly": {
-      "description": "ReadOnly. Defaults to false.",
-      "type": "boolean"
-     },
-     "tray": {
-      "description": "Tray indicates if the tray of the device is open or closed. Allowed values are \"open\" and \"closed\". Defaults to closed.",
-      "type": "string"
-     }
-    }
-   },
    "v1.FreezeUnfreezeTimeout": {
     "description": "FreezeUnfreezeTimeout represent the time unfreeze will be triggered if guest was not unfrozen by unfreeze command",
     "type": "object",
@@ -13399,6 +13398,10 @@
      },
      "name": {
       "description": "Name of the GPU device as exposed by a device plugin",
+      "type": "string"
+     },
+     "tag": {
+      "description": "If specified, the virtual network interface address and its tag will be provided to the guest via config drive",
       "type": "string"
      },
      "virtualGPUOptions": {
@@ -13487,6 +13490,10 @@
       "type": "string"
      },
      "name": {
+      "type": "string"
+     },
+     "tag": {
+      "description": "If specified, the virtual network interface address and its tag will be provided to the guest via config drive",
       "type": "string"
      }
     }
@@ -13853,6 +13860,10 @@
        "type": "string"
       }
      },
+     "evictionStrategy": {
+      "description": "EvictionStrategy defines at the cluster level if the VirtualMachineInstance should be migrated instead of shut-off in case of a node drain. If the VirtualMachineInstance specific field is set it overrides the cluster level one.",
+      "type": "string"
+     },
      "handlerConfiguration": {
       "$ref": "#/definitions/v1.ReloadableComponentConfiguration"
      },
@@ -14169,7 +14180,7 @@
     }
    },
    "v1.MediatedDevicesConfiguration": {
-    "description": "MediatedDevicesConfiguration holds inforamtion about MDEV types to be defined, if available",
+    "description": "MediatedDevicesConfiguration holds information about MDEV types to be defined, if available",
     "type": "object",
     "properties": {
      "mediatedDevicesTypes": {
@@ -14357,7 +14368,7 @@
     }
    },
    "v1.NodeMediatedDeviceTypesConfig": {
-    "description": "NodeMediatedDeviceTypesConfig holds inforamtion about MDEV types to be defined in a specifc node that matches the NodeSelector field.",
+    "description": "NodeMediatedDeviceTypesConfig holds information about MDEV types to be defined in a specifc node that matches the NodeSelector field.",
     "type": "object",
     "required": [
      "nodeSelector",
@@ -14462,7 +14473,7 @@
     }
    },
    "v1.PermittedHostDevices": {
-    "description": "PermittedHostDevices holds inforamtion about devices allowed for passthrough",
+    "description": "PermittedHostDevices holds information about devices allowed for passthrough",
     "type": "object",
     "properties": {
      "mediatedDevices": {
@@ -17291,6 +17302,20 @@
      "certConfigMap": {
       "description": "CertConfigMap is a configmap reference, containing a Certificate Authority(CA) public key, and a base64 encoded pem certificate",
       "type": "string"
+     },
+     "extraHeaders": {
+      "description": "ExtraHeaders is a list of strings containing extra headers to include with HTTP transfer requests",
+      "type": "array",
+      "items": {
+       "type": "string"
+      }
+     },
+     "secretExtraHeaders": {
+      "description": "SecretExtraHeaders is a list of Secret references, each containing an extra HTTP header that may include sensitive information",
+      "type": "array",
+      "items": {
+       "type": "string"
+      }
      },
      "secretRef": {
       "description": "SecretRef A Secret reference, the secret should contain accessKeyId (user name) base64 encoded, and secretKey (password) also base64 encoded",

@@ -52,6 +52,7 @@ import (
 	v1 "kubevirt.io/api/core/v1"
 	"kubevirt.io/client-go/kubecli"
 	cloudinit "kubevirt.io/kubevirt/pkg/cloud-init"
+	"kubevirt.io/kubevirt/pkg/util/hardware"
 	"kubevirt.io/kubevirt/pkg/util/net/dns"
 	"kubevirt.io/kubevirt/tests"
 	"kubevirt.io/kubevirt/tests/console"
@@ -744,8 +745,6 @@ var _ = Describe("[Serial]SRIOV", func() {
 		virtClient, err = kubecli.GetKubevirtClient()
 		util.PanicOnError(err)
 
-		tests.SkipIfNonRoot(virtClient, "SRIOV")
-
 		// Check if the hardware supports SRIOV
 		if err := validateSRIOVSetup(virtClient, sriovResourceName, 1); err != nil {
 			Skip("Sriov is not enabled in this environment. Skip these tests using - export FUNC_TEST_ARGS='--ginkgo.skip=SRIOV'")
@@ -886,11 +885,81 @@ var _ = Describe("[Serial]SRIOV", func() {
 					return err
 				}, 1*time.Minute, 20*time.Second).ShouldNot(Succeed())
 			})
+			It("should have cloud-init meta_data with aligned cpus to sriov interface numa node for VMIs with dedicatedCPUs", func() {
+				checks.SkipTestIfNoCPUManager()
+				noCloudInitNetworkData := ""
+				vmi := getSriovVmi([]string{sriovnet1}, noCloudInitNetworkData)
+				tests.AddCloudInitConfigDriveData(vmi, "disk1", "", defaultCloudInitNetworkData(), false)
+				vmi.Spec.Domain.CPU = &v1.CPU{
+					Cores:                 4,
+					DedicatedCPUPlacement: true,
+				}
+
+				for idx, iface := range vmi.Spec.Domain.Devices.Interfaces {
+					if iface.Name == sriovnet1 {
+						iface.Tag = "specialNet"
+						vmi.Spec.Domain.Devices.Interfaces[idx] = iface
+					}
+				}
+				vmi = startVmi(vmi)
+				vmi = waitVmi(vmi)
+
+				domXml, err := tests.GetRunningVirtualMachineInstanceDomainXML(virtClient, vmi)
+				Expect(err).ToNot(HaveOccurred())
+
+				domSpec := &api.DomainSpec{}
+				Expect(xml.Unmarshal([]byte(domXml), domSpec)).To(Succeed())
+				nic := domSpec.Devices.HostDevices[0]
+				// find the SRIOV interface
+				for _, iface := range domSpec.Devices.HostDevices {
+					if iface.Alias.GetName() == sriovnet1 {
+						nic = iface
+					}
+				}
+				address := nic.Address
+				pciAddrStr := fmt.Sprintf("%s:%s:%s.%s", address.Domain[2:], address.Bus[2:], address.Slot[2:], address.Function[2:])
+				srcAddr := nic.Source.Address
+				sourcePCIAddress := fmt.Sprintf("%s:%s:%s.%s", srcAddr.Domain[2:], srcAddr.Bus[2:], srcAddr.Slot[2:], srcAddr.Function[2:])
+				alignedCPUsInt, err := hardware.LookupDeviceVCPUAffinity(sourcePCIAddress, domSpec)
+				Expect(err).ToNot(HaveOccurred())
+				deviceData := []cloudinit.DeviceData{
+					{
+						Type:        cloudinit.NICMetadataType,
+						Bus:         nic.Address.Type,
+						Address:     pciAddrStr,
+						Tags:        []string{"specialNet"},
+						AlignedCPUs: alignedCPUsInt,
+					},
+				}
+				vmi, err = virtClient.VirtualMachineInstance(util.NamespaceTestDefault).Get(vmi.Name, &metav1.GetOptions{})
+				Expect(err).ToNot(HaveOccurred())
+
+				metadataStruct := cloudinit.ConfigDriveMetadata{
+					InstanceID: fmt.Sprintf("%s.%s", vmi.Name, vmi.Namespace),
+					Hostname:   dns.SanitizeHostname(vmi),
+					UUID:       string(vmi.UID),
+					Devices:    &deviceData,
+				}
+
+				buf, err := json.Marshal(metadataStruct)
+				Expect(err).To(BeNil())
+				By("mouting cloudinit iso")
+				mountCloudInitConfigDrive := tests.MountCloudInitFunc("config-2")
+				mountCloudInitConfigDrive(vmi)
+
+				By("checking cloudinit meta-data")
+				tests.CheckCloudInitMetaData(vmi, "openstack/latest/meta_data.json", string(buf))
+
+			})
 
 			It("should have cloud-init meta_data with tagged sriov nics", func() {
 				noCloudInitNetworkData := ""
 				vmi := getSriovVmi([]string{sriovnet1}, noCloudInitNetworkData)
-
+				testFlavor := "testFlavor"
+				if vmi.Annotations == nil {
+					vmi.Annotations = make(map[string]string)
+				}
+				vmi.Annotations[v1.FlavorAnnotation] = testFlavor
 				tests.AddCloudInitConfigDriveData(vmi, "disk1", "", defaultCloudInitNetworkData(), false)
 
 				for idx, iface := range vmi.Spec.Domain.Devices.Interfaces {
@@ -915,7 +984,7 @@ var _ = Describe("[Serial]SRIOV", func() {
 					}
 				}
 				address := nic.Address
-				pciAddrStr := fmt.Sprintf("%s:%s:%s:%s", address.Domain[2:], address.Bus[2:], address.Slot[2:], address.Function[2:])
+				pciAddrStr := fmt.Sprintf("%s:%s:%s.%s", address.Domain[2:], address.Bus[2:], address.Slot[2:], address.Function[2:])
 				deviceData := []cloudinit.DeviceData{
 					{
 						Type:    cloudinit.NICMetadataType,
@@ -928,10 +997,11 @@ var _ = Describe("[Serial]SRIOV", func() {
 				Expect(err).ToNot(HaveOccurred())
 
 				metadataStruct := cloudinit.ConfigDriveMetadata{
-					InstanceID: fmt.Sprintf("%s.%s", vmi.Name, vmi.Namespace),
-					Hostname:   dns.SanitizeHostname(vmi),
-					UUID:       string(vmi.UID),
-					Devices:    &deviceData,
+					InstanceID:   fmt.Sprintf("%s.%s", vmi.Name, vmi.Namespace),
+					InstanceType: testFlavor,
+					Hostname:     dns.SanitizeHostname(vmi),
+					UUID:         string(vmi.UID),
+					Devices:      &deviceData,
 				}
 
 				buf, err := json.Marshal(metadataStruct)
@@ -1009,7 +1079,6 @@ var _ = Describe("[Serial]SRIOV", func() {
 				By("checking virtual machine instance has two interfaces")
 				checkInterfacesInGuest(vmi, []string{"eth0", "eth1"})
 			})
-
 			It("[test_id:3985]should create a virtual machine with sriov interface with custom MAC address", func() {
 				const mac = "de:ad:00:00:be:ef"
 				vmi := getSriovVmi([]string{sriovnet1}, defaultCloudInitNetworkData())
@@ -1034,7 +1103,7 @@ var _ = Describe("[Serial]SRIOV", func() {
 				By("checking virtual machine instance reports the expected info source")
 				networkInterface := netvmispec.LookupInterfaceStatusByMac(vmi.Status.Interfaces, mac)
 				Expect(networkInterface).NotTo(BeNil(), "interface not found")
-				Expect(networkInterface.InfoSource).To(Equal(netvmispec.InfoSourceGuestAgent))
+				Expect(networkInterface.InfoSource).To(Equal(netvmispec.InfoSourceDomainAndGA))
 			})
 
 			Context("migration", func() {
@@ -1111,6 +1180,8 @@ var _ = Describe("[Serial]SRIOV", func() {
 			It("[test_id:1755]should create a virtual machine with two sriov interfaces referring the same resource", func() {
 				sriovNetworks := []string{sriovnet1, sriovnet2}
 				vmi := getSriovVmi(sriovNetworks, defaultCloudInitNetworkData())
+				vmi.Spec.Domain.Devices.Interfaces[1].PciAddress = "0000:06:00.0"
+				vmi.Spec.Domain.Devices.Interfaces[2].PciAddress = "0000:07:00.0"
 				vmi = startVmi(vmi)
 				vmi = waitVmi(vmi)
 
@@ -1124,9 +1195,8 @@ var _ = Describe("[Serial]SRIOV", func() {
 				By("checking virtual machine instance has three interfaces")
 				checkInterfacesInGuest(vmi, []string{"eth0", "eth1", "eth2"})
 
-				// there is little we can do beyond just checking three devices are present: PCI slots are different inside
-				// the guest, and DP doesn't pass information about vendor IDs of allocated devices into the pod, so
-				// it's hard to match them.
+				Expect(pciAddressExistsInGuest(vmi, vmi.Spec.Domain.Devices.Interfaces[1].PciAddress)).To(Succeed())
+				Expect(pciAddressExistsInGuest(vmi, vmi.Spec.Domain.Devices.Interfaces[2].PciAddress)).To(Succeed())
 			})
 		})
 
@@ -1534,6 +1604,11 @@ func runSafeCommand(vmi *v1.VirtualMachineInstance, command string) error {
 		&expect.BSnd{S: tests.EchoLastReturnValue},
 		&expect.BExp{R: console.RetValue("0")},
 	}, 15)
+}
+
+func pciAddressExistsInGuest(vmi *v1.VirtualMachineInstance, pciAddress string) error {
+	command := fmt.Sprintf("grep -q %s /sys/class/net/*/device/uevent\n", pciAddress)
+	return console.RunCommand(vmi, command, 15*time.Second)
 }
 
 func getInterfaceNameByMAC(vmi *v1.VirtualMachineInstance, mac string) (string, error) {

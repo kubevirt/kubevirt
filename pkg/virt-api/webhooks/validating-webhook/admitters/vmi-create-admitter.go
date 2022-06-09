@@ -713,14 +713,21 @@ func podNetworkRequiredStatusCause(field *k8sfield.Path) metav1.StatusCause {
 }
 
 func validateLiveMigration(field *k8sfield.Path, spec *v1.VirtualMachineInstanceSpec, config *virtconfig.ClusterConfig) (causes []metav1.StatusCause) {
-	if !config.LiveMigrationEnabled() && spec.EvictionStrategy != nil {
+	evictionStrategy := config.GetConfig().EvictionStrategy
+
+	if spec.EvictionStrategy != nil {
+		evictionStrategy = spec.EvictionStrategy
+	}
+	if !config.LiveMigrationEnabled() && evictionStrategy != nil &&
+		*evictionStrategy != v1.EvictionStrategyNone {
 		causes = append(causes, metav1.StatusCause{
 			Type:    metav1.CauseTypeFieldValueInvalid,
 			Message: "LiveMigration feature gate is not enabled",
 			Field:   field.Child("evictionStrategy").String(),
 		})
-	} else if spec.EvictionStrategy != nil {
-		if *spec.EvictionStrategy != v1.EvictionStrategyLiveMigrate {
+	} else if evictionStrategy != nil {
+		if *evictionStrategy != v1.EvictionStrategyLiveMigrate &&
+			*evictionStrategy != v1.EvictionStrategyNone {
 			causes = append(causes, metav1.StatusCause{
 				Type:    metav1.CauseTypeFieldValueInvalid,
 				Message: fmt.Sprintf("%s is set with an unrecognized option: %s", field.Child("evictionStrategy").String(), *spec.EvictionStrategy),
@@ -2175,15 +2182,6 @@ func validateDisks(field *k8sfield.Path, disks []v1.Disk) []metav1.StatusCause {
 			})
 		}
 
-		// Reject Floppy disks
-		if disk.Floppy != nil {
-			causes = append(causes, metav1.StatusCause{
-				Type:    metav1.CauseTypeFieldValueNotSupported,
-				Message: "Floppy disks are deprecated and will be removed from the API soon.",
-				Field:   field.Index(idx).Child("name").String(),
-			})
-		}
-
 		// Verify only a single device type is set.
 		deviceTargetSetCount := 0
 		var diskType, bus string
@@ -2196,9 +2194,6 @@ func validateDisks(field *k8sfield.Path, disks []v1.Disk) []metav1.StatusCause {
 			deviceTargetSetCount++
 			diskType = "lun"
 			bus = disk.LUN.Bus
-		}
-		if disk.Floppy != nil {
-			deviceTargetSetCount++
 		}
 		if disk.CDRom != nil {
 			deviceTargetSetCount++
@@ -2313,7 +2308,7 @@ func validateDisks(field *k8sfield.Path, disks []v1.Disk) []metav1.StatusCause {
 		}
 
 		// Verify if cache mode is valid
-		if disk.Cache != "" && disk.Cache != v1.CacheNone && disk.Cache != v1.CacheWriteThrough {
+		if disk.Cache != "" && disk.Cache != v1.CacheNone && disk.Cache != v1.CacheWriteThrough && disk.Cache != v1.CacheWriteBack {
 			causes = append(causes, metav1.StatusCause{
 				Type:    metav1.CauseTypeFieldValueInvalid,
 				Message: fmt.Sprintf("%s has invalid value %s", field.Index(idx).Child("cache").String(), disk.Cache),

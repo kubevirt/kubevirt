@@ -171,13 +171,6 @@ var exampleJSONFmt = `{
             }
           },
           {
-            "name": "floppy0",
-            "floppy": {
-              "readonly": true,
-              "tray": "open"
-            }
-          },
-          {
             "name": "lun0",
             "lun": {
               "bus": "virtio",
@@ -228,12 +221,6 @@ var exampleJSONFmt = `{
             "name": "testnetworksecret"
           }
         }
-      },
-      {
-        "name": "floppy0",
-        "persistentVolumeClaim": {
-          "claimName": "testclaim"
-        }
       }
     ],
     "networks": [
@@ -275,15 +262,6 @@ var _ = Describe("Schema", func() {
 					CDRom: &v12.CDRomTarget{
 						Bus:      "virtio",
 						ReadOnly: pointer.BoolPtr(true),
-						Tray:     "open",
-					},
-				},
-			},
-			{
-				Name: "floppy0",
-				DiskDevice: v12.DiskDevice{
-					Floppy: &v12.FloppyTarget{
-						ReadOnly: true,
 						Tray:     "open",
 					},
 				},
@@ -338,16 +316,6 @@ var _ = Describe("Schema", func() {
 						},
 						NetworkDataSecretRef: &v1.LocalObjectReference{
 							Name: "testnetworksecret",
-						},
-					},
-				},
-			},
-			{
-				Name: "floppy0",
-				VolumeSource: v12.VolumeSource{
-					PersistentVolumeClaim: &v12.PersistentVolumeClaimVolumeSource{
-						PersistentVolumeClaimVolumeSource: v1.PersistentVolumeClaimVolumeSource{
-							ClaimName: "testclaim",
 						},
 					},
 				},

@@ -437,7 +437,7 @@ var _ = SIGDescribe("[Serial]VirtualMachineRestore Tests", func() {
 				}
 			})
 
-			doRestore := func(device string, login console.LoginToFactory, onlineSnapshot bool, expectedRestores int) {
+			doRestore := func(device string, login console.LoginToFunction, onlineSnapshot bool, expectedRestores int) {
 				By("creating 'message with initial value")
 				Expect(libnet.WithIPv6(login)(vmi)).To(Succeed())
 

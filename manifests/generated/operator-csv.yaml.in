@@ -1006,6 +1006,7 @@ spec:
             metadata:
               labels:
                 kubevirt.io: virt-operator
+                name: virt-operator
                 prometheus.kubevirt.io: "true"
               name: virt-operator
             spec:

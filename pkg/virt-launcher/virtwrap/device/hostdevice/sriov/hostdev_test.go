@@ -23,14 +23,17 @@ import (
 	"fmt"
 	"time"
 
+	"kubevirt.io/kubevirt/pkg/virt-launcher/virtwrap/device"
 	"kubevirt.io/kubevirt/pkg/virt-launcher/virtwrap/device/hostdevice"
 
 	. "github.com/onsi/ginkgo"
+	"github.com/onsi/ginkgo/extensions/table"
 	. "github.com/onsi/gomega"
 
 	"libvirt.org/go/libvirt"
 
 	v1 "kubevirt.io/api/core/v1"
+	netsriov "kubevirt.io/kubevirt/pkg/network/sriov"
 	"kubevirt.io/kubevirt/pkg/virt-launcher/virtwrap/api"
 	"kubevirt.io/kubevirt/pkg/virt-launcher/virtwrap/device/hostdevice/sriov"
 )
@@ -163,6 +166,61 @@ var _ = Describe("SRIOV HostDevice", func() {
 			Expect(devices, err).To(Equal([]api.HostDevice{expectHostDevice1}))
 		})
 
+		table.DescribeTable("create two devices with custom guest PCI address",
+			func(iface1, iface2 v1.Interface) {
+				var expectedGuestPCIAddress1 *api.Address
+				var expectedGuestPCIAddress2 *api.Address
+
+				var err error
+				if iface1.PciAddress != "" {
+					expectedGuestPCIAddress1, err = device.NewPciAddressField(iface1.PciAddress)
+					Expect(err).NotTo(HaveOccurred())
+				}
+
+				if iface2.PciAddress != "" {
+					expectedGuestPCIAddress2, err = device.NewPciAddressField(iface2.PciAddress)
+					Expect(err).NotTo(HaveOccurred())
+				}
+
+				pool := newPCIAddressPoolStub("0000:81:00.0", "0000:81:01.0")
+				hostPCIAddress1 := api.Address{Type: "pci", Domain: "0x0000", Bus: "0x81", Slot: "0x00", Function: "0x0"}
+				hostPCIAddress2 := api.Address{Type: "pci", Domain: "0x0000", Bus: "0x81", Slot: "0x01", Function: "0x0"}
+
+				devices, err := sriov.CreateHostDevicesFromIfacesAndPool([]v1.Interface{iface1, iface2}, pool)
+				Expect(err).NotTo(HaveOccurred())
+
+				expectHostDevice1 := api.HostDevice{
+					Alias:   newSRIOVAlias(netname1),
+					Source:  api.HostDeviceSource{Address: &hostPCIAddress1},
+					Address: expectedGuestPCIAddress1,
+					Type:    "pci",
+					Managed: "no",
+				}
+
+				expectHostDevice2 := api.HostDevice{
+					Alias:   newSRIOVAlias(netname2),
+					Source:  api.HostDeviceSource{Address: &hostPCIAddress2},
+					Address: expectedGuestPCIAddress2,
+					Type:    "pci",
+					Managed: "no",
+				}
+
+				Expect(devices, err).To(Equal([]api.HostDevice{expectHostDevice1, expectHostDevice2}))
+			},
+			table.Entry("both interfaces have a custom guest PCI address",
+				newSRIOVInterfaceWithPCIAddress(netname1, "0000:20:00.0"),
+				newSRIOVInterfaceWithPCIAddress(netname2, "0000:20:01.0"),
+			),
+			table.Entry("only the first interface has a custom guest PCI address",
+				newSRIOVInterfaceWithPCIAddress(netname1, "0000:20:00.0"),
+				newSRIOVInterface(netname2),
+			),
+			table.Entry("only the second interface has a custom guest PCI address",
+				newSRIOVInterface(netname1),
+				newSRIOVInterfaceWithPCIAddress(netname2, "0000:20:01.0"),
+			),
+		)
+
 		It("creates 1 device that includes boot-order", func() {
 			iface := newSRIOVInterface(netname1)
 			val := uint(1)
@@ -181,10 +239,62 @@ var _ = Describe("SRIOV HostDevice", func() {
 			}
 			Expect(devices, err).To(Equal([]api.HostDevice{expectHostDevice1}))
 		})
+
+		table.DescribeTable("create two devices with custom boot-order",
+			func(iface1, iface2 v1.Interface) {
+				var expectedBootOrder1 *api.BootOrder
+				var expectedBootOrder2 *api.BootOrder
+
+				if iface1.BootOrder != nil {
+					expectedBootOrder1 = &api.BootOrder{Order: *iface1.BootOrder}
+				}
+
+				if iface2.BootOrder != nil {
+					expectedBootOrder2 = &api.BootOrder{Order: *iface2.BootOrder}
+				}
+
+				pool := newPCIAddressPoolStub("0000:81:00.0", "0000:81:01.0")
+				hostPCIAddress1 := api.Address{Type: "pci", Domain: "0x0000", Bus: "0x81", Slot: "0x00", Function: "0x0"}
+				hostPCIAddress2 := api.Address{Type: "pci", Domain: "0x0000", Bus: "0x81", Slot: "0x01", Function: "0x0"}
+
+				devices, err := sriov.CreateHostDevicesFromIfacesAndPool([]v1.Interface{iface1, iface2}, pool)
+				Expect(err).NotTo(HaveOccurred())
+
+				expectHostDevice1 := api.HostDevice{
+					Alias:     newSRIOVAlias(netname1),
+					Source:    api.HostDeviceSource{Address: &hostPCIAddress1},
+					Type:      "pci",
+					Managed:   "no",
+					BootOrder: expectedBootOrder1,
+				}
+
+				expectHostDevice2 := api.HostDevice{
+					Alias:     newSRIOVAlias(netname2),
+					Source:    api.HostDeviceSource{Address: &hostPCIAddress2},
+					Type:      "pci",
+					Managed:   "no",
+					BootOrder: expectedBootOrder2,
+				}
+
+				Expect(devices, err).To(Equal([]api.HostDevice{expectHostDevice1, expectHostDevice2}))
+			},
+			table.Entry("both interfaces have a custom bootOrder",
+				newSRIOVInterfaceWithBootOrder(netname1, 1),
+				newSRIOVInterfaceWithBootOrder(netname2, 2),
+			),
+			table.Entry("only the first interface has a custom bootOrder",
+				newSRIOVInterfaceWithBootOrder(netname1, 1),
+				newSRIOVInterface(netname2),
+			),
+			table.Entry("only the second interface has a custom bootOrder",
+				newSRIOVInterface(netname1),
+				newSRIOVInterfaceWithBootOrder(netname2, 2),
+			),
+		)
 	})
 
 	Context("safe detachment", func() {
-		hostDevice := api.HostDevice{Alias: api.NewUserDefinedAlias(sriov.AliasPrefix + "net1")}
+		hostDevice := api.HostDevice{Alias: api.NewUserDefinedAlias(netsriov.AliasPrefix + "net1")}
 
 		It("ignores an empty list of devices", func() {
 			domainSpec := newDomainSpec()
@@ -245,7 +355,7 @@ var _ = Describe("SRIOV HostDevice", func() {
 		})
 
 		It("succeeds detaching 2 sriov devices", func() {
-			hostDevice2 := api.HostDevice{Alias: api.NewUserDefinedAlias(sriov.AliasPrefix + "net2")}
+			hostDevice2 := api.HostDevice{Alias: api.NewUserDefinedAlias(netsriov.AliasPrefix + "net2")}
 			domainSpec := newDomainSpec(hostDevice, hostDevice2)
 
 			c := newCallbackerStub(false, false)
@@ -264,7 +374,21 @@ func newDomainSpec(hostDevices ...api.HostDevice) *api.DomainSpec {
 }
 
 func newSRIOVAlias(netName string) *api.Alias {
-	return api.NewUserDefinedAlias(sriov.AliasPrefix + netName)
+	return api.NewUserDefinedAlias(netsriov.AliasPrefix + netName)
+}
+
+func newSRIOVInterfaceWithPCIAddress(name, customPCIAddress string) v1.Interface {
+	iface := newSRIOVInterface(name)
+	iface.PciAddress = customPCIAddress
+
+	return iface
+}
+
+func newSRIOVInterfaceWithBootOrder(name string, bootOrder uint) v1.Interface {
+	iface := newSRIOVInterface(name)
+	iface.BootOrder = &bootOrder
+
+	return iface
 }
 
 type stubPCIAddressPool struct {

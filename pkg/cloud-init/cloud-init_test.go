@@ -100,6 +100,7 @@ var _ = Describe("CloudInit", func() {
 		Context("verify meta-data model", func() {
 			It("should match the generated configdrive metadata", func() {
 				exampleJSONParsed := `{
+  "instance_type": "fake.fake-flavor",
   "instance_id": "fake.fake-namespace",
   "local_hostname": "fake",
   "uuid": "5d307ca9-b3ef-428c-8861-06e72d69f223",
@@ -129,6 +130,7 @@ var _ = Describe("CloudInit", func() {
 				}
 
 				metadataStruct := ConfigDriveMetadata{
+					InstanceType:  "fake.fake-flavor",
 					InstanceID:    "fake.fake-namespace",
 					LocalHostname: "fake",
 					UUID:          "5d307ca9-b3ef-428c-8861-06e72d69f223",
@@ -139,13 +141,65 @@ var _ = Describe("CloudInit", func() {
 				Expect(err).To(BeNil())
 				Expect(string(buf)).To(Equal(exampleJSONParsed))
 			})
+			It("should match the generated configdrive metadata for hostdev with numaNode", func() {
+				exampleJSONParsed := `{
+  "instance_id": "fake.fake-namespace",
+  "local_hostname": "fake",
+  "uuid": "5d307ca9-b3ef-428c-8861-06e72d69f223",
+  "devices": [
+    {
+      "type": "hostdev",
+      "bus": "pci",
+      "address": "0000:65:10:0",
+      "numaNode": 1,
+      "alignedCPUs": [
+        0,
+        1
+      ],
+      "tags": [
+        "testtag1"
+      ]
+    }
+  ],
+  "public_keys": {
+    "0": "somekey"
+  }
+}`
+				devices := []DeviceData{
+					{
+						Type:        HostDevMetadataType,
+						Bus:         "pci",
+						Address:     "0000:65:10:0",
+						MAC:         "",
+						NumaNode:    uint32(1),
+						AlignedCPUs: []uint32{0, 1},
+						Tags:        []string{"testtag1"},
+					},
+				}
+
+				metadataStruct := ConfigDriveMetadata{
+					InstanceID:    "fake.fake-namespace",
+					LocalHostname: "fake",
+					UUID:          "5d307ca9-b3ef-428c-8861-06e72d69f223",
+					Devices:       &devices,
+					PublicSSHKeys: map[string]string{"0": "somekey"},
+				}
+				buf, err := json.MarshalIndent(metadataStruct, "", "  ")
+				Expect(err).To(BeNil())
+				fmt.Println("expected: ", string(buf))
+				fmt.Println("exmapleJsob: ", exampleJSONParsed)
+
+				Expect(string(buf)).To(Equal(exampleJSONParsed))
+			})
 			It("should match the generated nocloud metadata", func() {
 				exampleJSONParsed := `{
+  "instance-type": "fake.fake-flavor",
   "instance-id": "fake.fake-namespace",
   "local-hostname": "fake"
 }`
 
 				metadataStruct := NoCloudMetadata{
+					InstanceType:  "fake.fake-flavor",
 					InstanceID:    "fake.fake-namespace",
 					LocalHostname: "fake",
 				}
@@ -192,6 +246,7 @@ var _ = Describe("CloudInit", func() {
 			})
 
 			It("should fail local data generation", func() {
+				flavor := "fake-flavor"
 				namespace := "fake-namespace"
 				domain := "fake-domain"
 				userData := "fake\nuser\ndata\n"
@@ -199,7 +254,7 @@ var _ = Describe("CloudInit", func() {
 					UserDataBase64: base64.StdEncoding.EncodeToString([]byte(userData)),
 				}
 				cloudInitData, _ := readCloudInitNoCloudSource(source)
-				err := GenerateLocalData(domain, namespace, cloudInitData)
+				err := GenerateLocalData(domain, namespace, flavor, cloudInitData)
 				Expect(err).To(HaveOccurred())
 				Expect(timedOut).To(BeTrue())
 			})
@@ -216,10 +271,11 @@ var _ = Describe("CloudInit", func() {
 
 		Describe("A new VirtualMachineInstance definition", func() {
 			verifyCloudInitData := func(cloudInitData *CloudInitData) {
+				flavor := "fake-flavor"
 				namespace := "fake-namespace"
 				domain := "fake-domain"
 
-				err := GenerateLocalData(domain, namespace, cloudInitData)
+				err := GenerateLocalData(domain, namespace, flavor, cloudInitData)
 				Expect(err).ToNot(HaveOccurred())
 
 				// verify iso is created
@@ -505,6 +561,7 @@ var _ = Describe("CloudInit", func() {
 
 	Describe("GenerateLocalData", func() {
 		It("should cleanly run twice", func() {
+			flavor := "fake-flavor"
 			namespace := "fake-namespace"
 			domain := "fake-domain"
 			userData := "fake\nuser\ndata\n"
@@ -513,9 +570,9 @@ var _ = Describe("CloudInit", func() {
 			}
 			cloudInitData, err := readCloudInitNoCloudSource(source)
 			Expect(err).NotTo(HaveOccurred())
-			err = GenerateLocalData(domain, namespace, cloudInitData)
+			err = GenerateLocalData(domain, namespace, flavor, cloudInitData)
 			Expect(err).NotTo(HaveOccurred())
-			err = GenerateLocalData(domain, namespace, cloudInitData)
+			err = GenerateLocalData(domain, namespace, flavor, cloudInitData)
 			Expect(err).NotTo(HaveOccurred())
 		})
 	})

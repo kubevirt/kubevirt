@@ -24,6 +24,8 @@ import (
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/runtime"
 
+	"kubevirt.io/api/flavor"
+
 	virtv1 "kubevirt.io/api/core/v1"
 	"kubevirt.io/api/migrations"
 )
@@ -208,8 +210,8 @@ func newApiServerClusterRole() *rbacv1.ClusterRole {
 					"flavor.kubevirt.io",
 				},
 				Resources: []string{
-					"virtualmachineflavors",
-					"virtualmachineclusterflavors",
+					flavor.PluralResourceName,
+					flavor.ClusterPluralResourceName,
 				},
 				Verbs: []string{
 					"list", "watch",

@@ -112,7 +112,6 @@ type ConverterContext struct {
 	DisksInfo             map[string]*cmdv1.DiskInfo
 	SMBios                *cmdv1.SMBios
 	SRIOVDevices          []api.HostDevice
-	LegacyHostDevices     []api.HostDevice
 	GenericHostDevices    []api.HostDevice
 	GPUHostDevices        []api.HostDevice
 	EFIConfiguration      *EFIConfiguration
@@ -137,13 +136,6 @@ func contains(volumes []string, name string) bool {
 
 func isAMD64(arch string) bool {
 	if arch == "amd64" {
-		return true
-	}
-	return false
-}
-
-func isPPC64(arch string) bool {
-	if arch == "ppc64le" {
 		return true
 	}
 	return false
@@ -190,17 +182,22 @@ func Convert_v1_Disk_To_api_Disk(c *ConverterContext, diskDevice *v1.Disk, disk 
 		// }
 		disk.ReadOnly = toApiReadOnly(diskDevice.Disk.ReadOnly)
 		disk.Serial = diskDevice.Serial
+		if diskDevice.Shareable != nil {
+			if *diskDevice.Shareable {
+				if diskDevice.Cache == "" {
+					diskDevice.Cache = v1.CacheNone
+				}
+				if diskDevice.Cache != v1.CacheNone {
+					return fmt.Errorf("a sharable disk requires cache = none got: %v", diskDevice.Cache)
+				}
+				disk.Shareable = &api.Shareable{}
+			}
+		}
 	} else if diskDevice.LUN != nil {
 		disk.Device = "lun"
 		disk.Target.Bus = diskDevice.LUN.Bus
 		disk.Target.Device, _ = makeDeviceName(diskDevice.Name, diskDevice.LUN.Bus, prefixMap)
 		disk.ReadOnly = toApiReadOnly(diskDevice.LUN.ReadOnly)
-	} else if diskDevice.Floppy != nil {
-		disk.Device = "floppy"
-		disk.Target.Bus = "fdc"
-		disk.Target.Tray = string(diskDevice.Floppy.Tray)
-		disk.Target.Device, _ = makeDeviceName(diskDevice.Name, disk.Target.Bus, prefixMap)
-		disk.ReadOnly = toApiReadOnly(diskDevice.Floppy.ReadOnly)
 	} else if diskDevice.CDRom != nil {
 		disk.Device = "cdrom"
 		disk.Target.Tray = string(diskDevice.CDRom.Tray)
@@ -1756,12 +1753,6 @@ func Convert_v1_VirtualMachineInstance_To_api_Domain(vmi *v1.VirtualMachineInsta
 
 	domain.Spec.Devices.HostDevices = append(domain.Spec.Devices.HostDevices, c.GenericHostDevices...)
 	domain.Spec.Devices.HostDevices = append(domain.Spec.Devices.HostDevices, c.GPUHostDevices...)
-
-	// This is needed to support a legacy approach to device assignment
-	// Append HostDevices to DomXML if GPU is requested
-	if util.IsGPUVMI(vmi) {
-		domain.Spec.Devices.HostDevices = append(domain.Spec.Devices.HostDevices, c.LegacyHostDevices...)
-	}
 
 	if vmi.Spec.Domain.CPU == nil || vmi.Spec.Domain.CPU.Model == "" {
 		domain.Spec.CPU.Mode = v1.CPUModeHostModel

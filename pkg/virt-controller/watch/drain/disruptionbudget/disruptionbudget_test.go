@@ -24,6 +24,7 @@ import (
 	"kubevirt.io/client-go/kubecli"
 	ctrl_util "kubevirt.io/kubevirt/pkg/controller"
 	"kubevirt.io/kubevirt/pkg/testutils"
+	virtconfig "kubevirt.io/kubevirt/pkg/virt-config"
 	"kubevirt.io/kubevirt/pkg/virt-controller/watch/drain/disruptionbudget"
 )
 
@@ -44,6 +45,7 @@ var _ = Describe("Disruptionbudget", func() {
 	var kubeClient *fake.Clientset
 	var pdbFeeder *testutils.PodDisruptionBudgetFeeder
 	var vmiFeeder *testutils.VirtualMachineFeeder
+	var config *virtconfig.ClusterConfig
 
 	var controller *disruptionbudget.DisruptionBudgetController
 
@@ -114,6 +116,16 @@ var _ = Describe("Disruptionbudget", func() {
 		})
 	}
 
+	initController := func(kvConfig *v1.KubeVirtConfiguration) {
+		config, _, _ = testutils.NewFakeClusterConfigUsingKVConfig(kvConfig)
+
+		controller = disruptionbudget.NewDisruptionBudgetController(vmiInformer, pdbInformer, podInformer, vmimInformer, recorder, virtClient, config)
+		mockQueue = testutils.NewMockWorkQueue(controller.Queue)
+		controller.Queue = mockQueue
+		pdbFeeder = testutils.NewPodDisruptionBudgetFeeder(mockQueue, pdbSource)
+		vmiFeeder = testutils.NewVirtualMachineFeeder(mockQueue, vmiSource)
+	}
+
 	BeforeEach(func() {
 		stop = make(chan struct{})
 		ctrl = gomock.NewController(GinkgoT())
@@ -126,12 +138,7 @@ var _ = Describe("Disruptionbudget", func() {
 		podInformer, _ = testutils.NewFakeInformerFor(&corev1.Pod{})
 		recorder = record.NewFakeRecorder(100)
 		recorder.IncludeObject = true
-
-		controller = disruptionbudget.NewDisruptionBudgetController(vmiInformer, pdbInformer, podInformer, vmimInformer, recorder, virtClient)
-		mockQueue = testutils.NewMockWorkQueue(controller.Queue)
-		controller.Queue = mockQueue
-		pdbFeeder = testutils.NewPodDisruptionBudgetFeeder(mockQueue, pdbSource)
-		vmiFeeder = testutils.NewVirtualMachineFeeder(mockQueue, vmiSource)
+		initController(&v1.KubeVirtConfiguration{})
 
 		// Set up mock client
 		virtClient.EXPECT().VirtualMachineInstance(corev1.NamespaceDefault).Return(vmiInterface).AnyTimes()
@@ -164,6 +171,22 @@ var _ = Describe("Disruptionbudget", func() {
 			shouldExpectPDBDeletion(pdb)
 			controller.Execute()
 			testutils.ExpectEvent(recorder, disruptionbudget.SuccessfulDeletePodDisruptionBudgetReason)
+		})
+	})
+
+	Context("With cluster that has 'EvictionStrategy' set to 'LiveMigrate'", func() {
+		BeforeEach(func() {
+			evictionStrategy := v1.EvictionStrategyLiveMigrate
+			initController(&v1.KubeVirtConfiguration{EvictionStrategy: &evictionStrategy})
+		})
+
+		It("should add the pdb, if it does not exist", func() {
+			vmi := newVirtualMachine()
+			addVirtualMachine(vmi)
+
+			shouldExpectPDBCreation(vmi.UID)
+			controller.Execute()
+			testutils.ExpectEvent(recorder, disruptionbudget.SuccessfulCreatePodDisruptionBudgetReason)
 		})
 	})
 

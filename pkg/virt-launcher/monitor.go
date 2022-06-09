@@ -156,6 +156,7 @@ func (mon *monitor) refresh() {
 		syscall.Kill(1, syscall.SIGCHLD)
 		mon.pid = 0
 		mon.isDone = true
+		return
 	}
 
 	if expired {

@@ -723,6 +723,7 @@ func (m *migrationMonitor) processInflightMigration(dom cli.VirDomain) *inflight
 		err = dom.MigrateStartPostCopy(uint32(0))
 		if err != nil {
 			logger.Reason(err).Error("failed to start post migration")
+			return nil
 		}
 
 		err = m.l.updateVMIMigrationMode(dom, m.vmi, v1.MigrationPostCopy)

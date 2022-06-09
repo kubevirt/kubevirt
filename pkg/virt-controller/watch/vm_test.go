@@ -24,6 +24,7 @@ import (
 	framework "k8s.io/client-go/tools/cache/testing"
 	"k8s.io/client-go/tools/record"
 
+	v1 "kubevirt.io/api/core/v1"
 	virtv1 "kubevirt.io/api/core/v1"
 	flavorv1alpha1 "kubevirt.io/api/flavor/v1alpha1"
 	"kubevirt.io/client-go/api"
@@ -957,7 +958,7 @@ var _ = Describe("VirtualMachine", func() {
 
 				controller.Execute()
 
-				if runStrategy != virtv1.RunStrategyManual {
+				if runStrategy != virtv1.RunStrategyManual && runStrategy != virtv1.RunStrategyOnce {
 					testutils.ExpectEvent(recorder, SuccessfulDeleteVirtualMachineReason)
 				}
 			},
@@ -966,6 +967,7 @@ var _ = Describe("VirtualMachine", func() {
 				table.Entry("always", virtv1.RunStrategyAlways),
 				table.Entry("manual", virtv1.RunStrategyManual),
 				table.Entry("rerunOnFailure", virtv1.RunStrategyRerunOnFailure),
+				table.Entry("once", virtv1.RunStrategyOnce),
 			)
 
 			table.DescribeTable("should calculated expected backoff delay", func(failCount, minExpectedDelay int, maxExpectedDelay int) {
@@ -1248,9 +1250,11 @@ var _ = Describe("VirtualMachine", func() {
 			testutils.ExpectEvent(recorder, SuccessfulCreateVirtualMachineReason)
 		})
 
-		It("should create missing VirtualMachineInstance", func() {
+		table.DescribeTable("should create missing VirtualMachineInstance", func(runStrategy virtv1.VirtualMachineRunStrategy) {
 			vm, vmi := DefaultVirtualMachine(true)
 
+			vm.Spec.Running = nil
+			vm.Spec.RunStrategy = &runStrategy
 			addVirtualMachine(vm)
 
 			// expect creation called
@@ -1267,7 +1271,12 @@ var _ = Describe("VirtualMachine", func() {
 			controller.Execute()
 
 			testutils.ExpectEvent(recorder, SuccessfulCreateVirtualMachineReason)
-		})
+		},
+
+			table.Entry("with run strategy Always", virtv1.RunStrategyAlways),
+			table.Entry("with run strategy Once", virtv1.RunStrategyOnce),
+			table.Entry("with run strategy RerunOnFailure", virtv1.RunStrategyRerunOnFailure),
+		)
 
 		It("should ignore the name of a VirtualMachineInstance templates", func() {
 			vm, vmi := DefaultVirtualMachineWithNames(true, "vmname", "vminame")
@@ -1362,6 +1371,28 @@ var _ = Describe("VirtualMachine", func() {
 
 			testutils.ExpectEvent(recorder, SuccessfulDeleteVirtualMachineReason)
 		})
+
+		table.DescribeTable("should not delete VirtualMachineInstance when vmi failed", func(runStrategy virtv1.VirtualMachineRunStrategy) {
+			vm, vmi := DefaultVirtualMachine(true)
+
+			vm.Spec.Running = nil
+			vm.Spec.RunStrategy = &runStrategy
+
+			vmi.Status.Phase = virtv1.Failed
+
+			addVirtualMachine(vm)
+			vmiFeeder.Add(vmi)
+
+			shouldExpectVMIFinalizerRemoval(vmi)
+			vmInterface.EXPECT().UpdateStatus(gomock.Any()).Times(1).Return(vm, nil)
+
+			controller.Execute()
+
+		},
+
+			table.Entry("with run strategy Once", virtv1.RunStrategyOnce),
+			table.Entry("with run strategy Manual", virtv1.RunStrategyManual),
+		)
 
 		It("should not delete the VirtualMachineInstance again if it is already marked for deletion", func() {
 			vm, vmi := DefaultVirtualMachine(false)
@@ -1911,6 +1942,18 @@ var _ = Describe("VirtualMachine", func() {
 					virtv1.RunStrategyManual,
 					false,
 					false),
+				table.Entry("vm with runStrategy once should not report crash loop",
+					virtv1.VirtualMachineStatus{
+						StartFailure: &virtv1.VirtualMachineStartFailure{
+							ConsecutiveFailCount: 1,
+							RetryAfterTimestamp: &metav1.Time{
+								Time: time.Now().Add(300 * time.Second),
+							},
+						},
+					},
+					virtv1.RunStrategyOnce,
+					true,
+					false),
 				table.Entry("vm with runStrategy always and VMI still exists should not report crash loop",
 					virtv1.VirtualMachineStatus{
 						StartFailure: &virtv1.VirtualMachineStartFailure{
@@ -2389,7 +2432,11 @@ var _ = Describe("VirtualMachine", func() {
 		})
 
 		Context("Flavor", func() {
+			var testFlavor string
+
 			BeforeEach(func() {
+				testFlavor = "test-flavor"
+
 				flavorMethods.FindFlavorFunc = func(_ *virtv1.VirtualMachine) (*flavorv1alpha1.VirtualMachineFlavorProfile, error) {
 					return &flavorv1alpha1.VirtualMachineFlavorProfile{
 						CPU: &virtv1.CPU{
@@ -2403,14 +2450,29 @@ var _ = Describe("VirtualMachine", func() {
 
 			It("should apply flavor", func() {
 				const flavorCpus = uint32(4)
-				flavorMethods.ApplyToVmiFunc = func(_ *k8sfield.Path, _ *flavorv1alpha1.VirtualMachineFlavorProfile, vmiSpec *virtv1.VirtualMachineInstanceSpec) flavor.Conflicts {
-					vmiSpec.Domain.CPU = &virtv1.CPU{Sockets: flavorCpus}
+				flavorMethods.ApplyToVmiFunc = func(_ *k8sfield.Path, profile *flavorv1alpha1.VirtualMachineFlavorProfile, vm *virtv1.VirtualMachine, vmi *virtv1.VirtualMachineInstance) flavor.Conflicts {
+					var flavor string
+
+					if vm.Spec.Flavor != nil {
+						flavor = strings.ToLower(vm.Spec.Flavor.Kind)
+					}
+					if vmi.Annotations == nil {
+						vmi.Annotations = make(map[string]string)
+					}
+					switch flavor {
+					case "virtualmachineflavors", "virtualmachineflavor":
+						vmi.Annotations[v1.FlavorAnnotation] = vm.Spec.Flavor.Name
+					case "virtualmachineclusterflavors", "virtualmachineclusterflavor":
+						vmi.Annotations[v1.ClusterFlavorAnnotation] = vm.Spec.Flavor.Name
+					}
+					vmi.Spec.Domain.CPU = &virtv1.CPU{Sockets: flavorCpus}
 					return nil
 				}
 
 				vm, vmi := DefaultVirtualMachine(true)
 				vm.Spec.Flavor = &virtv1.FlavorMatcher{
-					Name: "test-flavor",
+					Name: testFlavor,
+					Kind: "VirtualMachineFlavor",
 				}
 
 				vm.Spec.Template.Spec.Domain.CPU = &virtv1.CPU{Sockets: 2}
@@ -2420,6 +2482,7 @@ var _ = Describe("VirtualMachine", func() {
 				vmiInterface.EXPECT().Create(gomock.Any()).Times(1).Do(func(arg interface{}) {
 					vmiArg := arg.(*virtv1.VirtualMachineInstance)
 					Expect(vmiArg.Spec.Domain.CPU.Sockets).To(Equal(flavorCpus))
+					Expect(vmiArg.Annotations[v1.FlavorAnnotation]).To(Equal(testFlavor))
 				}).Return(vmi, nil)
 
 				vmInterface.EXPECT().UpdateStatus(gomock.Any()).Times(1)
@@ -2437,7 +2500,8 @@ var _ = Describe("VirtualMachine", func() {
 
 				vm, _ := DefaultVirtualMachine(true)
 				vm.Spec.Flavor = &virtv1.FlavorMatcher{
-					Name: "test-flavor",
+					Name: testFlavor,
+					Kind: "VirtualMachineFlavor",
 				}
 
 				addVirtualMachine(vm)
@@ -2457,13 +2521,27 @@ var _ = Describe("VirtualMachine", func() {
 			})
 
 			It("should fail applying flavor", func() {
-				flavorMethods.ApplyToVmiFunc = func(_ *k8sfield.Path, _ *flavorv1alpha1.VirtualMachineFlavorProfile, _ *virtv1.VirtualMachineInstanceSpec) flavor.Conflicts {
+				flavorMethods.ApplyToVmiFunc = func(_ *k8sfield.Path, profile *flavorv1alpha1.VirtualMachineFlavorProfile, vm *virtv1.VirtualMachine, vmi *virtv1.VirtualMachineInstance) flavor.Conflicts {
+					var testflavor string
+
+					if vm.Spec.Flavor != nil {
+						testflavor = strings.ToLower(vm.Spec.Flavor.Kind)
+					}
+					if vmi.Annotations == nil {
+						vmi.Annotations = make(map[string]string)
+					}
+					switch testflavor {
+					case "virtualmachineflavors", "virtualmachineflavor":
+						vmi.Annotations[v1.FlavorAnnotation] = vm.Spec.Flavor.Name
+					case "virtualmachineclusterflavors", "virtualmachineclusterflavor":
+						vmi.Annotations[v1.ClusterFlavorAnnotation] = vm.Spec.Flavor.Name
+					}
 					return flavor.Conflicts{k8sfield.NewPath("spec", "template", "test", "path")}
 				}
 
 				vm, _ := DefaultVirtualMachine(true)
 				vm.Spec.Flavor = &virtv1.FlavorMatcher{
-					Name: "test-flavor",
+					Name: testFlavor,
 				}
 
 				addVirtualMachine(vm)

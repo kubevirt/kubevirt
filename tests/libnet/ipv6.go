@@ -54,9 +54,9 @@ func configureIPv6OnVMI(vmi *v1.VirtualMachineInstance) error {
 	return nil
 }
 
-func WithIPv6(loginToFactory console.LoginToFactory) console.LoginToFactory {
+func WithIPv6(loginTo console.LoginToFunction) console.LoginToFunction {
 	return func(vmi *v1.VirtualMachineInstance) error {
-		err := loginToFactory(vmi)
+		err := loginTo(vmi)
 		if err != nil {
 			return err
 		}

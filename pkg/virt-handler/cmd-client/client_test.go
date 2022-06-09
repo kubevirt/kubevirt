@@ -146,13 +146,13 @@ var _ = Describe("Virt remote commands", func() {
 			legacy := IsLegacySocket("/some/path/something_sock")
 			Expect(legacy).To(BeTrue())
 
-			legacy = IsLegacySocket("/some/path/" + StandardLauncherSocketFileName)
+			legacy = IsLegacySocket(filepath.Join("/some/path", StandardLauncherSocketFileName))
 			Expect(legacy).To(BeFalse())
 
 			monEnabled := SocketMonitoringEnabled("/some/path/something_sock")
 			Expect(monEnabled).To(BeFalse())
 
-			monEnabled = SocketMonitoringEnabled("/some/path/" + StandardLauncherSocketFileName)
+			monEnabled = SocketMonitoringEnabled(filepath.Join("/some/path", StandardLauncherSocketFileName))
 			Expect(monEnabled).To(BeTrue())
 		})
 

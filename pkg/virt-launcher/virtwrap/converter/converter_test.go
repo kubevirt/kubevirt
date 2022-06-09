@@ -224,6 +224,26 @@ var _ = Describe("Converter", func() {
 			xml := string(data)
 			Expect(xml).To(Equal(expectedXML))
 		})
+		It("should set sharable and the cache if requested", func() {
+			v1Disk := &v1.Disk{
+				Name: "mydisk",
+				DiskDevice: v1.DiskDevice{
+					Disk: &v1.DiskTarget{
+						Bus: "virtio",
+					},
+				},
+				Shareable: True(),
+			}
+			var expectedXML = `<Disk device="disk" type="" model="virtio-non-transitional">
+  <source></source>
+  <target bus="virtio" dev="vda"></target>
+  <driver cache="none" error_policy="stop" name="qemu" type="" discard="unmap"></driver>
+  <alias name="ua-mydisk"></alias>
+  <shareable></shareable>
+</Disk>`
+			xml := diskToDiskXML(v1Disk)
+			Expect(xml).To(Equal(expectedXML))
+		})
 	})
 
 	Context("with v1.VirtualMachineInstance", func() {
@@ -346,21 +366,6 @@ var _ = Describe("Converter", func() {
 					},
 				},
 				{
-					Name: "floppy_tray_unspecified",
-					DiskDevice: v1.DiskDevice{
-						Floppy: &v1.FloppyTarget{},
-					},
-				},
-				{
-					Name: "floppy_tray_open",
-					DiskDevice: v1.DiskDevice{
-						Floppy: &v1.FloppyTarget{
-							Tray:     v1.TrayStateOpen,
-							ReadOnly: true,
-						},
-					},
-				},
-				{
 					Name: "should_default_to_disk",
 				},
 				{
@@ -439,26 +444,6 @@ var _ = Describe("Converter", func() {
 					VolumeSource: v1.VolumeSource{
 						HostDisk: &v1.HostDisk{
 							Path:     "/var/run/kubevirt-private/vmi-disks/volume1/disk.img",
-							Type:     v1.HostDiskExistsOrCreate,
-							Capacity: resource.MustParse("1Gi"),
-						},
-					},
-				},
-				{
-					Name: "floppy_tray_unspecified",
-					VolumeSource: v1.VolumeSource{
-						HostDisk: &v1.HostDisk{
-							Path:     "/var/run/kubevirt-private/vmi-disks/volume2/disk.img",
-							Type:     v1.HostDiskExistsOrCreate,
-							Capacity: resource.MustParse("1Gi"),
-						},
-					},
-				},
-				{
-					Name: "floppy_tray_open",
-					VolumeSource: v1.VolumeSource{
-						HostDisk: &v1.HostDisk{
-							Path:     "/var/run/kubevirt-private/vmi-disks/volume3/disk.img",
 							Type:     v1.HostDiskExistsOrCreate,
 							Capacity: resource.MustParse("1Gi"),
 						},
@@ -626,19 +611,6 @@ var _ = Describe("Converter", func() {
       <driver error_policy="stop" name="qemu" type="raw" iothread="1"></driver>
       <readonly></readonly>
       <alias name="ua-cdrom_tray_open"></alias>
-    </disk>
-    <disk device="floppy" type="file">
-      <source file="/var/run/kubevirt-private/vmi-disks/floppy_tray_unspecified/disk.img"></source>
-      <target bus="fdc" dev="fda" tray="closed"></target>
-      <driver error_policy="stop" name="qemu" type="raw" iothread="1"></driver>
-      <alias name="ua-floppy_tray_unspecified"></alias>
-    </disk>
-    <disk device="floppy" type="file">
-      <source file="/var/run/kubevirt-private/vmi-disks/floppy_tray_open/disk.img"></source>
-      <target bus="fdc" dev="fdb" tray="open"></target>
-      <driver error_policy="stop" name="qemu" type="raw" iothread="1"></driver>
-      <readonly></readonly>
-      <alias name="ua-floppy_tray_open"></alias>
     </disk>
     <disk device="disk" type="file">
       <source file="/var/run/kubevirt-private/vmi-disks/should_default_to_disk/disk.img"></source>
@@ -841,19 +813,6 @@ var _ = Describe("Converter", func() {
       <driver error_policy="stop" name="qemu" type="raw" iothread="1"></driver>
       <readonly></readonly>
       <alias name="ua-cdrom_tray_open"></alias>
-    </disk>
-    <disk device="floppy" type="file">
-      <source file="/var/run/kubevirt-private/vmi-disks/floppy_tray_unspecified/disk.img"></source>
-      <target bus="fdc" dev="fda" tray="closed"></target>
-      <driver error_policy="stop" name="qemu" type="raw" iothread="1"></driver>
-      <alias name="ua-floppy_tray_unspecified"></alias>
-    </disk>
-    <disk device="floppy" type="file">
-      <source file="/var/run/kubevirt-private/vmi-disks/floppy_tray_open/disk.img"></source>
-      <target bus="fdc" dev="fdb" tray="open"></target>
-      <driver error_policy="stop" name="qemu" type="raw" iothread="1"></driver>
-      <readonly></readonly>
-      <alias name="ua-floppy_tray_open"></alias>
     </disk>
     <disk device="disk" type="file">
       <source file="/var/run/kubevirt-private/vmi-disks/should_default_to_disk/disk.img"></source>
@@ -1059,19 +1018,6 @@ var _ = Describe("Converter", func() {
       <driver error_policy="stop" name="qemu" type="raw" iothread="1"></driver>
       <readonly></readonly>
       <alias name="ua-cdrom_tray_open"></alias>
-    </disk>
-    <disk device="floppy" type="file">
-      <source file="/var/run/kubevirt-private/vmi-disks/floppy_tray_unspecified/disk.img"></source>
-      <target bus="fdc" dev="fda" tray="closed"></target>
-      <driver error_policy="stop" name="qemu" type="raw" iothread="1"></driver>
-      <alias name="ua-floppy_tray_unspecified"></alias>
-    </disk>
-    <disk device="floppy" type="file">
-      <source file="/var/run/kubevirt-private/vmi-disks/floppy_tray_open/disk.img"></source>
-      <target bus="fdc" dev="fdb" tray="open"></target>
-      <driver error_policy="stop" name="qemu" type="raw" iothread="1"></driver>
-      <readonly></readonly>
-      <alias name="ua-floppy_tray_open"></alias>
     </disk>
     <disk device="disk" type="file">
       <source file="/var/run/kubevirt-private/vmi-disks/should_default_to_disk/disk.img"></source>
@@ -1286,19 +1232,6 @@ var _ = Describe("Converter", func() {
       <driver error_policy="stop" name="qemu" type="raw" iothread="1"></driver>
       <readonly></readonly>
       <alias name="ua-cdrom_tray_open"></alias>
-    </disk>
-    <disk device="floppy" type="file">
-      <source file="/var/run/kubevirt-private/vmi-disks/floppy_tray_unspecified/disk.img"></source>
-      <target bus="fdc" dev="fda" tray="closed"></target>
-      <driver error_policy="stop" name="qemu" type="raw" iothread="1"></driver>
-      <alias name="ua-floppy_tray_unspecified"></alias>
-    </disk>
-    <disk device="floppy" type="file">
-      <source file="/var/run/kubevirt-private/vmi-disks/floppy_tray_open/disk.img"></source>
-      <target bus="fdc" dev="fdb" tray="open"></target>
-      <driver error_policy="stop" name="qemu" type="raw" iothread="1"></driver>
-      <readonly></readonly>
-      <alias name="ua-floppy_tray_open"></alias>
     </disk>
     <disk device="disk" type="file">
       <source file="/var/run/kubevirt-private/vmi-disks/should_default_to_disk/disk.img"></source>

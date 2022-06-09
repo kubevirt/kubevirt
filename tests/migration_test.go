@@ -30,6 +30,11 @@ import (
 	"strings"
 	"sync"
 
+	"kubevirt.io/api/migrations/v1alpha1"
+	"kubevirt.io/kubevirt/tests/framework/cleanup"
+
+	"kubevirt.io/kubevirt/pkg/virt-handler/cgroup"
+
 	"kubevirt.io/kubevirt/pkg/util/hardware"
 	"kubevirt.io/kubevirt/pkg/virt-controller/watch"
 
@@ -51,6 +56,7 @@ import (
 	"k8s.io/apimachinery/pkg/api/errors"
 	"k8s.io/apimachinery/pkg/api/resource"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	"k8s.io/apimachinery/pkg/labels"
 	"k8s.io/apimachinery/pkg/types"
 	"k8s.io/apimachinery/pkg/util/intstr"
 	"k8s.io/apimachinery/pkg/util/rand"
@@ -89,7 +95,7 @@ const (
 	stressDefaultTimeout = 1600
 )
 
-var _ = Describe("[Serial][rfe_id:393][crit:high][vendor:cnv-qe@redhat.com][level:system][sig-compute] VM Live Migration", func() {
+var _ = Describe("[rfe_id:393][crit:high][vendor:cnv-qe@redhat.com][level:system][sig-compute] VM Live Migration", func() {
 	var virtClient kubecli.KubevirtClient
 	var err error
 
@@ -231,7 +237,18 @@ var _ = Describe("[Serial][rfe_id:393][crit:high][vendor:cnv-qe@redhat.com][leve
 		return vmi
 	}
 
-	runAndCancelMigration := func(migration *v1.VirtualMachineInstanceMigration, vmi *v1.VirtualMachineInstance, timeout int) *v1.VirtualMachineInstanceMigration {
+	cancelMigration := func(migration *v1.VirtualMachineInstanceMigration, vminame string, with_virtctl bool) {
+		if !with_virtctl {
+			By("Cancelling a Migration")
+			Expect(virtClient.VirtualMachineInstanceMigration(migration.Namespace).Delete(migration.Name, &metav1.DeleteOptions{})).To(Succeed(), "Migration should be deleted successfully")
+		} else {
+			By("Cancelling a Migration with virtctl")
+			command := tests.NewRepeatableVirtctlCommand("migrate-cancel", "--namespace", migration.Namespace, vminame)
+			Expect(command()).To(Succeed(), "should successfully migrate-cancel a migration")
+		}
+	}
+
+	runAndCancelMigration := func(migration *v1.VirtualMachineInstanceMigration, vmi *v1.VirtualMachineInstance, with_virtctl bool, timeout int) *v1.VirtualMachineInstanceMigration {
 		By("Starting a Migration")
 		Eventually(func() error {
 			migration, err = virtClient.VirtualMachineInstanceMigration(migration.Namespace).Create(migration, &metav1.CreateOptions{})
@@ -256,11 +273,12 @@ var _ = Describe("[Serial][rfe_id:393][crit:high][vendor:cnv-qe@redhat.com][leve
 
 		}, timeout, 1*time.Second).Should(BeTrue())
 
-		By("Cancelling a Migration")
-		Expect(virtClient.VirtualMachineInstanceMigration(migration.Namespace).Delete(migration.Name, &metav1.DeleteOptions{})).To(Succeed(), "Migration should be deleted successfully")
+		cancelMigration(migration, vmi.Name, with_virtctl)
+
 		return migration
 	}
-	runAndImmediatelyCancelMigration := func(migration *v1.VirtualMachineInstanceMigration, vmi *v1.VirtualMachineInstance, timeout int) *v1.VirtualMachineInstanceMigration {
+
+	runAndImmediatelyCancelMigration := func(migration *v1.VirtualMachineInstanceMigration, vmi *v1.VirtualMachineInstance, with_virtctl bool, timeout int) *v1.VirtualMachineInstanceMigration {
 		By("Starting a Migration")
 		Eventually(func() error {
 			migration, err = virtClient.VirtualMachineInstanceMigration(migration.Namespace).Create(migration, &metav1.CreateOptions{})
@@ -276,8 +294,8 @@ var _ = Describe("[Serial][rfe_id:393][crit:high][vendor:cnv-qe@redhat.com][leve
 
 		}, timeout, 1*time.Second).Should(BeTrue())
 
-		By("Cancelling a Migration")
-		Expect(virtClient.VirtualMachineInstanceMigration(migration.Namespace).Delete(migration.Name, &metav1.DeleteOptions{})).To(Succeed(), "Migration should be deleted successfully")
+		cancelMigration(migration, vmi.Name, with_virtctl)
+
 		return migration
 	}
 
@@ -332,13 +350,6 @@ var _ = Describe("[Serial][rfe_id:393][crit:high][vendor:cnv-qe@redhat.com][leve
 		Expect(err).ToNot(HaveOccurred(), fmt.Sprintf(errorMassageFormat, stdout, stderr, err))
 		pid := strings.TrimSuffix(stdout, "\n")
 		return pid
-	}
-
-	deleteDataVolume := func(dv *cdiv1.DataVolume) {
-		if dv != nil {
-			By("Deleting the DataVolume")
-			ExpectWithOffset(1, virtClient.CdiClient().CdiV1beta1().DataVolumes(dv.Namespace).Delete(context.Background(), dv.Name, metav1.DeleteOptions{})).To(Succeed(), metav1.DeleteOptions{})
-		}
 	}
 
 	setMigrationBandwidthLimitation := func(migrationBandwidth resource.Quantity) {
@@ -459,7 +470,7 @@ var _ = Describe("[Serial][rfe_id:393][crit:high][vendor:cnv-qe@redhat.com][leve
 				tests.WaitForVirtualMachineToDisappearWithTimeout(vmi, 120)
 			})
 		})
-		Context("with bandwidth limitations", func() {
+		Context("[Serial] with bandwidth limitations", func() {
 
 			var repeatedlyMigrateWithBandwidthLimitation = func(vmi *v1.VirtualMachineInstance, bandwidth string, repeat int) time.Duration {
 				var migrationDurationTotal time.Duration
@@ -523,6 +534,39 @@ var _ = Describe("[Serial][rfe_id:393][crit:high][vendor:cnv-qe@redhat.com][leve
 
 				// check VMI, confirm migration state
 				tests.ConfirmVMIPostMigration(virtClient, vmi, migrationUID)
+
+				// delete VMI
+				By("Deleting the VMI")
+				Expect(virtClient.VirtualMachineInstance(vmi.Namespace).Delete(vmi.Name, &metav1.DeleteOptions{})).To(Succeed())
+
+				By("Waiting for VMI to disappear")
+				tests.WaitForVirtualMachineToDisappearWithTimeout(vmi, 240)
+			})
+			It("should be successfully migrate with a WriteBack disk cache", func() {
+				vmi := tests.NewRandomVMIWithEphemeralDisk(cd.ContainerDiskFor(cd.ContainerDiskCirros))
+				vmi.Spec.Domain.Devices.Disks[0].Cache = v1.CacheWriteBack
+				tests.AddUserData(vmi, "cloud-init", "#!/bin/bash\necho 'hello'\n")
+
+				By("Starting the VirtualMachineInstance")
+				vmi = runVMIAndExpectLaunch(vmi, 240)
+
+				By("Checking that the VirtualMachineInstance console has expected output")
+				Expect(libnet.WithIPv6(console.LoginToCirros)(vmi)).To(Succeed())
+
+				By("starting the migration")
+				migration := tests.NewRandomMigration(vmi.Name, vmi.Namespace)
+				migrationUID := tests.RunMigrationAndExpectCompletion(virtClient, migration, tests.MigrationWaitTime)
+
+				// check VMI, confirm migration state
+				tests.ConfirmVMIPostMigration(virtClient, vmi, migrationUID)
+
+				runningVMISpec, err := tests.GetRunningVMIDomainSpec(vmi)
+				Expect(err).ToNot(HaveOccurred())
+
+				disks := runningVMISpec.Devices.Disks
+				By("checking if requested cache 'writeback' has been set")
+				Expect(disks[0].Alias.GetName()).To(Equal("disk0"))
+				Expect(disks[0].Driver.Cache).To(Equal(string(v1.CacheWriteBack)))
 
 				// delete VMI
 				By("Deleting the VMI")
@@ -1012,7 +1056,7 @@ var _ = Describe("[Serial][rfe_id:393][crit:high][vendor:cnv-qe@redhat.com][leve
 				tests.WaitForVirtualMachineToDisappearWithTimeout(vmi, 240)
 			})
 		})
-		Context("with auto converge enabled", func() {
+		Context("[Serial] with auto converge enabled", func() {
 			BeforeEach(func() {
 				tests.BeforeTestCleanup()
 
@@ -1156,8 +1200,7 @@ var _ = Describe("[Serial][rfe_id:393][crit:high][vendor:cnv-qe@redhat.com][leve
 				Expect(virtClient.CdiClient().CdiV1beta1().DataVolumes(dataVolume.Namespace).Delete(context.Background(), dataVolume.Name, metav1.DeleteOptions{})).To(Succeed(), metav1.DeleteOptions{})
 			})
 			It("[test_id:1479][storage-req] should migrate a vmi with a shared block disk", func() {
-				vmi, dv := tests.NewRandomVirtualMachineInstanceWithBlockDisk(cd.DataVolumeImportUrlForContainerDisk(cd.ContainerDiskAlpine), util.NamespaceTestDefault, k8sv1.ReadWriteMany)
-				defer deleteDataVolume(dv)
+				vmi, _ := tests.NewRandomVirtualMachineInstanceWithBlockDisk(cd.DataVolumeImportUrlForContainerDisk(cd.ContainerDiskAlpine), util.NamespaceTestDefault, k8sv1.ReadWriteMany)
 
 				By("Starting the VirtualMachineInstance")
 				vmi = runVMIAndExpectLaunch(vmi, 300)
@@ -1420,7 +1463,7 @@ var _ = Describe("[Serial][rfe_id:393][crit:high][vendor:cnv-qe@redhat.com][leve
 		})
 
 		Context("migration security", func() {
-			Context("with TLS disabled", func() {
+			Context("[Serial] with TLS disabled", func() {
 				It("[test_id:6976] should be successfully migrated", func() {
 					cfg := getCurrentKv()
 					cfg.MigrationConfiguration.DisableTLS = pointer.BoolPtr(true)
@@ -1527,8 +1570,10 @@ var _ = Describe("[Serial][rfe_id:393][crit:high][vendor:cnv-qe@redhat.com][leve
 			Context("with TLS enabled", func() {
 				BeforeEach(func() {
 					cfg := getCurrentKv()
-					cfg.MigrationConfiguration.BandwidthPerMigration = resource.NewMilliQuantity(1, resource.BinarySI)
-					tests.UpdateKubeVirtConfigValueAndWait(cfg)
+					tlsEnabled := cfg.MigrationConfiguration.DisableTLS == nil || *cfg.MigrationConfiguration.DisableTLS == false
+					if !tlsEnabled {
+						Skip("test requires secure migrations to be enabled")
+					}
 				})
 
 				It("[test_id:2303][posneg:negative] should secure migrations with TLS", func() {
@@ -1612,7 +1657,7 @@ var _ = Describe("[Serial][rfe_id:393][crit:high][vendor:cnv-qe@redhat.com][leve
 			})
 		})
 
-		Context("migration postcopy", func() {
+		Context("[Serial] migration postcopy", func() {
 
 			var dv *cdiv1.DataVolume
 			var wffcPod *k8sv1.Pod
@@ -1701,16 +1746,10 @@ var _ = Describe("[Serial][rfe_id:393][crit:high][vendor:cnv-qe@redhat.com][leve
 				guestAgentMigrationTestFunc(v1.MigrationPostCopy)
 			})
 
-			It("[QUARANTINE][test_id:4747] should migrate using cluster level config for postcopy", func() {
-				config := getCurrentKv()
-				config.MigrationConfiguration.AllowPostCopy = pointer.BoolPtr(true)
-				config.MigrationConfiguration.CompletionTimeoutPerGiB = pointer.Int64Ptr(1)
-				bandwidth := resource.MustParse("256Mi")
-				config.MigrationConfiguration.BandwidthPerMigration = &bandwidth
-				tests.UpdateKubeVirtConfigValueAndWait(config)
-
+			It("[test_id:4747] should migrate using cluster level config for postcopy", func() {
 				vmi := tests.NewRandomFedoraVMIWithGuestAgent()
-				vmi.Spec.Domain.Resources.Requests[k8sv1.ResourceMemory] = resource.MustParse("1Gi")
+				vmi.Spec.Domain.Resources.Requests[k8sv1.ResourceMemory] = memoryRequestSize
+				vmi.Spec.Domain.Devices.Rng = &v1.Rng{}
 
 				By("Starting the VirtualMachineInstance")
 				vmi = runVMIAndExpectLaunch(vmi, 240)
@@ -1741,7 +1780,7 @@ var _ = Describe("[Serial][rfe_id:393][crit:high][vendor:cnv-qe@redhat.com][leve
 			})
 		})
 
-		Context("migration monitor", func() {
+		Context("[Serial] migration monitor", func() {
 			var createdPods []string
 			AfterEach(func() {
 				for _, podName := range createdPods {
@@ -1825,7 +1864,7 @@ var _ = Describe("[Serial][rfe_id:393][crit:high][vendor:cnv-qe@redhat.com][leve
 					podName := fmt.Sprintf("migration-killer-pod-%d", idx)
 
 					// kill the handler right as we detect the qemu target process come online
-					pod := tests.RenderPrivilegedPod(podName, []string{"/bin/bash", "-c"}, []string{fmt.Sprintf("while true; do ps aux | grep -v \"defunct\" | grep \"%s\" && pkill -9 virt-handler && sleep 5; done", emulator)})
+					pod := tests.RenderPrivilegedPod(podName, []string{"/bin/bash", "-c"}, []string{fmt.Sprintf("while true; do ps aux | grep -v \"defunct\" | grep -v \"D\" | grep \"%s\" && pkill -9 virt-handler && sleep 5; done", emulator)})
 
 					pod.Spec.NodeName = entry.Name
 					createdPod, err := virtClient.CoreV1().Pods(util.NamespaceTestDefault).Create(context.Background(), pod, metav1.CreateOptions{})
@@ -2168,13 +2207,13 @@ var _ = Describe("[Serial][rfe_id:393][crit:high][vendor:cnv-qe@redhat.com][leve
 		})
 
 		Context("live migration cancelation", func() {
-			type vmiBuilder func() (*v1.VirtualMachineInstance, *cdiv1.DataVolume)
+			type vmiBuilder func() *v1.VirtualMachineInstance
 
-			newVirtualMachineInstanceWithFedoraContainerDisk := func() (*v1.VirtualMachineInstance, *cdiv1.DataVolume) {
-				return tests.NewRandomFedoraVMIWithGuestAgent(), nil
+			newVirtualMachineInstanceWithFedoraContainerDisk := func() *v1.VirtualMachineInstance {
+				return tests.NewRandomFedoraVMIWithGuestAgent()
 			}
 
-			newVirtualMachineInstanceWithFedoraRWXBlockDisk := func() (*v1.VirtualMachineInstance, *cdiv1.DataVolume) {
+			newVirtualMachineInstanceWithFedoraRWXBlockDisk := func() *v1.VirtualMachineInstance {
 				if !tests.HasCDI() {
 					Skip("Skip DataVolume tests when CDI is not present")
 				}
@@ -2191,30 +2230,47 @@ var _ = Describe("[Serial][rfe_id:393][crit:high][vendor:cnv-qe@redhat.com][leve
 				Eventually(ThisDV(dv), 600).Should(HaveSucceeded())
 				vmi := tests.NewRandomVMIWithDataVolume(dv.Name)
 				tests.AddUserData(vmi, "disk1", "#!/bin/bash\n echo hello\n")
-				return vmi, dv
+				return vmi
 			}
 
-			table.DescribeTable("should be able to cancel a migration", func(createVMI vmiBuilder) {
-				vmi, dv := createVMI()
+			limitMigrationBadwidth := func(quantity resource.Quantity) error {
+				migrationPolicy := &v1alpha1.MigrationPolicy{
+					ObjectMeta: metav1.ObjectMeta{
+						Name: util.NamespaceTestDefault,
+						Labels: map[string]string{
+							cleanup.TestLabelForNamespace(util.NamespaceTestDefault): "",
+						},
+					},
+					Spec: v1alpha1.MigrationPolicySpec{
+						BandwidthPerMigration: &quantity,
+						Selectors: &v1alpha1.Selectors{
+							NamespaceSelector: &metav1.LabelSelector{
+								MatchLabels: map[string]string{
+									cleanup.TestLabelForNamespace(util.NamespaceTestDefault): "",
+								},
+							},
+						},
+					},
+				}
+
+				_, err := virtClient.MigrationPolicy().Create(context.Background(), migrationPolicy, metav1.CreateOptions{})
+				return err
+			}
+
+			table.DescribeTable("should be able to cancel a migration", func(createVMI vmiBuilder, with_virtctl bool) {
+				vmi := createVMI()
 				vmi.Spec.Domain.Resources.Requests[k8sv1.ResourceMemory] = resource.MustParse(fedoraVMSize)
-				defer deleteDataVolume(dv)
+
+				By("Limiting the bandwidth of migrations in the test namespace")
+				Expect(limitMigrationBadwidth(resource.MustParse("1Mi"))).To(Succeed())
 
 				By("Starting the VirtualMachineInstance")
 				vmi = runVMIAndExpectLaunch(vmi, 240)
 
-				By("Checking that the VirtualMachineInstance console has expected output")
-				Expect(libnet.WithIPv6(console.LoginToFedora)(vmi)).To(Succeed())
-
-				// Need to wait for cloud init to finish and start the agent inside the vmi.
-				tests.WaitAgentConnected(virtClient, vmi)
-
-				runStressTest(vmi, stressDefaultVMSize, stressDefaultTimeout)
-
-				// execute a migration, wait for finalized state
 				By("Starting the Migration")
 				migration := tests.NewRandomMigration(vmi.Name, vmi.Namespace)
 
-				migration = runAndCancelMigration(migration, vmi, 180)
+				migration = runAndCancelMigration(migration, vmi, with_virtctl, 180)
 				migrationUID := string(migration.UID)
 
 				// check VMI, confirm migration state
@@ -2226,28 +2282,27 @@ var _ = Describe("[Serial][rfe_id:393][crit:high][vendor:cnv-qe@redhat.com][leve
 				// delete VMI
 				By("Deleting the VMI")
 				Expect(virtClient.VirtualMachineInstance(vmi.Namespace).Delete(vmi.Name, &metav1.DeleteOptions{})).To(Succeed())
-
-				By("Waiting for VMI to disappear")
-				tests.WaitForVirtualMachineToDisappearWithTimeout(vmi, 240)
 			},
-				table.Entry("[sig-storage][test_id:2226] with ContainerDisk", newVirtualMachineInstanceWithFedoraContainerDisk),
-				table.Entry("[sig-storage][storage-req][test_id:2731] with RWX block disk from block volume PVC", newVirtualMachineInstanceWithFedoraRWXBlockDisk),
-			)
-			It("[sig-compute][test_id:3241]should be able to cancel a migration right after posting it", func() {
+				table.Entry("[sig-storage][test_id:2226] with ContainerDisk", newVirtualMachineInstanceWithFedoraContainerDisk, false),
+				table.Entry("[sig-storage][storage-req][test_id:2731] with RWX block disk from block volume PVC", newVirtualMachineInstanceWithFedoraRWXBlockDisk, false),
+				table.Entry("[sig-storage][test_id:2228] with ContainerDisk and virtctl", newVirtualMachineInstanceWithFedoraContainerDisk, true),
+				table.Entry("[sig-storage][storage-req][test_id:2732] with RWX block disk and virtctl", newVirtualMachineInstanceWithFedoraRWXBlockDisk, true))
+
+			table.DescribeTable("Immediate migration cancellation", func(with_virtctl bool) {
 				vmi := tests.NewRandomFedoraVMIWithGuestAgent()
 				vmi.Spec.Domain.Resources.Requests[k8sv1.ResourceMemory] = resource.MustParse(fedoraVMSize)
 
+				By("Limiting the bandwidth of migrations in the test namespace")
+				Expect(limitMigrationBadwidth(resource.MustParse("1Mi"))).To(Succeed())
+
 				By("Starting the VirtualMachineInstance")
 				vmi = runVMIAndExpectLaunch(vmi, 240)
-
-				By("Checking that the VirtualMachineInstance console has expected output")
-				Expect(console.LoginToFedora(vmi)).To(Succeed())
 
 				// execute a migration, wait for finalized state
 				By("Starting the Migration")
 				migration := tests.NewRandomMigration(vmi.Name, vmi.Namespace)
 
-				migration = runAndImmediatelyCancelMigration(migration, vmi, 180)
+				migration = runAndImmediatelyCancelMigration(migration, vmi, with_virtctl, 180)
 
 				// check VMI, confirm migration state
 				confirmVMIPostMigrationAborted(vmi, string(migration.UID), 180)
@@ -2261,8 +2316,10 @@ var _ = Describe("[Serial][rfe_id:393][crit:high][vendor:cnv-qe@redhat.com][leve
 
 				By("Waiting for VMI to disappear")
 				tests.WaitForVirtualMachineToDisappearWithTimeout(vmi, 240)
-
-			})
+			},
+				table.Entry("[sig-compute][test_id:3241]cancel a migration right after posting it", false),
+				table.Entry("[sig-compute][test_id:3246]cancel a migration with virtctl", true),
+			)
 		})
 
 		Context("with a host-model cpu", func() {
@@ -2475,7 +2532,7 @@ var _ = Describe("[Serial][rfe_id:393][crit:high][vendor:cnv-qe@redhat.com][leve
 
 		})
 
-		Context("with migration policies", func() {
+		Context("[Serial] with migration policies", func() {
 
 			confirmMigrationPolicyName := func(vmi *v1.VirtualMachineInstance, expectedName *string) {
 				By("Retrieving the VMI post migration")
@@ -2765,7 +2822,7 @@ var _ = Describe("[Serial][rfe_id:393][crit:high][vendor:cnv-qe@redhat.com][leve
 				}, 180*time.Second, 500*time.Millisecond).Should(Equal(v1.MigrationSucceeded))
 			})
 
-			Context("with node tainted during node drain", func() {
+			Context("[Serial] with node tainted during node drain", func() {
 
 				BeforeEach(func() {
 					// Taints defined by k8s are special and can't be applied manually.
@@ -3033,19 +3090,19 @@ var _ = Describe("[Serial][rfe_id:393][crit:high][vendor:cnv-qe@redhat.com][leve
 				})
 			})
 		})
-		Context("with multiple VMIs with eviction policies set", func() {
+		Context("[Serial]with multiple VMIs with eviction policies set", func() {
 
 			It("[release-blocker][test_id:3245]should not migrate more than two VMIs at the same time from a node", func() {
 				var vmis []*v1.VirtualMachineInstance
 				for i := 0; i < 4; i++ {
 					vmi := cirrosVMIWithEvictionStrategy()
-					vmi.Spec.NodeSelector = map[string]string{"tests.kubevirt.io": "target"}
+					vmi.Spec.NodeSelector = map[string]string{cleanup.TestLabelForNamespace(util.NamespaceTestDefault): "target"}
 					vmis = append(vmis, vmi)
 				}
 
 				By("selecting a node as the source")
 				sourceNode := util.GetAllSchedulableNodes(virtClient).Items[0]
-				tests.AddLabelToNode(sourceNode.Name, "tests.kubevirt.io", "target")
+				tests.AddLabelToNode(sourceNode.Name, cleanup.TestLabelForNamespace(util.NamespaceTestDefault), "target")
 
 				By("starting four VMIs on that node")
 				for _, vmi := range vmis {
@@ -3060,7 +3117,7 @@ var _ = Describe("[Serial][rfe_id:393][crit:high][vendor:cnv-qe@redhat.com][leve
 
 				By("selecting a node as the target")
 				targetNode := util.GetAllSchedulableNodes(virtClient).Items[1]
-				tests.AddLabelToNode(targetNode.Name, "tests.kubevirt.io", "target")
+				tests.AddLabelToNode(targetNode.Name, cleanup.TestLabelForNamespace(util.NamespaceTestDefault), "target")
 
 				By("tainting the source node as non-schedulabele")
 				tests.Taint(sourceNode.Name, tests.GetNodeDrainKey(), k8sv1.TaintEffectNoSchedule)
@@ -3111,7 +3168,75 @@ var _ = Describe("[Serial][rfe_id:393][crit:high][vendor:cnv-qe@redhat.com][leve
 
 	})
 
-	Context("With Huge Pages", func() {
+	Describe("[Serial] with a cluster-wide live-migrate eviction strategy set", func() {
+		var originalKV *v1.KubeVirt
+
+		BeforeEach(func() {
+			kv := util.GetCurrentKv(virtClient)
+			originalKV = kv.DeepCopy()
+
+			evictionStrategy := v1.EvictionStrategyLiveMigrate
+			kv.Spec.Configuration.EvictionStrategy = &evictionStrategy
+			tests.UpdateKubeVirtConfigValueAndWait(kv.Spec.Configuration)
+		})
+
+		AfterEach(func() {
+			tests.UpdateKubeVirtConfigValueAndWait(originalKV.Spec.Configuration)
+		})
+
+		Context("with a VMI running", func() {
+			Context("with no eviction strategy set", func() {
+				It("should block the eviction api and migrate", func() {
+					// no EvictionStrategy set
+					vmi := tests.NewRandomVMIWithEphemeralDisk(cd.ContainerDiskFor(cd.ContainerDiskCirros))
+					vmi = runVMIAndExpectLaunch(vmi, 180)
+					vmiNodeOrig := vmi.Status.NodeName
+					pod := tests.GetRunningPodByVirtualMachineInstance(vmi, vmi.Namespace)
+					err := virtClient.CoreV1().Pods(vmi.Namespace).Evict(context.Background(), &v1beta1.Eviction{ObjectMeta: metav1.ObjectMeta{Name: pod.Name}})
+					Expect(errors.IsTooManyRequests(err)).To(BeTrue())
+
+					By("Ensuring the VMI has migrated and lives on another node")
+					Eventually(func() error {
+						vmi, err := virtClient.VirtualMachineInstance(vmi.Namespace).Get(vmi.Name, &metav1.GetOptions{})
+						if err != nil {
+							return err
+						}
+
+						if vmi.Status.NodeName == vmiNodeOrig {
+							return fmt.Errorf("VMI is still on the same node")
+						}
+
+						if vmi.Status.MigrationState == nil || vmi.Status.MigrationState.SourceNode != vmiNodeOrig {
+							return fmt.Errorf("VMI did not migrate yet")
+						}
+
+						if vmi.Status.EvacuationNodeName != "" {
+							return fmt.Errorf("VMI is still evacuating: %v", vmi.Status.EvacuationNodeName)
+						}
+
+						return nil
+					}, 360*time.Second, 1*time.Second).ShouldNot(HaveOccurred())
+					resVMI, err := virtClient.VirtualMachineInstance(vmi.Namespace).Get(vmi.Name, &metav1.GetOptions{})
+					Expect(err).ShouldNot(HaveOccurred())
+					Expect(resVMI.Status.EvacuationNodeName).To(Equal(""), "vmi evacuation state should be clean")
+				})
+			})
+
+			Context("with eviction strategy set to 'None'", func() {
+				It("The VMI should get evicted", func() {
+					vmi := tests.NewRandomVMIWithEphemeralDisk(cd.ContainerDiskFor(cd.ContainerDiskCirros))
+					evictionStrategy := v1.EvictionStrategyNone
+					vmi.Spec.EvictionStrategy = &evictionStrategy
+					vmi = runVMIAndExpectLaunch(vmi, 180)
+					pod := tests.GetRunningPodByVirtualMachineInstance(vmi, vmi.Namespace)
+					err := virtClient.CoreV1().Pods(vmi.Namespace).Evict(context.Background(), &v1beta1.Eviction{ObjectMeta: metav1.ObjectMeta{Name: pod.Name}})
+					Expect(err).ToNot(HaveOccurred())
+				})
+			})
+		})
+	})
+
+	Context("[Serial] With Huge Pages", func() {
 		var hugepagesVmi *v1.VirtualMachineInstance
 
 		BeforeEach(func() {
@@ -3175,7 +3300,7 @@ var _ = Describe("[Serial][rfe_id:393][crit:high][vendor:cnv-qe@redhat.com][leve
 		)
 	})
 
-	Context("with CPU pinning and huge pages", func() {
+	Context("[Serial] with CPU pinning and huge pages", func() {
 		It("should not make migrations fail", func() {
 			checks.SkipTestIfNotEnoughNodesWithCPUManagerWith2MiHugepages(2)
 			var err error
@@ -3286,6 +3411,7 @@ var _ = Describe("[Serial][rfe_id:393][crit:high][vendor:cnv-qe@redhat.com][leve
 			workerLabel   = "node-role.kubernetes.io/worker"
 			testLabel1    = "kubevirt.io/testlabel1"
 			testLabel2    = "kubevirt.io/testlabel2"
+			cgroupVersion cgroup.CgroupVersion
 		)
 
 		parseVCPUPinOutput := func(vcpuPinOutput string) []int {
@@ -3325,10 +3451,18 @@ var _ = Describe("[Serial][rfe_id:393][crit:high][vendor:cnv-qe@redhat.com][leve
 		}
 
 		getPodCPUSet := func(pod *k8sv1.Pod) []int {
+
+			var cpusetPath string
+			if cgroupVersion == cgroup.V2 {
+				cpusetPath = "/sys/fs/cgroup/cpuset.cpus.effective"
+			} else {
+				cpusetPath = "/sys/fs/cgroup/cpuset/cpuset.cpus"
+			}
+
 			stdout, stderr, err := tests.ExecuteCommandOnPodV2(virtClient,
 				pod,
 				"compute",
-				[]string{"cat", "/sys/fs/cgroup/cpuset/cpuset.cpus"})
+				[]string{"cat", cpusetPath})
 			Expect(err).ToNot(HaveOccurred())
 			Expect(stderr).To(BeEmpty())
 
@@ -3431,6 +3565,9 @@ var _ = Describe("[Serial][rfe_id:393][crit:high][vendor:cnv-qe@redhat.com][leve
 			vmi, err = virtClient.VirtualMachineInstance(util.NamespaceTestDefault).Get(vmi.Name, &metav1.GetOptions{})
 			Expect(err).ToNot(HaveOccurred())
 
+			By("determining cgroups version")
+			cgroupVersion = tests.GetVMIsCgroupVersion(vmi, virtClient)
+
 			By("ensuring the VMI started on the correct node")
 			Expect(vmi.Status.NodeName).To(Equal(nodes[0].Name))
 
@@ -3469,6 +3606,43 @@ var _ = Describe("[Serial][rfe_id:393][crit:high][vendor:cnv-qe@redhat.com][leve
 			By("deleting the last paused pod")
 			err = virtClient.CoreV1().Pods(pausedPod.Namespace).Delete(context.Background(), pausedPod.Name, metav1.DeleteOptions{})
 			Expect(err).ToNot(HaveOccurred())
+		})
+	})
+
+	Context("with a live-migration in flight", func() {
+		It("there should always be a single active migration per VMI", func() {
+			By("Starting a VMI")
+			vmi := libvmi.NewCirros(
+				libvmi.WithInterface(libvmi.InterfaceDeviceWithMasqueradeBinding()),
+				libvmi.WithNetwork(v1.DefaultPodNetwork()),
+			)
+			vmi = runVMIAndExpectLaunch(vmi, 240)
+
+			By("Checking that there always is at most one migration running")
+			Consistently(func() int {
+				vmim := tests.NewRandomMigration(vmi.Name, vmi.Namespace)
+				// not checking err as the migration creation will be blocked immediately by virt-api's validating webhook
+				// if another one is currently running
+				vmim, err = virtClient.VirtualMachineInstanceMigration(vmi.Namespace).Create(vmim, &metav1.CreateOptions{})
+
+				labelSelector, err := labels.Parse(fmt.Sprintf("%s in (%s)", v1.MigrationSelectorLabel, vmi.Name))
+				Expect(err).ToNot(HaveOccurred())
+				listOptions := &metav1.ListOptions{
+					LabelSelector: labelSelector.String(),
+				}
+				migrations, err := virtClient.VirtualMachineInstanceMigration(vmim.Namespace).List(listOptions)
+				Expect(err).ToNot(HaveOccurred())
+
+				activeMigrations := 0
+				for _, migration := range migrations.Items {
+					switch migration.Status.Phase {
+					case v1.MigrationScheduled, v1.MigrationPreparingTarget, v1.MigrationTargetReady, v1.MigrationRunning:
+						activeMigrations += 1
+					}
+				}
+				return activeMigrations
+
+			}, time.Second*30, time.Second*1).Should(BeNumerically("<=", 1))
 		})
 	})
 })

@@ -1,9 +1,6 @@
 package dhcp
 
 import (
-	"io/ioutil"
-	"os"
-
 	"github.com/golang/mock/gomock"
 	"github.com/vishvananda/netlink"
 
@@ -28,41 +25,36 @@ var _ = Describe("Bridge DHCP configurator", func() {
 	var mockHandler *netdriver.MockNetworkHandler
 	var ctrl *gomock.Controller
 	var generator BridgeConfigGenerator
-	var tmpDir string
+	var cacheCreator tempCacheCreator
 
 	BeforeEach(func() {
 		dutils.MockDefaultOwnershipManager()
 		ctrl = gomock.NewController(GinkgoT())
 		mockHandler = netdriver.NewMockNetworkHandler(ctrl)
-		var err error
-		tmpDir, err = ioutil.TempDir("/tmp", "interface-cache")
-		Expect(err).ToNot(HaveOccurred())
 	})
 
 	AfterEach(func() {
-		os.RemoveAll(tmpDir)
+		cacheCreator.New("").Delete()
 		ctrl.Finish()
 	})
 
 	Context("Generate", func() {
-		var cacheFactory cache.InterfaceCacheFactory
-		BeforeEach(func() {
-			cacheFactory = cache.NewInterfaceCacheFactoryWithBasePath(tmpDir)
-		})
 		It("Should fail", func() {
 			generator = BridgeConfigGenerator{
-				cacheFactory: cacheFactory,
+				cacheCreator: &cacheCreator,
 			}
 			config, err := generator.Generate()
 			Expect(err).To(HaveOccurred())
 			Expect(config).To(BeNil())
 		})
 		It("Should succeed with ipam", func() {
-			Expect(cacheFactory.CacheDHCPConfigForPid(launcherPID).Write(ifaceName, &cache.DHCPConfig{IPAMDisabled: false})).To(Succeed())
+			Expect(cache.WriteDHCPInterfaceCache(
+				&cacheCreator, launcherPID, ifaceName, &cache.DHCPConfig{IPAMDisabled: false},
+			)).To(Succeed())
 
 			iface := v1.Interface{Name: "network"}
 			generator = BridgeConfigGenerator{
-				cacheFactory:     cacheFactory,
+				cacheCreator:     &cacheCreator,
 				launcherPID:      launcherPID,
 				podInterfaceName: ifaceName,
 				vmiSpecIfaces:    []v1.Interface{iface},
@@ -88,10 +80,12 @@ var _ = Describe("Bridge DHCP configurator", func() {
 			Expect(*config).To(Equal(expectedConfig))
 		})
 		It("Should succeed with no ipam", func() {
-			Expect(cacheFactory.CacheDHCPConfigForPid(launcherPID).Write(ifaceName, &cache.DHCPConfig{IPAMDisabled: true})).To(Succeed())
+			Expect(cache.WriteDHCPInterfaceCache(
+				&cacheCreator, launcherPID, ifaceName, &cache.DHCPConfig{IPAMDisabled: true},
+			)).To(Succeed())
 
 			generator = BridgeConfigGenerator{
-				cacheFactory:     cacheFactory,
+				cacheCreator:     &cacheCreator,
 				launcherPID:      launcherPID,
 				podInterfaceName: ifaceName,
 				subdomain:        subdomain,

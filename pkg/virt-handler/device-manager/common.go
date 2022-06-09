@@ -25,15 +25,19 @@ import (
 	"bufio"
 	"bytes"
 	"fmt"
+	"net"
 	"os"
 	"os/exec"
 	"path/filepath"
 	"strconv"
 	"strings"
+	"time"
 
+	"google.golang.org/grpc"
 	"k8s.io/apimachinery/pkg/util/uuid"
 
 	"kubevirt.io/client-go/log"
+	"kubevirt.io/kubevirt/pkg/virt-handler/device-manager/deviceplugin/v1beta1"
 	virt_chroot "kubevirt.io/kubevirt/pkg/virt-handler/virt-chroot"
 )
 
@@ -195,4 +199,68 @@ func initHandler() {
 	if Handler == nil {
 		Handler = &DeviceUtilsHandler{}
 	}
+}
+
+func waitForGRPCServer(socketPath string, timeout time.Duration) error {
+	conn, err := gRPCConnect(socketPath, timeout)
+	if err != nil {
+		return err
+	}
+	conn.Close()
+	return nil
+}
+
+// dial establishes the gRPC communication with the registered device plugin.
+func gRPCConnect(socketPath string, timeout time.Duration) (*grpc.ClientConn, error) {
+	c, err := grpc.Dial(socketPath,
+		grpc.WithInsecure(),
+		grpc.WithBlock(),
+		grpc.WithTimeout(timeout),
+		grpc.WithDialer(func(addr string, timeout time.Duration) (net.Conn, error) {
+			return net.DialTimeout("unix", addr, timeout)
+		}),
+	)
+
+	if err != nil {
+		return nil, err
+	}
+
+	return c, nil
+}
+
+func SocketPath(deviceName string) string {
+	return filepath.Join(v1beta1.DevicePluginPath, fmt.Sprintf("kubevirt-%s.sock", deviceName))
+}
+
+func IsChanClosed(ch <-chan struct{}) bool {
+	select {
+	case <-ch:
+		return true
+	default:
+	}
+
+	return false
+}
+
+func formatVFIODeviceSpecs(devID string) []*v1beta1.DeviceSpec {
+	// always add /dev/vfio/vfio device as well
+	devSpecs := make([]*v1beta1.DeviceSpec, 0)
+	devSpecs = append(devSpecs, &v1beta1.DeviceSpec{
+		HostPath:      vfioMount,
+		ContainerPath: vfioMount,
+		Permissions:   "mrw",
+	})
+
+	vfioDevice := filepath.Join(vfioDevicePath, devID)
+	devSpecs = append(devSpecs, &v1beta1.DeviceSpec{
+		HostPath:      vfioDevice,
+		ContainerPath: vfioDevice,
+		Permissions:   "mrw",
+	})
+	return devSpecs
+}
+
+type deviceHealth struct {
+	DevId  string
+	Health string
 }

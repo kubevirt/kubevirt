@@ -1,178 +1,172 @@
-/*
- * This file is part of the KubeVirt project
- *
- * Licensed under the Apache License, Version 2.0 (the "License");
- * you may not use this file except in compliance with the License.
- * You may obtain a copy of the License at
- *
- *     http://www.apache.org/licenses/LICENSE-2.0
- *
- * Unless required by applicable law or agreed to in writing, software
- * distributed under the License is distributed on an "AS IS" BASIS,
- * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
- * See the License for the specific language governing permissions and
- * limitations under the License.
- *
- * Copyright 2021
- *
- */
-
 package cgroup
 
 import (
-	"fmt"
-	"io/ioutil"
-	"os"
-	"path/filepath"
-	"strings"
-
+	"github.com/golang/mock/gomock"
 	. "github.com/onsi/ginkgo"
+	"github.com/onsi/ginkgo/extensions/table"
 	. "github.com/onsi/gomega"
+	runc_cgroups "github.com/opencontainers/runc/libcontainer/cgroups"
+	runc_configs "github.com/opencontainers/runc/libcontainer/configs"
+	"github.com/opencontainers/runc/libcontainer/devices"
 )
 
-type ProcCgroupData struct {
-	id         int
-	controller string
-	slice      string
-}
+var _ = Describe("cgroup manager", func() {
 
-var _ = Describe("Cgroup", func() {
 	var (
-		cgroupFS      string
-		procFS        string
-		procCgroupFmt string
+		ctrl *gomock.Controller
 	)
 
-	mockCgroupFS := func() (baseDir string) {
-		baseDir, err := ioutil.TempDir("", "cgroupfs-*")
-		Expect(err).ToNot(HaveOccurred())
-		return
+	newMockManager := func(version CgroupVersion) (*mockManager, error) {
+		return newMockManagerFromCtrl(ctrl, version)
 	}
 
-	mockProcFS := func() (baseDir string, pidCgroupFmt string) {
-		baseDir, err := ioutil.TempDir("", "procfs-*")
-		Expect(err).ToNot(HaveOccurred())
-		pidFmt := filepath.Join(baseDir, "%d")
-		err = os.MkdirAll(fmt.Sprintf(pidFmt, os.Getpid()), os.ModePerm)
-		Expect(err).ToNot(HaveOccurred())
-		pidCgroupFmt = filepath.Join(pidFmt, "cgroup")
-		return
-	}
-
-	prepareProcCgroupData := func(pidCgroupFmt string, data []ProcCgroupData) {
-		f, err := os.Create(fmt.Sprintf(pidCgroupFmt, os.Getpid()))
-		Expect(err).ToNot(HaveOccurred())
-		defer f.Close()
-		for _, d := range data {
-			_, err := fmt.Fprintf(f, "%d:%s:%s\n", d.id, d.controller, d.slice)
-			Expect(err).ToNot(HaveOccurred())
+	newResourcesWithRule := func(rule *devices.Rule) *runc_configs.Resources {
+		return &runc_configs.Resources{
+			Devices: []*devices.Rule{
+				rule,
+			},
 		}
+	}
+
+	newDeviceRule := func(UID int64) *devices.Rule {
+		return &devices.Rule{
+			Type:        'z',
+			Major:       UID,
+			Minor:       UID,
+			Permissions: "fakePermissions",
+			Allow:       true,
+		}
+	}
+
+	areRulesEqual := func(rule1, rule2 *devices.Rule) bool {
+		if rule1 == nil && rule2 == nil {
+			return true
+		}
+
+		if rule1 == nil || rule2 == nil {
+			return false
+		}
+
+		return rule1.Allow == rule2.Allow && rule1.Major == rule2.Major && rule1.Minor == rule2.Minor &&
+			rule1.Type == rule2.Type && rule1.Permissions == rule2.Permissions
+	}
+
+	isRulesInRuleList := func(rule *devices.Rule, ruleList []*devices.Rule) bool {
+		for _, ruleInList := range ruleList {
+			if areRulesEqual(rule, ruleInList) {
+				return true
+			}
+		}
+		return false
 	}
 
 	BeforeEach(func() {
-		cgroupFS = mockCgroupFS()
-		procFS, procCgroupFmt = mockProcFS()
+		ctrl = gomock.NewController(GinkgoT())
 	})
 
-	AfterEach(func() {
-		err := os.RemoveAll(cgroupFS)
-		Expect(err).ToNot(HaveOccurred())
-		err = os.RemoveAll(procFS)
-		Expect(err).ToNot(HaveOccurred())
-	})
+	table.DescribeTable("ensure that default rules are added", func(version CgroupVersion) {
+		manager, err := newMockManager(version)
+		Expect(err).ShouldNot(HaveOccurred())
 
-	It("Should return an error if there is no cgroup data in procfs", func() {
-		_, err := newParser(true, procFS, cgroupFS).Parse(os.Getpid())
-		Expect(err).To(HaveOccurred())
-		_, err = newParser(false, procFS, cgroupFS).Parse(os.Getpid())
-		Expect(err).To(HaveOccurred())
-	})
+		fakeRule := newDeviceRule(123)
 
-	Context("With Control Group v1", func() {
-		const isCgroup2UnifiedMode = false
+		err = manager.Set(newResourcesWithRule(fakeRule))
+		Expect(err).ShouldNot(HaveOccurred())
 
-		var (
-			procCgroupV1Data = []ProcCgroupData{
-				{12, "devices", "/kubepods.slice/kubepods-burstable.slice/kubepods-burstable-podf02d4bde_4ff6_4e62_8069_65daed637113.slice/docker-ad2bc8dce287c58d4d5d1e83566dbe93c5f2a6a0bb95cb87f150185abf5e3a28.scope"},
-				{11, "rdma", "/"},
-				{10, "memory", "/kubepods.slice/kubepods-burstable.slice/kubepods-burstable-podf02d4bde_4ff6_4e62_8069_65daed637113.slice/docker-ad2bc8dce287c58d4d5d1e83566dbe93c5f2a6a0bb95cb87f150185abf5e3a28.scope"},
-				{9, "cpu,cpuacct", "/kubepods.slice/kubepods-burstable.slice/kubepods-burstable-podf02d4bde_4ff6_4e62_8069_65daed637113.slice/docker-ad2bc8dce287c58d4d5d1e83566dbe93c5f2a6a0bb95cb87f150185abf5e3a28.scope"},
-				{8, "freezer", "/kubepods.slice/kubepods-burstable.slice/kubepods-burstable-podf02d4bde_4ff6_4e62_8069_65daed637113.slice/docker-ad2bc8dce287c58d4d5d1e83566dbe93c5f2a6a0bb95cb87f150185abf5e3a28.scope"},
-				{7, "perf_event", "/kubepods.slice/kubepods-burstable.slice/kubepods-burstable-podf02d4bde_4ff6_4e62_8069_65daed637113.slice/docker-ad2bc8dce287c58d4d5d1e83566dbe93c5f2a6a0bb95cb87f150185abf5e3a28.scope"},
-				{6, "net_cls,net_prio", "/kubepods.slice/kubepods-burstable.slice/kubepods-burstable-podf02d4bde_4ff6_4e62_8069_65daed637113.slice/docker-ad2bc8dce287c58d4d5d1e83566dbe93c5f2a6a0bb95cb87f150185abf5e3a28.scope"},
-				{5, "pids", "/kubepods.slice/kubepods-burstable.slice/kubepods-burstable-podf02d4bde_4ff6_4e62_8069_65daed637113.slice/docker-ad2bc8dce287c58d4d5d1e83566dbe93c5f2a6a0bb95cb87f150185abf5e3a28.scope"},
-				{4, "blkio", "/kubepods.slice/kubepods-burstable.slice/kubepods-burstable-podf02d4bde_4ff6_4e62_8069_65daed637113.slice/docker-ad2bc8dce287c58d4d5d1e83566dbe93c5f2a6a0bb95cb87f150185abf5e3a28.scope"},
-				{3, "hugetlb", "/kubepods.slice/kubepods-burstable.slice/kubepods-burstable-podf02d4bde_4ff6_4e62_8069_65daed637113.slice/docker-ad2bc8dce287c58d4d5d1e83566dbe93c5f2a6a0bb95cb87f150185abf5e3a28.scope"},
-				{2, "cpuset", "/kubepods.slice/kubepods-burstable.slice/kubepods-burstable-podf02d4bde_4ff6_4e62_8069_65daed637113.slice/docker-ad2bc8dce287c58d4d5d1e83566dbe93c5f2a6a0bb95cb87f150185abf5e3a28.scope"},
-				{1, "name=systemd", "/kubepods.slice/kubepods-burstable.slice/kubepods-burstable-podf02d4bde_4ff6_4e62_8069_65daed637113.slice/docker-ad2bc8dce287c58d4d5d1e83566dbe93c5f2a6a0bb95cb87f150185abf5e3a28.scope"},
-				{0, "", "/"},
-			}
-		)
+		Expect(isRulesInRuleList(fakeRule, manager.rulesDefined)).To(BeTrue(), "defined rule is expected to exist")
 
-		prepareCgroupData := func(cgroupPath, slice string) {
-			path := filepath.Join(cgroupPath, "devices", slice)
-			err := os.MkdirAll(path, os.ModePerm)
-			Expect(err).ToNot(HaveOccurred())
+		for _, defaultRule := range GenerateDefaultDeviceRules() {
+			Expect(isRulesInRuleList(defaultRule, manager.rulesDefined)).To(BeTrue(), "default rules are expected to be defined")
 		}
 
-		BeforeEach(func() {
-			prepareProcCgroupData(procCgroupFmt, procCgroupV1Data)
-			prepareCgroupData(cgroupFS, procCgroupV1Data[0].slice)
-		})
+	},
+		table.Entry("for v1", V1),
+		table.Entry("for v2", V2),
+	)
 
-		It("Should parse the cgroup data from procfs", func() {
-			data, err := newParser(isCgroup2UnifiedMode, procFS, cgroupFS).Parse(os.Getpid())
-			Expect(err).ToNot(HaveOccurred())
-			Expect(len(data)).To(Equal(len(procCgroupV1Data) + 2)) // +2 for cpu,cpuacct and net_cls,net_prio
-			for _, d := range procCgroupV1Data {
-				for _, c := range strings.Split(d.controller, ",") {
-					slice, ok := data[c]
-					Expect(ok).To(BeTrue())
-					Expect(slice).To(Equal(d.slice))
-				}
-			}
-		})
-	})
+	table.DescribeTable("ensure that past rules are not overridden", func(version CgroupVersion) {
+		manager, err := newMockManager(version)
+		Expect(err).ShouldNot(HaveOccurred())
 
-	Context("With Control Group v2", func() {
-		const isCgroup2UnifiedMode = true
+		fakeRule1 := newDeviceRule(123)
+		fakeRule2 := newDeviceRule(456)
 
-		var (
-			procCgroupV2Data = []ProcCgroupData{
-				{0, "", "/kubepods.slice/kubepods-burstable.slice/kubepods-burstable-podcb9f952b_8903_4be9_b3ab_e6c3e19b2750.slice/crio-17b7313ee71796c899c44001d64d9635922a661c98317a2e757cfd8da4334613.scope"},
-			}
+		err = manager.Set(newResourcesWithRule(fakeRule1))
+		Expect(err).ShouldNot(HaveOccurred())
 
-			availableControllers = []string{"cpuset", "cpu", "io", "memory", "hugetlb", "pids", "rdma"}
-			pseudoControllers    = []string{"freezer", "devices"}
-		)
+		err = manager.Set(newResourcesWithRule(fakeRule2))
+		Expect(err).ShouldNot(HaveOccurred())
 
-		prepareCgroupData := func(cgroupPath, slice string, controllers []string) {
-			path := filepath.Join(cgroupPath, slice)
-			err := os.MkdirAll(path, os.ModePerm)
-			Expect(err).ToNot(HaveOccurred())
-			f, err := os.Create(filepath.Join(path, "cgroup.controllers"))
-			Expect(err).ToNot(HaveOccurred())
-			defer f.Close()
-			f.WriteString(strings.Join(controllers, " "))
-		}
+		previousRuleExists := isRulesInRuleList(fakeRule1, manager.rulesDefined)
+		Expect(previousRuleExists).To(BeTrue(), "previous rule is expected to not be overridden")
 
-		BeforeEach(func() {
-			prepareProcCgroupData(procCgroupFmt, procCgroupV2Data)
-			prepareCgroupData(cgroupFS, procCgroupV2Data[0].slice, availableControllers)
-		})
+	},
+		table.Entry("for v1", V1),
+		table.Entry("for v2", V2),
+	)
 
-		It("Should parse the cgroup data from procfs", func() {
-			var allControllers []string
-			allControllers = append(allControllers, availableControllers...)
-			allControllers = append(allControllers, pseudoControllers...)
-			data, err := newParser(isCgroup2UnifiedMode, procFS, cgroupFS).Parse(os.Getpid())
-			Expect(err).ToNot(HaveOccurred())
-			Expect(len(data)).To(Equal(len(allControllers)))
-			for _, c := range allControllers {
-				slice, ok := data[c]
-				Expect(ok).To(BeTrue())
-				Expect(slice).To(Equal(procCgroupV2Data[0].slice))
-			}
-		})
-	})
+	table.DescribeTable("ensure that past rules are overridden if explicitly set", func(version CgroupVersion) {
+		manager, err := newMockManager(version)
+		Expect(err).ShouldNot(HaveOccurred())
+
+		fakeRule := newDeviceRule(123)
+		fakeRule.Permissions = "fake-permissions-123"
+
+		err = manager.Set(newResourcesWithRule(fakeRule))
+		Expect(err).ShouldNot(HaveOccurred())
+		Expect(isRulesInRuleList(fakeRule, manager.rulesDefined)).To(BeTrue(), "defined rule is expected to exist")
+
+		fakeRule.Permissions = "fake-permissions-456"
+		Expect(isRulesInRuleList(fakeRule, manager.rulesDefined)).To(BeTrue(), "rule needs to be overridden since explicitly re-set")
+
+	},
+		table.Entry("for v1", V1),
+		table.Entry("for v2", V2),
+	)
+
 })
+
+type mockManager struct {
+	*MockManager
+	rulesDefined []*devices.Rule
+	realManager  *Manager
+}
+
+func newMockManagerFromCtrl(ctrl *gomock.Controller, version CgroupVersion) (*mockManager, error) {
+	mockCgroupManager := NewMockManager(ctrl)
+
+	mockV1 := &mockManager{ //ihol3 change name
+		mockCgroupManager,
+		make([]*devices.Rule, 0),
+		nil,
+	}
+
+	execVirtChrootFunc := func(r *runc_configs.Resources, pid int, subsystemPaths map[string]string, rootless bool, version CgroupVersion) error {
+		mockV1.rulesDefined = r.Devices
+		return nil
+	}
+	getCurrentlyDefinedRulesFunc := func(runcManager runc_cgroups.Manager) ([]*devices.Rule, error) {
+		return mockV1.rulesDefined, nil
+	}
+
+	var realManager Manager
+	var err error
+
+	if version == V1 {
+		realManager, err = newCustomizedV1Manager(&runc_configs.Cgroup{}, nil, false, 123, execVirtChrootFunc, getCurrentlyDefinedRulesFunc)
+	} else {
+		realManager, err = newCustomizedV2Manager(&runc_configs.Cgroup{}, "fake/dir/path", false, 123, execVirtChrootFunc)
+	}
+
+	if err != nil {
+		return mockV1, err
+	}
+	mockV1.realManager = &realManager
+
+	mockCgroupManager.EXPECT().Set(gomock.Any()).DoAndReturn(realManager.Set).AnyTimes()
+	mockCgroupManager.EXPECT().GetBasePathToHostSubsystem(gomock.Any()).DoAndReturn(realManager.GetBasePathToHostSubsystem).AnyTimes()
+	mockCgroupManager.EXPECT().GetCgroupVersion().DoAndReturn(realManager.GetCgroupVersion).AnyTimes()
+	mockCgroupManager.EXPECT().GetCpuSet().DoAndReturn(realManager.GetCpuSet).AnyTimes()
+
+	return mockV1, nil
+}

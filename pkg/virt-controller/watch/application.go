@@ -102,8 +102,8 @@ const (
 )
 
 var (
-	containerDiskDir = filepath.Join(util.VirtShareDir, "/container-disks")
-	hotplugDiskDir   = filepath.Join(util.VirtShareDir, "/hotplug-disks")
+	containerDiskDir = filepath.Join(util.VirtShareDir, "container-disks")
+	hotplugDiskDir   = filepath.Join(util.VirtShareDir, "hotplug-disks")
 
 	leaderGauge = prometheus.NewGauge(
 		prometheus.GaugeOpts{
@@ -447,7 +447,7 @@ func (vca *VirtControllerApp) onStartedLeading() func(ctx context.Context) {
 			vca.vmControllerThreads, vca.migrationControllerThreads, vca.evacuationControllerThreads,
 			vca.disruptionBudgetControllerThreads)
 
-		vmiprom.SetupVMICollector(vca.vmiInformer)
+		vmiprom.SetupVMICollector(vca.vmiInformer, vca.clusterConfig)
 		perfscale.RegisterPerfScaleMetrics(vca.vmiInformer)
 
 		go vca.evacuationController.Run(vca.evacuationControllerThreads, stop)
@@ -483,7 +483,7 @@ func (vca *VirtControllerApp) initCommon() {
 		golog.Fatal(err)
 	}
 
-	containerdisk.SetLocalDirectory(vca.ephemeralDiskDir + "/container-disk-data")
+	containerdisk.SetLocalDirectory(filepath.Join(vca.ephemeralDiskDir, "container-disk-data"))
 	vca.templateService = services.NewTemplateService(vca.launcherImage,
 		vca.launcherQemuTimeout,
 		vca.virtShareDir,
@@ -544,6 +544,7 @@ func (vca *VirtControllerApp) initPool() {
 		vca.vmiInformer,
 		vca.vmInformer,
 		vca.poolInformer,
+		vca.controllerRevisionInformer,
 		recorder,
 		controller.BurstReplicas)
 }
@@ -571,6 +572,7 @@ func (vca *VirtControllerApp) initDisruptionBudgetController() {
 		vca.migrationInformer,
 		recorder,
 		vca.clientSet,
+		vca.clusterConfig,
 	)
 
 }
