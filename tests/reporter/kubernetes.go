@@ -439,7 +439,7 @@ func (r *KubernetesReporter) logVirtLauncherPrivilegedCommands(virtCli kubecli.K
 		if virtHandlerPod, ok := nodeMap[virtLauncherPod.Spec.NodeName]; ok {
 			labels := virtLauncherPod.GetLabels()
 			if uid, ok := labels["kubevirt.io/created-by"]; ok {
-				pid, err := getVirtLauncherPID(virtCli, &virtHandlerPod, uid)
+				pid, err := getVirtLauncherMonitorPID(virtCli, &virtHandlerPod, uid)
 				if err != nil {
 					continue
 				}
@@ -1217,11 +1217,11 @@ func (r *KubernetesReporter) executeCloudInitCommands(vmi v12.VirtualMachineInst
 	}
 }
 
-func getVirtLauncherPID(virtCli kubecli.KubevirtClient, virtHandlerPod *v1.Pod, uid string) (string, error) {
+func getVirtLauncherMonitorPID(virtCli kubecli.KubevirtClient, virtHandlerPod *v1.Pod, uid string) (string, error) {
 	command := []string{
 		"/bin/bash",
 		"-c",
-		fmt.Sprintf("pgrep -f \"uid %s.*no-fork\"", uid),
+		fmt.Sprintf("pgrep -f \"monitor.*uid %s\"", uid),
 	}
 
 	stdout, stderr, err := tests.ExecuteCommandOnPodV2(virtCli, virtHandlerPod, virtHandlerName, command)
