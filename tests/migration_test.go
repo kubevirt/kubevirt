@@ -2724,8 +2724,8 @@ var _ = Describe("[rfe_id:393][crit:high][vendor:cnv-qe@redhat.com][level:system
 					By("Restore node to its original state")
 					node.Labels = originalNodeLabels
 					node.Annotations = originalNodeAnnotations
-					node, err = virtClient.CoreV1().Nodes().Update(context.Background(), node, metav1.UpdateOptions{})
-					Expect(err).ShouldNot(HaveOccurred())
+					err = libnode.PatchNodeLabels(virtClient, node)
+					Expect(err).ToNot(HaveOccurred())
 
 					Eventually(func() map[string]string {
 						node, err = virtClient.CoreV1().Nodes().Get(context.Background(), node.Name, metav1.GetOptions{})
@@ -2746,8 +2746,8 @@ var _ = Describe("[rfe_id:393][crit:high][vendor:cnv-qe@redhat.com][level:system
 					}
 					node.Labels[v1.HostModelCPULabel+"fake-model"] = "true"
 
-					node, err = virtClient.CoreV1().Nodes().Update(context.Background(), node, metav1.UpdateOptions{})
-					Expect(err).ShouldNot(HaveOccurred())
+					err = libnode.PatchNodeLabels(virtClient, node)
+					Expect(err).ToNot(HaveOccurred())
 
 					Eventually(func() bool {
 						node, err = virtClient.CoreV1().Nodes().Get(context.Background(), node.Name, metav1.GetOptions{})

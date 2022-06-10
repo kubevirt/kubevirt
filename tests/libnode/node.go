@@ -24,6 +24,8 @@ import (
 	"encoding/json"
 	"strings"
 
+	utiltype "kubevirt.io/kubevirt/pkg/util/types"
+
 	"kubevirt.io/kubevirt/pkg/util/nodes"
 
 	. "github.com/onsi/gomega"
@@ -258,4 +260,24 @@ func GetArch() string {
 	nodes := GetAllSchedulableNodes(virtCli).Items
 	Expect(nodes).ToNot(BeEmpty(), "There should be some node")
 	return nodes[0].Status.NodeInfo.Architecture
+}
+
+func PatchNodeLabels(virtClient kubecli.KubevirtClient, node *k8sv1.Node) error {
+	p := make([]utiltype.PatchOperation, 0)
+	p = append(p, utiltype.PatchOperation{
+		Op:    "replace",
+		Path:  "/metadata/labels",
+		Value: node.Labels,
+	})
+
+	payloadBytes, err := json.Marshal(p)
+	if err != nil {
+		return err
+	}
+	_, err = virtClient.CoreV1().Nodes().Patch(context.Background(), node.Name, types.JSONPatchType, payloadBytes, k8smetav1.PatchOptions{})
+	if err != nil {
+		return err
+	}
+
+	return nil
 }
