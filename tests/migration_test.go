@@ -2485,11 +2485,16 @@ var _ = Describe("[rfe_id:393][crit:high][vendor:cnv-qe@redhat.com][level:system
 										continue
 									}
 									// Wait for the iso to be created
-									Eventually(func() string {
+									Eventually(func() error {
 										output, err := tests.RunCommandOnVmiTargetPod(vmi, []string{"/bin/bash", "-c", "[[ -f " + volPath + " ]] && echo found || true"})
-										Expect(err).ToNot(HaveOccurred())
-										return output
-									}, 30*time.Second, time.Second).Should(ContainSubstring("found"), volPath+" never appeared")
+										if err != nil {
+											return err
+										}
+										if !strings.Contains(output, "found") {
+											return fmt.Errorf("%s never appeared", volPath)
+										}
+										return nil
+									}, 30*time.Second, time.Second).Should(Not(HaveOccurred()))
 									output, err := tests.RunCommandOnVmiTargetPod(vmi, []string{"/bin/bash", "-c", "/usr/bin/stat --printf=%s " + volPath})
 									Expect(err).ToNot(HaveOccurred())
 									Expect(strconv.Atoi(output)).To(Equal(int(volStatus.Size)), "ISO file for volume %s is not the right size", volume.Name)
