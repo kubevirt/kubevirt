@@ -251,7 +251,7 @@ var _ = SIGDescribe("Memory dump", func() {
 			virtClient,
 			executorPod,
 			executorPod.Spec.Containers[0].Name,
-			[]string{"/bin/sh", "-c", fmt.Sprintf("ls -1 %s", tests.DefaultPvcMountPath)},
+			[]string{"/bin/sh", "-c", fmt.Sprintf("ls -1 %s", libstorage.DefaultPvcMountPath)},
 		)
 		lsOutput = strings.TrimSpace(lsOutput)
 		log.Log.Infof("%s", lsOutput)
@@ -260,7 +260,7 @@ var _ = SIGDescribe("Memory dump", func() {
 			virtClient,
 			executorPod,
 			executorPod.Spec.Containers[0].Name,
-			[]string{"/bin/sh", "-c", fmt.Sprintf("ls -1 %s | wc -l", tests.DefaultPvcMountPath)},
+			[]string{"/bin/sh", "-c", fmt.Sprintf("ls -1 %s | wc -l", libstorage.DefaultPvcMountPath)},
 		)
 		wcOutput = strings.TrimSpace(wcOutput)
 		log.Log.Infof("%s", wcOutput)

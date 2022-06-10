@@ -106,7 +106,6 @@ import (
 const (
 	KubernetesIoHostName         = "kubernetes.io/hostname"
 	BinBash                      = "/bin/bash"
-	DefaultPvcMountPath          = "/pvc"
 	StartingVMInstance           = "Starting a VirtualMachineInstance"
 	WaitingVMInstanceStart       = "Waiting until the VirtualMachineInstance will start"
 	CouldNotFindComputeContainer = "could not find compute container for pod"
@@ -1898,52 +1897,6 @@ func RenderPod(name string, cmd []string, args []string) *k8sv1.Pod {
 	return &pod
 }
 
-func RenderPodWithPVC(name string, cmd []string, args []string, pvc *k8sv1.PersistentVolumeClaim) *k8sv1.Pod {
-	pod := RenderPod(name, cmd, args)
-
-	volumeName := "disk0"
-	pod.Spec.Volumes = []k8sv1.Volume{
-		{
-			Name: volumeName,
-			VolumeSource: k8sv1.VolumeSource{
-				PersistentVolumeClaim: &k8sv1.PersistentVolumeClaimVolumeSource{
-					ClaimName: pvc.GetName(),
-				},
-			},
-		},
-	}
-	volumeMode := pvc.Spec.VolumeMode
-	if volumeMode != nil && *volumeMode == k8sv1.PersistentVolumeBlock {
-		pod.Spec.Containers[0].VolumeDevices = addVolumeDevices(volumeName)
-	} else {
-		pod.Spec.Containers[0].VolumeMounts = addVolumeMounts(volumeName)
-	}
-
-	return pod
-}
-
-// this is being called for pods using PV with block volume mode
-func addVolumeDevices(volumeName string) []k8sv1.VolumeDevice {
-	volumeDevices := []k8sv1.VolumeDevice{
-		{
-			Name:       volumeName,
-			DevicePath: DefaultPvcMountPath,
-		},
-	}
-	return volumeDevices
-}
-
-// this is being called for pods using PV with filesystem volume mode
-func addVolumeMounts(volumeName string) []k8sv1.VolumeMount {
-	volumeMounts := []k8sv1.VolumeMount{
-		{
-			Name:      volumeName,
-			MountPath: DefaultPvcMountPath,
-		},
-	}
-	return volumeMounts
-}
-
 // CreateExecutorPodWithPVC creates a Pod with the passed in PVC mounted under /pvc. You can then use the executor utilities to
 // run commands against the PVC through this Pod.
 func CreateExecutorPodWithPVC(podName string, pvc *k8sv1.PersistentVolumeClaim) *k8sv1.Pod {
@@ -1951,7 +1904,7 @@ func CreateExecutorPodWithPVC(podName string, pvc *k8sv1.PersistentVolumeClaim) 
 }
 
 func newExecutorPodWithPVC(podName string, pvc *k8sv1.PersistentVolumeClaim) *k8sv1.Pod {
-	return RenderPodWithPVC(podName, []string{"/bin/bash", "-c", "while true; do echo hello; sleep 2;done"}, nil, pvc)
+	return libstorage.RenderPodWithPVC(podName, []string{"/bin/bash", "-c", "while true; do echo hello; sleep 2;done"}, nil, pvc)
 }
 
 func RunPod(pod *k8sv1.Pod) *k8sv1.Pod {
@@ -1981,10 +1934,10 @@ func RunPodAndExpectCompletion(pod *k8sv1.Pod) *k8sv1.Pod {
 }
 
 func ChangeImgFilePermissionsToNonQEMU(pvc *k8sv1.PersistentVolumeClaim) {
-	args := []string{fmt.Sprintf(`chmod 640 %s && chown root:root %s && sync`, filepath.Join(DefaultPvcMountPath, "disk.img"), filepath.Join(DefaultPvcMountPath, "disk.img"))}
+	args := []string{fmt.Sprintf(`chmod 640 %s && chown root:root %s && sync`, filepath.Join(libstorage.DefaultPvcMountPath, "disk.img"), filepath.Join(libstorage.DefaultPvcMountPath, "disk.img"))}
 
 	By("changing disk.img permissions to non qemu")
-	pod := RenderPodWithPVC("change-permissions-disk-img-pod", []string{"/bin/bash", "-c"}, args, pvc)
+	pod := libstorage.RenderPodWithPVC("change-permissions-disk-img-pod", []string{"/bin/bash", "-c"}, args, pvc)
 
 	RunPodAndExpectCompletion(pod)
 }
