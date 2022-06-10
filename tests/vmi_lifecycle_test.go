@@ -932,13 +932,13 @@ var _ = Describe("[rfe_id:273][crit:high][arm64][vendor:cnv-qe@redhat.com][level
 
 		Context("[Serial]with default cpu model", func() {
 			var originalConfig v1.KubeVirtConfiguration
-			var defaultCPUModel = "Nehalem"
-			var vmiCPUModel = "SandyBridge"
-
+			var supportedCpuModels []string
 			//store old kubevirt-config
 			BeforeEach(func() {
 				// arm64 does not support cpu model
 				checks.SkipIfARM64(testsuite.Arch, "arm64 does not support cpu model")
+				nodes := libnode.GetAllSchedulableNodes(virtClient)
+				supportedCpuModels = tests.GetSupportedCPUModels(*nodes)
 				kv := util.GetCurrentKv(virtClient)
 				originalConfig = kv.Spec.Configuration
 			})
@@ -949,7 +949,11 @@ var _ = Describe("[rfe_id:273][crit:high][arm64][vendor:cnv-qe@redhat.com][level
 			})
 
 			It("[test_id:3199]should set default cpu model when vmi doesn't have it set", func() {
+				if len(supportedCpuModels) < 1 {
+					Skip("Must have at least one supported cpuModel for this test")
+				}
 				config := originalConfig.DeepCopy()
+				defaultCPUModel := supportedCpuModels[0]
 				config.CPUModel = defaultCPUModel
 				tests.UpdateKubeVirtConfigValueAndWait(*config)
 
@@ -960,11 +964,16 @@ var _ = Describe("[rfe_id:273][crit:high][arm64][vendor:cnv-qe@redhat.com][level
 				tests.WaitForSuccessfulVMIStart(vmi)
 				curVMI, err := virtClient.VirtualMachineInstance(vmi.Namespace).Get(vmi.Name, &metav1.GetOptions{})
 				Expect(err).ToNot(HaveOccurred(), "Should get VMI")
-				Expect(curVMI.Spec.Domain.CPU.Model).To(Equal("Nehalem"), "Expected default CPU model")
+				Expect(curVMI.Spec.Domain.CPU.Model).To(Equal(defaultCPUModel), "Expected default CPU model")
 
 			})
 
 			It("[test_id:3200]should not set default cpu model when vmi has it set", func() {
+				if len(supportedCpuModels) < 2 {
+					Skip("Must have at least two supported cpuModels for this test")
+				}
+				defaultCPUModel := supportedCpuModels[0]
+				vmiCPUModel := supportedCpuModels[1]
 				config := originalConfig.DeepCopy()
 				config.CPUModel = defaultCPUModel
 				tests.UpdateKubeVirtConfigValueAndWait(*config)
@@ -995,6 +1004,43 @@ var _ = Describe("[rfe_id:273][crit:high][arm64][vendor:cnv-qe@redhat.com][level
 				Expect(curVMI.Spec.Domain.CPU.Model).To(Equal(v1.DefaultCPUModel),
 					fmt.Sprintf("Expected CPU model to equal to the default (%v)", v1.DefaultCPUModel),
 				)
+			})
+			It("should add node selector to virt-launcher when setting default cpuModel in kubevirtCR", func() {
+				if len(supportedCpuModels) < 1 {
+					Skip("Must have at least one supported cpuModel for this test")
+				}
+				defaultCPUModel := supportedCpuModels[0]
+				config := originalConfig.DeepCopy()
+				config.CPUModel = defaultCPUModel
+				tests.UpdateKubeVirtConfigValueAndWait(*config)
+
+				newVMI := newCirrosVMI()
+				newVMI = tests.RunVMIAndExpectLaunch(newVMI, 90)
+				By("Fetching virt-launcher pod")
+				virtLauncherPod := tests.GetRunningPodByVirtualMachineInstance(newVMI, newVMI.Namespace)
+				Expect(virtLauncherPod.Spec.NodeSelector).To(HaveKey(ContainSubstring(defaultCPUModel)), "Node selector for the cpuModel in vmi spec should appear in virt-launcher pod")
+
+			})
+
+			It("should prefer node selector of the vmi if cpuModel field is set in kubevirtCR and in the vmi", func() {
+				if len(supportedCpuModels) < 2 {
+					Skip("Must have at least one supported cpuModel for this test")
+				}
+				vmiCPUModel := supportedCpuModels[1]
+				defaultCPUModel := supportedCpuModels[0]
+				config := originalConfig.DeepCopy()
+				config.CPUModel = defaultCPUModel
+				tests.UpdateKubeVirtConfigValueAndWait(*config)
+
+				newVMI := newCirrosVMI()
+				newVMI.Spec.Domain.CPU = &v1.CPU{
+					Model: vmiCPUModel,
+				}
+				newVMI = tests.RunVMIAndExpectLaunch(newVMI, 90)
+				By("Fetching virt-launcher pod")
+				virtLauncherPod := tests.GetRunningPodByVirtualMachineInstance(newVMI, newVMI.Namespace)
+				Expect(virtLauncherPod.Spec.NodeSelector).To(HaveKey(ContainSubstring(vmiCPUModel)), "Node selector for the cpuModel in kubevirtCR should appear in virt-launcher pod")
+
 			})
 		})
 
@@ -1064,7 +1110,6 @@ var _ = Describe("[rfe_id:273][crit:high][arm64][vendor:cnv-qe@redhat.com][level
 
 				}
 
-				tests.EnableFeatureGate(virtconfig.CPUNodeDiscoveryGate)
 				tests.EnableFeatureGate(virtconfig.HypervStrictCheckGate)
 			})
 

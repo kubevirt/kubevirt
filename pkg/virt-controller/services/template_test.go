@@ -1133,8 +1133,7 @@ var _ = Describe("Template", func() {
 
 			It("should add node selector for node discovery feature to template", func() {
 				config, kvInformer, svc = configFactory(defaultArch)
-				enableFeatureGate(virtconfig.CPUNodeDiscoveryGate)
-
+				vmiCpuModel := "Conroe"
 				vmi := v1.VirtualMachineInstance{
 					ObjectMeta: metav1.ObjectMeta{
 						Name:      "testvmi",
@@ -1147,7 +1146,7 @@ var _ = Describe("Template", func() {
 								DisableHotplug: true,
 							},
 							CPU: &v1.CPU{
-								Model: "Conroe",
+								Model: vmiCpuModel,
 								Features: []v1.CPUFeature{
 									{
 										Name:   "lahf_lm",
@@ -1170,8 +1169,7 @@ var _ = Describe("Template", func() {
 				pod, err := svc.RenderLaunchManifest(&vmi)
 				Expect(err).ToNot(HaveOccurred())
 
-				cpuModelLabel, err := CPUModelLabelFromCPUModel(&vmi)
-				Expect(err).ToNot(HaveOccurred())
+				cpuModelLabel := NFD_CPU_MODEL_PREFIX + vmiCpuModel
 				Expect(pod.Spec.NodeSelector).Should(HaveKeyWithValue(cpuModelLabel, "true"))
 
 				cpuFeatureLabels := CPUFeatureLabelsFromCPUFeatures(&vmi)
