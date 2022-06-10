@@ -7,6 +7,7 @@ load("@bazel_tools//tools/build_defs/pkg:pkg.bzl", "pkg_tar")
 pkg_tar(
     name = "appliance_layer",
     srcs = ["@libguestfs-appliance//file"],
+    mode = "0444",
     package_dir = "/usr/local/lib/guestfs",
     visibility = ["//visibility:public"],
 )
