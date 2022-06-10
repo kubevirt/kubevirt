@@ -29,6 +29,7 @@ const (
 	partOfAlertLabelValue         = "kubevirt"
 	componentAlertLabelKey        = "kubernetes_operator_component"
 	componentAlertLabelValue      = "hyperconverged-cluster-operator"
+	infraAlertLabelKey            = "infra_alert"
 	ruleName                      = hcoutil.HyperConvergedName + "-prometheus-rule"
 )
 
@@ -134,6 +135,7 @@ func createOutOfBandUpdateAlertRule() monitoringv1.Rule {
 			severityAlertLabelKey:  "warning",
 			partOfAlertLabelKey:    partOfAlertLabelValue,
 			componentAlertLabelKey: componentAlertLabelValue,
+			infraAlertLabelKey:     "true",
 		},
 	}
 }
@@ -151,6 +153,7 @@ func createUnsafeModificationAlertRule() monitoringv1.Rule {
 			severityAlertLabelKey:  "info",
 			partOfAlertLabelKey:    partOfAlertLabelValue,
 			componentAlertLabelKey: componentAlertLabelValue,
+			infraAlertLabelKey:     "true",
 		},
 	}
 }
@@ -169,6 +172,7 @@ func createInstallationNotCompletedAlertRule() monitoringv1.Rule {
 			severityAlertLabelKey:  "info",
 			partOfAlertLabelKey:    partOfAlertLabelValue,
 			componentAlertLabelKey: componentAlertLabelValue,
+			infraAlertLabelKey:     "true",
 		},
 	}
 }
