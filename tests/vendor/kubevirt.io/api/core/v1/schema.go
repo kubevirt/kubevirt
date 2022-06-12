@@ -453,6 +453,9 @@ type Devices struct {
 	// Whether to emulate a sound device.
 	// +optional
 	Sound *SoundDevice `json:"sound,omitempty"`
+	// Whether to emulate a TPM device.
+	// +optional
+	TPM *TPMDevice `json:"tpm,omitempty"`
 }
 
 // Represent a subset of client devices that can be accessed by VMI. At the
@@ -480,6 +483,8 @@ type SoundDevice struct {
 	// +optional
 	Model string `json:"model,omitempty"`
 }
+
+type TPMDevice struct{}
 
 type Input struct {
 	// Bus indicates the bus of input device to emulate.
@@ -598,10 +603,18 @@ type DiskDevice struct {
 	CDRom *CDRomTarget `json:"cdrom,omitempty"`
 }
 
+type DiskBus string
+
+const (
+	DiskBusSCSI   DiskBus = "scsi"
+	DiskBusSATA   DiskBus = "sata"
+	DiskBusVirtio DiskBus = "virtio"
+)
+
 type DiskTarget struct {
 	// Bus indicates the type of disk device to emulate.
 	// supported values: virtio, sata, scsi.
-	Bus string `json:"bus,omitempty"`
+	Bus DiskBus `json:"bus,omitempty"`
 	// ReadOnly.
 	// Defaults to false.
 	ReadOnly bool `json:"readonly,omitempty"`
@@ -621,7 +634,7 @@ type SEV struct {
 type LunTarget struct {
 	// Bus indicates the type of disk device to emulate.
 	// supported values: virtio, sata, scsi.
-	Bus string `json:"bus,omitempty"`
+	Bus DiskBus `json:"bus,omitempty"`
 	// ReadOnly.
 	// Defaults to false.
 	ReadOnly bool `json:"readonly,omitempty"`
@@ -640,7 +653,7 @@ const (
 type CDRomTarget struct {
 	// Bus indicates the type of disk device to emulate.
 	// supported values: virtio, sata, scsi.
-	Bus string `json:"bus,omitempty"`
+	Bus DiskBus `json:"bus,omitempty"`
 	// ReadOnly.
 	// Defaults to true.
 	ReadOnly *bool `json:"readonly,omitempty"`
@@ -720,6 +733,8 @@ type VolumeSource struct {
 	// DownwardMetrics adds a very small disk to VMIs which contains a limited view of host and guest
 	// metrics. The disk content is compatible with vhostmd (https://github.com/vhostmd/vhostmd) and vm-dump-metrics.
 	DownwardMetrics *DownwardMetricsVolumeSource `json:"downwardMetrics,omitempty"`
+	// MemoryDump is attached to the virt launcher and is populated with a memory dump of the vmi
+	MemoryDump *MemoryDumpVolumeSource `json:"memoryDump,omitempty"`
 }
 
 // HotplugVolumeSource Represents the source of a volume to mount which are capable
@@ -753,6 +768,13 @@ type PersistentVolumeClaimVolumeSource struct {
 	// Hotpluggable indicates whether the volume can be hotplugged and hotunplugged.
 	// +optional
 	Hotpluggable bool `json:"hotpluggable,omitempty"`
+}
+
+type MemoryDumpVolumeSource struct {
+	// PersistentVolumeClaimVolumeSource represents a reference to a PersistentVolumeClaim in the same namespace.
+	// Directly attached to the virt launcher
+	// +optional
+	PersistentVolumeClaimVolumeSource `json:",inline"`
 }
 
 type EphemeralVolumeSource struct {

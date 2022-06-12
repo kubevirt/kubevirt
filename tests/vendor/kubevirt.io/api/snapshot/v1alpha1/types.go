@@ -198,10 +198,21 @@ type VirtualMachineSnapshotContentSpec struct {
 	VolumeBackups []VolumeBackup `json:"volumeBackups,omitempty"`
 }
 
+type VirtualMachine struct {
+	// +kubebuilder:pruning:PreserveUnknownFields
+	// +nullable
+	metav1.ObjectMeta `json:"metadata,omitempty"`
+	// VirtualMachineSpec contains the VirtualMachine specification.
+	Spec v1.VirtualMachineSpec `json:"spec,omitempty" valid:"required"`
+	// Status holds the current state of the controller and brief information
+	// about its associated VirtualMachineInstance
+	Status v1.VirtualMachineStatus `json:"status,omitempty"`
+}
+
 // SourceSpec contains the appropriate spec for the resource being snapshotted
 type SourceSpec struct {
 	// +optional
-	VirtualMachine *v1.VirtualMachine `json:"virtualMachine,omitempty"`
+	VirtualMachine *VirtualMachine `json:"virtualMachine,omitempty"`
 }
 
 type PersistentVolumeClaim struct {
@@ -286,6 +297,15 @@ type VirtualMachineRestoreSpec struct {
 	Target corev1.TypedLocalObjectReference `json:"target"`
 
 	VirtualMachineSnapshotName string `json:"virtualMachineSnapshotName"`
+
+	// If the target for the restore does not exist, it will be created. Patches holds JSON patches that would be
+	// applied to the target manifest before it's created. Patches should fit the target's Kind.
+	//
+	// Example for a patch: {"op": "replace", "path": "/metadata/name", "value": "new-vm-name"}
+	//
+	// +optional
+	// +listType=atomic
+	Patches []string `json:"patches,omitempty"`
 }
 
 // VirtualMachineRestoreStatus is the spec for a VirtualMachineRestoreresource

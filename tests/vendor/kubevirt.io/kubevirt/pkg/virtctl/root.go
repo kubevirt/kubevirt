@@ -6,9 +6,9 @@ import (
 	"path/filepath"
 	"strings"
 
-	"k8s.io/client-go/tools/clientcmd"
-
 	"github.com/spf13/cobra"
+
+	"k8s.io/client-go/tools/clientcmd"
 
 	"kubevirt.io/client-go/kubecli"
 	"kubevirt.io/client-go/log"
@@ -19,6 +19,7 @@ import (
 	"kubevirt.io/kubevirt/pkg/virtctl/imageupload"
 	"kubevirt.io/kubevirt/pkg/virtctl/pause"
 	"kubevirt.io/kubevirt/pkg/virtctl/portforward"
+	"kubevirt.io/kubevirt/pkg/virtctl/scp"
 	"kubevirt.io/kubevirt/pkg/virtctl/softreboot"
 	"kubevirt.io/kubevirt/pkg/virtctl/ssh"
 	"kubevirt.io/kubevirt/pkg/virtctl/templates"
@@ -79,6 +80,7 @@ func NewVirtctlCommand() (*cobra.Command, clientcmd.ClientConfig) {
 		console.NewCommand(clientConfig),
 		usbredir.NewCommand(clientConfig),
 		vnc.NewCommand(clientConfig),
+		scp.NewCommand(clientConfig),
 		ssh.NewCommand(clientConfig),
 		portforward.NewCommand(clientConfig),
 		vm.NewStartCommand(clientConfig),
@@ -91,6 +93,7 @@ func NewVirtctlCommand() (*cobra.Command, clientcmd.ClientConfig) {
 		vm.NewFSListCommand(clientConfig),
 		vm.NewAddVolumeCommand(clientConfig),
 		vm.NewRemoveVolumeCommand(clientConfig),
+		vm.NewMemoryDumpCommand(clientConfig),
 		pause.NewPauseCommand(clientConfig),
 		pause.NewUnpauseCommand(clientConfig),
 		softreboot.NewSoftRebootCommand(clientConfig),

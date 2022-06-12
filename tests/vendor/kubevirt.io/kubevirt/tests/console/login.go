@@ -13,7 +13,6 @@ import (
 	"kubevirt.io/client-go/kubecli"
 	"kubevirt.io/client-go/log"
 	"kubevirt.io/kubevirt/pkg/util/net/dns"
-	"kubevirt.io/kubevirt/tests/libnet/cluster"
 )
 
 // LoginToFunction represents any of the LoginTo* functions
@@ -51,7 +50,7 @@ func LoginToCirros(vmi *v1.VirtualMachineInstance) error {
 		&expect.BExp{R: "Password:"},
 		&expect.BSnd{S: "gocubsgo\n"},
 		&expect.BExp{R: PromptExpression}})
-	resp, err := expecter.ExpectBatch(b, 240*time.Second)
+	resp, err := expecter.ExpectBatch(b, 180*time.Second)
 
 	if err != nil {
 		log.DefaultLogger().Object(vmi).Infof("Login: %v", resp)
@@ -83,10 +82,12 @@ func LoginToAlpine(vmi *v1.VirtualMachineInstance) error {
 		return err
 	}
 
+	hostName := dns.SanitizeHostname(vmi)
+
 	// Do not login, if we already logged in
 	b := append([]expect.Batcher{
 		&expect.BSnd{S: "\n"},
-		&expect.BExp{R: "localhost:~\\# "},
+		&expect.BExp{R: fmt.Sprintf(`(localhost|%s):~\# `, hostName)},
 	})
 	_, err = expecter.ExpectBatch(b, 5*time.Second)
 	if err == nil {
@@ -95,24 +96,10 @@ func LoginToAlpine(vmi *v1.VirtualMachineInstance) error {
 
 	b = append([]expect.Batcher{
 		&expect.BSnd{S: "\n"},
-		&expect.BExp{R: "localhost login:"},
+		&expect.BExp{R: fmt.Sprintf(`(localhost|%s) login: `, hostName)},
 		&expect.BSnd{S: "root\n"},
 		&expect.BExp{R: PromptExpression}})
-
-	timeout := 180 * time.Second
-
-	clusterSupportsIpv4, err := cluster.SupportsIpv4(virtClient)
-	if err != nil {
-		return err
-	}
-	clusterSupportsIpv6, err := cluster.SupportsIpv6(virtClient)
-	if err != nil {
-		return err
-	}
-	if !clusterSupportsIpv4 && clusterSupportsIpv6 {
-		timeout = 240 * time.Second
-	}
-	res, err := expecter.ExpectBatch(b, timeout)
+	res, err := expecter.ExpectBatch(b, 180*time.Second)
 	if err != nil {
 		log.DefaultLogger().Object(vmi).Infof("Login: %v", res)
 		return err
@@ -146,7 +133,7 @@ func LoginToFedora(vmi *v1.VirtualMachineInstance) error {
 	// Do not login, if we already logged in
 	b := append([]expect.Batcher{
 		&expect.BSnd{S: "\n"},
-		&expect.BExp{R: fmt.Sprintf(`(\[fedora@(localhost|%s) ~\]\$ |\[root@(localhost|%s) fedora\]\# )`, vmi.Name, vmi.Name)},
+		&expect.BExp{R: fmt.Sprintf(`(\[fedora@(localhost|fedora|%s) ~\]\$ |\[root@(localhost|fedora|%s) fedora\]\# )`, vmi.Name, vmi.Name)},
 	})
 	_, err = expecter.ExpectBatch(b, 5*time.Second)
 	if err == nil {
@@ -160,7 +147,7 @@ func LoginToFedora(vmi *v1.VirtualMachineInstance) error {
 			&expect.Case{
 				// Using only "login: " would match things like "Last failed login: Tue Jun  9 22:25:30 UTC 2020 on ttyS0"
 				// and in case the VM's did not get hostname form DHCP server try the default hostname
-				R:  regexp.MustCompile(fmt.Sprintf(`(localhost|%s) login: `, vmi.Name)),
+				R:  regexp.MustCompile(fmt.Sprintf(`(localhost|fedora|%s) login: `, vmi.Name)),
 				S:  "fedora\n",
 				T:  expect.Next(),
 				Rt: 10,
@@ -177,7 +164,7 @@ func LoginToFedora(vmi *v1.VirtualMachineInstance) error {
 				Rt: 10,
 			},
 			&expect.Case{
-				R: regexp.MustCompile(fmt.Sprintf(`\[fedora@(localhost|%s) ~\]\$ `, vmi.Name)),
+				R: regexp.MustCompile(fmt.Sprintf(`\[fedora@(localhost|fedora|%s) ~\]\$ `, vmi.Name)),
 				T: expect.OK(),
 			},
 		}},

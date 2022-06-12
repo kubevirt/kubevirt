@@ -531,7 +531,7 @@ func NewVirtualMachineFlavorCrd() (*extv1.CustomResourceDefinition, error) {
 		Names: extv1.CustomResourceDefinitionNames{
 			Plural:     flavor.PluralResourceName,
 			Singular:   flavor.SingularResourceName,
-			ShortNames: []string{"vmflavor", "vmflavors"},
+			ShortNames: []string{"vmflavor", "vmflavors", "vmf", "vmfs"},
 			Kind:       "VirtualMachineFlavor",
 			Categories: []string{"all"},
 		},
@@ -558,8 +558,62 @@ func NewVirtualMachineClusterFlavorCrd() (*extv1.CustomResourceDefinition, error
 		Names: extv1.CustomResourceDefinitionNames{
 			Plural:     flavor.ClusterPluralResourceName,
 			Singular:   flavor.ClusterSingularResourceName,
-			ShortNames: []string{"vmclusterflavor", "vmclusterflavors"},
+			ShortNames: []string{"vmclusterflavor", "vmclusterflavors", "vmcf", "vmcfs"},
 			Kind:       "VirtualMachineClusterFlavor",
+			Categories: []string{"all"},
+		},
+		Scope: extv1.ClusterScoped,
+		Versions: []extv1.CustomResourceDefinitionVersion{{
+			Name:    flavorv1alpha1.SchemeGroupVersion.Version,
+			Served:  true,
+			Storage: true,
+		}},
+	}
+
+	if err := patchValidationForAllVersions(crd); err != nil {
+		return nil, err
+	}
+	return crd, nil
+}
+
+func NewVirtualMachinePreferenceCrd() (*extv1.CustomResourceDefinition, error) {
+	crd := newBlankCrd()
+
+	crd.Name = "virtualmachinepreferences." + flavorv1alpha1.SchemeGroupVersion.Group
+	crd.Spec = extv1.CustomResourceDefinitionSpec{
+		Group: flavorv1alpha1.SchemeGroupVersion.Group,
+		Names: extv1.CustomResourceDefinitionNames{
+			Plural:     flavor.PluralPreferenceResourceName,
+			Singular:   flavor.SingularPreferenceResourceName,
+			ShortNames: []string{"vmpref", "vmprefs", "vmp", "vmps"},
+			Kind:       "VirtualMachinePreference",
+			Categories: []string{"all"},
+		},
+		Scope: extv1.NamespaceScoped,
+		Versions: []extv1.CustomResourceDefinitionVersion{{
+			Name:    flavorv1alpha1.SchemeGroupVersion.Version,
+			Served:  true,
+			Storage: true,
+		}},
+	}
+
+	if err := patchValidationForAllVersions(crd); err != nil {
+		return nil, err
+	}
+	return crd, nil
+}
+
+func NewVirtualMachineClusterPreferenceCrd() (*extv1.CustomResourceDefinition, error) {
+	crd := newBlankCrd()
+
+	crd.Name = "virtualmachineclusterpreferences." + flavorv1alpha1.SchemeGroupVersion.Group
+	crd.Spec = extv1.CustomResourceDefinitionSpec{
+		Group: flavorv1alpha1.SchemeGroupVersion.Group,
+		Names: extv1.CustomResourceDefinitionNames{
+			Plural:     flavor.ClusterPluralPreferenceResourceName,
+			Singular:   flavor.ClusterSingularPreferenceResourceName,
+			ShortNames: []string{"vmcp", "vmcps"},
+			Kind:       "VirtualMachineClusterPreference",
 			Categories: []string{"all"},
 		},
 		Scope: extv1.ClusterScoped,

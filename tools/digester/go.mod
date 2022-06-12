@@ -51,3 +51,9 @@ require (
 
 // FIX: Improper Input Validation in GoGo Protobuf
 replace github.com/gogo/protobuf => github.com/gogo/protobuf v1.3.2
+
+// FIX: Default inheritable capabilities for linux container should be empty
+replace github.com/opencontainers/runc => github.com/opencontainers/runc v1.1.2
+
+// FIX: Unhandled exception in gopkg.in/yaml.v3
+replace gopkg.in/yaml.v3 => gopkg.in/yaml.v3 v3.0.1

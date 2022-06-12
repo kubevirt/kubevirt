@@ -16,8 +16,8 @@ github.com/blang/semver
 # github.com/cespare/xxhash/v2 v2.1.2
 ## explicit; go 1.11
 github.com/cespare/xxhash/v2
-# github.com/cilium/ebpf v0.6.2
-## explicit; go 1.15
+# github.com/cilium/ebpf v0.7.0
+## explicit; go 1.16
 github.com/cilium/ebpf
 github.com/cilium/ebpf/asm
 github.com/cilium/ebpf/internal
@@ -31,15 +31,15 @@ github.com/coreos/go-systemd/v22/dbus
 ## explicit; go 1.13
 github.com/coreos/prometheus-operator/pkg/apis/monitoring
 github.com/coreos/prometheus-operator/pkg/apis/monitoring/v1
-# github.com/cyphar/filepath-securejoin v0.2.2
-## explicit
+# github.com/cyphar/filepath-securejoin v0.2.3
+## explicit; go 1.13
 github.com/cyphar/filepath-securejoin
 # github.com/davecgh/go-spew v1.1.1
 ## explicit
 github.com/davecgh/go-spew/spew
 # github.com/elazarl/goproxy v0.0.0-20190911111923-ecfe977594f1
 ## explicit
-# github.com/emicklei/go-restful v2.10.0+incompatible
+# github.com/emicklei/go-restful v2.15.0+incompatible
 ## explicit
 github.com/emicklei/go-restful
 github.com/emicklei/go-restful/log
@@ -52,7 +52,7 @@ github.com/go-kit/kit/log
 # github.com/go-logfmt/logfmt v0.5.1
 ## explicit; go 1.17
 github.com/go-logfmt/logfmt
-# github.com/go-logr/logr v1.2.2
+# github.com/go-logr/logr v1.2.3
 ## explicit; go 1.16
 github.com/go-logr/logr
 # github.com/go-openapi/jsonpointer v0.19.5
@@ -67,7 +67,7 @@ github.com/go-openapi/spec
 # github.com/go-openapi/swag v0.21.1
 ## explicit; go 1.11
 github.com/go-openapi/swag
-# github.com/godbus/dbus/v5 v5.0.4
+# github.com/godbus/dbus/v5 v5.0.6
 ## explicit; go 1.12
 github.com/godbus/dbus/v5
 # github.com/gogo/protobuf v1.3.2
@@ -146,9 +146,9 @@ github.com/json-iterator/go
 ## explicit; go 1.12
 github.com/k8snetworkplumbingwg/network-attachment-definition-client/pkg/apis/k8s.cni.cncf.io
 github.com/k8snetworkplumbingwg/network-attachment-definition-client/pkg/apis/k8s.cni.cncf.io/v1
-# github.com/kubernetes-csi/external-snapshotter/v2 v2.1.1 => github.com/kubernetes-csi/external-snapshotter/v2 v2.1.3
-## explicit; go 1.12
-github.com/kubernetes-csi/external-snapshotter/v2/pkg/apis/volumesnapshot/v1beta1
+# github.com/kubernetes-csi/external-snapshotter/client/v4 v4.2.0
+## explicit; go 1.15
+github.com/kubernetes-csi/external-snapshotter/client/v4/apis/volumesnapshot/v1
 # github.com/kubevirt/cluster-network-addons-operator v0.73.0 => github.com/kubevirt/cluster-network-addons-operator v0.74.0
 ## explicit; go 1.17
 github.com/kubevirt/cluster-network-addons-operator/pkg/apis/networkaddonsoperator/shared
@@ -171,8 +171,8 @@ github.com/mitchellh/go-ps
 ## explicit; go 1.13
 github.com/moby/spdystream
 github.com/moby/spdystream/spdy
-# github.com/moby/sys/mountinfo v0.4.1
-## explicit; go 1.14
+# github.com/moby/sys/mountinfo v0.5.0
+## explicit; go 1.16
 github.com/moby/sys/mountinfo
 # github.com/modern-go/concurrent v0.0.0-20180306012644-bacd9c7ef1dd
 ## explicit
@@ -234,7 +234,7 @@ github.com/openshift/api/security/v1
 ## explicit; go 1.13
 github.com/openshift/client-go/security/clientset/versioned/scheme
 github.com/openshift/client-go/security/clientset/versioned/typed/security/v1
-# github.com/openshift/custom-resource-status v0.0.0-20200602122900-c002fd1547ca
+# github.com/openshift/custom-resource-status v1.1.2
 ## explicit; go 1.12
 github.com/openshift/custom-resource-status/conditions/v1
 # github.com/pborman/uuid v1.2.0
@@ -243,6 +243,9 @@ github.com/pborman/uuid
 # github.com/pkg/errors v0.9.1
 ## explicit
 github.com/pkg/errors
+# github.com/povsister/scp v0.0.0-20210427074412-33febfd9f13e
+## explicit; go 1.15
+github.com/povsister/scp
 # github.com/prometheus-operator/prometheus-operator/pkg/apis/monitoring v0.55.1
 ## explicit; go 1.17
 github.com/prometheus-operator/prometheus-operator/pkg/apis/monitoring
@@ -454,7 +457,7 @@ gopkg.in/inf.v0
 # gopkg.in/yaml.v2 v2.4.0
 ## explicit; go 1.15
 gopkg.in/yaml.v2
-# gopkg.in/yaml.v3 v3.0.0-20210107192922-496545a6307b
+# gopkg.in/yaml.v3 v3.0.0-20210107192922-496545a6307b => gopkg.in/yaml.v3 v3.0.1
 ## explicit
 gopkg.in/yaml.v3
 # k8s.io/api v0.23.5 => k8s.io/api v0.23.5
@@ -825,7 +828,7 @@ k8s.io/utils/internal/third_party/forked/golang/net
 k8s.io/utils/net
 k8s.io/utils/pointer
 k8s.io/utils/trace
-# kubevirt.io/api v0.0.0-20220329011505-2850590b2880 => kubevirt.io/api v0.52.0-rc.0
+# kubevirt.io/api v0.0.0-20220608150945-11032ecb331f => kubevirt.io/api v0.54.0
 ## explicit; go 1.17
 kubevirt.io/api/core
 kubevirt.io/api/core/v1
@@ -837,7 +840,7 @@ kubevirt.io/api/pool
 kubevirt.io/api/pool/v1alpha1
 kubevirt.io/api/snapshot
 kubevirt.io/api/snapshot/v1alpha1
-# kubevirt.io/client-go v0.52.0-rc.0 => kubevirt.io/client-go v0.52.0-rc.0
+# kubevirt.io/client-go v0.54.0 => kubevirt.io/client-go v0.54.0
 ## explicit; go 1.17
 kubevirt.io/client-go/generated/containerized-data-importer/clientset/versioned
 kubevirt.io/client-go/generated/containerized-data-importer/clientset/versioned/scheme
@@ -845,7 +848,7 @@ kubevirt.io/client-go/generated/containerized-data-importer/clientset/versioned/
 kubevirt.io/client-go/generated/containerized-data-importer/clientset/versioned/typed/upload/v1beta1
 kubevirt.io/client-go/generated/external-snapshotter/clientset/versioned
 kubevirt.io/client-go/generated/external-snapshotter/clientset/versioned/scheme
-kubevirt.io/client-go/generated/external-snapshotter/clientset/versioned/typed/volumesnapshot/v1beta1
+kubevirt.io/client-go/generated/external-snapshotter/clientset/versioned/typed/volumesnapshot/v1
 kubevirt.io/client-go/generated/kubevirt/clientset/versioned
 kubevirt.io/client-go/generated/kubevirt/clientset/versioned/scheme
 kubevirt.io/client-go/generated/kubevirt/clientset/versioned/typed/flavor/v1alpha1
@@ -864,7 +867,7 @@ kubevirt.io/client-go/precond
 kubevirt.io/client-go/subresources
 kubevirt.io/client-go/util
 kubevirt.io/client-go/version
-# kubevirt.io/containerized-data-importer-api v1.46.0 => kubevirt.io/containerized-data-importer-api v1.41.1
+# kubevirt.io/containerized-data-importer-api v1.47.0 => kubevirt.io/containerized-data-importer-api v1.41.1
 ## explicit; go 1.16
 kubevirt.io/containerized-data-importer-api/pkg/apis/core
 kubevirt.io/containerized-data-importer-api/pkg/apis/core/v1beta1
@@ -873,7 +876,7 @@ kubevirt.io/containerized-data-importer-api/pkg/apis/upload/v1beta1
 # kubevirt.io/controller-lifecycle-operator-sdk v0.2.2
 ## explicit; go 1.14
 kubevirt.io/controller-lifecycle-operator-sdk/pkg/sdk/api
-# kubevirt.io/kubevirt v0.52.0-rc.0
+# kubevirt.io/kubevirt v0.54.0
 ## explicit; go 1.17
 kubevirt.io/kubevirt/pkg/certificates/bootstrap
 kubevirt.io/kubevirt/pkg/certificates/triple
@@ -904,6 +907,7 @@ kubevirt.io/kubevirt/pkg/util/hardware
 kubevirt.io/kubevirt/pkg/util/net/dns
 kubevirt.io/kubevirt/pkg/util/net/grpc
 kubevirt.io/kubevirt/pkg/util/net/ip
+kubevirt.io/kubevirt/pkg/util/nodes
 kubevirt.io/kubevirt/pkg/util/types
 kubevirt.io/kubevirt/pkg/virt-config
 kubevirt.io/kubevirt/pkg/virt-controller/services
@@ -925,6 +929,7 @@ kubevirt.io/kubevirt/pkg/virtctl/guestfs
 kubevirt.io/kubevirt/pkg/virtctl/imageupload
 kubevirt.io/kubevirt/pkg/virtctl/pause
 kubevirt.io/kubevirt/pkg/virtctl/portforward
+kubevirt.io/kubevirt/pkg/virtctl/scp
 kubevirt.io/kubevirt/pkg/virtctl/softreboot
 kubevirt.io/kubevirt/pkg/virtctl/ssh
 kubevirt.io/kubevirt/pkg/virtctl/templates
@@ -934,6 +939,7 @@ kubevirt.io/kubevirt/pkg/virtctl/version
 kubevirt.io/kubevirt/pkg/virtctl/vm
 kubevirt.io/kubevirt/pkg/virtctl/vnc
 kubevirt.io/kubevirt/tests
+kubevirt.io/kubevirt/tests/clientcmd
 kubevirt.io/kubevirt/tests/console
 kubevirt.io/kubevirt/tests/containerdisk
 kubevirt.io/kubevirt/tests/flags
@@ -943,7 +949,10 @@ kubevirt.io/kubevirt/tests/framework/matcher
 kubevirt.io/kubevirt/tests/framework/matcher/helper
 kubevirt.io/kubevirt/tests/libnet
 kubevirt.io/kubevirt/tests/libnet/cluster
+kubevirt.io/kubevirt/tests/libnode
+kubevirt.io/kubevirt/tests/libstorage
 kubevirt.io/kubevirt/tests/libvmi
+kubevirt.io/kubevirt/tests/testsuite
 kubevirt.io/kubevirt/tests/util
 kubevirt.io/kubevirt/tools/vms-generator/utils
 # kubevirt.io/qe-tools v0.1.8
@@ -999,8 +1008,8 @@ sigs.k8s.io/yaml
 # github.com/kubevirt/cluster-network-addons-operator/pkg/apis => github.com/kubevirt/cluster-network-addons-operator/pkg/apis v0.74.0
 # github.com/openshift/machine-api-operator => github.com/openshift/machine-api-operator v0.2.1-0.20191025120018-fb3724fc7bdf
 # go.mongodb.org/mongo-driver => go.mongodb.org/mongo-driver v1.5.1
-# kubevirt.io/api => kubevirt.io/api v0.52.0-rc.0
-# kubevirt.io/client-go => kubevirt.io/client-go v0.52.0-rc.0
+# kubevirt.io/api => kubevirt.io/api v0.54.0
+# kubevirt.io/client-go => kubevirt.io/client-go v0.54.0
 # kubevirt.io/containerized-data-importer-api => kubevirt.io/containerized-data-importer-api v1.41.1
 # github.com/openshift/api => github.com/openshift/api v0.0.0-20220315184754-d7c10d0b647e
 # github.com/openshift/client-go => github.com/openshift/client-go v0.0.0-20200521150516-05eb9880269c
@@ -1017,3 +1026,4 @@ sigs.k8s.io/yaml
 # golang.org/x/crypto/ssh/terminal => golang.org/x/crypto/ssh/terminal v0.0.0-20220525230936-793ad666bf5e
 # github.com/opencontainers/runc => github.com/opencontainers/runc v1.0.3
 # github.com/u-root/u-root => github.com/u-root/u-root v0.1.0
+# gopkg.in/yaml.v3 => gopkg.in/yaml.v3 v3.0.1

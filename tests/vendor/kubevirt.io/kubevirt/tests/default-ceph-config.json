@@ -1,6 +1,7 @@
 {
     "storageClassRhel":        "rook-ceph-block",
     "storageClassWindows":     "rook-ceph-block",
+    "storageRWXFileSystem":    "nfs-csi",
     "storageRWXBlock":         "rook-ceph-block",
     "storageRWOFileSystem":    "local",
     "storageRWOBlock":         "rook-ceph-block",

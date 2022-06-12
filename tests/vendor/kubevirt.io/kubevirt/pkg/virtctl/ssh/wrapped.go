@@ -42,6 +42,9 @@ func (o *SSH) buildProxyCommandOption(kind, namespace, name string) string {
 
 func (o *SSH) buildSSHTarget(kind, namespace, name string) string {
 	target := strings.Builder{}
+	if o.options.IdentityFilePathProvided {
+		target.WriteString(fmt.Sprintf(" -i %s ", o.options.IdentityFilePath))
+	}
 	if len(o.options.SshUsername) > 0 {
 		target.WriteString(o.options.SshUsername)
 		target.WriteRune('@')

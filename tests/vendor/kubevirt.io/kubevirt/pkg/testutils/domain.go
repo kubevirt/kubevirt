@@ -5,6 +5,7 @@ import (
 
 	. "github.com/onsi/gomega"
 
+	v1 "kubevirt.io/api/core/v1"
 	"kubevirt.io/kubevirt/pkg/virt-launcher/virtwrap/api"
 )
 
@@ -13,7 +14,7 @@ const virtioTrans = "virtio-transitional"
 func ExpectVirtioTransitionalOnly(dom *api.DomainSpec) {
 	hit := false
 	for _, disk := range dom.Devices.Disks {
-		if disk.Target.Bus == "virtio" {
+		if disk.Target.Bus == v1.DiskBusVirtio {
 			ExpectWithOffset(1, disk.Model).To(Equal(virtioTrans))
 			hit = true
 		}

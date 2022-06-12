@@ -245,6 +245,7 @@ func (Devices) SwaggerDoc() map[string]string {
 		"hostDevices":                "Whether to attach a host device to the vmi.\n+optional\n+listType=atomic",
 		"clientPassthrough":          "To configure and access client devices such as redirecting USB\n+optional",
 		"sound":                      "Whether to emulate a sound device.\n+optional",
+		"tpm":                        "Whether to emulate a TPM device.\n+optional",
 	}
 }
 
@@ -260,6 +261,10 @@ func (SoundDevice) SwaggerDoc() map[string]string {
 		"name":  "User's defined name for this sound device",
 		"model": "We only support ich9 or ac97.\nIf SoundDevice is not set: No sound card is emulated.\nIf SoundDevice is set but Model is not: ich9\n+optional",
 	}
+}
+
+func (TPMDevice) SwaggerDoc() map[string]string {
+	return map[string]string{}
 }
 
 func (Input) SwaggerDoc() map[string]string {
@@ -398,6 +403,7 @@ func (VolumeSource) SwaggerDoc() map[string]string {
 		"downwardAPI":           "DownwardAPI represents downward API about the pod that should populate this volume\n+optional",
 		"serviceAccount":        "ServiceAccountVolumeSource represents a reference to a service account.\nThere can only be one volume of this type!\nMore info: https://kubernetes.io/docs/tasks/configure-pod-container/configure-service-account/\n+optional",
 		"downwardMetrics":       "DownwardMetrics adds a very small disk to VMIs which contains a limited view of host and guest\nmetrics. The disk content is compatible with vhostmd (https://github.com/vhostmd/vhostmd) and vm-dump-metrics.",
+		"memoryDump":            "MemoryDump is attached to the virt launcher and is populated with a memory dump of the vmi",
 	}
 }
 
@@ -421,6 +427,10 @@ func (PersistentVolumeClaimVolumeSource) SwaggerDoc() map[string]string {
 		"":             "PersistentVolumeClaimVolumeSource represents a reference to a PersistentVolumeClaim in the same namespace.\nDirectly attached to the vmi via qemu.\nMore info: https://kubernetes.io/docs/concepts/storage/persistent-volumes#persistentvolumeclaims",
 		"hotpluggable": "Hotpluggable indicates whether the volume can be hotplugged and hotunplugged.\n+optional",
 	}
+}
+
+func (MemoryDumpVolumeSource) SwaggerDoc() map[string]string {
+	return map[string]string{}
 }
 
 func (EphemeralVolumeSource) SwaggerDoc() map[string]string {

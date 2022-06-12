@@ -2,6 +2,7 @@ package templates
 
 import (
 	"errors"
+	"fmt"
 	"strings"
 )
 
@@ -39,6 +40,44 @@ func ParseTarget(arg string) (kind string, namespace string, name string, err er
 	}
 
 	return kind, namespace, name, nil
+}
+
+type LocalSCPArgument struct {
+	Path string
+}
+
+type RemoteSCPArgument struct {
+	Kind      string
+	Namespace string
+	Name      string
+	Username  string
+	Path      string
+}
+
+func ParseSCPArguments(arg1 string, arg2 string) (local LocalSCPArgument, remote RemoteSCPArgument, toRemote bool, err error) {
+	remoteArg := arg1
+	localArg := arg2
+	toRemote = false
+	if strings.Contains(arg1, ":") && strings.Contains(arg2, ":") {
+		err = fmt.Errorf("copying from a remote location to another remote location is not supported: %q to %q", arg1, arg2)
+		return
+	} else if !strings.Contains(arg1, ":") && !strings.Contains(arg2, ":") {
+		err = fmt.Errorf("none of the two provided locations seems to be a remote location: %q to %q", arg1, arg2)
+		return
+	} else if strings.Contains(localArg, ":") {
+		remoteArg = arg2
+		localArg = arg1
+		toRemote = true
+	}
+
+	split := strings.SplitN(remoteArg, ":", 2)
+	remote.Kind, remote.Namespace, remote.Name, remote.Username, err = ParseSSHTarget(split[0])
+	if err != nil {
+		return
+	}
+	remote.Path = split[1]
+	local.Path = localArg
+	return
 }
 
 // ParseSSHTarget argument supporting the form of username@vmi/name.namespace (or simpler)

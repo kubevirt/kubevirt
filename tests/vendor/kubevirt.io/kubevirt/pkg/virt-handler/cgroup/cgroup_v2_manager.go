@@ -11,21 +11,19 @@ var rulesPerPid = make(map[string][]*devices.Rule)
 
 type v2Manager struct {
 	runc_cgroups.Manager
-	pid            int
 	dirPath        string
 	isRootless     bool
 	execVirtChroot execVirtChrootFunc
 }
 
-func newV2Manager(config *runc_configs.Cgroup, dirPath string, rootless bool, pid int) (Manager, error) {
-	return newCustomizedV2Manager(config, dirPath, rootless, pid, execVirtChrootCgroups)
+func newV2Manager(config *runc_configs.Cgroup, dirPath string, rootless bool) (Manager, error) {
+	return newCustomizedV2Manager(config, dirPath, rootless, execVirtChrootCgroups)
 }
 
-func newCustomizedV2Manager(config *runc_configs.Cgroup, dirPath string, rootless bool, pid int, execVirtChroot execVirtChrootFunc) (Manager, error) {
+func newCustomizedV2Manager(config *runc_configs.Cgroup, dirPath string, rootless bool, execVirtChroot execVirtChrootFunc) (Manager, error) {
 	runcManager, err := runc_fs.NewManager(config, dirPath, rootless)
 	manager := v2Manager{
 		runcManager,
-		pid,
 		dirPath,
 		rootless,
 		execVirtChroot,
@@ -52,7 +50,7 @@ func (v *v2Manager) Set(r *runc_configs.Resources) error {
 	rulesPerPid[v.dirPath] = rulesToSet
 	resourcesToSet.Devices = rulesToSet
 
-	err = v.execVirtChroot(&resourcesToSet, v.pid, map[string]string{"": v.dirPath}, v.isRootless, v.GetCgroupVersion())
+	err = v.execVirtChroot(&resourcesToSet, map[string]string{"": v.dirPath}, v.isRootless, v.GetCgroupVersion())
 	return err
 }
 
