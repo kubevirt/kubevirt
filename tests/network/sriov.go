@@ -681,7 +681,7 @@ func defaultCloudInitNetworkData() string {
 
 func findIfaceByMAC(virtClient kubecli.KubevirtClient, vmi *v1.VirtualMachineInstance, mac string, timeout time.Duration) (string, error) {
 	var ifaceName string
-	err := wait.Poll(timeout, 5*time.Second, func() (done bool, err error) {
+	err := wait.Poll(timeout, 5*time.Second, func() (bool, error) {
 		vmi, err := virtClient.VirtualMachineInstance(vmi.GetNamespace()).Get(vmi.GetName(), &k8smetav1.GetOptions{})
 		if err != nil {
 			return false, err
