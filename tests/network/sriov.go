@@ -688,7 +688,7 @@ func findIfaceByMAC(virtClient kubecli.KubevirtClient, vmi *v1.VirtualMachineIns
 		}
 
 		ifaceName, err = getInterfaceNameByMAC(vmi, mac)
-		if err != nil {
+		if err != nil || ifaceName == "" {
 			return false, nil
 		}
 		return true, nil
