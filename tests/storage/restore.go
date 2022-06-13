@@ -29,6 +29,7 @@ import (
 	"kubevirt.io/kubevirt/tests"
 	"kubevirt.io/kubevirt/tests/console"
 	cd "kubevirt.io/kubevirt/tests/containerdisk"
+	"kubevirt.io/kubevirt/tests/libvmi"
 )
 
 const (
@@ -216,9 +217,11 @@ var _ = SIGDescribe("VirtualMachineRestore Tests", func() {
 		var vm *v1.VirtualMachine
 
 		BeforeEach(func() {
-			vmiImage := cd.ContainerDiskFor(cd.ContainerDiskCirros)
-			vmi := tests.NewRandomVMIWithEphemeralDiskAndUserdata(vmiImage, bashHelloScript)
-			vm = tests.NewRandomVirtualMachine(vmi, false)
+			vm = tests.NewRandomVirtualMachine(
+				libvmi.NewCirros(
+					libvmi.WithInterface(libvmi.InterfaceDeviceWithMasqueradeBinding()),
+					libvmi.WithNetwork(v1.DefaultPodNetwork()),
+				), false)
 			vm.Labels = map[string]string{
 				"kubevirt.io/dummy-webhook-identifier": vm.Name,
 			}
