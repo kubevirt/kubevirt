@@ -75,7 +75,7 @@ const (
 	failedCreateCRforVmErrMsg             = "Failed to create controller revision for VirtualMachine."
 	failedProcessDeleteNotificationErrMsg = "Failed to process delete notification"
 	failureDeletingVmiErrFormat           = "Failure attempting to delete VMI: %v"
-	memoryDumpFailed                      = "Memory dump failed"
+	failedMemoryDump                      = "Memory dump failed"
 )
 
 const (
@@ -630,7 +630,7 @@ func needUpdatePVCMemoryDumpAnnotation(pvc *k8score.PersistentVolumeClaim, reque
 		return true
 	}
 	annotation, hasAnnotation := pvc.Annotations[virtv1.PVCMemoryDumpAnnotation]
-	return !hasAnnotation || (request.Phase == virtv1.MemoryDumpUnmounting && annotation != *request.FileName) || (request.Phase == virtv1.MemoryDumpFailed && annotation != memoryDumpFailed)
+	return !hasAnnotation || (request.Phase == virtv1.MemoryDumpUnmounting && annotation != *request.FileName) || (request.Phase == virtv1.MemoryDumpFailed && annotation != failedMemoryDump)
 }
 
 func (c *VMController) updatePVCMemoryDumpAnnotation(vm *virtv1.VirtualMachine) error {
@@ -639,22 +639,22 @@ func (c *VMController) updatePVCMemoryDumpAnnotation(vm *virtv1.VirtualMachine) 
 	if err != nil {
 		log.Log.Object(vm).Errorf("Error getting PersistentVolumeClaim to update memory dump annotation: %v", err)
 		return err
-	} else if pvc == nil {
+	}
+	if pvc == nil {
 		log.Log.Object(vm).Errorf("Error getting PersistentVolumeClaim to update memory dump annotation: %v", err)
 		return fmt.Errorf("Error when trying to update memory dump annotation, pvc %s not found", request.ClaimName)
 	}
 
 	if needUpdatePVCMemoryDumpAnnotation(pvc, request) {
 		if pvc.GetAnnotations() == nil {
-			pvc.SetAnnotations(make(map[string]string, 0))
+			pvc.SetAnnotations(make(map[string]string))
 		}
 		if request.Phase == virtv1.MemoryDumpUnmounting {
 			pvc.Annotations[virtv1.PVCMemoryDumpAnnotation] = *request.FileName
 		} else if request.Phase == virtv1.MemoryDumpFailed {
-			pvc.Annotations[virtv1.PVCMemoryDumpAnnotation] = memoryDumpFailed
+			pvc.Annotations[virtv1.PVCMemoryDumpAnnotation] = failedMemoryDump
 		}
-		pvc, err = c.clientset.CoreV1().PersistentVolumeClaims(pvc.Namespace).Update(context.Background(), pvc, v1.UpdateOptions{})
-		if err != nil {
+		if _, err = c.clientset.CoreV1().PersistentVolumeClaims(pvc.Namespace).Update(context.Background(), pvc, v1.UpdateOptions{}); err != nil {
 			return err
 		}
 	}

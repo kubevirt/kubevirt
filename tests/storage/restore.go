@@ -44,6 +44,9 @@ const (
 
 	macAddressCloningPatchPattern = `{"op": "replace", "path": "/spec/template/spec/domain/devices/interfaces/0/macAddress", "value": "%s"}`
 	bashHelloScript               = "#!/bin/bash\necho 'hello'\n"
+
+	onlineSnapshot = true
+	offlineSnaphot = false
 )
 
 var _ = SIGDescribe("VirtualMachineRestore Tests", func() {
@@ -734,7 +737,7 @@ var _ = SIGDescribe("VirtualMachineRestore Tests", func() {
 				Expect(newVM.Spec.DataVolumeTemplates).To(HaveLen(len(vm.Spec.DataVolumeTemplates)))
 			}
 
-			doRestore := func(device string, login console.LoginToFunction, onlineSnapshot bool, expectedRestores int, targetVMName string) {
+			doRestore := func(device string, login console.LoginToFunction, onlineSnapshot bool, targetVMName string) {
 				isRestoreToDifferentVM := targetVMName != vm.Name
 
 				var targetUID *types.UID
@@ -775,7 +778,6 @@ var _ = SIGDescribe("VirtualMachineRestore Tests", func() {
 				Expect(err).ToNot(HaveOccurred())
 
 				restore = waitRestoreComplete(restore, targetVMName, targetUID)
-				Expect(restore.Status.Restores).To(HaveLen(expectedRestores))
 
 				targetVM, err := virtClient.VirtualMachine(vm.Namespace).Get(targetVMName, &metav1.GetOptions{})
 				Expect(err).ToNot(HaveOccurred())
@@ -844,7 +846,8 @@ var _ = SIGDescribe("VirtualMachineRestore Tests", func() {
 				Expect(err).ToNot(HaveOccurred())
 				Expect(pvc.Status.Capacity["storage"]).To(Equal(expectedCapacity))
 
-				doRestore("", console.LoginToCirros, false, 1, getTargetVMName(restoreToNewVM, newVmName))
+				doRestore("", console.LoginToCirros, offlineSnaphot, getTargetVMName(restoreToNewVM, newVmName))
+				Expect(restore.Status.Restores).To(HaveLen(1))
 
 				content, err := virtClient.VirtualMachineSnapshotContent(vm.Namespace).Get(context.Background(), *snapshot.Status.VirtualMachineSnapshotContentName, metav1.GetOptions{})
 				Expect(err).ToNot(HaveOccurred())
@@ -873,7 +876,8 @@ var _ = SIGDescribe("VirtualMachineRestore Tests", func() {
 
 				originalDVName := vm.Spec.DataVolumeTemplates[0].Name
 
-				doRestore("", console.LoginToCirros, false, 1, getTargetVMName(restoreToNewVM, newVmName))
+				doRestore("", console.LoginToCirros, offlineSnaphot, getTargetVMName(restoreToNewVM, newVmName))
+				Expect(restore.Status.Restores).To(HaveLen(1))
 				if restoreToNewVM {
 					checkNewVMEquality()
 					Expect(restore.Status.DeletedDataVolumes).To(HaveLen(0))
@@ -911,7 +915,8 @@ var _ = SIGDescribe("VirtualMachineRestore Tests", func() {
 				dv = waitDVReady(dv)
 
 				vm, vmi = createAndStartVM(vm)
-				doRestore("", console.LoginToCirros, false, 1, getTargetVMName(restoreToNewVM, newVmName))
+				doRestore("", console.LoginToCirros, offlineSnaphot, getTargetVMName(restoreToNewVM, newVmName))
+				Expect(restore.Status.Restores).To(HaveLen(1))
 				if restoreToNewVM {
 					checkNewVMEquality()
 				}
@@ -973,7 +978,8 @@ var _ = SIGDescribe("VirtualMachineRestore Tests", func() {
 
 				vm, vmi = createAndStartVM(vm)
 
-				doRestore("", console.LoginToCirros, false, 1, getTargetVMName(restoreToNewVM, newVmName))
+				doRestore("", console.LoginToCirros, offlineSnaphot, getTargetVMName(restoreToNewVM, newVmName))
+				Expect(restore.Status.Restores).To(HaveLen(1))
 				if restoreToNewVM {
 					checkNewVMEquality()
 				}
@@ -1055,7 +1061,8 @@ var _ = SIGDescribe("VirtualMachineRestore Tests", func() {
 
 				vm, vmi = createAndStartVM(vm)
 
-				doRestore("/dev/vdc", console.LoginToCirros, false, 1, getTargetVMName(restoreToNewVM, newVmName))
+				doRestore("/dev/vdc", console.LoginToCirros, offlineSnaphot, getTargetVMName(restoreToNewVM, newVmName))
+				Expect(restore.Status.Restores).To(HaveLen(1))
 
 				if restoreToNewVM {
 					checkNewVMEquality()
@@ -1179,7 +1186,8 @@ var _ = SIGDescribe("VirtualMachineRestore Tests", func() {
 					snapshotStorageClass,
 				))
 
-				doRestore("", console.LoginToCirros, true, 1, getTargetVMName(restoreToNewVM, newVmName))
+				doRestore("", console.LoginToCirros, onlineSnapshot, getTargetVMName(restoreToNewVM, newVmName))
+				Expect(restore.Status.Restores).To(HaveLen(1))
 				if restoreToNewVM {
 					checkNewVMEquality()
 				}
@@ -1238,7 +1246,8 @@ var _ = SIGDescribe("VirtualMachineRestore Tests", func() {
 				tests.WaitForSuccessfulVMIStartWithTimeout(vmi, 300)
 				tests.WaitAgentConnected(virtClient, vmi)
 
-				doRestore("/dev/vdc", console.LoginToFedora, true, 1, getTargetVMName(restoreToNewVM, newVmName))
+				doRestore("/dev/vdc", console.LoginToFedora, onlineSnapshot, getTargetVMName(restoreToNewVM, newVmName))
+				Expect(restore.Status.Restores).To(HaveLen(1))
 				if restoreToNewVM {
 					checkNewVMEquality()
 				}
@@ -1259,7 +1268,8 @@ var _ = SIGDescribe("VirtualMachineRestore Tests", func() {
 
 				originalDVName := vm.Spec.DataVolumeTemplates[0].Name
 
-				doRestore("", console.LoginToFedora, true, 1, getTargetVMName(restoreToNewVM, newVmName))
+				doRestore("", console.LoginToFedora, onlineSnapshot, getTargetVMName(restoreToNewVM, newVmName))
+				Expect(restore.Status.Restores).To(HaveLen(1))
 				if restoreToNewVM {
 					Expect(restore.Status.DeletedDataVolumes).To(HaveLen(0))
 					checkNewVMEquality()
@@ -1337,7 +1347,8 @@ var _ = SIGDescribe("VirtualMachineRestore Tests", func() {
 				By("Add temporary hotplug disk")
 				tempVolName := libvmi.AddVolumeAndVerify(virtClient, snapshotStorageClass, vm, true)
 
-				doRestore("", console.LoginToFedora, true, 2, getTargetVMName(restoreToNewVM, newVmName))
+				doRestore("", console.LoginToFedora, onlineSnapshot, getTargetVMName(restoreToNewVM, newVmName))
+				Expect(restore.Status.Restores).To(HaveLen(2))
 				if restoreToNewVM {
 					checkNewVMEquality()
 				}
@@ -1420,7 +1431,8 @@ var _ = SIGDescribe("VirtualMachineRestore Tests", func() {
 					getMemoryDump(vm.Name, vm.Namespace, memoryDumpPVCName)
 					waitMemoryDumpCompletion(vm)
 
-					doRestore("", console.LoginToFedora, true, 1, getTargetVMName(restoreToNewVM, newVmName))
+					doRestore("", console.LoginToFedora, onlineSnapshot, getTargetVMName(restoreToNewVM, newVmName))
+					Expect(restore.Status.Restores).To(HaveLen(1))
 
 					targetVM := getTargetVM(restoreToNewVM)
 					targetVMI, err := virtClient.VirtualMachineInstance(targetVM.Namespace).Get(targetVM.Name, &metav1.GetOptions{})
