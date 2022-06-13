@@ -3124,7 +3124,7 @@ var _ = Describe("[rfe_id:393][crit:high][vendor:cnv-qe@redhat.com][level:system
 				BeforeEach(func() {
 					// Taints defined by k8s are special and can't be applied manually.
 					// Temporarily configure KubeVirt to use something else for the duration of these tests.
-					if isUsingBuiltinNodeDrainKey() {
+					if libnode.GetNodeDrainKey() == "node.kubernetes.io/unschedulable" {
 						drain := "kubevirt.io/drain"
 						cfg := getCurrentKv()
 						cfg.MigrationConfiguration.NodeDrainTaintKey = &drain
@@ -4262,8 +4262,4 @@ func getPodsCgroupVersion(pod *k8sv1.Pod, virtClient kubecli.KubevirtClient) cgr
 	} else {
 		return cgroup.V1
 	}
-}
-
-func isUsingBuiltinNodeDrainKey() bool {
-	return libnode.GetNodeDrainKey() == "node.kubernetes.io/unschedulable"
 }
