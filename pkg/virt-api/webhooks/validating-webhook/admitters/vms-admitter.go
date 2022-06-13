@@ -167,6 +167,17 @@ func (admitter *VMsAdmitter) AdmitStatus(ar *admissionv1.AdmissionReview) *admis
 }
 
 func (admitter *VMsAdmitter) applyFlavorToVm(vm *v1.VirtualMachine) []metav1.StatusCause {
+
+	// Reject the use of a Flavor or Preference matcher within the VirtualMachineInstanceSpec of a VirtualMachine.
+	// Users should only use the matchers provided within the top level VirtualMachineSpec when using a VirtualMachine.
+	if vm.Spec.Template.Spec.Flavor != nil || vm.Spec.Template.Spec.Preference != nil {
+		return []metav1.StatusCause{{
+			Type:    metav1.CauseTypeFieldValueInvalid,
+			Message: fmt.Sprintf("Flavor or Preference cannot be set on the VirtualMachineInstanceSpec of a VirtualMachine, they should only be set within the VirtualMachineSpec."),
+			Field:   k8sfield.NewPath("spec", "template", "spec").String(),
+		}}
+	}
+
 	flavorSpec, err := admitter.FlavorMethods.FindFlavorSpec(vm.Spec.Flavor, vm.Namespace)
 	if err != nil {
 		return []metav1.StatusCause{{

@@ -1515,6 +1515,26 @@ var _ = Describe("Validating VM Admitter", func() {
 			Expect(response.Result.Details.Causes[0].Field).
 				To(Equal("spec.template.spec.domain.resources.requests.memory"))
 		})
+
+		It("Should reject the VM if a FlavorMatcher is provided within the VirtualMachineInstanceSpec", func() {
+			vm.Spec.Template.Spec.Flavor = &v1.FlavorMatcher{
+				Name: "foo",
+			}
+			response := admitVm(vmsAdmitter, vm)
+			Expect(response.Allowed).To(BeFalse())
+			Expect(response.Result.Details.Causes[0].Type).To(Equal(metav1.CauseTypeFieldValueInvalid))
+			Expect(response.Result.Details.Causes[0].Field).To(Equal(k8sfield.NewPath("spec", "template", "spec").String()))
+		})
+
+		It("Should reject the VM if a PreferenceMatcher is provided within the VirtualMachineInstanceSpec", func() {
+			vm.Spec.Template.Spec.Preference = &v1.PreferenceMatcher{
+				Name: "foo",
+			}
+			response := admitVm(vmsAdmitter, vm)
+			Expect(response.Allowed).To(BeFalse())
+			Expect(response.Result.Details.Causes[0].Type).To(Equal(metav1.CauseTypeFieldValueInvalid))
+			Expect(response.Result.Details.Causes[0].Field).To(Equal(k8sfield.NewPath("spec", "template", "spec").String()))
+		})
 	})
 })
 
