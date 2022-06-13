@@ -23,7 +23,7 @@ require (
 	k8s.io/kube-openapi v0.0.0-20220124234850-424119656bbf
 	k8s.io/utils v0.0.0-20211116205334-6203023598ed
 	kubevirt.io/api v0.0.0-00010101000000-000000000000
-	kubevirt.io/containerized-data-importer-api v1.47.0
+	kubevirt.io/containerized-data-importer-api v1.50.0
 )
 
 require (
