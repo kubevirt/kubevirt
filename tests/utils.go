@@ -109,7 +109,6 @@ const (
 	WaitingVMInstanceStart       = "Waiting until the VirtualMachineInstance will start"
 	CouldNotFindComputeContainer = "could not find compute container for pod"
 	EchoLastReturnValue          = "echo $?\n"
-	BashHelloScript              = "#!/bin/bash\necho 'hello'\n"
 )
 
 const defaultTestGracePeriod int64 = 0
