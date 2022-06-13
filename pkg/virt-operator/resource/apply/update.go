@@ -36,7 +36,6 @@ func (r *Reconciler) updateKubeVirtSystem(controllerDeploymentsRolledOver bool) 
 
 	// create/update ExportProxy Deployments
 	for _, deployment := range r.targetStrategy.ExportProxyDeployments() {
-		// XXX TODO use appropriate feature gate
 		if r.exportProxyEnabled() {
 			deployment, err := r.syncDeployment(deployment)
 			if err != nil {
