@@ -63,7 +63,7 @@ var _ = SIGDescribe("[ref_id:1182]Probes", func() {
 	Context("for readiness", func() {
 		const (
 			period         = 5
-			initialSeconds = 5
+			initialSeconds = 10
 			timeoutSeconds = 1
 			port           = 1500
 		)
