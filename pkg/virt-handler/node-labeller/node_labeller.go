@@ -57,6 +57,7 @@ var nodeLabellerLabels = []string{
 	kubevirtv1.SEVLabel,
 	kubevirtv1.HostModelCPULabel,
 	kubevirtv1.HostModelRequiredFeaturesLabel,
+	kubevirtv1.NodeHostModelIsObsoleteLabel,
 }
 
 // NodeLabeller struct holds informations needed to run node-labeller
@@ -285,6 +286,9 @@ func (n *NodeLabeller) prepareLabels(cpuModels []string, cpuFeatures cpuFeatures
 
 	for feature, _ := range hostCpuModel.requiredFeatures {
 		newLabels[kubevirtv1.HostModelRequiredFeaturesLabel+feature] = "true"
+	}
+	if _, obsolete := obsoleteCPUsx86[hostCpuModel.Name]; obsolete {
+		newLabels[kubevirtv1.NodeHostModelIsObsoleteLabel] = "true"
 	}
 
 	newLabels[kubevirtv1.CPUModelVendorLabel+n.cpuModelVendor] = "true"

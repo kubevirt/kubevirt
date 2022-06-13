@@ -160,53 +160,66 @@ func isFeatureStateEnabled(fs *v1.FeatureState) bool {
 	return fs != nil && fs.Enabled != nil && *fs.Enabled
 }
 
-func SetNodeAffinityForForbiddenFeaturePolicy(vmi *v1.VirtualMachineInstance, pod *k8sv1.Pod) {
+func setNodeAffinityForPod(vmi *v1.VirtualMachineInstance, pod *k8sv1.Pod) {
+	setNodeAffinityForHostModelCpuModel(vmi, pod)
+	setNodeAffinityForbiddenFeaturePolicy(vmi, pod)
+}
 
+func setNodeAffinityForHostModelCpuModel(vmi *v1.VirtualMachineInstance, pod *k8sv1.Pod) {
+	if vmi.Spec.Domain.CPU == nil || vmi.Spec.Domain.CPU.Model == "" || vmi.Spec.Domain.CPU.Model == v1.CPUModeHostModel {
+		pod.Spec.Affinity = modifyNodeAffintyToRejectLabel(pod.Spec.Affinity, v1.NodeHostModelIsObsoleteLabel)
+	}
+}
+
+func setNodeAffinityForbiddenFeaturePolicy(vmi *v1.VirtualMachineInstance, pod *k8sv1.Pod) {
 	if vmi.Spec.Domain.CPU == nil || vmi.Spec.Domain.CPU.Features == nil {
 		return
 	}
 
 	for _, feature := range vmi.Spec.Domain.CPU.Features {
 		if feature.Policy == "forbid" {
-
-			requirement := k8sv1.NodeSelectorRequirement{
-				Key:      NFD_CPU_FEATURE_PREFIX + feature.Name,
-				Operator: k8sv1.NodeSelectorOpDoesNotExist,
-			}
-			term := k8sv1.NodeSelectorTerm{
-				MatchExpressions: []k8sv1.NodeSelectorRequirement{requirement}}
-
-			nodeAffinity := &k8sv1.NodeAffinity{
-				RequiredDuringSchedulingIgnoredDuringExecution: &k8sv1.NodeSelector{
-					NodeSelectorTerms: []k8sv1.NodeSelectorTerm{term},
-				},
-			}
-
-			if pod.Spec.Affinity != nil && pod.Spec.Affinity.NodeAffinity != nil {
-				if pod.Spec.Affinity.NodeAffinity.RequiredDuringSchedulingIgnoredDuringExecution != nil {
-					terms := pod.Spec.Affinity.NodeAffinity.RequiredDuringSchedulingIgnoredDuringExecution.NodeSelectorTerms
-					// Since NodeSelectorTerms are ORed , the anti affinity requirement will be added to each term.
-					for i, selectorTerm := range terms {
-						pod.Spec.Affinity.NodeAffinity.
-							RequiredDuringSchedulingIgnoredDuringExecution.
-							NodeSelectorTerms[i].MatchExpressions = append(selectorTerm.MatchExpressions, requirement)
-					}
-				} else {
-					pod.Spec.Affinity.NodeAffinity.RequiredDuringSchedulingIgnoredDuringExecution = &k8sv1.NodeSelector{
-						NodeSelectorTerms: []k8sv1.NodeSelectorTerm{term},
-					}
-				}
-
-			} else if pod.Spec.Affinity != nil {
-				pod.Spec.Affinity.NodeAffinity = nodeAffinity
-			} else {
-				pod.Spec.Affinity = &k8sv1.Affinity{
-					NodeAffinity: nodeAffinity,
-				}
-
-			}
+			pod.Spec.Affinity = modifyNodeAffintyToRejectLabel(pod.Spec.Affinity, NFD_CPU_FEATURE_PREFIX+feature.Name)
 		}
 	}
+}
+
+func modifyNodeAffintyToRejectLabel(origAffinity *k8sv1.Affinity, labelToReject string) *k8sv1.Affinity {
+	affinity := origAffinity.DeepCopy()
+	requirement := k8sv1.NodeSelectorRequirement{
+		Key:      labelToReject,
+		Operator: k8sv1.NodeSelectorOpDoesNotExist,
+	}
+	term := k8sv1.NodeSelectorTerm{
+		MatchExpressions: []k8sv1.NodeSelectorRequirement{requirement}}
+
+	nodeAffinity := &k8sv1.NodeAffinity{
+		RequiredDuringSchedulingIgnoredDuringExecution: &k8sv1.NodeSelector{
+			NodeSelectorTerms: []k8sv1.NodeSelectorTerm{term},
+		},
+	}
+	if affinity != nil && affinity.NodeAffinity != nil {
+		if affinity.NodeAffinity.RequiredDuringSchedulingIgnoredDuringExecution != nil {
+			terms := affinity.NodeAffinity.RequiredDuringSchedulingIgnoredDuringExecution.NodeSelectorTerms
+			// Since NodeSelectorTerms are ORed , the anti affinity requirement will be added to each term.
+			for i, selectorTerm := range terms {
+				affinity.NodeAffinity.
+					RequiredDuringSchedulingIgnoredDuringExecution.
+					NodeSelectorTerms[i].MatchExpressions = append(selectorTerm.MatchExpressions, requirement)
+			}
+		} else {
+			affinity.NodeAffinity.RequiredDuringSchedulingIgnoredDuringExecution = &k8sv1.NodeSelector{
+				NodeSelectorTerms: []k8sv1.NodeSelectorTerm{term},
+			}
+		}
+
+	} else if affinity != nil {
+		affinity.NodeAffinity = nodeAffinity
+	} else {
+		affinity = &k8sv1.Affinity{
+			NodeAffinity: nodeAffinity,
+		}
+	}
+	return affinity
 }
 
 func sysprepVolumeSource(sysprepVolume v1.SysprepSource) (k8sv1.VolumeSource, error) {
@@ -509,7 +522,7 @@ func (t *templateService) renderLaunchManifest(vmi *v1.VirtualMachineInstance, i
 		pod.Spec.Affinity = vmi.Spec.Affinity.DeepCopy()
 	}
 
-	SetNodeAffinityForForbiddenFeaturePolicy(vmi, &pod)
+	setNodeAffinityForPod(vmi, &pod)
 
 	serviceAccountName := serviceAccount(vmi.Spec.Volumes...)
 	if len(serviceAccountName) > 0 {
