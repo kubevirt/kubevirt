@@ -43,6 +43,8 @@ import (
 var _ = SIGDescribe("Primary Pod Network", func() {
 	var virtClient kubecli.KubevirtClient
 	BeforeEach(func() {
+		tests.BeforeTestCleanup()
+
 		var err error
 		virtClient, err = kubecli.GetKubevirtClient()
 		Expect(err).NotTo(HaveOccurred(), "Should successfully initialize an API client")
