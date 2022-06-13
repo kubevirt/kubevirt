@@ -120,16 +120,16 @@ var _ = Describe("Isolation Detector", func() {
 
 var _ = Describe("findIsolatedQemuProcess", func() {
 	const virtLauncherPid = 1
-	virtLauncherProc := ProcessStub{pid: virtLauncherPid, ppid: 0, binary: "virt-launcher"}
-	virtLauncherForkedProc := ProcessStub{pid: 26, ppid: 1, binary: "virt-launcher --no-fork true"}
-	libvirtdProc := ProcessStub{pid: 226, ppid: 26, binary: "libvirtd"}
+	fakeProcess1 := ProcessStub{pid: virtLauncherPid, ppid: 0, binary: "fake-process-1"}
+	fakeProcess2 := ProcessStub{pid: 26, ppid: virtLauncherPid, binary: "fake-process-2"}
+	fakeProcess3 := ProcessStub{pid: 226, ppid: 26, binary: "fake-process-3"}
 	virtLauncherProcesses := []ps.Process{
-		virtLauncherProc,
-		virtLauncherForkedProc,
-		libvirtdProc}
+		fakeProcess1,
+		fakeProcess2,
+		fakeProcess3}
 
-	qemuKvmProc := ProcessStub{pid: 101, ppid: 1, binary: "qemu-kvm"}
-	qemuSystemProc := ProcessStub{pid: 101, ppid: 1, binary: "qemu-system"}
+	qemuKvmProc := ProcessStub{pid: 101, ppid: virtLauncherPid, binary: "qemu-kvm"}
+	qemuSystemProc := ProcessStub{pid: 101, ppid: virtLauncherPid, binary: "qemu-system"}
 
 	DescribeTable("should return QEMU process",
 		func(processes []ps.Process, pid int, expectedProcess ps.Process) {
