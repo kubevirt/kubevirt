@@ -62,7 +62,7 @@ var _ = SIGDescribe("Primary Pod Network", func() {
 			var vmi *v1.VirtualMachineInstance
 
 			BeforeEach(func() {
-				vmi = setupVMI(virtClient, vmiWithDefaultBinding())
+				vmi = setupVMI(virtClient, libvmi.NewAlpine())
 			})
 
 			It("should report PodIP as its own on interface status", func() { AssertReportedIP(vmi) })
@@ -170,13 +170,6 @@ func setupVMI(virtClient kubecli.KubevirtClient, vmi *v1.VirtualMachineInstance)
 	By("Waiting until the VMI gets ready")
 	vmi = tests.WaitUntilVMIReady(vmi, console.LoginToAlpine)
 
-	return vmi
-}
-
-func vmiWithDefaultBinding() *v1.VirtualMachineInstance {
-	vmi := tests.NewRandomVMIWithEphemeralDisk(cd.ContainerDiskFor(cd.ContainerDiskAlpine))
-	vmi.Spec.Domain.Devices.Interfaces = nil
-	vmi.Spec.Networks = nil
 	return vmi
 }
 
