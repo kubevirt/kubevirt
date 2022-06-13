@@ -1121,7 +1121,12 @@ var _ = Describe("Template", func() {
 
 				Expect(pod.Spec.Volumes[0].EmptyDir).ToNot(BeNil())
 
-				Expect(pod.Spec.Containers[0].VolumeMounts[5].MountPath).To(Equal("/var/run/kubevirt/sockets"))
+				Expect(pod.Spec.Containers[0].VolumeMounts).To(
+					ContainElement(
+						kubev1.VolumeMount{
+							Name:      "sockets",
+							MountPath: "/var/run/kubevirt/sockets"},
+					))
 
 				Expect(pod.Spec.Volumes[1].EmptyDir.Medium).To(Equal(kubev1.StorageMedium("")))
 
@@ -1943,11 +1948,22 @@ var _ = Describe("Template", func() {
 				Expect(hugepagesLimit.ToDec().ScaledValue(resource.Mega)).To(Equal(int64(64)))
 
 				Expect(pod.Spec.Volumes).To(HaveLen(8))
-				Expect(pod.Spec.Volumes[3].EmptyDir).ToNot(BeNil())
-				Expect(pod.Spec.Volumes[3].EmptyDir.Medium).To(Equal(kubev1.StorageMediumHugePages))
+				Expect(pod.Spec.Volumes).To(
+					ContainElement(
+						kubev1.Volume{
+							Name: "hugepages",
+							VolumeSource: kubev1.VolumeSource{
+								EmptyDir: &kubev1.EmptyDirVolumeSource{Medium: kubev1.StorageMediumHugePages},
+							},
+						}))
 
 				Expect(pod.Spec.Containers[0].VolumeMounts).To(HaveLen(7))
-				Expect(pod.Spec.Containers[0].VolumeMounts[6].MountPath).To(Equal("/dev/hugepages"))
+				Expect(pod.Spec.Containers[0].VolumeMounts).To(
+					ContainElement(
+						kubev1.VolumeMount{
+							Name:      "hugepages",
+							MountPath: "/dev/hugepages"},
+					))
 			},
 				Entry("hugepages-2Mi on amd64", "amd64", "2Mi", 223),
 				Entry("hugepages-1Gi on amd64", "amd64", "1Gi", 223),
@@ -2001,11 +2017,22 @@ var _ = Describe("Template", func() {
 				Expect(hugepagesLimit.ToDec().ScaledValue(resource.Mega)).To(Equal(int64(64)))
 
 				Expect(pod.Spec.Volumes).To(HaveLen(8))
-				Expect(pod.Spec.Volumes[3].EmptyDir).ToNot(BeNil())
-				Expect(pod.Spec.Volumes[3].EmptyDir.Medium).To(Equal(kubev1.StorageMediumHugePages))
+				Expect(pod.Spec.Volumes).To(
+					ContainElement(
+						kubev1.Volume{
+							Name: "hugepages",
+							VolumeSource: kubev1.VolumeSource{
+								EmptyDir: &kubev1.EmptyDirVolumeSource{Medium: kubev1.StorageMediumHugePages},
+							},
+						}))
 
 				Expect(pod.Spec.Containers[0].VolumeMounts).To(HaveLen(7))
-				Expect(pod.Spec.Containers[0].VolumeMounts[6].MountPath).To(Equal("/dev/hugepages"))
+				Expect(pod.Spec.Containers[0].VolumeMounts).To(
+					ContainElement(
+						kubev1.VolumeMount{
+							Name:      "hugepages",
+							MountPath: "/dev/hugepages"},
+					))
 			},
 				Entry("on amd64", "amd64", 223),
 				Entry("on arm64", "arm64", 357),
@@ -2055,8 +2082,15 @@ var _ = Describe("Template", func() {
 
 				Expect(pod.Spec.Volumes).ToNot(BeEmpty(), "Found some volumes in manifest")
 				Expect(pod.Spec.Volumes).To(HaveLen(8), "Found 8 volumes in manifest")
-				Expect(pod.Spec.Volumes[3].PersistentVolumeClaim).ToNot(BeNil(), "Found PVC volume")
-				Expect(pod.Spec.Volumes[3].PersistentVolumeClaim.ClaimName).To(Equal(pvcName), "Found PVC volume with correct name")
+				Expect(pod.Spec.Volumes).To(
+					ContainElement(
+						kubev1.Volume{
+							Name: "pvc-volume",
+							VolumeSource: kubev1.VolumeSource{PersistentVolumeClaim: &kubev1.PersistentVolumeClaimVolumeSource{
+								ClaimName: pvcName,
+							}}},
+					),
+					"Found PVC volume with correct name and source configuration")
 			})
 		})
 
@@ -2119,8 +2153,15 @@ var _ = Describe("Template", func() {
 
 				Expect(pod.Spec.Volumes).ToNot(BeEmpty(), "Found some volumes in manifest")
 				Expect(pod.Spec.Volumes).To(HaveLen(9), "Found 9 volumes in manifest")
-				Expect(pod.Spec.Volumes[3].PersistentVolumeClaim).ToNot(BeNil(), "Found PVC volume")
-				Expect(pod.Spec.Volumes[3].PersistentVolumeClaim.ClaimName).To(Equal(pvcName), "Found PVC volume with correct name")
+				Expect(pod.Spec.Volumes).To(
+					ContainElement(
+						kubev1.Volume{
+							Name: "pvc-volume",
+							VolumeSource: kubev1.VolumeSource{PersistentVolumeClaim: &kubev1.PersistentVolumeClaimVolumeSource{
+								ClaimName: pvcName,
+							}}},
+					),
+					"Found PVC volume with correct name and source config")
 			})
 		})
 
@@ -2582,9 +2623,19 @@ var _ = Describe("Template", func() {
 				Expect(err).ToNot(HaveOccurred())
 				Expect(pod.Spec.Volumes).ToNot(BeEmpty())
 				Expect(pod.Spec.Volumes).To(HaveLen(8))
-				Expect(pod.Spec.Volumes[3].EmptyDir).ToNot(BeNil())
-				Expect(pod.Spec.Volumes[3].EmptyDir.Medium).To(Equal(kubev1.StorageMediumMemory))
-				Expect(pod.Spec.Volumes[3].EmptyDir.SizeLimit.Equal(resource.MustParse("1Mi"))).To(BeTrue())
+
+				oneMB := resource.MustParse("1Mi")
+				Expect(pod.Spec.Volumes).To(ContainElement(
+					kubev1.Volume{
+						Name: "downardMetrics",
+						VolumeSource: kubev1.VolumeSource{
+							EmptyDir: &kubev1.EmptyDirVolumeSource{
+								Medium:    kubev1.StorageMediumMemory,
+								SizeLimit: &oneMB,
+							},
+						},
+					}))
+
 				Expect(pod.Spec.Containers[0].VolumeMounts[6].MountPath).To(Equal(k6tconfig.DownwardMetricDisksDir))
 			})
 
@@ -2640,8 +2691,14 @@ var _ = Describe("Template", func() {
 
 				Expect(pod.Spec.Volumes).ToNot(BeEmpty())
 				Expect(pod.Spec.Volumes).To(HaveLen(8))
-				Expect(pod.Spec.Volumes[3].ConfigMap).ToNot(BeNil())
-				Expect(pod.Spec.Volumes[3].ConfigMap.LocalObjectReference.Name).To(Equal("test-configmap"))
+				Expect(pod.Spec.Volumes).To(ContainElement(kubev1.Volume{
+					Name: "configmap-volume",
+					VolumeSource: kubev1.VolumeSource{
+						ConfigMap: &kubev1.ConfigMapVolumeSource{
+							LocalObjectReference: kubev1.LocalObjectReference{Name: "test-configmap"},
+						},
+					},
+				}))
 			})
 		})
 
@@ -2673,8 +2730,14 @@ var _ = Describe("Template", func() {
 
 					Expect(pod.Spec.Volumes).ToNot(BeEmpty())
 					Expect(pod.Spec.Volumes).To(HaveLen(9))
-					Expect(pod.Spec.Volumes[3].ConfigMap).ToNot(BeNil())
-					Expect(pod.Spec.Volumes[3].ConfigMap.LocalObjectReference.Name).To(Equal("test-sysprep-configmap"))
+					Expect(pod.Spec.Volumes).To(ContainElement(kubev1.Volume{
+						Name: "sysprep-configmap-volume",
+						VolumeSource: kubev1.VolumeSource{
+							ConfigMap: &kubev1.ConfigMapVolumeSource{
+								LocalObjectReference: kubev1.LocalObjectReference{Name: "test-sysprep-configmap"},
+							},
+						},
+					}))
 				})
 			})
 			Context("with a Secret", func() {
@@ -2704,8 +2767,15 @@ var _ = Describe("Template", func() {
 
 					Expect(pod.Spec.Volumes).ToNot(BeEmpty())
 					Expect(pod.Spec.Volumes).To(HaveLen(9))
-					Expect(pod.Spec.Volumes[3].Secret).ToNot(BeNil())
-					Expect(pod.Spec.Volumes[3].Secret.SecretName).To(Equal("test-sysprep-secret"))
+
+					Expect(pod.Spec.Volumes).To(ContainElement(kubev1.Volume{
+						Name: "sysprep-configmap-volume",
+						VolumeSource: kubev1.VolumeSource{
+							Secret: &kubev1.SecretVolumeSource{
+								SecretName: "test-sysprep-secret",
+							},
+						},
+					}))
 				})
 			})
 		})
@@ -2739,8 +2809,15 @@ var _ = Describe("Template", func() {
 
 				Expect(pod.Spec.Volumes).ToNot(BeEmpty())
 				Expect(pod.Spec.Volumes).To(HaveLen(8))
-				Expect(pod.Spec.Volumes[3].Secret).ToNot(BeNil())
-				Expect(pod.Spec.Volumes[3].Secret.SecretName).To(Equal("test-secret"))
+
+				Expect(pod.Spec.Volumes).To(ContainElement(kubev1.Volume{
+					Name: "secret-volume",
+					VolumeSource: kubev1.VolumeSource{
+						Secret: &kubev1.SecretVolumeSource{
+							SecretName: "test-secret",
+						},
+					},
+				}))
 			})
 		})
 		Context("with probes", func() {
