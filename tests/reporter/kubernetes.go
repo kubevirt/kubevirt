@@ -70,6 +70,7 @@ type KubernetesReporter struct {
 type commands struct {
 	command        string
 	fileNameSuffix string
+	verbose        bool
 }
 
 func NewKubernetesReporter(artifactsDir string, maxFailures int) *KubernetesReporter {
@@ -1060,16 +1061,16 @@ func (r *KubernetesReporter) executeNodeCommands(virtCli kubecli.KubevirtClient,
 	hostPrefix := fmt.Sprintf("%s --mount %s exec -- ", virt_chroot.GetChrootBinaryPath(), virt_chroot.GetChrootMountNamespace())
 
 	cmds := []commands{
-		{command: networkPrefix + ipAddrName, fileNameSuffix: "ipaddress"},
-		{command: networkPrefix + ipLinkName, fileNameSuffix: "iplink"},
-		{command: networkPrefix + ipRouteShowTableAll, fileNameSuffix: "iproute"},
-		{command: networkPrefix + ipNeighShow, fileNameSuffix: "ipneigh"},
-		{command: networkPrefix + bridgeJVlanShow, fileNameSuffix: "brvlan"},
-		{command: networkPrefix + bridgeFdb, fileNameSuffix: "brfdb"},
-		{command: networkPrefix + "nft list ruleset", fileNameSuffix: "nftlist"},
+		{command: networkPrefix + ipAddrName, fileNameSuffix: "ipaddress", verbose: true},
+		{command: networkPrefix + ipLinkName, fileNameSuffix: "iplink", verbose: true},
+		{command: networkPrefix + ipRouteShowTableAll, fileNameSuffix: "iproute", verbose: true},
+		{command: networkPrefix + ipNeighShow, fileNameSuffix: "ipneigh", verbose: true},
+		{command: networkPrefix + bridgeJVlanShow, fileNameSuffix: "brvlan", verbose: true},
+		{command: networkPrefix + bridgeFdb, fileNameSuffix: "brfdb", verbose: true},
+		{command: networkPrefix + "nft list ruleset", fileNameSuffix: "nftlist", verbose: true},
 
-		{command: hostPrefix + "/usr/bin/" + networkPrefix + "/usr/sbin/iptables --list -v", fileNameSuffix: "iptables"},
-		{command: "ls -lsh -Z -St /dev/vfio", fileNameSuffix: "vfio-devices"},
+		{command: hostPrefix + "/usr/bin/" + networkPrefix + "/usr/sbin/iptables --list -v", fileNameSuffix: "iptables", verbose: true},
+		{command: "ls -lsh -Z -St /dev/vfio", fileNameSuffix: "vfio-devices", verbose: true},
 	}
 
 	r.executeContainerCommands(virtCli, logsdir, pod, virtHandlerName, cmds)
@@ -1077,14 +1078,14 @@ func (r *KubernetesReporter) executeNodeCommands(virtCli kubecli.KubevirtClient,
 
 func (r *KubernetesReporter) executeVirtLauncherCommands(virtCli kubecli.KubevirtClient, logsdir string, pod v1.Pod) {
 	cmds := []commands{
-		{command: ipAddrName, fileNameSuffix: "ipaddress"},
-		{command: ipLinkName, fileNameSuffix: "iplink"},
-		{command: ipRouteShowTableAll, fileNameSuffix: "iproute"},
-		{command: ipNeighShow, fileNameSuffix: "ipneigh"},
-		{command: bridgeJVlanShow, fileNameSuffix: "brvlan"},
-		{command: bridgeFdb, fileNameSuffix: "brfdb"},
-		{command: "env", fileNameSuffix: "env"},
-		{command: "ls -lsh -Z -St /dev/vfio", fileNameSuffix: "vfio-devices"},
+		{command: ipAddrName, fileNameSuffix: "ipaddress", verbose: true},
+		{command: ipLinkName, fileNameSuffix: "iplink", verbose: true},
+		{command: ipRouteShowTableAll, fileNameSuffix: "iproute", verbose: true},
+		{command: ipNeighShow, fileNameSuffix: "ipneigh", verbose: true},
+		{command: bridgeJVlanShow, fileNameSuffix: "brvlan", verbose: true},
+		{command: bridgeFdb, fileNameSuffix: "brfdb", verbose: true},
+		{command: "env", fileNameSuffix: "env", verbose: true},
+		{command: "ls -lsh -Z -St /dev/vfio", fileNameSuffix: "vfio-devices", verbose: false},
 	}
 
 	r.executeContainerCommands(virtCli, logsdir, &pod, computeContainer, cmds)
@@ -1101,11 +1102,13 @@ func (r *KubernetesReporter) executeContainerCommands(virtCli kubecli.KubevirtCl
 
 		stdout, stderr, err := tests.ExecuteCommandOnPodV2(virtCli, pod, container, command)
 		if err != nil {
-			fmt.Fprintf(
-				os.Stderr,
-				failedExecuteCmdFmt,
-				command, target, stdout, stderr, err,
-			)
+			if cmd.verbose {
+				fmt.Fprintf(
+					os.Stderr,
+					failedExecuteCmdFmt,
+					command, target, stdout, stderr, err,
+				)
+			}
 
 			pod, err := virtCli.CoreV1().Pods(pod.ObjectMeta.Namespace).Get(context.Background(), pod.ObjectMeta.Name, metav1.GetOptions{})
 			if errors.IsNotFound(err) || (err == nil && (pod.Status.Phase != "Running" || !isContainerReady(pod.Status.ContainerStatuses, container))) {
@@ -1125,23 +1128,23 @@ func (r *KubernetesReporter) executeContainerCommands(virtCli kubecli.KubevirtCl
 
 func (r *KubernetesReporter) executeVMICommands(vmi v12.VirtualMachineInstance, logsdir string, vmiType string) {
 	cmds := []commands{
-		{command: ipAddrName, fileNameSuffix: "ipaddress"},
-		{command: ipLinkName, fileNameSuffix: "iplink"},
-		{command: ipRouteShowTableAll, fileNameSuffix: "iproute"},
-		{command: "dmesg", fileNameSuffix: "dmesg"},
+		{command: ipAddrName, fileNameSuffix: "ipaddress", verbose: true},
+		{command: ipLinkName, fileNameSuffix: "iplink", verbose: true},
+		{command: ipRouteShowTableAll, fileNameSuffix: "iproute", verbose: true},
+		{command: "dmesg", fileNameSuffix: "dmesg", verbose: true},
 	}
 
 	if vmiType == "fedora" {
 		cmds = append(cmds, []commands{
-			{command: ipNeighShow, fileNameSuffix: "ipneigh"},
-			{command: bridgeJVlanShow, fileNameSuffix: "brvlan"},
-			{command: bridgeFdb, fileNameSuffix: "brfdb"},
-			{command: "nmcli connection", fileNameSuffix: "nmcon"},
-			{command: "nmcli device", fileNameSuffix: "nmdev"}}...)
+			{command: ipNeighShow, fileNameSuffix: "ipneigh", verbose: true},
+			{command: bridgeJVlanShow, fileNameSuffix: "brvlan", verbose: true},
+			{command: bridgeFdb, fileNameSuffix: "brfdb", verbose: true},
+			{command: "nmcli connection", fileNameSuffix: "nmcon", verbose: true},
+			{command: "nmcli device", fileNameSuffix: "nmdev", verbose: true}}...)
 	} else if vmiType == "cirros" || vmiType == "alpine" {
 		cmds = append(cmds, []commands{
-			{command: "lspci", fileNameSuffix: "lspci"},
-			{command: "arp", fileNameSuffix: "arp"}}...)
+			{command: "lspci", fileNameSuffix: "lspci", verbose: true},
+			{command: "arp", fileNameSuffix: "arp", verbose: true}}...)
 	}
 
 	for _, cmd := range cmds {
@@ -1152,7 +1155,9 @@ func (r *KubernetesReporter) executeVMICommands(vmi v12.VirtualMachineInstance, 
 			&expect.BExp{R: console.RetValue("0")},
 		}, 10)
 		if err != nil {
-			fmt.Fprintf(os.Stderr, "failed console vmi %s: %v\n", vmi.ObjectMeta.Name, err)
+			if cmd.verbose {
+				fmt.Fprintf(os.Stderr, "failed console vmi %s: %v\n", vmi.ObjectMeta.Name, err)
+			}
 			continue
 		}
 
@@ -1191,9 +1196,9 @@ func (r *KubernetesReporter) executeCloudInitCommands(vmi v12.VirtualMachineInst
 
 	if vmiType == "fedora" {
 		cmds = append(cmds, []commands{
-			{command: "cat /var/log/cloud-init.log", fileNameSuffix: "cloud-init-log"},
-			{command: "cat /var/log/cloud-init-output.log", fileNameSuffix: "cloud-init-output"},
-			{command: "cat /var/run/cloud-init/status.json", fileNameSuffix: "cloud-init-status"},
+			{command: "cat /var/log/cloud-init.log", fileNameSuffix: "cloud-init-log", verbose: false},
+			{command: "cat /var/log/cloud-init-output.log", fileNameSuffix: "cloud-init-output", verbose: false},
+			{command: "cat /var/run/cloud-init/status.json", fileNameSuffix: "cloud-init-status", verbose: false},
 		}...)
 	}
 	for _, cmd := range cmds {
@@ -1204,7 +1209,9 @@ func (r *KubernetesReporter) executeCloudInitCommands(vmi v12.VirtualMachineInst
 			&expect.BExp{R: console.RetValue("0")},
 		}, 10)
 		if err != nil {
-			fmt.Fprintf(os.Stderr, "failed console vmi %s/%s: %v\n", vmi.Namespace, vmi.Name, err)
+			if cmd.verbose {
+				fmt.Fprintf(os.Stderr, "failed console vmi %s/%s: %v\n", vmi.Namespace, vmi.Name, err)
+			}
 			continue
 		}
 
