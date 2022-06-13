@@ -869,7 +869,7 @@ func getBaseTemplate(vm *v1.VirtualMachine, memory string, cores string) *Templa
 	return &Template{
 		TypeMeta: metav1.TypeMeta{
 			Kind:       "Template",
-			APIVersion: "v1",
+			APIVersion: "template.openshift.io/v1",
 		},
 		Objects: []runtime.Object{
 			obj,
