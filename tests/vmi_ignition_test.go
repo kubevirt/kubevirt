@@ -48,7 +48,7 @@ var _ = Describe("[rfe_id:151][crit:high][vendor:cnv-qe@redhat.com][level:compon
 		util.PanicOnError(err)
 		tests.BeforeTestCleanup()
 
-		if !hasExperimentalIgnitionSupport() {
+		if !checks.HasFeature("ExperimentalIgnitionSupport") {
 			Skip("ExperimentalIgnitionSupport feature gate is not enabled in kubevirt-config")
 		}
 	})
@@ -91,7 +91,3 @@ var _ = Describe("[rfe_id:151][crit:high][vendor:cnv-qe@redhat.com][level:compon
 
 	})
 })
-
-func hasExperimentalIgnitionSupport() bool {
-	return checks.HasFeature("ExperimentalIgnitionSupport")
-}
