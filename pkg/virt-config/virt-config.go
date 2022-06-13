@@ -74,8 +74,8 @@ const (
 	// Default REST configuration settings
 	DefaultVirtHandlerQPS         float32 = 5
 	DefaultVirtHandlerBurst               = 10
-	DefaultVirtControllerQPS      float32 = 20
-	DefaultVirtControllerBurst            = 30
+	DefaultVirtControllerQPS      float32 = 200
+	DefaultVirtControllerBurst            = 400
 	DefaultVirtAPIQPS             float32 = 5
 	DefaultVirtAPIBurst                   = 10
 	DefaultVirtWebhookClientQPS           = 200
