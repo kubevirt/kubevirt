@@ -34,7 +34,6 @@ import (
 
 	"kubevirt.io/kubevirt/tests"
 	"kubevirt.io/kubevirt/tests/console"
-	cd "kubevirt.io/kubevirt/tests/containerdisk"
 	"kubevirt.io/kubevirt/tests/libnet"
 	"kubevirt.io/kubevirt/tests/libvmi"
 )
@@ -158,7 +157,13 @@ var _ = SIGDescribe("Primary Pod Network", func() {
 				var vmi *v1.VirtualMachineInstance
 
 				BeforeEach(func() {
-					vmi = setupVMI(virtClient, vmiWithMasqueradeBinding())
+					vmi = setupVMI(
+						virtClient,
+						libvmi.NewAlpine(
+							libvmi.WithInterface(*v1.DefaultMasqueradeNetworkInterface()),
+							libvmi.WithNetwork(v1.DefaultPodNetwork()),
+						),
+					)
 				})
 
 				It("[Conformance] should report PodIP as its own on interface status", func() { AssertReportedIP(vmi) })
@@ -176,13 +181,6 @@ func setupVMI(virtClient kubecli.KubevirtClient, vmi *v1.VirtualMachineInstance)
 	By("Waiting until the VMI gets ready")
 	vmi = tests.WaitUntilVMIReady(vmi, console.LoginToAlpine)
 
-	return vmi
-}
-
-func vmiWithMasqueradeBinding() *v1.VirtualMachineInstance {
-	vmi := tests.NewRandomVMIWithEphemeralDisk(cd.ContainerDiskFor(cd.ContainerDiskAlpine))
-	vmi.Spec.Domain.Devices.Interfaces = []v1.Interface{*v1.DefaultMasqueradeNetworkInterface()}
-	vmi.Spec.Networks = []v1.Network{*v1.DefaultPodNetwork()}
 	return vmi
 }
 
