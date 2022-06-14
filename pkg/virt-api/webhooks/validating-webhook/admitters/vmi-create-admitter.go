@@ -168,10 +168,9 @@ func ValidateVirtualMachineInstanceSpec(field *k8sfield.Path, spec *v1.VirtualMa
 	bootOrderMap, newCauses := validateBootOrder(field, spec, volumeNameMap)
 	causes = append(causes, newCauses...)
 
-	networkNameMap := make(map[string]*v1.Network)
-	causes = append(causes, validateNetworks(field, spec, networkNameMap)...)
+	causes = append(causes, validateNetworks(field, spec)...)
 
-	networkInterfaceMap, newCauses, done := validateNetworksMatchInterfaces(field, spec, config, networkNameMap, bootOrderMap)
+	networkInterfaceMap, newCauses, done := validateNetworksMatchInterfaces(field, spec, config, bootOrderMap)
 	causes = append(causes, newCauses...)
 	if done {
 		return causes
@@ -239,9 +238,13 @@ func validateVirtualMachineInstanceSpecVolumeDisks(field *k8sfield.Path, spec *v
 	return causes
 }
 
-func validateNetworksMatchInterfaces(field *k8sfield.Path, spec *v1.VirtualMachineInstanceSpec, config *virtconfig.ClusterConfig, networkNameMap map[string]*v1.Network, bootOrderMap map[uint]bool) (networkInterfaceMap map[string]struct{}, causes []metav1.StatusCause, done bool) {
-
+func validateNetworksMatchInterfaces(field *k8sfield.Path, spec *v1.VirtualMachineInstanceSpec, config *virtconfig.ClusterConfig, bootOrderMap map[uint]bool) (networkInterfaceMap map[string]struct{}, causes []metav1.StatusCause, done bool) {
 	done = false
+
+	networkNameMap := make(map[string]*v1.Network)
+	for i := range spec.Networks {
+		networkNameMap[spec.Networks[i].Name] = &spec.Networks[i]
+	}
 
 	// Make sure interfaces and networks are 1to1 related
 	networkInterfaceMap = make(map[string]struct{})
@@ -896,7 +899,7 @@ func appendStatusCaseForMoreThanOneMultusDefaultNetwork(field *k8sfield.Path, ca
 	})
 }
 
-func validateNetworks(field *k8sfield.Path, spec *v1.VirtualMachineInstanceSpec, networkNameMap map[string]*v1.Network) (causes []metav1.StatusCause) {
+func validateNetworks(field *k8sfield.Path, spec *v1.VirtualMachineInstanceSpec) (causes []metav1.StatusCause) {
 	podExists := false
 	multusDefaultCount := 0
 
@@ -916,8 +919,6 @@ func validateNetworks(field *k8sfield.Path, spec *v1.VirtualMachineInstanceSpec,
 				causes = appendStatusCauseForCNIPluginHasNoNetworkName(field, causes, idx)
 			}
 		}
-
-		networkNameMap[spec.Networks[idx].Name] = &spec.Networks[idx]
 	}
 
 	if multusDefaultCount > 1 {
