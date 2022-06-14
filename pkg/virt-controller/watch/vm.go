@@ -55,6 +55,7 @@ import (
 	"kubevirt.io/kubevirt/pkg/util/status"
 	traceUtils "kubevirt.io/kubevirt/pkg/util/trace"
 	typesutil "kubevirt.io/kubevirt/pkg/util/types"
+	virtconfig "kubevirt.io/kubevirt/pkg/virt-config"
 )
 
 const (
@@ -92,7 +93,8 @@ func NewVMController(vmiInformer cache.SharedIndexInformer,
 	crInformer cache.SharedIndexInformer,
 	flavorMethods flavor.Methods,
 	recorder record.EventRecorder,
-	clientset kubecli.KubevirtClient) *VMController {
+	clientset kubecli.KubevirtClient,
+	clusterConfig *virtconfig.ClusterConfig) *VMController {
 
 	proxy := &sarProxy{client: clientset}
 
@@ -112,6 +114,7 @@ func NewVMController(vmiInformer cache.SharedIndexInformer,
 			return cdiclone.CanServiceAccountClonePVC(proxy, pvcNamespace, pvcName, saNamespace, saName)
 		},
 		statusUpdater: status.NewVMStatusUpdater(clientset),
+		clusterConfig: clusterConfig,
 	}
 
 	c.vmInformer.AddEventHandler(cache.ResourceEventHandlerFuncs{
@@ -157,6 +160,7 @@ type VMController struct {
 	dataVolumeExpectations *controller.UIDTrackingControllerExpectations
 	cloneAuthFunc          CloneAuthFunc
 	statusUpdater          *status.VMStatusUpdater
+	clusterConfig          *virtconfig.ClusterConfig
 }
 
 func (c *VMController) Run(threadiness int, stopCh <-chan struct{}) {

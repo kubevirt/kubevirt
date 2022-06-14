@@ -104,6 +104,8 @@ var _ = Describe("VirtualMachine", func() {
 			recorder = record.NewFakeRecorder(100)
 			recorder.IncludeObject = true
 
+			config, _, _ := testutils.NewFakeClusterConfigUsingKVConfig(&v1.KubeVirtConfiguration{})
+
 			controller = NewVMController(vmiInformer,
 				vmInformer,
 				dataVolumeInformer,
@@ -111,7 +113,8 @@ var _ = Describe("VirtualMachine", func() {
 				crInformer,
 				flavorMethods,
 				recorder,
-				virtClient)
+				virtClient,
+				config)
 
 			// Wrap our workqueue to have a way to detect when we are done processing updates
 			mockQueue = testutils.NewMockWorkQueue(controller.Queue)
