@@ -118,6 +118,6 @@ var _ = ReportBeforeEach(func(specReport SpecReport) {
 	k8sReporter.JustBeforeEach(CurrentSpecReport())
 })
 
-var _ = ReportAfterEach(func(specReport SpecReport) {
+var _ = JustAfterEach(func() {
 	k8sReporter.JustAfterEach(CurrentSpecReport())
 })
