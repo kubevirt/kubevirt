@@ -267,7 +267,7 @@ func guestAgentOperation(vmi *v1.VirtualMachineInstance, startStopOperation stri
 
 func createReadyAlpineVMIWithReadinessProbe(probe *v1.Probe) *v1.VirtualMachineInstance {
 	vmi := libvmi.NewAlpineWithTestTooling(
-		withMasqueradeNetworkingAndFurtherUserConfig(withLivelinessProbe(probe))...)
+		withMasqueradeNetworkingAndFurtherUserConfig(withReadinessProbe(probe))...)
 
 	return tests.RunVMIAndExpectLaunchIgnoreWarnings(vmi, 180)
 }
