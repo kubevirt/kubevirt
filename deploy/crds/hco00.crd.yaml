@@ -847,6 +847,14 @@ spec:
                   type: object
                 type: array
                 x-kubernetes-list-type: atomic
+              defaulCPUModel:
+                description: 'DefaultCPUModel defines a cluster default for CPU model:
+                  default CPU model is set when vmi doesn''t have any cpu model. When
+                  vmi has cpu model set, then vmi''s cpu model is preferred. When
+                  default cpu model is not set and vmi''s cpu model is not set too,
+                  host-model will be set. Default cpu model can be changed when kubevirt
+                  is running.'
+                type: string
               featureGates:
                 default:
                   deployTektonTaskResources: false

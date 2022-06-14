@@ -294,6 +294,11 @@ func (in *HyperConvergedSpec) DeepCopyInto(out *HyperConvergedSpec) {
 		*out = new(string)
 		**out = **in
 	}
+	if in.DefaultCPUModel != nil {
+		in, out := &in.DefaultCPUModel, &out.DefaultCPUModel
+		*out = new(string)
+		**out = **in
+	}
 	if in.ObsoleteCPUs != nil {
 		in, out := &in.ObsoleteCPUs, &out.ObsoleteCPUs
 		*out = new(HyperConvergedObsoleteCPUs)

@@ -358,6 +358,13 @@ func schema_kubevirt_hyperconverged_cluster_operator_api_v1beta1_HyperConvergedS
 							Format:      "",
 						},
 					},
+					"defaulCPUModel": {
+						SchemaProps: spec.SchemaProps{
+							Description: "DefaultCPUModel defines a cluster default for CPU model: default CPU model is set when vmi doesn't have any cpu model. When vmi has cpu model set, then vmi's cpu model is preferred. When default cpu model is not set and vmi's cpu model is not set too, host-model will be set. Default cpu model can be changed when kubevirt is running.",
+							Type:        []string{"string"},
+							Format:      "",
+						},
+					},
 					"obsoleteCPUs": {
 						SchemaProps: spec.SchemaProps{
 							Description: "ObsoleteCPUs allows avoiding scheduling of VMs for obsolete CPU models",

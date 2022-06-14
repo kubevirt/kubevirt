@@ -531,6 +531,19 @@ spec:
     minCPUModel: "Penryn"
 ```
 
+## Default CPU model configuration
+User can specify a cluster-wide default CPU model: default CPU model is set when vmi doesn't have any cpu model.
+When vmi has cpu model set, then vmi's cpu model is preferred. When default cpu model is not set and vmi's cpu model is not set too, host-model will be set.
+Default cpu model can be changed when kubevirt is running.
+```yaml
+apiVersion: hco.kubevirt.io/v1beta1
+kind: HyperConverged
+metadata:
+  name: kubevirt-hyperconverged
+spec:
+  defaultCPUModel: "EPYC"
+```
+
 ## Common templates namespace
 User can specify namespace in which common templates will be deployed. This will override default `openshift` namespace.
 ```yaml

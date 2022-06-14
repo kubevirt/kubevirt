@@ -6,6 +6,8 @@ import (
 	"os"
 	"time"
 
+	"k8s.io/utils/pointer"
+
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
 	corev1 "k8s.io/api/core/v1"
@@ -1030,6 +1032,118 @@ Version: 1.2.3`)
 					},
 				))
 			})
+		})
+
+		Context("test CPUModel", func() {
+
+			It("should propagate the CPUModel from the HC if set", func() {
+				existKv, err := NewKubeVirt(hco)
+				Expect(err).ToNot(HaveOccurred())
+
+				testCPUModel := "testValue"
+				hco.Spec.DefaultCPUModel = pointer.String(testCPUModel)
+
+				cl := commonTestUtils.InitClient([]runtime.Object{hco, existKv})
+				handler := (*genericOperand)(newKubevirtHandler(cl, commonTestUtils.GetScheme()))
+				res := handler.ensure(req)
+
+				Expect(res.UpgradeDone).To(BeFalse())
+				Expect(res.Updated).To(BeTrue())
+				Expect(res.Err).ToNot(HaveOccurred())
+
+				foundResource := &kubevirtcorev1.KubeVirt{}
+				Expect(
+					cl.Get(context.TODO(),
+						types.NamespacedName{Name: existKv.Name, Namespace: existKv.Namespace},
+						foundResource),
+				).ToNot(HaveOccurred())
+
+				kvCPUModel := foundResource.Spec.Configuration.CPUModel
+				Expect(kvCPUModel).ToNot(BeEmpty())
+				Expect(kvCPUModel).To(Equal(testCPUModel))
+
+			})
+
+			It("should not propagate the CPUModel from the HC if not set", func() {
+				existKv, err := NewKubeVirt(hco)
+				Expect(err).ToNot(HaveOccurred())
+
+				hco.Spec.DefaultCPUModel = nil
+
+				cl := commonTestUtils.InitClient([]runtime.Object{hco, existKv})
+				handler := (*genericOperand)(newKubevirtHandler(cl, commonTestUtils.GetScheme()))
+				res := handler.ensure(req)
+
+				Expect(res.UpgradeDone).To(BeFalse())
+				Expect(res.Updated).To(BeFalse())
+				Expect(res.Err).ToNot(HaveOccurred())
+
+				foundResource := &kubevirtcorev1.KubeVirt{}
+				Expect(
+					cl.Get(context.TODO(),
+						types.NamespacedName{Name: existKv.Name, Namespace: existKv.Namespace},
+						foundResource),
+				).ToNot(HaveOccurred())
+
+				kvCPUModel := foundResource.Spec.Configuration.CPUModel
+				Expect(kvCPUModel).To(BeEmpty())
+
+			})
+
+			It("should update the CPUModel from the HC", func() {
+				existKv, err := NewKubeVirt(hco)
+				Expect(err).ToNot(HaveOccurred())
+
+				oldKVCPUmodel := "oldKVCPUmodel"
+				existKv.Spec.Configuration.CPUModel = oldKVCPUmodel
+
+				testCPUModel := "testValue"
+				hco.Spec.DefaultCPUModel = &testCPUModel
+
+				cl := commonTestUtils.InitClient([]runtime.Object{hco, existKv})
+
+				By("Check before reconciling", func() {
+					foundResource := &kubevirtcorev1.KubeVirt{}
+					Expect(
+						cl.Get(context.TODO(),
+							types.NamespacedName{Name: existKv.Name, Namespace: existKv.Namespace},
+							foundResource),
+					).To(BeNil())
+
+					kvCPUModel := foundResource.Spec.Configuration.CPUModel
+					Expect(kvCPUModel).ToNot(BeNil())
+					Expect(kvCPUModel).To(Equal(oldKVCPUmodel))
+				})
+
+				handler := (*genericOperand)(newKubevirtHandler(cl, commonTestUtils.GetScheme()))
+				res := handler.ensure(req)
+
+				Expect(res.UpgradeDone).To(BeFalse())
+				Expect(res.Updated).To(BeTrue())
+				Expect(res.Err).ToNot(HaveOccurred())
+
+				foundResource := &kubevirtcorev1.KubeVirt{}
+				Expect(
+					cl.Get(context.TODO(),
+						types.NamespacedName{Name: existKv.Name, Namespace: existKv.Namespace},
+						foundResource),
+				).ToNot(HaveOccurred())
+
+				By("Check after reconciling", func() {
+					foundResource := &kubevirtcorev1.KubeVirt{}
+					Expect(
+						cl.Get(context.TODO(),
+							types.NamespacedName{Name: existKv.Name, Namespace: existKv.Namespace},
+							foundResource),
+					).To(BeNil())
+
+					kvCPUModel := foundResource.Spec.Configuration.CPUModel
+					Expect(kvCPUModel).ToNot(BeNil())
+					Expect(kvCPUModel).To(Equal(testCPUModel))
+				})
+
+			})
+
 		})
 
 		Context("Test node placement", func() {

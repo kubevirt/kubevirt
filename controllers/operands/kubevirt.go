@@ -333,6 +333,10 @@ func getKVConfig(hc *hcov1beta1.HyperConverged) (*kubevirtcorev1.KubeVirtConfigu
 		}
 	}
 
+	if hc.Spec.DefaultCPUModel != nil {
+		config.CPUModel = *hc.Spec.DefaultCPUModel
+	}
+
 	return config, nil
 }
 
