@@ -709,7 +709,7 @@ var _ = Describe("[rfe_id:1177][crit:medium][vendor:cnv-qe@redhat.com][level:com
 			Expect(vmi.Status.VirtualMachineRevisionName).To(Equal(expectedVMRevisionName))
 			oldVMRevisionName := expectedVMRevisionName
 
-			By("Stoping the VM")
+			By("Stopping the VM")
 			newVM = stopVM(newVM)
 
 			By("Updating the VM template spec")

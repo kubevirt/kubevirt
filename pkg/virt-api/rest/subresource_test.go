@@ -32,13 +32,12 @@ import (
 	"strings"
 	"sync"
 
-	"k8s.io/utils/pointer"
-
 	"github.com/golang/mock/gomock"
 	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/apimachinery/pkg/types"
 	"k8s.io/client-go/kubernetes/fake"
 	"k8s.io/client-go/testing"
+	"k8s.io/utils/pointer"
 
 	"github.com/emicklei/go-restful"
 	. "github.com/onsi/ginkgo/v2"
@@ -1167,22 +1166,52 @@ var _ = Describe("VirtualMachineInstance Subresources", func() {
 
 			statusErr := ExpectStatusErrorWithCode(recorder, http.StatusConflict)
 			// check the msg string that would be presented to virtctl output
-			Expect(statusErr.Error()).To(ContainSubstring("Halted does not support manual stop requests"))
+			Expect(statusErr.Error()).To(ContainSubstring("Halted only supports manual stop requests with a shorter graceperiod"))
 		})
 
-		It("should fail on VM with RunStrategyHalted", func() {
+		DescribeTable("for VM with RunStrategyHalted, should", func(terminationGracePeriod *int64, graceperiod *int64, shouldFail bool) {
 			vm := newVirtualMachineWithRunStrategy(v1.RunStrategyHalted)
 			vmi := newVirtualMachineInstanceInPhase(v1.Running)
+
+			vmi.Spec.TerminationGracePeriodSeconds = terminationGracePeriod
+
+			stopOptions := &v1.StopOptions{GracePeriod: graceperiod}
+
+			bytesRepresentation, err := json.Marshal(stopOptions)
+			Expect(err).ToNot(HaveOccurred())
+			request.Request.Body = io.NopCloser(bytes.NewReader(bytesRepresentation))
 
 			vmClient.EXPECT().Get(vm.Name, &k8smetav1.GetOptions{}).Return(vm, nil)
 			vmiClient.EXPECT().Get(vm.Name, &k8smetav1.GetOptions{}).Return(vmi, nil)
 
+			if graceperiod != nil {
+				vmiClient.EXPECT().Patch(vmi.Name, types.MergePatchType, gomock.Any(), gomock.Any()).DoAndReturn(
+					func(name string, patchType types.PatchType, body interface{}, opts *k8smetav1.PatchOptions) (interface{}, interface{}) {
+						//check that dryRun option has been propagated to patch request
+						Expect(opts.DryRun).To(BeEquivalentTo(stopOptions.DryRun))
+						return vm, nil
+					})
+			}
+			if !shouldFail {
+				vmClient.EXPECT().PatchStatus(vm.Name, types.JSONPatchType, gomock.Any(), &k8smetav1.PatchOptions{}).Return(vm, nil)
+			}
 			app.StopVMRequestHandler(request, response)
 
-			statusErr := ExpectStatusErrorWithCode(recorder, http.StatusConflict)
-			// check the msg string that would be presented to virtctl output
-			Expect(statusErr.Error()).To(ContainSubstring("Halted does not support manual stop requests"))
-		})
+			if shouldFail {
+				statusErr := ExpectStatusErrorWithCode(recorder, http.StatusConflict)
+				// check the msg string that would be presented to virtctl output
+				Expect(statusErr.Error()).To(ContainSubstring("Halted only supports manual stop requests with a shorter graceperiod"))
+			} else {
+				Expect(response.Error()).ToNot(HaveOccurred())
+				Expect(response.StatusCode()).To(Equal(http.StatusAccepted))
+			}
+		},
+			Entry("fail with nil graceperiod", pointer.Int64(int64(1800)), nil, true),
+			Entry("fail with equal graceperiod", pointer.Int64(int64(1800)), pointer.Int64(int64(1800)), true),
+			Entry("fail with greater graceperiod", pointer.Int64(int64(1800)), pointer.Int64(int64(2400)), true),
+			Entry("not fail with non-nil graceperiod and nil termination graceperiod", nil, pointer.Int64(int64(1800)), false),
+			Entry("not fail with shorter graceperiod and non-nil termination graceperiod", pointer.Int64(int64(1800)), pointer.Int64(int64(800)), false),
+		)
 
 		DescribeTable("should not fail on VM with RunStrategy", func(runStrategy v1.VirtualMachineRunStrategy) {
 			vm := newVirtualMachineWithRunStrategy(runStrategy)
