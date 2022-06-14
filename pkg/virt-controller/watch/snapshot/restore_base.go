@@ -51,6 +51,8 @@ type VMRestoreController struct {
 	PVCInformer               cache.SharedIndexInformer
 	StorageClassInformer      cache.SharedIndexInformer
 
+	VolumeSnapshotProvider VolumeSnapshotProvider
+
 	Recorder record.EventRecorder
 
 	vmRestoreQueue workqueue.RateLimitingInterface
