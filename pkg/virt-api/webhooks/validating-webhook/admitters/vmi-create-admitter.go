@@ -164,8 +164,7 @@ func ValidateVirtualMachineInstanceSpec(field *k8sfield.Path, spec *v1.VirtualMa
 		return appendStatusCauseForMoreThanOnePodInterface(field, causes)
 	}
 
-	volumeNameMap := make(map[string]*v1.Volume)
-	bootOrderMap, newCauses := validateBootOrder(field, spec, volumeNameMap)
+	bootOrderMap, newCauses := validateBootOrder(field, spec)
 	causes = append(causes, newCauses...)
 
 	causes = append(causes, validateNetworks(field, spec)...)
@@ -966,12 +965,13 @@ func validateNetworkHasOnlyOneType(field *k8sfield.Path, network *v1.Network, ca
 	return causes
 }
 
-func validateBootOrder(field *k8sfield.Path, spec *v1.VirtualMachineInstanceSpec, volumeNameMap map[string]*v1.Volume) (bootOrderMap map[uint]bool, causes []metav1.StatusCause) {
+func validateBootOrder(field *k8sfield.Path, spec *v1.VirtualMachineInstanceSpec) (bootOrderMap map[uint]bool, causes []metav1.StatusCause) {
 	// used to validate uniqueness of boot orders among disks and interfaces
 	bootOrderMap = make(map[uint]bool)
 
-	for i, volume := range spec.Volumes {
-		volumeNameMap[volume.Name] = &spec.Volumes[i]
+	volumeNameMap := make(map[string]*v1.Volume)
+	for i := range spec.Volumes {
+		volumeNameMap[spec.Volumes[i].Name] = &spec.Volumes[i]
 	}
 
 	// Validate disks match volumes correctly
