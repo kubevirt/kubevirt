@@ -1050,8 +1050,7 @@ func (c *MigrationController) sync(key string, migration *virtv1.VirtualMachineI
 			if len(patches) != 0 {
 				vmi, err = c.clientset.VirtualMachineInstance(vmi.Namespace).Patch(vmi.Name, types.JSONPatchType, controller.GeneratePatchBytes(patches), &v1.PatchOptions{})
 				if err != nil {
-					return fmt.Errorf("failed to mark VMI as nonroot: %v", err)
-
+					return fmt.Errorf("failed to set VMI RuntimeUser: %v", err)
 				}
 			}
 
