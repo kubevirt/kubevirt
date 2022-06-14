@@ -223,7 +223,7 @@ func (ctrl *VMSnapshotController) updateVMSnapshotContent(content *snapshotv1.Vi
 
 		vsName := *volumeBackup.VolumeSnapshotName
 
-		volumeSnapshot, err := ctrl.getVolumeSnapshot(content.Namespace, vsName)
+		volumeSnapshot, err := ctrl.GetVolumeSnapshot(content.Namespace, vsName)
 		if err != nil {
 			return 0, err
 		}
