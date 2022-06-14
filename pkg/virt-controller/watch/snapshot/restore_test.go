@@ -5,6 +5,7 @@ import (
 	"fmt"
 
 	"github.com/golang/mock/gomock"
+	vsv1 "github.com/kubernetes-csi/external-snapshotter/client/v4/apis/volumesnapshot/v1"
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
 	corev1 "k8s.io/api/core/v1"
@@ -162,6 +163,17 @@ var _ = Describe("Restore controlleer", func() {
 		}
 	}
 
+	createVolumeSnapshot := func(name string, restoreSize resource.Quantity) *vsv1.VolumeSnapshot {
+		return &vsv1.VolumeSnapshot{
+			ObjectMeta: metav1.ObjectMeta{
+				Name: name,
+			},
+			Status: &vsv1.VolumeSnapshotStatus{
+				RestoreSize: &restoreSize,
+			},
+		}
+	}
+
 	Context("One valid Restore controller given", func() {
 
 		var ctrl *gomock.Controller
@@ -196,6 +208,7 @@ var _ = Describe("Restore controlleer", func() {
 		var controller *VMRestoreController
 		var recorder *record.FakeRecorder
 		var mockVMRestoreQueue *testutils.MockWorkQueue
+		var fakeVolumeSnapshotProvider *MockVolumeSnapshotProvider
 
 		var kubevirtClient *kubevirtfake.Clientset
 		var k8sClient *k8sfake.Clientset
@@ -241,6 +254,10 @@ var _ = Describe("Restore controlleer", func() {
 			recorder = record.NewFakeRecorder(100)
 			recorder.IncludeObject = true
 
+			fakeVolumeSnapshotProvider = &MockVolumeSnapshotProvider{
+				volumeSnapshots: []*vsv1.VolumeSnapshot{},
+			}
+
 			controller = &VMRestoreController{
 				Client:                    virtClient,
 				VMRestoreInformer:         vmRestoreInformer,
@@ -253,6 +270,7 @@ var _ = Describe("Restore controlleer", func() {
 				DataVolumeInformer:        dataVolumeInformer,
 				Recorder:                  recorder,
 				vmStatusUpdater:           status.NewVMStatusUpdater(virtClient),
+				VolumeSnapshotProvider:    fakeVolumeSnapshotProvider,
 			}
 			controller.Init()
 
@@ -417,8 +435,54 @@ var _ = Describe("Restore controlleer", func() {
 				}
 				vmSource.Add(vm)
 				addVolumeRestores(r)
+				pvcSize := resource.MustParse("2Gi")
+				vs := createVolumeSnapshot(r.Status.Restores[0].VolumeSnapshotName, pvcSize)
+				fakeVolumeSnapshotProvider.Add(vs)
 				expectUpdateVMRestoreInProgress(vm)
-				expectPVCCreates(k8sClient, r)
+				expectPVCCreates(k8sClient, r, pvcSize)
+				addVirtualMachineRestore(r)
+				controller.processVMRestoreWorkItem()
+			})
+
+			It("should create restore PVC with volume snapshot size if bigger then PVC size", func() {
+				r := createRestoreWithOwner()
+				vm := createModifiedVM()
+				r.Status = &snapshotv1.VirtualMachineRestoreStatus{
+					Complete: &f,
+					Conditions: []snapshotv1.Condition{
+						newProgressingCondition(corev1.ConditionTrue, "Creating new PVCs"),
+						newReadyCondition(corev1.ConditionFalse, "Waiting for new PVCs"),
+					},
+				}
+				vmSource.Add(vm)
+				addVolumeRestores(r)
+				q := resource.MustParse("3Gi")
+				vs := createVolumeSnapshot(r.Status.Restores[0].VolumeSnapshotName, q)
+				fakeVolumeSnapshotProvider.Add(vs)
+				expectUpdateVMRestoreInProgress(vm)
+				expectPVCCreates(k8sClient, r, q)
+				addVirtualMachineRestore(r)
+				controller.processVMRestoreWorkItem()
+			})
+
+			It("should create restore PVC with pvc size if restore size is smaller", func() {
+				r := createRestoreWithOwner()
+				vm := createModifiedVM()
+				r.Status = &snapshotv1.VirtualMachineRestoreStatus{
+					Complete: &f,
+					Conditions: []snapshotv1.Condition{
+						newProgressingCondition(corev1.ConditionTrue, "Creating new PVCs"),
+						newReadyCondition(corev1.ConditionFalse, "Waiting for new PVCs"),
+					},
+				}
+				vmSource.Add(vm)
+				addVolumeRestores(r)
+				q := resource.MustParse("1Gi")
+				vs := createVolumeSnapshot(r.Status.Restores[0].VolumeSnapshotName, q)
+				fakeVolumeSnapshotProvider.Add(vs)
+				expectUpdateVMRestoreInProgress(vm)
+				pvcSize := resource.MustParse("2Gi")
+				expectPVCCreates(k8sClient, r, pvcSize)
 				addVirtualMachineRestore(r)
 				controller.processVMRestoreWorkItem()
 			})
@@ -784,7 +848,7 @@ var _ = Describe("Restore controlleer", func() {
 	})
 })
 
-func expectPVCCreates(client *k8sfake.Clientset, vmRestore *snapshotv1.VirtualMachineRestore) {
+func expectPVCCreates(client *k8sfake.Clientset, vmRestore *snapshotv1.VirtualMachineRestore, expectedSize resource.Quantity) {
 	client.Fake.PrependReactor("create", "persistentvolumeclaims", func(action testing.Action) (handled bool, obj runtime.Object, err error) {
 		create, ok := action.(testing.CreateAction)
 		Expect(ok).To(BeTrue())
@@ -793,6 +857,7 @@ func expectPVCCreates(client *k8sfake.Clientset, vmRestore *snapshotv1.VirtualMa
 		found := false
 		for _, vr := range vmRestore.Status.Restores {
 			if vr.PersistentVolumeClaimName == createObj.Name {
+				Expect(createObj.Spec.Resources.Requests[corev1.ResourceStorage]).To(Equal(expectedSize))
 				found = true
 				break
 			}
@@ -851,4 +916,22 @@ func expectDataVolumeDeletes(client *cdifake.Clientset, names []string) {
 
 		return true, nil, nil
 	})
+}
+
+// A mock to implement volumeSnapshotProvider interface
+type MockVolumeSnapshotProvider struct {
+	volumeSnapshots []*vsv1.VolumeSnapshot
+}
+
+func (v *MockVolumeSnapshotProvider) GetVolumeSnapshot(namespace, name string) (*vsv1.VolumeSnapshot, error) {
+	if len(v.volumeSnapshots) == 0 {
+		return nil, nil
+	}
+	vs := v.volumeSnapshots[0]
+	v.volumeSnapshots = v.volumeSnapshots[1:]
+	return vs, nil
+}
+
+func (v *MockVolumeSnapshotProvider) Add(s *vsv1.VolumeSnapshot) {
+	v.volumeSnapshots = append(v.volumeSnapshots, s)
 }
