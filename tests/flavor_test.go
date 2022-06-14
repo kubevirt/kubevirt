@@ -292,6 +292,36 @@ var _ = Describe("[crit:medium][vendor:cnv-qe@redhat.com][level:component][sig-c
 			Expect(cause.Field).To(Equal("spec.template.spec.domain.cpu"))
 		})
 
+		It("[test_id:TODO] should apply preferences to default network interface", func() {
+			vmi := tests.NewRandomVMIWithEphemeralDisk(
+				cd.ContainerDiskFor(cd.ContainerDiskCirros),
+			)
+
+			preference := newVirtualMachineClusterPreference()
+			preference.Spec.Devices = &flavorv1alpha1.DevicePreferences{
+				PreferredInterfaceModel: "virtio",
+			}
+
+			preference, err := virtClient.VirtualMachineClusterPreference().
+				Create(context.Background(), preference, metav1.CreateOptions{})
+			Expect(err).ToNot(HaveOccurred())
+
+			vm := tests.NewRandomVirtualMachine(vmi, false)
+			vm.Spec.Preference = &v1.PreferenceMatcher{
+				Name: preference.Name,
+			}
+
+			vm, err = virtClient.VirtualMachine(util.NamespaceTestDefault).Create(vm)
+			Expect(err).ToNot(HaveOccurred())
+
+			vm = tests.StartVMAndExpectRunning(virtClient, vm)
+
+			vmi, err = virtClient.VirtualMachineInstance(util.NamespaceTestDefault).Get(vm.Name, &metav1.GetOptions{})
+			Expect(err).ToNot(HaveOccurred())
+
+			Expect(vmi.Spec.Domain.Devices.Interfaces[0].Model).To(Equal(preference.Spec.Devices.PreferredInterfaceModel))
+		})
+
 	})
 })
 

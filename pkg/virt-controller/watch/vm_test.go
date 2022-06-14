@@ -35,6 +35,7 @@ import (
 	virtcontroller "kubevirt.io/kubevirt/pkg/controller"
 	"kubevirt.io/kubevirt/pkg/flavor"
 	"kubevirt.io/kubevirt/pkg/testutils"
+	virtconfig "kubevirt.io/kubevirt/pkg/virt-config"
 )
 
 var (
@@ -67,6 +68,8 @@ var _ = Describe("VirtualMachine", func() {
 		var cdiClient *cdifake.Clientset
 		var k8sClient *k8sfake.Clientset
 		var virtClient *kubecli.MockKubevirtClient
+		var config *virtconfig.ClusterConfig
+		var kvInformer cache.SharedIndexInformer
 
 		syncCaches := func(stop chan struct{}) {
 			go vmiInformer.Run(stop)
@@ -104,7 +107,7 @@ var _ = Describe("VirtualMachine", func() {
 			recorder = record.NewFakeRecorder(100)
 			recorder.IncludeObject = true
 
-			config, _, _ := testutils.NewFakeClusterConfigUsingKVConfig(&v1.KubeVirtConfiguration{})
+			config, _, kvInformer = testutils.NewFakeClusterConfigUsingKVConfig(&v1.KubeVirtConfiguration{})
 
 			controller = NewVMController(vmiInformer,
 				vmInformer,
@@ -2785,6 +2788,9 @@ var _ = Describe("VirtualMachine", func() {
 					CPU: &flavorv1alpha1.CPUPreferences{
 						PreferredCPUTopology: flavorv1alpha1.PreferThreads,
 					},
+					Devices: &flavorv1alpha1.DevicePreferences{
+						PreferredInterfaceModel: "virtio",
+					},
 				}
 				p = &flavorv1alpha1.VirtualMachinePreference{
 					ObjectMeta: metav1.ObjectMeta{
@@ -3088,7 +3094,101 @@ var _ = Describe("VirtualMachine", func() {
 
 				testutils.ExpectEvents(recorder, FailedCreateVirtualMachineReason)
 			})
+
+			It("should apply preferences to default network interface", func() {
+
+				vm.Spec.Preference = &v1.PreferenceMatcher{
+					Name: p.Name,
+					Kind: flavorapi.SingularPreferenceResourceName,
+				}
+
+				vm.Spec.Template.Spec.Domain.Devices.Interfaces = []virtv1.Interface{}
+				vm.Spec.Template.Spec.Networks = []virtv1.Network{}
+
+				addVirtualMachine(vm)
+				vmiInterface.EXPECT().Create(gomock.Any()).Times(1).Do(func(arg interface{}) {
+					vmiArg := arg.(*virtv1.VirtualMachineInstance)
+					Expect(vmiArg.Spec.Domain.Devices.Interfaces[0].Model).To(Equal(p.Spec.Devices.PreferredInterfaceModel))
+					Expect(vmiArg.Spec.Networks).To(Equal([]v1.Network{*v1.DefaultPodNetwork()}))
+				}).Return(vmi, nil)
+
+				vmInterface.EXPECT().UpdateStatus(gomock.Any()).Times(1)
+
+				controller.Execute()
+			})
 		})
+
+		DescribeTable("should add the default network interface",
+			func(iface string) {
+				vm, vmi := DefaultVirtualMachine(true)
+
+				expectedIface := "bridge"
+				switch iface {
+				case "masquerade":
+					expectedIface = "masquerade"
+				case "slirp":
+					expectedIface = "slirp"
+				}
+
+				permit := true
+				testutils.UpdateFakeKubeVirtClusterConfig(kvInformer, &v1.KubeVirt{
+					Spec: v1.KubeVirtSpec{
+						Configuration: v1.KubeVirtConfiguration{
+							NetworkConfiguration: &v1.NetworkConfiguration{
+								NetworkInterface:     expectedIface,
+								PermitSlirpInterface: &permit,
+							},
+						},
+					},
+				})
+
+				addVirtualMachine(vm)
+
+				vmiInterface.EXPECT().Create(gomock.Any()).Times(1).Do(func(arg interface{}) {
+					vmiArg := arg.(*virtv1.VirtualMachineInstance)
+					switch expectedIface {
+					case "bridge":
+						Expect(vmiArg.Spec.Domain.Devices.Interfaces[0].Bridge).NotTo(BeNil())
+					case "masquerade":
+						Expect(vmiArg.Spec.Domain.Devices.Interfaces[0].Masquerade).NotTo(BeNil())
+					case "slirp":
+						Expect(vmiArg.Spec.Domain.Devices.Interfaces[0].Slirp).NotTo(BeNil())
+					}
+					Expect(vmiArg.Spec.Networks).To(Equal([]v1.Network{*v1.DefaultPodNetwork()}))
+				}).Return(vmi, nil)
+
+				vmInterface.EXPECT().UpdateStatus(gomock.Any()).Times(1)
+
+				controller.Execute()
+
+			},
+			Entry("as bridge", "bridge"),
+			Entry("as masquerade", "masquerade"),
+			Entry("as slirp", "slirp"),
+		)
+
+		DescribeTable("should not add the default interfaces if", func(interfaces []v1.Interface, networks []v1.Network) {
+			vm, vmi := DefaultVirtualMachine(true)
+			vm.Spec.Template.Spec.Domain.Devices.Interfaces = append([]v1.Interface{}, interfaces...)
+			vm.Spec.Template.Spec.Networks = append([]v1.Network{}, networks...)
+
+			addVirtualMachine(vm)
+
+			vmiInterface.EXPECT().Create(gomock.Any()).Times(1).Do(func(arg interface{}) {
+				vmiArg := arg.(*virtv1.VirtualMachineInstance)
+				Expect(vmiArg.Spec.Domain.Devices.Interfaces).To(Equal(interfaces))
+				Expect(vmiArg.Spec.Networks).To(Equal(networks))
+			}).Return(vmi, nil)
+
+			vmInterface.EXPECT().UpdateStatus(gomock.Any()).Times(1)
+
+			controller.Execute()
+
+		},
+			Entry("interfaces and networks are non-empty", []v1.Interface{{Name: "a"}}, []v1.Network{{Name: "b"}}),
+			Entry("interfaces is non-empty", []v1.Interface{{Name: "a"}}, []v1.Network{}),
+			Entry("networks is non-empty", []v1.Interface{}, []v1.Network{{Name: "b"}}),
+		)
 	})
 })
 

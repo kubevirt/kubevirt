@@ -87,7 +87,7 @@ func (mutator *VMIsMutator) Mutate(ar *admissionv1.AdmissionReview) *admissionv1
 		mutator.setDefaultResourceRequests(newVMI)
 		mutator.setDefaultGuestCPUTopology(newVMI)
 		mutator.setDefaultPullPoliciesOnContainerDisks(newVMI)
-		err = mutator.setDefaultNetworkInterface(newVMI)
+		err = mutator.ClusterConfig.SetVMIDefaultNetworkInterface(newVMI)
 		if err != nil {
 			return webhookutils.ToAdmissionResponseError(err)
 		}
@@ -201,36 +201,6 @@ func (mutator *VMIsMutator) Mutate(ar *admissionv1.AdmissionReview) *admissionv1
 		Patch:     patchBytes,
 		PatchType: &jsonPatchType,
 	}
-}
-
-func (mutator *VMIsMutator) setDefaultNetworkInterface(obj *v1.VirtualMachineInstance) error {
-	autoAttach := obj.Spec.Domain.Devices.AutoattachPodInterface
-	if autoAttach != nil && *autoAttach == false {
-		return nil
-	}
-
-	// Override only when nothing is specified
-	if len(obj.Spec.Networks) == 0 && len(obj.Spec.Domain.Devices.Interfaces) == 0 {
-		iface := v1.NetworkInterfaceType(mutator.ClusterConfig.GetDefaultNetworkInterface())
-		switch iface {
-		case v1.BridgeInterface:
-			if !mutator.ClusterConfig.IsBridgeInterfaceOnPodNetworkEnabled() {
-				return fmt.Errorf("Bridge interface is not enabled in kubevirt-config")
-			}
-			obj.Spec.Domain.Devices.Interfaces = []v1.Interface{*v1.DefaultBridgeNetworkInterface()}
-		case v1.MasqueradeInterface:
-			obj.Spec.Domain.Devices.Interfaces = []v1.Interface{*v1.DefaultMasqueradeNetworkInterface()}
-		case v1.SlirpInterface:
-			if !mutator.ClusterConfig.IsSlirpInterfaceEnabled() {
-				return fmt.Errorf("Slirp interface is not enabled in kubevirt-config")
-			}
-			defaultIface := v1.DefaultSlirpNetworkInterface()
-			obj.Spec.Domain.Devices.Interfaces = []v1.Interface{*defaultIface}
-		}
-
-		obj.Spec.Networks = []v1.Network{*v1.DefaultPodNetwork()}
-	}
-	return nil
 }
 
 func (mutator *VMIsMutator) setDefaultVolumeDisk(obj *v1.VirtualMachineInstance) {

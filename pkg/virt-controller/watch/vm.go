@@ -958,6 +958,11 @@ func (c *VMController) startVMI(vm *virtv1.VirtualMachine) error {
 	// the VMI before it is deleted
 	vmi.Finalizers = append(vmi.Finalizers, virtv1.VirtualMachineControllerFinalizer)
 
+	err = c.clusterConfig.SetVMIDefaultNetworkInterface(vmi)
+	if err != nil {
+		return err
+	}
+
 	err = c.applyFlavorToVmi(vm, vmi)
 	if err != nil {
 		log.Log.Object(vm).Infof("Failed to apply flavor to VirtualMachineInstance: %s/%s", vmi.Namespace, vmi.Name)
