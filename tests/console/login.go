@@ -101,7 +101,7 @@ func LoginToAlpine(vmi *v1.VirtualMachineInstance) error {
 		&expect.BExp{R: PromptExpression}})
 	res, err := expecter.ExpectBatch(b, 180*time.Second)
 	if err != nil {
-		log.DefaultLogger().Object(vmi).Infof("Login: %v", res)
+		log.DefaultLogger().Object(vmi).Reason(err).Errorf("Login failed: %+v", res)
 		return err
 	}
 
