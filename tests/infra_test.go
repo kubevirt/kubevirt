@@ -1160,29 +1160,26 @@ var _ = Describe("[Serial][sig-compute]Infrastructure", func() {
 			nodesWithKVM = libnode.GetNodesWithKVM()
 
 			for _, node := range nodesWithKVM {
-				delete(node.Labels, nonExistingCPUModelLabel)
+				libnode.RemoveLabelFromNode(node.Name, nonExistingCPUModelLabel)
+				libnode.RemoveAnnotationFromNode(node.Name, v1.LabellerSkipNodeAnnotation)
+			}
+			wakeNodeLabellerUp(virtClient)
 
-				p := []patch{
-					{
-						Op:    "replace",
-						Path:  "/metadata/labels",
-						Value: node.Labels,
-					},
-				}
+			for _, node := range nodesWithKVM {
+				Eventually(func() error {
+					node, err = virtClient.CoreV1().Nodes().Get(context.Background(), node.Name, metav1.GetOptions{})
+					Expect(err).ToNot(HaveOccurred())
 
-				delete(node.Annotations, v1.LabellerSkipNodeAnnotation)
+					if _, exists := node.Labels[nonExistingCPUModelLabel]; exists {
+						return fmt.Errorf("node %s is expected to not have label key %s", node.Name, nonExistingCPUModelLabel)
+					}
 
-				p = append(p, patch{
-					Op:    "replace",
-					Path:  "/metadata/annotations",
-					Value: node.Annotations,
-				})
+					if _, exists := node.Annotations[v1.LabellerSkipNodeAnnotation]; exists {
+						return fmt.Errorf("node %s is expected to not have annotation key %s", node.Name, v1.LabellerSkipNodeAnnotation)
+					}
 
-				payloadBytes, err := json.Marshal(p)
-				Expect(err).ToNot(HaveOccurred())
-
-				_, err = virtClient.CoreV1().Nodes().Patch(context.Background(), node.Name, types.JSONPatchType, payloadBytes, metav1.PatchOptions{})
-				Expect(err).ToNot(HaveOccurred())
+					return nil
+				}, 30*time.Second, 2*time.Second).ShouldNot(HaveOccurred())
 			}
 		})
 
