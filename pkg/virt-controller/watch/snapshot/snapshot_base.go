@@ -556,24 +556,6 @@ func (ctrl *VMSnapshotController) handlePVC(obj interface{}) {
 	}
 }
 
-func (ctrl *VMSnapshotController) getVolumeSnapshot(namespace, name string) (*vsv1.VolumeSnapshot, error) {
-	di := ctrl.dynamicInformerMap[volumeSnapshotCRD]
-	di.mutex.Lock()
-	defer di.mutex.Unlock()
-
-	if di.informer == nil {
-		return nil, nil
-	}
-
-	key := fmt.Sprintf("%s/%s", namespace, name)
-	obj, exists, err := di.informer.GetStore().GetByKey(key)
-	if !exists || err != nil {
-		return nil, err
-	}
-
-	return obj.(*vsv1.VolumeSnapshot).DeepCopy(), nil
-}
-
 func (ctrl *VMSnapshotController) getVolumeSnapshotClasses() []vsv1.VolumeSnapshotClass {
 	di := ctrl.dynamicInformerMap[volumeSnapshotClassCRD]
 	di.mutex.Lock()
@@ -639,4 +621,26 @@ func (ctrl *VMSnapshotController) deleteDynamicInformer(name string) (time.Durat
 	log.Log.Infof("Successfully deleted informer for %q", name)
 
 	return 0, nil
+}
+
+type VolumeSnapshotProvider interface {
+	GetVolumeSnapshot(string, string) (*vsv1.VolumeSnapshot, error)
+}
+
+func (ctrl *VMSnapshotController) GetVolumeSnapshot(namespace, name string) (*vsv1.VolumeSnapshot, error) {
+	di := ctrl.dynamicInformerMap[volumeSnapshotCRD]
+	di.mutex.Lock()
+	defer di.mutex.Unlock()
+
+	if di.informer == nil {
+		return nil, nil
+	}
+
+	key := fmt.Sprintf("%s/%s", namespace, name)
+	obj, exists, err := di.informer.GetStore().GetByKey(key)
+	if !exists || err != nil {
+		return nil, err
+	}
+
+	return obj.(*vsv1.VolumeSnapshot).DeepCopy(), nil
 }
