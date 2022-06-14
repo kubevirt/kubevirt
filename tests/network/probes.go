@@ -104,7 +104,7 @@ var _ = SIGDescribe("[ref_id:1182]Probes", func() {
 				By("Waiting for agent to connect")
 				tests.WaitAgentConnected(virtClient, vmi)
 			}
-
+			Fail("DNM: Forcing failing to exercise reporter")
 			tests.WaitForVMICondition(virtClient, vmi, v1.VirtualMachineInstanceReady, 120)
 		},
 			Entry("[test_id:1202][posneg:positive]with working TCP probe and tcp server on ipv4", tcpProbe, corev1.IPv4Protocol),
