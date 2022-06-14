@@ -51,6 +51,7 @@ import (
 	cdiclone "kubevirt.io/containerized-data-importer/pkg/clone"
 	"kubevirt.io/kubevirt/pkg/controller"
 	"kubevirt.io/kubevirt/pkg/flavor"
+	"kubevirt.io/kubevirt/pkg/util"
 	"kubevirt.io/kubevirt/pkg/util/migrations"
 	"kubevirt.io/kubevirt/pkg/util/status"
 	traceUtils "kubevirt.io/kubevirt/pkg/util/trace"
@@ -962,6 +963,8 @@ func (c *VMController) startVMI(vm *virtv1.VirtualMachine) error {
 	if err != nil {
 		return err
 	}
+
+	util.SetDefaultVolumeDisk(vmi)
 
 	err = c.applyFlavorToVmi(vm, vmi)
 	if err != nil {

@@ -2789,6 +2789,7 @@ var _ = Describe("VirtualMachine", func() {
 						PreferredCPUTopology: flavorv1alpha1.PreferThreads,
 					},
 					Devices: &flavorv1alpha1.DevicePreferences{
+						PreferredDiskBus:        virtv1.DiskBusVirtio,
 						PreferredInterfaceModel: "virtio",
 					},
 				}
@@ -3116,6 +3117,51 @@ var _ = Describe("VirtualMachine", func() {
 
 				controller.Execute()
 			})
+
+			It("should apply preferences to default volume disk", func() {
+
+				vm.Spec.Preference = &v1.PreferenceMatcher{
+					Name: p.Name,
+					Kind: flavorapi.SingularPreferenceResourceName,
+				}
+
+				presentVolumeName := "present-vol"
+				missingVolumeName := "missing-vol"
+				vm.Spec.Template.Spec.Domain.Devices.Disks = []v1.Disk{
+					v1.Disk{
+						Name: presentVolumeName,
+						DiskDevice: v1.DiskDevice{
+							Disk: &v1.DiskTarget{
+								Bus: v1.DiskBusSATA,
+							},
+						},
+					},
+				}
+				vm.Spec.Template.Spec.Volumes = []v1.Volume{
+					v1.Volume{
+						Name: presentVolumeName,
+					},
+					v1.Volume{
+						Name: missingVolumeName,
+					},
+				}
+
+				addVirtualMachine(vm)
+				vmiInterface.EXPECT().Create(gomock.Any()).Times(1).Do(func(arg interface{}) {
+					vmiArg := arg.(*virtv1.VirtualMachineInstance)
+					Expect(vmiArg.Spec.Domain.Devices.Disks).To(HaveLen(2))
+					Expect(vmiArg.Spec.Domain.Devices.Disks[0].Name).To(Equal(presentVolumeName))
+					// Assert that the preference hasn't overwritten anything defined by the user
+					Expect(vmiArg.Spec.Domain.Devices.Disks[0].Disk.Bus).To(Equal(v1.DiskBusSATA))
+					Expect(vmiArg.Spec.Domain.Devices.Disks[1].Name).To(Equal(missingVolumeName))
+					// Assert that it has however been applied to the newly introduced disk
+					Expect(vmiArg.Spec.Domain.Devices.Disks[1].Disk.Bus).To(Equal(p.Spec.Devices.PreferredDiskBus))
+				}).Return(vmi, nil)
+
+				vmInterface.EXPECT().UpdateStatus(gomock.Any()).Times(1)
+
+				controller.Execute()
+			})
 		})
 
 		DescribeTable("should add the default network interface",
@@ -3189,6 +3235,39 @@ var _ = Describe("VirtualMachine", func() {
 			Entry("interfaces is non-empty", []v1.Interface{{Name: "a"}}, []v1.Network{}),
 			Entry("networks is non-empty", []v1.Interface{}, []v1.Network{{Name: "b"}}),
 		)
+
+		It("should add a missing volume disk", func() {
+			vm, vmi := DefaultVirtualMachine(true)
+			presentVolumeName := "present-vol"
+			missingVolumeName := "missing-vol"
+			vm.Spec.Template.Spec.Domain.Devices.Disks = []v1.Disk{
+				v1.Disk{
+					Name: presentVolumeName,
+				},
+			}
+			vm.Spec.Template.Spec.Volumes = []v1.Volume{
+				v1.Volume{
+					Name: presentVolumeName,
+				},
+				v1.Volume{
+					Name: missingVolumeName,
+				},
+			}
+
+			addVirtualMachine(vm)
+
+			vmiInterface.EXPECT().Create(gomock.Any()).Times(1).Do(func(arg interface{}) {
+				vmiArg := arg.(*virtv1.VirtualMachineInstance)
+				Expect(vmiArg.Spec.Domain.Devices.Disks).To(HaveLen(2))
+				Expect(vmiArg.Spec.Domain.Devices.Disks[0].Name).To(Equal(presentVolumeName))
+				Expect(vmiArg.Spec.Domain.Devices.Disks[1].Name).To(Equal(missingVolumeName))
+			}).Return(vmi, nil)
+
+			vmInterface.EXPECT().UpdateStatus(gomock.Any()).Times(1)
+
+			controller.Execute()
+
+		})
 	})
 })
 

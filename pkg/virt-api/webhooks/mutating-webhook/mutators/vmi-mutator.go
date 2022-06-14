@@ -91,7 +91,7 @@ func (mutator *VMIsMutator) Mutate(ar *admissionv1.AdmissionReview) *admissionv1
 		if err != nil {
 			return webhookutils.ToAdmissionResponseError(err)
 		}
-		mutator.setDefaultVolumeDisk(newVMI)
+		util.SetDefaultVolumeDisk(newVMI)
 		v1.SetObjectDefaults_VirtualMachineInstance(newVMI)
 
 		// In a future, yet undecided, release either libvirt or QEMU are going to check the hyperv dependencies, so we can get rid of this code.
@@ -200,30 +200,6 @@ func (mutator *VMIsMutator) Mutate(ar *admissionv1.AdmissionReview) *admissionv1
 		Allowed:   true,
 		Patch:     patchBytes,
 		PatchType: &jsonPatchType,
-	}
-}
-
-func (mutator *VMIsMutator) setDefaultVolumeDisk(obj *v1.VirtualMachineInstance) {
-
-	diskAndFilesystemNames := make(map[string]struct{})
-
-	for _, disk := range obj.Spec.Domain.Devices.Disks {
-		diskAndFilesystemNames[disk.Name] = struct{}{}
-	}
-
-	for _, fs := range obj.Spec.Domain.Devices.Filesystems {
-		diskAndFilesystemNames[fs.Name] = struct{}{}
-	}
-
-	for _, volume := range obj.Spec.Volumes {
-		if _, foundDisk := diskAndFilesystemNames[volume.Name]; !foundDisk {
-			obj.Spec.Domain.Devices.Disks = append(
-				obj.Spec.Domain.Devices.Disks,
-				v1.Disk{
-					Name: volume.Name,
-				},
-			)
-		}
 	}
 }
 
