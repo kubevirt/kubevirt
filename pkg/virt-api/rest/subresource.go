@@ -373,7 +373,7 @@ func (app *SubresourceAPIApp) RestartVMRequestHandler(request *restful.Request, 
 		return
 	}
 	if runStrategy == v1.RunStrategyHalted || runStrategy == v1.RunStrategyOnce {
-		writeError(errors.NewConflict(v1.Resource("virtualmachine"), name, fmt.Errorf("%v does not support manual restart requests", runStrategy)), response)
+		writeError(errors.NewConflict(v1.Resource("virtualmachine"), name, fmt.Errorf("RunStategy %v does not support manual restart requests", runStrategy)), response)
 		return
 	}
 
