@@ -77,7 +77,14 @@ const (
 	istioApiVersion   = "v1beta1"
 )
 
-var _ = SIGDescribe("[Serial] Istio", func() {
+type VmType int
+
+const (
+	Passt VmType = iota
+	Masquerade
+)
+
+var istioTests = func(vmType VmType) {
 	var (
 		err        error
 		vmi        *v1.VirtualMachineInstance
@@ -97,7 +104,7 @@ var _ = SIGDescribe("[Serial] Istio", func() {
 		}
 	})
 
-	Context("Virtual Machine with masquerade interface", func() {
+	Context("Virtual Machine with istio supported interface", func() {
 		createJobCheckingVMIReachability := func(serverVMI *v1.VirtualMachineInstance, targetPort int) (*batchv1.Job, error) {
 			By("Starting HTTP Server")
 			tests.StartHTTPServer(vmi, targetPort, console.LoginToCirros)
@@ -140,7 +147,7 @@ var _ = SIGDescribe("[Serial] Istio", func() {
 			}()
 
 			By("Creating VMI")
-			vmi = newVMIWithIstioSidecar(vmiPorts)
+			vmi = newVMIWithIstioSidecar(vmiPorts, vmType)
 			vmi, err = virtClient.VirtualMachineInstance(util.NamespaceTestDefault).Create(vmi)
 			Expect(err).ShouldNot(HaveOccurred())
 
@@ -175,6 +182,9 @@ var _ = SIGDescribe("[Serial] Istio", func() {
 			}
 			BeforeEach(func() {
 				checks.SkipIfMigrationIsNotPossible()
+				if vmType == Passt {
+					Skip("passt doesn't support live migration.")
+				}
 			})
 			JustBeforeEach(func() {
 				sourcePodName = tests.GetVmPodName(virtClient, vmi)
@@ -206,6 +216,9 @@ var _ = SIGDescribe("[Serial] Istio", func() {
 			}
 
 			BeforeEach(func() {
+				if vmType == Passt {
+					Skip("Due to a bug, passt doesn't support binding to low ports. Tracking issue - https://bugs.passt.top/show_bug.cgi?id=15")
+				}
 				bastionVMI = libvmi.NewCirros(
 					libvmi.WithNetwork(v1.DefaultPodNetwork()),
 					libvmi.WithInterface(libvmi.InterfaceDeviceWithMasqueradeBinding([]v1.Port{}...)),
@@ -443,18 +456,51 @@ var _ = SIGDescribe("[Serial] Istio", func() {
 			})
 		})
 	})
-})
+}
+
+var istioTestsWithMasqueradeBinding = func() {
+	istioTests(Masquerade)
+}
+
+var istioTestsWithPasstBinding = func() {
+	istioTests(Passt)
+}
+
+var _ = SIGDescribe("[Serial] Istio with masquerade binding", istioTestsWithMasqueradeBinding)
+
+var _ = SIGDescribe("[Serial] Istio with passt binding", istioTestsWithPasstBinding)
 
 func istioServiceMeshDeployed() bool {
 	return strings.ToLower(os.Getenv(istioDeployedEnvVariable)) == "true"
 }
 
-func newVMIWithIstioSidecar(ports []v1.Port) *v1.VirtualMachineInstance {
+func newVMIWithIstioSidecar(ports []v1.Port, vmType VmType) *v1.VirtualMachineInstance {
+	if vmType == Masquerade {
+		return createMasqueradeVm(ports)
+	}
+	if vmType == Passt {
+		return createPasstVm(ports)
+	}
+	return nil
+}
+
+func createMasqueradeVm(ports []v1.Port) *v1.VirtualMachineInstance {
 	vmi := libvmi.NewCirros(
 		libvmi.WithNetwork(v1.DefaultPodNetwork()),
 		libvmi.WithInterface(libvmi.InterfaceDeviceWithMasqueradeBinding(ports...)),
 		libvmi.WithLabel(vmiAppSelectorKey, vmiAppSelectorValue),
 		libvmi.WithAnnotation(istio.ISTIO_INJECT_ANNOTATION, "true"),
+	)
+	return vmi
+}
+
+func createPasstVm(ports []v1.Port) *v1.VirtualMachineInstance {
+	vmi := libvmi.NewCirros(
+		libvmi.WithNetwork(v1.DefaultPodNetwork()),
+		libvmi.WithInterface(libvmi.InterfaceDeviceWithPasstBinding(ports...)),
+		libvmi.WithLabel(vmiAppSelectorKey, vmiAppSelectorValue),
+		libvmi.WithAnnotation(istio.ISTIO_INJECT_ANNOTATION, "true"),
+		withPasstExtendedResourceMemory(ports...),
 	)
 	return vmi
 }
