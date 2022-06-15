@@ -1425,7 +1425,7 @@ func (d *VirtualMachineController) migrationOrphanedSourceNodeExecute(vmi *v1.Vi
 	return nil
 }
 
-func (d *VirtualMachineController) migrationTargetExecute(vmi *v1.VirtualMachineInstance, vmiExists bool, domainExists bool) error {
+func (d *VirtualMachineController) migrationTargetExecute(vmi *v1.VirtualMachineInstance, vmiExists bool, domain *api.Domain) error {
 
 	// set to true when preparation of migration target should be aborted.
 	shouldAbort := false
@@ -1449,6 +1449,7 @@ func (d *VirtualMachineController) migrationTargetExecute(vmi *v1.VirtualMachine
 		shouldCleanUp = true
 	}
 
+	domainExists := domain != nil
 	if shouldAbort {
 		if domainExists {
 			err := d.processVmDelete(vmi)
@@ -1477,7 +1478,7 @@ func (d *VirtualMachineController) migrationTargetExecute(vmi *v1.VirtualMachine
 		log.Log.Object(vmi).Info("Processing vmi migration target update")
 
 		// prepare the POD for the migration
-		err := d.processVmUpdate(vmi, domainExists)
+		err := d.processVmUpdate(vmi, domain)
 		if err != nil {
 			return err
 		}
@@ -1678,7 +1679,7 @@ func (d *VirtualMachineController) defaultExecute(key string,
 		syncErr = d.processVmCleanup(vmi)
 	case shouldUpdate:
 		log.Log.Object(vmi).V(3).Info("Processing vmi update")
-		syncErr = d.processVmUpdate(vmi, domainExists)
+		syncErr = d.processVmUpdate(vmi, domain)
 	default:
 		log.Log.Object(vmi).V(3).Info("No update processing required")
 	}
@@ -1785,7 +1786,7 @@ func (d *VirtualMachineController) execute(key string) error {
 		// a different execute path. The target execute path prepares
 		// the local environment for the migration, but does not
 		// start the VMI
-		return d.migrationTargetExecute(vmi, vmiExists, domainExists)
+		return d.migrationTargetExecute(vmi, vmiExists, domain)
 	} else if vmiExists && d.isOrphanedMigrationSource(vmi) {
 		// 3. POST-MIGRATION SOURCE CLEANUP
 		//
@@ -2306,34 +2307,51 @@ func (d *VirtualMachineController) getLauncherClientInfo(vmi *v1.VirtualMachineI
 	return launcherInfo
 }
 
-func (d *VirtualMachineController) vmUpdateHelperMigrationSource(origVMI *v1.VirtualMachineInstance) error {
+func isMigrationInProgress(vmi *v1.VirtualMachineInstance, domain *api.Domain) bool {
+	var domainMigrationMetadata *api.MigrationMetadata
+
+	if domain == nil ||
+		vmi.Status.MigrationState == nil ||
+		domain.Spec.Metadata.KubeVirt.Migration == nil {
+		return false
+	}
+	domainMigrationMetadata = domain.Spec.Metadata.KubeVirt.Migration
+
+	if vmi.Status.MigrationState.MigrationUID == domainMigrationMetadata.UID &&
+		domainMigrationMetadata.StartTimestamp != nil {
+		return true
+	}
+	return false
+}
+
+func (d *VirtualMachineController) vmUpdateHelperMigrationSource(origVMI *v1.VirtualMachineInstance, domain *api.Domain) error {
+
 	client, err := d.getLauncherClient(origVMI)
 	if err != nil {
 		return fmt.Errorf(unableCreateVirtLauncherConnectionFmt, err)
 	}
 
-	vmi := origVMI.DeepCopy()
-
-	err = hostdisk.ReplacePVCByHostDisk(vmi)
-	if err != nil {
-		return err
-	}
-
-	err = d.handleSourceMigrationProxy(vmi)
-	if err != nil {
-		return fmt.Errorf("failed to handle migration proxy: %v", err)
-	}
-
-	if vmi.Status.MigrationState.AbortRequested {
-		if vmi.Status.MigrationState.AbortStatus != v1.MigrationAbortInProgress {
-			err = client.CancelVirtualMachineMigration(vmi)
+	if origVMI.Status.MigrationState.AbortRequested {
+		if origVMI.Status.MigrationState.AbortStatus != v1.MigrationAbortInProgress {
+			err = client.CancelVirtualMachineMigration(origVMI)
 			if err != nil {
 				return err
 			}
-			d.recorder.Event(vmi, k8sv1.EventTypeNormal, v1.Migrating.String(), "VirtualMachineInstance is aborting migration.")
+			d.recorder.Event(origVMI, k8sv1.EventTypeNormal, v1.Migrating.String(), "VirtualMachineInstance is aborting migration.")
 		}
 	} else {
-		migrationConfiguration := vmi.Status.MigrationState.MigrationConfiguration
+		if isMigrationInProgress(origVMI, domain) {
+			// we already started this migration, no need to rerun this
+			log.DefaultLogger().Errorf("migration %s has already been started", origVMI.Status.MigrationState.MigrationUID)
+			return nil
+		}
+
+		err = d.handleSourceMigrationProxy(origVMI)
+		if err != nil {
+			return fmt.Errorf("failed to handle migration proxy: %v", err)
+		}
+
+		migrationConfiguration := origVMI.Status.MigrationState.MigrationConfiguration
 		if migrationConfiguration == nil {
 			migrationConfiguration = d.clusterConfig.GetMigrationConfiguration()
 		}
@@ -2349,9 +2367,15 @@ func (d *VirtualMachineController) vmUpdateHelperMigrationSource(origVMI *v1.Vir
 
 		marshalledOptions, err := json.Marshal(options)
 		if err != nil {
-			log.Log.Object(vmi).Warning("failed to marshall matched migration options")
+			log.Log.Object(origVMI).Warning("failed to marshall matched migration options")
 		} else {
-			log.Log.Object(vmi).Infof("migration options matched for vmi %s: %s", vmi.Name, string(marshalledOptions))
+			log.Log.Object(origVMI).Infof("migration options matched for vmi %s: %s", origVMI.Name, string(marshalledOptions))
+		}
+
+		vmi := origVMI.DeepCopy()
+		err = hostdisk.ReplacePVCByHostDisk(vmi)
+		if err != nil {
+			return err
 		}
 
 		err = client.MigrateVirtualMachine(vmi, options)
@@ -2615,7 +2639,7 @@ func (d *VirtualMachineController) hotplugSriovInterfacesCommand(vmi *v1.Virtual
 	return nil
 }
 
-func (d *VirtualMachineController) processVmUpdate(vmi *v1.VirtualMachineInstance, domainExists bool) error {
+func (d *VirtualMachineController) processVmUpdate(vmi *v1.VirtualMachineInstance, domain *api.Domain) error {
 
 	isUnresponsive, isInitialized, err := d.isLauncherClientUnresponsive(vmi)
 	if err != nil {
@@ -2633,9 +2657,9 @@ func (d *VirtualMachineController) processVmUpdate(vmi *v1.VirtualMachineInstanc
 	if d.isPreMigrationTarget(vmi) {
 		return d.vmUpdateHelperMigrationTarget(vmi)
 	} else if d.isMigrationSource(vmi) {
-		return d.vmUpdateHelperMigrationSource(vmi)
+		return d.vmUpdateHelperMigrationSource(vmi, domain)
 	} else {
-		return d.vmUpdateHelperDefault(vmi, domainExists)
+		return d.vmUpdateHelperDefault(vmi, domain != nil)
 	}
 }
 
