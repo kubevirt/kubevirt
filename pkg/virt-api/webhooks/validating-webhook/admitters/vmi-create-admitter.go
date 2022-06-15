@@ -1951,257 +1951,7 @@ func validateVolumes(field *k8sfield.Path, volumes []v1.Volume, config *virtconf
 			})
 		}
 
-		// Verify exactly one source is set
-		volumeSourceSetCount := 0
-		if volume.PersistentVolumeClaim != nil {
-			volumeSourceSetCount++
-		}
-		if volume.Sysprep != nil {
-			volumeSourceSetCount++
-		}
-		if volume.CloudInitNoCloud != nil {
-			volumeSourceSetCount++
-		}
-		if volume.CloudInitConfigDrive != nil {
-			volumeSourceSetCount++
-		}
-		if volume.ContainerDisk != nil {
-			volumeSourceSetCount++
-		}
-		if volume.Ephemeral != nil {
-			volumeSourceSetCount++
-		}
-		if volume.EmptyDisk != nil {
-			volumeSourceSetCount++
-		}
-		if volume.HostDisk != nil {
-			volumeSourceSetCount++
-		}
-		if volume.DataVolume != nil {
-			if !config.HasDataVolumeAPI() {
-				causes = append(causes, metav1.StatusCause{
-					Type:    metav1.CauseTypeFieldValueInvalid,
-					Message: "DataVolume api is not present in cluster. CDI must be installed for DataVolume support.",
-					Field:   field.Index(idx).String(),
-				})
-			}
-
-			if volume.DataVolume.Name == "" {
-				causes = append(causes, metav1.StatusCause{
-					Type:    metav1.CauseTypeFieldValueRequired,
-					Message: "DataVolume 'name' must be set",
-					Field:   field.Index(idx).Child("name").String(),
-				})
-			}
-			volumeSourceSetCount++
-		}
-		if volume.ConfigMap != nil {
-			volumeSourceSetCount++
-		}
-		if volume.Secret != nil {
-			volumeSourceSetCount++
-		}
-		if volume.DownwardAPI != nil {
-			volumeSourceSetCount++
-		}
-		if volume.ServiceAccount != nil {
-			volumeSourceSetCount++
-		}
-		if volume.DownwardMetrics != nil {
-			volumeSourceSetCount++
-		}
-		if volume.MemoryDump != nil {
-			volumeSourceSetCount++
-		}
-
-		if volumeSourceSetCount != 1 {
-			causes = append(causes, metav1.StatusCause{
-				Type:    metav1.CauseTypeFieldValueInvalid,
-				Message: fmt.Sprintf("%s must have exactly one source type set", field.Index(idx).String()),
-				Field:   field.Index(idx).String(),
-			})
-		}
-
-		// Verify cloud init data is within size limits
-		if volume.CloudInitNoCloud != nil || volume.CloudInitConfigDrive != nil {
-			var userDataSecretRef, networkDataSecretRef *k8sv1.LocalObjectReference
-			var dataSourceType, userData, userDataBase64, networkData, networkDataBase64 string
-			if volume.CloudInitNoCloud != nil {
-				dataSourceType = "cloudInitNoCloud"
-				userDataSecretRef = volume.CloudInitNoCloud.UserDataSecretRef
-				userDataBase64 = volume.CloudInitNoCloud.UserDataBase64
-				userData = volume.CloudInitNoCloud.UserData
-				networkDataSecretRef = volume.CloudInitNoCloud.NetworkDataSecretRef
-				networkDataBase64 = volume.CloudInitNoCloud.NetworkDataBase64
-				networkData = volume.CloudInitNoCloud.NetworkData
-			} else if volume.CloudInitConfigDrive != nil {
-				dataSourceType = "cloudInitConfigDrive"
-				userDataSecretRef = volume.CloudInitConfigDrive.UserDataSecretRef
-				userDataBase64 = volume.CloudInitConfigDrive.UserDataBase64
-				userData = volume.CloudInitConfigDrive.UserData
-				networkDataSecretRef = volume.CloudInitConfigDrive.NetworkDataSecretRef
-				networkDataBase64 = volume.CloudInitConfigDrive.NetworkDataBase64
-				networkData = volume.CloudInitConfigDrive.NetworkData
-			}
-
-			userDataLen := 0
-			userDataSourceCount := 0
-			networkDataLen := 0
-			networkDataSourceCount := 0
-
-			if userDataSecretRef != nil && userDataSecretRef.Name != "" {
-				userDataSourceCount++
-			}
-			if userDataBase64 != "" {
-				userDataSourceCount++
-				userData, err := base64.StdEncoding.DecodeString(userDataBase64)
-				if err != nil {
-					causes = append(causes, metav1.StatusCause{
-						Type:    metav1.CauseTypeFieldValueInvalid,
-						Message: fmt.Sprintf("%s.%s.userDataBase64 is not a valid base64 value.", field.Index(idx).Child(dataSourceType, "userDataBase64").String(), dataSourceType),
-						Field:   field.Index(idx).Child(dataSourceType, "userDataBase64").String(),
-					})
-				}
-				userDataLen = len(userData)
-			}
-			if userData != "" {
-				userDataSourceCount++
-				userDataLen = len(userData)
-			}
-
-			if userDataSourceCount > 1 {
-				causes = append(causes, metav1.StatusCause{
-					Type:    metav1.CauseTypeFieldValueInvalid,
-					Message: fmt.Sprintf("%s must have only one userdatasource set.", field.Index(idx).Child(dataSourceType).String()),
-					Field:   field.Index(idx).Child(dataSourceType).String(),
-				})
-			}
-
-			if userDataLen > cloudInitUserMaxLen {
-				causes = append(causes, metav1.StatusCause{
-					Type:    metav1.CauseTypeFieldValueInvalid,
-					Message: fmt.Sprintf("%s userdata exceeds %d byte limit. Should use UserDataSecretRef for larger data.", field.Index(idx).Child(dataSourceType).String(), cloudInitUserMaxLen),
-					Field:   field.Index(idx).Child(dataSourceType).String(),
-				})
-			}
-
-			if networkDataSecretRef != nil && networkDataSecretRef.Name != "" {
-				networkDataSourceCount++
-			}
-			if networkDataBase64 != "" {
-				networkDataSourceCount++
-				networkData, err := base64.StdEncoding.DecodeString(networkDataBase64)
-				if err != nil {
-					causes = append(causes, metav1.StatusCause{
-						Type:    metav1.CauseTypeFieldValueInvalid,
-						Message: fmt.Sprintf("%s.%s.networkDataBase64 is not a valid base64 value.", field.Index(idx).Child(dataSourceType, "networkDataBase64").String(), dataSourceType),
-						Field:   field.Index(idx).Child(dataSourceType, "networkDataBase64").String(),
-					})
-				}
-				networkDataLen = len(networkData)
-			}
-			if networkData != "" {
-				networkDataSourceCount++
-				networkDataLen = len(networkData)
-			}
-
-			if networkDataSourceCount > 1 {
-				causes = append(causes, metav1.StatusCause{
-					Type:    metav1.CauseTypeFieldValueInvalid,
-					Message: fmt.Sprintf("%s must have only one networkdata source set.", field.Index(idx).Child(dataSourceType).String()),
-					Field:   field.Index(idx).Child(dataSourceType).String(),
-				})
-			}
-
-			if networkDataLen > cloudInitNetworkMaxLen {
-				causes = append(causes, metav1.StatusCause{
-					Type:    metav1.CauseTypeFieldValueInvalid,
-					Message: fmt.Sprintf("%s networkdata exceeds %d byte limit. Should use NetworkDataSecretRef for larger data.", field.Index(idx).Child(dataSourceType).String(), cloudInitNetworkMaxLen),
-					Field:   field.Index(idx).Child(dataSourceType).String(),
-				})
-			}
-
-			if userDataSourceCount == 0 && networkDataSourceCount == 0 {
-				causes = append(causes, metav1.StatusCause{
-					Type:    metav1.CauseTypeFieldValueInvalid,
-					Message: fmt.Sprintf("%s must have at least one userdatasource or one networkdatasource set.", field.Index(idx).Child(dataSourceType).String()),
-					Field:   field.Index(idx).Child(dataSourceType).String(),
-				})
-			}
-		}
-
-		if volume.DownwardMetrics != nil && !config.DownwardMetricsEnabled() {
-			causes = append(causes, metav1.StatusCause{
-				Type:    metav1.CauseTypeFieldValueInvalid,
-				Message: "downwardMetrics disks are not allowed: DownwardMetrics feature gate is not enabled.",
-				Field:   field.Index(idx).String(),
-			})
-		}
-
-		// validate HostDisk data
-		if hostDisk := volume.HostDisk; hostDisk != nil {
-			if !config.HostDiskEnabled() {
-				causes = append(causes, metav1.StatusCause{
-					Type:    metav1.CauseTypeFieldValueInvalid,
-					Message: "HostDisk feature gate is not enabled",
-					Field:   field.Index(idx).String(),
-				})
-			}
-			if hostDisk.Path == "" {
-				causes = append(causes, metav1.StatusCause{
-					Type:    metav1.CauseTypeFieldValueNotFound,
-					Message: fmt.Sprintf("%s is required for hostDisk volume", field.Index(idx).Child("hostDisk", "path").String()),
-					Field:   field.Index(idx).Child("hostDisk", "path").String(),
-				})
-			}
-
-			if hostDisk.Type != v1.HostDiskExists && hostDisk.Type != v1.HostDiskExistsOrCreate {
-				causes = append(causes, metav1.StatusCause{
-					Type:    metav1.CauseTypeFieldValueInvalid,
-					Message: fmt.Sprintf("%s has invalid value '%s', allowed are '%s' or '%s'", field.Index(idx).Child("hostDisk", "type").String(), hostDisk.Type, v1.HostDiskExists, v1.HostDiskExistsOrCreate),
-					Field:   field.Index(idx).Child("hostDisk", "type").String(),
-				})
-			}
-
-			// if disk.img already exists and user knows that by specifying type 'Disk' it is pointless to set capacity
-			if hostDisk.Type == v1.HostDiskExists && !hostDisk.Capacity.IsZero() {
-				causes = append(causes, metav1.StatusCause{
-					Type:    metav1.CauseTypeFieldValueInvalid,
-					Message: fmt.Sprintf("%s is allowed to pass only with %s equal to '%s'", field.Index(idx).Child("hostDisk", "capacity").String(), field.Index(idx).Child("hostDisk", "type").String(), v1.HostDiskExistsOrCreate),
-					Field:   field.Index(idx).Child("hostDisk", "capacity").String(),
-				})
-			}
-		}
-
-		if volume.ConfigMap != nil {
-			if volume.ConfigMap.LocalObjectReference.Name == "" {
-				causes = append(causes, metav1.StatusCause{
-					Type:    metav1.CauseTypeFieldValueInvalid,
-					Message: fmt.Sprintf(requiredFieldFmt, field.Index(idx).Child("configMap", "name").String()),
-					Field:   field.Index(idx).Child("configMap", "name").String(),
-				})
-			}
-		}
-
-		if volume.Secret != nil {
-			if volume.Secret.SecretName == "" {
-				causes = append(causes, metav1.StatusCause{
-					Type:    metav1.CauseTypeFieldValueInvalid,
-					Message: fmt.Sprintf(requiredFieldFmt, field.Index(idx).Child("secret", "secretName").String()),
-					Field:   field.Index(idx).Child("secret", "secretName").String(),
-				})
-			}
-		}
-
-		if volume.ServiceAccount != nil {
-			if volume.ServiceAccount.ServiceAccountName == "" {
-				causes = append(causes, metav1.StatusCause{
-					Type:    metav1.CauseTypeFieldValueInvalid,
-					Message: fmt.Sprintf(requiredFieldFmt, field.Index(idx).Child("serviceAccount", "serviceAccountName").String()),
-					Field:   field.Index(idx).Child("serviceAccount", "serviceAccountName").String(),
-				})
-			}
-		}
+		causes = append(causes, validateVolume(field.Index(idx), volume, config)...)
 	}
 
 	// check that we have max 1 instance of below disks
@@ -2242,6 +1992,263 @@ func validateVolumes(field *k8sfield.Path, volumes []v1.Volume, config *virtconf
 			Message: fmt.Sprintf("%s must have max one memory dump volume set", field.String()),
 			Field:   field.String(),
 		})
+	}
+
+	return causes
+}
+
+func validateVolume(field *k8sfield.Path, volume v1.Volume, config *virtconfig.ClusterConfig) []metav1.StatusCause {
+	var causes []metav1.StatusCause
+	// Verify exactly one source is set
+	volumeSourceSetCount := 0
+	if volume.PersistentVolumeClaim != nil {
+		volumeSourceSetCount++
+	}
+	if volume.Sysprep != nil {
+		volumeSourceSetCount++
+	}
+	if volume.CloudInitNoCloud != nil {
+		volumeSourceSetCount++
+	}
+	if volume.CloudInitConfigDrive != nil {
+		volumeSourceSetCount++
+	}
+	if volume.ContainerDisk != nil {
+		volumeSourceSetCount++
+	}
+	if volume.Ephemeral != nil {
+		volumeSourceSetCount++
+	}
+	if volume.EmptyDisk != nil {
+		volumeSourceSetCount++
+	}
+	if volume.HostDisk != nil {
+		volumeSourceSetCount++
+	}
+	if volume.DataVolume != nil {
+		if !config.HasDataVolumeAPI() {
+			causes = append(causes, metav1.StatusCause{
+				Type:    metav1.CauseTypeFieldValueInvalid,
+				Message: "DataVolume api is not present in cluster. CDI must be installed for DataVolume support.",
+				Field:   field.String(),
+			})
+		}
+
+		if volume.DataVolume.Name == "" {
+			causes = append(causes, metav1.StatusCause{
+				Type:    metav1.CauseTypeFieldValueRequired,
+				Message: "DataVolume 'name' must be set",
+				Field:   field.Child("name").String(),
+			})
+		}
+		volumeSourceSetCount++
+	}
+	if volume.ConfigMap != nil {
+		volumeSourceSetCount++
+	}
+	if volume.Secret != nil {
+		volumeSourceSetCount++
+	}
+	if volume.DownwardAPI != nil {
+		volumeSourceSetCount++
+	}
+	if volume.ServiceAccount != nil {
+		volumeSourceSetCount++
+	}
+	if volume.DownwardMetrics != nil {
+		volumeSourceSetCount++
+	}
+	if volume.MemoryDump != nil {
+		volumeSourceSetCount++
+	}
+
+	if volumeSourceSetCount != 1 {
+		causes = append(causes, metav1.StatusCause{
+			Type:    metav1.CauseTypeFieldValueInvalid,
+			Message: fmt.Sprintf("%s must have exactly one source type set", field.String()),
+			Field:   field.String(),
+		})
+	}
+
+	// Verify cloud init data is within size limits
+	if volume.CloudInitNoCloud != nil || volume.CloudInitConfigDrive != nil {
+		var userDataSecretRef, networkDataSecretRef *k8sv1.LocalObjectReference
+		var dataSourceType, userData, userDataBase64, networkData, networkDataBase64 string
+		if volume.CloudInitNoCloud != nil {
+			dataSourceType = "cloudInitNoCloud"
+			userDataSecretRef = volume.CloudInitNoCloud.UserDataSecretRef
+			userDataBase64 = volume.CloudInitNoCloud.UserDataBase64
+			userData = volume.CloudInitNoCloud.UserData
+			networkDataSecretRef = volume.CloudInitNoCloud.NetworkDataSecretRef
+			networkDataBase64 = volume.CloudInitNoCloud.NetworkDataBase64
+			networkData = volume.CloudInitNoCloud.NetworkData
+		} else if volume.CloudInitConfigDrive != nil {
+			dataSourceType = "cloudInitConfigDrive"
+			userDataSecretRef = volume.CloudInitConfigDrive.UserDataSecretRef
+			userDataBase64 = volume.CloudInitConfigDrive.UserDataBase64
+			userData = volume.CloudInitConfigDrive.UserData
+			networkDataSecretRef = volume.CloudInitConfigDrive.NetworkDataSecretRef
+			networkDataBase64 = volume.CloudInitConfigDrive.NetworkDataBase64
+			networkData = volume.CloudInitConfigDrive.NetworkData
+		}
+
+		userDataLen := 0
+		userDataSourceCount := 0
+		networkDataLen := 0
+		networkDataSourceCount := 0
+
+		if userDataSecretRef != nil && userDataSecretRef.Name != "" {
+			userDataSourceCount++
+		}
+		if userDataBase64 != "" {
+			userDataSourceCount++
+			userData, err := base64.StdEncoding.DecodeString(userDataBase64)
+			if err != nil {
+				causes = append(causes, metav1.StatusCause{
+					Type:    metav1.CauseTypeFieldValueInvalid,
+					Message: fmt.Sprintf("%s.%s.userDataBase64 is not a valid base64 value.", field.Child(dataSourceType, "userDataBase64").String(), dataSourceType),
+					Field:   field.Child(dataSourceType, "userDataBase64").String(),
+				})
+			}
+			userDataLen = len(userData)
+		}
+		if userData != "" {
+			userDataSourceCount++
+			userDataLen = len(userData)
+		}
+
+		if userDataSourceCount > 1 {
+			causes = append(causes, metav1.StatusCause{
+				Type:    metav1.CauseTypeFieldValueInvalid,
+				Message: fmt.Sprintf("%s must have only one userdatasource set.", field.Child(dataSourceType).String()),
+				Field:   field.Child(dataSourceType).String(),
+			})
+		}
+
+		if userDataLen > cloudInitUserMaxLen {
+			causes = append(causes, metav1.StatusCause{
+				Type:    metav1.CauseTypeFieldValueInvalid,
+				Message: fmt.Sprintf("%s userdata exceeds %d byte limit. Should use UserDataSecretRef for larger data.", field.Child(dataSourceType).String(), cloudInitUserMaxLen),
+				Field:   field.Child(dataSourceType).String(),
+			})
+		}
+
+		if networkDataSecretRef != nil && networkDataSecretRef.Name != "" {
+			networkDataSourceCount++
+		}
+		if networkDataBase64 != "" {
+			networkDataSourceCount++
+			networkData, err := base64.StdEncoding.DecodeString(networkDataBase64)
+			if err != nil {
+				causes = append(causes, metav1.StatusCause{
+					Type:    metav1.CauseTypeFieldValueInvalid,
+					Message: fmt.Sprintf("%s.%s.networkDataBase64 is not a valid base64 value.", field.Child(dataSourceType, "networkDataBase64").String(), dataSourceType),
+					Field:   field.Child(dataSourceType, "networkDataBase64").String(),
+				})
+			}
+			networkDataLen = len(networkData)
+		}
+		if networkData != "" {
+			networkDataSourceCount++
+			networkDataLen = len(networkData)
+		}
+
+		if networkDataSourceCount > 1 {
+			causes = append(causes, metav1.StatusCause{
+				Type:    metav1.CauseTypeFieldValueInvalid,
+				Message: fmt.Sprintf("%s must have only one networkdata source set.", field.Child(dataSourceType).String()),
+				Field:   field.Child(dataSourceType).String(),
+			})
+		}
+
+		if networkDataLen > cloudInitNetworkMaxLen {
+			causes = append(causes, metav1.StatusCause{
+				Type:    metav1.CauseTypeFieldValueInvalid,
+				Message: fmt.Sprintf("%s networkdata exceeds %d byte limit. Should use NetworkDataSecretRef for larger data.", field.Child(dataSourceType).String(), cloudInitNetworkMaxLen),
+				Field:   field.Child(dataSourceType).String(),
+			})
+		}
+
+		if userDataSourceCount == 0 && networkDataSourceCount == 0 {
+			causes = append(causes, metav1.StatusCause{
+				Type:    metav1.CauseTypeFieldValueInvalid,
+				Message: fmt.Sprintf("%s must have at least one userdatasource or one networkdatasource set.", field.Child(dataSourceType).String()),
+				Field:   field.Child(dataSourceType).String(),
+			})
+		}
+	}
+
+	if volume.DownwardMetrics != nil && !config.DownwardMetricsEnabled() {
+		causes = append(causes, metav1.StatusCause{
+			Type:    metav1.CauseTypeFieldValueInvalid,
+			Message: "downwardMetrics disks are not allowed: DownwardMetrics feature gate is not enabled.",
+			Field:   field.String(),
+		})
+	}
+
+	// validate HostDisk data
+	if hostDisk := volume.HostDisk; hostDisk != nil {
+		if !config.HostDiskEnabled() {
+			causes = append(causes, metav1.StatusCause{
+				Type:    metav1.CauseTypeFieldValueInvalid,
+				Message: "HostDisk feature gate is not enabled",
+				Field:   field.String(),
+			})
+		}
+		if hostDisk.Path == "" {
+			causes = append(causes, metav1.StatusCause{
+				Type:    metav1.CauseTypeFieldValueNotFound,
+				Message: fmt.Sprintf("%s is required for hostDisk volume", field.Child("hostDisk", "path").String()),
+				Field:   field.Child("hostDisk", "path").String(),
+			})
+		}
+
+		if hostDisk.Type != v1.HostDiskExists && hostDisk.Type != v1.HostDiskExistsOrCreate {
+			causes = append(causes, metav1.StatusCause{
+				Type:    metav1.CauseTypeFieldValueInvalid,
+				Message: fmt.Sprintf("%s has invalid value '%s', allowed are '%s' or '%s'", field.Child("hostDisk", "type").String(), hostDisk.Type, v1.HostDiskExists, v1.HostDiskExistsOrCreate),
+				Field:   field.Child("hostDisk", "type").String(),
+			})
+		}
+
+		// if disk.img already exists and user knows that by specifying type 'Disk' it is pointless to set capacity
+		if hostDisk.Type == v1.HostDiskExists && !hostDisk.Capacity.IsZero() {
+			causes = append(causes, metav1.StatusCause{
+				Type:    metav1.CauseTypeFieldValueInvalid,
+				Message: fmt.Sprintf("%s is allowed to pass only with %s equal to '%s'", field.Child("hostDisk", "capacity").String(), field.Child("hostDisk", "type").String(), v1.HostDiskExistsOrCreate),
+				Field:   field.Child("hostDisk", "capacity").String(),
+			})
+		}
+	}
+
+	if volume.ConfigMap != nil {
+		if volume.ConfigMap.LocalObjectReference.Name == "" {
+			causes = append(causes, metav1.StatusCause{
+				Type:    metav1.CauseTypeFieldValueInvalid,
+				Message: fmt.Sprintf(requiredFieldFmt, field.Child("configMap", "name").String()),
+				Field:   field.Child("configMap", "name").String(),
+			})
+		}
+	}
+
+	if volume.Secret != nil {
+		if volume.Secret.SecretName == "" {
+			causes = append(causes, metav1.StatusCause{
+				Type:    metav1.CauseTypeFieldValueInvalid,
+				Message: fmt.Sprintf(requiredFieldFmt, field.Child("secret", "secretName").String()),
+				Field:   field.Child("secret", "secretName").String(),
+			})
+		}
+	}
+
+	if volume.ServiceAccount != nil {
+		if volume.ServiceAccount.ServiceAccountName == "" {
+			causes = append(causes, metav1.StatusCause{
+				Type:    metav1.CauseTypeFieldValueInvalid,
+				Message: fmt.Sprintf(requiredFieldFmt, field.Child("serviceAccount", "serviceAccountName").String()),
+				Field:   field.Child("serviceAccount", "serviceAccountName").String(),
+			})
+		}
 	}
 
 	return causes
