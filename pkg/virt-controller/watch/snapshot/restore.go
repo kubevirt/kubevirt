@@ -32,6 +32,7 @@ import (
 	storagev1 "k8s.io/api/storage/v1"
 	"k8s.io/apimachinery/pkg/api/equality"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	"k8s.io/apimachinery/pkg/util/sets"
 
 	kubevirtv1 "kubevirt.io/api/core/v1"
 	snapshotv1 "kubevirt.io/api/snapshot/v1alpha1"
@@ -234,7 +235,7 @@ func (ctrl *VMRestoreController) reconcileVolumeRestores(vmRestore *snapshotv1.V
 
 	var restores []snapshotv1.VolumeRestore
 	for _, vb := range content.Spec.VolumeBackups {
-		if _, exists := noRestore[vb.VolumeName]; exists {
+		if noRestore.Has(vb.VolumeName) {
 			continue
 		}
 
@@ -819,15 +820,15 @@ func updateRestoreCondition(r *snapshotv1.VirtualMachineRestore, c snapshotv1.Co
 	r.Status.Conditions = updateCondition(r.Status.Conditions, c, true)
 }
 
-// Returns a map of volumes not for restore by volume name
+// Returns a set of volumes not for restore
 // Currently only memory dump volumes should not be restored
-func volumesNotForRestore(content *snapshotv1.VirtualMachineSnapshotContent) map[string]bool {
+func volumesNotForRestore(content *snapshotv1.VirtualMachineSnapshotContent) sets.String {
 	volumes := content.Spec.Source.VirtualMachine.Spec.Template.Spec.Volumes
-	noRestore := map[string]bool{}
+	noRestore := sets.NewString()
 
 	for _, volume := range volumes {
 		if volume.MemoryDump != nil {
-			noRestore[volume.Name] = true
+			noRestore.Insert(volume.Name)
 		}
 	}
 
