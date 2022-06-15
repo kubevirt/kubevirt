@@ -63,23 +63,19 @@ func (mutator *VMsMutator) Mutate(ar *admissionv1.AdmissionReview) *admissionv1.
 	mutator.setDefaultFlavorKind(&vm)
 	mutator.setDefaultPreferenceKind(&vm)
 
-	var patch []utiltypes.PatchOperation
-	var value interface{}
-	value = vm.Spec
-	patch = append(patch, utiltypes.PatchOperation{
-		Op:    "replace",
-		Path:  "/spec",
-		Value: value,
-	})
+	patchBytes, err := utiltypes.GeneratePatchPayload(
+		utiltypes.PatchOperation{
+			Op:    utiltypes.PatchReplaceOp,
+			Path:  "/spec",
+			Value: vm.Spec,
+		},
+		utiltypes.PatchOperation{
+			Op:    utiltypes.PatchReplaceOp,
+			Path:  "/metadata",
+			Value: vm.ObjectMeta,
+		},
+	)
 
-	value = vm.ObjectMeta
-	patch = append(patch, utiltypes.PatchOperation{
-		Op:    "replace",
-		Path:  "/metadata",
-		Value: value,
-	})
-
-	patchBytes, err := json.Marshal(patch)
 	if err != nil {
 		log.Log.Reason(err).Error("admission failed to marshall patch to JSON")
 		return &admissionv1.AdmissionResponse{
