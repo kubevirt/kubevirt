@@ -957,7 +957,7 @@ var _ = Describe("VirtualMachineInstance Subresources", func() {
 					},
 				},
 				nil,
-				"[{ \"op\": \"test\", \"path\": \"/status/volumeRequests\", \"value\": null}, { \"op\": \"add\", \"path\": \"/status/volumeRequests\", \"value\": [{\"addVolumeOptions\":{\"name\":\"vol1\",\"disk\":{\"name\":\"\"},\"volumeSource\":{}}}]}]",
+				`[{"op":"test","path":"/status/volumeRequests","value":null},{"op":"add","path":"/status/volumeRequests","value":[{"addVolumeOptions":{"name":"vol1","disk":{"name":""},"volumeSource":{}}}]}]`,
 				false),
 			Entry("add volume request that already exists should fail",
 				&v1.VirtualMachineVolumeRequest{
@@ -995,7 +995,7 @@ var _ = Describe("VirtualMachineInstance Subresources", func() {
 						},
 					},
 				},
-				"[{ \"op\": \"test\", \"path\": \"/status/volumeRequests\", \"value\": [{\"addVolumeOptions\":{\"name\":\"vol2\",\"disk\":{\"name\":\"\"},\"volumeSource\":{}}}]}, { \"op\": \"replace\", \"path\": \"/status/volumeRequests\", \"value\": [{\"addVolumeOptions\":{\"name\":\"vol2\",\"disk\":{\"name\":\"\"},\"volumeSource\":{}}},{\"addVolumeOptions\":{\"name\":\"vol1\",\"disk\":{\"name\":\"\"},\"volumeSource\":{}}}]}]",
+				`[{"op":"test","path":"/status/volumeRequests","value":[{"addVolumeOptions":{"name":"vol2","disk":{"name":""},"volumeSource":{}}}]},{"op":"replace","path":"/status/volumeRequests","value":[{"addVolumeOptions":{"name":"vol2","disk":{"name":""},"volumeSource":{}}},{"addVolumeOptions":{"name":"vol1","disk":{"name":""},"volumeSource":{}}}]}]`,
 				false),
 			Entry("remove volume request with no existing volume request", &v1.VirtualMachineVolumeRequest{
 				RemoveVolumeOptions: &v1.RemoveVolumeOptions{
@@ -1003,7 +1003,7 @@ var _ = Describe("VirtualMachineInstance Subresources", func() {
 				},
 			},
 				nil,
-				"[{ \"op\": \"test\", \"path\": \"/status/volumeRequests\", \"value\": null}, { \"op\": \"add\", \"path\": \"/status/volumeRequests\", \"value\": [{\"removeVolumeOptions\":{\"name\":\"vol1\"}}]}]",
+				`[{"op":"test","path":"/status/volumeRequests","value":null},{"op":"add","path":"/status/volumeRequests","value":[{"removeVolumeOptions":{"name":"vol1"}}]}]`,
 				false),
 			Entry("remove volume request should replace add volume request",
 				&v1.VirtualMachineVolumeRequest{
@@ -1020,7 +1020,7 @@ var _ = Describe("VirtualMachineInstance Subresources", func() {
 						},
 					},
 				},
-				"[{ \"op\": \"test\", \"path\": \"/status/volumeRequests\", \"value\": [{\"addVolumeOptions\":{\"name\":\"vol2\",\"disk\":{\"name\":\"\"},\"volumeSource\":{}}}]}, { \"op\": \"replace\", \"path\": \"/status/volumeRequests\", \"value\": [{\"removeVolumeOptions\":{\"name\":\"vol2\"}}]}]",
+				`[{"op":"test","path":"/status/volumeRequests","value":[{"addVolumeOptions":{"name":"vol2","disk":{"name":""},"volumeSource":{}}}]},{"op":"replace","path":"/status/volumeRequests","value":[{"removeVolumeOptions":{"name":"vol2"}}]}]`,
 				false),
 			Entry("remove volume request that already exists should fail",
 				&v1.VirtualMachineVolumeRequest{
