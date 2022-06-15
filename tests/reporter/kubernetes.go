@@ -98,6 +98,7 @@ func (r *KubernetesReporter) JustAfterEach(specReport types.SpecReport) {
 	if r.artifactsDir == "" {
 		return
 	}
+	By("Collecting Logs for failed test")
 	r.DumpTestNamespaces(specReport.RunTime)
 }
 
