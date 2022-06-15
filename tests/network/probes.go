@@ -45,6 +45,9 @@ var _ = SIGDescribe("[ref_id:1182]Probes", func() {
 
 		tests.BeforeTestCleanup()
 	})
+	AfterEach(func() {
+		tests.BeforeTestCleanup()
+	})
 
 	buildProbeBackendPodSpec := func(probe *v1.Probe) (*corev1.Pod, func() error) {
 		var probeBackendPod *corev1.Pod
