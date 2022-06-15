@@ -59,6 +59,7 @@ import (
 	"kubevirt.io/kubevirt/tests/libnet"
 	"kubevirt.io/kubevirt/tests/libstorage"
 	"kubevirt.io/kubevirt/tests/testsuite"
+	"kubevirt.io/kubevirt/tests/watcher"
 )
 
 const (
@@ -989,10 +990,10 @@ var _ = SIGDescribe("Storage", func() {
 					tests.RunVMI(vmi, 30)
 
 					By("Checking events")
-					objectEventWatcher := tests.NewObjectEventWatcher(vmi).SinceWatchedObjectResourceVersion().Timeout(time.Duration(120) * time.Second)
+					objectEventWatcher := watcher.New(vmi).SinceWatchedObjectResourceVersion().Timeout(time.Duration(120) * time.Second)
 					ctx, cancel := context.WithCancel(context.Background())
 					defer cancel()
-					objectEventWatcher.WaitFor(ctx, tests.WarningEvent, virtv1.SyncFailed.String())
+					objectEventWatcher.WaitFor(ctx, watcher.WarningEvent, virtv1.SyncFailed.String())
 
 				})
 
@@ -1007,12 +1008,12 @@ var _ = SIGDescribe("Storage", func() {
 					tests.RunVMIAndExpectLaunch(vmi, 30)
 
 					By("Checking events")
-					objectEventWatcher := tests.NewObjectEventWatcher(vmi).SinceWatchedObjectResourceVersion().Timeout(time.Duration(30) * time.Second)
-					wp := tests.WarningsPolicy{FailOnWarnings: true}
+					objectEventWatcher := watcher.New(vmi).SinceWatchedObjectResourceVersion().Timeout(time.Duration(30) * time.Second)
+					wp := watcher.WarningsPolicy{FailOnWarnings: true}
 					objectEventWatcher.SetWarningsPolicy(wp)
 					ctx, cancel := context.WithCancel(context.Background())
 					defer cancel()
-					objectEventWatcher.WaitFor(ctx, tests.EventType(hostdisk.EventTypeToleratedSmallPV), hostdisk.EventReasonToleratedSmallPV)
+					objectEventWatcher.WaitFor(ctx, watcher.EventType(hostdisk.EventTypeToleratedSmallPV), hostdisk.EventReasonToleratedSmallPV)
 				})
 			})
 		})

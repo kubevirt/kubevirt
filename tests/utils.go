@@ -53,7 +53,6 @@ import (
 	k8sv1 "k8s.io/api/core/v1"
 	storagev1 "k8s.io/api/storage/v1"
 	"k8s.io/apimachinery/pkg/api/errors"
-	"k8s.io/apimachinery/pkg/api/meta"
 	"k8s.io/apimachinery/pkg/api/resource"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/fields"
@@ -62,7 +61,6 @@ import (
 	"k8s.io/apimachinery/pkg/runtime/schema"
 	"k8s.io/apimachinery/pkg/types"
 	"k8s.io/apimachinery/pkg/util/rand"
-	"k8s.io/apimachinery/pkg/watch"
 	"k8s.io/client-go/kubernetes/scheme"
 	"k8s.io/client-go/rest"
 	"k8s.io/client-go/tools/portforward"
@@ -101,6 +99,7 @@ import (
 	"kubevirt.io/kubevirt/tests/libstorage"
 	"kubevirt.io/kubevirt/tests/libvmi"
 	"kubevirt.io/kubevirt/tests/testsuite"
+	"kubevirt.io/kubevirt/tests/watcher"
 )
 
 const (
@@ -113,30 +112,9 @@ const (
 	BashHelloScript              = "#!/bin/bash\necho 'hello'\n"
 )
 
-type EventType string
-
-const (
-	NormalEvent  EventType = "Normal"
-	WarningEvent EventType = "Warning"
-)
-
 const defaultTestGracePeriod int64 = 0
 
 const SubresourceTestLabel = "subresource-access-test-pod"
-
-type startType string
-
-const (
-	invalidWatch startType = "invalidWatch"
-	// Watch since the moment a long poll connection is established
-	watchSinceNow startType = "watchSinceNow"
-	// Watch since the resourceVersion of the passed in runtime object
-	watchSinceObjectUpdate startType = "watchSinceObjectUpdate"
-	// Watch since the resourceVersion of the watched object
-	watchSinceWatchedObjectUpdate startType = "watchSinceWatchedObjectUpdate"
-	// Watch since the resourceVersion passed in to the builder
-	watchSinceResourceVersion startType = "watchSinceResourceVersion"
-)
 
 const (
 	osAlpineHostPath = "alpine-host-path"
@@ -180,221 +158,6 @@ const (
 const StorageClassHostPathSeparateDevice = "host-path-sd"
 
 var wffc = storagev1.VolumeBindingWaitForFirstConsumer
-
-type ProcessFunc func(event *k8sv1.Event) (done bool)
-
-type ObjectEventWatcher struct {
-	object                 runtime.Object
-	timeout                *time.Duration
-	resourceVersion        string
-	startType              startType
-	warningPolicy          WarningsPolicy
-	dontFailOnMissingEvent bool
-}
-
-type WarningsPolicy struct {
-	FailOnWarnings     bool
-	WarningsIgnoreList []string
-}
-
-func (wp *WarningsPolicy) shouldIgnoreWarning(event *k8sv1.Event) bool {
-	if event.Type == string(WarningEvent) {
-		for _, message := range wp.WarningsIgnoreList {
-			if strings.Contains(event.Message, message) {
-				return true
-			}
-		}
-	}
-
-	return false
-}
-
-func NewObjectEventWatcher(object runtime.Object) *ObjectEventWatcher {
-	return &ObjectEventWatcher{object: object, startType: invalidWatch}
-}
-
-func (w *ObjectEventWatcher) Timeout(duration time.Duration) *ObjectEventWatcher {
-	w.timeout = &duration
-	return w
-}
-
-func (w *ObjectEventWatcher) SetWarningsPolicy(wp WarningsPolicy) *ObjectEventWatcher {
-	w.warningPolicy = wp
-	return w
-}
-
-/*
-SinceNow sets a watch starting point for events, from the moment on the connection to the apiserver
-was established.
-*/
-func (w *ObjectEventWatcher) SinceNow() *ObjectEventWatcher {
-	w.startType = watchSinceNow
-	return w
-}
-
-/*
-SinceWatchedObjectResourceVersion takes the resource version of the runtime object which is watched,
-and takes it as the starting point for all events to watch for.
-*/
-func (w *ObjectEventWatcher) SinceWatchedObjectResourceVersion() *ObjectEventWatcher {
-	w.startType = watchSinceWatchedObjectUpdate
-	return w
-}
-
-/*
-SinceObjectResourceVersion takes the resource version of the passed in runtime object and takes it
-as the starting point for all events to watch for.
-*/
-func (w *ObjectEventWatcher) SinceObjectResourceVersion(object runtime.Object) *ObjectEventWatcher {
-	var err error
-	w.startType = watchSinceObjectUpdate
-	w.resourceVersion, err = meta.NewAccessor().ResourceVersion(object)
-	Expect(err).ToNot(HaveOccurred())
-	return w
-}
-
-/*
-SinceResourceVersion sets the passed in resourceVersion as the starting point for all events to watch for.
-*/
-func (w *ObjectEventWatcher) SinceResourceVersion(rv string) *ObjectEventWatcher {
-	w.resourceVersion = rv
-	w.startType = watchSinceResourceVersion
-	return w
-}
-
-func (w *ObjectEventWatcher) Watch(ctx context.Context, processFunc ProcessFunc, watchedDescription string) {
-	Expect(w.startType).ToNot(Equal(invalidWatch))
-	resourceVersion := ""
-
-	switch w.startType {
-	case watchSinceNow:
-		resourceVersion = ""
-	case watchSinceObjectUpdate, watchSinceResourceVersion:
-		resourceVersion = w.resourceVersion
-	case watchSinceWatchedObjectUpdate:
-		var err error
-		resourceVersion, err = meta.NewAccessor().ResourceVersion(w.object)
-		Expect(err).ToNot(HaveOccurred())
-	}
-
-	cli, err := kubecli.GetKubevirtClient()
-	if err != nil {
-		panic(err)
-	}
-
-	f := processFunc
-
-	if w.warningPolicy.FailOnWarnings {
-		f = func(event *k8sv1.Event) bool {
-			msg := fmt.Sprintf("Event(%#v): type: '%v' reason: '%v' %v", event.InvolvedObject, event.Type, event.Reason, event.Message)
-			if w.warningPolicy.shouldIgnoreWarning(event) == false {
-				ExpectWithOffset(1, event.Type).NotTo(Equal(string(WarningEvent)), "Unexpected Warning event received: %s,%s: %s", event.InvolvedObject.Name, event.InvolvedObject.UID, event.Message)
-			}
-			log.Log.ObjectRef(&event.InvolvedObject).Info(msg)
-
-			return processFunc(event)
-		}
-	} else {
-		f = func(event *k8sv1.Event) bool {
-			if event.Type == string(WarningEvent) {
-				log.Log.ObjectRef(&event.InvolvedObject).Reason(fmt.Errorf("warning event received")).Error(event.Message)
-			} else {
-				log.Log.ObjectRef(&event.InvolvedObject).Infof(event.Message)
-			}
-			return processFunc(event)
-		}
-	}
-
-	var selector []string
-	objectMeta := w.object.(metav1.ObjectMetaAccessor)
-	name := objectMeta.GetObjectMeta().GetName()
-	namespace := objectMeta.GetObjectMeta().GetNamespace()
-	uid := objectMeta.GetObjectMeta().GetUID()
-
-	selector = append(selector, fmt.Sprintf("involvedObject.name=%v", name))
-	if namespace != "" {
-		selector = append(selector, fmt.Sprintf("involvedObject.namespace=%v", namespace))
-	}
-	if uid != "" {
-		selector = append(selector, fmt.Sprintf("involvedObject.uid=%v", uid))
-	}
-
-	eventWatcher, err := cli.CoreV1().Events(k8sv1.NamespaceAll).
-		Watch(context.Background(), metav1.ListOptions{
-			FieldSelector:   fields.ParseSelectorOrDie(strings.Join(selector, ",")).String(),
-			ResourceVersion: resourceVersion,
-		})
-	if err != nil {
-		panic(err)
-	}
-	defer eventWatcher.Stop()
-	done := make(chan struct{})
-
-	go func() {
-		defer GinkgoRecover()
-		for watchEvent := range eventWatcher.ResultChan() {
-			if watchEvent.Type != watch.Error {
-				event := watchEvent.Object.(*k8sv1.Event)
-				if f(event) {
-					close(done)
-					break
-				}
-			} else {
-				switch watchEvent.Object.(type) {
-				case *metav1.Status:
-					status := watchEvent.Object.(*metav1.Status)
-					//api server sometimes closes connections to Watch() client command
-					//ignore this error, because it will reconnect automatically
-					if status.Message != "an error on the server (\"unable to decode an event from the watch stream: http2: response body closed\") has prevented the request from succeeding" {
-						Fail(fmt.Sprintf("unexpected error event: %v", errors.FromObject(watchEvent.Object)))
-					}
-				default:
-					Fail(fmt.Sprintf("unexpected error event: %v", errors.FromObject(watchEvent.Object)))
-				}
-			}
-		}
-	}()
-
-	if w.timeout != nil {
-		select {
-		case <-done:
-		case <-ctx.Done():
-		case <-time.After(*w.timeout):
-			if !w.dontFailOnMissingEvent {
-				Fail(fmt.Sprintf("Waited for %v seconds on the event stream to match a specific event: %s", w.timeout.Seconds(), watchedDescription), 1)
-			}
-		}
-	} else {
-		select {
-		case <-ctx.Done():
-		case <-done:
-		}
-	}
-}
-
-func (w *ObjectEventWatcher) WaitFor(ctx context.Context, eventType EventType, reason interface{}) (e *k8sv1.Event) {
-	w.Watch(ctx, func(event *k8sv1.Event) bool {
-		if event.Type == string(eventType) && event.Reason == reflect.ValueOf(reason).String() {
-			e = event
-			return true
-		}
-		return false
-	}, fmt.Sprintf("event type %s, reason = %s", string(eventType), reflect.ValueOf(reason).String()))
-	return
-}
-
-func (w *ObjectEventWatcher) WaitNotFor(ctx context.Context, eventType EventType, reason interface{}) (e *k8sv1.Event) {
-	w.dontFailOnMissingEvent = true
-	w.Watch(ctx, func(event *k8sv1.Event) bool {
-		if event.Type == string(eventType) && event.Reason == reflect.ValueOf(reason).String() {
-			e = event
-			Fail(fmt.Sprintf("Did not expect %s with reason %s", string(eventType), reflect.ValueOf(reason).String()), 1)
-			return true
-		}
-		return false
-	}, fmt.Sprintf("not happen event type %s, reason = %s", string(eventType), reflect.ValueOf(reason).String()))
-	return
-}
 
 func BeforeTestCleanup() {
 	testsuite.CleanNamespaces()
@@ -795,7 +558,7 @@ func RunVMIAndExpectLaunchWithDataVolume(vmi *v1.VirtualMachineInstance, dv *cdi
 	ctx, cancel := context.WithCancel(context.Background())
 	defer cancel()
 	warningsIgnoreList := []string{"didn't find PVC"}
-	wp := WarningsPolicy{FailOnWarnings: true, WarningsIgnoreList: warningsIgnoreList}
+	wp := watcher.WarningsPolicy{FailOnWarnings: true, WarningsIgnoreList: warningsIgnoreList}
 	return waitForVMIStart(ctx, obj, timeout, wp)
 }
 
@@ -808,7 +571,7 @@ func RunVMIAndExpectLaunchIgnoreWarnings(vmi *v1.VirtualMachineInstance, timeout
 func RunVMIAndExpectScheduling(vmi *v1.VirtualMachineInstance, timeout int) *v1.VirtualMachineInstance {
 	obj := RunVMI(vmi, timeout)
 	By("Waiting until the VirtualMachineInstance will be scheduled")
-	wp := WarningsPolicy{FailOnWarnings: true}
+	wp := watcher.WarningsPolicy{FailOnWarnings: true}
 	return waitForVMIScheduling(obj, timeout, wp)
 }
 
@@ -1675,25 +1438,25 @@ func AddExplicitPodNetworkInterface(vmi *v1.VirtualMachineInstance) {
 }
 
 // WaitForVMIStartOrFailed blocks until the specified VirtualMachineInstance reached either Failed or Running states
-func WaitForVMIStartOrFailed(obj runtime.Object, seconds int, wp WarningsPolicy) *v1.VirtualMachineInstance {
+func WaitForVMIStartOrFailed(obj runtime.Object, seconds int, wp watcher.WarningsPolicy) *v1.VirtualMachineInstance {
 	ctx, cancel := context.WithCancel(context.Background())
 	defer cancel()
 	return waitForVMIPhase(ctx, []v1.VirtualMachineInstancePhase{v1.Running, v1.Failed}, obj, seconds, wp, true)
 }
 
 // Block until the specified VirtualMachineInstance started and return the target node name.
-func waitForVMIStart(ctx context.Context, obj runtime.Object, seconds int, wp WarningsPolicy) *v1.VirtualMachineInstance {
+func waitForVMIStart(ctx context.Context, obj runtime.Object, seconds int, wp watcher.WarningsPolicy) *v1.VirtualMachineInstance {
 	return waitForVMIPhase(ctx, []v1.VirtualMachineInstancePhase{v1.Running}, obj, seconds, wp, false)
 }
 
 // Block until the specified VirtualMachineInstance scheduled and return the target node name.
-func waitForVMIScheduling(obj runtime.Object, seconds int, wp WarningsPolicy) *v1.VirtualMachineInstance {
+func waitForVMIScheduling(obj runtime.Object, seconds int, wp watcher.WarningsPolicy) *v1.VirtualMachineInstance {
 	ctx, cancel := context.WithCancel(context.Background())
 	defer cancel()
 	return waitForVMIPhase(ctx, []v1.VirtualMachineInstancePhase{v1.Scheduling, v1.Scheduled, v1.Running}, obj, seconds, wp, false)
 }
 
-func waitForVMIPhase(ctx context.Context, phases []v1.VirtualMachineInstancePhase, obj runtime.Object, seconds int, wp WarningsPolicy, waitForFail bool) *v1.VirtualMachineInstance {
+func waitForVMIPhase(ctx context.Context, phases []v1.VirtualMachineInstancePhase, obj runtime.Object, seconds int, wp watcher.WarningsPolicy, waitForFail bool) *v1.VirtualMachineInstance {
 	vmi, ok := obj.(*v1.VirtualMachineInstance)
 	ExpectWithOffset(1, ok).To(BeTrue(), "Object is not of type *v1.VMI")
 
@@ -1707,14 +1470,14 @@ func waitForVMIPhase(ctx context.Context, phases []v1.VirtualMachineInstancePhas
 		ExpectWithOffset(1, err).ToNot(HaveOccurred())
 	}
 
-	objectEventWatcher := NewObjectEventWatcher(vmi).SinceWatchedObjectResourceVersion().Timeout(time.Duration(seconds+2) * time.Second)
+	objectEventWatcher := watcher.New(vmi).SinceWatchedObjectResourceVersion().Timeout(time.Duration(seconds+2) * time.Second)
 	if wp.FailOnWarnings == true {
 		objectEventWatcher.SetWarningsPolicy(wp)
 	}
 
 	go func() {
 		defer GinkgoRecover()
-		objectEventWatcher.WaitFor(ctx, NormalEvent, v1.Started)
+		objectEventWatcher.WaitFor(ctx, watcher.NormalEvent, v1.Started)
 	}()
 
 	timeoutMsg := fmt.Sprintf("Timed out waiting for VMI %s to enter %s phase(s)", vmi.Name, phases)
@@ -1737,21 +1500,21 @@ func waitForVMIPhase(ctx context.Context, phases []v1.VirtualMachineInstancePhas
 func WaitForSuccessfulVMIStartIgnoreWarnings(vmi runtime.Object) *v1.VirtualMachineInstance {
 	ctx, cancel := context.WithCancel(context.Background())
 	defer cancel()
-	wp := WarningsPolicy{FailOnWarnings: false}
+	wp := watcher.WarningsPolicy{FailOnWarnings: false}
 	return waitForVMIStart(ctx, vmi, 180, wp)
 }
 
 func WaitForSuccessfulVMIStartWithTimeout(vmi runtime.Object, seconds int) *v1.VirtualMachineInstance {
 	ctx, cancel := context.WithCancel(context.Background())
 	defer cancel()
-	wp := WarningsPolicy{FailOnWarnings: true}
+	wp := watcher.WarningsPolicy{FailOnWarnings: true}
 	return waitForVMIStart(ctx, vmi, seconds, wp)
 }
 
 func WaitForSuccessfulVMIStartWithTimeoutIgnoreWarnings(vmi runtime.Object, seconds int) *v1.VirtualMachineInstance {
 	ctx, cancel := context.WithCancel(context.Background())
 	defer cancel()
-	wp := WarningsPolicy{FailOnWarnings: false}
+	wp := watcher.WarningsPolicy{FailOnWarnings: false}
 	return waitForVMIStart(ctx, vmi, seconds, wp)
 }
 
@@ -1780,12 +1543,12 @@ func WaitForSuccessfulVMIStart(vmi runtime.Object) *v1.VirtualMachineInstance {
 }
 
 func WaitForSuccessfulVMIStartWithContext(ctx context.Context, vmi runtime.Object) *v1.VirtualMachineInstance {
-	wp := WarningsPolicy{FailOnWarnings: true}
+	wp := watcher.WarningsPolicy{FailOnWarnings: true}
 	return waitForVMIStart(ctx, vmi, 360, wp)
 }
 
 func WaitForSuccessfulVMIStartWithContextIgnoreSelectedWarnings(ctx context.Context, vmi runtime.Object, warningsIgnoreList []string) *v1.VirtualMachineInstance {
-	wp := WarningsPolicy{FailOnWarnings: true, WarningsIgnoreList: warningsIgnoreList}
+	wp := watcher.WarningsPolicy{FailOnWarnings: true, WarningsIgnoreList: warningsIgnoreList}
 	return waitForVMIStart(ctx, vmi, 360, wp)
 }
 
