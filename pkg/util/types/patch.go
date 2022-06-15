@@ -19,8 +19,26 @@
 
 package types
 
+import (
+	"encoding/json"
+	"fmt"
+)
+
 type PatchOperation struct {
 	Op    string      `json:"op"`
 	Path  string      `json:"path"`
 	Value interface{} `json:"value,omitempty"`
+}
+
+func GeneratePatchPayload(patches ...PatchOperation) ([]byte, error) {
+	if len(patches) == 0 {
+		return nil, fmt.Errorf("list of patches is empty")
+	}
+
+	payloadBytes, err := json.Marshal(patches)
+	if err != nil {
+		return nil, err
+	}
+
+	return payloadBytes, nil
 }
