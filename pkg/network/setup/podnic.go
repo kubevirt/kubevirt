@@ -78,6 +78,9 @@ func newPhase1PodNIC(vmi *v1.VirtualMachineInstance, network *v1.Network, handle
 			podnic.vmiSpecNetwork,
 			*podnic.launcherPID,
 			podnic.handler)
+	} else if podnic.vmiSpecIface.Passt != nil {
+		podnic.infraConfigurator = infraconfigurators.NewPasstPodNetworkConfigurator(
+			podnic.handler)
 	}
 	return podnic, nil
 }
@@ -172,16 +175,6 @@ func (l *podNIC) PlugPhase1() error {
 		return nil
 	}
 
-	// TODO create infraconfigurator for passt
-	if l.vmiSpecIface.Passt != nil {
-		log.Log.V(4).Infof("Configuring ping group range")
-		err := l.handler.ConfigurePingGroupRange()
-		if err != nil {
-			log.Log.Reason(err).Errorf("failed to configure ping group range")
-			return err
-		}
-
-	}
 	state, err := l.state()
 	if err != nil {
 		return err
