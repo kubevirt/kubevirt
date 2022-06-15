@@ -30,6 +30,13 @@ type PatchOperation struct {
 	Value interface{} `json:"value,omitempty"`
 }
 
+const (
+	PatchReplaceOp = "replace"
+	PatchTestOp    = "test"
+	PatchAddOp     = "add"
+	PatchRemoveOp  = "remove"
+)
+
 func GeneratePatchPayload(patches ...PatchOperation) ([]byte, error) {
 	if len(patches) == 0 {
 		return nil, fmt.Errorf("list of patches is empty")
@@ -41,4 +48,19 @@ func GeneratePatchPayload(patches ...PatchOperation) ([]byte, error) {
 	}
 
 	return payloadBytes, nil
+}
+
+func GenerateTestReplacePatch(path string, oldValue, newValue interface{}) ([]byte, error) {
+	return GeneratePatchPayload(
+		PatchOperation{
+			Op:    PatchTestOp,
+			Path:  path,
+			Value: oldValue,
+		},
+		PatchOperation{
+			Op:    PatchReplaceOp,
+			Path:  path,
+			Value: newValue,
+		},
+	)
 }
