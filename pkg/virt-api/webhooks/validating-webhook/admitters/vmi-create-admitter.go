@@ -1938,11 +1938,6 @@ func validateVolumes(field *k8sfield.Path, volumes []v1.Volume, config *virtconf
 	var causes []metav1.StatusCause
 	nameMap := make(map[string]int)
 
-	// check that we have max 1 instance of below disks
-	serviceAccountVolumeCount := 0
-	downwardMetricVolumeCount := 0
-	memoryDumpVolumeCount := 0
-
 	for idx, volume := range volumes {
 		// verify name is unique
 		otherIdx, ok := nameMap[volume.Name]
@@ -2011,14 +2006,11 @@ func validateVolumes(field *k8sfield.Path, volumes []v1.Volume, config *virtconf
 		}
 		if volume.ServiceAccount != nil {
 			volumeSourceSetCount++
-			serviceAccountVolumeCount++
 		}
 		if volume.DownwardMetrics != nil {
-			downwardMetricVolumeCount++
 			volumeSourceSetCount++
 		}
 		if volume.MemoryDump != nil {
-			memoryDumpVolumeCount++
 			volumeSourceSetCount++
 		}
 
@@ -2209,6 +2201,23 @@ func validateVolumes(field *k8sfield.Path, volumes []v1.Volume, config *virtconf
 					Field:   field.Index(idx).Child("serviceAccount", "serviceAccountName").String(),
 				})
 			}
+		}
+	}
+
+	// check that we have max 1 instance of below disks
+	serviceAccountVolumeCount := 0
+	downwardMetricVolumeCount := 0
+	memoryDumpVolumeCount := 0
+
+	for i := range volumes {
+		if volumes[i].ServiceAccount != nil {
+			serviceAccountVolumeCount++
+		}
+		if volumes[i].DownwardMetrics != nil {
+			downwardMetricVolumeCount++
+		}
+		if volumes[i].MemoryDump != nil {
+			memoryDumpVolumeCount++
 		}
 	}
 
