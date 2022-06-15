@@ -27,7 +27,6 @@ import (
 
 	"kubevirt.io/kubevirt/tests/util"
 
-	"k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 
 	v1 "kubevirt.io/api/core/v1"
@@ -43,6 +42,8 @@ import (
 var _ = SIGDescribe("Primary Pod Network", func() {
 	var virtClient kubecli.KubevirtClient
 	BeforeEach(func() {
+		tests.BeforeTestCleanup()
+
 		var err error
 		virtClient, err = kubecli.GetKubevirtClient()
 		Expect(err).NotTo(HaveOccurred(), "Should successfully initialize an API client")
@@ -62,10 +63,6 @@ var _ = SIGDescribe("Primary Pod Network", func() {
 
 			BeforeEach(func() {
 				vmi = setupVMI(virtClient, vmiWithDefaultBinding())
-			})
-
-			AfterEach(func() {
-				cleanupVMI(virtClient, vmi)
 			})
 
 			It("should report PodIP as its own on interface status", func() { AssertReportedIP(vmi) })
@@ -102,10 +99,6 @@ var _ = SIGDescribe("Primary Pod Network", func() {
 					tests.WaitAgentConnected(virtClient, vmi)
 				})
 
-				AfterEach(func() {
-					cleanupVMI(virtClient, vmi)
-				})
-
 				It("should report PodIP/s IPv4 as its own on interface status", func() {
 					vmiPod := tests.GetRunningPodByVirtualMachineInstance(vmi, vmi.Namespace)
 					Eventually(vmiIP).Should(Equal(vmiPod.Status.PodIP), "should contain VMI Status IP as Pod status ip")
@@ -121,10 +114,6 @@ var _ = SIGDescribe("Primary Pod Network", func() {
 
 				BeforeEach(func() {
 					vmi = setupVMI(virtClient, vmiWithBridgeBinding())
-				})
-
-				AfterEach(func() {
-					cleanupVMI(virtClient, vmi)
 				})
 
 				It("should report PodIP as its own on interface status", func() { AssertReportedIP(vmi) })
@@ -144,10 +133,6 @@ var _ = SIGDescribe("Primary Pod Network", func() {
 					vmi = tests.WaitUntilVMIReady(tmpVmi, console.LoginToFedora)
 
 					tests.WaitAgentConnected(virtClient, vmi)
-				})
-
-				AfterEach(func() {
-					cleanupVMI(virtClient, vmi)
 				})
 
 				It("[test_id:4153]should report PodIP/s as its own on interface status", func() {
@@ -170,10 +155,6 @@ var _ = SIGDescribe("Primary Pod Network", func() {
 					vmi = setupVMI(virtClient, vmiWithMasqueradeBinding())
 				})
 
-				AfterEach(func() {
-					cleanupVMI(virtClient, vmi)
-				})
-
 				It("[Conformance] should report PodIP as its own on interface status", func() { AssertReportedIP(vmi) })
 			})
 		})
@@ -190,19 +171,6 @@ func setupVMI(virtClient kubecli.KubevirtClient, vmi *v1.VirtualMachineInstance)
 	vmi = tests.WaitUntilVMIReady(vmi, console.LoginToAlpine)
 
 	return vmi
-}
-
-func cleanupVMI(virtClient kubecli.KubevirtClient, vmi *v1.VirtualMachineInstance) {
-	if vmi != nil {
-		By("Deleting the VMI")
-		Expect(virtClient.VirtualMachineInstance(util.NamespaceTestDefault).Delete(vmi.GetName(), &metav1.DeleteOptions{})).To(Succeed())
-
-		By("Waiting for the VMI to be gone")
-		Eventually(func() error {
-			_, err := virtClient.VirtualMachineInstance(util.NamespaceTestDefault).Get(vmi.GetName(), &metav1.GetOptions{})
-			return err
-		}, 2*time.Minute, time.Second).Should(SatisfyAll(HaveOccurred(), WithTransform(errors.IsNotFound, BeTrue())), "The VMI should be gone within the given timeout")
-	}
 }
 
 func vmiWithDefaultBinding() *v1.VirtualMachineInstance {
