@@ -1365,7 +1365,7 @@ var _ = Describe("[rfe_id:273][crit:high][arm64][vendor:cnv-qe@redhat.com][level
 
 				By("Creating a VirtualMachineInstance with different namespace")
 				vmi = libvmi.New(
-					libvmi.WithResourceMemory("256Mi"),
+					libvmi.WithResourceMemory("1Mi"),
 					libvmi.WithNetwork(v1.DefaultPodNetwork()),
 					libvmi.WithInterface(libvmi.InterfaceDeviceWithMasqueradeBinding()),
 				)
