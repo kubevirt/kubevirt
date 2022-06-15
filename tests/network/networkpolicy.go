@@ -35,8 +35,6 @@ var _ = SIGDescribe("[rfe_id:150][crit:high][vendor:cnv-qe@redhat.com][level:com
 		serverVMILabels map[string]string
 	)
 	BeforeEach(func() {
-		tests.BeforeTestCleanup()
-
 		var err error
 		virtClient, err = kubecli.GetKubevirtClient()
 		Expect(err).ToNot(HaveOccurred(), "should succeed retrieving the kubevirt client")

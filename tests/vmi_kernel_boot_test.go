@@ -49,7 +49,6 @@ var _ = Describe("[sig-compute]VMI with external kernel boot", func() {
 	BeforeEach(func() {
 		virtClient, err = kubecli.GetKubevirtClient()
 		Expect(err).ToNot(HaveOccurred())
-		tests.BeforeTestCleanup()
 	})
 
 	Context("with external alpine-based kernel & initrd images", func() {

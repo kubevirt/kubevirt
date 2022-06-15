@@ -70,7 +70,6 @@ var _ = Describe("[Serial][sig-compute]Templates", func() {
 		util.PanicOnError(err)
 
 		clientcmd.SkipIfNoCmd("oc")
-		tests.BeforeTestCleanup()
 		SetDefaultEventuallyTimeout(120 * time.Second)
 		SetDefaultEventuallyPollingInterval(2 * time.Second)
 

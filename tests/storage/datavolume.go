@@ -76,7 +76,6 @@ var _ = SIGDescribe("DataVolume Integration", func() {
 		virtClient, err = kubecli.GetKubevirtClient()
 		util.PanicOnError(err)
 
-		tests.BeforeTestCleanup()
 		if !libstorage.HasCDI() {
 			Skip("Skip DataVolume tests when CDI is not present")
 		}

@@ -43,7 +43,6 @@ var _ = Describe("[sig-compute]Health Monitoring", func() {
 		var err error
 		virtClient, err = kubecli.GetKubevirtClient()
 		Expect(err).ToNot(HaveOccurred())
-		tests.BeforeTestCleanup()
 	})
 
 	Describe("A VirtualMachineInstance with a watchdog device", func() {

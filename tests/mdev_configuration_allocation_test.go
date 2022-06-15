@@ -121,7 +121,6 @@ var _ = Describe("[Serial][sig-compute]MediatedDevices", func() {
 		var mdevTestLabel = "mdevTestLabel1"
 
 		BeforeEach(func() {
-			tests.BeforeTestCleanup()
 			kv := util.GetCurrentKv(virtClient)
 
 			By("Creating a configuration for mediated devices")

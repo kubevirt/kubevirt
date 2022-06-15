@@ -53,7 +53,6 @@ var _ = Describe("[sig-compute]Dry-Run requests", func() {
 		virtClient, err = kubecli.GetKubevirtClient()
 		util.PanicOnError(err)
 		restClient = virtClient.RestClient()
-		tests.BeforeTestCleanup()
 	})
 
 	Context("VirtualMachineInstances", func() {

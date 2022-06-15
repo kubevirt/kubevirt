@@ -52,8 +52,6 @@ var _ = Describe("[sig-compute]Subresource Api", func() {
 	BeforeEach(func() {
 		virtCli, err = kubecli.GetKubevirtClient()
 		util.PanicOnError(err)
-
-		tests.BeforeTestCleanup()
 	})
 
 	Describe("[rfe_id:1195][crit:medium][vendor:cnv-qe@redhat.com][level:component] Rbac Authorization", func() {

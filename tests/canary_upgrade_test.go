@@ -35,7 +35,6 @@ import (
 
 	v1 "kubevirt.io/api/core/v1"
 	"kubevirt.io/client-go/kubecli"
-	"kubevirt.io/kubevirt/tests"
 	"kubevirt.io/kubevirt/tests/flags"
 	"kubevirt.io/kubevirt/tests/util"
 
@@ -58,8 +57,6 @@ var _ = Describe("[Serial][sig-operator]virt-handler canary upgrade", func() {
 	)
 
 	BeforeEach(func() {
-		tests.BeforeTestCleanup()
-
 		if !checks.HasAtLeastTwoNodes() {
 			Skip("this test requires at least 2 nodes")
 		}

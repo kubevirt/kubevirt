@@ -71,8 +71,6 @@ var _ = SIGDescribe("Slirp Networking", func() {
 	}
 
 	BeforeEach(func() {
-		tests.BeforeTestCleanup()
-
 		virtClient, err = kubecli.GetKubevirtClient()
 		util.PanicOnError(err)
 

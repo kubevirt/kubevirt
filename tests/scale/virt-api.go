@@ -10,7 +10,6 @@ import (
 
 	"kubevirt.io/client-go/kubecli"
 	"kubevirt.io/kubevirt/pkg/virt-operator/resource/generate/components"
-	"kubevirt.io/kubevirt/tests"
 	"kubevirt.io/kubevirt/tests/util"
 )
 
@@ -23,7 +22,6 @@ var _ = Describe("[sig-compute] virt-api scaling", func() {
 
 		virtClient, err = kubecli.GetKubevirtClient()
 		Expect(err).ToNot(HaveOccurred())
-		tests.BeforeTestCleanup()
 	})
 
 	calcExpectedReplicas := func(nodesCount int) (expectedReplicas int32) {

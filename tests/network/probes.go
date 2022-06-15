@@ -42,8 +42,6 @@ var _ = SIGDescribe("[ref_id:1182]Probes", func() {
 	BeforeEach(func() {
 		virtClient, err = kubecli.GetKubevirtClient()
 		util.PanicOnError(err)
-
-		tests.BeforeTestCleanup()
 	})
 
 	buildProbeBackendPodSpec := func(probe *v1.Probe) (*corev1.Pod, func() error) {

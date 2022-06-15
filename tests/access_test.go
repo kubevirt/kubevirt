@@ -41,7 +41,6 @@ import (
 	pool "kubevirt.io/api/pool"
 	"kubevirt.io/api/snapshot/v1alpha1"
 	"kubevirt.io/client-go/kubecli"
-	"kubevirt.io/kubevirt/tests"
 )
 
 type rightsEntry struct {
@@ -205,8 +204,6 @@ var _ = Describe("[rfe_id:500][crit:high][arm64][vendor:cnv-qe@redhat.com][level
 		Expect(err).ToNot(HaveOccurred())
 		authClient, err = authClientV1.NewForConfig(virtClient.Config())
 		Expect(err).ToNot(HaveOccurred())
-
-		tests.BeforeTestCleanup()
 	})
 
 	Describe("With default kubevirt service accounts", func() {

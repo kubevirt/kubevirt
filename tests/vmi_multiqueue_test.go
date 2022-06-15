@@ -49,8 +49,6 @@ var _ = Describe("[sig-compute]MultiQueue", func() {
 	BeforeEach(func() {
 		virtClient, err = kubecli.GetKubevirtClient()
 		util.PanicOnError(err)
-
-		tests.BeforeTestCleanup()
 	})
 
 	Context("MultiQueue Behavior", func() {

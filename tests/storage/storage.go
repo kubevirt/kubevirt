@@ -85,7 +85,6 @@ var _ = SIGDescribe("Storage", func() {
 	BeforeEach(func() {
 		virtClient, err = kubecli.GetKubevirtClient()
 		Expect(err).ToNot(HaveOccurred())
-		tests.BeforeTestCleanup()
 	})
 
 	Describe("Starting a VirtualMachineInstance", func() {

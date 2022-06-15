@@ -73,8 +73,6 @@ var _ = SIGDescribe("[rfe_id:694][crit:medium][vendor:cnv-qe@redhat.com][level:c
 	)
 
 	BeforeEach(func() {
-		tests.BeforeTestCleanup()
-
 		virtClient, err = kubecli.GetKubevirtClient()
 		util.PanicOnError(err)
 

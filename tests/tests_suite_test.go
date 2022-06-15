@@ -29,6 +29,7 @@ import (
 	. "github.com/onsi/ginkgo/v2"
 	ginkgo_reporters "github.com/onsi/ginkgo/v2/reporters"
 
+	"kubevirt.io/kubevirt/tests"
 	"kubevirt.io/kubevirt/tests/flags"
 	"kubevirt.io/kubevirt/tests/reporter"
 	"kubevirt.io/kubevirt/tests/testsuite"
@@ -92,6 +93,10 @@ func TestTests(t *testing.T) {
 var _ = SynchronizedBeforeSuite(testsuite.SynchronizedBeforeTestSetup, testsuite.BeforeTestSuitSetup)
 
 var _ = SynchronizedAfterSuite(testsuite.AfterTestSuitCleanup, testsuite.SynchronizedAfterTestSuiteCleanup)
+
+var _ = BeforeEach(func() {
+	tests.BeforeTestCleanup()
+})
 
 func getMaxFailsFromEnv() int {
 	maxFailsEnv := os.Getenv("REPORTER_MAX_FAILS")

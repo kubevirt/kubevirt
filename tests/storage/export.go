@@ -88,7 +88,6 @@ var _ = SIGDescribe("Export", func() {
 		virtClient, err = kubecli.GetKubevirtClient()
 		util.PanicOnError(err)
 
-		tests.BeforeTestCleanup()
 		waitExportProxyReady()
 	})
 

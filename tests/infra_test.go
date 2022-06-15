@@ -105,11 +105,6 @@ var _ = Describe("[Serial][sig-compute]Infrastructure", func() {
 	})
 
 	Describe("changes to the kubernetes client", func() {
-
-		BeforeEach(func() {
-			tests.BeforeTestCleanup()
-		})
-
 		scheduledToRunning := func(vmis []v1.VirtualMachineInstance) time.Duration {
 			var duration time.Duration
 			for _, vmi := range vmis {
@@ -247,10 +242,6 @@ var _ = Describe("[Serial][sig-compute]Infrastructure", func() {
 	})
 
 	Describe("[rfe_id:4102][crit:medium][vendor:cnv-qe@redhat.com][level:component]certificates", func() {
-
-		BeforeEach(func() {
-			tests.BeforeTestCleanup()
-		})
 
 		It("[test_id:4099] should be rotated when a new CA is created", func() {
 			By("checking that the config-map gets the new CA bundle attached")
@@ -699,7 +690,6 @@ var _ = Describe("[Serial][sig-compute]Infrastructure", func() {
 		}
 
 		tests.DeprecatedBeforeAll(func() {
-			tests.BeforeTestCleanup()
 
 			By("Finding the virt-controller prometheus endpoint")
 			virtControllerLeaderPodName := getLeader()
@@ -1089,10 +1079,6 @@ var _ = Describe("[Serial][sig-compute]Infrastructure", func() {
 	})
 
 	Describe("Start a VirtualMachineInstance", func() {
-		BeforeEach(func() {
-			tests.BeforeTestCleanup()
-		})
-
 		Context("when the controller pod is not running and an election happens", func() {
 			It("[test_id:4642]should succeed afterwards", func() {
 				// This test needs at least 2 controller pods. Skip on single-replica.
@@ -1150,7 +1136,6 @@ var _ = Describe("[Serial][sig-compute]Infrastructure", func() {
 		}
 
 		BeforeEach(func() {
-			tests.BeforeTestCleanup()
 			nodesWithKVM = libnode.GetNodesWithKVM()
 			if len(nodesWithKVM) == 0 {
 				Skip("Skip testing with node-labeller, because there are no nodes with kvm")
@@ -1393,7 +1378,6 @@ var _ = Describe("[Serial][sig-compute]Infrastructure", func() {
 			var originalKubeVirt *v1.KubeVirt
 
 			BeforeEach(func() {
-				tests.BeforeTestCleanup()
 				originalKubeVirt = util.GetCurrentKv(virtClient)
 
 			})
@@ -1504,10 +1488,6 @@ var _ = Describe("[Serial][sig-compute]Infrastructure", func() {
 	})
 
 	Describe("cluster profiler for pprof data aggregation", func() {
-		BeforeEach(func() {
-			tests.BeforeTestCleanup()
-		})
-
 		Context("when ClusterProfiler feature gate", func() {
 			It("is disabled it should prevent subresource access", func() {
 				tests.DisableFeatureGate("ClusterProfiler")

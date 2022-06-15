@@ -86,7 +86,6 @@ var _ = SIGDescribe("[rfe_id:253][crit:medium][vendor:cnv-qe@redhat.com][level:c
 	const xfailError = "Secondary ip on dual stack service is not working. Tracking issue - https://github.com/kubevirt/kubevirt/issues/5477"
 
 	BeforeEach(func() {
-		tests.BeforeTestCleanup()
 		virtClient, err = kubecli.GetKubevirtClient()
 		util.PanicOnError(err)
 	})

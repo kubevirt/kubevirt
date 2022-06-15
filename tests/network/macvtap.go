@@ -64,9 +64,6 @@ var _ = SIGDescribe("Macvtap", func() {
 
 		macvtapLowerDevice = "eth0"
 		macvtapNetworkName = "net1"
-
-		// cleanup the environment
-		tests.BeforeTestCleanup()
 	})
 
 	BeforeEach(func() {

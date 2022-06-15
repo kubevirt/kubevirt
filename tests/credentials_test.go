@@ -55,7 +55,6 @@ var _ = Describe("[sig-compute]Guest Access Credentials", func() {
 	BeforeEach(func() {
 		virtClient, err = kubecli.GetKubevirtClient()
 		util.PanicOnError(err)
-		tests.BeforeTestCleanup()
 
 		LaunchVMI = tests.VMILauncherIgnoreWarnings(virtClient)
 	})
