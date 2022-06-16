@@ -1050,7 +1050,7 @@ var _ = Describe("[rfe_id:273][crit:high][arm64][vendor:cnv-qe@redhat.com][level
 			var supportedCPU string
 			var supportedCPUs []string
 			var supportedFeatures []string
-
+			var nodes *k8sv1.NodeList
 			var supportedKVMInfoFeature []string
 
 			enableHyperVInVMI := func(label string) v1.FeatureHyperv {
@@ -1089,7 +1089,7 @@ var _ = Describe("[rfe_id:273][crit:high][arm64][vendor:cnv-qe@redhat.com][level
 			BeforeEach(func() {
 				// arm64 does not support cpu model
 				checks.SkipIfARM64(testsuite.Arch, "arm64 does not support cpu model")
-				nodes := libnode.GetAllSchedulableNodes(virtClient)
+				nodes = libnode.GetAllSchedulableNodes(virtClient)
 				Expect(nodes.Items).ToNot(BeEmpty(), "There should be some compute node")
 
 				node = &nodes.Items[0]
@@ -1232,17 +1232,74 @@ var _ = Describe("[rfe_id:273][crit:high][arm64][vendor:cnv-qe@redhat.com][level
 			})
 
 			It("[test_id:3203]the vmi with cpu.features that cannot match nfd labels on a node should not be scheduled", func() {
+				var featureDenyList = map[string]struct{}{
+					"svm": {},
+				}
+				appendFeatureFromFeatureLabel := func(supportedFeatures []string, label string) []string {
+					if strings.Contains(label, services.NFD_CPU_FEATURE_PREFIX) {
+						feature := strings.TrimPrefix(label, services.NFD_CPU_FEATURE_PREFIX)
+						if _, exist := featureDenyList[feature]; !exist {
+							return append(supportedFeatures, feature)
+						}
+					}
+					return supportedFeatures
+				}
 
+				removeDups := func(elements []string) (intersection []string) {
+					found := make(map[string]struct{})
+					for _, element := range elements {
+						if _, exist := found[element]; !exist {
+							intersection = append(intersection, element)
+							found[element] = struct{}{}
+						}
+					}
+					return intersection
+				}
+
+				setIntersection := func(firstSet, secondSet []string) []string {
+					firstSetMap := make(map[string]struct{})
+					var setOfFeaturesWithDups []string
+
+					for _, element := range firstSet {
+						firstSetMap[element] = struct{}{}
+					}
+
+					for _, element := range secondSet {
+						if _, exist := firstSetMap[element]; exist {
+							setOfFeaturesWithDups = append(setOfFeaturesWithDups, element)
+						}
+					}
+					return removeDups(setOfFeaturesWithDups)
+				}
+
+				GetSupportedCPUFeaturesFromNodes := func(nodes k8sv1.NodeList) []string {
+					var supportedFeatures []string
+					for label := range nodes.Items[0].Labels {
+						supportedFeatures = appendFeatureFromFeatureLabel(supportedFeatures, label)
+					}
+
+					for _, node := range nodes.Items {
+						var currFeatures []string
+						for label := range node.Labels {
+							currFeatures = appendFeatureFromFeatureLabel(currFeatures, label)
+						}
+						supportedFeatures = setIntersection(supportedFeatures, currFeatures)
+					}
+
+					return supportedFeatures
+				}
+
+				supportedFeaturesAmongAllNodes := GetSupportedCPUFeaturesFromNodes(*nodes)
 				vmi := tests.NewRandomVMIWithEphemeralDiskAndUserdata(cd.ContainerDiskFor(cd.ContainerDiskCirros), "#!/bin/bash\necho 'hello'\n")
 				vmi.Spec.Domain.CPU = &v1.CPU{
 					Cores: 1,
 					Features: []v1.CPUFeature{
 						{
-							Name:   supportedFeatures[0],
+							Name:   supportedFeaturesAmongAllNodes[0],
 							Policy: "require",
 						},
 						{
-							Name:   supportedFeatures[1],
+							Name:   supportedFeaturesAmongAllNodes[1],
 							Policy: "forbid",
 						},
 					},
