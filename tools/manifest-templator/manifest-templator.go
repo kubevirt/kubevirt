@@ -96,7 +96,7 @@ func main() {
 	virtLauncherSha := flag.String("virt-launcher-sha", "", "")
 	gsSha := flag.String("gs-sha", "", "")
 	featureGates := flag.String("feature-gates", "", "")
-	infraReplicas := flag.Uint("infra-replicas", 2, "")
+	infraReplicas := flag.Uint("infra-replicas", 0, "")
 
 	pflag.CommandLine.AddGoFlagSet(flag.CommandLine)
 	pflag.CommandLine.ParseErrorsWhitelist.UnknownFlags = true
@@ -148,7 +148,9 @@ func main() {
 		if *featureGates != "" {
 			data.FeatureGates = strings.Split(*featureGates, ",")
 		}
-		data.InfraReplicas = uint8(*infraReplicas)
+		if *infraReplicas != 0 {
+			data.InfraReplicas = uint8(*infraReplicas)
+		}
 
 		// operator deployment differs a bit in normal manifest and CSV
 		if strings.Contains(*inputFile, ".clusterserviceversion.yaml") {

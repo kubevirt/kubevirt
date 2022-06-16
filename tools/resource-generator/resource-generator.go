@@ -28,6 +28,10 @@ import (
 	"strconv"
 	"strings"
 
+	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+
+	virtv1 "kubevirt.io/api/core/v1"
+
 	v1 "k8s.io/api/core/v1"
 
 	"kubevirt.io/kubevirt/pkg/virt-operator/resource/generate/components"
@@ -39,6 +43,36 @@ const (
 	featureGatesPlaceholder  = "FeatureGatesPlaceholder"
 	infraReplicasPlaceholder = 255
 )
+
+func newKubeVirtCR(namespace string, pullPolicy v1.PullPolicy, featureGates string, infraReplicas uint8) *virtv1.KubeVirt {
+	cr := &virtv1.KubeVirt{
+		TypeMeta: metav1.TypeMeta{
+			APIVersion: virtv1.GroupVersion.String(),
+			Kind:       "KubeVirt",
+		},
+		ObjectMeta: metav1.ObjectMeta{
+			Namespace: namespace,
+			Name:      "kubevirt",
+		},
+		Spec: virtv1.KubeVirtSpec{
+			ImagePullPolicy: pullPolicy,
+		},
+	}
+
+	if featureGates != "" {
+		cr.Spec.Configuration = virtv1.KubeVirtConfiguration{
+			DeveloperConfiguration: &virtv1.DeveloperConfiguration{
+				FeatureGates: strings.Split(featureGates, ","),
+			},
+		}
+	}
+
+	cr.Spec.Infra = &virtv1.ComponentConfig{
+		Replicas: &infraReplicas,
+	}
+
+	return cr
+}
 
 func generateKubeVirtCR(namespace *string, imagePullPolicy v1.PullPolicy, featureGatesFlag *string, infraReplicasFlag *string) {
 	var featureGates string
@@ -58,7 +92,10 @@ func generateKubeVirtCR(namespace *string, imagePullPolicy v1.PullPolicy, featur
 		infraReplicas = uint8(val)
 	}
 	var buf bytes.Buffer
-	util.MarshallObject(components.NewKubeVirtCR(*namespace, imagePullPolicy, featureGates, infraReplicas), &buf)
+	err := util.MarshallObject(newKubeVirtCR(*namespace, imagePullPolicy, featureGates, infraReplicas), &buf)
+	if err != nil {
+		panic(err)
+	}
 	cr := buf.String()
 	// When creating a template, we need to add code to iterate over the feature-gates slice variable.
 	// util.MarshallObject(), called above, uses yaml.Marshall(), which can only generate valid yaml.
@@ -86,7 +123,11 @@ $1{{- end}}{{else}} []{{end}}`)
 	// However, when creating a template, we want its value to be something like "{{.InfraReplicas}}", which is not a uint8.
 	// Therefore, the value was substituted for a placeholder above (255). Replacing with the templated value now.
 	if strings.HasPrefix(*infraReplicasFlag, "{{") {
-		cr = strings.Replace(cr, fmt.Sprintf("replicas: %d", infraReplicasPlaceholder), "replicas: "+*infraReplicasFlag, 1)
+		infraReplicasVar := strings.TrimPrefix(*infraReplicasFlag, "{{")
+		infraReplicasVar = strings.TrimSuffix(infraReplicasVar, "}}")
+		re := regexp.MustCompile(`(?m)\n([ \t]+)replicas: ` + fmt.Sprintf("%d", infraReplicasPlaceholder))
+		cr = re.ReplaceAllString(cr, `{{if `+infraReplicasVar+`}}
+${1}replicas: {{`+infraReplicasVar+`}}{{end}}`)
 	}
 
 	fmt.Print(cr)
@@ -107,19 +148,28 @@ func main() {
 	case "kv":
 		kv, err := components.NewKubeVirtCrd()
 		if err != nil {
-			panic(fmt.Errorf("This should not happen, %v", err))
+			panic(fmt.Errorf("this should not happen, %v", err))
 		}
-		util.MarshallObject(kv, os.Stdout)
+		err = util.MarshallObject(kv, os.Stdout)
+		if err != nil {
+			panic(err)
+		}
 	case "kv-cr":
 		generateKubeVirtCR(namespace, imagePullPolicy, featureGates, infraReplicas)
 	case "operator-rbac":
 		all := rbac.GetAllOperator(*namespace)
 		for _, r := range all {
-			util.MarshallObject(r, os.Stdout)
+			err := util.MarshallObject(r, os.Stdout)
+			if err != nil {
+				panic(err)
+			}
 		}
 	case "priorityclass":
 		priorityClass := components.NewKubeVirtPriorityClassCR()
-		util.MarshallObject(priorityClass, os.Stdout)
+		err := util.MarshallObject(priorityClass, os.Stdout)
+		if err != nil {
+			panic(err)
+		}
 	default:
 		panic(fmt.Errorf("unknown resource type %s", *resourceType))
 	}
