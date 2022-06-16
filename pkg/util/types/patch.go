@@ -64,3 +64,10 @@ func GenerateTestReplacePatch(path string, oldValue, newValue interface{}) ([]by
 		},
 	)
 }
+
+func UnmarshalPatch(patch []byte) ([]PatchOperation, error) {
+	var p []PatchOperation
+	err := json.Unmarshal(patch, &p)
+
+	return p, err
+}

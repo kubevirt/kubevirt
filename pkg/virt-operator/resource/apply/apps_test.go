@@ -369,8 +369,8 @@ var _ = Describe("Apply Apps", func() {
 					Expect(ok).To(BeTrue())
 					patched = true
 
-					patches := []utiltypes.PatchOperation{}
-					json.Unmarshal(a.GetPatch(), &patches)
+					patches, err := utiltypes.UnmarshalPatch(a.GetPatch())
+					Expect(err).ToNot(HaveOccurred())
 
 					var dsSpec *appsv1.DaemonSetSpec
 					for _, v := range patches {
