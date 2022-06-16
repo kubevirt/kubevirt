@@ -40,24 +40,21 @@ const (
 	stoppingVM                = "Stopping VM"
 	creatingSnapshot          = "creating snapshot"
 
-	newVmName                     = "new-vm"
 	macAddressCloningPatchPattern = `{"op": "replace", "path": "/spec/template/spec/domain/devices/interfaces/0/macAddress", "value": "%s"}`
 )
 
-var _ = SIGDescribe("[Serial]VirtualMachineRestore Tests", func() {
+var _ = SIGDescribe("VirtualMachineRestore Tests", func() {
 
 	var err error
 	var virtClient kubecli.KubevirtClient
 
-	//var changeNameCloningPatch string
-
 	groupName := "kubevirt.io"
 
 	BeforeEach(func() {
-		//changeNameCloningPatch = fmt.Sprintf(`{"op": "replace", "path": "/metadata/name", "value": "%s"}`, newVmName)
-
 		virtClient, err = kubecli.GetKubevirtClient()
 		util.PanicOnError(err)
+
+		tests.BeforeTestCleanup()
 	})
 
 	createRestoreDef := func(vmName, snapshotName string) *snapshotv1.VirtualMachineRestore {
@@ -168,39 +165,36 @@ var _ = SIGDescribe("[Serial]VirtualMachineRestore Tests", func() {
 		return pvc
 	}
 
-	waitDeleted := func(deleteFunc func() error) {
-		Eventually(func() bool {
-			err := deleteFunc()
-			if errors.IsNotFound(err) {
-				return true
-			}
-			Expect(err).ToNot(HaveOccurred())
-			return false
-		}, 180*time.Second, time.Second).Should(BeTrue())
-	}
-
 	deleteVM := func(vm *v1.VirtualMachine) {
-		waitDeleted(func() error {
-			return virtClient.VirtualMachine(vm.Namespace).Delete(vm.Name, &metav1.DeleteOptions{})
-		})
+		err := virtClient.VirtualMachine(vm.Namespace).Delete(vm.Name, &metav1.DeleteOptions{})
+		if errors.IsNotFound(err) {
+			err = nil
+		}
+		Expect(err).ToNot(HaveOccurred())
 	}
 
 	deleteSnapshot := func(s *snapshotv1.VirtualMachineSnapshot) {
-		waitDeleted(func() error {
-			return virtClient.VirtualMachineSnapshot(s.Namespace).Delete(context.Background(), s.Name, metav1.DeleteOptions{})
-		})
+		err := virtClient.VirtualMachineSnapshot(s.Namespace).Delete(context.Background(), s.Name, metav1.DeleteOptions{})
+		if errors.IsNotFound(err) {
+			err = nil
+		}
+		Expect(err).ToNot(HaveOccurred())
 	}
 
 	deleteRestore := func(r *snapshotv1.VirtualMachineRestore) {
-		waitDeleted(func() error {
-			return virtClient.VirtualMachineRestore(r.Namespace).Delete(context.Background(), r.Name, metav1.DeleteOptions{})
-		})
+		err := virtClient.VirtualMachineRestore(r.Namespace).Delete(context.Background(), r.Name, metav1.DeleteOptions{})
+		if errors.IsNotFound(err) {
+			err = nil
+		}
+		Expect(err).ToNot(HaveOccurred())
 	}
 
 	deleteWebhook := func(wh *admissionregistrationv1.ValidatingWebhookConfiguration) {
-		waitDeleted(func() error {
-			return virtClient.AdmissionregistrationV1().ValidatingWebhookConfigurations().Delete(context.Background(), wh.Name, metav1.DeleteOptions{})
-		})
+		err := virtClient.AdmissionregistrationV1().ValidatingWebhookConfigurations().Delete(context.Background(), wh.Name, metav1.DeleteOptions{})
+		if errors.IsNotFound(err) {
+			err = nil
+		}
+		Expect(err).ToNot(HaveOccurred())
 	}
 
 	getMacAddressCloningPatch := func(sourceVM *v1.VirtualMachine) string {
@@ -224,10 +218,9 @@ var _ = SIGDescribe("[Serial]VirtualMachineRestore Tests", func() {
 			vmiImage := cd.ContainerDiskFor(cd.ContainerDiskCirros)
 			vmi := tests.NewRandomVMIWithEphemeralDiskAndUserdata(vmiImage, tests.BashHelloScript)
 			vm = tests.NewRandomVirtualMachine(vmi, false)
-		})
-
-		AfterEach(func() {
-			deleteVM(vm)
+			vm.Labels = map[string]string{
+				"kubevirt.io/dummy-webhook-identifier": vm.Name,
+			}
 		})
 
 		Context("and no snapshot", func() {
@@ -348,7 +341,7 @@ var _ = SIGDescribe("[Serial]VirtualMachineRestore Tests", func() {
 				whName := "dummy-webhook-deny-vm-update.kubevirt.io"
 				wh := &admissionregistrationv1.ValidatingWebhookConfiguration{
 					ObjectMeta: metav1.ObjectMeta{
-						Name: "temp-webhook-deny-vm-update",
+						Name: "temp-webhook-deny-vm-update" + rand.String(5),
 					},
 					Webhooks: []admissionregistrationv1.ValidatingWebhook{
 						{
@@ -371,6 +364,11 @@ var _ = SIGDescribe("[Serial]VirtualMachineRestore Tests", func() {
 									Namespace: util.NamespaceTestDefault,
 									Name:      "nonexistant",
 									Path:      &whPath,
+								},
+							},
+							ObjectSelector: &metav1.LabelSelector{
+								MatchLabels: map[string]string{
+									"kubevirt.io/dummy-webhook-identifier": vm.Name,
 								},
 							},
 						},
@@ -425,7 +423,6 @@ var _ = SIGDescribe("[Serial]VirtualMachineRestore Tests", func() {
 				newVM := tests.NewRandomVirtualMachine(newVMI, false)
 				newVM, err = virtClient.VirtualMachine(newVM.Namespace).Create(newVM)
 				Expect(err).ToNot(HaveOccurred())
-				defer deleteVM(newVM)
 
 				By("Creating a VM restore")
 				restore := createRestoreDef(newVM.Name, snapshot.Name)
@@ -436,11 +433,13 @@ var _ = SIGDescribe("[Serial]VirtualMachineRestore Tests", func() {
 			Context("restore to a new VM that does not exist", func() {
 
 				var (
-					newVM   *v1.VirtualMachine
-					restore *snapshotv1.VirtualMachineRestore
+					newVmName string
+					newVM     *v1.VirtualMachine
+					restore   *snapshotv1.VirtualMachineRestore
 				)
 
 				BeforeEach(func() {
+					newVmName = "new-vm-" + rand.String(12)
 					restore = createRestoreDef(newVmName, snapshot.Name)
 				})
 
@@ -511,6 +510,7 @@ var _ = SIGDescribe("[Serial]VirtualMachineRestore Tests", func() {
 	Context("[storage-req]", func() {
 		Context("With a more complicated VM", func() {
 			var (
+				newVmName            string
 				vm                   *v1.VirtualMachine
 				vmi                  *v1.VirtualMachineInstance
 				newVM                *v1.VirtualMachine
@@ -529,6 +529,7 @@ var _ = SIGDescribe("[Serial]VirtualMachineRestore Tests", func() {
 				}
 
 				snapshotStorageClass = sc
+				newVmName = "new-vm-" + rand.String(12)
 			})
 
 			AfterEach(func() {
@@ -698,7 +699,7 @@ var _ = SIGDescribe("[Serial]VirtualMachineRestore Tests", func() {
 				return r
 			}
 
-			getTargetVMName := func(restoreToNewVM bool) string {
+			getTargetVMName := func(restoreToNewVM bool, newVmName string) string {
 				if restoreToNewVM {
 					return newVmName
 				}
@@ -818,7 +819,7 @@ var _ = SIGDescribe("[Serial]VirtualMachineRestore Tests", func() {
 
 				originalDVName := vm.Spec.DataVolumeTemplates[0].Name
 
-				doRestore("", console.LoginToCirros, false, 1, getTargetVMName(restoreToNewVM))
+				doRestore("", console.LoginToCirros, false, 1, getTargetVMName(restoreToNewVM, newVmName))
 				if restoreToNewVM {
 					Expect(restore.Status.DeletedDataVolumes).To(HaveLen(0))
 				} else {
@@ -855,7 +856,7 @@ var _ = SIGDescribe("[Serial]VirtualMachineRestore Tests", func() {
 				dv = waitDVReady(dv)
 
 				vm, vmi = createAndStartVM(vm)
-				doRestore("", console.LoginToCirros, false, 1, getTargetVMName(restoreToNewVM))
+				doRestore("", console.LoginToCirros, false, 1, getTargetVMName(restoreToNewVM, newVmName))
 				Expect(restore.Status.DeletedDataVolumes).To(BeEmpty())
 
 				_, err = virtClient.CdiClient().CdiV1beta1().DataVolumes(vm.Namespace).Get(context.Background(), dv.Name, metav1.GetOptions{})
@@ -914,7 +915,7 @@ var _ = SIGDescribe("[Serial]VirtualMachineRestore Tests", func() {
 
 				vm, vmi = createAndStartVM(vm)
 
-				doRestore("", console.LoginToCirros, false, 1, getTargetVMName(restoreToNewVM))
+				doRestore("", console.LoginToCirros, false, 1, getTargetVMName(restoreToNewVM, newVmName))
 
 				Expect(restore.Status.DeletedDataVolumes).To(BeEmpty())
 				_, err = virtClient.CoreV1().PersistentVolumeClaims(vm.Namespace).Get(context.Background(), originalPVCName, metav1.GetOptions{})
@@ -993,7 +994,7 @@ var _ = SIGDescribe("[Serial]VirtualMachineRestore Tests", func() {
 
 				vm, vmi = createAndStartVM(vm)
 
-				doRestore("/dev/vdc", console.LoginToCirros, false, 1, getTargetVMName(restoreToNewVM))
+				doRestore("/dev/vdc", console.LoginToCirros, false, 1, getTargetVMName(restoreToNewVM, newVmName))
 
 				if restoreToNewVM {
 					Expect(restore.Status.DeletedDataVolumes).To(HaveLen(0))
@@ -1028,7 +1029,7 @@ var _ = SIGDescribe("[Serial]VirtualMachineRestore Tests", func() {
 				whName := "dummy-webhook-deny-pvc-create.kubevirt.io"
 				wh := &admissionregistrationv1.ValidatingWebhookConfiguration{
 					ObjectMeta: metav1.ObjectMeta{
-						Name: "temp-webhook-deny-pvc-create",
+						Name: "temp-webhook-deny-pvc-create" + rand.String(5),
 					},
 					Webhooks: []admissionregistrationv1.ValidatingWebhook{
 						{
@@ -1051,6 +1052,11 @@ var _ = SIGDescribe("[Serial]VirtualMachineRestore Tests", func() {
 									Namespace: util.NamespaceTestDefault,
 									Name:      "nonexistant",
 									Path:      &whPath,
+								},
+							},
+							ObjectSelector: &metav1.LabelSelector{
+								MatchLabels: map[string]string{
+									"restore.kubevirt.io/source-vm-name": vm.Name,
 								},
 							},
 						},
@@ -1111,7 +1117,7 @@ var _ = SIGDescribe("[Serial]VirtualMachineRestore Tests", func() {
 					snapshotStorageClass,
 				))
 
-				doRestore("", console.LoginToCirros, true, 1, getTargetVMName(restoreToNewVM))
+				doRestore("", console.LoginToCirros, true, 1, getTargetVMName(restoreToNewVM, newVmName))
 
 			},
 				Entry("[test_id:6053] to the same VM", false),
@@ -1167,7 +1173,7 @@ var _ = SIGDescribe("[Serial]VirtualMachineRestore Tests", func() {
 				tests.WaitForSuccessfulVMIStartWithTimeout(vmi, 300)
 				tests.WaitAgentConnected(virtClient, vmi)
 
-				doRestore("/dev/vdc", console.LoginToFedora, true, 1, getTargetVMName(restoreToNewVM))
+				doRestore("/dev/vdc", console.LoginToFedora, true, 1, getTargetVMName(restoreToNewVM, newVmName))
 
 			},
 				Entry("[test_id:6766] to the same VM", false),
@@ -1185,7 +1191,7 @@ var _ = SIGDescribe("[Serial]VirtualMachineRestore Tests", func() {
 
 				originalDVName := vm.Spec.DataVolumeTemplates[0].Name
 
-				doRestore("", console.LoginToFedora, true, 1, getTargetVMName(restoreToNewVM))
+				doRestore("", console.LoginToFedora, true, 1, getTargetVMName(restoreToNewVM, newVmName))
 				if restoreToNewVM {
 					Expect(restore.Status.DeletedDataVolumes).To(HaveLen(0))
 				} else {
@@ -1262,7 +1268,7 @@ var _ = SIGDescribe("[Serial]VirtualMachineRestore Tests", func() {
 				By("Add temporary hotplug disk")
 				tempVolName := tests.AddVolumeAndVerify(virtClient, snapshotStorageClass, vm, true)
 
-				doRestore("", console.LoginToFedora, true, 2, getTargetVMName(restoreToNewVM))
+				doRestore("", console.LoginToFedora, true, 2, getTargetVMName(restoreToNewVM, newVmName))
 
 				targetVM := getTargetVM(restoreToNewVM)
 				targetVMI, err := virtClient.VirtualMachineInstance(targetVM.Namespace).Get(targetVM.Name, &metav1.GetOptions{})
