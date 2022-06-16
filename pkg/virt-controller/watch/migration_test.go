@@ -1104,6 +1104,7 @@ var _ = Describe("Migration watcher", func() {
 			if toDefineHostModelCPU {
 				node.ObjectMeta.Labels = map[string]string{
 					virtv1.HostModelCPULabel + "fake":              "true",
+					virtv1.SupportedHostModelMigrationCPU + "fake": "true",
 					virtv1.HostModelRequiredFeaturesLabel + "fake": "true",
 				}
 			}
@@ -1115,7 +1116,7 @@ var _ = Describe("Migration watcher", func() {
 			expectPodToHaveProperNodeSelector := func(pod *k8sv1.Pod) {
 				podHasCpuModeLabelSelector := false
 				for key, _ := range pod.Spec.NodeSelector {
-					if strings.Contains(key, virtv1.HostModelCPULabel) {
+					if strings.Contains(key, virtv1.SupportedHostModelMigrationCPU) {
 						podHasCpuModeLabelSelector = true
 						break
 					}
