@@ -689,7 +689,11 @@ var _ = Describe("[Serial][sig-compute]Infrastructure", func() {
 			return nodeName
 		}
 
-		tests.DeprecatedBeforeAll(func() {
+		BeforeEach(func() {
+			preparedVMIs = []*v1.VirtualMachineInstance{}
+			pod = nil
+			handlerMetricIPs = []string{}
+			controllerMetricIPs = []string{}
 
 			By("Finding the virt-controller prometheus endpoint")
 			virtControllerLeaderPodName := getLeader()
