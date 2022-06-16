@@ -170,7 +170,7 @@ var _ = Describe("Pod Network", func() {
 
 			It("Should forward the specified tcp and udp ports", func() {
 				passtIface := createPasstInterface()
-				passtIface.Ports = []v1.Port{{Protocol: "TCP", Port: 1}, {Protocol: "UDP", Port: 2}, {Protocol: "UDP", Port: 3}, {Protocol: "TCP", Port: 4}}
+				passtIface.Ports = []v1.Port{{Port: 1}, {Protocol: "UdP", Port: 2}, {Protocol: "UDP", Port: 3}, {Protocol: "tcp", Port: 4}}
 				specGenerator = NewPasstLibvirtSpecGenerator(
 					passtIface, nil)
 				Expect(getPorts(specGenerator)).To(Equal("-t 1,4 -u 2,3"))

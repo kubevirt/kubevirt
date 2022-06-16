@@ -364,9 +364,9 @@ func (b *PasstLibvirtSpecGenerator) generatePorts() []string {
 		udpPorts = append(udpPorts, "all")
 	}
 	for _, port := range b.vmiSpecIface.Ports {
-		if port.Protocol == "TCP" {
+		if strings.EqualFold(port.Protocol, "TCP") || port.Protocol == "" {
 			tcpPorts = append(tcpPorts, fmt.Sprintf("%d", port.Port))
-		} else if port.Protocol == "UDP" {
+		} else if strings.EqualFold(port.Protocol, "UDP") {
 			udpPorts = append(udpPorts, fmt.Sprintf("%d", port.Port))
 		} else {
 			log.Log.Errorf("protocol %s is not supported by passt", port.Protocol)
