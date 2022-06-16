@@ -30,10 +30,12 @@ import (
 	"github.com/golang/mock/gomock"
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
+	routev1 "github.com/openshift/api/route/v1"
 	"k8s.io/apimachinery/pkg/api/errors"
 	"k8s.io/apimachinery/pkg/runtime/schema"
 
 	k8sv1 "k8s.io/api/core/v1"
+	networkingv1 "k8s.io/api/networking/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/runtime"
 	k8sfake "k8s.io/client-go/kubernetes/fake"
@@ -62,6 +64,68 @@ const (
 
 var (
 	qemuGid int64 = 107
+
+	routeCerts = `-----BEGIN CERTIFICATE-----
+MIIDDDCCAfSgAwIBAgIBATANBgkqhkiG9w0BAQsFADAmMSQwIgYDVQQDDBtpbmdy
+ZXNzLW9wZXJhdG9yQDE2NTE4MDcyNDMwHhcNMjIwNTA2MDMyMDQzWhcNMjQwNTA1
+MDMyMDQ0WjAmMSQwIgYDVQQDDBtpbmdyZXNzLW9wZXJhdG9yQDE2NTE4MDcyNDMw
+ggEiMA0GCSqGSIb3DQEBAQUAA4IBDwAwggEKAoIBAQCws7H+bplQfbuji0BmStSm
+ZKis+zK559IGGJsiGeJixkJL5oDIy7fIDoo+Ixn/b+Zx1E12nkflRA/HnEiTXdwf
+igJIqo52BRkgM0+yV6MXsCJdQHkqQ7cLv1b4lKqGyJC2qkyYIGpTgXam9xD5HRrs
+PO2EuUzphOw/f3M+DuPiFMA2jpH5gjGV9tNY7STwGNoGP15S4GQjEKBCiwygx7ns
+kJy5NuSXPsu8xtX39Nw3WYGnqMLmnH4i1FBOX7e0h8C47qirOasDCgGONXvod9hB
+/NfqEozYOrHkDNTlGbElZY96jfb7Drbzg5o1OrOthPss+qNMOyoU3pECz9yw27F/
+AgMBAAGjRTBDMA4GA1UdDwEB/wQEAwICpDASBgNVHRMBAf8ECDAGAQH/AgEAMB0G
+A1UdDgQWBBSribjOYNouiKyuMoI5cK/ZrKj8ujANBgkqhkiG9w0BAQsFAAOCAQEA
+Ax212uQxTDjIvjg7uYSyX6a3dveSYc9k6xWX7cLwT+2GYljWqk4Qo/bqj/tWl8jl
+6vf9EbvCIMDFoOGAHU1ybYBS8CQr1b+ZoM2VaMGxW3LmgOXwNjF1Ck4AJ+dydeFE
+Njjy17IOPEFkgI2sZUepD3czHXPr7PdwlAcT5eMXaZVCK9Q75p4mvquWXnirigY8
+4Bz8ocoZ8JrjSXdOBkHm93coh/8AJd63pvHCBNxEesSDn92PdwdxJOGvV+cd7oZc
+gVe5488uen1E79WyiXNsX8ehsIlvLVyrhLfnlMWqRk4xrE8ArcudnxZuqrYWwTKD
+q2Ew9coarTm82g9SBsOw/w==
+-----END CERTIFICATE-----
+-----BEGIN CERTIFICATE-----
+MIIDWzCCAkOgAwIBAgIIMd7lZVb9dm8wDQYJKoZIhvcNAQELBQAwJjEkMCIGA1UE
+AwwbaW5ncmVzcy1vcGVyYXRvckAxNjUxODA3MjQzMB4XDTIyMDUwNjAzMjA0NloX
+DTI0MDUwNTAzMjA0N1owHTEbMBkGA1UEAwwSKi5hcHBzLWNyYy50ZXN0aW5nMIIB
+IjANBgkqhkiG9w0BAQEFAAOCAQ8AMIIBCgKCAQEAp8Wg/XTNbuabVhGHxWuWEhzj
+tZJ7nhfn8BbiT49qr8GKuDIJIm5Iu1UD8MXKOlaBfSv7ymeQtO0hk1ZWSkRWgwqV
+ZWYaGkPbAmFewB7OAnPsq5n0jdbKsThg+Tib0iZm9LXN758axJtgZD6oIRs9zB1i
+37GJZ8EWnJUcvC72YhzXTw45N9h0WLoQ9/7iIoA0J1H1ykfWExp2KZ97FEyJE4Ks
+eTdRqJD5HmfCC37I6OtdtZaAQ6aQQE+vKARcnwU/KUtaBm2Iv/JxEwWm9GxadUqX
++Zls+nilMFnqSDCG8e6462eK7e7A0nr+Gsj+g1ubT2MNIsv+JtdIT8qa5kGmNwID
+AQABo4GVMIGSMA4GA1UdDwEB/wQEAwIFoDATBgNVHSUEDDAKBggrBgEFBQcDATAM
+BgNVHRMBAf8EAjAAMB0GA1UdDgQWBBRWtuVIucqGVpZA5Ox/eu7cXUhKKzAfBgNV
+HSMEGDAWgBSribjOYNouiKyuMoI5cK/ZrKj8ujAdBgNVHREEFjAUghIqLmFwcHMt
+Y3JjLnRlc3RpbmcwDQYJKoZIhvcNAQELBQADggEBAAh/1Y3gQUCR0eXqER1PeFcS
+g24L+wnmR0vUlMtTtcSl4KSLUrvfAw9N4jvFch0u6sESj16sHI7ZcjWGKMoh94zD
+36G814tuNtiUEJsKoAxUtL+bm4c4r7by3ffUn1F/bmA+7JgqFO00sa7b+Rk2zR4j
+aJ0s4Y6uNgX3ak5zWRRathdapNdkeXrvgwqlm3/+WWk1kOmevdwuojcLiiTjzBbC
+Y4QrW7ja9qy1RP9eq950ixZ/sEHPsyiJieA/c/JwN7IeojOrxT69eOZk24Iwr0vr
+NhEGG7KXC0rV3V08vIEezN0HWvu7Qkd4IUqlfTnvqSC4DQ8RTfbX0Y7yYKHtjOo=
+-----END CERTIFICATE-----
+`
+
+	expectedPem = `-----BEGIN CERTIFICATE-----
+MIIDWzCCAkOgAwIBAgIIMd7lZVb9dm8wDQYJKoZIhvcNAQELBQAwJjEkMCIGA1UE
+AwwbaW5ncmVzcy1vcGVyYXRvckAxNjUxODA3MjQzMB4XDTIyMDUwNjAzMjA0NloX
+DTI0MDUwNTAzMjA0N1owHTEbMBkGA1UEAwwSKi5hcHBzLWNyYy50ZXN0aW5nMIIB
+IjANBgkqhkiG9w0BAQEFAAOCAQ8AMIIBCgKCAQEAp8Wg/XTNbuabVhGHxWuWEhzj
+tZJ7nhfn8BbiT49qr8GKuDIJIm5Iu1UD8MXKOlaBfSv7ymeQtO0hk1ZWSkRWgwqV
+ZWYaGkPbAmFewB7OAnPsq5n0jdbKsThg+Tib0iZm9LXN758axJtgZD6oIRs9zB1i
+37GJZ8EWnJUcvC72YhzXTw45N9h0WLoQ9/7iIoA0J1H1ykfWExp2KZ97FEyJE4Ks
+eTdRqJD5HmfCC37I6OtdtZaAQ6aQQE+vKARcnwU/KUtaBm2Iv/JxEwWm9GxadUqX
++Zls+nilMFnqSDCG8e6462eK7e7A0nr+Gsj+g1ubT2MNIsv+JtdIT8qa5kGmNwID
+AQABo4GVMIGSMA4GA1UdDwEB/wQEAwIFoDATBgNVHSUEDDAKBggrBgEFBQcDATAM
+BgNVHRMBAf8EAjAAMB0GA1UdDgQWBBRWtuVIucqGVpZA5Ox/eu7cXUhKKzAfBgNV
+HSMEGDAWgBSribjOYNouiKyuMoI5cK/ZrKj8ujAdBgNVHREEFjAUghIqLmFwcHMt
+Y3JjLnRlc3RpbmcwDQYJKoZIhvcNAQELBQADggEBAAh/1Y3gQUCR0eXqER1PeFcS
+g24L+wnmR0vUlMtTtcSl4KSLUrvfAw9N4jvFch0u6sESj16sHI7ZcjWGKMoh94zD
+36G814tuNtiUEJsKoAxUtL+bm4c4r7by3ffUn1F/bmA+7JgqFO00sa7b+Rk2zR4j
+aJ0s4Y6uNgX3ak5zWRRathdapNdkeXrvgwqlm3/+WWk1kOmevdwuojcLiiTjzBbC
+Y4QrW7ja9qy1RP9eq950ixZ/sEHPsyiJieA/c/JwN7IeojOrxT69eOZk24Iwr0vr
+NhEGG7KXC0rV3V08vIEezN0HWvu7Qkd4IUqlfTnvqSC4DQ8RTfbX0Y7yYKHtjOo=
+-----END CERTIFICATE-----`
 )
 
 var _ = Describe("Export controlleer", func() {
@@ -77,6 +141,8 @@ var _ = Describe("Export controlleer", func() {
 		dvInformer       cache.SharedIndexInformer
 		k8sClient        *k8sfake.Clientset
 		vmExportClient   *kubevirtfake.Clientset
+		routeCache       cache.Store
+		ingressCache     cache.Store
 		certDir          string
 		certFilePath     string
 		keyFilePath      string
@@ -97,6 +163,11 @@ var _ = Describe("Export controlleer", func() {
 		serviceInformer, _ = testutils.NewFakeInformerFor(&k8sv1.Service{})
 		vmExportInformer, _ = testutils.NewFakeInformerFor(&exportv1.VirtualMachineExport{})
 		dvInformer, _ = testutils.NewFakeInformerFor(&cdiv1.DataVolume{})
+		routeInformer, _ := testutils.NewFakeInformerFor(&routev1.Route{})
+		routeCache = routeInformer.GetStore()
+		ingressInformer, _ := testutils.NewFakeInformerFor(&networkingv1.Ingress{})
+		ingressCache = ingressInformer.GetStore()
+		secretInformer, _ := testutils.NewFakeInformerFor(&k8sv1.Secret{})
 
 		config, _, _ := testutils.NewFakeClusterConfigUsingKVConfig(&virtv1.KubeVirtConfiguration{})
 		k8sClient = k8sfake.NewSimpleClientset()
@@ -108,17 +179,21 @@ var _ = Describe("Export controlleer", func() {
 			Return(vmExportClient.ExportV1alpha1().VirtualMachineExports(testNamespace)).AnyTimes()
 
 		controller = &VMExportController{
-			Client:             virtClient,
-			Recorder:           recorder,
-			PVCInformer:        pvcInformer,
-			PodInformer:        podInformer,
-			ConfigMapInformer:  cmInformer,
-			VMExportInformer:   vmExportInformer,
-			ServiceInformer:    serviceInformer,
-			DataVolumeInformer: dvInformer,
-			KubevirtNamespace:  "kubevirt",
-			TemplateService:    services.NewTemplateService("a", 240, "b", "c", "d", "e", "f", "g", pvcInformer.GetStore(), virtClient, config, qemuGid, "h"),
-			caCertManager:      bootstrap.NewFileCertificateManager(certFilePath, keyFilePath),
+			Client:                 virtClient,
+			Recorder:               recorder,
+			PVCInformer:            pvcInformer,
+			PodInformer:            podInformer,
+			ConfigMapInformer:      cmInformer,
+			VMExportInformer:       vmExportInformer,
+			ServiceInformer:        serviceInformer,
+			DataVolumeInformer:     dvInformer,
+			KubevirtNamespace:      "kubevirt",
+			TemplateService:        services.NewTemplateService("a", 240, "b", "c", "d", "e", "f", "g", pvcInformer.GetStore(), virtClient, config, qemuGid, "h"),
+			caCertManager:          bootstrap.NewFileCertificateManager(certFilePath, keyFilePath),
+			RouteCache:             routeCache,
+			IngressCache:           ingressCache,
+			RouteConfigMapInformer: cmInformer,
+			SecretInformer:         secretInformer,
 		}
 		// Wrap our workqueue to have a way to detect when we are done processing updates
 		mockVMExportQueue := testutils.NewMockWorkQueue(controller.vmExportQueue)
@@ -144,6 +219,124 @@ var _ = Describe("Export controlleer", func() {
 		controller.caCertManager.Stop()
 		os.RemoveAll(certDir)
 	})
+
+	createRouteConfigMap := func() *k8sv1.ConfigMap {
+		return &k8sv1.ConfigMap{
+			ObjectMeta: metav1.ObjectMeta{
+				Name:      routeCAConfigMapName,
+				Namespace: controller.KubevirtNamespace,
+			},
+			Data: map[string]string{
+				routeCaKey: routeCerts,
+			},
+		}
+	}
+
+	validIngressDefaultBackend := func(serviceName string) *networkingv1.Ingress {
+		return &networkingv1.Ingress{
+			Spec: networkingv1.IngressSpec{
+				DefaultBackend: &networkingv1.IngressBackend{
+					Service: &networkingv1.IngressServiceBackend{
+						Name: serviceName,
+					},
+				},
+				Rules: []networkingv1.IngressRule{
+					{
+						Host: "backend-host",
+					},
+				},
+			},
+		}
+	}
+
+	ingressDefaultBackendNoService := func() *networkingv1.Ingress {
+		return &networkingv1.Ingress{
+			Spec: networkingv1.IngressSpec{
+				DefaultBackend: &networkingv1.IngressBackend{},
+				Rules: []networkingv1.IngressRule{
+					{
+						Host: "backend-host",
+					},
+				},
+			},
+		}
+	}
+
+	validIngressRules := func(serviceName string) *networkingv1.Ingress {
+		return &networkingv1.Ingress{
+			Spec: networkingv1.IngressSpec{
+				Rules: []networkingv1.IngressRule{
+					{
+						IngressRuleValue: networkingv1.IngressRuleValue{
+							HTTP: &networkingv1.HTTPIngressRuleValue{
+								Paths: []networkingv1.HTTPIngressPath{
+									{
+										Backend: networkingv1.IngressBackend{
+											Service: &networkingv1.IngressServiceBackend{
+												Name: serviceName,
+											},
+										},
+									},
+								},
+							},
+						},
+						Host: "rule-host",
+					},
+				},
+			},
+		}
+	}
+
+	ingressRulesNoBackend := func() *networkingv1.Ingress {
+		return &networkingv1.Ingress{
+			Spec: networkingv1.IngressSpec{
+				Rules: []networkingv1.IngressRule{
+					{
+						IngressRuleValue: networkingv1.IngressRuleValue{
+							HTTP: &networkingv1.HTTPIngressRuleValue{
+								Paths: []networkingv1.HTTPIngressPath{
+									{
+										Backend: networkingv1.IngressBackend{},
+									},
+								},
+							},
+						},
+						Host: "rule-host",
+					},
+				},
+			},
+		}
+	}
+
+	routeToHostAndService := func(serviceName string) *routev1.Route {
+		return &routev1.Route{
+			Spec: routev1.RouteSpec{
+				To: routev1.RouteTargetReference{
+					Name: serviceName,
+				},
+			},
+			Status: routev1.RouteStatus{
+				Ingress: []routev1.RouteIngress{
+					{
+						Host: fmt.Sprintf("%s-kubevirt.apps-crc.testing", components.VirtExportProxyServiceName),
+					},
+				},
+			},
+		}
+	}
+
+	routeToHostAndNoIngress := func() *routev1.Route {
+		return &routev1.Route{
+			Spec: routev1.RouteSpec{
+				To: routev1.RouteTargetReference{
+					Name: components.VirtExportProxyServiceName,
+				},
+			},
+			Status: routev1.RouteStatus{
+				Ingress: []routev1.RouteIngress{},
+			},
+		}
+	}
 
 	It("Should create a service based on the name of the VMExport", func() {
 		var service *k8sv1.Service
@@ -340,6 +533,7 @@ var _ = Describe("Export controlleer", func() {
 			Expect(ok).To(BeTrue())
 			Expect(vmExport.Status).ToNot(BeNil())
 			Expect(vmExport.Status.Links).ToNot(BeNil())
+			Expect(vmExport.Status.Links.External).To(BeNil())
 			Expect(vmExport.Status.Links.Internal).NotTo(BeNil())
 			Expect(vmExport.Status.Links.Internal.Cert).NotTo(BeEmpty())
 			Expect(vmExport.Status.Links.Internal.Volumes).To(HaveLen(0))
@@ -373,6 +567,7 @@ var _ = Describe("Export controlleer", func() {
 			Expect(ok).To(BeTrue())
 			Expect(vmExport.Status).ToNot(BeNil())
 			Expect(vmExport.Status.Links).ToNot(BeNil())
+			Expect(vmExport.Status.Links.External).To(BeNil())
 			Expect(vmExport.Status.Links.Internal).NotTo(BeNil())
 			Expect(vmExport.Status.Links.Internal.Cert).NotTo(BeEmpty())
 			Expect(vmExport.Status.Links.Internal.Volumes).To(HaveLen(1))
@@ -406,6 +601,7 @@ var _ = Describe("Export controlleer", func() {
 			},
 		})
 		expectExporterCreate(k8sClient, k8sv1.PodRunning)
+		controller.RouteCache.Add(routeToHostAndService(components.VirtExportProxyServiceName))
 
 		vmExportClient.Fake.PrependReactor("update", "virtualmachineexports", func(action testing.Action) (handled bool, obj runtime.Object, err error) {
 			update, ok := action.(testing.UpdateAction)
@@ -424,6 +620,17 @@ var _ = Describe("Export controlleer", func() {
 			}, exportv1.VirtualMachineExportVolumeFormat{
 				Format: exportv1.KubeVirtGz,
 				Url:    fmt.Sprintf("https://%s.%s.svc/volumes/%s/disk.img.gz", fmt.Sprintf("%s-%s", exportPrefix, testVMExport.Name), testNamespace, testVMExport.Spec.Source.Name),
+			}))
+			Expect(vmExport.Status.Links.External).ToNot(BeNil())
+			Expect(vmExport.Status.Links.External.Cert).To(BeEmpty())
+			Expect(vmExport.Status.Links.External.Volumes).To(HaveLen(1))
+			Expect(vmExport.Status.Links.External.Volumes[0].Formats).To(HaveLen(2))
+			Expect(vmExport.Status.Links.External.Volumes[0].Formats).To(ContainElements(exportv1.VirtualMachineExportVolumeFormat{
+				Format: exportv1.KubeVirtRaw,
+				Url:    fmt.Sprintf("https://virt-exportproxy-kubevirt.apps-crc.testing/api/export.kubevirt.io/v1alpha1/namespaces/%s/virtualmachineexports/%s/volumes/%s/disk.img", testNamespace, testVMExport.Name, testVMExport.Spec.Source.Name),
+			}, exportv1.VirtualMachineExportVolumeFormat{
+				Format: exportv1.KubeVirtGz,
+				Url:    fmt.Sprintf("https://virt-exportproxy-kubevirt.apps-crc.testing/api/export.kubevirt.io/v1alpha1/namespaces/%s/virtualmachineexports/%s/volumes/%s/disk.img.gz", testNamespace, testVMExport.Name, testVMExport.Spec.Source.Name),
 			}))
 			return true, vmExport, nil
 		})
@@ -523,6 +730,38 @@ var _ = Describe("Export controlleer", func() {
 		Entry("PVC claim lost", k8sv1.ClaimLost, k8sv1.ConditionFalse, unknownReason),
 		Entry("PVC pending", k8sv1.ClaimPending, k8sv1.ConditionFalse, pvcPendingReason),
 	)
+
+	DescribeTable("should find host when Ingress is defined", func(ingress *networkingv1.Ingress, hostname string) {
+		controller.IngressCache.Add(ingress)
+		host, _ := controller.getExternalLinkHostAndCert()
+		Expect(hostname).To(Equal(host))
+	},
+		Entry("ingress with default backend host", validIngressDefaultBackend(components.VirtExportProxyServiceName), "backend-host"),
+		Entry("ingress with default backend host different service", validIngressDefaultBackend("other-service"), ""),
+		Entry("ingress with rules host", validIngressRules(components.VirtExportProxyServiceName), "rule-host"),
+		Entry("ingress with rules host different service", validIngressRules("other-service"), ""),
+		Entry("ingress with no default backend service", ingressDefaultBackendNoService(), ""),
+		Entry("ingress with rules no backend service", ingressRulesNoBackend(), ""),
+	)
+
+	DescribeTable("should find host when route is defined", func(route *routev1.Route, hostname, expectedCert string) {
+		controller.RouteCache.Add(route)
+		controller.RouteConfigMapInformer.GetStore().Add(createRouteConfigMap())
+		host, cert := controller.getExternalLinkHostAndCert()
+		Expect(hostname).To(Equal(host))
+		Expect(expectedCert).To(Equal(cert))
+	},
+		Entry("route with service and host", routeToHostAndService(components.VirtExportProxyServiceName), "virt-exportproxy-kubevirt.apps-crc.testing", expectedPem),
+		Entry("route with different service and host", routeToHostAndService("other-service"), "", ""),
+		Entry("route with service and no ingress", routeToHostAndNoIngress(), "", ""),
+	)
+
+	It("should pick ingress over route if both exist", func() {
+		controller.IngressCache.Add(validIngressDefaultBackend(components.VirtExportProxyServiceName))
+		controller.RouteCache.Add(routeToHostAndService(components.VirtExportProxyServiceName))
+		host, _ := controller.getExternalLinkHostAndCert()
+		Expect("backend-host").To(Equal(host))
+	})
 })
 
 func writeCertsToDir(dir string) {

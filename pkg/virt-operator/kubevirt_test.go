@@ -85,9 +85,15 @@ const (
 
 	NAMESPACE = "kubevirt-test"
 
+<<<<<<< HEAD
 	resourceCount = 73
 	patchCount    = 50
 	updateCount   = 24
+=======
+	resourceCount = 74
+	patchCount    = 49
+	updateCount   = 26
+>>>>>>> c4a3d07c7 (Add external links and matching certificates from either)
 )
 
 type KubeVirtTestData struct {
@@ -2347,8 +2353,8 @@ var _ = Describe("KubeVirt Operator", func() {
 			Expect(kvTestData.controller.stores.ServiceAccountCache.List()).To(HaveLen(4))
 			Expect(kvTestData.controller.stores.ClusterRoleCache.List()).To(HaveLen(8))
 			Expect(kvTestData.controller.stores.ClusterRoleBindingCache.List()).To(HaveLen(6))
-			Expect(kvTestData.controller.stores.RoleCache.List()).To(HaveLen(4))
-			Expect(kvTestData.controller.stores.RoleBindingCache.List()).To(HaveLen(4))
+			Expect(kvTestData.controller.stores.RoleCache.List()).To(HaveLen(5))
+			Expect(kvTestData.controller.stores.RoleBindingCache.List()).To(HaveLen(5))
 			Expect(kvTestData.controller.stores.CrdCache.List()).To(HaveLen(16))
 			Expect(kvTestData.controller.stores.ServiceCache.List()).To(HaveLen(4))
 			Expect(kvTestData.controller.stores.DeploymentCache.List()).To(HaveLen(1))
@@ -2980,8 +2986,8 @@ var _ = Describe("KubeVirt Operator", func() {
 
 			kvTestData.controller.Execute()
 
-			Expect(kvTestData.controller.stores.RoleCache.List()).To(HaveLen(3))
-			Expect(kvTestData.controller.stores.RoleBindingCache.List()).To(HaveLen(3))
+			Expect(kvTestData.controller.stores.RoleCache.List()).To(HaveLen(4))
+			Expect(kvTestData.controller.stores.RoleBindingCache.List()).To(HaveLen(4))
 			Expect(kvTestData.controller.stores.ServiceMonitorCache.List()).To(BeEmpty())
 		})
 	})

@@ -32,14 +32,6 @@ import (
 	"path/filepath"
 	"reflect"
 
-	"kubevirt.io/kubevirt/tests/clientcmd"
-	"kubevirt.io/kubevirt/tests/framework/checks"
-	"kubevirt.io/kubevirt/tests/testsuite"
-
-	"kubevirt.io/kubevirt/pkg/virt-operator/resource/apply"
-	. "kubevirt.io/kubevirt/tests/framework/matcher"
-	util2 "kubevirt.io/kubevirt/tests/util"
-
 	"regexp"
 	"sort"
 	"strings"

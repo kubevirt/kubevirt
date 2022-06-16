@@ -701,6 +701,30 @@ spec:
           verbs:
           - get
         - apiGroups:
+          - route.openshift.io
+          resources:
+          - routes
+          verbs:
+          - list
+          - get
+          - watch
+        - apiGroups:
+          - ""
+          resources:
+          - secrets
+          verbs:
+          - list
+          - get
+          - watch
+        - apiGroups:
+          - networking.k8s.io
+          resources:
+          - ingresses
+          verbs:
+          - list
+          - get
+          - watch
+        - apiGroups:
           - kubevirt.io
           resources:
           - virtualmachineinstances

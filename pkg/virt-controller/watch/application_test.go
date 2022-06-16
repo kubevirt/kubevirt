@@ -109,10 +109,12 @@ var _ = Describe("Application", func() {
 		vmRestoreInformer, _ := testutils.NewFakeInformerFor(&snapshotv1.VirtualMachineRestore{})
 		vmExportInformer, _ := testutils.NewFakeInformerFor(&exportv1.VirtualMachineExport{})
 		configMapInformer, _ := testutils.NewFakeInformerFor(&kubev1.ConfigMap{})
+		routeConfigMapInformer, _ := testutils.NewFakeInformerFor(&kubev1.ConfigMap{})
 		dvInformer, _ := testutils.NewFakeInformerFor(&cdiv1.DataVolume{})
 		flavorMethods := testutils.NewMockFlavorMethods()
 		exportServiceInformer, _ := testutils.NewFakeInformerFor(&k8sv1.Service{})
 		cloneInformer, _ := testutils.NewFakeInformerFor(&clonev1alpha1.VirtualMachineClone{})
+		secretInformer, _ := testutils.NewFakeInformerFor(&k8sv1.Secret{})
 
 		var qemuGid int64 = 107
 
@@ -186,15 +188,17 @@ var _ = Describe("Application", func() {
 		}
 		app.restoreController.Init()
 		app.exportController = &export.VMExportController{
-			Client:             virtClient,
-			TemplateService:    services.NewTemplateService("a", 240, "b", "c", "d", "e", "f", "g", pvcInformer.GetStore(), virtClient, config, qemuGid, "h"),
-			VMExportInformer:   vmExportInformer,
-			PVCInformer:        pvcInformer,
-			PodInformer:        podInformer,
-			DataVolumeInformer: dataVolumeInformer,
-			ServiceInformer:    exportServiceInformer,
-			ConfigMapInformer:  configMapInformer,
-			Recorder:           recorder,
+			Client:                 virtClient,
+			TemplateService:        services.NewTemplateService("a", 240, "b", "c", "d", "e", "f", "g", pvcInformer.GetStore(), virtClient, config, qemuGid, "h"),
+			VMExportInformer:       vmExportInformer,
+			PVCInformer:            pvcInformer,
+			PodInformer:            podInformer,
+			DataVolumeInformer:     dataVolumeInformer,
+			ServiceInformer:        exportServiceInformer,
+			ConfigMapInformer:      configMapInformer,
+			RouteConfigMapInformer: routeConfigMapInformer,
+			Recorder:               recorder,
+			SecretInformer:         secretInformer,
 		}
 		app.exportController.Init()
 		app.persistentVolumeClaimInformer = pvcInformer
