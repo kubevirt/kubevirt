@@ -304,22 +304,24 @@ func (n *NodeLabeller) HostCapabilities() *api.Capabilities {
 // removeLabellerLabels removes labels from node
 func (n *NodeLabeller) removeLabellerLabels(node *v1.Node) {
 	for label := range node.Labels {
-		if strings.Contains(label, util.DeprecatedLabelNamespace+util.DeprecatedcpuModelPrefix) ||
-			strings.Contains(label, util.DeprecatedLabelNamespace+util.DeprecatedcpuFeaturePrefix) ||
-			strings.Contains(label, util.DeprecatedLabelNamespace+util.DeprecatedHyperPrefix) ||
-			strings.Contains(label, kubevirtv1.CPUFeatureLabel) ||
-			strings.Contains(label, kubevirtv1.CPUModelLabel) ||
-			strings.Contains(label, kubevirtv1.SupportedHostModelMigrationCPU) ||
-			strings.Contains(label, kubevirtv1.CPUTimerLabel) ||
-			strings.Contains(label, kubevirtv1.HypervLabel) ||
-			strings.Contains(label, kubevirtv1.RealtimeLabel) ||
-			strings.Contains(label, kubevirtv1.SEVLabel) {
+		if strings.HasPrefix(label, util.DeprecatedLabelNamespace+util.DeprecatedcpuModelPrefix) ||
+			strings.HasPrefix(label, util.DeprecatedLabelNamespace+util.DeprecatedcpuFeaturePrefix) ||
+			strings.HasPrefix(label, util.DeprecatedLabelNamespace+util.DeprecatedHyperPrefix) ||
+			strings.HasPrefix(label, kubevirtv1.CPUFeatureLabel) ||
+			strings.HasPrefix(label, kubevirtv1.CPUModelLabel) ||
+			strings.HasPrefix(label, kubevirtv1.SupportedHostModelMigrationCPU) ||
+			strings.HasPrefix(label, kubevirtv1.CPUTimerLabel) ||
+			strings.HasPrefix(label, kubevirtv1.HypervLabel) ||
+			strings.HasPrefix(label, kubevirtv1.RealtimeLabel) ||
+			strings.HasPrefix(label, kubevirtv1.SEVLabel) ||
+			strings.HasPrefix(label, kubevirtv1.HostModelCPULabel) ||
+			strings.HasPrefix(label, kubevirtv1.HostModelRequiredFeaturesLabel) {
 			delete(node.Labels, label)
 		}
 	}
 
 	for annotation := range node.Annotations {
-		if strings.Contains(annotation, util.DeprecatedLabellerNamespaceAnnotation) {
+		if strings.HasPrefix(annotation, util.DeprecatedLabellerNamespaceAnnotation) {
 			delete(node.Annotations, annotation)
 		}
 	}
