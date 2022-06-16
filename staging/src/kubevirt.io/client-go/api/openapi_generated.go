@@ -25118,6 +25118,13 @@ func schema_pkg_apis_core_v1beta1_CDIConfigSpec(ref common.ReferenceCallback) co
 							},
 						},
 					},
+					"dataVolumeTTLSeconds": {
+						SchemaProps: spec.SchemaProps{
+							Description: "dataVolumeTTLSeconds is the time in seconds after DataVolume completion it can be garbage collected.",
+							Type:        []string{"integer"},
+							Format:      "int32",
+						},
+					},
 				},
 			},
 		},
@@ -25252,13 +25259,13 @@ func schema_pkg_apis_core_v1beta1_CDISpec(ref common.ReferenceCallback) common.O
 					"infra": {
 						SchemaProps: spec.SchemaProps{
 							Description: "Rules on which nodes CDI infrastructure pods will be scheduled",
-							Ref:         ref("kubevirt.io/controller-lifecycle-operator-sdk/pkg/sdk/api.NodePlacement"),
+							Ref:         ref("kubevirt.io/controller-lifecycle-operator-sdk/api.NodePlacement"),
 						},
 					},
 					"workload": {
 						SchemaProps: spec.SchemaProps{
 							Description: "Restrict on which nodes CDI workload pods will be scheduled",
-							Ref:         ref("kubevirt.io/controller-lifecycle-operator-sdk/pkg/sdk/api.NodePlacement"),
+							Ref:         ref("kubevirt.io/controller-lifecycle-operator-sdk/api.NodePlacement"),
 						},
 					},
 					"cloneStrategyOverride": {
@@ -25291,7 +25298,7 @@ func schema_pkg_apis_core_v1beta1_CDISpec(ref common.ReferenceCallback) common.O
 			},
 		},
 		Dependencies: []string{
-			"kubevirt.io/containerized-data-importer-api/pkg/apis/core/v1beta1.CDICertConfig", "kubevirt.io/containerized-data-importer-api/pkg/apis/core/v1beta1.CDIConfigSpec", "kubevirt.io/controller-lifecycle-operator-sdk/pkg/sdk/api.NodePlacement"},
+			"kubevirt.io/containerized-data-importer-api/pkg/apis/core/v1beta1.CDICertConfig", "kubevirt.io/containerized-data-importer-api/pkg/apis/core/v1beta1.CDIConfigSpec", "kubevirt.io/controller-lifecycle-operator-sdk/api.NodePlacement"},
 	}
 }
 
@@ -26466,6 +26473,13 @@ func schema_pkg_apis_core_v1beta1_DataVolumeSourceVDDK(ref common.ReferenceCallb
 							Format:      "",
 						},
 					},
+					"initImageURL": {
+						SchemaProps: spec.SchemaProps{
+							Description: "InitImageURL is an optional URL to an image containing an extracted VDDK library, overrides v2v-vmware config map",
+							Type:        []string{"string"},
+							Format:      "",
+						},
+					},
 				},
 			},
 		},
@@ -26559,6 +26573,13 @@ func schema_pkg_apis_core_v1beta1_DataVolumeStatus(ref common.ReferenceCallback)
 				Description: "DataVolumeStatus contains the current status of the DataVolume",
 				Type:        []string{"object"},
 				Properties: map[string]spec.Schema{
+					"claimName": {
+						SchemaProps: spec.SchemaProps{
+							Description: "ClaimName is the name of the underlying PVC used by the DataVolume.",
+							Type:        []string{"string"},
+							Format:      "",
+						},
+					},
 					"phase": {
 						SchemaProps: spec.SchemaProps{
 							Description: "Phase is the current phase of the data volume",

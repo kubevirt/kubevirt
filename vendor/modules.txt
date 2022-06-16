@@ -1144,15 +1144,15 @@ kubevirt.io/client-go/version
 # kubevirt.io/containerized-data-importer v1.41.0 => kubevirt.io/containerized-data-importer v1.42.0
 ## explicit; go 1.16
 kubevirt.io/containerized-data-importer/pkg/clone
-# kubevirt.io/containerized-data-importer-api v1.47.0 => kubevirt.io/containerized-data-importer-api v1.42.0
-## explicit; go 1.16
+# kubevirt.io/containerized-data-importer-api v1.50.0 => kubevirt.io/containerized-data-importer-api v1.50.0
+## explicit; go 1.17
 kubevirt.io/containerized-data-importer-api/pkg/apis/core
 kubevirt.io/containerized-data-importer-api/pkg/apis/core/v1beta1
 kubevirt.io/containerized-data-importer-api/pkg/apis/upload
 kubevirt.io/containerized-data-importer-api/pkg/apis/upload/v1beta1
-# kubevirt.io/controller-lifecycle-operator-sdk v0.2.2
-## explicit; go 1.14
-kubevirt.io/controller-lifecycle-operator-sdk/pkg/sdk/api
+# kubevirt.io/controller-lifecycle-operator-sdk/api v0.0.0-20220329064328-f3cc58c6ed90
+## explicit; go 1.17
+kubevirt.io/controller-lifecycle-operator-sdk/api
 # kubevirt.io/qe-tools v0.1.8
 ## explicit; go 1.16
 kubevirt.io/qe-tools/pkg/ginkgo-reporters
@@ -1221,5 +1221,5 @@ sigs.k8s.io/yaml
 # kubevirt.io/api => ./staging/src/kubevirt.io/api
 # kubevirt.io/client-go => ./staging/src/kubevirt.io/client-go
 # kubevirt.io/containerized-data-importer => kubevirt.io/containerized-data-importer v1.42.0
-# kubevirt.io/containerized-data-importer-api => kubevirt.io/containerized-data-importer-api v1.42.0
+# kubevirt.io/containerized-data-importer-api => kubevirt.io/containerized-data-importer-api v1.50.0
 # sigs.k8s.io/controller-runtime => sigs.k8s.io/controller-runtime v0.6.2
