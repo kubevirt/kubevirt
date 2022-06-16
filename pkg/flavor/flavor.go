@@ -315,6 +315,10 @@ func (m *methods) FindPreferenceSpec(vm *virtv1.VirtualMachine) (*flavorv1alpha1
 		return nil, nil
 	}
 
+	if len(vm.Spec.Preference.RevisionName) > 0 {
+		return m.getPreferenceSpecRevision(vm.Spec.Preference.RevisionName, vm.Namespace)
+	}
+
 	switch strings.ToLower(vm.Spec.Preference.Kind) {
 	case apiflavor.SingularPreferenceResourceName, apiflavor.PluralPreferenceResourceName:
 		preference, err = m.findPreference(vm)
@@ -337,6 +341,29 @@ func (m *methods) FindPreferenceSpec(vm *virtv1.VirtualMachine) (*flavorv1alpha1
 	}
 
 	return nil, nil
+}
+
+func (m *methods) getPreferenceSpecRevision(revisionName string, namespace string) (*flavorv1alpha1.VirtualMachinePreferenceSpec, error) {
+
+	revision, err := m.clientset.AppsV1().ControllerRevisions(namespace).Get(context.Background(), revisionName, metav1.GetOptions{})
+	if err != nil {
+		return nil, err
+	}
+
+	preferenceSpecRevision := flavorv1alpha1.VirtualMachinePreferenceSpecRevision{}
+	err = json.Unmarshal(revision.Data.Raw, &preferenceSpecRevision)
+	if err != nil {
+		return nil, err
+	}
+
+	// For now we only support a single version of VirtualMachinePreferenceSpec but in the future we will need to handle older versions here
+	preferenceSpec := flavorv1alpha1.VirtualMachinePreferenceSpec{}
+	err = json.Unmarshal(preferenceSpecRevision.Spec, &preferenceSpec)
+	if err != nil {
+		return nil, err
+	}
+
+	return &preferenceSpec, nil
 }
 
 func (m *methods) findPreference(vm *virtv1.VirtualMachine) (*flavorv1alpha1.VirtualMachinePreference, error) {
@@ -376,6 +403,10 @@ func (m *methods) FindFlavorSpec(vm *virtv1.VirtualMachine) (*flavorv1alpha1.Vir
 		return nil, nil
 	}
 
+	if len(vm.Spec.Flavor.RevisionName) > 0 {
+		return m.getFlavorSpecRevision(vm.Spec.Flavor.RevisionName, vm.Namespace)
+	}
+
 	switch strings.ToLower(vm.Spec.Flavor.Kind) {
 	case apiflavor.SingularResourceName, apiflavor.PluralResourceName:
 		flavor, err = m.findFlavor(vm)
@@ -398,6 +429,29 @@ func (m *methods) FindFlavorSpec(vm *virtv1.VirtualMachine) (*flavorv1alpha1.Vir
 	}
 
 	return nil, nil
+}
+
+func (m *methods) getFlavorSpecRevision(revisionName string, namespace string) (*flavorv1alpha1.VirtualMachineFlavorSpec, error) {
+
+	revision, err := m.clientset.AppsV1().ControllerRevisions(namespace).Get(context.Background(), revisionName, metav1.GetOptions{})
+	if err != nil {
+		return nil, err
+	}
+
+	flavorSpecRevision := flavorv1alpha1.VirtualMachineFlavorSpecRevision{}
+	err = json.Unmarshal(revision.Data.Raw, &flavorSpecRevision)
+	if err != nil {
+		return nil, err
+	}
+
+	// For now we only support a single version of VirtualMachineFlavorSpec but in the future we will need to handle older versions here
+	flavorSpec := flavorv1alpha1.VirtualMachineFlavorSpec{}
+	err = json.Unmarshal(flavorSpecRevision.Spec, &flavorSpec)
+	if err != nil {
+		return nil, err
+	}
+
+	return &flavorSpec, nil
 }
 
 func (m *methods) findFlavor(vm *virtv1.VirtualMachine) (*flavorv1alpha1.VirtualMachineFlavor, error) {
