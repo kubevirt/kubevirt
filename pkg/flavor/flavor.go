@@ -1,20 +1,19 @@
 package flavor
 
 import (
+	"context"
 	"fmt"
 	"strings"
 
-	"k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	k8sfield "k8s.io/apimachinery/pkg/util/validation/field"
 	"k8s.io/utils/pointer"
-
-	"k8s.io/client-go/tools/cache"
 
 	v1 "kubevirt.io/api/core/v1"
 	virtv1 "kubevirt.io/api/core/v1"
 	apiflavor "kubevirt.io/api/flavor"
 	flavorv1alpha1 "kubevirt.io/api/flavor/v1alpha1"
+	"kubevirt.io/client-go/kubecli"
 )
 
 type Methods interface {
@@ -34,20 +33,14 @@ func (c Conflicts) String() string {
 }
 
 type methods struct {
-	flavorStore            cache.Store
-	clusterFlavorStore     cache.Store
-	preferenceStore        cache.Store
-	clusterPreferenceStore cache.Store
+	clientset kubecli.KubevirtClient
 }
 
 var _ Methods = &methods{}
 
-func NewMethods(flavorStore, clusterFlavorStore, preferenceStore, clusterPreferenceStore cache.Store) Methods {
+func NewMethods(clientset kubecli.KubevirtClient) Methods {
 	return &methods{
-		flavorStore:            flavorStore,
-		clusterFlavorStore:     clusterFlavorStore,
-		preferenceStore:        preferenceStore,
-		clusterPreferenceStore: clusterPreferenceStore,
+		clientset: clientset,
 	}
 }
 
@@ -115,15 +108,11 @@ func (m *methods) findPreference(vm *virtv1.VirtualMachine) (*flavorv1alpha1.Vir
 		return nil, nil
 	}
 
-	key := vm.Namespace + "/" + vm.Spec.Preference.Name
-	obj, exists, err := m.preferenceStore.GetByKey(key)
+	preference, err := m.clientset.VirtualMachinePreference(vm.Namespace).Get(context.Background(), vm.Spec.Preference.Name, metav1.GetOptions{})
 	if err != nil {
 		return nil, err
 	}
-	if !exists {
-		return nil, errors.NewNotFound(flavorv1alpha1.Resource(apiflavor.SingularPreferenceResourceName), key)
-	}
-	preference := obj.(*flavorv1alpha1.VirtualMachinePreference)
+
 	return preference, nil
 }
 
@@ -133,15 +122,10 @@ func (m *methods) findClusterPreference(vm *virtv1.VirtualMachine) (*flavorv1alp
 		return nil, nil
 	}
 
-	key := vm.Spec.Preference.Name
-	obj, exists, err := m.clusterPreferenceStore.GetByKey(key)
+	preference, err := m.clientset.VirtualMachineClusterPreference().Get(context.Background(), vm.Spec.Preference.Name, metav1.GetOptions{})
 	if err != nil {
 		return nil, err
 	}
-	if !exists {
-		return nil, errors.NewNotFound(flavorv1alpha1.Resource(apiflavor.ClusterSingularPreferenceResourceName), key)
-	}
-	preference := obj.(*flavorv1alpha1.VirtualMachineClusterPreference)
 	return preference, nil
 }
 
@@ -185,15 +169,10 @@ func (m *methods) findFlavor(vm *virtv1.VirtualMachine) (*flavorv1alpha1.Virtual
 		return nil, nil
 	}
 
-	key := vm.Namespace + "/" + vm.Spec.Flavor.Name
-	obj, exists, err := m.flavorStore.GetByKey(key)
+	flavor, err := m.clientset.VirtualMachineFlavor(vm.Namespace).Get(context.Background(), vm.Spec.Flavor.Name, metav1.GetOptions{})
 	if err != nil {
 		return nil, err
 	}
-	if !exists {
-		return nil, errors.NewNotFound(flavorv1alpha1.Resource(apiflavor.SingularResourceName), key)
-	}
-	flavor := obj.(*flavorv1alpha1.VirtualMachineFlavor)
 	return flavor, nil
 }
 
@@ -203,15 +182,11 @@ func (m *methods) findClusterFlavor(vm *virtv1.VirtualMachine) (*flavorv1alpha1.
 		return nil, nil
 	}
 
-	key := vm.Spec.Flavor.Name
-	obj, exists, err := m.clusterFlavorStore.GetByKey(key)
+	flavor, err := m.clientset.VirtualMachineClusterFlavor().Get(context.Background(), vm.Spec.Flavor.Name, metav1.GetOptions{})
 	if err != nil {
 		return nil, err
 	}
-	if !exists {
-		return nil, errors.NewNotFound(flavorv1alpha1.Resource(apiflavor.ClusterSingularResourceName), key)
-	}
-	flavor := obj.(*flavorv1alpha1.VirtualMachineClusterFlavor)
+
 	return flavor, nil
 }
 

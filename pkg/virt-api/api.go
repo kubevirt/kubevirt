@@ -964,12 +964,6 @@ func (app *virtAPIApp) Run() {
 		log.Log.Infof("CDI not detected, DataSource integration disabled")
 	}
 
-	flavorInformer := kubeInformerFactory.VirtualMachineFlavor()
-	clusterFlavorInformer := kubeInformerFactory.VirtualMachineClusterFlavor()
-
-	preferenceInformer := kubeInformerFactory.VirtualMachinePreference()
-	clusterPreferenceInformer := kubeInformerFactory.VirtualMachineClusterPreference()
-
 	// It is safe to call kubeInformerFactory.Start multiple times.
 	// The function is idempotent and will only start the informers that
 	// have not been started yet
@@ -977,14 +971,10 @@ func (app *virtAPIApp) Run() {
 	kubeInformerFactory.WaitForCacheSync(stopChan)
 
 	webhookInformers := &webhooks.Informers{
-		VMIPresetInformer:         vmiPresetInformer,
-		NamespaceLimitsInformer:   namespaceLimitsInformer,
-		VMRestoreInformer:         vmRestoreInformer,
-		DataSourceInformer:        dataSourceInformer,
-		FlavorInformer:            flavorInformer,
-		ClusterFlavorInformer:     clusterFlavorInformer,
-		PreferenceInformer:        preferenceInformer,
-		ClusterPreferenceInformer: clusterPreferenceInformer,
+		VMIPresetInformer:       vmiPresetInformer,
+		NamespaceLimitsInformer: namespaceLimitsInformer,
+		VMRestoreInformer:       vmRestoreInformer,
+		DataSourceInformer:      dataSourceInformer,
 	}
 
 	// Build webhook subresources

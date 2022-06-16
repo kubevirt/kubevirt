@@ -1,6 +1,7 @@
 package watch
 
 import (
+	"context"
 	"encoding/json"
 	"fmt"
 	"strings"
@@ -30,6 +31,8 @@ import (
 	"kubevirt.io/client-go/api"
 	cdifake "kubevirt.io/client-go/generated/containerized-data-importer/clientset/versioned/fake"
 	"kubevirt.io/client-go/generated/kubevirt/clientset/versioned/fake"
+	fakeclientset "kubevirt.io/client-go/generated/kubevirt/clientset/versioned/fake"
+	"kubevirt.io/client-go/generated/kubevirt/clientset/versioned/typed/flavor/v1alpha1"
 	"kubevirt.io/client-go/kubecli"
 	cdiv1 "kubevirt.io/containerized-data-importer-api/pkg/apis/core/v1beta1"
 	virtcontroller "kubevirt.io/kubevirt/pkg/controller"
@@ -2735,28 +2738,40 @@ var _ = Describe("VirtualMachine", func() {
 		Context("Flavor and Preferences", func() {
 
 			var (
-				vm                        *virtv1.VirtualMachine
-				vmi                       *virtv1.VirtualMachineInstance
-				f                         *flavorv1alpha1.VirtualMachineFlavor
-				fs                        flavorv1alpha1.VirtualMachineFlavorSpec
-				cf                        *flavorv1alpha1.VirtualMachineClusterFlavor
-				p                         *flavorv1alpha1.VirtualMachinePreference
-				ps                        flavorv1alpha1.VirtualMachinePreferenceSpec
-				cp                        *flavorv1alpha1.VirtualMachineClusterPreference
-				flavorInformer            cache.SharedIndexInformer
-				clusterFlavorInformer     cache.SharedIndexInformer
-				preferenceInformer        cache.SharedIndexInformer
-				clusterPreferenceInformer cache.SharedIndexInformer
+				vm                          *virtv1.VirtualMachine
+				vmi                         *virtv1.VirtualMachineInstance
+				f                           *flavorv1alpha1.VirtualMachineFlavor
+				fs                          flavorv1alpha1.VirtualMachineFlavorSpec
+				cf                          *flavorv1alpha1.VirtualMachineClusterFlavor
+				p                           *flavorv1alpha1.VirtualMachinePreference
+				ps                          flavorv1alpha1.VirtualMachinePreferenceSpec
+				cp                          *flavorv1alpha1.VirtualMachineClusterPreference
+				fakeFlavorClients           v1alpha1.FlavorV1alpha1Interface
+				fakeFlavorClient            v1alpha1.VirtualMachineFlavorInterface
+				fakeClusterFlavorClient     v1alpha1.VirtualMachineClusterFlavorInterface
+				fakePreferenceClient        v1alpha1.VirtualMachinePreferenceInterface
+				fakeClusterPreferenceClient v1alpha1.VirtualMachineClusterPreferenceInterface
 			)
 
 			BeforeEach(func() {
 
 				vm, vmi = DefaultVirtualMachine(true)
 
-				flavorInformer, _ = testutils.NewFakeInformerFor(&flavorv1alpha1.VirtualMachineFlavor{})
-				clusterFlavorInformer, _ = testutils.NewFakeInformerFor(&flavorv1alpha1.VirtualMachineClusterFlavor{})
-				preferenceInformer, _ = testutils.NewFakeInformerFor(&flavorv1alpha1.VirtualMachinePreference{})
-				clusterPreferenceInformer, _ = testutils.NewFakeInformerFor(&flavorv1alpha1.VirtualMachineClusterPreference{})
+				ctrl = gomock.NewController(GinkgoT())
+				virtClient = kubecli.NewMockKubevirtClient(ctrl)
+				fakeFlavorClients = fakeclientset.NewSimpleClientset().FlavorV1alpha1()
+
+				fakeFlavorClient = fakeFlavorClients.VirtualMachineFlavors(metav1.NamespaceDefault)
+				virtClient.EXPECT().VirtualMachineFlavor(gomock.Any()).Return(fakeFlavorClient).AnyTimes()
+
+				fakeClusterFlavorClient = fakeFlavorClients.VirtualMachineClusterFlavors()
+				virtClient.EXPECT().VirtualMachineClusterFlavor().Return(fakeClusterFlavorClient).AnyTimes()
+
+				fakePreferenceClient = fakeFlavorClients.VirtualMachinePreferences(metav1.NamespaceDefault)
+				virtClient.EXPECT().VirtualMachinePreference(gomock.Any()).Return(fakePreferenceClient).AnyTimes()
+
+				fakeClusterPreferenceClient = fakeFlavorClients.VirtualMachineClusterPreferences()
+				virtClient.EXPECT().VirtualMachineClusterPreference().Return(fakeClusterPreferenceClient).AnyTimes()
 
 				flavorMemory := resource.MustParse("128M")
 				fs = flavorv1alpha1.VirtualMachineFlavorSpec{
@@ -2774,7 +2789,7 @@ var _ = Describe("VirtualMachine", func() {
 					},
 					Spec: fs,
 				}
-				flavorInformer.GetIndexer().Add(f)
+				virtClient.VirtualMachineFlavor(vm.Namespace).Create(context.Background(), f, metav1.CreateOptions{})
 
 				cf = &flavorv1alpha1.VirtualMachineClusterFlavor{
 					ObjectMeta: metav1.ObjectMeta{
@@ -2782,7 +2797,7 @@ var _ = Describe("VirtualMachine", func() {
 					},
 					Spec: fs,
 				}
-				clusterFlavorInformer.GetIndexer().Add(cf)
+				virtClient.VirtualMachineClusterFlavor().Create(context.Background(), cf, metav1.CreateOptions{})
 
 				ps = flavorv1alpha1.VirtualMachinePreferenceSpec{
 					CPU: &flavorv1alpha1.CPUPreferences{
@@ -2800,7 +2815,7 @@ var _ = Describe("VirtualMachine", func() {
 					},
 					Spec: ps,
 				}
-				preferenceInformer.GetIndexer().Add(p)
+				virtClient.VirtualMachinePreference(vm.Namespace).Create(context.Background(), p, metav1.CreateOptions{})
 
 				cp = &flavorv1alpha1.VirtualMachineClusterPreference{
 					ObjectMeta: metav1.ObjectMeta{
@@ -2808,14 +2823,9 @@ var _ = Describe("VirtualMachine", func() {
 					},
 					Spec: ps,
 				}
-				clusterPreferenceInformer.GetIndexer().Add(cp)
+				virtClient.VirtualMachineClusterPreference().Create(context.Background(), cp, metav1.CreateOptions{})
 
-				controller.flavorMethods = flavor.NewMethods(
-					flavorInformer.GetStore(),
-					clusterFlavorInformer.GetStore(),
-					preferenceInformer.GetStore(),
-					clusterPreferenceInformer.GetStore(),
-				)
+				controller.flavorMethods = flavor.NewMethods(virtClient)
 			})
 			It("should apply VirtualMachineFlavor to VirtualMachineInstance", func() {
 
@@ -2961,7 +2971,6 @@ var _ = Describe("VirtualMachine", func() {
 					Expect(cond).To(Not(BeNil()))
 					Expect(cond.Type).To(Equal(virtv1.VirtualMachineFailure))
 					Expect(cond.Reason).To(Equal("FailedCreate"))
-					Expect(cond.Message).To(ContainSubstring("virtualmachineflavor.flavor.kubevirt.io \"default/foobar\" not found"))
 				}).Return(vm, nil)
 
 				controller.Execute()
@@ -2985,7 +2994,6 @@ var _ = Describe("VirtualMachine", func() {
 					Expect(cond).To(Not(BeNil()))
 					Expect(cond.Type).To(Equal(virtv1.VirtualMachineFailure))
 					Expect(cond.Reason).To(Equal("FailedCreate"))
-					Expect(cond.Message).To(ContainSubstring("virtualmachineclusterflavor.flavor.kubevirt.io \"foobar\" not found"))
 				}).Return(vm, nil)
 
 				controller.Execute()
@@ -3033,7 +3041,6 @@ var _ = Describe("VirtualMachine", func() {
 					Expect(cond).To(Not(BeNil()))
 					Expect(cond.Type).To(Equal(virtv1.VirtualMachineFailure))
 					Expect(cond.Reason).To(Equal("FailedCreate"))
-					Expect(cond.Message).To(ContainSubstring("virtualmachinepreference.flavor.kubevirt.io \"default/foobar\" not found"))
 				}).Return(vm, nil)
 
 				controller.Execute()
@@ -3057,7 +3064,6 @@ var _ = Describe("VirtualMachine", func() {
 					Expect(cond).To(Not(BeNil()))
 					Expect(cond.Type).To(Equal(virtv1.VirtualMachineFailure))
 					Expect(cond.Reason).To(Equal("FailedCreate"))
-					Expect(cond.Message).To(ContainSubstring("virtualmachineclusterpreference.flavor.kubevirt.io \"foobar\" not found"))
 				}).Return(vm, nil)
 
 				controller.Execute()

@@ -449,6 +449,7 @@ spec:
           - virtualmachinepreferences
           - virtualmachineclusterpreferences
           verbs:
+          - get
           - list
           - watch
         - apiGroups:
@@ -665,6 +666,7 @@ spec:
           - virtualmachinepreferences
           - virtualmachineclusterpreferences
           verbs:
+          - get
           - list
           - watch
         - apiGroups:

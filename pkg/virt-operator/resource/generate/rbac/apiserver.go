@@ -227,7 +227,7 @@ func newApiServerClusterRole() *rbacv1.ClusterRole {
 					flavor.ClusterPluralPreferenceResourceName,
 				},
 				Verbs: []string{
-					"list", "watch",
+					"get", "list", "watch",
 				},
 			},
 			{

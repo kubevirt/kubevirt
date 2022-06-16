@@ -368,6 +368,7 @@ rules:
   - virtualmachinepreferences
   - virtualmachineclusterpreferences
   verbs:
+  - get
   - list
   - watch
 - apiGroups:
@@ -584,6 +585,7 @@ rules:
   - virtualmachinepreferences
   - virtualmachineclusterpreferences
   verbs:
+  - get
   - list
   - watch
 - apiGroups:
