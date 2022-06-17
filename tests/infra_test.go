@@ -161,7 +161,6 @@ var _ = Describe("[Serial][sig-compute]Infrastructure", func() {
 			By("first getting the basetime for a replicaset")
 			targetNode := libnode.GetAllSchedulableNodes(virtClient).Items[0]
 			vmi := libvmi.New(
-				libvmi.RandName(),
 				libvmi.WithResourceMemory("1Mi"),
 				libvmi.WithNodeSelectorFor(&targetNode),
 			)

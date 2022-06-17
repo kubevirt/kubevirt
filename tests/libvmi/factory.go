@@ -37,7 +37,7 @@ func NewFedora(opts ...Option) *kvirtv1.VirtualMachineInstance {
 		WithContainerImage(cd.ContainerDiskFor(cd.ContainerDiskFedoraTestTooling)),
 	}
 	opts = append(fedoraOptions, opts...)
-	return New(RandName(), opts...)
+	return New(opts...)
 }
 
 // NewCirros instantiates a new CirrOS based VMI configuration
@@ -51,7 +51,7 @@ func NewCirros(opts ...Option) *kvirtv1.VirtualMachineInstance {
 		WithResourceMemory(cirrosMemory()),
 	}
 	cirrosOpts = append(cirrosOpts, opts...)
-	return New(RandName(), cirrosOpts...)
+	return New(cirrosOpts...)
 }
 
 // NewAlpine instantiates a new Alpine based VMI configuration
@@ -63,7 +63,7 @@ func NewAlpine(opts ...Option) *kvirtv1.VirtualMachineInstance {
 		WithRng(),
 	}
 	alpineOpts = append(alpineOpts, opts...)
-	return New(RandName(), alpineOpts...)
+	return New(alpineOpts...)
 }
 
 func NewAlpineWithTestTooling(opts ...Option) *kvirtv1.VirtualMachineInstance {
@@ -74,7 +74,7 @@ func NewAlpineWithTestTooling(opts ...Option) *kvirtv1.VirtualMachineInstance {
 		WithRng(),
 	}
 	alpineOpts = append(alpineOpts, opts...)
-	return New(RandName(), alpineOpts...)
+	return New(alpineOpts...)
 }
 
 func cirrosMemory() string {
