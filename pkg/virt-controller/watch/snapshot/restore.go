@@ -380,6 +380,20 @@ func (t *vmRestoreTarget) Ready() (bool, error) {
 	return !exists, nil
 }
 
+func stripIdentityInfo(vm *kubevirtv1.VirtualMachine) {
+	vmTemplate := vm.Spec.Template
+	if vmTemplate == nil {
+		return
+	}
+
+	fw := vmTemplate.Spec.Domain.Firmware
+	if fw == nil {
+		return
+	}
+
+	fw.UUID = ""
+}
+
 func (t *vmRestoreTarget) Reconcile() (bool, error) {
 	log.Log.Object(t.vmRestore).V(3).Info("Reconciling VM")
 
@@ -523,6 +537,8 @@ func (t *vmRestoreTarget) Reconcile() (bool, error) {
 			Spec:   *snapshotVM.Spec.DeepCopy(),
 			Status: kubevirtv1.VirtualMachineStatus{},
 		}
+
+		stripIdentityInfo(newVM)
 	} else {
 		newVM = t.vm.DeepCopy()
 		newVM.Spec = *snapshotVM.Spec.DeepCopy()
