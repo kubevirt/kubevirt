@@ -164,6 +164,10 @@ func BeforeTestCleanup() {
 	libnode.CleanNodes()
 	resetToDefaultConfig()
 	testsuite.EnsureKubevirtInfra()
+	SetupAlpineHostPath()
+}
+
+func SetupAlpineHostPath() {
 	CreateHostPathPv(osAlpineHostPath, testsuite.HostPathAlpine)
 	CreateHostPathPVC(osAlpineHostPath, defaultDiskSize)
 }
