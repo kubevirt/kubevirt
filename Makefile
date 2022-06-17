@@ -189,10 +189,7 @@ format:
 fmt: format
 
 lint:
-	# tests/utils.go is too long already. Don't make it worse.
-	# this is a placeholder for a proper linter.
-	git diff --numstat $$(git merge-base HEAD origin/main) -- tests/utils.go | \
-		awk '{if ($$1-$$2 > 0) {print $$3 " grew longer"; exit 1} }'
+	if [ $$(wc -l < tests/utils.go) -gt 3565 ]; then echo >&2 "do not make tests/utils longer"; exit 1; fi
 
 .PHONY: \
 	build-verify \
