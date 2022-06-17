@@ -809,6 +809,46 @@ var _ = SIGDescribe("VirtualMachineRestore Tests", func() {
 				}
 			})
 
+			// This test is relevant to provisioner which round up the recieved size of
+			// the PVC. Currently we only test vmsnapshot tests which ceph which has this
+			// behavior. In case of running this test with other provisioner or if ceph
+			// will change this behavior it will fail.
+			DescribeTable("should restore a vm with restore size bigger then PVC size", func(restoreToNewVM bool) {
+				vm = tests.NewRandomVMWithDataVolumeAndUserDataInStorageClass(
+					cd.DataVolumeImportUrlForContainerDisk(cd.ContainerDiskCirros),
+					util.NamespaceTestDefault,
+					tests.BashHelloScript,
+					snapshotStorageClass,
+				)
+				quantity, err := resource.ParseQuantity("1528Mi")
+				Expect(err).ToNot(HaveOccurred())
+				vm.Spec.DataVolumeTemplates[0].Spec.PVC.Resources.Requests["storage"] = quantity
+				vm, vmi = createAndStartVM(vm)
+				expectedCapacity, err := resource.ParseQuantity("2Gi")
+				Expect(err).ToNot(HaveOccurred())
+				pvc, err := virtClient.CoreV1().PersistentVolumeClaims(vm.Namespace).Get(context.Background(), vm.Spec.DataVolumeTemplates[0].Name, metav1.GetOptions{})
+				Expect(err).ToNot(HaveOccurred())
+				Expect(pvc.Status.Capacity["storage"]).To(Equal(expectedCapacity))
+
+				doRestore("", console.LoginToCirros, false, 1, getTargetVMName(restoreToNewVM, newVmName))
+
+				content, err := virtClient.VirtualMachineSnapshotContent(vm.Namespace).Get(context.Background(), *snapshot.Status.VirtualMachineSnapshotContentName, metav1.GetOptions{})
+				Expect(err).ToNot(HaveOccurred())
+				Expect(content.Spec.VolumeBackups[0].PersistentVolumeClaim.Spec.Resources.Requests["storage"]).To(Equal(quantity))
+				vs, err := virtClient.KubernetesSnapshotClient().SnapshotV1().VolumeSnapshots(vm.Namespace).Get(context.Background(), *content.Spec.VolumeBackups[0].VolumeSnapshotName, metav1.GetOptions{})
+				Expect(err).ToNot(HaveOccurred())
+				Expect(*vs.Status.RestoreSize).To(Equal(expectedCapacity))
+
+				pvc, err = virtClient.CoreV1().PersistentVolumeClaims(vm.Namespace).Get(context.Background(), restore.Status.Restores[0].PersistentVolumeClaimName, metav1.GetOptions{})
+				Expect(err).ToNot(HaveOccurred())
+				Expect(pvc.Status.Capacity["storage"]).To(Equal(expectedCapacity))
+				Expect(pvc.Spec.Resources.Requests["storage"]).To(Equal(expectedCapacity))
+
+			},
+				Entry("to the same VM", false),
+				Entry("to a new VM", true),
+			)
+
 			DescribeTable("should restore a vm that boots from a datavolumetemplate", func(restoreToNewVM bool) {
 				vm, vmi = createAndStartVM(tests.NewRandomVMWithDataVolumeAndUserDataInStorageClass(
 					cd.DataVolumeImportUrlForContainerDisk(cd.ContainerDiskCirros),
