@@ -137,7 +137,8 @@ var _ = Describe("Application", func() {
 			crInformer,
 			flavorMethods,
 			recorder,
-			virtClient)
+			virtClient,
+			config)
 		app.migrationController = NewMigrationController(services.NewTemplateService("a", 240, "b", "c", "d", "e", "f", "g", pvcInformer.GetStore(), virtClient, config, qemuGid, "h"),
 			vmiInformer,
 			podInformer,

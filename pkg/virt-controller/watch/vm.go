@@ -51,10 +51,12 @@ import (
 	cdiclone "kubevirt.io/containerized-data-importer/pkg/clone"
 	"kubevirt.io/kubevirt/pkg/controller"
 	"kubevirt.io/kubevirt/pkg/flavor"
+	"kubevirt.io/kubevirt/pkg/util"
 	"kubevirt.io/kubevirt/pkg/util/migrations"
 	"kubevirt.io/kubevirt/pkg/util/status"
 	traceUtils "kubevirt.io/kubevirt/pkg/util/trace"
 	typesutil "kubevirt.io/kubevirt/pkg/util/types"
+	virtconfig "kubevirt.io/kubevirt/pkg/virt-config"
 )
 
 const (
@@ -92,7 +94,8 @@ func NewVMController(vmiInformer cache.SharedIndexInformer,
 	crInformer cache.SharedIndexInformer,
 	flavorMethods flavor.Methods,
 	recorder record.EventRecorder,
-	clientset kubecli.KubevirtClient) *VMController {
+	clientset kubecli.KubevirtClient,
+	clusterConfig *virtconfig.ClusterConfig) *VMController {
 
 	proxy := &sarProxy{client: clientset}
 
@@ -112,6 +115,7 @@ func NewVMController(vmiInformer cache.SharedIndexInformer,
 			return cdiclone.CanServiceAccountClonePVC(proxy, pvcNamespace, pvcName, saNamespace, saName)
 		},
 		statusUpdater: status.NewVMStatusUpdater(clientset),
+		clusterConfig: clusterConfig,
 	}
 
 	c.vmInformer.AddEventHandler(cache.ResourceEventHandlerFuncs{
@@ -157,6 +161,7 @@ type VMController struct {
 	dataVolumeExpectations *controller.UIDTrackingControllerExpectations
 	cloneAuthFunc          CloneAuthFunc
 	statusUpdater          *status.VMStatusUpdater
+	clusterConfig          *virtconfig.ClusterConfig
 }
 
 func (c *VMController) Run(threadiness int, stopCh <-chan struct{}) {
@@ -953,6 +958,13 @@ func (c *VMController) startVMI(vm *virtv1.VirtualMachine) error {
 	// add a finalizer to ensure the VM controller has a chance to see
 	// the VMI before it is deleted
 	vmi.Finalizers = append(vmi.Finalizers, virtv1.VirtualMachineControllerFinalizer)
+
+	err = c.clusterConfig.SetVMIDefaultNetworkInterface(vmi)
+	if err != nil {
+		return err
+	}
+
+	util.SetDefaultVolumeDisk(vmi)
 
 	err = c.applyFlavorToVmi(vm, vmi)
 	if err != nil {

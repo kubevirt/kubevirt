@@ -583,7 +583,8 @@ func (vca *VirtControllerApp) initVirtualMachines() {
 		vca.controllerRevisionInformer,
 		flavor.NewMethods(vca.flavorInformer.GetStore(), vca.clusterFlavorInformer.GetStore(), vca.preferenceInformer.GetStore(), vca.clusterPreferenceInformer.GetStore()),
 		recorder,
-		vca.clientSet)
+		vca.clientSet,
+		vca.clusterConfig)
 }
 
 func (vca *VirtControllerApp) initDisruptionBudgetController() {

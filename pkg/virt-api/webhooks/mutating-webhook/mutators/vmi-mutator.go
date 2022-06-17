@@ -87,11 +87,11 @@ func (mutator *VMIsMutator) Mutate(ar *admissionv1.AdmissionReview) *admissionv1
 		mutator.setDefaultResourceRequests(newVMI)
 		mutator.setDefaultGuestCPUTopology(newVMI)
 		mutator.setDefaultPullPoliciesOnContainerDisks(newVMI)
-		err = mutator.setDefaultNetworkInterface(newVMI)
+		err = mutator.ClusterConfig.SetVMIDefaultNetworkInterface(newVMI)
 		if err != nil {
 			return webhookutils.ToAdmissionResponseError(err)
 		}
-		mutator.setDefaultVolumeDisk(newVMI)
+		util.SetDefaultVolumeDisk(newVMI)
 		v1.SetObjectDefaults_VirtualMachineInstance(newVMI)
 
 		// In a future, yet undecided, release either libvirt or QEMU are going to check the hyperv dependencies, so we can get rid of this code.
@@ -200,60 +200,6 @@ func (mutator *VMIsMutator) Mutate(ar *admissionv1.AdmissionReview) *admissionv1
 		Allowed:   true,
 		Patch:     patchBytes,
 		PatchType: &jsonPatchType,
-	}
-}
-
-func (mutator *VMIsMutator) setDefaultNetworkInterface(obj *v1.VirtualMachineInstance) error {
-	autoAttach := obj.Spec.Domain.Devices.AutoattachPodInterface
-	if autoAttach != nil && *autoAttach == false {
-		return nil
-	}
-
-	// Override only when nothing is specified
-	if len(obj.Spec.Networks) == 0 && len(obj.Spec.Domain.Devices.Interfaces) == 0 {
-		iface := v1.NetworkInterfaceType(mutator.ClusterConfig.GetDefaultNetworkInterface())
-		switch iface {
-		case v1.BridgeInterface:
-			if !mutator.ClusterConfig.IsBridgeInterfaceOnPodNetworkEnabled() {
-				return fmt.Errorf("Bridge interface is not enabled in kubevirt-config")
-			}
-			obj.Spec.Domain.Devices.Interfaces = []v1.Interface{*v1.DefaultBridgeNetworkInterface()}
-		case v1.MasqueradeInterface:
-			obj.Spec.Domain.Devices.Interfaces = []v1.Interface{*v1.DefaultMasqueradeNetworkInterface()}
-		case v1.SlirpInterface:
-			if !mutator.ClusterConfig.IsSlirpInterfaceEnabled() {
-				return fmt.Errorf("Slirp interface is not enabled in kubevirt-config")
-			}
-			defaultIface := v1.DefaultSlirpNetworkInterface()
-			obj.Spec.Domain.Devices.Interfaces = []v1.Interface{*defaultIface}
-		}
-
-		obj.Spec.Networks = []v1.Network{*v1.DefaultPodNetwork()}
-	}
-	return nil
-}
-
-func (mutator *VMIsMutator) setDefaultVolumeDisk(obj *v1.VirtualMachineInstance) {
-
-	diskAndFilesystemNames := make(map[string]struct{})
-
-	for _, disk := range obj.Spec.Domain.Devices.Disks {
-		diskAndFilesystemNames[disk.Name] = struct{}{}
-	}
-
-	for _, fs := range obj.Spec.Domain.Devices.Filesystems {
-		diskAndFilesystemNames[fs.Name] = struct{}{}
-	}
-
-	for _, volume := range obj.Spec.Volumes {
-		if _, foundDisk := diskAndFilesystemNames[volume.Name]; !foundDisk {
-			obj.Spec.Domain.Devices.Disks = append(
-				obj.Spec.Domain.Devices.Disks,
-				v1.Disk{
-					Name: volume.Name,
-				},
-			)
-		}
 	}
 }
 
