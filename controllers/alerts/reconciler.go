@@ -4,8 +4,6 @@ import (
 	"context"
 	"fmt"
 	"reflect"
-	"sync"
-	"time"
 
 	"github.com/go-logr/logr"
 	appsv1 "k8s.io/api/apps/v1"
@@ -15,6 +13,8 @@ import (
 	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/utils/pointer"
 	"sigs.k8s.io/controller-runtime/pkg/client"
+
+	"github.com/kubevirt/hyperconverged-cluster-operator/pkg/metrics"
 
 	"github.com/kubevirt/hyperconverged-cluster-operator/controllers/common"
 	hcoutil "github.com/kubevirt/hyperconverged-cluster-operator/pkg/util"
@@ -57,106 +57,75 @@ func NewMonitoringReconciler(ci hcoutil.ClusterInfo, cl client.Client, ee hcouti
 	}
 }
 
-func (r *MonitoringReconciler) Reconcile(ctx context.Context, logger logr.Logger) error {
+func (r *MonitoringReconciler) Reconcile(req *common.HcoRequest) error {
 	if r == nil {
 		return nil
 	}
 
-	if err := reconcileNamespace(ctx, r.client, r.namespace, logger); err != nil {
+	if err := reconcileNamespace(req.Ctx, r.client, r.namespace, req.Logger); err != nil {
 		return err
 	}
-
-	toCtx, cancel := context.WithTimeout(ctx, time.Second*10)
-	defer cancel()
-
-	errorCh := make(chan error)
-	done := make(chan struct{})
-
-	defer close(errorCh)
-	defer close(done)
-
-	wg := &sync.WaitGroup{}
-	wg.Add(len(r.reconcilers))
-	go func(w *sync.WaitGroup) {
-		w.Wait()
-		done <- struct{}{}
-	}(wg)
 
 	objects := make([]client.Object, len(r.reconcilers))
 
 	for i, rc := range r.reconcilers {
-		go func(ctx context.Context, rc MetricReconciler, w *sync.WaitGroup, index int, logger logr.Logger) {
-			defer w.Done()
-
-			obj, err := r.ReconcileOneResource(toCtx, rc, logger)
-			if err != nil {
-				errorCh <- err
-			} else if obj != nil {
-				objects[index] = obj
-			}
-		}(toCtx, rc, wg, i, logger)
-	}
-
-	var err error
-	for {
-		select {
-		case <-toCtx.Done():
-			err = toCtx.Err()
-
-		case <-done:
-			for i := 0; i < len(errorCh); i++ {
-				err = <-errorCh
-			}
-			if err != nil {
-				return err
-			}
-
-			r.latestObjects = objects
-			return nil
-
-		case e := <-errorCh:
-			err = e
+		obj, err := r.ReconcileOneResource(req, rc)
+		if err != nil {
+			return err
+		} else if obj != nil {
+			objects[i] = obj
 		}
 	}
+
+	r.latestObjects = objects
+	return nil
 }
 
-func (r *MonitoringReconciler) ReconcileOneResource(ctx context.Context, reconciler MetricReconciler, logger logr.Logger) (client.Object, error) {
+func (r *MonitoringReconciler) ReconcileOneResource(req *common.HcoRequest, reconciler MetricReconciler) (client.Object, error) {
 	if r == nil {
 		return nil, nil // not initialized (not running on openshift). do nothing
 	}
 
-	logger.V(5).Info(fmt.Sprintf("Reconciling the %s", reconciler.Kind()))
+	req.Logger.V(5).Info(fmt.Sprintf("Reconciling the %s", reconciler.Kind()))
 
 	existing := reconciler.EmptyObject()
 
-	logger.V(5).Info(fmt.Sprintf("Reading the current %s", reconciler.Kind()))
-	err := r.client.Get(ctx, client.ObjectKey{Namespace: r.namespace, Name: reconciler.ResourceName()}, existing)
+	req.Logger.V(5).Info(fmt.Sprintf("Reading the current %s", reconciler.Kind()))
+	err := r.client.Get(req.Ctx, client.ObjectKey{Namespace: r.namespace, Name: reconciler.ResourceName()}, existing)
 
 	if err != nil {
 		if errors.IsNotFound(err) {
-			logger.Info(fmt.Sprintf("Can't find the %s; creating a new one", reconciler.Kind()), "name", reconciler.ResourceName())
+			req.Logger.Info(fmt.Sprintf("Can't find the %s; creating a new one", reconciler.Kind()), "name", reconciler.ResourceName())
 			required := reconciler.GetFullResource()
-			err := r.client.Create(ctx, required)
+			err := r.client.Create(req.Ctx, required)
 			if err != nil {
-				logger.Error(err, fmt.Sprintf("failed to create %s", reconciler.Kind()))
+				req.Logger.Error(err, fmt.Sprintf("failed to create %s", reconciler.Kind()))
 				r.eventEmitter.EmitEvent(nil, corev1.EventTypeWarning, "UnexpectedError", fmt.Sprintf("failed to create the %s %s", reconciler.ResourceName(), reconciler.Kind()))
 				return nil, err
 			}
-			logger.Info(fmt.Sprintf("successfully created the %s", reconciler.Kind()), "name", reconciler.ResourceName())
+			req.Logger.Info(fmt.Sprintf("successfully created the %s", reconciler.Kind()), "name", reconciler.ResourceName())
 			r.eventEmitter.EmitEvent(required, corev1.EventTypeNormal, "Created", fmt.Sprintf("Created %s %s", reconciler.Kind(), reconciler.ResourceName()))
 
 			return required, nil
 		}
 
-		logger.Error(err, "unexpected error while reading the PrometheusRule")
+		req.Logger.Error(err, "unexpected error while reading the PrometheusRule")
 		return nil, err
 	}
 
-	resource, updated, err := reconciler.UpdateExistingResource(ctx, r.client, existing, logger)
+	resource, updated, err := reconciler.UpdateExistingResource(req.Ctx, r.client, existing, req.Logger)
 	if err != nil {
 		r.eventEmitter.EmitEvent(nil, corev1.EventTypeWarning, "UnexpectedError", fmt.Sprintf("failed to update the %s %s", reconciler.ResourceName(), reconciler.Kind()))
 	} else if updated {
-		r.eventEmitter.EmitEvent(nil, corev1.EventTypeNormal, "Updated", fmt.Sprintf("Updated %s %s", reconciler.Kind(), reconciler.ResourceName()))
+		if req.HCOTriggered {
+			r.eventEmitter.EmitEvent(nil, corev1.EventTypeNormal, "Updated", fmt.Sprintf("Updated %s %s", reconciler.Kind(), reconciler.ResourceName()))
+		} else {
+			r.eventEmitter.EmitEvent(req.Instance, corev1.EventTypeWarning, "Overwritten", fmt.Sprintf("Overwritten %s %s", reconciler.Kind(), reconciler.ResourceName()))
+			err := metrics.HcoMetrics.IncOverwrittenModifications(reconciler.Kind(), reconciler.ResourceName())
+			if err != nil {
+				req.Logger.Error(err, "couldn't update 'OverwrittenModifications' metric")
+			}
+		}
 	}
 
 	return resource, err
