@@ -14,6 +14,7 @@
  * limitations under the License.
  *
  * Copyright 2017, 2018 Red Hat, Inc.
+ * Copyright 2022 Intel Corporation.
  *
  */
 
@@ -30,40 +31,25 @@ import (
 	"time"
 
 	"github.com/spf13/pflag"
-	"k8s.io/apimachinery/pkg/types"
-	"libvirt.org/go/libvirt"
 
-	"k8s.io/apimachinery/pkg/util/wait"
 	utilwait "k8s.io/apimachinery/pkg/util/wait"
-	"k8s.io/apimachinery/pkg/watch"
 
-	v1 "kubevirt.io/api/core/v1"
 	"kubevirt.io/client-go/log"
 	cloudinit "kubevirt.io/kubevirt/pkg/cloud-init"
 	"kubevirt.io/kubevirt/pkg/config"
 	containerdisk "kubevirt.io/kubevirt/pkg/container-disk"
 	ephemeraldisk "kubevirt.io/kubevirt/pkg/ephemeral-disk"
-	"kubevirt.io/kubevirt/pkg/hooks"
 	hotplugdisk "kubevirt.io/kubevirt/pkg/hotplug-disk"
 	"kubevirt.io/kubevirt/pkg/ignition"
-	putil "kubevirt.io/kubevirt/pkg/util"
 	cmdclient "kubevirt.io/kubevirt/pkg/virt-handler/cmd-client"
 	virtlauncher "kubevirt.io/kubevirt/pkg/virt-launcher"
 	notifyclient "kubevirt.io/kubevirt/pkg/virt-launcher/notify-client"
 	"kubevirt.io/kubevirt/pkg/virt-launcher/virtwrap"
-	agentpoller "kubevirt.io/kubevirt/pkg/virt-launcher/virtwrap/agent-poller"
-	"kubevirt.io/kubevirt/pkg/virt-launcher/virtwrap/api"
-	virtcli "kubevirt.io/kubevirt/pkg/virt-launcher/virtwrap/cli"
 	cmdserver "kubevirt.io/kubevirt/pkg/virt-launcher/virtwrap/cmd-server"
 	"kubevirt.io/kubevirt/pkg/virt-launcher/virtwrap/util"
 )
 
 const defaultStartTimeout = 3 * time.Minute
-
-func init() {
-	// must registry the event impl before doing anything else.
-	libvirt.EventRegisterDefaultImpl()
-}
 
 func markReady() {
 	err := os.Rename(cmdclient.UninitializedSocketOnGuest(), cmdclient.SocketOnGuest())
@@ -106,51 +92,6 @@ func startCmdServer(socketPath string,
 	}
 
 	return done
-}
-
-func createLibvirtConnection(runWithNonRoot bool) virtcli.Connection {
-	libvirtUri := "qemu:///system"
-	user := ""
-	if runWithNonRoot {
-		user = putil.NonRootUserString
-		libvirtUri = "qemu+unix:///session?socket=/var/run/libvirt/libvirt-sock"
-	}
-
-	domainConn, err := virtcli.NewConnection(libvirtUri, user, "", 10*time.Second)
-	if err != nil {
-		panic(fmt.Sprintf("failed to connect to libvirtd: %v", err))
-	}
-
-	return domainConn
-}
-
-func startDomainEventMonitoring(
-	notifier *notifyclient.Notifier,
-	virtShareDir string,
-	domainConn virtcli.Connection,
-	deleteNotificationSent chan watch.Event,
-	vmi *v1.VirtualMachineInstance,
-	domainName string,
-	agentStore *agentpoller.AsyncAgentStore,
-	qemuAgentSysInterval time.Duration,
-	qemuAgentFileInterval time.Duration,
-	qemuAgentUserInterval time.Duration,
-	qemuAgentVersionInterval time.Duration,
-	qemuAgentFSFreezeStatusInterval time.Duration,
-) {
-	go func() {
-		for {
-			if res := libvirt.EventRunDefaultImpl(); res != nil {
-				log.Log.Reason(res).Error("Listening to libvirt events failed, retrying.")
-				time.Sleep(time.Second)
-			}
-		}
-	}()
-
-	err := notifier.StartDomainNotifier(domainConn, deleteNotificationSent, vmi, domainName, agentStore, qemuAgentSysInterval, qemuAgentFileInterval, qemuAgentUserInterval, qemuAgentVersionInterval, qemuAgentFSFreezeStatusInterval)
-	if err != nil {
-		panic(err)
-	}
 }
 
 func initializeDirs(ephemeralDiskDir string,
@@ -218,131 +159,27 @@ func initializeDirs(ephemeralDiskDir string,
 	}
 }
 
-func detectDomainWithUUID(domainManager virtwrap.DomainManager) *api.Domain {
-	domains, err := domainManager.ListAllDomains()
-	if err != nil {
-		log.Log.Reason(err).Errorf("failed to list domains when detecting UUID")
-		return nil
-	}
-	for _, domain := range domains {
-		if domain.Spec.UUID != "" {
-			return domain
-		}
-	}
-	return nil
-}
-
-func waitForDomainUUID(timeout time.Duration, events chan watch.Event, stop chan struct{}, domainManager virtwrap.DomainManager) *api.Domain {
-
-	ticker := time.NewTicker(timeout).C
-	checkEarlyExit := time.NewTicker(time.Second * 2).C
-	domainCheckTicker := time.NewTicker(time.Second * 10).C
-	for {
-		select {
-		case <-ticker:
-			panic(fmt.Errorf("timed out waiting for domain to be defined"))
-		case <-domainCheckTicker:
-			log.Log.V(3).Infof("Periodically checking for domain with UUID")
-			domain := detectDomainWithUUID(domainManager)
-			if domain != nil {
-				return domain
-			}
-		case <-events:
-			log.Log.V(3).Infof("Checking for domain with UUID due to incoming libvirt event")
-			domain := detectDomainWithUUID(domainManager)
-			if domain != nil {
-				return domain
-			}
-		case <-stop:
-			return nil
-		case <-checkEarlyExit:
-			if cmdserver.ReceivedEarlyExitSignal() {
-				panic(fmt.Errorf("received early exit signal"))
-			}
-		}
-	}
-}
-
-func waitForFinalNotify(deleteNotificationSent chan watch.Event,
-	domainManager virtwrap.DomainManager,
-	vmi *v1.VirtualMachineInstance) {
-
-	log.Log.Info("Waiting on final notifications to be sent to virt-handler.")
-
-	// First attempt to wait for domain event to occur as a part of the normal shutdown flow.
-	// If that fails, call Kill on the domain and wait for the event again.
-	// If that that fails, exit. We did our best to shutdown the domain gracefully. We can't block
-	// the pod forever. Virt-handler will learn of the domain's exit through monitoring cmd server socket.
-
-	killTimeout := time.After(15 * time.Second)
-	timedOut := false
-	for timedOut == false {
-		select {
-		case e := <-deleteNotificationSent:
-			if e.Object != nil && e.Type == watch.Modified {
-				domain, ok := e.Object.(*api.Domain)
-				if ok && domain.ObjectMeta.DeletionTimestamp != nil {
-					log.Log.Info("Final Delete notification sent")
-					return
-				}
-			}
-		case <-killTimeout:
-			log.Log.Info("Timed out waiting for final delete notification. Attempting to kill domain")
-			timedOut = true
-		}
-	}
-
-	// There are many conditions that can cause the qemu pid to exit that
-	// don't involve the VirtualMachineInstance's domain from being deleted from libvirt.
-	//
-	// KillVMI is idempotent. Making a call to KillVMI here ensures that the deletion
-	// occurs regardless if the VirtualMachineInstance crashed unexpectedly or if virt-handler requested
-	// a graceful shutdown.
-	domainManager.KillVMI(vmi)
-
-	// We don't want to block here forever. If the delete does not occur, that could mean
-	// something is wrong with libvirt. In this situation, virt-handler will detect that
-	// the domain went away eventually, however the exit status will be unknown.
-	finalTimeout := time.After(30 * time.Second)
-	for {
-		select {
-		case e := <-deleteNotificationSent:
-			if e.Object != nil && e.Type == watch.Modified {
-				domain, ok := e.Object.(*api.Domain)
-				if ok && domain.ObjectMeta.DeletionTimestamp != nil {
-					log.Log.Info("Final Delete notification sent after calling kill.")
-					return
-				}
-			}
-			return
-		case <-finalTimeout:
-			log.Log.Info("Timed out waiting for final delete notification after calling kill.")
-			return
-		}
-	}
-}
-
 func main() {
-	qemuTimeout := pflag.Duration("qemu-timeout", defaultStartTimeout, "Amount of time to wait for qemu")
+	pflag.Duration("qemu-timeout", defaultStartTimeout, "Amount of time to wait for qemu")
 	virtShareDir := pflag.String("kubevirt-share-dir", "/var/run/kubevirt", "Shared directory between virt-handler and virt-launcher")
 	ephemeralDiskDir := pflag.String("ephemeral-disk-dir", "/var/run/kubevirt-ephemeral-disks", "Base directory for ephemeral disk data")
 	containerDiskDir := pflag.String("container-disk-dir", "/var/run/kubevirt/container-disks", "Base directory for container disk data")
 	hotplugDiskDir := pflag.String("hotplug-disk-dir", "/var/run/kubevirt/hotplug-disks", "Base directory for hotplug disk data")
-	name := pflag.String("name", "", "Name of the VirtualMachineInstance")
+	pflag.String("name", "", "Name of the VirtualMachineInstance")
 	uid := pflag.String("uid", "", "UID of the VirtualMachineInstance")
-	namespace := pflag.String("namespace", "", "Namespace of the VirtualMachineInstance")
-	gracePeriodSeconds := pflag.Int("grace-period-seconds", 30, "Grace period to observe before sending SIGTERM to vmi process")
+	pflag.String("namespace", "", "Namespace of the VirtualMachineInstance")
+	pflag.Int("grace-period-seconds", 30, "Grace period to observe before sending SIGTERM to vmi process")
 	allowEmulation := pflag.Bool("allow-emulation", false, "Allow use of software emulation as fallback")
 	runWithNonRoot := pflag.Bool("run-as-nonroot", false, "Run libvirtd with the 'virt' user")
-	hookSidecars := pflag.Uint("hook-sidecars", 0, "Number of requested hook sidecars, virt-launcher will wait for all of them to become available")
-	ovmfPath := pflag.String("ovmf-path", "/usr/share/OVMF", "The directory that contains the EFI roms (like OVMF_CODE.fd)")
-	qemuAgentSysInterval := pflag.Duration("qemu-agent-sys-interval", 120*time.Second, "Interval between consecutive qemu agent calls for sys commands")
-	qemuAgentFileInterval := pflag.Duration("qemu-agent-file-interval", 300*time.Second, "Interval between consecutive qemu agent calls for file command")
-	qemuAgentUserInterval := pflag.Duration("qemu-agent-user-interval", 10*time.Second, "Interval between consecutive qemu agent calls for user command")
-	qemuAgentVersionInterval := pflag.Duration("qemu-agent-version-interval", 300*time.Second, "Interval between consecutive qemu agent calls for version command")
-	qemuAgentFSFreezeStatusInterval := pflag.Duration("qemu-fsfreeze-status-interval", 5*time.Second, "Interval between consecutive qemu agent calls for fsfreeze status command")
+	pflag.Uint("hook-sidecars", 0, "Number of requested hook sidecars, virt-launcher will wait for all of them to become available")
+	ovmfPath := pflag.String("ovmf-path", "/usr/share/OVMF", "The directory that contains the EFI roms (like CLOUDHV.fd)")
+	pflag.Duration("qemu-agent-sys-interval", 120*time.Second, "Interval between consecutive qemu agent calls for sys commands")
+	pflag.Duration("qemu-agent-file-interval", 300*time.Second, "Interval between consecutive qemu agent calls for file command")
+	pflag.Duration("qemu-agent-user-interval", 10*time.Second, "Interval between consecutive qemu agent calls for user command")
+	pflag.Duration("qemu-agent-version-interval", 300*time.Second, "Interval between consecutive qemu agent calls for version command")
+	pflag.Duration("qemu-fsfreeze-status-interval", 5*time.Second, "Interval between consecutive qemu agent calls for fsfreeze status command")
 	simulateCrash := pflag.Bool("simulate-crash", false, "Causes virt-launcher to immediately crash. This is used by functional tests to simulate crash loop scenarios.")
-	libvirtLogFilters := pflag.String("libvirt-log-filters", "", "Set custom log filters for libvirt")
+	pflag.String("libvirt-log-filters", "", "Set custom log filters for libvirt")
 
 	// set new default verbosity, was set to 0 by glog
 	goflag.Set("v", "2")
@@ -366,15 +203,6 @@ func main() {
 		panic(fmt.Errorf("Simulated virt-launcher crash"))
 	}
 
-	// Block until all requested hookSidecars are ready
-	hookManager := hooks.GetManager()
-	err := hookManager.Collect(*hookSidecars, *qemuTimeout)
-	if err != nil {
-		panic(err)
-	}
-
-	vmi := v1.NewVMIReferenceWithUUID(*namespace, *name, types.UID(*uid))
-
 	// Initialize local and shared directories
 	initializeDirs(*ephemeralDiskDir, *containerDiskDir, *hotplugDiskDir, *uid)
 	ephemeralDiskCreator := ephemeraldisk.NewEphemeralDiskCreator(filepath.Join(*ephemeralDiskDir, "disk-data"))
@@ -382,74 +210,8 @@ func main() {
 		panic(err)
 	}
 
-	// Start libvirtd, virtlogd, and establish libvirt connection
-	stopChan := make(chan struct{})
-
-	l := util.NewLibvirtWrapper(*runWithNonRoot)
-	err = l.SetupLibvirt(libvirtLogFilters)
-	if err != nil {
-		panic(err)
-	}
-
-	l.StartLibvirt(stopChan)
-	// only single domain should be present
-	domainName := api.VMINamespaceKeyFunc(vmi)
-
-	util.StartVirtlog(stopChan, domainName, *runWithNonRoot)
-
-	domainConn := createLibvirtConnection(*runWithNonRoot)
-	defer domainConn.Close()
-
-	var agentStore = agentpoller.NewAsyncAgentStore()
-
 	notifier := notifyclient.NewNotifier(*virtShareDir)
 	defer notifier.Close()
-
-	domainManager, err := virtwrap.NewLibvirtDomainManager(domainConn, *virtShareDir, *ephemeralDiskDir, &agentStore, *ovmfPath, ephemeralDiskCreator)
-	if err != nil {
-		panic(err)
-	}
-
-	// Start the virt-launcher command service.
-	// Clients can use this service to tell virt-launcher
-	// to start/stop virtual machines
-	options := cmdserver.NewServerOptions(*allowEmulation)
-	cmdclient.SetLegacyBaseDir(*virtShareDir)
-	cmdServerDone := startCmdServer(cmdclient.UninitializedSocketOnGuest(), domainManager, stopChan, options)
-
-	gracefulShutdownCallback := func() {
-		err := wait.PollImmediate(time.Second, 15*time.Second, func() (bool, error) {
-			err := domainManager.MarkGracefulShutdownVMI(vmi)
-			if err != nil {
-				log.Log.Reason(err).Errorf("Unable to signal graceful shutdown")
-				return false, err
-			}
-
-			return true, nil
-		})
-
-		if err != nil {
-			log.Log.Reason(err).Errorf("Gave up attempting to signal graceful shutdown")
-		} else {
-			log.Log.Object(vmi).Info("Successfully signaled graceful shutdown")
-		}
-	}
-
-	finalShutdownCallback := func(pid int) {
-		if err := domainManager.KillVMI(vmi); err != nil {
-			log.Log.Reason(err).Errorf("Unable to stop qemu with libvirt")
-			if pid != 0 {
-				log.Log.Warning("Falling back to SIGTERM")
-				if err := syscall.Kill(pid, syscall.SIGTERM); err != nil {
-					log.Log.Reason(err).Errorf("Unable to kill PID %d", pid)
-				}
-			}
-		}
-	}
-
-	events := make(chan watch.Event, 2)
-	// Send domain notifications to virt-handler
-	startDomainEventMonitoring(notifier, *virtShareDir, domainConn, events, vmi, domainName, &agentStore, *qemuAgentSysInterval, *qemuAgentFileInterval, *qemuAgentUserInterval, *qemuAgentVersionInterval, *qemuAgentFSFreezeStatusInterval)
 
 	c := make(chan os.Signal, 1)
 	signal.Notify(c, os.Interrupt,
@@ -466,36 +228,45 @@ func main() {
 		close(signalStopChan)
 	}()
 
+	serverStopChan := make(chan struct{})
+
+	// Start VMM
+	wrapper := util.NewCloudHvWrapper(*runWithNonRoot)
+	apiSocketPath, err := wrapper.CreateCloudHvApiSocket(*virtShareDir)
+	if err != nil {
+		panic(err)
+	}
+
+	if err := wrapper.StartCloudHv(signalStopChan); err != nil {
+		panic(err)
+	}
+
+	domainManager, err := virtwrap.NewCloudHvDomainManager(apiSocketPath, *ephemeralDiskDir, *ovmfPath, ephemeralDiskCreator)
+	if err != nil {
+		panic(err)
+	}
+
+	if err := notifier.StartCloudHvDomainNotifier(wrapper.EventMonitorConn(), domainManager.GetDomain()); err != nil {
+		panic(err)
+	}
+
+	// Start the virt-launcher command service.
+	// Clients can use this service to tell virt-launcher
+	// to start/stop virtual machines
+	options := cmdserver.NewServerOptions(*allowEmulation)
+	cmdclient.SetLegacyBaseDir(*virtShareDir)
+	cmdServerDone := startCmdServer(cmdclient.UninitializedSocketOnGuest(), domainManager, serverStopChan, options)
+
 	// Marking Ready allows the container's readiness check to pass.
 	// This informs virt-controller that virt-launcher is ready to handle
 	// managing virtual machines.
 	markReady()
 
-	domain := waitForDomainUUID(*qemuTimeout, events, signalStopChan, domainManager)
-	if domain != nil {
-		var pidDir string
-		if *runWithNonRoot {
-			pidDir = "/run/libvirt/qemu/run"
-		} else {
-			pidDir = "/run/libvirt/qemu"
-		}
-		mon := virtlauncher.NewProcessMonitor(domainName,
-			pidDir,
-			*gracePeriodSeconds,
-			finalShutdownCallback,
-			gracefulShutdownCallback)
-
-		// This is a wait loop that monitors the qemu pid. When the pid
-		// exits, the wait loop breaks.
-		mon.RunForever(*qemuTimeout, signalStopChan)
-
-		// Now that the pid has exited, we wait for the final delete notification to be
-		// sent back to virt-handler. This delete notification contains the reason the
-		// domain exited.
-		waitForFinalNotify(events, domainManager, vmi)
+	if err := wrapper.WaitCloudHvProcess(); err != nil {
+		panic(err)
 	}
 
-	close(stopChan)
+	close(serverStopChan)
 	<-cmdServerDone
 
 	log.Log.Info("Exiting...")

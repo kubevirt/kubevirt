@@ -67,9 +67,21 @@ func createQCOW(file string, size string) error {
 	return exec.Command("qemu-img", "create", "-f", "qcow2", file, size).Run()
 }
 
+func createRAW(file string, size string) error {
+	// #nosec No risk for attacket injection. Parameters are predefined strings
+	return exec.Command("qemu-img", "create", "-f", "raw", file, size).Run()
+}
+
 func NewEmptyDiskCreator() *emptyDiskCreator {
 	return &emptyDiskCreator{
 		emptyDiskBaseDir: emptyDiskBaseDir,
 		discCreateFunc:   createQCOW,
+	}
+}
+
+func NewEmptyRawDiskCreator() *emptyDiskCreator {
+	return &emptyDiskCreator{
+		emptyDiskBaseDir: emptyDiskBaseDir,
+		discCreateFunc:   createRAW,
 	}
 }

@@ -1,7 +1,10 @@
 package eventsclient
 
 import (
+	"encoding/json"
 	"fmt"
+	"io"
+	"net"
 	"path/filepath"
 	"sync"
 	"time"
@@ -13,7 +16,6 @@ import (
 
 	k8sv1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
-	"k8s.io/apimachinery/pkg/util/json"
 	utilwait "k8s.io/apimachinery/pkg/util/wait"
 	"k8s.io/apimachinery/pkg/watch"
 	"k8s.io/client-go/tools/reference"
@@ -134,6 +136,7 @@ func (n *Notifier) detectSocketPath() string {
 func (n *Notifier) connect() error {
 	if n.conn != nil {
 		// already connected
+		log.Log.Info("Notifier already connected")
 		return nil
 	}
 
@@ -578,4 +581,61 @@ func (n *Notifier) Close() {
 	defer n.connLock.Unlock()
 	n._close()
 
+}
+
+func (n *Notifier) StartCloudHvDomainNotifier(eventMonitorConn net.Conn, domain *api.Domain) error {
+	go func() {
+		type CloudHvEvent struct {
+			Source, Event string
+		}
+		decoder := json.NewDecoder(eventMonitorConn)
+		for {
+			var event CloudHvEvent
+
+			if err := decoder.Decode(&event); err == io.EOF {
+				// Connection has been shutdown
+				log.Log.Error("Event monitor connection has been shutdown")
+				return
+			} else if err != nil {
+				log.Log.Reason(err).Error("Could not decode Cloud Hypervisor event")
+				return
+			}
+
+			log.Log.Infof("Event monitor received {source: %s, event: %s}", event.Source, event.Event)
+
+			var watchEvent watch.Event
+			switch event.Source {
+			case "vm":
+				switch event.Event {
+				case "booted":
+					domain.Status.Status = api.Running
+					domain.Status.Reason = api.ReasonUnknown
+					watchEvent = watch.Event{Type: watch.Added, Object: domain}
+				case "paused":
+					domain.Status.Status = api.Paused
+					domain.Status.Reason = api.ReasonPausedUser
+					watchEvent = watch.Event{Type: watch.Modified, Object: domain}
+				case "resumed":
+					domain.Status.Status = api.Running
+					domain.Status.Reason = api.ReasonUnknown
+					watchEvent = watch.Event{Type: watch.Modified, Object: domain}
+				case "shutdown":
+					domain.Status.Status = api.Shutdown
+					domain.Status.Reason = api.ReasonUnknown
+					watchEvent = watch.Event{Type: watch.Deleted, Object: domain}
+				default:
+					continue
+				}
+			default:
+				continue
+			}
+
+			if err := n.SendDomainEvent(watchEvent); err != nil {
+				log.Log.Reason(err).Error("Could not send domain event")
+				return
+			}
+		}
+	}()
+
+	return nil
 }

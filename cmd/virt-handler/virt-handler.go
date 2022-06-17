@@ -452,7 +452,8 @@ func (app *virtHandlerApp) Run() {
 
 // Update virt-handler log verbosity on relevant config changes
 func (app *virtHandlerApp) shouldChangeLogVerbosity() {
-	verbosity := app.clusterConfig.GetVirtHandlerVerbosity(app.HostOverride)
+	//verbosity := app.clusterConfig.GetVirtHandlerVerbosity(app.HostOverride)
+	verbosity := 3
 	log.Log.SetVerbosityLevel(int(verbosity))
 	log.Log.V(2).Infof("set verbosity to %d", verbosity)
 }

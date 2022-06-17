@@ -389,6 +389,24 @@ http_file(
     ],
 )
 
+http_file(
+    name = "cloud-hypervisor_binary",
+    downloaded_file_path = "cloud-hypervisor",
+    executable = True,
+    urls = [
+        "https://github.com/cloud-hypervisor/cloud-hypervisor/releases/download/v25.0/cloud-hypervisor-static",
+    ],
+)
+
+http_file(
+    name = "cloudhv_fw",
+    downloaded_file_path = "CLOUDHV.fd",
+    sha256 = "db1817305eeb9aae659ca243f145aeda8f5602f145b842f467abb64aae51e8d7",
+    urls = [
+        "https://github.com/cloud-hypervisor/edk2/releases/download/ch-482f50252d/CLOUDHV.fd",
+    ],
+)
+
 # Get container-disk-v1alpha RPM's
 http_file(
     name = "qemu-img",

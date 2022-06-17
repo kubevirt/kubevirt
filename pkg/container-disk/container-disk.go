@@ -22,6 +22,7 @@ package containerdisk
 import (
 	"fmt"
 	"os"
+	"os/exec"
 	"path"
 	"path/filepath"
 	"regexp"
@@ -111,6 +112,10 @@ func GetDiskTargetPathFromHostView(vmi *v1.VirtualMachineInstance, volumeIndex i
 
 func GetDiskTargetPathFromLauncherView(volumeIndex int) string {
 	return filepath.Join(mountBaseDir, fmt.Sprintf("disk_%d.img", volumeIndex))
+}
+
+func GetRawDiskTargetPathFromLauncherView(volumeIndex int) string {
+	return filepath.Join(mountBaseDir, fmt.Sprintf("disk_%d.raw", volumeIndex))
 }
 
 func GetKernelBootArtifactPathFromLauncherView(artifact string) string {
@@ -357,6 +362,39 @@ func CreateEphemeralImages(
 			if backingFile, err := GetDiskTargetPartFromLauncherView(i); err != nil {
 				return err
 			} else if err := diskCreator.CreateBackedImageForVolume(volume, backingFile, info.Format); err != nil {
+				return err
+			}
+		}
+	}
+
+	return nil
+}
+
+func CreateRawEphemeralImages(
+	vmi *v1.VirtualMachineInstance,
+) error {
+	// The domain is setup to use a RAW version of the base image. What we
+	// have to do here is only convert the base image for each volume that
+	// requires it.
+	for i, volume := range vmi.Spec.Volumes {
+		if volume.VolumeSource.ContainerDisk != nil {
+			baseImage, err := GetDiskTargetPartFromLauncherView(i)
+			if err != nil {
+				return err
+			}
+
+			rawImage := GetRawDiskTargetPathFromLauncherView(i)
+
+			// #nosec No risk for attacket injection. Parameters are predefined strings
+			cmd := exec.Command("qemu-img",
+				"convert",
+				"-O",
+				"raw",
+				baseImage,
+				rawImage,
+			)
+
+			if _, err := cmd.CombinedOutput(); err != nil {
 				return err
 			}
 		}
