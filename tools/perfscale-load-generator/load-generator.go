@@ -22,6 +22,8 @@ package main
 import (
 	"time"
 
+	"github.com/google/uuid"
+
 	"kubevirt.io/client-go/log"
 	"kubevirt.io/kubevirt/tools/perfscale-load-generator/api"
 	"kubevirt.io/kubevirt/tools/perfscale-load-generator/burst"
@@ -45,21 +47,24 @@ func main() {
 		workload.Timeout.Duration = config.Timeout
 	}
 
+	testUUID := uuid.New().String()
+
 	var lg api.LoadGenerator
 	timeout := time.After(workload.Timeout.Duration)
 	if workload.Type == "burst" {
-		lg = &burst.BurstLoadGenerator{Done: timeout}
+		lg = &burst.BurstLoadGenerator{Done: timeout, UUID: testUUID}
 	} else if workload.Type == "steady-state" {
-		lg = &steadyState.SteadyStateLoadGenerator{Done: timeout}
+		lg = &steadyState.SteadyStateLoadGenerator{Done: timeout, UUID: testUUID}
 	} else {
 		log.Log.V(1).Errorf("Load Generator doesn't have type %s", workload.Type)
 		return
 	}
 
+	if flags.Run {
+		lg.Run(client, workload)
+	}
 	if flags.Delete {
 		lg.Delete(client, workload)
-	} else {
-		lg.Run(client, workload)
 	}
 	return
 }

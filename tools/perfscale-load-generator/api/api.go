@@ -32,8 +32,8 @@ type LoadGenerator interface {
 }
 
 type Job interface {
-	CreateWorkload()
-	DeleteWorkload()
+	CreateWorkloads()
+	DeleteWorkloads()
 	Watch(*unstructured.Unstructured, bool)
 	Wait()
 }

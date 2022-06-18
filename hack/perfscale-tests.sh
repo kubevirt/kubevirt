@@ -35,9 +35,17 @@ export AUDIT_RESULTS=${ARTIFACTS}/perfscale-audit-results.json
 rm -rf $ARTIFACTS
 mkdir -p $ARTIFACTS
 
+# in kubevirt CI/CD the node we run the job is on a different cluster, so time is not synced across all nodes
+# as a workaround, we collect the timestamps by making a prometheus query, so we can use the exact time that prometheus is using
+function get_timestamp() {
+    curr_timestamp=$(curl -fs --data-urlencode 'query=container_cpu_usage_seconds_total{pod!="",container="prometheus"}' http://localhost:9090/api/v1/query | jq -r '.data.result[0] | .value[0]')
+    date -u +%Y-%m-%dT%TZ -d @$curr_timestamp
+}
+
 function perftest() {
     _out/cmd/perfscale-load-generator/perfscale-load-generator \
         -v 6 \
+        -delete \
         -workload ${PERFSCALE_WORKLOAD}
 }
 
@@ -63,22 +71,25 @@ if [[ ${PERFAUDIT} == "true" || ${PERFAUDIT} == "True" ]]; then
     export PERFSCALE_WORKLOAD=$_perfscale_workload_warmup
     # run small test to warm up the system and be able to collect metrics
     perftest ${additional_test_args} ${FUNC_TEST_ARGS}
-    # wait 30 before running the test to let prometheus scrape metrics
-    echo "Sleeping 30 to let prometheus scrape all metrics"
-    sleep 30
     export PERFSCALE_WORKLOAD=$_perfscale_workload_tmp
 fi
 
-start_timestamp=$(date -u +%Y-%m-%dT%TZ)
+start_timestamp=$(get_timestamp)
+# wait 30 before running the test to let prometheus scrape metrics
+echo "Sleeping 30 to let prometheus scrape all metrics"
+sleep 30
 # run the test
-perftest ${additional_test_args} ${FUNC_TEST_ARGS}
+time perftest ${additional_test_args} ${FUNC_TEST_ARGS}
+stop_timestamp=$(get_timestamp)
 
 # run audit tool to dump metrics
 if [[ ${PERFAUDIT} == "true" || ${PERFAUDIT} == "True" ]]; then
-    # wait 180s after finished the test. More info in https://github.com/kubevirt/kubevirt/issues/7083
-    stop=$(date -u +%Y-%m-%dT%TZ)
-    echo "Sleeping 180s to let prometheus scrape all metrics"
-    sleep 180s
-    stop_timestamp=$(date -u +%Y-%m-%dT%TZ)
+    # wait 30s after finished the test. More info in https://github.com/kubevirt/kubevirt/issues/7083
+    echo "Sleeping 30s to let prometheus scrape all metrics"
+    sleep 30s
+    stop_timestamp=$(get_timestamp)
     perfaudit $start_timestamp $stop_timestamp
 fi
+
+echo "start_timestamp= $start_timestamp"
+echo "stop_timestamp= $stop_timestamp"

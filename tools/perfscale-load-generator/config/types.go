@@ -22,6 +22,7 @@ package config
 import (
 	"encoding/json"
 	"errors"
+	"os"
 	"time"
 )
 
@@ -33,15 +34,26 @@ const (
 
 // Default config values
 const (
-	// WorkloadLabel identifies all namespaces and objects created within the workload
-	WorkloadLabel   = "kubevirt-load-generator-workload"
-	Type            = "burst"
-	ContainerPrefix = "registry:5000/kubevirt"
-	ContainerTag    = "devel"
-	Timeout         = time.Duration(5 * time.Minute)
+	// WorkloadUUIDLabel identifies all namespaces and objects created within the workload
+	WorkloadUUIDLabel = "kubevirt-load-generator-workload"
+	Type              = "burst"
+
+	Timeout = time.Duration(5 * time.Minute)
 )
 
-//type Duration time.Duration
+var (
+	ContainerPrefix = "registry:5000/kubevirt"
+	ContainerTag    = "devel"
+)
+
+func init() {
+	if dockerPrefixEnv := os.Getenv("DOCKER_PREFIX"); dockerPrefixEnv != "" {
+		ContainerPrefix = dockerPrefixEnv
+	}
+	if dockerTagEnv := os.Getenv("DOCKER_TAG"); dockerTagEnv != "" {
+		ContainerTag = dockerTagEnv
+	}
+}
 
 type Duration struct {
 	time.Duration

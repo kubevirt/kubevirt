@@ -90,13 +90,4 @@ if [[ (${PERFAUDIT} == "true" || ${PERFAUDIT} == "True") && ${KUBEVIRT_PROVIDER}
   _prometheus_port_forward_pid=$1
 fi
 
-# Tests use the kubevirt-density namespace by default
-kubectl create ns kubevirt-density
-
-# Run performance tests
 ./hack/perfscale-tests.sh
-
-# Undeploy kubevirt from the cluster
-make cluster-clean
-
-kubectl delete ns kubevirt-density

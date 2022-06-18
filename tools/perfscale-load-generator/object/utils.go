@@ -20,9 +20,14 @@
 package object
 
 import (
+	"fmt"
 	"strings"
 
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
+
+	"kubevirt.io/client-go/kubecli"
+	"kubevirt.io/client-go/log"
+	"kubevirt.io/kubevirt/tools/perfscale-load-generator/config"
 )
 
 const (
@@ -44,4 +49,32 @@ func GetObjectResource(obj *unstructured.Unstructured) string {
 	default:
 		return res
 	}
+}
+
+// CreateObjectReplicaSpec returns the last created object to provies information for wait and delete the objects
+func CreateObjectReplicaSpec(obj *config.ObjectSpec, objIdx *int, uuid string) (*unstructured.Unstructured, error) {
+	var err error
+	var newObject *unstructured.Unstructured
+	templateData := GenerateObjectTemplateData(obj, *objIdx)
+	if newObject, err = RenderObject(templateData, obj.ObjectTemplate); err != nil {
+		return nil, fmt.Errorf("error rendering obj: %v", err)
+	}
+	*objIdx += 1
+	config.AddLabels(newObject, uuid)
+	return newObject, err
+}
+
+func CreateObjectReplica(client kubecli.KubevirtClient, objSpec *config.ObjectSpec, objIdx *int, uuid string) (*unstructured.Unstructured, error) {
+	var err error
+	var obj *unstructured.Unstructured
+	if obj, err = CreateObjectReplicaSpec(objSpec, objIdx, uuid); err != nil {
+		return nil, err
+	}
+
+	var newObject *unstructured.Unstructured
+	if newObject, err := CreateObject(client, obj); err != nil {
+		log.Log.Errorf("error creating obj %s: %v", newObject.GroupVersionKind().Kind, err)
+		return nil, err
+	}
+	return newObject, nil
 }

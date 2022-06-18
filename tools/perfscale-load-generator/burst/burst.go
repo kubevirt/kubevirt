@@ -20,22 +20,21 @@
 package burst
 
 import (
-	"sync"
 	"time"
 
-	"github.com/google/uuid"
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
 
 	"kubevirt.io/client-go/kubecli"
 	"kubevirt.io/client-go/log"
 	"kubevirt.io/kubevirt/tools/perfscale-load-generator/config"
+	"kubevirt.io/kubevirt/tools/perfscale-load-generator/flags"
 	objUtil "kubevirt.io/kubevirt/tools/perfscale-load-generator/object"
-	"kubevirt.io/kubevirt/tools/perfscale-load-generator/utils"
 	"kubevirt.io/kubevirt/tools/perfscale-load-generator/watcher"
 )
 
 type BurstLoadGenerator struct {
 	Done <-chan time.Time
+	UUID string
 }
 
 type BurstJob struct {
@@ -44,104 +43,116 @@ type BurstJob struct {
 	UUID       string
 	objType    string
 	done       <-chan time.Time
+	watchers   map[string]*watcher.ObjListWatcher
 }
 
 // NewBurstJob
-func newBurstJob(virtClient kubecli.KubevirtClient, workload *config.Workload, d <-chan time.Time) *BurstJob {
-	uid, _ := uuid.NewUUID()
+func newBurstJob(virtClient kubecli.KubevirtClient, workload *config.Workload, uuid string, d <-chan time.Time) *BurstJob {
 	return &BurstJob{
 		virtClient: virtClient,
 		Workload:   workload,
-		UUID:       uid.String(),
+		UUID:       uuid,
 		done:       d,
+		watchers:   map[string]*watcher.ObjListWatcher{},
 	}
 }
 
 func (b *BurstLoadGenerator) Delete(virtClient kubecli.KubevirtClient, workload *config.Workload) {
-	j := newBurstJob(virtClient, workload, b.Done)
-	j.DeleteWorkload()
+	j := newBurstJob(virtClient, workload, b.UUID, b.Done)
+	j.DeleteWorkloads()
+	j.stopAllWatchers()
 }
 
 func (b *BurstLoadGenerator) Run(virtClient kubecli.KubevirtClient, workload *config.Workload) {
-	j := newBurstJob(virtClient, workload, b.Done)
-	j.CreateWorkload()
+	j := newBurstJob(virtClient, workload, b.UUID, b.Done)
+	j.CreateWorkloads()
+	// only stop watchers if the test will not delete the objs, otherwise the watchers will watch for the obj deletions
+	if !flags.Delete {
+		j.stopAllWatchers()
+	}
 }
 
-func (b *BurstJob) CreateWorkload() {
-	log.Log.V(1).Infof("Burst Load Generator CreateWorkload")
+func (b *BurstJob) CreateWorkloads() {
+	log.Log.V(1).Infof("Burst Load Generator CreateWorkloads")
 
-	var wg sync.WaitGroup
-	obj := b.Workload.Object
-	for replica := 1; replica <= b.Workload.Count; replica++ {
-		select {
-		case <-b.done:
-			log.Log.V(1).Infof("Burst Load Generator duration has timed out")
-			return
-		default:
-		}
+	// The watcher must be created before to be able to watch all events related to the objs.
+	// This is important because before creating each obj we need to create a obj watcher for each obj type.
+	objSpec := b.Workload.Object
+	objSample := renderObjSpecTemplate(objSpec, b.UUID)
+	b.createWatcherIfNotExist(objSample)
+	objUtil.CreateNamespaceIfNotExist(b.virtClient, objSample.GetNamespace(), config.WorkloadUUIDLabel, b.UUID)
 
-		log.Log.V(2).Infof("Replica %d of %d", replica, b.Workload.Count)
-		newObject, err := utils.Create(b.virtClient, replica, obj, b.UUID)
+	// Create all replicas
+	for r := 1; r <= b.Workload.Count; r++ {
+		log.Log.V(2).Infof("Replica %d of %d", r, b.Workload.Count)
+		idx := r
+		_, err := objUtil.CreateObjectReplica(b.virtClient, objSpec, &idx, b.UUID)
 		if err != nil {
 			continue
 		}
-		if b.objType == "" {
-			b.objType = objUtil.GetObjectResource(newObject)
-		}
-
-		wg.Add(1)
-		go func(newObject *unstructured.Unstructured) {
-			defer wg.Done()
-			b.watchCreate(newObject)
-			log.Log.Infof("obj %s is available", newObject.GroupVersionKind().Kind)
-		}(newObject)
 	}
-	wg.Wait()
+
+	// Wait all objects be Running
+	for objType, objWatcher := range b.watchers {
+		log.Log.Infof("Wait for obj(s) %s to be available", objType)
+		objWatcher.WaitRunning(b.Workload.Timeout.Duration)
+	}
 }
 
-func (b *BurstJob) DeleteWorkload() {
-	log.Log.V(1).Infof("Burst Load Generator DeleteWorkload")
+func (b *BurstJob) DeleteWorkloads() {
+	log.Log.V(1).Infof("Burst Load Generator DeleteWorkloads")
+	objSpec := b.Workload.Object
+	objSample := renderObjSpecTemplate(objSpec, b.UUID)
+	b.createWatcherIfNotExist(objSample)
 
-	obj := b.Workload.Object
-	getObject, objType := objUtil.FindObject(b.virtClient, obj, b.Workload.Count)
-	b.objType = objType
-	if getObject != nil {
-		labels := getObject.GetLabels()
-		jobUUID := labels[config.WorkloadLabel]
-		log.Log.V(2).Infof("Deleting all workloads for job %s", jobUUID)
-		objUtil.DeleteAllObjectsInNamespaces(b.virtClient, objType, config.GetListOpts(config.WorkloadLabel, jobUUID))
-		b.watchDelete(getObject)
+	// Delete objects that match labels up to the count
+	objType := objUtil.GetObjectResource(objSample)
+	labels := objSample.GetLabels()
+	jobUUID := labels[config.WorkloadUUIDLabel]
+	log.Log.V(2).Infof("Deleting %d objects for job %s", b.Workload.Count, jobUUID)
+	objUtil.DeleteNObjectsInNamespaces(b.virtClient, objType, config.GetListOpts(config.WorkloadUUIDLabel, jobUUID), b.Workload.Count)
+
+	// Wait all objects be Deleted. In the case of VMI, deleted means the succeded phase.
+	for objType, objWatcher := range b.watchers {
+		log.Log.Infof("Wait for obj(s) %s to be deleted", objType)
+		objWatcher.WaitDeletion(b.Workload.Timeout.Duration)
 	}
+
 	log.Log.V(2).Infof("All workloads for job have been deleted")
 }
 
-func (b *BurstJob) watchDelete(obj *unstructured.Unstructured) {
-	objWatcher := watcher.NewObjListWatcher(
-		b.virtClient,
-		b.objType,
-		b.Workload.Count,
-		*config.GetListOpts(config.WorkloadLabel, b.UUID))
-	objWatcher.Run()
-
-	log.Log.Infof("Wait for obj(s) %s to be deleted", b.objType)
-	objWatcher.WaitDeletion(b.Workload.Timeout.Duration)
-	objWatcher.Stop()
-}
-
-func (b *BurstJob) watchCreate(obj *unstructured.Unstructured) {
-	objWatcher := watcher.NewObjListWatcher(
-		b.virtClient,
-		b.objType,
-		b.Workload.Count,
-		*config.GetListOpts(config.WorkloadLabel, b.UUID))
-	objWatcher.Run()
-
-	log.Log.Infof("Wait for obj(s) %s to be available", b.objType)
-	objWatcher.WaitRunning(b.Workload.Timeout.Duration)
-	objWatcher.Stop()
+func (b *BurstJob) createWatcherIfNotExist(obj *unstructured.Unstructured) {
+	objType := objUtil.GetObjectResource(obj)
+	if _, exist := b.watchers[objType]; !exist {
+		objWatcher := watcher.NewObjListWatcher(
+			b.virtClient,
+			objType,
+			b.Workload.Count,
+			*config.GetListOpts(config.WorkloadUUIDLabel, b.UUID))
+		objWatcher.Run()
+		b.watchers[objType] = objWatcher
+	}
 }
 
 func (b *BurstJob) Wait() {
 	log.Log.V(1).Infof("Burst Load Generator Wait")
 	return
+}
+
+func (b *BurstJob) stopAllWatchers() {
+	for objType, objWatcher := range b.watchers {
+		log.Log.Infof("Stopping obj %s watcher", objType)
+		objWatcher.Stop()
+	}
+}
+
+// Render objSpec template to be able to parse a sample of the object info
+func renderObjSpecTemplate(objSpec *config.ObjectSpec, uuid string) *unstructured.Unstructured {
+	var err error
+	var obj *unstructured.Unstructured
+	idx := 0
+	if obj, err = objUtil.CreateObjectReplicaSpec(objSpec, &idx, uuid); err != nil {
+		panic(err)
+	}
+	return obj
 }

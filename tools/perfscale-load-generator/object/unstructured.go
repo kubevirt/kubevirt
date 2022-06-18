@@ -29,7 +29,6 @@ import (
 
 	"kubevirt.io/client-go/kubecli"
 	"kubevirt.io/client-go/log"
-	"kubevirt.io/kubevirt/tools/perfscale-load-generator/config"
 )
 
 func CreateObject(virtCli kubecli.KubevirtClient, obj *unstructured.Unstructured) (*unstructured.Unstructured, error) {
@@ -65,49 +64,27 @@ func ListObjects(virtCli kubecli.KubevirtClient, resourceKind string, listOpts *
 		Do(context.Background()).
 		Into(result)
 	if err != nil {
-		log.Log.V(3).Infof("error LISTing obj(s) %s", resourceKind)
+		log.Log.V(3).Infof("error listing obj(s) %s, err: %v", resourceKind, err)
 		return nil, err
 	}
 	return result, err
 }
 
-func FindObject(virtCli kubecli.KubevirtClient, obj *config.ObjectSpec, count int) (*unstructured.Unstructured, string) {
-	result := &unstructured.Unstructured{}
-	for replica := 1; replica <= count; replica++ {
-		templateData := GenerateObjectTemplateData(obj, replica)
-		newObject, err := RenderObject(templateData, obj.ObjectTemplate)
-		objType := GetObjectResource(newObject)
-		if err != nil {
-			log.Log.Errorf("error rendering obj: %v", err)
-		}
-		err = virtCli.RestClient().Get().
-			Namespace(newObject.GetNamespace()).
-			Name(newObject.GetName()).
-			Resource(objType).
-			Do(context.Background()).
-			Into(result)
-		if err != nil {
-			log.Log.V(3).Errorf("Error matching object %s/%s", newObject.GetNamespace(), newObject.GetName())
-		} else if result != nil {
-			log.Log.V(3).Infof("Found matching object %s/%s", newObject.GetNamespace(), newObject.GetName())
-			return result, objType
-		}
-		log.Log.V(3).Infof("Searching for matching object %s/%s to scrape job label", newObject.GetNamespace(), newObject.GetName())
-	}
-	log.Log.V(2).Infof("Didn't find any matching objects. The previous job had already been cleaned up")
-	return nil, ""
-}
-
-// DeleteAllObjectsInNamespaces deletes a collection of objects in a set of namespace with a given selector
-func DeleteAllObjectsInNamespaces(virtCli kubecli.KubevirtClient, resourceKind string, listOpts *metav1.ListOptions) {
+// DeleteNObjectsInNamespaces deletes n objects in a set of namespace with a given selector.
+// This is used to create churn in the steady state test
+func DeleteNObjectsInNamespaces(virtCli kubecli.KubevirtClient, resourceKind string, listOpts *metav1.ListOptions, n int) {
 	gracePeriod := int64(0)
+
 	result, err := ListObjects(virtCli, resourceKind, listOpts, "")
 	if err != nil {
 		return
 	}
 
 	log.Log.V(3).Infof("Number of %s to delete: %d", resourceKind, len(result.Items))
-	for _, item := range result.Items {
+	for i, item := range result.Items {
+		if i > n {
+			return
+		}
 		log.Log.V(3).Infof("Deleting obj %s", item.GetName())
 		DeleteObject(virtCli, item, resourceKind, gracePeriod)
 	}
