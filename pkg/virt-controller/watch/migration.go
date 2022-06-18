@@ -1052,9 +1052,11 @@ func (c *MigrationController) sync(key string, migration *virtv1.VirtualMachineI
 				// will be marked as failed too.
 				return nil
 			}
-			if c.clusterConfig.NonRootEnabled() && util.CanBeNonRoot(vmi) == nil {
-				patches := []string{}
 
+			var patches []string
+			if c.clusterConfig.NonRootEnabled() && util.CanBeNonRoot(vmi) == nil {
+				// The cluster is configured for non-root VMs, ensure the VMI is non-root.
+				// If the VMI is root, the migration will be a root -> non-root migration.
 				if vmi.Status.RuntimeUser != util.NonRootUID {
 					patches = append(patches, fmt.Sprintf(`{ "op": "replace", "path": "/status/runtimeUser", "value": %d }`, util.NonRootUID))
 				}
@@ -1064,18 +1066,27 @@ func (c *MigrationController) sync(key string, migration *virtv1.VirtualMachineI
 					patches = append(patches, fmt.Sprintf(`{ "op": "add", "path": "/metadata/annotations", "value":  { "%s": "true"} }`, virtv1.DeprecatedNonRootVMIAnnotation))
 				} else if _, ok := vmi.Annotations[virtv1.DeprecatedNonRootVMIAnnotation]; !ok {
 					patches = append(patches, fmt.Sprintf(`{ "op": "add", "path": "/metadata/annotations/%s", "value": "true"}`, controller.EscapeJSONPointer(virtv1.DeprecatedNonRootVMIAnnotation)))
-
+				}
+			} else {
+				// The cluster is configured for root VMs, ensure the VMI is root.
+				// If the VMI is non-root, the migration will be a non-root -> root migration.
+				if vmi.Status.RuntimeUser != util.RootUser {
+					patches = append(patches, fmt.Sprintf(`{ "op": "replace", "path": "/status/runtimeUser", "value": %d }`, util.RootUser))
 				}
 
-				if len(patches) != 0 {
-					vmi, err = c.clientset.VirtualMachineInstance(vmi.Namespace).Patch(vmi.Name, types.JSONPatchType, controller.GeneratePatchBytes(patches), &v1.PatchOptions{})
-					if err != nil {
-						return fmt.Errorf("failed to mark VMI as nonroot: %v", err)
-
+				if vmi.Annotations != nil {
+					if _, ok := vmi.Annotations[virtv1.DeprecatedNonRootVMIAnnotation]; ok {
+						patches = append(patches, fmt.Sprintf(`{ "op": "remove", "path": "/metadata/annotations/%s"}`, controller.EscapeJSONPointer(virtv1.DeprecatedNonRootVMIAnnotation)))
 					}
 				}
-
 			}
+			if len(patches) != 0 {
+				vmi, err = c.clientset.VirtualMachineInstance(vmi.Namespace).Patch(vmi.Name, types.JSONPatchType, controller.GeneratePatchBytes(patches), &v1.PatchOptions{})
+				if err != nil {
+					return fmt.Errorf("failed to set VMI RuntimeUser: %v", err)
+				}
+			}
+
 			return c.handleTargetPodCreation(key, migration, vmi, sourcePod)
 		} else if isPodReady(pod) {
 			if controller.VMIHasHotplugVolumes(vmi) {
