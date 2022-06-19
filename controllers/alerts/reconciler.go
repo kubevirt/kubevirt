@@ -120,7 +120,7 @@ func (r *MonitoringReconciler) ReconcileOneResource(req *common.HcoRequest, reco
 		if req.HCOTriggered {
 			r.eventEmitter.EmitEvent(nil, corev1.EventTypeNormal, "Updated", fmt.Sprintf("Updated %s %s", reconciler.Kind(), reconciler.ResourceName()))
 		} else {
-			r.eventEmitter.EmitEvent(req.Instance, corev1.EventTypeWarning, "Overwritten", fmt.Sprintf("Overwritten %s %s", reconciler.Kind(), reconciler.ResourceName()))
+			r.eventEmitter.EmitEvent(nil, corev1.EventTypeWarning, "Overwritten", fmt.Sprintf("Overwritten %s %s", reconciler.Kind(), reconciler.ResourceName()))
 			err := metrics.HcoMetrics.IncOverwrittenModifications(reconciler.Kind(), reconciler.ResourceName())
 			if err != nil {
 				req.Logger.Error(err, "couldn't update 'OverwrittenModifications' metric")

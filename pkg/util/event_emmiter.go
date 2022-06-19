@@ -1,6 +1,8 @@
 package util
 
 import (
+	"reflect"
+
 	csvv1alpha1 "github.com/operator-framework/api/pkg/operators/v1alpha1"
 	corev1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/runtime"
@@ -37,7 +39,9 @@ func (ee eventEmitter) EmitEvent(object runtime.Object, eventType, reason, msg s
 		ee.recorder.Event(ee.pod, eventType, reason, msg)
 	}
 
-	if object != nil {
+	// checking object != nil does not work because object is an interface, and nil interface instance is not nil.
+	// We need to check that it's actually nil, using reflection.
+	if t := reflect.ValueOf(object); t.Kind() != reflect.Pointer || !t.IsNil() {
 		ee.recorder.Event(object, eventType, reason, msg)
 	}
 
