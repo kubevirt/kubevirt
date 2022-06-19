@@ -24,9 +24,10 @@ func GetPodByVirtualMachineInstance(vmi *v1.VirtualMachineInstance, namespace st
 	}
 
 	var controlledPod *k8sv1.Pod
-	for _, pod := range pods.Items {
-		if controller.IsControlledBy(&pod, vmi) {
-			controlledPod = &pod
+	for podIndex := range pods.Items {
+		pod := &pods.Items[podIndex]
+		if controller.IsControlledBy(pod, vmi) {
+			controlledPod = pod
 			break
 		}
 	}
