@@ -43,6 +43,21 @@ import (
 	"kubevirt.io/kubevirt/pkg/virt-handler/node-labeller/util"
 )
 
+var nodeLabellerLabels = []string{
+	util.DeprecatedLabelNamespace + util.DeprecatedcpuModelPrefix,
+	util.DeprecatedLabelNamespace + util.DeprecatedcpuFeaturePrefix,
+	util.DeprecatedLabelNamespace + util.DeprecatedHyperPrefix,
+	kubevirtv1.CPUFeatureLabel,
+	kubevirtv1.CPUModelLabel,
+	kubevirtv1.SupportedHostModelMigrationCPU,
+	kubevirtv1.CPUTimerLabel,
+	kubevirtv1.HypervLabel,
+	kubevirtv1.RealtimeLabel,
+	kubevirtv1.SEVLabel,
+	kubevirtv1.HostModelCPULabel,
+	kubevirtv1.HostModelRequiredFeaturesLabel,
+}
+
 //NodeLabeller struct holds informations needed to run node-labeller
 type NodeLabeller struct {
 	clientset               kubecli.KubevirtClient
@@ -304,22 +319,13 @@ func (n *NodeLabeller) HostCapabilities() *api.Capabilities {
 // removeLabellerLabels removes labels from node
 func (n *NodeLabeller) removeLabellerLabels(node *v1.Node) {
 	for label := range node.Labels {
-		if strings.Contains(label, util.DeprecatedLabelNamespace+util.DeprecatedcpuModelPrefix) ||
-			strings.Contains(label, util.DeprecatedLabelNamespace+util.DeprecatedcpuFeaturePrefix) ||
-			strings.Contains(label, util.DeprecatedLabelNamespace+util.DeprecatedHyperPrefix) ||
-			strings.Contains(label, kubevirtv1.CPUFeatureLabel) ||
-			strings.Contains(label, kubevirtv1.CPUModelLabel) ||
-			strings.Contains(label, kubevirtv1.SupportedHostModelMigrationCPU) ||
-			strings.Contains(label, kubevirtv1.CPUTimerLabel) ||
-			strings.Contains(label, kubevirtv1.HypervLabel) ||
-			strings.Contains(label, kubevirtv1.RealtimeLabel) ||
-			strings.Contains(label, kubevirtv1.SEVLabel) {
+		if isNodeLabellerLabel(label) {
 			delete(node.Labels, label)
 		}
 	}
 
 	for annotation := range node.Annotations {
-		if strings.Contains(annotation, util.DeprecatedLabellerNamespaceAnnotation) {
+		if strings.HasPrefix(annotation, util.DeprecatedLabellerNamespaceAnnotation) {
 			delete(node.Annotations, annotation)
 		}
 	}
@@ -339,4 +345,14 @@ func isNodeRealtimeCapable() (bool, error) {
 	}
 	st := strings.Trim(string(ret), "\n")
 	return fmt.Sprintf("%s = -1", kernelSchedRealtimeRuntimeInMicrosecods) == st, nil
+}
+
+func isNodeLabellerLabel(label string) bool {
+	for _, prefix := range nodeLabellerLabels {
+		if strings.HasPrefix(label, prefix) {
+			return true
+		}
+	}
+
+	return false
 }
