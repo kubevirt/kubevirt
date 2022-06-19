@@ -109,8 +109,6 @@ const (
 	EchoLastReturnValue          = "echo $?\n"
 )
 
-const defaultTestGracePeriod int64 = 0
-
 const SubresourceTestLabel = "subresource-access-test-pod"
 
 const (
