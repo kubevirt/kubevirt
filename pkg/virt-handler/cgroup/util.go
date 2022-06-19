@@ -28,7 +28,7 @@ const (
 	HostCgroupBasePath = HostRootPath + cgroupBasePath
 )
 
-// Templates for logging / error messages
+// Templates for   logging / error messages
 const (
 	V1 CgroupVersion = "v1"
 	V2 CgroupVersion = "v2"
