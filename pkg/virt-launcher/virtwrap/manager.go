@@ -942,6 +942,14 @@ func (l *LibvirtDomainManager) SyncVMI(vmi *v1.VirtualMachineInstance, allowEmul
 			continue
 		}
 		logger.V(1).Infof("Attaching disk %s, target %s", attachDisk.Alias.GetName(), attachDisk.Target.Device)
+
+		// set drivers cache mode
+		err = converter.SetDriverCacheMode(&attachDisk, l.directIOChecker)
+		if err != nil {
+			log.Log.Reason(err).Errorf("Direct IO check failed for %s", attachDisk.Alias.GetName())
+		}
+		converter.SetOptimalIOMode(&attachDisk)
+
 		attachBytes, err := xml.Marshal(attachDisk)
 		if err != nil {
 			logger.Reason(err).Error("marshalling attached disk failed")

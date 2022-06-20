@@ -836,6 +836,9 @@ const (
 
 	// VirtualMachineNameLabel is the name of the Virtual Machine
 	VirtualMachineNameLabel string = "vm.kubevirt.io/name"
+
+	// Add how much pcie-root-port controllers used for q35 machine hotplug virtio-blk disk
+	EcxPciPortNumAnnotation string = "ecx.io/pci-port-num"
 )
 
 func NewVMI(name string, uid types.UID) *VirtualMachineInstance {

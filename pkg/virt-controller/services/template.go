@@ -120,6 +120,8 @@ const EXT_LOG_VERBOSITY_THRESHOLD = 5
 
 const ephemeralStorageOverheadSize = "50M"
 
+const DEFAULT_PCI_PORT_NUM = 28
+
 type TemplateService interface {
 	RenderMigrationManifest(vmi *v1.VirtualMachineInstance, sourcePod *k8sv1.Pod) (*k8sv1.Pod, error)
 	RenderLaunchManifest(vmi *v1.VirtualMachineInstance) (*k8sv1.Pod, error)
@@ -1063,6 +1065,16 @@ func (t *templateService) renderLaunchManifest(vmi *v1.VirtualMachineInstance, i
 			log.Log.Object(vmi).Infof("Applying custom debug filters for vmi %s: %s", vmi.Name, customDebugFilters)
 			command = append(command, "--libvirt-log-filters", customDebugFilters)
 		}
+		pciPortNum := DEFAULT_PCI_PORT_NUM
+		if v, exists := vmi.Annotations[v1.EcxPciPortNumAnnotation]; exists {
+			if num, err := strconv.Atoi(v); err == nil {
+				pciPortNum = num
+			}else{
+				log.Log.Object(vmi).Warningf("Applying virtio pci-root-port num for vmi %s not a valid number", vmi.Name)
+			}
+		}
+		log.Log.Object(vmi).Infof("Applying virtio pci-root-port num for vmi %s: %d", vmi.Name, pciPortNum)
+		command = append(command, "--pci-port-num", strconv.Itoa(int(pciPortNum)))
 	}
 
 	allowEmulation := t.clusterConfig.AllowEmulation()
