@@ -1260,8 +1260,7 @@ var _ = Describe("Migration watcher", func() {
 
 				vmiInterface.EXPECT().Patch(vmi.Name, types.JSONPatchType, gomock.Any(), &metav1.PatchOptions{}).DoAndReturn(func(name interface{}, ptype interface{}, vmiStatusPatch []byte, options interface{}) (*virtv1.VirtualMachineInstance, error) {
 
-					vmiSP := []utiltype.PatchOperation{}
-					err := json.Unmarshal(vmiStatusPatch, &vmiSP)
+					vmiSP, err := utiltype.UnmarshalPatch(vmiStatusPatch)
 					Expect(err).To(BeNil())
 					Expect(vmiSP).To(HaveLen(2))
 

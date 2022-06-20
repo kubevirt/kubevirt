@@ -732,17 +732,15 @@ func (c *MigrationController) handleSignalMigrationAbort(migration *virtv1.Virtu
 
 	vmiCopy.Status.MigrationState.AbortRequested = true
 	if !equality.Semantic.DeepEqual(vmi.Status, vmiCopy.Status) {
-		newStatus, err := json.Marshal(vmiCopy.Status)
+
+		newStatus := vmiCopy.Status
+		oldStatus := vmi.Status
+		patch, err := kubevirttypes.GenerateTestReplacePatch("/status", oldStatus, newStatus)
 		if err != nil {
 			return err
 		}
-		oldStatus, err := json.Marshal(vmi.Status)
-		if err != nil {
-			return err
-		}
-		test := fmt.Sprintf(`{ "op": "test", "path": "/status", "value": %s }`, string(oldStatus))
-		patch := fmt.Sprintf(`{ "op": "replace", "path": "/status", "value": %s }`, string(newStatus))
-		_, err = c.clientset.VirtualMachineInstance(vmi.Namespace).Patch(vmi.Name, types.JSONPatchType, []byte(fmt.Sprintf("[ %s, %s ]", test, patch)), &v1.PatchOptions{})
+
+		_, err = c.clientset.VirtualMachineInstance(vmi.Namespace).Patch(vmi.Name, types.JSONPatchType, patch, &v1.PatchOptions{})
 		if err != nil {
 			msg := fmt.Sprintf("failed to set MigrationState in VMI status. :%v", err)
 			c.recorder.Eventf(migration, k8sv1.EventTypeWarning, FailedAbortMigrationReason, msg)

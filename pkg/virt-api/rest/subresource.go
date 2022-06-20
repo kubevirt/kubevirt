@@ -47,6 +47,7 @@ import (
 	"kubevirt.io/client-go/kubecli"
 	"kubevirt.io/client-go/log"
 	"kubevirt.io/kubevirt/pkg/controller"
+	k6ttypes "kubevirt.io/kubevirt/pkg/util/types"
 	virtconfig "kubevirt.io/kubevirt/pkg/virt-config"
 )
 
@@ -939,7 +940,6 @@ func (app *SubresourceAPIApp) FilesystemList(request *restful.Request, response 
 }
 
 func generateVMVolumeRequestPatch(vm *v1.VirtualMachine, volumeRequest *v1.VirtualMachineVolumeRequest) (string, error) {
-	verb := getPatchVerb(vm.Status.VolumeRequests)
 	vmCopy := vm.DeepCopy()
 
 	// We only validate the list against other items in the list at this point.
@@ -955,20 +955,20 @@ func generateVMVolumeRequestPatch(vm *v1.VirtualMachine, volumeRequest *v1.Virtu
 		}
 	}
 
-	oldJson, err := json.Marshal(vm.Status.VolumeRequests)
-	if err != nil {
-		return "", err
-	}
-	newJson, err := json.Marshal(vmCopy.Status.VolumeRequests)
-	if err != nil {
-		return "", err
-	}
+	patchBytes, err := k6ttypes.GeneratePatchPayload(
+		k6ttypes.PatchOperation{
+			Op:    k6ttypes.PatchTestOp,
+			Path:  "/status/volumeRequests",
+			Value: vm.Status.VolumeRequests,
+		},
+		k6ttypes.PatchOperation{
+			Op:    getPatchVerb(vm.Status.VolumeRequests),
+			Path:  "/status/volumeRequests",
+			Value: vmCopy.Status.VolumeRequests,
+		},
+	)
 
-	test := fmt.Sprintf(`{ "op": "test", "path": "/status/volumeRequests", "value": %s}`, string(oldJson))
-	update := fmt.Sprintf(`{ "op": "%s", "path": "/status/volumeRequests", "value": %s}`, verb, string(newJson))
-	patch := fmt.Sprintf("[%s, %s]", test, update)
-
-	return patch, nil
+	return string(patchBytes), err
 }
 
 func getPatchVerb(requests []v1.VirtualMachineVolumeRequest) string {

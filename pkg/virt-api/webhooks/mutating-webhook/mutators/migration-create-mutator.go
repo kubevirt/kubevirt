@@ -61,24 +61,20 @@ func (mutator *MigrationCreateMutator) Mutate(ar *admissionv1.AdmissionReview) *
 
 	// Add a finalizer
 	migration.Finalizers = append(migration.Finalizers, v1.VirtualMachineInstanceMigrationFinalizer)
-	var patch []utiltypes.PatchOperation
-	var value interface{}
 
-	value = migration.Spec
-	patch = append(patch, utiltypes.PatchOperation{
-		Op:    "replace",
-		Path:  "/spec",
-		Value: value,
-	})
+	patchBytes, err := utiltypes.GeneratePatchPayload(
+		utiltypes.PatchOperation{
+			Op:    utiltypes.PatchReplaceOp,
+			Path:  "/spec",
+			Value: migration.Spec,
+		},
+		utiltypes.PatchOperation{
+			Op:    utiltypes.PatchReplaceOp,
+			Path:  "/metadata",
+			Value: migration.ObjectMeta,
+		},
+	)
 
-	value = migration.ObjectMeta
-	patch = append(patch, utiltypes.PatchOperation{
-		Op:    "replace",
-		Path:  "/metadata",
-		Value: value,
-	})
-
-	patchBytes, err := json.Marshal(patch)
 	if err != nil {
 		return webhookutils.ToAdmissionResponseError(err)
 	}
