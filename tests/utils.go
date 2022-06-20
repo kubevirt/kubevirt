@@ -159,7 +159,7 @@ const StorageClassHostPathSeparateDevice = "host-path-sd"
 
 var wffc = storagev1.VolumeBindingWaitForFirstConsumer
 
-func BeforeTestCleanup() {
+func TestCleanup() {
 	testsuite.CleanNamespaces()
 	libnode.CleanNodes()
 	resetToDefaultConfig()
