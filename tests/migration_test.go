@@ -1636,6 +1636,30 @@ var _ = Describe("[rfe_id:393][crit:high][vendor:cnv-qe@redhat.com][level:system
 			})
 		})
 
+		createDataVolumePVCAndChangeDiskImgPermissions := func(size string) *cdiv1.DataVolume {
+			var dv *cdiv1.DataVolume
+			// Create DV and alter permission of disk.img
+			url := "docker://" + cd.ContainerDiskFor(cd.ContainerDiskAlpine)
+			dv = libstorage.NewRandomDataVolumeWithRegistryImport(url, util.NamespaceTestDefault, k8sv1.ReadWriteMany)
+			tests.SetDataVolumeForceBindAnnotation(dv)
+			dv.Spec.PVC.Resources.Requests["storage"] = resource.MustParse(size)
+			_, err := virtClient.CdiClient().CdiV1beta1().DataVolumes(dv.Namespace).Create(context.Background(), dv, metav1.CreateOptions{})
+			Expect(err).To(BeNil())
+			var pvc *k8sv1.PersistentVolumeClaim
+			Eventually(func() *k8sv1.PersistentVolumeClaim {
+				pvc, err = virtClient.CoreV1().PersistentVolumeClaims(dv.Namespace).Get(context.Background(), dv.Name, metav1.GetOptions{})
+				if err != nil {
+					return nil
+				}
+				return pvc
+			}, 30*time.Second).Should(Not(BeNil()))
+			By("waiting for the dv import to pvc to finish")
+			Eventually(ThisDV(dv), 180*time.Second).Should(HaveSucceeded())
+			tests.ChangeImgFilePermissionsToNonQEMU(pvc)
+			pvName = pvc.Name
+			return dv
+		}
+
 		Context("[Serial] migration to nonroot", func() {
 			var dv *cdiv1.DataVolume
 			size := "256Mi"
@@ -1654,28 +1678,6 @@ var _ = Describe("[rfe_id:393][crit:high][vendor:cnv-qe@redhat.com][level:system
 					dv = nil
 				}
 			})
-
-			createDataVolumePVCAndChangeDiskImgPermissions := func() {
-				// Create DV and alter permission of disk.img
-				url := "docker://" + cd.ContainerDiskFor(cd.ContainerDiskAlpine)
-				dv = libstorage.NewRandomDataVolumeWithRegistryImport(url, util.NamespaceTestDefault, k8sv1.ReadWriteMany)
-				tests.SetDataVolumeForceBindAnnotation(dv)
-				dv.Spec.PVC.Resources.Requests["storage"] = resource.MustParse(size)
-				_, err := virtClient.CdiClient().CdiV1beta1().DataVolumes(dv.Namespace).Create(context.Background(), dv, metav1.CreateOptions{})
-				Expect(err).To(BeNil())
-				var pvc *k8sv1.PersistentVolumeClaim
-				Eventually(func() *k8sv1.PersistentVolumeClaim {
-					pvc, err = virtClient.CoreV1().PersistentVolumeClaims(dv.Namespace).Get(context.Background(), dv.Name, metav1.GetOptions{})
-					if err != nil {
-						return nil
-					}
-					return pvc
-				}, 30*time.Second).Should(Not(BeNil()))
-				By("waiting for the dv import to pvc to finish")
-				Eventually(ThisDV(dv), 180*time.Second).Should(HaveSucceeded())
-				tests.ChangeImgFilePermissionsToNonQEMU(pvc)
-				pvName = pvc.Name
-			}
 
 			DescribeTable("should migrate root implementation to nonroot", func(createVMI func() *v1.VirtualMachineInstance, loginFunc func(*v1.VirtualMachineInstance) error) {
 				By("Create a VMI that will run root(default)")
@@ -1723,7 +1725,7 @@ var _ = Describe("[rfe_id:393][crit:high][vendor:cnv-qe@redhat.com][level:system
 				}, console.LoginToAlpine),
 
 				Entry("[test_id:8610] with DataVolume", func() *v1.VirtualMachineInstance {
-					createDataVolumePVCAndChangeDiskImgPermissions()
+					dv = createDataVolumePVCAndChangeDiskImgPermissions(size)
 					// Use the DataVolume
 					return tests.NewRandomVMIWithDataVolume(pvName)
 				}, console.LoginToAlpine),
@@ -1733,8 +1735,94 @@ var _ = Describe("[rfe_id:393][crit:high][vendor:cnv-qe@redhat.com][level:system
 				}, console.LoginToFedora),
 
 				Entry("[test_id:8612] with PVC", func() *v1.VirtualMachineInstance {
-					createDataVolumePVCAndChangeDiskImgPermissions()
+					dv = createDataVolumePVCAndChangeDiskImgPermissions(size)
 					// Use the Underlying PVC
+					return tests.NewRandomVMIWithPVC(pvName)
+				}, console.LoginToAlpine),
+			)
+		})
+		Context("[Serial] migration to root", func() {
+			var dv *cdiv1.DataVolume
+			var clusterIsRoot bool
+			size := "256Mi"
+
+			BeforeEach(func() {
+				clusterIsRoot = !checks.HasFeature(virtconfig.NonRoot)
+				if clusterIsRoot {
+					tests.EnableFeatureGate(virtconfig.NonRoot)
+				}
+			})
+			AfterEach(func() {
+				if clusterIsRoot {
+					tests.DisableFeatureGate(virtconfig.NonRoot)
+				} else {
+					tests.EnableFeatureGate(virtconfig.NonRoot)
+				}
+				if dv != nil {
+					By("Deleting the DataVolume")
+					Expect(virtClient.CdiClient().CdiV1beta1().DataVolumes(dv.Namespace).Delete(context.Background(), dv.Name, metav1.DeleteOptions{})).To(Succeed())
+					dv = nil
+				}
+			})
+
+			DescribeTable("should migrate nonroot implementation to root", func(createVMI func() *v1.VirtualMachineInstance, loginFunc func(*v1.VirtualMachineInstance) error) {
+				By("Create a VMI that will run root(default)")
+				vmi := createVMI()
+
+				By("Starting the VirtualMachineInstance")
+				// Resizing takes too long and therefor a warning is thrown
+				vmi = runVMIAndExpectLaunchIgnoreWarnings(vmi, 240)
+
+				By("Checking that the VirtualMachineInstance console has expected output")
+				Expect(loginFunc(vmi)).To(Succeed())
+
+				By("Checking that the launcher is running as root")
+				Expect(tests.GetIdOfLauncher(vmi)).To(Equal("107"))
+
+				tests.DisableFeatureGate(virtconfig.NonRoot)
+
+				By("Starting new migration and waiting for it to succeed")
+				migration := tests.NewRandomMigration(vmi.Name, vmi.Namespace)
+				migrationUID := tests.RunMigrationAndExpectCompletion(virtClient, migration, 340)
+
+				By("Verifying Second Migration Succeeeds")
+				tests.ConfirmVMIPostMigration(virtClient, vmi, migrationUID)
+
+				By("Checking that the launcher is running as qemu")
+				Expect(tests.GetIdOfLauncher(vmi)).To(Equal("0"))
+				By("Checking that the VirtualMachineInstance console has expected output")
+				Expect(loginFunc(vmi)).To(Succeed())
+
+				vmi, err := ThisVMI(vmi)()
+				Expect(err).ToNot(HaveOccurred())
+				Expect(vmi.Annotations).ToNot(HaveKey(v1.DeprecatedNonRootVMIAnnotation))
+
+				By("Deleting the VMI")
+				Expect(virtClient.VirtualMachineInstance(vmi.Namespace).Delete(vmi.Name, &metav1.DeleteOptions{})).To(Succeed())
+
+				By("Waiting for VMI to disappear")
+				tests.WaitForVirtualMachineToDisappearWithTimeout(vmi, 240)
+
+			},
+				Entry("with simple VMI", func() *v1.VirtualMachineInstance {
+					return libvmi.NewAlpine(
+						libvmi.WithInterface(libvmi.InterfaceDeviceWithMasqueradeBinding()),
+						libvmi.WithNetwork(v1.DefaultPodNetwork()))
+				}, console.LoginToAlpine),
+
+				Entry("with DataVolume", func() *v1.VirtualMachineInstance {
+					dv = createDataVolumePVCAndChangeDiskImgPermissions(size)
+					// Use the DataVolume
+					return tests.NewRandomVMIWithDataVolume(pvName)
+				}, console.LoginToAlpine),
+
+				Entry("with CD + CloudInit + SA + ConfigMap + Secret + DownwardAPI + Kernel Boot", func() *v1.VirtualMachineInstance {
+					return prepareVMIWithAllVolumeSources()
+				}, console.LoginToFedora),
+
+				Entry("with PVC", func() *v1.VirtualMachineInstance {
+					dv = createDataVolumePVCAndChangeDiskImgPermissions(size)
+					// Use the underlying PVC
 					return tests.NewRandomVMIWithPVC(pvName)
 				}, console.LoginToAlpine),
 			)
