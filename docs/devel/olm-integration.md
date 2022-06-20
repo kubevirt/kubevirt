@@ -39,7 +39,7 @@ CRDs:
 
 - InstallPlan:  
   calculated list of resources to be created in order to automatically install/upgrade a CSV
-  created and insalled by the Catalog Operator, needs manual or automatic approval
+  created and installed by the Catalog Operator, needs manual or automatic approval
 
 ### Operator Marketplace
 

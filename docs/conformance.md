@@ -56,7 +56,7 @@ Failed: 0
 Skipped: 579
 ```
 
-## Executing conformace tests in the development environment
+## Executing conformance tests in the development environment
 
 ```bash
 make conformance

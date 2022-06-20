@@ -17,7 +17,7 @@ designed to work in tandem with the VirtualMachine and provides the
 configuration and status for running virtual machines.
 
 VirtualMachine is a Kubernetes [custom resource definition](https://kubernetes.io/docs/concepts/api-extension/custom-resources/), which
-allows for using the Kubernetes machanisms for storing the objects and
+allows for using the Kubernetes mechanisms for storing the objects and
 exposing it through the API.
 
 ## What it does and how to use it
@@ -71,8 +71,8 @@ kubectl delete virtualmachine myvm --cascade=false
 ### The REST API
 
 The kubectl is a handy tool that provides handy access to cluster, when you sit
-at the console. But, when you are writting an external application that
-needs to access the cluster programaticaly, it is better to have a API endpoint.
+at the console. But, when you are writing an external application that
+needs to access the cluster programmatically, it is better to have a API endpoint.
 Thats where the Kubernetes REST API endpoint comes right in. Kubernetes provides
 for its users the native REST API, which is easily extendable and in one place.
 
@@ -80,7 +80,7 @@ The VirtualMachine object is a CRD, which implies that Kubernetes
 provides the API automatically. The API is located at the path
 
 ```text
-<your-api-server-adress>/apis/kubevirt.io/v1alpha2/virtualmachine/
+<your-api-server-address>/apis/kubevirt.io/v1alpha2/virtualmachine/
 ```
 
 and you can do typical REST manipulation, you would expect. All CRUD is
@@ -182,7 +182,7 @@ spec:
 ```
 
 It is easy to see that it is exactly the same as [VirtualMachineInstance],
-but it does not have a `kind` and `apiVersion`. These are implicitely added.
+but it does not have a `kind` and `apiVersion`. These are implicitly added.
 
 Thus for the complete list of supported fields in the spec.template please refer
 to the [VirtualMachineInstance] documentation.
@@ -234,11 +234,11 @@ status:
 
 Linking the created VirtualMachine to its parent VirtualMachine pose
 a challenge. Using the same name is only part of the solution. To find the
-parent VirtualMachine programatically in the Kubernetes, the OwnerReference
+parent VirtualMachine programmatically in the Kubernetes, the OwnerReference
 is used. As described in the
 [design document](https://github.com/kubernetes/community/blob/master/contributors/design-proposals/api-machinery/controller-ref.md),
 the OwnerReference lives in the metadata section of the object and is created
-automaticaly. Example:
+automatically. Example:
 
 ```YAML
 apiVersion: kubevirt.io/v1alpha2
@@ -320,7 +320,7 @@ VirtualMachineInstance and show combined status.
 
 The controller is designed to be a standalone service running in its own pod.
 Since the whole KubeVirt is designed to be modular, this approach allows for
-a more flexbility and less codebase in the core. Moreover it can be scaled
+a more flexibility and less codebase in the core. Moreover it can be scaled
 up separately if the need arise.
 
 [VirtualMachineInstance]: https://kubevirt.github.io/api-reference/master/definitions.html#_v1_virtualmachine

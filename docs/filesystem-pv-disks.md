@@ -77,7 +77,7 @@ VMI.
 
 The system needs to know if the referenced volume needs to be treated as a
 block or file-system volume.
-Since Kubernetes 1.9 this information can be infered from the existing PV
+Since Kubernetes 1.9 this information can be inferred from the existing PV
 metadata.
 
 
