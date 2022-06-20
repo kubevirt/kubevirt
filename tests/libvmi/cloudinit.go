@@ -60,6 +60,31 @@ func WithCloudInitNoCloudNetworkData(data string, b64Encoding bool) Option {
 	}
 }
 
+// WithCloudInitConfigDriveData adds cloud-init config-drive user data.
+func WithCloudInitConfigDriveData(data string, b64Encoding bool) Option {
+	return func(vmi *kvirtv1.VirtualMachineInstance) {
+		diskName := "disk1"
+		addDiskVolumeWithCloudInitConfigDrive(vmi, diskName, v1.DiskBusVirtio)
+
+		volume := getVolume(vmi, diskName)
+		if b64Encoding {
+			encodedData := base64.StdEncoding.EncodeToString([]byte(data))
+			volume.CloudInitConfigDrive.UserData = ""
+			volume.CloudInitConfigDrive.UserDataBase64 = encodedData
+		} else {
+			volume.CloudInitConfigDrive.UserData = data
+			volume.CloudInitConfigDrive.UserDataBase64 = ""
+		}
+	}
+}
+
+func addDiskVolumeWithCloudInitConfigDrive(vmi *kvirtv1.VirtualMachineInstance, diskName string, bus v1.DiskBus) {
+	addDisk(vmi, newDisk(diskName, bus))
+	v := newVolume(diskName)
+	v.VolumeSource = kvirtv1.VolumeSource{CloudInitConfigDrive: &kvirtv1.CloudInitConfigDriveSource{}}
+	addVolume(vmi, v)
+}
+
 func addDiskVolumeWithCloudInitNoCloud(vmi *kvirtv1.VirtualMachineInstance, diskName string, bus v1.DiskBus) {
 	addDisk(vmi, newDisk(diskName, bus))
 	v := newVolume(diskName)

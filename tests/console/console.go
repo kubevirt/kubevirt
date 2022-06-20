@@ -20,6 +20,7 @@
 package console
 
 import (
+	"bufio"
 	"fmt"
 	"io"
 	"regexp"
@@ -127,6 +128,36 @@ func RunCommand(vmi *v1.VirtualMachineInstance, command string, timeout time.Dur
 		return fmt.Errorf("Failed to run [%s] at VMI %s, error: %v", command, vmi.Name, err)
 	}
 	return nil
+}
+
+// RunCommandAndStoreOutput runs the command line from `command` connecting to an already logged in console in vmi.
+// The output of `command` is returned as a string
+func RunCommandAndStoreOutput(vmi *v1.VirtualMachineInstance, command string, timeout time.Duration) (string, error) {
+	virtClient, err := kubecli.GetKubevirtClient()
+	if err != nil {
+		return "", err
+	}
+
+	opts := &kubecli.SerialConsoleOptions{ConnectionTimeout: timeout}
+	stream, err := virtClient.VirtualMachineInstance(vmi.Namespace).SerialConsole(vmi.Name, opts)
+	if err != nil {
+		return "", err
+	}
+	conn := stream.AsConn()
+	defer conn.Close()
+
+	_, err = conn.Write([]byte(fmt.Sprintf("%s\n", command)))
+	if err != nil {
+		return "", err
+	}
+
+	scanner := bufio.NewScanner(conn)
+	// skip our input with the first Scan()
+	// and get the command output with the second one
+	if !scanner.Scan() || !scanner.Scan() {
+		return "", fmt.Errorf("Failed to run [%s] at VMI %s", command, vmi.Name)
+	}
+	return scanner.Text(), nil
 }
 
 // SecureBootExpecter should be called on a VMI that has EFI enabled
