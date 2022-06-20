@@ -112,7 +112,6 @@ const (
 const SubresourceTestLabel = "subresource-access-test-pod"
 
 const (
-	osAlpineHostPath = "alpine-host-path"
 	OSWindows        = "windows"
 	OSWindowsSysprep = "windows-sysprep" // This is for sysprep tests, they run on a syspreped image of windows of a different version.
 	OSRhel           = "rhel"
@@ -153,6 +152,7 @@ func TestCleanup() {
 }
 
 func SetupAlpineHostPath() {
+	const osAlpineHostPath = "alpine-host-path"
 	libstorage.CreateHostPathPv(osAlpineHostPath, testsuite.HostPathAlpine)
 	libstorage.CreateHostPathPVC(osAlpineHostPath, defaultDiskSize)
 }
