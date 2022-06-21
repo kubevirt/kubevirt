@@ -660,6 +660,30 @@ var _ = Describe("Clone", func() {
 
 		})
 
+		Context("Firmware UUID", func() {
+
+			const sourceFakeUUID = "source-fake-uuid"
+
+			BeforeEach(func() {
+				sourceVM.Spec.Template.Spec.Domain.Firmware = &virtv1.Firmware{UUID: sourceFakeUUID}
+			})
+
+			It("should strip firmware UUID from VM", func() {
+				addClone(vmClone)
+
+				expectedVM := sourceVM.DeepCopy()
+
+				expectedFirmware := expectedVM.Spec.Template.Spec.Domain.Firmware
+				Expect(expectedFirmware).ShouldNot(BeNil())
+
+				expectedFirmware.UUID = ""
+
+				expectVMCreationFromPatches(expectedVM)
+				controller.Execute()
+			})
+
+		})
+
 	})
 })
 

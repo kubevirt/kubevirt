@@ -44,6 +44,9 @@ func generatePatches(source *k6tv1.VirtualMachine, cloneSpec *clonev1alpha1.Virt
 	annotationPatches := generateAnnotationPatches(source.Annotations, cloneSpec.AnnotationFilters)
 	patches = append(patches, annotationPatches...)
 
+	firmwareUUIDPatches := generateFirmwareUUIDPatches(source.Spec.Template.Spec.Domain.Firmware)
+	patches = append(patches, firmwareUUIDPatches...)
+
 	log.Log.V(defaultVerbosityLevel).Object(source).Infof("patches generated for vm %s clone: %v", source.Name, patches)
 	return patches
 }
@@ -165,4 +168,14 @@ func addKeyEscapeCharacters(key string) string {
 	key = strings.ReplaceAll(key, slash, slashEscapeChar)
 
 	return key
+}
+
+func generateFirmwareUUIDPatches(firmware *k6tv1.Firmware) (patches []string) {
+	const firmwareUUIDPatch = `{"op": "replace", "path": "/spec/template/spec/domain/firmware/uuid", "value": ""}`
+
+	if firmware == nil {
+		return nil
+	}
+
+	return []string{firmwareUUIDPatch}
 }
