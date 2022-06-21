@@ -43,6 +43,7 @@ import (
 	"k8s.io/client-go/tools/record"
 
 	v1 "kubevirt.io/client-go/api/v1"
+	virtv1 "kubevirt.io/client-go/api/v1"
 	fakenetworkclient "kubevirt.io/client-go/generated/network-attachment-definition-client/clientset/versioned/fake"
 	"kubevirt.io/client-go/kubecli"
 	"kubevirt.io/kubevirt/pkg/testutils"
@@ -241,6 +242,8 @@ var _ = Describe("Migration watcher", func() {
 	})
 
 	addVirtualMachineInstance := func(vmi *v1.VirtualMachineInstance) {
+		sourcePod := newSourcePodForVirtualMachine(vmi)
+		podInformer.GetStore().Add(sourcePod)
 		mockQueue.ExpectAdds(1)
 		vmiSource.Add(vmi)
 		mockQueue.Wait()
@@ -261,7 +264,6 @@ var _ = Describe("Migration watcher", func() {
 		var (
 			vmi           *v1.VirtualMachineInstance
 			migration     *v1.VirtualMachineInstanceMigration
-			sourcePod     *k8sv1.Pod
 			targetPod     *k8sv1.Pod
 			attachmentPod *k8sv1.Pod
 		)
@@ -269,7 +271,6 @@ var _ = Describe("Migration watcher", func() {
 		BeforeEach(func() {
 			vmi = newVirtualMachineWithHotplugVolume("testvmi", v1.Running)
 			migration = newMigration("testmigration", vmi.Name, v1.MigrationPending)
-			sourcePod = newSourcePodForVirtualMachine(vmi)
 			targetPod = newTargetPodForVirtualMachine(vmi, migration, k8sv1.PodRunning)
 			attachmentPod = newAttachmentPodForVirtualMachine(targetPod, migration, k8sv1.PodRunning)
 		})
@@ -277,7 +278,6 @@ var _ = Describe("Migration watcher", func() {
 		It("should create target attachment pod", func() {
 			addMigration(migration)
 			addVirtualMachineInstance(vmi)
-			podInformer.GetStore().Add(sourcePod)
 			podFeeder.Add(targetPod)
 			shouldExpectAttachmentPodCreation(vmi.UID, migration.UID)
 
@@ -982,9 +982,9 @@ var _ = Describe("Migration watcher", func() {
 			node := newNode(nodeName)
 			if toDefineHostModelCPU {
 				node.ObjectMeta.Labels = map[string]string{
-					v1.HostModelCPULabel + "fake":                  "true",
-					virtv1.SupportedHostModelMigrationCPU + "fake": "true",
-					v1.HostModelRequiredFeaturesLabel + "fake":     "true",
+					v1.HostModelCPULabel + "fake":              "true",
+					v1.SupportedHostModelMigrationCPU + "fake": "true",
+					v1.HostModelRequiredFeaturesLabel + "fake": "true",
 				}
 			}
 
