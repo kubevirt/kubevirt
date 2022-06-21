@@ -449,18 +449,6 @@ func (t *templateService) renderLaunchManifest(vmi *v1.VirtualMachineInstance, i
 		}
 	}
 
-	// Add ephemeral storage request to container to be used by Kubevirt. This amount of ephemeral storage
-	// should be added to the user's request.
-	ephemeralStorageOverhead := resource.MustParse(ephemeralStorageOverheadSize)
-	ephemeralStorageRequested := resources.Requests[k8sv1.ResourceEphemeralStorage]
-	ephemeralStorageRequested.Add(ephemeralStorageOverhead)
-	resources.Requests[k8sv1.ResourceEphemeralStorage] = ephemeralStorageRequested
-
-	if ephemeralStorageLimit, ephemeralStorageLimitDefined := resources.Limits[k8sv1.ResourceEphemeralStorage]; ephemeralStorageLimitDefined {
-		ephemeralStorageLimit.Add(ephemeralStorageOverhead)
-		resources.Limits[k8sv1.ResourceEphemeralStorage] = ephemeralStorageLimit
-	}
-
 	// Consider hugepages resource for pod scheduling
 	if util.HasHugePages(vmi) {
 		hugepageType := k8sv1.ResourceName(k8sv1.ResourceHugePagesPrefix + vmi.Spec.Domain.Memory.Hugepages.PageSize)
@@ -993,7 +981,11 @@ func (t *templateService) newVolumeRenderer(vmi *v1.VirtualMachineInstance, name
 
 func (t *templateService) newResourceRenderer(vmi *v1.VirtualMachineInstance) *ResourceRenderer {
 	vmiResources := vmi.Spec.Domain.Resources
-	return NewResourceRenderer(vmiResources.Limits, vmiResources.Requests)
+	options := []ResourceRendererOption{
+		WithEphemeralStorageRequest(),
+	}
+
+	return NewResourceRenderer(vmiResources.Limits, vmiResources.Requests, options...)
 }
 
 func sidecarVolumeMount() k8sv1.VolumeMount {

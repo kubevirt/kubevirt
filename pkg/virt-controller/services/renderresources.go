@@ -11,6 +11,8 @@ import (
 	"kubevirt.io/kubevirt/pkg/util/hardware"
 )
 
+type ResourceRendererOption func(renderer *ResourceRenderer)
+
 type ResourceRenderer struct {
 	vmLimits           k8sv1.ResourceList
 	vmRequests         k8sv1.ResourceList
@@ -18,17 +20,23 @@ type ResourceRenderer struct {
 	calculatedRequests k8sv1.ResourceList
 }
 
-func NewResourceRenderer(vmLimits k8sv1.ResourceList, vmRequests k8sv1.ResourceList) *ResourceRenderer {
+func NewResourceRenderer(vmLimits k8sv1.ResourceList, vmRequests k8sv1.ResourceList, options ...ResourceRendererOption) *ResourceRenderer {
 	limits := map[k8sv1.ResourceName]resource.Quantity{}
 	requests := map[k8sv1.ResourceName]resource.Quantity{}
 	copyResources(vmLimits, limits)
 	copyResources(vmRequests, requests)
-	return &ResourceRenderer{
+
+	resourceRenderer := &ResourceRenderer{
 		vmLimits:           limits,
 		vmRequests:         requests,
 		calculatedLimits:   map[k8sv1.ResourceName]resource.Quantity{},
 		calculatedRequests: map[k8sv1.ResourceName]resource.Quantity{},
 	}
+
+	for _, opt := range options {
+		opt(resourceRenderer)
+	}
+	return resourceRenderer
 }
 
 func (rr *ResourceRenderer) Limits() k8sv1.ResourceList {
@@ -43,6 +51,22 @@ func (rr *ResourceRenderer) Requests() k8sv1.ResourceList {
 	copyResources(rr.calculatedRequests, podRequests)
 	copyResources(rr.vmRequests, podRequests)
 	return podRequests
+}
+
+func WithEphemeralStorageRequest() ResourceRendererOption {
+	return func(renderer *ResourceRenderer) {
+		// Add ephemeral storage request to container to be used by Kubevirt. This amount of ephemeral storage
+		// should be added to the user's request.
+		ephemeralStorageOverhead := resource.MustParse(ephemeralStorageOverheadSize)
+		ephemeralStorageRequested := renderer.vmRequests[k8sv1.ResourceEphemeralStorage]
+		ephemeralStorageRequested.Add(ephemeralStorageOverhead)
+		renderer.vmRequests[k8sv1.ResourceEphemeralStorage] = ephemeralStorageRequested
+
+		if ephemeralStorageLimit, ephemeralStorageLimitDefined := renderer.vmLimits[k8sv1.ResourceEphemeralStorage]; ephemeralStorageLimitDefined {
+			ephemeralStorageLimit.Add(ephemeralStorageOverhead)
+			renderer.vmLimits[k8sv1.ResourceEphemeralStorage] = ephemeralStorageLimit
+		}
+	}
 }
 
 func copyResources(srcResources, dstResources k8sv1.ResourceList) {
