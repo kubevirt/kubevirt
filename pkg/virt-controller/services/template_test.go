@@ -1516,6 +1516,9 @@ var _ = Describe("Template", func() {
 							Devices: v1.Devices{
 								DisableHotplug: true,
 							},
+							CPU: &v1.CPU{
+								Model: "Conroe",
+							},
 						},
 					},
 				}
@@ -1542,7 +1545,7 @@ var _ = Describe("Template", func() {
 				pod, err := svc.RenderLaunchManifest(&vm)
 				Expect(err).ToNot(HaveOccurred())
 
-				Expect(pod.Spec.Affinity).To(BeEquivalentTo(&kubev1.Affinity{PodAffinity: &podAffinity}))
+				Expect(pod.Spec.Affinity.PodAffinity).To(BeEquivalentTo(&podAffinity))
 			})
 
 			It("should add pod anti-affinity to pod", func() {
@@ -1562,7 +1565,7 @@ var _ = Describe("Template", func() {
 				pod, err := svc.RenderLaunchManifest(&vm)
 				Expect(err).ToNot(HaveOccurred())
 
-				Expect(pod.Spec.Affinity).To(BeEquivalentTo(&kubev1.Affinity{PodAntiAffinity: &podAntiAffinity}))
+				Expect(pod.Spec.Affinity.PodAntiAffinity).To(BeEquivalentTo(&podAntiAffinity))
 			})
 
 			It("should add tolerations to pod", func() {
@@ -1703,6 +1706,9 @@ var _ = Describe("Template", func() {
 							Devices: v1.Devices{
 								DisableHotplug: true,
 							},
+							CPU: &v1.CPU{
+								Model: "Conroe",
+							},
 						},
 					},
 				}
@@ -1711,6 +1717,39 @@ var _ = Describe("Template", func() {
 
 				Expect(pod.Spec.Affinity).To(BeNil())
 			})
+			DescribeTable("should add affinity to pod of vmi host model", func(model string) {
+				config, kvInformer, svc = configFactory(defaultArch)
+				foundNodeSelectorRequirement := false
+				vmi := v1.VirtualMachineInstance{
+					ObjectMeta: metav1.ObjectMeta{Name: "testvm", Namespace: "default", UID: "1234"},
+					Spec: v1.VirtualMachineInstanceSpec{
+						Domain: v1.DomainSpec{
+							Devices: v1.Devices{
+								DisableHotplug: true,
+							},
+							CPU: &v1.CPU{
+								Model: model,
+							},
+						},
+					},
+				}
+				pod, err := svc.RenderLaunchManifest(&vmi)
+				Expect(err).ToNot(HaveOccurred())
+
+				for _, term := range pod.Spec.Affinity.NodeAffinity.RequiredDuringSchedulingIgnoredDuringExecution.NodeSelectorTerms {
+					for _, nodeSelectorRequirement := range term.MatchExpressions {
+						if nodeSelectorRequirement.Key == v1.NodeHostModelIsObsoleteLabel &&
+							nodeSelectorRequirement.Operator == kubev1.NodeSelectorOpDoesNotExist {
+							foundNodeSelectorRequirement = true
+						}
+					}
+				}
+				Expect(foundNodeSelectorRequirement).To(BeTrue())
+			},
+				Entry("explicitly using host-model", "host-model"),
+				Entry("empty string should be treated as host-model", ""),
+				Entry("nil should be treated as host-model", nil),
+			)
 		})
 		Context("with cpu and memory constraints", func() {
 			DescribeTable("should add cpu and memory constraints to a template", func(arch string, requestMemory string, limitMemory string) {
