@@ -313,7 +313,6 @@ func (l *LibvirtConnection) GetDomainStats(statsTypes libvirt.DomainStatsTypes, 
 		stat.CPUMapSet = true
 
 		list = append(list, stat)
-		domStat.Domain.Free()
 	}
 
 	return list, nil
