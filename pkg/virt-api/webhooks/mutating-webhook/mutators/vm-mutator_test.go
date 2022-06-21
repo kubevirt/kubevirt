@@ -80,7 +80,11 @@ var _ = Describe("VirtualMachine Mutator", func() {
 				Labels: map[string]string{"test": "test"},
 			},
 		}
-		vm.Spec.Template = &v1.VirtualMachineInstanceTemplateSpec{}
+		vm.Spec.Template = &v1.VirtualMachineInstanceTemplateSpec{
+			Spec: v1.VirtualMachineInstanceSpec{
+				Domain: &v1.DomainSpec{},
+			},
+		}
 
 		mutator = &VMsMutator{}
 		mutator.ClusterConfig, _, kvInformer = testutils.NewFakeClusterConfigUsingKVConfig(&v1.KubeVirtConfiguration{})

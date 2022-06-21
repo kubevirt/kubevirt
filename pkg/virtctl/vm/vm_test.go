@@ -671,7 +671,7 @@ var _ = Describe("VirtualMachine", func() {
 			quantity, _ := resource.ParseQuantity("256Mi")
 			vmi := &v1.VirtualMachineInstance{
 				Spec: v1.VirtualMachineInstanceSpec{
-					Domain: v1.DomainSpec{
+					Domain: &v1.DomainSpec{
 						Resources: v1.ResourceRequirements{
 							Requests: k8sv1.ResourceList{
 								k8sv1.ResourceMemory: quantity,

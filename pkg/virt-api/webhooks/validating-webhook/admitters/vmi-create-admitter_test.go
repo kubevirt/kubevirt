@@ -345,7 +345,7 @@ var _ = Describe("Validating VMICreate Admitter", func() {
 		}
 		resp := vmiCreateAdmitter.Admit(ar)
 		Expect(resp.Allowed).To(BeFalse())
-		Expect(resp.Result.Message).To(Equal(`.very in body is a forbidden property, spec.extremely in body is a forbidden property, spec.domain in body is required`))
+		Expect(resp.Result.Message).To(Equal(`.very in body is a forbidden property, spec.extremely in body is a forbidden property`))
 	})
 
 	DescribeTable("should reject documents containing unknown or missing fields for", func(data string, validationResult string, gvr metav1.GroupVersionResource, review func(ar *admissionv1.AdmissionReview) *admissionv1.AdmissionResponse) {
@@ -366,7 +366,7 @@ var _ = Describe("Validating VMICreate Admitter", func() {
 	},
 		Entry("VirtualMachineInstance creation",
 			`{"very": "unknown", "spec": { "extremely": "unknown" }}`,
-			`.very in body is a forbidden property, spec.extremely in body is a forbidden property, spec.domain in body is required`,
+			`.very in body is a forbidden property, spec.extremely in body is a forbidden property`,
 			webhooks.VirtualMachineInstanceGroupVersionResource,
 			vmiCreateAdmitter.Admit,
 		),
@@ -2366,7 +2366,7 @@ var _ = Describe("Validating VMICreate Admitter", func() {
 		})
 
 		It("should detect invalid containerDisk paths", func() {
-			spec := &v1.VirtualMachineInstanceSpec{}
+			spec := &v1.VirtualMachineInstanceSpec{Domain: &v1.DomainSpec{}}
 			disk := v1.Disk{
 				Name:   "testdisk",
 				Serial: "SN-1_a",
@@ -4482,22 +4482,26 @@ var _ = Describe("Validating VMICreate Admitter", func() {
 })
 
 var _ = Describe("Function getNumberOfPodInterfaces()", func() {
+
 	config, _, _ := testutils.NewFakeClusterConfigUsingKVConfig(&v1.KubeVirtConfiguration{})
 
+	var spec *v1.VirtualMachineInstanceSpec
+
+	BeforeEach(func() {
+		spec = &v1.VirtualMachineInstanceSpec{Domain: &v1.DomainSpec{}}
+	})
+
 	It("should work for empty network list", func() {
-		spec := &v1.VirtualMachineInstanceSpec{}
 		Expect(getNumberOfPodInterfaces(spec)).To(Equal(0))
 	})
 
 	It("should work for non-empty network list without pod network", func() {
-		spec := &v1.VirtualMachineInstanceSpec{}
 		net := v1.Network{}
 		spec.Networks = []v1.Network{net}
 		Expect(getNumberOfPodInterfaces(spec)).To(Equal(0))
 	})
 
 	It("should work for pod network with missing pod interface", func() {
-		spec := &v1.VirtualMachineInstanceSpec{}
 		net := v1.Network{
 			NetworkSource: v1.NetworkSource{
 				Pod: &v1.PodNetwork{},
@@ -4508,7 +4512,6 @@ var _ = Describe("Function getNumberOfPodInterfaces()", func() {
 	})
 
 	It("should work for valid pod network / interface combination", func() {
-		spec := &v1.VirtualMachineInstanceSpec{}
 		net := v1.Network{
 			NetworkSource: v1.NetworkSource{
 				Pod: &v1.PodNetwork{},
@@ -4522,7 +4525,6 @@ var _ = Describe("Function getNumberOfPodInterfaces()", func() {
 	})
 
 	It("should work for multiple pod network / interface combinations", func() {
-		spec := &v1.VirtualMachineInstanceSpec{}
 		net1 := v1.Network{
 			NetworkSource: v1.NetworkSource{
 				Pod: &v1.PodNetwork{},
@@ -4542,7 +4544,6 @@ var _ = Describe("Function getNumberOfPodInterfaces()", func() {
 		Expect(getNumberOfPodInterfaces(spec)).To(Equal(2))
 	})
 	It("when network source is not configured", func() {
-		spec := &v1.VirtualMachineInstanceSpec{}
 		net1 := v1.Network{
 			NetworkSource: v1.NetworkSource{},
 			Name:          "testnet1",
@@ -4554,7 +4555,6 @@ var _ = Describe("Function getNumberOfPodInterfaces()", func() {
 		Expect(causes).To(HaveLen(1))
 	})
 	It("should reject when more than one network source is configured", func() {
-		spec := &v1.VirtualMachineInstanceSpec{}
 		net1 := v1.Network{
 			NetworkSource: v1.NetworkSource{
 				Pod:    &v1.PodNetwork{},
@@ -4569,7 +4569,6 @@ var _ = Describe("Function getNumberOfPodInterfaces()", func() {
 		Expect(causes).To(HaveLen(1))
 	})
 	It("should work when boot order is given to interfaces", func() {
-		spec := &v1.VirtualMachineInstanceSpec{}
 		net := v1.Network{
 			NetworkSource: v1.NetworkSource{
 				Pod: &v1.PodNetwork{},
@@ -4584,7 +4583,6 @@ var _ = Describe("Function getNumberOfPodInterfaces()", func() {
 		Expect(causes).To(BeEmpty())
 	})
 	It("should fail when invalid boot order is given to interface", func() {
-		spec := &v1.VirtualMachineInstanceSpec{}
 		net := v1.Network{
 			NetworkSource: v1.NetworkSource{
 				Pod: &v1.PodNetwork{},
@@ -4600,7 +4598,6 @@ var _ = Describe("Function getNumberOfPodInterfaces()", func() {
 		Expect(causes[0].Field).To(Equal("fake[0].bootOrder"))
 	})
 	It("should work when different boot orders are given to devices", func() {
-		spec := &v1.VirtualMachineInstanceSpec{}
 		net := v1.Network{
 			NetworkSource: v1.NetworkSource{
 				Pod: &v1.PodNetwork{},
@@ -4634,7 +4631,6 @@ var _ = Describe("Function getNumberOfPodInterfaces()", func() {
 		Expect(causes).To(BeEmpty())
 	})
 	It("should fail when same boot order is given to more than one device", func() {
-		spec := &v1.VirtualMachineInstanceSpec{}
 		net := v1.Network{
 			NetworkSource: v1.NetworkSource{
 				Pod: &v1.PodNetwork{},
@@ -4667,7 +4663,6 @@ var _ = Describe("Function getNumberOfPodInterfaces()", func() {
 		Expect(causes[0].Field).To(ContainSubstring("bootOrder"))
 	})
 	It("should reject a serial number whose length is greater than 256", func() {
-		spec := &v1.VirtualMachineInstanceSpec{}
 		sn := strings.Repeat("1", maxStrLen+1)
 
 		spec.Domain.Firmware = &v1.Firmware{Serial: sn}
@@ -4677,7 +4672,6 @@ var _ = Describe("Function getNumberOfPodInterfaces()", func() {
 		Expect(causes[0].Field).To(ContainSubstring("serial"))
 	})
 	It("should reject a serial number with invalid characters", func() {
-		spec := &v1.VirtualMachineInstanceSpec{}
 		sn := "$$$$"
 
 		spec.Domain.Firmware = &v1.Firmware{Serial: sn}
@@ -4687,7 +4681,6 @@ var _ = Describe("Function getNumberOfPodInterfaces()", func() {
 		Expect(causes[0].Field).To(ContainSubstring("serial"))
 	})
 	It("should accept a valid serial number", func() {
-		spec := &v1.VirtualMachineInstanceSpec{}
 		sn := "6a1a24a1-4061-4607-8bf4-a3963d0c5895"
 
 		spec.Domain.Firmware = &v1.Firmware{Serial: sn}

@@ -718,7 +718,7 @@ var _ = Describe("Instancetype and Preferences", func() {
 			vmi = api.NewMinimalVMI("testvmi")
 
 			vmi.Spec = v1.VirtualMachineInstanceSpec{
-				Domain: v1.DomainSpec{},
+				Domain: &v1.DomainSpec{},
 			}
 			field = k8sfield.NewPath("spec", "template", "spec")
 		})

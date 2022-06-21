@@ -18783,9 +18783,6 @@
    "v1.VirtualMachineInstanceSpec": {
     "description": "VirtualMachineInstanceSpec is a description of a VirtualMachineInstance.",
     "type": "object",
-    "required": [
-     "domain"
-    ],
     "properties": {
      "accessCredentials": {
       "description": "Specifies a set of public keys to inject into the vm guest",
@@ -18808,7 +18805,7 @@
       "type": "string"
      },
      "domain": {
-      "description": "Specification of the desired behavior of the VirtualMachineInstance on the host.",
+      "description": "Specification of the desired behavior of the VirtualMachineInstance on the host. This is optional when provided as part of a VirtualMachine but required when provided as part of a VirtualMachineInstance.",
       "$ref": "#/definitions/v1.DomainSpec"
      },
      "evictionStrategy": {

@@ -186,7 +186,7 @@ func WithCPUFeature(featureName, policy string) Option {
 
 func baseVmi(name string) *v1.VirtualMachineInstance {
 	vmi := v1.NewVMIReferenceFromNameWithNS("", name)
-	vmi.Spec = v1.VirtualMachineInstanceSpec{Domain: v1.DomainSpec{}}
+	vmi.Spec = v1.VirtualMachineInstanceSpec{Domain: &v1.DomainSpec{}}
 	vmi.TypeMeta = k8smetav1.TypeMeta{
 		APIVersion: v1.GroupVersion.String(),
 		Kind:       "VirtualMachineInstance",

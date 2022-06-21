@@ -78,7 +78,7 @@ var _ = Describe("Validating VMIUpdate Admitter", func() {
 	},
 		Entry("VirtualMachineInstance update",
 			`{"very": "unknown", "spec": { "extremely": "unknown" }}`,
-			`.very in body is a forbidden property, spec.extremely in body is a forbidden property, spec.domain in body is required`,
+			`.very in body is a forbidden property, spec.extremely in body is a forbidden property`,
 			webhooks.VirtualMachineInstanceGroupVersionResource,
 			vmiUpdateAdmitter.Admit,
 		),

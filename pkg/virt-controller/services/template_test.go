@@ -236,7 +236,7 @@ var _ = Describe("Template", func() {
 						Annotations: vmiAnnotation,
 					},
 					Spec: v1.VirtualMachineInstanceSpec{
-						Domain: v1.DomainSpec{
+						Domain: &v1.DomainSpec{
 							Devices: v1.Devices{
 								DisableHotplug: true,
 							},
@@ -300,7 +300,7 @@ var _ = Describe("Template", func() {
 						Annotations: vmiAnnotation,
 					},
 					Spec: v1.VirtualMachineInstanceSpec{
-						Domain: v1.DomainSpec{
+						Domain: &v1.DomainSpec{
 							Devices: v1.Devices{
 								DisableHotplug: true,
 							},
@@ -349,7 +349,7 @@ var _ = Describe("Template", func() {
 						Annotations: annotations,
 					},
 					Spec: v1.VirtualMachineInstanceSpec{
-						Domain: v1.DomainSpec{
+						Domain: &v1.DomainSpec{
 							Devices: v1.Devices{
 								DisableHotplug: true,
 							},
@@ -430,7 +430,7 @@ var _ = Describe("Template", func() {
 					ObjectMeta: metav1.ObjectMeta{
 						Name: "testvmi", Namespace: "default", UID: "1234",
 					},
-					Spec: v1.VirtualMachineInstanceSpec{Volumes: []v1.Volume{}, Domain: v1.DomainSpec{
+					Spec: v1.VirtualMachineInstanceSpec{Volumes: []v1.Volume{}, Domain: &v1.DomainSpec{
 						Devices: v1.Devices{
 							DisableHotplug: true,
 						},
@@ -453,7 +453,7 @@ var _ = Describe("Template", func() {
 					ObjectMeta: metav1.ObjectMeta{
 						Name: "testvmi", Namespace: "default", UID: "1234",
 					},
-					Spec: v1.VirtualMachineInstanceSpec{Volumes: []v1.Volume{}, Domain: v1.DomainSpec{
+					Spec: v1.VirtualMachineInstanceSpec{Volumes: []v1.Volume{}, Domain: &v1.DomainSpec{
 						Devices: v1.Devices{
 							DisableHotplug: true,
 						},
@@ -502,7 +502,7 @@ var _ = Describe("Template", func() {
 					},
 					Spec: v1.VirtualMachineInstanceSpec{
 						Volumes: volumes,
-						Domain: v1.DomainSpec{
+						Domain: &v1.DomainSpec{
 							Devices: v1.Devices{
 								DisableHotplug: true,
 							},
@@ -738,7 +738,7 @@ var _ = Describe("Template", func() {
 						UID:       "1234",
 					},
 					Spec: v1.VirtualMachineInstanceSpec{
-						Domain: v1.DomainSpec{
+						Domain: &v1.DomainSpec{
 							Devices: v1.Devices{
 								DisableHotplug: true,
 							},
@@ -788,7 +788,7 @@ var _ = Describe("Template", func() {
 						UID:       "1234",
 					},
 					Spec: v1.VirtualMachineInstanceSpec{
-						Domain: v1.DomainSpec{
+						Domain: &v1.DomainSpec{
 							Devices: v1.Devices{
 								DisableHotplug: true,
 							},
@@ -855,7 +855,7 @@ var _ = Describe("Template", func() {
 					ObjectMeta: metav1.ObjectMeta{
 						Name: "testvmi", Namespace: "default", UID: "1234",
 					},
-					Spec: v1.VirtualMachineInstanceSpec{Volumes: volumes, Domain: v1.DomainSpec{
+					Spec: v1.VirtualMachineInstanceSpec{Volumes: volumes, Domain: &v1.DomainSpec{
 						Devices: v1.Devices{
 							DisableHotplug: true,
 						},
@@ -903,7 +903,7 @@ var _ = Describe("Template", func() {
 						UID:       "1234",
 					},
 					Spec: v1.VirtualMachineInstanceSpec{
-						Domain: v1.DomainSpec{
+						Domain: &v1.DomainSpec{
 							Devices: v1.Devices{
 								DisableHotplug: true,
 							},
@@ -945,7 +945,7 @@ var _ = Describe("Template", func() {
 						UID:       "1234",
 					},
 					Spec: v1.VirtualMachineInstanceSpec{
-						Domain: v1.DomainSpec{
+						Domain: &v1.DomainSpec{
 							Devices: v1.Devices{
 								DisableHotplug: true,
 							},
@@ -981,7 +981,7 @@ var _ = Describe("Template", func() {
 						UID:       "1234",
 					},
 					Spec: v1.VirtualMachineInstanceSpec{
-						Domain: v1.DomainSpec{
+						Domain: &v1.DomainSpec{
 							Devices: v1.Devices{
 								DisableHotplug: true,
 								Interfaces: []v1.Interface{
@@ -1029,7 +1029,7 @@ var _ = Describe("Template", func() {
 						UID:       "1234",
 					},
 					Spec: v1.VirtualMachineInstanceSpec{
-						Domain: v1.DomainSpec{
+						Domain: &v1.DomainSpec{
 							Devices: v1.Devices{
 								DisableHotplug: true,
 								Interfaces: []v1.Interface{
@@ -1083,7 +1083,7 @@ var _ = Describe("Template", func() {
 				annotations := map[string]string{
 					hooks.HookSidecarListAnnotationName: `[{"image": "some-image:v1", "imagePullPolicy": "IfNotPresent"}]`,
 				}
-				vmi := v1.VirtualMachineInstance{ObjectMeta: metav1.ObjectMeta{Name: "testvmi", Namespace: "default", UID: "1234", Annotations: annotations}, Spec: v1.VirtualMachineInstanceSpec{NodeSelector: nodeSelector, Domain: v1.DomainSpec{
+				vmi := v1.VirtualMachineInstance{ObjectMeta: metav1.ObjectMeta{Name: "testvmi", Namespace: "default", UID: "1234", Annotations: annotations}, Spec: v1.VirtualMachineInstanceSpec{NodeSelector: nodeSelector, Domain: &v1.DomainSpec{
 					Devices: v1.Devices{
 						DisableHotplug: true,
 					},
@@ -1148,7 +1148,7 @@ var _ = Describe("Template", func() {
 						UID:       "1234",
 					},
 					Spec: v1.VirtualMachineInstanceSpec{
-						Domain: v1.DomainSpec{
+						Domain: &v1.DomainSpec{
 							Devices: v1.Devices{
 								DisableHotplug: true,
 							},
@@ -1196,7 +1196,7 @@ var _ = Describe("Template", func() {
 					ObjectMeta: metav1.ObjectMeta{
 						Name: "testvmi", Namespace: "default", UID: "1234",
 					},
-					Spec: v1.VirtualMachineInstanceSpec{Volumes: []v1.Volume{}, Domain: v1.DomainSpec{
+					Spec: v1.VirtualMachineInstanceSpec{Volumes: []v1.Volume{}, Domain: &v1.DomainSpec{
 						Devices: v1.Devices{
 							DisableHotplug: true,
 						},
@@ -1219,7 +1219,7 @@ var _ = Describe("Template", func() {
 						UID:       "1234",
 					},
 					Spec: v1.VirtualMachineInstanceSpec{
-						Domain: v1.DomainSpec{
+						Domain: &v1.DomainSpec{
 							Devices: v1.Devices{
 								DisableHotplug: true,
 							},
@@ -1247,7 +1247,7 @@ var _ = Describe("Template", func() {
 						UID:       "1234",
 					},
 					Spec: v1.VirtualMachineInstanceSpec{
-						Domain: v1.DomainSpec{
+						Domain: &v1.DomainSpec{
 							Devices: v1.Devices{
 								DisableHotplug: true,
 							},
@@ -1287,7 +1287,7 @@ var _ = Describe("Template", func() {
 						UID:       "1234",
 					},
 					Spec: v1.VirtualMachineInstanceSpec{
-						Domain: v1.DomainSpec{
+						Domain: &v1.DomainSpec{
 							Devices: v1.Devices{
 								DisableHotplug: true,
 							},
@@ -1337,7 +1337,7 @@ var _ = Describe("Template", func() {
 						UID:       "1234",
 					},
 					Spec: v1.VirtualMachineInstanceSpec{
-						Domain: v1.DomainSpec{
+						Domain: &v1.DomainSpec{
 							Devices: v1.Devices{
 								DisableHotplug: true,
 							},
@@ -1383,7 +1383,7 @@ var _ = Describe("Template", func() {
 					},
 					Spec: v1.VirtualMachineInstanceSpec{
 						NodeSelector: nodeSelector,
-						Domain: v1.DomainSpec{
+						Domain: &v1.DomainSpec{
 							Devices: v1.Devices{
 								DisableHotplug: true,
 							},
@@ -1421,7 +1421,7 @@ var _ = Describe("Template", func() {
 						UID:       "1234",
 					},
 					Spec: v1.VirtualMachineInstanceSpec{
-						Domain: v1.DomainSpec{
+						Domain: &v1.DomainSpec{
 							Devices: v1.Devices{
 								DisableHotplug: true,
 							},
@@ -1446,7 +1446,7 @@ var _ = Describe("Template", func() {
 					ObjectMeta: metav1.ObjectMeta{Name: "testvmi", Namespace: "default", UID: "1234"},
 					Spec: v1.VirtualMachineInstanceSpec{
 						Affinity: &kubev1.Affinity{NodeAffinity: &nodeAffinity},
-						Domain: v1.DomainSpec{
+						Domain: &v1.DomainSpec{
 							Devices: v1.Devices{
 								DisableHotplug: true,
 							},
@@ -1466,7 +1466,7 @@ var _ = Describe("Template", func() {
 					ObjectMeta: metav1.ObjectMeta{Name: "testvm", Namespace: "default", UID: "1234"},
 					Spec: v1.VirtualMachineInstanceSpec{
 						Affinity: &kubev1.Affinity{PodAffinity: &podAffinity},
-						Domain: v1.DomainSpec{
+						Domain: &v1.DomainSpec{
 							Devices: v1.Devices{
 								DisableHotplug: true,
 							},
@@ -1486,7 +1486,7 @@ var _ = Describe("Template", func() {
 					ObjectMeta: metav1.ObjectMeta{Name: "testvm", Namespace: "default", UID: "1234"},
 					Spec: v1.VirtualMachineInstanceSpec{
 						Affinity: &kubev1.Affinity{PodAntiAffinity: &podAntiAffinity},
-						Domain: v1.DomainSpec{
+						Domain: &v1.DomainSpec{
 							Devices: v1.Devices{
 								DisableHotplug: true,
 							},
@@ -1512,7 +1512,7 @@ var _ = Describe("Template", func() {
 								TolerationSeconds: &tolerationSeconds,
 							},
 						},
-						Domain: v1.DomainSpec{
+						Domain: &v1.DomainSpec{
 							Devices: v1.Devices{
 								DisableHotplug: true,
 							},
@@ -1542,7 +1542,7 @@ var _ = Describe("Template", func() {
 					ObjectMeta: metav1.ObjectMeta{Name: "testvm", Namespace: "default", UID: "1234"},
 					Spec: v1.VirtualMachineInstanceSpec{
 						TopologySpreadConstraints: topologySpreadConstraints,
-						Domain: v1.DomainSpec{
+						Domain: &v1.DomainSpec{
 							Devices: v1.Devices{
 								DisableHotplug: true,
 							},
@@ -1560,7 +1560,7 @@ var _ = Describe("Template", func() {
 					ObjectMeta: metav1.ObjectMeta{Name: "testvm", Namespace: "default", UID: "1234"},
 					Spec: v1.VirtualMachineInstanceSpec{
 						SchedulerName: "test-scheduler",
-						Domain: v1.DomainSpec{
+						Domain: &v1.DomainSpec{
 							Devices: v1.Devices{
 								DisableHotplug: true,
 							},
@@ -1580,7 +1580,7 @@ var _ = Describe("Template", func() {
 						UID:       "1234",
 					},
 					Spec: v1.VirtualMachineInstanceSpec{
-						Domain: v1.DomainSpec{
+						Domain: &v1.DomainSpec{
 							Devices: v1.Devices{
 								DisableHotplug: true,
 							},
@@ -1607,7 +1607,7 @@ var _ = Describe("Template", func() {
 						},
 					},
 					Spec: v1.VirtualMachineInstanceSpec{
-						Domain: v1.DomainSpec{
+						Domain: &v1.DomainSpec{
 							Devices: v1.Devices{
 								DisableHotplug: true,
 							},
@@ -1633,7 +1633,7 @@ var _ = Describe("Template", func() {
 				vmi := v1.VirtualMachineInstance{
 					ObjectMeta: metav1.ObjectMeta{Name: "testvm", Namespace: "default", UID: "1234"},
 					Spec: v1.VirtualMachineInstanceSpec{
-						Domain: v1.DomainSpec{
+						Domain: &v1.DomainSpec{
 							Devices: v1.Devices{
 								DisableHotplug: true,
 							},
@@ -1657,7 +1657,7 @@ var _ = Describe("Template", func() {
 						UID:       "1234",
 					},
 					Spec: v1.VirtualMachineInstanceSpec{
-						Domain: v1.DomainSpec{
+						Domain: &v1.DomainSpec{
 							Devices: v1.Devices{
 								DisableHotplug: true,
 							},
@@ -1696,7 +1696,7 @@ var _ = Describe("Template", func() {
 						UID:       "1234",
 					},
 					Spec: v1.VirtualMachineInstanceSpec{
-						Domain: v1.DomainSpec{
+						Domain: &v1.DomainSpec{
 							Devices: v1.Devices{
 								DisableHotplug: true,
 							},
@@ -1732,7 +1732,7 @@ var _ = Describe("Template", func() {
 						UID:       "1234",
 					},
 					Spec: v1.VirtualMachineInstanceSpec{
-						Domain: v1.DomainSpec{
+						Domain: &v1.DomainSpec{
 							Devices: v1.Devices{
 								DisableHotplug: true,
 							},
@@ -1771,7 +1771,7 @@ var _ = Describe("Template", func() {
 						UID:       "1234",
 					},
 					Spec: v1.VirtualMachineInstanceSpec{
-						Domain: v1.DomainSpec{
+						Domain: &v1.DomainSpec{
 							Devices: v1.Devices{
 								DisableHotplug: true,
 							},
@@ -1810,7 +1810,7 @@ var _ = Describe("Template", func() {
 						UID:       "1234",
 					},
 					Spec: v1.VirtualMachineInstanceSpec{
-						Domain: v1.DomainSpec{
+						Domain: &v1.DomainSpec{
 							Devices: v1.Devices{
 								DisableHotplug: true,
 							},
@@ -1843,7 +1843,7 @@ var _ = Describe("Template", func() {
 						UID:       "1234",
 					},
 					Spec: v1.VirtualMachineInstanceSpec{
-						Domain: v1.DomainSpec{
+						Domain: &v1.DomainSpec{
 							Devices: v1.Devices{
 								DisableHotplug: true,
 							},
@@ -1869,7 +1869,7 @@ var _ = Describe("Template", func() {
 						UID:       "1234",
 					},
 					Spec: v1.VirtualMachineInstanceSpec{
-						Domain: v1.DomainSpec{
+						Domain: &v1.DomainSpec{
 							Devices: v1.Devices{
 								DisableHotplug: true,
 							},
@@ -1890,7 +1890,7 @@ var _ = Describe("Template", func() {
 						UID:       "1234",
 					},
 					Spec: v1.VirtualMachineInstanceSpec{
-						Domain: v1.DomainSpec{
+						Domain: &v1.DomainSpec{
 							Devices: v1.Devices{
 								DisableHotplug: true,
 							},
@@ -1916,7 +1916,7 @@ var _ = Describe("Template", func() {
 						UID:       "1234",
 					},
 					Spec: v1.VirtualMachineInstanceSpec{
-						Domain: v1.DomainSpec{
+						Domain: &v1.DomainSpec{
 							Devices: v1.Devices{
 								DisableHotplug: true,
 							},
@@ -1946,7 +1946,7 @@ var _ = Describe("Template", func() {
 						UID:       "1234",
 					},
 					Spec: v1.VirtualMachineInstanceSpec{
-						Domain: v1.DomainSpec{
+						Domain: &v1.DomainSpec{
 							Devices: v1.Devices{
 								DisableHotplug: true,
 							},
@@ -2012,7 +2012,7 @@ var _ = Describe("Template", func() {
 						UID:       "1234",
 					},
 					Spec: v1.VirtualMachineInstanceSpec{
-						Domain: v1.DomainSpec{
+						Domain: &v1.DomainSpec{
 							Devices: v1.Devices{
 								DisableHotplug: true,
 							},
@@ -2096,7 +2096,7 @@ var _ = Describe("Template", func() {
 					ObjectMeta: metav1.ObjectMeta{
 						Name: "testvmi", Namespace: namespace, UID: "1234",
 					},
-					Spec: v1.VirtualMachineInstanceSpec{Volumes: volumes, Domain: v1.DomainSpec{
+					Spec: v1.VirtualMachineInstanceSpec{Volumes: volumes, Domain: &v1.DomainSpec{
 						Devices: v1.Devices{
 							DisableHotplug: true,
 						},
@@ -2165,7 +2165,7 @@ var _ = Describe("Template", func() {
 					ObjectMeta: metav1.ObjectMeta{
 						Name: "testvmi", Namespace: namespace, UID: "1234",
 					},
-					Spec: v1.VirtualMachineInstanceSpec{Volumes: volumes, Domain: v1.DomainSpec{
+					Spec: v1.VirtualMachineInstanceSpec{Volumes: volumes, Domain: &v1.DomainSpec{
 						Devices: v1.Devices{
 							DisableHotplug: true,
 						},
@@ -2215,7 +2215,7 @@ var _ = Describe("Template", func() {
 					ObjectMeta: metav1.ObjectMeta{
 						Name: "testvmi", Namespace: namespace, UID: "1234",
 					},
-					Spec: v1.VirtualMachineInstanceSpec{Volumes: volumes, Domain: v1.DomainSpec{
+					Spec: v1.VirtualMachineInstanceSpec{Volumes: volumes, Domain: &v1.DomainSpec{
 						Devices: v1.Devices{
 							DisableHotplug: true,
 						},
@@ -2294,7 +2294,7 @@ var _ = Describe("Template", func() {
 					ObjectMeta: metav1.ObjectMeta{
 						Name: "testvmi", Namespace: "default", UID: "1234",
 					},
-					Spec: v1.VirtualMachineInstanceSpec{Domain: v1.DomainSpec{
+					Spec: v1.VirtualMachineInstanceSpec{Domain: &v1.DomainSpec{
 						Devices: v1.Devices{
 							DisableHotplug: true,
 						},
@@ -2335,7 +2335,7 @@ var _ = Describe("Template", func() {
 				ObjectMeta: metav1.ObjectMeta{
 					Name: "testvmi", Namespace: "default", UID: "1234",
 				},
-				Spec: v1.VirtualMachineInstanceSpec{Volumes: volumes, Domain: v1.DomainSpec{
+				Spec: v1.VirtualMachineInstanceSpec{Volumes: volumes, Domain: &v1.DomainSpec{
 					Devices: v1.Devices{
 						DisableHotplug: true,
 					},
@@ -2461,7 +2461,7 @@ var _ = Describe("Template", func() {
 			It("Should have empty port list in the pod manifest", func() {
 				config, kvInformer, svc = configFactory(defaultArch)
 				slirpInterface := v1.InterfaceSlirp{}
-				domain := v1.DomainSpec{
+				domain := &v1.DomainSpec{
 					Devices: v1.Devices{
 						DisableHotplug: true,
 					},
@@ -2484,7 +2484,7 @@ var _ = Describe("Template", func() {
 				config, kvInformer, svc = configFactory(defaultArch)
 				slirpInterface := v1.InterfaceSlirp{}
 				ports := []v1.Port{{Name: "http", Port: 80}, {Protocol: "UDP", Port: 80}, {Port: 90}, {Name: "other-http", Port: 80}}
-				domain := v1.DomainSpec{
+				domain := &v1.DomainSpec{
 					Devices: v1.Devices{
 						DisableHotplug: true,
 					},
@@ -2521,7 +2521,7 @@ var _ = Describe("Template", func() {
 				slirpInterface2 := v1.InterfaceSlirp{}
 				ports1 := []v1.Port{{Name: "http", Port: 80}}
 				ports2 := []v1.Port{{Name: "other-http", Port: 80}}
-				domain := v1.DomainSpec{
+				domain := &v1.DomainSpec{
 					Devices: v1.Devices{
 						DisableHotplug: true,
 					},
@@ -2577,7 +2577,7 @@ var _ = Describe("Template", func() {
 
 			It("Should require tun device if explicitly requested", func() {
 				config, kvInformer, svc = configFactory(defaultArch)
-				domain := v1.DomainSpec{}
+				domain := &v1.DomainSpec{}
 				autoAttach := true
 				domain.Devices.AutoattachPodInterface = &autoAttach
 
@@ -2601,7 +2601,7 @@ var _ = Describe("Template", func() {
 
 			It("Should not require tun device if explicitly rejected", func() {
 				config, kvInformer, svc = configFactory(defaultArch)
-				domain := v1.DomainSpec{}
+				domain := &v1.DomainSpec{}
 				autoAttach := false
 				domain.Devices.AutoattachPodInterface = &autoAttach
 
@@ -2632,7 +2632,7 @@ var _ = Describe("Template", func() {
 					ObjectMeta: metav1.ObjectMeta{
 						Name: "testvmi", Namespace: "default", UID: "1234",
 					},
-					Spec: v1.VirtualMachineInstanceSpec{Domain: v1.DomainSpec{
+					Spec: v1.VirtualMachineInstanceSpec{Domain: &v1.DomainSpec{
 						Devices: v1.Devices{
 							DisableHotplug: true,
 						},
@@ -2711,7 +2711,7 @@ var _ = Describe("Template", func() {
 					ObjectMeta: metav1.ObjectMeta{
 						Name: "testvmi", Namespace: "default", UID: "1234",
 					},
-					Spec: v1.VirtualMachineInstanceSpec{Volumes: volumes, Domain: v1.DomainSpec{
+					Spec: v1.VirtualMachineInstanceSpec{Volumes: volumes, Domain: &v1.DomainSpec{
 						Devices: v1.Devices{
 							DisableHotplug: true,
 						},
@@ -2754,7 +2754,7 @@ var _ = Describe("Template", func() {
 						ObjectMeta: metav1.ObjectMeta{
 							Name: "testvmi", Namespace: "default", UID: "1234",
 						},
-						Spec: v1.VirtualMachineInstanceSpec{Volumes: volumes, Domain: v1.DomainSpec{}},
+						Spec: v1.VirtualMachineInstanceSpec{Volumes: volumes, Domain: &v1.DomainSpec{}},
 					}
 
 					pod, err := svc.RenderLaunchManifest(&vmi)
@@ -2791,7 +2791,7 @@ var _ = Describe("Template", func() {
 						ObjectMeta: metav1.ObjectMeta{
 							Name: "testvmi", Namespace: "default", UID: "1234",
 						},
-						Spec: v1.VirtualMachineInstanceSpec{Volumes: volumes, Domain: v1.DomainSpec{}},
+						Spec: v1.VirtualMachineInstanceSpec{Volumes: volumes, Domain: &v1.DomainSpec{}},
 					}
 
 					pod, err := svc.RenderLaunchManifest(&vmi)
@@ -2829,7 +2829,7 @@ var _ = Describe("Template", func() {
 					ObjectMeta: metav1.ObjectMeta{
 						Name: "testvmi", Namespace: "default", UID: "1234",
 					},
-					Spec: v1.VirtualMachineInstanceSpec{Volumes: volumes, Domain: v1.DomainSpec{
+					Spec: v1.VirtualMachineInstanceSpec{Volumes: volumes, Domain: &v1.DomainSpec{
 						Devices: v1.Devices{
 							DisableHotplug: true,
 						},
@@ -2892,7 +2892,7 @@ var _ = Describe("Template", func() {
 								},
 							},
 						},
-						Domain: v1.DomainSpec{
+						Domain: &v1.DomainSpec{
 							Devices: v1.Devices{
 								DisableHotplug: true,
 							},
@@ -2947,7 +2947,7 @@ var _ = Describe("Template", func() {
 						UID:       "1234",
 					},
 					Spec: v1.VirtualMachineInstanceSpec{
-						Domain: v1.DomainSpec{
+						Domain: &v1.DomainSpec{
 							Devices: v1.Devices{
 								DisableHotplug: true,
 								GPUs: []v1.GPU{
@@ -2975,7 +2975,7 @@ var _ = Describe("Template", func() {
 						UID:       "1234",
 					},
 					Spec: v1.VirtualMachineInstanceSpec{
-						Domain: v1.DomainSpec{
+						Domain: &v1.DomainSpec{
 							Devices: v1.Devices{
 								DisableHotplug: true,
 								GPUs: []v1.GPU{
@@ -3024,7 +3024,7 @@ var _ = Describe("Template", func() {
 						UID:       "1234",
 					},
 					Spec: v1.VirtualMachineInstanceSpec{
-						Domain: v1.DomainSpec{
+						Domain: &v1.DomainSpec{
 							Devices: v1.Devices{
 								DisableHotplug: true,
 								HostDevices: []v1.HostDevice{
@@ -3052,7 +3052,7 @@ var _ = Describe("Template", func() {
 						UID:       "1234",
 					},
 					Spec: v1.VirtualMachineInstanceSpec{
-						Domain: v1.DomainSpec{
+						Domain: &v1.DomainSpec{
 							Devices: v1.Devices{
 								DisableHotplug: true,
 								HostDevices: []v1.HostDevice{
@@ -3410,7 +3410,7 @@ var _ = Describe("Template", func() {
 				ObjectMeta: metav1.ObjectMeta{
 					Name: "testvmi", Namespace: "default", UID: "1234",
 				},
-				Spec: v1.VirtualMachineInstanceSpec{Volumes: volumes, Domain: v1.DomainSpec{
+				Spec: v1.VirtualMachineInstanceSpec{Volumes: volumes, Domain: &v1.DomainSpec{
 					Devices: v1.Devices{
 						DisableHotplug: true,
 					},
@@ -3429,7 +3429,7 @@ var _ = Describe("Template", func() {
 				ObjectMeta: metav1.ObjectMeta{
 					Name: "testvmi", Namespace: "default", UID: "1234",
 				},
-				Spec: v1.VirtualMachineInstanceSpec{Domain: v1.DomainSpec{
+				Spec: v1.VirtualMachineInstanceSpec{Domain: &v1.DomainSpec{
 					Devices: v1.Devices{
 						DisableHotplug: true,
 					},
@@ -3453,7 +3453,7 @@ var _ = Describe("Template", func() {
 					UID:       "1234",
 				},
 				Spec: v1.VirtualMachineInstanceSpec{
-					Domain: v1.DomainSpec{
+					Domain: &v1.DomainSpec{
 						LaunchSecurity: &v1.LaunchSecurity{
 							SEV: &v1.SEV{},
 						},

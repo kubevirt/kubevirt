@@ -147,7 +147,7 @@ var _ = Describe("VirtualMachineInstance Mutator", func() {
 				Labels: map[string]string{"test": "test"},
 			},
 			Spec: v1.VirtualMachineInstanceSpec{
-				Domain: v1.DomainSpec{
+				Domain: &v1.DomainSpec{
 					Resources: v1.ResourceRequirements{},
 				},
 			},
@@ -931,7 +931,7 @@ var _ = Describe("VirtualMachineInstance Mutator", func() {
 
 		Entry("if hyperV does contain EVMCS and cpu sockets ", &v1.VirtualMachineInstance{
 			Spec: v1.VirtualMachineInstanceSpec{
-				Domain: v1.DomainSpec{
+				Domain: &v1.DomainSpec{
 					CPU: &v1.CPU{
 						Sockets: 2,
 					},
@@ -947,7 +947,7 @@ var _ = Describe("VirtualMachineInstance Mutator", func() {
 
 		Entry("if hyperV does contain EVMCS and 0 cpu features ", &v1.VirtualMachineInstance{
 			Spec: v1.VirtualMachineInstanceSpec{
-				Domain: v1.DomainSpec{
+				Domain: &v1.DomainSpec{
 					CPU: &v1.CPU{
 						Features: []v1.CPUFeature{},
 					},
@@ -962,7 +962,7 @@ var _ = Describe("VirtualMachineInstance Mutator", func() {
 
 		Entry("if hyperV does contain EVMCS and 1 different cpu feature ", &v1.VirtualMachineInstance{
 			Spec: v1.VirtualMachineInstanceSpec{
-				Domain: v1.DomainSpec{
+				Domain: &v1.DomainSpec{
 					CPU: &v1.CPU{
 						Features: []v1.CPUFeature{
 							{
@@ -988,7 +988,7 @@ var _ = Describe("VirtualMachineInstance Mutator", func() {
 
 		Entry("if hyperV does contain EVMCS and disabled vmx cpu feature ", &v1.VirtualMachineInstance{
 			Spec: v1.VirtualMachineInstanceSpec{
-				Domain: v1.DomainSpec{
+				Domain: &v1.DomainSpec{
 					CPU: &v1.CPU{
 						Features: []v1.CPUFeature{
 							{
@@ -1007,7 +1007,7 @@ var _ = Describe("VirtualMachineInstance Mutator", func() {
 			}),
 		Entry("if hyperV does contain EVMCS and enabled vmx cpu feature ", &v1.VirtualMachineInstance{
 			Spec: v1.VirtualMachineInstanceSpec{
-				Domain: v1.DomainSpec{
+				Domain: &v1.DomainSpec{
 					CPU: &v1.CPU{
 						Features: []v1.CPUFeature{
 							{

@@ -35,7 +35,7 @@ func NewMinimalVMI(name string) *v1.VirtualMachineInstance {
 // This is meant for testing
 func NewMinimalVMIWithNS(namespace, name string) *v1.VirtualMachineInstance {
 	vmi := v1.NewVMIReferenceFromNameWithNS(namespace, name)
-	vmi.Spec = v1.VirtualMachineInstanceSpec{Domain: v1.DomainSpec{}}
+	vmi.Spec = v1.VirtualMachineInstanceSpec{Domain: &v1.DomainSpec{}}
 	vmi.Spec.Domain.Resources.Requests = k8sv1.ResourceList{
 		k8sv1.ResourceMemory: resource.MustParse("8192Ki"),
 	}

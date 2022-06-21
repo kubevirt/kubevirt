@@ -164,7 +164,7 @@ func vmiWithoutTSCFrequency(vmiName string) *virtv1.VirtualMachineInstance {
 			Name: vmiName,
 		},
 		Spec: virtv1.VirtualMachineInstanceSpec{
-			Domain: virtv1.DomainSpec{
+			Domain: &virtv1.DomainSpec{
 				CPU: &virtv1.CPU{
 					Features: []virtv1.CPUFeature{
 						{
@@ -184,7 +184,7 @@ func vmiWithTSCFrequencyOnNode(vmiName string, frequency int64, nodename string)
 			Name: vmiName,
 		},
 		Spec: virtv1.VirtualMachineInstanceSpec{
-			Domain: virtv1.DomainSpec{
+			Domain: &virtv1.DomainSpec{
 				CPU: &virtv1.CPU{
 					Features: []virtv1.CPUFeature{
 						{

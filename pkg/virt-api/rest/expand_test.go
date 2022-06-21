@@ -73,7 +73,7 @@ var _ = Describe("Instancetype expansion subresources", func() {
 			Spec: v1.VirtualMachineSpec{
 				Template: &v1.VirtualMachineInstanceTemplateSpec{
 					Spec: v1.VirtualMachineInstanceSpec{
-						Domain: v1.DomainSpec{},
+						Domain: &v1.DomainSpec{},
 					},
 				},
 			},

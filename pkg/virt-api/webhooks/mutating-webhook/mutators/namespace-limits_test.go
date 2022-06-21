@@ -39,7 +39,7 @@ var _ = Describe("Mutating Webhook Namespace Limits", func() {
 	BeforeEach(func() {
 		vmi = v1.VirtualMachineInstance{
 			Spec: v1.VirtualMachineInstanceSpec{
-				Domain: v1.DomainSpec{
+				Domain: &v1.DomainSpec{
 					Resources: v1.ResourceRequirements{},
 				},
 			},

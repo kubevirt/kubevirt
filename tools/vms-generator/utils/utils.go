@@ -149,7 +149,7 @@ var gracePeriod = int64(0)
 func getBaseVMISpec() *v1.VirtualMachineInstanceSpec {
 	return &v1.VirtualMachineInstanceSpec{
 		TerminationGracePeriodSeconds: &gracePeriod,
-		Domain: v1.DomainSpec{
+		Domain: &v1.DomainSpec{
 			Resources: v1.ResourceRequirements{
 				Requests: k8sv1.ResourceList{
 					k8sv1.ResourceMemory: resource.MustParse("128Mi"),
@@ -598,7 +598,7 @@ func GetVMIWindows() *v1.VirtualMachineInstance {
 	_false := false
 	vmi.Spec = v1.VirtualMachineInstanceSpec{
 		TerminationGracePeriodSeconds: &gracePeriod,
-		Domain: v1.DomainSpec{
+		Domain: &v1.DomainSpec{
 			CPU: &v1.CPU{Cores: 2},
 			Features: &v1.Features{
 				ACPI: v1.FeatureState{},

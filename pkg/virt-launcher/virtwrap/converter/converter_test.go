@@ -2331,7 +2331,7 @@ var _ = Describe("Converter", func() {
 					UID:       "1234",
 				},
 				Spec: v1.VirtualMachineInstanceSpec{
-					Domain: v1.DomainSpec{
+					Domain: &v1.DomainSpec{
 						CPU: &v1.CPU{Cores: 3},
 						Resources: v1.ResourceRequirements{
 							Requests: k8sv1.ResourceList{
@@ -2376,7 +2376,7 @@ var _ = Describe("Converter", func() {
 					UID:       "1234",
 				},
 				Spec: v1.VirtualMachineInstanceSpec{
-					Domain: v1.DomainSpec{
+					Domain: &v1.DomainSpec{
 						Features: &v1.Features{
 							Hyperv: hyperV,
 						},
@@ -2432,7 +2432,7 @@ var _ = Describe("Converter", func() {
 					UID:       "1234",
 				},
 				Spec: v1.VirtualMachineInstanceSpec{
-					Domain: v1.DomainSpec{
+					Domain: &v1.DomainSpec{
 						CPU: &v1.CPU{Cores: 3},
 						Resources: v1.ResourceRequirements{
 							Requests: k8sv1.ResourceList{
@@ -2467,7 +2467,7 @@ var _ = Describe("Converter", func() {
 					UID:       "1234",
 				},
 				Spec: v1.VirtualMachineInstanceSpec{
-					Domain: v1.DomainSpec{
+					Domain: &v1.DomainSpec{
 						IOThreadsPolicy: &policy,
 						Resources: v1.ResourceRequirements{
 							Requests: k8sv1.ResourceList{
@@ -2727,7 +2727,7 @@ var _ = Describe("Converter", func() {
 					UID:       "1234",
 				},
 				Spec: v1.VirtualMachineInstanceSpec{
-					Domain: v1.DomainSpec{
+					Domain: &v1.DomainSpec{
 						CPU: &v1.CPU{DedicatedCPUPlacement: true},
 						Resources: v1.ResourceRequirements{
 							Requests: k8sv1.ResourceList{

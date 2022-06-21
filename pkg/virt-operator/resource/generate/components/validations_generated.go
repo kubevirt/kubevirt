@@ -4625,7 +4625,8 @@ var CRDsValidation map[string]string = map[string]string{
                   type: string
                 domain:
                   description: Specification of the desired behavior of the VirtualMachineInstance
-                    on the host.
+                    on the host. This is optional when provided as part of a VirtualMachine
+                    but required when provided as part of a VirtualMachineInstance.
                   properties:
                     chassis:
                       description: Chassis specifies the chassis info passed to the
@@ -6533,8 +6534,6 @@ var CRDsValidation map[string]string = map[string]string{
                     - name
                     type: object
                   type: array
-              required:
-              - domain
               type: object
           type: object
       required:
@@ -8802,7 +8801,8 @@ var CRDsValidation map[string]string = map[string]string{
           type: string
         domain:
           description: Specification of the desired behavior of the VirtualMachineInstance
-            on the host.
+            on the host. This is optional when provided as part of a VirtualMachine
+            but required when provided as part of a VirtualMachineInstance.
           properties:
             chassis:
               description: Chassis specifies the chassis info passed to the domain.
@@ -10599,8 +10599,6 @@ var CRDsValidation map[string]string = map[string]string{
             - name
             type: object
           type: array
-      required:
-      - domain
       type: object
     status:
       description: Status is the high level overview of how the VirtualMachineInstance
@@ -13159,7 +13157,8 @@ var CRDsValidation map[string]string = map[string]string{
                   type: string
                 domain:
                   description: Specification of the desired behavior of the VirtualMachineInstance
-                    on the host.
+                    on the host. This is optional when provided as part of a VirtualMachine
+                    but required when provided as part of a VirtualMachineInstance.
                   properties:
                     chassis:
                       description: Chassis specifies the chassis info passed to the
@@ -15067,8 +15066,6 @@ var CRDsValidation map[string]string = map[string]string{
                     - name
                     type: object
                   type: array
-              required:
-              - domain
               type: object
           type: object
       required:
@@ -17076,7 +17073,9 @@ var CRDsValidation map[string]string = map[string]string{
                           type: string
                         domain:
                           description: Specification of the desired behavior of the
-                            VirtualMachineInstance on the host.
+                            VirtualMachineInstance on the host. This is optional when
+                            provided as part of a VirtualMachine but required when
+                            provided as part of a VirtualMachineInstance.
                           properties:
                             chassis:
                               description: Chassis specifies the chassis info passed
@@ -19106,8 +19105,6 @@ var CRDsValidation map[string]string = map[string]string{
                             - name
                             type: object
                           type: array
-                      required:
-                      - domain
                       type: object
                   type: object
               required:
@@ -21714,7 +21711,9 @@ var CRDsValidation map[string]string = map[string]string{
                               type: string
                             domain:
                               description: Specification of the desired behavior of
-                                the VirtualMachineInstance on the host.
+                                the VirtualMachineInstance on the host. This is optional
+                                when provided as part of a VirtualMachine but required
+                                when provided as part of a VirtualMachineInstance.
                               properties:
                                 chassis:
                                   description: Chassis specifies the chassis info
@@ -23814,8 +23813,6 @@ var CRDsValidation map[string]string = map[string]string{
                                 - name
                                 type: object
                               type: array
-                          required:
-                          - domain
                           type: object
                       type: object
                   required:

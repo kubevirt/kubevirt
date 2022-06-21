@@ -240,7 +240,7 @@ var _ = Describe("Container spec renderer", func() {
 
 func vmiWithInterfaceWithPortAllowList(ifaceName string, ports ...v1.Port) *v1.VirtualMachineInstance {
 	vmi := simplestVMI()
-	vmi.Spec.Domain = v1.DomainSpec{
+	vmi.Spec.Domain = &v1.DomainSpec{
 		Devices: v1.Devices{
 			Interfaces: []v1.Interface{
 				{Name: ifaceName, Ports: ports},
@@ -252,7 +252,7 @@ func vmiWithInterfaceWithPortAllowList(ifaceName string, ports ...v1.Port) *v1.V
 func vmiWithVirtioFS(user uint64) *v1.VirtualMachineInstance {
 	const fsName = "0_o"
 	vmi := nonRootVMI(user)
-	vmi.Spec.Domain = v1.DomainSpec{
+	vmi.Spec.Domain = &v1.DomainSpec{
 		Devices: v1.Devices{
 			Filesystems: []v1.Filesystem{{
 				Name:     fsName,

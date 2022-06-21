@@ -1210,6 +1210,11 @@ var _ = Describe("VirtualMachine", func() {
 			vm, vmi := DefaultVirtualMachine(true)
 			vm.Generation = 1
 
+			// We need a stable firmware UUID so the generated revisions match later
+			stableFirmware := &v1.Firmware{UUID: "1234"}
+			vm.Spec.Template.Spec.Domain.Firmware = stableFirmware
+			vmi.Spec.Domain.Firmware = stableFirmware
+
 			addVirtualMachine(vm)
 
 			vmRevision := createVMRevision(vm)
@@ -1232,12 +1237,19 @@ var _ = Describe("VirtualMachine", func() {
 
 		It("should delete older vmRevision and create VMI with new one", func() {
 			vm, vmi := DefaultVirtualMachine(true)
+
+			// We need a stable firmware UUID so the generated revisions match later
+			stableFirmware := &v1.Firmware{UUID: "1234"}
+			vm.Spec.Template.Spec.Domain.Firmware = stableFirmware
+			vmi.Spec.Domain.Firmware = stableFirmware
+
 			vm.Generation = 1
 			oldVMRevision := createVMRevision(vm)
 
 			vm.Generation = 2
-			addVirtualMachine(vm)
 			vmRevision := createVMRevision(vm)
+
+			addVirtualMachine(vm)
 
 			expectControllerRevisionList(oldVMRevision)
 			expectControllerRevisionDelete(oldVMRevision)
@@ -4071,7 +4083,7 @@ func VirtualMachineFromVMI(name string, vmi *virtv1.VirtualMachineInstance, star
 					Name:   vmi.ObjectMeta.Name,
 					Labels: vmi.ObjectMeta.Labels,
 				},
-				Spec: vmi.Spec,
+				Spec: *vmi.Spec.DeepCopy(),
 			},
 		},
 		Status: virtv1.VirtualMachineStatus{

@@ -409,7 +409,7 @@ var _ = Describe("HostDisk", func() {
 				ObjectMeta: metav1.ObjectMeta{
 					Name: "testvmi", Namespace: namespace, UID: "1234",
 				},
-				Spec: v1.VirtualMachineInstanceSpec{Volumes: volumes, Domain: v1.DomainSpec{}},
+				Spec: v1.VirtualMachineInstanceSpec{Volumes: volumes, Domain: &v1.DomainSpec{}},
 				Status: v1.VirtualMachineInstanceStatus{
 					VolumeStatus: volumeStatus,
 				},

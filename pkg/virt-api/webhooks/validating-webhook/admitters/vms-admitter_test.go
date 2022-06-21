@@ -1408,7 +1408,7 @@ var _ = Describe("Validating VM Admitter", func() {
 			return false
 		}, true),
 		Entry("accept update to spec except running true", func(vm *v1.VirtualMachine) bool {
-			vm.Spec.Template = &v1.VirtualMachineInstanceTemplateSpec{}
+			vm.Spec.Template = &v1.VirtualMachineInstanceTemplateSpec{Spec: v1.VirtualMachineInstanceSpec{Domain: &v1.DomainSpec{}}}
 			return true
 		}, false),
 		Entry("accept update to metadata", func(vm *v1.VirtualMachine) bool {

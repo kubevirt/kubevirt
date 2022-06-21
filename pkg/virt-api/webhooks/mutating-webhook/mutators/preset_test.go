@@ -80,7 +80,7 @@ var _ = Describe("Mutating Webhook Presets", func() {
 					Labels: map[string]string{"test": "test"},
 				},
 				Spec: v1.VirtualMachineInstanceSpec{
-					Domain: v1.DomainSpec{
+					Domain: &v1.DomainSpec{
 						Resources: v1.ResourceRequirements{Requests: k8sv1.ResourceList{
 							"memory": memory,
 						}},
@@ -119,13 +119,13 @@ var _ = Describe("Mutating Webhook Presets", func() {
 
 		It("Should detect CPU overrides", func() {
 			// Check without and then with a CPU conflict
-			err := checkMergeConflicts(preset.Spec.Domain, &vmi.Spec.Domain)
+			err := checkMergeConflicts(preset.Spec.Domain, vmi.Spec.Domain)
 			Expect(err).ToNot(HaveOccurred())
 
 			By("showing no merge conflict occurs for matching preset")
 
 			preset.Spec.Domain.CPU = &v1.CPU{Cores: 4}
-			err = checkMergeConflicts(preset.Spec.Domain, &vmi.Spec.Domain)
+			err = checkMergeConflicts(preset.Spec.Domain, vmi.Spec.Domain)
 			Expect(err).ToNot(HaveOccurred())
 
 			By("applying matching preset")
@@ -139,7 +139,7 @@ var _ = Describe("Mutating Webhook Presets", func() {
 
 			By("showing an override occurred")
 			preset.Spec.Domain.CPU = &v1.CPU{Cores: 6}
-			err = checkMergeConflicts(preset.Spec.Domain, &vmi.Spec.Domain)
+			err = checkMergeConflicts(preset.Spec.Domain, vmi.Spec.Domain)
 			Expect(err).To(HaveOccurred())
 
 			By("applying overridden preset")
@@ -159,7 +159,7 @@ var _ = Describe("Mutating Webhook Presets", func() {
 			}}
 
 			By("demonstrating that override occurs")
-			err := checkMergeConflicts(preset.Spec.Domain, &vmi.Spec.Domain)
+			err := checkMergeConflicts(preset.Spec.Domain, vmi.Spec.Domain)
 			Expect(err).To(HaveOccurred())
 
 			By("applying mismatch preset")
@@ -178,7 +178,7 @@ var _ = Describe("Mutating Webhook Presets", func() {
 			}}
 
 			By("demonstrating that no override occurs")
-			err = checkMergeConflicts(preset.Spec.Domain, &vmi.Spec.Domain)
+			err = checkMergeConflicts(preset.Spec.Domain, vmi.Spec.Domain)
 			Expect(err).ToNot(HaveOccurred())
 
 			By("applying matching preset")
@@ -200,7 +200,7 @@ var _ = Describe("Mutating Webhook Presets", func() {
 			preset.Spec.Domain.Firmware = &v1.Firmware{UUID: mismatchUuid}
 
 			By("showing that an override occurs")
-			err := checkMergeConflicts(preset.Spec.Domain, &vmi.Spec.Domain)
+			err := checkMergeConflicts(preset.Spec.Domain, vmi.Spec.Domain)
 			Expect(err).To(HaveOccurred())
 
 			By("showing that presets are not applied")
@@ -214,7 +214,7 @@ var _ = Describe("Mutating Webhook Presets", func() {
 			preset.Spec.Domain.Firmware = &v1.Firmware{UUID: matchUuid}
 
 			By("showing that an override does not occur")
-			err = checkMergeConflicts(preset.Spec.Domain, &vmi.Spec.Domain)
+			err = checkMergeConflicts(preset.Spec.Domain, vmi.Spec.Domain)
 			Expect(err).ToNot(HaveOccurred())
 
 			By("showing settings did not change when preset is applied")
@@ -232,7 +232,7 @@ var _ = Describe("Mutating Webhook Presets", func() {
 			}
 
 			By("showing that an override occurs")
-			err := checkMergeConflicts(preset.Spec.Domain, &vmi.Spec.Domain)
+			err := checkMergeConflicts(preset.Spec.Domain, vmi.Spec.Domain)
 			Expect(err).To(HaveOccurred())
 
 			By("showing presets are not applied")
@@ -248,7 +248,7 @@ var _ = Describe("Mutating Webhook Presets", func() {
 			}
 
 			By("showing that an overide does not occur")
-			err = checkMergeConflicts(preset.Spec.Domain, &vmi.Spec.Domain)
+			err = checkMergeConflicts(preset.Spec.Domain, vmi.Spec.Domain)
 			Expect(err).ToNot(HaveOccurred())
 
 			By("showing settings were not changed")
@@ -264,7 +264,7 @@ var _ = Describe("Mutating Webhook Presets", func() {
 			preset.Spec.Domain.Features = &v1.Features{ACPI: v1.FeatureState{Enabled: &falsy}}
 
 			By("showing that an override occurs")
-			err := checkMergeConflicts(preset.Spec.Domain, &vmi.Spec.Domain)
+			err := checkMergeConflicts(preset.Spec.Domain, vmi.Spec.Domain)
 			Expect(err).To(HaveOccurred())
 
 			By("showing presets are not applied")
@@ -282,7 +282,7 @@ var _ = Describe("Mutating Webhook Presets", func() {
 			}
 
 			By("showing that an overide does not occur")
-			err = checkMergeConflicts(preset.Spec.Domain, &vmi.Spec.Domain)
+			err = checkMergeConflicts(preset.Spec.Domain, vmi.Spec.Domain)
 			Expect(err).ToNot(HaveOccurred())
 
 			By("showing settings were not changed")
@@ -298,7 +298,7 @@ var _ = Describe("Mutating Webhook Presets", func() {
 			preset.Spec.Domain.Devices.Watchdog = &v1.Watchdog{Name: "foo", WatchdogDevice: v1.WatchdogDevice{I6300ESB: &v1.I6300ESBWatchdog{Action: v1.WatchdogActionPoweroff}}}
 
 			By("showing that an override occurs")
-			err := checkMergeConflicts(preset.Spec.Domain, &vmi.Spec.Domain)
+			err := checkMergeConflicts(preset.Spec.Domain, vmi.Spec.Domain)
 			Expect(err).To(HaveOccurred())
 
 			By("showing presets are not applied")
@@ -312,7 +312,7 @@ var _ = Describe("Mutating Webhook Presets", func() {
 			preset.Spec.Domain.Devices.Watchdog = &v1.Watchdog{Name: "testcase", WatchdogDevice: v1.WatchdogDevice{I6300ESB: &v1.I6300ESBWatchdog{Action: v1.WatchdogActionReset}}}
 
 			By("showing that an overide does not occur")
-			err = checkMergeConflicts(preset.Spec.Domain, &vmi.Spec.Domain)
+			err = checkMergeConflicts(preset.Spec.Domain, vmi.Spec.Domain)
 			Expect(err).ToNot(HaveOccurred())
 
 			By("showing settings were not changed")
@@ -332,7 +332,7 @@ var _ = Describe("Mutating Webhook Presets", func() {
 			vmi.Spec.Domain.IOThreadsPolicy = &automaticPolicy
 
 			By("showing that an override occurs")
-			err := checkMergeConflicts(preset.Spec.Domain, &vmi.Spec.Domain)
+			err := checkMergeConflicts(preset.Spec.Domain, vmi.Spec.Domain)
 			Expect(err).To(HaveOccurred())
 
 			By("showing presets are not applied")
@@ -346,7 +346,7 @@ var _ = Describe("Mutating Webhook Presets", func() {
 			preset.Spec.Domain.IOThreadsPolicy = &automaticPolicy
 
 			By("showing that settings were not changed")
-			err = checkMergeConflicts(preset.Spec.Domain, &vmi.Spec.Domain)
+			err = checkMergeConflicts(preset.Spec.Domain, vmi.Spec.Domain)
 			Expect(err).ToNot(HaveOccurred())
 
 			vmi.Annotations = map[string]string{}
@@ -371,7 +371,7 @@ var _ = Describe("Mutating Webhook Presets", func() {
 
 		BeforeEach(func() {
 			vmi = v1.VirtualMachineInstance{ObjectMeta: k8smetav1.ObjectMeta{Name: "test-vmi"}}
-
+			vmi.Spec.Domain = &v1.DomainSpec{}
 			preset1 = &v1.VirtualMachineInstancePreset{
 				ObjectMeta: k8smetav1.ObjectMeta{Name: "memory-64"},
 				Spec: v1.VirtualMachineInstancePresetSpec{
@@ -531,7 +531,7 @@ var _ = Describe("Mutating Webhook Presets", func() {
 		falsy := false
 
 		BeforeEach(func() {
-			vmi = v1.VirtualMachineInstance{Spec: v1.VirtualMachineInstanceSpec{Domain: v1.DomainSpec{}}}
+			vmi = v1.VirtualMachineInstance{Spec: v1.VirtualMachineInstanceSpec{Domain: &v1.DomainSpec{}}}
 			vmi.ObjectMeta.Name = "testvmi"
 			preset = &v1.VirtualMachineInstancePreset{Spec: v1.VirtualMachineInstancePresetSpec{Domain: &v1.DomainSpec{}}}
 			preset.Name = "test-preset"
@@ -650,7 +650,7 @@ var _ = Describe("Mutating Webhook Presets", func() {
 		errorLabel := k8smetav1.LabelSelector{MatchLabels: map[string]string{flavorKey: "!"}}
 
 		BeforeEach(func() {
-			vmi = v1.VirtualMachineInstance{Spec: v1.VirtualMachineInstanceSpec{Domain: v1.DomainSpec{}}}
+			vmi = v1.VirtualMachineInstance{Spec: v1.VirtualMachineInstanceSpec{Domain: &v1.DomainSpec{}}}
 			vmi.ObjectMeta.Name = "testvmi"
 			vmi.ObjectMeta.Labels = map[string]string{flavorKey: "matching"}
 

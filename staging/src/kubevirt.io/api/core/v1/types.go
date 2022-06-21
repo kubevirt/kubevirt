@@ -86,7 +86,10 @@ type VirtualMachineInstanceSpec struct {
 	PriorityClassName string `json:"priorityClassName,omitempty"`
 
 	// Specification of the desired behavior of the VirtualMachineInstance on the host.
-	Domain DomainSpec `json:"domain"`
+	// This is optional when provided as part of a VirtualMachine but required when provided as part of a VirtualMachineInstance.
+	// +optional
+	Domain *DomainSpec `json:"domain,omitempty"`
+
 	// NodeSelector is a selector which must be true for the vmi to fit on a node.
 	// Selector which must match a node's labels for the vmi to be scheduled on that node.
 	// More info: https://kubernetes.io/docs/concepts/configuration/assign-pod-node/

@@ -53,7 +53,7 @@ var _ = Describe("[Serial][sig-compute]VMIDefaults", func() {
 			// create VMI with missing disk target
 			vmi = tests.NewRandomVMI()
 			vmi.Spec = v1.VirtualMachineInstanceSpec{
-				Domain: v1.DomainSpec{
+				Domain: &v1.DomainSpec{
 					Devices: v1.Devices{
 						Disks: []v1.Disk{
 							{Name: "testdisk"},

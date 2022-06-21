@@ -21599,7 +21599,7 @@ func schema_kubevirtio_api_core_v1_VirtualMachineInstanceSpec(ref common.Referen
 					},
 					"domain": {
 						SchemaProps: spec.SchemaProps{
-							Description: "Specification of the desired behavior of the VirtualMachineInstance on the host.",
+							Description: "Specification of the desired behavior of the VirtualMachineInstance on the host. This is optional when provided as part of a VirtualMachine but required when provided as part of a VirtualMachineInstance.",
 							Ref:         ref("kubevirt.io/api/core/v1.DomainSpec"),
 						},
 					},
@@ -21773,7 +21773,6 @@ func schema_kubevirtio_api_core_v1_VirtualMachineInstanceSpec(ref common.Referen
 						},
 					},
 				},
-				Required: []string{"domain"},
 			},
 		},
 		Dependencies: []string{

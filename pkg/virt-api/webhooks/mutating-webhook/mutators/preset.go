@@ -248,7 +248,7 @@ func applyPresets(vmi *kubev1.VirtualMachineInstance, presetInformer cache.Share
 	}
 
 	for _, preset := range presets {
-		applied, err := mergeDomainSpec(preset.Spec.Domain, &vmi.Spec.Domain)
+		applied, err := mergeDomainSpec(preset.Spec.Domain, vmi.Spec.Domain)
 		if applied {
 			if err != nil {
 				log.Log.Object(vmi).Warningf("Some settings were not applied for VirtualMachineInstancePreset '%s': %v", preset.Name, err)

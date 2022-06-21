@@ -2043,7 +2043,7 @@ func createVirtualMachine(namespace, name string) *v1.VirtualMachine {
 					},
 				},
 				Spec: v1.VirtualMachineInstanceSpec{
-					Domain: v1.DomainSpec{
+					Domain: &v1.DomainSpec{
 						Devices: v1.Devices{
 							Disks: []v1.Disk{
 								{

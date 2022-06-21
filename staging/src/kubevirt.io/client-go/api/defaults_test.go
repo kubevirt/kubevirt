@@ -51,7 +51,7 @@ var _ = Describe("Defaults", func() {
 	It("should default to true to all defined features", func() {
 		vmi := &v1.VirtualMachineInstance{
 			Spec: v1.VirtualMachineInstanceSpec{
-				Domain: v1.DomainSpec{},
+				Domain: &v1.DomainSpec{},
 			},
 		}
 		vmi.Spec.Domain.Features = &v1.Features{
@@ -99,7 +99,7 @@ var _ = Describe("Defaults", func() {
 	It("should not override defined feature states", func() {
 		vmi := &v1.VirtualMachineInstance{
 			Spec: v1.VirtualMachineInstanceSpec{
-				Domain: v1.DomainSpec{},
+				Domain: &v1.DomainSpec{},
 			},
 		}
 		pointer.BoolPtr(true)
@@ -186,7 +186,7 @@ var _ = Describe("Defaults", func() {
 	It("should set dis defaults", func() {
 		vmi := &v1.VirtualMachineInstance{
 			Spec: v1.VirtualMachineInstanceSpec{
-				Domain: v1.DomainSpec{
+				Domain: &v1.DomainSpec{
 					Devices: v1.Devices{
 						Disks: []v1.Disk{
 							{
@@ -228,7 +228,7 @@ var _ = Describe("Defaults", func() {
 	It("should set the default watchdog and the default watchdog action", func() {
 		vmi := &v1.VirtualMachineInstance{
 			Spec: v1.VirtualMachineInstanceSpec{
-				Domain: v1.DomainSpec{
+				Domain: &v1.DomainSpec{
 					Devices: v1.Devices{
 						Watchdog: &v1.Watchdog{
 							WatchdogDevice: v1.WatchdogDevice{
@@ -250,7 +250,7 @@ var _ = Describe("Defaults", func() {
 	It("should set timer defaults", func() {
 		vmi := &v1.VirtualMachineInstance{
 			Spec: v1.VirtualMachineInstanceSpec{
-				Domain: v1.DomainSpec{
+				Domain: &v1.DomainSpec{
 					Clock: &v1.Clock{
 						Timer: &v1.Timer{
 							HPET:   &v1.HPETTimer{},

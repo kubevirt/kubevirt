@@ -263,7 +263,7 @@ func getWindowsVMISpec() v1.VirtualMachineInstanceSpec {
 	_false := false
 	return v1.VirtualMachineInstanceSpec{
 		TerminationGracePeriodSeconds: &gracePeriod,
-		Domain: v1.DomainSpec{
+		Domain: &v1.DomainSpec{
 			CPU: &v1.CPU{Cores: 2},
 			Features: &v1.Features{
 				ACPI: v1.FeatureState{},
