@@ -473,12 +473,11 @@ func (t *templateService) renderLaunchManifest(vmi *v1.VirtualMachineInstance, i
 	// Get memory overhead
 	memoryOverhead := GetMemoryOverhead(vmi, t.clusterConfig.GetClusterCPUArch())
 
-	// Consider CPU and memory requests and limits for pod scheduling
-	resources := k8sv1.ResourceRequirements{}
-	vmiResources := vmi.Spec.Domain.Resources
-
-	resources.Requests = make(k8sv1.ResourceList)
-	resources.Limits = make(k8sv1.ResourceList)
+	resourceRenderer := t.newResourceRenderer(vmi)
+	resources := k8sv1.ResourceRequirements{
+		Limits:   resourceRenderer.Limits(),
+		Requests: resourceRenderer.Requests(),
+	}
 
 	// Set Default CPUs request
 	if !vmi.IsCPUDedicated() {
@@ -494,17 +493,10 @@ func (t *templateService) renderLaunchManifest(vmi *v1.VirtualMachineInstance, i
 				val *= 1000
 				vcpusStr = fmt.Sprintf("%gm", val)
 			}
-			resources.Requests[k8sv1.ResourceCPU] = resource.MustParse(vcpusStr)
+			if _, wasCPUExplicitlyRequested := resources.Requests[k8sv1.ResourceCPU]; !wasCPUExplicitlyRequested {
+				resources.Requests[k8sv1.ResourceCPU] = resource.MustParse(vcpusStr)
+			}
 		}
-	}
-	// Copy vmi resources requests to a container
-	for key, value := range vmiResources.Requests {
-		resources.Requests[key] = value
-	}
-
-	// Copy vmi resources limits to a container
-	for key, value := range vmiResources.Limits {
-		resources.Limits[key] = value
 	}
 
 	// Add ephemeral storage request to container to be used by Kubevirt. This amount of ephemeral storage
@@ -642,10 +634,6 @@ func (t *templateService) renderLaunchManifest(vmi *v1.VirtualMachineInstance, i
 	}
 
 	allowEmulation := t.clusterConfig.AllowEmulation()
-
-	if resources.Limits == nil {
-		resources.Limits = make(k8sv1.ResourceList)
-	}
 
 	extraResources := getRequiredResources(vmi, allowEmulation)
 	for key, val := range extraResources {
@@ -1051,6 +1039,11 @@ func (t *templateService) newVolumeRenderer(vmi *v1.VirtualMachineInstance, name
 		return nil, err
 	}
 	return volumeRenderer, nil
+}
+
+func (t *templateService) newResourceRenderer(vmi *v1.VirtualMachineInstance) *ResourceRenderer {
+	vmiResources := vmi.Spec.Domain.Resources
+	return NewResourceRenderer(vmiResources.Limits, vmiResources.Requests)
 }
 
 func sidecarVolumeMount() k8sv1.VolumeMount {
