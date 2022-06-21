@@ -42,8 +42,10 @@ const (
 	stoppingVM                = "Stopping VM"
 	creatingSnapshot          = "creating snapshot"
 
-	macAddressCloningPatchPattern = `{"op": "replace", "path": "/spec/template/spec/domain/devices/interfaces/0/macAddress", "value": "%s"}`
-	bashHelloScript               = "#!/bin/bash\necho 'hello'\n"
+	macAddressCloningPatchPattern   = `{"op": "replace", "path": "/spec/template/spec/domain/devices/interfaces/0/macAddress", "value": "%s"}`
+	firmwareUUIDCloningPatchPattern = `{"op": "replace", "path": "/spec/template/spec/domain/firmware/uuid", "value": "%s"}`
+
+	bashHelloScript = "#!/bin/bash\necho 'hello'\n"
 
 	onlineSnapshot = true
 	offlineSnaphot = false
@@ -705,10 +707,16 @@ var _ = SIGDescribe("VirtualMachineRestore Tests", func() {
 				}
 			}
 
+			getFirmwareUUIDCloningPatch := func(sourceVM *v1.VirtualMachine) string {
+				return fmt.Sprintf(firmwareUUIDCloningPatchPattern, "")
+			}
+
 			createRestoreDef := func(vmName string, snapshotName string) *snapshotv1.VirtualMachineRestore {
 				r := createRestoreDef(vmName, snapshotName)
 				if vmName != vm.Name {
-					r.Spec.Patches = []string{getMacAddressCloningPatch(vm)}
+					r.Spec.Patches = []string{
+						getMacAddressCloningPatch(vm),
+					}
 				}
 
 				return r
@@ -773,6 +781,9 @@ var _ = SIGDescribe("VirtualMachineRestore Tests", func() {
 
 				By("Restoring VM")
 				restore = createRestoreDef(targetVMName, snapshot.Name)
+				if vm.Spec.Template.Spec.Domain.Firmware != nil {
+					restore.Spec.Patches = append(restore.Spec.Patches, getFirmwareUUIDCloningPatch(vm))
+				}
 
 				restore, err = virtClient.VirtualMachineRestore(vm.Namespace).Create(context.Background(), restore, metav1.CreateOptions{})
 				Expect(err).ToNot(HaveOccurred())
@@ -1187,12 +1198,14 @@ var _ = SIGDescribe("VirtualMachineRestore Tests", func() {
 			})
 
 			DescribeTable("should restore a vm from an online snapshot", func(restoreToNewVM bool) {
-				vm, vmi = createAndStartVM(tests.NewRandomVMWithDataVolumeAndUserDataInStorageClass(
+				vm = tests.NewRandomVMWithDataVolumeAndUserDataInStorageClass(
 					cd.DataVolumeImportUrlForContainerDisk(cd.ContainerDiskCirros),
 					util.NamespaceTestDefault,
 					bashHelloScript,
 					snapshotStorageClass,
-				))
+				)
+				vm.Spec.Template.Spec.Domain.Firmware = &v1.Firmware{}
+				vm, vmi = createAndStartVM(vm)
 
 				doRestore("", console.LoginToCirros, onlineSnapshot, getTargetVMName(restoreToNewVM, newVmName))
 				Expect(restore.Status.Restores).To(HaveLen(1))
