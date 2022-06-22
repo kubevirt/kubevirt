@@ -265,9 +265,18 @@ func (VirtualMachineInstanceMigrationSpec) SwaggerDoc() map[string]string {
 	}
 }
 
+func (VirtualMachineInstanceMigrationPhaseTransitionTimestamp) SwaggerDoc() map[string]string {
+	return map[string]string{
+		"":                         "VirtualMachineInstanceMigrationPhaseTransitionTimestamp gives a timestamp in relation to when a phase is set on a vmi",
+		"phase":                    "Phase is the status of the VirtualMachineInstanceMigrationPhase in kubernetes world. It is not the VirtualMachineInstanceMigrationPhase status, but partially correlates to it.",
+		"phaseTransitionTimestamp": "PhaseTransitionTimestamp is the timestamp of when the phase change occurred",
+	}
+}
+
 func (VirtualMachineInstanceMigrationStatus) SwaggerDoc() map[string]string {
 	return map[string]string{
-		"": "VirtualMachineInstanceMigration reprents information pertaining to a VMI's migration.",
+		"":                          "VirtualMachineInstanceMigration reprents information pertaining to a VMI's migration.",
+		"phaseTransitionTimestamps": "PhaseTransitionTimestamp is the timestamp of when the last phase change occurred\n+listType=atomic\n+optional",
 	}
 }
 

@@ -10839,6 +10839,26 @@ var CRDsValidation map[string]string = map[string]string{
           description: VirtualMachineInstanceMigrationPhase is a label for the condition
             of a VirtualMachineInstanceMigration at the current time.
           type: string
+        phaseTransitionTimestamps:
+          description: PhaseTransitionTimestamp is the timestamp of when the last
+            phase change occurred
+          items:
+            description: VirtualMachineInstanceMigrationPhaseTransitionTimestamp gives
+              a timestamp in relation to when a phase is set on a vmi
+            properties:
+              phase:
+                description: Phase is the status of the VirtualMachineInstanceMigrationPhase
+                  in kubernetes world. It is not the VirtualMachineInstanceMigrationPhase
+                  status, but partially correlates to it.
+                type: string
+              phaseTransitionTimestamp:
+                description: PhaseTransitionTimestamp is the timestamp of when the
+                  phase change occurred
+                format: date-time
+                type: string
+            type: object
+          type: array
+          x-kubernetes-list-type: atomic
       type: object
   required:
   - spec
