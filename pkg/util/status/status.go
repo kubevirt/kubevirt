@@ -61,24 +61,18 @@ func (u *updater) updateWithoutSubresource(obj runtime.Object) (err error) {
 // call succeeds, it will switch the updater to permanently use the main entrypoint.
 func (u *updater) updateWithSubresource(obj runtime.Object) (updateStatusErr error) {
 	updateStatusErr = u.updateStatusUnstructured(obj)
-	if updateStatusErr != nil && !errors.IsNotFound(updateStatusErr) {
+	if !errors.IsNotFound(updateStatusErr) {
 		return updateStatusErr
 	}
-	if errors.IsNotFound(updateStatusErr) {
-		oldStatus, newStatus, err := u.updateUnstructured(obj)
-		if errors.IsNotFound(err) {
-			// object does not exist
-			return err
-		}
-		if err == nil && equality.Semantic.DeepEqual(oldStatus, newStatus) {
-			u.setSubresource(false)
-		} else if err == nil {
-			return updateStatusErr
-		}
+	oldStatus, newStatus, err := u.updateUnstructured(obj)
+	if err != nil {
 		return err
-	} else {
+	}
+	if !equality.Semantic.DeepEqual(oldStatus, newStatus) {
 		return updateStatusErr
 	}
+	u.setSubresource(false)
+	return nil
 }
 
 // patchWithoutSubresource will try to update the  status via PATCH sent to the main REST endpoint.
@@ -101,24 +95,18 @@ func (u *updater) patchWithoutSubresource(obj runtime.Object, patchType types.Pa
 // call succeeds, it will switch the updater to permanently use the main entrypoint.
 func (u *updater) patchWithSubresource(obj runtime.Object, patchType types.PatchType, data []byte, patchOptions *metav1.PatchOptions) (patchStatusErr error) {
 	patchStatusErr = u.patchStatusUnstructured(obj, patchType, data, patchOptions)
-	if patchStatusErr != nil && !errors.IsNotFound(patchStatusErr) {
+	if !errors.IsNotFound(patchStatusErr) {
 		return patchStatusErr
 	}
-	if errors.IsNotFound(patchStatusErr) {
-		oldResourceVersion, newResourceVersions, err := u.patchUnstructured(obj, patchType, data, patchOptions)
-		if errors.IsNotFound(err) {
-			// object does not exist
-			return err
-		}
-		if err == nil && oldResourceVersion != newResourceVersions {
-			u.setSubresource(false)
-		} else if err == nil {
-			return patchStatusErr
-		}
+	oldResourceVersion, newResourceVersions, err := u.patchUnstructured(obj, patchType, data, patchOptions)
+	if err != nil {
 		return err
-	} else {
+	}
+	if oldResourceVersion == newResourceVersions {
 		return patchStatusErr
 	}
+	u.setSubresource(false)
+	return nil
 }
 
 func (u *updater) patchUnstructured(obj runtime.Object, patchType types.PatchType, data []byte, patchOptions *metav1.PatchOptions) (oldResourceVersion, newResourceVerions string, err error) {
