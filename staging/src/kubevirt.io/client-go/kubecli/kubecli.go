@@ -25,8 +25,7 @@ import (
 	"os"
 	"sync"
 
-	migrationsv1 "kubevirt.io/client-go/generated/kubevirt/clientset/versioned/typed/migrations/v1alpha1"
-
+	routev1 "github.com/openshift/client-go/route/clientset/versioned/typed/route/v1"
 	secv1 "github.com/openshift/client-go/security/clientset/versioned/typed/security/v1"
 	"github.com/spf13/pflag"
 	extclient "k8s.io/apiextensions-apiserver/pkg/client/clientset/clientset"
@@ -43,10 +42,10 @@ import (
 
 	"kubevirt.io/api/core"
 	v1 "kubevirt.io/api/core/v1"
-
 	cdiclient "kubevirt.io/client-go/generated/containerized-data-importer/clientset/versioned"
 	k8ssnapshotclient "kubevirt.io/client-go/generated/external-snapshotter/clientset/versioned"
 	generatedclient "kubevirt.io/client-go/generated/kubevirt/clientset/versioned"
+	migrationsv1 "kubevirt.io/client-go/generated/kubevirt/clientset/versioned/typed/migrations/v1alpha1"
 	networkclient "kubevirt.io/client-go/generated/network-attachment-definition-client/clientset/versioned"
 	promclient "kubevirt.io/client-go/generated/prometheus-operator/clientset/versioned"
 )
@@ -173,6 +172,11 @@ func GetKubevirtSubresourceClientFromFlags(master string, kubeconfig string) (Ku
 		return nil, err
 	}
 
+	routeClient, err := routev1.NewForConfig(config)
+	if err != nil {
+		return nil, err
+	}
+
 	discoveryClient, err := discovery.NewDiscoveryClientForConfig(config)
 	if err != nil {
 		return nil, err
@@ -208,6 +212,7 @@ func GetKubevirtSubresourceClientFromFlags(master string, kubeconfig string) (Ku
 		networkClient,
 		extensionsClient,
 		secClient,
+		routeClient,
 		discoveryClient,
 		prometheusClient,
 		snapshotClient,
@@ -334,6 +339,11 @@ func GetKubevirtClientFromRESTConfig(config *rest.Config) (KubevirtClient, error
 		return nil, err
 	}
 
+	routeClient, err := routev1.NewForConfig(&shallowCopy)
+	if err != nil {
+		return nil, err
+	}
+
 	discoveryClient, err := discovery.NewDiscoveryClientForConfig(&shallowCopy)
 	if err != nil {
 		return nil, err
@@ -369,6 +379,7 @@ func GetKubevirtClientFromRESTConfig(config *rest.Config) (KubevirtClient, error
 		networkClient,
 		extensionsClient,
 		secClient,
+		routeClient,
 		discoveryClient,
 		prometheusClient,
 		snapshotClient,

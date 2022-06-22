@@ -23,7 +23,7 @@ source hack/common.sh
 source hack/bootstrap.sh
 source hack/config.sh
 
-PUSH_TARGETS=(${PUSH_TARGETS:-other-images virt-operator virt-api virt-controller virt-handler virt-launcher conformance libguestfs})
+PUSH_TARGETS=(${PUSH_TARGETS:-other-images virt-operator virt-api virt-controller virt-handler virt-launcher virt-exportserver virt-exportproxy conformance libguestfs})
 
 for tag in ${docker_tag} ${docker_tag_alt}; do
     for target in ${PUSH_TARGETS[@]}; do

@@ -113,6 +113,7 @@ func NewKubeVirtController(
 			MutatingWebhook:          controller.NewUIDTrackingControllerExpectations(controller.NewControllerExpectationsWithName("MutatingWebhook")),
 			APIService:               controller.NewUIDTrackingControllerExpectations(controller.NewControllerExpectationsWithName("APIService")),
 			SCC:                      controller.NewUIDTrackingControllerExpectations(controller.NewControllerExpectationsWithName("SCC")),
+			Route:                    controller.NewUIDTrackingControllerExpectations(controller.NewControllerExpectationsWithName("Route")),
 			InstallStrategyConfigMap: controller.NewUIDTrackingControllerExpectations(controller.NewControllerExpectationsWithName("InstallStrategyConfigMap")),
 			InstallStrategyJob:       controller.NewUIDTrackingControllerExpectations(controller.NewControllerExpectationsWithName("Jobs")),
 			PodDisruptionBudget:      controller.NewUIDTrackingControllerExpectations(controller.NewControllerExpectationsWithName("PodDisruptionBudgets")),
@@ -296,6 +297,18 @@ func NewKubeVirtController(
 		},
 		UpdateFunc: func(oldObj, newObj interface{}) {
 			c.sccUpdateHandler(oldObj, newObj, c.kubeVirtExpectations.SCC)
+		},
+	})
+
+	c.informers.Route.AddEventHandler(cache.ResourceEventHandlerFuncs{
+		AddFunc: func(obj interface{}) {
+			c.genericAddHandler(obj, c.kubeVirtExpectations.Route)
+		},
+		DeleteFunc: func(obj interface{}) {
+			c.genericDeleteHandler(obj, c.kubeVirtExpectations.Route)
+		},
+		UpdateFunc: func(oldObj, newObj interface{}) {
+			c.genericUpdateHandler(oldObj, newObj, c.kubeVirtExpectations.Route)
 		},
 	})
 
@@ -557,6 +570,7 @@ func (c *KubeVirtController) Run(threadiness int, stopCh <-chan struct{}) {
 	cache.WaitForCacheSync(stopCh, c.informers.DaemonSet.HasSynced)
 	cache.WaitForCacheSync(stopCh, c.informers.ValidationWebhook.HasSynced)
 	cache.WaitForCacheSync(stopCh, c.informers.SCC.HasSynced)
+	cache.WaitForCacheSync(stopCh, c.informers.Route.HasSynced)
 	cache.WaitForCacheSync(stopCh, c.informers.InstallStrategyConfigMap.HasSynced)
 	cache.WaitForCacheSync(stopCh, c.informers.InstallStrategyJob.HasSynced)
 	cache.WaitForCacheSync(stopCh, c.informers.InfrastructurePod.HasSynced)

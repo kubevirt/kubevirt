@@ -53,6 +53,7 @@ testimage_base="
   qemu-img-${QEMU_VERSION}
   util-linux
   which
+  tar
 "
 
 # create a rpmtree for libvirt-devel. libvirt-devel is needed for compilation and unit-testing.
@@ -129,6 +130,10 @@ libguestfstools_base="
 "
 libguestfstools_x86_64="
   edk2-ovmf-${EDK2_VERSION}
+"
+
+exportserver_base="
+  tar
 "
 
 if [ -z "${SINGLE_ARCH}" ] || [ "${SINGLE_ARCH}" == "x86_64" ]; then
@@ -213,6 +218,17 @@ if [ -z "${SINGLE_ARCH}" ] || [ "${SINGLE_ARCH}" == "x86_64" ]; then
         --force-ignore-with-dependencies '^(man-db|mandoc)' \
         --force-ignore-with-dependencies '^dbus'
 
+    bazel run \
+        --config=${ARCHITECTURE} \
+        //:bazeldnf -- rpmtree \
+        --public --nobest \
+        --name exportserverbase_x86_64 \
+        --basesystem centos-stream-release \
+        ${bazeldnf_repos} \
+        $centos_base \
+        $centos_extra \
+        $exportserver_base
+
     # remove all RPMs which are no longer referenced by a rpmtree
     bazel run \
         --config=${ARCHITECTURE} \
@@ -293,6 +309,17 @@ if [ -z "${SINGLE_ARCH}" ] || [ "${SINGLE_ARCH}" == "aarch64" ]; then
         $centos_extra \
         $handler_base \
         $handlerbase_extra
+
+    bazel run \
+        --config=${ARCHITECTURE} \
+        //:bazeldnf -- rpmtree \
+        --public --nobest \
+        --name exportserverbase_aarch64 --arch aarch64 \
+        --basesystem centos-stream-release \
+        ${bazeldnf_repos} \
+        $centos_base \
+        $centos_extra \
+        $exportserver_base
 
     # remove all RPMs which are no longer referenced by a rpmtree
     bazel run \

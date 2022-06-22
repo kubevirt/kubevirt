@@ -151,6 +151,8 @@ virtcontroller_version=$(getVersion ".VirtControllerSha")
 virthandler_version=$(getVersion ".VirtHandlerSha")
 virtlauncher_version=$(getVersion ".VirtLauncherSha")
 virtoperator_version=$(getVersion ".VirtOperatorSha")
+virtexportproxy_version=$(getVersion ".VirtExportProxySha")
+virtexportserver_version=$(getVersion ".VirtExportServerSha")
 
 # used as env var for operator
 function getShasum() {
@@ -165,12 +167,16 @@ virtapi_sha=$(getShasum ".VirtApiSha")
 virtcontroller_sha=$(getShasum ".VirtControllerSha")
 virthandler_sha=$(getShasum ".VirtHandlerSha")
 virtlauncher_sha=$(getShasum ".VirtLauncherSha")
+virtexportproxy_sha=$(getShasum ".VirtExportProxySha")
+virtexportserver_sha=$(getShasum ".VirtExportServerSha")
 gs_sha=$(getShasum ".GsSha")
 
 virtapi_rawsha=$(getRawShasum ".VirtApiSha")
 virtcontroller_rawsha=$(getRawShasum ".VirtControllerSha")
 virthandler_rawsha=$(getRawShasum ".VirtHandlerSha")
 virtlauncher_rawsha=$(getRawShasum ".VirtLauncherSha")
+virtexportproxy_rawsha=$(getRawShasum ".VirtExportProxySha")
+virtexportserver_rawsha=$(getRawShasum ".VirtExportServerSha")
 gs_rawsha=$(getRawShasum ".GsSha")
 
 # The generation code for CSV requires a valid semver to be used.
@@ -180,7 +186,7 @@ gs_rawsha=$(getRawShasum ".GsSha")
 # values after the file is generated.
 _fake_replaces_csv_version="1111.1111.1111"
 _fake_csv_version="2222.2222.2222"
-${KUBEVIRT_DIR}/tools/csv-generator/csv-generator --namespace={{.CSVNamespace}} --dockerPrefix={{.DockerPrefix}} --operatorImageVersion="$virtoperator_version" --pullPolicy={{.ImagePullPolicy}} --verbosity={{.Verbosity}} --apiSha="$virtapi_rawsha" --controllerSha="$virtcontroller_rawsha" --handlerSha="$virthandler_rawsha" --launcherSha="$virtlauncher_rawsha" --gsSha="$gs_rawsha" --kubevirtLogo={{.KubeVirtLogo}} --csvVersion="$_fake_csv_version" --replacesCsvVersion="$_fake_replaces_csv_version" --csvCreatedAtTimestamp={{.CreatedAt}} --kubeVirtVersion={{.DockerTag}} >${KUBEVIRT_DIR}/manifests/generated/operator-csv.yaml.in
+${KUBEVIRT_DIR}/tools/csv-generator/csv-generator --namespace={{.CSVNamespace}} --dockerPrefix={{.DockerPrefix}} --operatorImageVersion="$virtoperator_version" --pullPolicy={{.ImagePullPolicy}} --verbosity={{.Verbosity}} --apiSha="$virtapi_rawsha" --controllerSha="$virtcontroller_rawsha" --handlerSha="$virthandler_rawsha" --launcherSha="$virtlauncher_rawsha" --exportProxySha="$virtexportproxy_rawsha" --exportServerSha="$virtexportserver_rawsha" --gsSha="$gs_rawsha" --kubevirtLogo={{.KubeVirtLogo}} --csvVersion="$_fake_csv_version" --replacesCsvVersion="$_fake_replaces_csv_version" --csvCreatedAtTimestamp={{.CreatedAt}} --kubeVirtVersion={{.DockerTag}} >${KUBEVIRT_DIR}/manifests/generated/operator-csv.yaml.in
 sed -i "s/$_fake_csv_version/{{.CsvVersion}}/g" ${KUBEVIRT_DIR}/manifests/generated/operator-csv.yaml.in
 sed -i "s/$_fake_replaces_csv_version/{{.ReplacesCsvVersion}}/g" ${KUBEVIRT_DIR}/manifests/generated/operator-csv.yaml.in
 

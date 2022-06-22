@@ -21,7 +21,7 @@ set -e
 
 source hack/common.sh
 
-if [[ ! -f "${DIGESTS_DIR}/bazel-bin/push-virt-operator.digest" ]]; then
+if [[ ! -f "${DIGESTS_DIR}/bazel-bin/push-virt-exportproxy.digest" ]]; then
     echo "digest files not found: won't use shasums, falling back to tags"
     return
 fi
@@ -38,4 +38,6 @@ VIRT_API_SHA=$(cat ${DIGESTS_DIR}/bazel-bin/push-virt-api.digest)
 VIRT_CONTROLLER_SHA=$(cat ${DIGESTS_DIR}/bazel-bin/push-virt-controller.digest)
 VIRT_HANDLER_SHA=$(cat ${DIGESTS_DIR}/bazel-bin/push-virt-handler.digest)
 VIRT_LAUNCHER_SHA=$(cat ${DIGESTS_DIR}/bazel-bin/push-virt-launcher.digest)
+VIRT_EXPORTPROXY_SHA=$(cat ${DIGESTS_DIR}/bazel-bin/push-virt-exportproxy.digest)
+VIRT_EXPORTSERVER_SHA=$(cat ${DIGESTS_DIR}/bazel-bin/push-virt-exportserver.digest)
 GS_SHA=$(cat ${DIGESTS_DIR}/bazel-bin/push-libguestfs.digest)

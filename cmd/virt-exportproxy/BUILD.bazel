@@ -1,0 +1,58 @@
+load("@io_bazel_rules_go//go:def.bzl", "go_binary", "go_library")
+
+go_library(
+    name = "go_default_library",
+    srcs = ["virt-exportproxy.go"],
+    importpath = "kubevirt.io/kubevirt/cmd/virt-exportproxy",
+    visibility = ["//visibility:private"],
+    deps = [
+        "//pkg/certificates/bootstrap:go_default_library",
+        "//pkg/controller:go_default_library",
+        "//pkg/service:go_default_library",
+        "//pkg/util/webhooks:go_default_library",
+        "//staging/src/kubevirt.io/api/export/v1alpha1:go_default_library",
+        "//staging/src/kubevirt.io/client-go/kubecli:go_default_library",
+        "//staging/src/kubevirt.io/client-go/log:go_default_library",
+        "//staging/src/kubevirt.io/client-go/util:go_default_library",
+        "//vendor/github.com/prometheus/client_golang/prometheus/promhttp:go_default_library",
+        "//vendor/k8s.io/client-go/tools/cache:go_default_library",
+        "//vendor/k8s.io/client-go/util/certificate:go_default_library",
+        "//vendor/k8s.io/kube-aggregator/pkg/client/clientset_generated/clientset:go_default_library",
+    ],
+)
+
+load("//vendor/kubevirt.io/client-go/version:def.bzl", "version_x_defs")
+
+go_binary(
+    name = "virt-exportproxy",
+    embed = [":go_default_library"],
+    static = "on",
+    visibility = ["//visibility:public"],
+    x_defs = version_x_defs(),
+)
+
+load(
+    "@io_bazel_rules_docker//container:container.bzl",
+    "container_image",
+)
+
+container_image(
+    name = "version-container",
+    base = "//:passwd-image",
+    directory = "/",
+    files = ["//:get-version"],
+)
+
+container_image(
+    name = "virt-exportproxy-image",
+    architecture = select({
+        "@io_bazel_rules_go//go/platform:linux_arm64": "arm64",
+        "//conditions:default": "amd64",
+    }),
+    base = ":version-container",
+    directory = "/usr/bin/",
+    entrypoint = ["/usr/bin/virt-exportproxy"],
+    files = [":virt-exportproxy"],
+    user = "1001",
+    visibility = ["//visibility:public"],
+)

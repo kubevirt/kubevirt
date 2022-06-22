@@ -757,6 +757,8 @@ const VirtControllerServiceName = "virt-controller"
 
 const VirtHandlerServiceName = "virt-handler"
 
+const VirtExportProxyServiceName = "virt-exportproxy"
+
 const VirtAPIValidatingWebhookName = "virt-api-validator"
 
 const VirtOperatorServiceName = "kubevirt-operator-webhook"

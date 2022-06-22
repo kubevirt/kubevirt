@@ -6,6 +6,7 @@ go_library(
         "apiserver.go",
         "cluster.go",
         "controller.go",
+        "exportproxy.go",
         "handler.go",
         "operator.go",
         "servicemonitor.go",

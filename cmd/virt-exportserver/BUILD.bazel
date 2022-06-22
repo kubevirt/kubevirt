@@ -1,0 +1,86 @@
+load("@io_bazel_rules_go//go:def.bzl", "go_binary", "go_library")
+
+go_library(
+    name = "go_default_library",
+    srcs = ["virt-exportserver.go"],
+    importpath = "kubevirt.io/kubevirt/cmd/virt-exportserver",
+    visibility = ["//visibility:private"],
+    deps = [
+        "//pkg/service:go_default_library",
+        "//pkg/virt-exportserver:go_default_library",
+        "//staging/src/kubevirt.io/client-go/log:go_default_library",
+    ],
+)
+
+load("//vendor/kubevirt.io/client-go/version:def.bzl", "version_x_defs")
+
+go_binary(
+    name = "virt-exportserver",
+    embed = [":go_default_library"],
+    static = "on",
+    visibility = ["//visibility:public"],
+    x_defs = version_x_defs(),
+)
+
+load(
+    "@io_bazel_rules_docker//container:container.bzl",
+    "container_image",
+)
+load("@io_bazel_rules_docker//contrib:passwd.bzl", "passwd_entry", "passwd_file")
+load("@bazel_tools//tools/build_defs/pkg:pkg.bzl", "pkg_tar")
+
+passwd_entry(
+    name = "nonroot-user",
+    gid = 1001,
+    home = "/home/nonroot-user",
+    shell = "/bin/bash",
+    uid = 1001,
+    username = "nonroot-user",
+)
+
+passwd_file(
+    name = "passwd",
+    entries = [
+        ":nonroot-user",
+    ],
+)
+
+pkg_tar(
+    name = "passwd-tar",
+    srcs = [":passwd"],
+    mode = "0644",
+    package_dir = "etc",
+    visibility = ["//visibility:public"],
+)
+
+container_image(
+    name = "version-container",
+    directory = "/",
+    files = [
+        "//:get-version",
+    ],
+    tars = select({
+        "@io_bazel_rules_go//go/platform:linux_arm64": [
+            ":passwd-tar",
+            "//rpm:exportserverbase_aarch64",
+        ],
+        "//conditions:default": [
+            ":passwd-tar",
+            "//rpm:exportserverbase_x86_64",
+        ],
+    }),
+)
+
+container_image(
+    name = "virt-exportserver-image",
+    architecture = select({
+        "@io_bazel_rules_go//go/platform:linux_arm64": "arm64",
+        "//conditions:default": "amd64",
+    }),
+    base = ":version-container",
+    directory = "/usr/bin/",
+    entrypoint = ["/usr/bin/virt-exportserver"],
+    files = [":virt-exportserver"],
+    user = "1001",
+    visibility = ["//visibility:public"],
+)
