@@ -1,6 +1,7 @@
 package services
 
 import (
+	"fmt"
 	k8sv1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/api/resource"
 
@@ -65,6 +66,21 @@ func WithEphemeralStorageRequest() ResourceRendererOption {
 		if ephemeralStorageLimit, ephemeralStorageLimitDefined := renderer.vmLimits[k8sv1.ResourceEphemeralStorage]; ephemeralStorageLimitDefined {
 			ephemeralStorageLimit.Add(ephemeralStorageOverhead)
 			renderer.vmLimits[k8sv1.ResourceEphemeralStorage] = ephemeralStorageLimit
+		}
+	}
+}
+
+func WithoutDedicatedCPU(cpu *v1.CPU, cpuAllocationRatio int) ResourceRendererOption {
+	return func(renderer *ResourceRenderer) {
+		vcpus := calcVCPUs(cpu)
+		if vcpus != 0 && cpuAllocationRatio > 0 {
+			val := float64(vcpus) / float64(cpuAllocationRatio)
+			vcpusStr := fmt.Sprintf("%g", val)
+			if val < 1 {
+				val *= 1000
+				vcpusStr = fmt.Sprintf("%gm", val)
+			}
+			renderer.calculatedRequests[k8sv1.ResourceCPU] = resource.MustParse(vcpusStr)
 		}
 	}
 }
@@ -221,4 +237,11 @@ func requestResource(resources *k8sv1.ResourceRequirements, resourceName string)
 	} else {
 		resources.Requests[name] = unitQuantity
 	}
+}
+
+func calcVCPUs(cpu *v1.CPU) int64 {
+	if cpu != nil {
+		return hardware.GetNumberOfVCPUs(cpu)
+	}
+	return int64(1)
 }

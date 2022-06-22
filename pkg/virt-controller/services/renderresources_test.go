@@ -6,6 +6,8 @@ import (
 
 	kubev1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/api/resource"
+
+	v1 "kubevirt.io/api/core/v1"
 )
 
 var _ = Describe("Resource pod spec renderer", func() {
@@ -45,6 +47,22 @@ var _ = Describe("Resource pod spec renderer", func() {
 				addResources(seventyMegabytes, ephemeralStorageAddition),
 			))
 		})
+	})
+
+	Context("Default CPU configuration", func() {
+		cpu := &v1.CPU{Cores: 5}
+		It("Requests one CPU per core, when CPU allocation ratio is 1", func() {
+			rr = NewResourceRenderer(nil, nil, WithoutDedicatedCPU(cpu, 1))
+			Expect(rr.Requests()).To(HaveKeyWithValue(kubev1.ResourceCPU, resource.MustParse("5")))
+			Expect(rr.Limits()).To(BeEmpty())
+		})
+
+		It("Requests 100m per core, when CPU allocation ratio is 10", func() {
+			rr = NewResourceRenderer(nil, nil, WithoutDedicatedCPU(cpu, 10))
+			Expect(rr.Requests()).To(HaveKeyWithValue(kubev1.ResourceCPU, resource.MustParse("500m")))
+			Expect(rr.Limits()).To(BeEmpty())
+		})
+
 	})
 })
 

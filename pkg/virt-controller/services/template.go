@@ -429,26 +429,6 @@ func (t *templateService) renderLaunchManifest(vmi *v1.VirtualMachineInstance, i
 		Requests: resourceRenderer.Requests(),
 	}
 
-	// Set Default CPUs request
-	if !vmi.IsCPUDedicated() {
-		vcpus := int64(1)
-		if vmi.Spec.Domain.CPU != nil {
-			vcpus = hardware.GetNumberOfVCPUs(vmi.Spec.Domain.CPU)
-		}
-		cpuAllocationRatio := t.clusterConfig.GetCPUAllocationRatio()
-		if vcpus != 0 && cpuAllocationRatio > 0 {
-			val := float64(vcpus) / float64(cpuAllocationRatio)
-			vcpusStr := fmt.Sprintf("%g", val)
-			if val < 1 {
-				val *= 1000
-				vcpusStr = fmt.Sprintf("%gm", val)
-			}
-			if _, wasCPUExplicitlyRequested := resources.Requests[k8sv1.ResourceCPU]; !wasCPUExplicitlyRequested {
-				resources.Requests[k8sv1.ResourceCPU] = resource.MustParse(vcpusStr)
-			}
-		}
-	}
-
 	// Consider hugepages resource for pod scheduling
 	if util.HasHugePages(vmi) {
 		hugepageType := k8sv1.ResourceName(k8sv1.ResourceHugePagesPrefix + vmi.Spec.Domain.Memory.Hugepages.PageSize)
@@ -983,6 +963,14 @@ func (t *templateService) newResourceRenderer(vmi *v1.VirtualMachineInstance) *R
 	vmiResources := vmi.Spec.Domain.Resources
 	options := []ResourceRendererOption{
 		WithEphemeralStorageRequest(),
+	}
+
+	// Set Default CPUs request
+	if !vmi.IsCPUDedicated() {
+		options = append(
+			options,
+			WithoutDedicatedCPU(vmi.Spec.Domain.CPU, t.clusterConfig.GetCPUAllocationRatio()),
+		)
 	}
 
 	return NewResourceRenderer(vmiResources.Limits, vmiResources.Requests, options...)
