@@ -22,6 +22,7 @@ package migration
 import (
 	"github.com/prometheus/client_golang/prometheus"
 	k8sv1 "k8s.io/api/core/v1"
+	"k8s.io/client-go/tools/cache"
 
 	virtv1 "kubevirt.io/api/core/v1"
 	"kubevirt.io/client-go/log"
@@ -76,13 +77,15 @@ var (
 	)
 )
 
-func RegisterMigrationMetrics() {
-	log.Log.Infof("Starting migration metrics")
+func RegisterMigrationMetrics(vmiMigrationInformer cache.SharedIndexInformer) {
+	log.Log.Infof("Starting migration's counter metrics")
 	prometheus.MustRegister(CurrentPendingMigrations)
 	prometheus.MustRegister(CurrentSchedulingMigrations)
 	prometheus.MustRegister(CurrentRunningMigrations)
 	prometheus.MustRegister(MigrationsSucceededTotal)
 	prometheus.MustRegister(MigrationsFailedTotal)
+	log.Log.Infof("Starting migration's performance and scale metrics")
+	prometheus.MustRegister(newVMIMigrationPhaseTransitionTimeFromCreationHistogramVec(vmiMigrationInformer))
 }
 
 func IncPendingMigrations(vmi *virtv1.VirtualMachineInstance, targetPod *k8sv1.Pod) {
