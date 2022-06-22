@@ -737,7 +737,7 @@ var _ = SIGDescribe("VirtualMachineRestore Tests", func() {
 				Expect(newVM.Spec.DataVolumeTemplates).To(HaveLen(len(vm.Spec.DataVolumeTemplates)))
 			}
 
-			doRestore := func(device string, login console.LoginToFunction, onlineSnapshot bool, targetVMName string) {
+			doRestoreNoVMStart := func(device string, login console.LoginToFunction, onlineSnapshot bool, targetVMName string) {
 				isRestoreToDifferentVM := targetVMName != vm.Name
 
 				var targetUID *types.UID
@@ -778,7 +778,10 @@ var _ = SIGDescribe("VirtualMachineRestore Tests", func() {
 				Expect(err).ToNot(HaveOccurred())
 
 				restore = waitRestoreComplete(restore, targetVMName, targetUID)
+			}
 
+			startVMAfterRestore := func(targetVMName, device string, login console.LoginToFunction) {
+				isRestoreToDifferentVM := targetVMName != vm.Name
 				targetVM, err := virtClient.VirtualMachine(vm.Namespace).Get(targetVMName, &metav1.GetOptions{})
 				Expect(err).ToNot(HaveOccurred())
 
@@ -795,6 +798,11 @@ var _ = SIGDescribe("VirtualMachineRestore Tests", func() {
 				} else {
 					vm = targetVM
 				}
+			}
+
+			doRestore := func(device string, login console.LoginToFunction, onlineSnapshot bool, targetVMName string) {
+				doRestoreNoVMStart(device, login, onlineSnapshot, targetVMName)
+				startVMAfterRestore(targetVMName, device, login)
 			}
 
 			It("[test_id:5259]should restore a vm multiple from the same snapshot", func() {
@@ -1431,8 +1439,23 @@ var _ = SIGDescribe("VirtualMachineRestore Tests", func() {
 					getMemoryDump(vm.Name, vm.Namespace, memoryDumpPVCName)
 					waitMemoryDumpCompletion(vm)
 
-					doRestore("", console.LoginToFedora, onlineSnapshot, getTargetVMName(restoreToNewVM, newVmName))
+					doRestoreNoVMStart("", console.LoginToFedora, onlineSnapshot, getTargetVMName(restoreToNewVM, newVmName))
 					Expect(restore.Status.Restores).To(HaveLen(1))
+					Expect(restore.Status.Restores[0].VolumeName).ToNot(Equal(memoryDumpPVCName))
+
+					restorePVC, err := virtClient.CoreV1().PersistentVolumeClaims(util.NamespaceTestDefault).Get(context.Background(), restore.Status.Restores[0].PersistentVolumeClaimName, metav1.GetOptions{})
+					Expect(err).ToNot(HaveOccurred())
+					content, err := virtClient.VirtualMachineSnapshotContent(vm.Namespace).Get(context.Background(), *snapshot.Status.VirtualMachineSnapshotContentName, metav1.GetOptions{})
+					Expect(err).ToNot(HaveOccurred())
+					expectedSource := ""
+					for _, vb := range content.Spec.VolumeBackups {
+						if vb.VolumeName == restore.Status.Restores[0].VolumeName {
+							expectedSource = *vb.VolumeSnapshotName
+						}
+					}
+					Expect(restorePVC.Spec.DataSource.Name).To(Equal(expectedSource))
+
+					startVMAfterRestore(getTargetVMName(restoreToNewVM, newVmName), "", console.LoginToFedora)
 
 					targetVM := getTargetVM(restoreToNewVM)
 					targetVMI, err := virtClient.VirtualMachineInstance(targetVM.Namespace).Get(targetVM.Name, &metav1.GetOptions{})

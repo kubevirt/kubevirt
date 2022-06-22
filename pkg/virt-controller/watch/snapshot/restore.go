@@ -273,14 +273,17 @@ func (ctrl *VMRestoreController) reconcileVolumeRestores(vmRestore *snapshotv1.V
 
 	createdPVC := false
 	waitingPVC := false
-	for i, restore := range restores {
+	for _, restore := range restores {
 		pvc, err := ctrl.getPVC(vmRestore.Namespace, restore.PersistentVolumeClaimName)
 		if err != nil {
 			return false, err
 		}
 
 		if pvc == nil {
-			backup := content.Spec.VolumeBackups[i]
+			backup, err := getRestoreVolumeBackup(restore.VolumeName, content)
+			if err != nil {
+				return false, err
+			}
 			if err = ctrl.createRestorePVC(vmRestore, target, backup, restore, content.Spec.Source.VirtualMachine.Name, content.Spec.Source.VirtualMachine.Namespace); err != nil {
 				return false, err
 			}
@@ -833,4 +836,13 @@ func volumesNotForRestore(content *snapshotv1.VirtualMachineSnapshotContent) set
 	}
 
 	return noRestore
+}
+
+func getRestoreVolumeBackup(volName string, content *snapshotv1.VirtualMachineSnapshotContent) (snapshotv1.VolumeBackup, error) {
+	for _, vb := range content.Spec.VolumeBackups {
+		if vb.VolumeName == volName {
+			return vb, nil
+		}
+	}
+	return snapshotv1.VolumeBackup{}, fmt.Errorf("volume backup for volume %s not found", volName)
 }
