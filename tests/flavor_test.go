@@ -298,7 +298,7 @@ var _ = Describe("[crit:medium][vendor:cnv-qe@redhat.com][level:component][sig-c
 			Expect(cause.Field).To(Equal("spec.template.spec.domain.cpu"))
 		})
 
-		DescribeTable("[test_id:TODO] should fail if the VirtualMachine has CPU resource ", func(resources virtv1.ResourceRequirements, expectedField string) {
+		DescribeTable("[test_id:TODO] should fail if the VirtualMachine has ", func(resources virtv1.ResourceRequirements, expectedField string) {
 
 			vmi := libvmi.NewCirros(libvmi.WithResourceMemory("1Mi"))
 			flavor := newVirtualMachineFlavor(vmi)
@@ -325,16 +325,26 @@ var _ = Describe("[crit:medium][vendor:cnv-qe@redhat.com][level:component][sig-c
 			Expect(cause.Message).To(Equal("VM field conflicts with selected Flavor"))
 			Expect(cause.Field).To(Equal(expectedField))
 		},
-			Entry("requests", virtv1.ResourceRequirements{
+			Entry("CPU resource requests", virtv1.ResourceRequirements{
 				Requests: k8sv1.ResourceList{
 					k8sv1.ResourceCPU: resource.MustParse("1"),
 				},
 			}, "spec.template.spec.domain.resources.requests.cpu"),
-			Entry("limits", virtv1.ResourceRequirements{
+			Entry("CPU resource limits", virtv1.ResourceRequirements{
 				Limits: k8sv1.ResourceList{
 					k8sv1.ResourceCPU: resource.MustParse("1"),
 				},
 			}, "spec.template.spec.domain.resources.limits.cpu"),
+			Entry("Memory resource requests", virtv1.ResourceRequirements{
+				Requests: k8sv1.ResourceList{
+					k8sv1.ResourceMemory: resource.MustParse("128Mi"),
+				},
+			}, "spec.template.spec.domain.resources.requests.memory"),
+			Entry("Memory resource limits", virtv1.ResourceRequirements{
+				Limits: k8sv1.ResourceList{
+					k8sv1.ResourceMemory: resource.MustParse("128Mi"),
+				},
+			}, "spec.template.spec.domain.resources.limits.memory"),
 		)
 
 		It("[test_id:TODO] should apply preferences to default network interface", func() {

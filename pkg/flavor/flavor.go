@@ -596,6 +596,14 @@ func applyMemory(field *k8sfield.Path, flavorSpec *flavorv1alpha1.VirtualMachine
 		return Conflicts{field.Child("domain", "memory")}
 	}
 
+	if _, hasMemoryRequests := vmiSpec.Domain.Resources.Requests[k8sv1.ResourceMemory]; hasMemoryRequests {
+		return Conflicts{field.Child("domain", "resources", "requests", string(k8sv1.ResourceMemory))}
+	}
+
+	if _, hasMemoryLimits := vmiSpec.Domain.Resources.Limits[k8sv1.ResourceMemory]; hasMemoryLimits {
+		return Conflicts{field.Child("domain", "resources", "limits", string(k8sv1.ResourceMemory))}
+	}
+
 	flavorMemoryGuest := flavorSpec.Memory.Guest.DeepCopy()
 	vmiSpec.Domain.Memory = &virtv1.Memory{
 		Guest: &flavorMemoryGuest,

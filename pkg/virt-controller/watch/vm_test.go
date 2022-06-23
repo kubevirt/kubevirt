@@ -2799,6 +2799,9 @@ var _ = Describe("VirtualMachine", func() {
 
 				vm, vmi = DefaultVirtualMachine(true)
 
+				// We need to clear resource requirements here to ensure the flavor doesn't conflict
+				vm.Spec.Template.Spec.Domain.Resources = virtv1.ResourceRequirements{}
+
 				fakeFlavorClients = fakeclientset.NewSimpleClientset().FlavorV1alpha1()
 
 				fakeFlavorClient = fakeFlavorClients.VirtualMachineFlavors(metav1.NamespaceDefault)
