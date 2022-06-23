@@ -585,19 +585,10 @@ func (t *templateService) renderLaunchManifest(vmi *v1.VirtualMachineInstance, i
 	podLabels[v1.VirtualMachineNameLabel] = hostName
 
 	for i, requestedHookSidecar := range requestedHookSidecarList {
-		resources := k8sv1.ResourceRequirements{}
-		// add default cpu and memory limits to enable cpu pinning if requested
-		// TODO(vladikr): make the hookSidecar express resources
-		if vmi.IsCPUDedicated() || vmi.WantsToHaveQOSGuaranteed() {
-			resources.Limits = make(k8sv1.ResourceList)
-			resources.Limits[k8sv1.ResourceCPU] = resource.MustParse("200m")
-			resources.Limits[k8sv1.ResourceMemory] = resource.MustParse("64M")
-		}
-
 		containers = append(
 			containers,
 			newSidecarContainerRenderer(
-				sidecarContainerName(i), vmi, resources, requestedHookSidecar, userId).Render(requestedHookSidecar.Command))
+				sidecarContainerName(i), vmi, sidecarResources(vmi), requestedHookSidecar, userId).Render(requestedHookSidecar.Command))
 	}
 
 	podAnnotations, err := generatePodAnnotations(vmi)
