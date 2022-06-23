@@ -3,6 +3,7 @@ package vm_test
 import (
 	"context"
 	"fmt"
+	"sync"
 
 	"k8s.io/utils/pointer"
 
@@ -11,16 +12,21 @@ import (
 	. "github.com/onsi/gomega"
 	"github.com/spf13/cobra"
 
-	corev1 "k8s.io/api/core/v1"
+	k8sv1 "k8s.io/api/core/v1"
+	"k8s.io/apimachinery/pkg/api/errors"
+	"k8s.io/apimachinery/pkg/api/resource"
 	k8smetav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	"k8s.io/apimachinery/pkg/runtime"
 
 	v1 "kubevirt.io/api/core/v1"
 	"kubevirt.io/client-go/kubecli"
 	"kubevirt.io/containerized-data-importer-api/pkg/apis/core/v1beta1"
 
+	"kubevirt.io/kubevirt/pkg/virtctl/utils"
 	"kubevirt.io/kubevirt/tests/clientcmd"
 
 	"k8s.io/client-go/kubernetes/fake"
+	"k8s.io/client-go/testing"
 
 	cdifake "kubevirt.io/client-go/generated/containerized-data-importer/clientset/versioned/fake"
 )
@@ -399,8 +405,8 @@ var _ = Describe("VirtualMachine", func() {
 			}
 		}
 
-		createTestPVC := func() *corev1.PersistentVolumeClaim {
-			return &corev1.PersistentVolumeClaim{
+		createTestPVC := func() *k8sv1.PersistentVolumeClaim {
+			return &k8sv1.PersistentVolumeClaim{
 				ObjectMeta: k8smetav1.ObjectMeta{
 					Name: "testvolume",
 				},
@@ -567,6 +573,22 @@ var _ = Describe("VirtualMachine", func() {
 	})
 
 	Context("memory dump", func() {
+		const (
+			createFlag    = "--create"
+			claimNameFlag = "--claim-name=testpvc"
+			claimName     = "testpvc"
+		)
+		var (
+			coreClient      *fake.Clientset
+			pvcCreateCalled = &utils.AtomicBool{Lock: &sync.Mutex{}}
+		)
+
+		BeforeEach(func() {
+			pvcCreateCalled.False()
+			coreClient = fake.NewSimpleClientset()
+			kubecli.MockKubevirtClientInstance.EXPECT().CoreV1().Return(coreClient.CoreV1()).AnyTimes()
+		})
+
 		expectVMEndpointMemoryDump := func(vmName, claimName string) {
 			kubecli.MockKubevirtClientInstance.
 				EXPECT().
@@ -592,6 +614,72 @@ var _ = Describe("VirtualMachine", func() {
 			})
 		}
 
+		expectGetVMI := func() {
+			quantity, _ := resource.ParseQuantity("256Mi")
+			vmi := &v1.VirtualMachineInstance{
+				Spec: v1.VirtualMachineInstanceSpec{
+					Domain: v1.DomainSpec{
+						Resources: v1.ResourceRequirements{
+							Requests: k8sv1.ResourceList{
+								k8sv1.ResourceMemory: quantity,
+							},
+						},
+					},
+				},
+			}
+			kubecli.MockKubevirtClientInstance.
+				EXPECT().
+				VirtualMachineInstance(k8smetav1.NamespaceDefault).
+				Return(vmiInterface).
+				Times(1)
+
+			vmiInterface.EXPECT().Get(vmName, gomock.Any()).Return(vmi, nil).Times(1)
+		}
+
+		pvcSpec := func() *k8sv1.PersistentVolumeClaim {
+			return &k8sv1.PersistentVolumeClaim{
+				ObjectMeta: k8smetav1.ObjectMeta{
+					Name: claimName,
+				},
+			}
+		}
+
+		expectPVCCreate := func(claimName, storageclass, accessMode string) {
+			coreClient.Fake.PrependReactor("create", "persistentvolumeclaims", func(action testing.Action) (bool, runtime.Object, error) {
+				create, ok := action.(testing.CreateAction)
+				Expect(ok).To(BeTrue())
+
+				pvc, ok := create.GetObject().(*k8sv1.PersistentVolumeClaim)
+				Expect(ok).To(BeTrue())
+				Expect(pvc.Name).To(Equal(claimName))
+
+				if storageclass != "" {
+					Expect(*pvc.Spec.StorageClassName).To(Equal(storageclass))
+				}
+				if accessMode != "" {
+					Expect(pvc.Spec.AccessModes[0]).To(Equal(k8sv1.PersistentVolumeAccessMode(accessMode)))
+				}
+
+				Expect(pvcCreateCalled.IsTrue()).To(BeFalse())
+				pvcCreateCalled.True()
+
+				return false, nil, nil
+			})
+		}
+
+		expectPVCGet := func(pvc *k8sv1.PersistentVolumeClaim) {
+			coreClient.Fake.PrependReactor("get", "persistentvolumeclaims", func(action testing.Action) (bool, runtime.Object, error) {
+				get, ok := action.(testing.GetAction)
+				Expect(ok).To(BeTrue())
+				Expect(get.GetNamespace()).To(Equal(k8smetav1.NamespaceDefault))
+				Expect(get.GetName()).To(Equal(claimName))
+				if pvc == nil {
+					return true, nil, errors.NewNotFound(v1.Resource("persistentvolumeclaim"), claimName)
+				}
+				return true, pvc, nil
+			})
+		}
+
 		DescribeTable("should fail with missing required or invalid parameters", func(errorString string, args ...string) {
 			commandAndArgs := []string{"memory-dump"}
 			commandAndArgs = append(commandAndArgs, args...)
@@ -606,19 +694,76 @@ var _ = Describe("VirtualMachine", func() {
 			Entry("memorydump wrong action arg", "invalid action type create", "create", "testvm"),
 			Entry("memorydump name, invalid extra parameter", "unknown flag", "testvm", "--claim-name=blah", "--invalid=test"),
 		)
+
 		It("should call memory dump subresource", func() {
-			expectVMEndpointMemoryDump("testvm", "testvolume")
-			commandAndArgs := []string{"memory-dump", "get", "testvm", "--claim-name=testvolume"}
+			expectVMEndpointMemoryDump("testvm", claimName)
+			commandAndArgs := []string{"memory-dump", "get", "testvm", claimNameFlag}
 			cmd := clientcmd.NewVirtctlCommand(commandAndArgs...)
 			Expect(cmd.Execute()).To(BeNil())
 		})
 
-		It("should call memory dump subresource without claim-name", func() {
+		It("should call memory dump subresource without claim-name no create", func() {
 			expectVMEndpointMemoryDump("testvm", "")
 			commandAndArgs := []string{"memory-dump", "get", "testvm"}
 			cmd := clientcmd.NewVirtctlCommand(commandAndArgs...)
 			Expect(cmd.Execute()).To(BeNil())
 		})
+
+		It("should fail call memory dump subresource without claim-name with create", func() {
+			commandAndArgs := []string{"memory-dump", "get", "testvm", createFlag}
+			cmd := clientcmd.NewVirtctlCommand(commandAndArgs...)
+			res := cmd.Execute()
+			Expect(res).NotTo(BeNil())
+			Expect(res.Error()).To(ContainSubstring("missing claim name"))
+		})
+
+		It("should fail call memory dump subresource with create and existing pvc", func() {
+			expectPVCGet(pvcSpec())
+			commandAndArgs := []string{"memory-dump", "get", "testvm", claimNameFlag, createFlag}
+			cmd := clientcmd.NewVirtctlCommand(commandAndArgs...)
+			res := cmd.Execute()
+			Expect(res).NotTo(BeNil())
+			Expect(res.Error()).To(ContainSubstring("already exists"))
+		})
+
+		It("should fail call memory dump subresource with create no vmi", func() {
+			kubecli.MockKubevirtClientInstance.EXPECT().VirtualMachineInstance(k8smetav1.NamespaceDefault).Return(vmiInterface).Times(1)
+			vmiInterface.EXPECT().Get(vmName, &k8smetav1.GetOptions{}).Return(nil, errors.NewNotFound(v1.Resource("virtualmachineinstance"), vmName))
+			commandAndArgs := []string{"memory-dump", "get", "testvm", claimNameFlag, createFlag}
+			cmd := clientcmd.NewVirtctlCommand(commandAndArgs...)
+			res := cmd.Execute()
+			Expect(res).NotTo(BeNil())
+			Expect(res.Error()).To(ContainSubstring("not found"))
+		})
+
+		It("should fail call memory dump subresource with readonly access mode", func() {
+			expectGetVMI()
+			commandAndArgs := []string{"memory-dump", "get", "testvm", claimNameFlag, createFlag, "--access-mode=ReadOnlyMany"}
+			cmd := clientcmd.NewVirtctlCommand(commandAndArgs...)
+			res := cmd.Execute()
+			Expect(res).NotTo(BeNil())
+			Expect(res.Error()).To(ContainSubstring("cannot dump memory to a readonly pvc"))
+		})
+
+		DescribeTable("should create pvc for memory dump and call subresource", func(storageclass, accessMode string) {
+			expectGetVMI()
+			expectPVCCreate(claimName, storageclass, accessMode)
+			expectVMEndpointMemoryDump("testvm", claimName)
+			commandAndArgs := []string{"memory-dump", "get", "testvm", claimNameFlag, createFlag}
+			if storageclass != "" {
+				commandAndArgs = append(commandAndArgs, fmt.Sprintf("--storage-class=%s", storageclass))
+			}
+			if accessMode != "" {
+				commandAndArgs = append(commandAndArgs, fmt.Sprintf("--access-mode=%s", accessMode))
+			}
+			cmd := clientcmd.NewVirtctlCommand(commandAndArgs...)
+			Expect(cmd.Execute()).To(BeNil())
+			Expect(pvcCreateCalled.IsTrue()).To(BeTrue())
+		},
+			Entry("no other flags", "", ""),
+			Entry("with storageclass flag", "local", ""),
+			Entry("with access mode flag", "", "ReadWriteOnce"),
+		)
 
 		It("should call remove memory dump subresource", func() {
 			expectVMEndpointRemoveMemoryDump("testvm")

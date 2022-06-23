@@ -24,9 +24,13 @@ import (
 	"encoding/json"
 	"fmt"
 	"strings"
+	"time"
 
 	k8sv1 "k8s.io/api/core/v1"
+	k8serrors "k8s.io/apimachinery/pkg/api/errors"
+	"k8s.io/apimachinery/pkg/api/resource"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	"k8s.io/apimachinery/pkg/util/wait"
 
 	v1 "kubevirt.io/api/core/v1"
 
@@ -56,12 +60,17 @@ const (
 	notDefinedGracePeriod = -1
 	dryRunCommandUsage    = "--dry-run=false: Flag used to set whether to perform a dry run or not. If true the command will be executed without performing any changes."
 
-	dryRunArg      = "dry-run"
-	pausedArg      = "paused"
-	forceArg       = "force"
-	gracePeriodArg = "grace-period"
-	serialArg      = "serial"
-	persistArg     = "persist"
+	dryRunArg       = "dry-run"
+	pausedArg       = "paused"
+	forceArg        = "force"
+	gracePeriodArg  = "grace-period"
+	serialArg       = "serial"
+	persistArg      = "persist"
+	createArg       = "create"
+	storageClassArg = "storage-class"
+	accessModeArg   = "access-mode"
+
+	memoryDumpOverhead = "100Mi"
 )
 
 var (
@@ -73,6 +82,9 @@ var (
 	startPaused  bool
 	dryRun       bool
 	claimName    string
+	create       bool
+	storageClass string
+	accessMode   string
 )
 
 func NewStartCommand(clientConfig clientcmd.ClientConfig) *cobra.Command {
@@ -208,7 +220,7 @@ func NewFSListCommand(clientConfig clientcmd.ClientConfig) *cobra.Command {
 func NewMemoryDumpCommand(clientConfig clientcmd.ClientConfig) *cobra.Command {
 	cmd := &cobra.Command{
 		Use:     "memory-dump get/remove (VM)",
-		Short:   "Dump the memory of a running VM to a given pvc",
+		Short:   "Dump the memory of a running VM to a pvc",
 		Example: usageMemoryDump(),
 		Args:    templates.ExactArgs("memory-dump", 2),
 		RunE: func(cmd *cobra.Command, args []string) error {
@@ -218,6 +230,9 @@ func NewMemoryDumpCommand(clientConfig clientcmd.ClientConfig) *cobra.Command {
 	}
 	cmd.SetUsageTemplate(templates.UsageTemplate())
 	cmd.Flags().StringVar(&claimName, claimNameArg, "", "pvc name to contain the memory dump")
+	cmd.Flags().BoolVar(&create, createArg, false, "Create the pvc that will conatin the memory dump")
+	cmd.Flags().StringVar(&storageClass, storageClassArg, "", "The storage class for the PVC.")
+	cmd.Flags().StringVar(&accessMode, accessModeArg, "", "The access mode for the PVC.")
 
 	return cmd
 }
@@ -307,8 +322,11 @@ func usage(cmd string) string {
 }
 
 func usageMemoryDump() string {
-	usage := `  #Dump memory of a virtual machine instance called 'myvm' to a pvc called 'memoryvolume'.
+	usage := `  #Dump memory of a virtual machine instance called 'myvm' to an existing pvc called 'memoryvolume'.
   {{ProgramName}} memory-dump get myvm --claim-name=memoryvolume
+
+  #Create a PVC called 'memoryvolume' and dump the memory of a virtual machine instance called 'myvm' to it.
+  {{ProgramName}} memory-dump get myvm --claim-name=memoryvolume --create
 
   #Dump memory again to the same virtual machine with an already associated pvc(existing memory dump on vm status).
   {{ProgramName}} memory-dump get myvm
@@ -396,10 +414,110 @@ func removeVolume(vmiName, volumeName, namespace string, virtClient kubecli.Kube
 	return nil
 }
 
+func calcMemoryDumpNeededSize(vmName, namespace string, virtClient kubecli.KubevirtClient) (*resource.Quantity, error) {
+	vmi, err := virtClient.VirtualMachineInstance(namespace).Get(vmName, &metav1.GetOptions{})
+	if err != nil {
+		return nil, err
+	}
+
+	domain := vmi.Spec.Domain
+	vmiMemoryReq := domain.Resources.Requests.Memory()
+	memOverhead := resource.MustParse(memoryDumpOverhead)
+	expectedPvcSize := resource.NewScaledQuantity(vmiMemoryReq.ScaledValue(resource.Kilo), resource.Kilo)
+	expectedPvcSize.Add(memOverhead)
+
+	return expectedPvcSize, nil
+}
+
+func generatePVC(size *resource.Quantity, claimName, namespace, storageClass, accessMode string) (*k8sv1.PersistentVolumeClaim, error) {
+	pvc := &k8sv1.PersistentVolumeClaim{
+		ObjectMeta: metav1.ObjectMeta{
+			Name:      claimName,
+			Namespace: namespace,
+		},
+		Spec: k8sv1.PersistentVolumeClaimSpec{
+			Resources: k8sv1.ResourceRequirements{
+				Requests: k8sv1.ResourceList{
+					k8sv1.ResourceStorage: *size,
+				},
+			},
+		},
+	}
+
+	if storageClass != "" {
+		pvc.Spec.StorageClassName = &storageClass
+	}
+
+	if accessMode == string(k8sv1.ReadOnlyMany) {
+		return nil, fmt.Errorf("cannot dump memory to a readonly pvc, use either ReadWriteOnce or ReadWriteMany if supported")
+	}
+	if accessMode != "" {
+		pvc.Spec.AccessModes = []k8sv1.PersistentVolumeAccessMode{k8sv1.PersistentVolumeAccessMode(accessMode)}
+	} else {
+		pvc.Spec.AccessModes = []k8sv1.PersistentVolumeAccessMode{k8sv1.ReadWriteOnce}
+	}
+
+	return pvc, nil
+}
+
+func createPVCforMemoryDump(namespace, vmName, claimName string, virtClient kubecli.KubevirtClient) error {
+	_, err := virtClient.CoreV1().PersistentVolumeClaims(namespace).Get(context.Background(), claimName, metav1.GetOptions{})
+	if err == nil {
+		return fmt.Errorf("PVC %s/%s already exists, check if it should be created if not remove create flag\n", namespace, claimName)
+	}
+	if !k8serrors.IsNotFound(err) {
+		return err
+	}
+
+	neededSize, err := calcMemoryDumpNeededSize(vmName, namespace, virtClient)
+	if err != nil {
+		return err
+	}
+
+	pvc, err := generatePVC(neededSize, claimName, namespace, storageClass, accessMode)
+	if err != nil {
+		return err
+	}
+
+	_, err = virtClient.CoreV1().PersistentVolumeClaims(namespace).Create(context.Background(), pvc, metav1.CreateOptions{})
+	if err != nil {
+		return err
+	}
+
+	err = wait.PollImmediate(time.Second*2, time.Second*60, func() (bool, error) {
+		_, err := virtClient.CoreV1().PersistentVolumeClaims(namespace).Get(context.Background(), claimName, metav1.GetOptions{})
+		if err != nil {
+			if k8serrors.IsNotFound(err) {
+				return false, nil
+			}
+
+			return false, err
+		}
+
+		return true, nil
+	})
+	if err != nil {
+		return fmt.Errorf("Failed creating PVC %s/%s for memory dump\n", namespace, claimName)
+	}
+
+	fmt.Printf("PVC %s/%s created\n", namespace, claimName)
+
+	return nil
+}
+
 func memoryDump(args []string, claimName, namespace string, virtClient kubecli.KubevirtClient) error {
 	vmName := args[1]
 	switch args[0] {
 	case "get":
+		if create {
+			if claimName == "" {
+				return fmt.Errorf("missing claim name")
+			}
+			err := createPVCforMemoryDump(namespace, vmName, claimName, virtClient)
+			if err != nil {
+				return err
+			}
+		}
 		memoryDumpRequest := &v1.VirtualMachineMemoryDumpRequest{
 			ClaimName: claimName,
 		}
