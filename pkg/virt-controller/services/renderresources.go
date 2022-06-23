@@ -360,26 +360,19 @@ func GetMemoryOverhead(vmi *v1.VirtualMachineInstance, cpuArch string) *resource
 // Hence we don't copy Limits value to Requests if the latter is missing.
 func requestResource(resources *k8sv1.ResourceRequirements, resourceName string) {
 	name := k8sv1.ResourceName(resourceName)
+	bumpResources(resources.Limits, name)
+	bumpResources(resources.Requests, name)
+}
 
-	// assume resources are countable, singular, and cannot be divided
+func bumpResources(resources k8sv1.ResourceList, name k8sv1.ResourceName) {
 	unitQuantity := *resource.NewQuantity(1, resource.DecimalSI)
 
-	// Fill in limits
-	val, ok := resources.Limits[name]
+	val, ok := resources[name]
 	if ok {
 		val.Add(unitQuantity)
-		resources.Limits[name] = val
+		resources[name] = val
 	} else {
-		resources.Limits[name] = unitQuantity
-	}
-
-	// Fill in requests
-	val, ok = resources.Requests[name]
-	if ok {
-		val.Add(unitQuantity)
-		resources.Requests[name] = val
-	} else {
-		resources.Requests[name] = unitQuantity
+		resources[name] = unitQuantity
 	}
 }
 
