@@ -189,6 +189,59 @@ var _ = Describe("Resource pod spec renderer", func() {
 			Expect(rr.Requests()).To(HaveKeyWithValue(kubev1.ResourceName("res44"), *resource.NewScaledQuantity(1, 0)))
 		})
 	})
+
+	Context("WithHostDevices / WithGPU option", func() {
+		It("host device requests / limits are absent when not requested", func() {
+			rr = NewResourceRenderer(
+				nil,
+				nil,
+				WithHostDevices([]v1.HostDevice{}),
+			)
+			Expect(rr.Limits()).To(BeEmpty())
+			Expect(rr.Requests()).To(BeEmpty())
+		})
+
+		It("host device requests / limits are honored", func() {
+			hostDevice := v1.HostDevice{
+				Name:       "hd1",
+				DeviceName: "discombobulator2000",
+				Tag:        "not-so-megatag",
+			}
+			hostDevices := []v1.HostDevice{hostDevice}
+			rr = NewResourceRenderer(
+				nil,
+				nil,
+				WithHostDevices(hostDevices),
+			)
+			Expect(rr.Limits()).To(HaveKeyWithValue(kubev1.ResourceName("discombobulator2000"), *resource.NewScaledQuantity(1, 0)))
+			Expect(rr.Requests()).To(HaveKeyWithValue(kubev1.ResourceName("discombobulator2000"), *resource.NewScaledQuantity(1, 0)))
+		})
+
+		It("GPU requests / limits are absent when not requested", func() {
+			rr = NewResourceRenderer(
+				nil,
+				nil,
+				WithGPUs([]v1.GPU{}),
+			)
+			Expect(rr.Limits()).To(BeEmpty())
+			Expect(rr.Requests()).To(BeEmpty())
+		})
+
+		It("GPU requests / limits are honored", func() {
+			gp1 := v1.GPU{
+				Name:       "gp1",
+				DeviceName: "discombobulator2000",
+				Tag:        "megatag",
+			}
+			requestedGPUs := []v1.GPU{gp1}
+			rr = NewResourceRenderer(
+				nil,
+				nil,
+				WithGPUs(requestedGPUs))
+			Expect(rr.Limits()).To(HaveKeyWithValue(kubev1.ResourceName("discombobulator2000"), *resource.NewScaledQuantity(1, 0)))
+			Expect(rr.Requests()).To(HaveKeyWithValue(kubev1.ResourceName("discombobulator2000"), *resource.NewScaledQuantity(1, 0)))
+		})
+	})
 })
 
 func addResources(firstQuantity resource.Quantity, resources ...resource.Quantity) resource.Quantity {
