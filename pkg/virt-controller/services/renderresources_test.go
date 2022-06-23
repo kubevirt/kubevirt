@@ -64,6 +64,48 @@ var _ = Describe("Resource pod spec renderer", func() {
 		})
 
 	})
+
+	Context("WithMemoryOverhead option", func() {
+		baseMemory := resource.MustParse("64M")
+		memOverhead := resource.MustParse("128M")
+		var userSpecifiedMemory kubev1.ResourceList
+
+		BeforeEach(func() {
+			userSpecifiedMemory = kubev1.ResourceList{kubev1.ResourceMemory: baseMemory}
+		})
+
+		It("the specified overhead is added to the user requested VM memory", func() {
+			requestedVMRequirements := v1.ResourceRequirements{
+				Requests: nil,
+				Limits:   nil,
+			}
+			rr = NewResourceRenderer(
+				userSpecifiedMemory,
+				userSpecifiedMemory,
+				WithMemoryOverhead(requestedVMRequirements, &memOverhead),
+			)
+			Expect(rr.Requests()).To(HaveKeyWithValue(
+				kubev1.ResourceMemory,
+				addResources(baseMemory, memOverhead)))
+			Expect(rr.Limits()).To(HaveKeyWithValue(
+				kubev1.ResourceMemory,
+				addResources(baseMemory, memOverhead)))
+		})
+
+		When("the overcommit guest overhead option is specified", func() {
+			It("the overhead is *only* added to the VM's limits, not requests", func() {
+				rr = NewResourceRenderer(userSpecifiedMemory, userSpecifiedMemory, WithMemoryOverhead(v1.ResourceRequirements{
+					Requests:                nil,
+					Limits:                  nil,
+					OvercommitGuestOverhead: true,
+				}, &memOverhead))
+				Expect(rr.Requests()).To(HaveKeyWithValue(kubev1.ResourceMemory, baseMemory))
+				Expect(rr.Limits()).To(HaveKeyWithValue(
+					kubev1.ResourceMemory,
+					addResources(baseMemory, memOverhead)))
+			})
+		})
+	})
 })
 
 func addResources(firstQuantity resource.Quantity, resources ...resource.Quantity) resource.Quantity {

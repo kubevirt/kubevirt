@@ -128,6 +128,21 @@ func WithHugePages(vmMemory *v1.Memory, memoryOverhead *resource.Quantity) Resou
 	}
 }
 
+func WithMemoryOverhead(guestResourceSpec v1.ResourceRequirements, memoryOverhead *resource.Quantity) ResourceRendererOption {
+	return func(renderer *ResourceRenderer) {
+		memoryRequest := renderer.vmRequests[k8sv1.ResourceMemory]
+		if !guestResourceSpec.OvercommitGuestOverhead {
+			memoryRequest.Add(*memoryOverhead)
+		}
+		renderer.vmRequests[k8sv1.ResourceMemory] = memoryRequest
+
+		if memoryLimit, ok := renderer.vmLimits[k8sv1.ResourceMemory]; ok {
+			memoryLimit.Add(*memoryOverhead)
+			renderer.vmLimits[k8sv1.ResourceMemory] = memoryLimit
+		}
+	}
+}
+
 func copyResources(srcResources, dstResources k8sv1.ResourceList) {
 	for key, value := range srcResources {
 		dstResources[key] = value

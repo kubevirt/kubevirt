@@ -420,28 +420,10 @@ func (t *templateService) renderLaunchManifest(vmi *v1.VirtualMachineInstance, i
 	gracePeriodSeconds = gracePeriodSeconds + int64(15)
 	gracePeriodKillAfter := gracePeriodSeconds + int64(15)
 
-	// Get memory overhead
-	memoryOverhead := GetMemoryOverhead(vmi, t.clusterConfig.GetClusterCPUArch())
-
 	resourceRenderer := t.newResourceRenderer(vmi)
 	resources := k8sv1.ResourceRequirements{
 		Limits:   resourceRenderer.Limits(),
 		Requests: resourceRenderer.Requests(),
-	}
-
-	// Consider hugepages resource for pod scheduling
-	if !util.HasHugePages(vmi) {
-		// Add overhead memory
-		memoryRequest := resources.Requests[k8sv1.ResourceMemory]
-		if !vmi.Spec.Domain.Resources.OvercommitGuestOverhead {
-			memoryRequest.Add(*memoryOverhead)
-		}
-		resources.Requests[k8sv1.ResourceMemory] = memoryRequest
-
-		if memoryLimit, ok := resources.Limits[k8sv1.ResourceMemory]; ok {
-			memoryLimit.Add(*memoryOverhead)
-			resources.Limits[k8sv1.ResourceMemory] = memoryLimit
-		}
 	}
 
 	// Handle CPU pinning
@@ -934,11 +916,14 @@ func (t *templateService) newResourceRenderer(vmi *v1.VirtualMachineInstance) *R
 		)
 	}
 
+	memoryOverhead := GetMemoryOverhead(vmi, t.clusterConfig.GetClusterCPUArch())
 	if util.HasHugePages(vmi) {
 		options = append(
 			options,
-			WithHugePages(vmi.Spec.Domain.Memory, GetMemoryOverhead(vmi, t.clusterConfig.GetClusterCPUArch())),
+			WithHugePages(vmi.Spec.Domain.Memory, memoryOverhead),
 		)
+	} else {
+		options = append(options, WithMemoryOverhead(vmi.Spec.Domain.Resources, memoryOverhead))
 	}
 
 	return NewResourceRenderer(vmiResources.Limits, vmiResources.Requests, options...)
