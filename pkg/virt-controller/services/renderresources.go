@@ -143,6 +143,35 @@ func WithMemoryOverhead(guestResourceSpec v1.ResourceRequirements, memoryOverhea
 	}
 }
 
+func WithCPUPinning(cpu *v1.CPU) ResourceRendererOption {
+	return func(renderer *ResourceRenderer) {
+		vcpus := hardware.GetNumberOfVCPUs(cpu)
+		if vcpus != 0 {
+			renderer.calculatedLimits[k8sv1.ResourceCPU] = *resource.NewQuantity(vcpus, resource.BinarySI)
+		} else {
+			if cpuLimit, ok := renderer.vmLimits[k8sv1.ResourceCPU]; ok {
+				renderer.vmRequests[k8sv1.ResourceCPU] = cpuLimit
+			} else if cpuRequest, ok := renderer.vmRequests[k8sv1.ResourceCPU]; ok {
+				renderer.vmLimits[k8sv1.ResourceCPU] = cpuRequest
+			}
+		}
+
+		// allocate 1 more pcpu if IsolateEmulatorThread request
+		if cpu.IsolateEmulatorThread {
+			emulatorThreadCPU := resource.NewQuantity(1, resource.BinarySI)
+			limits := renderer.calculatedLimits[k8sv1.ResourceCPU]
+			limits.Add(*emulatorThreadCPU)
+			renderer.calculatedLimits[k8sv1.ResourceCPU] = limits
+			if cpuRequest, ok := renderer.vmRequests[k8sv1.ResourceCPU]; ok {
+				cpuRequest.Add(*emulatorThreadCPU)
+				renderer.vmRequests[k8sv1.ResourceCPU] = cpuRequest
+			}
+		}
+
+		renderer.vmLimits[k8sv1.ResourceMemory] = *renderer.vmRequests.Memory()
+	}
+}
+
 func copyResources(srcResources, dstResources k8sv1.ResourceList) {
 	for key, value := range srcResources {
 		dstResources[key] = value

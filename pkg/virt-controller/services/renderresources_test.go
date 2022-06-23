@@ -106,6 +106,61 @@ var _ = Describe("Resource pod spec renderer", func() {
 			})
 		})
 	})
+
+	Context("WithCPUPinning option", func() {
+		userCPURequest := resource.MustParse("200m")
+		userSpecifiedCPU := kubev1.ResourceList{kubev1.ResourceCPU: userCPURequest}
+
+		It("the user requested CPU configs are *not* overriden", func() {
+			rr = NewResourceRenderer(nil, userSpecifiedCPU, WithCPUPinning(&v1.CPU{Cores: 5}))
+			Expect(rr.Requests()).To(HaveKeyWithValue(kubev1.ResourceCPU, userCPURequest))
+		})
+
+		It("carries over the CPU limits as requests when no CPUs are requested", func() {
+			rr = NewResourceRenderer(userSpecifiedCPU, nil, WithCPUPinning(&v1.CPU{}))
+			Expect(rr.Requests()).To(HaveKeyWithValue(kubev1.ResourceCPU, userCPURequest))
+		})
+
+		It("carries over the CPU requests as limits when no CPUs are requested", func() {
+			rr = NewResourceRenderer(nil, userSpecifiedCPU, WithCPUPinning(&v1.CPU{}))
+			Expect(rr.Requests()).To(HaveKeyWithValue(kubev1.ResourceCPU, userCPURequest))
+		})
+
+		It("carries over the requested memory as a *limit*", func() {
+			memoryRequest := resource.MustParse("128M")
+			userSpecifiedCPU := kubev1.ResourceList{
+				kubev1.ResourceCPU:    userCPURequest,
+				kubev1.ResourceMemory: memoryRequest,
+			}
+			rr = NewResourceRenderer(nil, userSpecifiedCPU, WithCPUPinning(&v1.CPU{Cores: 5}))
+			Expect(rr.Requests()).To(HaveKeyWithValue(kubev1.ResourceCPU, resource.MustParse("200m")))
+			Expect(rr.Limits()).To(HaveKeyWithValue(kubev1.ResourceMemory, memoryRequest))
+		})
+
+		When("an isolated emulator thread is requested", func() {
+			cpuIsolatedEmulatorThreadOverhead := resource.MustParse("1000m")
+			userSpecifiedCPU := kubev1.ResourceList{kubev1.ResourceCPU: userCPURequest}
+
+			It("requires an additional 1000m CPU, and an additional CPU is added to the limits", func() {
+				rr = NewResourceRenderer(
+					nil,
+					userSpecifiedCPU,
+					WithCPUPinning(&v1.CPU{
+						Cores:                 5,
+						IsolateEmulatorThread: true,
+					}),
+				)
+				Expect(rr.Limits()).To(HaveKeyWithValue(
+					kubev1.ResourceCPU,
+					*resource.NewQuantity(6, resource.BinarySI),
+				))
+				Expect(rr.Requests()).To(HaveKeyWithValue(
+					kubev1.ResourceCPU,
+					addResources(userCPURequest, cpuIsolatedEmulatorThreadOverhead),
+				))
+			})
+		})
+	})
 })
 
 func addResources(firstQuantity resource.Quantity, resources ...resource.Quantity) resource.Quantity {

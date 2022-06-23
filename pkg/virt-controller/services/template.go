@@ -48,7 +48,6 @@ import (
 	"kubevirt.io/kubevirt/pkg/hooks"
 	"kubevirt.io/kubevirt/pkg/network/istio"
 	"kubevirt.io/kubevirt/pkg/util"
-	"kubevirt.io/kubevirt/pkg/util/hardware"
 	"kubevirt.io/kubevirt/pkg/util/net/dns"
 	"kubevirt.io/kubevirt/pkg/util/types"
 	virtconfig "kubevirt.io/kubevirt/pkg/virt-config"
@@ -426,35 +425,9 @@ func (t *templateService) renderLaunchManifest(vmi *v1.VirtualMachineInstance, i
 		Requests: resourceRenderer.Requests(),
 	}
 
-	// Handle CPU pinning
 	if vmi.IsCPUDedicated() {
 		// schedule only on nodes with a running cpu manager
 		nodeSelector[v1.CPUManager] = "true"
-
-		vcpus := hardware.GetNumberOfVCPUs(vmi.Spec.Domain.CPU)
-
-		if vcpus != 0 {
-			resources.Limits[k8sv1.ResourceCPU] = *resource.NewQuantity(vcpus, resource.BinarySI)
-		} else {
-			if cpuLimit, ok := resources.Limits[k8sv1.ResourceCPU]; ok {
-				resources.Requests[k8sv1.ResourceCPU] = cpuLimit
-			} else if cpuRequest, ok := resources.Requests[k8sv1.ResourceCPU]; ok {
-				resources.Limits[k8sv1.ResourceCPU] = cpuRequest
-			}
-		}
-		// allocate 1 more pcpu if IsolateEmulatorThread request
-		if vmi.Spec.Domain.CPU.IsolateEmulatorThread {
-			emulatorThreadCPU := resource.NewQuantity(1, resource.BinarySI)
-			limits := resources.Limits[k8sv1.ResourceCPU]
-			limits.Add(*emulatorThreadCPU)
-			resources.Limits[k8sv1.ResourceCPU] = limits
-			if cpuRequest, ok := resources.Requests[k8sv1.ResourceCPU]; ok {
-				cpuRequest.Add(*emulatorThreadCPU)
-				resources.Requests[k8sv1.ResourceCPU] = cpuRequest
-			}
-		}
-
-		resources.Limits[k8sv1.ResourceMemory] = *resources.Requests.Memory()
 	}
 
 	ovmfPath := t.clusterConfig.GetOVMFPath()
@@ -908,8 +881,9 @@ func (t *templateService) newResourceRenderer(vmi *v1.VirtualMachineInstance) *R
 		WithEphemeralStorageRequest(),
 	}
 
-	// Set Default CPUs request
-	if !vmi.IsCPUDedicated() {
+	if vmi.IsCPUDedicated() {
+		options = append(options, WithCPUPinning(vmi.Spec.Domain.CPU))
+	} else {
 		options = append(
 			options,
 			WithoutDedicatedCPU(vmi.Spec.Domain.CPU, t.clusterConfig.GetCPUAllocationRatio()),
