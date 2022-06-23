@@ -603,22 +603,6 @@ func (t *templateService) renderLaunchManifest(vmi *v1.VirtualMachineInstance, i
 	var initContainers []k8sv1.Container
 
 	if HaveContainerDiskVolume(vmi.Spec.Volumes) || util.HasKernelBootContainerImage(vmi) {
-		initContainerResources := k8sv1.ResourceRequirements{}
-		if vmi.IsCPUDedicated() || vmi.WantsToHaveQOSGuaranteed() {
-			initContainerResources.Limits = make(k8sv1.ResourceList)
-			initContainerResources.Limits[k8sv1.ResourceCPU] = resource.MustParse("10m")
-			initContainerResources.Limits[k8sv1.ResourceMemory] = resource.MustParse("40M")
-			initContainerResources.Requests = make(k8sv1.ResourceList)
-			initContainerResources.Requests[k8sv1.ResourceCPU] = resource.MustParse("10m")
-			initContainerResources.Requests[k8sv1.ResourceMemory] = resource.MustParse("40M")
-		} else {
-			initContainerResources.Limits = make(k8sv1.ResourceList)
-			initContainerResources.Limits[k8sv1.ResourceCPU] = resource.MustParse("100m")
-			initContainerResources.Limits[k8sv1.ResourceMemory] = resource.MustParse("40M")
-			initContainerResources.Requests = make(k8sv1.ResourceList)
-			initContainerResources.Requests[k8sv1.ResourceCPU] = resource.MustParse("10m")
-			initContainerResources.Requests[k8sv1.ResourceMemory] = resource.MustParse("1M")
-		}
 		initContainerCommand := []string{"/usr/bin/cp",
 			"/usr/bin/container-disk",
 			"/init/usr/bin/container-disk",
@@ -628,7 +612,7 @@ func (t *templateService) renderLaunchManifest(vmi *v1.VirtualMachineInstance, i
 			initContainers,
 			t.newInitContainerRenderer(vmi,
 				initContainerVolumeMount(),
-				initContainerResources,
+				initContainerResourceRequirementsForVMI(vmi),
 				userId).Render(initContainerCommand))
 
 		// this causes containerDisks to be pre-pulled before virt-launcher starts.

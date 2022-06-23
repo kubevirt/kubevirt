@@ -464,3 +464,38 @@ func sidecarResources(vmi *v1.VirtualMachineInstance) k8sv1.ResourceRequirements
 	}
 	return resources
 }
+
+func initContainerResourceRequirementsForVMI(vmi *v1.VirtualMachineInstance) k8sv1.ResourceRequirements {
+	if vmi.IsCPUDedicated() || vmi.WantsToHaveQOSGuaranteed() {
+		return k8sv1.ResourceRequirements{
+			Limits:   initContainerDedicatedCPURequiredResources(),
+			Requests: initContainerDedicatedCPURequiredResources(),
+		}
+	} else {
+		return k8sv1.ResourceRequirements{
+			Limits:   initContainerMinimalLimits(),
+			Requests: initContainerMinimalRequests(),
+		}
+	}
+}
+
+func initContainerDedicatedCPURequiredResources() k8sv1.ResourceList {
+	return k8sv1.ResourceList{
+		k8sv1.ResourceCPU:    resource.MustParse("10m"),
+		k8sv1.ResourceMemory: resource.MustParse("40M"),
+	}
+}
+
+func initContainerMinimalLimits() k8sv1.ResourceList {
+	return k8sv1.ResourceList{
+		k8sv1.ResourceCPU:    resource.MustParse("100m"),
+		k8sv1.ResourceMemory: resource.MustParse("40M"),
+	}
+}
+
+func initContainerMinimalRequests() k8sv1.ResourceList {
+	return k8sv1.ResourceList{
+		k8sv1.ResourceCPU:    resource.MustParse("10m"),
+		k8sv1.ResourceMemory: resource.MustParse("1M"),
+	}
+}
