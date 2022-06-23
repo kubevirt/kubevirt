@@ -29,6 +29,7 @@ import (
 	"kubevirt.io/kubevirt/tests"
 	"kubevirt.io/kubevirt/tests/console"
 	cd "kubevirt.io/kubevirt/tests/containerdisk"
+	"kubevirt.io/kubevirt/tests/libvmi"
 )
 
 const (
@@ -41,6 +42,7 @@ const (
 	creatingSnapshot          = "creating snapshot"
 
 	macAddressCloningPatchPattern = `{"op": "replace", "path": "/spec/template/spec/domain/devices/interfaces/0/macAddress", "value": "%s"}`
+	bashHelloScript               = "#!/bin/bash\necho 'hello'\n"
 )
 
 var _ = SIGDescribe("VirtualMachineRestore Tests", func() {
@@ -215,9 +217,11 @@ var _ = SIGDescribe("VirtualMachineRestore Tests", func() {
 		var vm *v1.VirtualMachine
 
 		BeforeEach(func() {
-			vmiImage := cd.ContainerDiskFor(cd.ContainerDiskCirros)
-			vmi := tests.NewRandomVMIWithEphemeralDiskAndUserdata(vmiImage, tests.BashHelloScript)
-			vm = tests.NewRandomVirtualMachine(vmi, false)
+			vm = tests.NewRandomVirtualMachine(
+				libvmi.NewCirros(
+					libvmi.WithInterface(libvmi.InterfaceDeviceWithMasqueradeBinding()),
+					libvmi.WithNetwork(v1.DefaultPodNetwork()),
+				), false)
 			vm.Labels = map[string]string{
 				"kubevirt.io/dummy-webhook-identifier": vm.Name,
 			}
@@ -419,7 +423,7 @@ var _ = SIGDescribe("VirtualMachineRestore Tests", func() {
 
 			It("should fail restoring to a different VM that already exists", func() {
 				By("Creating a new VM")
-				newVMI := tests.NewRandomVMIWithEphemeralDiskAndUserdata(cd.ContainerDiskFor(cd.ContainerDiskCirros), tests.BashHelloScript)
+				newVMI := tests.NewRandomVMIWithEphemeralDiskAndUserdata(cd.ContainerDiskFor(cd.ContainerDiskCirros), bashHelloScript)
 				newVM := tests.NewRandomVirtualMachine(newVMI, false)
 				newVM, err = virtClient.VirtualMachine(newVM.Namespace).Create(newVM)
 				Expect(err).ToNot(HaveOccurred())
@@ -785,7 +789,7 @@ var _ = SIGDescribe("VirtualMachineRestore Tests", func() {
 				vm, vmi = createAndStartVM(tests.NewRandomVMWithDataVolumeAndUserDataInStorageClass(
 					cd.DataVolumeImportUrlForContainerDisk(cd.ContainerDiskCirros),
 					util.NamespaceTestDefault,
-					tests.BashHelloScript,
+					bashHelloScript,
 					snapshotStorageClass,
 				))
 
@@ -817,7 +821,7 @@ var _ = SIGDescribe("VirtualMachineRestore Tests", func() {
 				vm = tests.NewRandomVMWithDataVolumeAndUserDataInStorageClass(
 					cd.DataVolumeImportUrlForContainerDisk(cd.ContainerDiskCirros),
 					util.NamespaceTestDefault,
-					tests.BashHelloScript,
+					bashHelloScript,
 					snapshotStorageClass,
 				)
 				quantity, err := resource.ParseQuantity("1528Mi")
@@ -853,7 +857,7 @@ var _ = SIGDescribe("VirtualMachineRestore Tests", func() {
 				vm, vmi = createAndStartVM(tests.NewRandomVMWithDataVolumeAndUserDataInStorageClass(
 					cd.DataVolumeImportUrlForContainerDisk(cd.ContainerDiskCirros),
 					util.NamespaceTestDefault,
-					tests.BashHelloScript,
+					bashHelloScript,
 					snapshotStorageClass,
 				))
 
@@ -878,7 +882,7 @@ var _ = SIGDescribe("VirtualMachineRestore Tests", func() {
 				vm = tests.NewRandomVMWithDataVolumeAndUserDataInStorageClass(
 					cd.DataVolumeImportUrlForContainerDisk(cd.ContainerDiskCirros),
 					util.NamespaceTestDefault,
-					tests.BashHelloScript,
+					bashHelloScript,
 					snapshotStorageClass,
 				)
 
@@ -950,7 +954,7 @@ var _ = SIGDescribe("VirtualMachineRestore Tests", func() {
 
 				originalPVCName := pvc.Name
 
-				vmi = tests.NewRandomVMIWithPVCAndUserData(pvc.Name, tests.BashHelloScript)
+				vmi = tests.NewRandomVMIWithPVCAndUserData(pvc.Name, bashHelloScript)
 				vm = tests.NewRandomVirtualMachine(vmi, false)
 
 				vm, vmi = createAndStartVM(vm)
@@ -989,7 +993,7 @@ var _ = SIGDescribe("VirtualMachineRestore Tests", func() {
 				Expect(err).ToNot(HaveOccurred())
 				vmi = tests.NewRandomVMIWithEphemeralDiskAndUserdata(
 					cd.ContainerDiskFor(cd.ContainerDiskCirros),
-					tests.BashHelloScript,
+					bashHelloScript,
 				)
 				vm = tests.NewRandomVirtualMachine(vmi, false)
 
@@ -1053,7 +1057,7 @@ var _ = SIGDescribe("VirtualMachineRestore Tests", func() {
 				vm, vmi = createAndStartVM(tests.NewRandomVMWithDataVolumeAndUserDataInStorageClass(
 					cd.DataVolumeImportUrlForContainerDisk(cd.ContainerDiskCirros),
 					util.NamespaceTestDefault,
-					tests.BashHelloScript,
+					bashHelloScript,
 					snapshotStorageClass,
 				))
 
@@ -1153,7 +1157,7 @@ var _ = SIGDescribe("VirtualMachineRestore Tests", func() {
 				vm, vmi = createAndStartVM(tests.NewRandomVMWithDataVolumeAndUserDataInStorageClass(
 					cd.DataVolumeImportUrlForContainerDisk(cd.ContainerDiskCirros),
 					util.NamespaceTestDefault,
-					tests.BashHelloScript,
+					bashHelloScript,
 					snapshotStorageClass,
 				))
 
