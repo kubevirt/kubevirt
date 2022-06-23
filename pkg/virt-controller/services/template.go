@@ -479,10 +479,6 @@ func (t *templateService) renderLaunchManifest(vmi *v1.VirtualMachineInstance, i
 		command = append(command, "--simulate-crash")
 	}
 
-	if util.IsSEVVMI(vmi) {
-		requestResource(&resources, SevDevice)
-	}
-
 	volumeRenderer, err := t.newVolumeRenderer(vmi, namespace, requestedHookSidecarList)
 	if err != nil {
 		return nil, err
@@ -884,6 +880,10 @@ func (t *templateService) newResourceRenderer(vmi *v1.VirtualMachineInstance) (*
 
 	if util.IsHostDevVMI(vmi) {
 		options = append(options, WithHostDevices(vmi.Spec.Domain.Devices.HostDevices))
+	}
+
+	if util.IsSEVVMI(vmi) {
+		options = append(options, WithSEV())
 	}
 
 	return NewResourceRenderer(

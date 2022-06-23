@@ -62,7 +62,6 @@ var _ = Describe("Resource pod spec renderer", func() {
 			Expect(rr.Requests()).To(HaveKeyWithValue(kubev1.ResourceCPU, resource.MustParse("500m")))
 			Expect(rr.Limits()).To(BeEmpty())
 		})
-
 	})
 
 	Context("WithMemoryOverhead option", func() {
@@ -241,6 +240,17 @@ var _ = Describe("Resource pod spec renderer", func() {
 			Expect(rr.Limits()).To(HaveKeyWithValue(kubev1.ResourceName("discombobulator2000"), *resource.NewScaledQuantity(1, 0)))
 			Expect(rr.Requests()).To(HaveKeyWithValue(kubev1.ResourceName("discombobulator2000"), *resource.NewScaledQuantity(1, 0)))
 		})
+	})
+
+	It("WithSEV option adds ", func() {
+		sevResourceKey := kubev1.ResourceName("devices.kubevirt.io/sev")
+		rr = NewResourceRenderer(nil, nil, WithSEV())
+		Expect(rr.Requests()).To(Equal(kubev1.ResourceList{
+			sevResourceKey: *resource.NewQuantity(1, resource.DecimalSI),
+		}))
+		Expect(rr.Limits()).To(Equal(kubev1.ResourceList{
+			sevResourceKey: *resource.NewQuantity(1, resource.DecimalSI),
+		}))
 	})
 })
 
