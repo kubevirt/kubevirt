@@ -85,6 +85,49 @@ func WithoutDedicatedCPU(cpu *v1.CPU, cpuAllocationRatio int) ResourceRendererOp
 	}
 }
 
+func WithHugePages(vmMemory *v1.Memory, memoryOverhead *resource.Quantity) ResourceRendererOption {
+	return func(renderer *ResourceRenderer) {
+		hugepageType := k8sv1.ResourceName(k8sv1.ResourceHugePagesPrefix + vmMemory.Hugepages.PageSize)
+		hugepagesMemReq := renderer.vmRequests.Memory()
+
+		// If requested, use the guest memory to allocate hugepages
+		if vmMemory != nil && vmMemory.Guest != nil {
+			requests := hugepagesMemReq.Value()
+			guest := vmMemory.Guest.Value()
+			if requests > guest {
+				hugepagesMemReq = vmMemory.Guest
+			}
+		}
+		renderer.calculatedRequests[hugepageType] = *hugepagesMemReq
+		renderer.calculatedLimits[hugepageType] = *hugepagesMemReq
+
+		reqMemDiff := resource.NewScaledQuantity(0, resource.Kilo)
+		limMemDiff := resource.NewScaledQuantity(0, resource.Kilo)
+		// In case the guest memory and the requested memory are different, add the difference
+		// to the overhead
+		if vmMemory != nil && vmMemory.Guest != nil {
+			requests := renderer.vmRequests.Memory().Value()
+			limits := renderer.vmLimits.Memory().Value()
+			guest := vmMemory.Guest.Value()
+			if requests > guest {
+				reqMemDiff.Add(*renderer.vmRequests.Memory())
+				reqMemDiff.Sub(*vmMemory.Guest)
+			}
+			if limits > guest {
+				limMemDiff.Add(*renderer.vmLimits.Memory())
+				limMemDiff.Sub(*vmMemory.Guest)
+			}
+		}
+		// Set requested memory equals to overhead memory
+		reqMemDiff.Add(*memoryOverhead)
+		renderer.vmRequests[k8sv1.ResourceMemory] = *reqMemDiff
+		if _, ok := renderer.vmLimits[k8sv1.ResourceMemory]; ok {
+			limMemDiff.Add(*memoryOverhead)
+			renderer.vmLimits[k8sv1.ResourceMemory] = *limMemDiff
+		}
+	}
+}
+
 func copyResources(srcResources, dstResources k8sv1.ResourceList) {
 	for key, value := range srcResources {
 		dstResources[key] = value

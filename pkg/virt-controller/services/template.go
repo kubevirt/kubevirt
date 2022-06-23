@@ -430,46 +430,7 @@ func (t *templateService) renderLaunchManifest(vmi *v1.VirtualMachineInstance, i
 	}
 
 	// Consider hugepages resource for pod scheduling
-	if util.HasHugePages(vmi) {
-		hugepageType := k8sv1.ResourceName(k8sv1.ResourceHugePagesPrefix + vmi.Spec.Domain.Memory.Hugepages.PageSize)
-		hugepagesMemReq := vmi.Spec.Domain.Resources.Requests.Memory()
-
-		// If requested, use the guest memory to allocate hugepages
-		if vmi.Spec.Domain.Memory != nil && vmi.Spec.Domain.Memory.Guest != nil {
-			requests := vmi.Spec.Domain.Resources.Requests.Memory().Value()
-			guest := vmi.Spec.Domain.Memory.Guest.Value()
-			if requests > guest {
-				hugepagesMemReq = vmi.Spec.Domain.Memory.Guest
-			}
-		}
-		resources.Requests[hugepageType] = *hugepagesMemReq
-		resources.Limits[hugepageType] = *hugepagesMemReq
-
-		reqMemDiff := resource.NewScaledQuantity(0, resource.Kilo)
-		limMemDiff := resource.NewScaledQuantity(0, resource.Kilo)
-		// In case the guest memory and the requested memeory are different, add the difference
-		// to the to the overhead
-		if vmi.Spec.Domain.Memory != nil && vmi.Spec.Domain.Memory.Guest != nil {
-			requests := vmi.Spec.Domain.Resources.Requests.Memory().Value()
-			limits := vmi.Spec.Domain.Resources.Limits.Memory().Value()
-			guest := vmi.Spec.Domain.Memory.Guest.Value()
-			if requests > guest {
-				reqMemDiff.Add(*vmi.Spec.Domain.Resources.Requests.Memory())
-				reqMemDiff.Sub(*vmi.Spec.Domain.Memory.Guest)
-			}
-			if limits > guest {
-				limMemDiff.Add(*vmi.Spec.Domain.Resources.Limits.Memory())
-				limMemDiff.Sub(*vmi.Spec.Domain.Memory.Guest)
-			}
-		}
-		// Set requested memory equals to overhead memory
-		reqMemDiff.Add(*memoryOverhead)
-		resources.Requests[k8sv1.ResourceMemory] = *reqMemDiff
-		if _, ok := resources.Limits[k8sv1.ResourceMemory]; ok {
-			limMemDiff.Add(*memoryOverhead)
-			resources.Limits[k8sv1.ResourceMemory] = *limMemDiff
-		}
-	} else {
+	if !util.HasHugePages(vmi) {
 		// Add overhead memory
 		memoryRequest := resources.Requests[k8sv1.ResourceMemory]
 		if !vmi.Spec.Domain.Resources.OvercommitGuestOverhead {
@@ -970,6 +931,13 @@ func (t *templateService) newResourceRenderer(vmi *v1.VirtualMachineInstance) *R
 		options = append(
 			options,
 			WithoutDedicatedCPU(vmi.Spec.Domain.CPU, t.clusterConfig.GetCPUAllocationRatio()),
+		)
+	}
+
+	if util.HasHugePages(vmi) {
+		options = append(
+			options,
+			WithHugePages(vmi.Spec.Domain.Memory, GetMemoryOverhead(vmi, t.clusterConfig.GetClusterCPUArch())),
 		)
 	}
 
