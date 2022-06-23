@@ -17,12 +17,14 @@ import (
 	"k8s.io/utils/pointer"
 
 	v1 "kubevirt.io/api/core/v1"
+	virtv1 "kubevirt.io/api/core/v1"
 	flavorapi "kubevirt.io/api/flavor"
 	flavorv1alpha1 "kubevirt.io/api/flavor/v1alpha1"
 	"kubevirt.io/client-go/kubecli"
 	flavorpkg "kubevirt.io/kubevirt/pkg/flavor"
 	"kubevirt.io/kubevirt/tests"
 	cd "kubevirt.io/kubevirt/tests/containerdisk"
+	"kubevirt.io/kubevirt/tests/libvmi"
 	"kubevirt.io/kubevirt/tests/util"
 )
 
@@ -274,6 +276,8 @@ var _ = Describe("[crit:medium][vendor:cnv-qe@redhat.com][level:component][sig-c
 				Create(context.Background(), flavor, metav1.CreateOptions{})
 			Expect(err).ToNot(HaveOccurred())
 
+			removeResourcesAndPreferencesFromVMI(vmi)
+
 			vm := tests.NewRandomVirtualMachine(vmi, false)
 			vm.Spec.Template.Spec.Domain.CPU = &v1.CPU{Sockets: 1, Cores: 1, Threads: 1}
 			vm.Spec.Flavor = &v1.FlavorMatcher{
@@ -293,6 +297,45 @@ var _ = Describe("[crit:medium][vendor:cnv-qe@redhat.com][level:component][sig-c
 			Expect(cause.Message).To(Equal("VM field conflicts with selected Flavor"))
 			Expect(cause.Field).To(Equal("spec.template.spec.domain.cpu"))
 		})
+
+		DescribeTable("[test_id:TODO] should fail if the VirtualMachine has CPU resource ", func(resources virtv1.ResourceRequirements, expectedField string) {
+
+			vmi := libvmi.NewCirros(libvmi.WithResourceMemory("1Mi"))
+			flavor := newVirtualMachineFlavor(vmi)
+			flavor, err := virtClient.VirtualMachineFlavor(util.NamespaceTestDefault).
+				Create(context.Background(), flavor, metav1.CreateOptions{})
+			Expect(err).ToNot(HaveOccurred())
+
+			vm := tests.NewRandomVirtualMachine(vmi, false)
+			vm.Spec.Template.Spec.Domain.Resources = resources
+			vm.Spec.Flavor = &v1.FlavorMatcher{
+				Name: flavor.Name,
+				Kind: flavorapi.SingularResourceName,
+			}
+
+			_, err = virtClient.VirtualMachine(util.NamespaceTestDefault).Create(vm)
+			Expect(err).To(HaveOccurred())
+			var apiStatus errors.APIStatus
+			Expect(goerrors.As(err, &apiStatus)).To(BeTrue(), "error should be type APIStatus")
+
+			Expect(apiStatus.Status().Details.Causes).To(HaveLen(1))
+			cause := apiStatus.Status().Details.Causes[0]
+
+			Expect(cause.Type).To(Equal(metav1.CauseTypeFieldValueInvalid))
+			Expect(cause.Message).To(Equal("VM field conflicts with selected Flavor"))
+			Expect(cause.Field).To(Equal(expectedField))
+		},
+			Entry("requests", virtv1.ResourceRequirements{
+				Requests: k8sv1.ResourceList{
+					k8sv1.ResourceCPU: resource.MustParse("1"),
+				},
+			}, "spec.template.spec.domain.resources.requests.cpu"),
+			Entry("limits", virtv1.ResourceRequirements{
+				Limits: k8sv1.ResourceList{
+					k8sv1.ResourceCPU: resource.MustParse("1"),
+				},
+			}, "spec.template.spec.domain.resources.limits.cpu"),
+		)
 
 		It("[test_id:TODO] should apply preferences to default network interface", func() {
 			vmi := tests.NewRandomVMIWithEphemeralDisk(

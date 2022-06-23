@@ -8,6 +8,7 @@ import (
 	"strings"
 
 	appsv1 "k8s.io/api/apps/v1"
+	k8sv1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/runtime"
@@ -511,8 +512,17 @@ func (m *methods) findClusterFlavor(vm *virtv1.VirtualMachine) (*flavorv1alpha1.
 }
 
 func applyCpu(field *k8sfield.Path, flavorSpec *flavorv1alpha1.VirtualMachineFlavorSpec, preferenceSpec *flavorv1alpha1.VirtualMachinePreferenceSpec, vmiSpec *virtv1.VirtualMachineInstanceSpec) Conflicts {
+
 	if vmiSpec.Domain.CPU != nil {
 		return Conflicts{field.Child("domain", "cpu")}
+	}
+
+	if _, hasCPURequests := vmiSpec.Domain.Resources.Requests[k8sv1.ResourceCPU]; hasCPURequests {
+		return Conflicts{field.Child("domain", "resources", "requests", string(k8sv1.ResourceCPU))}
+	}
+
+	if _, hasCPULimits := vmiSpec.Domain.Resources.Limits[k8sv1.ResourceCPU]; hasCPULimits {
+		return Conflicts{field.Child("domain", "resources", "limits", string(k8sv1.ResourceCPU))}
 	}
 
 	vmiSpec.Domain.CPU = &virtv1.CPU{

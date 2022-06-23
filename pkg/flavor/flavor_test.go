@@ -834,6 +834,46 @@ var _ = Describe("Flavor and Preferences", func() {
 				Expect(conflicts[0].String()).To(Equal("spec.template.spec.domain.cpu"))
 
 			})
+
+			It("should return a conflict if vmi.Spec.Domain.Resources.Requests[k8sv1.ResourceCPU] already defined", func() {
+
+				flavorSpec = &flavorv1alpha1.VirtualMachineFlavorSpec{
+					CPU: flavorv1alpha1.CPUFlavor{
+						Guest: uint32(2),
+					},
+				}
+
+				vmi.Spec.Domain.Resources = v1.ResourceRequirements{
+					Requests: k8sv1.ResourceList{
+						k8sv1.ResourceCPU: resource.MustParse("1"),
+					},
+				}
+
+				conflicts := flavorMethods.ApplyToVmi(field, flavorSpec, preferenceSpec, &vmi.Spec)
+				Expect(conflicts).To(HaveLen(1))
+				Expect(conflicts[0].String()).To(Equal("spec.template.spec.domain.resources.requests.cpu"))
+
+			})
+
+			It("should return a conflict if vmi.Spec.Domain.Resources.Limits[k8sv1.ResourceCPU] already defined", func() {
+
+				flavorSpec = &flavorv1alpha1.VirtualMachineFlavorSpec{
+					CPU: flavorv1alpha1.CPUFlavor{
+						Guest: uint32(2),
+					},
+				}
+
+				vmi.Spec.Domain.Resources = v1.ResourceRequirements{
+					Limits: k8sv1.ResourceList{
+						k8sv1.ResourceCPU: resource.MustParse("1"),
+					},
+				}
+
+				conflicts := flavorMethods.ApplyToVmi(field, flavorSpec, preferenceSpec, &vmi.Spec)
+				Expect(conflicts).To(HaveLen(1))
+				Expect(conflicts[0].String()).To(Equal("spec.template.spec.domain.resources.limits.cpu"))
+
+			})
 		})
 		Context("flavor.Spec.Memory", func() {
 			BeforeEach(func() {
