@@ -467,17 +467,8 @@ func (t *templateService) renderLaunchManifest(vmi *v1.VirtualMachineInstance, i
 		}
 	}
 
-	allowEmulation := t.clusterConfig.AllowEmulation()
-
-	extraResources := getRequiredResources(vmi, allowEmulation)
-	for key, val := range extraResources {
-		resources.Limits[key] = val
-	}
-
-	if allowEmulation {
+	if t.clusterConfig.AllowEmulation() {
 		command = append(command, "--allow-emulation")
-	} else {
-		resources.Limits[KvmDevice] = resource.MustParse("1")
 	}
 
 	if checkForKeepLauncherAfterFailure(vmi) {
@@ -879,6 +870,7 @@ func (t *templateService) newResourceRenderer(vmi *v1.VirtualMachineInstance) *R
 	vmiResources := vmi.Spec.Domain.Resources
 	options := []ResourceRendererOption{
 		WithEphemeralStorageRequest(),
+		WithVirtualizationResources(getRequiredResources(vmi, t.clusterConfig.AllowEmulation())),
 	}
 
 	if vmi.IsCPUDedicated() {
@@ -900,7 +892,11 @@ func (t *templateService) newResourceRenderer(vmi *v1.VirtualMachineInstance) *R
 		options = append(options, WithMemoryOverhead(vmi.Spec.Domain.Resources, memoryOverhead))
 	}
 
-	return NewResourceRenderer(vmiResources.Limits, vmiResources.Requests, options...)
+	return NewResourceRenderer(
+		vmiResources.Limits,
+		vmiResources.Requests,
+		options...,
+	)
 }
 
 func sidecarVolumeMount() k8sv1.VolumeMount {
@@ -1233,22 +1229,6 @@ func getVirtiofsCapabilities() []k8sv1.Capability {
 		"MKNOD",
 		"SETFCAP",
 	}
-}
-
-func getRequiredResources(vmi *v1.VirtualMachineInstance, allowEmulation bool) k8sv1.ResourceList {
-	res := k8sv1.ResourceList{}
-	if util.NeedTunDevice(vmi) {
-		res[TunDevice] = resource.MustParse("1")
-	}
-	if util.NeedVirtioNetDevice(vmi, allowEmulation) {
-		// Note that about network interface, allowEmulation does not make
-		// any difference on eventual Domain xml, but uniformly making
-		// /dev/vhost-net unavailable and libvirt implicitly fallback
-		// to use QEMU userland NIC emulation.
-		res[VhostNetDevice] = resource.MustParse("1")
-
-	}
-	return res
 }
 
 func appendUniqueImagePullSecret(secrets []k8sv1.LocalObjectReference, newsecret k8sv1.LocalObjectReference) []k8sv1.LocalObjectReference {

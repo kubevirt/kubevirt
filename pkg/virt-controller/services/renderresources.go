@@ -2,6 +2,7 @@ package services
 
 import (
 	"fmt"
+
 	k8sv1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/api/resource"
 
@@ -331,4 +332,28 @@ func calcVCPUs(cpu *v1.CPU) int64 {
 		return hardware.GetNumberOfVCPUs(cpu)
 	}
 	return int64(1)
+}
+
+func getRequiredResources(vmi *v1.VirtualMachineInstance, allowEmulation bool) k8sv1.ResourceList {
+	res := k8sv1.ResourceList{}
+	if util.NeedTunDevice(vmi) {
+		res[TunDevice] = resource.MustParse("1")
+	}
+	if util.NeedVirtioNetDevice(vmi, allowEmulation) {
+		// Note that about network interface, allowEmulation does not make
+		// any difference on eventual Domain xml, but uniformly making
+		// /dev/vhost-net unavailable and libvirt implicitly fallback
+		// to use QEMU userland NIC emulation.
+		res[VhostNetDevice] = resource.MustParse("1")
+	}
+	if !allowEmulation {
+		res[KvmDevice] = resource.MustParse("1")
+	}
+	return res
+}
+
+func WithVirtualizationResources(virtResources k8sv1.ResourceList) ResourceRendererOption {
+	return func(renderer *ResourceRenderer) {
+		copyResources(virtResources, renderer.vmLimits)
+	}
 }
