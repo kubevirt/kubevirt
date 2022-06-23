@@ -1,10 +1,14 @@
 package services
 
 import (
+	"context"
 	"fmt"
 
 	k8sv1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/api/resource"
+	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+
+	"kubevirt.io/client-go/kubecli"
 
 	v1 "kubevirt.io/api/core/v1"
 
@@ -53,6 +57,13 @@ func (rr *ResourceRenderer) Requests() k8sv1.ResourceList {
 	copyResources(rr.calculatedRequests, podRequests)
 	copyResources(rr.vmRequests, podRequests)
 	return podRequests
+}
+
+func (rr *ResourceRenderer) ResourceRequirements() k8sv1.ResourceRequirements {
+	return k8sv1.ResourceRequirements{
+		Limits:   rr.Limits(),
+		Requests: rr.Requests(),
+	}
 }
 
 func WithEphemeralStorageRequest() ResourceRendererOption {
@@ -170,6 +181,19 @@ func WithCPUPinning(cpu *v1.CPU) ResourceRendererOption {
 		}
 
 		renderer.vmLimits[k8sv1.ResourceMemory] = *renderer.vmRequests.Memory()
+	}
+}
+
+func WithNetworkResources(networkToResourceMap map[string]string) ResourceRendererOption {
+	return func(renderer *ResourceRenderer) {
+		resources := renderer.ResourceRequirements()
+		for _, resourceName := range networkToResourceMap {
+			if resourceName != "" {
+				requestResource(&resources, resourceName)
+			}
+		}
+		copyResources(resources.Limits, renderer.calculatedLimits)
+		copyResources(resources.Requests, renderer.calculatedRequests)
 	}
 }
 
@@ -356,4 +380,19 @@ func WithVirtualizationResources(virtResources k8sv1.ResourceList) ResourceRende
 	return func(renderer *ResourceRenderer) {
 		copyResources(virtResources, renderer.vmLimits)
 	}
+}
+
+func getNetworkToResourceMap(virtClient kubecli.KubevirtClient, vmi *v1.VirtualMachineInstance) (networkToResourceMap map[string]string, err error) {
+	networkToResourceMap = make(map[string]string)
+	for _, network := range vmi.Spec.Networks {
+		if network.Multus != nil {
+			namespace, networkName := getNamespaceAndNetworkName(vmi, network.Multus.NetworkName)
+			crd, err := virtClient.NetworkClient().K8sCniCncfIoV1().NetworkAttachmentDefinitions(namespace).Get(context.Background(), networkName, metav1.GetOptions{})
+			if err != nil {
+				return map[string]string{}, fmt.Errorf("Failed to locate network attachment definition %s/%s", namespace, networkName)
+			}
+			networkToResourceMap[network.Name] = getResourceNameForNetwork(crd)
+		}
+	}
+	return
 }

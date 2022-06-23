@@ -161,6 +161,34 @@ var _ = Describe("Resource pod spec renderer", func() {
 			})
 		})
 	})
+
+	Context("WithNetworkResources option", func() {
+		It("does not request / set any limit when no network resources are required", func() {
+			rr = NewResourceRenderer(
+				nil,
+				nil,
+				WithNetworkResources(map[string]string{}),
+			)
+			Expect(rr.Limits()).To(BeEmpty())
+			Expect(rr.Requests()).To(BeEmpty())
+		})
+
+		It("adds a request and sets limit for each multus network resource", func() {
+			netToResourceMap := map[string]string{
+				"net1": "res1",
+				"net2": "res44",
+			}
+			rr = NewResourceRenderer(
+				nil,
+				nil,
+				WithNetworkResources(netToResourceMap),
+			)
+			Expect(rr.Limits()).To(HaveKeyWithValue(kubev1.ResourceName("res1"), *resource.NewScaledQuantity(1, 0)))
+			Expect(rr.Limits()).To(HaveKeyWithValue(kubev1.ResourceName("res44"), *resource.NewScaledQuantity(1, 0)))
+			Expect(rr.Requests()).To(HaveKeyWithValue(kubev1.ResourceName("res1"), *resource.NewScaledQuantity(1, 0)))
+			Expect(rr.Requests()).To(HaveKeyWithValue(kubev1.ResourceName("res44"), *resource.NewScaledQuantity(1, 0)))
+		})
+	})
 })
 
 func addResources(firstQuantity resource.Quantity, resources ...resource.Quantity) resource.Quantity {

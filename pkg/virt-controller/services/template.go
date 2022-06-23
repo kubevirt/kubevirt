@@ -20,7 +20,6 @@
 package services
 
 import (
-	"context"
 	"fmt"
 	"math/rand"
 	"strconv"
@@ -419,11 +418,11 @@ func (t *templateService) renderLaunchManifest(vmi *v1.VirtualMachineInstance, i
 	gracePeriodSeconds = gracePeriodSeconds + int64(15)
 	gracePeriodKillAfter := gracePeriodSeconds + int64(15)
 
-	resourceRenderer := t.newResourceRenderer(vmi)
-	resources := k8sv1.ResourceRequirements{
-		Limits:   resourceRenderer.Limits(),
-		Requests: resourceRenderer.Requests(),
+	resourceRenderer, err := t.newResourceRenderer(vmi)
+	if err != nil {
+		return nil, err
 	}
+	resources := resourceRenderer.ResourceRequirements()
 
 	if vmi.IsCPUDedicated() {
 		// schedule only on nodes with a running cpu manager
@@ -480,18 +479,6 @@ func (t *templateService) renderLaunchManifest(vmi *v1.VirtualMachineInstance, i
 		command = append(command, "--simulate-crash")
 	}
 
-	networkToResourceMap, err := getNetworkToResourceMap(t.virtClient, vmi)
-	if err != nil {
-		return nil, err
-	}
-
-	// Register resource requests and limits corresponding to attached multus networks.
-	for _, resourceName := range networkToResourceMap {
-		if resourceName != "" {
-			requestResource(&resources, resourceName)
-		}
-	}
-
 	err = validatePermittedHostDevices(&vmi.Spec, t.clusterConfig)
 	if err != nil {
 		return nil, err
@@ -520,6 +507,10 @@ func (t *templateService) renderLaunchManifest(vmi *v1.VirtualMachineInstance, i
 
 	compute := t.newContainerSpecRenderer(vmi, volumeRenderer, resources, userId).Render(command)
 
+	networkToResourceMap, err := getNetworkToResourceMap(t.virtClient, vmi)
+	if err != nil {
+		return nil, err
+	}
 	for networkName, resourceName := range networkToResourceMap {
 		varName := fmt.Sprintf("KUBEVIRT_RESOURCE_NAME_%s", networkName)
 		compute.Env = append(compute.Env, k8sv1.EnvVar{Name: varName, Value: resourceName})
@@ -866,7 +857,7 @@ func (t *templateService) newVolumeRenderer(vmi *v1.VirtualMachineInstance, name
 	return volumeRenderer, nil
 }
 
-func (t *templateService) newResourceRenderer(vmi *v1.VirtualMachineInstance) *ResourceRenderer {
+func (t *templateService) newResourceRenderer(vmi *v1.VirtualMachineInstance) (*ResourceRenderer, error) {
 	vmiResources := vmi.Spec.Domain.Resources
 	options := []ResourceRendererOption{
 		WithEphemeralStorageRequest(),
@@ -892,11 +883,19 @@ func (t *templateService) newResourceRenderer(vmi *v1.VirtualMachineInstance) *R
 		options = append(options, WithMemoryOverhead(vmi.Spec.Domain.Resources, memoryOverhead))
 	}
 
+	networkToResourceMap, err := getNetworkToResourceMap(t.virtClient, vmi)
+	if err != nil {
+		return nil, err
+	}
+	if len(networkToResourceMap) > 0 {
+		options = append(options, WithNetworkResources(networkToResourceMap))
+	}
+
 	return NewResourceRenderer(
 		vmiResources.Limits,
 		vmiResources.Requests,
 		options...,
-	)
+	), nil
 }
 
 func sidecarVolumeMount() k8sv1.VolumeMount {
@@ -1300,21 +1299,6 @@ func getNamespaceAndNetworkName(vmi *v1.VirtualMachineInstance, fullNetworkName 
 	} else {
 		namespace = precond.MustNotBeEmpty(vmi.GetObjectMeta().GetNamespace())
 		networkName = fullNetworkName
-	}
-	return
-}
-
-func getNetworkToResourceMap(virtClient kubecli.KubevirtClient, vmi *v1.VirtualMachineInstance) (networkToResourceMap map[string]string, err error) {
-	networkToResourceMap = make(map[string]string)
-	for _, network := range vmi.Spec.Networks {
-		if network.Multus != nil {
-			namespace, networkName := getNamespaceAndNetworkName(vmi, network.Multus.NetworkName)
-			crd, err := virtClient.NetworkClient().K8sCniCncfIoV1().NetworkAttachmentDefinitions(namespace).Get(context.Background(), networkName, metav1.GetOptions{})
-			if err != nil {
-				return map[string]string{}, fmt.Errorf("Failed to locate network attachment definition %s/%s", namespace, networkName)
-			}
-			networkToResourceMap[network.Name] = getResourceNameForNetwork(crd)
-		}
 	}
 	return
 }
