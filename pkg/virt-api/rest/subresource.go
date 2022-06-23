@@ -63,8 +63,10 @@ const (
 	prepConnectionErrFmt         = "Cannot prepare connection %s"
 	getRequestErrFmt             = "Cannot GET request %s"
 	pvcVolumeModeErr             = "pvc should be filesystem pvc"
+	pvcAccessModeErr             = "pvc access mode can't be read only"
 	pvcSizeErrFmt                = "pvc size should be bigger then vm memory:%s+%s"
 	memoryDumpNameConflictErr    = "can't request memory dump for pvc [%s] while pvc [%s] is still associated as the memory dump pvc"
+	memoryDumpOverhead           = "100Mi"
 	defaultProfilerComponentPort = 8443
 )
 
@@ -1369,15 +1371,19 @@ func (app *SubresourceAPIApp) validateMemoryDumpClaim(vmi *v1.VirtualMachineInst
 	if err != nil {
 		return err
 	}
-	if pvc.Spec.VolumeMode != nil && *pvc.Spec.VolumeMode == v12.PersistentVolumeBlock {
+	if k6ttypes.IsPVCBlock(pvc.Spec.VolumeMode) {
 		return errors.NewConflict(v1.Resource("persistentvolumeclaim"), claimName, fmt.Errorf(pvcVolumeModeErr))
+	}
+
+	if k6ttypes.IsReadOnlyAccessMode(pvc.Spec.AccessModes) {
+		return errors.NewConflict(v1.Resource("persistentvolumeclaim"), claimName, fmt.Errorf(pvcAccessModeErr))
 	}
 
 	pvcSize := pvc.Spec.Resources.Requests.Storage()
 	scaledPvcSize := resource.NewScaledQuantity(pvcSize.ScaledValue(resource.Kilo), resource.Kilo)
 	domain := vmi.Spec.Domain
 	vmiMemoryReq := domain.Resources.Requests.Memory()
-	memOverhead := resource.MustParse("100Mi")
+	memOverhead := resource.MustParse(memoryDumpOverhead)
 	expectedPvcSize := resource.NewScaledQuantity(vmiMemoryReq.ScaledValue(resource.Kilo), resource.Kilo)
 	expectedPvcSize.Add(memOverhead)
 	if scaledPvcSize.Cmp(*expectedPvcSize) < 0 {

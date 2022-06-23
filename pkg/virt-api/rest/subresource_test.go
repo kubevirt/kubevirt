@@ -1045,6 +1045,8 @@ var _ = Describe("VirtualMachineInstance Subresources", func() {
 		const (
 			fs          = false
 			block       = true
+			notReadOnly = false
+			readOnly    = true
 			testPVCName = "testPVC"
 		)
 
@@ -1053,7 +1055,7 @@ var _ = Describe("VirtualMachineInstance Subresources", func() {
 			return &readCloserWrapper{bytes.NewReader(reqJson)}
 		}
 
-		createTestPVC := func(size string, blockMode bool) *k8sv1.PersistentVolumeClaim {
+		createTestPVC := func(size string, blockMode bool, readOnlyMode bool) *k8sv1.PersistentVolumeClaim {
 			quantity, _ := resource.ParseQuantity(size)
 			pvc := &k8sv1.PersistentVolumeClaim{
 				ObjectMeta: k8smetav1.ObjectMeta{
@@ -1071,6 +1073,9 @@ var _ = Describe("VirtualMachineInstance Subresources", func() {
 			if blockMode {
 				volumeMode := k8sv1.PersistentVolumeBlock
 				pvc.Spec.VolumeMode = &volumeMode
+			}
+			if readOnlyMode {
+				pvc.Spec.AccessModes = []k8sv1.PersistentVolumeAccessMode{k8sv1.ReadOnlyMany}
 			}
 			return pvc
 		}
@@ -1124,22 +1129,25 @@ var _ = Describe("VirtualMachineInstance Subresources", func() {
 		},
 			Entry("VM with a valid memory dump request should succeed", &v1.VirtualMachineMemoryDumpRequest{
 				ClaimName: testPVCName,
-			}, http.StatusAccepted, true, true, createTestPVC("2Gi", fs)),
+			}, http.StatusAccepted, true, true, createTestPVC("2Gi", fs, notReadOnly)),
 			Entry("VM with a valid memory dump request but no feature gate should fail", &v1.VirtualMachineMemoryDumpRequest{
 				ClaimName: testPVCName,
-			}, http.StatusBadRequest, false, true, createTestPVC("2Gi", fs)),
+			}, http.StatusBadRequest, false, true, createTestPVC("2Gi", fs, notReadOnly)),
 			Entry("VM with a valid memory dump request vmi not running should fail", &v1.VirtualMachineMemoryDumpRequest{
 				ClaimName: testPVCName,
-			}, http.StatusConflict, true, false, createTestPVC("2Gi", fs)),
+			}, http.StatusConflict, true, false, createTestPVC("2Gi", fs, notReadOnly)),
 			Entry("VM with a memory dump request with a non existing PVC", &v1.VirtualMachineMemoryDumpRequest{
 				ClaimName: testPVCName,
 			}, http.StatusNotFound, true, true, nil),
 			Entry("VM with a memory dump request pvc block mode should fail", &v1.VirtualMachineMemoryDumpRequest{
 				ClaimName: testPVCName,
-			}, http.StatusConflict, true, true, createTestPVC("2Gi", block)),
+			}, http.StatusConflict, true, true, createTestPVC("2Gi", block, notReadOnly)),
+			Entry("VM with a memory dump request pvc read only mode should fail", &v1.VirtualMachineMemoryDumpRequest{
+				ClaimName: testPVCName,
+			}, http.StatusConflict, true, true, createTestPVC("2Gi", fs, readOnly)),
 			Entry("VM with a memory dump request pvc size too small should fail", &v1.VirtualMachineMemoryDumpRequest{
 				ClaimName: testPVCName,
-			}, http.StatusConflict, true, true, createTestPVC("1Gi", fs)),
+			}, http.StatusConflict, true, true, createTestPVC("1Gi", fs, notReadOnly)),
 		)
 
 		DescribeTable("With memory dump request", func(memDumpReq, prevMemDumpReq *v1.VirtualMachineMemoryDumpRequest, statusCode int) {
@@ -1164,7 +1172,7 @@ var _ = Describe("VirtualMachineInstance Subresources", func() {
 			kubeClient.Fake.PrependReactor("get", "persistentvolumeclaims", func(action testing.Action) (bool, runtime.Object, error) {
 				_, ok := action.(testing.GetAction)
 				Expect(ok).To(BeTrue())
-				return true, createTestPVC("2Gi", fs), nil
+				return true, createTestPVC("2Gi", fs, notReadOnly), nil
 			})
 			vmiClient.EXPECT().Get(vm.Name, &k8smetav1.GetOptions{}).Return(vmi, nil).AnyTimes()
 			vmClient.EXPECT().PatchStatus(vm.Name, types.JSONPatchType, gomock.Any(), gomock.Any()).DoAndReturn(
