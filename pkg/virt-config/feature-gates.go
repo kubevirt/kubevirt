@@ -29,7 +29,7 @@ const (
 	NUMAFeatureGate   = "NUMA"
 	IgnitionGate      = "ExperimentalIgnitionSupport"
 	LiveMigrationGate = "LiveMigration"
-	// SRIOVLiveMigrationGate enable's Live Migration for VM's with SRIOV interfaces.
+	// SRIOVLiveMigrationGate enables Live Migration for VM's with network SR-IOV interfaces.
 	SRIOVLiveMigrationGate     = "SRIOVLiveMigration"
 	CPUNodeDiscoveryGate       = "CPUNodeDiscovery"
 	HypervStrictCheckGate      = "HypervStrictCheck"
@@ -52,6 +52,7 @@ const (
 
 var deprecatedFeatureGates = [...]string{
 	LiveMigrationGate,
+	SRIOVLiveMigrationGate,
 }
 
 func (c *ClusterConfig) isFeatureGateEnabled(featureGate string) bool {
