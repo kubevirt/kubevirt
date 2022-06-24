@@ -41,10 +41,12 @@ import (
 )
 
 const (
-	PrometheusCollectionTimeout         = vms.CollectionTimeout
-	MigrateVmiDataRemainingMetricName   = "kubevirt_migrate_vmi_data_remaining_bytes"
-	MigrateVmiDataProcessedMetricName   = "kubevirt_migrate_vmi_data_processed_bytes"
-	MigrateVmiDirtyMemoryRateMetricName = "kubevirt_migrate_vmi_dirty_memory_rate_bytes"
+	PrometheusCollectionTimeout            = vms.CollectionTimeout
+	MigrateVmiDataRemainingMetricName      = "kubevirt_migrate_vmi_data_remaining_bytes"
+	MigrateVmiDataProcessedMetricName      = "kubevirt_migrate_vmi_data_processed_bytes"
+	MigrateVmiDirtyMemoryRateMetricName    = "kubevirt_migrate_vmi_dirty_memory_rate_bytes"
+	MigrateVmiMemoryTransferRateMetricName = "kubevirt_migrate_vmi_memory_transfer_rate_bytes"
+	MigrateVmiDiskTransferRateMetricName   = "kubevirt_migrate_vmi_disk_transfer_rate_bytes"
 )
 
 var (
@@ -100,6 +102,23 @@ func (metrics *vmiMetrics) updateMigrateInfo(jobInfo *stats.DomainJobInfo) {
 		)
 	}
 
+	if jobInfo.MemoryBpsSet {
+		metrics.pushCommonMetric(
+			MigrateVmiMemoryTransferRateMetricName,
+			"The total VM memory processed and migrated.",
+			prometheus.GaugeValue,
+			float64(jobInfo.MemoryBps),
+		)
+	}
+
+	if jobInfo.DiskBpsSet {
+		metrics.pushCommonMetric(
+			MigrateVmiDiskTransferRateMetricName,
+			"The total VM data processed and migrated.",
+			prometheus.GaugeValue,
+			float64(jobInfo.DiskBps),
+		)
+	}
 }
 
 func (metrics *vmiMetrics) updateMemory(mem *stats.DomainStatsMemory) {

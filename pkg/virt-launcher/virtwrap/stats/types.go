@@ -177,6 +177,10 @@ type DomainStatsMemory struct {
 type DomainJobInfo struct {
 	DataProcessedSet bool
 	DataProcessed    uint64
+	MemoryBpsSet     bool
+	MemoryBps        uint64
+	DiskBpsSet       bool
+	DiskBps          uint64
 	DataRemainingSet bool
 	DataRemaining    uint64
 	MemDirtyRateSet  bool

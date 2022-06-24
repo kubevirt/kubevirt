@@ -788,11 +788,7 @@ func (m *migrationMonitor) startMonitor() {
 
 	logger := log.Log.Object(vmi)
 	defer func() {
-		m.l.migrateInfoStats = &stats.DomainJobInfo{
-			DataProcessed: 0,
-			DataRemaining: 0,
-			MemDirtyRate:  0,
-		}
+		m.l.migrateInfoStats = &stats.DomainJobInfo{}
 	}()
 
 	domName := api.VMINamespaceKeyFunc(vmi)
@@ -811,10 +807,10 @@ func (m *migrationMonitor) startMonitor() {
 
 		err := m.hasMigrationErr()
 		if err != nil && m.migrationFailedWithError == nil {
-			logger.Reason(err).Error("Recevied a live migration error. Will check the latest migration status.")
+			logger.Reason(err).Error("Received a live migration error. Will check the latest migration status.")
 			m.migrationFailedWithError = err
 		} else if m.migrationFailedWithError != nil {
-			logger.Info("Didn't manage to get a job status. Post the received error and finilize.")
+			logger.Info("Didn't manage to get a job status. Post the received error and finalize.")
 			logger.Reason(m.migrationFailedWithError).Error(liveMigrationFailed)
 			var abortStatus v1.MigrationAbortStatus
 			if strings.Contains(m.migrationFailedWithError.Error(), "canceled by client") {

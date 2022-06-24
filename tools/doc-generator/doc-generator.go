@@ -158,6 +158,16 @@ var (
 			description: "The rate of memory being dirty in the Guest OS.",
 			mType:       "Gauge",
 		},
+		{
+			name:        domainstats.MigrateVmiMemoryTransferRateMetricName,
+			description: "The rate at which the memory is being transferred.",
+			mType:       "Gauge",
+		},
+		{
+			name:        domainstats.MigrateVmiDiskTransferRateMetricName,
+			description: "The rate at which the disk is being transferred.",
+			mType:       "Gauge",
+		},
 	}
 )
 
