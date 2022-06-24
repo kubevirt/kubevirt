@@ -23,17 +23,17 @@ func (s server) composeNetcatServerCommand(port int, extraArgs ...string) string
 }
 
 func StartTCPServer(vmi *v1.VirtualMachineInstance, port int, loginTo console.LoginToFunction) {
-	loginTo(vmi)
+	ExpectWithOffset(1, loginTo(vmi)).To(Succeed())
 	TCPServer.Start(vmi, port)
 }
 
 func StartHTTPServer(vmi *v1.VirtualMachineInstance, port int, loginTo console.LoginToFunction) {
-	loginTo(vmi)
+	ExpectWithOffset(1, loginTo(vmi)).To(Succeed())
 	HTTPServer.Start(vmi, port)
 }
 
 func StartHTTPServerWithSourceIp(vmi *v1.VirtualMachineInstance, port int, sourceIP string, loginTo console.LoginToFunction) {
-	loginTo(vmi)
+	ExpectWithOffset(1, loginTo(vmi)).To(Succeed())
 	HTTPServer.Start(vmi, port, fmt.Sprintf("-s %s", sourceIP))
 }
 
