@@ -486,13 +486,27 @@ type SoundDevice struct {
 
 type TPMDevice struct{}
 
+type InputBus string
+
+const (
+	InputBusUSB    InputBus = "usb"
+	InputBusVirtio InputBus = "virtio"
+)
+
+type InputType string
+
+const (
+	InputTypeTablet   InputType = "tablet"
+	InputTypeKeyboard InputType = "keyboard"
+)
+
 type Input struct {
 	// Bus indicates the bus of input device to emulate.
 	// Supported values: virtio, usb.
-	Bus string `json:"bus,omitempty"`
+	Bus InputBus `json:"bus,omitempty"`
 	// Type indicated the type of input device.
 	// Supported values: tablet.
-	Type string `json:"type"`
+	Type InputType `json:"type"`
 	// Name is the device name
 	Name string `json:"name"`
 }

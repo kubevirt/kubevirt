@@ -535,11 +535,11 @@ type FilesystemBinaryLock struct {
 
 // Input represents input device, e.g. tablet
 type Input struct {
-	Type    string   `xml:"type,attr"`
-	Bus     string   `xml:"bus,attr"`
-	Alias   *Alias   `xml:"alias,omitempty"`
-	Address *Address `xml:"address,omitempty"`
-	Model   string   `xml:"model,attr,omitempty"`
+	Type    v1.InputType `xml:"type,attr"`
+	Bus     v1.InputBus  `xml:"bus,attr"`
+	Alias   *Alias       `xml:"alias,omitempty"`
+	Address *Address     `xml:"address,omitempty"`
+	Model   string       `xml:"model,attr,omitempty"`
 }
 
 // BEGIN HostDevice -----------------------------
