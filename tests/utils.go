@@ -129,10 +129,6 @@ const (
 
 const VMIResource = "virtualmachineinstances"
 
-const (
-	tmpPath = "/var/provision/kubevirt.io/tests"
-)
-
 const MigrationWaitTime = 240
 const ContainerCompletionWaitTime = 60
 
@@ -2484,6 +2480,7 @@ func IsRunningOnKindInfra() bool {
 }
 
 func RandTmpDir() string {
+	const tmpPath = "/var/provision/kubevirt.io/tests"
 	return filepath.Join(tmpPath, rand.String(10))
 }
 
