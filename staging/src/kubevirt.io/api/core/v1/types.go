@@ -586,6 +586,7 @@ type VirtualMachineInstanceMigrationState struct {
 	// The time the migration action ended
 	// +nullable
 	EndTimestamp *metav1.Time `json:"endTimestamp,omitempty"`
+
 	// The Target Node has seen the Domain Start Event
 	TargetNodeDomainDetected bool `json:"targetNodeDomainDetected,omitempty"`
 	// The address of the target node to use for the migration
@@ -1128,10 +1129,22 @@ type VirtualMachineInstanceMigrationSpec struct {
 	VMIName string `json:"vmiName,omitempty" valid:"required"`
 }
 
+// VirtualMachineInstanceMigrationPhaseTransitionTimestamp gives a timestamp in relation to when a phase is set on a vmi
+type VirtualMachineInstanceMigrationPhaseTransitionTimestamp struct {
+	// Phase is the status of the VirtualMachineInstanceMigrationPhase in kubernetes world. It is not the VirtualMachineInstanceMigrationPhase status, but partially correlates to it.
+	Phase VirtualMachineInstanceMigrationPhase `json:"phase,omitempty"`
+	// PhaseTransitionTimestamp is the timestamp of when the phase change occurred
+	PhaseTransitionTimestamp metav1.Time `json:"phaseTransitionTimestamp,omitempty"`
+}
+
 // VirtualMachineInstanceMigration reprents information pertaining to a VMI's migration.
 type VirtualMachineInstanceMigrationStatus struct {
 	Phase      VirtualMachineInstanceMigrationPhase       `json:"phase,omitempty"`
 	Conditions []VirtualMachineInstanceMigrationCondition `json:"conditions,omitempty"`
+	// PhaseTransitionTimestamp is the timestamp of when the last phase change occurred
+	// +listType=atomic
+	// +optional
+	PhaseTransitionTimestamps []VirtualMachineInstanceMigrationPhaseTransitionTimestamp `json:"phaseTransitionTimestamps,omitempty"`
 }
 
 // VirtualMachineInstanceMigrationPhase is a label for the condition of a VirtualMachineInstanceMigration at the current time.

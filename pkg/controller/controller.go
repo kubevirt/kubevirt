@@ -333,6 +333,23 @@ func SetVMIPhaseTransitionTimestamp(oldVMI *v1.VirtualMachineInstance, newVMI *v
 	}
 }
 
+func SetVMIMigrationPhaseTransitionTimestamp(oldVMIMigration *v1.VirtualMachineInstanceMigration, newVMIMigration *v1.VirtualMachineInstanceMigration) {
+	if oldVMIMigration.Status.Phase != newVMIMigration.Status.Phase {
+		for _, transitionTimeStamp := range newVMIMigration.Status.PhaseTransitionTimestamps {
+			if transitionTimeStamp.Phase == newVMIMigration.Status.Phase {
+				// already exists.
+				return
+			}
+		}
+
+		now := metav1.NewTime(time.Now())
+		newVMIMigration.Status.PhaseTransitionTimestamps = append(newVMIMigration.Status.PhaseTransitionTimestamps, v1.VirtualMachineInstanceMigrationPhaseTransitionTimestamp{
+			Phase:                    newVMIMigration.Status.Phase,
+			PhaseTransitionTimestamp: now,
+		})
+	}
+}
+
 func VMIHasHotplugVolumes(vmi *v1.VirtualMachineInstance) bool {
 	for _, volumeStatus := range vmi.Status.VolumeStatus {
 		if volumeStatus.HotplugVolume != nil {
