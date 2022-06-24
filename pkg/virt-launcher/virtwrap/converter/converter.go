@@ -966,15 +966,15 @@ func Convert_v1_Sound_To_api_Sound(vmi *v1.VirtualMachineInstance, domainDevices
 }
 
 func Convert_v1_Input_To_api_InputDevice(input *v1.Input, inputDevice *api.Input) error {
-	if input.Bus != "virtio" && input.Bus != "usb" && input.Bus != "" {
+	if input.Bus != v1.InputBusVirtio && input.Bus != v1.InputBusUSB && input.Bus != "" {
 		return fmt.Errorf("input contains unsupported bus %s", input.Bus)
 	}
 
-	if input.Bus != "virtio" && input.Bus != "usb" {
-		input.Bus = "usb"
+	if input.Bus != v1.InputBusVirtio && input.Bus != v1.InputBusUSB {
+		input.Bus = v1.InputBusUSB
 	}
 
-	if input.Type != "tablet" {
+	if input.Type != v1.InputTypeTablet {
 		return fmt.Errorf("input contains unsupported type %s", input.Type)
 	}
 
@@ -982,7 +982,7 @@ func Convert_v1_Input_To_api_InputDevice(input *v1.Input, inputDevice *api.Input
 	inputDevice.Type = input.Type
 	inputDevice.Alias = api.NewUserDefinedAlias(input.Name)
 
-	if input.Bus == "virtio" {
+	if input.Bus == v1.InputBusVirtio {
 		inputDevice.Model = "virtio"
 	}
 	return nil

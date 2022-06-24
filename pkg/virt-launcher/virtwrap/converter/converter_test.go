@@ -1734,7 +1734,7 @@ var _ = Describe("Converter", func() {
 			v1.SetObjectDefaults_VirtualMachineInstance(vmi)
 			vmi.Spec.Domain.Devices.Inputs[0].Bus = ""
 			domain := vmiToDomain(vmi, c)
-			Expect(domain.Spec.Devices.Inputs[0].Bus).To(Equal("usb"), "Expect usb bus")
+			Expect(domain.Spec.Devices.Inputs[0].Bus).To(Equal(v1.InputBusUSB), "Expect usb bus")
 		})
 
 		It("should not enable sound cards emulation by default", func() {
@@ -2343,8 +2343,8 @@ var _ = Describe("Converter", func() {
 
 			if isARM64(arch) && (autoAttach == nil || *autoAttach) {
 				Expect(domain.Spec.Devices.Video[0].Model.Type).To(Equal("virtio"))
-				Expect(domain.Spec.Devices.Inputs[0].Type).To(Equal("tablet"))
-				Expect(domain.Spec.Devices.Inputs[1].Type).To(Equal("keyboard"))
+				Expect(domain.Spec.Devices.Inputs[0].Type).To(Equal(v1.InputTypeTablet))
+				Expect(domain.Spec.Devices.Inputs[1].Type).To(Equal(v1.InputTypeKeyboard))
 			}
 			if isAMD64(arch) && (autoAttach == nil || *autoAttach) {
 				Expect(domain.Spec.Devices.Video[0].Model.Type).To(Equal("vga"))
