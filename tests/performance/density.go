@@ -78,7 +78,6 @@ var _ = SIGDescribe("Control Plane Performance Density Testing", func() {
 		}
 
 		startTime = time.Now()
-		tests.BeforeTestCleanup()
 	})
 
 	AfterEach(func() {

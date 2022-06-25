@@ -135,7 +135,6 @@ var _ = Describe("[Serial][sig-compute]Windows VirtualMachineInstance", func() {
 	BeforeEach(func() {
 		virtClient, err = kubecli.GetKubevirtClient()
 		util.PanicOnError(err)
-		tests.BeforeTestCleanup()
 		checks.SkipIfMissingRequiredImage(virtClient, tests.DiskWindows)
 		tests.CreatePVC(tests.OSWindows, "30Gi", libstorage.Config.StorageClassWindows, true)
 		windowsVMI = tests.NewRandomVMI()

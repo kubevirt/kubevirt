@@ -77,7 +77,6 @@ var _ = SIGDescribe("CPU latency tests for measuring realtime VMs performance", 
 		util.PanicOnError(err)
 		checks.SkipTestIfNoFeatureGate(virtconfig.NUMAFeatureGate)
 		checks.SkipTestIfNotEnoughNodesWithCPUManagerWith2MiHugepages(1)
-		tests.BeforeTestCleanup()
 	})
 
 	It("running cyclictest and collecting results directly from VM", func() {

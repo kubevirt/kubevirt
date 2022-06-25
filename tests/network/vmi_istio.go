@@ -114,8 +114,6 @@ var _ = SIGDescribe("[Serial] Istio", func() {
 			)
 		}
 		BeforeEach(func() {
-			tests.BeforeTestCleanup()
-
 			virtClient, err = kubecli.GetKubevirtClient()
 			util.PanicOnError(err)
 

@@ -47,7 +47,6 @@ var _ = Describe("[Serial][sig-compute]VMIDefaults", func() {
 
 	Context("Disk defaults", func() {
 		BeforeEach(func() {
-			tests.BeforeTestCleanup()
 			// create VMI with missing disk target
 			vmi = tests.NewRandomVMI()
 			vmi.Spec = v1.VirtualMachineInstanceSpec{
@@ -113,7 +112,6 @@ var _ = Describe("[Serial][sig-compute]VMIDefaults", func() {
 		var kvConfiguration v1.KubeVirtConfiguration
 
 		BeforeEach(func() {
-			tests.BeforeTestCleanup()
 			// create VMI with missing disk target
 			vmi = tests.NewRandomVMI()
 

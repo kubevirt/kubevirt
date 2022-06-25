@@ -55,8 +55,6 @@ var _ = SIGDescribe("VirtualMachineRestore Tests", func() {
 	BeforeEach(func() {
 		virtClient, err = kubecli.GetKubevirtClient()
 		util.PanicOnError(err)
-
-		tests.BeforeTestCleanup()
 	})
 
 	createRestoreDef := func(vmName, snapshotName string) *snapshotv1.VirtualMachineRestore {

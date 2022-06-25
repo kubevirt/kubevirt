@@ -44,8 +44,6 @@ var _ = Describe("[sig-compute]PortForward", func() {
 	)
 
 	BeforeEach(func() {
-		tests.BeforeTestCleanup()
-
 		virtClient, err = kubecli.GetKubevirtClient()
 		util.PanicOnError(err)
 

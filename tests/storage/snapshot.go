@@ -162,8 +162,6 @@ var _ = SIGDescribe("VirtualMachineSnapshot Tests", func() {
 	BeforeEach(func() {
 		virtClient, err = kubecli.GetKubevirtClient()
 		util.PanicOnError(err)
-
-		tests.BeforeTestCleanup()
 	})
 
 	AfterEach(func() {

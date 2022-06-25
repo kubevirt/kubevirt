@@ -52,8 +52,6 @@ var _ = SIGDescribe("Port-forward", func() {
 	BeforeEach(func() {
 		virtClient, err = kubecli.GetKubevirtClient()
 		util.PanicOnError(err)
-
-		tests.BeforeTestCleanup()
 	})
 
 	Context("VMI With masquerade binding", func() {

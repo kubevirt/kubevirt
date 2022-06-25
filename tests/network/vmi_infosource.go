@@ -48,8 +48,6 @@ var _ = SIGDescribe("Infosource", func() {
 		var err error
 		virtClient, err = kubecli.GetKubevirtClient()
 		Expect(err).NotTo(HaveOccurred(), "Should successfully initialize an API client")
-
-		tests.BeforeTestCleanup()
 	})
 
 	Context("VMI with 3 interfaces", func() {

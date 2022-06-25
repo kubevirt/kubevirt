@@ -158,11 +158,15 @@ const StorageClassHostPathSeparateDevice = "host-path-sd"
 
 var wffc = storagev1.VolumeBindingWaitForFirstConsumer
 
-func BeforeTestCleanup() {
+func TestCleanup() {
 	testsuite.CleanNamespaces()
 	libnode.CleanNodes()
 	resetToDefaultConfig()
 	testsuite.EnsureKubevirtInfra()
+	SetupAlpineHostPath()
+}
+
+func SetupAlpineHostPath() {
 	CreateHostPathPv(osAlpineHostPath, testsuite.HostPathAlpine)
 	CreateHostPathPVC(osAlpineHostPath, defaultDiskSize)
 }

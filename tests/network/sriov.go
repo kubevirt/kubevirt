@@ -91,10 +91,6 @@ var _ = Describe("[Serial]SRIOV", func() {
 		}
 	})
 
-	BeforeEach(func() {
-		tests.BeforeTestCleanup()
-	})
-
 	Context("VirtualMachineInstance with sriov plugin interface", func() {
 
 		getSriovVmi := func(networks []string, cloudInitNetworkData string) *v1.VirtualMachineInstance {

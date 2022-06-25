@@ -29,8 +29,6 @@ import (
 	"kubevirt.io/kubevirt/tests/framework/checks"
 	"kubevirt.io/kubevirt/tests/util"
 
-	"kubevirt.io/kubevirt/tests"
-
 	autoscalingv1 "k8s.io/api/autoscaling/v1"
 	corev1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/api/resource"
@@ -136,7 +134,6 @@ var _ = Describe("[Serial][sig-monitoring]Prometheus Alerts", func() {
 		Expect(virtClient).ToNot(BeNil())
 
 		checks.SkipIfPrometheusRuleIsNotEnabled(virtClient)
-		tests.BeforeTestCleanup()
 	})
 
 	Context("Up metrics", func() {

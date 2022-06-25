@@ -83,8 +83,6 @@ var _ = SIGDescribe("Hotplug", func() {
 	BeforeEach(func() {
 		virtClient, err = kubecli.GetKubevirtClient()
 		util.PanicOnError(err)
-
-		tests.BeforeTestCleanup()
 	})
 
 	getDryRunOption := func(dryRun bool) []string {

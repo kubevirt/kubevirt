@@ -153,8 +153,6 @@ var _ = SIGDescribe("[Serial]Multus", func() {
 		virtClient, err = kubecli.GetKubevirtClient()
 		util.PanicOnError(err)
 
-		tests.BeforeTestCleanup()
-
 		nodes = libnode.GetAllSchedulableNodes(virtClient)
 		Expect(nodes.Items).NotTo(BeEmpty())
 

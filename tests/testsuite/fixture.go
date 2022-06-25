@@ -98,6 +98,7 @@ func SynchronizedBeforeTestSetup() []byte {
 }
 
 func BeforeTestSuitSetup(_ []byte) {
+
 	worker := GinkgoParallelProcess()
 	rand.Seed(int64(worker))
 	log.InitializeLogging("tests")
