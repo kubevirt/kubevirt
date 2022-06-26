@@ -43,6 +43,7 @@ import (
 	cdiv1 "kubevirt.io/containerized-data-importer-api/pkg/apis/core/v1beta1"
 	"kubevirt.io/kubevirt/tests"
 	cd "kubevirt.io/kubevirt/tests/containerdisk"
+	"kubevirt.io/kubevirt/tests/exec"
 	"kubevirt.io/kubevirt/tests/flags"
 	"kubevirt.io/kubevirt/tests/libstorage"
 	"kubevirt.io/kubevirt/tests/util"
@@ -318,7 +319,7 @@ var _ = SIGDescribe("Export", func() {
 		if volumeMode == k8sv1.PersistentVolumeBlock {
 			fileName = blockVolumeMountPath
 		}
-		out, stderr, err := tests.ExecuteCommandOnPodV2(virtClient, pod, pod.Spec.Containers[0].Name, md5Command(fileName))
+		out, stderr, err := exec.ExecuteCommandOnPodV2(virtClient, pod, pod.Spec.Containers[0].Name, md5Command(fileName))
 		Expect(err).ToNot(HaveOccurred(), out, stderr)
 		md5sum := strings.Split(out, " ")[0]
 
@@ -347,7 +348,7 @@ var _ = SIGDescribe("Export", func() {
 		if volumeMode == k8sv1.PersistentVolumeBlock {
 			fileAndPathName = blockVolumeMountPath
 		}
-		out, stderr, err := tests.ExecuteCommandOnPodV2(virtClient, downloadPod, downloadPod.Spec.Containers[0].Name, md5Command(fileAndPathName))
+		out, stderr, err := exec.ExecuteCommandOnPodV2(virtClient, downloadPod, downloadPod.Spec.Containers[0].Name, md5Command(fileAndPathName))
 		Expect(err).ToNot(HaveOccurred(), out, stderr)
 		md5sum := strings.Split(out, " ")[0]
 		Expect(md5sum).To(Equal(expectedMD5))
@@ -359,7 +360,7 @@ var _ = SIGDescribe("Export", func() {
 			"-d",
 			filepath.Join(dataPath, fileName),
 		}
-		out, stderr, err := tests.ExecuteCommandOnPodV2(virtClient, downloadPod, downloadPod.Spec.Containers[0].Name, command)
+		out, stderr, err := exec.ExecuteCommandOnPodV2(virtClient, downloadPod, downloadPod.Spec.Containers[0].Name, command)
 		Expect(err).ToNot(HaveOccurred(), out, stderr)
 
 		fileName = strings.Replace(fileName, ".gz", "", 1)
@@ -367,7 +368,7 @@ var _ = SIGDescribe("Export", func() {
 		if volumeMode == k8sv1.PersistentVolumeBlock {
 			fileAndPathName = blockVolumeMountPath
 		}
-		out, stderr, err = tests.ExecuteCommandOnPodV2(virtClient, downloadPod, downloadPod.Spec.Containers[0].Name, md5Command(fileAndPathName))
+		out, stderr, err = exec.ExecuteCommandOnPodV2(virtClient, downloadPod, downloadPod.Spec.Containers[0].Name, md5Command(fileAndPathName))
 		Expect(err).ToNot(HaveOccurred(), out, stderr)
 		md5sum := strings.Split(out, " ")[0]
 		Expect(md5sum).To(Equal(expectedMD5))
@@ -381,7 +382,7 @@ var _ = SIGDescribe("Export", func() {
 			"-C",
 			dataPath,
 		}
-		out, stderr, err := tests.ExecuteCommandOnPodV2(virtClient, downloadPod, downloadPod.Spec.Containers[0].Name, command)
+		out, stderr, err := exec.ExecuteCommandOnPodV2(virtClient, downloadPod, downloadPod.Spec.Containers[0].Name, command)
 		Expect(err).ToNot(HaveOccurred(), out, stderr)
 
 		fileName = strings.ReplaceAll(fileName, ".tar.gz", ".img")
@@ -389,7 +390,7 @@ var _ = SIGDescribe("Export", func() {
 		if volumeMode == k8sv1.PersistentVolumeBlock {
 			fileAndPathName = blockVolumeMountPath
 		}
-		out, stderr, err = tests.ExecuteCommandOnPodV2(virtClient, downloadPod, downloadPod.Spec.Containers[0].Name, md5Command(fileAndPathName))
+		out, stderr, err = exec.ExecuteCommandOnPodV2(virtClient, downloadPod, downloadPod.Spec.Containers[0].Name, md5Command(fileAndPathName))
 		Expect(err).ToNot(HaveOccurred(), out, stderr)
 		md5sum := strings.Split(out, " ")[0]
 		Expect(md5sum).To(Equal(expectedMD5))
@@ -540,7 +541,7 @@ var _ = SIGDescribe("Export", func() {
 			fileAndPathName,
 		}
 		By(fmt.Sprintf("Downloading from URL: %s", downloadUrl))
-		out, stderr, err := tests.ExecuteCommandOnPodV2(virtClient, downloadPod, downloadPod.Spec.Containers[0].Name, command)
+		out, stderr, err := exec.ExecuteCommandOnPodV2(virtClient, downloadPod, downloadPod.Spec.Containers[0].Name, command)
 		Expect(err).ToNot(HaveOccurred(), out, stderr)
 
 		verifyFunction(fileName, comparison, downloadPod, volumeMode)
@@ -633,7 +634,7 @@ var _ = SIGDescribe("Export", func() {
 			"-c",
 			"kill 1",
 		}
-		out, stderr, err := tests.ExecuteCommandOnPodV2(virtClient, exporterPod, exporterPod.Spec.Containers[0].Name, command)
+		out, stderr, err := exec.ExecuteCommandOnPodV2(virtClient, exporterPod, exporterPod.Spec.Containers[0].Name, command)
 		Expect(err).ToNot(HaveOccurred(), "out[%s], err[%s]", out, stderr)
 		By("Verifying the pod is killed and a new secret created")
 		Eventually(func() types.UID {

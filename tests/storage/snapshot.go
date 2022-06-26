@@ -25,6 +25,7 @@ import (
 	"kubevirt.io/kubevirt/tests"
 	"kubevirt.io/kubevirt/tests/console"
 	cd "kubevirt.io/kubevirt/tests/containerdisk"
+	"kubevirt.io/kubevirt/tests/exec"
 	"kubevirt.io/kubevirt/tests/libstorage"
 	"kubevirt.io/kubevirt/tests/libvmi"
 	"kubevirt.io/kubevirt/tests/util"
@@ -375,7 +376,7 @@ var _ = SIGDescribe("VirtualMachineSnapshot Tests", func() {
 				if err != nil {
 					return err
 				}
-				_, _, err = tests.ExecuteCommandOnPodV2(virtClient, pod, pod.Annotations[annoContainer], commandSlice)
+				_, _, err = exec.ExecuteCommandOnPodV2(virtClient, pod, pod.Annotations[annoContainer], commandSlice)
 				return err
 			}
 

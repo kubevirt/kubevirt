@@ -46,6 +46,7 @@ import (
 	"k8s.io/utils/pointer"
 
 	cdiv1 "kubevirt.io/containerized-data-importer-api/pkg/apis/core/v1beta1"
+	"kubevirt.io/kubevirt/tests/exec"
 	"kubevirt.io/kubevirt/tests/framework/checks"
 	. "kubevirt.io/kubevirt/tests/framework/matcher"
 
@@ -83,7 +84,7 @@ var _ = Describe("[sig-compute]Configurations", func() {
 	)
 
 	getPodMemoryUsage := func(pod *kubev1.Pod) (output string, err error) {
-		output, err = tests.ExecuteCommandOnPod(
+		output, err = exec.ExecuteCommandOnPod(
 			virtClient,
 			pod,
 			"compute",
@@ -94,7 +95,7 @@ var _ = Describe("[sig-compute]Configurations", func() {
 			return
 		}
 
-		output, err = tests.ExecuteCommandOnPod(
+		output, err = exec.ExecuteCommandOnPod(
 			virtClient,
 			pod,
 			"compute",
@@ -1019,7 +1020,7 @@ var _ = Describe("[sig-compute]Configurations", func() {
 				hugepagesDir := fmt.Sprintf("/sys/kernel/mm/hugepages/hugepages-%dkB", hugepagesSize.Value()/int64(1024))
 
 				// Get a hugepages statistics from virt-launcher pod
-				output, err := tests.ExecuteCommandOnPod(
+				output, err := exec.ExecuteCommandOnPod(
 					virtClient,
 					&pods.Items[0],
 					pods.Items[0].Spec.Containers[0].Name,
@@ -1030,7 +1031,7 @@ var _ = Describe("[sig-compute]Configurations", func() {
 				totalHugepages, err := strconv.Atoi(strings.Trim(output, "\n"))
 				Expect(err).ToNot(HaveOccurred())
 
-				output, err = tests.ExecuteCommandOnPod(
+				output, err = exec.ExecuteCommandOnPod(
 					virtClient,
 					&pods.Items[0],
 					pods.Items[0].Spec.Containers[0].Name,
@@ -1041,7 +1042,7 @@ var _ = Describe("[sig-compute]Configurations", func() {
 				freeHugepages, err := strconv.Atoi(strings.Trim(output, "\n"))
 				Expect(err).ToNot(HaveOccurred())
 
-				output, err = tests.ExecuteCommandOnPod(
+				output, err = exec.ExecuteCommandOnPod(
 					virtClient,
 					&pods.Items[0],
 					pods.Items[0].Spec.Containers[0].Name,
@@ -2950,7 +2951,7 @@ var _ = Describe("[sig-compute]Configurations", func() {
 			var stdout, stderr string
 			errorMassageFormat := "failed after running the `ps` command with stdout:\n %v \n stderr:\n %v \n err: \n %v \n"
 			Eventually(func() error {
-				stdout, stderr, err = tests.ExecuteCommandOnPodV2(virtClient, &pods.Items[0], "compute",
+				stdout, stderr, err = exec.ExecuteCommandOnPodV2(virtClient, &pods.Items[0], "compute",
 					[]string{
 						"ps",
 						"--no-header",

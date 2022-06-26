@@ -29,6 +29,7 @@ import (
 	. "github.com/onsi/gomega"
 	"github.com/pborman/uuid"
 
+	"kubevirt.io/kubevirt/tests/exec"
 	"kubevirt.io/kubevirt/tests/util"
 
 	v1 "kubevirt.io/api/core/v1"
@@ -59,7 +60,7 @@ var _ = Describe("[Serial][rfe_id:899][crit:medium][vendor:cnv-qe@redhat.com][le
 			}
 			if len(path) > 0 {
 				cmdCheck := []string{"stat", "--printf='%s'", path}
-				out, err := tests.ExecuteCommandOnPod(virtClient, pod, "compute", cmdCheck)
+				out, err := exec.ExecuteCommandOnPod(virtClient, pod, "compute", cmdCheck)
 				Expect(err).NotTo(HaveOccurred())
 				size, err := strconv.Atoi(strings.Trim(out, "'"))
 				Expect(err).NotTo(HaveOccurred())
@@ -110,7 +111,7 @@ var _ = Describe("[Serial][rfe_id:899][crit:medium][vendor:cnv-qe@redhat.com][le
 
 				By("Checking if ConfigMap has been attached to the pod")
 				vmiPod := tests.GetRunningPodByVirtualMachineInstance(vmi, util.NamespaceTestDefault)
-				podOutput, err := tests.ExecuteCommandOnPod(
+				podOutput, err := exec.ExecuteCommandOnPod(
 					virtClient,
 					vmiPod,
 					vmiPod.Spec.Containers[0].Name,
@@ -204,7 +205,7 @@ var _ = Describe("[Serial][rfe_id:899][crit:medium][vendor:cnv-qe@redhat.com][le
 
 				By("Checking if Secret has been attached to the pod")
 				vmiPod := tests.GetRunningPodByVirtualMachineInstance(vmi, util.NamespaceTestDefault)
-				podOutput, err := tests.ExecuteCommandOnPod(
+				podOutput, err := exec.ExecuteCommandOnPod(
 					virtClient,
 					vmiPod,
 					vmiPod.Spec.Containers[0].Name,
@@ -276,7 +277,7 @@ var _ = Describe("[Serial][rfe_id:899][crit:medium][vendor:cnv-qe@redhat.com][le
 
 			By("Checking if ServiceAccount has been attached to the pod")
 			vmiPod := tests.GetRunningPodByVirtualMachineInstance(vmi, util.NamespaceTestDefault)
-			namespace, err := tests.ExecuteCommandOnPod(
+			namespace, err := exec.ExecuteCommandOnPod(
 				virtClient,
 				vmiPod,
 				vmiPod.Spec.Containers[0].Name,
@@ -288,7 +289,7 @@ var _ = Describe("[Serial][rfe_id:899][crit:medium][vendor:cnv-qe@redhat.com][le
 			Expect(err).To(BeNil())
 			Expect(namespace).To(Equal(util.NamespaceTestDefault))
 
-			token, err := tests.ExecuteCommandOnPod(
+			token, err := exec.ExecuteCommandOnPod(
 				virtClient,
 				vmiPod,
 				vmiPod.Spec.Containers[0].Name,
@@ -378,7 +379,7 @@ var _ = Describe("[Serial][rfe_id:899][crit:medium][vendor:cnv-qe@redhat.com][le
 
 				By("Checking if ConfigMap has been attached to the pod")
 				vmiPod := tests.GetRunningPodByVirtualMachineInstance(vmi, util.NamespaceTestDefault)
-				podOutputCfgMap, err := tests.ExecuteCommandOnPod(
+				podOutputCfgMap, err := exec.ExecuteCommandOnPod(
 					virtClient,
 					vmiPod,
 					vmiPod.Spec.Containers[0].Name,
@@ -407,7 +408,7 @@ var _ = Describe("[Serial][rfe_id:899][crit:medium][vendor:cnv-qe@redhat.com][le
 				}, 200)).To(Succeed())
 
 				By("Checking if Secret has also been attached to the same pod")
-				podOutputSecret, err := tests.ExecuteCommandOnPod(
+				podOutputSecret, err := exec.ExecuteCommandOnPod(
 					virtClient,
 					vmiPod,
 					vmiPod.Spec.Containers[0].Name,
@@ -489,7 +490,7 @@ var _ = Describe("[Serial][rfe_id:899][crit:medium][vendor:cnv-qe@redhat.com][le
 
 				By("Checking if Secret has been attached to the pod")
 				vmiPod := tests.GetRunningPodByVirtualMachineInstance(vmi, util.NamespaceTestDefault)
-				podOutput1, err := tests.ExecuteCommandOnPod(
+				podOutput1, err := exec.ExecuteCommandOnPod(
 					virtClient,
 					vmiPod,
 					vmiPod.Spec.Containers[0].Name,
@@ -500,7 +501,7 @@ var _ = Describe("[Serial][rfe_id:899][crit:medium][vendor:cnv-qe@redhat.com][le
 				Expect(err).To(BeNil())
 				Expect(podOutput1).To(Equal(expectedPrivateKey), "Expected pod output of private key to match genereated one.")
 
-				podOutput2, err := tests.ExecuteCommandOnPod(
+				podOutput2, err := exec.ExecuteCommandOnPod(
 					virtClient,
 					vmiPod,
 					vmiPod.Spec.Containers[0].Name,
@@ -556,7 +557,7 @@ var _ = Describe("[Serial][rfe_id:899][crit:medium][vendor:cnv-qe@redhat.com][le
 
 			By("Checking if DownwardAPI has been attached to the pod")
 			vmiPod := tests.GetRunningPodByVirtualMachineInstance(vmi, util.NamespaceTestDefault)
-			podOutput, err := tests.ExecuteCommandOnPod(
+			podOutput, err := exec.ExecuteCommandOnPod(
 				virtClient,
 				vmiPod,
 				vmiPod.Spec.Containers[0].Name,

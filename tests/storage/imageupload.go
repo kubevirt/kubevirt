@@ -26,6 +26,7 @@ import (
 	cdiv1 "kubevirt.io/containerized-data-importer-api/pkg/apis/core/v1beta1"
 	"kubevirt.io/kubevirt/tests"
 	"kubevirt.io/kubevirt/tests/clientcmd"
+	execk8s "kubevirt.io/kubevirt/tests/exec"
 	"kubevirt.io/kubevirt/tests/flags"
 	"kubevirt.io/kubevirt/tests/libstorage"
 )
@@ -326,6 +327,6 @@ func copyFromPod(virtCli kubecli.KubevirtClient, pod *k8sv1.Pod, containerName, 
 		Stderr: &stderrBuf,
 		Tty:    false,
 	}
-	err = tests.ExecCommandOnPod(virtCli, pod, containerName, []string{"cat", sourceFile}, options)
+	err = execk8s.ExecCommandOnPod(virtCli, pod, containerName, []string{"cat", sourceFile}, options)
 	return stderrBuf.String(), err
 }

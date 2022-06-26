@@ -35,6 +35,7 @@ import (
 
 	v1 "kubevirt.io/api/core/v1"
 	"kubevirt.io/client-go/kubecli"
+	"kubevirt.io/kubevirt/tests/exec"
 	"kubevirt.io/kubevirt/tests/flags"
 	. "kubevirt.io/kubevirt/tests/framework/matcher"
 	"kubevirt.io/kubevirt/tests/util"
@@ -68,7 +69,7 @@ func ExecuteCommandInVirtHandlerPod(nodeName string, args []string) (stdout stri
 		return stdout, err
 	}
 
-	stdout, stderr, err := ExecuteCommandOnPodV2(virtClient, pod, "virt-handler", args)
+	stdout, stderr, err := exec.ExecuteCommandOnPodV2(virtClient, pod, "virt-handler", args)
 	if err != nil {
 		return stdout, fmt.Errorf("Failed excuting command=%v, error=%v, stdout=%s, stderr=%s", args, err, stdout, stderr)
 	}

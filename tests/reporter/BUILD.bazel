@@ -16,6 +16,7 @@ go_library(
         "//tests:go_default_library",
         "//tests/clientcmd:go_default_library",
         "//tests/console:go_default_library",
+        "//tests/exec:go_default_library",
         "//tests/flags:go_default_library",
         "//tests/testsuite:go_default_library",
         "//vendor/github.com/google/goexpect:go_default_library",

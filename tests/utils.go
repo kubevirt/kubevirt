@@ -21,7 +21,6 @@ package tests
 
 import (
 	"archive/tar"
-	"bytes"
 	"context"
 	cryptorand "crypto/rand"
 	"crypto/rsa"
@@ -63,10 +62,10 @@ import (
 	"k8s.io/client-go/kubernetes/scheme"
 	"k8s.io/client-go/rest"
 	"k8s.io/client-go/tools/portforward"
-	"k8s.io/client-go/tools/remotecommand"
 	"k8s.io/client-go/transport/spdy"
 	netutils "k8s.io/utils/net"
 
+	"kubevirt.io/kubevirt/tests/exec"
 	"kubevirt.io/kubevirt/tests/framework/checks"
 
 	util2 "kubevirt.io/kubevirt/tests/util"
@@ -376,7 +375,7 @@ func GetPodCPUSet(pod *k8sv1.Pod) (output string, err error) {
 	if err != nil {
 		return
 	}
-	output, err = ExecuteCommandOnPod(
+	output, err = exec.ExecuteCommandOnPod(
 		virtClient,
 		pod,
 		"compute",
@@ -387,7 +386,7 @@ func GetPodCPUSet(pod *k8sv1.Pod) (output string, err error) {
 		return
 	}
 
-	output, err = ExecuteCommandOnPod(
+	output, err = exec.ExecuteCommandOnPod(
 		virtClient,
 		pod,
 		"compute",
@@ -1481,65 +1480,6 @@ func renderPrivilegedContainerSpec(imgPath string, name string, cmd []string, ar
 	}
 }
 
-func ExecuteCommandOnPod(virtCli kubecli.KubevirtClient, pod *k8sv1.Pod, containerName string, command []string) (string, error) {
-	stdout, stderr, err := ExecuteCommandOnPodV2(virtCli, pod, containerName, command)
-
-	if err != nil {
-		return "", fmt.Errorf("failed executing command on pod: %v: stderr %v: stdout: %v", err, stderr, stdout)
-	}
-
-	if len(stderr) > 0 {
-		return "", fmt.Errorf("stderr: %v", stderr)
-	}
-
-	return stdout, nil
-}
-
-func ExecuteCommandOnPodV2(virtCli kubecli.KubevirtClient, pod *k8sv1.Pod, containerName string, command []string) (stdout, stderr string, err error) {
-	var (
-		stdoutBuf bytes.Buffer
-		stderrBuf bytes.Buffer
-	)
-	options := remotecommand.StreamOptions{
-		Stdout: &stdoutBuf,
-		Stderr: &stderrBuf,
-		Tty:    false,
-	}
-	err = ExecCommandOnPod(virtCli, pod, containerName, command, options)
-	return stdoutBuf.String(), stderrBuf.String(), err
-}
-
-func ExecCommandOnPod(virtCli kubecli.KubevirtClient, pod *k8sv1.Pod, containerName string, command []string, options remotecommand.StreamOptions) error {
-
-	req := virtCli.CoreV1().RESTClient().Post().
-		Resource("pods").
-		Name(pod.Name).
-		Namespace(pod.Namespace).
-		SubResource("exec").
-		Param("container", containerName)
-
-	req.VersionedParams(&k8sv1.PodExecOptions{
-		Container: containerName,
-		Command:   command,
-		Stdin:     false,
-		Stdout:    true,
-		Stderr:    true,
-		TTY:       false,
-	}, scheme.ParameterCodec)
-
-	virtConfig, err := kubecli.GetKubevirtClientConfig()
-	if err != nil {
-		return err
-	}
-
-	executor, err := remotecommand.NewSPDYExecutor(virtConfig, "POST", req.URL())
-	if err != nil {
-		return err
-	}
-
-	return executor.Stream(options)
-}
-
 func GetRunningVirtualMachineInstanceDomainXML(virtClient kubecli.KubevirtClient, vmi *v1.VirtualMachineInstance) (string, error) {
 	vmiPod, err := getRunningPodByVirtualMachineInstance(vmi, util2.NamespaceTestDefault)
 	if err != nil {
@@ -1571,7 +1511,7 @@ func GetRunningVirtualMachineInstanceDomainXML(virtClient kubecli.KubevirtClient
 	}
 	command = append(command, []string{"dumpxml", vmi.Namespace + "_" + vmi.Name}...)
 
-	stdout, stderr, err := ExecuteCommandOnPodV2(
+	stdout, stderr, err := exec.ExecuteCommandOnPodV2(
 		virtClient,
 		vmiPod,
 		vmiPod.Spec.Containers[containerIdx].Name,
@@ -1601,7 +1541,7 @@ func LibvirtDomainIsPaused(virtClient kubecli.KubevirtClient, vmi *v1.VirtualMac
 		return false, fmt.Errorf(CouldNotFindComputeContainer)
 	}
 
-	stdout, stderr, err := ExecuteCommandOnPodV2(
+	stdout, stderr, err := exec.ExecuteCommandOnPodV2(
 		virtClient,
 		vmiPod,
 		vmiPod.Spec.Containers[containerIdx].Name,
@@ -1695,7 +1635,7 @@ func RemoveHostDiskImage(diskPath string, nodeName string) {
 	procPath := filepath.Join("/proc/1/root", diskPath)
 	virtHandlerPod, err := kubecli.NewVirtHandlerClient(virtClient).Namespace(flags.KubeVirtInstallNamespace).ForNode(nodeName).Pod()
 	Expect(err).ToNot(HaveOccurred())
-	_, _, err = ExecuteCommandOnPodV2(virtClient, virtHandlerPod, "virt-handler", []string{"rm", "-rf", procPath})
+	_, _, err = exec.ExecuteCommandOnPodV2(virtClient, virtHandlerPod, "virt-handler", []string{"rm", "-rf", procPath})
 	Expect(err).ToNot(HaveOccurred())
 }
 
@@ -1773,7 +1713,7 @@ func RunCommandOnVmiPod(vmi *v1.VirtualMachineInstance, command []string) string
 	ExpectWithOffset(1, pods.Items).NotTo(BeEmpty())
 	vmiPod := pods.Items[0]
 
-	output, err := ExecuteCommandOnPod(
+	output, err := exec.ExecuteCommandOnPod(
 		virtClient,
 		&vmiPod,
 		"compute",
@@ -1803,7 +1743,7 @@ func RunCommandOnVmiTargetPod(vmi *v1.VirtualMachineInstance, command []string) 
 		return "", fmt.Errorf("failed to find migration target pod")
 	}
 
-	output, err := ExecuteCommandOnPod(
+	output, err := exec.ExecuteCommandOnPod(
 		virtClient,
 		vmiPod,
 		"compute",
@@ -2629,7 +2569,7 @@ func GetIdOfLauncher(vmi *v1.VirtualMachineInstance) string {
 	util2.PanicOnError(err)
 
 	vmiPod := GetRunningPodByVirtualMachineInstance(vmi, util2.NamespaceTestDefault)
-	podOutput, err := ExecuteCommandOnPod(
+	podOutput, err := exec.ExecuteCommandOnPod(
 		virtClient,
 		vmiPod,
 		vmiPod.Spec.Containers[0].Name,
@@ -2645,13 +2585,13 @@ func ExecuteCommandOnNodeThroughVirtHandler(virtCli kubecli.KubevirtClient, node
 	if err != nil {
 		return "", "", err
 	}
-	return ExecuteCommandOnPodV2(virtCli, virtHandlerPod, components.VirtHandlerName, command)
+	return exec.ExecuteCommandOnPodV2(virtCli, virtHandlerPod, components.VirtHandlerName, command)
 }
 
 func GetKubevirtVMMetricsFunc(virtClient *kubecli.KubevirtClient, pod *k8sv1.Pod) func(string) string {
 	return func(ip string) string {
 		metricsURL := PrepareMetricsURL(ip, 8443)
-		stdout, _, err := ExecuteCommandOnPodV2(*virtClient,
+		stdout, _, err := exec.ExecuteCommandOnPodV2(*virtClient,
 			pod,
 			"virt-handler",
 			[]string{

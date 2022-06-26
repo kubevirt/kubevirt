@@ -19,6 +19,7 @@ import (
 	"kubevirt.io/client-go/kubecli"
 	"kubevirt.io/kubevirt/tests"
 	"kubevirt.io/kubevirt/tests/console"
+	"kubevirt.io/kubevirt/tests/exec"
 	"kubevirt.io/kubevirt/tests/flags"
 	"kubevirt.io/kubevirt/tests/framework/checks"
 	"kubevirt.io/kubevirt/tests/libvmi"
@@ -108,7 +109,7 @@ func getQEMUPID(virtClient kubecli.KubevirtClient, handlerPod *k8sv1.Pod, vmi *v
 	// The retry is a desperate try to cope with URG in case that URG is not catches by the script
 	// since URG keep ps failing
 	Eventually(func() (err error) {
-		stdout, stderr, err = tests.ExecuteCommandOnPodV2(virtClient, handlerPod, "virt-handler",
+		stdout, stderr, err = exec.ExecuteCommandOnPodV2(virtClient, handlerPod, "virt-handler",
 			[]string{
 				"/bin/bash",
 				"-c",
@@ -137,7 +138,7 @@ func getQEMUPID(virtClient kubecli.KubevirtClient, handlerPod *k8sv1.Pod, vmi *v
 }
 
 func getNUMAMapping(virtClient kubecli.KubevirtClient, pod *k8sv1.Pod, pid string) string {
-	stdout, stderr, err := tests.ExecuteCommandOnPodV2(virtClient, pod, "virt-handler",
+	stdout, stderr, err := exec.ExecuteCommandOnPodV2(virtClient, pod, "virt-handler",
 		[]string{
 			"/bin/bash",
 			"-c",
