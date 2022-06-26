@@ -4,6 +4,7 @@ go_library(
     name = "go_default_library",
     srcs = [
         "kubernetes.go",
+        "logfilter.go",
         "outputenricher.go",
     ],
     importpath = "kubevirt.io/kubevirt/tests/reporter",

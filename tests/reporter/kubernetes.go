@@ -160,6 +160,8 @@ func (r *KubernetesReporter) dumpNamespaces(duration time.Duration, vmiNamespace
 	r.logJournal(virtCli, nodesDir, nodesWithVirtLauncher, duration, "")
 	r.logJournal(virtCli, nodesDir, nodesWithVirtLauncher, duration, "kubelet")
 
+	r.logMultus(virtCli, nodesDir, nodes, since)
+
 	r.logLogs(virtCli, podsDir, pods, since)
 
 	r.logVMIs(virtCli, vmis)
@@ -565,6 +567,55 @@ func (r *KubernetesReporter) logJournal(virtCli kubecli.KubevirtClient, logsdir 
 			continue
 		}
 	}
+}
+
+func (r *KubernetesReporter) logMultus(virtCli kubecli.KubevirtClient, path string, nodes *v1.NodeList, since time.Time) {
+	if path == "" {
+		fmt.Fprintf(os.Stderr, "target path is invalid %q, skipping Multus log dump\n", path)
+		return
+	}
+
+	const logFilePath = "/proc/1/root/var/log/multus.log"
+	checkLogFileExistsCmd := []string{"/usr/bin/sh", "-cx", "[ -f " + logFilePath + " ]"}
+	dumpContentCmd := []string{"/usr/bin/cat", logFilePath}
+
+	for _, node := range nodes.Items {
+		pod, err := kubecli.NewVirtHandlerClient(virtCli).Namespace(flags.KubeVirtInstallNamespace).ForNode(node.Name).Pod()
+		if err != nil {
+			fmt.Fprintf(os.Stderr, failedGetVirtHandlerPodFmt, node.Name, err)
+			return
+		}
+
+		if _, _, err = tests.ExecuteCommandOnPodV2(virtCli, pod, virtHandlerName, checkLogFileExistsCmd); err != nil {
+			return
+		}
+
+		stdout, _, err := tests.ExecuteCommandOnPodV2(virtCli, pod, virtHandlerName, dumpContentCmd)
+		if err != nil {
+			fmt.Fprintf(os.Stdout, failedExecuteCmdOnNodeFmt, dumpContentCmd, node.Name, stdout, err)
+			return
+		}
+
+		filteredLog := filterMultusLogBySinceTimestamp(stdout, since)
+		fileName := fmt.Sprintf("%d_multus_%s.log", r.failureCount, node.Name)
+		if err := writeStringToFile(filepath.Join(path, fileName), filteredLog); err != nil {
+			fmt.Fprintf(os.Stderr, "failed to write node %q Multus logs to file: %v\n", node.Name, err)
+		}
+	}
+}
+
+func filterMultusLogBySinceTimestamp(content string, since time.Time) string {
+	r, err := regexp.Compile(`^(\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}(Z|[-+]\d{2}:\d{2}))`)
+	if err != nil {
+		fmt.Fprintf(os.Stderr, "\nfailed to compile regex %q: %v", r.String(), err)
+		return ""
+	}
+
+	return filterBySinceTimestamp(content, r, since,
+		func(s string) (time.Time, error) {
+			return time.Parse(time.RFC3339, s)
+		},
+	)
 }
 
 func (r *KubernetesReporter) logPods(virtCli kubecli.KubevirtClient, pods *v1.PodList) {
