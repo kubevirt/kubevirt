@@ -25,7 +25,6 @@ package webhooks
 
 import (
 	"fmt"
-	"strconv"
 
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	k8sfield "k8s.io/apimachinery/pkg/util/validation/field"
@@ -178,17 +177,20 @@ func ValidateVirtualMachineInstanceHypervFeatureDependencies(field *k8sfield.Pat
 		}
 	}
 
-	if spec.Domain.Features != nil && spec.Domain.Features.Hyperv != nil && spec.Domain.Features.Hyperv.EVMCS != nil {
-		if spec.Domain.CPU == nil || spec.Domain.CPU.Features == nil || len(spec.Domain.CPU.Features) == 0 {
-			causes = append(causes, metav1.StatusCause{Type: metav1.CauseTypeFieldValueRequired, Message: "vmx cpu feature is required when evmcs is set", Field: "spec.domain.cpu.features"})
-		} else if spec.Domain.CPU != nil || spec.Domain.CPU.Features != nil {
-			for i, f := range spec.Domain.CPU.Features {
-				if f.Name == nodelabellerutil.VmxFeature {
-					if f.Policy != nodelabellerutil.RequirePolicy {
-						causes = append(causes, metav1.StatusCause{Type: metav1.CauseTypeFieldValueInvalid, Message: "vmx cpu feature has to be set to " + nodelabellerutil.RequirePolicy + " policy", Field: "spec.domain.cpu.features[" + strconv.Itoa(i) + "].policy"})
-					}
-				}
-			}
+	if spec.Domain.Features == nil || spec.Domain.Features.Hyperv == nil || spec.Domain.Features.Hyperv.EVMCS == nil {
+		return causes
+	}
+
+	evmcsDependency := getEVMCSDependency()
+
+	if spec.Domain.CPU == nil || spec.Domain.CPU.Features == nil || len(spec.Domain.CPU.Features) == 0 {
+		causes = append(causes, metav1.StatusCause{Type: metav1.CauseTypeFieldValueRequired, Message: fmt.Sprintf("%s cpu feature is required when evmcs is set", evmcsDependency.Name), Field: "spec.domain.cpu.features"})
+		return causes
+	}
+
+	for i, existingFeature := range spec.Domain.CPU.Features {
+		if existingFeature.Name == evmcsDependency.Name && existingFeature.Policy != evmcsDependency.Policy {
+			causes = append(causes, metav1.StatusCause{Type: metav1.CauseTypeFieldValueInvalid, Message: fmt.Sprintf("%s cpu feature has to be set to %s policy", evmcsDependency.Name, evmcsDependency.Policy), Field: fmt.Sprintf("spec.domain.cpu.features[%d].policy", i)})
 		}
 	}
 
@@ -228,20 +230,39 @@ func setEVMCSDependency(vmi *v1.VirtualMachineInstance) {
 		vmi.Spec.Domain.CPU = &v1.CPU{
 			Features: cpuFeatures,
 		}
-	} else if len(vmi.Spec.Domain.CPU.Features) == 0 {
+		return
+	}
+
+	if len(vmi.Spec.Domain.CPU.Features) == 0 {
 		vmi.Spec.Domain.CPU.Features = cpuFeatures
-	} else {
-		vmxFound := false
-		for i, f := range vmi.Spec.Domain.CPU.Features {
-			if f.Name == nodelabellerutil.VmxFeature {
-				vmxFound = true
-				if f.Policy != nodelabellerutil.RequirePolicy {
-					vmi.Spec.Domain.CPU.Features[i].Policy = nodelabellerutil.RequirePolicy
+		return
+	}
+
+	for _, requiredFeature := range cpuFeatures {
+		featureFound := false
+
+		for i, existingFeature := range vmi.Spec.Domain.CPU.Features {
+			if existingFeature.Name == requiredFeature.Name {
+				featureFound = true
+				if existingFeature.Policy != requiredFeature.Policy {
+					vmi.Spec.Domain.CPU.Features[i].Policy = requiredFeature.Policy
 				}
+				break
 			}
 		}
-		if !vmxFound {
-			vmi.Spec.Domain.CPU.Features = append(vmi.Spec.Domain.CPU.Features, vmxFeature)
+
+		if !featureFound {
+			vmi.Spec.Domain.CPU.Features = append(vmi.Spec.Domain.CPU.Features, requiredFeature)
 		}
 	}
+
+}
+
+func getEVMCSDependency() v1.CPUFeature {
+	vmxFeature := v1.CPUFeature{
+		Name:   nodelabellerutil.VmxFeature,
+		Policy: nodelabellerutil.RequirePolicy,
+	}
+
+	return vmxFeature
 }
