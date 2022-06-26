@@ -24,17 +24,15 @@ function node::discover_host_pfs() {
   echo "${pfs_names[@]}"
 }
 
-# node::configure_sriov_pfs_and_vfs moves SRIOV PF's to nodes netns,
-# create SRIOV VF's and configure their driver on each node.
-# Exports 'PFS_IN_USE' env variable with the list of SRIOV PF's
-# that been moved to nodes netns.
-function node::configure_sriov_pfs_and_vfs() {
+# node::configure_sriov_pfs moves SR-IOV PFs to nodes netns.
+# It exports 'PFS_IN_USE' environment variable with a list
+# of SR-IOV PFs that been moved to the nodes netns.
+function node::configure_sriov_pfs() {
   local -r nodes_array=($1)
   local -r pfs_names_array=($2)
   local -r pf_count_per_node=$3
   local -r pfs_in_use_var_name=$4
 
-  local -r config_vf_script=$(basename "$CONFIGURE_VFS_SCRIPT_PATH")
   local pfs_to_move=()
   local pfs_array_offset=0
   local pfs_in_use=()
@@ -66,16 +64,27 @@ function node::configure_sriov_pfs_and_vfs() {
     $node_exec chmod 0666 /dev/vfio/vfio
     $ls_node_dev_vfio
 
-    # Create and configure SRIOV Virtual Functions on SRIOV node
-    docker cp "$CONFIGURE_VFS_SCRIPT_PATH" "$node:/"
-    $node_exec bash -c "DRIVER=$VFS_DRIVER DRIVER_KMODULE=$VFS_DRIVER_KMODULE ./$config_vf_script"
-    $ls_node_dev_vfio
-
     _kubectl label node $node $SRIOV_NODE_LABEL
   done
 
   # Set new variable with the used PF names that will consumed by the caller
   eval $pfs_in_use_var_name="'${pfs_in_use[*]}'"
+}
+
+# node::configure_sriov_vfs create SR-IOV VFs and configure their driver on each node.
+function node::configure_sriov_vfs() {
+    local -r nodes_array=($1)
+    local -r driver=$2
+    local -r driver_kmodule=$3
+    local -r vfs_count=$4
+
+    local -r config_vf_script=$(basename "$CONFIGURE_VFS_SCRIPT_PATH")
+
+    for node in "${nodes_array[@]}"; do
+      docker cp "$CONFIGURE_VFS_SCRIPT_PATH" "$node:/"
+      docker exec "$node" bash -c "DRIVER=$driver DRIVER_KMODULE=$driver_kmodule VFS_COUNT=$vfs_count ./$config_vf_script"
+      docker exec "$node" ls -la -Z /dev/vfio
+    done
 }
 
 function prepare_node_netns() {

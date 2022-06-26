@@ -1,7 +1,9 @@
 #!/bin/bash
 
 MANIFESTS_DIR="${KUBEVIRTCI_PATH}/cluster/${KUBEVIRT_PROVIDER}/sriov-components/manifests"
-MULTUS_MANIFEST="${MANIFESTS_DIR}/multus.yaml"
+
+KUSTOMIZE_MULTUS_DIR="${MANIFESTS_DIR}/multus"
+MULTUS_MANIFEST="${CUSTOM_MANIFESTS}/multus.yaml"
 
 CUSTOM_MANIFESTS="${KUBEVIRTCI_CONFIG_PATH}/${KUBEVIRT_PROVIDER}/manifests"
 SRIOV_COMPONENTS_MANIFEST="${CUSTOM_MANIFESTS}/sriov-components.yaml"
@@ -106,8 +108,12 @@ function sriov_components::wait_allocatable_resource() {
 }
 
 function sriov_components::deploy_multus() {
-  echo 'Deploying Multus'
-  sed "s#nfvpe/multus#quay.io/kubevirtci/multus#" "$MULTUS_MANIFEST" | _kubectl apply -f -
+  _kubectl kustomize "$KUSTOMIZE_MULTUS_DIR" > "$MULTUS_MANIFEST"
+
+  echo "Deploying Multus:"
+  cat "$MULTUS_MANIFEST"
+
+  _kubectl apply -f "$MULTUS_MANIFEST"
 
   return 0
 }

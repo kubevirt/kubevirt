@@ -40,13 +40,10 @@ function create_vfs() {
   [ $sriov_totalvfs_content -lt $vfs_count ] && \
     echo "FATAL: PF $pf_name, VF's count should be up to sriov_totalvfs: $sriov_totalvfs_content" >&2 && return 1
 
-  local -r sriov_numvfs_content=$(cat $pf_sys_device/sriov_numvfs)
-  if [ $sriov_numvfs_content -ne $vfs_count ]; then
-    echo "Creating $vfs_count VF's on PF $pf_name"
-    echo 0 >> "$pf_sys_device/sriov_numvfs"
-    echo "$vfs_count" >> "$pf_sys_device/sriov_numvfs"
-    sleep 3
-  fi
+  echo "Creating $vfs_count VFs on PF $pf_name "
+  echo 0 >> "$pf_sys_device/sriov_numvfs"
+  echo "$vfs_count" >> "$pf_sys_device/sriov_numvfs"
+  sleep 3
 
   return 0
 }
@@ -79,6 +76,9 @@ function ensure_driver_is_loaded() {
 
 DRIVER="${DRIVER:-vfio-pci}"
 DRIVER_KMODULE="${DRIVER_KMODULE:-vfio_pci}"
+VFS_COUNT=${VFS_COUNT:-6}
+
+[ $((VFS_COUNT)) -lt 1 ] && echo "INFO: VFS_COUNT is lower then 1, nothing to do..." && exit 0
 
 validate_run_with_sudo
 validate_sysfs_mount_as_rw
@@ -91,8 +91,7 @@ for pf_name in $sriov_pfs; do
   pf_device=$(dirname "$pf_name")
 
   echo "Create VF's"
-  sriov_numvfs=$(cat "$pf_device/sriov_totalvfs")
-  create_vfs "$pf_device" "$sriov_numvfs"
+  create_vfs "$pf_device" "$VFS_COUNT"
 
   echo "Configuring VF's drivers"
   # /sys/class/net/<pf name>/device/virtfn*
