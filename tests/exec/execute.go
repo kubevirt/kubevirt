@@ -53,12 +53,13 @@ func ExecuteCommandOnPodV2(virtCli kubecli.KubevirtClient, pod *k8sv1.Pod, conta
 		Stderr: &stderrBuf,
 		Tty:    false,
 	}
-	err = ExecCommandOnPod(virtCli, pod, containerName, command, options)
+
+	err = ExecuteCommandOnPodWithOptions(virtCli, pod, containerName, command, options)
+
 	return stdoutBuf.String(), stderrBuf.String(), err
 }
 
-func ExecCommandOnPod(virtCli kubecli.KubevirtClient, pod *k8sv1.Pod, containerName string, command []string, options remotecommand.StreamOptions) error {
-
+func ExecuteCommandOnPodWithOptions(virtCli kubecli.KubevirtClient, pod *k8sv1.Pod, containerName string, command []string, options remotecommand.StreamOptions) error {
 	req := virtCli.CoreV1().RESTClient().Post().
 		Resource("pods").
 		Name(pod.Name).

@@ -327,6 +327,6 @@ func copyFromPod(virtCli kubecli.KubevirtClient, pod *k8sv1.Pod, containerName, 
 		Stderr: &stderrBuf,
 		Tty:    false,
 	}
-	err = execk8s.ExecCommandOnPod(virtCli, pod, containerName, []string{"cat", sourceFile}, options)
+	err = execk8s.ExecuteCommandOnPodWithOptions(virtCli, pod, containerName, []string{"cat", sourceFile}, options)
 	return stderrBuf.String(), err
 }
