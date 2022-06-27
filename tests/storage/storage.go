@@ -102,7 +102,7 @@ var _ = SIGDescribe("Storage", func() {
 
 			// create a new PV and PVC (PVs can't be reused)
 			By("create a new NFS PV and PVC")
-			nfsIP := libnet.GetPodIpByFamily(nfsPod, ipFamily)
+			nfsIP := libnet.GetPodIPByFamily(nfsPod, ipFamily)
 			ExpectWithOffset(1, nfsIP).NotTo(BeEmpty())
 			os := string(cd.ContainerDiskAlpine)
 			tests.CreateNFSPvAndPvc(pvName, util.NamespaceTestDefault, "1Gi", nfsIP, os)
@@ -258,7 +258,7 @@ var _ = SIGDescribe("Storage", func() {
 					}
 				})
 				DescribeTable("started", func(newVMI VMICreationFunc, storageEngine string, family k8sv1.IPFamily, imageOwnedByQEMU bool) {
-					libnet.SkipWhenClusterNotSupportIpFamily(virtClient, family)
+					libnet.SkipWhenClusterNotSupportIPFamily(virtClient, family)
 
 					var nodeName string
 					// Start the VirtualMachineInstance with the PVC attached
@@ -555,7 +555,7 @@ var _ = SIGDescribe("Storage", func() {
 
 				// The following case is mostly similar to the alpine PVC test above, except using different VirtualMachineInstance.
 				DescribeTable("started", func(newVMI VMICreationFunc, storageEngine string, family k8sv1.IPFamily) {
-					libnet.SkipWhenClusterNotSupportIpFamily(virtClient, family)
+					libnet.SkipWhenClusterNotSupportIPFamily(virtClient, family)
 
 					// Start the VirtualMachineInstance with the PVC attached
 					if storageEngine == "nfs" {

@@ -663,7 +663,7 @@ var _ = SIGDescribe("[rfe_id:694][crit:medium][vendor:cnv-qe@redhat.com][level:c
 			const cidrWithLeadingZeros = "10.10.010.0/24"
 
 			verifyClientServerConnectivity := func(clientVMI *v1.VirtualMachineInstance, serverVMI *v1.VirtualMachineInstance, tcpPort int, ipFamily k8sv1.IPFamily) error {
-				serverIP := libnet.GetVmiPrimaryIpByFamily(serverVMI, ipFamily)
+				serverIP := libnet.GetVmiPrimaryIPByFamily(serverVMI, ipFamily)
 				err := libnet.PingFromVMConsole(clientVMI, serverIP)
 				if err != nil {
 					return err
@@ -874,7 +874,7 @@ var _ = SIGDescribe("[rfe_id:694][crit:medium][vendor:cnv-qe@redhat.com][level:c
 				Expect(err).ToNot(HaveOccurred())
 
 				By("Check connectivity")
-				podIP := libnet.GetPodIpByFamily(virtHandlerPod, k8sv1.IPv4Protocol)
+				podIP := libnet.GetPodIPByFamily(virtHandlerPod, k8sv1.IPv4Protocol)
 				Expect(ping(podIP)).To(Succeed())
 
 				By("Execute migration")
@@ -916,7 +916,7 @@ var _ = SIGDescribe("[rfe_id:694][crit:medium][vendor:cnv-qe@redhat.com][level:c
 				Expect(configureIpv6(vmi, api.DefaultVMIpv6CIDR)).ToNot(HaveOccurred())
 
 				By("Check connectivity")
-				podIP := libnet.GetPodIpByFamily(virtHandlerPod, k8sv1.IPv6Protocol)
+				podIP := libnet.GetPodIPByFamily(virtHandlerPod, k8sv1.IPv6Protocol)
 				Expect(ping(podIP)).To(Succeed())
 
 				By("Execute migration")
@@ -986,7 +986,7 @@ var _ = SIGDescribe("[rfe_id:694][crit:medium][vendor:cnv-qe@redhat.com][level:c
 			})
 
 			DescribeTable("should have the correct MTU", func(ipFamily k8sv1.IPFamily) {
-				libnet.SkipWhenClusterNotSupportIpFamily(virtClient, ipFamily)
+				libnet.SkipWhenClusterNotSupportIPFamily(virtClient, ipFamily)
 
 				By("checking k6t-eth0 MTU inside the pod")
 				vmiPod := tests.GetRunningPodByVirtualMachineInstance(vmi, vmi.Namespace)
@@ -1016,7 +1016,7 @@ var _ = SIGDescribe("[rfe_id:694][crit:medium][vendor:cnv-qe@redhat.com][level:c
 					ipHeaderSize = 40
 				}
 				payloadSize := primaryIfaceMtu - ipHeaderSize - icmpHeaderSize
-				addr := libnet.GetVmiPrimaryIpByFamily(anotherVmi, ipFamily)
+				addr := libnet.GetVmiPrimaryIPByFamily(anotherVmi, ipFamily)
 				Expect(libnet.PingFromVMConsole(vmi, addr, "-c 1", "-w 5", fmt.Sprintf("-s %d", payloadSize), "-M do")).To(Succeed())
 
 				By("checking the VirtualMachineInstance cannot send bigger than MTU sized frames to another VirtualMachineInstance")

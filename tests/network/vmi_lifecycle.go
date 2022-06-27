@@ -109,7 +109,7 @@ var _ = SIGDescribe("[crit:high][arm64][vendor:cnv-qe@redhat.com][level:componen
 				bridgeVMI = tests.WaitUntilVMIReady(bridgeVMI, console.LoginToCirros)
 				verifyDummyNicForBridgeNetwork(bridgeVMI)
 
-				vmIP := libnet.GetVmiPrimaryIpByFamily(bridgeVMI, k8sv1.IPv4Protocol)
+				vmIP := libnet.GetVmiPrimaryIPByFamily(bridgeVMI, k8sv1.IPv4Protocol)
 				dadCommand := fmt.Sprintf("sudo /usr/sbin/arping -D -I eth0 -c 2 %s | grep Received | cut -d ' ' -f 2\n", vmIP)
 
 				Expect(console.SafeExpectBatch(bridgeVMI, []expect.Batcher{
