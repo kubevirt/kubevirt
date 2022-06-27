@@ -372,7 +372,7 @@ if [[ -z ${KUBEVIRT_E2E_FOCUS} && -z ${KUBEVIRT_E2E_SKIP} ]]; then
     export KUBEVIRT_E2E_FOCUS="\\[sig-storage\\]|\\[storage-req\\]"
     export KUBEVIRT_E2E_SKIP="Migration"
   elif [[ $TARGET =~ vgpu.* ]]; then
-    export KUBEVIRT_E2E_FOCUS=MediatedDevices
+    export KUBEVIRT_E2E_FOCUS="MediatedDevices"
   elif [[ $TARGET =~ sig-compute-realtime ]]; then
     export KUBEVIRT_E2E_FOCUS="\\[sig-compute-realtime\\]"
   elif [[ $TARGET =~ sig-compute-migrations ]]; then
@@ -386,9 +386,9 @@ if [[ -z ${KUBEVIRT_E2E_FOCUS} && -z ${KUBEVIRT_E2E_SKIP} ]]; then
   elif [[ $TARGET =~ sig-operator ]]; then
     export KUBEVIRT_E2E_FOCUS="\\[sig-operator\\]"
   elif [[ $TARGET =~ sriov.* ]]; then
-    export KUBEVIRT_E2E_FOCUS=SRIOV
+    export KUBEVIRT_E2E_FOCUS="SRIOV"
   elif [[ $TARGET =~ gpu.* ]]; then
-    export KUBEVIRT_E2E_FOCUS=GPU
+    export KUBEVIRT_E2E_FOCUS="GPU"
   elif [[ $TARGET =~ (okd|ocp).* ]]; then
     export KUBEVIRT_E2E_SKIP="SRIOV|GPU|MediatedDevices"
   else
@@ -486,3 +486,5 @@ fi
 
 # Sanity check test execution by looking at results file
 ./automation/assert-not-all-tests-skipped.sh "${ARTIFACTS}/junit.functest.xml"
+
+
