@@ -26,16 +26,15 @@ import (
 	"k8s.io/apimachinery/pkg/util/rand"
 	"k8s.io/utils/pointer"
 
-	kvirtv1 "kubevirt.io/api/core/v1"
 	v1 "kubevirt.io/api/core/v1"
 )
 
 // Option represents an action that enables an option.
-type Option func(vmi *kvirtv1.VirtualMachineInstance)
+type Option func(vmi *v1.VirtualMachineInstance)
 
 // New instantiates a new VMI configuration,
 // building its properties based on the specified With* options.
-func New(opts ...Option) *kvirtv1.VirtualMachineInstance {
+func New(opts ...Option) *v1.VirtualMachineInstance {
 	vmi := baseVmi(randName())
 
 	WithTerminationGracePeriod(0)(vmi)
@@ -48,12 +47,13 @@ func New(opts ...Option) *kvirtv1.VirtualMachineInstance {
 
 // randName returns a random name for a virtual machine
 func randName() string {
-	return "testvmi" + "-" + rand.String(5)
+	const randomPostfixLen = 5
+	return "testvmi" + "-" + rand.String(randomPostfixLen)
 }
 
 // WithLabel sets a label with specified value
 func WithLabel(key, value string) Option {
-	return func(vmi *kvirtv1.VirtualMachineInstance) {
+	return func(vmi *v1.VirtualMachineInstance) {
 		if vmi.Labels == nil {
 			vmi.Labels = map[string]string{}
 		}
@@ -63,7 +63,7 @@ func WithLabel(key, value string) Option {
 
 // WithAnnotation adds an annotation with specified value
 func WithAnnotation(key, value string) Option {
-	return func(vmi *kvirtv1.VirtualMachineInstance) {
+	return func(vmi *v1.VirtualMachineInstance) {
 		if vmi.Annotations == nil {
 			vmi.Annotations = map[string]string{}
 		}
@@ -73,21 +73,21 @@ func WithAnnotation(key, value string) Option {
 
 // WithTerminationGracePeriod specifies the termination grace period in seconds.
 func WithTerminationGracePeriod(seconds int64) Option {
-	return func(vmi *kvirtv1.VirtualMachineInstance) {
+	return func(vmi *v1.VirtualMachineInstance) {
 		vmi.Spec.TerminationGracePeriodSeconds = &seconds
 	}
 }
 
 // WithRng adds `rng` to the the vmi devices.
 func WithRng() Option {
-	return func(vmi *kvirtv1.VirtualMachineInstance) {
-		vmi.Spec.Domain.Devices.Rng = &kvirtv1.Rng{}
+	return func(vmi *v1.VirtualMachineInstance) {
+		vmi.Spec.Domain.Devices.Rng = &v1.Rng{}
 	}
 }
 
 // WithResourceMemory specifies the vmi memory resource.
 func WithResourceMemory(value string) Option {
-	return func(vmi *kvirtv1.VirtualMachineInstance) {
+	return func(vmi *v1.VirtualMachineInstance) {
 		vmi.Spec.Domain.Resources.Requests = k8sv1.ResourceList{
 			k8sv1.ResourceMemory: resource.MustParse(value),
 		}
@@ -96,7 +96,7 @@ func WithResourceMemory(value string) Option {
 
 // WithNodeSelectorFor ensures that the VMI gets scheduled on the specified node
 func WithNodeSelectorFor(node *k8sv1.Node) Option {
-	return func(vmi *kvirtv1.VirtualMachineInstance) {
+	return func(vmi *v1.VirtualMachineInstance) {
 		if vmi.Spec.NodeSelector == nil {
 			vmi.Spec.NodeSelector = map[string]string{}
 		}
@@ -106,7 +106,7 @@ func WithNodeSelectorFor(node *k8sv1.Node) Option {
 
 // WithUefi configures EFI bootloader and SecureBoot.
 func WithUefi(secureBoot bool) Option {
-	return func(vmi *kvirtv1.VirtualMachineInstance) {
+	return func(vmi *v1.VirtualMachineInstance) {
 		vmi.Spec.Domain.Firmware = &v1.Firmware{
 			Bootloader: &v1.Bootloader{
 				EFI: &v1.EFI{
@@ -119,18 +119,18 @@ func WithUefi(secureBoot bool) Option {
 
 // WithSEV adds `launchSecurity` with `sev`.
 func WithSEV() Option {
-	return func(vmi *kvirtv1.VirtualMachineInstance) {
+	return func(vmi *v1.VirtualMachineInstance) {
 		vmi.Spec.Domain.LaunchSecurity = &v1.LaunchSecurity{
 			SEV: &v1.SEV{},
 		}
 	}
 }
 
-func baseVmi(name string) *kvirtv1.VirtualMachineInstance {
-	vmi := kvirtv1.NewVMIReferenceFromNameWithNS("", name)
-	vmi.Spec = kvirtv1.VirtualMachineInstanceSpec{Domain: kvirtv1.DomainSpec{}}
+func baseVmi(name string) *v1.VirtualMachineInstance {
+	vmi := v1.NewVMIReferenceFromNameWithNS("", name)
+	vmi.Spec = v1.VirtualMachineInstanceSpec{Domain: v1.DomainSpec{}}
 	vmi.TypeMeta = k8smetav1.TypeMeta{
-		APIVersion: kvirtv1.GroupVersion.String(),
+		APIVersion: v1.GroupVersion.String(),
 		Kind:       "VirtualMachineInstance",
 	}
 	return vmi
