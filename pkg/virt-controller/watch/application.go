@@ -610,6 +610,7 @@ func (vca *VirtControllerApp) initRestoreController() {
 		DataVolumeInformer:        vca.dataVolumeInformer,
 		PVCInformer:               vca.persistentVolumeClaimInformer,
 		StorageClassInformer:      vca.storageClassInformer,
+		VolumeSnapshotProvider:    vca.snapshotController,
 		Recorder:                  recorder,
 	}
 	vca.restoreController.Init()

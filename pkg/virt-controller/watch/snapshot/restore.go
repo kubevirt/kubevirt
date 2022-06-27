@@ -663,6 +663,24 @@ func (ctrl *VMRestoreController) createRestorePVC(
 		return fmt.Errorf("missing VolumeSnapshot name")
 	}
 
+	volumeSnapshot, err := ctrl.VolumeSnapshotProvider.GetVolumeSnapshot(vmRestore.Namespace, *volumeBackup.VolumeSnapshotName)
+	if err != nil {
+		return err
+	}
+
+	if volumeSnapshot == nil {
+		log.Log.Errorf("VolumeSnapshot %s is missing", *volumeBackup.VolumeSnapshotName)
+		return fmt.Errorf("missing VolumeSnapshot %s", *volumeBackup.VolumeSnapshotName)
+	}
+
+	if volumeSnapshot.Status != nil && volumeSnapshot.Status.RestoreSize != nil {
+		restorePVCSize, ok := pvc.Spec.Resources.Requests[corev1.ResourceStorage]
+		// Update restore pvc size to be the maximum between the source PVC and the restore size
+		if !ok || restorePVCSize.Cmp(*volumeSnapshot.Status.RestoreSize) < 0 {
+			pvc.Spec.Resources.Requests[corev1.ResourceStorage] = *volumeSnapshot.Status.RestoreSize
+		}
+	}
+
 	if pvc.Annotations == nil {
 		pvc.Annotations = make(map[string]string)
 	}
@@ -686,7 +704,7 @@ func (ctrl *VMRestoreController) createRestorePVC(
 
 	target.Own(pvc)
 
-	_, err := ctrl.Client.CoreV1().PersistentVolumeClaims(vmRestore.Namespace).Create(context.Background(), pvc, metav1.CreateOptions{})
+	_, err = ctrl.Client.CoreV1().PersistentVolumeClaims(vmRestore.Namespace).Create(context.Background(), pvc, metav1.CreateOptions{})
 	if err != nil {
 		return err
 	}
