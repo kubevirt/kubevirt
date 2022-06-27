@@ -109,8 +109,6 @@ const (
 	EchoLastReturnValue          = "echo $?\n"
 )
 
-const SubresourceTestLabel = "subresource-access-test-pod"
-
 const (
 	OSWindows        = "windows"
 	OSWindowsSysprep = "windows-sysprep" // This is for sysprep tests, they run on a syspreped image of windows of a different version.

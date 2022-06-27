@@ -365,6 +365,8 @@ var _ = Describe("[sig-compute]Subresource Api", func() {
 })
 
 func testClientJob(virtCli kubecli.KubevirtClient, withServiceAccount bool, resource string) {
+	const subresourceTestLabel = "subresource-access-test-pod"
+
 	namespace := util.NamespaceTestDefault
 	expectedPhase := k8sv1.PodFailed
 	name := "subresource-access-tester"
@@ -372,7 +374,7 @@ func testClientJob(virtCli kubecli.KubevirtClient, withServiceAccount bool, reso
 		ObjectMeta: metav1.ObjectMeta{
 			GenerateName: name,
 			Labels: map[string]string{
-				v1.AppLabel: tests.SubresourceTestLabel,
+				v1.AppLabel: subresourceTestLabel,
 			},
 		},
 		Spec: k8sv1.PodSpec{
