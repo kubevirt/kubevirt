@@ -1017,6 +1017,8 @@ func (c *VMController) startVMI(vm *virtv1.VirtualMachine) error {
 
 	util.SetDefaultVolumeDisk(vmi)
 
+	autoAttachInputDevice(vm, vmi)
+
 	err = c.applyInstancetypeToVmi(vm, vmi)
 	if err != nil {
 		log.Log.Object(vm).Infof("Failed to apply instancetype to VirtualMachineInstance: %s/%s", vmi.Namespace, vmi.Name)
@@ -2417,4 +2419,20 @@ func (c *VMController) resolveControllerRef(namespace string, controllerRef *v1.
 		return nil
 	}
 	return vm.(*virtv1.VirtualMachine)
+}
+
+func autoAttachInputDevice(vm *virtv1.VirtualMachine, vmi *virtv1.VirtualMachineInstance) {
+	autoAttachInput := vm.Spec.Template.Spec.Domain.Devices.AutoattachInputDevice
+	// Default to False if nil and return, otherwise return if input devices are already present
+	if autoAttachInput == nil || *autoAttachInput == false || len(vmi.Spec.Domain.Devices.Inputs) > 0 {
+		return
+	}
+	// Only add the device with an alias here. Preferences for the bus and type might
+	// be applied later and if not the VMI mutation webhook will apply defaults for both.
+	vmi.Spec.Domain.Devices.Inputs = append(
+		vm.Spec.Template.Spec.Domain.Devices.Inputs,
+		virtv1.Input{
+			Name: "default-0",
+		},
+	)
 }

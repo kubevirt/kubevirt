@@ -15454,6 +15454,10 @@
       "description": "Whether to attach the default graphics device or not. VNC will not be available if set to false. Defaults to true.",
       "type": "boolean"
      },
+     "autoattachInputDevice": {
+      "description": "Whether to attach an Input Device. Defaults to false.",
+      "type": "boolean"
+     },
      "autoattachMemBalloon": {
       "description": "Whether to attach the Memory balloon device with default period. Period can be adjusted in virt-config. Defaults to true.",
       "type": "boolean"

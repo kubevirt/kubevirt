@@ -15700,6 +15700,13 @@ func schema_kubevirtio_api_core_v1_Devices(ref common.ReferenceCallback) common.
 							Format:      "",
 						},
 					},
+					"autoattachInputDevice": {
+						SchemaProps: spec.SchemaProps{
+							Description: "Whether to attach an Input Device. Defaults to false.",
+							Type:        []string{"boolean"},
+							Format:      "",
+						},
+					},
 					"rng": {
 						SchemaProps: spec.SchemaProps{
 							Description: "Whether to have random number generator from host",

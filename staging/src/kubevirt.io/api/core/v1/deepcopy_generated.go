@@ -808,6 +808,11 @@ func (in *Devices) DeepCopyInto(out *Devices) {
 		*out = new(bool)
 		**out = **in
 	}
+	if in.AutoattachInputDevice != nil {
+		in, out := &in.AutoattachInputDevice, &out.AutoattachInputDevice
+		*out = new(bool)
+		**out = **in
+	}
 	if in.Rng != nil {
 		in, out := &in.Rng, &out.Rng
 		*out = new(Rng)

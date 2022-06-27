@@ -25,7 +25,9 @@ import (
 	k8sv1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/api/resource"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	"k8s.io/utils/pointer"
 
+	"kubevirt.io/kubevirt/tests/libvmi"
 	"kubevirt.io/kubevirt/tests/util"
 
 	v1 "kubevirt.io/api/core/v1"
@@ -221,4 +223,45 @@ var _ = Describe("[Serial][sig-compute]VMIDefaults", func() {
 
 	})
 
+	Context("Input defaults", func() {
+
+		It("[test_id:TODO]Should be set in VirtualMachineInstance", func() {
+
+			By("Creating a VirtualMachineInstance with an input device without a bus or type set")
+			vmi = libvmi.NewCirros()
+			vmi.Spec.Domain.Devices.Inputs = append(vmi.Spec.Domain.Devices.Inputs, v1.Input{
+				Name: "foo-1",
+			})
+
+			vmi, err = virtClient.VirtualMachineInstance(util.NamespaceTestDefault).Create(vmi)
+			Expect(err).ToNot(HaveOccurred())
+
+			Expect(vmi.Spec.Domain.Devices.Inputs).ToNot(BeEmpty(), "There should be input devices")
+			Expect(vmi.Spec.Domain.Devices.Inputs[0].Name).To(Equal("foo-1"))
+			Expect(vmi.Spec.Domain.Devices.Inputs[0].Type).To(Equal(v1.InputTypeTablet))
+			Expect(vmi.Spec.Domain.Devices.Inputs[0].Bus).To(Equal(v1.InputBusUSB))
+
+		})
+
+		It("[test_id:TODO]Should be applied to a device added by AutoattachInputDevice", func() {
+			By("Creating a VirtualMachine with AutoattachInputDevice enabled")
+			vm := tests.NewRandomVirtualMachine(libvmi.NewCirros(), false)
+			vm.Spec.Template.Spec.Domain.Devices.AutoattachInputDevice = pointer.Bool(true)
+			vm, err = virtClient.VirtualMachine(util.NamespaceTestDefault).Create(vm)
+			Expect(err).ToNot(HaveOccurred())
+
+			By("Starting VirtualMachine")
+			vm = tests.StartVMAndExpectRunning(virtClient, vm)
+
+			By("Getting VirtualMachineInstance")
+			vmi, err = virtClient.VirtualMachineInstance(util.NamespaceTestDefault).Get(vm.Name, &metav1.GetOptions{})
+			Expect(err).ToNot(HaveOccurred())
+
+			Expect(vmi.Spec.Domain.Devices.Inputs).ToNot(BeEmpty(), "There should be input devices")
+			Expect(vmi.Spec.Domain.Devices.Inputs[0].Name).To(Equal("default-0"))
+			Expect(vmi.Spec.Domain.Devices.Inputs[0].Type).To(Equal(v1.InputTypeTablet))
+			Expect(vmi.Spec.Domain.Devices.Inputs[0].Bus).To(Equal(v1.InputBusUSB))
+		})
+
+	})
 })

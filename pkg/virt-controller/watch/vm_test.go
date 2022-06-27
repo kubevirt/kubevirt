@@ -23,6 +23,7 @@ import (
 	"k8s.io/client-go/tools/cache"
 	framework "k8s.io/client-go/tools/cache/testing"
 	"k8s.io/client-go/tools/record"
+	"k8s.io/utils/pointer"
 
 	v1 "kubevirt.io/api/core/v1"
 	virtv1 "kubevirt.io/api/core/v1"
@@ -2852,6 +2853,8 @@ var _ = Describe("VirtualMachine", func() {
 					Devices: &instancetypev1alpha1.DevicePreferences{
 						PreferredDiskBus:        virtv1.DiskBusVirtio,
 						PreferredInterfaceModel: "virtio",
+						PreferredInputBus:       virtv1.InputBusUSB,
+						PreferredInputType:      virtv1.InputTypeTablet,
 					},
 				}
 				p = &instancetypev1alpha1.VirtualMachinePreference{
@@ -3743,6 +3746,39 @@ var _ = Describe("VirtualMachine", func() {
 
 				controller.Execute()
 			})
+
+			It("should apply preferences to default input device", func() {
+
+				vm.Spec.Preference = &v1.PreferenceMatcher{
+					Name: p.Name,
+					Kind: instancetypeapi.SingularPreferenceResourceName,
+				}
+
+				vm.Spec.Template.Spec.Domain.Devices.AutoattachInputDevice = pointer.Bool(true)
+
+				expectedPreferenceRevisionName := instancetype.GetRevisionName(vm.Name, p.Name, p.UID, p.Generation)
+				expectedPreferenceRevision, err := instancetype.CreatePreferenceControllerRevision(vm, expectedPreferenceRevisionName, p.TypeMeta.APIVersion, &p.Spec)
+				Expect(err).ToNot(HaveOccurred())
+
+				expectedRevisionNamePatch, err := instancetype.GenerateRevisionNamePatch(nil, expectedPreferenceRevision)
+				Expect(err).ToNot(HaveOccurred())
+
+				addVirtualMachine(vm)
+
+				vmInterface.EXPECT().Patch(vm.Name, types.JSONPatchType, expectedRevisionNamePatch, &metav1.PatchOptions{})
+
+				vmiInterface.EXPECT().Create(gomock.Any()).Times(1).Do(func(arg interface{}) {
+					vmiArg := arg.(*virtv1.VirtualMachineInstance)
+					Expect(vmiArg.Spec.Domain.Devices.Inputs).To(HaveLen(1))
+					Expect(vmiArg.Spec.Domain.Devices.Inputs[0].Name).To(Equal("default-0"))
+					Expect(vmiArg.Spec.Domain.Devices.Inputs[0].Type).To(Equal(p.Spec.Devices.PreferredInputType))
+					Expect(vmiArg.Spec.Domain.Devices.Inputs[0].Bus).To(Equal(p.Spec.Devices.PreferredInputBus))
+				}).Return(vmi, nil)
+
+				vmInterface.EXPECT().UpdateStatus(gomock.Any()).Times(1)
+
+				controller.Execute()
+			})
 		})
 
 		DescribeTable("should add the default network interface",
@@ -3849,6 +3885,36 @@ var _ = Describe("VirtualMachine", func() {
 			controller.Execute()
 
 		})
+
+		DescribeTable("AutoattachInputDevice should ", func(autoAttach *bool, existingInputDevices []v1.Input, expectedInputDevice *v1.Input) {
+			vm, vmi := DefaultVirtualMachine(true)
+			vm.Spec.Template.Spec.Domain.Devices.AutoattachInputDevice = autoAttach
+			vm.Spec.Template.Spec.Domain.Devices.Inputs = existingInputDevices
+
+			addVirtualMachine(vm)
+
+			vmiInterface.EXPECT().Create(gomock.Any()).Times(1).Do(func(arg interface{}) {
+				vmiArg := arg.(*virtv1.VirtualMachineInstance)
+
+				if expectedInputDevice != nil {
+					Expect(vmiArg.Spec.Domain.Devices.Inputs).To(HaveLen(1))
+					Expect(vmiArg.Spec.Domain.Devices.Inputs[0]).To(Equal(*expectedInputDevice))
+				} else {
+					Expect(vmiArg.Spec.Domain.Devices.Inputs).To(BeEmpty())
+				}
+
+			}).Return(vmi, nil)
+
+			vmInterface.EXPECT().UpdateStatus(gomock.Any()).Times(1)
+
+			controller.Execute()
+
+		},
+			Entry("add default input device when enabled in VirtualMachine", pointer.Bool(true), []v1.Input{}, &v1.Input{Name: "default-0"}),
+			Entry("not add default input device when disabled by VirtualMachine", pointer.Bool(false), []v1.Input{}, nil),
+			Entry("not add default input device by default", nil, []v1.Input{}, nil),
+			Entry("not add default input device when devices already present in VirtualMachine", pointer.Bool(true), []v1.Input{{Name: "existing-0"}}, &v1.Input{Name: "existing-0"}),
+		)
 	})
 })
 

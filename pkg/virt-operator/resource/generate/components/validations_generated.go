@@ -4833,6 +4833,10 @@ var CRDsValidation map[string]string = map[string]string{
                             or not. VNC will not be available if set to false. Defaults
                             to true.
                           type: boolean
+                        autoattachInputDevice:
+                          description: Whether to attach an Input Device. Defaults
+                            to false.
+                          type: boolean
                         autoattachMemBalloon:
                           description: Whether to attach the Memory balloon device
                             with default period. Period can be adjusted in virt-config.
@@ -8879,6 +8883,9 @@ var CRDsValidation map[string]string = map[string]string{
                   description: Whether to attach the default graphics device or not.
                     VNC will not be available if set to false. Defaults to true.
                   type: boolean
+                autoattachInputDevice:
+                  description: Whether to attach an Input Device. Defaults to false.
+                  type: boolean
                 autoattachMemBalloon:
                   description: Whether to attach the Memory balloon device with default
                     period. Period can be adjusted in virt-config. Defaults to true.
@@ -11066,6 +11073,9 @@ var CRDsValidation map[string]string = map[string]string{
                   description: Whether to attach the default graphics device or not.
                     VNC will not be available if set to false. Defaults to true.
                   type: boolean
+                autoattachInputDevice:
+                  description: Whether to attach an Input Device. Defaults to false.
+                  type: boolean
                 autoattachMemBalloon:
                   description: Whether to attach the Memory balloon device with default
                     period. Period can be adjusted in virt-config. Defaults to true.
@@ -13136,6 +13146,10 @@ var CRDsValidation map[string]string = map[string]string{
                           description: Whether to attach the default graphics device
                             or not. VNC will not be available if set to false. Defaults
                             to true.
+                          type: boolean
+                        autoattachInputDevice:
+                          description: Whether to attach an Input Device. Defaults
+                            to false.
                           type: boolean
                         autoattachMemBalloon:
                           description: Whether to attach the Memory balloon device
@@ -16959,6 +16973,10 @@ var CRDsValidation map[string]string = map[string]string{
                                   description: Whether to attach the default graphics
                                     device or not. VNC will not be available if set
                                     to false. Defaults to true.
+                                  type: boolean
+                                autoattachInputDevice:
+                                  description: Whether to attach an Input Device.
+                                    Defaults to false.
                                   type: boolean
                                 autoattachMemBalloon:
                                   description: Whether to attach the Memory balloon
@@ -21477,6 +21495,10 @@ var CRDsValidation map[string]string = map[string]string{
                                       description: Whether to attach the default graphics
                                         device or not. VNC will not be available if
                                         set to false. Defaults to true.
+                                      type: boolean
+                                    autoattachInputDevice:
+                                      description: Whether to attach an Input Device.
+                                        Defaults to false.
                                       type: boolean
                                     autoattachMemBalloon:
                                       description: Whether to attach the Memory balloon

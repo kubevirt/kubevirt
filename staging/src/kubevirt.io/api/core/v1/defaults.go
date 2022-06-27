@@ -120,6 +120,7 @@ func SetDefaults_VirtualMachineInstance(obj *VirtualMachineInstance) {
 	}
 
 	setDefaults_Disk(obj)
+	setDefaults_Input(obj)
 	SetDefaults_Probe(obj.Spec.ReadinessProbe)
 	SetDefaults_Probe(obj.Spec.LivenessProbe)
 }
@@ -143,6 +144,20 @@ func setDefaults_Disk(obj *VirtualMachineInstance) {
 		}
 		if disk.LUN != nil && disk.LUN.Bus == "" {
 			disk.LUN.Bus = bus
+		}
+	}
+}
+
+func setDefaults_Input(obj *VirtualMachineInstance) {
+	for i := range obj.Spec.Domain.Devices.Inputs {
+		input := &obj.Spec.Domain.Devices.Inputs[i]
+
+		if input.Bus == "" {
+			input.Bus = InputBusUSB
+		}
+
+		if input.Type == "" {
+			input.Type = InputTypeTablet
 		}
 	}
 }

@@ -425,6 +425,10 @@ type Devices struct {
 	// Defaults to true.
 	// +optional
 	AutoattachMemBalloon *bool `json:"autoattachMemBalloon,omitempty"`
+	// Whether to attach an Input Device.
+	// Defaults to false.
+	// +optional
+	AutoattachInputDevice *bool `json:"autoattachInputDevice,omitempty"`
 	// Whether to have random number generator from host
 	// +optional
 	Rng *Rng `json:"rng,omitempty"`
