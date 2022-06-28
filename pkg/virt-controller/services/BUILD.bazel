@@ -4,6 +4,7 @@ go_library(
     name = "go_default_library",
     srcs = [
         "multus_annotations.go",
+        "nodeselectorrenderer.go",
         "rendercontainer.go",
         "renderresources.go",
         "rendervolumes.go",

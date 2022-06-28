@@ -385,7 +385,6 @@ func (t *templateService) renderLaunchManifest(vmi *v1.VirtualMachineInstance, i
 	precond.MustNotBeNil(vmi)
 	domain := precond.MustNotBeEmpty(vmi.GetObjectMeta().GetName())
 	namespace := precond.MustNotBeEmpty(vmi.GetObjectMeta().GetNamespace())
-	nodeSelector := map[string]string{}
 
 	var userId int64 = util.RootUser
 
@@ -420,6 +419,7 @@ func (t *templateService) renderLaunchManifest(vmi *v1.VirtualMachineInstance, i
 	}
 	resources := resourceRenderer.ResourceRequirements()
 
+	nodeSelector := NewNodeSelectorRenderer(vmi.Spec.NodeSelector).Render()
 	if vmi.IsCPUDedicated() {
 		// schedule only on nodes with a running cpu manager
 		nodeSelector[v1.CPUManager] = "true"
@@ -531,10 +531,6 @@ func (t *templateService) renderLaunchManifest(vmi *v1.VirtualMachineInstance, i
 		containers = append(containers, *kernelBootContainer)
 	}
 
-	for k, v := range vmi.Spec.NodeSelector {
-		nodeSelector[k] = v
-
-	}
 	if cpuModelLabel, err := CPUModelLabelFromCPUModel(vmi); err == nil {
 		if vmi.Spec.Domain.CPU.Model != v1.CPUModeHostModel && vmi.Spec.Domain.CPU.Model != v1.CPUModeHostPassthrough {
 			nodeSelector[cpuModelLabel] = "true"
