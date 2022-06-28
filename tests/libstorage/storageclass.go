@@ -22,6 +22,11 @@ package libstorage
 import (
 	"context"
 
+	. "github.com/onsi/ginkgo/v2"
+	. "github.com/onsi/gomega"
+
+	k8sv1 "k8s.io/api/core/v1"
+	storagev1 "k8s.io/api/storage/v1"
 	v1 "k8s.io/api/storage/v1"
 	"k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
@@ -30,6 +35,8 @@ import (
 
 	"kubevirt.io/kubevirt/tests/util"
 )
+
+var wffc = storagev1.VolumeBindingWaitForFirstConsumer
 
 func CreateStorageClass(name string, bindingMode *v1.VolumeBindingMode) {
 	virtClient, err := kubecli.GetKubevirtClient()
@@ -88,4 +95,43 @@ func GetRWOBlockStorageClass() (string, bool) {
 func GetRWXBlockStorageClass() (string, bool) {
 	storageRWXBlock := Config.StorageRWXBlock
 	return storageRWXBlock, storageRWXBlock != ""
+}
+
+func IsStorageClassBindingModeWaitForFirstConsumer(sc string) bool {
+	virtClient, err := kubecli.GetKubevirtClient()
+	Expect(err).ToNot(HaveOccurred())
+	storageClass, err := virtClient.StorageV1().StorageClasses().Get(context.Background(), sc, metav1.GetOptions{})
+	if err != nil {
+		return false
+	}
+	return storageClass.VolumeBindingMode != nil &&
+		*storageClass.VolumeBindingMode == wffc
+}
+
+func CheckNoProvisionerStorageClassPVs(storageClassName string, numExpectedPVs int) {
+	virtClient, err := kubecli.GetKubevirtClient()
+	util.PanicOnError(err)
+	sc, err := virtClient.StorageV1().StorageClasses().Get(context.Background(), storageClassName, metav1.GetOptions{})
+	Expect(err).ToNot(HaveOccurred())
+
+	if sc.Provisioner != "" && sc.Provisioner != "kubernetes.io/no-provisioner" {
+		return
+	}
+
+	// Verify we have at least `numExpectedPVs` available file system PVs
+	pvList, err := virtClient.CoreV1().PersistentVolumes().List(context.TODO(), metav1.ListOptions{})
+	Expect(err).ToNot(HaveOccurred())
+	count := 0
+	for _, pv := range pvList.Items {
+		if pv.Spec.StorageClassName != storageClassName || pv.Spec.NodeAffinity == nil || pv.Spec.NodeAffinity.Required == nil || len(pv.Spec.NodeAffinity.Required.NodeSelectorTerms) == 0 || (pv.Spec.VolumeMode != nil && *pv.Spec.VolumeMode == k8sv1.PersistentVolumeBlock) {
+			// Not a local volume filesystem PV
+			continue
+		}
+		if pv.Spec.ClaimRef == nil {
+			count++
+		}
+	}
+	if count < numExpectedPVs {
+		Skip("Not enough available filesystem local storage PVs available, expected: %d", numExpectedPVs)
+	}
 }

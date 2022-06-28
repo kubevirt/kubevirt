@@ -17,9 +17,10 @@
  *
  */
 
-package testsuite
+package util
 
 const (
-	KubevirtIoTest = "kubevirt.io/test"
-	SecretLabel    = "kubevirt.io/secret"
+	KubevirtIoTest       = "kubevirt.io/test"
+	SecretLabel          = "kubevirt.io/secret"
+	KubernetesIoHostName = "kubernetes.io/hostname"
 )

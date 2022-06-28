@@ -1009,8 +1009,8 @@ func (d *VirtualMachineController) updatePausedConditions(vmi *v1.VirtualMachine
 	}
 }
 
-func dumpTargetFile(volName string) string {
-	targetFileName := fmt.Sprintf("%s-%s.memory.dump", volName, time.Now().Format("20060102-150405"))
+func dumpTargetFile(vmiName, volName string) string {
+	targetFileName := fmt.Sprintf("%s-%s-%s.memory.dump", vmiName, volName, time.Now().Format("20060102-150405"))
 	return targetFileName
 }
 
@@ -1023,7 +1023,7 @@ func (d *VirtualMachineController) updateMemoryDumpInfo(vmi *v1.VirtualMachineIn
 		volumeStatus.Phase = v1.MemoryDumpVolumeInProgress
 		volumeStatus.Message = fmt.Sprintf("Memory dump Volume %s is attached, getting memory dump", volumeStatus.Name)
 		volumeStatus.Reason = VolumeMountedToPodReason
-		volumeStatus.MemoryDumpVolume.TargetFileName = dumpTargetFile(volumeStatus.Name)
+		volumeStatus.MemoryDumpVolume.TargetFileName = dumpTargetFile(vmi.Name, volumeStatus.Name)
 	case v1.MemoryDumpVolumeInProgress:
 		memoryDumpMetadata := domain.Spec.Metadata.KubeVirt.MemoryDump
 		if memoryDumpMetadata == nil || memoryDumpMetadata.FileName != volumeStatus.MemoryDumpVolume.TargetFileName {

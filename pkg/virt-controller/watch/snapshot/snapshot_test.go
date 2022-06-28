@@ -146,7 +146,8 @@ var _ = Describe("Snapshot controlleer", func() {
 	createVMSnapshotContent := func() *snapshotv1.VirtualMachineSnapshotContent {
 		vmSnapshot := createVMSnapshotInProgress()
 		vm := createLockedVM()
-		return createVirtualMachineSnapshotContent(vmSnapshot, vm)
+		pvcs := createPersistentVolumeClaims()
+		return createVirtualMachineSnapshotContent(vmSnapshot, vm, pvcs)
 	}
 
 	createStorageClass := func() *storagev1.StorageClass {
@@ -897,7 +898,8 @@ var _ = Describe("Snapshot controlleer", func() {
 				})
 				// the content source will have the a combination of the vm revision, the vmi and the vm volumes
 				vm.ObjectMeta.Generation = 2
-				expectedContent := createVirtualMachineSnapshotContent(vmSnapshot, vm)
+				pvcs := createPersistentVolumeClaims()
+				expectedContent := createVirtualMachineSnapshotContent(vmSnapshot, vm, pvcs)
 				vm.Spec.Template.Spec.Domain.Resources.Requests = corev1.ResourceList{
 					corev1.ResourceMemory: resource.MustParse("64Mi"),
 				}
@@ -905,7 +907,6 @@ var _ = Describe("Snapshot controlleer", func() {
 				storageClass := createStorageClass()
 				storageClassSource.Add(storageClass)
 				volumeSnapshotClass := createVolumeSnapshotClasses()[0]
-				pvcs := createPersistentVolumeClaims()
 				for i := range pvcs {
 					pvcSource.Add(&pvcs[i])
 				}
@@ -927,6 +928,44 @@ var _ = Describe("Snapshot controlleer", func() {
 				updatedSnapshot.Status.Indications = []snapshotv1.Indication{
 					snapshotv1.VMSnapshotOnlineSnapshotIndication,
 					snapshotv1.VMSnapshotNoGuestAgentIndication,
+				}
+				expectVMSnapshotUpdate(vmSnapshotClient, updatedSnapshot)
+
+				controller.processVMSnapshotWorkItem()
+				testutils.ExpectEvent(recorder, "SuccessfulVirtualMachineSnapshotContentCreate")
+			})
+
+			It("should create VirtualMachineSnapshotContent with memory dump", func() {
+				storageClass := createStorageClass()
+				volumeSnapshotClass := createVolumeSnapshotClasses()[0]
+
+				vmSnapshot := createVMSnapshotInProgress()
+				vm := createLockedVM()
+				vm = updateVMWithMemoryDump(vm)
+				pvcs := createPersistentVolumeClaims()
+				pvcs = addMemoryDumpPVC(pvcs)
+				vmSnapshotContent := createVirtualMachineSnapshotContent(vmSnapshot, vm, pvcs)
+
+				vmSource.Add(vm)
+				storageClassSource.Add(storageClass)
+				for i := range pvcs {
+					pvcSource.Add(&pvcs[i])
+				}
+				expectVMSnapshotContentCreate(vmSnapshotClient, vmSnapshotContent)
+				vmSnapshotSource.Add(vmSnapshot)
+				addVolumeSnapshotClass(volumeSnapshotClass)
+
+				updatedSnapshot := vmSnapshot.DeepCopy()
+				updatedSnapshot.ResourceVersion = "1"
+				updatedSnapshot.Status = &snapshotv1.VirtualMachineSnapshotStatus{
+					SourceUID:  &vmUID,
+					ReadyToUse: &f,
+					Phase:      snapshotv1.InProgress,
+					Conditions: []snapshotv1.Condition{
+						newProgressingCondition(corev1.ConditionTrue, "Source locked and operation in progress"),
+						newReadyCondition(corev1.ConditionFalse, "Not ready"),
+					},
+					Indications: []snapshotv1.Indication{},
 				}
 				expectVMSnapshotUpdate(vmSnapshotClient, updatedSnapshot)
 
@@ -1922,7 +1961,9 @@ func expectVMSnapshotContentCreate(client *kubevirtfake.Clientset, content *snap
 		Expect(createObj.ObjectMeta).To(Equal(content.ObjectMeta))
 		Expect(createObj.Spec.Source).To(Equal(content.Spec.Source))
 		Expect(*createObj.Spec.VirtualMachineSnapshotName).To(Equal(*content.Spec.VirtualMachineSnapshotName))
-		Expect(createObj.Spec.VolumeBackups).To(Equal(content.Spec.VolumeBackups))
+		Expect(createObj.Spec.VolumeBackups).To(ConsistOf(content.Spec.VolumeBackups))
+		createObj.Spec.VolumeBackups = []snapshotv1.VolumeBackup{}
+		content.Spec.VolumeBackups = []snapshotv1.VolumeBackup{}
 		Expect(createObj.Status).To(Equal(content.Status))
 		Expect(createObj).To(Equal(content))
 
@@ -2078,7 +2119,7 @@ func createVirtualMachineSnapshot(namespace, name, vmName string) *snapshotv1.Vi
 	}
 }
 
-func createVirtualMachineSnapshotContent(vmSnapshot *snapshotv1.VirtualMachineSnapshot, vm *v1.VirtualMachine) *snapshotv1.VirtualMachineSnapshotContent {
+func createVirtualMachineSnapshotContent(vmSnapshot *snapshotv1.VirtualMachineSnapshot, vm *v1.VirtualMachine, pvcs []corev1.PersistentVolumeClaim) *snapshotv1.VirtualMachineSnapshotContent {
 	var volumeBackups []snapshotv1.VolumeBackup
 	vmCpy := &snapshotv1.VirtualMachine{}
 	vmCpy.ObjectMeta = *vm.ObjectMeta.DeepCopy()
@@ -2086,8 +2127,11 @@ func createVirtualMachineSnapshotContent(vmSnapshot *snapshotv1.VirtualMachineSn
 	vmCpy.ResourceVersion = "1"
 	vmCpy.Status = v1.VirtualMachineStatus{}
 
-	for i, pvc := range createPVCsForVM(vm) {
+	for i, pvc := range pvcs {
 		diskName := fmt.Sprintf("disk%d", i+1)
+		if pvc.Name == "memorydump" {
+			diskName = pvc.Name
+		}
 		volumeSnapshotName := fmt.Sprintf("vmsnapshot-%s-volume-%s", vmSnapshot.UID, diskName)
 		vb := snapshotv1.VolumeBackup{
 			VolumeName: diskName,
@@ -2159,4 +2203,46 @@ func createPodsUsingPVCs(vm *v1.VirtualMachine) []corev1.Pod {
 	}
 
 	return pods
+}
+
+func addMemoryDumpPVC(pvcs []corev1.PersistentVolumeClaim) []corev1.PersistentVolumeClaim {
+	pvc := corev1.PersistentVolumeClaim{
+		ObjectMeta: metav1.ObjectMeta{
+			Namespace:       testNamespace,
+			Name:            "memorydump",
+			ResourceVersion: "2",
+		},
+		Spec: corev1.PersistentVolumeClaimSpec{
+			VolumeName: "memorydump",
+			Resources: corev1.ResourceRequirements{
+				Requests: corev1.ResourceList{
+					corev1.ResourceName(corev1.ResourceStorage): resource.MustParse("500Mi"),
+				},
+			},
+			AccessModes:      []corev1.PersistentVolumeAccessMode{corev1.ReadWriteOnce},
+			StorageClassName: &storageClassName,
+		},
+	}
+	pvcs = append(pvcs, pvc)
+	return pvcs
+}
+
+func updateVMWithMemoryDump(vm *v1.VirtualMachine) *v1.VirtualMachine {
+	vm.Spec.Template.Spec.Volumes = append(vm.Spec.Template.Spec.Volumes, v1.Volume{
+		Name: "memorydump",
+		VolumeSource: v1.VolumeSource{
+			MemoryDump: &v1.MemoryDumpVolumeSource{
+				PersistentVolumeClaimVolumeSource: v1.PersistentVolumeClaimVolumeSource{
+					PersistentVolumeClaimVolumeSource: corev1.PersistentVolumeClaimVolumeSource{
+						ClaimName: "memorydump",
+					},
+				},
+			},
+		},
+	})
+	vm.Status.MemoryDumpRequest = &v1.VirtualMachineMemoryDumpRequest{
+		ClaimName: "memorydump",
+		Phase:     v1.MemoryDumpCompleted,
+	}
+	return vm
 }

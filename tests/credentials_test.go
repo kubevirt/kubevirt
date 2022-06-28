@@ -39,7 +39,6 @@ import (
 	"kubevirt.io/kubevirt/tests"
 	"kubevirt.io/kubevirt/tests/console"
 	cd "kubevirt.io/kubevirt/tests/containerdisk"
-	"kubevirt.io/kubevirt/tests/testsuite"
 )
 
 var _ = Describe("[sig-compute]Guest Access Credentials", func() {
@@ -97,7 +96,7 @@ var _ = Describe("[sig-compute]Guest Access Credentials", func() {
 					Name:      secretID,
 					Namespace: vmi.Namespace,
 					Labels: map[string]string{
-						testsuite.SecretLabel: secretID,
+						util.SecretLabel: secretID,
 					},
 				},
 				Type: "Opaque",
@@ -174,7 +173,7 @@ var _ = Describe("[sig-compute]Guest Access Credentials", func() {
 					Name:      secretID,
 					Namespace: vmi.Namespace,
 					Labels: map[string]string{
-						testsuite.SecretLabel: secretID,
+						util.SecretLabel: secretID,
 					},
 				},
 				Type: "Opaque",
@@ -245,7 +244,7 @@ var _ = Describe("[sig-compute]Guest Access Credentials", func() {
 					Name:      secretID,
 					Namespace: vmi.Namespace,
 					Labels: map[string]string{
-						testsuite.SecretLabel: secretID,
+						util.SecretLabel: secretID,
 					},
 				},
 				Type: "Opaque",
@@ -306,7 +305,7 @@ var _ = Describe("[sig-compute]Guest Access Credentials", func() {
 					Name:      secretID,
 					Namespace: vmi.Namespace,
 					Labels: map[string]string{
-						testsuite.SecretLabel: secretID,
+						util.SecretLabel: secretID,
 					},
 				},
 				Type: "Opaque",
@@ -374,7 +373,7 @@ var _ = Describe("[sig-compute]Guest Access Credentials", func() {
 					Name:      secretID,
 					Namespace: vmi.Namespace,
 					Labels: map[string]string{
-						testsuite.SecretLabel: secretID,
+						util.SecretLabel: secretID,
 					},
 				},
 				Type: "Opaque",

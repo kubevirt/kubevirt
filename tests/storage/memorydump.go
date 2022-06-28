@@ -36,7 +36,6 @@ import (
 
 	k8sv1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/api/errors"
-	"k8s.io/apimachinery/pkg/api/resource"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 
 	v1 "kubevirt.io/api/core/v1"
@@ -59,6 +58,7 @@ const (
 	waitMemoryDumpRequestRemove      = "waiting on memory dump request to be remove from vm status"
 	waitMemoryDumpPvcVolumeRemove    = "waiting on memory dump pvc to be remove from vm volumes"
 	waitMemoryDumpCompletion         = "waiting on memory dump completion in vm, phase: %s"
+	waitMemoryDumpAnnotation         = "waiting on memory dump annotation on pvc"
 	waitVMIMemoryDumpPvcVolume       = "waiting memory dump not to be in vmi volumes list"
 	waitVMIMemoryDumpPvcVolumeStatus = "waiting memory dump not to be in vmi volumeStatus list"
 )
@@ -132,26 +132,6 @@ var _ = SIGDescribe("Memory dump", func() {
 		pvc = nil
 	}
 
-	createMemoryDumpPVC := func(name, sc string, size resource.Quantity) *k8sv1.PersistentVolumeClaim {
-		volumeMode := k8sv1.PersistentVolumeFilesystem
-		createdPvc, err := virtClient.CoreV1().PersistentVolumeClaims(util.NamespaceTestDefault).Create(context.Background(), &k8sv1.PersistentVolumeClaim{
-			ObjectMeta: metav1.ObjectMeta{Name: name},
-			Spec: k8sv1.PersistentVolumeClaimSpec{
-				AccessModes:      []k8sv1.PersistentVolumeAccessMode{k8sv1.ReadWriteOnce},
-				VolumeMode:       &volumeMode,
-				StorageClassName: &sc,
-				Resources: k8sv1.ResourceRequirements{
-					Requests: k8sv1.ResourceList{
-						"storage": size,
-					},
-				},
-			},
-		}, metav1.CreateOptions{})
-		Expect(err).ToNot(HaveOccurred())
-
-		return createdPvc
-	}
-
 	verifyMemoryDumpNotOnVMI := func(vm *v1.VirtualMachine, memoryDumpPVC string) {
 		Eventually(func() error {
 			updatedVMI, err := virtClient.VirtualMachineInstance(vm.Namespace).Get(vm.Name, &metav1.GetOptions{})
@@ -210,6 +190,13 @@ var _ = SIGDescribe("Memory dump", func() {
 			if !foundPvc {
 				return fmt.Errorf(waitMemoryDumpPvcVolume)
 			}
+
+			pvc, err := virtClient.CoreV1().PersistentVolumeClaims(vm.Namespace).Get(context.Background(), memoryDumpPVC, metav1.GetOptions{})
+			if err != nil {
+				return err
+			}
+			Expect(pvc.GetAnnotations()).ToNot(BeNil())
+			Expect(pvc.Annotations[v1.PVCMemoryDumpAnnotation]).To(Equal(*updatedVM.Status.MemoryDumpRequest.FileName))
 
 			return nil
 		}, 90*time.Second, 1*time.Second).ShouldNot(HaveOccurred())
@@ -285,7 +272,6 @@ var _ = SIGDescribe("Memory dump", func() {
 		Eventually(func() error {
 			memoryDumpRequest := &v1.VirtualMachineMemoryDumpRequest{
 				ClaimName: claimName,
-				Phase:     v1.MemoryDumpAssociating,
 			}
 
 			return virtClient.VirtualMachine(namespace).MemoryDump(vmName, memoryDumpRequest)
@@ -337,12 +323,11 @@ var _ = SIGDescribe("Memory dump", func() {
 			if !exists {
 				Skip("Skip no filesystem storage class available")
 			}
-			tests.CheckNoProvisionerStorageClassPVs(sc, numPVs)
+			libstorage.CheckNoProvisionerStorageClassPVs(sc, numPVs)
 
 			vm = createAndStartVM()
 
-			size, _ := resource.ParseQuantity("500Mi")
-			memoryDumpPVC = createMemoryDumpPVC(memoryDumpPVCName, sc, size)
+			memoryDumpPVC = libstorage.CreateFSPVC(memoryDumpPVCName, "500Mi")
 		})
 
 		AfterEach(func() {
@@ -414,8 +399,7 @@ var _ = SIGDescribe("Memory dump", func() {
 			// Verify the content is still on the pvc
 			verifyMemoryDumpOutput(memoryDumpPVC, previousOutput, true)
 
-			size, _ := resource.ParseQuantity("500Mi")
-			memoryDumpPVC2 = createMemoryDumpPVC(memoryDumpPVCName2, sc, size)
+			memoryDumpPVC2 = libstorage.CreateFSPVC(memoryDumpPVCName2, "500Mi")
 			By("Running memory dump to other pvc: " + memoryDumpPVCName2)
 			memoryDumpVirtctl(vm.Name, vm.Namespace, memoryDumpPVCName2)
 
@@ -471,8 +455,7 @@ var _ = SIGDescribe("Memory dump", func() {
 
 		It("[test_id:8501]Run memory dump with pvc too small should fail", func() {
 			By("Trying to get memory dump with small pvc")
-			size, _ := resource.ParseQuantity("200Mi")
-			memoryDumpSmallPVC = createMemoryDumpPVC(memoryDumpSmallPVCName, sc, size)
+			memoryDumpSmallPVC = libstorage.CreateFSPVC(memoryDumpSmallPVCName, "200Mi")
 			commandAndArgs := []string{virtctl.COMMAND_MEMORYDUMP, "get", vm.Name, fmt.Sprintf(virtCtlClaimName, memoryDumpSmallPVCName), virtCtlNamespace, vm.Namespace}
 			memorydumpCommand := clientcmd.NewRepeatableVirtctlCommand(commandAndArgs...)
 			Eventually(func() string {

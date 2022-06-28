@@ -84,7 +84,7 @@ func createServiceAccount(saName string, clusterRole string) {
 			Name:      saName,
 			Namespace: util.NamespaceTestDefault,
 			Labels: map[string]string{
-				KubevirtIoTest: saName,
+				util.KubevirtIoTest: saName,
 			},
 		},
 	}
@@ -99,7 +99,7 @@ func createServiceAccount(saName string, clusterRole string) {
 			Name:      saName,
 			Namespace: util.NamespaceTestDefault,
 			Labels: map[string]string{
-				KubevirtIoTest: saName,
+				util.KubevirtIoTest: saName,
 			},
 		},
 		RoleRef: rbacv1.RoleRef{
@@ -144,7 +144,7 @@ func createSubresourceServiceAccount() {
 			Name:      SubresourceServiceAccountName,
 			Namespace: util.NamespaceTestDefault,
 			Labels: map[string]string{
-				KubevirtIoTest: "sa",
+				util.KubevirtIoTest: "sa",
 			},
 		},
 	}
@@ -160,7 +160,7 @@ func createSubresourceServiceAccount() {
 			Name:      SubresourceServiceAccountName,
 			Namespace: util.NamespaceTestDefault,
 			Labels: map[string]string{
-				KubevirtIoTest: "sa",
+				util.KubevirtIoTest: "sa",
 			},
 		},
 	}
@@ -180,7 +180,7 @@ func createSubresourceServiceAccount() {
 			Name:      SubresourceServiceAccountName,
 			Namespace: util.NamespaceTestDefault,
 			Labels: map[string]string{
-				KubevirtIoTest: "sa",
+				util.KubevirtIoTest: "sa",
 			},
 		},
 		RoleRef: rbacv1.RoleRef{
