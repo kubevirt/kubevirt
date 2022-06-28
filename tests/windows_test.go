@@ -122,13 +122,12 @@ var getWindowsVMISpec = func() v1.VirtualMachineInstanceSpec {
 }
 
 var _ = Describe("[Serial][sig-compute]Windows VirtualMachineInstance", func() {
-	var err error
 	var virtClient kubecli.KubevirtClient
-
 	var windowsVMI *v1.VirtualMachineInstance
 
 	BeforeEach(func() {
 		const OSWindows = "windows"
+		var err error
 		virtClient, err = kubecli.GetKubevirtClient()
 		util.PanicOnError(err)
 		checks.SkipIfMissingRequiredImage(virtClient, tests.DiskWindows)
@@ -142,7 +141,6 @@ var _ = Describe("[Serial][sig-compute]Windows VirtualMachineInstance", func() {
 	Context("with winrm connection", func() {
 		var winrmcliPod *k8sv1.Pod
 		var cli []string
-		var output string
 
 		BeforeEach(func() {
 			By("Creating winrm-cli pod for the future use")
@@ -159,6 +157,8 @@ var _ = Describe("[Serial][sig-compute]Windows VirtualMachineInstance", func() {
 					},
 				},
 			}
+
+			var err error
 			winrmcliPod, err = virtClient.CoreV1().Pods(util.NamespaceTestDefault).Create(context.Background(), winrmcliPod, metav1.CreateOptions{})
 			Expect(err).ToNot(HaveOccurred())
 		})
@@ -167,6 +167,7 @@ var _ = Describe("[Serial][sig-compute]Windows VirtualMachineInstance", func() {
 
 			BeforeEach(func() {
 				By("Starting the windows VirtualMachineInstance")
+				var err error
 				windowsVMI, err = virtClient.VirtualMachineInstance(util.NamespaceTestDefault).Create(windowsVMI)
 				Expect(err).To(BeNil())
 				tests.WaitForSuccessfulVMIStartWithTimeout(windowsVMI, 360)
@@ -177,7 +178,9 @@ var _ = Describe("[Serial][sig-compute]Windows VirtualMachineInstance", func() {
 			It("[test_id:240]should have correct UUID", func() {
 				command := append(cli, "wmic csproduct get \"UUID\"")
 				By(fmt.Sprintf("Running \"%s\" command via winrm-cli", command))
+				var output string
 				Eventually(func() error {
+					var err error
 					output, err = tests.ExecuteCommandOnPod(
 						virtClient,
 						winrmcliPod,
@@ -193,7 +196,9 @@ var _ = Describe("[Serial][sig-compute]Windows VirtualMachineInstance", func() {
 			It("[test_id:3159]should have default masquerade IP", func() {
 				command := append(cli, "ipconfig /all")
 				By(fmt.Sprintf("Running \"%s\" command via winrm-cli", command))
+				var output string
 				Eventually(func() error {
+					var err error
 					output, err = tests.ExecuteCommandOnPod(
 						virtClient,
 						winrmcliPod,
@@ -224,6 +229,7 @@ var _ = Describe("[Serial][sig-compute]Windows VirtualMachineInstance", func() {
 				windowsVMI.Spec.Subdomain = "subdomain"
 
 				By("Starting the windows VirtualMachineInstance with subdomain")
+				var err error
 				windowsVMI, err = virtClient.VirtualMachineInstance(util.NamespaceTestDefault).Create(windowsVMI)
 				Expect(err).ToNot(HaveOccurred())
 				tests.WaitForSuccessfulVMIStartWithTimeout(windowsVMI, 360)
@@ -248,6 +254,7 @@ var _ = Describe("[Serial][sig-compute]Windows VirtualMachineInstance", func() {
 			BeforeEach(func() {
 				By("Starting Windows VirtualMachineInstance with bridge binding")
 				windowsVMI.Spec.Domain.Devices.Interfaces = []v1.Interface{libvmi.InterfaceDeviceWithBridgeBinding(libvmi.DefaultInterfaceName)}
+				var err error
 				windowsVMI, err = virtClient.VirtualMachineInstance(util.NamespaceTestDefault).Create(windowsVMI)
 				Expect(err).ToNot(HaveOccurred())
 				tests.WaitForSuccessfulVMIStartWithTimeout(windowsVMI, 420)
@@ -259,6 +266,7 @@ var _ = Describe("[Serial][sig-compute]Windows VirtualMachineInstance", func() {
 
 				By("Pinging virt-handler Pod from Windows VMI")
 
+				var err error
 				windowsVMI, err = virtClient.VirtualMachineInstance(windowsVMI.Namespace).Get(windowsVMI.Name, &metav1.GetOptions{})
 				Expect(err).ToNot(HaveOccurred())
 
