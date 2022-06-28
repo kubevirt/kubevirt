@@ -139,23 +139,6 @@ var _ = Describe("[Serial][sig-compute]Windows VirtualMachineInstance", func() {
 		windowsVMI.Spec.Domain.Devices.Interfaces[0].Model = "e1000"
 	})
 
-	It("[test_id:487]should succeed to start a vmi", func() {
-		vmi, err := virtClient.VirtualMachineInstance(util.NamespaceTestDefault).Create(windowsVMI)
-		Expect(err).To(BeNil())
-		tests.WaitForSuccessfulVMIStartWithTimeout(vmi, 360)
-	})
-
-	It("[test_id:488]should succeed to stop a running vmi", func() {
-		By("Starting the vmi")
-		vmi, err := virtClient.VirtualMachineInstance(util.NamespaceTestDefault).Create(windowsVMI)
-		Expect(err).To(BeNil())
-		tests.WaitForSuccessfulVMIStartWithTimeout(vmi, 360)
-
-		By("Stopping the vmi")
-		err = virtClient.VirtualMachineInstance(vmi.Namespace).Delete(vmi.Name, &metav1.DeleteOptions{})
-		Expect(err).To(BeNil())
-	})
-
 	Context("with winrm connection", func() {
 		var winrmcliPod *k8sv1.Pod
 		var cli []string
