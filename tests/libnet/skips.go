@@ -34,7 +34,7 @@ func SkipWhenClusterNotSupportIpv6(virtClient kubecli.KubevirtClient) {
 	}
 }
 
-func SkipWhenClusterNotSupportIpFamily(virtClient kubecli.KubevirtClient, ipFamily k8sv1.IPFamily) {
+func SkipWhenClusterNotSupportIPFamily(virtClient kubecli.KubevirtClient, ipFamily k8sv1.IPFamily) {
 	if ipFamily == k8sv1.IPv4Protocol {
 		SkipWhenClusterNotSupportIpv4(virtClient)
 	} else {

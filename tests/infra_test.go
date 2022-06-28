@@ -833,7 +833,7 @@ var _ = Describe("[Serial][sig-compute]Infrastructure", func() {
 		})
 
 		DescribeTable("should throttle the Prometheus metrics access", func(family k8sv1.IPFamily) {
-			libnet.SkipWhenClusterNotSupportIpFamily(virtClient, family)
+			libnet.SkipWhenClusterNotSupportIPFamily(virtClient, family)
 
 			ip := getSupportedIP(handlerMetricIPs, family)
 
@@ -879,7 +879,7 @@ var _ = Describe("[Serial][sig-compute]Infrastructure", func() {
 		)
 
 		DescribeTable("should include the metrics for a running VM", func(family k8sv1.IPFamily) {
-			libnet.SkipWhenClusterNotSupportIpFamily(virtClient, family)
+			libnet.SkipWhenClusterNotSupportIPFamily(virtClient, family)
 
 			ip := getSupportedIP(handlerMetricIPs, family)
 
@@ -895,7 +895,7 @@ var _ = Describe("[Serial][sig-compute]Infrastructure", func() {
 		)
 
 		DescribeTable("should include the storage metrics for a running VM", func(family k8sv1.IPFamily, metricSubstring, operator string) {
-			libnet.SkipWhenClusterNotSupportIpFamily(virtClient, family)
+			libnet.SkipWhenClusterNotSupportIPFamily(virtClient, family)
 
 			ip := getSupportedIP(handlerMetricIPs, family)
 
@@ -933,7 +933,7 @@ var _ = Describe("[Serial][sig-compute]Infrastructure", func() {
 		)
 
 		DescribeTable("should include metrics for a running VM", func(family k8sv1.IPFamily, metricSubstring, operator string) {
-			libnet.SkipWhenClusterNotSupportIpFamily(virtClient, family)
+			libnet.SkipWhenClusterNotSupportIPFamily(virtClient, family)
 
 			ip := getSupportedIP(handlerMetricIPs, family)
 
@@ -959,7 +959,7 @@ var _ = Describe("[Serial][sig-compute]Infrastructure", func() {
 		)
 
 		DescribeTable("should include VMI infos for a running VM", func(family k8sv1.IPFamily) {
-			libnet.SkipWhenClusterNotSupportIpFamily(virtClient, family)
+			libnet.SkipWhenClusterNotSupportIPFamily(virtClient, family)
 
 			ip := getSupportedIP(handlerMetricIPs, family)
 
@@ -996,7 +996,7 @@ var _ = Describe("[Serial][sig-compute]Infrastructure", func() {
 		)
 
 		DescribeTable("should include VMI phase metrics for all running VMs", func(family k8sv1.IPFamily) {
-			libnet.SkipWhenClusterNotSupportIpFamily(virtClient, family)
+			libnet.SkipWhenClusterNotSupportIPFamily(virtClient, family)
 
 			ip := getSupportedIP(handlerMetricIPs, family)
 
@@ -1015,7 +1015,7 @@ var _ = Describe("[Serial][sig-compute]Infrastructure", func() {
 		)
 
 		DescribeTable("should include VMI eviction blocker status for all running VMs", func(family k8sv1.IPFamily) {
-			libnet.SkipWhenClusterNotSupportIpFamily(virtClient, family)
+			libnet.SkipWhenClusterNotSupportIPFamily(virtClient, family)
 
 			ip := getSupportedIP(controllerMetricIPs, family)
 
@@ -1033,7 +1033,7 @@ var _ = Describe("[Serial][sig-compute]Infrastructure", func() {
 		)
 
 		DescribeTable("should include kubernetes labels to VMI metrics", func(family k8sv1.IPFamily) {
-			libnet.SkipWhenClusterNotSupportIpFamily(virtClient, family)
+			libnet.SkipWhenClusterNotSupportIPFamily(virtClient, family)
 
 			ip := getSupportedIP(handlerMetricIPs, family)
 
@@ -1056,7 +1056,7 @@ var _ = Describe("[Serial][sig-compute]Infrastructure", func() {
 
 		// explicit test fo swap metrics as test_id:4144 doesn't catch if they are missing
 		DescribeTable("should include swap metrics", func(family k8sv1.IPFamily) {
-			libnet.SkipWhenClusterNotSupportIpFamily(virtClient, family)
+			libnet.SkipWhenClusterNotSupportIPFamily(virtClient, family)
 
 			ip := getSupportedIP(handlerMetricIPs, family)
 
@@ -1617,7 +1617,7 @@ func validatedHTTPResponses(errorsChan chan error, concurrency int) error {
 }
 
 func getSupportedIP(ips []string, family k8sv1.IPFamily) string {
-	ip := libnet.GetIp(ips, family)
+	ip := libnet.GetIP(ips, family)
 	ExpectWithOffset(1, ip).NotTo(BeEmpty())
 
 	return ip

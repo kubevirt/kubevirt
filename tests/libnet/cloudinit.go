@@ -153,8 +153,8 @@ type CloudInitInterface struct {
 }
 
 type CloudInitNameservers struct {
-	Search    []string `json:"search,omitempty,flow"`
-	Addresses []string `json:"addresses,omitempty,flow"`
+	Search    []string `json:"search,omitempty"`
+	Addresses []string `json:"addresses,omitempty"`
 }
 
 type CloudInitMatch struct {

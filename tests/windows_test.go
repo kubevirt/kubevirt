@@ -297,7 +297,7 @@ var _ = Describe("[Serial][sig-compute]Windows VirtualMachineInstance", func() {
 				virtHandlerPod, err := getVirtHandlerPod()
 				Expect(err).ToNot(HaveOccurred())
 
-				virtHandlerPodIP := libnet.GetPodIpByFamily(virtHandlerPod, k8sv1.IPv4Protocol)
+				virtHandlerPodIP := libnet.GetPodIPByFamily(virtHandlerPod, k8sv1.IPv4Protocol)
 
 				command := append(cli, fmt.Sprintf("ping %s", virtHandlerPodIP))
 
