@@ -2934,7 +2934,7 @@ var _ = Describe("[sig-compute]Configurations", func() {
 				"the %s process is taking too much RAM! (%s > %s). All processes: %v",
 				process, actual.String(), memoryLimit.String(), processRss)
 		}
-		It("should be lower than allocated size", func() {
+		It("[QUARANTINE]should be lower than allocated size", func() {
 			By("Starting a VirtualMachineInstance")
 			vmi := tests.NewRandomFedoraVMI()
 			vmi, err = virtClient.VirtualMachineInstance(util.NamespaceTestDefault).Create(vmi)
