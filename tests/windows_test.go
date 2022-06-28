@@ -21,11 +21,7 @@ package tests_test
 
 import (
 	"context"
-	"encoding/json"
 	"fmt"
-	"io/ioutil"
-	"net/http"
-	"path/filepath"
 	"strings"
 	"time"
 
@@ -42,9 +38,7 @@ import (
 	"kubevirt.io/client-go/kubecli"
 
 	"kubevirt.io/kubevirt/pkg/network/dns"
-	"kubevirt.io/kubevirt/pkg/testutils"
 	"kubevirt.io/kubevirt/tests"
-	"kubevirt.io/kubevirt/tests/clientcmd"
 	"kubevirt.io/kubevirt/tests/flags"
 	"kubevirt.io/kubevirt/tests/libnet"
 	"kubevirt.io/kubevirt/tests/libstorage"
@@ -316,47 +310,6 @@ var _ = Describe("[Serial][sig-compute]Windows VirtualMachineInstance", func() {
 			})
 		})
 	})
-
-	Context("[ref_id:142]with kubectl command", func() {
-		var yamlFile string
-		BeforeEach(func() {
-			clientcmd.SkipIfNoCmd("kubectl")
-			yamlFile, err = generateVMIJson(windowsVMI, GinkgoT().TempDir())
-			Expect(err).ToNot(HaveOccurred())
-		})
-
-		It("[test_id:223]should succeed to start a vmi", func() {
-			By("Starting the vmi via kubectl command")
-			_, _, err = clientcmd.RunCommand("kubectl", "create", "-f", yamlFile)
-			Expect(err).ToNot(HaveOccurred())
-
-			tests.WaitForSuccessfulVMIStartWithTimeout(windowsVMI, 360)
-		})
-
-		It("[test_id:239]should succeed to stop a vmi", func() {
-			By("Starting the vmi via kubectl command")
-			_, _, err = clientcmd.RunCommand("kubectl", "create", "-f", yamlFile)
-			Expect(err).ToNot(HaveOccurred())
-
-			tests.WaitForSuccessfulVMIStartWithTimeout(windowsVMI, 360)
-
-			podSelector := tests.UnfinishedVMIPodSelector(windowsVMI)
-			By("Deleting the vmi via kubectl command")
-			_, _, err = clientcmd.RunCommand("kubectl", "delete", "-f", yamlFile)
-			Expect(err).ToNot(HaveOccurred())
-
-			By("Checking that the vmi does not exist anymore")
-			result := virtClient.RestClient().Get().Resource("virtualmachineinstances").Namespace(k8sv1.NamespaceDefault).Name(windowsVMI.Name).Do(context.Background())
-			Expect(result).To(testutils.HaveStatusCode(http.StatusNotFound))
-
-			By("Checking that the vmi pod terminated")
-			Eventually(func() int {
-				pods, err := virtClient.CoreV1().Pods(util.NamespaceTestDefault).List(context.Background(), podSelector)
-				Expect(err).ToNot(HaveOccurred())
-				return len(pods.Items)
-			}, 75, 0.5).Should(Equal(0))
-		})
-	})
 })
 
 func winrnLoginCommand(virtClient kubecli.KubevirtClient, windowsVMI *v1.VirtualMachineInstance) []string {
@@ -420,18 +373,4 @@ func runCommandAndExpectOutput(virtClient kubecli.KubevirtClient, winrmcliPod *k
 		Expect(err).ToNot(HaveOccurred())
 		return output
 	}, time.Minute*1, time.Second*10).Should(MatchRegexp(expectedOutputRegex))
-}
-
-func generateVMIJson(vmi *v1.VirtualMachineInstance, generateDirectory string) (string, error) {
-	data, err := json.Marshal(vmi)
-	if err != nil {
-		return "", fmt.Errorf("failed to generate json for vmi %s", vmi.Name)
-	}
-
-	jsonFile := filepath.Join(generateDirectory, fmt.Sprintf("%s.json", vmi.Name))
-	err = ioutil.WriteFile(jsonFile, data, 0644)
-	if err != nil {
-		return "", fmt.Errorf("failed to write json file %s", jsonFile)
-	}
-	return jsonFile, nil
 }
