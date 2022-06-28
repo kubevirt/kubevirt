@@ -419,11 +419,7 @@ func (t *templateService) renderLaunchManifest(vmi *v1.VirtualMachineInstance, i
 	}
 	resources := resourceRenderer.ResourceRequirements()
 
-	nodeSelector := NewNodeSelectorRenderer(vmi.Spec.NodeSelector).Render()
-	if vmi.IsCPUDedicated() {
-		// schedule only on nodes with a running cpu manager
-		nodeSelector[v1.CPUManager] = "true"
-	}
+	nodeSelector := t.newNodeSelectorRenderer(vmi).Render()
 
 	// Read requested hookSidecars from VMI meta
 	requestedHookSidecarList, err := hooks.UnmarshalHookSidecarList(vmi)
@@ -677,6 +673,16 @@ func (t *templateService) renderLaunchManifest(vmi *v1.VirtualMachineInstance, i
 	}
 
 	return &pod, nil
+}
+
+func (t *templateService) newNodeSelectorRenderer(vmi *v1.VirtualMachineInstance) *NodeSelectorRenderer {
+	var opts []NodeSelectorRendererOption
+	if vmi.IsCPUDedicated() {
+		opts = append(opts, WithDedicatedCPU())
+	}
+	nodeSelector := NewNodeSelectorRenderer(vmi.Spec.NodeSelector, opts...)
+
+	return nodeSelector
 }
 
 func initContainerVolumeMount() k8sv1.VolumeMount {
