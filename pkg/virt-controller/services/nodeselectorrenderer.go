@@ -9,13 +9,13 @@ import (
 )
 
 type NodeSelectorRenderer struct {
-	cpuFeatureLabels      []string
-	cpuModelLabel         string
-	hasDedicatedCPU       bool
-	hyperv                bool
-	tscFrequency          *int64
-	userProvidedSelectors map[string]string
-	vmiFeatures           *v1.Features
+	cpuFeatureLabels []string
+	cpuModelLabel    string
+	hasDedicatedCPU  bool
+	hyperv           bool
+	podNodeSelectors map[string]string
+	tscFrequency     *int64
+	vmiFeatures      *v1.Features
 }
 
 type NodeSelectorRendererOption func(renderer *NodeSelectorRenderer)
@@ -25,11 +25,11 @@ func NewNodeSelectorRenderer(
 	clusterWideConfNodeSelectors map[string]string,
 	opts ...NodeSelectorRendererOption,
 ) *NodeSelectorRenderer {
-	podNodeSelectors := map[string]string{}
+	podNodeSelectors := map[string]string{v1.NodeSchedulable: "true"}
 	copySelectors(clusterWideConfNodeSelectors, podNodeSelectors)
 	copySelectors(vmiNodeSelectors, podNodeSelectors)
 
-	nodeSelectorRenderer := &NodeSelectorRenderer{userProvidedSelectors: podNodeSelectors}
+	nodeSelectorRenderer := &NodeSelectorRenderer{podNodeSelectors: podNodeSelectors}
 	for _, opt := range opts {
 		opt(nodeSelectorRenderer)
 	}
@@ -37,28 +37,28 @@ func NewNodeSelectorRenderer(
 }
 
 func (nsr *NodeSelectorRenderer) Render() map[string]string {
-	nodeSelectors := map[string]string{v1.NodeSchedulable: "true"}
 	if nsr.hasDedicatedCPU {
-		nodeSelectors[v1.CPUManager] = "true"
+		nsr.enableSelectorLabel(v1.CPUManager)
 	}
 	if nsr.hyperv {
-		copySelectors(hypervNodeSelectors(nsr.vmiFeatures), nodeSelectors)
+		copySelectors(hypervNodeSelectors(nsr.vmiFeatures), nsr.podNodeSelectors)
 	}
 	if nsr.cpuModelLabel != "" && nsr.cpuModelLabel != cpuModelLabel(v1.CPUModeHostModel) && nsr.cpuModelLabel != cpuModelLabel(v1.CPUModeHostPassthrough) {
-		nodeSelectors[nsr.cpuModelLabel] = "true"
+		nsr.enableSelectorLabel(nsr.cpuModelLabel)
 	}
 	for _, cpuFeatureLabel := range nsr.cpuFeatureLabels {
-		nodeSelectors[cpuFeatureLabel] = "true"
+		nsr.enableSelectorLabel(cpuFeatureLabel)
 	}
 
 	if nsr.isManualTSCFrequencyRequired() {
-		nodeSelectors[topology.ToTSCSchedulableLabel(*nsr.tscFrequency)] = "true"
+		nsr.enableSelectorLabel(topology.ToTSCSchedulableLabel(*nsr.tscFrequency))
 	}
 
-	for k, v := range nsr.userProvidedSelectors {
-		nodeSelectors[k] = v
-	}
-	return nodeSelectors
+	return nsr.podNodeSelectors
+}
+
+func (nsr *NodeSelectorRenderer) enableSelectorLabel(label string) {
+	nsr.podNodeSelectors[label] = "true"
 }
 
 func (nsr *NodeSelectorRenderer) isManualTSCFrequencyRequired() bool {
