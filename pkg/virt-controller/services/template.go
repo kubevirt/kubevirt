@@ -33,8 +33,6 @@ import (
 	"k8s.io/apimachinery/pkg/runtime/schema"
 	"k8s.io/client-go/tools/cache"
 
-	"kubevirt.io/kubevirt/pkg/virt-controller/watch/topology"
-
 	networkv1 "github.com/k8snetworkplumbingwg/network-attachment-definition-client/pkg/apis/k8s.cni.cncf.io/v1"
 
 	v1 "kubevirt.io/api/core/v1"
@@ -416,12 +414,6 @@ func (t *templateService) renderLaunchManifest(vmi *v1.VirtualMachineInstance, i
 		containers = append(containers, *kernelBootContainer)
 	}
 
-	if vmi.Status.TopologyHints != nil {
-		if vmi.Status.TopologyHints.TSCFrequency != nil {
-			nodeSelector[topology.ToTSCSchedulableLabel(*vmi.Status.TopologyHints.TSCFrequency)] = "true"
-		}
-	}
-
 	nodeSelectors := t.clusterConfig.GetNodeSelectors()
 	for k, v := range nodeSelectors {
 		nodeSelector[k] = v
@@ -561,6 +553,10 @@ func (t *templateService) newNodeSelectorRenderer(vmi *v1.VirtualMachineInstance
 			opts,
 			WithModelAndFeatureLabels(modelLabel, CPUFeatureLabelsFromCPUFeatures(vmi)...),
 		)
+	}
+
+	if vmi.Status.TopologyHints != nil && vmi.Status.TopologyHints.TSCFrequency != nil {
+		opts = append(opts, WithTSCTimer(vmi.Status.TopologyHints.TSCFrequency))
 	}
 
 	nodeSelector := NewNodeSelectorRenderer(vmi.Spec.NodeSelector, opts...)

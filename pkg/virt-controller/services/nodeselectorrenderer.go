@@ -4,6 +4,8 @@ import (
 	"fmt"
 
 	v1 "kubevirt.io/api/core/v1"
+
+	"kubevirt.io/kubevirt/pkg/virt-controller/watch/topology"
 )
 
 type NodeSelectorRenderer struct {
@@ -11,6 +13,7 @@ type NodeSelectorRenderer struct {
 	cpuModelLabel         string
 	hasDedicatedCPU       bool
 	hyperv                bool
+	tscFrequency          *int64
 	userProvidedSelectors map[string]string
 	vmiFeatures           *v1.Features
 }
@@ -43,10 +46,18 @@ func (nsr *NodeSelectorRenderer) Render() map[string]string {
 		nodeSelectors[cpuFeatureLabel] = "true"
 	}
 
+	if nsr.isManualTSCFrequencyRequired() {
+		nodeSelectors[topology.ToTSCSchedulableLabel(*nsr.tscFrequency)] = "true"
+	}
+
 	for k, v := range nsr.userProvidedSelectors {
 		nodeSelectors[k] = v
 	}
 	return nodeSelectors
+}
+
+func (nsr *NodeSelectorRenderer) isManualTSCFrequencyRequired() bool {
+	return nsr.tscFrequency != nil
 }
 
 func WithDedicatedCPU() NodeSelectorRendererOption {
@@ -72,6 +83,12 @@ func WithModelAndFeatureLabels(modelLabel string, cpuFeatureLabels ...string) No
 	return func(renderer *NodeSelectorRenderer) {
 		renderer.cpuFeatureLabels = cpuFeatureLabels
 		renderer.cpuModelLabel = modelLabel
+	}
+}
+
+func WithTSCTimer(tscFrequency *int64) NodeSelectorRendererOption {
+	return func(renderer *NodeSelectorRenderer) {
+		renderer.tscFrequency = tscFrequency
 	}
 }
 
