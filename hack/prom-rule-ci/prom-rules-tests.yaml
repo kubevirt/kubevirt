@@ -269,7 +269,7 @@ tests:
               severity: "critical"
               kubernetes_operator_part_of: "kubevirt"
               kubernetes_operator_component: "kubevirt"
-   # All virt controllers are not ready (ImagePullBackOff)
+  # All virt controllers are not ready (ImagePullBackOff)
   - interval: 1m
     input_series:
       - series: 'kubevirt_virt_controller_ready{namespace="ci", pod="virt-controller-1"}'
@@ -399,6 +399,7 @@ tests:
         exp_alerts:
           - exp_annotations:
               summary: "More than 80% of the rest calls failed in virt-api for the last 5 minutes"
+              runbook_url: "https://kubevirt.io/monitoring/runbooks/VirtApiRESTErrorsBurst"
             exp_labels:
               severity: "critical"
               kubernetes_operator_part_of: "kubevirt"
@@ -467,6 +468,7 @@ tests:
         exp_alerts:
           - exp_annotations:
               summary: "More than 5% of the rest calls failed in virt-api for the last hour"
+              runbook_url: "https://kubevirt.io/monitoring/runbooks/VirtApiRESTErrorsHigh"
             exp_labels:
               severity: "warning"
               kubernetes_operator_part_of: "kubevirt"
