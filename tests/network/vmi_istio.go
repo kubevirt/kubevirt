@@ -107,7 +107,7 @@ var istioTests = func(vmType VmType) {
 	Context("Virtual Machine with istio supported interface", func() {
 		createJobCheckingVMIReachability := func(serverVMI *v1.VirtualMachineInstance, targetPort int) (*batchv1.Job, error) {
 			By("Starting HTTP Server")
-			tests.StartHTTPServer(vmi, targetPort, console.LoginToCirros)
+			tests.StartPythonHttpServer(vmi, targetPort)
 
 			By("Getting back the VMI IP")
 			vmi, err = virtClient.VirtualMachineInstance(vmi.Namespace).Get(vmi.Name, &metav1.GetOptions{})
@@ -152,7 +152,7 @@ var istioTests = func(vmType VmType) {
 			Expect(err).ShouldNot(HaveOccurred())
 
 			By("Waiting for VMI to be ready")
-			tests.WaitUntilVMIReady(vmi, console.LoginToCirros)
+			tests.WaitUntilVMIReady(vmi, console.LoginToAlpine)
 		})
 		Describe("Live Migration", func() {
 			var (
@@ -346,7 +346,7 @@ var istioTests = func(vmType VmType) {
 			}
 
 			BeforeEach(func() {
-				serverVMI = libvmi.NewCirros(
+				serverVMI = libvmi.NewAlpineWithTestTooling(
 					libvmi.WithNetwork(v1.DefaultPodNetwork()),
 					libvmi.WithInterface(libvmi.InterfaceDeviceWithMasqueradeBinding([]v1.Port{}...)),
 					libvmi.WithLabel("version", "v1"),
@@ -359,9 +359,9 @@ var istioTests = func(vmType VmType) {
 				_, err = virtClient.CoreV1().Services(util.NamespaceTestDefault).Create(context.Background(), serverVMIService, metav1.CreateOptions{})
 				Expect(err).ToNot(HaveOccurred())
 
-				Expect(console.LoginToCirros(serverVMI)).To(Succeed())
+				Expect(console.LoginToAlpine(serverVMI)).To(Succeed())
 				By("Starting HTTP Server")
-				tests.StartHTTPServer(serverVMI, vmiServerTestPort, console.LoginToCirros)
+				tests.StartPythonHttpServer(serverVMI, vmiServerTestPort)
 
 				By("Creating Istio VirtualService")
 				virtualServicesRes := schema.GroupVersionResource{Group: networkingIstioIO, Version: istioApiVersion, Resource: "virtualservices"}
@@ -485,7 +485,7 @@ func newVMIWithIstioSidecar(ports []v1.Port, vmType VmType) *v1.VirtualMachineIn
 }
 
 func createMasqueradeVm(ports []v1.Port) *v1.VirtualMachineInstance {
-	vmi := libvmi.NewCirros(
+	vmi := libvmi.NewAlpineWithTestTooling(
 		libvmi.WithNetwork(v1.DefaultPodNetwork()),
 		libvmi.WithInterface(libvmi.InterfaceDeviceWithMasqueradeBinding(ports...)),
 		libvmi.WithLabel(vmiAppSelectorKey, vmiAppSelectorValue),
@@ -495,7 +495,7 @@ func createMasqueradeVm(ports []v1.Port) *v1.VirtualMachineInstance {
 }
 
 func createPasstVm(ports []v1.Port) *v1.VirtualMachineInstance {
-	vmi := libvmi.NewCirros(
+	vmi := libvmi.NewAlpineWithTestTooling(
 		libvmi.WithNetwork(v1.DefaultPodNetwork()),
 		libvmi.WithInterface(libvmi.InterfaceDeviceWithPasstBinding(ports...)),
 		libvmi.WithLabel(vmiAppSelectorKey, vmiAppSelectorValue),

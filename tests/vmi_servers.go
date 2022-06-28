@@ -39,6 +39,8 @@ func StartHTTPServerWithSourceIp(vmi *v1.VirtualMachineInstance, port int, sourc
 }
 
 func StartPythonHttpServer(vmi *v1.VirtualMachineInstance, port int) {
+	Expect(console.RunCommand(vmi, "echo 'Hello World!' > index.html", 60*time.Second)).To(Succeed())
+
 	serverCommand := fmt.Sprintf("python3 -m http.server %d --bind ::0 &\n", port)
 	Expect(console.RunCommand(vmi, serverCommand, 60*time.Second)).To(Succeed())
 }
