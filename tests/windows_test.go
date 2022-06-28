@@ -58,69 +58,6 @@ const (
 	winrmCliCmd = "winrm-cli"
 )
 
-var getWindowsVMISpec = func() v1.VirtualMachineInstanceSpec {
-	gracePeriod := int64(0)
-	spinlocks := uint32(8191)
-	firmware := types.UID(windowsFirmware)
-	_false := false
-	return v1.VirtualMachineInstanceSpec{
-		TerminationGracePeriodSeconds: &gracePeriod,
-		Domain: v1.DomainSpec{
-			CPU: &v1.CPU{Cores: 2},
-			Features: &v1.Features{
-				ACPI: v1.FeatureState{},
-				APIC: &v1.FeatureAPIC{},
-				Hyperv: &v1.FeatureHyperv{
-					Relaxed:    &v1.FeatureState{},
-					SyNICTimer: &v1.SyNICTimer{Direct: &v1.FeatureState{}},
-					VAPIC:      &v1.FeatureState{},
-					Spinlocks:  &v1.FeatureSpinlocks{Retries: &spinlocks},
-				},
-			},
-			Clock: &v1.Clock{
-				ClockOffset: v1.ClockOffset{UTC: &v1.ClockOffsetUTC{}},
-				Timer: &v1.Timer{
-					HPET:   &v1.HPETTimer{Enabled: &_false},
-					PIT:    &v1.PITTimer{TickPolicy: v1.PITTickPolicyDelay},
-					RTC:    &v1.RTCTimer{TickPolicy: v1.RTCTickPolicyCatchup},
-					Hyperv: &v1.HypervTimer{},
-				},
-			},
-			Firmware: &v1.Firmware{UUID: firmware},
-			Resources: v1.ResourceRequirements{
-				Requests: k8sv1.ResourceList{
-					k8sv1.ResourceMemory: resource.MustParse("2048Mi"),
-				},
-			},
-			Devices: v1.Devices{
-				Disks: []v1.Disk{
-					{
-						Name: windowsDisk,
-						DiskDevice: v1.DiskDevice{
-							Disk: &v1.DiskTarget{
-								Bus: v1.DiskBusSATA,
-							},
-						},
-					},
-				},
-			},
-		},
-		Volumes: []v1.Volume{
-			{
-				Name: windowsDisk,
-				VolumeSource: v1.VolumeSource{
-					Ephemeral: &v1.EphemeralVolumeSource{
-						PersistentVolumeClaim: &k8sv1.PersistentVolumeClaimVolumeSource{
-							ClaimName: tests.DiskWindows,
-						},
-					},
-				},
-			},
-		},
-	}
-
-}
-
 var _ = Describe("[Serial][sig-compute]Windows VirtualMachineInstance", func() {
 	var virtClient kubecli.KubevirtClient
 	var windowsVMI *v1.VirtualMachineInstance
@@ -302,6 +239,68 @@ var _ = Describe("[Serial][sig-compute]Windows VirtualMachineInstance", func() {
 		})
 	})
 })
+
+func getWindowsVMISpec() v1.VirtualMachineInstanceSpec {
+	gracePeriod := int64(0)
+	spinlocks := uint32(8191)
+	firmware := types.UID(windowsFirmware)
+	_false := false
+	return v1.VirtualMachineInstanceSpec{
+		TerminationGracePeriodSeconds: &gracePeriod,
+		Domain: v1.DomainSpec{
+			CPU: &v1.CPU{Cores: 2},
+			Features: &v1.Features{
+				ACPI: v1.FeatureState{},
+				APIC: &v1.FeatureAPIC{},
+				Hyperv: &v1.FeatureHyperv{
+					Relaxed:    &v1.FeatureState{},
+					SyNICTimer: &v1.SyNICTimer{Direct: &v1.FeatureState{}},
+					VAPIC:      &v1.FeatureState{},
+					Spinlocks:  &v1.FeatureSpinlocks{Retries: &spinlocks},
+				},
+			},
+			Clock: &v1.Clock{
+				ClockOffset: v1.ClockOffset{UTC: &v1.ClockOffsetUTC{}},
+				Timer: &v1.Timer{
+					HPET:   &v1.HPETTimer{Enabled: &_false},
+					PIT:    &v1.PITTimer{TickPolicy: v1.PITTickPolicyDelay},
+					RTC:    &v1.RTCTimer{TickPolicy: v1.RTCTickPolicyCatchup},
+					Hyperv: &v1.HypervTimer{},
+				},
+			},
+			Firmware: &v1.Firmware{UUID: firmware},
+			Resources: v1.ResourceRequirements{
+				Requests: k8sv1.ResourceList{
+					k8sv1.ResourceMemory: resource.MustParse("2048Mi"),
+				},
+			},
+			Devices: v1.Devices{
+				Disks: []v1.Disk{
+					{
+						Name: windowsDisk,
+						DiskDevice: v1.DiskDevice{
+							Disk: &v1.DiskTarget{
+								Bus: v1.DiskBusSATA,
+							},
+						},
+					},
+				},
+			},
+		},
+		Volumes: []v1.Volume{
+			{
+				Name: windowsDisk,
+				VolumeSource: v1.VolumeSource{
+					Ephemeral: &v1.EphemeralVolumeSource{
+						PersistentVolumeClaim: &k8sv1.PersistentVolumeClaimVolumeSource{
+							ClaimName: tests.DiskWindows,
+						},
+					},
+				},
+			},
+		},
+	}
+}
 
 func winrnLoginCommand(virtClient kubecli.KubevirtClient, windowsVMI *v1.VirtualMachineInstance) []string {
 	var err error
