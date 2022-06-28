@@ -229,6 +229,11 @@ func GenerateRevisionNamePatch(flavorRevision, preferenceRevision *appsv1.Contro
 	if flavorRevision != nil {
 		patches = append(patches,
 			utiltypes.PatchOperation{
+				Op:    utiltypes.PatchTestOp,
+				Path:  "/spec/flavor/revisionName",
+				Value: nil,
+			},
+			utiltypes.PatchOperation{
 				Op:    utiltypes.PatchAddOp,
 				Path:  "/spec/flavor/revisionName",
 				Value: flavorRevision.Name,
@@ -238,6 +243,11 @@ func GenerateRevisionNamePatch(flavorRevision, preferenceRevision *appsv1.Contro
 
 	if preferenceRevision != nil {
 		patches = append(patches,
+			utiltypes.PatchOperation{
+				Op:    utiltypes.PatchTestOp,
+				Path:  "/spec/preference/revisionName",
+				Value: nil,
+			},
 			utiltypes.PatchOperation{
 				Op:    utiltypes.PatchAddOp,
 				Path:  "/spec/preference/revisionName",
