@@ -165,96 +165,6 @@ func isFeatureStateEnabled(fs *v1.FeatureState) bool {
 	return fs != nil && fs.Enabled != nil && *fs.Enabled
 }
 
-type hvFeatureLabel struct {
-	Feature *v1.FeatureState
-	Label   string
-}
-
-// makeHVFeatureLabelTable creates the mapping table between the VMI hyperv state and the label names.
-// The table needs pointers to v1.FeatureHyperv struct, so it has to be generated and can't be a
-// static var
-func makeHVFeatureLabelTable(vmi *v1.VirtualMachineInstance) []hvFeatureLabel {
-	// The following HyperV features don't require support from the host kernel, according to inspection
-	// of the QEMU sources (4.0 - adb3321bfd)
-	// VAPIC, Relaxed, Spinlocks, VendorID
-	// VPIndex, SyNIC: depend on both MSR and capability
-	// IPI, TLBFlush: depend on KVM Capabilities
-	// Runtime, Reset, SyNICTimer, Frequencies, Reenlightenment: depend on KVM MSRs availability
-	// EVMCS: depends on KVM capability, but the only way to know that is enable it, QEMU doesn't do
-	// any check before that, so we leave it out
-	//
-	// see also https://schd.ws/hosted_files/devconfcz2019/cf/vkuznets_enlightening_kvm_devconf2019.pdf
-	// to learn about dependencies between enlightenments
-
-	hyperv := vmi.Spec.Domain.Features.Hyperv // shortcut
-
-	syNICTimer := &v1.FeatureState{}
-	if hyperv.SyNICTimer != nil {
-		syNICTimer.Enabled = hyperv.SyNICTimer.Enabled
-	}
-
-	return []hvFeatureLabel{
-		{
-			Feature: hyperv.VPIndex,
-			Label:   "vpindex",
-		},
-		{
-			Feature: hyperv.Runtime,
-			Label:   "runtime",
-		},
-		{
-			Feature: hyperv.Reset,
-			Label:   "reset",
-		},
-		{
-			// TODO: SyNIC depends on vp-index on QEMU level. We should enforce this constraint.
-			Feature: hyperv.SyNIC,
-			Label:   "synic",
-		},
-		{
-			// TODO: SyNICTimer depends on SyNIC and Relaxed. We should enforce this constraint.
-			Feature: syNICTimer,
-			Label:   "synictimer",
-		},
-		{
-			Feature: hyperv.Frequencies,
-			Label:   "frequencies",
-		},
-		{
-			Feature: hyperv.Reenlightenment,
-			Label:   "reenlightenment",
-		},
-		{
-			Feature: hyperv.TLBFlush,
-			Label:   "tlbflush",
-		},
-		{
-			Feature: hyperv.IPI,
-			Label:   "ipi",
-		},
-	}
-}
-
-func getHypervNodeSelectors(vmi *v1.VirtualMachineInstance) map[string]string {
-	nodeSelectors := make(map[string]string)
-	if vmi.Spec.Domain.Features == nil || vmi.Spec.Domain.Features.Hyperv == nil {
-		return nodeSelectors
-	}
-
-	hvFeatureLabels := makeHVFeatureLabelTable(vmi)
-	for _, hv := range hvFeatureLabels {
-		if isFeatureStateEnabled(hv.Feature) {
-			nodeSelectors[NFD_KVM_INFO_PREFIX+hv.Label] = "true"
-		}
-	}
-
-	if vmi.Spec.Domain.Features.Hyperv.EVMCS != nil {
-		nodeSelectors[v1.CPUModelVendorLabel+IntelVendorName] = "true"
-	}
-
-	return nodeSelectors
-}
-
 func SetNodeAffinityForForbiddenFeaturePolicy(vmi *v1.VirtualMachineInstance, pod *k8sv1.Pod) {
 
 	if vmi.Spec.Domain.CPU == nil || vmi.Spec.Domain.CPU.Features == nil {
@@ -515,13 +425,6 @@ func (t *templateService) renderLaunchManifest(vmi *v1.VirtualMachineInstance, i
 		}
 	}
 
-	if t.clusterConfig.HypervStrictCheckEnabled() {
-		hvNodeSelectors := getHypervNodeSelectors(vmi)
-		for k, v := range hvNodeSelectors {
-			nodeSelector[k] = v
-		}
-	}
-
 	if vmi.Status.TopologyHints != nil {
 		if vmi.Status.TopologyHints.TSCFrequency != nil {
 			nodeSelector[topology.ToTSCSchedulableLabel(*vmi.Status.TopologyHints.TSCFrequency)] = "true"
@@ -658,6 +561,9 @@ func (t *templateService) newNodeSelectorRenderer(vmi *v1.VirtualMachineInstance
 	var opts []NodeSelectorRendererOption
 	if vmi.IsCPUDedicated() {
 		opts = append(opts, WithDedicatedCPU())
+	}
+	if t.clusterConfig.HypervStrictCheckEnabled() {
+		opts = append(opts, WithHyperv(vmi.Spec.Domain.Features))
 	}
 	nodeSelector := NewNodeSelectorRenderer(vmi.Spec.NodeSelector, opts...)
 

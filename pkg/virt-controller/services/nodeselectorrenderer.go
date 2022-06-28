@@ -8,7 +8,9 @@ import (
 
 type NodeSelectorRenderer struct {
 	hasDedicatedCPU       bool
+	hyperv                bool
 	userProvidedSelectors map[string]string
+	vmiFeatures           *v1.Features
 }
 
 type NodeSelectorRendererOption func(renderer *NodeSelectorRenderer)
@@ -29,6 +31,9 @@ func (nsr *NodeSelectorRenderer) Render() map[string]string {
 	if nsr.hasDedicatedCPU {
 		nodeSelectors[v1.CPUManager] = "true"
 	}
+	if nsr.hyperv {
+		copySelectors(hypervNodeSelectors(nsr.vmiFeatures), nodeSelectors)
+	}
 	for k, v := range nsr.userProvidedSelectors {
 		nodeSelectors[k] = v
 	}
@@ -44,6 +49,13 @@ func WithDedicatedCPU() NodeSelectorRendererOption {
 func copySelectors(src map[string]string, dst map[string]string) {
 	for k, v := range src {
 		dst[k] = v
+	}
+}
+
+func WithHyperv(features *v1.Features) NodeSelectorRendererOption {
+	return func(renderer *NodeSelectorRenderer) {
+		renderer.hyperv = true
+		renderer.vmiFeatures = features
 	}
 }
 
@@ -66,4 +78,93 @@ func CPUFeatureLabelsFromCPUFeatures(vmi *v1.VirtualMachineInstance) []string {
 		}
 	}
 	return labels
+}
+
+func hypervNodeSelectors(vmiFeatures *v1.Features) map[string]string {
+	nodeSelectors := make(map[string]string)
+	if vmiFeatures == nil || vmiFeatures.Hyperv == nil {
+		return nodeSelectors
+	}
+
+	for _, hv := range makeHVFeatureLabelTable(vmiFeatures) {
+		if isFeatureStateEnabled(hv.Feature) {
+			nodeSelectors[NFD_KVM_INFO_PREFIX+hv.Label] = "true"
+		}
+	}
+
+	if vmiFeatures.Hyperv.EVMCS != nil {
+		nodeSelectors[v1.CPUModelVendorLabel+IntelVendorName] = "true"
+	}
+
+	return nodeSelectors
+}
+
+type hvFeatureLabel struct {
+	Feature *v1.FeatureState
+	Label   string
+}
+
+// makeHVFeatureLabelTable creates the mapping table between the VMI hyperv state and the label names.
+// The table needs pointers to v1.FeatureHyperv struct, so it has to be generated and can't be a
+// static var
+func makeHVFeatureLabelTable(vmiFeatures *v1.Features) []hvFeatureLabel {
+	// The following HyperV features don't require support from the host kernel, according to inspection
+	// of the QEMU sources (4.0 - adb3321bfd)
+	// VAPIC, Relaxed, Spinlocks, VendorID
+	// VPIndex, SyNIC: depend on both MSR and capability
+	// IPI, TLBFlush: depend on KVM Capabilities
+	// Runtime, Reset, SyNICTimer, Frequencies, Reenlightenment: depend on KVM MSRs availability
+	// EVMCS: depends on KVM capability, but the only way to know that is enable it, QEMU doesn't do
+	// any check before that, so we leave it out
+	//
+	// see also https://schd.ws/hosted_files/devconfcz2019/cf/vkuznets_enlightening_kvm_devconf2019.pdf
+	// to learn about dependencies between enlightenments
+
+	hyperv := vmiFeatures.Hyperv // shortcut
+
+	syNICTimer := &v1.FeatureState{}
+	if hyperv.SyNICTimer != nil {
+		syNICTimer.Enabled = hyperv.SyNICTimer.Enabled
+	}
+
+	return []hvFeatureLabel{
+		{
+			Feature: hyperv.VPIndex,
+			Label:   "vpindex",
+		},
+		{
+			Feature: hyperv.Runtime,
+			Label:   "runtime",
+		},
+		{
+			Feature: hyperv.Reset,
+			Label:   "reset",
+		},
+		{
+			// TODO: SyNIC depends on vp-index on QEMU level. We should enforce this constraint.
+			Feature: hyperv.SyNIC,
+			Label:   "synic",
+		},
+		{
+			// TODO: SyNICTimer depends on SyNIC and Relaxed. We should enforce this constraint.
+			Feature: syNICTimer,
+			Label:   "synictimer",
+		},
+		{
+			Feature: hyperv.Frequencies,
+			Label:   "frequencies",
+		},
+		{
+			Feature: hyperv.Reenlightenment,
+			Label:   "reenlightenment",
+		},
+		{
+			Feature: hyperv.TLBFlush,
+			Label:   "tlbflush",
+		},
+		{
+			Feature: hyperv.IPI,
+			Label:   "ipi",
+		},
+	}
 }
