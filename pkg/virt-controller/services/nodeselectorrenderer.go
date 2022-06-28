@@ -20,8 +20,13 @@ type NodeSelectorRenderer struct {
 
 type NodeSelectorRendererOption func(renderer *NodeSelectorRenderer)
 
-func NewNodeSelectorRenderer(vmiNodeSelectors map[string]string, opts ...NodeSelectorRendererOption) *NodeSelectorRenderer {
+func NewNodeSelectorRenderer(
+	vmiNodeSelectors map[string]string,
+	clusterWideConfNodeSelectors map[string]string,
+	opts ...NodeSelectorRendererOption,
+) *NodeSelectorRenderer {
 	podNodeSelectors := map[string]string{}
+	copySelectors(clusterWideConfNodeSelectors, podNodeSelectors)
 	copySelectors(vmiNodeSelectors, podNodeSelectors)
 
 	nodeSelectorRenderer := &NodeSelectorRenderer{userProvidedSelectors: podNodeSelectors}

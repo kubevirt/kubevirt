@@ -306,8 +306,6 @@ func (t *templateService) renderLaunchManifest(vmi *v1.VirtualMachineInstance, i
 	}
 	resources := resourceRenderer.ResourceRequirements()
 
-	nodeSelector := t.newNodeSelectorRenderer(vmi).Render()
-
 	// Read requested hookSidecars from VMI meta
 	requestedHookSidecarList, err := hooks.UnmarshalHookSidecarList(vmi)
 	if err != nil {
@@ -414,11 +412,6 @@ func (t *templateService) renderLaunchManifest(vmi *v1.VirtualMachineInstance, i
 		containers = append(containers, *kernelBootContainer)
 	}
 
-	nodeSelectors := t.clusterConfig.GetNodeSelectors()
-	for k, v := range nodeSelectors {
-		nodeSelector[k] = v
-	}
-
 	for i, requestedHookSidecar := range requestedHookSidecarList {
 		containers = append(
 			containers,
@@ -480,7 +473,7 @@ func (t *templateService) renderLaunchManifest(vmi *v1.VirtualMachineInstance, i
 			RestartPolicy:                 k8sv1.RestartPolicyNever,
 			Containers:                    containers,
 			InitContainers:                initContainers,
-			NodeSelector:                  nodeSelector,
+			NodeSelector:                  t.newNodeSelectorRenderer(vmi).Render(),
 			Volumes:                       volumeRenderer.Volumes(),
 			ImagePullSecrets:              imagePullSecrets,
 			DNSConfig:                     vmi.Spec.DNSConfig,
@@ -559,9 +552,11 @@ func (t *templateService) newNodeSelectorRenderer(vmi *v1.VirtualMachineInstance
 		opts = append(opts, WithTSCTimer(vmi.Status.TopologyHints.TSCFrequency))
 	}
 
-	nodeSelector := NewNodeSelectorRenderer(vmi.Spec.NodeSelector, opts...)
-
-	return nodeSelector
+	return NewNodeSelectorRenderer(
+		vmi.Spec.NodeSelector,
+		t.clusterConfig.GetNodeSelectors(),
+		opts...,
+	)
 }
 
 func initContainerVolumeMount() k8sv1.VolumeMount {
