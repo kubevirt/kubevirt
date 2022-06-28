@@ -100,7 +100,7 @@ var _ = SIGDescribe("Control Plane Performance Density Testing", func() {
 				createBatchVMIWithRateControl(virtClient, vmCount)
 
 				By("Waiting a batch of VMIs")
-				waitRunningVMI(virtClient, vmCount, vmBatchStartupLimit)
+				waitRunningVMI(virtClient, vmCount+1, vmBatchStartupLimit)
 			})
 		})
 	})
