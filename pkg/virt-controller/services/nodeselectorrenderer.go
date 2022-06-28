@@ -7,6 +7,8 @@ import (
 )
 
 type NodeSelectorRenderer struct {
+	cpuFeatureLabels      []string
+	cpuModelLabel         string
 	hasDedicatedCPU       bool
 	hyperv                bool
 	userProvidedSelectors map[string]string
@@ -34,6 +36,13 @@ func (nsr *NodeSelectorRenderer) Render() map[string]string {
 	if nsr.hyperv {
 		copySelectors(hypervNodeSelectors(nsr.vmiFeatures), nodeSelectors)
 	}
+	if nsr.cpuModelLabel != "" && nsr.cpuModelLabel != cpuModelLabel(v1.CPUModeHostModel) && nsr.cpuModelLabel != cpuModelLabel(v1.CPUModeHostPassthrough) {
+		nodeSelectors[nsr.cpuModelLabel] = "true"
+	}
+	for _, cpuFeatureLabel := range nsr.cpuFeatureLabels {
+		nodeSelectors[cpuFeatureLabel] = "true"
+	}
+
 	for k, v := range nsr.userProvidedSelectors {
 		nodeSelectors[k] = v
 	}
@@ -59,13 +68,24 @@ func WithHyperv(features *v1.Features) NodeSelectorRendererOption {
 	}
 }
 
+func WithModelAndFeatureLabels(modelLabel string, cpuFeatureLabels ...string) NodeSelectorRendererOption {
+	return func(renderer *NodeSelectorRenderer) {
+		renderer.cpuFeatureLabels = cpuFeatureLabels
+		renderer.cpuModelLabel = modelLabel
+	}
+}
+
 func CPUModelLabelFromCPUModel(vmi *v1.VirtualMachineInstance) (label string, err error) {
 	if vmi.Spec.Domain.CPU == nil || vmi.Spec.Domain.CPU.Model == "" {
 		err = fmt.Errorf("Cannot create CPU Model label, vmi spec is mising CPU model")
 		return
 	}
-	label = NFD_CPU_MODEL_PREFIX + vmi.Spec.Domain.CPU.Model
+	label = cpuModelLabel(vmi.Spec.Domain.CPU.Model)
 	return
+}
+
+func cpuModelLabel(cpuModel string) string {
+	return NFD_CPU_MODEL_PREFIX + cpuModel
 }
 
 func CPUFeatureLabelsFromCPUFeatures(vmi *v1.VirtualMachineInstance) []string {

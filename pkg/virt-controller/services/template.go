@@ -416,15 +416,6 @@ func (t *templateService) renderLaunchManifest(vmi *v1.VirtualMachineInstance, i
 		containers = append(containers, *kernelBootContainer)
 	}
 
-	if cpuModelLabel, err := CPUModelLabelFromCPUModel(vmi); err == nil {
-		if vmi.Spec.Domain.CPU.Model != v1.CPUModeHostModel && vmi.Spec.Domain.CPU.Model != v1.CPUModeHostPassthrough {
-			nodeSelector[cpuModelLabel] = "true"
-		}
-		for _, cpuFeatureLable := range CPUFeatureLabelsFromCPUFeatures(vmi) {
-			nodeSelector[cpuFeatureLable] = "true"
-		}
-	}
-
 	if vmi.Status.TopologyHints != nil {
 		if vmi.Status.TopologyHints.TSCFrequency != nil {
 			nodeSelector[topology.ToTSCSchedulableLabel(*vmi.Status.TopologyHints.TSCFrequency)] = "true"
@@ -565,6 +556,14 @@ func (t *templateService) newNodeSelectorRenderer(vmi *v1.VirtualMachineInstance
 	if t.clusterConfig.HypervStrictCheckEnabled() {
 		opts = append(opts, WithHyperv(vmi.Spec.Domain.Features))
 	}
+
+	if modelLabel, err := CPUModelLabelFromCPUModel(vmi); err == nil {
+		opts = append(
+			opts,
+			WithModelAndFeatureLabels(modelLabel, CPUFeatureLabelsFromCPUFeatures(vmi)...),
+		)
+	}
+
 	nodeSelector := NewNodeSelectorRenderer(vmi.Spec.NodeSelector, opts...)
 
 	return nodeSelector
