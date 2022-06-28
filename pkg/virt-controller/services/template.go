@@ -255,27 +255,6 @@ func getHypervNodeSelectors(vmi *v1.VirtualMachineInstance) map[string]string {
 	return nodeSelectors
 }
 
-func CPUModelLabelFromCPUModel(vmi *v1.VirtualMachineInstance) (label string, err error) {
-	if vmi.Spec.Domain.CPU == nil || vmi.Spec.Domain.CPU.Model == "" {
-		err = fmt.Errorf("Cannot create CPU Model label, vmi spec is mising CPU model")
-		return
-	}
-	label = NFD_CPU_MODEL_PREFIX + vmi.Spec.Domain.CPU.Model
-	return
-}
-
-func CPUFeatureLabelsFromCPUFeatures(vmi *v1.VirtualMachineInstance) []string {
-	var labels []string
-	if vmi.Spec.Domain.CPU != nil && vmi.Spec.Domain.CPU.Features != nil {
-		for _, feature := range vmi.Spec.Domain.CPU.Features {
-			if feature.Policy == "" || feature.Policy == "require" {
-				labels = append(labels, NFD_CPU_FEATURE_PREFIX+feature.Name)
-			}
-		}
-	}
-	return labels
-}
-
 func SetNodeAffinityForForbiddenFeaturePolicy(vmi *v1.VirtualMachineInstance, pod *k8sv1.Pod) {
 
 	if vmi.Spec.Domain.CPU == nil || vmi.Spec.Domain.CPU.Features == nil {
