@@ -29,7 +29,7 @@ func NewNodeSelectorRenderer(vmiNodeSelectors map[string]string, opts ...NodeSel
 }
 
 func (nsr *NodeSelectorRenderer) Render() map[string]string {
-	nodeSelectors := map[string]string{}
+	nodeSelectors := map[string]string{v1.NodeSchedulable: "true"}
 	if nsr.hasDedicatedCPU {
 		nodeSelectors[v1.CPUManager] = "true"
 	}
