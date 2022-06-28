@@ -295,14 +295,41 @@ var _ = SIGDescribe("DataVolume Integration", func() {
 					Skip("no snapshot storage class configured")
 				}
 
-				dataVolume := libstorage.NewRandomDataVolumeWithRegistryImportInStorageClass(
+				By("Creating source DV")
+				srcDv := libstorage.NewRandomDataVolumeWithRegistryImportInStorageClass(
 					cd.DataVolumeImportUrlForContainerDisk(cd.ContainerDiskAlpine),
 					util.NamespaceTestDefault,
 					sc,
 					k8sv1.ReadWriteOnce,
 					k8sv1.PersistentVolumeFilesystem,
 				)
+				if srcDv.Annotations == nil {
+					srcDv.Annotations = map[string]string{}
+				}
+				srcDv.Annotations["cdi.kubevirt.io/storage.bind.immediate.requested"] = "true"
+				_, err = virtClient.CdiClient().CdiV1beta1().DataVolumes(srcDv.Namespace).Create(context.Background(), srcDv, metav1.CreateOptions{})
+				Expect(err).ToNot(HaveOccurred())
+
+				By("Creating source pod")
+				volumeFilesystem := k8sv1.PersistentVolumeFilesystem
+				pod := tests.RunPod(libstorage.RenderPodWithPvcNameAndVolumeMode(
+					"source-use-pod",
+					[]string{"/bin/bash", "-c", "while true; do echo hello; sleep 2;done"},
+					nil,
+					srcDv.Name,
+					&volumeFilesystem))
+
+				Eventually(func() k8sv1.PodPhase {
+					p, err := virtClient.CoreV1().Pods(srcDv.Namespace).Get(context.TODO(), pod.Name, metav1.GetOptions{})
+					Expect(err).ToNot(HaveOccurred())
+					return p.Status.Phase
+				}, 90*time.Second, 2*time.Second).Should(Equal(k8sv1.PodRunning))
+				///////
+
+				By("Creating clone DV")
+				dataVolume := libstorage.NewRandomDataVolumeWithPVCSourceWithStorageClass(srcDv.Namespace, srcDv.Name, srcDv.Namespace, sc, "1Gi", k8sv1.ReadWriteOnce)
 				vmi := tests.NewRandomVMIWithDataVolume(dataVolume.Name)
+				vmi.Namespace = srcDv.Namespace
 				vmSpec := tests.NewRandomVirtualMachine(vmi, false)
 
 				vm, err := virtClient.VirtualMachine(vmSpec.Namespace).Create(vmSpec)
@@ -315,6 +342,10 @@ var _ = SIGDescribe("DataVolume Integration", func() {
 				}, 180*time.Second, 2*time.Second).Should(Equal(v1.VirtualMachineStatusStopped))
 
 				_, err = virtClient.CdiClient().CdiV1beta1().DataVolumes(dataVolume.Namespace).Create(context.Background(), dataVolume, metav1.CreateOptions{})
+				Expect(err).ToNot(HaveOccurred())
+
+				By("Deleting source pod")
+				err = virtClient.CoreV1().Pods(pod.Namespace).Delete(context.TODO(), pod.Name, metav1.DeleteOptions{})
 				Expect(err).ToNot(HaveOccurred())
 
 				Eventually(func() v1.VirtualMachinePrintableStatus {

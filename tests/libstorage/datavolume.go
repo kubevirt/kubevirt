@@ -116,10 +116,10 @@ func NewRandomDataVolumeWithPVCSource(sourceNamespace, sourceName, targetNamespa
 	if !exists {
 		ginkgo.Skip("Skip test when Filesystem storage is not present")
 	}
-	return newRandomDataVolumeWithPVCSourceWithStorageClass(sourceNamespace, sourceName, targetNamespace, sc, "1Gi", accessMode)
+	return NewRandomDataVolumeWithPVCSourceWithStorageClass(sourceNamespace, sourceName, targetNamespace, sc, "1Gi", accessMode)
 }
 
-func newRandomDataVolumeWithPVCSourceWithStorageClass(sourceNamespace, sourceName, targetNamespace, storageClass, size string, accessMode v1.PersistentVolumeAccessMode) *v1beta1.DataVolume {
+func NewRandomDataVolumeWithPVCSourceWithStorageClass(sourceNamespace, sourceName, targetNamespace, storageClass, size string, accessMode v1.PersistentVolumeAccessMode) *v1beta1.DataVolume {
 	dataVolumeSource := v1beta1.DataVolumeSource{
 		PVC: &v1beta1.DataVolumeSourcePVC{
 			Namespace: sourceNamespace,

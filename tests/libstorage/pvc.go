@@ -47,6 +47,10 @@ const (
 )
 
 func RenderPodWithPVC(name string, cmd []string, args []string, pvc *k8sv1.PersistentVolumeClaim) *k8sv1.Pod {
+	return RenderPodWithPvcNameAndVolumeMode(name, cmd, args, pvc.GetName(), pvc.Spec.VolumeMode)
+}
+
+func RenderPodWithPvcNameAndVolumeMode(name string, cmd []string, args []string, pvcName string, volumeMode *k8sv1.PersistentVolumeMode) *k8sv1.Pod {
 	volumeName := "disk0"
 	// Change to 'pod := RenderPod(name, cmd, args)' once we have a libpod package
 	pod := &k8sv1.Pod{
@@ -72,7 +76,7 @@ func RenderPodWithPVC(name string, cmd []string, args []string, pvc *k8sv1.Persi
 					Name: volumeName,
 					VolumeSource: k8sv1.VolumeSource{
 						PersistentVolumeClaim: &k8sv1.PersistentVolumeClaimVolumeSource{
-							ClaimName: pvc.GetName(),
+							ClaimName: pvcName,
 						},
 					},
 				},
@@ -80,7 +84,6 @@ func RenderPodWithPVC(name string, cmd []string, args []string, pvc *k8sv1.Persi
 		},
 	}
 
-	volumeMode := pvc.Spec.VolumeMode
 	if volumeMode != nil && *volumeMode == k8sv1.PersistentVolumeBlock {
 		pod.Spec.Containers[0].VolumeDevices = addVolumeDevices(volumeName)
 	} else {
