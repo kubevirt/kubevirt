@@ -1,0 +1,34 @@
+name: checks
+
+on:
+  pull_request:
+    branches: [ main ]
+
+jobs:
+  go-versions:
+    name: Lookup go versions
+    runs-on: ubuntu-latest
+    outputs:
+      minimal: ${{ steps.versions.outputs.minimal }}
+    steps:
+      - uses: actions/checkout@v2
+      - uses: arnested/go-version-action@v1
+        id: versions
+  lint:
+    name: lint
+    runs-on: ubuntu-latest
+    needs: go-versions
+    steps:
+      - name: Check out code
+        uses: actions/checkout@v2
+      - name: Set up Go
+        uses: actions/setup-go@v2
+        with:
+          go-version: ${{ needs.go-versions.outputs.minimal }}
+      - name: golangci-lint
+        uses: golangci/golangci-lint-action@v3
+        with:
+          version: v1.46.2
+          args: |
+            --timeout 10m --verbose \
+            tests/libvmi/...
