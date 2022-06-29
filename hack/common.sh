@@ -1,13 +1,22 @@
 #!/usr/bin/env bash
 
+detect_podman() {
+    if curl --unix-socket "/run/podman/podman.sock" http://d/v3.0.0/libpod/info >/dev/null 2>&1; then
+        echo "podman --remote --url=unix:///run/podman/podman.sock"
+    elif curl --unix-socket "${XDG_RUNTIME_DIR}/podman/podman.sock" http://d/v3.0.0/libpod/info >/dev/null 2>&1; then
+        echo "podman --remote --url=unix://${XDG_RUNTIME_DIR}/podman/podman.sock"
+    fi
+}
+
 determine_cri_bin() {
     if [ "${KUBEVIRT_CRI}" = "podman" ]; then
-        echo "podman --remote --url=unix://${XDG_RUNTIME_DIR}/podman/podman.sock"
+        detect_podman
     elif [ "${KUBEVIRT_CRI}" = "docker" ]; then
         echo docker
     else
-        if curl --unix-socket "${XDG_RUNTIME_DIR}/podman/podman.sock" http://d/v3.0.0/libpod/info >/dev/null 2>&1; then
-            echo "podman --remote --url=unix://${XDG_RUNTIME_DIR}/podman/podman.sock"
+        local podman=$(detect_podman)
+        if [ -n "$podman" ]; then
+            echo "$podman"
         elif docker ps >/dev/null 2>&1; then
             echo docker
         else
