@@ -5,6 +5,12 @@ import (
 
 	. "github.com/onsi/ginkgo"
 	"github.com/onsi/ginkgo/extensions/table"
+	"k8s.io/utils/pointer"
+
+	v1 "kubevirt.io/api/core/v1"
+
+	"kubevirt.io/kubevirt/tests/libvmi"
+
 	. "github.com/onsi/gomega"
 
 	"kubevirt.io/kubevirt/pkg/virt-controller/watch/topology"
@@ -68,6 +74,28 @@ var _ = Describe("TSC", func() {
 			[]int64{2, 4},
 		),
 	)
+
+	Context("needs to be set when", func() {
+
+		It("invtsc feature exists", func() {
+			vmi := libvmi.New(
+				libvmi.WithCPUFeature("invtsc", "require"),
+			)
+
+			Expect(topology.IsManualTSCFrequencyRequired(vmi)).To(BeTrue())
+		})
+
+		It("HyperV reenlightenment is enabled", func() {
+			vmi := libvmi.New()
+			vmi.Spec.Domain.Features = &v1.Features{
+				Hyperv: &v1.FeatureHyperv{
+					Reenlightenment: &v1.FeatureState{Enabled: pointer.Bool(true)},
+				},
+			}
+
+			Expect(topology.IsManualTSCFrequencyRequired(vmi)).To(BeTrue())
+		})
+	})
 })
 
 func tscFrequencyLabel(freq int64) string {
