@@ -1647,8 +1647,8 @@ var _ = Describe("Template", func() {
 				Expect(pod.Spec.Containers[0].Resources.Requests.Memory().String()).To(Equal(requestMemory))
 				Expect(pod.Spec.Containers[0].Resources.Limits.Memory().String()).To(Equal(limitMemory))
 			},
-				Entry("on amd64", "amd64", "1224251237", "2224251237"),
-				Entry("on arm64", "arm64", "1358468965", "2358468965"),
+				Entry("on amd64", "amd64", "1250465637", "2250465637"),
+				Entry("on arm64", "arm64", "1384683365", "2384683365"),
 			)
 			DescribeTable("should overcommit guest overhead if selected, by only adding the overhead to memory limits", func(arch string, limitMemory string) {
 				config, kvInformer, svc = configFactory(arch)
@@ -1683,8 +1683,8 @@ var _ = Describe("Template", func() {
 				Expect(pod.Spec.Containers[0].Resources.Requests.Memory().String()).To(Equal("1G"))
 				Expect(pod.Spec.Containers[0].Resources.Limits.Memory().String()).To(Equal(limitMemory))
 			},
-				Entry("on amd64", "amd64", "2224251237"),
-				Entry("on arm64", "arm64", "2358468965"),
+				Entry("on amd64", "amd64", "2250465637"),
+				Entry("on arm64", "arm64", "2384683365"),
 			)
 			DescribeTable("should not add unset resources", func(arch string, requestMemory int) {
 				config, kvInformer, svc = configFactory(arch)
@@ -1721,8 +1721,8 @@ var _ = Describe("Template", func() {
 				// Limits for KVM and TUN devices should be requested.
 				Expect(pod.Spec.Containers[0].Resources.Limits).ToNot(BeNil())
 			},
-				Entry("on amd64", "amd64", 304),
-				Entry("on arm64", "arm64", 438),
+				Entry("on amd64", "amd64", 330),
+				Entry("on arm64", "arm64", 464),
 			)
 
 			DescribeTable("should check autoattachGraphicsDevicse", func(arch string, autoAttach *bool, memory int) {
@@ -1757,12 +1757,12 @@ var _ = Describe("Template", func() {
 				Expect(err).ToNot(HaveOccurred())
 				Expect(pod.Spec.Containers[0].Resources.Requests.Memory().ToDec().ScaledValue(resource.Mega)).To(Equal(int64(memory)))
 			},
-				Entry("and consider graphics overhead if it is not set on amd64", "amd64", nil, 304),
-				Entry("and consider graphics overhead if it is set to true on amd64", "amd64", True(), 304),
-				Entry("and not consider graphics overhead if it is set to false on amd64", "amd64", False(), 287),
-				Entry("and consider graphics overhead if it is not set on arm64", "arm64", nil, 438),
-				Entry("and consider graphics overhead if it is set to true on arm64", "arm64", True(), 438),
-				Entry("and not consider graphics overhead if it is set to false on arm64", "arm64", False(), 421),
+				Entry("and consider graphics overhead if it is not set on amd64", "amd64", nil, 330),
+				Entry("and consider graphics overhead if it is set to true on amd64", "amd64", True(), 330),
+				Entry("and not consider graphics overhead if it is set to false on amd64", "amd64", False(), 313),
+				Entry("and consider graphics overhead if it is not set on arm64", "arm64", nil, 464),
+				Entry("and consider graphics overhead if it is set to true on arm64", "arm64", True(), 464),
+				Entry("and not consider graphics overhead if it is set to false on arm64", "arm64", False(), 447),
 			)
 			It("should calculate vcpus overhead based on guest toplogy", func() {
 				config, kvInformer, svc = configFactory(defaultArch)
@@ -1950,10 +1950,10 @@ var _ = Describe("Template", func() {
 				Expect(pod.Spec.Containers[0].VolumeMounts).To(HaveLen(7))
 				Expect(pod.Spec.Containers[0].VolumeMounts[6].MountPath).To(Equal("/dev/hugepages"))
 			},
-				Entry("hugepages-2Mi on amd64", "amd64", "2Mi", 223),
-				Entry("hugepages-1Gi on amd64", "amd64", "1Gi", 223),
-				Entry("hugepages-2Mi on arm64", "arm64", "2Mi", 357),
-				Entry("hugepages-1Gi on arm64", "arm64", "1Gi", 357),
+				Entry("hugepages-2Mi on amd64", "amd64", "2Mi", 249),
+				Entry("hugepages-1Gi on amd64", "amd64", "1Gi", 249),
+				Entry("hugepages-2Mi on arm64", "arm64", "2Mi", 383),
+				Entry("hugepages-1Gi on arm64", "arm64", "1Gi", 383),
 			)
 			DescribeTable("should account for difference between guest and container requested memory ", func(arch string, memorySize int) {
 				config, kvInformer, svc = configFactory(arch)
@@ -2008,8 +2008,8 @@ var _ = Describe("Template", func() {
 				Expect(pod.Spec.Containers[0].VolumeMounts).To(HaveLen(7))
 				Expect(pod.Spec.Containers[0].VolumeMounts[6].MountPath).To(Equal("/dev/hugepages"))
 			},
-				Entry("on amd64", "amd64", 223),
-				Entry("on arm64", "arm64", 357),
+				Entry("on amd64", "amd64", 249),
+				Entry("on arm64", "arm64", 383),
 			)
 		})
 
