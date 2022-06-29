@@ -157,8 +157,6 @@ var _ = Describe("[Serial][ref_id:2717][sig-compute]KubeVirt control plane resil
 		}
 
 		BeforeEach(func() {
-			tests.BeforeTestCleanup()
-
 			nodeList = libnode.GetAllSchedulableNodes(virtCli).Items
 			for _, node := range nodeList {
 				setNodeUnschedulable(node.Name)

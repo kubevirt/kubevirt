@@ -1,6 +1,7 @@
 package watch
 
 import (
+	"context"
 	"encoding/json"
 	"fmt"
 	"strings"
@@ -30,6 +31,8 @@ import (
 	"kubevirt.io/client-go/api"
 	cdifake "kubevirt.io/client-go/generated/containerized-data-importer/clientset/versioned/fake"
 	"kubevirt.io/client-go/generated/kubevirt/clientset/versioned/fake"
+	fakeclientset "kubevirt.io/client-go/generated/kubevirt/clientset/versioned/fake"
+	"kubevirt.io/client-go/generated/kubevirt/clientset/versioned/typed/flavor/v1alpha1"
 	"kubevirt.io/client-go/kubecli"
 	cdiv1 "kubevirt.io/containerized-data-importer-api/pkg/apis/core/v1beta1"
 	virtcontroller "kubevirt.io/kubevirt/pkg/controller"
@@ -1796,7 +1799,8 @@ var _ = Describe("VirtualMachine", func() {
 
 		Context("VM memory dump", func() {
 			const (
-				testPVCName = "testPVC"
+				testPVCName    = "testPVC"
+				targetFileName = "memory.dump"
 			)
 
 			shouldExpectVMIVolumesAddPatched := func(vmi *virtv1.VirtualMachineInstance) {
@@ -1834,6 +1838,22 @@ var _ = Describe("VirtualMachine", func() {
 				spec.Volumes = append(spec.Volumes, newVolume)
 
 				return spec
+			}
+
+			expectPVCAnnotationUpdate := func(expectedAnnotation string, pvcAnnotationUpdated chan bool) {
+				virtClient.EXPECT().CoreV1().Return(k8sClient.CoreV1()).AnyTimes()
+				k8sClient.Fake.PrependReactor("update", "persistentvolumeclaims", func(action testing.Action) (bool, runtime.Object, error) {
+					update, ok := action.(testing.UpdateAction)
+					Expect(ok).To(BeTrue())
+
+					pvc, ok := update.GetObject().(*k8sv1.PersistentVolumeClaim)
+					Expect(ok).To(BeTrue())
+					Expect(pvc.Name).To(Equal(testPVCName))
+					Expect(pvc.Annotations[virtv1.PVCMemoryDumpAnnotation]).To(Equal(expectedAnnotation))
+					pvcAnnotationUpdated <- true
+
+					return true, nil, nil
+				})
 			}
 
 			It("should add memory dump volume and update vmi volumes", func() {
@@ -1909,7 +1929,7 @@ var _ = Describe("VirtualMachine", func() {
 							StartTimestamp: &now,
 							EndTimestamp:   &now,
 							ClaimName:      testPVCName,
-							TargetFileName: "memory.dump",
+							TargetFileName: targetFileName,
 						},
 					},
 				}
@@ -1972,13 +1992,17 @@ var _ = Describe("VirtualMachine", func() {
 				controller.Execute()
 			})
 
-			DescribeTable("should remove memory dump volume from vmi volumes", func(phase virtv1.MemoryDumpPhase) {
+			DescribeTable("should remove memory dump volume from vmi volumes and update pvc annotation", func(phase virtv1.MemoryDumpPhase, expectedAnnotation string) {
 				vm, vmi := DefaultVirtualMachine(true)
 				vm.Status.Created = true
 				vm.Status.Ready = true
 				vm.Status.MemoryDumpRequest = &virtv1.VirtualMachineMemoryDumpRequest{
 					ClaimName: testPVCName,
 					Phase:     phase,
+				}
+				if phase != virtv1.MemoryDumpFailed {
+					fileName := targetFileName
+					vm.Status.MemoryDumpRequest.FileName = &fileName
 				}
 
 				vm.Spec.Template.Spec = *applyVMIMemoryDumpVol(&vm.Spec.Template.Spec)
@@ -1994,14 +2018,32 @@ var _ = Describe("VirtualMachine", func() {
 				}
 				markAsReady(vmi)
 				vmiFeeder.Add(vmi)
+				pvc := k8sv1.PersistentVolumeClaim{
+					ObjectMeta: metav1.ObjectMeta{
+						Name:      testPVCName,
+						Namespace: vm.Namespace,
+					},
+				}
+				pvcInformer.GetStore().Add(&pvc)
 
+				pvcAnnotationUpdated := make(chan bool, 1)
+				defer close(pvcAnnotationUpdated)
+				expectPVCAnnotationUpdate(expectedAnnotation, pvcAnnotationUpdated)
 				shouldExpectVMIVolumesRemovePatched(vmi)
 				vmInterface.EXPECT().UpdateStatus(gomock.Any()).Times(1).Return(vm, nil)
 
 				controller.Execute()
+				Eventually(func() bool {
+					select {
+					case updated := <-pvcAnnotationUpdated:
+						return updated
+					default:
+					}
+					return false
+				}, 10*time.Second, 2).Should(BeTrue(), "failed, pvc annotation wasn't updated")
 			},
-				Entry("when phase is Unmounting", virtv1.MemoryDumpUnmounting),
-				Entry("when phase is Failed", virtv1.MemoryDumpFailed),
+				Entry("when phase is Unmounting", virtv1.MemoryDumpUnmounting, targetFileName),
+				Entry("when phase is Failed", virtv1.MemoryDumpFailed, "Memory dump failed"),
 			)
 
 			It("should update memory dump to complete once memory dump volume unmounted", func() {
@@ -2735,28 +2777,40 @@ var _ = Describe("VirtualMachine", func() {
 		Context("Flavor and Preferences", func() {
 
 			var (
-				vm                        *virtv1.VirtualMachine
-				vmi                       *virtv1.VirtualMachineInstance
-				f                         *flavorv1alpha1.VirtualMachineFlavor
-				fs                        flavorv1alpha1.VirtualMachineFlavorSpec
-				cf                        *flavorv1alpha1.VirtualMachineClusterFlavor
-				p                         *flavorv1alpha1.VirtualMachinePreference
-				ps                        flavorv1alpha1.VirtualMachinePreferenceSpec
-				cp                        *flavorv1alpha1.VirtualMachineClusterPreference
-				flavorInformer            cache.SharedIndexInformer
-				clusterFlavorInformer     cache.SharedIndexInformer
-				preferenceInformer        cache.SharedIndexInformer
-				clusterPreferenceInformer cache.SharedIndexInformer
+				vm                          *virtv1.VirtualMachine
+				vmi                         *virtv1.VirtualMachineInstance
+				f                           *flavorv1alpha1.VirtualMachineFlavor
+				fs                          flavorv1alpha1.VirtualMachineFlavorSpec
+				cf                          *flavorv1alpha1.VirtualMachineClusterFlavor
+				p                           *flavorv1alpha1.VirtualMachinePreference
+				ps                          flavorv1alpha1.VirtualMachinePreferenceSpec
+				cp                          *flavorv1alpha1.VirtualMachineClusterPreference
+				fakeFlavorClients           v1alpha1.FlavorV1alpha1Interface
+				fakeFlavorClient            v1alpha1.VirtualMachineFlavorInterface
+				fakeClusterFlavorClient     v1alpha1.VirtualMachineClusterFlavorInterface
+				fakePreferenceClient        v1alpha1.VirtualMachinePreferenceInterface
+				fakeClusterPreferenceClient v1alpha1.VirtualMachineClusterPreferenceInterface
 			)
 
 			BeforeEach(func() {
 
 				vm, vmi = DefaultVirtualMachine(true)
 
-				flavorInformer, _ = testutils.NewFakeInformerFor(&flavorv1alpha1.VirtualMachineFlavor{})
-				clusterFlavorInformer, _ = testutils.NewFakeInformerFor(&flavorv1alpha1.VirtualMachineClusterFlavor{})
-				preferenceInformer, _ = testutils.NewFakeInformerFor(&flavorv1alpha1.VirtualMachinePreference{})
-				clusterPreferenceInformer, _ = testutils.NewFakeInformerFor(&flavorv1alpha1.VirtualMachineClusterPreference{})
+				ctrl = gomock.NewController(GinkgoT())
+				virtClient = kubecli.NewMockKubevirtClient(ctrl)
+				fakeFlavorClients = fakeclientset.NewSimpleClientset().FlavorV1alpha1()
+
+				fakeFlavorClient = fakeFlavorClients.VirtualMachineFlavors(metav1.NamespaceDefault)
+				virtClient.EXPECT().VirtualMachineFlavor(gomock.Any()).Return(fakeFlavorClient).AnyTimes()
+
+				fakeClusterFlavorClient = fakeFlavorClients.VirtualMachineClusterFlavors()
+				virtClient.EXPECT().VirtualMachineClusterFlavor().Return(fakeClusterFlavorClient).AnyTimes()
+
+				fakePreferenceClient = fakeFlavorClients.VirtualMachinePreferences(metav1.NamespaceDefault)
+				virtClient.EXPECT().VirtualMachinePreference(gomock.Any()).Return(fakePreferenceClient).AnyTimes()
+
+				fakeClusterPreferenceClient = fakeFlavorClients.VirtualMachineClusterPreferences()
+				virtClient.EXPECT().VirtualMachineClusterPreference().Return(fakeClusterPreferenceClient).AnyTimes()
 
 				flavorMemory := resource.MustParse("128M")
 				fs = flavorv1alpha1.VirtualMachineFlavorSpec{
@@ -2774,7 +2828,7 @@ var _ = Describe("VirtualMachine", func() {
 					},
 					Spec: fs,
 				}
-				flavorInformer.GetIndexer().Add(f)
+				virtClient.VirtualMachineFlavor(vm.Namespace).Create(context.Background(), f, metav1.CreateOptions{})
 
 				cf = &flavorv1alpha1.VirtualMachineClusterFlavor{
 					ObjectMeta: metav1.ObjectMeta{
@@ -2782,7 +2836,7 @@ var _ = Describe("VirtualMachine", func() {
 					},
 					Spec: fs,
 				}
-				clusterFlavorInformer.GetIndexer().Add(cf)
+				virtClient.VirtualMachineClusterFlavor().Create(context.Background(), cf, metav1.CreateOptions{})
 
 				ps = flavorv1alpha1.VirtualMachinePreferenceSpec{
 					CPU: &flavorv1alpha1.CPUPreferences{
@@ -2800,7 +2854,7 @@ var _ = Describe("VirtualMachine", func() {
 					},
 					Spec: ps,
 				}
-				preferenceInformer.GetIndexer().Add(p)
+				virtClient.VirtualMachinePreference(vm.Namespace).Create(context.Background(), p, metav1.CreateOptions{})
 
 				cp = &flavorv1alpha1.VirtualMachineClusterPreference{
 					ObjectMeta: metav1.ObjectMeta{
@@ -2808,14 +2862,9 @@ var _ = Describe("VirtualMachine", func() {
 					},
 					Spec: ps,
 				}
-				clusterPreferenceInformer.GetIndexer().Add(cp)
+				virtClient.VirtualMachineClusterPreference().Create(context.Background(), cp, metav1.CreateOptions{})
 
-				controller.flavorMethods = flavor.NewMethods(
-					flavorInformer.GetStore(),
-					clusterFlavorInformer.GetStore(),
-					preferenceInformer.GetStore(),
-					clusterPreferenceInformer.GetStore(),
-				)
+				controller.flavorMethods = flavor.NewMethods(virtClient)
 			})
 			It("should apply VirtualMachineFlavor to VirtualMachineInstance", func() {
 
@@ -2961,7 +3010,6 @@ var _ = Describe("VirtualMachine", func() {
 					Expect(cond).To(Not(BeNil()))
 					Expect(cond.Type).To(Equal(virtv1.VirtualMachineFailure))
 					Expect(cond.Reason).To(Equal("FailedCreate"))
-					Expect(cond.Message).To(ContainSubstring("virtualmachineflavor.flavor.kubevirt.io \"default/foobar\" not found"))
 				}).Return(vm, nil)
 
 				controller.Execute()
@@ -2985,7 +3033,6 @@ var _ = Describe("VirtualMachine", func() {
 					Expect(cond).To(Not(BeNil()))
 					Expect(cond.Type).To(Equal(virtv1.VirtualMachineFailure))
 					Expect(cond.Reason).To(Equal("FailedCreate"))
-					Expect(cond.Message).To(ContainSubstring("virtualmachineclusterflavor.flavor.kubevirt.io \"foobar\" not found"))
 				}).Return(vm, nil)
 
 				controller.Execute()
@@ -3033,7 +3080,6 @@ var _ = Describe("VirtualMachine", func() {
 					Expect(cond).To(Not(BeNil()))
 					Expect(cond.Type).To(Equal(virtv1.VirtualMachineFailure))
 					Expect(cond.Reason).To(Equal("FailedCreate"))
-					Expect(cond.Message).To(ContainSubstring("virtualmachinepreference.flavor.kubevirt.io \"default/foobar\" not found"))
 				}).Return(vm, nil)
 
 				controller.Execute()
@@ -3057,7 +3103,6 @@ var _ = Describe("VirtualMachine", func() {
 					Expect(cond).To(Not(BeNil()))
 					Expect(cond.Type).To(Equal(virtv1.VirtualMachineFailure))
 					Expect(cond.Reason).To(Equal("FailedCreate"))
-					Expect(cond.Message).To(ContainSubstring("virtualmachineclusterpreference.flavor.kubevirt.io \"foobar\" not found"))
 				}).Return(vm, nil)
 
 				controller.Execute()

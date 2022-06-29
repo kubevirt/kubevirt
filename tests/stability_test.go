@@ -13,10 +13,6 @@ import (
 // Replace PDescribe with FDescribe in order to measure if your changes made
 // VMI startup any worse
 var _ = PDescribe("Ensure stable functionality", func() {
-	BeforeEach(func() {
-		tests.BeforeTestCleanup()
-	})
-
 	It("by repeately starting vmis many times without issues", func() {
 		experiment := gmeasure.NewExperiment("VMs creation")
 		AddReportEntry(experiment.Name, experiment)

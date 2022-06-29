@@ -52,6 +52,7 @@ const (
 	ipNeighShow                  = "ip neigh show"
 	bridgeJVlanShow              = "bridge -j vlan show"
 	bridgeFdb                    = "bridge fdb"
+	devVFio                      = "ls -lsh -Z -St /dev/vfio"
 	failedExecuteCmdFmt          = "failed to execute command %s on %s, stdout: %s, stderr: %s, error: %v\n"
 	failedExecuteCmdOnNodeFmt    = "failed to execute command %s on node %s, stdout: %s, error: %v\n"
 )
@@ -1070,7 +1071,10 @@ func (r *KubernetesReporter) executeNodeCommands(virtCli kubecli.KubevirtClient,
 		{command: networkPrefix + "nft list ruleset", fileNameSuffix: "nftlist"},
 
 		{command: hostPrefix + "/usr/bin/" + networkPrefix + "/usr/sbin/iptables --list -v", fileNameSuffix: "iptables"},
-		{command: "ls -lsh -Z -St /dev/vfio", fileNameSuffix: "vfio-devices"},
+	}
+
+	if tests.IsRunningOnKindInfra() {
+		cmds = append(cmds, []commands{{command: devVFio, fileNameSuffix: "vfio-devices"}}...)
 	}
 
 	r.executeContainerCommands(virtCli, logsdir, pod, virtHandlerName, cmds)
@@ -1085,7 +1089,10 @@ func (r *KubernetesReporter) executeVirtLauncherCommands(virtCli kubecli.Kubevir
 		{command: bridgeJVlanShow, fileNameSuffix: "brvlan"},
 		{command: bridgeFdb, fileNameSuffix: "brfdb"},
 		{command: "env", fileNameSuffix: "env"},
-		{command: "ls -lsh -Z -St /dev/vfio", fileNameSuffix: "vfio-devices"},
+	}
+
+	if tests.IsRunningOnKindInfra() {
+		cmds = append(cmds, []commands{{command: devVFio, fileNameSuffix: "vfio-devices"}}...)
 	}
 
 	r.executeContainerCommands(virtCli, logsdir, &pod, computeContainer, cmds)

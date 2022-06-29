@@ -187,11 +187,6 @@ type VirtControllerApp struct {
 
 	crdInformer cache.SharedIndexInformer
 
-	flavorInformer            cache.SharedIndexInformer
-	clusterFlavorInformer     cache.SharedIndexInformer
-	preferenceInformer        cache.SharedIndexInformer
-	clusterPreferenceInformer cache.SharedIndexInformer
-
 	migrationPolicyInformer cache.SharedIndexInformer
 
 	LeaderElection leaderelectionconfig.Configuration
@@ -372,11 +367,6 @@ func Execute() {
 		log.Log.Infof("CDI not detected, DataVolume integration disabled")
 	}
 
-	app.flavorInformer = app.informerFactory.VirtualMachineFlavor()
-	app.clusterFlavorInformer = app.informerFactory.VirtualMachineClusterFlavor()
-	app.preferenceInformer = app.informerFactory.VirtualMachinePreference()
-	app.clusterPreferenceInformer = app.informerFactory.VirtualMachineClusterPreference()
-
 	app.migrationPolicyInformer = app.informerFactory.MigrationPolicy()
 
 	app.initCommon()
@@ -469,7 +459,11 @@ func (vca *VirtControllerApp) onStartedLeading() func(ctx context.Context) {
 
 		vmiprom.SetupVMICollector(vca.vmiInformer, vca.clusterConfig)
 		perfscale.RegisterPerfScaleMetrics(vca.vmiInformer)
-		migration.RegisterMigrationMetrics()
+		if vca.migrationInformer == nil {
+			vca.migrationInformer = vca.informerFactory.VirtualMachineInstanceMigration()
+		}
+		golog.Printf("\nvca.migrationInformer :%v\n", vca.migrationInformer)
+		migration.RegisterMigrationMetrics(vca.migrationInformer)
 
 		go vca.evacuationController.Run(vca.evacuationControllerThreads, stop)
 		go vca.disruptionBudgetController.Run(vca.disruptionBudgetControllerThreads, stop)
@@ -581,7 +575,7 @@ func (vca *VirtControllerApp) initVirtualMachines() {
 		vca.dataVolumeInformer,
 		vca.persistentVolumeClaimInformer,
 		vca.controllerRevisionInformer,
-		flavor.NewMethods(vca.flavorInformer.GetStore(), vca.clusterFlavorInformer.GetStore(), vca.preferenceInformer.GetStore(), vca.clusterPreferenceInformer.GetStore()),
+		flavor.NewMethods(vca.clientSet),
 		recorder,
 		vca.clientSet,
 		vca.clusterConfig)

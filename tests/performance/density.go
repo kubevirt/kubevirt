@@ -78,7 +78,6 @@ var _ = SIGDescribe("Control Plane Performance Density Testing", func() {
 		}
 
 		startTime = time.Now()
-		tests.BeforeTestCleanup()
 	})
 
 	AfterEach(func() {
@@ -101,7 +100,7 @@ var _ = SIGDescribe("Control Plane Performance Density Testing", func() {
 				createBatchVMIWithRateControl(virtClient, vmCount)
 
 				By("Waiting a batch of VMIs")
-				waitRunningVMI(virtClient, vmCount, vmBatchStartupLimit)
+				waitRunningVMI(virtClient, vmCount+1, vmBatchStartupLimit)
 			})
 		})
 	})

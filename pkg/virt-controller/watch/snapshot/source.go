@@ -302,3 +302,26 @@ func (s *vmSnapshotSource) pvcNames() sets.String {
 	}
 	return ss
 }
+
+func getPVCsFromVolumes(volumes []kubevirtv1.Volume) map[string]string {
+	pvcs := map[string]string{}
+
+	for _, volume := range volumes {
+		var pvcName string
+
+		if volume.PersistentVolumeClaim != nil {
+			pvcName = volume.PersistentVolumeClaim.ClaimName
+		} else if volume.DataVolume != nil {
+			// TODO Change when PVC Renaming is merged.
+			pvcName = volume.DataVolume.Name
+		} else if volume.MemoryDump != nil {
+			pvcName = volume.MemoryDump.ClaimName
+		} else {
+			continue
+		}
+
+		pvcs[volume.Name] = pvcName
+	}
+
+	return pvcs
+}

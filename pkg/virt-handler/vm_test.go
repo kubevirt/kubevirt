@@ -1502,13 +1502,13 @@ var _ = Describe("VirtualMachineInstance", func() {
 				domainFeeder.Add(domain)
 
 				updatedVolumeStatus := *volumeStatus.DeepCopy()
-				updatedVolumeStatus.MemoryDumpVolume.TargetFileName = dumpTargetFile(volumeStatus.Name)
+				updatedVolumeStatus.MemoryDumpVolume.TargetFileName = dumpTargetFile(vmi.Name, volumeStatus.Name)
 				mockHotplugVolumeMounter.EXPECT().IsMounted(vmi, "test", gomock.Any()).Return(true, nil)
 				hasHotplug := controller.updateVolumeStatusesFromDomain(vmi, domain)
 				Expect(hasHotplug).To(BeTrue())
 
 				Expect(vmi.Status.VolumeStatus[0].Phase).To(Equal(v1.MemoryDumpVolumeInProgress))
-				Expect(vmi.Status.VolumeStatus[0].MemoryDumpVolume.TargetFileName).To(Equal(dumpTargetFile(volumeStatus.Name)))
+				Expect(vmi.Status.VolumeStatus[0].MemoryDumpVolume.TargetFileName).To(Equal(dumpTargetFile(vmi.Name, volumeStatus.Name)))
 				testutils.ExpectEvent(recorder, "Memory dump Volume test is attached, getting memory dump")
 				By("Calling it again with updated status, no new events are generated as long as memory dump not completed")
 				mockHotplugVolumeMounter.EXPECT().IsMounted(vmi, "test", gomock.Any()).Return(true, nil)
@@ -1533,14 +1533,14 @@ var _ = Describe("VirtualMachineInstance", func() {
 					},
 					MemoryDumpVolume: &v1.DomainMemoryDumpInfo{
 						ClaimName:      "test",
-						TargetFileName: dumpTargetFile("test"),
+						TargetFileName: dumpTargetFile(vmi.Name, "test"),
 					},
 				}
 				vmi.Status.VolumeStatus = append(vmi.Status.VolumeStatus, volumeStatus)
 				domain := api.NewMinimalDomainWithUUID("testvmi", vmiTestUUID)
 				now := metav1.Now()
 				domain.Spec.Metadata.KubeVirt.MemoryDump = &api.MemoryDumpMetadata{
-					FileName:       dumpTargetFile("test"),
+					FileName:       dumpTargetFile(vmi.Name, "test"),
 					StartTimestamp: &now,
 					EndTimestamp:   &now,
 					Completed:      true,
@@ -1580,7 +1580,7 @@ var _ = Describe("VirtualMachineInstance", func() {
 					},
 					MemoryDumpVolume: &v1.DomainMemoryDumpInfo{
 						ClaimName:      "test",
-						TargetFileName: dumpTargetFile("test"),
+						TargetFileName: dumpTargetFile(vmi.Name, "test"),
 					},
 				}
 				vmi.Status.VolumeStatus = append(vmi.Status.VolumeStatus, volumeStatus)
@@ -1589,7 +1589,7 @@ var _ = Describe("VirtualMachineInstance", func() {
 				now := metav1.Now()
 				failureReason := "memory dump failed"
 				domain.Spec.Metadata.KubeVirt.MemoryDump = &api.MemoryDumpMetadata{
-					FileName:       dumpTargetFile("test"),
+					FileName:       dumpTargetFile(vmi.Name, "test"),
 					StartTimestamp: &now,
 					EndTimestamp:   &now,
 					Failed:         true,

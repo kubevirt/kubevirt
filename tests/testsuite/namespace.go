@@ -123,7 +123,7 @@ func CleanNamespaces() {
 		}
 		// Remove PVs
 		pvs, err := virtCli.CoreV1().PersistentVolumes().List(context.Background(), metav1.ListOptions{
-			LabelSelector: fmt.Sprintf("%s", cleanup.TestLabelForNamespace(namespace)),
+			LabelSelector: cleanup.TestLabelForNamespace(namespace),
 		})
 		util.PanicOnError(err)
 		for _, pv := range pvs.Items {
@@ -134,7 +134,7 @@ func CleanNamespaces() {
 		}
 
 		// Remove all VirtualMachineInstance Secrets
-		labelSelector := fmt.Sprintf("%s", SecretLabel)
+		labelSelector := util.SecretLabel
 		util.PanicOnError(
 			virtCli.CoreV1().Secrets(namespace).DeleteCollection(context.Background(),
 				metav1.DeleteOptions{}, metav1.ListOptions{LabelSelector: labelSelector},
@@ -177,7 +177,7 @@ func CleanNamespaces() {
 
 		// Remove migration policies
 		migrationPolicyList, err := virtCli.MigrationPolicy().List(context.Background(), metav1.ListOptions{
-			LabelSelector: fmt.Sprintf("%s", cleanup.TestLabelForNamespace(namespace)),
+			LabelSelector: cleanup.TestLabelForNamespace(namespace),
 		})
 		util.PanicOnError(err)
 		for _, policy := range migrationPolicyList.Items {

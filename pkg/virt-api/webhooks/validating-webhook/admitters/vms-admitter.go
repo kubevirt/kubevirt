@@ -71,7 +71,7 @@ func NewVMsAdmitter(clusterConfig *virtconfig.ClusterConfig, client kubecli.Kube
 	return &VMsAdmitter{
 		VirtClient:         client,
 		DataSourceInformer: informers.DataSourceInformer,
-		FlavorMethods:      flavor.NewMethods(informers.FlavorInformer.GetStore(), informers.ClusterFlavorInformer.GetStore(), informers.PreferenceInformer.GetStore(), informers.ClusterPreferenceInformer.GetStore()),
+		FlavorMethods:      flavor.NewMethods(client),
 		ClusterConfig:      clusterConfig,
 		cloneAuthFunc: func(pvcNamespace, pvcName, saNamespace, saName string) (bool, string, error) {
 			return cdiclone.CanServiceAccountClonePVC(proxy, pvcNamespace, pvcName, saNamespace, saName)

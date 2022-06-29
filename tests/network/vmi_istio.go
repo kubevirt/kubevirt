@@ -104,7 +104,7 @@ var _ = SIGDescribe("[Serial] Istio", func() {
 			By("Getting back the VMI IP")
 			vmi, err = virtClient.VirtualMachineInstance(vmi.Namespace).Get(vmi.Name, &metav1.GetOptions{})
 			Expect(err).ShouldNot(HaveOccurred())
-			vmiIP := libnet.GetVmiPrimaryIpByFamily(vmi, k8sv1.IPv4Protocol)
+			vmiIP := libnet.GetVmiPrimaryIPByFamily(vmi, k8sv1.IPv4Protocol)
 
 			By("Running job to send a request to the server")
 			return virtClient.BatchV1().Jobs(util.NamespaceTestDefault).Create(
@@ -114,8 +114,6 @@ var _ = SIGDescribe("[Serial] Istio", func() {
 			)
 		}
 		BeforeEach(func() {
-			tests.BeforeTestCleanup()
-
 			virtClient, err = kubecli.GetKubevirtClient()
 			util.PanicOnError(err)
 
@@ -224,7 +222,7 @@ var _ = SIGDescribe("[Serial] Istio", func() {
 					By("Getting the VMI IP")
 					vmi, err = virtClient.VirtualMachineInstance(vmi.Namespace).Get(vmi.Name, &metav1.GetOptions{})
 					Expect(err).ShouldNot(HaveOccurred())
-					vmiIP := libnet.GetVmiPrimaryIpByFamily(vmi, k8sv1.IPv4Protocol)
+					vmiIP := libnet.GetVmiPrimaryIPByFamily(vmi, k8sv1.IPv4Protocol)
 
 					Expect(
 						checkSSHConnection(bastionVMI, "fedora", vmiIP),
@@ -239,7 +237,7 @@ var _ = SIGDescribe("[Serial] Istio", func() {
 					By("Getting the VMI IP")
 					vmi, err = virtClient.VirtualMachineInstance(vmi.Namespace).Get(vmi.Name, &metav1.GetOptions{})
 					Expect(err).ShouldNot(HaveOccurred())
-					vmiIP := libnet.GetVmiPrimaryIpByFamily(vmi, k8sv1.IPv4Protocol)
+					vmiIP := libnet.GetVmiPrimaryIPByFamily(vmi, k8sv1.IPv4Protocol)
 
 					Expect(
 						checkSSHConnection(bastionVMI, "fedora", vmiIP),

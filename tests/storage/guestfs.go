@@ -15,6 +15,7 @@ import (
 	"kubevirt.io/kubevirt/pkg/virtctl/guestfs"
 	"kubevirt.io/kubevirt/tests"
 	"kubevirt.io/kubevirt/tests/clientcmd"
+	"kubevirt.io/kubevirt/tests/libstorage"
 	"kubevirt.io/kubevirt/tests/util"
 )
 
@@ -161,8 +162,7 @@ var _ = SIGDescribe("[rfe_id:6364][[Serial]Guestfs", func() {
 
 			pvcClaim = "pvc-block"
 			podName := libguestsTools + pvcClaim
-			size, _ := resource.ParseQuantity("500Mi")
-			tests.CreateBlockPVC(virtClient, pvcClaim, size)
+			libstorage.CreateBlockPVC(pvcClaim, "500Mi")
 			runGuestfsOnPVC(pvcClaim)
 			stdout, stderr, err := execCommandLibguestfsPod(podName, []string{"guestfish", "-a", "/dev/vda", "run"})
 			Expect(stderr).To(Equal(""))

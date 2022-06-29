@@ -33,7 +33,6 @@ var _ = Describe("[sig-compute][Serial]NUMA", func() {
 		var err error
 		virtClient, err = kubecli.GetKubevirtClient()
 		Expect(err).ToNot(HaveOccurred())
-		tests.BeforeTestCleanup()
 	})
 
 	It("[test_id:7299] topology should be mapped to the guest and hugepages should be allocated", func() {

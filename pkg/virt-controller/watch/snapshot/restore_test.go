@@ -348,7 +348,8 @@ var _ = Describe("Restore controlleer", func() {
 			BeforeEach(func() {
 				s = createSnapshot()
 				vm = createSnapshotVM()
-				sc = createVirtualMachineSnapshotContent(s, vm)
+				pvcs := createPVCsForVM(vm)
+				sc = createVirtualMachineSnapshotContent(s, vm, pvcs)
 				storageClass = createStorageClass()
 				s.Status.VirtualMachineSnapshotContentName = &sc.Name
 				sc.Status = &snapshotv1.VirtualMachineSnapshotContentStatus{

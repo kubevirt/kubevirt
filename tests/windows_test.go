@@ -135,9 +135,8 @@ var _ = Describe("[Serial][sig-compute]Windows VirtualMachineInstance", func() {
 	BeforeEach(func() {
 		virtClient, err = kubecli.GetKubevirtClient()
 		util.PanicOnError(err)
-		tests.BeforeTestCleanup()
 		checks.SkipIfMissingRequiredImage(virtClient, tests.DiskWindows)
-		tests.CreatePVC(tests.OSWindows, "30Gi", libstorage.Config.StorageClassWindows, true)
+		libstorage.CreatePVC(tests.OSWindows, "30Gi", libstorage.Config.StorageClassWindows, true)
 		windowsVMI = tests.NewRandomVMI()
 		windowsVMI.Spec = getWindowsVMISpec()
 		tests.AddExplicitPodNetworkInterface(windowsVMI)
@@ -298,7 +297,7 @@ var _ = Describe("[Serial][sig-compute]Windows VirtualMachineInstance", func() {
 				virtHandlerPod, err := getVirtHandlerPod()
 				Expect(err).ToNot(HaveOccurred())
 
-				virtHandlerPodIP := libnet.GetPodIpByFamily(virtHandlerPod, k8sv1.IPv4Protocol)
+				virtHandlerPodIP := libnet.GetPodIPByFamily(virtHandlerPod, k8sv1.IPv4Protocol)
 
 				command := append(cli, fmt.Sprintf("ping %s", virtHandlerPodIP))
 

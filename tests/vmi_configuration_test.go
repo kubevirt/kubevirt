@@ -107,8 +107,6 @@ var _ = Describe("[sig-compute]Configurations", func() {
 	BeforeEach(func() {
 		virtClient, err = kubecli.GetKubevirtClient()
 		util.PanicOnError(err)
-
-		tests.BeforeTestCleanup()
 	})
 
 	Context("with all devices on the root PCI bus", func() {

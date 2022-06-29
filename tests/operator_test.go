@@ -1030,8 +1030,6 @@ spec:
 	})
 
 	BeforeEach(func() {
-		tests.BeforeTestCleanup()
-
 		workDir = GinkgoT().TempDir()
 
 		vmYamls = make(map[string]*vmYamlDefinition)

@@ -70,7 +70,6 @@ var _ = Describe("[Serial][sig-compute]Templates", func() {
 		util.PanicOnError(err)
 
 		clientcmd.SkipIfNoCmd("oc")
-		tests.BeforeTestCleanup()
 		SetDefaultEventuallyTimeout(120 * time.Second)
 		SetDefaultEventuallyPollingInterval(2 * time.Second)
 
@@ -269,7 +268,7 @@ var _ = Describe("[Serial][sig-compute]Templates", func() {
 		Context("[rfe_id:273][crit:medium][vendor:cnv-qe@redhat.com][level:component]with RHEL Template", func() {
 			BeforeEach(func() {
 				checks.SkipIfNoRhelImage(virtClient)
-				tests.CreatePVC(tests.OSRhel, "15Gi", libstorage.Config.StorageClassRhel, true)
+				libstorage.CreatePVC(tests.OSRhel, "15Gi", libstorage.Config.StorageClassRhel, true)
 				AssertTemplateSetupSuccess(vmsgen.GetTestTemplateRHEL7(), nil)()
 			})
 

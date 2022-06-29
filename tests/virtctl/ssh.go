@@ -30,7 +30,6 @@ var _ = Describe("[sig-compute][virtctl]SSH", func() {
 		// Disable SSH_AGENT to not influence test results
 		Expect(os.Setenv("SSH_AUTH_SOCK", "/dev/null")).To(Succeed())
 		keyFile = filepath.Join(GinkgoT().TempDir(), "id_rsa")
-		tests.BeforeTestCleanup()
 		var priv *ecdsa.PrivateKey
 		priv, pub, err = NewKeyPair()
 		Expect(err).ToNot(HaveOccurred())

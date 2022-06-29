@@ -540,6 +540,8 @@ func (c *MigrationController) updateStatus(migration *virtv1.VirtualMachineInsta
 		}
 	}
 
+	controller.SetVMIMigrationPhaseTransitionTimestamp(migration, migrationCopy)
+
 	if !equality.Semantic.DeepEqual(migration.Status, migrationCopy.Status) {
 		err := c.statusUpdater.UpdateStatus(migrationCopy)
 		if err != nil {

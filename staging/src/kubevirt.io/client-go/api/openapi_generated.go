@@ -465,6 +465,7 @@ func GetOpenAPIDefinitions(ref common.ReferenceCallback) map[string]common.OpenA
 		"kubevirt.io/api/core/v1.VirtualMachineInstanceMigration":                                    schema_kubevirtio_api_core_v1_VirtualMachineInstanceMigration(ref),
 		"kubevirt.io/api/core/v1.VirtualMachineInstanceMigrationCondition":                           schema_kubevirtio_api_core_v1_VirtualMachineInstanceMigrationCondition(ref),
 		"kubevirt.io/api/core/v1.VirtualMachineInstanceMigrationList":                                schema_kubevirtio_api_core_v1_VirtualMachineInstanceMigrationList(ref),
+		"kubevirt.io/api/core/v1.VirtualMachineInstanceMigrationPhaseTransitionTimestamp":            schema_kubevirtio_api_core_v1_VirtualMachineInstanceMigrationPhaseTransitionTimestamp(ref),
 		"kubevirt.io/api/core/v1.VirtualMachineInstanceMigrationSpec":                                schema_kubevirtio_api_core_v1_VirtualMachineInstanceMigrationSpec(ref),
 		"kubevirt.io/api/core/v1.VirtualMachineInstanceMigrationState":                               schema_kubevirtio_api_core_v1_VirtualMachineInstanceMigrationState(ref),
 		"kubevirt.io/api/core/v1.VirtualMachineInstanceMigrationStatus":                              schema_kubevirtio_api_core_v1_VirtualMachineInstanceMigrationStatus(ref),
@@ -20538,6 +20539,34 @@ func schema_kubevirtio_api_core_v1_VirtualMachineInstanceMigrationList(ref commo
 	}
 }
 
+func schema_kubevirtio_api_core_v1_VirtualMachineInstanceMigrationPhaseTransitionTimestamp(ref common.ReferenceCallback) common.OpenAPIDefinition {
+	return common.OpenAPIDefinition{
+		Schema: spec.Schema{
+			SchemaProps: spec.SchemaProps{
+				Description: "VirtualMachineInstanceMigrationPhaseTransitionTimestamp gives a timestamp in relation to when a phase is set on a vmi",
+				Type:        []string{"object"},
+				Properties: map[string]spec.Schema{
+					"phase": {
+						SchemaProps: spec.SchemaProps{
+							Description: "Phase is the status of the VirtualMachineInstanceMigrationPhase in kubernetes world. It is not the VirtualMachineInstanceMigrationPhase status, but partially correlates to it.",
+							Type:        []string{"string"},
+							Format:      "",
+						},
+					},
+					"phaseTransitionTimestamp": {
+						SchemaProps: spec.SchemaProps{
+							Description: "PhaseTransitionTimestamp is the timestamp of when the phase change occurred",
+							Ref:         ref("k8s.io/apimachinery/pkg/apis/meta/v1.Time"),
+						},
+					},
+				},
+			},
+		},
+		Dependencies: []string{
+			"k8s.io/apimachinery/pkg/apis/meta/v1.Time"},
+	}
+}
+
 func schema_kubevirtio_api_core_v1_VirtualMachineInstanceMigrationSpec(ref common.ReferenceCallback) common.OpenAPIDefinition {
 	return common.OpenAPIDefinition{
 		Schema: spec.Schema{
@@ -20746,11 +20775,29 @@ func schema_kubevirtio_api_core_v1_VirtualMachineInstanceMigrationStatus(ref com
 							},
 						},
 					},
+					"phaseTransitionTimestamps": {
+						VendorExtensible: spec.VendorExtensible{
+							Extensions: spec.Extensions{
+								"x-kubernetes-list-type": "atomic",
+							},
+						},
+						SchemaProps: spec.SchemaProps{
+							Description: "PhaseTransitionTimestamp is the timestamp of when the last phase change occurred",
+							Type:        []string{"array"},
+							Items: &spec.SchemaOrArray{
+								Schema: &spec.Schema{
+									SchemaProps: spec.SchemaProps{
+										Ref: ref("kubevirt.io/api/core/v1.VirtualMachineInstanceMigrationPhaseTransitionTimestamp"),
+									},
+								},
+							},
+						},
+					},
 				},
 			},
 		},
 		Dependencies: []string{
-			"kubevirt.io/api/core/v1.VirtualMachineInstanceMigrationCondition"},
+			"kubevirt.io/api/core/v1.VirtualMachineInstanceMigrationCondition", "kubevirt.io/api/core/v1.VirtualMachineInstanceMigrationPhaseTransitionTimestamp"},
 	}
 }
 

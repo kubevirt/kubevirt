@@ -29,7 +29,6 @@ import (
 	"kubevirt.io/kubevirt/tests/util"
 
 	"kubevirt.io/client-go/kubecli"
-	"kubevirt.io/kubevirt/tests"
 )
 
 var _ = Describe("[sig-compute]Version", func() {
@@ -40,8 +39,6 @@ var _ = Describe("[sig-compute]Version", func() {
 	BeforeEach(func() {
 		virtClient, err = kubecli.GetKubevirtClient()
 		util.PanicOnError(err)
-
-		tests.BeforeTestCleanup()
 	})
 
 	Describe("Check that version parameters where loaded by ldflags in build time", func() {

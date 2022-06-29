@@ -275,7 +275,7 @@ var _ = SIGDescribe("Services", func() {
 			DescribeTable("[Conformance] should be able to reach the vmi based on labels specified on the vmi", func(ipFamily k8sv1.IPFamily) {
 				serviceName := "myservice"
 				By("setting up resources to expose the VMI via a service", func() {
-					libnet.SkipWhenClusterNotSupportIpFamily(virtClient, ipFamily)
+					libnet.SkipWhenClusterNotSupportIPFamily(virtClient, ipFamily)
 					if ipFamily == k8sv1.IPv6Protocol {
 						serviceName = serviceName + "v6"
 						service = netservice.BuildIPv6Spec(serviceName, servicePort, servicePort, selectorLabelKey, selectorLabelValue)

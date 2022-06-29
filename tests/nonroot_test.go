@@ -21,8 +21,6 @@ var _ = Describe("[sig-compute]NonRoot feature", func() {
 	BeforeEach(func() {
 		virtClient, err = kubecli.GetKubevirtClient()
 		util.PanicOnError(err)
-
-		tests.BeforeTestCleanup()
 	})
 
 	Context("should cause fail in creating of vmi with", func() {

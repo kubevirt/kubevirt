@@ -57,8 +57,6 @@ var _ = Describe("[rfe_id:588][crit:medium][vendor:cnv-qe@redhat.com][level:comp
 	BeforeEach(func() {
 		virtClient, err = kubecli.GetKubevirtClient()
 		util.PanicOnError(err)
-
-		tests.BeforeTestCleanup()
 	})
 
 	doScale := func(name string, scale int32) {

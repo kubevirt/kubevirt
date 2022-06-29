@@ -32,8 +32,6 @@ var _ = Describe("[crit:medium][vendor:cnv-qe@redhat.com][level:component][sig-c
 		var err error
 		virtClient, err = kubecli.GetKubevirtClient()
 		Expect(err).ToNot(HaveOccurred())
-
-		tests.BeforeTestCleanup()
 	})
 
 	Context("Flavor validation", func() {

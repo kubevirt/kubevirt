@@ -53,15 +53,15 @@ func patchNamespace(client kubecli.KubevirtClient, namespace string, patchFunc f
 		return err
 	}
 
-	new := ns.DeepCopy()
-	patchFunc(new)
+	newNS := ns.DeepCopy()
+	patchFunc(newNS)
 
-	newJson, err := json.Marshal(new)
+	newJSON, err := json.Marshal(newNS)
 	if err != nil {
 		return err
 	}
 
-	patch, err := strategicpatch.CreateTwoWayMergePatch(old, newJson, ns)
+	patch, err := strategicpatch.CreateTwoWayMergePatch(old, newJSON, ns)
 	if err != nil {
 		return err
 	}

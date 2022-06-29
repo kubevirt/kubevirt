@@ -55,8 +55,6 @@ var _ = Describe("[rfe_id:3064][crit:medium][vendor:cnv-qe@redhat.com][level:com
 	BeforeEach(func() {
 		virtClient, err = kubecli.GetKubevirtClient()
 		util.PanicOnError(err)
-
-		tests.BeforeTestCleanup()
 	})
 
 	Context("A valid VMI", func() {

@@ -319,10 +319,7 @@ var _ = Describe("[rfe_id:393][crit:high][vendor:cnv-qe@redhat.com][level:system
 	}
 
 	BeforeEach(func() {
-		tests.BeforeTestCleanup()
-
 		checks.SkipIfMigrationIsNotPossible()
-
 	})
 
 	runVMIAndExpectLaunch := func(vmi *v1.VirtualMachineInstance, timeout int) *v1.VirtualMachineInstance {
@@ -1182,7 +1179,6 @@ var _ = Describe("[rfe_id:393][crit:high][vendor:cnv-qe@redhat.com][level:system
 		Context("with an pending target pod", func() {
 			var nodes *k8sv1.NodeList
 			BeforeEach(func() {
-				tests.BeforeTestCleanup()
 				Eventually(func() []k8sv1.Node {
 					nodes = libnode.GetAllSchedulableNodes(virtClient)
 					return nodes.Items
@@ -1317,7 +1313,6 @@ var _ = Describe("[rfe_id:393][crit:high][vendor:cnv-qe@redhat.com][level:system
 		})
 		Context("[Serial] with auto converge enabled", func() {
 			BeforeEach(func() {
-				tests.BeforeTestCleanup()
 
 				// set autoconverge flag
 				config := getCurrentKv()
@@ -1410,8 +1405,6 @@ var _ = Describe("[rfe_id:393][crit:high][vendor:cnv-qe@redhat.com][level:system
 
 		Context("with an Alpine DataVolume", func() {
 			BeforeEach(func() {
-				tests.BeforeTestCleanup()
-
 				if !libstorage.HasCDI() {
 					Skip("Skip DataVolume tests when CDI is not present")
 				}
@@ -3986,7 +3979,6 @@ var _ = Describe("[rfe_id:393][crit:high][vendor:cnv-qe@redhat.com][level:system
 			// However, we need to be sig-something or we'll fail the check, even if we don't run on any sig- lane.
 			// So let's be sig-compute and skip ourselves on sig-compute always... (they have only 1 node with CPU manager)
 			checks.SkipTestIfNotEnoughNodesWithCPUManager(2)
-			tests.BeforeTestCleanup()
 			virtClient, err = kubecli.GetKubevirtClient()
 			Expect(err).ToNot(HaveOccurred())
 

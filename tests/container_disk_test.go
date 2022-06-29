@@ -53,10 +53,6 @@ var _ = Describe("[rfe_id:588][crit:medium][vendor:cnv-qe@redhat.com][level:comp
 		util.PanicOnError(err)
 	})
 
-	AfterEach(func() {
-		tests.BeforeTestCleanup()
-	})
-
 	verifyContainerDiskVMI := func(vmi *v1.VirtualMachineInstance, obj runtime.Object) {
 		_, ok := obj.(*v1.VirtualMachineInstance)
 		Expect(ok).To(BeTrue(), "Object is not of type *v1.VirtualMachineInstance")

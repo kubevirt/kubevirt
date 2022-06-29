@@ -99,7 +99,6 @@ var _ = Describe("[rfe_id:273][crit:high][arm64][vendor:cnv-qe@redhat.com][level
 		virtClient, err = kubecli.GetKubevirtClient()
 		util.PanicOnError(err)
 
-		tests.BeforeTestCleanup()
 		vmi = tests.NewRandomVMIWithEphemeralDisk(cd.ContainerDiskFor(cd.ContainerDiskAlpine))
 	})
 
@@ -475,7 +474,7 @@ var _ = Describe("[rfe_id:273][crit:high][arm64][vendor:cnv-qe@redhat.com][level
 							Name:      "nonexistent",
 							Namespace: vmi.Namespace,
 							Labels: map[string]string{
-								testsuite.SecretLabel: "nonexistent",
+								util.SecretLabel: "nonexistent",
 							},
 						},
 						Type: "Opaque",

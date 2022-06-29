@@ -375,7 +375,8 @@ func NewPrometheusRuleSpec(ns string, workloadUpdatesEnabled bool) *v1.Prometheu
 						Alert: "VirtApiRESTErrorsHigh",
 						Expr:  intstr.FromString(getErrorRatio(ns, "virt-api", "(4|5)[0-9][0-9]", 60) + " >= 0.05"),
 						Annotations: map[string]string{
-							"summary": getRestCallsFailedWarning(5, "virt-api", "hour"),
+							"summary":     getRestCallsFailedWarning(5, "virt-api", "hour"),
+							"runbook_url": runbookUrlBasePath + "VirtApiRESTErrorsHigh",
 						},
 						Labels: map[string]string{
 							severityAlertLabelKey: "warning",
@@ -386,7 +387,8 @@ func NewPrometheusRuleSpec(ns string, workloadUpdatesEnabled bool) *v1.Prometheu
 						Expr:  intstr.FromString(getErrorRatio(ns, "virt-api", "(4|5)[0-9][0-9]", 5) + " >= 0.8"),
 						For:   "5m",
 						Annotations: map[string]string{
-							"summary": getRestCallsFailedWarning(80, "virt-api", durationFiveMinutes),
+							"summary":     getRestCallsFailedWarning(80, "virt-api", durationFiveMinutes),
+							"runbook_url": runbookUrlBasePath + "VirtApiRESTErrorsBurst",
 						},
 						Labels: map[string]string{
 							severityAlertLabelKey: "critical",

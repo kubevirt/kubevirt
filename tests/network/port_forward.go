@@ -52,8 +52,6 @@ var _ = SIGDescribe("Port-forward", func() {
 	BeforeEach(func() {
 		virtClient, err = kubecli.GetKubevirtClient()
 		util.PanicOnError(err)
-
-		tests.BeforeTestCleanup()
 	})
 
 	Context("VMI With masquerade binding", func() {
@@ -65,7 +63,7 @@ var _ = SIGDescribe("Port-forward", func() {
 		)
 
 		setup := func(ipFamily k8sv1.IPFamily) {
-			libnet.SkipWhenClusterNotSupportIpFamily(virtClient, ipFamily)
+			libnet.SkipWhenClusterNotSupportIPFamily(virtClient, ipFamily)
 
 			if ipFamily == k8sv1.IPv6Protocol {
 				Skip(skipIPv6Message)
@@ -174,7 +172,7 @@ func createCirrosVMIWithPortsAndBlockUntilReady(virtClient kubecli.KubevirtClien
 }
 
 func testConnectivityThroughLocalPort(ipFamily k8sv1.IPFamily, portNumber int) error {
-	return exec.Command("curl", fmt.Sprintf("%s:%d", libnet.GetLoopbackAddressForUrl(ipFamily), portNumber)).Run()
+	return exec.Command("curl", fmt.Sprintf("%s:%d", libnet.GetLoopbackAddressForURL(ipFamily), portNumber)).Run()
 }
 
 func waitForPortForwardCmd(ipFamily k8sv1.IPFamily, stdout io.ReadCloser, src, dst int) {
@@ -183,7 +181,7 @@ func waitForPortForwardCmd(ipFamily k8sv1.IPFamily, stdout io.ReadCloser, src, d
 		_, err := stdout.Read(tmp)
 		Expect(err).NotTo(HaveOccurred())
 		return string(tmp)
-	}, 30*time.Second, 1*time.Second).Should(ContainSubstring(fmt.Sprintf("Forwarding from %s:%d -> %d", libnet.GetLoopbackAddressForUrl(ipFamily), src, dst)))
+	}, 30*time.Second, 1*time.Second).Should(ContainSubstring(fmt.Sprintf("Forwarding from %s:%d -> %d", libnet.GetLoopbackAddressForURL(ipFamily), src, dst)))
 }
 
 func getMasqueradeInternalAddress(ipFamily k8sv1.IPFamily) string {

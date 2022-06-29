@@ -8,6 +8,7 @@ ENV GIMME_GO_VERSION=1.17.8
 ENV GRADLE_VERSION=6.6
 ENV OPERATOR_COURIER_VERSION=2.1.11
 ENV SONOBUOY_VERSION=0.19.0
+ENV GOLANGCI_LINT_VERSION=v1.46.2
 
 ENV KUBEVIRT_CREATE_BAZELRCS=false
 
@@ -107,6 +108,10 @@ RUN set -x && \
     go clean -cache -modcache -r && \
     rm -rf /test-infra && \
     rm -rf /go && mkdir /go
+
+RUN set -x && \
+    source /etc/profile.d/gimme.sh && \
+    curl -sSfL https://raw.githubusercontent.com/golangci/golangci-lint/master/install.sh | sh -s -- -b "$(go env GOROOT)"/bin $GOLANGCI_LINT_VERSION
 
 RUN pip3 install --upgrade operator-courier==${OPERATOR_COURIER_VERSION}
 

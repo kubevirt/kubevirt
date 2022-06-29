@@ -1,13 +1,15 @@
 package flavor_test
 
 import (
+	"context"
+
+	"github.com/golang/mock/gomock"
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
 	"k8s.io/apimachinery/pkg/api/errors"
 	"k8s.io/apimachinery/pkg/api/resource"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/util/validation/field"
-	"k8s.io/client-go/tools/cache"
 	"k8s.io/utils/pointer"
 
 	k8sfield "k8s.io/apimachinery/pkg/util/validation/field"
@@ -18,27 +20,28 @@ import (
 	v1 "kubevirt.io/api/core/v1"
 	apiflavor "kubevirt.io/api/flavor"
 	flavorv1alpha1 "kubevirt.io/api/flavor/v1alpha1"
+	fakeclientset "kubevirt.io/client-go/generated/kubevirt/clientset/versioned/fake"
+	"kubevirt.io/client-go/generated/kubevirt/clientset/versioned/typed/flavor/v1alpha1"
 	"kubevirt.io/kubevirt/pkg/flavor"
-	"kubevirt.io/kubevirt/pkg/testutils"
 )
 
 var _ = Describe("Flavor and Preferences", func() {
 	var (
-		flavorInformer            cache.SharedIndexInformer
-		clusterFlavorInformer     cache.SharedIndexInformer
-		preferenceInformer        cache.SharedIndexInformer
-		clusterPreferenceInformer cache.SharedIndexInformer
-		flavorMethods             flavor.Methods
-		vm                        *v1.VirtualMachine
-		vmi                       *v1.VirtualMachineInstance
+		ctrl              *gomock.Controller
+		flavorMethods     flavor.Methods
+		vm                *v1.VirtualMachine
+		vmi               *v1.VirtualMachineInstance
+		virtClient        *kubecli.MockKubevirtClient
+		fakeFlavorClients v1alpha1.FlavorV1alpha1Interface
 	)
 
 	BeforeEach(func() {
-		flavorInformer, _ = testutils.NewFakeInformerFor(&flavorv1alpha1.VirtualMachineFlavor{})
-		clusterFlavorInformer, _ = testutils.NewFakeInformerFor(&flavorv1alpha1.VirtualMachineClusterFlavor{})
-		preferenceInformer, _ = testutils.NewFakeInformerFor(&flavorv1alpha1.VirtualMachinePreference{})
-		clusterPreferenceInformer, _ = testutils.NewFakeInformerFor(&flavorv1alpha1.VirtualMachineClusterPreference{})
-		flavorMethods = flavor.NewMethods(flavorInformer.GetStore(), clusterFlavorInformer.GetStore(), preferenceInformer.GetStore(), clusterPreferenceInformer.GetStore())
+		ctrl = gomock.NewController(GinkgoT())
+
+		virtClient = kubecli.NewMockKubevirtClient(ctrl)
+		fakeFlavorClients = fakeclientset.NewSimpleClientset().FlavorV1alpha1()
+
+		flavorMethods = flavor.NewMethods(virtClient)
 	})
 
 	Context("Find Flavor Spec", func() {
@@ -75,8 +78,13 @@ var _ = Describe("Flavor and Preferences", func() {
 
 		Context("Using global ClusterFlavor", func() {
 			var flavor *flavorv1alpha1.VirtualMachineClusterFlavor
+			var fakeClusterFlavorClient v1alpha1.VirtualMachineClusterFlavorInterface
 
 			BeforeEach(func() {
+
+				fakeClusterFlavorClient = fakeFlavorClients.VirtualMachineClusterFlavors()
+				virtClient.EXPECT().VirtualMachineClusterFlavor().Return(fakeClusterFlavorClient).AnyTimes()
+
 				flavor = &flavorv1alpha1.VirtualMachineClusterFlavor{
 					ObjectMeta: metav1.ObjectMeta{
 						Name: "test-cluster-flavor",
@@ -88,7 +96,7 @@ var _ = Describe("Flavor and Preferences", func() {
 					},
 				}
 
-				err := clusterFlavorInformer.GetStore().Add(flavor)
+				_, err := virtClient.VirtualMachineClusterFlavor().Create(context.Background(), flavor, metav1.CreateOptions{})
 				Expect(err).ToNot(HaveOccurred())
 
 				vm.Spec.Flavor = &v1.FlavorMatcher{
@@ -98,6 +106,7 @@ var _ = Describe("Flavor and Preferences", func() {
 			})
 
 			It("returns expected flavor", func() {
+
 				f, err := flavorMethods.FindFlavorSpec(vm)
 				Expect(err).ToNot(HaveOccurred())
 				Expect(*f).To(Equal(flavor.Spec))
@@ -114,8 +123,13 @@ var _ = Describe("Flavor and Preferences", func() {
 
 		Context("Using namespaced Flavor", func() {
 			var flavor *flavorv1alpha1.VirtualMachineFlavor
+			var fakeFlavorClient v1alpha1.VirtualMachineFlavorInterface
 
 			BeforeEach(func() {
+
+				fakeFlavorClient = fakeFlavorClients.VirtualMachineFlavors(vm.Namespace)
+				virtClient.EXPECT().VirtualMachineFlavor(gomock.Any()).Return(fakeFlavorClient).AnyTimes()
+
 				flavor = &flavorv1alpha1.VirtualMachineFlavor{
 					ObjectMeta: metav1.ObjectMeta{
 						Name:      "test-flavor",
@@ -128,7 +142,7 @@ var _ = Describe("Flavor and Preferences", func() {
 					},
 				}
 
-				err := flavorInformer.GetStore().Add(flavor)
+				_, err := virtClient.VirtualMachineFlavor(vm.Namespace).Create(context.Background(), flavor, metav1.CreateOptions{})
 				Expect(err).ToNot(HaveOccurred())
 
 				vm.Spec.Flavor = &v1.FlavorMatcher{
@@ -145,18 +159,8 @@ var _ = Describe("Flavor and Preferences", func() {
 
 			It("fails when flavor does not exist", func() {
 				vm.Spec.Flavor.Name = "non-existing-flavor"
-
 				_, err := flavorMethods.FindFlavorSpec(vm)
 				Expect(err).To(HaveOccurred())
-				Expect(errors.IsNotFound(err)).To(BeTrue())
-			})
-
-			It("fails when flavor is in different namespace", func() {
-				vm.Namespace = "other-namespace"
-
-				_, err := flavorMethods.FindFlavorSpec(vm)
-				Expect(err).To(HaveOccurred())
-				Expect(errors.IsNotFound(err)).To(BeTrue())
 			})
 		})
 	})
@@ -234,8 +238,13 @@ var _ = Describe("Flavor and Preferences", func() {
 
 		Context("Using global ClusterPreference", func() {
 			var preference *flavorv1alpha1.VirtualMachineClusterPreference
+			var fakeClusterPreferenceClient v1alpha1.VirtualMachineClusterPreferenceInterface
 
 			BeforeEach(func() {
+
+				fakeClusterPreferenceClient = fakeFlavorClients.VirtualMachineClusterPreferences()
+				virtClient.EXPECT().VirtualMachineClusterPreference().Return(fakeClusterPreferenceClient).AnyTimes()
+
 				preference = &flavorv1alpha1.VirtualMachineClusterPreference{
 					ObjectMeta: metav1.ObjectMeta{
 						Name: "test-cluster-preference",
@@ -247,7 +256,7 @@ var _ = Describe("Flavor and Preferences", func() {
 					},
 				}
 
-				err := clusterPreferenceInformer.GetStore().Add(preference)
+				_, err := virtClient.VirtualMachineClusterPreference().Create(context.Background(), preference, metav1.CreateOptions{})
 				Expect(err).ToNot(HaveOccurred())
 
 				vm.Spec.Preference = &v1.PreferenceMatcher{
@@ -257,6 +266,7 @@ var _ = Describe("Flavor and Preferences", func() {
 			})
 
 			It("returns expected preference spec", func() {
+
 				s, err := flavorMethods.FindPreferenceSpec(vm)
 				Expect(err).ToNot(HaveOccurred())
 				Expect(*s).To(Equal(preference.Spec))
@@ -273,8 +283,13 @@ var _ = Describe("Flavor and Preferences", func() {
 
 		Context("Using namespaced Preference", func() {
 			var preference *flavorv1alpha1.VirtualMachinePreference
+			var fakePreferenceClient v1alpha1.VirtualMachinePreferenceInterface
 
 			BeforeEach(func() {
+
+				fakePreferenceClient = fakeFlavorClients.VirtualMachinePreferences(vm.Namespace)
+				virtClient.EXPECT().VirtualMachinePreference(gomock.Any()).Return(fakePreferenceClient).AnyTimes()
+
 				preference = &flavorv1alpha1.VirtualMachinePreference{
 					ObjectMeta: metav1.ObjectMeta{
 						Name:      "test-preference",
@@ -287,7 +302,7 @@ var _ = Describe("Flavor and Preferences", func() {
 					},
 				}
 
-				err := preferenceInformer.GetStore().Add(preference)
+				_, err := virtClient.VirtualMachinePreference(vm.Namespace).Create(context.Background(), preference, metav1.CreateOptions{})
 				Expect(err).ToNot(HaveOccurred())
 
 				vm.Spec.Preference = &v1.PreferenceMatcher{
@@ -304,14 +319,6 @@ var _ = Describe("Flavor and Preferences", func() {
 
 			It("fails when preference does not exist", func() {
 				vm.Spec.Preference.Name = "non-existing-preference"
-
-				_, err := flavorMethods.FindPreferenceSpec(vm)
-				Expect(err).To(HaveOccurred())
-				Expect(errors.IsNotFound(err)).To(BeTrue())
-			})
-
-			It("fails when preference is in different namespace", func() {
-				vm.Namespace = "other-namespace"
 
 				_, err := flavorMethods.FindPreferenceSpec(vm)
 				Expect(err).To(HaveOccurred())

@@ -58,7 +58,6 @@ var _ = Describe("[sig-compute]HookSidecars", func() {
 		virtClient, err = kubecli.GetKubevirtClient()
 		util.PanicOnError(err)
 
-		tests.BeforeTestCleanup()
 		vmi = tests.NewRandomVMIWithEphemeralDisk(cd.ContainerDiskFor(cd.ContainerDiskAlpine))
 		vmi.ObjectMeta.Annotations = RenderSidecar(hooksv1alpha1.Version)
 	})

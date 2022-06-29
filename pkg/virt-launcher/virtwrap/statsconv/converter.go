@@ -214,9 +214,13 @@ func Convert_libvirt_DomainJobInfo_To_stats_DomainJobInfo(info *libvirt.DomainJo
 	return &stats.DomainJobInfo{
 		DataProcessedSet: info.DataProcessedSet,
 		DataProcessed:    info.DataProcessed,
+		MemoryBpsSet:     info.MemBpsSet,
+		MemoryBps:        info.MemBps,
+		DiskBpsSet:       info.DiskBpsSet,
+		DiskBps:          info.DiskBps,
 		DataRemainingSet: info.DataRemainingSet,
 		DataRemaining:    info.DataRemaining,
-		MemDirtyRateSet:  info.MemDirtyRateSet,
-		MemDirtyRate:     info.MemDirtyRate,
+		MemDirtyRateSet:  info.MemDirtyRateSet && info.MemPageSizeSet,
+		MemDirtyRate:     info.MemDirtyRate * info.MemPageSize,
 	}
 }

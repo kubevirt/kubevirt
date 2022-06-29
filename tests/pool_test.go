@@ -50,8 +50,6 @@ var _ = Describe("[sig-compute]VirtualMachinePool", func() {
 	BeforeEach(func() {
 		virtClient, err = kubecli.GetKubevirtClient()
 		util.PanicOnError(err)
-
-		tests.BeforeTestCleanup()
 	})
 
 	waitForVMIs := func(namespace string, expectedCount int) {

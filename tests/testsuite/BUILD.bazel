@@ -5,7 +5,6 @@ go_library(
     srcs = [
         "fixture.go",
         "kubevirtresource.go",
-        "label.go",
         "manifest.go",
         "namespace.go",
         "serviceaccount.go",
