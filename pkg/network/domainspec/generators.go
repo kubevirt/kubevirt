@@ -38,7 +38,12 @@ type LibvirtSpecGenerator interface {
 	Generate() error
 }
 
-func NewMacvtapLibvirtSpecGenerator(iface *v1.Interface, domain *api.Domain, podInterfaceName string, handler netdriver.NetworkHandler) *MacvtapLibvirtSpecGenerator {
+func NewMacvtapLibvirtSpecGenerator(
+	iface *v1.Interface,
+	domain *api.Domain,
+	podInterfaceName string,
+	handler netdriver.NetworkHandler,
+) *MacvtapLibvirtSpecGenerator {
 	return &MacvtapLibvirtSpecGenerator{
 		vmiSpecIface:     iface,
 		domain:           domain,
@@ -47,7 +52,13 @@ func NewMacvtapLibvirtSpecGenerator(iface *v1.Interface, domain *api.Domain, pod
 	}
 }
 
-func NewMasqueradeLibvirtSpecGenerator(iface *v1.Interface, vmiSpecNetwork *v1.Network, domain *api.Domain, podInterfaceName string, handler netdriver.NetworkHandler) *MasqueradeLibvirtSpecGenerator {
+func NewMasqueradeLibvirtSpecGenerator(
+	iface *v1.Interface,
+	vmiSpecNetwork *v1.Network,
+	domain *api.Domain,
+	podInterfaceName string,
+	handler netdriver.NetworkHandler,
+) *MasqueradeLibvirtSpecGenerator {
 	return &MasqueradeLibvirtSpecGenerator{
 		vmiSpecIface:     iface,
 		vmiSpecNetwork:   vmiSpecNetwork,
@@ -64,7 +75,13 @@ func NewSlirpLibvirtSpecGenerator(iface *v1.Interface, domain *api.Domain) *Slir
 	}
 }
 
-func NewBridgeLibvirtSpecGenerator(iface *v1.Interface, domain *api.Domain, cachedDomainInterface api.Interface, podInterfaceName string, handler netdriver.NetworkHandler) *BridgeLibvirtSpecGenerator {
+func NewBridgeLibvirtSpecGenerator(
+	iface *v1.Interface,
+	domain *api.Domain,
+	cachedDomainInterface api.Interface,
+	podInterfaceName string,
+	handler netdriver.NetworkHandler,
+) *BridgeLibvirtSpecGenerator {
 	return &BridgeLibvirtSpecGenerator{
 		vmiSpecIface:          iface,
 		domain:                domain,
