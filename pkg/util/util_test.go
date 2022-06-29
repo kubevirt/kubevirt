@@ -16,7 +16,7 @@ import (
 )
 
 var (
-	logger = zap.New(zap.WriteTo(GinkgoWriter), zap.UseDevMode(true)).WithName("eventEmmiter_test")
+	logger = zap.New(zap.WriteTo(GinkgoWriter), zap.UseDevMode(true)).WithName("eventEmitter_test")
 )
 
 var _ = Describe("Test general utilities", func() {

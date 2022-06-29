@@ -39,13 +39,28 @@ func (ee eventEmitter) EmitEvent(object runtime.Object, eventType, reason, msg s
 		ee.recorder.Event(ee.pod, eventType, reason, msg)
 	}
 
-	// checking object != nil does not work because object is an interface, and nil interface instance is not nil.
-	// We need to check that it's actually nil, using reflection.
-	if t := reflect.ValueOf(object); t.Kind() != reflect.Pointer || !t.IsNil() {
+	if !IsActuallyNil(object) {
 		ee.recorder.Event(object, eventType, reason, msg)
 	}
 
 	if ee.csv != nil {
 		ee.recorder.Event(ee.csv, eventType, reason, msg)
+	}
+}
+
+// IsActuallyNil checks if an interface object is actually nil. Just checking for == nil won't work, if the parameter is
+// a pointer variable that holds nil.
+func IsActuallyNil(object interface{}) bool {
+	if object == nil {
+		return true
+	}
+
+	t := reflect.ValueOf(object)
+
+	switch t.Kind() {
+	case reflect.Chan, reflect.Func, reflect.Map, reflect.Pointer, reflect.UnsafePointer, reflect.Interface, reflect.Slice:
+		return t.IsNil()
+	default:
+		return false
 	}
 }
