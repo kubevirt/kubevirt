@@ -200,9 +200,11 @@ func (b *SlirpLibvirtSpecGenerator) Generate() error {
 		qemuArg += fmt.Sprintf(",mac=%s", b.vmiSpecIface.MacAddress)
 	}
 	// Add interface configuration to qemuArgs
-	b.domain.Spec.QEMUCmd.QEMUArg = append(b.domain.Spec.QEMUCmd.QEMUArg, api.Arg{Value: "-device"})
-	b.domain.Spec.QEMUCmd.QEMUArg = append(b.domain.Spec.QEMUCmd.QEMUArg, api.Arg{Value: qemuArg})
-
+	b.domain.Spec.QEMUCmd.QEMUArg = append(
+		b.domain.Spec.QEMUCmd.QEMUArg,
+		api.Arg{Value: "-device"},
+		api.Arg{Value: qemuArg},
+	)
 	return nil
 }
 
