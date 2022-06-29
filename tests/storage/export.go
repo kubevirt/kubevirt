@@ -22,6 +22,7 @@ package storage
 import (
 	"context"
 	"crypto/x509"
+	"encoding/pem"
 	"fmt"
 	"path/filepath"
 	"strings"
@@ -43,6 +44,7 @@ import (
 	"kubevirt.io/client-go/kubecli"
 	"kubevirt.io/client-go/log"
 	cdiv1 "kubevirt.io/containerized-data-importer-api/pkg/apis/core/v1beta1"
+
 	"kubevirt.io/kubevirt/pkg/certificates/triple/cert"
 	"kubevirt.io/kubevirt/pkg/virt-operator/resource/generate/components"
 	"kubevirt.io/kubevirt/tests"
@@ -53,6 +55,7 @@ import (
 	"kubevirt.io/kubevirt/tests/util"
 
 	routev1 "github.com/openshift/api/route/v1"
+	certutil "kubevirt.io/kubevirt/pkg/certificates/triple/cert"
 )
 
 const (
@@ -74,29 +77,9 @@ const (
 
 	proxyUrlBase = "https://virt-exportproxy.%s.svc/api/export.kubevirt.io/v1alpha1/namespaces/%s/virtualmachineexports/%s%s"
 
-	tlsKey   = "tls.key"
-	tlsCert  = "tls.crt"
-	testKey  = "test"
-	testCert = `-----BEGIN CERTIFICATE-----
-MIIDJTCCAg2gAwIBAgIUYhSmCxHywX8qmhCPSZweno9MP8cwDQYJKoZIhvcNAQEL
-BQAwIjEgMB4GA1UEAwwXdm1leHBvcnQtcHJveHkudGVzdC5uZXQwHhcNMjIwNjEz
-MTcwNTA4WhcNMjMwNjEzMTcwNTA4WjAiMSAwHgYDVQQDDBd2bWV4cG9ydC1wcm94
-eS50ZXN0Lm5ldDCCASIwDQYJKoZIhvcNAQEBBQADggEPADCCAQoCggEBALrkCWbD
-z2i/QAOQXOX6bk0Q3wq6wRz+qHtr9mu93FQrZUcMzYpr/dLMaW18PVes4RjMuqjt
-cbTjgGIwoS3VFCyub9wB1cro+0avf8cnl7Z10RPA7i6b2UV800HcwlmrbGr29kN2
-E2x2PajAAjoAqAaqu1rhP1ua7xynpWiDk64pXVDxdPUUvyoDD6eL3KqSqA1X/iys
-fG6s+ypL540mIDLR5rxtvvdD4J7hktT+UIinbEE7Q9DwoGJ6xKqYagOb2CLymNLZ
-ruJ3vmiTqd/2HXGI+4xe2fR6v23CRhLIeRBIzznIJOwBGe/YutGCIHa35AATlhwS
-HzFagYwOATIMvt8CAwEAAaNTMFEwHQYDVR0OBBYEFJVH/4uLVQ8gPqa6x7D46Jga
-jikIMB8GA1UdIwQYMBaAFJVH/4uLVQ8gPqa6x7D46JgajikIMA8GA1UdEwEB/wQF
-MAMBAf8wDQYJKoZIhvcNAQELBQADggEBAKPg9lwsRMpJ6wR1hR/1GWFVqJsb7t7G
-nr0SPsYBYzOkIfMtIK7kRfLQgMRTNOpvyC13zkDeAFjejr+Ovl7d4ONLGP/7qcj/
-dLN0Tas2m0pMJjxJa40WYU+XlnO47R/HtYnrn7RMIZ2TUroisf2oiEUJ36989mp5
-ArFLLJzozIrpAP5lHThpJjQCs6wM/d7daasRBfXucGPMvXcUnVmGo+2pUjTourpG
-NH18UMKg4B0B1Gs6LsQVYrQerP9zI14p3nu3ieBFEUT2wuERycbHLwCH+mC4HpbD
-pS/x4m6CgALv0lrhHpffeOc8lncNEzkZbRpCG1NBbPA6mFLtklcuER8=
------END CERTIFICATE-----`
-	// This hostname matches the cert above (testCert)
+	tlsKey           = "tls.key"
+	tlsCert          = "tls.crt"
+	testKey          = "test"
 	testHostName     = "vmexport-proxy.test.net"
 	subjectAltNameId = "2.5.29.17"
 )
@@ -840,7 +823,23 @@ var _ = SIGDescribe("Export", func() {
 			}
 		})
 
-		createIngressTLSSecret := func(name string) {
+		generateTestCert := func(hostName string) string {
+			key, err := certutil.NewPrivateKey()
+			Expect(err).ToNot(HaveOccurred())
+
+			config := certutil.Config{
+				CommonName: hostName,
+			}
+
+			cert, err := certutil.NewSelfSignedCACert(config, key, time.Hour)
+			Expect(err).ToNot(HaveOccurred())
+			pemOut := strings.Builder{}
+			pem.Encode(&pemOut, &pem.Block{Type: "CERTIFICATE", Bytes: cert.Raw})
+			return strings.TrimSpace(pemOut.String())
+		}
+
+		createIngressTLSSecret := func(name string) string {
+			testCert := generateTestCert(testHostName)
 			secret := &k8sv1.Secret{
 				ObjectMeta: metav1.ObjectMeta{
 					Name:      name,
@@ -853,6 +852,7 @@ var _ = SIGDescribe("Export", func() {
 			}
 			_, err := virtClient.CoreV1().Secrets(flags.KubeVirtInstallNamespace).Create(context.Background(), secret, metav1.CreateOptions{})
 			Expect(err).ToNot(HaveOccurred())
+			return testCert
 		}
 
 		createIngress := func(tlsSecretName string) *networkingv1.Ingress {
@@ -915,7 +915,7 @@ var _ = SIGDescribe("Export", func() {
 			if !exists {
 				Skip("Skip test when Filesystem storage is not present")
 			}
-			createIngressTLSSecret(tlsSecretName)
+			testCert := createIngressTLSSecret(tlsSecretName)
 			ingress := createIngress(tlsSecretName)
 			vmExport := createRunningExport(sc, k8sv1.PersistentVolumeFilesystem)
 			Expect(vmExport.Status.Links.External.Cert).To(Equal(testCert))
