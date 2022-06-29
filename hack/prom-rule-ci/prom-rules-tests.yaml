@@ -31,7 +31,6 @@ tests:
         severity: "warning"
         kubernetes_operator_part_of: "kubevirt"
         kubernetes_operator_component: "hyperconverged-cluster-operator"
-        infra_alert: "true"
         component_name: "kubevirt/kubevirt-kubevirt-hyperconverged"
 
   # New increases must be detected
@@ -46,7 +45,6 @@ tests:
         severity: "warning"
         kubernetes_operator_part_of: "kubevirt"
         kubernetes_operator_component: "hyperconverged-cluster-operator"
-        infra_alert: "true"
         component_name: "kubevirt/kubevirt-kubevirt-hyperconverged"
 
   # Old increases must be ignored.
@@ -61,7 +59,6 @@ tests:
         severity: "warning"
         kubernetes_operator_part_of: "kubevirt"
         kubernetes_operator_component: "hyperconverged-cluster-operator"
-        infra_alert: "true"
         component_name: "kubevirt/kubevirt-kubevirt-hyperconverged"
 
   # Should resolve after 10 minutes if there is no new change
@@ -86,7 +83,6 @@ tests:
         severity: "warning"
         kubernetes_operator_part_of: "kubevirt"
         kubernetes_operator_component: "hyperconverged-cluster-operator"
-        infra_alert: "true"
         component_name: "kubevirt/kubevirt-kubevirt-hyperconverged"
 
   # After restart, new increases must be detected
@@ -101,7 +97,6 @@ tests:
         severity: "warning"
         kubernetes_operator_part_of: "kubevirt"
         kubernetes_operator_component: "hyperconverged-cluster-operator"
-        infra_alert: "true"
         component_name: "kubevirt/kubevirt-kubevirt-hyperconverged"
 # Test unsafe modification counter
 - interval: 1m
@@ -134,7 +129,6 @@ tests:
         severity: "info"
         kubernetes_operator_part_of: "kubevirt"
         kubernetes_operator_component: "hyperconverged-cluster-operator"
-        infra_alert: "true"
         annotation_name: "kubevirt.kubevirt.io/jsonpatch"
     - exp_annotations:
         description: "unsafe modification for the containerizeddataimporter.kubevirt.io/jsonpatch annotation in the HyperConverged resource."
@@ -144,7 +138,6 @@ tests:
         severity: "info"
         kubernetes_operator_part_of: "kubevirt"
         kubernetes_operator_component: "hyperconverged-cluster-operator"
-        infra_alert: "true"
         annotation_name: "containerizeddataimporter.kubevirt.io/jsonpatch"
     - exp_annotations:
         description: "unsafe modification for the networkaddonsconfigs.kubevirt.io/jsonpatch annotation in the HyperConverged resource."
@@ -154,7 +147,6 @@ tests:
         severity: "info"
         kubernetes_operator_part_of: "kubevirt"
         kubernetes_operator_component: "hyperconverged-cluster-operator"
-        infra_alert: "true"
         annotation_name: "networkaddonsconfigs.kubevirt.io/jsonpatch"
 
   # New increases must be detected
@@ -169,7 +161,6 @@ tests:
         severity: "info"
         kubernetes_operator_part_of: "kubevirt"
         kubernetes_operator_component: "hyperconverged-cluster-operator"
-        infra_alert: "true"
         annotation_name: "kubevirt.kubevirt.io/jsonpatch"
     - exp_annotations:
         description: "unsafe modification for the containerizeddataimporter.kubevirt.io/jsonpatch annotation in the HyperConverged resource."
@@ -179,7 +170,6 @@ tests:
         severity: "info"
         kubernetes_operator_part_of: "kubevirt"
         kubernetes_operator_component: "hyperconverged-cluster-operator"
-        infra_alert: "true"
         annotation_name: "containerizeddataimporter.kubevirt.io/jsonpatch"
     # still using the 10 minutes max
     - exp_annotations:
@@ -190,7 +180,6 @@ tests:
         severity: "info"
         kubernetes_operator_part_of: "kubevirt"
         kubernetes_operator_component: "hyperconverged-cluster-operator"
-        infra_alert: "true"
         annotation_name: "networkaddonsconfigs.kubevirt.io/jsonpatch"
 
   # counter can be reduced
@@ -205,7 +194,6 @@ tests:
         severity: "info"
         kubernetes_operator_part_of: "kubevirt"
         kubernetes_operator_component: "hyperconverged-cluster-operator"
-        infra_alert: "true"
         annotation_name: "kubevirt.kubevirt.io/jsonpatch"
     # Reduced
     - exp_annotations:
@@ -216,7 +204,6 @@ tests:
         severity: "info"
         kubernetes_operator_part_of: "kubevirt"
         kubernetes_operator_component: "hyperconverged-cluster-operator"
-        infra_alert: "true"
         annotation_name: "containerizeddataimporter.kubevirt.io/jsonpatch"
     - exp_annotations:
         description: "unsafe modification for the networkaddonsconfigs.kubevirt.io/jsonpatch annotation in the HyperConverged resource."
@@ -226,7 +213,6 @@ tests:
         severity: "info"
         kubernetes_operator_part_of: "kubevirt"
         kubernetes_operator_component: "hyperconverged-cluster-operator"
-        infra_alert: "true"
         annotation_name: "networkaddonsconfigs.kubevirt.io/jsonpatch"
 
   # no alert if the value is 0
@@ -241,7 +227,6 @@ tests:
         severity: "info"
         kubernetes_operator_part_of: "kubevirt"
         kubernetes_operator_component: "hyperconverged-cluster-operator"
-        infra_alert: "true"
         annotation_name: "kubevirt.kubevirt.io/jsonpatch"
     - exp_annotations:
         description: "unsafe modification for the containerizeddataimporter.kubevirt.io/jsonpatch annotation in the HyperConverged resource."
@@ -251,7 +236,6 @@ tests:
         severity: "info"
         kubernetes_operator_part_of: "kubevirt"
         kubernetes_operator_component: "hyperconverged-cluster-operator"
-        infra_alert: "true"
         annotation_name: "containerizeddataimporter.kubevirt.io/jsonpatch"
 
   # no alert if the value is 0 for all of the annotations
@@ -271,7 +255,6 @@ tests:
         severity: "info"
         kubernetes_operator_part_of: "kubevirt"
         kubernetes_operator_component: "hyperconverged-cluster-operator"
-        infra_alert: "true"
         annotation_name: "kubevirt.kubevirt.io/jsonpatch"
     # Reduced
     - exp_annotations:
@@ -282,7 +265,6 @@ tests:
         severity: "info"
         kubernetes_operator_part_of: "kubevirt"
         kubernetes_operator_component: "hyperconverged-cluster-operator"
-        infra_alert: "true"
         annotation_name: "containerizeddataimporter.kubevirt.io/jsonpatch"
     - exp_annotations:
         description: "unsafe modification for the networkaddonsconfigs.kubevirt.io/jsonpatch annotation in the HyperConverged resource."
@@ -292,7 +274,6 @@ tests:
         severity: "info"
         kubernetes_operator_part_of: "kubevirt"
         kubernetes_operator_component: "hyperconverged-cluster-operator"
-        infra_alert: "true"
         annotation_name: "networkaddonsconfigs.kubevirt.io/jsonpatch"
 
   # no data
@@ -312,7 +293,6 @@ tests:
         severity: "info"
         kubernetes_operator_part_of: "kubevirt"
         kubernetes_operator_component: "hyperconverged-cluster-operator"
-        infra_alert: "true"
         annotation_name: "kubevirt.kubevirt.io/jsonpatch"
     # Reduced
     - exp_annotations:
@@ -323,7 +303,6 @@ tests:
         severity: "info"
         kubernetes_operator_part_of: "kubevirt"
         kubernetes_operator_component: "hyperconverged-cluster-operator"
-        infra_alert: "true"
         annotation_name: "containerizeddataimporter.kubevirt.io/jsonpatch"
     - exp_annotations:
         description: "unsafe modification for the networkaddonsconfigs.kubevirt.io/jsonpatch annotation in the HyperConverged resource."
@@ -333,7 +312,6 @@ tests:
         severity: "info"
         kubernetes_operator_part_of: "kubevirt"
         kubernetes_operator_component: "hyperconverged-cluster-operator"
-        infra_alert: "true"
         annotation_name: "networkaddonsconfigs.kubevirt.io/jsonpatch"
 
 # Test hyperconverged exists counter
@@ -385,7 +363,6 @@ tests:
         severity: "info"
         kubernetes_operator_part_of: "kubevirt"
         kubernetes_operator_component: "hyperconverged-cluster-operator"
-        infra_alert: "true"
 
   # counter is 0 for more than an hour
   - eval_time: 63m
@@ -399,7 +376,6 @@ tests:
         severity: "info"
         kubernetes_operator_part_of: "kubevirt"
         kubernetes_operator_component: "hyperconverged-cluster-operator"
-        infra_alert: "true"
 
   # counter is 0 for more than an hour
   - eval_time: 67m
@@ -413,7 +389,6 @@ tests:
         severity: "info"
         kubernetes_operator_part_of: "kubevirt"
         kubernetes_operator_component: "hyperconverged-cluster-operator"
-        infra_alert: "true"
 
   - eval_time: 68m
     alertname: KubevirtHyperconvergedClusterOperatorInstallationNotCompletedAlert
