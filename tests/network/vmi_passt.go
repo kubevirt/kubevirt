@@ -21,6 +21,7 @@ package network
 
 import (
 	"fmt"
+	"time"
 
 	expect "github.com/google/goexpect"
 	. "github.com/onsi/ginkgo/v2"
@@ -68,40 +69,6 @@ var _ = SIGDescribe("[Serial] Passt", func() {
 				var clientVMI *v1.VirtualMachineInstance
 				var serverVMI *v1.VirtualMachineInstance
 
-				checkConnectionToServer := func(serverIP string, port int, expectSuccess bool) []expect.Batcher {
-					expectResult := console.ShellFail
-					if expectSuccess {
-						expectResult = console.ShellSuccess
-					}
-
-					clientCommand := fmt.Sprintf("echo test | nc %s %d -i 1 -w 1 1> /dev/null\n", serverIP, port)
-
-					return []expect.Batcher{
-						&expect.BSnd{S: "\n"},
-						&expect.BExp{R: console.PromptExpression},
-						&expect.BSnd{S: clientCommand},
-						&expect.BExp{R: console.PromptExpression},
-						&expect.BSnd{S: tests.EchoLastReturnValue},
-						&expect.BExp{R: expectResult},
-					}
-				}
-
-				verifyClientServerConnectivity := func(clientVMI *v1.VirtualMachineInstance, serverVMI *v1.VirtualMachineInstance, tcpPort int, ipFamily k8sv1.IPFamily) error {
-					serverIP := libnet.GetVmiPrimaryIPByFamily(serverVMI, ipFamily)
-					err := libnet.PingFromVMConsole(clientVMI, serverIP)
-					if err != nil {
-						return err
-					}
-
-					By("Connecting from the client VM")
-					err = console.SafeExpectBatch(clientVMI, checkConnectionToServer(serverIP, tcpPort, true), 30)
-					if err != nil {
-						return err
-					}
-
-					return nil
-				}
-
 				startServerVMI := func(ports []v1.Port) {
 					serverVMI = libvmi.NewAlpineWithTestTooling(
 						libvmi.WithInterface(libvmi.InterfaceDeviceWithPasstBinding(ports...)),
@@ -115,48 +82,146 @@ var _ = SIGDescribe("[Serial] Passt", func() {
 					Expect(console.LoginToAlpine(serverVMI)).To(Succeed())
 				}
 
-				startClientVMI := func() {
-					clientVMI = libvmi.NewAlpineWithTestTooling(
-						withPasstInterfaceWithPort(),
-						libvmi.WithNetwork(v1.DefaultPodNetwork()),
-					)
+				Context("TCP", func() {
+					checkConnectionToServer := func(serverIP string, port int, expectSuccess bool) []expect.Batcher {
+						expectResult := console.ShellFail
+						if expectSuccess {
+							expectResult = console.ShellSuccess
+						}
 
-					clientVMI, err = virtClient.VirtualMachineInstance(util.NamespaceTestDefault).Create(clientVMI)
-					Expect(err).ToNot(HaveOccurred())
-					clientVMI = tests.WaitForSuccessfulVMIStartIgnoreWarnings(clientVMI)
-					Expect(console.LoginToAlpine(clientVMI)).To(Succeed())
-				}
+						clientCommand := fmt.Sprintf("echo test | nc %s %d -i 1 -w 1 1> /dev/null\n", serverIP, port)
 
-				DescribeTable("TCP", func(ports []v1.Port, tcpPort int, ipFamily k8sv1.IPFamily) {
-					libnet.SkipWhenClusterNotSupportIPFamily(virtClient, ipFamily)
-
-					By("starting a client VMI")
-					startClientVMI()
-
-					By("starting a server VMI")
-					startServerVMI(ports)
-
-					By("starting a TCP server")
-					tests.StartTCPServer(serverVMI, tcpPort, console.LoginToAlpine)
-
-					Expect(verifyClientServerConnectivity(clientVMI, serverVMI, tcpPort, k8sv1.IPv4Protocol)).To(Succeed())
-
-					if len(ports) != 0 {
-						By("starting a TCP server on a port not specified on the VM spec")
-						vmPort := int(ports[0].Port)
-						serverIP := libnet.GetVmiPrimaryIPByFamily(serverVMI, ipFamily)
-
-						tests.StartTCPServer(serverVMI, vmPort+1, console.LoginToAlpine)
-
-						By("Connecting from the client VM to a port not specified on the VM spec")
-						Expect(console.SafeExpectBatch(clientVMI, checkConnectionToServer(serverIP, tcpPort+1, true), 30)).To(Not(Succeed()))
+						return []expect.Batcher{
+							&expect.BSnd{S: "\n"},
+							&expect.BExp{R: console.PromptExpression},
+							&expect.BSnd{S: clientCommand},
+							&expect.BExp{R: console.PromptExpression},
+							&expect.BSnd{S: tests.EchoLastReturnValue},
+							&expect.BExp{R: expectResult},
+						}
 					}
-				},
-					Entry("with a specific port number [IPv4]", []v1.Port{{Name: "http", Port: 8080, Protocol: "TCP"}}, 8080, k8sv1.IPv4Protocol),
-					Entry("without a specific port number [IPv4]", []v1.Port{}, 8080, k8sv1.IPv4Protocol),
-					Entry("with a specific port number [IPv6]", []v1.Port{{Name: "http", Port: 8080, Protocol: "TCP"}}, 8080, k8sv1.IPv6Protocol),
-					Entry("without a specific port number [IPv6]", []v1.Port{}, 8080, k8sv1.IPv6Protocol),
-				)
+
+					verifyClientServerConnectivity := func(clientVMI *v1.VirtualMachineInstance, serverVMI *v1.VirtualMachineInstance, tcpPort int, ipFamily k8sv1.IPFamily) error {
+						serverIP := libnet.GetVmiPrimaryIPByFamily(serverVMI, ipFamily)
+						err := libnet.PingFromVMConsole(clientVMI, serverIP)
+						if err != nil {
+							return err
+						}
+
+						By("Connecting from the client VM")
+						err = console.SafeExpectBatch(clientVMI, checkConnectionToServer(serverIP, tcpPort, true), 30)
+						if err != nil {
+							return err
+						}
+
+						return nil
+					}
+
+					startClientVMI := func() {
+						clientVMI = libvmi.NewAlpineWithTestTooling(
+							withPasstInterfaceWithPort(),
+							libvmi.WithNetwork(v1.DefaultPodNetwork()),
+						)
+
+						clientVMI, err = virtClient.VirtualMachineInstance(util.NamespaceTestDefault).Create(clientVMI)
+						Expect(err).ToNot(HaveOccurred())
+						clientVMI = tests.WaitForSuccessfulVMIStartIgnoreWarnings(clientVMI)
+						Expect(console.LoginToAlpine(clientVMI)).To(Succeed())
+					}
+					DescribeTable("Client server connectivity", func(ports []v1.Port, tcpPort int, ipFamily k8sv1.IPFamily) {
+						libnet.SkipWhenClusterNotSupportIPFamily(virtClient, ipFamily)
+
+						By("starting a client VMI")
+						startClientVMI()
+
+						By("starting a server VMI")
+						startServerVMI(ports)
+
+						By("starting a TCP server")
+						tests.StartTCPServer(serverVMI, tcpPort, console.LoginToAlpine)
+
+						Expect(verifyClientServerConnectivity(clientVMI, serverVMI, tcpPort, k8sv1.IPv4Protocol)).To(Succeed())
+
+						if len(ports) != 0 {
+							By("starting a TCP server on a port not specified on the VM spec")
+							vmPort := int(ports[0].Port)
+							serverIP := libnet.GetVmiPrimaryIPByFamily(serverVMI, ipFamily)
+
+							tests.StartTCPServer(serverVMI, vmPort+1, console.LoginToAlpine)
+
+							By("Connecting from the client VM to a port not specified on the VM spec")
+							Expect(console.SafeExpectBatch(clientVMI, checkConnectionToServer(serverIP, tcpPort+1, true), 30)).To(Not(Succeed()))
+						}
+					},
+						Entry("with a specific port number [IPv4]", []v1.Port{{Name: "http", Port: 8080, Protocol: "TCP"}}, 8080, k8sv1.IPv4Protocol),
+						Entry("without a specific port number [IPv4]", []v1.Port{}, 8080, k8sv1.IPv4Protocol),
+						Entry("with a specific port number [IPv6]", []v1.Port{{Name: "http", Port: 8080, Protocol: "TCP"}}, 8080, k8sv1.IPv6Protocol),
+						Entry("without a specific port number [IPv6]", []v1.Port{}, 8080, k8sv1.IPv6Protocol),
+					)
+				})
+
+				Context("UDP", func() {
+					startAndVerifyUDPClient := func(vmi *v1.VirtualMachineInstance, serverIP string, serverPort int, ipFamily k8sv1.IPFamily) error {
+						var inetSuffix string
+						if ipFamily == k8sv1.IPv6Protocol {
+							inetSuffix = "6"
+						}
+
+						createClientScript := fmt.Sprintf(`cat >udp_client.py <<EOL
+import socket
+try:
+  client = socket.socket(socket.AF_INET%s, socket.SOCK_DGRAM);
+  client.sendto("Hello Server".encode(), ("%s",%d));
+  client.settimeout(5);
+  response = client.recv(1024);
+  print(response.decode("utf-8"));
+
+except socket.timeout:
+    client.close();
+EOL`, inetSuffix, serverIP, serverPort)
+						runClient := "python3 udp_client.py"
+						return console.ExpectBatch(vmi, []expect.Batcher{
+							&expect.BSnd{S: fmt.Sprintf("%s\n", createClientScript)},
+							&expect.BExp{R: console.PromptExpression},
+							&expect.BSnd{S: fmt.Sprintf("%s\n", runClient)},
+							&expect.BExp{R: console.RetValue("Hello Client")},
+							&expect.BSnd{S: tests.EchoLastReturnValue},
+							&expect.BExp{R: console.ShellSuccess},
+						}, 60*time.Second)
+					}
+					DescribeTable("Client server connectivity", func(ipFamily k8sv1.IPFamily) {
+						libnet.SkipWhenClusterNotSupportIPFamily(virtClient, ipFamily)
+
+						const SERVER_PORT = 1700
+
+						By("Starting server VMI")
+						startServerVMI([]v1.Port{{Port: SERVER_PORT, Protocol: "UDP"}})
+						serverVMI = tests.WaitForSuccessfulVMIStartIgnoreWarnings(serverVMI)
+						Expect(console.LoginToAlpine(serverVMI)).To(Succeed())
+
+						By("Starting a UDP server")
+						tests.StartPythonUDPServer(serverVMI, SERVER_PORT, ipFamily)
+
+						By("Starting client VMI")
+						clientVMI = libvmi.NewAlpineWithTestTooling(
+							libvmi.WithInterface(libvmi.InterfaceDeviceWithPasstBinding()),
+							libvmi.WithNetwork(v1.DefaultPodNetwork()),
+							withPasstExtendedResourceMemory(),
+						)
+						clientVMI, err = virtClient.VirtualMachineInstance(util.NamespaceTestDefault).Create(clientVMI)
+						Expect(err).ToNot(HaveOccurred())
+						clientVMI = tests.WaitForSuccessfulVMIStartIgnoreWarnings(clientVMI)
+						Expect(console.LoginToAlpine(clientVMI)).To(Succeed())
+						console.LoginToAlpine(clientVMI)
+
+						By("Starting and verifying UDP client")
+						serverIP := libnet.GetVmiPrimaryIPByFamily(serverVMI, ipFamily)
+						Expect(startAndVerifyUDPClient(clientVMI, serverIP, SERVER_PORT, ipFamily)).To(Succeed())
+					},
+						Entry("[IPv4]", k8sv1.IPv4Protocol),
+						Entry("[IPv6]", k8sv1.IPv6Protocol),
+					)
+				})
 			})
 
 			It("[outside_connectivity]should be able to reach the outside world [IPv4]", func() {
