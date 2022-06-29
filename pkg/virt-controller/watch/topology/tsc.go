@@ -107,7 +107,15 @@ func ToTSCSchedulableLabel(frequency int64) string {
 	return fmt.Sprintf("%s-%d", TSCFrequencySchedulingLabel, frequency)
 }
 
-func VMIHasInvTSCFeature(vmi *k6tv1.VirtualMachineInstance) bool {
+func AreTSCFrequencyTopologyHintsDefined(vmi *k6tv1.VirtualMachineInstance) bool {
+	return vmi != nil && vmi.Status.TopologyHints != nil && vmi.Status.TopologyHints.TSCFrequency != nil
+}
+
+func IsManualTSCFrequencyRequired(vmi *k6tv1.VirtualMachineInstance) bool {
+	return isVmiUsingHyperVReenlightenment(vmi) || vmiHasInvTSCFeature(vmi)
+}
+
+func vmiHasInvTSCFeature(vmi *k6tv1.VirtualMachineInstance) bool {
 	if cpu := vmi.Spec.Domain.CPU; cpu != nil {
 		for _, f := range cpu.Features {
 			if f.Name != "invtsc" {
@@ -120,4 +128,15 @@ func VMIHasInvTSCFeature(vmi *k6tv1.VirtualMachineInstance) bool {
 		}
 	}
 	return false
+}
+
+func isVmiUsingHyperVReenlightenment(vmi *k6tv1.VirtualMachineInstance) bool {
+	if vmi == nil {
+		return false
+	}
+
+	domainFeatures := vmi.Spec.Domain.Features
+
+	return domainFeatures != nil && domainFeatures.Hyperv != nil && domainFeatures.Hyperv.Reenlightenment != nil &&
+		domainFeatures.Hyperv.Reenlightenment.Enabled != nil && *domainFeatures.Hyperv.Reenlightenment.Enabled
 }
