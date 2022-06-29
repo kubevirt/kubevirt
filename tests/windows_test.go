@@ -75,6 +75,22 @@ var _ = Describe("[Serial][sig-compute]Windows VirtualMachineInstance", func() {
 		windowsVMI.Spec.Domain.Devices.Interfaces[0].Model = "e1000"
 	})
 
+	It("should be able to migrate when HyperV reenlightenment is enabled", func() {
+		var err error
+
+		By("Creating a windows VM")
+		windowsVMI, err = virtClient.VirtualMachineInstance(util.NamespaceTestDefault).Create(windowsVMI)
+		Expect(err).ToNot(HaveOccurred())
+		tests.WaitForSuccessfulVMIStartWithTimeout(windowsVMI, 360)
+
+		By("Migrating the VM")
+		migration := tests.NewRandomMigration(windowsVMI.Name, windowsVMI.Namespace)
+		migrationUID := tests.RunMigrationAndExpectCompletion(virtClient, migration, tests.MigrationWaitTime)
+
+		By("Checking VMI, confirm migration state")
+		tests.ConfirmVMIPostMigration(virtClient, windowsVMI, migrationUID)
+	})
+
 	Context("with winrm connection", func() {
 		var winrmcliPod *k8sv1.Pod
 		var cli []string
