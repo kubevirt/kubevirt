@@ -1,6 +1,7 @@
 package flavor
 
 import (
+	"bytes"
 	"context"
 	"encoding/json"
 	"fmt"
@@ -125,10 +126,19 @@ func (m *methods) storeFlavorRevision(vm *virtv1.VirtualMachine) (*appsv1.Contro
 		return nil, err
 	}
 
-	flavorRevision, err = m.clientset.AppsV1().ControllerRevisions(vm.Namespace).Create(context.Background(), flavorRevision, metav1.CreateOptions{})
+	_, err = m.clientset.AppsV1().ControllerRevisions(vm.Namespace).Create(context.Background(), flavorRevision, metav1.CreateOptions{})
 	if err != nil {
-		if !errors.IsAlreadyExists(err) {
-			// TODO - Ensure that the stored revision is what we expect.
+		if errors.IsAlreadyExists(err) {
+			// Grab the existing revision to check the data it contains
+			existingRevision, err := m.clientset.AppsV1().ControllerRevisions(vm.Namespace).Get(context.Background(), flavorRevision.Name, metav1.GetOptions{})
+			if err != nil {
+				return nil, err
+			}
+			// If the data between the two differs return an error, otherwise continue and store the name below.
+			if bytes.Compare(existingRevision.Data.Raw, flavorRevision.Data.Raw) != 0 {
+				return nil, fmt.Errorf("found existing ControllerRevision with unexpected data: %s", flavorRevision.Name)
+			}
+		} else {
 			return nil, err
 		}
 	}
@@ -208,10 +218,19 @@ func (m *methods) storePreferenceRevision(vm *virtv1.VirtualMachine) (*appsv1.Co
 		return nil, err
 	}
 
-	preferenceRevision, err = m.clientset.AppsV1().ControllerRevisions(vm.Namespace).Create(context.Background(), preferenceRevision, metav1.CreateOptions{})
+	_, err = m.clientset.AppsV1().ControllerRevisions(vm.Namespace).Create(context.Background(), preferenceRevision, metav1.CreateOptions{})
 	if err != nil {
-		if !errors.IsAlreadyExists(err) {
-			// TODO - Ensure that the stored revision is what we expect.
+		if errors.IsAlreadyExists(err) {
+			// Grab the existing revision to check the data it contains
+			existingRevision, err := m.clientset.AppsV1().ControllerRevisions(vm.Namespace).Get(context.Background(), preferenceRevision.Name, metav1.GetOptions{})
+			if err != nil {
+				return nil, err
+			}
+			// If the data between the two differs return an error, otherwise continue and store the name below.
+			if bytes.Compare(existingRevision.Data.Raw, preferenceRevision.Data.Raw) != 0 {
+				return nil, fmt.Errorf("found existing ControllerRevision with unexpected data: %s", preferenceRevision.Name)
+			}
+		} else {
 			return nil, err
 		}
 	}

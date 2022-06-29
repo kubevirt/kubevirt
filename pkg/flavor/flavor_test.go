@@ -193,6 +193,42 @@ var _ = Describe("Flavor and Preferences", func() {
 				Expect(err).To(HaveOccurred())
 				Expect(errors.IsNotFound(err)).To(BeTrue())
 			})
+
+			It("store ControllerRevision succeeds if a revision exists with expected data", func() {
+
+				flavorControllerRevision, err := flavor.CreateFlavorControllerRevision(vm, flavor.GetRevisionName(vm.Name, clusterFlavor.Name, clusterFlavor.UID, clusterFlavor.Generation), clusterFlavor.TypeMeta.APIVersion, &clusterFlavor.Spec)
+				Expect(err).ToNot(HaveOccurred())
+
+				_, err = virtClient.AppsV1().ControllerRevisions(vm.Namespace).Create(context.Background(), flavorControllerRevision, metav1.CreateOptions{})
+				Expect(err).ToNot(HaveOccurred())
+
+				expectedRevisionNamePatch, err := flavor.GenerateRevisionNamePatch(flavorControllerRevision, nil)
+				Expect(err).ToNot(HaveOccurred())
+
+				vmInterface.EXPECT().Patch(vm.Name, types.JSONPatchType, expectedRevisionNamePatch, &metav1.PatchOptions{})
+
+				Expect(flavorMethods.StoreControllerRevisions(vm)).To(Succeed())
+				Expect(vm.Spec.Flavor.RevisionName).To(Equal(flavorControllerRevision.Name))
+
+			})
+
+			It("store ControllerRevision fails if a revision exists with unexpected data", func() {
+
+				unexpectedFlavorSpec := flavorv1alpha1.VirtualMachineFlavorSpec{
+					CPU: flavorv1alpha1.CPUFlavor{
+						Guest: 15,
+					},
+				}
+
+				flavorControllerRevision, err := flavor.CreateFlavorControllerRevision(vm, flavor.GetRevisionName(vm.Name, clusterFlavor.Name, clusterFlavor.UID, clusterFlavor.Generation), clusterFlavor.TypeMeta.APIVersion, &unexpectedFlavorSpec)
+				Expect(err).ToNot(HaveOccurred())
+
+				_, err = virtClient.AppsV1().ControllerRevisions(vm.Namespace).Create(context.Background(), flavorControllerRevision, metav1.CreateOptions{})
+				Expect(err).ToNot(HaveOccurred())
+
+				Expect(flavorMethods.StoreControllerRevisions(vm)).To(MatchError(ContainSubstring("found existing ControllerRevision with unexpected data")))
+			})
+
 		})
 
 		Context("Using namespaced Flavor", func() {
@@ -279,6 +315,41 @@ var _ = Describe("Flavor and Preferences", func() {
 
 				Expect(flavorMethods.StoreControllerRevisions(vm)).To(Succeed())
 				Expect(vm.Spec.Flavor.RevisionName).To(Equal(flavorControllerRevision.Name))
+			})
+
+			It("store ControllerRevision succeeds if a revision exists with expected data", func() {
+
+				flavorControllerRevision, err := flavor.CreateFlavorControllerRevision(vm, flavor.GetRevisionName(vm.Name, f.Name, f.UID, f.Generation), f.TypeMeta.APIVersion, &f.Spec)
+				Expect(err).ToNot(HaveOccurred())
+
+				_, err = virtClient.AppsV1().ControllerRevisions(vm.Namespace).Create(context.Background(), flavorControllerRevision, metav1.CreateOptions{})
+				Expect(err).ToNot(HaveOccurred())
+
+				expectedRevisionNamePatch, err := flavor.GenerateRevisionNamePatch(flavorControllerRevision, nil)
+				Expect(err).ToNot(HaveOccurred())
+
+				vmInterface.EXPECT().Patch(vm.Name, types.JSONPatchType, expectedRevisionNamePatch, &metav1.PatchOptions{})
+
+				Expect(flavorMethods.StoreControllerRevisions(vm)).To(Succeed())
+				Expect(vm.Spec.Flavor.RevisionName).To(Equal(flavorControllerRevision.Name))
+
+			})
+
+			It("store ControllerRevision fails if a revision exists with unexpected data", func() {
+
+				unexpectedFlavorSpec := flavorv1alpha1.VirtualMachineFlavorSpec{
+					CPU: flavorv1alpha1.CPUFlavor{
+						Guest: 15,
+					},
+				}
+
+				flavorControllerRevision, err := flavor.CreateFlavorControllerRevision(vm, flavor.GetRevisionName(vm.Name, f.Name, f.UID, f.Generation), f.TypeMeta.APIVersion, &unexpectedFlavorSpec)
+				Expect(err).ToNot(HaveOccurred())
+
+				_, err = virtClient.AppsV1().ControllerRevisions(vm.Namespace).Create(context.Background(), flavorControllerRevision, metav1.CreateOptions{})
+				Expect(err).ToNot(HaveOccurred())
+
+				Expect(flavorMethods.StoreControllerRevisions(vm)).To(MatchError(ContainSubstring("found existing ControllerRevision with unexpected data")))
 			})
 		})
 	})
@@ -437,6 +508,41 @@ var _ = Describe("Flavor and Preferences", func() {
 				Expect(vm.Spec.Preference.RevisionName).To(Equal(clusterPreferenceControllerRevision.Name))
 
 			})
+
+			It("store ControllerRevision succeeds if a revision exists with expected data", func() {
+
+				clusterPreferenceControllerRevision, err := flavor.CreatePreferenceControllerRevision(vm, flavor.GetRevisionName(vm.Name, clusterPreference.Name, clusterPreference.UID, clusterPreference.Generation), clusterPreference.TypeMeta.APIVersion, &clusterPreference.Spec)
+				Expect(err).ToNot(HaveOccurred())
+
+				_, err = virtClient.AppsV1().ControllerRevisions(vm.Namespace).Create(context.Background(), clusterPreferenceControllerRevision, metav1.CreateOptions{})
+				Expect(err).ToNot(HaveOccurred())
+
+				expectedRevisionNamePatch, err := flavor.GenerateRevisionNamePatch(nil, clusterPreferenceControllerRevision)
+				Expect(err).ToNot(HaveOccurred())
+
+				vmInterface.EXPECT().Patch(vm.Name, types.JSONPatchType, expectedRevisionNamePatch, &metav1.PatchOptions{})
+
+				Expect(flavorMethods.StoreControllerRevisions(vm)).To(Succeed())
+				Expect(vm.Spec.Preference.RevisionName).To(Equal(clusterPreferenceControllerRevision.Name))
+
+			})
+
+			It("store ControllerRevision fails if a revision exists with unexpected data", func() {
+
+				unexpectedPreferenceSpec := flavorv1alpha1.VirtualMachinePreferenceSpec{
+					CPU: &flavorv1alpha1.CPUPreferences{
+						PreferredCPUTopology: flavorv1alpha1.PreferThreads,
+					},
+				}
+
+				clusterPreferenceControllerRevision, err := flavor.CreatePreferenceControllerRevision(vm, flavor.GetRevisionName(vm.Name, clusterPreference.Name, clusterPreference.UID, clusterPreference.Generation), clusterPreference.TypeMeta.APIVersion, &unexpectedPreferenceSpec)
+				Expect(err).ToNot(HaveOccurred())
+
+				_, err = virtClient.AppsV1().ControllerRevisions(vm.Namespace).Create(context.Background(), clusterPreferenceControllerRevision, metav1.CreateOptions{})
+				Expect(err).ToNot(HaveOccurred())
+
+				Expect(flavorMethods.StoreControllerRevisions(vm)).To(MatchError(ContainSubstring("found existing ControllerRevision with unexpected data")))
+			})
 		})
 
 		Context("Using namespaced Preference", func() {
@@ -521,6 +627,41 @@ var _ = Describe("Flavor and Preferences", func() {
 				Expect(flavorMethods.StoreControllerRevisions(vm)).To(Succeed())
 				Expect(vm.Spec.Preference.RevisionName).To(Equal(preferenceControllerRevision.Name))
 
+			})
+
+			It("store ControllerRevision succeeds if a revision exists with expected data", func() {
+
+				preferenceControllerRevision, err := flavor.CreatePreferenceControllerRevision(vm, flavor.GetRevisionName(vm.Name, preference.Name, preference.UID, preference.Generation), preference.TypeMeta.APIVersion, &preference.Spec)
+				Expect(err).ToNot(HaveOccurred())
+
+				_, err = virtClient.AppsV1().ControllerRevisions(vm.Namespace).Create(context.Background(), preferenceControllerRevision, metav1.CreateOptions{})
+				Expect(err).ToNot(HaveOccurred())
+
+				expectedRevisionNamePatch, err := flavor.GenerateRevisionNamePatch(nil, preferenceControllerRevision)
+				Expect(err).ToNot(HaveOccurred())
+
+				vmInterface.EXPECT().Patch(vm.Name, types.JSONPatchType, expectedRevisionNamePatch, &metav1.PatchOptions{})
+
+				Expect(flavorMethods.StoreControllerRevisions(vm)).To(Succeed())
+				Expect(vm.Spec.Preference.RevisionName).To(Equal(preferenceControllerRevision.Name))
+
+			})
+
+			It("store ControllerRevision fails if a revision exists with unexpected data", func() {
+
+				unexpectedPreferenceSpec := flavorv1alpha1.VirtualMachinePreferenceSpec{
+					CPU: &flavorv1alpha1.CPUPreferences{
+						PreferredCPUTopology: flavorv1alpha1.PreferThreads,
+					},
+				}
+
+				preferenceControllerRevision, err := flavor.CreatePreferenceControllerRevision(vm, flavor.GetRevisionName(vm.Name, preference.Name, preference.UID, preference.Generation), preference.TypeMeta.APIVersion, &unexpectedPreferenceSpec)
+				Expect(err).ToNot(HaveOccurred())
+
+				_, err = virtClient.AppsV1().ControllerRevisions(vm.Namespace).Create(context.Background(), preferenceControllerRevision, metav1.CreateOptions{})
+				Expect(err).ToNot(HaveOccurred())
+
+				Expect(flavorMethods.StoreControllerRevisions(vm)).To(MatchError(ContainSubstring("found existing ControllerRevision with unexpected data")))
 			})
 		})
 	})
