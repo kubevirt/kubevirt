@@ -181,10 +181,12 @@ type SlirpLibvirtSpecGenerator struct {
 func (b *SlirpLibvirtSpecGenerator) Generate() error {
 	// remove slirp interface from domain spec devices interfaces
 	var foundIfaceModelType string
-	ifaces := b.domain.Spec.Devices.Interfaces
-	for i, iface := range ifaces {
+	for i, iface := range b.domain.Spec.Devices.Interfaces {
 		if iface.Alias.GetName() == b.vmiSpecIface.Name {
-			b.domain.Spec.Devices.Interfaces = append(ifaces[:i], ifaces[i+1:]...)
+			b.domain.Spec.Devices.Interfaces = append(
+				b.domain.Spec.Devices.Interfaces[:i],
+				b.domain.Spec.Devices.Interfaces[i+1:]...,
+			)
 			foundIfaceModelType = iface.Model.Type
 			break
 		}
