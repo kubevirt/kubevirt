@@ -376,7 +376,7 @@ var _ = SIGDescribe("VirtualMachineSnapshot Tests", func() {
 				if err != nil {
 					return err
 				}
-				_, _, err = exec.ExecuteCommandOnPodV2(virtClient, pod, pod.Annotations[annoContainer], commandSlice)
+				_, _, err = exec.ExecuteCommandOnPod(virtClient, pod, pod.Annotations[annoContainer], commandSlice)
 				return err
 			}
 

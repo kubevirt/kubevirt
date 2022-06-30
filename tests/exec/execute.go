@@ -26,24 +26,11 @@ import (
 	k8sv1 "k8s.io/api/core/v1"
 	"k8s.io/client-go/kubernetes/scheme"
 	"k8s.io/client-go/tools/remotecommand"
+
 	"kubevirt.io/client-go/kubecli"
 )
 
-func ExecuteCommandOnPod(virtCli kubecli.KubevirtClient, pod *k8sv1.Pod, containerName string, command []string) (string, error) {
-	stdout, stderr, err := ExecuteCommandOnPodV2(virtCli, pod, containerName, command)
-
-	if err != nil {
-		return "", fmt.Errorf("failed executing command on pod: %v: stderr %v: stdout: %v", err, stderr, stdout)
-	}
-
-	if len(stderr) > 0 {
-		return "", fmt.Errorf("stderr: %v", stderr)
-	}
-
-	return stdout, nil
-}
-
-func ExecuteCommandOnPodV2(virtCli kubecli.KubevirtClient, pod *k8sv1.Pod, containerName string, command []string) (stdout, stderr string, err error) {
+func ExecuteCommandOnPod(virtCli kubecli.KubevirtClient, pod *k8sv1.Pod, containerName string, command []string) (stdout string, stderr string, err error) {
 	var (
 		stdoutBuf bytes.Buffer
 		stderrBuf bytes.Buffer
@@ -54,9 +41,20 @@ func ExecuteCommandOnPodV2(virtCli kubecli.KubevirtClient, pod *k8sv1.Pod, conta
 		Tty:    false,
 	}
 
-	err = ExecuteCommandOnPodWithOptions(virtCli, pod, containerName, command, options)
+	stdout, stderr, err =
+		stdoutBuf.String(),
+		stderrBuf.String(),
+		ExecuteCommandOnPodWithOptions(virtCli, pod, containerName, command, options)
 
-	return stdoutBuf.String(), stderrBuf.String(), err
+	if err != nil {
+		return "", "", fmt.Errorf("failed executing command on pod: %v: stderr %v: stdout: %v", err, stderr, stdout)
+	}
+
+	if len(stderr) > 0 {
+		return "", stderr, nil
+	}
+
+	return stdout, "", nil
 }
 
 func ExecuteCommandOnPodWithOptions(virtCli kubecli.KubevirtClient, pod *k8sv1.Pod, containerName string, command []string, options remotecommand.StreamOptions) error {

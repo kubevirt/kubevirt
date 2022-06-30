@@ -137,7 +137,7 @@ var _ = Describe("[Serial]SRIOV", func() {
 			vmiPod := tests.GetRunningPodByVirtualMachineInstance(vmi, vmi.Namespace)
 
 			By("checking default interface is present")
-			_, err = exec.ExecuteCommandOnPod(
+			_, _, err = exec.ExecuteCommandOnPod(
 				virtClient,
 				vmiPod,
 				"compute",
@@ -146,7 +146,7 @@ var _ = Describe("[Serial]SRIOV", func() {
 			Expect(err).ToNot(HaveOccurred())
 
 			By("checking default interface is attached to VMI")
-			_, err = exec.ExecuteCommandOnPod(
+			_, _, err = exec.ExecuteCommandOnPod(
 				virtClient,
 				vmiPod,
 				"compute",
@@ -652,7 +652,7 @@ func getNodesWithAllocatedResource(virtClient kubecli.KubevirtClient, resourceNa
 }
 
 func validatePodKubevirtResourceNameByVMI(virtClient kubecli.KubevirtClient, vmi *v1.VirtualMachineInstance, networkName, sriovResourceName string) error {
-	out, err := exec.ExecuteCommandOnPod(
+	out, _, err := exec.ExecuteCommandOnPod(
 		virtClient,
 		tests.GetRunningPodByVirtualMachineInstance(vmi, vmi.Namespace),
 		"compute",

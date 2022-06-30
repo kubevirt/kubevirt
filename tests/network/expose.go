@@ -886,7 +886,7 @@ func getNodeHostname(nodeAddresses []k8sv1.NodeAddress) *string {
 
 func resolveNodeIp(virtclient kubecli.KubevirtClient, pod *k8sv1.Pod, hostname string, ipFamily k8sv1.IPFamily) (string, error) {
 	ahostsCmd := string("ahosts" + ipFamily[2:])
-	output, err := exec.ExecuteCommandOnPod(
+	output, _, err := exec.ExecuteCommandOnPod(
 		virtclient,
 		pod,
 		"compute",

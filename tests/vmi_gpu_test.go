@@ -119,7 +119,7 @@ var _ = Describe("[Serial][sig-compute]GPU", func() {
 
 			readyPod := tests.GetRunningPodByVirtualMachineInstance(vmi, util.NamespaceTestDefault)
 
-			gpuOutput, err := exec.ExecuteCommandOnPod(
+			gpuOutput, _, err := exec.ExecuteCommandOnPod(
 				virtClient,
 				readyPod,
 				"compute",

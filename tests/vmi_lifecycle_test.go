@@ -660,7 +660,7 @@ var _ = Describe("[rfe_id:273][crit:high][arm64][vendor:cnv-qe@redhat.com][level
 				pod, err := kubecli.NewVirtHandlerClient(virtClient).Namespace(flags.KubeVirtInstallNamespace).ForNode(nodeName).Pod()
 				Expect(err).ToNot(HaveOccurred())
 
-				_, _, err = exec.ExecuteCommandOnPodV2(virtClient, pod,
+				_, _, err = exec.ExecuteCommandOnPod(virtClient, pod,
 					"virt-handler",
 					[]string{
 						"rm",

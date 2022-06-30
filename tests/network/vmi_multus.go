@@ -361,7 +361,7 @@ var _ = SIGDescribe("[Serial]Multus", func() {
 
 				By("Verifying the desired custom MAC is not configured inside the pod namespace.")
 				vmiPod := tests.GetRunningPodByVirtualMachineInstance(vmiOne, util.NamespaceTestDefault)
-				out, err := exec.ExecuteCommandOnPod(
+				out, _, err := exec.ExecuteCommandOnPod(
 					virtClient,
 					vmiPod,
 					"compute",
@@ -463,7 +463,7 @@ var _ = SIGDescribe("[Serial]Multus", func() {
 
 				By("Verifying the desired custom MAC is not configured inside the pod namespace.")
 				vmiPod := tests.GetRunningPodByVirtualMachineInstance(vmiOne, vmiOne.Namespace)
-				out, err := exec.ExecuteCommandOnPod(
+				out, _, err := exec.ExecuteCommandOnPod(
 					virtClient,
 					vmiPod,
 					"compute",
@@ -515,7 +515,7 @@ var _ = SIGDescribe("[Serial]Multus", func() {
 			It("should have the correct MTU on the secondary interface with no dhcp server", func() {
 				getPodInterfaceMtu := func(vmi *v1.VirtualMachineInstance) string {
 					vmiPod := tests.GetRunningPodByVirtualMachineInstance(vmi, vmi.Namespace)
-					output, err := exec.ExecuteCommandOnPod(
+					output, _, err := exec.ExecuteCommandOnPod(
 						virtClient,
 						vmiPod,
 						"compute",

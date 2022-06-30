@@ -375,7 +375,7 @@ func GetPodCPUSet(pod *k8sv1.Pod) (output string, err error) {
 	if err != nil {
 		return
 	}
-	output, err = exec.ExecuteCommandOnPod(
+	output, _, err = exec.ExecuteCommandOnPod(
 		virtClient,
 		pod,
 		"compute",
@@ -386,7 +386,7 @@ func GetPodCPUSet(pod *k8sv1.Pod) (output string, err error) {
 		return
 	}
 
-	output, err = exec.ExecuteCommandOnPod(
+	output, _, err = exec.ExecuteCommandOnPod(
 		virtClient,
 		pod,
 		"compute",
@@ -1511,7 +1511,7 @@ func GetRunningVirtualMachineInstanceDomainXML(virtClient kubecli.KubevirtClient
 	}
 	command = append(command, []string{"dumpxml", vmi.Namespace + "_" + vmi.Name}...)
 
-	stdout, stderr, err := exec.ExecuteCommandOnPodV2(
+	stdout, stderr, err := exec.ExecuteCommandOnPod(
 		virtClient,
 		vmiPod,
 		vmiPod.Spec.Containers[containerIdx].Name,
@@ -1541,7 +1541,7 @@ func LibvirtDomainIsPaused(virtClient kubecli.KubevirtClient, vmi *v1.VirtualMac
 		return false, fmt.Errorf(CouldNotFindComputeContainer)
 	}
 
-	stdout, stderr, err := exec.ExecuteCommandOnPodV2(
+	stdout, stderr, err := exec.ExecuteCommandOnPod(
 		virtClient,
 		vmiPod,
 		vmiPod.Spec.Containers[containerIdx].Name,
@@ -1635,7 +1635,7 @@ func RemoveHostDiskImage(diskPath string, nodeName string) {
 	procPath := filepath.Join("/proc/1/root", diskPath)
 	virtHandlerPod, err := kubecli.NewVirtHandlerClient(virtClient).Namespace(flags.KubeVirtInstallNamespace).ForNode(nodeName).Pod()
 	Expect(err).ToNot(HaveOccurred())
-	_, _, err = exec.ExecuteCommandOnPodV2(virtClient, virtHandlerPod, "virt-handler", []string{"rm", "-rf", procPath})
+	_, _, err = exec.ExecuteCommandOnPod(virtClient, virtHandlerPod, "virt-handler", []string{"rm", "-rf", procPath})
 	Expect(err).ToNot(HaveOccurred())
 }
 
@@ -1713,7 +1713,7 @@ func RunCommandOnVmiPod(vmi *v1.VirtualMachineInstance, command []string) string
 	ExpectWithOffset(1, pods.Items).NotTo(BeEmpty())
 	vmiPod := pods.Items[0]
 
-	output, err := exec.ExecuteCommandOnPod(
+	output, _, err := exec.ExecuteCommandOnPod(
 		virtClient,
 		&vmiPod,
 		"compute",
@@ -1743,7 +1743,7 @@ func RunCommandOnVmiTargetPod(vmi *v1.VirtualMachineInstance, command []string) 
 		return "", fmt.Errorf("failed to find migration target pod")
 	}
 
-	output, err := exec.ExecuteCommandOnPod(
+	output, _, err := exec.ExecuteCommandOnPod(
 		virtClient,
 		vmiPod,
 		"compute",
@@ -2569,7 +2569,7 @@ func GetIdOfLauncher(vmi *v1.VirtualMachineInstance) string {
 	util2.PanicOnError(err)
 
 	vmiPod := GetRunningPodByVirtualMachineInstance(vmi, util2.NamespaceTestDefault)
-	podOutput, err := exec.ExecuteCommandOnPod(
+	podOutput, _, err := exec.ExecuteCommandOnPod(
 		virtClient,
 		vmiPod,
 		vmiPod.Spec.Containers[0].Name,
@@ -2585,13 +2585,13 @@ func ExecuteCommandOnNodeThroughVirtHandler(virtCli kubecli.KubevirtClient, node
 	if err != nil {
 		return "", "", err
 	}
-	return exec.ExecuteCommandOnPodV2(virtCli, virtHandlerPod, components.VirtHandlerName, command)
+	return exec.ExecuteCommandOnPod(virtCli, virtHandlerPod, components.VirtHandlerName, command)
 }
 
 func GetKubevirtVMMetricsFunc(virtClient *kubecli.KubevirtClient, pod *k8sv1.Pod) func(string) string {
 	return func(ip string) string {
 		metricsURL := PrepareMetricsURL(ip, 8443)
-		stdout, _, err := exec.ExecuteCommandOnPodV2(*virtClient,
+		stdout, _, err := exec.ExecuteCommandOnPod(*virtClient,
 			pod,
 			"virt-handler",
 			[]string{

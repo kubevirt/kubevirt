@@ -126,7 +126,7 @@ var _ = Describe("[Serial][sig-compute]SecurityFeatures", func() {
 				emulator := "[/]" + strings.TrimPrefix(domSpec.Devices.Emulator, "/")
 
 				pod := tests.GetRunningPodByVirtualMachineInstance(vmi, util.NamespaceTestDefault)
-				qemuProcessSelinuxContext, err := exec.ExecuteCommandOnPod(
+				qemuProcessSelinuxContext, _, err := exec.ExecuteCommandOnPod(
 					virtClient,
 					pod,
 					"compute",
@@ -199,7 +199,7 @@ var _ = Describe("[Serial][sig-compute]SecurityFeatures", func() {
 				emulator := "[/]" + strings.TrimPrefix(domSpec.Devices.Emulator, "/")
 
 				pod := libvmi.GetPodByVirtualMachineInstance(vmi, util.NamespaceTestDefault)
-				qemuProcessSelinuxContext, err := exec.ExecuteCommandOnPod(
+				qemuProcessSelinuxContext, _, err := exec.ExecuteCommandOnPod(
 					virtClient,
 					pod,
 					"compute",

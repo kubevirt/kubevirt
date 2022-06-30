@@ -887,7 +887,7 @@ var _ = SIGDescribe("DataVolume Integration", func() {
 			var imageSize int64
 			var unused string
 			pod := tests.GetRunningPodByVirtualMachineInstance(vmi, util.NamespaceTestDefault)
-			lsOutput, err := exec.ExecuteCommandOnPod(
+			lsOutput, _, err := exec.ExecuteCommandOnPod(
 				virtClient,
 				pod,
 				"compute",

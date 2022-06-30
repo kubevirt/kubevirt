@@ -557,7 +557,7 @@ var _ = Describe("[rfe_id:393][crit:high][vendor:cnv-qe@redhat.com][level:system
 	}
 
 	getLibvirtdPid := func(pod *k8sv1.Pod) string {
-		stdout, stderr, err := exec.ExecuteCommandOnPodV2(virtClient, pod, "compute",
+		stdout, stderr, err := exec.ExecuteCommandOnPod(virtClient, pod, "compute",
 			[]string{
 				"pidof",
 				"libvirtd",
@@ -1067,7 +1067,7 @@ var _ = Describe("[rfe_id:393][crit:high][vendor:cnv-qe@redhat.com][level:system
 
 				// kill libvirtd
 				By(fmt.Sprintf("Killing libvirtd with pid %s", pid))
-				stdout, stderr, err := exec.ExecuteCommandOnPodV2(virtClient, &pods.Items[0], "compute",
+				stdout, stderr, err := exec.ExecuteCommandOnPod(virtClient, &pods.Items[0], "compute",
 					[]string{
 						"kill",
 						"-9",
@@ -3919,7 +3919,7 @@ var _ = Describe("[rfe_id:393][crit:high][vendor:cnv-qe@redhat.com][level:system
 			pod, err := tests.GetRunningPodByLabel(string(vmi.GetUID()), v1.CreatedByLabel, vmi.Namespace, vmi.Status.NodeName)
 			Expect(err).ToNot(HaveOccurred())
 
-			stdout, stderr, err := exec.ExecuteCommandOnPodV2(virtClient,
+			stdout, stderr, err := exec.ExecuteCommandOnPod(virtClient,
 				pod,
 				"compute",
 				[]string{"virsh", "vcpupin", fmt.Sprintf("%s_%s", vmi.GetNamespace(), vmi.GetName())})
@@ -3944,7 +3944,7 @@ var _ = Describe("[rfe_id:393][crit:high][vendor:cnv-qe@redhat.com][level:system
 				cpusetPath = "/sys/fs/cgroup/cpuset/cpuset.cpus"
 			}
 
-			stdout, stderr, err := exec.ExecuteCommandOnPodV2(virtClient,
+			stdout, stderr, err := exec.ExecuteCommandOnPod(virtClient,
 				pod,
 				"compute",
 				[]string{"cat", cpusetPath})
@@ -4343,7 +4343,7 @@ func libvirtDomainIsPersistent(virtClient kubecli.KubevirtClient, vmi *v1.Virtua
 		return false, fmt.Errorf(tests.CouldNotFindComputeContainer)
 	}
 
-	stdout, stderr, err := exec.ExecuteCommandOnPodV2(
+	stdout, stderr, err := exec.ExecuteCommandOnPod(
 		virtClient,
 		vmiPod,
 		vmiPod.Spec.Containers[containerIdx].Name,
@@ -4363,7 +4363,7 @@ func getVMIsCgroupVersion(vmi *v1.VirtualMachineInstance, virtClient kubecli.Kub
 }
 
 func getPodsCgroupVersion(pod *k8sv1.Pod, virtClient kubecli.KubevirtClient) cgroup.CgroupVersion {
-	stdout, stderr, err := exec.ExecuteCommandOnPodV2(virtClient,
+	stdout, stderr, err := exec.ExecuteCommandOnPod(virtClient,
 		pod,
 		"compute",
 		[]string{"stat", "/sys/fs/cgroup/", "-f", "-c", "%T"})

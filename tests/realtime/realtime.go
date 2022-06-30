@@ -85,7 +85,7 @@ var _ = Describe("[sig-compute-realtime][Serial]Realtime", func() {
 		byStartingTheVMI(vmi, virtClient)
 		By("Validating VCPU scheduler placement information")
 		pod := tests.GetRunningPodByVirtualMachineInstance(vmi, util.NamespaceTestDefault)
-		psOutput, err := exec.ExecuteCommandOnPod(
+		psOutput, _, err := exec.ExecuteCommandOnPod(
 			virtClient,
 			pod,
 			"compute",
@@ -98,7 +98,7 @@ var _ = Describe("[sig-compute-realtime][Serial]Realtime", func() {
 			Expect(parsePriority(l)).To(BeEquivalentTo(1))
 		}
 		By("Validating that the memory lock limits are higher than the memory requested")
-		psOutput, err = exec.ExecuteCommandOnPod(
+		psOutput, _, err = exec.ExecuteCommandOnPod(
 			virtClient,
 			pod,
 			"compute",
@@ -127,7 +127,7 @@ var _ = Describe("[sig-compute-realtime][Serial]Realtime", func() {
 		byStartingTheVMI(vmi, virtClient)
 		pod := tests.GetRunningPodByVirtualMachineInstance(vmi, util.NamespaceTestDefault)
 		By("Validating VCPU scheduler placement information")
-		psOutput, err := exec.ExecuteCommandOnPod(
+		psOutput, _, err := exec.ExecuteCommandOnPod(
 			virtClient,
 			pod,
 			"compute",
@@ -139,7 +139,7 @@ var _ = Describe("[sig-compute-realtime][Serial]Realtime", func() {
 		Expect(parsePriority(slice[0])).To(BeEquivalentTo(1))
 
 		By("Validating the VCPU mask matches the scheduler profile for all cores")
-		psOutput, err = exec.ExecuteCommandOnPod(
+		psOutput, _, err = exec.ExecuteCommandOnPod(
 			virtClient,
 			pod,
 			"compute",
