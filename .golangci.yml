@@ -32,7 +32,7 @@ linters-settings:
   gocyclo:
     min-complexity: 15
   goimports:
-    local-prefixes: github.com/kiagnose/kiagnose
+    local-prefixes: kubevirt.io/kubevirt
   gomnd:
     settings:
       mnd:
