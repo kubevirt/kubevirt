@@ -21,6 +21,7 @@ package testsuite
 
 import (
 	"context"
+	"encoding/json"
 	"fmt"
 	"time"
 
@@ -204,8 +205,21 @@ func removeNamespaces() {
 		fmt.Printf("Waiting for namespace %s to be removed, this can take a while ...\n", namespace)
 		EventuallyWithOffset(1, func() error {
 			return virtCli.CoreV1().Namespaces().Delete(context.Background(), namespace, metav1.DeleteOptions{})
-		}, 240*time.Second, 1*time.Second).Should(SatisfyAll(HaveOccurred(), WithTransform(errors.IsNotFound, BeTrue())), fmt.Sprintf("should successfully delete namespace '%s'", namespace))
+		}, 240*time.Second, 1*time.Second).Should(SatisfyAll(HaveOccurred(), WithTransform(errors.IsNotFound, BeTrue())), fmt.Sprintf("should successfully delete namespace: \n%s", dumpNamespaceObject(namespace)))
 	}
+}
+
+func dumpNamespaceObject(namespaceName string) string {
+	virtCli, err := kubecli.GetKubevirtClient()
+	ExpectWithOffset(1, err).ToNot(HaveOccurred())
+	ns, err := virtCli.CoreV1().Namespaces().Get(context.Background(), namespaceName, metav1.GetOptions{})
+	if errors.IsNotFound(err) {
+		return fmt.Sprintf("aborting namespace %s dump, as it is not found", namespaceName)
+	}
+	ExpectWithOffset(1, err).ToNot(HaveOccurred())
+	buf, err := json.MarshalIndent(ns, "", "  ")
+	ExpectWithOffset(1, err).ToNot(HaveOccurred())
+	return fmt.Sprintf("%s\n", buf)
 }
 
 func removeAllGroupVersionResourceFromNamespace(groupVersionResource schema.GroupVersionResource, namespace string) error {
