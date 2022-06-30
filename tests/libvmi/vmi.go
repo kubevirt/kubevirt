@@ -88,9 +88,20 @@ func WithRng() Option {
 // WithResourceMemory specifies the vmi memory resource.
 func WithResourceMemory(value string) Option {
 	return func(vmi *v1.VirtualMachineInstance) {
-		vmi.Spec.Domain.Resources.Requests = k8sv1.ResourceList{
-			k8sv1.ResourceMemory: resource.MustParse(value),
+		if vmi.Spec.Domain.Resources.Requests == nil {
+			vmi.Spec.Domain.Resources.Requests = k8sv1.ResourceList{}
 		}
+		vmi.Spec.Domain.Resources.Requests[k8sv1.ResourceMemory] = resource.MustParse(value)
+	}
+}
+
+// WithResourceCpu specifies the vmi cpu resource.
+func WithResourceCpu(value string) Option {
+	return func(vmi *v1.VirtualMachineInstance) {
+		if vmi.Spec.Domain.Resources.Requests == nil {
+			vmi.Spec.Domain.Resources.Requests = k8sv1.ResourceList{}
+		}
+		vmi.Spec.Domain.Resources.Requests[k8sv1.ResourceCPU] = resource.MustParse(value)
 	}
 }
 
@@ -104,25 +115,53 @@ func WithNodeSelectorFor(node *k8sv1.Node) Option {
 	}
 }
 
-// WithUefi configures EFI bootloader and SecureBoot.
-func WithUefi(secureBoot bool) Option {
+// WithSecureBoot configures EFI bootloader and SecureBoot.
+func WithSecureBoot(secureBoot bool) Option {
 	return func(vmi *v1.VirtualMachineInstance) {
-		vmi.Spec.Domain.Firmware = &v1.Firmware{
-			Bootloader: &v1.Bootloader{
-				EFI: &v1.EFI{
-					SecureBoot: pointer.BoolPtr(secureBoot),
-				},
-			},
+		if vmi.Spec.Domain.Firmware == nil {
+			vmi.Spec.Domain.Firmware = &v1.Firmware{}
 		}
+		if vmi.Spec.Domain.Firmware.Bootloader == nil {
+			vmi.Spec.Domain.Firmware.Bootloader = &v1.Bootloader{}
+		}
+		if vmi.Spec.Domain.Firmware.Bootloader.EFI == nil {
+			vmi.Spec.Domain.Firmware.Bootloader.EFI = &v1.EFI{}
+		}
+		if secureBoot {
+			// secureBoot Requires SMM to be enabled
+			vmi.Spec.Domain.Firmware.Bootloader.EFI.SecureBoot = pointer.Bool(secureBoot)
+			vmi.Spec.Domain.Features.SMM.Enabled = pointer.Bool(secureBoot)
+		} else {
+			vmi.Spec.Domain.Firmware.Bootloader.EFI.SecureBoot = pointer.Bool(secureBoot)
+		}
+
+	}
+}
+
+// WithSerialBios if set the BIOS output will be transmitted over serial.
+func WithSerialBios(secureBoot bool) Option {
+	return func(vmi *v1.VirtualMachineInstance) {
+		if vmi.Spec.Domain.Firmware == nil {
+			vmi.Spec.Domain.Firmware = &v1.Firmware{}
+		}
+		if vmi.Spec.Domain.Firmware.Bootloader == nil {
+			vmi.Spec.Domain.Firmware.Bootloader = &v1.Bootloader{}
+		}
+		if vmi.Spec.Domain.Firmware.Bootloader.BIOS == nil {
+			vmi.Spec.Domain.Firmware.Bootloader.BIOS = &v1.BIOS{}
+		}
+		vmi.Spec.Domain.Firmware.Bootloader.BIOS.UseSerial = pointer.BoolPtr(secureBoot)
+
 	}
 }
 
 // WithSEV adds `launchSecurity` with `sev`.
 func WithSEV() Option {
 	return func(vmi *v1.VirtualMachineInstance) {
-		vmi.Spec.Domain.LaunchSecurity = &v1.LaunchSecurity{
-			SEV: &v1.SEV{},
+		if vmi.Spec.Domain.LaunchSecurity == nil {
+			vmi.Spec.Domain.LaunchSecurity = &v1.LaunchSecurity{}
 		}
+		vmi.Spec.Domain.LaunchSecurity.SEV = &v1.SEV{}
 	}
 }
 
