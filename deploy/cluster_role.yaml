@@ -2230,6 +2230,12 @@ rules:
   verbs:
   - get
 - apiGroups:
+  - ""
+  resources:
+  - namespaces
+  verbs:
+  - get
+- apiGroups:
   - cdi.kubevirt.io
   resources:
   - datavolumes
