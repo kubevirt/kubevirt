@@ -138,7 +138,7 @@ var _ = Describe("[Serial][sig-compute]Windows VirtualMachineInstance", func() {
 		util.PanicOnError(err)
 		checks.SkipIfMissingRequiredImage(virtClient, tests.DiskWindows)
 		libstorage.CreatePVC(tests.OSWindows, "30Gi", libstorage.Config.StorageClassWindows, true)
-		windowsVMI = tests.NewRandomVMI()
+		windowsVMI = libvmi.New()
 		windowsVMI.Spec = getWindowsVMISpec()
 		tests.AddExplicitPodNetworkInterface(windowsVMI)
 		windowsVMI.Spec.Domain.Devices.Interfaces[0].Model = "e1000"
@@ -231,7 +231,7 @@ var _ = Describe("[Serial][sig-compute]Windows VirtualMachineInstance", func() {
 
 			It("[test_id:3160]should have the domain set properly", func() {
 				searchDomain := getPodSearchDomain(windowsVMI)
-				Expect(searchDomain).To(HavePrefix(windowsVMI.Namespace), "should contain a searchdomain with the namespace of the VMI")
+				Expect(searchDomain).To(HavePrefix(util.NamespaceTestDefault), "should contain a searchdomain with the namespace of the VMI")
 
 				runCommandAndExpectOutput(virtClient,
 					winrmcliPod,
@@ -255,7 +255,7 @@ var _ = Describe("[Serial][sig-compute]Windows VirtualMachineInstance", func() {
 
 			It("should have the domain set properly with subdomain", func() {
 				searchDomain := getPodSearchDomain(windowsVMI)
-				Expect(searchDomain).To(HavePrefix(windowsVMI.Namespace), "should contain a searchdomain with the namespace of the VMI")
+				Expect(searchDomain).To(HavePrefix(util.NamespaceTestDefault), "should contain a searchdomain with the namespace of the VMI")
 
 				expectedSearchDomain := windowsVMI.Spec.Subdomain + "." + searchDomain
 				runCommandAndExpectOutput(virtClient,
@@ -281,11 +281,11 @@ var _ = Describe("[Serial][sig-compute]Windows VirtualMachineInstance", func() {
 
 				By("Pinging virt-handler Pod from Windows VMI")
 
-				windowsVMI, err = virtClient.VirtualMachineInstance(windowsVMI.Namespace).Get(windowsVMI.Name, &metav1.GetOptions{})
+				windowsVMI, err = virtClient.VirtualMachineInstance(util.NamespaceTestDefault).Get(windowsVMI.Name, &metav1.GetOptions{})
 				Expect(err).ToNot(HaveOccurred())
 
 				getVirtHandlerPod := func() (*k8sv1.Pod, error) {
-					winVmiPod := tests.GetRunningPodByVirtualMachineInstance(windowsVMI, windowsVMI.Namespace)
+					winVmiPod := tests.GetRunningPodByVirtualMachineInstance(windowsVMI, util.NamespaceTestDefault)
 					nodeName := winVmiPod.Spec.NodeName
 
 					pod, err := kubecli.NewVirtHandlerClient(virtClient).Namespace(flags.KubeVirtInstallNamespace).ForNode(nodeName).Pod()
@@ -326,22 +326,25 @@ var _ = Describe("[Serial][sig-compute]Windows VirtualMachineInstance", func() {
 
 		It("[test_id:223]should succeed to start a vmi", func() {
 			By("Starting the vmi via kubectl command")
-			_, _, err = clientcmd.RunCommand("kubectl", "create", "-f", yamlFile)
+			_, _, err = clientcmd.RunCommand("kubectl", "create", "-f", yamlFile, "-n", util.NamespaceTestDefault)
 			Expect(err).ToNot(HaveOccurred())
-
+			windowsVMI, err = virtClient.VirtualMachineInstance(util.NamespaceTestDefault).Get(windowsVMI.Name, &metav1.GetOptions{})
+			Expect(err).ToNot(HaveOccurred())
 			tests.WaitForSuccessfulVMIStartWithTimeout(windowsVMI, 360)
 		})
 
 		It("[test_id:239]should succeed to stop a vmi", func() {
 			By("Starting the vmi via kubectl command")
-			_, _, err = clientcmd.RunCommand("kubectl", "create", "-f", yamlFile)
+			_, _, err = clientcmd.RunCommand("kubectl", "create", "-f", yamlFile, "-n", util.NamespaceTestDefault)
+			Expect(err).ToNot(HaveOccurred())
+			windowsVMI, err = virtClient.VirtualMachineInstance(util.NamespaceTestDefault).Get(windowsVMI.Name, &metav1.GetOptions{})
 			Expect(err).ToNot(HaveOccurred())
 
-			tests.WaitForSuccessfulVMIStartWithTimeout(windowsVMI, 360)
+			windowsVMI = tests.WaitForSuccessfulVMIStartWithTimeout(windowsVMI, 360)
 
 			podSelector := tests.UnfinishedVMIPodSelector(windowsVMI)
 			By("Deleting the vmi via kubectl command")
-			_, _, err = clientcmd.RunCommand("kubectl", "delete", "-f", yamlFile)
+			_, _, err = clientcmd.RunCommand("kubectl", "delete", "-f", yamlFile, "-n", util.NamespaceTestDefault)
 			Expect(err).ToNot(HaveOccurred())
 
 			By("Checking that the vmi does not exist anymore")

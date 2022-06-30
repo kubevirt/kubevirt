@@ -23,6 +23,8 @@ import (
 	"io"
 	"time"
 
+	"kubevirt.io/kubevirt/tests/libvmi"
+
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
 
@@ -65,7 +67,7 @@ var _ = Describe("[crit:medium][vendor:cnv-qe@redhat.com][level:component][sig-c
 
 		var vmi *v1.VirtualMachineInstance
 		BeforeEach(func() {
-			vmi, err = createVMI(virtClient, false)
+			vmi, err = createVMIWithoutUsbredirEnabled(virtClient)
 			Expect(err).To(BeNil())
 			tests.WaitForSuccessfulVMIStart(vmi)
 		})
@@ -81,7 +83,7 @@ var _ = Describe("[crit:medium][vendor:cnv-qe@redhat.com][level:component][sig-c
 
 		var vmi *v1.VirtualMachineInstance
 		BeforeEach(func() {
-			vmi, err = createVMI(virtClient, true)
+			vmi, err = createVMIWithUsbredirEnabled(virtClient)
 			Expect(err).To(BeNil())
 			tests.WaitForSuccessfulVMIStart(vmi)
 		})
@@ -175,10 +177,17 @@ var _ = Describe("[crit:medium][vendor:cnv-qe@redhat.com][level:component][sig-c
 	})
 })
 
-func createVMI(virtClient kubecli.KubevirtClient, enableUsbredir bool) (*v1.VirtualMachineInstance, error) {
-	randomVmi := tests.NewRandomVMI()
-	if enableUsbredir {
-		randomVmi.Spec.Domain.Devices.ClientPassthrough = &v1.ClientPassthroughDevices{}
-	}
+func createVMIWithUsbredirEnabled(virtClient kubecli.KubevirtClient) (*v1.VirtualMachineInstance, error) {
+	randomVmi := libvmi.New(
+		libvmi.With1MiResourceMemory(),
+		libvmi.WithClientPassthrough(),
+	)
+	return virtClient.VirtualMachineInstance(util.NamespaceTestDefault).Create(randomVmi)
+}
+
+func createVMIWithoutUsbredirEnabled(virtClient kubecli.KubevirtClient) (*v1.VirtualMachineInstance, error) {
+	randomVmi := libvmi.New(
+		libvmi.With1MiResourceMemory(),
+	)
 	return virtClient.VirtualMachineInstance(util.NamespaceTestDefault).Create(randomVmi)
 }

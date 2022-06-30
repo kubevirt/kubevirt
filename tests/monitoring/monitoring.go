@@ -27,6 +27,8 @@ import (
 	"strconv"
 	"time"
 
+	"kubevirt.io/kubevirt/tests/libvmi"
+
 	rbacv1 "k8s.io/api/rbac/v1"
 	"k8s.io/apimachinery/pkg/api/errors"
 	"k8s.io/apimachinery/pkg/util/rand"
@@ -423,7 +425,7 @@ var _ = Describe("[Serial][sig-monitoring]Prometheus Alerts", func() {
 			err = virtClient.RbacV1().ClusterRoleBindings().Delete(context.Background(), "kubevirt-controller", metav1.DeleteOptions{})
 			Expect(err).ToNot(HaveOccurred())
 
-			vmi := tests.NewRandomVMI()
+			vmi := libvmi.New(libvmi.With1MiResourceMemory())
 
 			for i := 0; i < 60; i++ {
 				_, _ = virtClient.VirtualMachineInstance(util.NamespaceTestDefault).Create(vmi)
@@ -446,7 +448,7 @@ var _ = Describe("[Serial][sig-monitoring]Prometheus Alerts", func() {
 			err = virtClient.RbacV1().ClusterRoleBindings().Delete(context.Background(), "kubevirt-handler", metav1.DeleteOptions{})
 			Expect(err).ToNot(HaveOccurred())
 
-			vmi := tests.NewRandomVMI()
+			vmi := libvmi.New(libvmi.With1MiResourceMemory())
 
 			for i := 0; i < 60; i++ {
 				_, _ = virtClient.VirtualMachineInstance(util.NamespaceTestDefault).Create(vmi)

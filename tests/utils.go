@@ -502,29 +502,13 @@ func NewRandomVirtualMachineInstanceWithBlockDisk(imageUrl, namespace string, ac
 	return NewRandomVirtualMachineInstanceWithDisk(imageUrl, namespace, sc, accessMode, k8sv1.PersistentVolumeBlock)
 }
 
-func NewRandomVMI() *v1.VirtualMachineInstance {
-	// To avoid mac address issue in the tests change the pod interface binding to masquerade
-	// https://github.com/kubevirt/kubevirt/issues/1494
+func NewRandomVMIWithDataVolume(dataVolumeName string) *v1.VirtualMachineInstance {
 	vmi := libvmi.New(
+		withTestsNs,
 		libvmi.WithInterface(libvmi.InterfaceDeviceWithMasqueradeBinding()),
 		libvmi.WithNetwork(v1.DefaultPodNetwork()),
+		libvmi.WithResourceMemory(libvmi.CirrosMemory()),
 	)
-	vmi.ObjectMeta.Namespace = util2.NamespaceTestDefault
-	vmi.Spec.Domain.Resources.Requests = k8sv1.ResourceList{}
-
-	if checks.IsARM64(testsuite.Arch) {
-		// Cirros image need 256M to boot on ARM64,
-		// this issue is traced in https://github.com/kubevirt/kubevirt/issues/6363
-		vmi.Spec.Domain.Resources.Requests[k8sv1.ResourceMemory] = resource.MustParse("256Mi")
-	} else {
-		vmi.Spec.Domain.Resources.Requests[k8sv1.ResourceMemory] = resource.MustParse("128Mi")
-	}
-
-	return vmi
-}
-
-func NewRandomVMIWithDataVolume(dataVolumeName string) *v1.VirtualMachineInstance {
-	vmi := NewRandomVMI()
 
 	diskName := "disk0"
 
@@ -659,7 +643,12 @@ func NewRandomMigration(vmiName string, namespace string) *v1.VirtualMachineInst
 }
 
 func NewRandomVMIWithEphemeralDisk(containerImage string) *v1.VirtualMachineInstance {
-	vmi := NewRandomVMI()
+	vmi := libvmi.New(
+		withTestsNs,
+		libvmi.WithInterface(libvmi.InterfaceDeviceWithMasqueradeBinding()),
+		libvmi.WithNetwork(v1.DefaultPodNetwork()),
+		libvmi.WithResourceMemory(libvmi.CirrosMemory()),
+	)
 
 	AddEphemeralDisk(vmi, "disk0", v1.DiskBusVirtio, containerImage)
 	if containerImage == cd.ContainerDiskFor(cd.ContainerDiskFedoraTestTooling) {
@@ -793,7 +782,12 @@ func AddPVCFS(vmi *v1.VirtualMachineInstance, name string, claimName string) *v1
 }
 
 func NewRandomVMIWithFSFromDataVolume(dataVolumeName string) *v1.VirtualMachineInstance {
-	vmi := NewRandomVMI()
+	vmi := libvmi.New(
+		withTestsNs,
+		libvmi.WithInterface(libvmi.InterfaceDeviceWithMasqueradeBinding()),
+		libvmi.WithNetwork(v1.DefaultPodNetwork()),
+		libvmi.WithResourceMemory(libvmi.CirrosMemory()),
+	)
 	containerImage := cd.ContainerDiskFor(cd.ContainerDiskFedoraTestTooling)
 	AddEphemeralDisk(vmi, "disk0", v1.DiskBusVirtio, containerImage)
 	vmi.Spec.Domain.Devices.Filesystems = append(vmi.Spec.Domain.Devices.Filesystems, v1.Filesystem{
@@ -812,7 +806,12 @@ func NewRandomVMIWithFSFromDataVolume(dataVolumeName string) *v1.VirtualMachineI
 }
 
 func NewRandomVMIWithPVCFS(claimName string) *v1.VirtualMachineInstance {
-	vmi := NewRandomVMI()
+	vmi := libvmi.New(
+		withTestsNs,
+		libvmi.WithInterface(libvmi.InterfaceDeviceWithMasqueradeBinding()),
+		libvmi.WithNetwork(v1.DefaultPodNetwork()),
+		libvmi.WithResourceMemory(libvmi.CirrosMemory()),
+	)
 
 	containerImage := cd.ContainerDiskFor(cd.ContainerDiskFedoraTestTooling)
 	AddEphemeralDisk(vmi, "disk0", v1.DiskBusVirtio, containerImage)
@@ -912,14 +911,24 @@ func addCloudInitDiskAndVolume(vmi *v1.VirtualMachineInstance, name string, volu
 }
 
 func NewRandomVMIWithPVC(claimName string) *v1.VirtualMachineInstance {
-	vmi := NewRandomVMI()
+	vmi := libvmi.New(
+		withTestsNs,
+		libvmi.WithInterface(libvmi.InterfaceDeviceWithMasqueradeBinding()),
+		libvmi.WithNetwork(v1.DefaultPodNetwork()),
+		libvmi.WithResourceMemory(libvmi.CirrosMemory()),
+	)
 
 	vmi = AddPVCDisk(vmi, "disk0", v1.DiskBusVirtio, claimName)
 	return vmi
 }
 
 func NewRandomVMIWithPVCAndUserData(claimName, userData string) *v1.VirtualMachineInstance {
-	vmi := NewRandomVMI()
+	vmi := libvmi.New(
+		withTestsNs,
+		libvmi.WithInterface(libvmi.InterfaceDeviceWithMasqueradeBinding()),
+		libvmi.WithNetwork(v1.DefaultPodNetwork()),
+		libvmi.WithResourceMemory(libvmi.CirrosMemory()),
+	)
 
 	vmi = AddPVCDisk(vmi, "disk0", v1.DiskBusVirtio, claimName)
 	AddUserData(vmi, "disk1", userData)
@@ -942,7 +951,13 @@ func DeletePvAndPvc(name string) {
 }
 
 func NewRandomVMIWithCDRom(claimName string) *v1.VirtualMachineInstance {
-	vmi := NewRandomVMI()
+
+	vmi := libvmi.New(
+		withTestsNs,
+		libvmi.WithInterface(libvmi.InterfaceDeviceWithMasqueradeBinding()),
+		libvmi.WithNetwork(v1.DefaultPodNetwork()),
+		libvmi.WithResourceMemory(libvmi.CirrosMemory()),
+	)
 
 	vmi.Spec.Domain.Devices.Disks = append(vmi.Spec.Domain.Devices.Disks, v1.Disk{
 		Name: "disk0",
@@ -965,8 +980,17 @@ func NewRandomVMIWithCDRom(claimName string) *v1.VirtualMachineInstance {
 	return vmi
 }
 
+func withTestsNs(vmi *v1.VirtualMachineInstance) {
+	vmi.Namespace = util2.NamespaceTestDefault
+}
+
 func NewRandomVMIWithEphemeralPVC(claimName string) *v1.VirtualMachineInstance {
-	vmi := NewRandomVMI()
+	vmi := libvmi.New(
+		withTestsNs,
+		libvmi.WithInterface(libvmi.InterfaceDeviceWithMasqueradeBinding()),
+		libvmi.WithNetwork(v1.DefaultPodNetwork()),
+		libvmi.WithResourceMemory(libvmi.CirrosMemory()),
+	)
 
 	vmi.Spec.Domain.Devices.Disks = append(vmi.Spec.Domain.Devices.Disks, v1.Disk{
 		Name: "disk0",
@@ -1016,7 +1040,12 @@ func AddHostDisk(vmi *v1.VirtualMachineInstance, path string, diskType v1.HostDi
 }
 
 func NewRandomVMIWithHostDisk(diskPath string, diskType v1.HostDiskType, nodeName string) *v1.VirtualMachineInstance {
-	vmi := NewRandomVMI()
+	vmi := libvmi.New(
+		withTestsNs,
+		libvmi.WithInterface(libvmi.InterfaceDeviceWithMasqueradeBinding()),
+		libvmi.WithNetwork(v1.DefaultPodNetwork()),
+		libvmi.WithResourceMemory(libvmi.CirrosMemory()),
+	)
 	AddHostDisk(vmi, diskPath, diskType, "host-disk")
 	if nodeName != "" {
 		vmi.Spec.Affinity = &k8sv1.Affinity{

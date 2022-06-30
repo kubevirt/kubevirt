@@ -477,7 +477,7 @@ var _ = Describe("[sig-compute]Configurations", func() {
 
 		Context("[rfe_id:140][crit:medium][vendor:cnv-qe@redhat.com][level:component]with no memory requested", func() {
 			It("[test_id:3113]should failed to the VMI creation", func() {
-				vmi := tests.NewRandomVMI()
+				vmi := libvmi.New()
 				vmi.Spec.Domain.Resources = v1.ResourceRequirements{}
 				By("Starting a VirtualMachineInstance")
 				_, err = virtClient.VirtualMachineInstance(util.NamespaceTestDefault).Create(vmi)
@@ -495,7 +495,11 @@ var _ = Describe("[sig-compute]Configurations", func() {
 			})
 
 			It("[test_id:3114]should set requested amount of memory according to the specified virtual memory", func() {
-				vmi := tests.NewRandomVMI()
+				vmi := libvmi.New(
+					libvmi.With1MiResourceMemory(),
+					libvmi.WithNetwork(v1.DefaultPodNetwork()),
+					libvmi.WithInterface(libvmi.InterfaceDeviceWithMasqueradeBinding()),
+				)
 				guestMemory := resource.MustParse("4096M")
 				vmi.Spec.Domain.Memory = &v1.Memory{Guest: &guestMemory}
 				vmi.Spec.Domain.Resources = v1.ResourceRequirements{}
@@ -507,8 +511,11 @@ var _ = Describe("[sig-compute]Configurations", func() {
 		Context("with BIOS bootloader method and no disk", func() {
 			It("[test_id:5265]should find no bootable device by default", func() {
 				By("Creating a VMI with no disk and an explicit network interface")
-				vmi := tests.NewRandomVMI()
-				tests.AddExplicitPodNetworkInterface(vmi)
+				vmi := libvmi.New(
+					libvmi.With1MiResourceMemory(),
+					libvmi.WithNetwork(v1.DefaultPodNetwork()),
+					libvmi.WithInterface(libvmi.InterfaceDeviceWithMasqueradeBinding()),
+				)
 
 				By("Enabling BIOS serial output")
 				vmi.Spec.Domain.Firmware = &v1.Firmware{
@@ -532,22 +539,19 @@ var _ = Describe("[sig-compute]Configurations", func() {
 			})
 
 			It("[test_id:5266]should boot to NIC rom if a boot order was set on a network interface", func() {
-				By("Creating a VMI with no disk and an explicit network interface")
-				vmi := tests.NewRandomVMI()
-				tests.AddExplicitPodNetworkInterface(vmi)
-
-				By("Enabling BIOS serial output")
-				vmi.Spec.Domain.Firmware = &v1.Firmware{
-					Bootloader: &v1.Bootloader{
-						BIOS: &v1.BIOS{
-							UseSerial: tests.NewBool(true),
-						},
-					},
-				}
-
 				By("Enabling network boot")
 				var bootOrder uint = 1
-				vmi.Spec.Domain.Devices.Interfaces[0].BootOrder = &bootOrder
+				var interfaceDeviceWithMasqueradeBinding = libvmi.InterfaceDeviceWithMasqueradeBinding()
+				interfaceDeviceWithMasqueradeBinding.BootOrder = &bootOrder
+
+				By("Creating a VMI with no disk and an explicit network interface")
+				vmi := libvmi.New(
+					libvmi.WithResourceMemory(libvmi.CirrosMemory()),
+					libvmi.WithNetwork(v1.DefaultPodNetwork()),
+					libvmi.WithInterface(interfaceDeviceWithMasqueradeBinding),
+					//Enabling BIOS serial output
+					libvmi.WithSerialBios(true),
+				)
 
 				By("Starting a VirtualMachineInstance")
 				vmi, err = virtClient.VirtualMachineInstance(util.NamespaceTestDefault).Create(vmi)
@@ -1597,7 +1601,7 @@ var _ = Describe("[sig-compute]Configurations", func() {
 			var vmi *v1.VirtualMachineInstance
 
 			BeforeEach(func() {
-				vmi = tests.NewRandomVMI()
+				vmi = libvmi.New(libvmi.With1MiResourceMemory())
 			})
 
 			It("[test_id:6960]should reject disk with missing volume", func() {
@@ -1633,7 +1637,7 @@ var _ = Describe("[sig-compute]Configurations", func() {
 				tests.UpdateKubeVirtConfigValueAndWait(*config)
 
 				By("Creating a new VMI")
-				var vmi = tests.NewRandomVMI()
+				var vmi = libvmi.New(libvmi.With1MiResourceMemory())
 				vmi = tests.RunVMIAndExpectScheduling(vmi, 30)
 				Expect(err).NotTo(HaveOccurred())
 
@@ -1644,7 +1648,7 @@ var _ = Describe("[sig-compute]Configurations", func() {
 
 			It("should not apply runtimeClassName to pod when not set", func() {
 				By("Creating a VMI")
-				var vmi = tests.NewRandomVMI()
+				var vmi = libvmi.New(libvmi.With1MiResourceMemory())
 				vmi, err = virtClient.VirtualMachineInstance(util.NamespaceTestDefault).Create(vmi)
 				Expect(err).NotTo(HaveOccurred())
 
@@ -1797,9 +1801,11 @@ var _ = Describe("[sig-compute]Configurations", func() {
 		})
 
 		It("[test_id:3124]should set machine type from VMI spec", func() {
-			vmi := tests.NewRandomVMI()
-			vmi.Spec.Domain.Machine = &v1.Machine{Type: "pc"}
-			tests.RunVMIAndExpectLaunch(vmi, 30)
+			vmi := libvmi.New(
+				libvmi.With1MiResourceMemory(),
+				libvmi.WithMachineType("pc"),
+			)
+			vmi = tests.RunVMIAndExpectLaunch(vmi, 30)
 			runningVMISpec, err := tests.GetRunningVMIDomainSpec(vmi)
 
 			Expect(err).ToNot(HaveOccurred())
@@ -1807,9 +1813,9 @@ var _ = Describe("[sig-compute]Configurations", func() {
 		})
 
 		It("[test_id:3125]should allow creating VM without Machine defined", func() {
-			vmi := tests.NewRandomVMI()
+			vmi := libvmi.New(libvmi.With1MiResourceMemory())
 			vmi.Spec.Domain.Machine = nil
-			tests.RunVMIAndExpectLaunch(vmi, 30)
+			vmi = tests.RunVMIAndExpectLaunch(vmi, 30)
 			runningVMISpec, err := tests.GetRunningVMIDomainSpec(vmi)
 
 			Expect(err).ToNot(HaveOccurred())
@@ -1818,9 +1824,12 @@ var _ = Describe("[sig-compute]Configurations", func() {
 
 		It("[test_id:6964]should allow creating VM defined with Machine with an empty Type", func() {
 			// This is needed to provide backward compatibility since our example VMIs used to be defined in this way
-			vmi := tests.NewRandomVMI()
-			vmi.Spec.Domain.Machine = &v1.Machine{Type: ""}
-			tests.RunVMIAndExpectLaunch(vmi, 30)
+			vmi := libvmi.New(
+				libvmi.With1MiResourceMemory(),
+				libvmi.WithMachineType(""),
+			)
+
+			vmi = tests.RunVMIAndExpectLaunch(vmi, 30)
 			runningVMISpec, err := tests.GetRunningVMIDomainSpec(vmi)
 
 			Expect(err).ToNot(HaveOccurred())
@@ -1834,9 +1843,8 @@ var _ = Describe("[sig-compute]Configurations", func() {
 			config.MachineType = "pc"
 			tests.UpdateKubeVirtConfigValueAndWait(config)
 
-			vmi := tests.NewRandomVMI()
-			vmi.Spec.Domain.Machine = nil
-			tests.RunVMIAndExpectLaunch(vmi, 30)
+			vmi := libvmi.New(libvmi.With1MiResourceMemory())
+			vmi = tests.RunVMIAndExpectLaunch(vmi, 30)
 			runningVMISpec, err := tests.GetRunningVMIDomainSpec(vmi)
 
 			Expect(err).ToNot(HaveOccurred())
@@ -1846,8 +1854,10 @@ var _ = Describe("[sig-compute]Configurations", func() {
 
 	Context("with a custom scheduler", func() {
 		It("[test_id:4631]should set the custom scheduler on the pod", func() {
-			vmi := tests.NewRandomVMI()
-			vmi.Spec.SchedulerName = "my-custom-scheduler"
+			vmi := libvmi.New(
+				libvmi.With1MiResourceMemory(),
+				libvmi.WithScheduler("my-custom-scheduler"),
+			)
 			runningVMI := tests.RunVMIAndExpectScheduling(vmi, 30)
 			launcherPod := libvmi.GetPodByVirtualMachineInstance(runningVMI, util.NamespaceTestDefault)
 			Expect(launcherPod.Spec.SchedulerName).To(Equal("my-custom-scheduler"))
@@ -1857,8 +1867,10 @@ var _ = Describe("[sig-compute]Configurations", func() {
 	Context("[rfe_id:140][crit:medium][vendor:cnv-qe@redhat.com][level:component]with CPU request settings", func() {
 
 		It("[test_id:3127]should set CPU request from VMI spec", func() {
-			vmi := tests.NewRandomVMI()
-			vmi.Spec.Domain.Resources.Requests[kubev1.ResourceCPU] = resource.MustParse("500m")
+			vmi := libvmi.New(
+				libvmi.WithResourceCpu("500m"),
+				libvmi.With1MiResourceMemory(),
+			)
 			runningVMI := tests.RunVMIAndExpectScheduling(vmi, 30)
 
 			readyPod := libvmi.GetPodByVirtualMachineInstance(runningVMI, util.NamespaceTestDefault)
@@ -1868,7 +1880,7 @@ var _ = Describe("[sig-compute]Configurations", func() {
 		})
 
 		It("[test_id:3128]should set CPU request when it is not provided", func() {
-			vmi := tests.NewRandomVMI()
+			vmi := libvmi.New(libvmi.With1MiResourceMemory())
 			runningVMI := tests.RunVMIAndExpectScheduling(vmi, 30)
 
 			readyPod := libvmi.GetPodByVirtualMachineInstance(runningVMI, util.NamespaceTestDefault)
@@ -1885,7 +1897,7 @@ var _ = Describe("[sig-compute]Configurations", func() {
 			config.CPURequest = &configureCPURequest
 			tests.UpdateKubeVirtConfigValueAndWait(config)
 
-			vmi := tests.NewRandomVMI()
+			vmi := libvmi.New(libvmi.With1MiResourceMemory())
 			runningVMI := tests.RunVMIAndExpectScheduling(vmi, 30)
 
 			readyPod := libvmi.GetPodByVirtualMachineInstance(runningVMI, util.NamespaceTestDefault)
@@ -1917,7 +1929,7 @@ var _ = Describe("[sig-compute]Configurations", func() {
 		})
 
 		It("[test_id:1681]should set appropriate cache modes", func() {
-			vmi := tests.NewRandomVMI()
+			vmi := libvmi.New(libvmi.With1MiResourceMemory())
 
 			By("adding disks to a VMI")
 			tests.AddEphemeralDisk(vmi, "ephemeral-disk1", v1.DiskBusVirtio, cd.ContainerDiskFor(cd.ContainerDiskCirros))
@@ -1933,7 +1945,7 @@ var _ = Describe("[sig-compute]Configurations", func() {
 			tests.AddUserData(vmi, "cloud-init", "#!/bin/bash\necho 'hello'\n")
 			tmpHostDiskDir := tests.RandTmpDir()
 			tests.AddHostDisk(vmi, filepath.Join(tmpHostDiskDir, "test-disk.img"), v1.HostDiskExistsOrCreate, "hostdisk")
-			tests.RunVMIAndExpectLaunch(vmi, 60)
+			vmi = tests.RunVMIAndExpectLaunch(vmi, 60)
 			runningVMISpec, err := tests.GetRunningVMIDomainSpec(vmi)
 			Expect(err).ToNot(HaveOccurred())
 			vmiPod := tests.GetRunningPodByVirtualMachineInstance(vmi, util.NamespaceTestDefault)
@@ -1974,7 +1986,7 @@ var _ = Describe("[sig-compute]Configurations", func() {
 		})
 
 		It("[test_id:5360]should set appropriate IO modes", func() {
-			vmi := tests.NewRandomVMI()
+			vmi := libvmi.New(libvmi.With1MiResourceMemory())
 
 			By("adding disks to a VMI")
 			// disk[0]:  File, sparsed, no user-input, cache=none
@@ -1992,7 +2004,7 @@ var _ = Describe("[sig-compute]Configurations", func() {
 			vmi.Spec.Domain.Devices.Disks[3].Cache = v1.CacheNone
 			vmi.Spec.Domain.Devices.Disks[3].IO = v1.IOThreads
 
-			tests.RunVMIAndExpectLaunch(vmi, 60)
+			vmi = tests.RunVMIAndExpectLaunch(vmi, 60)
 			runningVMISpec, err := tests.GetRunningVMIDomainSpec(vmi)
 			Expect(err).ToNot(HaveOccurred())
 

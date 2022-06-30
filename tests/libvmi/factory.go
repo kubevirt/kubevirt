@@ -48,7 +48,7 @@ func NewCirros(opts ...Option) *kvirtv1.VirtualMachineInstance {
 	cirrosOpts := []Option{
 		WithContainerImage(cd.ContainerDiskFor(cd.ContainerDiskCirros)),
 		withNonEmptyUserData,
-		WithResourceMemory(cirrosMemory()),
+		WithResourceMemory(CirrosMemory()),
 	}
 	cirrosOpts = append(cirrosOpts, opts...)
 	return New(cirrosOpts...)
@@ -56,7 +56,7 @@ func NewCirros(opts ...Option) *kvirtv1.VirtualMachineInstance {
 
 // NewAlpine instantiates a new Alpine based VMI configuration
 func NewAlpine(opts ...Option) *kvirtv1.VirtualMachineInstance {
-	alpineMemory := cirrosMemory
+	alpineMemory := CirrosMemory
 	alpineOpts := []Option{
 		WithContainerImage(cd.ContainerDiskFor(cd.ContainerDiskAlpine)),
 		WithResourceMemory(alpineMemory()),
@@ -67,7 +67,7 @@ func NewAlpine(opts ...Option) *kvirtv1.VirtualMachineInstance {
 }
 
 func NewAlpineWithTestTooling(opts ...Option) *kvirtv1.VirtualMachineInstance {
-	alpineMemory := cirrosMemory
+	alpineMemory := CirrosMemory
 	alpineOpts := []Option{
 		WithContainerImage(cd.ContainerDiskFor(cd.ContainerDiskAlpineTestTooling)),
 		WithResourceMemory(alpineMemory()),
@@ -77,7 +77,7 @@ func NewAlpineWithTestTooling(opts ...Option) *kvirtv1.VirtualMachineInstance {
 	return New(alpineOpts...)
 }
 
-func cirrosMemory() string {
+func CirrosMemory() string {
 	if checks.IsARM64(testsuite.Arch) {
 		return "256Mi"
 	}

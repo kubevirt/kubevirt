@@ -6,6 +6,8 @@ import (
 	goerrors "errors"
 	"time"
 
+	"kubevirt.io/kubevirt/tests/libvmi"
+
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
 
@@ -61,7 +63,7 @@ var _ = Describe("[crit:medium][vendor:cnv-qe@redhat.com][level:component][sig-c
 
 	Context("VM with invalid FlavorMatcher", func() {
 		It("[test_id:TODO] should fail to create VM with non-existing cluster flavor", func() {
-			vmi := tests.NewRandomVMI()
+			vmi := libvmi.New()
 			vm := tests.NewRandomVirtualMachine(vmi, false)
 			vm.Spec.Flavor = &v1.FlavorMatcher{
 				Name: "non-existing-cluster-flavor",
@@ -80,7 +82,7 @@ var _ = Describe("[crit:medium][vendor:cnv-qe@redhat.com][level:component][sig-c
 		})
 
 		It("[test_id:TODO] should fail to create VM with non-existing namespaced flavor", func() {
-			vmi := tests.NewRandomVMI()
+			vmi := libvmi.New()
 			vm := tests.NewRandomVirtualMachine(vmi, false)
 			vm.Spec.Flavor = &v1.FlavorMatcher{
 				Name: "non-existing-flavor",
@@ -102,7 +104,7 @@ var _ = Describe("[crit:medium][vendor:cnv-qe@redhat.com][level:component][sig-c
 
 	Context("VM with invalid PreferenceMatcher", func() {
 		It("[test_id:TODO] should fail to create VM with non-existing cluster preference", func() {
-			vmi := tests.NewRandomVMI()
+			vmi := libvmi.New()
 			vm := tests.NewRandomVirtualMachine(vmi, false)
 			vm.Spec.Preference = &v1.PreferenceMatcher{
 				Name: "non-existing-cluster-preference",
@@ -121,7 +123,7 @@ var _ = Describe("[crit:medium][vendor:cnv-qe@redhat.com][level:component][sig-c
 		})
 
 		It("[test_id:TODO] should fail to create VM with non-existing namespaced preference", func() {
-			vmi := tests.NewRandomVMI()
+			vmi := libvmi.New()
 			vm := tests.NewRandomVirtualMachine(vmi, false)
 			vm.Spec.Preference = &v1.PreferenceMatcher{
 				Name: "non-existing-preference",
@@ -270,7 +272,7 @@ var _ = Describe("[crit:medium][vendor:cnv-qe@redhat.com][level:component][sig-c
 		})
 
 		It("[test_id:TODO] should fail if flavor and VM define CPU", func() {
-			vmi := tests.NewRandomVMI()
+			vmi := libvmi.New()
 
 			flavor := newVirtualMachineFlavor(vmi)
 			flavor, err := virtClient.VirtualMachineFlavor(util.NamespaceTestDefault).

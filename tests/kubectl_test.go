@@ -89,7 +89,14 @@ var _ = Describe("[sig-compute]oc/kubectl integration", func() {
 			virtCli, err = kubecli.GetKubevirtClient()
 			util.PanicOnError(err)
 
-			vm = tests.NewRandomVirtualMachine(tests.NewRandomVMI(), false)
+			vm = tests.NewRandomVirtualMachine(
+				libvmi.New(
+					libvmi.With1MiResourceMemory(),
+					libvmi.WithNetwork(v1.DefaultPodNetwork()),
+					libvmi.WithInterface(libvmi.InterfaceDeviceWithMasqueradeBinding()),
+				),
+				false,
+			)
 			vm, err = virtCli.VirtualMachine(util.NamespaceTestDefault).Create(vm)
 			Expect(err).NotTo(HaveOccurred())
 			tests.StartVirtualMachine(vm)

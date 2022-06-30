@@ -27,6 +27,8 @@ import (
 	"strings"
 	"time"
 
+	"kubevirt.io/kubevirt/tests/libvmi"
+
 	"kubevirt.io/kubevirt/tests/framework/checks"
 
 	. "github.com/onsi/ginkgo/v2"
@@ -300,7 +302,7 @@ var _ = Describe("[Serial][Sysprep][sig-compute]Syspreped VirtualMachineInstance
 		libstorage.CreatePVC(tests.OSWindowsSysprep, "35Gi", libstorage.Config.StorageClassWindows, true)
 		answerFileWithKey := insertProductKeyToAnswerFileTemplate(answerFileTemplate)
 		tests.CreateConfigMap("sysprepautounattend", map[string]string{"Autounattend.xml": answerFileWithKey, "Unattend.xml": answerFileWithKey})
-		windowsVMI = tests.NewRandomVMI()
+		windowsVMI = libvmi.New()
 		windowsVMI.Spec = getWindowsSysprepVMISpec()
 		tests.AddExplicitPodNetworkInterface(windowsVMI)
 		windowsVMI.Spec.Domain.Devices.Interfaces[0].Model = "e1000"

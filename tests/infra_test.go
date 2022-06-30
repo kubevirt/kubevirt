@@ -125,7 +125,7 @@ var _ = Describe("[Serial][sig-compute]Infrastructure", func() {
 
 		It("on the controller rate limiter should lead to delayed VMI starts", func() {
 			By("first getting the basetime for a replicaset")
-			replicaset := tests.NewRandomReplicaSetFromVMI(libvmi.NewCirros(libvmi.WithResourceMemory("1Mi")), int32(0))
+			replicaset := tests.NewRandomReplicaSetFromVMI(libvmi.NewCirros(libvmi.With1MiResourceMemory()), int32(0))
 			replicaset, err = virtClient.ReplicaSet(util.NamespaceTestDefault).Create(replicaset)
 			Expect(err).ToNot(HaveOccurred())
 			start := time.Now()
@@ -157,7 +157,7 @@ var _ = Describe("[Serial][sig-compute]Infrastructure", func() {
 			By("first getting the basetime for a replicaset")
 			targetNode := libnode.GetAllSchedulableNodes(virtClient).Items[0]
 			vmi := libvmi.New(
-				libvmi.WithResourceMemory("1Mi"),
+				libvmi.With1MiResourceMemory(),
 				libvmi.WithNodeSelectorFor(&targetNode),
 			)
 
@@ -1120,7 +1120,9 @@ var _ = Describe("[Serial][sig-compute]Infrastructure", func() {
 					return k8sv1.ConditionUnknown
 				}()).To(Equal(k8sv1.ConditionTrue))
 
-				vmi := tests.NewRandomVMI()
+				vmi := libvmi.New(
+					libvmi.With1MiResourceMemory(),
+				)
 
 				By("Starting a new VirtualMachineInstance")
 				obj, err := virtClient.RestClient().Post().Resource("virtualmachineinstances").Namespace(util.NamespaceTestDefault).Body(vmi).Do(context.Background()).Get()

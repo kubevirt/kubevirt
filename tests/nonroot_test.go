@@ -3,6 +3,8 @@ package tests_test
 import (
 	"fmt"
 
+	"kubevirt.io/kubevirt/tests/libvmi"
+
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
 
@@ -48,7 +50,7 @@ var _ = Describe("[sig-compute]NonRoot feature", func() {
 		It("Fails if can't be tested", func() {
 			Expect(checks.HasFeature(virtconfig.NonRoot)).To(BeTrue())
 
-			vmi := tests.NewRandomVMI()
+			vmi := libvmi.New(libvmi.With1MiResourceMemory())
 			vmi, err = virtClient.VirtualMachineInstance(util.NamespaceTestDefault).Create(vmi)
 			Expect(err).NotTo(HaveOccurred())
 

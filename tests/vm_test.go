@@ -1016,23 +1016,23 @@ var _ = Describe("[rfe_id:1177][crit:medium][vendor:cnv-qe@redhat.com][level:com
 			It("Should force stop a VMI", func() {
 
 				By("getting a VM with high TerminationGracePeriod")
-				newVMI := tests.NewRandomVMI()
+				newVMI := libvmi.New(libvmi.With1MiResourceMemory())
 				gracePeriod := int64(1600)
 				newVMI.Spec.TerminationGracePeriodSeconds = &gracePeriod
 
 				newVM := tests.NewRandomVirtualMachine(newVMI, true)
-				_, err := virtClient.VirtualMachine(newVM.Namespace).Create(newVM)
+				_, err := virtClient.VirtualMachine(util.NamespaceTestDefault).Create(newVM)
 				Expect(err).ToNot(HaveOccurred())
 
 				By("Waiting for VM to be ready")
 				Eventually(func() bool {
-					virtualMachine, err := virtClient.VirtualMachine(newVM.Namespace).Get(newVM.Name, &k8smetav1.GetOptions{})
+					virtualMachine, err := virtClient.VirtualMachine(util.NamespaceTestDefault).Get(newVM.Name, &k8smetav1.GetOptions{})
 					Expect(err).ToNot(HaveOccurred())
 					return virtualMachine.Status.Ready
 				}, 360*time.Second, 1*time.Second).Should(BeTrue())
 
 				By("setting up a watch for vmi")
-				lw, err := virtClient.VirtualMachineInstance(newVMI.Namespace).Watch(metav1.ListOptions{})
+				lw, err := virtClient.VirtualMachineInstance(util.NamespaceTestDefault).Watch(metav1.ListOptions{})
 				Expect(err).ToNot(HaveOccurred())
 
 				terminatationGracePeriodUpdated := func(stopCn <-chan bool, eventsCn <-chan watch.Event, updated chan<- bool) {
@@ -1058,12 +1058,12 @@ var _ = Describe("[rfe_id:1177][crit:medium][vendor:cnv-qe@redhat.com][level:com
 				go terminatationGracePeriodUpdated(stopCn, lw.ResultChan(), updated)
 
 				By("Invoking virtctl --force stop")
-				forceStop := clientcmd.NewRepeatableVirtctlCommand(vm.COMMAND_STOP, newVM.Name, "--namespace", newVM.Namespace, "--force", "--grace-period=0")
+				forceStop := clientcmd.NewRepeatableVirtctlCommand(vm.COMMAND_STOP, newVM.Name, "--namespace", util.NamespaceTestDefault, "--force", "--grace-period=0")
 				Expect(forceStop()).ToNot(HaveOccurred())
 
 				By("Ensuring the VirtualMachineInstance is removed")
 				Eventually(func() error {
-					_, err = virtClient.VirtualMachineInstance(newVM.Namespace).Get(newVM.Name, &k8smetav1.GetOptions{})
+					_, err = virtClient.VirtualMachineInstance(util.NamespaceTestDefault).Get(newVM.Name, &k8smetav1.GetOptions{})
 					// Expect a 404 error
 					return err
 				}, 240*time.Second, 1*time.Second).Should(HaveOccurred())

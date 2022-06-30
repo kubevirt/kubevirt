@@ -261,9 +261,12 @@ var _ = Describe("[rfe_id:273][crit:high][arm64][vendor:cnv-qe@redhat.com][level
 
 		DescribeTable("log libvirtd debug logs should be", func(vmiLabels, vmiAnnotations map[string]string, expectDebugLogs bool) {
 			var err error
-			vmi := tests.NewRandomVMI()
-			vmi.Labels = vmiLabels
-			vmi.Annotations = vmiAnnotations
+
+			vmi := libvmi.New(
+				libvmi.With1MiResourceMemory(),
+				libvmi.WithLabels(vmiLabels),
+				libvmi.WithAnnotations(vmiAnnotations),
+			)
 
 			vmi, err = virtClient.VirtualMachineInstance(util.NamespaceTestDefault).Create(vmi)
 			Expect(err).To(BeNil(), "Create VMI successfully")
@@ -1365,7 +1368,7 @@ var _ = Describe("[rfe_id:273][crit:high][arm64][vendor:cnv-qe@redhat.com][level
 
 				By("Creating a VirtualMachineInstance with different namespace")
 				vmi = libvmi.New(
-					libvmi.WithResourceMemory("1Mi"),
+					libvmi.With1MiResourceMemory(),
 					libvmi.WithNetwork(v1.DefaultPodNetwork()),
 					libvmi.WithInterface(libvmi.InterfaceDeviceWithMasqueradeBinding()),
 				)

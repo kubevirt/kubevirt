@@ -20,7 +20,6 @@
 package tests_test
 
 import (
-	"context"
 	"encoding/json"
 	"fmt"
 	"io"
@@ -28,6 +27,8 @@ import (
 	"net/http"
 	"os"
 	"time"
+
+	"kubevirt.io/kubevirt/tests/libvmi"
 
 	"github.com/mitchellh/go-vnc"
 
@@ -57,10 +58,11 @@ var _ = Describe("[rfe_id:127][crit:medium][arm64][vendor:cnv-qe@redhat.com][lev
 		BeforeEach(func() {
 			virtClient, err = kubecli.GetKubevirtClient()
 			util.PanicOnError(err)
+			vmi = libvmi.New(libvmi.With1MiResourceMemory())
+			vmi, err = virtClient.VirtualMachineInstance(util.NamespaceTestDefault).Create(vmi)
+			Expect(err).NotTo(HaveOccurred())
 
-			vmi = tests.NewRandomVMI()
-			Expect(virtClient.RestClient().Post().Resource("virtualmachineinstances").Namespace(util.NamespaceTestDefault).Body(vmi).Do(context.Background()).Error()).To(Succeed())
-			tests.WaitForSuccessfulVMIStart(vmi)
+			vmi = tests.WaitForSuccessfulVMIStart(vmi)
 		})
 
 		Context("with VNC connection", func() {
