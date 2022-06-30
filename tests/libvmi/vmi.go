@@ -174,3 +174,54 @@ func baseVmi(name string) *v1.VirtualMachineInstance {
 	}
 	return vmi
 }
+
+// WithLabel sets labels with specified values
+func WithLabels(labels map[string]string) Option {
+	return func(vmi *v1.VirtualMachineInstance) {
+		if vmi.Labels == nil {
+			vmi.Labels = labels
+			return
+		}
+		for label, value := range labels {
+			vmi.Labels[label] = value
+		}
+	}
+}
+
+// WithAnnotation adds annotations with specified values
+func WithAnnotations(annotations map[string]string) Option {
+	return func(vmi *v1.VirtualMachineInstance) {
+		if vmi.Annotations == nil {
+			vmi.Annotations = annotations
+			return
+		}
+		for annotation, value := range annotations {
+			vmi.Annotations[annotation] = value
+		}
+	}
+}
+
+func WithClientPassthrough() Option {
+	return func(vmi *v1.VirtualMachineInstance) {
+		vmi.Spec.Domain.Devices.ClientPassthrough = &v1.ClientPassthroughDevices{}
+	}
+}
+
+// WithResourceMemory specifies the vmi memory resource.
+func With1MiResourceMemory() Option {
+	return WithResourceMemory("1Mi")
+}
+
+// WithMachineType specifies the vmi machine type.
+func WithMachineType(value string) Option {
+	return func(vmi *v1.VirtualMachineInstance) {
+		vmi.Spec.Domain.Machine = &v1.Machine{Type: value}
+	}
+}
+
+// WithMachineType specifies the vmi Scheduler.
+func WithScheduler(name string) Option {
+	return func(vmi *v1.VirtualMachineInstance) {
+		vmi.Spec.SchedulerName = name
+	}
+}
