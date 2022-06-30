@@ -20,6 +20,7 @@
 package libvmi
 
 import (
+	. "github.com/onsi/gomega"
 	k8sv1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/api/resource"
 	k8smetav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
@@ -31,6 +32,15 @@ import (
 
 // Option represents an action that enables an option.
 type Option func(vmi *v1.VirtualMachineInstance)
+
+// DiskOption represents an action that enables an option to disk and volume in Compile time .
+type DiskOption struct {
+	withVolume func(volume v1.Volume) Option
+}
+
+func (d DiskOption) WithVolume(volume v1.Volume) Option {
+	return d.withVolume(volume)
+}
 
 // New instantiates a new VMI configuration,
 // building its properties based on the specified With* options.
@@ -224,4 +234,23 @@ func WithScheduler(name string) Option {
 	return func(vmi *v1.VirtualMachineInstance) {
 		vmi.Spec.SchedulerName = name
 	}
+}
+
+// WithSEV adds `launchSecurity` with `sev`.
+func WithDisk(disk v1.Disk) DiskOption {
+	attachDiskAndVolume := func(volume v1.Volume) Option {
+		return func(vmi *v1.VirtualMachineInstance) {
+			vmi.Spec.Volumes = append(vmi.Spec.Volumes, volume)
+			vmi.Spec.Domain.Devices.Disks = append(vmi.Spec.Domain.Devices.Disks, disk)
+		}
+	}
+
+	return DiskOption{
+		func(volume v1.Volume) Option {
+			Expect(disk.Name).To(Equal(volume.Name),
+				"The disk name must match the volume name")
+			return attachDiskAndVolume(volume)
+		},
+	}
+
 }
