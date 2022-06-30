@@ -2900,7 +2900,7 @@ func WaitForConfigToBePropagatedToComponent(podLabel string, resourceVersion str
 		pods, err := virtClient.CoreV1().Pods(flags.KubeVirtInstallNamespace).List(context.Background(), metav1.ListOptions{LabelSelector: podLabel})
 
 		if err != nil {
-			return fmt.Errorf("failed to fetch pods. %s", errComponentInfo)
+			return fmt.Errorf("failed to fetch pods: %v, %s", err, errComponentInfo)
 		}
 		for _, pod := range pods.Items {
 			errAdditionalInfo := errComponentInfo + fmt.Sprintf(", pod: \"%s\"", pod.Name)
@@ -2911,12 +2911,12 @@ func WaitForConfigToBePropagatedToComponent(podLabel string, resourceVersion str
 
 			body, err := CallUrlOnPod(&pod, "8443", "/healthz")
 			if err != nil {
-				return fmt.Errorf("failed to call healthz endpoint. %s", errAdditionalInfo)
+				return fmt.Errorf("failed to call healthz endpoint: %v, %s", err, errAdditionalInfo)
 			}
 			result := map[string]interface{}{}
 			err = json.Unmarshal(body, &result)
 			if err != nil {
-				return fmt.Errorf("failed to parse response from healthz endpoint. %s", errAdditionalInfo)
+				return fmt.Errorf("failed to parse response from healthz endpoint: %v, %s", err, errAdditionalInfo)
 			}
 
 			if configVersion := result["config-resource-version"].(string); !compareResourceVersions(resourceVersion, configVersion) {
