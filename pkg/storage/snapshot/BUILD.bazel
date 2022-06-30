@@ -10,7 +10,7 @@ go_library(
         "source.go",
         "util.go",
     ],
-    importpath = "kubevirt.io/kubevirt/pkg/virt-controller/watch/snapshot",
+    importpath = "kubevirt.io/kubevirt/pkg/storage/snapshot",
     visibility = ["//visibility:public"],
     deps = [
         "//pkg/controller:go_default_library",
