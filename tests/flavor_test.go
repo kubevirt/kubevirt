@@ -2,11 +2,14 @@ package tests_test
 
 import (
 	"context"
+	"encoding/json"
 	goerrors "errors"
+	"time"
 
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
 
+	appsv1 "k8s.io/api/apps/v1"
 	k8sv1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/api/errors"
 	"k8s.io/apimachinery/pkg/api/resource"
@@ -17,6 +20,7 @@ import (
 	flavorapi "kubevirt.io/api/flavor"
 	flavorv1alpha1 "kubevirt.io/api/flavor/v1alpha1"
 	"kubevirt.io/client-go/kubecli"
+	flavorpkg "kubevirt.io/kubevirt/pkg/flavor"
 	"kubevirt.io/kubevirt/tests"
 	cd "kubevirt.io/kubevirt/tests/containerdisk"
 	"kubevirt.io/kubevirt/tests/util"
@@ -351,6 +355,159 @@ var _ = Describe("[crit:medium][vendor:cnv-qe@redhat.com][level:component][sig-c
 			for _, disk := range vmi.Spec.Domain.Devices.Disks {
 				Expect(disk.DiskDevice.Disk.Bus).To(Equal(preference.Spec.Devices.PreferredDiskBus))
 			}
+		})
+
+		It("[test_id:TODO] should store and use ControllerRevisions of VirtualMachineFlavorSpec and VirtualMachinePreferenceSpec", func() {
+
+			var (
+				flavorRevision     *appsv1.ControllerRevision
+				preferenceRevision *appsv1.ControllerRevision
+			)
+
+			vmi := tests.NewRandomVMI()
+
+			By("Creating a VirtualMachineFlavor")
+			flavor := newVirtualMachineFlavor(vmi)
+			originalFlavorCPUGuest := flavor.Spec.CPU.Guest
+			flavor, err := virtClient.VirtualMachineFlavor(util.NamespaceTestDefault).
+				Create(context.Background(), flavor, metav1.CreateOptions{})
+			Expect(err).ToNot(HaveOccurred())
+
+			By("Creating a VirtualMachinePreference")
+			preference := newVirtualMachinePreference()
+			preference.Spec = flavorv1alpha1.VirtualMachinePreferenceSpec{
+				CPU: &flavorv1alpha1.CPUPreferences{
+					PreferredCPUTopology: flavorv1alpha1.PreferSockets,
+				},
+			}
+			preference, err = virtClient.VirtualMachinePreference(util.NamespaceTestDefault).
+				Create(context.Background(), preference, metav1.CreateOptions{})
+			Expect(err).ToNot(HaveOccurred())
+
+			By("Creating a VirtualMachine")
+			removeResourcesAndPreferencesFromVMI(vmi)
+			vm := tests.NewRandomVirtualMachine(vmi, false)
+
+			vm.Spec.Flavor = &v1.FlavorMatcher{
+				Name: flavor.Name,
+				Kind: flavorapi.SingularResourceName,
+			}
+			vm.Spec.Preference = &v1.PreferenceMatcher{
+				Name: preference.Name,
+				Kind: flavorapi.SingularPreferenceResourceName,
+			}
+
+			vm, err = virtClient.VirtualMachine(util.NamespaceTestDefault).Create(vm)
+			Expect(err).ToNot(HaveOccurred())
+
+			vm = tests.StartVirtualMachine(vm)
+
+			expectedFlavorRevisionName := flavorpkg.GetRevisionName(vm.Name, flavor.Name, flavor.UID, flavor.Generation)
+			By("Waiting for a VirtualMachineFlavorSpec ControllerRevision to be referenced from the VirtualMachine")
+			Eventually(func() string {
+				vm, err = virtClient.VirtualMachine(vm.Namespace).Get(vm.Name, &metav1.GetOptions{})
+				if err != nil {
+					return ""
+				}
+				return vm.Spec.Flavor.RevisionName
+			}, 300*time.Second, 1*time.Second).Should(Equal(expectedFlavorRevisionName))
+
+			expectedPreferenceRevisionName := flavorpkg.GetRevisionName(vm.Name, preference.Name, preference.UID, preference.Generation)
+			By("Waiting for a VirtualMachinePreferenceSpec ControllerRevision to be referenced from the VirtualMachine")
+			Eventually(func() string {
+				vm, err = virtClient.VirtualMachine(vm.Namespace).Get(vm.Name, &metav1.GetOptions{})
+				if err != nil {
+					return ""
+				}
+				return vm.Spec.Preference.RevisionName
+			}, 300*time.Second, 1*time.Second).Should(Equal(expectedPreferenceRevisionName))
+
+			By("Checking that ControllerRevisions have been created for the VirtualMachineFlavor and VirtualMachinePreference")
+			flavorRevision, err = virtClient.AppsV1().ControllerRevisions(util.NamespaceTestDefault).Get(context.Background(), expectedFlavorRevisionName, metav1.GetOptions{})
+			Expect(err).ToNot(HaveOccurred())
+
+			stashedFlavorSpecRevision := flavorv1alpha1.VirtualMachineFlavorSpecRevision{}
+			stashedFlavorSpec := flavorv1alpha1.VirtualMachineFlavorSpec{}
+			Expect(json.Unmarshal(flavorRevision.Data.Raw, &stashedFlavorSpecRevision)).To(Succeed())
+			Expect(stashedFlavorSpecRevision.APIVersion).To(Equal(flavor.APIVersion))
+			Expect(json.Unmarshal(stashedFlavorSpecRevision.Spec, &stashedFlavorSpec)).To(Succeed())
+			Expect(stashedFlavorSpec).To(Equal(flavor.Spec))
+
+			preferenceRevision, err = virtClient.AppsV1().ControllerRevisions(util.NamespaceTestDefault).Get(context.Background(), expectedPreferenceRevisionName, metav1.GetOptions{})
+			Expect(err).ToNot(HaveOccurred())
+
+			stashedPreferenceSpecRevision := flavorv1alpha1.VirtualMachinePreferenceSpecRevision{}
+			stashedPreferenceSpec := flavorv1alpha1.VirtualMachinePreferenceSpec{}
+			Expect(json.Unmarshal(preferenceRevision.Data.Raw, &stashedPreferenceSpecRevision)).To(Succeed())
+			Expect(stashedPreferenceSpecRevision.APIVersion).To(Equal(preference.APIVersion))
+			Expect(json.Unmarshal(stashedPreferenceSpecRevision.Spec, &stashedPreferenceSpec)).To(Succeed())
+			Expect(stashedPreferenceSpec).To(Equal(preference.Spec))
+
+			By("Checking that a VirtualMachineInstance has been created with the VirtualMachineFlavor and VirtualMachinePreference applied")
+			vmi, err = virtClient.VirtualMachineInstance(util.NamespaceTestDefault).Get(vm.Name, &metav1.GetOptions{})
+			Expect(err).ToNot(HaveOccurred())
+			Expect(vmi.Spec.Domain.CPU.Sockets).To(Equal(originalFlavorCPUGuest))
+
+			By("Updating the VirtualMachineFlavor vCPU count")
+			newFlavorCPUGuest := originalFlavorCPUGuest + 1
+			flavor.Spec.CPU.Guest = newFlavorCPUGuest
+			updatedFlavor, err := virtClient.VirtualMachineFlavor(util.NamespaceTestDefault).Update(context.Background(), flavor, metav1.UpdateOptions{})
+			Expect(err).ToNot(HaveOccurred())
+			Expect(updatedFlavor.Spec.CPU.Guest).To(Equal(newFlavorCPUGuest))
+
+			vm = tests.StopVirtualMachine(vm)
+			vm = tests.StartVirtualMachine(vm)
+
+			By("Checking that a VirtualMachineInstance has been created with the original VirtualMachineFlavor and VirtualMachinePreference applied")
+			vmi, err = virtClient.VirtualMachineInstance(util.NamespaceTestDefault).Get(vm.Name, &metav1.GetOptions{})
+			Expect(err).ToNot(HaveOccurred())
+			Expect(vmi.Spec.Domain.CPU.Sockets).To(Equal(originalFlavorCPUGuest))
+
+			By("Creating a second VirtualMachine using the now updated VirtualMachineFlavor and original VirtualMachinePreference")
+			newVMI := tests.NewRandomVMI()
+			removeResourcesAndPreferencesFromVMI(newVMI)
+			newVM := tests.NewRandomVirtualMachine(newVMI, false)
+			newVM.Spec.Flavor = &v1.FlavorMatcher{
+				Name: flavor.Name,
+				Kind: flavorapi.SingularResourceName,
+			}
+			newVM.Spec.Preference = &v1.PreferenceMatcher{
+				Name: preference.Name,
+				Kind: flavorapi.SingularPreferenceResourceName,
+			}
+			newVM, err = virtClient.VirtualMachine(util.NamespaceTestDefault).Create(newVM)
+			Expect(err).ToNot(HaveOccurred())
+
+			newVM = tests.StartVirtualMachine(newVM)
+
+			By("Waiting for a VirtualMachineFlavorSpec ControllerRevision to be referenced from the new VirtualMachine")
+			Eventually(func() string {
+				newVM, err = virtClient.VirtualMachine(newVM.Namespace).Get(newVM.Name, &metav1.GetOptions{})
+				if err != nil {
+					return ""
+				}
+				return newVM.Spec.Flavor.RevisionName
+			}, 300*time.Second, 1*time.Second).ShouldNot(BeEmpty())
+
+			By("Ensuring the two VirtualMachines are using different ControllerRevisions of the same VirtualMachineFlavor")
+			Expect(newVM.Spec.Flavor.Name).To(Equal(vm.Spec.Flavor.Name))
+			Expect(newVM.Spec.Flavor.RevisionName).ToNot(Equal(vm.Spec.Flavor.RevisionName))
+
+			By("Checking that new ControllerRevisions for the updated VirtualMachineFlavor")
+			flavorRevision, err = virtClient.AppsV1().ControllerRevisions(util.NamespaceTestDefault).Get(context.Background(), newVM.Spec.Flavor.RevisionName, metav1.GetOptions{})
+			Expect(err).ToNot(HaveOccurred())
+
+			stashedFlavorSpecRevision = flavorv1alpha1.VirtualMachineFlavorSpecRevision{}
+			stashedFlavorSpec = flavorv1alpha1.VirtualMachineFlavorSpec{}
+			Expect(json.Unmarshal(flavorRevision.Data.Raw, &stashedFlavorSpecRevision)).To(Succeed())
+			Expect(stashedFlavorSpecRevision.APIVersion).To(Equal(updatedFlavor.APIVersion))
+			Expect(json.Unmarshal(stashedFlavorSpecRevision.Spec, &stashedFlavorSpec)).To(Succeed())
+			Expect(stashedFlavorSpec).To(Equal(updatedFlavor.Spec))
+
+			By("Checking that the new VirtualMachineInstance is using the updated VirtualMachineFlavor")
+			newVMI, err = virtClient.VirtualMachineInstance(util.NamespaceTestDefault).Get(newVM.Name, &metav1.GetOptions{})
+			Expect(err).ToNot(HaveOccurred())
+			Expect(newVMI.Spec.Domain.CPU.Sockets).To(Equal(newFlavorCPUGuest))
 
 		})
 

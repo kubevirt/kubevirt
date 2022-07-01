@@ -3592,6 +3592,12 @@ var CRDsValidation map[string]string = map[string]string{
             name:
               description: Name is the name of the VirtualMachineFlavor or VirtualMachineClusterFlavor
               type: string
+            revisionName:
+              description: RevisionName specifies a ControllerRevision containing
+                a specific copy of the VirtualMachineFlavor or VirtualMachineClusterFlavor
+                to be used. This is initially captured the first time the flavor is
+                applied to the VirtualMachineInstance.
+              type: string
           required:
           - name
           type: object
@@ -3606,6 +3612,12 @@ var CRDsValidation map[string]string = map[string]string{
               type: string
             name:
               description: Name is the name of the VirtualMachinePreference or VirtualMachineClusterPreference
+              type: string
+            revisionName:
+              description: RevisionName specifies a ControllerRevision containing
+                a specific copy of the VirtualMachinePreference or VirtualMachineClusterPreference
+                to be used. This is initially captured the first time the flavor is
+                applied to the VirtualMachineInstance.
               type: string
           required:
           - name
@@ -15444,6 +15456,12 @@ var CRDsValidation map[string]string = map[string]string{
                       description: Name is the name of the VirtualMachineFlavor or
                         VirtualMachineClusterFlavor
                       type: string
+                    revisionName:
+                      description: RevisionName specifies a ControllerRevision containing
+                        a specific copy of the VirtualMachineFlavor or VirtualMachineClusterFlavor
+                        to be used. This is initially captured the first time the
+                        flavor is applied to the VirtualMachineInstance.
+                      type: string
                   required:
                   - name
                   type: object
@@ -15460,6 +15478,12 @@ var CRDsValidation map[string]string = map[string]string{
                     name:
                       description: Name is the name of the VirtualMachinePreference
                         or VirtualMachineClusterPreference
+                      type: string
+                    revisionName:
+                      description: RevisionName specifies a ControllerRevision containing
+                        a specific copy of the VirtualMachinePreference or VirtualMachineClusterPreference
+                        to be used. This is initially captured the first time the
+                        flavor is applied to the VirtualMachineInstance.
                       type: string
                   required:
                   - name
@@ -19870,6 +19894,12 @@ var CRDsValidation map[string]string = map[string]string{
                           description: Name is the name of the VirtualMachineFlavor
                             or VirtualMachineClusterFlavor
                           type: string
+                        revisionName:
+                          description: RevisionName specifies a ControllerRevision
+                            containing a specific copy of the VirtualMachineFlavor
+                            or VirtualMachineClusterFlavor to be used. This is initially
+                            captured the first time the flavor is applied to the VirtualMachineInstance.
+                          type: string
                       required:
                       - name
                       type: object
@@ -19886,6 +19916,13 @@ var CRDsValidation map[string]string = map[string]string{
                         name:
                           description: Name is the name of the VirtualMachinePreference
                             or VirtualMachineClusterPreference
+                          type: string
+                        revisionName:
+                          description: RevisionName specifies a ControllerRevision
+                            containing a specific copy of the VirtualMachinePreference
+                            or VirtualMachineClusterPreference to be used. This is
+                            initially captured the first time the flavor is applied
+                            to the VirtualMachineInstance.
                           type: string
                       required:
                       - name

@@ -180,6 +180,7 @@ func newControllerClusterRole() *rbacv1.ClusterRole {
 					"list",
 					"create",
 					"delete",
+					"get",
 				},
 			},
 			{

@@ -519,9 +519,11 @@ func GetOpenAPIDefinitions(ref common.ReferenceCallback) map[string]common.OpenA
 		"kubevirt.io/api/flavor/v1alpha1.VirtualMachineFlavor":                                       schema_kubevirtio_api_flavor_v1alpha1_VirtualMachineFlavor(ref),
 		"kubevirt.io/api/flavor/v1alpha1.VirtualMachineFlavorList":                                   schema_kubevirtio_api_flavor_v1alpha1_VirtualMachineFlavorList(ref),
 		"kubevirt.io/api/flavor/v1alpha1.VirtualMachineFlavorSpec":                                   schema_kubevirtio_api_flavor_v1alpha1_VirtualMachineFlavorSpec(ref),
+		"kubevirt.io/api/flavor/v1alpha1.VirtualMachineFlavorSpecRevision":                           schema_kubevirtio_api_flavor_v1alpha1_VirtualMachineFlavorSpecRevision(ref),
 		"kubevirt.io/api/flavor/v1alpha1.VirtualMachinePreference":                                   schema_kubevirtio_api_flavor_v1alpha1_VirtualMachinePreference(ref),
 		"kubevirt.io/api/flavor/v1alpha1.VirtualMachinePreferenceList":                               schema_kubevirtio_api_flavor_v1alpha1_VirtualMachinePreferenceList(ref),
 		"kubevirt.io/api/flavor/v1alpha1.VirtualMachinePreferenceSpec":                               schema_kubevirtio_api_flavor_v1alpha1_VirtualMachinePreferenceSpec(ref),
+		"kubevirt.io/api/flavor/v1alpha1.VirtualMachinePreferenceSpecRevision":                       schema_kubevirtio_api_flavor_v1alpha1_VirtualMachinePreferenceSpecRevision(ref),
 		"kubevirt.io/api/migrations/v1alpha1.MigrationPolicy":                                        schema_kubevirtio_api_migrations_v1alpha1_MigrationPolicy(ref),
 		"kubevirt.io/api/migrations/v1alpha1.MigrationPolicyList":                                    schema_kubevirtio_api_migrations_v1alpha1_MigrationPolicyList(ref),
 		"kubevirt.io/api/migrations/v1alpha1.MigrationPolicySpec":                                    schema_kubevirtio_api_migrations_v1alpha1_MigrationPolicySpec(ref),
@@ -16334,6 +16336,13 @@ func schema_kubevirtio_api_core_v1_FlavorMatcher(ref common.ReferenceCallback) c
 							Format:      "",
 						},
 					},
+					"revisionName": {
+						SchemaProps: spec.SchemaProps{
+							Description: "RevisionName specifies a ControllerRevision containing a specific copy of the VirtualMachineFlavor or VirtualMachineClusterFlavor to be used. This is initially captured the first time the flavor is applied to the VirtualMachineInstance.",
+							Type:        []string{"string"},
+							Format:      "",
+						},
+					},
 				},
 				Required: []string{"name"},
 			},
@@ -18722,6 +18731,13 @@ func schema_kubevirtio_api_core_v1_PreferenceMatcher(ref common.ReferenceCallbac
 					"kind": {
 						SchemaProps: spec.SchemaProps{
 							Description: "Kind specifies which preference resource is referenced. Allowed values are: \"VirtualMachinePreference\" and \"VirtualMachineClusterPreference\". If not specified, \"VirtualMachineClusterPreference\" is used by default.",
+							Type:        []string{"string"},
+							Format:      "",
+						},
+					},
+					"revisionName": {
+						SchemaProps: spec.SchemaProps{
+							Description: "RevisionName specifies a ControllerRevision containing a specific copy of the VirtualMachinePreference or VirtualMachineClusterPreference to be used. This is initially captured the first time the flavor is applied to the VirtualMachineInstance.",
 							Type:        []string{"string"},
 							Format:      "",
 						},
@@ -23499,6 +23515,39 @@ func schema_kubevirtio_api_flavor_v1alpha1_VirtualMachineFlavorSpec(ref common.R
 	}
 }
 
+func schema_kubevirtio_api_flavor_v1alpha1_VirtualMachineFlavorSpecRevision(ref common.ReferenceCallback) common.OpenAPIDefinition {
+	return common.OpenAPIDefinition{
+		Schema: spec.Schema{
+			SchemaProps: spec.SchemaProps{
+				Description: "VirtualMachineFlavorSpecRevision is used to capture a versioned copy of VirtualMachineFlavorSpec within a ControllerRevision\n\n**WARNING** This struct should never change ensuring it can always be unmarshaled from a ControllerRevision",
+				Type:        []string{"object"},
+				Properties: map[string]spec.Schema{
+					"apiVersion": {
+						SchemaProps: spec.SchemaProps{
+							Description: "The specific version of VirtualMachineFlavorSpec that is contained below",
+							Type:        []string{"string"},
+							Format:      "",
+						},
+					},
+					"spec": {
+						VendorExtensible: spec.VendorExtensible{
+							Extensions: spec.Extensions{
+								"x-kubernetes-list-type": "atomic",
+							},
+						},
+						SchemaProps: spec.SchemaProps{
+							Description: "This is a marshaled version of the VirtualMachineFlavorSpec",
+							Type:        []string{"string"},
+							Format:      "byte",
+						},
+					},
+				},
+				Required: []string{"apiVersion", "spec"},
+			},
+		},
+	}
+}
+
 func schema_kubevirtio_api_flavor_v1alpha1_VirtualMachinePreference(ref common.ReferenceCallback) common.OpenAPIDefinition {
 	return common.OpenAPIDefinition{
 		Schema: spec.Schema{
@@ -23640,6 +23689,39 @@ func schema_kubevirtio_api_flavor_v1alpha1_VirtualMachinePreferenceSpec(ref comm
 		},
 		Dependencies: []string{
 			"kubevirt.io/api/flavor/v1alpha1.CPUPreferences", "kubevirt.io/api/flavor/v1alpha1.ClockPreferences", "kubevirt.io/api/flavor/v1alpha1.DevicePreferences", "kubevirt.io/api/flavor/v1alpha1.FeaturePreferences", "kubevirt.io/api/flavor/v1alpha1.FirmwarePreferences", "kubevirt.io/api/flavor/v1alpha1.MachinePreferences"},
+	}
+}
+
+func schema_kubevirtio_api_flavor_v1alpha1_VirtualMachinePreferenceSpecRevision(ref common.ReferenceCallback) common.OpenAPIDefinition {
+	return common.OpenAPIDefinition{
+		Schema: spec.Schema{
+			SchemaProps: spec.SchemaProps{
+				Description: "VirtualMachinePreferenceSpecRevision is used to capture a versioned copy of VirtualMachinePreferenceSpec within a ControllerRevision\n\n**WARNING** This struct should never change ensuring it can always be unmarshaled from a ControllerRevision",
+				Type:        []string{"object"},
+				Properties: map[string]spec.Schema{
+					"apiVersion": {
+						SchemaProps: spec.SchemaProps{
+							Description: "The specific version of VirtualMachinePreferenceSpec that is contained below",
+							Type:        []string{"string"},
+							Format:      "",
+						},
+					},
+					"spec": {
+						VendorExtensible: spec.VendorExtensible{
+							Extensions: spec.Extensions{
+								"x-kubernetes-list-type": "atomic",
+							},
+						},
+						SchemaProps: spec.SchemaProps{
+							Description: "This is a marshaled version of the VirtualMachinePreferenceSpec",
+							Type:        []string{"string"},
+							Format:      "byte",
+						},
+					},
+				},
+				Required: []string{"apiVersion", "spec"},
+			},
+		},
 	}
 }
 

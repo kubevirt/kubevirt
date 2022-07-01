@@ -1,11 +1,17 @@
 package flavor
 
 import (
+	"bytes"
 	"context"
+	"encoding/json"
 	"fmt"
 	"strings"
 
+	appsv1 "k8s.io/api/apps/v1"
+	"k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	"k8s.io/apimachinery/pkg/runtime"
+	"k8s.io/apimachinery/pkg/types"
 	k8sfield "k8s.io/apimachinery/pkg/util/validation/field"
 	"k8s.io/utils/pointer"
 
@@ -14,12 +20,15 @@ import (
 	apiflavor "kubevirt.io/api/flavor"
 	flavorv1alpha1 "kubevirt.io/api/flavor/v1alpha1"
 	"kubevirt.io/client-go/kubecli"
+	"kubevirt.io/client-go/log"
+	utiltypes "kubevirt.io/kubevirt/pkg/util/types"
 )
 
 type Methods interface {
 	FindFlavorSpec(vm *virtv1.VirtualMachine) (*flavorv1alpha1.VirtualMachineFlavorSpec, error)
 	ApplyToVmi(field *k8sfield.Path, flavorspec *flavorv1alpha1.VirtualMachineFlavorSpec, prefernceSpec *flavorv1alpha1.VirtualMachinePreferenceSpec, vmiSpec *virtv1.VirtualMachineInstanceSpec) Conflicts
 	FindPreferenceSpec(vm *virtv1.VirtualMachine) (*flavorv1alpha1.VirtualMachinePreferenceSpec, error)
+	StoreControllerRevisions(vm *virtv1.VirtualMachine) error
 }
 
 type Conflicts []*k8sfield.Path
@@ -42,6 +51,263 @@ func NewMethods(clientset kubecli.KubevirtClient) Methods {
 	return &methods{
 		clientset: clientset,
 	}
+}
+
+func GetRevisionName(vmName, resourceName string, resourceUID types.UID, resourceGeneration int64) string {
+	return fmt.Sprintf("%s-%s-%s-%d", vmName, resourceName, resourceUID, resourceGeneration)
+}
+
+func CreateFlavorControllerRevision(vm *virtv1.VirtualMachine, revisionName string, flavorApiVersion string, flavorSpec *flavorv1alpha1.VirtualMachineFlavorSpec) (*appsv1.ControllerRevision, error) {
+
+	flavorSpecPatch, err := json.Marshal(*flavorSpec)
+	if err != nil {
+		return nil, err
+	}
+
+	specRevision := flavorv1alpha1.VirtualMachineFlavorSpecRevision{
+		APIVersion: flavorApiVersion,
+		Spec:       flavorSpecPatch,
+	}
+
+	revisionPatch, err := json.Marshal(specRevision)
+	if err != nil {
+		return nil, err
+	}
+
+	return &appsv1.ControllerRevision{
+		ObjectMeta: metav1.ObjectMeta{
+			Name:            revisionName,
+			Namespace:       vm.Namespace,
+			OwnerReferences: []metav1.OwnerReference{*metav1.NewControllerRef(vm, virtv1.VirtualMachineGroupVersionKind)},
+		},
+		Data: runtime.RawExtension{Raw: revisionPatch},
+	}, nil
+
+}
+
+func (m *methods) createFlavorRevision(vm *virtv1.VirtualMachine) (*appsv1.ControllerRevision, error) {
+
+	switch strings.ToLower(vm.Spec.Flavor.Kind) {
+	case apiflavor.SingularResourceName, apiflavor.PluralResourceName:
+		flavor, err := m.findFlavor(vm)
+		if err != nil {
+			return nil, err
+		}
+		revision, err := CreateFlavorControllerRevision(vm, GetRevisionName(vm.Name, flavor.Name, flavor.UID, flavor.Generation), flavor.APIVersion, &flavor.Spec)
+		if err != nil {
+			return nil, err
+		}
+		return revision, nil
+
+	case apiflavor.ClusterSingularResourceName, apiflavor.ClusterPluralResourceName:
+		clusterFlavor, err := m.findClusterFlavor(vm)
+		if err != nil {
+			return nil, err
+		}
+
+		revision, err := CreateFlavorControllerRevision(vm, GetRevisionName(vm.Name, clusterFlavor.Name, clusterFlavor.UID, clusterFlavor.Generation), clusterFlavor.APIVersion, &clusterFlavor.Spec)
+		if err != nil {
+			return nil, err
+		}
+		return revision, nil
+	default:
+		return nil, fmt.Errorf("got unexpected kind in FlavorMatcher: %s", vm.Spec.Flavor.Kind)
+	}
+}
+
+func (m *methods) storeFlavorRevision(vm *virtv1.VirtualMachine) (*appsv1.ControllerRevision, error) {
+
+	if vm.Spec.Flavor == nil || len(vm.Spec.Flavor.RevisionName) > 0 {
+		return nil, nil
+	}
+
+	flavorRevision, err := m.createFlavorRevision(vm)
+	if err != nil {
+		return nil, err
+	}
+
+	_, err = m.clientset.AppsV1().ControllerRevisions(vm.Namespace).Create(context.Background(), flavorRevision, metav1.CreateOptions{})
+	if err != nil {
+		if errors.IsAlreadyExists(err) {
+			// Grab the existing revision to check the data it contains
+			existingRevision, err := m.clientset.AppsV1().ControllerRevisions(vm.Namespace).Get(context.Background(), flavorRevision.Name, metav1.GetOptions{})
+			if err != nil {
+				return nil, err
+			}
+			// If the data between the two differs return an error, otherwise continue and store the name below.
+			if bytes.Compare(existingRevision.Data.Raw, flavorRevision.Data.Raw) != 0 {
+				return nil, fmt.Errorf("found existing ControllerRevision with unexpected data: %s", flavorRevision.Name)
+			}
+		} else {
+			return nil, err
+		}
+	}
+
+	vm.Spec.Flavor.RevisionName = flavorRevision.Name
+
+	return flavorRevision, nil
+
+}
+
+func CreatePreferenceControllerRevision(vm *virtv1.VirtualMachine, revisionName string, preferenceApiVersion string, preferenceSpec *flavorv1alpha1.VirtualMachinePreferenceSpec) (*appsv1.ControllerRevision, error) {
+
+	preferenceSpecPatch, err := json.Marshal(*preferenceSpec)
+	if err != nil {
+		return nil, err
+	}
+
+	specRevision := flavorv1alpha1.VirtualMachinePreferenceSpecRevision{
+		APIVersion: preferenceApiVersion,
+		Spec:       preferenceSpecPatch,
+	}
+
+	revisionPatch, err := json.Marshal(specRevision)
+	if err != nil {
+		return nil, err
+	}
+
+	return &appsv1.ControllerRevision{
+		ObjectMeta: metav1.ObjectMeta{
+			Name:            revisionName,
+			Namespace:       vm.Namespace,
+			OwnerReferences: []metav1.OwnerReference{*metav1.NewControllerRef(vm, virtv1.VirtualMachineGroupVersionKind)},
+		},
+		Data: runtime.RawExtension{Raw: revisionPatch},
+	}, nil
+
+}
+
+func (m *methods) createPreferenceRevision(vm *virtv1.VirtualMachine) (*appsv1.ControllerRevision, error) {
+
+	switch strings.ToLower(vm.Spec.Preference.Kind) {
+	case apiflavor.SingularPreferenceResourceName, apiflavor.PluralPreferenceResourceName:
+		preference, err := m.findPreference(vm)
+		if err != nil {
+			return nil, err
+		}
+
+		revision, err := CreatePreferenceControllerRevision(vm, GetRevisionName(vm.Name, preference.Name, preference.UID, preference.Generation), preference.APIVersion, &preference.Spec)
+		if err != nil {
+			return nil, err
+		}
+		return revision, nil
+	case apiflavor.ClusterSingularPreferenceResourceName, apiflavor.ClusterPluralPreferenceResourceName:
+		clusterPreference, err := m.findClusterPreference(vm)
+		if err != nil {
+			return nil, err
+		}
+
+		revision, err := CreatePreferenceControllerRevision(vm, GetRevisionName(vm.Name, clusterPreference.Name, clusterPreference.UID, clusterPreference.Generation), clusterPreference.APIVersion, &clusterPreference.Spec)
+		if err != nil {
+			return nil, err
+		}
+		return revision, nil
+	default:
+		return nil, fmt.Errorf("got unexpected kind in PreferenceMatcher: %s", vm.Spec.Preference.Kind)
+	}
+}
+
+func (m *methods) storePreferenceRevision(vm *virtv1.VirtualMachine) (*appsv1.ControllerRevision, error) {
+
+	if vm.Spec.Preference == nil || len(vm.Spec.Preference.RevisionName) > 0 {
+		return nil, nil
+	}
+
+	preferenceRevision, err := m.createPreferenceRevision(vm)
+	if err != nil {
+		return nil, err
+	}
+
+	_, err = m.clientset.AppsV1().ControllerRevisions(vm.Namespace).Create(context.Background(), preferenceRevision, metav1.CreateOptions{})
+	if err != nil {
+		if errors.IsAlreadyExists(err) {
+			// Grab the existing revision to check the data it contains
+			existingRevision, err := m.clientset.AppsV1().ControllerRevisions(vm.Namespace).Get(context.Background(), preferenceRevision.Name, metav1.GetOptions{})
+			if err != nil {
+				return nil, err
+			}
+			// If the data between the two differs return an error, otherwise continue and store the name below.
+			if bytes.Compare(existingRevision.Data.Raw, preferenceRevision.Data.Raw) != 0 {
+				return nil, fmt.Errorf("found existing ControllerRevision with unexpected data: %s", preferenceRevision.Name)
+			}
+		} else {
+			return nil, err
+		}
+	}
+
+	vm.Spec.Preference.RevisionName = preferenceRevision.Name
+
+	return preferenceRevision, nil
+
+}
+
+func GenerateRevisionNamePatch(flavorRevision, preferenceRevision *appsv1.ControllerRevision) ([]byte, error) {
+
+	var patches []utiltypes.PatchOperation
+
+	if flavorRevision != nil {
+		patches = append(patches,
+			utiltypes.PatchOperation{
+				Op:    utiltypes.PatchTestOp,
+				Path:  "/spec/flavor/revisionName",
+				Value: nil,
+			},
+			utiltypes.PatchOperation{
+				Op:    utiltypes.PatchAddOp,
+				Path:  "/spec/flavor/revisionName",
+				Value: flavorRevision.Name,
+			},
+		)
+	}
+
+	if preferenceRevision != nil {
+		patches = append(patches,
+			utiltypes.PatchOperation{
+				Op:    utiltypes.PatchTestOp,
+				Path:  "/spec/preference/revisionName",
+				Value: nil,
+			},
+			utiltypes.PatchOperation{
+				Op:    utiltypes.PatchAddOp,
+				Path:  "/spec/preference/revisionName",
+				Value: preferenceRevision.Name,
+			},
+		)
+	}
+	return utiltypes.GeneratePatchPayload(patches...)
+}
+
+func (m *methods) StoreControllerRevisions(vm *virtv1.VirtualMachine) error {
+
+	logger := log.Log.Object(vm)
+	flavorRevision, err := m.storeFlavorRevision(vm)
+	if err != nil {
+		logger.Reason(err).Error("Failed to store ControllerRevision of VirtualMachineFlavorSpec for the Virtualmachine.")
+		return err
+	}
+
+	preferenceRevision, err := m.storePreferenceRevision(vm)
+	if err != nil {
+		logger.Reason(err).Error("Failed to store ControllerRevision of VirtualMachinePreferenceSpec for the Virtualmachine.")
+		return err
+	}
+
+	// Batch any writes to the VirtualMachine into a single Patch() call to avoid races in the controller.
+	if flavorRevision != nil || preferenceRevision != nil {
+
+		patch, err := GenerateRevisionNamePatch(flavorRevision, preferenceRevision)
+		if err != nil {
+			logger.Reason(err).Error("Failed to generate flavor and preference RevisionName patch.")
+			return err
+		}
+
+		if _, err := m.clientset.VirtualMachine(vm.Namespace).Patch(vm.Name, types.JSONPatchType, patch, &metav1.PatchOptions{}); err != nil {
+			logger.Reason(err).Error("Failed to update VirtualMachine with flavor and preference ControllerRevision references.")
+			return err
+		}
+	}
+
+	return nil
 }
 
 func (m *methods) ApplyToVmi(field *k8sfield.Path, flavorSpec *flavorv1alpha1.VirtualMachineFlavorSpec, preferenceSpec *flavorv1alpha1.VirtualMachinePreferenceSpec, vmiSpec *virtv1.VirtualMachineInstanceSpec) Conflicts {
@@ -78,6 +344,10 @@ func (m *methods) FindPreferenceSpec(vm *virtv1.VirtualMachine) (*flavorv1alpha1
 		return nil, nil
 	}
 
+	if len(vm.Spec.Preference.RevisionName) > 0 {
+		return m.getPreferenceSpecRevision(vm.Spec.Preference.RevisionName, vm.Namespace)
+	}
+
 	switch strings.ToLower(vm.Spec.Preference.Kind) {
 	case apiflavor.SingularPreferenceResourceName, apiflavor.PluralPreferenceResourceName:
 		preference, err = m.findPreference(vm)
@@ -100,6 +370,29 @@ func (m *methods) FindPreferenceSpec(vm *virtv1.VirtualMachine) (*flavorv1alpha1
 	}
 
 	return nil, nil
+}
+
+func (m *methods) getPreferenceSpecRevision(revisionName string, namespace string) (*flavorv1alpha1.VirtualMachinePreferenceSpec, error) {
+
+	revision, err := m.clientset.AppsV1().ControllerRevisions(namespace).Get(context.Background(), revisionName, metav1.GetOptions{})
+	if err != nil {
+		return nil, err
+	}
+
+	preferenceSpecRevision := flavorv1alpha1.VirtualMachinePreferenceSpecRevision{}
+	err = json.Unmarshal(revision.Data.Raw, &preferenceSpecRevision)
+	if err != nil {
+		return nil, err
+	}
+
+	// For now we only support a single version of VirtualMachinePreferenceSpec but in the future we will need to handle older versions here
+	preferenceSpec := flavorv1alpha1.VirtualMachinePreferenceSpec{}
+	err = json.Unmarshal(preferenceSpecRevision.Spec, &preferenceSpec)
+	if err != nil {
+		return nil, err
+	}
+
+	return &preferenceSpec, nil
 }
 
 func (m *methods) findPreference(vm *virtv1.VirtualMachine) (*flavorv1alpha1.VirtualMachinePreference, error) {
@@ -139,6 +432,10 @@ func (m *methods) FindFlavorSpec(vm *virtv1.VirtualMachine) (*flavorv1alpha1.Vir
 		return nil, nil
 	}
 
+	if len(vm.Spec.Flavor.RevisionName) > 0 {
+		return m.getFlavorSpecRevision(vm.Spec.Flavor.RevisionName, vm.Namespace)
+	}
+
 	switch strings.ToLower(vm.Spec.Flavor.Kind) {
 	case apiflavor.SingularResourceName, apiflavor.PluralResourceName:
 		flavor, err = m.findFlavor(vm)
@@ -161,6 +458,29 @@ func (m *methods) FindFlavorSpec(vm *virtv1.VirtualMachine) (*flavorv1alpha1.Vir
 	}
 
 	return nil, nil
+}
+
+func (m *methods) getFlavorSpecRevision(revisionName string, namespace string) (*flavorv1alpha1.VirtualMachineFlavorSpec, error) {
+
+	revision, err := m.clientset.AppsV1().ControllerRevisions(namespace).Get(context.Background(), revisionName, metav1.GetOptions{})
+	if err != nil {
+		return nil, err
+	}
+
+	flavorSpecRevision := flavorv1alpha1.VirtualMachineFlavorSpecRevision{}
+	err = json.Unmarshal(revision.Data.Raw, &flavorSpecRevision)
+	if err != nil {
+		return nil, err
+	}
+
+	// For now we only support a single version of VirtualMachineFlavorSpec but in the future we will need to handle older versions here
+	flavorSpec := flavorv1alpha1.VirtualMachineFlavorSpec{}
+	err = json.Unmarshal(flavorSpecRevision.Spec, &flavorSpec)
+	if err != nil {
+		return nil, err
+	}
+
+	return &flavorSpec, nil
 }
 
 func (m *methods) findFlavor(vm *virtv1.VirtualMachine) (*flavorv1alpha1.VirtualMachineFlavor, error) {
