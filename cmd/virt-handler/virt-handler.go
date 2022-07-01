@@ -335,6 +335,7 @@ func (app *virtHandlerApp) Run() {
 		migrationIpAddress,
 		app.VirtShareDir,
 		app.VirtPrivateDir,
+		app.KubeletPodsDir,
 		vmiSourceInformer,
 		vmiTargetInformer,
 		domainSharedInformer,
