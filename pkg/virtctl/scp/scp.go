@@ -38,6 +38,7 @@ func NewCommand(clientConfig clientcmd.ClientConfig) *cobra.Command {
 		clientConfig: clientConfig,
 		options:      ssh.DefaultSSHOptions(),
 	}
+	c.options.LocalClientName = "scp"
 
 	cmd := &cobra.Command{
 		Use:     "scp (VM|VMI)",
@@ -71,6 +72,10 @@ func (o *SCP) Run(cmd *cobra.Command, args []string) error {
 		return err
 	}
 
+	if o.options.WrapLocalSSH {
+		clientArgs := o.buildSCPTarget(local, remote, toRemote)
+		return ssh.RunLocalClient(remote.Kind, remote.Namespace, remote.Name, &o.options, clientArgs)
+	}
 
 	return o.nativeSCP(local, remote, toRemote)
 }
