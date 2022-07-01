@@ -21,6 +21,18 @@ type NativeSSHConnection struct {
 	Options      SSHOptions
 }
 
+func (o *SSH) nativeSSH(kind, namespace, name string) error {
+	conn := NativeSSHConnection{
+		ClientConfig: o.clientConfig,
+		Options:      o.options,
+	}
+	client, err := conn.PrepareSSHClient(kind, namespace, name)
+	if err != nil {
+		return err
+	}
+	return conn.StartSession(client, o.command)
+}
+
 func (o *NativeSSHConnection) PrepareSSHClient(kind, namespace, name string) (*ssh.Client, error) {
 	streamer, err := o.prepareSSHTunnel(kind, namespace, name)
 	if err != nil {
@@ -132,7 +144,7 @@ func readPassword(reason string) ([]byte, error) {
 	return term.ReadPassword(int(os.Stdin.Fd()))
 }
 
-func (o *NativeSSHConnection) StartSession(client *ssh.Client) error {
+func (o *NativeSSHConnection) StartSession(client *ssh.Client, command string) error {
 	session, err := client.NewSession()
 	if err != nil {
 		return err
@@ -143,8 +155,8 @@ func (o *NativeSSHConnection) StartSession(client *ssh.Client) error {
 	session.Stderr = os.Stderr
 	session.Stdout = os.Stdout
 
-	if o.Options.Command != "" {
-		if err = session.Run(o.Options.Command); err != nil {
+	if command != "" {
+		if err = session.Run(command); err != nil {
 			return err
 		}
 		return nil

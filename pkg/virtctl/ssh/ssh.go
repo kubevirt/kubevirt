@@ -48,7 +48,6 @@ func NewCommand(clientConfig clientcmd.ClientConfig) *cobra.Command {
 	c := &SSH{
 		clientConfig: clientConfig,
 		options:      DefaultSSHOptions(),
-		WrapLocalSSH: false,
 	}
 
 	cmd := &cobra.Command{
@@ -62,8 +61,8 @@ func NewCommand(clientConfig clientcmd.ClientConfig) *cobra.Command {
 	}
 
 	AddCommandlineArgs(cmd.Flags(), &c.options)
-	cmd.Flags().BoolVar(&c.WrapLocalSSH, wrapLocalSSHFlag, c.WrapLocalSSH,
-		fmt.Sprintf("--%s=true: Set this to true to use the SSH command available on your system by using this command as ProxyCommand; If unassigned, this will establish a SSH connection with limited capabilities provided by this client", wrapLocalSSHFlag))
+	cmd.Flags().StringVarP(&c.command, commandToExecute, commandToExecuteShort, c.command,
+		fmt.Sprintf(`--%s='ls /': Specify a command to execute in the VM`, commandToExecute))
 	cmd.SetUsageTemplate(templates.UsageTemplate())
 	return cmd
 }
@@ -77,10 +76,10 @@ func AddCommandlineArgs(flagset *pflag.FlagSet, opts *SSHOptions) {
 		fmt.Sprintf("--%s=/home/jdoe/.ssh/kubevirt_known_hosts: Set the path to the known_hosts file.", knownHostsFilePathFlag))
 	flagset.IntVarP(&opts.SshPort, portFlag, portFlagShort, opts.SshPort,
 		fmt.Sprintf(`--%s=22: Specify a port on the VM to send SSH traffic to`, portFlag))
-	flagset.StringVarP(&opts.Command, commandToExecute, commandToExecuteShort, opts.Command,
-		fmt.Sprintf(`--%s='ls /': Specify a command to execute the VM`, commandToExecute))
 	flagset.StringArrayVarP(&opts.AdditionalSSHLocalOptions, additionalOpts, additionalOptsShort, opts.AdditionalSSHLocalOptions,
 		fmt.Sprintf(`--%s="-o StrictHostKeyChecking=no" : Additional options to be passed to the local ssh. This is applied only if local-ssh=true `, commandToExecute))
+	flagset.BoolVar(&opts.WrapLocalSSH, wrapLocalSSHFlag, opts.WrapLocalSSH,
+		fmt.Sprintf("--%s=true: Set this to true to use the SSH/SCP client available on your system by using this command as ProxyCommand; If set to false, this will establish a SSH/SCP connection with limited capabilities provided by this client", wrapLocalSSHFlag))
 }
 
 func DefaultSSHOptions() SSHOptions {
@@ -96,6 +95,8 @@ func DefaultSSHOptions() SSHOptions {
 		KnownHostsFilePath:        "",
 		KnownHostsFilePathDefault: "",
 		AdditionalSSHLocalOptions: []string{},
+		WrapLocalSSH:              false,
+		LocalClientName:           "ssh",
 	}
 
 	if len(homeDir) > 0 {
@@ -107,7 +108,7 @@ func DefaultSSHOptions() SSHOptions {
 type SSH struct {
 	clientConfig clientcmd.ClientConfig
 	options      SSHOptions
-	WrapLocalSSH bool
+	command      string
 }
 
 type SSHOptions struct {
@@ -117,8 +118,9 @@ type SSHOptions struct {
 	IdentityFilePathProvided  bool
 	KnownHostsFilePath        string
 	KnownHostsFilePathDefault string
-	Command                   string
 	AdditionalSSHLocalOptions []string
+	WrapLocalSSH              bool
+	LocalClientName           string
 }
 
 func (o *SSH) Run(cmd *cobra.Command, args []string) error {
@@ -127,19 +129,12 @@ func (o *SSH) Run(cmd *cobra.Command, args []string) error {
 		return err
 	}
 
-	if o.WrapLocalSSH {
-		return o.runLocalCommandClient(kind, namespace, name)
+	if o.options.WrapLocalSSH {
+		clientArgs := o.buildSSHTarget(kind, namespace, name)
+		return RunLocalClient(kind, namespace, name, &o.options, clientArgs)
 	}
 
-	ssh := NativeSSHConnection{
-		ClientConfig: o.clientConfig,
-		Options:      o.options,
-	}
-	client, err := ssh.PrepareSSHClient(kind, namespace, name)
-	if err != nil {
-		return err
-	}
-	return ssh.StartSession(client)
+	return o.nativeSSH(kind, namespace, name)
 }
 
 func PrepareCommand(cmd *cobra.Command, clientConfig clientcmd.ClientConfig, opts *SSHOptions, args []string) (kind, namespace, name string, err error) {
@@ -164,7 +159,7 @@ func PrepareCommand(cmd *cobra.Command, clientConfig clientcmd.ClientConfig, opt
 }
 
 func usage() string {
-	return fmt.Sprintf(`  # Connect to 'testvmi' (using the built-in SSH client):
+	return fmt.Sprintf(`  # Connect to 'testvmi':
   {{ProgramName}} ssh jdoe@testvmi [--%s]
 
   # Connect to 'testvm' in 'mynamespace' namespace
