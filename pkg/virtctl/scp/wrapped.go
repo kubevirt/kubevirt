@@ -15,8 +15,8 @@ func (o *SCP) buildSCPTarget(local templates.LocalSCPArgument, remote templates.
 	}
 
 	target := strings.Builder{}
-	if len(o.options.SshUsername) > 0 {
-		target.WriteString(o.options.SshUsername)
+	if len(o.options.SSHUsername) > 0 {
+		target.WriteString(o.options.SSHUsername)
 		target.WriteRune('@')
 	}
 	target.WriteString(remote.Name)

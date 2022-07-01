@@ -44,7 +44,6 @@ const (
 )
 
 func NewCommand(clientConfig clientcmd.ClientConfig) *cobra.Command {
-
 	c := &SSH{
 		clientConfig: clientConfig,
 		options:      DefaultSSHOptions(),
@@ -68,13 +67,13 @@ func NewCommand(clientConfig clientcmd.ClientConfig) *cobra.Command {
 }
 
 func AddCommandlineArgs(flagset *pflag.FlagSet, opts *SSHOptions) {
-	flagset.StringVarP(&opts.SshUsername, usernameFlag, usernameFlagShort, opts.SshUsername,
-		fmt.Sprintf("--%s=%s: Set this to the user you want to open the SSH connection as; If unassigned, this will be empty and the SSH default will apply", usernameFlag, opts.SshUsername))
+	flagset.StringVarP(&opts.SSHUsername, usernameFlag, usernameFlagShort, opts.SSHUsername,
+		fmt.Sprintf("--%s=%s: Set this to the user you want to open the SSH connection as; If unassigned, this will be empty and the SSH default will apply", usernameFlag, opts.SSHUsername))
 	flagset.StringVarP(&opts.IdentityFilePath, IdentityFilePathFlag, identityFilePathFlagShort, opts.IdentityFilePath,
 		fmt.Sprintf("--%s=/home/jdoe/.ssh/id_rsa: Set the path to a private key used for authenticating to the server; If not provided, the client will try to use the local ssh-agent at $SSH_AUTH_SOCK", IdentityFilePathFlag))
 	flagset.StringVar(&opts.KnownHostsFilePath, knownHostsFilePathFlag, opts.KnownHostsFilePathDefault,
 		fmt.Sprintf("--%s=/home/jdoe/.ssh/kubevirt_known_hosts: Set the path to the known_hosts file.", knownHostsFilePathFlag))
-	flagset.IntVarP(&opts.SshPort, portFlag, portFlagShort, opts.SshPort,
+	flagset.IntVarP(&opts.SSHPort, portFlag, portFlagShort, opts.SSHPort,
 		fmt.Sprintf(`--%s=22: Specify a port on the VM to send SSH traffic to`, portFlag))
 	flagset.StringArrayVarP(&opts.AdditionalSSHLocalOptions, additionalOpts, additionalOptsShort, opts.AdditionalSSHLocalOptions,
 		fmt.Sprintf(`--%s="-o StrictHostKeyChecking=no" : Additional options to be passed to the local ssh. This is applied only if local-ssh=true `, commandToExecute))
@@ -88,8 +87,8 @@ func DefaultSSHOptions() SSHOptions {
 		glog.Warningf("failed to determine user home directory: %v", err)
 	}
 	options := SSHOptions{
-		SshPort:                   22,
-		SshUsername:               defaultUsername(),
+		SSHPort:                   22,
+		SSHUsername:               defaultUsername(),
 		IdentityFilePath:          filepath.Join(homeDir, ".ssh", "id_rsa"),
 		IdentityFilePathProvided:  false,
 		KnownHostsFilePath:        "",
@@ -112,8 +111,8 @@ type SSH struct {
 }
 
 type SSHOptions struct {
-	SshPort                   int
-	SshUsername               string
+	SSHPort                   int
+	SSHUsername               string
 	IdentityFilePath          string
 	IdentityFilePathProvided  bool
 	KnownHostsFilePath        string
@@ -153,7 +152,7 @@ func PrepareCommand(cmd *cobra.Command, clientConfig clientcmd.ClientConfig, opt
 	}
 
 	if len(targetUsername) > 0 {
-		opts.SshUsername = targetUsername
+		opts.SSHUsername = targetUsername
 	}
 	return
 }

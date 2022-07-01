@@ -95,7 +95,7 @@ func PrepareCommand(cmd *cobra.Command, clientConfig clientcmd.ClientConfig, opt
 	}
 
 	if len(remote.Username) > 0 {
-		opts.SshUsername = remote.Username
+		opts.SSHUsername = remote.Username
 	}
 	return
 }

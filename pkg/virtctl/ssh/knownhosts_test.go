@@ -35,7 +35,7 @@ var _ = Describe("Known Hosts", func() {
 })
 
 func newPublicKey() (ssh.PublicKey, error) {
-	privateKey, err := rsa.GenerateKey(rand.Reader, 1024)
+	privateKey, err := rsa.GenerateKey(rand.Reader, 2048)
 	if err != nil {
 		return nil, err
 	}

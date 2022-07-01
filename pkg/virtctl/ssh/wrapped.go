@@ -14,7 +14,7 @@ var runCommand = func(cmd *exec.Cmd) error {
 
 func RunLocalClient(kind, namespace, name string, options *SSHOptions, clientArgs []string) error {
 	args := []string{"-o"}
-	args = append(args, buildProxyCommandOption(kind, namespace, name, options.SshPort))
+	args = append(args, buildProxyCommandOption(kind, namespace, name, options.SSHPort))
 
 	if len(options.AdditionalSSHLocalOptions) > 0 {
 		args = append(args, options.AdditionalSSHLocalOptions...)
@@ -49,8 +49,8 @@ func buildProxyCommandOption(kind, namespace, name string, port int) string {
 
 func (o *SSH) buildSSHTarget(kind, namespace, name string) (opts []string) {
 	target := strings.Builder{}
-	if len(o.options.SshUsername) > 0 {
-		target.WriteString(o.options.SshUsername)
+	if len(o.options.SSHUsername) > 0 {
+		target.WriteString(o.options.SSHUsername)
 		target.WriteRune('@')
 	}
 	target.WriteString(kind)
