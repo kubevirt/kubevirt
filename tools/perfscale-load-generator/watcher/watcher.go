@@ -22,23 +22,19 @@ package watcher
 import (
 	"context"
 	"fmt"
-	"k8s.io/apimachinery/pkg/api/errors"
 	"sync"
 	"time"
 
 	k8sv1 "k8s.io/api/core/v1"
+	"k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/fields"
 	"k8s.io/apimachinery/pkg/labels"
-
+	"k8s.io/client-go/tools/cache"
 	kvv1 "kubevirt.io/api/core/v1"
 	"kubevirt.io/client-go/kubecli"
 	"kubevirt.io/client-go/log"
-
 	"kubevirt.io/kubevirt/pkg/controller"
-
-	"k8s.io/client-go/tools/cache"
-
 	objUtils "kubevirt.io/kubevirt/tools/perfscale-load-generator/object"
 )
 
