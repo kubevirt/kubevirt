@@ -78,7 +78,7 @@ func ExecuteCommandInVirtHandlerPod(nodeName string, args []string) (stdout stri
 
 func CreateErrorDisk(nodeName string) (address string, device string) {
 	By("Creating error disk")
-	return CreateSCSIDisk(nodeName, []string{"opts=2", "every_nth=4"})
+	return CreateSCSIDisk(nodeName, []string{"opts=2", "every_nth=4", "dev_size_mb=8"})
 }
 
 // CreateSCSIDisk creates a SCSI disk using the scsi_debug module. This function should be used only to check SCSI disk functionalities and not for creating a filesystem or any data. The disk is stored in ram and it isn't suitable for storing large amount of data.
@@ -196,7 +196,7 @@ func CreatePVandPVCwithSCSIDisk(nodeName, devicePath, namespace, storageClass, p
 		return nil, nil, err
 	}
 
-	size := resource.MustParse("1Gi")
+	size := resource.MustParse("8Mi")
 	volumeMode := corev1.PersistentVolumeBlock
 
 	affinity := corev1.VolumeNodeAffinity{
