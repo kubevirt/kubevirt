@@ -2,7 +2,10 @@ load("@io_bazel_rules_go//go:def.bzl", "go_library")
 
 go_library(
     name = "go_default_library",
-    srcs = ["scp.go"],
+    srcs = [
+        "native.go",
+        "scp.go",
+    ],
     importpath = "kubevirt.io/kubevirt/pkg/virtctl/scp",
     visibility = ["//visibility:public"],
     deps = [
