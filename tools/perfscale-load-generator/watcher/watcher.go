@@ -20,13 +20,11 @@
 package watcher
 
 import (
-	"context"
 	"fmt"
 	"sync"
 	"time"
 
 	k8sv1 "k8s.io/api/core/v1"
-	"k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/fields"
 	"k8s.io/apimachinery/pkg/labels"
@@ -120,7 +118,7 @@ func (w *ObjListWatcher) handleUpdate(obj interface{}) {
 			log.Log.V(2).Errorf("Could not convert VirtualMachineInstance obj: %v", w.ResourceKind)
 		}
 		if vmi.Status.Phase == kvv1.Running {
-			w.addObj(string(vmi.GetUID()))
+			w.addObj(w.getID(vmi))
 		}
 		if vmi.Status.Phase == kvv1.Succeeded || vmi.Status.Phase == kvv1.Failed {
 			log.Log.V(4).Errorf("VirtualMachineInstance obj: %v Succeeded, waiting for garbage collection", fmt.Sprintf("%s/%s", vmi.Namespace, vmi.Name))
@@ -132,7 +130,7 @@ func (w *ObjListWatcher) handleUpdate(obj interface{}) {
 			log.Log.V(2).Errorf("Could not convert VirtualMachine obj: %v", w.ResourceKind)
 		}
 		if vm.Status.Ready {
-			w.addObj(string(vm.GetUID()))
+			w.addObj(w.getID(vm))
 		}
 
 	case objUtils.VMIReplicaSetResource:
@@ -140,7 +138,7 @@ func (w *ObjListWatcher) handleUpdate(obj interface{}) {
 		if !ok {
 			log.Log.V(2).Errorf("Could not convert VirtualMachineInstanceReplicaSet obj: %v", w.ResourceKind)
 		}
-		w.addObj(string(replicaSet.GetUID()))
+		w.addObj(w.getID(replicaSet))
 
 	default:
 		log.Log.V(2).Errorf("Watcher does not support object type %s", w.ResourceKind)
@@ -164,7 +162,7 @@ func (w *ObjListWatcher) handleDeleted(obj interface{}) {
 			log.Log.V(4).Errorf("VirtualMachine obj: %v has not been garbage collected yet", fmt.Sprintf("%s/%s", vm.Namespace, vm.Name))
 			return
 		}
-		w.deleteObj(string(vm.GetUID()))
+		w.deleteObj(w.getID(vm))
 
 	case objUtils.VMIReplicaSetResource:
 		replicaSet, ok := obj.(*kvv1.VirtualMachineInstanceReplicaSet)
@@ -180,7 +178,7 @@ func (w *ObjListWatcher) handleDeleted(obj interface{}) {
 			log.Log.V(4).Errorf("VirtualMachineInstanceReplicaSet obj: %v has not been garbage collected yet", fmt.Sprintf("%s/%s", replicaSet.Namespace, replicaSet.Name))
 			return
 		}
-		w.deleteObj(string(replicaSet.GetUID()))
+		w.deleteObj(w.getID(replicaSet))
 	case objUtils.VMIResource:
 		vmi, ok := obj.(*kvv1.VirtualMachineInstance)
 		if !ok {
@@ -195,7 +193,7 @@ func (w *ObjListWatcher) handleDeleted(obj interface{}) {
 			log.Log.V(4).Errorf("VirtualMachineInstance obj: %v has not been garbage collected yet", fmt.Sprintf("%s/%s", vmi.Namespace, vmi.Name))
 			return
 		}
-		w.deleteObj(string(vmi.GetUID()))
+		w.deleteObj(w.getID(vmi))
 
 	default:
 		return
@@ -263,19 +261,24 @@ func (w *ObjListWatcher) getRunningCount() int {
 	return count
 }
 
-func (w *ObjListWatcher) isGarbageCollected(obj metav1.Object) (bool, error) {
-	err := w.virtCli.RestClient().Get().
-		Namespace(obj.GetNamespace()).
-		Name(obj.GetName()).
-		Resource(w.ResourceKind).
-		Do(context.Background()).Error()
-	switch {
-	case err != nil && !errors.IsNotFound(err):
-		log.Log.V(2).Errorf("Error deleting obj %s %s: %v", w.ResourceKind, obj.GetName(), err)
+func (w *ObjListWatcher) isGarbageCollected(obj interface{}) (bool, error) {
+	objKey, err := controller.KeyFunc(obj)
+	if err != nil {
+		log.Log.V(2).Errorf("Error getting obj key for %s err: %v", obj, err)
 		return false, err
-	case err != nil && errors.IsNotFound(err):
-		return true, err
+	}
+	_, exists, err := w.informer.GetStore().GetByKey(objKey)
+	switch {
+	case err != nil:
+		log.Log.V(2).Errorf("Error getting obj %s from cache err: %v", obj, err)
+		return false, err
+	case !exists:
+		return true, nil
 	default:
 		return false, nil
 	}
+}
+
+func (w *ObjListWatcher) getID(obj metav1.Object) string {
+	return fmt.Sprintf("%s/%s/%s", w.ResourceKind, obj.GetNamespace(), obj.GetName())
 }
