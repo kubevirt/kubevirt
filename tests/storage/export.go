@@ -828,10 +828,10 @@ var _ = SIGDescribe("Export", func() {
 			Expect(err).ToNot(HaveOccurred())
 
 			config := certutil.Config{
-				CommonName: hostName,
+				CommonName: "blah blah",
 			}
 
-			cert, err := certutil.NewSelfSignedCACert(config, key, time.Hour)
+			cert, err := certutil.NewSelfSignedCACertWithAltNames(config, key, time.Hour, "hahaha.wwoo", hostName, "fgdgd.dfsgdf")
 			Expect(err).ToNot(HaveOccurred())
 			pemOut := strings.Builder{}
 			pem.Encode(&pemOut, &pem.Block{Type: "CERTIFICATE", Bytes: cert.Raw})

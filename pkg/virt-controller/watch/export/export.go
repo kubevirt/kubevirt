@@ -28,6 +28,7 @@ import (
 	"path"
 	"strings"
 	"time"
+	"unicode"
 
 	corev1 "k8s.io/api/core/v1"
 	networkingv1 "k8s.io/api/networking/v1"
@@ -936,7 +937,7 @@ func (ctrl *VMExportController) getExternalLinkHostAndCert() (string, string) {
 	for _, obj := range ctrl.IngressCache.List() {
 		if ingress, ok := obj.(*networkingv1.Ingress); ok {
 			if host := getHostFromIngress(ingress); host != "" {
-				cert, _ := ctrl.getIngressCert(getDomainFromHost(host, ctrl.KubevirtNamespace), ingress)
+				cert, _ := ctrl.getIngressCert(host, ingress)
 				return host, cert
 			}
 		}
@@ -944,7 +945,7 @@ func (ctrl *VMExportController) getExternalLinkHostAndCert() (string, string) {
 	for _, obj := range ctrl.RouteCache.List() {
 		if route, ok := obj.(*routev1.Route); ok {
 			if host := getHostFromRoute(route); host != "" {
-				cert, _ := ctrl.getRouteCert(getDomainFromHost(host, ctrl.KubevirtNamespace))
+				cert, _ := ctrl.getRouteCert(host)
 				return host, cert
 			}
 		}
@@ -952,7 +953,7 @@ func (ctrl *VMExportController) getExternalLinkHostAndCert() (string, string) {
 	return "", ""
 }
 
-func (ctrl *VMExportController) getIngressCert(domainName string, ing *networkingv1.Ingress) (string, error) {
+func (ctrl *VMExportController) getIngressCert(hostName string, ing *networkingv1.Ingress) (string, error) {
 	secretName := ""
 	for _, tls := range ing.Spec.TLS {
 		if tls.SecretName != "" {
@@ -968,21 +969,21 @@ func (ctrl *VMExportController) getIngressCert(domainName string, ing *networkin
 		return "", nil
 	}
 	if secret, ok := obj.(*corev1.Secret); ok {
-		return ctrl.getIngressCertFromSecret(secret, domainName)
+		return ctrl.getIngressCertFromSecret(secret, hostName)
 	}
 	return "", nil
 }
 
-func (ctrl *VMExportController) getIngressCertFromSecret(secret *corev1.Secret, domainName string) (string, error) {
+func (ctrl *VMExportController) getIngressCertFromSecret(secret *corev1.Secret, hostName string) (string, error) {
 	certBytes := secret.Data["tls.crt"]
 	certs, err := cert.ParseCertsPEM(certBytes)
 	if err != nil {
 		return "", err
 	}
-	return findCertByDomainName(domainName, certs)
+	return ctrl.findCertByHostName(hostName, certs)
 }
 
-func (ctrl *VMExportController) getRouteCert(domainName string) (string, error) {
+func (ctrl *VMExportController) getRouteCert(hostName string) (string, error) {
 	key := controller.NamespacedKey(ctrl.KubevirtNamespace, routeCAConfigMapName)
 	obj, exists, err := ctrl.RouteConfigMapInformer.GetStore().GetByKey(key)
 	if err != nil {
@@ -996,19 +997,30 @@ func (ctrl *VMExportController) getRouteCert(domainName string) (string, error) 
 		if err != nil {
 			return "", err
 		}
-		return findCertByDomainName(domainName, certs)
+		return ctrl.findCertByHostName(hostName, certs)
 	}
 	return "", fmt.Errorf("not a config map")
 }
 
-func findCertByDomainName(domainName string, certs []*x509.Certificate) (string, error) {
+func (ctrl *VMExportController) findCertByHostName(hostName string, certs []*x509.Certificate) (string, error) {
 	for _, cert := range certs {
-		if strings.Contains(cert.Subject.CommonName, domainName) {
+		if ctrl.matchesOrWildCard(hostName, cert.Subject.CommonName) {
 			return buildPemFromCert(cert), nil
 		}
 		for _, extension := range cert.Extensions {
-			if extension.Id.String() == subjectAltNameId && strings.Contains(string(extension.Value), domainName) {
-				return buildPemFromCert(cert), nil
+			if extension.Id.String() == subjectAltNameId {
+				value := strings.Map(func(r rune) rune {
+					if unicode.IsPrint(r) && r <= unicode.MaxASCII {
+						return r
+					}
+					return ' '
+				}, string(extension.Value))
+				names := strings.Split(value, " ")
+				for _, name := range names {
+					if ctrl.matchesOrWildCard(hostName, name) {
+						return buildPemFromCert(cert), nil
+					}
+				}
 			}
 		}
 	}
@@ -1021,9 +1033,16 @@ func buildPemFromCert(cert *x509.Certificate) string {
 	return strings.TrimSpace(pemOut.String())
 }
 
+func (ctrl *VMExportController) matchesOrWildCard(hostName, compare string) bool {
+	wildCard := fmt.Sprintf("*%s", getDomainFromHost(hostName, ctrl.KubevirtNamespace))
+	return hostName == compare || wildCard == compare
+}
+
 func getDomainFromHost(host, namespace string) string {
-	prefix := fmt.Sprintf("%s-%s", components.VirtExportProxyServiceName, namespace)
-	return strings.TrimPrefix(host, prefix)
+	if index := strings.Index(host, "."); index != -1 {
+		return host[index:]
+	}
+	return host
 }
 
 func getHostFromRoute(route *routev1.Route) string {

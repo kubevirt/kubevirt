@@ -85,15 +85,9 @@ const (
 
 	NAMESPACE = "kubevirt-test"
 
-<<<<<<< HEAD
-	resourceCount = 73
+	resourceCount = 75
 	patchCount    = 50
-	updateCount   = 24
-=======
-	resourceCount = 74
-	patchCount    = 49
 	updateCount   = 26
->>>>>>> c4a3d07c7 (Add external links and matching certificates from either)
 )
 
 type KubeVirtTestData struct {
