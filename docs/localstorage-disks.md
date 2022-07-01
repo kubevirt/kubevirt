@@ -37,7 +37,7 @@ After PVC are bound the `CDI` can do its work and KubeVirt can start the actual 
 5. `KubeVirt` sees the DV in phase `WaitForFirstConsumer`, so it creates an ephemeral pod (basically a virtlauncher pod
 without a VM payload and with `kubevirt.io/ephemeral-provisioning` annotation) only used to force PV provisioning 
 6. Kubernetes schedules the ephemeral pod, (the node selected meets all the VM requirements), pod requires 
- the same PVC as the VM so kubenertes has to provision and bind the PV to PVC on a correct node before the pod can be started
+ the same PVC as the VM so kubernetes has to provision and bind the PV to PVC on a correct node before the pod can be started
 7. `CDI` sees that PVC is Bound, changes DV status to "ImportScheduled" (or clone/upload), and tries to start worker pods
 8. `KubeVirt` sees DV status is `ImportScheduled`, it can terminate the ephemeral provisioning pod
 8. `CDI` does the Import, marks DV as `Succeeded`
@@ -66,7 +66,7 @@ Waiting for PVC fedora-dv upload pod to be ready...
 cannot upload to DataVolume in state WaitForFirstConsumer
 ```
 
-Current version of virtctl should immediatetly detect the problem and error. The older version will take all the time limit and finish with timeout.
+Current version of virtctl should immediately detect the problem and error. The older version will take all the time limit and finish with timeout.
 
 2. To bind the `PVC` create a consumer `POD`. With a `nodeSelector` to select a specific node ot without for a random node.
 

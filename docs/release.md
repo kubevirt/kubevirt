@@ -102,7 +102,7 @@ git show v0.31.0-rc.0
 # Handling Release Blockers
 
 Release blockers can be set on issues and PRs by [approvers](https://github.com/kubevirt/kubevirt/blob/main/OWNERS_ALIASES) of the project. A PR or
-issue can be flaged as a blocker through the use of the `/release-blocker <branch>`
+issue can be flagged as a blocker through the use of the `/release-blocker <branch>`
 in a github comment.
 
 The KubeVirt release tool scans for blocker Issues/PRs and will not allow certain
@@ -112,7 +112,7 @@ for closed issues!**
 
 ## Release Blocker Criteria
 
-A release blocker is a critial bug, regression, or backwards incompatible change
+A release blocker is a critical bug, regression, or backwards incompatible change
 that must be addressed before the next official release is made. Only KubeVirt
 [approvers](https://github.com/kubevirt/kubevirt/blob/main/OWNERS_ALIASES) can set this label on a PR or Issue.
 
@@ -135,7 +135,7 @@ Issue/PR is closed.
 ```/release-blocker release-0.31```
 
 **Example: Canceling a release-blocker.** This will remove the signal that
-an Issue/PR is a blocker. This should only be done if the issue truely
+an Issue/PR is a blocker. This should only be done if the issue truly
 isn't a blocker.
 
 ```/release-blocker cancel release-0.31```

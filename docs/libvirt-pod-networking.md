@@ -83,7 +83,7 @@ The required steps to enable networking as described are:
    and configure libvirt to provide the remembered IP address to the VMI.
    Achieved by adding a DHCP host entry, which maps the vNIC MAC address to the
    remembered IP
-4. On VMI shutdown, delete all VMI interfaces. They can be infered by following
+4. On VMI shutdown, delete all VMI interfaces. They can be inferred by following
    the libvirt networks associated with the vNICs
 
 **Note:** The _new_ VMI interface can not be directly attached to the VMI,

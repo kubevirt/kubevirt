@@ -12,17 +12,17 @@ metadata:
 The ``kubevirt.io/os`` label is based on the short OS identifier from [libosinfo](https://libosinfo.org/).
 The following Short IDs are currently supported:
 
-| Short ID | Name | Version | Family | ID |
-| --- | --- | --- | --- | --- |
-| **fedora26** | Fedora 26 | 26 | linux | http://fedoraproject.org/fedora/26 |
-| **fedora27** | Fedora 27 | 27 | linux | http://fedoraproject.org/fedora/27 |
-| **rhel7.0** | Red Hat Enterprise Linux 7.0 | 7.0 | linux | http://redhat.com/rhel/7.0 |
-| **rhel7.1** | Red Hat Enterprise Linux 7.1 | 7.1 | linux | http://redhat.com/rhel/7.1 |
-| **rhel7.2** | Red Hat Enterprise Linux 7.2 | 7.2 | linux | http://redhat.com/rhel/7.2 |
-| **rhel7.3** | Red Hat Enterprise Linux 7.3 | 7.3 | linux | http://redhat.com/rhel/7.3 |
-| **rhel7.4** | Red Hat Enterprise Linux 7.4 | 7.4 | linux | http://redhat.com/rhel/7.4 |
-| **win2k12r2** | Microsoft Windows Server 2012 R2 | 6.3 | winnt | http://microsoft.com/win/2k12r2 |
-| **win2k16** | Microsoft Windows Server 2016 | 1709 | winnt | http://microsoft.com/win/2k16 |
+| Short ID      | Name                             | Version | Family | ID                                 |
+|---------------|----------------------------------|---------|--------|------------------------------------|
+| **fedora26**  | Fedora 26                        | 26      | linux  | http://fedoraproject.org/fedora/26 |
+| **fedora27**  | Fedora 27                        | 27      | linux  | http://fedoraproject.org/fedora/27 |
+| **rhel7.0**   | Red Hat Enterprise Linux 7.0     | 7.0     | linux  | http://redhat.com/rhel/7.0         |
+| **rhel7.1**   | Red Hat Enterprise Linux 7.1     | 7.1     | linux  | http://redhat.com/rhel/7.1         |
+| **rhel7.2**   | Red Hat Enterprise Linux 7.2     | 7.2     | linux  | http://redhat.com/rhel/7.2         |
+| **rhel7.3**   | Red Hat Enterprise Linux 7.3     | 7.3     | linux  | http://redhat.com/rhel/7.3         |
+| **rhel7.4**   | Red Hat Enterprise Linux 7.4     | 7.4     | linux  | http://redhat.com/rhel/7.4         |
+| **win2k12r2** | Microsoft Windows Server 2012 R2 | 6.3     | winnt  | http://microsoft.com/win/2k12r2    |
+| **win2k16**   | Microsoft Windows Server 2016    | 1709    | winnt  | http://microsoft.com/win/2k16      |
 
 For the updated list please refer to kubeVirt user guide - [Guest Operating System Information](https://kubevirt.gitbooks.io/user-guide/guest-os-info.html)
 
