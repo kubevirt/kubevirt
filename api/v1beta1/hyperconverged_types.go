@@ -88,12 +88,12 @@ type HyperConvergedSpec struct {
 	// +optional
 	VddkInitImage *string `json:"vddkInitImage,omitempty"`
 
-	// DefaultCPUModel defines a cluster default for CPU model: default CPU model is set when vmi doesn't have any cpu model.
-	// When vmi has cpu model set, then vmi's cpu model is preferred.
-	// When default cpu model is not set and vmi's cpu model is not set too, host-model will be set.
-	// Default cpu model can be changed when kubevirt is running.
+	// DefaultCPUModel defines a cluster default for CPU model: default CPU model is set when VMI doesn't have any CPU model.
+	// When VMI has CPU model set, then VMI's CPU model is preferred.
+	// When default CPU model is not set and VMI's CPU model is not set too, host-model will be set.
+	// Default CPU model can be changed when kubevirt is running.
 	// +optional
-	DefaultCPUModel *string `json:"defaulCPUModel,omitempty"`
+	DefaultCPUModel *string `json:"defaultCPUModel,omitempty"`
 
 	// ObsoleteCPUs allows avoiding scheduling of VMs for obsolete CPU models
 	// +optional
