@@ -1351,9 +1351,9 @@ var _ = SIGDescribe("VirtualMachineRestore Tests", func() {
 				Expect(console.LoginToFedora(vmi)).To(Succeed())
 
 				By("Add persistent hotplug disk")
-				persistVolName := libvmi.AddVolumeAndVerify(virtClient, snapshotStorageClass, vm, false)
+				persistVolName := AddVolumeAndVerify(virtClient, snapshotStorageClass, vm, false)
 				By("Add temporary hotplug disk")
-				tempVolName := libvmi.AddVolumeAndVerify(virtClient, snapshotStorageClass, vm, true)
+				tempVolName := AddVolumeAndVerify(virtClient, snapshotStorageClass, vm, true)
 
 				doRestore("", console.LoginToFedora, onlineSnapshot, getTargetVMName(restoreToNewVM, newVmName))
 				Expect(restore.Status.Restores).To(HaveLen(2))

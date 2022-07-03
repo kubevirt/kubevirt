@@ -18,6 +18,8 @@ import (
 	"k8s.io/apimachinery/pkg/types"
 	"k8s.io/apimachinery/pkg/util/rand"
 
+	. "kubevirt.io/kubevirt/tests/framework/matcher"
+
 	v1 "kubevirt.io/api/core/v1"
 	snapshotv1 "kubevirt.io/api/snapshot/v1alpha1"
 	"kubevirt.io/client-go/kubecli"
@@ -26,7 +28,6 @@ import (
 	"kubevirt.io/kubevirt/tests/console"
 	cd "kubevirt.io/kubevirt/tests/containerdisk"
 	"kubevirt.io/kubevirt/tests/libstorage"
-	"kubevirt.io/kubevirt/tests/libvmi"
 	"kubevirt.io/kubevirt/tests/util"
 )
 
@@ -633,9 +634,9 @@ var _ = SIGDescribe("VirtualMachineSnapshot Tests", func() {
 				Expect(console.LoginToFedora(vmi)).To(Succeed())
 
 				By("Add persistent hotplug disk")
-				persistVolName := libvmi.AddVolumeAndVerify(virtClient, snapshotStorageClass, vm, false)
+				persistVolName := AddVolumeAndVerify(virtClient, snapshotStorageClass, vm, false)
 				By("Add temporary hotplug disk")
-				tempVolName := libvmi.AddVolumeAndVerify(virtClient, snapshotStorageClass, vm, true)
+				tempVolName := AddVolumeAndVerify(virtClient, snapshotStorageClass, vm, true)
 				By("Create Snapshot")
 				snapshot = newSnapshot()
 				_, err = virtClient.VirtualMachineSnapshot(snapshot.Namespace).Create(context.Background(), snapshot, metav1.CreateOptions{})
@@ -1288,4 +1289,46 @@ func getSnapshotStorageClass(client kubecli.KubevirtClient) (string, error) {
 	}
 
 	return "", nil
+}
+
+func AddVolumeAndVerify(virtClient kubecli.KubevirtClient, storageClass string, vm *v1.VirtualMachine, addVMIOnly bool) string {
+	dv := libstorage.NewRandomBlankDataVolume(vm.Namespace, storageClass, "64Mi", corev1.ReadWriteOnce, corev1.PersistentVolumeFilesystem)
+	_, err := virtClient.CdiClient().CdiV1beta1().DataVolumes(dv.Namespace).Create(context.Background(), dv, metav1.CreateOptions{})
+	Expect(err).To(BeNil())
+	Eventually(ThisDV(dv), 240).Should(HaveSucceeded())
+	volumeSource := &v1.HotplugVolumeSource{
+		DataVolume: &v1.DataVolumeSource{
+			Name: dv.Name,
+		},
+	}
+	addVolumeName := "test-volume-" + rand.String(12)
+	addVolumeOptions := &v1.AddVolumeOptions{
+		Name: addVolumeName,
+		Disk: &v1.Disk{
+			DiskDevice: v1.DiskDevice{
+				Disk: &v1.DiskTarget{
+					Bus: v1.DiskBusSCSI,
+				},
+			},
+			Serial: addVolumeName,
+		},
+		VolumeSource: volumeSource,
+	}
+
+	if addVMIOnly {
+		Eventually(func() error {
+			return virtClient.VirtualMachineInstance(vm.Namespace).AddVolume(vm.Name, addVolumeOptions)
+		}, 3*time.Second, 1*time.Second).ShouldNot(HaveOccurred())
+	} else {
+		Eventually(func() error {
+			return virtClient.VirtualMachine(vm.Namespace).AddVolume(vm.Name, addVolumeOptions)
+		}, 3*time.Second, 1*time.Second).ShouldNot(HaveOccurred())
+		VerifyVolumeAndDiskVMAdded(virtClient, vm, addVolumeName)
+	}
+
+	vmi, err := virtClient.VirtualMachineInstance(vm.Namespace).Get(vm.Name, &metav1.GetOptions{})
+	Expect(err).ToNot(HaveOccurred())
+	VerifyVolumeAndDiskVMIAdded(virtClient, vmi, addVolumeName)
+
+	return addVolumeName
 }
