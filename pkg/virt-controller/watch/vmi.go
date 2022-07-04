@@ -47,7 +47,7 @@ import (
 	cdiv1 "kubevirt.io/containerized-data-importer-api/pkg/apis/core/v1beta1"
 
 	"kubevirt.io/kubevirt/pkg/controller"
-	kubevirttypes "kubevirt.io/kubevirt/pkg/util/types"
+	kubevirttypes "kubevirt.io/kubevirt/pkg/storage/types"
 	virtconfig "kubevirt.io/kubevirt/pkg/virt-config"
 	"kubevirt.io/kubevirt/pkg/virt-controller/services"
 )
@@ -1768,14 +1768,7 @@ func (c *VMIController) triggerHotplugPopulation(volume *virtv1.Volume, vmi *vir
 }
 
 func (c *VMIController) volumeReadyToAttachToNode(namespace string, volume virtv1.Volume, dataVolumes []*cdiv1.DataVolume) (bool, bool, error) {
-	name := ""
-	if volume.DataVolume != nil {
-		name = volume.DataVolume.Name
-	} else if volume.PersistentVolumeClaim != nil {
-		name = volume.PersistentVolumeClaim.ClaimName
-	} else if volume.MemoryDump != nil {
-		name = volume.MemoryDump.ClaimName
-	}
+	name := kubevirttypes.PVCNameFromVirtVolume(&volume)
 
 	dataVolumeFunc := dataVolumeByNameFunc(c.dataVolumeInformer, dataVolumes)
 	wffc := false
@@ -2035,14 +2028,7 @@ func (c *VMIController) updateVolumeStatus(vmi *virtv1.VirtualMachineInstance, v
 
 		if volume.VolumeSource.PersistentVolumeClaim != nil || volume.VolumeSource.DataVolume != nil || volume.VolumeSource.MemoryDump != nil {
 
-			var pvcName string
-			if volume.VolumeSource.PersistentVolumeClaim != nil {
-				pvcName = volume.VolumeSource.PersistentVolumeClaim.ClaimName
-			} else if volume.VolumeSource.DataVolume != nil {
-				pvcName = volume.VolumeSource.DataVolume.Name
-			} else if volume.VolumeSource.MemoryDump != nil {
-				pvcName = volume.VolumeSource.MemoryDump.ClaimName
-			}
+			pvcName := kubevirttypes.PVCNameFromVirtVolume(&volume)
 
 			pvcInterface, pvcExists, _ := c.pvcInformer.GetStore().GetByKey(fmt.Sprintf("%s/%s", vmi.Namespace, pvcName))
 			if pvcExists {
@@ -2131,15 +2117,7 @@ func (c *VMIController) findAttachmentPodByVolumeName(volumeName string, attachm
 }
 
 func (c *VMIController) getVolumePhaseMessageReason(volume *virtv1.Volume, namespace string) (virtv1.VolumePhase, string, string) {
-	claimName := ""
-	if volume.DataVolume != nil {
-		// Using fact that PVC name = DV name.
-		claimName = volume.DataVolume.Name
-	} else if volume.PersistentVolumeClaim != nil {
-		claimName = volume.PersistentVolumeClaim.ClaimName
-	} else if volume.MemoryDump != nil {
-		claimName = volume.MemoryDump.ClaimName
-	}
+	claimName := kubevirttypes.PVCNameFromVirtVolume(volume)
 
 	pvcInterface, pvcExists, _ := c.pvcInformer.GetStore().GetByKey(fmt.Sprintf("%s/%s", namespace, claimName))
 	if !pvcExists {

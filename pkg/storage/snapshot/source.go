@@ -34,6 +34,7 @@ import (
 	"kubevirt.io/client-go/log"
 
 	"kubevirt.io/kubevirt/pkg/controller"
+	storagetypes "kubevirt.io/kubevirt/pkg/storage/types"
 	watchutil "kubevirt.io/kubevirt/pkg/virt-controller/watch/util"
 	launcherapi "kubevirt.io/kubevirt/pkg/virt-launcher/virtwrap/api"
 )
@@ -308,16 +309,8 @@ func getPVCsFromVolumes(volumes []kubevirtv1.Volume) map[string]string {
 	pvcs := map[string]string{}
 
 	for _, volume := range volumes {
-		var pvcName string
-
-		if volume.PersistentVolumeClaim != nil {
-			pvcName = volume.PersistentVolumeClaim.ClaimName
-		} else if volume.DataVolume != nil {
-			// TODO Change when PVC Renaming is merged.
-			pvcName = volume.DataVolume.Name
-		} else if volume.MemoryDump != nil {
-			pvcName = volume.MemoryDump.ClaimName
-		} else {
+		pvcName := storagetypes.PVCNameFromVirtVolume(&volume)
+		if pvcName == "" {
 			continue
 		}
 

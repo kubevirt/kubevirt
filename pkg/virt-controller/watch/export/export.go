@@ -59,6 +59,7 @@ import (
 	"kubevirt.io/kubevirt/pkg/controller"
 	"kubevirt.io/kubevirt/pkg/virt-operator/resource/generate/components"
 
+	"kubevirt.io/kubevirt/pkg/storage/types"
 	"kubevirt.io/kubevirt/pkg/virt-controller/services"
 	"kubevirt.io/kubevirt/pkg/virt-controller/watch/snapshot"
 	watchutil "kubevirt.io/kubevirt/pkg/virt-controller/watch/util"
@@ -791,7 +792,7 @@ func (ctrl *VMExportController) createExporterPodManifest(vmExport *exportv1.Vir
 	}
 	for i, pvc := range pvcs {
 		var mountPoint string
-		if pvc.Spec.VolumeMode != nil && *pvc.Spec.VolumeMode == corev1.PersistentVolumeBlock {
+		if types.IsPVCBlock(pvc.Spec.VolumeMode) {
 			mountPoint = fmt.Sprintf("%s/%s", blockVolumeMountPath, pvc.Name)
 			podManifest.Spec.Containers[0].VolumeDevices = append(podManifest.Spec.Containers[0].VolumeDevices, corev1.VolumeDevice{
 				Name:       pvc.Name,
@@ -863,7 +864,7 @@ func (ctrl *VMExportController) addVolumeEnvironmentVariables(exportContainer *c
 		Name:  fmt.Sprintf("VOLUME%d_EXPORT_PATH", index),
 		Value: mountPoint,
 	})
-	if pvc.Spec.VolumeMode != nil && *pvc.Spec.VolumeMode == corev1.PersistentVolumeBlock {
+	if types.IsPVCBlock(pvc.Spec.VolumeMode) {
 		exportContainer.Env = append(exportContainer.Env, corev1.EnvVar{
 			Name:  fmt.Sprintf("VOLUME%d_EXPORT_RAW_URI", index),
 			Value: rawURI(pvc),
@@ -894,7 +895,7 @@ func (ctrl *VMExportController) addVolumeEnvironmentVariables(exportContainer *c
 
 func (ctrl *VMExportController) isKubevirtContentType(pvc *corev1.PersistentVolumeClaim) bool {
 	// Block volumes are assumed always KubevirtContentType
-	if pvc.Spec.VolumeMode != nil && *pvc.Spec.VolumeMode == corev1.PersistentVolumeBlock {
+	if types.IsPVCBlock(pvc.Spec.VolumeMode) {
 		return true
 	}
 	contentType, ok := pvc.Annotations[annContentType]

@@ -46,9 +46,9 @@ import (
 	containerdisk "kubevirt.io/kubevirt/pkg/container-disk"
 	"kubevirt.io/kubevirt/pkg/hooks"
 	"kubevirt.io/kubevirt/pkg/network/istio"
+	"kubevirt.io/kubevirt/pkg/storage/types"
 	"kubevirt.io/kubevirt/pkg/util"
 	"kubevirt.io/kubevirt/pkg/util/net/dns"
-	"kubevirt.io/kubevirt/pkg/util/types"
 	virtconfig "kubevirt.io/kubevirt/pkg/virt-config"
 	"kubevirt.io/kubevirt/pkg/virt-launcher/virtwrap/api"
 )
@@ -913,7 +913,7 @@ func (t *templateService) RenderHotplugAttachmentPodTemplate(volumes []*v1.Volum
 		if !skipMount {
 			pvc := claimMap[volume.Name]
 			if pvc != nil {
-				if pvc.Spec.VolumeMode != nil && *pvc.Spec.VolumeMode == k8sv1.PersistentVolumeBlock {
+				if types.IsPVCBlock(pvc.Spec.VolumeMode) {
 					pod.Spec.Containers[0].VolumeDevices = append(pod.Spec.Containers[0].VolumeDevices, k8sv1.VolumeDevice{
 						Name:       volume.Name,
 						DevicePath: fmt.Sprintf("/path/%s/%s", volume.Name, pvc.GetUID()),

@@ -14,6 +14,7 @@ go_library(
     visibility = ["//visibility:public"],
     deps = [
         "//pkg/controller:go_default_library",
+        "//pkg/storage/types:go_default_library",
         "//pkg/util/status:go_default_library",
         "//pkg/virt-controller/watch/util:go_default_library",
         "//pkg/virt-launcher/virtwrap/api:go_default_library",

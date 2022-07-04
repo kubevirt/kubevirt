@@ -22,6 +22,7 @@ go_library(
         "//pkg/instancetype:go_default_library",
         "//pkg/monitoring/api:go_default_library",
         "//pkg/util:go_default_library",
+        "//pkg/storage/types:go_default_library",
         "//pkg/util/status:go_default_library",
         "//pkg/util/types:go_default_library",
         "//pkg/virt-api/definitions:go_default_library",
