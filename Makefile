@@ -188,7 +188,10 @@ format:
 
 fmt: format
 
-lint:
+ginkgo_linter:
+	@python3 hack/ginkgo-linter.py $(shell find . -type f -name '*.go' ! -path "*/vendor/*" ! -path "./_kubevirtci/*" ! -path "*zz_generated*" ! -path "*/cluster-up/*")
+
+lint: ginkgo_linter
 	if [ $$(wc -l < tests/utils.go) -gt 3565 ]; then echo >&2 "do not make tests/utils longer"; exit 1; fi
 
 	hack/dockerized "golangci-lint run --timeout 10m --verbose \
