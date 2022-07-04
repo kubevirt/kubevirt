@@ -20,6 +20,7 @@
 package libvmi
 
 import (
+	k8sv1 "k8s.io/api/core/v1"
 	v1 "kubevirt.io/api/core/v1"
 )
 
@@ -27,8 +28,24 @@ import (
 func WithContainerImage(name string) Option {
 	return func(vmi *v1.VirtualMachineInstance) {
 		diskName := "disk0"
-		vmi.Spec.Domain.Devices.Disks = append(vmi.Spec.Domain.Devices.Disks, newDisk(diskName, v1.DiskBusVirtio))
-		vmi.Spec.Volumes = append(vmi.Spec.Volumes, newContainerVolume(diskName, name))
+		addDisk(vmi, newDisk(diskName, v1.DiskBusVirtio))
+		addVolume(vmi, newContainerVolume(diskName, name))
+	}
+}
+
+// WithPersistentVolumeClaim specifies the name of the PersistentVolumeClaim to be used.
+func WithPersistentVolumeClaim(diskName, pvcName string) Option {
+	return func(vmi *v1.VirtualMachineInstance) {
+		addDisk(vmi, newDisk(diskName, v1.DiskBusVirtio))
+		addVolume(vmi, newPersistentVolumeClaimVolume(diskName, pvcName))
+	}
+}
+
+// WithDataVolume specifies the name of the DataVolume to be used.
+func WithDataVolume(diskName, pvcName string) Option {
+	return func(vmi *v1.VirtualMachineInstance) {
+		addDisk(vmi, newDisk(diskName, v1.DiskBusVirtio))
+		addVolume(vmi, newDataVolume(diskName, pvcName))
 	}
 }
 
@@ -92,6 +109,29 @@ func newContainerVolume(name, image string) v1.Volume {
 		VolumeSource: v1.VolumeSource{
 			ContainerDisk: &v1.ContainerDiskSource{
 				Image: image,
+			},
+		},
+	}
+}
+
+func newPersistentVolumeClaimVolume(name, claimName string) v1.Volume {
+	return v1.Volume{
+		Name: name,
+		VolumeSource: v1.VolumeSource{
+			PersistentVolumeClaim: &v1.PersistentVolumeClaimVolumeSource{
+				PersistentVolumeClaimVolumeSource: k8sv1.PersistentVolumeClaimVolumeSource{
+					ClaimName: claimName,
+				}},
+		},
+	}
+}
+
+func newDataVolume(name, dataVolumeName string) v1.Volume {
+	return v1.Volume{
+		Name: name,
+		VolumeSource: v1.VolumeSource{
+			DataVolume: &v1.DataVolumeSource{
+				Name: dataVolumeName,
 			},
 		},
 	}
