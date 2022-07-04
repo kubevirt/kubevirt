@@ -445,7 +445,6 @@ func NewDomain(dom cli.VirDomain) (*api.Domain, error) {
 	namespace, name := SplitVMINamespaceKey(name)
 
 	domain := api.NewDomainReferenceFromName(namespace, name)
-	domain.GetObjectMeta().SetUID(domain.Spec.Metadata.KubeVirt.UID)
 	return domain, nil
 }
 
