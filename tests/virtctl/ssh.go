@@ -2,7 +2,6 @@ package virtctl
 
 import (
 	"crypto/ecdsa"
-	"fmt"
 	"os"
 	"path/filepath"
 
@@ -23,6 +22,36 @@ var _ = Describe("[sig-compute][virtctl]SSH", func() {
 	var keyFile string
 	var virtClient kubecli.KubevirtClient
 
+	cmdNative := func(vmiName string) {
+		Expect(clientcmd.NewRepeatableVirtctlCommand(
+			"ssh",
+			"--local-ssh=false",
+			"--namespace", util.NamespaceTestDefault,
+			"--username", "cirros",
+			"--identity-file", keyFile,
+			"--known-hosts=",
+			`--command='true'`,
+			vmiName)()).To(Succeed())
+	}
+
+	cmdLocal := func(vmiName string) {
+		_, cmd, err := clientcmd.CreateCommandWithNS(util.NamespaceTestDefault, "virtctl",
+			"ssh",
+			"--local-ssh=true",
+			"--namespace", util.NamespaceTestDefault,
+			"--username", "cirros",
+			"--identity-file", keyFile,
+			"-t", "-o StrictHostKeyChecking=no",
+			"-t", "-o UserKnownHostsFile=/dev/null",
+			"--command", "true",
+			vmiName)
+		Expect(err).ToNot(HaveOccurred())
+
+		out, err := cmd.CombinedOutput()
+		Expect(err).ToNot(HaveOccurred())
+		Expect(out).ToNot(BeEmpty())
+	}
+
 	BeforeEach(func() {
 		var err error
 		virtClient, err = kubecli.GetKubevirtClient()
@@ -36,7 +65,7 @@ var _ = Describe("[sig-compute][virtctl]SSH", func() {
 		Expect(DumpPrivateKey(priv, keyFile)).To(Succeed())
 	})
 
-	It("should succeed to execute a command on the VM using the ssh native method", func() {
+	DescribeTable("should succeed to execute a command on the VM", func(cmdFn func(string)) {
 		By("injecting a SSH public key into a VMI")
 		vmi := libvmi.NewCirros(
 			libvmi.WithCloudInitNoCloudUserData(renderUserDataWithKey(pub), false))
@@ -44,42 +73,11 @@ var _ = Describe("[sig-compute][virtctl]SSH", func() {
 		Expect(err).ToNot(HaveOccurred())
 
 		vmi = tests.WaitUntilVMIReady(vmi, console.LoginToCirros)
-		By("ssh into the VM using the native option")
-		Expect(clientcmd.NewRepeatableVirtctlCommand(
-			"ssh",
-			"--local-ssh=false",
-			"--namespace", util.NamespaceTestDefault,
-			"--username", "cirros",
-			"--identity-file", keyFile,
-			"--known-hosts=",
-			`--command='true'`,
-			vmi.Name)()).To(Succeed())
 
-	})
-	It("should succeed execute a command on the VM using local ssh method", func() {
-		By("injecting a SSH public key into a VMI")
-		vmi := libvmi.NewCirros(
-			libvmi.WithCloudInitNoCloudUserData(renderUserDataWithKey(pub), false))
-		vmi, err := virtClient.VirtualMachineInstance(util.NamespaceTestDefault).Create(vmi)
-		Expect(err).ToNot(HaveOccurred())
-
-		vmi = tests.WaitUntilVMIReady(vmi, console.LoginToCirros)
-		By("ssh into the VM using the native option")
-		_, cmd, err := clientcmd.CreateCommandWithNS(util.NamespaceTestDefault, "virtctl",
-			"ssh",
-			"--local-ssh=true",
-			"--namespace", util.NamespaceTestDefault,
-			"--username", "cirros",
-			"--identity-file", keyFile,
-			"-t", "-o StrictHostKeyChecking=no",
-			"-t", "-o UserKnownHostsFile=/dev/null",
-			"--command", "true",
-			vmi.Name)
-		Expect(err).ToNot(HaveOccurred())
-		cmd.Env = append(cmd.Env,
-			"SSH_AUTH_SOCK=/dev/null")
-		out, err := cmd.CombinedOutput()
-		fmt.Println(string(out))
-		Expect(err).ToNot(HaveOccurred())
-	})
+		By("ssh into the VM")
+		cmdFn(vmi.Name)
+	},
+		Entry("using the native ssh method", cmdNative),
+		Entry("using the local ssh method", cmdLocal),
+	)
 })
