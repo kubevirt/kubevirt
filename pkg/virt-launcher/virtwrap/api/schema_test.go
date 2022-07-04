@@ -84,7 +84,6 @@ var exampleXML = `<domain type="kvm" xmlns:qemu="http://libvirt.org/schemas/doma
   </devices>
   <metadata>
     <kubevirt xmlns="http://kubevirt.io">
-      <uid>f4686d2c-6e8d-4335-b8fd-81bee22f4814</uid>
       <graceperiod>
         <deletionGracePeriodSeconds>5</deletionGracePeriodSeconds>
       </graceperiod>
@@ -164,7 +163,6 @@ var exampleXMLppc64le = `<domain type="kvm" xmlns:qemu="http://libvirt.org/schem
   </devices>
   <metadata>
     <kubevirt xmlns="http://kubevirt.io">
-      <uid>f4686d2c-6e8d-4335-b8fd-81bee22f4814</uid>
       <graceperiod>
         <deletionGracePeriodSeconds>5</deletionGracePeriodSeconds>
       </graceperiod>
@@ -245,7 +243,6 @@ var exampleXMLarm64 = `<domain type="kvm" xmlns:qemu="http://libvirt.org/schemas
   </devices>
   <metadata>
     <kubevirt xmlns="http://kubevirt.io">
-      <uid>f4686d2c-6e8d-4335-b8fd-81bee22f4814</uid>
       <graceperiod>
         <deletionGracePeriodSeconds>5</deletionGracePeriodSeconds>
       </graceperiod>
@@ -401,7 +398,6 @@ var _ = ginkgo.Describe("Schema", func() {
 				Policy: "disable",
 			},
 		}
-		exampleDomain.Spec.Metadata.KubeVirt.UID = "f4686d2c-6e8d-4335-b8fd-81bee22f4814"
 		exampleDomain.Spec.Metadata.KubeVirt.GracePeriod = &GracePeriodMetadata{}
 		exampleDomain.Spec.Metadata.KubeVirt.GracePeriod.DeletionGracePeriodSeconds = 5
 		exampleDomain.Spec.IOThreads = &IOThreads{IOThreads: 2}

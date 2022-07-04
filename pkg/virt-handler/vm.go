@@ -1395,10 +1395,12 @@ func (c *VirtualMachineController) Run(threadiness int, stopCh chan struct{}) {
 	// in the cache. This ensures we perform local cleanup of deleted VMs.
 	for _, domain := range c.domainInformer.GetStore().List() {
 		d := domain.(*api.Domain)
-		vmiRef := v1.NewVMIReferenceWithUUID(
-			d.ObjectMeta.Namespace,
-			d.ObjectMeta.Name,
-			d.Spec.Metadata.KubeVirt.UID)
+		uid := d.ObjectMeta.UID
+		// Keep backward compatability with old virt-launchers
+		if uid == "" {
+			uid = d.Spec.Metadata.KubeVirt.UID
+		}
+		vmiRef := v1.NewVMIReferenceWithUUID(d.ObjectMeta.Namespace, d.ObjectMeta.Name, uid)
 
 		key := controller.VirtualMachineInstanceKey(vmiRef)
 
@@ -1484,7 +1486,11 @@ func (d *VirtualMachineController) getDomainFromCache(key string) (domain *api.D
 
 	if exists {
 		domain = obj.(*api.Domain)
-		cachedUID = domain.Spec.Metadata.KubeVirt.UID
+		// Keep backward compatability with old virt-launchers
+		if domain.ObjectMeta.UID == "" {
+			domain.ObjectMeta.UID = domain.Spec.Metadata.KubeVirt.UID
+		}
+		cachedUID = domain.ObjectMeta.UID
 
 		// We're using the DeletionTimestamp to signify that the
 		// Domain is deleted rather than sending the DELETE watch event.
@@ -1648,7 +1654,7 @@ func (d *VirtualMachineController) defaultExecute(key string,
 	} else if vmiExists {
 		log.Log.Object(vmi).Infof("VMI is in phase: %v | Domain does not exist", vmi.Status.Phase)
 	} else if domainExists {
-		vmiRef := v1.NewVMIReferenceWithUUID(domain.ObjectMeta.Namespace, domain.ObjectMeta.Name, domain.Spec.Metadata.KubeVirt.UID)
+		vmiRef := v1.NewVMIReferenceWithUUID(domain.ObjectMeta.Namespace, domain.ObjectMeta.Name, domain.ObjectMeta.UID)
 		log.Log.Object(vmiRef).Infof("VMI does not exist | Domain status: %v, reason: %v", domain.Status.Status, domain.Status.Reason)
 	} else {
 		log.Log.Info("VMI does not exist | Domain does not exist")
@@ -1846,9 +1852,9 @@ func (d *VirtualMachineController) execute(key string) error {
 		}
 	}
 
-	if vmiExists && domainExists && domain.Spec.Metadata.KubeVirt.UID != vmi.UID {
+	if vmiExists && domainExists && domainCachedUID != vmi.UID {
 		oldVMI := v1.NewVMIReferenceFromNameWithNS(vmi.Namespace, vmi.Name)
-		oldVMI.UID = domain.Spec.Metadata.KubeVirt.UID
+		oldVMI.UID = domainCachedUID
 		expired, initialized, err := d.isLauncherClientUnresponsive(oldVMI)
 		if err != nil {
 			return err

@@ -275,8 +275,6 @@ func eventCallback(c cli.Connection, domain *api.Domain, libvirtEvent libvirtEve
 				log.Log.Reason(err).Error("Could not fetch the Domain specification.")
 				return
 			}
-		} else {
-			domain.ObjectMeta.UID = spec.Metadata.KubeVirt.UID
 		}
 		if spec != nil {
 			domain.Spec = *spec

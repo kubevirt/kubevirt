@@ -475,7 +475,6 @@ func (d *DomainWatcher) handleStaleSocketConnections() error {
 			} else {
 				domain := api.NewMinimalDomainWithNS(record.Namespace, record.Name)
 				domain.ObjectMeta.UID = record.UID
-				domain.Spec.Metadata.KubeVirt.UID = record.UID
 				now := k8sv1.Now()
 				domain.ObjectMeta.DeletionTimestamp = &now
 				log.Log.Object(domain).Warningf("detected unresponsive virt-launcher command socket (%s) for domain", key)

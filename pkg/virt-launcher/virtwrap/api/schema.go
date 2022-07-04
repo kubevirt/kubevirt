@@ -348,7 +348,10 @@ type Metadata struct {
 }
 
 type KubeVirtMetadata struct {
-	UID              types.UID                 `xml:"uid"`
+	// Deprecated: Replaced by the "standard" ObjectData.UID and should
+	// not be used anymore. It is kept for backward compatability.
+	UID types.UID `xml:"uid,omitempty"`
+
 	GracePeriod      *GracePeriodMetadata      `xml:"graceperiod,omitempty"`
 	Migration        *MigrationMetadata        `xml:"migration,omitempty"`
 	AccessCredential *AccessCredentialMetadata `xml:"accessCredential,omitempty"`
@@ -1114,13 +1117,9 @@ func NewMinimalDomain(name string) *Domain {
 	return NewMinimalDomainWithNS(kubev1.NamespaceDefault, name)
 }
 
-func NewMinimalDomainWithUUID(name string, uuid types.UID) *Domain {
+func NewMinimalDomainWithUUID(name string, uid types.UID) *Domain {
 	domain := NewMinimalDomainWithNS(kubev1.NamespaceDefault, name)
-	domain.Spec.Metadata = Metadata{
-		KubeVirt: KubeVirtMetadata{
-			UID: uuid,
-		},
-	}
+	domain.ObjectMeta.UID = uid
 	return domain
 }
 

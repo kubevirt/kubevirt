@@ -699,7 +699,6 @@ var _ = Describe("Converter", func() {
   </clock>
   <metadata>
     <kubevirt xmlns="http://kubevirt.io">
-      <uid>f4686d2c-6e8d-4335-b8fd-81bee22f4814</uid>
       <graceperiod>
         <deletionGracePeriodSeconds>5</deletionGracePeriodSeconds>
       </graceperiod>
@@ -901,7 +900,6 @@ var _ = Describe("Converter", func() {
   </clock>
   <metadata>
     <kubevirt xmlns="http://kubevirt.io">
-      <uid>f4686d2c-6e8d-4335-b8fd-81bee22f4814</uid>
       <graceperiod>
         <deletionGracePeriodSeconds>5</deletionGracePeriodSeconds>
       </graceperiod>
@@ -1109,7 +1107,6 @@ var _ = Describe("Converter", func() {
   </clock>
   <metadata>
     <kubevirt xmlns="http://kubevirt.io">
-      <uid>f4686d2c-6e8d-4335-b8fd-81bee22f4814</uid>
       <graceperiod>
         <deletionGracePeriodSeconds>5</deletionGracePeriodSeconds>
       </graceperiod>
@@ -1325,7 +1322,6 @@ var _ = Describe("Converter", func() {
   </clock>
   <metadata>
     <kubevirt xmlns="http://kubevirt.io">
-      <uid>f4686d2c-6e8d-4335-b8fd-81bee22f4814</uid>
       <graceperiod>
         <deletionGracePeriodSeconds>5</deletionGracePeriodSeconds>
       </graceperiod>

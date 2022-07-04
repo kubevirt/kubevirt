@@ -452,8 +452,7 @@ func NewDomainFromName(name string, vmiUID types.UID) *api.Domain {
 	namespace, name := SplitVMINamespaceKey(name)
 
 	domain := api.NewDomainReferenceFromName(namespace, name)
-	domain.Spec.Metadata.KubeVirt.UID = vmiUID
-	domain.GetObjectMeta().SetUID(domain.Spec.Metadata.KubeVirt.UID)
+	domain.GetObjectMeta().SetUID(vmiUID)
 	return domain
 }
 
