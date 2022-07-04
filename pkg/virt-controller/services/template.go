@@ -418,7 +418,11 @@ func (t *templateService) renderLaunchManifest(vmi *v1.VirtualMachineInstance, i
 	gracePeriodSeconds = gracePeriodSeconds + int64(15)
 	gracePeriodKillAfter := gracePeriodSeconds + int64(15)
 
-	resourceRenderer, err := t.newResourceRenderer(vmi)
+	networkToResourceMap, err := getNetworkToResourceMap(t.virtClient, vmi)
+	if err != nil {
+		return nil, err
+	}
+	resourceRenderer, err := t.newResourceRenderer(vmi, networkToResourceMap)
 	if err != nil {
 		return nil, err
 	}
@@ -486,10 +490,6 @@ func (t *templateService) renderLaunchManifest(vmi *v1.VirtualMachineInstance, i
 
 	compute := t.newContainerSpecRenderer(vmi, volumeRenderer, resources, userId).Render(command)
 
-	networkToResourceMap, err := getNetworkToResourceMap(t.virtClient, vmi)
-	if err != nil {
-		return nil, err
-	}
 	for networkName, resourceName := range networkToResourceMap {
 		varName := fmt.Sprintf("KUBEVIRT_RESOURCE_NAME_%s", networkName)
 		compute.Env = append(compute.Env, k8sv1.EnvVar{Name: varName, Value: resourceName})
@@ -811,61 +811,19 @@ func (t *templateService) newVolumeRenderer(vmi *v1.VirtualMachineInstance, name
 	return volumeRenderer, nil
 }
 
-func (t *templateService) newResourceRenderer(vmi *v1.VirtualMachineInstance) (*ResourceRenderer, error) {
+func (t *templateService) newResourceRenderer(vmi *v1.VirtualMachineInstance, networkToResourceMap map[string]string) (*ResourceRenderer, error) {
 	vmiResources := vmi.Spec.Domain.Resources
-	options := []ResourceRendererOption{
+	baseOptions := []ResourceRendererOption{
 		WithEphemeralStorageRequest(),
 		WithVirtualizationResources(getRequiredResources(vmi, t.clusterConfig.AllowEmulation())),
 	}
 
-	if vmi.IsCPUDedicated() {
-		options = append(options, WithCPUPinning(vmi.Spec.Domain.CPU))
-	} else {
-		options = append(
-			options,
-			WithoutDedicatedCPU(vmi.Spec.Domain.CPU, t.clusterConfig.GetCPUAllocationRatio()),
-		)
-	}
-
-	memoryOverhead := GetMemoryOverhead(vmi, t.clusterConfig.GetClusterCPUArch())
-	if util.HasHugePages(vmi) {
-		options = append(
-			options,
-			WithHugePages(vmi.Spec.Domain.Memory, memoryOverhead),
-		)
-	} else {
-		options = append(options, WithMemoryOverhead(vmi.Spec.Domain.Resources, memoryOverhead))
-	}
-
-	networkToResourceMap, err := getNetworkToResourceMap(t.virtClient, vmi)
-	if err != nil {
-		return nil, err
-	}
-	if len(networkToResourceMap) > 0 {
-		options = append(options, WithNetworkResources(networkToResourceMap))
-	}
-
-	if err = validatePermittedHostDevices(&vmi.Spec, t.clusterConfig); err != nil {
+	if err := validatePermittedHostDevices(&vmi.Spec, t.clusterConfig); err != nil {
 		return nil, err
 	}
 
-	if util.IsGPUVMI(vmi) {
-		options = append(options, WithGPUs(vmi.Spec.Domain.Devices.GPUs))
-	}
-
-	if util.IsHostDevVMI(vmi) {
-		options = append(options, WithHostDevices(vmi.Spec.Domain.Devices.HostDevices))
-	}
-
-	if util.IsSEVVMI(vmi) {
-		options = append(options, WithSEV())
-	}
-
-	return NewResourceRenderer(
-		vmiResources.Limits,
-		vmiResources.Requests,
-		options...,
-	), nil
+	options := append(baseOptions, t.VMIResourcePredicates(vmi, networkToResourceMap).Apply()...)
+	return NewResourceRenderer(vmiResources.Limits, vmiResources.Requests, options...), nil
 }
 
 func sidecarVolumeMount() k8sv1.VolumeMount {
@@ -1407,4 +1365,33 @@ func checkForKeepLauncherAfterFailure(vmi *v1.VirtualMachineInstance) bool {
 		}
 	}
 	return keepLauncherAfterFailure
+}
+
+func (t *templateService) VMIResourcePredicates(vmi *v1.VirtualMachineInstance, networkToResourceMap map[string]string) VMIResourcePredicates {
+	memoryOverhead := GetMemoryOverhead(vmi, t.clusterConfig.GetClusterCPUArch())
+	return VMIResourcePredicates{
+		vmi: vmi,
+		resourceRules: []VMIResourceRule{
+			NewVMIResourceRule(doesVMIRequireDedicatedCPU, WithCPUPinning(vmi.Spec.Domain.CPU)),
+			NewVMIResourceRule(not(doesVMIRequireDedicatedCPU), WithoutDedicatedCPU(vmi.Spec.Domain.CPU, t.clusterConfig.GetCPUAllocationRatio())),
+			NewVMIResourceRule(util.HasHugePages, WithHugePages(vmi.Spec.Domain.Memory, memoryOverhead)),
+			NewVMIResourceRule(not(util.HasHugePages), WithMemoryOverhead(vmi.Spec.Domain.Resources, memoryOverhead)),
+			NewVMIResourceRule(func(*v1.VirtualMachineInstance) bool {
+				return len(networkToResourceMap) > 0
+			}, WithNetworkResources(networkToResourceMap)),
+			NewVMIResourceRule(util.IsGPUVMI, WithGPUs(vmi.Spec.Domain.Devices.GPUs)),
+			NewVMIResourceRule(util.IsHostDevVMI, WithHostDevices(vmi.Spec.Domain.Devices.HostDevices)),
+			NewVMIResourceRule(util.IsSEVVMI, WithSEV()),
+		},
+	}
+}
+
+func (p VMIResourcePredicates) Apply() []ResourceRendererOption {
+	var options []ResourceRendererOption
+	for _, rule := range p.resourceRules {
+		if rule.predicate(p.vmi) {
+			options = append(options, rule.option)
+		}
+	}
+	return options
 }

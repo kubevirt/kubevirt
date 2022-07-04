@@ -27,6 +27,31 @@ type ResourceRenderer struct {
 	calculatedRequests k8sv1.ResourceList
 }
 
+type resourcePredicate func(*v1.VirtualMachineInstance) bool
+
+type VMIResourcePredicates struct {
+	resourceRules []VMIResourceRule
+	vmi           *v1.VirtualMachineInstance
+}
+
+type VMIResourceRule struct {
+	predicate resourcePredicate
+	option    ResourceRendererOption
+}
+
+func not(p resourcePredicate) resourcePredicate {
+	return func(vmi *v1.VirtualMachineInstance) bool {
+		return !p(vmi)
+	}
+}
+func NewVMIResourceRule(p resourcePredicate, option ResourceRendererOption) VMIResourceRule {
+	return VMIResourceRule{predicate: p, option: option}
+}
+
+func doesVMIRequireDedicatedCPU(vmi *v1.VirtualMachineInstance) bool {
+	return vmi.IsCPUDedicated()
+}
+
 func NewResourceRenderer(vmLimits k8sv1.ResourceList, vmRequests k8sv1.ResourceList, options ...ResourceRendererOption) *ResourceRenderer {
 	limits := map[k8sv1.ResourceName]resource.Quantity{}
 	requests := map[k8sv1.ResourceName]resource.Quantity{}
