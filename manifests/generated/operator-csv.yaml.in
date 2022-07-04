@@ -331,6 +331,22 @@ spec:
           - watch
           - patch
         - apiGroups:
+          - flavor.kubevirt.io
+          resources:
+          - virtualmachineflavors
+          - virtualmachineclusterflavors
+          - virtualmachinepreferences
+          - virtualmachineclusterpreferences
+          verbs:
+          - get
+          - delete
+          - create
+          - update
+          - patch
+          - list
+          - watch
+          - deletecollection
+        - apiGroups:
           - ""
           resources:
           - pods
@@ -428,10 +444,10 @@ spec:
           - list
           - watch
         - apiGroups:
-          - flavor.kubevirt.io
+          - instancetype.kubevirt.io
           resources:
-          - virtualmachineflavors
-          - virtualmachineclusterflavors
+          - virtualmachineinstancetypes
+          - virtualmachineclusterinstancetypes
           - virtualmachinepreferences
           - virtualmachineclusterpreferences
           verbs:
@@ -654,10 +670,10 @@ spec:
           - list
           - watch
         - apiGroups:
-          - flavor.kubevirt.io
+          - instancetype.kubevirt.io
           resources:
-          - virtualmachineflavors
-          - virtualmachineclusterflavors
+          - virtualmachineinstancetypes
+          - virtualmachineclusterinstancetypes
           - virtualmachinepreferences
           - virtualmachineclusterpreferences
           verbs:
@@ -858,10 +874,10 @@ spec:
           - watch
           - deletecollection
         - apiGroups:
-          - flavor.kubevirt.io
+          - instancetype.kubevirt.io
           resources:
-          - virtualmachineflavors
-          - virtualmachineclusterflavors
+          - virtualmachineinstancetypes
+          - virtualmachineclusterinstancetypes
           - virtualmachinepreferences
           - virtualmachineclusterpreferences
           verbs:
@@ -960,10 +976,10 @@ spec:
           - list
           - watch
         - apiGroups:
-          - flavor.kubevirt.io
+          - instancetype.kubevirt.io
           resources:
-          - virtualmachineflavors
-          - virtualmachineclusterflavors
+          - virtualmachineinstancetypes
+          - virtualmachineclusterinstancetypes
           - virtualmachinepreferences
           - virtualmachineclusterpreferences
           verbs:
@@ -1032,10 +1048,10 @@ spec:
           - list
           - watch
         - apiGroups:
-          - flavor.kubevirt.io
+          - instancetype.kubevirt.io
           resources:
-          - virtualmachineflavors
-          - virtualmachineclusterflavors
+          - virtualmachineinstancetypes
+          - virtualmachineclusterinstancetypes
           - virtualmachinepreferences
           - virtualmachineclusterpreferences
           verbs:

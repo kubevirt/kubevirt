@@ -464,14 +464,14 @@ func (l *LibvirtDomainManager) generateSomeCloudInitISO(vmi *v1.VirtualMachineIn
 		if size != 0 {
 			err = cloudinit.GenerateEmptyIso(vmi.Name, vmi.Namespace, cloudInitDataStore, size)
 		} else {
-			// ClusterFlavor will take precedence over a namespaced Flavor
+			// ClusterInstancetype will take precedence over a namespaced Instancetype
 			// for setting instance_type in the metadata
-			flavor := vmi.Annotations[v1.ClusterFlavorAnnotation]
-			if flavor == "" {
-				flavor = vmi.Annotations[v1.FlavorAnnotation]
+			instancetype := vmi.Annotations[v1.ClusterInstancetypeAnnotation]
+			if instancetype == "" {
+				instancetype = vmi.Annotations[v1.InstancetypeAnnotation]
 			}
 
-			err = cloudinit.GenerateLocalData(vmi, flavor, cloudInitDataStore)
+			err = cloudinit.GenerateLocalData(vmi, instancetype, cloudInitDataStore)
 		}
 		if err != nil {
 			return fmt.Errorf("generating local cloud-init data failed: %v", err)

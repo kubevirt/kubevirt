@@ -1320,13 +1320,13 @@
      }
     ]
    },
-   "/apis/flavor.kubevirt.io/": {
+   "/apis/instancetype.kubevirt.io/": {
     "get": {
      "description": "Get a KubeVirt API group",
      "produces": [
       "application/json"
      ],
-     "operationId": "getAPIGroup-flavor.kubevirt.io",
+     "operationId": "getAPIGroup-instancetype.kubevirt.io",
      "responses": {
       "200": {
        "description": "OK",
@@ -1346,13 +1346,13 @@
      }
     }
    },
-   "/apis/flavor.kubevirt.io/v1alpha1/": {
+   "/apis/instancetype.kubevirt.io/v1alpha1/": {
     "get": {
      "description": "Get KubeVirt API Resources",
      "produces": [
       "application/json"
      ],
-     "operationId": "getAPIResources-flavor.kubevirt.io-v1alpha1",
+     "operationId": "getAPIResources-instancetype.kubevirt.io-v1alpha1",
      "responses": {
       "200": {
        "description": "OK",
@@ -1372,15 +1372,15 @@
      }
     }
    },
-   "/apis/flavor.kubevirt.io/v1alpha1/namespaces/{namespace:[a-z0-9][a-z0-9\\-]*}/virtualmachineflavors": {
+   "/apis/instancetype.kubevirt.io/v1alpha1/namespaces/{namespace:[a-z0-9][a-z0-9\\-]*}/virtualmachineinstancetypes": {
     "get": {
-     "description": "Get a list of VirtualMachineFlavor objects.",
+     "description": "Get a list of VirtualMachineInstancetype objects.",
      "produces": [
       "application/json",
       "application/yaml",
       "application/json;stream=watch"
      ],
-     "operationId": "listNamespacedVirtualMachineFlavor",
+     "operationId": "listNamespacedVirtualMachineInstancetype",
      "parameters": [
       {
        "uniqueItems": true,
@@ -1451,7 +1451,7 @@
       "200": {
        "description": "OK",
        "schema": {
-        "$ref": "#/definitions/v1alpha1.VirtualMachineFlavorList"
+        "$ref": "#/definitions/v1alpha1.VirtualMachineInstancetypeList"
        }
       },
       "401": {
@@ -1463,7 +1463,7 @@
      }
     },
     "post": {
-     "description": "Create a VirtualMachineFlavor object.",
+     "description": "Create a VirtualMachineInstancetype object.",
      "consumes": [
       "application/json",
       "application/yaml"
@@ -1472,14 +1472,14 @@
       "application/json",
       "application/yaml"
      ],
-     "operationId": "createNamespacedVirtualMachineFlavor",
+     "operationId": "createNamespacedVirtualMachineInstancetype",
      "parameters": [
       {
        "name": "body",
        "in": "body",
        "required": true,
        "schema": {
-        "$ref": "#/definitions/v1alpha1.VirtualMachineFlavor"
+        "$ref": "#/definitions/v1alpha1.VirtualMachineInstancetype"
        }
       },
       {
@@ -1495,19 +1495,19 @@
       "200": {
        "description": "OK",
        "schema": {
-        "$ref": "#/definitions/v1alpha1.VirtualMachineFlavor"
+        "$ref": "#/definitions/v1alpha1.VirtualMachineInstancetype"
        }
       },
       "201": {
        "description": "Created",
        "schema": {
-        "$ref": "#/definitions/v1alpha1.VirtualMachineFlavor"
+        "$ref": "#/definitions/v1alpha1.VirtualMachineInstancetype"
        }
       },
       "202": {
        "description": "Accepted",
        "schema": {
-        "$ref": "#/definitions/v1alpha1.VirtualMachineFlavor"
+        "$ref": "#/definitions/v1alpha1.VirtualMachineInstancetype"
        }
       },
       "401": {
@@ -1519,12 +1519,12 @@
      }
     },
     "delete": {
-     "description": "Delete a collection of VirtualMachineFlavor objects.",
+     "description": "Delete a collection of VirtualMachineInstancetype objects.",
      "produces": [
       "application/json",
       "application/yaml"
      ],
-     "operationId": "deleteCollectionNamespacedVirtualMachineFlavor",
+     "operationId": "deleteCollectionNamespacedVirtualMachineInstancetype",
      "parameters": [
       {
        "uniqueItems": true,
@@ -1599,15 +1599,15 @@
      }
     }
    },
-   "/apis/flavor.kubevirt.io/v1alpha1/namespaces/{namespace:[a-z0-9][a-z0-9\\-]*}/virtualmachineflavors/{name:[a-z0-9][a-z0-9\\-]*}": {
+   "/apis/instancetype.kubevirt.io/v1alpha1/namespaces/{namespace:[a-z0-9][a-z0-9\\-]*}/virtualmachineinstancetypes/{name:[a-z0-9][a-z0-9\\-]*}": {
     "get": {
-     "description": "Get a VirtualMachineFlavor object.",
+     "description": "Get a VirtualMachineInstancetype object.",
      "produces": [
       "application/json",
       "application/yaml",
       "application/json;stream=watch"
      ],
-     "operationId": "readNamespacedVirtualMachineFlavor",
+     "operationId": "readNamespacedVirtualMachineInstancetype",
      "parameters": [
       {
        "uniqueItems": true,
@@ -1628,7 +1628,7 @@
       "200": {
        "description": "OK",
        "schema": {
-        "$ref": "#/definitions/v1alpha1.VirtualMachineFlavor"
+        "$ref": "#/definitions/v1alpha1.VirtualMachineInstancetype"
        }
       },
       "401": {
@@ -1640,7 +1640,7 @@
      }
     },
     "put": {
-     "description": "Update a VirtualMachineFlavor object.",
+     "description": "Update a VirtualMachineInstancetype object.",
      "consumes": [
       "application/json",
       "application/yaml"
@@ -1649,14 +1649,14 @@
       "application/json",
       "application/yaml"
      ],
-     "operationId": "replaceNamespacedVirtualMachineFlavor",
+     "operationId": "replaceNamespacedVirtualMachineInstancetype",
      "parameters": [
       {
        "name": "body",
        "in": "body",
        "required": true,
        "schema": {
-        "$ref": "#/definitions/v1alpha1.VirtualMachineFlavor"
+        "$ref": "#/definitions/v1alpha1.VirtualMachineInstancetype"
        }
       }
      ],
@@ -1664,13 +1664,13 @@
       "200": {
        "description": "OK",
        "schema": {
-        "$ref": "#/definitions/v1alpha1.VirtualMachineFlavor"
+        "$ref": "#/definitions/v1alpha1.VirtualMachineInstancetype"
        }
       },
       "201": {
        "description": "Create",
        "schema": {
-        "$ref": "#/definitions/v1alpha1.VirtualMachineFlavor"
+        "$ref": "#/definitions/v1alpha1.VirtualMachineInstancetype"
        }
       },
       "401": {
@@ -1682,7 +1682,7 @@
      }
     },
     "delete": {
-     "description": "Delete a VirtualMachineFlavor object.",
+     "description": "Delete a VirtualMachineInstancetype object.",
      "consumes": [
       "application/json",
       "application/yaml"
@@ -1691,7 +1691,7 @@
       "application/json",
       "application/yaml"
      ],
-     "operationId": "deleteNamespacedVirtualMachineFlavor",
+     "operationId": "deleteNamespacedVirtualMachineInstancetype",
      "parameters": [
       {
        "name": "body",
@@ -1739,7 +1739,7 @@
      }
     },
     "patch": {
-     "description": "Patch a VirtualMachineFlavor object.",
+     "description": "Patch a VirtualMachineInstancetype object.",
      "consumes": [
       "application/json-patch+json",
       "application/merge-patch+json"
@@ -1747,7 +1747,7 @@
      "produces": [
       "application/json"
      ],
-     "operationId": "patchNamespacedVirtualMachineFlavor",
+     "operationId": "patchNamespacedVirtualMachineInstancetype",
      "parameters": [
       {
        "name": "body",
@@ -1762,7 +1762,7 @@
       "200": {
        "description": "OK",
        "schema": {
-        "$ref": "#/definitions/v1alpha1.VirtualMachineFlavor"
+        "$ref": "#/definitions/v1alpha1.VirtualMachineInstancetype"
        }
       },
       "401": {
@@ -1792,7 +1792,7 @@
      }
     ]
    },
-   "/apis/flavor.kubevirt.io/v1alpha1/namespaces/{namespace:[a-z0-9][a-z0-9\\-]*}/virtualmachinepreferences": {
+   "/apis/instancetype.kubevirt.io/v1alpha1/namespaces/{namespace:[a-z0-9][a-z0-9\\-]*}/virtualmachinepreferences": {
     "get": {
      "description": "Get a list of VirtualMachinePreference objects.",
      "produces": [
@@ -2019,7 +2019,7 @@
      }
     }
    },
-   "/apis/flavor.kubevirt.io/v1alpha1/namespaces/{namespace:[a-z0-9][a-z0-9\\-]*}/virtualmachinepreferences/{name:[a-z0-9][a-z0-9\\-]*}": {
+   "/apis/instancetype.kubevirt.io/v1alpha1/namespaces/{namespace:[a-z0-9][a-z0-9\\-]*}/virtualmachinepreferences/{name:[a-z0-9][a-z0-9\\-]*}": {
     "get": {
      "description": "Get a VirtualMachinePreference object.",
      "produces": [
@@ -2212,15 +2212,15 @@
      }
     ]
    },
-   "/apis/flavor.kubevirt.io/v1alpha1/virtualmachineclusterflavors": {
+   "/apis/instancetype.kubevirt.io/v1alpha1/virtualmachineclusterinstancetypes": {
     "get": {
-     "description": "Get a list of VirtualMachineClusterFlavor objects.",
+     "description": "Get a list of VirtualMachineClusterInstancetype objects.",
      "produces": [
       "application/json",
       "application/yaml",
       "application/json;stream=watch"
      ],
-     "operationId": "listVirtualMachineClusterFlavor",
+     "operationId": "listVirtualMachineClusterInstancetype",
      "parameters": [
       {
        "uniqueItems": true,
@@ -2283,7 +2283,7 @@
       "200": {
        "description": "OK",
        "schema": {
-        "$ref": "#/definitions/v1alpha1.VirtualMachineClusterFlavorList"
+        "$ref": "#/definitions/v1alpha1.VirtualMachineClusterInstancetypeList"
        }
       },
       "401": {
@@ -2295,7 +2295,7 @@
      }
     },
     "post": {
-     "description": "Create a VirtualMachineClusterFlavor object.",
+     "description": "Create a VirtualMachineClusterInstancetype object.",
      "consumes": [
       "application/json",
       "application/yaml"
@@ -2304,14 +2304,14 @@
       "application/json",
       "application/yaml"
      ],
-     "operationId": "createVirtualMachineClusterFlavor",
+     "operationId": "createVirtualMachineClusterInstancetype",
      "parameters": [
       {
        "name": "body",
        "in": "body",
        "required": true,
        "schema": {
-        "$ref": "#/definitions/v1alpha1.VirtualMachineClusterFlavor"
+        "$ref": "#/definitions/v1alpha1.VirtualMachineClusterInstancetype"
        }
       }
      ],
@@ -2319,19 +2319,19 @@
       "200": {
        "description": "OK",
        "schema": {
-        "$ref": "#/definitions/v1alpha1.VirtualMachineClusterFlavor"
+        "$ref": "#/definitions/v1alpha1.VirtualMachineClusterInstancetype"
        }
       },
       "201": {
        "description": "Created",
        "schema": {
-        "$ref": "#/definitions/v1alpha1.VirtualMachineClusterFlavor"
+        "$ref": "#/definitions/v1alpha1.VirtualMachineClusterInstancetype"
        }
       },
       "202": {
        "description": "Accepted",
        "schema": {
-        "$ref": "#/definitions/v1alpha1.VirtualMachineClusterFlavor"
+        "$ref": "#/definitions/v1alpha1.VirtualMachineClusterInstancetype"
        }
       },
       "401": {
@@ -2343,12 +2343,12 @@
      }
     },
     "delete": {
-     "description": "Delete a collection of VirtualMachineClusterFlavor objects.",
+     "description": "Delete a collection of VirtualMachineClusterInstancetype objects.",
      "produces": [
       "application/json",
       "application/yaml"
      ],
-     "operationId": "deleteCollectionVirtualMachineClusterFlavor",
+     "operationId": "deleteCollectionVirtualMachineClusterInstancetype",
      "parameters": [
       {
        "uniqueItems": true,
@@ -2423,15 +2423,15 @@
      }
     }
    },
-   "/apis/flavor.kubevirt.io/v1alpha1/virtualmachineclusterflavors/{name:[a-z0-9][a-z0-9\\-]*}": {
+   "/apis/instancetype.kubevirt.io/v1alpha1/virtualmachineclusterinstancetypes/{name:[a-z0-9][a-z0-9\\-]*}": {
     "get": {
-     "description": "Get a VirtualMachineClusterFlavor object.",
+     "description": "Get a VirtualMachineClusterInstancetype object.",
      "produces": [
       "application/json",
       "application/yaml",
       "application/json;stream=watch"
      ],
-     "operationId": "readVirtualMachineClusterFlavor",
+     "operationId": "readVirtualMachineClusterInstancetype",
      "parameters": [
       {
        "uniqueItems": true,
@@ -2452,7 +2452,7 @@
       "200": {
        "description": "OK",
        "schema": {
-        "$ref": "#/definitions/v1alpha1.VirtualMachineClusterFlavor"
+        "$ref": "#/definitions/v1alpha1.VirtualMachineClusterInstancetype"
        }
       },
       "401": {
@@ -2464,7 +2464,7 @@
      }
     },
     "put": {
-     "description": "Update a VirtualMachineClusterFlavor object.",
+     "description": "Update a VirtualMachineClusterInstancetype object.",
      "consumes": [
       "application/json",
       "application/yaml"
@@ -2473,14 +2473,14 @@
       "application/json",
       "application/yaml"
      ],
-     "operationId": "replaceVirtualMachineClusterFlavor",
+     "operationId": "replaceVirtualMachineClusterInstancetype",
      "parameters": [
       {
        "name": "body",
        "in": "body",
        "required": true,
        "schema": {
-        "$ref": "#/definitions/v1alpha1.VirtualMachineClusterFlavor"
+        "$ref": "#/definitions/v1alpha1.VirtualMachineClusterInstancetype"
        }
       }
      ],
@@ -2488,13 +2488,13 @@
       "200": {
        "description": "OK",
        "schema": {
-        "$ref": "#/definitions/v1alpha1.VirtualMachineClusterFlavor"
+        "$ref": "#/definitions/v1alpha1.VirtualMachineClusterInstancetype"
        }
       },
       "201": {
        "description": "Create",
        "schema": {
-        "$ref": "#/definitions/v1alpha1.VirtualMachineClusterFlavor"
+        "$ref": "#/definitions/v1alpha1.VirtualMachineClusterInstancetype"
        }
       },
       "401": {
@@ -2506,7 +2506,7 @@
      }
     },
     "delete": {
-     "description": "Delete a VirtualMachineClusterFlavor object.",
+     "description": "Delete a VirtualMachineClusterInstancetype object.",
      "consumes": [
       "application/json",
       "application/yaml"
@@ -2515,7 +2515,7 @@
       "application/json",
       "application/yaml"
      ],
-     "operationId": "deleteVirtualMachineClusterFlavor",
+     "operationId": "deleteVirtualMachineClusterInstancetype",
      "parameters": [
       {
        "name": "body",
@@ -2563,7 +2563,7 @@
      }
     },
     "patch": {
-     "description": "Patch a VirtualMachineClusterFlavor object.",
+     "description": "Patch a VirtualMachineClusterInstancetype object.",
      "consumes": [
       "application/json-patch+json",
       "application/merge-patch+json"
@@ -2571,7 +2571,7 @@
      "produces": [
       "application/json"
      ],
-     "operationId": "patchVirtualMachineClusterFlavor",
+     "operationId": "patchVirtualMachineClusterInstancetype",
      "parameters": [
       {
        "name": "body",
@@ -2586,7 +2586,7 @@
       "200": {
        "description": "OK",
        "schema": {
-        "$ref": "#/definitions/v1alpha1.VirtualMachineClusterFlavor"
+        "$ref": "#/definitions/v1alpha1.VirtualMachineClusterInstancetype"
        }
       },
       "401": {
@@ -2608,7 +2608,7 @@
      }
     ]
    },
-   "/apis/flavor.kubevirt.io/v1alpha1/virtualmachineclusterpreferences": {
+   "/apis/instancetype.kubevirt.io/v1alpha1/virtualmachineclusterpreferences": {
     "get": {
      "description": "Get a list of VirtualMachineClusterPreference objects.",
      "produces": [
@@ -2819,7 +2819,7 @@
      }
     }
    },
-   "/apis/flavor.kubevirt.io/v1alpha1/virtualmachineclusterpreferences/{name:[a-z0-9][a-z0-9\\-]*}": {
+   "/apis/instancetype.kubevirt.io/v1alpha1/virtualmachineclusterpreferences/{name:[a-z0-9][a-z0-9\\-]*}": {
     "get": {
      "description": "Get a VirtualMachineClusterPreference object.",
      "produces": [
@@ -3004,20 +3004,20 @@
      }
     ]
    },
-   "/apis/flavor.kubevirt.io/v1alpha1/virtualmachineflavors": {
+   "/apis/instancetype.kubevirt.io/v1alpha1/virtualmachineinstancetypes": {
     "get": {
-     "description": "Get a list of all VirtualMachineFlavor objects.",
+     "description": "Get a list of all VirtualMachineInstancetype objects.",
      "produces": [
       "application/json",
       "application/yaml",
       "application/json;stream=watch"
      ],
-     "operationId": "listVirtualMachineFlavorForAllNamespaces",
+     "operationId": "listVirtualMachineInstancetypeForAllNamespaces",
      "responses": {
       "200": {
        "description": "OK",
        "schema": {
-        "$ref": "#/definitions/v1alpha1.VirtualMachineFlavorList"
+        "$ref": "#/definitions/v1alpha1.VirtualMachineInstancetypeList"
        }
       },
       "401": {
@@ -3087,7 +3087,7 @@
      }
     ]
    },
-   "/apis/flavor.kubevirt.io/v1alpha1/virtualmachinepreferences": {
+   "/apis/instancetype.kubevirt.io/v1alpha1/virtualmachinepreferences": {
     "get": {
      "description": "Get a list of all VirtualMachinePreference objects.",
      "produces": [
@@ -3170,13 +3170,13 @@
      }
     ]
    },
-   "/apis/flavor.kubevirt.io/v1alpha1/watch/namespaces/{namespace:[a-z0-9][a-z0-9\\-]*}/virtualmachineflavors": {
+   "/apis/instancetype.kubevirt.io/v1alpha1/watch/namespaces/{namespace:[a-z0-9][a-z0-9\\-]*}/virtualmachineinstancetypes": {
     "get": {
-     "description": "Watch a VirtualMachineFlavor object.",
+     "description": "Watch a VirtualMachineInstancetype object.",
      "produces": [
       "application/json"
      ],
-     "operationId": "watchNamespacedVirtualMachineFlavor",
+     "operationId": "watchNamespacedVirtualMachineInstancetype",
      "responses": {
       "200": {
        "description": "OK",
@@ -3259,7 +3259,7 @@
      }
     ]
    },
-   "/apis/flavor.kubevirt.io/v1alpha1/watch/namespaces/{namespace:[a-z0-9][a-z0-9\\-]*}/virtualmachinepreferences": {
+   "/apis/instancetype.kubevirt.io/v1alpha1/watch/namespaces/{namespace:[a-z0-9][a-z0-9\\-]*}/virtualmachinepreferences": {
     "get": {
      "description": "Watch a VirtualMachinePreference object.",
      "produces": [
@@ -3348,13 +3348,13 @@
      }
     ]
    },
-   "/apis/flavor.kubevirt.io/v1alpha1/watch/virtualmachineclusterflavors": {
+   "/apis/instancetype.kubevirt.io/v1alpha1/watch/virtualmachineclusterinstancetypes": {
     "get": {
-     "description": "Watch a VirtualMachineClusterFlavorList object.",
+     "description": "Watch a VirtualMachineClusterInstancetypeList object.",
      "produces": [
       "application/json"
      ],
-     "operationId": "watchVirtualMachineClusterFlavorListForAllNamespaces",
+     "operationId": "watchVirtualMachineClusterInstancetypeListForAllNamespaces",
      "responses": {
       "200": {
        "description": "OK",
@@ -3429,7 +3429,7 @@
      }
     ]
    },
-   "/apis/flavor.kubevirt.io/v1alpha1/watch/virtualmachineclusterpreferences": {
+   "/apis/instancetype.kubevirt.io/v1alpha1/watch/virtualmachineclusterpreferences": {
     "get": {
      "description": "Watch a VirtualMachineClusterPreferenceList object.",
      "produces": [
@@ -3510,13 +3510,13 @@
      }
     ]
    },
-   "/apis/flavor.kubevirt.io/v1alpha1/watch/virtualmachineflavors": {
+   "/apis/instancetype.kubevirt.io/v1alpha1/watch/virtualmachineinstancetypes": {
     "get": {
-     "description": "Watch a VirtualMachineFlavorList object.",
+     "description": "Watch a VirtualMachineInstancetypeList object.",
      "produces": [
       "application/json"
      ],
-     "operationId": "watchVirtualMachineFlavorListForAllNamespaces",
+     "operationId": "watchVirtualMachineInstancetypeListForAllNamespaces",
      "responses": {
       "200": {
        "description": "OK",
@@ -3591,7 +3591,7 @@
      }
     ]
    },
-   "/apis/flavor.kubevirt.io/v1alpha1/watch/virtualmachinepreferences": {
+   "/apis/instancetype.kubevirt.io/v1alpha1/watch/virtualmachinepreferences": {
     "get": {
      "description": "Watch a VirtualMachinePreferenceList object.",
      "produces": [
@@ -15977,27 +15977,6 @@
      }
     }
    },
-   "v1.FlavorMatcher": {
-    "description": "FlavorMatcher references a flavor that is used to fill fields in the VMI template.",
-    "type": "object",
-    "required": [
-     "name"
-    ],
-    "properties": {
-     "kind": {
-      "description": "Kind specifies which flavor resource is referenced. Allowed values are: \"VirtualMachineFlavor\" and \"VirtualMachineClusterFlavor\". If not specified, \"VirtualMachineClusterFlavor\" is used by default.",
-      "type": "string"
-     },
-     "name": {
-      "description": "Name is the name of the VirtualMachineFlavor or VirtualMachineClusterFlavor",
-      "type": "string"
-     },
-     "revisionName": {
-      "description": "RevisionName specifies a ControllerRevision containing a specific copy of the VirtualMachineFlavor or VirtualMachineClusterFlavor to be used. This is initially captured the first time the flavor is applied to the VirtualMachineInstance.",
-      "type": "string"
-     }
-    }
-   },
    "v1.FreezeUnfreezeTimeout": {
     "description": "FreezeUnfreezeTimeout represent the time unfreeze will be triggered if guest was not unfrozen by unfreeze command",
     "type": "object",
@@ -16222,6 +16201,27 @@
      },
      "type": {
       "description": "Type indicated the type of input device. Supported values: tablet.",
+      "type": "string"
+     }
+    }
+   },
+   "v1.InstancetypeMatcher": {
+    "description": "InstancetypeMatcher references a instancetype that is used to fill fields in the VMI template.",
+    "type": "object",
+    "required": [
+     "name"
+    ],
+    "properties": {
+     "kind": {
+      "description": "Kind specifies which instancetype resource is referenced. Allowed values are: \"VirtualMachineInstancetype\" and \"VirtualMachineClusterInstancetype\". If not specified, \"VirtualMachineClusterInstancetype\" is used by default.",
+      "type": "string"
+     },
+     "name": {
+      "description": "Name is the name of the VirtualMachineInstancetype or VirtualMachineClusterInstancetype",
+      "type": "string"
+     },
+     "revisionName": {
+      "description": "RevisionName specifies a ControllerRevision containing a specific copy of the VirtualMachineInstancetype or VirtualMachineClusterInstancetype to be used. This is initially captured the first time the instancetype is applied to the VirtualMachineInstance.",
       "type": "string"
      }
     }
@@ -17220,7 +17220,7 @@
       "type": "string"
      },
      "revisionName": {
-      "description": "RevisionName specifies a ControllerRevision containing a specific copy of the VirtualMachinePreference or VirtualMachineClusterPreference to be used. This is initially captured the first time the flavor is applied to the VirtualMachineInstance.",
+      "description": "RevisionName specifies a ControllerRevision containing a specific copy of the VirtualMachinePreference or VirtualMachineClusterPreference to be used. This is initially captured the first time the instancetype is applied to the VirtualMachineInstance.",
       "type": "string"
      }
     }
@@ -18850,9 +18850,9 @@
        "$ref": "#/definitions/v1.DataVolumeTemplateSpec"
       }
      },
-     "flavor": {
-      "description": "FlavorMatcher references a flavor that is used to fill fields in Template",
-      "$ref": "#/definitions/v1.FlavorMatcher"
+     "instancetype": {
+      "description": "InstancetypeMatcher references a instancetype that is used to fill fields in Template",
+      "$ref": "#/definitions/v1.InstancetypeMatcher"
      },
      "preference": {
       "description": "PreferenceMatcher references a set of preference that is used to fill fields in Template",
@@ -19146,8 +19146,8 @@
      }
     }
    },
-   "v1alpha1.CPUFlavor": {
-    "description": "CPUFlavor contains the CPU related configuration of a given VirtualMachineFlavorSpec.\n\nGuest is a required attribute and defines the number of vCPUs to be exposed to the guest by the flavor.",
+   "v1alpha1.CPUInstancetype": {
+    "description": "CPUInstancetype contains the CPU related configuration of a given VirtualMachineInstancetypeSpec.\n\nGuest is a required attribute and defines the number of vCPUs to be exposed to the guest by the instancetype.",
     "type": "object",
     "required": [
      "guest"
@@ -19406,8 +19406,8 @@
      }
     }
    },
-   "v1alpha1.MemoryFlavor": {
-    "description": "MemoryFlavor contains the Memory related configuration of a given VirtualMachineFlavorSpec.\n\nGuest is a required attribute and defines the amount of RAM to be exposed to the guest by the flavor.",
+   "v1alpha1.MemoryInstancetype": {
+    "description": "MemoryInstancetype contains the Memory related configuration of a given VirtualMachineInstancetypeSpec.\n\nGuest is a required attribute and defines the amount of RAM to be exposed to the guest by the instancetype.",
     "type": "object",
     "properties": {
      "guest": {
@@ -19677,8 +19677,8 @@
      }
     }
    },
-   "v1alpha1.VirtualMachineClusterFlavor": {
-    "description": "VirtualMachineClusterFlavor is a cluster scoped version of VirtualMachineFlavor resource.",
+   "v1alpha1.VirtualMachineClusterInstancetype": {
+    "description": "VirtualMachineClusterInstancetype is a cluster scoped version of VirtualMachineInstancetype resource.",
     "type": "object",
     "required": [
      "spec"
@@ -19696,13 +19696,13 @@
       "$ref": "#/definitions/k8s.io.apimachinery.pkg.apis.meta.v1.ObjectMeta"
      },
      "spec": {
-      "description": "Required spec describing the flavor",
-      "$ref": "#/definitions/v1alpha1.VirtualMachineFlavorSpec"
+      "description": "Required spec describing the instancetype",
+      "$ref": "#/definitions/v1alpha1.VirtualMachineInstancetypeSpec"
      }
     }
    },
-   "v1alpha1.VirtualMachineClusterFlavorList": {
-    "description": "VirtualMachineClusterFlavorList is a list of VirtualMachineClusterFlavor resources.",
+   "v1alpha1.VirtualMachineClusterInstancetypeList": {
+    "description": "VirtualMachineClusterInstancetypeList is a list of VirtualMachineClusterInstancetype resources.",
     "type": "object",
     "required": [
      "items"
@@ -19715,7 +19715,7 @@
      "items": {
       "type": "array",
       "items": {
-       "$ref": "#/definitions/v1alpha1.VirtualMachineClusterFlavor"
+       "$ref": "#/definitions/v1alpha1.VirtualMachineClusterInstancetype"
       }
      },
      "kind": {
@@ -19950,8 +19950,8 @@
      }
     }
    },
-   "v1alpha1.VirtualMachineFlavor": {
-    "description": "VirtualMachineFlavor resource contains quantitative and resource related VirtualMachine configuration that can be used by multiple VirtualMachine resources.",
+   "v1alpha1.VirtualMachineInstancetype": {
+    "description": "VirtualMachineInstancetype resource contains quantitative and resource related VirtualMachine configuration that can be used by multiple VirtualMachine resources.",
     "type": "object",
     "required": [
      "spec"
@@ -19969,13 +19969,13 @@
       "$ref": "#/definitions/k8s.io.apimachinery.pkg.apis.meta.v1.ObjectMeta"
      },
      "spec": {
-      "description": "Required spec describing the flavor",
-      "$ref": "#/definitions/v1alpha1.VirtualMachineFlavorSpec"
+      "description": "Required spec describing the instancetype",
+      "$ref": "#/definitions/v1alpha1.VirtualMachineInstancetypeSpec"
      }
     }
    },
-   "v1alpha1.VirtualMachineFlavorList": {
-    "description": "VirtualMachineFlavorList is a list of VirtualMachineFlavor resources.",
+   "v1alpha1.VirtualMachineInstancetypeList": {
+    "description": "VirtualMachineInstancetypeList is a list of VirtualMachineInstancetype resources.",
     "type": "object",
     "required": [
      "items"
@@ -19988,7 +19988,7 @@
      "items": {
       "type": "array",
       "items": {
-       "$ref": "#/definitions/v1alpha1.VirtualMachineFlavor"
+       "$ref": "#/definitions/v1alpha1.VirtualMachineInstancetype"
       }
      },
      "kind": {
@@ -20000,8 +20000,8 @@
      }
     }
    },
-   "v1alpha1.VirtualMachineFlavorSpec": {
-    "description": "VirtualMachineFlavorSpec is a description of the VirtualMachineFlavor or VirtualMachineClusterFlavor.\n\nCPU and Memory are required attributes with both requiring that their Guest attribute is defined, ensuring a number of vCPUs and amount of RAM is always provided by each flavor.",
+   "v1alpha1.VirtualMachineInstancetypeSpec": {
+    "description": "VirtualMachineInstancetypeSpec is a description of the VirtualMachineInstancetype or VirtualMachineClusterInstancetype.\n\nCPU and Memory are required attributes with both requiring that their Guest attribute is defined, ensuring a number of vCPUs and amount of RAM is always provided by each instancetype.",
     "type": "object",
     "required": [
      "cpu",
@@ -20009,11 +20009,11 @@
     ],
     "properties": {
      "cpu": {
-      "description": "Required CPU related attributes of the flavor.",
-      "$ref": "#/definitions/v1alpha1.CPUFlavor"
+      "description": "Required CPU related attributes of the instancetype.",
+      "$ref": "#/definitions/v1alpha1.CPUInstancetype"
      },
      "gpus": {
-      "description": "Optionally defines any GPU devices associated with the flavor.",
+      "description": "Optionally defines any GPU devices associated with the instancetype.",
       "type": "array",
       "items": {
        "$ref": "#/definitions/v1.GPU"
@@ -20021,7 +20021,7 @@
       "x-kubernetes-list-type": "atomic"
      },
      "hostDevices": {
-      "description": "Optionally defines any HostDevices associated with the flavor.",
+      "description": "Optionally defines any HostDevices associated with the instancetype.",
       "type": "array",
       "items": {
        "$ref": "#/definitions/v1.HostDevice"
@@ -20029,16 +20029,16 @@
       "x-kubernetes-list-type": "atomic"
      },
      "ioThreadsPolicy": {
-      "description": "Optionally defines the IOThreadsPolicy to be used by the flavor.",
+      "description": "Optionally defines the IOThreadsPolicy to be used by the instancetype.",
       "type": "string"
      },
      "launchSecurity": {
-      "description": "Optionally defines the LaunchSecurity to be used by the flavor.",
+      "description": "Optionally defines the LaunchSecurity to be used by the instancetype.",
       "$ref": "#/definitions/v1.LaunchSecurity"
      },
      "memory": {
-      "description": "Required Memory related attributes of the flavor.",
-      "$ref": "#/definitions/v1alpha1.MemoryFlavor"
+      "description": "Required Memory related attributes of the instancetype.",
+      "$ref": "#/definitions/v1alpha1.MemoryInstancetype"
      }
     }
    },

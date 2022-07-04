@@ -454,7 +454,7 @@ var _ = Describe("[rfe_id:151][crit:high][vendor:cnv-qe@redhat.com][level:compon
 				CheckCloudInitFile(vmi, "openstack/latest/network_data.json", testNetworkData)
 			})
 			It("[test_id:4622]should have cloud-init meta_data with tagged devices", func() {
-				testFlavor := "testFlavor"
+				testInstancetype := "testInstancetype"
 				vmi := tests.NewRandomVMIWithEphemeralDiskAndConfigDriveUserdataNetworkData(
 					cd.ContainerDiskFor(cd.ContainerDiskCirros), "", testNetworkData, false)
 				vmi.Spec.Domain.Devices.Interfaces = []v1.Interface{{Name: "default", Tag: "specialNet", InterfaceBindingMethod: v1.InterfaceBindingMethod{Masquerade: &v1.InterfaceMasquerade{}}}}
@@ -462,7 +462,7 @@ var _ = Describe("[rfe_id:151][crit:high][vendor:cnv-qe@redhat.com][level:compon
 				if vmi.Annotations == nil {
 					vmi.Annotations = make(map[string]string)
 				}
-				vmi.Annotations[v1.FlavorAnnotation] = testFlavor
+				vmi.Annotations[v1.InstancetypeAnnotation] = testInstancetype
 				vmi = LaunchVMI(vmi)
 				tests.WaitUntilVMIReady(vmi, console.LoginToCirros)
 				CheckCloudInitIsoSize(vmi, cloudinit.DataSourceConfigDrive)
@@ -489,7 +489,7 @@ var _ = Describe("[rfe_id:151][crit:high][vendor:cnv-qe@redhat.com][level:compon
 
 				metadataStruct := cloudinit.ConfigDriveMetadata{
 					InstanceID:   fmt.Sprintf("%s.%s", vmi.Name, vmi.Namespace),
-					InstanceType: testFlavor,
+					InstanceType: testInstancetype,
 					Hostname:     dns.SanitizeHostname(vmi),
 					UUID:         string(vmi.Spec.Domain.Firmware.UUID),
 					Devices:      &deviceData,

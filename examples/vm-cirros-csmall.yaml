@@ -6,9 +6,9 @@ metadata:
     kubevirt.io/vm: vm-cirros-csmall
   name: vm-cirros-csmall
 spec:
-  flavor:
-    kind: VirtualMachineFlavor
-    name: vmf-csmall
+  instancetype:
+    kind: VirtualMachineInstancetype
+    name: csmall
   running: false
   template:
     metadata:

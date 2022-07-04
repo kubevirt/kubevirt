@@ -12,7 +12,7 @@ import (
 	"kubevirt.io/api/clone"
 	clonev1alpha1 "kubevirt.io/api/clone/v1alpha1"
 
-	"kubevirt.io/api/flavor"
+	"kubevirt.io/api/instancetype"
 
 	"kubevirt.io/api/core"
 	"kubevirt.io/api/migrations"
@@ -21,7 +21,7 @@ import (
 
 	virtv1 "kubevirt.io/api/core/v1"
 	exportv1 "kubevirt.io/api/export/v1alpha1"
-	flavorv1alpha1 "kubevirt.io/api/flavor/v1alpha1"
+	instancetypev1alpha1 "kubevirt.io/api/instancetype/v1alpha1"
 	poolv1 "kubevirt.io/api/pool/v1alpha1"
 	snapshotv1 "kubevirt.io/api/snapshot/v1alpha1"
 )
@@ -276,8 +276,8 @@ func NewVirtAPIValidatingWebhookConfiguration(installNamespace string) *admissio
 	vmSnapshotValidatePath := VMSnapshotValidatePath
 	vmRestoreValidatePath := VMRestoreValidatePath
 	vmExportValidatePath := VMExportValidatePath
-	VmFlavorValidatePath := VMFlavorValidatePath
-	VmClusterFlavorValidatePath := VMClusterFlavorValidatePath
+	VmInstancetypeValidatePath := VMInstancetypeValidatePath
+	VmClusterInstancetypeValidatePath := VMClusterInstancetypeValidatePath
 	vmPreferenceValidatePath := VMPreferenceValidatePath
 	vmClusterPreferenceValidatePath := VMClusterPreferenceValidatePath
 	launcherEvictionValidatePath := LauncherEvictionValidatePath
@@ -601,7 +601,7 @@ func NewVirtAPIValidatingWebhookConfiguration(installNamespace string) *admissio
 				},
 			},
 			{
-				Name:                    "virtualmachineflavor-validator.flavor.kubevirt.io",
+				Name:                    "virtualmachineinstancetype-validator.instancetype.kubevirt.io",
 				AdmissionReviewVersions: []string{"v1", "v1beta1"},
 				FailurePolicy:           &failurePolicy,
 				TimeoutSeconds:          &defaultTimeoutSeconds,
@@ -612,21 +612,21 @@ func NewVirtAPIValidatingWebhookConfiguration(installNamespace string) *admissio
 						admissionregistrationv1.Update,
 					},
 					Rule: admissionregistrationv1.Rule{
-						APIGroups:   []string{flavorv1alpha1.SchemeGroupVersion.Group},
-						APIVersions: []string{flavorv1alpha1.SchemeGroupVersion.Version},
-						Resources:   []string{flavor.PluralResourceName},
+						APIGroups:   []string{instancetypev1alpha1.SchemeGroupVersion.Group},
+						APIVersions: []string{instancetypev1alpha1.SchemeGroupVersion.Version},
+						Resources:   []string{instancetype.PluralResourceName},
 					},
 				}},
 				ClientConfig: admissionregistrationv1.WebhookClientConfig{
 					Service: &admissionregistrationv1.ServiceReference{
 						Namespace: installNamespace,
 						Name:      VirtApiServiceName,
-						Path:      &VmFlavorValidatePath,
+						Path:      &VmInstancetypeValidatePath,
 					},
 				},
 			},
 			{
-				Name:                    "virtualmachineclusterflavor-validator.flavor.kubevirt.io",
+				Name:                    "virtualmachineclusterinstancetype-validator.instancetype.kubevirt.io",
 				AdmissionReviewVersions: []string{"v1", "v1beta1"},
 				FailurePolicy:           &failurePolicy,
 				TimeoutSeconds:          &defaultTimeoutSeconds,
@@ -637,21 +637,21 @@ func NewVirtAPIValidatingWebhookConfiguration(installNamespace string) *admissio
 						admissionregistrationv1.Update,
 					},
 					Rule: admissionregistrationv1.Rule{
-						APIGroups:   []string{flavorv1alpha1.SchemeGroupVersion.Group},
-						APIVersions: []string{flavorv1alpha1.SchemeGroupVersion.Version},
-						Resources:   []string{flavor.ClusterPluralResourceName},
+						APIGroups:   []string{instancetypev1alpha1.SchemeGroupVersion.Group},
+						APIVersions: []string{instancetypev1alpha1.SchemeGroupVersion.Version},
+						Resources:   []string{instancetype.ClusterPluralResourceName},
 					},
 				}},
 				ClientConfig: admissionregistrationv1.WebhookClientConfig{
 					Service: &admissionregistrationv1.ServiceReference{
 						Namespace: installNamespace,
 						Name:      VirtApiServiceName,
-						Path:      &VmClusterFlavorValidatePath,
+						Path:      &VmClusterInstancetypeValidatePath,
 					},
 				},
 			},
 			{
-				Name:                    "virtualmachinepreference-validator.flavor.kubevirt.io",
+				Name:                    "virtualmachinepreference-validator.instancetype.kubevirt.io",
 				AdmissionReviewVersions: []string{"v1", "v1beta1"},
 				FailurePolicy:           &failurePolicy,
 				TimeoutSeconds:          &defaultTimeoutSeconds,
@@ -662,9 +662,9 @@ func NewVirtAPIValidatingWebhookConfiguration(installNamespace string) *admissio
 						admissionregistrationv1.Update,
 					},
 					Rule: admissionregistrationv1.Rule{
-						APIGroups:   []string{flavorv1alpha1.SchemeGroupVersion.Group},
-						APIVersions: []string{flavorv1alpha1.SchemeGroupVersion.Version},
-						Resources:   []string{flavor.PluralPreferenceResourceName},
+						APIGroups:   []string{instancetypev1alpha1.SchemeGroupVersion.Group},
+						APIVersions: []string{instancetypev1alpha1.SchemeGroupVersion.Version},
+						Resources:   []string{instancetype.PluralPreferenceResourceName},
 					},
 				}},
 				ClientConfig: admissionregistrationv1.WebhookClientConfig{
@@ -676,7 +676,7 @@ func NewVirtAPIValidatingWebhookConfiguration(installNamespace string) *admissio
 				},
 			},
 			{
-				Name:                    "virtualmachineclusterpreference-validator.flavor.kubevirt.io",
+				Name:                    "virtualmachineclusterpreference-validator.instancetype.kubevirt.io",
 				AdmissionReviewVersions: []string{"v1", "v1beta1"},
 				FailurePolicy:           &failurePolicy,
 				TimeoutSeconds:          &defaultTimeoutSeconds,
@@ -687,9 +687,9 @@ func NewVirtAPIValidatingWebhookConfiguration(installNamespace string) *admissio
 						admissionregistrationv1.Update,
 					},
 					Rule: admissionregistrationv1.Rule{
-						APIGroups:   []string{flavorv1alpha1.SchemeGroupVersion.Group},
-						APIVersions: []string{flavorv1alpha1.SchemeGroupVersion.Version},
-						Resources:   []string{flavor.ClusterPluralPreferenceResourceName},
+						APIGroups:   []string{instancetypev1alpha1.SchemeGroupVersion.Group},
+						APIVersions: []string{instancetypev1alpha1.SchemeGroupVersion.Version},
+						Resources:   []string{instancetype.ClusterPluralPreferenceResourceName},
 					},
 				}},
 				ClientConfig: admissionregistrationv1.WebhookClientConfig{
@@ -831,9 +831,9 @@ const VMRestoreValidatePath = "/virtualmachinerestores-validate"
 
 const VMExportValidatePath = "/virtualmachineexports-validate"
 
-const VMFlavorValidatePath = "/virtualmachineflavors-validate"
+const VMInstancetypeValidatePath = "/virtualmachineinstancetypes-validate"
 
-const VMClusterFlavorValidatePath = "/virtualmachineclusterflavors-validate"
+const VMClusterInstancetypeValidatePath = "/virtualmachineclusterinstancetypes-validate"
 
 const VMPreferenceValidatePath = "/virtualmachinepreferences-validate"
 

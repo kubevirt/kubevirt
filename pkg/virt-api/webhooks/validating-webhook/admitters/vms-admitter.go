@@ -39,7 +39,7 @@ import (
 	"kubevirt.io/client-go/kubecli"
 	cdiclone "kubevirt.io/containerized-data-importer/pkg/clone"
 
-	"kubevirt.io/kubevirt/pkg/flavor"
+	"kubevirt.io/kubevirt/pkg/instancetype"
 	typesutil "kubevirt.io/kubevirt/pkg/util/types"
 	webhookutils "kubevirt.io/kubevirt/pkg/util/webhooks"
 	"kubevirt.io/kubevirt/pkg/virt-api/webhooks"
@@ -51,11 +51,11 @@ var validRunStrategies = []v1.VirtualMachineRunStrategy{v1.RunStrategyHalted, v1
 type CloneAuthFunc func(pvcNamespace, pvcName, saNamespace, saName string) (bool, string, error)
 
 type VMsAdmitter struct {
-	VirtClient         kubecli.KubevirtClient
-	DataSourceInformer cache.SharedIndexInformer
-	FlavorMethods      flavor.Methods
-	ClusterConfig      *virtconfig.ClusterConfig
-	cloneAuthFunc      CloneAuthFunc
+	VirtClient          kubecli.KubevirtClient
+	DataSourceInformer  cache.SharedIndexInformer
+	InstancetypeMethods instancetype.Methods
+	ClusterConfig       *virtconfig.ClusterConfig
+	cloneAuthFunc       CloneAuthFunc
 }
 
 type sarProxy struct {
@@ -70,10 +70,10 @@ func NewVMsAdmitter(clusterConfig *virtconfig.ClusterConfig, client kubecli.Kube
 	proxy := &sarProxy{client: client}
 
 	return &VMsAdmitter{
-		VirtClient:         client,
-		DataSourceInformer: informers.DataSourceInformer,
-		FlavorMethods:      flavor.NewMethods(client),
-		ClusterConfig:      clusterConfig,
+		VirtClient:          client,
+		DataSourceInformer:  informers.DataSourceInformer,
+		InstancetypeMethods: instancetype.NewMethods(client),
+		ClusterConfig:       clusterConfig,
 		cloneAuthFunc: func(pvcNamespace, pvcName, saNamespace, saName string) (bool, string, error) {
 			return cdiclone.CanServiceAccountClonePVC(proxy, pvcNamespace, pvcName, saNamespace, saName)
 		},
@@ -99,7 +99,7 @@ func (admitter *VMsAdmitter) Admit(ar *admissionv1.AdmissionReview) *admissionv1
 		return webhookutils.ToAdmissionResponseError(err)
 	}
 
-	causes := admitter.applyFlavorToVm(&vm)
+	causes := admitter.applyInstancetypeToVm(&vm)
 	if len(causes) > 0 {
 		return webhookutils.ToAdmissionResponse(causes)
 	}
@@ -167,17 +167,17 @@ func (admitter *VMsAdmitter) AdmitStatus(ar *admissionv1.AdmissionReview) *admis
 	return &reviewResponse
 }
 
-func (admitter *VMsAdmitter) applyFlavorToVm(vm *v1.VirtualMachine) []metav1.StatusCause {
-	flavorSpec, err := admitter.FlavorMethods.FindFlavorSpec(vm)
+func (admitter *VMsAdmitter) applyInstancetypeToVm(vm *v1.VirtualMachine) []metav1.StatusCause {
+	instancetypeSpec, err := admitter.InstancetypeMethods.FindInstancetypeSpec(vm)
 	if err != nil {
 		return []metav1.StatusCause{{
 			Type:    metav1.CauseTypeFieldValueNotFound,
-			Message: fmt.Sprintf("Failure to find flavor: %v", err),
-			Field:   k8sfield.NewPath("spec", "flavor").String(),
+			Message: fmt.Sprintf("Failure to find instancetype: %v", err),
+			Field:   k8sfield.NewPath("spec", "instancetype").String(),
 		}}
 	}
 
-	preferenceSpec, err := admitter.FlavorMethods.FindPreferenceSpec(vm)
+	preferenceSpec, err := admitter.InstancetypeMethods.FindPreferenceSpec(vm)
 	if err != nil {
 		return []metav1.StatusCause{{
 			Type:    metav1.CauseTypeFieldValueNotFound,
@@ -186,11 +186,11 @@ func (admitter *VMsAdmitter) applyFlavorToVm(vm *v1.VirtualMachine) []metav1.Sta
 		}}
 	}
 
-	if flavorSpec == nil && preferenceSpec == nil {
+	if instancetypeSpec == nil && preferenceSpec == nil {
 		return nil
 	}
 
-	conflicts := admitter.FlavorMethods.ApplyToVmi(k8sfield.NewPath("spec", "template", "spec"), flavorSpec, preferenceSpec, &vm.Spec.Template.Spec)
+	conflicts := admitter.InstancetypeMethods.ApplyToVmi(k8sfield.NewPath("spec", "template", "spec"), instancetypeSpec, preferenceSpec, &vm.Spec.Template.Spec)
 
 	if len(conflicts) == 0 {
 		return nil
@@ -200,7 +200,7 @@ func (admitter *VMsAdmitter) applyFlavorToVm(vm *v1.VirtualMachine) []metav1.Sta
 	for _, conflict := range conflicts {
 		causes = append(causes, metav1.StatusCause{
 			Type:    metav1.CauseTypeFieldValueInvalid,
-			Message: "VM field conflicts with selected Flavor",
+			Message: "VM field conflicts with selected Instancetype",
 			Field:   conflict.String(),
 		})
 	}

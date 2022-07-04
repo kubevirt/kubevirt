@@ -777,11 +777,11 @@ func (app *virtAPIApp) registerValidatingWebhooks(informers *webhooks.Informers)
 	http.HandleFunc(components.VMExportValidatePath, func(w http.ResponseWriter, r *http.Request) {
 		validating_webhook.ServeVMExports(w, r, app.clusterConfig)
 	})
-	http.HandleFunc(components.VMFlavorValidatePath, func(w http.ResponseWriter, r *http.Request) {
-		validating_webhook.ServeVmFlavors(w, r, app.clusterConfig, app.virtCli)
+	http.HandleFunc(components.VMInstancetypeValidatePath, func(w http.ResponseWriter, r *http.Request) {
+		validating_webhook.ServeVmInstancetypes(w, r, app.clusterConfig, app.virtCli)
 	})
-	http.HandleFunc(components.VMClusterFlavorValidatePath, func(w http.ResponseWriter, r *http.Request) {
-		validating_webhook.ServeVmClusterFlavors(w, r, app.clusterConfig, app.virtCli)
+	http.HandleFunc(components.VMClusterInstancetypeValidatePath, func(w http.ResponseWriter, r *http.Request) {
+		validating_webhook.ServeVmClusterInstancetypes(w, r, app.clusterConfig, app.virtCli)
 	})
 	http.HandleFunc(components.VMPreferenceValidatePath, func(w http.ResponseWriter, r *http.Request) {
 		validating_webhook.ServeVmPreferences(w, r, app.clusterConfig, app.virtCli)

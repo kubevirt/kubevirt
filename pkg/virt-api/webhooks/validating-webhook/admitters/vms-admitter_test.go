@@ -40,13 +40,13 @@ import (
 	k8sfield "k8s.io/apimachinery/pkg/util/validation/field"
 	"k8s.io/client-go/tools/cache"
 
-	flavorapi "kubevirt.io/api/flavor"
-	flavorv1alpha1 "kubevirt.io/api/flavor/v1alpha1"
+	instancetypeapi "kubevirt.io/api/instancetype"
+	instancetypev1alpha1 "kubevirt.io/api/instancetype/v1alpha1"
 
 	v1 "kubevirt.io/api/core/v1"
 	cdiv1 "kubevirt.io/containerized-data-importer-api/pkg/apis/core/v1beta1"
 
-	"kubevirt.io/kubevirt/pkg/flavor"
+	"kubevirt.io/kubevirt/pkg/instancetype"
 	"kubevirt.io/kubevirt/pkg/testutils"
 	"kubevirt.io/kubevirt/pkg/virt-api/webhooks"
 	virtconfig "kubevirt.io/kubevirt/pkg/virt-config"
@@ -56,7 +56,7 @@ var _ = Describe("Validating VM Admitter", func() {
 	config, crdInformer, kvInformer := testutils.NewFakeClusterConfigUsingKVConfig(&v1.KubeVirtConfiguration{})
 	var vmsAdmitter *VMsAdmitter
 	var dataSourceInformer cache.SharedIndexInformer
-	var flavorMethods *testutils.MockFlavorMethods
+	var instancetypeMethods *testutils.MockInstancetypeMethods
 	var mockVMIClient *kubecli.MockVirtualMachineInstanceInterface
 	var virtClient *kubecli.MockKubevirtClient
 
@@ -89,16 +89,16 @@ var _ = Describe("Validating VM Admitter", func() {
 
 	BeforeEach(func() {
 		dataSourceInformer, _ = testutils.NewFakeInformerFor(&cdiv1.DataSource{})
-		flavorMethods = testutils.NewMockFlavorMethods()
+		instancetypeMethods = testutils.NewMockInstancetypeMethods()
 
 		ctrl := gomock.NewController(GinkgoT())
 		mockVMIClient = kubecli.NewMockVirtualMachineInstanceInterface(ctrl)
 		virtClient = kubecli.NewMockKubevirtClient(ctrl)
 		vmsAdmitter = &VMsAdmitter{
-			VirtClient:         virtClient,
-			DataSourceInformer: dataSourceInformer,
-			ClusterConfig:      config,
-			FlavorMethods:      flavorMethods,
+			VirtClient:          virtClient,
+			DataSourceInformer:  dataSourceInformer,
+			ClusterConfig:       config,
+			InstancetypeMethods: instancetypeMethods,
 			cloneAuthFunc: func(pvcNamespace, pvcName, saNamespace, saName string) (bool, string, error) {
 				return true, "", nil
 			},
@@ -1421,7 +1421,7 @@ var _ = Describe("Validating VM Admitter", func() {
 		}, false),
 	)
 
-	Context("Flavor", func() {
+	Context("Instancetype", func() {
 		var (
 			vm *v1.VirtualMachine
 		)
@@ -1430,13 +1430,13 @@ var _ = Describe("Validating VM Admitter", func() {
 			vmi := api.NewMinimalVMI("testvmi")
 			vm = &v1.VirtualMachine{
 				Spec: v1.VirtualMachineSpec{
-					Flavor: &v1.FlavorMatcher{
+					Instancetype: &v1.InstancetypeMatcher{
 						Name: "test",
-						Kind: flavorapi.SingularResourceName,
+						Kind: instancetypeapi.SingularResourceName,
 					},
 					Preference: &v1.PreferenceMatcher{
 						Name: "test",
-						Kind: flavorapi.SingularPreferenceResourceName,
+						Kind: instancetypeapi.SingularPreferenceResourceName,
 					},
 					Running: &notRunning,
 					Template: &v1.VirtualMachineInstanceTemplateSpec{
@@ -1446,20 +1446,20 @@ var _ = Describe("Validating VM Admitter", func() {
 			}
 		})
 
-		It("should reject if flavor is not found", func() {
-			flavorMethods.FindFlavorSpecFunc = func(_ *v1.VirtualMachine) (*flavorv1alpha1.VirtualMachineFlavorSpec, error) {
-				return nil, fmt.Errorf("flavor not found")
+		It("should reject if instancetype is not found", func() {
+			instancetypeMethods.FindInstancetypeSpecFunc = func(_ *v1.VirtualMachine) (*instancetypev1alpha1.VirtualMachineInstancetypeSpec, error) {
+				return nil, fmt.Errorf("instancetype not found")
 			}
 
 			response := admitVm(vmsAdmitter, vm)
 			Expect(response.Allowed).To(BeFalse())
 			Expect(response.Result.Details.Causes).To(HaveLen(1))
 			Expect(response.Result.Details.Causes[0].Type).To(Equal(metav1.CauseTypeFieldValueNotFound))
-			Expect(response.Result.Details.Causes[0].Field).To(Equal("spec.flavor"))
+			Expect(response.Result.Details.Causes[0].Field).To(Equal("spec.instancetype"))
 		})
 
 		It("should reject if preference is not found", func() {
-			flavorMethods.FindPreferenceSpecFunc = func(_ *v1.VirtualMachine) (*flavorv1alpha1.VirtualMachinePreferenceSpec, error) {
+			instancetypeMethods.FindPreferenceSpecFunc = func(_ *v1.VirtualMachine) (*instancetypev1alpha1.VirtualMachinePreferenceSpec, error) {
 				return nil, fmt.Errorf("preference not found")
 			}
 
@@ -1470,23 +1470,23 @@ var _ = Describe("Validating VM Admitter", func() {
 			Expect(response.Result.Details.Causes[0].Field).To(Equal("spec.preference"))
 		})
 
-		It("should reject if flavor fails to apply to VMI", func() {
+		It("should reject if instancetype fails to apply to VMI", func() {
 			var (
 				basePath = k8sfield.NewPath("spec", "template", "spec")
 				path1    = basePath.Child("example", "path")
 				path2    = basePath.Child("domain", "example", "path")
 			)
-			flavorMethods.FindFlavorSpecFunc = func(_ *v1.VirtualMachine) (*flavorv1alpha1.VirtualMachineFlavorSpec, error) {
-				return &flavorv1alpha1.VirtualMachineFlavorSpec{}, nil
+			instancetypeMethods.FindInstancetypeSpecFunc = func(_ *v1.VirtualMachine) (*instancetypev1alpha1.VirtualMachineInstancetypeSpec, error) {
+				return &instancetypev1alpha1.VirtualMachineInstancetypeSpec{}, nil
 			}
-			flavorMethods.FindFlavorSpecFunc = func(_ *v1.VirtualMachine) (*flavorv1alpha1.VirtualMachineFlavorSpec, error) {
-				return &flavorv1alpha1.VirtualMachineFlavorSpec{}, nil
+			instancetypeMethods.FindInstancetypeSpecFunc = func(_ *v1.VirtualMachine) (*instancetypev1alpha1.VirtualMachineInstancetypeSpec, error) {
+				return &instancetypev1alpha1.VirtualMachineInstancetypeSpec{}, nil
 			}
-			flavorMethods.FindPreferenceSpecFunc = func(_ *v1.VirtualMachine) (*flavorv1alpha1.VirtualMachinePreferenceSpec, error) {
-				return &flavorv1alpha1.VirtualMachinePreferenceSpec{}, nil
+			instancetypeMethods.FindPreferenceSpecFunc = func(_ *v1.VirtualMachine) (*instancetypev1alpha1.VirtualMachinePreferenceSpec, error) {
+				return &instancetypev1alpha1.VirtualMachinePreferenceSpec{}, nil
 			}
-			flavorMethods.ApplyToVmiFunc = func(_ *k8sfield.Path, _ *flavorv1alpha1.VirtualMachineFlavorSpec, _ *flavorv1alpha1.VirtualMachinePreferenceSpec, _ *v1.VirtualMachineInstanceSpec) flavor.Conflicts {
-				return flavor.Conflicts{path1, path2}
+			instancetypeMethods.ApplyToVmiFunc = func(_ *k8sfield.Path, _ *instancetypev1alpha1.VirtualMachineInstancetypeSpec, _ *instancetypev1alpha1.VirtualMachinePreferenceSpec, _ *v1.VirtualMachineInstanceSpec) instancetype.Conflicts {
+				return instancetype.Conflicts{path1, path2}
 			}
 
 			response := admitVm(vmsAdmitter, vm)
@@ -1498,16 +1498,16 @@ var _ = Describe("Validating VM Admitter", func() {
 			Expect(response.Result.Details.Causes[1].Field).To(Equal(path2.String()))
 		})
 
-		It("should apply flavor to VMI before validating VMI", func() {
-			// Test that VMI without flavor application is valid
+		It("should apply instancetype to VMI before validating VMI", func() {
+			// Test that VMI without instancetype application is valid
 			response := admitVm(vmsAdmitter, vm)
 			Expect(response.Allowed).To(BeTrue())
 
-			// Flavor application sets invalid memory value
-			flavorMethods.FindFlavorSpecFunc = func(_ *v1.VirtualMachine) (*flavorv1alpha1.VirtualMachineFlavorSpec, error) {
-				return &flavorv1alpha1.VirtualMachineFlavorSpec{}, nil
+			// Instancetype application sets invalid memory value
+			instancetypeMethods.FindInstancetypeSpecFunc = func(_ *v1.VirtualMachine) (*instancetypev1alpha1.VirtualMachineInstancetypeSpec, error) {
+				return &instancetypev1alpha1.VirtualMachineInstancetypeSpec{}, nil
 			}
-			flavorMethods.ApplyToVmiFunc = func(_ *k8sfield.Path, _ *flavorv1alpha1.VirtualMachineFlavorSpec, _ *flavorv1alpha1.VirtualMachinePreferenceSpec, vmiSpec *v1.VirtualMachineInstanceSpec) flavor.Conflicts {
+			instancetypeMethods.ApplyToVmiFunc = func(_ *k8sfield.Path, _ *instancetypev1alpha1.VirtualMachineInstancetypeSpec, _ *instancetypev1alpha1.VirtualMachinePreferenceSpec, vmiSpec *v1.VirtualMachineInstanceSpec) instancetype.Conflicts {
 				vmiSpec.Domain.Resources.Requests[k8sv1.ResourceMemory] = resource.MustParse("-1Mi")
 				return nil
 			}

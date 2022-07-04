@@ -4,12 +4,12 @@ import (
 	"encoding/json"
 	"fmt"
 
-	"kubevirt.io/api/flavor"
+	"kubevirt.io/api/instancetype"
 
 	admissionv1 "k8s.io/api/admission/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 
-	flavorv1alpha1 "kubevirt.io/api/flavor/v1alpha1"
+	instancetypev1alpha1 "kubevirt.io/api/instancetype/v1alpha1"
 
 	webhookutils "kubevirt.io/kubevirt/pkg/util/webhooks"
 	validating_webhooks "kubevirt.io/kubevirt/pkg/util/webhooks/validating-webhooks"
@@ -17,17 +17,17 @@ import (
 
 type PreferenceAdmitter struct{}
 
-var _ validating_webhooks.Admitter = &FlavorAdmitter{}
+var _ validating_webhooks.Admitter = &InstancetypeAdmitter{}
 
 func (f *PreferenceAdmitter) Admit(ar *admissionv1.AdmissionReview) *admissionv1.AdmissionResponse {
 	return admitPreference(ar,
 		metav1.GroupVersionResource{
-			Group:    flavorv1alpha1.SchemeGroupVersion.Group,
-			Version:  flavorv1alpha1.SchemeGroupVersion.Version,
-			Resource: flavor.PluralPreferenceResourceName,
+			Group:    instancetypev1alpha1.SchemeGroupVersion.Group,
+			Version:  instancetypev1alpha1.SchemeGroupVersion.Version,
+			Resource: instancetype.PluralPreferenceResourceName,
 		},
-		func(raw []byte) (*flavorv1alpha1.VirtualMachinePreference, error) {
-			preferenceObj := &flavorv1alpha1.VirtualMachinePreference{}
+		func(raw []byte) (*instancetypev1alpha1.VirtualMachinePreference, error) {
+			preferenceObj := &instancetypev1alpha1.VirtualMachinePreference{}
 			err := json.Unmarshal(raw, &preferenceObj)
 			if err != nil {
 				return nil, err
@@ -37,7 +37,7 @@ func (f *PreferenceAdmitter) Admit(ar *admissionv1.AdmissionReview) *admissionv1
 	)
 }
 
-type extractPreferenceFunc = func([]byte) (*flavorv1alpha1.VirtualMachinePreference, error)
+type extractPreferenceFunc = func([]byte) (*instancetypev1alpha1.VirtualMachinePreference, error)
 
 func admitPreference(ar *admissionv1.AdmissionReview, expectedGvr metav1.GroupVersionResource, extractPreference extractPreferenceFunc) *admissionv1.AdmissionResponse {
 	// Only handle create and update
@@ -65,17 +65,17 @@ func admitPreference(ar *admissionv1.AdmissionReview, expectedGvr metav1.GroupVe
 
 type ClusterPreferenceAdmitter struct{}
 
-var _ validating_webhooks.Admitter = &ClusterFlavorAdmitter{}
+var _ validating_webhooks.Admitter = &ClusterInstancetypeAdmitter{}
 
 func (f *ClusterPreferenceAdmitter) Admit(ar *admissionv1.AdmissionReview) *admissionv1.AdmissionResponse {
 	return admitClusterPreference(ar,
 		metav1.GroupVersionResource{
-			Group:    flavorv1alpha1.SchemeGroupVersion.Group,
-			Version:  flavorv1alpha1.SchemeGroupVersion.Version,
-			Resource: flavor.ClusterPluralPreferenceResourceName,
+			Group:    instancetypev1alpha1.SchemeGroupVersion.Group,
+			Version:  instancetypev1alpha1.SchemeGroupVersion.Version,
+			Resource: instancetype.ClusterPluralPreferenceResourceName,
 		},
-		func(raw []byte) (*flavorv1alpha1.VirtualMachineClusterPreference, error) {
-			clusterPreferenceObj := &flavorv1alpha1.VirtualMachineClusterPreference{}
+		func(raw []byte) (*instancetypev1alpha1.VirtualMachineClusterPreference, error) {
+			clusterPreferenceObj := &instancetypev1alpha1.VirtualMachineClusterPreference{}
 			err := json.Unmarshal(raw, &clusterPreferenceObj)
 			if err != nil {
 				return nil, err
@@ -85,7 +85,7 @@ func (f *ClusterPreferenceAdmitter) Admit(ar *admissionv1.AdmissionReview) *admi
 	)
 }
 
-type extractClusterPreferenceFunc = func([]byte) (*flavorv1alpha1.VirtualMachineClusterPreference, error)
+type extractClusterPreferenceFunc = func([]byte) (*instancetypev1alpha1.VirtualMachineClusterPreference, error)
 
 func admitClusterPreference(ar *admissionv1.AdmissionReview, expectedGvr metav1.GroupVersionResource, extractClusterPreference extractClusterPreferenceFunc) *admissionv1.AdmissionResponse {
 	// Only handle create and update

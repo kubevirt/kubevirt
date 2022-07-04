@@ -69,7 +69,7 @@ import (
 	versioned1 "kubevirt.io/client-go/generated/kubevirt/clientset/versioned"
 	v1alpha15 "kubevirt.io/client-go/generated/kubevirt/clientset/versioned/typed/clone/v1alpha1"
 	v1alpha16 "kubevirt.io/client-go/generated/kubevirt/clientset/versioned/typed/export/v1alpha1"
-	v1alpha17 "kubevirt.io/client-go/generated/kubevirt/clientset/versioned/typed/flavor/v1alpha1"
+	v1alpha17 "kubevirt.io/client-go/generated/kubevirt/clientset/versioned/typed/instancetype/v1alpha1"
 	v1alpha18 "kubevirt.io/client-go/generated/kubevirt/clientset/versioned/typed/migrations/v1alpha1"
 	v1alpha19 "kubevirt.io/client-go/generated/kubevirt/clientset/versioned/typed/pool/v1alpha1"
 	v1alpha110 "kubevirt.io/client-go/generated/kubevirt/clientset/versioned/typed/snapshot/v1alpha1"
@@ -209,24 +209,24 @@ func (_mr *_MockKubevirtClientRecorder) VirtualMachineExport(arg0 interface{}) *
 	return _mr.mock.ctrl.RecordCall(_mr.mock, "VirtualMachineExport", arg0)
 }
 
-func (_m *MockKubevirtClient) VirtualMachineFlavor(namespace string) v1alpha17.VirtualMachineFlavorInterface {
-	ret := _m.ctrl.Call(_m, "VirtualMachineFlavor", namespace)
-	ret0, _ := ret[0].(v1alpha17.VirtualMachineFlavorInterface)
+func (_m *MockKubevirtClient) VirtualMachineInstancetype(namespace string) v1alpha17.VirtualMachineInstancetypeInterface {
+	ret := _m.ctrl.Call(_m, "VirtualMachineInstancetype", namespace)
+	ret0, _ := ret[0].(v1alpha17.VirtualMachineInstancetypeInterface)
 	return ret0
 }
 
-func (_mr *_MockKubevirtClientRecorder) VirtualMachineFlavor(arg0 interface{}) *gomock.Call {
-	return _mr.mock.ctrl.RecordCall(_mr.mock, "VirtualMachineFlavor", arg0)
+func (_mr *_MockKubevirtClientRecorder) VirtualMachineInstancetype(arg0 interface{}) *gomock.Call {
+	return _mr.mock.ctrl.RecordCall(_mr.mock, "VirtualMachineInstancetype", arg0)
 }
 
-func (_m *MockKubevirtClient) VirtualMachineClusterFlavor() v1alpha17.VirtualMachineClusterFlavorInterface {
-	ret := _m.ctrl.Call(_m, "VirtualMachineClusterFlavor")
-	ret0, _ := ret[0].(v1alpha17.VirtualMachineClusterFlavorInterface)
+func (_m *MockKubevirtClient) VirtualMachineClusterInstancetype() v1alpha17.VirtualMachineClusterInstancetypeInterface {
+	ret := _m.ctrl.Call(_m, "VirtualMachineClusterInstancetype")
+	ret0, _ := ret[0].(v1alpha17.VirtualMachineClusterInstancetypeInterface)
 	return ret0
 }
 
-func (_mr *_MockKubevirtClientRecorder) VirtualMachineClusterFlavor() *gomock.Call {
-	return _mr.mock.ctrl.RecordCall(_mr.mock, "VirtualMachineClusterFlavor")
+func (_mr *_MockKubevirtClientRecorder) VirtualMachineClusterInstancetype() *gomock.Call {
+	return _mr.mock.ctrl.RecordCall(_mr.mock, "VirtualMachineClusterInstancetype")
 }
 
 func (_m *MockKubevirtClient) VirtualMachinePreference(namespace string) v1alpha17.VirtualMachinePreferenceInterface {

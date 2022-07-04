@@ -30,7 +30,7 @@ import (
 	"k8s.io/client-go/tools/cache"
 
 	v1 "kubevirt.io/api/core/v1"
-	apiflavor "kubevirt.io/api/flavor"
+	apiinstancetype "kubevirt.io/api/instancetype"
 
 	"kubevirt.io/kubevirt/pkg/testutils"
 	utiltypes "kubevirt.io/kubevirt/pkg/util/types"
@@ -125,12 +125,12 @@ var _ = Describe("VirtualMachine Mutator", func() {
 		Expect(vmSpec.Template.Spec.Domain.Machine.Type).To(Equal(vm.Spec.Template.Spec.Domain.Machine.Type))
 	})
 
-	It("should default flavor kind to ClusterSingularResourceName when not provided", func() {
-		vm.Spec.Flavor = &v1.FlavorMatcher{
+	It("should default instancetype kind to ClusterSingularResourceName when not provided", func() {
+		vm.Spec.Instancetype = &v1.InstancetypeMatcher{
 			Name: "foobar",
 		}
 		vmSpec, _ := getVMSpecMetaFromResponse()
-		Expect(vmSpec.Flavor.Kind).To(Equal(apiflavor.ClusterSingularResourceName))
+		Expect(vmSpec.Instancetype.Kind).To(Equal(apiinstancetype.ClusterSingularResourceName))
 	})
 
 	It("should default preference kind to ClusterSingularPreferenceResourceName when not provided", func() {
@@ -138,7 +138,7 @@ var _ = Describe("VirtualMachine Mutator", func() {
 			Name: "foobar",
 		}
 		vmSpec, _ := getVMSpecMetaFromResponse()
-		Expect(vmSpec.Preference.Kind).To(Equal(apiflavor.ClusterSingularPreferenceResourceName))
+		Expect(vmSpec.Preference.Kind).To(Equal(apiinstancetype.ClusterSingularPreferenceResourceName))
 	})
 
 	Context("failure tests", func() {

@@ -124,11 +124,11 @@ func cloudInitUUIDFromVMI(vmi *v1.VirtualMachineInstance) string {
 // reads their content into a CloudInitData struct. Does not resolve secret refs.
 func ReadCloudInitVolumeDataSource(vmi *v1.VirtualMachineInstance, secretSourceDir string) (cloudInitData *CloudInitData, err error) {
 	precond.MustNotBeNil(vmi)
-	// ClusterFlavorAnnotation will take precedence over a namespaced Flavor
+	// ClusterInstancetypeAnnotation will take precedence over a namespaced Instancetype
 	// for setting instance_type in the metadata
-	flavor := vmi.Annotations[v1.ClusterFlavorAnnotation]
-	if flavor == "" {
-		flavor = vmi.Annotations[v1.FlavorAnnotation]
+	instancetype := vmi.Annotations[v1.ClusterInstancetypeAnnotation]
+	if instancetype == "" {
+		instancetype = vmi.Annotations[v1.InstancetypeAnnotation]
 	}
 
 	hostname := dns.SanitizeHostname(vmi)
@@ -141,7 +141,7 @@ func ReadCloudInitVolumeDataSource(vmi *v1.VirtualMachineInstance, secretSourceD
 			}
 
 			cloudInitData, err = readCloudInitNoCloudSource(volume.CloudInitNoCloud)
-			cloudInitData.NoCloudMetaData = readCloudInitNoCloudMetaData(hostname, cloudInitUUIDFromVMI(vmi), flavor)
+			cloudInitData.NoCloudMetaData = readCloudInitNoCloudMetaData(hostname, cloudInitUUIDFromVMI(vmi), instancetype)
 			cloudInitData.VolumeName = volume.Name
 			return cloudInitData, err
 		}
@@ -154,7 +154,7 @@ func ReadCloudInitVolumeDataSource(vmi *v1.VirtualMachineInstance, secretSourceD
 
 			uuid := cloudInitUUIDFromVMI(vmi)
 			cloudInitData, err = readCloudInitConfigDriveSource(volume.CloudInitConfigDrive)
-			cloudInitData.ConfigDriveMetaData = readCloudInitConfigDriveMetaData(vmi.Name, uuid, hostname, vmi.Namespace, keys, flavor)
+			cloudInitData.ConfigDriveMetaData = readCloudInitConfigDriveMetaData(vmi.Name, uuid, hostname, vmi.Namespace, keys, instancetype)
 			cloudInitData.VolumeName = volume.Name
 			return cloudInitData, err
 		}
