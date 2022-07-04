@@ -24,6 +24,8 @@ import (
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/runtime"
 
+	"kubevirt.io/api/clone"
+
 	"kubevirt.io/api/flavor"
 
 	virtv1 "kubevirt.io/api/core/v1"
@@ -372,6 +374,28 @@ func newControllerClusterRole() *rbacv1.ClusterRole {
 				},
 				Verbs: []string{
 					"get", "list", "watch",
+				},
+			},
+			{
+				APIGroups: []string{
+					clone.GroupName,
+				},
+				Resources: []string{
+					clone.ResourceVMClonePlural,
+				},
+				Verbs: []string{
+					"get", "list", "watch", "update", "patch", "delete",
+				},
+			},
+			{
+				APIGroups: []string{
+					clone.GroupName,
+				},
+				Resources: []string{
+					clone.ResourceVMClonePlural + "/status",
+				},
+				Verbs: []string{
+					"get", "list", "watch", "update", "patch", "delete",
 				},
 			},
 			{

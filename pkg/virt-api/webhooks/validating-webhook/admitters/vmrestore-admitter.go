@@ -226,7 +226,7 @@ func (admitter *VMRestoreAdmitter) validateCreateVM(field *k8sfield.Path, vmRest
 }
 
 func (admitter *VMRestoreAdmitter) validatePatches(patches []string, field *k8sfield.Path) (causes []metav1.StatusCause) {
-	// Validate patches are on elements under "/spec/" path only
+	// Validate patches are either on labels/annotations or on elements under "/spec/" path only
 	for _, patch := range patches {
 		for _, patchKeyValue := range strings.Split(strings.Trim(patch, "{}"), ",") {
 			// For example, if the original patch is {"op": "replace", "path": "/metadata/name", "value": "someValue"}
@@ -245,6 +245,9 @@ func (admitter *VMRestoreAdmitter) validatePatches(patches []string, field *k8sf
 			value := strings.TrimSpace(keyValSlice[1])
 
 			if key == `"path"` {
+				if strings.HasPrefix(value, `"/metadata/labels/`) || strings.HasPrefix(value, `"/metadata/annotations/`) {
+					continue
+				}
 				if !strings.HasPrefix(value, `"/spec/`) {
 					causes = append(causes, metav1.StatusCause{
 						Type:    metav1.CauseTypeFieldValueInvalid,
@@ -252,7 +255,6 @@ func (admitter *VMRestoreAdmitter) validatePatches(patches []string, field *k8sf
 						Field:   field.String(),
 					})
 				}
-				break
 			}
 		}
 	}

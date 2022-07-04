@@ -797,6 +797,9 @@ func (app *virtAPIApp) registerValidatingWebhooks(informers *webhooks.Informers)
 	http.HandleFunc(components.MigrationPolicyCreateValidatePath, func(w http.ResponseWriter, r *http.Request) {
 		validating_webhook.ServeMigrationPolicies(w, r, app.virtCli)
 	})
+	http.HandleFunc(components.VMCloneCreateValidatePath, func(w http.ResponseWriter, r *http.Request) {
+		validating_webhook.ServeVirtualMachineClones(w, r, app.clusterConfig, app.virtCli)
+	})
 }
 
 func (app *virtAPIApp) registerMutatingWebhook(informers *webhooks.Informers) {
@@ -809,6 +812,9 @@ func (app *virtAPIApp) registerMutatingWebhook(informers *webhooks.Informers) {
 	})
 	http.HandleFunc(components.MigrationMutatePath, func(w http.ResponseWriter, r *http.Request) {
 		mutating_webhook.ServeMigrationCreate(w, r)
+	})
+	http.HandleFunc(components.VMCloneCreateMutatePath, func(w http.ResponseWriter, r *http.Request) {
+		mutating_webhook.ServeClones(w, r)
 	})
 }
 

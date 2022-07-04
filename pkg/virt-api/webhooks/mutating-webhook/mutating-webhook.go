@@ -84,3 +84,7 @@ func ServeVMIs(resp http.ResponseWriter, req *http.Request, clusterConfig *virtc
 func ServeMigrationCreate(resp http.ResponseWriter, req *http.Request) {
 	serve(resp, req, &mutators.MigrationCreateMutator{})
 }
+
+func ServeClones(resp http.ResponseWriter, req *http.Request) {
+	serve(resp, req, &mutators.CloneCreateMutator{})
+}

@@ -57,6 +57,9 @@ func CleanNamespaces() {
 	util.PanicOnError(err)
 
 	for _, namespace := range TestNamespaces {
+		listOptions := metav1.ListOptions{
+			LabelSelector: cleanup.TestLabelForNamespace(namespace),
+		}
 
 		_, err := virtCli.CoreV1().Namespaces().Get(context.Background(), namespace, metav1.GetOptions{})
 		if err != nil {
@@ -122,9 +125,7 @@ func CleanNamespaces() {
 			util.PanicOnError(virtCli.CdiClient().CdiV1beta1().RESTClient().Delete().Namespace(namespace).Resource("datavolumes").Do(context.Background()).Error())
 		}
 		// Remove PVs
-		pvs, err := virtCli.CoreV1().PersistentVolumes().List(context.Background(), metav1.ListOptions{
-			LabelSelector: cleanup.TestLabelForNamespace(namespace),
-		})
+		pvs, err := virtCli.CoreV1().PersistentVolumes().List(context.Background(), listOptions)
 		util.PanicOnError(err)
 		for _, pv := range pvs.Items {
 			err := virtCli.CoreV1().PersistentVolumes().Delete(context.Background(), pv.Name, metav1.DeleteOptions{})
@@ -176,12 +177,17 @@ func CleanNamespaces() {
 		util.PanicOnError(removeAllGroupVersionResourceFromNamespace(schema.GroupVersionResource{Group: "security.istio.io", Version: "v1beta1", Resource: "peerauthentications"}, namespace))
 
 		// Remove migration policies
-		migrationPolicyList, err := virtCli.MigrationPolicy().List(context.Background(), metav1.ListOptions{
-			LabelSelector: cleanup.TestLabelForNamespace(namespace),
-		})
+		migrationPolicyList, err := virtCli.MigrationPolicy().List(context.Background(), listOptions)
 		util.PanicOnError(err)
 		for _, policy := range migrationPolicyList.Items {
 			util.PanicOnError(virtCli.MigrationPolicy().Delete(context.Background(), policy.Name, metav1.DeleteOptions{}))
+		}
+
+		// Remove clones
+		clonesList, err := virtCli.VirtualMachineClone(namespace).List(context.Background(), metav1.ListOptions{})
+		util.PanicOnError(err)
+		for _, clone := range clonesList.Items {
+			util.PanicOnError(virtCli.VirtualMachineClone(namespace).Delete(context.Background(), clone.Name, metav1.DeleteOptions{}))
 		}
 	}
 }

@@ -26,6 +26,8 @@ import (
 	"k8s.io/client-go/testing"
 
 	clientset "kubevirt.io/client-go/generated/kubevirt/clientset/versioned"
+	clonev1alpha1 "kubevirt.io/client-go/generated/kubevirt/clientset/versioned/typed/clone/v1alpha1"
+	fakeclonev1alpha1 "kubevirt.io/client-go/generated/kubevirt/clientset/versioned/typed/clone/v1alpha1/fake"
 	exportv1alpha1 "kubevirt.io/client-go/generated/kubevirt/clientset/versioned/typed/export/v1alpha1"
 	fakeexportv1alpha1 "kubevirt.io/client-go/generated/kubevirt/clientset/versioned/typed/export/v1alpha1/fake"
 	flavorv1alpha1 "kubevirt.io/client-go/generated/kubevirt/clientset/versioned/typed/flavor/v1alpha1"
@@ -84,6 +86,11 @@ func (c *Clientset) Tracker() testing.ObjectTracker {
 }
 
 var _ clientset.Interface = &Clientset{}
+
+// CloneV1alpha1 retrieves the CloneV1alpha1Client
+func (c *Clientset) CloneV1alpha1() clonev1alpha1.CloneV1alpha1Interface {
+	return &fakeclonev1alpha1.FakeCloneV1alpha1{Fake: &c.Fake}
+}
 
 // ExportV1alpha1 retrieves the ExportV1alpha1Client
 func (c *Clientset) ExportV1alpha1() exportv1alpha1.ExportV1alpha1Interface {

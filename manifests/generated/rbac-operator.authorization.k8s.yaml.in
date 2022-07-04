@@ -606,6 +606,28 @@ rules:
   - list
   - watch
 - apiGroups:
+  - clone.kubevirt.io
+  resources:
+  - virtualmachineclones
+  verbs:
+  - get
+  - list
+  - watch
+  - update
+  - patch
+  - delete
+- apiGroups:
+  - clone.kubevirt.io
+  resources:
+  - virtualmachineclones/status
+  verbs:
+  - get
+  - list
+  - watch
+  - update
+  - patch
+  - delete
+- apiGroups:
   - ""
   resources:
   - namespaces

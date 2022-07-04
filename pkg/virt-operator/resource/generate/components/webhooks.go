@@ -1,10 +1,16 @@
 package components
 
 import (
+	"fmt"
+
 	admissionregistrationv1 "k8s.io/api/admissionregistration/v1"
 	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/util/intstr"
+	"k8s.io/utils/pointer"
+
+	"kubevirt.io/api/clone"
+	clonev1alpha1 "kubevirt.io/api/clone/v1alpha1"
 
 	"kubevirt.io/api/flavor"
 
@@ -229,6 +235,30 @@ func NewVirtAPIMutatingWebhookConfiguration(installNamespace string) *admissionr
 					},
 				},
 			},
+			{
+				Name:                    fmt.Sprintf("%s-mutator.kubevirt.io", clone.ResourceVMClonePlural),
+				AdmissionReviewVersions: []string{"v1", "v1beta1"},
+				SideEffects:             &sideEffectNone,
+				FailurePolicy:           &failurePolicy,
+				TimeoutSeconds:          &defaultTimeoutSeconds,
+				Rules: []admissionregistrationv1.RuleWithOperations{{
+					Operations: []admissionregistrationv1.OperationType{
+						admissionregistrationv1.Create,
+					},
+					Rule: admissionregistrationv1.Rule{
+						APIGroups:   []string{clone.GroupName},
+						APIVersions: clone.ApiSupportedWebhookVersions,
+						Resources:   []string{clone.ResourceVMClonePlural},
+					},
+				}},
+				ClientConfig: admissionregistrationv1.WebhookClientConfig{
+					Service: &admissionregistrationv1.ServiceReference{
+						Namespace: installNamespace,
+						Name:      VirtApiServiceName,
+						Path:      pointer.String(VMCloneCreateMutatePath),
+					},
+				},
+			},
 		},
 	}
 
@@ -253,6 +283,7 @@ func NewVirtAPIValidatingWebhookConfiguration(installNamespace string) *admissio
 	launcherEvictionValidatePath := LauncherEvictionValidatePath
 	statusValidatePath := StatusValidatePath
 	migrationPolicyCreateValidatePath := MigrationPolicyCreateValidatePath
+	vmCloneCreateValidatePath := VMCloneCreateValidatePath
 	failurePolicy := admissionregistrationv1.Fail
 	ignorePolicy := admissionregistrationv1.Ignore
 
@@ -723,6 +754,31 @@ func NewVirtAPIValidatingWebhookConfiguration(installNamespace string) *admissio
 					},
 				},
 			},
+			{
+				Name:                    "vm-clone-validator.kubevirt.io",
+				AdmissionReviewVersions: []string{"v1", "v1beta1"},
+				FailurePolicy:           &failurePolicy,
+				TimeoutSeconds:          &defaultTimeoutSeconds,
+				SideEffects:             &sideEffectNone,
+				Rules: []admissionregistrationv1.RuleWithOperations{{
+					Operations: []admissionregistrationv1.OperationType{
+						admissionregistrationv1.Create,
+						admissionregistrationv1.Update,
+					},
+					Rule: admissionregistrationv1.Rule{
+						APIGroups:   []string{clonev1alpha1.SchemeGroupVersion.Group},
+						APIVersions: []string{clonev1alpha1.SchemeGroupVersion.Version},
+						Resources:   []string{clone.ResourceVMClonePlural},
+					},
+				}},
+				ClientConfig: admissionregistrationv1.WebhookClientConfig{
+					Service: &admissionregistrationv1.ServiceReference{
+						Namespace: installNamespace,
+						Name:      VirtApiServiceName,
+						Path:      &vmCloneCreateValidatePath,
+					},
+				},
+			},
 		},
 	}
 }
@@ -788,3 +844,7 @@ const StatusValidatePath = "/status-validate"
 const LauncherEvictionValidatePath = "/launcher-eviction-validate"
 
 const MigrationPolicyCreateValidatePath = "/migration-policy-validate-create"
+
+const VMCloneCreateValidatePath = "/vm-clone-validate-create"
+
+const VMCloneCreateMutatePath = "/vm-clone-mutate-create"

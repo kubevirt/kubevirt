@@ -3,6 +3,7 @@ load("@io_bazel_rules_go//go:def.bzl", "go_library", "go_test")
 go_library(
     name = "go_default_library",
     srcs = [
+        "clone-create-mutator.go",
         "migration-create-mutator.go",
         "namespace-limits.go",
         "preset.go",
@@ -17,6 +18,8 @@ go_library(
         "//pkg/util/webhooks:go_default_library",
         "//pkg/virt-api/webhooks:go_default_library",
         "//pkg/virt-config:go_default_library",
+        "//staging/src/kubevirt.io/api/clone:go_default_library",
+        "//staging/src/kubevirt.io/api/clone/v1alpha1:go_default_library",
         "//staging/src/kubevirt.io/api/core:go_default_library",
         "//staging/src/kubevirt.io/api/core/v1:go_default_library",
         "//staging/src/kubevirt.io/api/flavor:go_default_library",
@@ -28,6 +31,7 @@ go_library(
         "//vendor/k8s.io/apimachinery/pkg/apis/meta/v1:go_default_library",
         "//vendor/k8s.io/apimachinery/pkg/labels:go_default_library",
         "//vendor/k8s.io/apimachinery/pkg/util/errors:go_default_library",
+        "//vendor/k8s.io/apimachinery/pkg/util/rand:go_default_library",
         "//vendor/k8s.io/client-go/tools/cache:go_default_library",
     ],
 )
@@ -35,6 +39,7 @@ go_library(
 go_test(
     name = "go_default_test",
     srcs = [
+        "clone-create-mutator_test.go",
         "migration-create-mutator_test.go",
         "mutators_suite_test.go",
         "namespace-limits_test.go",
@@ -50,11 +55,15 @@ go_test(
         "//pkg/virt-config:go_default_library",
         "//pkg/virt-handler/node-labeller/util:go_default_library",
         "//pkg/virt-operator/resource/generate/rbac:go_default_library",
+        "//staging/src/kubevirt.io/api/clone:go_default_library",
+        "//staging/src/kubevirt.io/api/clone/v1alpha1:go_default_library",
         "//staging/src/kubevirt.io/api/core:go_default_library",
         "//staging/src/kubevirt.io/api/core/v1:go_default_library",
         "//staging/src/kubevirt.io/api/flavor:go_default_library",
         "//staging/src/kubevirt.io/client-go/api:go_default_library",
+        "//staging/src/kubevirt.io/client-go/kubecli:go_default_library",
         "//staging/src/kubevirt.io/client-go/testutils:go_default_library",
+        "//tests/util:go_default_library",
         "//vendor/github.com/onsi/ginkgo/v2:go_default_library",
         "//vendor/github.com/onsi/gomega:go_default_library",
         "//vendor/k8s.io/api/admission/v1:go_default_library",
