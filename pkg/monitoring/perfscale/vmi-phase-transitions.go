@@ -21,7 +21,6 @@ package perfscale
 
 import (
 	"fmt"
-	"time"
 
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/client-go/tools/cache"
@@ -32,12 +31,7 @@ import (
 	"kubevirt.io/client-go/log"
 )
 
-const (
-	transTimeErrFmt = "Error encountered during vmi transition time histogram calculation: %v"
-	transTimeFail   = "Failed to get a histogram for a vmi lifecycle transition times"
-)
-
-func getTransitionTimeSeconds(fromCreation bool, fromDeletion bool, oldVMI *v1.VirtualMachineInstance, newVMI *v1.VirtualMachineInstance) (float64, error) {
+func getVMITransitionTimeSeconds(fromCreation bool, fromDeletion bool, oldVMI *v1.VirtualMachineInstance, newVMI *v1.VirtualMachineInstance) (float64, error) {
 	var oldTime *metav1.Time
 	var newTime *metav1.Time
 
@@ -74,35 +68,12 @@ func getTransitionTimeSeconds(fromCreation bool, fromDeletion bool, oldVMI *v1.V
 	return diffSeconds, nil
 }
 
-func phaseTransitionTimeBuckets() []float64 {
-	return []float64{
-		(0.5 * time.Second.Seconds()),
-		(1 * time.Second.Seconds()),
-		(2 * time.Second.Seconds()),
-		(5 * time.Second.Seconds()),
-		(10 * time.Second.Seconds()),
-		(20 * time.Second.Seconds()),
-		(30 * time.Second.Seconds()),
-		(40 * time.Second.Seconds()),
-		(50 * time.Second.Seconds()),
-		(60 * time.Second).Seconds(),
-		(90 * time.Second).Seconds(),
-		(2 * time.Minute).Seconds(),
-		(3 * time.Minute).Seconds(),
-		(5 * time.Minute).Seconds(),
-		(10 * time.Minute).Seconds(),
-		(20 * time.Minute).Seconds(),
-		(30 * time.Minute).Seconds(),
-		(1 * time.Hour).Seconds(),
-	}
-}
-
 func updateVMIPhaseTransitionTimeHistogramVec(histogramVec *prometheus.HistogramVec, oldVMI *v1.VirtualMachineInstance, newVMI *v1.VirtualMachineInstance) {
 	if oldVMI == nil || oldVMI.Status.Phase == newVMI.Status.Phase {
 		return
 	}
 
-	diffSeconds, err := getTransitionTimeSeconds(false, false, oldVMI, newVMI)
+	diffSeconds, err := getVMITransitionTimeSeconds(false, false, oldVMI, newVMI)
 	if err != nil {
 		log.Log.V(4).Infof(transTimeErrFmt, err)
 		return
@@ -145,7 +116,7 @@ func updateVMIPhaseTransitionTimeFromCreationTimeHistogramVec(histogramVec *prom
 		return
 	}
 
-	diffSeconds, err := getTransitionTimeSeconds(true, false, oldVMI, newVMI)
+	diffSeconds, err := getVMITransitionTimeSeconds(true, false, oldVMI, newVMI)
 	if err != nil {
 		log.Log.V(4).Infof(transTimeErrFmt, err)
 		return
@@ -170,7 +141,7 @@ func updateVMIPhaseTransitionTimeFromDeletionTimeHistogramVec(histogramVec *prom
 		return
 	}
 
-	diffSeconds, err := getTransitionTimeSeconds(false, true, oldVMI, newVMI)
+	diffSeconds, err := getVMITransitionTimeSeconds(false, true, oldVMI, newVMI)
 	if err != nil {
 		log.Log.V(4).Infof(transTimeErrFmt, err)
 		return

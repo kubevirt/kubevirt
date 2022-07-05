@@ -26,8 +26,11 @@ import (
 	"kubevirt.io/client-go/log"
 )
 
-func RegisterPerfScaleMetrics(vmiInformer cache.SharedIndexInformer) {
+func RegisterPerfScaleMetrics(vmInformer cache.SharedIndexInformer, vmiInformer cache.SharedIndexInformer) {
 	log.Log.Infof("Starting performance and scale metrics")
+	// VM metrics
+	prometheus.MustRegister(newVMStatusTransitionTimeFromCreationHistogramVec(vmInformer))
+	// VMI metrics
 	prometheus.MustRegister(newVMIPhaseTransitionTimeHistogramVec(vmiInformer))
 	prometheus.MustRegister(newVMIPhaseTransitionTimeFromCreationHistogramVec(vmiInformer))
 	prometheus.MustRegister(newVMIPhaseTransitionTimeFromDeletionHistogramVec(vmiInformer))
