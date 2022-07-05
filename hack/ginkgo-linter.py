@@ -76,6 +76,8 @@ def main():
         print(f'Found {found_issues} issues in {found_files} files', file=sys.stderr)
         sys.exit(1)
 
+    print('Success: ginkgo-linter found no issues.')
+
 
 if __name__ == '__main__':
     main()
