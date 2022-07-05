@@ -14,6 +14,37 @@ wrong_empty_check = "(Expect(?:\\(|WithOffset\\(\\d+, ?))len\\(([^)]+)\\)(\\)\\.
 wrong_empty_regex = re.compile(wrong_empty_check)
 
 
+def find_wrong_len_equal_check(file_name, line_number, line):
+    res = wrong_len_equal_regex.search(line)
+    if res:
+        matcher = "BeEmpty()" if res[4].isnumeric() and int(res[4]) == 0 else f"HaveLen({res[4]})"
+        use = f'{res[1]}{res[2]}{res[3]}{matcher}{res[5]}'
+        wrong_length_output(file_name, line, line_number, use)
+        return 1
+    return 0
+
+
+def find_wrong_len_zero_check(file_name, line_number, line):
+    res = wrong_len_zero_regex.search(line)
+    if res:
+        use = f"{res[1]}{res[2]}{res[3]}BeEmpty(){res[4]}"
+        wrong_length_output(file_name, line, line_number, use)
+        return 1
+    return 0
+
+
+def find_wrong_empty_check(file_name, line_number, line):
+    res = wrong_empty_regex.search(line)
+    if res:
+        use = f"{res[1]}{res[2]}{res[3]}Not(BeEmpty()){res[4]}"
+        wrong_length_output(file_name, line, line_number, use)
+        return 1
+    return 0
+
+
+checks = [find_wrong_len_equal_check, find_wrong_len_zero_check, find_wrong_empty_check]
+
+
 def check_one_file(file_name):
     found = 0
     with open(file_name) as f:
@@ -21,46 +52,17 @@ def check_one_file(file_name):
         for line in f:
             i = i + 1
             line = line.strip()
-            found = found + find_wrong_len_equal_check(file_name, i, line)
-            found = found + find_wrong_len_zero_check(file_name, i, line)
-            found = found + find_wrong_empty_check(file_name, i, line)
+            found = found + sum([func(file_name, i, line) for func in checks])
     return found
 
 
-def find_wrong_len_equal_check(file_name, i, line):
-    res = wrong_len_equal_regex.search(line)
-    if res:
-        matcher = "BeEmpty()" if res[4].isnumeric() and int(res[4]) == 0 else f"HaveLen({res[4]})"
-        use = f'{res[1]}{res[2]}{res[3]}{matcher}{res[5]}'
-        wrong_length_output(file_name, line, i, use)
-        return 1
-    return 0
-
-
-def find_wrong_len_zero_check(file_name, i, line):
-    res = wrong_len_zero_regex.search(line)
-    if res:
-        use = f"{res[1]}{res[2]}{res[3]}BeEmpty(){res[4]}"
-        wrong_length_output(file_name, line, i, use)
-        return 1
-    return 0
-
-
-def find_wrong_empty_check(file_name, i, line):
-    res = wrong_empty_regex.search(line)
-    if res:
-        use = f"{res[1]}{res[2]}{res[3]}Not(BeEmpty()){res[4]}"
-        wrong_length_output(file_name, line, i, use)
-        return 1
-    return 0
-
-
 def wrong_length_output(file_name, line, line_num, use):
-    print(f'Found problem in {file_name}, line #{line_num}: wrong length check:', file=sys.stderr)
-    print(line, file=sys.stderr)
-    print('~' * len(line), file=sys.stderr)
-    print(f'use `{use}` instead', file=sys.stderr)
-    print("", file=sys.stderr)
+    print(f'''
+Found issue in {file_name}, line #{line_num}: wrong length check:
+    {line}
+Consider replacing with: 
+    {use}
+{"=" * 80}''', file=sys.stderr)
 
 
 def main():
@@ -73,7 +75,8 @@ def main():
                 found_issues = found_issues + found_in_one_file
                 found_files = found_files + 1
     if found_issues > 0:
-        print(f'Found {found_issues} issues in {found_files} files', file=sys.stderr)
+        print(f'Found {found_issues} issue{"s" if found_issues > 1 else ""} in '
+              f'{found_files} file{"s" if found_files > 1 else ""}', file=sys.stderr)
         sys.exit(1)
 
     print('Success: ginkgo-linter found no issues.')
