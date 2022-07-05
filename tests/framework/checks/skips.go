@@ -219,10 +219,6 @@ func SkipIfOpenShift4(message string) {
 }
 
 func SkipIfMigrationIsNotPossible() {
-	if !HasLiveMigration() {
-		ginkgo.Skip("LiveMigration feature gate is not enabled in kubevirt-config")
-	}
-
 	if !HasAtLeastTwoNodes() {
 		ginkgo.Skip("Migration tests require at least 2 nodes")
 	}
