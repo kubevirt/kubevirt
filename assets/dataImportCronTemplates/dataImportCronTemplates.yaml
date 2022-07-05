@@ -36,7 +36,7 @@
       spec:
         source:
           registry:
-            url: docker://quay.io/containerdisks/fedora:35
+            url: docker://quay.io/containerdisks/fedora:latest
         storage:
           resources:
             requests:
