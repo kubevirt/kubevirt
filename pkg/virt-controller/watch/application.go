@@ -469,7 +469,10 @@ func (vca *VirtControllerApp) onStartedLeading() func(ctx context.Context) {
 			vca.disruptionBudgetControllerThreads)
 
 		vmiprom.SetupVMICollector(vca.vmiInformer, vca.clusterConfig)
-		perfscale.RegisterPerfScaleMetrics(vca.vmiInformer)
+		if vca.vmInformer == nil {
+			vca.vmInformer = vca.informerFactory.VirtualMachine()
+		}
+		perfscale.RegisterPerfScaleMetrics(vca.vmInformer, vca.vmiInformer)
 		if vca.migrationInformer == nil {
 			vca.migrationInformer = vca.informerFactory.VirtualMachineInstanceMigration()
 		}

@@ -316,6 +316,23 @@ func EscapeJSONPointer(ptr string) string {
 	return strings.ReplaceAll(s, "/", "~1")
 }
 
+func SetVMStatusTransitionTimestamp(oldVM *v1.VirtualMachine, newVM *v1.VirtualMachine) {
+	if oldVM.Status.PrintableStatus != newVM.Status.PrintableStatus {
+		for _, transitionTimeStamp := range newVM.Status.StatusTransitionTimestamps {
+			if transitionTimeStamp.Status == newVM.Status.PrintableStatus {
+				// already exists.
+				return
+			}
+		}
+
+		now := metav1.NewTime(time.Now())
+		newVM.Status.StatusTransitionTimestamps = append(newVM.Status.StatusTransitionTimestamps, v1.VirtualMachineStatusTransitionTimestamp{
+			Status:                    newVM.Status.PrintableStatus,
+			StatusTransitionTimestamp: now,
+		})
+	}
+}
+
 func SetVMIPhaseTransitionTimestamp(oldVMI *v1.VirtualMachineInstance, newVMI *v1.VirtualMachineInstance) {
 	if oldVMI.Status.Phase != newVMI.Status.Phase {
 		for _, transitionTimeStamp := range newVMI.Status.PhaseTransitionTimestamps {

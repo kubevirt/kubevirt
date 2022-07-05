@@ -1804,6 +1804,7 @@ func (c *VMController) updateStatus(vmOrig *virtv1.VirtualMachine, vmi *virtv1.V
 	syncStartFailureStatus(vm, vmi)
 	c.syncConditions(vm, vmi, syncErr)
 	c.setPrintableStatus(vm, vmi)
+	controller.SetVMStatusTransitionTimestamp(vmOrig, vm)
 
 	// only update if necessary
 	if !equality.Semantic.DeepEqual(vm.Status, vmOrig.Status) {
