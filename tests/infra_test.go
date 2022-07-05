@@ -422,7 +422,7 @@ var _ = Describe("[Serial][sig-compute]Infrastructure", func() {
 				By("finding all kubevirt pods")
 				pods, err := virtClient.CoreV1().Pods(flags.KubeVirtInstallNamespace).List(context.Background(), metav1.ListOptions{})
 				Expect(err).ShouldNot(HaveOccurred(), "failed listing kubevirt pods")
-				Expect(len(pods.Items)).To(BeNumerically(">", 0), "no kubevirt pods found")
+				Expect(pods.Items).ToNot(BeEmpty(), "no kubevirt pods found")
 
 				By("finding all schedulable nodes")
 				schedulableNodesList := libnode.GetAllSchedulableNodes(virtClient)
