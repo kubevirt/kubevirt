@@ -401,20 +401,6 @@ var _ = Describe("Pod eviction admitter", func() {
 
 	})
 
-	Context("Live migration disabled", func() {
-		kv := kubecli.NewMinimalKubeVirt(testns)
-		clusterConfig, _, _ := testutils.NewFakeClusterConfigUsingKV(kv)
-		podEvictionAdmitter := PodEvictionAdmitter{
-			ClusterConfig: clusterConfig,
-		}
-
-		It("Should allow any review request", func() {
-			resp := podEvictionAdmitter.Admit(&admissionv1.AdmissionReview{})
-			Expect(resp.Allowed).To(BeTrue())
-		})
-
-	})
-
 	Context("Eviction strategy external", func() {
 
 		var podEvictionAdmitter PodEvictionAdmitter

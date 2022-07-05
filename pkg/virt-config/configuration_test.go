@@ -645,24 +645,4 @@ var _ = Describe("test configuration", func() {
 		Entry("ClusterProfiler feature gate enabled should result in cluster profiler being enabled",
 			[]string{virtconfig.ClusterProfiler}, true),
 	)
-
-	DescribeTable("when feature-gate", func(fgs []string, isLiveMigrationEnabled, isSRIOVLiveMigrationEnabled bool) {
-		clusterConfig, _, _ := testutils.NewFakeClusterConfigUsingKVConfig(&v1.KubeVirtConfiguration{
-			DeveloperConfiguration: &v1.DeveloperConfiguration{
-				FeatureGates: fgs,
-			},
-		})
-
-		Expect(clusterConfig.LiveMigrationEnabled()).To(Equal(isLiveMigrationEnabled))
-		Expect(clusterConfig.SRIOVLiveMigrationEnabled()).To(Equal(isSRIOVLiveMigrationEnabled))
-	},
-		Entry("LiveMigration and SRIOVLiveMigration are closed, both should be closed",
-			[]string{}, false, false),
-		Entry("LiveMigration and SRIOVLiveMigration are open, both should be open",
-			[]string{virtconfig.LiveMigrationGate, virtconfig.SRIOVLiveMigrationGate}, true, true),
-		Entry("SRIOVLiveMigration is open, LiveMigration should be open",
-			[]string{virtconfig.SRIOVLiveMigrationGate}, true, true),
-		Entry("LiveMigration is open, SRIOVLiveMigration should be close",
-			[]string{virtconfig.LiveMigrationGate}, true, false),
-	)
 })
