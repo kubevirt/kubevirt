@@ -33,6 +33,31 @@ import (
 var _ = BeforeSuite(func() {
 })
 
+var _ = Describe("VM state transition time histogram", func() {
+	Context("Time since Create/Delete calculations", func() {
+		DescribeTable("time diff calculations", func(expectedVal float64, curState v1.VirtualMachinePrintableStatus, creation bool) {
+			vm := createVMForStatusTransitionTime(curState, expectedVal*1000)
+			if !creation {
+				vm.DeletionTimestamp = &vm.CreationTimestamp
+			}
+
+			diffSeconds, err := getVMTransitionTimeSeconds(vm)
+			Expect(err).To(BeNil())
+
+			// Time since created or deleted timestamp
+			// Value should be 2x expectedVal while time between State should be
+			// 1x expectedVal because the measurement is creationtime -> oldstate -> newstate
+			Expect(diffSeconds).To(Equal(2 * expectedVal))
+		},
+			Entry("Time between creation and pending", 3.0, v1.VirtualMachineStatusStarting, true),
+			Entry("Time between creation and running", 5.0, v1.VirtualMachineStatusRunning, true),
+			Entry("Time between creation and provisioning using fraction of a second", .5, v1.VirtualMachineStatusProvisioning, true),
+			Entry("Time spent deleting a VM that exited in a failed state", 5.0, v1.VirtualMachineStatusCrashLoopBackOff, false),
+			Entry("Time spent deleting a VM that exited in a terminating state", 5.0, v1.VirtualMachineStatusTerminating, false),
+		)
+	})
+})
+
 var _ = Describe("VMI phase transition time histogram", func() {
 	Context("Transition Time calculations", func() {
 		DescribeTable("time diff calculations", func(expectedVal float64, curPhase v1.VirtualMachineInstancePhase, oldPhase v1.VirtualMachineInstancePhase) {
@@ -43,7 +68,7 @@ var _ = Describe("VMI phase transition time histogram", func() {
 			oldVMI = vmi.DeepCopy()
 			oldVMI.Status.Phase = oldPhase
 
-			diffSeconds, err := getTransitionTimeSeconds(false, false, oldVMI, vmi)
+			diffSeconds, err := getVMITransitionTimeSeconds(false, false, oldVMI, vmi)
 			Expect(err).To(BeNil())
 
 			Expect(diffSeconds).To(Equal(expectedVal))
@@ -71,7 +96,7 @@ var _ = Describe("VMI phase transition time histogram", func() {
 				oldVMI.Status.Phase = oldPhase
 			}
 
-			diffSeconds, err := getTransitionTimeSeconds(creation, !creation, oldVMI, vmi)
+			diffSeconds, err := getVMITransitionTimeSeconds(creation, !creation, oldVMI, vmi)
 			Expect(err).To(BeNil())
 
 			// Time since created or deleted timestamp
@@ -87,6 +112,30 @@ var _ = Describe("VMI phase transition time histogram", func() {
 		)
 	})
 })
+
+func createVMForStatusTransitionTime(state v1.VirtualMachinePrintableStatus, offset float64) *v1.VirtualMachine {
+	now := metav1.NewTime(time.Now())
+	old := metav1.NewTime(now.Time.Add(-time.Duration(int64(offset)) * time.Millisecond))
+	creation := metav1.NewTime(old.Time.Add(-time.Duration(int64(offset)) * time.Millisecond))
+
+	vm := &v1.VirtualMachine{
+		ObjectMeta: metav1.ObjectMeta{
+			Namespace:         "test-ns",
+			Name:              "testvm",
+			CreationTimestamp: creation,
+		},
+		Status: v1.VirtualMachineStatus{
+			PrintableStatus: state,
+		},
+	}
+
+	vm.Status.StatusTransitionTimestamps = append(vm.Status.StatusTransitionTimestamps, v1.VirtualMachineStatusTransitionTimestamp{
+		Status:                    state,
+		StatusTransitionTimestamp: now,
+	})
+
+	return vm
+}
 
 func createVMISForPhaseTransitionTime(phase v1.VirtualMachineInstancePhase, oldPhase v1.VirtualMachineInstancePhase, offset float64, hasTransitionTime bool) *v1.VirtualMachineInstance {
 	now := metav1.NewTime(time.Now())
@@ -105,19 +154,19 @@ func createVMISForPhaseTransitionTime(phase v1.VirtualMachineInstancePhase, oldP
 		},
 	}
 
-	if hasTransitionTime {
-		vmi.Status.PhaseTransitionTimestamps = append(vmi.Status.PhaseTransitionTimestamps, v1.VirtualMachineInstancePhaseTransitionTimestamp{
-			Phase:                    phase,
-			PhaseTransitionTimestamp: now,
-		})
-	}
-
 	if oldPhase != "" {
 		vmi.Status.PhaseTransitionTimestamps = append(vmi.Status.PhaseTransitionTimestamps, v1.VirtualMachineInstancePhaseTransitionTimestamp{
 			Phase:                    oldPhase,
 			PhaseTransitionTimestamp: old,
 		})
 
+	}
+
+	if hasTransitionTime {
+		vmi.Status.PhaseTransitionTimestamps = append(vmi.Status.PhaseTransitionTimestamps, v1.VirtualMachineInstancePhaseTransitionTimestamp{
+			Phase:                    phase,
+			PhaseTransitionTimestamp: now,
+		})
 	}
 
 	return vmi
