@@ -690,7 +690,7 @@ func findIfaceByMAC(virtClient kubecli.KubevirtClient, vmi *v1.VirtualMachineIns
 		return true, nil
 	})
 	if err != nil {
-		return "", err
+		return "", fmt.Errorf("could not find interface with MAC %q on VMI %q: %v", mac, vmi.Name, err)
 	}
 	return ifaceName, nil
 }
