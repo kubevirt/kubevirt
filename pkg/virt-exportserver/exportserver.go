@@ -35,6 +35,7 @@ import (
 	flag "github.com/spf13/pflag"
 
 	"kubevirt.io/client-go/log"
+
 	"kubevirt.io/kubevirt/pkg/service"
 )
 

@@ -29,6 +29,7 @@ import (
 	"time"
 
 	"kubevirt.io/client-go/log"
+
 	diskutils "kubevirt.io/kubevirt/pkg/ephemeral-disk-utils"
 	"kubevirt.io/kubevirt/pkg/util"
 )

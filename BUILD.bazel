@@ -40,7 +40,7 @@ goimports(
         "./.git/*",
         "./_ci-configs/*",
     ],
-    local = ["kubevirt.io"],
+    local = ["kubevirt.io/kubevirt"],
     prefix = "kubevirt.io/kubevirt",
     write = True,
 )

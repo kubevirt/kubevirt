@@ -56,6 +56,7 @@ import (
 	"unsafe"
 
 	"kubevirt.io/client-go/log"
+
 	util "kubevirt.io/kubevirt/pkg/virt-handler/node-labeller/util"
 )
 

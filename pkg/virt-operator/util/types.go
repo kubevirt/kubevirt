@@ -23,6 +23,7 @@ import (
 	"k8s.io/client-go/tools/cache"
 
 	v1 "kubevirt.io/api/core/v1"
+
 	"kubevirt.io/kubevirt/pkg/controller"
 )
 

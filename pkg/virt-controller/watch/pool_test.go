@@ -42,6 +42,7 @@ import (
 	"kubevirt.io/client-go/api"
 	kubevirtfake "kubevirt.io/client-go/generated/kubevirt/clientset/versioned/fake"
 	"kubevirt.io/client-go/kubecli"
+
 	virtcontroller "kubevirt.io/kubevirt/pkg/controller"
 	testutils "kubevirt.io/kubevirt/pkg/testutils"
 )

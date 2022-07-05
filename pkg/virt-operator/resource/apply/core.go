@@ -19,6 +19,7 @@ import (
 	"k8s.io/client-go/util/workqueue"
 
 	"kubevirt.io/client-go/log"
+
 	"kubevirt.io/kubevirt/pkg/certificates/triple/cert"
 	"kubevirt.io/kubevirt/pkg/controller"
 	"kubevirt.io/kubevirt/pkg/virt-operator/resource/generate/components"

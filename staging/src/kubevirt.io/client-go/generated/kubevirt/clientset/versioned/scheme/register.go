@@ -24,7 +24,6 @@ import (
 	schema "k8s.io/apimachinery/pkg/runtime/schema"
 	serializer "k8s.io/apimachinery/pkg/runtime/serializer"
 	utilruntime "k8s.io/apimachinery/pkg/util/runtime"
-
 	clonev1alpha1 "kubevirt.io/api/clone/v1alpha1"
 	exportv1alpha1 "kubevirt.io/api/export/v1alpha1"
 	flavorv1alpha1 "kubevirt.io/api/flavor/v1alpha1"

@@ -30,6 +30,7 @@ import (
 	"sync"
 
 	"kubevirt.io/api/migrations/v1alpha1"
+
 	"kubevirt.io/kubevirt/tests/framework/cleanup"
 
 	"kubevirt.io/kubevirt/pkg/virt-handler/cgroup"
@@ -75,6 +76,7 @@ import (
 	"kubevirt.io/client-go/kubecli"
 	"kubevirt.io/client-go/log"
 	cdiv1 "kubevirt.io/containerized-data-importer-api/pkg/apis/core/v1beta1"
+
 	"kubevirt.io/kubevirt/pkg/certificates/triple"
 	"kubevirt.io/kubevirt/pkg/certificates/triple/cert"
 	"kubevirt.io/kubevirt/pkg/util/cluster"

@@ -7,6 +7,7 @@ import (
 	"k8s.io/apimachinery/pkg/api/errors"
 
 	v1 "kubevirt.io/api/core/v1"
+
 	"kubevirt.io/kubevirt/pkg/controller"
 	apimetrics "kubevirt.io/kubevirt/pkg/monitoring/api"
 )

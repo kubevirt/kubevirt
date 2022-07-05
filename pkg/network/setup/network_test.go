@@ -25,6 +25,7 @@ import (
 
 	v1 "kubevirt.io/api/core/v1"
 	api2 "kubevirt.io/client-go/api"
+
 	"kubevirt.io/kubevirt/pkg/network/infraconfigurators"
 	"kubevirt.io/kubevirt/pkg/virt-launcher/virtwrap/api"
 )

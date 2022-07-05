@@ -29,6 +29,7 @@ import (
 	"google.golang.org/grpc"
 
 	"kubevirt.io/client-go/log"
+
 	"kubevirt.io/kubevirt/pkg/util"
 )
 

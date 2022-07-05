@@ -31,6 +31,7 @@ import (
 	virtconfig "kubevirt.io/kubevirt/pkg/virt-config"
 
 	v1 "kubevirt.io/api/core/v1"
+
 	webhookutils "kubevirt.io/kubevirt/pkg/util/webhooks"
 )
 

@@ -32,6 +32,7 @@ import (
 	"k8s.io/utils/pointer"
 
 	v1 "kubevirt.io/api/core/v1"
+
 	"kubevirt.io/kubevirt/pkg/certificates"
 	ephemeraldiskutils "kubevirt.io/kubevirt/pkg/ephemeral-disk-utils"
 	"kubevirt.io/kubevirt/pkg/testutils"

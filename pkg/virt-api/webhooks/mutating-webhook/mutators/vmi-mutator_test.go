@@ -40,6 +40,7 @@ import (
 	"kubevirt.io/client-go/api"
 
 	v1 "kubevirt.io/api/core/v1"
+
 	"kubevirt.io/kubevirt/pkg/testutils"
 	utiltypes "kubevirt.io/kubevirt/pkg/util/types"
 	"kubevirt.io/kubevirt/pkg/virt-api/webhooks"

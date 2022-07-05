@@ -33,6 +33,7 @@ import (
 	"k8s.io/client-go/tools/cache"
 
 	"kubevirt.io/client-go/log"
+
 	"kubevirt.io/kubevirt/pkg/virt-launcher/virtwrap/api"
 )
 

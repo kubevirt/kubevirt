@@ -34,6 +34,7 @@ import (
 	snapshotv1 "kubevirt.io/api/snapshot/v1alpha1"
 	"kubevirt.io/client-go/kubecli"
 	"kubevirt.io/client-go/log"
+
 	"kubevirt.io/kubevirt/pkg/util/status"
 	watchutil "kubevirt.io/kubevirt/pkg/virt-controller/watch/util"
 )

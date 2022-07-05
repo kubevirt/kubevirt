@@ -27,6 +27,7 @@ import (
 	"k8s.io/apimachinery/pkg/util/validation"
 
 	"kubevirt.io/client-go/api"
+
 	"kubevirt.io/kubevirt/tools/vms-generator/utils"
 
 	"github.com/golang/mock/gomock"
@@ -46,6 +47,7 @@ import (
 	v1 "kubevirt.io/api/core/v1"
 	fakenetworkclient "kubevirt.io/client-go/generated/network-attachment-definition-client/clientset/versioned/fake"
 	"kubevirt.io/client-go/kubecli"
+
 	"kubevirt.io/kubevirt/pkg/hooks"
 	"kubevirt.io/kubevirt/pkg/network/istio"
 	"kubevirt.io/kubevirt/pkg/testutils"

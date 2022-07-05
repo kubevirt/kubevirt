@@ -24,7 +24,6 @@ import (
 	"k8s.io/client-go/discovery"
 	fakediscovery "k8s.io/client-go/discovery/fake"
 	"k8s.io/client-go/testing"
-
 	clientset "kubevirt.io/client-go/generated/network-attachment-definition-client/clientset/versioned"
 	k8scnicncfiov1 "kubevirt.io/client-go/generated/network-attachment-definition-client/clientset/versioned/typed/k8s.cni.cncf.io/v1"
 	fakek8scnicncfiov1 "kubevirt.io/client-go/generated/network-attachment-definition-client/clientset/versioned/typed/k8s.cni.cncf.io/v1/fake"

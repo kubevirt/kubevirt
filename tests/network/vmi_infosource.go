@@ -33,6 +33,7 @@ import (
 	kvirtv1 "kubevirt.io/api/core/v1"
 
 	"kubevirt.io/client-go/kubecli"
+
 	netvmispec "kubevirt.io/kubevirt/pkg/network/vmispec"
 	"kubevirt.io/kubevirt/tests"
 	"kubevirt.io/kubevirt/tests/libvmi"

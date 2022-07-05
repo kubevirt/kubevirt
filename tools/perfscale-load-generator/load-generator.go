@@ -25,6 +25,7 @@ import (
 	"github.com/google/uuid"
 
 	"kubevirt.io/client-go/log"
+
 	"kubevirt.io/kubevirt/tools/perfscale-load-generator/api"
 	"kubevirt.io/kubevirt/tools/perfscale-load-generator/burst"
 	"kubevirt.io/kubevirt/tools/perfscale-load-generator/config"

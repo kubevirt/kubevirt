@@ -44,6 +44,7 @@ import (
 	flavorv1alpha1 "kubevirt.io/api/flavor/v1alpha1"
 	poolv1alpha1 "kubevirt.io/api/pool/v1alpha1"
 	snapshotv1 "kubevirt.io/api/snapshot/v1alpha1"
+
 	mime "kubevirt.io/kubevirt/pkg/rest"
 )
 

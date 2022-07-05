@@ -49,6 +49,7 @@ import (
 	"kubevirt.io/client-go/log"
 	cdiv1 "kubevirt.io/containerized-data-importer-api/pkg/apis/core/v1beta1"
 	cdiclone "kubevirt.io/containerized-data-importer/pkg/clone"
+
 	"kubevirt.io/kubevirt/pkg/controller"
 	"kubevirt.io/kubevirt/pkg/flavor"
 	"kubevirt.io/kubevirt/pkg/util"

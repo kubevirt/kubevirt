@@ -7,6 +7,7 @@ import (
 	"kubevirt.io/kubevirt/tests/libnet/cluster"
 
 	"kubevirt.io/client-go/kubecli"
+
 	"kubevirt.io/kubevirt/tests/flags"
 )
 

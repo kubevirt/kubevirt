@@ -27,12 +27,14 @@ import (
 	"syscall"
 
 	"kubevirt.io/client-go/log"
+
 	ephemeraldiskutils "kubevirt.io/kubevirt/pkg/ephemeral-disk-utils"
 
 	k8sv1 "k8s.io/api/core/v1"
 	"k8s.io/client-go/tools/record"
 
 	v1 "kubevirt.io/api/core/v1"
+
 	"kubevirt.io/kubevirt/pkg/util"
 	"kubevirt.io/kubevirt/pkg/util/types"
 )

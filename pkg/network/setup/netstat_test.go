@@ -24,6 +24,7 @@ import (
 	. "github.com/onsi/gomega"
 
 	v1 "kubevirt.io/api/core/v1"
+
 	"kubevirt.io/kubevirt/pkg/network/cache"
 	netsetup "kubevirt.io/kubevirt/pkg/network/setup"
 	netsriov "kubevirt.io/kubevirt/pkg/network/sriov"

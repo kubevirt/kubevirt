@@ -38,6 +38,7 @@ import (
 	virtcontroller "kubevirt.io/kubevirt/pkg/controller"
 
 	api2 "kubevirt.io/client-go/api"
+
 	netcache "kubevirt.io/kubevirt/pkg/network/cache"
 	neterrors "kubevirt.io/kubevirt/pkg/network/errors"
 	"kubevirt.io/kubevirt/pkg/util"
@@ -67,6 +68,7 @@ import (
 	v1 "kubevirt.io/api/core/v1"
 	"kubevirt.io/client-go/kubecli"
 	"kubevirt.io/client-go/precond"
+
 	diskutils "kubevirt.io/kubevirt/pkg/ephemeral-disk-utils"
 	"kubevirt.io/kubevirt/pkg/testutils"
 	virtcache "kubevirt.io/kubevirt/pkg/virt-handler/cache"

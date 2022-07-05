@@ -26,6 +26,7 @@ import (
 
 	"kubevirt.io/client-go/kubecli"
 	"kubevirt.io/client-go/log"
+
 	"kubevirt.io/kubevirt/tools/perfscale-load-generator/config"
 	objUtil "kubevirt.io/kubevirt/tools/perfscale-load-generator/object"
 	"kubevirt.io/kubevirt/tools/perfscale-load-generator/watcher"

@@ -27,6 +27,7 @@ import (
 
 	v1 "kubevirt.io/api/core/v1"
 	"kubevirt.io/client-go/log"
+
 	cmdclient "kubevirt.io/kubevirt/pkg/virt-handler/cmd-client"
 )
 

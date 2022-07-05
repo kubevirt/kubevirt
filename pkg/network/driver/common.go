@@ -38,6 +38,7 @@ import (
 
 	v1 "kubevirt.io/api/core/v1"
 	"kubevirt.io/client-go/log"
+
 	"kubevirt.io/kubevirt/pkg/network/cache"
 	dhcpserver "kubevirt.io/kubevirt/pkg/network/dhcp/server"
 	dhcpserverv6 "kubevirt.io/kubevirt/pkg/network/dhcp/serverv6"

@@ -11,6 +11,7 @@ import (
 	"k8s.io/apimachinery/pkg/api/errors"
 
 	cdiv1 "kubevirt.io/containerized-data-importer-api/pkg/apis/core/v1beta1"
+
 	cd "kubevirt.io/kubevirt/tests/containerdisk"
 
 	virtconfig "kubevirt.io/kubevirt/pkg/virt-config"
@@ -25,6 +26,7 @@ import (
 	clonev1alpha1 "kubevirt.io/api/clone/v1alpha1"
 	virtv1 "kubevirt.io/api/core/v1"
 	"kubevirt.io/client-go/kubecli"
+
 	"kubevirt.io/kubevirt/tests"
 	"kubevirt.io/kubevirt/tests/libvmi"
 	"kubevirt.io/kubevirt/tests/util"

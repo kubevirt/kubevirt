@@ -12,6 +12,7 @@ import (
 	"k8s.io/client-go/kubernetes/fake"
 
 	virtv1 "kubevirt.io/api/core/v1"
+
 	"kubevirt.io/kubevirt/pkg/testutils"
 	virtconfig "kubevirt.io/kubevirt/pkg/virt-config"
 	device_manager "kubevirt.io/kubevirt/pkg/virt-handler/device-manager"

@@ -38,6 +38,7 @@ import (
 	v1 "kubevirt.io/api/core/v1"
 	snapshotv1 "kubevirt.io/api/snapshot/v1alpha1"
 	"kubevirt.io/client-go/kubecli"
+
 	webhookutils "kubevirt.io/kubevirt/pkg/util/webhooks"
 	virtconfig "kubevirt.io/kubevirt/pkg/virt-config"
 )

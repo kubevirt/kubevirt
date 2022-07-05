@@ -10,6 +10,7 @@ import (
 
 	"kubevirt.io/client-go/api"
 	"kubevirt.io/client-go/kubecli"
+
 	"kubevirt.io/kubevirt/pkg/virtctl/softreboot"
 )
 

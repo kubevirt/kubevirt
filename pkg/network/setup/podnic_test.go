@@ -11,6 +11,7 @@ import (
 
 	v1 "kubevirt.io/api/core/v1"
 	api2 "kubevirt.io/client-go/api"
+
 	dutils "kubevirt.io/kubevirt/pkg/ephemeral-disk-utils"
 	"kubevirt.io/kubevirt/pkg/network/cache"
 	"kubevirt.io/kubevirt/pkg/network/dhcp"

@@ -31,6 +31,7 @@ import (
 
 	"kubevirt.io/api/clone"
 	clonev1alpha1 "kubevirt.io/api/clone/v1alpha1"
+
 	utiltypes "kubevirt.io/kubevirt/pkg/util/types"
 	webhookutils "kubevirt.io/kubevirt/pkg/util/webhooks"
 )

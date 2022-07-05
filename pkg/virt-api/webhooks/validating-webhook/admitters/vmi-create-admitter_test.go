@@ -25,6 +25,7 @@ import (
 	"strings"
 
 	"kubevirt.io/client-go/api"
+
 	"kubevirt.io/kubevirt/pkg/virt-operator/resource/generate/rbac"
 
 	. "github.com/onsi/ginkgo/v2"
@@ -41,6 +42,7 @@ import (
 	"k8s.io/utils/pointer"
 
 	v1 "kubevirt.io/api/core/v1"
+
 	"kubevirt.io/kubevirt/pkg/hooks"
 	"kubevirt.io/kubevirt/pkg/testutils"
 	"kubevirt.io/kubevirt/pkg/virt-api/webhooks"

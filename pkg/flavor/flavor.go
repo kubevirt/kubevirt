@@ -21,6 +21,7 @@ import (
 	flavorv1alpha1 "kubevirt.io/api/flavor/v1alpha1"
 	"kubevirt.io/client-go/kubecli"
 	"kubevirt.io/client-go/log"
+
 	utiltypes "kubevirt.io/kubevirt/pkg/util/types"
 )
 

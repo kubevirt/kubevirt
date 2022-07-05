@@ -15,6 +15,7 @@ import (
 	"github.com/onsi/ginkgo/v2"
 
 	"kubevirt.io/client-go/kubecli"
+
 	virtconfig "kubevirt.io/kubevirt/pkg/virt-config"
 
 	"kubevirt.io/kubevirt/tests/libnode"

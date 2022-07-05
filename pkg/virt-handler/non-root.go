@@ -11,6 +11,7 @@ import (
 	k8sv1 "k8s.io/api/core/v1"
 
 	v1 "kubevirt.io/api/core/v1"
+
 	diskutils "kubevirt.io/kubevirt/pkg/ephemeral-disk-utils"
 	hostdisk "kubevirt.io/kubevirt/pkg/host-disk"
 	"kubevirt.io/kubevirt/pkg/util/types"

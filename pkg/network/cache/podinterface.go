@@ -23,6 +23,7 @@ import (
 	"path/filepath"
 
 	v1 "kubevirt.io/api/core/v1"
+
 	"kubevirt.io/kubevirt/pkg/util"
 )
 

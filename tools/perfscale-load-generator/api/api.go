@@ -23,6 +23,7 @@ import (
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
 
 	"kubevirt.io/client-go/kubecli"
+
 	"kubevirt.io/kubevirt/tools/perfscale-load-generator/config"
 )
 

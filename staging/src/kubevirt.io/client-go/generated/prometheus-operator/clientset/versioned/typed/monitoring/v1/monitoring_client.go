@@ -21,7 +21,6 @@ package v1
 import (
 	v1 "github.com/coreos/prometheus-operator/pkg/apis/monitoring/v1"
 	rest "k8s.io/client-go/rest"
-
 	"kubevirt.io/client-go/generated/prometheus-operator/clientset/versioned/scheme"
 )
 

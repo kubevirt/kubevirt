@@ -31,6 +31,7 @@ import (
 	"kubevirt.io/kubevirt/pkg/monitoring/migration"
 
 	clonev1alpha1 "kubevirt.io/api/clone/v1alpha1"
+
 	"kubevirt.io/kubevirt/pkg/virt-controller/watch/clone"
 
 	"kubevirt.io/kubevirt/pkg/flavor"
@@ -63,6 +64,7 @@ import (
 	"kubevirt.io/client-go/kubecli"
 	"kubevirt.io/client-go/log"
 	clientutil "kubevirt.io/client-go/util"
+
 	"kubevirt.io/kubevirt/pkg/certificates/bootstrap"
 	containerdisk "kubevirt.io/kubevirt/pkg/container-disk"
 	"kubevirt.io/kubevirt/pkg/controller"

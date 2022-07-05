@@ -31,6 +31,7 @@ import (
 	k8scli "k8s.io/client-go/kubernetes/typed/core/v1"
 
 	"kubevirt.io/client-go/log"
+
 	virtconfig "kubevirt.io/kubevirt/pkg/virt-config"
 )
 
