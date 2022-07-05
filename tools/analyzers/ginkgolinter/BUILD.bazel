@@ -1,0 +1,10 @@
+# gazelle:ignore
+load("@io_bazel_rules_go//go:def.bzl", "go_library")
+
+go_library(
+    name = "go_default_library",
+    srcs = ["ginkgo_linter.go"],
+    importpath = "kubevirt.io/kubevirt/tools/analyzers/ginkgolinter",
+    visibility = ["//visibility:public"],
+    deps = ["@org_golang_x_tools//go/analysis:go_default_library"],
+)

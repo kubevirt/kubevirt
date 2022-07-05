@@ -125,5 +125,11 @@
       "vendor/": "vendor doesn't pass vet",
       "external/": "externaldoesn't pass vet"
     }
+  },
+  "ginkgolinter": {
+    "exclude_files": {
+      "vendor/": "vendor doesn't pass vet",
+      "external/": "externaldoesn't pass vet"
+    }
   }
 }
