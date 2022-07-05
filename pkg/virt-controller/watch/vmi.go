@@ -2127,10 +2127,14 @@ func (c *VMIController) updateVolumeStatus(vmi *virtv1.VirtualMachineInstance, v
 }
 
 func (c *VMIController) getFilesystemOverhead(pvc *k8sv1.PersistentVolumeClaim) (cdiv1.Percent, error) {
-	_, cdiExists, _ := c.cdiInformer.GetStore().GetByKey("cdi")
-	if !cdiExists {
+	// To avoid conflicts, we only allow having one CDI instance
+	if cdiInstances := len(c.cdiInformer.GetStore().List()); cdiInstances != 1 {
+		if cdiInstances > 1 {
+			return "0", fmt.Errorf("Detected more than one CDI instance: %d", cdiInstances)
+		}
 		return "0", failedToFindCdi
 	}
+
 	cdiConfigInterface, cdiConfigExists, err := c.cdiConfigInformer.GetStore().GetByKey("config")
 	if !cdiConfigExists || err != nil {
 		return "0", fmt.Errorf("Failed to find CDIConfig but CDI exists: %w", err)
