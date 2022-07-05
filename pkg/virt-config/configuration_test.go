@@ -645,4 +645,21 @@ var _ = Describe("test configuration", func() {
 		Entry("ClusterProfiler feature gate enabled should result in cluster profiler being enabled",
 			[]string{virtconfig.ClusterProfiler}, true),
 	)
+
+	Context("deprecated feature gates should always be considered as enabled", func() {
+		var clusterConfig *virtconfig.ClusterConfig
+
+		BeforeEach(func() {
+			clusterConfig, _, _ = testutils.NewFakeClusterConfigUsingKVConfig(&v1.KubeVirtConfiguration{
+				DeveloperConfiguration: &v1.DeveloperConfiguration{
+					FeatureGates: nil,
+				},
+			})
+		})
+
+		It("live migration feature gate", func() {
+			Expect(clusterConfig.LiveMigrationEnabled()).To(BeTrue())
+		})
+
+	})
 })
