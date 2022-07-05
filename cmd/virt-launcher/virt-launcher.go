@@ -406,7 +406,7 @@ func main() {
 	notifier := notifyclient.NewNotifier(*virtShareDir)
 	defer notifier.Close()
 
-	domainManager, err := virtwrap.NewLibvirtDomainManager(domainConn, *virtShareDir, *ephemeralDiskDir, &agentStore, *ovmfPath, ephemeralDiskCreator)
+	domainManager, err := virtwrap.NewLibvirtDomainManager(domainConn, vmi.UID, *virtShareDir, *ephemeralDiskDir, &agentStore, *ovmfPath, ephemeralDiskCreator)
 	if err != nil {
 		panic(err)
 	}

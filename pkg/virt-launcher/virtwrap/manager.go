@@ -130,6 +130,9 @@ type DomainManager interface {
 type LibvirtDomainManager struct {
 	virConn cli.Connection
 
+	// Domain unique identifier
+	uid types.UID
+
 	// Anytime a get and a set is done on the domain, this lock must be held.
 	domainModifyLock sync.Mutex
 	// mutex to control access to the guest time context
@@ -178,14 +181,15 @@ func (s pausedVMIs) contains(uid types.UID) bool {
 	return ok
 }
 
-func NewLibvirtDomainManager(connection cli.Connection, virtShareDir, ephemeralDiskDir string, agentStore *agentpoller.AsyncAgentStore, ovmfPath string, ephemeralDiskCreator ephemeraldisk.EphemeralDiskCreatorInterface) (DomainManager, error) {
+func NewLibvirtDomainManager(connection cli.Connection, uid types.UID, virtShareDir, ephemeralDiskDir string, agentStore *agentpoller.AsyncAgentStore, ovmfPath string, ephemeralDiskCreator ephemeraldisk.EphemeralDiskCreatorInterface) (DomainManager, error) {
 	directIOChecker := converter.NewDirectIOChecker()
-	return newLibvirtDomainManager(connection, virtShareDir, ephemeralDiskDir, agentStore, ovmfPath, ephemeralDiskCreator, directIOChecker)
+	return newLibvirtDomainManager(connection, uid, virtShareDir, ephemeralDiskDir, agentStore, ovmfPath, ephemeralDiskCreator, directIOChecker)
 }
 
-func newLibvirtDomainManager(connection cli.Connection, virtShareDir, ephemeralDiskDir string, agentStore *agentpoller.AsyncAgentStore, ovmfPath string, ephemeralDiskCreator ephemeraldisk.EphemeralDiskCreatorInterface, directIOChecker converter.DirectIOChecker) (DomainManager, error) {
+func newLibvirtDomainManager(connection cli.Connection, uid types.UID, virtShareDir, ephemeralDiskDir string, agentStore *agentpoller.AsyncAgentStore, ovmfPath string, ephemeralDiskCreator ephemeraldisk.EphemeralDiskCreatorInterface, directIOChecker converter.DirectIOChecker) (DomainManager, error) {
 	manager := LibvirtDomainManager{
 		virConn:          connection,
+		uid:              uid,
 		virtShareDir:     virtShareDir,
 		ephemeralDiskDir: ephemeralDiskDir,
 		paused: pausedVMIs{
@@ -1678,6 +1682,7 @@ func (l *LibvirtDomainManager) ListAllDomains() ([]*api.Domain, error) {
 			return list, err
 		}
 		domain.SetState(util.ConvState(status), util.ConvReason(status, reason))
+		domain.ObjectMeta.UID = l.uid
 		list = append(list, domain)
 	}
 
