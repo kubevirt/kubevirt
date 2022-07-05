@@ -1372,6 +1372,14 @@ const (
 	VirtualMachineStatusWaitingForVolumeBinding VirtualMachinePrintableStatus = "WaitingForVolumeBinding"
 )
 
+// VirtualMachineStatusTransitionTimestamp gives a timestamp in relation to when a status is set on a vm
+type VirtualMachineStatusTransitionTimestamp struct {
+	//  Hold the state information of the VirtualMachine.
+	Status VirtualMachinePrintableStatus `json:"status,omitempty"`
+	// StatusTransitionTimestamp is the timestamp of when the status change occurred
+	StatusTransitionTimestamp metav1.Time `json:"statusTransitionTimestamp,omitempty"`
+}
+
 // VirtualMachineStartFailure tracks VMIs which failed to transition successfully
 // to running using the VM status
 type VirtualMachineStartFailure struct {
@@ -1393,6 +1401,10 @@ type VirtualMachineStatus struct {
 	Ready bool `json:"ready,omitempty"`
 	// PrintableStatus is a human readable, high-level representation of the status of the virtual machine
 	PrintableStatus VirtualMachinePrintableStatus `json:"printableStatus,omitempty"`
+	// StatusTransitionTimestamp is the timestamp of when the last state change occurred
+	// +listType=atomic
+	// +optional
+	StatusTransitionTimestamps []VirtualMachineStatusTransitionTimestamp `json:"statusTransitionTimestamps,omitempty"`
 	// Hold the state information of the VirtualMachine and its VirtualMachineInstance
 	Conditions []VirtualMachineCondition `json:"conditions,omitempty" optional:"true"`
 	// StateChangeRequests indicates a list of actions that should be taken on a VMI

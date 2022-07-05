@@ -18958,6 +18958,14 @@
        "$ref": "#/definitions/v1.VirtualMachineStateChangeRequest"
       }
      },
+     "statusTransitionTimestamps": {
+      "description": "StatusTransitionTimestamp is the timestamp of when the last state change occurred",
+      "type": "array",
+      "items": {
+       "$ref": "#/definitions/v1.VirtualMachineStatusTransitionTimestamp"
+      },
+      "x-kubernetes-list-type": "atomic"
+     },
      "volumeRequests": {
       "description": "VolumeRequests indicates a list of volumes add or remove from the VMI template and hotplug on an active running VMI.",
       "type": "array",
@@ -18972,6 +18980,20 @@
       "items": {
        "$ref": "#/definitions/v1.VolumeSnapshotStatus"
       }
+     }
+    }
+   },
+   "v1.VirtualMachineStatusTransitionTimestamp": {
+    "description": "VirtualMachineStatusTransitionTimestamp gives a timestamp in relation to when a status is set on a vm",
+    "type": "object",
+    "properties": {
+     "status": {
+      "description": "\n Hold the state information of the VirtualMachine.",
+      "type": "string"
+     },
+     "statusTransitionTimestamp": {
+      "description": "StatusTransitionTimestamp is the timestamp of when the status change occurred",
+      "$ref": "#/definitions/k8s.io.apimachinery.pkg.apis.meta.v1.Time"
      }
     }
    },

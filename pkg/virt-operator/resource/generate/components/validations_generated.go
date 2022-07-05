@@ -6545,6 +6545,24 @@ var CRDsValidation map[string]string = map[string]string{
             - action
             type: object
           type: array
+        statusTransitionTimestamps:
+          description: StatusTransitionTimestamp is the timestamp of when the last
+            state change occurred
+          items:
+            description: VirtualMachineStatusTransitionTimestamp gives a timestamp
+              in relation to when a status is set on a vm
+            properties:
+              status:
+                description: ' Hold the state information of the VirtualMachine.'
+                type: string
+              statusTransitionTimestamp:
+                description: StatusTransitionTimestamp is the timestamp of when the
+                  status change occurred
+                format: date-time
+                type: string
+            type: object
+          type: array
+          x-kubernetes-list-type: atomic
         volumeRequests:
           description: VolumeRequests indicates a list of volumes add or remove from
             the VMI template and hotplug on an active running VMI.
@@ -23327,6 +23345,24 @@ var CRDsValidation map[string]string = map[string]string{
                         - action
                         type: object
                       type: array
+                    statusTransitionTimestamps:
+                      description: StatusTransitionTimestamp is the timestamp of when
+                        the last state change occurred
+                      items:
+                        description: VirtualMachineStatusTransitionTimestamp gives
+                          a timestamp in relation to when a status is set on a vm
+                        properties:
+                          status:
+                            description: ' Hold the state information of the VirtualMachine.'
+                            type: string
+                          statusTransitionTimestamp:
+                            description: StatusTransitionTimestamp is the timestamp
+                              of when the status change occurred
+                            format: date-time
+                            type: string
+                        type: object
+                      type: array
+                      x-kubernetes-list-type: atomic
                     volumeRequests:
                       description: VolumeRequests indicates a list of volumes add
                         or remove from the VMI template and hotplug on an active running

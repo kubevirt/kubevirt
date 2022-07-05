@@ -326,6 +326,14 @@ func (VirtualMachineSpec) SwaggerDoc() map[string]string {
 	}
 }
 
+func (VirtualMachineStatusTransitionTimestamp) SwaggerDoc() map[string]string {
+	return map[string]string{
+		"":                          "VirtualMachineStatusTransitionTimestamp gives a timestamp in relation to when a status is set on a vm",
+		"status":                    "Hold the state information of the VirtualMachine.",
+		"statusTransitionTimestamp": "StatusTransitionTimestamp is the timestamp of when the status change occurred",
+	}
+}
+
 func (VirtualMachineStartFailure) SwaggerDoc() map[string]string {
 	return map[string]string{
 		"": "VirtualMachineStartFailure tracks VMIs which failed to transition successfully\nto running using the VM status",
@@ -334,18 +342,19 @@ func (VirtualMachineStartFailure) SwaggerDoc() map[string]string {
 
 func (VirtualMachineStatus) SwaggerDoc() map[string]string {
 	return map[string]string{
-		"":                       "VirtualMachineStatus represents the status returned by the\ncontroller to describe how the VirtualMachine is doing",
-		"snapshotInProgress":     "SnapshotInProgress is the name of the VirtualMachineSnapshot currently executing",
-		"restoreInProgress":      "RestoreInProgress is the name of the VirtualMachineRestore currently executing",
-		"created":                "Created indicates if the virtual machine is created in the cluster",
-		"ready":                  "Ready indicates if the virtual machine is running and ready",
-		"printableStatus":        "PrintableStatus is a human readable, high-level representation of the status of the virtual machine",
-		"conditions":             "Hold the state information of the VirtualMachine and its VirtualMachineInstance",
-		"stateChangeRequests":    "StateChangeRequests indicates a list of actions that should be taken on a VMI\ne.g. stop a specific VMI then start a new one.",
-		"volumeRequests":         "VolumeRequests indicates a list of volumes add or remove from the VMI template and\nhotplug on an active running VMI.\n+listType=atomic",
-		"volumeSnapshotStatuses": "VolumeSnapshotStatuses indicates a list of statuses whether snapshotting is\nsupported by each volume.",
-		"startFailure":           "StartFailure tracks consecutive VMI startup failures for the purposes of\ncrash loop backoffs\n+nullable\n+optional",
-		"memoryDumpRequest":      "MemoryDumpRequest tracks memory dump request phase and info of getting a memory\ndump to the given pvc\n+nullable\n+optional",
+		"":                           "VirtualMachineStatus represents the status returned by the\ncontroller to describe how the VirtualMachine is doing",
+		"snapshotInProgress":         "SnapshotInProgress is the name of the VirtualMachineSnapshot currently executing",
+		"restoreInProgress":          "RestoreInProgress is the name of the VirtualMachineRestore currently executing",
+		"created":                    "Created indicates if the virtual machine is created in the cluster",
+		"ready":                      "Ready indicates if the virtual machine is running and ready",
+		"printableStatus":            "PrintableStatus is a human readable, high-level representation of the status of the virtual machine",
+		"statusTransitionTimestamps": "StatusTransitionTimestamp is the timestamp of when the last state change occurred\n+listType=atomic\n+optional",
+		"conditions":                 "Hold the state information of the VirtualMachine and its VirtualMachineInstance",
+		"stateChangeRequests":        "StateChangeRequests indicates a list of actions that should be taken on a VMI\ne.g. stop a specific VMI then start a new one.",
+		"volumeRequests":             "VolumeRequests indicates a list of volumes add or remove from the VMI template and\nhotplug on an active running VMI.\n+listType=atomic",
+		"volumeSnapshotStatuses":     "VolumeSnapshotStatuses indicates a list of statuses whether snapshotting is\nsupported by each volume.",
+		"startFailure":               "StartFailure tracks consecutive VMI startup failures for the purposes of\ncrash loop backoffs\n+nullable\n+optional",
+		"memoryDumpRequest":          "MemoryDumpRequest tracks memory dump request phase and info of getting a memory\ndump to the given pvc\n+nullable\n+optional",
 	}
 }
 
