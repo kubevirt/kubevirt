@@ -175,13 +175,12 @@ func ValidateVirtualMachineInstanceSpec(field *k8sfield.Path, spec *v1.VirtualMa
 		causes = appendStatusCauseForPodNetworkDefinedWithMultusDefaultNetworkDefined(field, causes)
 	}
 
-	networkInterfaceMap, vifMQ, isMultiQueueAllowed, newCauses, done := validateNetworksMatchInterfaces(field, spec, config, networkNameMap, bootOrderMap)
+	networkInterfaceMap, newCauses, done := validateNetworksMatchInterfaces(field, spec, config, networkNameMap, bootOrderMap)
 	causes = append(causes, newCauses...)
 	if done {
 		return causes
 	}
 
-	causes = append(causes, validateNetworkInterfaceMultiqueue(field, vifMQ, isMultiQueueAllowed)...)
 	causes = append(causes, validateNetworksAssignedToInterfaces(field, spec, networkInterfaceMap)...)
 
 	causes = append(causes, validateInputDevices(field, spec)...)
@@ -243,7 +242,7 @@ func validateVirtualMachineInstanceSpecVolumeDisks(field *k8sfield.Path, spec *v
 	return causes
 }
 
-func validateNetworksMatchInterfaces(field *k8sfield.Path, spec *v1.VirtualMachineInstanceSpec, config *virtconfig.ClusterConfig, networkNameMap map[string]*v1.Network, bootOrderMap map[uint]bool) (networkInterfaceMap map[string]struct{}, vifMQ *bool, isMultiQueueAllowed bool, causes []metav1.StatusCause, done bool) {
+func validateNetworksMatchInterfaces(field *k8sfield.Path, spec *v1.VirtualMachineInstanceSpec, config *virtconfig.ClusterConfig, networkNameMap map[string]*v1.Network, bootOrderMap map[uint]bool) (networkInterfaceMap map[string]struct{}, causes []metav1.StatusCause, done bool) {
 
 	done = false
 
@@ -252,9 +251,6 @@ func validateNetworksMatchInterfaces(field *k8sfield.Path, spec *v1.VirtualMachi
 
 	// Make sure the port name is unique across all the interfaces
 	portForwardMap := make(map[string]struct{})
-
-	vifMQ = spec.Domain.Devices.NetworkInterfaceMultiQueue
-	isMultiQueueAllowed = virtioNicRequested(spec.Domain.Devices.Interfaces) || len(spec.Domain.Devices.Interfaces) == 0
 
 	// Validate that each interface has a matching network
 	numOfInterfaces := len(spec.Domain.Devices.Interfaces)
@@ -279,12 +275,12 @@ func validateNetworksMatchInterfaces(field *k8sfield.Path, spec *v1.VirtualMachi
 		causes = append(causes, newCauses...)
 		done = newDone
 		if done {
-			return nil, nil, false, causes, done
+			return nil, causes, done
 		}
 
 		causes = append(causes, validateDHCPNTPServersAreValidIPv4Addresses(field, iface, idx)...)
 	}
-	return networkInterfaceMap, vifMQ, isMultiQueueAllowed, causes, done
+	return networkInterfaceMap, causes, done
 }
 
 func validateInterfaceNetworkBasics(field *k8sfield.Path, networkExists bool, idx int, iface v1.Interface, networkData *v1.Network, config *virtconfig.ClusterConfig, numOfInterfaces int) (causes []metav1.StatusCause) {
@@ -627,19 +623,6 @@ func validateInterfaceNameUnique(field *k8sfield.Path, networkInterfaceMap map[s
 			Message: "Only one interface can be connected to one specific network",
 			Field:   field.Child("domain", "devices", "interfaces").Index(idx).Child("name").String(),
 		})
-	}
-	return causes
-}
-
-func validateNetworkInterfaceMultiqueue(field *k8sfield.Path, vifMQ *bool, isMultiQueueAllowed bool) (causes []metav1.StatusCause) {
-	if vifMQ != nil && *vifMQ && !isMultiQueueAllowed {
-
-		causes = append(causes, metav1.StatusCause{
-			Type:    metav1.CauseTypeFieldValueInvalid,
-			Message: "virtio-net multiqueue request, but there are no virtio interfaces defined",
-			Field:   field.Child("domain", "devices", "networkInterfaceMultiqueue").String(),
-		})
-
 	}
 	return causes
 }
@@ -2500,14 +2483,4 @@ func validateKernelBoot(field *k8sfield.Path, kernelBoot *v1.KernelBoot) (causes
 	}
 
 	return
-}
-
-func virtioNicRequested(interfaces []v1.Interface) bool {
-	for _, iface := range interfaces {
-		if iface.Model == "virtio" || iface.Model == "" {
-			return true
-		}
-	}
-
-	return false
 }

@@ -1997,31 +1997,6 @@ var _ = Describe("Validating VMICreate Admitter", func() {
 			Expect(err).ToNot(HaveOccurred())
 		})
 
-		It("should reject vmi with a network multiqueue, with only non virtio nics", func() {
-			vmi := api.NewMinimalVMI("testvm")
-			nic := *v1.DefaultBridgeNetworkInterface()
-			nic.Model = "e1000"
-			vmi.Spec.Domain.Devices.Interfaces = []v1.Interface{nic}
-			vmi.Spec.Networks = []v1.Network{*v1.DefaultPodNetwork()}
-			vmi.Spec.Domain.Devices.NetworkInterfaceMultiQueue = pointer.Bool(true)
-			causes := ValidateVirtualMachineInstanceSpec(k8sfield.NewPath("fake"), &vmi.Spec, config)
-			Expect(causes).To(HaveLen(1))
-			Expect(causes[0].Field).To(Equal("fake.domain.devices.networkInterfaceMultiqueue"))
-		})
-
-		DescribeTable("VMI with network multiqueue", func(updateSpec func(vmi *v1.VirtualMachineInstance)) {
-			vmi := api.NewMinimalVMI("testvm")
-			vmi.Spec.Domain.Devices.NetworkInterfaceMultiQueue = pointer.Bool(true)
-			updateSpec(vmi)
-
-			causes := ValidateVirtualMachineInstanceSpec(k8sfield.NewPath("fake"), &vmi.Spec, config)
-			Expect(causes).To(BeEmpty())
-		},
-			Entry("should accept vmi with autoattached interfaces as the default", func(*v1.VirtualMachineInstance) {}),
-			Entry("should accept vmi with autoattached interfaces enabled", enableAutoattachPodInterface),
-			Entry("should accept vmi with autoattached interfaces disabled", disableAutoattachPodInterface),
-		)
-
 		It("should allow BlockMultiQueue with CPU settings", func() {
 			vmi := api.NewMinimalVMI("testvm")
 			vmi.Spec.Domain.Devices.BlockMultiQueue = pointer.Bool(true)
@@ -4165,11 +4140,3 @@ var _ = Describe("Function getNumberOfPodInterfaces()", func() {
 		Expect(causes).To(BeEmpty())
 	})
 })
-
-func enableAutoattachPodInterface(vmi *v1.VirtualMachineInstance) {
-	vmi.Spec.Domain.Devices.AutoattachPodInterface = pointer.Bool(true)
-}
-
-func disableAutoattachPodInterface(vmi *v1.VirtualMachineInstance) {
-	vmi.Spec.Domain.Devices.AutoattachPodInterface = pointer.Bool(false)
-}
