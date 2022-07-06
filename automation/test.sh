@@ -359,6 +359,7 @@ fi
 # Set KUBEVIRT_E2E_FOCUS and KUBEVIRT_E2E_SKIP only if both of them are not
 # already set.
 if [[ -z ${KUBEVIRT_E2E_FOCUS} && -z ${KUBEVIRT_E2E_SKIP} ]]; then
+  echo "WARN: Ongoing deprecation of the keyword matchers and updating them with ginkgo Label decorators"
   if [[ $TARGET =~ windows_sysprep.* ]]; then
     export KUBEVIRT_E2E_FOCUS="\\[Sysprep\\]"
   elif [[ $TARGET =~ windows.* ]]; then
