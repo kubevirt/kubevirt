@@ -151,7 +151,6 @@
       "tools/": "KubeVirt tools do not pass errcheck yet",
       "tests/console": "tests/console does not pass errcheck yet",
       "tests/libstorage/": "tests/libstorage does not pass errcheck yet",
-      "tests/libnode/": "libnode does not pass errcheck yet",
       "tests/monitoring/": "tests/monitoring does not pass errcheck yet",
       "tests/network/": "tests/network/ pkg does not pass errcheck yet",
       "tests/reporter/": "tests/reporter pkg does not pass errcheck yet",

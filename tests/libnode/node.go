@@ -68,9 +68,13 @@ func CleanNodes() {
 
 		k8sClient := clientcmd.GetK8sCmdClient()
 		if k8sClient == "oc" {
-			clientcmd.RunCommandWithNS("", k8sClient, "adm", "uncordon", node.Name)
+			if _, _, err := clientcmd.RunCommandWithNS("", k8sClient, "adm", "uncordon", node.Name); err != nil {
+				panic(fmt.Sprintf("could not uncordon the node %s", node.Name))
+			}
 		} else {
-			clientcmd.RunCommandWithNS("", k8sClient, "uncordon", node.Name)
+			if _, _, err := clientcmd.RunCommandWithNS("", k8sClient, "uncordon", node.Name); err != nil {
+				panic(fmt.Sprintf("could not uncordon the node %s", node.Name))
+			}
 		}
 
 		found := false
