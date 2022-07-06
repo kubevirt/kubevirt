@@ -49,6 +49,8 @@ import (
 	kubevirttypes "kubevirt.io/kubevirt/pkg/util/types"
 	virtconfig "kubevirt.io/kubevirt/pkg/virt-config"
 	"kubevirt.io/kubevirt/pkg/virt-controller/services"
+
+	net_att_def "github.com/k8snetworkplumbingwg/network-attachment-definition-client/pkg/apis/k8s.cni.cncf.io/v1"
 )
 
 const (
@@ -578,6 +580,17 @@ func (c *VMIController) updateStatus(vmi *virtv1.VirtualMachineInstance, pod *k8
 			break
 		}
 
+		// pass Multus network-status annotation to VMI metadata
+		networkStatusAnnotation, ok := pod.Annotations[net_att_def.NetworkStatusAnnot]
+		if !ok {
+			log.Log.V(5).Object(vmi).Object(pod).Errorf("%q annotation not found on pod: %v", err, net_att_def.NetworkStatusAnnot)
+		}
+		var networkStatus []net_att_def.NetworkStatus
+		if err := json.Unmarshal([]byte(networkStatusAnnotation), &networkStatus); err != nil {
+			log.Log.V(5).Object(vmi).Object(pod).Errorf("failed to unmarshal %q annotation: %v", err, net_att_def.NetworkStatusAnnot)
+		}
+		vmiCopy.Annotations[net_att_def.NetworkAttachmentAnnot] = networkStatusAnnotation
+
 		c.updateVolumeStatus(vmiCopy, pod)
 
 		var foundImage string
@@ -748,11 +761,37 @@ func prepareVMIPatch(oldVMI, newVMI *virtv1.VirtualMachineInstance) ([]byte, err
 		}
 	}
 
+	if !equality.Semantic.DeepEqual(oldVMI.Annotations, newVMI.Annotations) {
+		patchOps = append(patchOps, prepareAnnoationsPatch(oldVMI.Annotations, newVMI.Annotations)...)
+	}
+
 	if len(patchOps) == 0 {
 		return nil, nil
 	}
 
 	return controller.GeneratePatchBytes(patchOps), nil
+}
+
+func prepareAnnoationsPatch(oldAnnotations, newAnnotations map[string]string) []string {
+	oldAnnotationsBytes, err := json.Marshal(oldAnnotations)
+	if err != nil {
+		return nil
+	}
+
+	newAnnotationsBytes, err := json.Marshal(newAnnotations)
+	if err != nil {
+		return nil
+	}
+
+	var patch []string
+	if oldAnnotations == nil {
+		patch = append(patch, fmt.Sprintf(`{ "op": "add", "path": "/metadata/annotations", "value": %s }`, string(newAnnotationsBytes)))
+	} else {
+		patch = append(patch, fmt.Sprintf(`{ "op": "test", "path": "/metadata/annotations", "value": %s }`, string(oldAnnotationsBytes)))
+		patch = append(patch, fmt.Sprintf(`{ "op": "replace", "path": "/metadata/annotations", "value": %s }`, string(newAnnotationsBytes)))
+	}
+
+	return patch
 }
 
 func (c *VMIController) syncReadyConditionFromPod(vmi *virtv1.VirtualMachineInstance, pod *k8sv1.Pod) {
