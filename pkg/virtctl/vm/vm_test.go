@@ -574,9 +574,9 @@ var _ = Describe("VirtualMachine", func() {
 
 	Context("memory dump", func() {
 		const (
-			createFlag    = "--create"
-			claimNameFlag = "--claim-name=testpvc"
-			claimName     = "testpvc"
+			createClaimFlag = "--create-claim"
+			claimNameFlag   = "--claim-name=testpvc"
+			claimName       = "testpvc"
 		)
 		var (
 			coreClient      *fake.Clientset
@@ -709,27 +709,27 @@ var _ = Describe("VirtualMachine", func() {
 			Expect(cmd.Execute()).To(BeNil())
 		})
 
-		It("should fail call memory dump subresource without claim-name with create", func() {
-			commandAndArgs := []string{"memory-dump", "get", "testvm", createFlag}
+		It("should fail call memory dump subresource without claim-name with create-claim", func() {
+			commandAndArgs := []string{"memory-dump", "get", "testvm", createClaimFlag}
 			cmd := clientcmd.NewVirtctlCommand(commandAndArgs...)
 			res := cmd.Execute()
 			Expect(res).NotTo(BeNil())
 			Expect(res.Error()).To(ContainSubstring("missing claim name"))
 		})
 
-		It("should fail call memory dump subresource with create and existing pvc", func() {
+		It("should fail call memory dump subresource with create-claim and existing pvc", func() {
 			expectPVCGet(pvcSpec())
-			commandAndArgs := []string{"memory-dump", "get", "testvm", claimNameFlag, createFlag}
+			commandAndArgs := []string{"memory-dump", "get", "testvm", claimNameFlag, createClaimFlag}
 			cmd := clientcmd.NewVirtctlCommand(commandAndArgs...)
 			res := cmd.Execute()
 			Expect(res).NotTo(BeNil())
 			Expect(res.Error()).To(ContainSubstring("already exists"))
 		})
 
-		It("should fail call memory dump subresource with create no vmi", func() {
+		It("should fail call memory dump subresource with create-claim no vmi", func() {
 			kubecli.MockKubevirtClientInstance.EXPECT().VirtualMachineInstance(k8smetav1.NamespaceDefault).Return(vmiInterface).Times(1)
 			vmiInterface.EXPECT().Get(vmName, &k8smetav1.GetOptions{}).Return(nil, errors.NewNotFound(v1.Resource("virtualmachineinstance"), vmName))
-			commandAndArgs := []string{"memory-dump", "get", "testvm", claimNameFlag, createFlag}
+			commandAndArgs := []string{"memory-dump", "get", "testvm", claimNameFlag, createClaimFlag}
 			cmd := clientcmd.NewVirtctlCommand(commandAndArgs...)
 			res := cmd.Execute()
 			Expect(res).NotTo(BeNil())
@@ -738,7 +738,7 @@ var _ = Describe("VirtualMachine", func() {
 
 		It("should fail call memory dump subresource with readonly access mode", func() {
 			expectGetVMI()
-			commandAndArgs := []string{"memory-dump", "get", "testvm", claimNameFlag, createFlag, "--access-mode=ReadOnlyMany"}
+			commandAndArgs := []string{"memory-dump", "get", "testvm", claimNameFlag, createClaimFlag, "--access-mode=ReadOnlyMany"}
 			cmd := clientcmd.NewVirtctlCommand(commandAndArgs...)
 			res := cmd.Execute()
 			Expect(res).NotTo(BeNil())
@@ -749,7 +749,7 @@ var _ = Describe("VirtualMachine", func() {
 			expectGetVMI()
 			expectPVCCreate(claimName, storageclass, accessMode)
 			expectVMEndpointMemoryDump("testvm", claimName)
-			commandAndArgs := []string{"memory-dump", "get", "testvm", claimNameFlag, createFlag}
+			commandAndArgs := []string{"memory-dump", "get", "testvm", claimNameFlag, createClaimFlag}
 			if storageclass != "" {
 				commandAndArgs = append(commandAndArgs, fmt.Sprintf("--storage-class=%s", storageclass))
 			}

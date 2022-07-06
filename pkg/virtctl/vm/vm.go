@@ -66,7 +66,7 @@ const (
 	gracePeriodArg  = "grace-period"
 	serialArg       = "serial"
 	persistArg      = "persist"
-	createArg       = "create"
+	createClaimArg  = "create-claim"
 	storageClassArg = "storage-class"
 	accessModeArg   = "access-mode"
 
@@ -82,7 +82,7 @@ var (
 	startPaused  bool
 	dryRun       bool
 	claimName    string
-	create       bool
+	createClaim  bool
 	storageClass string
 	accessMode   string
 )
@@ -230,7 +230,7 @@ func NewMemoryDumpCommand(clientConfig clientcmd.ClientConfig) *cobra.Command {
 	}
 	cmd.SetUsageTemplate(templates.UsageTemplate())
 	cmd.Flags().StringVar(&claimName, claimNameArg, "", "pvc name to contain the memory dump")
-	cmd.Flags().BoolVar(&create, createArg, false, "Create the pvc that will conatin the memory dump")
+	cmd.Flags().BoolVar(&createClaim, createClaimArg, false, "Create the pvc that will conatin the memory dump")
 	cmd.Flags().StringVar(&storageClass, storageClassArg, "", "The storage class for the PVC.")
 	cmd.Flags().StringVar(&accessMode, accessModeArg, "", "The access mode for the PVC.")
 
@@ -326,7 +326,7 @@ func usageMemoryDump() string {
   {{ProgramName}} memory-dump get myvm --claim-name=memoryvolume
 
   #Create a PVC called 'memoryvolume' and dump the memory of a virtual machine instance called 'myvm' to it.
-  {{ProgramName}} memory-dump get myvm --claim-name=memoryvolume --create
+  {{ProgramName}} memory-dump get myvm --claim-name=memoryvolume --create-claim
 
   #Dump memory again to the same virtual machine with an already associated pvc(existing memory dump on vm status).
   {{ProgramName}} memory-dump get myvm
@@ -509,7 +509,7 @@ func memoryDump(args []string, claimName, namespace string, virtClient kubecli.K
 	vmName := args[1]
 	switch args[0] {
 	case "get":
-		if create {
+		if createClaim {
 			if claimName == "" {
 				return fmt.Errorf("missing claim name")
 			}
