@@ -37,7 +37,7 @@ This should be replaced with:
 
 const (
 	linterName                 = "ginkgo-linter"
-	wrongLengthWarningTemplate = "wrong length check; consider using %s instead"
+	wrongLengthWarningTemplate = "wrong length check; consider using `%s` instead"
 	not                        = "Not"
 	beEmpty                    = "BeEmpty"
 	haveLen                    = "HaveLen"
