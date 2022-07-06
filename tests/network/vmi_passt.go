@@ -30,6 +30,7 @@ import (
 
 	v1 "kubevirt.io/api/core/v1"
 	"kubevirt.io/client-go/kubecli"
+
 	"kubevirt.io/kubevirt/tests"
 	"kubevirt.io/kubevirt/tests/console"
 	"kubevirt.io/kubevirt/tests/flags"
@@ -215,6 +216,12 @@ EOL`, inetSuffix, serverIP, serverPort)
 						console.LoginToAlpine(clientVMI)
 
 						By("Starting and verifying UDP client")
+						// Due to a passt bug, at least one UDPv6 message has to be sent from a machine before it can receive UDPv6 messages
+						// Tracking bug - https://bugs.passt.top/show_bug.cgi?id=16
+						if ipFamily == k8sv1.IPv6Protocol {
+							clientIP := libnet.GetVmiPrimaryIPByFamily(clientVMI, ipFamily)
+							Expect(libnet.PingFromVMConsole(serverVMI, clientIP)).To(Succeed())
+						}
 						serverIP := libnet.GetVmiPrimaryIPByFamily(serverVMI, ipFamily)
 						Expect(startAndVerifyUDPClient(clientVMI, serverIP, SERVER_PORT, ipFamily)).To(Succeed())
 					},
