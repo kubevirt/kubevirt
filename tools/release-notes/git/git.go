@@ -40,8 +40,7 @@ func InitProject(owner string, name string, short string, directory string, tag 
 	p.Name = name
 	p.Short = short
 	p.Directory = directory
-	p.Remote = fmt.Sprintf("https://%s@github.com/%s/%s.git", token, owner, name)
-
+	p.Remote = fmt.Sprintf("https://github.com/%s/%s.git", owner, name)
 	p.CurrentTag = tag
 
 	p.github = initGitHub(owner, name, token)
