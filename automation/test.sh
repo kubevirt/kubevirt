@@ -390,7 +390,6 @@ if [[ -z ${KUBEVIRT_E2E_FOCUS} && -z ${KUBEVIRT_E2E_SKIP} ]]; then
   elif [[ $TARGET =~ sriov.* ]]; then
     export KUBEVIRT_E2E_FOCUS=SRIOV
   elif [[ $TARGET =~ gpu.* ]]; then
-    export KUBEVIRT_E2E_FOCUS=""
     export ginko_params="$ginko_params --label-filter=\"needs-gpu\""
   elif [[ $TARGET =~ (okd|ocp).* ]]; then
     export KUBEVIRT_E2E_SKIP="SRIOV|MediatedDevices"
