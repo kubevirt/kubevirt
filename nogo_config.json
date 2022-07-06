@@ -139,5 +139,34 @@
       "vendor/": "vendor doesn't pass vet",
       "external/": "externaldoesn't pass vet"
     }
+  },
+  "errcheck": {
+    "exclude_files": {
+      "vendor/": "vendor doesn't pass errcheck",
+      "external/": "external doesn't pass errcheck",
+      "src/": "golang core code does not pass errcheck",
+      "bazel-out/": "this directory should be off-limits to errcheck",
+      "pkg/": "KubeVirt pkg does not pass errcheck yet",
+      "cmd/": "KubeVirt binaries do not pass errcheck yet",
+      "tools/": "KubeVirt tools do not pass errcheck yet",
+      "tests/console": "tests/console does not pass errcheck yet",
+      "tests/libstorage/": "tests/libstorage does not pass errcheck yet",
+      "tests/libnode/": "libnode does not pass errcheck yet",
+      "tests/monitoring/": "tests/monitoring does not pass errcheck yet",
+      "tests/network/": "tests/network/ pkg does not pass errcheck yet",
+      "tests/reporter/": "tests/reporter pkg does not pass errcheck yet",
+      "tests/storage/": "tests/storage/ pkg does not pass errcheck yet",
+      "tests/virtctl/": "tests/virtctl/ pkg does not pass errcheck yet",
+      "tests/canary_upgrade_test.go": "canary_upgrade_test does not pass errcheck yet",
+      "tests/infra_test.go": "infra_test.go does not pass errcheck yet",
+      "tests/kubectl_test.go": "kubectl_test does not pass errcheck yet",
+      "tests/migration_test.go": "migration_test does not pass errcheck yet",
+      "tests/replicaset_test.go": "replicaset_test does not pass errcheck yet",
+      "tests/usbredir_test.go": "kubectl_test does not pass errcheck yet",
+      "tests/utils.go": "utils.go does not pass errcheck yet",
+      "tests/vmi_configuration_test.go": "vmi_configuration_test does not pass errcheck yet",
+      "tests/vmi_lifecycle_test.go": "vmi_lifecycle_test does not pass errcheck yet",
+      "tests/vnc_test.go": "vnc_test does not pass errcheck yet"
+    }
   }
 }
