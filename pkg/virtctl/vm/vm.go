@@ -24,13 +24,11 @@ import (
 	"encoding/json"
 	"fmt"
 	"strings"
-	"time"
 
 	k8sv1 "k8s.io/api/core/v1"
 	k8serrors "k8s.io/apimachinery/pkg/api/errors"
 	"k8s.io/apimachinery/pkg/api/resource"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
-	"k8s.io/apimachinery/pkg/util/wait"
 
 	v1 "kubevirt.io/api/core/v1"
 
@@ -482,22 +480,6 @@ func createPVCforMemoryDump(namespace, vmName, claimName string, virtClient kube
 	_, err = virtClient.CoreV1().PersistentVolumeClaims(namespace).Create(context.Background(), pvc, metav1.CreateOptions{})
 	if err != nil {
 		return err
-	}
-
-	err = wait.PollImmediate(time.Second*2, time.Second*60, func() (bool, error) {
-		_, err := virtClient.CoreV1().PersistentVolumeClaims(namespace).Get(context.Background(), claimName, metav1.GetOptions{})
-		if err != nil {
-			if k8serrors.IsNotFound(err) {
-				return false, nil
-			}
-
-			return false, err
-		}
-
-		return true, nil
-	})
-	if err != nil {
-		return fmt.Errorf("Failed creating PVC %s/%s for memory dump\n", namespace, claimName)
 	}
 
 	fmt.Printf("PVC %s/%s created\n", namespace, claimName)
