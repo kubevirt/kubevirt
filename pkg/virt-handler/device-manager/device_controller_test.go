@@ -142,7 +142,7 @@ var _ = Describe("Device Controller", func() {
 			go deviceController.Run(stop)
 			Eventually(func() int {
 				return int(atomic.LoadInt32(&plugin2.Starts))
-			}, 500*time.Millisecond).Should(BeNumerically(">=", 1))
+			}, 5*time.Second).Should(BeNumerically(">=", 1))
 			Expect(deviceController.Initialized()).To(BeTrue())
 		})
 
@@ -172,11 +172,11 @@ var _ = Describe("Device Controller", func() {
 
 			Eventually(func() int {
 				return int(atomic.LoadInt32(&plugin1.Starts))
-			}).Should(BeNumerically(">=", 1))
+			}, 5*time.Second).Should(BeNumerically(">=", 1))
 
 			Eventually(func() int {
 				return int(atomic.LoadInt32(&plugin2.Starts))
-			}).Should(BeNumerically(">=", 1))
+			}, 5*time.Second).Should(BeNumerically(">=", 1))
 		})
 
 		It("should remove all device plugins if permittedHostDevices is removed from the CR", func() {
@@ -194,7 +194,7 @@ var _ = Describe("Device Controller", func() {
 				_, exists1 := deviceController.startedPlugins[deviceName1]
 				_, exists2 := deviceController.startedPlugins[deviceName2]
 				return exists1 || exists2
-			}).Should(BeFalse())
+			}, 5*time.Second).Should(BeFalse())
 		})
 	})
 })
