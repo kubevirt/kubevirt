@@ -154,7 +154,9 @@ func killPortForwardCommand(portForwardCmd *exec.Cmd) error {
 		return nil
 	}
 
-	portForwardCmd.Process.Kill()
+	if err := portForwardCmd.Process.Kill(); err != nil {
+		return err
+	}
 	_, err := portForwardCmd.Process.Wait()
 	return err
 }
