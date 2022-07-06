@@ -899,7 +899,9 @@ var _ = SIGDescribe("DataVolume Integration", func() {
 				[]string{"ls", "-s", "/var/run/kubevirt-private/vmi-disks/disk0/disk.img"},
 			)
 			Expect(err).ToNot(HaveOccurred())
-			fmt.Sscanf(lsOutput, "%d %s", &imageSize, &unused)
+			if _, err := fmt.Sscanf(lsOutput, "%d %s", &imageSize, &unused); err != nil {
+				return 0
+			}
 			return imageSize
 		}
 

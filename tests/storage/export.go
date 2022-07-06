@@ -252,9 +252,9 @@ var _ = SIGDescribe("Export", func() {
 		}, 30*time.Second, 1*time.Second).Should(Equal(k8sv1.ClaimBound))
 		By("Deleting the trigger pod")
 		immediate := int64(0)
-		virtClient.CoreV1().Pods(triggerPod.Namespace).Delete(context.Background(), triggerPod.Name, metav1.DeleteOptions{
+		Expect(virtClient.CoreV1().Pods(triggerPod.Namespace).Delete(context.Background(), triggerPod.Name, metav1.DeleteOptions{
 			GracePeriodSeconds: &immediate,
-		})
+		})).To(Succeed())
 	}
 
 	createExportTokenSecret := func(name, namespace string) *k8sv1.Secret {
@@ -635,12 +635,12 @@ var _ = SIGDescribe("Export", func() {
 	}
 
 	matchesCNOrAlt := func(cert *x509.Certificate, hostName string) bool {
-		fmt.Fprintf(GinkgoWriter, "CN: %s, hostname: %s\n", cert.Subject.CommonName, hostName)
+		logToGinkgoWritter("CN: %s, hostname: %s\n", cert.Subject.CommonName, hostName)
 		if strings.Contains(cert.Subject.CommonName, hostName) {
 			return true
 		}
 		for _, extension := range cert.Extensions {
-			fmt.Fprintf(GinkgoWriter, "ExtensionID: %s, subjectAltNameId: %s, value: %s, hostname: %s\n", extension.Id.String(), subjectAltNameId, string(extension.Value), hostName)
+			logToGinkgoWritter("ExtensionID: %s, subjectAltNameId: %s, value: %s, hostname: %s\n", extension.Id.String(), subjectAltNameId, string(extension.Value), hostName)
 			if extension.Id.String() == subjectAltNameId && strings.Contains(string(extension.Value), hostName) {
 				return true
 			}
@@ -835,23 +835,33 @@ var _ = SIGDescribe("Export", func() {
 			}
 		})
 
-		generateTestCert := func(hostName string) string {
+		generateTestCert := func(hostName string) (string, error) {
 			key, err := certutil.NewPrivateKey()
-			Expect(err).ToNot(HaveOccurred())
+			if err != nil {
+				return "", err
+			}
 
 			config := certutil.Config{
 				CommonName: "blah blah",
 			}
 
 			cert, err := certutil.NewSelfSignedCACertWithAltNames(config, key, time.Hour, "hahaha.wwoo", hostName, "fgdgd.dfsgdf")
-			Expect(err).ToNot(HaveOccurred())
+			if err != nil {
+				return "", err
+			}
+
 			pemOut := strings.Builder{}
-			pem.Encode(&pemOut, &pem.Block{Type: "CERTIFICATE", Bytes: cert.Raw})
-			return strings.TrimSpace(pemOut.String())
+			if err := pem.Encode(&pemOut, &pem.Block{Type: "CERTIFICATE", Bytes: cert.Raw}); err != nil {
+				return "", err
+			}
+			return strings.TrimSpace(pemOut.String()), nil
 		}
 
-		createIngressTLSSecret := func(name string) string {
-			testCert := generateTestCert(testHostName)
+		createIngressTLSSecret := func(name string) (string, error) {
+			testCert, err := generateTestCert(testHostName)
+			if err != nil {
+				return "", err
+			}
 			secret := &k8sv1.Secret{
 				ObjectMeta: metav1.ObjectMeta{
 					Name:      name,
@@ -862,9 +872,11 @@ var _ = SIGDescribe("Export", func() {
 					tlsCert: testCert,
 				},
 			}
-			_, err := virtClient.CoreV1().Secrets(flags.KubeVirtInstallNamespace).Create(context.Background(), secret, metav1.CreateOptions{})
-			Expect(err).ToNot(HaveOccurred())
-			return testCert
+			_, err = virtClient.CoreV1().Secrets(flags.KubeVirtInstallNamespace).Create(context.Background(), secret, metav1.CreateOptions{})
+			if err != nil {
+				return "", err
+			}
+			return testCert, nil
 		}
 
 		createIngress := func(tlsSecretName string) *networkingv1.Ingress {
@@ -927,7 +939,8 @@ var _ = SIGDescribe("Export", func() {
 			if !exists {
 				Skip("Skip test when Filesystem storage is not present")
 			}
-			testCert := createIngressTLSSecret(tlsSecretName)
+			testCert, err := createIngressTLSSecret(tlsSecretName)
+			Expect(err).NotTo(HaveOccurred())
 			ingress := createIngress(tlsSecretName)
 			vmExport := createRunningExport(sc, k8sv1.PersistentVolumeFilesystem)
 			Expect(vmExport.Status.Links.External.Cert).To(Equal(testCert))
@@ -974,3 +987,7 @@ var _ = SIGDescribe("Export", func() {
 		})
 	})
 })
+
+func logToGinkgoWritter(format string, parameters ...interface{}) {
+	_, _ = fmt.Fprintf(GinkgoWriter, format, parameters...)
+}
