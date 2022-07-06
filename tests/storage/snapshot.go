@@ -17,6 +17,7 @@ import (
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/types"
 	"k8s.io/apimachinery/pkg/util/rand"
+	"k8s.io/client-go/util/retry"
 
 	. "kubevirt.io/kubevirt/tests/framework/matcher"
 
@@ -436,14 +437,16 @@ var _ = SIGDescribe("VirtualMachineSnapshot Tests", func() {
 
 				//update vm to make sure vm revision is saved in the snapshot
 				By("Updating the VM template spec")
-				newVM, err := virtClient.VirtualMachine(vm.Namespace).Get(vm.Name, &metav1.GetOptions{})
-				Expect(err).ToNot(HaveOccurred())
+				err = retry.RetryOnConflict(retry.DefaultRetry, func() error {
+					updatedVM, err := virtClient.VirtualMachine(vm.Namespace).Get(vm.Name, &metav1.GetOptions{})
+					Expect(err).ToNot(HaveOccurred())
 
-				updatedVM := newVM.DeepCopy()
-				updatedVM.Spec.Template.Spec.Domain.Resources.Requests = corev1.ResourceList{
-					corev1.ResourceMemory: newMemory,
-				}
-				_, err = virtClient.VirtualMachine(updatedVM.Namespace).Update(updatedVM)
+					updatedVM.Spec.Template.Spec.Domain.Resources.Requests = corev1.ResourceList{
+						corev1.ResourceMemory: newMemory,
+					}
+					_, err = virtClient.VirtualMachine(updatedVM.Namespace).Update(updatedVM)
+					return err
+				})
 				Expect(err).ToNot(HaveOccurred())
 
 				snapshot = newSnapshot()
