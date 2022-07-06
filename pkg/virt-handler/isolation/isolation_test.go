@@ -23,8 +23,7 @@ var _ = Describe("IsolationResult", func() {
 		It("Should have mounts", func() {
 			mounts, err := isolationResult.Mounts(nil)
 			Expect(err).ToNot(HaveOccurred())
-			Expect(mounts).ToNot(BeNil())
-			Expect(len(mounts)).ToNot(BeZero())
+			Expect(mounts).ToNot(BeEmpty())
 		})
 
 		It("Should have root mounted", func() {
@@ -72,8 +71,7 @@ var _ = Describe("IsolationResult", func() {
 		It("Should have mounts", func() {
 			mounts, err := isolationResult.Mounts(nil)
 			Expect(err).ToNot(HaveOccurred())
-			Expect(mounts).ToNot(BeNil())
-			Expect(len(mounts)).ToNot(BeZero())
+			Expect(mounts).ToNot(BeEmpty())
 		})
 	})
 
