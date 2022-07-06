@@ -525,6 +525,18 @@ func NewPrometheusRuleSpec(ns string, workloadUpdatesEnabled bool) *v1.Prometheu
 					vmStuckInStatusRule("starting"),
 					vmStuckInStatusRule("migrating"),
 					vmStuckInStatusRule("error"),
+					{
+						Alert: "KubeVirtMultipleSchedulingVMI",
+						Expr:  intstr.FromString("sum(kubevirt_vmi_phase_count{phase='scheduling'}) > 15"),
+						For:   "5m",
+						Annotations: map[string]string{
+							"summary":     "More than 15 Virtual Machine Instances are in scheduling state",
+							"runbook_url": runbookUrlBasePath + "KubeVirtMultipleSchedulingVMI",
+						},
+						Labels: map[string]string{
+							severityAlertLabelKey: "warning",
+						},
+					},
 				},
 			},
 		},

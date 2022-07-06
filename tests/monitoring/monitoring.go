@@ -560,6 +560,44 @@ var _ = Describe("[Serial][sig-monitoring]Prometheus Alerts", func() {
 			verifyAlertExist("KubeVirtVMIExcessiveMigrations")
 		})
 	})
+
+	Context("VMI alerts", func() {
+		var vmis []*v1.VirtualMachineInstance
+
+		BeforeEach(func() {
+			virtClient, err = kubecli.GetKubevirtClient()
+			util.PanicOnError(err)
+
+			scales = make(map[string]*autoscalingv1.Scale, 1)
+			backupScale(virtOperator.deploymentDame)
+
+			updateScale(virtOperator.deploymentDame, int32(0))
+			reduceAlertPendingTime()
+		})
+
+		AfterEach(func() {
+			revertScale(virtOperator.deploymentDame)
+
+			for _, vmi := range vmis {
+				tests.DeleteVMI(vmi, 240)
+			}
+
+			waitUntilAlertDoesNotExist("KubeVirtMultipleSchedulingVMI")
+		})
+
+		It("KubeVirtMultipleSchedulingVMI should be triggered when more than 15 VMIs are in scheduling state", func() {
+			By("Create 16 Virtual Machine Instances")
+			for i := 0; i < 16; i++ {
+				vmi := tests.NewRandomVMI()
+				vmi.Spec.NodeSelector = map[string]string{
+					"key": "value",
+				}
+				vmis = append(vmis, tests.RunVMI(vmi, 240))
+			}
+
+			verifyAlertExist("KubeVirtMultipleSchedulingVMI")
+		})
+	})
 })
 
 func checkRequiredAnnotations(rule promv1.Rule) {

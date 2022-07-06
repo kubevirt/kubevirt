@@ -263,6 +263,7 @@ func DeleteSecret(name string) {
 		util2.PanicOnError(err)
 	}
 }
+
 func RunVMI(vmi *v1.VirtualMachineInstance, timeout int) *v1.VirtualMachineInstance {
 	By(StartingVMInstance)
 	virtCli, err := kubecli.GetKubevirtClient()
@@ -271,6 +272,22 @@ func RunVMI(vmi *v1.VirtualMachineInstance, timeout int) *v1.VirtualMachineInsta
 	var obj *v1.VirtualMachineInstance
 	Eventually(func() error {
 		obj, err = virtCli.VirtualMachineInstance(util2.NamespaceTestDefault).Create(vmi)
+		return err
+	}, timeout, 1*time.Second).ShouldNot(HaveOccurred())
+	return obj
+}
+
+func DeleteVMI(vmi *v1.VirtualMachineInstance, timeout int) *v1.VirtualMachineInstance {
+	By("Deleting a VirtualMachineInstance")
+	virtCli, err := kubecli.GetKubevirtClient()
+	util2.PanicOnError(err)
+
+	var obj *v1.VirtualMachineInstance
+	Eventually(func() error {
+		err = virtCli.VirtualMachineInstance(vmi.Namespace).Delete(vmi.Name, &metav1.DeleteOptions{})
+		if errors.IsNotFound(err) {
+			return nil
+		}
 		return err
 	}, timeout, 1*time.Second).ShouldNot(HaveOccurred())
 	return obj
