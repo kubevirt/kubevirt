@@ -14,6 +14,7 @@ go_library(
         "//tests:go_default_library",
         "//tests/clientcmd:go_default_library",
         "//tests/console:go_default_library",
+        "//tests/errorhandling:go_default_library",
         "//tests/libvmi:go_default_library",
         "//tests/util:go_default_library",
         "//vendor/github.com/onsi/ginkgo/v2:go_default_library",

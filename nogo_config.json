@@ -154,7 +154,6 @@
       "tests/network/": "tests/network/ pkg does not pass errcheck yet",
       "tests/reporter/": "tests/reporter pkg does not pass errcheck yet",
       "tests/storage/": "tests/storage/ pkg does not pass errcheck yet",
-      "tests/virtctl/": "tests/virtctl/ pkg does not pass errcheck yet",
       "tests/canary_upgrade_test.go": "canary_upgrade_test does not pass errcheck yet",
       "tests/infra_test.go": "infra_test.go does not pass errcheck yet",
       "tests/kubectl_test.go": "kubectl_test does not pass errcheck yet",
