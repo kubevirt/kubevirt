@@ -6,6 +6,7 @@ go_library(
         "dual_stack_cluster.go",
         "expose.go",
         "framework.go",
+        "kubectl.go",
         "mac.go",
         "macvtap.go",
         "networkpolicy.go",
