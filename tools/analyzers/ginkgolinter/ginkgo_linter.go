@@ -6,7 +6,6 @@ import (
 	"go/ast"
 	"go/printer"
 	"go/token"
-	"strconv"
 
 	"golang.org/x/tools/go/analysis"
 )
@@ -20,8 +19,8 @@ import (
 //   * Expect(len(something)).To(Equal(number)) ===> Expect(x).To(HaveLen(number))
 //   * ExpectWithOffset(1, len(something)).ShouldNot(Equal(0)) ===> ExpectWithOffset(1, something).ShouldNot(BeEmpty())
 //   * Ω(len(something)).NotTo(BeZero()) ===> Ω(something).NotTo(BeEmpty())
-//   * Expect(len(something)).To(BeNumerically(">", 0)) ===> Expect(something).To(Not(BeEmpty())
-//   * Expect(len(something)).To(BeNumerically(">=", 1)) ===> Expect(something).To(Not(BeEmpty())
+//   * Expect(len(something)).To(BeNumerically(">", 0)) ===> Expect(something).ToNot(BeEmpty())
+//   * Expect(len(something)).To(BeNumerically(">=", 1)) ===> Expect(something).ToNot(BeEmpty())
 //   * Expect(len(something)).To(BeNumerically("==", number)) ===> Expect(something).To(HaveLen(number))
 
 // Analyzer is the package interface with nogo
@@ -38,7 +37,6 @@ This should be replaced with:
 const (
 	linterName                 = "ginkgo-linter"
 	wrongLengthWarningTemplate = "wrong length check; consider using `%s` instead"
-	not                        = "Not"
 	beEmpty                    = "BeEmpty"
 	haveLen                    = "HaveLen"
 	expect                     = "Expect"
@@ -112,6 +110,11 @@ func checkMatcher(exp *ast.CallExpr, pass *analysis.Pass) bool {
 	case "BeNumerically":
 		return handleBeNumerically(matcher, pass, exp)
 
+	case "Not":
+		reverseAssertionFuncLogic(exp)
+		exp.Args[0] = exp.Args[0].(*ast.CallExpr).Args[0]
+		return checkMatcher(exp, pass)
+
 	default:
 		return true
 	}
@@ -168,8 +171,9 @@ func handleBeNumerically(matcher *ast.CallExpr, pass *analysis.Pass, exp *ast.Ca
 		val := valExp.Value
 
 		if (op == `">"` && val == "0") || (op == `">="` && val == "1") {
-			exp.Args[0].(*ast.CallExpr).Fun = ast.NewIdent("Not")
-			exp.Args[0].(*ast.CallExpr).Args = []ast.Expr{&ast.CallExpr{Fun: ast.NewIdent(beEmpty)}}
+			reverseAssertionFuncLogic(exp)
+			exp.Args[0].(*ast.CallExpr).Fun = ast.NewIdent(beEmpty)
+			exp.Args[0].(*ast.CallExpr).Args = nil
 			reportLengthCheck(pass, exp)
 			return false
 		} else if op == `"=="` {
@@ -184,13 +188,16 @@ func handleBeNumerically(matcher *ast.CallExpr, pass *analysis.Pass, exp *ast.Ca
 			reportLengthCheck(pass, exp)
 			return false
 		} else if op == `"!="` {
-			exp.Args[0].(*ast.CallExpr).Fun = ast.NewIdent(not)
-			exp.Args[0].(*ast.CallExpr).Args = []ast.Expr{
-				&ast.CallExpr{
-					Fun:  ast.NewIdent(haveLen),
-					Args: []ast.Expr{valExp},
-				},
+			reverseAssertionFuncLogic(exp)
+
+			if val == "0" {
+				exp.Args[0].(*ast.CallExpr).Fun = ast.NewIdent(beEmpty)
+				exp.Args[0].(*ast.CallExpr).Args = nil
+			} else {
+				exp.Args[0].(*ast.CallExpr).Fun = ast.NewIdent(haveLen)
+				exp.Args[0].(*ast.CallExpr).Args = []ast.Expr{valExp}
 			}
+
 			reportLengthCheck(pass, exp)
 			return false
 		}
@@ -198,24 +205,25 @@ func handleBeNumerically(matcher *ast.CallExpr, pass *analysis.Pass, exp *ast.Ca
 	return true
 }
 
+func reverseAssertionFuncLogic(exp *ast.CallExpr) {
+	assertionFunc := exp.Fun.(*ast.SelectorExpr).Sel
+	assertionFunc.Name = changeAssertionLogic(assertionFunc.Name)
+}
+
 func handleEqualMatcher(matcher *ast.CallExpr, pass *analysis.Pass, exp *ast.CallExpr) {
-	suggestion := haveLen
-
 	equalTo, ok := matcher.Args[0].(*ast.BasicLit)
-	if ok && equalTo.Kind == token.INT {
-		val, err := strconv.Atoi(equalTo.Value)
-		if err != nil {
-			// should never get here; this is just for case
-			report(pass, exp.Pos(), fmt.Sprintf("wrong data. '%s' should be integer", equalTo.Value))
-			return
-		} else if val == 0 {
-			suggestion = beEmpty
+	if ok {
+		if equalTo.Value == "0" {
+			exp.Args[0].(*ast.CallExpr).Fun = ast.NewIdent(beEmpty)
 			exp.Args[0].(*ast.CallExpr).Args = nil
+		} else {
+			exp.Args[0].(*ast.CallExpr).Fun = ast.NewIdent(haveLen)
+			exp.Args[0].(*ast.CallExpr).Args = []ast.Expr{equalTo}
 		}
+	} else {
+		exp.Args[0].(*ast.CallExpr).Fun = ast.NewIdent(haveLen)
+		exp.Args[0].(*ast.CallExpr).Args = []ast.Expr{matcher.Args[0]}
 	}
-
-	matcher.Fun.(*ast.Ident).Name = suggestion
-
 	reportLengthCheck(pass, exp)
 }
 
@@ -224,14 +232,6 @@ func handleBeZero(pass *analysis.Pass, exp *ast.CallExpr) {
 	exp.Args[0].(*ast.CallExpr).Fun.(*ast.Ident).Name = beEmpty
 
 	reportLengthCheck(pass, exp)
-}
-
-func isAssertionFunc(name string) bool {
-	switch name {
-	case "To", "ToNot", "NotTo", "Should", "ShouldNot":
-		return true
-	}
-	return false
 }
 
 func report(pass *analysis.Pass, pos token.Pos, warning string) {
@@ -247,4 +247,25 @@ func goFmt(fset *token.FileSet, x ast.Expr) string {
 	var b bytes.Buffer
 	printer.Fprint(&b, fset, x)
 	return b.String()
+}
+
+var reverseLogicAssertions = map[string]string{
+	"To":        "ToNot",
+	"ToNot":     "To",
+	"NotTo":     "To",
+	"Should":    "ShouldNot",
+	"ShouldNot": "Should",
+}
+
+// ChangeAssertionLogic get gomega assertion function name, and returns the reverse logic function name
+func changeAssertionLogic(funcName string) string {
+	if revFunc, ok := reverseLogicAssertions[funcName]; ok {
+		return revFunc
+	}
+	return funcName
+}
+
+func isAssertionFunc(name string) bool {
+	_, ok := reverseLogicAssertions[name]
+	return ok
 }
