@@ -830,6 +830,10 @@ func applyFeaturePreferences(preferenceSpec *flavorv1alpha1.VirtualMachinePrefer
 		applyHyperVFeaturePreferences(preferenceSpec, vmiSpec)
 	}
 
+	if preferenceSpec.Features.PreferredIoapic != nil && vmiSpec.Domain.Features.IOAPIC == nil {
+		vmiSpec.Domain.Features.IOAPIC = preferenceSpec.Features.PreferredIoapic.DeepCopy()
+	}
+
 	if preferenceSpec.Features.PreferredKvm != nil && vmiSpec.Domain.Features.KVM == nil {
 		vmiSpec.Domain.Features.KVM = preferenceSpec.Features.PreferredKvm.DeepCopy()
 	}

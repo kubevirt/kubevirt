@@ -348,6 +348,7 @@ func GetOpenAPIDefinitions(ref common.ReferenceCallback) map[string]common.OpenA
 		"kubevirt.io/api/core/v1.EphemeralVolumeSource":                                              schema_kubevirtio_api_core_v1_EphemeralVolumeSource(ref),
 		"kubevirt.io/api/core/v1.FeatureAPIC":                                                        schema_kubevirtio_api_core_v1_FeatureAPIC(ref),
 		"kubevirt.io/api/core/v1.FeatureHyperv":                                                      schema_kubevirtio_api_core_v1_FeatureHyperv(ref),
+		"kubevirt.io/api/core/v1.FeatureIOAPIC":                                                      schema_kubevirtio_api_core_v1_FeatureIOAPIC(ref),
 		"kubevirt.io/api/core/v1.FeatureKVM":                                                         schema_kubevirtio_api_core_v1_FeatureKVM(ref),
 		"kubevirt.io/api/core/v1.FeatureSpinlocks":                                                   schema_kubevirtio_api_core_v1_FeatureSpinlocks(ref),
 		"kubevirt.io/api/core/v1.FeatureState":                                                       schema_kubevirtio_api_core_v1_FeatureState(ref),
@@ -16337,6 +16338,25 @@ func schema_kubevirtio_api_core_v1_FeatureHyperv(ref common.ReferenceCallback) c
 	}
 }
 
+func schema_kubevirtio_api_core_v1_FeatureIOAPIC(ref common.ReferenceCallback) common.OpenAPIDefinition {
+	return common.OpenAPIDefinition{
+		Schema: spec.Schema{
+			SchemaProps: spec.SchemaProps{
+				Type: []string{"object"},
+				Properties: map[string]spec.Schema{
+					"driver": {
+						SchemaProps: spec.SchemaProps{
+							Description: "Configure the guest I/O APIO mode('kvm' or 'qemu').",
+							Type:        []string{"string"},
+							Format:      "",
+						},
+					},
+				},
+			},
+		},
+	}
+}
+
 func schema_kubevirtio_api_core_v1_FeatureKVM(ref common.ReferenceCallback) common.OpenAPIDefinition {
 	return common.OpenAPIDefinition{
 		Schema: spec.Schema{
@@ -16470,11 +16490,17 @@ func schema_kubevirtio_api_core_v1_Features(ref common.ReferenceCallback) common
 							Ref:         ref("kubevirt.io/api/core/v1.FeatureState"),
 						},
 					},
+					"ioapic": {
+						SchemaProps: spec.SchemaProps{
+							Description: "Configure the guest I/O APIC mode. Defaults to 'kvm' for the KVM domain.",
+							Ref:         ref("kubevirt.io/api/core/v1.FeatureIOAPIC"),
+						},
+					},
 				},
 			},
 		},
 		Dependencies: []string{
-			"kubevirt.io/api/core/v1.FeatureAPIC", "kubevirt.io/api/core/v1.FeatureHyperv", "kubevirt.io/api/core/v1.FeatureKVM", "kubevirt.io/api/core/v1.FeatureState"},
+			"kubevirt.io/api/core/v1.FeatureAPIC", "kubevirt.io/api/core/v1.FeatureHyperv", "kubevirt.io/api/core/v1.FeatureIOAPIC", "kubevirt.io/api/core/v1.FeatureKVM", "kubevirt.io/api/core/v1.FeatureState"},
 	}
 }
 
@@ -23351,6 +23377,12 @@ func schema_kubevirtio_api_flavor_v1alpha1_FeaturePreferences(ref common.Referen
 							Ref:         ref("kubevirt.io/api/core/v1.FeatureHyperv"),
 						},
 					},
+					"preferredIoapic": {
+						SchemaProps: spec.SchemaProps{
+							Description: "PreferredIoapic optionally enables and configures IOAPIC feature",
+							Ref:         ref("kubevirt.io/api/core/v1.FeatureIOAPIC"),
+						},
+					},
 					"preferredKvm": {
 						SchemaProps: spec.SchemaProps{
 							Description: "PreferredKvm optionally enables and configures KVM features",
@@ -23373,7 +23405,7 @@ func schema_kubevirtio_api_flavor_v1alpha1_FeaturePreferences(ref common.Referen
 			},
 		},
 		Dependencies: []string{
-			"kubevirt.io/api/core/v1.FeatureAPIC", "kubevirt.io/api/core/v1.FeatureHyperv", "kubevirt.io/api/core/v1.FeatureKVM", "kubevirt.io/api/core/v1.FeatureState"},
+			"kubevirt.io/api/core/v1.FeatureAPIC", "kubevirt.io/api/core/v1.FeatureHyperv", "kubevirt.io/api/core/v1.FeatureIOAPIC", "kubevirt.io/api/core/v1.FeatureKVM", "kubevirt.io/api/core/v1.FeatureState"},
 	}
 }
 

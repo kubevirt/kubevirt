@@ -157,6 +157,7 @@ func (FeaturePreferences) SwaggerDoc() map[string]string {
 		"preferredAcpi":       "PreferredAcpi optionally enables the ACPI feature\n\n+optional",
 		"preferredApic":       "PreferredApic optionally enables and configures the APIC feature\n\n+optional",
 		"preferredHyperv":     "PreferredHyperv optionally enables and configures HyperV features\n\n+optional",
+		"preferredIoapic":     "PreferredIoapic optionally enables and configures IOAPIC feature\n\n+optional",
 		"preferredKvm":        "PreferredKvm optionally enables and configures KVM features\n\n+optional",
 		"preferredPvspinlock": "PreferredPvspinlock optionally enables the Pvspinlock feature\n\n+optional",
 		"preferredSmm":        "PreferredSmm optionally enables the SMM feature\n\n+optional",

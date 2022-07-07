@@ -971,6 +971,10 @@ type Features struct {
 	// For older kernels this feature should be explicitly disabled.
 	// +optional
 	Pvspinlock *FeatureState `json:"pvspinlock,omitempty"`
+	// Configure the guest I/O APIC mode.
+	// Defaults to 'kvm' for the KVM domain.
+	// +optional
+	IOAPIC *FeatureIOAPIC `json:"ioapic,omitempty"`
 }
 
 type SyNICTimer struct {
@@ -1082,6 +1086,11 @@ type FeatureKVM struct {
 	// Hide the KVM hypervisor from standard MSR based discovery.
 	// Defaults to false
 	Hidden bool `json:"hidden,omitempty"`
+}
+
+type FeatureIOAPIC struct {
+	// Configure the guest I/O APIO mode('kvm' or 'qemu').
+	Driver string `json:"driver,omitempty"`
 }
 
 // WatchdogAction defines the watchdog action, if a watchdog gets triggered.

@@ -5456,6 +5456,15 @@ var CRDsValidation map[string]string = map[string]string{
                                   type: boolean
                               type: object
                           type: object
+                        ioapic:
+                          description: Configure the guest I/O APIC mode. Defaults
+                            to 'kvm' for the KVM domain.
+                          properties:
+                            driver:
+                              description: Configure the guest I/O APIO mode('kvm'
+                                or 'qemu').
+                              type: string
+                          type: object
                         kvm:
                           description: Configure how KVM presence is exposed to the
                             guest.
@@ -7493,6 +7502,14 @@ var CRDsValidation map[string]string = map[string]string{
                         or disabled on the guest. Defaults to true.
                       type: boolean
                   type: object
+              type: object
+            preferredIoapic:
+              description: PreferredIoapic optionally enables and configures IOAPIC
+                feature
+              properties:
+                driver:
+                  description: Configure the guest I/O APIO mode('kvm' or 'qemu').
+                  type: string
               type: object
             preferredKvm:
               description: PreferredKvm optionally enables and configures KVM features
@@ -9617,6 +9634,14 @@ var CRDsValidation map[string]string = map[string]string{
                             enabled or disabled on the guest. Defaults to true.
                           type: boolean
                       type: object
+                  type: object
+                ioapic:
+                  description: Configure the guest I/O APIC mode. Defaults to 'kvm'
+                    for the KVM domain.
+                  properties:
+                    driver:
+                      description: Configure the guest I/O APIO mode('kvm' or 'qemu').
+                      type: string
                   type: object
                 kvm:
                   description: Configure how KVM presence is exposed to the guest.
@@ -11802,6 +11827,14 @@ var CRDsValidation map[string]string = map[string]string{
                           type: boolean
                       type: object
                   type: object
+                ioapic:
+                  description: Configure the guest I/O APIC mode. Defaults to 'kvm'
+                    for the KVM domain.
+                  properties:
+                    driver:
+                      description: Configure the guest I/O APIO mode('kvm' or 'qemu').
+                      type: string
+                  type: object
                 kvm:
                   description: Configure how KVM presence is exposed to the guest.
                   properties:
@@ -13909,6 +13942,15 @@ var CRDsValidation map[string]string = map[string]string{
                                     to true.
                                   type: boolean
                               type: object
+                          type: object
+                        ioapic:
+                          description: Configure the guest I/O APIC mode. Defaults
+                            to 'kvm' for the KVM domain.
+                          properties:
+                            driver:
+                              description: Configure the guest I/O APIO mode('kvm'
+                                or 'qemu').
+                              type: string
                           type: object
                         kvm:
                           description: Configure how KVM presence is exposed to the
@@ -17600,6 +17642,15 @@ var CRDsValidation map[string]string = map[string]string{
                                           type: boolean
                                       type: object
                                   type: object
+                                ioapic:
+                                  description: Configure the guest I/O APIC mode.
+                                    Defaults to 'kvm' for the KVM domain.
+                                  properties:
+                                    driver:
+                                      description: Configure the guest I/O APIO mode('kvm'
+                                        or 'qemu').
+                                      type: string
+                                  type: object
                                 kvm:
                                   description: Configure how KVM presence is exposed
                                     to the guest.
@@ -19093,6 +19144,14 @@ var CRDsValidation map[string]string = map[string]string{
                         or disabled on the guest. Defaults to true.
                       type: boolean
                   type: object
+              type: object
+            preferredIoapic:
+              description: PreferredIoapic optionally enables and configures IOAPIC
+                feature
+              properties:
+                driver:
+                  description: Configure the guest I/O APIO mode('kvm' or 'qemu').
+                  type: string
               type: object
             preferredKvm:
               description: PreferredKvm optionally enables and configures KVM features
@@ -22136,6 +22195,15 @@ var CRDsValidation map[string]string = map[string]string{
                                                 on the guest. Defaults to true.
                                               type: boolean
                                           type: object
+                                      type: object
+                                    ioapic:
+                                      description: Configure the guest I/O APIC mode.
+                                        Defaults to 'kvm' for the KVM domain.
+                                      properties:
+                                        driver:
+                                          description: Configure the guest I/O APIO
+                                            mode('kvm' or 'qemu').
+                                          type: string
                                       type: object
                                     kvm:
                                       description: Configure how KVM presence is exposed

@@ -3234,6 +3234,45 @@ var _ = Describe("Converter", func() {
 			Expect(domain.Spec.Devices.Interfaces[1].Rom.Enabled).To(Equal("no"))
 		})
 	})
+
+	Context("ioapic feature", func() {
+		var (
+			vmi *v1.VirtualMachineInstance
+			c   *ConverterContext
+		)
+
+		BeforeEach(func() {
+			vmi = &v1.VirtualMachineInstance{
+				ObjectMeta: k8smeta.ObjectMeta{
+					Name:      "testvmi",
+					Namespace: "default",
+					UID:       "1234",
+				},
+			}
+
+			v1.SetObjectDefaults_VirtualMachineInstance(vmi)
+			c = &ConverterContext{
+				VirtualMachine: vmi,
+				AllowEmulation: true,
+			}
+		})
+
+		It("should not configure the ioapic feature", func() {
+			domain := vmiToDomain(vmi, c)
+			Expect(domain.Spec.Features.IOAPIC).To(BeNil())
+		})
+
+		It("should configure the ioapic feature", func() {
+			vmi.Spec.Domain.Features = &v1.Features{
+				IOAPIC: &v1.FeatureIOAPIC{
+					Driver: "qemu",
+				},
+			}
+			domain := vmiToDomain(vmi, c)
+			Expect(domain.Spec.Features.IOAPIC).ToNot(BeNil())
+			Expect(domain.Spec.Features.IOAPIC.Driver).To(Equal("qemu"))
+		})
+	})
 })
 
 var _ = Describe("disk device naming", func() {

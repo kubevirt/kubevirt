@@ -193,6 +193,11 @@ func (in *FeaturePreferences) DeepCopyInto(out *FeaturePreferences) {
 		*out = new(v1.FeatureHyperv)
 		(*in).DeepCopyInto(*out)
 	}
+	if in.PreferredIoapic != nil {
+		in, out := &in.PreferredIoapic, &out.PreferredIoapic
+		*out = new(v1.FeatureIOAPIC)
+		**out = **in
+	}
 	if in.PreferredKvm != nil {
 		in, out := &in.PreferredKvm, &out.PreferredKvm
 		*out = new(v1.FeatureKVM)

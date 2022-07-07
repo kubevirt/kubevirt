@@ -15837,6 +15837,15 @@
      }
     }
    },
+   "v1.FeatureIOAPIC": {
+    "type": "object",
+    "properties": {
+     "driver": {
+      "description": "Configure the guest I/O APIO mode('kvm' or 'qemu').",
+      "type": "string"
+     }
+    }
+   },
    "v1.FeatureKVM": {
     "type": "object",
     "properties": {
@@ -15897,6 +15906,10 @@
      "hyperv": {
       "description": "Defaults to the machine type setting.",
       "$ref": "#/definitions/v1.FeatureHyperv"
+     },
+     "ioapic": {
+      "description": "Configure the guest I/O APIC mode. Defaults to 'kvm' for the KVM domain.",
+      "$ref": "#/definitions/v1.FeatureIOAPIC"
      },
      "kvm": {
       "description": "Configure how KVM presence is exposed to the guest.",
@@ -19359,6 +19372,10 @@
      "preferredHyperv": {
       "description": "PreferredHyperv optionally enables and configures HyperV features",
       "$ref": "#/definitions/v1.FeatureHyperv"
+     },
+     "preferredIoapic": {
+      "description": "PreferredIoapic optionally enables and configures IOAPIC feature",
+      "$ref": "#/definitions/v1.FeatureIOAPIC"
      },
      "preferredKvm": {
       "description": "PreferredKvm optionally enables and configures KVM features",

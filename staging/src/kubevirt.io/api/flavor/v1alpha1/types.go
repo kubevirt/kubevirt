@@ -415,6 +415,11 @@ type FeaturePreferences struct {
 	// +optional
 	PreferredHyperv *v1.FeatureHyperv `json:"preferredHyperv,omitempty"`
 
+	// PreferredIoapic optionally enables and configures IOAPIC feature
+	//
+	// +optional
+	PreferredIoapic *v1.FeatureIOAPIC `json:"preferredIoapic,omitempty"`
+
 	// PreferredKvm optionally enables and configures KVM features
 	//
 	// +optional
