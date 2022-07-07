@@ -487,6 +487,17 @@ func createPVCforMemoryDump(namespace, vmName, claimName string, virtClient kube
 	return nil
 }
 
+func checkNoAssociatedMemoryDump(namespace, vmName string, virtClient kubecli.KubevirtClient) error {
+	vm, err := virtClient.VirtualMachine(namespace).Get(vmName, &metav1.GetOptions{})
+	if err != nil {
+		return err
+	}
+	if vm.Status.MemoryDumpRequest != nil {
+		return fmt.Errorf("please remove current memory dump association before creating a new claim for a new memory dump")
+	}
+	return nil
+}
+
 func memoryDump(args []string, claimName, namespace string, virtClient kubecli.KubevirtClient) error {
 	vmName := args[1]
 	switch args[0] {
@@ -495,7 +506,11 @@ func memoryDump(args []string, claimName, namespace string, virtClient kubecli.K
 			if claimName == "" {
 				return fmt.Errorf("missing claim name")
 			}
-			err := createPVCforMemoryDump(namespace, vmName, claimName, virtClient)
+			err := checkNoAssociatedMemoryDump(namespace, vmName, virtClient)
+			if err != nil {
+				return err
+			}
+			err = createPVCforMemoryDump(namespace, vmName, claimName, virtClient)
 			if err != nil {
 				return err
 			}

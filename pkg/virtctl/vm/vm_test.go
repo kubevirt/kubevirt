@@ -614,6 +614,26 @@ var _ = Describe("VirtualMachine", func() {
 			})
 		}
 
+		expectGetVM := func(withAssociatedMemoryDump bool) {
+			vm := &v1.VirtualMachine{
+				Spec:   v1.VirtualMachineSpec{},
+				Status: v1.VirtualMachineStatus{},
+			}
+			if withAssociatedMemoryDump {
+				vm.Status.MemoryDumpRequest = &v1.VirtualMachineMemoryDumpRequest{}
+			}
+			kubecli.MockKubevirtClientInstance.EXPECT().VirtualMachine(k8smetav1.NamespaceDefault).Return(vmInterface).Times(1)
+			vmInterface.EXPECT().Get(vmName, gomock.Any()).Return(vm, nil).Times(1)
+		}
+
+		expectGetVMNoAssociatedMemoryDump := func() {
+			expectGetVM(false)
+		}
+
+		expectGetVMWithAssociatedMemoryDump := func() {
+			expectGetVM(true)
+		}
+
 		expectGetVMI := func() {
 			quantity, _ := resource.ParseQuantity("256Mi")
 			vmi := &v1.VirtualMachineInstance{
@@ -717,7 +737,17 @@ var _ = Describe("VirtualMachine", func() {
 			Expect(res.Error()).To(ContainSubstring("missing claim name"))
 		})
 
+		It("should fail call memory dump subresource with create-claim with already associated memory dump pvc", func() {
+			expectGetVMWithAssociatedMemoryDump()
+			commandAndArgs := []string{"memory-dump", "get", "testvm", claimNameFlag, createClaimFlag}
+			cmd := clientcmd.NewVirtctlCommand(commandAndArgs...)
+			res := cmd.Execute()
+			Expect(res).NotTo(BeNil())
+			Expect(res.Error()).To(ContainSubstring("please remove current memory dump"))
+		})
+
 		It("should fail call memory dump subresource with create-claim and existing pvc", func() {
+			expectGetVMNoAssociatedMemoryDump()
 			expectPVCGet(pvcSpec())
 			commandAndArgs := []string{"memory-dump", "get", "testvm", claimNameFlag, createClaimFlag}
 			cmd := clientcmd.NewVirtctlCommand(commandAndArgs...)
@@ -727,6 +757,7 @@ var _ = Describe("VirtualMachine", func() {
 		})
 
 		It("should fail call memory dump subresource with create-claim no vmi", func() {
+			expectGetVMNoAssociatedMemoryDump()
 			kubecli.MockKubevirtClientInstance.EXPECT().VirtualMachineInstance(k8smetav1.NamespaceDefault).Return(vmiInterface).Times(1)
 			vmiInterface.EXPECT().Get(vmName, &k8smetav1.GetOptions{}).Return(nil, errors.NewNotFound(v1.Resource("virtualmachineinstance"), vmName))
 			commandAndArgs := []string{"memory-dump", "get", "testvm", claimNameFlag, createClaimFlag}
@@ -737,6 +768,7 @@ var _ = Describe("VirtualMachine", func() {
 		})
 
 		It("should fail call memory dump subresource with readonly access mode", func() {
+			expectGetVMNoAssociatedMemoryDump()
 			expectGetVMI()
 			commandAndArgs := []string{"memory-dump", "get", "testvm", claimNameFlag, createClaimFlag, "--access-mode=ReadOnlyMany"}
 			cmd := clientcmd.NewVirtctlCommand(commandAndArgs...)
@@ -746,6 +778,7 @@ var _ = Describe("VirtualMachine", func() {
 		})
 
 		DescribeTable("should create pvc for memory dump and call subresource", func(storageclass, accessMode string) {
+			expectGetVMNoAssociatedMemoryDump()
 			expectGetVMI()
 			expectPVCCreate(claimName, storageclass, accessMode)
 			expectVMEndpointMemoryDump("testvm", claimName)
