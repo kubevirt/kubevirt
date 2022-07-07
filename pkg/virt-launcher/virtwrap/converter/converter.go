@@ -1084,6 +1084,11 @@ func Convert_v1_Features_To_api_Features(source *v1.Features, features *api.Feat
 			Driver: source.IOAPIC.Driver,
 		}
 	}
+	if source.PIC != nil {
+		features.PIC = &api.FeatureState{
+			State: boolToOnOff(source.PIC.Enabled, true),
+		}
+	}
 	return nil
 }
 

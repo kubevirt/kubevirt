@@ -425,6 +425,11 @@ type FeaturePreferences struct {
 	// +optional
 	PreferredKvm *v1.FeatureKVM `json:"preferredKvm,omitempty"`
 
+	// PreferredPic optionally enables the PIC feature
+	//
+	// +optional
+	PreferredPic *v1.FeatureState `json:"preferredPic,omitempty"`
+
 	// PreferredPvspinlock optionally enables the Pvspinlock feature
 	//
 	// +optional

@@ -1285,6 +1285,7 @@ var _ = Describe("Flavor and Preferences", func() {
 						PreferredKvm: &v1.FeatureKVM{
 							Hidden: true,
 						},
+						PreferredPic:        &v1.FeatureState{},
 						PreferredPvspinlock: &v1.FeatureState{},
 						PreferredSmm:        &v1.FeatureState{},
 					},
@@ -1300,6 +1301,7 @@ var _ = Describe("Flavor and Preferences", func() {
 				Expect(*vmi.Spec.Domain.Features.Hyperv).To(Equal(*preferenceSpec.Features.PreferredHyperv))
 				Expect(*vmi.Spec.Domain.Features.IOAPIC).To(Equal(*preferenceSpec.Features.PreferredIoapic))
 				Expect(*vmi.Spec.Domain.Features.KVM).To(Equal(*preferenceSpec.Features.PreferredKvm))
+				Expect(*vmi.Spec.Domain.Features.PIC).To(Equal(*preferenceSpec.Features.PreferredPic))
 				Expect(*vmi.Spec.Domain.Features.Pvspinlock).To(Equal(*preferenceSpec.Features.PreferredPvspinlock))
 				Expect(*vmi.Spec.Domain.Features.SMM).To(Equal(*preferenceSpec.Features.PreferredSmm))
 			})

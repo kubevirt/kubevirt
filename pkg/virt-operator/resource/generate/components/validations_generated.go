@@ -5474,6 +5474,15 @@ var CRDsValidation map[string]string = map[string]string{
                                 based discovery. Defaults to false
                               type: boolean
                           type: object
+                        pic:
+                          description: PIC enables/disables legacy Programmable Interrupt
+                            Controller.
+                          properties:
+                            enabled:
+                              description: Enabled determines if the feature should
+                                be enabled or disabled on the guest. Defaults to true.
+                              type: boolean
+                          type: object
                         pvspinlock:
                           description: Notify the guest that the host supports paravirtual
                             spinlocks. For older kernels this feature should be explicitly
@@ -7517,6 +7526,14 @@ var CRDsValidation map[string]string = map[string]string{
                 hidden:
                   description: Hide the KVM hypervisor from standard MSR based discovery.
                     Defaults to false
+                  type: boolean
+              type: object
+            preferredPic:
+              description: PreferredPic optionally enables the PIC feature
+              properties:
+                enabled:
+                  description: Enabled determines if the feature should be enabled
+                    or disabled on the guest. Defaults to true.
                   type: boolean
               type: object
             preferredPvspinlock:
@@ -9649,6 +9666,15 @@ var CRDsValidation map[string]string = map[string]string{
                     hidden:
                       description: Hide the KVM hypervisor from standard MSR based
                         discovery. Defaults to false
+                      type: boolean
+                  type: object
+                pic:
+                  description: PIC enables/disables legacy Programmable Interrupt
+                    Controller.
+                  properties:
+                    enabled:
+                      description: Enabled determines if the feature should be enabled
+                        or disabled on the guest. Defaults to true.
                       type: boolean
                   type: object
                 pvspinlock:
@@ -11843,6 +11869,15 @@ var CRDsValidation map[string]string = map[string]string{
                         discovery. Defaults to false
                       type: boolean
                   type: object
+                pic:
+                  description: PIC enables/disables legacy Programmable Interrupt
+                    Controller.
+                  properties:
+                    enabled:
+                      description: Enabled determines if the feature should be enabled
+                        or disabled on the guest. Defaults to true.
+                      type: boolean
+                  type: object
                 pvspinlock:
                   description: Notify the guest that the host supports paravirtual
                     spinlocks. For older kernels this feature should be explicitly
@@ -13959,6 +13994,15 @@ var CRDsValidation map[string]string = map[string]string{
                             hidden:
                               description: Hide the KVM hypervisor from standard MSR
                                 based discovery. Defaults to false
+                              type: boolean
+                          type: object
+                        pic:
+                          description: PIC enables/disables legacy Programmable Interrupt
+                            Controller.
+                          properties:
+                            enabled:
+                              description: Enabled determines if the feature should
+                                be enabled or disabled on the guest. Defaults to true.
                               type: boolean
                           type: object
                         pvspinlock:
@@ -17660,6 +17704,16 @@ var CRDsValidation map[string]string = map[string]string{
                                         MSR based discovery. Defaults to false
                                       type: boolean
                                   type: object
+                                pic:
+                                  description: PIC enables/disables legacy Programmable
+                                    Interrupt Controller.
+                                  properties:
+                                    enabled:
+                                      description: Enabled determines if the feature
+                                        should be enabled or disabled on the guest.
+                                        Defaults to true.
+                                      type: boolean
+                                  type: object
                                 pvspinlock:
                                   description: Notify the guest that the host supports
                                     paravirtual spinlocks. For older kernels this
@@ -19159,6 +19213,14 @@ var CRDsValidation map[string]string = map[string]string{
                 hidden:
                   description: Hide the KVM hypervisor from standard MSR based discovery.
                     Defaults to false
+                  type: boolean
+              type: object
+            preferredPic:
+              description: PreferredPic optionally enables the PIC feature
+              properties:
+                enabled:
+                  description: Enabled determines if the feature should be enabled
+                    or disabled on the guest. Defaults to true.
                   type: boolean
               type: object
             preferredPvspinlock:
@@ -22213,6 +22275,16 @@ var CRDsValidation map[string]string = map[string]string{
                                           description: Hide the KVM hypervisor from
                                             standard MSR based discovery. Defaults
                                             to false
+                                          type: boolean
+                                      type: object
+                                    pic:
+                                      description: PIC enables/disables legacy Programmable
+                                        Interrupt Controller.
+                                      properties:
+                                        enabled:
+                                          description: Enabled determines if the feature
+                                            should be enabled or disabled on the guest.
+                                            Defaults to true.
                                           type: boolean
                                       type: object
                                     pvspinlock:

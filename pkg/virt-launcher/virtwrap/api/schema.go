@@ -290,6 +290,7 @@ type Features struct {
 	PVSpinlock *FeaturePVSpinlock `xml:"pvspinlock,omitempty"`
 	PMU        *FeatureState      `xml:"pmu,omitempty"`
 	IOAPIC     *FeatureIOAPIC     `xml:"ioapic,omitempty"`
+	PIC        *FeatureState      `xml:"pic,omitempty"`
 }
 
 type FeatureHyperv struct {

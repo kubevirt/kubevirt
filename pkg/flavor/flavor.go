@@ -838,6 +838,10 @@ func applyFeaturePreferences(preferenceSpec *flavorv1alpha1.VirtualMachinePrefer
 		vmiSpec.Domain.Features.KVM = preferenceSpec.Features.PreferredKvm.DeepCopy()
 	}
 
+	if preferenceSpec.Features.PreferredPic != nil && vmiSpec.Domain.Features.PIC == nil {
+		vmiSpec.Domain.Features.PIC = preferenceSpec.Features.PreferredPic.DeepCopy()
+	}
+
 	if preferenceSpec.Features.PreferredPvspinlock != nil && vmiSpec.Domain.Features.Pvspinlock == nil {
 		vmiSpec.Domain.Features.Pvspinlock = preferenceSpec.Features.PreferredPvspinlock.DeepCopy()
 	}

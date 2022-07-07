@@ -1401,6 +1401,11 @@ func (in *Features) DeepCopyInto(out *Features) {
 		*out = new(FeatureIOAPIC)
 		**out = **in
 	}
+	if in.PIC != nil {
+		in, out := &in.PIC, &out.PIC
+		*out = new(FeatureState)
+		(*in).DeepCopyInto(*out)
+	}
 	return
 }
 

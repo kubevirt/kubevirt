@@ -203,6 +203,11 @@ func (in *FeaturePreferences) DeepCopyInto(out *FeaturePreferences) {
 		*out = new(v1.FeatureKVM)
 		**out = **in
 	}
+	if in.PreferredPic != nil {
+		in, out := &in.PreferredPic, &out.PreferredPic
+		*out = new(v1.FeatureState)
+		(*in).DeepCopyInto(*out)
+	}
 	if in.PreferredPvspinlock != nil {
 		in, out := &in.PreferredPvspinlock, &out.PreferredPvspinlock
 		*out = new(v1.FeatureState)

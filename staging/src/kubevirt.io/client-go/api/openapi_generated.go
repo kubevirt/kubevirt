@@ -16496,6 +16496,12 @@ func schema_kubevirtio_api_core_v1_Features(ref common.ReferenceCallback) common
 							Ref:         ref("kubevirt.io/api/core/v1.FeatureIOAPIC"),
 						},
 					},
+					"pic": {
+						SchemaProps: spec.SchemaProps{
+							Description: "PIC enables/disables legacy Programmable Interrupt Controller.",
+							Ref:         ref("kubevirt.io/api/core/v1.FeatureState"),
+						},
+					},
 				},
 			},
 		},
@@ -23387,6 +23393,12 @@ func schema_kubevirtio_api_flavor_v1alpha1_FeaturePreferences(ref common.Referen
 						SchemaProps: spec.SchemaProps{
 							Description: "PreferredKvm optionally enables and configures KVM features",
 							Ref:         ref("kubevirt.io/api/core/v1.FeatureKVM"),
+						},
+					},
+					"preferredPic": {
+						SchemaProps: spec.SchemaProps{
+							Description: "PreferredPic optionally enables the PIC feature",
+							Ref:         ref("kubevirt.io/api/core/v1.FeatureState"),
 						},
 					},
 					"preferredPvspinlock": {
