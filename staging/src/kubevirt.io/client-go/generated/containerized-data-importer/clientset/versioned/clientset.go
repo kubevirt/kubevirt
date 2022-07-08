@@ -24,7 +24,6 @@ import (
 	discovery "k8s.io/client-go/discovery"
 	rest "k8s.io/client-go/rest"
 	flowcontrol "k8s.io/client-go/util/flowcontrol"
-
 	cdiv1beta1 "kubevirt.io/client-go/generated/containerized-data-importer/clientset/versioned/typed/core/v1beta1"
 	uploadv1beta1 "kubevirt.io/client-go/generated/containerized-data-importer/clientset/versioned/typed/upload/v1beta1"
 )

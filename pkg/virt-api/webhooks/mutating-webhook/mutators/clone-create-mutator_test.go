@@ -16,6 +16,7 @@ import (
 	"kubevirt.io/api/clone"
 	clonev1alpha1 "kubevirt.io/api/clone/v1alpha1"
 	"kubevirt.io/client-go/kubecli"
+
 	utiltypes "kubevirt.io/kubevirt/pkg/util/types"
 )
 

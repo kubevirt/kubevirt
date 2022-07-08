@@ -25,6 +25,7 @@ import (
 	"time"
 
 	"kubevirt.io/client-go/log"
+
 	"kubevirt.io/kubevirt/pkg/service"
 
 	exportServer "kubevirt.io/kubevirt/pkg/virt-exportserver"

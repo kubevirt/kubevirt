@@ -2,6 +2,7 @@ package virthandler
 
 import (
 	v1 "kubevirt.io/api/core/v1"
+
 	containerdisk "kubevirt.io/kubevirt/pkg/container-disk"
 	cmdv1 "kubevirt.io/kubevirt/pkg/handler-launcher-com/cmd/v1"
 	"kubevirt.io/kubevirt/pkg/virt-handler/node-labeller/api"

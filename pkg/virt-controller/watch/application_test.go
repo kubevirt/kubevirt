@@ -28,6 +28,7 @@ import (
 	"time"
 
 	clonev1alpha1 "kubevirt.io/api/clone/v1alpha1"
+
 	"kubevirt.io/kubevirt/pkg/virt-controller/watch/clone"
 
 	migrationsv1 "kubevirt.io/api/migrations/v1alpha1"
@@ -53,6 +54,7 @@ import (
 	snapshotv1 "kubevirt.io/api/snapshot/v1alpha1"
 	"kubevirt.io/client-go/kubecli"
 	cdiv1 "kubevirt.io/containerized-data-importer-api/pkg/apis/core/v1beta1"
+
 	"kubevirt.io/kubevirt/pkg/controller"
 	"kubevirt.io/kubevirt/pkg/rest"
 	testutils "kubevirt.io/kubevirt/pkg/testutils"

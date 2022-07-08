@@ -33,11 +33,13 @@ import (
 	metric_client "kubevirt.io/kubevirt/tools/perfscale-audit/metric-client"
 
 	kvv1 "kubevirt.io/api/core/v1"
+
 	cd "kubevirt.io/kubevirt/tests/containerdisk"
 
 	"k8s.io/apimachinery/pkg/api/resource"
 
 	"kubevirt.io/client-go/kubecli"
+
 	"kubevirt.io/kubevirt/tests"
 	"kubevirt.io/kubevirt/tests/util"
 )

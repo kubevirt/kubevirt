@@ -16,6 +16,7 @@ import (
 	"k8s.io/apimachinery/pkg/util/strategicpatch"
 
 	v1 "kubevirt.io/api/core/v1"
+
 	"kubevirt.io/kubevirt/pkg/virt-operator/resource/generate/components"
 	"kubevirt.io/kubevirt/pkg/virt-operator/resource/generate/install"
 )

@@ -23,6 +23,7 @@ import (
 	"fmt"
 
 	v1 "kubevirt.io/api/core/v1"
+
 	netdriver "kubevirt.io/kubevirt/pkg/network/driver"
 	"kubevirt.io/kubevirt/pkg/virt-launcher/virtwrap/api"
 )

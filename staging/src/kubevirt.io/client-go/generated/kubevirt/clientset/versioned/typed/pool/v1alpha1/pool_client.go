@@ -20,7 +20,6 @@ package v1alpha1
 
 import (
 	rest "k8s.io/client-go/rest"
-
 	v1alpha1 "kubevirt.io/api/pool/v1alpha1"
 	"kubevirt.io/client-go/generated/kubevirt/clientset/versioned/scheme"
 )

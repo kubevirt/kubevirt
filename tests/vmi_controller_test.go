@@ -9,6 +9,7 @@ import (
 	"kubevirt.io/kubevirt/tests/util"
 
 	"kubevirt.io/client-go/kubecli"
+
 	"kubevirt.io/kubevirt/pkg/virt-launcher/virtwrap/api"
 
 	"kubevirt.io/kubevirt/tests"

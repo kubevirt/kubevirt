@@ -11,6 +11,7 @@ import (
 
 	"kubevirt.io/client-go/kubecli"
 	"kubevirt.io/client-go/version"
+
 	"kubevirt.io/kubevirt/pkg/virtctl/templates"
 )
 

@@ -26,6 +26,7 @@ import (
 	"kubevirt.io/kubevirt/pkg/network/netns"
 
 	v1 "kubevirt.io/api/core/v1"
+
 	"kubevirt.io/kubevirt/pkg/network/cache"
 )
 

@@ -32,6 +32,7 @@ import (
 	"github.com/opencontainers/runc/libcontainer/configs"
 
 	v1 "kubevirt.io/api/core/v1"
+
 	virtutil "kubevirt.io/kubevirt/pkg/util"
 	"kubevirt.io/kubevirt/pkg/virt-handler/isolation"
 )

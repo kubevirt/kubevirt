@@ -27,7 +27,6 @@ import (
 	types "k8s.io/apimachinery/pkg/types"
 	watch "k8s.io/apimachinery/pkg/watch"
 	testing "k8s.io/client-go/testing"
-
 	v1alpha1 "kubevirt.io/api/pool/v1alpha1"
 )
 

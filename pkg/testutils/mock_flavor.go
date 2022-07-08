@@ -5,6 +5,7 @@ import (
 
 	v1 "kubevirt.io/api/core/v1"
 	flavorv1alpha1 "kubevirt.io/api/flavor/v1alpha1"
+
 	"kubevirt.io/kubevirt/pkg/flavor"
 )
 

@@ -19,6 +19,7 @@ import (
 	"libvirt.org/go/libvirt"
 
 	kubevirtlog "kubevirt.io/client-go/log"
+
 	"kubevirt.io/kubevirt/pkg/virt-launcher/virtwrap/api"
 	"kubevirt.io/kubevirt/pkg/virt-launcher/virtwrap/cli"
 )

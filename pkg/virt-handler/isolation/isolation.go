@@ -35,6 +35,7 @@ import (
 	mount "github.com/moby/sys/mountinfo"
 
 	"kubevirt.io/client-go/log"
+
 	"kubevirt.io/kubevirt/pkg/util"
 )
 

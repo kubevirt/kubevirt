@@ -9,8 +9,8 @@ import (
 	iptables "github.com/coreos/go-iptables/iptables"
 	gomock "github.com/golang/mock/gomock"
 	netlink "github.com/vishvananda/netlink"
-
 	v1 "kubevirt.io/api/core/v1"
+
 	cache "kubevirt.io/kubevirt/pkg/network/cache"
 )
 

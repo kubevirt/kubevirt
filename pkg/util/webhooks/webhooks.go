@@ -13,6 +13,7 @@ import (
 
 	v12 "kubevirt.io/api/core/v1"
 	"kubevirt.io/client-go/log"
+
 	"kubevirt.io/kubevirt/pkg/virt-api/webhooks"
 )
 

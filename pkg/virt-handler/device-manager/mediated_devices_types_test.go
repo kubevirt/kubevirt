@@ -20,6 +20,7 @@ import (
 	"k8s.io/client-go/testing"
 
 	v1 "kubevirt.io/api/core/v1"
+
 	"kubevirt.io/kubevirt/pkg/testutils"
 )
 

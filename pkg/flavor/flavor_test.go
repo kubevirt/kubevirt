@@ -22,6 +22,7 @@ import (
 
 	"kubevirt.io/client-go/api"
 	"kubevirt.io/client-go/kubecli"
+
 	"kubevirt.io/kubevirt/pkg/flavor"
 
 	v1 "kubevirt.io/api/core/v1"
