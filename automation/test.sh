@@ -364,7 +364,7 @@ if [[ -z ${KUBEVIRT_E2E_FOCUS} && -z ${KUBEVIRT_E2E_SKIP} ]]; then
     export KUBEVIRT_E2E_FOCUS="\\[Sysprep\\]"
   elif [[ $TARGET =~ windows.* ]]; then
     # Run only Windows tests
-    export KUBEVIRT_E2E_FOCUS=Windows
+    export KUBEVIRT_E2E_FOCUS="Windows"
   elif [[ $TARGET =~ (cnao|multus) ]]; then
     export KUBEVIRT_E2E_FOCUS="Multus|Networking|VMIlifecycle|Expose|Macvtap"
   elif [[ $TARGET =~ sig-network ]]; then
@@ -373,7 +373,7 @@ if [[ -z ${KUBEVIRT_E2E_FOCUS} && -z ${KUBEVIRT_E2E_SKIP} ]]; then
     export KUBEVIRT_E2E_FOCUS="\\[sig-storage\\]|\\[storage-req\\]"
     export KUBEVIRT_E2E_SKIP="Migration"
   elif [[ $TARGET =~ vgpu.* ]]; then
-    export KUBEVIRT_E2E_FOCUS=MediatedDevices
+    export KUBEVIRT_E2E_FOCUS="MediatedDevices"
   elif [[ $TARGET =~ sig-compute-realtime ]]; then
     export KUBEVIRT_E2E_FOCUS="\\[sig-compute-realtime\\]"
   elif [[ $TARGET =~ sig-compute-migrations ]]; then
@@ -389,7 +389,7 @@ if [[ -z ${KUBEVIRT_E2E_FOCUS} && -z ${KUBEVIRT_E2E_SKIP} ]]; then
   elif [[ $TARGET =~ sig-operator ]]; then
     export KUBEVIRT_E2E_FOCUS="\\[sig-operator\\]"
   elif [[ $TARGET =~ sriov.* ]]; then
-    export KUBEVIRT_E2E_FOCUS=SRIOV
+    export KUBEVIRT_E2E_FOCUS="SRIOV"
   elif [[ $TARGET =~ gpu.* ]]; then
     export ginko_params="$ginko_params --label-filter=\"needs-gpu\""
   elif [[ $TARGET =~ (okd|ocp).* ]]; then
