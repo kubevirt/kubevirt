@@ -2493,7 +2493,7 @@ var _ = Describe("VirtualMachineInstance watcher", func() {
 
 			fsOverhead, err := controller.getFilesystemOverhead(nil)
 			Expect(err).To(HaveOccurred())
-			Expect(err.Error()).To(Equal("Detected more than one CDI instance: 2"))
+			Expect(err.Error()).To(Equal(multipleCdiInstances.Error()))
 			Expect(fsOverhead).To(Equal(cdiv1.Percent("0")))
 		})
 
