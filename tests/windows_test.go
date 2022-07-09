@@ -346,7 +346,7 @@ var _ = Describe("[Serial][sig-compute]Windows VirtualMachineInstance", func() {
 			Expect(err).ToNot(HaveOccurred())
 
 			By("Checking that the vmi does not exist anymore")
-			result := virtClient.RestClient().Get().Resource(tests.VMIResource).Namespace(k8sv1.NamespaceDefault).Name(windowsVMI.Name).Do(context.Background())
+			result := virtClient.RestClient().Get().Resource("virtualmachineinstances").Namespace(k8sv1.NamespaceDefault).Name(windowsVMI.Name).Do(context.Background())
 			Expect(result).To(testutils.HaveStatusCode(http.StatusNotFound))
 
 			By("Checking that the vmi pod terminated")

@@ -124,8 +124,6 @@ const (
 	defaultDiskSize = "1Gi"
 )
 
-const VMIResource = "virtualmachineinstances"
-
 const MigrationWaitTime = 240
 const ContainerCompletionWaitTime = 60
 
