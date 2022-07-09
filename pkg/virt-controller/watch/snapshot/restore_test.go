@@ -671,7 +671,7 @@ var _ = Describe("Restore controlleer", func() {
 
 				l, err := cdiClient.CdiV1beta1().DataVolumes("").List(context.Background(), metav1.ListOptions{})
 				Expect(err).ToNot(HaveOccurred())
-				Expect(len(l.Items)).To(BeZero())
+				Expect(l.Items).To(BeEmpty())
 				testutils.ExpectEvent(recorder, "VirtualMachineRestoreComplete")
 			})
 

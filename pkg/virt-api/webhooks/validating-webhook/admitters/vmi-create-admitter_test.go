@@ -3540,7 +3540,7 @@ var _ = Describe("Validating VMICreate Admitter", func() {
 			vmi.Spec.Domain.Memory = &v1.Memory{Hugepages: &v1.Hugepages{PageSize: "2Mi"}}
 			vmi.Spec.Domain.CPU.NUMA = &v1.NUMA{GuestMappingPassthrough: &v1.NUMAGuestMappingPassthrough{}}
 			causes := ValidateVirtualMachineInstanceSpec(k8sfield.NewPath("fake"), &vmi.Spec, config)
-			Expect(len(causes)).To(BeNumerically(">=", 1))
+			Expect(causes).ToNot(BeEmpty())
 			Expect(causes).To(ContainElement(metav1.StatusCause{Type: metav1.CauseTypeFieldValueRequired, Field: "fake.domain.cpu.dedicatedCpuPlacement", Message: "fake.domain.cpu.dedicatedCpuPlacement must be set to true when fake.domain.cpu.realtime is used"}))
 		})
 		It("should reject the realtime knob when NUMA Guest Mapping Passthrough is not defined", func() {
@@ -4014,7 +4014,7 @@ var _ = Describe("Function getNumberOfPodInterfaces()", func() {
 		}
 		path := k8sfield.NewPath("spec")
 		causes := webhooks.ValidateVirtualMachineInstanceHypervFeatureDependencies(path, &vmi.Spec)
-		Expect(len(causes)).To(BeNumerically(">=", 1))
+		Expect(causes).ToNot(BeEmpty())
 	})
 
 	It("Should validate VMIs with correct hyperv deps", func() {

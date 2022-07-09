@@ -316,14 +316,14 @@ var _ = Describe("Mediated Devices Types configuration", func() {
 						Expect(numberOfCreatedMDEVs).To(BeZero(), msg)
 					}
 				}
-				Expect(len(desiredDevicesToConfigure)).To(BeZero(), "add types should be created")
+				Expect(desiredDevicesToConfigure).To(BeEmpty(), "add types should be created")
 			}
 
 			By("removing all created mdevs")
 			mdevManager.updateMDEVTypesConfiguration([]string{})
 			files, err := ioutil.ReadDir(fakeMdevDevicesPath)
 			Expect(err).ToNot(HaveOccurred())
-			Expect(len(files)).To(BeZero())
+			Expect(files).To(BeEmpty())
 		},
 			Entry("spread types accoss identical cards", spreadTypesAccossIdenticalCard),
 			Entry("one yype many cards", oneTypeManyCards),
@@ -426,7 +426,7 @@ var _ = Describe("Mediated Devices Types configuration", func() {
 						Expect(numberOfCreatedMDEVs).To(BeZero(), msg)
 					}
 				}
-				Expect(len(desiredDevicesToConfigure)).To(BeZero(), "add types should be created")
+				Expect(desiredDevicesToConfigure).To(BeEmpty(), "add types should be created")
 			}
 
 			By("removing all created mdevs")
@@ -435,7 +435,7 @@ var _ = Describe("Mediated Devices Types configuration", func() {
 			deviceController.refreshMediatedDevicesTypes()
 			files, err := ioutil.ReadDir(fakeMdevDevicesPath)
 			Expect(err).ToNot(HaveOccurred())
-			Expect(len(files)).To(BeZero())
+			Expect(files).To(BeEmpty())
 		},
 			Entry("configure default mdev types", deafultTypesNotNodeSpecific),
 			Entry("configure mdev types that match all node selectors", matchAllNodeLabels),

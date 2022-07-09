@@ -218,7 +218,7 @@ var _ = Describe("Export controlleer", func() {
 		Expect(err).ToNot(HaveOccurred())
 		Expect(pod).ToNot(BeNil())
 		Expect(pod.Name).To(Equal(fmt.Sprintf("%s-%s", exportPrefix, testVMExport.Name)))
-		Expect(len(pod.Spec.Volumes)).To(Equal(3), "There should be 3 volumes, one pvc, and two secrets (token and certs)")
+		Expect(pod.Spec.Volumes).To(HaveLen(3), "There should be 3 volumes, one pvc, and two secrets (token and certs)")
 		certSecretName := ""
 		for _, volume := range pod.Spec.Volumes {
 			if volume.Name == certificates {
@@ -249,8 +249,8 @@ var _ = Describe("Export controlleer", func() {
 				},
 			},
 		}))
-		Expect(len(pod.Spec.Containers)).To(Equal(1))
-		Expect(len(pod.Spec.Containers[0].VolumeMounts)).To(Equal(3))
+		Expect(pod.Spec.Containers).To(HaveLen(1))
+		Expect(pod.Spec.Containers[0].VolumeMounts).To(HaveLen(3))
 		Expect(pod.Spec.Containers[0].VolumeMounts).To(ContainElement(k8sv1.VolumeMount{
 			Name:      "test-pvc",
 			ReadOnly:  true,
