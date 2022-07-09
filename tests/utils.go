@@ -132,11 +132,6 @@ const VMIResource = "virtualmachineinstances"
 const MigrationWaitTime = 240
 const ContainerCompletionWaitTime = 60
 
-const (
-	cgroupV1cpusetPath = "/sys/fs/cgroup/cpuset/cpuset.cpus"
-	cgroupV2cpusetPath = "/sys/fs/cgroup/cpuset.cpus.effective"
-)
-
 func TestCleanup() {
 	testsuite.CleanNamespaces()
 	libnode.CleanNodes()
@@ -365,6 +360,11 @@ func getPodsByLabel(label, labelType, namespace string) (*k8sv1.PodList, error) 
 }
 
 func GetPodCPUSet(pod *k8sv1.Pod) (output string, err error) {
+	const (
+		cgroupV1cpusetPath = "/sys/fs/cgroup/cpuset/cpuset.cpus"
+		cgroupV2cpusetPath = "/sys/fs/cgroup/cpuset.cpus.effective"
+	)
+
 	virtClient, err := kubecli.GetKubevirtClient()
 	if err != nil {
 		return
