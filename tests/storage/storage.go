@@ -222,7 +222,12 @@ var _ = SIGDescribe("Storage", func() {
 
 			It("[QUARANTINE] should pause VMI on IO error", func() {
 				By("Creating VMI with faulty disk")
-				vmi := tests.NewRandomVMIWithPVC(pvc.Name)
+				vmi := libvmi.New(
+					libvmi.WithPersistentVolumeClaim("disk0", pvc.Name),
+					libvmi.WithResourceMemory("256Mi"),
+					libvmi.WithNetwork(v1.DefaultPodNetwork()),
+					libvmi.WithInterface(libvmi.InterfaceDeviceWithMasqueradeBinding()))
+
 				_, err := virtClient.VirtualMachineInstance(util.NamespaceTestDefault).Create(vmi)
 				Expect(err).To(BeNil(), failedCreateVMI)
 
@@ -249,6 +254,12 @@ var _ = SIGDescribe("Storage", func() {
 		})
 
 		Context("[rfe_id:3106][crit:medium][vendor:cnv-qe@redhat.com][level:component]with Alpine PVC", func() {
+			newRandomVMIWithPVC := func(claimName string) *virtv1.VirtualMachineInstance {
+				return libvmi.New(
+					libvmi.WithPersistentVolumeClaim("disk0", claimName),
+					libvmi.WithResourceMemory("256Mi"),
+					libvmi.WithRng())
+			}
 
 			Context("should be successfully", func() {
 				var pvName string
@@ -276,19 +287,19 @@ var _ = SIGDescribe("Storage", func() {
 					vmi = newVMI(pvName)
 
 					if storageEngine == "nfs" {
-						tests.RunVMIAndExpectLaunchIgnoreWarnings(vmi, 180)
+						vmi = tests.RunVMIAndExpectLaunchIgnoreWarnings(vmi, 180)
 					} else {
-						tests.RunVMIAndExpectLaunch(vmi, 180)
+						vmi = tests.RunVMIAndExpectLaunch(vmi, 180)
 					}
 
 					By(checkingVMInstanceConsoleOut)
 					Expect(console.LoginToAlpine(vmi)).To(Succeed())
 				},
-					Entry("[test_id:3130]with Disk PVC", tests.NewRandomVMIWithPVC, "", nil, true),
+					Entry("[test_id:3130]with Disk PVC", newRandomVMIWithPVC, "", nil, true),
 					Entry("[test_id:3131]with CDRom PVC", tests.NewRandomVMIWithCDRom, "", nil, true),
-					Entry("[test_id:4618]with NFS Disk PVC using ipv4 address of the NFS pod", tests.NewRandomVMIWithPVC, "nfs", k8sv1.IPv4Protocol, true),
-					Entry("[Serial]with NFS Disk PVC using ipv6 address of the NFS pod", tests.NewRandomVMIWithPVC, "nfs", k8sv1.IPv6Protocol, true),
-					Entry("[Serial]with NFS Disk PVC using ipv4 address of the NFS pod not owned by qemu", tests.NewRandomVMIWithPVC, "nfs", k8sv1.IPv4Protocol, false),
+					Entry("[test_id:4618]with NFS Disk PVC using ipv4 address of the NFS pod", newRandomVMIWithPVC, "nfs", k8sv1.IPv4Protocol, true),
+					Entry("[Serial]with NFS Disk PVC using ipv6 address of the NFS pod", newRandomVMIWithPVC, "nfs", k8sv1.IPv6Protocol, true),
+					Entry("[Serial]with NFS Disk PVC using ipv4 address of the NFS pod not owned by qemu", newRandomVMIWithPVC, "nfs", k8sv1.IPv4Protocol, false),
 				)
 			})
 
@@ -312,7 +323,7 @@ var _ = SIGDescribe("Storage", func() {
 					tests.WaitForVirtualMachineToDisappearWithTimeout(vmi, 120)
 				}
 			},
-				Entry("[test_id:3132]with Disk PVC", tests.NewRandomVMIWithPVC),
+				Entry("[test_id:3132]with Disk PVC", newRandomVMIWithPVC),
 				Entry("[test_id:3133]with CDRom PVC", tests.NewRandomVMIWithCDRom),
 			)
 		})
@@ -648,8 +659,11 @@ var _ = SIGDescribe("Storage", func() {
 
 			// Not a candidate for testing on NFS because the VMI is restarted and NFS PVC can't be re-used
 			It("[test_id:3138]should start vmi multiple times", func() {
-				vmi = tests.NewRandomVMIWithPVC(tests.DiskAlpineHostPath)
-				tests.AddPVCDisk(vmi, "disk1", v1.DiskBusVirtio, tests.DiskCustomHostPath)
+				vmi = libvmi.New(
+					libvmi.WithPersistentVolumeClaim("disk0", tests.DiskAlpineHostPath),
+					libvmi.WithPersistentVolumeClaim("disk1", tests.DiskCustomHostPath),
+					libvmi.WithResourceMemory("256Mi"),
+					libvmi.WithRng())
 
 				num := 3
 				By("Starting and stopping the VirtualMachineInstance number of times")
@@ -660,9 +674,9 @@ var _ = SIGDescribe("Storage", func() {
 					// after being restarted multiple times
 					if i == num {
 						By("Checking that the second disk is present")
-						Expect(console.LoginToAlpine(vmi)).To(Succeed())
+						Expect(console.LoginToAlpine(obj)).To(Succeed())
 
-						Expect(console.SafeExpectBatch(vmi, []expect.Batcher{
+						Expect(console.SafeExpectBatch(obj, []expect.Batcher{
 							&expect.BSnd{S: "blockdev --getsize64 /dev/vdb\n"},
 							&expect.BExp{R: "1013972992"},
 						}, 200)).To(Succeed())
@@ -894,6 +908,12 @@ var _ = SIGDescribe("Storage", func() {
 				It("[test_id:868] Should initialize an empty PVC by creating a disk.img", func() {
 					for _, pvc := range pvcs {
 						By(startingVMInstance)
+						vmi = libvmi.New(
+							libvmi.WithPersistentVolumeClaim("disk0", fmt.Sprintf("disk-%s", pvc)),
+							libvmi.WithResourceMemory("256Mi"),
+							libvmi.WithNetwork(v1.DefaultPodNetwork()),
+							libvmi.WithInterface(libvmi.InterfaceDeviceWithMasqueradeBinding()))
+
 						vmi = tests.NewRandomVMIWithPVC(fmt.Sprintf("disk-%s", pvc))
 						vmi.Spec.NodeSelector = nodeSelector
 						tests.RunVMIAndExpectLaunch(vmi, 90)
