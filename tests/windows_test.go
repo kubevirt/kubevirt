@@ -134,10 +134,11 @@ var _ = Describe("[Serial][sig-compute]Windows VirtualMachineInstance", func() {
 	var windowsVMI *v1.VirtualMachineInstance
 
 	BeforeEach(func() {
+		const OSWindows = "windows"
 		virtClient, err = kubecli.GetKubevirtClient()
 		util.PanicOnError(err)
 		checks.SkipIfMissingRequiredImage(virtClient, tests.DiskWindows)
-		libstorage.CreatePVC(tests.OSWindows, "30Gi", libstorage.Config.StorageClassWindows, true)
+		libstorage.CreatePVC(OSWindows, "30Gi", libstorage.Config.StorageClassWindows, true)
 		windowsVMI = tests.NewRandomVMI()
 		windowsVMI.Spec = getWindowsVMISpec()
 		tests.AddExplicitPodNetworkInterface(windowsVMI)

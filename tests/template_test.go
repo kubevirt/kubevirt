@@ -43,7 +43,6 @@ import (
 
 	"kubevirt.io/client-go/kubecli"
 
-	"kubevirt.io/kubevirt/tests"
 	cd "kubevirt.io/kubevirt/tests/containerdisk"
 	"kubevirt.io/kubevirt/tests/libstorage"
 	vmsgen "kubevirt.io/kubevirt/tools/vms-generator/utils"
@@ -268,8 +267,9 @@ var _ = Describe("[Serial][sig-compute]Templates", func() {
 
 		Context("[rfe_id:273][crit:medium][vendor:cnv-qe@redhat.com][level:component]with RHEL Template", func() {
 			BeforeEach(func() {
+				const OSRhel = "rhel"
 				checks.SkipIfNoRhelImage(virtClient)
-				libstorage.CreatePVC(tests.OSRhel, "15Gi", libstorage.Config.StorageClassRhel, true)
+				libstorage.CreatePVC(OSRhel, "15Gi", libstorage.Config.StorageClassRhel, true)
 				AssertTemplateSetupSuccess(vmsgen.GetTestTemplateRHEL7(), nil)()
 			})
 

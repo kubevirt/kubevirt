@@ -110,10 +110,7 @@ const (
 )
 
 const (
-	OSWindows        = "windows"
-	OSWindowsSysprep = "windows-sysprep" // This is for sysprep tests, they run on a syspreped image of windows of a different version.
-	OSRhel           = "rhel"
-	CustomHostPath   = "custom-host-path"
+	CustomHostPath = "custom-host-path"
 )
 
 const (
