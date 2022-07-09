@@ -24,7 +24,7 @@ var _ = Describe("Wrapped SSH", func() {
 	Context("buildSSHTarget", func() {
 
 		It("with SSH username", func() {
-			ssh.options = SSHOptions{SshUsername: "testuser"}
+			ssh.options = SSHOptions{SSHUsername: "testuser"}
 			sshTarget := ssh.buildSSHTarget(fakeKind, fakeNamespace, fakeName)
 			Expect(sshTarget[0]).To(Equal("testuser@fake-kind/fake-name.fake-ns"))
 		})
@@ -38,24 +38,26 @@ var _ = Describe("Wrapped SSH", func() {
 
 	It("buildProxyCommandOption", func() {
 		const sshPort = 12345
-		ssh.options = SSHOptions{SshPort: sshPort}
-		proxyCommand := ssh.buildProxyCommandOption(fakeKind, fakeNamespace, fakeName)
+		proxyCommand := buildProxyCommandOption(fakeKind, fakeNamespace, fakeName, sshPort)
 		expected := fmt.Sprintf("port-forward --stdio=true fake-kind/fake-name.fake-ns %d", sshPort)
 		Expect(proxyCommand).To(ContainSubstring(expected))
 	})
 
-	It("runLocalCommandClient", func() {
+	It("RunLocalClient", func() {
 		runCommand = func(cmd *exec.Cmd) error {
 			Expect(cmd).ToNot(BeNil())
 			Expect(cmd.Args).To(HaveLen(4))
 			Expect(cmd.Args[0]).To(Equal("ssh"))
-			Expect(cmd.Args[2]).To(Equal(ssh.buildProxyCommandOption(fakeKind, fakeNamespace, fakeName)))
+			Expect(cmd.Args[2]).To(Equal(buildProxyCommandOption(fakeKind, fakeNamespace, fakeName, ssh.options.SSHPort)))
 			Expect(cmd.Args[3]).To(Equal(ssh.buildSSHTarget(fakeKind, fakeNamespace, fakeName)[0]))
 
 			return nil
 		}
 
-		err := ssh.runLocalCommandClient(fakeKind, fakeNamespace, fakeName)
+		ssh.options = DefaultSSHOptions()
+		ssh.options.SSHPort = 12345
+		clientArgs := ssh.buildSSHTarget(fakeKind, fakeNamespace, fakeName)
+		err := RunLocalClient(fakeKind, fakeNamespace, fakeName, &ssh.options, clientArgs)
 		Expect(err).ShouldNot(HaveOccurred())
 	})
 })

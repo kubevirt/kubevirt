@@ -24,6 +24,47 @@ var _ = Describe("[sig-compute][virtctl]SCP", func() {
 	var pub ssh.PublicKey
 	var keyFile string
 	var virtClient kubecli.KubevirtClient
+
+	copyNative := func(src, dst string, recursive bool) {
+		args := []string{
+			"scp",
+			"--namespace", util.NamespaceTestDefault,
+			"--username", "cirros",
+			"--identity-file", keyFile,
+			"--known-hosts=",
+		}
+		if recursive {
+			args = append(args, "--recursive")
+		}
+		args = append(args, src, dst)
+
+		Expect(clientcmd.NewRepeatableVirtctlCommand(args...)()).To(Succeed())
+	}
+
+	copyLocal := func(src, dst string, recursive bool) {
+		args := []string{
+			"scp",
+			"--local-ssh=true",
+			"--namespace", util.NamespaceTestDefault,
+			"--username", "cirros",
+			"--identity-file", keyFile,
+			"-t", "-o StrictHostKeyChecking=no",
+			"-t", "-o UserKnownHostsFile=/dev/null",
+			"-t", "-O",
+		}
+		if recursive {
+			args = append(args, "--recursive")
+		}
+		args = append(args, src, dst)
+
+		_, cmd, err := clientcmd.CreateCommandWithNS(util.NamespaceTestDefault, "virtctl", args...)
+		Expect(err).ToNot(HaveOccurred())
+
+		out, err := cmd.CombinedOutput()
+		Expect(err).ToNot(HaveOccurred())
+		Expect(out).ToNot(BeEmpty())
+	}
+
 	BeforeEach(func() {
 		var err error
 		virtClient, err = kubecli.GetKubevirtClient()
@@ -37,7 +78,7 @@ var _ = Describe("[sig-compute][virtctl]SCP", func() {
 		Expect(DumpPrivateKey(priv, keyFile)).To(Succeed())
 	})
 
-	It("should copy a local file back and forth", func() {
+	DescribeTable("should copy a local file back and forth", func(copyFn func(string, string, bool)) {
 		By("injecting a SSH public key into a VMI")
 		vmi := libvmi.NewCirros(
 			libvmi.WithCloudInitNoCloudUserData(renderUserDataWithKey(pub), false))
@@ -47,33 +88,20 @@ var _ = Describe("[sig-compute][virtctl]SCP", func() {
 		vmi = tests.WaitUntilVMIReady(vmi, console.LoginToCirros)
 
 		By("copying a file to the VMI")
-		Expect(clientcmd.NewRepeatableVirtctlCommand(
-			"scp",
-			"--namespace", util.NamespaceTestDefault,
-			"--username", "cirros",
-			"--identity-file", keyFile,
-			"--known-hosts=",
-			keyFile,
-			vmi.Name+":"+"./keyfile",
-		)()).To(Succeed())
+		copyFn(keyFile, vmi.Name+":"+"./keyfile", false)
 
 		By("copying the file back")
 		copyBackFile := filepath.Join(GinkgoT().TempDir(), "remote_id_rsa")
-		Expect(clientcmd.NewRepeatableVirtctlCommand(
-			"scp",
-			"--namespace", util.NamespaceTestDefault,
-			"--username", "cirros",
-			"--identity-file", keyFile,
-			"--known-hosts=",
-			vmi.Name+":"+"./keyfile",
-			copyBackFile,
-		)()).To(Succeed())
+		copyFn(vmi.Name+":"+"./keyfile", copyBackFile, false)
 
 		By("comparing the two files")
 		compareFile(keyFile, copyBackFile)
-	})
+	},
+		Entry("using the native scp method", copyNative),
+		Entry("using the local scp method", copyLocal),
+	)
 
-	It("should copy a local directory back and forth", func() {
+	DescribeTable("should copy a local directory back and forth", func(copyFn func(string, string, bool)) {
 		By("injecting a SSH public key into a VMI")
 		vmi := libvmi.NewCirros(
 			libvmi.WithCloudInitNoCloudUserData(renderUserDataWithKey(pub), false))
@@ -91,33 +119,18 @@ var _ = Describe("[sig-compute][virtctl]SCP", func() {
 		Expect(os.WriteFile(filepath.Join(copyFromDir, "file2"), []byte("test1"), 0777)).To(Succeed())
 
 		By("copying a file to the VMI")
-		Expect(clientcmd.NewRepeatableVirtctlCommand(
-			"scp",
-			"--namespace", util.NamespaceTestDefault,
-			"--username", "cirros",
-			"--identity-file", keyFile,
-			"--recursive",
-			"--known-hosts=",
-			copyFromDir,
-			vmi.Name+":"+"./sourcedir",
-		)()).To(Succeed())
+		copyFn(copyFromDir, vmi.Name+":"+"./sourcedir", true)
 
 		By("copying the file back")
-		Expect(clientcmd.NewRepeatableVirtctlCommand(
-			"scp",
-			"--namespace", util.NamespaceTestDefault,
-			"--username", "cirros",
-			"--recursive",
-			"--identity-file", keyFile,
-			"--known-hosts=",
-			vmi.Name+":"+"./sourcedir",
-			copyToDir,
-		)()).To(Succeed())
+		copyFn(vmi.Name+":"+"./sourcedir", copyToDir, true)
 
 		By("comparing the two directories")
 		compareFile(filepath.Join(copyFromDir, "file1"), filepath.Join(copyToDir, "file1"))
 		compareFile(filepath.Join(copyFromDir, "file2"), filepath.Join(copyToDir, "file2"))
-	})
+	},
+		Entry("using the native scp method", copyNative),
+		Entry("using the local scp method", copyLocal),
+	)
 })
 
 func renderUserDataWithKey(key ssh.PublicKey) string {

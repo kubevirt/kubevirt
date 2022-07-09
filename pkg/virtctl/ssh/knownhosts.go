@@ -76,7 +76,7 @@ Are you sure you want to continue connecting (yes/no)? `,
 	return askToAddHostKey(hostname, remote, key)
 }
 
-func addHostKey(knownHostsFilePath string, hostname string, key ssh.PublicKey) error {
+func addHostKey(knownHostsFilePath, hostname string, key ssh.PublicKey) error {
 	f, err := os.OpenFile(knownHostsFilePath, os.O_APPEND|os.O_WRONLY, 0600)
 	if err != nil {
 		return err
