@@ -26,7 +26,10 @@ import (
 	"libvirt.org/go/libvirt"
 )
 
-var MigrationAbortInProgressError = errors.New("Migration abort is in progress")
+var (
+	MigrationAbortInProgressError = errors.New("Migration abort is in progress")
+	ShutdownACPIDisabledError     = errors.New("ACPI is disabled, unable to execute graceful shutdown")
+)
 
 func checkError(err error, expectedError libvirt.ErrorNumber) bool {
 	libvirtError, ok := err.(libvirt.Error)

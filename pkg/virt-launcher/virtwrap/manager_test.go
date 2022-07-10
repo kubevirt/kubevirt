@@ -1030,34 +1030,6 @@ var _ = Describe("Manager", func() {
 		})
 	})
 	Context("test marking graceful shutdown", func() {
-		It("Should set metadata when calling MarkGracefulShutdown api", func() {
-			mockDomain.EXPECT().Free().AnyTimes()
-
-			vmi := newVMI(testNamespace, testVmName)
-			domainSpec := expectedDomainFor(vmi)
-
-			oldXML, err := xml.MarshalIndent(domainSpec, "", "\t")
-			Expect(err).ToNot(HaveOccurred())
-
-			t := true
-			domainSpec.Metadata.KubeVirt.GracePeriod = &api.GracePeriodMetadata{MarkedForGracefulShutdown: &t}
-
-			mockDomain.EXPECT().GetState().AnyTimes().Return(libvirt.DOMAIN_RUNNING, 1, nil)
-			mockConn.EXPECT().LookupDomainByName(testDomainName).AnyTimes().Return(mockDomain, nil)
-			mockDomain.EXPECT().GetXMLDesc(gomock.Eq(libvirt.DomainXMLFlags(0))).AnyTimes().Return(string(oldXML), nil)
-			mockDomain.EXPECT().
-				GetMetadata(libvirt.DOMAIN_METADATA_ELEMENT, "http://kubevirt.io", libvirt.DOMAIN_AFFECT_CONFIG).
-				AnyTimes().
-				Return("<kubevirt></kubevirt>", nil)
-			mockConn.EXPECT().DomainDefineXML(gomock.Any()).DoAndReturn(func(xml string) (cli.VirDomain, error) {
-				Expect(strings.Contains(xml, "<markedForGracefulShutdown>true</markedForGracefulShutdown>")).To(BeTrue())
-				return mockDomain, nil
-			})
-			manager, _ := NewLibvirtDomainManager(mockConn, testVirtShareDir, testEphemeralDiskDir, nil, "/usr/share/OVMF", ephemeralDiskCreatorMock)
-
-			manager.MarkGracefulShutdownVMI(vmi)
-		})
-
 		It("Should signal graceful shutdown after marked for shutdown", func() {
 			mockDomain.EXPECT().Free().AnyTimes()
 

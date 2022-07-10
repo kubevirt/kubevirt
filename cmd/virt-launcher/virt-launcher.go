@@ -418,9 +418,8 @@ func main() {
 	cmdServerDone := startCmdServer(cmdclient.UninitializedSocketOnGuest(), domainManager, stopChan, options)
 
 	gracefulShutdownCallback := func() {
-		err := domainManager.MarkGracefulShutdownVMI(vmi)
-		if err != nil {
-			log.Log.Reason(err).Errorf("Unable to signal graceful shutdown")
+		if err := domainManager.SignalShutdownVMI(vmi); err != nil {
+			log.Log.Object(vmi).Reason(err).Errorf("Failed to signal shutdown for vmi")
 		} else {
 			log.Log.Object(vmi).Info("Successfully signaled graceful shutdown")
 		}
