@@ -87,7 +87,7 @@ func restoreDVName(vmRestore *snapshotv1.VirtualMachineRestore, name string) str
 	return restorePVCName(vmRestore, name)
 }
 
-func vmRestoreProgressing(vmRestore *snapshotv1.VirtualMachineRestore) bool {
+func VmRestoreProgressing(vmRestore *snapshotv1.VirtualMachineRestore) bool {
 	return vmRestore.Status == nil || vmRestore.Status.Complete == nil || !*vmRestore.Status.Complete
 }
 
@@ -111,7 +111,7 @@ func (ctrl *VMRestoreController) updateVMRestore(vmRestoreIn *snapshotv1.Virtual
 		return 0, ctrl.doUpdateError(vmRestoreOut, err)
 	}
 
-	if !vmRestoreProgressing(vmRestoreIn) && target != nil {
+	if !VmRestoreProgressing(vmRestoreIn) && target != nil {
 		//update the vm if Done restore
 		if updated, err := target.UpdateDoneRestore(); updated || err != nil {
 			return 0, err
@@ -626,7 +626,7 @@ func (ctrl *VMRestoreController) getSnapshotContent(vmRestore *snapshotv1.Virtua
 	}
 
 	vms := obj.(*snapshotv1.VirtualMachineSnapshot).DeepCopy()
-	if !vmSnapshotReady(vms) {
+	if !VmSnapshotReady(vms) {
 		return nil, fmt.Errorf("VMSnapshot %s not ready", objKey)
 	}
 
