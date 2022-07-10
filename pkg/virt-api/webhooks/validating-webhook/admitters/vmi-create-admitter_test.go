@@ -1433,7 +1433,27 @@ var _ = Describe("Validating VMICreate Admitter", func() {
 			causes := ValidateVirtualMachineInstanceSpec(k8sfield.NewPath("fake"), &vm.Spec, config)
 			Expect(causes).To(BeEmpty())
 		})
+		It("should reject networks with a passt interface and passt feature gate diabled", func() {
+			vm := api.NewMinimalVMI("testvm")
+			vm.Spec.Domain.Devices.Interfaces = []v1.Interface{{
+				Name: "default",
+				InterfaceBindingMethod: v1.InterfaceBindingMethod{
+					Passt: &v1.InterfacePasst{},
+				}}}
+			vm.Spec.Networks = []v1.Network{
+				{
+					Name: "default",
+					NetworkSource: v1.NetworkSource{
+						Multus: &v1.MultusNetwork{NetworkName: "default"},
+					},
+				},
+			}
+
+			causes := ValidateVirtualMachineInstanceSpec(k8sfield.NewPath("fake"), &vm.Spec, config)
+			Expect(causes).To(HaveLen(1))
+		})
 		It("should reject networks with a multus network source and passt interface", func() {
+			enableFeatureGate(virtconfig.PasstGate)
 			vm := api.NewMinimalVMI("testvm")
 			vm.Spec.Domain.Devices.Interfaces = []v1.Interface{{
 				Name: "default",
@@ -1453,6 +1473,7 @@ var _ = Describe("Validating VMICreate Admitter", func() {
 			Expect(causes).To(HaveLen(1))
 		})
 		It("should accept networks with a pod network source and passt interface", func() {
+			enableFeatureGate(virtconfig.PasstGate)
 			vm := api.NewMinimalVMI("testvm")
 			vm.Spec.Domain.Devices.Interfaces = []v1.Interface{{
 				Name: "default",
@@ -1471,6 +1492,7 @@ var _ = Describe("Validating VMICreate Admitter", func() {
 			Expect(causes).To(BeEmpty())
 		})
 		It("should reject vmis where passt is not a single interface", func() {
+			enableFeatureGate(virtconfig.PasstGate)
 			vm := api.NewMinimalVMI("testvm")
 			vm.Spec.Domain.Devices.Interfaces = []v1.Interface{
 				{

@@ -42,6 +42,7 @@ const (
 	HostDiskGate               = "HostDisk"
 	VirtIOFSGate               = "ExperimentalVirtiofsSupport"
 	MacvtapGate                = "Macvtap"
+	PasstGate                  = "Passt"
 	DownwardMetricsFeatureGate = "DownwardMetrics"
 	NonRootDeprecated          = "NonRootExperimental"
 	NonRoot                    = "NonRoot"
@@ -125,6 +126,10 @@ func (config *ClusterConfig) VirtiofsEnabled() bool {
 
 func (config *ClusterConfig) MacvtapEnabled() bool {
 	return config.isFeatureGateEnabled(MacvtapGate)
+}
+
+func (config *ClusterConfig) PasstEnabled() bool {
+	return config.isFeatureGateEnabled(PasstGate)
 }
 
 func (config *ClusterConfig) HostDevicesPassthroughEnabled() bool {

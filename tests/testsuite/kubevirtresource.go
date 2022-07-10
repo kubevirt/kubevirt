@@ -92,6 +92,7 @@ func AdjustKubeVirtResource() {
 		virtconfig.DownwardMetricsFeatureGate,
 		virtconfig.NUMAFeatureGate,
 		virtconfig.MacvtapGate,
+		virtconfig.PasstGate,
 		virtconfig.ExpandDisksGate,
 		virtconfig.WorkloadEncryptionSEV,
 		virtconfig.VMExportGate,

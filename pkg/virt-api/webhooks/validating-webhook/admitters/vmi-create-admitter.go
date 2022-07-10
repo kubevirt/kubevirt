@@ -302,6 +302,8 @@ func validateInterfaceNetworkBasics(field *k8sfield.Path, networkExists bool, id
 		causes = appendStatusCauseForMacvtapFeatureGateNotEnabled(field, causes, idx)
 	} else if iface.InterfaceBindingMethod.Macvtap != nil && networkData.NetworkSource.Multus == nil {
 		causes = appendStatusCauseForMacvtapOnlyAllowedWithMultus(field, causes, idx)
+	} else if iface.InterfaceBindingMethod.Passt != nil && !config.PasstEnabled() {
+		causes = appendStatusCauseForPasstFeatureGateNotEnabled(field, causes, idx)
 	} else if iface.Passt != nil && networkData.Pod == nil {
 		causes = appendStatusCauseForPasstWithoutPodNetwork(field, causes, idx)
 	} else if iface.Passt != nil && numOfInterfaces > 1 {
@@ -575,6 +577,15 @@ func appendStatusCauseForInvalidMasqueradeMacAddress(field *k8sfield.Path, cause
 		Type:    metav1.CauseTypeFieldValueInvalid,
 		Message: "The requested MAC address is reserved for the in-pod bridge. Please choose another one.",
 		Field:   field.Child("domain", "devices", "interfaces").Index(idx).Child("macAddress").String(),
+	})
+	return causes
+}
+
+func appendStatusCauseForPasstFeatureGateNotEnabled(field *k8sfield.Path, causes []metav1.StatusCause, idx int) []metav1.StatusCause {
+	causes = append(causes, metav1.StatusCause{
+		Type:    metav1.CauseTypeFieldValueInvalid,
+		Message: "Passt feature gate is not enabled",
+		Field:   field.Child("domain", "devices", "interfaces").Index(idx).Child("name").String(),
 	})
 	return causes
 }
