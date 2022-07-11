@@ -119,3 +119,24 @@ docker run \
         --deploy-testing-infra \
         --path-to-testing-infra-manifests=data/manifests
 ```
+
+## Test lane labels
+
+**UPGRADE**: Use ginkgo label decorators to mark if certain tests belong to a specific test lane or not. The tests under consideration from `automation/test.sh` are:
+
+1. `GPU` tests in test-lane `$TARGET =~ gpu.*`
+2. `MediatedDevices` tests in test lane `$TARGET =~ vgpu.*`
+
+This adds new labels to the group of tests written in the test files mentioned below:
+
+1. Label- `needs-gpu` in file `kubevirt/tests/vmi_gpu_test.go`
+2. Label- `needs-mdev-gpu` in file `kubevirt/tests/mdev_configuration_allocation_test.go`. 
+
+This eliminates the dependency on the use of random keywords matchers.
+--label-filter is then used with gingko params in automation/test.sh, to indicate all test lanes that require these tests.
+
+**Note**: For these tests to pass, the TARGET must have atleast one node on the cluster that contains an Nvidia GPU. For mediated devices tests, requirement is of an Nvidia GPU + mediated device.
+
+**RUNNING TESTS** : There are two ways to run the tests. Using:
+1. `automation/test.sh` : This changes apply to this mode of running test.
+2. `make functest` : This is used for local testing. The file `hack/functests.sh` has not been updated for anything.
