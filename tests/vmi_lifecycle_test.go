@@ -261,9 +261,16 @@ var _ = Describe("[rfe_id:273][crit:high][arm64][vendor:cnv-qe@redhat.com][level
 
 		DescribeTable("log libvirtd debug logs should be", func(vmiLabels, vmiAnnotations map[string]string, expectDebugLogs bool) {
 			var err error
-			vmi := tests.NewRandomVMI()
-			vmi.Labels = vmiLabels
-			vmi.Annotations = vmiAnnotations
+			options := []libvmi.Option{libvmi.WithResourceMemory("32Mi")}
+			for k, v := range vmiLabels {
+				options = append(options, libvmi.WithLabel(k, v))
+			}
+
+			for k, v := range vmiAnnotations {
+				options = append(options, libvmi.WithAnnotation(k, v))
+			}
+
+			vmi := libvmi.New(options...)
 
 			vmi, err = virtClient.VirtualMachineInstance(util.NamespaceTestDefault).Create(vmi)
 			Expect(err).To(BeNil(), "Create VMI successfully")
