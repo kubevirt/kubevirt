@@ -1034,13 +1034,13 @@ func buildPemFromCert(cert *x509.Certificate) string {
 }
 
 func (ctrl *VMExportController) matchesOrWildCard(hostName, compare string) bool {
-	wildCard := fmt.Sprintf("*%s", getDomainFromHost(hostName, ctrl.KubevirtNamespace))
+	wildCard := fmt.Sprintf("*.%s", getDomainFromHost(hostName, ctrl.KubevirtNamespace))
 	return hostName == compare || wildCard == compare
 }
 
 func getDomainFromHost(host, namespace string) string {
 	if index := strings.Index(host, "."); index != -1 {
-		return host[index:]
+		return host[index+1:]
 	}
 	return host
 }

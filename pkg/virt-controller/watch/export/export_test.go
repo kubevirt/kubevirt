@@ -21,10 +21,12 @@ package export
 import (
 	"context"
 	"crypto/tls"
+	"encoding/pem"
 	"fmt"
 	"io/ioutil"
 	"os"
 	"path/filepath"
+	"strings"
 	"time"
 
 	"github.com/golang/mock/gomock"
@@ -56,6 +58,8 @@ import (
 	"kubevirt.io/kubevirt/pkg/testutils"
 	"kubevirt.io/kubevirt/pkg/virt-controller/services"
 	"kubevirt.io/kubevirt/pkg/virt-operator/resource/generate/components"
+
+	certutil "kubevirt.io/kubevirt/pkg/certificates/triple/cert"
 )
 
 const (
@@ -64,68 +68,6 @@ const (
 
 var (
 	qemuGid int64 = 107
-
-	routeCerts = `-----BEGIN CERTIFICATE-----
-MIIDDDCCAfSgAwIBAgIBATANBgkqhkiG9w0BAQsFADAmMSQwIgYDVQQDDBtpbmdy
-ZXNzLW9wZXJhdG9yQDE2NTE4MDcyNDMwHhcNMjIwNTA2MDMyMDQzWhcNMjQwNTA1
-MDMyMDQ0WjAmMSQwIgYDVQQDDBtpbmdyZXNzLW9wZXJhdG9yQDE2NTE4MDcyNDMw
-ggEiMA0GCSqGSIb3DQEBAQUAA4IBDwAwggEKAoIBAQCws7H+bplQfbuji0BmStSm
-ZKis+zK559IGGJsiGeJixkJL5oDIy7fIDoo+Ixn/b+Zx1E12nkflRA/HnEiTXdwf
-igJIqo52BRkgM0+yV6MXsCJdQHkqQ7cLv1b4lKqGyJC2qkyYIGpTgXam9xD5HRrs
-PO2EuUzphOw/f3M+DuPiFMA2jpH5gjGV9tNY7STwGNoGP15S4GQjEKBCiwygx7ns
-kJy5NuSXPsu8xtX39Nw3WYGnqMLmnH4i1FBOX7e0h8C47qirOasDCgGONXvod9hB
-/NfqEozYOrHkDNTlGbElZY96jfb7Drbzg5o1OrOthPss+qNMOyoU3pECz9yw27F/
-AgMBAAGjRTBDMA4GA1UdDwEB/wQEAwICpDASBgNVHRMBAf8ECDAGAQH/AgEAMB0G
-A1UdDgQWBBSribjOYNouiKyuMoI5cK/ZrKj8ujANBgkqhkiG9w0BAQsFAAOCAQEA
-Ax212uQxTDjIvjg7uYSyX6a3dveSYc9k6xWX7cLwT+2GYljWqk4Qo/bqj/tWl8jl
-6vf9EbvCIMDFoOGAHU1ybYBS8CQr1b+ZoM2VaMGxW3LmgOXwNjF1Ck4AJ+dydeFE
-Njjy17IOPEFkgI2sZUepD3czHXPr7PdwlAcT5eMXaZVCK9Q75p4mvquWXnirigY8
-4Bz8ocoZ8JrjSXdOBkHm93coh/8AJd63pvHCBNxEesSDn92PdwdxJOGvV+cd7oZc
-gVe5488uen1E79WyiXNsX8ehsIlvLVyrhLfnlMWqRk4xrE8ArcudnxZuqrYWwTKD
-q2Ew9coarTm82g9SBsOw/w==
------END CERTIFICATE-----
------BEGIN CERTIFICATE-----
-MIIDWzCCAkOgAwIBAgIIMd7lZVb9dm8wDQYJKoZIhvcNAQELBQAwJjEkMCIGA1UE
-AwwbaW5ncmVzcy1vcGVyYXRvckAxNjUxODA3MjQzMB4XDTIyMDUwNjAzMjA0NloX
-DTI0MDUwNTAzMjA0N1owHTEbMBkGA1UEAwwSKi5hcHBzLWNyYy50ZXN0aW5nMIIB
-IjANBgkqhkiG9w0BAQEFAAOCAQ8AMIIBCgKCAQEAp8Wg/XTNbuabVhGHxWuWEhzj
-tZJ7nhfn8BbiT49qr8GKuDIJIm5Iu1UD8MXKOlaBfSv7ymeQtO0hk1ZWSkRWgwqV
-ZWYaGkPbAmFewB7OAnPsq5n0jdbKsThg+Tib0iZm9LXN758axJtgZD6oIRs9zB1i
-37GJZ8EWnJUcvC72YhzXTw45N9h0WLoQ9/7iIoA0J1H1ykfWExp2KZ97FEyJE4Ks
-eTdRqJD5HmfCC37I6OtdtZaAQ6aQQE+vKARcnwU/KUtaBm2Iv/JxEwWm9GxadUqX
-+Zls+nilMFnqSDCG8e6462eK7e7A0nr+Gsj+g1ubT2MNIsv+JtdIT8qa5kGmNwID
-AQABo4GVMIGSMA4GA1UdDwEB/wQEAwIFoDATBgNVHSUEDDAKBggrBgEFBQcDATAM
-BgNVHRMBAf8EAjAAMB0GA1UdDgQWBBRWtuVIucqGVpZA5Ox/eu7cXUhKKzAfBgNV
-HSMEGDAWgBSribjOYNouiKyuMoI5cK/ZrKj8ujAdBgNVHREEFjAUghIqLmFwcHMt
-Y3JjLnRlc3RpbmcwDQYJKoZIhvcNAQELBQADggEBAAh/1Y3gQUCR0eXqER1PeFcS
-g24L+wnmR0vUlMtTtcSl4KSLUrvfAw9N4jvFch0u6sESj16sHI7ZcjWGKMoh94zD
-36G814tuNtiUEJsKoAxUtL+bm4c4r7by3ffUn1F/bmA+7JgqFO00sa7b+Rk2zR4j
-aJ0s4Y6uNgX3ak5zWRRathdapNdkeXrvgwqlm3/+WWk1kOmevdwuojcLiiTjzBbC
-Y4QrW7ja9qy1RP9eq950ixZ/sEHPsyiJieA/c/JwN7IeojOrxT69eOZk24Iwr0vr
-NhEGG7KXC0rV3V08vIEezN0HWvu7Qkd4IUqlfTnvqSC4DQ8RTfbX0Y7yYKHtjOo=
------END CERTIFICATE-----
-`
-
-	expectedPem = `-----BEGIN CERTIFICATE-----
-MIIDWzCCAkOgAwIBAgIIMd7lZVb9dm8wDQYJKoZIhvcNAQELBQAwJjEkMCIGA1UE
-AwwbaW5ncmVzcy1vcGVyYXRvckAxNjUxODA3MjQzMB4XDTIyMDUwNjAzMjA0NloX
-DTI0MDUwNTAzMjA0N1owHTEbMBkGA1UEAwwSKi5hcHBzLWNyYy50ZXN0aW5nMIIB
-IjANBgkqhkiG9w0BAQEFAAOCAQ8AMIIBCgKCAQEAp8Wg/XTNbuabVhGHxWuWEhzj
-tZJ7nhfn8BbiT49qr8GKuDIJIm5Iu1UD8MXKOlaBfSv7ymeQtO0hk1ZWSkRWgwqV
-ZWYaGkPbAmFewB7OAnPsq5n0jdbKsThg+Tib0iZm9LXN758axJtgZD6oIRs9zB1i
-37GJZ8EWnJUcvC72YhzXTw45N9h0WLoQ9/7iIoA0J1H1ykfWExp2KZ97FEyJE4Ks
-eTdRqJD5HmfCC37I6OtdtZaAQ6aQQE+vKARcnwU/KUtaBm2Iv/JxEwWm9GxadUqX
-+Zls+nilMFnqSDCG8e6462eK7e7A0nr+Gsj+g1ubT2MNIsv+JtdIT8qa5kGmNwID
-AQABo4GVMIGSMA4GA1UdDwEB/wQEAwIFoDATBgNVHSUEDDAKBggrBgEFBQcDATAM
-BgNVHRMBAf8EAjAAMB0GA1UdDgQWBBRWtuVIucqGVpZA5Ox/eu7cXUhKKzAfBgNV
-HSMEGDAWgBSribjOYNouiKyuMoI5cK/ZrKj8ujAdBgNVHREEFjAUghIqLmFwcHMt
-Y3JjLnRlc3RpbmcwDQYJKoZIhvcNAQELBQADggEBAAh/1Y3gQUCR0eXqER1PeFcS
-g24L+wnmR0vUlMtTtcSl4KSLUrvfAw9N4jvFch0u6sESj16sHI7ZcjWGKMoh94zD
-36G814tuNtiUEJsKoAxUtL+bm4c4r7by3ffUn1F/bmA+7JgqFO00sa7b+Rk2zR4j
-aJ0s4Y6uNgX3ak5zWRRathdapNdkeXrvgwqlm3/+WWk1kOmevdwuojcLiiTjzBbC
-Y4QrW7ja9qy1RP9eq950ixZ/sEHPsyiJieA/c/JwN7IeojOrxT69eOZk24Iwr0vr
-NhEGG7KXC0rV3V08vIEezN0HWvu7Qkd4IUqlfTnvqSC4DQ8RTfbX0Y7yYKHtjOo=
------END CERTIFICATE-----`
 )
 
 var _ = Describe("Export controlleer", func() {
@@ -220,6 +162,38 @@ var _ = Describe("Export controlleer", func() {
 		os.RemoveAll(certDir)
 	})
 
+	generateExpectedCert := func() string {
+		key, err := certutil.NewPrivateKey()
+		Expect(err).ToNot(HaveOccurred())
+
+		config := certutil.Config{
+			CommonName: "blah blah",
+		}
+
+		cert, err := certutil.NewSelfSignedCACertWithAltNames(config, key, time.Hour, "hahaha.wwoo", "*.apps-crc.testing", "fgdgd.dfsgdf")
+		Expect(err).ToNot(HaveOccurred())
+		pemOut := strings.Builder{}
+		pem.Encode(&pemOut, &pem.Block{Type: "CERTIFICATE", Bytes: cert.Raw})
+		return strings.TrimSpace(pemOut.String())
+	}
+
+	var expectedPem = generateExpectedCert()
+
+	generateRouteCert := func() string {
+		key, err := certutil.NewPrivateKey()
+		Expect(err).ToNot(HaveOccurred())
+
+		config := certutil.Config{
+			CommonName: "something else",
+		}
+
+		cert, err := certutil.NewSelfSignedCACert(config, key, time.Hour)
+		Expect(err).ToNot(HaveOccurred())
+		pemOut := strings.Builder{}
+		pem.Encode(&pemOut, &pem.Block{Type: "CERTIFICATE", Bytes: cert.Raw})
+		return strings.TrimSpace(pemOut.String()) + "\n" + expectedPem
+	}
+
 	createRouteConfigMap := func() *k8sv1.ConfigMap {
 		return &k8sv1.ConfigMap{
 			ObjectMeta: metav1.ObjectMeta{
@@ -227,7 +201,7 @@ var _ = Describe("Export controlleer", func() {
 				Namespace: controller.KubevirtNamespace,
 			},
 			Data: map[string]string{
-				routeCaKey: routeCerts,
+				routeCaKey: generateRouteCert(),
 			},
 		}
 	}
@@ -787,7 +761,6 @@ func createVMExport() *exportv1.VirtualMachineExport {
 			TokenSecretRef: "token",
 		},
 	}
-
 }
 
 func expectExporterCreate(k8sClient *k8sfake.Clientset, phase k8sv1.PodPhase) {
