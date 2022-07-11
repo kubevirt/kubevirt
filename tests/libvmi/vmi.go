@@ -118,6 +118,16 @@ func WithUefi(secureBoot bool) Option {
 			vmi.Spec.Domain.Firmware.Bootloader.EFI = &v1.EFI{}
 		}
 		vmi.Spec.Domain.Firmware.Bootloader.EFI.SecureBoot = pointer.Bool(secureBoot)
+		// secureBoot Requires SMM to be enabled
+		if secureBoot {
+			if vmi.Spec.Domain.Features == nil {
+				vmi.Spec.Domain.Features = &v1.Features{}
+			}
+			if vmi.Spec.Domain.Features.SMM == nil {
+				vmi.Spec.Domain.Features.SMM = &v1.FeatureState{}
+			}
+			vmi.Spec.Domain.Features.SMM.Enabled = pointer.Bool(secureBoot)
+		}
 	}
 }
 
