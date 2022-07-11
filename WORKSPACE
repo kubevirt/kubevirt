@@ -126,6 +126,7 @@ http_file(
     sha256 = "b8a4bc66835c43091a85d35a10b59bd8b1b62b55ea9f02ec754f68bd32e82c0e",
     urls = [
         "https://fedorapeople.org/groups/virt/virtio-win/direct-downloads/archive-virtio/virtio-win-0.1.217-1/virtio-win-0.1.217.iso",
+        "https://storage.googleapis.com/builddeps/b8a4bc66835c43091a85d35a10b59bd8b1b62b55ea9f02ec754f68bd32e82c0e",
     ],
 )
 
@@ -549,13 +550,19 @@ rpm(
 rpm(
     name = "binutils-0__2.30-117.el8.aarch64",
     sha256 = "10cc7e5ae3939eb78ef345127f05428eb003482c91dff1506121bde6228ed55f",
-    urls = ["http://mirror.centos.org/centos/8-stream/BaseOS/aarch64/os/Packages/binutils-2.30-117.el8.aarch64.rpm"],
+    urls = [
+        "http://mirror.centos.org/centos/8-stream/BaseOS/aarch64/os/Packages/binutils-2.30-117.el8.aarch64.rpm",
+        "https://storage.googleapis.com/builddeps/10cc7e5ae3939eb78ef345127f05428eb003482c91dff1506121bde6228ed55f",
+    ],
 )
 
 rpm(
     name = "binutils-0__2.30-117.el8.x86_64",
     sha256 = "d5c059ff1e586a5c7f581f916529f715b24d89bdf77e831f930306957f8870ed",
-    urls = ["http://mirror.centos.org/centos/8-stream/BaseOS/x86_64/os/Packages/binutils-2.30-117.el8.x86_64.rpm"],
+    urls = [
+        "http://mirror.centos.org/centos/8-stream/BaseOS/x86_64/os/Packages/binutils-2.30-117.el8.x86_64.rpm",
+        "https://storage.googleapis.com/builddeps/d5c059ff1e586a5c7f581f916529f715b24d89bdf77e831f930306957f8870ed",
+    ],
 )
 
 rpm(
@@ -687,13 +694,19 @@ rpm(
 rpm(
     name = "coreutils-single-0__8.30-13.el8.aarch64",
     sha256 = "0f560179f5b79ee62e0d71efb8d67f0d8eca9b31b752064a507c1052985e1251",
-    urls = ["http://mirror.centos.org/centos/8-stream/BaseOS/aarch64/os/Packages/coreutils-single-8.30-13.el8.aarch64.rpm"],
+    urls = [
+        "http://mirror.centos.org/centos/8-stream/BaseOS/aarch64/os/Packages/coreutils-single-8.30-13.el8.aarch64.rpm",
+        "https://storage.googleapis.com/builddeps/0f560179f5b79ee62e0d71efb8d67f0d8eca9b31b752064a507c1052985e1251",
+    ],
 )
 
 rpm(
     name = "coreutils-single-0__8.30-13.el8.x86_64",
     sha256 = "8a8a3a45697389d029d439711c65969408ebbf4ba4d7c573d6dbe6f2b26b439d",
-    urls = ["http://mirror.centos.org/centos/8-stream/BaseOS/x86_64/os/Packages/coreutils-single-8.30-13.el8.x86_64.rpm"],
+    urls = [
+        "http://mirror.centos.org/centos/8-stream/BaseOS/x86_64/os/Packages/coreutils-single-8.30-13.el8.x86_64.rpm",
+        "https://storage.googleapis.com/builddeps/8a8a3a45697389d029d439711c65969408ebbf4ba4d7c573d6dbe6f2b26b439d",
+    ],
 )
 
 rpm(
@@ -861,7 +874,10 @@ rpm(
 rpm(
     name = "daxctl-libs-0__71.1-4.el8.x86_64",
     sha256 = "332af3c063fdb03d95632dc5010712c4e9ca7416f3049c901558c5aa0c6e445b",
-    urls = ["http://mirror.centos.org/centos/8-stream/BaseOS/x86_64/os/Packages/daxctl-libs-71.1-4.el8.x86_64.rpm"],
+    urls = [
+        "http://mirror.centos.org/centos/8-stream/BaseOS/x86_64/os/Packages/daxctl-libs-71.1-4.el8.x86_64.rpm",
+        "https://storage.googleapis.com/builddeps/332af3c063fdb03d95632dc5010712c4e9ca7416f3049c901558c5aa0c6e445b",
+    ],
 )
 
 rpm(
@@ -1011,13 +1027,19 @@ rpm(
 rpm(
     name = "device-mapper-multipath-libs-0__0.8.4-26.el8.aarch64",
     sha256 = "cca401deac042f41d5a76cdfd0ef26080848300cb98a767e5a307a3ac7cd303b",
-    urls = ["http://mirror.centos.org/centos/8-stream/BaseOS/aarch64/os/Packages/device-mapper-multipath-libs-0.8.4-26.el8.aarch64.rpm"],
+    urls = [
+        "http://mirror.centos.org/centos/8-stream/BaseOS/aarch64/os/Packages/device-mapper-multipath-libs-0.8.4-26.el8.aarch64.rpm",
+        "https://storage.googleapis.com/builddeps/cca401deac042f41d5a76cdfd0ef26080848300cb98a767e5a307a3ac7cd303b",
+    ],
 )
 
 rpm(
     name = "device-mapper-multipath-libs-0__0.8.4-26.el8.x86_64",
     sha256 = "4a0da6f2c4c8bee5cd3b0eb8fa8995c8ceeb93d695f4255071df5de7bd03d8a3",
-    urls = ["http://mirror.centos.org/centos/8-stream/BaseOS/x86_64/os/Packages/device-mapper-multipath-libs-0.8.4-26.el8.x86_64.rpm"],
+    urls = [
+        "http://mirror.centos.org/centos/8-stream/BaseOS/x86_64/os/Packages/device-mapper-multipath-libs-0.8.4-26.el8.x86_64.rpm",
+        "https://storage.googleapis.com/builddeps/4a0da6f2c4c8bee5cd3b0eb8fa8995c8ceeb93d695f4255071df5de7bd03d8a3",
+    ],
 )
 
 rpm(
@@ -1257,25 +1279,37 @@ rpm(
 rpm(
     name = "fuse-0__2.9.7-16.el8.x86_64",
     sha256 = "c208aa2f2f216a2172b1d9fa82bcad1b201e62f9a3101f4d52fb3de54ed28596",
-    urls = ["http://mirror.centos.org/centos/8-stream/BaseOS/x86_64/os/Packages/fuse-2.9.7-16.el8.x86_64.rpm"],
+    urls = [
+        "http://mirror.centos.org/centos/8-stream/BaseOS/x86_64/os/Packages/fuse-2.9.7-16.el8.x86_64.rpm",
+        "https://storage.googleapis.com/builddeps/c208aa2f2f216a2172b1d9fa82bcad1b201e62f9a3101f4d52fb3de54ed28596",
+    ],
 )
 
 rpm(
     name = "fuse-common-0__3.3.0-16.el8.x86_64",
     sha256 = "d637dfd117080f52f1a60444b6c09aaf65a535844cacce05945d1d691b8d7043",
-    urls = ["http://mirror.centos.org/centos/8-stream/BaseOS/x86_64/os/Packages/fuse-common-3.3.0-16.el8.x86_64.rpm"],
+    urls = [
+        "http://mirror.centos.org/centos/8-stream/BaseOS/x86_64/os/Packages/fuse-common-3.3.0-16.el8.x86_64.rpm",
+        "https://storage.googleapis.com/builddeps/d637dfd117080f52f1a60444b6c09aaf65a535844cacce05945d1d691b8d7043",
+    ],
 )
 
 rpm(
     name = "fuse-libs-0__2.9.7-16.el8.aarch64",
     sha256 = "6970abceb1e040a2a37a13faeaf2a4204c79a57d5bc8273ed276b385be813afb",
-    urls = ["http://mirror.centos.org/centos/8-stream/BaseOS/aarch64/os/Packages/fuse-libs-2.9.7-16.el8.aarch64.rpm"],
+    urls = [
+        "http://mirror.centos.org/centos/8-stream/BaseOS/aarch64/os/Packages/fuse-libs-2.9.7-16.el8.aarch64.rpm",
+        "https://storage.googleapis.com/builddeps/6970abceb1e040a2a37a13faeaf2a4204c79a57d5bc8273ed276b385be813afb",
+    ],
 )
 
 rpm(
     name = "fuse-libs-0__2.9.7-16.el8.x86_64",
     sha256 = "77fff0f92a55307b7df2334bc9cc2998c024586abd96286a251919b0509f0473",
-    urls = ["http://mirror.centos.org/centos/8-stream/BaseOS/x86_64/os/Packages/fuse-libs-2.9.7-16.el8.x86_64.rpm"],
+    urls = [
+        "http://mirror.centos.org/centos/8-stream/BaseOS/x86_64/os/Packages/fuse-libs-2.9.7-16.el8.x86_64.rpm",
+        "https://storage.googleapis.com/builddeps/77fff0f92a55307b7df2334bc9cc2998c024586abd96286a251919b0509f0473",
+    ],
 )
 
 rpm(
@@ -1407,73 +1441,109 @@ rpm(
 rpm(
     name = "glibc-0__2.28-206.el8.aarch64",
     sha256 = "a3a7a6a19117582d09660290b345a28a4c217498aa1f5c5630693459467b24bb",
-    urls = ["http://mirror.centos.org/centos/8-stream/BaseOS/aarch64/os/Packages/glibc-2.28-206.el8.aarch64.rpm"],
+    urls = [
+        "http://mirror.centos.org/centos/8-stream/BaseOS/aarch64/os/Packages/glibc-2.28-206.el8.aarch64.rpm",
+        "https://storage.googleapis.com/builddeps/a3a7a6a19117582d09660290b345a28a4c217498aa1f5c5630693459467b24bb",
+    ],
 )
 
 rpm(
     name = "glibc-0__2.28-206.el8.x86_64",
     sha256 = "d83e2621c65250790a9bfd2870e57758dc14eddc341c16bca546c351663eb994",
-    urls = ["http://mirror.centos.org/centos/8-stream/BaseOS/x86_64/os/Packages/glibc-2.28-206.el8.x86_64.rpm"],
+    urls = [
+        "http://mirror.centos.org/centos/8-stream/BaseOS/x86_64/os/Packages/glibc-2.28-206.el8.x86_64.rpm",
+        "https://storage.googleapis.com/builddeps/d83e2621c65250790a9bfd2870e57758dc14eddc341c16bca546c351663eb994",
+    ],
 )
 
 rpm(
     name = "glibc-common-0__2.28-206.el8.aarch64",
     sha256 = "559b5eaf183dee5f69ef7933bf5fcab22d4d371855c963849f199c84fc36e57f",
-    urls = ["http://mirror.centos.org/centos/8-stream/BaseOS/aarch64/os/Packages/glibc-common-2.28-206.el8.aarch64.rpm"],
+    urls = [
+        "http://mirror.centos.org/centos/8-stream/BaseOS/aarch64/os/Packages/glibc-common-2.28-206.el8.aarch64.rpm",
+        "https://storage.googleapis.com/builddeps/559b5eaf183dee5f69ef7933bf5fcab22d4d371855c963849f199c84fc36e57f",
+    ],
 )
 
 rpm(
     name = "glibc-common-0__2.28-206.el8.x86_64",
     sha256 = "3619c2feb9b3d1c678670f19315e6a072b5addf59dd257b3a942899037df89e1",
-    urls = ["http://mirror.centos.org/centos/8-stream/BaseOS/x86_64/os/Packages/glibc-common-2.28-206.el8.x86_64.rpm"],
+    urls = [
+        "http://mirror.centos.org/centos/8-stream/BaseOS/x86_64/os/Packages/glibc-common-2.28-206.el8.x86_64.rpm",
+        "https://storage.googleapis.com/builddeps/3619c2feb9b3d1c678670f19315e6a072b5addf59dd257b3a942899037df89e1",
+    ],
 )
 
 rpm(
     name = "glibc-devel-0__2.28-206.el8.aarch64",
     sha256 = "c254c125c28bfc13cba5802b5afc853bd4f74cb96afa0fd28bc00c64c89c6590",
-    urls = ["http://mirror.centos.org/centos/8-stream/BaseOS/aarch64/os/Packages/glibc-devel-2.28-206.el8.aarch64.rpm"],
+    urls = [
+        "http://mirror.centos.org/centos/8-stream/BaseOS/aarch64/os/Packages/glibc-devel-2.28-206.el8.aarch64.rpm",
+        "https://storage.googleapis.com/builddeps/c254c125c28bfc13cba5802b5afc853bd4f74cb96afa0fd28bc00c64c89c6590",
+    ],
 )
 
 rpm(
     name = "glibc-devel-0__2.28-206.el8.x86_64",
     sha256 = "b5dbcd22234411cfc25175b85f2709b211a4afe44ecbf1f9da261fc392cef877",
-    urls = ["http://mirror.centos.org/centos/8-stream/BaseOS/x86_64/os/Packages/glibc-devel-2.28-206.el8.x86_64.rpm"],
+    urls = [
+        "http://mirror.centos.org/centos/8-stream/BaseOS/x86_64/os/Packages/glibc-devel-2.28-206.el8.x86_64.rpm",
+        "https://storage.googleapis.com/builddeps/b5dbcd22234411cfc25175b85f2709b211a4afe44ecbf1f9da261fc392cef877",
+    ],
 )
 
 rpm(
     name = "glibc-headers-0__2.28-206.el8.aarch64",
     sha256 = "f9f9d57c1e01fc19ee96d303a0406b178795341f07b69d9f0a9d5d20b85a3bfa",
-    urls = ["http://mirror.centos.org/centos/8-stream/BaseOS/aarch64/os/Packages/glibc-headers-2.28-206.el8.aarch64.rpm"],
+    urls = [
+        "http://mirror.centos.org/centos/8-stream/BaseOS/aarch64/os/Packages/glibc-headers-2.28-206.el8.aarch64.rpm",
+        "https://storage.googleapis.com/builddeps/f9f9d57c1e01fc19ee96d303a0406b178795341f07b69d9f0a9d5d20b85a3bfa",
+    ],
 )
 
 rpm(
     name = "glibc-headers-0__2.28-206.el8.x86_64",
     sha256 = "8115dc439839bcf011d60f85d01d7225216650af0b7e8f912e62989c21fd179f",
-    urls = ["http://mirror.centos.org/centos/8-stream/BaseOS/x86_64/os/Packages/glibc-headers-2.28-206.el8.x86_64.rpm"],
+    urls = [
+        "http://mirror.centos.org/centos/8-stream/BaseOS/x86_64/os/Packages/glibc-headers-2.28-206.el8.x86_64.rpm",
+        "https://storage.googleapis.com/builddeps/8115dc439839bcf011d60f85d01d7225216650af0b7e8f912e62989c21fd179f",
+    ],
 )
 
 rpm(
     name = "glibc-minimal-langpack-0__2.28-206.el8.aarch64",
     sha256 = "894a6124a5dc46bf9578b5480267e1cb9ecdcc17c0f485a66707813e773afdd1",
-    urls = ["http://mirror.centos.org/centos/8-stream/BaseOS/aarch64/os/Packages/glibc-minimal-langpack-2.28-206.el8.aarch64.rpm"],
+    urls = [
+        "http://mirror.centos.org/centos/8-stream/BaseOS/aarch64/os/Packages/glibc-minimal-langpack-2.28-206.el8.aarch64.rpm",
+        "https://storage.googleapis.com/builddeps/894a6124a5dc46bf9578b5480267e1cb9ecdcc17c0f485a66707813e773afdd1",
+    ],
 )
 
 rpm(
     name = "glibc-minimal-langpack-0__2.28-206.el8.x86_64",
     sha256 = "f1bc7febdacead8499e92a2bf4be916c8f3a8c0513c53a9cbf982fc0a83a0cce",
-    urls = ["http://mirror.centos.org/centos/8-stream/BaseOS/x86_64/os/Packages/glibc-minimal-langpack-2.28-206.el8.x86_64.rpm"],
+    urls = [
+        "http://mirror.centos.org/centos/8-stream/BaseOS/x86_64/os/Packages/glibc-minimal-langpack-2.28-206.el8.x86_64.rpm",
+        "https://storage.googleapis.com/builddeps/f1bc7febdacead8499e92a2bf4be916c8f3a8c0513c53a9cbf982fc0a83a0cce",
+    ],
 )
 
 rpm(
     name = "glibc-static-0__2.28-206.el8.aarch64",
     sha256 = "7f338b8138141b20b8dcd9e7f553887511037e2f52978e88eb3fc5d494bff41d",
-    urls = ["http://mirror.centos.org/centos/8-stream/PowerTools/aarch64/os/Packages/glibc-static-2.28-206.el8.aarch64.rpm"],
+    urls = [
+        "http://mirror.centos.org/centos/8-stream/PowerTools/aarch64/os/Packages/glibc-static-2.28-206.el8.aarch64.rpm",
+        "https://storage.googleapis.com/builddeps/7f338b8138141b20b8dcd9e7f553887511037e2f52978e88eb3fc5d494bff41d",
+    ],
 )
 
 rpm(
     name = "glibc-static-0__2.28-206.el8.x86_64",
     sha256 = "00d5a5627b618f5e7fccbfcb62c02b0bc0841b67201befa5161c911f76dc44e9",
-    urls = ["http://mirror.centos.org/centos/8-stream/PowerTools/x86_64/os/Packages/glibc-static-2.28-206.el8.x86_64.rpm"],
+    urls = [
+        "http://mirror.centos.org/centos/8-stream/PowerTools/x86_64/os/Packages/glibc-static-2.28-206.el8.x86_64.rpm",
+        "https://storage.googleapis.com/builddeps/00d5a5627b618f5e7fccbfcb62c02b0bc0841b67201befa5161c911f76dc44e9",
+    ],
 )
 
 rpm(
@@ -1641,25 +1711,37 @@ rpm(
 rpm(
     name = "iproute-0__5.18.0-1.el8.aarch64",
     sha256 = "7ec84f47ebaed2388e48e27d9566a43609c7c384bbfbc3f0497c6bc314f618a5",
-    urls = ["http://mirror.centos.org/centos/8-stream/BaseOS/aarch64/os/Packages/iproute-5.18.0-1.el8.aarch64.rpm"],
+    urls = [
+        "http://mirror.centos.org/centos/8-stream/BaseOS/aarch64/os/Packages/iproute-5.18.0-1.el8.aarch64.rpm",
+        "https://storage.googleapis.com/builddeps/7ec84f47ebaed2388e48e27d9566a43609c7c384bbfbc3f0497c6bc314f618a5",
+    ],
 )
 
 rpm(
     name = "iproute-0__5.18.0-1.el8.x86_64",
     sha256 = "7ae4b834f060d111db19fa3cf6f6266d4c6fb56992b0347145799d7ff9f03d3c",
-    urls = ["http://mirror.centos.org/centos/8-stream/BaseOS/x86_64/os/Packages/iproute-5.18.0-1.el8.x86_64.rpm"],
+    urls = [
+        "http://mirror.centos.org/centos/8-stream/BaseOS/x86_64/os/Packages/iproute-5.18.0-1.el8.x86_64.rpm",
+        "https://storage.googleapis.com/builddeps/7ae4b834f060d111db19fa3cf6f6266d4c6fb56992b0347145799d7ff9f03d3c",
+    ],
 )
 
 rpm(
     name = "iproute-tc-0__5.18.0-1.el8.aarch64",
     sha256 = "8696d818b8ead9df0a2d66cf8e1fe03affd19899dd86e451267603faade5a161",
-    urls = ["http://mirror.centos.org/centos/8-stream/BaseOS/aarch64/os/Packages/iproute-tc-5.18.0-1.el8.aarch64.rpm"],
+    urls = [
+        "http://mirror.centos.org/centos/8-stream/BaseOS/aarch64/os/Packages/iproute-tc-5.18.0-1.el8.aarch64.rpm",
+        "https://storage.googleapis.com/builddeps/8696d818b8ead9df0a2d66cf8e1fe03affd19899dd86e451267603faade5a161",
+    ],
 )
 
 rpm(
     name = "iproute-tc-0__5.18.0-1.el8.x86_64",
     sha256 = "bca80255b377f2a715c1fa2023485cd8fd03f2bab2a873faa0e5879082bca1c9",
-    urls = ["http://mirror.centos.org/centos/8-stream/BaseOS/x86_64/os/Packages/iproute-tc-5.18.0-1.el8.x86_64.rpm"],
+    urls = [
+        "http://mirror.centos.org/centos/8-stream/BaseOS/x86_64/os/Packages/iproute-tc-5.18.0-1.el8.x86_64.rpm",
+        "https://storage.googleapis.com/builddeps/bca80255b377f2a715c1fa2023485cd8fd03f2bab2a873faa0e5879082bca1c9",
+    ],
 )
 
 rpm(
@@ -2880,25 +2962,37 @@ rpm(
 rpm(
     name = "libsss_idmap-0__2.7.0-2.el8.aarch64",
     sha256 = "cc51237ae76ab85d0dc4f3214ef700007ff291754db0f7d91d48e9fd3d2cd09b",
-    urls = ["http://mirror.centos.org/centos/8-stream/BaseOS/aarch64/os/Packages/libsss_idmap-2.7.0-2.el8.aarch64.rpm"],
+    urls = [
+        "http://mirror.centos.org/centos/8-stream/BaseOS/aarch64/os/Packages/libsss_idmap-2.7.0-2.el8.aarch64.rpm",
+        "https://storage.googleapis.com/builddeps/cc51237ae76ab85d0dc4f3214ef700007ff291754db0f7d91d48e9fd3d2cd09b",
+    ],
 )
 
 rpm(
     name = "libsss_idmap-0__2.7.0-2.el8.x86_64",
     sha256 = "6462ebe407de29274814cf54c024e620a8d61fe27767187916c4ae6e7b928220",
-    urls = ["http://mirror.centos.org/centos/8-stream/BaseOS/x86_64/os/Packages/libsss_idmap-2.7.0-2.el8.x86_64.rpm"],
+    urls = [
+        "http://mirror.centos.org/centos/8-stream/BaseOS/x86_64/os/Packages/libsss_idmap-2.7.0-2.el8.x86_64.rpm",
+        "https://storage.googleapis.com/builddeps/6462ebe407de29274814cf54c024e620a8d61fe27767187916c4ae6e7b928220",
+    ],
 )
 
 rpm(
     name = "libsss_nss_idmap-0__2.7.0-2.el8.aarch64",
     sha256 = "c64b7cf5274b22fa19dd876cf5f4990b0879e38011787115534c20c9f3c64a4a",
-    urls = ["http://mirror.centos.org/centos/8-stream/BaseOS/aarch64/os/Packages/libsss_nss_idmap-2.7.0-2.el8.aarch64.rpm"],
+    urls = [
+        "http://mirror.centos.org/centos/8-stream/BaseOS/aarch64/os/Packages/libsss_nss_idmap-2.7.0-2.el8.aarch64.rpm",
+        "https://storage.googleapis.com/builddeps/c64b7cf5274b22fa19dd876cf5f4990b0879e38011787115534c20c9f3c64a4a",
+    ],
 )
 
 rpm(
     name = "libsss_nss_idmap-0__2.7.0-2.el8.x86_64",
     sha256 = "6ed11aa56542dbf949fdebaa8e655bf5633bb86dac942c376d2bc6d3aa070e93",
-    urls = ["http://mirror.centos.org/centos/8-stream/BaseOS/x86_64/os/Packages/libsss_nss_idmap-2.7.0-2.el8.x86_64.rpm"],
+    urls = [
+        "http://mirror.centos.org/centos/8-stream/BaseOS/x86_64/os/Packages/libsss_nss_idmap-2.7.0-2.el8.x86_64.rpm",
+        "https://storage.googleapis.com/builddeps/6ed11aa56542dbf949fdebaa8e655bf5633bb86dac942c376d2bc6d3aa070e93",
+    ],
 )
 
 rpm(
@@ -2940,13 +3034,19 @@ rpm(
 rpm(
     name = "libtirpc-0__1.1.4-7.el8.aarch64",
     sha256 = "b8e1ecf3484660710fed69be5b185ad955b8458d5012a71172cd15fbb9001083",
-    urls = ["http://mirror.centos.org/centos/8-stream/BaseOS/aarch64/os/Packages/libtirpc-1.1.4-7.el8.aarch64.rpm"],
+    urls = [
+        "http://mirror.centos.org/centos/8-stream/BaseOS/aarch64/os/Packages/libtirpc-1.1.4-7.el8.aarch64.rpm",
+        "https://storage.googleapis.com/builddeps/b8e1ecf3484660710fed69be5b185ad955b8458d5012a71172cd15fbb9001083",
+    ],
 )
 
 rpm(
     name = "libtirpc-0__1.1.4-7.el8.x86_64",
     sha256 = "fe4dd02764dbb5a0369abaed181b2382e941b055e82485d9c5b2b8eca3cd2bda",
-    urls = ["http://mirror.centos.org/centos/8-stream/BaseOS/x86_64/os/Packages/libtirpc-1.1.4-7.el8.x86_64.rpm"],
+    urls = [
+        "http://mirror.centos.org/centos/8-stream/BaseOS/x86_64/os/Packages/libtirpc-1.1.4-7.el8.x86_64.rpm",
+        "https://storage.googleapis.com/builddeps/fe4dd02764dbb5a0369abaed181b2382e941b055e82485d9c5b2b8eca3cd2bda",
+    ],
 )
 
 rpm(
@@ -3357,13 +3457,19 @@ rpm(
 rpm(
     name = "mozjs60-0__60.9.0-4.el8.aarch64",
     sha256 = "8a1da341e022af37e9861bb2e8f2b045ad0b36cd783547c0dee08b8097e73c80",
-    urls = ["http://mirror.centos.org/centos/8-stream/BaseOS/aarch64/os/Packages/mozjs60-60.9.0-4.el8.aarch64.rpm"],
+    urls = [
+        "http://mirror.centos.org/centos/8-stream/BaseOS/aarch64/os/Packages/mozjs60-60.9.0-4.el8.aarch64.rpm",
+        "https://storage.googleapis.com/builddeps/8a1da341e022af37e9861bb2e8f2b045ad0b36cd783547c0dee08b8097e73c80",
+    ],
 )
 
 rpm(
     name = "mozjs60-0__60.9.0-4.el8.x86_64",
     sha256 = "03b50a4ea5cf5655c67e2358fabb6e563eec4e7929e7fc6c4e92c92694f60fa0",
-    urls = ["http://mirror.centos.org/centos/8-stream/BaseOS/x86_64/os/Packages/mozjs60-60.9.0-4.el8.x86_64.rpm"],
+    urls = [
+        "http://mirror.centos.org/centos/8-stream/BaseOS/x86_64/os/Packages/mozjs60-60.9.0-4.el8.x86_64.rpm",
+        "https://storage.googleapis.com/builddeps/03b50a4ea5cf5655c67e2358fabb6e563eec4e7929e7fc6c4e92c92694f60fa0",
+    ],
 )
 
 rpm(
@@ -3432,7 +3538,10 @@ rpm(
 rpm(
     name = "ndctl-libs-0__71.1-4.el8.x86_64",
     sha256 = "d1518d8f29a72c8c9501f67929258405cf25fd4be365fd905acc57b846d49c8a",
-    urls = ["http://mirror.centos.org/centos/8-stream/BaseOS/x86_64/os/Packages/ndctl-libs-71.1-4.el8.x86_64.rpm"],
+    urls = [
+        "http://mirror.centos.org/centos/8-stream/BaseOS/x86_64/os/Packages/ndctl-libs-71.1-4.el8.x86_64.rpm",
+        "https://storage.googleapis.com/builddeps/d1518d8f29a72c8c9501f67929258405cf25fd4be365fd905acc57b846d49c8a",
+    ],
 )
 
 rpm(
@@ -4050,13 +4159,19 @@ rpm(
 rpm(
     name = "platform-python-0__3.6.8-47.el8.aarch64",
     sha256 = "43ffa547514ccad75bc69b6fdc402cc133234b33da4a62ddacc3c51ebf738fd0",
-    urls = ["http://mirror.centos.org/centos/8-stream/BaseOS/aarch64/os/Packages/platform-python-3.6.8-47.el8.aarch64.rpm"],
+    urls = [
+        "http://mirror.centos.org/centos/8-stream/BaseOS/aarch64/os/Packages/platform-python-3.6.8-47.el8.aarch64.rpm",
+        "https://storage.googleapis.com/builddeps/43ffa547514ccad75bc69b6fdc402cc133234b33da4a62ddacc3c51ebf738fd0",
+    ],
 )
 
 rpm(
     name = "platform-python-0__3.6.8-47.el8.x86_64",
     sha256 = "ead951c74984ba09c297c7286533b4b4ce2fcc18fa60102c760016e761a85a73",
-    urls = ["http://mirror.centos.org/centos/8-stream/BaseOS/x86_64/os/Packages/platform-python-3.6.8-47.el8.x86_64.rpm"],
+    urls = [
+        "http://mirror.centos.org/centos/8-stream/BaseOS/x86_64/os/Packages/platform-python-3.6.8-47.el8.x86_64.rpm",
+        "https://storage.googleapis.com/builddeps/ead951c74984ba09c297c7286533b4b4ce2fcc18fa60102c760016e761a85a73",
+    ],
 )
 
 rpm(
@@ -4224,13 +4339,19 @@ rpm(
 rpm(
     name = "python3-libs-0__3.6.8-47.el8.aarch64",
     sha256 = "1ec95b8b8d4e226558d193bd46d3e928c143e41e5c0403a8868f872f7a7d2ad1",
-    urls = ["http://mirror.centos.org/centos/8-stream/BaseOS/aarch64/os/Packages/python3-libs-3.6.8-47.el8.aarch64.rpm"],
+    urls = [
+        "http://mirror.centos.org/centos/8-stream/BaseOS/aarch64/os/Packages/python3-libs-3.6.8-47.el8.aarch64.rpm",
+        "https://storage.googleapis.com/builddeps/1ec95b8b8d4e226558d193bd46d3e928c143e41e5c0403a8868f872f7a7d2ad1",
+    ],
 )
 
 rpm(
     name = "python3-libs-0__3.6.8-47.el8.x86_64",
     sha256 = "279a02854cd438f33d624c86cfa2b3c266f04eda7cb8a81d1d70970f8c6c90fa",
-    urls = ["http://mirror.centos.org/centos/8-stream/BaseOS/x86_64/os/Packages/python3-libs-3.6.8-47.el8.x86_64.rpm"],
+    urls = [
+        "http://mirror.centos.org/centos/8-stream/BaseOS/x86_64/os/Packages/python3-libs-3.6.8-47.el8.x86_64.rpm",
+        "https://storage.googleapis.com/builddeps/279a02854cd438f33d624c86cfa2b3c266f04eda7cb8a81d1d70970f8c6c90fa",
+    ],
 )
 
 rpm(
@@ -4506,25 +4627,37 @@ rpm(
 rpm(
     name = "selinux-policy-0__3.14.3-100.el8.aarch64",
     sha256 = "5c05e0608955ec4ff5bddb9cf3a5b0c8007747085c9a1737ce518f5446f483d0",
-    urls = ["http://mirror.centos.org/centos/8-stream/BaseOS/aarch64/os/Packages/selinux-policy-3.14.3-100.el8.noarch.rpm"],
+    urls = [
+        "http://mirror.centos.org/centos/8-stream/BaseOS/aarch64/os/Packages/selinux-policy-3.14.3-100.el8.noarch.rpm",
+        "https://storage.googleapis.com/builddeps/5c05e0608955ec4ff5bddb9cf3a5b0c8007747085c9a1737ce518f5446f483d0",
+    ],
 )
 
 rpm(
     name = "selinux-policy-0__3.14.3-100.el8.x86_64",
     sha256 = "5c05e0608955ec4ff5bddb9cf3a5b0c8007747085c9a1737ce518f5446f483d0",
-    urls = ["http://mirror.centos.org/centos/8-stream/BaseOS/x86_64/os/Packages/selinux-policy-3.14.3-100.el8.noarch.rpm"],
+    urls = [
+        "http://mirror.centos.org/centos/8-stream/BaseOS/x86_64/os/Packages/selinux-policy-3.14.3-100.el8.noarch.rpm",
+        "https://storage.googleapis.com/builddeps/5c05e0608955ec4ff5bddb9cf3a5b0c8007747085c9a1737ce518f5446f483d0",
+    ],
 )
 
 rpm(
     name = "selinux-policy-targeted-0__3.14.3-100.el8.aarch64",
     sha256 = "91f17eea53c6b76bd9c723f70787f93f0e604eca099e99ea98f2652326b185e4",
-    urls = ["http://mirror.centos.org/centos/8-stream/BaseOS/aarch64/os/Packages/selinux-policy-targeted-3.14.3-100.el8.noarch.rpm"],
+    urls = [
+        "http://mirror.centos.org/centos/8-stream/BaseOS/aarch64/os/Packages/selinux-policy-targeted-3.14.3-100.el8.noarch.rpm",
+        "https://storage.googleapis.com/builddeps/91f17eea53c6b76bd9c723f70787f93f0e604eca099e99ea98f2652326b185e4",
+    ],
 )
 
 rpm(
     name = "selinux-policy-targeted-0__3.14.3-100.el8.x86_64",
     sha256 = "91f17eea53c6b76bd9c723f70787f93f0e604eca099e99ea98f2652326b185e4",
-    urls = ["http://mirror.centos.org/centos/8-stream/BaseOS/x86_64/os/Packages/selinux-policy-targeted-3.14.3-100.el8.noarch.rpm"],
+    urls = [
+        "http://mirror.centos.org/centos/8-stream/BaseOS/x86_64/os/Packages/selinux-policy-targeted-3.14.3-100.el8.noarch.rpm",
+        "https://storage.googleapis.com/builddeps/91f17eea53c6b76bd9c723f70787f93f0e604eca099e99ea98f2652326b185e4",
+    ],
 )
 
 rpm(
@@ -4611,13 +4744,19 @@ rpm(
 rpm(
     name = "sssd-client-0__2.7.0-2.el8.aarch64",
     sha256 = "0afd674e4d6018d83febb90a3d30061465b33e818e30e7efd5b218d835400073",
-    urls = ["http://mirror.centos.org/centos/8-stream/BaseOS/aarch64/os/Packages/sssd-client-2.7.0-2.el8.aarch64.rpm"],
+    urls = [
+        "http://mirror.centos.org/centos/8-stream/BaseOS/aarch64/os/Packages/sssd-client-2.7.0-2.el8.aarch64.rpm",
+        "https://storage.googleapis.com/builddeps/0afd674e4d6018d83febb90a3d30061465b33e818e30e7efd5b218d835400073",
+    ],
 )
 
 rpm(
     name = "sssd-client-0__2.7.0-2.el8.x86_64",
     sha256 = "1231c5537b464b22b6a0311b66645cd9c0d96f50a8ed2ee6e9181ba2e262bdbb",
-    urls = ["http://mirror.centos.org/centos/8-stream/BaseOS/x86_64/os/Packages/sssd-client-2.7.0-2.el8.x86_64.rpm"],
+    urls = [
+        "http://mirror.centos.org/centos/8-stream/BaseOS/x86_64/os/Packages/sssd-client-2.7.0-2.el8.x86_64.rpm",
+        "https://storage.googleapis.com/builddeps/1231c5537b464b22b6a0311b66645cd9c0d96f50a8ed2ee6e9181ba2e262bdbb",
+    ],
 )
 
 rpm(
@@ -4677,49 +4816,73 @@ rpm(
 rpm(
     name = "systemd-0__239-59.el8.aarch64",
     sha256 = "085b1a087aee7c51169dfaae21ae7b1fbd5122982464ff360eb43582600ab8fd",
-    urls = ["http://mirror.centos.org/centos/8-stream/BaseOS/aarch64/os/Packages/systemd-239-59.el8.aarch64.rpm"],
+    urls = [
+        "http://mirror.centos.org/centos/8-stream/BaseOS/aarch64/os/Packages/systemd-239-59.el8.aarch64.rpm",
+        "https://storage.googleapis.com/builddeps/085b1a087aee7c51169dfaae21ae7b1fbd5122982464ff360eb43582600ab8fd",
+    ],
 )
 
 rpm(
     name = "systemd-0__239-59.el8.x86_64",
     sha256 = "2519b4df08e9e5fe8226697ea4de9e2acd279c4e484d714891deb273730c4561",
-    urls = ["http://mirror.centos.org/centos/8-stream/BaseOS/x86_64/os/Packages/systemd-239-59.el8.x86_64.rpm"],
+    urls = [
+        "http://mirror.centos.org/centos/8-stream/BaseOS/x86_64/os/Packages/systemd-239-59.el8.x86_64.rpm",
+        "https://storage.googleapis.com/builddeps/2519b4df08e9e5fe8226697ea4de9e2acd279c4e484d714891deb273730c4561",
+    ],
 )
 
 rpm(
     name = "systemd-container-0__239-59.el8.aarch64",
     sha256 = "8ac10a3f17366676694882071d2f6d0f8aaf34659f8e048b770f850ee6750663",
-    urls = ["http://mirror.centos.org/centos/8-stream/BaseOS/aarch64/os/Packages/systemd-container-239-59.el8.aarch64.rpm"],
+    urls = [
+        "http://mirror.centos.org/centos/8-stream/BaseOS/aarch64/os/Packages/systemd-container-239-59.el8.aarch64.rpm",
+        "https://storage.googleapis.com/builddeps/8ac10a3f17366676694882071d2f6d0f8aaf34659f8e048b770f850ee6750663",
+    ],
 )
 
 rpm(
     name = "systemd-container-0__239-59.el8.x86_64",
     sha256 = "3590708c99253f7214fec24ff60c0604941c5fe6ff616f3a00b0e717c47ddd00",
-    urls = ["http://mirror.centos.org/centos/8-stream/BaseOS/x86_64/os/Packages/systemd-container-239-59.el8.x86_64.rpm"],
+    urls = [
+        "http://mirror.centos.org/centos/8-stream/BaseOS/x86_64/os/Packages/systemd-container-239-59.el8.x86_64.rpm",
+        "https://storage.googleapis.com/builddeps/3590708c99253f7214fec24ff60c0604941c5fe6ff616f3a00b0e717c47ddd00",
+    ],
 )
 
 rpm(
     name = "systemd-libs-0__239-59.el8.aarch64",
     sha256 = "67ad63329acd353b4a3c370252cc595026188dc6df69acbf7fb87e59f3e1c356",
-    urls = ["http://mirror.centos.org/centos/8-stream/BaseOS/aarch64/os/Packages/systemd-libs-239-59.el8.aarch64.rpm"],
+    urls = [
+        "http://mirror.centos.org/centos/8-stream/BaseOS/aarch64/os/Packages/systemd-libs-239-59.el8.aarch64.rpm",
+        "https://storage.googleapis.com/builddeps/67ad63329acd353b4a3c370252cc595026188dc6df69acbf7fb87e59f3e1c356",
+    ],
 )
 
 rpm(
     name = "systemd-libs-0__239-59.el8.x86_64",
     sha256 = "eb22de04a3d67a0739a9eb45fca4218b4f1d4690b977ecd5e7c22cdf23caa5f7",
-    urls = ["http://mirror.centos.org/centos/8-stream/BaseOS/x86_64/os/Packages/systemd-libs-239-59.el8.x86_64.rpm"],
+    urls = [
+        "http://mirror.centos.org/centos/8-stream/BaseOS/x86_64/os/Packages/systemd-libs-239-59.el8.x86_64.rpm",
+        "https://storage.googleapis.com/builddeps/eb22de04a3d67a0739a9eb45fca4218b4f1d4690b977ecd5e7c22cdf23caa5f7",
+    ],
 )
 
 rpm(
     name = "systemd-pam-0__239-59.el8.aarch64",
     sha256 = "40380155d9b31496207472116843790b6749dc8cf081ff2259b2db3dddcf4030",
-    urls = ["http://mirror.centos.org/centos/8-stream/BaseOS/aarch64/os/Packages/systemd-pam-239-59.el8.aarch64.rpm"],
+    urls = [
+        "http://mirror.centos.org/centos/8-stream/BaseOS/aarch64/os/Packages/systemd-pam-239-59.el8.aarch64.rpm",
+        "https://storage.googleapis.com/builddeps/40380155d9b31496207472116843790b6749dc8cf081ff2259b2db3dddcf4030",
+    ],
 )
 
 rpm(
     name = "systemd-pam-0__239-59.el8.x86_64",
     sha256 = "ab7a933306faed1f442ed1b0b757b9f77fb2b21b52c86c2d2175bf1b0571be04",
-    urls = ["http://mirror.centos.org/centos/8-stream/BaseOS/x86_64/os/Packages/systemd-pam-239-59.el8.x86_64.rpm"],
+    urls = [
+        "http://mirror.centos.org/centos/8-stream/BaseOS/x86_64/os/Packages/systemd-pam-239-59.el8.x86_64.rpm",
+        "https://storage.googleapis.com/builddeps/ab7a933306faed1f442ed1b0b757b9f77fb2b21b52c86c2d2175bf1b0571be04",
+    ],
 )
 
 rpm(
@@ -4743,13 +4906,19 @@ rpm(
 rpm(
     name = "timedatex-0__0.5-3.el8.aarch64",
     sha256 = "f6078b759fafad2208d3e572cec9fbfb473dea334bc7a90583811f451d493cef",
-    urls = ["http://mirror.centos.org/centos/8-stream/BaseOS/aarch64/os/Packages/timedatex-0.5-3.el8.aarch64.rpm"],
+    urls = [
+        "http://mirror.centos.org/centos/8-stream/BaseOS/aarch64/os/Packages/timedatex-0.5-3.el8.aarch64.rpm",
+        "https://storage.googleapis.com/builddeps/f6078b759fafad2208d3e572cec9fbfb473dea334bc7a90583811f451d493cef",
+    ],
 )
 
 rpm(
     name = "timedatex-0__0.5-3.el8.x86_64",
     sha256 = "6fc3208be9c78bf1f843f9f7d4d3f04096f116dc056285142235bf76472ba382",
-    urls = ["http://mirror.centos.org/centos/8-stream/BaseOS/x86_64/os/Packages/timedatex-0.5-3.el8.x86_64.rpm"],
+    urls = [
+        "http://mirror.centos.org/centos/8-stream/BaseOS/x86_64/os/Packages/timedatex-0.5-3.el8.x86_64.rpm",
+        "https://storage.googleapis.com/builddeps/6fc3208be9c78bf1f843f9f7d4d3f04096f116dc056285142235bf76472ba382",
+    ],
 )
 
 rpm(
