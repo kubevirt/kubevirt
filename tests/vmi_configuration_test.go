@@ -1886,8 +1886,10 @@ var _ = Describe("[sig-compute]Configurations", func() {
 	Context("[rfe_id:140][crit:medium][vendor:cnv-qe@redhat.com][level:component]with CPU request settings", func() {
 
 		It("[test_id:3127]should set CPU request from VMI spec", func() {
-			vmi := tests.NewRandomVMI()
-			vmi.Spec.Domain.Resources.Requests[kubev1.ResourceCPU] = resource.MustParse("500m")
+			vmi := libvmi.New(
+				libvmi.WithResourceMemory("32Mi"),
+				libvmi.WithResourceCPU("500m"),
+			)
 			runningVMI := tests.RunVMIAndExpectScheduling(vmi, 30)
 
 			readyPod := libvmi.GetPodByVirtualMachineInstance(runningVMI, util.NamespaceTestDefault)
