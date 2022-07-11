@@ -522,12 +522,12 @@ var _ = SIGDescribe("Memory dump", func() {
 			}
 		})
 
-		It("Should be able to get and remove memory dump", func() {
+		It("[test_id:9034]Should be able to get and remove memory dump", func() {
 			previousOutput := createMemoryDumpAndVerify(vm, memoryDumpPVCName, noPreviousOutput, memoryDumpVirtctlCreatePVC)
 			removeMemoryDumpAndVerify(vm, memoryDumpPVCName, previousOutput, removeMemoryDumpVirtctl)
 		})
 
-		It("Run multiple memory dumps", func() {
+		It("[test_id:9035]Run multiple memory dumps", func() {
 			previousOutput := ""
 			for i := 0; i < 3; i++ {
 				By("Running memory dump number: " + strconv.Itoa(i))
@@ -547,7 +547,7 @@ var _ = SIGDescribe("Memory dump", func() {
 			removeMemoryDumpAndVerify(vm, memoryDumpPVCName, previousOutput, removeMemoryDumpVirtctl)
 		})
 
-		It("Run memory dump to creates a pvc, remove and run memory dump to create a different pvc", func() {
+		It("[test_id:9036]Run memory dump to creates a pvc, remove and run memory dump to create a different pvc", func() {
 			By("Running memory dump to pvc: " + memoryDumpPVCName)
 			previousOutput := createMemoryDumpAndVerify(vm, memoryDumpPVCName, noPreviousOutput, memoryDumpVirtctlCreatePVC)
 
