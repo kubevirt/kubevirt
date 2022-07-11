@@ -30,6 +30,7 @@ import (
 	"kubevirt.io/client-go/kubecli"
 
 	"kubevirt.io/kubevirt/tests"
+	"kubevirt.io/kubevirt/tests/libvmi"
 	"kubevirt.io/kubevirt/tests/util"
 )
 
@@ -55,7 +56,7 @@ var _ = Describe("[crit:medium][vendor:cnv-qe@redhat.com][level:component][sig-c
 
 	var err error
 	var virtClient kubecli.KubevirtClient
-
+	const enoughMemForSafeBiosEmulation = "32Mi"
 	BeforeEach(func() {
 		virtClient, err = kubecli.GetKubevirtClient()
 		util.PanicOnError(err)
@@ -65,9 +66,8 @@ var _ = Describe("[crit:medium][vendor:cnv-qe@redhat.com][level:component][sig-c
 
 		var vmi *v1.VirtualMachineInstance
 		BeforeEach(func() {
-			vmi, err = createVMI(virtClient, false)
-			Expect(err).ToNot(HaveOccurred())
-			tests.WaitForSuccessfulVMIStart(vmi)
+			vmi = libvmi.New(libvmi.WithResourceMemory(enoughMemForSafeBiosEmulation))
+			vmi = tests.RunVMIAndExpectLaunch(vmi, 90)
 		})
 
 		It("should fail to connect to VMI's usbredir socket", func() {
@@ -81,9 +81,8 @@ var _ = Describe("[crit:medium][vendor:cnv-qe@redhat.com][level:component][sig-c
 
 		var vmi *v1.VirtualMachineInstance
 		BeforeEach(func() {
-			vmi, err = createVMI(virtClient, true)
-			Expect(err).ToNot(HaveOccurred())
-			tests.WaitForSuccessfulVMIStart(vmi)
+			vmi = libvmi.New(libvmi.WithResourceMemory(enoughMemForSafeBiosEmulation), withClientPassthrough())
+			vmi = tests.RunVMIAndExpectLaunch(vmi, 90)
 		})
 
 		Context("with an usbredir connection", func() {
@@ -175,10 +174,8 @@ var _ = Describe("[crit:medium][vendor:cnv-qe@redhat.com][level:component][sig-c
 	})
 })
 
-func createVMI(virtClient kubecli.KubevirtClient, enableUsbredir bool) (*v1.VirtualMachineInstance, error) {
-	randomVmi := tests.NewRandomVMI()
-	if enableUsbredir {
-		randomVmi.Spec.Domain.Devices.ClientPassthrough = &v1.ClientPassthroughDevices{}
+func withClientPassthrough() libvmi.Option {
+	return func(vmi *v1.VirtualMachineInstance) {
+		vmi.Spec.Domain.Devices.ClientPassthrough = &v1.ClientPassthroughDevices{}
 	}
-	return virtClient.VirtualMachineInstance(util.NamespaceTestDefault).Create(randomVmi)
 }
