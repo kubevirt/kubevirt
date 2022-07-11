@@ -373,17 +373,16 @@ if [[ -z ${KUBEVIRT_E2E_FOCUS} && -z ${KUBEVIRT_E2E_SKIP} ]]; then
     export KUBEVIRT_E2E_FOCUS="\\[sig-storage\\]|\\[storage-req\\]"
     export KUBEVIRT_E2E_SKIP="Migration"
   elif [[ $TARGET =~ vgpu.* ]]; then
-    export KUBEVIRT_E2E_FOCUS="MediatedDevices"
+    export ginko_params="$ginko_params --label-filter=\"needs-mdev-gpu\""
   elif [[ $TARGET =~ sig-compute-realtime ]]; then
     export KUBEVIRT_E2E_FOCUS="\\[sig-compute-realtime\\]"
   elif [[ $TARGET =~ sig-compute-migrations ]]; then
     export KUBEVIRT_E2E_FOCUS="Migration"
-    export KUBEVIRT_E2E_SKIP="MediatedDevices"
-    export ginko_params="$ginko_params --label-filter=\"!needs-gpu\""
+    export ginko_params="$ginko_params --label-filter=\"!needs-gpu && !needs-mdev-gpu\""
   elif [[ $TARGET =~ sig-compute ]]; then
     export KUBEVIRT_E2E_FOCUS="\\[sig-compute\\]"
-    export KUBEVIRT_E2E_SKIP="MediatedDevices|Migration"
-    export ginko_params="$ginko_params --label-filter=\"!needs-gpu\""
+    export KUBEVIRT_E2E_SKIP="Migration"
+    export ginko_params="$ginko_params --label-filter=\"!needs-gpu && !needs-mdev-gpu\""
   elif [[ $TARGET =~ sig-monitoring ]]; then
       export KUBEVIRT_E2E_FOCUS="\\[sig-monitoring\\]"
   elif [[ $TARGET =~ sig-operator ]]; then
@@ -393,12 +392,11 @@ if [[ -z ${KUBEVIRT_E2E_FOCUS} && -z ${KUBEVIRT_E2E_SKIP} ]]; then
   elif [[ $TARGET =~ gpu.* ]]; then
     export ginko_params="$ginko_params --label-filter=\"needs-gpu\""
   elif [[ $TARGET =~ (okd|ocp).* ]]; then
-    export KUBEVIRT_E2E_SKIP="SRIOV|MediatedDevices"
-    export ginko_params="$ginko_params --label-filter=\"!needs-gpu\""
+    export KUBEVIRT_E2E_SKIP="SRIOV"
+    export ginko_params="$ginko_params --label-filter=\"!needs-gpu && !needs-mdev-gpu\""
   else
-    export KUBEVIRT_E2E_SKIP="Multus|SRIOV|Macvtap|MediatedDevices"
-    export ginko_params="$ginko_params --label-filter=\"!needs-gpu\""
-
+    export KUBEVIRT_E2E_SKIP="Multus|SRIOV|Macvtap"
+    export ginko_params="$ginko_params --label-filter=\"!needs-gpu && !needs-mdev-gpu\""
   fi
 
   if ! [[ $TARGET =~ sig-storage ]]; then
@@ -430,13 +428,12 @@ fi
 # but also currently lack the requirements for SRIOV, GPU, Macvtap and MDEVs.
 if [[ $KUBEVIRT_NUM_NODES = "1" && $KUBEVIRT_INFRA_REPLICAS = "1" ]]; then
   if [ -n "$KUBEVIRT_E2E_SKIP" ]; then
-    export KUBEVIRT_E2E_SKIP="${KUBEVIRT_E2E_SKIP}|SRIOV|Macvtap|MediatedDevices|Migration"
-    export ginko_params="$ginko_params --label-filter=\"!needs-gpu\""
+    export KUBEVIRT_E2E_SKIP="${KUBEVIRT_E2E_SKIP}|SRIOV|Macvtap|Migration"
+    export ginko_params="$ginko_params --label-filter=\"!needs-gpu && !needs-mdev-gpu\""
 
   else
-    export KUBEVIRT_E2E_SKIP="SRIOV|Macvtap|MediatedDevices|Migration"
-    export ginko_params="$ginko_params --label-filter=\"!needs-gpu\""
-
+    export KUBEVIRT_E2E_SKIP="SRIOV|Macvtap|Migration"
+    export ginko_params="$ginko_params --label-filter=\"!needs-gpu && !needs-mdev-gpu\""
   fi
 fi
 
