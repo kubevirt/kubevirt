@@ -551,6 +551,18 @@ func NewRandomVMWithDataVolumeWithRegistryImport(imageUrl, namespace, storageCla
 	return vm
 }
 
+func NewRandomVMWithDataVolumeCloneSourceAndUserData(sourceNamespace, sourceName, namespace, userData, storageClass string, accessMode k8sv1.PersistentVolumeAccessMode) *v1.VirtualMachine {
+	dataVolume := libstorage.NewRandomDataVolumeWithPVCSource(sourceNamespace, sourceName, namespace, accessMode)
+	dataVolume.Spec.PVC.StorageClassName = &storageClass
+	dataVolume.Spec.PVC.Resources.Requests[k8sv1.ResourceStorage] = resource.MustParse("6Gi")
+	vmi := NewRandomVMIWithDataVolume(dataVolume.Name)
+	AddUserData(vmi, "cloud-init", userData)
+	vm := NewRandomVirtualMachine(vmi, false)
+
+	libstorage.AddDataVolumeTemplate(vm, dataVolume)
+	return vm
+}
+
 func NewRandomVMWithDataVolume(imageUrl string, namespace string) *v1.VirtualMachine {
 	dataVolume := libstorage.NewRandomDataVolumeWithRegistryImport(imageUrl, namespace, k8sv1.ReadWriteOnce)
 	vmi := NewRandomVMIWithDataVolume(dataVolume.Name)
