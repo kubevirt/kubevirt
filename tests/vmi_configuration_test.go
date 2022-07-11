@@ -1819,9 +1819,11 @@ var _ = Describe("[sig-compute]Configurations", func() {
 		})
 
 		It("[test_id:3124]should set machine type from VMI spec", func() {
-			vmi := tests.NewRandomVMI()
-			vmi.Spec.Domain.Machine = &v1.Machine{Type: "pc"}
-			tests.RunVMIAndExpectLaunch(vmi, 30)
+			vmi := libvmi.New(
+				libvmi.WithResourceMemory("32Mi"),
+				withMachineType("pc"),
+			)
+			vmi = tests.RunVMIAndExpectLaunch(vmi, 30)
 			runningVMISpec, err := tests.GetRunningVMIDomainSpec(vmi)
 
 			Expect(err).ToNot(HaveOccurred())
@@ -1840,9 +1842,12 @@ var _ = Describe("[sig-compute]Configurations", func() {
 
 		It("[test_id:6964]should allow creating VM defined with Machine with an empty Type", func() {
 			// This is needed to provide backward compatibility since our example VMIs used to be defined in this way
-			vmi := tests.NewRandomVMI()
-			vmi.Spec.Domain.Machine = &v1.Machine{Type: ""}
-			tests.RunVMIAndExpectLaunch(vmi, 30)
+			vmi := libvmi.New(
+				libvmi.WithResourceMemory("32Mi"),
+				withMachineType(""),
+			)
+
+			vmi = tests.RunVMIAndExpectLaunch(vmi, 30)
 			runningVMISpec, err := tests.GetRunningVMIDomainSpec(vmi)
 
 			Expect(err).ToNot(HaveOccurred())
@@ -3049,5 +3054,11 @@ func withNoRng() libvmi.Option {
 func overcommitGuestOverhead() libvmi.Option {
 	return func(vmi *v1.VirtualMachineInstance) {
 		vmi.Spec.Domain.Resources.OvercommitGuestOverhead = true
+	}
+}
+
+func withMachineType(machineType string) libvmi.Option {
+	return func(vmi *v1.VirtualMachineInstance) {
+		vmi.Spec.Domain.Machine = &v1.Machine{Type: machineType}
 	}
 }
