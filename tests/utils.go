@@ -2254,6 +2254,18 @@ func NewRandomVMWithDataVolumeWithRegistryImport(imageUrl, namespace, storageCla
 	return vm
 }
 
+func NewRandomVMWithDataVolumeCloneSourceAndUserData(sourceNamespace, sourceName, namespace, userData, storageClass string, accessMode k8sv1.PersistentVolumeAccessMode) *v1.VirtualMachine {
+	dataVolume := NewRandomDataVolumeWithPVCSource(sourceNamespace, sourceName, namespace, accessMode)
+	dataVolume.Spec.PVC.StorageClassName = &storageClass
+	dataVolume.Spec.PVC.Resources.Requests[k8sv1.ResourceStorage] = resource.MustParse("6Gi")
+	vmi := NewRandomVMIWithDataVolume(dataVolume.Name)
+	AddUserData(vmi, "cloud-init", userData)
+	vm := NewRandomVirtualMachine(vmi, false)
+
+	addDataVolumeTemplate(vm, dataVolume)
+	return vm
+}
+
 func NewRandomVMWithDataVolume(imageUrl string, namespace string) *v1.VirtualMachine {
 	dataVolume := NewRandomDataVolumeWithRegistryImport(imageUrl, namespace, k8sv1.ReadWriteOnce)
 	vmi := NewRandomVMIWithDataVolume(dataVolume.Name)
@@ -5529,4 +5541,46 @@ func GetAllSchedulableNodes(virtClient kubecli.KubevirtClient) *k8sv1.NodeList {
 	nodes, err := virtClient.CoreV1().Nodes().List(context.Background(), metav1.ListOptions{LabelSelector: v1.NodeSchedulable + "=" + "true"})
 	Expect(err).ToNot(HaveOccurred(), "Should list compute nodes")
 	return nodes
+}
+
+func GoldenImageRBAC(namespace string) (*rbacv1.Role, *rbacv1.RoleBinding) {
+	name := "golden-rabc-" + rand.String(12)
+	role := &rbacv1.Role{
+		ObjectMeta: metav1.ObjectMeta{
+			Name:      name,
+			Namespace: namespace,
+		},
+		Rules: []rbacv1.PolicyRule{
+			{
+				APIGroups: []string{
+					"cdi.kubevirt.io",
+				},
+				Resources: []string{
+					"datavolumes/source",
+				},
+				Verbs: []string{
+					"create",
+				},
+			},
+		},
+	}
+	roleBinding := &rbacv1.RoleBinding{
+		ObjectMeta: metav1.ObjectMeta{
+			Name:      name,
+			Namespace: namespace,
+		},
+		Subjects: []rbacv1.Subject{
+			{
+				APIGroup: "rbac.authorization.k8s.io",
+				Kind:     "Group",
+				Name:     "system:authenticated",
+			},
+		},
+		RoleRef: rbacv1.RoleRef{
+			APIGroup: "rbac.authorization.k8s.io",
+			Kind:     "Role",
+			Name:     name,
+		},
+	}
+	return role, roleBinding
 }
