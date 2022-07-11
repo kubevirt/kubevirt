@@ -37,6 +37,10 @@ import (
 
 	"kubevirt.io/client-go/kubecli"
 
+	cdiv1 "kubevirt.io/containerized-data-importer-api/pkg/apis/core/v1beta1"
+
+	kutil "kubevirt.io/kubevirt/pkg/util"
+	kubevirttypes "kubevirt.io/kubevirt/pkg/util/types"
 	"kubevirt.io/kubevirt/pkg/virtctl/templates"
 )
 
@@ -68,7 +72,9 @@ const (
 	storageClassArg = "storage-class"
 	accessModeArg   = "access-mode"
 
-	memoryDumpOverhead = "100Mi"
+	configName         = "config"
+	filesystemOverhead = cdiv1.Percent("0.055")
+	fsOverheadMsg      = "Using default 5.5%% filesystem overhead for pvc size"
 )
 
 var (
@@ -412,19 +418,32 @@ func removeVolume(vmiName, volumeName, namespace string, virtClient kubecli.Kube
 	return nil
 }
 
-func calcMemoryDumpNeededSize(vmName, namespace string, virtClient kubecli.KubevirtClient) (*resource.Quantity, error) {
+func calcMemoryDumpExpectedSize(vmName, namespace string, virtClient kubecli.KubevirtClient) (*resource.Quantity, error) {
 	vmi, err := virtClient.VirtualMachineInstance(namespace).Get(vmName, &metav1.GetOptions{})
 	if err != nil {
 		return nil, err
 	}
 
-	domain := vmi.Spec.Domain
-	vmiMemoryReq := domain.Resources.Requests.Memory()
-	memOverhead := resource.MustParse(memoryDumpOverhead)
-	expectedPvcSize := resource.NewScaledQuantity(vmiMemoryReq.ScaledValue(resource.Kilo), resource.Kilo)
-	expectedPvcSize.Add(memOverhead)
+	return kutil.CalcExpectedMemoryDumpSize(vmi), nil
+}
 
-	return expectedPvcSize, nil
+func calcPVCNeededSize(memoryDumpExpectedSize *resource.Quantity, storageClass *string, virtClient kubecli.KubevirtClient) (*resource.Quantity, error) {
+	cdiConfig, err := virtClient.CdiClient().CdiV1beta1().CDIConfigs().Get(context.Background(), configName, metav1.GetOptions{})
+	if k8serrors.IsNotFound(err) {
+		// can't properly determine the overhead - continue with default overhead of 5.5%
+		fmt.Printf(fsOverheadMsg)
+		return kubevirttypes.GetSizeIncludingGivenOverhead(memoryDumpExpectedSize, filesystemOverhead)
+	}
+	if err != nil {
+		return nil, err
+	}
+
+	fsVolumeMode := k8sv1.PersistentVolumeFilesystem
+	if *storageClass == "" {
+		storageClass = nil
+	}
+
+	return kubevirttypes.GetSizeIncludingFSOverhead(memoryDumpExpectedSize, storageClass, &fsVolumeMode, cdiConfig)
 }
 
 func generatePVC(size *resource.Quantity, claimName, namespace, storageClass, accessMode string) (*k8sv1.PersistentVolumeClaim, error) {
@@ -467,7 +486,12 @@ func createPVCforMemoryDump(namespace, vmName, claimName string, virtClient kube
 		return err
 	}
 
-	neededSize, err := calcMemoryDumpNeededSize(vmName, namespace, virtClient)
+	memoryDumpExpectedSize, err := calcMemoryDumpExpectedSize(vmName, namespace, virtClient)
+	if err != nil {
+		return err
+	}
+
+	neededSize, err := calcPVCNeededSize(memoryDumpExpectedSize, &storageClass, virtClient)
 	if err != nil {
 		return err
 	}

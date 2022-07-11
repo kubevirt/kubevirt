@@ -47,7 +47,10 @@ import (
 	"kubevirt.io/client-go/kubecli"
 	"kubevirt.io/client-go/log"
 
+	cdiv1 "kubevirt.io/containerized-data-importer-api/pkg/apis/core/v1beta1"
+
 	"kubevirt.io/kubevirt/pkg/controller"
+	kutil "kubevirt.io/kubevirt/pkg/util"
 	k6ttypes "kubevirt.io/kubevirt/pkg/util/types"
 	virtconfig "kubevirt.io/kubevirt/pkg/virt-config"
 )
@@ -64,10 +67,13 @@ const (
 	getRequestErrFmt             = "Cannot GET request %s"
 	pvcVolumeModeErr             = "pvc should be filesystem pvc"
 	pvcAccessModeErr             = "pvc access mode can't be read only"
-	pvcSizeErrFmt                = "pvc size should be bigger then vm memory:%s+%s"
+	pvcSizeErrFmt                = "pvc size [%s] should be bigger then [%s]"
 	memoryDumpNameConflictErr    = "can't request memory dump for pvc [%s] while pvc [%s] is still associated as the memory dump pvc"
-	memoryDumpOverhead           = "100Mi"
 	defaultProfilerComponentPort = 8443
+
+	configName         = "config"
+	filesystemOverhead = cdiv1.Percent("0.055")
+	fsOverheadMsg      = "Using default 5.5%% filesystem overhead for pvc size"
 )
 
 type SubresourceAPIApp struct {
@@ -1366,6 +1372,17 @@ func (app *SubresourceAPIApp) fetchPersistentVolumeClaim(name string, namespace 
 	return pvc, nil
 }
 
+func (app *SubresourceAPIApp) fetchCDIConfig() (*cdiv1.CDIConfig, *errors.StatusError) {
+	cdiConfig, err := app.virtCli.CdiClient().CdiV1beta1().CDIConfigs().Get(context.Background(), configName, k8smetav1.GetOptions{})
+	if errors.IsNotFound(err) {
+		return nil, nil
+	}
+	if err != nil {
+		return nil, errors.NewInternalError(fmt.Errorf("unable to retrieve cdi config: %v", err))
+	}
+	return cdiConfig, nil
+}
+
 func (app *SubresourceAPIApp) validateMemoryDumpClaim(vmi *v1.VirtualMachineInstance, claimName, namespace string) *errors.StatusError {
 	pvc, err := app.fetchPersistentVolumeClaim(claimName, namespace)
 	if err != nil {
@@ -1381,13 +1398,25 @@ func (app *SubresourceAPIApp) validateMemoryDumpClaim(vmi *v1.VirtualMachineInst
 
 	pvcSize := pvc.Spec.Resources.Requests.Storage()
 	scaledPvcSize := resource.NewScaledQuantity(pvcSize.ScaledValue(resource.Kilo), resource.Kilo)
-	domain := vmi.Spec.Domain
-	vmiMemoryReq := domain.Resources.Requests.Memory()
-	memOverhead := resource.MustParse(memoryDumpOverhead)
-	expectedPvcSize := resource.NewScaledQuantity(vmiMemoryReq.ScaledValue(resource.Kilo), resource.Kilo)
-	expectedPvcSize.Add(memOverhead)
+
+	expectedMemoryDumpSize := kutil.CalcExpectedMemoryDumpSize(vmi)
+	cdiConfig, err := app.fetchCDIConfig()
+	if err != nil {
+		return err
+	}
+	var expectedPvcSize *resource.Quantity
+	var overheadErr error
+	if cdiConfig == nil {
+		log.Log.Object(vmi).V(3).Infof(fsOverheadMsg)
+		expectedPvcSize, overheadErr = k6ttypes.GetSizeIncludingGivenOverhead(expectedMemoryDumpSize, filesystemOverhead)
+	} else {
+		expectedPvcSize, overheadErr = k6ttypes.GetSizeIncludingFSOverhead(expectedMemoryDumpSize, pvc.Spec.StorageClassName, pvc.Spec.VolumeMode, cdiConfig)
+	}
+	if overheadErr != nil {
+		return errors.NewInternalError(overheadErr)
+	}
 	if scaledPvcSize.Cmp(*expectedPvcSize) < 0 {
-		return errors.NewConflict(v1.Resource("persistentvolumeclaim"), claimName, fmt.Errorf(pvcSizeErrFmt, vmiMemoryReq.String(), memOverhead.String()))
+		return errors.NewConflict(v1.Resource("persistentvolumeclaim"), claimName, fmt.Errorf(pvcSizeErrFmt, scaledPvcSize.String(), expectedPvcSize.String()))
 	}
 
 	return nil

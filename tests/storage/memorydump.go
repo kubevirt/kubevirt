@@ -55,7 +55,7 @@ const (
 	noClaimName                      = ""
 	memoryDumpSmallPVCName           = "fs-pvc-small"
 	virtCtlClaimName                 = "--claim-name=%s"
-	virtCtlCreate                    = "--create"
+	virtCtlCreate                    = "--create-claim"
 	waitMemoryDumpRequest            = "waiting on memory dump request in vm status"
 	waitMemoryDumpPvcVolume          = "waiting on memory dump pvc in vm"
 	waitMemoryDumpRequestRemove      = "waiting on memory dump request to be remove from vm status"
@@ -306,8 +306,19 @@ var _ = SIGDescribe("Memory dump", func() {
 		commandAndArgs = append(commandAndArgs, virtCtlCreate)
 		memorydumpCommand := clientcmd.NewRepeatableVirtctlCommand(commandAndArgs...)
 		Eventually(func() error {
-			return memorydumpCommand()
-		}, 3*time.Second, 1*time.Second).ShouldNot(HaveOccurred())
+			err := memorydumpCommand()
+			if err != nil {
+				_, getErr := virtClient.CoreV1().PersistentVolumeClaims(namespace).Get(context.Background(), claimName, metav1.GetOptions{})
+				if getErr == nil {
+					// already created the pvc can't call the memory dump command with
+					// create-claim flag again
+					By("Error memory dump command after claim created")
+					memoryDumpVirtctl(name, namespace, claimName)
+					return nil
+				}
+			}
+			return err
+		}, 6*time.Second, 1*time.Second).ShouldNot(HaveOccurred())
 	}
 
 	removeMemoryDumpVMSubresource := func(vmName, namespace string) {
@@ -472,7 +483,7 @@ var _ = SIGDescribe("Memory dump", func() {
 			Eventually(func() string {
 				err := memorydumpCommand()
 				return err.Error()
-			}, 3*time.Second, 1*time.Second).Should(ContainSubstring("pvc size should be bigger then vm memory"))
+			}, 3*time.Second, 1*time.Second).Should(ContainSubstring("should be bigger then"))
 		})
 	})
 

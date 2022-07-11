@@ -577,15 +577,48 @@ var _ = Describe("VirtualMachine", func() {
 			createClaimFlag = "--create-claim"
 			claimNameFlag   = "--claim-name=testpvc"
 			claimName       = "testpvc"
+			configName      = "config"
 		)
 		var (
+			cdiClient       *cdifake.Clientset
 			coreClient      *fake.Clientset
 			pvcCreateCalled = &utils.AtomicBool{Lock: &sync.Mutex{}}
 		)
 
+		cdiConfigInit := func() (cdiConfig *v1beta1.CDIConfig) {
+			cdiConfig = &v1beta1.CDIConfig{
+				ObjectMeta: k8smetav1.ObjectMeta{
+					Name: configName,
+				},
+				Spec: v1beta1.CDIConfigSpec{
+					UploadProxyURLOverride: nil,
+				},
+				Status: v1beta1.CDIConfigStatus{
+					FilesystemOverhead: &v1beta1.FilesystemOverhead{
+						Global: v1beta1.Percent("0.055"),
+					},
+				},
+			}
+			return
+		}
+		expectGetCDIConfig := func() {
+			kubecli.MockKubevirtClientInstance.EXPECT().CdiClient().Return(cdiClient).AnyTimes()
+		}
+
+		updateCDIConfig := func() {
+			config, err := cdiClient.CdiV1beta1().CDIConfigs().Get(context.Background(), configName, k8smetav1.GetOptions{})
+			Expect(err).To(BeNil())
+			config.Status.FilesystemOverhead.StorageClass = make(map[string]v1beta1.Percent)
+			config.Status.FilesystemOverhead.StorageClass["fakeSC"] = v1beta1.Percent("0.1")
+			_, err = cdiClient.CdiV1beta1().CDIConfigs().Update(context.Background(), config, k8smetav1.UpdateOptions{})
+			Expect(err).To(BeNil())
+		}
+
 		BeforeEach(func() {
 			pvcCreateCalled.False()
 			coreClient = fake.NewSimpleClientset()
+			cdiConfig := cdiConfigInit()
+			cdiClient = cdifake.NewSimpleClientset(cdiConfig)
 			kubecli.MockKubevirtClientInstance.EXPECT().CoreV1().Return(coreClient.CoreV1()).AnyTimes()
 		})
 
@@ -675,6 +708,13 @@ var _ = Describe("VirtualMachine", func() {
 
 				if storageclass != "" {
 					Expect(*pvc.Spec.StorageClassName).To(Equal(storageclass))
+					// 392Mi = (256Mi(vmi memory size) + 100Mi (memory dump overhead)) * 10%fsoverhead for fake storage class rounded to MiB
+					quantity, _ := resource.ParseQuantity("376Mi")
+					Expect(pvc.Spec.Resources.Requests[k8sv1.ResourceStorage]).To(Equal(quantity))
+				} else {
+					// 376Mi = (256Mi(vmi memory size) + 100Mi (memory dump overhead)) * 5.5%fsoverhead rounded to MiB
+					quantity, _ := resource.ParseQuantity("376Mi")
+					Expect(pvc.Spec.Resources.Requests[k8sv1.ResourceStorage]).To(Equal(quantity))
 				}
 				if accessMode != "" {
 					Expect(pvc.Spec.AccessModes[0]).To(Equal(k8sv1.PersistentVolumeAccessMode(accessMode)))
@@ -768,6 +808,7 @@ var _ = Describe("VirtualMachine", func() {
 		})
 
 		It("should fail call memory dump subresource with readonly access mode", func() {
+			expectGetCDIConfig()
 			expectGetVMNoAssociatedMemoryDump()
 			expectGetVMI()
 			commandAndArgs := []string{"memory-dump", "get", "testvm", claimNameFlag, createClaimFlag, "--access-mode=ReadOnlyMany"}
@@ -778,12 +819,14 @@ var _ = Describe("VirtualMachine", func() {
 		})
 
 		DescribeTable("should create pvc for memory dump and call subresource", func(storageclass, accessMode string) {
+			expectGetCDIConfig()
 			expectGetVMNoAssociatedMemoryDump()
 			expectGetVMI()
 			expectPVCCreate(claimName, storageclass, accessMode)
 			expectVMEndpointMemoryDump("testvm", claimName)
 			commandAndArgs := []string{"memory-dump", "get", "testvm", claimNameFlag, createClaimFlag}
 			if storageclass != "" {
+				updateCDIConfig()
 				commandAndArgs = append(commandAndArgs, fmt.Sprintf("--storage-class=%s", storageclass))
 			}
 			if accessMode != "" {

@@ -45,6 +45,7 @@ import (
 	"github.com/onsi/gomega/ghttp"
 
 	"kubevirt.io/client-go/api"
+	"kubevirt.io/containerized-data-importer-api/pkg/apis/core/v1beta1"
 
 	"kubevirt.io/kubevirt/pkg/util/status"
 
@@ -55,6 +56,7 @@ import (
 	"k8s.io/apimachinery/pkg/util/uuid"
 
 	v1 "kubevirt.io/api/core/v1"
+	cdifake "kubevirt.io/client-go/generated/containerized-data-importer/clientset/versioned/fake"
 	"kubevirt.io/client-go/kubecli"
 
 	"kubevirt.io/kubevirt/pkg/testutils"
@@ -1049,6 +1051,7 @@ var _ = Describe("VirtualMachineInstance Subresources", func() {
 			readOnly    = true
 			testPVCName = "testPVC"
 		)
+		var cdiClient *cdifake.Clientset
 
 		newMemoryDumpBody := func(req *v1.VirtualMachineMemoryDumpRequest) io.ReadCloser {
 			reqJson, _ := json.Marshal(req)
@@ -1080,9 +1083,28 @@ var _ = Describe("VirtualMachineInstance Subresources", func() {
 			return pvc
 		}
 
+		cdiConfigInit := func() (cdiConfig *v1beta1.CDIConfig) {
+			cdiConfig = &v1beta1.CDIConfig{
+				ObjectMeta: k8smetav1.ObjectMeta{
+					Name: configName,
+				},
+				Spec: v1beta1.CDIConfigSpec{
+					UploadProxyURLOverride: nil,
+				},
+				Status: v1beta1.CDIConfigStatus{
+					FilesystemOverhead: &v1beta1.FilesystemOverhead{
+						Global: v1beta1.Percent("0.055"),
+					},
+				},
+			}
+			return
+		}
+
 		BeforeEach(func() {
 			request.PathParameters()["name"] = testVMName
 			request.PathParameters()["namespace"] = k8smetav1.NamespaceDefault
+			cdiConfig := cdiConfigInit()
+			cdiClient = cdifake.NewSimpleClientset(cdiConfig)
 		})
 
 		DescribeTable("With memory dump request", func(memDumpReq *v1.VirtualMachineMemoryDumpRequest, statusCode int, enableGate bool, vmiRunning bool, pvc *k8sv1.PersistentVolumeClaim) {
@@ -1117,6 +1139,9 @@ var _ = Describe("VirtualMachineInstance Subresources", func() {
 					}
 					return true, pvc, nil
 				})
+			}
+			if statusCode == http.StatusAccepted || (pvc != nil && pvc.Spec.Resources.Requests[k8sv1.ResourceStorage] == resource.MustParse("1Gi")) {
+				virtClient.EXPECT().CdiClient().Return(cdiClient).AnyTimes()
 			}
 			vmiClient.EXPECT().Get(vm.Name, &k8smetav1.GetOptions{}).Return(vmi, nil).AnyTimes()
 			vmClient.EXPECT().PatchStatus(vm.Name, types.JSONPatchType, gomock.Any(), gomock.Any()).DoAndReturn(
@@ -1179,6 +1204,9 @@ var _ = Describe("VirtualMachineInstance Subresources", func() {
 				func(name string, patchType types.PatchType, body interface{}, opts *k8smetav1.PatchOptions) (interface{}, interface{}) {
 					return patchedVM, nil
 				}).AnyTimes()
+			if statusCode == http.StatusAccepted {
+				virtClient.EXPECT().CdiClient().Return(cdiClient).AnyTimes()
+			}
 			app.MemoryDumpVMRequestHandler(request, response)
 
 			Expect(response.StatusCode()).To(Equal(statusCode))
