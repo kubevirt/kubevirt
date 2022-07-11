@@ -3,6 +3,8 @@ package storage
 import (
 	"context"
 	"fmt"
+	"kubevirt.io/kubevirt/tests/libstorage"
+	"kubevirt.io/kubevirt/tests/testsuite"
 	"strings"
 	"time"
 
@@ -16,6 +18,7 @@ import (
 	expect "github.com/google/goexpect"
 	admissionregistrationv1 "k8s.io/api/admissionregistration/v1"
 	corev1 "k8s.io/api/core/v1"
+	rbacv1 "k8s.io/api/rbac/v1"
 	"k8s.io/apimachinery/pkg/api/errors"
 	"k8s.io/apimachinery/pkg/api/resource"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
@@ -42,6 +45,9 @@ const (
 
 	newVmName                     = "new-vm"
 	macAddressCloningPatchPattern = `{"op": "replace", "path": "/spec/template/spec/domain/devices/interfaces/0/macAddress", "value": "%s"}`
+
+	onlineSnapshot = true
+	offlineSnaphot = false
 )
 
 var _ = SIGDescribe("[Serial]VirtualMachineRestore Tests", func() {
@@ -54,8 +60,6 @@ var _ = SIGDescribe("[Serial]VirtualMachineRestore Tests", func() {
 	groupName := "kubevirt.io"
 
 	BeforeEach(func() {
-		//changeNameCloningPatch = fmt.Sprintf(`{"op": "replace", "path": "/metadata/name", "value": "%s"}`, newVmName)
-
 		virtClient, err = kubecli.GetKubevirtClient()
 		util.PanicOnError(err)
 	})
@@ -1323,6 +1327,134 @@ var _ = SIGDescribe("[Serial]VirtualMachineRestore Tests", func() {
 				Entry("[test_id:7425] to the same VM", false),
 				Entry("to a new VM", true),
 			)
+
+			Context("with cross namespace clone ability", func() {
+				var sourceDV *cdiv1.DataVolume
+				var cloneRole *rbacv1.Role
+				var cloneRoleBinding *rbacv1.RoleBinding
+
+				BeforeEach(func() {
+					sourceSC, exists := libstorage.GetRWOFileSystemStorageClass()
+					if !exists || sourceSC == snapshotStorageClass {
+						Skip("Two storageclasses required for this test")
+					}
+
+					source := libstorage.NewRandomDataVolumeWithRegistryImportInStorageClass(
+						cd.DataVolumeImportUrlForContainerDisk(cd.ContainerDiskCirros),
+						testsuite.NamespaceTestAlternative,
+						sourceSC,
+						corev1.ReadWriteOnce,
+						corev1.PersistentVolumeFilesystem,
+					)
+					if source.Annotations == nil {
+						source.Annotations = make(map[string]string)
+					}
+					source.Annotations["cdi.kubevirt.io/storage.bind.immediate.requested"] = "true"
+
+					source, err = virtClient.CdiClient().CdiV1beta1().DataVolumes(source.Namespace).Create(context.Background(), source, metav1.CreateOptions{})
+					Expect(err).ToNot(HaveOccurred())
+					sourceDV = source
+					sourceDV = waitDVReady(sourceDV)
+
+					role, roleBinding := libstorage.GoldenImageRBAC(testsuite.NamespaceTestAlternative)
+					role, err = virtClient.RbacV1().Roles(role.Namespace).Create(context.TODO(), role, metav1.CreateOptions{})
+					Expect(err).ToNot(HaveOccurred())
+					cloneRole = role
+					roleBinding, err = virtClient.RbacV1().RoleBindings(roleBinding.Namespace).Create(context.TODO(), roleBinding, metav1.CreateOptions{})
+					Expect(err).ToNot(HaveOccurred())
+					cloneRoleBinding = roleBinding
+				})
+
+				AfterEach(func() {
+					if sourceDV != nil {
+						err := virtClient.CdiClient().CdiV1beta1().DataVolumes(sourceDV.Namespace).Delete(context.TODO(), sourceDV.Name, metav1.DeleteOptions{})
+						Expect(err).ToNot(HaveOccurred())
+					}
+
+					if cloneRole != nil {
+						err := virtClient.RbacV1().Roles(cloneRole.Namespace).Delete(context.TODO(), cloneRole.Name, metav1.DeleteOptions{})
+						Expect(err).ToNot(HaveOccurred())
+					}
+					if cloneRoleBinding != nil {
+						err = virtClient.RbacV1().RoleBindings(cloneRoleBinding.Namespace).Delete(context.TODO(), cloneRoleBinding.Name, metav1.DeleteOptions{})
+						Expect(err).ToNot(HaveOccurred())
+					}
+				})
+
+				checkNoCloneAnnotations := func(vm *v1.VirtualMachine, shouldExist bool) {
+					pvcName := ""
+					for _, v := range vm.Spec.Template.Spec.Volumes {
+						if v.DataVolume != nil {
+							Expect(pvcName).Should(Equal(""))
+							pvcName = v.DataVolume.Name
+						} else if v.PersistentVolumeClaim != nil {
+							Expect(pvcName).Should(Equal(""))
+							pvcName = v.PersistentVolumeClaim.ClaimName
+						}
+					}
+					pvc, err := virtClient.CoreV1().PersistentVolumeClaims(vm.Namespace).Get(context.TODO(), pvcName, metav1.GetOptions{})
+					Expect(err).ToNot(HaveOccurred())
+					for _, a := range []string{"k8s.io/CloneRequest", "k8s.io/CloneOf"} {
+						_, ok := pvc.Annotations[a]
+						Expect(ok).Should(Equal(shouldExist))
+					}
+				}
+
+				DescribeTable("should restore a vm that boots from a network cloned datavolumetemplate", func(restoreToNewVM bool) {
+					vm, vmi = createAndStartVM(tests.NewRandomVMWithDataVolumeCloneSourceAndUserData(
+						sourceDV.Namespace,
+						sourceDV.Name,
+						util.NamespaceTestDefault,
+						tests.BashHelloScript,
+						snapshotStorageClass,
+						corev1.ReadWriteOnce,
+					))
+
+					checkNoCloneAnnotations(vm, true)
+					doRestore("", console.LoginToCirros, offlineSnaphot, 1, getTargetVMName(restoreToNewVM))
+					checkNoCloneAnnotations(getTargetVM(restoreToNewVM), false)
+				},
+					Entry("to the same VM", false),
+					Entry("to a new VM", true),
+				)
+
+				DescribeTable("should restore a vm that boots from a network cloned datavolume (not template)", func(restoreToNewVM bool) {
+					vm = tests.NewRandomVMWithDataVolumeCloneSourceAndUserData(
+						sourceDV.Namespace,
+						sourceDV.Name,
+						util.NamespaceTestDefault,
+						tests.BashHelloScript,
+						snapshotStorageClass,
+						corev1.ReadWriteOnce,
+					)
+
+					dvt := &vm.Spec.DataVolumeTemplates[0]
+
+					dv := &cdiv1.DataVolume{}
+					dv.ObjectMeta = *dvt.ObjectMeta.DeepCopy()
+					dv.Spec = *dvt.Spec.DeepCopy()
+
+					vm.Spec.DataVolumeTemplates = nil
+
+					dv, err = virtClient.CdiClient().CdiV1beta1().DataVolumes(vm.Namespace).Create(context.Background(), dv, metav1.CreateOptions{})
+					Expect(err).ToNot(HaveOccurred())
+					dv = waitDVReady(dv)
+					defer func() {
+						err := virtClient.CdiClient().CdiV1beta1().DataVolumes(dv.Namespace).Delete(context.TODO(), dv.Name, metav1.DeleteOptions{})
+						Expect(err).ToNot(HaveOccurred())
+					}()
+
+					vm, vmi = createAndStartVM(vm)
+
+					checkNoCloneAnnotations(vm, true)
+					doRestore("", console.LoginToCirros, offlineSnaphot, 1, getTargetVMName(restoreToNewVM))
+
+					checkNoCloneAnnotations(getTargetVM(restoreToNewVM), false)
+				},
+					Entry("to the same VM", false),
+					Entry("to a new VM", true),
+				)
+			})
 		})
 	})
 })

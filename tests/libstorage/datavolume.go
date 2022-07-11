@@ -23,10 +23,11 @@ import (
 	"context"
 
 	"github.com/onsi/ginkgo/v2"
-
 	v1 "k8s.io/api/core/v1"
+	rbacv1 "k8s.io/api/rbac/v1"
 	"k8s.io/apiextensions-apiserver/pkg/client/clientset/clientset"
 	"k8s.io/apimachinery/pkg/api/resource"
+	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	v12 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/util/rand"
 
@@ -177,4 +178,46 @@ func HasDataVolumeCRD() bool {
 
 func HasCDI() bool {
 	return HasDataVolumeCRD()
+}
+
+func GoldenImageRBAC(namespace string) (*rbacv1.Role, *rbacv1.RoleBinding) {
+	name := "golden-rabc-" + rand.String(12)
+	role := &rbacv1.Role{
+		ObjectMeta: metav1.ObjectMeta{
+			Name:      name,
+			Namespace: namespace,
+		},
+		Rules: []rbacv1.PolicyRule{
+			{
+				APIGroups: []string{
+					"cdi.kubevirt.io",
+				},
+				Resources: []string{
+					"datavolumes/source",
+				},
+				Verbs: []string{
+					"create",
+				},
+			},
+		},
+	}
+	roleBinding := &rbacv1.RoleBinding{
+		ObjectMeta: metav1.ObjectMeta{
+			Name:      name,
+			Namespace: namespace,
+		},
+		Subjects: []rbacv1.Subject{
+			{
+				APIGroup: "rbac.authorization.k8s.io",
+				Kind:     "Group",
+				Name:     "system:authenticated",
+			},
+		},
+		RoleRef: rbacv1.RoleRef{
+			APIGroup: "rbac.authorization.k8s.io",
+			Kind:     "Role",
+			Name:     name,
+		},
+	}
+	return role, roleBinding
 }
