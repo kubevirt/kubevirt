@@ -1873,8 +1873,10 @@ var _ = Describe("[sig-compute]Configurations", func() {
 
 	Context("with a custom scheduler", func() {
 		It("[test_id:4631]should set the custom scheduler on the pod", func() {
-			vmi := tests.NewRandomVMI()
-			vmi.Spec.SchedulerName = "my-custom-scheduler"
+			vmi := libvmi.New(
+				libvmi.WithResourceMemory("32Mi"),
+				WithSchedulerName("my-custom-scheduler"),
+			)
 			runningVMI := tests.RunVMIAndExpectScheduling(vmi, 30)
 			launcherPod := libvmi.GetPodByVirtualMachineInstance(runningVMI, util.NamespaceTestDefault)
 			Expect(launcherPod.Spec.SchedulerName).To(Equal("my-custom-scheduler"))
@@ -3060,5 +3062,11 @@ func overcommitGuestOverhead() libvmi.Option {
 func withMachineType(machineType string) libvmi.Option {
 	return func(vmi *v1.VirtualMachineInstance) {
 		vmi.Spec.Domain.Machine = &v1.Machine{Type: machineType}
+	}
+}
+
+func WithSchedulerName(schedulerName string) libvmi.Option {
+	return func(vmi *v1.VirtualMachineInstance) {
+		vmi.Spec.SchedulerName = schedulerName
 	}
 }
