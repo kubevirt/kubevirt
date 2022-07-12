@@ -135,7 +135,7 @@ This adds new labels to the group of tests written in the test files mentioned b
 This eliminates the dependency on the use of random keywords matchers.
 --label-filter is then used with gingko params in automation/test.sh, to indicate all test lanes that require these tests.
 
-**Note**: For these tests to pass, the TARGET must have atleast one node on the cluster that contains an Nvidia GPU. For mediated devices tests, requirement is of an Nvidia GPU + mediated device.
+**Note**: For these tests to pass, the TARGET must have at least one node on the cluster that contains an Nvidia GPU. For mediated devices tests, requirement is of an Nvidia GPU + mediated device.
 
 **RUNNING TESTS** : There are two ways to run the tests. Using:
 1. `automation/test.sh` : This changes apply to this mode of running test.
