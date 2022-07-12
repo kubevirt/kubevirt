@@ -72,8 +72,6 @@ import (
 	"kubevirt.io/kubevirt/tests/watcher"
 )
 
-type VMICreationFuncWithEFI func() *v1.VirtualMachineInstance
-
 var _ = Describe("[sig-compute]Configurations", func() {
 
 	var err error
@@ -229,6 +227,18 @@ var _ = Describe("[sig-compute]Configurations", func() {
 	})
 
 	Describe("VirtualMachineInstance definition", func() {
+		fedoraWithUefiSecuredBoot := libvmi.NewFedora(
+			libvmi.WithResourceMemory("1Gi"),
+			libvmi.WithUefi(true),
+			libvmi.WithInterface(libvmi.InterfaceDeviceWithMasqueradeBinding()),
+			libvmi.WithNetwork(v1.DefaultPodNetwork()),
+		)
+		alpineWithUefiWithoutSecureBoot := libvmi.NewAlpine(
+			libvmi.WithResourceMemory("1Gi"),
+			libvmi.WithUefi(false),
+			libvmi.WithInterface(libvmi.InterfaceDeviceWithMasqueradeBinding()),
+			libvmi.WithNetwork(v1.DefaultPodNetwork()),
+		)
 		Context("[Serial][rfe_id:2065][crit:medium][vendor:cnv-qe@redhat.com][level:component]with 3 CPU cores", func() {
 			var availableNumberOfCPUs int
 			var vmi *v1.VirtualMachineInstance
@@ -558,8 +568,7 @@ var _ = Describe("[sig-compute]Configurations", func() {
 			})
 		})
 
-		DescribeTable("[rfe_id:2262][crit:medium][vendor:cnv-qe@redhat.com][level:component]with EFI bootloader method", func(vmiNew VMICreationFuncWithEFI, loginTo console.LoginToFunction, msg string, fileName string) {
-			vmi := vmiNew()
+		DescribeTable("[rfe_id:2262][crit:medium][vendor:cnv-qe@redhat.com][level:component]with EFI bootloader method", func(vmi *v1.VirtualMachineInstance, loginTo console.LoginToFunction, msg string, fileName string) {
 			By("Starting a VirtualMachineInstance")
 			vmi, err = virtClient.VirtualMachineInstance(util.NamespaceTestDefault).Create(vmi)
 			Expect(err).ToNot(HaveOccurred())
@@ -586,8 +595,8 @@ var _ = Describe("[sig-compute]Configurations", func() {
 				Expect(domXml).To(MatchRegexp(fileName))
 			}
 		},
-			Entry("[Serial][test_id:1668]should use EFI without secure boot", tests.NewRandomVMIWithEFIBootloader, console.LoginToAlpine, "Checking if UEFI is enabled", `OVMF_CODE(\.secboot)?\.fd`),
-			Entry("[Serial][test_id:4437]should enable EFI secure boot", tests.NewRandomVMIWithSecureBoot, console.SecureBootExpecter, "Checking if SecureBoot is enabled in the libvirt XML", `OVMF_CODE\.secboot\.fd`),
+			Entry("[Serial][test_id:1668]should use EFI without secure boot", alpineWithUefiWithoutSecureBoot, console.LoginToAlpine, "Checking if UEFI is enabled", `OVMF_CODE(\.secboot)?\.fd`),
+			Entry("[Serial][test_id:4437]should enable EFI secure boot", fedoraWithUefiSecuredBoot, console.SecureBootExpecter, "Checking if SecureBoot is enabled in the libvirt XML", `OVMF_CODE\.secboot\.fd`),
 		)
 
 		Context("[rfe_id:140][crit:medium][vendor:cnv-qe@redhat.com][level:component]with diverging guest memory from requested memory", func() {

@@ -605,43 +605,6 @@ func NewRandomVMIWithEphemeralDiskAndConfigDriveUserdataHighMemory(containerImag
 	return vmi
 }
 
-func NewRandomVMIWithEFIBootloader() *v1.VirtualMachineInstance {
-	vmi := NewRandomVMIWithEphemeralDiskHighMemory(cd.ContainerDiskFor(cd.ContainerDiskAlpine))
-
-	// EFI needs more memory than other images
-	vmi.Spec.Domain.Resources.Requests[k8sv1.ResourceMemory] = resource.MustParse("1Gi")
-	vmi.Spec.Domain.Firmware = &v1.Firmware{
-		Bootloader: &v1.Bootloader{
-			EFI: &v1.EFI{
-				SecureBoot: NewBool(false),
-			},
-		},
-	}
-
-	return vmi
-
-}
-
-func NewRandomVMIWithSecureBoot() *v1.VirtualMachineInstance {
-	vmi := NewRandomVMIWithEphemeralDiskHighMemory(cd.ContainerDiskFor(cd.ContainerDiskFedoraTestTooling))
-
-	// EFI needs more memory than other images
-	vmi.Spec.Domain.Resources.Requests[k8sv1.ResourceMemory] = resource.MustParse("1Gi")
-	vmi.Spec.Domain.Features = &v1.Features{
-		SMM: &v1.FeatureState{
-			Enabled: NewBool(true),
-		},
-	}
-	vmi.Spec.Domain.Firmware = &v1.Firmware{
-		Bootloader: &v1.Bootloader{
-			EFI: &v1.EFI{}, // SecureBoot should default to true
-		},
-	}
-
-	return vmi
-
-}
-
 func NewRandomMigration(vmiName string, namespace string) *v1.VirtualMachineInstanceMigration {
 	return &v1.VirtualMachineInstanceMigration{
 		TypeMeta: metav1.TypeMeta{
