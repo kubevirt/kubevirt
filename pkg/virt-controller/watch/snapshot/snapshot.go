@@ -90,6 +90,11 @@ func vmSnapshotProgressing(vmSnapshot *snapshotv1.VirtualMachineSnapshot) bool {
 		!vmSnapshotFailed(vmSnapshot) && !vmSnapshotSucceeded(vmSnapshot)
 }
 
+func shouldDeleteContent(vmSnapshot *snapshotv1.VirtualMachineSnapshot) bool {
+	return vmSnapshot.Spec.DeletionPolicy == nil ||
+		*vmSnapshot.Spec.DeletionPolicy == snapshotv1.VirtualMachineSnapshotContentDelete
+}
+
 func vmSnapshotDeadlineExceeded(vmSnapshot *snapshotv1.VirtualMachineSnapshot) bool {
 	if vmSnapshotFailed(vmSnapshot) {
 		return true
@@ -179,8 +184,7 @@ func (ctrl *VMSnapshotController) updateVMSnapshot(vmSnapshot *snapshotv1.Virtua
 			}
 		}
 
-		if vmSnapshot.Spec.DeletionPolicy == nil ||
-			*vmSnapshot.Spec.DeletionPolicy == snapshotv1.VirtualMachineSnapshotContentDelete {
+		if shouldDeleteContent(vmSnapshot) {
 			log.Log.V(2).Infof("Deleting vmsnapshotcontent %s/%s", content.Namespace, content.Name)
 
 			err = ctrl.Client.VirtualMachineSnapshotContent(vmSnapshot.Namespace).Delete(context.Background(), content.Name, metav1.DeleteOptions{})
@@ -214,7 +218,7 @@ func (ctrl *VMSnapshotController) updateVMSnapshotContent(content *snapshotv1.Vi
 	if err != nil || vmSnapshot == nil {
 		return 0, err
 	}
-	if vmSnapshotDeadlineExceeded(vmSnapshot) {
+	if vmSnapshotDeadlineExceeded(vmSnapshot) || (vmSnapshot.DeletionTimestamp != nil && shouldDeleteContent(vmSnapshot)) {
 		return 0, nil
 	}
 
@@ -245,6 +249,12 @@ func (ctrl *VMSnapshotController) updateVMSnapshotContent(content *snapshotv1.Vi
 					vsName,
 				)
 				deletedSnapshots = append(deletedSnapshots, vsName)
+				continue
+			}
+
+			if vmSnapshot.DeletionTimestamp != nil {
+				log.Log.V(3).Infof("Not creating snapshot %s because vm snapshot is deleted", vsName)
+				skippedSnapshots = append(skippedSnapshots, vsName)
 				continue
 			}
 
@@ -316,7 +326,11 @@ func (ctrl *VMSnapshotController) updateVMSnapshotContent(content *snapshotv1.Vi
 		errorMessage = fmt.Sprintf("VolumeSnapshots (%s) missing", strings.Join(deletedSnapshots, ","))
 	} else if len(skippedSnapshots) > 0 {
 		ready = false
-		errorMessage = fmt.Sprintf("VolumeSnapshots (%s) skipped because in error state", strings.Join(skippedSnapshots, ","))
+		if vmSnapshot.DeletionTimestamp != nil {
+			errorMessage = fmt.Sprintf("VolumeSnapshots (%s) skipped because vm snapshot is deleted", strings.Join(skippedSnapshots, ","))
+		} else {
+			errorMessage = fmt.Sprintf("VolumeSnapshots (%s) skipped because in error state", strings.Join(skippedSnapshots, ","))
+		}
 	} else {
 		for _, vss := range volumeSnapshotStatus {
 			if vss.ReadyToUse == nil || !*vss.ReadyToUse {
