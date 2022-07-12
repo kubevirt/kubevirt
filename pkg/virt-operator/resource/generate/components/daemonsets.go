@@ -12,6 +12,7 @@ import (
 
 	virtv1 "kubevirt.io/api/core/v1"
 
+	"kubevirt.io/kubevirt/pkg/daemons"
 	virtconfig "kubevirt.io/kubevirt/pkg/virt-config"
 	"kubevirt.io/kubevirt/pkg/virt-operator/resource/generate/rbac"
 	operatorutil "kubevirt.io/kubevirt/pkg/virt-operator/util"
@@ -224,6 +225,7 @@ func NewHandlerDaemonSet(namespace string, repository string, imagePrefix string
 		{"kubelet-pods-shortened", kubeletPodsPath, "/pods", nil},
 		{"kubelet-pods", kubeletPodsPath, kubeletPodsPath, &bidi},
 		{"node-labeller", "/var/lib/kubevirt-node-labeller", "/var/lib/kubevirt-node-labeller", nil},
+		{daemons.PrVolumeName, daemons.GetPrHelperSocketDir(), daemons.GetPrHelperSocketDir(), &bidi},
 	}
 
 	for _, volume := range volumes {
@@ -269,6 +271,8 @@ func NewHandlerDaemonSet(namespace string, repository string, imagePrefix string
 			corev1.ResourceMemory: resource.MustParse("230Mi"),
 		},
 	}
+
+	pod.Containers = append(pod.Containers, daemons.RenderPrHelperContainer())
 
 	return daemonset, nil
 

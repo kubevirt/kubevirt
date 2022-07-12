@@ -39,6 +39,7 @@ import (
 	"sync"
 	"time"
 
+	"kubevirt.io/kubevirt/pkg/daemons"
 	"kubevirt.io/kubevirt/pkg/virt-launcher/virtwrap/device/hostdevice/generic"
 	"kubevirt.io/kubevirt/pkg/virt-launcher/virtwrap/device/hostdevice/gpu"
 
@@ -620,7 +621,34 @@ func (l *LibvirtDomainManager) preStartHook(vmi *v1.VirtualMachineInstance, doma
 	// expand disk image files if they're too small
 	expandDiskImagesOffline(vmi, domain)
 
+	if daemons.IsPRHelperNeeded(vmi) {
+		waitSocketToBeMounted(daemons.GetPrHelperSocket())
+	}
 	return domain, err
+}
+
+func waitSocketToBeMounted(socket string) error {
+	c1 := make(chan error, 1)
+	go func() {
+		for {
+			_, err := os.Stat(socket)
+			if err == nil {
+				c1 <- nil
+			}
+			if !os.IsNotExist(err) {
+				c1 <- err
+			}
+			log.Log.V(3).Infof("the socket %s doesn't exist", socket)
+			time.Sleep(1 * time.Second)
+		}
+	}()
+
+	select {
+	case res := <-c1:
+		return res
+	case <-time.After(60 * time.Second):
+		return fmt.Errorf("timeout waiting for socket %s", socket)
+	}
 }
 
 func expandDiskImagesOffline(vmi *v1.VirtualMachineInstance, domain *api.Domain) {

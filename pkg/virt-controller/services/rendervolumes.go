@@ -54,6 +54,7 @@ func (vr *VolumeRenderer) Mounts() []k8sv1.VolumeMount {
 		mountPathWithPropagation(containerDisks, vr.containerDiskDir, k8sv1.MountPropagationHostToContainer),
 		mountPath("libvirt-runtime", "/var/run/libvirt"),
 		mountPath("sockets", filepath.Join(vr.virtShareDir, "sockets")),
+		mountPathWithPropagation("daemons", filepath.Join(vr.virtShareDir, "daemons"), k8sv1.MountPropagationHostToContainer),
 	}
 	return append(volumeMounts, vr.podVolumeMounts...)
 }
@@ -67,6 +68,7 @@ func (vr *VolumeRenderer) Volumes() []k8sv1.Volume {
 		emptyDirVolume("libvirt-runtime"),
 		emptyDirVolume("ephemeral-disks"),
 		emptyDirVolume(containerDisks),
+		emptyDirVolume("daemons"),
 	}
 	return append(volumes, vr.podVolumes...)
 }

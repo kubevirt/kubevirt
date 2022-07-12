@@ -36,6 +36,7 @@ import (
 	hotplugdisk "kubevirt.io/kubevirt/pkg/hotplug-disk"
 	"kubevirt.io/kubevirt/pkg/safepath"
 	"kubevirt.io/kubevirt/pkg/virt-handler/cgroup"
+	"kubevirt.io/kubevirt/pkg/virt-handler/daemons"
 
 	"kubevirt.io/kubevirt/pkg/config"
 
@@ -1905,6 +1906,10 @@ func (d *VirtualMachineController) processVmCleanup(vmi *v1.VirtualMachineInstan
 		return err
 	}
 
+	if err := daemons.UmountDaemonsSocket(vmi); err != nil {
+		return err
+	}
+
 	d.teardownNetwork(vmi)
 
 	d.sriovHotplugExecutorPool.Delete(vmi.UID)
@@ -2654,6 +2659,9 @@ func (d *VirtualMachineController) vmUpdateHelperDefault(origVMI *v1.VirtualMach
 		err = d.podIsolationDetector.AdjustResources(vmi)
 		if err != nil {
 			return fmt.Errorf("failed to adjust resources: %v", err)
+		}
+		if err := daemons.MountDaemonsSockets(vmi); err != nil {
+			return err
 		}
 	} else if vmi.IsRunning() {
 		if err := d.hotplugSriovInterfaces(vmi); err != nil {

@@ -673,7 +673,7 @@ type BlockIO struct {
 
 type Reservations struct {
 	Managed            string              `xml:"managed,attr,omitempty"`
-	SourceReservations *SourceReservations `xml:"source,attr,omitempty"`
+	SourceReservations *SourceReservations `xml:"source,omitempty"`
 }
 
 type SourceReservations struct {

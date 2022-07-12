@@ -269,7 +269,7 @@ func min(one, two int64) int64 {
 
 func setReservation(disk *api.Disk) {
 	disk.Source.Reservations = &api.Reservations{
-		Managed: "yes",
+		Managed: "no",
 		SourceReservations: &api.SourceReservations{
 			Type: "unix",
 			Path: daemons.GetPrHelperSocket(),
