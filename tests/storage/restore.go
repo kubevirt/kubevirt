@@ -823,6 +823,15 @@ var _ = SIGDescribe("VirtualMachineRestore Tests", func() {
 				startVMAfterRestore(targetVMName, device, login)
 			}
 
+			orphanDataVolumeTemplate := func(vm *v1.VirtualMachine, index int) *cdiv1.DataVolume {
+				dvt := &vm.Spec.DataVolumeTemplates[index]
+				dv := &cdiv1.DataVolume{}
+				dv.ObjectMeta = *dvt.ObjectMeta.DeepCopy()
+				dv.Spec = *dvt.Spec.DeepCopy()
+				vm.Spec.DataVolumeTemplates = append(vm.Spec.DataVolumeTemplates[:index], vm.Spec.DataVolumeTemplates[index+1:]...)
+				return dv
+			}
+
 			It("[test_id:5259]should restore a vm multiple from the same snapshot", func() {
 				vm, vmi = createAndStartVM(tests.NewRandomVMWithDataVolumeAndUserDataInStorageClass(
 					cd.DataVolumeImportUrlForContainerDisk(cd.ContainerDiskCirros),
@@ -926,15 +935,8 @@ var _ = SIGDescribe("VirtualMachineRestore Tests", func() {
 					bashHelloScript,
 					snapshotStorageClass,
 				)
-
-				dvt := &vm.Spec.DataVolumeTemplates[0]
-
-				dv := &cdiv1.DataVolume{}
-				dv.ObjectMeta = *dvt.ObjectMeta.DeepCopy()
-				dv.Spec = *dvt.Spec.DeepCopy()
-
+				dv := orphanDataVolumeTemplate(vm, 0)
 				originalPVCName := dv.Name
-				vm.Spec.DataVolumeTemplates = nil
 
 				dv, err = virtClient.CdiClient().CdiV1beta1().DataVolumes(vm.Namespace).Create(context.Background(), dv, metav1.CreateOptions{})
 				Expect(err).ToNot(HaveOccurred())
@@ -1594,14 +1596,7 @@ var _ = SIGDescribe("VirtualMachineRestore Tests", func() {
 
 				DescribeTable("should restore a vm that boots from a network cloned datavolume (not template)", func(restoreToNewVM bool) {
 					vm = createVMFromSource()
-
-					dvt := &vm.Spec.DataVolumeTemplates[0]
-
-					dv := &cdiv1.DataVolume{}
-					dv.ObjectMeta = *dvt.ObjectMeta.DeepCopy()
-					dv.Spec = *dvt.Spec.DeepCopy()
-
-					vm.Spec.DataVolumeTemplates = nil
+					dv := orphanDataVolumeTemplate(vm, 0)
 
 					dv, err = virtClient.CdiClient().CdiV1beta1().DataVolumes(vm.Namespace).Create(context.Background(), dv, metav1.CreateOptions{})
 					Expect(err).ToNot(HaveOccurred())

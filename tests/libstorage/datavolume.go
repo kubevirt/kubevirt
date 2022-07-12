@@ -188,7 +188,7 @@ func HasCDI() bool {
 }
 
 func GoldenImageRBAC(namespace string) (*rbacv1.Role, *rbacv1.RoleBinding) {
-	name := "golden-rabc-" + rand.String(12)
+	name := "golden-rbac-" + rand.String(12)
 	role := &rbacv1.Role{
 		ObjectMeta: v12.ObjectMeta{
 			Name:      name,
