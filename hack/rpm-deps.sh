@@ -137,6 +137,10 @@ exportserver_base="
   tar
 "
 
+pr_helper="
+  qemu-kvm-common
+"
+
 if [ -z "${SINGLE_ARCH}" ] || [ "${SINGLE_ARCH}" == "x86_64" ]; then
 
     bazel run \
@@ -229,6 +233,15 @@ if [ -z "${SINGLE_ARCH}" ] || [ "${SINGLE_ARCH}" == "x86_64" ]; then
         $centos_base \
         $centos_extra \
         $exportserver_base
+
+    bazel run \
+        --config=${ARCHITECTURE} \
+        //:bazeldnf -- rpmtree \
+        --public --nobest \
+        --name pr-helper \
+        --basesystem centos-stream-release \
+        ${bazeldnf_repos} \
+        $pr_helper
 
     # remove all RPMs which are no longer referenced by a rpmtree
     bazel run \
