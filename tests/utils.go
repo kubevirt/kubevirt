@@ -2235,7 +2235,7 @@ func NewRandomVMWithEphemeralDisk(containerImage string) *v1.VirtualMachine {
 	return vm
 }
 
-func addDataVolumeTemplate(vm *v1.VirtualMachine, dataVolume *cdiv1.DataVolume) {
+func AddDataVolumeTemplate(vm *v1.VirtualMachine, dataVolume *cdiv1.DataVolume) {
 	dvt := &v1.DataVolumeTemplateSpec{}
 
 	dvt.Spec = *dataVolume.Spec.DeepCopy()
@@ -2250,7 +2250,7 @@ func NewRandomVMWithDataVolumeWithRegistryImport(imageUrl, namespace, storageCla
 	vmi := NewRandomVMIWithDataVolume(dataVolume.Name)
 	vm := NewRandomVirtualMachine(vmi, false)
 
-	addDataVolumeTemplate(vm, dataVolume)
+	AddDataVolumeTemplate(vm, dataVolume)
 	return vm
 }
 
@@ -2262,7 +2262,7 @@ func NewRandomVMWithDataVolumeCloneSourceAndUserData(sourceNamespace, sourceName
 	AddUserData(vmi, "cloud-init", userData)
 	vm := NewRandomVirtualMachine(vmi, false)
 
-	addDataVolumeTemplate(vm, dataVolume)
+	AddDataVolumeTemplate(vm, dataVolume)
 	return vm
 }
 
@@ -2271,7 +2271,7 @@ func NewRandomVMWithDataVolume(imageUrl string, namespace string) *v1.VirtualMac
 	vmi := NewRandomVMIWithDataVolume(dataVolume.Name)
 	vm := NewRandomVirtualMachine(vmi, false)
 
-	addDataVolumeTemplate(vm, dataVolume)
+	AddDataVolumeTemplate(vm, dataVolume)
 	return vm
 }
 
@@ -2280,7 +2280,7 @@ func NewRandomVMWithDataVolumeAndUserData(dataVolume *cdiv1.DataVolume, userData
 	AddUserData(vmi, "cloud-init", userData)
 	vm := NewRandomVirtualMachine(vmi, false)
 
-	addDataVolumeTemplate(vm, dataVolume)
+	AddDataVolumeTemplate(vm, dataVolume)
 	return vm
 }
 
@@ -2295,7 +2295,7 @@ func NewRandomVMWithCloneDataVolume(sourceNamespace, sourceName, targetNamespace
 	vmi.Namespace = targetNamespace
 	vm := NewRandomVirtualMachine(vmi, false)
 
-	addDataVolumeTemplate(vm, dataVolume)
+	AddDataVolumeTemplate(vm, dataVolume)
 	return vm
 }
 
@@ -5583,4 +5583,12 @@ func GoldenImageRBAC(namespace string) (*rbacv1.Role, *rbacv1.RoleBinding) {
 		},
 	}
 	return role, roleBinding
+}
+
+func SetDataVolumePVCStorageClass(dv *cdiv1.DataVolume, storageClass string) {
+	dv.Spec.PVC.StorageClassName = &storageClass
+}
+
+func SetDataVolumePVCSize(dv *cdiv1.DataVolume, size string) {
+	dv.Spec.PVC.Resources.Requests[k8sv1.ResourceStorage] = resource.MustParse(size)
 }

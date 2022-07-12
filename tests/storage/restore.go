@@ -27,6 +27,7 @@ import (
 	snapshotv1 "kubevirt.io/api/snapshot/v1alpha1"
 	"kubevirt.io/client-go/kubecli"
 	cdiv1 "kubevirt.io/containerized-data-importer-api/pkg/apis/core/v1beta1"
+
 	typesutil "kubevirt.io/kubevirt/pkg/util/types"
 	"kubevirt.io/kubevirt/tests"
 	"kubevirt.io/kubevirt/tests/console"
@@ -1158,15 +1159,24 @@ var _ = SIGDescribe("[Serial]VirtualMachineRestore Tests", func() {
 					}
 				}
 
-				It("should restore a vm that boots from a network cloned datavolumetemplate to the same VM", func() {
-					vm, vmi = createAndStartVM(tests.NewRandomVMWithDataVolumeCloneSourceAndUserData(
+				createVMFromSource := func() *v1.VirtualMachine {
+					dataVolume := tests.NewRandomDataVolumeWithPVCSource(
 						sourceDV.Namespace,
 						sourceDV.Name,
 						util.NamespaceTestDefault,
-						tests.BashHelloScript,
-						snapshotStorageClass,
 						corev1.ReadWriteOnce,
-					))
+					)
+					tests.SetDataVolumePVCStorageClass(dataVolume, snapshotStorageClass)
+					tests.SetDataVolumePVCSize(dataVolume, "6Gi")
+					vmi := tests.NewRandomVMIWithDataVolume(dataVolume.Name)
+					tests.AddUserData(vmi, "cloud-init", tests.BashHelloScript)
+					vm := tests.NewRandomVirtualMachine(vmi, false)
+					tests.AddDataVolumeTemplate(vm, dataVolume)
+					return vm
+				}
+
+				It("should restore a vm that boots from a network cloned datavolumetemplate to the same VM", func() {
+					vm, vmi = createAndStartVM(createVMFromSource())
 
 					checkCloneAnnotations(vm, true)
 					doRestore("", console.LoginToCirros, offlineSnaphot, 1)
@@ -1174,14 +1184,7 @@ var _ = SIGDescribe("[Serial]VirtualMachineRestore Tests", func() {
 				})
 
 				It("should restore a vm that boots from a network cloned datavolume (not template) to the same VM", func() {
-					vm = tests.NewRandomVMWithDataVolumeCloneSourceAndUserData(
-						sourceDV.Namespace,
-						sourceDV.Name,
-						util.NamespaceTestDefault,
-						tests.BashHelloScript,
-						snapshotStorageClass,
-						corev1.ReadWriteOnce,
-					)
+					vm = createVMFromSource()
 
 					dvt := &vm.Spec.DataVolumeTemplates[0]
 
