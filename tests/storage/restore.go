@@ -29,6 +29,7 @@ import (
 	snapshotv1 "kubevirt.io/api/snapshot/v1alpha1"
 	"kubevirt.io/client-go/kubecli"
 	cdiv1 "kubevirt.io/containerized-data-importer-api/pkg/apis/core/v1beta1"
+	typesutil "kubevirt.io/kubevirt/pkg/util/types"
 	"kubevirt.io/kubevirt/tests"
 	"kubevirt.io/kubevirt/tests/console"
 	cd "kubevirt.io/kubevirt/tests/containerdisk"
@@ -1381,15 +1382,13 @@ var _ = SIGDescribe("[Serial]VirtualMachineRestore Tests", func() {
 					}
 				})
 
-				checkNoCloneAnnotations := func(vm *v1.VirtualMachine, shouldExist bool) {
+				checkCloneAnnotations := func(vm *v1.VirtualMachine, shouldExist bool) {
 					pvcName := ""
 					for _, v := range vm.Spec.Template.Spec.Volumes {
-						if v.DataVolume != nil {
+						n := typesutil.PVCNameFromVirtVolume(&v)
+						if n != "" {
 							Expect(pvcName).Should(Equal(""))
-							pvcName = v.DataVolume.Name
-						} else if v.PersistentVolumeClaim != nil {
-							Expect(pvcName).Should(Equal(""))
-							pvcName = v.PersistentVolumeClaim.ClaimName
+							pvcName = n
 						}
 					}
 					pvc, err := virtClient.CoreV1().PersistentVolumeClaims(vm.Namespace).Get(context.TODO(), pvcName, metav1.GetOptions{})
@@ -1410,9 +1409,9 @@ var _ = SIGDescribe("[Serial]VirtualMachineRestore Tests", func() {
 						corev1.ReadWriteOnce,
 					))
 
-					checkNoCloneAnnotations(vm, true)
+					checkCloneAnnotations(vm, true)
 					doRestore("", console.LoginToCirros, offlineSnaphot, 1, getTargetVMName(restoreToNewVM))
-					checkNoCloneAnnotations(getTargetVM(restoreToNewVM), false)
+					checkCloneAnnotations(getTargetVM(restoreToNewVM), false)
 				},
 					Entry("to the same VM", false),
 					Entry("to a new VM", true),
@@ -1438,18 +1437,17 @@ var _ = SIGDescribe("[Serial]VirtualMachineRestore Tests", func() {
 
 					dv, err = virtClient.CdiClient().CdiV1beta1().DataVolumes(vm.Namespace).Create(context.Background(), dv, metav1.CreateOptions{})
 					Expect(err).ToNot(HaveOccurred())
-					dv = waitDVReady(dv)
 					defer func() {
 						err := virtClient.CdiClient().CdiV1beta1().DataVolumes(dv.Namespace).Delete(context.TODO(), dv.Name, metav1.DeleteOptions{})
 						Expect(err).ToNot(HaveOccurred())
 					}()
+					dv = waitDVReady(dv)
 
 					vm, vmi = createAndStartVM(vm)
 
-					checkNoCloneAnnotations(vm, true)
+					checkCloneAnnotations(vm, true)
 					doRestore("", console.LoginToCirros, offlineSnaphot, 1, getTargetVMName(restoreToNewVM))
-
-					checkNoCloneAnnotations(getTargetVM(restoreToNewVM), false)
+					checkCloneAnnotations(getTargetVM(restoreToNewVM), false)
 				},
 					Entry("to the same VM", false),
 					Entry("to a new VM", true),
