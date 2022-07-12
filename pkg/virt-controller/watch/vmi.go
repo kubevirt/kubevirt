@@ -905,10 +905,15 @@ func isPodReady(pod *k8sv1.Pod) bool {
 			if containerStatus.State.Running == nil {
 				return false
 			}
-		} else if containerStatus.Name != "istio-proxy" && containerStatus.Ready == false {
+		} else if containerStatus.Name == "istio-proxy" {
 			// When using istio the istio-proxy container will not be ready
 			// until there is a service pointing to this pod.
 			// We need to start the VM anyway
+			if containerStatus.State.Running == nil {
+				return false
+			}
+
+		} else if containerStatus.Ready == false {
 			return false
 		}
 	}
