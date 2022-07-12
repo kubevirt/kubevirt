@@ -29,6 +29,7 @@ import (
 	snapshotv1 "kubevirt.io/api/snapshot/v1alpha1"
 	"kubevirt.io/client-go/kubecli"
 	cdiv1 "kubevirt.io/containerized-data-importer-api/pkg/apis/core/v1beta1"
+
 	typesutil "kubevirt.io/kubevirt/pkg/util/types"
 	"kubevirt.io/kubevirt/tests"
 	"kubevirt.io/kubevirt/tests/console"
@@ -47,7 +48,6 @@ const (
 	newVmName                     = "new-vm"
 	macAddressCloningPatchPattern = `{"op": "replace", "path": "/spec/template/spec/domain/devices/interfaces/0/macAddress", "value": "%s"}`
 
-	onlineSnapshot = true
 	offlineSnaphot = false
 )
 
@@ -1399,15 +1399,24 @@ var _ = SIGDescribe("[Serial]VirtualMachineRestore Tests", func() {
 					}
 				}
 
-				DescribeTable("should restore a vm that boots from a network cloned datavolumetemplate", func(restoreToNewVM bool) {
-					vm, vmi = createAndStartVM(tests.NewRandomVMWithDataVolumeCloneSourceAndUserData(
+				createVMFromSource := func() *v1.VirtualMachine {
+					dataVolume := libstorage.NewRandomDataVolumeWithPVCSource(
 						sourceDV.Namespace,
 						sourceDV.Name,
 						util.NamespaceTestDefault,
-						tests.BashHelloScript,
-						snapshotStorageClass,
 						corev1.ReadWriteOnce,
-					))
+					)
+					libstorage.SetDataVolumePVCStorageClass(dataVolume, snapshotStorageClass)
+					libstorage.SetDataVolumePVCSize(dataVolume, "6Gi")
+					vmi := tests.NewRandomVMIWithDataVolume(dataVolume.Name)
+					tests.AddUserData(vmi, "cloud-init", tests.BashHelloScript)
+					vm := tests.NewRandomVirtualMachine(vmi, false)
+					libstorage.AddDataVolumeTemplate(vm, dataVolume)
+					return vm
+				}
+
+				DescribeTable("should restore a vm that boots from a network cloned datavolumetemplate", func(restoreToNewVM bool) {
+					vm, vmi = createAndStartVM(createVMFromSource())
 
 					checkCloneAnnotations(vm, true)
 					doRestore("", console.LoginToCirros, offlineSnaphot, 1, getTargetVMName(restoreToNewVM))
@@ -1418,14 +1427,7 @@ var _ = SIGDescribe("[Serial]VirtualMachineRestore Tests", func() {
 				)
 
 				DescribeTable("should restore a vm that boots from a network cloned datavolume (not template)", func(restoreToNewVM bool) {
-					vm = tests.NewRandomVMWithDataVolumeCloneSourceAndUserData(
-						sourceDV.Namespace,
-						sourceDV.Name,
-						util.NamespaceTestDefault,
-						tests.BashHelloScript,
-						snapshotStorageClass,
-						corev1.ReadWriteOnce,
-					)
+					vm = createVMFromSource()
 
 					dvt := &vm.Spec.DataVolumeTemplates[0]
 
