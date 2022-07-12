@@ -94,7 +94,7 @@ var _ = SynchronizedBeforeSuite(testsuite.SynchronizedBeforeTestSetup, testsuite
 
 var _ = SynchronizedAfterSuite(testsuite.AfterTestSuitCleanup, testsuite.SynchronizedAfterTestSuiteCleanup)
 
-var _ = AfterEach(func() {
+var _ = AfterEach(OncePerOrdered, func() {
 	tests.TestCleanup()
 })
 

@@ -62,7 +62,7 @@ var _ = Describe("[Serial][sig-compute]Windows VirtualMachineInstance", func() {
 	var virtClient kubecli.KubevirtClient
 	var windowsVMI *v1.VirtualMachineInstance
 
-	BeforeEach(func() {
+	BeforeEach(OncePerOrdered, func() {
 		const OSWindows = "windows"
 		var err error
 		virtClient, err = kubecli.GetKubevirtClient()
@@ -95,7 +95,7 @@ var _ = Describe("[Serial][sig-compute]Windows VirtualMachineInstance", func() {
 		var winrmcliPod *k8sv1.Pod
 		var cli []string
 
-		BeforeEach(func() {
+		BeforeEach(OncePerOrdered, func() {
 			By("Creating winrm-cli pod for the future use")
 			winrmcliPod = &k8sv1.Pod{
 				ObjectMeta: metav1.ObjectMeta{GenerateName: winrmCli},
@@ -116,9 +116,9 @@ var _ = Describe("[Serial][sig-compute]Windows VirtualMachineInstance", func() {
 			Expect(err).ToNot(HaveOccurred())
 		})
 
-		Context("[ref_id:139]VMI is created", func() {
+		Context("[ref_id:139]VMI is created", Ordered, func() {
 
-			BeforeEach(func() {
+			BeforeAll(func() {
 				By("Starting the windows VirtualMachineInstance")
 				var err error
 				windowsVMI, err = virtClient.VirtualMachineInstance(util.NamespaceTestDefault).Create(windowsVMI)
@@ -177,8 +177,8 @@ var _ = Describe("[Serial][sig-compute]Windows VirtualMachineInstance", func() {
 			})
 		})
 
-		Context("VMI with subdomain is created", func() {
-			BeforeEach(func() {
+		Context("VMI with subdomain is created", Ordered, func() {
+			BeforeAll(func() {
 				windowsVMI.Spec.Subdomain = "subdomain"
 
 				By("Starting the windows VirtualMachineInstance with subdomain")
@@ -203,8 +203,8 @@ var _ = Describe("[Serial][sig-compute]Windows VirtualMachineInstance", func() {
 			})
 		})
 
-		Context("with bridge binding", func() {
-			BeforeEach(func() {
+		Context("with bridge binding", Ordered, func() {
+			BeforeAll(func() {
 				By("Starting Windows VirtualMachineInstance with bridge binding")
 				windowsVMI.Spec.Domain.Devices.Interfaces = []v1.Interface{libvmi.InterfaceDeviceWithBridgeBinding(libvmi.DefaultInterfaceName)}
 				var err error
