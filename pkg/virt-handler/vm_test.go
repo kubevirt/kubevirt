@@ -199,6 +199,7 @@ var _ = Describe("VirtualMachineInstance", func() {
 			podIpAddress,
 			shareDir,
 			privateDir,
+			podsDir,
 			vmiSourceInformer,
 			vmiTargetInformer,
 			domainInformer,
