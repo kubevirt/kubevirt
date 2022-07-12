@@ -27,7 +27,6 @@ import (
 	rbacv1 "k8s.io/api/rbac/v1"
 	"k8s.io/apiextensions-apiserver/pkg/client/clientset/clientset"
 	"k8s.io/apimachinery/pkg/api/resource"
-	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	v12 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/util/rand"
 
@@ -161,6 +160,14 @@ func AddDataVolumeTemplate(vm *v13.VirtualMachine, dataVolume *v1beta1.DataVolum
 	vm.Spec.DataVolumeTemplates = append(vm.Spec.DataVolumeTemplates, *dvt)
 }
 
+func SetDataVolumePVCStorageClass(dv *v1beta1.DataVolume, storageClass string) {
+	dv.Spec.PVC.StorageClassName = &storageClass
+}
+
+func SetDataVolumePVCSize(dv *v1beta1.DataVolume, size string) {
+	dv.Spec.PVC.Resources.Requests[v1.ResourceStorage] = resource.MustParse(size)
+}
+
 func HasDataVolumeCRD() bool {
 	virtClient, err := kubecli.GetKubevirtClient()
 	util.PanicOnError(err)
@@ -183,7 +190,7 @@ func HasCDI() bool {
 func GoldenImageRBAC(namespace string) (*rbacv1.Role, *rbacv1.RoleBinding) {
 	name := "golden-rabc-" + rand.String(12)
 	role := &rbacv1.Role{
-		ObjectMeta: metav1.ObjectMeta{
+		ObjectMeta: v12.ObjectMeta{
 			Name:      name,
 			Namespace: namespace,
 		},
@@ -202,7 +209,7 @@ func GoldenImageRBAC(namespace string) (*rbacv1.Role, *rbacv1.RoleBinding) {
 		},
 	}
 	roleBinding := &rbacv1.RoleBinding{
-		ObjectMeta: metav1.ObjectMeta{
+		ObjectMeta: v12.ObjectMeta{
 			Name:      name,
 			Namespace: namespace,
 		},
