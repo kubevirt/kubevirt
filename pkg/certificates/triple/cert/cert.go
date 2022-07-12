@@ -56,7 +56,12 @@ func NewPrivateKey() (*rsa.PrivateKey, error) {
 }
 
 // NewSelfSignedCACert creates a CA certificate
-func NewSelfSignedCACert(cfg Config, key crypto.Signer, duration time.Duration) (*x509.Certificate, error) {
+func NewSelfSignedCACert(cfg Config, key crypto.Signer, duration time.Duration, altNames ...string) (*x509.Certificate, error) {
+	return NewSelfSignedCACertWithAltNames(cfg, key, duration)
+}
+
+// NewSelfSignedCACertWithAltNames creates a CA certificate that allows alternative names
+func NewSelfSignedCACertWithAltNames(cfg Config, key crypto.Signer, duration time.Duration, altNames ...string) (*x509.Certificate, error) {
 	now := time.Now()
 	tmpl := x509.Certificate{
 		SerialNumber: new(big.Int).SetInt64(randomSerialNumber()),
@@ -69,6 +74,7 @@ func NewSelfSignedCACert(cfg Config, key crypto.Signer, duration time.Duration) 
 		KeyUsage:              x509.KeyUsageKeyEncipherment | x509.KeyUsageDigitalSignature | x509.KeyUsageCertSign,
 		BasicConstraintsValid: true,
 		IsCA:                  true,
+		DNSNames:              altNames,
 	}
 
 	certDERBytes, err := x509.CreateCertificate(cryptorand.Reader, &tmpl, &tmpl, key.Public(), key)

@@ -68,6 +68,7 @@ import (
 	"kubevirt.io/kubevirt/pkg/certificates/bootstrap"
 	containerdisk "kubevirt.io/kubevirt/pkg/container-disk"
 	"kubevirt.io/kubevirt/pkg/controller"
+	clusterutil "kubevirt.io/kubevirt/pkg/util/cluster"
 
 	"kubevirt.io/kubevirt/pkg/monitoring/perfscale"
 	vmiprom "kubevirt.io/kubevirt/pkg/monitoring/vmistats" // import for prometheus metrics
@@ -178,17 +179,21 @@ type VirtControllerApp struct {
 
 	workloadUpdateController *workloadupdater.WorkloadUpdateController
 
-	caExportConfigMapInformer cache.SharedIndexInformer
-	exportServiceInformer     cache.SharedIndexInformer
-	exportController          *export.VMExportController
-	snapshotController        *snapshot.VMSnapshotController
-	restoreController         *snapshot.VMRestoreController
-	vmExportInformer          cache.SharedIndexInformer
-	vmSnapshotInformer        cache.SharedIndexInformer
-	vmSnapshotContentInformer cache.SharedIndexInformer
-	vmRestoreInformer         cache.SharedIndexInformer
-	storageClassInformer      cache.SharedIndexInformer
-	allPodInformer            cache.SharedIndexInformer
+	caExportConfigMapInformer    cache.SharedIndexInformer
+	exportRouteConfigMapInformer cache.SharedInformer
+	exportServiceInformer        cache.SharedIndexInformer
+	exportController             *export.VMExportController
+	snapshotController           *snapshot.VMSnapshotController
+	restoreController            *snapshot.VMRestoreController
+	vmExportInformer             cache.SharedIndexInformer
+	routeCache                   cache.Store
+	ingressCache                 cache.Store
+	unmanagedSecretInformer      cache.SharedIndexInformer
+	vmSnapshotInformer           cache.SharedIndexInformer
+	vmSnapshotContentInformer    cache.SharedIndexInformer
+	vmRestoreInformer            cache.SharedIndexInformer
+	storageClassInformer         cache.SharedIndexInformer
+	allPodInformer               cache.SharedIndexInformer
 
 	crdInformer cache.SharedIndexInformer
 
@@ -359,6 +364,8 @@ func Execute() {
 	app.vmRestoreInformer = app.informerFactory.VirtualMachineRestore()
 	app.storageClassInformer = app.informerFactory.StorageClass()
 	app.caExportConfigMapInformer = app.informerFactory.KubeVirtExportCAConfigMap()
+	app.exportRouteConfigMapInformer = app.informerFactory.ExportRouteConfigMap()
+	app.unmanagedSecretInformer = app.informerFactory.UnmanagedSecrets()
 	app.allPodInformer = app.informerFactory.Pod()
 	app.exportServiceInformer = app.informerFactory.ExportService()
 
@@ -377,6 +384,18 @@ func Execute() {
 		log.Log.Infof("CDI not detected, DataVolume integration disabled")
 	}
 
+	onOpenShift, err := clusterutil.IsOnOpenShift(app.clientSet)
+	if err != nil {
+		golog.Fatalf("Error determining cluster type: %v", err)
+	}
+	if onOpenShift {
+		log.Log.Info("we are on openshift")
+		app.routeCache = app.informerFactory.OperatorRoute().GetStore()
+	} else {
+		log.Log.Info("we are on kubernetes")
+		app.routeCache = app.informerFactory.DummyOperatorRoute().GetStore()
+	}
+	app.ingressCache = app.informerFactory.Ingress().GetStore()
 	app.migrationPolicyInformer = app.informerFactory.MigrationPolicy()
 
 	app.vmCloneInformer = app.informerFactory.VirtualMachineClone()
@@ -676,17 +695,21 @@ func (vca *VirtControllerApp) initRestoreController() {
 func (vca *VirtControllerApp) initExportController() {
 	recorder := vca.newRecorder(k8sv1.NamespaceAll, "export-controller")
 	vca.exportController = &export.VMExportController{
-		TemplateService:    vca.templateService,
-		Client:             vca.clientSet,
-		VMExportInformer:   vca.vmExportInformer,
-		PVCInformer:        vca.persistentVolumeClaimInformer,
-		PodInformer:        vca.allPodInformer,
-		DataVolumeInformer: vca.dataVolumeInformer,
-		ServiceInformer:    vca.exportServiceInformer,
-		Recorder:           recorder,
-		ResyncPeriod:       vca.snapshotControllerResyncPeriod,
-		ConfigMapInformer:  vca.caExportConfigMapInformer,
-		KubevirtNamespace:  vca.kubevirtNamespace,
+		TemplateService:        vca.templateService,
+		Client:                 vca.clientSet,
+		VMExportInformer:       vca.vmExportInformer,
+		PVCInformer:            vca.persistentVolumeClaimInformer,
+		PodInformer:            vca.allPodInformer,
+		DataVolumeInformer:     vca.dataVolumeInformer,
+		ServiceInformer:        vca.exportServiceInformer,
+		Recorder:               recorder,
+		ResyncPeriod:           vca.snapshotControllerResyncPeriod,
+		ConfigMapInformer:      vca.caExportConfigMapInformer,
+		IngressCache:           vca.ingressCache,
+		RouteCache:             vca.routeCache,
+		KubevirtNamespace:      vca.kubevirtNamespace,
+		RouteConfigMapInformer: vca.exportRouteConfigMapInformer,
+		SecretInformer:         vca.unmanagedSecretInformer,
 	}
 	vca.exportController.Init()
 }

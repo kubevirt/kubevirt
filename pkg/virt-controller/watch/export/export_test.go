@@ -21,19 +21,23 @@ package export
 import (
 	"context"
 	"crypto/tls"
+	"encoding/pem"
 	"fmt"
 	"io/ioutil"
 	"os"
 	"path/filepath"
+	"strings"
 	"time"
 
 	"github.com/golang/mock/gomock"
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
+	routev1 "github.com/openshift/api/route/v1"
 	"k8s.io/apimachinery/pkg/api/errors"
 	"k8s.io/apimachinery/pkg/runtime/schema"
 
 	k8sv1 "k8s.io/api/core/v1"
+	networkingv1 "k8s.io/api/networking/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/runtime"
 	k8sfake "k8s.io/client-go/kubernetes/fake"
@@ -54,6 +58,8 @@ import (
 	"kubevirt.io/kubevirt/pkg/testutils"
 	"kubevirt.io/kubevirt/pkg/virt-controller/services"
 	"kubevirt.io/kubevirt/pkg/virt-operator/resource/generate/components"
+
+	certutil "kubevirt.io/kubevirt/pkg/certificates/triple/cert"
 )
 
 const (
@@ -77,6 +83,8 @@ var _ = Describe("Export controlleer", func() {
 		dvInformer       cache.SharedIndexInformer
 		k8sClient        *k8sfake.Clientset
 		vmExportClient   *kubevirtfake.Clientset
+		routeCache       cache.Store
+		ingressCache     cache.Store
 		certDir          string
 		certFilePath     string
 		keyFilePath      string
@@ -97,6 +105,11 @@ var _ = Describe("Export controlleer", func() {
 		serviceInformer, _ = testutils.NewFakeInformerFor(&k8sv1.Service{})
 		vmExportInformer, _ = testutils.NewFakeInformerFor(&exportv1.VirtualMachineExport{})
 		dvInformer, _ = testutils.NewFakeInformerFor(&cdiv1.DataVolume{})
+		routeInformer, _ := testutils.NewFakeInformerFor(&routev1.Route{})
+		routeCache = routeInformer.GetStore()
+		ingressInformer, _ := testutils.NewFakeInformerFor(&networkingv1.Ingress{})
+		ingressCache = ingressInformer.GetStore()
+		secretInformer, _ := testutils.NewFakeInformerFor(&k8sv1.Secret{})
 
 		config, _, _ := testutils.NewFakeClusterConfigUsingKVConfig(&virtv1.KubeVirtConfiguration{})
 		k8sClient = k8sfake.NewSimpleClientset()
@@ -108,17 +121,21 @@ var _ = Describe("Export controlleer", func() {
 			Return(vmExportClient.ExportV1alpha1().VirtualMachineExports(testNamespace)).AnyTimes()
 
 		controller = &VMExportController{
-			Client:             virtClient,
-			Recorder:           recorder,
-			PVCInformer:        pvcInformer,
-			PodInformer:        podInformer,
-			ConfigMapInformer:  cmInformer,
-			VMExportInformer:   vmExportInformer,
-			ServiceInformer:    serviceInformer,
-			DataVolumeInformer: dvInformer,
-			KubevirtNamespace:  "kubevirt",
-			TemplateService:    services.NewTemplateService("a", 240, "b", "c", "d", "e", "f", "g", pvcInformer.GetStore(), virtClient, config, qemuGid, "h"),
-			caCertManager:      bootstrap.NewFileCertificateManager(certFilePath, keyFilePath),
+			Client:                 virtClient,
+			Recorder:               recorder,
+			PVCInformer:            pvcInformer,
+			PodInformer:            podInformer,
+			ConfigMapInformer:      cmInformer,
+			VMExportInformer:       vmExportInformer,
+			ServiceInformer:        serviceInformer,
+			DataVolumeInformer:     dvInformer,
+			KubevirtNamespace:      "kubevirt",
+			TemplateService:        services.NewTemplateService("a", 240, "b", "c", "d", "e", "f", "g", pvcInformer.GetStore(), virtClient, config, qemuGid, "h"),
+			caCertManager:          bootstrap.NewFileCertificateManager(certFilePath, keyFilePath),
+			RouteCache:             routeCache,
+			IngressCache:           ingressCache,
+			RouteConfigMapInformer: cmInformer,
+			SecretInformer:         secretInformer,
 		}
 		// Wrap our workqueue to have a way to detect when we are done processing updates
 		mockVMExportQueue := testutils.NewMockWorkQueue(controller.vmExportQueue)
@@ -144,6 +161,156 @@ var _ = Describe("Export controlleer", func() {
 		controller.caCertManager.Stop()
 		os.RemoveAll(certDir)
 	})
+
+	generateExpectedCert := func() string {
+		key, err := certutil.NewPrivateKey()
+		Expect(err).ToNot(HaveOccurred())
+
+		config := certutil.Config{
+			CommonName: "blah blah",
+		}
+
+		cert, err := certutil.NewSelfSignedCACertWithAltNames(config, key, time.Hour, "hahaha.wwoo", "*.apps-crc.testing", "fgdgd.dfsgdf")
+		Expect(err).ToNot(HaveOccurred())
+		pemOut := strings.Builder{}
+		pem.Encode(&pemOut, &pem.Block{Type: "CERTIFICATE", Bytes: cert.Raw})
+		return strings.TrimSpace(pemOut.String())
+	}
+
+	var expectedPem = generateExpectedCert()
+
+	generateRouteCert := func() string {
+		key, err := certutil.NewPrivateKey()
+		Expect(err).ToNot(HaveOccurred())
+
+		config := certutil.Config{
+			CommonName: "something else",
+		}
+
+		cert, err := certutil.NewSelfSignedCACert(config, key, time.Hour)
+		Expect(err).ToNot(HaveOccurred())
+		pemOut := strings.Builder{}
+		pem.Encode(&pemOut, &pem.Block{Type: "CERTIFICATE", Bytes: cert.Raw})
+		return strings.TrimSpace(pemOut.String()) + "\n" + expectedPem
+	}
+
+	createRouteConfigMap := func() *k8sv1.ConfigMap {
+		return &k8sv1.ConfigMap{
+			ObjectMeta: metav1.ObjectMeta{
+				Name:      routeCAConfigMapName,
+				Namespace: controller.KubevirtNamespace,
+			},
+			Data: map[string]string{
+				routeCaKey: generateRouteCert(),
+			},
+		}
+	}
+
+	validIngressDefaultBackend := func(serviceName string) *networkingv1.Ingress {
+		return &networkingv1.Ingress{
+			Spec: networkingv1.IngressSpec{
+				DefaultBackend: &networkingv1.IngressBackend{
+					Service: &networkingv1.IngressServiceBackend{
+						Name: serviceName,
+					},
+				},
+				Rules: []networkingv1.IngressRule{
+					{
+						Host: "backend-host",
+					},
+				},
+			},
+		}
+	}
+
+	ingressDefaultBackendNoService := func() *networkingv1.Ingress {
+		return &networkingv1.Ingress{
+			Spec: networkingv1.IngressSpec{
+				DefaultBackend: &networkingv1.IngressBackend{},
+				Rules: []networkingv1.IngressRule{
+					{
+						Host: "backend-host",
+					},
+				},
+			},
+		}
+	}
+
+	validIngressRules := func(serviceName string) *networkingv1.Ingress {
+		return &networkingv1.Ingress{
+			Spec: networkingv1.IngressSpec{
+				Rules: []networkingv1.IngressRule{
+					{
+						IngressRuleValue: networkingv1.IngressRuleValue{
+							HTTP: &networkingv1.HTTPIngressRuleValue{
+								Paths: []networkingv1.HTTPIngressPath{
+									{
+										Backend: networkingv1.IngressBackend{
+											Service: &networkingv1.IngressServiceBackend{
+												Name: serviceName,
+											},
+										},
+									},
+								},
+							},
+						},
+						Host: "rule-host",
+					},
+				},
+			},
+		}
+	}
+
+	ingressRulesNoBackend := func() *networkingv1.Ingress {
+		return &networkingv1.Ingress{
+			Spec: networkingv1.IngressSpec{
+				Rules: []networkingv1.IngressRule{
+					{
+						IngressRuleValue: networkingv1.IngressRuleValue{
+							HTTP: &networkingv1.HTTPIngressRuleValue{
+								Paths: []networkingv1.HTTPIngressPath{
+									{
+										Backend: networkingv1.IngressBackend{},
+									},
+								},
+							},
+						},
+						Host: "rule-host",
+					},
+				},
+			},
+		}
+	}
+
+	routeToHostAndService := func(serviceName string) *routev1.Route {
+		return &routev1.Route{
+			Spec: routev1.RouteSpec{
+				To: routev1.RouteTargetReference{
+					Name: serviceName,
+				},
+			},
+			Status: routev1.RouteStatus{
+				Ingress: []routev1.RouteIngress{
+					{
+						Host: fmt.Sprintf("%s-kubevirt.apps-crc.testing", components.VirtExportProxyServiceName),
+					},
+				},
+			},
+		}
+	}
+
+	routeToHostAndNoIngress := func() *routev1.Route {
+		return &routev1.Route{
+			Spec: routev1.RouteSpec{
+				To: routev1.RouteTargetReference{
+					Name: components.VirtExportProxyServiceName,
+				},
+			},
+			Status: routev1.RouteStatus{
+				Ingress: []routev1.RouteIngress{},
+			},
+		}
+	}
 
 	It("Should create a service based on the name of the VMExport", func() {
 		var service *k8sv1.Service
@@ -340,6 +507,7 @@ var _ = Describe("Export controlleer", func() {
 			Expect(ok).To(BeTrue())
 			Expect(vmExport.Status).ToNot(BeNil())
 			Expect(vmExport.Status.Links).ToNot(BeNil())
+			Expect(vmExport.Status.Links.External).To(BeNil())
 			Expect(vmExport.Status.Links.Internal).NotTo(BeNil())
 			Expect(vmExport.Status.Links.Internal.Cert).NotTo(BeEmpty())
 			Expect(vmExport.Status.Links.Internal.Volumes).To(HaveLen(0))
@@ -373,6 +541,7 @@ var _ = Describe("Export controlleer", func() {
 			Expect(ok).To(BeTrue())
 			Expect(vmExport.Status).ToNot(BeNil())
 			Expect(vmExport.Status.Links).ToNot(BeNil())
+			Expect(vmExport.Status.Links.External).To(BeNil())
 			Expect(vmExport.Status.Links.Internal).NotTo(BeNil())
 			Expect(vmExport.Status.Links.Internal.Cert).NotTo(BeEmpty())
 			Expect(vmExport.Status.Links.Internal.Volumes).To(HaveLen(1))
@@ -406,6 +575,7 @@ var _ = Describe("Export controlleer", func() {
 			},
 		})
 		expectExporterCreate(k8sClient, k8sv1.PodRunning)
+		controller.RouteCache.Add(routeToHostAndService(components.VirtExportProxyServiceName))
 
 		vmExportClient.Fake.PrependReactor("update", "virtualmachineexports", func(action testing.Action) (handled bool, obj runtime.Object, err error) {
 			update, ok := action.(testing.UpdateAction)
@@ -424,6 +594,17 @@ var _ = Describe("Export controlleer", func() {
 			}, exportv1.VirtualMachineExportVolumeFormat{
 				Format: exportv1.KubeVirtGz,
 				Url:    fmt.Sprintf("https://%s.%s.svc/volumes/%s/disk.img.gz", fmt.Sprintf("%s-%s", exportPrefix, testVMExport.Name), testNamespace, testVMExport.Spec.Source.Name),
+			}))
+			Expect(vmExport.Status.Links.External).ToNot(BeNil())
+			Expect(vmExport.Status.Links.External.Cert).To(BeEmpty())
+			Expect(vmExport.Status.Links.External.Volumes).To(HaveLen(1))
+			Expect(vmExport.Status.Links.External.Volumes[0].Formats).To(HaveLen(2))
+			Expect(vmExport.Status.Links.External.Volumes[0].Formats).To(ContainElements(exportv1.VirtualMachineExportVolumeFormat{
+				Format: exportv1.KubeVirtRaw,
+				Url:    fmt.Sprintf("https://virt-exportproxy-kubevirt.apps-crc.testing/api/export.kubevirt.io/v1alpha1/namespaces/%s/virtualmachineexports/%s/volumes/%s/disk.img", testNamespace, testVMExport.Name, testVMExport.Spec.Source.Name),
+			}, exportv1.VirtualMachineExportVolumeFormat{
+				Format: exportv1.KubeVirtGz,
+				Url:    fmt.Sprintf("https://virt-exportproxy-kubevirt.apps-crc.testing/api/export.kubevirt.io/v1alpha1/namespaces/%s/virtualmachineexports/%s/volumes/%s/disk.img.gz", testNamespace, testVMExport.Name, testVMExport.Spec.Source.Name),
 			}))
 			return true, vmExport, nil
 		})
@@ -523,6 +704,38 @@ var _ = Describe("Export controlleer", func() {
 		Entry("PVC claim lost", k8sv1.ClaimLost, k8sv1.ConditionFalse, unknownReason),
 		Entry("PVC pending", k8sv1.ClaimPending, k8sv1.ConditionFalse, pvcPendingReason),
 	)
+
+	DescribeTable("should find host when Ingress is defined", func(ingress *networkingv1.Ingress, hostname string) {
+		controller.IngressCache.Add(ingress)
+		host, _ := controller.getExternalLinkHostAndCert()
+		Expect(hostname).To(Equal(host))
+	},
+		Entry("ingress with default backend host", validIngressDefaultBackend(components.VirtExportProxyServiceName), "backend-host"),
+		Entry("ingress with default backend host different service", validIngressDefaultBackend("other-service"), ""),
+		Entry("ingress with rules host", validIngressRules(components.VirtExportProxyServiceName), "rule-host"),
+		Entry("ingress with rules host different service", validIngressRules("other-service"), ""),
+		Entry("ingress with no default backend service", ingressDefaultBackendNoService(), ""),
+		Entry("ingress with rules no backend service", ingressRulesNoBackend(), ""),
+	)
+
+	DescribeTable("should find host when route is defined", func(route *routev1.Route, hostname, expectedCert string) {
+		controller.RouteCache.Add(route)
+		controller.RouteConfigMapInformer.GetStore().Add(createRouteConfigMap())
+		host, cert := controller.getExternalLinkHostAndCert()
+		Expect(hostname).To(Equal(host))
+		Expect(expectedCert).To(Equal(cert))
+	},
+		Entry("route with service and host", routeToHostAndService(components.VirtExportProxyServiceName), "virt-exportproxy-kubevirt.apps-crc.testing", expectedPem),
+		Entry("route with different service and host", routeToHostAndService("other-service"), "", ""),
+		Entry("route with service and no ingress", routeToHostAndNoIngress(), "", ""),
+	)
+
+	It("should pick ingress over route if both exist", func() {
+		controller.IngressCache.Add(validIngressDefaultBackend(components.VirtExportProxyServiceName))
+		controller.RouteCache.Add(routeToHostAndService(components.VirtExportProxyServiceName))
+		host, _ := controller.getExternalLinkHostAndCert()
+		Expect("backend-host").To(Equal(host))
+	})
 })
 
 func writeCertsToDir(dir string) {
@@ -548,7 +761,6 @@ func createVMExport() *exportv1.VirtualMachineExport {
 			TokenSecretRef: "token",
 		},
 	}
-
 }
 
 func expectExporterCreate(k8sClient *k8sfake.Clientset, phase k8sv1.PodPhase) {
