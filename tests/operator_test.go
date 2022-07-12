@@ -1374,6 +1374,9 @@ spec:
 			kv, err = virtClient.KubeVirt(flags.KubeVirtInstallNamespace).Update(kv)
 			Expect(err).ToNot(HaveOccurred())
 
+			By("Waiting for virt-operator to apply changes to component")
+			waitForKvWithTimeout(kv, 120)
+
 			By("Test that patch was applied to DaemonSet")
 			Eventually(fetchVirtHandlerCommand, 60*time.Second, 5*time.Second).Should(ContainSubstring(maxDevicesCommandArgument))
 
@@ -1384,6 +1387,9 @@ spec:
 			kv.Spec.Configuration.VirtualMachineInstancesPerNode = nil
 			kv, err = virtClient.KubeVirt(flags.KubeVirtInstallNamespace).Update(kv)
 			Expect(err).ToNot(HaveOccurred())
+
+			By("Waiting for virt-operator to apply changes to component")
+			waitForKvWithTimeout(kv, 120)
 
 			By("Test that patch was removed from DaemonSet")
 			Eventually(fetchVirtHandlerCommand, 60*time.Second, 5*time.Second).ShouldNot(ContainSubstring(maxDevicesCommandArgument))
