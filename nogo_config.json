@@ -138,6 +138,9 @@
       "external/": "externaldoesn't pass vet",
       "pkg/": "quite some files are big",
       "staging/": "focus on testing for now"
+    },
+    "analyzer_flags": {
+      "exceptions": "tests/utils.go:2776,tests/infra_test.go:1686,tests/migration_test.go:4382,tests/operator_test.go:2990,tests/vm_test.go:2301,tests/vmi_configuration_test.go:3053,tests/vmi_lifecycle_test.go:1900,tests/storage/restore.go:1621"
     }
   }
 }
