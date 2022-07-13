@@ -2477,6 +2477,94 @@ var _ = Describe("VirtualMachineInstance watcher", func() {
 				[]string{SuccessfulCreatePodReason}),
 		)
 
+		It("Should fail to get filesystem overhead if there are multiple CDI instances", func() {
+			cdi := cdiv1.CDI{
+				ObjectMeta: metav1.ObjectMeta{
+					Name: "testCDI1",
+				},
+			}
+			cdi2 := cdiv1.CDI{
+				ObjectMeta: metav1.ObjectMeta{
+					Name: "testCDI2",
+				},
+			}
+			// We add multiple CDI instances to trigger the error
+			cdiInformer.GetIndexer().Add(&cdi)
+			cdiInformer.GetIndexer().Add(&cdi2)
+
+			fsOverhead, err := controller.getFilesystemOverhead(nil)
+			Expect(err).To(HaveOccurred())
+			Expect(err.Error()).To(Equal(multipleCdiInstances.Error()))
+			Expect(fsOverhead).To(Equal(cdiv1.Percent("0")))
+		})
+
+		It("Should fail to get filesystem overhead if there is no CDI available", func() {
+			fsOverhead, err := controller.getFilesystemOverhead(nil)
+			Expect(err).To(HaveOccurred())
+			Expect(err.Error()).To(Equal(failedToFindCdi.Error()))
+			Expect(fsOverhead).To(Equal(cdiv1.Percent("0")))
+		})
+
+		It("Should fail to get filesystem overhead if there's no valid CDI config available", func() {
+			cdi := cdiv1.CDI{
+				ObjectMeta: metav1.ObjectMeta{
+					Name: "testCDI",
+				},
+			}
+
+			cdiInformer.GetIndexer().Add(&cdi)
+
+			fsOverhead, err := controller.getFilesystemOverhead(nil)
+			Expect(err).To(HaveOccurred())
+			Expect(err.Error()).To(ContainSubstring("Failed to find CDIConfig but CDI exists"))
+			Expect(fsOverhead).To(Equal(cdiv1.Percent("0")))
+		})
+
+		DescribeTable("getFilesystemOverhead", func(volumeMode k8sv1.PersistentVolumeMode, scName string, expectedOverhead cdiv1.Percent) {
+			cdi := cdiv1.CDI{
+				ObjectMeta: metav1.ObjectMeta{
+					Name: "testCDI",
+				},
+			}
+			cfg := cdiv1.CDIConfig{
+				ObjectMeta: metav1.ObjectMeta{
+					Name: "config",
+				},
+				Status: cdiv1.CDIConfigStatus{
+					FilesystemOverhead: &cdiv1.FilesystemOverhead{
+						Global:       cdiv1.Percent("0.5"),
+						StorageClass: map[string]cdiv1.Percent{"default": cdiv1.Percent("0.8")},
+					},
+				},
+			}
+			pvc := &k8sv1.PersistentVolumeClaim{
+				TypeMeta: metav1.TypeMeta{
+					Kind:       "PersistentVolumeClaim",
+					APIVersion: "v1"},
+				ObjectMeta: metav1.ObjectMeta{
+					Namespace: "test",
+					Name:      "test"},
+				Spec: k8sv1.PersistentVolumeClaimSpec{},
+			}
+
+			pvc.Spec.VolumeMode = &volumeMode
+			if scName != "" {
+				pvc.Spec.StorageClassName = &scName
+			}
+
+			cdiInformer.GetIndexer().Add(&cdi)
+			cdiConfigInformer.GetIndexer().Add(&cfg)
+
+			fsOverhead, err := controller.getFilesystemOverhead(pvc)
+			Expect(err).ToNot(HaveOccurred())
+			Expect(fsOverhead).To(Equal(expectedOverhead))
+		},
+			Entry("should not get any fs overhead if the PVC has volumeMode block", k8sv1.PersistentVolumeBlock, "default", cdiv1.Percent("0")),
+			Entry("should return global fs overhead if there's no storageClassName", k8sv1.PersistentVolumeFilesystem, "", cdiv1.Percent("0.5")),
+			Entry("should return global fs overhead if the storageClassName is invalid", k8sv1.PersistentVolumeFilesystem, "nonValid", cdiv1.Percent("0.5")),
+			Entry("should return the appropiate overhead when using a valid storageClassName", k8sv1.PersistentVolumeFilesystem, "default", cdiv1.Percent("0.8")),
+		)
+
 		It("Should properly create attachmentpod, if correct volume and disk are added", func() {
 			vmi := NewPendingVirtualMachine("testvmi")
 			setReadyCondition(vmi, k8sv1.ConditionFalse, virtv1.PodConditionMissingReason)
