@@ -68,6 +68,7 @@ import (
 
 	v1 "kubevirt.io/api/core/v1"
 	"kubevirt.io/client-go/kubecli"
+
 	clusterutil "kubevirt.io/kubevirt/pkg/util/cluster"
 	"kubevirt.io/kubevirt/pkg/virt-controller/leaderelectionconfig"
 	nodelabellerutil "kubevirt.io/kubevirt/pkg/virt-handler/node-labeller/util"
@@ -422,7 +423,7 @@ var _ = Describe("[Serial][sig-compute]Infrastructure", func() {
 				By("finding all kubevirt pods")
 				pods, err := virtClient.CoreV1().Pods(flags.KubeVirtInstallNamespace).List(context.Background(), metav1.ListOptions{})
 				Expect(err).ShouldNot(HaveOccurred(), "failed listing kubevirt pods")
-				Expect(len(pods.Items)).To(BeNumerically(">", 0), "no kubevirt pods found")
+				Expect(pods.Items).ToNot(BeEmpty(), "no kubevirt pods found")
 
 				By("finding all schedulable nodes")
 				schedulableNodesList := libnode.GetAllSchedulableNodes(virtClient)

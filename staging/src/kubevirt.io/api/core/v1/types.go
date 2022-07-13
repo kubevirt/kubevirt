@@ -2321,6 +2321,13 @@ type FlavorMatcher struct {
 	//
 	// +optional
 	Kind string `json:"kind,omitempty"`
+
+	// RevisionName specifies a ControllerRevision containing a specific copy of the
+	// VirtualMachineFlavor or VirtualMachineClusterFlavor to be used. This is initially
+	// captured the first time the flavor is applied to the VirtualMachineInstance.
+	//
+	// +optional
+	RevisionName string `json:"revisionName,omitempty"`
 }
 
 // PreferenceMatcher references a set of preference that is used to fill fields in the VMI template.
@@ -2334,4 +2341,11 @@ type PreferenceMatcher struct {
 	//
 	// +optional
 	Kind string `json:"kind,omitempty"`
+
+	// RevisionName specifies a ControllerRevision containing a specific copy of the
+	// VirtualMachinePreference or VirtualMachineClusterPreference to be used. This is
+	// initially captured the first time the flavor is applied to the VirtualMachineInstance.
+	//
+	// +optional
+	RevisionName string `json:"revisionName,omitempty"`
 }

@@ -30,6 +30,7 @@ import (
 	"k8s.io/apimachinery/pkg/runtime/serializer"
 
 	kvv1 "kubevirt.io/api/core/v1"
+
 	"kubevirt.io/kubevirt/tools/perfscale-load-generator/config"
 )
 

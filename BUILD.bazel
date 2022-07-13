@@ -40,7 +40,7 @@ goimports(
         "./.git/*",
         "./_ci-configs/*",
     ],
-    local = ["kubevirt.io"],
+    local = ["kubevirt.io/kubevirt"],
     prefix = "kubevirt.io/kubevirt",
     write = True,
 )
@@ -54,6 +54,7 @@ nogo(
     # that are always correct).
     # You can see the what `go vet` does by running `go doc cmd/vet`.
     deps = [
+        "//tools/analyzers/ginkgolinter:go_default_library",
         "//vendor/github.com/gordonklaus/ineffassign/pkg/ineffassign:go_default_library",
         "@org_golang_x_tools//go/analysis/passes/asmdecl:go_default_library",
         "@org_golang_x_tools//go/analysis/passes/assign:go_default_library",
@@ -82,6 +83,7 @@ nogo(
 
 # gazelle:prefix kubevirt.io/kubevirt
 # gazelle:build_tags selinux
+# gazelle:resolve go golang.org/x/tools/go/analysis @org_golang_x_tools//go/analysis:go_default_library
 gazelle(
     name = "gazelle",
     build_tags = ["selinux"],

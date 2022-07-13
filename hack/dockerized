@@ -22,6 +22,8 @@ SYNC_VENDOR=${SYNC_VENDOR:-false}
 
 TEMPFILE=".rsynctemp"
 
+CONTAINER_ENV="--env HTTP_PROXY=${HTTP_PROXY} --env HTTPS_PROXY=${HTTP_PROXY} --env NO_PROXY=${NO_PROXY}"
+
 # Be less verbose with bazel
 # For ppc64le the bazel server seems to be running out of memory in the Travis CI, so forcing no concurrent jobs to be run
 if [ -n "${TRAVIS_JOB_ID}" ]; then
@@ -40,11 +42,11 @@ if [ -z "$($KUBEVIRT_CRI volume list | grep ${BUILDER})" ]; then
 fi
 
 # Make sure that the output directory exists on both sides
-$KUBEVIRT_CRI run -v "${BUILDER}:/root:rw,z" --security-opt "label=disable" --rm ${KUBEVIRT_BUILDER_IMAGE} mkdir -p /root/go/src/kubevirt.io/kubevirt/_out
+$KUBEVIRT_CRI run ${CONTAINER_ENV} -v "${BUILDER}:/root:rw,z" --security-opt "label=disable" --rm ${KUBEVIRT_BUILDER_IMAGE} mkdir -p /root/go/src/kubevirt.io/kubevirt/_out
 mkdir -p ${OUT_DIR}
 
 # Start an rsyncd instance and make sure it gets stopped after the script exits
-RSYNC_CID=$($KUBEVIRT_CRI run -d -v "${BUILDER}:/root:rw,z" --security-opt "label=disable" --expose 873 -P ${KUBEVIRT_BUILDER_IMAGE} /usr/bin/rsync --no-detach --daemon --verbose)
+RSYNC_CID=$($KUBEVIRT_CRI run ${CONTAINER_ENV} -d -v "${BUILDER}:/root:rw,z" --security-opt "label=disable" --expose 873 -P ${KUBEVIRT_BUILDER_IMAGE} /usr/bin/rsync --no-detach --daemon --verbose)
 
 function finish() {
     $KUBEVIRT_CRI stop ${RSYNC_CID} >/dev/null 2>&1 &
@@ -137,17 +139,17 @@ fi
 
 # Ensure that a bazel server is running
 if [ -z "$($KUBEVIRT_CRI ps --format '{{.Names}}' | grep ${BUILDER}-bazel-server)" ]; then
-    $KUBEVIRT_CRI run --ulimit nofile=10000:10000 --network host -d ${volumes} --security-opt "label=disable" --name ${BUILDER}-bazel-server -w "/root/go/src/kubevirt.io/kubevirt" --rm ${KUBEVIRT_BUILDER_IMAGE} hack/bazel-server.sh
+    $KUBEVIRT_CRI run ${CONTAINER_ENV} --ulimit nofile=10000:10000 --network host -d ${volumes} --security-opt "label=disable" --name ${BUILDER}-bazel-server -w "/root/go/src/kubevirt.io/kubevirt" --rm ${KUBEVIRT_BUILDER_IMAGE} hack/bazel-server.sh
 fi
 
 # Update cert trust, if custom is provided
 if [ -n "$DOCKER_CA_CERT_FILE" ] && [ -f "$DOCKER_CA_CERT_FILE" ]; then
-    $KUBEVIRT_CRI exec ${BUILDER}-bazel-server /entrypoint.sh "/usr/bin/update-ca-trust"
+    $KUBEVIRT_CRI exec ${CONTAINER_ENV} ${BUILDER}-bazel-server /entrypoint.sh "/usr/bin/update-ca-trust"
 fi
 
 # Run the command
 test -t 1 && USE_TTY="-it"
-if ! $KUBEVIRT_CRI exec ${USE_TTY} ${BUILDER}-bazel-server /entrypoint.sh "$@"; then
+if ! $KUBEVIRT_CRI exec ${CONTAINER_ENV} ${USE_TTY} ${BUILDER}-bazel-server /entrypoint.sh "$@"; then
     # Copy the build output out of the container, make sure that _out exactly matches the build result
     if [ "$SYNC_OUT" = "true" ]; then
         _rsync --delete "rsync://root@127.0.0.1:${RSYNCD_PORT}/out" ${OUT_DIR}

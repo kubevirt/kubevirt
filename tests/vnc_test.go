@@ -43,6 +43,7 @@ import (
 	"kubevirt.io/client-go/kubecli"
 	"kubevirt.io/client-go/log"
 	"kubevirt.io/client-go/subresources"
+
 	"kubevirt.io/kubevirt/tests"
 )
 

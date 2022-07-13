@@ -6,7 +6,6 @@ package hotplug_volume
 import (
 	gomock "github.com/golang/mock/gomock"
 	types "k8s.io/apimachinery/pkg/types"
-
 	v1 "kubevirt.io/api/core/v1"
 )
 

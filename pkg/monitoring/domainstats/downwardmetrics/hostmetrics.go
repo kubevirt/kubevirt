@@ -7,6 +7,7 @@ import (
 	"github.com/c9s/goprocinfo/linux"
 
 	"kubevirt.io/client-go/log"
+
 	"kubevirt.io/kubevirt/pkg/downwardmetrics/vhostmd/api"
 	metricspkg "kubevirt.io/kubevirt/pkg/downwardmetrics/vhostmd/metrics"
 )

@@ -48,6 +48,7 @@ import (
 	"kubevirt.io/kubevirt/tests/libnode"
 
 	"kubevirt.io/client-go/kubecli"
+
 	"kubevirt.io/kubevirt/tests/util"
 )
 

@@ -82,6 +82,7 @@ import (
 	"kubevirt.io/client-go/kubecli"
 	"kubevirt.io/client-go/log"
 	cdiv1 "kubevirt.io/containerized-data-importer-api/pkg/apis/core/v1beta1"
+
 	kutil "kubevirt.io/kubevirt/pkg/util"
 	virtconfig "kubevirt.io/kubevirt/pkg/virt-config"
 	"kubevirt.io/kubevirt/pkg/virt-controller/services"
@@ -602,43 +603,6 @@ func NewRandomVMIWithEphemeralDiskAndConfigDriveUserdataHighMemory(containerImag
 
 	vmi.Spec.Domain.Resources.Requests[k8sv1.ResourceMemory] = resource.MustParse("512M")
 	return vmi
-}
-
-func NewRandomVMIWithEFIBootloader() *v1.VirtualMachineInstance {
-	vmi := NewRandomVMIWithEphemeralDiskHighMemory(cd.ContainerDiskFor(cd.ContainerDiskAlpine))
-
-	// EFI needs more memory than other images
-	vmi.Spec.Domain.Resources.Requests[k8sv1.ResourceMemory] = resource.MustParse("1Gi")
-	vmi.Spec.Domain.Firmware = &v1.Firmware{
-		Bootloader: &v1.Bootloader{
-			EFI: &v1.EFI{
-				SecureBoot: NewBool(false),
-			},
-		},
-	}
-
-	return vmi
-
-}
-
-func NewRandomVMIWithSecureBoot() *v1.VirtualMachineInstance {
-	vmi := NewRandomVMIWithEphemeralDiskHighMemory(cd.ContainerDiskFor(cd.ContainerDiskFedoraTestTooling))
-
-	// EFI needs more memory than other images
-	vmi.Spec.Domain.Resources.Requests[k8sv1.ResourceMemory] = resource.MustParse("1Gi")
-	vmi.Spec.Domain.Features = &v1.Features{
-		SMM: &v1.FeatureState{
-			Enabled: NewBool(true),
-		},
-	}
-	vmi.Spec.Domain.Firmware = &v1.Firmware{
-		Bootloader: &v1.Bootloader{
-			EFI: &v1.EFI{}, // SecureBoot should default to true
-		},
-	}
-
-	return vmi
-
 }
 
 func NewRandomMigration(vmiName string, namespace string) *v1.VirtualMachineInstanceMigration {
@@ -2168,7 +2132,7 @@ func WaitForConfigToBePropagatedToComponent(podLabel string, resourceVersion str
 		pods, err := virtClient.CoreV1().Pods(flags.KubeVirtInstallNamespace).List(context.Background(), metav1.ListOptions{LabelSelector: podLabel})
 
 		if err != nil {
-			return fmt.Errorf("failed to fetch pods. %s", errComponentInfo)
+			return fmt.Errorf("failed to fetch pods: %v, %s", err, errComponentInfo)
 		}
 		for _, pod := range pods.Items {
 			errAdditionalInfo := errComponentInfo + fmt.Sprintf(", pod: \"%s\"", pod.Name)
@@ -2179,12 +2143,12 @@ func WaitForConfigToBePropagatedToComponent(podLabel string, resourceVersion str
 
 			body, err := callUrlOnPod(&pod, "8443", "/healthz")
 			if err != nil {
-				return fmt.Errorf("failed to call healthz endpoint. %s", errAdditionalInfo)
+				return fmt.Errorf("failed to call healthz endpoint: %v, %s", err, errAdditionalInfo)
 			}
 			result := map[string]interface{}{}
 			err = json.Unmarshal(body, &result)
 			if err != nil {
-				return fmt.Errorf("failed to parse response from healthz endpoint. %s", errAdditionalInfo)
+				return fmt.Errorf("failed to parse response from healthz endpoint: %v, %s", err, errAdditionalInfo)
 			}
 
 			if configVersion := result["config-resource-version"].(string); !compareResourceVersions(resourceVersion, configVersion) {

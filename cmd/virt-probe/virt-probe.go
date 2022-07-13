@@ -28,6 +28,7 @@ import (
 	"github.com/spf13/pflag"
 
 	"kubevirt.io/client-go/log"
+
 	cmdclient "kubevirt.io/kubevirt/pkg/virt-handler/cmd-client"
 )
 

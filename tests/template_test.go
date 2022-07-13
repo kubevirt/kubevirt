@@ -42,6 +42,7 @@ import (
 	"kubevirt.io/kubevirt/tests/util"
 
 	"kubevirt.io/client-go/kubecli"
+
 	"kubevirt.io/kubevirt/tests"
 	cd "kubevirt.io/kubevirt/tests/containerdisk"
 	"kubevirt.io/kubevirt/tests/libstorage"

@@ -32,6 +32,7 @@ import (
 	"k8s.io/utils/pointer"
 
 	migrationsv1 "kubevirt.io/api/migrations/v1alpha1"
+
 	virtconfig "kubevirt.io/kubevirt/pkg/virt-config"
 	"kubevirt.io/kubevirt/tests"
 
@@ -59,6 +60,7 @@ import (
 	virtv1 "kubevirt.io/api/core/v1"
 	fakenetworkclient "kubevirt.io/client-go/generated/network-attachment-definition-client/clientset/versioned/fake"
 	"kubevirt.io/client-go/kubecli"
+
 	migrations "kubevirt.io/kubevirt/pkg/monitoring/migration"
 	"kubevirt.io/kubevirt/pkg/testutils"
 	utiltype "kubevirt.io/kubevirt/pkg/util/types"

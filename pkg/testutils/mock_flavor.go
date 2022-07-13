@@ -5,13 +5,15 @@ import (
 
 	v1 "kubevirt.io/api/core/v1"
 	flavorv1alpha1 "kubevirt.io/api/flavor/v1alpha1"
+
 	"kubevirt.io/kubevirt/pkg/flavor"
 )
 
 type MockFlavorMethods struct {
-	FindFlavorSpecFunc     func(vm *v1.VirtualMachine) (*flavorv1alpha1.VirtualMachineFlavorSpec, error)
-	ApplyToVmiFunc         func(field *k8sfield.Path, flavorspec *flavorv1alpha1.VirtualMachineFlavorSpec, preferenceSpec *flavorv1alpha1.VirtualMachinePreferenceSpec, vmiSpec *v1.VirtualMachineInstanceSpec) flavor.Conflicts
-	FindPreferenceSpecFunc func(vm *v1.VirtualMachine) (*flavorv1alpha1.VirtualMachinePreferenceSpec, error)
+	FindFlavorSpecFunc           func(vm *v1.VirtualMachine) (*flavorv1alpha1.VirtualMachineFlavorSpec, error)
+	ApplyToVmiFunc               func(field *k8sfield.Path, flavorspec *flavorv1alpha1.VirtualMachineFlavorSpec, preferenceSpec *flavorv1alpha1.VirtualMachinePreferenceSpec, vmiSpec *v1.VirtualMachineInstanceSpec) flavor.Conflicts
+	FindPreferenceSpecFunc       func(vm *v1.VirtualMachine) (*flavorv1alpha1.VirtualMachinePreferenceSpec, error)
+	StoreControllerRevisionsFunc func(vm *v1.VirtualMachine) error
 }
 
 var _ flavor.Methods = &MockFlavorMethods{}
@@ -28,6 +30,10 @@ func (m *MockFlavorMethods) FindPreferenceSpec(vm *v1.VirtualMachine) (*flavorv1
 	return m.FindPreferenceSpecFunc(vm)
 }
 
+func (m *MockFlavorMethods) StoreControllerRevisions(vm *v1.VirtualMachine) error {
+	return m.StoreControllerRevisionsFunc(vm)
+}
+
 func NewMockFlavorMethods() *MockFlavorMethods {
 	return &MockFlavorMethods{
 		FindFlavorSpecFunc: func(_ *v1.VirtualMachine) (*flavorv1alpha1.VirtualMachineFlavorSpec, error) {
@@ -38,6 +44,9 @@ func NewMockFlavorMethods() *MockFlavorMethods {
 		},
 		FindPreferenceSpecFunc: func(_ *v1.VirtualMachine) (*flavorv1alpha1.VirtualMachinePreferenceSpec, error) {
 			return nil, nil
+		},
+		StoreControllerRevisionsFunc: func(_ *v1.VirtualMachine) error {
+			return nil
 		},
 	}
 }

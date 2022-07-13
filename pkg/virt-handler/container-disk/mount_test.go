@@ -27,6 +27,7 @@ import (
 	"time"
 
 	"kubevirt.io/client-go/api"
+
 	"kubevirt.io/kubevirt/pkg/testutils"
 
 	. "github.com/onsi/ginkgo/v2"
@@ -37,6 +38,7 @@ import (
 	"k8s.io/apimachinery/pkg/types"
 
 	v1 "kubevirt.io/api/core/v1"
+
 	diskutils "kubevirt.io/kubevirt/pkg/ephemeral-disk-utils"
 )
 

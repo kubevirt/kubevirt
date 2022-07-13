@@ -31,6 +31,7 @@ import (
 	"github.com/vishvananda/netlink"
 
 	v1 "kubevirt.io/api/core/v1"
+
 	dutils "kubevirt.io/kubevirt/pkg/ephemeral-disk-utils"
 	netdriver "kubevirt.io/kubevirt/pkg/network/driver"
 	"kubevirt.io/kubevirt/pkg/virt-launcher/virtwrap/api"
@@ -134,7 +135,12 @@ var _ = Describe("Pod Network", func() {
 				Expect(specGenerator.Generate()).To(Succeed())
 
 				Expect(domain.Spec.Devices.Interfaces).To(HaveLen(1), "should have a single interface")
-				Expect(domain.Spec.Devices.Interfaces[0].Target).To(Equal(&api.InterfaceTarget{Device: primaryPodIfaceName, Managed: "no"}), "should have an unmanaged interface")
+				Expect(domain.Spec.Devices.Interfaces[0].Target).To(
+					Equal(
+						&api.InterfaceTarget{
+							Device:  primaryPodIfaceName,
+							Managed: "no",
+						}), "should have an unmanaged interface")
 				Expect(domain.Spec.Devices.Interfaces[0].MAC).To(Equal(&api.MAC{MAC: fakeMac.String()}), "should have the expected MAC address")
 				Expect(domain.Spec.Devices.Interfaces[0].MTU).To(Equal(&api.MTU{Size: "1410"}), "should have the expected MTU")
 			})

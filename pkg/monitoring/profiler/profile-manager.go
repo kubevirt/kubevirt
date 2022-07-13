@@ -24,6 +24,7 @@ import (
 	"net/http"
 
 	v1 "kubevirt.io/api/core/v1"
+
 	virtconfig "kubevirt.io/kubevirt/pkg/virt-config"
 
 	restful "github.com/emicklei/go-restful"

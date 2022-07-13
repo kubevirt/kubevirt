@@ -44,8 +44,8 @@ var _ = Describe("Defaults", func() {
 	It("should add interface and pod network by default", func() {
 		vmi := &v1.VirtualMachineInstance{}
 		v1.SetDefaults_NetworkInterface(vmi)
-		Expect(len(vmi.Spec.Domain.Devices.Interfaces)).NotTo(BeZero())
-		Expect(len(vmi.Spec.Networks)).NotTo(BeZero())
+		Expect(vmi.Spec.Domain.Devices.Interfaces).NotTo(BeEmpty())
+		Expect(vmi.Spec.Networks).NotTo(BeEmpty())
 	})
 
 	It("should default to true to all defined features", func() {

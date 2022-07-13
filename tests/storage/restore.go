@@ -27,6 +27,7 @@ import (
 	snapshotv1 "kubevirt.io/api/snapshot/v1alpha1"
 	"kubevirt.io/client-go/kubecli"
 	cdiv1 "kubevirt.io/containerized-data-importer-api/pkg/apis/core/v1beta1"
+
 	"kubevirt.io/kubevirt/tests"
 	"kubevirt.io/kubevirt/tests/console"
 	cd "kubevirt.io/kubevirt/tests/containerdisk"
@@ -42,8 +43,10 @@ const (
 	stoppingVM                = "Stopping VM"
 	creatingSnapshot          = "creating snapshot"
 
-	macAddressCloningPatchPattern = `{"op": "replace", "path": "/spec/template/spec/domain/devices/interfaces/0/macAddress", "value": "%s"}`
-	bashHelloScript               = "#!/bin/bash\necho 'hello'\n"
+	macAddressCloningPatchPattern   = `{"op": "replace", "path": "/spec/template/spec/domain/devices/interfaces/0/macAddress", "value": "%s"}`
+	firmwareUUIDCloningPatchPattern = `{"op": "replace", "path": "/spec/template/spec/domain/firmware/uuid", "value": "%s"}`
+
+	bashHelloScript = "#!/bin/bash\necho 'hello'\n"
 
 	onlineSnapshot = true
 	offlineSnaphot = false
@@ -236,6 +239,10 @@ var _ = SIGDescribe("VirtualMachineRestore Tests", func() {
 			vm.Labels = map[string]string{
 				"kubevirt.io/dummy-webhook-identifier": vm.Name,
 			}
+		})
+
+		AfterEach(func() {
+			deleteVM(vm)
 		})
 
 		Context("and no snapshot", func() {
@@ -438,6 +445,7 @@ var _ = SIGDescribe("VirtualMachineRestore Tests", func() {
 				newVM := tests.NewRandomVirtualMachine(newVMI, false)
 				newVM, err = virtClient.VirtualMachine(newVM.Namespace).Create(newVM)
 				Expect(err).ToNot(HaveOccurred())
+				defer deleteVM(newVM)
 
 				By("Creating a VM restore")
 				restore := createRestoreDef(newVM.Name, snapshot.Name)
@@ -705,10 +713,16 @@ var _ = SIGDescribe("VirtualMachineRestore Tests", func() {
 				}
 			}
 
+			getFirmwareUUIDCloningPatch := func(sourceVM *v1.VirtualMachine) string {
+				return fmt.Sprintf(firmwareUUIDCloningPatchPattern, "")
+			}
+
 			createRestoreDef := func(vmName string, snapshotName string) *snapshotv1.VirtualMachineRestore {
 				r := createRestoreDef(vmName, snapshotName)
 				if vmName != vm.Name {
-					r.Spec.Patches = []string{getMacAddressCloningPatch(vm)}
+					r.Spec.Patches = []string{
+						getMacAddressCloningPatch(vm),
+					}
 				}
 
 				return r
@@ -773,6 +787,9 @@ var _ = SIGDescribe("VirtualMachineRestore Tests", func() {
 
 				By("Restoring VM")
 				restore = createRestoreDef(targetVMName, snapshot.Name)
+				if vm.Spec.Template.Spec.Domain.Firmware != nil {
+					restore.Spec.Patches = append(restore.Spec.Patches, getFirmwareUUIDCloningPatch(vm))
+				}
 
 				restore, err = virtClient.VirtualMachineRestore(vm.Namespace).Create(context.Background(), restore, metav1.CreateOptions{})
 				Expect(err).ToNot(HaveOccurred())
@@ -1187,12 +1204,14 @@ var _ = SIGDescribe("VirtualMachineRestore Tests", func() {
 			})
 
 			DescribeTable("should restore a vm from an online snapshot", func(restoreToNewVM bool) {
-				vm, vmi = createAndStartVM(tests.NewRandomVMWithDataVolumeAndUserDataInStorageClass(
+				vm = tests.NewRandomVMWithDataVolumeAndUserDataInStorageClass(
 					cd.DataVolumeImportUrlForContainerDisk(cd.ContainerDiskCirros),
 					util.NamespaceTestDefault,
 					bashHelloScript,
 					snapshotStorageClass,
-				))
+				)
+				vm.Spec.Template.Spec.Domain.Firmware = &v1.Firmware{}
+				vm, vmi = createAndStartVM(vm)
 
 				doRestore("", console.LoginToCirros, onlineSnapshot, getTargetVMName(restoreToNewVM, newVmName))
 				Expect(restore.Status.Restores).To(HaveLen(1))
@@ -1351,9 +1370,9 @@ var _ = SIGDescribe("VirtualMachineRestore Tests", func() {
 				Expect(console.LoginToFedora(vmi)).To(Succeed())
 
 				By("Add persistent hotplug disk")
-				persistVolName := libvmi.AddVolumeAndVerify(virtClient, snapshotStorageClass, vm, false)
+				persistVolName := AddVolumeAndVerify(virtClient, snapshotStorageClass, vm, false)
 				By("Add temporary hotplug disk")
-				tempVolName := libvmi.AddVolumeAndVerify(virtClient, snapshotStorageClass, vm, true)
+				tempVolName := AddVolumeAndVerify(virtClient, snapshotStorageClass, vm, true)
 
 				doRestore("", console.LoginToFedora, onlineSnapshot, getTargetVMName(restoreToNewVM, newVmName))
 				Expect(restore.Status.Restores).To(HaveLen(2))

@@ -22,6 +22,10 @@ import (
 	"fmt"
 	"strings"
 
+	"kubevirt.io/api/clone"
+
+	clonev1alpha1 "kubevirt.io/api/clone/v1alpha1"
+
 	"kubevirt.io/api/flavor"
 
 	"kubevirt.io/api/migrations"
@@ -59,6 +63,8 @@ var (
 	VIRTUALMACHINESNAPSHOTCONTENT    = "virtualmachinesnapshotcontents." + snapshotv1.SchemeGroupVersion.Group
 	VIRTUALMACHINEEXPORT             = "virtualmachineexports." + exportv1.SchemeGroupVersion.Group
 	MIGRATIONPOLICY                  = "migrationpolicies." + migrationsv1.MigrationPolicyKind.Group
+	VIRTUALMACHINECLONE              = "virtualmachineclones." + clonev1alpha1.VirtualMachineCloneKind.Group
+	PreserveUnknownFieldsFalse       = false
 )
 
 func addFieldsToVersion(version *extv1.CustomResourceDefinitionVersion, fields ...interface{}) error {
@@ -695,6 +701,51 @@ func NewMigrationPolicyCrd() (*extv1.CustomResourceDefinition, error) {
 	err := addFieldsToAllVersions(crd, &extv1.CustomResourceSubresources{
 		Status: &extv1.CustomResourceSubresourceStatus{},
 	})
+	if err != nil {
+		return nil, err
+	}
+
+	if err = patchValidationForAllVersions(crd); err != nil {
+		return nil, err
+	}
+	return crd, nil
+}
+
+func NewVirtualMachineCloneCrd() (*extv1.CustomResourceDefinition, error) {
+	crd := newBlankCrd()
+
+	crd.ObjectMeta.Name = VIRTUALMACHINECLONE
+	crd.Spec = extv1.CustomResourceDefinitionSpec{
+		Group: clonev1alpha1.VirtualMachineCloneKind.Group,
+		Versions: []extv1.CustomResourceDefinitionVersion{
+			{
+				Name:    clonev1alpha1.SchemeGroupVersion.Version,
+				Served:  true,
+				Storage: true,
+			},
+		},
+		Scope: extv1.NamespaceScoped,
+
+		Names: extv1.CustomResourceDefinitionNames{
+			Plural:     clone.ResourceVMClonePlural,
+			Singular:   clone.ResourceVMCloneSingular,
+			ShortNames: []string{"vmclone", "vmclones"},
+			Kind:       clonev1alpha1.VirtualMachineCloneKind.Kind,
+			Categories: []string{
+				"all",
+			},
+		},
+	}
+	err := addFieldsToAllVersions(crd,
+		&extv1.CustomResourceSubresources{
+			Status: &extv1.CustomResourceSubresourceStatus{},
+		},
+		[]extv1.CustomResourceColumnDefinition{
+			{Name: "Phase", Type: "string", JSONPath: phaseJSONPath},
+			{Name: "SourceVirtualMachine", Type: "string", JSONPath: ".spec.source.name"},
+			{Name: "TargetVirtualMachine", Type: "string", JSONPath: ".spec.target.name"},
+		},
+	)
 	if err != nil {
 		return nil, err
 	}

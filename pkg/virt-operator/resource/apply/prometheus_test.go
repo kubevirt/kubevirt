@@ -7,6 +7,7 @@ import (
 	jsonpatch "github.com/evanphx/json-patch"
 
 	promclientfake "kubevirt.io/client-go/generated/prometheus-operator/clientset/versioned/fake"
+
 	"kubevirt.io/kubevirt/pkg/virt-operator/resource/generate/components"
 
 	"github.com/golang/mock/gomock"
@@ -20,6 +21,7 @@ import (
 
 	v1 "kubevirt.io/api/core/v1"
 	"kubevirt.io/client-go/kubecli"
+
 	"kubevirt.io/kubevirt/pkg/virt-operator/util"
 )
 

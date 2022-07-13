@@ -27,6 +27,7 @@ import (
 
 	"kubevirt.io/client-go/kubecli"
 	"kubevirt.io/client-go/log"
+
 	"kubevirt.io/kubevirt/tools/perfscale-load-generator/config"
 )
 

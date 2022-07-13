@@ -21,7 +21,6 @@ package fake
 import (
 	rest "k8s.io/client-go/rest"
 	testing "k8s.io/client-go/testing"
-
 	v1 "kubevirt.io/client-go/generated/prometheus-operator/clientset/versioned/typed/monitoring/v1"
 )
 

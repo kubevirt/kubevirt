@@ -21,7 +21,6 @@ package v1
 import (
 	v1 "github.com/kubernetes-csi/external-snapshotter/client/v4/apis/volumesnapshot/v1"
 	rest "k8s.io/client-go/rest"
-
 	"kubevirt.io/client-go/generated/external-snapshotter/clientset/versioned/scheme"
 )
 

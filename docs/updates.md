@@ -18,7 +18,7 @@ limited to anything that involves persistent connections to a control plane
 component.
 
 1. In-flight migrations will fail. The VMI will remain available, but the
-migration itself will fail due to a severed TLS connection occuring when
+migration itself will fail due to a severed TLS connection occurring when
 virt-handler updates.
 
 2. `virtctl console` and `virtctl vnc` connections will get dropped. This is
@@ -103,7 +103,7 @@ of new functionality.
 
 ### RBAC 
 
-Since during the update our controll plane will be briefly running both old and
+Since during the update our control plane will be briefly running both old and
 new versions, we have to ensure that RBAC permissions are available that allow
 both the old and new versions of components to operate at the same time.
 

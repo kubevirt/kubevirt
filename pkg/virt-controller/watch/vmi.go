@@ -45,6 +45,7 @@ import (
 	"kubevirt.io/client-go/kubecli"
 	"kubevirt.io/client-go/log"
 	cdiv1 "kubevirt.io/containerized-data-importer-api/pkg/apis/core/v1beta1"
+
 	"kubevirt.io/kubevirt/pkg/controller"
 	kubevirttypes "kubevirt.io/kubevirt/pkg/util/types"
 	virtconfig "kubevirt.io/kubevirt/pkg/virt-config"
@@ -137,7 +138,8 @@ const (
 
 const failedToRenderLaunchManifestErrFormat = "failed to render launch manifest: %v"
 
-var failedToFindCdi error = errors.New("No CDIConfig named config")
+var failedToFindCdi error = errors.New("No CDI instances found")
+var multipleCdiInstances error = errors.New("Detected more than one CDI instance")
 
 func NewVMIController(templateService services.TemplateService,
 	vmiInformer cache.SharedIndexInformer,
@@ -2088,9 +2090,9 @@ func (c *VMIController) updateVolumeStatus(vmi *virtv1.VirtualMachineInstance, v
 					Preallocated: kubevirttypes.IsPreallocated(pvc.ObjectMeta.Annotations),
 				}
 				filesystemOverhead, err := c.getFilesystemOverhead(pvc)
-				if errors.Is(err, failedToFindCdi) {
+				if errors.Is(err, failedToFindCdi) || errors.Is(err, multipleCdiInstances) {
 					filesystemOverhead = cdiv1.Percent("0.055")
-					log.Log.V(3).Object(pvc).Infof("Didn't find CDI, continuing normally with filesystem overhead of 5.5%%")
+					log.Log.V(3).Object(pvc).Reason(err).Infof("Failed to detect CDI, continuing with default filesystem overhead of 5.5%%")
 				} else if err != nil {
 					log.Log.Reason(err).Errorf("Failed to get filesystem overhead for PVC %s/%s", vmi.Namespace, pvcName)
 					return err
@@ -2127,10 +2129,14 @@ func (c *VMIController) updateVolumeStatus(vmi *virtv1.VirtualMachineInstance, v
 }
 
 func (c *VMIController) getFilesystemOverhead(pvc *k8sv1.PersistentVolumeClaim) (cdiv1.Percent, error) {
-	_, cdiExists, _ := c.cdiInformer.GetStore().GetByKey("cdi")
-	if !cdiExists {
+	// To avoid conflicts, we only allow having one CDI instance
+	if cdiInstances := len(c.cdiInformer.GetStore().List()); cdiInstances != 1 {
+		if cdiInstances > 1 {
+			return "0", multipleCdiInstances
+		}
 		return "0", failedToFindCdi
 	}
+
 	cdiConfigInterface, cdiConfigExists, err := c.cdiConfigInformer.GetStore().GetByKey("config")
 	if !cdiConfigExists || err != nil {
 		return "0", fmt.Errorf("Failed to find CDIConfig but CDI exists: %w", err)

@@ -11,6 +11,7 @@ import (
 	k8score "k8s.io/api/core/v1"
 
 	KVv1 "kubevirt.io/api/core/v1"
+
 	virtconfig "kubevirt.io/kubevirt/pkg/virt-config"
 )
 

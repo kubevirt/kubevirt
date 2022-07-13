@@ -30,6 +30,7 @@ import (
 	"k8s.io/client-go/util/cert"
 
 	"kubevirt.io/client-go/log"
+
 	"kubevirt.io/kubevirt/pkg/util"
 	"kubevirt.io/kubevirt/pkg/virt-operator/resource/generate/components"
 )

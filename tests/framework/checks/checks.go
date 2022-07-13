@@ -12,6 +12,7 @@ import (
 	"kubevirt.io/kubevirt/pkg/util/cluster"
 
 	"kubevirt.io/client-go/kubecli"
+
 	"kubevirt.io/kubevirt/tests/util"
 
 	v12 "kubevirt.io/api/core/v1"

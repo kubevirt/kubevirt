@@ -5,7 +5,6 @@ package isolation
 
 import (
 	gomock "github.com/golang/mock/gomock"
-
 	v1 "kubevirt.io/api/core/v1"
 )
 

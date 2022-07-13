@@ -39,6 +39,7 @@ import (
 	snapshotv1 "kubevirt.io/api/snapshot/v1alpha1"
 	kubevirtfake "kubevirt.io/client-go/generated/kubevirt/clientset/versioned/fake"
 	"kubevirt.io/client-go/kubecli"
+
 	"kubevirt.io/kubevirt/pkg/testutils"
 	"kubevirt.io/kubevirt/pkg/virt-api/webhooks"
 	virtconfig "kubevirt.io/kubevirt/pkg/virt-config"
@@ -588,6 +589,8 @@ var _ = Describe("Validating VirtualMachineRestore Admitter", func() {
 					Entry("patch to replace MAC", `{"op": "replace", "path": "/spec/template/spec/domain/devices/interfaces/0/macAddress", "value": "some-value"}`),
 					Entry("patch to add running", `{"op": "add", "path": "/spec/running", "value": "some-value"}`),
 					Entry("patch to remove flavor", `{"op": "remove", "path": "/spec/flavor"`),
+					Entry("patch to replace a label", `{"op": "replace", "path": "/metadata/labels/key", "value": "some-value"`),
+					Entry("patch to remove an annotation", `{"op": "remove", "path": "/metadata/annotations/key"`),
 				)
 
 				It("should reject an invalid patch", func() {

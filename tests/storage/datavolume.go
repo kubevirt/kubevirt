@@ -41,6 +41,7 @@ import (
 	v1 "kubevirt.io/api/core/v1"
 	"kubevirt.io/client-go/kubecli"
 	cdiv1 "kubevirt.io/containerized-data-importer-api/pkg/apis/core/v1beta1"
+
 	virtconfig "kubevirt.io/kubevirt/pkg/virt-config"
 	"kubevirt.io/kubevirt/tests"
 	"kubevirt.io/kubevirt/tests/clientcmd"
@@ -289,7 +290,7 @@ var _ = SIGDescribe("DataVolume Integration", func() {
 				Expect(err).To(BeNil())
 			})
 
-			It("should accurately report DataVolume provisioning", func() {
+			It("[QUARANTINE] should accurately report DataVolume provisioning", func() {
 				sc, exists := libstorage.GetSnapshotStorageClass()
 				if !exists {
 					Skip("no snapshot storage class configured")

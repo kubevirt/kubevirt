@@ -38,6 +38,7 @@ import (
 	"kubevirt.io/kubevirt/pkg/util"
 
 	"kubevirt.io/client-go/kubecli"
+
 	"kubevirt.io/kubevirt/pkg/virt-api/rest"
 )
 

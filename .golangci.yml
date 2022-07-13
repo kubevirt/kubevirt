@@ -22,6 +22,7 @@ linters-settings:
       - dupImport # https://github.com/go-critic/go-critic/issues/845
       - ifElseChain
       - octalLiteral
+      - paramTypeCombine
       - whyNoLint
       - wrapperFunc
     settings:
@@ -32,7 +33,7 @@ linters-settings:
   gocyclo:
     min-complexity: 15
   goimports:
-    local-prefixes: github.com/kiagnose/kiagnose
+    local-prefixes: kubevirt.io/kubevirt
   gomnd:
     settings:
       mnd:

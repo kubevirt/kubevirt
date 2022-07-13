@@ -23,6 +23,7 @@ import (
 	"net/http"
 
 	"kubevirt.io/client-go/kubecli"
+
 	validating_webhooks "kubevirt.io/kubevirt/pkg/util/webhooks/validating-webhooks"
 	"kubevirt.io/kubevirt/pkg/virt-api/webhooks"
 	"kubevirt.io/kubevirt/pkg/virt-api/webhooks/validating-webhook/admitters"
@@ -108,4 +109,8 @@ func ServePodEvictionInterceptor(resp http.ResponseWriter, req *http.Request, cl
 
 func ServeMigrationPolicies(resp http.ResponseWriter, req *http.Request, virtCli kubecli.KubevirtClient) {
 	validating_webhooks.Serve(resp, req, admitters.NewMigrationPolicyAdmitter(virtCli))
+}
+
+func ServeVirtualMachineClones(resp http.ResponseWriter, req *http.Request, clusterConfig *virtconfig.ClusterConfig, virtCli kubecli.KubevirtClient) {
+	validating_webhooks.Serve(resp, req, admitters.NewVMCloneAdmitter(clusterConfig, virtCli))
 }

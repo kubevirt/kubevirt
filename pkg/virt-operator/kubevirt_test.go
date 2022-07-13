@@ -66,6 +66,7 @@ import (
 	"kubevirt.io/client-go/kubecli"
 	"kubevirt.io/client-go/log"
 	"kubevirt.io/client-go/version"
+
 	"kubevirt.io/kubevirt/pkg/certificates/triple/cert"
 	kubecontroller "kubevirt.io/kubevirt/pkg/controller"
 	"kubevirt.io/kubevirt/pkg/testutils"
@@ -84,9 +85,9 @@ const (
 
 	NAMESPACE = "kubevirt-test"
 
-	resourceCount = 72
-	patchCount    = 49
-	updateCount   = 24
+	resourceCount = 75
+	patchCount    = 50
+	updateCount   = 26
 )
 
 type KubeVirtTestData struct {
@@ -1209,7 +1210,7 @@ func (k *KubeVirtTestData) addAllWithExclusionMap(config *util.KubeVirtDeploymen
 		components.NewVirtualMachineRestoreCrd, components.NewVirtualMachineFlavorCrd,
 		components.NewVirtualMachineClusterFlavorCrd, components.NewVirtualMachinePoolCrd,
 		components.NewMigrationPolicyCrd, components.NewVirtualMachinePreferenceCrd,
-		components.NewVirtualMachineClusterPreferenceCrd,
+		components.NewVirtualMachineClusterPreferenceCrd, components.NewVirtualMachineCloneCrd,
 	}
 	for _, f := range functions {
 		crd, err := f()
@@ -2346,9 +2347,9 @@ var _ = Describe("KubeVirt Operator", func() {
 			Expect(kvTestData.controller.stores.ServiceAccountCache.List()).To(HaveLen(4))
 			Expect(kvTestData.controller.stores.ClusterRoleCache.List()).To(HaveLen(8))
 			Expect(kvTestData.controller.stores.ClusterRoleBindingCache.List()).To(HaveLen(6))
-			Expect(kvTestData.controller.stores.RoleCache.List()).To(HaveLen(4))
-			Expect(kvTestData.controller.stores.RoleBindingCache.List()).To(HaveLen(4))
-			Expect(kvTestData.controller.stores.CrdCache.List()).To(HaveLen(15))
+			Expect(kvTestData.controller.stores.RoleCache.List()).To(HaveLen(5))
+			Expect(kvTestData.controller.stores.RoleBindingCache.List()).To(HaveLen(5))
+			Expect(kvTestData.controller.stores.CrdCache.List()).To(HaveLen(16))
 			Expect(kvTestData.controller.stores.ServiceCache.List()).To(HaveLen(4))
 			Expect(kvTestData.controller.stores.DeploymentCache.List()).To(HaveLen(1))
 			Expect(kvTestData.controller.stores.DaemonSetCache.List()).To(BeEmpty())
@@ -2979,8 +2980,8 @@ var _ = Describe("KubeVirt Operator", func() {
 
 			kvTestData.controller.Execute()
 
-			Expect(kvTestData.controller.stores.RoleCache.List()).To(HaveLen(3))
-			Expect(kvTestData.controller.stores.RoleBindingCache.List()).To(HaveLen(3))
+			Expect(kvTestData.controller.stores.RoleCache.List()).To(HaveLen(4))
+			Expect(kvTestData.controller.stores.RoleBindingCache.List()).To(HaveLen(4))
 			Expect(kvTestData.controller.stores.ServiceMonitorCache.List()).To(BeEmpty())
 		})
 	})

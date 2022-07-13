@@ -12,6 +12,7 @@ import (
 
 	"kubevirt.io/client-go/kubecli"
 	virt_version "kubevirt.io/client-go/version"
+
 	"kubevirt.io/kubevirt/pkg/virtctl"
 	"kubevirt.io/kubevirt/pkg/virtctl/version"
 )

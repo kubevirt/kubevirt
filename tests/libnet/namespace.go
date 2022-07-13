@@ -10,6 +10,7 @@ import (
 	"k8s.io/apimachinery/pkg/util/strategicpatch"
 
 	"kubevirt.io/client-go/kubecli"
+
 	"kubevirt.io/kubevirt/tests/framework/cleanup"
 )
 

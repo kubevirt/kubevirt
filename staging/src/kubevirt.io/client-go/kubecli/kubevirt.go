@@ -31,6 +31,9 @@ import (
 	"time"
 
 	routev1 "github.com/openshift/client-go/route/clientset/versioned/typed/route/v1"
+
+	clonev1alpha1 "kubevirt.io/client-go/generated/kubevirt/clientset/versioned/typed/clone/v1alpha1"
+
 	secv1 "github.com/openshift/client-go/security/clientset/versioned/typed/security/v1"
 	autov1 "k8s.io/api/autoscaling/v1"
 	extclient "k8s.io/apiextensions-apiserver/pkg/client/clientset/clientset"
@@ -74,6 +77,7 @@ type KubevirtClient interface {
 	VirtualMachineClusterPreference() flavorv1alpha1.VirtualMachineClusterPreferenceInterface
 	MigrationPolicy() migrationsv1.MigrationPolicyInterface
 	ServerVersion() ServerVersionInterface
+	VirtualMachineClone(namespace string) clonev1alpha1.VirtualMachineCloneInterface
 	ClusterProfiler() *ClusterProfiler
 	GuestfsVersion() *GuestfsVersion
 	RestClient() *rest.RESTClient
@@ -108,6 +112,7 @@ type kubevirt struct {
 	snapshotClient          *k8ssnapshotclient.Clientset
 	dynamicClient           dynamic.Interface
 	migrationsClient        *migrationsv1.MigrationsV1alpha1Client
+	cloneClient             *clonev1alpha1.CloneV1alpha1Client
 	*kubernetes.Clientset
 }
 
@@ -201,6 +206,14 @@ func (k kubevirt) MigrationPolicy() migrationsv1.MigrationPolicyInterface {
 
 func (k kubevirt) MigrationPolicyClient() *migrationsv1.MigrationsV1alpha1Client {
 	return k.migrationsClient
+}
+
+func (k kubevirt) VirtualMachineClone(namespace string) clonev1alpha1.VirtualMachineCloneInterface {
+	return k.generatedKubeVirtClient.CloneV1alpha1().VirtualMachineClones(namespace)
+}
+
+func (k kubevirt) VirtualMachineCloneClient() *clonev1alpha1.CloneV1alpha1Client {
+	return k.cloneClient // TODO ihol3 delete function? who's using it?
 }
 
 type StreamOptions struct {

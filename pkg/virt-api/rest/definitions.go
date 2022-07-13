@@ -25,6 +25,9 @@ import (
 	"path"
 	"reflect"
 
+	"kubevirt.io/api/clone"
+	clonev1lpha1 "kubevirt.io/api/clone/v1alpha1"
+
 	"kubevirt.io/api/flavor"
 
 	"kubevirt.io/api/migrations"
@@ -41,6 +44,7 @@ import (
 	flavorv1alpha1 "kubevirt.io/api/flavor/v1alpha1"
 	poolv1alpha1 "kubevirt.io/api/pool/v1alpha1"
 	snapshotv1 "kubevirt.io/api/snapshot/v1alpha1"
+
 	mime "kubevirt.io/kubevirt/pkg/rest"
 )
 
@@ -59,6 +63,7 @@ func ComposeAPIDefinitions() []*restful.WebService {
 		flavorApiServiceDefinitions,
 		migrationPoliciesApiServiceDefinitions,
 		poolApiServiceDefinitions,
+		vmCloneDefinitions,
 	} {
 		result = append(result, f()...)
 	}
@@ -245,6 +250,26 @@ func poolApiServiceDefinitions() []*restful.WebService {
 		panic(err)
 	}
 
+	return []*restful.WebService{ws, ws2}
+}
+
+func vmCloneDefinitions() []*restful.WebService {
+	mpGVR := clonev1lpha1.SchemeGroupVersion.WithResource(clone.ResourceVMClonePlural)
+
+	ws, err := GroupVersionProxyBase(schema.GroupVersion{Group: clonev1lpha1.SchemeGroupVersion.Group, Version: clonev1lpha1.SchemeGroupVersion.Version})
+	if err != nil {
+		panic(err)
+	}
+
+	ws, err = GenericClusterResourceProxy(ws, mpGVR, &clonev1lpha1.VirtualMachineClone{}, clonev1lpha1.VirtualMachineCloneKind.Kind, &clonev1lpha1.VirtualMachineCloneList{})
+	if err != nil {
+		panic(err)
+	}
+
+	ws2, err := ResourceProxyAutodiscovery(mpGVR)
+	if err != nil {
+		panic(err)
+	}
 	return []*restful.WebService{ws, ws2}
 }
 

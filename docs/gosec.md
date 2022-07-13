@@ -20,7 +20,7 @@ In extreme cases you can annotate the code with a special comment:
 This will instruct gosec to suppress the warning.
 The developer is encouraged to avoid this annotation whenever possible as this will **silence all warnings** in the line below the comment, even if the code changes and another, true positive issue is created because of that.
 
-### How to fix false positive warnnings
+### How to fix false positive warnings
 Define a new “safe” function that encapsulates the risky function or code
 The safe function name should give good indication on when this function should be used. Whenever possible, the function should validate in-code that the condition really applies.
 Annotate the call with a `//#nosec ` comment only within this unsafe function implementation

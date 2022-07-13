@@ -30,6 +30,7 @@ import (
 
 	v1 "kubevirt.io/api/core/v1"
 	"kubevirt.io/client-go/kubecli"
+
 	virtctlpause "kubevirt.io/kubevirt/pkg/virtctl/pause"
 	virtctlsoftreboot "kubevirt.io/kubevirt/pkg/virtctl/softreboot"
 	"kubevirt.io/kubevirt/tests"

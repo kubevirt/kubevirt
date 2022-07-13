@@ -29,6 +29,7 @@ import (
 	v1 "kubevirt.io/api/core/v1"
 	apiflavor "kubevirt.io/api/flavor"
 	"kubevirt.io/client-go/log"
+
 	utiltypes "kubevirt.io/kubevirt/pkg/util/types"
 	webhookutils "kubevirt.io/kubevirt/pkg/util/webhooks"
 	"kubevirt.io/kubevirt/pkg/virt-api/webhooks"

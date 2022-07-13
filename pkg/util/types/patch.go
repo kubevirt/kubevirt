@@ -27,14 +27,13 @@ import (
 type PatchOperation struct {
 	Op    string      `json:"op"`
 	Path  string      `json:"path"`
-	Value interface{} `json:"value,omitempty"`
+	Value interface{} `json:"value"`
 }
 
 const (
 	PatchReplaceOp = "replace"
 	PatchTestOp    = "test"
 	PatchAddOp     = "add"
-	PatchRemoveOp  = "remove"
 )
 
 func GeneratePatchPayload(patches ...PatchOperation) ([]byte, error) {

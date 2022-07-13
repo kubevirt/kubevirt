@@ -37,6 +37,7 @@ import (
 	kubevirtv1 "kubevirt.io/api/core/v1"
 	snapshotv1 "kubevirt.io/api/snapshot/v1alpha1"
 	"kubevirt.io/client-go/log"
+
 	"kubevirt.io/kubevirt/pkg/controller"
 )
 
@@ -393,20 +394,6 @@ func (t *vmRestoreTarget) Ready() (bool, error) {
 	return !exists, nil
 }
 
-func stripIdentityInfo(vm *kubevirtv1.VirtualMachine) {
-	vmTemplate := vm.Spec.Template
-	if vmTemplate == nil {
-		return
-	}
-
-	fw := vmTemplate.Spec.Domain.Firmware
-	if fw == nil {
-		return
-	}
-
-	fw.UUID = ""
-}
-
 func (t *vmRestoreTarget) Reconcile() (bool, error) {
 	log.Log.Object(t.vmRestore).V(3).Info("Reconciling VM")
 
@@ -547,7 +534,6 @@ func (t *vmRestoreTarget) Reconcile() (bool, error) {
 			Status: kubevirtv1.VirtualMachineStatus{},
 		}
 
-		stripIdentityInfo(newVM)
 	} else {
 		newVM = t.vm.DeepCopy()
 		newVM.Spec = *snapshotVM.Spec.DeepCopy()
@@ -685,24 +671,25 @@ func patchVM(vm *kubevirtv1.VirtualMachine, patches []string) (*kubevirtv1.Virtu
 
 	marshalledVM, err := json.Marshal(vm)
 	if err != nil {
-		return nil, fmt.Errorf("cannot marshall VM %s: %v", vm.Name, err)
+		return vm, fmt.Errorf("cannot marshall VM %s: %v", vm.Name, err)
 	}
 
 	jsonPatch := "[\n" + strings.Join(patches, ",\n") + "\n]"
 
 	patch, err := jsonpatch.DecodePatch([]byte(jsonPatch))
 	if err != nil {
-		return nil, fmt.Errorf("cannot decode vm patches %s: %v", jsonPatch, err)
+		return vm, fmt.Errorf("cannot decode vm patches %s: %v", jsonPatch, err)
 	}
 
 	modifiedMarshalledVM, err := patch.Apply(marshalledVM)
 	if err != nil {
-		return nil, fmt.Errorf("failed to apply patch for VM %s: %v", jsonPatch, err)
+		return vm, fmt.Errorf("failed to apply patch for VM %s: %v", jsonPatch, err)
 	}
 
+	vm = &kubevirtv1.VirtualMachine{}
 	err = json.Unmarshal(modifiedMarshalledVM, vm)
 	if err != nil {
-		return nil, fmt.Errorf("cannot unmarshal modified marshalled vm %s: %v", string(modifiedMarshalledVM), err)
+		return vm, fmt.Errorf("cannot unmarshal modified marshalled vm %s: %v", string(modifiedMarshalledVM), err)
 	}
 
 	log.Log.V(3).Object(vm).Infof("patching restore target completed. Modified VM: %s", string(modifiedMarshalledVM))

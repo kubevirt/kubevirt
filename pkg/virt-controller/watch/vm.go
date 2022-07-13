@@ -49,6 +49,7 @@ import (
 	"kubevirt.io/client-go/log"
 	cdiv1 "kubevirt.io/containerized-data-importer-api/pkg/apis/core/v1beta1"
 	cdiclone "kubevirt.io/containerized-data-importer/pkg/clone"
+
 	"kubevirt.io/kubevirt/pkg/controller"
 	"kubevirt.io/kubevirt/pkg/flavor"
 	"kubevirt.io/kubevirt/pkg/util"
@@ -1313,13 +1314,11 @@ func (c *VMController) setupVMIFromVM(vm *virtv1.VirtualMachine) *virtv1.Virtual
 func (c *VMController) applyFlavorToVmi(vm *virtv1.VirtualMachine, vmi *virtv1.VirtualMachineInstance) error {
 
 	flavorSpec, err := c.flavorMethods.FindFlavorSpec(vm)
-
 	if err != nil {
 		return err
 	}
 
 	preferenceSpec, err := c.flavorMethods.FindPreferenceSpec(vm)
-
 	if err != nil {
 		return err
 	}
@@ -1332,11 +1331,16 @@ func (c *VMController) applyFlavorToVmi(vm *virtv1.VirtualMachine, vmi *virtv1.V
 	flavor.AddPreferenceNameAnnotations(vm, vmi)
 
 	conflicts := c.flavorMethods.ApplyToVmi(k8sfield.NewPath("spec"), flavorSpec, preferenceSpec, &vmi.Spec)
-	if len(conflicts) == 0 {
-		return nil
+	if len(conflicts) > 0 {
+		return fmt.Errorf("VMI conflicts with flavor spec in fields: [%s]", conflicts.String())
 	}
 
-	return fmt.Errorf("VMI conflicts with flavor spec in fields: [%s]", conflicts.String())
+	err = c.flavorMethods.StoreControllerRevisions(vm)
+	if err != nil {
+		return err
+	}
+
+	return nil
 }
 
 func hasStartPausedRequest(vm *virtv1.VirtualMachine) bool {

@@ -32,6 +32,7 @@ import (
 	"github.com/onsi/ginkgo/v2"
 
 	"kubevirt.io/client-go/log"
+
 	"kubevirt.io/kubevirt/tests/flags"
 	"kubevirt.io/kubevirt/tests/util"
 )

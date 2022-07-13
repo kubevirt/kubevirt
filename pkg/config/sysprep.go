@@ -26,6 +26,7 @@ import (
 	"strings"
 
 	v1 "kubevirt.io/api/core/v1"
+
 	ephemeraldiskutils "kubevirt.io/kubevirt/pkg/ephemeral-disk-utils"
 )
 

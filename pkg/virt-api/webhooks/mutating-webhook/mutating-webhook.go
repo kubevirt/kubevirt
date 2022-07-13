@@ -28,6 +28,7 @@ import (
 	"k8s.io/apimachinery/pkg/runtime"
 
 	"kubevirt.io/client-go/log"
+
 	webhookutils "kubevirt.io/kubevirt/pkg/util/webhooks"
 	"kubevirt.io/kubevirt/pkg/virt-api/webhooks"
 	"kubevirt.io/kubevirt/pkg/virt-api/webhooks/mutating-webhook/mutators"
@@ -83,4 +84,8 @@ func ServeVMIs(resp http.ResponseWriter, req *http.Request, clusterConfig *virtc
 
 func ServeMigrationCreate(resp http.ResponseWriter, req *http.Request) {
 	serve(resp, req, &mutators.MigrationCreateMutator{})
+}
+
+func ServeClones(resp http.ResponseWriter, req *http.Request) {
+	serve(resp, req, &mutators.CloneCreateMutator{})
 }

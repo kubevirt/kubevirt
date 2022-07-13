@@ -1,6 +1,6 @@
 # Usage of libguestfs-tools and virtctl guestfs
 
-[Libguestfs tools](https://libguestfs.org/) are a set of utilities for accessing and modifying VM disk images. The command `virtctl guestfs` helps to deploy an interactive container with the libguestfs-tools and the PVC attached to it. This command is particurarly useful if the users need to modify, inspect or debug VM disks on a PVC.
+[Libguestfs tools](https://libguestfs.org/) are a set of utilities for accessing and modifying VM disk images. The command `virtctl guestfs` helps to deploy an interactive container with the libguestfs-tools and the PVC attached to it. This command is particularly useful if the users need to modify, inspect or debug VM disks on a PVC.
 ```bash
 $ virtctl guestfs -h
 Create a pod with libguestfs-tools, mount the pvc and attach a shell to it. The pvc is mounted under the /disks directory inside the pod for filesystem-based pvcs, or as /dev/vda for block-based pvcs

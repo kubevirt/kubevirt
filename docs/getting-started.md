@@ -125,7 +125,7 @@ have a completely fresh cluster to play with.
 #### Sync specific components
 
 **Note:** The following is meant for allowing faster iteration on small changes to components that support it.
-Not every component is that simply exchangable without a full re-deploy. Always test with the final SHA based method in the end.
+Not every component is that simply exchangeable without a full re-deploy. Always test with the final SHA based method in the end.
 
 In situations where you just want to work on a single component and rollout updates
 without re-deploying the whole environment, you can tell kubevirt to deploy using tags.

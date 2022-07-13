@@ -35,6 +35,7 @@ import (
 	"github.com/mitchellh/go-ps"
 
 	v1 "kubevirt.io/api/core/v1"
+
 	cmdclient "kubevirt.io/kubevirt/pkg/virt-handler/cmd-client"
 )
 

@@ -21,6 +21,8 @@ package storage
 
 import (
 	"context"
+	"crypto/x509"
+	"encoding/pem"
 	"fmt"
 	"path/filepath"
 	"strings"
@@ -30,6 +32,7 @@ import (
 	. "github.com/onsi/gomega"
 
 	k8sv1 "k8s.io/api/core/v1"
+	networkingv1 "k8s.io/api/networking/v1"
 	storagev1 "k8s.io/api/storage/v1"
 	"k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
@@ -41,11 +44,18 @@ import (
 	"kubevirt.io/client-go/kubecli"
 	"kubevirt.io/client-go/log"
 	cdiv1 "kubevirt.io/containerized-data-importer-api/pkg/apis/core/v1beta1"
+
+	"kubevirt.io/kubevirt/pkg/certificates/triple/cert"
+	"kubevirt.io/kubevirt/pkg/virt-operator/resource/generate/components"
 	"kubevirt.io/kubevirt/tests"
 	cd "kubevirt.io/kubevirt/tests/containerdisk"
 	"kubevirt.io/kubevirt/tests/flags"
+	"kubevirt.io/kubevirt/tests/framework/checks"
 	"kubevirt.io/kubevirt/tests/libstorage"
 	"kubevirt.io/kubevirt/tests/util"
+
+	routev1 "github.com/openshift/api/route/v1"
+	certutil "kubevirt.io/kubevirt/pkg/certificates/triple/cert"
 )
 
 const (
@@ -66,6 +76,12 @@ const (
 	pvcNotFoundReason = "pvcNotFound"
 
 	proxyUrlBase = "https://virt-exportproxy.%s.svc/api/export.kubevirt.io/v1alpha1/namespaces/%s/virtualmachineexports/%s%s"
+
+	tlsKey           = "tls.key"
+	tlsCert          = "tls.crt"
+	testKey          = "test"
+	testHostName     = "vmexport-proxy.test.net"
+	subjectAltNameId = "2.5.29.17"
 )
 
 var _ = SIGDescribe("Export", func() {
@@ -92,8 +108,10 @@ var _ = SIGDescribe("Export", func() {
 	})
 
 	AfterEach(func() {
-		err := virtClient.CoreV1().Secrets(token.Namespace).Delete(context.Background(), token.Name, metav1.DeleteOptions{})
-		Expect(err).ToNot(HaveOccurred())
+		if token != nil {
+			err := virtClient.CoreV1().Secrets(token.Namespace).Delete(context.Background(), token.Name, metav1.DeleteOptions{})
+			Expect(err).ToNot(HaveOccurred())
+		}
 	})
 
 	addBlockVolume := func(pod *k8sv1.Pod, volumeName string) *k8sv1.Pod {
@@ -552,11 +570,11 @@ var _ = SIGDescribe("Export", func() {
 		Entry("with archive tarred gzipped content type", populateArchiveContent, verifyArchiveGzContent, libstorage.GetRWOFileSystemStorageClass, createCaConfigMapInternal, urlGeneratorInternal, exportv1.ArchiveGz, kubevirtcontentUrlTemplate, k8sv1.PersistentVolumeFilesystem),
 		Entry("with RAW kubevirt content type block", populateKubeVirtContent, verifyKubeVirtRawContent, libstorage.GetRWOBlockStorageClass, createCaConfigMapInternal, urlGeneratorInternal, exportv1.KubeVirtRaw, kubevirtcontentUrlTemplate, k8sv1.PersistentVolumeBlock),
 		// "proxy" tests
-		Entry("with RAW kubevirt content type (proxy)", populateKubeVirtContent, verifyKubeVirtRawContent, libstorage.GetRWOFileSystemStorageClass, createCaConfigMapProxy, urlGeneratorProxy, exportv1.KubeVirtRaw, kubevirtcontentUrlTemplate, k8sv1.PersistentVolumeFilesystem),
-		Entry("with RAW gzipped kubevirt content type (proxy)", populateKubeVirtContent, verifyKubeVirtGzContent, libstorage.GetRWOFileSystemStorageClass, createCaConfigMapProxy, urlGeneratorProxy, exportv1.KubeVirtGz, kubevirtcontentUrlTemplate, k8sv1.PersistentVolumeFilesystem),
-		Entry("with archive content type (proxy)", populateArchiveContent, verifyKubeVirtRawContent, libstorage.GetRWOFileSystemStorageClass, createCaConfigMapProxy, urlGeneratorProxy, exportv1.Dir, archiveDircontentUrlTemplate, k8sv1.PersistentVolumeFilesystem),
-		Entry("with archive tarred gzipped content type (proxy)", populateArchiveContent, verifyArchiveGzContent, libstorage.GetRWOFileSystemStorageClass, createCaConfigMapProxy, urlGeneratorProxy, exportv1.ArchiveGz, kubevirtcontentUrlTemplate, k8sv1.PersistentVolumeFilesystem),
-		Entry("with RAW kubevirt content type block (proxy)", populateKubeVirtContent, verifyKubeVirtRawContent, libstorage.GetRWOBlockStorageClass, createCaConfigMapProxy, urlGeneratorProxy, exportv1.KubeVirtRaw, kubevirtcontentUrlTemplate, k8sv1.PersistentVolumeBlock),
+		Entry("with RAW kubevirt content type PROXY", populateKubeVirtContent, verifyKubeVirtRawContent, libstorage.GetRWOFileSystemStorageClass, createCaConfigMapProxy, urlGeneratorProxy, exportv1.KubeVirtRaw, kubevirtcontentUrlTemplate, k8sv1.PersistentVolumeFilesystem),
+		Entry("with RAW gzipped kubevirt content type PROXY", populateKubeVirtContent, verifyKubeVirtGzContent, libstorage.GetRWOFileSystemStorageClass, createCaConfigMapProxy, urlGeneratorProxy, exportv1.KubeVirtGz, kubevirtcontentUrlTemplate, k8sv1.PersistentVolumeFilesystem),
+		Entry("with archive content type PROXY", populateArchiveContent, verifyKubeVirtRawContent, libstorage.GetRWOFileSystemStorageClass, createCaConfigMapProxy, urlGeneratorProxy, exportv1.Dir, archiveDircontentUrlTemplate, k8sv1.PersistentVolumeFilesystem),
+		Entry("with archive tarred gzipped content type PROXY", populateArchiveContent, verifyArchiveGzContent, libstorage.GetRWOFileSystemStorageClass, createCaConfigMapProxy, urlGeneratorProxy, exportv1.ArchiveGz, kubevirtcontentUrlTemplate, k8sv1.PersistentVolumeFilesystem),
+		Entry("with RAW kubevirt content type block PROXY", populateKubeVirtContent, verifyKubeVirtRawContent, libstorage.GetRWOBlockStorageClass, createCaConfigMapProxy, urlGeneratorProxy, exportv1.KubeVirtRaw, kubevirtcontentUrlTemplate, k8sv1.PersistentVolumeBlock),
 	)
 
 	createExportObject := func(name, namespace string, token *k8sv1.Secret) *exportv1.VirtualMachineExport {
@@ -602,6 +620,21 @@ var _ = SIGDescribe("Export", func() {
 			return condReady
 		}, 30*time.Second, 1*time.Second).Should(BeTrue(), "export is expected to become ready")
 		return export
+	}
+
+	matchesCNOrAlt := func(cert *x509.Certificate, hostName string) bool {
+		fmt.Fprintf(GinkgoWriter, "CN: %s, hostname: %s\n", cert.Subject.CommonName, hostName)
+		if strings.Contains(cert.Subject.CommonName, hostName) {
+			return true
+		}
+		for _, extension := range cert.Extensions {
+			fmt.Fprintf(GinkgoWriter, "ExtensionID: %s, subjectAltNameId: %s, value: %s, hostname: %s\n", extension.Id.String(), subjectAltNameId, string(extension.Value), hostName)
+			if extension.Id.String() == subjectAltNameId && strings.Contains(string(extension.Value), hostName) {
+				return true
+			}
+		}
+
+		return false
 	}
 
 	It("Should recreate the exporter pod and secret if the pod fails", func() {
@@ -772,5 +805,160 @@ var _ = SIGDescribe("Export", func() {
 			Expect(err).ToNot(HaveOccurred())
 			return p.Status.Phase == k8sv1.PodSucceeded
 		}, 90*time.Second, 1*time.Second).Should(BeTrue())
+	})
+
+	Context("Ingress", func() {
+		const (
+			tlsSecretName = "test-tls"
+		)
+
+		AfterEach(func() {
+			err := virtClient.CoreV1().Secrets(flags.KubeVirtInstallNamespace).Delete(context.Background(), tlsSecretName, metav1.DeleteOptions{})
+			if !errors.IsNotFound(err) {
+				Expect(err).ToNot(HaveOccurred())
+			}
+			err = virtClient.NetworkingV1().Ingresses(flags.KubeVirtInstallNamespace).Delete(context.Background(), "export-proxy-ingress", metav1.DeleteOptions{})
+			if !errors.IsNotFound(err) {
+				Expect(err).ToNot(HaveOccurred())
+			}
+		})
+
+		generateTestCert := func(hostName string) string {
+			key, err := certutil.NewPrivateKey()
+			Expect(err).ToNot(HaveOccurred())
+
+			config := certutil.Config{
+				CommonName: "blah blah",
+			}
+
+			cert, err := certutil.NewSelfSignedCACertWithAltNames(config, key, time.Hour, "hahaha.wwoo", hostName, "fgdgd.dfsgdf")
+			Expect(err).ToNot(HaveOccurred())
+			pemOut := strings.Builder{}
+			pem.Encode(&pemOut, &pem.Block{Type: "CERTIFICATE", Bytes: cert.Raw})
+			return strings.TrimSpace(pemOut.String())
+		}
+
+		createIngressTLSSecret := func(name string) string {
+			testCert := generateTestCert(testHostName)
+			secret := &k8sv1.Secret{
+				ObjectMeta: metav1.ObjectMeta{
+					Name:      name,
+					Namespace: flags.KubeVirtInstallNamespace,
+				},
+				StringData: map[string]string{
+					tlsKey:  testKey,
+					tlsCert: testCert,
+				},
+			}
+			_, err := virtClient.CoreV1().Secrets(flags.KubeVirtInstallNamespace).Create(context.Background(), secret, metav1.CreateOptions{})
+			Expect(err).ToNot(HaveOccurred())
+			return testCert
+		}
+
+		createIngress := func(tlsSecretName string) *networkingv1.Ingress {
+			prefix := networkingv1.PathTypePrefix
+			ingress := &networkingv1.Ingress{
+				ObjectMeta: metav1.ObjectMeta{
+					Name:      "export-proxy-ingress",
+					Namespace: flags.KubeVirtInstallNamespace,
+				},
+				Spec: networkingv1.IngressSpec{
+					IngressClassName: pointer.StringPtr("ingress-class-name"),
+					DefaultBackend: &networkingv1.IngressBackend{
+						Service: &networkingv1.IngressServiceBackend{
+							Name: "virt-exportproxy",
+							Port: networkingv1.ServiceBackendPort{
+								Number: int32(443),
+							},
+						},
+					},
+					TLS: []networkingv1.IngressTLS{
+						{
+							Hosts: []string{
+								testHostName,
+							},
+							SecretName: tlsSecretName,
+						},
+					},
+					Rules: []networkingv1.IngressRule{
+						{
+							Host: testHostName,
+							IngressRuleValue: networkingv1.IngressRuleValue{
+								HTTP: &networkingv1.HTTPIngressRuleValue{
+									Paths: []networkingv1.HTTPIngressPath{
+										{
+											Path:     "/",
+											PathType: &prefix,
+											Backend: networkingv1.IngressBackend{
+												Service: &networkingv1.IngressServiceBackend{
+													Name: "virt-exportproxy",
+													Port: networkingv1.ServiceBackendPort{
+														Number: int32(443),
+													},
+												},
+											},
+										},
+									},
+								},
+							},
+						},
+					},
+				},
+			}
+			ingress, err := virtClient.NetworkingV1().Ingresses(flags.KubeVirtInstallNamespace).Create(context.Background(), ingress, metav1.CreateOptions{})
+			Expect(err).ToNot(HaveOccurred())
+			return ingress
+		}
+
+		It("should populate external links and cert and contain ingress host", func() {
+			sc, exists := libstorage.GetRWOFileSystemStorageClass()
+			if !exists {
+				Skip("Skip test when Filesystem storage is not present")
+			}
+			testCert := createIngressTLSSecret(tlsSecretName)
+			ingress := createIngress(tlsSecretName)
+			vmExport := createRunningExport(sc, k8sv1.PersistentVolumeFilesystem)
+			Expect(vmExport.Status.Links.External.Cert).To(Equal(testCert))
+			certs, err := cert.ParseCertsPEM([]byte(vmExport.Status.Links.External.Cert))
+			Expect(err).ToNot(HaveOccurred())
+			Expect(certs).To(HaveLen(1))
+			prefix := fmt.Sprintf("%s-%s", components.VirtExportProxyServiceName, flags.KubeVirtInstallNamespace)
+			domainName := strings.TrimPrefix(ingress.Spec.Rules[0].Host, prefix)
+			Expect(matchesCNOrAlt(certs[0], domainName)).To(BeTrue())
+			Expect(vmExport.Status.Links.External.Volumes[0].Formats[0].Url).To(ContainSubstring(ingress.Spec.Rules[0].Host))
+		})
+	})
+
+	Context("Route", func() {
+		getExportRoute := func() *routev1.Route {
+			route, err := virtClient.RouteClient().Routes(flags.KubeVirtInstallNamespace).Get(context.Background(), components.VirtExportProxyServiceName, metav1.GetOptions{})
+			Expect(err).ToNot(HaveOccurred())
+			return route
+		}
+
+		It("should populate external links and cert and contain route host", func() {
+			sc, exists := libstorage.GetRWOFileSystemStorageClass()
+			if !exists {
+				Skip("Skip test when Filesystem storage is not present")
+			}
+			if !checks.IsOpenShift() {
+				Skip("Not on openshift")
+			}
+			vmExport := createRunningExport(sc, k8sv1.PersistentVolumeFilesystem)
+			certs, err := cert.ParseCertsPEM([]byte(vmExport.Status.Links.External.Cert))
+			Expect(err).ToNot(HaveOccurred())
+			Expect(certs).To(HaveLen(1))
+			route := getExportRoute()
+			host := ""
+			if len(route.Status.Ingress) > 0 {
+				host = route.Status.Ingress[0].Host
+			}
+			Expect(host).ToNot(BeEmpty())
+			prefix := fmt.Sprintf("%s-%s", components.VirtExportProxyServiceName, flags.KubeVirtInstallNamespace)
+			domainName := strings.TrimPrefix(host, prefix)
+			Expect(matchesCNOrAlt(certs[0], domainName)).To(BeTrue())
+			Expect(vmExport.Status.Links.External.Volumes[0].Formats[0].Url).To(ContainSubstring(host))
+
+		})
 	})
 })

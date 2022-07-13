@@ -59,6 +59,7 @@ import (
 
 	v1 "kubevirt.io/api/core/v1"
 	"kubevirt.io/client-go/log"
+
 	cloudinit "kubevirt.io/kubevirt/pkg/cloud-init"
 	"kubevirt.io/kubevirt/pkg/config"
 	containerdisk "kubevirt.io/kubevirt/pkg/container-disk"
@@ -83,10 +84,11 @@ import (
 )
 
 const (
-	failedSyncGuestTime    = "failed to sync guest time"
-	failedGetDomain        = "Getting the domain failed."
-	failedGetDomainState   = "Getting the domain state failed."
-	failedDomainMemoryDump = "Domain memory dump failed"
+	failedSyncGuestTime             = "failed to sync guest time"
+	failedGetDomain                 = "Getting the domain failed."
+	failedGetDomainState            = "Getting the domain state failed."
+	failedDomainMemoryDump          = "Domain memory dump failed"
+	affectLiveAndConfigLibvirtFlags = libvirt.DOMAIN_DEVICE_MODIFY_LIVE | libvirt.DOMAIN_DEVICE_MODIFY_CONFIG
 )
 
 const maxConcurrentHotplugHostDevices = 1
@@ -918,7 +920,7 @@ func (l *LibvirtDomainManager) SyncVMI(vmi *v1.VirtualMachineInstance, allowEmul
 			logger.Reason(err).Error("marshalling detached disk failed")
 			return nil, err
 		}
-		err = dom.DetachDevice(strings.ToLower(string(detachBytes)))
+		err = dom.DetachDeviceFlags(strings.ToLower(string(detachBytes)), affectLiveAndConfigLibvirtFlags)
 		if err != nil {
 			logger.Reason(err).Error("detaching device")
 			return nil, err
@@ -934,12 +936,22 @@ func (l *LibvirtDomainManager) SyncVMI(vmi *v1.VirtualMachineInstance, allowEmul
 			continue
 		}
 		logger.V(1).Infof("Attaching disk %s, target %s", attachDisk.Alias.GetName(), attachDisk.Target.Device)
+		// set drivers cache mode
+		err = converter.SetDriverCacheMode(&attachDisk, l.directIOChecker)
+		if err != nil {
+			return nil, err
+		}
+		err = converter.SetOptimalIOMode(&attachDisk)
+		if err != nil {
+			return nil, err
+		}
+
 		attachBytes, err := xml.Marshal(attachDisk)
 		if err != nil {
 			logger.Reason(err).Error("marshalling attached disk failed")
 			return nil, err
 		}
-		err = dom.AttachDevice(strings.ToLower(string(attachBytes)))
+		err = dom.AttachDeviceFlags(strings.ToLower(string(attachBytes)), affectLiveAndConfigLibvirtFlags)
 		if err != nil {
 			logger.Reason(err).Error("attaching device")
 			return nil, err

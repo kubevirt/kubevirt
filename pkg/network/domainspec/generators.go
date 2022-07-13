@@ -27,6 +27,7 @@ import (
 
 	v1 "kubevirt.io/api/core/v1"
 	"kubevirt.io/client-go/log"
+
 	netdriver "kubevirt.io/kubevirt/pkg/network/driver"
 	virtnetlink "kubevirt.io/kubevirt/pkg/network/link"
 	"kubevirt.io/kubevirt/pkg/virt-launcher/virtwrap/api"
@@ -38,7 +39,12 @@ type LibvirtSpecGenerator interface {
 	Generate() error
 }
 
-func NewMacvtapLibvirtSpecGenerator(iface *v1.Interface, domain *api.Domain, podInterfaceName string, handler netdriver.NetworkHandler) *MacvtapLibvirtSpecGenerator {
+func NewMacvtapLibvirtSpecGenerator(
+	iface *v1.Interface,
+	domain *api.Domain,
+	podInterfaceName string,
+	handler netdriver.NetworkHandler,
+) *MacvtapLibvirtSpecGenerator {
 	return &MacvtapLibvirtSpecGenerator{
 		vmiSpecIface:     iface,
 		domain:           domain,
@@ -47,7 +53,13 @@ func NewMacvtapLibvirtSpecGenerator(iface *v1.Interface, domain *api.Domain, pod
 	}
 }
 
-func NewMasqueradeLibvirtSpecGenerator(iface *v1.Interface, vmiSpecNetwork *v1.Network, domain *api.Domain, podInterfaceName string, handler netdriver.NetworkHandler) *MasqueradeLibvirtSpecGenerator {
+func NewMasqueradeLibvirtSpecGenerator(
+	iface *v1.Interface,
+	vmiSpecNetwork *v1.Network,
+	domain *api.Domain,
+	podInterfaceName string,
+	handler netdriver.NetworkHandler,
+) *MasqueradeLibvirtSpecGenerator {
 	return &MasqueradeLibvirtSpecGenerator{
 		vmiSpecIface:     iface,
 		vmiSpecNetwork:   vmiSpecNetwork,
@@ -64,7 +76,13 @@ func NewSlirpLibvirtSpecGenerator(iface *v1.Interface, domain *api.Domain) *Slir
 	}
 }
 
-func NewBridgeLibvirtSpecGenerator(iface *v1.Interface, domain *api.Domain, cachedDomainInterface api.Interface, podInterfaceName string, handler netdriver.NetworkHandler) *BridgeLibvirtSpecGenerator {
+func NewBridgeLibvirtSpecGenerator(
+	iface *v1.Interface,
+	domain *api.Domain,
+	cachedDomainInterface api.Interface,
+	podInterfaceName string,
+	handler netdriver.NetworkHandler,
+) *BridgeLibvirtSpecGenerator {
 	return &BridgeLibvirtSpecGenerator{
 		vmiSpecIface:          iface,
 		domain:                domain,
@@ -181,10 +199,12 @@ type SlirpLibvirtSpecGenerator struct {
 func (b *SlirpLibvirtSpecGenerator) Generate() error {
 	// remove slirp interface from domain spec devices interfaces
 	var foundIfaceModelType string
-	ifaces := b.domain.Spec.Devices.Interfaces
-	for i, iface := range ifaces {
+	for i, iface := range b.domain.Spec.Devices.Interfaces {
 		if iface.Alias.GetName() == b.vmiSpecIface.Name {
-			b.domain.Spec.Devices.Interfaces = append(ifaces[:i], ifaces[i+1:]...)
+			b.domain.Spec.Devices.Interfaces = append(
+				b.domain.Spec.Devices.Interfaces[:i],
+				b.domain.Spec.Devices.Interfaces[i+1:]...,
+			)
 			foundIfaceModelType = iface.Model.Type
 			break
 		}
@@ -200,9 +220,11 @@ func (b *SlirpLibvirtSpecGenerator) Generate() error {
 		qemuArg += fmt.Sprintf(",mac=%s", b.vmiSpecIface.MacAddress)
 	}
 	// Add interface configuration to qemuArgs
-	b.domain.Spec.QEMUCmd.QEMUArg = append(b.domain.Spec.QEMUCmd.QEMUArg, api.Arg{Value: "-device"})
-	b.domain.Spec.QEMUCmd.QEMUArg = append(b.domain.Spec.QEMUCmd.QEMUArg, api.Arg{Value: qemuArg})
-
+	b.domain.Spec.QEMUCmd.QEMUArg = append(
+		b.domain.Spec.QEMUCmd.QEMUArg,
+		api.Arg{Value: "-device"},
+		api.Arg{Value: qemuArg},
+	)
 	return nil
 }
 

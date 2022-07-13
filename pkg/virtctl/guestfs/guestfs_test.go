@@ -16,6 +16,7 @@ import (
 	"k8s.io/client-go/testing"
 
 	"kubevirt.io/client-go/kubecli"
+
 	"kubevirt.io/kubevirt/pkg/virtctl/guestfs"
 
 	virtctlcmd "kubevirt.io/kubevirt/tests/clientcmd"
