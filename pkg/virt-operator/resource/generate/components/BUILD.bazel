@@ -13,6 +13,7 @@ go_library(
         "secrets.go",
         "validations_generated.go",
         "webhooks.go",
+	"flowControl.go",
     ],
     importpath = "kubevirt.io/kubevirt/pkg/virt-operator/resource/generate/components",
     visibility = ["//visibility:public"],
