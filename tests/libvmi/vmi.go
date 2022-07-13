@@ -88,9 +88,10 @@ func WithRng() Option {
 // WithResourceMemory specifies the vmi memory resource.
 func WithResourceMemory(value string) Option {
 	return func(vmi *v1.VirtualMachineInstance) {
-		vmi.Spec.Domain.Resources.Requests = k8sv1.ResourceList{
-			k8sv1.ResourceMemory: resource.MustParse(value),
+		if vmi.Spec.Domain.Resources.Requests == nil {
+			vmi.Spec.Domain.Resources.Requests = k8sv1.ResourceList{}
 		}
+		vmi.Spec.Domain.Resources.Requests[k8sv1.ResourceMemory] = resource.MustParse(value)
 	}
 }
 
@@ -107,12 +108,25 @@ func WithNodeSelectorFor(node *k8sv1.Node) Option {
 // WithUefi configures EFI bootloader and SecureBoot.
 func WithUefi(secureBoot bool) Option {
 	return func(vmi *v1.VirtualMachineInstance) {
-		vmi.Spec.Domain.Firmware = &v1.Firmware{
-			Bootloader: &v1.Bootloader{
-				EFI: &v1.EFI{
-					SecureBoot: pointer.BoolPtr(secureBoot),
-				},
-			},
+		if vmi.Spec.Domain.Firmware == nil {
+			vmi.Spec.Domain.Firmware = &v1.Firmware{}
+		}
+		if vmi.Spec.Domain.Firmware.Bootloader == nil {
+			vmi.Spec.Domain.Firmware.Bootloader = &v1.Bootloader{}
+		}
+		if vmi.Spec.Domain.Firmware.Bootloader.EFI == nil {
+			vmi.Spec.Domain.Firmware.Bootloader.EFI = &v1.EFI{}
+		}
+		vmi.Spec.Domain.Firmware.Bootloader.EFI.SecureBoot = pointer.Bool(secureBoot)
+		// secureBoot Requires SMM to be enabled
+		if secureBoot {
+			if vmi.Spec.Domain.Features == nil {
+				vmi.Spec.Domain.Features = &v1.Features{}
+			}
+			if vmi.Spec.Domain.Features.SMM == nil {
+				vmi.Spec.Domain.Features.SMM = &v1.FeatureState{}
+			}
+			vmi.Spec.Domain.Features.SMM.Enabled = pointer.Bool(secureBoot)
 		}
 	}
 }
@@ -120,9 +134,10 @@ func WithUefi(secureBoot bool) Option {
 // WithSEV adds `launchSecurity` with `sev`.
 func WithSEV() Option {
 	return func(vmi *v1.VirtualMachineInstance) {
-		vmi.Spec.Domain.LaunchSecurity = &v1.LaunchSecurity{
-			SEV: &v1.SEV{},
+		if vmi.Spec.Domain.LaunchSecurity == nil {
+			vmi.Spec.Domain.LaunchSecurity = &v1.LaunchSecurity{}
 		}
+		vmi.Spec.Domain.LaunchSecurity.SEV = &v1.SEV{}
 	}
 }
 
