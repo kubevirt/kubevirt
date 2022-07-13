@@ -2632,7 +2632,7 @@ spec:
 				}
 			}
 		})
-		It("should update new single-replica CRs with a finalizer and be stable", func() {
+		It("[QUARANTINE] should update new single-replica CRs with a finalizer and be stable", func() {
 			By("copying the original kv CR")
 			kvOrig := copyOriginalKv()
 			kv := copyOriginalKv()
