@@ -11,7 +11,7 @@ require (
 	github.com/emicklei/go-restful v2.15.0+incompatible
 	github.com/emicklei/go-restful-openapi v1.2.0
 	github.com/evanphx/json-patch v4.12.0+incompatible
-	github.com/fsnotify/fsnotify v1.4.9
+	github.com/fsnotify/fsnotify v1.5.1
 	github.com/ghodss/yaml v1.0.0
 	github.com/go-kit/kit v0.9.0
 	github.com/go-openapi/errors v0.19.9
@@ -30,7 +30,7 @@ require (
 	github.com/gorilla/websocket v1.5.0
 	github.com/imdario/mergo v0.3.11
 	github.com/insomniacslk/dhcp v0.0.0-20201112113307-4de412bc85d8
-	github.com/k8snetworkplumbingwg/network-attachment-definition-client v0.0.0-20191119172530-79f836b90111
+	github.com/k8snetworkplumbingwg/network-attachment-definition-client v1.3.0
 	github.com/krolaw/dhcp4 v0.0.0-20180925202202-7cead472c414
 	github.com/kubernetes-csi/external-snapshotter/client/v4 v4.2.0
 	github.com/mitchellh/go-ps v0.0.0-20190716172923-621e5597135b
