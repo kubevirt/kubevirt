@@ -586,6 +586,7 @@ type VirtualMachineInstanceMigrationState struct {
 	// The time the migration action ended
 	// +nullable
 	EndTimestamp *metav1.Time `json:"endTimestamp,omitempty"`
+
 	// The Target Node has seen the Domain Start Event
 	TargetNodeDomainDetected bool `json:"targetNodeDomainDetected,omitempty"`
 	// The address of the target node to use for the migration
@@ -867,6 +868,10 @@ const (
 
 	// VirtualMachineNameLabel is the name of the Virtual Machine
 	VirtualMachineNameLabel string = "vm.kubevirt.io/name"
+
+	// PVCMemoryDumpAnnotation is the name of the memory dump representing the vm name,
+	// pvc name and the timestamp the memory dump was collected
+	PVCMemoryDumpAnnotation string = "kubevirt.io/memory-dump"
 )
 
 func NewVMI(name string, uid types.UID) *VirtualMachineInstance {
@@ -1128,10 +1133,22 @@ type VirtualMachineInstanceMigrationSpec struct {
 	VMIName string `json:"vmiName,omitempty" valid:"required"`
 }
 
+// VirtualMachineInstanceMigrationPhaseTransitionTimestamp gives a timestamp in relation to when a phase is set on a vmi
+type VirtualMachineInstanceMigrationPhaseTransitionTimestamp struct {
+	// Phase is the status of the VirtualMachineInstanceMigrationPhase in kubernetes world. It is not the VirtualMachineInstanceMigrationPhase status, but partially correlates to it.
+	Phase VirtualMachineInstanceMigrationPhase `json:"phase,omitempty"`
+	// PhaseTransitionTimestamp is the timestamp of when the phase change occurred
+	PhaseTransitionTimestamp metav1.Time `json:"phaseTransitionTimestamp,omitempty"`
+}
+
 // VirtualMachineInstanceMigration reprents information pertaining to a VMI's migration.
 type VirtualMachineInstanceMigrationStatus struct {
 	Phase      VirtualMachineInstanceMigrationPhase       `json:"phase,omitempty"`
 	Conditions []VirtualMachineInstanceMigrationCondition `json:"conditions,omitempty"`
+	// PhaseTransitionTimestamp is the timestamp of when the last phase change occurred
+	// +listType=atomic
+	// +optional
+	PhaseTransitionTimestamps []VirtualMachineInstanceMigrationPhaseTransitionTimestamp `json:"phaseTransitionTimestamps,omitempty"`
 }
 
 // VirtualMachineInstanceMigrationPhase is a label for the condition of a VirtualMachineInstanceMigration at the current time.
@@ -2212,6 +2229,11 @@ type LogVerbosity struct {
 	NodeVerbosity map[string]uint `json:"nodeVerbosity,omitempty"`
 }
 
+const (
+	PCIResourcePrefix  = "PCI_RESOURCE"
+	MDevResourcePrefix = "MDEV_PCI_RESOURCE"
+)
+
 // PermittedHostDevices holds information about devices allowed for passthrough
 type PermittedHostDevices struct {
 	// +listType=atomic
@@ -2299,6 +2321,13 @@ type FlavorMatcher struct {
 	//
 	// +optional
 	Kind string `json:"kind,omitempty"`
+
+	// RevisionName specifies a ControllerRevision containing a specific copy of the
+	// VirtualMachineFlavor or VirtualMachineClusterFlavor to be used. This is initially
+	// captured the first time the flavor is applied to the VirtualMachineInstance.
+	//
+	// +optional
+	RevisionName string `json:"revisionName,omitempty"`
 }
 
 // PreferenceMatcher references a set of preference that is used to fill fields in the VMI template.
@@ -2312,4 +2341,11 @@ type PreferenceMatcher struct {
 	//
 	// +optional
 	Kind string `json:"kind,omitempty"`
+
+	// RevisionName specifies a ControllerRevision containing a specific copy of the
+	// VirtualMachinePreference or VirtualMachineClusterPreference to be used. This is
+	// initially captured the first time the flavor is applied to the VirtualMachineInstance.
+	//
+	// +optional
+	RevisionName string `json:"revisionName,omitempty"`
 }
