@@ -54,6 +54,8 @@ var _ = Describe("Device Controller", func() {
 	var workDir string
 	var err error
 	var host string
+	var maxDevices int
+	var permissions string
 	var stop chan struct{}
 	var fakeConfigMap *virtconfig.ClusterConfig
 	var mockPCI *MockDeviceHandler
@@ -89,6 +91,8 @@ var _ = Describe("Device Controller", func() {
 		Expect(err).ToNot(HaveOccurred())
 
 		host = "master"
+		maxDevices = 100
+		permissions = "rw"
 		stop = make(chan struct{})
 	})
 
@@ -99,7 +103,7 @@ var _ = Describe("Device Controller", func() {
 	Context("Basic Tests", func() {
 		It("Should indicate if node has device", func() {
 			var noDevices []Device
-			deviceController := NewDeviceController(host, noDevices, fakeConfigMap, clientTest.CoreV1())
+			deviceController := NewDeviceController(host, maxDevices, permissions, noDevices, fakeConfigMap, clientTest.CoreV1())
 			devicePath := path.Join(workDir, "fake-device")
 			res := deviceController.NodeHasDevice(devicePath)
 			Expect(res).To(BeFalse())
@@ -136,7 +140,7 @@ var _ = Describe("Device Controller", func() {
 
 		It("should start the device plugin immediately without delays", func() {
 			initialDevices := []Device{plugin2}
-			deviceController := NewDeviceController(host, initialDevices, fakeConfigMap, clientTest.CoreV1())
+			deviceController := NewDeviceController(host, maxDevices, permissions, initialDevices, fakeConfigMap, clientTest.CoreV1())
 			deviceController.backoff = []time.Duration{10 * time.Millisecond, 10 * time.Second}
 
 			go deviceController.Run(stop)
@@ -151,7 +155,7 @@ var _ = Describe("Device Controller", func() {
 			plugin2.Error = fmt.Errorf("failing")
 			initialDevices := []Device{plugin2}
 
-			deviceController := NewDeviceController(host, initialDevices, fakeConfigMap, clientTest.CoreV1())
+			deviceController := NewDeviceController(host, maxDevices, permissions, initialDevices, fakeConfigMap, clientTest.CoreV1())
 			deviceController.backoff = []time.Duration{10 * time.Millisecond, 300 * time.Millisecond}
 
 			go deviceController.Run(stop)
@@ -163,7 +167,7 @@ var _ = Describe("Device Controller", func() {
 
 		It("Should not block on other plugins", func() {
 			initialDevices := []Device{plugin1, plugin2}
-			deviceController := NewDeviceController(host, initialDevices, fakeConfigMap, clientTest.CoreV1())
+			deviceController := NewDeviceController(host, maxDevices, permissions, initialDevices, fakeConfigMap, clientTest.CoreV1())
 
 			go deviceController.Run(stop)
 
@@ -184,7 +188,7 @@ var _ = Describe("Device Controller", func() {
 			Expect(emptyConfigMap.GetPermittedHostDevices()).To(BeNil())
 
 			initialDevices := []Device{plugin1, plugin2}
-			deviceController := NewDeviceController(host, initialDevices, emptyConfigMap, clientTest.CoreV1())
+			deviceController := NewDeviceController(host, maxDevices, permissions, initialDevices, emptyConfigMap, clientTest.CoreV1())
 
 			go deviceController.Run(stop)
 

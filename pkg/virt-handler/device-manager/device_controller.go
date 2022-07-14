@@ -106,7 +106,6 @@ func PermanentHostDevicePlugins(maxDevices int, permissions string) []Device {
 		"kvm":       "/dev/kvm",
 		"tun":       "/dev/net/tun",
 		"vhost-net": "/dev/vhost-net",
-		"sev":       "/dev/sev",
 	}
 
 	ret := make([]Device, 0, len(permanentDevicePluginPaths))
@@ -126,6 +125,8 @@ type DeviceController struct {
 	startedPlugins      map[string]controlledDevice
 	startedPluginsMutex sync.Mutex
 	host                string
+	maxDevices          int
+	permissions         string
 	backoff             []time.Duration
 	virtConfig          *virtconfig.ClusterConfig
 	stop                chan struct{}
@@ -133,7 +134,14 @@ type DeviceController struct {
 	clientset           k8scli.CoreV1Interface
 }
 
-func NewDeviceController(host string, permanentPlugins []Device, clusterConfig *virtconfig.ClusterConfig, clientset k8scli.CoreV1Interface) *DeviceController {
+func NewDeviceController(
+	host string,
+	maxDevices int,
+	permissions string,
+	permanentPlugins []Device,
+	clusterConfig *virtconfig.ClusterConfig,
+	clientset k8scli.CoreV1Interface,
+) *DeviceController {
 	permanentPluginsMap := make(map[string]Device, len(permanentPlugins))
 	for i := range permanentPlugins {
 		permanentPluginsMap[permanentPlugins[i].GetDeviceName()] = permanentPlugins[i]
@@ -143,6 +151,8 @@ func NewDeviceController(host string, permanentPlugins []Device, clusterConfig *
 		permanentPlugins: permanentPluginsMap,
 		startedPlugins:   map[string]controlledDevice{},
 		host:             host,
+		maxDevices:       maxDevices,
+		permissions:      permissions,
 		backoff:          []time.Duration{1 * time.Second, 2 * time.Second, 5 * time.Second, 10 * time.Second},
 		virtConfig:       clusterConfig,
 		mdevTypesManager: NewMDEVTypesManager(),
@@ -160,12 +170,29 @@ func (c *DeviceController) NodeHasDevice(devicePath string) bool {
 
 // updatePermittedHostDevicePlugins returns a slice of device plugins for permitted devices which are present on the node
 func (c *DeviceController) updatePermittedHostDevicePlugins() []Device {
-	hostDevs := c.virtConfig.GetPermittedHostDevices()
-	if hostDevs == nil {
-		return nil
+	var permittedDevices []Device
+
+	var featureGatedDevices = []struct {
+		Name      string
+		Path      string
+		IsAllowed func() bool
+	}{
+		{"sev", "/dev/sev", c.virtConfig.WorkloadEncryptionSEVEnabled},
+	}
+	for _, dev := range featureGatedDevices {
+		if dev.IsAllowed() {
+			permittedDevices = append(
+				permittedDevices,
+				NewGenericDevicePlugin(dev.Name, dev.Path, c.maxDevices, c.permissions, true),
+			)
+		}
 	}
 
-	var permittedDevices []Device
+	hostDevs := c.virtConfig.GetPermittedHostDevices()
+	if hostDevs == nil {
+		return permittedDevices
+	}
+
 	if len(hostDevs.PciHostDevices) != 0 {
 		supportedPCIDeviceMap := make(map[string]string)
 		for _, pciDev := range hostDevs.PciHostDevices {
