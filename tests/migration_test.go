@@ -2196,7 +2196,7 @@ var _ = Describe("[Serial][rfe_id:393][crit:high][vendor:cnv-qe@redhat.com][leve
 
 				By("Ensuring that target pod has correct nodeSelector label")
 				vmiPod := tests.GetRunningPodByVirtualMachineInstance(vmi, vmi.Namespace)
-				Expect(vmiPod.Spec.NodeSelector).To(HaveKey(v1.HostModelCPULabel+hostModel),
+				Expect(vmiPod.Spec.NodeSelector).To(HaveKey(v1.SupportedHostModelMigrationCPU+hostModel),
 					"target pod is expected to have correct nodeSelector label defined")
 
 				By("Ensuring that target node has correct CPU mode & features")
@@ -2811,6 +2811,149 @@ var _ = Describe("[Serial][rfe_id:393][crit:high][vendor:cnv-qe@redhat.com][leve
 			table.Entry("[test_id:6984]hugepages-1Gi", "1Gi", "1Gi"),
 		)
 	})
+	Context("[Serial]Testing host-model cpuModel edge cases in the cluster if the cluster is host-model migratable", func() {
+
+		var backedUpTargetNode *k8sv1.Node
+		var sourceNode *k8sv1.Node
+		var targetNode *k8sv1.Node
+
+		BeforeEach(func() {
+			sourceNode, targetNode, err = tests.GetValidSourceNodeAndTargetNodeForHostModelMigration(virtClient)
+			if err != nil {
+				Skip(err.Error())
+			}
+			disableNodeLabeller(targetNode, virtClient)
+		})
+
+		AfterEach(func() {
+			By("Restore node to its original state")
+			Eventually(func() error {
+				targetNode, err := virtClient.CoreV1().Nodes().Get(context.Background(), targetNode.Name, metav1.GetOptions{})
+				if err != nil {
+					return err
+				}
+				delete(targetNode.Annotations, v1.LabellerSkipNodeAnnotation)
+				_, err = virtClient.CoreV1().Nodes().Update(context.Background(), targetNode, metav1.UpdateOptions{})
+				return err
+			}, 10*time.Second, 1*time.Second).Should(BeNil())
+			wakeNodeLabellerUp(virtClient)
+			Eventually(func() bool {
+				backedUpTargetNode, err = virtClient.CoreV1().Nodes().Get(context.Background(), targetNode.Name, metav1.GetOptions{})
+				Expect(err).ShouldNot(HaveOccurred())
+				_, amazingFeatureExist := backedUpTargetNode.Labels[v1.HostModelRequiredFeaturesLabel+"amazingFeature"]
+				_, amazingHostModelExist := backedUpTargetNode.Labels[v1.HostModelCPULabel+"amazingHostModel"]
+				_, skipNodeExist := backedUpTargetNode.Annotations[v1.LabellerSkipNodeAnnotation]
+				return amazingFeatureExist || amazingHostModelExist || skipNodeExist
+			}, 30*time.Second, 1*time.Second).Should(Equal(false), "Node should not have amazingFeature or amazing host-model after the test")
+
+		})
+
+		It("Should be able to migrate back to the initial node from target node with host-model even if target is newer than source", func() {
+			targetNode, err := virtClient.CoreV1().Nodes().Get(context.Background(), targetNode.Name, metav1.GetOptions{})
+			Expect(err).ShouldNot(HaveOccurred())
+			targetNode.Labels[v1.HostModelRequiredFeaturesLabel+"amazingFeature"] = "true"
+			Eventually(func() error {
+				if targetNode, err = virtClient.CoreV1().Nodes().Update(context.Background(), targetNode, metav1.UpdateOptions{}); err != nil {
+					return err
+				}
+				return nil
+			}, 30*time.Second, time.Second).ShouldNot(HaveOccurred())
+
+			vmiToMigrate := libvmi.NewFedora(
+				libvmi.WithInterface(libvmi.InterfaceDeviceWithMasqueradeBinding()),
+				libvmi.WithNetwork(v1.DefaultPodNetwork()),
+			)
+			By("Creating a VMI with default CPU mode to land in source node")
+			vmiToMigrate.Spec.Domain.CPU = &v1.CPU{Model: v1.CPUModeHostModel}
+			By("Making sure the vmi start running on the source node and will be able to run only in source/target nodes")
+			nodeAffinityRule, err := tests.AffinityToMigrateFromSourceToTargetAndBack(sourceNode, targetNode)
+			Expect(err).ToNot(HaveOccurred())
+			vmiToMigrate.Spec.Affinity = &k8sv1.Affinity{
+				NodeAffinity: nodeAffinityRule,
+			}
+			By("Starting the VirtualMachineInstance")
+			vmiToMigrate = runVMIAndExpectLaunch(vmiToMigrate, 240)
+			Expect(vmiToMigrate.Status.NodeName).To(Equal(sourceNode.Name))
+			Expect(console.LoginToFedora(vmiToMigrate)).To(Succeed())
+
+			// execute a migration, wait for finalized state
+			By("Starting the Migration to target node(with the amazing feature")
+			migration := tests.NewRandomMigration(vmiToMigrate.Name, vmiToMigrate.Namespace)
+			tests.RunMigrationAndExpectCompletion(virtClient, migration, tests.MigrationWaitTime)
+
+			vmiToMigrate, err = virtClient.VirtualMachineInstance(util.NamespaceTestDefault).Get(vmiToMigrate.GetName(), &metav1.GetOptions{})
+			Expect(err).ShouldNot(HaveOccurred())
+			Expect(vmiToMigrate.Status.NodeName).To(Equal(targetNode.Name))
+
+			labelsBeforeMigration := make(map[string]string)
+			labelsAfterMigration := make(map[string]string)
+			By("Fetching virt-launcher pod")
+			virtLauncherPod := tests.GetRunningPodByVirtualMachineInstance(vmiToMigrate, util.NamespaceTestDefault)
+			for key, value := range virtLauncherPod.Spec.NodeSelector {
+				if strings.HasPrefix(key, v1.CPUFeatureLabel) {
+					labelsBeforeMigration[key] = value
+				}
+			}
+
+			By("Starting the Migration to return to the source node")
+			tests.RunMigrationAndExpectCompletion(virtClient, migration, tests.MigrationWaitTime)
+			Expect(console.LoginToFedora(vmiToMigrate)).To(Succeed())
+
+			vmiToMigrate, err = virtClient.VirtualMachineInstance(util.NamespaceTestDefault).Get(vmiToMigrate.GetName(), &metav1.GetOptions{})
+			Expect(err).ShouldNot(HaveOccurred())
+			Expect(vmiToMigrate.Status.NodeName).To(Equal(sourceNode.Name))
+			By("Fetching virt-launcher pod")
+			virtLauncherPod = tests.GetRunningPodByVirtualMachineInstance(vmiToMigrate, util.NamespaceTestDefault)
+			for key, value := range virtLauncherPod.Spec.NodeSelector {
+				if strings.HasPrefix(key, v1.CPUFeatureLabel) {
+					labelsAfterMigration[key] = value
+				}
+			}
+			Expect(labelsAfterMigration).To(BeEquivalentTo(labelsBeforeMigration))
+		})
+
+		It("vmi with host-model should be able to migrate to node that support the initial node's host-model even if this model isn't the target's host-model", func() {
+			targetNode, err := virtClient.CoreV1().Nodes().Get(context.Background(), targetNode.Name, metav1.GetOptions{})
+			Expect(err).ShouldNot(HaveOccurred())
+			targetHostModel := tests.GetNodeHostModel(targetNode)
+			delete(targetNode.Labels, v1.HostModelCPULabel+targetHostModel)
+			targetNode.Labels[v1.HostModelCPULabel+"amazingHostModel"] = "true"
+			Eventually(func() error {
+				if targetNode, err = virtClient.CoreV1().Nodes().Update(context.Background(), targetNode, metav1.UpdateOptions{}); err != nil {
+					return err
+				}
+				return nil
+			}, 30*time.Second, time.Second).ShouldNot(HaveOccurred())
+
+			vmiToMigrate := libvmi.NewFedora(
+				libvmi.WithInterface(libvmi.InterfaceDeviceWithMasqueradeBinding()),
+				libvmi.WithNetwork(v1.DefaultPodNetwork()),
+			)
+			By("Creating a VMI with default CPU mode to land in source node")
+			vmiToMigrate.Spec.Domain.CPU = &v1.CPU{Model: v1.CPUModeHostModel}
+			By("Making sure the vmi start running on the source node and will be able to run only in source/target nodes")
+			nodeAffinityRule, err := tests.AffinityToMigrateFromSourceToTargetAndBack(sourceNode, targetNode)
+			Expect(err).ToNot(HaveOccurred())
+			vmiToMigrate.Spec.Affinity = &k8sv1.Affinity{
+				NodeAffinity: nodeAffinityRule,
+			}
+			By("Starting the VirtualMachineInstance")
+			vmiToMigrate = runVMIAndExpectLaunch(vmiToMigrate, 240)
+			Expect(vmiToMigrate.Status.NodeName).To(Equal(sourceNode.Name))
+			Expect(console.LoginToFedora(vmiToMigrate)).To(Succeed())
+
+			// execute a migration, wait for finalized state
+			By("Starting the Migration to target node(with the amazing feature")
+			migration := tests.NewRandomMigration(vmiToMigrate.Name, vmiToMigrate.Namespace)
+			tests.RunMigrationAndExpectCompletion(virtClient, migration, tests.MigrationWaitTime)
+
+			vmiToMigrate, err = virtClient.VirtualMachineInstance(util.NamespaceTestDefault).Get(vmiToMigrate.GetName(), &metav1.GetOptions{})
+			Expect(err).ShouldNot(HaveOccurred())
+			Expect(vmiToMigrate.Status.NodeName).To(Equal(targetNode.Name))
+			Expect(console.LoginToFedora(vmiToMigrate)).To(Succeed())
+
+		})
+	})
 })
 
 func fedoraVMIWithEvictionStrategy() *v1.VirtualMachineInstance {
@@ -2848,4 +2991,38 @@ func temporaryTLSConfig() *tls.Config {
 			return &cert, nil
 		},
 	}
+}
+
+func disableNodeLabeller(node *k8sv1.Node, virtClient kubecli.KubevirtClient) *k8sv1.Node {
+	Eventually(func() error {
+		node, err := virtClient.CoreV1().Nodes().Get(context.Background(), node.Name, metav1.GetOptions{})
+		Expect(err).ToNot(HaveOccurred())
+		node.Annotations[v1.LabellerSkipNodeAnnotation] = "true"
+
+		node, err = virtClient.CoreV1().Nodes().Update(context.Background(), node, metav1.UpdateOptions{})
+		return err
+
+	}, 10*time.Second, 1*time.Second).Should(BeNil())
+
+	Eventually(func() bool {
+		node, err := virtClient.CoreV1().Nodes().Get(context.Background(), node.Name, metav1.GetOptions{})
+		Expect(err).ToNot(HaveOccurred())
+		value, ok := node.Annotations[v1.LabellerSkipNodeAnnotation]
+		return ok && value == "true"
+	}, 30*time.Second, time.Second).Should(BeTrue())
+
+	return node
+}
+func wakeNodeLabellerUp(virtClient kubecli.KubevirtClient) {
+	const fakeModel = "fake-model-1423"
+
+	By("Updating Kubevirt CR to wake node-labeller up")
+	kvConfig := util.GetCurrentKv(virtClient).Spec.Configuration.DeepCopy()
+	if kvConfig.ObsoleteCPUModels == nil {
+		kvConfig.ObsoleteCPUModels = make(map[string]bool)
+	}
+	kvConfig.ObsoleteCPUModels[fakeModel] = true
+	tests.UpdateKubeVirtConfigValueAndWait(*kvConfig)
+	delete(kvConfig.ObsoleteCPUModels, fakeModel)
+	tests.UpdateKubeVirtConfigValueAndWait(*kvConfig)
 }
