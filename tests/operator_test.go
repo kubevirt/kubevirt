@@ -2637,8 +2637,17 @@ spec:
 			kvOrig := copyOriginalKv()
 			kv := copyOriginalKv()
 
+			By("storing the actual replica counts for the cluster")
+			originalReplicaCounts := make(map[string]int)
+			for _, name := range []string{"virt-api", "virt-controller"} {
+				pods, err := virtClient.CoreV1().Pods(flags.KubeVirtInstallNamespace).List(context.Background(), metav1.ListOptions{LabelSelector: fmt.Sprintf("%s=%s", v1.AppLabel, name)})
+				Expect(err).ToNot(HaveOccurred())
+				originalReplicaCounts[name] = len(pods.Items)
+			}
+
 			By("deleting the kv CR")
-			virtClient.KubeVirt(kv.Namespace).Delete(kv.Name, &metav1.DeleteOptions{})
+			err = virtClient.KubeVirt(kv.Namespace).Delete(kv.Name, &metav1.DeleteOptions{})
+			Expect(err).ToNot(HaveOccurred())
 
 			By("waiting for virt-api and virt-controller to be gone")
 			Eventually(func() bool {
@@ -2650,6 +2659,12 @@ spec:
 					}
 				}
 				return true
+			}, 120*time.Second, 4*time.Second).Should(BeTrue())
+
+			By("waiting for the kv CR to be gone")
+			Eventually(func() bool {
+				_, err := virtClient.KubeVirt(kv.Namespace).Get(kv.Name, &metav1.GetOptions{})
+				return errors.IsNotFound(err)
 			}, 120*time.Second, 4*time.Second).Should(BeTrue())
 
 			By("creating a new single-replica kv CR")
@@ -2680,20 +2695,16 @@ spec:
 			patchKvInfra(kvOrig.Spec.Infra, false, "")
 
 			By("waiting for virt-api and virt-controller replicas to respawn")
-			expectedReplicas := 2
-			if kvOrig.Spec.Infra != nil && kvOrig.Spec.Infra.Replicas != nil {
-				expectedReplicas = int(*kvOrig.Spec.Infra.Replicas)
-			}
-			Eventually(func() bool {
+			Eventually(func() error {
 				for _, name := range []string{"virt-api", "virt-controller"} {
 					pods, err := virtClient.CoreV1().Pods(flags.KubeVirtInstallNamespace).List(context.Background(), metav1.ListOptions{LabelSelector: fmt.Sprintf("%s=%s", v1.AppLabel, name)})
 					Expect(err).ToNot(HaveOccurred())
-					if len(pods.Items) != expectedReplicas {
-						return false
+					if len(pods.Items) != originalReplicaCounts[name] {
+						return fmt.Errorf("expected %d replicas for %s, got %d", originalReplicaCounts[name], name, len(pods.Items))
 					}
 				}
-				return true
-			}, 120*time.Second, 4*time.Second).Should(BeTrue())
+				return nil
+			}, 120*time.Second, 4*time.Second).ShouldNot(HaveOccurred())
 		})
 	})
 
