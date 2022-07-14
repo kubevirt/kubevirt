@@ -196,6 +196,12 @@ func SocketMonitoringEnabled(socket string) bool {
 }
 
 func IsSocketUnresponsive(socket string) bool {
+	if exists, _ := diskutils.FileExists(filepath.Dir(socket)); !exists {
+		// If the sockets directory does not exist the kubelet already started unmounting
+		// since the sockets directory is a mountpoint.
+		return true
+	}
+
 	file := filepath.Join(filepath.Dir(socket), StandardLauncherUnresponsiveFileName)
 	exists, _ := diskutils.FileExists(file)
 	// if the unresponsive socket monitor marked this socket
@@ -214,6 +220,11 @@ func IsSocketUnresponsive(socket string) bool {
 }
 
 func MarkSocketUnresponsive(socket string) error {
+	if exists, _ := diskutils.FileExists(filepath.Dir(socket)); !exists {
+		// If the sockets directory does not exist the kubelet already started unmounting
+		// since the sockets directory is a mountpoint. Don't try to create a file at an inexistent location.
+		return nil
+	}
 	file := filepath.Join(filepath.Dir(socket), StandardLauncherUnresponsiveFileName)
 	f, err := os.Create(file)
 	if err != nil {

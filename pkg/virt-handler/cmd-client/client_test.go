@@ -143,6 +143,17 @@ var _ = Describe("Virt remote commands", func() {
 			Expect(unresponsive).To(BeTrue())
 		})
 
+		It("should be able to detect unresponsive launchers when the kubelet removed the sockets base directory already", func() {
+			sock, err := FindSocketOnHost(vmi)
+			Expect(err).ToNot(HaveOccurred())
+
+			socketsDir := filepath.Dir(sock)
+			Expect(os.RemoveAll(socketsDir)).To(Succeed())
+
+			Expect(MarkSocketUnresponsive(sock)).To(Succeed())
+			Expect(IsSocketUnresponsive(sock)).To(BeTrue())
+		})
+
 		It("Determine legacy sockets vs new socket paths", func() {
 			legacy := IsLegacySocket("/some/path/something_sock")
 			Expect(legacy).To(BeTrue())
