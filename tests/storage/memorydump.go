@@ -56,11 +56,13 @@ const (
 	memoryDumpSmallPVCName           = "fs-pvc-small"
 	virtCtlClaimName                 = "--claim-name=%s"
 	virtCtlCreate                    = "--create-claim"
+	virtCtlStorageClass              = "--storage-class=%s"
 	waitMemoryDumpRequest            = "waiting on memory dump request in vm status"
 	waitMemoryDumpPvcVolume          = "waiting on memory dump pvc in vm"
 	waitMemoryDumpRequestRemove      = "waiting on memory dump request to be remove from vm status"
 	waitMemoryDumpPvcVolumeRemove    = "waiting on memory dump pvc to be remove from vm volumes"
 	waitMemoryDumpCompletion         = "waiting on memory dump completion in vm, phase: %s"
+	waitMemoryDumpInProgress         = "waiting on memory dump in progress in vm, phase: %s"
 	waitMemoryDumpAnnotation         = "waiting on memory dump annotation on pvc"
 	waitVMIMemoryDumpPvcVolume       = "waiting memory dump not to be in vmi volumes list"
 	waitVMIMemoryDumpPvcVolumeStatus = "waiting memory dump not to be in vmi volumeStatus list"
@@ -321,6 +323,29 @@ var _ = SIGDescribe("Memory dump", func() {
 		}, 6*time.Second, 1*time.Second).ShouldNot(HaveOccurred())
 	}
 
+	memoryDumpVirtctlCreatePVCWithStorgeClass := func(name, namespace, claimName, storageClass string) {
+		By("Invoking virtlctl memory dump with create flag")
+		commandAndArgs := []string{virtctl.COMMAND_MEMORYDUMP, "get", name, virtCtlNamespace, namespace}
+		commandAndArgs = append(commandAndArgs, fmt.Sprintf(virtCtlClaimName, claimName))
+		commandAndArgs = append(commandAndArgs, virtCtlCreate)
+		commandAndArgs = append(commandAndArgs, fmt.Sprintf(virtCtlStorageClass, storageClass))
+		memorydumpCommand := clientcmd.NewRepeatableVirtctlCommand(commandAndArgs...)
+		Eventually(func() error {
+			err := memorydumpCommand()
+			if err != nil {
+				_, getErr := virtClient.CoreV1().PersistentVolumeClaims(namespace).Get(context.Background(), claimName, metav1.GetOptions{})
+				if getErr == nil {
+					// already created the pvc can't call the memory dump command with
+					// create-claim flag again
+					By("Error memory dump command after claim created")
+					memoryDumpVirtctl(name, namespace, claimName)
+					return nil
+				}
+			}
+			return err
+		}, 6*time.Second, 1*time.Second).ShouldNot(HaveOccurred())
+	}
+
 	removeMemoryDumpVMSubresource := func(vmName, namespace string) {
 		Eventually(func() error {
 			return virtClient.VirtualMachine(namespace).RemoveMemoryDump(vmName)
@@ -561,5 +586,29 @@ var _ = SIGDescribe("Memory dump", func() {
 			removeMemoryDumpAndVerify(vm, memoryDumpPVCName2, previousOutput, removeMemoryDumpVirtctl)
 		})
 
+		It("Should be able to remove memory dump while memory dump is stuck", func() {
+			By("create pvc with a non-existing storage-class")
+			memoryDumpVirtctlCreatePVCWithStorgeClass(vm.Name, vm.Namespace, memoryDumpPVCName, "no-exist")
+			By("Wait memory dump in progress")
+			Eventually(func() error {
+				updatedVM, err := virtClient.VirtualMachine(vm.Namespace).Get(vm.Name, &metav1.GetOptions{})
+				if err != nil {
+					return err
+				}
+				if updatedVM.Status.MemoryDumpRequest == nil || updatedVM.Status.MemoryDumpRequest.Phase != v1.MemoryDumpInProgress {
+					return fmt.Errorf(fmt.Sprintf(waitMemoryDumpInProgress, updatedVM.Status.MemoryDumpRequest.Phase))
+				}
+
+				return nil
+			}, 90*time.Second, 1*time.Second).ShouldNot(HaveOccurred())
+			By("Running remove memory dump")
+			removeMemoryDumpVirtctl(vm.Name, vm.Namespace)
+			waitAndVerifyMemoryDumpDissociation(vm, memoryDumpPVCName)
+			pvc, err := virtClient.CoreV1().PersistentVolumeClaims(util.NamespaceTestDefault).Get(context.Background(), memoryDumpPVCName, metav1.GetOptions{})
+			Expect(err).ToNot(HaveOccurred())
+			if pvc.Annotations != nil {
+				Expect(pvc.Annotations[v1.PVCMemoryDumpAnnotation]).To(BeNil())
+			}
+		})
 	})
 })

@@ -705,6 +705,15 @@ func (c *VMController) handleMemoryDumpRequest(vm *virtv1.VirtualMachine, vmi *v
 			return err
 		}
 	case virtv1.MemoryDumpDissociating:
+		// Check if the memory dump is in the vmi list of volumes,
+		// if it still there remove it to make it unmount from virt launcher
+		if _, exists := vmiVolumeMap[vm.Status.MemoryDumpRequest.ClaimName]; exists {
+			if err := c.generateVMIMemoryDumpVolumePatch(vmi, vm.Status.MemoryDumpRequest, false); err != nil {
+				log.Log.Object(vmi).V(1).Errorf("unable to patch vmi to remove memory dump volume: %v", err)
+				return err
+			}
+		}
+
 		vm.Spec.Template.Spec = *removeMemoryDumpVolumeFromVMISpec(&vm.Spec.Template.Spec, vm.Status.MemoryDumpRequest.ClaimName)
 	}
 
@@ -2209,6 +2218,11 @@ func (c *VMController) updateMemoryDumpRequest(vm *virtv1.VirtualMachine, vmi *v
 	}
 
 	updatedMemoryDumpReq := vm.Status.MemoryDumpRequest.DeepCopy()
+
+	if vm.Status.MemoryDumpRequest.Remove {
+		updatedMemoryDumpReq.Phase = virtv1.MemoryDumpDissociating
+	}
+
 	switch vm.Status.MemoryDumpRequest.Phase {
 	case virtv1.MemoryDumpCompleted:
 		// Once memory dump completed, there is no update neeeded,
@@ -2260,19 +2274,22 @@ func (c *VMController) updateMemoryDumpRequest(vm *virtv1.VirtualMachine, vmi *v
 		}
 		updatedMemoryDumpReq.Phase = virtv1.MemoryDumpCompleted
 	case virtv1.MemoryDumpDissociating:
-		// Remove the memory dump request once the memory dump
-		// is not in the list of vm volumes
-		found := false
-		for _, volume := range vm.Spec.Template.Spec.Volumes {
-			if vm.Status.MemoryDumpRequest.ClaimName == volume.Name {
-				found = true
-				break
+		// Make sure the memory dump is not in the vmi list of volumes
+		if vmi != nil {
+			for _, volumeStatus := range vmi.Status.VolumeStatus {
+				if volumeStatus.Name == vm.Status.MemoryDumpRequest.ClaimName {
+					return
+				}
 			}
 		}
-		if !found {
-			updatedMemoryDumpReq = nil
+		// Make sure the memory dump is not in the list of vm volumes
+		for _, volume := range vm.Spec.Template.Spec.Volumes {
+			if vm.Status.MemoryDumpRequest.ClaimName == volume.Name {
+				return
+			}
 		}
-
+		// Remove the memory dump request
+		updatedMemoryDumpReq = nil
 	}
 
 	vm.Status.MemoryDumpRequest = updatedMemoryDumpReq

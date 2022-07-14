@@ -1320,11 +1320,8 @@ func removeMemoryDumpRequest(vm, vmCopy *v1.VirtualMachine, memoryDumpReq *v1.Vi
 	}
 
 	claimName := vm.Status.MemoryDumpRequest.ClaimName
-	if vm.Status.MemoryDumpRequest.Phase == v1.MemoryDumpDissociating {
+	if vm.Status.MemoryDumpRequest.Remove {
 		return fmt.Errorf("memory dump remove request for pvc [%s] already exists", claimName)
-	}
-	if vm.Status.MemoryDumpRequest.Phase != v1.MemoryDumpCompleted && vm.Status.MemoryDumpRequest.Phase != v1.MemoryDumpFailed {
-		return fmt.Errorf("memory dump request for pvc [%s] is still in progress, need to wait for it to complete", claimName)
 	}
 	memoryDumpReq.ClaimName = claimName
 	vmCopy.Status.MemoryDumpRequest = memoryDumpReq
@@ -1520,7 +1517,8 @@ func (app *SubresourceAPIApp) RemoveMemoryDumpVMRequestHandler(request *restful.
 	namespace := request.PathParameter("namespace")
 
 	removeReq := &v1.VirtualMachineMemoryDumpRequest{
-		Phase: v1.MemoryDumpDissociating,
+		Phase:  v1.MemoryDumpDissociating,
+		Remove: true,
 	}
 	isRemoveRequest := true
 	if err := app.vmMemoryDumpRequestPatchStatus(name, namespace, removeReq, isRemoveRequest); err != nil {
