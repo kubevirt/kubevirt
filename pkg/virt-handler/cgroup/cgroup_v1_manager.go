@@ -23,17 +23,20 @@ type v1Manager struct {
 	getCurrentlyDefinedRules getCurrentlyDefinedRulesFunc
 }
 
-func newV1Manager(config *runc_configs.Cgroup, controllerPaths map[string]string, rootless bool) (Manager, error) {
-	return newCustomizedV1Manager(config, controllerPaths, rootless, execVirtChrootCgroups, getCurrentlyDefinedRules)
+func newV1Manager(config *runc_configs.Cgroup, controllerPaths map[string]string) (Manager, error) {
+	return newCustomizedV1Manager(config, controllerPaths, execVirtChrootCgroups, getCurrentlyDefinedRules)
 }
 
-func newCustomizedV1Manager(config *runc_configs.Cgroup, controllerPaths map[string]string, rootless bool,
+func newCustomizedV1Manager(config *runc_configs.Cgroup, controllerPaths map[string]string,
 	execVirtChroot execVirtChrootFunc, getCurrentlyDefinedRules getCurrentlyDefinedRulesFunc) (Manager, error) {
-	runcManager := runc_fs.NewManager(config, controllerPaths, rootless)
+	runcManager, err := runc_fs.NewManager(config, controllerPaths)
+	if err != nil {
+		return nil, fmt.Errorf("cannot initialize new cgroup manager. err: %v", err)
+	}
 	manager := v1Manager{
 		runcManager,
 		controllerPaths,
-		rootless,
+		config.Rootless,
 		execVirtChroot,
 		getCurrentlyDefinedRules,
 	}

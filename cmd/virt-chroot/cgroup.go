@@ -54,15 +54,16 @@ func decodePaths(marshalledPathsHash string) (map[string]string, error) {
 func setCgroupResources(paths map[string]string, resources *runc_configs.Resources, isRootless bool, isV2 bool) error {
 	config := &runc_configs.Cgroup{
 		Path:      cgroup.HostCgroupBasePath,
-		Resources: &runc_configs.Resources{},
+		Resources: resources,
+		Rootless:  isRootless,
 	}
 
 	var err error
 
 	if isV2 {
-		err = setCgroupResourcesV2(paths, resources, isRootless, config)
+		err = setCgroupResourcesV2(paths, resources, config)
 	} else {
-		err = setCgroupResourcesV1(paths, resources, isRootless, config)
+		err = setCgroupResourcesV1(paths, resources, config)
 	}
 
 	if err != nil {
@@ -72,17 +73,20 @@ func setCgroupResources(paths map[string]string, resources *runc_configs.Resourc
 	return nil
 }
 
-func setCgroupResourcesV1(paths map[string]string, resources *runc_configs.Resources, isRootless bool, config *runc_configs.Cgroup) error {
+func setCgroupResourcesV1(paths map[string]string, resources *runc_configs.Resources, config *runc_configs.Cgroup) error {
 	return RunWithChroot(cgroup.HostCgroupBasePath, func() error {
-		cgroupManager := runc_fs.NewManager(config, paths, isRootless)
+		cgroupManager, err := runc_fs.NewManager(config, paths)
+		if err != nil {
+			return fmt.Errorf("cannot create cgroups v1 manager. err: %v", err)
+		}
 		return cgroupManager.Set(resources)
 	})
 }
 
-func setCgroupResourcesV2(paths map[string]string, resources *runc_configs.Resources, isRootless bool, config *runc_configs.Cgroup) error {
+func setCgroupResourcesV2(paths map[string]string, resources *runc_configs.Resources, config *runc_configs.Cgroup) error {
 	cgroupDirPath := paths[""]
 
-	cgroupManager, err := runc_fs2.NewManager(config, cgroupDirPath, isRootless)
+	cgroupManager, err := runc_fs2.NewManager(config, cgroupDirPath)
 	if err != nil {
 		return fmt.Errorf("cannot create cgroups v2 manager. err: %v", err)
 	}

@@ -73,12 +73,13 @@ func NewManagerFromPid(pid int) (manager Manager, err error) {
 	config := &configs.Cgroup{
 		Path:      HostCgroupBasePath,
 		Resources: &configs.Resources{},
+		Rootless:  isRootless,
 	}
 
 	if runc_cgroups.IsCgroup2UnifiedMode() {
 		version = V2
 		slicePath := filepath.Join(cgroupBasePath, controllerPaths[""])
-		manager, err = newV2Manager(config, slicePath, isRootless)
+		manager, err = newV2Manager(config, slicePath)
 	} else {
 		version = V1
 		for subsystem, path := range controllerPaths {
@@ -88,7 +89,7 @@ func NewManagerFromPid(pid int) (manager Manager, err error) {
 			controllerPaths[subsystem] = filepath.Join("/", subsystem, path)
 		}
 
-		manager, err = newV1Manager(config, controllerPaths, isRootless)
+		manager, err = newV1Manager(config, controllerPaths)
 	}
 
 	if err != nil {
