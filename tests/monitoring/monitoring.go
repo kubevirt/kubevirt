@@ -89,6 +89,7 @@ var _ = Describe("[Serial][sig-monitoring]Prometheus Alerts", func() {
 	var err error
 	var virtClient kubecli.KubevirtClient
 	var scales map[string]*autoscalingv1.Scale
+	var prometheusRule *promv1.PrometheusRule
 
 	backupScale := func(operatorName string) {
 		Eventually(func() error {
@@ -251,17 +252,30 @@ var _ = Describe("[Serial][sig-monitoring]Prometheus Alerts", func() {
 		checks.SkipIfPrometheusRuleIsNotEnabled(virtClient)
 	})
 
-	Context("Alerts runbooks", func() {
-		It("Should have available URLs", func() {
-			alerts, err := getAlerts(virtClient)
+	Context("Kubevirt alert rules", func() {
+		BeforeEach(func() {
+			monv1 := virtClient.PrometheusClient().MonitoringV1()
+			prometheusRule, err = monv1.PrometheusRules(flags.KubeVirtInstallNamespace).Get(context.Background(), "prometheus-kubevirt-rules", metav1.GetOptions{})
 			Expect(err).ToNot(HaveOccurred())
-			for _, alert := range alerts {
-				Expect(alert.Annotations).ToNot(BeNil())
-				url, ok := alert.Annotations["runbook_url"]
-				Expect(ok).To(BeTrue())
-				resp, err := http.Head(string(url))
-				Expect(err).ToNot(HaveOccurred())
-				Expect(resp.StatusCode).Should(Equal(http.StatusOK))
+		})
+
+		It("[test_id:8821]should have all the requried annotations", func() {
+			for _, group := range prometheusRule.Spec.Groups {
+				for _, rule := range group.Rules {
+					if rule.Alert != "" {
+						checkRequiredAnnotations(rule)
+					}
+				}
+			}
+		})
+
+		It("[test_id:8822]should have all the requried labels", func() {
+			for _, group := range prometheusRule.Spec.Groups {
+				for _, rule := range group.Rules {
+					if rule.Alert != "" {
+						checkRequiredLabels(rule)
+					}
+				}
 			}
 		})
 	})
@@ -464,3 +478,26 @@ var _ = Describe("[Serial][sig-monitoring]Prometheus Alerts", func() {
 		})
 	})
 })
+
+func checkRequiredAnnotations(rule promv1.Rule) {
+	ExpectWithOffset(1, rule.Annotations).To(HaveKeyWithValue("summary", Not(BeEmpty())),
+		fmt.Sprintf("%s summary is missing or empty", rule.Alert))
+	ExpectWithOffset(1, rule.Annotations).To(HaveKeyWithValue("runbook_url", Not(BeEmpty())),
+		fmt.Sprintf("%s runbook_url is missing or empty", rule.Alert))
+	checkRunbookUrlAvailability(rule)
+}
+
+func checkRequiredLabels(rule promv1.Rule) {
+	ExpectWithOffset(1, rule.Labels).To(HaveKeyWithValue("severity", BeElementOf("info", "warning", "critical")),
+		fmt.Sprintf("%s severity label is missing or not valid", rule.Alert))
+	ExpectWithOffset(1, rule.Labels).To(HaveKeyWithValue("kubernetes_operator_part_of", "kubevirt"),
+		fmt.Sprintf("%s kubernetes_operator_part_of label is missing or not valid", rule.Alert))
+	ExpectWithOffset(1, rule.Labels).To(HaveKeyWithValue("kubernetes_operator_component", "kubevirt"),
+		fmt.Sprintf("%s kubernetes_operator_component label is missing or not valid", rule.Alert))
+}
+
+func checkRunbookUrlAvailability(rule promv1.Rule) {
+	resp, err := http.Head(rule.Annotations["runbook_url"])
+	ExpectWithOffset(2, err).ToNot(HaveOccurred(), fmt.Sprintf("%s runbook is not available", rule.Alert))
+	ExpectWithOffset(2, resp.StatusCode).Should(Equal(http.StatusOK), fmt.Sprintf("%s runbook is not available", rule.Alert))
+}
