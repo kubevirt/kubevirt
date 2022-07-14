@@ -159,7 +159,8 @@ func (n *NodeLabeller) loadAll() error {
 }
 
 func (n *NodeLabeller) run() error {
-	cpuModels := n.getSupportedCpuModels()
+	obsoleteCPUsx86 := n.clusterConfig.GetObsoleteCPUModels()
+	cpuModels := n.getSupportedCpuModels(obsoleteCPUsx86)
 	cpuFeatures := n.getSupportedCpuFeatures()
 	hostCPUModel := n.getHostCpuModel()
 
@@ -175,7 +176,7 @@ func (n *NodeLabeller) run() error {
 	}
 
 	//prepare new labels
-	newLabels := n.prepareLabels(cpuModels, cpuFeatures, hostCPUModel)
+	newLabels := n.prepareLabels(cpuModels, cpuFeatures, hostCPUModel, obsoleteCPUsx86)
 	//remove old labeller labels
 	n.removeLabellerLabels(node)
 	//add new labels
@@ -239,7 +240,7 @@ func (n *NodeLabeller) loadHypervFeatures() {
 
 // prepareLabels converts cpu models, features, hyperv features to map[string]string format
 // e.g. "cpu-feature.node.kubevirt.io/Penryn": "true"
-func (n *NodeLabeller) prepareLabels(cpuModels []string, cpuFeatures cpuFeatures, hostCpuModel hostCPUModel) map[string]string {
+func (n *NodeLabeller) prepareLabels(cpuModels []string, cpuFeatures cpuFeatures, hostCpuModel hostCPUModel, obsoleteCPUsx86 map[string]bool) map[string]string {
 	newLabels := make(map[string]string)
 	for key := range cpuFeatures {
 		newLabels[kubevirtv1.CPUFeatureLabel+key] = "true"
@@ -247,6 +248,11 @@ func (n *NodeLabeller) prepareLabels(cpuModels []string, cpuFeatures cpuFeatures
 
 	for _, value := range cpuModels {
 		newLabels[kubevirtv1.CPUModelLabel+value] = "true"
+		newLabels[kubevirtv1.SupportedHostModelMigrationCPU+value] = "true"
+	}
+
+	if _, hostModelObsolete := obsoleteCPUsx86[hostCpuModel.name]; !hostModelObsolete {
+		newLabels[kubevirtv1.SupportedHostModelMigrationCPU+hostCpuModel.name] = "true"
 	}
 
 	for _, key := range n.hypervFeatures.items {
@@ -298,6 +304,9 @@ func (n *NodeLabeller) removeLabellerLabels(node *v1.Node) {
 			strings.Contains(label, util.DeprecatedLabelNamespace+util.DeprecatedHyperPrefix) ||
 			strings.Contains(label, kubevirtv1.CPUFeatureLabel) ||
 			strings.Contains(label, kubevirtv1.CPUModelLabel) ||
+			strings.Contains(label, kubevirtv1.SupportedHostModelMigrationCPU) ||
+			strings.Contains(label, kubevirtv1.HostModelCPULabel) ||
+			strings.Contains(label, kubevirtv1.HostModelRequiredFeaturesLabel) ||
 			strings.Contains(label, kubevirtv1.CPUTimerLabel) ||
 			strings.Contains(label, kubevirtv1.HypervLabel) ||
 			strings.Contains(label, kubevirtv1.RealtimeLabel) {
