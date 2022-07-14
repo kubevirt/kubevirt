@@ -261,6 +261,8 @@ var _ = Describe("Migration watcher", func() {
 	})
 
 	addVirtualMachineInstance := func(vmi *v1.VirtualMachineInstance) {
+		sourcePod := newSourcePodForVirtualMachine(vmi)
+		podInformer.GetStore().Add(sourcePod)
 		mockQueue.ExpectAdds(1)
 		vmiSource.Add(vmi)
 		mockQueue.Wait()
@@ -286,7 +288,6 @@ var _ = Describe("Migration watcher", func() {
 		var (
 			vmi           *v1.VirtualMachineInstance
 			migration     *v1.VirtualMachineInstanceMigration
-			sourcePod     *k8sv1.Pod
 			targetPod     *k8sv1.Pod
 			attachmentPod *k8sv1.Pod
 		)
@@ -294,7 +295,6 @@ var _ = Describe("Migration watcher", func() {
 		BeforeEach(func() {
 			vmi = newVirtualMachineWithHotplugVolume("testvmi", v1.Running)
 			migration = newMigration("testmigration", vmi.Name, v1.MigrationPending)
-			sourcePod = newSourcePodForVirtualMachine(vmi)
 			targetPod = newTargetPodForVirtualMachine(vmi, migration, k8sv1.PodRunning)
 			attachmentPod = newAttachmentPodForVirtualMachine(targetPod, migration, k8sv1.PodRunning)
 		})
@@ -302,7 +302,6 @@ var _ = Describe("Migration watcher", func() {
 		It("should create target attachment pod", func() {
 			addMigration(migration)
 			addVirtualMachineInstance(vmi)
-			podInformer.GetStore().Add(sourcePod)
 			podFeeder.Add(targetPod)
 			shouldExpectAttachmentPodCreation(vmi.UID, migration.UID)
 
@@ -1006,8 +1005,9 @@ var _ = Describe("Migration watcher", func() {
 			node := newNode(nodeName)
 			if toDefineHostModelCPU {
 				node.ObjectMeta.Labels = map[string]string{
-					v1.HostModelCPULabel + "fake":              "true",
-					v1.HostModelRequiredFeaturesLabel + "fake": "true",
+					v1.HostModelCPULabel + "fake":                  "true",
+					virtv1.SupportedHostModelMigrationCPU + "fake": "true",
+					v1.HostModelRequiredFeaturesLabel + "fake":     "true",
 				}
 			}
 
@@ -1018,7 +1018,7 @@ var _ = Describe("Migration watcher", func() {
 			expectPodToHaveProperNodeSelector := func(pod *k8sv1.Pod) {
 				podHasCpuModeLabelSelector := false
 				for key, _ := range pod.Spec.NodeSelector {
-					if strings.Contains(key, v1.HostModelCPULabel) {
+					if strings.Contains(key, virtv1.SupportedHostModelMigrationCPU) {
 						podHasCpuModeLabelSelector = true
 						break
 					}
