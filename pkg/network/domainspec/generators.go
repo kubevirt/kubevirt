@@ -36,6 +36,7 @@ import (
 	"kubevirt.io/client-go/log"
 
 	netdriver "kubevirt.io/kubevirt/pkg/network/driver"
+	"kubevirt.io/kubevirt/pkg/network/istio"
 	virtnetlink "kubevirt.io/kubevirt/pkg/network/link"
 	"kubevirt.io/kubevirt/pkg/virt-launcher/virtwrap/api"
 )
@@ -99,10 +100,11 @@ func NewBridgeLibvirtSpecGenerator(
 	}
 }
 
-func NewPasstLibvirtSpecGenerator(iface *v1.Interface, domain *api.Domain) *PasstLibvirtSpecGenerator {
+func NewPasstLibvirtSpecGenerator(iface *v1.Interface, domain *api.Domain, vmi *v1.VirtualMachineInstance) *PasstLibvirtSpecGenerator {
 	return &PasstLibvirtSpecGenerator{
 		vmiSpecIface: iface,
 		domain:       domain,
+		vmi:          vmi,
 	}
 }
 
@@ -293,6 +295,7 @@ func (b *MacvtapLibvirtSpecGenerator) discoverDomainIfaceSpec() (*api.Interface,
 type PasstLibvirtSpecGenerator struct {
 	vmiSpecIface *v1.Interface
 	domain       *api.Domain
+	vmi          *v1.VirtualMachineInstance
 }
 
 func (b *PasstLibvirtSpecGenerator) Generate() error {
@@ -360,7 +363,13 @@ func (b *PasstLibvirtSpecGenerator) generatePorts() []string {
 	udpPorts := []string{}
 
 	if len(b.vmiSpecIface.Ports) == 0 {
-		tcpPorts = append(tcpPorts, "all")
+		if istio.ProxyInjectionEnabled(b.vmi) {
+			for _, port := range istio.ReservedPorts() {
+				tcpPorts = append(tcpPorts, fmt.Sprintf("~%s", port))
+			}
+		} else {
+			tcpPorts = append(tcpPorts, "all")
+		}
 		udpPorts = append(udpPorts, "all")
 	}
 	for _, port := range b.vmiSpecIface.Ports {

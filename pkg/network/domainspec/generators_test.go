@@ -26,12 +26,15 @@ import (
 	"runtime"
 	"strings"
 
+	"kubevirt.io/kubevirt/pkg/network/istio"
+
 	"github.com/golang/mock/gomock"
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
 	"github.com/vishvananda/netlink"
 
 	v1 "kubevirt.io/api/core/v1"
+	api2 "kubevirt.io/client-go/api"
 
 	dutils "kubevirt.io/kubevirt/pkg/ephemeral-disk-utils"
 	netdriver "kubevirt.io/kubevirt/pkg/network/driver"
@@ -164,7 +167,7 @@ var _ = Describe("Pod Network", func() {
 
 			It("Should forward all ports if ports are not specified in spec.interfaces", func() {
 				specGenerator = NewPasstLibvirtSpecGenerator(
-					createPasstInterface(), nil)
+					createPasstInterface(), nil, api2.NewMinimalVMI("passtVmi"))
 				Expect(getPorts(specGenerator)).To(Equal("-t all -u all"))
 			})
 
@@ -172,7 +175,7 @@ var _ = Describe("Pod Network", func() {
 				passtIface := createPasstInterface()
 				passtIface.Ports = []v1.Port{{Port: 1}, {Protocol: "UdP", Port: 2}, {Protocol: "UDP", Port: 3}, {Protocol: "tcp", Port: 4}}
 				specGenerator = NewPasstLibvirtSpecGenerator(
-					passtIface, nil)
+					passtIface, nil, api2.NewMinimalVMI("passtVmi"))
 				Expect(getPorts(specGenerator)).To(Equal("-t 1,4 -u 2,3"))
 			})
 
@@ -180,7 +183,7 @@ var _ = Describe("Pod Network", func() {
 				passtIface := createPasstInterface()
 				passtIface.Ports = []v1.Port{{Protocol: "TCP", Port: 1}, {Protocol: "TCP", Port: 4}}
 				specGenerator = NewPasstLibvirtSpecGenerator(
-					passtIface, nil)
+					passtIface, nil, api2.NewMinimalVMI("passtVmi"))
 				Expect(getPorts(specGenerator)).To(Equal("-t 1,4"))
 			})
 
@@ -188,8 +191,19 @@ var _ = Describe("Pod Network", func() {
 				passtIface := createPasstInterface()
 				passtIface.Ports = []v1.Port{{Protocol: "UDP", Port: 2}, {Protocol: "UDP", Port: 3}}
 				specGenerator = NewPasstLibvirtSpecGenerator(
-					passtIface, nil)
+					passtIface, nil, api2.NewMinimalVMI("passtVmi"))
 				Expect(getPorts(specGenerator)).To(Equal("-u 2,3"))
+			})
+
+			It("Should exclude istio ports", func() {
+				passtIface := createPasstInterface()
+				istioVmi := api2.NewMinimalVMI("passtVmi")
+				istioVmi.Annotations = map[string]string{
+					istio.ISTIO_INJECT_ANNOTATION: "true",
+				}
+				specGenerator = NewPasstLibvirtSpecGenerator(
+					passtIface, nil, istioVmi)
+				Expect(getPorts(specGenerator)).To(Equal("-t ~15000,~15001,~15006,~15008,~15020,~15021,~15090 -u all"))
 			})
 		})
 	})
