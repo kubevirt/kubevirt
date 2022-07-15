@@ -1419,6 +1419,24 @@ func createSnapshotVMExport() *exportv1.VirtualMachineExport {
 	}
 }
 
+func createSnapshotVMExport() *exportv1.VirtualMachineExport {
+	return &exportv1.VirtualMachineExport{
+		ObjectMeta: metav1.ObjectMeta{
+			Name:      "test",
+			Namespace: testNamespace,
+			UID:       "11111-22222-33333",
+		},
+		Spec: exportv1.VirtualMachineExportSpec{
+			Source: k8sv1.TypedLocalObjectReference{
+				APIGroup: &snapshotv1.SchemeGroupVersion.Group,
+				Kind:     "VirtualMachineSnapshot",
+				Name:     testVmsnapshotName,
+			},
+			TokenSecretRef: "token",
+		},
+	}
+}
+
 func expectExporterCreate(k8sClient *k8sfake.Clientset, phase k8sv1.PodPhase) {
 	k8sClient.Fake.PrependReactor("create", "pods", func(action testing.Action) (handled bool, obj runtime.Object, err error) {
 		create, ok := action.(testing.CreateAction)

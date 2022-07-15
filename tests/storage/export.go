@@ -33,6 +33,7 @@ import (
 	"github.com/onsi/gomega/format"
 	gomegatypes "github.com/onsi/gomega/types"
 
+	corev1 "k8s.io/api/core/v1"
 	k8sv1 "k8s.io/api/core/v1"
 	networkingv1 "k8s.io/api/networking/v1"
 	storagev1 "k8s.io/api/storage/v1"
@@ -42,6 +43,10 @@ import (
 	"k8s.io/apimachinery/pkg/util/rand"
 	"k8s.io/utils/pointer"
 
+<<<<<<< HEAD
+=======
+	v1 "kubevirt.io/api/core/v1"
+>>>>>>> 7f88d1c42 (Add export of VMSnapshot volumes)
 	virtv1 "kubevirt.io/api/core/v1"
 	exportv1 "kubevirt.io/api/export/v1alpha1"
 	snapshotv1 "kubevirt.io/api/snapshot/v1alpha1"
@@ -643,6 +648,25 @@ var _ = SIGDescribe("Export", func() {
 		export, err := virtClient.VirtualMachineExport(namespace).Create(context.Background(), vmExport, metav1.CreateOptions{})
 		Expect(err).ToNot(HaveOccurred())
 		return export
+	}
+
+	createRunningPVCExport := func(sc string, volumeMode k8sv1.PersistentVolumeMode) *exportv1.VirtualMachineExport {
+		pvc, _ := populateKubeVirtContent(sc, volumeMode)
+		By("Creating the export token, we can export volumes using this token")
+		// For testing the token is the name of the source pvc.
+		token := createExportTokenSecret(pvc.Name, pvc.Namespace)
+
+		export := createPVCExportObject(pvc.Name, pvc.Namespace, token)
+
+		return waitForReadyExport(export)
+	}
+
+	createRunningVMSnapshotExport := func(snapshot *snapshotv1.VirtualMachineSnapshot) *exportv1.VirtualMachineExport {
+		// For testing the token is the name of the source snapshot.
+		token := createExportTokenSecret(snapshot.Name, snapshot.Namespace)
+
+		export := createVMSnapshotExportObject(snapshot.Name, snapshot.Namespace, token)
+		return waitForReadyExport(export)
 	}
 
 	createRunningPVCExport := func(sc string, volumeMode k8sv1.PersistentVolumeMode) *exportv1.VirtualMachineExport {
