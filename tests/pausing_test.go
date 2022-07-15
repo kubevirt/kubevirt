@@ -76,7 +76,7 @@ var _ = Describe("[rfe_id:3064][crit:medium][vendor:cnv-qe@redhat.com][level:com
 
 				err = virtClient.VirtualMachineInstance(vmi.Namespace).Pause(vmi.Name, &v1.PauseOptions{})
 				Expect(err).ToNot(HaveOccurred())
-				tests.WaitForVMICondition(virtClient, vmi, v1.VirtualMachineInstancePaused, 30)
+				Eventually(matcher.ThisVMI(vmi), 30*time.Second, time.Second).Should(matcher.HaveConditionTrue(v1.VirtualMachineInstancePaused))
 
 				err = virtClient.VirtualMachineInstance(vmi.Namespace).Unpause(vmi.Name, &v1.UnpauseOptions{})
 				Expect(err).ToNot(HaveOccurred())
@@ -90,14 +90,14 @@ var _ = Describe("[rfe_id:3064][crit:medium][vendor:cnv-qe@redhat.com][level:com
 
 				command := clientcmd.NewRepeatableVirtctlCommand("pause", "vmi", "--namespace", vmi.Namespace, vmi.Name)
 				Expect(command()).To(Succeed())
-				tests.WaitForVMICondition(virtClient, vmi, v1.VirtualMachineInstancePaused, 30)
+				Eventually(matcher.ThisVMI(vmi), 30*time.Second, time.Second).Should(matcher.HaveConditionTrue(v1.VirtualMachineInstancePaused))
 			})
 
 			It("[test_id:3080]should signal unpaused state with removed condition", func() {
 
 				command := clientcmd.NewRepeatableVirtctlCommand("pause", "vmi", "--namespace", vmi.Namespace, vmi.Name)
 				Expect(command()).To(Succeed())
-				tests.WaitForVMICondition(virtClient, vmi, v1.VirtualMachineInstancePaused, 30)
+				Eventually(matcher.ThisVMI(vmi), 30*time.Second, time.Second).Should(matcher.HaveConditionTrue(v1.VirtualMachineInstancePaused))
 
 				command = clientcmd.NewRepeatableVirtctlCommand("unpause", "vmi", "--namespace", vmi.Namespace, vmi.Name)
 				Expect(command()).To(Succeed())
@@ -112,7 +112,7 @@ var _ = Describe("[rfe_id:3064][crit:medium][vendor:cnv-qe@redhat.com][level:com
 					By("Pausing VMI")
 					command := clientcmd.NewRepeatableVirtctlCommand("pause", "vmi", "--namespace", vmi.Namespace, vmi.Name)
 					Expect(command()).To(Succeed())
-					tests.WaitForVMICondition(virtClient, vmi, v1.VirtualMachineInstancePaused, 30)
+					Eventually(matcher.ThisVMI(vmi), 30*time.Second, time.Second).Should(matcher.HaveConditionTrue(v1.VirtualMachineInstancePaused))
 
 					By("Unpausing VMI")
 					command = clientcmd.NewRepeatableVirtctlCommand("unpause", "vmi", "--namespace", vmi.Namespace, vmi.Name)
@@ -166,28 +166,18 @@ var _ = Describe("[rfe_id:3064][crit:medium][vendor:cnv-qe@redhat.com][level:com
 
 				command := clientcmd.NewRepeatableVirtctlCommand("pause", "vmi", "--namespace", vmi.Namespace, vmi.Name)
 				Expect(command()).To(Succeed())
-				tests.WaitForVMICondition(virtClient, vmi, v1.VirtualMachineInstancePaused, 30)
+				Eventually(matcher.ThisVMI(vmi), 30*time.Second, time.Second).Should(matcher.HaveConditionTrue(v1.VirtualMachineInstancePaused))
 
 				command = clientcmd.NewRepeatableVirtctlCommand("unpause", "vmi", "--dry-run", "--namespace", vmi.Namespace, vmi.Name)
 				Expect(command()).To(Succeed())
 
 				By("Checking that VMI remains paused")
-				Consistently(func() bool {
-					updatedVmi, err := virtClient.VirtualMachineInstance(vmi.Namespace).Get(vmi.Name, &v12.GetOptions{})
-					Expect(err).ToNot(HaveOccurred())
-					for _, condition := range updatedVmi.Status.Conditions {
-						if condition.Type == v1.VirtualMachineInstancePaused && condition.Status == k8sv1.ConditionTrue {
-							return true
-						}
-					}
-					return false
-				}, time.Duration(5)*time.Second).Should(BeTrue())
+				Consistently(matcher.ThisVMI(vmi), 5*time.Second).Should(matcher.HaveConditionTrue(v1.VirtualMachineInstancePaused))
 			})
 		})
 
 		It("should not appear as ready when paused", func() {
-
-			tests.WaitForVMICondition(virtClient, vmi, v1.VirtualMachineInstanceReady, 30)
+			Eventually(matcher.ThisVMI(vmi), 30*time.Second, time.Second).Should(matcher.HaveConditionTrue(v1.VirtualMachineInstanceReady))
 
 			By("Pausing the VMI and expecting to become unready")
 			err = virtClient.VirtualMachineInstance(vmi.Namespace).Pause(vmi.Name, &v1.PauseOptions{})
@@ -197,7 +187,7 @@ var _ = Describe("[rfe_id:3064][crit:medium][vendor:cnv-qe@redhat.com][level:com
 			By("Unpausing the VMI and expecting to become ready")
 			err = virtClient.VirtualMachineInstance(vmi.Namespace).Unpause(vmi.Name, &v1.UnpauseOptions{})
 			Expect(err).ToNot(HaveOccurred())
-			tests.WaitForVMICondition(virtClient, vmi, v1.VirtualMachineInstanceReady, 30)
+			Eventually(matcher.ThisVMI(vmi), 30*time.Second, time.Second).Should(matcher.HaveConditionTrue(v1.VirtualMachineInstanceReady))
 		})
 	})
 
@@ -221,7 +211,7 @@ var _ = Describe("[rfe_id:3064][crit:medium][vendor:cnv-qe@redhat.com][level:com
 			It("[test_id:4598]should signal paused state with condition", func() {
 				err = virtClient.VirtualMachineInstance(vm.Namespace).Pause(vm.Name, &v1.PauseOptions{})
 				Expect(err).ToNot(HaveOccurred())
-				tests.WaitForVMCondition(virtClient, vm, v1.VirtualMachinePaused, 30)
+				Eventually(matcher.ThisVM(vm), 30*time.Second, time.Second).Should(matcher.HaveConditionTrue(v1.VirtualMachinePaused))
 
 				err = virtClient.VirtualMachineInstance(vm.Namespace).Unpause(vm.Name, &v1.UnpauseOptions{})
 				Expect(err).ToNot(HaveOccurred())
@@ -235,13 +225,13 @@ var _ = Describe("[rfe_id:3064][crit:medium][vendor:cnv-qe@redhat.com][level:com
 			It("[test_id:3059]should signal paused state with condition", func() {
 				command := clientcmd.NewRepeatableVirtctlCommand("pause", "vm", "--namespace", vm.Namespace, vm.Name)
 				Expect(command()).To(Succeed())
-				tests.WaitForVMCondition(virtClient, vm, v1.VirtualMachinePaused, 30)
+				Eventually(matcher.ThisVM(vm), 30*time.Second, time.Second).Should(matcher.HaveConditionTrue(v1.VirtualMachinePaused))
 			})
 
 			It("[test_id:3081]should gracefully handle pausing the VM again", func() {
 				command := clientcmd.NewRepeatableVirtctlCommand("pause", "vm", "--namespace", vm.Namespace, vm.Name)
 				Expect(command()).To(Succeed())
-				tests.WaitForVMCondition(virtClient, vm, v1.VirtualMachinePaused, 30)
+				Eventually(matcher.ThisVM(vm), 30*time.Second, time.Second).Should(matcher.HaveConditionTrue(v1.VirtualMachinePaused))
 
 				command = clientcmd.NewRepeatableVirtctlCommand("pause", "vm", "--namespace", vm.Namespace, vm.Name)
 				err := command()
@@ -251,7 +241,7 @@ var _ = Describe("[rfe_id:3064][crit:medium][vendor:cnv-qe@redhat.com][level:com
 			It("[test_id:3088]should gracefully handle pausing the VMI again", func() {
 				command := clientcmd.NewRepeatableVirtctlCommand("pause", "vm", "--namespace", vm.Namespace, vm.Name)
 				Expect(command()).To(Succeed())
-				tests.WaitForVMCondition(virtClient, vm, v1.VirtualMachinePaused, 30)
+				Eventually(matcher.ThisVM(vm), 30*time.Second, time.Second).Should(matcher.HaveConditionTrue(v1.VirtualMachinePaused))
 
 				command = clientcmd.NewRepeatableVirtctlCommand("pause", "vmi", "--namespace", vm.Namespace, vm.Name)
 				err := command()
@@ -261,7 +251,7 @@ var _ = Describe("[rfe_id:3064][crit:medium][vendor:cnv-qe@redhat.com][level:com
 			It("[test_id:3060]should signal unpaused state with removed condition", func() {
 				command := clientcmd.NewRepeatableVirtctlCommand("pause", "vm", "--namespace", vm.Namespace, vm.Name)
 				Expect(command()).To(Succeed())
-				tests.WaitForVMCondition(virtClient, vm, v1.VirtualMachinePaused, 30)
+				Eventually(matcher.ThisVM(vm), 30*time.Second, time.Second).Should(matcher.HaveConditionTrue(v1.VirtualMachinePaused))
 
 				command = clientcmd.NewRepeatableVirtctlCommand("unpause", "vm", "--namespace", vm.Namespace, vm.Name)
 				Expect(command()).To(Succeed())
@@ -271,7 +261,7 @@ var _ = Describe("[rfe_id:3064][crit:medium][vendor:cnv-qe@redhat.com][level:com
 			It("[test_id:3082]should gracefully handle unpausing again", func() {
 				command := clientcmd.NewRepeatableVirtctlCommand("pause", "vm", "--namespace", vm.Namespace, vm.Name)
 				Expect(command()).To(Succeed())
-				tests.WaitForVMCondition(virtClient, vm, v1.VirtualMachinePaused, 30)
+				Eventually(matcher.ThisVM(vm), 30*time.Second, time.Second).Should(matcher.HaveConditionTrue(v1.VirtualMachinePaused))
 
 				command = clientcmd.NewRepeatableVirtctlCommand("unpause", "vm", "--namespace", vm.Namespace, vm.Name)
 				Expect(command()).To(Succeed())
@@ -286,7 +276,7 @@ var _ = Describe("[rfe_id:3064][crit:medium][vendor:cnv-qe@redhat.com][level:com
 				By("Pausing the VM")
 				command := clientcmd.NewRepeatableVirtctlCommand("pause", "vm", "--namespace", vm.Namespace, vm.Name)
 				Expect(command()).To(Succeed())
-				tests.WaitForVMCondition(virtClient, vm, v1.VirtualMachinePaused, 30)
+				Eventually(matcher.ThisVM(vm), 30*time.Second, time.Second).Should(matcher.HaveConditionTrue(v1.VirtualMachinePaused))
 
 				By("Stopping the VM")
 				command = clientcmd.NewRepeatableVirtctlCommand("stop", "--namespace", vm.Namespace, vm.Name)
@@ -315,7 +305,7 @@ var _ = Describe("[rfe_id:3064][crit:medium][vendor:cnv-qe@redhat.com][level:com
 				By("Pausing the VM")
 				command := clientcmd.NewRepeatableVirtctlCommand("pause", "vm", "--namespace", vm.Namespace, vm.Name)
 				Expect(command()).To(Succeed())
-				tests.WaitForVMCondition(virtClient, vm, v1.VirtualMachinePaused, 30)
+				Eventually(matcher.ThisVM(vm), 30*time.Second, time.Second).Should(matcher.HaveConditionTrue(v1.VirtualMachinePaused))
 
 				By("Starting the VM")
 				command = clientcmd.NewRepeatableVirtctlCommand("start", "--namespace", vm.Namespace, vm.Name)
@@ -333,7 +323,7 @@ var _ = Describe("[rfe_id:3064][crit:medium][vendor:cnv-qe@redhat.com][level:com
 				By("Pausing the VM")
 				command := clientcmd.NewRepeatableVirtctlCommand("pause", "vm", "--namespace", vm.Namespace, vm.Name)
 				Expect(command()).To(Succeed())
-				tests.WaitForVMCondition(virtClient, vm, v1.VirtualMachinePaused, 30)
+				Eventually(matcher.ThisVM(vm), 30*time.Second, time.Second).Should(matcher.HaveConditionTrue(v1.VirtualMachinePaused))
 
 				By("Restarting the VM")
 				command = clientcmd.NewRepeatableVirtctlCommand("restart", "--namespace", vm.Namespace, vm.Name)
@@ -369,7 +359,7 @@ var _ = Describe("[rfe_id:3064][crit:medium][vendor:cnv-qe@redhat.com][level:com
 				By("Pausing the VM")
 				command := clientcmd.NewRepeatableVirtctlCommand("pause", "vm", "--namespace", vm.Namespace, vm.Name)
 				Expect(command()).To(Succeed())
-				tests.WaitForVMCondition(virtClient, vm, v1.VirtualMachinePaused, 30)
+				Eventually(matcher.ThisVM(vm), 30*time.Second, time.Second).Should(matcher.HaveConditionTrue(v1.VirtualMachinePaused))
 
 				By("Trying to migrate the VM")
 				command = clientcmd.NewRepeatableVirtctlCommand("migrate", "--namespace", vm.Namespace, vm.Name)
@@ -382,7 +372,7 @@ var _ = Describe("[rfe_id:3064][crit:medium][vendor:cnv-qe@redhat.com][level:com
 				By("Pausing the VM")
 				command := clientcmd.NewRepeatableVirtctlCommand("pause", "vm", "--namespace", vm.Namespace, vm.Name)
 				Expect(command()).To(Succeed())
-				tests.WaitForVMCondition(virtClient, vm, v1.VirtualMachinePaused, 30)
+				Eventually(matcher.ThisVM(vm), 30*time.Second, time.Second).Should(matcher.HaveConditionTrue(v1.VirtualMachinePaused))
 
 				By("Trying to console into the VM")
 				_, err = virtClient.VirtualMachineInstance(vm.ObjectMeta.Namespace).SerialConsole(vm.ObjectMeta.Name, &kubecli.SerialConsoleOptions{ConnectionTimeout: 30 * time.Second})
@@ -393,7 +383,7 @@ var _ = Describe("[rfe_id:3064][crit:medium][vendor:cnv-qe@redhat.com][level:com
 				By("Pausing the VM")
 				command := clientcmd.NewRepeatableVirtctlCommand("pause", "vm", "--namespace", vm.Namespace, vm.Name)
 				Expect(command()).To(Succeed())
-				tests.WaitForVMCondition(virtClient, vm, v1.VirtualMachinePaused, 30)
+				Eventually(matcher.ThisVM(vm), 30*time.Second, time.Second).Should(matcher.HaveConditionTrue(v1.VirtualMachinePaused))
 
 				By("Trying to vnc into the VM")
 				_, err = virtClient.VirtualMachineInstance(vm.ObjectMeta.Namespace).VNC(vm.ObjectMeta.Name)
@@ -415,22 +405,13 @@ var _ = Describe("[rfe_id:3064][crit:medium][vendor:cnv-qe@redhat.com][level:com
 			It("[test_id:7674]should not unpaused", func() {
 				command := clientcmd.NewRepeatableVirtctlCommand("pause", "vm", "--namespace", vm.Namespace, vm.Name)
 				Expect(command()).To(Succeed())
-				tests.WaitForVMCondition(virtClient, vm, v1.VirtualMachinePaused, 30)
+				Eventually(matcher.ThisVM(vm), 30*time.Second, time.Second).Should(matcher.HaveConditionTrue(v1.VirtualMachinePaused))
 
 				command = clientcmd.NewRepeatableVirtctlCommand("unpause", "vm", "--dry-run", "--namespace", vm.Namespace, vm.Name)
 				Expect(command()).To(Succeed())
 
 				By("Checking that VM remains paused")
-				Consistently(func() bool {
-					updatedVm, err := virtClient.VirtualMachine(vm.Namespace).Get(vm.Name, &v12.GetOptions{})
-					Expect(err).ToNot(HaveOccurred())
-					for _, condition := range updatedVm.Status.Conditions {
-						if condition.Type == v1.VirtualMachinePaused && condition.Status == k8sv1.ConditionTrue {
-							return true
-						}
-					}
-					return false
-				}, time.Duration(5)*time.Second).Should(BeTrue())
+				Consistently(matcher.ThisVM(vm), 5*time.Second).Should(matcher.HaveConditionTrue(v1.VirtualMachinePaused))
 			})
 		})
 	})
@@ -478,7 +459,7 @@ var _ = Describe("[rfe_id:3064][crit:medium][vendor:cnv-qe@redhat.com][level:com
 			By("Pausing the VMI")
 			command := clientcmd.NewRepeatableVirtctlCommand("pause", "vmi", "--namespace", vmi.Namespace, vmi.Name)
 			Expect(command()).To(Succeed(), "should successfully pause the vmi")
-			tests.WaitForVMICondition(virtClient, vmi, v1.VirtualMachineInstancePaused, 30)
+			Eventually(matcher.ThisVMI(vmi), 30*time.Second, time.Second).Should(matcher.HaveConditionTrue(v1.VirtualMachineInstancePaused))
 			time.Sleep(10 * time.Second) // sleep to increase uptime diff
 
 			By("Unpausing the VMI")
