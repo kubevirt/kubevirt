@@ -62,7 +62,7 @@ const (
 	snapshotRetryInterval = 5 * time.Second
 )
 
-func vmSnapshotReady(vmSnapshot *snapshotv1.VirtualMachineSnapshot) bool {
+func VmSnapshotReady(vmSnapshot *snapshotv1.VirtualMachineSnapshot) bool {
 	return vmSnapshot.Status != nil && vmSnapshot.Status.ReadyToUse != nil && *vmSnapshot.Status.ReadyToUse
 }
 
@@ -86,7 +86,7 @@ func vmSnapshotSucceeded(vmSnapshot *snapshotv1.VirtualMachineSnapshot) bool {
 }
 
 func vmSnapshotProgressing(vmSnapshot *snapshotv1.VirtualMachineSnapshot) bool {
-	return vmSnapshotError(vmSnapshot) == nil && !vmSnapshotReady(vmSnapshot) &&
+	return vmSnapshotError(vmSnapshot) == nil && !VmSnapshotReady(vmSnapshot) &&
 		!vmSnapshotFailed(vmSnapshot) && !vmSnapshotSucceeded(vmSnapshot)
 }
 
@@ -661,7 +661,7 @@ func (ctrl *VMSnapshotController) updateSnapshotStatus(vmSnapshot *snapshotv1.Vi
 	} else if vmSnapshotError(vmSnapshotCpy) != nil {
 		updateSnapshotCondition(vmSnapshotCpy, newProgressingCondition(corev1.ConditionFalse, "In error state"))
 		updateSnapshotCondition(vmSnapshotCpy, newReadyCondition(corev1.ConditionFalse, "Error"))
-	} else if vmSnapshotReady(vmSnapshotCpy) {
+	} else if VmSnapshotReady(vmSnapshotCpy) {
 		vmSnapshotCpy.Status.Phase = snapshotv1.Succeeded
 		updateSnapshotCondition(vmSnapshotCpy, newProgressingCondition(corev1.ConditionFalse, "Operation complete"))
 		updateSnapshotCondition(vmSnapshotCpy, newReadyCondition(corev1.ConditionTrue, "Operation complete"))

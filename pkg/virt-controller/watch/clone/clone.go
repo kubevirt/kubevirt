@@ -23,6 +23,8 @@ import (
 	"context"
 	"fmt"
 
+	virtsnapshot "kubevirt.io/kubevirt/pkg/virt-controller/watch/snapshot"
+
 	"k8s.io/apimachinery/pkg/api/errors"
 
 	corev1 "k8s.io/api/core/v1"
@@ -178,7 +180,7 @@ func (ctrl *VMCloneController) syncSourceVMTargetVM(key string, source *k6tv1.Vi
 		snapshot = obj.(*snapshotv1alpha1.VirtualMachineSnapshot)
 		logger.Infof("found snapshot %s for clone %s", snapshot.Name, vmClone.Name)
 
-		if snapshot.Status.ReadyToUse == nil || *snapshot.Status.ReadyToUse == false {
+		if !virtsnapshot.VmSnapshotReady(snapshot) {
 			logger.V(defaultVerbosityLevel).Infof("snapshot %s for clone %s is not ready to use yet", snapshot.Name, vmClone.Name)
 			return syncInfo
 		}
@@ -235,7 +237,7 @@ func (ctrl *VMCloneController) syncSourceVMTargetVM(key string, source *k6tv1.Vi
 		restore := obj.(*snapshotv1alpha1.VirtualMachineRestore)
 		logger.Infof("found target restore %s for clone %s", restore.Name, vmClone.Name)
 
-		if restore.Status == nil || restore.Status.Complete == nil || *restore.Status.Complete == false {
+		if virtsnapshot.VmRestoreProgressing(restore) {
 			logger.V(defaultVerbosityLevel).Infof("restore %s for clone %s is not ready to use yet", restore.Name, vmClone.Name)
 			return syncInfo
 		}
