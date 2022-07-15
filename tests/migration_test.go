@@ -246,7 +246,6 @@ var _ = Describe("[rfe_id:393][crit:high][vendor:cnv-qe@redhat.com][level:system
 			withKernelBoot(),
 			withSecret(secretName),
 			withConfigMap(configMapName),
-			libvmi.WithCloudInitNoCloudUserData("#!/bin/bash\necho 'hello'\n", true),
 		)
 	}
 
@@ -1640,7 +1639,6 @@ var _ = Describe("[rfe_id:393][crit:high][vendor:cnv-qe@redhat.com][level:system
 				vmi.Spec.Domain.Resources.Requests[k8sv1.ResourceMemory] = resource.MustParse(fedoraVMSize)
 				vmi.Spec.Domain.Devices.Rng = &v1.Rng{}
 
-				tests.AddUserData(vmi, "cloud-init", "#!/bin/bash\n echo hello\n")
 				vmi = runVMIAndExpectLaunchIgnoreWarnings(vmi, 180)
 
 				By("Checking guest agent")
@@ -2603,7 +2601,6 @@ var _ = Describe("[rfe_id:393][crit:high][vendor:cnv-qe@redhat.com][level:system
 				Expect(err).ToNot(HaveOccurred())
 				Eventually(ThisDV(dv), 600).Should(HaveSucceeded())
 				vmi := tests.NewRandomVMIWithDataVolume(dv.Name)
-				tests.AddUserData(vmi, "disk1", "#!/bin/bash\n echo hello\n")
 				return vmi
 			}
 
