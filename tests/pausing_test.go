@@ -64,11 +64,7 @@ var _ = Describe("[rfe_id:3064][crit:medium][vendor:cnv-qe@redhat.com][level:com
 		var vmi *v1.VirtualMachineInstance
 
 		BeforeEach(func() {
-			vmi = libvmi.NewCirros(
-				libvmi.WithInterface(libvmi.InterfaceDeviceWithMasqueradeBinding()),
-				libvmi.WithNetwork(v1.DefaultPodNetwork()),
-			)
-			vmi = tests.RunVMIAndExpectLaunch(vmi, 90)
+			vmi = tests.RunVMIAndExpectLaunch(libvmi.NewCirros(), 90)
 		})
 
 		When("paused via API", func() {
@@ -441,12 +437,7 @@ var _ = Describe("[rfe_id:3064][crit:medium][vendor:cnv-qe@redhat.com][level:com
 
 		BeforeEach(func() {
 			By("Starting a Cirros VMI")
-			vmi = libvmi.NewCirros(
-				libvmi.WithInterface(libvmi.InterfaceDeviceWithMasqueradeBinding()),
-				libvmi.WithNetwork(v1.DefaultPodNetwork()),
-			)
-
-			vmi = tests.RunVMIAndExpectLaunch(vmi, 240)
+			vmi = tests.RunVMIAndExpectLaunch(libvmi.NewCirros(), 240)
 
 			By("Checking that the VirtualMachineInstance console has expected output")
 			Expect(console.LoginToCirros(vmi)).To(Succeed())
