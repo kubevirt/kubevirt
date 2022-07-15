@@ -34,13 +34,12 @@ import (
 
 	kvv1 "kubevirt.io/api/core/v1"
 
-	cd "kubevirt.io/kubevirt/tests/containerdisk"
+	"kubevirt.io/kubevirt/tests/libvmi"
 
 	"k8s.io/apimachinery/pkg/api/resource"
 
 	"kubevirt.io/client-go/kubecli"
 
-	"kubevirt.io/kubevirt/tests"
 	"kubevirt.io/kubevirt/tests/util"
 )
 
@@ -169,20 +168,12 @@ func createBatchVMIWithRateControl(virtClient kubecli.KubevirtClient, vmCount in
 }
 
 func createVMISpecWithResources(virtClient kubecli.KubevirtClient) *kvv1.VirtualMachineInstance {
-	vmImage := cd.ContainerDiskFor("cirros")
 	cpuLimit := "100m"
 	memLimit := "90Mi"
-	cloudInitUserData := "#!/bin/bash\necho 'hello'\n"
-	vmi := tests.NewRandomVMIWithEphemeralDiskAndUserdata(vmImage, cloudInitUserData)
-	vmi.Spec.Domain.Resources.Limits = k8sv1.ResourceList{
-		k8sv1.ResourceMemory: resource.MustParse(memLimit),
-		k8sv1.ResourceCPU:    resource.MustParse(cpuLimit),
-	}
-	vmi.Spec.Domain.Resources.Requests = k8sv1.ResourceList{
-		k8sv1.ResourceMemory: resource.MustParse(memLimit),
-		k8sv1.ResourceCPU:    resource.MustParse(cpuLimit),
-	}
-	return vmi
+	return libvmi.NewCirros(
+		withResourcesLimits(memLimit, cpuLimit),
+		withResourcesRequests(memLimit, cpuLimit),
+	)
 }
 
 func waitRunningVMI(virtClient kubecli.KubevirtClient, vmiCount int, timeout time.Duration) {
@@ -197,4 +188,36 @@ func waitRunningVMI(virtClient kubecli.KubevirtClient, vmiCount int, timeout tim
 		}
 		return running
 	}, timeout, 10*time.Second).Should(Equal(vmiCount))
+}
+
+<<<<<<< Updated upstream
+=======
+func createVMISpecWithResources(virtClient kubecli.KubevirtClient) *kvv1.VirtualMachineInstance {
+	cpuLimit := "100m"
+	memLimit := "90Mi"
+	return libvmi.NewCirros(
+		withResourcesLimits(memLimit, cpuLimit),
+		withResourcesRequests(memLimit, cpuLimit),
+		libvmi.WithInterface(libvmi.InterfaceDeviceWithMasqueradeBinding()),
+		libvmi.WithNetwork(kvv1.DefaultPodNetwork()),
+	)
+}
+
+>>>>>>> Stashed changes
+func withResourcesLimits(memLimit, cpuLimit string) libvmi.Option {
+	return func(vmi *kvv1.VirtualMachineInstance) {
+		vmi.Spec.Domain.Resources.Limits = k8sv1.ResourceList{
+			k8sv1.ResourceMemory: resource.MustParse(memLimit),
+			k8sv1.ResourceCPU:    resource.MustParse(cpuLimit),
+		}
+	}
+}
+
+func withResourcesRequests(memLimit, cpuLimit string) libvmi.Option {
+	return func(vmi *kvv1.VirtualMachineInstance) {
+		vmi.Spec.Domain.Resources.Requests = k8sv1.ResourceList{
+			k8sv1.ResourceMemory: resource.MustParse(memLimit),
+			k8sv1.ResourceCPU:    resource.MustParse(cpuLimit),
+		}
+	}
 }
