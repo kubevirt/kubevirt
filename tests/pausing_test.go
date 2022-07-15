@@ -53,6 +53,7 @@ var _ = Describe("[rfe_id:3064][crit:medium][vendor:cnv-qe@redhat.com][level:com
 
 	var err error
 	var virtClient kubecli.KubevirtClient
+	const cirrosStartupTimeout = 90
 
 	BeforeEach(func() {
 		virtClient, err = kubecli.GetKubevirtClient()
@@ -64,7 +65,7 @@ var _ = Describe("[rfe_id:3064][crit:medium][vendor:cnv-qe@redhat.com][level:com
 		var vmi *v1.VirtualMachineInstance
 
 		BeforeEach(func() {
-			vmi = tests.RunVMIAndExpectLaunch(libvmi.NewCirros(), 90)
+			vmi = tests.RunVMIAndExpectLaunch(libvmi.NewCirros(), cirrosStartupTimeout)
 		})
 
 		When("paused via API", func() {
@@ -437,7 +438,7 @@ var _ = Describe("[rfe_id:3064][crit:medium][vendor:cnv-qe@redhat.com][level:com
 
 		BeforeEach(func() {
 			By("Starting a Cirros VMI")
-			vmi = tests.RunVMIAndExpectLaunch(libvmi.NewCirros(), 240)
+			vmi = tests.RunVMIAndExpectLaunch(libvmi.NewCirros(), cirrosStartupTimeout)
 
 			By("Checking that the VirtualMachineInstance console has expected output")
 			Expect(console.LoginToCirros(vmi)).To(Succeed())
