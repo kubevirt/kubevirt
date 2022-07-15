@@ -40,6 +40,7 @@ import (
 
 var _ = Describe("Validating VirtualMachineExport Admitter", func() {
 	apiGroup := "v1"
+	kubevirtApiGroup := "kubevirt.io"
 
 	config, _, kvInformer := testutils.NewFakeClusterConfigUsingKVConfig(&v1.KubeVirtConfiguration{})
 
@@ -105,7 +106,7 @@ var _ = Describe("Validating VirtualMachineExport Admitter", func() {
 				Spec: exportv1.VirtualMachineExportSpec{
 					Source: corev1.TypedLocalObjectReference{
 						APIGroup: &apiGroup,
-						Kind:     "PersistentVolumeClaim",
+						Kind:     pvc,
 						Name:     "",
 					},
 				},
@@ -114,6 +115,22 @@ var _ = Describe("Validating VirtualMachineExport Admitter", func() {
 			resp := createTestVMExportAdmitter(config).Admit(ar)
 			Expect(resp.Allowed).To(BeFalse())
 			Expect(resp.Result.Message).Should(ContainSubstring("PVC name must not be empty"))
+		})
+
+		It("should reject blank snapshot name", func() {
+			export := &exportv1.VirtualMachineExport{
+				Spec: exportv1.VirtualMachineExportSpec{
+					Source: corev1.TypedLocalObjectReference{
+						APIGroup: &kubevirtApiGroup,
+						Kind:     vmSnapshot,
+						Name:     "",
+					},
+				},
+			}
+			ar := createExportAdmissionReview(export)
+			resp := createTestVMExportAdmitter(config).Admit(ar)
+			Expect(resp.Allowed).To(BeFalse())
+			Expect(resp.Result.Message).Should(ContainSubstring("VMSnapshot name must not be empty"))
 		})
 
 		It("should reject unknown kind", func() {
@@ -139,7 +156,7 @@ var _ = Describe("Validating VirtualMachineExport Admitter", func() {
 				Spec: exportv1.VirtualMachineExportSpec{
 					Source: corev1.TypedLocalObjectReference{
 						APIGroup: &apiGroup,
-						Kind:     "PersistentVolumeClaim",
+						Kind:     pvc,
 						Name:     "test",
 					},
 				},
@@ -149,7 +166,7 @@ var _ = Describe("Validating VirtualMachineExport Admitter", func() {
 				Spec: exportv1.VirtualMachineExportSpec{
 					Source: corev1.TypedLocalObjectReference{
 						APIGroup: &apiGroup,
-						Kind:     "PersistentVolumeClaim",
+						Kind:     pvc,
 						Name:     "baz",
 					},
 				},
@@ -167,7 +184,7 @@ var _ = Describe("Validating VirtualMachineExport Admitter", func() {
 				Spec: exportv1.VirtualMachineExportSpec{
 					Source: corev1.TypedLocalObjectReference{
 						APIGroup: &apiGroup,
-						Kind:     "PersistentVolumeClaim",
+						Kind:     pvc,
 						Name:     "test",
 					},
 				},
@@ -180,7 +197,7 @@ var _ = Describe("Validating VirtualMachineExport Admitter", func() {
 				Spec: exportv1.VirtualMachineExportSpec{
 					Source: corev1.TypedLocalObjectReference{
 						APIGroup: &apiGroup,
-						Kind:     "PersistentVolumeClaim",
+						Kind:     pvc,
 						Name:     "test",
 					},
 				},
@@ -206,8 +223,8 @@ var _ = Describe("Validating VirtualMachineExport Admitter", func() {
 			resp := createTestVMExportAdmitter(config).Admit(ar)
 			Expect(resp.Allowed).To(BeTrue())
 		},
-			Entry("persistent volume claim", "v1", "PersistentVolumeClaim"),
-			// Entry("virtual machine", "kubevirt.io", "VirtualMachine"),
+			Entry("persistent volume claim", "v1", pvc),
+			Entry("virtual machine snapshot", kubevirtApiGroup, vmSnapshot),
 		)
 
 	})

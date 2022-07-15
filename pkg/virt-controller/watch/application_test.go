@@ -188,17 +188,19 @@ var _ = Describe("Application", func() {
 		}
 		app.restoreController.Init()
 		app.exportController = &export.VMExportController{
-			Client:                 virtClient,
-			TemplateService:        services.NewTemplateService("a", 240, "b", "c", "d", "e", "f", "g", pvcInformer.GetStore(), virtClient, config, qemuGid, "h"),
-			VMExportInformer:       vmExportInformer,
-			PVCInformer:            pvcInformer,
-			PodInformer:            podInformer,
-			DataVolumeInformer:     dataVolumeInformer,
-			ServiceInformer:        exportServiceInformer,
-			ConfigMapInformer:      configMapInformer,
-			RouteConfigMapInformer: routeConfigMapInformer,
-			Recorder:               recorder,
-			SecretInformer:         secretInformer,
+			Client:                    virtClient,
+			TemplateService:           services.NewTemplateService("a", 240, "b", "c", "d", "e", "f", "g", pvcInformer.GetStore(), virtClient, config, qemuGid, "h"),
+			VMExportInformer:          vmExportInformer,
+			PVCInformer:               pvcInformer,
+			PodInformer:               podInformer,
+			DataVolumeInformer:        dataVolumeInformer,
+			ServiceInformer:           exportServiceInformer,
+			ConfigMapInformer:         configMapInformer,
+			RouteConfigMapInformer:    routeConfigMapInformer,
+			Recorder:                  recorder,
+			SecretInformer:            secretInformer,
+			VMSnapshotInformer:        vmSnapshotInformer,
+			VMSnapshotContentInformer: vmSnapshotContentInformer,
 		}
 		app.exportController.Init()
 		app.persistentVolumeClaimInformer = pvcInformer

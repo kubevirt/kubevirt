@@ -293,7 +293,7 @@ func (ctrl *VMRestoreController) reconcileVolumeRestores(vmRestore *snapshotv1.V
 			if err != nil {
 				return false, err
 			}
-			if err = ctrl.createRestorePVC(vmRestore, target, backup, restore, content.Spec.Source.VirtualMachine.Name, content.Spec.Source.VirtualMachine.Namespace); err != nil {
+			if err = ctrl.createRestorePVC(vmRestore, target, backup, &restore, content.Spec.Source.VirtualMachine.Name, content.Spec.Source.VirtualMachine.Namespace); err != nil {
 				return false, err
 			}
 			createdPVC = true
@@ -310,7 +310,6 @@ func (ctrl *VMRestoreController) reconcileVolumeRestores(vmRestore *snapshotv1.V
 			return false, fmt.Errorf("PVC %s/%s in status %q", pvc.Namespace, pvc.Name, pvc.Status.Phase)
 		}
 	}
-
 	return createdPVC || waitingPVC, nil
 }
 
@@ -729,20 +728,10 @@ func (ctrl *VMRestoreController) getTarget(vmRestore *snapshotv1.VirtualMachineR
 func (ctrl *VMRestoreController) createRestorePVC(
 	vmRestore *snapshotv1.VirtualMachineRestore,
 	target restoreTarget,
-	volumeBackup snapshotv1.VolumeBackup,
-	volumeRestore snapshotv1.VolumeRestore,
+	volumeBackup *snapshotv1.VolumeBackup,
+	volumeRestore *snapshotv1.VolumeRestore,
 	sourceVmName, sourceVmNamespace string,
 ) error {
-	sourcePVC := volumeBackup.PersistentVolumeClaim.DeepCopy()
-	pvc := &corev1.PersistentVolumeClaim{
-		ObjectMeta: metav1.ObjectMeta{
-			Name:        volumeRestore.PersistentVolumeClaimName,
-			Labels:      sourcePVC.Labels,
-			Annotations: sourcePVC.Annotations,
-		},
-		Spec: sourcePVC.Spec,
-	}
-
 	if volumeBackup.VolumeSnapshotName == nil {
 		log.Log.Errorf("VolumeSnapshot name missing %+v", volumeBackup)
 		return fmt.Errorf("missing VolumeSnapshot name")
@@ -753,9 +742,31 @@ func (ctrl *VMRestoreController) createRestorePVC(
 		return err
 	}
 
-	if volumeSnapshot == nil {
-		log.Log.Errorf("VolumeSnapshot %s is missing", *volumeBackup.VolumeSnapshotName)
-		return fmt.Errorf("missing VolumeSnapshot %s", *volumeBackup.VolumeSnapshotName)
+	pvc := CreateRestorePVCDef(vmRestore.Name, volumeRestore.PersistentVolumeClaimName, volumeSnapshot, volumeBackup, sourceVmName, sourceVmNamespace)
+	target.Own(pvc)
+
+	_, err = ctrl.Client.CoreV1().PersistentVolumeClaims(vmRestore.Namespace).Create(context.Background(), pvc, metav1.CreateOptions{})
+	if err != nil {
+		return err
+	}
+
+	return nil
+}
+
+func CreateRestorePVCDef(vmRestoreName, restorePVCName string, volumeSnapshot *vsv1.VolumeSnapshot, volumeBackup *snapshotv1.VolumeBackup, sourceVmName, sourceVmNamespace string) *corev1.PersistentVolumeClaim {
+	sourcePVC := volumeBackup.PersistentVolumeClaim.DeepCopy()
+	pvc := &corev1.PersistentVolumeClaim{
+		ObjectMeta: metav1.ObjectMeta{
+			Name:        restorePVCName,
+			Labels:      sourcePVC.Labels,
+			Annotations: sourcePVC.Annotations,
+		},
+		Spec: sourcePVC.Spec,
+	}
+
+	if volumeBackup.VolumeSnapshotName == nil {
+		log.Log.Errorf("VolumeSnapshot name missing %+v", volumeBackup)
+		return nil
 	}
 
 	if volumeSnapshot.Status != nil && volumeSnapshot.Status.RestoreSize != nil {
@@ -782,7 +793,7 @@ func (ctrl *VMRestoreController) createRestorePVC(
 			}
 		}
 	}
-	pvc.Annotations[pvcRestoreAnnotation] = vmRestore.Name
+	pvc.Annotations[pvcRestoreAnnotation] = vmRestoreName
 
 	apiGroup := vsv1.GroupName
 	pvc.Spec.DataSource = &corev1.TypedLocalObjectReference{
@@ -791,15 +802,7 @@ func (ctrl *VMRestoreController) createRestorePVC(
 		Name:     *volumeBackup.VolumeSnapshotName,
 	}
 	pvc.Spec.VolumeName = ""
-
-	target.Own(pvc)
-
-	_, err = ctrl.Client.CoreV1().PersistentVolumeClaims(vmRestore.Namespace).Create(context.Background(), pvc, metav1.CreateOptions{})
-	if err != nil {
-		return err
-	}
-
-	return nil
+	return pvc
 }
 
 func getRestoreAnnotationValue(restore *snapshotv1.VirtualMachineRestore) string {
@@ -836,11 +839,11 @@ func volumesNotForRestore(content *snapshotv1.VirtualMachineSnapshotContent) set
 	return noRestore
 }
 
-func getRestoreVolumeBackup(volName string, content *snapshotv1.VirtualMachineSnapshotContent) (snapshotv1.VolumeBackup, error) {
+func getRestoreVolumeBackup(volName string, content *snapshotv1.VirtualMachineSnapshotContent) (*snapshotv1.VolumeBackup, error) {
 	for _, vb := range content.Spec.VolumeBackups {
 		if vb.VolumeName == volName {
-			return vb, nil
+			return &vb, nil
 		}
 	}
-	return snapshotv1.VolumeBackup{}, fmt.Errorf("volume backup for volume %s not found", volName)
+	return &snapshotv1.VolumeBackup{}, fmt.Errorf("volume backup for volume %s not found", volName)
 }

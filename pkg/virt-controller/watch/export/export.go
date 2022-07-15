@@ -48,6 +48,7 @@ import (
 
 	virtv1 "kubevirt.io/api/core/v1"
 	exportv1 "kubevirt.io/api/export/v1alpha1"
+	snapshotv1 "kubevirt.io/api/snapshot/v1alpha1"
 	"kubevirt.io/client-go/kubecli"
 	"kubevirt.io/client-go/log"
 	cdiv1 "kubevirt.io/containerized-data-importer-api/pkg/apis/core/v1beta1"
@@ -59,6 +60,7 @@ import (
 	"kubevirt.io/kubevirt/pkg/virt-operator/resource/generate/components"
 
 	"kubevirt.io/kubevirt/pkg/virt-controller/services"
+	"kubevirt.io/kubevirt/pkg/virt-controller/watch/snapshot"
 	watchutil "kubevirt.io/kubevirt/pkg/virt-controller/watch/util"
 
 	"github.com/openshift/library-go/pkg/build/naming"
@@ -160,16 +162,19 @@ type VMExportController struct {
 
 	TemplateService services.TemplateService
 
-	VMExportInformer       cache.SharedIndexInformer
-	PVCInformer            cache.SharedIndexInformer
-	PodInformer            cache.SharedIndexInformer
-	DataVolumeInformer     cache.SharedIndexInformer
-	ConfigMapInformer      cache.SharedIndexInformer
-	ServiceInformer        cache.SharedIndexInformer
-	RouteConfigMapInformer cache.SharedInformer
-	RouteCache             cache.Store
-	IngressCache           cache.Store
-	SecretInformer         cache.SharedIndexInformer
+	VMExportInformer          cache.SharedIndexInformer
+	PVCInformer               cache.SharedIndexInformer
+	VMSnapshotInformer        cache.SharedIndexInformer
+	VMSnapshotContentInformer cache.SharedIndexInformer
+	PodInformer               cache.SharedIndexInformer
+	DataVolumeInformer        cache.SharedIndexInformer
+	ConfigMapInformer         cache.SharedIndexInformer
+	ServiceInformer           cache.SharedIndexInformer
+	RouteConfigMapInformer    cache.SharedInformer
+	RouteCache                cache.Store
+	IngressCache              cache.Store
+	SecretInformer            cache.SharedIndexInformer
+	VolumeSnapshotProvider    snapshot.VolumeSnapshotProvider
 
 	Recorder record.EventRecorder
 
@@ -231,6 +236,8 @@ func (ctrl *VMExportController) Run(threadiness int, stopCh <-chan struct{}) err
 		ctrl.ServiceInformer.HasSynced,
 		ctrl.RouteConfigMapInformer.HasSynced,
 		ctrl.SecretInformer.HasSynced,
+		ctrl.VMSnapshotInformer.HasSynced,
+		ctrl.VMSnapshotContentInformer.HasSynced,
 	) {
 		return fmt.Errorf("failed to wait for caches to sync")
 	}
@@ -343,6 +350,8 @@ func (ctrl *VMExportController) updateVMExport(vmExport *exportv1.VirtualMachine
 
 	if ctrl.isSourcePvc(&vmExport.Spec) {
 		return ctrl.handleIsSourcePvc(vmExport, service)
+	} else if ctrl.isSourceVMSnapshot(&vmExport.Spec) {
+		return ctrl.handleIsVmSnapshot(vmExport, service)
 	}
 	return retry, nil
 }
@@ -384,19 +393,147 @@ func (ctrl *VMExportController) handleIsSourcePvc(vmExport *exportv1.VirtualMach
 			}
 		}
 	} else {
-		if pod.Status.Phase == corev1.PodSucceeded || pod.Status.Phase == corev1.PodFailed {
-			// The server died or completed, delete the pod.
-			ctrl.Recorder.Eventf(vmExport, corev1.EventTypeWarning, exporterPodFailedOrCompletedEvent, "Exporter pod %s/%s succeeded or failed", pod.Namespace, pod.Name)
-			if err := ctrl.Client.CoreV1().Pods(vmExport.Namespace).Delete(context.Background(), pod.Name, metav1.DeleteOptions{}); err != nil {
-				return 0, err
-			} else {
-				return retry, nil
-			}
+		if err := ctrl.handlePodSucceededOrFailed(vmExport, pod); err != nil {
+			return retry, err
 		}
 	}
 
 	return ctrl.updateVMExportPvcStatus(vmExport, pvcs, pod, service, inUse)
 
+}
+
+func (ctrl *VMExportController) handleIsVmSnapshot(vmExport *exportv1.VirtualMachineExport, service *corev1.Service) (time.Duration, error) {
+	var retry time.Duration
+	pvcs := make([]*corev1.PersistentVolumeClaim, 0)
+
+	vmSnapshot, exists, err := ctrl.getVmSnapshot(vmExport.Namespace, vmExport.Spec.Source.Name)
+	restoreableSnapshots := 0
+	if err != nil {
+		return 0, err
+	} else if exists {
+		pvcs, restoreableSnapshots, err = ctrl.handlePVCsForVirtualMachineSnapshot(vmExport, vmSnapshot)
+		if err != nil {
+			return 0, err
+		}
+	}
+
+	pod, exists, err := ctrl.getExporterPod(vmExport)
+	if err != nil {
+		return 0, err
+	} else if !exists {
+		if len(pvcs) == restoreableSnapshots && restoreableSnapshots > 0 {
+			pod, err = ctrl.createExporterPod(vmExport, pvcs)
+			if err != nil {
+				return 0, err
+			} else if pod == nil {
+				return retry, nil
+			}
+
+			if err := ctrl.getOrCreateCertSecret(vmExport, pod); err != nil {
+				return 0, err
+			}
+		}
+	} else {
+		if err := ctrl.handlePodSucceededOrFailed(vmExport, pod); err != nil {
+			return retry, err
+		}
+	}
+
+	return ctrl.updateVMExportPvcStatus(vmExport, pvcs, pod, service, false)
+}
+
+func (ctrl *VMExportController) handlePodSucceededOrFailed(vmExport *exportv1.VirtualMachineExport, pod *corev1.Pod) error {
+	if pod.Status.Phase == corev1.PodSucceeded || pod.Status.Phase == corev1.PodFailed {
+		// The server died or completed, delete the pod.
+		ctrl.Recorder.Eventf(vmExport, corev1.EventTypeWarning, exporterPodFailedOrCompletedEvent, "Exporter pod %s/%s succeeded or failed", pod.Namespace, pod.Name)
+		if err := ctrl.Client.CoreV1().Pods(vmExport.Namespace).Delete(context.Background(), pod.Name, metav1.DeleteOptions{}); err != nil {
+			return err
+		} else {
+			return nil
+		}
+	}
+	return nil
+}
+
+func (ctrl *VMExportController) handlePVCsForVirtualMachineSnapshot(vmExport *exportv1.VirtualMachineExport, vmSnapshot *snapshotv1.VirtualMachineSnapshot) ([]*corev1.PersistentVolumeClaim, int, error) {
+	var content *snapshotv1.VirtualMachineSnapshotContent
+	var err error
+	pvcs := make([]*corev1.PersistentVolumeClaim, 0)
+	exists := false
+	totalVolumes := 0
+
+	if vmSnapshot.Status.VirtualMachineSnapshotContentName != nil && *vmSnapshot.Status.VirtualMachineSnapshotContentName != "" {
+		content, exists, err = ctrl.getVmSnapshotContent(vmSnapshot.Namespace, *vmSnapshot.Status.VirtualMachineSnapshotContentName)
+		if err != nil {
+			return pvcs, totalVolumes, err
+		} else if exists {
+			sourceVm := content.Spec.Source.VirtualMachine
+			totalVolumes = len(content.Status.VolumeSnapshotStatus)
+			for _, volumeBackup := range content.Spec.VolumeBackups {
+				if pvc, err := ctrl.getOrCreatePVCFromSnapshot(vmExport, &volumeBackup, sourceVm); err != nil {
+					return pvcs, totalVolumes, err
+				} else if pvc != nil {
+					pvcs = append(pvcs, pvc)
+				}
+			}
+		}
+	}
+	return pvcs, totalVolumes, err
+}
+
+func (ctrl *VMExportController) getOrCreatePVCFromSnapshot(vmExport *exportv1.VirtualMachineExport, volumeBackup *snapshotv1.VolumeBackup, sourceVm *snapshotv1.VirtualMachine) (*corev1.PersistentVolumeClaim, error) {
+	if volumeBackup.VolumeSnapshotName == nil {
+		log.Log.Errorf("VolumeSnapshot name missing %+v", volumeBackup)
+		return nil, fmt.Errorf("missing VolumeSnapshot name")
+	}
+	restorePVCName := fmt.Sprintf("%s-%s", vmExport.Name, volumeBackup.PersistentVolumeClaim.Name)
+
+	if pvc, exists, err := ctrl.getPvc(vmExport.Namespace, restorePVCName); err != nil {
+		return nil, err
+	} else if exists {
+		return pvc, nil
+	}
+
+	volumeSnapshot, err := ctrl.VolumeSnapshotProvider.GetVolumeSnapshot(vmExport.Namespace, *volumeBackup.VolumeSnapshotName)
+	if err != nil {
+		return nil, err
+	}
+
+	// leaving source name and namespace blank because we don't care in this context
+	pvc := snapshot.CreateRestorePVCDef("", restorePVCName, volumeSnapshot, volumeBackup, "", "")
+	if volumeBackupIsKubeVirtContent(volumeBackup, sourceVm) {
+		if len(pvc.GetAnnotations()) == 0 {
+			pvc.SetAnnotations(make(map[string]string))
+		}
+		pvc.Annotations[annContentType] = string(cdiv1.DataVolumeKubeVirt)
+	}
+	pvc.SetOwnerReferences([]metav1.OwnerReference{
+		{
+			APIVersion:         apiVersion,
+			Kind:               "VirtualMachineExport",
+			Name:               vmExport.Name,
+			UID:                vmExport.UID,
+			Controller:         pointer.BoolPtr(true),
+			BlockOwnerDeletion: pointer.BoolPtr(true),
+		},
+	})
+
+	pvc, err = ctrl.Client.CoreV1().PersistentVolumeClaims(vmExport.Namespace).Create(context.Background(), pvc, metav1.CreateOptions{})
+	if err != nil {
+		return nil, err
+	}
+	return pvc, nil
+}
+
+func volumeBackupIsKubeVirtContent(volumeBackup *snapshotv1.VolumeBackup, sourceVm *snapshotv1.VirtualMachine) bool {
+	if sourceVm != nil && sourceVm.Spec.Template != nil {
+		for _, volume := range sourceVm.Spec.Template.Spec.Volumes {
+			if volume.Name == volumeBackup.VolumeName && (volume.DataVolume != nil || volume.PersistentVolumeClaim != nil) {
+				return true
+			}
+		}
+	}
+	return false
 }
 
 func (ctrl *VMExportController) isPVCPopulated(pvc *corev1.PersistentVolumeClaim) (bool, error) {
@@ -864,6 +1001,10 @@ func (ctrl *VMExportController) isSourcePvc(source *exportv1.VirtualMachineExpor
 	return source != nil && (source.Source.APIGroup == nil || *source.Source.APIGroup == corev1.SchemeGroupVersion.Group) && source.Source.Kind == "PersistentVolumeClaim"
 }
 
+func (ctrl *VMExportController) isSourceVMSnapshot(source *exportv1.VirtualMachineExportSpec) bool {
+	return source != nil && source.Source.APIGroup != nil && *source.Source.APIGroup == snapshotv1.SchemeGroupVersion.Group && source.Source.Kind == "VirtualMachineSnapshot"
+}
+
 func (ctrl *VMExportController) getPvc(namespace, name string) (*corev1.PersistentVolumeClaim, bool, error) {
 	key := controller.NamespacedKey(namespace, name)
 	obj, exists, err := ctrl.PVCInformer.GetStore().GetByKey(key)
@@ -871,6 +1012,24 @@ func (ctrl *VMExportController) getPvc(namespace, name string) (*corev1.Persiste
 		return nil, exists, err
 	}
 	return obj.(*corev1.PersistentVolumeClaim).DeepCopy(), true, nil
+}
+
+func (ctrl *VMExportController) getVmSnapshot(namespace, name string) (*snapshotv1.VirtualMachineSnapshot, bool, error) {
+	key := controller.NamespacedKey(namespace, name)
+	obj, exists, err := ctrl.VMSnapshotInformer.GetStore().GetByKey(key)
+	if err != nil || !exists {
+		return nil, exists, err
+	}
+	return obj.(*snapshotv1.VirtualMachineSnapshot).DeepCopy(), true, nil
+}
+
+func (ctrl *VMExportController) getVmSnapshotContent(namespace, name string) (*snapshotv1.VirtualMachineSnapshotContent, bool, error) {
+	key := controller.NamespacedKey(namespace, name)
+	obj, exists, err := ctrl.VMSnapshotContentInformer.GetStore().GetByKey(key)
+	if err != nil || !exists {
+		return nil, exists, err
+	}
+	return obj.(*snapshotv1.VirtualMachineSnapshotContent).DeepCopy(), true, nil
 }
 
 func newReadyCondition(status corev1.ConditionStatus, reason string) exportv1.Condition {
