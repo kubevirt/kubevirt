@@ -167,15 +167,6 @@ func createBatchVMIWithRateControl(virtClient kubecli.KubevirtClient, vmCount in
 	}
 }
 
-func createVMISpecWithResources(virtClient kubecli.KubevirtClient) *kvv1.VirtualMachineInstance {
-	cpuLimit := "100m"
-	memLimit := "90Mi"
-	return libvmi.NewCirros(
-		withResourcesLimits(memLimit, cpuLimit),
-		withResourcesRequests(memLimit, cpuLimit),
-	)
-}
-
 func waitRunningVMI(virtClient kubecli.KubevirtClient, vmiCount int, timeout time.Duration) {
 	Eventually(func() int {
 		vmis, err := virtClient.VirtualMachineInstance(util.NamespaceTestDefault).List(&metav1.ListOptions{})
@@ -190,8 +181,6 @@ func waitRunningVMI(virtClient kubecli.KubevirtClient, vmiCount int, timeout tim
 	}, timeout, 10*time.Second).Should(Equal(vmiCount))
 }
 
-<<<<<<< Updated upstream
-=======
 func createVMISpecWithResources(virtClient kubecli.KubevirtClient) *kvv1.VirtualMachineInstance {
 	cpuLimit := "100m"
 	memLimit := "90Mi"
@@ -203,7 +192,6 @@ func createVMISpecWithResources(virtClient kubecli.KubevirtClient) *kvv1.Virtual
 	)
 }
 
->>>>>>> Stashed changes
 func withResourcesLimits(memLimit, cpuLimit string) libvmi.Option {
 	return func(vmi *kvv1.VirtualMachineInstance) {
 		vmi.Spec.Domain.Resources.Limits = k8sv1.ResourceList{
