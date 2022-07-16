@@ -394,7 +394,7 @@ var _ = SIGDescribe("[Serial]VirtualMachineClone Tests", func() {
 				}
 			})
 
-			It("with a simple clone", func() {
+			It("[QUARANTINE] with a simple clone", func() {
 				vmClone = generateClone()
 
 				createCloneAndWaitForFinish(vmClone)
