@@ -109,16 +109,8 @@ const (
 	EchoLastReturnValue          = "echo $?\n"
 )
 
-const defaultTestGracePeriod int64 = 0
-
-const SubresourceTestLabel = "subresource-access-test-pod"
-
 const (
-	osAlpineHostPath = "alpine-host-path"
-	OSWindows        = "windows"
-	OSWindowsSysprep = "windows-sysprep" // This is for sysprep tests, they run on a syspreped image of windows of a different version.
-	OSRhel           = "rhel"
-	CustomHostPath   = "custom-host-path"
+	CustomHostPath = "custom-host-path"
 )
 
 const (
@@ -132,19 +124,8 @@ const (
 	defaultDiskSize = "1Gi"
 )
 
-const VMIResource = "virtualmachineinstances"
-
-const (
-	tmpPath = "/var/provision/kubevirt.io/tests"
-)
-
 const MigrationWaitTime = 240
 const ContainerCompletionWaitTime = 60
-
-const (
-	cgroupV1cpusetPath = "/sys/fs/cgroup/cpuset/cpuset.cpus"
-	cgroupV2cpusetPath = "/sys/fs/cgroup/cpuset.cpus.effective"
-)
 
 func TestCleanup() {
 	testsuite.CleanNamespaces()
@@ -155,6 +136,7 @@ func TestCleanup() {
 }
 
 func SetupAlpineHostPath() {
+	const osAlpineHostPath = "alpine-host-path"
 	libstorage.CreateHostPathPv(osAlpineHostPath, testsuite.HostPathAlpine)
 	libstorage.CreateHostPathPVC(osAlpineHostPath, defaultDiskSize)
 }
@@ -373,6 +355,11 @@ func getPodsByLabel(label, labelType, namespace string) (*k8sv1.PodList, error) 
 }
 
 func GetPodCPUSet(pod *k8sv1.Pod) (output string, err error) {
+	const (
+		cgroupV1cpusetPath = "/sys/fs/cgroup/cpuset/cpuset.cpus"
+		cgroupV2cpusetPath = "/sys/fs/cgroup/cpuset.cpus.effective"
+	)
+
 	virtClient, err := kubecli.GetKubevirtClient()
 	if err != nil {
 		return
@@ -2451,6 +2438,7 @@ func IsRunningOnKindInfra() bool {
 }
 
 func RandTmpDir() string {
+	const tmpPath = "/var/provision/kubevirt.io/tests"
 	return filepath.Join(tmpPath, rand.String(10))
 }
 

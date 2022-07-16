@@ -294,10 +294,11 @@ var _ = Describe("[Serial][Sysprep][sig-compute]Syspreped VirtualMachineInstance
 	var windowsVMI *v1.VirtualMachineInstance
 
 	BeforeEach(func() {
+		const OSWindowsSysprep = "windows-sysprep"
 		virtClient, err = kubecli.GetKubevirtClient()
 		util.PanicOnError(err)
 		checks.SkipIfMissingRequiredImage(virtClient, tests.DiskWindowsSysprep)
-		libstorage.CreatePVC(tests.OSWindowsSysprep, "35Gi", libstorage.Config.StorageClassWindows, true)
+		libstorage.CreatePVC(OSWindowsSysprep, "35Gi", libstorage.Config.StorageClassWindows, true)
 		answerFileWithKey := insertProductKeyToAnswerFileTemplate(answerFileTemplate)
 		tests.CreateConfigMap("sysprepautounattend", map[string]string{"Autounattend.xml": answerFileWithKey, "Unattend.xml": answerFileWithKey})
 		windowsVMI = tests.NewRandomVMI()
