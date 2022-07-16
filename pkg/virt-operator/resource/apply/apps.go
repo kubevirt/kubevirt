@@ -329,7 +329,7 @@ func setMaxDevices(kv *v1.KubeVirt, vh *appsv1.DaemonSet) {
 	}
 
 	vh.Spec.Template.Spec.Containers[0].Command = append(vh.Spec.Template.Spec.Containers[0].Command,
-		"--maxDevices",
+		"--max-devices",
 		fmt.Sprintf("%d", *kv.Spec.Configuration.VirtualMachineInstancesPerNode))
 }
 

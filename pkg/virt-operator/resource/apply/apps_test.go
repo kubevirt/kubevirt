@@ -335,7 +335,7 @@ var _ = Describe("Apply Apps", func() {
 					ds := update.GetObject().(*appsv1.DaemonSet)
 
 					command := ds.Spec.Template.Spec.Containers[0].Command
-					Expect(strings.Join(command, " ")).To(ContainSubstring("--maxDevices 10"))
+					Expect(strings.Join(command, " ")).To(ContainSubstring("--max-devices 10"))
 
 					return true, update.GetObject(), nil
 				})
@@ -387,9 +387,9 @@ var _ = Describe("Apply Apps", func() {
 
 					command := dsSpec.Template.Spec.Containers[0].Command
 					if containMaxDeviceFlag {
-						Expect(strings.Join(command, " ")).To(ContainSubstring("--maxDevices 10"))
+						Expect(strings.Join(command, " ")).To(ContainSubstring("--max-devices 10"))
 					} else {
-						Expect(strings.Join(command, " ")).ToNot(ContainSubstring("--maxDevices 10"))
+						Expect(strings.Join(command, " ")).ToNot(ContainSubstring("--max-devices 10"))
 					}
 
 					return true, &appsv1.DaemonSet{}, nil
