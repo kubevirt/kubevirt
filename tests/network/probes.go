@@ -45,14 +45,19 @@ var _ = SIGDescribe("[ref_id:1182]Probes", func() {
 		util.PanicOnError(err)
 	})
 
-	buildProbeBackendPodSpec := func(probe *v1.Probe) (*corev1.Pod, func() error) {
+	buildProbeBackendPodSpec := func(ipFamily corev1.IPFamily, probe *v1.Probe) (*corev1.Pod, func() error) {
+		family := 4
+		if ipFamily == corev1.IPv6Protocol {
+			family = 6
+		}
+
 		var probeBackendPod *corev1.Pod
 		if isHTTPProbe(*probe) {
 			port := probe.HTTPGet.Port.IntVal
-			probeBackendPod = tests.StartHTTPServerPod(int(port))
+			probeBackendPod = tests.StartHTTPServerPod(family, int(port))
 		} else {
 			port := probe.TCPSocket.Port.IntVal
-			probeBackendPod = tests.StartTCPServerPod(int(port))
+			probeBackendPod = tests.StartTCPServerPod(family, int(port))
 		}
 		return probeBackendPod, func() error {
 			return virtClient.CoreV1().Pods(util.NamespaceTestDefault).Delete(context.Background(), probeBackendPod.Name, metav1.DeleteOptions{})
@@ -75,7 +80,7 @@ var _ = SIGDescribe("[ref_id:1182]Probes", func() {
 
 			if ipFamily == corev1.IPv6Protocol {
 				By("Create a support pod which will reply to kubelet's probes ...")
-				probeBackendPod, supportPodCleanupFunc := buildProbeBackendPodSpec(readinessProbe)
+				probeBackendPod, supportPodCleanupFunc := buildProbeBackendPodSpec(ipFamily, readinessProbe)
 				defer func() {
 					Expect(supportPodCleanupFunc()).To(Succeed(), "The support pod responding to the probes should be cleaned-up at test tear-down.")
 				}()
@@ -180,7 +185,7 @@ var _ = SIGDescribe("[ref_id:1182]Probes", func() {
 			if ipFamily == corev1.IPv6Protocol {
 
 				By("Create a support pod which will reply to kubelet's probes ...")
-				probeBackendPod, supportPodCleanupFunc := buildProbeBackendPodSpec(livenessProbe)
+				probeBackendPod, supportPodCleanupFunc := buildProbeBackendPodSpec(ipFamily, livenessProbe)
 				defer func() {
 					Expect(supportPodCleanupFunc()).To(Succeed(), "The support pod responding to the probes should be cleaned-up at test tear-down.")
 				}()

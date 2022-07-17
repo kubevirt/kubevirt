@@ -15,13 +15,13 @@ import (
 	"kubevirt.io/client-go/kubecli"
 )
 
-func NewHTTPServerPod(port int) *corev1.Pod {
-	serverCommand := fmt.Sprintf("nc -klp %d --sh-exec 'echo -e \"HTTP/1.1 200 OK\\nContent-Length: 12\\n\\nHello World!\"'", port)
+func NewHTTPServerPod(ipFamily, port int) *corev1.Pod {
+	serverCommand := fmt.Sprintf("nc -%d -klp %d --sh-exec 'echo -e \"HTTP/1.1 200 OK\\nContent-Length: 12\\n\\nHello World!\"'", ipFamily, port)
 	return RenderPrivilegedPod("http-hello-world-server", []string{"/bin/bash"}, []string{"-c", serverCommand})
 }
 
-func NewTCPServerPod(port int) *corev1.Pod {
-	serverCommand := fmt.Sprintf("nc -klp %d --sh-exec 'echo \"Hello World!\"'", port)
+func NewTCPServerPod(ipFamily, port int) *corev1.Pod {
+	serverCommand := fmt.Sprintf("nc -%d -klp %d --sh-exec 'echo \"Hello World!\"'", ipFamily, port)
 	return RenderPrivilegedPod("tcp-hello-world-server", []string{"/bin/bash"}, []string{"-c", serverCommand})
 }
 
@@ -41,12 +41,12 @@ func CreatePodAndWaitUntil(pod *corev1.Pod, phaseToWait corev1.PodPhase) *corev1
 	return pod
 }
 
-func StartTCPServerPod(port int) *corev1.Pod {
+func StartTCPServerPod(ipFamily, port int) *corev1.Pod {
 	By(fmt.Sprintf("Start TCP Server pod at port %d", port))
-	return CreatePodAndWaitUntil(NewTCPServerPod(port), corev1.PodRunning)
+	return CreatePodAndWaitUntil(NewTCPServerPod(ipFamily, port), corev1.PodRunning)
 }
 
-func StartHTTPServerPod(port int) *corev1.Pod {
+func StartHTTPServerPod(ipFamily, port int) *corev1.Pod {
 	By(fmt.Sprintf("Start HTTP Server pod at port %d", port))
-	return CreatePodAndWaitUntil(NewHTTPServerPod(port), corev1.PodRunning)
+	return CreatePodAndWaitUntil(NewHTTPServerPod(ipFamily, port), corev1.PodRunning)
 }
