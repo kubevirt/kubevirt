@@ -9,7 +9,7 @@ require (
 	github.com/coreos/go-semver v0.3.0
 	github.com/coreos/prometheus-operator v0.38.1-0.20200424145508-7e176fda06cc
 	github.com/davecgh/go-spew v1.1.1
-	github.com/emicklei/go-restful v2.10.0+incompatible
+	github.com/emicklei/go-restful v2.16.0+incompatible
 	github.com/emicklei/go-restful-openapi v1.2.0
 	github.com/evanphx/json-patch v4.12.0+incompatible
 	github.com/fsnotify/fsnotify v1.4.9
