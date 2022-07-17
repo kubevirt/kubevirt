@@ -33,6 +33,8 @@ import (
 	"k8s.io/apimachinery/pkg/types"
 	"k8s.io/apimachinery/pkg/util/rand"
 
+	k6ttypes "kubevirt.io/kubevirt/pkg/util/types"
+
 	"kubevirt.io/kubevirt/tests/libvmi"
 	"kubevirt.io/kubevirt/tests/util"
 
@@ -42,6 +44,11 @@ import (
 
 	"kubevirt.io/kubevirt/tests"
 	cd "kubevirt.io/kubevirt/tests/containerdisk"
+)
+
+const (
+	newLabelKey   = "newlabel"
+	newLabelValue = "newvalue"
 )
 
 var _ = Describe("[sig-compute]VirtualMachinePool", func() {
@@ -325,8 +332,13 @@ var _ = Describe("[sig-compute]VirtualMachinePool", func() {
 		newPool, err = virtClient.VirtualMachinePool(newPool.ObjectMeta.Namespace).Get(context.Background(), newPool.ObjectMeta.Name, v12.GetOptions{})
 		Expect(err).ToNot(HaveOccurred())
 
-		newPool.Spec.VirtualMachineTemplate.ObjectMeta.Labels["newlabel"] = "newvalue"
-		newPool, err = virtClient.VirtualMachinePool(newPool.ObjectMeta.Namespace).Update(context.Background(), newPool, metav1.UpdateOptions{})
+		patchData, err := k6ttypes.GeneratePatchPayload(k6ttypes.PatchOperation{
+			Op:    k6ttypes.PatchAddOp,
+			Path:  fmt.Sprintf("/spec/virtualMachineTemplate/metadata/labels/%s", newLabelKey),
+			Value: newLabelValue,
+		})
+		Expect(err).ToNot(HaveOccurred())
+		newPool, err = virtClient.VirtualMachinePool(newPool.ObjectMeta.Namespace).Patch(context.Background(), newPool.Name, types.JSONPatchType, patchData, metav1.PatchOptions{})
 		Expect(err).ToNot(HaveOccurred())
 
 		By("Ensuring VM picks up label")
@@ -337,7 +349,7 @@ var _ = Describe("[sig-compute]VirtualMachinePool", func() {
 				return err
 			}
 
-			_, ok := vm.Labels["newlabel"]
+			_, ok := vm.Labels[newLabelKey]
 			if !ok {
 				return fmt.Errorf("Expected vm pool update to roll out to VMs")
 			}
@@ -379,8 +391,13 @@ var _ = Describe("[sig-compute]VirtualMachinePool", func() {
 		Expect(err).ToNot(HaveOccurred())
 
 		// Make a VMI template change
-		newPool.Spec.VirtualMachineTemplate.Spec.Template.ObjectMeta.Labels["newlabel"] = "newvalue"
-		newPool, err = virtClient.VirtualMachinePool(newPool.ObjectMeta.Namespace).Update(context.Background(), newPool, metav1.UpdateOptions{})
+		patchData, err := k6ttypes.GeneratePatchPayload(k6ttypes.PatchOperation{
+			Op:    k6ttypes.PatchAddOp,
+			Path:  fmt.Sprintf("/spec/virtualMachineTemplate/spec/template/metadata/labels/%s", newLabelKey),
+			Value: newLabelValue,
+		})
+		Expect(err).ToNot(HaveOccurred())
+		newPool, err = virtClient.VirtualMachinePool(newPool.ObjectMeta.Namespace).Patch(context.Background(), newPool.Name, types.JSONPatchType, patchData, metav1.PatchOptions{})
 		Expect(err).ToNot(HaveOccurred())
 
 		By("Ensuring VM picks up label")
@@ -391,7 +408,7 @@ var _ = Describe("[sig-compute]VirtualMachinePool", func() {
 				return err
 			}
 
-			_, ok := vm.Spec.Template.ObjectMeta.Labels["newlabel"]
+			_, ok := vm.Spec.Template.ObjectMeta.Labels[newLabelKey]
 			if !ok {
 				return fmt.Errorf("Expected vm pool update to roll out to VMs")
 			}
@@ -409,7 +426,7 @@ var _ = Describe("[sig-compute]VirtualMachinePool", func() {
 			if vmi.UID == vmiUID {
 				return fmt.Errorf("Waiting on VMI to get deleted and recreated")
 			}
-			_, ok := vmi.ObjectMeta.Labels["newlabel"]
+			_, ok := vmi.ObjectMeta.Labels[newLabelKey]
 			if !ok {
 				return fmt.Errorf("Expected vmi to pick up the new updated label")
 			}
@@ -472,8 +489,9 @@ var _ = Describe("[sig-compute]VirtualMachinePool", func() {
 
 		// set new replica count while still being paused
 		By("Updating the number of replicas")
-		pool.Spec.Replicas = tests.NewInt32(1)
-		_, err = virtClient.VirtualMachinePool(pool.ObjectMeta.Namespace).Update(context.Background(), pool, metav1.UpdateOptions{})
+		patchData, err := k6ttypes.GenerateTestReplacePatch("/spec/replicas", pool.Spec.Replicas, tests.NewInt32(1))
+		Expect(err).ToNot(HaveOccurred())
+		pool, err = virtClient.VirtualMachinePool(pool.ObjectMeta.Namespace).Patch(context.Background(), pool.Name, types.JSONPatchType, patchData, metav1.PatchOptions{})
 		Expect(err).ToNot(HaveOccurred())
 
 		// make sure that we don't scale up
