@@ -17,6 +17,7 @@ limitations under the License.
 package v1beta1
 
 import (
+	ocpconfigv1 "github.com/openshift/api/config/v1"
 	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	sdkapi "kubevirt.io/controller-lifecycle-operator-sdk/api"
@@ -745,6 +746,8 @@ type CDIConfigSpec struct {
 	// dataVolumeTTLSeconds is the time in seconds after DataVolume completion it can be garbage collected.
 	// +optional
 	DataVolumeTTLSeconds *int32 `json:"dataVolumeTTLSeconds,omitempty"`
+	// TLSSecurityProfile is used by operators to apply cluster-wide TLS security settings to operands.
+	TLSSecurityProfile *ocpconfigv1.TLSSecurityProfile `json:"tlsSecurityProfile,omitempty"`
 }
 
 //CDIConfigStatus provides the most recently observed status of the CDI Config resource

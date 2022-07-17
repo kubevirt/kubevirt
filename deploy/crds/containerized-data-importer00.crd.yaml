@@ -3,7 +3,7 @@ apiVersion: apiextensions.k8s.io/v1
 kind: CustomResourceDefinition
 metadata:
   annotations:
-    controller-gen.kubebuilder.io/version: v0.7.0
+    controller-gen.kubebuilder.io/version: v0.9.2
   name: cdis.cdi.kubevirt.io
 spec:
   group: cdi.kubevirt.io
@@ -140,10 +140,10 @@ spec:
                           is consumed by the import controller that is resposible
                           for coping it to a config map named trusted-ca-proxy-bundle-cm
                           in the cdi namespace. Here is an example of the ConfigMap
-                          (in yaml): \n apiVersion: v1 kind: ConfigMap metadata:   name:
-                          trusted-ca-proxy-bundle-cm   namespace: cdi data:   ca.pem:
-                          |     -----BEGIN CERTIFICATE----- \t   ... <base64 encoded
-                          cert> ... \t   -----END CERTIFICATE-----"
+                          (in yaml): \n apiVersion: v1 kind: ConfigMap metadata: name:
+                          trusted-ca-proxy-bundle-cm namespace: cdi data: ca.pem:
+                          | -----BEGIN CERTIFICATE----- ... <base64 encoded cert>
+                          ... -----END CERTIFICATE-----"
                         type: string
                     type: object
                   insecureRegistries:
@@ -316,6 +316,7 @@ spec:
                                         type: object
                                       type: array
                                   type: object
+                                  x-kubernetes-map-type: atomic
                                 weight:
                                   description: Weight associated with matching the
                                     corresponding nodeSelectorTerm, in the range 1-100.
@@ -421,10 +422,12 @@ spec:
                                         type: object
                                       type: array
                                   type: object
+                                  x-kubernetes-map-type: atomic
                                 type: array
                             required:
                             - nodeSelectorTerms
                             type: object
+                            x-kubernetes-map-type: atomic
                         type: object
                       podAffinity:
                         description: Describes pod affinity scheduling rules (e.g.
@@ -505,6 +508,7 @@ spec:
                                             only "value". The requirements are ANDed.
                                           type: object
                                       type: object
+                                      x-kubernetes-map-type: atomic
                                     namespaceSelector:
                                       description: A label query over the set of namespaces
                                         that the term applies to. The term is applied
@@ -564,6 +568,7 @@ spec:
                                             only "value". The requirements are ANDed.
                                           type: object
                                       type: object
+                                      x-kubernetes-map-type: atomic
                                     namespaces:
                                       description: namespaces specifies a static list
                                         of namespace names that the term applies to.
@@ -668,6 +673,7 @@ spec:
                                         The requirements are ANDed.
                                       type: object
                                   type: object
+                                  x-kubernetes-map-type: atomic
                                 namespaceSelector:
                                   description: A label query over the set of namespaces
                                     that the term applies to. The term is applied
@@ -726,6 +732,7 @@ spec:
                                         The requirements are ANDed.
                                       type: object
                                   type: object
+                                  x-kubernetes-map-type: atomic
                                 namespaces:
                                   description: namespaces specifies a static list
                                     of namespace names that the term applies to. The
@@ -829,6 +836,7 @@ spec:
                                             only "value". The requirements are ANDed.
                                           type: object
                                       type: object
+                                      x-kubernetes-map-type: atomic
                                     namespaceSelector:
                                       description: A label query over the set of namespaces
                                         that the term applies to. The term is applied
@@ -888,6 +896,7 @@ spec:
                                             only "value". The requirements are ANDed.
                                           type: object
                                       type: object
+                                      x-kubernetes-map-type: atomic
                                     namespaces:
                                       description: namespaces specifies a static list
                                         of namespace names that the term applies to.
@@ -992,6 +1001,7 @@ spec:
                                         The requirements are ANDed.
                                       type: object
                                   type: object
+                                  x-kubernetes-map-type: atomic
                                 namespaceSelector:
                                   description: A label query over the set of namespaces
                                     that the term applies to. The term is applied
@@ -1050,6 +1060,7 @@ spec:
                                         The requirements are ANDed.
                                       type: object
                                   type: object
+                                  x-kubernetes-map-type: atomic
                                 namespaces:
                                   description: namespaces specifies a static list
                                     of namespace names that the term applies to. The
@@ -1248,6 +1259,7 @@ spec:
                                         type: object
                                       type: array
                                   type: object
+                                  x-kubernetes-map-type: atomic
                                 weight:
                                   description: Weight associated with matching the
                                     corresponding nodeSelectorTerm, in the range 1-100.
@@ -1353,10 +1365,12 @@ spec:
                                         type: object
                                       type: array
                                   type: object
+                                  x-kubernetes-map-type: atomic
                                 type: array
                             required:
                             - nodeSelectorTerms
                             type: object
+                            x-kubernetes-map-type: atomic
                         type: object
                       podAffinity:
                         description: Describes pod affinity scheduling rules (e.g.
@@ -1437,6 +1451,7 @@ spec:
                                             only "value". The requirements are ANDed.
                                           type: object
                                       type: object
+                                      x-kubernetes-map-type: atomic
                                     namespaceSelector:
                                       description: A label query over the set of namespaces
                                         that the term applies to. The term is applied
@@ -1496,6 +1511,7 @@ spec:
                                             only "value". The requirements are ANDed.
                                           type: object
                                       type: object
+                                      x-kubernetes-map-type: atomic
                                     namespaces:
                                       description: namespaces specifies a static list
                                         of namespace names that the term applies to.
@@ -1600,6 +1616,7 @@ spec:
                                         The requirements are ANDed.
                                       type: object
                                   type: object
+                                  x-kubernetes-map-type: atomic
                                 namespaceSelector:
                                   description: A label query over the set of namespaces
                                     that the term applies to. The term is applied
@@ -1658,6 +1675,7 @@ spec:
                                         The requirements are ANDed.
                                       type: object
                                   type: object
+                                  x-kubernetes-map-type: atomic
                                 namespaces:
                                   description: namespaces specifies a static list
                                     of namespace names that the term applies to. The
@@ -1761,6 +1779,7 @@ spec:
                                             only "value". The requirements are ANDed.
                                           type: object
                                       type: object
+                                      x-kubernetes-map-type: atomic
                                     namespaceSelector:
                                       description: A label query over the set of namespaces
                                         that the term applies to. The term is applied
@@ -1820,6 +1839,7 @@ spec:
                                             only "value". The requirements are ANDed.
                                           type: object
                                       type: object
+                                      x-kubernetes-map-type: atomic
                                     namespaces:
                                       description: namespaces specifies a static list
                                         of namespace names that the term applies to.
@@ -1924,6 +1944,7 @@ spec:
                                         The requirements are ANDed.
                                       type: object
                                   type: object
+                                  x-kubernetes-map-type: atomic
                                 namespaceSelector:
                                   description: A label query over the set of namespaces
                                     that the term applies to. The term is applied
@@ -1982,6 +2003,7 @@ spec:
                                         The requirements are ANDed.
                                       type: object
                                   type: object
+                                  x-kubernetes-map-type: atomic
                                 namespaces:
                                   description: namespaces specifies a static list
                                     of namespace names that the term applies to. The
@@ -2239,10 +2261,10 @@ spec:
                           is consumed by the import controller that is resposible
                           for coping it to a config map named trusted-ca-proxy-bundle-cm
                           in the cdi namespace. Here is an example of the ConfigMap
-                          (in yaml): \n apiVersion: v1 kind: ConfigMap metadata:   name:
-                          trusted-ca-proxy-bundle-cm   namespace: cdi data:   ca.pem:
-                          |     -----BEGIN CERTIFICATE----- \t   ... <base64 encoded
-                          cert> ... \t   -----END CERTIFICATE-----"
+                          (in yaml): \n apiVersion: v1 kind: ConfigMap metadata: name:
+                          trusted-ca-proxy-bundle-cm namespace: cdi data: ca.pem:
+                          | -----BEGIN CERTIFICATE----- ... <base64 encoded cert>
+                          ... -----END CERTIFICATE-----"
                         type: string
                     type: object
                   insecureRegistries:
@@ -2290,6 +2312,97 @@ spec:
                       if no storage class specified, use no storage class for scratch
                       space'
                     type: string
+                  tlsSecurityProfile:
+                    description: TLSSecurityProfile is used by operators to apply
+                      cluster-wide TLS security settings to operands.
+                    properties:
+                      custom:
+                        description: "custom is a user-defined TLS security profile.
+                          Be extremely careful using a custom profile as invalid configurations
+                          can be catastrophic. An example custom profile looks like
+                          this: \n ciphers: - ECDHE-ECDSA-CHACHA20-POLY1305 - ECDHE-RSA-CHACHA20-POLY1305
+                          - ECDHE-RSA-AES128-GCM-SHA256 - ECDHE-ECDSA-AES128-GCM-SHA256
+                          minTLSVersion: TLSv1.1"
+                        nullable: true
+                        properties:
+                          ciphers:
+                            description: "ciphers is used to specify the cipher algorithms
+                              that are negotiated during the TLS handshake.  Operators
+                              may remove entries their operands do not support.  For
+                              example, to use DES-CBC3-SHA  (yaml): \n ciphers: -
+                              DES-CBC3-SHA"
+                            items:
+                              type: string
+                            type: array
+                          minTLSVersion:
+                            description: "minTLSVersion is used to specify the minimal
+                              version of the TLS protocol that is negotiated during
+                              the TLS handshake. For example, to use TLS versions
+                              1.1, 1.2 and 1.3 (yaml): \n minTLSVersion: TLSv1.1 \n
+                              NOTE: currently the highest minTLSVersion allowed is
+                              VersionTLS12"
+                            enum:
+                            - VersionTLS10
+                            - VersionTLS11
+                            - VersionTLS12
+                            - VersionTLS13
+                            type: string
+                        type: object
+                      intermediate:
+                        description: "intermediate is a TLS security profile based
+                          on: \n https://wiki.mozilla.org/Security/Server_Side_TLS#Intermediate_compatibility_.28recommended.29
+                          \n and looks like this (yaml): \n ciphers: - TLS_AES_128_GCM_SHA256
+                          - TLS_AES_256_GCM_SHA384 - TLS_CHACHA20_POLY1305_SHA256
+                          - ECDHE-ECDSA-AES128-GCM-SHA256 - ECDHE-RSA-AES128-GCM-SHA256
+                          - ECDHE-ECDSA-AES256-GCM-SHA384 - ECDHE-RSA-AES256-GCM-SHA384
+                          - ECDHE-ECDSA-CHACHA20-POLY1305 - ECDHE-RSA-CHACHA20-POLY1305
+                          - DHE-RSA-AES128-GCM-SHA256 - DHE-RSA-AES256-GCM-SHA384
+                          minTLSVersion: TLSv1.2"
+                        nullable: true
+                        type: object
+                      modern:
+                        description: "modern is a TLS security profile based on: \n
+                          https://wiki.mozilla.org/Security/Server_Side_TLS#Modern_compatibility
+                          \n and looks like this (yaml): \n ciphers: - TLS_AES_128_GCM_SHA256
+                          - TLS_AES_256_GCM_SHA384 - TLS_CHACHA20_POLY1305_SHA256
+                          minTLSVersion: TLSv1.3 \n NOTE: Currently unsupported."
+                        nullable: true
+                        type: object
+                      old:
+                        description: "old is a TLS security profile based on: \n https://wiki.mozilla.org/Security/Server_Side_TLS#Old_backward_compatibility
+                          \n and looks like this (yaml): \n ciphers: - TLS_AES_128_GCM_SHA256
+                          - TLS_AES_256_GCM_SHA384 - TLS_CHACHA20_POLY1305_SHA256
+                          - ECDHE-ECDSA-AES128-GCM-SHA256 - ECDHE-RSA-AES128-GCM-SHA256
+                          - ECDHE-ECDSA-AES256-GCM-SHA384 - ECDHE-RSA-AES256-GCM-SHA384
+                          - ECDHE-ECDSA-CHACHA20-POLY1305 - ECDHE-RSA-CHACHA20-POLY1305
+                          - DHE-RSA-AES128-GCM-SHA256 - DHE-RSA-AES256-GCM-SHA384
+                          - DHE-RSA-CHACHA20-POLY1305 - ECDHE-ECDSA-AES128-SHA256
+                          - ECDHE-RSA-AES128-SHA256 - ECDHE-ECDSA-AES128-SHA - ECDHE-RSA-AES128-SHA
+                          - ECDHE-ECDSA-AES256-SHA384 - ECDHE-RSA-AES256-SHA384 -
+                          ECDHE-ECDSA-AES256-SHA - ECDHE-RSA-AES256-SHA - DHE-RSA-AES128-SHA256
+                          - DHE-RSA-AES256-SHA256 - AES128-GCM-SHA256 - AES256-GCM-SHA384
+                          - AES128-SHA256 - AES256-SHA256 - AES128-SHA - AES256-SHA
+                          - DES-CBC3-SHA minTLSVersion: TLSv1.0"
+                        nullable: true
+                        type: object
+                      type:
+                        description: "type is one of Old, Intermediate, Modern or
+                          Custom. Custom provides the ability to specify individual
+                          TLS security profile parameters. Old, Intermediate and Modern
+                          are TLS security profiles based on: \n https://wiki.mozilla.org/Security/Server_Side_TLS#Recommended_configurations
+                          \n The profiles are intent based, so they may change over
+                          time as new ciphers are developed and existing ciphers are
+                          found to be insecure.  Depending on precisely which ciphers
+                          are available to a process, the list may be reduced. \n
+                          Note that the Modern profile is currently not supported
+                          because it is not yet well adopted by common software libraries."
+                        enum:
+                        - Old
+                        - Intermediate
+                        - Modern
+                        - Custom
+                        type: string
+                    type: object
                   uploadProxyURLOverride:
                     description: Override the URL used when uploading to a DataVolume
                     type: string
@@ -2415,6 +2528,7 @@ spec:
                                         type: object
                                       type: array
                                   type: object
+                                  x-kubernetes-map-type: atomic
                                 weight:
                                   description: Weight associated with matching the
                                     corresponding nodeSelectorTerm, in the range 1-100.
@@ -2520,10 +2634,12 @@ spec:
                                         type: object
                                       type: array
                                   type: object
+                                  x-kubernetes-map-type: atomic
                                 type: array
                             required:
                             - nodeSelectorTerms
                             type: object
+                            x-kubernetes-map-type: atomic
                         type: object
                       podAffinity:
                         description: Describes pod affinity scheduling rules (e.g.
@@ -2604,6 +2720,7 @@ spec:
                                             only "value". The requirements are ANDed.
                                           type: object
                                       type: object
+                                      x-kubernetes-map-type: atomic
                                     namespaceSelector:
                                       description: A label query over the set of namespaces
                                         that the term applies to. The term is applied
@@ -2663,6 +2780,7 @@ spec:
                                             only "value". The requirements are ANDed.
                                           type: object
                                       type: object
+                                      x-kubernetes-map-type: atomic
                                     namespaces:
                                       description: namespaces specifies a static list
                                         of namespace names that the term applies to.
@@ -2767,6 +2885,7 @@ spec:
                                         The requirements are ANDed.
                                       type: object
                                   type: object
+                                  x-kubernetes-map-type: atomic
                                 namespaceSelector:
                                   description: A label query over the set of namespaces
                                     that the term applies to. The term is applied
@@ -2825,6 +2944,7 @@ spec:
                                         The requirements are ANDed.
                                       type: object
                                   type: object
+                                  x-kubernetes-map-type: atomic
                                 namespaces:
                                   description: namespaces specifies a static list
                                     of namespace names that the term applies to. The
@@ -2928,6 +3048,7 @@ spec:
                                             only "value". The requirements are ANDed.
                                           type: object
                                       type: object
+                                      x-kubernetes-map-type: atomic
                                     namespaceSelector:
                                       description: A label query over the set of namespaces
                                         that the term applies to. The term is applied
@@ -2987,6 +3108,7 @@ spec:
                                             only "value". The requirements are ANDed.
                                           type: object
                                       type: object
+                                      x-kubernetes-map-type: atomic
                                     namespaces:
                                       description: namespaces specifies a static list
                                         of namespace names that the term applies to.
@@ -3091,6 +3213,7 @@ spec:
                                         The requirements are ANDed.
                                       type: object
                                   type: object
+                                  x-kubernetes-map-type: atomic
                                 namespaceSelector:
                                   description: A label query over the set of namespaces
                                     that the term applies to. The term is applied
@@ -3149,6 +3272,7 @@ spec:
                                         The requirements are ANDed.
                                       type: object
                                   type: object
+                                  x-kubernetes-map-type: atomic
                                 namespaces:
                                   description: namespaces specifies a static list
                                     of namespace names that the term applies to. The
@@ -3350,6 +3474,7 @@ spec:
                                         type: object
                                       type: array
                                   type: object
+                                  x-kubernetes-map-type: atomic
                                 weight:
                                   description: Weight associated with matching the
                                     corresponding nodeSelectorTerm, in the range 1-100.
@@ -3455,10 +3580,12 @@ spec:
                                         type: object
                                       type: array
                                   type: object
+                                  x-kubernetes-map-type: atomic
                                 type: array
                             required:
                             - nodeSelectorTerms
                             type: object
+                            x-kubernetes-map-type: atomic
                         type: object
                       podAffinity:
                         description: Describes pod affinity scheduling rules (e.g.
@@ -3539,6 +3666,7 @@ spec:
                                             only "value". The requirements are ANDed.
                                           type: object
                                       type: object
+                                      x-kubernetes-map-type: atomic
                                     namespaceSelector:
                                       description: A label query over the set of namespaces
                                         that the term applies to. The term is applied
@@ -3598,6 +3726,7 @@ spec:
                                             only "value". The requirements are ANDed.
                                           type: object
                                       type: object
+                                      x-kubernetes-map-type: atomic
                                     namespaces:
                                       description: namespaces specifies a static list
                                         of namespace names that the term applies to.
@@ -3702,6 +3831,7 @@ spec:
                                         The requirements are ANDed.
                                       type: object
                                   type: object
+                                  x-kubernetes-map-type: atomic
                                 namespaceSelector:
                                   description: A label query over the set of namespaces
                                     that the term applies to. The term is applied
@@ -3760,6 +3890,7 @@ spec:
                                         The requirements are ANDed.
                                       type: object
                                   type: object
+                                  x-kubernetes-map-type: atomic
                                 namespaces:
                                   description: namespaces specifies a static list
                                     of namespace names that the term applies to. The
@@ -3863,6 +3994,7 @@ spec:
                                             only "value". The requirements are ANDed.
                                           type: object
                                       type: object
+                                      x-kubernetes-map-type: atomic
                                     namespaceSelector:
                                       description: A label query over the set of namespaces
                                         that the term applies to. The term is applied
@@ -3922,6 +4054,7 @@ spec:
                                             only "value". The requirements are ANDed.
                                           type: object
                                       type: object
+                                      x-kubernetes-map-type: atomic
                                     namespaces:
                                       description: namespaces specifies a static list
                                         of namespace names that the term applies to.
@@ -4026,6 +4159,7 @@ spec:
                                         The requirements are ANDed.
                                       type: object
                                   type: object
+                                  x-kubernetes-map-type: atomic
                                 namespaceSelector:
                                   description: A label query over the set of namespaces
                                     that the term applies to. The term is applied
@@ -4084,6 +4218,7 @@ spec:
                                         The requirements are ANDed.
                                       type: object
                                   type: object
+                                  x-kubernetes-map-type: atomic
                                 namespaces:
                                   description: namespaces specifies a static list
                                     of namespace names that the term applies to. The

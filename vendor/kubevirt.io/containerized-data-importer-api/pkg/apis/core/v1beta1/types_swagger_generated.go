@@ -363,6 +363,7 @@ func (CDIConfigSpec) SwaggerDoc() map[string]string {
 		"preallocation":            "Preallocation controls whether storage for DataVolumes should be allocated in advance.",
 		"insecureRegistries":       "InsecureRegistries is a list of TLS disabled registries",
 		"dataVolumeTTLSeconds":     "dataVolumeTTLSeconds is the time in seconds after DataVolume completion it can be garbage collected.\n+optional",
+		"tlsSecurityProfile":       "TLSSecurityProfile is used by operators to apply cluster-wide TLS security settings to operands.",
 	}
 }
 
