@@ -47,6 +47,7 @@ import (
 	cdiv1 "kubevirt.io/containerized-data-importer-api/pkg/apis/core/v1beta1"
 
 	"kubevirt.io/kubevirt/pkg/controller"
+	"kubevirt.io/kubevirt/pkg/executor/timeout"
 	kubevirttypes "kubevirt.io/kubevirt/pkg/util/types"
 	virtconfig "kubevirt.io/kubevirt/pkg/virt-config"
 	"kubevirt.io/kubevirt/pkg/virt-controller/services"
@@ -156,21 +157,22 @@ func NewVMIController(templateService services.TemplateService,
 ) *VMIController {
 
 	c := &VMIController{
-		templateService:    templateService,
-		Queue:              workqueue.NewNamedRateLimitingQueue(workqueue.DefaultControllerRateLimiter(), "virt-controller-vmi"),
-		vmiInformer:        vmiInformer,
-		vmInformer:         vmInformer,
-		podInformer:        podInformer,
-		pvcInformer:        pvcInformer,
-		recorder:           recorder,
-		clientset:          clientset,
-		podExpectations:    controller.NewUIDTrackingControllerExpectations(controller.NewControllerExpectations()),
-		vmiExpectations:    controller.NewUIDTrackingControllerExpectations(controller.NewControllerExpectations()),
-		dataVolumeInformer: dataVolumeInformer,
-		cdiInformer:        cdiInformer,
-		cdiConfigInformer:  cdiConfigInformer,
-		clusterConfig:      clusterConfig,
-		topologyHinter:     topologyHinter,
+		templateService:           templateService,
+		Queue:                     workqueue.NewNamedRateLimitingQueue(workqueue.DefaultControllerRateLimiter(), "virt-controller-vmi"),
+		vmiInformer:               vmiInformer,
+		vmInformer:                vmInformer,
+		podInformer:               podInformer,
+		pvcInformer:               pvcInformer,
+		recorder:                  recorder,
+		clientset:                 clientset,
+		podExpectations:           controller.NewUIDTrackingControllerExpectations(controller.NewControllerExpectations()),
+		vmiExpectations:           controller.NewUIDTrackingControllerExpectations(controller.NewControllerExpectations()),
+		dataVolumeInformer:        dataVolumeInformer,
+		cdiInformer:               cdiInformer,
+		cdiConfigInformer:         cdiConfigInformer,
+		clusterConfig:             clusterConfig,
+		topologyHinter:            topologyHinter,
+		sriovVmiCopyAnnotExecPool: timeout.NewExecutorPool(timeout.NewTimerCreator(time.Second)),
 	}
 
 	c.vmiInformer.AddEventHandler(cache.ResourceEventHandlerFuncs{
@@ -217,21 +219,22 @@ func (e *syncErrorImpl) Reason() string {
 }
 
 type VMIController struct {
-	templateService    services.TemplateService
-	clientset          kubecli.KubevirtClient
-	Queue              workqueue.RateLimitingInterface
-	vmiInformer        cache.SharedIndexInformer
-	vmInformer         cache.SharedIndexInformer
-	podInformer        cache.SharedIndexInformer
-	pvcInformer        cache.SharedIndexInformer
-	topologyHinter     topology.Hinter
-	recorder           record.EventRecorder
-	podExpectations    *controller.UIDTrackingControllerExpectations
-	vmiExpectations    *controller.UIDTrackingControllerExpectations
-	dataVolumeInformer cache.SharedIndexInformer
-	cdiInformer        cache.SharedIndexInformer
-	cdiConfigInformer  cache.SharedIndexInformer
-	clusterConfig      *virtconfig.ClusterConfig
+	templateService           services.TemplateService
+	clientset                 kubecli.KubevirtClient
+	Queue                     workqueue.RateLimitingInterface
+	vmiInformer               cache.SharedIndexInformer
+	vmInformer                cache.SharedIndexInformer
+	podInformer               cache.SharedIndexInformer
+	pvcInformer               cache.SharedIndexInformer
+	topologyHinter            topology.Hinter
+	recorder                  record.EventRecorder
+	podExpectations           *controller.UIDTrackingControllerExpectations
+	vmiExpectations           *controller.UIDTrackingControllerExpectations
+	dataVolumeInformer        cache.SharedIndexInformer
+	cdiInformer               cache.SharedIndexInformer
+	cdiConfigInformer         cache.SharedIndexInformer
+	clusterConfig             *virtconfig.ClusterConfig
+	sriovVmiCopyAnnotExecPool *timeout.ExecutorPool
 }
 
 func (c *VMIController) Run(threadiness int, stopCh <-chan struct{}) {
@@ -527,6 +530,12 @@ func (c *VMIController) updateStatus(vmi *virtv1.VirtualMachineInstance, pod *k8
 					break
 				}
 
+				if isSriovInterfacesExist(vmiCopy) {
+					if err = c.multusAnnotationsCopiedToVmi(vmiCopy, pod); err != nil {
+						return err
+					}
+				}
+
 				// Initialize the volume status field with information
 				// about the PVCs that the VMI is consuming. This prevents
 				// virt-handler from needing to make API calls to GET the pvc
@@ -550,6 +559,7 @@ func (c *VMIController) updateStatus(vmi *virtv1.VirtualMachineInstance, pod *k8
 				}
 			} else if isPodDownOrGoingDown(pod) {
 				vmiCopy.Status.Phase = virtv1.Failed
+				c.sriovVmiCopyAnnotExecPool.Delete(vmiCopy.UID)
 			}
 		case !vmiPodExists:
 			// someone other than the controller deleted the pod unexpectedly
@@ -562,6 +572,7 @@ func (c *VMIController) updateStatus(vmi *virtv1.VirtualMachineInstance, pod *k8
 		}
 
 		if allDeleted {
+			c.sriovVmiCopyAnnotExecPool.Delete(vmiCopy.UID)
 			log.Log.V(3).Object(vmi).Infof("All pods have been deleted, removing finalizer")
 			controller.RemoveFinalizer(vmiCopy, virtv1.VirtualMachineInstanceFinalizer)
 			if vmiCopy.Labels != nil {
@@ -921,6 +932,15 @@ func isPodReady(pod *k8sv1.Pod) bool {
 	return pod.Status.Phase == k8sv1.PodRunning
 }
 
+func isSriovInterfacesExist(vmi *virtv1.VirtualMachineInstance) bool {
+	for _, iface := range vmi.Spec.Domain.Devices.Interfaces {
+		if iface.SRIOV != nil {
+			return true
+		}
+	}
+	return false
+}
+
 func isPodDownOrGoingDown(pod *k8sv1.Pod) bool {
 	return podIsDown(pod) || isComputeContainerDown(pod) || pod.DeletionTimestamp != nil
 }
@@ -1056,6 +1076,10 @@ func (c *VMIController) sync(vmi *virtv1.VirtualMachineInstance, pod *k8sv1.Pod,
 		if err != nil {
 			return &syncErrorImpl{fmt.Errorf("failed to clean up temporary pods: %v", err), FailedHotplugSyncReason}
 		}
+	}
+
+	if isSriovInterfacesExist(vmi) {
+		copyMultusAnnotationsFromPodToVmi(vmi, pod)
 	}
 
 	if !isTempPod(pod) && isPodReady(pod) {

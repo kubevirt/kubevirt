@@ -27,6 +27,7 @@ import (
 
 	jsonpatch "github.com/evanphx/json-patch"
 	"github.com/golang/mock/gomock"
+	networkv1 "github.com/k8snetworkplumbingwg/network-attachment-definition-client/pkg/apis/k8s.cni.cncf.io/v1"
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
 	. "github.com/onsi/gomega/gstruct"
@@ -55,6 +56,7 @@ import (
 	"kubevirt.io/kubevirt/pkg/testutils"
 	"kubevirt.io/kubevirt/pkg/virt-controller/services"
 	"kubevirt.io/kubevirt/pkg/virt-controller/watch/topology"
+	"kubevirt.io/kubevirt/tests/libvmi"
 )
 
 var _ = Describe("VirtualMachineInstance watcher", func() {
@@ -1605,6 +1607,56 @@ var _ = Describe("VirtualMachineInstance watcher", func() {
 
 			controller.Execute()
 		})
+		Context("And the VMI has an SR-IOV interface and the virt-launcher Pod has network-status annotation", func() {
+			DescribeTable("should copy network-status annotation to VirtualMachineInstance and change vmi status to Scheduled", func(oldStatusAnnotation string) {
+				By("creating a vmi in Scheduling phase and a SRIOV interface")
+				vmi := NewPendingVirtualMachine("testvmi")
+				setReadyCondition(vmi, k8sv1.ConditionFalse, virtv1.PodConditionMissingReason)
+				vmi.Status.Phase = virtv1.Scheduling
+				vmi.Spec.Domain.Devices.Interfaces = []virtv1.Interface{libvmi.InterfaceDeviceWithSRIOVBinding("sriov-interface")}
+				if oldStatusAnnotation != "" {
+					vmi.Annotations[networkv1.NetworkStatusAnnot] = oldStatusAnnotation
+				}
+
+				By("attaching a virt-launcher pod with Multus annotations to the vmi")
+				networkStatusAnnotation := "new-network-status"
+				pod := NewPodForVirtualMachine(vmi, k8sv1.PodRunning)
+				pod.Annotations[networkv1.NetworkStatusAnnot] = networkStatusAnnotation
+
+				addVirtualMachine(vmi)
+				podFeeder.Add(pod)
+				addActivePods(vmi, pod.UID, "")
+
+				vmiInterface.EXPECT().Update(gomock.Any()).Do(func(arg interface{}) {
+					Expect(arg.(*virtv1.VirtualMachineInstance).Annotations).To(HaveKeyWithValue(networkv1.NetworkStatusAnnot, networkStatusAnnotation))
+					Expect(arg.(*virtv1.VirtualMachineInstance).Status.Phase).To(Equal(virtv1.Scheduled))
+				})
+
+				controller.Execute()
+			},
+				Entry("and vmi has no existing network-status annotation", ""),
+				Entry("and vmi has an existing network-status annotation", "old-network-status-from-migrated-pod"),
+			)
+		})
+		Context("And the VMI has an SR-IOV interface and the virt-launcher pod does not have the network-status annotation", func() {
+			It("should return error and not change vmi", func() {
+				By("creating a vmi in Scheduling phase with a SRIOV interface")
+				vmi := NewPendingVirtualMachine("testvmi")
+				setReadyCondition(vmi, k8sv1.ConditionFalse, virtv1.PodConditionMissingReason)
+				vmi.Status.Phase = virtv1.Scheduling
+				vmi.Spec.Domain.Devices.Interfaces = []virtv1.Interface{libvmi.InterfaceDeviceWithSRIOVBinding("sriov-interface")}
+
+				By("attaching a virt-launcher pod without network-status annotation to the vmi")
+				pod := NewPodForVirtualMachine(vmi, k8sv1.PodRunning)
+				delete(pod.Annotations, networkv1.NetworkStatusAnnot)
+
+				addVirtualMachine(vmi)
+				podFeeder.Add(pod)
+				addActivePods(vmi, pod.UID, "")
+
+				controller.Execute()
+			})
+		})
 
 		It("should not remove sync conditions from virt-handler if it is in scheduled state", func() {
 			vmi := NewPendingVirtualMachine("testvmi")
@@ -2824,7 +2876,8 @@ func NewPodForVirtualMachine(vmi *virtv1.VirtualMachineInstance, phase k8sv1.Pod
 				virtv1.CreatedByLabel: string(vmi.UID),
 			},
 			Annotations: map[string]string{
-				virtv1.DomainAnnotation: vmi.Name,
+				virtv1.DomainAnnotation:      vmi.Name,
+				networkv1.NetworkStatusAnnot: "",
 			},
 		},
 		Status: k8sv1.PodStatus{
