@@ -57,23 +57,7 @@ const (
 	DefaultFactor   = 1.8
 )
 
-func NewExponentialLimitedBackoffWithClock(limit time.Duration, clk clock.Clock) LimitedBackoff {
-	// Create backoff object with initial duration of 3 seconds,
-	// maximal step of 10 minutes, increasing factor of 1.8, no jitter.
-	// 3s, 5.4s,... 10m, 10m, ..., 5h
-	backoff := wait.Backoff{
-		Duration: DefaultDuration,
-		Cap:      10 * time.Minute,
-		// the underlying wait.Backoff will stop to calculate the next duration once Steps reaches zero,
-		// thus for an exponential backoff, Steps should approach infinity.
-		Steps:  math.MaxInt64,
-		Factor: DefaultFactor,
-		Jitter: 0,
-	}
-	return newLimitedBackoffWithClock(backoff, limit, clk)
-}
-
-func newLimitedBackoffWithClock(backoff wait.Backoff, limit time.Duration, clk clock.Clock) LimitedBackoff {
+func NewLimitedBackoffWithClock(backoff wait.Backoff, limit time.Duration, clk clock.Clock) LimitedBackoff {
 	now := clk.Now()
 	return LimitedBackoff{
 		backoff:     backoff,
@@ -89,11 +73,26 @@ type LimitedBackoffCreator struct {
 }
 
 func (l *LimitedBackoffCreator) New() LimitedBackoff {
-	return newLimitedBackoffWithClock(l.baseBackoff.backoff, l.baseBackoff.limit, l.baseBackoff.clock)
+	return NewLimitedBackoffWithClock(l.baseBackoff.backoff, l.baseBackoff.limit, l.baseBackoff.clock)
 }
 
-func NewExponentialLimitedBackoffCreator() LimitedBackoffCreator {
+func NewExponentialLimitedBackoffCreator(backoff wait.Backoff, limit time.Duration) LimitedBackoffCreator {
 	return LimitedBackoffCreator{
-		baseBackoff: NewExponentialLimitedBackoffWithClock(DefaultMaxStep, clock.RealClock{}),
+		baseBackoff: NewLimitedBackoffWithClock(backoff, limit, clock.RealClock{}),
+	}
+}
+
+// NewDefaultBackoff Create backoff object with initial duration of 3 seconds,
+// maximal step of 10 minutes, increasing factor of 1.8, no jitter.
+// 3s, 5.4s,... 10m, 10m, ..., 5h
+func NewDefaultBackoff() wait.Backoff {
+	return wait.Backoff{
+		Duration: DefaultDuration,
+		Cap:      10 * time.Minute,
+		// the underlying wait.Backoff will stop to calculate the next duration once Steps reaches zero,
+		// thus for an exponential backoff, Steps should approach infinity.
+		Steps:  math.MaxInt64,
+		Factor: DefaultFactor,
+		Jitter: 0,
 	}
 }

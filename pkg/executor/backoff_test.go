@@ -34,10 +34,13 @@ var _ = Describe("exponential limited backoff", func() {
 
 	var testsClock *clock.FakeClock
 	var backoff executor.LimitedBackoff
+	duration := executor.DefaultDuration
+	limit := executor.DefaultMaxStep
+	factor := executor.DefaultFactor
 
 	BeforeEach(func() {
 		testsClock = clock.NewFakeClock(time.Time{})
-		backoff = executor.NewExponentialLimitedBackoffWithClock(executor.DefaultMaxStep, testsClock)
+		backoff = executor.NewLimitedBackoffWithClock(executor.NewDefaultBackoff(), limit, testsClock)
 
 		testsClock.Step(time.Nanosecond)
 	})
@@ -53,8 +56,8 @@ var _ = Describe("exponential limited backoff", func() {
 	})
 
 	It("should be ready after step end time passed", func() {
-		firstStepDuration := executor.DefaultDuration + time.Nanosecond
-		secondStepDuration := time.Duration(float64(firstStepDuration)*executor.DefaultFactor) + time.Nanosecond
+		firstStepDuration := duration + time.Nanosecond
+		secondStepDuration := time.Duration(float64(firstStepDuration)*factor) + time.Nanosecond
 
 		Expect(backoff.Ready()).To(BeTrue())
 		backoff.Step()
@@ -72,7 +75,7 @@ var _ = Describe("exponential limited backoff", func() {
 	})
 
 	It("should not be ready after max time is passed", func() {
-		testsClock.Step(executor.DefaultMaxStep + time.Nanosecond)
+		testsClock.Step(limit + time.Nanosecond)
 
 		Expect(backoff.Ready()).To(BeFalse())
 		backoff.Step()

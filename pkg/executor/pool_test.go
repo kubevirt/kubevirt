@@ -38,7 +38,7 @@ var _ = Describe("rate limited executor pool", func() {
 	var pool *executor.RateLimitedExecutorPool
 
 	BeforeEach(func() {
-		pool = executor.NewRateLimitedExecutorPool(executor.NewExponentialLimitedBackoffCreator())
+		pool = executor.NewRateLimitedExecutorPool(executor.NewExponentialLimitedBackoffCreator(executor.NewDefaultBackoff(), executor.DefaultMaxStep))
 	})
 
 	It("should not override pool element if key exists", func() {
