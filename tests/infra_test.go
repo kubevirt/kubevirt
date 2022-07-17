@@ -70,6 +70,7 @@ import (
 	"kubevirt.io/client-go/kubecli"
 
 	clusterutil "kubevirt.io/kubevirt/pkg/util/cluster"
+	k6ttypes "kubevirt.io/kubevirt/pkg/util/types"
 	"kubevirt.io/kubevirt/pkg/virt-controller/leaderelectionconfig"
 	nodelabellerutil "kubevirt.io/kubevirt/pkg/virt-handler/node-labeller/util"
 	"kubevirt.io/kubevirt/pkg/virt-operator/resource/generate/components"
@@ -394,24 +395,19 @@ var _ = Describe("[Serial][sig-compute]Infrastructure", func() {
 			AfterEach(func() {
 				if selectedNodeName != "" {
 					By("removing the taint from the tainted node")
-					err := retry.RetryOnConflict(retry.DefaultRetry, func() error {
-						selectedNode, err := virtClient.CoreV1().Nodes().Get(context.Background(), selectedNodeName, metav1.GetOptions{})
-						if err != nil {
-							return err
-						}
+					selectedNode, err := virtClient.CoreV1().Nodes().Get(context.Background(), selectedNodeName, metav1.GetOptions{})
+					Expect(err).NotTo(HaveOccurred())
 
-						var taints []k8sv1.Taint
-						for _, taint := range selectedNode.Spec.Taints {
-							if taint.Key != "CriticalAddonsOnly" {
-								taints = append(taints, taint)
-							}
+					var taints []k8sv1.Taint
+					for _, taint := range selectedNode.Spec.Taints {
+						if taint.Key != "CriticalAddonsOnly" {
+							taints = append(taints, taint)
 						}
-						selectedNode.Spec.Taints = taints
-
-						_, err = virtClient.CoreV1().Nodes().Update(context.Background(), selectedNode, metav1.UpdateOptions{})
-						return err
-					})
-					Expect(err).ShouldNot(HaveOccurred())
+					}
+					patchData, err := k6ttypes.GenerateTestReplacePatch("/spec/taints", selectedNode.Spec.Taints, taints)
+					Expect(err).NotTo(HaveOccurred())
+					selectedNode, err = virtClient.CoreV1().Nodes().Patch(context.Background(), selectedNode.Name, types.JSONPatchType, patchData, metav1.PatchOptions{})
+					Expect(err).NotTo(HaveOccurred())
 				}
 			})
 
@@ -487,22 +483,19 @@ var _ = Describe("[Serial][sig-compute]Infrastructure", func() {
 				go signalTerminatedPods(stopCn, lw.ResultChan(), terminatedPodsCn)
 
 				By("tainting the selected node")
-				err = retry.RetryOnConflict(retry.DefaultRetry, func() error {
-					selectedNode, err := virtClient.CoreV1().Nodes().Get(context.Background(), selectedNodeName, metav1.GetOptions{})
-					if err != nil {
-						return err
-					}
+				selectedNode, err := virtClient.CoreV1().Nodes().Get(context.Background(), selectedNodeName, metav1.GetOptions{})
+				Expect(err).NotTo(HaveOccurred())
 
-					selectedNode.Spec.Taints = append(selectedNode.Spec.Taints, k8sv1.Taint{
-						Key:    "CriticalAddonsOnly",
-						Value:  "",
-						Effect: k8sv1.TaintEffectNoExecute,
-					})
-
-					_, err = virtClient.CoreV1().Nodes().Update(context.Background(), selectedNode, metav1.UpdateOptions{})
-					return err
+				taints := append(selectedNode.Spec.Taints, k8sv1.Taint{
+					Key:    "CriticalAddonsOnly",
+					Value:  "",
+					Effect: k8sv1.TaintEffectNoExecute,
 				})
-				Expect(err).ShouldNot(HaveOccurred())
+
+				patchData, err := k6ttypes.GenerateTestReplacePatch("/spec/taints", selectedNode.Spec.Taints, taints)
+				Expect(err).ToNot(HaveOccurred())
+				selectedNode, err = virtClient.CoreV1().Nodes().Patch(context.Background(), selectedNode.Name, types.JSONPatchType, patchData, metav1.PatchOptions{})
+				Expect(err).ToNot(HaveOccurred())
 
 				Consistently(terminatedPodsCn, 5*time.Second).ShouldNot(Receive(), "pods should not terminate")
 				stopCn <- true
