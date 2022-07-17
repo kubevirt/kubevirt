@@ -1004,12 +1004,6 @@ func NewRandomVMIWithWatchdog() *v1.VirtualMachineInstance {
 	return vmi
 }
 
-func NewRandomVMIWithConfigMap(configMapName string) *v1.VirtualMachineInstance {
-	vmi := NewRandomVMIWithPVC(DiskAlpineHostPath)
-	AddConfigMapDisk(vmi, configMapName, configMapName)
-	return vmi
-}
-
 func AddConfigMapDisk(vmi *v1.VirtualMachineInstance, configMapName string, volumeName string) {
 	AddConfigMapDiskWithCustomLabel(vmi, configMapName, volumeName, "")
 
@@ -1029,12 +1023,6 @@ func AddConfigMapDiskWithCustomLabel(vmi *v1.VirtualMachineInstance, configMapNa
 	vmi.Spec.Domain.Devices.Disks = append(vmi.Spec.Domain.Devices.Disks, v1.Disk{
 		Name: volumeName,
 	})
-}
-
-func NewRandomVMIWithSecret(secretName string) *v1.VirtualMachineInstance {
-	vmi := NewRandomVMIWithPVC(DiskAlpineHostPath)
-	AddSecretDisk(vmi, secretName, secretName)
-	return vmi
 }
 
 func AddSecretDisk(vmi *v1.VirtualMachineInstance, secretName string, volumeName string) {
@@ -1094,12 +1082,6 @@ func AddDownwardMetricsVolume(vmi *v1.VirtualMachineInstance, volumeName string)
 			},
 		},
 	})
-}
-
-func NewRandomVMIWithServiceAccount(serviceAccountName string) *v1.VirtualMachineInstance {
-	vmi := NewRandomVMIWithPVC(DiskAlpineHostPath)
-	AddServiceAccountDisk(vmi, serviceAccountName)
-	return vmi
 }
 
 func AddServiceAccountDisk(vmi *v1.VirtualMachineInstance, serviceAccountName string) {
