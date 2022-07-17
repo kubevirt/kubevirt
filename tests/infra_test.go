@@ -406,12 +406,9 @@ var _ = Describe("[Serial][sig-compute]Infrastructure", func() {
 								taints = append(taints, taint)
 							}
 						}
+						selectedNode.Spec.Taints = taints
 
-						nodeCopy := selectedNode.DeepCopy()
-						nodeCopy.ResourceVersion = ""
-						nodeCopy.Spec.Taints = taints
-
-						_, err = virtClient.CoreV1().Nodes().Update(context.Background(), nodeCopy, metav1.UpdateOptions{})
+						_, err = virtClient.CoreV1().Nodes().Update(context.Background(), selectedNode, metav1.UpdateOptions{})
 						return err
 					})
 					Expect(err).ShouldNot(HaveOccurred())
@@ -496,14 +493,13 @@ var _ = Describe("[Serial][sig-compute]Infrastructure", func() {
 						return err
 					}
 
-					selectedNodeCopy := selectedNode.DeepCopy()
-					selectedNodeCopy.Spec.Taints = append(selectedNodeCopy.Spec.Taints, k8sv1.Taint{
+					selectedNode.Spec.Taints = append(selectedNode.Spec.Taints, k8sv1.Taint{
 						Key:    "CriticalAddonsOnly",
 						Value:  "",
 						Effect: k8sv1.TaintEffectNoExecute,
 					})
 
-					_, err = virtClient.CoreV1().Nodes().Update(context.Background(), selectedNodeCopy, metav1.UpdateOptions{})
+					_, err = virtClient.CoreV1().Nodes().Update(context.Background(), selectedNode, metav1.UpdateOptions{})
 					return err
 				})
 				Expect(err).ShouldNot(HaveOccurred())
