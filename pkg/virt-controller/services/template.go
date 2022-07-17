@@ -1735,7 +1735,8 @@ func filterVMIAnnotationsForPod(vmiAnnotations map[string]string) map[string]str
 	for k, v := range vmiAnnotations {
 		if strings.HasPrefix(k, "kubectl.kubernetes.io") ||
 			strings.HasPrefix(k, "kubevirt.io/storage-observed-api-version") ||
-			strings.HasPrefix(k, "kubevirt.io/latest-observed-api-version") {
+			strings.HasPrefix(k, "kubevirt.io/latest-observed-api-version") ||
+			strings.HasPrefix(k, networkv1.NetworkStatusAnnot) {
 			continue
 		}
 		annotationsList[k] = v
