@@ -36,6 +36,7 @@ var _ = Describe("[crit:high][vendor:cnv-qe@redhat.com][level:system]Monitoring"
 	var err error
 	var virtCli kubecli.KubevirtClient
 	var promClient promApiv1.API
+	var prometheusRule monitoringv1.PrometheusRule
 
 	runbookClient.Timeout = time.Second * 3
 
@@ -45,11 +46,36 @@ var _ = Describe("[crit:high][vendor:cnv-qe@redhat.com][level:system]Monitoring"
 
 		tests.SkipIfNotOpenShift(virtCli)
 		promClient = initializePromClient(getPrometheusUrl(virtCli), getAuthorizationTokenForPrometheus(virtCli))
+		prometheusRule = getPrometheusRule(virtCli)
 	})
 
-	It("PrometheusRule Objects should have available runbook URLs", func() {
-		prometheusRule := getPrometheusRule(virtCli)
-		checkRunbookUrls(prometheusRule)
+	It("Alert rules should have all the requried annotations", func() {
+		for _, group := range prometheusRule.Spec.Groups {
+			for _, rule := range group.Rules {
+				if rule.Alert != "" {
+					Expect(rule.Annotations).To(HaveKeyWithValue("summary", Not(BeEmpty())),
+						fmt.Sprintf("%s summary is missing or empty", rule.Alert))
+					Expect(rule.Annotations).To(HaveKeyWithValue("runbook_url", Not(BeEmpty())),
+						fmt.Sprintf("%s runbook_url is missing or empty", rule.Alert))
+					checkRunbookUrlAvailability(rule)
+				}
+			}
+		}
+	})
+
+	It("Alert rules should have all the requried labels", func() {
+		for _, group := range prometheusRule.Spec.Groups {
+			for _, rule := range group.Rules {
+				if rule.Alert != "" {
+					Expect(rule.Labels).To(HaveKeyWithValue("severity", BeElementOf("info", "warning", "critical")),
+						fmt.Sprintf("%s severity label is missing or not valid", rule.Alert))
+					Expect(rule.Labels).To(HaveKeyWithValue("kubernetes_operator_part_of", "kubevirt"),
+						fmt.Sprintf("%s kubernetes_operator_part_of label is missing or not valid", rule.Alert))
+					Expect(rule.Labels).To(HaveKeyWithValue("kubernetes_operator_component", "hyperconverged-cluster-operator"),
+						fmt.Sprintf("%s kubernetes_operator_component label is missing or not valid", rule.Alert))
+				}
+			}
+		}
 	})
 
 	It("KubevirtHyperconvergedClusterOperatorCRModification alert should fired when there is a modification on a CR", func() {
@@ -82,22 +108,7 @@ func getAlertByName(alerts promApiv1.AlertsResult, alertName string) *promApiv1.
 	return nil
 }
 
-func checkRunbookUrls(prometheusRule monitoringv1.PrometheusRule) {
-	for _, group := range prometheusRule.Spec.Groups {
-		for _, rule := range group.Rules {
-			if len(rule.Alert) > 0 {
-				ExpectWithOffset(1, rule.Annotations).ToNot(BeNil())
-				url, ok := rule.Annotations["runbook_url"]
-				ExpectWithOffset(1, ok).To(BeTrue())
-				checkAvailabilityOfUrl(url)
-			}
-		}
-	}
-
-}
-
 func getPrometheusRule(client kubecli.KubevirtClient) monitoringv1.PrometheusRule {
-	By("Checking expected prometheusrule objects")
 	s := scheme.Scheme
 	_ = monitoringv1.AddToScheme(s)
 	s.AddKnownTypes(monitoringv1.SchemeGroupVersion)
@@ -115,10 +126,10 @@ func getPrometheusRule(client kubecli.KubevirtClient) monitoringv1.PrometheusRul
 	return prometheusRule
 }
 
-func checkAvailabilityOfUrl(url string) {
-	resp, err := runbookClient.Head(url)
-	ExpectWithOffset(2, err).ToNot(HaveOccurred())
-	ExpectWithOffset(2, resp.StatusCode).Should(Equal(200))
+func checkRunbookUrlAvailability(rule monitoringv1.Rule) {
+	resp, err := runbookClient.Head(rule.Annotations["runbook_url"])
+	ExpectWithOffset(1, err).ToNot(HaveOccurred(), fmt.Sprintf("%s runbook is not available", rule.Alert))
+	ExpectWithOffset(1, resp.StatusCode).Should(Equal(http.StatusOK), fmt.Sprintf("%s runbook is not available", rule.Alert))
 }
 
 func initializePromClient(prometheusUrl string, token string) promApiv1.API {
