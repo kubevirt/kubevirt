@@ -19,6 +19,8 @@ import (
 	"k8s.io/apimachinery/pkg/types"
 	"k8s.io/apimachinery/pkg/util/rand"
 
+	"k8s.io/client-go/util/retry"
+
 	"kubevirt.io/api/core"
 	v1 "kubevirt.io/api/core/v1"
 	snapshotv1 "kubevirt.io/api/snapshot/v1alpha1"
@@ -307,28 +309,29 @@ var _ = SIGDescribe("VirtualMachineRestore Tests", func() {
 			It("[test_id:5256]should successfully restore", func() {
 				var origSpec *v1.VirtualMachineSpec
 
-				Eventually(func() bool {
-					var updatedVM *v1.VirtualMachine
+				By("Wait for snapshot to be finished")
+				Eventually(func() *string {
 					vm, err = virtClient.VirtualMachine(vm.Namespace).Get(vm.Name, &metav1.GetOptions{})
 					Expect(err).ToNot(HaveOccurred())
 
-					if vm.Status.SnapshotInProgress != nil {
-						return false
-					}
+					return vm.Status.SnapshotInProgress
+				}, 180*time.Second, time.Second).Should(BeNil())
 
-					origSpec = vm.Spec.DeepCopy()
-					Expect(origSpec.Template.Spec.Domain.Resources.Requests[corev1.ResourceMemory]).To(Equal(resource.MustParse("128Mi")))
+				initialRequestedMemory := resource.MustParse("128Mi")
+				Expect(vm.Spec.Template.Spec.Domain.Resources.Requests[corev1.ResourceMemory]).To(Equal(initialRequestedMemory))
 
-					vm.Spec.Template.Spec.Domain.Resources.Requests[corev1.ResourceMemory] = resource.MustParse("256Mi")
-					updatedVM, err = virtClient.VirtualMachine(vm.Namespace).Update(vm)
-					if errors.IsConflict(err) {
-						return false
+				origSpec = vm.Spec.DeepCopy()
+
+				err = retry.RetryOnConflict(retry.DefaultRetry, func() error {
+					vm, err = virtClient.VirtualMachine(vm.Namespace).Get(vm.Name, &metav1.GetOptions{})
+					if err != nil {
+						return err
 					}
-					vm = updatedVM
-					Expect(err).ToNot(HaveOccurred())
-					Expect(vm.Spec.Template.Spec.Domain.Resources.Requests[corev1.ResourceMemory]).To(Equal(resource.MustParse("256Mi")))
-					return true
-				}, 180*time.Second, time.Second).Should(BeTrue())
+					increasedRequestedMemory := resource.MustParse("256Mi")
+					vm.Spec.Template.Spec.Domain.Resources.Requests[corev1.ResourceMemory] = increasedRequestedMemory
+					vm, err = virtClient.VirtualMachine(vm.Namespace).Update(vm)
+					return err
+				})
 
 				restore := createRestoreDef(vm.Name, snapshot.Name)
 
@@ -340,6 +343,7 @@ var _ = SIGDescribe("VirtualMachineRestore Tests", func() {
 				Expect(restore.Status.DeletedDataVolumes).To(BeEmpty())
 
 				vm, err = virtClient.VirtualMachine(vm.Namespace).Get(vm.Name, &metav1.GetOptions{})
+				Expect(err).ToNot(HaveOccurred())
 				Expect(vm.Spec).To(Equal(*origSpec))
 
 				deleteRestore(restore)
