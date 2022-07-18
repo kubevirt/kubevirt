@@ -152,9 +152,9 @@ func newMockManagerFromCtrl(ctrl *gomock.Controller, version CgroupVersion) (*mo
 	var err error
 
 	if version == V1 {
-		realManager, err = newCustomizedV1Manager(&runc_configs.Cgroup{}, nil, false, execVirtChrootFunc, getCurrentlyDefinedRulesFunc)
+		realManager, err = newCustomizedV1Manager(&runc_configs.Cgroup{Resources: &runc_configs.Resources{}}, nil, execVirtChrootFunc, getCurrentlyDefinedRulesFunc)
 	} else {
-		realManager, err = newCustomizedV2Manager(&runc_configs.Cgroup{}, "fake/dir/path", false, execVirtChrootFunc)
+		realManager, err = newCustomizedV2Manager(&runc_configs.Cgroup{Resources: &runc_configs.Resources{}}, "fake/dir/path", execVirtChrootFunc)
 	}
 
 	if err != nil {

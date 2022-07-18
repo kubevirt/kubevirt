@@ -16,16 +16,16 @@ type v2Manager struct {
 	execVirtChroot execVirtChrootFunc
 }
 
-func newV2Manager(config *runc_configs.Cgroup, dirPath string, rootless bool) (Manager, error) {
-	return newCustomizedV2Manager(config, dirPath, rootless, execVirtChrootCgroups)
+func newV2Manager(config *runc_configs.Cgroup, dirPath string) (Manager, error) {
+	return newCustomizedV2Manager(config, dirPath, execVirtChrootCgroups)
 }
 
-func newCustomizedV2Manager(config *runc_configs.Cgroup, dirPath string, rootless bool, execVirtChroot execVirtChrootFunc) (Manager, error) {
-	runcManager, err := runc_fs.NewManager(config, dirPath, rootless)
+func newCustomizedV2Manager(config *runc_configs.Cgroup, dirPath string, execVirtChroot execVirtChrootFunc) (Manager, error) {
+	runcManager, err := runc_fs.NewManager(config, dirPath)
 	manager := v2Manager{
 		runcManager,
 		dirPath,
-		rootless,
+		config.Rootless,
 		execVirtChroot,
 	}
 

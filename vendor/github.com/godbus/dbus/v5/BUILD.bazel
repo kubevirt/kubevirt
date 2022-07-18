@@ -36,6 +36,7 @@ go_library(
         "transport_unixcred_dragonfly.go",
         "transport_unixcred_freebsd.go",
         "transport_unixcred_linux.go",
+        "transport_unixcred_netbsd.go",
         "transport_unixcred_openbsd.go",
         "variant.go",
         "variant_lexer.go",
