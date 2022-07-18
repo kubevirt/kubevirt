@@ -19261,6 +19261,10 @@
       "description": "PreferredAutoattachGraphicsDevice optionally defines the preferred value of AutoattachGraphicsDevice",
       "type": "boolean"
      },
+     "preferredAutoattachInputDevice": {
+      "description": "PreferredAutoattachInputDevice optionally defines the preferred value of AutoattachInputDevice",
+      "type": "boolean"
+     },
      "preferredAutoattachMemBalloon": {
       "description": "PreferredAutoattachMemBalloon optionally defines the preferred value of AutoattachMemBalloon",
       "type": "boolean"

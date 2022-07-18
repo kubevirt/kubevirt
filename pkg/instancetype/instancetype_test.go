@@ -1160,6 +1160,7 @@ var _ = Describe("Instancetype and Preferences", func() {
 						PreferredAutoattachMemBalloon:       pointer.Bool(true),
 						PreferredAutoattachPodInterface:     pointer.Bool(true),
 						PreferredAutoattachSerialConsole:    pointer.Bool(true),
+						PreferredAutoattachInputDevice:      pointer.Bool(true),
 						PreferredDiskDedicatedIoThread:      pointer.Bool(true),
 						PreferredDisableHotplug:             pointer.Bool(true),
 						PreferredUseVirtioTransitional:      pointer.Bool(true),
@@ -1194,6 +1195,7 @@ var _ = Describe("Instancetype and Preferences", func() {
 
 				Expect(*vmi.Spec.Domain.Devices.AutoattachGraphicsDevice).To(BeFalse())
 				Expect(*vmi.Spec.Domain.Devices.AutoattachMemBalloon).To(BeFalse())
+				Expect(*vmi.Spec.Domain.Devices.AutoattachInputDevice).To(BeTrue())
 				Expect(vmi.Spec.Domain.Devices.Disks[0].Cache).To(Equal(v1.CacheWriteBack))
 				Expect(vmi.Spec.Domain.Devices.Disks[0].IO).To(Equal(v1.IODefault))
 				Expect(*vmi.Spec.Domain.Devices.Disks[0].DedicatedIOThread).To(BeFalse())

@@ -7212,6 +7212,10 @@ var CRDsValidation map[string]string = map[string]string{
               description: PreferredAutoattachGraphicsDevice optionally defines the
                 preferred value of AutoattachGraphicsDevice
               type: boolean
+            preferredAutoattachInputDevice:
+              description: PreferredAutoattachInputDevice optionally defines the preferred
+                value of AutoattachInputDevice
+              type: boolean
             preferredAutoattachMemBalloon:
               description: PreferredAutoattachMemBalloon optionally defines the preferred
                 value of AutoattachMemBalloon
@@ -18841,6 +18845,10 @@ var CRDsValidation map[string]string = map[string]string{
             preferredAutoattachGraphicsDevice:
               description: PreferredAutoattachGraphicsDevice optionally defines the
                 preferred value of AutoattachGraphicsDevice
+              type: boolean
+            preferredAutoattachInputDevice:
+              description: PreferredAutoattachInputDevice optionally defines the preferred
+                value of AutoattachInputDevice
               type: boolean
             preferredAutoattachMemBalloon:
               description: PreferredAutoattachMemBalloon optionally defines the preferred

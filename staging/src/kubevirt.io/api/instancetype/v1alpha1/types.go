@@ -306,6 +306,11 @@ type DevicePreferences struct {
 	// +optional
 	PreferredAutoattachSerialConsole *bool `json:"preferredAutoattachSerialConsole,omitempty"`
 
+	// PreferredAutoattachInputDevice optionally defines the preferred value of AutoattachInputDevice
+	//
+	// +optional
+	PreferredAutoattachInputDevice *bool `json:"preferredAutoattachInputDevice,omitempty"`
+
 	// PreferredDisableHotplug optionally defines the preferred value of DisableHotplug
 	//
 	// +optional

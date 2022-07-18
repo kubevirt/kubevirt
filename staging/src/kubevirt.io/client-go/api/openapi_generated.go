@@ -23232,6 +23232,13 @@ func schema_kubevirtio_api_instancetype_v1alpha1_DevicePreferences(ref common.Re
 							Format:      "",
 						},
 					},
+					"preferredAutoattachInputDevice": {
+						SchemaProps: spec.SchemaProps{
+							Description: "PreferredAutoattachInputDevice optionally defines the preferred value of AutoattachInputDevice",
+							Type:        []string{"boolean"},
+							Format:      "",
+						},
+					},
 					"preferredDisableHotplug": {
 						SchemaProps: spec.SchemaProps{
 							Description: "PreferredDisableHotplug optionally defines the preferred value of DisableHotplug",
