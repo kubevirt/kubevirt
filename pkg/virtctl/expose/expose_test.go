@@ -308,6 +308,14 @@ var _ = Describe("Expose", func() {
 					Expect(obtainedService.Spec.IPFamilies[1]).To(Equal(k8sv1.IPv4Protocol))
 				})
 
+				It("should succeed with no IPFamily", func() {
+					cmd := clientcmd.NewRepeatableVirtctlCommand(expose.COMMAND_EXPOSE, "vmi", vmName, "--name", "my-service",
+						"--port", "9999", "--target-port", "http")
+					Expect(cmd()).To(Succeed(), "should succeed when no IP family is provided")
+					Expect(obtainedService).ToNot(BeNil())
+					Expect(obtainedService.Spec.IPFamilies).To(BeEmpty())
+				})
+
 				It("should fail with an invalid IPFamily", func() {
 					cmd := clientcmd.NewRepeatableVirtctlCommand(expose.COMMAND_EXPOSE, "vmi", vmName, "--name", "my-service",
 						"--port", "9999", "--target-port", "http", "--ip-family", "ipv14")
