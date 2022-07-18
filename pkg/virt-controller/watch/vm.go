@@ -45,6 +45,7 @@ import (
 	"k8s.io/utils/trace"
 
 	virtv1 "kubevirt.io/api/core/v1"
+	instancetypev1alpha1 "kubevirt.io/api/instancetype/v1alpha1"
 	"kubevirt.io/client-go/kubecli"
 	"kubevirt.io/client-go/log"
 	cdiv1 "kubevirt.io/containerized-data-importer-api/pkg/apis/core/v1beta1"
@@ -1010,16 +1011,25 @@ func (c *VMController) startVMI(vm *virtv1.VirtualMachine) error {
 	// the VMI before it is deleted
 	vmi.Finalizers = append(vmi.Finalizers, virtv1.VirtualMachineControllerFinalizer)
 
-	err = c.clusterConfig.SetVMIDefaultNetworkInterface(vmi)
+	// We need to apply device preferences before any new network or input devices are added. Doing so allows
+	// any autoAttach preferences we might have to be applied, either enabling or disabling the attachment of these devices.
+	preferenceSpec, err := c.applyDevicePreferences(vm, vmi)
 	if err != nil {
+		log.Log.Object(vm).Infof("Failed to apply device preferences again to VirtualMachineInstance: %s/%s", vmi.Namespace, vmi.Name)
+		c.recorder.Eventf(vm, k8score.EventTypeWarning, FailedCreateVirtualMachineReason, "Error applying device preferences again: %v", err)
 		return err
 	}
 
 	util.SetDefaultVolumeDisk(vmi)
 
-	autoAttachInputDevice(vm, vmi)
+	autoAttachInputDevice(vmi)
 
-	err = c.applyInstancetypeToVmi(vm, vmi)
+	err = c.clusterConfig.SetVMIDefaultNetworkInterface(vmi)
+	if err != nil {
+		return err
+	}
+
+	err = c.applyInstancetypeToVmi(vm, vmi, preferenceSpec)
 	if err != nil {
 		log.Log.Object(vm).Infof("Failed to apply instancetype to VirtualMachineInstance: %s/%s", vmi.Namespace, vmi.Name)
 		c.recorder.Eventf(vm, k8score.EventTypeWarning, FailedCreateVirtualMachineReason, "Error creating virtual machine instance: Failed to apply instancetype: %v", err)
@@ -1322,14 +1332,9 @@ func (c *VMController) setupVMIFromVM(vm *virtv1.VirtualMachine) *virtv1.Virtual
 	return vmi
 }
 
-func (c *VMController) applyInstancetypeToVmi(vm *virtv1.VirtualMachine, vmi *virtv1.VirtualMachineInstance) error {
+func (c *VMController) applyInstancetypeToVmi(vm *virtv1.VirtualMachine, vmi *virtv1.VirtualMachineInstance, preferenceSpec *instancetypev1alpha1.VirtualMachinePreferenceSpec) error {
 
 	instancetypeSpec, err := c.instancetypeMethods.FindInstancetypeSpec(vm)
-	if err != nil {
-		return err
-	}
-
-	preferenceSpec, err := c.instancetypeMethods.FindPreferenceSpec(vm)
 	if err != nil {
 		return err
 	}
@@ -2421,8 +2426,8 @@ func (c *VMController) resolveControllerRef(namespace string, controllerRef *v1.
 	return vm.(*virtv1.VirtualMachine)
 }
 
-func autoAttachInputDevice(vm *virtv1.VirtualMachine, vmi *virtv1.VirtualMachineInstance) {
-	autoAttachInput := vm.Spec.Template.Spec.Domain.Devices.AutoattachInputDevice
+func autoAttachInputDevice(vmi *virtv1.VirtualMachineInstance) {
+	autoAttachInput := vmi.Spec.Domain.Devices.AutoattachInputDevice
 	// Default to False if nil and return, otherwise return if input devices are already present
 	if autoAttachInput == nil || *autoAttachInput == false || len(vmi.Spec.Domain.Devices.Inputs) > 0 {
 		return
@@ -2430,9 +2435,22 @@ func autoAttachInputDevice(vm *virtv1.VirtualMachine, vmi *virtv1.VirtualMachine
 	// Only add the device with an alias here. Preferences for the bus and type might
 	// be applied later and if not the VMI mutation webhook will apply defaults for both.
 	vmi.Spec.Domain.Devices.Inputs = append(
-		vm.Spec.Template.Spec.Domain.Devices.Inputs,
+		vmi.Spec.Domain.Devices.Inputs,
 		virtv1.Input{
 			Name: "default-0",
 		},
 	)
+}
+
+func (c *VMController) applyDevicePreferences(vm *virtv1.VirtualMachine, vmi *virtv1.VirtualMachineInstance) (*instancetypev1alpha1.VirtualMachinePreferenceSpec, error) {
+	if vm.Spec.Preference != nil {
+		preferenceSpec, err := c.instancetypeMethods.FindPreferenceSpec(vm)
+		if err != nil {
+			return nil, err
+		}
+		instancetype.ApplyDevicePreferences(preferenceSpec, &vmi.Spec)
+
+		return preferenceSpec, nil
+	}
+	return nil, nil
 }

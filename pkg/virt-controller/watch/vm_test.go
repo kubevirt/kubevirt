@@ -3692,6 +3692,55 @@ var _ = Describe("VirtualMachine", func() {
 				controller.Execute()
 			})
 
+			It("should apply preferredAutoattachPodInterface and skip adding default network interface", func() {
+
+				autoattachPodInterfacePreference := &instancetypev1alpha1.VirtualMachinePreference{
+					ObjectMeta: metav1.ObjectMeta{
+						Name:       "autoattachPodInterfacePreference",
+						Namespace:  vm.Namespace,
+						UID:        resourceUID,
+						Generation: resourceGeneration,
+					},
+					Spec: instancetypev1alpha1.VirtualMachinePreferenceSpec{
+						Devices: &instancetypev1alpha1.DevicePreferences{
+							PreferredAutoattachPodInterface: pointer.Bool(false),
+						},
+					},
+				}
+
+				virtClient.VirtualMachinePreference(vm.Namespace).Create(context.Background(), autoattachPodInterfacePreference, metav1.CreateOptions{})
+
+				vm.Spec.Preference = &v1.PreferenceMatcher{
+					Name: autoattachPodInterfacePreference.Name,
+					Kind: instancetypeapi.SingularPreferenceResourceName,
+				}
+
+				vm.Spec.Template.Spec.Domain.Devices.Interfaces = []virtv1.Interface{}
+				vm.Spec.Template.Spec.Networks = []virtv1.Network{}
+
+				addVirtualMachine(vm)
+
+				expectedPreferenceRevisionName := instancetype.GetRevisionName(vm.Name, autoattachPodInterfacePreference.Name, autoattachPodInterfacePreference.UID, autoattachPodInterfacePreference.Generation)
+				expectedPreferenceRevision, err := instancetype.CreatePreferenceControllerRevision(vm, expectedPreferenceRevisionName, autoattachPodInterfacePreference.TypeMeta.APIVersion, &autoattachPodInterfacePreference.Spec)
+				Expect(err).ToNot(HaveOccurred())
+
+				expectedRevisionNamePatch, err := instancetype.GenerateRevisionNamePatch(nil, expectedPreferenceRevision)
+				Expect(err).ToNot(HaveOccurred())
+
+				vmInterface.EXPECT().Patch(vm.Name, types.JSONPatchType, expectedRevisionNamePatch, &metav1.PatchOptions{})
+
+				vmiInterface.EXPECT().Create(gomock.Any()).Times(1).Do(func(arg interface{}) {
+					vmiArg := arg.(*virtv1.VirtualMachineInstance)
+					Expect(*vmiArg.Spec.Domain.Devices.AutoattachPodInterface).To(BeFalse())
+					Expect(vmiArg.Spec.Domain.Devices.Interfaces).To(BeEmpty())
+					Expect(vmiArg.Spec.Networks).To(BeEmpty())
+				}).Return(vmi, nil)
+
+				vmInterface.EXPECT().UpdateStatus(gomock.Any()).Times(1)
+
+				controller.Execute()
+			})
+
 			It("should apply preferences to default volume disk", func() {
 
 				vm.Spec.Preference = &v1.PreferenceMatcher{
@@ -3747,7 +3796,7 @@ var _ = Describe("VirtualMachine", func() {
 				controller.Execute()
 			})
 
-			It("should apply preferences to default input device", func() {
+			It("should apply preferences to AutoattachInputDevice attached input device", func() {
 
 				vm.Spec.Preference = &v1.PreferenceMatcher{
 					Name: p.Name,
@@ -3773,6 +3822,99 @@ var _ = Describe("VirtualMachine", func() {
 					Expect(vmiArg.Spec.Domain.Devices.Inputs[0].Name).To(Equal("default-0"))
 					Expect(vmiArg.Spec.Domain.Devices.Inputs[0].Type).To(Equal(p.Spec.Devices.PreferredInputType))
 					Expect(vmiArg.Spec.Domain.Devices.Inputs[0].Bus).To(Equal(p.Spec.Devices.PreferredInputBus))
+				}).Return(vmi, nil)
+
+				vmInterface.EXPECT().UpdateStatus(gomock.Any()).Times(1)
+
+				controller.Execute()
+			})
+
+			It("should apply preferences to preferredAutoattachInputDevice attached input device", func() {
+
+				autoattachInputDevicePreference := &instancetypev1alpha1.VirtualMachinePreference{
+					ObjectMeta: metav1.ObjectMeta{
+						Name:       "autoattachInputDevicePreference",
+						Namespace:  vm.Namespace,
+						UID:        resourceUID,
+						Generation: resourceGeneration,
+					},
+					Spec: instancetypev1alpha1.VirtualMachinePreferenceSpec{
+						Devices: &instancetypev1alpha1.DevicePreferences{
+							PreferredAutoattachInputDevice: pointer.Bool(true),
+							PreferredInputBus:              virtv1.InputBusVirtio,
+							PreferredInputType:             virtv1.InputTypeTablet,
+						},
+					},
+				}
+				virtClient.VirtualMachinePreference(vm.Namespace).Create(context.Background(), autoattachInputDevicePreference, metav1.CreateOptions{})
+
+				vm.Spec.Preference = &v1.PreferenceMatcher{
+					Name: autoattachInputDevicePreference.Name,
+					Kind: instancetypeapi.SingularPreferenceResourceName,
+				}
+
+				expectedPreferenceRevisionName := instancetype.GetRevisionName(vm.Name, autoattachInputDevicePreference.Name, autoattachInputDevicePreference.UID, autoattachInputDevicePreference.Generation)
+				expectedPreferenceRevision, err := instancetype.CreatePreferenceControllerRevision(vm, expectedPreferenceRevisionName, autoattachInputDevicePreference.TypeMeta.APIVersion, &autoattachInputDevicePreference.Spec)
+				Expect(err).ToNot(HaveOccurred())
+
+				expectedRevisionNamePatch, err := instancetype.GenerateRevisionNamePatch(nil, expectedPreferenceRevision)
+				Expect(err).ToNot(HaveOccurred())
+
+				addVirtualMachine(vm)
+
+				vmInterface.EXPECT().Patch(vm.Name, types.JSONPatchType, expectedRevisionNamePatch, &metav1.PatchOptions{})
+
+				vmiInterface.EXPECT().Create(gomock.Any()).Times(1).Do(func(arg interface{}) {
+					vmiArg := arg.(*virtv1.VirtualMachineInstance)
+					Expect(vmiArg.Spec.Domain.Devices.Inputs).To(HaveLen(1))
+					Expect(vmiArg.Spec.Domain.Devices.Inputs[0].Name).To(Equal("default-0"))
+					Expect(vmiArg.Spec.Domain.Devices.Inputs[0].Type).To(Equal(autoattachInputDevicePreference.Spec.Devices.PreferredInputType))
+					Expect(vmiArg.Spec.Domain.Devices.Inputs[0].Bus).To(Equal(autoattachInputDevicePreference.Spec.Devices.PreferredInputBus))
+				}).Return(vmi, nil)
+
+				vmInterface.EXPECT().UpdateStatus(gomock.Any()).Times(1)
+
+				controller.Execute()
+			})
+
+			It("should apply preferredAutoattachInputDevice and skip adding default input device", func() {
+
+				autoattachInputDevicePreference := &instancetypev1alpha1.VirtualMachinePreference{
+					ObjectMeta: metav1.ObjectMeta{
+						Name:       "preferredAutoattachInputDevicePreference",
+						Namespace:  vm.Namespace,
+						UID:        resourceUID,
+						Generation: resourceGeneration,
+					},
+					Spec: instancetypev1alpha1.VirtualMachinePreferenceSpec{
+						Devices: &instancetypev1alpha1.DevicePreferences{
+							PreferredAutoattachInputDevice: pointer.Bool(false),
+						},
+					},
+				}
+
+				virtClient.VirtualMachinePreference(vm.Namespace).Create(context.Background(), autoattachInputDevicePreference, metav1.CreateOptions{})
+
+				vm.Spec.Preference = &v1.PreferenceMatcher{
+					Name: autoattachInputDevicePreference.Name,
+					Kind: instancetypeapi.SingularPreferenceResourceName,
+				}
+
+				addVirtualMachine(vm)
+
+				expectedPreferenceRevisionName := instancetype.GetRevisionName(vm.Name, autoattachInputDevicePreference.Name, autoattachInputDevicePreference.UID, autoattachInputDevicePreference.Generation)
+				expectedPreferenceRevision, err := instancetype.CreatePreferenceControllerRevision(vm, expectedPreferenceRevisionName, autoattachInputDevicePreference.TypeMeta.APIVersion, &autoattachInputDevicePreference.Spec)
+				Expect(err).ToNot(HaveOccurred())
+
+				expectedRevisionNamePatch, err := instancetype.GenerateRevisionNamePatch(nil, expectedPreferenceRevision)
+				Expect(err).ToNot(HaveOccurred())
+
+				vmInterface.EXPECT().Patch(vm.Name, types.JSONPatchType, expectedRevisionNamePatch, &metav1.PatchOptions{})
+
+				vmiInterface.EXPECT().Create(gomock.Any()).Times(1).Do(func(arg interface{}) {
+					vmiArg := arg.(*virtv1.VirtualMachineInstance)
+					Expect(*vmiArg.Spec.Domain.Devices.AutoattachInputDevice).To(BeFalse())
+					Expect(vmiArg.Spec.Domain.Devices.Inputs).To(BeEmpty())
 				}).Return(vmi, nil)
 
 				vmInterface.EXPECT().UpdateStatus(gomock.Any()).Times(1)

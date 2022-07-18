@@ -326,7 +326,7 @@ func (m *methods) ApplyToVmi(field *k8sfield.Path, instancetypeSpec *instancetyp
 
 	if preferenceSpec != nil {
 		// By design Preferences can't conflict with the VMI so we don't return any
-		applyDevicePreferences(preferenceSpec, vmiSpec)
+		ApplyDevicePreferences(preferenceSpec, vmiSpec)
 		applyFeaturePreferences(preferenceSpec, vmiSpec)
 		applyFirmwarePreferences(preferenceSpec, vmiSpec)
 		applyMachinePreferences(preferenceSpec, vmiSpec)
@@ -675,7 +675,7 @@ func applyHostDevices(field *k8sfield.Path, instancetypeSpec *instancetypev1alph
 	return nil
 }
 
-func applyDevicePreferences(preferenceSpec *instancetypev1alpha1.VirtualMachinePreferenceSpec, vmiSpec *virtv1.VirtualMachineInstanceSpec) {
+func ApplyDevicePreferences(preferenceSpec *instancetypev1alpha1.VirtualMachinePreferenceSpec, vmiSpec *virtv1.VirtualMachineInstanceSpec) {
 
 	if preferenceSpec.Devices == nil {
 		return
