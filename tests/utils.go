@@ -452,7 +452,7 @@ func NewRandomVirtualMachineInstanceWithDisk(imageUrl, namespace, sc string, acc
 	virtCli, err := kubecli.GetKubevirtClient()
 	util2.PanicOnError(err)
 
-	dv := libstorage.NewRandomDataVolumeWithRegistryImportInStorageClass(imageUrl, namespace, sc, accessMode, volMode)
+	dv := libstorage.NewDataVolumeWithRegistryImportInStorageClass(imageUrl, namespace, sc, accessMode, volMode)
 	_, err = virtCli.CdiClient().CdiV1beta1().DataVolumes(dv.Namespace).Create(context.Background(), dv, metav1.CreateOptions{})
 	Expect(err).ToNot(HaveOccurred())
 	Eventually(ThisDV(dv), 240).Should(Or(HaveSucceeded(), BeInPhase(cdiv1.WaitForFirstConsumer)))
@@ -529,7 +529,7 @@ func NewRandomVMWithEphemeralDisk(containerImage string) *v1.VirtualMachine {
 }
 
 func NewRandomVMWithDataVolumeWithRegistryImport(imageUrl, namespace, storageClass string, accessMode k8sv1.PersistentVolumeAccessMode) *v1.VirtualMachine {
-	dataVolume := libstorage.NewRandomDataVolumeWithRegistryImportInStorageClass(imageUrl, namespace, storageClass, accessMode, k8sv1.PersistentVolumeFilesystem)
+	dataVolume := libstorage.NewDataVolumeWithRegistryImportInStorageClass(imageUrl, namespace, storageClass, accessMode, k8sv1.PersistentVolumeFilesystem)
 	dataVolume.Spec.PVC.Resources.Requests[k8sv1.ResourceStorage] = resource.MustParse("6Gi")
 	vmi := NewRandomVMIWithDataVolume(dataVolume.Name)
 	vm := NewRandomVirtualMachine(vmi, false)
@@ -539,7 +539,7 @@ func NewRandomVMWithDataVolumeWithRegistryImport(imageUrl, namespace, storageCla
 }
 
 func NewRandomVMWithDataVolume(imageUrl string, namespace string) *v1.VirtualMachine {
-	dataVolume := libstorage.NewRandomDataVolumeWithRegistryImport(imageUrl, namespace, k8sv1.ReadWriteOnce)
+	dataVolume := libstorage.NewDataVolumeWithRegistryImport(imageUrl, namespace, k8sv1.ReadWriteOnce)
 	vmi := NewRandomVMIWithDataVolume(dataVolume.Name)
 	vm := NewRandomVirtualMachine(vmi, false)
 
@@ -557,12 +557,12 @@ func NewRandomVMWithDataVolumeAndUserData(dataVolume *cdiv1.DataVolume, userData
 }
 
 func NewRandomVMWithDataVolumeAndUserDataInStorageClass(imageUrl, namespace, userData, storageClass string) *v1.VirtualMachine {
-	dataVolume := libstorage.NewRandomDataVolumeWithRegistryImportInStorageClass(imageUrl, namespace, storageClass, k8sv1.ReadWriteOnce, k8sv1.PersistentVolumeFilesystem)
+	dataVolume := libstorage.NewDataVolumeWithRegistryImportInStorageClass(imageUrl, namespace, storageClass, k8sv1.ReadWriteOnce, k8sv1.PersistentVolumeFilesystem)
 	return NewRandomVMWithDataVolumeAndUserData(dataVolume, userData)
 }
 
 func NewRandomVMWithCloneDataVolume(sourceNamespace, sourceName, targetNamespace string) *v1.VirtualMachine {
-	dataVolume := libstorage.NewRandomDataVolumeWithPVCSource(sourceNamespace, sourceName, targetNamespace, k8sv1.ReadWriteOnce)
+	dataVolume := libstorage.NewDataVolumeWithPVCSource(sourceNamespace, sourceName, targetNamespace, k8sv1.ReadWriteOnce)
 	vmi := NewRandomVMIWithDataVolume(dataVolume.Name)
 	vmi.Namespace = targetNamespace
 	vm := NewRandomVirtualMachine(vmi, false)

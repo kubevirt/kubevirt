@@ -37,7 +37,7 @@ import (
 	"kubevirt.io/kubevirt/tests/util"
 )
 
-func NewRandomBlockDataVolumeWithRegistryImport(imageUrl, namespace string, accessMode v1.PersistentVolumeAccessMode) *v1beta1.DataVolume {
+func NewBlockDataVolumeWithRegistryImport(imageUrl, namespace string, accessMode v1.PersistentVolumeAccessMode) *v1beta1.DataVolume {
 	sc, exists := GetRWOBlockStorageClass()
 	if accessMode == v1.ReadWriteMany {
 		sc, exists = GetRWXBlockStorageClass()
@@ -45,10 +45,10 @@ func NewRandomBlockDataVolumeWithRegistryImport(imageUrl, namespace string, acce
 	if !exists {
 		ginkgo.Skip("Skip test when Block storage is not present")
 	}
-	return NewRandomDataVolumeWithRegistryImportInStorageClass(imageUrl, namespace, sc, accessMode, v1.PersistentVolumeBlock)
+	return NewDataVolumeWithRegistryImportInStorageClass(imageUrl, namespace, sc, accessMode, v1.PersistentVolumeBlock)
 }
 
-func NewRandomDataVolumeWithRegistryImport(imageUrl, namespace string, accessMode v1.PersistentVolumeAccessMode) *v1beta1.DataVolume {
+func NewDataVolumeWithRegistryImport(imageUrl, namespace string, accessMode v1.PersistentVolumeAccessMode) *v1beta1.DataVolume {
 	sc, exists := GetRWOFileSystemStorageClass()
 	if accessMode == v1.ReadWriteMany {
 		sc, exists = GetRWXFileSystemStorageClass()
@@ -56,7 +56,7 @@ func NewRandomDataVolumeWithRegistryImport(imageUrl, namespace string, accessMod
 	if !exists {
 		ginkgo.Skip("Skip test when Filesystem storage is not present")
 	}
-	return NewRandomDataVolumeWithRegistryImportInStorageClass(imageUrl, namespace, sc, accessMode, v1.PersistentVolumeFilesystem)
+	return NewDataVolumeWithRegistryImportInStorageClass(imageUrl, namespace, sc, accessMode, v1.PersistentVolumeFilesystem)
 }
 
 func newDataVolume(namespace, storageClass string, size string, accessMode v1.PersistentVolumeAccessMode, volumeMode v1.PersistentVolumeMode, dataVolumeSource v1beta1.DataVolumeSource) *v1beta1.DataVolume {
@@ -91,7 +91,7 @@ func newDataVolume(namespace, storageClass string, size string, accessMode v1.Pe
 	return dataVolume
 }
 
-func NewRandomDataVolumeWithRegistryImportInStorageClass(imageUrl, namespace, storageClass string, accessMode v1.PersistentVolumeAccessMode, volumeMode v1.PersistentVolumeMode) *v1beta1.DataVolume {
+func NewDataVolumeWithRegistryImportInStorageClass(imageUrl, namespace, storageClass string, accessMode v1.PersistentVolumeAccessMode, volumeMode v1.PersistentVolumeMode) *v1beta1.DataVolume {
 	size := "512Mi"
 	dataVolumeSource := v1beta1.DataVolumeSource{
 		Registry: &v1beta1.DataVolumeSourceRegistry{
@@ -101,14 +101,14 @@ func NewRandomDataVolumeWithRegistryImportInStorageClass(imageUrl, namespace, st
 	return newDataVolume(namespace, storageClass, size, accessMode, volumeMode, dataVolumeSource)
 }
 
-func NewRandomBlankDataVolume(namespace, storageClass, size string, accessMode v1.PersistentVolumeAccessMode, volumeMode v1.PersistentVolumeMode) *v1beta1.DataVolume {
+func NewBlankDataVolume(namespace, storageClass, size string, accessMode v1.PersistentVolumeAccessMode, volumeMode v1.PersistentVolumeMode) *v1beta1.DataVolume {
 	dataVolumeSource := v1beta1.DataVolumeSource{
 		Blank: &v1beta1.DataVolumeBlankImage{},
 	}
 	return newDataVolume(namespace, storageClass, size, accessMode, volumeMode, dataVolumeSource)
 }
 
-func NewRandomDataVolumeWithPVCSource(sourceNamespace, sourceName, targetNamespace string, accessMode v1.PersistentVolumeAccessMode) *v1beta1.DataVolume {
+func NewDataVolumeWithPVCSource(sourceNamespace, sourceName, targetNamespace string, accessMode v1.PersistentVolumeAccessMode) *v1beta1.DataVolume {
 	sc, exists := GetRWOFileSystemStorageClass()
 	if accessMode == v1.ReadWriteMany {
 		sc, exists = GetRWXFileSystemStorageClass()
@@ -116,10 +116,10 @@ func NewRandomDataVolumeWithPVCSource(sourceNamespace, sourceName, targetNamespa
 	if !exists {
 		ginkgo.Skip("Skip test when Filesystem storage is not present")
 	}
-	return newRandomDataVolumeWithPVCSourceWithStorageClass(sourceNamespace, sourceName, targetNamespace, sc, "1Gi", accessMode)
+	return newDataVolumeWithPVCSourceWithStorageClass(sourceNamespace, sourceName, targetNamespace, sc, "1Gi", accessMode)
 }
 
-func newRandomDataVolumeWithPVCSourceWithStorageClass(sourceNamespace, sourceName, targetNamespace, storageClass, size string, accessMode v1.PersistentVolumeAccessMode) *v1beta1.DataVolume {
+func newDataVolumeWithPVCSourceWithStorageClass(sourceNamespace, sourceName, targetNamespace, storageClass, size string, accessMode v1.PersistentVolumeAccessMode) *v1beta1.DataVolume {
 	dataVolumeSource := v1beta1.DataVolumeSource{
 		PVC: &v1beta1.DataVolumeSourcePVC{
 			Namespace: sourceNamespace,
