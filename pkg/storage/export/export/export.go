@@ -59,9 +59,9 @@ import (
 	"kubevirt.io/kubevirt/pkg/controller"
 	"kubevirt.io/kubevirt/pkg/virt-operator/resource/generate/components"
 
+	"kubevirt.io/kubevirt/pkg/storage/snapshot"
 	"kubevirt.io/kubevirt/pkg/storage/types"
 	"kubevirt.io/kubevirt/pkg/virt-controller/services"
-	"kubevirt.io/kubevirt/pkg/virt-controller/watch/snapshot"
 	watchutil "kubevirt.io/kubevirt/pkg/virt-controller/watch/util"
 
 	"github.com/openshift/library-go/pkg/build/naming"

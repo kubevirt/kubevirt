@@ -27,6 +27,7 @@ import (
 
 	. "kubevirt.io/kubevirt/tests/framework/matcher"
 
+	typesStorage "kubevirt.io/kubevirt/pkg/storage/types"
 	typesutil "kubevirt.io/kubevirt/pkg/util/types"
 	"kubevirt.io/kubevirt/tests"
 	"kubevirt.io/kubevirt/tests/console"
@@ -1592,7 +1593,7 @@ var _ = SIGDescribe("VirtualMachineRestore Tests", func() {
 				checkCloneAnnotations := func(vm *v1.VirtualMachine, shouldExist bool) {
 					pvcName := ""
 					for _, v := range vm.Spec.Template.Spec.Volumes {
-						n := typesutil.PVCNameFromVirtVolume(&v)
+						n := typesStorage.PVCNameFromVirtVolume(&v)
 						if n != "" {
 							Expect(pvcName).Should(Equal(""))
 							pvcName = n

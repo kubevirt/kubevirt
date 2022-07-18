@@ -28,7 +28,7 @@ import (
 
 	"kubevirt.io/kubevirt/pkg/service"
 
-	exportServer "kubevirt.io/kubevirt/pkg/virt-exportserver"
+	exportServer "kubevirt.io/kubevirt/pkg/storage/export/virt-exportserver"
 )
 
 const (

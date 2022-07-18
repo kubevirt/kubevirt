@@ -23,7 +23,7 @@ import (
 	"context"
 	"fmt"
 
-	virtsnapshot "kubevirt.io/kubevirt/pkg/virt-controller/watch/snapshot"
+	virtsnapshot "kubevirt.io/kubevirt/pkg/storage/snapshot"
 
 	"k8s.io/apimachinery/pkg/api/errors"
 
