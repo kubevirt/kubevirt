@@ -6,6 +6,8 @@ import (
 	"strings"
 	"time"
 
+	typesutil "kubevirt.io/kubevirt/pkg/util/types"
+
 	expect "github.com/google/goexpect"
 	vsv1 "github.com/kubernetes-csi/external-snapshotter/client/v4/apis/volumesnapshot/v1"
 	. "github.com/onsi/ginkgo/v2"
@@ -17,7 +19,6 @@ import (
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/types"
 	"k8s.io/apimachinery/pkg/util/rand"
-	"k8s.io/client-go/util/retry"
 
 	. "kubevirt.io/kubevirt/tests/framework/matcher"
 
@@ -437,16 +438,14 @@ var _ = SIGDescribe("VirtualMachineSnapshot Tests", func() {
 
 				//update vm to make sure vm revision is saved in the snapshot
 				By("Updating the VM template spec")
-				err = retry.RetryOnConflict(retry.DefaultRetry, func() error {
-					updatedVM, err := virtClient.VirtualMachine(vm.Namespace).Get(vm.Name, &metav1.GetOptions{})
-					Expect(err).ToNot(HaveOccurred())
+				patchData, err := typesutil.GenerateTestReplacePatch(
+					"/spec/template/spec/domain/resources/requests/"+string(corev1.ResourceMemory),
+					initialMemory,
+					newMemory,
+				)
+				Expect(err).ToNot(HaveOccurred())
 
-					updatedVM.Spec.Template.Spec.Domain.Resources.Requests = corev1.ResourceList{
-						corev1.ResourceMemory: newMemory,
-					}
-					_, err = virtClient.VirtualMachine(updatedVM.Namespace).Update(updatedVM)
-					return err
-				})
+				_, err = virtClient.VirtualMachine(vm.Namespace).Patch(vm.Name, types.JSONPatchType, patchData, &metav1.PatchOptions{})
 				Expect(err).ToNot(HaveOccurred())
 
 				snapshot = newSnapshot()

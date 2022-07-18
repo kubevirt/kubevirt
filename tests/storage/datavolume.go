@@ -35,6 +35,7 @@ import (
 	rbacv1 "k8s.io/api/rbac/v1"
 	"k8s.io/apimachinery/pkg/api/resource"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	"k8s.io/apimachinery/pkg/types"
 	"k8s.io/apimachinery/pkg/util/rand"
 	"k8s.io/utils/pointer"
 
@@ -42,7 +43,9 @@ import (
 	"kubevirt.io/client-go/kubecli"
 	cdiv1 "kubevirt.io/containerized-data-importer-api/pkg/apis/core/v1beta1"
 
+	k6ttypes "kubevirt.io/kubevirt/pkg/util/types"
 	virtconfig "kubevirt.io/kubevirt/pkg/virt-config"
+
 	"kubevirt.io/kubevirt/tests"
 	"kubevirt.io/kubevirt/tests/clientcmd"
 	"kubevirt.io/kubevirt/tests/console"
@@ -112,12 +115,14 @@ var _ = SIGDescribe("DataVolume Integration", func() {
 			By("Expecting the VirtualMachineInstance console")
 			Expect(console.LoginToCirros(vmi)).To(Succeed())
 
-			pvc, err := virtClient.CoreV1().PersistentVolumeClaims(util.NamespaceTestDefault).Get(context.Background(), dataVolume.Name, metav1.GetOptions{})
-			Expect(err).ToNot(HaveOccurred())
-
 			By("Expanding PVC")
-			pvc.Spec.Resources.Requests[k8sv1.ResourceStorage] = resource.MustParse("2Gi")
-			_, err = virtClient.CoreV1().PersistentVolumeClaims(util.NamespaceTestDefault).Update(context.Background(), pvc, metav1.UpdateOptions{})
+			patchData, err := k6ttypes.GeneratePatchPayload(k6ttypes.PatchOperation{
+				Op:    k6ttypes.PatchAddOp,
+				Path:  "/spec/resources/requests/storage",
+				Value: resource.MustParse("2Gi"),
+			})
+			Expect(err).ToNot(HaveOccurred())
+			_, err = virtClient.CoreV1().PersistentVolumeClaims(util.NamespaceTestDefault).Patch(context.Background(), dataVolume.Name, types.JSONPatchType, patchData, metav1.PatchOptions{})
 			Expect(err).ToNot(HaveOccurred())
 
 			By("Waiting for notification about size change")
