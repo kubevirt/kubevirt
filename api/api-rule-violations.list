@@ -278,6 +278,7 @@ API rule violation: names_match,kubevirt.io/api/core/v1,KubeVirtConfiguration,SE
 API rule violation: names_match,kubevirt.io/api/core/v1,KubeVirtConfiguration,SMBIOSConfig
 API rule violation: names_match,kubevirt.io/api/core/v1,KubeVirtSpec,CertificateRotationStrategy
 API rule violation: names_match,kubevirt.io/api/core/v1,LunTarget,ReadOnly
+API rule violation: names_match,kubevirt.io/api/core/v1,LunTarget,Reservation
 API rule violation: names_match,kubevirt.io/api/core/v1,NetworkConfiguration,NetworkInterface
 API rule violation: names_match,kubevirt.io/api/core/v1,PITTimer,Enabled
 API rule violation: names_match,kubevirt.io/api/core/v1,RTCTimer,Enabled

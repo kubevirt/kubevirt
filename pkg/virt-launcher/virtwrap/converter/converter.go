@@ -37,6 +37,7 @@ import (
 
 	"golang.org/x/sys/unix"
 
+	"kubevirt.io/kubevirt/pkg/daemons"
 	"kubevirt.io/kubevirt/pkg/virt-launcher/virtwrap/converter/vcpu"
 
 	"kubevirt.io/kubevirt/pkg/virt-controller/watch/topology"
@@ -188,6 +189,9 @@ func Convert_v1_Disk_To_api_Disk(c *ConverterContext, diskDevice *v1.Disk, disk 
 		disk.Target.Bus = diskDevice.LUN.Bus
 		disk.Target.Device, _ = makeDeviceName(diskDevice.Name, diskDevice.LUN.Bus, prefixMap)
 		disk.ReadOnly = toApiReadOnly(diskDevice.LUN.ReadOnly)
+		if diskDevice.LUN.Reservation {
+			setReservation(disk)
+		}
 	} else if diskDevice.CDRom != nil {
 		disk.Device = "cdrom"
 		disk.Target.Tray = string(diskDevice.CDRom.Tray)
@@ -261,6 +265,17 @@ func min(one, two int64) int64 {
 		return one
 	}
 	return two
+}
+
+func setReservation(disk *api.Disk) {
+	disk.Source.Reservations = &api.Reservations{
+		Managed: "yes",
+		SourceReservations: &api.SourceReservations{
+			Type: "unix",
+			Path: daemons.GetPrHelperSocket(),
+			Mode: "client",
+		},
+	}
 }
 
 type DirectIOChecker interface {

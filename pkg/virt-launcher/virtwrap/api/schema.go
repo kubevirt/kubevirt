@@ -630,6 +630,7 @@ type DiskSource struct {
 	Protocol      string          `xml:"protocol,attr,omitempty"`
 	Name          string          `xml:"name,attr,omitempty"`
 	Host          *DiskSourceHost `xml:"host,omitempty"`
+	Reservations  *Reservations   `xml:"reservations,omitempty"`
 }
 
 type DiskTarget struct {
@@ -668,6 +669,17 @@ type BackingStoreFormat struct {
 type BlockIO struct {
 	LogicalBlockSize  uint `xml:"logical_block_size,attr,omitempty"`
 	PhysicalBlockSize uint `xml:"physical_block_size,attr,omitempty"`
+}
+
+type Reservations struct {
+	Managed            string              `xml:"managed,attr,omitempty"`
+	SourceReservations *SourceReservations `xml:"source,attr,omitempty"`
+}
+
+type SourceReservations struct {
+	Type string `xml:"type,attr"`
+	Path string `xml:"path,attr,omitempty"`
+	Mode string `xml:"mode,attr,omitempty"`
 }
 
 // END Disk -----------------------------
