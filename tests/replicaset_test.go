@@ -47,6 +47,7 @@ import (
 	"kubevirt.io/client-go/kubecli"
 
 	"kubevirt.io/kubevirt/pkg/controller"
+	k6ttypes "kubevirt.io/kubevirt/pkg/util/types"
 	"kubevirt.io/kubevirt/tests"
 )
 
@@ -339,8 +340,9 @@ var _ = Describe("[rfe_id:588][crit:medium][vendor:cnv-qe@redhat.com][level:comp
 
 		// set new replica count while still being paused
 		By("Updating the number of replicas")
-		rs.Spec.Replicas = tests.NewInt32(2)
-		_, err = virtClient.ReplicaSet(rs.ObjectMeta.Namespace).Update(rs)
+		patchData, err := k6ttypes.GenerateTestReplacePatch("/spec/replicas", rs.Spec.Replicas, tests.NewInt32(2))
+		Expect(err).ToNot(HaveOccurred())
+		rs, err = virtClient.ReplicaSet(rs.Namespace).Patch(rs.Name, types.JSONPatchType, patchData)
 		Expect(err).ToNot(HaveOccurred())
 
 		// make sure that we don't scale up
