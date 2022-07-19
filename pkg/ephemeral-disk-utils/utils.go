@@ -26,6 +26,7 @@ import (
 	"strconv"
 	"syscall"
 
+	"kubevirt.io/kubevirt/pkg/safepath"
 	"kubevirt.io/kubevirt/pkg/virt-launcher/virtwrap/api"
 )
 
@@ -40,7 +41,11 @@ func MockDefaultOwnershipManager() {
 type nonOpManager struct {
 }
 
-func (no *nonOpManager) SetFileOwnership(file string) error {
+func (no *nonOpManager) UnsafeSetFileOwnership(file string) error {
+	return nil
+}
+
+func (no *nonOpManager) SetFileOwnership(file *safepath.Path) error {
 	return nil
 }
 
@@ -48,7 +53,16 @@ type OwnershipManager struct {
 	user string
 }
 
-func (om *OwnershipManager) SetFileOwnership(file string) error {
+func (om *OwnershipManager) SetFileOwnership(file *safepath.Path) error {
+	fd, err := safepath.OpenAtNoFollow(file)
+	if err != nil {
+		return err
+	}
+	defer fd.Close()
+	return om.UnsafeSetFileOwnership(fd.SafePath())
+}
+
+func (om *OwnershipManager) UnsafeSetFileOwnership(file string) error {
 	owner, err := user.Lookup(om.user)
 	if err != nil {
 		return fmt.Errorf("failed to look up user %s: %v", om.user, err)
@@ -102,7 +116,9 @@ func FileExists(path string) (bool, error) {
 }
 
 type OwnershipManagerInterface interface {
-	SetFileOwnership(file string) error
+	// Deprecated: UnsafeSetFileOwnership should not be used. Use SetFileOwnership instead.
+	UnsafeSetFileOwnership(file string) error
+	SetFileOwnership(file *safepath.Path) error
 }
 
 func GetEphemeralBackingSourceBlockDevices(domain *api.Domain) map[string]bool {
