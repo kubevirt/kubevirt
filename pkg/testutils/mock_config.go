@@ -53,7 +53,7 @@ func NewFakeContainerDiskSource() *KVv1.ContainerDiskSource {
 	return &KVv1.ContainerDiskSource{
 		Image:           "fake-image",
 		ImagePullSecret: "fake-pull-secret",
-		Path:            "fake-path",
+		Path:            "/fake-path",
 	}
 }
 
