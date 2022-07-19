@@ -1803,13 +1803,18 @@ func (c *VMIController) volumeReadyToAttachToNode(namespace string, volume virtv
 		name = volume.MemoryDump.ClaimName
 	}
 
+	var dvErr error
 	dataVolumeFunc := dataVolumeByNameFunc(c.dataVolumeInformer, dataVolumes)
-
 	if volume.DataVolume != nil {
-		// First, ensure DataVolume exists
-		_, err := dataVolumeFunc(name, namespace)
-		if err != nil {
-			return false, false, services.DataVolumeNotFoundError{Reason: err.Error()}
+		_, dvErr = dataVolumeFunc(name, namespace)
+		if dvErr != nil {
+			ttl, err := c.getDataVolumeTTL()
+			if err != nil {
+				return false, false, err
+			}
+			if ttl == nil {
+				return false, false, services.DataVolumeNotFoundError{Reason: dvErr.Error()}
+			}
 		}
 	}
 
@@ -1833,6 +1838,8 @@ func (c *VMIController) volumeReadyToAttachToNode(namespace string, volume virtv
 				wffc = true
 			}
 		}
+	} else if dvErr != nil {
+		return false, false, services.DataVolumeNotFoundError{Reason: dvErr.Error()}
 	} else {
 		return false, false, services.PvcNotFoundError{Reason: fmt.Sprintf("didn't find PVC %v", name)}
 	}
@@ -2129,21 +2136,9 @@ func (c *VMIController) updateVolumeStatus(vmi *virtv1.VirtualMachineInstance, v
 }
 
 func (c *VMIController) getFilesystemOverhead(pvc *k8sv1.PersistentVolumeClaim) (cdiv1.Percent, error) {
-	// To avoid conflicts, we only allow having one CDI instance
-	if cdiInstances := len(c.cdiInformer.GetStore().List()); cdiInstances != 1 {
-		if cdiInstances > 1 {
-			return "0", multipleCdiInstances
-		}
-		return "0", failedToFindCdi
-	}
-
-	cdiConfigInterface, cdiConfigExists, err := c.cdiConfigInformer.GetStore().GetByKey("config")
-	if !cdiConfigExists || err != nil {
-		return "0", fmt.Errorf("Failed to find CDIConfig but CDI exists: %w", err)
-	}
-	cdiConfig, ok := cdiConfigInterface.(*cdiv1.CDIConfig)
-	if !ok {
-		return "0", fmt.Errorf("Failed to convert CDIConfig object %v to type CDIConfig", cdiConfigInterface)
+	cdiConfig, err := c.getCDIConfig()
+	if err != nil {
+		return "0", err
 	}
 	if pvc.Spec.VolumeMode != nil && *pvc.Spec.VolumeMode == k8sv1.PersistentVolumeBlock {
 		return "0", nil
@@ -2157,6 +2152,34 @@ func (c *VMIController) getFilesystemOverhead(pvc *k8sv1.PersistentVolumeClaim) 
 		return cdiConfig.Status.FilesystemOverhead.Global, nil
 	}
 	return fsOverhead, nil
+}
+
+func (c *VMIController) getDataVolumeTTL() (*int32, error) {
+	cdiConfig, err := c.getCDIConfig()
+	if err != nil {
+		return nil, err
+	}
+	return cdiConfig.Spec.DataVolumeTTLSeconds, nil
+}
+
+func (c *VMIController) getCDIConfig() (*cdiv1.CDIConfig, error) {
+	// To avoid conflicts, we only allow having one CDI instance
+	if cdiInstances := len(c.cdiInformer.GetStore().List()); cdiInstances != 1 {
+		if cdiInstances > 1 {
+			return nil, multipleCdiInstances
+		}
+		return nil, failedToFindCdi
+	}
+
+	cdiConfigInterface, cdiConfigExists, err := c.cdiConfigInformer.GetStore().GetByKey("config")
+	if !cdiConfigExists || err != nil {
+		return nil, fmt.Errorf("Failed to find CDIConfig but CDI exists: %w", err)
+	}
+	cdiConfig, ok := cdiConfigInterface.(*cdiv1.CDIConfig)
+	if !ok {
+		return nil, fmt.Errorf("Failed to convert CDIConfig object %v to type CDIConfig", cdiConfigInterface)
+	}
+	return cdiConfig, nil
 }
 
 func (c *VMIController) canMoveToAttachedPhase(currentPhase virtv1.VolumePhase) bool {

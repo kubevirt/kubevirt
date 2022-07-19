@@ -409,6 +409,9 @@ func GetVMIInformerIndexers() cache.Indexers {
 				if vol.PersistentVolumeClaim != nil {
 					pvcs = append(pvcs, fmt.Sprintf("%s/%s", vmi.Namespace, vol.PersistentVolumeClaim.ClaimName))
 				}
+				if vol.DataVolume != nil {
+					pvcs = append(pvcs, fmt.Sprintf("%s/%s", vmi.Namespace, vol.DataVolume.Name))
+				}
 			}
 			return pvcs, nil
 		},
@@ -529,6 +532,9 @@ func GetVirtualMachineInformerIndexers() cache.Indexers {
 			for _, vol := range vm.Spec.Template.Spec.Volumes {
 				if vol.PersistentVolumeClaim != nil {
 					pvcs = append(pvcs, fmt.Sprintf("%s/%s", vm.Namespace, vol.PersistentVolumeClaim.ClaimName))
+				}
+				if vol.DataVolume != nil {
+					pvcs = append(pvcs, fmt.Sprintf("%s/%s", vm.Namespace, vol.DataVolume.Name))
 				}
 			}
 			return pvcs, nil

@@ -43,7 +43,6 @@ import (
 	exportv1 "kubevirt.io/api/export/v1alpha1"
 	"kubevirt.io/client-go/kubecli"
 	"kubevirt.io/client-go/log"
-	cdiv1 "kubevirt.io/containerized-data-importer-api/pkg/apis/core/v1beta1"
 
 	"kubevirt.io/kubevirt/pkg/certificates/triple/cert"
 	"kubevirt.io/kubevirt/pkg/virt-operator/resource/generate/components"
@@ -51,6 +50,7 @@ import (
 	cd "kubevirt.io/kubevirt/tests/containerdisk"
 	"kubevirt.io/kubevirt/tests/flags"
 	"kubevirt.io/kubevirt/tests/framework/checks"
+	. "kubevirt.io/kubevirt/tests/framework/matcher"
 	"kubevirt.io/kubevirt/tests/libstorage"
 	"kubevirt.io/kubevirt/tests/util"
 
@@ -322,13 +322,7 @@ var _ = SIGDescribe("Export", func() {
 		ensurePVCBound(pvc)
 
 		By("Making sure the DV is successful")
-		Eventually(func() cdiv1.DataVolumePhase {
-			dv, err = virtClient.CdiClient().CdiV1beta1().DataVolumes(dv.Namespace).Get(context.Background(), dv.Name, metav1.GetOptions{})
-			if !errors.IsNotFound(err) {
-				Expect(err).ToNot(HaveOccurred())
-			}
-			return dv.Status.Phase
-		}, 90*time.Second, 1*time.Second).Should(Equal(cdiv1.Succeeded))
+		tests.EventuallyDV(dv, 90, HaveSucceeded())
 
 		pod := createSourcePodChecker(pvc)
 
@@ -748,13 +742,8 @@ var _ = SIGDescribe("Export", func() {
 		ensurePVCBound(pvc)
 
 		By("Making sure the DV is successful")
-		Eventually(func() cdiv1.DataVolumePhase {
-			dv, err = virtClient.CdiClient().CdiV1beta1().DataVolumes(dv.Namespace).Get(context.Background(), dv.Name, metav1.GetOptions{})
-			if !errors.IsNotFound(err) {
-				Expect(err).ToNot(HaveOccurred())
-			}
-			return dv.Status.Phase
-		}, 90*time.Second, 1*time.Second).Should(Equal(cdiv1.Succeeded))
+		tests.EventuallyDV(dv, 90, HaveSucceeded())
+
 		By("Making sure the export becomes ready")
 		Eventually(func() bool {
 			export, err = virtClient.VirtualMachineExport(pvc.Namespace).Get(context.Background(), export.Name, metav1.GetOptions{})

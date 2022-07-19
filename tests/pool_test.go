@@ -26,12 +26,15 @@ import (
 
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
+	corev1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/api/errors"
 	k8smetav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	v12 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/types"
 	"k8s.io/apimachinery/pkg/util/rand"
+
+	cdiv1 "kubevirt.io/containerized-data-importer-api/pkg/apis/core/v1beta1"
 
 	"kubevirt.io/kubevirt/tests/libvmi"
 	"kubevirt.io/kubevirt/tests/util"
@@ -188,8 +191,13 @@ var _ = Describe("[sig-compute]VirtualMachinePool", func() {
 		newPool := newPersistentStorageVirtualMachinePool()
 		doScale(newPool.ObjectMeta.Name, 2)
 
-		var err error
-		var vms *v1.VirtualMachineList
+		var (
+			err       error
+			vms       *v1.VirtualMachineList
+			dvs       *cdiv1.DataVolumeList
+			pvcs      *corev1.PersistentVolumeClaimList
+			dvOrigUID types.UID
+		)
 
 		By("Waiting until all VMs are created")
 		Eventually(func() int {
@@ -201,20 +209,40 @@ var _ = Describe("[sig-compute]VirtualMachinePool", func() {
 		By("Waiting until all VMIs are created and online")
 		waitForVMIs(newPool.Namespace, 2)
 
-		By("Ensure DataVolumes are created")
-		dvs, err := virtClient.CdiClient().CdiV1beta1().DataVolumes(newPool.Namespace).List(context.Background(), metav1.ListOptions{})
-		Expect(dvs.Items).To(HaveLen(2))
-
-		// Select a VM to delete, and record the VM and DV UIDs associated with the VM.
+		// Select a VM to delete, and record the VM and DV/PVC UIDs associated with the VM.
 		origUID := vms.Items[0].UID
 		name := vms.Items[0].Name
 		dvName := vms.Items[0].Spec.DataVolumeTemplates[0].ObjectMeta.Name
-		var dvOrigUID types.UID
-		for _, dv := range dvs.Items {
-			if dv.Name == dvName {
-				dvOrigUID = dv.UID
+		dvName1 := vms.Items[1].Spec.DataVolumeTemplates[0].ObjectMeta.Name
+		Expect(dvName).ToNot(Equal(dvName1))
+
+		dvTTL := tests.GetDataVolumeTTLSeconds(virtClient)
+		if dvTTL == nil {
+			By("Ensure DataVolumes are created")
+			dvs, err = virtClient.CdiClient().CdiV1beta1().DataVolumes(newPool.Namespace).List(context.Background(), metav1.ListOptions{})
+			Expect(err).ToNot(HaveOccurred())
+			Expect(dvs.Items).To(HaveLen(2))
+			for _, dv := range dvs.Items {
+				if dv.Name == dvName {
+					dvOrigUID = dv.UID
+				}
 			}
+		} else {
+			By("Ensure PVCs are created")
+			pvcs, err = virtClient.CoreV1().PersistentVolumeClaims(newPool.Namespace).List(context.Background(), metav1.ListOptions{})
+			Expect(err).ToNot(HaveOccurred())
+			pvcCount := 0
+			for _, pvc := range pvcs.Items {
+				if pvc.Name == dvName || pvc.Name == dvName1 {
+					pvcCount++
+					if pvc.Name == dvName {
+						dvOrigUID = pvc.UID
+					}
+				}
+			}
+			Expect(pvcCount).To(Equal(2))
 		}
+
 		Expect(string(dvOrigUID)).ToNot(Equal(""))
 
 		By("deleting a VM")
@@ -249,13 +277,29 @@ var _ = Describe("[sig-compute]VirtualMachinePool", func() {
 		By("Waiting until all VMIs are created and online again")
 		waitForVMIs(newPool.Namespace, 2)
 
-		By("Verify datavolume count after VM replacement")
-		dvs, err = virtClient.CdiClient().CdiV1beta1().DataVolumes(newPool.Namespace).List(context.Background(), metav1.ListOptions{})
-		Expect(dvs.Items).To(HaveLen(2))
+		if dvTTL == nil {
+			By("Verify datavolume count after VM replacement")
+			dvs, err = virtClient.CdiClient().CdiV1beta1().DataVolumes(newPool.Namespace).List(context.Background(), metav1.ListOptions{})
+			Expect(dvs.Items).To(HaveLen(2))
 
-		By("Verify datavolume for deleted VM is replaced")
-		for _, dv := range dvs.Items {
-			Expect(dv.UID).ToNot(Equal(dvOrigUID))
+			By("Verify datavolume for deleted VM is replaced")
+			for _, dv := range dvs.Items {
+				Expect(dv.UID).ToNot(Equal(dvOrigUID))
+			}
+		} else {
+			pvcs, err = virtClient.CoreV1().PersistentVolumeClaims(newPool.Namespace).List(context.Background(), metav1.ListOptions{})
+			Expect(err).ToNot(HaveOccurred())
+
+			By("Verify pvc for deleted VM is replaced")
+			pvcCount := 0
+			for _, pvc := range pvcs.Items {
+				if pvc.Name == dvName || pvc.Name == dvName1 {
+					Expect(pvc.UID).ToNot(Equal(dvOrigUID))
+					pvcCount++
+				}
+			}
+			By("Verify pvc count after VM replacement")
+			Expect(pvcCount).To(Equal(2))
 		}
 	})
 

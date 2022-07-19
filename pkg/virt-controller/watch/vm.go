@@ -479,6 +479,17 @@ func (c *VMController) handleDataVolumes(vm *virtv1.VirtualMachine, dataVolumes 
 			}
 		}
 		if !exists {
+			// Don't create DV if PVC already exists
+			// FIXME: only if GC
+			// if pvc, err := c.clientset.CoreV1().PersistentVolumeClaims(vm.Namespace).Get(context.Background(), template.Name, v1.GetOptions{}); err == nil {
+			pvc, err := c.getPersistentVolumeClaimFromCache(vm.Namespace, template.Name)
+			if err == nil && pvc != nil {
+				populatedFor := pvc.Annotations["cdi.kubevirt.io/storage.populatedFor"]
+				if populatedFor != template.Name {
+					continue
+				}
+			}
+
 			// ready = false because encountered DataVolume that is not created yet
 			ready = false
 			newDataVolume, err := createDataVolumeManifest(c.clientset, &vm.Spec.DataVolumeTemplates[i], vm)

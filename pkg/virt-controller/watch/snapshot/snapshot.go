@@ -479,7 +479,7 @@ func (ctrl *VMSnapshotController) createContent(vmSnapshot *snapshotv1.VirtualMa
 		}
 
 		if pvc == nil {
-			log.Log.Warningf("No VolumeSnapshotClass for %s/%s", vmSnapshot.Namespace, pvcName)
+			log.Log.Warningf("No snapshot PVC for %s/%s", vmSnapshot.Namespace, pvcName)
 			continue
 		}
 
@@ -794,7 +794,14 @@ func (ctrl *VMSnapshotController) getVolumeStorageClass(namespace string, volume
 	if volume.VolumeSource.DataVolume != nil {
 		storageClassName, err := ctrl.getStorageClassNameForDV(namespace, volume.VolumeSource.DataVolume.Name)
 		if err != nil {
-			return "", err
+			//FIXME: only if GC, nicify
+			pvcKey := cacheKeyFunc(namespace, volume.VolumeSource.DataVolume.Name)
+			storageClassName, err = ctrl.getStorageClassNameForPVC(pvcKey)
+			if err != nil {
+				return "", err
+			}
+			return storageClassName, nil
+			//return "", err
 		}
 		return storageClassName, nil
 	}

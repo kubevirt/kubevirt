@@ -8,10 +8,6 @@ import (
 
 	"github.com/onsi/gomega/format"
 
-	"k8s.io/apimachinery/pkg/api/errors"
-
-	cdiv1 "kubevirt.io/containerized-data-importer-api/pkg/apis/core/v1beta1"
-
 	cd "kubevirt.io/kubevirt/tests/containerdisk"
 
 	virtconfig "kubevirt.io/kubevirt/pkg/virt-config"
@@ -28,6 +24,7 @@ import (
 	"kubevirt.io/client-go/kubecli"
 
 	"kubevirt.io/kubevirt/tests"
+	. "kubevirt.io/kubevirt/tests/framework/matcher"
 	"kubevirt.io/kubevirt/tests/libvmi"
 	"kubevirt.io/kubevirt/tests/util"
 )
@@ -382,15 +379,7 @@ var _ = SIGDescribe("[Serial]VirtualMachineClone Tests", func() {
 				Expect(err).ToNot(HaveOccurred())
 
 				for _, dvt := range sourceVM.Spec.DataVolumeTemplates {
-					Eventually(func() bool {
-						dv, err := virtClient.CdiClient().CdiV1beta1().DataVolumes(sourceVM.Namespace).Get(context.Background(), dvt.Name, v1.GetOptions{})
-						if errors.IsNotFound(err) {
-							return false
-						}
-						Expect(err).ToNot(HaveOccurred())
-						Expect(dv.Status.Phase).ShouldNot(Equal(cdiv1.Failed))
-						return dv.Status.Phase == cdiv1.Succeeded
-					}, 180*time.Second, time.Second).Should(BeTrue())
+					tests.EventuallyDVWith(sourceVM.Namespace, dvt.Name, 180, HaveSucceeded())
 				}
 			})
 

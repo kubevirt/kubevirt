@@ -49,6 +49,7 @@ import (
 	expect "github.com/google/goexpect"
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
+	gomegatypes "github.com/onsi/gomega/types"
 	"golang.org/x/crypto/ssh"
 	k8sv1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/api/errors"
@@ -106,6 +107,8 @@ const (
 	StartingVMInstance           = "Starting a VirtualMachineInstance"
 	WaitingVMInstanceStart       = "Waiting until the VirtualMachineInstance will start"
 	CouldNotFindComputeContainer = "could not find compute container for pod"
+	DeletingDataVolume           = "Deleting the DataVolume"
+	VerifyingGC                  = "Verifying DataVolume garbage collection"
 	EchoLastReturnValue          = "echo $?\n"
 )
 
@@ -261,6 +264,65 @@ func DeleteSecret(name string) {
 		util2.PanicOnError(err)
 	}
 }
+
+func DeleteDataVolume(dv *cdiv1.DataVolume) {
+	if dv == nil {
+		return
+	}
+	By(DeletingDataVolume)
+	virtCli, err := kubecli.GetKubevirtClient()
+	util2.PanicOnError(err)
+
+	err = virtCli.CdiClient().CdiV1beta1().DataVolumes(dv.Namespace).Delete(context.Background(), dv.Name, metav1.DeleteOptions{})
+	if err == nil {
+		return
+	}
+
+	Expect(errors.IsNotFound(err)).To(BeTrue())
+
+	ttl := GetDataVolumeTTLSeconds(virtCli)
+	Expect(ttl).ToNot(BeNil())
+
+	err = virtCli.CoreV1().PersistentVolumeClaims(dv.Namespace).Delete(context.Background(), dv.Name, metav1.DeleteOptions{})
+	Expect(err).To(BeNil())
+}
+
+func EventuallyDV(dv *cdiv1.DataVolume, timeoutSec int, matcher gomegatypes.GomegaMatcher) {
+	EventuallyDVWith(dv.Namespace, dv.Name, timeoutSec, matcher)
+}
+
+func EventuallyDVWith(namespace, name string, timeoutSec int, matcher gomegatypes.GomegaMatcher) {
+	timeout := time.Duration(timeoutSec) * time.Second
+	virtCli, err := kubecli.GetKubevirtClient()
+	util2.PanicOnError(err)
+
+	if GetDataVolumeTTLSeconds(virtCli) == nil {
+		Eventually(ThisDVWith(namespace, name), timeout, time.Second).Should(matcher)
+		return
+	}
+
+	By(VerifyingGC)
+	Eventually(ThisDVWith(namespace, name), timeout, time.Second).Should(Or(BeNil(), matcher))
+
+	dv, err := ThisDVWith(namespace, name)()
+	Expect(err).To(BeNil())
+	if dv != nil && dv.Status.Phase != cdiv1.Succeeded {
+		return
+	}
+
+	Eventually(ThisPVCWith(namespace, name), timeoutSec).Should(Exist())
+
+	if dv != nil && dv.Annotations["cdi.kubevirt.io/storage.deleteAfterCompletion"] == "true" {
+		Eventually(ThisDV(dv), timeoutSec).Should(BeNil())
+	}
+}
+
+func GetDataVolumeTTLSeconds(virtCli kubecli.KubevirtClient) *int32 {
+	config, err := virtCli.CdiClient().CdiV1beta1().CDIConfigs().Get(context.TODO(), "config", metav1.GetOptions{})
+	Expect(err).To(BeNil())
+	return config.Spec.DataVolumeTTLSeconds
+}
+
 func RunVMI(vmi *v1.VirtualMachineInstance, timeout int) *v1.VirtualMachineInstance {
 	By(StartingVMInstance)
 	virtCli, err := kubecli.GetKubevirtClient()
@@ -283,7 +345,7 @@ func RunVMIAndExpectLaunch(vmi *v1.VirtualMachineInstance, timeout int) *v1.Virt
 func RunVMIAndExpectLaunchWithDataVolume(vmi *v1.VirtualMachineInstance, dv *cdiv1.DataVolume, timeout int) *v1.VirtualMachineInstance {
 	obj := RunVMI(vmi, timeout)
 	By("Waiting until the DataVolume is ready")
-	Eventually(ThisDV(dv), timeout).Should(HaveSucceeded())
+	EventuallyDV(dv, timeout, HaveSucceeded())
 	By(WaitingVMInstanceStart)
 	ctx, cancel := context.WithCancel(context.Background())
 	defer cancel()
@@ -455,7 +517,8 @@ func NewRandomVirtualMachineInstanceWithDisk(imageUrl, namespace, sc string, acc
 	dv := libstorage.NewRandomDataVolumeWithRegistryImportInStorageClass(imageUrl, namespace, sc, accessMode, volMode)
 	_, err = virtCli.CdiClient().CdiV1beta1().DataVolumes(dv.Namespace).Create(context.Background(), dv, metav1.CreateOptions{})
 	Expect(err).ToNot(HaveOccurred())
-	Eventually(ThisDV(dv), 240).Should(Or(HaveSucceeded(), BeInPhase(cdiv1.WaitForFirstConsumer)))
+	EventuallyDV(dv, 240, Or(HaveSucceeded(), BeInPhase(cdiv1.WaitForFirstConsumer)))
+	//FIXME
 	return NewRandomVMIWithDataVolume(dv.Name), dv
 }
 

@@ -882,8 +882,10 @@ var _ = SIGDescribe("VirtualMachineSnapshot Tests", func() {
 				for _, dvt := range vm.Spec.DataVolumeTemplates {
 					Eventually(func() bool {
 						dv, err := virtClient.CdiClient().CdiV1beta1().DataVolumes(vm.Namespace).Get(context.Background(), dvt.Name, metav1.GetOptions{})
-						if errors.IsNotFound(err) {
-							return false
+						//FIXME: nicify
+						if errors.IsNotFound(err) && tests.GetDataVolumeTTLSeconds(virtClient) != nil {
+							pvc, err := virtClient.CoreV1().PersistentVolumeClaims(vm.Namespace).Get(context.Background(), dvt.Name, metav1.GetOptions{})
+							return err == nil && pvc.Spec.VolumeName != ""
 						}
 						Expect(err).ToNot(HaveOccurred())
 						Expect(dv.Status.Phase).ShouldNot(Equal(cdiv1.Failed))
@@ -1193,10 +1195,7 @@ var _ = SIGDescribe("VirtualMachineSnapshot Tests", func() {
 			var dv *cdiv1.DataVolume
 
 			AfterEach(func() {
-				if dv != nil {
-					err := virtClient.CdiClient().CdiV1beta1().DataVolumes(dv.Namespace).Delete(context.TODO(), dv.Name, metav1.DeleteOptions{})
-					Expect(err).ToNot(HaveOccurred())
-				}
+				tests.DeleteDataVolume(dv)
 			})
 
 			DescribeTable("should accurately report DataVolume provisioning", func(vmif func(string) *v1.VirtualMachineInstance) {
@@ -1299,12 +1298,13 @@ func AddVolumeAndVerify(virtClient kubecli.KubevirtClient, storageClass string, 
 	dv := libstorage.NewRandomBlankDataVolume(vm.Namespace, storageClass, "64Mi", corev1.ReadWriteOnce, corev1.PersistentVolumeFilesystem)
 	_, err := virtClient.CdiClient().CdiV1beta1().DataVolumes(dv.Namespace).Create(context.Background(), dv, metav1.CreateOptions{})
 	Expect(err).To(BeNil())
-	Eventually(ThisDV(dv), 240).Should(HaveSucceeded())
+	tests.EventuallyDV(dv, 240, HaveSucceeded())
 	volumeSource := &v1.HotplugVolumeSource{
 		DataVolume: &v1.DataVolumeSource{
 			Name: dv.Name,
 		},
 	}
+
 	addVolumeName := "test-volume-" + rand.String(12)
 	addVolumeOptions := &v1.AddVolumeOptions{
 		Name: addVolumeName,

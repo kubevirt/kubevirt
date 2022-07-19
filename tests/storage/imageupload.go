@@ -79,6 +79,11 @@ var _ = SIGDescribe("[Serial]ImageUpload", func() {
 	})
 
 	validateDataVolume := func(targetName string, _ string) {
+		if tests.GetDataVolumeTTLSeconds(virtClient) != nil {
+			_, err := virtClient.CoreV1().PersistentVolumeClaims(util.NamespaceTestDefault).Get(context.Background(), targetName, metav1.GetOptions{})
+			Expect(err).ToNot(HaveOccurred())
+			return
+		}
 		By(getDataVolume)
 		_, err := virtClient.CdiClient().CdiV1beta1().DataVolumes(util.NamespaceTestDefault).Get(context.Background(), targetName, metav1.GetOptions{})
 		Expect(err).ToNot(HaveOccurred())
@@ -117,6 +122,7 @@ var _ = SIGDescribe("[Serial]ImageUpload", func() {
 	deleteDataVolume := func(targetName string) {
 		err := virtClient.CdiClient().CdiV1beta1().DataVolumes(util.NamespaceTestDefault).Delete(context.Background(), targetName, metav1.DeleteOptions{})
 		if errors.IsNotFound(err) {
+			deletePVC(targetName)
 			return
 		}
 		Expect(err).ToNot(HaveOccurred())
@@ -189,6 +195,9 @@ var _ = SIGDescribe("[Serial]ImageUpload", func() {
 	})
 
 	validateDataVolumeForceBind := func(targetName string) {
+		if tests.GetDataVolumeTTLSeconds(virtClient) != nil {
+			return
+		}
 		By(getDataVolume)
 		dv, err := virtClient.CdiClient().CdiV1beta1().DataVolumes(util.NamespaceTestDefault).Get(context.Background(), targetName, metav1.GetOptions{})
 		Expect(err).ToNot(HaveOccurred())
@@ -250,11 +259,13 @@ var _ = SIGDescribe("[Serial]ImageUpload", func() {
 
 		validateArchiveUpload := func(targetName string, uploadDV bool) {
 			if uploadDV {
-				By(getDataVolume)
-				dv, err := virtClient.CdiClient().CdiV1beta1().DataVolumes(util.NamespaceTestDefault).Get(context.Background(), targetName, metav1.GetOptions{})
-				Expect(err).ToNot(HaveOccurred())
+				if tests.GetDataVolumeTTLSeconds(virtClient) == nil {
+					By(getDataVolume)
+					dv, err := virtClient.CdiClient().CdiV1beta1().DataVolumes(util.NamespaceTestDefault).Get(context.Background(), targetName, metav1.GetOptions{})
+					Expect(err).ToNot(HaveOccurred())
 
-				Expect(dv.Spec.ContentType).To(Equal(cdiv1.DataVolumeArchive))
+					Expect(dv.Spec.ContentType).To(Equal(cdiv1.DataVolumeArchive))
+				}
 			} else {
 				By("Validate no DataVolume")
 				_, err := virtClient.CdiClient().CdiV1beta1().DataVolumes(util.NamespaceTestDefault).Get(context.Background(), targetName, metav1.GetOptions{})

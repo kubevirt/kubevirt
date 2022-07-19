@@ -472,8 +472,7 @@ var _ = SIGDescribe("Storage", func() {
 				dataVolume = libstorage.NewRandomDataVolumeWithRegistryImport(cd.DataVolumeImportUrlForContainerDisk(cd.ContainerDiskAlpine), util.NamespaceTestDefault, k8sv1.ReadWriteOnce)
 			})
 			AfterEach(func() {
-				err = virtClient.CdiClient().CdiV1beta1().DataVolumes(dataVolume.Namespace).Delete(context.Background(), dataVolume.Name, metav1.DeleteOptions{})
-				Expect(err).ToNot(HaveOccurred())
+				tests.DeleteDataVolume(dataVolume)
 			})
 
 			It("should be successfully started and virtiofs could be accessed", func() {
@@ -1049,12 +1048,11 @@ var _ = SIGDescribe("Storage", func() {
 				_, err := virtClient.CdiClient().CdiV1beta1().DataVolumes(dataVolume.Namespace).Create(context.Background(), dataVolume, metav1.CreateOptions{})
 				Expect(err).ToNot(HaveOccurred())
 
-				Eventually(ThisDV(dataVolume), 240).Should(Or(HaveSucceeded(), BeInPhase(cdiv1.WaitForFirstConsumer)))
+				tests.EventuallyDV(dataVolume, 240, Or(HaveSucceeded(), BeInPhase(cdiv1.WaitForFirstConsumer)))
 			})
 
 			AfterEach(func() {
-				err = virtClient.CdiClient().CdiV1beta1().DataVolumes(dataVolume.Namespace).Delete(context.Background(), dataVolume.Name, metav1.DeleteOptions{})
-				Expect(err).ToNot(HaveOccurred())
+				tests.DeleteDataVolume(dataVolume)
 			})
 
 			// Not a candidate for NFS because local volumes are used in test
@@ -1196,13 +1194,12 @@ var _ = SIGDescribe("Storage", func() {
 				_, err := virtClient.CdiClient().CdiV1beta1().DataVolumes(dataVolume.Namespace).Create(context.Background(), dataVolume, metav1.CreateOptions{})
 				Expect(err).ToNot(HaveOccurred())
 
-				Eventually(ThisDV(dataVolume), 240).Should(Or(HaveSucceeded(), BeInPhase(cdiv1.WaitForFirstConsumer)))
+				tests.EventuallyDV(dataVolume, 240, Or(HaveSucceeded(), BeInPhase(cdiv1.WaitForFirstConsumer)))
 				vmi = nil
 			})
 
 			AfterEach(func() {
-				err = virtClient.CdiClient().CdiV1beta1().DataVolumes(dataVolume.Namespace).Delete(context.Background(), dataVolume.Name, metav1.DeleteOptions{})
-				Expect(err).ToNot(HaveOccurred())
+				tests.DeleteDataVolume(dataVolume)
 			})
 
 			It("should generate the block backingstore disk within the domain", func() {

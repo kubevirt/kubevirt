@@ -29,6 +29,7 @@ import (
 	"kubevirt.io/kubevirt/tests"
 	"kubevirt.io/kubevirt/tests/console"
 	cd "kubevirt.io/kubevirt/tests/containerdisk"
+	. "kubevirt.io/kubevirt/tests/framework/matcher"
 	"kubevirt.io/kubevirt/tests/libstorage"
 	"kubevirt.io/kubevirt/tests/libvmi"
 	"kubevirt.io/kubevirt/tests/testsuite"
@@ -154,12 +155,7 @@ var _ = SIGDescribe("VirtualMachineRestore Tests", func() {
 	}
 
 	waitDVReady := func(dv *cdiv1.DataVolume) *cdiv1.DataVolume {
-		Eventually(func() bool {
-			var err error
-			dv, err = virtClient.CdiClient().CdiV1beta1().DataVolumes(dv.Namespace).Get(context.Background(), dv.Name, metav1.GetOptions{})
-			Expect(err).ToNot(HaveOccurred())
-			return dv.Status.Phase == cdiv1.Succeeded
-		}, 180*time.Second, time.Second).Should(BeTrue())
+		tests.EventuallyDV(dv, 180, HaveSucceeded())
 		return dv
 	}
 
@@ -950,9 +946,10 @@ var _ = SIGDescribe("VirtualMachineRestore Tests", func() {
 				}
 				Expect(restore.Status.DeletedDataVolumes).To(BeEmpty())
 
-				_, err = virtClient.CdiClient().CdiV1beta1().DataVolumes(vm.Namespace).Get(context.Background(), dv.Name, metav1.GetOptions{})
-				Expect(err).ToNot(HaveOccurred())
-
+				if tests.GetDataVolumeTTLSeconds(virtClient) == nil {
+					_, err = virtClient.CdiClient().CdiV1beta1().DataVolumes(vm.Namespace).Get(context.Background(), dv.Name, metav1.GetOptions{})
+					Expect(err).ToNot(HaveOccurred())
+				}
 				_, err = virtClient.CoreV1().PersistentVolumeClaims(vm.Namespace).Get(context.Background(), originalPVCName, metav1.GetOptions{})
 				Expect(err).ToNot(HaveOccurred())
 
@@ -1535,10 +1532,7 @@ var _ = SIGDescribe("VirtualMachineRestore Tests", func() {
 				})
 
 				AfterEach(func() {
-					if sourceDV != nil {
-						err := virtClient.CdiClient().CdiV1beta1().DataVolumes(sourceDV.Namespace).Delete(context.TODO(), sourceDV.Name, metav1.DeleteOptions{})
-						Expect(err).ToNot(HaveOccurred())
-					}
+					tests.DeleteDataVolume(sourceDV)
 
 					if cloneRole != nil {
 						err := virtClient.RbacV1().Roles(cloneRole.Namespace).Delete(context.TODO(), cloneRole.Name, metav1.DeleteOptions{})
@@ -1600,11 +1594,8 @@ var _ = SIGDescribe("VirtualMachineRestore Tests", func() {
 
 					dv, err = virtClient.CdiClient().CdiV1beta1().DataVolumes(vm.Namespace).Create(context.Background(), dv, metav1.CreateOptions{})
 					Expect(err).ToNot(HaveOccurred())
-					defer func() {
-						err := virtClient.CdiClient().CdiV1beta1().DataVolumes(dv.Namespace).Delete(context.TODO(), dv.Name, metav1.DeleteOptions{})
-						Expect(err).ToNot(HaveOccurred())
-					}()
-					dv = waitDVReady(dv)
+					defer tests.DeleteDataVolume(dv)
+					waitDVReady(dv)
 
 					vm, vmi = createAndStartVM(vm)
 
