@@ -100,7 +100,7 @@ func writeToCachedFile(fs cacheFS, obj interface{}, fileName string) error {
 	if err != nil {
 		return fmt.Errorf("error writing cached object: %v", err)
 	}
-	return dutils.DefaultOwnershipManager.SetFileOwnership(fileName)
+	return dutils.DefaultOwnershipManager.UnsafeSetFileOwnership(fileName)
 }
 
 func readFromCachedFile(fs cacheFS, obj interface{}, fileName string) error {
