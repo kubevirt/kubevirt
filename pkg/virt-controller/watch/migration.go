@@ -1116,7 +1116,7 @@ func (c *MigrationController) sync(key string, migration *virtv1.VirtualMachineI
 				if vmi.Annotations == nil {
 					patches = append(patches, fmt.Sprintf(`{ "op": "add", "path": "/metadata/annotations", "value":  { "%s": "true"} }`, virtv1.DeprecatedNonRootVMIAnnotation))
 				} else if _, ok := vmi.Annotations[virtv1.DeprecatedNonRootVMIAnnotation]; !ok {
-					patches = append(patches, fmt.Sprintf(`{ "op": "add", "path": "/metadata/annotations/%s", "value": "true"}`, controller.EscapeJSONPointer(virtv1.DeprecatedNonRootVMIAnnotation)))
+					patches = append(patches, fmt.Sprintf(`{ "op": "add", "path": "/metadata/annotations/%s", "value": "true"}`, kubevirttypes.EscapeJSONPointer(virtv1.DeprecatedNonRootVMIAnnotation)))
 				}
 			} else {
 				// The cluster is configured for root VMs, ensure the VMI is root.
@@ -1127,7 +1127,7 @@ func (c *MigrationController) sync(key string, migration *virtv1.VirtualMachineI
 
 				if vmi.Annotations != nil {
 					if _, ok := vmi.Annotations[virtv1.DeprecatedNonRootVMIAnnotation]; ok {
-						patches = append(patches, fmt.Sprintf(`{ "op": "remove", "path": "/metadata/annotations/%s"}`, controller.EscapeJSONPointer(virtv1.DeprecatedNonRootVMIAnnotation)))
+						patches = append(patches, fmt.Sprintf(`{ "op": "remove", "path": "/metadata/annotations/%s"}`, kubevirttypes.EscapeJSONPointer(virtv1.DeprecatedNonRootVMIAnnotation)))
 					}
 				}
 			}

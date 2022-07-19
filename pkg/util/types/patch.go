@@ -22,6 +22,7 @@ package types
 import (
 	"encoding/json"
 	"fmt"
+	"strings"
 )
 
 type PatchOperation struct {
@@ -69,4 +70,9 @@ func UnmarshalPatch(patch []byte) ([]PatchOperation, error) {
 	err := json.Unmarshal(patch, &p)
 
 	return p, err
+}
+
+func EscapeJSONPointer(ptr string) string {
+	s := strings.ReplaceAll(ptr, "~", "~0")
+	return strings.ReplaceAll(s, "/", "~1")
 }

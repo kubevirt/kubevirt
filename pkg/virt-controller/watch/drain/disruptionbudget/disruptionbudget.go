@@ -23,6 +23,7 @@ import (
 	"kubevirt.io/kubevirt/pkg/controller"
 	"kubevirt.io/kubevirt/pkg/util/migrations"
 	"kubevirt.io/kubevirt/pkg/util/pdbs"
+	kubevirttypes "kubevirt.io/kubevirt/pkg/util/types"
 	virtconfig "kubevirt.io/kubevirt/pkg/virt-config"
 )
 
@@ -451,7 +452,7 @@ func (c *DisruptionBudgetController) deletePDB(key string, pdb *policyv1.PodDisr
 func (c *DisruptionBudgetController) shrinkPDB(vmi *virtv1.VirtualMachineInstance, pdb *policyv1.PodDisruptionBudget) error {
 	if pdb != nil && pdb.DeletionTimestamp == nil && pdb.Spec.MinAvailable.IntValue() != 1 {
 		patch := []byte(fmt.Sprintf(`[{ "op": "replace", "path": "/spec/minAvailable", "value": 1 }, { "op": "remove", "path": "/metadata/labels/%s" }]`,
-			controller.EscapeJSONPointer(virtv1.MigrationNameLabel)))
+			kubevirttypes.EscapeJSONPointer(virtv1.MigrationNameLabel)))
 
 		_, err := c.clientset.PolicyV1().PodDisruptionBudgets(pdb.Namespace).Patch(context.Background(), pdb.Name, types.JSONPatchType, patch, v1.PatchOptions{})
 		if err != nil {
