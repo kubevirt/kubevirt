@@ -52,6 +52,10 @@ type rateLimiterStub struct {
 	block bool
 }
 
+func (r *rateLimiterStub) IsTimeout() bool {
+	return false
+}
+
 func (r *rateLimiterStub) Ready() bool {
 	return !r.block
 }

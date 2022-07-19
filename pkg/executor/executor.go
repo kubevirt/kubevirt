@@ -22,6 +22,7 @@ package executor
 type rateLimiter interface {
 	Step()
 	Ready() bool
+	IsTimeout() bool
 }
 
 // RateLimitedExecutor provides self-contained entity that enables rate-limiting a given func
@@ -45,4 +46,8 @@ func (c *RateLimitedExecutor) Exec(command func() error) error {
 	defer c.rateLimiter.Step()
 
 	return command()
+}
+
+func (c *RateLimitedExecutor) IsTimeout() bool {
+	return c.rateLimiter.IsTimeout()
 }

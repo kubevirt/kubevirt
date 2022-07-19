@@ -37,6 +37,12 @@ type LimitedBackoff struct {
 	stepEnd     time.Time
 }
 
+// IsTimeout return true when the current backoff limit reached.
+func (l *LimitedBackoff) IsTimeout() bool {
+	now := l.clock.Now()
+	return now.After(l.maxStepTime)
+}
+
 // Ready return true when the current backoff end-time passed and limit is not reached.
 func (l *LimitedBackoff) Ready() bool {
 	now := l.clock.Now()

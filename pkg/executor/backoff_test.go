@@ -47,12 +47,15 @@ var _ = Describe("exponential limited backoff", func() {
 
 	It("should be ready before first step", func() {
 		Expect(backoff.Ready()).To(BeTrue())
+		Expect(backoff.IsTimeout()).To(BeFalse())
 	})
 
 	It("should not be ready before step end time", func() {
 		Expect(backoff.Ready()).To(BeTrue())
+		Expect(backoff.IsTimeout()).To(BeFalse())
 		backoff.Step()
 		Expect(backoff.Ready()).To(BeFalse())
+		Expect(backoff.IsTimeout()).To(BeFalse())
 	})
 
 	It("should be ready after step end time passed", func() {
@@ -60,27 +63,35 @@ var _ = Describe("exponential limited backoff", func() {
 		secondStepDuration := time.Duration(float64(firstStepDuration)*factor) + time.Nanosecond
 
 		Expect(backoff.Ready()).To(BeTrue())
+		Expect(backoff.IsTimeout()).To(BeFalse())
 		backoff.Step()
 
 		Expect(backoff.Ready()).To(BeFalse())
+		Expect(backoff.IsTimeout()).To(BeFalse())
 		testsClock.Step(firstStepDuration)
 
 		Expect(backoff.Ready()).To(BeTrue())
+		Expect(backoff.IsTimeout()).To(BeFalse())
 		backoff.Step()
 
 		Expect(backoff.Ready()).To(BeFalse())
+		Expect(backoff.IsTimeout()).To(BeFalse())
 		testsClock.Step(secondStepDuration)
 
 		Expect(backoff.Ready()).To(BeTrue())
+		Expect(backoff.IsTimeout()).To(BeFalse())
 	})
 
 	It("should not be ready after max time is passed", func() {
 		testsClock.Step(limit + time.Nanosecond)
 
 		Expect(backoff.Ready()).To(BeFalse())
+		Expect(backoff.IsTimeout()).To(BeTrue())
 		backoff.Step()
 		Expect(backoff.Ready()).To(BeFalse())
+		Expect(backoff.IsTimeout()).To(BeTrue())
 		backoff.Step()
 		Expect(backoff.Ready()).To(BeFalse())
+		Expect(backoff.IsTimeout()).To(BeTrue())
 	})
 })
