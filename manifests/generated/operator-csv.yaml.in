@@ -1191,7 +1191,7 @@ spec:
                 resources:
                   requests:
                     cpu: 10m
-                    memory: 150Mi
+                    memory: 250Mi
                 volumeMounts:
                 - mountPath: /etc/virt-operator/certificates
                   name: kubevirt-operator-certs
