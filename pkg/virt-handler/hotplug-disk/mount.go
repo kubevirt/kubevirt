@@ -509,9 +509,14 @@ func (m *volumeMounter) mountFileSystemHotplugVolume(vmi *v1.VirtualMachineInsta
 		if err != nil {
 			return err
 		}
-		if out, err := mountCommand(filepath.Join(sourcePath, "disk.img"), targetDisk); err != nil {
-			return fmt.Errorf("failed to bindmount hotplug-disk %v: %v : %v", volume, string(out), err)
+		sourcePath, err = sourcePath.AppendAndResolveWithRelativeRoot("disk.img")
+		if err != nil {
+			return err
 		}
+		if out, err := mountCommand(sourcePath, targetDisk); err != nil {
+			return fmt.Errorf("failed to bindmount hotplug-disk %v to %v: %v : %v", sourcePath, targetDisk, string(out), err)
+		}
+		log.DefaultLogger().V(1).Infof("successfully mounted %v", volume)
 	}
 	return m.ownershipManager.SetFileOwnership(targetDisk)
 }
