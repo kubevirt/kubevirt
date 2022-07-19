@@ -445,12 +445,8 @@ func (ctrl *VMExportController) handleIsVmSnapshot(vmExport *exportv1.VirtualMac
 func (ctrl *VMExportController) handlePodSucceededOrFailed(vmExport *exportv1.VirtualMachineExport, pod *corev1.Pod) error {
 	if pod.Status.Phase == corev1.PodSucceeded || pod.Status.Phase == corev1.PodFailed {
 		// The server died or completed, delete the pod.
-		ctrl.Recorder.Eventf(vmExport, corev1.EventTypeWarning, exporterPodFailedOrCompletedEvent, "Exporter pod %s/%s succeeded or failed", pod.Namespace, pod.Name)
-		if err := ctrl.Client.CoreV1().Pods(vmExport.Namespace).Delete(context.Background(), pod.Name, metav1.DeleteOptions{}); err != nil {
-			return err
-		} else {
-			return nil
-		}
+		ctrl.Recorder.Eventf(vmExport, corev1.EventTypeWarning, exporterPodFailedOrCompletedEvent, "Exporter pod %s/%s is in phase %s", pod.Namespace, pod.Name, &pod.Status.Phase)
+		return ctrl.Client.CoreV1().Pods(vmExport.Namespace).Delete(context.Background(), pod.Name, metav1.DeleteOptions{})
 	}
 	return nil
 }
@@ -1199,11 +1195,11 @@ func buildPemFromCert(cert *x509.Certificate) string {
 }
 
 func (ctrl *VMExportController) matchesOrWildCard(hostName, compare string) bool {
-	wildCard := fmt.Sprintf("*.%s", getDomainFromHost(hostName, ctrl.KubevirtNamespace))
+	wildCard := fmt.Sprintf("*.%s", getDomainFromHost(hostName))
 	return hostName == compare || wildCard == compare
 }
 
-func getDomainFromHost(host, namespace string) string {
+func getDomainFromHost(host string) string {
 	if index := strings.Index(host, "."); index != -1 {
 		return host[index+1:]
 	}

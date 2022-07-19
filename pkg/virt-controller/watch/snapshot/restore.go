@@ -732,16 +732,22 @@ func (ctrl *VMRestoreController) createRestorePVC(
 	volumeRestore *snapshotv1.VolumeRestore,
 	sourceVmName, sourceVmNamespace string,
 ) error {
-	if volumeBackup.VolumeSnapshotName == nil {
+	if volumeBackup == nil || volumeBackup.VolumeSnapshotName == nil {
 		log.Log.Errorf("VolumeSnapshot name missing %+v", volumeBackup)
 		return fmt.Errorf("missing VolumeSnapshot name")
 	}
 
+	if vmRestore == nil {
+		return fmt.Errorf("missing vmRestore")
+	}
 	volumeSnapshot, err := ctrl.VolumeSnapshotProvider.GetVolumeSnapshot(vmRestore.Namespace, *volumeBackup.VolumeSnapshotName)
 	if err != nil {
 		return err
 	}
 
+	if volumeRestore == nil {
+		return fmt.Errorf("missing volumeRestore")
+	}
 	pvc := CreateRestorePVCDef(vmRestore.Name, volumeRestore.PersistentVolumeClaimName, volumeSnapshot, volumeBackup, sourceVmName, sourceVmNamespace)
 	target.Own(pvc)
 
@@ -754,6 +760,10 @@ func (ctrl *VMRestoreController) createRestorePVC(
 }
 
 func CreateRestorePVCDef(vmRestoreName, restorePVCName string, volumeSnapshot *vsv1.VolumeSnapshot, volumeBackup *snapshotv1.VolumeBackup, sourceVmName, sourceVmNamespace string) *corev1.PersistentVolumeClaim {
+	if volumeBackup == nil || volumeBackup.VolumeSnapshotName == nil {
+		log.Log.Errorf("VolumeSnapshot name missing %+v", volumeBackup)
+		return nil
+	}
 	sourcePVC := volumeBackup.PersistentVolumeClaim.DeepCopy()
 	pvc := &corev1.PersistentVolumeClaim{
 		ObjectMeta: metav1.ObjectMeta{
@@ -764,11 +774,10 @@ func CreateRestorePVCDef(vmRestoreName, restorePVCName string, volumeSnapshot *v
 		Spec: sourcePVC.Spec,
 	}
 
-	if volumeBackup.VolumeSnapshotName == nil {
-		log.Log.Errorf("VolumeSnapshot name missing %+v", volumeBackup)
+	if volumeSnapshot == nil {
+		log.Log.Errorf("VolumeSnapshot missing %+v", volumeSnapshot)
 		return nil
 	}
-
 	if volumeSnapshot.Status != nil && volumeSnapshot.Status.RestoreSize != nil {
 		restorePVCSize, ok := pvc.Spec.Resources.Requests[corev1.ResourceStorage]
 		// Update restore pvc size to be the maximum between the source PVC and the restore size
