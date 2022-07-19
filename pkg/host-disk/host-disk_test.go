@@ -36,6 +36,8 @@ import (
 	"k8s.io/client-go/kubernetes/fake"
 	"k8s.io/client-go/tools/record"
 
+	"kubevirt.io/kubevirt/pkg/safepath"
+
 	"kubevirt.io/client-go/api"
 
 	v1 "kubevirt.io/api/core/v1"
@@ -99,8 +101,11 @@ var _ = Describe("HostDisk", func() {
 		recorder = record.NewFakeRecorder(100)
 		recorder.IncludeObject = true
 
-		hostDiskCreator = NewHostDiskCreator(recorder, 0, 0, "")
-		hostDiskCreatorWithReserve = NewHostDiskCreator(recorder, 10, 1048576, "")
+		root, err := safepath.JoinAndResolveWithRelativeRoot("/")
+		Expect(err).NotTo(HaveOccurred())
+
+		hostDiskCreator = NewHostDiskCreator(recorder, 0, 0, root)
+		hostDiskCreatorWithReserve = NewHostDiskCreator(recorder, 10, 1048576, root)
 
 	})
 
