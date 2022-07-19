@@ -394,3 +394,7 @@ func (c *ClusterConfig) GetDeveloperConfigurationUseEmulation() bool {
 
 	return false
 }
+
+func (c *ClusterConfig) GetVMStateStorageClass() string {
+	return c.GetConfig().VMStateStorageClass
+}

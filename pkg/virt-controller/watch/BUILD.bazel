@@ -18,6 +18,7 @@ go_library(
     visibility = ["//visibility:public"],
     deps = [
         "//pkg/apimachinery/patch:go_default_library",
+        "//pkg/backend-storage:go_default_library",
         "//pkg/certificates/bootstrap:go_default_library",
         "//pkg/container-disk:go_default_library",
         "//pkg/controller:go_default_library",
