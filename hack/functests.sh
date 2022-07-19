@@ -23,6 +23,7 @@ DOCKER_TAG=${DOCKER_TAG:-devel}
 DOCKER_TAG_ALT=${DOCKER_TAG_ALT:-devel_alt}
 KUBEVIRT_E2E_PARALLEL_NODES=${KUBEVIRT_E2E_PARALLEL_NODES:-3}
 KUBEVIRT_FUNC_TEST_GINKGO_ARGS=${FUNC_TEST_ARGS:-${KUBEVIRT_FUNC_TEST_GINKGO_ARGS}}
+KUBEVIRT_FUNC_TEST_LABEL_FILTER=${FUNC_TEST_LABEL_FILTER:-${KUBEVIRT_FUNC_TEST_LABEL_FILTER}}
 
 source hack/common.sh
 source hack/config.sh
@@ -87,14 +88,14 @@ if [ "$KUBEVIRT_E2E_PARALLEL" == "true" ]; then
 
     return_value=0
     set +e
-    functest --nodes=${KUBEVIRT_E2E_PARALLEL_NODES} ${parallel_test_args} ${KUBEVIRT_FUNC_TEST_GINKGO_ARGS}
+    functest --nodes=${KUBEVIRT_E2E_PARALLEL_NODES} ${parallel_test_args} ${KUBEVIRT_FUNC_TEST_GINKGO_ARGS} "${KUBEVIRT_FUNC_TEST_LABEL_FILTER}"
     return_value="$?"
     set -e
     if [ "$return_value" -ne 0 ] && ! [ "$KUBEVIRT_E2E_RUN_ALL_SUITES" == "true" ]; then
         exit "$return_value"
     fi
     KUBEVIRT_FUNC_TEST_SUITE_ARGS="-junit-output ${ARTIFACTS}/partial.junit.functest.xml ${KUBEVIRT_FUNC_TEST_SUITE_ARGS}"
-    functest ${serial_test_args} ${KUBEVIRT_FUNC_TEST_GINKGO_ARGS}
+    functest ${serial_test_args} ${KUBEVIRT_FUNC_TEST_GINKGO_ARGS} "${KUBEVIRT_FUNC_TEST_LABEL_FILTER}"
     exit "$return_value"
 else
     additional_test_args=""
@@ -106,5 +107,5 @@ else
         additional_test_args="${additional_test_args} --focus=${KUBEVIRT_E2E_FOCUS}"
     fi
 
-    functest ${additional_test_args} ${KUBEVIRT_FUNC_TEST_GINKGO_ARGS}
+    functest ${additional_test_args} ${KUBEVIRT_FUNC_TEST_GINKGO_ARGS} "${KUBEVIRT_FUNC_TEST_LABEL_FILTER}"
 fi
