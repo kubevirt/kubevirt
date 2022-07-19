@@ -34,6 +34,7 @@ import (
 	"k8s.io/apimachinery/pkg/types"
 
 	v1 "kubevirt.io/client-go/api/v1"
+	"kubevirt.io/kubevirt/pkg/unsafepath"
 )
 
 var _ = Describe("ContainerDisk", func() {
@@ -97,28 +98,26 @@ var _ = Describe("ContainerDisk", func() {
 				}
 
 				// should not be found if dir doesn't exist
-				path, found, err := GetVolumeMountDirOnHost(vmi)
-				Expect(err).ToNot(HaveOccurred())
-				Expect(found).To(BeFalse())
-				Expect(path).To(Equal(""))
+				path, err := GetVolumeMountDirOnHost(vmi)
+				Expect(err).To(HaveOccurred())
+				Expect(os.IsNotExist(err)).To(BeTrue())
 
 				// should be found if dir does exist
 				expectedPath := fmt.Sprintf("%s/1234/volumes/kubernetes.io~empty-dir/container-disks", tmpDir)
 				os.MkdirAll(expectedPath, 0755)
-				path, found, err = GetVolumeMountDirOnHost(vmi)
+				path, err = GetVolumeMountDirOnHost(vmi)
 				Expect(err).ToNot(HaveOccurred())
-				Expect(found).To(BeTrue())
-				Expect(path).To(Equal(expectedPath))
+				Expect(unsafepath.UnsafeAbsolute(path.Raw())).To(Equal(expectedPath))
 
 				// should be able to generate legacy socket path dir
 				legacySocket := GetLegacyVolumeMountDirOnHost(vmi)
 				Expect(legacySocket).To(Equal(filepath.Join(tmpDir, "6789")))
 
-				// should return error if disk target doesn't exist
-				targetPath, err := GetDiskTargetPathFromHostView(vmi, 1)
-				expectedPath = fmt.Sprintf("%s/1234/volumes/kubernetes.io~empty-dir/container-disks/disk_1.img", tmpDir)
+				// should return error if disk target dir doesn't exist
+				targetPath, err := GetDiskTargetDirFromHostView(vmi)
+				expectedPath = fmt.Sprintf("%s/1234/volumes/kubernetes.io~empty-dir/container-disks", tmpDir)
 				Expect(err).ToNot(HaveOccurred())
-				Expect(targetPath).To(Equal(expectedPath))
+				Expect(unsafepath.UnsafeAbsolute(targetPath.Raw())).To(Equal(expectedPath))
 
 			})
 
@@ -133,18 +132,15 @@ var _ = Describe("ContainerDisk", func() {
 				// should not return error if only one dir exists
 				expectedPath := fmt.Sprintf("%s/1234/volumes/kubernetes.io~empty-dir/container-disks", tmpDir)
 				os.MkdirAll(expectedPath, 0755)
-				path, found, err := GetVolumeMountDirOnHost(vmi)
+				path, err := GetVolumeMountDirOnHost(vmi)
 				Expect(err).ToNot(HaveOccurred())
-				Expect(found).To(BeTrue())
-				Expect(path).To(Equal(expectedPath))
+				Expect(unsafepath.UnsafeAbsolute(path.Raw())).To(Equal(expectedPath))
 
 				// return error if two dirs exist
 				secondPath := fmt.Sprintf("%s/5678/volumes/kubernetes.io~empty-dir/container-disks", tmpDir)
 				os.MkdirAll(secondPath, 0755)
-				path, found, err = GetVolumeMountDirOnHost(vmi)
+				path, err = GetVolumeMountDirOnHost(vmi)
 				Expect(err).To(HaveOccurred())
-				Expect(found).To(BeFalse())
-				Expect(path).To(Equal(""))
 			})
 
 			It("by verifying launcher directory locations", func() {
