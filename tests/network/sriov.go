@@ -30,6 +30,8 @@ import (
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
 
+	networkv1 "github.com/k8snetworkplumbingwg/network-attachment-definition-client/pkg/apis/k8s.cni.cncf.io/v1"
+
 	k8sv1 "k8s.io/api/core/v1"
 	k8smetav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/util/wait"
@@ -63,6 +65,8 @@ const (
 const (
 	sriovnet1           = "sriov"
 	sriovnet2           = "sriov2"
+	sriovnet3           = "sriov3"
+	sriovnet4           = "sriov4"
 	sriovnetLinkEnabled = "sriov-linked"
 )
 
@@ -520,6 +524,46 @@ var _ = Describe("[Serial]SRIOV", func() {
 			})
 		})
 
+		Context("Connected to multiple SRIOV networks", func() {
+			BeforeEach(func() {
+				Expect(createSriovNetworkAttachmentDefinition(sriovnet1, util.NamespaceTestDefault, sriovConfNAD)).To(Succeed(), shouldCreateNetwork)
+				Expect(createSriovNetworkAttachmentDefinition(sriovnet2, util.NamespaceTestDefault, sriovConfNAD)).To(Succeed(), shouldCreateNetwork)
+				Expect(createSriovNetworkAttachmentDefinition(sriovnet3, util.NamespaceTestDefault, sriovConfNAD)).To(Succeed(), shouldCreateNetwork)
+				Expect(createSriovNetworkAttachmentDefinition(sriovnet4, util.NamespaceTestDefault, sriovConfNAD)).To(Succeed(), shouldCreateNetwork)
+			})
+
+			It("should create a virtual machine with sriov interfaces with custom MAC addresses referring the appropriate resource", func() {
+				macAddressTemplate := "de:ad:00:be:ef:%02d"
+				pciAddressTemplate := "0000:%02d:00.0"
+				sriovNetworks := []string{sriovnet1, sriovnet2, sriovnet3, sriovnet4}
+				vmi := getSriovVmi(sriovNetworks, defaultCloudInitNetworkData())
+				for i := 1; i <= 4; i++ {
+					vmi.Spec.Domain.Devices.Interfaces[i].PciAddress = fmt.Sprintf(pciAddressTemplate, i)
+					vmi.Spec.Domain.Devices.Interfaces[i].MacAddress = fmt.Sprintf(macAddressTemplate, i)
+				}
+
+				vmi = startVmi(vmi)
+				vmi = waitVmi(vmi)
+
+				By("checking KUBEVIRT_RESOURCE_NAME_<networkName> variables are defined in pod")
+				for _, name := range sriovNetworks {
+					Expect(validatePodKubevirtResourceNameByVMI(virtClient, vmi, name, sriovResourceName)).To(Succeed())
+				}
+				By("checking network-status annotation exists on the vmi")
+				Expect(vmi.Annotations).To(HaveKey(networkv1.NetworkStatusAnnot))
+
+				checkDefaultInterfaceInPod(vmi)
+
+				By("checking virtual machine instance has three interfaces")
+				checkInterfacesInGuest(vmi, []string{"eth0", "eth1", "eth2", "eth3", "eth4"})
+
+				for _, iface := range vmi.Spec.Domain.Devices.Interfaces {
+					networkName := getInterfaceNetworkNameByMAC(vmi, iface.MacAddress)
+					Expect(pciAddressExistsInGuestInterface(vmi, iface.PciAddress, networkName)).To(Succeed())
+				}
+			})
+		})
+
 		Context("Connected to link-enabled SRIOV network", func() {
 			BeforeEach(func() {
 				Expect(createSriovNetworkAttachmentDefinition(sriovnetLinkEnabled, util.NamespaceTestDefault, sriovLinkEnableConfNAD)).
@@ -602,6 +646,11 @@ var _ = Describe("[Serial]SRIOV", func() {
 
 func pciAddressExistsInGuest(vmi *v1.VirtualMachineInstance, pciAddress string) error {
 	command := fmt.Sprintf("grep -q %s /sys/class/net/*/device/uevent\n", pciAddress)
+	return console.RunCommand(vmi, command, 15*time.Second)
+}
+
+func pciAddressExistsInGuestInterface(vmi *v1.VirtualMachineInstance, pciAddress, interfaceName string) error {
+	command := fmt.Sprintf("grep -q %s /sys/class/net/%s/device/uevent\n", pciAddress, interfaceName)
 	return console.RunCommand(vmi, command, 15*time.Second)
 }
 

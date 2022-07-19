@@ -36,3 +36,14 @@ func newSRIOVInterface(name string) v1.Interface {
 		InterfaceBindingMethod: v1.InterfaceBindingMethod{SRIOV: &v1.InterfaceSRIOV{}},
 	}
 }
+
+func newMultusNetwork(name, networkName string) v1.Network {
+	return v1.Network{
+		Name: name,
+		NetworkSource: v1.NetworkSource{
+			Multus: &v1.MultusNetwork{
+				NetworkName: networkName,
+			},
+		},
+	}
+}

@@ -32,3 +32,16 @@ func filterVMISRIOVInterfaces(vmi *v1.VirtualMachineInstance) []v1.Interface {
 	}
 	return interfaces
 }
+
+func filterMultusNonDefaultNetworks(vmi *v1.VirtualMachineInstance) []v1.Network {
+	var multusNetworks []v1.Network
+	for _, network := range vmi.Spec.Networks {
+		if network.Multus != nil {
+			if network.Multus.Default {
+				continue
+			}
+			multusNetworks = append(multusNetworks, network)
+		}
+	}
+	return multusNetworks
+}

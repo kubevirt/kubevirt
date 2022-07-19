@@ -33,7 +33,12 @@ import (
 
 func CreateHostDevices(vmi *v1.VirtualMachineInstance) ([]api.HostDevice, error) {
 	SRIOVInterfaces := filterVMISRIOVInterfaces(vmi)
-	return CreateHostDevicesFromIfacesAndPool(SRIOVInterfaces, NewPCIAddressPool(SRIOVInterfaces))
+	multusNonDefaultNetworks := filterMultusNonDefaultNetworks(vmi)
+	pciAddressPoolWithNetworkStatus, err := NewPCIAddressPoolWithNetworkStatus(SRIOVInterfaces, multusNonDefaultNetworks, vmi.Annotations)
+	if err != nil {
+		return CreateHostDevicesFromIfacesAndPool(SRIOVInterfaces, NewPCIAddressPool(SRIOVInterfaces))
+	}
+	return CreateHostDevicesFromIfacesAndPool(SRIOVInterfaces, pciAddressPoolWithNetworkStatus)
 }
 
 func CreateHostDevicesFromIfacesAndPool(ifaces []v1.Interface, pool hostdevice.AddressPooler) ([]api.HostDevice, error) {
