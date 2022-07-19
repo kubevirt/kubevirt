@@ -19,6 +19,7 @@ go_library(
         "vmi_lifecycle.go",
         "vmi_multus.go",
         "vmi_networking.go",
+        "vmi_passt.go",
         "vmi_slirp_interface.go",
         "vmi_subdomain.go",
     ],
