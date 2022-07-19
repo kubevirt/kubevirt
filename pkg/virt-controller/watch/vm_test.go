@@ -26,18 +26,18 @@ import (
 
 	v1 "kubevirt.io/api/core/v1"
 	virtv1 "kubevirt.io/api/core/v1"
-	flavorapi "kubevirt.io/api/flavor"
-	flavorv1alpha1 "kubevirt.io/api/flavor/v1alpha1"
+	instancetypeapi "kubevirt.io/api/instancetype"
+	instancetypev1alpha1 "kubevirt.io/api/instancetype/v1alpha1"
 	"kubevirt.io/client-go/api"
 	cdifake "kubevirt.io/client-go/generated/containerized-data-importer/clientset/versioned/fake"
 	"kubevirt.io/client-go/generated/kubevirt/clientset/versioned/fake"
 	fakeclientset "kubevirt.io/client-go/generated/kubevirt/clientset/versioned/fake"
-	"kubevirt.io/client-go/generated/kubevirt/clientset/versioned/typed/flavor/v1alpha1"
+	"kubevirt.io/client-go/generated/kubevirt/clientset/versioned/typed/instancetype/v1alpha1"
 	"kubevirt.io/client-go/kubecli"
 	cdiv1 "kubevirt.io/containerized-data-importer-api/pkg/apis/core/v1beta1"
 
 	virtcontroller "kubevirt.io/kubevirt/pkg/controller"
-	"kubevirt.io/kubevirt/pkg/flavor"
+	"kubevirt.io/kubevirt/pkg/instancetype"
 	"kubevirt.io/kubevirt/pkg/testutils"
 	virtconfig "kubevirt.io/kubevirt/pkg/virt-config"
 )
@@ -62,7 +62,7 @@ var _ = Describe("VirtualMachine", func() {
 		var dataVolumeSource *framework.FakeControllerSource
 		var pvcInformer cache.SharedIndexInformer
 		var crInformer cache.SharedIndexInformer
-		var flavorMethods *testutils.MockFlavorMethods
+		var instancetypeMethods *testutils.MockInstancetypeMethods
 		var stop chan struct{}
 		var controller *VMController
 		var recorder *record.FakeRecorder
@@ -106,7 +106,7 @@ var _ = Describe("VirtualMachine", func() {
 				},
 			})
 
-			flavorMethods = testutils.NewMockFlavorMethods()
+			instancetypeMethods = testutils.NewMockInstancetypeMethods()
 
 			recorder = record.NewFakeRecorder(100)
 			recorder.IncludeObject = true
@@ -118,7 +118,7 @@ var _ = Describe("VirtualMachine", func() {
 				dataVolumeInformer,
 				pvcInformer,
 				crInformer,
-				flavorMethods,
+				instancetypeMethods,
 				recorder,
 				virtClient,
 				config)
@@ -2775,91 +2775,91 @@ var _ = Describe("VirtualMachine", func() {
 			)
 		})
 
-		Context("Flavor and Preferences", func() {
+		Context("Instancetype and Preferences", func() {
 
 			const resourceUID types.UID = "9160e5de-2540-476a-86d9-af0081aee68a"
 			const resourceGeneration int64 = 1
 
 			var (
-				vm                          *virtv1.VirtualMachine
-				vmi                         *virtv1.VirtualMachineInstance
-				f                           *flavorv1alpha1.VirtualMachineFlavor
-				fs                          flavorv1alpha1.VirtualMachineFlavorSpec
-				cf                          *flavorv1alpha1.VirtualMachineClusterFlavor
-				p                           *flavorv1alpha1.VirtualMachinePreference
-				ps                          flavorv1alpha1.VirtualMachinePreferenceSpec
-				cp                          *flavorv1alpha1.VirtualMachineClusterPreference
-				fakeFlavorClients           v1alpha1.FlavorV1alpha1Interface
-				fakeFlavorClient            v1alpha1.VirtualMachineFlavorInterface
-				fakeClusterFlavorClient     v1alpha1.VirtualMachineClusterFlavorInterface
-				fakePreferenceClient        v1alpha1.VirtualMachinePreferenceInterface
-				fakeClusterPreferenceClient v1alpha1.VirtualMachineClusterPreferenceInterface
+				vm                            *virtv1.VirtualMachine
+				vmi                           *virtv1.VirtualMachineInstance
+				f                             *instancetypev1alpha1.VirtualMachineInstancetype
+				fs                            instancetypev1alpha1.VirtualMachineInstancetypeSpec
+				cf                            *instancetypev1alpha1.VirtualMachineClusterInstancetype
+				p                             *instancetypev1alpha1.VirtualMachinePreference
+				ps                            instancetypev1alpha1.VirtualMachinePreferenceSpec
+				cp                            *instancetypev1alpha1.VirtualMachineClusterPreference
+				fakeInstancetypeClients       v1alpha1.InstancetypeV1alpha1Interface
+				fakeInstancetypeClient        v1alpha1.VirtualMachineInstancetypeInterface
+				fakeClusterInstancetypeClient v1alpha1.VirtualMachineClusterInstancetypeInterface
+				fakePreferenceClient          v1alpha1.VirtualMachinePreferenceInterface
+				fakeClusterPreferenceClient   v1alpha1.VirtualMachineClusterPreferenceInterface
 			)
 
 			BeforeEach(func() {
 
 				vm, vmi = DefaultVirtualMachine(true)
 
-				// We need to clear resource requirements here to ensure the flavor doesn't conflict
+				// We need to clear resource requirements here to ensure the instancetype doesn't conflict
 				vm.Spec.Template.Spec.Domain.Resources = virtv1.ResourceRequirements{}
 
-				fakeFlavorClients = fakeclientset.NewSimpleClientset().FlavorV1alpha1()
+				fakeInstancetypeClients = fakeclientset.NewSimpleClientset().InstancetypeV1alpha1()
 
-				fakeFlavorClient = fakeFlavorClients.VirtualMachineFlavors(metav1.NamespaceDefault)
-				virtClient.EXPECT().VirtualMachineFlavor(gomock.Any()).Return(fakeFlavorClient).AnyTimes()
+				fakeInstancetypeClient = fakeInstancetypeClients.VirtualMachineInstancetypes(metav1.NamespaceDefault)
+				virtClient.EXPECT().VirtualMachineInstancetype(gomock.Any()).Return(fakeInstancetypeClient).AnyTimes()
 
-				fakeClusterFlavorClient = fakeFlavorClients.VirtualMachineClusterFlavors()
-				virtClient.EXPECT().VirtualMachineClusterFlavor().Return(fakeClusterFlavorClient).AnyTimes()
+				fakeClusterInstancetypeClient = fakeInstancetypeClients.VirtualMachineClusterInstancetypes()
+				virtClient.EXPECT().VirtualMachineClusterInstancetype().Return(fakeClusterInstancetypeClient).AnyTimes()
 
-				fakePreferenceClient = fakeFlavorClients.VirtualMachinePreferences(metav1.NamespaceDefault)
+				fakePreferenceClient = fakeInstancetypeClients.VirtualMachinePreferences(metav1.NamespaceDefault)
 				virtClient.EXPECT().VirtualMachinePreference(gomock.Any()).Return(fakePreferenceClient).AnyTimes()
 
-				fakeClusterPreferenceClient = fakeFlavorClients.VirtualMachineClusterPreferences()
+				fakeClusterPreferenceClient = fakeInstancetypeClients.VirtualMachineClusterPreferences()
 				virtClient.EXPECT().VirtualMachineClusterPreference().Return(fakeClusterPreferenceClient).AnyTimes()
 
 				k8sClient = k8sfake.NewSimpleClientset()
 				virtClient.EXPECT().AppsV1().Return(k8sClient.AppsV1()).AnyTimes()
 
-				flavorMemory := resource.MustParse("128M")
-				fs = flavorv1alpha1.VirtualMachineFlavorSpec{
-					CPU: flavorv1alpha1.CPUFlavor{
+				instancetypeMemory := resource.MustParse("128M")
+				fs = instancetypev1alpha1.VirtualMachineInstancetypeSpec{
+					CPU: instancetypev1alpha1.CPUInstancetype{
 						Guest: uint32(2),
 					},
-					Memory: flavorv1alpha1.MemoryFlavor{
-						Guest: &flavorMemory,
+					Memory: instancetypev1alpha1.MemoryInstancetype{
+						Guest: &instancetypeMemory,
 					},
 				}
-				f = &flavorv1alpha1.VirtualMachineFlavor{
+				f = &instancetypev1alpha1.VirtualMachineInstancetype{
 					ObjectMeta: metav1.ObjectMeta{
-						Name:       "flavor",
+						Name:       "instancetype",
 						Namespace:  vm.Namespace,
 						UID:        resourceUID,
 						Generation: resourceGeneration,
 					},
 					Spec: fs,
 				}
-				virtClient.VirtualMachineFlavor(vm.Namespace).Create(context.Background(), f, metav1.CreateOptions{})
+				virtClient.VirtualMachineInstancetype(vm.Namespace).Create(context.Background(), f, metav1.CreateOptions{})
 
-				cf = &flavorv1alpha1.VirtualMachineClusterFlavor{
+				cf = &instancetypev1alpha1.VirtualMachineClusterInstancetype{
 					ObjectMeta: metav1.ObjectMeta{
-						Name:       "clusterFlavor",
+						Name:       "clusterInstancetype",
 						UID:        resourceUID,
 						Generation: resourceGeneration,
 					},
 					Spec: fs,
 				}
-				virtClient.VirtualMachineClusterFlavor().Create(context.Background(), cf, metav1.CreateOptions{})
+				virtClient.VirtualMachineClusterInstancetype().Create(context.Background(), cf, metav1.CreateOptions{})
 
-				ps = flavorv1alpha1.VirtualMachinePreferenceSpec{
-					CPU: &flavorv1alpha1.CPUPreferences{
-						PreferredCPUTopology: flavorv1alpha1.PreferThreads,
+				ps = instancetypev1alpha1.VirtualMachinePreferenceSpec{
+					CPU: &instancetypev1alpha1.CPUPreferences{
+						PreferredCPUTopology: instancetypev1alpha1.PreferThreads,
 					},
-					Devices: &flavorv1alpha1.DevicePreferences{
+					Devices: &instancetypev1alpha1.DevicePreferences{
 						PreferredDiskBus:        virtv1.DiskBusVirtio,
 						PreferredInterfaceModel: "virtio",
 					},
 				}
-				p = &flavorv1alpha1.VirtualMachinePreference{
+				p = &instancetypev1alpha1.VirtualMachinePreference{
 					ObjectMeta: metav1.ObjectMeta{
 						Name:       "preference",
 						Namespace:  vm.Namespace,
@@ -2870,7 +2870,7 @@ var _ = Describe("VirtualMachine", func() {
 				}
 				virtClient.VirtualMachinePreference(vm.Namespace).Create(context.Background(), p, metav1.CreateOptions{})
 
-				cp = &flavorv1alpha1.VirtualMachineClusterPreference{
+				cp = &instancetypev1alpha1.VirtualMachineClusterPreference{
 					ObjectMeta: metav1.ObjectMeta{
 						Name:       "clusterPreference",
 						UID:        resourceUID,
@@ -2880,22 +2880,22 @@ var _ = Describe("VirtualMachine", func() {
 				}
 				virtClient.VirtualMachineClusterPreference().Create(context.Background(), cp, metav1.CreateOptions{})
 
-				controller.flavorMethods = flavor.NewMethods(virtClient)
+				controller.instancetypeMethods = instancetype.NewMethods(virtClient)
 
 			})
-			It("should apply VirtualMachineFlavor to VirtualMachineInstance", func() {
+			It("should apply VirtualMachineInstancetype to VirtualMachineInstance", func() {
 
-				vm.Spec.Flavor = &v1.FlavorMatcher{
+				vm.Spec.Instancetype = &v1.InstancetypeMatcher{
 					Name: f.Name,
-					Kind: flavorapi.SingularResourceName,
+					Kind: instancetypeapi.SingularResourceName,
 				}
 
 				addVirtualMachine(vm)
 
-				expectedRevisionName := flavor.GetRevisionName(vm.Name, f.Name, f.UID, f.Generation)
-				expectedRevision, err := flavor.CreateFlavorControllerRevision(vm, expectedRevisionName, f.TypeMeta.APIVersion, &f.Spec)
+				expectedRevisionName := instancetype.GetRevisionName(vm.Name, f.Name, f.UID, f.Generation)
+				expectedRevision, err := instancetype.CreateInstancetypeControllerRevision(vm, expectedRevisionName, f.TypeMeta.APIVersion, &f.Spec)
 				Expect(err).ToNot(HaveOccurred())
-				expectedRevisionNamePatch, err := flavor.GenerateRevisionNamePatch(expectedRevision, nil)
+				expectedRevisionNamePatch, err := instancetype.GenerateRevisionNamePatch(expectedRevision, nil)
 				Expect(err).ToNot(HaveOccurred())
 
 				vmInterface.EXPECT().Patch(vm.Name, types.JSONPatchType, expectedRevisionNamePatch, &metav1.PatchOptions{})
@@ -2904,9 +2904,9 @@ var _ = Describe("VirtualMachine", func() {
 					vmiArg := arg.(*virtv1.VirtualMachineInstance)
 					Expect(vmiArg.Spec.Domain.CPU.Sockets).To(Equal(f.Spec.CPU.Guest))
 					Expect(*vmiArg.Spec.Domain.Memory.Guest).To(Equal(*f.Spec.Memory.Guest))
-					Expect(vmiArg.Annotations).To(HaveKeyWithValue(v1.FlavorAnnotation, f.Name))
+					Expect(vmiArg.Annotations).To(HaveKeyWithValue(v1.InstancetypeAnnotation, f.Name))
 					Expect(vmiArg.Annotations).ToNot(HaveKey(v1.PreferenceAnnotation))
-					Expect(vmiArg.Annotations).ToNot(HaveKey(v1.ClusterFlavorAnnotation))
+					Expect(vmiArg.Annotations).ToNot(HaveKey(v1.ClusterInstancetypeAnnotation))
 					Expect(vmiArg.Annotations).ToNot(HaveKey(v1.ClusterPreferenceAnnotation))
 				}).Return(vmi, nil)
 
@@ -2917,8 +2917,8 @@ var _ = Describe("VirtualMachine", func() {
 				revision, err := virtClient.AppsV1().ControllerRevisions(vm.Namespace).Get(context.Background(), expectedRevisionName, metav1.GetOptions{})
 				Expect(err).ToNot(HaveOccurred())
 
-				specRevision := flavorv1alpha1.VirtualMachineFlavorSpecRevision{}
-				spec := flavorv1alpha1.VirtualMachineFlavorSpec{}
+				specRevision := instancetypev1alpha1.VirtualMachineInstancetypeSpecRevision{}
+				spec := instancetypev1alpha1.VirtualMachineInstancetypeSpec{}
 				Expect(json.Unmarshal(revision.Data.Raw, &specRevision)).To(Succeed())
 				Expect(json.Unmarshal(specRevision.Spec, &spec)).To(Succeed())
 				Expect(specRevision.APIVersion).To(Equal(f.TypeMeta.APIVersion))
@@ -2926,18 +2926,18 @@ var _ = Describe("VirtualMachine", func() {
 
 			})
 
-			It("should apply VirtualMachineFlavor from ControllerRevision to VirtualMachineInstance", func() {
+			It("should apply VirtualMachineInstancetype from ControllerRevision to VirtualMachineInstance", func() {
 
-				flavorRevision, err := flavor.CreateFlavorControllerRevision(vm, flavor.GetRevisionName(vm.Name, f.Name, f.UID, f.Generation), f.TypeMeta.APIVersion, &f.Spec)
+				instancetypeRevision, err := instancetype.CreateInstancetypeControllerRevision(vm, instancetype.GetRevisionName(vm.Name, f.Name, f.UID, f.Generation), f.TypeMeta.APIVersion, &f.Spec)
 				Expect(err).ToNot(HaveOccurred())
 
-				_, err = virtClient.AppsV1().ControllerRevisions(vm.Namespace).Create(context.Background(), flavorRevision, metav1.CreateOptions{})
+				_, err = virtClient.AppsV1().ControllerRevisions(vm.Namespace).Create(context.Background(), instancetypeRevision, metav1.CreateOptions{})
 				Expect(err).ToNot(HaveOccurred())
 
-				vm.Spec.Flavor = &v1.FlavorMatcher{
+				vm.Spec.Instancetype = &v1.InstancetypeMatcher{
 					Name:         f.Name,
-					Kind:         flavorapi.SingularResourceName,
-					RevisionName: flavorRevision.Name,
+					Kind:         instancetypeapi.SingularResourceName,
+					RevisionName: instancetypeRevision.Name,
 				}
 
 				addVirtualMachine(vm)
@@ -2946,9 +2946,9 @@ var _ = Describe("VirtualMachine", func() {
 					vmiArg := arg.(*virtv1.VirtualMachineInstance)
 					Expect(vmiArg.Spec.Domain.CPU.Sockets).To(Equal(f.Spec.CPU.Guest))
 					Expect(*vmiArg.Spec.Domain.Memory.Guest).To(Equal(*f.Spec.Memory.Guest))
-					Expect(vmiArg.Annotations).To(HaveKeyWithValue(v1.FlavorAnnotation, f.Name))
+					Expect(vmiArg.Annotations).To(HaveKeyWithValue(v1.InstancetypeAnnotation, f.Name))
 					Expect(vmiArg.Annotations).ToNot(HaveKey(v1.PreferenceAnnotation))
-					Expect(vmiArg.Annotations).ToNot(HaveKey(v1.ClusterFlavorAnnotation))
+					Expect(vmiArg.Annotations).ToNot(HaveKey(v1.ClusterInstancetypeAnnotation))
 					Expect(vmiArg.Annotations).ToNot(HaveKey(v1.ClusterPreferenceAnnotation))
 				}).Return(vmi, nil)
 
@@ -2958,21 +2958,21 @@ var _ = Describe("VirtualMachine", func() {
 
 			})
 
-			It("should apply VirtualMachineFlavor to VirtualMachineInstance if an existing ControllerRevision is present but not referenced by FlavorMatcher", func() {
+			It("should apply VirtualMachineInstancetype to VirtualMachineInstance if an existing ControllerRevision is present but not referenced by InstancetypeMatcher", func() {
 
-				flavorRevision, err := flavor.CreateFlavorControllerRevision(vm, flavor.GetRevisionName(vm.Name, f.Name, f.UID, f.Generation), f.TypeMeta.APIVersion, &f.Spec)
+				instancetypeRevision, err := instancetype.CreateInstancetypeControllerRevision(vm, instancetype.GetRevisionName(vm.Name, f.Name, f.UID, f.Generation), f.TypeMeta.APIVersion, &f.Spec)
 				Expect(err).ToNot(HaveOccurred())
 
-				_, err = virtClient.AppsV1().ControllerRevisions(vm.Namespace).Create(context.Background(), flavorRevision, metav1.CreateOptions{})
+				_, err = virtClient.AppsV1().ControllerRevisions(vm.Namespace).Create(context.Background(), instancetypeRevision, metav1.CreateOptions{})
 				Expect(err).ToNot(HaveOccurred())
 
-				// We expect a request to add in the missing flavor revisionName
-				expectedRevisionNamePatch, err := flavor.GenerateRevisionNamePatch(flavorRevision, nil)
+				// We expect a request to add in the missing instancetype revisionName
+				expectedRevisionNamePatch, err := instancetype.GenerateRevisionNamePatch(instancetypeRevision, nil)
 				Expect(err).ToNot(HaveOccurred())
 
-				vm.Spec.Flavor = &v1.FlavorMatcher{
+				vm.Spec.Instancetype = &v1.InstancetypeMatcher{
 					Name: f.Name,
-					Kind: flavorapi.SingularResourceName,
+					Kind: instancetypeapi.SingularResourceName,
 				}
 
 				addVirtualMachine(vm)
@@ -2983,9 +2983,9 @@ var _ = Describe("VirtualMachine", func() {
 					vmiArg := arg.(*virtv1.VirtualMachineInstance)
 					Expect(vmiArg.Spec.Domain.CPU.Sockets).To(Equal(f.Spec.CPU.Guest))
 					Expect(*vmiArg.Spec.Domain.Memory.Guest).To(Equal(*f.Spec.Memory.Guest))
-					Expect(vmiArg.Annotations).To(HaveKeyWithValue(v1.FlavorAnnotation, f.Name))
+					Expect(vmiArg.Annotations).To(HaveKeyWithValue(v1.InstancetypeAnnotation, f.Name))
 					Expect(vmiArg.Annotations).ToNot(HaveKey(v1.PreferenceAnnotation))
-					Expect(vmiArg.Annotations).ToNot(HaveKey(v1.ClusterFlavorAnnotation))
+					Expect(vmiArg.Annotations).ToNot(HaveKey(v1.ClusterInstancetypeAnnotation))
 					Expect(vmiArg.Annotations).ToNot(HaveKey(v1.ClusterPreferenceAnnotation))
 				}).Return(vmi, nil)
 
@@ -2993,23 +2993,23 @@ var _ = Describe("VirtualMachine", func() {
 
 				controller.Execute()
 
-				Expect(vm.Spec.Flavor.RevisionName).To(Equal(flavorRevision.Name))
+				Expect(vm.Spec.Instancetype.RevisionName).To(Equal(instancetypeRevision.Name))
 
 			})
 
-			It("should apply VirtualMachineClusterFlavor to VirtualMachineInstance", func() {
+			It("should apply VirtualMachineClusterInstancetype to VirtualMachineInstance", func() {
 
-				vm.Spec.Flavor = &v1.FlavorMatcher{
+				vm.Spec.Instancetype = &v1.InstancetypeMatcher{
 					Name: cf.Name,
-					Kind: flavorapi.ClusterSingularResourceName,
+					Kind: instancetypeapi.ClusterSingularResourceName,
 				}
 
 				addVirtualMachine(vm)
 
-				expectedRevisionName := flavor.GetRevisionName(vm.Name, cf.Name, cf.UID, cf.Generation)
-				expectedRevision, err := flavor.CreateFlavorControllerRevision(vm, expectedRevisionName, cf.TypeMeta.APIVersion, &cf.Spec)
+				expectedRevisionName := instancetype.GetRevisionName(vm.Name, cf.Name, cf.UID, cf.Generation)
+				expectedRevision, err := instancetype.CreateInstancetypeControllerRevision(vm, expectedRevisionName, cf.TypeMeta.APIVersion, &cf.Spec)
 				Expect(err).ToNot(HaveOccurred())
-				expectedRevisionNamePatch, err := flavor.GenerateRevisionNamePatch(expectedRevision, nil)
+				expectedRevisionNamePatch, err := instancetype.GenerateRevisionNamePatch(expectedRevision, nil)
 				Expect(err).ToNot(HaveOccurred())
 
 				vmInterface.EXPECT().Patch(vm.Name, types.JSONPatchType, expectedRevisionNamePatch, &metav1.PatchOptions{})
@@ -3018,9 +3018,9 @@ var _ = Describe("VirtualMachine", func() {
 					vmiArg := arg.(*virtv1.VirtualMachineInstance)
 					Expect(vmiArg.Spec.Domain.CPU.Sockets).To(Equal(cf.Spec.CPU.Guest))
 					Expect(*vmiArg.Spec.Domain.Memory.Guest).To(Equal(*cf.Spec.Memory.Guest))
-					Expect(vmiArg.Annotations).To(HaveKeyWithValue(v1.ClusterFlavorAnnotation, cf.Name))
+					Expect(vmiArg.Annotations).To(HaveKeyWithValue(v1.ClusterInstancetypeAnnotation, cf.Name))
 					Expect(vmiArg.Annotations).ToNot(HaveKey(v1.PreferenceAnnotation))
-					Expect(vmiArg.Annotations).ToNot(HaveKey(v1.FlavorAnnotation))
+					Expect(vmiArg.Annotations).ToNot(HaveKey(v1.InstancetypeAnnotation))
 					Expect(vmiArg.Annotations).ToNot(HaveKey(v1.ClusterPreferenceAnnotation))
 				}).Return(vmi, nil)
 
@@ -3031,26 +3031,26 @@ var _ = Describe("VirtualMachine", func() {
 				revision, err := virtClient.AppsV1().ControllerRevisions(vm.Namespace).Get(context.Background(), expectedRevisionName, metav1.GetOptions{})
 				Expect(err).ToNot(HaveOccurred())
 
-				specRevision := flavorv1alpha1.VirtualMachineFlavorSpecRevision{}
-				spec := flavorv1alpha1.VirtualMachineFlavorSpec{}
+				specRevision := instancetypev1alpha1.VirtualMachineInstancetypeSpecRevision{}
+				spec := instancetypev1alpha1.VirtualMachineInstancetypeSpec{}
 				Expect(json.Unmarshal(revision.Data.Raw, &specRevision)).To(Succeed())
 				Expect(json.Unmarshal(specRevision.Spec, &spec)).To(Succeed())
 				Expect(specRevision.APIVersion).To(Equal(cf.TypeMeta.APIVersion))
 				Expect(spec).To(Equal(cf.Spec))
 			})
 
-			It("should apply VirtualMachineClusterFlavor from ControllerRevision to VirtualMachineInstance", func() {
+			It("should apply VirtualMachineClusterInstancetype from ControllerRevision to VirtualMachineInstance", func() {
 
-				flavorRevision, err := flavor.CreateFlavorControllerRevision(vm, flavor.GetRevisionName(vm.Name, cf.Name, cf.UID, cf.Generation), cf.TypeMeta.APIVersion, &cf.Spec)
+				instancetypeRevision, err := instancetype.CreateInstancetypeControllerRevision(vm, instancetype.GetRevisionName(vm.Name, cf.Name, cf.UID, cf.Generation), cf.TypeMeta.APIVersion, &cf.Spec)
 				Expect(err).ToNot(HaveOccurred())
 
-				_, err = virtClient.AppsV1().ControllerRevisions(vm.Namespace).Create(context.Background(), flavorRevision, metav1.CreateOptions{})
+				_, err = virtClient.AppsV1().ControllerRevisions(vm.Namespace).Create(context.Background(), instancetypeRevision, metav1.CreateOptions{})
 				Expect(err).ToNot(HaveOccurred())
 
-				vm.Spec.Flavor = &v1.FlavorMatcher{
+				vm.Spec.Instancetype = &v1.InstancetypeMatcher{
 					Name:         cf.Name,
-					Kind:         flavorapi.ClusterSingularResourceName,
-					RevisionName: flavorRevision.Name,
+					Kind:         instancetypeapi.ClusterSingularResourceName,
+					RevisionName: instancetypeRevision.Name,
 				}
 
 				addVirtualMachine(vm)
@@ -3059,9 +3059,9 @@ var _ = Describe("VirtualMachine", func() {
 					vmiArg := arg.(*virtv1.VirtualMachineInstance)
 					Expect(vmiArg.Spec.Domain.CPU.Sockets).To(Equal(cf.Spec.CPU.Guest))
 					Expect(*vmiArg.Spec.Domain.Memory.Guest).To(Equal(*cf.Spec.Memory.Guest))
-					Expect(vmiArg.Annotations).To(HaveKeyWithValue(v1.ClusterFlavorAnnotation, cf.Name))
+					Expect(vmiArg.Annotations).To(HaveKeyWithValue(v1.ClusterInstancetypeAnnotation, cf.Name))
 					Expect(vmiArg.Annotations).ToNot(HaveKey(v1.PreferenceAnnotation))
-					Expect(vmiArg.Annotations).ToNot(HaveKey(v1.FlavorAnnotation))
+					Expect(vmiArg.Annotations).ToNot(HaveKey(v1.InstancetypeAnnotation))
 					Expect(vmiArg.Annotations).ToNot(HaveKey(v1.ClusterPreferenceAnnotation))
 				}).Return(vmi, nil)
 
@@ -3071,21 +3071,21 @@ var _ = Describe("VirtualMachine", func() {
 
 			})
 
-			It("should apply VirtualMachineClusterFlavor to VirtualMachineInstance if an existing ControllerRevision is present but not referenced by FlavorMatcher", func() {
+			It("should apply VirtualMachineClusterInstancetype to VirtualMachineInstance if an existing ControllerRevision is present but not referenced by InstancetypeMatcher", func() {
 
-				flavorRevision, err := flavor.CreateFlavorControllerRevision(vm, flavor.GetRevisionName(vm.Name, cf.Name, cf.UID, cf.Generation), cf.TypeMeta.APIVersion, &cf.Spec)
+				instancetypeRevision, err := instancetype.CreateInstancetypeControllerRevision(vm, instancetype.GetRevisionName(vm.Name, cf.Name, cf.UID, cf.Generation), cf.TypeMeta.APIVersion, &cf.Spec)
 				Expect(err).ToNot(HaveOccurred())
 
-				_, err = virtClient.AppsV1().ControllerRevisions(vm.Namespace).Create(context.Background(), flavorRevision, metav1.CreateOptions{})
+				_, err = virtClient.AppsV1().ControllerRevisions(vm.Namespace).Create(context.Background(), instancetypeRevision, metav1.CreateOptions{})
 				Expect(err).ToNot(HaveOccurred())
 
-				// We expect a request to add in the missing flavor revisionName
-				expectedRevisionNamePatch, err := flavor.GenerateRevisionNamePatch(flavorRevision, nil)
+				// We expect a request to add in the missing instancetype revisionName
+				expectedRevisionNamePatch, err := instancetype.GenerateRevisionNamePatch(instancetypeRevision, nil)
 				Expect(err).ToNot(HaveOccurred())
 
-				vm.Spec.Flavor = &v1.FlavorMatcher{
+				vm.Spec.Instancetype = &v1.InstancetypeMatcher{
 					Name: cf.Name,
-					Kind: flavorapi.ClusterSingularResourceName,
+					Kind: instancetypeapi.ClusterSingularResourceName,
 				}
 
 				addVirtualMachine(vm)
@@ -3096,9 +3096,9 @@ var _ = Describe("VirtualMachine", func() {
 					vmiArg := arg.(*virtv1.VirtualMachineInstance)
 					Expect(vmiArg.Spec.Domain.CPU.Sockets).To(Equal(cf.Spec.CPU.Guest))
 					Expect(*vmiArg.Spec.Domain.Memory.Guest).To(Equal(*cf.Spec.Memory.Guest))
-					Expect(vmiArg.Annotations).To(HaveKeyWithValue(v1.ClusterFlavorAnnotation, cf.Name))
+					Expect(vmiArg.Annotations).To(HaveKeyWithValue(v1.ClusterInstancetypeAnnotation, cf.Name))
 					Expect(vmiArg.Annotations).ToNot(HaveKey(v1.PreferenceAnnotation))
-					Expect(vmiArg.Annotations).ToNot(HaveKey(v1.FlavorAnnotation))
+					Expect(vmiArg.Annotations).ToNot(HaveKey(v1.InstancetypeAnnotation))
 					Expect(vmiArg.Annotations).ToNot(HaveKey(v1.ClusterPreferenceAnnotation))
 				}).Return(vmi, nil)
 
@@ -3106,33 +3106,33 @@ var _ = Describe("VirtualMachine", func() {
 
 				controller.Execute()
 
-				Expect(vm.Spec.Flavor.RevisionName).To(Equal(flavorRevision.Name))
+				Expect(vm.Spec.Instancetype.RevisionName).To(Equal(instancetypeRevision.Name))
 
 			})
 
 			It("should apply VirtualMachinePreference to VirtualMachineInstance", func() {
 
-				vm.Spec.Flavor = &v1.FlavorMatcher{
+				vm.Spec.Instancetype = &v1.InstancetypeMatcher{
 					Name: f.Name,
-					Kind: flavorapi.SingularResourceName,
+					Kind: instancetypeapi.SingularResourceName,
 				}
 
 				vm.Spec.Preference = &v1.PreferenceMatcher{
 					Name: p.Name,
-					Kind: flavorapi.SingularPreferenceResourceName,
+					Kind: instancetypeapi.SingularPreferenceResourceName,
 				}
 
 				addVirtualMachine(vm)
 
-				expectedFlavorRevisionName := flavor.GetRevisionName(vm.Name, f.Name, f.UID, f.Generation)
-				expectedFlavorRevision, err := flavor.CreateFlavorControllerRevision(vm, expectedFlavorRevisionName, f.TypeMeta.APIVersion, &f.Spec)
+				expectedInstancetypeRevisionName := instancetype.GetRevisionName(vm.Name, f.Name, f.UID, f.Generation)
+				expectedInstancetypeRevision, err := instancetype.CreateInstancetypeControllerRevision(vm, expectedInstancetypeRevisionName, f.TypeMeta.APIVersion, &f.Spec)
 				Expect(err).ToNot(HaveOccurred())
 
-				expectedPreferenceRevisionName := flavor.GetRevisionName(vm.Name, p.Name, p.UID, p.Generation)
-				expectedPreferenceRevision, err := flavor.CreatePreferenceControllerRevision(vm, expectedPreferenceRevisionName, p.TypeMeta.APIVersion, &p.Spec)
+				expectedPreferenceRevisionName := instancetype.GetRevisionName(vm.Name, p.Name, p.UID, p.Generation)
+				expectedPreferenceRevision, err := instancetype.CreatePreferenceControllerRevision(vm, expectedPreferenceRevisionName, p.TypeMeta.APIVersion, &p.Spec)
 				Expect(err).ToNot(HaveOccurred())
 
-				expectedRevisionNamePatch, err := flavor.GenerateRevisionNamePatch(expectedFlavorRevision, expectedPreferenceRevision)
+				expectedRevisionNamePatch, err := instancetype.GenerateRevisionNamePatch(expectedInstancetypeRevision, expectedPreferenceRevision)
 				Expect(err).ToNot(HaveOccurred())
 
 				vmInterface.EXPECT().Patch(vm.Name, types.JSONPatchType, expectedRevisionNamePatch, &metav1.PatchOptions{})
@@ -3140,9 +3140,9 @@ var _ = Describe("VirtualMachine", func() {
 				vmiInterface.EXPECT().Create(gomock.Any()).Times(1).Do(func(arg interface{}) {
 					vmiArg := arg.(*virtv1.VirtualMachineInstance)
 					Expect(vmiArg.Spec.Domain.CPU.Threads).To(Equal(f.Spec.CPU.Guest))
-					Expect(vmiArg.Annotations).To(HaveKeyWithValue(v1.FlavorAnnotation, f.Name))
+					Expect(vmiArg.Annotations).To(HaveKeyWithValue(v1.InstancetypeAnnotation, f.Name))
 					Expect(vmiArg.Annotations).To(HaveKeyWithValue(v1.PreferenceAnnotation, p.Name))
-					Expect(vmiArg.Annotations).ToNot(HaveKey(v1.ClusterFlavorAnnotation))
+					Expect(vmiArg.Annotations).ToNot(HaveKey(v1.ClusterInstancetypeAnnotation))
 					Expect(vmiArg.Annotations).ToNot(HaveKey(v1.ClusterPreferenceAnnotation))
 				}).Return(vmi, nil)
 
@@ -3150,21 +3150,21 @@ var _ = Describe("VirtualMachine", func() {
 
 				controller.Execute()
 
-				flavorRevision, err := virtClient.AppsV1().ControllerRevisions(vm.Namespace).Get(context.Background(), expectedFlavorRevisionName, metav1.GetOptions{})
+				instancetypeRevision, err := virtClient.AppsV1().ControllerRevisions(vm.Namespace).Get(context.Background(), expectedInstancetypeRevisionName, metav1.GetOptions{})
 				Expect(err).ToNot(HaveOccurred())
 
-				flavorSpecRevision := flavorv1alpha1.VirtualMachineFlavorSpecRevision{}
-				flavorSpec := flavorv1alpha1.VirtualMachineFlavorSpec{}
-				Expect(json.Unmarshal(flavorRevision.Data.Raw, &flavorSpecRevision)).To(Succeed())
-				Expect(json.Unmarshal(flavorSpecRevision.Spec, &flavorSpec)).To(Succeed())
-				Expect(flavorSpecRevision.APIVersion).To(Equal(f.TypeMeta.APIVersion))
-				Expect(flavorSpec).To(Equal(f.Spec))
+				instancetypeSpecRevision := instancetypev1alpha1.VirtualMachineInstancetypeSpecRevision{}
+				instancetypeSpec := instancetypev1alpha1.VirtualMachineInstancetypeSpec{}
+				Expect(json.Unmarshal(instancetypeRevision.Data.Raw, &instancetypeSpecRevision)).To(Succeed())
+				Expect(json.Unmarshal(instancetypeSpecRevision.Spec, &instancetypeSpec)).To(Succeed())
+				Expect(instancetypeSpecRevision.APIVersion).To(Equal(f.TypeMeta.APIVersion))
+				Expect(instancetypeSpec).To(Equal(f.Spec))
 
 				preferenceRevision, err := virtClient.AppsV1().ControllerRevisions(vm.Namespace).Get(context.Background(), expectedPreferenceRevisionName, metav1.GetOptions{})
 				Expect(err).ToNot(HaveOccurred())
 
-				preferenceSpecRevision := flavorv1alpha1.VirtualMachinePreferenceSpecRevision{}
-				preferenceSpec := flavorv1alpha1.VirtualMachinePreferenceSpec{}
+				preferenceSpecRevision := instancetypev1alpha1.VirtualMachinePreferenceSpecRevision{}
+				preferenceSpec := instancetypev1alpha1.VirtualMachinePreferenceSpec{}
 				Expect(json.Unmarshal(preferenceRevision.Data.Raw, &preferenceSpecRevision)).To(Succeed())
 				Expect(json.Unmarshal(preferenceSpecRevision.Spec, &preferenceSpec)).To(Succeed())
 				Expect(preferenceSpecRevision.APIVersion).To(Equal(p.TypeMeta.APIVersion))
@@ -3173,27 +3173,27 @@ var _ = Describe("VirtualMachine", func() {
 
 			It("should apply VirtualMachinePreference from ControllerRevision to VirtualMachineInstance", func() {
 
-				flavorRevision, err := flavor.CreateFlavorControllerRevision(vm, flavor.GetRevisionName(vm.Name, f.Name, f.UID, f.Generation), f.TypeMeta.APIVersion, &f.Spec)
+				instancetypeRevision, err := instancetype.CreateInstancetypeControllerRevision(vm, instancetype.GetRevisionName(vm.Name, f.Name, f.UID, f.Generation), f.TypeMeta.APIVersion, &f.Spec)
 				Expect(err).ToNot(HaveOccurred())
 
-				_, err = virtClient.AppsV1().ControllerRevisions(vm.Namespace).Create(context.Background(), flavorRevision, metav1.CreateOptions{})
+				_, err = virtClient.AppsV1().ControllerRevisions(vm.Namespace).Create(context.Background(), instancetypeRevision, metav1.CreateOptions{})
 				Expect(err).ToNot(HaveOccurred())
 
-				preferenceRevision, err := flavor.CreatePreferenceControllerRevision(vm, flavor.GetRevisionName(vm.Name, p.Name, p.UID, p.Generation), p.TypeMeta.APIVersion, &p.Spec)
+				preferenceRevision, err := instancetype.CreatePreferenceControllerRevision(vm, instancetype.GetRevisionName(vm.Name, p.Name, p.UID, p.Generation), p.TypeMeta.APIVersion, &p.Spec)
 				Expect(err).ToNot(HaveOccurred())
 
 				_, err = virtClient.AppsV1().ControllerRevisions(vm.Namespace).Create(context.Background(), preferenceRevision, metav1.CreateOptions{})
 				Expect(err).ToNot(HaveOccurred())
 
-				vm.Spec.Flavor = &v1.FlavorMatcher{
+				vm.Spec.Instancetype = &v1.InstancetypeMatcher{
 					Name:         f.Name,
-					Kind:         flavorapi.SingularResourceName,
-					RevisionName: flavorRevision.Name,
+					Kind:         instancetypeapi.SingularResourceName,
+					RevisionName: instancetypeRevision.Name,
 				}
 
 				vm.Spec.Preference = &v1.PreferenceMatcher{
 					Name:         p.Name,
-					Kind:         flavorapi.SingularPreferenceResourceName,
+					Kind:         instancetypeapi.SingularPreferenceResourceName,
 					RevisionName: preferenceRevision.Name,
 				}
 
@@ -3202,9 +3202,9 @@ var _ = Describe("VirtualMachine", func() {
 				vmiInterface.EXPECT().Create(gomock.Any()).Times(1).Do(func(arg interface{}) {
 					vmiArg := arg.(*virtv1.VirtualMachineInstance)
 					Expect(vmiArg.Spec.Domain.CPU.Threads).To(Equal(f.Spec.CPU.Guest))
-					Expect(vmiArg.Annotations).To(HaveKeyWithValue(v1.FlavorAnnotation, f.Name))
+					Expect(vmiArg.Annotations).To(HaveKeyWithValue(v1.InstancetypeAnnotation, f.Name))
 					Expect(vmiArg.Annotations).To(HaveKeyWithValue(v1.PreferenceAnnotation, p.Name))
-					Expect(vmiArg.Annotations).ToNot(HaveKey(v1.ClusterFlavorAnnotation))
+					Expect(vmiArg.Annotations).ToNot(HaveKey(v1.ClusterInstancetypeAnnotation))
 					Expect(vmiArg.Annotations).ToNot(HaveKey(v1.ClusterPreferenceAnnotation))
 				}).Return(vmi, nil)
 
@@ -3216,31 +3216,31 @@ var _ = Describe("VirtualMachine", func() {
 
 			It("should apply VirtualMachinePreference to VirtualMachineInstance if an existing ControllerRevision is present but not referenced by PreferenceMatcher", func() {
 
-				flavorRevision, err := flavor.CreateFlavorControllerRevision(vm, flavor.GetRevisionName(vm.Name, f.Name, f.UID, f.Generation), f.TypeMeta.APIVersion, &f.Spec)
+				instancetypeRevision, err := instancetype.CreateInstancetypeControllerRevision(vm, instancetype.GetRevisionName(vm.Name, f.Name, f.UID, f.Generation), f.TypeMeta.APIVersion, &f.Spec)
 				Expect(err).ToNot(HaveOccurred())
 
-				_, err = virtClient.AppsV1().ControllerRevisions(vm.Namespace).Create(context.Background(), flavorRevision, metav1.CreateOptions{})
+				_, err = virtClient.AppsV1().ControllerRevisions(vm.Namespace).Create(context.Background(), instancetypeRevision, metav1.CreateOptions{})
 				Expect(err).ToNot(HaveOccurred())
 
-				preferenceRevision, err := flavor.CreatePreferenceControllerRevision(vm, flavor.GetRevisionName(vm.Name, p.Name, p.UID, p.Generation), p.TypeMeta.APIVersion, &p.Spec)
+				preferenceRevision, err := instancetype.CreatePreferenceControllerRevision(vm, instancetype.GetRevisionName(vm.Name, p.Name, p.UID, p.Generation), p.TypeMeta.APIVersion, &p.Spec)
 				Expect(err).ToNot(HaveOccurred())
 
 				_, err = virtClient.AppsV1().ControllerRevisions(vm.Namespace).Create(context.Background(), preferenceRevision, metav1.CreateOptions{})
 				Expect(err).ToNot(HaveOccurred())
 
 				// We expect a request to add in the missing preference revisionName
-				expectedRevisionNamePatch, err := flavor.GenerateRevisionNamePatch(nil, preferenceRevision)
+				expectedRevisionNamePatch, err := instancetype.GenerateRevisionNamePatch(nil, preferenceRevision)
 				Expect(err).ToNot(HaveOccurred())
 
-				vm.Spec.Flavor = &v1.FlavorMatcher{
+				vm.Spec.Instancetype = &v1.InstancetypeMatcher{
 					Name:         f.Name,
-					Kind:         flavorapi.SingularResourceName,
-					RevisionName: flavorRevision.Name,
+					Kind:         instancetypeapi.SingularResourceName,
+					RevisionName: instancetypeRevision.Name,
 				}
 
 				vm.Spec.Preference = &v1.PreferenceMatcher{
 					Name: p.Name,
-					Kind: flavorapi.SingularPreferenceResourceName,
+					Kind: instancetypeapi.SingularPreferenceResourceName,
 				}
 
 				addVirtualMachine(vm)
@@ -3250,9 +3250,9 @@ var _ = Describe("VirtualMachine", func() {
 				vmiInterface.EXPECT().Create(gomock.Any()).Times(1).Do(func(arg interface{}) {
 					vmiArg := arg.(*virtv1.VirtualMachineInstance)
 					Expect(vmiArg.Spec.Domain.CPU.Threads).To(Equal(f.Spec.CPU.Guest))
-					Expect(vmiArg.Annotations).To(HaveKeyWithValue(v1.FlavorAnnotation, f.Name))
+					Expect(vmiArg.Annotations).To(HaveKeyWithValue(v1.InstancetypeAnnotation, f.Name))
 					Expect(vmiArg.Annotations).To(HaveKeyWithValue(v1.PreferenceAnnotation, p.Name))
-					Expect(vmiArg.Annotations).ToNot(HaveKey(v1.ClusterFlavorAnnotation))
+					Expect(vmiArg.Annotations).ToNot(HaveKey(v1.ClusterInstancetypeAnnotation))
 					Expect(vmiArg.Annotations).ToNot(HaveKey(v1.ClusterPreferenceAnnotation))
 				}).Return(vmi, nil)
 
@@ -3266,27 +3266,27 @@ var _ = Describe("VirtualMachine", func() {
 
 			It("should apply VirtualMachineClusterPreference to VirtualMachineInstance", func() {
 
-				vm.Spec.Flavor = &v1.FlavorMatcher{
+				vm.Spec.Instancetype = &v1.InstancetypeMatcher{
 					Name: f.Name,
-					Kind: flavorapi.SingularResourceName,
+					Kind: instancetypeapi.SingularResourceName,
 				}
 
 				vm.Spec.Preference = &v1.PreferenceMatcher{
 					Name: cp.Name,
-					Kind: flavorapi.ClusterSingularPreferenceResourceName,
+					Kind: instancetypeapi.ClusterSingularPreferenceResourceName,
 				}
 
 				addVirtualMachine(vm)
 
-				expectedFlavorRevisionName := flavor.GetRevisionName(vm.Name, f.Name, f.UID, f.Generation)
-				expectedFlavorRevision, err := flavor.CreateFlavorControllerRevision(vm, expectedFlavorRevisionName, f.TypeMeta.APIVersion, &f.Spec)
+				expectedInstancetypeRevisionName := instancetype.GetRevisionName(vm.Name, f.Name, f.UID, f.Generation)
+				expectedInstancetypeRevision, err := instancetype.CreateInstancetypeControllerRevision(vm, expectedInstancetypeRevisionName, f.TypeMeta.APIVersion, &f.Spec)
 				Expect(err).ToNot(HaveOccurred())
 
-				expectedPreferenceRevisionName := flavor.GetRevisionName(vm.Name, cp.Name, cp.UID, cp.Generation)
-				expectedPreferenceRevision, err := flavor.CreatePreferenceControllerRevision(vm, expectedPreferenceRevisionName, cp.TypeMeta.APIVersion, &cp.Spec)
+				expectedPreferenceRevisionName := instancetype.GetRevisionName(vm.Name, cp.Name, cp.UID, cp.Generation)
+				expectedPreferenceRevision, err := instancetype.CreatePreferenceControllerRevision(vm, expectedPreferenceRevisionName, cp.TypeMeta.APIVersion, &cp.Spec)
 				Expect(err).ToNot(HaveOccurred())
 
-				expectedRevisionNamePatch, err := flavor.GenerateRevisionNamePatch(expectedFlavorRevision, expectedPreferenceRevision)
+				expectedRevisionNamePatch, err := instancetype.GenerateRevisionNamePatch(expectedInstancetypeRevision, expectedPreferenceRevision)
 				Expect(err).ToNot(HaveOccurred())
 
 				vmInterface.EXPECT().Patch(vm.Name, types.JSONPatchType, expectedRevisionNamePatch, &metav1.PatchOptions{})
@@ -3295,9 +3295,9 @@ var _ = Describe("VirtualMachine", func() {
 					vmiArg := arg.(*virtv1.VirtualMachineInstance)
 					Expect(vmiArg.Spec.Domain.CPU.Threads).To(Equal(f.Spec.CPU.Guest))
 
-					Expect(vmiArg.Annotations).To(HaveKeyWithValue(v1.FlavorAnnotation, f.Name))
+					Expect(vmiArg.Annotations).To(HaveKeyWithValue(v1.InstancetypeAnnotation, f.Name))
 					Expect(vmiArg.Annotations).To(HaveKeyWithValue(v1.ClusterPreferenceAnnotation, cp.Name))
-					Expect(vmiArg.Annotations).ToNot(HaveKey(v1.ClusterFlavorAnnotation))
+					Expect(vmiArg.Annotations).ToNot(HaveKey(v1.ClusterInstancetypeAnnotation))
 					Expect(vmiArg.Annotations).ToNot(HaveKey(v1.PreferenceAnnotation))
 
 				}).Return(vmi, nil)
@@ -3306,21 +3306,21 @@ var _ = Describe("VirtualMachine", func() {
 
 				controller.Execute()
 
-				flavorRevision, err := virtClient.AppsV1().ControllerRevisions(vm.Namespace).Get(context.Background(), expectedFlavorRevisionName, metav1.GetOptions{})
+				instancetypeRevision, err := virtClient.AppsV1().ControllerRevisions(vm.Namespace).Get(context.Background(), expectedInstancetypeRevisionName, metav1.GetOptions{})
 				Expect(err).ToNot(HaveOccurred())
 
-				flavorSpecRevision := flavorv1alpha1.VirtualMachineFlavorSpecRevision{}
-				flavorSpec := flavorv1alpha1.VirtualMachineFlavorSpec{}
-				Expect(json.Unmarshal(flavorRevision.Data.Raw, &flavorSpecRevision)).To(Succeed())
-				Expect(json.Unmarshal(flavorSpecRevision.Spec, &flavorSpec)).To(Succeed())
-				Expect(flavorSpecRevision.APIVersion).To(Equal(f.TypeMeta.APIVersion))
-				Expect(flavorSpec).To(Equal(f.Spec))
+				instancetypeSpecRevision := instancetypev1alpha1.VirtualMachineInstancetypeSpecRevision{}
+				instancetypeSpec := instancetypev1alpha1.VirtualMachineInstancetypeSpec{}
+				Expect(json.Unmarshal(instancetypeRevision.Data.Raw, &instancetypeSpecRevision)).To(Succeed())
+				Expect(json.Unmarshal(instancetypeSpecRevision.Spec, &instancetypeSpec)).To(Succeed())
+				Expect(instancetypeSpecRevision.APIVersion).To(Equal(f.TypeMeta.APIVersion))
+				Expect(instancetypeSpec).To(Equal(f.Spec))
 
 				preferenceRevision, err := virtClient.AppsV1().ControllerRevisions(vm.Namespace).Get(context.Background(), expectedPreferenceRevisionName, metav1.GetOptions{})
 				Expect(err).ToNot(HaveOccurred())
 
-				preferenceSpecRevision := flavorv1alpha1.VirtualMachinePreferenceSpecRevision{}
-				preferenceSpec := flavorv1alpha1.VirtualMachinePreferenceSpec{}
+				preferenceSpecRevision := instancetypev1alpha1.VirtualMachinePreferenceSpecRevision{}
+				preferenceSpec := instancetypev1alpha1.VirtualMachinePreferenceSpec{}
 				Expect(json.Unmarshal(preferenceRevision.Data.Raw, &preferenceSpecRevision)).To(Succeed())
 				Expect(json.Unmarshal(preferenceSpecRevision.Spec, &preferenceSpec)).To(Succeed())
 				Expect(preferenceSpecRevision.APIVersion).To(Equal(cp.TypeMeta.APIVersion))
@@ -3329,27 +3329,27 @@ var _ = Describe("VirtualMachine", func() {
 
 			It("should apply VirtualMachineClusterPreference from ControllerRevision to VirtualMachineInstance", func() {
 
-				flavorRevision, err := flavor.CreateFlavorControllerRevision(vm, flavor.GetRevisionName(vm.Name, f.Name, f.UID, f.Generation), f.TypeMeta.APIVersion, &f.Spec)
+				instancetypeRevision, err := instancetype.CreateInstancetypeControllerRevision(vm, instancetype.GetRevisionName(vm.Name, f.Name, f.UID, f.Generation), f.TypeMeta.APIVersion, &f.Spec)
 				Expect(err).ToNot(HaveOccurred())
 
-				_, err = virtClient.AppsV1().ControllerRevisions(vm.Namespace).Create(context.Background(), flavorRevision, metav1.CreateOptions{})
+				_, err = virtClient.AppsV1().ControllerRevisions(vm.Namespace).Create(context.Background(), instancetypeRevision, metav1.CreateOptions{})
 				Expect(err).ToNot(HaveOccurred())
 
-				preferenceRevision, err := flavor.CreatePreferenceControllerRevision(vm, flavor.GetRevisionName(vm.Name, cp.Name, cp.UID, cp.Generation), cp.TypeMeta.APIVersion, &cp.Spec)
+				preferenceRevision, err := instancetype.CreatePreferenceControllerRevision(vm, instancetype.GetRevisionName(vm.Name, cp.Name, cp.UID, cp.Generation), cp.TypeMeta.APIVersion, &cp.Spec)
 				Expect(err).ToNot(HaveOccurred())
 
 				_, err = virtClient.AppsV1().ControllerRevisions(vm.Namespace).Create(context.Background(), preferenceRevision, metav1.CreateOptions{})
 				Expect(err).ToNot(HaveOccurred())
 
-				vm.Spec.Flavor = &v1.FlavorMatcher{
+				vm.Spec.Instancetype = &v1.InstancetypeMatcher{
 					Name:         f.Name,
-					Kind:         flavorapi.SingularResourceName,
-					RevisionName: flavorRevision.Name,
+					Kind:         instancetypeapi.SingularResourceName,
+					RevisionName: instancetypeRevision.Name,
 				}
 
 				vm.Spec.Preference = &v1.PreferenceMatcher{
 					Name:         cp.Name,
-					Kind:         flavorapi.ClusterSingularPreferenceResourceName,
+					Kind:         instancetypeapi.ClusterSingularPreferenceResourceName,
 					RevisionName: preferenceRevision.Name,
 				}
 
@@ -3358,9 +3358,9 @@ var _ = Describe("VirtualMachine", func() {
 				vmiInterface.EXPECT().Create(gomock.Any()).Times(1).Do(func(arg interface{}) {
 					vmiArg := arg.(*virtv1.VirtualMachineInstance)
 					Expect(vmiArg.Spec.Domain.CPU.Threads).To(Equal(f.Spec.CPU.Guest))
-					Expect(vmiArg.Annotations).To(HaveKeyWithValue(v1.FlavorAnnotation, f.Name))
+					Expect(vmiArg.Annotations).To(HaveKeyWithValue(v1.InstancetypeAnnotation, f.Name))
 					Expect(vmiArg.Annotations).To(HaveKeyWithValue(v1.ClusterPreferenceAnnotation, cp.Name))
-					Expect(vmiArg.Annotations).ToNot(HaveKey(v1.ClusterFlavorAnnotation))
+					Expect(vmiArg.Annotations).ToNot(HaveKey(v1.ClusterInstancetypeAnnotation))
 					Expect(vmiArg.Annotations).ToNot(HaveKey(v1.PreferenceAnnotation))
 				}).Return(vmi, nil)
 
@@ -3372,31 +3372,31 @@ var _ = Describe("VirtualMachine", func() {
 
 			It("should apply VirtualMachineClusterPreference to VirtualMachineInstance if an existing ControllerRevision is present but not referenced by PreferenceMatcher", func() {
 
-				flavorRevision, err := flavor.CreateFlavorControllerRevision(vm, flavor.GetRevisionName(vm.Name, f.Name, f.UID, f.Generation), f.TypeMeta.APIVersion, &f.Spec)
+				instancetypeRevision, err := instancetype.CreateInstancetypeControllerRevision(vm, instancetype.GetRevisionName(vm.Name, f.Name, f.UID, f.Generation), f.TypeMeta.APIVersion, &f.Spec)
 				Expect(err).ToNot(HaveOccurred())
 
-				_, err = virtClient.AppsV1().ControllerRevisions(vm.Namespace).Create(context.Background(), flavorRevision, metav1.CreateOptions{})
+				_, err = virtClient.AppsV1().ControllerRevisions(vm.Namespace).Create(context.Background(), instancetypeRevision, metav1.CreateOptions{})
 				Expect(err).ToNot(HaveOccurred())
 
-				preferenceRevision, err := flavor.CreatePreferenceControllerRevision(vm, flavor.GetRevisionName(vm.Name, cp.Name, cp.UID, cp.Generation), cp.TypeMeta.APIVersion, &cp.Spec)
+				preferenceRevision, err := instancetype.CreatePreferenceControllerRevision(vm, instancetype.GetRevisionName(vm.Name, cp.Name, cp.UID, cp.Generation), cp.TypeMeta.APIVersion, &cp.Spec)
 				Expect(err).ToNot(HaveOccurred())
 
 				_, err = virtClient.AppsV1().ControllerRevisions(vm.Namespace).Create(context.Background(), preferenceRevision, metav1.CreateOptions{})
 				Expect(err).ToNot(HaveOccurred())
 
 				// We expect a request to add in the missing preference revisionName
-				expectedRevisionNamePatch, err := flavor.GenerateRevisionNamePatch(nil, preferenceRevision)
+				expectedRevisionNamePatch, err := instancetype.GenerateRevisionNamePatch(nil, preferenceRevision)
 				Expect(err).ToNot(HaveOccurred())
 
-				vm.Spec.Flavor = &v1.FlavorMatcher{
+				vm.Spec.Instancetype = &v1.InstancetypeMatcher{
 					Name:         f.Name,
-					Kind:         flavorapi.SingularResourceName,
-					RevisionName: flavorRevision.Name,
+					Kind:         instancetypeapi.SingularResourceName,
+					RevisionName: instancetypeRevision.Name,
 				}
 
 				vm.Spec.Preference = &v1.PreferenceMatcher{
 					Name: cp.Name,
-					Kind: flavorapi.ClusterSingularPreferenceResourceName,
+					Kind: instancetypeapi.ClusterSingularPreferenceResourceName,
 				}
 
 				addVirtualMachine(vm)
@@ -3406,9 +3406,9 @@ var _ = Describe("VirtualMachine", func() {
 				vmiInterface.EXPECT().Create(gomock.Any()).Times(1).Do(func(arg interface{}) {
 					vmiArg := arg.(*virtv1.VirtualMachineInstance)
 					Expect(vmiArg.Spec.Domain.CPU.Threads).To(Equal(f.Spec.CPU.Guest))
-					Expect(vmiArg.Annotations).To(HaveKeyWithValue(v1.FlavorAnnotation, f.Name))
+					Expect(vmiArg.Annotations).To(HaveKeyWithValue(v1.InstancetypeAnnotation, f.Name))
 					Expect(vmiArg.Annotations).To(HaveKeyWithValue(v1.ClusterPreferenceAnnotation, cp.Name))
-					Expect(vmiArg.Annotations).ToNot(HaveKey(v1.ClusterFlavorAnnotation))
+					Expect(vmiArg.Annotations).ToNot(HaveKey(v1.ClusterInstancetypeAnnotation))
 					Expect(vmiArg.Annotations).ToNot(HaveKey(v1.PreferenceAnnotation))
 				}).Return(vmi, nil)
 
@@ -3420,9 +3420,9 @@ var _ = Describe("VirtualMachine", func() {
 
 			})
 
-			It("should reject request if an invalid FlavorMatcher Kind is provided", func() {
+			It("should reject request if an invalid InstancetypeMatcher Kind is provided", func() {
 
-				vm.Spec.Flavor = &v1.FlavorMatcher{
+				vm.Spec.Instancetype = &v1.InstancetypeMatcher{
 					Name: f.Name,
 					Kind: "foobar",
 				}
@@ -3435,7 +3435,7 @@ var _ = Describe("VirtualMachine", func() {
 					Expect(cond).To(Not(BeNil()))
 					Expect(cond.Type).To(Equal(virtv1.VirtualMachineFailure))
 					Expect(cond.Reason).To(Equal("FailedCreate"))
-					Expect(cond.Message).To(ContainSubstring("got unexpected kind in FlavorMatcher"))
+					Expect(cond.Message).To(ContainSubstring("got unexpected kind in InstancetypeMatcher"))
 				}).Return(vm, nil)
 
 				controller.Execute()
@@ -3444,11 +3444,11 @@ var _ = Describe("VirtualMachine", func() {
 
 			})
 
-			It("should reject the request if a VirtualMachineFlavor cannot be found", func() {
+			It("should reject the request if a VirtualMachineInstancetype cannot be found", func() {
 
-				vm.Spec.Flavor = &v1.FlavorMatcher{
+				vm.Spec.Instancetype = &v1.InstancetypeMatcher{
 					Name: "foobar",
-					Kind: flavorapi.SingularResourceName,
+					Kind: instancetypeapi.SingularResourceName,
 				}
 
 				addVirtualMachine(vm)
@@ -3467,11 +3467,11 @@ var _ = Describe("VirtualMachine", func() {
 
 			})
 
-			It("should reject the request if a VirtualMachineClusterFlavor cannot be found", func() {
+			It("should reject the request if a VirtualMachineClusterInstancetype cannot be found", func() {
 
-				vm.Spec.Flavor = &v1.FlavorMatcher{
+				vm.Spec.Instancetype = &v1.InstancetypeMatcher{
 					Name: "foobar",
-					Kind: flavorapi.ClusterSingularResourceName,
+					Kind: instancetypeapi.ClusterSingularResourceName,
 				}
 
 				addVirtualMachine(vm)
@@ -3518,7 +3518,7 @@ var _ = Describe("VirtualMachine", func() {
 
 				vm.Spec.Preference = &v1.PreferenceMatcher{
 					Name: "foobar",
-					Kind: flavorapi.SingularPreferenceResourceName,
+					Kind: instancetypeapi.SingularPreferenceResourceName,
 				}
 
 				addVirtualMachine(vm)
@@ -3541,7 +3541,7 @@ var _ = Describe("VirtualMachine", func() {
 
 				vm.Spec.Preference = &v1.PreferenceMatcher{
 					Name: "foobar",
-					Kind: flavorapi.ClusterSingularPreferenceResourceName,
+					Kind: instancetypeapi.ClusterSingularPreferenceResourceName,
 				}
 
 				addVirtualMachine(vm)
@@ -3560,11 +3560,11 @@ var _ = Describe("VirtualMachine", func() {
 
 			})
 
-			It("should reject the request if a VirtualMachineFlavor conflicts with the VirtualMachineInstance", func() {
+			It("should reject the request if a VirtualMachineInstancetype conflicts with the VirtualMachineInstance", func() {
 
-				vm.Spec.Flavor = &v1.FlavorMatcher{
+				vm.Spec.Instancetype = &v1.InstancetypeMatcher{
 					Name: f.Name,
-					Kind: flavorapi.SingularResourceName,
+					Kind: instancetypeapi.SingularResourceName,
 				}
 
 				vm.Spec.Template.Spec.Domain.CPU = &v1.CPU{
@@ -3581,7 +3581,7 @@ var _ = Describe("VirtualMachine", func() {
 					Expect(cond).To(Not(BeNil()))
 					Expect(cond.Type).To(Equal(virtv1.VirtualMachineFailure))
 					Expect(cond.Reason).To(Equal("FailedCreate"))
-					Expect(cond.Message).To(ContainSubstring("VMI conflicts with flavor spec in fields"))
+					Expect(cond.Message).To(ContainSubstring("VMI conflicts with instancetype spec in fields"))
 					Expect(cond.Message).To(ContainSubstring("spec.domain.cpu"))
 				}).Return(vm, nil)
 
@@ -3590,23 +3590,23 @@ var _ = Describe("VirtualMachine", func() {
 				testutils.ExpectEvents(recorder, FailedCreateVirtualMachineReason)
 			})
 
-			It("should reject if an existing ControllerRevision is found with unexpected VirtualMachineFlavorSpec data", func() {
+			It("should reject if an existing ControllerRevision is found with unexpected VirtualMachineInstancetypeSpec data", func() {
 
-				unexpectedExistingSpec := flavorv1alpha1.VirtualMachineFlavorSpec{
-					CPU: flavorv1alpha1.CPUFlavor{
+				unexpectedExistingSpec := instancetypev1alpha1.VirtualMachineInstancetypeSpec{
+					CPU: instancetypev1alpha1.CPUInstancetype{
 						Guest: 15,
 					},
 				}
 
-				flavorRevision, err := flavor.CreateFlavorControllerRevision(vm, flavor.GetRevisionName(vm.Name, f.Name, f.UID, f.Generation), f.TypeMeta.APIVersion, &unexpectedExistingSpec)
+				instancetypeRevision, err := instancetype.CreateInstancetypeControllerRevision(vm, instancetype.GetRevisionName(vm.Name, f.Name, f.UID, f.Generation), f.TypeMeta.APIVersion, &unexpectedExistingSpec)
 				Expect(err).ToNot(HaveOccurred())
 
-				_, err = virtClient.AppsV1().ControllerRevisions(vm.Namespace).Create(context.Background(), flavorRevision, metav1.CreateOptions{})
+				_, err = virtClient.AppsV1().ControllerRevisions(vm.Namespace).Create(context.Background(), instancetypeRevision, metav1.CreateOptions{})
 				Expect(err).ToNot(HaveOccurred())
 
-				vm.Spec.Flavor = &v1.FlavorMatcher{
+				vm.Spec.Instancetype = &v1.InstancetypeMatcher{
 					Name: f.Name,
-					Kind: flavorapi.SingularResourceName,
+					Kind: instancetypeapi.SingularResourceName,
 				}
 
 				addVirtualMachine(vm)
@@ -3628,13 +3628,13 @@ var _ = Describe("VirtualMachine", func() {
 
 			It("should reject if an existing ControllerRevision is found with unexpected VirtualMachinePreferenceSpec data", func() {
 
-				unexpectedExistingSpec := flavorv1alpha1.VirtualMachinePreferenceSpec{
-					CPU: &flavorv1alpha1.CPUPreferences{
-						PreferredCPUTopology: flavorv1alpha1.PreferThreads,
+				unexpectedExistingSpec := instancetypev1alpha1.VirtualMachinePreferenceSpec{
+					CPU: &instancetypev1alpha1.CPUPreferences{
+						PreferredCPUTopology: instancetypev1alpha1.PreferThreads,
 					},
 				}
 
-				preferenceRevision, err := flavor.CreatePreferenceControllerRevision(vm, flavor.GetRevisionName(vm.Name, p.Name, p.UID, p.Generation), p.TypeMeta.APIVersion, &unexpectedExistingSpec)
+				preferenceRevision, err := instancetype.CreatePreferenceControllerRevision(vm, instancetype.GetRevisionName(vm.Name, p.Name, p.UID, p.Generation), p.TypeMeta.APIVersion, &unexpectedExistingSpec)
 				Expect(err).ToNot(HaveOccurred())
 
 				_, err = virtClient.AppsV1().ControllerRevisions(vm.Namespace).Create(context.Background(), preferenceRevision, metav1.CreateOptions{})
@@ -3642,7 +3642,7 @@ var _ = Describe("VirtualMachine", func() {
 
 				vm.Spec.Preference = &v1.PreferenceMatcher{
 					Name: p.Name,
-					Kind: flavorapi.SingularPreferenceResourceName,
+					Kind: instancetypeapi.SingularPreferenceResourceName,
 				}
 
 				addVirtualMachine(vm)
@@ -3666,7 +3666,7 @@ var _ = Describe("VirtualMachine", func() {
 
 				vm.Spec.Preference = &v1.PreferenceMatcher{
 					Name: p.Name,
-					Kind: flavorapi.SingularPreferenceResourceName,
+					Kind: instancetypeapi.SingularPreferenceResourceName,
 				}
 
 				vm.Spec.Template.Spec.Domain.Devices.Interfaces = []virtv1.Interface{}
@@ -3674,11 +3674,11 @@ var _ = Describe("VirtualMachine", func() {
 
 				addVirtualMachine(vm)
 
-				expectedPreferenceRevisionName := flavor.GetRevisionName(vm.Name, p.Name, p.UID, p.Generation)
-				expectedPreferenceRevision, err := flavor.CreatePreferenceControllerRevision(vm, expectedPreferenceRevisionName, p.TypeMeta.APIVersion, &p.Spec)
+				expectedPreferenceRevisionName := instancetype.GetRevisionName(vm.Name, p.Name, p.UID, p.Generation)
+				expectedPreferenceRevision, err := instancetype.CreatePreferenceControllerRevision(vm, expectedPreferenceRevisionName, p.TypeMeta.APIVersion, &p.Spec)
 				Expect(err).ToNot(HaveOccurred())
 
-				expectedRevisionNamePatch, err := flavor.GenerateRevisionNamePatch(nil, expectedPreferenceRevision)
+				expectedRevisionNamePatch, err := instancetype.GenerateRevisionNamePatch(nil, expectedPreferenceRevision)
 				Expect(err).ToNot(HaveOccurred())
 
 				vmInterface.EXPECT().Patch(vm.Name, types.JSONPatchType, expectedRevisionNamePatch, &metav1.PatchOptions{})
@@ -3698,7 +3698,7 @@ var _ = Describe("VirtualMachine", func() {
 
 				vm.Spec.Preference = &v1.PreferenceMatcher{
 					Name: p.Name,
-					Kind: flavorapi.SingularPreferenceResourceName,
+					Kind: instancetypeapi.SingularPreferenceResourceName,
 				}
 
 				presentVolumeName := "present-vol"
@@ -3724,11 +3724,11 @@ var _ = Describe("VirtualMachine", func() {
 
 				addVirtualMachine(vm)
 
-				expectedPreferenceRevisionName := flavor.GetRevisionName(vm.Name, p.Name, p.UID, p.Generation)
-				expectedPreferenceRevision, err := flavor.CreatePreferenceControllerRevision(vm, expectedPreferenceRevisionName, p.TypeMeta.APIVersion, &p.Spec)
+				expectedPreferenceRevisionName := instancetype.GetRevisionName(vm.Name, p.Name, p.UID, p.Generation)
+				expectedPreferenceRevision, err := instancetype.CreatePreferenceControllerRevision(vm, expectedPreferenceRevisionName, p.TypeMeta.APIVersion, &p.Spec)
 				Expect(err).ToNot(HaveOccurred())
 
-				expectedRevisionNamePatch, err := flavor.GenerateRevisionNamePatch(nil, expectedPreferenceRevision)
+				expectedRevisionNamePatch, err := instancetype.GenerateRevisionNamePatch(nil, expectedPreferenceRevision)
 				Expect(err).ToNot(HaveOccurred())
 
 				vmInterface.EXPECT().Patch(vm.Name, types.JSONPatchType, expectedRevisionNamePatch, &metav1.PatchOptions{})

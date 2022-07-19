@@ -50,7 +50,7 @@ import (
 	k8ssnapshotclient "kubevirt.io/client-go/generated/external-snapshotter/clientset/versioned"
 	generatedclient "kubevirt.io/client-go/generated/kubevirt/clientset/versioned"
 	vmexportv1alpha1 "kubevirt.io/client-go/generated/kubevirt/clientset/versioned/typed/export/v1alpha1"
-	flavorv1alpha1 "kubevirt.io/client-go/generated/kubevirt/clientset/versioned/typed/flavor/v1alpha1"
+	instancetypev1alpha1 "kubevirt.io/client-go/generated/kubevirt/clientset/versioned/typed/instancetype/v1alpha1"
 	migrationsv1 "kubevirt.io/client-go/generated/kubevirt/clientset/versioned/typed/migrations/v1alpha1"
 	poolv1 "kubevirt.io/client-go/generated/kubevirt/clientset/versioned/typed/pool/v1alpha1"
 	vmsnapshotv1alpha1 "kubevirt.io/client-go/generated/kubevirt/clientset/versioned/typed/snapshot/v1alpha1"
@@ -71,10 +71,10 @@ type KubevirtClient interface {
 	VirtualMachineSnapshotContent(namespace string) vmsnapshotv1alpha1.VirtualMachineSnapshotContentInterface
 	VirtualMachineRestore(namespace string) vmsnapshotv1alpha1.VirtualMachineRestoreInterface
 	VirtualMachineExport(namespace string) vmexportv1alpha1.VirtualMachineExportInterface
-	VirtualMachineFlavor(namespace string) flavorv1alpha1.VirtualMachineFlavorInterface
-	VirtualMachineClusterFlavor() flavorv1alpha1.VirtualMachineClusterFlavorInterface
-	VirtualMachinePreference(namespace string) flavorv1alpha1.VirtualMachinePreferenceInterface
-	VirtualMachineClusterPreference() flavorv1alpha1.VirtualMachineClusterPreferenceInterface
+	VirtualMachineInstancetype(namespace string) instancetypev1alpha1.VirtualMachineInstancetypeInterface
+	VirtualMachineClusterInstancetype() instancetypev1alpha1.VirtualMachineClusterInstancetypeInterface
+	VirtualMachinePreference(namespace string) instancetypev1alpha1.VirtualMachinePreferenceInterface
+	VirtualMachineClusterPreference() instancetypev1alpha1.VirtualMachineClusterPreferenceInterface
 	MigrationPolicy() migrationsv1.MigrationPolicyInterface
 	ServerVersion() ServerVersionInterface
 	VirtualMachineClone(namespace string) clonev1alpha1.VirtualMachineCloneInterface
@@ -176,20 +176,20 @@ func (k kubevirt) VirtualMachineExport(namespace string) vmexportv1alpha1.Virtua
 	return k.generatedKubeVirtClient.ExportV1alpha1().VirtualMachineExports(namespace)
 }
 
-func (k kubevirt) VirtualMachineFlavor(namespace string) flavorv1alpha1.VirtualMachineFlavorInterface {
-	return k.generatedKubeVirtClient.FlavorV1alpha1().VirtualMachineFlavors(namespace)
+func (k kubevirt) VirtualMachineInstancetype(namespace string) instancetypev1alpha1.VirtualMachineInstancetypeInterface {
+	return k.generatedKubeVirtClient.InstancetypeV1alpha1().VirtualMachineInstancetypes(namespace)
 }
 
-func (k kubevirt) VirtualMachineClusterFlavor() flavorv1alpha1.VirtualMachineClusterFlavorInterface {
-	return k.generatedKubeVirtClient.FlavorV1alpha1().VirtualMachineClusterFlavors()
+func (k kubevirt) VirtualMachineClusterInstancetype() instancetypev1alpha1.VirtualMachineClusterInstancetypeInterface {
+	return k.generatedKubeVirtClient.InstancetypeV1alpha1().VirtualMachineClusterInstancetypes()
 }
 
-func (k kubevirt) VirtualMachinePreference(namespace string) flavorv1alpha1.VirtualMachinePreferenceInterface {
-	return k.generatedKubeVirtClient.FlavorV1alpha1().VirtualMachinePreferences(namespace)
+func (k kubevirt) VirtualMachinePreference(namespace string) instancetypev1alpha1.VirtualMachinePreferenceInterface {
+	return k.generatedKubeVirtClient.InstancetypeV1alpha1().VirtualMachinePreferences(namespace)
 }
 
-func (k kubevirt) VirtualMachineClusterPreference() flavorv1alpha1.VirtualMachineClusterPreferenceInterface {
-	return k.generatedKubeVirtClient.FlavorV1alpha1().VirtualMachineClusterPreferences()
+func (k kubevirt) VirtualMachineClusterPreference() instancetypev1alpha1.VirtualMachineClusterPreferenceInterface {
+	return k.generatedKubeVirtClient.InstancetypeV1alpha1().VirtualMachineClusterPreferences()
 }
 
 func (k kubevirt) KubernetesSnapshotClient() k8ssnapshotclient.Interface {

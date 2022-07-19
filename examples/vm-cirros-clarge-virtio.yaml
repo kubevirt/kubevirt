@@ -6,12 +6,12 @@ metadata:
     kubevirt.io/vm: vm-cirros-clarge-virtio
   name: vm-cirros-clarge-virtio
 spec:
-  flavor:
-    kind: VirtualMachineFlavor
-    name: vmf-clarge
+  instancetype:
+    kind: VirtualMachineInstancetype
+    name: clarge
   preference:
     kind: VirtualMachinePreference
-    name: vmpvirtio
+    name: virtio
   running: false
   template:
     metadata:

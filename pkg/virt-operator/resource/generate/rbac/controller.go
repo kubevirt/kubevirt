@@ -26,7 +26,7 @@ import (
 
 	"kubevirt.io/api/clone"
 
-	"kubevirt.io/api/flavor"
+	"kubevirt.io/api/instancetype"
 
 	virtv1 "kubevirt.io/api/core/v1"
 	"kubevirt.io/api/migrations"
@@ -440,13 +440,13 @@ func newControllerClusterRole() *rbacv1.ClusterRole {
 			},
 			{
 				APIGroups: []string{
-					"flavor.kubevirt.io",
+					"instancetype.kubevirt.io",
 				},
 				Resources: []string{
-					flavor.PluralResourceName,
-					flavor.ClusterPluralResourceName,
-					flavor.PluralPreferenceResourceName,
-					flavor.ClusterPluralPreferenceResourceName,
+					instancetype.PluralResourceName,
+					instancetype.ClusterPluralResourceName,
+					instancetype.PluralPreferenceResourceName,
+					instancetype.ClusterPluralPreferenceResourceName,
 				},
 				Verbs: []string{
 					"get", "list", "watch",

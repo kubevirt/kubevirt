@@ -51,7 +51,7 @@ import (
 	cdiclone "kubevirt.io/containerized-data-importer/pkg/clone"
 
 	"kubevirt.io/kubevirt/pkg/controller"
-	"kubevirt.io/kubevirt/pkg/flavor"
+	"kubevirt.io/kubevirt/pkg/instancetype"
 	"kubevirt.io/kubevirt/pkg/util"
 	"kubevirt.io/kubevirt/pkg/util/migrations"
 	"kubevirt.io/kubevirt/pkg/util/status"
@@ -94,7 +94,7 @@ func NewVMController(vmiInformer cache.SharedIndexInformer,
 	dataVolumeInformer cache.SharedIndexInformer,
 	pvcInformer cache.SharedIndexInformer,
 	crInformer cache.SharedIndexInformer,
-	flavorMethods flavor.Methods,
+	instancetypeMethods instancetype.Methods,
 	recorder record.EventRecorder,
 	clientset kubecli.KubevirtClient,
 	clusterConfig *virtconfig.ClusterConfig) *VMController {
@@ -108,7 +108,7 @@ func NewVMController(vmiInformer cache.SharedIndexInformer,
 		dataVolumeInformer:     dataVolumeInformer,
 		pvcInformer:            pvcInformer,
 		crInformer:             crInformer,
-		flavorMethods:          flavorMethods,
+		instancetypeMethods:    instancetypeMethods,
 		recorder:               recorder,
 		clientset:              clientset,
 		expectations:           controller.NewUIDTrackingControllerExpectations(controller.NewControllerExpectations()),
@@ -157,7 +157,7 @@ type VMController struct {
 	dataVolumeInformer     cache.SharedIndexInformer
 	pvcInformer            cache.SharedIndexInformer
 	crInformer             cache.SharedIndexInformer
-	flavorMethods          flavor.Methods
+	instancetypeMethods    instancetype.Methods
 	recorder               record.EventRecorder
 	expectations           *controller.UIDTrackingControllerExpectations
 	dataVolumeExpectations *controller.UIDTrackingControllerExpectations
@@ -1008,10 +1008,10 @@ func (c *VMController) startVMI(vm *virtv1.VirtualMachine) error {
 
 	util.SetDefaultVolumeDisk(vmi)
 
-	err = c.applyFlavorToVmi(vm, vmi)
+	err = c.applyInstancetypeToVmi(vm, vmi)
 	if err != nil {
-		log.Log.Object(vm).Infof("Failed to apply flavor to VirtualMachineInstance: %s/%s", vmi.Namespace, vmi.Name)
-		c.recorder.Eventf(vm, k8score.EventTypeWarning, FailedCreateVirtualMachineReason, "Error creating virtual machine instance: Failed to apply flavor: %v", err)
+		log.Log.Object(vm).Infof("Failed to apply instancetype to VirtualMachineInstance: %s/%s", vmi.Namespace, vmi.Name)
+		c.recorder.Eventf(vm, k8score.EventTypeWarning, FailedCreateVirtualMachineReason, "Error creating virtual machine instance: Failed to apply instancetype: %v", err)
 		return err
 	}
 
@@ -1311,31 +1311,31 @@ func (c *VMController) setupVMIFromVM(vm *virtv1.VirtualMachine) *virtv1.Virtual
 	return vmi
 }
 
-func (c *VMController) applyFlavorToVmi(vm *virtv1.VirtualMachine, vmi *virtv1.VirtualMachineInstance) error {
+func (c *VMController) applyInstancetypeToVmi(vm *virtv1.VirtualMachine, vmi *virtv1.VirtualMachineInstance) error {
 
-	flavorSpec, err := c.flavorMethods.FindFlavorSpec(vm)
+	instancetypeSpec, err := c.instancetypeMethods.FindInstancetypeSpec(vm)
 	if err != nil {
 		return err
 	}
 
-	preferenceSpec, err := c.flavorMethods.FindPreferenceSpec(vm)
+	preferenceSpec, err := c.instancetypeMethods.FindPreferenceSpec(vm)
 	if err != nil {
 		return err
 	}
 
-	if flavorSpec == nil && preferenceSpec == nil {
+	if instancetypeSpec == nil && preferenceSpec == nil {
 		return nil
 	}
 
-	flavor.AddFlavorNameAnnotations(vm, vmi)
-	flavor.AddPreferenceNameAnnotations(vm, vmi)
+	instancetype.AddInstancetypeNameAnnotations(vm, vmi)
+	instancetype.AddPreferenceNameAnnotations(vm, vmi)
 
-	conflicts := c.flavorMethods.ApplyToVmi(k8sfield.NewPath("spec"), flavorSpec, preferenceSpec, &vmi.Spec)
+	conflicts := c.instancetypeMethods.ApplyToVmi(k8sfield.NewPath("spec"), instancetypeSpec, preferenceSpec, &vmi.Spec)
 	if len(conflicts) > 0 {
-		return fmt.Errorf("VMI conflicts with flavor spec in fields: [%s]", conflicts.String())
+		return fmt.Errorf("VMI conflicts with instancetype spec in fields: [%s]", conflicts.String())
 	}
 
-	err = c.flavorMethods.StoreControllerRevisions(vm)
+	err = c.instancetypeMethods.StoreControllerRevisions(vm)
 	if err != nil {
 		return err
 	}

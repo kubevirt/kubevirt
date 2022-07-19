@@ -3580,23 +3580,23 @@ var CRDsValidation map[string]string = map[string]string{
             - spec
             type: object
           type: array
-        flavor:
-          description: FlavorMatcher references a flavor that is used to fill fields
-            in Template
+        instancetype:
+          description: InstancetypeMatcher references a instancetype that is used
+            to fill fields in Template
           properties:
             kind:
-              description: 'Kind specifies which flavor resource is referenced. Allowed
-                values are: "VirtualMachineFlavor" and "VirtualMachineClusterFlavor".
-                If not specified, "VirtualMachineClusterFlavor" is used by default.'
+              description: 'Kind specifies which instancetype resource is referenced.
+                Allowed values are: "VirtualMachineInstancetype" and "VirtualMachineClusterInstancetype".
+                If not specified, "VirtualMachineClusterInstancetype" is used by default.'
               type: string
             name:
-              description: Name is the name of the VirtualMachineFlavor or VirtualMachineClusterFlavor
+              description: Name is the name of the VirtualMachineInstancetype or VirtualMachineClusterInstancetype
               type: string
             revisionName:
               description: RevisionName specifies a ControllerRevision containing
-                a specific copy of the VirtualMachineFlavor or VirtualMachineClusterFlavor
-                to be used. This is initially captured the first time the flavor is
-                applied to the VirtualMachineInstance.
+                a specific copy of the VirtualMachineInstancetype or VirtualMachineClusterInstancetype
+                to be used. This is initially captured the first time the instancetype
+                is applied to the VirtualMachineInstance.
               type: string
           required:
           - name
@@ -3616,8 +3616,8 @@ var CRDsValidation map[string]string = map[string]string{
             revisionName:
               description: RevisionName specifies a ControllerRevision containing
                 a specific copy of the VirtualMachinePreference or VirtualMachineClusterPreference
-                to be used. This is initially captured the first time the flavor is
-                applied to the VirtualMachineInstance.
+                to be used. This is initially captured the first time the instancetype
+                is applied to the VirtualMachineInstance.
               type: string
           required:
           - name
@@ -6906,8 +6906,8 @@ var CRDsValidation map[string]string = map[string]string{
   - spec
   type: object
 `,
-	"virtualmachineclusterflavor": `openAPIV3Schema:
-  description: VirtualMachineClusterFlavor is a cluster scoped version of VirtualMachineFlavor
+	"virtualmachineclusterinstancetype": `openAPIV3Schema:
+  description: VirtualMachineClusterInstancetype is a cluster scoped version of VirtualMachineInstancetype
     resource.
   properties:
     apiVersion:
@@ -6923,10 +6923,10 @@ var CRDsValidation map[string]string = map[string]string{
     metadata:
       type: object
     spec:
-      description: Required spec describing the flavor
+      description: Required spec describing the instancetype
       properties:
         cpu:
-          description: Required CPU related attributes of the flavor.
+          description: Required CPU related attributes of the instancetype.
           properties:
             dedicatedCPUPlacement:
               description: DedicatedCPUPlacement requests the scheduler to place the
@@ -6974,7 +6974,7 @@ var CRDsValidation map[string]string = map[string]string{
           - guest
           type: object
         gpus:
-          description: Optionally defines any GPU devices associated with the flavor.
+          description: Optionally defines any GPU devices associated with the instancetype.
           items:
             properties:
               deviceName:
@@ -7013,7 +7013,7 @@ var CRDsValidation map[string]string = map[string]string{
           type: array
           x-kubernetes-list-type: atomic
         hostDevices:
-          description: Optionally defines any HostDevices associated with the flavor.
+          description: Optionally defines any HostDevices associated with the instancetype.
           items:
             properties:
               deviceName:
@@ -7033,17 +7033,17 @@ var CRDsValidation map[string]string = map[string]string{
           type: array
           x-kubernetes-list-type: atomic
         ioThreadsPolicy:
-          description: Optionally defines the IOThreadsPolicy to be used by the flavor.
+          description: Optionally defines the IOThreadsPolicy to be used by the instancetype.
           type: string
         launchSecurity:
-          description: Optionally defines the LaunchSecurity to be used by the flavor.
+          description: Optionally defines the LaunchSecurity to be used by the instancetype.
           properties:
             sev:
               description: AMD Secure Encrypted Virtualization (SEV).
               type: object
           type: object
         memory:
-          description: Required Memory related attributes of the flavor.
+          description: Required Memory related attributes of the instancetype.
           properties:
             guest:
               anyOf:
@@ -7737,171 +7737,6 @@ var CRDsValidation map[string]string = map[string]string{
             the Virtual Machine export. It will be used to create the internal URLs
             for downloading the images
           type: string
-      type: object
-  required:
-  - spec
-  type: object
-`,
-	"virtualmachineflavor": `openAPIV3Schema:
-  description: VirtualMachineFlavor resource contains quantitative and resource related
-    VirtualMachine configuration that can be used by multiple VirtualMachine resources.
-  properties:
-    apiVersion:
-      description: 'APIVersion defines the versioned schema of this representation
-        of an object. Servers should convert recognized schemas to the latest internal
-        value, and may reject unrecognized values. More info: https://git.k8s.io/community/contributors/devel/sig-architecture/api-conventions.md#resources'
-      type: string
-    kind:
-      description: 'Kind is a string value representing the REST resource this object
-        represents. Servers may infer this from the endpoint the client submits requests
-        to. Cannot be updated. In CamelCase. More info: https://git.k8s.io/community/contributors/devel/sig-architecture/api-conventions.md#types-kinds'
-      type: string
-    metadata:
-      type: object
-    spec:
-      description: Required spec describing the flavor
-      properties:
-        cpu:
-          description: Required CPU related attributes of the flavor.
-          properties:
-            dedicatedCPUPlacement:
-              description: DedicatedCPUPlacement requests the scheduler to place the
-                VirtualMachineInstance on a node with enough dedicated pCPUs and pin
-                the vCPUs to it.
-              type: boolean
-            guest:
-              description: "Required number of vCPUs to expose to the guest. \n The
-                resulting CPU topology being derived from the optional PreferredCPUTopology
-                attribute of CPUPreferences that itself defaults to PreferCores."
-              format: int32
-              type: integer
-            isolateEmulatorThread:
-              description: IsolateEmulatorThread requests one more dedicated pCPU
-                to be allocated for the VMI to place the emulator thread on it.
-              type: boolean
-            model:
-              description: Model specifies the CPU model inside the VMI. List of available
-                models https://github.com/libvirt/libvirt/tree/master/src/cpu_map.
-                It is possible to specify special cases like "host-passthrough" to
-                get the same CPU as the node and "host-model" to get CPU closest to
-                the node one. Defaults to host-model.
-              type: string
-            numa:
-              description: NUMA allows specifying settings for the guest NUMA topology
-              properties:
-                guestMappingPassthrough:
-                  description: GuestMappingPassthrough will create an efficient guest
-                    topology based on host CPUs exclusively assigned to a pod. The
-                    created topology ensures that memory and CPUs on the virtual numa
-                    nodes never cross boundaries of host numa nodes.
-                  type: object
-              type: object
-            realtime:
-              description: Realtime instructs the virt-launcher to tune the VMI for
-                lower latency, optional for real time workloads
-              properties:
-                mask:
-                  description: 'Mask defines the vcpu mask expression that defines
-                    which vcpus are used for realtime. Format matches libvirt''s expressions.
-                    Example: "0-3,^1","0,2,3","2-3"'
-                  type: string
-              type: object
-          required:
-          - guest
-          type: object
-        gpus:
-          description: Optionally defines any GPU devices associated with the flavor.
-          items:
-            properties:
-              deviceName:
-                type: string
-              name:
-                description: Name of the GPU device as exposed by a device plugin
-                type: string
-              tag:
-                description: If specified, the virtual network interface address and
-                  its tag will be provided to the guest via config drive
-                type: string
-              virtualGPUOptions:
-                properties:
-                  display:
-                    properties:
-                      enabled:
-                        description: Enabled determines if a display addapter backed
-                          by a vGPU should be enabled or disabled on the guest. Defaults
-                          to true.
-                        type: boolean
-                      ramFB:
-                        description: Enables a boot framebuffer, until the guest OS
-                          loads a real GPU driver Defaults to true.
-                        properties:
-                          enabled:
-                            description: Enabled determines if the feature should
-                              be enabled or disabled on the guest. Defaults to true.
-                            type: boolean
-                        type: object
-                    type: object
-                type: object
-            required:
-            - deviceName
-            - name
-            type: object
-          type: array
-          x-kubernetes-list-type: atomic
-        hostDevices:
-          description: Optionally defines any HostDevices associated with the flavor.
-          items:
-            properties:
-              deviceName:
-                description: DeviceName is the resource name of the host device exposed
-                  by a device plugin
-                type: string
-              name:
-                type: string
-              tag:
-                description: If specified, the virtual network interface address and
-                  its tag will be provided to the guest via config drive
-                type: string
-            required:
-            - deviceName
-            - name
-            type: object
-          type: array
-          x-kubernetes-list-type: atomic
-        ioThreadsPolicy:
-          description: Optionally defines the IOThreadsPolicy to be used by the flavor.
-          type: string
-        launchSecurity:
-          description: Optionally defines the LaunchSecurity to be used by the flavor.
-          properties:
-            sev:
-              description: AMD Secure Encrypted Virtualization (SEV).
-              type: object
-          type: object
-        memory:
-          description: Required Memory related attributes of the flavor.
-          properties:
-            guest:
-              anyOf:
-              - type: integer
-              - type: string
-              description: Required amount of memory which is visible inside the guest
-                OS.
-              pattern: ^(\+|-)?(([0-9]+(\.[0-9]*)?)|(\.[0-9]+))(([KMGTPE]i)|[numkMGTPE]|([eE](\+|-)?(([0-9]+(\.[0-9]*)?)|(\.[0-9]+))))?$
-              x-kubernetes-int-or-string: true
-            hugepages:
-              description: Optionally enables the use of hugepages for the VirtualMachineInstance
-                instead of regular memory.
-              properties:
-                pageSize:
-                  description: PageSize specifies the hugepage size, for x86_64 architecture
-                    valid values are 1Gi and 2Mi.
-                  type: string
-              type: object
-          type: object
-      required:
-      - cpu
-      - memory
       type: object
   required:
   - spec
@@ -14928,6 +14763,172 @@ var CRDsValidation map[string]string = map[string]string{
   - spec
   type: object
 `,
+	"virtualmachineinstancetype": `openAPIV3Schema:
+  description: VirtualMachineInstancetype resource contains quantitative and resource
+    related VirtualMachine configuration that can be used by multiple VirtualMachine
+    resources.
+  properties:
+    apiVersion:
+      description: 'APIVersion defines the versioned schema of this representation
+        of an object. Servers should convert recognized schemas to the latest internal
+        value, and may reject unrecognized values. More info: https://git.k8s.io/community/contributors/devel/sig-architecture/api-conventions.md#resources'
+      type: string
+    kind:
+      description: 'Kind is a string value representing the REST resource this object
+        represents. Servers may infer this from the endpoint the client submits requests
+        to. Cannot be updated. In CamelCase. More info: https://git.k8s.io/community/contributors/devel/sig-architecture/api-conventions.md#types-kinds'
+      type: string
+    metadata:
+      type: object
+    spec:
+      description: Required spec describing the instancetype
+      properties:
+        cpu:
+          description: Required CPU related attributes of the instancetype.
+          properties:
+            dedicatedCPUPlacement:
+              description: DedicatedCPUPlacement requests the scheduler to place the
+                VirtualMachineInstance on a node with enough dedicated pCPUs and pin
+                the vCPUs to it.
+              type: boolean
+            guest:
+              description: "Required number of vCPUs to expose to the guest. \n The
+                resulting CPU topology being derived from the optional PreferredCPUTopology
+                attribute of CPUPreferences that itself defaults to PreferCores."
+              format: int32
+              type: integer
+            isolateEmulatorThread:
+              description: IsolateEmulatorThread requests one more dedicated pCPU
+                to be allocated for the VMI to place the emulator thread on it.
+              type: boolean
+            model:
+              description: Model specifies the CPU model inside the VMI. List of available
+                models https://github.com/libvirt/libvirt/tree/master/src/cpu_map.
+                It is possible to specify special cases like "host-passthrough" to
+                get the same CPU as the node and "host-model" to get CPU closest to
+                the node one. Defaults to host-model.
+              type: string
+            numa:
+              description: NUMA allows specifying settings for the guest NUMA topology
+              properties:
+                guestMappingPassthrough:
+                  description: GuestMappingPassthrough will create an efficient guest
+                    topology based on host CPUs exclusively assigned to a pod. The
+                    created topology ensures that memory and CPUs on the virtual numa
+                    nodes never cross boundaries of host numa nodes.
+                  type: object
+              type: object
+            realtime:
+              description: Realtime instructs the virt-launcher to tune the VMI for
+                lower latency, optional for real time workloads
+              properties:
+                mask:
+                  description: 'Mask defines the vcpu mask expression that defines
+                    which vcpus are used for realtime. Format matches libvirt''s expressions.
+                    Example: "0-3,^1","0,2,3","2-3"'
+                  type: string
+              type: object
+          required:
+          - guest
+          type: object
+        gpus:
+          description: Optionally defines any GPU devices associated with the instancetype.
+          items:
+            properties:
+              deviceName:
+                type: string
+              name:
+                description: Name of the GPU device as exposed by a device plugin
+                type: string
+              tag:
+                description: If specified, the virtual network interface address and
+                  its tag will be provided to the guest via config drive
+                type: string
+              virtualGPUOptions:
+                properties:
+                  display:
+                    properties:
+                      enabled:
+                        description: Enabled determines if a display addapter backed
+                          by a vGPU should be enabled or disabled on the guest. Defaults
+                          to true.
+                        type: boolean
+                      ramFB:
+                        description: Enables a boot framebuffer, until the guest OS
+                          loads a real GPU driver Defaults to true.
+                        properties:
+                          enabled:
+                            description: Enabled determines if the feature should
+                              be enabled or disabled on the guest. Defaults to true.
+                            type: boolean
+                        type: object
+                    type: object
+                type: object
+            required:
+            - deviceName
+            - name
+            type: object
+          type: array
+          x-kubernetes-list-type: atomic
+        hostDevices:
+          description: Optionally defines any HostDevices associated with the instancetype.
+          items:
+            properties:
+              deviceName:
+                description: DeviceName is the resource name of the host device exposed
+                  by a device plugin
+                type: string
+              name:
+                type: string
+              tag:
+                description: If specified, the virtual network interface address and
+                  its tag will be provided to the guest via config drive
+                type: string
+            required:
+            - deviceName
+            - name
+            type: object
+          type: array
+          x-kubernetes-list-type: atomic
+        ioThreadsPolicy:
+          description: Optionally defines the IOThreadsPolicy to be used by the instancetype.
+          type: string
+        launchSecurity:
+          description: Optionally defines the LaunchSecurity to be used by the instancetype.
+          properties:
+            sev:
+              description: AMD Secure Encrypted Virtualization (SEV).
+              type: object
+          type: object
+        memory:
+          description: Required Memory related attributes of the instancetype.
+          properties:
+            guest:
+              anyOf:
+              - type: integer
+              - type: string
+              description: Required amount of memory which is visible inside the guest
+                OS.
+              pattern: ^(\+|-)?(([0-9]+(\.[0-9]*)?)|(\.[0-9]+))(([KMGTPE]i)|[numkMGTPE]|([eE](\+|-)?(([0-9]+(\.[0-9]*)?)|(\.[0-9]+))))?$
+              x-kubernetes-int-or-string: true
+            hugepages:
+              description: Optionally enables the use of hugepages for the VirtualMachineInstance
+                instead of regular memory.
+              properties:
+                pageSize:
+                  description: PageSize specifies the hugepage size, for x86_64 architecture
+                    valid values are 1Gi and 2Mi.
+                  type: string
+              type: object
+          type: object
+      required:
+      - cpu
+      - memory
+      type: object
+  required:
+  - spec
+  type: object
+`,
 	"virtualmachinepool": `openAPIV3Schema:
   description: VirtualMachinePool resource contains a VirtualMachine configuration
     that can be used to replicate multiple VirtualMachine resources.
@@ -15572,25 +15573,25 @@ var CRDsValidation map[string]string = map[string]string{
                     - spec
                     type: object
                   type: array
-                flavor:
-                  description: FlavorMatcher references a flavor that is used to fill
-                    fields in Template
+                instancetype:
+                  description: InstancetypeMatcher references a instancetype that
+                    is used to fill fields in Template
                   properties:
                     kind:
-                      description: 'Kind specifies which flavor resource is referenced.
-                        Allowed values are: "VirtualMachineFlavor" and "VirtualMachineClusterFlavor".
-                        If not specified, "VirtualMachineClusterFlavor" is used by
-                        default.'
+                      description: 'Kind specifies which instancetype resource is
+                        referenced. Allowed values are: "VirtualMachineInstancetype"
+                        and "VirtualMachineClusterInstancetype". If not specified,
+                        "VirtualMachineClusterInstancetype" is used by default.'
                       type: string
                     name:
-                      description: Name is the name of the VirtualMachineFlavor or
-                        VirtualMachineClusterFlavor
+                      description: Name is the name of the VirtualMachineInstancetype
+                        or VirtualMachineClusterInstancetype
                       type: string
                     revisionName:
                       description: RevisionName specifies a ControllerRevision containing
-                        a specific copy of the VirtualMachineFlavor or VirtualMachineClusterFlavor
+                        a specific copy of the VirtualMachineInstancetype or VirtualMachineClusterInstancetype
                         to be used. This is initially captured the first time the
-                        flavor is applied to the VirtualMachineInstance.
+                        instancetype is applied to the VirtualMachineInstance.
                       type: string
                   required:
                   - name
@@ -15613,7 +15614,7 @@ var CRDsValidation map[string]string = map[string]string{
                       description: RevisionName specifies a ControllerRevision containing
                         a specific copy of the VirtualMachinePreference or VirtualMachineClusterPreference
                         to be used. This is initially captured the first time the
-                        flavor is applied to the VirtualMachineInstance.
+                        instancetype is applied to the VirtualMachineInstance.
                       type: string
                   required:
                   - name
@@ -20010,25 +20011,26 @@ var CRDsValidation map[string]string = map[string]string{
                         - spec
                         type: object
                       type: array
-                    flavor:
-                      description: FlavorMatcher references a flavor that is used
-                        to fill fields in Template
+                    instancetype:
+                      description: InstancetypeMatcher references a instancetype that
+                        is used to fill fields in Template
                       properties:
                         kind:
-                          description: 'Kind specifies which flavor resource is referenced.
-                            Allowed values are: "VirtualMachineFlavor" and "VirtualMachineClusterFlavor".
-                            If not specified, "VirtualMachineClusterFlavor" is used
-                            by default.'
+                          description: 'Kind specifies which instancetype resource
+                            is referenced. Allowed values are: "VirtualMachineInstancetype"
+                            and "VirtualMachineClusterInstancetype". If not specified,
+                            "VirtualMachineClusterInstancetype" is used by default.'
                           type: string
                         name:
-                          description: Name is the name of the VirtualMachineFlavor
-                            or VirtualMachineClusterFlavor
+                          description: Name is the name of the VirtualMachineInstancetype
+                            or VirtualMachineClusterInstancetype
                           type: string
                         revisionName:
                           description: RevisionName specifies a ControllerRevision
-                            containing a specific copy of the VirtualMachineFlavor
-                            or VirtualMachineClusterFlavor to be used. This is initially
-                            captured the first time the flavor is applied to the VirtualMachineInstance.
+                            containing a specific copy of the VirtualMachineInstancetype
+                            or VirtualMachineClusterInstancetype to be used. This
+                            is initially captured the first time the instancetype
+                            is applied to the VirtualMachineInstance.
                           type: string
                       required:
                       - name
@@ -20051,8 +20053,8 @@ var CRDsValidation map[string]string = map[string]string{
                           description: RevisionName specifies a ControllerRevision
                             containing a specific copy of the VirtualMachinePreference
                             or VirtualMachineClusterPreference to be used. This is
-                            initially captured the first time the flavor is applied
-                            to the VirtualMachineInstance.
+                            initially captured the first time the instancetype is
+                            applied to the VirtualMachineInstance.
                           type: string
                       required:
                       - name

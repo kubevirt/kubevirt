@@ -588,7 +588,7 @@ var _ = Describe("Validating VirtualMachineRestore Admitter", func() {
 				},
 					Entry("patch to replace MAC", `{"op": "replace", "path": "/spec/template/spec/domain/devices/interfaces/0/macAddress", "value": "some-value"}`),
 					Entry("patch to add running", `{"op": "add", "path": "/spec/running", "value": "some-value"}`),
-					Entry("patch to remove flavor", `{"op": "remove", "path": "/spec/flavor"`),
+					Entry("patch to remove instancetype", `{"op": "remove", "path": "/spec/instancetype"`),
 					Entry("patch to replace a label", `{"op": "replace", "path": "/metadata/labels/key", "value": "some-value"`),
 					Entry("patch to remove an annotation", `{"op": "remove", "path": "/metadata/annotations/key"`),
 				)

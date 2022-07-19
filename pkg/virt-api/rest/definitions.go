@@ -28,7 +28,7 @@ import (
 	"kubevirt.io/api/clone"
 	clonev1lpha1 "kubevirt.io/api/clone/v1alpha1"
 
-	"kubevirt.io/api/flavor"
+	"kubevirt.io/api/instancetype"
 
 	"kubevirt.io/api/migrations"
 
@@ -41,7 +41,7 @@ import (
 
 	v1 "kubevirt.io/api/core/v1"
 	exportv1 "kubevirt.io/api/export/v1alpha1"
-	flavorv1alpha1 "kubevirt.io/api/flavor/v1alpha1"
+	instancetypev1alpha1 "kubevirt.io/api/instancetype/v1alpha1"
 	poolv1alpha1 "kubevirt.io/api/pool/v1alpha1"
 	snapshotv1 "kubevirt.io/api/snapshot/v1alpha1"
 
@@ -60,7 +60,7 @@ func ComposeAPIDefinitions() []*restful.WebService {
 		kubevirtApiServiceDefinitions,
 		snapshotApiServiceDefinitions,
 		exportApiServiceDefinitions,
-		flavorApiServiceDefinitions,
+		instancetypeApiServiceDefinitions,
 		migrationPoliciesApiServiceDefinitions,
 		poolApiServiceDefinitions,
 		vmCloneDefinitions,
@@ -193,38 +193,38 @@ func migrationPoliciesApiServiceDefinitions() []*restful.WebService {
 	return []*restful.WebService{ws, ws2}
 }
 
-func flavorApiServiceDefinitions() []*restful.WebService {
-	flavorGVR := flavorv1alpha1.SchemeGroupVersion.WithResource(flavor.PluralResourceName)
-	clusterFlavorGVR := flavorv1alpha1.SchemeGroupVersion.WithResource(flavor.ClusterPluralResourceName)
-	preferenceGVR := flavorv1alpha1.SchemeGroupVersion.WithResource(flavor.PluralPreferenceResourceName)
-	clusterPreferenceGVR := flavorv1alpha1.SchemeGroupVersion.WithResource(flavor.ClusterPluralPreferenceResourceName)
+func instancetypeApiServiceDefinitions() []*restful.WebService {
+	instancetypeGVR := instancetypev1alpha1.SchemeGroupVersion.WithResource(instancetype.PluralResourceName)
+	clusterInstancetypeGVR := instancetypev1alpha1.SchemeGroupVersion.WithResource(instancetype.ClusterPluralResourceName)
+	preferenceGVR := instancetypev1alpha1.SchemeGroupVersion.WithResource(instancetype.PluralPreferenceResourceName)
+	clusterPreferenceGVR := instancetypev1alpha1.SchemeGroupVersion.WithResource(instancetype.ClusterPluralPreferenceResourceName)
 
-	ws, err := GroupVersionProxyBase(flavorv1alpha1.SchemeGroupVersion)
+	ws, err := GroupVersionProxyBase(instancetypev1alpha1.SchemeGroupVersion)
 	if err != nil {
 		panic(err)
 	}
 
-	ws, err = GenericNamespacedResourceProxy(ws, flavorGVR, &flavorv1alpha1.VirtualMachineFlavor{}, "VirtualMachineFlavor", &flavorv1alpha1.VirtualMachineFlavorList{})
+	ws, err = GenericNamespacedResourceProxy(ws, instancetypeGVR, &instancetypev1alpha1.VirtualMachineInstancetype{}, "VirtualMachineInstancetype", &instancetypev1alpha1.VirtualMachineInstancetypeList{})
 	if err != nil {
 		panic(err)
 	}
 
-	ws, err = GenericClusterResourceProxy(ws, clusterFlavorGVR, &flavorv1alpha1.VirtualMachineClusterFlavor{}, "VirtualMachineClusterFlavor", &flavorv1alpha1.VirtualMachineClusterFlavorList{})
+	ws, err = GenericClusterResourceProxy(ws, clusterInstancetypeGVR, &instancetypev1alpha1.VirtualMachineClusterInstancetype{}, "VirtualMachineClusterInstancetype", &instancetypev1alpha1.VirtualMachineClusterInstancetypeList{})
 	if err != nil {
 		panic(err)
 	}
 
-	ws, err = GenericNamespacedResourceProxy(ws, preferenceGVR, &flavorv1alpha1.VirtualMachinePreference{}, "VirtualMachinePreference", &flavorv1alpha1.VirtualMachinePreferenceList{})
+	ws, err = GenericNamespacedResourceProxy(ws, preferenceGVR, &instancetypev1alpha1.VirtualMachinePreference{}, "VirtualMachinePreference", &instancetypev1alpha1.VirtualMachinePreferenceList{})
 	if err != nil {
 		panic(err)
 	}
 
-	ws, err = GenericClusterResourceProxy(ws, clusterPreferenceGVR, &flavorv1alpha1.VirtualMachineClusterPreference{}, "VirtualMachineClusterPreference", &flavorv1alpha1.VirtualMachineClusterPreferenceList{})
+	ws, err = GenericClusterResourceProxy(ws, clusterPreferenceGVR, &instancetypev1alpha1.VirtualMachineClusterPreference{}, "VirtualMachineClusterPreference", &instancetypev1alpha1.VirtualMachineClusterPreferenceList{})
 	if err != nil {
 		panic(err)
 	}
 
-	ws2, err := ResourceProxyAutodiscovery(flavorGVR)
+	ws2, err := ResourceProxyAutodiscovery(instancetypeGVR)
 	if err != nil {
 		panic(err)
 	}

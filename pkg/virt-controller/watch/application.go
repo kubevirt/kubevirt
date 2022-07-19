@@ -34,7 +34,7 @@ import (
 
 	"kubevirt.io/kubevirt/pkg/virt-controller/watch/clone"
 
-	"kubevirt.io/kubevirt/pkg/flavor"
+	"kubevirt.io/kubevirt/pkg/instancetype"
 
 	"github.com/emicklei/go-restful"
 	vsv1 "github.com/kubernetes-csi/external-snapshotter/client/v4/apis/volumesnapshot/v1"
@@ -608,7 +608,7 @@ func (vca *VirtControllerApp) initVirtualMachines() {
 		vca.dataVolumeInformer,
 		vca.persistentVolumeClaimInformer,
 		vca.controllerRevisionInformer,
-		flavor.NewMethods(vca.clientSet),
+		instancetype.NewMethods(vca.clientSet),
 		recorder,
 		vca.clientSet,
 		vca.clusterConfig)

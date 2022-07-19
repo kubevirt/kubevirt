@@ -6,9 +6,9 @@ metadata:
     kubevirt.io/vm: vm-cirros-clarge
   name: vm-cirros-clarge
 spec:
-  flavor:
-    kind: VirtualMachineFlavor
-    name: vmf-clarge
+  instancetype:
+    kind: VirtualMachineInstancetype
+    name: clarge
   running: false
   template:
     metadata:

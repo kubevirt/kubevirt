@@ -111,7 +111,7 @@ var _ = Describe("Application", func() {
 		configMapInformer, _ := testutils.NewFakeInformerFor(&kubev1.ConfigMap{})
 		routeConfigMapInformer, _ := testutils.NewFakeInformerFor(&kubev1.ConfigMap{})
 		dvInformer, _ := testutils.NewFakeInformerFor(&cdiv1.DataVolume{})
-		flavorMethods := testutils.NewMockFlavorMethods()
+		instancetypeMethods := testutils.NewMockInstancetypeMethods()
 		exportServiceInformer, _ := testutils.NewFakeInformerFor(&k8sv1.Service{})
 		cloneInformer, _ := testutils.NewFakeInformerFor(&clonev1alpha1.VirtualMachineClone{})
 		secretInformer, _ := testutils.NewFakeInformerFor(&k8sv1.Secret{})
@@ -143,7 +143,7 @@ var _ = Describe("Application", func() {
 			dataVolumeInformer,
 			pvcInformer,
 			crInformer,
-			flavorMethods,
+			instancetypeMethods,
 			recorder,
 			virtClient,
 			config)

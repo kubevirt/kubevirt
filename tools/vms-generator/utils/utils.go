@@ -35,7 +35,7 @@ import (
 	"k8s.io/utils/pointer"
 
 	v1 "kubevirt.io/api/core/v1"
-	flavorv1alpha1 "kubevirt.io/api/flavor/v1alpha1"
+	instancetypev1alpha1 "kubevirt.io/api/instancetype/v1alpha1"
 	poolv1 "kubevirt.io/api/pool/v1alpha1"
 	cdiv1 "kubevirt.io/containerized-data-importer-api/pkg/apis/core/v1beta1"
 )
@@ -53,7 +53,7 @@ const (
 const (
 	VmiEphemeral         = "vmi-ephemeral"
 	VmiMigratable        = "vmi-migratable"
-	VmiFlavorSmall       = "vmi-flavor-small"
+	VmiInstancetypeSmall = "vmi-instancetype-small"
 	VmiSata              = "vmi-sata"
 	VmiFedora            = "vmi-fedora"
 	VmiSecureBoot        = "vmi-secureboot"
@@ -83,17 +83,17 @@ const (
 )
 
 const (
-	VmfComputeSmall                               = "vmf-csmall"
-	VmcfComputeSmall                              = "vmcf-csmall"
-	VmfComputeLarge                               = "vmf-clarge"
-	VmpVirtio                                     = "vmpvirtio"
-	VmpWindows                                    = "vmpwindows"
-	VmCirrosFlavorComputeSmall                    = "vm-cirros-csmall"
-	VmCirrosClusterFlavorComputeSmall             = "vm-cirros-vmcf-csmall"
-	VmCirrosFlavorComputeLarge                    = "vm-cirros-clarge"
-	VmCirrosFlavorComputeLargePreferncesVirtio    = "vm-cirros-clarge-virtio"
-	VmCirrosFlavorComputeLargePreferencesWindows  = "vm-cirros-clarge-windows"
-	VmWindowsFlavorComputeLargePreferencesWindows = "vm-windows-clarge-windows"
+	VirtualMachineInstancetypeComputeSmall              = "csmall"
+	VirtualMachineClusterInstancetypeComputeSmall       = "cluster-csmall"
+	VirtualMachineInstancetypeComputeLarge              = "clarge"
+	VirtualMachinePreferenceVirtio                      = "virtio"
+	VirtualMachinePreferenceWindows                     = "windows"
+	VmCirrosInstancetypeComputeSmall                    = "vm-cirros-csmall"
+	VmCirrosClusterInstancetypeComputeSmall             = "vm-cirros-cluster-csmall"
+	VmCirrosInstancetypeComputeLarge                    = "vm-cirros-clarge"
+	VmCirrosInstancetypeComputeLargePreferncesVirtio    = "vm-cirros-clarge-virtio"
+	VmCirrosInstancetypeComputeLargePreferencesWindows  = "vm-cirros-clarge-windows"
+	VmWindowsInstancetypeComputeLargePreferencesWindows = "vm-windows-clarge-windows"
 )
 
 const (
@@ -1180,72 +1180,72 @@ func generateCloudConfigString(cloudConfigElement ...string) string {
 		append([]string{cloudConfigHeader}, cloudConfigElement...), "\n")
 }
 
-func GetComputeSmallFlavorSpec() flavorv1alpha1.VirtualMachineFlavorSpec {
+func GetComputeSmallInstancetypeSpec() instancetypev1alpha1.VirtualMachineInstancetypeSpec {
 	memory := resource.MustParse("128Mi")
-	return flavorv1alpha1.VirtualMachineFlavorSpec{
-		CPU: flavorv1alpha1.CPUFlavor{
+	return instancetypev1alpha1.VirtualMachineInstancetypeSpec{
+		CPU: instancetypev1alpha1.CPUInstancetype{
 			Guest: uint32(1),
 		},
-		Memory: flavorv1alpha1.MemoryFlavor{
+		Memory: instancetypev1alpha1.MemoryInstancetype{
 			Guest: &memory,
 		},
 	}
 }
 
-func GetVmfComputeSmall() *flavorv1alpha1.VirtualMachineFlavor {
-	return &flavorv1alpha1.VirtualMachineFlavor{
+func GetVirtualMachineInstancetypeComputeSmall() *instancetypev1alpha1.VirtualMachineInstancetype {
+	return &instancetypev1alpha1.VirtualMachineInstancetype{
 		TypeMeta: metav1.TypeMeta{
-			APIVersion: flavorv1alpha1.SchemeGroupVersion.String(),
-			Kind:       "VirtualMachineFlavor",
+			APIVersion: instancetypev1alpha1.SchemeGroupVersion.String(),
+			Kind:       "VirtualMachineInstancetype",
 		},
 		ObjectMeta: metav1.ObjectMeta{
-			Name: VmfComputeSmall,
+			Name: VirtualMachineInstancetypeComputeSmall,
 		},
-		Spec: GetComputeSmallFlavorSpec(),
+		Spec: GetComputeSmallInstancetypeSpec(),
 	}
 }
 
-func GetVmcfComputeSmall() *flavorv1alpha1.VirtualMachineClusterFlavor {
-	return &flavorv1alpha1.VirtualMachineClusterFlavor{
+func GetVirtualMachineClusterInstancetypeComputeSmall() *instancetypev1alpha1.VirtualMachineClusterInstancetype {
+	return &instancetypev1alpha1.VirtualMachineClusterInstancetype{
 		TypeMeta: metav1.TypeMeta{
-			APIVersion: flavorv1alpha1.SchemeGroupVersion.String(),
-			Kind:       "VirtualMachineClusterFlavor",
+			APIVersion: instancetypev1alpha1.SchemeGroupVersion.String(),
+			Kind:       "VirtualMachineClusterInstancetype",
 		},
 		ObjectMeta: metav1.ObjectMeta{
-			Name: VmcfComputeSmall,
+			Name: VirtualMachineClusterInstancetypeComputeSmall,
 		},
-		Spec: GetComputeSmallFlavorSpec(),
+		Spec: GetComputeSmallInstancetypeSpec(),
 	}
 }
 
-func GetVmfComputeLarge() *flavorv1alpha1.VirtualMachineFlavor {
+func GetVirtualMachineInstancetypeComputeLarge() *instancetypev1alpha1.VirtualMachineInstancetype {
 	memory := resource.MustParse("2048Mi")
-	return &flavorv1alpha1.VirtualMachineFlavor{
+	return &instancetypev1alpha1.VirtualMachineInstancetype{
 		TypeMeta: metav1.TypeMeta{
-			APIVersion: flavorv1alpha1.SchemeGroupVersion.String(),
-			Kind:       "VirtualMachineFlavor",
+			APIVersion: instancetypev1alpha1.SchemeGroupVersion.String(),
+			Kind:       "VirtualMachineInstancetype",
 		},
 		ObjectMeta: metav1.ObjectMeta{
-			Name: VmfComputeLarge,
+			Name: VirtualMachineInstancetypeComputeLarge,
 		},
-		Spec: flavorv1alpha1.VirtualMachineFlavorSpec{
-			CPU: flavorv1alpha1.CPUFlavor{
+		Spec: instancetypev1alpha1.VirtualMachineInstancetypeSpec{
+			CPU: instancetypev1alpha1.CPUInstancetype{
 				Guest: uint32(4),
 			},
-			Memory: flavorv1alpha1.MemoryFlavor{
+			Memory: instancetypev1alpha1.MemoryInstancetype{
 				Guest: &memory,
 			},
 		},
 	}
 }
 
-func GetVmCirrosFlavorComputeSmall() *v1.VirtualMachine {
-	vm := getBaseVM(VmCirrosFlavorComputeSmall, map[string]string{
-		kubevirtIoVM: VmCirrosFlavorComputeSmall,
+func GetVmCirrosInstancetypeComputeSmall() *v1.VirtualMachine {
+	vm := getBaseVM(VmCirrosInstancetypeComputeSmall, map[string]string{
+		kubevirtIoVM: VmCirrosInstancetypeComputeSmall,
 	})
-	vm.Spec.Flavor = &v1.FlavorMatcher{
-		Name: VmfComputeSmall,
-		Kind: "VirtualMachineFlavor",
+	vm.Spec.Instancetype = &v1.InstancetypeMatcher{
+		Name: VirtualMachineInstancetypeComputeSmall,
+		Kind: "VirtualMachineInstancetype",
 	}
 	addContainerDisk(&vm.Spec.Template.Spec, fmt.Sprintf(strFmt, DockerPrefix, imageCirros, DockerTag), "")
 	addNoCloudDisk(&vm.Spec.Template.Spec)
@@ -1255,14 +1255,14 @@ func GetVmCirrosFlavorComputeSmall() *v1.VirtualMachine {
 	return vm
 }
 
-func GetVmCirrosClusterFlavorComputeSmall() *v1.VirtualMachine {
-	vm := getBaseVM(VmCirrosFlavorComputeSmall, map[string]string{
-		kubevirtIoVM: VmCirrosFlavorComputeSmall,
+func GetVmCirrosClusterInstancetypeComputeSmall() *v1.VirtualMachine {
+	vm := getBaseVM(VmCirrosInstancetypeComputeSmall, map[string]string{
+		kubevirtIoVM: VmCirrosInstancetypeComputeSmall,
 	})
 
-	vm.Spec.Flavor = &v1.FlavorMatcher{
-		Name: VmfComputeSmall,
-		Kind: "VirtualMachineClusterFlavor",
+	vm.Spec.Instancetype = &v1.InstancetypeMatcher{
+		Name: VirtualMachineInstancetypeComputeSmall,
+		Kind: "VirtualMachineClusterInstancetype",
 	}
 
 	addContainerDisk(&vm.Spec.Template.Spec, fmt.Sprintf(strFmt, DockerPrefix, imageCirros, DockerTag), "")
@@ -1273,13 +1273,13 @@ func GetVmCirrosClusterFlavorComputeSmall() *v1.VirtualMachine {
 	return vm
 }
 
-func GetVmCirrosFlavorComputeLarge() *v1.VirtualMachine {
-	vm := getBaseVM(VmCirrosFlavorComputeLarge, map[string]string{
-		kubevirtIoVM: VmCirrosFlavorComputeLarge,
+func GetVmCirrosInstancetypeComputeLarge() *v1.VirtualMachine {
+	vm := getBaseVM(VmCirrosInstancetypeComputeLarge, map[string]string{
+		kubevirtIoVM: VmCirrosInstancetypeComputeLarge,
 	})
-	vm.Spec.Flavor = &v1.FlavorMatcher{
-		Name: VmfComputeLarge,
-		Kind: "VirtualMachineFlavor",
+	vm.Spec.Instancetype = &v1.InstancetypeMatcher{
+		Name: VirtualMachineInstancetypeComputeLarge,
+		Kind: "VirtualMachineInstancetype",
 	}
 	addContainerDisk(&vm.Spec.Template.Spec, fmt.Sprintf(strFmt, DockerPrefix, imageCirros, DockerTag), "")
 	addNoCloudDisk(&vm.Spec.Template.Spec)
@@ -1289,17 +1289,17 @@ func GetVmCirrosFlavorComputeLarge() *v1.VirtualMachine {
 	return vm
 }
 
-func GetVmpVirtio() *flavorv1alpha1.VirtualMachinePreference {
-	return &flavorv1alpha1.VirtualMachinePreference{
+func GetVirtualMachinePreferenceVirtio() *instancetypev1alpha1.VirtualMachinePreference {
+	return &instancetypev1alpha1.VirtualMachinePreference{
 		TypeMeta: metav1.TypeMeta{
-			APIVersion: flavorv1alpha1.SchemeGroupVersion.String(),
+			APIVersion: instancetypev1alpha1.SchemeGroupVersion.String(),
 			Kind:       "VirtualMachinePreference",
 		},
 		ObjectMeta: metav1.ObjectMeta{
-			Name: VmpVirtio,
+			Name: VirtualMachinePreferenceVirtio,
 		},
-		Spec: flavorv1alpha1.VirtualMachinePreferenceSpec{
-			Devices: &flavorv1alpha1.DevicePreferences{
+		Spec: instancetypev1alpha1.VirtualMachinePreferenceSpec{
+			Devices: &instancetypev1alpha1.DevicePreferences{
 				PreferredDiskBus:        "virtio",
 				PreferredInterfaceModel: "virtio",
 			},
@@ -1307,21 +1307,21 @@ func GetVmpVirtio() *flavorv1alpha1.VirtualMachinePreference {
 	}
 }
 
-func GetVmpWindows() *flavorv1alpha1.VirtualMachinePreference {
+func GetVirtualMachinePreferenceWindows() *instancetypev1alpha1.VirtualMachinePreference {
 	spinlocks := uint32(8191)
-	return &flavorv1alpha1.VirtualMachinePreference{
+	return &instancetypev1alpha1.VirtualMachinePreference{
 		TypeMeta: metav1.TypeMeta{
-			APIVersion: flavorv1alpha1.SchemeGroupVersion.String(),
+			APIVersion: instancetypev1alpha1.SchemeGroupVersion.String(),
 			Kind:       "VirtualMachinePreference",
 		},
 		ObjectMeta: metav1.ObjectMeta{
-			Name: VmpWindows,
+			Name: VirtualMachinePreferenceWindows,
 		},
-		Spec: flavorv1alpha1.VirtualMachinePreferenceSpec{
-			CPU: &flavorv1alpha1.CPUPreferences{
-				PreferredCPUTopology: flavorv1alpha1.PreferSockets,
+		Spec: instancetypev1alpha1.VirtualMachinePreferenceSpec{
+			CPU: &instancetypev1alpha1.CPUPreferences{
+				PreferredCPUTopology: instancetypev1alpha1.PreferSockets,
 			},
-			Clock: &flavorv1alpha1.ClockPreferences{
+			Clock: &instancetypev1alpha1.ClockPreferences{
 				PreferredClockOffset: &v1.ClockOffset{UTC: &v1.ClockOffsetUTC{}},
 				PreferredTimer: &v1.Timer{
 					HPET:   &v1.HPETTimer{Enabled: pointer.Bool(false)},
@@ -1330,12 +1330,12 @@ func GetVmpWindows() *flavorv1alpha1.VirtualMachinePreference {
 					Hyperv: &v1.HypervTimer{},
 				},
 			},
-			Devices: &flavorv1alpha1.DevicePreferences{
+			Devices: &instancetypev1alpha1.DevicePreferences{
 				PreferredDiskBus:        "sata",
 				PreferredInterfaceModel: "e1000",
 				PreferredTPM:            &v1.TPMDevice{},
 			},
-			Features: &flavorv1alpha1.FeaturePreferences{
+			Features: &instancetypev1alpha1.FeaturePreferences{
 				PreferredAcpi: &v1.FeatureState{},
 				PreferredApic: &v1.FeatureAPIC{},
 				PreferredHyperv: &v1.FeatureHyperv{
@@ -1345,7 +1345,7 @@ func GetVmpWindows() *flavorv1alpha1.VirtualMachinePreference {
 				},
 				PreferredSmm: &v1.FeatureState{},
 			},
-			Firmware: &flavorv1alpha1.FirmwarePreferences{
+			Firmware: &instancetypev1alpha1.FirmwarePreferences{
 				PreferredUseEfi:        pointer.Bool(true),
 				PreferredUseSecureBoot: pointer.Bool(true),
 			},
@@ -1353,16 +1353,16 @@ func GetVmpWindows() *flavorv1alpha1.VirtualMachinePreference {
 	}
 }
 
-func GetVmCirrosFlavorComputeLargePreferencesVirtio() *v1.VirtualMachine {
-	vm := getBaseVM(VmCirrosFlavorComputeLargePreferncesVirtio, map[string]string{
-		kubevirtIoVM: VmCirrosFlavorComputeLargePreferncesVirtio,
+func GetVmCirrosInstancetypeComputeLargePreferencesVirtio() *v1.VirtualMachine {
+	vm := getBaseVM(VmCirrosInstancetypeComputeLargePreferncesVirtio, map[string]string{
+		kubevirtIoVM: VmCirrosInstancetypeComputeLargePreferncesVirtio,
 	})
-	vm.Spec.Flavor = &v1.FlavorMatcher{
-		Name: VmfComputeLarge,
-		Kind: "VirtualMachineFlavor",
+	vm.Spec.Instancetype = &v1.InstancetypeMatcher{
+		Name: VirtualMachineInstancetypeComputeLarge,
+		Kind: "VirtualMachineInstancetype",
 	}
 	vm.Spec.Preference = &v1.PreferenceMatcher{
-		Name: VmpVirtio,
+		Name: VirtualMachinePreferenceVirtio,
 		Kind: "VirtualMachinePreference",
 	}
 	addContainerDisk(&vm.Spec.Template.Spec, fmt.Sprintf(strFmt, DockerPrefix, imageCirros, DockerTag), "")
@@ -1374,16 +1374,16 @@ func GetVmCirrosFlavorComputeLargePreferencesVirtio() *v1.VirtualMachine {
 	return vm
 }
 
-func GetVmCirrosFlavorComputeLargePreferencesWindows() *v1.VirtualMachine {
-	vm := getBaseVM(VmCirrosFlavorComputeLargePreferencesWindows, map[string]string{
-		kubevirtIoVM: VmCirrosFlavorComputeLargePreferencesWindows,
+func GetVmCirrosInstancetypeComputeLargePreferencesWindows() *v1.VirtualMachine {
+	vm := getBaseVM(VmCirrosInstancetypeComputeLargePreferencesWindows, map[string]string{
+		kubevirtIoVM: VmCirrosInstancetypeComputeLargePreferencesWindows,
 	})
-	vm.Spec.Flavor = &v1.FlavorMatcher{
-		Name: VmfComputeLarge,
-		Kind: "VirtualMachineFlavor",
+	vm.Spec.Instancetype = &v1.InstancetypeMatcher{
+		Name: VirtualMachineInstancetypeComputeLarge,
+		Kind: "VirtualMachineInstancetype",
 	}
 	vm.Spec.Preference = &v1.PreferenceMatcher{
-		Name: VmpWindows,
+		Name: VirtualMachinePreferenceWindows,
 		Kind: "VirtualMachinePreference",
 	}
 	addContainerDisk(&vm.Spec.Template.Spec, fmt.Sprintf(strFmt, DockerPrefix, imageCirros, DockerTag), "")
@@ -1395,16 +1395,16 @@ func GetVmCirrosFlavorComputeLargePreferencesWindows() *v1.VirtualMachine {
 	return vm
 }
 
-func GetVmWindowsFlavorComputeLargePreferencesWindows() *v1.VirtualMachine {
-	vm := getBaseVM(VmWindowsFlavorComputeLargePreferencesWindows, map[string]string{
-		kubevirtIoVM: VmWindowsFlavorComputeLargePreferencesWindows,
+func GetVmWindowsInstancetypeComputeLargePreferencesWindows() *v1.VirtualMachine {
+	vm := getBaseVM(VmWindowsInstancetypeComputeLargePreferencesWindows, map[string]string{
+		kubevirtIoVM: VmWindowsInstancetypeComputeLargePreferencesWindows,
 	})
-	vm.Spec.Flavor = &v1.FlavorMatcher{
-		Name: VmfComputeLarge,
-		Kind: "VirtualMachineFlavor",
+	vm.Spec.Instancetype = &v1.InstancetypeMatcher{
+		Name: VirtualMachineInstancetypeComputeLarge,
+		Kind: "VirtualMachineInstancetype",
 	}
 	vm.Spec.Preference = &v1.PreferenceMatcher{
-		Name: VmpWindows,
+		Name: VirtualMachinePreferenceWindows,
 		Kind: "VirtualMachinePreference",
 	}
 

@@ -75,12 +75,12 @@ func ServeVMExports(resp http.ResponseWriter, req *http.Request, clusterConfig *
 	validating_webhooks.Serve(resp, req, admitters.NewVMExportAdmitter(clusterConfig))
 }
 
-func ServeVmFlavors(resp http.ResponseWriter, req *http.Request, clusterConfig *virtconfig.ClusterConfig, virtCli kubecli.KubevirtClient) {
-	validating_webhooks.Serve(resp, req, &admitters.FlavorAdmitter{})
+func ServeVmInstancetypes(resp http.ResponseWriter, req *http.Request, clusterConfig *virtconfig.ClusterConfig, virtCli kubecli.KubevirtClient) {
+	validating_webhooks.Serve(resp, req, &admitters.InstancetypeAdmitter{})
 }
 
-func ServeVmClusterFlavors(resp http.ResponseWriter, req *http.Request, clusterConfig *virtconfig.ClusterConfig, virtCli kubecli.KubevirtClient) {
-	validating_webhooks.Serve(resp, req, &admitters.ClusterFlavorAdmitter{})
+func ServeVmClusterInstancetypes(resp http.ResponseWriter, req *http.Request, clusterConfig *virtconfig.ClusterConfig, virtCli kubecli.KubevirtClient) {
+	validating_webhooks.Serve(resp, req, &admitters.ClusterInstancetypeAdmitter{})
 }
 
 func ServeVmPreferences(resp http.ResponseWriter, req *http.Request, clusterConfig *virtconfig.ClusterConfig, virtCli kubecli.KubevirtClient) {

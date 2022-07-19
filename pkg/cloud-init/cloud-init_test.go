@@ -101,7 +101,7 @@ var _ = Describe("CloudInit", func() {
 		Context("verify meta-data model", func() {
 			It("should match the generated configdrive metadata", func() {
 				exampleJSONParsed := `{
-  "instance_type": "fake.fake-flavor",
+  "instance_type": "fake.fake-instancetype",
   "instance_id": "fake.fake-namespace",
   "local_hostname": "fake",
   "uuid": "fake.fake-namespace",
@@ -131,7 +131,7 @@ var _ = Describe("CloudInit", func() {
 				}
 
 				metadataStruct := ConfigDriveMetadata{
-					InstanceType:  "fake.fake-flavor",
+					InstanceType:  "fake.fake-instancetype",
 					InstanceID:    "fake.fake-namespace",
 					LocalHostname: "fake",
 					UUID:          "fake.fake-namespace",
@@ -194,13 +194,13 @@ var _ = Describe("CloudInit", func() {
 			})
 			It("should match the generated nocloud metadata", func() {
 				exampleJSONParsed := `{
-  "instance-type": "fake.fake-flavor",
+  "instance-type": "fake.fake-instancetype",
   "instance-id": "fake.fake-namespace",
   "local-hostname": "fake"
 }`
 
 				metadataStruct := NoCloudMetadata{
-					InstanceType:  "fake.fake-flavor",
+					InstanceType:  "fake.fake-instancetype",
 					InstanceID:    "fake.fake-namespace",
 					LocalHostname: "fake",
 				}
@@ -247,7 +247,7 @@ var _ = Describe("CloudInit", func() {
 			})
 
 			It("should fail local data generation", func() {
-				flavor := "fake-flavor"
+				instancetype := "fake-instancetype"
 				userData := "fake\nuser\ndata\n"
 				source := &v1.CloudInitNoCloudSource{
 					UserDataBase64: base64.StdEncoding.EncodeToString([]byte(userData)),
@@ -260,7 +260,7 @@ var _ = Describe("CloudInit", func() {
 						Namespace: "fake-namespace",
 					},
 				}
-				err := GenerateLocalData(vmi, flavor, cloudInitData)
+				err := GenerateLocalData(vmi, instancetype, cloudInitData)
 				Expect(err).To(HaveOccurred())
 				Expect(timedOut).To(BeTrue())
 			})
@@ -279,7 +279,7 @@ var _ = Describe("CloudInit", func() {
 			verifyCloudInitData := func(cloudInitData *CloudInitData) {
 				domain := "fake-domain"
 				namespace := "fake-namespace"
-				flavor := "fake-flavor"
+				instancetype := "fake-instancetype"
 
 				vmi := &v1.VirtualMachineInstance{
 					ObjectMeta: metav1.ObjectMeta{
@@ -287,7 +287,7 @@ var _ = Describe("CloudInit", func() {
 						Namespace: namespace,
 					},
 				}
-				err := GenerateLocalData(vmi, flavor, cloudInitData)
+				err := GenerateLocalData(vmi, instancetype, cloudInitData)
 				Expect(err).ToNot(HaveOccurred())
 
 				// verify iso is created
@@ -573,7 +573,7 @@ var _ = Describe("CloudInit", func() {
 
 	Describe("GenerateLocalData", func() {
 		It("should cleanly run twice", func() {
-			flavor := "fake-flavor"
+			instancetype := "fake-instancetype"
 			userData := "fake\nuser\ndata\n"
 
 			vmi := &v1.VirtualMachineInstance{
@@ -587,9 +587,9 @@ var _ = Describe("CloudInit", func() {
 			}
 			cloudInitData, err := readCloudInitNoCloudSource(source)
 			Expect(err).NotTo(HaveOccurred())
-			err = GenerateLocalData(vmi, flavor, cloudInitData)
+			err = GenerateLocalData(vmi, instancetype, cloudInitData)
 			Expect(err).NotTo(HaveOccurred())
-			err = GenerateLocalData(vmi, flavor, cloudInitData)
+			err = GenerateLocalData(vmi, instancetype, cloudInitData)
 			Expect(err).NotTo(HaveOccurred())
 		})
 	})

@@ -34,7 +34,7 @@ import (
 	k8sfield "k8s.io/apimachinery/pkg/util/validation/field"
 
 	v1 "kubevirt.io/api/core/v1"
-	flavorv1alpha1 "kubevirt.io/api/flavor/v1alpha1"
+	instancetypev1alpha1 "kubevirt.io/api/instancetype/v1alpha1"
 	poolv1 "kubevirt.io/api/pool/v1alpha1"
 
 	"kubevirt.io/kubevirt/pkg/testutils"
@@ -68,18 +68,18 @@ func main() {
 		},
 	})
 
-	var vmfs = map[string]*flavorv1alpha1.VirtualMachineFlavor{
-		utils.VmfComputeSmall: utils.GetVmfComputeSmall(),
-		utils.VmfComputeLarge: utils.GetVmfComputeLarge(),
+	var virtualMachineInstancetypes = map[string]*instancetypev1alpha1.VirtualMachineInstancetype{
+		utils.VirtualMachineInstancetypeComputeSmall: utils.GetVirtualMachineInstancetypeComputeSmall(),
+		utils.VirtualMachineInstancetypeComputeLarge: utils.GetVirtualMachineInstancetypeComputeLarge(),
 	}
 
-	var vmcfs = map[string]*flavorv1alpha1.VirtualMachineClusterFlavor{
-		utils.VmcfComputeSmall: utils.GetVmcfComputeSmall(),
+	var virtualMachineClusterInstancetypes = map[string]*instancetypev1alpha1.VirtualMachineClusterInstancetype{
+		utils.VirtualMachineClusterInstancetypeComputeSmall: utils.GetVirtualMachineClusterInstancetypeComputeSmall(),
 	}
 
-	var vmps = map[string]*flavorv1alpha1.VirtualMachinePreference{
-		utils.VmpVirtio:  utils.GetVmpVirtio(),
-		utils.VmpWindows: utils.GetVmpWindows(),
+	var vmps = map[string]*instancetypev1alpha1.VirtualMachinePreference{
+		utils.VirtualMachinePreferenceVirtio:  utils.GetVirtualMachinePreferenceVirtio(),
+		utils.VirtualMachinePreferenceWindows: utils.GetVirtualMachinePreferenceWindows(),
 	}
 
 	var priorityClasses = map[string]*schedulingv1.PriorityClass{
@@ -88,17 +88,17 @@ func main() {
 	}
 
 	var vms = map[string]*v1.VirtualMachine{
-		utils.VmCirros:                                      utils.GetVMCirros(),
-		utils.VmAlpineMultiPvc:                              utils.GetVMMultiPvc(),
-		utils.VmAlpineDataVolume:                            utils.GetVMDataVolume(),
-		utils.VMPriorityClass:                               utils.GetVMPriorityClass(),
-		utils.VmCirrosSata:                                  utils.GetVMCirrosSata(),
-		utils.VmCirrosFlavorComputeSmall:                    utils.GetVmCirrosFlavorComputeSmall(),
-		utils.VmCirrosClusterFlavorComputeSmall:             utils.GetVmCirrosClusterFlavorComputeSmall(),
-		utils.VmCirrosFlavorComputeLarge:                    utils.GetVmCirrosFlavorComputeLarge(),
-		utils.VmCirrosFlavorComputeLargePreferncesVirtio:    utils.GetVmCirrosFlavorComputeLargePreferencesVirtio(),
-		utils.VmWindowsFlavorComputeLargePreferencesWindows: utils.GetVmWindowsFlavorComputeLargePreferencesWindows(),
-		utils.VmCirrosFlavorComputeLargePreferencesWindows:  utils.GetVmCirrosFlavorComputeLargePreferencesWindows(),
+		utils.VmCirros:                                            utils.GetVMCirros(),
+		utils.VmAlpineMultiPvc:                                    utils.GetVMMultiPvc(),
+		utils.VmAlpineDataVolume:                                  utils.GetVMDataVolume(),
+		utils.VMPriorityClass:                                     utils.GetVMPriorityClass(),
+		utils.VmCirrosSata:                                        utils.GetVMCirrosSata(),
+		utils.VmCirrosInstancetypeComputeSmall:                    utils.GetVmCirrosInstancetypeComputeSmall(),
+		utils.VmCirrosClusterInstancetypeComputeSmall:             utils.GetVmCirrosClusterInstancetypeComputeSmall(),
+		utils.VmCirrosInstancetypeComputeLarge:                    utils.GetVmCirrosInstancetypeComputeLarge(),
+		utils.VmCirrosInstancetypeComputeLargePreferncesVirtio:    utils.GetVmCirrosInstancetypeComputeLargePreferencesVirtio(),
+		utils.VmWindowsInstancetypeComputeLargePreferencesWindows: utils.GetVmWindowsInstancetypeComputeLargePreferencesWindows(),
+		utils.VmCirrosInstancetypeComputeLargePreferencesWindows:  utils.GetVmCirrosInstancetypeComputeLargePreferencesWindows(),
 	}
 
 	var vmis = map[string]*v1.VirtualMachineInstance{
@@ -192,11 +192,11 @@ func main() {
 		handleError(dumpObject(name, *obj))
 	}
 
-	for name, obj := range vmfs {
+	for name, obj := range virtualMachineInstancetypes {
 		handleError(dumpObject(name, *obj))
 	}
 
-	for name, obj := range vmcfs {
+	for name, obj := range virtualMachineClusterInstancetypes {
 		handleError(dumpObject(name, *obj))
 	}
 

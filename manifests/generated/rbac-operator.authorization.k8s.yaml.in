@@ -250,6 +250,22 @@ rules:
   - watch
   - patch
 - apiGroups:
+  - flavor.kubevirt.io
+  resources:
+  - virtualmachineflavors
+  - virtualmachineclusterflavors
+  - virtualmachinepreferences
+  - virtualmachineclusterpreferences
+  verbs:
+  - get
+  - delete
+  - create
+  - update
+  - patch
+  - list
+  - watch
+  - deletecollection
+- apiGroups:
   - ""
   resources:
   - pods
@@ -347,10 +363,10 @@ rules:
   - list
   - watch
 - apiGroups:
-  - flavor.kubevirt.io
+  - instancetype.kubevirt.io
   resources:
-  - virtualmachineflavors
-  - virtualmachineclusterflavors
+  - virtualmachineinstancetypes
+  - virtualmachineclusterinstancetypes
   - virtualmachinepreferences
   - virtualmachineclusterpreferences
   verbs:
@@ -573,10 +589,10 @@ rules:
   - list
   - watch
 - apiGroups:
-  - flavor.kubevirt.io
+  - instancetype.kubevirt.io
   resources:
-  - virtualmachineflavors
-  - virtualmachineclusterflavors
+  - virtualmachineinstancetypes
+  - virtualmachineclusterinstancetypes
   - virtualmachinepreferences
   - virtualmachineclusterpreferences
   verbs:
@@ -801,10 +817,10 @@ rules:
   - watch
   - deletecollection
 - apiGroups:
-  - flavor.kubevirt.io
+  - instancetype.kubevirt.io
   resources:
-  - virtualmachineflavors
-  - virtualmachineclusterflavors
+  - virtualmachineinstancetypes
+  - virtualmachineclusterinstancetypes
   - virtualmachinepreferences
   - virtualmachineclusterpreferences
   verbs:
@@ -903,10 +919,10 @@ rules:
   - list
   - watch
 - apiGroups:
-  - flavor.kubevirt.io
+  - instancetype.kubevirt.io
   resources:
-  - virtualmachineflavors
-  - virtualmachineclusterflavors
+  - virtualmachineinstancetypes
+  - virtualmachineclusterinstancetypes
   - virtualmachinepreferences
   - virtualmachineclusterpreferences
   verbs:
@@ -975,10 +991,10 @@ rules:
   - list
   - watch
 - apiGroups:
-  - flavor.kubevirt.io
+  - instancetype.kubevirt.io
   resources:
-  - virtualmachineflavors
-  - virtualmachineclusterflavors
+  - virtualmachineinstancetypes
+  - virtualmachineclusterinstancetypes
   - virtualmachinepreferences
   - virtualmachineclusterpreferences
   verbs:
