@@ -373,7 +373,7 @@ if [[ -z ${KUBEVIRT_E2E_FOCUS} && -z ${KUBEVIRT_E2E_SKIP} ]]; then
     export KUBEVIRT_E2E_FOCUS="\\[sig-storage\\]|\\[storage-req\\]"
     export KUBEVIRT_E2E_SKIP="Migration"
   elif [[ $TARGET =~ vgpu.* ]]; then
-    label_filter = '--label-filter=needs-mdev-gpu'
+    label_filter='--label-filter=needs-mdev-gpu'
   elif [[ $TARGET =~ sig-compute-realtime ]]; then
     export KUBEVIRT_E2E_FOCUS="\\[sig-compute-realtime\\]"
   elif [[ $TARGET =~ sig-compute-migrations ]]; then
