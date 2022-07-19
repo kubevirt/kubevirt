@@ -118,7 +118,7 @@ func (c *ephemeralDiskCreator) CreateBackedImageForVolume(volume v1.Volume, back
 	}
 
 	// We need to ensure that the permissions are setup correctly.
-	err = diskutils.DefaultOwnershipManager.SetFileOwnership(imagePath)
+	err = diskutils.DefaultOwnershipManager.UnsafeSetFileOwnership(imagePath)
 	return err
 }
 
