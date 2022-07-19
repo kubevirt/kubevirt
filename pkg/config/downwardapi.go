@@ -56,7 +56,7 @@ func CreateDownwardAPIDisks(vmi *v1.VirtualMachineInstance, emptyIso bool) error
 				return err
 			}
 
-			if err := ephemeraldiskutils.DefaultOwnershipManager.SetFileOwnership(disk); err != nil {
+			if err := ephemeraldiskutils.DefaultOwnershipManager.UnsafeSetFileOwnership(disk); err != nil {
 				return err
 			}
 		}

@@ -32,7 +32,7 @@ func CreateTemporaryDisks(vmi *v1.VirtualMachineInstance) error {
 			} else if err != nil {
 				return err
 			}
-			if err := ephemeraldiskutils.DefaultOwnershipManager.SetFileOwnership(file); err != nil {
+			if err := ephemeraldiskutils.DefaultOwnershipManager.UnsafeSetFileOwnership(file); err != nil {
 				return err
 			}
 		}
