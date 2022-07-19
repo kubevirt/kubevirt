@@ -105,7 +105,7 @@ func (l *LibvirtDomainManager) prepareMigrationTarget(
 			logger.Reason(err).Error("failed to create the migration sockets directory")
 			return err
 		}
-		if err := diskutils.DefaultOwnershipManager.SetFileOwnership(migrationSocketsPath); err != nil {
+		if err := diskutils.DefaultOwnershipManager.UnsafeSetFileOwnership(migrationSocketsPath); err != nil {
 			logger.Reason(err).Error("failed to change ownership on migration sockets directory")
 			return err
 		}
