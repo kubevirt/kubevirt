@@ -136,6 +136,21 @@ var _ = Describe("Validating VMICreate Admitter", func() {
 		Expect(resp.Result.Message).To(ContainSubstring("no memory requested"))
 	})
 
+	table.DescribeTable("path validation should fail", func(path string) {
+		Expect(validatePath(k8sfield.NewPath("fake"), path)).To(HaveLen(1))
+	},
+		table.Entry("if path is not absolute", "a/b/c"),
+		table.Entry("if path contains relative elements", "/a/b/c/../d"),
+		table.Entry("if path is root", "/"),
+	)
+
+	table.DescribeTable("path validation should succeed", func(path string) {
+		Expect(validatePath(k8sfield.NewPath("fake"), path)).To(BeEmpty())
+	},
+		table.Entry("if path is absolute", "/a/b/c"),
+		table.Entry("if path is absolute and has trailing slash", "/a/b/c/"),
+	)
+
 	Context("tolerations with eviction policies given", func() {
 		var vmi *v1.VirtualMachineInstance
 		var policy = v1.EvictionStrategyLiveMigrate
@@ -2164,6 +2179,26 @@ var _ = Describe("Validating VMICreate Admitter", func() {
 			Expect(string(causes[0].Type)).To(Equal("FieldValueInvalid"))
 			Expect(causes[0].Field).To(Equal("fake.startStrategy"))
 			Expect(causes[0].Message).To(Equal("either fake.startStrategy or fake.livenessProbe should be provided.Pausing VMI with LivenessProbe is not supported"))
+		})
+		It("should detect invalid containerDisk paths", func() {
+			spec := &v1.VirtualMachineInstanceSpec{}
+			disk := v1.Disk{
+				Name:   "testdisk",
+				Serial: "SN-1_a",
+			}
+			spec.Domain.Devices.Disks = []v1.Disk{disk}
+			volume := v1.Volume{
+				Name: "testdisk",
+				VolumeSource: v1.VolumeSource{
+					ContainerDisk: testutils.NewFakeContainerDiskSource(),
+				},
+			}
+			volume.ContainerDisk.Path = "invalid"
+
+			spec.Volumes = []v1.Volume{volume}
+			spec.Domain.Devices.Disks = []v1.Disk{disk}
+			causes := ValidateVirtualMachineInstanceSpec(k8sfield.NewPath("fake"), spec, config)
+			Expect(causes).To(HaveLen(1))
 		})
 	})
 	Context("with cpu pinning", func() {
