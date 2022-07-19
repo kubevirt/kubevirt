@@ -574,15 +574,14 @@ func (m *volumeMounter) mountFileSystemHotplugVolume(vmi *v1.VirtualMachineInsta
 		if err != nil {
 			return err
 		}
-		fullPath, err := sourcePath.AppendAndResolveWithRelativeRoot("disk.img")
+		sourcePath, err = sourcePath.AppendAndResolveWithRelativeRoot("disk.img")
 		if err != nil {
 			return err
 		}
-		if out, err := mountCommand(fullPath, targetDisk); err != nil {
-			return fmt.Errorf("failed to bindmount hotplug-disk %v: %v : %v", volume, string(out), err)
+		if out, err := mountCommand(sourcePath, targetDisk); err != nil {
+			return fmt.Errorf("failed to bindmount hotplug-disk %v to %v: %v : %v", sourcePath, targetDisk, string(out), err)
 		}
-	} else {
-		return nil
+		log.DefaultLogger().V(1).Infof("successfully mounted %v", volume)
 	}
 	return nil
 }
