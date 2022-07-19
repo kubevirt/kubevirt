@@ -334,12 +334,6 @@ func (ctrl *VMRestoreController) getBindingMode(pvc *corev1.PersistentVolumeClai
 }
 
 func (t *vmRestoreTarget) UpdateDoneRestore() (bool, error) {
-	/* this should never be true
-	if !t.doesTargetVMExist() {
-		return true, nil
-	}
-	*/
-
 	if t.vm.Status.RestoreInProgress == nil || *t.vm.Status.RestoreInProgress != t.vmRestore.Name {
 		return false, nil
 	}
@@ -554,9 +548,6 @@ func (t *vmRestoreTarget) Reconcile() (bool, error) {
 	}
 	newVM.Spec.DataVolumeTemplates = newTemplates
 	newVM.Spec.Template.Spec.Volumes = newVolumes
-	if newVM.Annotations == nil {
-		newVM.Annotations = make(map[string]string)
-	}
 	setLastRestoreAnnotation(t.vmRestore, newVM)
 
 	newVM, err = patchVM(newVM, t.vmRestore.Spec.Patches)
