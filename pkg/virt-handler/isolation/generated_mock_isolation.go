@@ -7,6 +7,7 @@ import (
 	gomock "github.com/golang/mock/gomock"
 
 	v1 "kubevirt.io/client-go/api/v1"
+	safepath "kubevirt.io/kubevirt/pkg/safepath"
 )
 
 // Mock of PodIsolationDetector interface
@@ -123,10 +124,11 @@ func (_mr *_MockIsolationResultRecorder) PIDNamespace() *gomock.Call {
 	return _mr.mock.ctrl.RecordCall(_mr.mock, "PIDNamespace")
 }
 
-func (_m *MockIsolationResult) MountRoot() string {
+func (_m *MockIsolationResult) MountRoot() (*safepath.Path, error) {
 	ret := _m.ctrl.Call(_m, "MountRoot")
-	ret0, _ := ret[0].(string)
-	return ret0
+	ret0, _ := ret[0].(*safepath.Path)
+	ret1, _ := ret[1].(error)
+	return ret0, ret1
 }
 
 func (_mr *_MockIsolationResultRecorder) MountRoot() *gomock.Call {
