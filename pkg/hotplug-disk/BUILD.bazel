@@ -6,7 +6,7 @@ go_library(
     importpath = "kubevirt.io/kubevirt/pkg/hotplug-disk",
     visibility = ["//visibility:public"],
     deps = [
-        "//pkg/ephemeral-disk-utils:go_default_library",
+        "//pkg/safepath:go_default_library",
         "//pkg/util:go_default_library",
         "//vendor/k8s.io/apimachinery/pkg/types:go_default_library",
     ],
@@ -21,6 +21,7 @@ go_test(
     embed = [":go_default_library"],
     deps = [
         "//pkg/ephemeral-disk-utils:go_default_library",
+        "//pkg/unsafepath:go_default_library",
         "//staging/src/kubevirt.io/client-go/testutils:go_default_library",
         "//vendor/github.com/onsi/ginkgo:go_default_library",
         "//vendor/github.com/onsi/gomega:go_default_library",
