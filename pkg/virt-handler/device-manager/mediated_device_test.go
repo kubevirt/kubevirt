@@ -184,7 +184,7 @@ var _ = Describe("Mediated Device", func() {
 
 			By("creating an empty device controller")
 			var noDevices []Device
-			deviceController := NewDeviceController("master", noDevices, fakeClusterConfig, clientTest.CoreV1())
+			deviceController := NewDeviceController("master", 100, "rw", noDevices, fakeClusterConfig, clientTest.CoreV1())
 
 			By("adding a host device to the cluster config")
 			kvConfig := kv.DeepCopy()
