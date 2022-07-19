@@ -29,6 +29,7 @@ import (
 	"k8s.io/apimachinery/pkg/types"
 
 	diskutils "kubevirt.io/kubevirt/pkg/ephemeral-disk-utils"
+	"kubevirt.io/kubevirt/pkg/unsafepath"
 )
 
 var (
@@ -92,7 +93,7 @@ var _ = Describe("HotplugDisk", func() {
 		testPath := filepath.Join(tempDir, string(testUID), "testvolume")
 		exists, _ := diskutils.FileExists(testPath)
 		Expect(exists).To(BeTrue())
-		Expect(res).To(Equal(testPath))
+		Expect(unsafepath.UnsafeAbsolute(res.Raw())).To(Equal(testPath))
 	})
 
 	It("GetFileSystemDiskTargetPathFromHostView should return the volume directory", func() {
@@ -106,7 +107,7 @@ var _ = Describe("HotplugDisk", func() {
 		err = os.MkdirAll(testPath, os.FileMode(0755))
 		res, err := GetFileSystemDiskTargetPathFromHostView(testUID, "testvolume", false)
 		Expect(err).ToNot(HaveOccurred())
-		Expect(res).To(Equal(testPath))
+		Expect(unsafepath.UnsafeAbsolute(res.Raw())).To(Equal(testPath))
 	})
 
 	It("GetFileSystemDiskTargetPathFromHostView should fail on invalid UID", func() {
