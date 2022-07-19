@@ -25,6 +25,6 @@ import (
 	"kubevirt.io/client-go/testutils"
 )
 
-func TestHostDisk(t *testing.T) {
+func TestHotplugDisk(t *testing.T) {
 	testutils.KubeVirtTestSuiteSetup(t)
 }
