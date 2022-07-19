@@ -102,10 +102,11 @@ import (
 )
 
 const (
-	BinBash                = "/bin/bash"
-	StartingVMInstance     = "Starting a VirtualMachineInstance"
-	WaitingVMInstanceStart = "Waiting until the VirtualMachineInstance will start"
-	EchoLastReturnValue    = "echo $?\n"
+	BinBash                      = "/bin/bash"
+	StartingVMInstance           = "Starting a VirtualMachineInstance"
+	WaitingVMInstanceStart       = "Waiting until the VirtualMachineInstance will start"
+	CouldNotFindComputeContainer = "could not find compute container for pod"
+	EchoLastReturnValue          = "echo $?\n"
 )
 
 const (
@@ -282,7 +283,7 @@ func RunVMIAndExpectLaunch(vmi *v1.VirtualMachineInstance, timeout int) *v1.Virt
 func RunVMIAndExpectLaunchWithDataVolume(vmi *v1.VirtualMachineInstance, dv *cdiv1.DataVolume, timeout int) *v1.VirtualMachineInstance {
 	obj := RunVMI(vmi, timeout)
 	By("Waiting until the DataVolume is ready")
-	Eventually(ThisDV(dv), timeout).Should(HaveSucceeded())
+	libstorage.EventuallyDV(dv, timeout, HaveSucceeded())
 	By(WaitingVMInstanceStart)
 	ctx, cancel := context.WithCancel(context.Background())
 	defer cancel()
@@ -454,7 +455,7 @@ func NewRandomVirtualMachineInstanceWithDisk(imageUrl, namespace, sc string, acc
 	dv := libstorage.NewDataVolumeWithRegistryImportInStorageClass(imageUrl, namespace, sc, accessMode, volMode)
 	_, err = virtCli.CdiClient().CdiV1beta1().DataVolumes(dv.Namespace).Create(context.Background(), dv, metav1.CreateOptions{})
 	Expect(err).ToNot(HaveOccurred())
-	Eventually(ThisDV(dv), 240).Should(Or(HaveSucceeded(), BeInPhase(cdiv1.WaitForFirstConsumer)))
+	libstorage.EventuallyDV(dv, 240, Or(HaveSucceeded(), BeInPhase(cdiv1.WaitForFirstConsumer)))
 	return NewRandomVMIWithDataVolume(dv.Name), dv
 }
 

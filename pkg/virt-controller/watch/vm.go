@@ -58,6 +58,7 @@ import (
 	traceUtils "kubevirt.io/kubevirt/pkg/util/trace"
 	typesutil "kubevirt.io/kubevirt/pkg/util/types"
 	virtconfig "kubevirt.io/kubevirt/pkg/virt-config"
+	watchutil "kubevirt.io/kubevirt/pkg/virt-controller/watch/util"
 )
 
 const (
@@ -384,52 +385,6 @@ func (c *VMController) getPersistentVolumeClaimFromCache(namespace, name string)
 	return pvc, nil
 }
 
-func createDataVolumeManifest(clientset kubecli.KubevirtClient, dataVolumeTemplate *virtv1.DataVolumeTemplateSpec, vm *virtv1.VirtualMachine) (*cdiv1.DataVolume, error) {
-
-	newDataVolume := &cdiv1.DataVolume{}
-
-	newDataVolume.Spec = *dataVolumeTemplate.Spec.DeepCopy()
-	newDataVolume.ObjectMeta = *dataVolumeTemplate.ObjectMeta.DeepCopy()
-
-	labels := map[string]string{}
-	annotations := map[string]string{}
-
-	labels[virtv1.CreatedByLabel] = string(vm.UID)
-
-	for k, v := range dataVolumeTemplate.Annotations {
-		annotations[k] = v
-	}
-	for k, v := range dataVolumeTemplate.Labels {
-		labels[k] = v
-	}
-	newDataVolume.ObjectMeta.Labels = labels
-	newDataVolume.ObjectMeta.Annotations = annotations
-
-	newDataVolume.ObjectMeta.OwnerReferences = []v1.OwnerReference{
-		*v1.NewControllerRef(vm, virtv1.VirtualMachineGroupVersionKind),
-	}
-
-	if newDataVolume.Spec.PriorityClassName == "" && vm.Spec.Template.Spec.PriorityClassName != "" {
-		newDataVolume.Spec.PriorityClassName = vm.Spec.Template.Spec.PriorityClassName
-	}
-
-	cloneSource, err := typesutil.GetCloneSource(context.TODO(), clientset, vm, &newDataVolume.Spec)
-	if err != nil {
-		return nil, err
-	}
-
-	if cloneSource != nil && newDataVolume.Spec.SourceRef != nil {
-		newDataVolume.Spec.SourceRef = nil
-		newDataVolume.Spec.Source = &cdiv1.DataVolumeSource{
-			PVC: &cdiv1.DataVolumeSourcePVC{
-				Namespace: cloneSource.Namespace,
-				Name:      cloneSource.Name,
-			},
-		}
-	}
-	return newDataVolume, nil
-}
-
 func (c *VMController) authorizeDataVolume(vm *virtv1.VirtualMachine, dataVolume *cdiv1.DataVolume) error {
 	if dataVolume.Spec.SourceRef != nil {
 		return fmt.Errorf("DataVolume sourceRef not supported")
@@ -469,7 +424,7 @@ func (c *VMController) handleDataVolumes(vm *virtv1.VirtualMachine, dataVolumes 
 	if err != nil {
 		return ready, err
 	}
-	for i, template := range vm.Spec.DataVolumeTemplates {
+	for _, template := range vm.Spec.DataVolumeTemplates {
 		var curDataVolume *cdiv1.DataVolume
 		exists := false
 		for _, curDataVolume = range dataVolumes {
@@ -479,9 +434,18 @@ func (c *VMController) handleDataVolumes(vm *virtv1.VirtualMachine, dataVolumes 
 			}
 		}
 		if !exists {
+			// Don't create DV if PVC already exists
+			pvc, err := c.getPersistentVolumeClaimFromCache(vm.Namespace, template.Name)
+			if err != nil {
+				return false, err
+			}
+			if pvc != nil {
+				continue
+			}
+
 			// ready = false because encountered DataVolume that is not created yet
 			ready = false
-			newDataVolume, err := createDataVolumeManifest(c.clientset, &vm.Spec.DataVolumeTemplates[i], vm)
+			newDataVolume, err := watchutil.CreateDataVolumeManifest(c.clientset, template, vm)
 			if err != nil {
 				return ready, fmt.Errorf("unable to create DataVolume manifest: %v", err)
 			}
@@ -1854,7 +1818,6 @@ func (c *VMController) setPrintableStatus(vm *virtv1.VirtualMachine, vmi *virtv1
 		{virtv1.VirtualMachineStatusPaused, c.isVirtualMachineStatusPaused},
 		{virtv1.VirtualMachineStatusRunning, c.isVirtualMachineStatusRunning},
 		{virtv1.VirtualMachineStatusPvcNotFound, c.isVirtualMachineStatusPvcNotFound},
-		{virtv1.VirtualMachineStatusDataVolumeNotFound, c.isVirtualMachineStatusDataVolumeNotFound},
 		{virtv1.VirtualMachineStatusDataVolumeError, c.isVirtualMachineStatusDataVolumeError},
 		{virtv1.VirtualMachineStatusUnschedulable, c.isVirtualMachineStatusUnschedulable},
 		{virtv1.VirtualMachineStatusProvisioning, c.isVirtualMachineStatusProvisioning},
@@ -2042,14 +2005,6 @@ func (c *VMController) isVirtualMachineStatusPvcNotFound(vm *virtv1.VirtualMachi
 		virtv1.VirtualMachineInstanceSynchronized,
 		k8score.ConditionFalse,
 		FailedPvcNotFoundReason)
-}
-
-// isVirtualMachineStatusDataVolumeNotFound determines whether the VM status field should be set to "FailedDataVolumeNotFound".
-func (c *VMController) isVirtualMachineStatusDataVolumeNotFound(vm *virtv1.VirtualMachine, vmi *virtv1.VirtualMachineInstance) bool {
-	return controller.NewVirtualMachineInstanceConditionManager().HasConditionWithStatusAndReason(vmi,
-		virtv1.VirtualMachineInstanceSynchronized,
-		k8score.ConditionFalse,
-		FailedDataVolumeNotFoundReason)
 }
 
 // isVirtualMachineStatusDataVolumeError determines whether the VM status field should be set to "DataVolumeError"

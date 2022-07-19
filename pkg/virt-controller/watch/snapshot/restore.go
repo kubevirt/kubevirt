@@ -32,17 +32,20 @@ import (
 	storagev1 "k8s.io/api/storage/v1"
 	"k8s.io/apimachinery/pkg/api/equality"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	v1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/util/sets"
 
 	kubevirtv1 "kubevirt.io/api/core/v1"
 	snapshotv1 "kubevirt.io/api/snapshot/v1alpha1"
 	"kubevirt.io/client-go/log"
+	"kubevirt.io/containerized-data-importer-api/pkg/apis/core/v1beta1"
 
 	"kubevirt.io/kubevirt/pkg/controller"
+	watchutil "kubevirt.io/kubevirt/pkg/virt-controller/watch/util"
 )
 
 const (
-	pvcRestoreAnnotation = "restore.kubevirt.io/name"
+	restoreNameAnnotation = "restore.kubevirt.io/name"
 
 	populatedForPVCAnnotation = "cdi.kubevirt.io/storage.populatedFor"
 
@@ -55,6 +58,8 @@ const (
 	restoreCompleteEvent = "VirtualMachineRestoreComplete"
 
 	restoreErrorEvent = "VirtualMachineRestoreError"
+
+	restoreDataVolumeCreateErrorEvent = "RestoreDataVolumeCreateError"
 )
 
 type restoreTarget interface {
@@ -95,7 +100,6 @@ func VmRestoreProgressing(vmRestore *snapshotv1.VirtualMachineRestore) bool {
 
 func (ctrl *VMRestoreController) updateVMRestore(vmRestoreIn *snapshotv1.VirtualMachineRestore) (time.Duration, error) {
 	logger := log.Log.Object(vmRestoreIn)
-
 	logger.V(1).Infof("Updating VirtualMachineRestore")
 
 	if !VmRestoreProgressing(vmRestoreIn) {
@@ -103,7 +107,6 @@ func (ctrl *VMRestoreController) updateVMRestore(vmRestoreIn *snapshotv1.Virtual
 	}
 
 	vmRestoreOut := vmRestoreIn.DeepCopy()
-
 	if vmRestoreOut.Status == nil {
 		f := false
 		vmRestoreOut.Status = &snapshotv1.VirtualMachineRestoreStatus{
@@ -133,73 +136,70 @@ func (ctrl *VMRestoreController) updateVMRestore(vmRestoreIn *snapshotv1.Virtual
 		return 0, ctrl.doUpdate(vmRestoreIn, vmRestoreOut)
 	}
 
-	var updated bool
-	updated, err = ctrl.reconcileVolumeRestores(vmRestoreOut, target)
+	updated, err := ctrl.reconcileVolumeRestores(vmRestoreOut, target)
 	if err != nil {
 		logger.Reason(err).Error("Error reconciling VolumeRestores")
 		return 0, ctrl.doUpdateError(vmRestoreIn, err)
 	}
-
-	if !updated {
-		var ready bool
-		ready, err = target.Ready()
-		if err != nil {
-			logger.Reason(err).Error("Error checking target ready")
-			return 0, ctrl.doUpdateError(vmRestoreIn, err)
-		}
-
-		if ready {
-			updated, err = target.Reconcile()
-			if err != nil {
-				logger.Reason(err).Error("Error reconciling target")
-				return 0, ctrl.doUpdateError(vmRestoreIn, err)
-			}
-
-			if !updated {
-				if err = target.Cleanup(); err != nil {
-					logger.Reason(err).Error("Error cleaning up")
-					return 0, ctrl.doUpdateError(vmRestoreIn, err)
-				}
-
-				updated, err := target.UpdateDoneRestore()
-				if err != nil {
-					logger.Reason(err).Error("Error updating done restore")
-					return 0, ctrl.doUpdateError(vmRestoreIn, err)
-				}
-
-				if !updated {
-					ctrl.Recorder.Eventf(
-						vmRestoreOut,
-						corev1.EventTypeNormal,
-						restoreCompleteEvent,
-						"Successfully completed VirtualMachineRestore %s",
-						vmRestoreOut.Name,
-					)
-
-					t := true
-					vmRestoreOut.Status.Complete = &t
-					vmRestoreOut.Status.RestoreTime = currentTime()
-					updateRestoreCondition(vmRestoreOut, newProgressingCondition(corev1.ConditionFalse, "Operation complete"))
-					updateRestoreCondition(vmRestoreOut, newReadyCondition(corev1.ConditionTrue, "Operation complete"))
-				} else {
-					updateRestoreCondition(vmRestoreOut, newProgressingCondition(corev1.ConditionTrue, "Updating target status"))
-					updateRestoreCondition(vmRestoreOut, newReadyCondition(corev1.ConditionFalse, "Waiting for target update"))
-				}
-			} else {
-				updateRestoreCondition(vmRestoreOut, newProgressingCondition(corev1.ConditionTrue, "Updating target spec"))
-				updateRestoreCondition(vmRestoreOut, newReadyCondition(corev1.ConditionFalse, "Waiting for target update"))
-			}
-		} else {
-			reason := "Waiting for target to be ready"
-			updateRestoreCondition(vmRestoreOut, newProgressingCondition(corev1.ConditionFalse, reason))
-			updateRestoreCondition(vmRestoreOut, newReadyCondition(corev1.ConditionFalse, reason))
-			// try again in 5 secs
-			return 5 * time.Second, ctrl.doUpdate(vmRestoreIn, vmRestoreOut)
-		}
-	} else {
+	if updated {
 		updateRestoreCondition(vmRestoreOut, newProgressingCondition(corev1.ConditionTrue, "Creating new PVCs"))
 		updateRestoreCondition(vmRestoreOut, newReadyCondition(corev1.ConditionFalse, "Waiting for new PVCs"))
+		return 0, ctrl.doUpdate(vmRestoreIn, vmRestoreOut)
 	}
+
+	ready, err := target.Ready()
+	if err != nil {
+		logger.Reason(err).Error("Error checking target ready")
+		return 0, ctrl.doUpdateError(vmRestoreIn, err)
+	}
+	if !ready {
+		reason := "Waiting for target to be ready"
+		updateRestoreCondition(vmRestoreOut, newProgressingCondition(corev1.ConditionFalse, reason))
+		updateRestoreCondition(vmRestoreOut, newReadyCondition(corev1.ConditionFalse, reason))
+		// try again in 5 secs
+		return 5 * time.Second, ctrl.doUpdate(vmRestoreIn, vmRestoreOut)
+	}
+
+	updated, err = target.Reconcile()
+	if err != nil {
+		logger.Reason(err).Error("Error reconciling target")
+		return 0, ctrl.doUpdateError(vmRestoreIn, err)
+	}
+	if updated {
+		updateRestoreCondition(vmRestoreOut, newProgressingCondition(corev1.ConditionTrue, "Updating target spec"))
+		updateRestoreCondition(vmRestoreOut, newReadyCondition(corev1.ConditionFalse, "Waiting for target update"))
+		return 0, ctrl.doUpdate(vmRestoreIn, vmRestoreOut)
+	}
+
+	if err = target.Cleanup(); err != nil {
+		logger.Reason(err).Error("Error cleaning up")
+		return 0, ctrl.doUpdateError(vmRestoreIn, err)
+	}
+
+	updated, err = target.UpdateDoneRestore()
+	if err != nil {
+		logger.Reason(err).Error("Error updating done restore")
+		return 0, ctrl.doUpdateError(vmRestoreIn, err)
+	}
+	if updated {
+		updateRestoreCondition(vmRestoreOut, newProgressingCondition(corev1.ConditionTrue, "Updating target status"))
+		updateRestoreCondition(vmRestoreOut, newReadyCondition(corev1.ConditionFalse, "Waiting for target update"))
+		return 0, ctrl.doUpdate(vmRestoreIn, vmRestoreOut)
+	}
+
+	ctrl.Recorder.Eventf(
+		vmRestoreOut,
+		corev1.EventTypeNormal,
+		restoreCompleteEvent,
+		"Successfully completed VirtualMachineRestore %s",
+		vmRestoreOut.Name,
+	)
+
+	t := true
+	vmRestoreOut.Status.Complete = &t
+	vmRestoreOut.Status.RestoreTime = currentTime()
+	updateRestoreCondition(vmRestoreOut, newProgressingCondition(corev1.ConditionFalse, "Operation complete"))
+	updateRestoreCondition(vmRestoreOut, newReadyCondition(corev1.ConditionTrue, "Operation complete"))
 
 	return 0, ctrl.doUpdate(vmRestoreIn, vmRestoreOut)
 }
@@ -397,6 +397,13 @@ func (t *vmRestoreTarget) Ready() (bool, error) {
 }
 
 func (t *vmRestoreTarget) Reconcile() (bool, error) {
+	if updated, err := t.reconcileSpec(); updated || err != nil {
+		return updated, err
+	}
+	return t.reconcileDataVolumes()
+}
+
+func (t *vmRestoreTarget) reconcileSpec() (bool, error) {
 	log.Log.Object(t.vmRestore).V(3).Info("Reconciling VM")
 
 	if t.doesTargetVMExist() && hasLastRestoreAnnotation(t.vmRestore, t.vm) {
@@ -567,6 +574,68 @@ func (t *vmRestoreTarget) Reconcile() (bool, error) {
 	return true, nil
 }
 
+func (t *vmRestoreTarget) reconcileDataVolumes() (bool, error) {
+	createdDV := false
+	waitingDV := false
+	for _, dvt := range t.vm.Spec.DataVolumeTemplates {
+		dv, err := t.controller.getDV(t.vm.Namespace, dvt.Name)
+		if err != nil {
+			return false, err
+		}
+		if dv != nil {
+			waitingDV = dv.Status.Phase != v1beta1.Succeeded
+			continue
+		}
+		if createdDV, err = t.createDataVolume(dvt); err != nil {
+			return false, err
+		}
+		if !createdDV {
+			continue
+		}
+	}
+	return createdDV || waitingDV, nil
+}
+
+func (t *vmRestoreTarget) createDataVolume(dvt kubevirtv1.DataVolumeTemplateSpec) (bool, error) {
+	pvc, err := t.controller.getPVC(t.vm.Namespace, dvt.Name)
+	if err != nil {
+		return false, err
+	}
+	if pvc.Annotations[populatedForPVCAnnotation] != dvt.Name || len(pvc.OwnerReferences) > 0 {
+		return false, nil
+	}
+
+	newDataVolume, err := watchutil.CreateDataVolumeManifest(t.controller.Client, dvt, t.vm)
+	if err != nil {
+		return false, fmt.Errorf("Unable to create restore DataVolume manifest: %v", err)
+	}
+
+	if newDataVolume.Annotations == nil {
+		newDataVolume.Annotations = make(map[string]string)
+	}
+	newDataVolume.Annotations[restoreNameAnnotation] = t.vmRestore.Name
+
+	if _, err = t.controller.Client.CdiClient().CdiV1beta1().DataVolumes(t.vm.Namespace).Create(context.Background(), newDataVolume, v1.CreateOptions{}); err != nil {
+		t.controller.Recorder.Eventf(t.vm, corev1.EventTypeWarning, restoreDataVolumeCreateErrorEvent, "Error creating restore DataVolume %s: %v", newDataVolume.Name, err)
+		return false, fmt.Errorf("Failed to create restore DataVolume: %v", err)
+	}
+	// Update restore DataVolumeName
+	for _, v := range t.vm.Spec.Template.Spec.Volumes {
+		if v.DataVolume == nil || v.DataVolume.Name != dvt.Name {
+			continue
+		}
+		for k := range t.vmRestore.Status.Restores {
+			vr := &t.vmRestore.Status.Restores[k]
+			if vr.VolumeName == v.Name {
+				vr.DataVolumeName = &dvt.Name
+				break
+			}
+		}
+	}
+
+	return true, nil
+}
+
 func (t *vmRestoreTarget) Own(obj metav1.Object) {
 	if !t.doesTargetVMExist() {
 		return
@@ -690,6 +759,20 @@ func patchVM(vm *kubevirtv1.VirtualMachine, patches []string) (*kubevirtv1.Virtu
 	log.Log.V(3).Object(vm).Infof("patching restore target completed. Modified VM: %s", string(modifiedMarshalledVM))
 
 	return vm, nil
+}
+
+func (ctrl *VMRestoreController) getDV(namespace, name string) (*v1beta1.DataVolume, error) {
+	objKey := cacheKeyFunc(namespace, name)
+	obj, exists, err := ctrl.DataVolumeInformer.GetStore().GetByKey(objKey)
+	if err != nil {
+		return nil, err
+	}
+
+	if !exists {
+		return nil, nil
+	}
+
+	return obj.(*v1beta1.DataVolume).DeepCopy(), nil
 }
 
 func (ctrl *VMRestoreController) getPVC(namespace, name string) (*corev1.PersistentVolumeClaim, error) {
@@ -830,7 +913,7 @@ func CreateRestorePVCDefFromVMRestore(vmRestoreName, restorePVCName string, volu
 	}
 	pvc.Labels[restoreSourceNameLabel] = sourceVmName
 	pvc.Labels[restoreSourceNamespaceLabel] = sourceVmNamespace
-	pvc.Annotations[pvcRestoreAnnotation] = vmRestoreName
+	pvc.Annotations[restoreNameAnnotation] = vmRestoreName
 	return pvc
 }
 

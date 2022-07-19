@@ -468,7 +468,7 @@ var _ = SIGDescribe("Hotplug", func() {
 		dvBlock := libstorage.NewBlankDataVolume(util.NamespaceTestDefault, sc, "64Mi", accessMode, volumeMode)
 		_, err := virtClient.CdiClient().CdiV1beta1().DataVolumes(dvBlock.Namespace).Create(context.Background(), dvBlock, metav1.CreateOptions{})
 		Expect(err).ToNot(HaveOccurred())
-		Eventually(ThisDV(dvBlock), 240).Should(HaveSucceeded())
+		libstorage.EventuallyDV(dvBlock, 240, HaveSucceeded())
 		return dvBlock
 	}
 

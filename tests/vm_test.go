@@ -191,13 +191,6 @@ var _ = Describe("[rfe_id:1177][crit:medium][vendor:cnv-qe@redhat.com][level:com
 			return tests.NewRandomVirtualMachineInstanceWithBlockDisk(cd.DataVolumeImportUrlForContainerDisk(cd.ContainerDiskAlpine), util.NamespaceTestDefault, corev1.ReadWriteOnce)
 		}
 
-		deleteDataVolume := func(dv *cdiv1.DataVolume) {
-			if dv != nil {
-				By("Deleting the DataVolume")
-				ExpectWithOffset(1, virtClient.CdiClient().CdiV1beta1().DataVolumes(dv.Namespace).Delete(context.Background(), dv.Name, metav1.DeleteOptions{})).To(Succeed(), metav1.DeleteOptions{})
-			}
-		}
-
 		createVirtualMachine := func(running bool, template *v1.VirtualMachineInstance) *v1.VirtualMachine {
 			By("Creating VirtualMachine")
 			vm := tests.NewRandomVirtualMachine(template, running)
@@ -411,7 +404,7 @@ var _ = Describe("[rfe_id:1177][crit:medium][vendor:cnv-qe@redhat.com][level:com
 
 		DescribeTable("[test_id:1520]should update VirtualMachine once VMIs are up", func(createTemplate vmiBuilder) {
 			template, dv := createTemplate()
-			defer deleteDataVolume(dv)
+			defer libstorage.DeleteDataVolume(&dv)
 			newVM := createVirtualMachine(true, template)
 			Eventually(func() bool {
 				vm, err := virtClient.VirtualMachine(util.NamespaceTestDefault).Get(newVM.Name, &k8smetav1.GetOptions{})
@@ -426,7 +419,7 @@ var _ = Describe("[rfe_id:1177][crit:medium][vendor:cnv-qe@redhat.com][level:com
 
 		DescribeTable("[test_id:1521]should remove VirtualMachineInstance once the VM is marked for deletion", func(createTemplate vmiBuilder) {
 			template, dv := createTemplate()
-			defer deleteDataVolume(dv)
+			defer libstorage.DeleteDataVolume(&dv)
 			newVM := createVirtualMachine(true, template)
 			// Delete it
 			Expect(virtClient.VirtualMachine(newVM.Namespace).Delete(newVM.Name, &k8smetav1.DeleteOptions{})).To(Succeed())
@@ -556,7 +549,7 @@ var _ = Describe("[rfe_id:1177][crit:medium][vendor:cnv-qe@redhat.com][level:com
 
 		DescribeTable("[test_id:1525]should stop VirtualMachineInstance if running set to false", func(createTemplate vmiBuilder) {
 			template, dv := createTemplate()
-			defer deleteDataVolume(dv)
+			defer libstorage.DeleteDataVolume(&dv)
 			vm := createVirtualMachine(false, template)
 			vm = startVM(vm)
 			stopVM(vm)
@@ -850,7 +843,7 @@ var _ = Describe("[rfe_id:1177][crit:medium][vendor:cnv-qe@redhat.com][level:com
 				func() *v1.VirtualMachineInstance {
 					return tests.NewRandomVMIWithDataVolume("missing-datavolume")
 				},
-				v1.VirtualMachineStatusDataVolumeNotFound,
+				v1.VirtualMachineStatusPvcNotFound,
 			),
 		)
 

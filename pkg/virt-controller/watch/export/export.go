@@ -897,7 +897,8 @@ func (ctrl *VMExportController) isKubevirtContentType(pvc *corev1.PersistentVolu
 	if pvc.Spec.VolumeMode != nil && *pvc.Spec.VolumeMode == corev1.PersistentVolumeBlock {
 		return true
 	}
-	isKubevirt := pvc.Annotations[annContentType] == string(cdiv1.DataVolumeKubeVirt)
+	contentType, ok := pvc.Annotations[annContentType]
+	isKubevirt := ok && (contentType == string(cdiv1.DataVolumeKubeVirt) || contentType == "")
 	if isKubevirt {
 		return true
 	}

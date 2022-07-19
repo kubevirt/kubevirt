@@ -107,9 +107,6 @@ const (
 	// FailedPvcNotFoundReason is added in an event
 	// when a PVC for a volume was not found.
 	FailedPvcNotFoundReason = "FailedPvcNotFound"
-	// FailedDataVolumeNotFoundReason is added in an event
-	// when a DataVolume for a volume was not found.
-	FailedDataVolumeNotFoundReason = "FailedDataVolumeNotFound"
 	// SuccessfulMigrationReason is added when a migration attempt completes successfully
 	SuccessfulMigrationReason = "SuccessfulMigration"
 	// FailedMigrationReason is added when a migration attempt fails
@@ -467,7 +464,7 @@ func (c *VMIController) updateStatus(vmi *virtv1.VirtualMachineInstance, pod *k8
 				}
 			}
 			if syncErr != nil &&
-				(syncErr.Reason() == FailedPvcNotFoundReason || syncErr.Reason() == FailedDataVolumeNotFoundReason) {
+				(syncErr.Reason() == FailedPvcNotFoundReason) {
 				condition := virtv1.VirtualMachineInstanceCondition{
 					Type:    virtv1.VirtualMachineInstanceConditionType(k8sv1.PodScheduled),
 					Reason:  k8sv1.PodReasonUnschedulable,
@@ -1094,9 +1091,6 @@ func (c *VMIController) handleSyncDataVolumes(vmi *virtv1.VirtualMachineInstance
 				// Keep existing behavior of missing PVC = ready. This in turn triggers template render, which sets conditions and events, and fails appropriately
 				if _, ok := err.(services.PvcNotFoundError); ok {
 					continue
-				} else if _, ok := err.(services.DataVolumeNotFoundError); ok {
-					c.recorder.Eventf(vmi, k8sv1.EventTypeWarning, FailedDataVolumeNotFoundReason, "DataVolume is referenced by VMI but doesn't exist: %v", err)
-					return false, false, &syncErrorImpl{fmt.Errorf("DataVolume is referenced by VMI but doesn't exist: %v", err), FailedDataVolumeNotFoundReason}
 				} else {
 					c.recorder.Eventf(vmi, k8sv1.EventTypeWarning, FailedPvcNotFoundReason, "Error determining if volume is ready: %v", err)
 					return false, false, &syncErrorImpl{fmt.Errorf("Error determining if volume is ready %v", err), FailedDataVolumeImportReason}
@@ -1143,22 +1137,12 @@ func (c *VMIController) updatePVC(old, cur interface{}) {
 		return
 	}
 
-	var err error
-	var vmis []*virtv1.VirtualMachineInstance
-	controllerRef := v1.GetControllerOf(curPVC)
-	if controllerRef != nil && controllerRef.Kind == "DataVolume" {
-		vmis, err = c.listVMIsMatchingDV(curPVC.Namespace, controllerRef.Name)
-		if err != nil {
-			log.Log.V(4).Object(curPVC).Errorf("Error encountered getting VMIs for DataVolume: %v", err)
-			return
-		}
-	} else {
-		vmis, err = c.listVMIsMatchingPVC(curPVC.Namespace, curPVC.Name)
-		if err != nil {
-			log.Log.V(4).Object(curPVC).Errorf("Error encountered getting VMIs for PVC: %v", err)
-			return
-		}
+	vmis, err := c.listVMIsMatchingDV(curPVC.Namespace, curPVC.Name)
+	if err != nil {
+		log.Log.V(4).Object(curPVC).Errorf("Error encountered getting VMIs for DataVolume: %v", err)
+		return
 	}
+
 	for _, vmi := range vmis {
 		log.Log.V(4).Object(curPVC).Infof("PVC updated for vmi %s", vmi.Name)
 		c.enqueueVirtualMachine(vmi)
@@ -1432,31 +1416,16 @@ func (c *VMIController) resolveControllerRef(namespace string, controllerRef *v1
 
 func (c *VMIController) listVMIsMatchingDV(namespace string, dvName string) ([]*virtv1.VirtualMachineInstance, error) {
 	// TODO - refactor if/when dv/pvc do not have the same name
-	vmis, err := c.listVMIsMatchingPVC(namespace, dvName)
-	if err != nil {
-		return nil, err
-	}
-	objs, err := c.vmiInformer.GetIndexer().ByIndex("dv", namespace+"/"+dvName)
-	if err != nil {
-		return nil, err
-	}
-	for _, obj := range objs {
-		vmi := obj.(*virtv1.VirtualMachineInstance)
-		vmis = append(vmis, vmi.DeepCopy())
-	}
-	return vmis, nil
-}
-
-// takes a PVC name and namespace and returns all VMIs from the VMI cache which use this PVC
-func (c *VMIController) listVMIsMatchingPVC(namespace string, pvcName string) ([]*virtv1.VirtualMachineInstance, error) {
-	objs, err := c.vmiInformer.GetIndexer().ByIndex("pvc", namespace+"/"+pvcName)
-	if err != nil {
-		return nil, err
-	}
 	vmis := []*virtv1.VirtualMachineInstance{}
-	for _, obj := range objs {
-		vmi := obj.(*virtv1.VirtualMachineInstance)
-		vmis = append(vmis, vmi.DeepCopy())
+	for _, indexName := range []string{"dv", "pvc"} {
+		objs, err := c.vmiInformer.GetIndexer().ByIndex(indexName, namespace+"/"+dvName)
+		if err != nil {
+			return nil, err
+		}
+		for _, obj := range objs {
+			vmi := obj.(*virtv1.VirtualMachineInstance)
+			vmis = append(vmis, vmi.DeepCopy())
+		}
 	}
 	return vmis, nil
 }
@@ -1809,15 +1778,6 @@ func (c *VMIController) volumeReadyToAttachToNode(namespace string, volume virtv
 	}
 
 	dataVolumeFunc := dataVolumeByNameFunc(c.dataVolumeInformer, dataVolumes)
-
-	if volume.DataVolume != nil {
-		// First, ensure DataVolume exists
-		_, err := dataVolumeFunc(name, namespace)
-		if err != nil {
-			return false, false, services.DataVolumeNotFoundError{Reason: err.Error()}
-		}
-	}
-
 	wffc := false
 	ready := false
 	// err is always nil

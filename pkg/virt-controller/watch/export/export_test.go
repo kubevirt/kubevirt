@@ -823,7 +823,7 @@ var _ = Describe("Export controlleer", func() {
 			Expect(res).To(Equal(expectedRes))
 		},
 			Entry("missing content-type", "something", "something", false),
-			Entry("blank content-type", annContentType, "", false),
+			Entry("blank content-type", annContentType, "", true),
 			Entry("kubevirt content-type", annContentType, string(cdiv1.DataVolumeKubeVirt), true),
 			Entry("archive content-type", annContentType, string(cdiv1.DataVolumeArchive), false),
 		)

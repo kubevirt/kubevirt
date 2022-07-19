@@ -1372,8 +1372,6 @@ const (
 	VirtualMachineStatusImagePullBackOff VirtualMachinePrintableStatus = "ImagePullBackOff"
 	// VirtualMachineStatusPvcNotFound indicates that the virtual machine references a PVC volume which doesn't exist.
 	VirtualMachineStatusPvcNotFound VirtualMachinePrintableStatus = "ErrorPvcNotFound"
-	// VirtualMachineStatusDataVolumeNotFound indicates that the virtual machine references a DataVolume volume which doesn't exist.
-	VirtualMachineStatusDataVolumeNotFound VirtualMachinePrintableStatus = "ErrorDataVolumeNotFound"
 	// VirtualMachineStatusDataVolumeError indicates that an error has been reported by one of the DataVolumes
 	// referenced by the virtual machines.
 	VirtualMachineStatusDataVolumeError VirtualMachinePrintableStatus = "DataVolumeError"

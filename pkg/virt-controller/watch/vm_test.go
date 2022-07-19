@@ -40,6 +40,7 @@ import (
 	"kubevirt.io/kubevirt/pkg/instancetype"
 	"kubevirt.io/kubevirt/pkg/testutils"
 	virtconfig "kubevirt.io/kubevirt/pkg/virt-config"
+	watchutil "kubevirt.io/kubevirt/pkg/virt-controller/watch/util"
 )
 
 var (
@@ -289,7 +290,7 @@ var _ = Describe("VirtualMachine", func() {
 			vm.Status.PrintableStatus = virtv1.VirtualMachineStatusStopped
 			addVirtualMachine(vm)
 
-			existingDataVolume, _ := createDataVolumeManifest(virtClient, &vm.Spec.DataVolumeTemplates[1], vm)
+			existingDataVolume, _ := watchutil.CreateDataVolumeManifest(virtClient, vm.Spec.DataVolumeTemplates[1], vm)
 			existingDataVolume.Namespace = "default"
 			dataVolumeFeeder.Add(existingDataVolume)
 
@@ -497,11 +498,11 @@ var _ = Describe("VirtualMachine", func() {
 			})
 			addVirtualMachine(vm)
 
-			existingDataVolume1, _ := createDataVolumeManifest(virtClient, &vm.Spec.DataVolumeTemplates[0], vm)
+			existingDataVolume1, _ := watchutil.CreateDataVolumeManifest(virtClient, vm.Spec.DataVolumeTemplates[0], vm)
 			existingDataVolume1.Namespace = "default"
 			existingDataVolume1.Status.Phase = cdiv1.Failed
 
-			existingDataVolume2, _ := createDataVolumeManifest(virtClient, &vm.Spec.DataVolumeTemplates[1], vm)
+			existingDataVolume2, _ := watchutil.CreateDataVolumeManifest(virtClient, vm.Spec.DataVolumeTemplates[1], vm)
 			existingDataVolume2.Namespace = "default"
 			existingDataVolume2.Status.Phase = cdiv1.Succeeded
 
@@ -550,11 +551,11 @@ var _ = Describe("VirtualMachine", func() {
 			})
 			addVirtualMachine(vm)
 
-			existingDataVolume1, _ := createDataVolumeManifest(virtClient, &vm.Spec.DataVolumeTemplates[0], vm)
+			existingDataVolume1, _ := watchutil.CreateDataVolumeManifest(virtClient, vm.Spec.DataVolumeTemplates[0], vm)
 			existingDataVolume1.Namespace = "default"
 			existingDataVolume1.Status.Phase = cdiv1.Failed
 
-			existingDataVolume2, _ := createDataVolumeManifest(virtClient, &vm.Spec.DataVolumeTemplates[1], vm)
+			existingDataVolume2, _ := watchutil.CreateDataVolumeManifest(virtClient, vm.Spec.DataVolumeTemplates[1], vm)
 			existingDataVolume2.Namespace = "default"
 			existingDataVolume2.Status.Phase = cdiv1.Succeeded
 
@@ -599,13 +600,13 @@ var _ = Describe("VirtualMachine", func() {
 			})
 			addVirtualMachine(vm)
 
-			existingDataVolume1, _ := createDataVolumeManifest(virtClient, &vm.Spec.DataVolumeTemplates[0], vm)
+			existingDataVolume1, _ := watchutil.CreateDataVolumeManifest(virtClient, vm.Spec.DataVolumeTemplates[0], vm)
 			existingDataVolume1.Namespace = "default"
 			existingDataVolume1.Status.Phase = cdiv1.Failed
 			// explicitly delete the annotations field
 			existingDataVolume1.Annotations = nil
 
-			existingDataVolume2, _ := createDataVolumeManifest(virtClient, &vm.Spec.DataVolumeTemplates[1], vm)
+			existingDataVolume2, _ := watchutil.CreateDataVolumeManifest(virtClient, vm.Spec.DataVolumeTemplates[1], vm)
 			existingDataVolume2.Namespace = "default"
 			existingDataVolume2.Status.Phase = cdiv1.Succeeded
 			existingDataVolume2.Annotations = nil
@@ -637,7 +638,7 @@ var _ = Describe("VirtualMachine", func() {
 				},
 			})
 
-			existingDataVolume, _ := createDataVolumeManifest(virtClient, &vm.Spec.DataVolumeTemplates[0], vm)
+			existingDataVolume, _ := watchutil.CreateDataVolumeManifest(virtClient, vm.Spec.DataVolumeTemplates[0], vm)
 
 			existingDataVolume.Namespace = "default"
 			existingDataVolume.Status.Phase = cdiv1.Succeeded
@@ -667,13 +668,13 @@ var _ = Describe("VirtualMachine", func() {
 					},
 				},
 			})
-			dvt := &virtv1.DataVolumeTemplateSpec{
+			dvt := virtv1.DataVolumeTemplateSpec{
 				ObjectMeta: metav1.ObjectMeta{
 					Name: "dv1",
 				},
 			}
 
-			existingDataVolume, _ := createDataVolumeManifest(virtClient, dvt, vm)
+			existingDataVolume, _ := watchutil.CreateDataVolumeManifest(virtClient, dvt, vm)
 
 			existingDataVolume.OwnerReferences = nil
 			existingDataVolume.Namespace = "default"
@@ -712,7 +713,7 @@ var _ = Describe("VirtualMachine", func() {
 				},
 			})
 
-			existingDataVolume, _ := createDataVolumeManifest(virtClient, &vm.Spec.DataVolumeTemplates[0], vm)
+			existingDataVolume, _ := watchutil.CreateDataVolumeManifest(virtClient, vm.Spec.DataVolumeTemplates[0], vm)
 
 			existingDataVolume.Namespace = "default"
 			existingDataVolume.Status.Phase = cdiv1.WaitForFirstConsumer
@@ -748,7 +749,7 @@ var _ = Describe("VirtualMachine", func() {
 				},
 			})
 
-			existingDataVolume, _ := createDataVolumeManifest(virtClient, &vm.Spec.DataVolumeTemplates[0], vm)
+			existingDataVolume, _ := watchutil.CreateDataVolumeManifest(virtClient, vm.Spec.DataVolumeTemplates[0], vm)
 
 			existingDataVolume.Namespace = "default"
 			existingDataVolume.Status.Phase = cdiv1.Succeeded
@@ -1465,7 +1466,7 @@ var _ = Describe("VirtualMachine", func() {
 
 			addVirtualMachine(vm)
 
-			dv, _ := createDataVolumeManifest(virtClient, &vm.Spec.DataVolumeTemplates[0], vm)
+			dv, _ := watchutil.CreateDataVolumeManifest(virtClient, vm.Spec.DataVolumeTemplates[0], vm)
 			dv.Status.Phase = cdiv1.Succeeded
 
 			orphanDV := dv.DeepCopy()
@@ -2334,7 +2335,7 @@ var _ = Describe("VirtualMachine", func() {
 					vm.Spec.Running = &running
 					addVirtualMachine(vm)
 
-					dv, _ := createDataVolumeManifest(virtClient, &vm.Spec.DataVolumeTemplates[0], vm)
+					dv, _ := watchutil.CreateDataVolumeManifest(virtClient, vm.Spec.DataVolumeTemplates[0], vm)
 					dataVolumeFeeder.Add(dv)
 
 					pvc := k8sv1.PersistentVolumeClaim{
@@ -2364,7 +2365,7 @@ var _ = Describe("VirtualMachine", func() {
 					func(dvPhase cdiv1.DataVolumePhase) {
 						addVirtualMachine(vm)
 
-						dv, _ := createDataVolumeManifest(virtClient, &vm.Spec.DataVolumeTemplates[0], vm)
+						dv, _ := watchutil.CreateDataVolumeManifest(virtClient, vm.Spec.DataVolumeTemplates[0], vm)
 						dv.Status.Phase = dvPhase
 						dv.Status.Conditions = append(dv.Status.Conditions, cdiv1.DataVolumeCondition{
 							Type:   cdiv1.DataVolumeBound,
@@ -2391,7 +2392,7 @@ var _ = Describe("VirtualMachine", func() {
 				DescribeTable("Should set a DataVolumeError status when DataVolume reports an error", func(dvFunc func(*cdiv1.DataVolume)) {
 					addVirtualMachine(vm)
 
-					dv, _ := createDataVolumeManifest(virtClient, &vm.Spec.DataVolumeTemplates[0], vm)
+					dv, _ := watchutil.CreateDataVolumeManifest(virtClient, vm.Spec.DataVolumeTemplates[0], vm)
 					dvFunc(dv)
 					dataVolumeFeeder.Add(dv)
 
@@ -2425,7 +2426,7 @@ var _ = Describe("VirtualMachine", func() {
 					vm.Status.PrintableStatus = virtv1.VirtualMachineStatusDataVolumeError
 					addVirtualMachine(vm)
 
-					dv, _ := createDataVolumeManifest(virtClient, &vm.Spec.DataVolumeTemplates[0], vm)
+					dv, _ := watchutil.CreateDataVolumeManifest(virtClient, vm.Spec.DataVolumeTemplates[0], vm)
 					dv.Status.Phase = cdiv1.CloneInProgress
 					dv.Status.Conditions = append(dv.Status.Conditions, cdiv1.DataVolumeCondition{
 						Type:   cdiv1.DataVolumeBound,
@@ -2460,13 +2461,13 @@ var _ = Describe("VirtualMachine", func() {
 
 					addVirtualMachine(vm)
 
-					dv1, _ := createDataVolumeManifest(virtClient, &vm.Spec.DataVolumeTemplates[0], vm)
+					dv1, _ := watchutil.CreateDataVolumeManifest(virtClient, vm.Spec.DataVolumeTemplates[0], vm)
 					dv1.Status.Phase = cdiv1.Succeeded
 					dv1.Status.Conditions = append(dv1.Status.Conditions, cdiv1.DataVolumeCondition{
 						Type:   cdiv1.DataVolumeBound,
 						Status: k8score.ConditionTrue,
 					})
-					dv2, _ := createDataVolumeManifest(virtClient, &vm.Spec.DataVolumeTemplates[1], vm)
+					dv2, _ := watchutil.CreateDataVolumeManifest(virtClient, vm.Spec.DataVolumeTemplates[1], vm)
 					dv2.Status.Phase = cdiv1.ImportInProgress
 					dv2.Status.Conditions = append(dv2.Status.Conditions, cdiv1.DataVolumeCondition{
 						Type:   cdiv1.DataVolumeBound,
@@ -2734,13 +2735,6 @@ var _ = Describe("VirtualMachine", func() {
 						Type:   virtv1.VirtualMachineInstanceSynchronized,
 						Status: k8sv1.ConditionFalse,
 						Reason: FailedPvcNotFoundReason,
-					},
-				),
-				Entry("FailedDataVolumeNotFound", virtv1.VirtualMachineStatusDataVolumeNotFound,
-					virtv1.VirtualMachineInstanceCondition{
-						Type:   virtv1.VirtualMachineInstanceSynchronized,
-						Status: k8sv1.ConditionFalse,
-						Reason: FailedDataVolumeNotFoundReason,
 					},
 				),
 			)

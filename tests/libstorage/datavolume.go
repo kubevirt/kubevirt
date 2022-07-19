@@ -21,11 +21,16 @@ package libstorage
 
 import (
 	"context"
+	"time"
 
 	"github.com/onsi/ginkgo/v2"
+	. "github.com/onsi/gomega"
+	gomegatypes "github.com/onsi/gomega/types"
+
 	v1 "k8s.io/api/core/v1"
 	rbacv1 "k8s.io/api/rbac/v1"
 	"k8s.io/apiextensions-apiserver/pkg/client/clientset/clientset"
+	"k8s.io/apimachinery/pkg/api/errors"
 	"k8s.io/apimachinery/pkg/api/resource"
 	v12 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/util/rand"
@@ -34,6 +39,7 @@ import (
 	"kubevirt.io/client-go/kubecli"
 	"kubevirt.io/containerized-data-importer-api/pkg/apis/core/v1beta1"
 
+	. "kubevirt.io/kubevirt/tests/framework/matcher"
 	"kubevirt.io/kubevirt/tests/util"
 )
 
@@ -166,6 +172,74 @@ func SetDataVolumePVCStorageClass(dv *v1beta1.DataVolume, storageClass string) {
 
 func SetDataVolumePVCSize(dv *v1beta1.DataVolume, size string) {
 	dv.Spec.PVC.Resources.Requests[v1.ResourceStorage] = resource.MustParse(size)
+}
+
+func EventuallyDV(dv *v1beta1.DataVolume, timeoutSec int, matcher gomegatypes.GomegaMatcher) {
+	Expect(dv).ToNot(BeNil())
+	EventuallyDVWith(dv.Namespace, dv.Name, timeoutSec, matcher)
+}
+
+func EventuallyDVWith(namespace, name string, timeoutSec int, matcher gomegatypes.GomegaMatcher) {
+	virtCli, err := kubecli.GetKubevirtClient()
+	util.PanicOnError(err)
+
+	if !IsDataVolumeGC(virtCli) {
+		Eventually(ThisDVWith(namespace, name), timeoutSec, time.Second).Should(matcher)
+		return
+	}
+
+	ginkgo.By("Verifying DataVolume garbage collection")
+	var dv *v1beta1.DataVolume
+	Eventually(func() *v1beta1.DataVolume {
+		dv, err = ThisDVWith(namespace, name)()
+		Expect(err).ToNot(HaveOccurred())
+		return dv
+	}, timeoutSec, time.Second).Should(Or(BeNil(), matcher))
+
+	if dv != nil {
+		if dv.Status.Phase != v1beta1.Succeeded {
+			return
+		}
+		if dv.Annotations["cdi.kubevirt.io/storage.deleteAfterCompletion"] == "true" {
+			Eventually(ThisDV(dv), timeoutSec).Should(BeNil())
+		}
+	}
+
+	Eventually(func() bool {
+		pvc, err := ThisPVCWith(namespace, name)()
+		Expect(err).ToNot(HaveOccurred())
+		return pvc != nil && pvc.Spec.VolumeName != ""
+	}, timeoutSec, time.Second).Should(BeTrue())
+}
+
+func DeleteDataVolume(dv **v1beta1.DataVolume) {
+	Expect(dv).ToNot(BeNil())
+	if *dv == nil {
+		return
+	}
+	ginkgo.By("Deleting DataVolume")
+	virtCli, err := kubecli.GetKubevirtClient()
+	util.PanicOnError(err)
+
+	err = virtCli.CdiClient().CdiV1beta1().DataVolumes((*dv).Namespace).Delete(context.Background(), (*dv).Name, v12.DeleteOptions{})
+	if !IsDataVolumeGC(virtCli) {
+		Expect(err).ToNot(HaveOccurred())
+		*dv = nil
+		return
+	}
+	if err != nil {
+		Expect(errors.IsNotFound(err)).To(BeTrue())
+	}
+	if err = virtCli.CoreV1().PersistentVolumeClaims((*dv).Namespace).Delete(context.Background(), (*dv).Name, v12.DeleteOptions{}); err != nil {
+		Expect(errors.IsNotFound(err)).To(BeTrue())
+	}
+	*dv = nil
+}
+
+func IsDataVolumeGC(virtCli kubecli.KubevirtClient) bool {
+	config, err := virtCli.CdiClient().CdiV1beta1().CDIConfigs().Get(context.TODO(), "config", v12.GetOptions{})
+	Expect(err).ToNot(HaveOccurred())
+	return config.Spec.DataVolumeTTLSeconds != nil
 }
 
 func HasDataVolumeCRD() bool {
