@@ -98,6 +98,10 @@ func (ctrl *VMRestoreController) updateVMRestore(vmRestoreIn *snapshotv1.Virtual
 
 	logger.V(1).Infof("Updating VirtualMachineRestore")
 
+	if !VmRestoreProgressing(vmRestoreIn) {
+		return 0, nil
+	}
+
 	vmRestoreOut := vmRestoreIn.DeepCopy()
 
 	if vmRestoreOut.Status == nil {
@@ -111,15 +115,6 @@ func (ctrl *VMRestoreController) updateVMRestore(vmRestoreIn *snapshotv1.Virtual
 	if err != nil {
 		logger.Reason(err).Error("Error getting restore target")
 		return 0, ctrl.doUpdateError(vmRestoreOut, err)
-	}
-
-	if !VmRestoreProgressing(vmRestoreIn) && target != nil {
-		//update the vm if Done restore
-		if updated, err := target.UpdateDoneRestore(); updated || err != nil {
-			return 0, err
-		}
-
-		return 0, nil
 	}
 
 	if len(vmRestoreOut.OwnerReferences) == 0 {
@@ -166,19 +161,30 @@ func (ctrl *VMRestoreController) updateVMRestore(vmRestoreIn *snapshotv1.Virtual
 					return 0, ctrl.doUpdateError(vmRestoreIn, err)
 				}
 
-				ctrl.Recorder.Eventf(
-					vmRestoreOut,
-					corev1.EventTypeNormal,
-					restoreCompleteEvent,
-					"Successfully completed VirtualMachineRestore %s",
-					vmRestoreOut.Name,
-				)
+				updated, err := target.UpdateDoneRestore()
+				if err != nil {
+					logger.Reason(err).Error("Error updating done restore")
+					return 0, ctrl.doUpdateError(vmRestoreIn, err)
+				}
 
-				t := true
-				vmRestoreOut.Status.Complete = &t
-				vmRestoreOut.Status.RestoreTime = currentTime()
-				updateRestoreCondition(vmRestoreOut, newProgressingCondition(corev1.ConditionFalse, "Operation complete"))
-				updateRestoreCondition(vmRestoreOut, newReadyCondition(corev1.ConditionTrue, "Operation complete"))
+				if !updated {
+					ctrl.Recorder.Eventf(
+						vmRestoreOut,
+						corev1.EventTypeNormal,
+						restoreCompleteEvent,
+						"Successfully completed VirtualMachineRestore %s",
+						vmRestoreOut.Name,
+					)
+
+					t := true
+					vmRestoreOut.Status.Complete = &t
+					vmRestoreOut.Status.RestoreTime = currentTime()
+					updateRestoreCondition(vmRestoreOut, newProgressingCondition(corev1.ConditionFalse, "Operation complete"))
+					updateRestoreCondition(vmRestoreOut, newReadyCondition(corev1.ConditionTrue, "Operation complete"))
+				} else {
+					updateRestoreCondition(vmRestoreOut, newProgressingCondition(corev1.ConditionTrue, "Updating target status"))
+					updateRestoreCondition(vmRestoreOut, newReadyCondition(corev1.ConditionFalse, "Waiting for target update"))
+				}
 			} else {
 				updateRestoreCondition(vmRestoreOut, newProgressingCondition(corev1.ConditionTrue, "Updating target spec"))
 				updateRestoreCondition(vmRestoreOut, newReadyCondition(corev1.ConditionFalse, "Waiting for target update"))
@@ -328,9 +334,11 @@ func (ctrl *VMRestoreController) getBindingMode(pvc *corev1.PersistentVolumeClai
 }
 
 func (t *vmRestoreTarget) UpdateDoneRestore() (bool, error) {
+	/* this should never be true
 	if !t.doesTargetVMExist() {
 		return true, nil
 	}
+	*/
 
 	if t.vm.Status.RestoreInProgress == nil || *t.vm.Status.RestoreInProgress != t.vmRestore.Name {
 		return false, nil
@@ -339,14 +347,13 @@ func (t *vmRestoreTarget) UpdateDoneRestore() (bool, error) {
 	vmCopy := t.vm.DeepCopy()
 
 	vmCopy.Status.RestoreInProgress = nil
-	if vmCopy.Status.MemoryDumpRequest != nil {
-		vmCopy.Status.MemoryDumpRequest = nil
-	}
+	vmCopy.Status.MemoryDumpRequest = nil
+
 	return true, t.controller.vmStatusUpdater.UpdateStatus(vmCopy)
 }
 
 func (t *vmRestoreTarget) UpdateRestoreInProgress() error {
-	if !t.doesTargetVMExist() {
+	if !t.doesTargetVMExist() || hasLastRestoreAnnotation(t.vmRestore, t.vm) {
 		return nil
 	}
 
@@ -399,12 +406,8 @@ func (t *vmRestoreTarget) Ready() (bool, error) {
 func (t *vmRestoreTarget) Reconcile() (bool, error) {
 	log.Log.Object(t.vmRestore).V(3).Info("Reconciling VM")
 
-	restoreID := fmt.Sprintf("%s-%s", t.vmRestore.Name, t.vmRestore.UID)
-
-	if t.doesTargetVMExist() {
-		if lastRestoreID, ok := t.vm.Annotations[lastRestoreAnnotation]; ok && lastRestoreID == restoreID {
-			return false, nil
-		}
+	if t.doesTargetVMExist() && hasLastRestoreAnnotation(t.vmRestore, t.vm) {
+		return false, nil
 	}
 
 	content, err := t.controller.getSnapshotContent(t.vmRestore)
@@ -554,7 +557,7 @@ func (t *vmRestoreTarget) Reconcile() (bool, error) {
 	if newVM.Annotations == nil {
 		newVM.Annotations = make(map[string]string)
 	}
-	newVM.Annotations[lastRestoreAnnotation] = restoreID
+	setLastRestoreAnnotation(t.vmRestore, newVM)
 
 	newVM, err = patchVM(newVM, t.vmRestore.Spec.Patches)
 	if err != nil {
@@ -806,6 +809,21 @@ func (ctrl *VMRestoreController) createRestorePVC(
 	}
 
 	return nil
+}
+
+func getRestoreAnnotationValue(restore *snapshotv1.VirtualMachineRestore) string {
+	return fmt.Sprintf("%s-%s", restore.Name, restore.UID)
+}
+
+func hasLastRestoreAnnotation(restore *snapshotv1.VirtualMachineRestore, obj metav1.Object) bool {
+	return obj.GetAnnotations()[lastRestoreAnnotation] == getRestoreAnnotationValue(restore)
+}
+
+func setLastRestoreAnnotation(restore *snapshotv1.VirtualMachineRestore, obj metav1.Object) {
+	if obj.GetAnnotations() == nil {
+		obj.SetAnnotations(make(map[string]string))
+	}
+	obj.GetAnnotations()[lastRestoreAnnotation] = getRestoreAnnotationValue(restore)
 }
 
 func updateRestoreCondition(r *snapshotv1.VirtualMachineRestore, c snapshotv1.Condition) {

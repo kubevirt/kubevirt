@@ -611,13 +611,80 @@ var _ = Describe("Restore controlleer", func() {
 				controller.processVMRestoreWorkItem()
 			})
 
-			It("should cleanup and complete", func() {
+			It("should cleanup and unlock vm", func() {
 				r := createRestoreWithOwner()
 				r.Status = &snapshotv1.VirtualMachineRestoreStatus{
 					Complete:           &f,
 					DeletedDataVolumes: getDeletedDataVolumes(createModifiedVM()),
 					Conditions: []snapshotv1.Condition{
 						newProgressingCondition(corev1.ConditionTrue, "Updating target spec"),
+						newReadyCondition(corev1.ConditionFalse, "Waiting for target update"),
+					},
+				}
+				addVolumeRestores(r)
+				for i := range r.Status.Restores {
+					r.Status.Restores[i].DataVolumeName = &r.Status.Restores[i].PersistentVolumeClaimName
+				}
+
+				vm := &v1.VirtualMachine{
+					ObjectMeta: metav1.ObjectMeta{
+						Name:      vmName,
+						Namespace: testNamespace,
+						UID:       vmUID,
+						Annotations: map[string]string{
+							"restore.kubevirt.io/lastRestoreUID": "restore-uid",
+						},
+					},
+				}
+				vm.Status.RestoreInProgress = &vmRestoreName
+
+				updatedVM := vm.DeepCopy()
+				updatedVM.ResourceVersion = "1"
+				updatedVM.Status.RestoreInProgress = nil
+				vmInterface.EXPECT().UpdateStatus(updatedVM).Return(updatedVM, nil)
+
+				ur := r.DeepCopy()
+				ur.ResourceVersion = "1"
+				ur.Status.Complete = &f
+				ur.Status.Conditions = []snapshotv1.Condition{
+					newProgressingCondition(corev1.ConditionTrue, "Updating target status"),
+					newReadyCondition(corev1.ConditionFalse, "Waiting for target update"),
+				}
+
+				expectDataVolumeDeletes(cdiClient, r.Status.DeletedDataVolumes)
+				expectVMRestoreUpdate(kubevirtClient, ur)
+
+				for _, n := range r.Status.DeletedDataVolumes {
+					dv := &cdiv1.DataVolume{
+						ObjectMeta: metav1.ObjectMeta{
+							Name:      n,
+							Namespace: testNamespace,
+						},
+					}
+					dataVolumeSource.Add(dv)
+				}
+				for _, pvc := range getRestorePVCs(r) {
+					pvc.Annotations["cdi.kubevirt.io/storage.populatedFor"] = pvc.Name
+					pvc.Status.Phase = corev1.ClaimBound
+					pvcSource.Add(&pvc)
+				}
+
+				vmRestoreSource.Add(r)
+				addVM(vm)
+				controller.processVMRestoreWorkItem()
+
+				l, err := cdiClient.CdiV1beta1().DataVolumes("").List(context.Background(), metav1.ListOptions{})
+				Expect(err).ToNot(HaveOccurred())
+				Expect(l.Items).To(BeEmpty())
+			})
+
+			It("should complete restore", func() {
+				r := createRestoreWithOwner()
+				r.Status = &snapshotv1.VirtualMachineRestoreStatus{
+					Complete:           &f,
+					DeletedDataVolumes: getDeletedDataVolumes(createModifiedVM()),
+					Conditions: []snapshotv1.Condition{
+						newProgressingCondition(corev1.ConditionTrue, "Updating target status"),
 						newReadyCondition(corev1.ConditionFalse, "Waiting for target update"),
 					},
 				}
@@ -645,19 +712,8 @@ var _ = Describe("Restore controlleer", func() {
 					newProgressingCondition(corev1.ConditionFalse, "Operation complete"),
 					newReadyCondition(corev1.ConditionTrue, "Operation complete"),
 				}
-
-				expectDataVolumeDeletes(cdiClient, r.Status.DeletedDataVolumes)
 				expectVMRestoreUpdate(kubevirtClient, ur)
 
-				for _, n := range r.Status.DeletedDataVolumes {
-					dv := &cdiv1.DataVolume{
-						ObjectMeta: metav1.ObjectMeta{
-							Name:      n,
-							Namespace: testNamespace,
-						},
-					}
-					dataVolumeSource.Add(dv)
-				}
 				for _, pvc := range getRestorePVCs(r) {
 					pvc.Annotations["cdi.kubevirt.io/storage.populatedFor"] = pvc.Name
 					pvc.Status.Phase = corev1.ClaimBound
@@ -665,31 +721,9 @@ var _ = Describe("Restore controlleer", func() {
 				}
 
 				vmRestoreSource.Add(r)
-				vm.Status.RestoreInProgress = &vmRestoreName
 				addVM(vm)
 				controller.processVMRestoreWorkItem()
-
-				l, err := cdiClient.CdiV1beta1().DataVolumes("").List(context.Background(), metav1.ListOptions{})
-				Expect(err).ToNot(HaveOccurred())
-				Expect(l.Items).To(BeEmpty())
 				testutils.ExpectEvent(recorder, "VirtualMachineRestoreComplete")
-			})
-
-			It("should unlock source VirtualMachine", func() {
-				r := createRestoreWithOwner()
-				r.Status = &snapshotv1.VirtualMachineRestoreStatus{
-					Complete: &t,
-				}
-				vm := createModifiedVM()
-				vm.Status.RestoreInProgress = &vmRestoreName
-				vmSource.Add(vm)
-				addVirtualMachineRestore(r)
-
-				updatedVM := vm.DeepCopy()
-				updatedVM.ResourceVersion = "1"
-				updatedVM.Status.RestoreInProgress = nil
-				vmInterface.EXPECT().UpdateStatus(updatedVM).Return(updatedVM, nil)
-				controller.processVMRestoreWorkItem()
 			})
 
 			Context("target VM is different than source VM", func() {
