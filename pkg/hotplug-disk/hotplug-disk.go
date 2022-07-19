@@ -26,7 +26,8 @@ import (
 
 	"k8s.io/apimachinery/pkg/types"
 
-	diskutils "kubevirt.io/kubevirt/pkg/ephemeral-disk-utils"
+	"kubevirt.io/kubevirt/pkg/safepath"
+
 	"kubevirt.io/kubevirt/pkg/util"
 )
 
@@ -42,8 +43,8 @@ var (
 )
 
 type HotplugDiskManagerInterface interface {
-	GetHotplugTargetPodPathOnHost(virtlauncherPodUID types.UID) (string, error)
-	GetFileSystemDiskTargetPathFromHostView(virtlauncherPodUID types.UID, volumeName string, create bool) (string, error)
+	GetHotplugTargetPodPathOnHost(virtlauncherPodUID types.UID) (*safepath.Path, error)
+	GetFileSystemDiskTargetPathFromHostView(virtlauncherPodUID types.UID, volumeName string, create bool) (*safepath.Path, error)
 }
 
 func NewHotplugDiskManager() *hotplugDiskManager {
@@ -66,32 +67,22 @@ type hotplugDiskManager struct {
 }
 
 // GetHotplugTargetPodPathOnHost retrieves the target pod (virt-launcher) path on the host.
-func (h *hotplugDiskManager) GetHotplugTargetPodPathOnHost(virtlauncherPodUID types.UID) (string, error) {
+func (h *hotplugDiskManager) GetHotplugTargetPodPathOnHost(virtlauncherPodUID types.UID) (*safepath.Path, error) {
 	podpath := TargetPodBasePath(h.podsBaseDir, virtlauncherPodUID)
-	exists, _ := diskutils.FileExists(podpath)
-	if exists {
-		return podpath, nil
-	}
-
-	return "", fmt.Errorf("Unable to locate target path: %s", podpath)
+	return safepath.JoinAndResolveWithRelativeRoot("/", podpath)
 }
 
 // GetFileSystemDiskTargetPathFromHostView gets the disk image file in the target pod (virt-launcher) on the host.
-func (h *hotplugDiskManager) GetFileSystemDiskTargetPathFromHostView(virtlauncherPodUID types.UID, volumeName string, create bool) (string, error) {
+func (h *hotplugDiskManager) GetFileSystemDiskTargetPathFromHostView(virtlauncherPodUID types.UID, volumeName string, create bool) (*safepath.Path, error) {
 	targetPath, err := h.GetHotplugTargetPodPathOnHost(virtlauncherPodUID)
 	if err != nil {
 		return targetPath, err
 	}
-	diskFile := filepath.Join(targetPath, fmt.Sprintf("%s.img", volumeName))
-	exists, _ := diskutils.FileExists(diskFile)
-	if !exists && create {
-		file, err := os.Create(diskFile)
-		if err != nil {
-			return diskFile, err
-		}
-		defer file.Close()
+	diskName := fmt.Sprintf("%s.img", volumeName)
+	if err := safepath.TouchAtNoFollow(targetPath, diskName, 0666); err != nil && !os.IsExist(err) {
+		return nil, err
 	}
-	return diskFile, err
+	return safepath.JoinNoFollow(targetPath, diskName)
 }
 
 // CreateLocalDirectory creates the base directory where disk images will be mounted when hotplugged. File system volumes will be in
