@@ -30,11 +30,10 @@ import (
 
 	"kubevirt.io/client-go/log"
 
-	"kubevirt.io/kubevirt/pkg/safepath"
-	"kubevirt.io/kubevirt/pkg/unsafepath"
-
 	kubev1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/api/resource"
+
+	"kubevirt.io/kubevirt/pkg/safepath"
 
 	ephemeraldisk "kubevirt.io/kubevirt/pkg/ephemeral-disk"
 
@@ -193,7 +192,11 @@ func GetImage(root *safepath.Path, imagePath string) (*safepath.Path, error) {
 		if err != nil {
 			return nil, fmt.Errorf("failed to determine default image path %v: %v", fallbackPath, err)
 		}
-		files, err := os.ReadDir(unsafepath.UnsafeAbsolute(fallbackPath.Raw()))
+		var files []os.DirEntry
+		err = fallbackPath.ExecuteNoFollow(func(safePath string) (err error) {
+			files, err = os.ReadDir(safePath)
+			return err
+		})
 		if err != nil {
 			return nil, fmt.Errorf("failed to check default image path %s: %v", fallbackPath, err)
 		}
