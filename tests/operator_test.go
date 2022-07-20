@@ -39,6 +39,7 @@ import (
 	util2 "kubevirt.io/kubevirt/tests/util"
 
 	"regexp"
+	"strconv"
 	"strings"
 	"time"
 
@@ -1412,13 +1413,20 @@ spec:
 			Expect(err).ToNot(HaveOccurred())
 			generation := kv.GetGeneration()
 
-			By("Test that patch was applied to deployment")
+			By("waiting for operator to patch the virt-controller component")
 			Eventually(func() string {
 				vc, err := virtClient.AppsV1().Deployments(originalKv.Namespace).Get(context.Background(), "virt-controller", metav1.GetOptions{})
 				Expect(err).ToNot(HaveOccurred())
+				return vc.Annotations[v1.KubeVirtGenerationAnnotation]
+			}, 60*time.Second, 5*time.Second).Should(Equal(strconv.FormatInt(generation, 10)))
 
-				return vc.Spec.Template.ObjectMeta.Annotations[annotationPatchKey]
-			}, 60*time.Second, 5*time.Second).Should(Equal(annotationPatchValue))
+			By("Test that patch was applied to deployment")
+			vc, err := virtClient.AppsV1().Deployments(originalKv.Namespace).Get(context.Background(), "virt-controller", metav1.GetOptions{})
+			Expect(err).ToNot(HaveOccurred())
+			Expect(vc.Spec.Template.ObjectMeta.Annotations[annotationPatchKey]).To(Equal(annotationPatchValue))
+
+			By("Waiting for virt-operator to apply changes to component")
+			waitForKvWithTimeout(kv, 120)
 
 			Consistently(func() string {
 				vc, err := virtClient.AppsV1().Deployments(originalKv.Namespace).Get(context.Background(), "virt-controller", metav1.GetOptions{})
@@ -1427,24 +1435,32 @@ spec:
 				return vc.Spec.Template.ObjectMeta.Annotations[annotationPatchKey]
 			}, 30*time.Second, 5*time.Second).Should(Equal(annotationPatchValue))
 
-			By("Deleting patch from KubeVirt object")
+			By("Check that KubeVirt CR generation does not get updated when applying patch")
 			kv, err = virtClient.KubeVirt(originalKv.Namespace).Get(originalKv.Name, &metav1.GetOptions{})
 			Expect(err).ToNot(HaveOccurred())
-
-			By("Check that KubeVirt CR generation does not get updated when applying patch")
 			Expect(kv.GetGeneration()).To(Equal(generation))
 
+			By("Deleting patch from KubeVirt object")
 			kv.Spec.CustomizeComponents = v1.CustomizeComponents{}
 			kv, err = virtClient.KubeVirt(originalKv.Namespace).Update(kv)
 			Expect(err).ToNot(HaveOccurred())
+			generation = kv.GetGeneration()
 
-			By("Test that patch was removed from deployment")
+			By("waiting for operator to patch the virt-controller component")
 			Eventually(func() string {
 				vc, err := virtClient.AppsV1().Deployments(originalKv.Namespace).Get(context.Background(), "virt-controller", metav1.GetOptions{})
 				Expect(err).ToNot(HaveOccurred())
+				return vc.Annotations[v1.KubeVirtGenerationAnnotation]
+			}, 60*time.Second, 5*time.Second).Should(Equal(strconv.FormatInt(generation, 10)))
 
-				return vc.Spec.Template.ObjectMeta.Annotations[annotationPatchKey]
-			}, 60*time.Second, 5*time.Second).Should(Equal(""))
+			By("Test that patch was removed from deployment")
+			vc, err = virtClient.AppsV1().Deployments(originalKv.Namespace).Get(context.Background(), "virt-controller", metav1.GetOptions{})
+			Expect(err).ToNot(HaveOccurred())
+			Expect(vc.Spec.Template.ObjectMeta.Annotations[annotationPatchKey]).To(BeEmpty())
+
+			By("Waiting for virt-operator to apply changes to component")
+			waitForKvWithTimeout(kv, 120)
+
 		})
 	})
 
