@@ -24,19 +24,19 @@ type v1Manager struct {
 }
 
 func newV1Manager(config *runc_configs.Cgroup, controllerPaths map[string]string) (Manager, error) {
-	return newCustomizedV1Manager(config, controllerPaths, execVirtChrootCgroups, getCurrentlyDefinedRules)
-}
-
-func newCustomizedV1Manager(config *runc_configs.Cgroup, controllerPaths map[string]string,
-	execVirtChroot execVirtChrootFunc, getCurrentlyDefinedRules getCurrentlyDefinedRulesFunc) (Manager, error) {
 	runcManager, err := runc_fs.NewManager(config, controllerPaths)
 	if err != nil {
 		return nil, fmt.Errorf("cannot initialize new cgroup manager. err: %v", err)
 	}
+	return newCustomizedV1Manager(runcManager, config.Rootless, execVirtChrootCgroups, getCurrentlyDefinedRules)
+}
+
+func newCustomizedV1Manager(runcManager runc_cgroups.Manager, isRootless bool,
+	execVirtChroot execVirtChrootFunc, getCurrentlyDefinedRules getCurrentlyDefinedRulesFunc) (Manager, error) {
 	manager := v1Manager{
 		runcManager,
-		controllerPaths,
-		config.Rootless,
+		runcManager.GetPaths(),
+		isRootless,
 		execVirtChroot,
 		getCurrentlyDefinedRules,
 	}

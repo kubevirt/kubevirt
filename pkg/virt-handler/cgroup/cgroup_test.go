@@ -132,6 +132,20 @@ type mockManager struct {
 }
 
 func newMockManagerFromCtrl(ctrl *gomock.Controller, version CgroupVersion) (*mockManager, error) {
+	mockRuncCgroupManager := NewMockruncManager(ctrl)
+	mockRuncCgroupManager.EXPECT().GetPaths().DoAndReturn(func() map[string]string {
+		paths := make(map[string]string)
+
+		// See documentation here for more info: https://github.com/opencontainers/runc/blob/release-1.0/libcontainer/cgroups/cgroups.go#L48
+		if version == V1 {
+			paths["devices"] = "/sys/fs/cgroup/devices"
+		} else {
+			paths[""] = "/sys/fs/cgroup/"
+		}
+
+		return paths
+	}).AnyTimes()
+
 	mockCgroupManager := NewMockManager(ctrl)
 
 	mockV1 := &mockManager{ //ihol3 change name
@@ -152,9 +166,9 @@ func newMockManagerFromCtrl(ctrl *gomock.Controller, version CgroupVersion) (*mo
 	var err error
 
 	if version == V1 {
-		realManager, err = newCustomizedV1Manager(&runc_configs.Cgroup{Resources: &runc_configs.Resources{}}, nil, execVirtChrootFunc, getCurrentlyDefinedRulesFunc)
+		realManager, err = newCustomizedV1Manager(mockRuncCgroupManager, false, execVirtChrootFunc, getCurrentlyDefinedRulesFunc)
 	} else {
-		realManager, err = newCustomizedV2Manager(&runc_configs.Cgroup{Resources: &runc_configs.Resources{}}, "fake/dir/path", execVirtChrootFunc)
+		realManager, err = newCustomizedV2Manager(mockRuncCgroupManager, false, execVirtChrootFunc)
 	}
 
 	if err != nil {
