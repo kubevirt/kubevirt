@@ -765,7 +765,7 @@ var _ = Describe("[Serial][sig-operator]Operator", func() {
 		startAllVMIs = func(vmis []*v1.VirtualMachineInstance) {
 			for _, vmi := range vmis {
 				vmi, err := virtClient.VirtualMachineInstance(util2.NamespaceTestDefault).Create(vmi)
-				Expect(err).To(BeNil(), "Create VMI successfully")
+				Expect(err).ToNot(HaveOccurred(), "Create VMI successfully")
 				tests.WaitForSuccessfulVMIStart(vmi)
 			}
 		}
@@ -773,7 +773,7 @@ var _ = Describe("[Serial][sig-operator]Operator", func() {
 		deleteAllVMIs = func(vmis []*v1.VirtualMachineInstance) {
 			for _, vmi := range vmis {
 				err := virtClient.VirtualMachineInstance(vmi.Namespace).Delete(vmi.Name, &metav1.DeleteOptions{})
-				Expect(err).To(BeNil(), "Delete VMI successfully")
+				Expect(err).ToNot(HaveOccurred(), "Delete VMI successfully")
 			}
 		}
 
@@ -844,7 +844,7 @@ var _ = Describe("[Serial][sig-operator]Operator", func() {
 			Eventually(func() error {
 				By("Verifying only a single successful migration took place for each vmi")
 				migrationList, err := virtClient.VirtualMachineInstanceMigration(util2.NamespaceTestDefault).List(&metav1.ListOptions{})
-				Expect(err).To(BeNil(), "retrieving migrations")
+				Expect(err).ToNot(HaveOccurred(), "retrieving migrations")
 				for _, vmi := range vmis {
 					count := 0
 					for _, migration := range migrationList.Items {
@@ -1345,7 +1345,7 @@ spec:
 			By("starting a VM")
 			vmi := tests.NewRandomVMIWithEphemeralDisk(cd.ContainerDiskFor(cd.ContainerDiskCirros))
 			vmi, err = virtClient.VirtualMachineInstance(util2.NamespaceTestDefault).Create(vmi)
-			Expect(err).To(BeNil())
+			Expect(err).ToNot(HaveOccurred())
 			tests.WaitForSuccessfulVMIStart(vmi)
 
 			By("getting virt-launcher")
@@ -2231,7 +2231,7 @@ spec:
 				By("Checking if virt-launcher is assigned to kubevirt-controller SCC")
 				vmi := tests.NewRandomVMIWithEphemeralDisk(cd.ContainerDiskFor(cd.ContainerDiskCirros))
 				vmi, err = virtClient.VirtualMachineInstance(util2.NamespaceTestDefault).Create(vmi)
-				Expect(err).To(BeNil())
+				Expect(err).ToNot(HaveOccurred())
 				tests.WaitForSuccessfulVMIStart(vmi)
 
 				uid := vmi.GetObjectMeta().GetUID()

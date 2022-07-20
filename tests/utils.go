@@ -2429,7 +2429,7 @@ func VMILauncherIgnoreWarnings(virtClient kubecli.KubevirtClient) func(vmi *v1.V
 	return func(vmi *v1.VirtualMachineInstance) *v1.VirtualMachineInstance {
 		By(StartingVMInstance)
 		obj, err := virtClient.RestClient().Post().Resource("virtualmachineinstances").Namespace(util2.NamespaceTestDefault).Body(vmi).Do(context.Background()).Get()
-		Expect(err).To(BeNil())
+		Expect(err).ToNot(HaveOccurred())
 
 		By("Waiting the VirtualMachineInstance start")
 		vmi, ok := obj.(*v1.VirtualMachineInstance)

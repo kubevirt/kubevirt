@@ -174,7 +174,7 @@ func getHookSidecarLogs(virtCli kubecli.KubevirtClient, vmi *v1.VirtualMachineIn
 			Container: sidecarContainerName,
 		}).
 		DoRaw(context.Background())
-	Expect(err).To(BeNil())
+	Expect(err).ToNot(HaveOccurred())
 
 	return string(logsRaw)
 }

@@ -163,7 +163,7 @@ var _ = SIGDescribe("DataVolume Integration", func() {
 				tests.SetDataVolumeForceBindAnnotation(dv)
 				dv.Spec.PVC.Resources.Requests["storage"] = resource.MustParse(size)
 				_, err := virtClient.CdiClient().CdiV1beta1().DataVolumes(dv.Namespace).Create(context.Background(), dv, metav1.CreateOptions{})
-				Expect(err).To(BeNil())
+				Expect(err).ToNot(HaveOccurred())
 				var pvc *k8sv1.PersistentVolumeClaim
 				Eventually(func() *k8sv1.PersistentVolumeClaim {
 					pvc, err = virtClient.CoreV1().PersistentVolumeClaims(dv.Namespace).Get(context.Background(), dv.Name, metav1.GetOptions{})
@@ -209,7 +209,7 @@ var _ = SIGDescribe("DataVolume Integration", func() {
 				vmi := tests.NewRandomVMIWithDataVolume(dataVolume.Name)
 
 				_, err := virtClient.CdiClient().CdiV1beta1().DataVolumes(dataVolume.Namespace).Create(context.Background(), dataVolume, metav1.CreateOptions{})
-				Expect(err).To(BeNil())
+				Expect(err).ToNot(HaveOccurred())
 
 				// This will only work on storage with binding mode WaitForFirstConsumer,
 				if libstorage.IsStorageClassBindingModeWaitForFirstConsumer(libstorage.Config.StorageRWOFileSystem) {
@@ -227,11 +227,11 @@ var _ = SIGDescribe("DataVolume Integration", func() {
 					}
 
 					err = virtClient.VirtualMachineInstance(vmi.Namespace).Delete(vmi.Name, &metav1.DeleteOptions{})
-					Expect(err).To(BeNil())
+					Expect(err).ToNot(HaveOccurred())
 					tests.WaitForVirtualMachineToDisappearWithTimeout(vmi, 120)
 				}
 				err = virtClient.CdiClient().CdiV1beta1().DataVolumes(dataVolume.Namespace).Delete(context.Background(), dataVolume.Name, metav1.DeleteOptions{})
-				Expect(err).To(BeNil())
+				Expect(err).ToNot(HaveOccurred())
 			})
 
 			It("[test_id:6686]should successfully start multiple concurrent VMIs", func() {
@@ -246,7 +246,7 @@ var _ = SIGDescribe("DataVolume Integration", func() {
 					vmi.Spec.Domain.Resources.Requests[k8sv1.ResourceMemory] = resource.MustParse("128Mi")
 
 					_, err := virtClient.CdiClient().CdiV1beta1().DataVolumes(dataVolume.Namespace).Create(context.Background(), dataVolume, metav1.CreateOptions{})
-					Expect(err).To(BeNil())
+					Expect(err).ToNot(HaveOccurred())
 
 					vmi = tests.RunVMI(vmi, 60)
 					vmis = append(vmis, vmi)
@@ -259,9 +259,9 @@ var _ = SIGDescribe("DataVolume Integration", func() {
 					Expect(console.LoginToAlpine(vmis[idx])).To(Succeed())
 
 					err := virtClient.VirtualMachineInstance(vmis[idx].Namespace).Delete(vmis[idx].Name, &metav1.DeleteOptions{})
-					Expect(err).To(BeNil())
+					Expect(err).ToNot(HaveOccurred())
 					err = virtClient.CdiClient().CdiV1beta1().DataVolumes(dvs[idx].Namespace).Delete(context.Background(), dvs[idx].Name, metav1.DeleteOptions{})
-					Expect(err).To(BeNil())
+					Expect(err).ToNot(HaveOccurred())
 				}
 			})
 
@@ -270,7 +270,7 @@ var _ = SIGDescribe("DataVolume Integration", func() {
 				vmi := tests.NewRandomVMIWithPVC(dataVolume.Name)
 
 				_, err := virtClient.CdiClient().CdiV1beta1().DataVolumes(dataVolume.Namespace).Create(context.Background(), dataVolume, metav1.CreateOptions{})
-				Expect(err).To(BeNil())
+				Expect(err).ToNot(HaveOccurred())
 				// This will only work on storage with binding mode WaitForFirstConsumer,
 				if libstorage.IsStorageClassBindingModeWaitForFirstConsumer(libstorage.Config.StorageRWOFileSystem) {
 					Eventually(ThisDV(dataVolume), 40).Should(BeInPhase(cdiv1.WaitForFirstConsumer))
@@ -283,11 +283,11 @@ var _ = SIGDescribe("DataVolume Integration", func() {
 				Expect(console.LoginToAlpine(vmi)).To(Succeed())
 
 				err = virtClient.VirtualMachineInstance(vmi.Namespace).Delete(vmi.Name, &metav1.DeleteOptions{})
-				Expect(err).To(BeNil())
+				Expect(err).ToNot(HaveOccurred())
 				tests.WaitForVirtualMachineToDisappearWithTimeout(vmi, 120)
 
 				err = virtClient.CdiClient().CdiV1beta1().DataVolumes(dataVolume.Namespace).Delete(context.Background(), dataVolume.Name, metav1.DeleteOptions{})
-				Expect(err).To(BeNil())
+				Expect(err).ToNot(HaveOccurred())
 			})
 
 			It("[QUARANTINE] should accurately report DataVolume provisioning", func() {
@@ -359,7 +359,7 @@ var _ = SIGDescribe("DataVolume Integration", func() {
 
 				dv := libstorage.NewRandomDataVolumeWithRegistryImportInStorageClass(cd.DataVolumeImportUrlForContainerDisk(cd.ContainerDiskAlpine), util.NamespaceTestDefault, storageClass.Name, k8sv1.ReadWriteOnce, k8sv1.PersistentVolumeFilesystem)
 				_, err = virtClient.CdiClient().CdiV1beta1().DataVolumes(dv.Namespace).Create(context.Background(), dv, metav1.CreateOptions{})
-				Expect(err).To(BeNil())
+				Expect(err).ToNot(HaveOccurred())
 
 				defer func(dv *cdiv1.DataVolume) {
 					By(deletingDataVolume)
@@ -404,7 +404,7 @@ var _ = SIGDescribe("DataVolume Integration", func() {
 			It("[Serial][test_id:4644]should fail to start when a volume is backed by PVC created by DataVolume instead of the DataVolume itself", func() {
 				dv := libstorage.NewRandomDataVolumeWithRegistryImportInStorageClass(cd.DataVolumeImportUrlForContainerDisk(cd.ContainerDiskAlpine), util.NamespaceTestDefault, storageClass.Name, k8sv1.ReadWriteOnce, k8sv1.PersistentVolumeFilesystem)
 				_, err := virtClient.CdiClient().CdiV1beta1().DataVolumes(dv.Namespace).Create(context.Background(), dv, metav1.CreateOptions{})
-				Expect(err).To(BeNil())
+				Expect(err).ToNot(HaveOccurred())
 
 				defer func(dv *cdiv1.DataVolume) {
 					By(deletingDataVolume)
@@ -519,7 +519,7 @@ var _ = SIGDescribe("DataVolume Integration", func() {
 
 				By("Creating DataVolume with invalid URL")
 				dataVolume, err := virtClient.CdiClient().CdiV1beta1().DataVolumes(dataVolume.Namespace).Create(context.Background(), dataVolume, metav1.CreateOptions{})
-				Expect(err).To(BeNil())
+				Expect(err).ToNot(HaveOccurred())
 
 				By(creatingVMInvalidDataVolume)
 				//  Add the invalid DataVolume to a VMI
@@ -999,7 +999,7 @@ var _ = SIGDescribe("DataVolume Integration", func() {
 			}, 120*time.Second).Should(BeTrue())
 
 			err = virtClient.VirtualMachineInstance(util.NamespaceTestDefault).Delete(vmi.Name, &metav1.DeleteOptions{})
-			Expect(err).To(BeNil())
+			Expect(err).ToNot(HaveOccurred())
 		},
 			Entry("[test_id:5894]by default, fstrim will make the image smaller", noop, true),
 			Entry("[test_id:5898]with preallocation true, fstrim has no effect", addPreallocationTrue, false),

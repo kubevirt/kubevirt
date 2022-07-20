@@ -176,7 +176,7 @@ var _ = Describe("[rfe_id:588][crit:medium][vendor:cnv-qe@redhat.com][level:comp
 		}
 
 		jsonBytes, err := json.Marshal(newRS)
-		Expect(err).To(BeNil())
+		Expect(err).ToNot(HaveOccurred())
 
 		// change the name of a required field (like domain) so validation will fail
 		jsonString := strings.Replace(string(jsonBytes), "domain", "not-a-domain", -1)
@@ -212,7 +212,7 @@ var _ = Describe("[rfe_id:588][crit:medium][vendor:cnv-qe@redhat.com][level:comp
 		reviewResponse := &v12.Status{}
 		body, _ := result.Raw()
 		err = json.Unmarshal(body, reviewResponse)
-		Expect(err).To(BeNil())
+		Expect(err).ToNot(HaveOccurred())
 
 		Expect(reviewResponse.Details.Causes).To(HaveLen(1))
 		Expect(reviewResponse.Details.Causes[0].Field).To(Equal("spec.template.spec.domain.devices.disks[2].name"))

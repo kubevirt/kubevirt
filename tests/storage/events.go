@@ -102,7 +102,7 @@ var _ = SIGDescribe("[Serial]K8s IO events", func() {
 			return false
 		}, 30*time.Second, 5*time.Second).Should(BeTrue())
 		err := virtClient.VirtualMachineInstance(util.NamespaceTestDefault).Delete(vmi.ObjectMeta.Name, &metav1.DeleteOptions{})
-		Expect(err).To(BeNil(), "Failed to delete VMI")
+		Expect(err).ToNot(HaveOccurred(), "Failed to delete VMI")
 		tests.WaitForVirtualMachineToDisappearWithTimeout(vmi, 120)
 	})
 })

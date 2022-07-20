@@ -61,7 +61,7 @@ var _ = Describe("[rfe_id:588][crit:medium][vendor:cnv-qe@redhat.com][level:comp
 
 		// Verify Registry Disks are Online
 		pods, err := virtClient.CoreV1().Pods(util.NamespaceTestDefault).List(context.Background(), tests.UnfinishedVMIPodSelector(vmi))
-		Expect(err).To(BeNil())
+		Expect(err).ToNot(HaveOccurred())
 
 		By("Checking the number of VirtualMachineInstance disks")
 		disksFound := 0
@@ -105,12 +105,12 @@ var _ = Describe("[rfe_id:588][crit:medium][vendor:cnv-qe@redhat.com][level:comp
 				for i := 0; i < num; i++ {
 					By("Starting the VirtualMachineInstance")
 					obj, err := virtClient.RestClient().Post().Resource("virtualmachineinstances").Namespace(util.NamespaceTestDefault).Body(vmi).Do(context.Background()).Get()
-					Expect(err).To(BeNil())
+					Expect(err).ToNot(HaveOccurred())
 					tests.WaitForSuccessfulVMIStart(obj)
 
 					By("Stopping the VirtualMachineInstance")
 					_, err = virtClient.RestClient().Delete().Resource("virtualmachineinstances").Namespace(vmi.GetObjectMeta().GetNamespace()).Name(vmi.GetObjectMeta().GetName()).Do(context.Background()).Get()
-					Expect(err).To(BeNil())
+					Expect(err).ToNot(HaveOccurred())
 					By("Waiting until the VirtualMachineInstance is gone")
 					tests.WaitForVirtualMachineToDisappearWithTimeout(vmi, 120)
 				}
@@ -126,10 +126,10 @@ var _ = Describe("[rfe_id:588][crit:medium][vendor:cnv-qe@redhat.com][level:comp
 
 				By("Starting the VirtualMachineInstance")
 				vmi, err := virtClient.VirtualMachineInstance(util.NamespaceTestDefault).Create(vmi)
-				Expect(err).To(BeNil())
+				Expect(err).ToNot(HaveOccurred())
 				tests.WaitForSuccessfulVMIStart(vmi)
 				startedVMI, err := virtClient.VirtualMachineInstance(util.NamespaceTestDefault).Get(vmi.ObjectMeta.Name, &metav1.GetOptions{})
-				Expect(err).To(BeNil())
+				Expect(err).ToNot(HaveOccurred())
 				By("Checking that the VirtualMachineInstance spec did not change")
 				Expect(startedVMI.Spec).To(Equal(vmi.Spec))
 			})
@@ -144,12 +144,12 @@ var _ = Describe("[rfe_id:588][crit:medium][vendor:cnv-qe@redhat.com][level:comp
 					},
 				}
 				tests.UpdateKubeVirtConfigValueAndWait(kv.Spec.Configuration)
-				Expect(err).To(BeNil())
+				Expect(err).ToNot(HaveOccurred())
 
 				By("Starting the VirtualMachineInstance")
 				vmi := libvmi.NewCirros()
 				_, err = virtClient.VirtualMachineInstance(util.NamespaceTestDefault).Create(vmi)
-				Expect(err).To(BeNil())
+				Expect(err).ToNot(HaveOccurred())
 				By("Checking that the VMI failed")
 				Eventually(func() bool {
 					vmi, err := virtClient.VirtualMachineInstance(util.NamespaceTestDefault).Get(vmi.Name, &metav1.GetOptions{})

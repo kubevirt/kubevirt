@@ -85,7 +85,7 @@ var _ = Describe("[rfe_id:151][crit:high][vendor:cnv-qe@redhat.com][level:compon
 	LaunchVMI = func(vmi *v1.VirtualMachineInstance) *v1.VirtualMachineInstance {
 		By("Starting a VirtualMachineInstance")
 		obj, err := virtClient.RestClient().Post().Resource("virtualmachineinstances").Namespace(util.NamespaceTestDefault).Body(vmi).Do(context.Background()).Get()
-		Expect(err).To(BeNil())
+		Expect(err).ToNot(HaveOccurred())
 
 		By("Waiting the VirtualMachineInstance start")
 		vmi, ok := obj.(*v1.VirtualMachineInstance)
@@ -330,7 +330,7 @@ var _ = Describe("[rfe_id:151][crit:high][vendor:cnv-qe@redhat.com][level:compon
 					},
 				}
 				_, err := virtClient.CoreV1().Secrets(vmi.Namespace).Create(context.Background(), &secret, metav1.CreateOptions{})
-				Expect(err).To(BeNil())
+				Expect(err).ToNot(HaveOccurred())
 				break
 			}
 			LaunchVMI(vmi)
@@ -410,7 +410,7 @@ var _ = Describe("[rfe_id:151][crit:high][vendor:cnv-qe@redhat.com][level:compon
 						},
 					}
 					_, err := virtClient.CoreV1().Secrets(vmi.Namespace).Create(context.Background(), &secret, metav1.CreateOptions{})
-					Expect(err).To(BeNil())
+					Expect(err).ToNot(HaveOccurred())
 
 					break
 				}
@@ -496,7 +496,7 @@ var _ = Describe("[rfe_id:151][crit:high][vendor:cnv-qe@redhat.com][level:compon
 				}
 
 				buf, err := json.Marshal(metadataStruct)
-				Expect(err).To(BeNil())
+				Expect(err).ToNot(HaveOccurred())
 				By("mouting cloudinit iso")
 				MountCloudInitConfigDrive(vmi)
 
@@ -553,7 +553,7 @@ var _ = Describe("[rfe_id:151][crit:high][vendor:cnv-qe@redhat.com][level:compon
 						},
 					}
 					_, err := virtClient.CoreV1().Secrets(vmi.Namespace).Create(context.Background(), &secret, metav1.CreateOptions{})
-					Expect(err).To(BeNil())
+					Expect(err).ToNot(HaveOccurred())
 
 					break
 				}
@@ -626,10 +626,10 @@ var _ = Describe("[rfe_id:151][crit:high][vendor:cnv-qe@redhat.com][level:compon
 						},
 					}
 					_, err := virtClient.CoreV1().Secrets(vmi.Namespace).Create(context.Background(), &uSecret, metav1.CreateOptions{})
-					Expect(err).To(BeNil())
+					Expect(err).ToNot(HaveOccurred())
 
 					_, err = virtClient.CoreV1().Secrets(vmi.Namespace).Create(context.Background(), &nSecret, metav1.CreateOptions{})
-					Expect(err).To(BeNil())
+					Expect(err).ToNot(HaveOccurred())
 
 					break
 				}

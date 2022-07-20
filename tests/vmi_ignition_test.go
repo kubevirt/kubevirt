@@ -56,7 +56,7 @@ var _ = Describe("[rfe_id:151][crit:high][vendor:cnv-qe@redhat.com][level:compon
 	LaunchVMI = func(vmi *v1.VirtualMachineInstance) {
 		By("Starting a VirtualMachineInstance")
 		obj, err := virtClient.RestClient().Post().Resource("virtualmachineinstances").Namespace(util.NamespaceTestDefault).Body(vmi).Do(context.Background()).Get()
-		Expect(err).To(BeNil())
+		Expect(err).ToNot(HaveOccurred())
 
 		By("Waiting the VirtualMachineInstance start")
 		_, ok := obj.(*v1.VirtualMachineInstance)

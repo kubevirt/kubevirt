@@ -193,14 +193,14 @@ var _ = Describe("[Serial][sig-monitoring]Prometheus Alerts", func() {
 			PrometheusRules(flags.KubeVirtInstallNamespace).
 			Delete(context.Background(), "prometheus-kubevirt-rules", metav1.DeleteOptions{})
 
-		Expect(err).To(BeNil())
+		Expect(err).ToNot(HaveOccurred())
 
 		_, err = virtClient.
 			PrometheusClient().MonitoringV1().
 			PrometheusRules(flags.KubeVirtInstallNamespace).
 			Create(context.Background(), newRules, metav1.CreateOptions{})
 
-		Expect(err).To(BeNil())
+		Expect(err).ToNot(HaveOccurred())
 	}
 
 	reduceAlertPendingTime := func() {
@@ -209,7 +209,7 @@ var _ = Describe("[Serial][sig-monitoring]Prometheus Alerts", func() {
 			PrometheusClient().MonitoringV1().
 			PrometheusRules(flags.KubeVirtInstallNamespace).
 			Get(context.Background(), "prometheus-kubevirt-rules", metav1.GetOptions{})
-		Expect(err).To(BeNil())
+		Expect(err).ToNot(HaveOccurred())
 
 		var newRules promv1.PrometheusRule
 		promRules.DeepCopyInto(&newRules)

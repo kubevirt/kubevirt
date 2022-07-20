@@ -313,22 +313,22 @@ var _ = Describe("[sig-compute]VirtualMachinePool", func() {
 
 		vms, err := virtClient.VirtualMachine(newPool.ObjectMeta.Namespace).List(&v12.ListOptions{})
 
-		Expect(err).To(BeNil())
+		Expect(err).ToNot(HaveOccurred())
 		Expect(vms.Items).To(HaveLen(1))
 
 		name := vms.Items[0].Name
 		vmi, err := virtClient.VirtualMachineInstance(newPool.Namespace).Get(name, &metav1.GetOptions{})
-		Expect(err).To(BeNil())
+		Expect(err).ToNot(HaveOccurred())
 
 		vmiUID := vmi.UID
 
 		By("Rolling Out VM template change")
 		newPool, err = virtClient.VirtualMachinePool(newPool.ObjectMeta.Namespace).Get(context.Background(), newPool.ObjectMeta.Name, v12.GetOptions{})
-		Expect(err).To(BeNil())
+		Expect(err).ToNot(HaveOccurred())
 
 		newPool.Spec.VirtualMachineTemplate.ObjectMeta.Labels["newlabel"] = "newvalue"
 		newPool, err = virtClient.VirtualMachinePool(newPool.ObjectMeta.Namespace).Update(context.Background(), newPool, metav1.UpdateOptions{})
-		Expect(err).To(BeNil())
+		Expect(err).ToNot(HaveOccurred())
 
 		By("Ensuring VM picks up label")
 		Eventually(func() error {
@@ -366,23 +366,23 @@ var _ = Describe("[sig-compute]VirtualMachinePool", func() {
 
 		vms, err := virtClient.VirtualMachine(newPool.ObjectMeta.Namespace).List(&v12.ListOptions{})
 
-		Expect(err).To(BeNil())
+		Expect(err).ToNot(HaveOccurred())
 		Expect(vms.Items).To(HaveLen(1))
 
 		name := vms.Items[0].Name
 		vmi, err := virtClient.VirtualMachineInstance(newPool.Namespace).Get(name, &metav1.GetOptions{})
-		Expect(err).To(BeNil())
+		Expect(err).ToNot(HaveOccurred())
 
 		vmiUID := vmi.UID
 
 		By("Rolling Out VM template change")
 		newPool, err = virtClient.VirtualMachinePool(newPool.ObjectMeta.Namespace).Get(context.Background(), newPool.ObjectMeta.Name, v12.GetOptions{})
-		Expect(err).To(BeNil())
+		Expect(err).ToNot(HaveOccurred())
 
 		// Make a VMI template change
 		newPool.Spec.VirtualMachineTemplate.Spec.Template.ObjectMeta.Labels["newlabel"] = "newvalue"
 		newPool, err = virtClient.VirtualMachinePool(newPool.ObjectMeta.Namespace).Update(context.Background(), newPool, metav1.UpdateOptions{})
-		Expect(err).To(BeNil())
+		Expect(err).ToNot(HaveOccurred())
 
 		By("Ensuring VM picks up label")
 		Eventually(func() error {

@@ -467,7 +467,7 @@ var _ = SIGDescribe("Hotplug", func() {
 		By("Creating DataVolume")
 		dvBlock := libstorage.NewRandomBlankDataVolume(util.NamespaceTestDefault, sc, "64Mi", accessMode, volumeMode)
 		_, err := virtClient.CdiClient().CdiV1beta1().DataVolumes(dvBlock.Namespace).Create(context.Background(), dvBlock, metav1.CreateOptions{})
-		Expect(err).To(BeNil())
+		Expect(err).ToNot(HaveOccurred())
 		Eventually(ThisDV(dvBlock), 240).Should(HaveSucceeded())
 		return dvBlock
 	}
@@ -533,7 +533,7 @@ var _ = SIGDescribe("Hotplug", func() {
 			for i := 0; i < numPVs; i++ {
 				dv := libstorage.NewRandomBlankDataVolume(util.NamespaceTestDefault, sc, "64Mi", corev1.ReadWriteOnce, corev1.PersistentVolumeFilesystem)
 				_, err := virtClient.CdiClient().CdiV1beta1().DataVolumes(dv.Namespace).Create(context.TODO(), dv, metav1.CreateOptions{})
-				Expect(err).To(BeNil())
+				Expect(err).ToNot(HaveOccurred())
 				dvNames = append(dvNames, dv.Name)
 			}
 
@@ -1089,7 +1089,7 @@ var _ = SIGDescribe("Hotplug", func() {
 			}
 			dv := libstorage.NewRandomBlankDataVolume(util.NamespaceTestDefault, sc, "64Mi", corev1.ReadWriteOnce, corev1.PersistentVolumeFilesystem)
 			_, err := virtClient.CdiClient().CdiV1beta1().DataVolumes(dv.Namespace).Create(context.TODO(), dv, metav1.CreateOptions{})
-			Expect(err).To(BeNil())
+			Expect(err).ToNot(HaveOccurred())
 
 			vmi, err := virtClient.VirtualMachineInstance(vm.Namespace).Get(vm.Name, &metav1.GetOptions{})
 			Expect(err).ToNot(HaveOccurred())
@@ -1136,7 +1136,7 @@ var _ = SIGDescribe("Hotplug", func() {
 		It("should attach a hostpath based volume to running VM", func() {
 			dv := libstorage.NewRandomBlankDataVolume(util.NamespaceTestDefault, libstorage.StorageClassHostPathSeparateDevice, "64Mi", corev1.ReadWriteOnce, corev1.PersistentVolumeFilesystem)
 			_, err := virtClient.CdiClient().CdiV1beta1().DataVolumes(dv.Namespace).Create(context.TODO(), dv, metav1.CreateOptions{})
-			Expect(err).To(BeNil())
+			Expect(err).ToNot(HaveOccurred())
 
 			vmi, err := virtClient.VirtualMachineInstance(vm.Namespace).Get(vm.Name, &metav1.GetOptions{})
 			Expect(err).ToNot(HaveOccurred())
@@ -1182,7 +1182,7 @@ var _ = SIGDescribe("Hotplug", func() {
 			tests.WaitForSuccessfulVMIStartWithTimeout(vmi, 240)
 			dv := libstorage.NewRandomBlankDataVolume(util.NamespaceTestDefault, sc, "64Mi", corev1.ReadWriteOnce, corev1.PersistentVolumeFilesystem)
 			_, err = virtClient.CdiClient().CdiV1beta1().DataVolumes(dv.Namespace).Create(context.TODO(), dv, metav1.CreateOptions{})
-			Expect(err).To(BeNil())
+			Expect(err).ToNot(HaveOccurred())
 			Eventually(func() error {
 				_, err = virtClient.CdiClient().CdiV1beta1().DataVolumes(dv.Namespace).Get(context.TODO(), dv.Name, metav1.GetOptions{})
 				return err
@@ -1211,7 +1211,7 @@ var _ = SIGDescribe("Hotplug", func() {
 			tests.WaitForSuccessfulVMIStartWithTimeout(vmi, 240)
 			dv := libstorage.NewRandomBlankDataVolume(util.NamespaceTestDefault, sc, "64Mi", corev1.ReadWriteOnce, corev1.PersistentVolumeFilesystem)
 			_, err = virtClient.CdiClient().CdiV1beta1().DataVolumes(dv.Namespace).Create(context.TODO(), dv, metav1.CreateOptions{})
-			Expect(err).To(BeNil())
+			Expect(err).ToNot(HaveOccurred())
 			Eventually(func() error {
 				_, err = virtClient.CdiClient().CdiV1beta1().DataVolumes(dv.Namespace).Get(context.TODO(), dv.Name, metav1.GetOptions{})
 				return err

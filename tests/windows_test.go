@@ -147,19 +147,19 @@ var _ = Describe("[Serial][sig-compute]Windows VirtualMachineInstance", func() {
 
 	It("[test_id:487]should succeed to start a vmi", func() {
 		vmi, err := virtClient.VirtualMachineInstance(util.NamespaceTestDefault).Create(windowsVMI)
-		Expect(err).To(BeNil())
+		Expect(err).ToNot(HaveOccurred())
 		tests.WaitForSuccessfulVMIStartWithTimeout(vmi, 360)
 	})
 
 	It("[test_id:488]should succeed to stop a running vmi", func() {
 		By("Starting the vmi")
 		vmi, err := virtClient.VirtualMachineInstance(util.NamespaceTestDefault).Create(windowsVMI)
-		Expect(err).To(BeNil())
+		Expect(err).ToNot(HaveOccurred())
 		tests.WaitForSuccessfulVMIStartWithTimeout(vmi, 360)
 
 		By("Stopping the vmi")
 		err = virtClient.VirtualMachineInstance(vmi.Namespace).Delete(vmi.Name, &metav1.DeleteOptions{})
-		Expect(err).To(BeNil())
+		Expect(err).ToNot(HaveOccurred())
 	})
 
 	Context("with winrm connection", func() {
@@ -191,7 +191,7 @@ var _ = Describe("[Serial][sig-compute]Windows VirtualMachineInstance", func() {
 			BeforeEach(func() {
 				By("Starting the windows VirtualMachineInstance")
 				windowsVMI, err = virtClient.VirtualMachineInstance(util.NamespaceTestDefault).Create(windowsVMI)
-				Expect(err).To(BeNil())
+				Expect(err).ToNot(HaveOccurred())
 				tests.WaitForSuccessfulVMIStartWithTimeout(windowsVMI, 360)
 
 				cli = winrnLoginCommand(virtClient, windowsVMI)

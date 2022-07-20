@@ -66,7 +66,7 @@ var _ = Describe("[crit:medium][vendor:cnv-qe@redhat.com][level:component][sig-c
 		var vmi *v1.VirtualMachineInstance
 		BeforeEach(func() {
 			vmi, err = createVMI(virtClient, false)
-			Expect(err).To(BeNil())
+			Expect(err).ToNot(HaveOccurred())
 			tests.WaitForSuccessfulVMIStart(vmi)
 		})
 
@@ -82,7 +82,7 @@ var _ = Describe("[crit:medium][vendor:cnv-qe@redhat.com][level:component][sig-c
 		var vmi *v1.VirtualMachineInstance
 		BeforeEach(func() {
 			vmi, err = createVMI(virtClient, true)
-			Expect(err).To(BeNil())
+			Expect(err).ToNot(HaveOccurred())
 			tests.WaitForSuccessfulVMIStart(vmi)
 		})
 
