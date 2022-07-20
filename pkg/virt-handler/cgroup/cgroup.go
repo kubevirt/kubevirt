@@ -58,6 +58,11 @@ type Manager interface {
 	GetCpuSet() (string, error)
 }
 
+// This is here so that mockgen would create a mock out of it. That way we would have a mocked runc manager.
+type runcManager interface {
+	runc_cgroups.Manager
+}
+
 // NewManagerFromPid initializes a new cgroup manager from VMI's pid.
 // The pid is expected to VMI's pid from the host's viewpoint.
 func NewManagerFromPid(pid int) (manager Manager, err error) {
