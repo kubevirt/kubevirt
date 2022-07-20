@@ -2731,3 +2731,91 @@ func AffinityToMigrateFromSourceToTargetAndBack(sourceNode *k8sv1.Node, targetNo
 		},
 	}, nil
 }
+
+const (
+	TargetcliImage = "quay.io/afrosi_rh/targetcli:latest"
+)
+
+func RenderTargetcliPod(name, disksPVC string) *k8sv1.Pod {
+	const (
+		disks        = "disks"
+		kernelConfig = "kernel-config"
+		dbus         = "dbus"
+		modules      = "modules"
+	)
+	hostPathDirectory := k8sv1.HostPathDirectory
+	targetcliContainer := renderPrivilegedContainerSpec(TargetcliImage, "targetcli", []string{"/usr/bin/targetclid"}, []string{})
+	targetcliContainer.VolumeMounts = []k8sv1.VolumeMount{
+		{
+			Name:      disks,
+			ReadOnly:  false,
+			MountPath: "/disks",
+		},
+		{
+			Name:      dbus,
+			ReadOnly:  false,
+			MountPath: "/var/run/dbus",
+		},
+		{
+			Name:      kernelConfig,
+			ReadOnly:  false,
+			MountPath: "/sys/kernel/config",
+		},
+		{
+			Name:      modules,
+			ReadOnly:  false,
+			MountPath: "/lib/modules",
+		},
+	}
+	return &k8sv1.Pod{
+		ObjectMeta: metav1.ObjectMeta{
+			Name: name,
+			Labels: map[string]string{
+				v1.AppLabel: "test",
+			},
+		},
+		Spec: k8sv1.PodSpec{
+			RestartPolicy: k8sv1.RestartPolicyNever,
+			Containers:    []k8sv1.Container{targetcliContainer},
+			Volumes: []k8sv1.Volume{
+				// PVC where we store the backend for the SCSI disks
+				{
+					Name: disks,
+					VolumeSource: k8sv1.VolumeSource{
+						PersistentVolumeClaim: &k8sv1.PersistentVolumeClaimVolumeSource{
+							ClaimName: disksPVC,
+							ReadOnly:  false,
+						},
+					},
+				},
+				{
+					Name: dbus,
+					VolumeSource: k8sv1.VolumeSource{
+						HostPath: &k8sv1.HostPathVolumeSource{
+							Path: "/var/run/dbus",
+							Type: &hostPathDirectory,
+						},
+					},
+				},
+				{
+					Name: kernelConfig,
+					VolumeSource: k8sv1.VolumeSource{
+						HostPath: &k8sv1.HostPathVolumeSource{
+							Path: "/sys/kernel/config",
+							Type: &hostPathDirectory,
+						},
+					},
+				},
+				{
+					Name: modules,
+					VolumeSource: k8sv1.VolumeSource{
+						HostPath: &k8sv1.HostPathVolumeSource{
+							Path: "/lib/modules",
+							Type: &hostPathDirectory,
+						},
+					},
+				},
+			},
+		},
+	}
+}
