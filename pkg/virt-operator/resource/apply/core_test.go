@@ -210,10 +210,10 @@ var _ = Describe("Apply", func() {
 				Expect(err).ToNot(HaveOccurred())
 
 				obj, err := json.Marshal(existingCM)
-				Expect(err).To(BeNil())
+				Expect(err).ToNot(HaveOccurred())
 
 				obj, err = patch.Apply(obj)
-				Expect(err).To(BeNil())
+				Expect(err).ToNot(HaveOccurred())
 
 				pr := &corev1.ConfigMap{}
 				Expect(json.Unmarshal(obj, existingCM)).To(Succeed())
@@ -226,7 +226,7 @@ var _ = Describe("Apply", func() {
 			crt := createCrt()
 
 			_, err := r.createOrUpdateKubeVirtCAConfigMap(queue, crt, duration, requiredCM)
-			Expect(err).To(BeNil())
+			Expect(err).ToNot(HaveOccurred())
 			Expect(patched).To(BeTrue())
 		})
 
@@ -334,7 +334,7 @@ var _ = Describe("Apply", func() {
 				expectations: expectations,
 			}
 
-			Expect(r.createOrUpdateServiceAccount(pr)).To(BeNil())
+			Expect(r.createOrUpdateServiceAccount(pr)).To(Succeed())
 		})
 
 		It("should patch ServiceAccount on sync when they are not equal", func() {
@@ -366,10 +366,10 @@ var _ = Describe("Apply", func() {
 				patched = true
 
 				obj, err := json.Marshal(pr)
-				Expect(err).To(BeNil())
+				Expect(err).ToNot(HaveOccurred())
 
 				obj, err = patch.Apply(obj)
-				Expect(err).To(BeNil())
+				Expect(err).ToNot(HaveOccurred())
 
 				pr := &corev1.ServiceAccount{}
 				Expect(json.Unmarshal(obj, pr)).To(Succeed())
@@ -378,7 +378,7 @@ var _ = Describe("Apply", func() {
 				return true, pr, nil
 			})
 
-			Expect(r.createOrUpdateServiceAccount(requiredPR)).To(BeNil())
+			Expect(r.createOrUpdateServiceAccount(requiredPR)).To(Succeed())
 			Expect(patched).To(BeTrue())
 		})
 	})
@@ -395,7 +395,7 @@ var _ = Describe("Apply", func() {
 
 				Expect(hasImmutableFieldChanged(targetService, cachedService)).To(BeFalse())
 				ops, err := generateServicePatch(cachedService, targetService)
-				Expect(err).To(BeNil())
+				Expect(err).ToNot(HaveOccurred())
 
 				hasSubstring := func(ops []string, substring string) bool {
 					for _, op := range ops {

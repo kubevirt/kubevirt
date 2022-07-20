@@ -53,23 +53,23 @@ var _ = Describe("VirtualMachine", func() {
 	Context("With missing input parameters", func() {
 		It("should fail a start", func() {
 			cmd := clientcmd.NewRepeatableVirtctlCommand("start")
-			Expect(cmd()).NotTo(BeNil())
+			Expect(cmd()).NotTo(Succeed())
 		})
 		It("should fail a stop", func() {
 			cmd := clientcmd.NewRepeatableVirtctlCommand("stop")
-			Expect(cmd()).NotTo(BeNil())
+			Expect(cmd()).NotTo(Succeed())
 		})
 		It("should fail a restart", func() {
 			cmd := clientcmd.NewRepeatableVirtctlCommand("restart")
-			Expect(cmd()).NotTo(BeNil())
+			Expect(cmd()).NotTo(Succeed())
 		})
 		It("should fail a migrate", func() {
 			cmd := clientcmd.NewRepeatableVirtctlCommand("migrate")
-			Expect(cmd()).NotTo(BeNil())
+			Expect(cmd()).NotTo(Succeed())
 		})
 		It("should fail a migrate-cancel", func() {
 			cmd := clientcmd.NewRepeatableVirtctlCommand("migrate-cancel")
-			Expect(cmd()).NotTo(BeNil())
+			Expect(cmd()).NotTo(Succeed())
 		})
 	})
 
@@ -82,7 +82,7 @@ var _ = Describe("VirtualMachine", func() {
 			vmInterface.EXPECT().Start(vm.Name, &startOpts).Return(nil).Times(1)
 
 			cmd := clientcmd.NewVirtctlCommand("start", vmName)
-			Expect(cmd.Execute()).To(BeNil())
+			Expect(cmd.Execute()).To(Succeed())
 		})
 
 		It("with spec:running:false", func() {
@@ -93,7 +93,7 @@ var _ = Describe("VirtualMachine", func() {
 			vmInterface.EXPECT().Stop(vm.Name, &stopOpts).Return(nil).Times(1)
 
 			cmd := clientcmd.NewVirtctlCommand("stop", vmName)
-			Expect(cmd.Execute()).To(BeNil())
+			Expect(cmd.Execute()).To(Succeed())
 		})
 
 		It("with spec:running:false when it's false already ", func() {
@@ -104,7 +104,7 @@ var _ = Describe("VirtualMachine", func() {
 			vmInterface.EXPECT().Stop(vm.Name, &stopOpts).Return(nil).Times(1)
 
 			cmd := clientcmd.NewVirtctlCommand("stop", vmName)
-			Expect(cmd.Execute()).To(BeNil())
+			Expect(cmd.Execute()).To(Succeed())
 		})
 
 		Context("Using RunStrategy", func() {
@@ -116,7 +116,7 @@ var _ = Describe("VirtualMachine", func() {
 				vmInterface.EXPECT().Start(vm.Name, &startOpts).Return(nil).Times(1)
 
 				cmd := clientcmd.NewVirtctlCommand("start", vmName)
-				Expect(cmd.Execute()).To(BeNil())
+				Expect(cmd.Execute()).To(Succeed())
 			})
 
 			It("with spec:runStrategy:halted", func() {
@@ -127,7 +127,7 @@ var _ = Describe("VirtualMachine", func() {
 				vmInterface.EXPECT().Stop(vm.Name, &stopOpts).Return(nil).Times(1)
 
 				cmd := clientcmd.NewVirtctlCommand("stop", vmName)
-				Expect(cmd.Execute()).To(BeNil())
+				Expect(cmd.Execute()).To(Succeed())
 			})
 
 			It("with spec:runStrategy:halted when it's false already ", func() {
@@ -138,7 +138,7 @@ var _ = Describe("VirtualMachine", func() {
 				vmInterface.EXPECT().Stop(vm.Name, &stopOpts).Return(nil).Times(1)
 
 				cmd := clientcmd.NewVirtctlCommand("stop", vmName)
-				Expect(cmd.Execute()).To(BeNil())
+				Expect(cmd.Execute()).To(Succeed())
 			})
 		})
 		Context("With --paused flag", func() {
@@ -149,7 +149,7 @@ var _ = Describe("VirtualMachine", func() {
 				vmInterface.EXPECT().Start(vm.Name, &v1.StartOptions{Paused: true, DryRun: nil}).Return(nil).Times(1)
 
 				cmd := clientcmd.NewVirtctlCommand("start", vmName, "--paused")
-				Expect(cmd.Execute()).To(BeNil())
+				Expect(cmd.Execute()).To(Succeed())
 			})
 			It("should start if --paused false", func() {
 				vm := kubecli.NewMinimalVM(vmName)
@@ -158,7 +158,7 @@ var _ = Describe("VirtualMachine", func() {
 				vmInterface.EXPECT().Start(vm.Name, &startOpts).Return(nil).Times(1)
 
 				cmd := clientcmd.NewVirtctlCommand("start", vmName, "--paused=false")
-				Expect(cmd.Execute()).To(BeNil())
+				Expect(cmd.Execute()).To(Succeed())
 			})
 		})
 
@@ -177,7 +177,7 @@ var _ = Describe("VirtualMachine", func() {
 			} else {
 				cmd = clientcmd.NewVirtctlCommand("migrate", "--dry-run", vmName)
 			}
-			Expect(cmd.Execute()).To(BeNil())
+			Expect(cmd.Execute()).To(Succeed())
 		},
 			Entry("with default", &v1.MigrateOptions{}),
 			Entry("with dry-run option", &v1.MigrateOptions{DryRun: []string{k8smetav1.DryRunAll}}),
@@ -206,7 +206,7 @@ var _ = Describe("VirtualMachine", func() {
 
 			migrationInterface.EXPECT().List(&listoptions).Return(&migList, nil).Times(1)
 			migrationInterface.EXPECT().Delete(migname, &k8smetav1.DeleteOptions{}).Return(nil).Times(1)
-			Expect(cmd.Execute()).To(BeNil())
+			Expect(cmd.Execute()).To(Succeed())
 		})
 		It("Should fail if no active migration is found", func() {
 			mig.Status.Phase = v1.MigrationSucceeded
@@ -223,7 +223,7 @@ var _ = Describe("VirtualMachine", func() {
 			migrationInterface.EXPECT().List(&listoptions).Return(&migList, nil).Times(1)
 
 			res := cmd.Execute()
-			Expect(res).ToNot(BeNil())
+			Expect(res).To(HaveOccurred())
 			errstr := fmt.Sprintf("Found no migration to cancel for %s", vm.Name)
 			Expect(res.Error()).To(ContainSubstring(errstr))
 		})
@@ -237,7 +237,7 @@ var _ = Describe("VirtualMachine", func() {
 			vmInterface.EXPECT().Restart(vm.Name, &restartOpts).Return(nil).Times(1)
 
 			cmd := clientcmd.NewVirtctlCommand("restart", vmName)
-			Expect(cmd.Execute()).To(BeNil())
+			Expect(cmd.Execute()).To(Succeed())
 		})
 
 		Context("using RunStrategy", func() {
@@ -249,7 +249,7 @@ var _ = Describe("VirtualMachine", func() {
 				vmInterface.EXPECT().Restart(vm.Name, &restartOpts).Return(nil).Times(1)
 
 				cmd := clientcmd.NewVirtctlCommand("restart", vmName)
-				Expect(cmd.Execute()).To(BeNil())
+				Expect(cmd.Execute()).To(Succeed())
 			})
 		})
 
@@ -265,7 +265,7 @@ var _ = Describe("VirtualMachine", func() {
 			vmInterface.EXPECT().ForceRestart(vm.Name, &restartOptions).Return(nil).Times(1)
 
 			cmd := clientcmd.NewVirtctlCommand("restart", vmName, "--force", "--grace-period=0")
-			Expect(cmd.Execute()).To(BeNil())
+			Expect(cmd.Execute()).To(Succeed())
 		})
 
 		It("should force delete vm", func() {
@@ -280,7 +280,7 @@ var _ = Describe("VirtualMachine", func() {
 			vmInterface.EXPECT().ForceStop(vm.Name, &stopOptions).Return(nil).Times(1)
 
 			cmd := clientcmd.NewVirtctlCommand("stop", vmName, "--force", "--grace-period=0")
-			Expect(cmd.Execute()).To(BeNil())
+			Expect(cmd.Execute()).To(Succeed())
 		})
 	})
 
@@ -294,7 +294,7 @@ var _ = Describe("VirtualMachine", func() {
 			vmInterface.EXPECT().Start(vm.Name, &v1.StartOptions{DryRun: []string{k8smetav1.DryRunAll}}).Return(nil).Times(1)
 
 			cmd := clientcmd.NewVirtctlCommand("start", vmName, "--dry-run")
-			Expect(cmd.Execute()).To(BeNil())
+			Expect(cmd.Execute()).To(Succeed())
 		})
 
 		It("should not restart VM", func() {
@@ -305,7 +305,7 @@ var _ = Describe("VirtualMachine", func() {
 			vmInterface.EXPECT().Restart(vm.Name, &v1.RestartOptions{DryRun: []string{k8smetav1.DryRunAll}}).Return(nil).Times(1)
 
 			cmd := clientcmd.NewVirtctlCommand("restart", vmName, "--dry-run")
-			Expect(cmd.Execute()).To(BeNil())
+			Expect(cmd.Execute()).To(Succeed())
 		})
 
 		It("should not stop VM", func() {
@@ -316,7 +316,7 @@ var _ = Describe("VirtualMachine", func() {
 			vmInterface.EXPECT().Stop(vm.Name, &v1.StopOptions{DryRun: []string{k8smetav1.DryRunAll}}).Return(nil).Times(1)
 
 			cmd := clientcmd.NewVirtctlCommand("stop", vmName, "--dry-run")
-			Expect(cmd.Execute()).To(BeNil())
+			Expect(cmd.Execute()).To(Succeed())
 		})
 
 	})
@@ -338,7 +338,7 @@ var _ = Describe("VirtualMachine", func() {
 			vmiInterface.EXPECT().GuestOsInfo(vm.Name).Return(guestOSInfo, nil).Times(1)
 
 			cmd := clientcmd.NewVirtctlCommand("guestosinfo", vm.Name)
-			Expect(cmd.Execute()).To(BeNil())
+			Expect(cmd.Execute()).To(Succeed())
 		})
 
 		It("should return filesystem  data", func() {
@@ -360,7 +360,7 @@ var _ = Describe("VirtualMachine", func() {
 			vmiInterface.EXPECT().FilesystemList(vm.Name).Return(fsList, nil).Times(1)
 
 			cmd := clientcmd.NewVirtctlCommand("fslist", vm.Name)
-			Expect(cmd.Execute()).To(BeNil())
+			Expect(cmd.Execute()).To(Succeed())
 		})
 
 		It("should return userlist  data", func() {
@@ -382,7 +382,7 @@ var _ = Describe("VirtualMachine", func() {
 			vmiInterface.EXPECT().UserList(vm.Name).Return(userList, nil).Times(1)
 
 			cmd := clientcmd.NewVirtctlCommand("userlist", vm.Name)
-			Expect(cmd.Execute()).To(BeNil())
+			Expect(cmd.Execute()).To(Succeed())
 		})
 	})
 
@@ -489,7 +489,7 @@ var _ = Describe("VirtualMachine", func() {
 			commandAndArgs = append(commandAndArgs, args...)
 			cmdAdd := clientcmd.NewRepeatableVirtctlCommand(commandAndArgs...)
 			res := cmdAdd()
-			Expect(res).NotTo(BeNil())
+			Expect(res).To(HaveOccurred())
 			Expect(res.Error()).To(ContainSubstring(errorString))
 		},
 			Entry("addvolume no args", "addvolume", "argument validation failed"),
@@ -508,7 +508,7 @@ var _ = Describe("VirtualMachine", func() {
 			}
 			cmdAdd := clientcmd.NewRepeatableVirtctlCommand(commandAndArgs...)
 			res := cmdAdd()
-			Expect(res).ToNot(BeNil())
+			Expect(res).To(HaveOccurred())
 			Expect(res.Error()).To(ContainSubstring("Volume testvolume is not a DataVolume or PersistentVolumeClaim"))
 		},
 			Entry("with default", false),
@@ -529,7 +529,7 @@ var _ = Describe("VirtualMachine", func() {
 			commandAndArgs := []string{commandName, vmiName, fmt.Sprintf("--volume-name=%s", volumeName)}
 			commandAndArgs = append(commandAndArgs, args...)
 			cmd := clientcmd.NewVirtctlCommand(commandAndArgs...)
-			Expect(cmd.Execute()).To(BeNil())
+			Expect(cmd.Execute()).To(Succeed())
 		},
 			Entry("addvolume dv, no persist should call VMI endpoint", "addvolume", "testvmi", "testvolume", true, expectVMIEndpointAddVolume),
 			Entry("addvolume pvc, no persist should call VMI endpoint", "addvolume", "testvmi", "testvolume", false, expectVMIEndpointAddVolume),
@@ -558,7 +558,7 @@ var _ = Describe("VirtualMachine", func() {
 			}
 			cmdAdd := clientcmd.NewRepeatableVirtctlCommand(commandAndArgs...)
 			res := cmdAdd()
-			Expect(res).ToNot(BeNil())
+			Expect(res).To(HaveOccurred())
 			Expect(res.Error()).To(ContainSubstring("error removing"))
 		},
 			Entry("with default", false),
@@ -597,7 +597,7 @@ var _ = Describe("VirtualMachine", func() {
 			commandAndArgs = append(commandAndArgs, args...)
 			cmdAdd := clientcmd.NewRepeatableVirtctlCommand(commandAndArgs...)
 			res := cmdAdd()
-			Expect(res).NotTo(BeNil())
+			Expect(res).To(HaveOccurred())
 			Expect(res.Error()).To(ContainSubstring(errorString))
 		},
 			Entry("memorydump no args", "argument validation failed"),
@@ -610,21 +610,21 @@ var _ = Describe("VirtualMachine", func() {
 			expectVMEndpointMemoryDump("testvm", "testvolume")
 			commandAndArgs := []string{"memory-dump", "get", "testvm", "--claim-name=testvolume"}
 			cmd := clientcmd.NewVirtctlCommand(commandAndArgs...)
-			Expect(cmd.Execute()).To(BeNil())
+			Expect(cmd.Execute()).To(Succeed())
 		})
 
 		It("should call memory dump subresource without claim-name", func() {
 			expectVMEndpointMemoryDump("testvm", "")
 			commandAndArgs := []string{"memory-dump", "get", "testvm"}
 			cmd := clientcmd.NewVirtctlCommand(commandAndArgs...)
-			Expect(cmd.Execute()).To(BeNil())
+			Expect(cmd.Execute()).To(Succeed())
 		})
 
 		It("should call remove memory dump subresource", func() {
 			expectVMEndpointRemoveMemoryDump("testvm")
 			commandAndArgs := []string{"memory-dump", "remove", "testvm"}
 			cmd := clientcmd.NewVirtctlCommand(commandAndArgs...)
-			Expect(cmd.Execute()).To(BeNil())
+			Expect(cmd.Execute()).To(Succeed())
 		})
 	})
 })

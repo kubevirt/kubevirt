@@ -79,7 +79,7 @@ var _ = Describe("Apply Prometheus", func() {
 			expectations: expectations,
 		}
 
-		Expect(r.createOrUpdateServiceMonitor(sm)).To(BeNil())
+		Expect(r.createOrUpdateServiceMonitor(sm)).To(Succeed())
 	})
 
 	It("should patch ServiceMonitor on sync when they are equal", func() {
@@ -114,10 +114,10 @@ var _ = Describe("Apply Prometheus", func() {
 			patched = true
 
 			obj, err := json.Marshal(sm)
-			Expect(err).To(BeNil())
+			Expect(err).ToNot(HaveOccurred())
 
 			obj, err = patch.Apply(obj)
-			Expect(err).To(BeNil())
+			Expect(err).ToNot(HaveOccurred())
 
 			sm := &promv1.ServiceMonitor{}
 			Expect(json.Unmarshal(obj, sm)).To(Succeed())
@@ -126,7 +126,7 @@ var _ = Describe("Apply Prometheus", func() {
 			return true, sm, nil
 		})
 
-		Expect(r.createOrUpdateServiceMonitor(requiredSM)).To(BeNil())
+		Expect(r.createOrUpdateServiceMonitor(requiredSM)).To(Succeed())
 		Expect(patched).To(BeTrue())
 	})
 
@@ -146,7 +146,7 @@ var _ = Describe("Apply Prometheus", func() {
 			expectations: expectations,
 		}
 
-		Expect(r.createOrUpdatePrometheusRule(pr)).To(BeNil())
+		Expect(r.createOrUpdatePrometheusRule(pr)).To(Succeed())
 	})
 
 	It("should patch PrometheusRules on sync when they are equal", func() {
@@ -182,10 +182,10 @@ var _ = Describe("Apply Prometheus", func() {
 			patched = true
 
 			obj, err := json.Marshal(pr)
-			Expect(err).To(BeNil())
+			Expect(err).ToNot(HaveOccurred())
 
 			obj, err = patch.Apply(obj)
-			Expect(err).To(BeNil())
+			Expect(err).ToNot(HaveOccurred())
 
 			pr := &promv1.PrometheusRule{}
 			Expect(json.Unmarshal(obj, pr)).To(Succeed())
@@ -195,7 +195,7 @@ var _ = Describe("Apply Prometheus", func() {
 			return true, pr, nil
 		})
 
-		Expect(r.createOrUpdatePrometheusRule(requiredPR)).To(BeNil())
+		Expect(r.createOrUpdatePrometheusRule(requiredPR)).To(Succeed())
 		Expect(patched).To(BeTrue())
 	})
 })

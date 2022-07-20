@@ -985,12 +985,8 @@ var _ = Describe("VirtualMachine", func() {
 				for i := 0; i < 1000; i++ {
 					delay := calculateStartBackoffTime(failCount, defaultMaxCrashLoopBackoffDelaySeconds)
 
-					if delay > maxExpectedDelay {
-						Expect(fmt.Errorf("delay: %d: failCount %d should not result in a delay greater than %d", delay, failCount, maxExpectedDelay)).To(BeNil())
-					} else if delay < minExpectedDelay {
-						Expect(fmt.Errorf("delay: %d: failCount %d should not result in a delay less than than %d", delay, failCount, minExpectedDelay)).To(BeNil())
-
-					}
+					// check that minExpectedDelay <= delay <= maxExpectedDelay
+					Expect(delay).To(And(BeNumerically(">=", minExpectedDelay), BeNumerically("<=", maxExpectedDelay)))
 				}
 			},
 

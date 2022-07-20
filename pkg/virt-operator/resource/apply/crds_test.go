@@ -89,9 +89,9 @@ var _ = Describe("Apply CRDs", func() {
 			patch, err := jsonpatch.DecodePatch(a.Patch)
 			Expect(err).ToNot(HaveOccurred())
 			obj, err := json.Marshal(crdWithoutSubresource)
-			Expect(err).To(BeNil())
+			Expect(err).ToNot(HaveOccurred())
 			obj, err = patch.Apply(obj)
-			Expect(err).To(BeNil())
+			Expect(err).ToNot(HaveOccurred())
 			crd := &extv1.CustomResourceDefinition{}
 			Expect(json.Unmarshal(obj, crd)).To(Succeed())
 			Expect(crd.Spec.Versions[0].Subresources.Status).To(BeNil())
@@ -144,9 +144,9 @@ var _ = Describe("Apply CRDs", func() {
 			patch, err := jsonpatch.DecodePatch(a.Patch)
 			Expect(err).ToNot(HaveOccurred())
 			obj, err := json.Marshal(crdWithoutSubresource)
-			Expect(err).To(BeNil())
+			Expect(err).ToNot(HaveOccurred())
 			obj, err = patch.Apply(obj)
-			Expect(err).To(BeNil())
+			Expect(err).ToNot(HaveOccurred())
 			crd := &extv1.CustomResourceDefinition{}
 			Expect(json.Unmarshal(obj, crd)).To(Succeed())
 			Expect(crd.Spec.Versions[0].Subresources.Status).ToNot(BeNil())

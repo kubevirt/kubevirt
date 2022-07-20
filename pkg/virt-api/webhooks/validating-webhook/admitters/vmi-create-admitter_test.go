@@ -1897,7 +1897,7 @@ var _ = Describe("Validating VMICreate Admitter", func() {
 				{Option: 241, Value: "sameextra.options.kubevirt.io"},
 			}
 			err := ValidateDuplicateDHCPPrivateOptions(testDHCPPrivateOptions)
-			Expect(err).To(BeNil())
+			Expect(err).ToNot(HaveOccurred())
 		})
 
 		It("should reject vmi with a network multiqueue, with only non virtio nics", func() {

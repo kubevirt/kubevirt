@@ -887,9 +887,9 @@ var _ = Describe("VirtualMachineInstance Subresources", func() {
 
 			patch, err := generateVMIVolumeRequestPatch(vmi, volumeRequest)
 			if expectError {
-				Expect(err).ToNot(BeNil())
+				Expect(err).To(HaveOccurred())
 			} else {
-				Expect(err).To(BeNil())
+				Expect(err).ToNot(HaveOccurred())
 			}
 
 			Expect(patch).To(Equal(expectedPatch))
@@ -942,9 +942,9 @@ var _ = Describe("VirtualMachineInstance Subresources", func() {
 
 			patch, err := generateVMVolumeRequestPatch(vm, volumeRequest)
 			if expectError {
-				Expect(err).ToNot(BeNil())
+				Expect(err).To(HaveOccurred())
 			} else {
-				Expect(err).To(BeNil())
+				Expect(err).ToNot(HaveOccurred())
 			}
 
 			Expect(patch).To(Equal(expectedPatch))
@@ -1204,9 +1204,9 @@ var _ = Describe("VirtualMachineInstance Subresources", func() {
 
 			patch, err := generateVMMemoryDumpRequestPatch(vm, memDumpReq, removeReq)
 			if expectError {
-				Expect(err).ToNot(BeNil())
+				Expect(err).To(HaveOccurred())
 			} else {
-				Expect(err).To(BeNil())
+				Expect(err).ToNot(HaveOccurred())
 			}
 
 			fmt.Println(patch)

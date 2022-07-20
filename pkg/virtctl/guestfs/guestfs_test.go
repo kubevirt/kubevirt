@@ -130,14 +130,14 @@ var _ = Describe("Guestfs shell", func() {
 		It("Succesfully attach to PVC", func() {
 			guestfs.SetClient(fakeCreateClientPVC)
 			cmd := virtctlcmd.NewRepeatableVirtctlCommand(commandName, pvcName)
-			Expect(cmd()).To(BeNil())
+			Expect(cmd()).To(Succeed())
 		})
 
 		It("PVC in use", func() {
 			guestfs.SetClient(fakeCreateClientPVCinUse)
 			cmd := virtctlcmd.NewRepeatableVirtctlCommand(commandName, pvcName)
 			err := cmd()
-			Expect(err).NotTo(BeNil())
+			Expect(err).To(HaveOccurred())
 			Expect(err.Error()).Should(Equal(fmt.Sprintf("PVC %s is used by another pod", pvcName)))
 		})
 
@@ -145,7 +145,7 @@ var _ = Describe("Guestfs shell", func() {
 			guestfs.SetClient(fakeCreateClient)
 			cmd := virtctlcmd.NewRepeatableVirtctlCommand(commandName, pvcName)
 			err := cmd()
-			Expect(err).NotTo(BeNil())
+			Expect(err).To(HaveOccurred())
 			Expect(err.Error()).Should(Equal(fmt.Sprintf("The PVC %s doesn't exist", pvcName)))
 		})
 	})

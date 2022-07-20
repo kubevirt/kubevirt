@@ -624,7 +624,7 @@ var _ = Describe("VirtualMachineInstance Mutator", func() {
 		vmi := api.NewMinimalVMI("testvmi")
 		Expect(vmi.Spec.Domain.Features).To(BeNil())
 		err := webhooks.SetVirtualMachineInstanceHypervFeatureDependencies(vmi)
-		Expect(err).To(BeNil())
+		Expect(err).ToNot(HaveOccurred())
 		Expect(vmi.Spec.Domain.Features).To(BeNil())
 	})
 
@@ -634,7 +634,7 @@ var _ = Describe("VirtualMachineInstance Mutator", func() {
 			Hyperv: &v1.FeatureHyperv{},
 		}
 		err := webhooks.SetVirtualMachineInstanceHypervFeatureDependencies(vmi)
-		Expect(err).To(BeNil())
+		Expect(err).ToNot(HaveOccurred())
 		hyperv := v1.FeatureHyperv{}
 		ok := equality.Semantic.DeepEqual(*vmi.Spec.Domain.Features.Hyperv, hyperv)
 		if !ok {
@@ -661,7 +661,7 @@ var _ = Describe("VirtualMachineInstance Mutator", func() {
 			},
 		}
 		err := webhooks.SetVirtualMachineInstanceHypervFeatureDependencies(vmi)
-		Expect(err).To(BeNil())
+		Expect(err).ToNot(HaveOccurred())
 
 		hyperv := v1.FeatureHyperv{
 			Relaxed: &v1.FeatureState{
@@ -697,7 +697,7 @@ var _ = Describe("VirtualMachineInstance Mutator", func() {
 			},
 		}
 		err := webhooks.SetVirtualMachineInstanceHypervFeatureDependencies(vmi)
-		Expect(err).To(BeNil())
+		Expect(err).ToNot(HaveOccurred())
 
 		hyperv := v1.FeatureHyperv{
 			Relaxed: &v1.FeatureState{
@@ -820,7 +820,7 @@ var _ = Describe("VirtualMachineInstance Mutator", func() {
 			Hyperv: hyperv,
 		}
 		err := webhooks.SetVirtualMachineInstanceHypervFeatureDependencies(vmi)
-		Expect(err).To(BeNil(), "it should not fail")
+		Expect(err).ToNot(HaveOccurred(), "it should not fail")
 		if resultCPUTopology == nil {
 			Expect(vmi.Spec.Domain.CPU).To(BeNil(), "cpu topology should not be updated")
 		} else {

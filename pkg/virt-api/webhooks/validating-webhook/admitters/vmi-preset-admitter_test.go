@@ -65,7 +65,7 @@ var _ = Describe("Validating VMIPreset Admitter", func() {
 		vmi := api.NewMinimalVMI("testvmi")
 		vmiPDomain := &v1.DomainSpec{}
 		vmiDomainByte, _ := json.Marshal(vmi.Spec.Domain)
-		Expect(json.Unmarshal(vmiDomainByte, &vmiPDomain)).To(BeNil())
+		Expect(json.Unmarshal(vmiDomainByte, &vmiPDomain)).To(Succeed())
 
 		vmiPDomain.Devices.Disks = append(vmiPDomain.Devices.Disks, v1.Disk{
 			Name: "testdisk",

@@ -137,20 +137,20 @@ var _ = Describe("Expose", func() {
 			Context("With missing input parameters", func() {
 				It("should fail", func() {
 					cmd := clientcmd.NewRepeatableVirtctlCommand(expose.COMMAND_EXPOSE)
-					Expect(cmd()).NotTo(BeNil())
+					Expect(cmd()).NotTo(Succeed())
 				})
 			})
 			Context("With missing resource", func() {
 				It("should fail", func() {
 					cmd := clientcmd.NewRepeatableVirtctlCommand(expose.COMMAND_EXPOSE, "vmi", "--name", "my-service",
 						"--port", "9999")
-					Expect(cmd()).NotTo(BeNil())
+					Expect(cmd()).NotTo(Succeed())
 				})
 			})
 			Context("With missing port and missing pod network ports", func() {
 				It("should fail", func() {
 					cmd := clientcmd.NewRepeatableVirtctlCommand(expose.COMMAND_EXPOSE, "vmi", vmName, "--name", "my-service")
-					Expect(cmd()).NotTo(BeNil())
+					Expect(cmd()).NotTo(Succeed())
 				})
 			})
 			Context("With missing port but existing pod network ports ", func() {
@@ -176,96 +176,96 @@ var _ = Describe("Expose", func() {
 			Context("With missing service name", func() {
 				It("should fail", func() {
 					err := clientcmd.NewRepeatableVirtctlCommand(expose.COMMAND_EXPOSE, "vmi", vmName, "--port", "9999")
-					Expect(err()).NotTo(BeNil())
+					Expect(err()).NotTo(Succeed())
 				})
 			})
 			Context("With invalid type", func() {
 				It("should fail", func() {
 					cmd := clientcmd.NewRepeatableVirtctlCommand(expose.COMMAND_EXPOSE, "vmi", vmName, "--name", "my-service",
 						"--port", "9999", "--type", "kaboom")
-					Expect(cmd()).NotTo(BeNil())
+					Expect(cmd()).NotTo(Succeed())
 				})
 			})
 			Context("With a invalid protocol", func() {
 				It("should fail", func() {
 					cmd := clientcmd.NewRepeatableVirtctlCommand(expose.COMMAND_EXPOSE, "vmi", vmName, "--name", "my-service",
 						"--port", "9999", "--protocol", "http")
-					Expect(cmd()).NotTo(BeNil())
+					Expect(cmd()).NotTo(Succeed())
 				})
 			})
 			Context("With unknown resource type", func() {
 				It("should fail", func() {
 					cmd := clientcmd.NewRepeatableVirtctlCommand(expose.COMMAND_EXPOSE, "kaboom", vmName, "--name", "my-service",
 						"--port", "9999")
-					Expect(cmd()).NotTo(BeNil())
+					Expect(cmd()).NotTo(Succeed())
 				})
 			})
 			Context("With unknown flag", func() {
 				It("should fail", func() {
 					cmd := clientcmd.NewRepeatableVirtctlCommand(expose.COMMAND_EXPOSE, "vmi", vmName, "--name", "my-service",
 						"--port", "9999", "--kaboom")
-					Expect(cmd()).NotTo(BeNil())
+					Expect(cmd()).NotTo(Succeed())
 				})
 			})
 			Context("With cluster-ip on a vm", func() {
 				It("should succeed", func() {
 					cmd := clientcmd.NewRepeatableVirtctlCommand(expose.COMMAND_EXPOSE, "vmi", vmName, "--name", "my-service",
 						"--port", "9999")
-					Expect(cmd()).To(BeNil())
+					Expect(cmd()).To(Succeed())
 				})
 			})
 			Context("With cluster-ip on a vm that has no label", func() {
 				It("should fail", func() {
 					cmd := clientcmd.NewRepeatableVirtctlCommand(expose.COMMAND_EXPOSE, "vmi", vmNoLabelName, "--name", "my-service",
 						"--port", "9999")
-					Expect(cmd()).NotTo(BeNil())
+					Expect(cmd()).NotTo(Succeed())
 				})
 			})
 			Context("With cluster-ip on an unknown vm", func() {
 				It("should fail on a vmi", func() {
 					cmd := clientcmd.NewRepeatableVirtctlCommand(expose.COMMAND_EXPOSE, "vmi", unknownVM, "--name", "my-service",
 						"--port", "9999")
-					Expect(cmd()).NotTo(BeNil())
+					Expect(cmd()).NotTo(Succeed())
 				})
 				It("should fail on a vm", func() {
 					cmd := clientcmd.NewRepeatableVirtctlCommand(expose.COMMAND_EXPOSE, "vm", unknownVM, "--name", "my-service",
 						"--port", "9999")
-					Expect(cmd()).NotTo(BeNil())
+					Expect(cmd()).NotTo(Succeed())
 				})
 			})
 			Context("With node-port service on a vm", func() {
 				It("should succeed", func() {
 					cmd := clientcmd.NewRepeatableVirtctlCommand(expose.COMMAND_EXPOSE, "vmi", vmName, "--name", "my-service",
 						"--port", "9999", "--type", "NodePort")
-					Expect(cmd()).To(BeNil())
+					Expect(cmd()).To(Succeed())
 				})
 			})
 			Context("With cluster-ip on an vm", func() {
 				It("should succeed", func() {
 					err := clientcmd.NewRepeatableVirtctlCommand(expose.COMMAND_EXPOSE, "vm", vmName, "--name", "my-service",
 						"--port", "9999")
-					Expect(err()).To(BeNil())
+					Expect(err()).To(Succeed())
 				})
 			})
 			Context("With cluster-ip on an vm replica set", func() {
 				It("should succeed", func() {
 					err := clientcmd.NewRepeatableVirtctlCommand(expose.COMMAND_EXPOSE, "vmirs", vmName, "--name", "my-service",
 						"--port", "9999")
-					Expect(err()).To(BeNil())
+					Expect(err()).To(Succeed())
 				})
 			})
 			Context("With cluster-ip on an unknown vm replica set", func() {
 				It("should fail", func() {
 					cmd := clientcmd.NewRepeatableVirtctlCommand(expose.COMMAND_EXPOSE, "vmirs", unknownVM, "--name", "my-service",
 						"--port", "9999")
-					Expect(cmd()).NotTo(BeNil())
+					Expect(cmd()).NotTo(Succeed())
 				})
 			})
 			Context("With string target-port", func() {
 				It("should succeed", func() {
 					err := clientcmd.NewRepeatableVirtctlCommand(expose.COMMAND_EXPOSE, "vmi", vmName, "--name", "my-service",
 						"--port", "9999", "--target-port", "http")
-					Expect(err()).To(BeNil())
+					Expect(err()).To(Succeed())
 				})
 			})
 			Context("With parametrized IPFamily", func() {

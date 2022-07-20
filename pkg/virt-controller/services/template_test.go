@@ -3145,7 +3145,7 @@ var _ = Describe("Template", func() {
 				}
 
 				pod, err := svc.RenderLaunchManifest(vmi)
-				Expect(err).To(BeNil())
+				Expect(err).ToNot(HaveOccurred())
 				Expect(pod).ToNot(BeNil())
 
 				containers := pod.Spec.Containers
@@ -3547,7 +3547,7 @@ func validateAndExtractQemuTimeoutArg(args []string) string {
 	Expect(timeoutString).ToNot(Equal(""))
 
 	timeoutInt, err := strconv.Atoi(strings.TrimSuffix(timeoutString, "s"))
-	Expect(err).To(BeNil())
+	Expect(err).ToNot(HaveOccurred())
 
 	qemuTimeoutBaseSeconds := 240
 

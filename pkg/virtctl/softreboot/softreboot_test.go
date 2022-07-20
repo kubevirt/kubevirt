@@ -31,7 +31,7 @@ var _ = Describe("Soft rebooting", func() {
 		It("should fail", func() {
 			cmd := clientcmd.NewRepeatableVirtctlCommand(softreboot.COMMAND_SOFT_REBOOT)
 			err := cmd()
-			Expect(err).NotTo(BeNil())
+			Expect(err).To(HaveOccurred())
 		})
 	})
 
@@ -42,6 +42,6 @@ var _ = Describe("Soft rebooting", func() {
 		vmiInterface.EXPECT().SoftReboot(vmi.Name).Return(nil).Times(1)
 
 		cmd := clientcmd.NewVirtctlCommand(softreboot.COMMAND_SOFT_REBOOT, vmiName)
-		Expect(cmd.Execute()).To(BeNil())
+		Expect(cmd.Execute()).To(Succeed())
 	})
 })

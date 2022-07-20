@@ -44,7 +44,7 @@ var _ = Describe("VMI phase transition time histogram", func() {
 			oldVMI.Status.Phase = oldPhase
 
 			diffSeconds, err := getTransitionTimeSeconds(false, false, oldVMI, vmi)
-			Expect(err).To(BeNil())
+			Expect(err).ToNot(HaveOccurred())
 
 			Expect(diffSeconds).To(Equal(expectedVal))
 
@@ -72,7 +72,7 @@ var _ = Describe("VMI phase transition time histogram", func() {
 			}
 
 			diffSeconds, err := getTransitionTimeSeconds(creation, !creation, oldVMI, vmi)
-			Expect(err).To(BeNil())
+			Expect(err).ToNot(HaveOccurred())
 
 			// Time since created or deleted timestamp
 			// Value should be 2x expectedVal while time between Phases should be

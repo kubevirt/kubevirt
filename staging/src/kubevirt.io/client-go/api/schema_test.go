@@ -401,13 +401,13 @@ var _ = Describe("Schema", func() {
 			}
 			networkTemplateData := NetworkTemplateConfig{InterfaceConfig: `"bridge": {}`}
 			tmpl, err := template.New("vmexample").Parse(exampleJSON)
-			Expect(err).To(BeNil())
+			Expect(err).ToNot(HaveOccurred())
 			var tpl bytes.Buffer
 			err = tmpl.Execute(&tpl, networkTemplateData)
-			Expect(err).To(BeNil())
+			Expect(err).ToNot(HaveOccurred())
 			newVMI := &v12.VirtualMachineInstance{}
 			err = json.Unmarshal(tpl.Bytes(), newVMI)
-			Expect(err).To(BeNil())
+			Expect(err).ToNot(HaveOccurred())
 			Expect(newVMI).To(Equal(exampleVMI))
 		})
 		It("Marshal struct into json", func() {
@@ -422,13 +422,13 @@ var _ = Describe("Schema", func() {
 
 			networkTemplateData := NetworkTemplateConfig{InterfaceConfig: `"bridge": {}`}
 			tmpl, err := template.New("vmexample").Parse(exampleJSON)
-			Expect(err).To(BeNil())
+			Expect(err).ToNot(HaveOccurred())
 			var tpl bytes.Buffer
 			err = tmpl.Execute(&tpl, networkTemplateData)
-			Expect(err).To(BeNil())
+			Expect(err).ToNot(HaveOccurred())
 			exampleJSONParsed := tpl.String()
 			buf, err := json.MarshalIndent(*exampleVMI, "", "  ")
-			Expect(err).To(BeNil())
+			Expect(err).ToNot(HaveOccurred())
 			Expect(string(buf)).To(Equal(exampleJSONParsed))
 		})
 	})
@@ -444,13 +444,13 @@ var _ = Describe("Schema", func() {
 			}
 			networkTemplateData := NetworkTemplateConfig{InterfaceConfig: `"slirp": {}`}
 			tmpl, err := template.New("vmexample").Parse(exampleJSON)
-			Expect(err).To(BeNil())
+			Expect(err).ToNot(HaveOccurred())
 			var tpl bytes.Buffer
 			err = tmpl.Execute(&tpl, networkTemplateData)
-			Expect(err).To(BeNil())
+			Expect(err).ToNot(HaveOccurred())
 			newVMI := &v12.VirtualMachineInstance{}
 			err = json.Unmarshal(tpl.Bytes(), newVMI)
-			Expect(err).To(BeNil())
+			Expect(err).ToNot(HaveOccurred())
 			Expect(newVMI).To(Equal(exampleVMI))
 		})
 		It("Marshal struct into json", func() {
@@ -465,13 +465,13 @@ var _ = Describe("Schema", func() {
 
 			networkTemplateData := NetworkTemplateConfig{InterfaceConfig: `"slirp": {}`}
 			tmpl, err := template.New("vmexample").Parse(exampleJSON)
-			Expect(err).To(BeNil())
+			Expect(err).ToNot(HaveOccurred())
 			var tpl bytes.Buffer
 			err = tmpl.Execute(&tpl, networkTemplateData)
-			Expect(err).To(BeNil())
+			Expect(err).ToNot(HaveOccurred())
 			exampleJSONParsed := tpl.String()
 			buf, err := json.MarshalIndent(*exampleVMI, "", "  ")
-			Expect(err).To(BeNil())
+			Expect(err).ToNot(HaveOccurred())
 			Expect(string(buf)).To(Equal(exampleJSONParsed))
 		})
 		It("Marshal struct into json with port configure", func() {
@@ -491,13 +491,13 @@ var _ = Describe("Schema", func() {
             ]`}
 
 			tmpl, err := template.New("vmexample").Parse(exampleJSON)
-			Expect(err).To(BeNil())
+			Expect(err).ToNot(HaveOccurred())
 			var tpl bytes.Buffer
 			err = tmpl.Execute(&tpl, networkTemplateData)
-			Expect(err).To(BeNil())
+			Expect(err).ToNot(HaveOccurred())
 			exampleJSONParsed := tpl.String()
 			buf, err := json.MarshalIndent(*exampleVMI, "", "  ")
-			Expect(err).To(BeNil())
+			Expect(err).ToNot(HaveOccurred())
 			Expect(string(buf)).To(Equal(exampleJSONParsed))
 		})
 	})

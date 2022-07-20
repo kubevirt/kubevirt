@@ -44,7 +44,7 @@ var _ = Describe("VMI migration phase transition time histogram", func() {
 			oldMigration.Status.Phase = oldPhase
 
 			diffSeconds, err := getTransitionTimeSeconds(migration)
-			Expect(err).To(BeNil())
+			Expect(err).ToNot(HaveOccurred())
 
 			Expect(diffSeconds).To(Equal(expectedVal))
 

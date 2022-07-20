@@ -1220,7 +1220,7 @@ var _ = Describe("VirtualMachineInstance watcher", func() {
 			podFeeder.Add(failedTargetPod2)
 
 			selectedPod, err := kvcontroller.CurrentVMIPod(vmi, podInformer)
-			Expect(err).To(BeNil())
+			Expect(err).ToNot(HaveOccurred())
 
 			Expect(selectedPod.UID).To(Equal(pod.UID))
 		})
