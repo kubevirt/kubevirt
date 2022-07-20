@@ -12,11 +12,17 @@ import (
 	"golang.org/x/tools/go/analysis"
 )
 
-var max = 1500
-
 const (
 	exceptionDoc = "comma separated list of files with size greater than the default." +
 		" each item in the list is with this format: <file name>:<number of lines>"
+	maxFileLengthDoc     = "max allowed number of lines in a go file"
+	maxTestFileLengthDoc = "max allowed number of lines in a go test file; test file is file within the " +
+		"tests/ directory, or if its name ends with `_test.go`"
+)
+
+const (
+	defaultMaxFileLength     = 1000
+	defaultMaxTestFileLength = 1500
 )
 
 var Analyzer = newAnalyzer()
@@ -28,15 +34,18 @@ func newAnalyzer() *analysis.Analyzer {
 		//       then we can replace this initialization by: `exceptions: make(longFileExceptions)`
 		// todo: try to reduce the size of each one of these files
 		exceptions: longFileExceptions{
-			"tests/storage/restore.go":        1621,
-			"tests/infra_test.go":             1686,
-			"tests/migration_test.go":         4382,
-			"tests/operator_test.go":          2990,
-			"tests/utils.go":                  2776,
-			"tests/vm_test.go":                2301,
-			"tests/vmi_configuration_test.go": 3053,
-			"tests/vmi_lifecycle_test.go":     1900,
+			"tests/infra_test.go":                1686,
+			"tests/migration_test.go":            4382,
+			"tests/operator_test.go":             3000,
+			"tests/storage/restore.go":           1621,
+			"tests/utils.go":                     2758,
+			"tests/vm_test.go":                   2301,
+			"tests/vmi_configuration_test.go":    3053,
+			"tests/vmi_lifecycle_test.go":        1900,
+			"tools/vms-generator/utils/utils.go": 1423,
 		},
+		maxFileLength:     defaultMaxFileLength,
+		maxTestFileLength: defaultMaxTestFileLength,
 	}
 	a := &analysis.Analyzer{
 		Name:             "longfile",
@@ -47,6 +56,8 @@ func newAnalyzer() *analysis.Analyzer {
 
 	a.Flags.Init("longfiles", flag.ExitOnError)
 	a.Flags.Var(&l.exceptions, "exceptions", exceptionDoc)
+	a.Flags.IntVar(&l.maxFileLength, "max-file-length", defaultMaxFileLength, maxFileLengthDoc)
+	a.Flags.IntVar(&l.maxTestFileLength, "max-test-file-length", defaultMaxTestFileLength, maxTestFileLengthDoc)
 	return a
 }
 
@@ -83,7 +94,9 @@ func (e longFileExceptions) Set(value string) error {
 }
 
 type longFileCfg struct {
-	exceptions longFileExceptions
+	exceptions        longFileExceptions
+	maxFileLength     int
+	maxTestFileLength int
 }
 
 func (l longFileCfg) checkPath(pass *analysis.Pass) (interface{}, error) {
@@ -99,10 +112,7 @@ func (l longFileCfg) checkPath(pass *analysis.Pass) (interface{}, error) {
 			fileName = parts[len(parts)-1]
 		}
 
-		fileMax, exists := l.exceptions[fileName]
-		if !exists {
-			fileMax = max
-		}
+		fileMax := l.maxAllowedFileLength(fileName)
 
 		if pos.Line > fileMax {
 			pass.Report(analysis.Diagnostic{
@@ -112,6 +122,21 @@ func (l longFileCfg) checkPath(pass *analysis.Pass) (interface{}, error) {
 		}
 	}
 	return nil, nil
+}
+
+func (l longFileCfg) maxAllowedFileLength(fileName string) int {
+	fileMax, exists := l.exceptions[fileName]
+	if !exists {
+		if strings.HasPrefix(fileName, "tests/") ||
+			strings.Contains(fileName, "/tests/") ||
+			strings.HasSuffix(fileName, "_test.go") {
+			fileMax = l.maxTestFileLength
+		} else {
+			fileMax = l.maxFileLength
+		}
+	}
+
+	return fileMax
 }
 
 func isGenerated(file *ast.File, pos token.Position) bool {
