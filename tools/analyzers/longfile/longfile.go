@@ -35,10 +35,10 @@ func newAnalyzer() *analysis.Analyzer {
 		// todo: try to reduce the size of each one of these files
 		exceptions: longFileExceptions{
 			"tests/infra_test.go":                1686,
-			"tests/migration_test.go":            4382,
-			"tests/operator_test.go":             3000,
+			"tests/migration_test.go":            4371,
+			"tests/operator_test.go":             3100,
 			"tests/storage/restore.go":           1621,
-			"tests/utils.go":                     2758,
+			"tests/utils.go":                     2733,
 			"tests/vm_test.go":                   2301,
 			"tests/vmi_configuration_test.go":    3053,
 			"tests/vmi_lifecycle_test.go":        1900,
@@ -127,9 +127,7 @@ func (l longFileCfg) checkPath(pass *analysis.Pass) (interface{}, error) {
 func (l longFileCfg) maxAllowedFileLength(fileName string) int {
 	fileMax, exists := l.exceptions[fileName]
 	if !exists {
-		if strings.HasPrefix(fileName, "tests/") ||
-			strings.Contains(fileName, "/tests/") ||
-			strings.HasSuffix(fileName, "_test.go") {
+		if isTestFile(fileName) {
 			fileMax = l.maxTestFileLength
 		} else {
 			fileMax = l.maxFileLength
@@ -137,6 +135,12 @@ func (l longFileCfg) maxAllowedFileLength(fileName string) int {
 	}
 
 	return fileMax
+}
+
+func isTestFile(fileName string) bool {
+	return strings.HasPrefix(fileName, "tests/") ||
+		strings.Contains(fileName, "/tests/") ||
+		strings.HasSuffix(fileName, "_test.go")
 }
 
 func isGenerated(file *ast.File, pos token.Position) bool {
