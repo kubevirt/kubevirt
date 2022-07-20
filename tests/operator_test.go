@@ -1436,13 +1436,6 @@ spec:
 			By("Waiting for virt-operator to apply changes to component")
 			waitForKvWithTimeout(kv, 120)
 
-			Consistently(func() string {
-				vc, err := virtClient.AppsV1().Deployments(originalKv.Namespace).Get(context.Background(), "virt-controller", metav1.GetOptions{})
-				Expect(err).ToNot(HaveOccurred())
-
-				return vc.Spec.Template.ObjectMeta.Annotations[annotationPatchKey]
-			}, 30*time.Second, 5*time.Second).Should(Equal(annotationPatchValue))
-
 			By("Check that KubeVirt CR generation does not get updated when applying patch")
 			kv, err = virtClient.KubeVirt(originalKv.Namespace).Get(originalKv.Name, &metav1.GetOptions{})
 			Expect(err).ToNot(HaveOccurred())
