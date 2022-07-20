@@ -63,6 +63,17 @@ var _ = Describe("VirtualMachineInstance ConditionManager", func() {
 			Expect(cm.HasCondition(vmi, v1.VirtualMachineInstanceConditionType(v12.PodInitialized))).To(BeFalse())
 		})
 
+		// >>>>>>
+		It("should fail", func() {
+			Expect(len("abcd")).To(Equal(4))
+			var x error
+			Expect(x).ToNot(BeNil())
+			var y *int
+			Expect(y == nil).Should(BeTrue())
+
+		})
+		// <<<<<<
+
 		When("adding a 2nd condition of same type", func() {
 			It("should only have 1 condition", func() {
 				cm.AddPodCondition(vmi, pc1)
