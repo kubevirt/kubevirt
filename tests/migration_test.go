@@ -3976,7 +3976,7 @@ var _ = Describe("[rfe_id:393][crit:high][vendor:cnv-qe@redhat.com][level:system
 			return false
 		}
 
-		BeforeEach(Label("needs-three-nodes"), func() {
+		BeforeEach(func() {
 			// We will get focused to run on migration test lanes because we contain the word "Migration".
 			// However, we need to be sig-something or we'll fail the check, even if we don't run on any sig- lane.
 			// So let's be sig-compute and skip ourselves on sig-compute always... (they have only 1 node with CPU manager)
@@ -3993,7 +3993,7 @@ var _ = Describe("[rfe_id:393][crit:high][vendor:cnv-qe@redhat.com][level:system
 			nodes = nodeList.Items
 			Expect(len(nodes)).To(BeNumerically(">=", 2), "at least two worker nodes with cpumanager are required for migration")
 
-			By("creating a migratable VMI with 2 dedicated CPU cores")
+			By("creating a migratable VMI with 2 dedicated CPU cores", Label("needs-three-nodes"))
 			migratableVMI = tests.NewRandomVMIWithEphemeralDisk(cd.ContainerDiskFor(cd.ContainerDiskAlpine))
 			migratableVMI.Spec.Domain.CPU = &v1.CPU{
 				Cores:                 uint32(2),
