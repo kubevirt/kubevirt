@@ -31,13 +31,11 @@ import (
 	"kubevirt.io/client-go/log"
 	apicdi "kubevirt.io/containerized-data-importer-api/pkg/apis/core/v1beta1"
 
-	"kubevirt.io/kubevirt/tests"
 	"kubevirt.io/kubevirt/tests/clientcmd"
 	"kubevirt.io/kubevirt/tests/console"
 	"kubevirt.io/kubevirt/tests/flags"
 	"kubevirt.io/kubevirt/tests/libpod"
 	"kubevirt.io/kubevirt/tests/libvmi"
-	"kubevirt.io/kubevirt/tests/testsuite"
 )
 
 const (
@@ -66,10 +64,11 @@ const (
 )
 
 type KubernetesReporter struct {
-	failureCount int
-	artifactsDir string
-	maxFails     int
-	namespace    string
+	failureCount    int
+	artifactsDir    string
+	maxFails        int
+	namespaces      []string
+	isRunningOnKind bool
 }
 
 type commands struct {
@@ -77,12 +76,13 @@ type commands struct {
 	fileNameSuffix string
 }
 
-func NewKubernetesReporter(artifactsDir string, maxFailures int, namespace string) *KubernetesReporter {
+func NewKubernetesReporter(artifactsDir string, maxFailures int, namespaces []string, isRunningOnKind bool) *KubernetesReporter {
 	return &KubernetesReporter{
-		failureCount: 0,
-		artifactsDir: artifactsDir,
-		maxFails:     maxFailures,
-		namespace:    namespace,
+		failureCount:    0,
+		artifactsDir:    artifactsDir,
+		maxFails:        maxFailures,
+		namespaces:      namespaces,
+		isRunningOnKind: isRunningOnKind,
 	}
 }
 
@@ -109,7 +109,7 @@ func (r *KubernetesReporter) JustAfterEach(specReport types.SpecReport) {
 }
 
 func (r *KubernetesReporter) DumpTestNamespaces(duration time.Duration) {
-	r.dumpNamespaces(duration, testsuite.TestNamespaces)
+	r.dumpNamespaces(duration, r.namespaces)
 }
 
 func (r *KubernetesReporter) DumpAllNamespaces(duration time.Duration) {
@@ -208,7 +208,7 @@ func (r *KubernetesReporter) logDomainXMLs(virtCli kubecli.KubevirtClient, vmis 
 		if vmi.IsFinal() {
 			continue
 		}
-		domxml, err := libvmi.GetRunningVirtualMachineInstanceDomainXML(virtCli, &vmi, r.namespace)
+		domxml, err := libvmi.GetRunningVirtualMachineInstanceDomainXML(virtCli, &vmi, r.namespaces[0])
 		if err == nil {
 			fmt.Fprintln(f, domxml)
 		}
@@ -1078,7 +1078,7 @@ func (r *KubernetesReporter) executeNodeCommands(virtCli kubecli.KubevirtClient,
 		{command: hostPrefix + "/usr/bin/" + networkPrefix + "/usr/sbin/iptables --list -v", fileNameSuffix: "iptables"},
 	}
 
-	if tests.IsRunningOnKindInfra() {
+	if r.isRunningOnKind {
 		cmds = append(cmds, []commands{{command: devVFio, fileNameSuffix: "vfio-devices"}}...)
 	}
 
@@ -1096,7 +1096,7 @@ func (r *KubernetesReporter) executeVirtLauncherCommands(virtCli kubecli.Kubevir
 		{command: "env", fileNameSuffix: "env"},
 	}
 
-	if tests.IsRunningOnKindInfra() {
+	if r.isRunningOnKind {
 		cmds = append(cmds, []commands{{command: devVFio, fileNameSuffix: "vfio-devices"}}...)
 	}
 

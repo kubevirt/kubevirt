@@ -33,7 +33,6 @@ import (
 	"kubevirt.io/kubevirt/tests/flags"
 	"kubevirt.io/kubevirt/tests/reporter"
 	"kubevirt.io/kubevirt/tests/testsuite"
-	testsutil "kubevirt.io/kubevirt/tests/util"
 
 	v1reporter "kubevirt.io/client-go/reporter"
 	qe_reporters "kubevirt.io/qe-tools/pkg/ginkgo-reporters"
@@ -82,7 +81,7 @@ func TestTests(t *testing.T) {
 		afterSuiteReporters = append(afterSuiteReporters, &qe_reporters.Polarion)
 	}
 
-	k8sReporter = reporter.NewKubernetesReporter(artifactsPath, maxFails, testsutil.NamespaceTestDefault)
+	k8sReporter = reporter.NewKubernetesReporter(artifactsPath, maxFails, testsuite.TestNamespaces, tests.IsRunningOnKindInfra())
 	k8sReporter.Cleanup()
 
 	vmsgeneratorutils.DockerPrefix = flags.KubeVirtUtilityRepoPrefix
