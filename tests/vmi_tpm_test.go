@@ -20,9 +20,15 @@
 package tests_test
 
 import (
+	"time"
+
+	"kubevirt.io/kubevirt/tests/util"
+
 	expect "github.com/google/goexpect"
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
+	k8smetav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	"k8s.io/utils/pointer"
 
 	"kubevirt.io/kubevirt/tests/decorators"
 
@@ -82,6 +88,89 @@ var _ = Describe("[sig-compute]vTPM", decorators.SigCompute, func() {
 				&expect.BSnd{S: "tpm2_pcrread sha256:15\n"},
 				&expect.BExp{R: "0x1EE66777C372B96BC74AC4CB892E0879FA3CCF6A2F53DB1D00FD18B264797F49"},
 			}, 300)).To(Succeed(), "Migrating broke the TPM")
+		})
+	})
+})
+
+var _ = Describe("[sig-storage]vTPM", decorators.SigStorage, func() {
+	var virtClient kubecli.KubevirtClient
+	var err error
+
+	BeforeEach(func() {
+		virtClient, err = kubecli.GetKubevirtClient()
+		Expect(err).ToNot(HaveOccurred())
+	})
+
+	Context("with persistent TPM VM option enabled", func() {
+		It("should persist TPM secrets across restarts", func() {
+			By("Setting nfs-csi as the backend storage class")
+			kv := util.GetCurrentKv(virtClient)
+			kv.Spec.Configuration.BackendStorageClass = "nfs-csi"
+			tests.UpdateKubeVirtConfigValueAndWait(kv.Spec.Configuration)
+
+			By("Creating a VM with persistent TPM enabled")
+			vmi := tests.NewRandomFedoraVMI()
+			vmi.Namespace = util.NamespaceTestDefault
+			vmi.Spec.Domain.Devices.TPM = &v1.TPMDevice{
+				Persistent: pointer.BoolPtr(true),
+			}
+			vm := tests.NewRandomVirtualMachine(vmi, true)
+			vm, err = virtClient.VirtualMachine(util.NamespaceTestDefault).Create(vm)
+			Expect(err).ToNot(HaveOccurred())
+
+			By("Waiting for the VM to start")
+			Eventually(func() error {
+				vmi, err = virtClient.VirtualMachineInstance(vm.Namespace).Get(vm.Name, &k8smetav1.GetOptions{})
+				return err
+			}, 300*time.Second, 1*time.Second).Should(Succeed())
+			tests.WaitForSuccessfulVMIStartWithTimeout(vmi, 60)
+
+			By("Logging in as root")
+			err = console.LoginToFedora(vmi)
+			Expect(err).ToNot(HaveOccurred())
+
+			By("Storing a secret into the TPM")
+			// https://www.intel.com/content/www/us/en/developer/articles/code-sample/protecting-secret-data-and-keys-using-intel-platform-trust-technology.html
+			// Not sealing against a set of PCRs, out of scope here, but should work with a carefully selected set (at least PCR1 was seen changing accross reboots)
+			Expect(console.SafeExpectBatch(vmi, []expect.Batcher{
+				&expect.BSnd{S: "tpm2_createprimary -Q --hierarchy=o --key-context=prim.ctx\n"},
+				&expect.BExp{R: console.PromptExpression},
+				&expect.BSnd{S: "echo MYSECRET | tpm2_create --hash-algorithm=sha256 --public=seal.pub --private=seal.priv --sealing-input=- --parent-context=prim.ctx\n"},
+				&expect.BExp{R: console.PromptExpression},
+				&expect.BSnd{S: "tpm2_load -Q --parent-context=prim.ctx --public=seal.pub --private=seal.priv --name=seal.name --key-context=seal.ctx\n"},
+				&expect.BExp{R: console.PromptExpression},
+				&expect.BSnd{S: "tpm2_evictcontrol --hierarchy=o --object-context=seal.ctx 0x81010002\n"},
+				&expect.BExp{R: console.PromptExpression},
+				&expect.BSnd{S: "tpm2_unseal -Q --object-context=0x81010002\n"},
+				&expect.BExp{R: "MYSECRET"},
+			}, 300)).To(Succeed(), "failed to store secret into the TPM")
+
+			By("Stopping the VM")
+			err = virtClient.VirtualMachine(vm.Namespace).Stop(vm.Name, &v1.StopOptions{})
+			Expect(err).ToNot(HaveOccurred())
+			Eventually(func() error {
+				_, err = virtClient.VirtualMachineInstance(vm.Namespace).Get(vm.Name, &k8smetav1.GetOptions{})
+				return err
+			}, 300*time.Second, 1*time.Second).ShouldNot(Succeed())
+
+			By("Starting the VM")
+			err = virtClient.VirtualMachine(vm.Namespace).Start(vm.Name, &v1.StartOptions{})
+			Expect(err).ToNot(HaveOccurred())
+			Eventually(func() error {
+				vmi, err = virtClient.VirtualMachineInstance(vm.Namespace).Get(vm.Name, &k8smetav1.GetOptions{})
+				return err
+			}, 300*time.Second, 1*time.Second).Should(Succeed())
+			tests.WaitForSuccessfulVMIStartWithTimeout(vmi, 60)
+
+			By("Logging in as root")
+			err = console.LoginToFedora(vmi)
+			Expect(err).ToNot(HaveOccurred())
+
+			By("Ensuring the TPM is still functional and its state was persisted")
+			Expect(console.SafeExpectBatch(vmi, []expect.Batcher{
+				&expect.BSnd{S: "tpm2_unseal -Q --object-context=0x81010002\n"},
+				&expect.BExp{R: "MYSECRET"},
+			}, 300)).To(Succeed(), "the state of the TPM did not persist")
 		})
 	})
 })

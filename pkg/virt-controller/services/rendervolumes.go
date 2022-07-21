@@ -4,6 +4,8 @@ import (
 	"fmt"
 	"path/filepath"
 
+	backendstorage "kubevirt.io/kubevirt/pkg/backend-storage"
+
 	k8sv1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/api/resource"
 	"k8s.io/client-go/tools/cache"
@@ -324,6 +326,36 @@ func withAccessCredentials(accessCredentials []v1.AccessCredential) VolumeRender
 				Name:      volumeName,
 				MountPath: filepath.Join(config.SecretSourceDir, volumeName),
 				ReadOnly:  true,
+			})
+		}
+		return nil
+	}
+}
+
+func withTPM(vmi *v1.VirtualMachineInstance) VolumeRendererOption {
+	return func(renderer *VolumeRenderer) error {
+		if backendstorage.HasPersistentTPMDevice(vmi) {
+			volumeName := vmi.Name + "-tpm"
+			pvcName := backendstorage.PVCPrefix + vmi.Name
+			renderer.podVolumes = append(renderer.podVolumes, k8sv1.Volume{
+				Name: volumeName,
+				VolumeSource: k8sv1.VolumeSource{
+					PersistentVolumeClaim: &k8sv1.PersistentVolumeClaimVolumeSource{
+						ClaimName: pvcName,
+						ReadOnly:  false,
+					},
+				},
+			})
+			renderer.podVolumeMounts = append(renderer.podVolumeMounts, k8sv1.VolumeMount{
+				Name:      volumeName,
+				ReadOnly:  false,
+				MountPath: "/var/lib/libvirt/swtpm",
+				SubPath:   "swtpm",
+			}, k8sv1.VolumeMount{
+				Name:      volumeName,
+				ReadOnly:  false,
+				MountPath: "/var/lib/swtpm-localca",
+				SubPath:   "swtpm-localca",
 			})
 		}
 		return nil

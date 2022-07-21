@@ -165,7 +165,7 @@ func (in *DevicePreferences) DeepCopyInto(out *DevicePreferences) {
 	if in.PreferredTPM != nil {
 		in, out := &in.PreferredTPM, &out.PreferredTPM
 		*out = new(v1.TPMDevice)
-		**out = **in
+		(*in).DeepCopyInto(*out)
 	}
 	return
 }
