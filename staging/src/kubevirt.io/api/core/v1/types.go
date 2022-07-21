@@ -2049,13 +2049,20 @@ type VirtualMachineMemoryDumpRequest struct {
 	ClaimName string `json:"claimName"`
 	// Phase represents the memory dump phase
 	Phase MemoryDumpPhase `json:"phase"`
+	// Remove represents request of dissociating the memory dump pvc
+	// +optional
+	Remove bool `json:"remove,omitempty"`
 	// StartTimestamp represents the time the memory dump started
+	// +optional
 	StartTimestamp *metav1.Time `json:"startTimestamp,omitempty"`
 	// EndTimestamp represents the time the memory dump was completed
+	// +optional
 	EndTimestamp *metav1.Time `json:"endTimestamp,omitempty"`
 	// FileName represents the name of the output file
+	// +optional
 	FileName *string `json:"fileName,omitempty"`
 	// Message is a detailed message about failure of the memory dump
+	// +optional
 	Message string `json:"message,omitempty"`
 }
 

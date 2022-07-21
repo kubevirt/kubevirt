@@ -18830,6 +18830,10 @@
       "description": "Phase represents the memory dump phase",
       "type": "string"
      },
+     "remove": {
+      "description": "Remove represents request of dissociating the memory dump pvc",
+      "type": "boolean"
+     },
      "startTimestamp": {
       "description": "StartTimestamp represents the time the memory dump started",
       "$ref": "#/definitions/k8s.io.apimachinery.pkg.apis.meta.v1.Time"

@@ -21,13 +21,19 @@ package types
 
 import (
 	"fmt"
+	"math"
+	"strconv"
 	"strings"
 
 	k8sv1 "k8s.io/api/core/v1"
+	"k8s.io/apimachinery/pkg/api/resource"
 	"k8s.io/client-go/tools/cache"
 
 	virtv1 "kubevirt.io/api/core/v1"
+	cdiv1 "kubevirt.io/containerized-data-importer-api/pkg/apis/core/v1beta1"
 )
+
+const MiB = 1024 * 1024
 
 func IsPVCBlockFromStore(store cache.Store, namespace string, claimName string) (pvc *k8sv1.PersistentVolumeClaim, exists bool, isBlockDevice bool, err error) {
 	obj, exists, err := store.GetByKey(namespace + "/" + claimName)
@@ -51,6 +57,15 @@ func IsPVCBlock(volumeMode *k8sv1.PersistentVolumeMode) bool {
 func HasSharedAccessMode(accessModes []k8sv1.PersistentVolumeAccessMode) bool {
 	for _, accessMode := range accessModes {
 		if accessMode == k8sv1.ReadWriteMany {
+			return true
+		}
+	}
+	return false
+}
+
+func IsReadOnlyAccessMode(accessModes []k8sv1.PersistentVolumeAccessMode) bool {
+	for _, accessMode := range accessModes {
+		if accessMode == k8sv1.ReadOnlyMany {
 			return true
 		}
 	}
@@ -99,4 +114,44 @@ func VirtVolumesToPVCMap(volumes []*virtv1.Volume, pvcStore cache.Store, namespa
 		volumeNamesPVCMap[volume.Name] = pvc
 	}
 	return volumeNamesPVCMap, nil
+}
+
+func GetFilesystemOverhead(volumeMode *k8sv1.PersistentVolumeMode, storageClass *string, cdiConfig *cdiv1.CDIConfig) cdiv1.Percent {
+	if IsPVCBlock(volumeMode) {
+		return "0"
+	}
+	if storageClass == nil {
+		return cdiConfig.Status.FilesystemOverhead.Global
+	}
+	fsOverhead, ok := cdiConfig.Status.FilesystemOverhead.StorageClass[*storageClass]
+	if !ok {
+		return cdiConfig.Status.FilesystemOverhead.Global
+	}
+	return fsOverhead
+}
+
+func roundUpToUnit(size, unit float64) float64 {
+	if size < unit {
+		return unit
+	}
+	return math.Ceil(size/unit) * unit
+}
+
+func alignSizeUpTo1MiB(size float64) float64 {
+	return roundUpToUnit(size, float64(MiB))
+}
+
+func GetSizeIncludingGivenOverhead(size *resource.Quantity, overhead cdiv1.Percent) (*resource.Quantity, error) {
+	fsOverhead, err := strconv.ParseFloat(string(overhead), 64)
+	if err != nil {
+		return nil, fmt.Errorf("failed to parse filesystem overhead as float: %v", err)
+	}
+	totalSize := (1 + fsOverhead) * size.AsApproximateFloat64()
+	totalSize = alignSizeUpTo1MiB(totalSize)
+	return resource.NewQuantity(int64(totalSize), size.Format), nil
+}
+
+func GetSizeIncludingFSOverhead(size *resource.Quantity, storageClass *string, volumeMode *k8sv1.PersistentVolumeMode, cdiConfig *cdiv1.CDIConfig) (*resource.Quantity, error) {
+	cdiFSOverhead := GetFilesystemOverhead(volumeMode, storageClass, cdiConfig)
+	return GetSizeIncludingGivenOverhead(size, cdiFSOverhead)
 }

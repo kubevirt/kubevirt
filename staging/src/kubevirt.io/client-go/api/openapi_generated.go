@@ -22000,6 +22000,13 @@ func schema_kubevirtio_api_core_v1_VirtualMachineMemoryDumpRequest(ref common.Re
 							Format:      "",
 						},
 					},
+					"remove": {
+						SchemaProps: spec.SchemaProps{
+							Description: "Remove represents request of dissociating the memory dump pvc",
+							Type:        []string{"boolean"},
+							Format:      "",
+						},
+					},
 					"startTimestamp": {
 						SchemaProps: spec.SchemaProps{
 							Description: "StartTimestamp represents the time the memory dump started",
