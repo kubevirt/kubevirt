@@ -306,22 +306,8 @@ func RunVMIAndExpectScheduling(vmi *v1.VirtualMachineInstance, timeout int) *v1.
 	return waitForVMIScheduling(obj, timeout, wp)
 }
 
-func getRunningPodByVirtualMachineInstance(vmi *v1.VirtualMachineInstance, namespace string) (*k8sv1.Pod, error) {
-	virtCli, err := kubecli.GetKubevirtClient()
-	if err != nil {
-		return nil, err
-	}
-
-	vmi, err = virtCli.VirtualMachineInstance(namespace).Get(vmi.Name, &metav1.GetOptions{})
-	if err != nil {
-		return nil, err
-	}
-
-	return libpod.GetRunningPodByLabel(string(vmi.GetUID()), v1.CreatedByLabel, namespace, vmi.Status.NodeName)
-}
-
 func GetRunningPodByVirtualMachineInstance(vmi *v1.VirtualMachineInstance, namespace string) *k8sv1.Pod {
-	pod, err := getRunningPodByVirtualMachineInstance(vmi, namespace)
+	pod, err := libpod.GetRunningPodByVirtualMachineInstance(vmi, namespace)
 	util2.PanicOnError(err)
 	return pod
 }
@@ -1388,7 +1374,7 @@ func CopyFromPod(virtCli kubecli.KubevirtClient, pod *k8sv1.Pod, containerName, 
 }
 
 func GetRunningVirtualMachineInstanceDomainXML(virtClient kubecli.KubevirtClient, vmi *v1.VirtualMachineInstance) (string, error) {
-	vmiPod, err := getRunningPodByVirtualMachineInstance(vmi, util2.NamespaceTestDefault)
+	vmiPod, err := libpod.GetRunningPodByVirtualMachineInstance(vmi, util2.NamespaceTestDefault)
 	if err != nil {
 		return "", err
 	}
@@ -1431,7 +1417,7 @@ func GetRunningVirtualMachineInstanceDomainXML(virtClient kubecli.KubevirtClient
 }
 
 func LibvirtDomainIsPaused(virtClient kubecli.KubevirtClient, vmi *v1.VirtualMachineInstance) (bool, error) {
-	vmiPod, err := getRunningPodByVirtualMachineInstance(vmi, util2.NamespaceTestDefault)
+	vmiPod, err := libpod.GetRunningPodByVirtualMachineInstance(vmi, util2.NamespaceTestDefault)
 	if err != nil {
 		return false, err
 	}

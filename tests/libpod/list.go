@@ -26,6 +26,7 @@ import (
 	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 
+	v1 "kubevirt.io/api/core/v1"
 	"kubevirt.io/client-go/kubecli"
 )
 
@@ -72,4 +73,18 @@ func GetRunningPodByLabel(label string, labelType string, namespace string, node
 	}
 
 	return readyPod, nil
+}
+
+func GetRunningPodByVirtualMachineInstance(vmi *v1.VirtualMachineInstance, namespace string) (*corev1.Pod, error) {
+	virtCli, err := kubecli.GetKubevirtClient()
+	if err != nil {
+		return nil, err
+	}
+
+	vmi, err = virtCli.VirtualMachineInstance(namespace).Get(vmi.Name, &metav1.GetOptions{})
+	if err != nil {
+		return nil, err
+	}
+
+	return GetRunningPodByLabel(string(vmi.GetUID()), v1.CreatedByLabel, namespace, vmi.Status.NodeName)
 }
