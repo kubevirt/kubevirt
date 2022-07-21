@@ -13,7 +13,7 @@ There's a docker registry available which is exposed at `localhost:5000`.
 The env variable `KUBEVIRT_PROVIDER` tells kubevirtci what cluster version to spin up.
 
 ```bash
-export KUBEVIRT_PROVIDER=k8s-1.21   # choose kubevirtci provider version by subdirectory name
+export KUBEVIRT_PROVIDER=k8s-1.22   # choose kubevirtci provider version by subdirectory name
 ```
 
 ## Bringing the cluster up
@@ -28,8 +28,8 @@ The cluster can be accessed as usual:
 ```bash
 $ cluster/kubectl.sh get nodes
 NAME      STATUS     ROLES          AGE       VERSION
-node01    NotReady   control-plane  31s       v1.21.1
-node02    NotReady   <none>         5s        v1.21.1
+node01    NotReady   control-plane  31s       v1.22.1
+node02    NotReady   <none>         5s        v1.22.1
 ```
 
 Note: for further configuration environment variables please see [cluster-up/hack/common.sh](../hack/common.sh)

@@ -39,18 +39,18 @@ Upon finishing deployment of a K8s deploy, we will have 3 containers:
 
 The containers are running and look like this:
 ```
-[root@modi01 1.21.0]# docker ps
+[root@modi01 1.22.0]# docker ps
 CONTAINER ID        IMAGE                   COMMAND                  CREATED             STATUS              PORTS                                                                                                                          NAMES
-3589e85efc7d        kubevirtci/k8s-1.21.0   "/bin/bash -c '/vm.s…"   About an hour ago   Up About an hour                                                                                                                                   k8s-1.21.0-node01
-4742dc02add2        registry:2.7.1          "/entrypoint.sh /etc…"   About an hour ago   Up About an hour                                                                                                                                   k8s-1.21.0-registry
-13787e7d4ac9        kubevirtci/k8s-1.21.0   "/bin/bash -c /dnsma…"   About an hour ago   Up About an hour    127.0.0.1:8443->8443/tcp, 0.0.0.0:32794->2201/tcp, 0.0.0.0:32793->5000/tcp, 0.0.0.0:32792->5901/tcp, 0.0.0.0:32791->6443/tcp   k8s-1.21.0-dnsmasq
+3589e85efc7d        kubevirtci/k8s-1.22.0   "/bin/bash -c '/vm.s…"   About an hour ago   Up About an hour                                                                                                                                   k8s-1.22.0-node01
+4742dc02add2        registry:2.7.1          "/entrypoint.sh /etc…"   About an hour ago   Up About an hour                                                                                                                                   k8s-1.22.0-registry
+13787e7d4ac9        kubevirtci/k8s-1.22.0   "/bin/bash -c /dnsma…"   About an hour ago   Up About an hour    127.0.0.1:8443->8443/tcp, 0.0.0.0:32794->2201/tcp, 0.0.0.0:32793->5000/tcp, 0.0.0.0:32792->5901/tcp, 0.0.0.0:32791->6443/tcp   k8s-1.22.0-dnsmasq
 ```
 
 Nodes:
 ```
 [root@modi01 kubevirtci]# oc get nodes
 NAME     STATUS   ROLES             AGE   VERSION
-node01   Ready    control-plane     83m   v1.21.0
+node01   Ready    control-plane     83m   v1.22.0
 ```
 
 # Inner look of a deployed cluster
