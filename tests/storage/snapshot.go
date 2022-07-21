@@ -20,6 +20,7 @@ import (
 	"k8s.io/client-go/util/retry"
 
 	. "kubevirt.io/kubevirt/tests/framework/matcher"
+	"kubevirt.io/kubevirt/tests/libpod"
 
 	v1 "kubevirt.io/api/core/v1"
 	snapshotv1 "kubevirt.io/api/snapshot/v1alpha1"
@@ -378,7 +379,7 @@ var _ = SIGDescribe("VirtualMachineSnapshot Tests", func() {
 				if err != nil {
 					return err
 				}
-				_, _, err = tests.ExecuteCommandOnPodV2(virtClient, pod, pod.Annotations[annoContainer], commandSlice)
+				_, _, err = libpod.RunCommandV2(virtClient, pod, pod.Annotations[annoContainer], commandSlice)
 				return err
 			}
 

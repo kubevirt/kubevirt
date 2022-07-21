@@ -30,6 +30,7 @@ import (
 	"time"
 
 	"kubevirt.io/kubevirt/tests/framework/checks"
+	"kubevirt.io/kubevirt/tests/libpod"
 
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
@@ -201,7 +202,7 @@ var _ = Describe("[Serial][sig-compute]Windows VirtualMachineInstance", func() {
 				command := append(cli, "wmic csproduct get \"UUID\"")
 				By(fmt.Sprintf("Running \"%s\" command via winrm-cli", command))
 				Eventually(func() error {
-					output, err = tests.ExecuteCommandOnPod(
+					output, err = libpod.RunCommand(
 						virtClient,
 						winrmcliPod,
 						winrmcliPod.Spec.Containers[0].Name,
@@ -217,7 +218,7 @@ var _ = Describe("[Serial][sig-compute]Windows VirtualMachineInstance", func() {
 				command := append(cli, "ipconfig /all")
 				By(fmt.Sprintf("Running \"%s\" command via winrm-cli", command))
 				Eventually(func() error {
-					output, err = tests.ExecuteCommandOnPod(
+					output, err = libpod.RunCommand(
 						virtClient,
 						winrmcliPod,
 						winrmcliPod.Spec.Containers[0].Name,
@@ -305,7 +306,7 @@ var _ = Describe("[Serial][sig-compute]Windows VirtualMachineInstance", func() {
 
 				By(fmt.Sprintf("Running \"%s\" command via winrm-cli", command))
 				Eventually(func() error {
-					_, err = tests.ExecuteCommandOnPod(
+					_, err = libpod.RunCommand(
 						virtClient,
 						winrmcliPod,
 						winrmcliPod.Spec.Containers[0].Name,
@@ -400,7 +401,7 @@ func runCommandAndExpectOutput(virtClient kubecli.KubevirtClient, winrmcliPod *k
 	By(fmt.Sprintf("Running \"%s\" command via winrm-cli", cliCmd))
 	By("first making sure that we can execute VMI commands")
 	EventuallyWithOffset(1, func() error {
-		_, err := tests.ExecuteCommandOnPod(
+		_, err := libpod.RunCommand(
 			virtClient,
 			winrmcliPod,
 			winrmcliPod.Spec.Containers[0].Name,
@@ -411,7 +412,7 @@ func runCommandAndExpectOutput(virtClient kubecli.KubevirtClient, winrmcliPod *k
 
 	By("repeatedly trying to get the search domain, since it may take some time until the domain is set")
 	EventuallyWithOffset(1, func() string {
-		output, err := tests.ExecuteCommandOnPod(
+		output, err := libpod.RunCommand(
 			virtClient,
 			winrmcliPod,
 			winrmcliPod.Spec.Containers[0].Name,

@@ -27,6 +27,7 @@ import (
 	"strings"
 	"time"
 
+	"kubevirt.io/kubevirt/tests/libpod"
 	"kubevirt.io/kubevirt/tests/libvmi"
 
 	"k8s.io/apimachinery/pkg/api/errors"
@@ -451,7 +452,7 @@ var _ = SIGDescribe("Storage", func() {
 
 				virtioFsFileTestCmd := fmt.Sprintf("test -f /run/kubevirt-private/vmi-disks/%s/virtiofs_test && echo exist", fs.Name)
 				pod := tests.GetRunningPodByVirtualMachineInstance(vmi, util.NamespaceTestDefault)
-				podVirtioFsFileExist, err := tests.ExecuteCommandOnPod(
+				podVirtioFsFileExist, err := libpod.RunCommand(
 					virtClient,
 					pod,
 					"compute",
@@ -518,7 +519,7 @@ var _ = SIGDescribe("Storage", func() {
 
 				virtioFsFileTestCmd := fmt.Sprintf("test -f /run/kubevirt-private/vmi-disks/%s/virtiofs_test && echo exist", fs.Name)
 				pod := tests.GetRunningPodByVirtualMachineInstance(vmi, util.NamespaceTestDefault)
-				podVirtioFsFileExist, err := tests.ExecuteCommandOnPod(
+				podVirtioFsFileExist, err := libpod.RunCommand(
 					virtClient,
 					pod,
 					"compute",
@@ -764,7 +765,7 @@ var _ = SIGDescribe("Storage", func() {
 						By("Checking if disk.img has been created")
 						vmiPod := tests.GetRunningPodByVirtualMachineInstance(vmi, util.NamespaceTestDefault)
 						nodeName = vmiPod.Spec.NodeName
-						output, err := tests.ExecuteCommandOnPod(
+						output, err := libpod.RunCommand(
 							virtClient,
 							vmiPod,
 							vmiPod.Spec.Containers[0].Name,
@@ -787,7 +788,7 @@ var _ = SIGDescribe("Storage", func() {
 						By("Checking if another.img has been created")
 						vmiPod := tests.GetRunningPodByVirtualMachineInstance(vmi, util.NamespaceTestDefault)
 						nodeName = vmiPod.Spec.NodeName
-						output, err := tests.ExecuteCommandOnPod(
+						output, err := libpod.RunCommand(
 							virtClient,
 							vmiPod,
 							vmiPod.Spec.Containers[0].Name,
@@ -797,7 +798,7 @@ var _ = SIGDescribe("Storage", func() {
 						Expect(output).To(ContainSubstring(hostdisk.GetMountedHostDiskPath("anotherdisk", filepath.Join(hostDiskDir, "another.img"))))
 
 						By("Checking if disk.img has been created")
-						output, err = tests.ExecuteCommandOnPod(
+						output, err = libpod.RunCommand(
 							virtClient,
 							vmiPod,
 							vmiPod.Spec.Containers[0].Name,
@@ -837,7 +838,7 @@ var _ = SIGDescribe("Storage", func() {
 
 						By("Checking if disk.img exists")
 						vmiPod := tests.GetRunningPodByVirtualMachineInstance(vmi, util.NamespaceTestDefault)
-						output, err := tests.ExecuteCommandOnPod(
+						output, err := libpod.RunCommand(
 							virtClient,
 							vmiPod,
 							vmiPod.Spec.Containers[0].Name,
@@ -920,7 +921,7 @@ var _ = SIGDescribe("Storage", func() {
 
 						By("Checking if disk.img exists")
 						vmiPod := tests.GetRunningPodByVirtualMachineInstance(vmi, util.NamespaceTestDefault)
-						output, err := tests.ExecuteCommandOnPod(
+						output, err := libpod.RunCommand(
 							virtClient,
 							vmiPod,
 							vmiPod.Spec.Containers[0].Name,
@@ -977,7 +978,7 @@ var _ = SIGDescribe("Storage", func() {
 					Expect(err).ToNot(HaveOccurred())
 
 					By("Determining the size of the mounted directory")
-					diskSizeStr, _, err := tests.ExecuteCommandOnPodV2(virtClient, pod, pod.Spec.Containers[0].Name, []string{tests.BinBash, "-c", fmt.Sprintf("df %s | tail -n 1 | awk '{print $4}'", mountDir)})
+					diskSizeStr, _, err := libpod.RunCommandV2(virtClient, pod, pod.Spec.Containers[0].Name, []string{tests.BinBash, "-c", fmt.Sprintf("df %s | tail -n 1 | awk '{print $4}'", mountDir)})
 					Expect(err).ToNot(HaveOccurred())
 					diskSize, err = strconv.Atoi(strings.TrimSpace(diskSizeStr))
 					diskSize = diskSize * 1000 // byte to kilobyte

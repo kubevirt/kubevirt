@@ -29,6 +29,7 @@ import (
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 
 	"kubevirt.io/kubevirt/tests/framework/checks"
+	"kubevirt.io/kubevirt/tests/libpod"
 	"kubevirt.io/kubevirt/tests/util"
 
 	v1 "kubevirt.io/api/core/v1"
@@ -126,7 +127,7 @@ var _ = Describe("[Serial][sig-compute]SecurityFeatures", func() {
 				emulator := "[/]" + strings.TrimPrefix(domSpec.Devices.Emulator, "/")
 
 				pod := tests.GetRunningPodByVirtualMachineInstance(vmi, util.NamespaceTestDefault)
-				qemuProcessSelinuxContext, err := tests.ExecuteCommandOnPod(
+				qemuProcessSelinuxContext, err := libpod.RunCommand(
 					virtClient,
 					pod,
 					"compute",
@@ -199,7 +200,7 @@ var _ = Describe("[Serial][sig-compute]SecurityFeatures", func() {
 				emulator := "[/]" + strings.TrimPrefix(domSpec.Devices.Emulator, "/")
 
 				pod := libvmi.GetPodByVirtualMachineInstance(vmi, util.NamespaceTestDefault)
-				qemuProcessSelinuxContext, err := tests.ExecuteCommandOnPod(
+				qemuProcessSelinuxContext, err := libpod.RunCommand(
 					virtClient,
 					pod,
 					"compute",

@@ -28,6 +28,7 @@ import (
 	"time"
 
 	"kubevirt.io/kubevirt/tests/framework/checks"
+	"kubevirt.io/kubevirt/tests/libpod"
 
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
@@ -354,7 +355,7 @@ var _ = Describe("[Serial][Sysprep][sig-compute]Syspreped VirtualMachineInstance
 			command := append(cli, "echo works")
 			Eventually(func() error {
 				fmt.Printf("Running \"%s\" command via winrm-cli\n", command)
-				output, err = tests.ExecuteCommandOnPod(
+				output, err = libpod.RunCommand(
 					virtClient,
 					winrmcliPod,
 					winrmcliPod.Spec.Containers[0].Name,
