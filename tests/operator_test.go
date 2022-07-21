@@ -1426,7 +1426,8 @@ spec:
 				vc, err := virtClient.AppsV1().Deployments(originalKv.Namespace).Get(context.Background(), "virt-controller", metav1.GetOptions{})
 				Expect(err).ToNot(HaveOccurred())
 				return vc.Annotations[v1.KubeVirtGenerationAnnotation]
-			}, 60*time.Second, 5*time.Second).Should(Equal(strconv.FormatInt(generation, 10)))
+			}, 90*time.Second, 5*time.Second).Should(Equal(strconv.FormatInt(generation, 10)),
+				"Rsource generation numbers should be identical on both the Kubevirt CR and the virt-controller resource")
 
 			By("Test that patch was applied to deployment")
 			vc, err := virtClient.AppsV1().Deployments(originalKv.Namespace).Get(context.Background(), "virt-controller", metav1.GetOptions{})
@@ -1452,7 +1453,8 @@ spec:
 				vc, err := virtClient.AppsV1().Deployments(originalKv.Namespace).Get(context.Background(), "virt-controller", metav1.GetOptions{})
 				Expect(err).ToNot(HaveOccurred())
 				return vc.Annotations[v1.KubeVirtGenerationAnnotation]
-			}, 60*time.Second, 5*time.Second).Should(Equal(strconv.FormatInt(generation, 10)))
+			}, 90*time.Second, 5*time.Second).Should(Equal(strconv.FormatInt(generation, 10)),
+				"Rsource generation numbers should be identical on both the Kubevirt CR and the virt-controller resource")
 
 			By("Test that patch was removed from deployment")
 			vc, err = virtClient.AppsV1().Deployments(originalKv.Namespace).Get(context.Background(), "virt-controller", metav1.GetOptions{})
