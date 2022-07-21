@@ -31,8 +31,8 @@ import (
 	"kubevirt.io/client-go/log"
 	apicdi "kubevirt.io/containerized-data-importer-api/pkg/apis/core/v1beta1"
 
-	"kubevirt.io/kubevirt/tests/clientcmd"
 	"kubevirt.io/kubevirt/tests/console"
+	"kubevirt.io/kubevirt/tests/libcli"
 	"kubevirt.io/kubevirt/tests/libpod"
 	"kubevirt.io/kubevirt/tests/libvmi"
 )
@@ -972,14 +972,14 @@ func (r *KubernetesReporter) AfterSuiteDidRun(setupSummary *types.SetupSummary) 
 func (r *KubernetesReporter) logClusterOverview() {
 	binary := ""
 	if r.opts.KubectlPath != "" {
-		binary = "kubectl"
+		binary = r.opts.KubectlPath
 	} else if r.opts.OCPath != "" {
-		binary = "oc"
+		binary = r.opts.OCPath
 	} else {
 		return
 	}
 
-	stdout, stderr, err := clientcmd.RunCommandWithNS("", binary, "get", "all", "--all-namespaces", "-o", "wide")
+	stdout, stderr, err := libcli.RunCommandWithNS("", binary, "get", "all", "--all-namespaces", "-o", "wide")
 	if err != nil {
 		fmt.Fprintf(os.Stderr, "failed to fetch cluster overview: %v, %s\n", err, stderr)
 		return
