@@ -84,7 +84,13 @@ func checkBannedFunctions(pass *analysis.Pass, bannedFns map[string][]config.Ban
 			continue
 		}
 
-		fnName := fmt.Sprintf("%s.%s", fn.Pkg().Path(), fn.Name())
+		// "builtin" package is nil
+		pkgName := "builtin"
+		if fn.Pkg() != nil {
+			pkgName = fn.Pkg().Name()
+		}
+
+		fnName := fmt.Sprintf("%s.%s", pkgName, fn.Name())
 		err := reportIfBanned(fnName, bannedFns, id.Pos(), pass)
 		if err != nil {
 			return false, err
