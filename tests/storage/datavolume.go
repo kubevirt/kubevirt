@@ -666,7 +666,7 @@ var _ = SIGDescribe("DataVolume Integration", func() {
 				vmi, err := virtClient.VirtualMachineInstance(vm.Namespace).Get(vm.Name, &metav1.GetOptions{})
 				Expect(err).ToNot(HaveOccurred())
 
-				domXml, err := tests.GetRunningVirtualMachineInstanceDomainXML(virtClient, vmi)
+				domXml, err := tests.GetRunningVirtualMachineInstanceDomainXMLWithDefaultNamespace(virtClient, vmi)
 				Expect(err).ToNot(HaveOccurred())
 				Expect(domXml).ToNot(ContainSubstring("discard='unmap'"))
 				vm = tests.StopVirtualMachine(vm)

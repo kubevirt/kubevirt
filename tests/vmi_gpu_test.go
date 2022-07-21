@@ -113,7 +113,7 @@ var _ = Describe("[Serial][sig-compute]GPU", func() {
 			vmi, apiErr := virtClient.VirtualMachineInstance(util.NamespaceTestDefault).Create(randomVMI)
 			Expect(apiErr).ToNot(HaveOccurred())
 			tests.WaitForSuccessfulVMIStart(vmi)
-			domain, err := tests.GetRunningVirtualMachineInstanceDomainXML(virtClient, vmi)
+			domain, err := tests.GetRunningVirtualMachineInstanceDomainXMLWithDefaultNamespace(virtClient, vmi)
 			Expect(err).ToNot(HaveOccurred())
 			domSpec := &api.DomainSpec{}
 			Expect(xml.Unmarshal([]byte(domain), domSpec)).To(Succeed())

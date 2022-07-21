@@ -113,7 +113,7 @@ var _ = Describe("[sig-compute]HookSidecars", func() {
 				clientcmd.SkipIfNoCmd("kubectl")
 				vmi, err = virtClient.VirtualMachineInstance(util.NamespaceTestDefault).Create(vmi)
 				tests.WaitForSuccessfulVMIStart(vmi)
-				domainXml, err := tests.GetRunningVirtualMachineInstanceDomainXML(virtClient, vmi)
+				domainXml, err := tests.GetRunningVirtualMachineInstanceDomainXMLWithDefaultNamespace(virtClient, vmi)
 				Expect(err).NotTo(HaveOccurred())
 				Expect(domainXml).Should(ContainSubstring("<sysinfo type='smbios'>"))
 				Expect(domainXml).Should(ContainSubstring("<smbios mode='sysinfo'/>"))

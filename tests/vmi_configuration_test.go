@@ -307,7 +307,7 @@ var _ = Describe("[sig-compute]Configurations", func() {
 				Expect(err).ToNot(HaveOccurred())
 				tests.WaitForSuccessfulVMIStart(vmi)
 
-				domXml, err := tests.GetRunningVirtualMachineInstanceDomainXML(virtClient, vmi)
+				domXml, err := tests.GetRunningVirtualMachineInstanceDomainXMLWithDefaultNamespace(virtClient, vmi)
 				Expect(err).ToNot(HaveOccurred())
 				Expect(domXml).To(ContainSubstring(expectedMemoryXMLStr))
 			})
@@ -430,7 +430,7 @@ var _ = Describe("[sig-compute]Configurations", func() {
 				Expect(err).ToNot(HaveOccurred())
 				tests.WaitForSuccessfulVMIStart(vmi)
 
-				domXml, err := tests.GetRunningVirtualMachineInstanceDomainXML(virtClient, vmi)
+				domXml, err := tests.GetRunningVirtualMachineInstanceDomainXMLWithDefaultNamespace(virtClient, vmi)
 				Expect(err).ToNot(HaveOccurred())
 				Expect(domXml).To(ContainSubstring("queues='3'"))
 			})
@@ -457,7 +457,7 @@ var _ = Describe("[sig-compute]Configurations", func() {
 				Expect(err).ToNot(HaveOccurred())
 				tests.WaitForSuccessfulVMIStart(vmi)
 
-				domXml, err := tests.GetRunningVirtualMachineInstanceDomainXML(virtClient, vmi)
+				domXml, err := tests.GetRunningVirtualMachineInstanceDomainXMLWithDefaultNamespace(virtClient, vmi)
 				Expect(err).ToNot(HaveOccurred())
 				Expect(domXml).To(ContainSubstring("driver name='vhost' queues='3'"))
 				// make sure that there are not block queues configured
@@ -478,7 +478,7 @@ var _ = Describe("[sig-compute]Configurations", func() {
 				Expect(err).ToNot(HaveOccurred())
 				tests.WaitForSuccessfulVMIStart(vmi)
 
-				domXml, err := tests.GetRunningVirtualMachineInstanceDomainXML(virtClient, vmi)
+				domXml, err := tests.GetRunningVirtualMachineInstanceDomainXMLWithDefaultNamespace(virtClient, vmi)
 				Expect(err).ToNot(HaveOccurred())
 				Expect(domXml).ToNot(ContainSubstring("queues='"))
 			})
@@ -602,7 +602,7 @@ var _ = Describe("[sig-compute]Configurations", func() {
 			default:
 				tests.WaitUntilVMIReady(vmi, loginTo)
 				By(msg)
-				domXml, err := tests.GetRunningVirtualMachineInstanceDomainXML(virtClient, vmi)
+				domXml, err := tests.GetRunningVirtualMachineInstanceDomainXMLWithDefaultNamespace(virtClient, vmi)
 				Expect(err).ToNot(HaveOccurred())
 				Expect(domXml).To(MatchRegexp(fileName))
 			}
@@ -1272,7 +1272,7 @@ var _ = Describe("[sig-compute]Configurations", func() {
 				freshVMI, err = virtClient.VirtualMachineInstance(util.NamespaceTestDefault).Get(agentVMI.Name, &getOptions)
 				Expect(err).ToNot(HaveOccurred(), "Should get VMI ")
 
-				domXML, err := tests.GetRunningVirtualMachineInstanceDomainXML(virtClient, freshVMI)
+				domXML, err := tests.GetRunningVirtualMachineInstanceDomainXMLWithDefaultNamespace(virtClient, freshVMI)
 				Expect(err).ToNot(HaveOccurred(), "Should return XML from VMI")
 
 				Expect(domXML).To(ContainSubstring("<channel type='unix'>"), "Should contain at least one channel")
@@ -1508,7 +1508,7 @@ var _ = Describe("[sig-compute]Configurations", func() {
 				freshVMI, err = virtClient.VirtualMachineInstance(util.NamespaceTestDefault).Get(snVmi.Name, &getOptions)
 				Expect(err).ToNot(HaveOccurred(), "Should get VMI ")
 
-				domXML, err := tests.GetRunningVirtualMachineInstanceDomainXML(virtClient, freshVMI)
+				domXML, err := tests.GetRunningVirtualMachineInstanceDomainXMLWithDefaultNamespace(virtClient, freshVMI)
 				Expect(err).ToNot(HaveOccurred(), "Should return XML from VMI")
 
 				Expect(domXML).To(ContainSubstring("<entry name='serial'>4b2f5496-f3a3-460b-a375-168223f68845</entry>"), "Should have serial-number present")
@@ -1526,7 +1526,7 @@ var _ = Describe("[sig-compute]Configurations", func() {
 				freshVMI, err = virtClient.VirtualMachineInstance(util.NamespaceTestDefault).Get(snVmi.Name, &getOptions)
 				Expect(err).ToNot(HaveOccurred(), "Should get VMI ")
 
-				domXML, err := tests.GetRunningVirtualMachineInstanceDomainXML(virtClient, freshVMI)
+				domXML, err := tests.GetRunningVirtualMachineInstanceDomainXMLWithDefaultNamespace(virtClient, freshVMI)
 				Expect(err).ToNot(HaveOccurred(), "Should return XML from VMI")
 
 				Expect(domXML).ToNot(ContainSubstring("<entry name='serial'>"), "Should have serial-number present")
@@ -2373,7 +2373,7 @@ var _ = Describe("[sig-compute]Configurations", func() {
 				}, 15)).To(Succeed())
 
 				By("Check values in domain XML")
-				domXML, err := tests.GetRunningVirtualMachineInstanceDomainXML(virtClient, cpuVmi)
+				domXML, err := tests.GetRunningVirtualMachineInstanceDomainXMLWithDefaultNamespace(virtClient, cpuVmi)
 				Expect(err).ToNot(HaveOccurred(), "Should return XML from VMI")
 				Expect(domXML).To(ContainSubstring("<hint-dedicated state='on'/>"), "should container the hint-dedicated feature")
 			})
@@ -2687,7 +2687,7 @@ var _ = Describe("[sig-compute]Configurations", func() {
 			tests.WaitForSuccessfulVMIStart(vmi)
 
 			By("Check values on domain XML")
-			domXml, err := tests.GetRunningVirtualMachineInstanceDomainXML(virtClient, vmi)
+			domXml, err := tests.GetRunningVirtualMachineInstanceDomainXMLWithDefaultNamespace(virtClient, vmi)
 			Expect(err).ToNot(HaveOccurred())
 			Expect(domXml).To(ContainSubstring("<entry name='asset'>Test-123</entry>"))
 
@@ -2726,7 +2726,7 @@ var _ = Describe("[sig-compute]Configurations", func() {
 			tests.WaitForSuccessfulVMIStart(vmi)
 
 			By("Check values in domain XML")
-			domXml, err := tests.GetRunningVirtualMachineInstanceDomainXML(virtClient, vmi)
+			domXml, err := tests.GetRunningVirtualMachineInstanceDomainXMLWithDefaultNamespace(virtClient, vmi)
 			Expect(err).ToNot(HaveOccurred())
 			Expect(domXml).To(ContainSubstring("<entry name='family'>KubeVirt</entry>"))
 			Expect(domXml).To(ContainSubstring("<entry name='product'>None</entry>"))
@@ -2760,7 +2760,7 @@ var _ = Describe("[sig-compute]Configurations", func() {
 			Expect(err).ToNot(HaveOccurred())
 			tests.WaitForSuccessfulVMIStart(vmi)
 
-			domXml, err := tests.GetRunningVirtualMachineInstanceDomainXML(virtClient, vmi)
+			domXml, err := tests.GetRunningVirtualMachineInstanceDomainXMLWithDefaultNamespace(virtClient, vmi)
 			Expect(err).ToNot(HaveOccurred())
 			Expect(domXml).To(ContainSubstring("<entry name='family'>test</entry>"))
 			Expect(domXml).To(ContainSubstring("<entry name='product'>test</entry>"))
@@ -2916,7 +2916,7 @@ var _ = Describe("[sig-compute]Configurations", func() {
 			tests.WaitForSuccessfulVMIStart(vmi)
 
 			By("Check values in domain XML")
-			domXml, err := tests.GetRunningVirtualMachineInstanceDomainXML(virtClient, vmi)
+			domXml, err := tests.GetRunningVirtualMachineInstanceDomainXMLWithDefaultNamespace(virtClient, vmi)
 			Expect(err).ToNot(HaveOccurred())
 			Expect(domXml).To(ContainSubstring("<hidden state='on'/>"))
 

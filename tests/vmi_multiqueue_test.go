@@ -113,7 +113,7 @@ var _ = Describe("[sig-compute]MultiQueue", func() {
 			Expect(*newVMI.Spec.Domain.Devices.BlockMultiQueue).To(BeTrue())
 
 			By("Fetching Domain XML from running pod")
-			domain, err := tests.GetRunningVirtualMachineInstanceDomainXML(virtClient, vmi)
+			domain, err := tests.GetRunningVirtualMachineInstanceDomainXMLWithDefaultNamespace(virtClient, vmi)
 			Expect(err).ToNot(HaveOccurred())
 			domSpec := &api.DomainSpec{}
 			Expect(xml.Unmarshal([]byte(domain), domSpec)).To(Succeed())
@@ -136,7 +136,7 @@ var _ = Describe("[sig-compute]MultiQueue", func() {
 			tests.WaitForSuccessfulVMIStartWithTimeout(vmi, 360)
 
 			By("Fetching Domain XML from running pod")
-			domain, err := tests.GetRunningVirtualMachineInstanceDomainXML(virtClient, vmi)
+			domain, err := tests.GetRunningVirtualMachineInstanceDomainXMLWithDefaultNamespace(virtClient, vmi)
 			Expect(err).ToNot(HaveOccurred())
 			domSpec := &api.DomainSpec{}
 			Expect(xml.Unmarshal([]byte(domain), domSpec)).To(Succeed())

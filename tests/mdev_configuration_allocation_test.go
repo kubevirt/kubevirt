@@ -185,7 +185,7 @@ var _ = Describe("[Serial][sig-compute]MediatedDevices", func() {
 				&expect.BExp{R: console.RetValue("1")},
 			}, 250)).To(Succeed(), "Device not found")
 
-			domXml, err := tests.GetRunningVirtualMachineInstanceDomainXML(virtClient, vmi)
+			domXml, err := tests.GetRunningVirtualMachineInstanceDomainXMLWithDefaultNamespace(virtClient, vmi)
 			Expect(err).ToNot(HaveOccurred())
 			// make sure that one mdev has display and ramfb on
 			By("Maiking sure that a boot display is enabled")
@@ -214,7 +214,7 @@ var _ = Describe("[Serial][sig-compute]MediatedDevices", func() {
 			vmi = createdVmi
 			tests.WaitForSuccessfulVMIStart(vmi)
 
-			domXml, err := tests.GetRunningVirtualMachineInstanceDomainXML(virtClient, vmi)
+			domXml, err := tests.GetRunningVirtualMachineInstanceDomainXMLWithDefaultNamespace(virtClient, vmi)
 			Expect(err).ToNot(HaveOccurred())
 			// make sure that another mdev explicitly turned off its display
 			By("Maiking sure that a boot display is disabled")

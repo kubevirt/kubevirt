@@ -468,7 +468,7 @@ var _ = Describe("[rfe_id:151][crit:high][vendor:cnv-qe@redhat.com][level:compon
 				tests.WaitUntilVMIReady(vmi, console.LoginToCirros)
 				CheckCloudInitIsoSize(vmi, cloudinit.DataSourceConfigDrive)
 
-				domXml, err := tests.GetRunningVirtualMachineInstanceDomainXML(virtClient, vmi)
+				domXml, err := tests.GetRunningVirtualMachineInstanceDomainXMLWithDefaultNamespace(virtClient, vmi)
 				Expect(err).ToNot(HaveOccurred())
 
 				domSpec := &api.DomainSpec{}

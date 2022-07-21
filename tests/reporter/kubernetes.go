@@ -36,6 +36,7 @@ import (
 	"kubevirt.io/kubevirt/tests/console"
 	"kubevirt.io/kubevirt/tests/flags"
 	"kubevirt.io/kubevirt/tests/libpod"
+	"kubevirt.io/kubevirt/tests/libvmi"
 	"kubevirt.io/kubevirt/tests/testsuite"
 )
 
@@ -68,6 +69,7 @@ type KubernetesReporter struct {
 	failureCount int
 	artifactsDir string
 	maxFails     int
+	namespace    string
 }
 
 type commands struct {
@@ -75,11 +77,12 @@ type commands struct {
 	fileNameSuffix string
 }
 
-func NewKubernetesReporter(artifactsDir string, maxFailures int) *KubernetesReporter {
+func NewKubernetesReporter(artifactsDir string, maxFailures int, namespace string) *KubernetesReporter {
 	return &KubernetesReporter{
 		failureCount: 0,
 		artifactsDir: artifactsDir,
 		maxFails:     maxFailures,
+		namespace:    namespace,
 	}
 }
 
@@ -205,7 +208,7 @@ func (r *KubernetesReporter) logDomainXMLs(virtCli kubecli.KubevirtClient, vmis 
 		if vmi.IsFinal() {
 			continue
 		}
-		domxml, err := tests.GetRunningVirtualMachineInstanceDomainXML(virtCli, &vmi)
+		domxml, err := libvmi.GetRunningVirtualMachineInstanceDomainXML(virtCli, &vmi, r.namespace)
 		if err == nil {
 			fmt.Fprintln(f, domxml)
 		}

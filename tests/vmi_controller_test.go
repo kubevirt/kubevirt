@@ -30,7 +30,7 @@ var _ = Describe("[sig-compute]Controller devices", func() {
 			vmi := libvmi.NewCirros()
 			vmi.Spec.Domain.Devices.DisableHotplug = !enabled
 			vmi = tests.RunVMIAndExpectLaunch(vmi, 30)
-			domain, err := tests.GetRunningVirtualMachineInstanceDomainXML(virtClient, vmi)
+			domain, err := tests.GetRunningVirtualMachineInstanceDomainXMLWithDefaultNamespace(virtClient, vmi)
 			Expect(err).ToNot(HaveOccurred())
 			domSpec := &api.DomainSpec{}
 			Expect(xml.Unmarshal([]byte(domain), domSpec)).To(Succeed())

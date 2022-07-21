@@ -79,7 +79,7 @@ var _ = Describe("[sig-compute]IOThreads", func() {
 			newVMI, err = virtClient.VirtualMachineInstance(util.NamespaceTestDefault).Get(vmi.Name, &getOptions)
 			Expect(err).ToNot(HaveOccurred())
 
-			domain, err := tests.GetRunningVirtualMachineInstanceDomainXML(virtClient, vmi)
+			domain, err := tests.GetRunningVirtualMachineInstanceDomainXMLWithDefaultNamespace(virtClient, vmi)
 			Expect(err).ToNot(HaveOccurred())
 			domSpec := &api.DomainSpec{}
 			Expect(xml.Unmarshal([]byte(domain), domSpec)).To(Succeed())
@@ -114,7 +114,7 @@ var _ = Describe("[sig-compute]IOThreads", func() {
 			Expect(err).ToNot(HaveOccurred())
 
 			By("Fetching the domain XML from the running pod")
-			domain, err := tests.GetRunningVirtualMachineInstanceDomainXML(virtClient, vmi)
+			domain, err := tests.GetRunningVirtualMachineInstanceDomainXMLWithDefaultNamespace(virtClient, vmi)
 			Expect(err).ToNot(HaveOccurred())
 			domSpec := &api.DomainSpec{}
 			Expect(xml.Unmarshal([]byte(domain), domSpec)).To(Succeed())
@@ -175,7 +175,7 @@ var _ = Describe("[sig-compute]IOThreads", func() {
 			Expect(err).ToNot(HaveOccurred())
 
 			By("Fetching the domain XML from the running pod")
-			domain, err := tests.GetRunningVirtualMachineInstanceDomainXML(virtClient, vmi)
+			domain, err := tests.GetRunningVirtualMachineInstanceDomainXMLWithDefaultNamespace(virtClient, vmi)
 			Expect(err).ToNot(HaveOccurred())
 			domSpec := &api.DomainSpec{}
 			Expect(xml.Unmarshal([]byte(domain), domSpec)).To(Succeed())
@@ -257,7 +257,7 @@ var _ = Describe("[sig-compute]IOThreads", func() {
 			Expect(err).ToNot(HaveOccurred())
 
 			By("Fetching the domain XML from the running pod")
-			domain, err := tests.GetRunningVirtualMachineInstanceDomainXML(virtClient, vmi)
+			domain, err := tests.GetRunningVirtualMachineInstanceDomainXMLWithDefaultNamespace(virtClient, vmi)
 			Expect(err).ToNot(HaveOccurred())
 			domSpec := &api.DomainSpec{}
 			Expect(xml.Unmarshal([]byte(domain), domSpec)).To(Succeed())

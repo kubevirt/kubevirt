@@ -4342,7 +4342,7 @@ func libvirtDomainIsPersistent(virtClient kubecli.KubevirtClient, vmi *v1.Virtua
 		}
 	}
 	if !found {
-		return false, fmt.Errorf(tests.CouldNotFindComputeContainer)
+		return false, fmt.Errorf(libpod.CouldNotFindComputeContainer)
 	}
 
 	stdout, stderr, err := libpod.RunCommandV2(

@@ -242,7 +242,7 @@ var _ = Describe("[Serial]SRIOV", func() {
 				vmi = startVmi(vmi)
 				vmi = waitVmi(vmi)
 
-				domXml, err := tests.GetRunningVirtualMachineInstanceDomainXML(virtClient, vmi)
+				domXml, err := tests.GetRunningVirtualMachineInstanceDomainXMLWithDefaultNamespace(virtClient, vmi)
 				Expect(err).ToNot(HaveOccurred())
 
 				domSpec := &api.DomainSpec{}
@@ -309,7 +309,7 @@ var _ = Describe("[Serial]SRIOV", func() {
 				vmi = startVmi(vmi)
 				vmi = waitVmi(vmi)
 
-				domXml, err := tests.GetRunningVirtualMachineInstanceDomainXML(virtClient, vmi)
+				domXml, err := tests.GetRunningVirtualMachineInstanceDomainXMLWithDefaultNamespace(virtClient, vmi)
 				Expect(err).ToNot(HaveOccurred())
 
 				domSpec := &api.DomainSpec{}

@@ -83,7 +83,6 @@ import (
 	"kubevirt.io/client-go/log"
 	cdiv1 "kubevirt.io/containerized-data-importer-api/pkg/apis/core/v1beta1"
 
-	kutil "kubevirt.io/kubevirt/pkg/util"
 	virtconfig "kubevirt.io/kubevirt/pkg/virt-config"
 	"kubevirt.io/kubevirt/pkg/virt-controller/services"
 	launcherApi "kubevirt.io/kubevirt/pkg/virt-launcher/virtwrap/api"
@@ -103,11 +102,10 @@ import (
 )
 
 const (
-	BinBash                      = "/bin/bash"
-	StartingVMInstance           = "Starting a VirtualMachineInstance"
-	WaitingVMInstanceStart       = "Waiting until the VirtualMachineInstance will start"
-	CouldNotFindComputeContainer = "could not find compute container for pod"
-	EchoLastReturnValue          = "echo $?\n"
+	BinBash                = "/bin/bash"
+	StartingVMInstance     = "Starting a VirtualMachineInstance"
+	WaitingVMInstanceStart = "Waiting until the VirtualMachineInstance will start"
+	EchoLastReturnValue    = "echo $?\n"
 )
 
 const (
@@ -1373,47 +1371,8 @@ func CopyFromPod(virtCli kubecli.KubevirtClient, pod *k8sv1.Pod, containerName, 
 	return stderrBuf.String(), err
 }
 
-func GetRunningVirtualMachineInstanceDomainXML(virtClient kubecli.KubevirtClient, vmi *v1.VirtualMachineInstance) (string, error) {
-	vmiPod, err := libpod.GetRunningPodByVirtualMachineInstance(vmi, util2.NamespaceTestDefault)
-	if err != nil {
-		return "", err
-	}
-
-	found := false
-	containerIdx := 0
-	for idx, container := range vmiPod.Spec.Containers {
-		if container.Name == "compute" {
-			containerIdx = idx
-			found = true
-		}
-	}
-	if !found {
-		return "", fmt.Errorf(CouldNotFindComputeContainer)
-	}
-
-	// get current vmi
-	freshVMI, err := virtClient.VirtualMachineInstance(vmi.Namespace).Get(vmi.Name, &metav1.GetOptions{})
-	if err != nil {
-		return "", fmt.Errorf("failed to get vmi, %s", err)
-	}
-
-	command := []string{"virsh"}
-	if kutil.IsNonRootVMI(freshVMI) {
-		command = append(command, "-c")
-		command = append(command, "qemu+unix:///session?socket=/var/run/libvirt/libvirt-sock")
-	}
-	command = append(command, []string{"dumpxml", vmi.Namespace + "_" + vmi.Name}...)
-
-	stdout, stderr, err := libpod.RunCommandV2(
-		virtClient,
-		vmiPod,
-		vmiPod.Spec.Containers[containerIdx].Name,
-		command,
-	)
-	if err != nil {
-		return "", fmt.Errorf("could not dump libvirt domxml (remotely on pod): %v: %s", err, stderr)
-	}
-	return stdout, err
+func GetRunningVirtualMachineInstanceDomainXMLWithDefaultNamespace(virtClient kubecli.KubevirtClient, vmi *v1.VirtualMachineInstance) (string, error) {
+	return libvmi.GetRunningVirtualMachineInstanceDomainXML(virtClient, vmi, util2.NamespaceTestDefault)
 }
 
 func LibvirtDomainIsPaused(virtClient kubecli.KubevirtClient, vmi *v1.VirtualMachineInstance) (bool, error) {
@@ -1431,7 +1390,7 @@ func LibvirtDomainIsPaused(virtClient kubecli.KubevirtClient, vmi *v1.VirtualMac
 		}
 	}
 	if !found {
-		return false, fmt.Errorf(CouldNotFindComputeContainer)
+		return false, fmt.Errorf(libpod.CouldNotFindComputeContainer)
 	}
 
 	stdout, stderr, err := libpod.RunCommandV2(
@@ -1842,7 +1801,7 @@ func GetRunningVMIDomainSpec(vmi *v1.VirtualMachineInstance) (*launcherApi.Domai
 		return nil, err
 	}
 
-	domXML, err := GetRunningVirtualMachineInstanceDomainXML(cli, vmi)
+	domXML, err := GetRunningVirtualMachineInstanceDomainXMLWithDefaultNamespace(cli, vmi)
 	if err != nil {
 		return nil, err
 	}

@@ -110,7 +110,7 @@ func createSoundVMI(virtClient kubecli.KubevirtClient, soundDevice string) (*v1.
 }
 
 func checkXMLSoundCard(virtClient kubecli.KubevirtClient, vmi *v1.VirtualMachineInstance, model string) {
-	domain, err := tests.GetRunningVirtualMachineInstanceDomainXML(virtClient, vmi)
+	domain, err := tests.GetRunningVirtualMachineInstanceDomainXMLWithDefaultNamespace(virtClient, vmi)
 	Expect(err).ToNot(HaveOccurred())
 	domSpec := &api.DomainSpec{}
 	Expect(xml.Unmarshal([]byte(domain), domSpec)).To(Succeed())
