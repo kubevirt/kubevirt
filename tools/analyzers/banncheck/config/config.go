@@ -18,7 +18,7 @@ package config
 import (
 	"encoding/json"
 	"errors"
-	"os"
+	"io/fs"
 )
 
 // Config represents a configuration passed to the linter.
@@ -41,12 +41,12 @@ type Exemption struct {
 }
 
 // ReadConfigs reads banned APIs from all files.
-func ReadConfigs(files []string) (*Config, error) {
+func ReadConfigs(configFS fs.FS, files []string) (*Config, error) {
 	var imports []BannedAPI
 	var fns []BannedAPI
 
 	for _, file := range files {
-		config, err := readCfg(file)
+		config, err := readCfg(configFS, file)
 		if err != nil {
 			return nil, err
 		}
@@ -58,8 +58,8 @@ func ReadConfigs(files []string) (*Config, error) {
 	return &Config{Imports: imports, Functions: fns}, nil
 }
 
-func readCfg(filename string) (*Config, error) {
-	f, err := openFile(filename)
+func readCfg(configFS fs.FS, filename string) (*Config, error) {
+	f, err := openFile(configFS, filename)
 	if err != nil {
 		return nil, err
 	}
@@ -68,19 +68,22 @@ func readCfg(filename string) (*Config, error) {
 	return decodeCfg(f)
 }
 
-func openFile(filename string) (*os.File, error) {
-	info, err := os.Stat(filename)
-	if os.IsNotExist(err) {
-		return nil, errors.New("file does not exist")
+func openFile(configFS fs.FS, filename string) (fs.File, error) {
+	file, err := configFS.Open(filename)
+	if err != nil {
+		return nil, err
+	}
+	info, err := file.Stat()
+	if err != nil {
+		return nil, err
 	}
 	if info.IsDir() {
 		return nil, errors.New("file is a directory")
 	}
-
-	return os.Open(filename)
+	return file, nil
 }
 
-func decodeCfg(f *os.File) (*Config, error) {
+func decodeCfg(f fs.File) (*Config, error) {
 	var cfg Config
 	err := json.NewDecoder(f).Decode(&cfg)
 	if err != nil {

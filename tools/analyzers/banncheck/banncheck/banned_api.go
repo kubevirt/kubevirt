@@ -24,6 +24,8 @@ import (
 	"fmt"
 	"go/token"
 	"go/types"
+	"io/fs"
+	"os"
 	"path/filepath"
 	"strings"
 
@@ -33,35 +35,42 @@ import (
 )
 
 // NewAnalyzer returns an analyzer that checks for usage of banned APIs.
-func NewAnalyzer() *analysis.Analyzer {
+func NewAnalyzer(configFS fs.FS) *analysis.Analyzer {
+	return NewAnalyzerWithFS(os.DirFS("/"))
+}
+
+// NewAnalyzer returns an analyzer that checks for usage of banned APIs.
+func NewAnalyzerWithFS(configFS fs.FS) *analysis.Analyzer {
 	fs := flag.NewFlagSet("", flag.ExitOnError)
 	fs.String("configs", "", "Config files with banned APIs separated by a comma")
 
 	a := &analysis.Analyzer{
 		Name:  "bannedAPI",
 		Doc:   "Checks for usage of banned APIs",
-		Run:   checkBannedAPIs,
+		Run:   checkBannedAPIsWithFS(configFS),
 		Flags: *fs,
 	}
 
 	return a
 }
 
-func checkBannedAPIs(pass *analysis.Pass) (interface{}, error) {
-	cfgFiles := pass.Analyzer.Flags.Lookup("configs").Value.String()
-	if cfgFiles == "" {
-		return nil, errors.New("missing config files")
+func checkBannedAPIsWithFS(configFS fs.FS) func(pass *analysis.Pass) (interface{}, error) {
+	return func(pass *analysis.Pass) (interface{}, error) {
+		cfgFiles := pass.Analyzer.Flags.Lookup("configs").Value.String()
+		if cfgFiles == "" {
+			return nil, errors.New("missing config files")
+		}
+
+		cfg, err := config.ReadConfigs(configFS, strings.Split(cfgFiles, ","))
+		if err != nil {
+			return nil, err
+		}
+
+		checkBannedImports(pass, bannedAPIMap(cfg.Imports))
+		checkBannedFunctions(pass, bannedAPIMap(cfg.Functions))
+
+		return nil, nil
 	}
-
-	cfg, err := config.ReadConfigs(strings.Split(cfgFiles, ","))
-	if err != nil {
-		return nil, err
-	}
-
-	checkBannedImports(pass, bannedAPIMap(cfg.Imports))
-	checkBannedFunctions(pass, bannedAPIMap(cfg.Functions))
-
-	return nil, nil
 }
 
 func checkBannedImports(pass *analysis.Pass, bannedImports map[string][]config.BannedAPI) (interface{}, error) {
