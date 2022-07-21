@@ -62,6 +62,7 @@ const (
 	gracePeriodArg = "grace-period"
 	serialArg      = "serial"
 	persistArg     = "persist"
+	cacheArg       = "cache"
 )
 
 var (
@@ -73,6 +74,7 @@ var (
 	startPaused  bool
 	dryRun       bool
 	claimName    string
+	cache        string
 )
 
 func NewStartCommand(clientConfig clientcmd.ClientConfig) *cobra.Command {
@@ -237,6 +239,7 @@ func NewAddVolumeCommand(clientConfig clientcmd.ClientConfig) *cobra.Command {
 	cmd.Flags().StringVar(&volumeName, volumeNameArg, "", "name used in volumes section of spec")
 	cmd.MarkFlagRequired(volumeNameArg)
 	cmd.Flags().StringVar(&serial, serialArg, "", "serial number you want to assign to the disk")
+	cmd.Flags().StringVar(&cache, cacheArg, "", "caching options attribute control the cache mechanism")
 	cmd.Flags().BoolVar(&persist, persistArg, false, "if set, the added volume will be persisted in the VM spec (if it exists)")
 	cmd.Flags().BoolVar(&dryRun, dryRunArg, false, dryRunCommandUsage)
 
@@ -328,6 +331,9 @@ func usageAddVolume() string {
 
   #Dynamically attach a volume to a running VM and persisting it in the VM spec. At next VM restart the volume will be attached like any other volume.
   {{ProgramName}} addvolume fedora-dv --volume-name=example-dv --persist
+
+  #Dynamically attach a volume with 'none' cache attribute to a running VM.
+  {{ProgramName}} addvolume fedora-dv --volume-name=example-dv --cache=none
   `
 	return usage
 }
@@ -363,6 +369,15 @@ func addVolume(vmiName, volumeName, namespace string, virtClient kubecli.Kubevir
 		hotplugRequest.Disk.Serial = serial
 	} else {
 		hotplugRequest.Disk.Serial = volumeName
+	}
+	if cache != "" {
+		hotplugRequest.Disk.Cache = v1.DriverCache(cache)
+		// Verify if cache mode is valid
+		if hotplugRequest.Disk.Cache != v1.CacheNone &&
+			hotplugRequest.Disk.Cache != v1.CacheWriteThrough &&
+			hotplugRequest.Disk.Cache != v1.CacheWriteBack {
+			return fmt.Errorf("error adding volume, invalid cache value: %s", cache)
+		}
 	}
 	if !persist {
 		err = virtClient.VirtualMachineInstance(namespace).AddVolume(vmiName, hotplugRequest)

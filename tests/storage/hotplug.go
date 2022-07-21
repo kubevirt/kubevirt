@@ -66,6 +66,7 @@ const (
 
 	virtCtlNamespace       = "--namespace"
 	virtCtlVolumeName      = "--volume-name=%s"
+	virtCtlCache           = "--cache=%s"
 	verifyCannotAccessDisk = "ls: %s: No such file or directory"
 
 	testNewVolume1 = "some-new-volume1"
@@ -112,7 +113,7 @@ var _ = SIGDescribe("Hotplug", func() {
 		return virtClient.VirtualMachine(util.NamespaceTestDefault).Delete(vm.Name, &metav1.DeleteOptions{})
 	}
 
-	getAddVolumeOptions := func(volumeName string, bus v1.DiskBus, volumeSource *v1.HotplugVolumeSource, dryRun bool) *v1.AddVolumeOptions {
+	getAddVolumeOptions := func(volumeName, cache string, bus v1.DiskBus, volumeSource *v1.HotplugVolumeSource, dryRun bool) *v1.AddVolumeOptions {
 		return &v1.AddVolumeOptions{
 			Name: volumeName,
 			Disk: &v1.Disk{
@@ -122,6 +123,7 @@ var _ = SIGDescribe("Hotplug", func() {
 					},
 				},
 				Serial: volumeName,
+				Cache:  v1.DriverCache(cache),
 			},
 			VolumeSource: volumeSource,
 			DryRun:       getDryRunOption(dryRun),
@@ -133,16 +135,16 @@ var _ = SIGDescribe("Hotplug", func() {
 		}, 3*time.Second, 1*time.Second).ShouldNot(HaveOccurred())
 	}
 
-	addDVVolumeVMI := func(name, namespace, volumeName, claimName string, bus v1.DiskBus, dryRun bool) {
-		addVolumeVMIWithSource(name, namespace, getAddVolumeOptions(volumeName, bus, &v1.HotplugVolumeSource{
+	addDVVolumeVMI := func(name, namespace, volumeName, claimName, cache string, bus v1.DiskBus, dryRun bool) {
+		addVolumeVMIWithSource(name, namespace, getAddVolumeOptions(volumeName, cache, bus, &v1.HotplugVolumeSource{
 			DataVolume: &v1.DataVolumeSource{
 				Name: claimName,
 			},
 		}, dryRun))
 	}
 
-	addPVCVolumeVMI := func(name, namespace, volumeName, claimName string, bus v1.DiskBus, dryRun bool) {
-		addVolumeVMIWithSource(name, namespace, getAddVolumeOptions(volumeName, bus, &v1.HotplugVolumeSource{
+	addPVCVolumeVMI := func(name, namespace, volumeName, claimName, cache string, bus v1.DiskBus, dryRun bool) {
+		addVolumeVMIWithSource(name, namespace, getAddVolumeOptions(volumeName, cache, bus, &v1.HotplugVolumeSource{
 			PersistentVolumeClaim: &v1.PersistentVolumeClaimVolumeSource{PersistentVolumeClaimVolumeSource: corev1.PersistentVolumeClaimVolumeSource{
 				ClaimName: claimName,
 			}},
@@ -155,25 +157,25 @@ var _ = SIGDescribe("Hotplug", func() {
 		}, 3*time.Second, 1*time.Second).ShouldNot(HaveOccurred())
 	}
 
-	addDVVolumeVM := func(name, namespace, volumeName, claimName string, bus v1.DiskBus, dryRun bool) {
-		addVolumeVMWithSource(name, namespace, getAddVolumeOptions(volumeName, bus, &v1.HotplugVolumeSource{
+	addDVVolumeVM := func(name, namespace, volumeName, claimName, cache string, bus v1.DiskBus, dryRun bool) {
+		addVolumeVMWithSource(name, namespace, getAddVolumeOptions(volumeName, cache, bus, &v1.HotplugVolumeSource{
 			DataVolume: &v1.DataVolumeSource{
 				Name: claimName,
 			},
 		}, dryRun))
 	}
 
-	addPVCVolumeVM := func(name, namespace, volumeName, claimName string, bus v1.DiskBus, dryRun bool) {
-		addVolumeVMWithSource(name, namespace, getAddVolumeOptions(volumeName, bus, &v1.HotplugVolumeSource{
+	addPVCVolumeVM := func(name, namespace, volumeName, claimName, cache string, bus v1.DiskBus, dryRun bool) {
+		addVolumeVMWithSource(name, namespace, getAddVolumeOptions(volumeName, cache, bus, &v1.HotplugVolumeSource{
 			PersistentVolumeClaim: &v1.PersistentVolumeClaimVolumeSource{PersistentVolumeClaimVolumeSource: corev1.PersistentVolumeClaimVolumeSource{
 				ClaimName: claimName,
 			}},
 		}, dryRun))
 	}
 
-	addVolumeVirtctl := func(name, namespace, volumeName, claimName string, bus v1.DiskBus, dryRun bool) {
+	addVolumeVirtctl := func(name, namespace, volumeName, claimName, cache string, bus v1.DiskBus, dryRun bool) {
 		By("Invoking virtlctl addvolume")
-		commandAndArgs := []string{virtctl.COMMAND_ADDVOLUME, name, fmt.Sprintf(virtCtlVolumeName, claimName), virtCtlNamespace, namespace}
+		commandAndArgs := []string{virtctl.COMMAND_ADDVOLUME, name, fmt.Sprintf(virtCtlVolumeName, claimName), fmt.Sprintf(virtCtlCache, cache), virtCtlNamespace, namespace}
 		if dryRun {
 			commandAndArgs = append(commandAndArgs, "--dry-run")
 		}
@@ -780,7 +782,7 @@ var _ = SIGDescribe("Hotplug", func() {
 				tests.WaitForSuccessfulVMIStartWithTimeout(vmi, 240)
 
 				By(addingVolumeRunningVM)
-				addDVVolumeVM(vm.Name, vm.Namespace, "testvolume", dvBlock.Name, v1.DiskBusSCSI, false)
+				addDVVolumeVM(vm.Name, vm.Namespace, "testvolume", dvBlock.Name, "", v1.DiskBusSCSI, false)
 				By(verifyingVolumeDiskInVM)
 				VerifyVolumeAndDiskVMAdded(virtClient, vm, "testvolume")
 				vmi, err = virtClient.VirtualMachineInstance(vm.Namespace).Get(vm.Name, &metav1.GetOptions{})
@@ -826,7 +828,7 @@ var _ = SIGDescribe("Hotplug", func() {
 				tests.WaitForSuccessfulVMIStartWithTimeout(vmi, 240)
 
 				By(addingVolumeRunningVM)
-				err = virtClient.VirtualMachine(vm.Namespace).AddVolume(vm.Name, getAddVolumeOptions("disk0", v1.DiskBusSCSI, &v1.HotplugVolumeSource{
+				err = virtClient.VirtualMachine(vm.Namespace).AddVolume(vm.Name, getAddVolumeOptions("disk0", "", v1.DiskBusSCSI, &v1.HotplugVolumeSource{
 					DataVolume: &v1.DataVolumeSource{
 						Name: dvBlock.Name,
 					},
@@ -845,8 +847,8 @@ var _ = SIGDescribe("Hotplug", func() {
 				getVmiConsoleAndLogin(vmi)
 
 				By(addingVolumeRunningVM)
-				addDVVolumeVM(vm.Name, vm.Namespace, "block", dvBlock.Name, v1.DiskBusSCSI, false)
-				addDVVolumeVM(vm.Name, vm.Namespace, "fs", dvFileSystem.Name, v1.DiskBusSCSI, false)
+				addDVVolumeVM(vm.Name, vm.Namespace, "block", dvBlock.Name, "", v1.DiskBusSCSI, false)
+				addDVVolumeVM(vm.Name, vm.Namespace, "fs", dvFileSystem.Name, "", v1.DiskBusSCSI, false)
 				VerifyVolumeAndDiskVMIAdded(virtClient, vmi, "block", "fs")
 
 				verifyVolumeStatus(vmi, v1.VolumeReady, "block", "fs")
@@ -953,7 +955,7 @@ var _ = SIGDescribe("Hotplug", func() {
 				verifyIsMigratable(vmi, true)
 
 				By("Adding volume to running VMI")
-				addVolumeFunc(vmi.Name, vmi.Namespace, volumeName, dv.Name, v1.DiskBusSCSI, false)
+				addVolumeFunc(vmi.Name, vmi.Namespace, volumeName, dv.Name, "", v1.DiskBusSCSI, false)
 				By("Verifying the volume and disk are in the VMI")
 				vmi, err = virtClient.VirtualMachineInstance(vmi.Namespace).Get(vmi.Name, &metav1.GetOptions{})
 				Expect(err).ToNot(HaveOccurred())
@@ -997,7 +999,7 @@ var _ = SIGDescribe("Hotplug", func() {
 				By("Verifying the volume can be detached and reattached after migration")
 				removeVolumeFunc(vmi.Name, vmi.Namespace, volumeName, false)
 				verifyVolumeNolongerAccessible(vmi, targets[0])
-				addVolumeFunc(vmi.Name, vmi.Namespace, volumeName, dv.Name, v1.DiskBusSCSI, false)
+				addVolumeFunc(vmi.Name, vmi.Namespace, volumeName, dv.Name, "", v1.DiskBusSCSI, false)
 				vmi, err = virtClient.VirtualMachineInstance(vmi.Namespace).Get(vmi.Name, &metav1.GetOptions{})
 				Expect(err).ToNot(HaveOccurred())
 				VerifyVolumeAndDiskVMIAdded(virtClient, vmi, volumeName)
@@ -1047,7 +1049,7 @@ var _ = SIGDescribe("Hotplug", func() {
 
 			By(addingVolumeRunningVM)
 			name := fmt.Sprintf("disk-%s", tests.CustomHostPath)
-			addPVCVolumeVMI(vm.Name, vm.Namespace, "testvolume", name, v1.DiskBusSCSI, false)
+			addPVCVolumeVMI(vm.Name, vm.Namespace, "testvolume", name, "", v1.DiskBusSCSI, false)
 
 			By(verifyingVolumeDiskInVM)
 			vmi, err = virtClient.VirtualMachineInstance(vm.Namespace).Get(vm.Name, &metav1.GetOptions{})
@@ -1096,7 +1098,7 @@ var _ = SIGDescribe("Hotplug", func() {
 			tests.WaitForSuccessfulVMIStartWithTimeout(vmi, 240)
 
 			By(addingVolumeRunningVM)
-			addPVCVolumeVMI(vm.Name, vm.Namespace, "testvolume", dv.Name, v1.DiskBusSCSI, false)
+			addPVCVolumeVMI(vm.Name, vm.Namespace, "testvolume", dv.Name, "", v1.DiskBusSCSI, false)
 
 			By(verifyingVolumeDiskInVM)
 			vmi, err = virtClient.VirtualMachineInstance(vm.Namespace).Get(vm.Name, &metav1.GetOptions{})
@@ -1143,7 +1145,7 @@ var _ = SIGDescribe("Hotplug", func() {
 			tests.WaitForSuccessfulVMIStartWithTimeout(vmi, 240)
 
 			By(addingVolumeRunningVM)
-			addPVCVolumeVMI(vm.Name, vm.Namespace, "testvolume", dv.Name, v1.DiskBusSCSI, false)
+			addPVCVolumeVMI(vm.Name, vm.Namespace, "testvolume", dv.Name, "", v1.DiskBusSCSI, false)
 
 			By(verifyingVolumeDiskInVM)
 			vmi, err = virtClient.VirtualMachineInstance(vm.Namespace).Get(vm.Name, &metav1.GetOptions{})
@@ -1190,7 +1192,7 @@ var _ = SIGDescribe("Hotplug", func() {
 
 			vmi, err = virtClient.VirtualMachineInstance(vm.Namespace).Get(vm.Name, &metav1.GetOptions{})
 			Expect(err).ToNot(HaveOccurred())
-			addVolumeVirtctl(vmi.Name, vmi.Namespace, "", dv.Name, "", dryRun)
+			addVolumeVirtctl(vmi.Name, vmi.Namespace, "", dv.Name, "", "", dryRun)
 			if dryRun {
 				verifyNoVolumeAttached(vmi, dv.Name)
 			} else {
@@ -1220,7 +1222,7 @@ var _ = SIGDescribe("Hotplug", func() {
 			vmi, err = virtClient.VirtualMachineInstance(vm.Namespace).Get(vm.Name, &metav1.GetOptions{})
 			Expect(err).ToNot(HaveOccurred())
 
-			addVolumeVirtctl(vmi.Name, vmi.Namespace, "", dv.Name, "", false)
+			addVolumeVirtctl(vmi.Name, vmi.Namespace, "", dv.Name, "", "", false)
 			verifyVolumeStatus(vmi, v1.VolumeReady, dv.Name)
 
 			getVmiConsoleAndLogin(vmi)
