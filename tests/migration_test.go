@@ -54,6 +54,7 @@ import (
 	expect "github.com/google/goexpect"
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
+	"github.com/onsi/gomega/gstruct"
 	k8sv1 "k8s.io/api/core/v1"
 	policyv1 "k8s.io/api/policy/v1"
 	policyv1beta1 "k8s.io/api/policy/v1beta1"
@@ -347,35 +348,39 @@ var _ = Describe("[rfe_id:393][crit:high][vendor:cnv-qe@redhat.com][level:system
 	}
 	confirmVMIPostMigrationAborted := func(vmi *v1.VirtualMachineInstance, migrationUID string, timeout int) *v1.VirtualMachineInstance {
 		By("Waiting until the migration is completed")
-		Eventually(func() bool {
+		EventuallyWithOffset(1, func() v1.VirtualMachineInstanceMigrationState {
 			vmi, err = virtClient.VirtualMachineInstance(vmi.Namespace).Get(vmi.Name, &metav1.GetOptions{})
-			Expect(err).ToNot(HaveOccurred())
+			ExpectWithOffset(2, err).ToNot(HaveOccurred())
 
-			if vmi.Status.MigrationState != nil && vmi.Status.MigrationState.Completed &&
-				vmi.Status.MigrationState.AbortStatus == v1.MigrationAbortSucceeded {
-				return true
+			if vmi.Status.MigrationState != nil {
+				return *vmi.Status.MigrationState
 			}
-			return false
+			return v1.VirtualMachineInstanceMigrationState{}
 
-		}, timeout, 1*time.Second).Should(BeTrue())
+		}, timeout, 1*time.Second).Should(
+			gstruct.MatchFields(gstruct.IgnoreExtras, gstruct.Fields{
+				"Completed":   BeTrue(),
+				"AbortStatus": Equal(v1.MigrationAbortSucceeded),
+			}),
+		)
 
 		By("Retrieving the VMI post migration")
 		vmi, err = virtClient.VirtualMachineInstance(vmi.Namespace).Get(vmi.Name, &metav1.GetOptions{})
-		Expect(err).ToNot(HaveOccurred())
+		ExpectWithOffset(1, err).ToNot(HaveOccurred())
 
 		By("Verifying the VMI's migration state")
-		Expect(vmi.Status.MigrationState).ToNot(BeNil())
-		Expect(vmi.Status.MigrationState.StartTimestamp).ToNot(BeNil())
-		Expect(vmi.Status.MigrationState.EndTimestamp).ToNot(BeNil())
-		Expect(vmi.Status.MigrationState.SourceNode).To(Equal(vmi.Status.NodeName))
-		Expect(vmi.Status.MigrationState.TargetNode).ToNot(Equal(vmi.Status.MigrationState.SourceNode))
-		Expect(vmi.Status.MigrationState.TargetNodeAddress).ToNot(Equal(""))
-		Expect(string(vmi.Status.MigrationState.MigrationUID)).To(Equal(migrationUID))
-		Expect(vmi.Status.MigrationState.Failed).To(BeTrue())
-		Expect(vmi.Status.MigrationState.AbortRequested).To(BeTrue())
+		ExpectWithOffset(1, vmi.Status.MigrationState).ToNot(BeNil())
+		ExpectWithOffset(1, vmi.Status.MigrationState.StartTimestamp).ToNot(BeNil())
+		ExpectWithOffset(1, vmi.Status.MigrationState.EndTimestamp).ToNot(BeNil())
+		ExpectWithOffset(1, vmi.Status.MigrationState.SourceNode).To(Equal(vmi.Status.NodeName))
+		ExpectWithOffset(1, vmi.Status.MigrationState.TargetNode).ToNot(Equal(vmi.Status.MigrationState.SourceNode))
+		ExpectWithOffset(1, vmi.Status.MigrationState.TargetNodeAddress).ToNot(Equal(""))
+		ExpectWithOffset(1, string(vmi.Status.MigrationState.MigrationUID)).To(Equal(migrationUID))
+		ExpectWithOffset(1, vmi.Status.MigrationState.Failed).To(BeTrue())
+		ExpectWithOffset(1, vmi.Status.MigrationState.AbortRequested).To(BeTrue())
 
 		By("Verifying the VMI's is in the running state")
-		Expect(vmi.Status.Phase).To(Equal(v1.Running))
+		ExpectWithOffset(1, vmi).To(BeInPhase(v1.Running))
 		return vmi
 	}
 
