@@ -326,10 +326,6 @@ var _ = Describe("[rfe_id:393][crit:high][vendor:cnv-qe@redhat.com][level:system
 		checks.SkipIfMigrationIsNotPossible()
 	})
 
-	runVMIAndExpectLaunch := func(vmi *v1.VirtualMachineInstance, timeout int) *v1.VirtualMachineInstance {
-		return tests.RunVMIAndExpectLaunch(vmi, timeout)
-	}
-
 	runVMIAndExpectLaunchIgnoreWarnings := func(vmi *v1.VirtualMachineInstance, timeout int) *v1.VirtualMachineInstance {
 		return tests.RunVMIAndExpectLaunchIgnoreWarnings(vmi, timeout)
 	}
@@ -690,7 +686,7 @@ var _ = Describe("[rfe_id:393][crit:high][vendor:cnv-qe@redhat.com][level:system
 						},
 					},
 				}
-				vmi = runVMIAndExpectLaunch(vmi, 240)
+				vmi = tests.RunVMIAndExpectLaunch(vmi, 240)
 
 				// Verify console on last iteration to verify the VirtualMachineInstance is still booting properly
 				// after being restarted multiple times
@@ -757,7 +753,7 @@ var _ = Describe("[rfe_id:393][crit:high][vendor:cnv-qe@redhat.com][level:system
 					libvmi.WithMasqueradeNetworking()...,
 				)
 				By("Starting the VirtualMachineInstance")
-				vmi = runVMIAndExpectLaunch(vmi, 240)
+				vmi = tests.RunVMIAndExpectLaunch(vmi, 240)
 
 				durationLowBandwidth := repeatedlyMigrateWithBandwidthLimitation(vmi, "10Mi", 3)
 				durationHighBandwidth := repeatedlyMigrateWithBandwidthLimitation(vmi, "128Mi", 3)
@@ -778,7 +774,7 @@ var _ = Describe("[rfe_id:393][crit:high][vendor:cnv-qe@redhat.com][level:system
 				}
 
 				By("Starting the VirtualMachineInstance")
-				vmi = runVMIAndExpectLaunch(vmi, 240)
+				vmi = tests.RunVMIAndExpectLaunch(vmi, 240)
 
 				By("Checking that the VirtualMachineInstance console has expected output")
 				Expect(console.LoginToAlpine(vmi)).To(Succeed())
@@ -804,7 +800,7 @@ var _ = Describe("[rfe_id:393][crit:high][vendor:cnv-qe@redhat.com][level:system
 				vmi.Spec.Domain.Devices.Disks[0].Cache = v1.CacheWriteBack
 
 				By("Starting the VirtualMachineInstance")
-				vmi = runVMIAndExpectLaunch(vmi, 240)
+				vmi = tests.RunVMIAndExpectLaunch(vmi, 240)
 
 				By("Checking that the VirtualMachineInstance console has expected output")
 				Expect(console.LoginToAlpine(vmi)).To(Succeed())
@@ -840,7 +836,7 @@ var _ = Describe("[rfe_id:393][crit:high][vendor:cnv-qe@redhat.com][level:system
 				tests.AddEphemeralCdrom(vmi, "cdrom-1", v1.DiskBusSCSI, cd.ContainerDiskFor(cd.ContainerDiskAlpine))
 
 				By("Starting the VirtualMachineInstance")
-				vmi = runVMIAndExpectLaunch(vmi, 240)
+				vmi = tests.RunVMIAndExpectLaunch(vmi, 240)
 
 				By("Checking that the VirtualMachineInstance console has expected output")
 				Expect(console.LoginToAlpine(vmi)).To(Succeed())
@@ -863,7 +859,7 @@ var _ = Describe("[rfe_id:393][crit:high][vendor:cnv-qe@redhat.com][level:system
 				tests.AddEphemeralCdrom(vmi, "cdrom-1", v1.DiskBusSCSI, cd.ContainerDiskFor(cd.ContainerDiskAlpine))
 
 				By("Starting the VirtualMachineInstance")
-				vmi = runVMIAndExpectLaunch(vmi, 240)
+				vmi = tests.RunVMIAndExpectLaunch(vmi, 240)
 
 				// execute a migration, wait for finalized state
 				By("starting the migration")
@@ -971,7 +967,7 @@ var _ = Describe("[rfe_id:393][crit:high][vendor:cnv-qe@redhat.com][level:system
 				}
 
 				By("Starting the VirtualMachineInstance")
-				vmi = runVMIAndExpectLaunch(vmi, 240)
+				vmi = tests.RunVMIAndExpectLaunch(vmi, 240)
 
 				By("Checking that the VirtualMachineInstance console has expected output")
 				Expect(console.LoginToAlpine(vmi)).To(Succeed())
@@ -1009,7 +1005,7 @@ var _ = Describe("[rfe_id:393][crit:high][vendor:cnv-qe@redhat.com][level:system
 				)
 
 				By("Starting the VirtualMachineInstance")
-				vmi = runVMIAndExpectLaunch(vmi, 240)
+				vmi = tests.RunVMIAndExpectLaunch(vmi, 240)
 
 				By("Checking that the VirtualMachineInstance console has expected output")
 				Expect(console.LoginToAlpine(vmi)).To(Succeed())
@@ -1054,7 +1050,7 @@ var _ = Describe("[rfe_id:393][crit:high][vendor:cnv-qe@redhat.com][level:system
 				)
 
 				By("Starting the VirtualMachineInstance")
-				vmi = runVMIAndExpectLaunch(vmi, 240)
+				vmi = tests.RunVMIAndExpectLaunch(vmi, 240)
 
 				By("Checking that the VirtualMachineInstance console has expected output")
 				Expect(console.LoginToAlpine(vmi)).To(Succeed())
@@ -1109,7 +1105,7 @@ var _ = Describe("[rfe_id:393][crit:high][vendor:cnv-qe@redhat.com][level:system
 				)
 
 				By("Starting the VirtualMachineInstance")
-				vmi = runVMIAndExpectLaunch(vmi, 240)
+				vmi = tests.RunVMIAndExpectLaunch(vmi, 240)
 
 				By("Checking that the VirtualMachineInstance console has expected output")
 				Expect(console.LoginToAlpine(vmi)).To(Succeed())
@@ -1142,7 +1138,7 @@ var _ = Describe("[rfe_id:393][crit:high][vendor:cnv-qe@redhat.com][level:system
 				)
 
 				By("Starting the VirtualMachineInstance")
-				vmi = runVMIAndExpectLaunch(vmi, 240)
+				vmi = tests.RunVMIAndExpectLaunch(vmi, 240)
 
 				By("Checking that the VirtualMachineInstance console has expected output")
 				Expect(console.LoginToAlpine(vmi)).To(Succeed())
@@ -1197,7 +1193,7 @@ var _ = Describe("[rfe_id:393][crit:high][vendor:cnv-qe@redhat.com][level:system
 				addNodeAffinityToVMI(vmi, nodes.Items[0].Name)
 
 				By("Starting the VirtualMachineInstance")
-				vmi = runVMIAndExpectLaunch(vmi, 240)
+				vmi = tests.RunVMIAndExpectLaunch(vmi, 240)
 
 				// execute a migration that is expected to fail
 				By("Starting the Migration")
@@ -1259,7 +1255,7 @@ var _ = Describe("[rfe_id:393][crit:high][vendor:cnv-qe@redhat.com][level:system
 				vmi.Spec.Domain.Resources.Requests[k8sv1.ResourceMemory] = resource.MustParse(fedoraVMSize)
 
 				By("Starting the VirtualMachineInstance")
-				vmi = runVMIAndExpectLaunch(vmi, 240)
+				vmi = tests.RunVMIAndExpectLaunch(vmi, 240)
 
 				// execute a migration that is expected to fail
 				By("Starting the Migration")
@@ -1330,7 +1326,7 @@ var _ = Describe("[rfe_id:393][crit:high][vendor:cnv-qe@redhat.com][level:system
 				vmi.Spec.Domain.Resources.Requests[k8sv1.ResourceMemory] = resource.MustParse(fedoraVMSize)
 
 				By("Starting the VirtualMachineInstance")
-				vmi = runVMIAndExpectLaunch(vmi, 240)
+				vmi = tests.RunVMIAndExpectLaunch(vmi, 240)
 
 				// Need to wait for cloud init to finnish and start the agent inside the vmi.
 				tests.WaitAgentConnected(virtClient, vmi)
@@ -1363,7 +1359,7 @@ var _ = Describe("[rfe_id:393][crit:high][vendor:cnv-qe@redhat.com][level:system
 				vmi.Spec.Domain.Devices.Rng = &v1.Rng{}
 
 				By("Starting the VirtualMachineInstance")
-				vmi = runVMIAndExpectLaunch(vmi, 240)
+				vmi = tests.RunVMIAndExpectLaunch(vmi, 240)
 
 				By("Checking that the VirtualMachineInstance console has expected output")
 				Expect(console.LoginToFedora(vmi)).To(Succeed())
@@ -1422,7 +1418,7 @@ var _ = Describe("[rfe_id:393][crit:high][vendor:cnv-qe@redhat.com][level:system
 
 				Eventually(ThisDV(dataVolume), 240).Should(Or(HaveSucceeded(), BeInPhase(cdiv1.WaitForFirstConsumer)))
 
-				vmi = runVMIAndExpectLaunch(vmi, 240)
+				vmi = tests.RunVMIAndExpectLaunch(vmi, 240)
 
 				// Verify console on last iteration to verify the VirtualMachineInstance is still booting properly
 				// after being restarted multiple times
@@ -1459,7 +1455,7 @@ var _ = Describe("[rfe_id:393][crit:high][vendor:cnv-qe@redhat.com][level:system
 				vmi, _ := tests.NewRandomVirtualMachineInstanceWithBlockDisk(cd.DataVolumeImportUrlForContainerDisk(cd.ContainerDiskAlpine), util.NamespaceTestDefault, k8sv1.ReadWriteMany)
 
 				By("Starting the VirtualMachineInstance")
-				vmi = runVMIAndExpectLaunch(vmi, 300)
+				vmi = tests.RunVMIAndExpectLaunch(vmi, 300)
 
 				By("Checking that the VirtualMachineInstance console has expected output")
 				Expect(console.LoginToAlpine(vmi)).To(Succeed())
@@ -1483,7 +1479,7 @@ var _ = Describe("[rfe_id:393][crit:high][vendor:cnv-qe@redhat.com][level:system
 				vmi.Spec.Domain.Resources.Requests[k8sv1.ResourceMemory] = resource.MustParse(fedoraVMSize)
 
 				By("Starting the VirtualMachineInstance")
-				vmi = runVMIAndExpectLaunch(vmi, 240)
+				vmi = tests.RunVMIAndExpectLaunch(vmi, 240)
 
 				// Need to wait for cloud init to finish and start the agent inside the vmi.
 				tests.WaitAgentConnected(virtClient, vmi)
@@ -1535,7 +1531,7 @@ var _ = Describe("[rfe_id:393][crit:high][vendor:cnv-qe@redhat.com][level:system
 				tests.AddEphemeralDisk(vmi, "myephemeral", "virtio", image)
 
 				By("Starting the VirtualMachineInstance")
-				vmi = runVMIAndExpectLaunch(vmi, 180)
+				vmi = tests.RunVMIAndExpectLaunch(vmi, 180)
 
 				By("Checking that the VirtualMachineInstance console has expected output")
 				Expect(console.LoginToAlpine(vmi)).To(Succeed())
@@ -1557,7 +1553,7 @@ var _ = Describe("[rfe_id:393][crit:high][vendor:cnv-qe@redhat.com][level:system
 			It("[release-blocker][test_id:1377]should be successfully migrated multiple times", func() {
 				// Start the VirtualMachineInstance with the PVC attached
 				vmi, _ := tests.NewRandomVirtualMachineInstanceWithBlockDisk(cd.DataVolumeImportUrlForContainerDisk(cd.ContainerDiskAlpine), util.NamespaceTestDefault, k8sv1.ReadWriteMany)
-				vmi = runVMIAndExpectLaunch(vmi, 180)
+				vmi = tests.RunVMIAndExpectLaunch(vmi, 180)
 
 				By("Checking that the VirtualMachineInstance console has expected output")
 				Expect(console.LoginToAlpine(vmi)).To(Succeed())
@@ -1585,7 +1581,7 @@ var _ = Describe("[rfe_id:393][crit:high][vendor:cnv-qe@redhat.com][level:system
 				vmi, _ := tests.NewRandomVirtualMachineInstanceWithBlockDisk(cd.DataVolumeImportUrlForContainerDisk(cd.ContainerDiskCirros), util.NamespaceTestDefault, k8sv1.ReadWriteMany)
 				tests.AddUserData(vmi, "cloud-init", "#!/bin/bash\necho 'hello'\n")
 				vmi.Spec.Hostname = fmt.Sprintf("%s", cd.ContainerDiskCirros)
-				vmi = runVMIAndExpectLaunch(vmi, 180)
+				vmi = tests.RunVMIAndExpectLaunch(vmi, 180)
 
 				By("Checking that the VirtualMachineInstance console has expected output")
 				Expect(console.LoginToCirros(vmi)).To(Succeed())
@@ -1869,7 +1865,7 @@ var _ = Describe("[rfe_id:393][crit:high][vendor:cnv-qe@redhat.com][level:system
 					)
 
 					By("Starting the VirtualMachineInstance")
-					vmi = runVMIAndExpectLaunch(vmi, 240)
+					vmi = tests.RunVMIAndExpectLaunch(vmi, 240)
 
 					By("Checking that the VirtualMachineInstance console has expected output")
 					Expect(console.LoginToAlpine(vmi)).To(Succeed())
@@ -1898,7 +1894,7 @@ var _ = Describe("[rfe_id:393][crit:high][vendor:cnv-qe@redhat.com][level:system
 					vmi.Spec.Domain.Resources.Requests[k8sv1.ResourceMemory] = resource.MustParse(fedoraVMSize)
 
 					By("Starting the VirtualMachineInstance")
-					vmi = runVMIAndExpectLaunch(vmi, 240)
+					vmi = tests.RunVMIAndExpectLaunch(vmi, 240)
 
 					// Need to wait for cloud init to finish and start the agent inside the vmi.
 					tests.WaitAgentConnected(virtClient, vmi)
@@ -1976,7 +1972,7 @@ var _ = Describe("[rfe_id:393][crit:high][vendor:cnv-qe@redhat.com][level:system
 					vmi.Spec.Domain.Resources.Requests[k8sv1.ResourceMemory] = resource.MustParse(fedoraVMSize)
 
 					By("Starting the VirtualMachineInstance")
-					vmi = runVMIAndExpectLaunch(vmi, 240)
+					vmi = tests.RunVMIAndExpectLaunch(vmi, 240)
 
 					// Need to wait for cloud init to finish and start the agent inside the vmi.
 					tests.WaitAgentConnected(virtClient, vmi)
@@ -2094,7 +2090,7 @@ var _ = Describe("[rfe_id:393][crit:high][vendor:cnv-qe@redhat.com][level:system
 				vmi.Spec.Domain.Devices.Rng = &v1.Rng{}
 
 				By("Starting the VirtualMachineInstance")
-				vmi = runVMIAndExpectLaunch(vmi, 240)
+				vmi = tests.RunVMIAndExpectLaunch(vmi, 240)
 
 				By("Checking that the VirtualMachineInstance console has expected output")
 				Expect(console.LoginToFedora(vmi)).To(Succeed())
@@ -2152,7 +2148,7 @@ var _ = Describe("[rfe_id:393][crit:high][vendor:cnv-qe@redhat.com][level:system
 				vmi.Spec.Domain.Resources.Requests[k8sv1.ResourceMemory] = resource.MustParse("1Gi")
 
 				By("Starting the VirtualMachineInstance")
-				vmi = runVMIAndExpectLaunch(vmi, 240)
+				vmi = tests.RunVMIAndExpectLaunch(vmi, 240)
 
 				By("Checking that the VirtualMachineInstance console has expected output")
 				Expect(console.LoginToFedora(vmi)).To(Succeed())
@@ -2183,7 +2179,7 @@ var _ = Describe("[rfe_id:393][crit:high][vendor:cnv-qe@redhat.com][level:system
 				vmi.Spec.Domain.Resources.Requests[k8sv1.ResourceMemory] = resource.MustParse(fedoraVMSize)
 
 				By("Starting the VirtualMachineInstance")
-				vmi = runVMIAndExpectLaunch(vmi, 240)
+				vmi = tests.RunVMIAndExpectLaunch(vmi, 240)
 
 				By("Checking that the VirtualMachineInstance console has expected output")
 				Expect(console.LoginToFedora(vmi)).To(Succeed())
@@ -2214,7 +2210,7 @@ var _ = Describe("[rfe_id:393][crit:high][vendor:cnv-qe@redhat.com][level:system
 				vmi.Spec.Domain.Resources.Requests[k8sv1.ResourceMemory] = resource.MustParse("1Gi")
 
 				By("Starting the VirtualMachineInstance")
-				vmi = runVMIAndExpectLaunch(vmi, 240)
+				vmi = tests.RunVMIAndExpectLaunch(vmi, 240)
 
 				By("Checking that the VirtualMachineInstance console has expected output")
 				Expect(console.LoginToFedora(vmi)).To(Succeed())
@@ -2310,7 +2306,7 @@ var _ = Describe("[rfe_id:393][crit:high][vendor:cnv-qe@redhat.com][level:system
 				vmi.Annotations = map[string]string{v1.FuncTestForceLauncherMigrationFailureAnnotation: ""}
 
 				By("Starting the VirtualMachineInstance")
-				vmi = runVMIAndExpectLaunch(vmi, 240)
+				vmi = tests.RunVMIAndExpectLaunch(vmi, 240)
 
 				for i := 0; i < 10; i++ {
 					// execute a migration, wait for finalized state
@@ -2357,7 +2353,7 @@ var _ = Describe("[rfe_id:393][crit:high][vendor:cnv-qe@redhat.com][level:system
 				vmi.Annotations = map[string]string{v1.FuncTestForceLauncherMigrationFailureAnnotation: ""}
 
 				By("Starting the VirtualMachineInstance")
-				vmi = runVMIAndExpectLaunch(vmi, 240)
+				vmi = tests.RunVMIAndExpectLaunch(vmi, 240)
 
 				// execute a migration, wait for finalized state
 				By("Starting the Migration")
@@ -2397,7 +2393,7 @@ var _ = Describe("[rfe_id:393][crit:high][vendor:cnv-qe@redhat.com][level:system
 				vmi.Annotations = map[string]string{v1.FuncTestBlockLauncherPrepareMigrationTargetAnnotation: ""}
 
 				By("Starting the VirtualMachineInstance")
-				vmi = runVMIAndExpectLaunch(vmi, 240)
+				vmi = tests.RunVMIAndExpectLaunch(vmi, 240)
 
 				// execute a migration
 				By("Starting the Migration")
@@ -2480,7 +2476,7 @@ var _ = Describe("[rfe_id:393][crit:high][vendor:cnv-qe@redhat.com][level:system
 				vmi.Annotations = map[string]string{v1.FuncTestBlockLauncherPrepareMigrationTargetAnnotation: ""}
 
 				By("Starting the VirtualMachineInstance")
-				vmi = runVMIAndExpectLaunch(vmi, 240)
+				vmi = tests.RunVMIAndExpectLaunch(vmi, 240)
 
 				// execute a migration
 				By("Starting the Migration")
@@ -2551,7 +2547,7 @@ var _ = Describe("[rfe_id:393][crit:high][vendor:cnv-qe@redhat.com][level:system
 
 				vmi, _ := tests.NewRandomVirtualMachineInstanceWithBlockDisk(cd.DataVolumeImportUrlForContainerDisk(cd.ContainerDiskAlpineTestTooling), util.NamespaceTestDefault, k8sv1.ReadWriteOnce)
 				vmi.Spec.Hostname = string(cd.ContainerDiskAlpine)
-				vmi = runVMIAndExpectLaunch(vmi, 180)
+				vmi = tests.RunVMIAndExpectLaunch(vmi, 180)
 
 				By("Checking that the VirtualMachineInstance console has expected output")
 				Expect(console.LoginToAlpine(vmi)).To(Succeed())
@@ -2637,7 +2633,7 @@ var _ = Describe("[rfe_id:393][crit:high][vendor:cnv-qe@redhat.com][level:system
 				Expect(limitMigrationBadwidth(resource.MustParse("1Mi"))).To(Succeed())
 
 				By("Starting the VirtualMachineInstance")
-				vmi = runVMIAndExpectLaunch(vmi, 240)
+				vmi = tests.RunVMIAndExpectLaunch(vmi, 240)
 
 				By("Starting the Migration")
 				migration := tests.NewRandomMigration(vmi.Name, vmi.Namespace)
@@ -2668,7 +2664,7 @@ var _ = Describe("[rfe_id:393][crit:high][vendor:cnv-qe@redhat.com][level:system
 				Expect(limitMigrationBadwidth(resource.MustParse("1Mi"))).To(Succeed())
 
 				By("Starting the VirtualMachineInstance")
-				vmi = runVMIAndExpectLaunch(vmi, 240)
+				vmi = tests.RunVMIAndExpectLaunch(vmi, 240)
 
 				// execute a migration, wait for finalized state
 				By("Starting the Migration")
@@ -2785,7 +2781,7 @@ var _ = Describe("[rfe_id:393][crit:high][vendor:cnv-qe@redhat.com][level:system
 				}
 
 				By("Starting the VirtualMachineInstance")
-				vmi = runVMIAndExpectLaunch(vmi, 240)
+				vmi = tests.RunVMIAndExpectLaunch(vmi, 240)
 
 				By("Fetching original host CPU model & supported CPU features")
 				originalNode, err := virtClient.CoreV1().Nodes().Get(context.Background(), vmi.Status.NodeName, metav1.GetOptions{})
@@ -2823,7 +2819,7 @@ var _ = Describe("[rfe_id:393][crit:high][vendor:cnv-qe@redhat.com][level:system
 					vmi.Spec.Domain.CPU = &v1.CPU{Model: v1.CPUModeHostModel}
 
 					By("Starting the VirtualMachineInstance")
-					vmi = runVMIAndExpectLaunch(vmi, 240)
+					vmi = tests.RunVMIAndExpectLaunch(vmi, 240)
 
 					By("Saving the original node's state")
 					node, err = virtClient.CoreV1().Nodes().Get(context.Background(), vmi.Status.NodeName, metav1.GetOptions{})
@@ -2887,7 +2883,7 @@ var _ = Describe("[rfe_id:393][crit:high][vendor:cnv-qe@redhat.com][level:system
 					vmi.Spec.Domain.CPU = &v1.CPU{Model: v1.CPUModeHostModel}
 
 					By("Starting the VirtualMachineInstance")
-					vmi = runVMIAndExpectLaunch(vmi, 240)
+					vmi = tests.RunVMIAndExpectLaunch(vmi, 240)
 
 					for indx, node := range nodes {
 						patchedNode := stopNodeLabeller(node.Name, virtClient)
@@ -2979,7 +2975,7 @@ var _ = Describe("[rfe_id:393][crit:high][vendor:cnv-qe@redhat.com][level:system
 				}
 
 				By("Starting the VirtualMachineInstance")
-				vmi = runVMIAndExpectLaunch(vmi, 240)
+				vmi = tests.RunVMIAndExpectLaunch(vmi, 240)
 
 				By("Starting the Migration")
 				migration := tests.NewRandomMigration(vmi.Name, vmi.Namespace)
@@ -3010,7 +3006,7 @@ var _ = Describe("[rfe_id:393][crit:high][vendor:cnv-qe@redhat.com][level:system
 			Expect(vmi.Spec.Domain.Devices.Disks).To(HaveLen(6))
 			Expect(vmi.Spec.Domain.Devices.Interfaces).To(HaveLen(1))
 
-			vmi = runVMIAndExpectLaunch(vmi, 180)
+			vmi = tests.RunVMIAndExpectLaunch(vmi, 180)
 
 			// execute a migration, wait for finalized state
 			By("Starting the Migration")
@@ -3039,7 +3035,7 @@ var _ = Describe("[rfe_id:393][crit:high][vendor:cnv-qe@redhat.com][level:system
 			})
 
 			It("[test_id:3242]should block the eviction api and migrate", func() {
-				vmi = runVMIAndExpectLaunch(vmi, 180)
+				vmi = tests.RunVMIAndExpectLaunch(vmi, 180)
 				vmiNodeOrig := vmi.Status.NodeName
 				pod := tests.GetRunningPodByVirtualMachineInstance(vmi, vmi.Namespace)
 				err := virtClient.CoreV1().Pods(vmi.Namespace).EvictV1beta1(context.Background(), &policyv1beta1.Eviction{ObjectMeta: metav1.ObjectMeta{Name: pod.Name}})
@@ -3139,7 +3135,7 @@ var _ = Describe("[rfe_id:393][crit:high][vendor:cnv-qe@redhat.com][level:system
 				vmi = fedoraVMIWithEvictionStrategy()
 
 				By("Starting the VirtualMachineInstance")
-				vmi = runVMIAndExpectLaunch(vmi, 240)
+				vmi = tests.RunVMIAndExpectLaunch(vmi, 240)
 
 				By("Checking that the VirtualMachineInstance console has expected output")
 				Expect(console.LoginToFedora(vmi)).To(Succeed())
@@ -3214,7 +3210,7 @@ var _ = Describe("[rfe_id:393][crit:high][vendor:cnv-qe@redhat.com][level:system
 					vmi = fedoraVMIWithEvictionStrategy()
 
 					By("Starting the VirtualMachineInstance")
-					vmi = runVMIAndExpectLaunch(vmi, 180)
+					vmi = tests.RunVMIAndExpectLaunch(vmi, 180)
 
 					tests.WaitAgentConnected(virtClient, vmi)
 
@@ -3264,7 +3260,7 @@ var _ = Describe("[rfe_id:393][crit:high][vendor:cnv-qe@redhat.com][level:system
 					vmi = fedoraVMIWithEvictionStrategy()
 
 					By("Starting the VirtualMachineInstance")
-					vmi = runVMIAndExpectLaunch(vmi, 180)
+					vmi = tests.RunVMIAndExpectLaunch(vmi, 180)
 
 					By("Checking that the VirtualMachineInstance console has expected output")
 					Expect(console.LoginToFedora(vmi)).To(Succeed())
@@ -3315,7 +3311,7 @@ var _ = Describe("[rfe_id:393][crit:high][vendor:cnv-qe@redhat.com][level:system
 					tests.UpdateKubeVirtConfigValueAndWait(cfg)
 
 					By("Starting the VirtualMachineInstance")
-					vmi = runVMIAndExpectLaunch(vmi, 180)
+					vmi = tests.RunVMIAndExpectLaunch(vmi, 180)
 
 					// Mark the masters as schedulable so we can migrate there
 					setMastersUnschedulable(false)
@@ -3557,7 +3553,7 @@ var _ = Describe("[rfe_id:393][crit:high][vendor:cnv-qe@redhat.com][level:system
 				It("should block the eviction api and migrate", func() {
 					// no EvictionStrategy set
 					vmi := tests.NewRandomVMIWithEphemeralDisk(cd.ContainerDiskFor(cd.ContainerDiskAlpine))
-					vmi = runVMIAndExpectLaunch(vmi, 180)
+					vmi = tests.RunVMIAndExpectLaunch(vmi, 180)
 					vmiNodeOrig := vmi.Status.NodeName
 					pod := tests.GetRunningPodByVirtualMachineInstance(vmi, vmi.Namespace)
 					err := virtClient.CoreV1().Pods(vmi.Namespace).EvictV1beta1(context.Background(), &policyv1beta1.Eviction{ObjectMeta: metav1.ObjectMeta{Name: pod.Name}})
@@ -3595,7 +3591,7 @@ var _ = Describe("[rfe_id:393][crit:high][vendor:cnv-qe@redhat.com][level:system
 					vmi := tests.NewRandomVMIWithEphemeralDisk(cd.ContainerDiskFor(cd.ContainerDiskAlpine))
 					evictionStrategy := v1.EvictionStrategyNone
 					vmi.Spec.EvictionStrategy = &evictionStrategy
-					vmi = runVMIAndExpectLaunch(vmi, 180)
+					vmi = tests.RunVMIAndExpectLaunch(vmi, 180)
 					pod := tests.GetRunningPodByVirtualMachineInstance(vmi, vmi.Namespace)
 					err := virtClient.CoreV1().Pods(vmi.Namespace).EvictV1beta1(context.Background(), &policyv1beta1.Eviction{ObjectMeta: metav1.ObjectMeta{Name: pod.Name}})
 					Expect(err).ToNot(HaveOccurred())
@@ -3811,7 +3807,7 @@ var _ = Describe("[rfe_id:393][crit:high][vendor:cnv-qe@redhat.com][level:system
 				NodeAffinity: nodeAffinityRule,
 			}
 			By("Starting the VirtualMachineInstance")
-			vmiToMigrate = runVMIAndExpectLaunch(vmiToMigrate, 240)
+			vmiToMigrate = tests.RunVMIAndExpectLaunch(vmiToMigrate, 240)
 			Expect(vmiToMigrate.Status.NodeName).To(Equal(sourceNode.Name))
 			Expect(console.LoginToFedora(vmiToMigrate)).To(Succeed())
 
@@ -3872,7 +3868,7 @@ var _ = Describe("[rfe_id:393][crit:high][vendor:cnv-qe@redhat.com][level:system
 				NodeAffinity: nodeAffinityRule,
 			}
 			By("Starting the VirtualMachineInstance")
-			vmiToMigrate = runVMIAndExpectLaunch(vmiToMigrate, 240)
+			vmiToMigrate = tests.RunVMIAndExpectLaunch(vmiToMigrate, 240)
 			Expect(vmiToMigrate.Status.NodeName).To(Equal(sourceNode.Name))
 			Expect(console.LoginToFedora(vmiToMigrate)).To(Succeed())
 
@@ -4146,7 +4142,7 @@ var _ = Describe("[rfe_id:393][crit:high][vendor:cnv-qe@redhat.com][level:system
 	It("should update MigrationState's MigrationConfiguration of VMI status", func() {
 		By("Starting a VMI")
 		vmi := tests.NewRandomVMIWithEphemeralDisk(cd.ContainerDiskFor(cd.ContainerDiskAlpine))
-		vmi = runVMIAndExpectLaunch(vmi, 240)
+		vmi = tests.RunVMIAndExpectLaunch(vmi, 240)
 
 		By("Starting a Migration")
 		migration := tests.NewRandomMigration(vmi.Name, vmi.Namespace)
@@ -4173,7 +4169,7 @@ var _ = Describe("[rfe_id:393][crit:high][vendor:cnv-qe@redhat.com][level:system
 				libvmi.WithInterface(libvmi.InterfaceDeviceWithMasqueradeBinding()),
 				libvmi.WithNetwork(v1.DefaultPodNetwork()),
 			)
-			vmi = runVMIAndExpectLaunch(vmi, 240)
+			vmi = tests.RunVMIAndExpectLaunch(vmi, 240)
 
 			By("Checking that there always is at most one migration running")
 			Consistently(func() int {
@@ -4221,7 +4217,7 @@ var _ = Describe("[rfe_id:393][crit:high][vendor:cnv-qe@redhat.com][level:system
 					libvmi.WithResourceMemory("1Mi"),
 					libvmi.WithCPUFeature("invtsc", "require"),
 				)
-				vmi = runVMIAndExpectLaunch(vmi, 240)
+				vmi = tests.RunVMIAndExpectLaunch(vmi, 240)
 
 				expectTopologyHintsToBeSet(vmi)
 			})
@@ -4232,7 +4228,7 @@ var _ = Describe("[rfe_id:393][crit:high][vendor:cnv-qe@redhat.com][level:system
 				vmi.Spec.Domain.Devices.Disks = []v1.Disk{}
 				vmi.Spec.Volumes = []v1.Volume{}
 				vmi.Spec.Domain.Features.Hyperv.Reenlightenment = &v1.FeatureState{Enabled: pointer.Bool(true)}
-				vmi = runVMIAndExpectLaunch(vmi, 240)
+				vmi = tests.RunVMIAndExpectLaunch(vmi, 240)
 
 				expectTopologyHintsToBeSet(vmi)
 			})
