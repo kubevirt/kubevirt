@@ -3667,7 +3667,7 @@ var _ = Describe("[rfe_id:393][crit:high][vendor:cnv-qe@redhat.com][level:system
 	})
 
 	Context("[Serial] with CPU pinning and huge pages", func() {
-		It("should not make migrations fail", func() {
+		It("should not make migrations fail", Label("needs-three-nodes"), func() {
 			checks.SkipTestIfNotEnoughNodesWithCPUManagerWith2MiHugepages(2)
 			var err error
 			cpuVMI := tests.NewRandomVMIWithEphemeralDisk(cd.ContainerDiskFor(cd.ContainerDiskAlpine))
@@ -3690,7 +3690,7 @@ var _ = Describe("[rfe_id:393][crit:high][vendor:cnv-qe@redhat.com][level:system
 			tests.RunMigrationAndExpectCompletion(virtClient, migration, tests.MigrationWaitTime)
 		})
 		Context("and NUMA passthrough", func() {
-			It("should not make migrations fail", func() {
+			It("should not make migrations fail", Label("needs-three-nodes"), func() {
 				checks.SkipTestIfNoFeatureGate(virtconfig.NUMAFeatureGate)
 				checks.SkipTestIfNotEnoughNodesWithCPUManagerWith2MiHugepages(2)
 				var err error
@@ -3976,7 +3976,7 @@ var _ = Describe("[rfe_id:393][crit:high][vendor:cnv-qe@redhat.com][level:system
 			return false
 		}
 
-		BeforeEach(func() {
+		BeforeEach(Label("needs-three-nodes"), func() {
 			// We will get focused to run on migration test lanes because we contain the word "Migration".
 			// However, we need to be sig-something or we'll fail the check, even if we don't run on any sig- lane.
 			// So let's be sig-compute and skip ourselves on sig-compute always... (they have only 1 node with CPU manager)
