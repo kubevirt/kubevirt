@@ -32,6 +32,7 @@ import (
 	kvv1 "kubevirt.io/api/core/v1"
 	"kubevirt.io/client-go/kubecli"
 	"kubevirt.io/client-go/log"
+
 	"kubevirt.io/kubevirt/pkg/controller"
 	objUtils "kubevirt.io/kubevirt/tools/perfscale-load-generator/object"
 )
@@ -121,7 +122,7 @@ func (w *ObjListWatcher) handleUpdate(obj interface{}) {
 			w.addObj(w.getID(vmi))
 		}
 		if vmi.Status.Phase == kvv1.Succeeded || vmi.Status.Phase == kvv1.Failed {
-			log.Log.V(4).Errorf("VirtualMachineInstance obj: %v Succeeded, waiting for garbage collection", fmt.Sprintf("%s/%s", vmi.Namespace, vmi.Name))
+			log.Log.V(4).Errorf("VirtualMachineInstance obj: %s is a final state, waiting for garbage collection", fmt.Sprintf("%s/%s", vmi.Namespace, vmi.Name))
 		}
 
 	case objUtils.VMResource:
@@ -231,7 +232,7 @@ func (w *ObjListWatcher) WaitDeletion(timeout time.Duration) error {
 
 		case <-w.updateChannel:
 			count := w.getRunningCount()
-			if count == 0 || count == w.desiredObjRunningCount {
+			if count == 0 {
 				return nil
 			}
 			log.Log.V(6).Infof("Still %d %v waiting to be Garbage Collected", count, w.ResourceKind)
@@ -273,8 +274,10 @@ func (w *ObjListWatcher) isGarbageCollected(obj interface{}) (bool, error) {
 		log.Log.V(2).Errorf("Error getting obj %s from cache err: %v", obj, err)
 		return false, err
 	case !exists:
+		log.Log.V(4).Errorf("Obj %s not found in cache", objKey)
 		return true, nil
 	default:
+		log.Log.V(4).Errorf("Obj %s found in cache", objKey)
 		return false, nil
 	}
 }
