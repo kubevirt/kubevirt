@@ -13,6 +13,7 @@ import (
 	"k8s.io/apiextensions-apiserver/pkg/client/clientset/clientset"
 	"k8s.io/apimachinery/pkg/api/errors"
 	v1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	"k8s.io/apimachinery/pkg/types"
 
 	"github.com/onsi/ginkgo/v2"
 
@@ -20,6 +21,8 @@ import (
 	"kubevirt.io/client-go/kubecli"
 
 	virtconfig "kubevirt.io/kubevirt/pkg/virt-config"
+
+	"kubevirt.io/kubevirt/pkg/apimachinery/patch"
 
 	"kubevirt.io/kubevirt/tests/libnode"
 	"kubevirt.io/kubevirt/tests/util"
@@ -150,9 +153,7 @@ func SkipIfMissingRequiredImage(virtClient kubecli.KubevirtClient, imageName str
 	if err != nil || windowsPv.Status.Phase == v12.VolumePending || windowsPv.Status.Phase == v12.VolumeFailed {
 		ginkgo.Skip(fmt.Sprintf("Skip tests that requires PV %s", imageName))
 	} else if windowsPv.Status.Phase == v12.VolumeReleased {
-		windowsPv.Spec.ClaimRef = nil
-		_, err = virtClient.CoreV1().PersistentVolumes().Update(context.Background(), windowsPv, v1.UpdateOptions{})
-		gomega.Expect(err).ToNot(gomega.HaveOccurred())
+		gomega.Expect(deletePVClaimRef(virtClient, windowsPv.Name)).To(gomega.Succeed())
 	}
 }
 
@@ -161,9 +162,7 @@ func SkipIfNoRhelImage(virtClient kubecli.KubevirtClient) {
 	if err != nil || rhelPv.Status.Phase == v12.VolumePending || rhelPv.Status.Phase == v12.VolumeFailed {
 		ginkgo.Skip(fmt.Sprintf("Skip RHEL tests that requires PVC %s", diskRhel))
 	} else if rhelPv.Status.Phase == v12.VolumeReleased {
-		rhelPv.Spec.ClaimRef = nil
-		_, err = virtClient.CoreV1().PersistentVolumes().Update(context.Background(), rhelPv, v1.UpdateOptions{})
-		gomega.Expect(err).ToNot(gomega.HaveOccurred())
+		gomega.Expect(deletePVClaimRef(virtClient, rhelPv.Name)).To(gomega.Succeed())
 	}
 }
 
@@ -238,4 +237,19 @@ func SkipIfARM64(arch string, message string) {
 	if IsARM64(arch) {
 		ginkgo.Skip("Skip test on arm64: " + message)
 	}
+}
+
+func deletePVClaimRef(client kubecli.KubevirtClient, pvName string) error {
+	patchData, err := patch.GeneratePatchPayload(
+		patch.PatchOperation{
+			Op:   patch.PatchRemoveOp,
+			Path: "/spec/claimRef",
+		},
+	)
+	if err != nil {
+		return err
+	}
+
+	_, err = client.CoreV1().PersistentVolumes().Patch(context.Background(), pvName, types.JSONPatchType, patchData, v1.PatchOptions{})
+	return err
 }
