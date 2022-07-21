@@ -37,6 +37,7 @@ import (
 	admissionregistrationv1 "k8s.io/api/admissionregistration/v1"
 	appsv1 "k8s.io/api/apps/v1"
 	corev1 "k8s.io/api/core/v1"
+	flowcontrol "k8s.io/api/flowcontrol/v1beta2"
 	rbacv1 "k8s.io/api/rbac/v1"
 	ext "k8s.io/apiextensions-apiserver/pkg/apis/apiextensions"
 	extv1 "k8s.io/apiextensions-apiserver/pkg/apis/apiextensions/v1"
@@ -94,6 +95,7 @@ type Strategy struct {
 	prometheusRules                 []*promv1.PrometheusRule
 	configMaps                      []*corev1.ConfigMap
 	routes                          []*routev1.Route
+	flowSchemas                     []*flowcontrol.FlowSchema
 }
 
 func (ins *Strategy) ServiceAccounts() []*corev1.ServiceAccount {
@@ -203,6 +205,10 @@ func (ins *Strategy) ConfigMaps() []*corev1.ConfigMap {
 
 func (ins *Strategy) CRDs() []*extv1.CustomResourceDefinition {
 	return ins.crds
+}
+
+func (ins *Strategy) FlowSchemas() []*flowcontrol.FlowSchema {
+	return ins.flowSchemas
 }
 
 func (ins *Strategy) Routes() []*routev1.Route {
@@ -386,6 +392,9 @@ func dumpInstallStrategyToBytes(strategy *Strategy) []byte {
 	for _, entry := range strategy.routes {
 		marshalutil.MarshallObject(entry, writer)
 	}
+	for _, entry := range strategy.flowSchemas {
+		marshalutil.MarshallObject(entry, writer)
+	}
 	writer.Flush()
 
 	return b.Bytes()
@@ -468,6 +477,8 @@ func GenerateCurrentInstallStrategy(config *operatorutil.KubeVirtDeploymentConfi
 	var productComponent string
 
 	invalidLabelPatternErrorMessage := "invalid %s: labels must be 63 characters or less, begin and end with alphanumeric characters, and contain only dot, hyphen or dash"
+
+	strategy.flowSchemas = append(strategy.flowSchemas, components.NewKubeVirtFlowSchema())
 
 	if operatorutil.IsValidLabel(config.GetProductName()) {
 		productName = config.GetProductName()
@@ -752,6 +763,12 @@ func loadInstallStrategyFromBytes(data string) (*Strategy, error) {
 				return nil, err
 			}
 			strategy.routes = append(strategy.routes, route)
+		case "FlowSchema":
+			f := &flowcontrol.FlowSchema{}
+			if err := yaml.Unmarshal([]byte(entry), &f); err != nil {
+				return nil, err
+			}
+			strategy.flowSchemas = append(strategy.flowSchemas, f)
 		default:
 			return nil, fmt.Errorf("UNKNOWN TYPE %s detected", obj.Kind)
 

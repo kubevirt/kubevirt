@@ -552,6 +552,12 @@ func (r *Reconciler) Sync(queue workqueue.RateLimitingInterface) (bool, error) {
 		return false, err
 	}
 
+	// create/update FlowControls
+	err = r.createOrUpdateFlowControls()
+	if err != nil {
+		return false, err
+	}
+
 	// backup any old RBAC rules that don't match current version
 	if !infrastructureRolledOver {
 		err = r.backupRBACs()

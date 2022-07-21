@@ -37,6 +37,7 @@ import (
 	appsv1 "k8s.io/api/apps/v1"
 	batchv1 "k8s.io/api/batch/v1"
 	k8sv1 "k8s.io/api/core/v1"
+	flowcontrol "k8s.io/api/flowcontrol/v1beta2"
 	networkingv1 "k8s.io/api/networking/v1"
 	policyv1 "k8s.io/api/policy/v1"
 	rbacv1 "k8s.io/api/rbac/v1"
@@ -154,6 +155,9 @@ type KubeInformerFactory interface {
 
 	// ConfigMaps which are managed by the operator
 	OperatorConfigMap() cache.SharedIndexInformer
+
+	// FlowControls which are managed by the operator
+	OperatorFlowControl() cache.SharedIndexInformer
 
 	// Watches for PersistentVolumeClaim objects
 	PersistentVolumeClaim() cache.SharedIndexInformer
@@ -892,6 +896,19 @@ func (f *kubeInformerFactory) OperatorConfigMap() cache.SharedIndexInformer {
 		restClient := f.clientSet.CoreV1().RESTClient()
 		lw := NewListWatchFromClient(restClient, "configmaps", f.kubevirtNamespace, fields.Everything(), labelSelector)
 		return cache.NewSharedIndexInformer(lw, &k8sv1.ConfigMap{}, f.defaultResync, cache.Indexers{cache.NamespaceIndex: cache.MetaNamespaceIndexFunc})
+	})
+}
+
+func (f *kubeInformerFactory) OperatorFlowControl() cache.SharedIndexInformer {
+	// filter out install strategies
+	return f.getInformer("OperatorFlowControlInformer", func() cache.SharedIndexInformer {
+		labelSelector, err := labels.Parse(fmt.Sprintf("!%s, %s", kubev1.InstallStrategyLabel, OperatorLabel))
+		if err != nil {
+			panic(err)
+		}
+
+		lw := NewListWatchFromClient(f.clientSet.FlowcontrolV1beta2().RESTClient(), "flowschemas", k8sv1.NamespaceAll, fields.Everything(), labelSelector)
+		return cache.NewSharedIndexInformer(lw, &flowcontrol.FlowSchema{}, f.defaultResync, cache.Indexers{})
 	})
 }
 

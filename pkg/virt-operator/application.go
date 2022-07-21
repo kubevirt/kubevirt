@@ -200,6 +200,7 @@ func Execute() {
 		Namespace:                app.informerFactory.Namespace(),
 		Secrets:                  app.informerFactory.Secrets(),
 		ConfigMap:                app.informerFactory.OperatorConfigMap(),
+		FlowControl:              app.informerFactory.OperatorFlowControl(),
 	}
 
 	app.stores = util.Stores{
@@ -222,6 +223,7 @@ func Execute() {
 		NamespaceCache:                app.informerFactory.Namespace().GetStore(),
 		SecretCache:                   app.informerFactory.Secrets().GetStore(),
 		ConfigMapCache:                app.informerFactory.OperatorConfigMap().GetStore(),
+		FlowControlCache:              app.informerFactory.OperatorFlowControl().GetStore(),
 	}
 
 	onOpenShift, err := clusterutil.IsOnOpenShift(app.clientSet)

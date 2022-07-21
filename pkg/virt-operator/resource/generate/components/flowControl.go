@@ -20,43 +20,76 @@ package components
 
 import (
 	flowcontrol "k8s.io/api/flowcontrol/v1beta2"
+	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	virtv1 "kubevirt.io/api/core/v1"
 )
 
-func newKubeVirtFlowSchema() *flowcontrol.FlowSchema {
-	return &flowcontrol.FlowSchemaSpec{
-		PriorityLevelConfiguration: "workload-low",
-		MatchingPrecedence:         1000, // 1000 makes KubeVirt less important than k8s control-plane but more importnant than user traffic
+const (
+	kubevirtFlowSchemaName = "kubevirt-control-plane"
+)
+
+func NewKubeVirtFlowSchema() *flowcontrol.FlowSchema {
+	kubevirtResources := flowcontrol.ResourcePolicyRule{
+		APIGroups: []string{
+			virtv1.KubeVirtGroupVersionKind.Group,
+		},
+		ClusterScope: true,
+		Namespaces: []string{
+			"*",
+		},
+		Resources: []string{
+			virtv1.VirtualMachineGroupVersionKind.Kind,
+			virtv1.VirtualMachineInstanceGroupVersionKind.Kind,
+			virtv1.VirtualMachineInstanceReplicaSetGroupVersionKind.Kind,
+			virtv1.VirtualMachineInstancePresetGroupVersionKind.Kind,
+			virtv1.VirtualMachineInstanceMigrationGroupVersionKind.Kind,
+		},
+		Verbs: []string{
+			"*",
+		},
+	}
+
+	kubevirtSubject := flowcontrol.Subject{
+		Kind: flowcontrol.SubjectKindServiceAccount,
+		ServiceAccount: &flowcontrol.ServiceAccountSubject{
+			Name:      "*",
+			Namespace: "kubevirt",
+		},
+	}
+	kubevirtPolicy := flowcontrol.PolicyRulesWithSubjects{
+		ResourceRules: []flowcontrol.ResourcePolicyRule{
+			kubevirtResources,
+		},
+		Subjects: []flowcontrol.Subject{
+			kubevirtSubject,
+		},
+	}
+
+	schemaSpec := flowcontrol.FlowSchemaSpec{
+		PriorityLevelConfiguration: flowcontrol.PriorityLevelConfigurationReference{
+			Name: "workload-low",
+		},
+		MatchingPrecedence: 1000, // 1000 makes KubeVirt less important than k8s control-plane but more importnant than user traffic
 		DistinguisherMethod: &flowcontrol.FlowDistinguisherMethod{
-			FlowDistinguisherMethodType: flowcontrol.FlowDistinguisherMethodByUserType,
+			Type: flowcontrol.FlowDistinguisherMethodByUserType,
 		},
 		Rules: []flowcontrol.PolicyRulesWithSubjects{
-			ResourceRules: []ResourcePolicyRule{
-				APIGroups: []string{
-					v1.KubeVirtGroupVersionKind.Group,
-				},
-				ClusterScope: true,
-				Namespaces: []string{
-					"'*'",
-				},
-				Resource: []string{
-					v1.VirtualMachineGroupVersionKind.Kind,
-					v1.VirtualMachineInstanceGroupVersionKind.Kind,
-					v1.VirtualMachineInstanceReplicaSetGroupVersionKind.King,
-					v1.VirtualMachineInstancePresetGroupVersionKind.Kind,
-					vi.VirtualMachineInstanceMigrationGroupVersionKind.Kind,
-				},
-				Verbs: []string{
-					"'*'",
-				},
-			},
-			Subjects: []flowcontrol.Subject{
-				Kind: flowcontrol.SubjectKindServiceAccount,
-				ServiceAccount: &flowcontrol.ServiceAccountSubject{
-					Name:      "'.'",
-					Namespace: "kubevirt",
-				},
+			kubevirtPolicy,
+		},
+	}
+
+	return &flowcontrol.FlowSchema{
+		TypeMeta: metav1.TypeMeta{
+			APIVersion: "flowschema/v1beta2",
+			Kind:       "FlowSchema",
+		},
+		ObjectMeta: metav1.ObjectMeta{
+			Name: kubevirtFlowSchemaName,
+			Labels: map[string]string{
+				virtv1.AppLabel:     kubevirtFlowSchemaName,
+				virtv1.AppNameLabel: kubevirtFlowSchemaName,
 			},
 		},
+		Spec: schemaSpec,
 	}
 }

@@ -51,6 +51,7 @@ type Stores struct {
 	PrometheusRuleCache           cache.Store
 	SecretCache                   cache.Store
 	ConfigMapCache                cache.Store
+	FlowControlCache              cache.Store
 	IsOnOpenshift                 bool
 	ServiceMonitorEnabled         bool
 	PrometheusRulesEnabled        bool
@@ -75,7 +76,8 @@ func (s *Stores) AllEmpty() bool {
 		IsStoreEmpty(s.ServiceMonitorCache) &&
 		IsStoreEmpty(s.PrometheusRuleCache) &&
 		IsStoreEmpty(s.SecretCache) &&
-		IsStoreEmpty(s.ConfigMapCache)
+		IsStoreEmpty(s.ConfigMapCache) &&
+		IsStoreEmpty(s.FlowControlCache)
 
 	// Don't add InstallStrategyConfigMapCache to this list. The install
 	// strategies persist even after deletion and updates.
@@ -124,6 +126,7 @@ type Expectations struct {
 	PrometheusRule           *controller.UIDTrackingControllerExpectations
 	Secrets                  *controller.UIDTrackingControllerExpectations
 	ConfigMap                *controller.UIDTrackingControllerExpectations
+	FlowControl              *controller.UIDTrackingControllerExpectations
 }
 
 type Informers struct {
@@ -150,6 +153,7 @@ type Informers struct {
 	PrometheusRule           cache.SharedIndexInformer
 	Secrets                  cache.SharedIndexInformer
 	ConfigMap                cache.SharedIndexInformer
+	FlowControl              cache.SharedIndexInformer
 }
 
 func (e *Expectations) DeleteExpectations(key string) {
@@ -174,6 +178,7 @@ func (e *Expectations) DeleteExpectations(key string) {
 	e.PrometheusRule.DeleteExpectations(key)
 	e.Secrets.DeleteExpectations(key)
 	e.ConfigMap.DeleteExpectations(key)
+	e.FlowControl.DeleteExpectations(key)
 }
 
 func (e *Expectations) ResetExpectations(key string) {
@@ -198,6 +203,7 @@ func (e *Expectations) ResetExpectations(key string) {
 	e.PrometheusRule.SetExpectations(key, 0, 0)
 	e.Secrets.SetExpectations(key, 0, 0)
 	e.ConfigMap.SetExpectations(key, 0, 0)
+	e.FlowControl.SetExpectations(key, 0, 0)
 }
 
 func (e *Expectations) SatisfiedExpectations(key string) bool {
@@ -221,5 +227,6 @@ func (e *Expectations) SatisfiedExpectations(key string) bool {
 		e.ServiceMonitor.SatisfiedExpectations(key) &&
 		e.PrometheusRule.SatisfiedExpectations(key) &&
 		e.Secrets.SatisfiedExpectations(key) &&
-		e.ConfigMap.SatisfiedExpectations(key)
+		e.ConfigMap.SatisfiedExpectations(key) &&
+		e.FlowControl.SatisfiedExpectations(key)
 }

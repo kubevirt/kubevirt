@@ -265,6 +265,17 @@ func NewOperatorClusterRole() *rbacv1.ClusterRole {
 			},
 			{
 				APIGroups: []string{
+					"flowcontrol.apiserver.k8s.io",
+				},
+				Resources: []string{
+					"flowschemas",
+				},
+				Verbs: []string{
+					"get", "list", "watch", "create", "delete", "update", "patch",
+				},
+			},
+			{
+				APIGroups: []string{
 					"admissionregistration.k8s.io",
 				},
 				Resources: []string{

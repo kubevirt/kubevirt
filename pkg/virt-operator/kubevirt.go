@@ -122,6 +122,7 @@ func NewKubeVirtController(
 			PrometheusRule:           controller.NewUIDTrackingControllerExpectations(controller.NewControllerExpectationsWithName("PrometheusRule")),
 			Secrets:                  controller.NewUIDTrackingControllerExpectations(controller.NewControllerExpectationsWithName("Secret")),
 			ConfigMap:                controller.NewUIDTrackingControllerExpectations(controller.NewControllerExpectationsWithName("ConfigMap")),
+			FlowControl:              controller.NewUIDTrackingControllerExpectations(controller.NewControllerExpectationsWithName("FlowControl")),
 		},
 		installStrategyMap: make(map[string]*install.Strategy),
 		operatorNamespace:  operatorNamespace,
@@ -409,6 +410,18 @@ func NewKubeVirtController(
 		},
 	})
 
+	c.informers.FlowControl.AddEventHandler(cache.ResourceEventHandlerFuncs{
+		AddFunc: func(obj interface{}) {
+			c.genericAddHandler(obj, c.kubeVirtExpectations.FlowControl)
+		},
+		DeleteFunc: func(obj interface{}) {
+			c.genericDeleteHandler(obj, c.kubeVirtExpectations.FlowControl)
+		},
+		UpdateFunc: func(oldObj, newObj interface{}) {
+			c.genericUpdateHandler(oldObj, newObj, c.kubeVirtExpectations.FlowControl)
+		},
+	})
+
 	return &c
 }
 
@@ -581,6 +594,7 @@ func (c *KubeVirtController) Run(threadiness int, stopCh <-chan struct{}) {
 	cache.WaitForCacheSync(stopCh, c.informers.PrometheusRule.HasSynced)
 	cache.WaitForCacheSync(stopCh, c.informers.Secrets.HasSynced)
 	cache.WaitForCacheSync(stopCh, c.informers.ConfigMap.HasSynced)
+	cache.WaitForCacheSync(stopCh, c.informers.FlowControl.HasSynced)
 
 	// Start the actual work
 	for i := 0; i < threadiness; i++ {
