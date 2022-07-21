@@ -93,9 +93,9 @@ import (
 	cd "kubevirt.io/kubevirt/tests/containerdisk"
 	"kubevirt.io/kubevirt/tests/flags"
 	. "kubevirt.io/kubevirt/tests/framework/matcher"
-	"kubevirt.io/kubevirt/tests/libpod"
 	"kubevirt.io/kubevirt/tests/libnet"
 	"kubevirt.io/kubevirt/tests/libnode"
+	"kubevirt.io/kubevirt/tests/libpod"
 	"kubevirt.io/kubevirt/tests/libstorage"
 	"kubevirt.io/kubevirt/tests/libvmi"
 	"kubevirt.io/kubevirt/tests/testsuite"
@@ -317,7 +317,7 @@ func getRunningPodByVirtualMachineInstance(vmi *v1.VirtualMachineInstance, names
 		return nil, err
 	}
 
-	return GetRunningPodByLabel(string(vmi.GetUID()), v1.CreatedByLabel, namespace, vmi.Status.NodeName)
+	return libpod.GetRunningPodByLabel(string(vmi.GetUID()), v1.CreatedByLabel, namespace, vmi.Status.NodeName)
 }
 
 func GetRunningPodByVirtualMachineInstance(vmi *v1.VirtualMachineInstance, namespace string) *k8sv1.Pod {
@@ -384,51 +384,6 @@ func GetPodCPUSet(pod *k8sv1.Pod) (output string, err error) {
 	)
 
 	return
-}
-
-func GetRunningPodByLabel(label string, labelType string, namespace string, node string) (*k8sv1.Pod, error) {
-	virtCli, err := kubecli.GetKubevirtClient()
-	if err != nil {
-		return nil, err
-	}
-
-	labelSelector := fmt.Sprintf("%s=%s", labelType, label)
-	var fieldSelector string
-	if node != "" {
-		fieldSelector = fmt.Sprintf("status.phase==%s,spec.nodeName==%s", k8sv1.PodRunning, node)
-	} else {
-		fieldSelector = fmt.Sprintf("status.phase==%s", k8sv1.PodRunning)
-	}
-	pods, err := virtCli.CoreV1().Pods(namespace).List(context.Background(),
-		metav1.ListOptions{LabelSelector: labelSelector, FieldSelector: fieldSelector},
-	)
-	if err != nil {
-		return nil, err
-	}
-
-	if len(pods.Items) == 0 {
-		return nil, fmt.Errorf("failed to find pod with the label %s", label)
-	}
-
-	var readyPod *k8sv1.Pod
-	for _, pod := range pods.Items {
-		ready := true
-		for _, status := range pod.Status.ContainerStatuses {
-			if status.Name == "kubevirt-infra" {
-				ready = status.Ready
-				break
-			}
-		}
-		if ready {
-			readyPod = &pod
-			break
-		}
-	}
-	if readyPod == nil {
-		return nil, fmt.Errorf("no ready pods with the label %s", label)
-	}
-
-	return readyPod, nil
 }
 
 func GetComputeContainerOfPod(pod *k8sv1.Pod) *k8sv1.Container {
