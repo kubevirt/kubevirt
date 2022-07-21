@@ -81,7 +81,15 @@ func TestTests(t *testing.T) {
 		afterSuiteReporters = append(afterSuiteReporters, &qe_reporters.Polarion)
 	}
 
-	k8sReporter = reporter.NewKubernetesReporter(artifactsPath, maxFails, testsuite.TestNamespaces, tests.IsRunningOnKindInfra())
+	k8sReporter = reporter.NewKubernetesReporter(reporter.KubernetesReporterOptions{
+		ArtifactsDir:     artifactsPath,
+		MaxFails:         maxFails,
+		Namespaces:       testsuite.TestNamespaces,
+		IsRunningOnKind:  tests.IsRunningOnKindInfra(),
+		InstallNamespace: flags.KubeVirtInstallNamespace,
+		KubectlPath:      flags.KubeVirtKubectlPath,
+		OCPath:           flags.KubeVirtOcPath,
+	})
 	k8sReporter.Cleanup()
 
 	vmsgeneratorutils.DockerPrefix = flags.KubeVirtUtilityRepoPrefix
