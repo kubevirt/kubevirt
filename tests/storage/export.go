@@ -938,12 +938,18 @@ var _ = SIGDescribe("Export", func() {
 			config := certutil.Config{
 				CommonName: "blah blah",
 			}
+			config.AltNames.DNSNames = []string{"hahaha.wwoo", hostName, "fgdgd.dfsgdf"}
 
+<<<<<<< HEAD
 			cert, err := certutil.NewSelfSignedCACertWithAltNames(config, key, time.Hour, "hahaha.wwoo", hostName, "fgdgd.dfsgdf")
 			if err != nil {
 				return "", err
 			}
 
+=======
+			cert, err := certutil.NewSelfSignedCACert(config, key, time.Hour)
+			Expect(err).ToNot(HaveOccurred())
+>>>>>>> 0bac4f634 (Return certificate chain for export cert)
 			pemOut := strings.Builder{}
 			if err := pem.Encode(&pemOut, &pem.Block{Type: "CERTIFICATE", Bytes: cert.Raw}); err != nil {
 				return "", err

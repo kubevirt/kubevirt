@@ -20,6 +20,7 @@ package export
 
 import (
 	"crypto/tls"
+	"crypto/x509"
 	"encoding/pem"
 	"fmt"
 	"io/ioutil"
@@ -256,17 +257,32 @@ var _ = Describe("Export controller", func() {
 	})
 
 	generateExpectedCert := func() string {
+		defer GinkgoRecover()
+		caKeyPair, _ := triple.NewCA("kubevirt.io", time.Hour*24*7)
+
+		intermediateKey, err := certutil.NewPrivateKey()
+		Expect(err).ToNot(HaveOccurred())
+		intermediateConfig := certutil.Config{
+			CommonName: "intermediate@1",
+		}
+		intermediateConfig.Usages = []x509.ExtKeyUsage{x509.ExtKeyUsageServerAuth}
+		intermediateCert, err := certutil.NewSignedCert(intermediateConfig, intermediateKey, caKeyPair.Cert, caKeyPair.Key, time.Hour)
+		Expect(err).ToNot(HaveOccurred())
+
 		key, err := certutil.NewPrivateKey()
 		Expect(err).ToNot(HaveOccurred())
 
 		config := certutil.Config{
 			CommonName: "blah blah",
 		}
-
-		cert, err := certutil.NewSelfSignedCACertWithAltNames(config, key, time.Hour, "hahaha.wwoo", "*.apps-crc.testing", "fgdgd.dfsgdf")
+		config.AltNames.DNSNames = []string{"hahaha.wwoo", "*.apps-crc.testing", "fgdgd.dfsgdf"}
+		config.Usages = []x509.ExtKeyUsage{x509.ExtKeyUsageServerAuth}
+		cert, err := certutil.NewSignedCert(config, key, intermediateCert, intermediateKey, time.Hour)
 		Expect(err).ToNot(HaveOccurred())
 		pemOut := strings.Builder{}
-		Expect(pem.Encode(&pemOut, &pem.Block{Type: "CERTIFICATE", Bytes: cert.Raw})).To(Succeed())
+		pem.Encode(&pemOut, &pem.Block{Type: "CERTIFICATE", Bytes: cert.Raw})
+		pem.Encode(&pemOut, &pem.Block{Type: "CERTIFICATE", Bytes: intermediateCert.Raw})
+		pem.Encode(&pemOut, &pem.Block{Type: "CERTIFICATE", Bytes: caKeyPair.Cert.Raw})
 		return strings.TrimSpace(pemOut.String())
 	}
 
