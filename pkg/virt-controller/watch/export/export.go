@@ -357,7 +357,6 @@ func (ctrl *VMExportController) updateVMExport(vmExport *exportv1.VirtualMachine
 }
 
 func (ctrl *VMExportController) handleIsSourcePvc(vmExport *exportv1.VirtualMachineExport, service *corev1.Service) (time.Duration, error) {
-	var retry time.Duration
 	pvcs := make([]*corev1.PersistentVolumeClaim, 0)
 	pvc, exists, err := ctrl.getPvc(vmExport.Namespace, vmExport.Spec.Source.Name)
 	if err != nil {
@@ -373,18 +372,18 @@ func (ctrl *VMExportController) handleIsSourcePvc(vmExport *exportv1.VirtualMach
 	} else if !exists {
 		inUse, err = ctrl.isPVCInUse(vmExport, pvc)
 		if err != nil {
-			return retry, err
+			return 0, err
 		}
 		if !inUse && len(pvcs) > 0 {
 			isPopulated, err := ctrl.isPVCPopulated(pvc)
 			if err != nil {
-				return retry, err
+				return 0, err
 			} else if isPopulated {
 				pod, err = ctrl.createExporterPod(vmExport, pvcs)
 				if err != nil {
 					return 0, err
 				} else if pod == nil {
-					return retry, nil
+					return 0, nil
 				}
 
 				if err := ctrl.getOrCreateCertSecret(vmExport, pod); err != nil {
@@ -394,7 +393,7 @@ func (ctrl *VMExportController) handleIsSourcePvc(vmExport *exportv1.VirtualMach
 		}
 	} else {
 		if err := ctrl.handlePodSucceededOrFailed(vmExport, pod); err != nil {
-			return retry, err
+			return 0, err
 		}
 	}
 
@@ -403,17 +402,21 @@ func (ctrl *VMExportController) handleIsSourcePvc(vmExport *exportv1.VirtualMach
 }
 
 func (ctrl *VMExportController) handleIsVmSnapshot(vmExport *exportv1.VirtualMachineExport, service *corev1.Service) (time.Duration, error) {
-	var retry time.Duration
-	pvcs := make([]*corev1.PersistentVolumeClaim, 0)
+	var pvcs []*corev1.PersistentVolumeClaim
 
 	vmSnapshot, exists, err := ctrl.getVmSnapshot(vmExport.Namespace, vmExport.Spec.Source.Name)
 	restoreableSnapshots := 0
 	if err != nil {
 		return 0, err
 	} else if exists {
-		pvcs, restoreableSnapshots, err = ctrl.handlePVCsForVirtualMachineSnapshot(vmExport, vmSnapshot)
-		if err != nil {
-			return 0, err
+		if vmSnapshot.Status.ReadyToUse != nil && *vmSnapshot.Status.ReadyToUse {
+			pvcs, restoreableSnapshots, err = ctrl.handlePVCsForVirtualMachineSnapshot(vmExport, vmSnapshot)
+			if err != nil {
+				return 0, err
+			}
+		} else {
+			// snapshot is not ready yet, try again in a second.
+			return time.Second, nil
 		}
 	}
 
@@ -426,7 +429,7 @@ func (ctrl *VMExportController) handleIsVmSnapshot(vmExport *exportv1.VirtualMac
 			if err != nil {
 				return 0, err
 			} else if pod == nil {
-				return retry, nil
+				return 0, nil
 			}
 
 			if err := ctrl.getOrCreateCertSecret(vmExport, pod); err != nil {
@@ -435,7 +438,7 @@ func (ctrl *VMExportController) handleIsVmSnapshot(vmExport *exportv1.VirtualMac
 		}
 	} else {
 		if err := ctrl.handlePodSucceededOrFailed(vmExport, pod); err != nil {
-			return retry, err
+			return 0, err
 		}
 	}
 
@@ -454,21 +457,21 @@ func (ctrl *VMExportController) handlePodSucceededOrFailed(vmExport *exportv1.Vi
 func (ctrl *VMExportController) handlePVCsForVirtualMachineSnapshot(vmExport *exportv1.VirtualMachineExport, vmSnapshot *snapshotv1.VirtualMachineSnapshot) ([]*corev1.PersistentVolumeClaim, int, error) {
 	var content *snapshotv1.VirtualMachineSnapshotContent
 	var err error
-	pvcs := make([]*corev1.PersistentVolumeClaim, 0)
+	var pvcs []*corev1.PersistentVolumeClaim
 	exists := false
 	totalVolumes := 0
 
 	if vmSnapshot.Status.VirtualMachineSnapshotContentName != nil && *vmSnapshot.Status.VirtualMachineSnapshotContentName != "" {
 		content, exists, err = ctrl.getVmSnapshotContent(vmSnapshot.Namespace, *vmSnapshot.Status.VirtualMachineSnapshotContentName)
 		if err != nil {
-			return pvcs, totalVolumes, err
+			return nil, 0, err
 		} else if exists {
 			sourceVm := content.Spec.Source.VirtualMachine
 			totalVolumes = len(content.Status.VolumeSnapshotStatus)
 			for _, volumeBackup := range content.Spec.VolumeBackups {
 				if pvc, err := ctrl.getOrCreatePVCFromSnapshot(vmExport, &volumeBackup, sourceVm); err != nil {
-					return pvcs, totalVolumes, err
-				} else if pvc != nil {
+					return nil, 0, err
+				} else {
 					pvcs = append(pvcs, pvc)
 				}
 			}
@@ -496,7 +499,7 @@ func (ctrl *VMExportController) getOrCreatePVCFromSnapshot(vmExport *exportv1.Vi
 	}
 
 	// leaving source name and namespace blank because we don't care in this context
-	pvc := snapshot.CreateRestorePVCDef("", restorePVCName, volumeSnapshot, volumeBackup, "", "")
+	pvc := snapshot.CreateRestorePVCDef(restorePVCName, volumeSnapshot, volumeBackup)
 	if volumeBackupIsKubeVirtContent(volumeBackup, sourceVm) {
 		if len(pvc.GetAnnotations()) == 0 {
 			pvc.SetAnnotations(make(map[string]string))

@@ -303,7 +303,7 @@ var _ = SIGDescribe("Export", func() {
 		return createCaConfigMap(name, namespace, export.Status.Links.Internal.Cert)
 	}
 
-	createCaConfigMapProxy := func(name, namespace string, export *exportv1.VirtualMachineExport) *k8sv1.ConfigMap {
+	createCaConfigMapProxy := func(name, namespace string, _ *exportv1.VirtualMachineExport) *k8sv1.ConfigMap {
 		cm, err := virtClient.CoreV1().ConfigMaps(flags.KubeVirtInstallNamespace).Get(context.TODO(), "kubevirt-ca", metav1.GetOptions{})
 		Expect(err).ToNot(HaveOccurred())
 		return createCaConfigMap(name, namespace, cm.Data["ca-bundle"])

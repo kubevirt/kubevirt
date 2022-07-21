@@ -761,7 +761,7 @@ var _ = Describe("Export controlleer", func() {
 	})
 
 	Context("VMSnapshot export", func() {
-		createTestVMSnapshot := func() *snapshotv1.VirtualMachineSnapshot {
+		createTestVMSnapshot := func(ready bool) *snapshotv1.VirtualMachineSnapshot {
 			return &snapshotv1.VirtualMachineSnapshot{
 				ObjectMeta: metav1.ObjectMeta{
 					Name:      testVmsnapshotName,
@@ -770,6 +770,7 @@ var _ = Describe("Export controlleer", func() {
 				Spec: snapshotv1.VirtualMachineSnapshotSpec{},
 				Status: &snapshotv1.VirtualMachineSnapshotStatus{
 					VirtualMachineSnapshotContentName: pointer.StringPtr("snapshot-content"),
+					ReadyToUse:                        pointer.BoolPtr(ready),
 				},
 			}
 		}
@@ -932,7 +933,7 @@ var _ = Describe("Export controlleer", func() {
 			})
 			expectExporterCreate(k8sClient, k8sv1.PodPending)
 
-			vmSnapshotInformer.GetStore().Add(createTestVMSnapshot())
+			vmSnapshotInformer.GetStore().Add(createTestVMSnapshot(true))
 			vmSnapshotContentInformer.GetStore().Add(createTestVMSnapshotContent("snapshot-content"))
 			fakeVolumeSnapshotProvider.Add(createTestVolumeSnapshot(testVolumesnapshotName))
 			retry, err := controller.updateVMExport(testVMExport)
@@ -958,12 +959,14 @@ var _ = Describe("Export controlleer", func() {
 			})
 
 			k8sClient.Fake.PrependReactor("create", "persistentvolumeclaims", func(action testing.Action) (handled bool, obj runtime.Object, err error) {
+				_, ok := action.(testing.CreateAction)
+				Expect(ok).To(BeTrue())
 				Fail("unexpected create persistentvolumeclaims called")
 				return true, nil, nil
 			})
 			expectExporterCreate(k8sClient, k8sv1.PodPending)
 			pvcInformer.GetStore().Add(createRestoredPVC("test-test-snapshot"))
-			vmSnapshotInformer.GetStore().Add(createTestVMSnapshot())
+			vmSnapshotInformer.GetStore().Add(createTestVMSnapshot(true))
 			vmSnapshotContentInformer.GetStore().Add(createTestVMSnapshotContent("snapshot-content"))
 			fakeVolumeSnapshotProvider.Add(createTestVolumeSnapshot(testVolumesnapshotName))
 			retry, err := controller.updateVMExport(testVMExport)
@@ -1014,7 +1017,7 @@ var _ = Describe("Export controlleer", func() {
 			})
 			expectExporterCreate(k8sClient, k8sv1.PodRunning)
 			controller.RouteCache.Add(routeToHostAndService(components.VirtExportProxyServiceName))
-			vmSnapshotInformer.GetStore().Add(createTestVMSnapshot())
+			vmSnapshotInformer.GetStore().Add(createTestVMSnapshot(true))
 			vmSnapshotContentInformer.GetStore().Add(createTestVMSnapshotContent("snapshot-content"))
 			fakeVolumeSnapshotProvider.Add(createTestVolumeSnapshot(testVolumesnapshotName))
 			retry, err := controller.updateVMExport(testVMExport)
@@ -1065,7 +1068,7 @@ var _ = Describe("Export controlleer", func() {
 			})
 			expectExporterCreate(k8sClient, k8sv1.PodRunning)
 			controller.RouteCache.Add(routeToHostAndService(components.VirtExportProxyServiceName))
-			vmSnapshotInformer.GetStore().Add(createTestVMSnapshot())
+			vmSnapshotInformer.GetStore().Add(createTestVMSnapshot(false))
 			content := createTestVMSnapshotContent("snapshot-content")
 			content.Spec.Source.VirtualMachine.Spec.Template.Spec.Volumes[0].DataVolume = nil
 			content.Spec.Source.VirtualMachine.Spec.Template.Spec.Volumes[0].MemoryDump = &virtv1.MemoryDumpVolumeSource{}
@@ -1073,7 +1076,7 @@ var _ = Describe("Export controlleer", func() {
 			fakeVolumeSnapshotProvider.Add(createTestVolumeSnapshot(testVolumesnapshotName))
 			retry, err := controller.updateVMExport(testVMExport)
 			Expect(err).ToNot(HaveOccurred())
-			Expect(retry).To(BeEquivalentTo(time.Duration(0)))
+			Expect(retry).To(BeEquivalentTo(time.Second))
 		})
 	})
 
