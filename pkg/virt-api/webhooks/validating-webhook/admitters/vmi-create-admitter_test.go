@@ -3622,11 +3622,638 @@ var _ = Describe("Validating VMICreate Admitter", func() {
 			vmi.Spec.Networks = []v1.Network{*v1.DefaultPodNetwork()}
 			bootOrder := uint(1)
 			vmi.Spec.Domain.Devices.Interfaces = []v1.Interface{
-				v1.Interface{Name: vmi.Spec.Networks[0].Name, BootOrder: &bootOrder},
+				{Name: vmi.Spec.Networks[0].Name, BootOrder: &bootOrder},
 			}
 			causes := ValidateVirtualMachineInstanceSpec(k8sfield.NewPath("fake"), &vmi.Spec, config)
 			Expect(causes).To(HaveLen(len(vmi.Spec.Domain.Devices.Interfaces)))
 		})
+	})
+
+	Context("with scheduler", func() {
+		var vmi *v1.VirtualMachineInstance
+		BeforeEach(func() {
+			vmi = api.NewMinimalVMI("testvmi")
+			vmi.Spec.Affinity = &k8sv1.Affinity{}
+		})
+		It("Allow to create when spec.affinity set to nil", func() {
+			vmi.Spec.Affinity = nil
+			vmiBytes, _ := json.Marshal(&vmi)
+
+			ar := &admissionv1.AdmissionReview{
+				Request: &admissionv1.AdmissionRequest{
+					Resource: webhooks.VirtualMachineInstanceGroupVersionResource,
+					Object: runtime.RawExtension{
+						Raw: vmiBytes,
+					},
+				},
+			}
+
+			resp := vmiCreateAdmitter.Admit(ar)
+			Expect(resp.Allowed).To(BeTrue())
+		})
+
+		It("(PodAffinity)Should reject when scheduler validation failed due to both RequiredDuringSchedulingIgnoredDuringExecution and PreferredDuringSchedulingIgnoredDuringExecution are set to empty", func() {
+			vmi.Spec.Affinity.PodAffinity = &k8sv1.PodAffinity{
+				PreferredDuringSchedulingIgnoredDuringExecution: nil,
+				RequiredDuringSchedulingIgnoredDuringExecution:  nil,
+			}
+			vmiBytes, _ := json.Marshal(&vmi)
+
+			ar := &admissionv1.AdmissionReview{
+				Request: &admissionv1.AdmissionRequest{
+					Resource: webhooks.VirtualMachineInstanceGroupVersionResource,
+					Object: runtime.RawExtension{
+						Raw: vmiBytes,
+					},
+				},
+			}
+
+			resp := vmiCreateAdmitter.Admit(ar)
+			Expect(resp.Allowed).To(BeFalse())
+			Expect(resp.Result.Details.Causes).To(HaveLen(1))
+			Expect(resp.Result.Details.Causes[0].Field).To(Equal("spec.affinity.podAffinity"))
+			Expect(resp.Result.Details.Causes[0].Message).To(Equal("At least one RequiredDuringSchedulingIgnoredDuringExecution or PreferredDuringSchedulingIgnoredDuringExecution is required"))
+		})
+
+		It("(PodAffinity)Should reject when scheduler validation failed due to TopologyKey is set to empty", func() {
+			vmi.Spec.Affinity.PodAffinity = &k8sv1.PodAffinity{
+				RequiredDuringSchedulingIgnoredDuringExecution: []k8sv1.PodAffinityTerm{
+					{
+						LabelSelector: &metav1.LabelSelector{
+							MatchExpressions: []metav1.LabelSelectorRequirement{
+								{
+									Key:      "key1",
+									Operator: "Exits",
+									Values:   []string{"value1"},
+								},
+							},
+						},
+						TopologyKey: "",
+					},
+				},
+			}
+			vmiBytes, _ := json.Marshal(&vmi)
+
+			ar := &admissionv1.AdmissionReview{
+				Request: &admissionv1.AdmissionRequest{
+					Resource: webhooks.VirtualMachineInstanceGroupVersionResource,
+					Object: runtime.RawExtension{
+						Raw: vmiBytes,
+					},
+				},
+			}
+
+			resp := vmiCreateAdmitter.Admit(ar)
+			Expect(resp.Allowed).To(BeFalse())
+			Expect(resp.Result.Details.Causes).To(HaveLen(1))
+			Expect(resp.Result.Details.Causes[0].Field).To(Equal("spec.affinity.podAffinity.RequiredDuringSchedulingIgnoredDuringExecution[0].TopologyKey"))
+			Expect(resp.Result.Details.Causes[0].Message).To(Equal("TopologyKey cannot be empty when RequiredDuringSchedulingIgnoredDuringExecution is used"))
+		})
+
+		It("(PodAffinity)Should reject when scheduler validation failed due to first element of Values slice is set empty", func() {
+			vmi.Spec.Affinity.PodAffinity = &k8sv1.PodAffinity{
+				RequiredDuringSchedulingIgnoredDuringExecution: []k8sv1.PodAffinityTerm{
+					{
+						LabelSelector: &metav1.LabelSelector{
+							MatchExpressions: []metav1.LabelSelectorRequirement{
+								{
+									Key:      "key1",
+									Operator: "Exits",
+									Values:   []string{""},
+								},
+							},
+						},
+						TopologyKey: "",
+					},
+				},
+			}
+			vmiBytes, _ := json.Marshal(&vmi)
+
+			ar := &admissionv1.AdmissionReview{
+				Request: &admissionv1.AdmissionRequest{
+					Resource: webhooks.VirtualMachineInstanceGroupVersionResource,
+					Object: runtime.RawExtension{
+						Raw: vmiBytes,
+					},
+				},
+			}
+
+			resp := vmiCreateAdmitter.Admit(ar)
+			Expect(resp.Allowed).To(BeFalse())
+			Expect(resp.Result.Details.Causes).To(HaveLen(2))
+			Expect(resp.Result.Details.Causes[0].Field).To(Equal("spec.affinity.podAffinity.RequiredDuringSchedulingIgnoredDuringExecution[0].TopologyKey"))
+			Expect(resp.Result.Details.Causes[0].Message).To(Equal("TopologyKey cannot be empty when RequiredDuringSchedulingIgnoredDuringExecution is used"))
+			Expect(resp.Result.Details.Causes[1].Field).To(Equal("spec.affinity.podAffinity.RequiredDuringSchedulingIgnoredDuringExecution[0].LabelSelector.MatchExpressions[0].Values[0]"))
+			Expect(resp.Result.Details.Causes[1].Message).To(Equal("Values cannot be empty"))
+		})
+
+		It("(PodAffinity)Should reject when scheduler validation failed due to values of MatchExpressions is set to empty", func() {
+			vmi.Spec.Affinity.PodAffinity = &k8sv1.PodAffinity{
+				RequiredDuringSchedulingIgnoredDuringExecution: []k8sv1.PodAffinityTerm{
+					{
+						LabelSelector: &metav1.LabelSelector{
+							MatchExpressions: []metav1.LabelSelectorRequirement{
+								{
+									Key:      "key1",
+									Operator: "Exits",
+									Values:   nil,
+								},
+							},
+						},
+						TopologyKey: "hostname=host1",
+					},
+				},
+			}
+			vmiBytes, _ := json.Marshal(&vmi)
+
+			ar := &admissionv1.AdmissionReview{
+				Request: &admissionv1.AdmissionRequest{
+					Resource: webhooks.VirtualMachineInstanceGroupVersionResource,
+					Object: runtime.RawExtension{
+						Raw: vmiBytes,
+					},
+				},
+			}
+
+			resp := vmiCreateAdmitter.Admit(ar)
+			Expect(resp.Allowed).To(BeFalse())
+			Expect(resp.Result.Details.Causes).To(HaveLen(1))
+			Expect(resp.Result.Details.Causes[0].Field).To(Equal("spec.affinity.podAffinity.RequiredDuringSchedulingIgnoredDuringExecution[0].LabelSelector.MatchExpressions[0].Values"))
+			Expect(resp.Result.Details.Causes[0].Message).To(Equal("Values is required when operator value set to something beside 'Exists'"))
+		})
+
+		It("(PodAffinity)Should reject when scheduler validation failed due to values of MatchExpressions and TopologyKey are both set to empty", func() {
+			vmi.Spec.Affinity.PodAffinity = &k8sv1.PodAffinity{
+				RequiredDuringSchedulingIgnoredDuringExecution: []k8sv1.PodAffinityTerm{
+					{
+						LabelSelector: &metav1.LabelSelector{
+							MatchExpressions: []metav1.LabelSelectorRequirement{
+								{
+									Key:      "key1",
+									Operator: "Exits",
+									Values:   nil,
+								},
+							},
+						},
+						TopologyKey: "",
+					},
+				},
+			}
+			vmiBytes, _ := json.Marshal(&vmi)
+
+			ar := &admissionv1.AdmissionReview{
+				Request: &admissionv1.AdmissionRequest{
+					Resource: webhooks.VirtualMachineInstanceGroupVersionResource,
+					Object: runtime.RawExtension{
+						Raw: vmiBytes,
+					},
+				},
+			}
+
+			resp := vmiCreateAdmitter.Admit(ar)
+			Expect(resp.Allowed).To(BeFalse())
+			Expect(resp.Result.Details.Causes).To(HaveLen(2))
+			Expect(resp.Result.Details.Causes[0].Field).To(Equal("spec.affinity.podAffinity.RequiredDuringSchedulingIgnoredDuringExecution[0].TopologyKey"))
+			Expect(resp.Result.Details.Causes[1].Field).To(Equal("spec.affinity.podAffinity.RequiredDuringSchedulingIgnoredDuringExecution[0].LabelSelector.MatchExpressions[0].Values"))
+		})
+
+		It("(PodAffinity)Should reject when scheduler validation failed due to value of weight is not valid", func() {
+			vmi.Spec.Affinity.PodAffinity = &k8sv1.PodAffinity{
+				PreferredDuringSchedulingIgnoredDuringExecution: []k8sv1.WeightedPodAffinityTerm{
+					{
+						Weight: 255,
+						PodAffinityTerm: k8sv1.PodAffinityTerm{
+							LabelSelector: nil,
+							TopologyKey:   "test",
+						},
+					},
+				},
+			}
+			vmiBytes, _ := json.Marshal(&vmi)
+
+			ar := &admissionv1.AdmissionReview{
+				Request: &admissionv1.AdmissionRequest{
+					Resource: webhooks.VirtualMachineInstanceGroupVersionResource,
+					Object: runtime.RawExtension{
+						Raw: vmiBytes,
+					},
+				},
+			}
+
+			resp := vmiCreateAdmitter.Admit(ar)
+			Expect(resp.Allowed).To(BeFalse())
+			Expect(resp.Result.Details.Causes).To(HaveLen(2))
+			Expect(resp.Result.Details.Causes[0].Field).To(Equal("spec.affinity.podAffinity.PreferredDuringSchedulingIgnoredDuringExecution[0].Weight"))
+			Expect(resp.Result.Details.Causes[0].Message).To(Equal("Weight value must be between 1 and 100"))
+			Expect(resp.Result.Details.Causes[1].Field).To(Equal("spec.affinity.podAffinity.PreferredDuringSchedulingIgnoredDuringExecution[0].PodAffinityTerm.LabelSelector"))
+			Expect(resp.Result.Details.Causes[1].Message).To(Equal("LabelSelector cannot be empty when RequiredDuringSchedulingIgnoredDuringExecution is used"))
+		})
+
+		It("(PodAntiAffinity)Should reject when scheduler validation failed due to both RequiredDuringSchedulingIgnoredDuringExecution and PreferredDuringSchedulingIgnoredDuringExecution are set to empty", func() {
+			vmi.Spec.Affinity.PodAntiAffinity = &k8sv1.PodAntiAffinity{
+				PreferredDuringSchedulingIgnoredDuringExecution: nil,
+				RequiredDuringSchedulingIgnoredDuringExecution:  nil,
+			}
+			vmiBytes, _ := json.Marshal(&vmi)
+
+			ar := &admissionv1.AdmissionReview{
+				Request: &admissionv1.AdmissionRequest{
+					Resource: webhooks.VirtualMachineInstanceGroupVersionResource,
+					Object: runtime.RawExtension{
+						Raw: vmiBytes,
+					},
+				},
+			}
+
+			resp := vmiCreateAdmitter.Admit(ar)
+			Expect(resp.Allowed).To(BeFalse())
+			Expect(resp.Result.Details.Causes).To(HaveLen(1))
+			Expect(resp.Result.Details.Causes[0].Field).To(Equal("spec.affinity.podAntiAffinity"))
+			Expect(resp.Result.Details.Causes[0].Message).To(Equal("At least one RequiredDuringSchedulingIgnoredDuringExecution or PreferredDuringSchedulingIgnoredDuringExecution is required"))
+		})
+
+		It("(PodAntiAffinity)Should reject when scheduler validation failed due to first element of Values slice is set empty", func() {
+			vmi.Spec.Affinity.PodAntiAffinity = &k8sv1.PodAntiAffinity{
+				RequiredDuringSchedulingIgnoredDuringExecution: []k8sv1.PodAffinityTerm{
+					{
+						LabelSelector: &metav1.LabelSelector{
+							MatchExpressions: []metav1.LabelSelectorRequirement{
+								{
+									Key:      "key1",
+									Operator: "Exits",
+									Values:   []string{""},
+								},
+							},
+						},
+						TopologyKey: "",
+					},
+				},
+			}
+			vmiBytes, _ := json.Marshal(&vmi)
+
+			ar := &admissionv1.AdmissionReview{
+				Request: &admissionv1.AdmissionRequest{
+					Resource: webhooks.VirtualMachineInstanceGroupVersionResource,
+					Object: runtime.RawExtension{
+						Raw: vmiBytes,
+					},
+				},
+			}
+
+			resp := vmiCreateAdmitter.Admit(ar)
+			Expect(resp.Allowed).To(BeFalse())
+			Expect(resp.Result.Details.Causes).To(HaveLen(2))
+			Expect(resp.Result.Details.Causes[0].Field).To(Equal("spec.affinity.podAntiAffinity.RequiredDuringSchedulingIgnoredDuringExecution[0].TopologyKey"))
+			Expect(resp.Result.Details.Causes[0].Message).To(Equal("TopologyKey cannot be empty when RequiredDuringSchedulingIgnoredDuringExecution is used"))
+			Expect(resp.Result.Details.Causes[1].Field).To(Equal("spec.affinity.podAntiAffinity.RequiredDuringSchedulingIgnoredDuringExecution[0].LabelSelector.MatchExpressions[0].Values[0]"))
+			Expect(resp.Result.Details.Causes[1].Message).To(Equal("Values cannot be empty"))
+		})
+
+		It("(PodAntiAffinity)Should reject when scheduler validation failed due to TopologyKey is set to empty", func() {
+			vmi.Spec.Affinity.PodAntiAffinity = &k8sv1.PodAntiAffinity{
+				RequiredDuringSchedulingIgnoredDuringExecution: []k8sv1.PodAffinityTerm{
+					{
+						LabelSelector: &metav1.LabelSelector{
+							MatchExpressions: []metav1.LabelSelectorRequirement{
+								{
+									Key:      "key1",
+									Operator: "Exits",
+									Values:   []string{"value1"},
+								},
+							},
+						},
+						TopologyKey: "",
+					},
+				},
+			}
+			vmiBytes, _ := json.Marshal(&vmi)
+
+			ar := &admissionv1.AdmissionReview{
+				Request: &admissionv1.AdmissionRequest{
+					Resource: webhooks.VirtualMachineInstanceGroupVersionResource,
+					Object: runtime.RawExtension{
+						Raw: vmiBytes,
+					},
+				},
+			}
+
+			resp := vmiCreateAdmitter.Admit(ar)
+			Expect(resp.Allowed).To(BeFalse())
+			Expect(resp.Result.Details.Causes).To(HaveLen(1))
+			Expect(resp.Result.Details.Causes[0].Field).To(Equal("spec.affinity.podAntiAffinity.RequiredDuringSchedulingIgnoredDuringExecution[0].TopologyKey"))
+			Expect(resp.Result.Details.Causes[0].Message).To(Equal("TopologyKey cannot be empty when RequiredDuringSchedulingIgnoredDuringExecution is used"))
+		})
+
+		It("(PodAntiAffinity)Should be ok with only PreferredDuringSchedulingIgnoredDuringExecution proper set", func() {
+			vmi.Spec.Affinity.PodAntiAffinity = &k8sv1.PodAntiAffinity{
+				PreferredDuringSchedulingIgnoredDuringExecution: []k8sv1.WeightedPodAffinityTerm{
+					{
+						Weight: 86,
+						PodAffinityTerm: k8sv1.PodAffinityTerm{
+							LabelSelector: &metav1.LabelSelector{
+								MatchExpressions: []metav1.LabelSelectorRequirement{
+									{
+										Key:      "key1",
+										Operator: "in",
+										Values:   []string{"a"},
+									},
+								},
+							},
+							TopologyKey: "test",
+						},
+					},
+				},
+			}
+			vmiBytes, _ := json.Marshal(&vmi)
+
+			ar := &admissionv1.AdmissionReview{
+				Request: &admissionv1.AdmissionRequest{
+					Resource: webhooks.VirtualMachineInstanceGroupVersionResource,
+					Object: runtime.RawExtension{
+						Raw: vmiBytes,
+					},
+				},
+			}
+
+			resp := vmiCreateAdmitter.Admit(ar)
+			Expect(resp.Allowed).To(BeTrue())
+		})
+
+		It("(PodAntiAffinity)Should reject when scheduler validation failed due to values of MatchExpressions is set to empty", func() {
+			vmi.Spec.Affinity.PodAntiAffinity = &k8sv1.PodAntiAffinity{
+				RequiredDuringSchedulingIgnoredDuringExecution: []k8sv1.PodAffinityTerm{
+					{
+						LabelSelector: &metav1.LabelSelector{
+							MatchExpressions: []metav1.LabelSelectorRequirement{
+								{
+									Key:      "key1",
+									Operator: "Exits",
+									Values:   nil,
+								},
+							},
+						},
+						TopologyKey: "hostname=host1",
+					},
+				},
+			}
+			vmiBytes, _ := json.Marshal(&vmi)
+
+			ar := &admissionv1.AdmissionReview{
+				Request: &admissionv1.AdmissionRequest{
+					Resource: webhooks.VirtualMachineInstanceGroupVersionResource,
+					Object: runtime.RawExtension{
+						Raw: vmiBytes,
+					},
+				},
+			}
+
+			resp := vmiCreateAdmitter.Admit(ar)
+			Expect(resp.Allowed).To(BeFalse())
+			Expect(resp.Result.Details.Causes).To(HaveLen(1))
+			Expect(resp.Result.Details.Causes[0].Field).To(Equal("spec.affinity.podAntiAffinity.RequiredDuringSchedulingIgnoredDuringExecution[0].LabelSelector.MatchExpressions[0].Values"))
+			Expect(resp.Result.Details.Causes[0].Message).To(Equal("Values is required when operator value set to something beside 'Exists'"))
+		})
+
+		It("(PodAntiAffinity)Should reject when scheduler validation failed due to values of MatchExpressions and TopologyKey are both set to empty", func() {
+			vmi.Spec.Affinity.PodAntiAffinity = &k8sv1.PodAntiAffinity{
+				RequiredDuringSchedulingIgnoredDuringExecution: []k8sv1.PodAffinityTerm{
+					{
+						LabelSelector: &metav1.LabelSelector{
+							MatchExpressions: []metav1.LabelSelectorRequirement{
+								{
+									Key:      "key1",
+									Operator: "Exits",
+									Values:   nil,
+								},
+							},
+						},
+						TopologyKey: "",
+					},
+				},
+			}
+			vmiBytes, _ := json.Marshal(&vmi)
+
+			ar := &admissionv1.AdmissionReview{
+				Request: &admissionv1.AdmissionRequest{
+					Resource: webhooks.VirtualMachineInstanceGroupVersionResource,
+					Object: runtime.RawExtension{
+						Raw: vmiBytes,
+					},
+				},
+			}
+
+			resp := vmiCreateAdmitter.Admit(ar)
+			Expect(resp.Allowed).To(BeFalse())
+			Expect(resp.Result.Details.Causes).To(HaveLen(2))
+			Expect(resp.Result.Details.Causes[0].Field).To(Equal("spec.affinity.podAntiAffinity.RequiredDuringSchedulingIgnoredDuringExecution[0].TopologyKey"))
+			Expect(resp.Result.Details.Causes[1].Field).To(Equal("spec.affinity.podAntiAffinity.RequiredDuringSchedulingIgnoredDuringExecution[0].LabelSelector.MatchExpressions[0].Values"))
+		})
+
+		It("(NodeAffinity)Should reject when scheduler validation failed due to both RequiredDuringSchedulingIgnoredDuringExecution and PreferredDuringSchedulingIgnoredDuringExecution are set to empty", func() {
+			vmi.Spec.Affinity.NodeAffinity = &k8sv1.NodeAffinity{
+				RequiredDuringSchedulingIgnoredDuringExecution:  nil,
+				PreferredDuringSchedulingIgnoredDuringExecution: nil,
+			}
+			vmiBytes, _ := json.Marshal(&vmi)
+
+			ar := &admissionv1.AdmissionReview{
+				Request: &admissionv1.AdmissionRequest{
+					Resource: webhooks.VirtualMachineInstanceGroupVersionResource,
+					Object: runtime.RawExtension{
+						Raw: vmiBytes,
+					},
+				},
+			}
+
+			resp := vmiCreateAdmitter.Admit(ar)
+			Expect(resp.Allowed).To(BeFalse())
+			Expect(resp.Result.Details.Causes).To(HaveLen(1))
+			Expect(resp.Result.Details.Causes[0].Field).To(Equal("spec.affinity.nodeAffinity"))
+			Expect(resp.Result.Details.Causes[0].Message).To(Equal("At least one RequiredDuringSchedulingIgnoredDuringExecution or PreferredDuringSchedulingIgnoredDuringExecution is required"))
+		})
+
+		It("(NodeAffinity)Should reject when scheduler validation failed due to NodeSelectorTerms set to empty", func() {
+			vmi.Spec.Affinity.NodeAffinity = &k8sv1.NodeAffinity{
+				RequiredDuringSchedulingIgnoredDuringExecution: &k8sv1.NodeSelector{
+					NodeSelectorTerms: nil,
+				},
+			}
+			vmiBytes, _ := json.Marshal(&vmi)
+
+			ar := &admissionv1.AdmissionReview{
+				Request: &admissionv1.AdmissionRequest{
+					Resource: webhooks.VirtualMachineInstanceGroupVersionResource,
+					Object: runtime.RawExtension{
+						Raw: vmiBytes,
+					},
+				},
+			}
+
+			resp := vmiCreateAdmitter.Admit(ar)
+			Expect(resp.Allowed).To(BeFalse())
+			Expect(resp.Result.Details.Causes).To(HaveLen(1))
+			// webhookutils.ValidateSchema will take over so result will be only a message
+			Expect(resp.Result.Details.Causes[0].Field).To(Equal(""))
+			Expect(resp.Result.Details.Causes[0].Message).To(Equal("spec.affinity.nodeAffinity.requiredDuringSchedulingIgnoredDuringExecution.nodeSelectorTerms in body must be of type array: \"null\""))
+		})
+
+		It("(NodeAffinity)Should reject when scheduler validation failed due to MatchExpressions and MatchFields are both set to empty", func() {
+			vmi.Spec.Affinity.NodeAffinity = &k8sv1.NodeAffinity{
+				RequiredDuringSchedulingIgnoredDuringExecution: &k8sv1.NodeSelector{
+					NodeSelectorTerms: []k8sv1.NodeSelectorTerm{
+						{
+							MatchExpressions: nil,
+							MatchFields:      nil,
+						},
+					},
+				},
+			}
+			vmiBytes, _ := json.Marshal(&vmi)
+
+			ar := &admissionv1.AdmissionReview{
+				Request: &admissionv1.AdmissionRequest{
+					Resource: webhooks.VirtualMachineInstanceGroupVersionResource,
+					Object: runtime.RawExtension{
+						Raw: vmiBytes,
+					},
+				},
+			}
+
+			resp := vmiCreateAdmitter.Admit(ar)
+			Expect(resp.Allowed).To(BeFalse())
+			Expect(resp.Result.Details.Causes).To(HaveLen(1))
+			Expect(resp.Result.Details.Causes[0].Field).To(Equal("spec.affinity.nodeAffinity.RequiredDuringSchedulingIgnoredDuringExecution.NodeSelectorTerms[0]"))
+			Expect(resp.Result.Details.Causes[0].Message).To(Equal("At least one MatchExpressions or MatchExpressions is required"))
+		})
+
+		It("(NodeAffinity)Should be ok with only MatchExpressions set", func() {
+			vmi.Spec.Affinity.NodeAffinity = &k8sv1.NodeAffinity{
+				RequiredDuringSchedulingIgnoredDuringExecution: &k8sv1.NodeSelector{
+					NodeSelectorTerms: []k8sv1.NodeSelectorTerm{
+						{
+							MatchExpressions: []k8sv1.NodeSelectorRequirement{
+								{
+									Key:      "key1",
+									Operator: k8sv1.NodeSelectorOpExists,
+									Values:   nil,
+								},
+							},
+						},
+					},
+				},
+			}
+			vmiBytes, _ := json.Marshal(&vmi)
+
+			ar := &admissionv1.AdmissionReview{
+				Request: &admissionv1.AdmissionRequest{
+					Resource: webhooks.VirtualMachineInstanceGroupVersionResource,
+					Object: runtime.RawExtension{
+						Raw: vmiBytes,
+					},
+				},
+			}
+
+			resp := vmiCreateAdmitter.Admit(ar)
+			Expect(resp.Allowed).To(BeTrue())
+		})
+
+		It("(NodeAffinity)Should be ok with only MatchFields set", func() {
+			vmi.Spec.Affinity.NodeAffinity = &k8sv1.NodeAffinity{
+				RequiredDuringSchedulingIgnoredDuringExecution: &k8sv1.NodeSelector{
+					NodeSelectorTerms: []k8sv1.NodeSelectorTerm{
+						{
+							MatchFields: []k8sv1.NodeSelectorRequirement{
+								{
+									Key:      "key",
+									Operator: k8sv1.NodeSelectorOpIn,
+									Values:   []string{"value1"},
+								},
+							},
+						},
+					},
+				},
+			}
+			vmiBytes, _ := json.Marshal(&vmi)
+
+			ar := &admissionv1.AdmissionReview{
+				Request: &admissionv1.AdmissionRequest{
+					Resource: webhooks.VirtualMachineInstanceGroupVersionResource,
+					Object: runtime.RawExtension{
+						Raw: vmiBytes,
+					},
+				},
+			}
+
+			resp := vmiCreateAdmitter.Admit(ar)
+			Expect(resp.Allowed).To(BeTrue())
+		})
+
+		It("(NodeAffinity)Should reject when scheduler validation failed due to first element of Values is empty", func() {
+			vmi.Spec.Affinity.NodeAffinity = &k8sv1.NodeAffinity{
+				RequiredDuringSchedulingIgnoredDuringExecution: &k8sv1.NodeSelector{
+					NodeSelectorTerms: []k8sv1.NodeSelectorTerm{
+						{
+							MatchFields: []k8sv1.NodeSelectorRequirement{
+								{
+									Key:      "key",
+									Operator: k8sv1.NodeSelectorOpIn,
+									Values:   []string{""},
+								},
+							},
+						},
+					},
+				},
+			}
+			vmiBytes, _ := json.Marshal(&vmi)
+
+			ar := &admissionv1.AdmissionReview{
+				Request: &admissionv1.AdmissionRequest{
+					Resource: webhooks.VirtualMachineInstanceGroupVersionResource,
+					Object: runtime.RawExtension{
+						Raw: vmiBytes,
+					},
+				},
+			}
+
+			resp := vmiCreateAdmitter.Admit(ar)
+			Expect(resp.Allowed).To(BeFalse())
+			Expect(resp.Result.Details.Causes).To(HaveLen(1))
+			Expect(resp.Result.Details.Causes[0].Field).To(Equal("spec.affinity.nodeAffinity.RequiredDuringSchedulingIgnoredDuringExecution.NodeSelectorTerms[0].MatchFields[0].Values[0]"))
+			Expect(resp.Result.Details.Causes[0].Message).To(Equal("Values cannot be empty"))
+		})
+
+		It("(NodeAffinity)Should be ok with only PreferredDuringSchedulingIgnoredDuringExecution proper set", func() {
+			vmi.Spec.Affinity.NodeAffinity = &k8sv1.NodeAffinity{
+				PreferredDuringSchedulingIgnoredDuringExecution: []k8sv1.PreferredSchedulingTerm{
+					{
+						Weight: 20,
+						Preference: k8sv1.NodeSelectorTerm{
+							MatchExpressions: []k8sv1.NodeSelectorRequirement{
+								{
+									Key:      "key1",
+									Operator: k8sv1.NodeSelectorOpExists,
+									Values:   nil,
+								},
+							},
+						},
+					},
+				},
+			}
+			vmiBytes, _ := json.Marshal(&vmi)
+
+			ar := &admissionv1.AdmissionReview{
+				Request: &admissionv1.AdmissionRequest{
+					Resource: webhooks.VirtualMachineInstanceGroupVersionResource,
+					Object: runtime.RawExtension{
+						Raw: vmiBytes,
+					},
+				},
+			}
+
+			resp := vmiCreateAdmitter.Admit(ar)
+			Expect(resp.Allowed).To(BeTrue())
+		})
+
 	})
 })
 

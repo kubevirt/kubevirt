@@ -147,6 +147,7 @@ func ValidateVirtualMachineInstanceSpec(field *k8sfield.Path, spec *v1.VirtualMa
 	causes = append(causes, validateCPUFeaturePolicies(field, spec)...)
 	causes = append(causes, validateStartStrategy(field, spec)...)
 	causes = append(causes, validateRealtime(field, spec)...)
+	causes = append(causes, validateScheduler(field, spec)...)
 
 	maxNumberOfInterfacesExceeded := len(spec.Domain.Devices.Interfaces) > arrayLenMax
 	if maxNumberOfInterfacesExceeded {
@@ -2439,4 +2440,372 @@ func virtioNicRequested(interfaces []v1.Interface) bool {
 	}
 
 	return false
+}
+
+func validateScheduler(field *k8sfield.Path, spec *v1.VirtualMachineInstanceSpec) (causes []metav1.StatusCause) {
+	if spec.Affinity == nil {
+		return
+	}
+
+	affinityField := field.Child("affinity")
+	// validate pod affinity
+	causes = append(causes, validatePodAffinity(affinityField, spec)...)
+	// validate pod anti-affinity
+	causes = append(causes, validatePodAntiAffinity(affinityField, spec)...)
+	// validate node affinity
+	causes = append(causes, validateNodeAffinity(affinityField, spec)...)
+	return
+}
+
+func validatePodAntiAffinity(field *k8sfield.Path, spec *v1.VirtualMachineInstanceSpec) (causes []metav1.StatusCause) {
+	if spec.Affinity.PodAntiAffinity == nil {
+		return
+	}
+
+	podAntiAffinityField := field.Child("podAntiAffinity")
+	// no rule is set at all
+	if len(spec.Affinity.PodAntiAffinity.RequiredDuringSchedulingIgnoredDuringExecution) == 0 && len(spec.Affinity.PodAntiAffinity.PreferredDuringSchedulingIgnoredDuringExecution) == 0 {
+		causes = append(causes, metav1.StatusCause{
+			Type:    metav1.CauseTypeFieldValueRequired,
+			Message: "At least one RequiredDuringSchedulingIgnoredDuringExecution or PreferredDuringSchedulingIgnoredDuringExecution is required",
+			Field:   podAntiAffinityField.String(),
+		})
+		return
+	}
+
+	causes = append(causes, validatePodAffinityTerms(podAntiAffinityField.Child("RequiredDuringSchedulingIgnoredDuringExecution"), spec.Affinity.PodAntiAffinity.RequiredDuringSchedulingIgnoredDuringExecution)...)
+	causes = append(causes, validateWeightedPodAffinityTerms(podAntiAffinityField.Child("PreferredDuringSchedulingIgnoredDuringExecution"), spec.Affinity.PodAntiAffinity.PreferredDuringSchedulingIgnoredDuringExecution)...)
+	return
+}
+
+func validatePodAffinity(field *k8sfield.Path, spec *v1.VirtualMachineInstanceSpec) (causes []metav1.StatusCause) {
+	if spec.Affinity.PodAffinity == nil {
+		return
+	}
+
+	podAffinityField := field.Child("podAffinity")
+	// no rule is set at all
+	if len(spec.Affinity.PodAffinity.RequiredDuringSchedulingIgnoredDuringExecution) == 0 && len(spec.Affinity.PodAffinity.PreferredDuringSchedulingIgnoredDuringExecution) == 0 {
+		causes = append(causes, metav1.StatusCause{
+			Type:    metav1.CauseTypeFieldValueRequired,
+			Message: "At least one RequiredDuringSchedulingIgnoredDuringExecution or PreferredDuringSchedulingIgnoredDuringExecution is required",
+			Field:   podAffinityField.String(),
+		})
+		return
+	}
+
+	causes = append(causes, validatePodAffinityTerms(podAffinityField.Child("RequiredDuringSchedulingIgnoredDuringExecution"), spec.Affinity.PodAffinity.RequiredDuringSchedulingIgnoredDuringExecution)...)
+	causes = append(causes, validateWeightedPodAffinityTerms(podAffinityField.Child("PreferredDuringSchedulingIgnoredDuringExecution"), spec.Affinity.PodAffinity.PreferredDuringSchedulingIgnoredDuringExecution)...)
+
+	return
+}
+
+func validateNodeAffinity(field *k8sfield.Path, spec *v1.VirtualMachineInstanceSpec) (causes []metav1.StatusCause) {
+	if spec.Affinity.NodeAffinity == nil {
+		return
+	}
+
+	nodeAffinityField := field.Child("nodeAffinity")
+
+	if spec.Affinity.NodeAffinity.RequiredDuringSchedulingIgnoredDuringExecution == nil && len(spec.Affinity.NodeAffinity.PreferredDuringSchedulingIgnoredDuringExecution) == 0 {
+		causes = append(causes, metav1.StatusCause{
+			Type:    metav1.CauseTypeFieldValueRequired,
+			Message: "At least one RequiredDuringSchedulingIgnoredDuringExecution or PreferredDuringSchedulingIgnoredDuringExecution is required",
+			Field:   nodeAffinityField.String(),
+		})
+		return
+	}
+
+	causes = append(causes, validateNodeSelector(nodeAffinityField.Child("RequiredDuringSchedulingIgnoredDuringExecution"), spec.Affinity.NodeAffinity.RequiredDuringSchedulingIgnoredDuringExecution)...)
+	causes = append(causes, validatePreferredSchedulingTerms(nodeAffinityField.Child("PreferredDuringSchedulingIgnoredDuringExecution"), spec.Affinity.NodeAffinity.PreferredDuringSchedulingIgnoredDuringExecution)...)
+	return
+}
+
+func validatePodAffinityTerms(field *k8sfield.Path, rules []k8sv1.PodAffinityTerm) (causes []metav1.StatusCause) {
+	if len(rules) == 0 {
+		return
+	}
+
+	for index := range rules {
+		causes = append(causes, validatePodAffinityTerm(field.Index(index), &rules[index])...)
+	}
+
+	return
+}
+
+func validatePodAffinityTerm(field *k8sfield.Path, rule *k8sv1.PodAffinityTerm) (causes []metav1.StatusCause) {
+	if rule == nil {
+		return
+	}
+
+	if rule.TopologyKey == "" {
+		causes = append(causes, metav1.StatusCause{
+			Type:    metav1.CauseTypeFieldValueRequired,
+			Message: "TopologyKey cannot be empty when RequiredDuringSchedulingIgnoredDuringExecution is used",
+			Field:   field.Child("TopologyKey").String(),
+		})
+	}
+
+	// check property LabelSelector
+	causes = append(causes, validateAffinityLabelSelector(field.Child("LabelSelector"), rule.LabelSelector)...)
+
+	return
+}
+
+func validateWeightedPodAffinityTerms(field *k8sfield.Path, rules []k8sv1.WeightedPodAffinityTerm) (causes []metav1.StatusCause) {
+	if len(rules) == 0 {
+		return
+	}
+
+	for index := range rules {
+		causes = append(causes, validateWeightedPodAffinityTerm(field.Index(index), &rules[index])...)
+	}
+
+	return
+}
+
+func validateWeightedPodAffinityTerm(field *k8sfield.Path, rule *k8sv1.WeightedPodAffinityTerm) (causes []metav1.StatusCause) {
+	if rule == nil {
+		return
+	}
+
+	// check weight range 1-100
+	if rule.Weight <= 0 || rule.Weight > 100 {
+		causes = append(causes, metav1.StatusCause{
+			Type:    metav1.CauseTypeFieldValueRequired,
+			Message: "Weight value must be between 1 and 100",
+			Field:   field.Child("Weight").String(),
+		})
+	}
+
+	causes = append(causes, validatePodAffinityTerm(field.Child("PodAffinityTerm"), &rule.PodAffinityTerm)...)
+	return
+}
+
+func validatePreferredSchedulingTerms(field *k8sfield.Path, rules []k8sv1.PreferredSchedulingTerm) (causes []metav1.StatusCause) {
+	if len(rules) == 0 {
+		return
+	}
+
+	for index := range rules {
+		causes = append(causes, validatePreferredSchedulingTerm(field.Index(index), &rules[index])...)
+	}
+
+	return
+}
+
+func validatePreferredSchedulingTerm(field *k8sfield.Path, rule *k8sv1.PreferredSchedulingTerm) (causes []metav1.StatusCause) {
+	if rule == nil {
+		return nil
+	}
+
+	// check weight range 1-100
+	if rule.Weight <= 0 || rule.Weight > 100 {
+		causes = append(causes, metav1.StatusCause{
+			Type:    metav1.CauseTypeFieldValueRequired,
+			Message: "Weight value must be between 1 and 100",
+			Field:   field.Child("Weight").String(),
+		})
+	}
+
+	causes = append(causes, validateNodeSelectorTerm(field.Child("Preference"), &rule.Preference)...)
+	return
+}
+
+func validateNodeSelector(field *k8sfield.Path, rule *k8sv1.NodeSelector) (causes []metav1.StatusCause) {
+	if rule == nil {
+		return
+	}
+
+	causes = append(causes, validateNodeSelectorTerms(field.Child("NodeSelectorTerms"), rule.NodeSelectorTerms)...)
+	return
+}
+
+func validateNodeSelectorTerms(field *k8sfield.Path, rules []k8sv1.NodeSelectorTerm) (causes []metav1.StatusCause) {
+	if len(rules) == 0 {
+		return
+	}
+
+	for index := range rules {
+		causes = append(causes, validateNodeSelectorTerm(field.Index(index), &rules[index])...)
+	}
+
+	return
+}
+
+func validateNodeSelectorTerm(field *k8sfield.Path, rule *k8sv1.NodeSelectorTerm) (causes []metav1.StatusCause) {
+	if rule == nil {
+		return
+	}
+
+	if len(rule.MatchExpressions) == 0 && len(rule.MatchFields) == 0 {
+		causes = append(causes, metav1.StatusCause{
+			Type:    metav1.CauseTypeFieldValueRequired,
+			Message: "At least one MatchExpressions or MatchExpressions is required",
+			Field:   field.String(),
+		})
+		return
+	}
+
+	causes = append(causes, ValidateNodeSelectorRequirements(field.Child("MatchExpressions"), rule.MatchExpressions)...)
+	causes = append(causes, ValidateNodeSelectorRequirements(field.Child("MatchFields"), rule.MatchFields)...)
+	return
+}
+
+func ValidateNodeSelectorRequirements(field *k8sfield.Path, rules []k8sv1.NodeSelectorRequirement) (causes []metav1.StatusCause) {
+	if len(rules) == 0 {
+		return
+	}
+
+	for index := range rules {
+		causes = append(causes, ValidateNodeSelectorRequirement(field.Index(index), &rules[index])...)
+	}
+
+	return
+}
+
+func ValidateNodeSelectorRequirement(field *k8sfield.Path, rule *k8sv1.NodeSelectorRequirement) (causes []metav1.StatusCause) {
+	if rule == nil {
+		return
+	}
+
+	// ensure key is set
+	if rule.Key == "" {
+		causes = append(causes, metav1.StatusCause{
+			Type:    metav1.CauseTypeFieldValueRequired,
+			Message: "Key is required",
+			Field:   field.Child("key").String(),
+		})
+	}
+
+	// check operator is set
+	if rule.Operator == "" {
+		causes = append(causes, metav1.StatusCause{
+			Type:    metav1.CauseTypeFieldValueRequired,
+			Message: "Operator is required",
+			Field:   field.Child("Operator").String(),
+		})
+	} else if rule.Operator == k8sv1.NodeSelectorOpExists {
+		// when operator == Exists then value can be left empty
+		return
+	} else {
+		if len(rule.Values) == 0 {
+			causes = append(causes, metav1.StatusCause{
+				Type:    metav1.CauseTypeFieldValueRequired,
+				Message: "Values is required when operator value set to something beside 'Exists'",
+				Field:   field.Child("Values").String(),
+			})
+		} else {
+			for index, val := range rule.Values {
+				if val == "" {
+					causes = append(causes, metav1.StatusCause{
+						Type:    metav1.CauseTypeFieldValueRequired,
+						Message: "Values cannot be empty",
+						Field:   field.Child("Values").Index(index).String(),
+					})
+				}
+			}
+		}
+	}
+
+	return
+}
+
+func validateAffinityLabelSelector(field *k8sfield.Path, labelSelector *metav1.LabelSelector) (causes []metav1.StatusCause) {
+	if labelSelector == nil {
+		causes = append(causes, metav1.StatusCause{
+			Type:    metav1.CauseTypeFieldValueRequired,
+			Message: "LabelSelector cannot be empty when RequiredDuringSchedulingIgnoredDuringExecution is used",
+			Field:   field.String(),
+		})
+		return
+	}
+
+	if len(labelSelector.MatchExpressions) == 0 && len(labelSelector.MatchLabels) == 0 {
+		causes = append(causes, metav1.StatusCause{
+			Type:    metav1.CauseTypeFieldValueRequired,
+			Message: "At least one MatchExpressions or MatchLabels is required",
+			Field:   field.String(),
+		})
+		return
+	}
+
+	causes = append(causes, validateLabelSelectorRequirements(field.Child("MatchExpressions"), labelSelector.MatchExpressions)...)
+	causes = append(causes, validateMatchLabelsMap(field.Child("MatchLabels"), labelSelector.MatchLabels)...)
+	return
+}
+
+func validateLabelSelectorRequirements(field *k8sfield.Path, rules []metav1.LabelSelectorRequirement) (causes []metav1.StatusCause) {
+	if len(rules) == 0 {
+		return
+	}
+
+	for index := range rules {
+		causes = append(causes, validateLabelSelectorRequirement(field.Index(index), &rules[index])...)
+	}
+
+	return
+}
+
+func validateMatchLabelsMap(field *k8sfield.Path, matchLabels map[string]string) (causes []metav1.StatusCause) {
+	if len(matchLabels) == 0 {
+		return
+	}
+
+	for key, value := range matchLabels {
+		if value == "" {
+			causes = append(causes, metav1.StatusCause{
+				Type:    metav1.CauseTypeFieldValueRequired,
+				Message: "Value is required",
+				Field:   field.Key(key).String(),
+			})
+		}
+	}
+
+	return
+}
+
+func validateLabelSelectorRequirement(field *k8sfield.Path, rule *metav1.LabelSelectorRequirement) (causes []metav1.StatusCause) {
+	if rule == nil {
+		return
+	}
+
+	if rule.Key == "" {
+		causes = append(causes, metav1.StatusCause{
+			Type:    metav1.CauseTypeFieldValueRequired,
+			Message: "Key is required",
+			Field:   field.Child("key").String(),
+		})
+	}
+
+	if rule.Operator == "" {
+		causes = append(causes, metav1.StatusCause{
+			Type:    metav1.CauseTypeFieldValueRequired,
+			Message: "Operator is required",
+			Field:   field.Child("Operator").String(),
+		})
+	} else if rule.Operator == metav1.LabelSelectorOpExists {
+		// when operator == Exists then value can be left empty
+		return
+	} else {
+		if len(rule.Values) == 0 {
+			causes = append(causes, metav1.StatusCause{
+				Type:    metav1.CauseTypeFieldValueRequired,
+				Message: "Values is required when operator value set to something beside 'Exists'",
+				Field:   field.Child("Values").String(),
+			})
+		} else {
+			for index, val := range rule.Values {
+				if val == "" {
+					causes = append(causes, metav1.StatusCause{
+						Type:    metav1.CauseTypeFieldValueRequired,
+						Message: "Values cannot be empty",
+						Field:   field.Child("Values").Index(index).String(),
+					})
+				}
+			}
+		}
+	}
+
+	return
 }
