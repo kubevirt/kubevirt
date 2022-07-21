@@ -29,8 +29,6 @@ import (
 	"os/exec"
 	"strings"
 
-	"github.com/onsi/ginkgo/v2"
-
 	"kubevirt.io/client-go/log"
 
 	"kubevirt.io/kubevirt/tests/flags"
@@ -51,23 +49,6 @@ func GetK8sCmdClient() string {
 	}
 
 	return "kubectl"
-}
-
-func SkipIfNoCmd(cmdName string) {
-	var cmdPath string
-	switch strings.ToLower(cmdName) {
-	case "oc":
-		cmdPath = flags.KubeVirtOcPath
-	case "kubectl":
-		cmdPath = flags.KubeVirtKubectlPath
-	case "virtctl":
-		cmdPath = flags.KubeVirtVirtctlPath
-	case "gocli":
-		cmdPath = flags.KubeVirtGoCliPath
-	}
-	if cmdPath == "" {
-		ginkgo.Skip(fmt.Sprintf("Skip test that requires %s binary", cmdName))
-	}
 }
 
 func RunCommand(cmdName string, args ...string) (string, string, error) {

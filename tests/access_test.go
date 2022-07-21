@@ -199,7 +199,7 @@ var _ = Describe("[rfe_id:500][crit:high][arm64][vendor:cnv-qe@redhat.com][level
 
 	BeforeEach(func() {
 		k8sClient = clientcmd.GetK8sCmdClient()
-		clientcmd.SkipIfNoCmd(k8sClient)
+		checks.SkipIfNoCmd(k8sClient)
 		virtClient, err := kubecli.GetKubevirtClient()
 		Expect(err).ToNot(HaveOccurred())
 		authClient, err = authClientV1.NewForConfig(virtClient.Config())
@@ -356,7 +356,7 @@ var _ = Describe("[rfe_id:500][crit:high][arm64][vendor:cnv-qe@redhat.com][level
 		BeforeEach(func() {
 			// Generate unique usernames based on the test namespace which is unique per ginkgo node
 			testUser = "testuser-" + util.NamespaceTestDefault
-			clientcmd.SkipIfNoCmd("oc")
+			checks.SkipIfNoCmd("oc")
 			if !checks.IsOpenShift() {
 				Skip("Skip tests which require an openshift managed test user if not running on openshift")
 			}

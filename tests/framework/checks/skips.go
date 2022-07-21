@@ -3,6 +3,7 @@ package checks
 import (
 	"context"
 	"fmt"
+	"strings"
 
 	"kubevirt.io/kubevirt/pkg/util/cluster"
 
@@ -18,6 +19,7 @@ import (
 
 	virtconfig "kubevirt.io/kubevirt/pkg/virt-config"
 
+	"kubevirt.io/kubevirt/tests/flags"
 	"kubevirt.io/kubevirt/tests/libnode"
 	"kubevirt.io/kubevirt/tests/util"
 )
@@ -231,5 +233,22 @@ func SkipIfMigrationIsNotPossible() {
 func SkipIfARM64(arch string, message string) {
 	if IsARM64(arch) {
 		ginkgo.Skip("Skip test on arm64: " + message)
+	}
+}
+
+func SkipIfNoCmd(cmdName string) {
+	var cmdPath string
+	switch strings.ToLower(cmdName) {
+	case "oc":
+		cmdPath = flags.KubeVirtOcPath
+	case "kubectl":
+		cmdPath = flags.KubeVirtKubectlPath
+	case "virtctl":
+		cmdPath = flags.KubeVirtVirtctlPath
+	case "gocli":
+		cmdPath = flags.KubeVirtGoCliPath
+	}
+	if cmdPath == "" {
+		ginkgo.Skip(fmt.Sprintf("Skip test that requires %s binary", cmdName))
 	}
 }

@@ -321,7 +321,7 @@ var _ = Describe("[Serial][sig-compute]Windows VirtualMachineInstance", func() {
 	Context("[ref_id:142]with kubectl command", func() {
 		var yamlFile string
 		BeforeEach(func() {
-			clientcmd.SkipIfNoCmd("kubectl")
+			checks.SkipIfNoCmd("kubectl")
 			yamlFile, err = generateVMIJson(windowsVMI, GinkgoT().TempDir())
 			Expect(err).ToNot(HaveOccurred())
 		})

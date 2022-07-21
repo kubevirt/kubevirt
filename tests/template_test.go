@@ -69,7 +69,7 @@ var _ = Describe("[Serial][sig-compute]Templates", func() {
 		virtClient, err = kubecli.GetKubevirtClient()
 		util.PanicOnError(err)
 
-		clientcmd.SkipIfNoCmd("oc")
+		checks.SkipIfNoCmd("oc")
 		SetDefaultEventuallyTimeout(120 * time.Second)
 		SetDefaultEventuallyPollingInterval(2 * time.Second)
 

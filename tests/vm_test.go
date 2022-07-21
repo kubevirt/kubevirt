@@ -43,6 +43,7 @@ import (
 	"k8s.io/apimachinery/pkg/watch"
 	"k8s.io/utils/pointer"
 
+	"kubevirt.io/kubevirt/tests/framework/checks"
 	"kubevirt.io/kubevirt/tests/libpod"
 	"kubevirt.io/kubevirt/tests/util"
 
@@ -1804,7 +1805,7 @@ var _ = Describe("[rfe_id:1177][crit:medium][vendor:cnv-qe@redhat.com][level:com
 
 		BeforeEach(func() {
 			k8sClient = clientcmd.GetK8sCmdClient()
-			clientcmd.SkipIfNoCmd(k8sClient)
+			checks.SkipIfNoCmd(k8sClient)
 			workDir = GinkgoT().TempDir()
 
 			// By default "." does not match newline: "Phase" and "Running" only match if on same line.
@@ -2074,7 +2075,7 @@ var _ = Describe("[rfe_id:1177][crit:medium][vendor:cnv-qe@redhat.com][level:com
 			Context("should succeed with right rights", func() {
 				BeforeEach(func() {
 					// kubectl doesn't have "adm" subcommand -- only oc does
-					clientcmd.SkipIfNoCmd("oc")
+					checks.SkipIfNoCmd("oc")
 					By("Ensuring the cluster has new test serviceaccount")
 					stdOut, stdErr, err := clientcmd.RunCommand(k8sClient, "create", "user", testUser)
 					Expect(err).ToNot(HaveOccurred(), "ERR: %s", stdOut+stdErr)
