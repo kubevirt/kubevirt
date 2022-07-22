@@ -30,7 +30,8 @@ import (
 	"kubevirt.io/kubevirt/tests/libpod"
 )
 
-func GetRunningVirtualMachineInstanceDomainXML(virtClient kubecli.KubevirtClient, vmi *v1.VirtualMachineInstance, namespace string) (string, error) {
+func GetRunningVirtualMachineInstanceDomainXML(virtClient kubecli.KubevirtClient,
+	vmi *v1.VirtualMachineInstance, namespace string) (string, error) {
 	vmiPod, err := libpod.GetRunningPodByVirtualMachineInstance(vmi, namespace)
 	if err != nil {
 		return "", err
@@ -45,7 +46,7 @@ func GetRunningVirtualMachineInstanceDomainXML(virtClient kubecli.KubevirtClient
 		}
 	}
 	if !found {
-		return "", fmt.Errorf(libpod.CouldNotFindComputeContainer)
+		return "", fmt.Errorf("%s", libpod.CouldNotFindComputeContainer)
 	}
 
 	// get current vmi
@@ -56,8 +57,7 @@ func GetRunningVirtualMachineInstanceDomainXML(virtClient kubecli.KubevirtClient
 
 	command := []string{"virsh"}
 	if kutil.IsNonRootVMI(freshVMI) {
-		command = append(command, "-c")
-		command = append(command, "qemu+unix:///session?socket=/var/run/libvirt/libvirt-sock")
+		command = append(command, "-c", "qemu+unix:///session?socket=/var/run/libvirt/libvirt-sock")
 	}
 	command = append(command, []string{"dumpxml", vmi.Namespace + "_" + vmi.Name}...)
 
