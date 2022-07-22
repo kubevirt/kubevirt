@@ -8,7 +8,10 @@ import (
 
 	"kubevirt.io/client-go/kubecli"
 
+	"kubevirt.io/kubevirt/tests"
+	"kubevirt.io/kubevirt/tests/flags"
 	"kubevirt.io/kubevirt/tests/reporter"
+	"kubevirt.io/kubevirt/tests/testsuite"
 )
 
 func main() {
@@ -18,7 +21,15 @@ func main() {
 	pflag.Parse()
 
 	// Hardcoding maxFails to 1 since the purpouse here is just to dump the state once
-	reporter := reporter.NewKubernetesReporter(os.Getenv("ARTIFACTS"), 1)
+	reporter := reporter.NewKubernetesReporter(reporter.KubernetesReporterOptions{
+		ArtifactsDir:     os.Getenv("ARTIFACTS"),
+		MaxFails:         1,
+		Namespaces:       testsuite.TestNamespaces,
+		IsRunningOnKind:  tests.IsRunningOnKindInfra(),
+		InstallNamespace: flags.KubeVirtInstallNamespace,
+		KubectlPath:      flags.KubeVirtKubectlPath,
+		OCPath:           flags.KubeVirtOcPath,
+	})
 	reporter.Cleanup()
 	reporter.DumpAllNamespaces(duration)
 }
