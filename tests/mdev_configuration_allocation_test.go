@@ -37,19 +37,16 @@ var _ = Describe("[Serial][sig-compute]MediatedDevices", func() {
 		util.PanicOnError(err)
 	})
 
-	var latestPod *k8sv1.Pod
-	waitForPod := func(fetchPod func() (*k8sv1.Pod, error)) wait.ConditionFunc {
+	waitForPod := func(outputPod *k8sv1.Pod, fetchPod func() (*k8sv1.Pod, error)) wait.ConditionFunc {
 		return func() (bool, error) {
 
-			latestPod, err = fetchPod()
+			latestPod, err := fetchPod()
 			if err != nil {
 				return false, err
 			}
+			*outputPod = *latestPod
 
-			phase := latestPod.Status.Phase
-
-			return phase == k8sv1.PodFailed || phase == k8sv1.PodSucceeded, nil
-
+			return latestPod.Status.Phase == k8sv1.PodFailed || latestPod.Status.Phase == k8sv1.PodSucceeded, nil
 		}
 	}
 
@@ -74,8 +71,9 @@ var _ = Describe("[Serial][sig-compute]MediatedDevices", func() {
 			testPod, err = virtClient.CoreV1().Pods(util.NamespaceTestDefault).Create(context.Background(), testPod, metav1.CreateOptions{})
 			Expect(err).ToNot(HaveOccurred())
 
-			err := wait.PollImmediate(5*time.Second, 3*time.Minute, waitForPod(ThisPod(testPod)))
-			return latestPod, err
+			var latestPod k8sv1.Pod
+			err := wait.PollImmediate(5*time.Second, 3*time.Minute, waitForPod(&latestPod, ThisPod(testPod)))
+			return &latestPod, err
 		}
 
 	}
@@ -92,8 +90,9 @@ var _ = Describe("[Serial][sig-compute]MediatedDevices", func() {
 		testPod, err = virtClient.CoreV1().Pods(util.NamespaceTestDefault).Create(context.Background(), testPod, metav1.CreateOptions{})
 		Expect(err).ToNot(HaveOccurred())
 
-		err := wait.PollImmediate(time.Second, 2*time.Minute, waitForPod(ThisPod(testPod)))
-		return latestPod, err
+		var latestPod k8sv1.Pod
+		err := wait.PollImmediate(time.Second, 2*time.Minute, waitForPod(&latestPod, ThisPod(testPod)))
+		return &latestPod, err
 	}
 
 	noGPUDevicesAreAvailable := func() {
