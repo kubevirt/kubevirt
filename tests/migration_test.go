@@ -3993,7 +3993,7 @@ var _ = Describe("[rfe_id:393][crit:high][vendor:cnv-qe@redhat.com][level:system
 			nodes = nodeList.Items
 			Expect(len(nodes)).To(BeNumerically(">=", 2), "at least two worker nodes with cpumanager are required for migration")
 
-			By("creating a migratable VMI with 2 dedicated CPU cores", Label("needs-three-nodes"))
+			By("creating a migratable VMI with 2 dedicated CPU cores")
 			migratableVMI = tests.NewRandomVMIWithEphemeralDisk(cd.ContainerDiskFor(cd.ContainerDiskAlpine))
 			migratableVMI.Spec.Domain.CPU = &v1.CPU{
 				Cores:                 uint32(2),
@@ -4038,7 +4038,7 @@ var _ = Describe("[rfe_id:393][crit:high][vendor:cnv-qe@redhat.com][level:system
 		})
 
 		It("should successfully update a VMI's CPU set on migration", func() {
-			By("ensuring at least 2 worker nodes have cpumanager")
+			By("ensuring at least 2 worker nodes have cpumanager", Label("needs-three-nodes"))
 			Expect(len(nodes)).To(BeNumerically(">=", 2), "at least two worker nodes with cpumanager are required for migration")
 
 			By("starting a VMI on the first node of the list")
