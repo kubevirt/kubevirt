@@ -95,17 +95,6 @@ var _ = SIGDescribe("[Serial]VirtualMachineClone Tests", func() {
 
 			return vmClone.Status.Phase
 		}, 3*time.Minute, 3*time.Second).Should(Equal(clonev1alpha1.Succeeded), "clone should finish successfully")
-
-		// TODO: Clone should not depend on target VM's status. This should be fixed in restore controller.
-		// For more info: https://github.com/kubevirt/kubevirt/pull/8059#discussion_r917762046
-		targetVmName := vmClone.Spec.Target.Name
-		By(fmt.Sprintf("Waiting for target VM %s to be ready", targetVmName))
-		Eventually(func() (isRestoreInProgress bool) {
-			targetVm, err := virtClient.VirtualMachine(vmClone.Namespace).Get(targetVmName, &v1.GetOptions{})
-			Expect(err).ShouldNot(HaveOccurred())
-
-			return targetVm.Status.RestoreInProgress != nil
-		}, 90*time.Second, 1*time.Second).Should(BeFalse(), "target VM is expected to be ready")
 	}
 
 	expectVMRunnable := func(vm *virtv1.VirtualMachine, login loginFunction) *virtv1.VirtualMachine {
