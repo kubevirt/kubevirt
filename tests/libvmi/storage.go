@@ -21,6 +21,7 @@ package libvmi
 
 import (
 	k8sv1 "k8s.io/api/core/v1"
+	"k8s.io/apimachinery/pkg/api/resource"
 
 	v1 "kubevirt.io/api/core/v1"
 )
@@ -47,6 +48,14 @@ func WithDataVolume(diskName, pvcName string) Option {
 	return func(vmi *v1.VirtualMachineInstance) {
 		addDisk(vmi, newDisk(diskName, v1.DiskBusVirtio))
 		addVolume(vmi, newDataVolume(diskName, pvcName))
+	}
+}
+
+// WithEmptyDisk specifies the name of the EmptyDisk to be used.
+func WithEmptyDisk(diskName string, bus v1.DiskBus, capacity resource.Quantity) Option {
+	return func(vmi *v1.VirtualMachineInstance) {
+		addDisk(vmi, newDisk(diskName, bus))
+		addVolume(vmi, newEmptyDisk(diskName, capacity))
 	}
 }
 
@@ -133,6 +142,17 @@ func newDataVolume(name, dataVolumeName string) v1.Volume {
 		VolumeSource: v1.VolumeSource{
 			DataVolume: &v1.DataVolumeSource{
 				Name: dataVolumeName,
+			},
+		},
+	}
+}
+
+func newEmptyDisk(name string, capacity resource.Quantity) v1.Volume {
+	return v1.Volume{
+		Name: name,
+		VolumeSource: v1.VolumeSource{
+			EmptyDisk: &v1.EmptyDiskSource{
+				Capacity: capacity,
 			},
 		},
 	}
