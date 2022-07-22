@@ -4932,7 +4932,7 @@ var CRDsValidation map[string]string = map[string]string{
                                   bus:
                                     description: 'Bus indicates the type of disk device
                                       to emulate. supported values: virtio, sata,
-                                      scsi.'
+                                      scsi, usb.'
                                     type: string
                                   pciAddress:
                                     description: 'If specified, the virtual disk will
@@ -6735,7 +6735,7 @@ var CRDsValidation map[string]string = map[string]string{
                         properties:
                           bus:
                             description: 'Bus indicates the type of disk device to
-                              emulate. supported values: virtio, sata, scsi.'
+                              emulate. supported values: virtio, sata, scsi, usb.'
                             type: string
                           pciAddress:
                             description: 'If specified, the virtual disk will be placed
@@ -9078,7 +9078,7 @@ var CRDsValidation map[string]string = map[string]string{
                         properties:
                           bus:
                             description: 'Bus indicates the type of disk device to
-                              emulate. supported values: virtio, sata, scsi.'
+                              emulate. supported values: virtio, sata, scsi, usb.'
                             type: string
                           pciAddress:
                             description: 'If specified, the virtual disk will be placed
@@ -11372,7 +11372,7 @@ var CRDsValidation map[string]string = map[string]string{
                         properties:
                           bus:
                             description: 'Bus indicates the type of disk device to
-                              emulate. supported values: virtio, sata, scsi.'
+                              emulate. supported values: virtio, sata, scsi, usb.'
                             type: string
                           pciAddress:
                             description: 'If specified, the virtual disk will be placed
@@ -13450,7 +13450,7 @@ var CRDsValidation map[string]string = map[string]string{
                                   bus:
                                     description: 'Bus indicates the type of disk device
                                       to emulate. supported values: virtio, sata,
-                                      scsi.'
+                                      scsi, usb.'
                                     type: string
                                   pciAddress:
                                     description: 'If specified, the virtual disk will
@@ -17387,7 +17387,7 @@ var CRDsValidation map[string]string = map[string]string{
                                           bus:
                                             description: 'Bus indicates the type of
                                               disk device to emulate. supported values:
-                                              virtio, sata, scsi.'
+                                              virtio, sata, scsi, usb.'
                                             type: string
                                           pciAddress:
                                             description: 'If specified, the virtual
@@ -22025,7 +22025,7 @@ var CRDsValidation map[string]string = map[string]string{
                                               bus:
                                                 description: 'Bus indicates the type
                                                   of disk device to emulate. supported
-                                                  values: virtio, sata, scsi.'
+                                                  values: virtio, sata, scsi, usb.'
                                                 type: string
                                               pciAddress:
                                                 description: 'If specified, the virtual
@@ -24008,7 +24008,7 @@ var CRDsValidation map[string]string = map[string]string{
                                       bus:
                                         description: 'Bus indicates the type of disk
                                           device to emulate. supported values: virtio,
-                                          sata, scsi.'
+                                          sata, scsi, usb.'
                                         type: string
                                       pciAddress:
                                         description: 'If specified, the virtual disk
