@@ -28,6 +28,7 @@ import (
 	cdiv1 "kubevirt.io/containerized-data-importer-api/pkg/apis/core/v1beta1"
 
 	"kubevirt.io/kubevirt/pkg/virtctl/imageupload"
+	"kubevirt.io/kubevirt/pkg/virtctl/utils"
 	"kubevirt.io/kubevirt/tests"
 	"kubevirt.io/kubevirt/tests/clientcmd"
 )
@@ -56,9 +57,9 @@ var _ = Describe("ImageUpload", func() {
 		cdiClient  *fakecdiclient.Clientset
 		server     *httptest.Server
 
-		dvCreateCalled  = &atomicBool{lock: &sync.Mutex{}}
-		pvcCreateCalled = &atomicBool{lock: &sync.Mutex{}}
-		updateCalled    = &atomicBool{lock: &sync.Mutex{}}
+		dvCreateCalled  = &utils.AtomicBool{Lock: &sync.Mutex{}}
+		pvcCreateCalled = &utils.AtomicBool{Lock: &sync.Mutex{}}
+		updateCalled    = &utils.AtomicBool{Lock: &sync.Mutex{}}
 
 		imagePath       string
 		archiveFilePath string
@@ -737,27 +738,4 @@ func getVolumeMode(dvSpec cdiv1.DataVolumeSpec) *v1.PersistentVolumeMode {
 		return dvSpec.PVC.VolumeMode
 	}
 	return dvSpec.Storage.VolumeMode
-}
-
-type atomicBool struct {
-	lock  *sync.Mutex
-	value bool
-}
-
-func (b *atomicBool) IsTrue() bool {
-	b.lock.Lock()
-	defer b.lock.Unlock()
-	return b.value
-}
-
-func (b *atomicBool) True() {
-	b.lock.Lock()
-	defer b.lock.Unlock()
-	b.value = true
-}
-
-func (b *atomicBool) False() {
-	b.lock.Lock()
-	defer b.lock.Unlock()
-	b.value = false
 }

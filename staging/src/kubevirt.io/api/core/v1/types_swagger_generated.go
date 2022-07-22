@@ -616,10 +616,11 @@ func (VirtualMachineMemoryDumpRequest) SwaggerDoc() map[string]string {
 		"":               "VirtualMachineMemoryDumpRequest represent the memory dump request phase and info",
 		"claimName":      "ClaimName is the name of the pvc that will contain the memory dump",
 		"phase":          "Phase represents the memory dump phase",
-		"startTimestamp": "StartTimestamp represents the time the memory dump started",
-		"endTimestamp":   "EndTimestamp represents the time the memory dump was completed",
-		"fileName":       "FileName represents the name of the output file",
-		"message":        "Message is a detailed message about failure of the memory dump",
+		"remove":         "Remove represents request of dissociating the memory dump pvc\n+optional",
+		"startTimestamp": "StartTimestamp represents the time the memory dump started\n+optional",
+		"endTimestamp":   "EndTimestamp represents the time the memory dump was completed\n+optional",
+		"fileName":       "FileName represents the name of the output file\n+optional",
+		"message":        "Message is a detailed message about failure of the memory dump\n+optional",
 	}
 }
 

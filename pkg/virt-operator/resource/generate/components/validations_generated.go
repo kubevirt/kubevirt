@@ -6483,6 +6483,10 @@ var CRDsValidation map[string]string = map[string]string{
             phase:
               description: Phase represents the memory dump phase
               type: string
+            remove:
+              description: Remove represents request of dissociating the memory dump
+                pvc
+              type: boolean
             startTimestamp:
               description: StartTimestamp represents the time the memory dump started
               format: date-time
@@ -23262,6 +23266,10 @@ var CRDsValidation map[string]string = map[string]string{
                         phase:
                           description: Phase represents the memory dump phase
                           type: string
+                        remove:
+                          description: Remove represents request of dissociating the
+                            memory dump pvc
+                          type: boolean
                         startTimestamp:
                           description: StartTimestamp represents the time the memory
                             dump started

@@ -2145,18 +2145,8 @@ func (c *VMIController) getFilesystemOverhead(pvc *k8sv1.PersistentVolumeClaim) 
 	if !ok {
 		return "0", fmt.Errorf("Failed to convert CDIConfig object %v to type CDIConfig", cdiConfigInterface)
 	}
-	if pvc.Spec.VolumeMode != nil && *pvc.Spec.VolumeMode == k8sv1.PersistentVolumeBlock {
-		return "0", nil
-	}
-	scName := pvc.Spec.StorageClassName
-	if scName == nil {
-		return cdiConfig.Status.FilesystemOverhead.Global, nil
-	}
-	fsOverhead, ok := cdiConfig.Status.FilesystemOverhead.StorageClass[*scName]
-	if !ok {
-		return cdiConfig.Status.FilesystemOverhead.Global, nil
-	}
-	return fsOverhead, nil
+
+	return kubevirttypes.GetFilesystemOverhead(pvc.Spec.VolumeMode, pvc.Spec.StorageClassName, cdiConfig), nil
 }
 
 func (c *VMIController) canMoveToAttachedPhase(currentPhase virtv1.VolumePhase) bool {
