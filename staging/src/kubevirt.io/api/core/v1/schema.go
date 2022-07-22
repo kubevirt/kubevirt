@@ -1205,6 +1205,7 @@ type InterfaceBindingMethod struct {
 	Masquerade *InterfaceMasquerade `json:"masquerade,omitempty"`
 	SRIOV      *InterfaceSRIOV      `json:"sriov,omitempty"`
 	Macvtap    *InterfaceMacvtap    `json:"macvtap,omitempty"`
+	Passt      *InterfacePasst      `json:"passt,omitempty"`
 }
 
 // InterfaceBridge connects to a given network via a linux bridge.
@@ -1221,6 +1222,9 @@ type InterfaceSRIOV struct{}
 
 // InterfaceMacvtap connects to a given network by extending the Kubernetes node's L2 networks via a macvtap interface.
 type InterfaceMacvtap struct{}
+
+// InterfacePasst connects to a given network.
+type InterfacePasst struct{}
 
 // Port represents a port to expose from the virtual machine.
 // Default protocol TCP.

@@ -20,15 +20,23 @@
 package domainspec
 
 import (
+	"bufio"
 	"fmt"
+	"io"
+
+	"os/exec"
 	"strconv"
+	"strings"
+	"syscall"
 
 	"github.com/vishvananda/netlink"
+	"golang.org/x/sys/unix"
 
 	v1 "kubevirt.io/api/core/v1"
 	"kubevirt.io/client-go/log"
 
 	netdriver "kubevirt.io/kubevirt/pkg/network/driver"
+	"kubevirt.io/kubevirt/pkg/network/istio"
 	virtnetlink "kubevirt.io/kubevirt/pkg/network/link"
 	"kubevirt.io/kubevirt/pkg/virt-launcher/virtwrap/api"
 )
@@ -89,6 +97,14 @@ func NewBridgeLibvirtSpecGenerator(
 		cachedDomainInterface: cachedDomainInterface,
 		podInterfaceName:      podInterfaceName,
 		handler:               handler,
+	}
+}
+
+func NewPasstLibvirtSpecGenerator(iface *v1.Interface, domain *api.Domain, vmi *v1.VirtualMachineInstance) *PasstLibvirtSpecGenerator {
+	return &PasstLibvirtSpecGenerator{
+		vmiSpecIface: iface,
+		domain:       domain,
+		vmi:          vmi,
 	}
 }
 
@@ -274,4 +290,104 @@ func (b *MacvtapLibvirtSpecGenerator) discoverDomainIfaceSpec() (*api.Interface,
 			Managed: "no",
 		},
 	}, nil
+}
+
+type PasstLibvirtSpecGenerator struct {
+	vmiSpecIface *v1.Interface
+	domain       *api.Domain
+	vmi          *v1.VirtualMachineInstance
+}
+
+func (b *PasstLibvirtSpecGenerator) Generate() error {
+	err := exec.Command("pgrep", "passt").Run()
+	if err == nil {
+		return fmt.Errorf("passt process is already running")
+	}
+	// remove passt interface from domain spec devices interfaces
+	foundDomainInterface := false
+	for i, iface := range b.domain.Spec.Devices.Interfaces {
+		if iface.Alias.GetName() == b.vmiSpecIface.Name {
+			b.domain.Spec.Devices.Interfaces = append(b.domain.Spec.Devices.Interfaces[:i], b.domain.Spec.Devices.Interfaces[i+1:]...)
+			foundDomainInterface = true
+			break
+		}
+	}
+	if !foundDomainInterface {
+		return fmt.Errorf("failed to find interface %s in vmi spec", b.vmiSpecIface.Name)
+	}
+
+	ports := b.generatePorts()
+	args := append([]string{"--runas", "107", "-e"}, ports...)
+	cmd := exec.Command("/usr/bin/passt", args...)
+	cmd.SysProcAttr = &syscall.SysProcAttr{
+		AmbientCaps: []uintptr{unix.CAP_NET_BIND_SERVICE},
+	}
+
+	// connect passt's stderr to our own stdout in order to see the logs in the container logs
+	var reader io.ReadCloser
+	reader, err = cmd.StderrPipe()
+	if err != nil {
+		log.Log.Reason(err).Error("failed to get passt stderr")
+		return err
+	}
+	go func() {
+		const bufferSize = 1024
+		const maxBufferSize = 512 * bufferSize
+		scanner := bufio.NewScanner(reader)
+		scanner.Buffer(make([]byte, bufferSize), maxBufferSize)
+		for scanner.Scan() {
+			log.Log.Info(fmt.Sprintf("passt: %s", scanner.Text()))
+		}
+		if err = scanner.Err(); err != nil {
+			log.Log.Reason(err).Error("failed to read passt logs")
+		}
+	}()
+
+	err = cmd.Start()
+	if err != nil {
+		log.Log.Reason(err).Error("failed to start passt")
+		return err
+	}
+
+	err = cmd.Wait()
+	if err != nil {
+		log.Log.Reason(err).Error("failed waiting for passt going to background")
+		return err
+	}
+
+	return nil
+}
+
+func (b *PasstLibvirtSpecGenerator) generatePorts() []string {
+	tcpPorts := []string{}
+	udpPorts := []string{}
+
+	if len(b.vmiSpecIface.Ports) == 0 {
+		if istio.ProxyInjectionEnabled(b.vmi) {
+			for _, port := range istio.ReservedPorts() {
+				tcpPorts = append(tcpPorts, fmt.Sprintf("~%s", port))
+			}
+		} else {
+			tcpPorts = append(tcpPorts, "all")
+		}
+		udpPorts = append(udpPorts, "all")
+	}
+	for _, port := range b.vmiSpecIface.Ports {
+		if strings.EqualFold(port.Protocol, "TCP") || port.Protocol == "" {
+			tcpPorts = append(tcpPorts, fmt.Sprintf("%d", port.Port))
+		} else if strings.EqualFold(port.Protocol, "UDP") {
+			udpPorts = append(udpPorts, fmt.Sprintf("%d", port.Port))
+		} else {
+			log.Log.Errorf("protocol %s is not supported by passt", port.Protocol)
+		}
+	}
+
+	if len(tcpPorts) != 0 {
+		tcpPorts = append([]string{"-t"}, strings.Join(tcpPorts, ","))
+	}
+
+	if len(udpPorts) != 0 {
+		udpPorts = append([]string{"-u"}, strings.Join(udpPorts, ","))
+	}
+	return append(tcpPorts, udpPorts...)
 }

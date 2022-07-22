@@ -1101,7 +1101,7 @@ var _ = Describe("VirtualMachineInstance watcher", func() {
 			Entry("with running compute container and no ready istio-proxy container",
 				[]k8sv1.ContainerStatus{{
 					Name: "compute", State: k8sv1.ContainerState{Running: &k8sv1.ContainerStateRunning{}},
-				}, {Name: "istio-proxy", Ready: false}},
+				}, {Name: "istio-proxy", State: k8sv1.ContainerState{Running: &k8sv1.ContainerStateRunning{}}, Ready: false}},
 			),
 		)
 		DescribeTable("should not hand over pod to virt-handler if pod is ready and running", func(containerStatus []k8sv1.ContainerStatus) {

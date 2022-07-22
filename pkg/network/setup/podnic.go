@@ -78,6 +78,9 @@ func newPhase1PodNIC(vmi *v1.VirtualMachineInstance, network *v1.Network, handle
 			podnic.vmiSpecNetwork,
 			*podnic.launcherPID,
 			podnic.handler)
+	} else if podnic.vmiSpecIface.Passt != nil {
+		podnic.infraConfigurator = infraconfigurators.NewPasstPodNetworkConfigurator(
+			podnic.handler)
 	}
 	return podnic, nil
 }
@@ -304,6 +307,9 @@ func (l *podNIC) newLibvirtSpecGenerator(domain *api.Domain) domainspec.LibvirtS
 	}
 	if l.vmiSpecIface.Macvtap != nil {
 		return domainspec.NewMacvtapLibvirtSpecGenerator(l.vmiSpecIface, domain, l.podInterfaceName, l.handler)
+	}
+	if l.vmiSpecIface.Passt != nil {
+		return domainspec.NewPasstLibvirtSpecGenerator(l.vmiSpecIface, domain, l.vmi)
 	}
 	return nil
 }

@@ -19,7 +19,6 @@ package sysctl
 import (
 	"io/ioutil"
 	"path"
-	"strconv"
 	"strings"
 
 	"kubevirt.io/kubevirt/pkg/util"
@@ -30,14 +29,15 @@ const (
 	NetIPv6Forwarding = "net/ipv6/conf/all/forwarding"
 	NetIPv4Forwarding = "net/ipv4/ip_forward"
 	Ipv4ArpIgnoreAll  = "net/ipv4/conf/all/arp_ignore"
+	PingGroupRange    = "net/ipv4/ping_group_range"
 )
 
 // Interface is an injectable interface for running sysctl commands.
 type Interface interface {
 	// GetSysctl returns the value for the specified sysctl setting
-	GetSysctl(sysctl string) (int, error)
+	GetSysctl(sysctl string) (string, error)
 	// SetSysctl modifies the specified sysctl flag to the new value
-	SetSysctl(sysctl string, newVal int) error
+	SetSysctl(sysctl string, newVal string) error
 }
 
 // New returns a new Interface for accessing sysctl
@@ -50,19 +50,16 @@ type procSysctl struct {
 }
 
 // GetSysctl returns the value for the specified sysctl setting
-func (*procSysctl) GetSysctl(sysctl string) (int, error) {
+func (*procSysctl) GetSysctl(sysctl string) (string, error) {
 	data, err := ioutil.ReadFile(path.Join(sysctlBase, sysctl))
 	if err != nil {
-		return -1, err
+		return "-1", err
 	}
-	val, err := strconv.Atoi(strings.Trim(string(data), " \n"))
-	if err != nil {
-		return -1, err
-	}
+	val := strings.Trim(string(data), " \n")
 	return val, nil
 }
 
 // SetSysctl modifies the specified sysctl flag to the new value
-func (*procSysctl) SetSysctl(sysctl string, newVal int) error {
-	return util.WriteFileWithNosec(path.Join(sysctlBase, sysctl), []byte(strconv.Itoa(newVal)))
+func (*procSysctl) SetSysctl(sysctl string, newVal string) error {
+	return util.WriteFileWithNosec(path.Join(sysctlBase, sysctl), []byte(newVal))
 }
