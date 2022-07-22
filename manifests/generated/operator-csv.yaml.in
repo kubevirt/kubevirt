@@ -1198,6 +1198,8 @@ spec:
                   readOnly: true
                 - mountPath: /profile-data
                   name: profile-data
+              nodeSelector:
+                kubernetes.io/os: linux
               priorityClassName: kubevirt-cluster-critical
               securityContext:
                 runAsNonRoot: true
