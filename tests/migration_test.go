@@ -4037,8 +4037,8 @@ var _ = Describe("[rfe_id:393][crit:high][vendor:cnv-qe@redhat.com][level:system
 			libnode.RemoveLabelFromNode(nodes[1].Name, testLabel1)
 		})
 
-		It("should successfully update a VMI's CPU set on migration", func() {
-			By("ensuring at least 2 worker nodes have cpumanager", Label("needs-three-nodes"))
+		It("should successfully update a VMI's CPU set on migration", Label("needs-three-nodes"), func() {
+			By("ensuring at least 2 worker nodes have cpumanager")
 			Expect(len(nodes)).To(BeNumerically(">=", 2), "at least two worker nodes with cpumanager are required for migration")
 
 			By("starting a VMI on the first node of the list")
