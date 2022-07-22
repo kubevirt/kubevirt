@@ -4116,7 +4116,7 @@ var _ = Describe("[rfe_id:393][crit:high][vendor:cnv-qe@redhat.com][level:system
 			err = virtClient.NetworkClient().K8sCniCncfIoV1().NetworkAttachmentDefinitions(flags.KubeVirtInstallNamespace).Delete(context.TODO(), nad.Name, metav1.DeleteOptions{})
 			Expect(err).NotTo(HaveOccurred(), "Failed to delete the Network Attachment Definition")
 		})
-		It("Should migrate over that network", func() {
+		It("Should migrate over that network", Label("needs-three-nodes"), func() {
 			vmi := libvmi.NewAlpine(
 				libvmi.WithInterface(libvmi.InterfaceDeviceWithMasqueradeBinding()),
 				libvmi.WithNetwork(v1.DefaultPodNetwork()),
