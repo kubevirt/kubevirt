@@ -64,6 +64,7 @@ function update_github_release() {
         _out/tests/tests.test \
         _out/manifests/release/conformance.yaml \
         _out/manifests/testing/*
+        _out/cmd/dump/dump*
 }
 
 function upload_testing_manifests() {
