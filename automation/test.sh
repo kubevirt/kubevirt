@@ -371,18 +371,16 @@ if [[ -z ${KUBEVIRT_E2E_FOCUS} && -z ${KUBEVIRT_E2E_SKIP} ]]; then
     export KUBEVIRT_E2E_FOCUS="\\[sig-network\\]"
   elif [[ $TARGET =~ sig-storage ]]; then
     export KUBEVIRT_E2E_FOCUS="\\[sig-storage\\]|\\[storage-req\\]"
-    export KUBEVIRT_E2E_SKIP="Migration"
+    label_filter='--label-filter=!needs-three-nodes'
   elif [[ $TARGET =~ vgpu.* ]]; then
     label_filter='--label-filter=needs-mdev-gpu'
   elif [[ $TARGET =~ sig-compute-realtime ]]; then
     export KUBEVIRT_E2E_FOCUS="\\[sig-compute-realtime\\]"
   elif [[ $TARGET =~ sig-compute-migrations ]]; then
-    export KUBEVIRT_E2E_FOCUS="Migration"
-    label_filter='--label-filter=!needs-gpu && !needs-mdev-gpu'
+    label_filter='--label-filter=!needs-gpu && !needs-mdev-gpu && needs-three-nodes'
   elif [[ $TARGET =~ sig-compute ]]; then
     export KUBEVIRT_E2E_FOCUS="\\[sig-compute\\]"
-    export KUBEVIRT_E2E_SKIP="Migration"
-    label_filter='--label-filter=!needs-gpu && !needs-mdev-gpu'
+    label_filter='--label-filter=!needs-gpu && !needs-mdev-gpu && !needs-three-nodes'
   elif [[ $TARGET =~ sig-monitoring ]]; then
       export KUBEVIRT_E2E_FOCUS="\\[sig-monitoring\\]"
   elif [[ $TARGET =~ sig-operator ]]; then
@@ -428,12 +426,12 @@ fi
 # but also currently lack the requirements for SRIOV, GPU, Macvtap and MDEVs.
 if [[ $KUBEVIRT_NUM_NODES = "1" && $KUBEVIRT_INFRA_REPLICAS = "1" ]]; then
   if [ -n "$KUBEVIRT_E2E_SKIP" ]; then
-    export KUBEVIRT_E2E_SKIP="${KUBEVIRT_E2E_SKIP}|SRIOV|Macvtap|Migration"
-    label_filter='--label-filter=!needs-gpu && !needs-mdev-gpu'
+    export KUBEVIRT_E2E_SKIP="${KUBEVIRT_E2E_SKIP}|SRIOV|Macvtap"
+    label_filter='--label-filter=!needs-gpu && !needs-mdev-gpu && !needs-three-nodes'
 
   else
-    export KUBEVIRT_E2E_SKIP="SRIOV|Macvtap|Migration"
-    label_filter='--label-filter=!needs-gpu && !needs-mdev-gpu'
+    export KUBEVIRT_E2E_SKIP="SRIOV|Macvtap"
+    label_filter='--label-filter=!needs-gpu && !needs-mdev-gpu && !needs-three-nodes'
   fi
 fi
 
