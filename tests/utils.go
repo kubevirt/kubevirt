@@ -102,11 +102,10 @@ import (
 )
 
 const (
-	BinBash                      = "/bin/bash"
-	StartingVMInstance           = "Starting a VirtualMachineInstance"
-	WaitingVMInstanceStart       = "Waiting until the VirtualMachineInstance will start"
-	CouldNotFindComputeContainer = "could not find compute container for pod"
-	EchoLastReturnValue          = "echo $?\n"
+	BinBash                = "/bin/bash"
+	StartingVMInstance     = "Starting a VirtualMachineInstance"
+	WaitingVMInstanceStart = "Waiting until the VirtualMachineInstance will start"
+	EchoLastReturnValue    = "echo $?\n"
 )
 
 const (
@@ -1496,18 +1495,6 @@ func GetRunningVirtualMachineInstanceDomainXML(virtClient kubecli.KubevirtClient
 		return "", err
 	}
 
-	found := false
-	containerIdx := 0
-	for idx, container := range vmiPod.Spec.Containers {
-		if container.Name == "compute" {
-			containerIdx = idx
-			found = true
-		}
-	}
-	if !found {
-		return "", fmt.Errorf(CouldNotFindComputeContainer)
-	}
-
 	// get current vmi
 	freshVMI, err := virtClient.VirtualMachineInstance(vmi.Namespace).Get(vmi.Name, &metav1.GetOptions{})
 	if err != nil {
@@ -1524,7 +1511,7 @@ func GetRunningVirtualMachineInstanceDomainXML(virtClient kubecli.KubevirtClient
 	stdout, stderr, err := ExecuteCommandOnPodV2(
 		virtClient,
 		vmiPod,
-		vmiPod.Spec.Containers[containerIdx].Name,
+		GetComputeContainerOfPod(vmiPod).Name,
 		command,
 	)
 	if err != nil {
@@ -1539,22 +1526,10 @@ func LibvirtDomainIsPaused(virtClient kubecli.KubevirtClient, vmi *v1.VirtualMac
 		return false, err
 	}
 
-	found := false
-	containerIdx := 0
-	for idx, container := range vmiPod.Spec.Containers {
-		if container.Name == "compute" {
-			containerIdx = idx
-			found = true
-		}
-	}
-	if !found {
-		return false, fmt.Errorf(CouldNotFindComputeContainer)
-	}
-
 	stdout, stderr, err := ExecuteCommandOnPodV2(
 		virtClient,
 		vmiPod,
-		vmiPod.Spec.Containers[containerIdx].Name,
+		GetComputeContainerOfPod(vmiPod).Name,
 		[]string{"virsh", "--quiet", "domstate", vmi.Namespace + "_" + vmi.Name},
 	)
 	if err != nil {

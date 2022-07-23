@@ -4332,22 +4332,11 @@ func wakeNodeLabellerUp(virtClient kubecli.KubevirtClient) {
 
 func libvirtDomainIsPersistent(virtClient kubecli.KubevirtClient, vmi *v1.VirtualMachineInstance) (bool, error) {
 	vmiPod := tests.GetRunningPodByVirtualMachineInstance(vmi, util.NamespaceTestDefault)
-	found := false
-	containerIdx := 0
-	for idx, container := range vmiPod.Spec.Containers {
-		if container.Name == "compute" {
-			containerIdx = idx
-			found = true
-		}
-	}
-	if !found {
-		return false, fmt.Errorf(tests.CouldNotFindComputeContainer)
-	}
 
 	stdout, stderr, err := tests.ExecuteCommandOnPodV2(
 		virtClient,
 		vmiPod,
-		vmiPod.Spec.Containers[containerIdx].Name,
+		tests.GetComputeContainerOfPod(vmiPod).Name,
 		[]string{"virsh", "--quiet", "list", "--persistent", "--name"},
 	)
 	if err != nil {
