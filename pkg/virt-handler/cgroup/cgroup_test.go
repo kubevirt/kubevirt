@@ -12,10 +12,42 @@ import (
 var _ = Describe("cgroup manager", func() {
 
 	var (
-		ctrl *gomock.Controller
+		ctrl         *gomock.Controller
+		rulesDefined []*devices.Rule
 	)
 
-	newMockManager := func(version CgroupVersion) (*mockManager, error) {
+	newMockManagerFromCtrl := func(ctrl *gomock.Controller, version CgroupVersion) (Manager, error) {
+		mockRuncCgroupManager := NewMockruncManager(ctrl)
+		mockRuncCgroupManager.EXPECT().GetPaths().DoAndReturn(func() map[string]string {
+			paths := make(map[string]string)
+
+			// See documentation here for more info: https://github.com/opencontainers/runc/blob/release-1.0/libcontainer/cgroups/cgroups.go#L48
+			if version == V1 {
+				paths["devices"] = "/sys/fs/cgroup/devices"
+			} else {
+				paths[""] = "/sys/fs/cgroup/"
+			}
+
+			return paths
+		}).AnyTimes()
+
+		execVirtChrootFunc := func(r *runc_configs.Resources, subsystemPaths map[string]string, rootless bool, version CgroupVersion) error {
+			rulesDefined = r.Devices
+			return nil
+		}
+
+		getCurrentlyDefinedRulesFunc := func(runcManager runc_cgroups.Manager) ([]*devices.Rule, error) {
+			return rulesDefined, nil
+		}
+
+		if version == V1 {
+			return newCustomizedV1Manager(mockRuncCgroupManager, false, execVirtChrootFunc, getCurrentlyDefinedRulesFunc)
+		} else {
+			return newCustomizedV2Manager(mockRuncCgroupManager, false, execVirtChrootFunc)
+		}
+	}
+
+	newMockManager := func(version CgroupVersion) (Manager, error) {
 		return newMockManagerFromCtrl(ctrl, version)
 	}
 
@@ -37,30 +69,9 @@ var _ = Describe("cgroup manager", func() {
 		}
 	}
 
-	areRulesEqual := func(rule1, rule2 *devices.Rule) bool {
-		if rule1 == nil && rule2 == nil {
-			return true
-		}
-
-		if rule1 == nil || rule2 == nil {
-			return false
-		}
-
-		return rule1.Allow == rule2.Allow && rule1.Major == rule2.Major && rule1.Minor == rule2.Minor &&
-			rule1.Type == rule2.Type && rule1.Permissions == rule2.Permissions
-	}
-
-	isRulesInRuleList := func(rule *devices.Rule, ruleList []*devices.Rule) bool {
-		for _, ruleInList := range ruleList {
-			if areRulesEqual(rule, ruleInList) {
-				return true
-			}
-		}
-		return false
-	}
-
 	BeforeEach(func() {
 		ctrl = gomock.NewController(GinkgoT())
+		rulesDefined = make([]*devices.Rule, 0)
 	})
 
 	DescribeTable("ensure that default rules are added", func(version CgroupVersion) {
@@ -72,10 +83,10 @@ var _ = Describe("cgroup manager", func() {
 		err = manager.Set(newResourcesWithRule(fakeRule))
 		Expect(err).ShouldNot(HaveOccurred())
 
-		Expect(isRulesInRuleList(fakeRule, manager.rulesDefined)).To(BeTrue(), "defined rule is expected to exist")
+		Expect(rulesDefined).To(ContainElement(fakeRule), "defined rule is expected to exist")
 
 		for _, defaultRule := range GenerateDefaultDeviceRules() {
-			Expect(isRulesInRuleList(defaultRule, manager.rulesDefined)).To(BeTrue(), "default rules are expected to be defined")
+			Expect(rulesDefined).To(ContainElement(defaultRule), "default rules are expected to be defined")
 		}
 
 	},
@@ -96,8 +107,7 @@ var _ = Describe("cgroup manager", func() {
 		err = manager.Set(newResourcesWithRule(fakeRule2))
 		Expect(err).ShouldNot(HaveOccurred())
 
-		previousRuleExists := isRulesInRuleList(fakeRule1, manager.rulesDefined)
-		Expect(previousRuleExists).To(BeTrue(), "previous rule is expected to not be overridden")
+		Expect(rulesDefined).To(ContainElement(fakeRule1), "previous rule is expected to not be overridden")
 
 	},
 		Entry("for v1", V1),
@@ -113,10 +123,10 @@ var _ = Describe("cgroup manager", func() {
 
 		err = manager.Set(newResourcesWithRule(fakeRule))
 		Expect(err).ShouldNot(HaveOccurred())
-		Expect(isRulesInRuleList(fakeRule, manager.rulesDefined)).To(BeTrue(), "defined rule is expected to exist")
+		Expect(rulesDefined).To(ContainElement(fakeRule), "defined rule is expected to exist")
 
 		fakeRule.Permissions = "fake-permissions-456"
-		Expect(isRulesInRuleList(fakeRule, manager.rulesDefined)).To(BeTrue(), "rule needs to be overridden since explicitly re-set")
+		Expect(rulesDefined).To(ContainElement(fakeRule), "rule needs to be overridden since explicitly re-set")
 
 	},
 		Entry("for v1", V1),
@@ -124,62 +134,3 @@ var _ = Describe("cgroup manager", func() {
 	)
 
 })
-
-type mockManager struct {
-	*MockManager
-	rulesDefined []*devices.Rule
-	realManager  *Manager
-}
-
-func newMockManagerFromCtrl(ctrl *gomock.Controller, version CgroupVersion) (*mockManager, error) {
-	mockRuncCgroupManager := NewMockruncManager(ctrl)
-	mockRuncCgroupManager.EXPECT().GetPaths().DoAndReturn(func() map[string]string {
-		paths := make(map[string]string)
-
-		// See documentation here for more info: https://github.com/opencontainers/runc/blob/release-1.0/libcontainer/cgroups/cgroups.go#L48
-		if version == V1 {
-			paths["devices"] = "/sys/fs/cgroup/devices"
-		} else {
-			paths[""] = "/sys/fs/cgroup/"
-		}
-
-		return paths
-	}).AnyTimes()
-
-	mockCgroupManager := NewMockManager(ctrl)
-
-	mockV1 := &mockManager{ //ihol3 change name
-		mockCgroupManager,
-		make([]*devices.Rule, 0),
-		nil,
-	}
-
-	execVirtChrootFunc := func(r *runc_configs.Resources, subsystemPaths map[string]string, rootless bool, version CgroupVersion) error {
-		mockV1.rulesDefined = r.Devices
-		return nil
-	}
-	getCurrentlyDefinedRulesFunc := func(runcManager runc_cgroups.Manager) ([]*devices.Rule, error) {
-		return mockV1.rulesDefined, nil
-	}
-
-	var realManager Manager
-	var err error
-
-	if version == V1 {
-		realManager, err = newCustomizedV1Manager(mockRuncCgroupManager, false, execVirtChrootFunc, getCurrentlyDefinedRulesFunc)
-	} else {
-		realManager, err = newCustomizedV2Manager(mockRuncCgroupManager, false, execVirtChrootFunc)
-	}
-
-	if err != nil {
-		return mockV1, err
-	}
-	mockV1.realManager = &realManager
-
-	mockCgroupManager.EXPECT().Set(gomock.Any()).DoAndReturn(realManager.Set).AnyTimes()
-	mockCgroupManager.EXPECT().GetBasePathToHostSubsystem(gomock.Any()).DoAndReturn(realManager.GetBasePathToHostSubsystem).AnyTimes()
-	mockCgroupManager.EXPECT().GetCgroupVersion().DoAndReturn(realManager.GetCgroupVersion).AnyTimes()
-	mockCgroupManager.EXPECT().GetCpuSet().DoAndReturn(realManager.GetCpuSet).AnyTimes()
-
-	return mockV1, nil
-}
