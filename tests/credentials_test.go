@@ -108,7 +108,7 @@ var _ = Describe("[sig-compute]Guest Access Credentials", func() {
 				},
 			}
 			_, err := virtClient.CoreV1().Secrets(vmi.Namespace).Create(context.Background(), &secret, metav1.CreateOptions{})
-			Expect(err).To(BeNil())
+			Expect(err).ToNot(HaveOccurred())
 
 			LaunchVMI(vmi)
 
@@ -183,7 +183,7 @@ var _ = Describe("[sig-compute]Guest Access Credentials", func() {
 				},
 			}
 			_, err := virtClient.CoreV1().Secrets(vmi.Namespace).Create(context.Background(), &secret, metav1.CreateOptions{})
-			Expect(err).To(BeNil())
+			Expect(err).ToNot(HaveOccurred())
 
 			LaunchVMI(vmi)
 
@@ -254,7 +254,7 @@ var _ = Describe("[sig-compute]Guest Access Credentials", func() {
 				},
 			}
 			_, err := virtClient.CoreV1().Secrets(vmi.Namespace).Create(context.Background(), &secret, metav1.CreateOptions{})
-			Expect(err).To(BeNil())
+			Expect(err).ToNot(HaveOccurred())
 
 			LaunchVMI(vmi)
 
@@ -315,7 +315,7 @@ var _ = Describe("[sig-compute]Guest Access Credentials", func() {
 				},
 			}
 			_, err := virtClient.CoreV1().Secrets(vmi.Namespace).Create(context.Background(), &secret, metav1.CreateOptions{})
-			Expect(err).To(BeNil())
+			Expect(err).ToNot(HaveOccurred())
 
 			LaunchVMI(vmi)
 
@@ -385,7 +385,7 @@ var _ = Describe("[sig-compute]Guest Access Credentials", func() {
 				},
 			}
 			_, err := virtClient.CoreV1().Secrets(vmi.Namespace).Create(context.Background(), &secret, metav1.CreateOptions{})
-			Expect(err).To(BeNil())
+			Expect(err).ToNot(HaveOccurred())
 
 			LaunchVMI(vmi)
 

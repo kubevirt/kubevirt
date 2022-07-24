@@ -51,7 +51,7 @@ var _ = Describe("[crit:medium][vendor:cnv-qe@redhat.com][level:component][sig-c
 	Describe("[crit:medium][vendor:cnv-qe@redhat.com][level:component] A VirtualMachineInstance with default sound support", func() {
 		BeforeEach(func() {
 			vmi, err = createSoundVMI(virtClient, "test-model-empty")
-			Expect(err).To(BeNil())
+			Expect(err).ToNot(HaveOccurred())
 			vmi = tests.WaitUntilVMIReady(vmi, console.LoginToCirros)
 		})
 
@@ -63,7 +63,7 @@ var _ = Describe("[crit:medium][vendor:cnv-qe@redhat.com][level:component][sig-c
 	Describe("[crit:medium][vendor:cnv-qe@redhat.com][level:component] A VirtualMachineInstance with ich9 sound support", func() {
 		BeforeEach(func() {
 			vmi, err = createSoundVMI(virtClient, "ich9")
-			Expect(err).To(BeNil())
+			Expect(err).ToNot(HaveOccurred())
 			vmi = tests.WaitUntilVMIReady(vmi, console.LoginToCirros)
 		})
 
@@ -76,7 +76,7 @@ var _ = Describe("[crit:medium][vendor:cnv-qe@redhat.com][level:component][sig-c
 	Describe("[crit:medium][vendor:cnv-qe@redhat.com][level:component] A VirtualMachineInstance with ac97 sound support", func() {
 		BeforeEach(func() {
 			vmi, err = createSoundVMI(virtClient, "ac97")
-			Expect(err).To(BeNil())
+			Expect(err).ToNot(HaveOccurred())
 			vmi = tests.WaitUntilVMIReady(vmi, console.LoginToCirros)
 		})
 

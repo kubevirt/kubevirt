@@ -279,7 +279,7 @@ var _ = Describe("[Serial]SRIOV", func() {
 				}
 
 				buf, err := json.Marshal(metadataStruct)
-				Expect(err).To(BeNil())
+				Expect(err).ToNot(HaveOccurred())
 				By("mouting cloudinit iso")
 				mountCloudInitConfigDrive := tests.MountCloudInitFunc("config-2")
 				mountCloudInitConfigDrive(vmi)
@@ -342,7 +342,7 @@ var _ = Describe("[Serial]SRIOV", func() {
 				}
 
 				buf, err := json.Marshal(metadataStruct)
-				Expect(err).To(BeNil())
+				Expect(err).ToNot(HaveOccurred())
 				By("mouting cloudinit iso")
 				mountCloudInitConfigDrive := tests.MountCloudInitFunc("config-2")
 				mountCloudInitConfigDrive(vmi)

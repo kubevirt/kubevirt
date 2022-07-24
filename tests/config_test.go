@@ -124,7 +124,7 @@ var _ = Describe("[rfe_id:899][crit:medium][vendor:cnv-qe@redhat.com][level:comp
 						configMapPath + "/option3",
 					},
 				)
-				Expect(err).To(BeNil())
+				Expect(err).ToNot(HaveOccurred())
 				Expect(podOutput).To(Equal(expectedOutput))
 
 				By("Checking mounted iso image")
@@ -217,7 +217,7 @@ var _ = Describe("[rfe_id:899][crit:medium][vendor:cnv-qe@redhat.com][level:comp
 						secretPath + "/password",
 					},
 				)
-				Expect(err).To(BeNil())
+				Expect(err).ToNot(HaveOccurred())
 				Expect(podOutput).To(Equal(expectedOutput))
 
 				By("Checking mounted iso image")
@@ -290,7 +290,7 @@ var _ = Describe("[rfe_id:899][crit:medium][vendor:cnv-qe@redhat.com][level:comp
 				},
 			)
 
-			Expect(err).To(BeNil())
+			Expect(err).ToNot(HaveOccurred())
 			Expect(namespace).To(Equal(util.NamespaceTestDefault))
 
 			token, err := tests.ExecuteCommandOnPod(
@@ -302,7 +302,7 @@ var _ = Describe("[rfe_id:899][crit:medium][vendor:cnv-qe@redhat.com][level:comp
 				},
 			)
 
-			Expect(err).To(BeNil())
+			Expect(err).ToNot(HaveOccurred())
 
 			By("Checking mounted iso image")
 			Expect(console.SafeExpectBatch(vmi, []expect.Batcher{
@@ -393,7 +393,7 @@ var _ = Describe("[rfe_id:899][crit:medium][vendor:cnv-qe@redhat.com][level:comp
 						configMapPath + "/config3",
 					},
 				)
-				Expect(err).To(BeNil())
+				Expect(err).ToNot(HaveOccurred())
 				Expect(podOutputCfgMap).To(Equal(expectedOutputCfgMap), "Expected %s to Equal value1value2value3", podOutputCfgMap)
 
 				By("Checking mounted ConfigMap image")
@@ -419,7 +419,7 @@ var _ = Describe("[rfe_id:899][crit:medium][vendor:cnv-qe@redhat.com][level:comp
 						secretPath + "/password",
 					},
 				)
-				Expect(err).To(BeNil())
+				Expect(err).ToNot(HaveOccurred())
 				Expect(podOutputSecret).To(Equal(expectedOutputSecret), "Expected %s to Equal adminredhat", podOutputSecret)
 
 				By("Checking mounted secret image")
@@ -498,7 +498,7 @@ var _ = Describe("[rfe_id:899][crit:medium][vendor:cnv-qe@redhat.com][level:comp
 						secretPath + "/ssh-privatekey",
 					},
 				)
-				Expect(err).To(BeNil())
+				Expect(err).ToNot(HaveOccurred())
 				Expect(podOutput1).To(Equal(expectedPrivateKey), "Expected pod output of private key to match genereated one.")
 
 				podOutput2, err := tests.ExecuteCommandOnPod(
@@ -509,7 +509,7 @@ var _ = Describe("[rfe_id:899][crit:medium][vendor:cnv-qe@redhat.com][level:comp
 						secretPath + "/ssh-publickey",
 					},
 				)
-				Expect(err).To(BeNil())
+				Expect(err).ToNot(HaveOccurred())
 				Expect(podOutput2).To(Equal(expectedPublicKey), "Expected pod output of public key to match genereated one.")
 
 				By("Checking mounted secrets sshkeys image")
@@ -559,7 +559,7 @@ var _ = Describe("[rfe_id:899][crit:medium][vendor:cnv-qe@redhat.com][level:comp
 					downwardAPIPath + "/labels",
 				},
 			)
-			Expect(err).To(BeNil())
+			Expect(err).ToNot(HaveOccurred())
 			Expect(podOutput).To(Equal(expectedOutput + "\n"))
 
 			By("Checking mounted iso image")

@@ -37,7 +37,7 @@ var _ = Describe("selinux", func() {
 				return []byte("disabled"), nil
 			}
 			present, mode, err := selinux.IsPresent()
-			Expect(err).To(BeNil())
+			Expect(err).ToNot(HaveOccurred())
 			Expect(present).To(BeFalse())
 			Expect(mode).To(Equal("disabled"))
 		})
@@ -47,7 +47,7 @@ var _ = Describe("selinux", func() {
 				return []byte("Permissive"), nil
 			}
 			present, _, err := selinux.IsPresent()
-			Expect(err).To(BeNil())
+			Expect(err).ToNot(HaveOccurred())
 			Expect(present).To(BeTrue())
 		})
 		It("should detect that it is enabled if getenforce does not return Disabled", func() {
@@ -55,7 +55,7 @@ var _ = Describe("selinux", func() {
 				return []byte("enforcing"), nil
 			}
 			present, mode, err := selinux.IsPresent()
-			Expect(err).To(BeNil())
+			Expect(err).ToNot(HaveOccurred())
 			Expect(present).To(BeTrue())
 			Expect(mode).To(Equal("enforcing"))
 		})

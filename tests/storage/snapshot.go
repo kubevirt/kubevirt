@@ -1298,7 +1298,7 @@ func getSnapshotStorageClass(client kubecli.KubevirtClient) (string, error) {
 func AddVolumeAndVerify(virtClient kubecli.KubevirtClient, storageClass string, vm *v1.VirtualMachine, addVMIOnly bool) string {
 	dv := libstorage.NewRandomBlankDataVolume(vm.Namespace, storageClass, "64Mi", corev1.ReadWriteOnce, corev1.PersistentVolumeFilesystem)
 	_, err := virtClient.CdiClient().CdiV1beta1().DataVolumes(dv.Namespace).Create(context.Background(), dv, metav1.CreateOptions{})
-	Expect(err).To(BeNil())
+	Expect(err).ToNot(HaveOccurred())
 	Eventually(ThisDV(dv), 240).Should(HaveSucceeded())
 	volumeSource := &v1.HotplugVolumeSource{
 		DataVolume: &v1.DataVolumeSource{

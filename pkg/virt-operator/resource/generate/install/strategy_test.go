@@ -66,7 +66,7 @@ var _ = Describe("Install Strategy", func() {
 			client := fake.NewSimpleClientset(objects...)
 			ns, err := getMonitorNamespace(client.CoreV1(), config)
 			Expect(ns).To(Equal(expectedNS))
-			Expect(err).To(BeNil())
+			Expect(err).ToNot(HaveOccurred())
 		},
 			Entry("match first entry if namespace and SA exist",
 				"openshift-monitoring",

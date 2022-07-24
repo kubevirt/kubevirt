@@ -62,7 +62,7 @@ var _ = Describe("[sig-compute]CloudInitHookSidecars", func() {
 				Container: "hook-sidecar-0",
 			}).
 			DoRaw(context.Background())
-		Expect(err).To(BeNil())
+		Expect(err).ToNot(HaveOccurred())
 
 		return string(logsRaw)
 	}

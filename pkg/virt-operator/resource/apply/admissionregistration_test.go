@@ -107,19 +107,19 @@ var _ = Describe("WebhookConfiguration types", func() {
 		It("conversion from v1 to v1beta should match", func() {
 			webhook := &admissionregistrationv1.ValidatingWebhookConfiguration{}
 			err := yaml.Unmarshal([]byte(validatingWebookYaml), &webhook)
-			Expect(err).To(BeNil())
+			Expect(err).ToNot(HaveOccurred())
 			binv1, err := webhook.Marshal()
-			Expect(err).To(BeNil())
+			Expect(err).ToNot(HaveOccurred())
 			webhookv1beta1 := &admissionregistrationv1beta1.ValidatingWebhookConfiguration{}
 			err = webhookv1beta1.Unmarshal(binv1)
-			Expect(err).To(BeNil())
+			Expect(err).ToNot(HaveOccurred())
 			Expect(webhookv1beta1.String()).To(Equal(webhook.String()))
 			binv1beta1, err := webhookv1beta1.Marshal()
-			Expect(err).To(BeNil())
+			Expect(err).ToNot(HaveOccurred())
 			Expect(binv1beta1).To(Equal(binv1))
 
 			webhookv1beta1, err = convertV1ValidatingWebhookToV1beta1(webhook)
-			Expect(err).To(BeNil())
+			Expect(err).ToNot(HaveOccurred())
 			Expect(webhookv1beta1.String()).To(Equal(webhook.String()))
 		})
 	})
@@ -128,19 +128,19 @@ var _ = Describe("WebhookConfiguration types", func() {
 		It("conversion from v1 to v1beta should match", func() {
 			webhook := &admissionregistrationv1.MutatingWebhookConfiguration{}
 			err := yaml.Unmarshal([]byte(mutatingWebhookYaml), &webhook)
-			Expect(err).To(BeNil())
+			Expect(err).ToNot(HaveOccurred())
 			binv1, err := webhook.Marshal()
-			Expect(err).To(BeNil())
+			Expect(err).ToNot(HaveOccurred())
 			webhookv1beta1 := &admissionregistrationv1beta1.MutatingWebhookConfiguration{}
 			err = webhookv1beta1.Unmarshal(binv1)
-			Expect(err).To(BeNil())
+			Expect(err).ToNot(HaveOccurred())
 			Expect(webhookv1beta1.String()).To(Equal(webhook.String()))
 			binv1beta1, err := webhookv1beta1.Marshal()
-			Expect(err).To(BeNil())
+			Expect(err).ToNot(HaveOccurred())
 			Expect(binv1beta1).To(Equal(binv1))
 
 			webhookv1beta1, err = convertV1MutatingWebhookToV1beta1(webhook)
-			Expect(err).To(BeNil())
+			Expect(err).ToNot(HaveOccurred())
 			Expect(webhookv1beta1.String()).To(Equal(webhook.String()))
 		})
 	})

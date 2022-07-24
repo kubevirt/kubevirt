@@ -81,7 +81,7 @@ var _ = Describe("Cluster Profiler Subresources", func() {
 		backend = ghttp.NewTLSServer()
 		backendAddr := strings.Split(backend.Addr(), ":")
 		backendPort, err := strconv.Atoi(backendAddr[1])
-		Expect(err).To(BeNil())
+		Expect(err).ToNot(HaveOccurred())
 		backendIP = backendAddr[0]
 		server = ghttp.NewServer()
 		flag.Set("kubeconfig", "")
@@ -172,7 +172,7 @@ var _ = Describe("Cluster Profiler Subresources", func() {
 			}
 
 			b, err := json.Marshal(&v1.ClusterProfilerRequest{})
-			Expect(err).To(BeNil())
+			Expect(err).ToNot(HaveOccurred())
 			request.Request.Body = ioutil.NopCloser(bytes.NewBuffer(b))
 
 			backend.AppendHandlers(

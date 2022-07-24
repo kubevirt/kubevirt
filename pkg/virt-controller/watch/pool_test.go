@@ -205,7 +205,7 @@ var _ = Describe("Pool", func() {
 
 		createPoolRevision := func(pool *poolv1.VirtualMachinePool) *appsv1.ControllerRevision {
 			bytes, err := json.Marshal(&pool.Spec)
-			Expect(err).To(BeNil())
+			Expect(err).ToNot(HaveOccurred())
 
 			return &appsv1.ControllerRevision{
 				ObjectMeta: metav1.ObjectMeta{

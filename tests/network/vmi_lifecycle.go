@@ -67,7 +67,7 @@ var _ = SIGDescribe("[crit:high][arm64][vendor:cnv-qe@redhat.com][level:componen
 
 				By("starting a VMI with bridged network on a node")
 				bridgeVMI, err := virtClient.VirtualMachineInstance(util.NamespaceTestDefault).Create(bridgeVMI)
-				Expect(err).To(BeNil(), "Should submit VMI successfully")
+				Expect(err).ToNot(HaveOccurred(), "Should submit VMI successfully")
 
 				// Start a VirtualMachineInstance with bridged networking
 				nodeName := tests.WaitForSuccessfulVMIStart(bridgeVMI).Status.NodeName
@@ -85,7 +85,7 @@ var _ = SIGDescribe("[crit:high][arm64][vendor:cnv-qe@redhat.com][level:componen
 				newVMI.Spec.NodeSelector = map[string]string{"kubernetes.io/hostname": nodeName}
 				Eventually(func() error {
 					newVMI, err = virtClient.VirtualMachineInstance(util.NamespaceTestDefault).Create(newVMI)
-					Expect(err).To(BeNil())
+					Expect(err).ToNot(HaveOccurred())
 					return nil
 				}, 100, 10).Should(Succeed(), "Should be able to start a new VM")
 

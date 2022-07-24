@@ -57,7 +57,7 @@ var _ = Describe("Generic Device", func() {
 		}, 2*time.Second, 500*time.Millisecond).Should(Equal(pluginapi.Healthy))
 		Expect(os.Remove(dpi.socketPath)).To(Succeed())
 
-		Expect(<-errChan).To(BeNil())
+		Expect(<-errChan).ToNot(HaveOccurred())
 	})
 
 	It("Should monitor health of device node", func() {

@@ -44,7 +44,7 @@ var _ = Describe("Apply PDBs", func() {
 		cachedPDB := requiredPDB.DeepCopy()
 		injectOperatorMetadata(kv, &cachedPDB.ObjectMeta, Version, Registry, Id, true)
 		err := stores.PodDisruptionBudgetCache.Add(cachedPDB)
-		Expect(err).To(BeNil())
+		Expect(err).ToNot(HaveOccurred())
 
 		return cachedPDB
 	}
@@ -105,7 +105,7 @@ var _ = Describe("Apply PDBs", func() {
 				return true, nil, nil
 			})
 
-			Expect(r.syncPodDisruptionBudgetForDeployment(deployment)).To(BeNil())
+			Expect(r.syncPodDisruptionBudgetForDeployment(deployment)).To(Succeed())
 		})
 
 		It("should patch PDB on sync when it is not equal to the required PDB", func() {
@@ -127,10 +127,10 @@ var _ = Describe("Apply PDBs", func() {
 				Expect(err).ToNot(HaveOccurred())
 
 				obj, err := json.Marshal(cachedPDB)
-				Expect(err).To(BeNil())
+				Expect(err).ToNot(HaveOccurred())
 
 				obj, err = patch.Apply(obj)
-				Expect(err).To(BeNil())
+				Expect(err).ToNot(HaveOccurred())
 
 				pdb := &policyv1.PodDisruptionBudget{}
 				Expect(json.Unmarshal(obj, pdb)).To(Succeed())

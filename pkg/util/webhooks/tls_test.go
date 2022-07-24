@@ -99,7 +99,7 @@ var _ = Describe("TLS", func() {
 		if errStr == "" {
 			Expect(err).ToNot(HaveOccurred())
 		} else {
-			Expect(err).ToNot(BeNil())
+			Expect(err).To(HaveOccurred())
 			Expect(err.Error()).To(ContainSubstring(errStr))
 			return
 		}
@@ -142,7 +142,7 @@ var _ = Describe("TLS", func() {
 		if errStr == "" {
 			Expect(err).ToNot(HaveOccurred())
 		} else {
-			Expect(err).ToNot(BeNil())
+			Expect(err).To(HaveOccurred())
 			Expect(err.Error()).To(ContainSubstring(errStr))
 			return
 		}
@@ -202,7 +202,7 @@ var _ = Describe("TLS", func() {
 		if errStr == "" {
 			Expect(err).ToNot(HaveOccurred())
 		} else {
-			Expect(err).ToNot(BeNil())
+			Expect(err).To(HaveOccurred())
 			Expect(err.Error()).To(ContainSubstring(errStr))
 			return
 		}
@@ -245,7 +245,7 @@ var _ = Describe("TLS", func() {
 		if errStr == "" {
 			Expect(err).ToNot(HaveOccurred())
 		} else {
-			Expect(err).ToNot(BeNil())
+			Expect(err).To(HaveOccurred())
 			Expect(err.Error()).To(ContainSubstring(errStr))
 			return
 		}

@@ -105,7 +105,7 @@ var _ = Describe("Domain informer", func() {
 
 	verifyObj := func(key string, domain *api.Domain) {
 		obj, exists, err := informer.GetStore().GetByKey(key)
-		Expect(err).To(BeNil())
+		Expect(err).ToNot(HaveOccurred())
 
 		if domain != nil {
 			Expect(exists).To(BeTrue())
@@ -315,7 +315,7 @@ var _ = Describe("Domain informer", func() {
 			time.Sleep(time.Duration(resyncPeriod+1) * time.Second)
 
 			obj, exists, err := informer.GetStore().GetByKey("default/test")
-			Expect(err).To(BeNil())
+			Expect(err).ToNot(HaveOccurred())
 			Expect(exists).To(BeTrue())
 
 			eventDomain := obj.(*api.Domain)

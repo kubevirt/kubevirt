@@ -139,7 +139,7 @@ var _ = Describe("CloudInit", func() {
 					PublicSSHKeys: map[string]string{"0": "somekey"},
 				}
 				buf, err := json.MarshalIndent(metadataStruct, "", "  ")
-				Expect(err).To(BeNil())
+				Expect(err).ToNot(HaveOccurred())
 				Expect(string(buf)).To(Equal(exampleJSONParsed))
 			})
 			It("should match the generated configdrive metadata for hostdev with numaNode", func() {
@@ -186,7 +186,7 @@ var _ = Describe("CloudInit", func() {
 					PublicSSHKeys: map[string]string{"0": "somekey"},
 				}
 				buf, err := json.MarshalIndent(metadataStruct, "", "  ")
-				Expect(err).To(BeNil())
+				Expect(err).ToNot(HaveOccurred())
 				fmt.Println("expected: ", string(buf))
 				fmt.Println("exmapleJsob: ", exampleJSONParsed)
 
@@ -205,7 +205,7 @@ var _ = Describe("CloudInit", func() {
 					LocalHostname: "fake",
 				}
 				buf, err := json.MarshalIndent(metadataStruct, "", "  ")
-				Expect(err).To(BeNil())
+				Expect(err).ToNot(HaveOccurred())
 				Expect(string(buf)).To(Equal(exampleJSONParsed))
 			})
 		})

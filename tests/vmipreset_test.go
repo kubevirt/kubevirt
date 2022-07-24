@@ -131,7 +131,7 @@ var _ = Describe("[rfe_id:609][crit:medium][vendor:cnv-qe@redhat.com][level:comp
 			reviewResponse := &k8smetav1.Status{}
 			body, _ := result.Raw()
 			err = json.Unmarshal(body, reviewResponse)
-			Expect(err).To(BeNil())
+			Expect(err).ToNot(HaveOccurred())
 
 			Expect(reviewResponse.Details.Causes).To(HaveLen(1))
 			Expect(reviewResponse.Details.Causes[0].Field).To(Equal("spec.domain.devices.disks[1]"))
@@ -141,7 +141,7 @@ var _ = Describe("[rfe_id:609][crit:medium][vendor:cnv-qe@redhat.com][level:comp
 	Context("Preset Matching", func() {
 		It("[test_id:1597]Should be accepted on POST", func() {
 			err := virtClient.RestClient().Post().Resource("virtualmachineinstancepresets").Namespace(util.NamespaceTestDefault).Body(memoryPreset).Do(context.Background()).Error()
-			Expect(err).To(BeNil())
+			Expect(err).ToNot(HaveOccurred())
 		})
 
 		It("[test_id:1598]Should reject a second submission of a VMIPreset", func() {

@@ -106,13 +106,13 @@ var _ = Describe("DHCP Server", func() {
 			expected := []byte{3, 'f', 'o', 'o', 3, 'c', 'o', 'm', 0, 3, 'f', 'o', 'o', 5, 'l', 'o', 'c', 'a', 'l', 0}
 			result, err := convertSearchDomainsToBytes(searchDomains)
 			Expect(result).To(Equal(expected))
-			Expect(err).To(BeNil())
+			Expect(err).ToNot(HaveOccurred())
 		})
 
 		It("should reject invalid domains", func() {
 			searchDomains := []string{"foo,com"}
 			_, err := convertSearchDomainsToBytes(searchDomains)
-			Expect(err).NotTo(BeNil())
+			Expect(err).To(HaveOccurred())
 			Expect(err.Error()).To(HavePrefix(errorSearchDomainNotValid))
 		})
 
@@ -128,7 +128,7 @@ var _ = Describe("DHCP Server", func() {
 			}
 
 			_, err := convertSearchDomainsToBytes(searchDomains)
-			Expect(err).NotTo(BeNil())
+			Expect(err).To(HaveOccurred())
 			Expect(err.Error()).To(HavePrefix(errorSearchDomainTooLong))
 		})
 	})
