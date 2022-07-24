@@ -147,7 +147,8 @@ var istioTests = func(vmType VmType) {
 			}()
 
 			By("Creating VMI")
-			vmi = newVMIWithIstioSidecar(vmiPorts, vmType)
+			vmi, err = newVMIWithIstioSidecar(vmiPorts, vmType)
+			Expect(err).ShouldNot(HaveOccurred())
 			vmi, err = virtClient.VirtualMachineInstance(util.NamespaceTestDefault).Create(vmi)
 			Expect(err).ShouldNot(HaveOccurred())
 
@@ -346,11 +347,14 @@ var istioTests = func(vmType VmType) {
 			}
 
 			BeforeEach(func() {
+				networkData, err := libnet.CreateDefaultCloudInitNetworkData()
+				Expect(err).ToNot(HaveOccurred())
 				serverVMI = libvmi.NewAlpineWithTestTooling(
 					libvmi.WithNetwork(v1.DefaultPodNetwork()),
 					libvmi.WithInterface(libvmi.InterfaceDeviceWithMasqueradeBinding([]v1.Port{}...)),
 					libvmi.WithLabel("version", "v1"),
 					libvmi.WithLabel(vmiAppSelectorKey, vmiServerAppSelectorValue),
+					libvmi.WithCloudInitNoCloudNetworkData(networkData, false),
 				)
 				serverVMI, err = virtClient.VirtualMachineInstance(util.NamespaceTestDefault).Create(serverVMI)
 				Expect(err).ToNot(HaveOccurred())
@@ -474,35 +478,44 @@ func istioServiceMeshDeployed() bool {
 	return strings.ToLower(os.Getenv(istioDeployedEnvVariable)) == "true"
 }
 
-func newVMIWithIstioSidecar(ports []v1.Port, vmType VmType) *v1.VirtualMachineInstance {
+func newVMIWithIstioSidecar(ports []v1.Port, vmType VmType) (*v1.VirtualMachineInstance, error) {
 	if vmType == Masquerade {
 		return createMasqueradeVm(ports)
 	}
 	if vmType == Passt {
 		return createPasstVm(ports)
 	}
-	return nil
+	return nil, nil
 }
 
-func createMasqueradeVm(ports []v1.Port) *v1.VirtualMachineInstance {
+func createMasqueradeVm(ports []v1.Port) (*v1.VirtualMachineInstance, error) {
+	networkData, err := libnet.CreateDefaultCloudInitNetworkData()
 	vmi := libvmi.NewAlpineWithTestTooling(
 		libvmi.WithNetwork(v1.DefaultPodNetwork()),
 		libvmi.WithInterface(libvmi.InterfaceDeviceWithMasqueradeBinding(ports...)),
 		libvmi.WithLabel(vmiAppSelectorKey, vmiAppSelectorValue),
 		libvmi.WithAnnotation(istio.ISTIO_INJECT_ANNOTATION, "true"),
+		libvmi.WithCloudInitNoCloudNetworkData(networkData, false),
 	)
-	return vmi
+	return vmi, err
 }
 
-func createPasstVm(ports []v1.Port) *v1.VirtualMachineInstance {
+func createPasstVm(ports []v1.Port) (*v1.VirtualMachineInstance, error) {
+	networkData, err := libnet.NewNetworkData(
+		libnet.WithEthernet("eth0",
+			libnet.WithDHCP4Enabled(),
+			libnet.WithDHCP6Enabled(),
+		),
+	)
 	vmi := libvmi.NewAlpineWithTestTooling(
 		libvmi.WithNetwork(v1.DefaultPodNetwork()),
 		libvmi.WithInterface(libvmi.InterfaceDeviceWithPasstBinding(ports...)),
 		libvmi.WithLabel(vmiAppSelectorKey, vmiAppSelectorValue),
 		libvmi.WithAnnotation(istio.ISTIO_INJECT_ANNOTATION, "true"),
 		withPasstExtendedResourceMemory(ports...),
+		libvmi.WithCloudInitNoCloudNetworkData(networkData, false),
 	)
-	return vmi
+	return vmi, err
 }
 
 func generateIstioCNINetworkAttachmentDefinition() *k8snetworkplumbingwgv1.NetworkAttachmentDefinition {

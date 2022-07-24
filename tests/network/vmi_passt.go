@@ -50,9 +50,11 @@ var _ = SIGDescribe("[Serial] Passt", func() {
 
 		networkData, err = libnet.NewNetworkData(
 			libnet.WithEthernet("eth0",
+				libnet.WithDHCP4Enabled(),
 				libnet.WithDHCP6Enabled(),
 			),
 		)
+		util.PanicOnError(err)
 	})
 
 	Context("VirtualMachineInstance with passt binding mechanism", func() {
