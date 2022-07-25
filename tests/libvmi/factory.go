@@ -67,9 +67,12 @@ func NewAlpine(opts ...Option) *kvirtv1.VirtualMachineInstance {
 }
 
 func NewAlpineWithTestTooling(opts ...Option) *kvirtv1.VirtualMachineInstance {
+	// Supplied with no user data, AlpimeWithTestTooling image takes more than 200s to allow login
+	withNonEmptyUserData := WithCloudInitNoCloudUserData("#!/bin/bash\necho hello\n", true)
 	alpineMemory := cirrosMemory
 	alpineOpts := []Option{
 		WithContainerImage(cd.ContainerDiskFor(cd.ContainerDiskAlpineTestTooling)),
+		withNonEmptyUserData,
 		WithResourceMemory(alpineMemory()),
 		WithRng(),
 	}
