@@ -1496,7 +1496,7 @@ var _ = Describe("[rfe_id:393][crit:high][vendor:cnv-qe@redhat.com][level:system
 				By("Starting a first migration")
 				migration1 := tests.NewRandomMigration(vmi.Name, vmi.Namespace)
 				migration1, err = virtClient.VirtualMachineInstanceMigration(migration1.Namespace).Create(migration1, &metav1.CreateOptions{})
-				Expect(err).To(BeNil())
+				Expect(err).ToNot(HaveOccurred())
 
 				// Successfully tested with 40, but requests start getting throttled above 10, which is better to avoid to prevent flakyness
 				By("Starting 10 more migrations expecting all to fail to create")
@@ -1672,7 +1672,7 @@ var _ = Describe("[rfe_id:393][crit:high][vendor:cnv-qe@redhat.com][level:system
 			tests.SetDataVolumeForceBindAnnotation(dv)
 			dv.Spec.PVC.Resources.Requests["storage"] = resource.MustParse(size)
 			_, err := virtClient.CdiClient().CdiV1beta1().DataVolumes(dv.Namespace).Create(context.Background(), dv, metav1.CreateOptions{})
-			Expect(err).To(BeNil())
+			Expect(err).ToNot(HaveOccurred())
 			var pvc *k8sv1.PersistentVolumeClaim
 			Eventually(func() *k8sv1.PersistentVolumeClaim {
 				pvc, err = virtClient.CoreV1().PersistentVolumeClaims(dv.Namespace).Get(context.Background(), dv.Name, metav1.GetOptions{})
@@ -2336,7 +2336,7 @@ var _ = Describe("[rfe_id:393][crit:high][vendor:cnv-qe@redhat.com][level:system
 				}
 
 				migrations, err := virtClient.VirtualMachineInstanceMigration(vmi.Namespace).List(&metav1.ListOptions{})
-				Expect(err).To(BeNil())
+				Expect(err).ToNot(HaveOccurred())
 				Expect(migrations.Items).To(HaveLen(5))
 
 				// delete VMI
@@ -3908,7 +3908,7 @@ var _ = Describe("[rfe_id:393][crit:high][vendor:cnv-qe@redhat.com][level:system
 			for _, line := range cpuLines {
 				lineSplits := strings.Fields(line)
 				cpu, err := strconv.Atoi(lineSplits[1])
-				Expect(err).To(BeNil(), "cpu id is non string in vcpupin output")
+				Expect(err).ToNot(HaveOccurred(), "cpu id is non string in vcpupin output")
 
 				cpuSet = append(cpuSet, cpu)
 			}
@@ -3924,7 +3924,7 @@ var _ = Describe("[rfe_id:393][crit:high][vendor:cnv-qe@redhat.com][level:system
 				pod,
 				"compute",
 				[]string{"virsh", "vcpupin", fmt.Sprintf("%s_%s", vmi.GetNamespace(), vmi.GetName())})
-			Expect(err).To(BeNil())
+			Expect(err).ToNot(HaveOccurred())
 			Expect(stderr).To(BeEmpty())
 
 			return parseVCPUPinOutput(stdout)
@@ -3988,7 +3988,7 @@ var _ = Describe("[rfe_id:393][crit:high][vendor:cnv-qe@redhat.com][level:system
 			nodeList, err := virtClient.CoreV1().Nodes().List(context.TODO(), metav1.ListOptions{
 				LabelSelector: fmt.Sprintf("%s=,%s=%s", workerLabel, "cpumanager", "true"),
 			})
-			Expect(err).To(BeNil())
+			Expect(err).ToNot(HaveOccurred())
 			Expect(nodeList).ToNot(BeNil())
 			nodes = nodeList.Items
 			Expect(len(nodes)).To(BeNumerically(">=", 2), "at least two worker nodes with cpumanager are required for migration")

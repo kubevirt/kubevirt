@@ -917,7 +917,7 @@ var _ = Describe("HotplugVolume", func() {
 				Name: "permanent",
 			})
 			vmi.Status.VolumeStatus = volumeStatuses
-			Expect(m.Mount(vmi)).To(BeNil())
+			Expect(m.Mount(vmi)).To(Succeed())
 		})
 
 		It("unmountAll should cleanup regardless of vmi volumestatuses", func() {

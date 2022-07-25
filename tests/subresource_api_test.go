@@ -275,14 +275,14 @@ var _ = Describe("[sig-compute]Subresource Api", func() {
 			It("[test_id:7476]Freeze without guest agent", func() {
 				expectedErr := "Internal error occurred"
 				err = virtCli.VirtualMachineInstance(util.NamespaceTestDefault).Freeze(vm.Name, 0)
-				Expect(err).ToNot(BeNil())
+				Expect(err).To(HaveOccurred())
 				Expect(err.Error()).To(ContainSubstring(expectedErr))
 			})
 
 			It("[test_id:7477]Unfreeze without guest agent", func() {
 				expectedErr := "Internal error occurred"
 				err = virtCli.VirtualMachineInstance(util.NamespaceTestDefault).Unfreeze(vm.Name)
-				Expect(err).ToNot(BeNil())
+				Expect(err).To(HaveOccurred())
 				Expect(err.Error()).To(ContainSubstring(expectedErr))
 			})
 		})

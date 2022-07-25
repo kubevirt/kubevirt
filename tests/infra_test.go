@@ -1098,19 +1098,19 @@ var _ = Describe("[Serial][sig-compute]Infrastructure", func() {
 				Eventually(func() string {
 					leaderPodName := getLeader()
 
-					Expect(virtClient.CoreV1().Pods(flags.KubeVirtInstallNamespace).Delete(context.Background(), leaderPodName, metav1.DeleteOptions{})).To(BeNil())
+					Expect(virtClient.CoreV1().Pods(flags.KubeVirtInstallNamespace).Delete(context.Background(), leaderPodName, metav1.DeleteOptions{})).To(Succeed())
 
 					Eventually(getLeader, 30*time.Second, 5*time.Second).ShouldNot(Equal(leaderPodName))
 
 					leaderPod, err := virtClient.CoreV1().Pods(flags.KubeVirtInstallNamespace).Get(context.Background(), getLeader(), metav1.GetOptions{})
-					Expect(err).To(BeNil())
+					Expect(err).ToNot(HaveOccurred())
 
 					return leaderPod.Name
 				}, 90*time.Second, 5*time.Second).Should(Equal(newLeaderPod.Name))
 
 				Expect(func() k8sv1.ConditionStatus {
 					leaderPod, err := virtClient.CoreV1().Pods(flags.KubeVirtInstallNamespace).Get(context.Background(), newLeaderPod.Name, metav1.GetOptions{})
-					Expect(err).To(BeNil())
+					Expect(err).ToNot(HaveOccurred())
 
 					for _, condition := range leaderPod.Status.Conditions {
 						if condition.Type == k8sv1.PodReady {
@@ -1124,7 +1124,7 @@ var _ = Describe("[Serial][sig-compute]Infrastructure", func() {
 
 				By("Starting a new VirtualMachineInstance")
 				obj, err := virtClient.RestClient().Post().Resource("virtualmachineinstances").Namespace(util.NamespaceTestDefault).Body(vmi).Do(context.Background()).Get()
-				Expect(err).To(BeNil())
+				Expect(err).ToNot(HaveOccurred())
 				tests.WaitForSuccessfulVMIStart(obj)
 			})
 		})
@@ -1498,25 +1498,25 @@ var _ = Describe("[Serial][sig-compute]Infrastructure", func() {
 				tests.DisableFeatureGate("ClusterProfiler")
 
 				err := virtClient.ClusterProfiler().Start()
-				Expect(err).ToNot(BeNil())
+				Expect(err).To(HaveOccurred())
 
 				err = virtClient.ClusterProfiler().Stop()
-				Expect(err).ToNot(BeNil())
+				Expect(err).To(HaveOccurred())
 
 				_, err = virtClient.ClusterProfiler().Dump(&v1.ClusterProfilerRequest{})
-				Expect(err).ToNot(BeNil())
+				Expect(err).To(HaveOccurred())
 			})
 			It("is enabled it should allow subresource access", func() {
 				tests.EnableFeatureGate("ClusterProfiler")
 
 				err := virtClient.ClusterProfiler().Start()
-				Expect(err).To(BeNil())
+				Expect(err).ToNot(HaveOccurred())
 
 				err = virtClient.ClusterProfiler().Stop()
-				Expect(err).To(BeNil())
+				Expect(err).ToNot(HaveOccurred())
 
 				_, err = virtClient.ClusterProfiler().Dump(&v1.ClusterProfilerRequest{})
-				Expect(err).To(BeNil())
+				Expect(err).ToNot(HaveOccurred())
 			})
 		})
 	})

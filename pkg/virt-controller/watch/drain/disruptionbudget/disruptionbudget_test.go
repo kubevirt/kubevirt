@@ -72,12 +72,12 @@ var _ = Describe("Disruptionbudget", func() {
 
 	addMigration := func(vmim *v1.VirtualMachineInstanceMigration) {
 		err := vmimInformer.GetIndexer().Add(vmim)
-		Expect(err).To(BeNil())
+		Expect(err).ToNot(HaveOccurred())
 	}
 
 	addPod := func(pod *corev1.Pod) {
 		err := podInformer.GetIndexer().Add(pod)
-		Expect(err).To(BeNil())
+		Expect(err).ToNot(HaveOccurred())
 	}
 
 	shouldExpectPDBDeletion := func(pdb *policyv1.PodDisruptionBudget) {

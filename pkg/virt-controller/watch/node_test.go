@@ -360,7 +360,7 @@ var _ = Describe("Node controller with", func() {
 			}
 
 			err := controller.createEventIfNodeHasOrphanedVMIs(node, vmis)
-			Expect(err).To(BeNil())
+			Expect(err).ToNot(HaveOccurred())
 			if expectEvent {
 				testutils.ExpectEvent(recorder, NodeUnresponsiveReason)
 			}

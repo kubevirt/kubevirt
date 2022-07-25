@@ -106,7 +106,7 @@ var _ = Describe("[Serial][sig-compute]Windows VirtualMachineInstance", func() {
 				By("Starting the windows VirtualMachineInstance")
 				var err error
 				windowsVMI, err = virtClient.VirtualMachineInstance(util.NamespaceTestDefault).Create(windowsVMI)
-				Expect(err).To(BeNil())
+				Expect(err).ToNot(HaveOccurred())
 				tests.WaitForSuccessfulVMIStartWithTimeout(windowsVMI, 360)
 
 				cli = winrnLoginCommand(virtClient, windowsVMI)

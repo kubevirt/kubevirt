@@ -90,7 +90,7 @@ var _ = Describe("[Serial][sig-compute]HostDevices", func() {
 			}
 			// Make sure to delete the VMI before ending the test otherwise a device could still be taken
 			err = virtClient.VirtualMachineInstance(util.NamespaceTestDefault).Delete(vmi.ObjectMeta.Name, &metav1.DeleteOptions{})
-			Expect(err).To(BeNil(), failedDeleteVMI)
+			Expect(err).ToNot(HaveOccurred(), failedDeleteVMI)
 			tests.WaitForVirtualMachineToDisappearWithTimeout(vmi, 180)
 		},
 			Entry("Should successfully passthrough an emulated PCI device", []string{"8086:2668"}),

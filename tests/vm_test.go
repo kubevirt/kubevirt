@@ -85,7 +85,7 @@ var _ = Describe("[rfe_id:1177][crit:medium][vendor:cnv-qe@redhat.com][level:com
 			newVM.APIVersion = "kubevirt.io/" + v1.ApiStorageVersion
 
 			jsonBytes, err := json.Marshal(newVM)
-			Expect(err).To(BeNil())
+			Expect(err).ToNot(HaveOccurred())
 
 			// change the name of a required field (like domain) so validation will fail
 			jsonString := strings.Replace(string(jsonBytes), "domain", "not-a-domain", -1)
@@ -117,7 +117,7 @@ var _ = Describe("[rfe_id:1177][crit:medium][vendor:cnv-qe@redhat.com][level:com
 			reviewResponse := &k8smetav1.Status{}
 			body, _ := result.Raw()
 			err = json.Unmarshal(body, reviewResponse)
-			Expect(err).To(BeNil())
+			Expect(err).ToNot(HaveOccurred())
 
 			Expect(reviewResponse.Details.Causes).To(HaveLen(1))
 			Expect(reviewResponse.Details.Causes[0].Field).To(Equal("spec.template.spec.domain.devices.disks[2].name"))
@@ -1427,7 +1427,7 @@ var _ = Describe("[rfe_id:1177][crit:medium][vendor:cnv-qe@redhat.com][level:com
 
 					By("killing qemu process")
 					err = pkillAllVMIs(virtClient, vmi.Status.NodeName)
-					Expect(err).To(BeNil(), "Should kill VMI successfully")
+					Expect(err).ToNot(HaveOccurred(), "Should kill VMI successfully")
 
 					By("Ensuring the VirtualMachineInstance enters Failed phase")
 					Eventually(func() v1.VirtualMachineInstancePhase {

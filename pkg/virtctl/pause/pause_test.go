@@ -37,12 +37,12 @@ var _ = Describe("Pausing", func() {
 		It("should fail a pause", func() {
 			cmd := clientcmd.NewRepeatableVirtctlCommand(pause.COMMAND_PAUSE)
 			err := cmd()
-			Expect(err).NotTo(BeNil())
+			Expect(err).To(HaveOccurred())
 		})
 		It("should fail an unpause", func() {
 			cmd := clientcmd.NewRepeatableVirtctlCommand(pause.COMMAND_UNPAUSE)
 			err := cmd()
-			Expect(err).NotTo(BeNil())
+			Expect(err).To(HaveOccurred())
 		})
 	})
 
@@ -59,7 +59,7 @@ var _ = Describe("Pausing", func() {
 		} else {
 			command = clientcmd.NewVirtctlCommand(pause.COMMAND_PAUSE, "--dry-run", "vmi", vmName)
 		}
-		Expect(command.Execute()).To(BeNil())
+		Expect(command.Execute()).To(Succeed())
 	},
 		Entry("", &v1.PauseOptions{}),
 		Entry("with dry-run option", &v1.PauseOptions{DryRun: []string{k8smetav1.DryRunAll}}),
@@ -78,7 +78,7 @@ var _ = Describe("Pausing", func() {
 		} else {
 			command = clientcmd.NewVirtctlCommand(pause.COMMAND_UNPAUSE, "--dry-run", "vmi", vmName)
 		}
-		Expect(command.Execute()).To(BeNil())
+		Expect(command.Execute()).To(Succeed())
 	},
 		Entry("", &v1.UnpauseOptions{}),
 		Entry("with dry-run option", &v1.UnpauseOptions{DryRun: []string{k8smetav1.DryRunAll}}),
@@ -104,7 +104,7 @@ var _ = Describe("Pausing", func() {
 		} else {
 			command = clientcmd.NewVirtctlCommand(pause.COMMAND_PAUSE, "--dry-run", "vm", vmName)
 		}
-		Expect(command.Execute()).To(BeNil())
+		Expect(command.Execute()).To(Succeed())
 	},
 		Entry("", &v1.PauseOptions{}),
 		Entry("with dry-run option", &v1.PauseOptions{DryRun: []string{k8smetav1.DryRunAll}}),
@@ -129,7 +129,7 @@ var _ = Describe("Pausing", func() {
 		} else {
 			command = clientcmd.NewVirtctlCommand(pause.COMMAND_UNPAUSE, "--dry-run", "vm", vmName)
 		}
-		Expect(command.Execute()).To(BeNil())
+		Expect(command.Execute()).To(Succeed())
 	},
 		Entry("", &v1.UnpauseOptions{}),
 		Entry("with dry-run option", &v1.UnpauseOptions{DryRun: []string{k8smetav1.DryRunAll}}),

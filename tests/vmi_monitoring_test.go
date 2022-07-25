@@ -50,7 +50,7 @@ var _ = Describe("[sig-compute]Health Monitoring", func() {
 		It("[test_id:4641]should be shut down when the watchdog expires", func() {
 			vmi := tests.NewRandomVMIWithWatchdog()
 			obj, err := virtClient.VirtualMachineInstance(util.NamespaceTestDefault).Create(vmi)
-			Expect(err).To(BeNil())
+			Expect(err).ToNot(HaveOccurred())
 			tests.WaitForSuccessfulVMIStart(obj)
 
 			By("Expecting the VirtualMachineInstance console")

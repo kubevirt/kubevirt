@@ -2061,7 +2061,7 @@ var _ = Describe("VirtualMachineInstance", func() {
 
 			blockMigrate, err := controller.checkVolumesForMigration(vmi)
 			Expect(blockMigrate).To(BeTrue())
-			Expect(err).To(BeNil())
+			Expect(err).ToNot(HaveOccurred())
 		})
 		It("should migrate shared disks without blockMigration flag", func() {
 
@@ -2098,7 +2098,7 @@ var _ = Describe("VirtualMachineInstance", func() {
 
 			blockMigrate, err := controller.checkVolumesForMigration(vmi)
 			Expect(blockMigrate).To(BeFalse())
-			Expect(err).To(BeNil())
+			Expect(err).ToNot(HaveOccurred())
 		})
 		It("should fail migration for non-shared PVCs", func() {
 
@@ -2231,7 +2231,7 @@ var _ = Describe("VirtualMachineInstance", func() {
 			}
 			blockMigrate, err := controller.checkVolumesForMigration(vmi)
 			Expect(blockMigrate).To(BeTrue())
-			Expect(err).To(BeNil())
+			Expect(err).ToNot(HaveOccurred())
 		})
 		It("should be allowed to migrate a mix of non-shared and shared disks", func() {
 
@@ -2286,7 +2286,7 @@ var _ = Describe("VirtualMachineInstance", func() {
 
 			blockMigrate, err := controller.checkVolumesForMigration(vmi)
 			Expect(blockMigrate).To(BeTrue())
-			Expect(err).To(BeNil())
+			Expect(err).ToNot(HaveOccurred())
 		})
 		It("should be allowed to live-migrate shared HostDisks ", func() {
 			_true := true
@@ -2317,7 +2317,7 @@ var _ = Describe("VirtualMachineInstance", func() {
 
 			blockMigrate, err := controller.checkVolumesForMigration(vmi)
 			Expect(blockMigrate).To(BeFalse())
-			Expect(err).To(BeNil())
+			Expect(err).ToNot(HaveOccurred())
 		})
 		It("should not be allowed to live-migrate shared and non-shared HostDisks ", func() {
 			_true := true

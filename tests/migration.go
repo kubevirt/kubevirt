@@ -184,7 +184,7 @@ func EnsureNoMigrationMetadataInPersistentXML(vmi *v1.VirtualMachineInstance) {
 		if err == io.EOF {
 			break
 		}
-		Expect(err).To(BeNil(), "error getting token: %v\n", err)
+		Expect(err).ToNot(HaveOccurred(), "error getting token: %v\n", err)
 
 		switch v := token.(type) {
 		case xml.StartElement:

@@ -389,10 +389,10 @@ var _ = Describe("Manager", func() {
 			manager, _ := NewLibvirtDomainManager(mockConn, testVirtShareDir, testEphemeralDiskDir, nil, "/usr/share/OVMF", ephemeralDiskCreatorMock)
 
 			err := manager.MemoryDump(vmi, testDumpPath)
-			Expect(err).To(BeNil())
+			Expect(err).ToNot(HaveOccurred())
 			// Expect extra call to memory dump not to impact
 			errInProgress := manager.MemoryDump(vmi, testDumpPath)
-			Expect(errInProgress).To(BeNil())
+			Expect(errInProgress).ToNot(HaveOccurred())
 			Eventually(func() bool {
 				select {
 				case isSet := <-isMemoryDumpCompletedSet:
@@ -454,7 +454,7 @@ var _ = Describe("Manager", func() {
 			manager, _ := NewLibvirtDomainManager(mockConn, testVirtShareDir, testEphemeralDiskDir, nil, "/usr/share/OVMF", ephemeralDiskCreatorMock)
 
 			err := manager.MemoryDump(vmi, testDumpPath)
-			Expect(err).To(BeNil())
+			Expect(err).ToNot(HaveOccurred())
 			Eventually(func() bool {
 				select {
 				case isSet := <-isMemoryDumpCompletedSet:
@@ -2588,12 +2588,12 @@ func isoCreationFunc(isoOutFile, volumeID string, inDir string) error {
 
 func domainToXml(domain *api.DomainSpec) string {
 	xml, err := xml.MarshalIndent(domain, "", "\t")
-	Expect(err).To(BeNil())
+	Expect(err).ToNot(HaveOccurred())
 	return string(xml)
 }
 
 func domainToMetadataXml(domain *api.DomainSpec) string {
 	xml, err := xml.MarshalIndent(domain.Metadata.KubeVirt, "", "\t")
-	Expect(err).To(BeNil())
+	Expect(err).ToNot(HaveOccurred())
 	return string(xml)
 }

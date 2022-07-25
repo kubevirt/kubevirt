@@ -143,7 +143,7 @@ var _ = SIGDescribe("Storage", func() {
 				vmi := tests.NewRandomVMIWithEphemeralDisk(cd.ContainerDiskFor(cd.ContainerDiskAlpine))
 				vmi = tests.AddPVCDisk(vmi, "pvc-disk", v1.DiskBusVirtio, pvc.Name)
 				_, err := virtClient.VirtualMachineInstance(util.NamespaceTestDefault).Create(vmi)
-				Expect(err).To(BeNil(), failedCreateVMI)
+				Expect(err).ToNot(HaveOccurred(), failedCreateVMI)
 
 				tests.WaitForSuccessfulVMIStartWithTimeoutIgnoreWarnings(vmi, 180)
 
@@ -190,7 +190,7 @@ var _ = SIGDescribe("Storage", func() {
 
 				By("Cleaning up")
 				err = virtClient.VirtualMachineInstance(util.NamespaceTestDefault).Delete(vmi.ObjectMeta.Name, &metav1.DeleteOptions{})
-				Expect(err).To(BeNil(), failedDeleteVMI)
+				Expect(err).ToNot(HaveOccurred(), failedDeleteVMI)
 				tests.WaitForVirtualMachineToDisappearWithTimeout(vmi, 180)
 			})
 
@@ -229,7 +229,7 @@ var _ = SIGDescribe("Storage", func() {
 					libvmi.WithInterface(libvmi.InterfaceDeviceWithMasqueradeBinding()))
 
 				vmi, err := virtClient.VirtualMachineInstance(util.NamespaceTestDefault).Create(vmi)
-				Expect(err).To(BeNil(), failedCreateVMI)
+				Expect(err).ToNot(HaveOccurred(), failedCreateVMI)
 
 				tests.WaitForSuccessfulVMIStartWithTimeoutIgnoreWarnings(vmi, 180)
 
@@ -248,7 +248,7 @@ var _ = SIGDescribe("Storage", func() {
 						return false
 					}, 100*time.Second, time.Second).Should(BeTrue())
 				err = virtClient.VirtualMachineInstance(util.NamespaceTestDefault).Delete(vmi.ObjectMeta.Name, &metav1.DeleteOptions{})
-				Expect(err).To(BeNil(), failedDeleteVMI)
+				Expect(err).ToNot(HaveOccurred(), failedDeleteVMI)
 				tests.WaitForVirtualMachineToDisappearWithTimeout(vmi, 180)
 			})
 		})
@@ -1243,7 +1243,7 @@ var _ = SIGDescribe("Storage", func() {
 			BeforeEach(func() {
 				dv = libstorage.NewRandomDataVolumeWithRegistryImport(cd.DataVolumeImportUrlForContainerDisk(cd.ContainerDiskCirros), util.NamespaceTestDefault, k8sv1.ReadWriteOnce)
 				_, err := virtClient.CdiClient().CdiV1beta1().DataVolumes(util.NamespaceTestDefault).Create(context.Background(), dv, metav1.CreateOptions{})
-				Expect(err).To(BeNil())
+				Expect(err).ToNot(HaveOccurred())
 				labelKey := "testshareablekey"
 				labels := map[string]string{
 					labelKey: "",
@@ -1401,13 +1401,13 @@ var _ = SIGDescribe("Storage", func() {
 				vmi := tests.NewRandomVMIWithEphemeralDisk(cd.ContainerDiskFor(cd.ContainerDiskAlpine))
 				addPVCLunDisk(vmi, "lun0", pvc.ObjectMeta.Name)
 				_, err := virtClient.VirtualMachineInstance(util.NamespaceTestDefault).Create(vmi)
-				Expect(err).To(BeNil(), failedCreateVMI)
+				Expect(err).ToNot(HaveOccurred(), failedCreateVMI)
 
 				tests.WaitForSuccessfulVMIStartWithTimeoutIgnoreWarnings(vmi, 180)
 				Expect(console.LoginToAlpine(vmi)).To(Succeed())
 
 				err = virtClient.VirtualMachineInstance(util.NamespaceTestDefault).Delete(vmi.ObjectMeta.Name, &metav1.DeleteOptions{})
-				Expect(err).To(BeNil(), failedDeleteVMI)
+				Expect(err).ToNot(HaveOccurred(), failedDeleteVMI)
 				tests.WaitForVirtualMachineToDisappearWithTimeout(vmi, 180)
 			})
 
