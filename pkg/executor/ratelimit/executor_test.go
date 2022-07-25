@@ -28,23 +28,23 @@ import (
 
 var _ = Describe("rate limited executor", func() {
 	It("should execute command when the underlying rate-limiter is not blocking", func() {
-		executor := ratelimit.NewRateLimitedExecutor(&rateLimiterStub{block: false})
+		executor := ratelimit.NewExecutor(&rateLimiterStub{block: false})
 		expectCommandExec(executor)
 		expectCommandExec(executor)
 	})
 
 	It("should not execute command when the underlying rate-limiter is blocking", func() {
-		executor := ratelimit.NewRateLimitedExecutor(&rateLimiterStub{block: true})
+		executor := ratelimit.NewExecutor(&rateLimiterStub{block: true})
 		expectSkipCommandExec(executor)
 		expectSkipCommandExec(executor)
 	})
 })
 
-func expectCommandExec(executor *ratelimit.RateLimitedExecutor) {
+func expectCommandExec(executor *ratelimit.Executor) {
 	ExpectWithOffset(1, executor.Exec(failingCommandStub())).To(MatchError(testsExecError))
 }
 
-func expectSkipCommandExec(executor *ratelimit.RateLimitedExecutor) {
+func expectSkipCommandExec(executor *ratelimit.Executor) {
 	ExpectWithOffset(1, executor.Exec(failingCommandStub())).To(Succeed())
 }
 

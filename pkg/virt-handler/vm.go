@@ -206,7 +206,7 @@ func NewController(
 		capabilities:                capabilities,
 		hostCpuModel:                hostCpuModel,
 		vmiExpectations:             controller.NewUIDTrackingControllerExpectations(controller.NewControllerExpectations()),
-		sriovHotplugExecutorPool:    rlexecutor.NewRateLimitedExecutorPool(rlexecutor.NewExponentialLimitedBackoffCreator()),
+		sriovHotplugExecutorPool:    rlexecutor.NewExecutorPool(rlexecutor.NewExponentialLimitedBackoffCreator()),
 	}
 
 	vmiSourceInformer.AddEventHandler(cache.ResourceEventHandlerFuncs{
@@ -285,7 +285,7 @@ type VirtualMachineController struct {
 	containerDiskMounter     container_disk.Mounter
 	hotplugVolumeMounter     hotplug_volume.VolumeMounter
 	clusterConfig            *virtconfig.ClusterConfig
-	sriovHotplugExecutorPool *rlexecutor.RateLimitedExecutorPool
+	sriovHotplugExecutorPool *rlexecutor.ExecutorPool
 
 	netConf netconf
 	netStat netstat

@@ -35,10 +35,10 @@ var _ = Describe("rate limited executor pool", func() {
 		key2 = types.UID("20006000")
 	)
 
-	var pool *ratelimit.RateLimitedExecutorPool
+	var pool *ratelimit.ExecutorPool
 
 	BeforeEach(func() {
-		pool = ratelimit.NewRateLimitedExecutorPool(ratelimit.NewExponentialLimitedBackoffCreator())
+		pool = ratelimit.NewExecutorPool(ratelimit.NewExponentialLimitedBackoffCreator())
 	})
 
 	It("should not override pool element if key exists", func() {

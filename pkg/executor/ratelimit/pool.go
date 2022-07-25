@@ -23,25 +23,25 @@ import (
 	"sync"
 )
 
-// RateLimitedExecutorPool aggregates RateLimiterExecutor's by keys,
+// ExecutorPool aggregates RateLimiterExecutor's by keys,
 // each key element is self-contained and have its own rate-limiter.
 // Each element rate-limiter is created by the given creator.
-type RateLimitedExecutorPool struct {
+type ExecutorPool struct {
 	sync.Map
 	creator LimitedBackoffCreator
 }
 
-func NewRateLimitedExecutorPool(creator LimitedBackoffCreator) *RateLimitedExecutorPool {
-	return &RateLimitedExecutorPool{
+func NewExecutorPool(creator LimitedBackoffCreator) *ExecutorPool {
+	return &ExecutorPool{
 		Map:     sync.Map{},
 		creator: creator,
 	}
 }
 
-// LoadOrStore returns the existing RateLimitedExecutor for the key if present.
-// Otherwise, it will create new RateLimitedExecutor with a new underlying rate-limiter, store and return it.
-func (c *RateLimitedExecutorPool) LoadOrStore(key interface{}) *RateLimitedExecutor {
+// LoadOrStore returns the existing Executor for the key if present.
+// Otherwise, it will create new Executor with a new underlying rate-limiter, store and return it.
+func (c *ExecutorPool) LoadOrStore(key interface{}) *Executor {
 	rateLimit := c.creator.New()
-	element, _ := c.Map.LoadOrStore(key, NewRateLimitedExecutor(&rateLimit))
-	return element.(*RateLimitedExecutor)
+	element, _ := c.Map.LoadOrStore(key, NewExecutor(&rateLimit))
+	return element.(*Executor)
 }

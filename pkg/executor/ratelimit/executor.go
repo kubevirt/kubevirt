@@ -24,21 +24,21 @@ type rateLimiter interface {
 	Ready() bool
 }
 
-// RateLimitedExecutor provides self-contained entity that enables rate-limiting a given func
+// Executor provides self-contained entity that enables rate-limiting a given func
 // execution (e.g: with an exponential backoff) without blocking the goroutine it runs on.
-type RateLimitedExecutor struct {
+type Executor struct {
 	rateLimiter rateLimiter
 }
 
-func NewRateLimitedExecutor(rateLimiter rateLimiter) *RateLimitedExecutor {
-	return &RateLimitedExecutor{
+func NewExecutor(rateLimiter rateLimiter) *Executor {
+	return &Executor{
 		rateLimiter: rateLimiter,
 	}
 }
 
 // Exec will execute the given func when the underlying rate-limiter
 // is not blocking; rate-limiter's end time is passed and limit is not reached.
-func (c *RateLimitedExecutor) Exec(command func() error) error {
+func (c *Executor) Exec(command func() error) error {
 	if !c.rateLimiter.Ready() {
 		return nil
 	}
