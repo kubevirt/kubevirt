@@ -36,10 +36,11 @@ const (
 
 // Config contains the basic fields required for creating a certificate
 type Config struct {
-	CommonName   string
-	Organization []string
-	AltNames     AltNames
-	Usages       []x509.ExtKeyUsage
+	CommonName          string
+	Organization        []string
+	AltNames            AltNames
+	Usages              []x509.ExtKeyUsage
+	NotBefore, NotAfter *time.Time
 }
 
 // AltNames contains the domain names and IP addresses that will be added
@@ -70,6 +71,12 @@ func NewSelfSignedCACert(cfg Config, key crypto.Signer, duration time.Duration) 
 		BasicConstraintsValid: true,
 		IsCA:                  true,
 		DNSNames:              cfg.AltNames.DNSNames,
+	}
+	if cfg.NotBefore != nil {
+		tmpl.NotBefore = *cfg.NotBefore
+	}
+	if cfg.NotAfter != nil {
+		tmpl.NotAfter = *cfg.NotAfter
 	}
 
 	certDERBytes, err := x509.CreateCertificate(cryptorand.Reader, &tmpl, &tmpl, key.Public(), key)
@@ -104,6 +111,12 @@ func NewSignedCert(cfg Config, key crypto.Signer, caCert *x509.Certificate, caKe
 		NotAfter:     time.Now().Add(duration).UTC(),
 		KeyUsage:     x509.KeyUsageKeyEncipherment | x509.KeyUsageDigitalSignature,
 		ExtKeyUsage:  cfg.Usages,
+	}
+	if cfg.NotBefore != nil {
+		certTmpl.NotBefore = *cfg.NotBefore
+	}
+	if cfg.NotAfter != nil {
+		certTmpl.NotAfter = *cfg.NotAfter
 	}
 	certDERBytes, err := x509.CreateCertificate(cryptorand.Reader, &certTmpl, caCert, key.Public(), caKey)
 	if err != nil {

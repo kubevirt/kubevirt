@@ -25,6 +25,7 @@ import (
 	"fmt"
 	"path"
 	"strings"
+	"time"
 	"unicode"
 
 	routev1 "github.com/openshift/api/route/v1"
@@ -196,9 +197,13 @@ func (ctrl *VMExportController) getRouteCert(hostName string) (string, error) {
 }
 
 func (ctrl *VMExportController) findCertByHostName(hostName string, certs []*x509.Certificate) (string, error) {
+	now := time.Now()
+	var latestCert *x509.Certificate
 	for _, cert := range certs {
 		if ctrl.matchesOrWildCard(hostName, cert.Subject.CommonName) {
-			return buildPemFromCert(cert)
+			if latestCert == nil || (cert.NotAfter.After(latestCert.NotAfter) && cert.NotBefore.Before(time.Now())) {
+				latestCert = cert
+			}
 		}
 		for _, extension := range cert.Extensions {
 			if extension.Id.String() == subjectAltNameId {
@@ -211,19 +216,32 @@ func (ctrl *VMExportController) findCertByHostName(hostName string, certs []*x50
 				names := strings.Split(value, " ")
 				for _, name := range names {
 					if ctrl.matchesOrWildCard(hostName, name) {
-						return buildPemFromCert(cert)
+						if latestCert == nil || (cert.NotAfter.After(latestCert.NotAfter) && cert.NotBefore.Before(time.Now())) {
+							latestCert = cert
+						}
 					}
 				}
 			}
 		}
 	}
+	if latestCert != nil && latestCert.NotAfter.After(now) && latestCert.NotBefore.Before(now) {
+		return ctrl.buildPemFromCert(latestCert, certs)
+	}
 	return "", nil
 }
 
-func buildPemFromCert(cert *x509.Certificate) (string, error) {
+func (ctrl *VMExportController) buildPemFromCert(matchingCert *x509.Certificate, allCerts []*x509.Certificate) (string, error) {
 	pemOut := strings.Builder{}
-	if err := pem.Encode(&pemOut, &pem.Block{Type: "CERTIFICATE", Bytes: cert.Raw}); err != nil {
-		return "", err
+	pem.Encode(&pemOut, &pem.Block{Type: "CERTIFICATE", Bytes: matchingCert.Raw})
+	if matchingCert.Issuer.CommonName != matchingCert.Subject.CommonName && !matchingCert.IsCA {
+		//lookup issuer recursively, if not found a blank is returned.
+		chain, err := ctrl.findCertByHostName(matchingCert.Issuer.CommonName, allCerts)
+		if err != nil {
+			return "", err
+		}
+		if _, err := pemOut.WriteString(chain); err != nil {
+			return "", err
+		}
 	}
 	return strings.TrimSpace(pemOut.String()), nil
 }
