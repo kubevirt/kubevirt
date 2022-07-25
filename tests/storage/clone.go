@@ -346,21 +346,21 @@ var _ = SIGDescribe("[Serial]VirtualMachineClone Tests", func() {
 				return expectVMRunnable(vm, console.LoginToAlpine)
 			}
 
-			createVMWithStorageClass := func(storageClass string, running bool) {
-				sourceVM = tests.NewRandomVMWithDataVolumeWithRegistryImport(
+			createVMWithStorageClass := func(storageClass string, running bool) *virtv1.VirtualMachine {
+				vm := tests.NewRandomVMWithDataVolumeWithRegistryImport(
 					cd.DataVolumeImportUrlForContainerDisk(cd.ContainerDiskAlpine),
 					util.NamespaceTestDefault,
 					storageClass,
 					k8sv1.ReadWriteOnce,
 				)
-				sourceVM.Spec.Running = pointer.Bool(running)
+				vm.Spec.Running = pointer.Bool(running)
 
-				sourceVM, err = virtClient.VirtualMachine(sourceVM.Namespace).Create(sourceVM)
+				vm, err := virtClient.VirtualMachine(vm.Namespace).Create(vm)
 				Expect(err).ToNot(HaveOccurred())
 
-				for _, dvt := range sourceVM.Spec.DataVolumeTemplates {
+				for _, dvt := range vm.Spec.DataVolumeTemplates {
 					Eventually(func() bool {
-						dv, err := virtClient.CdiClient().CdiV1beta1().DataVolumes(sourceVM.Namespace).Get(context.Background(), dvt.Name, v1.GetOptions{})
+						dv, err := virtClient.CdiClient().CdiV1beta1().DataVolumes(vm.Namespace).Get(context.Background(), dvt.Name, v1.GetOptions{})
 						if errors.IsNotFound(err) {
 							return false
 						}
@@ -369,6 +369,8 @@ var _ = SIGDescribe("[Serial]VirtualMachineClone Tests", func() {
 						return dv.Status.Phase == cdiv1.Succeeded
 					}, 180*time.Second, time.Second).Should(BeTrue())
 				}
+
+				return vm
 			}
 
 			getDumbStorageClass := func(preference string) string {
@@ -418,7 +420,7 @@ var _ = SIGDescribe("[Serial]VirtualMachineClone Tests", func() {
 					Skip("Skipping test, no VolumeSnapshot support")
 				}
 
-				createVMWithStorageClass(snapshotStorageClass, false)
+				sourceVM = createVMWithStorageClass(snapshotStorageClass, false)
 				vmClone = generateClone()
 
 				createCloneAndWaitForFinish(vmClone)
@@ -441,17 +443,10 @@ var _ = SIGDescribe("[Serial]VirtualMachineClone Tests", func() {
 				}
 
 				// create running in case storage is WFFC (local storage)
-				createVMWithStorageClass(sc, true)
+				sourceVM = createVMWithStorageClass(sc, true)
 				sourceVM, err = virtClient.VirtualMachine(sourceVM.Namespace).Get(sourceVM.Name, &v1.GetOptions{})
 				Expect(err).ToNot(HaveOccurred())
-				sourceVM.Spec.Running = pointer.Bool(false)
-				sourceVM, err = virtClient.VirtualMachine(sourceVM.Namespace).Update(sourceVM)
-				Expect(err).ToNot(HaveOccurred())
-				Eventually(func() bool {
-					sourceVM, err = virtClient.VirtualMachine(sourceVM.Namespace).Get(sourceVM.Name, &v1.GetOptions{})
-					Expect(err).ToNot(HaveOccurred())
-					return sourceVM.Status.PrintableStatus == virtv1.VirtualMachineStatusStopped
-				}, 180*time.Second, time.Second).Should(BeTrue())
+				sourceVM = tests.StopVirtualMachine(sourceVM)
 
 				vmClone = generateClone()
 				vmClone, err = virtClient.VirtualMachineClone(vmClone.Namespace).Create(context.Background(), vmClone, v1.CreateOptions{})

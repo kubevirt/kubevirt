@@ -177,7 +177,13 @@ func validateSource(client kubecli.KubevirtClient, vmClone *clonev1alpha1.Virtua
 		}}
 		return causes
 	}
-
+	if source.APIGroup == nil || *source.APIGroup == "" {
+		causes = append(causes, metav1.StatusCause{
+			Type:    metav1.CauseTypeFieldValueInvalid,
+			Message: "Source's APIGroup cannot be empty",
+			Field:   sourceField.Child("Source").Child("APIGroup").String(),
+		})
+	}
 	if source.Kind == "" {
 		causes = append(causes, metav1.StatusCause{
 			Type:    metav1.CauseTypeFieldValueInvalid,
@@ -191,17 +197,19 @@ func validateSource(client kubecli.KubevirtClient, vmClone *clonev1alpha1.Virtua
 			Message: "Source's name cannot be empty",
 			Field:   sourceField.Child("Source").Child("Name").String(),
 		})
-	} else {
-		causes = append(causes, verifySourceExists(client, source.Name, vmClone.Namespace, sourceField.Child("Source"))...)
 	}
-	if source.APIGroup == nil || *source.APIGroup == "" {
-		causes = append(causes, metav1.StatusCause{
-			Type:    metav1.CauseTypeFieldValueInvalid,
-			Message: "Source's APIGroup cannot be empty",
-			Field:   sourceField.Child("Source").Child("APIGroup").String(),
-		})
+	if source.Kind != "" && source.Name != "" {
+		switch source.Kind {
+		case "VirtualMachine":
+			causes = append(causes, validateCloneSourceVM(client, source.Name, vmClone.Namespace, sourceField.Child("Source"))...)
+		default:
+			causes = append(causes, metav1.StatusCause{
+				Type:    metav1.CauseTypeFieldValueInvalid,
+				Message: "Source's Kind is invalid",
+				Field:   sourceField.Child("Source").String(),
+			})
+		}
 	}
-
 	return causes
 }
 
@@ -216,7 +224,7 @@ func doesSliceContainStr(slice []string, str string) (isFound bool) {
 	return isFound
 }
 
-func verifySourceExists(client kubecli.KubevirtClient, name, namespace string, sourceField *k8sfield.Path) []metav1.StatusCause {
+func validateCloneSourceVM(client kubecli.KubevirtClient, name, namespace string, sourceField *k8sfield.Path) []metav1.StatusCause {
 	vm, err := client.VirtualMachine(namespace).Get(name, &metav1.GetOptions{})
 	if errors.IsNotFound(err) {
 		return []metav1.StatusCause{
@@ -240,10 +248,10 @@ func verifySourceExists(client kubecli.KubevirtClient, name, namespace string, s
 	// snapshot/restore requires that volumes support CSI snapshots
 	// this limitation should be removed eventually
 	// probably by leveraging CDI cloning
-	return verifyVolumesSupportSnapshot(vm, sourceField)
+	return validateCloneVolumeSnapshotSupportVM(vm, sourceField)
 }
 
-func verifyVolumesSupportSnapshot(vm *v1.VirtualMachine, sourceField *k8sfield.Path) []metav1.StatusCause {
+func validateCloneVolumeSnapshotSupportVM(vm *v1.VirtualMachine, sourceField *k8sfield.Path) []metav1.StatusCause {
 	var result []metav1.StatusCause
 
 	// should never happen, but don't want to NPE

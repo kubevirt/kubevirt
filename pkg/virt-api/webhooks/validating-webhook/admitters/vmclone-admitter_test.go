@@ -168,6 +168,11 @@ var _ = Describe("Validating VirtualMachineClone Admitter", func() {
 			source.APIGroup = pointer.String("")
 			return source
 		}),
+		Entry("Source with bad kind", func() *k8sv1.TypedLocalObjectReference {
+			source := newValidObjReference()
+			source.Kind = "Foobar"
+			return source
+		}),
 	)
 
 	It("Should reject unknown source type", func() {
