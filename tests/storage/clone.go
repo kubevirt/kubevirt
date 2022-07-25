@@ -6,28 +6,23 @@ import (
 	"strings"
 	"time"
 
-	"github.com/onsi/gomega/format"
-
-	"k8s.io/apimachinery/pkg/api/errors"
-
-	cdiv1 "kubevirt.io/containerized-data-importer-api/pkg/apis/core/v1beta1"
-
-	cd "kubevirt.io/kubevirt/tests/containerdisk"
-
-	virtconfig "kubevirt.io/kubevirt/pkg/virt-config"
-	"kubevirt.io/kubevirt/tests/console"
-
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
+	"github.com/onsi/gomega/format"
 	k8sv1 "k8s.io/api/core/v1"
+	"k8s.io/apimachinery/pkg/api/errors"
 	v1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/utils/pointer"
 
 	clonev1alpha1 "kubevirt.io/api/clone/v1alpha1"
 	virtv1 "kubevirt.io/api/core/v1"
 	"kubevirt.io/client-go/kubecli"
+	cdiv1 "kubevirt.io/containerized-data-importer-api/pkg/apis/core/v1beta1"
 
+	virtconfig "kubevirt.io/kubevirt/pkg/virt-config"
 	"kubevirt.io/kubevirt/tests"
+	"kubevirt.io/kubevirt/tests/console"
+	cd "kubevirt.io/kubevirt/tests/containerdisk"
 	"kubevirt.io/kubevirt/tests/libvmi"
 	"kubevirt.io/kubevirt/tests/util"
 )
@@ -351,21 +346,14 @@ var _ = SIGDescribe("[Serial]VirtualMachineClone Tests", func() {
 				return expectVMRunnable(vm, console.LoginToAlpine)
 			}
 
-			BeforeEach(func() {
-				snapshotStorageClass, err := getSnapshotStorageClass(virtClient)
-				Expect(err).ToNot(HaveOccurred())
-
-				if snapshotStorageClass == "" {
-					Skip("Skipping test, no VolumeSnapshot support")
-				}
-
+			createVMWithStorageClass := func(storageClass string, running bool) {
 				sourceVM = tests.NewRandomVMWithDataVolumeWithRegistryImport(
 					cd.DataVolumeImportUrlForContainerDisk(cd.ContainerDiskAlpine),
 					util.NamespaceTestDefault,
-					snapshotStorageClass,
+					storageClass,
 					k8sv1.ReadWriteOnce,
 				)
-				sourceVM.Spec.Running = pointer.Bool(false)
+				sourceVM.Spec.Running = pointer.Bool(running)
 
 				sourceVM, err = virtClient.VirtualMachine(sourceVM.Namespace).Create(sourceVM)
 				Expect(err).ToNot(HaveOccurred())
@@ -381,9 +369,56 @@ var _ = SIGDescribe("[Serial]VirtualMachineClone Tests", func() {
 						return dv.Status.Phase == cdiv1.Succeeded
 					}, 180*time.Second, time.Second).Should(BeTrue())
 				}
-			})
+			}
+
+			getDumbStorageClass := func(preference string) string {
+				scs, err := virtClient.StorageV1().StorageClasses().List(context.Background(), v1.ListOptions{})
+				Expect(err).ToNot(HaveOccurred())
+
+				vscs, err := virtClient.KubernetesSnapshotClient().SnapshotV1().VolumeSnapshotClasses().List(context.Background(), v1.ListOptions{})
+				if errors.IsNotFound(err) {
+					return ""
+				}
+				Expect(err).ToNot(HaveOccurred())
+
+				var candidates []string
+				for _, sc := range scs.Items {
+					found := false
+					for _, vsc := range vscs.Items {
+						if sc.Provisioner == vsc.Driver {
+							found = true
+							break
+						}
+					}
+					if !found {
+						candidates = append(candidates, sc.Name)
+					}
+				}
+
+				if len(candidates) == 0 {
+					return ""
+				}
+
+				if len(candidates) > 1 {
+					for _, c := range candidates {
+						if c == preference {
+							return c
+						}
+					}
+				}
+
+				return candidates[0]
+			}
 
 			It("[QUARANTINE] with a simple clone", func() {
+				snapshotStorageClass, err := getSnapshotStorageClass(virtClient)
+				Expect(err).ToNot(HaveOccurred())
+
+				if snapshotStorageClass == "" {
+					Skip("Skipping test, no VolumeSnapshot support")
+				}
+
+				createVMWithStorageClass(snapshotStorageClass, false)
 				vmClone = generateClone()
 
 				createCloneAndWaitForFinish(vmClone)
@@ -399,7 +434,30 @@ var _ = SIGDescribe("[Serial]VirtualMachineClone Tests", func() {
 				expectEqualAnnotations(targetVM, sourceVM)
 			})
 
-		})
+			It("should reject clone with non snapshotable volume", func() {
+				sc := getDumbStorageClass("local")
+				if sc == "" {
+					Skip("Skipping test, no storage class without snapshot support")
+				}
 
+				// create running in case storage is WFFC (local storage)
+				createVMWithStorageClass(sc, true)
+				sourceVM, err = virtClient.VirtualMachine(sourceVM.Namespace).Get(sourceVM.Name, &v1.GetOptions{})
+				Expect(err).ToNot(HaveOccurred())
+				sourceVM.Spec.Running = pointer.Bool(false)
+				sourceVM, err = virtClient.VirtualMachine(sourceVM.Namespace).Update(sourceVM)
+				Expect(err).ToNot(HaveOccurred())
+				Eventually(func() bool {
+					sourceVM, err = virtClient.VirtualMachine(sourceVM.Namespace).Get(sourceVM.Name, &v1.GetOptions{})
+					Expect(err).ToNot(HaveOccurred())
+					return sourceVM.Status.PrintableStatus == virtv1.VirtualMachineStatusStopped
+				}, 180*time.Second, time.Second).Should(BeTrue())
+
+				vmClone = generateClone()
+				vmClone, err = virtClient.VirtualMachineClone(vmClone.Namespace).Create(context.Background(), vmClone, v1.CreateOptions{})
+				Expect(err).To(HaveOccurred())
+				Expect(err.Error()).Should(ContainSubstring("does not support snapshots"))
+			})
+		})
 	})
 })
