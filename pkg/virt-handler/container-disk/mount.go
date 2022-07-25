@@ -55,6 +55,7 @@ type vmiMountTargetEntry struct {
 
 type vmiMountTargetRecord struct {
 	MountTargetEntries []vmiMountTargetEntry `json:"mountTargetEntries"`
+	UsesSafePaths      bool                  `json:"usesSafePaths"`
 }
 
 func NewMounter(isoDetector isolation.PodIsolationDetector, mountStateDir string, clusterConfig *virtconfig.ClusterConfig) Mounter {
@@ -139,6 +140,19 @@ func (m *mounter) getMountTargetRecord(vmi *v1.VirtualMachineInstance) (*vmiMoun
 			return nil, err
 		}
 
+		// XXX: backward compatibility for old unresolved paths, can be removed in July 2023
+		// After a one-time convert and persist, old records are safe too.
+		if !record.UsesSafePaths {
+			record.UsesSafePaths = true
+			for i, entry := range record.MountTargetEntries {
+				safePath, err := safepath.JoinAndResolveWithRelativeRoot("/", entry.TargetFile)
+				if err != nil {
+					return nil, fmt.Errorf("failed converting legacy path to safepath: %v", err)
+				}
+				record.MountTargetEntries[i].TargetFile = unsafepath.UnsafeAbsolute(safePath.Raw())
+			}
+		}
+
 		m.mountRecords[vmi.UID] = &record
 		return &record, nil
 	}
@@ -151,6 +165,9 @@ func (m *mounter) setMountTargetRecord(vmi *v1.VirtualMachineInstance, record *v
 	if string(vmi.UID) == "" {
 		return fmt.Errorf("unable to set container disk mounted directories for vmi without uid")
 	}
+	// XXX: backward compatibility for old unresolved paths, can be removed in July 2023
+	// After a one-time convert and persist, old records are safe too.
+	record.UsesSafePaths = true
 
 	recordFile := filepath.Join(m.mountStateDir, string(vmi.UID))
 	fileExists, err := diskutils.FileExists(recordFile)
@@ -305,19 +322,22 @@ func (m *mounter) Unmount(vmi *v1.VirtualMachineInstance) error {
 		log.DefaultLogger().Object(vmi).Infof("Found container disk mount entries")
 		for _, entry := range record.MountTargetEntries {
 			log.DefaultLogger().Object(vmi).Infof("Looking to see if containerdisk is mounted at path %s", entry.TargetFile)
-			path, err := safepath.NewFileNoFollow(entry.TargetFile)
+			file, err := safepath.NewFileNoFollow(entry.TargetFile)
 			if err != nil {
-				return fmt.Errorf("failed to check mount point for containerDisk %v: %v", path, err)
+				if os.IsNotExist(err) {
+					continue
+				}
+				return fmt.Errorf("failed to check mount point for containerDisk %v: %v", entry.TargetFile, err)
 			}
-			_ = path.Close()
-			if mounted, err := isolation.IsMounted(path.Path()); err != nil {
-				return fmt.Errorf("failed to check mount point for containerDisk %v: %v", path, err)
+			_ = file.Close()
+			if mounted, err := isolation.IsMounted(file.Path()); err != nil {
+				return fmt.Errorf("failed to check mount point for containerDisk %v: %v", file, err)
 			} else if mounted {
-				log.DefaultLogger().Object(vmi).Infof("unmounting container disk at path %s", path)
+				log.DefaultLogger().Object(vmi).Infof("unmounting container disk at file %s", file)
 				// #nosec No risk for attacket injection. Parameters are predefined strings
-				out, err := virt_chroot.UmountChroot(path.Path()).CombinedOutput()
+				out, err := virt_chroot.UmountChroot(file.Path()).CombinedOutput()
 				if err != nil {
-					return fmt.Errorf("failed to unmount containerDisk %v: %v : %v", path, string(out), err)
+					return fmt.Errorf("failed to unmount containerDisk %v: %v : %v", file, string(out), err)
 				}
 			}
 		}
@@ -496,10 +516,10 @@ func (m *mounter) UnmountKernelArtifacts(vmi *v1.VirtualMachineInstance) error {
 
 			targetPath, err := safepath.JoinNoFollow(targetDir, filepath.Base(artifactPath))
 			if err != nil {
-				return fmt.Errorf(failedCheckMountPointFmt, targetPath, err)
+				return fmt.Errorf("failed to check mount point for containerDisk %v: %v", targetPath, err)
 			}
 			if mounted, err := isolation.IsMounted(targetPath); err != nil {
-				return fmt.Errorf(failedCheckMountPointFmt, targetPath, err)
+				return fmt.Errorf("failed to check mount point for containerDisk %v: %v", targetPath, err)
 			} else if mounted {
 				log.DefaultLogger().Object(vmi).Infof("unmounting container disk at targetDir %s", targetPath)
 
