@@ -8,8 +8,6 @@ import (
 	expect "github.com/google/goexpect"
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
-	"k8s.io/apimachinery/pkg/api/resource"
-
 	k8smetav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 
 	v1 "kubevirt.io/api/core/v1"
@@ -39,22 +37,6 @@ func byStartingTheVMI(vmi *v1.VirtualMachineInstance, virtClient kubecli.Kubevir
 	tests.WaitForSuccessfulVMIStart(vmi)
 }
 
-func withRelatimeConfiguration(memory string, realtimeMask string) libvmi.Option {
-	memoryRequest := resource.MustParse(memory)
-	return func(vmi *v1.VirtualMachineInstance) {
-		vmi.Spec.Domain.CPU = &v1.CPU{
-			Model:                 "host-passthrough",
-			DedicatedCPUPlacement: true,
-			Realtime:              &v1.Realtime{Mask: realtimeMask},
-			NUMA:                  &v1.NUMA{GuestMappingPassthrough: &v1.NUMAGuestMappingPassthrough{}},
-		}
-		vmi.Spec.Domain.Memory = &v1.Memory{
-			Hugepages: &v1.Hugepages{PageSize: "2Mi"},
-			Guest:     &memoryRequest,
-		}
-	}
-}
-
 var _ = SIGDescribe("CPU latency tests for measuring realtime VMs performance", func() {
 
 	var (
@@ -73,6 +55,7 @@ var _ = SIGDescribe("CPU latency tests for measuring realtime VMs performance", 
 
 	It("running cyclictest and collecting results directly from VM", func() {
 		const memory = "512Mi"
+		const noMask = ""
 		vmi = libvmi.New(
 			libvmi.WithRng(),
 			libvmi.WithContainerImage(cd.ContainerDiskFor(cd.ContainerDiskFedoraRealtime)),
@@ -81,7 +64,12 @@ var _ = SIGDescribe("CPU latency tests for measuring realtime VMs performance", 
 			libvmi.WithLimitCPU("2"),
 			libvmi.WithResourceMemory(memory),
 			libvmi.WithLimitMemory(memory),
-			withRelatimeConfiguration(memory, ""),
+			libvmi.WithCPUModel(v1.CPUModeHostPassthrough),
+			libvmi.WithDedicatedCPUPlacement(),
+			libvmi.WithRealtimeMask(noMask),
+			libvmi.WithNUMAGuestMappingPassthrough(),
+			libvmi.WithHugepages("2Mi"),
+			libvmi.WithGuestMemory(memory),
 		)
 		byStartingTheVMI(vmi, virtClient)
 		By("validating VMI is up and running")
