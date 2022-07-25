@@ -75,6 +75,7 @@ import (
 
 	"kubevirt.io/kubevirt/pkg/monitoring/perfscale"
 	vmiprom "kubevirt.io/kubevirt/pkg/monitoring/vmistats" // import for prometheus metrics
+	vmprom "kubevirt.io/kubevirt/pkg/monitoring/vmstats"
 	"kubevirt.io/kubevirt/pkg/service"
 	"kubevirt.io/kubevirt/pkg/storage/export/export"
 	"kubevirt.io/kubevirt/pkg/storage/snapshot"
@@ -503,6 +504,7 @@ func (vca *VirtControllerApp) onStartedLeading() func(ctx context.Context) {
 			vca.disruptionBudgetControllerThreads)
 
 		vmiprom.SetupVMICollector(vca.vmiInformer, vca.clusterConfig)
+		vmprom.SetupVMCollector(vca.vmInformer)
 		perfscale.RegisterPerfScaleMetrics(vca.vmiInformer)
 		if vca.migrationInformer == nil {
 			vca.migrationInformer = vca.informerFactory.VirtualMachineInstanceMigration()
