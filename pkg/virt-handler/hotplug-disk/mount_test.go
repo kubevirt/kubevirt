@@ -232,7 +232,7 @@ var _ = Describe("HotplugVolume", func() {
 			Expect(err).ToNot(HaveOccurred())
 			res, err := m.getMountTargetRecord(vmi)
 			Expect(err).ToNot(HaveOccurred())
-			Expect(res).To(Equal(&vmiMountTargetRecord{}))
+			Expect(res).To(Equal(&vmiMountTargetRecord{UsesSafePaths: true}))
 		})
 
 		It("deleteMountTargetRecord should remove both record file and entry file", func() {
@@ -869,6 +869,7 @@ var _ = Describe("HotplugVolume", func() {
 						TargetFile: blockVolume,
 					},
 				},
+				UsesSafePaths: true,
 			}
 			expectedBytes, err := json.Marshal(record)
 			Expect(err).ToNot(HaveOccurred())
@@ -988,6 +989,7 @@ var _ = Describe("HotplugVolume", func() {
 						TargetFile: blockVolume,
 					},
 				},
+				UsesSafePaths: true,
 			}
 			expectedBytes, err := json.Marshal(record)
 			Expect(err).ToNot(HaveOccurred())
