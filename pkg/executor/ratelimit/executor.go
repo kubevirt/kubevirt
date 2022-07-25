@@ -17,7 +17,7 @@
  *
  */
 
-package executor
+package ratelimit
 
 type rateLimiter interface {
 	Step()

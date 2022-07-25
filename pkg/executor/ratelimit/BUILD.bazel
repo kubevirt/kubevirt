@@ -7,7 +7,7 @@ go_library(
         "executor.go",
         "pool.go",
     ],
-    importpath = "kubevirt.io/kubevirt/pkg/executor",
+    importpath = "kubevirt.io/kubevirt/pkg/executor/ratelimit",
     visibility = ["//visibility:public"],
     deps = [
         "//vendor/k8s.io/apimachinery/pkg/util/clock:go_default_library",

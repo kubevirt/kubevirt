@@ -72,7 +72,7 @@ import (
 	containerdisk "kubevirt.io/kubevirt/pkg/container-disk"
 	"kubevirt.io/kubevirt/pkg/controller"
 	diskutils "kubevirt.io/kubevirt/pkg/ephemeral-disk-utils"
-	"kubevirt.io/kubevirt/pkg/executor"
+	rlexecutor "kubevirt.io/kubevirt/pkg/executor/ratelimit"
 	hostdisk "kubevirt.io/kubevirt/pkg/host-disk"
 	neterrors "kubevirt.io/kubevirt/pkg/network/errors"
 	virtutil "kubevirt.io/kubevirt/pkg/util"
@@ -206,7 +206,7 @@ func NewController(
 		capabilities:                capabilities,
 		hostCpuModel:                hostCpuModel,
 		vmiExpectations:             controller.NewUIDTrackingControllerExpectations(controller.NewControllerExpectations()),
-		sriovHotplugExecutorPool:    executor.NewRateLimitedExecutorPool(executor.NewExponentialLimitedBackoffCreator()),
+		sriovHotplugExecutorPool:    rlexecutor.NewRateLimitedExecutorPool(rlexecutor.NewExponentialLimitedBackoffCreator()),
 	}
 
 	vmiSourceInformer.AddEventHandler(cache.ResourceEventHandlerFuncs{
@@ -285,7 +285,7 @@ type VirtualMachineController struct {
 	containerDiskMounter     container_disk.Mounter
 	hotplugVolumeMounter     hotplug_volume.VolumeMounter
 	clusterConfig            *virtconfig.ClusterConfig
-	sriovHotplugExecutorPool *executor.RateLimitedExecutorPool
+	sriovHotplugExecutorPool *rlexecutor.RateLimitedExecutorPool
 
 	netConf netconf
 	netStat netstat

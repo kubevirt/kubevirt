@@ -1,4 +1,4 @@
-package executor_test
+package ratelimit_test
 
 import (
 	"fmt"

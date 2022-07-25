@@ -17,7 +17,7 @@
  *
  */
 
-package executor
+package ratelimit
 
 import (
 	"math"

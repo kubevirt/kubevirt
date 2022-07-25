@@ -17,34 +17,34 @@
  *
  */
 
-package executor_test
+package ratelimit_test
 
 import (
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
 
-	"kubevirt.io/kubevirt/pkg/executor"
+	"kubevirt.io/kubevirt/pkg/executor/ratelimit"
 )
 
 var _ = Describe("rate limited executor", func() {
 	It("should execute command when the underlying rate-limiter is not blocking", func() {
-		executor := executor.NewRateLimitedExecutor(&rateLimiterStub{block: false})
+		executor := ratelimit.NewRateLimitedExecutor(&rateLimiterStub{block: false})
 		expectCommandExec(executor)
 		expectCommandExec(executor)
 	})
 
 	It("should not execute command when the underlying rate-limiter is blocking", func() {
-		executor := executor.NewRateLimitedExecutor(&rateLimiterStub{block: true})
+		executor := ratelimit.NewRateLimitedExecutor(&rateLimiterStub{block: true})
 		expectSkipCommandExec(executor)
 		expectSkipCommandExec(executor)
 	})
 })
 
-func expectCommandExec(executor *executor.RateLimitedExecutor) {
+func expectCommandExec(executor *ratelimit.RateLimitedExecutor) {
 	ExpectWithOffset(1, executor.Exec(failingCommandStub())).To(MatchError(testsExecError))
 }
 
-func expectSkipCommandExec(executor *executor.RateLimitedExecutor) {
+func expectSkipCommandExec(executor *ratelimit.RateLimitedExecutor) {
 	ExpectWithOffset(1, executor.Exec(failingCommandStub())).To(Succeed())
 }
 

@@ -17,27 +17,27 @@
  *
  */
 
-package executor_test
+package ratelimit_test
 
 import (
 	"time"
+
+	"kubevirt.io/kubevirt/pkg/executor/ratelimit"
 
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
 
 	"k8s.io/apimachinery/pkg/util/clock"
-
-	"kubevirt.io/kubevirt/pkg/executor"
 )
 
 var _ = Describe("exponential limited backoff", func() {
 
 	var testsClock *clock.FakeClock
-	var backoff executor.LimitedBackoff
+	var backoff ratelimit.LimitedBackoff
 
 	BeforeEach(func() {
 		testsClock = clock.NewFakeClock(time.Time{})
-		backoff = executor.NewExponentialLimitedBackoffWithClock(executor.DefaultMaxStep, testsClock)
+		backoff = ratelimit.NewExponentialLimitedBackoffWithClock(ratelimit.DefaultMaxStep, testsClock)
 
 		testsClock.Step(time.Nanosecond)
 	})
@@ -53,8 +53,8 @@ var _ = Describe("exponential limited backoff", func() {
 	})
 
 	It("should be ready after step end time passed", func() {
-		firstStepDuration := executor.DefaultDuration + time.Nanosecond
-		secondStepDuration := time.Duration(float64(firstStepDuration)*executor.DefaultFactor) + time.Nanosecond
+		firstStepDuration := ratelimit.DefaultDuration + time.Nanosecond
+		secondStepDuration := time.Duration(float64(firstStepDuration)*ratelimit.DefaultFactor) + time.Nanosecond
 
 		Expect(backoff.Ready()).To(BeTrue())
 		backoff.Step()
@@ -72,7 +72,7 @@ var _ = Describe("exponential limited backoff", func() {
 	})
 
 	It("should not be ready after max time is passed", func() {
-		testsClock.Step(executor.DefaultMaxStep + time.Nanosecond)
+		testsClock.Step(ratelimit.DefaultMaxStep + time.Nanosecond)
 
 		Expect(backoff.Ready()).To(BeFalse())
 		backoff.Step()

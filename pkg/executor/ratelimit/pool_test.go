@@ -17,15 +17,15 @@
  *
  */
 
-package executor_test
+package ratelimit_test
 
 import (
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
 
-	"k8s.io/apimachinery/pkg/types"
+	"kubevirt.io/kubevirt/pkg/executor/ratelimit"
 
-	"kubevirt.io/kubevirt/pkg/executor"
+	"k8s.io/apimachinery/pkg/types"
 )
 
 var _ = Describe("rate limited executor pool", func() {
@@ -35,10 +35,10 @@ var _ = Describe("rate limited executor pool", func() {
 		key2 = types.UID("20006000")
 	)
 
-	var pool *executor.RateLimitedExecutorPool
+	var pool *ratelimit.RateLimitedExecutorPool
 
 	BeforeEach(func() {
-		pool = executor.NewRateLimitedExecutorPool(executor.NewExponentialLimitedBackoffCreator())
+		pool = ratelimit.NewRateLimitedExecutorPool(ratelimit.NewExponentialLimitedBackoffCreator())
 	})
 
 	It("should not override pool element if key exists", func() {
