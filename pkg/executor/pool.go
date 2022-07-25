@@ -27,29 +27,21 @@ import (
 // each key element is self-contained and have its own rate-limiter.
 // Each element rate-limiter is created by the given creator.
 type RateLimitedExecutorPool struct {
-	pool               sync.Map
-	rateLimiterCreator LimitedBackoffCreator
+	sync.Map
+	creator LimitedBackoffCreator
 }
 
 func NewRateLimitedExecutorPool(creator LimitedBackoffCreator) *RateLimitedExecutorPool {
 	return &RateLimitedExecutorPool{
-		pool:               sync.Map{},
-		rateLimiterCreator: creator,
+		Map:     sync.Map{},
+		creator: creator,
 	}
 }
 
 // LoadOrStore returns the existing RateLimitedExecutor for the key if present.
 // Otherwise, it will create new RateLimitedExecutor with a new underlying rate-limiter, store and return it.
 func (c *RateLimitedExecutorPool) LoadOrStore(key interface{}) *RateLimitedExecutor {
-	element, exists := c.pool.Load(key)
-	if !exists {
-		rateLimiter := c.rateLimiterCreator.New()
-		element, _ := c.pool.LoadOrStore(key, NewRateLimitedExecutor(&rateLimiter))
-		return element.(*RateLimitedExecutor)
-	}
+	rateLimit := c.creator.New()
+	element, _ := c.Map.LoadOrStore(key, NewRateLimitedExecutor(&rateLimit))
 	return element.(*RateLimitedExecutor)
-}
-
-func (c *RateLimitedExecutorPool) Delete(key interface{}) {
-	c.pool.Delete(key)
 }
