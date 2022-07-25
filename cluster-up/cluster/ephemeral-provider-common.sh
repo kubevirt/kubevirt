@@ -5,6 +5,8 @@ set -e
 KUBEVIRT_WITH_ETC_IN_MEMORY=${KUBEVIRT_WITH_ETC_IN_MEMORY:-false}
 KUBEVIRT_WITH_ETC_CAPACITY=${KUBEVIRT_WITH_ETC_CAPACITY:-none}
 
+export KUBEVIRTCI_PODMAN_SOCKET=${KUBEVIRTCI_PODMAN_SOCKET:-"/run/podman/podman.sock"}
+
 if [ -z "${KUBEVIRTCI_TAG}" ] && [ -z "${KUBEVIRTCI_GOCLI_CONTAINER}" ]; then
     >&2 echo "FATAL: either KUBEVIRTCI_TAG or KUBEVIRTCI_GOCLI_CONTAINER must be set"
     exit 1
@@ -15,10 +17,8 @@ if [ -n "${KUBEVIRTCI_TAG}" ] && [ -n "${KUBEVIRTCI_GOCLI_CONTAINER}" ]; then
 fi
 
 detect_podman_socket() {
-    if curl --unix-socket "/run/podman/podman.sock" http://d/v3.0.0/libpod/info >/dev/null 2>&1; then
-        echo "/run/podman/podman.sock"
-    elif curl --unix-socket "${XDG_RUNTIME_DIR}/podman/podman.sock" http://d/v3.0.0/libpod/info >/dev/null 2>&1; then
-        echo "${XDG_RUNTIME_DIR}/podman/podman.sock"
+    if curl --unix-socket "${KUBEVIRTCI_PODMAN_SOCKET}" http://d/v3.0.0/libpod/info >/dev/null 2>&1; then
+        echo "${KUBEVIRTCI_PODMAN_SOCKET}"
     fi
 }
 
@@ -121,14 +121,6 @@ function _add_common_params() {
 
     if [[ $KUBEVIRT_DEPLOY_PROMETHEUS == "true" ]] &&
         [[ $KUBEVIRT_PROVIDER_EXTRA_ARGS != *"--enable-prometheus"* ]]; then
-
-        if [[ ($KUBEVIRT_PROVIDER =~ k8s-1\.1.*) || ($KUBEVIRT_PROVIDER =~ k8s-1.20) ]]; then
-            echo "ERROR: cluster up failed because prometheus is only supported for providers >= k8s-1.21\n"
-            echo "the current provider is $KUBEVIRT_PROVIDER, consider updating to a newer version, or\n"
-            echo "disabling Prometheus using export KUBEVIRT_DEPLOY_PROMETHEUS=false"
-            exit 1
-        fi
-
         params=" --enable-prometheus $params"
 
         if [[ $KUBEVIRT_DEPLOY_PROMETHEUS_ALERTMANAGER == "true" ]] &&

@@ -9,11 +9,7 @@ source "${KUBEVIRTCI_PATH}/cluster/ephemeral-provider-common.sh"
 #if UNLIMITEDSWAP is set to true - Kubernetes workloads can use as much swap memory as they request, up to the system limit.
 #otherwise Kubernetes workloads can use as much swap memory as they request, up to the system limit by default
 function configure_swap_memory () {
-  if [ "$KUBEVIRT_SWAP_ON" == "true" ] && [[  ($KUBEVIRT_PROVIDER =~ k8s-1\.1.*) ||  ($KUBEVIRT_PROVIDER =~ k8s-1.20) ||  ($KUBEVIRT_PROVIDER =~ k8s-1.21) ]]; then
-      echo "ERROR: swap is not supported on kubevirtci version < 1.22"
-      exit 1
-
-  elif [ "$KUBEVIRT_SWAP_ON" == "true" ] ;then
+  if [ "$KUBEVIRT_SWAP_ON" == "true" ] ;then
 
     for nodeNum in $(seq -f "%02g" 1 $KUBEVIRT_NUM_NODES); do
         if [ ! -z $KUBEVIRT_SWAP_SIZE_IN_GB  ]; then
@@ -62,11 +58,7 @@ function wait_for_cnao_ready() {
 }
 
 function deploy_istio() {
-    if [ "$KUBEVIRT_DEPLOY_ISTIO" == "true" ] && [[ $KUBEVIRT_PROVIDER =~ k8s-1\.1.* ]]; then
-        echo "ERROR: Istio is not supported on kubevirtci version < 1.20"
-        exit 1
-
-    elif [ "$KUBEVIRT_DEPLOY_ISTIO" == "true" ]; then
+    if [ "$KUBEVIRT_DEPLOY_ISTIO" == "true" ]; then
         if [ "$KUBEVIRT_WITH_CNAO" == "true" ]; then
             $kubectl create -f /opt/istio/istio-operator-with-cnao.cr.yaml
         else
