@@ -25,6 +25,7 @@ import (
 	"net/http"
 	"regexp"
 	"strconv"
+	"strings"
 	"time"
 
 	rbacv1 "k8s.io/api/rbac/v1"
@@ -205,8 +206,7 @@ var _ = Describe("[Serial][sig-monitoring]Prometheus Alerts", func() {
 		Expect(err).ToNot(HaveOccurred())
 	}
 
-	reduceAlertPendingTime := func() {
-		By("Reducing alert pending time")
+	getPrometheusAlerts := func() promv1.PrometheusRule {
 		promRules, err := virtClient.
 			PrometheusClient().MonitoringV1().
 			PrometheusRules(flags.KubeVirtInstallNamespace).
@@ -220,6 +220,12 @@ var _ = Describe("[Serial][sig-monitoring]Prometheus Alerts", func() {
 		newRules.ObjectMeta.ResourceVersion = ""
 		newRules.ObjectMeta.UID = ""
 
+		return newRules
+	}
+
+	reduceAlertPendingTime := func() {
+		By("Reducing alert pending time")
+		newRules := getPrometheusAlerts()
 		var re = regexp.MustCompile("\\[\\d+m\\]")
 
 		var gs []promv1.RuleGroup
@@ -231,6 +237,7 @@ var _ = Describe("[Serial][sig-monitoring]Prometheus Alerts", func() {
 				if r.Alert != "" {
 					r.For = "0m"
 					r.Expr = intstr.FromString(re.ReplaceAllString(r.Expr.String(), `[1m]`))
+					r.Expr = intstr.FromString(strings.ReplaceAll(r.Expr.String(), ">= 300", ">= 0"))
 				}
 				rs = append(rs, r)
 			}
@@ -317,6 +324,53 @@ var _ = Describe("[Serial][sig-monitoring]Prometheus Alerts", func() {
 				waitForMetricValue(virtClient, totalMetric, int64(i))
 				waitForMetricValue(virtClient, bytesMetric, quantity.Value()*int64(i))
 			}
+		})
+	})
+
+	Context("VM status metrics", func() {
+		newVirtualMachine := func() *v1.VirtualMachine {
+			vmi := tests.NewRandomVMI()
+			return tests.NewRandomVirtualMachine(vmi, true)
+		}
+
+		createVirtualMachine := func(vm *v1.VirtualMachine) {
+			By("Creating VirtualMachine")
+			_, err := virtClient.VirtualMachine(util.NamespaceTestDefault).Create(vm)
+			Expect(err).ToNot(HaveOccurred())
+		}
+
+		BeforeEach(func() {
+			scales = make(map[string]*autoscalingv1.Scale, 1)
+			backupScale(virtOperator.deploymentDame)
+			updateScale(virtOperator.deploymentDame, 0)
+
+			reduceAlertPendingTime()
+		})
+
+		AfterEach(func() {
+			revertScale(virtOperator.deploymentDame)
+
+			waitUntilAlertDoesNotExist("KubeVirtVMStuckInStartingState")
+			waitUntilAlertDoesNotExist("KubeVirtVMStuckInErrorState")
+		})
+
+		It("KubeVirtVMStuckInStartingState should be triggered if VM is taking more than 5 minutes to start", func() {
+			vm := newVirtualMachine()
+			vm.Spec.Template.Spec.PriorityClassName = "non-preemtible"
+			createVirtualMachine(vm)
+
+			verifyAlertExist("KubeVirtVMStuckInStartingState")
+		})
+
+		It("KubeVirtVMStuckInErrorState should be triggered if VM is taking more than 5 minutes in Error state", func() {
+			vm := newVirtualMachine()
+			vm.Spec.Template.Spec.Domain.Resources.Requests = corev1.ResourceList{
+				corev1.ResourceMemory: resource.MustParse("5000000Gi"),
+				corev1.ResourceCPU:    resource.MustParse("5000000Gi"),
+			}
+			createVirtualMachine(vm)
+
+			verifyAlertExist("KubeVirtVMStuckInErrorState")
 		})
 	})
 

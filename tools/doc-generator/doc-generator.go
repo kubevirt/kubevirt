@@ -61,6 +61,7 @@ const (
 func main() {
 	handler := domainstats.Handler(1)
 	RegisterFakeCollector()
+	RegisterFakeMigrationsCollector()
 
 	req, err := http.NewRequest(http.MethodGet, "/metrics", nil)
 	checkError(err)
