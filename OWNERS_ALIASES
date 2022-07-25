@@ -60,3 +60,7 @@ aliases:
       - rhrazdil
   network-approvers:
       - AlonaKaplan
+  scale-approvers:
+      - rthallisey
+  scale-reviewers:
+      - rthallisey
