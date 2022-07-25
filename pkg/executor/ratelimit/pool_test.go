@@ -45,7 +45,7 @@ var _ = Describe("rate limited executor pool", func() {
 		initialElement := pool.LoadOrStore(key1)
 		Expect(initialElement).To(BeIdenticalTo(pool.LoadOrStore(key1)))
 		// mutate the element
-		Expect(initialElement.Exec(failingCommandStub())).To(MatchError(testsExecError))
+		Expect(initialElement.Exec(failingCommandStub())).To(MatchError(errTestsExec))
 		Expect(initialElement).To(BeIdenticalTo(pool.LoadOrStore(key1)))
 	})
 

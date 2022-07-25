@@ -41,7 +41,7 @@ var _ = Describe("rate limited executor", func() {
 })
 
 func expectCommandExec(executor *ratelimit.Executor) {
-	ExpectWithOffset(1, executor.Exec(failingCommandStub())).To(MatchError(testsExecError))
+	ExpectWithOffset(1, executor.Exec(failingCommandStub())).To(MatchError(errTestsExec))
 }
 
 func expectSkipCommandExec(executor *ratelimit.Executor) {
