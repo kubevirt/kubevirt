@@ -25,6 +25,7 @@ import (
 	"net"
 	"strconv"
 	"strings"
+	"sync"
 	"time"
 
 	expect "github.com/google/goexpect"
@@ -136,17 +137,12 @@ var _ = SIGDescribe("[rfe_id:694][crit:medium][vendor:cnv-qe@redhat.com][level:c
 			})
 
 			table.DescribeTable("should be able to reach", func(vmiRef **v1.VirtualMachineInstance) {
-				var cmdCheck, addrShow, addr string
-				if vmiRef == nil {
-					addr = "kubevirt.io"
-				} else {
-					vmi := *vmiRef
-					if vmiHasCustomMacAddress(vmi) {
-						tests.SkipIfOpenShift("Custom MAC addresses on pod networks are not supported")
-					}
-					vmi = runVMI(vmi)
-					addr = vmi.Status.Interfaces[0].IP
+				vmi := *vmiRef
+				if vmiHasCustomMacAddress(vmi) {
+					tests.SkipIfOpenShift("Custom MAC addresses on pod networks are not supported")
 				}
+				vmi = runVMI(vmi)
+				addr := vmi.Status.Interfaces[0].IP
 
 				payloadSize := 0
 				ipHeaderSize := 28 // IPv4 specific
@@ -177,7 +173,7 @@ var _ = SIGDescribe("[rfe_id:694][crit:medium][vendor:cnv-qe@redhat.com][level:c
 				By("checking eth0 MTU inside the VirtualMachineInstance")
 				Expect(libnet.WithIPv6(console.LoginToCirros)(outboundVMI)).To(Succeed())
 
-				addrShow = "ip address show eth0\n"
+				addrShow := "ip address show eth0\n"
 				Expect(console.SafeExpectBatch(outboundVMI, []expect.Batcher{
 					&expect.BSnd{S: "\n"},
 					&expect.BExp{R: console.PromptExpression},
@@ -194,7 +190,7 @@ var _ = SIGDescribe("[rfe_id:694][crit:medium][vendor:cnv-qe@redhat.com][level:c
 				//
 				// NOTE: cirros ping doesn't support -M do that could be used to
 				// validate end-to-end connectivity with Don't Fragment flag set
-				cmdCheck = fmt.Sprintf("ping %s -c 1 -w 5 -s %d\n", addr, payloadSize)
+				cmdCheck := fmt.Sprintf("ping %s -c 1 -w 5 -s %d\n", addr, payloadSize)
 				err = console.SafeExpectBatch(outboundVMI, []expect.Batcher{
 					&expect.BSnd{S: "\n"},
 					&expect.BExp{R: console.PromptExpression},
@@ -204,9 +200,22 @@ var _ = SIGDescribe("[rfe_id:694][crit:medium][vendor:cnv-qe@redhat.com][level:c
 					&expect.BExp{R: console.RetValue("0")},
 				}, 180)
 				Expect(err).ToNot(HaveOccurred())
+			},
+				table.Entry("[test_id:1539]the Inbound VirtualMachineInstance", &inboundVMI),
+				table.Entry("[test_id:1540]the Inbound VirtualMachineInstance with pod network connectivity explicitly set", &inboundVMIWithPodNetworkSet),
+				table.Entry("[test_id:1541]the Inbound VirtualMachineInstance with custom MAC address", &inboundVMIWithCustomMacAddress),
+			)
+		})
+
+		Context("VirtualMachineInstance with default settings", func() {
+			It("[test_id:1542]should be able to reach the internet", func() {
+				SkipWhenClusterNotSupportIpv4(virtClient)
+				outboundVMI := libvmi.NewCirros()
+				outboundVMI = runVMI(outboundVMI)
+				tests.WaitUntilVMIReady(outboundVMI, console.LoginToCirros)
 
 				By("checking the VirtualMachineInstance can fetch via HTTP")
-				err = console.SafeExpectBatch(outboundVMI, []expect.Batcher{
+				err := console.SafeExpectBatch(outboundVMI, []expect.Batcher{
 					&expect.BSnd{S: "\n"},
 					&expect.BExp{R: console.PromptExpression},
 					&expect.BSnd{S: "curl --silent http://kubevirt.io > /dev/null\n"},
@@ -215,12 +224,7 @@ var _ = SIGDescribe("[rfe_id:694][crit:medium][vendor:cnv-qe@redhat.com][level:c
 					&expect.BExp{R: console.RetValue("0")},
 				}, 15)
 				Expect(err).ToNot(HaveOccurred())
-			},
-				table.Entry("[test_id:1539]the Inbound VirtualMachineInstance", &inboundVMI),
-				table.Entry("[test_id:1540]the Inbound VirtualMachineInstance with pod network connectivity explicitly set", &inboundVMIWithPodNetworkSet),
-				table.Entry("[test_id:1541]the Inbound VirtualMachineInstance with custom MAC address", &inboundVMIWithCustomMacAddress),
-				table.Entry("[test_id:1542]the internet", nil),
-			)
+			})
 		})
 
 		Context("with propagated IP from a pod", func() {
@@ -1154,4 +1158,53 @@ func vmiWithCustomMacAddress(mac string) *v1.VirtualMachineInstance {
 	return libvmi.NewCirros(
 		libvmi.WithInterface(*libvmi.InterfaceWithMac(v1.DefaultBridgeNetworkInterface(), mac)),
 		libvmi.WithNetwork(v1.DefaultPodNetwork()))
+}
+
+func SkipWhenClusterNotSupportIpv4(virtClient kubecli.KubevirtClient) {
+	clusterSupportsIpv4, err := SupportsIpv4(virtClient)
+	ExpectWithOffset(1, err).NotTo(HaveOccurred(), "should have been able to infer if the cluster supports ipv4")
+	if !clusterSupportsIpv4 {
+		Skip("This test requires an ipv4 network config.")
+	}
+}
+
+func SupportsIpv4(virtClient kubecli.KubevirtClient) (bool, error) {
+	var onceIPv4 sync.Once
+	var clusterSupportsIpv4 bool
+	var errIPv4 error
+	onceIPv4.Do(func() {
+		clusterSupportsIpv4, errIPv4 = clusterAnswersIPCondition(virtClient, netutils.IsIPv4String)
+	})
+	return clusterSupportsIpv4, errIPv4
+}
+
+func clusterAnswersIPCondition(virtClient kubecli.KubevirtClient, ipCondition func(ip string) bool) (bool, error) {
+	// grab us some neat kubevirt pod; let's say virt-handler is our target.
+	targetPodType := "virt-handler"
+	virtHandlerPod, err := getPodByKubeVirtRole(virtClient, targetPodType)
+	if err != nil {
+		return false, err
+	}
+
+	for _, ip := range virtHandlerPod.Status.PodIPs {
+		if ipCondition(ip.IP) {
+			return true, nil
+		}
+	}
+	return false, nil
+}
+
+func getPodByKubeVirtRole(virtClient kubecli.KubevirtClient, kubevirtPodRole string) (*k8sv1.Pod, error) {
+	labelSelectorValue := fmt.Sprintf("%s = %s", v1.AppLabel, kubevirtPodRole)
+	pods, err := virtClient.CoreV1().Pods(flags.KubeVirtInstallNamespace).List(
+		context.Background(),
+		metav1.ListOptions{LabelSelector: labelSelectorValue},
+	)
+	if err != nil {
+		return nil, fmt.Errorf("could not filter virt-handler pods: %v", err)
+	}
+	if len(pods.Items) == 0 {
+		return nil, fmt.Errorf("could not find virt-handler pods on the system")
+	}
+	return &pods.Items[0], nil
 }
