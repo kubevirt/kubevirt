@@ -20,6 +20,7 @@ import (
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/runtime/schema"
 	"k8s.io/apimachinery/pkg/util/intstr"
+	"k8s.io/utils/pointer"
 	crdgen "sigs.k8s.io/controller-tools/pkg/crd"
 	crdmarkers "sigs.k8s.io/controller-tools/pkg/crd/markers"
 	"sigs.k8s.io/controller-tools/pkg/loader"
@@ -156,6 +157,7 @@ func GetDeploymentSpecOperator(params *DeploymentOperatorParams) appsv1.Deployme
 			},
 			Spec: corev1.PodSpec{
 				ServiceAccountName: hcoName,
+				SecurityContext:    GetStdPodSecurityContext(),
 				Containers: []corev1.Container{
 					{
 						Name:            hcoName,
@@ -254,6 +256,7 @@ func GetDeploymentSpecOperator(params *DeploymentOperatorParams) appsv1.Deployme
 								v1.ResourceMemory: resource.MustParse("96Mi"),
 							},
 						},
+						SecurityContext: GetStdContainerSecurityContext(),
 					},
 				},
 				PriorityClassName: "system-cluster-critical",
@@ -278,6 +281,7 @@ func GetDeploymentSpecCliDownloads(params *DeploymentOperatorParams) appsv1.Depl
 				Labels: getLabels(cliDownloadsName, params.HcoKvIoVersion),
 			},
 			Spec: corev1.PodSpec{
+				SecurityContext: GetStdPodSecurityContext(),
 				Containers: []corev1.Container{
 					{
 						Name:            "server",
@@ -295,6 +299,7 @@ func GetDeploymentSpecCliDownloads(params *DeploymentOperatorParams) appsv1.Depl
 								ContainerPort: int32(8080),
 							},
 						},
+						SecurityContext: GetStdContainerSecurityContext(),
 					},
 				},
 				PriorityClassName: "system-cluster-critical",
@@ -309,6 +314,24 @@ func getLabels(name, hcoKvIoVersion string) map[string]string {
 		hcoutil.AppLabelVersion:   hcoKvIoVersion,
 		hcoutil.AppLabelPartOf:    hcoutil.HyperConvergedCluster,
 		hcoutil.AppLabelComponent: string(hcoutil.AppComponentDeployment),
+	}
+}
+
+func GetStdPodSecurityContext() *v1.PodSecurityContext {
+	return &v1.PodSecurityContext{
+		RunAsNonRoot: pointer.Bool(true),
+		SeccompProfile: &v1.SeccompProfile{
+			Type: corev1.SeccompProfileTypeRuntimeDefault,
+		},
+	}
+}
+
+func GetStdContainerSecurityContext() *v1.SecurityContext {
+	return &v1.SecurityContext{
+		AllowPrivilegeEscalation: pointer.Bool(false),
+		Capabilities: &v1.Capabilities{
+			Drop: []v1.Capability{"ALL"},
+		},
 	}
 }
 
@@ -341,6 +364,7 @@ func GetDeploymentSpecWebhook(namespace, image, imagePullPolicy, hcoKvIoVersion 
 			},
 			Spec: corev1.PodSpec{
 				ServiceAccountName: hcoName,
+				SecurityContext:    GetStdPodSecurityContext(),
 				Containers: []corev1.Container{
 					{
 						Name:            hcoNameWebhook,
@@ -390,6 +414,7 @@ func GetDeploymentSpecWebhook(namespace, image, imagePullPolicy, hcoKvIoVersion 
 								v1.ResourceMemory: resource.MustParse("48Mi"),
 							},
 						},
+						SecurityContext: GetStdContainerSecurityContext(),
 					},
 				},
 				PriorityClassName: "system-node-critical",

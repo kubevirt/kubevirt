@@ -89,7 +89,16 @@ spec:
           requests:
             cpu: 10m
             memory: 96Mi
+        securityContext:
+          allowPrivilegeEscalation: false
+          capabilities:
+            drop:
+            - ALL
       priorityClassName: system-cluster-critical
+      securityContext:
+        runAsNonRoot: true
+        seccompProfile:
+          type: RuntimeDefault
       serviceAccountName: hyperconverged-cluster-operator
 ---
 apiVersion: apps/v1
@@ -158,10 +167,19 @@ spec:
           requests:
             cpu: 5m
             memory: 48Mi
+        securityContext:
+          allowPrivilegeEscalation: false
+          capabilities:
+            drop:
+            - ALL
         volumeMounts:
         - mountPath: /apiserver.local.config/certificates
           name: apiservice-cert
       priorityClassName: system-node-critical
+      securityContext:
+        runAsNonRoot: true
+        seccompProfile:
+          type: RuntimeDefault
       serviceAccountName: hyperconverged-cluster-operator
       volumes:
       - name: apiservice-cert
@@ -209,7 +227,16 @@ spec:
           requests:
             cpu: 10m
             memory: 96Mi
+        securityContext:
+          allowPrivilegeEscalation: false
+          capabilities:
+            drop:
+            - ALL
       priorityClassName: system-cluster-critical
+      securityContext:
+        runAsNonRoot: true
+        seccompProfile:
+          type: RuntimeDefault
 ---
 apiVersion: apps/v1
 kind: Deployment

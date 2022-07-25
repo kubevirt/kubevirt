@@ -21,6 +21,7 @@ import (
 	hcov1beta1 "github.com/kubevirt/hyperconverged-cluster-operator/api/v1beta1"
 	"github.com/kubevirt/hyperconverged-cluster-operator/cmd/cmdcommon"
 	"github.com/kubevirt/hyperconverged-cluster-operator/controllers/common"
+	"github.com/kubevirt/hyperconverged-cluster-operator/pkg/components"
 	hcoutil "github.com/kubevirt/hyperconverged-cluster-operator/pkg/util"
 )
 
@@ -83,6 +84,7 @@ func NewKvUiPluginDeplymnt(hc *hcov1beta1.HyperConverged) (*appsv1.Deployment, e
 				},
 				Spec: corev1.PodSpec{
 					ServiceAccountName: "default",
+					SecurityContext:    components.GetStdPodSecurityContext(),
 					Containers: []corev1.Container{
 						{
 							Name:            kvUIPluginName,
@@ -98,6 +100,7 @@ func NewKvUiPluginDeplymnt(hc *hcov1beta1.HyperConverged) (*appsv1.Deployment, e
 								ContainerPort: hcoutil.UiPluginServerPort,
 								Protocol:      corev1.ProtocolTCP,
 							}},
+							SecurityContext:          components.GetStdContainerSecurityContext(),
 							TerminationMessagePath:   corev1.TerminationMessagePathDefault,
 							TerminationMessagePolicy: corev1.TerminationMessageReadFile,
 							VolumeMounts: []corev1.VolumeMount{
