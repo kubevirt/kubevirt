@@ -7069,6 +7069,8 @@ var CRDsValidation map[string]string = map[string]string{
                     valid values are 1Gi and 2Mi.
                   type: string
               type: object
+          required:
+          - guest
           type: object
       required:
       - cpu
@@ -14936,6 +14938,8 @@ var CRDsValidation map[string]string = map[string]string{
                     valid values are 1Gi and 2Mi.
                   type: string
               type: object
+          required:
+          - guest
           type: object
       required:
       - cpu

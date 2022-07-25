@@ -23487,6 +23487,7 @@ func schema_kubevirtio_api_instancetype_v1alpha1_MemoryInstancetype(ref common.R
 						},
 					},
 				},
+				Required: []string{"guest"},
 			},
 		},
 		Dependencies: []string{

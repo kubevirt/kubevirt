@@ -878,10 +878,9 @@ var _ = Describe("Instancetype and Preferences", func() {
 		})
 		Context("instancetype.Spec.Memory", func() {
 			BeforeEach(func() {
-				instancetypeMem := resource.MustParse("512M")
 				instancetypeSpec = &instancetypev1alpha1.VirtualMachineInstancetypeSpec{
 					Memory: instancetypev1alpha1.MemoryInstancetype{
-						Guest: &instancetypeMem,
+						Guest: resource.MustParse("512M"),
 						Hugepages: &v1.Hugepages{
 							PageSize: "1Gi",
 						},
@@ -894,7 +893,7 @@ var _ = Describe("Instancetype and Preferences", func() {
 				conflicts := instancetypeMethods.ApplyToVmi(field, instancetypeSpec, preferenceSpec, &vmi.Spec)
 				Expect(conflicts).To(BeEmpty())
 
-				Expect(*vmi.Spec.Domain.Memory.Guest).To(Equal(*instancetypeSpec.Memory.Guest))
+				Expect(*vmi.Spec.Domain.Memory.Guest).To(Equal(instancetypeSpec.Memory.Guest))
 				Expect(*vmi.Spec.Domain.Memory.Hugepages).To(Equal(*instancetypeSpec.Memory.Hugepages))
 
 			})
@@ -914,10 +913,9 @@ var _ = Describe("Instancetype and Preferences", func() {
 
 			It("should return a conflict if vmi.Spec.Domain.Resources.Requests[k8sv1.ResourceMemory] already defined", func() {
 
-				vmiMemGuest := resource.MustParse("512M")
 				instancetypeSpec = &instancetypev1alpha1.VirtualMachineInstancetypeSpec{
 					Memory: instancetypev1alpha1.MemoryInstancetype{
-						Guest: &vmiMemGuest,
+						Guest: resource.MustParse("512M"),
 					},
 				}
 
@@ -935,10 +933,9 @@ var _ = Describe("Instancetype and Preferences", func() {
 
 			It("should return a conflict if vmi.Spec.Domain.Resources.Limits[k8sv1.ResourceMemory] already defined", func() {
 
-				vmiMemGuest := resource.MustParse("512M")
 				instancetypeSpec = &instancetypev1alpha1.VirtualMachineInstancetypeSpec{
 					Memory: instancetypev1alpha1.MemoryInstancetype{
-						Guest: &vmiMemGuest,
+						Guest: resource.MustParse("512M"),
 					},
 				}
 
