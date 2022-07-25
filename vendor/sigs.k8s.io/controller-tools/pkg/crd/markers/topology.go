@@ -28,11 +28,19 @@ import (
 var TopologyMarkers = []*definitionWithHelp{
 	must(markers.MakeDefinition("listMapKey", markers.DescribesField, ListMapKey(""))).
 		WithHelp(ListMapKey("").Help()),
+	must(markers.MakeDefinition("listMapKey", markers.DescribesType, ListMapKey(""))).
+		WithHelp(ListMapKey("").Help()),
 	must(markers.MakeDefinition("listType", markers.DescribesField, ListType(""))).
+		WithHelp(ListType("").Help()),
+	must(markers.MakeDefinition("listType", markers.DescribesType, ListType(""))).
 		WithHelp(ListType("").Help()),
 	must(markers.MakeDefinition("mapType", markers.DescribesField, MapType(""))).
 		WithHelp(MapType("").Help()),
+	must(markers.MakeDefinition("mapType", markers.DescribesType, MapType(""))).
+		WithHelp(MapType("").Help()),
 	must(markers.MakeDefinition("structType", markers.DescribesField, StructType(""))).
+		WithHelp(StructType("").Help()),
+	must(markers.MakeDefinition("structType", markers.DescribesType, StructType(""))).
 		WithHelp(StructType("").Help()),
 }
 

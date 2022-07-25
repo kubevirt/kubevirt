@@ -2,7 +2,6 @@ package operands
 
 import (
 	"context"
-	"fmt"
 
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
@@ -53,7 +52,6 @@ var _ = Describe("TTO Operands", func() {
 		It("should find if present", func() {
 			expectedResource := NewTTO(hco)
 
-			expectedResource.ObjectMeta.SelfLink = fmt.Sprintf("/apis/v1/namespaces/%s/dummies/%s", expectedResource.Namespace, expectedResource.Name)
 			cl := commonTestUtils.InitClient([]runtime.Object{hco, expectedResource})
 			handler := (*genericOperand)(newTtoHandler(cl, commonTestUtils.GetScheme()))
 			res := handler.ensure(req)
@@ -78,7 +76,6 @@ var _ = Describe("TTO Operands", func() {
 
 			existingResource := expectedResource.DeepCopy()
 			existingResource.Spec.FeatureGates.DeployTektonTaskResources = true
-			existingResource.ObjectMeta.SelfLink = fmt.Sprintf("/apis/v1/namespaces/%s/dummies/%s", existingResource.Namespace, existingResource.Name)
 
 			req.HCOTriggered = false // mock a reconciliation triggered by a change in NewKubeVirtCommonTemplateBundle CR
 

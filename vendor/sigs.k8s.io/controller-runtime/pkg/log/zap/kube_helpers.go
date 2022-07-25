@@ -18,6 +18,7 @@ package zap
 
 import (
 	"fmt"
+	"reflect"
 
 	"go.uber.org/zap/buffer"
 	"go.uber.org/zap/zapcore"
@@ -64,6 +65,11 @@ type kubeObjectWrapper struct {
 func (w kubeObjectWrapper) MarshalLogObject(enc zapcore.ObjectEncoder) error {
 	// TODO(directxman12): log kind and apiversion if not set explicitly (common case)
 	// -- needs an a scheme to convert to the GVK.
+
+	if reflect.ValueOf(w.obj).IsNil() {
+		return fmt.Errorf("got nil for runtime.Object")
+	}
+
 	if gvk := w.obj.GetObjectKind().GroupVersionKind(); gvk.Version != "" {
 		enc.AddString("apiVersion", gvk.GroupVersion().String())
 		enc.AddString("kind", gvk.Kind)

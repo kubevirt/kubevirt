@@ -66,7 +66,6 @@ var _ = Describe("SSP Operands", func() {
 		It("should find if present", func() {
 			expectedResource, _, err := NewSSP(hco)
 			Expect(err).ToNot(HaveOccurred())
-			expectedResource.ObjectMeta.SelfLink = fmt.Sprintf("/apis/v1/namespaces/%s/dummies/%s", expectedResource.Namespace, expectedResource.Name)
 			cl := commonTestUtils.InitClient([]runtime.Object{hco, expectedResource})
 			handler := newSspHandler(cl, commonTestUtils.GetScheme())
 			res := handler.ensure(req)
@@ -90,7 +89,6 @@ var _ = Describe("SSP Operands", func() {
 			expectedResource, _, err := NewSSP(hco)
 			Expect(err).ToNot(HaveOccurred())
 			existingResource := expectedResource.DeepCopy()
-			existingResource.ObjectMeta.SelfLink = fmt.Sprintf("/apis/v1/namespaces/%s/dummies/%s", existingResource.Namespace, existingResource.Name)
 
 			replicas := int32(defaultTemplateValidatorReplicas * 2) // non-default value
 			existingResource.Spec.TemplateValidator.Replicas = &replicas

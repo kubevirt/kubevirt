@@ -23,8 +23,8 @@ import (
 // Version returns the version of the main module
 func Version() string {
 	info, ok := debug.ReadBuildInfo()
-	if !ok {
-		// binary has not been built with module support
+	if !ok || info == nil || info.Main.Version == "" {
+		// binary has not been built with module support or doesn't contain a version.
 		return "(unknown)"
 	}
 	return info.Main.Version

@@ -221,7 +221,6 @@ func getBasicDeployment() *BasicExpected {
 	expectedKV, err := operands.NewKubeVirt(hco, namespace)
 	ExpectWithOffset(1, err).ToNot(HaveOccurred())
 
-	expectedKV.ObjectMeta.SelfLink = fmt.Sprintf("/apis/v1/namespaces/%s/kubevirts/%s", expectedKV.Namespace, expectedKV.Name)
 	expectedKV.Status.Conditions = []kubevirtcorev1.KubeVirtCondition{
 		{
 			Type:   kubevirtcorev1.KubeVirtConditionAvailable,
@@ -240,37 +239,30 @@ func getBasicDeployment() *BasicExpected {
 
 	expectedCDI, err := operands.NewCDI(hco)
 	ExpectWithOffset(1, err).ToNot(HaveOccurred())
-	expectedCDI.ObjectMeta.SelfLink = fmt.Sprintf("/apis/v1/namespaces/%s/cdis/%s", expectedCDI.Namespace, expectedCDI.Name)
 	expectedCDI.Status.Conditions = getGenericCompletedConditions()
 	res.cdi = expectedCDI
 
 	expectedCNA, err := operands.NewNetworkAddons(hco)
 	ExpectWithOffset(1, err).ToNot(HaveOccurred())
-	expectedCNA.ObjectMeta.SelfLink = fmt.Sprintf("/apis/v1/namespaces/%s/cnas/%s", expectedCNA.Namespace, expectedCNA.Name)
 	expectedCNA.Status.Conditions = getGenericCompletedConditions()
 	res.cna = expectedCNA
 
 	expectedSSP, _, err := operands.NewSSP(hco)
 	ExpectWithOffset(1, err).ToNot(HaveOccurred())
-	expectedSSP.ObjectMeta.SelfLink = fmt.Sprintf("/apis/v1/namespaces/%s/ctbs/%s", expectedSSP.Namespace, expectedSSP.Name)
 	expectedSSP.Status.Conditions = getGenericCompletedConditions()
 	res.ssp = expectedSSP
 
 	expectedTTO := operands.NewTTO(hco)
-	expectedTTO.ObjectMeta.SelfLink = fmt.Sprintf("/apis/v1/namespaces/%s/ttos/%s", expectedTTO.Namespace, expectedTTO.Name)
 	expectedTTO.Status.Conditions = getGenericCompletedConditions()
 	res.tto = expectedTTO
 
 	expectedCliDownload := operands.NewConsoleCLIDownload(hco)
-	expectedCliDownload.SelfLink = fmt.Sprintf("/apis/console.openshift.io/v1/consoleclidownloads/%s", expectedCliDownload.Name)
 	res.cliDownload = expectedCliDownload
 
 	expectedCliDownloadsRoute := operands.NewCliDownloadsRoute(hco)
-	expectedCliDownloadsRoute.SelfLink = fmt.Sprintf("/apis/route.openshift.io/v1/namespaces/%s/routes/%s", expectedCliDownloadsRoute.Namespace, expectedCliDownloadsRoute.Name)
 	res.cliDownloadsRoute = expectedCliDownloadsRoute
 
 	expectedCliDownloadsService := operands.NewCliDownloadsService(hco)
-	expectedCliDownloadsService.SelfLink = fmt.Sprintf("/apis/v1/namespaces/%s/services/%s", expectedCliDownloadsService.Namespace, expectedCliDownloadsService.Name)
 	res.cliDownloadsService = expectedCliDownloadsService
 
 	expectedVirtioWinConfig, err := operands.NewVirtioWinCm(hco)

@@ -29,7 +29,7 @@ const (
 // ThanosRuler defines a ThanosRuler deployment.
 // +genclient
 // +k8s:openapi-gen=true
-// +kubebuilder:resource:categories="prometheus-operator"
+// +kubebuilder:resource:categories="prometheus-operator",shortName="ruler"
 // +kubebuilder:printcolumn:name="Replicas",type="integer",JSONPath=".spec.replicas",description="The desired replicas number of Thanos Rulers"
 // +kubebuilder:printcolumn:name="Age",type="date",JSONPath=".metadata.creationTimestamp"
 type ThanosRuler struct {
@@ -132,22 +132,31 @@ type ThanosRulerSpec struct {
 	// and metric that is user created. The label value will always be the namespace of the object that is
 	// being created.
 	EnforcedNamespaceLabel string `json:"enforcedNamespaceLabel,omitempty"`
+	// List of references to PrometheusRule objects
+	// to be excluded from enforcing a namespace label of origin.
+	// Applies only if enforcedNamespaceLabel set to true.
+	ExcludedFromEnforcement []ObjectReference `json:"excludedFromEnforcement,omitempty"`
 	// PrometheusRulesExcludedFromEnforce - list of Prometheus rules to be excluded from enforcing
 	// of adding namespace labels. Works only if enforcedNamespaceLabel set to true.
 	// Make sure both ruleNamespace and ruleName are set for each pair
+	// Deprecated: use excludedFromEnforcement instead.
 	PrometheusRulesExcludedFromEnforce []PrometheusRuleExcludeConfig `json:"prometheusRulesExcludedFromEnforce,omitempty"`
 	// Log level for ThanosRuler to be configured with.
+	//+kubebuilder:validation:Enum="";debug;info;warn;error
 	LogLevel string `json:"logLevel,omitempty"`
 	// Log format for ThanosRuler to be configured with.
+	//+kubebuilder:validation:Enum="";logfmt;json
 	LogFormat string `json:"logFormat,omitempty"`
 	// Port name used for the pods and governing service.
 	// This defaults to web
 	PortName string `json:"portName,omitempty"`
 	// Interval between consecutive evaluations.
-	EvaluationInterval string `json:"evaluationInterval,omitempty"`
+	// +kubebuilder:default:="15s"
+	EvaluationInterval Duration `json:"evaluationInterval,omitempty"`
 	// Time duration ThanosRuler shall retain data for. Default is '24h',
 	// and must match the regular expression `[0-9]+(ms|s|m|h|d|w|y)` (milliseconds seconds minutes hours days weeks years).
-	Retention string `json:"retention,omitempty"`
+	// +kubebuilder:default:="24h"
+	Retention Duration `json:"retention,omitempty"`
 	// Containers allows injecting additional containers or modifying operator generated
 	// containers. This can be used to allow adding an authentication proxy to a ThanosRuler pod or
 	// to change the behavior of an operator generated container. Containers described here modify
@@ -201,6 +210,10 @@ type ThanosRulerSpec struct {
 	// AlertRelabelConfigFile specifies the path of the alert relabeling configuration file.
 	// When used alongside with AlertRelabelConfigs, alertRelabelConfigFile takes precedence.
 	AlertRelabelConfigFile *string `json:"alertRelabelConfigFile,omitempty"`
+	// Pods' hostAliases configuration
+	// +listType=map
+	// +listMapKey=ip
+	HostAliases []HostAlias `json:"hostAliases,omitempty"`
 }
 
 // ThanosRulerStatus is the most recent observed status of the ThanosRuler. Read-only. Not

@@ -215,7 +215,7 @@ func (Minimum) Help() *markers.DefinitionHelp {
 	return &markers.DefinitionHelp{
 		Category: "CRD validation",
 		DetailedHelp: markers.DetailedHelp{
-			Summary: "specifies the minimum numeric value that this field can have. Negative integers are supported.",
+			Summary: "specifies the minimum numeric value that this field can have. Negative numbers are supported.",
 			Details: "",
 		},
 		FieldHelp: map[string]markers.DetailedHelp{},
@@ -465,5 +465,25 @@ func (XPreserveUnknownFields) Help() *markers.DefinitionHelp {
 			Details: "By default the apiserver drops unknown fields from the request payload during the decoding step. This marker stops the API server from doing so. It affects fields recursively, but switches back to normal pruning behaviour if nested  properties or additionalProperties are specified in the schema. This can either be true or undefined. False is forbidden. \n NB: The kubebuilder:validation:XPreserveUnknownFields variant is deprecated in favor of the kubebuilder:pruning:PreserveUnknownFields variant.  They function identically.",
 		},
 		FieldHelp: map[string]markers.DetailedHelp{},
+	}
+}
+
+func (XValidation) Help() *markers.DefinitionHelp {
+	return &markers.DefinitionHelp{
+		Category: "CRD validation",
+		DetailedHelp: markers.DetailedHelp{
+			Summary: "marks a field as requiring a value for which a given expression evaluates to true. ",
+			Details: "This marker may be repeated to specify multiple expressions, all of which must evaluate to true.",
+		},
+		FieldHelp: map[string]markers.DetailedHelp{
+			"Rule": {
+				Summary: "",
+				Details: "",
+			},
+			"Message": {
+				Summary: "",
+				Details: "",
+			},
+		},
 	}
 }

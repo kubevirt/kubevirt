@@ -2,7 +2,6 @@ package operands
 
 import (
 	"context"
-	"fmt"
 	"reflect"
 
 	rbacv1 "k8s.io/api/rbac/v1"
@@ -69,7 +68,6 @@ var _ = Describe("VirtioWin", func() {
 			expectedResource, err := NewVirtioWinCm(hco)
 			Expect(err).ToNot(HaveOccurred())
 
-			expectedResource.ObjectMeta.SelfLink = fmt.Sprintf("/apis/v1/namespaces/%s/dummies/%s", expectedResource.Namespace, expectedResource.Name)
 			cl := commonTestUtils.InitClient([]runtime.Object{hco, expectedResource})
 			handler, _ := newVirtioWinCmHandler(logger, cl, commonTestUtils.GetScheme(), hco)
 			res := handler[0].ensure(req)
@@ -92,11 +90,9 @@ var _ = Describe("VirtioWin", func() {
 			expectedResource, err := NewVirtioWinCm(hco)
 			Expect(err).ToNot(HaveOccurred())
 
-			expectedResource.ObjectMeta.SelfLink = fmt.Sprintf("/apis/v1/namespaces/%s/dummies/%s", expectedResource.Namespace, expectedResource.Name)
 			outdatedResource, err := NewVirtioWinCm(hco)
 			Expect(err).ToNot(HaveOccurred())
 
-			outdatedResource.ObjectMeta.SelfLink = fmt.Sprintf("/apis/v1/namespaces/%s/dummies/%s", outdatedResource.Namespace, outdatedResource.Name)
 			// values we should update
 			outdatedResource.Data[virtiowink] = "old-virtiowin-container-value-we-have-to-update"
 

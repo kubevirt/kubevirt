@@ -2,7 +2,6 @@ package operands
 
 import (
 	"context"
-	"fmt"
 	"time"
 
 	. "github.com/onsi/ginkgo/v2"
@@ -59,7 +58,6 @@ var _ = Describe("CDI Operand", func() {
 		It("should find if present", func() {
 			expectedResource, err := NewCDI(hco)
 			Expect(err).ToNot(HaveOccurred())
-			expectedResource.ObjectMeta.SelfLink = fmt.Sprintf("/apis/v1/namespaces/%s/dummies/%s", expectedResource.Namespace, expectedResource.Name)
 			cl := commonTestUtils.InitClient([]runtime.Object{hco, expectedResource})
 			handler := (*genericOperand)(newCdiHandler(cl, commonTestUtils.GetScheme()))
 			res := handler.ensure(req)
@@ -96,10 +94,8 @@ var _ = Describe("CDI Operand", func() {
 		It("should set default UninstallStrategy if missing", func() {
 			expectedResource, err := NewCDI(hco)
 			Expect(err).ToNot(HaveOccurred())
-			expectedResource.ObjectMeta.SelfLink = fmt.Sprintf("/apis/v1/%s/dummies/%s", expectedResource.Namespace, expectedResource.Name)
 			missingUSResource, err := NewCDI(hco)
 			Expect(err).ToNot(HaveOccurred())
-			missingUSResource.ObjectMeta.SelfLink = fmt.Sprintf("/apis/v1/%s/dummies/%s", missingUSResource.Namespace, missingUSResource.Name)
 			missingUSResource.Spec.UninstallStrategy = nil
 
 			cl := commonTestUtils.InitClient([]runtime.Object{hco, missingUSResource})
@@ -760,7 +756,6 @@ var _ = Describe("CDI Operand", func() {
 		It("should override CDI config field", func() {
 			expectedResource, err := NewCDI(hco)
 			Expect(err).ToNot(HaveOccurred())
-			expectedResource.ObjectMeta.SelfLink = fmt.Sprintf("/apis/v1/%s/dummies/%s", expectedResource.Namespace, expectedResource.Name)
 
 			// mock a reconciliation triggered by a change in CDI CR
 			req.HCOTriggered = false
@@ -804,7 +799,6 @@ var _ = Describe("CDI Operand", func() {
 		It("should add HonorWaitForFirstConsumer feature gate if Spec.Config if empty", func() {
 			expectedResource, err := NewCDI(hco)
 			Expect(err).ToNot(HaveOccurred())
-			expectedResource.ObjectMeta.SelfLink = fmt.Sprintf("/apis/v1/%s/dummies/%s", expectedResource.Namespace, expectedResource.Name)
 			expectedResource.Spec.Config = nil
 
 			// mock a reconciliation triggered by a change in CDI CR
@@ -831,7 +825,6 @@ var _ = Describe("CDI Operand", func() {
 
 		It("should add cert configuration if missing in CDI", func() {
 			existingResource := NewCDIWithNameOnly(hco)
-			existingResource.ObjectMeta.SelfLink = fmt.Sprintf("/apis/v1/%s/dummies/%s", existingResource.Namespace, existingResource.Name)
 
 			cl := commonTestUtils.InitClient([]runtime.Object{hco, existingResource})
 			handler := (*genericOperand)(newCdiHandler(cl, commonTestUtils.GetScheme()))
@@ -944,7 +937,6 @@ var _ = Describe("CDI Operand", func() {
 		It("should handle conditions", func() {
 			expectedResource, err := NewCDI(hco)
 			Expect(err).ToNot(HaveOccurred())
-			expectedResource.ObjectMeta.SelfLink = fmt.Sprintf("/apis/v1/namespaces/%s/dummies/%s", expectedResource.Namespace, expectedResource.Name)
 			expectedResource.Status.Conditions = []conditionsv1.Condition{
 				{
 					Type:    conditionsv1.ConditionAvailable,

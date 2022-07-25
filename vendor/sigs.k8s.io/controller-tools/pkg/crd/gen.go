@@ -20,6 +20,7 @@ import (
 	"fmt"
 	"go/ast"
 	"go/types"
+	"sort"
 
 	apiext "k8s.io/apiextensions-apiserver/pkg/apis/apiextensions/v1"
 	"k8s.io/apimachinery/pkg/runtime/schema"
@@ -41,6 +42,11 @@ const defaultVersion = v1
 
 // Generator generates CustomResourceDefinition objects.
 type Generator struct {
+	// IgnoreUnexportedFields indicates that we should skip unexported fields.
+	//
+	// Left unspecified, the default is false.
+	IgnoreUnexportedFields *bool `marker:",optional"`
+
 	// AllowDangerousTypes allows types which are usually omitted from CRD generation
 	// because they are not recommended.
 	//
@@ -80,12 +86,20 @@ func (Generator) CheckFilter() loader.NodeFilter {
 func (Generator) RegisterMarkers(into *markers.Registry) error {
 	return crdmarkers.Register(into)
 }
+
+// transformRemoveCRDStatus ensures we do not write the CRD status field.
+func transformRemoveCRDStatus(obj map[string]interface{}) error {
+	delete(obj, "status")
+	return nil
+}
+
 func (g Generator) Generate(ctx *genall.GenerationContext) error {
 	parser := &Parser{
 		Collector: ctx.Collector,
 		Checker:   ctx.Checker,
 		// Perform defaulting here to avoid ambiguity later
-		AllowDangerousTypes: g.AllowDangerousTypes != nil && *g.AllowDangerousTypes == true,
+		IgnoreUnexportedFields: g.IgnoreUnexportedFields != nil && *g.IgnoreUnexportedFields == true,
+		AllowDangerousTypes:    g.AllowDangerousTypes != nil && *g.AllowDangerousTypes == true,
 		// Indicates the parser on whether to register the ObjectMeta type or not
 		GenerateEmbeddedObjectMeta: g.GenerateEmbeddedObjectMeta != nil && *g.GenerateEmbeddedObjectMeta == true,
 	}
@@ -114,7 +128,7 @@ func (g Generator) Generate(ctx *genall.GenerationContext) error {
 		crdVersions = []string{defaultVersion}
 	}
 
-	for groupKind := range kubeKinds {
+	for _, groupKind := range kubeKinds {
 		parser.NeedCRDFor(groupKind, g.MaxDescLen)
 		crdRaw := parser.CustomResourceDefinitions[groupKind]
 		addAttribution(&crdRaw)
@@ -139,7 +153,7 @@ func (g Generator) Generate(ctx *genall.GenerationContext) error {
 			} else {
 				fileName = fmt.Sprintf("%s_%s.%s.yaml", crdRaw.Spec.Group, crdRaw.Spec.Names.Plural, crdVersions[i])
 			}
-			if err := ctx.WriteYAML(fileName, crd); err != nil {
+			if err := ctx.WriteYAML(fileName, []interface{}{crd}, genall.WithTransform(transformRemoveCRDStatus)); err != nil {
 				return err
 			}
 		}
@@ -203,7 +217,7 @@ func FindMetav1(roots []*loader.Package) *loader.Package {
 // FindKubeKinds locates all types that contain TypeMeta and ObjectMeta
 // (and thus may be a Kubernetes object), and returns the corresponding
 // group-kinds.
-func FindKubeKinds(parser *Parser, metav1Pkg *loader.Package) map[schema.GroupKind]struct{} {
+func FindKubeKinds(parser *Parser, metav1Pkg *loader.Package) []schema.GroupKind {
 	// TODO(directxman12): technically, we should be finding metav1 per-package
 	kubeKinds := map[schema.GroupKind]struct{}{}
 	for typeIdent, info := range parser.Types {
@@ -234,7 +248,12 @@ func FindKubeKinds(parser *Parser, metav1Pkg *loader.Package) map[schema.GroupKi
 			}
 			fieldPkgPath := loader.NonVendorPath(namedField.Obj().Pkg().Path())
 			fieldPkg := pkg.Imports()[fieldPkgPath]
-			if fieldPkg != metav1Pkg {
+
+			// Compare the metav1 package by ID and not by the actual instance
+			// of the object. The objects in memory could be different due to
+			// loading from different root paths, even when they both refer to
+			// the same metav1 package.
+			if fieldPkg == nil || fieldPkg.ID != metav1Pkg.ID {
 				continue
 			}
 
@@ -257,7 +276,15 @@ func FindKubeKinds(parser *Parser, metav1Pkg *loader.Package) map[schema.GroupKi
 		kubeKinds[groupKind] = struct{}{}
 	}
 
-	return kubeKinds
+	groupKindList := make([]schema.GroupKind, 0, len(kubeKinds))
+	for groupKind := range kubeKinds {
+		groupKindList = append(groupKindList, groupKind)
+	}
+	sort.Slice(groupKindList, func(i, j int) bool {
+		return groupKindList[i].String() < groupKindList[j].String()
+	})
+
+	return groupKindList
 }
 
 // filterTypesForCRDs filters out all nodes that aren't used in CRD generation,

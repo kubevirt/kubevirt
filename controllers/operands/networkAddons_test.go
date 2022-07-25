@@ -2,7 +2,6 @@ package operands
 
 import (
 	"context"
-	"fmt"
 	"time"
 
 	openshiftconfigv1 "github.com/openshift/api/config/v1"
@@ -63,7 +62,6 @@ var _ = Describe("CNA Operand", func() {
 		It("should find if present", func() {
 			expectedResource, err := NewNetworkAddons(hco)
 			Expect(err).ToNot(HaveOccurred())
-			expectedResource.ObjectMeta.SelfLink = fmt.Sprintf("/apis/v1/namespaces/%s/dummies/%s", expectedResource.Namespace, expectedResource.Name)
 			cl := commonTestUtils.InitClient([]runtime.Object{hco, expectedResource})
 			handler := (*genericOperand)(newCnaHandler(cl, commonTestUtils.GetScheme()))
 			res := handler.ensure(req)
@@ -100,7 +98,6 @@ var _ = Describe("CNA Operand", func() {
 		It("should find reconcile to default", func() {
 			existingResource, err := NewNetworkAddons(hco)
 			Expect(err).ToNot(HaveOccurred())
-			existingResource.ObjectMeta.SelfLink = fmt.Sprintf("/apis/v1/namespaces/%s/dummies/%s", existingResource.Namespace, existingResource.Name)
 			existingResource.Spec.ImagePullPolicy = corev1.PullAlways // set non-default value
 
 			cl := commonTestUtils.InitClient([]runtime.Object{hco, existingResource})
@@ -513,7 +510,6 @@ var _ = Describe("CNA Operand", func() {
 		It("should handle conditions", func() {
 			expectedResource, err := NewNetworkAddons(hco)
 			Expect(err).ToNot(HaveOccurred())
-			expectedResource.ObjectMeta.SelfLink = fmt.Sprintf("/apis/v1/namespaces/%s/dummies/%s", expectedResource.Namespace, expectedResource.Name)
 			expectedResource.Status.Conditions = []conditionsv1.Condition{
 				{
 					Type:    conditionsv1.ConditionAvailable,
@@ -576,7 +572,6 @@ var _ = Describe("CNA Operand", func() {
 		It("should handle upgrade condition", func() {
 			expectedResource, err := NewNetworkAddons(hco)
 			Expect(err).ToNot(HaveOccurred())
-			expectedResource.ObjectMeta.SelfLink = fmt.Sprintf("/apis/v1/namespaces/%s/dummies/%s", expectedResource.Namespace, expectedResource.Name)
 			expectedResource.Status.Conditions = []conditionsv1.Condition{
 				{
 					Type:   conditionsv1.ConditionAvailable,
@@ -621,7 +616,6 @@ var _ = Describe("CNA Operand", func() {
 			})
 
 			Expect(err).ToNot(HaveOccurred())
-			expectedResource.ObjectMeta.SelfLink = fmt.Sprintf("/apis/v1/namespaces/%s/dummies/%s", expectedResource.Namespace, expectedResource.Name)
 			expectedResource.Status.Conditions = []conditionsv1.Condition{
 				{
 					Type:   conditionsv1.ConditionAvailable,

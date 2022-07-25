@@ -2,7 +2,6 @@ package operands
 
 import (
 	"context"
-	"fmt"
 	"reflect"
 
 	. "github.com/onsi/ginkgo/v2"
@@ -66,7 +65,6 @@ var _ = Describe("Kubevirt Console Plugin", func() {
 		It("should find plugin CR if present", func() {
 			expectedResource := NewKvConsolePlugin(hco)
 
-			expectedResource.ObjectMeta.SelfLink = fmt.Sprintf("/apis/v1/namespaces/%s/dummies/%s", expectedResource.Namespace, expectedResource.Name)
 			cl := commonTestUtils.InitClient([]runtime.Object{hco, expectedResource, expectedConsoleConfig})
 			handler, err := newKvUiPluginCRHandler(logger, cl, commonTestUtils.GetScheme(), hco)
 			Expect(err).ToNot(HaveOccurred())
@@ -232,7 +230,6 @@ var _ = Describe("Kubevirt Console Plugin", func() {
 			expectedResource, err := NewKvUiPluginDeplymnt(hco)
 			Expect(err).ToNot(HaveOccurred())
 
-			expectedResource.ObjectMeta.SelfLink = fmt.Sprintf("/apis/v1/namespaces/%s/dummies/%s", expectedResource.Namespace, expectedResource.Name)
 			cl := commonTestUtils.InitClient([]runtime.Object{hco, expectedResource})
 			handler, err := newKvUiPluginDplymntHandler(logger, cl, commonTestUtils.GetScheme(), hco)
 			Expect(err).ToNot(HaveOccurred())
@@ -325,7 +322,6 @@ var _ = Describe("Kubevirt Console Plugin", func() {
 		It("should find plugin service if present", func() {
 			expectedResource := NewKvUiPluginSvc(hco)
 
-			expectedResource.ObjectMeta.SelfLink = fmt.Sprintf("/apis/v1/namespaces/%s/dummies/%s", expectedResource.Namespace, expectedResource.Name)
 			cl := commonTestUtils.InitClient([]runtime.Object{hco, expectedResource})
 			handler := (*genericOperand)(newServiceHandler(cl, commonTestUtils.GetScheme(), NewKvUiPluginSvc))
 

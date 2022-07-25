@@ -138,7 +138,7 @@ type Options struct {
 	// console when Development is true and JSON otherwise
 	Encoder zapcore.Encoder
 	// EncoderConfigOptions can modify the EncoderConfig needed to initialize an Encoder.
-	// See https://godoc.org/go.uber.org/zap/zapcore#EncoderConfig for the list of options
+	// See https://pkg.go.dev/go.uber.org/zap/zapcore#EncoderConfig for the list of options
 	// that can be configured.
 	// Note that the EncoderConfigOptions are not applied when the Encoder option is already set.
 	EncoderConfigOptions []EncoderConfigOption
@@ -257,6 +257,8 @@ func NewRaw(opts ...Opts) *zap.Logger {
 //  zap-log-level:  Zap Level to configure the verbosity of logging. Can be one of 'debug', 'info', 'error',
 //			       or any integer value > 0 which corresponds to custom debug levels of increasing verbosity")
 //  zap-stacktrace-level: Zap Level at and above which stacktraces are captured (one of 'info', 'error' or 'panic')
+//  zap-time-encoding: Zap time encoding (one of 'epoch', 'millis', 'nano', 'iso8601', 'rfc3339' or 'rfc3339nano').
+//                    Defaults to 'epoch'.
 func (o *Options) BindFlags(fs *flag.FlagSet) {
 	// Set Development mode value
 	fs.BoolVar(&o.Development, "zap-devel", o.Development,

@@ -255,7 +255,6 @@ Version: 1.2.3`)
 		It("should find if present", func() {
 			expectedResource, err := NewKubeVirt(hco, commonTestUtils.Namespace)
 			Expect(err).ToNot(HaveOccurred())
-			expectedResource.ObjectMeta.SelfLink = fmt.Sprintf("/apis/v1/namespaces/%s/dummies/%s", expectedResource.Namespace, expectedResource.Name)
 			cl := commonTestUtils.InitClient([]runtime.Object{hco, expectedResource})
 			handler := (*genericOperand)(newKubevirtHandler(cl, commonTestUtils.GetScheme()))
 			res := handler.ensure(req)
@@ -321,8 +320,6 @@ Version: 1.2.3`)
 				NetworkInterface: "wrong network interface",
 			}
 			existKv.Spec.Configuration.EmulatedMachines = []string{"wrong"}
-
-			existKv.ObjectMeta.SelfLink = fmt.Sprintf("/apis/v1/namespaces/%s/dummies/%s", existKv.Namespace, existKv.Name)
 
 			// LiveMigration Configurations
 			bandwidthPerMigration := resource.MustParse("16Mi")
@@ -413,10 +410,8 @@ Version: 1.2.3`)
 		It("should set default UninstallStrategy if missing", func() {
 			expectedResource, err := NewKubeVirt(hco, commonTestUtils.Namespace)
 			Expect(err).ToNot(HaveOccurred())
-			expectedResource.ObjectMeta.SelfLink = fmt.Sprintf("/apis/v1/namespaces/%s/dummies/%s", expectedResource.Namespace, expectedResource.Name)
 			missingUSResource, err := NewKubeVirt(hco, commonTestUtils.Namespace)
 			Expect(err).ToNot(HaveOccurred())
-			missingUSResource.ObjectMeta.SelfLink = fmt.Sprintf("/apis/v1/namespaces/%s/dummies/%s", missingUSResource.Namespace, missingUSResource.Name)
 			missingUSResource.Spec.UninstallStrategy = ""
 
 			cl := commonTestUtils.InitClient([]runtime.Object{hco, missingUSResource})
@@ -2556,7 +2551,6 @@ Version: 1.2.3`)
 		It("should handle conditions", func() {
 			expectedResource, err := NewKubeVirt(hco, commonTestUtils.Namespace)
 			Expect(err).ToNot(HaveOccurred())
-			expectedResource.ObjectMeta.SelfLink = fmt.Sprintf("/apis/v1/namespaces/%s/dummies/%s", expectedResource.Namespace, expectedResource.Name)
 			expectedResource.Status.Conditions = []kubevirtcorev1.KubeVirtCondition{
 				{
 					Type:    kubevirtcorev1.KubeVirtConditionAvailable,

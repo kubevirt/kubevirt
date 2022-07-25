@@ -33,6 +33,10 @@ func (Generator) Help() *markers.DefinitionHelp {
 			Details: "",
 		},
 		FieldHelp: map[string]markers.DetailedHelp{
+			"IgnoreUnexportedFields": {
+				Summary: "indicates that we should skip unexported fields. ",
+				Details: "Left unspecified, the default is false.",
+			},
 			"AllowDangerousTypes": {
 				Summary: "allows types which are usually omitted from CRD generation because they are not recommended. ",
 				Details: "Currently the following additional types are allowed when this is true: float32 float64 \n Left unspecified, the default is false",
