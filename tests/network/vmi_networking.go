@@ -344,8 +344,8 @@ var _ = SIGDescribe("[rfe_id:694][crit:medium][vendor:cnv-qe@redhat.com][level:c
 			By(checkingEth0MACAddr)
 			masqIface := libvmi.InterfaceDeviceWithMasqueradeBinding()
 			masqIface.MacAddress = "de:ad:00:00:be:af"
-			networkData, err := libnet.CreateDefaultCloudInitNetworkData()
-			Expect(err).NotTo(HaveOccurred())
+			networkData := libnet.CreateDefaultCloudInitNetworkData()
+
 			deadbeafVMI := libvmi.NewAlpineWithTestTooling(
 				libvmi.WithInterface(masqIface),
 				libvmi.WithNetwork(v1.DefaultPodNetwork()),
@@ -961,8 +961,7 @@ var _ = SIGDescribe("[rfe_id:694][crit:medium][vendor:cnv-qe@redhat.com][level:c
 				var err error
 
 				By("Create masquerade VMI")
-				networkData, err := libnet.CreateDefaultCloudInitNetworkData()
-				Expect(err).NotTo(HaveOccurred())
+				networkData := libnet.CreateDefaultCloudInitNetworkData()
 
 				vmi = libvmi.NewFedora(
 					libvmi.WithInterface(libvmi.InterfaceDeviceWithMasqueradeBinding()),

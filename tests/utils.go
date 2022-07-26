@@ -691,8 +691,7 @@ func AddEphemeralCdrom(vmi *v1.VirtualMachineInstance, name string, bus v1.DiskB
 }
 
 func NewRandomFedoraVMI() *v1.VirtualMachineInstance {
-	networkData, err := libnet.CreateDefaultCloudInitNetworkData()
-	Expect(err).NotTo(HaveOccurred())
+	networkData := libnet.CreateDefaultCloudInitNetworkData()
 
 	return libvmi.NewFedora(
 		libvmi.WithInterface(libvmi.InterfaceDeviceWithMasqueradeBinding()),
@@ -702,8 +701,7 @@ func NewRandomFedoraVMI() *v1.VirtualMachineInstance {
 }
 
 func NewRandomFedoraVMIWithGuestAgent() *v1.VirtualMachineInstance {
-	networkData, err := libnet.CreateDefaultCloudInitNetworkData()
-	Expect(err).NotTo(HaveOccurred())
+	networkData := libnet.CreateDefaultCloudInitNetworkData()
 
 	return libvmi.NewFedora(
 		libvmi.WithInterface(libvmi.InterfaceDeviceWithMasqueradeBinding()),
@@ -713,8 +711,7 @@ func NewRandomFedoraVMIWithGuestAgent() *v1.VirtualMachineInstance {
 }
 
 func NewRandomFedoraVMIWithBlacklistGuestAgent(commands string) *v1.VirtualMachineInstance {
-	networkData, err := libnet.CreateDefaultCloudInitNetworkData()
-	Expect(err).NotTo(HaveOccurred())
+	networkData := libnet.CreateDefaultCloudInitNetworkData()
 
 	return libvmi.NewFedora(
 		libvmi.WithInterface(libvmi.InterfaceDeviceWithMasqueradeBinding()),

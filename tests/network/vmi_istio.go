@@ -347,8 +347,8 @@ var istioTests = func(vmType VmType) {
 			}
 
 			BeforeEach(func() {
-				networkData, err := libnet.CreateDefaultCloudInitNetworkData()
-				Expect(err).ToNot(HaveOccurred())
+				networkData := libnet.CreateDefaultCloudInitNetworkData()
+
 				serverVMI = libvmi.NewAlpineWithTestTooling(
 					libvmi.WithNetwork(v1.DefaultPodNetwork()),
 					libvmi.WithInterface(libvmi.InterfaceDeviceWithMasqueradeBinding([]v1.Port{}...)),
@@ -480,7 +480,8 @@ func istioServiceMeshDeployed() bool {
 
 func newVMIWithIstioSidecar(ports []v1.Port, vmType VmType) (*v1.VirtualMachineInstance, error) {
 	if vmType == Masquerade {
-		return createMasqueradeVm(ports)
+		return createMasqueradeVm(ports), nil
+
 	}
 	if vmType == Passt {
 		return createPasstVm(ports)
@@ -488,8 +489,8 @@ func newVMIWithIstioSidecar(ports []v1.Port, vmType VmType) (*v1.VirtualMachineI
 	return nil, nil
 }
 
-func createMasqueradeVm(ports []v1.Port) (*v1.VirtualMachineInstance, error) {
-	networkData, err := libnet.CreateDefaultCloudInitNetworkData()
+func createMasqueradeVm(ports []v1.Port) *v1.VirtualMachineInstance {
+	networkData := libnet.CreateDefaultCloudInitNetworkData()
 	vmi := libvmi.NewAlpineWithTestTooling(
 		libvmi.WithNetwork(v1.DefaultPodNetwork()),
 		libvmi.WithInterface(libvmi.InterfaceDeviceWithMasqueradeBinding(ports...)),
@@ -497,7 +498,7 @@ func createMasqueradeVm(ports []v1.Port) (*v1.VirtualMachineInstance, error) {
 		libvmi.WithAnnotation(istio.ISTIO_INJECT_ANNOTATION, "true"),
 		libvmi.WithCloudInitNoCloudNetworkData(networkData, false),
 	)
-	return vmi, err
+	return vmi
 }
 
 func createPasstVm(ports []v1.Port) (*v1.VirtualMachineInstance, error) {
