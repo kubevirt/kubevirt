@@ -50,9 +50,9 @@ func WithDataVolume(diskName, pvcName string) Option {
 	}
 }
 
-func WithPersistentVolumeClaimLun(diskName, pvcName string) Option {
+func WithPersistentVolumeClaimLun(diskName, pvcName string, reservation bool) Option {
 	return func(vmi *v1.VirtualMachineInstance) {
-		addDisk(vmi, newLun(diskName))
+		addDisk(vmi, newLun(diskName, reservation))
 		addVolume(vmi, newPersistentVolumeClaimVolume(diskName, pvcName))
 	}
 }
@@ -107,12 +107,13 @@ func newDisk(name string, bus v1.DiskBus) v1.Disk {
 	}
 }
 
-func newLun(name string) v1.Disk {
+func newLun(name string, reservation bool) v1.Disk {
 	return v1.Disk{
 		Name: name,
 		DiskDevice: v1.DiskDevice{
 			LUN: &v1.LunTarget{
-				Bus: v1.DiskBusSCSI,
+				Bus:         v1.DiskBusSCSI,
+				Reservation: reservation,
 			},
 		},
 	}
