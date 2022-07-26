@@ -193,7 +193,8 @@ func NewCliDownloadsRoute(hc *hcov1beta1.HyperConverged) *routev1.Route {
 				TargetPort: intstr.IntOrString{IntVal: util.CliDownloadsServerPort},
 			},
 			TLS: &routev1.TLSConfig{
-				Termination: routev1.TLSTerminationEdge,
+				Termination:                   routev1.TLSTerminationEdge,
+				InsecureEdgeTerminationPolicy: routev1.InsecureEdgeTerminationPolicyRedirect,
 			},
 			To: routev1.RouteTargetReference{
 				Kind:   "Service",
