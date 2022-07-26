@@ -1245,6 +1245,7 @@ var _ = SIGDescribe("Storage", func() {
 				_, err := virtClient.CdiClient().CdiV1beta1().DataVolumes(util.NamespaceTestDefault).Create(context.Background(), dv, metav1.CreateOptions{})
 				Expect(err).ToNot(HaveOccurred())
 				labelKey := "testshareablekey"
+				labelValue := "testshareablevalue"
 				labels := map[string]string{
 					labelKey: "",
 				}
@@ -1261,7 +1262,7 @@ var _ = SIGDescribe("Storage", func() {
 											{
 												Key:      labelKey,
 												Operator: metav1.LabelSelectorOpIn,
-												Values:   []string{string("")}},
+												Values:   []string{labelValue}},
 										},
 									},
 									TopologyKey: "kubernetes.io/hostname",
@@ -1294,6 +1295,7 @@ var _ = SIGDescribe("Storage", func() {
 				vmi1 := tests.NewRandomVMIWithEphemeralDisk(cd.ContainerDiskFor(cd.ContainerDiskAlpine))
 				vmi2 := tests.NewRandomVMIWithEphemeralDisk(cd.ContainerDiskFor(cd.ContainerDiskAlpine))
 				labelKey := "testshareablekey"
+				labelValue := "testshareablevalue"
 				labels := map[string]string{
 					labelKey: "",
 				}
@@ -1310,7 +1312,7 @@ var _ = SIGDescribe("Storage", func() {
 											{
 												Key:      labelKey,
 												Operator: metav1.LabelSelectorOpIn,
-												Values:   []string{string("")}},
+												Values:   []string{labelValue}},
 										},
 									},
 									TopologyKey: "kubernetes.io/hostname",
