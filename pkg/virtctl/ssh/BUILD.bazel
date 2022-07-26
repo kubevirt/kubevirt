@@ -5,6 +5,7 @@ go_library(
     srcs = [
         "knownhosts.go",
         "native.go",
+        "native_unsupported.go",
         "resize_unix.go",
         "resize_windows.go",
         "ssh.go",

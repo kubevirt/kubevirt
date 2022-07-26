@@ -1,3 +1,5 @@
+//go:build !excludenative
+
 package ssh
 
 import (
@@ -6,6 +8,7 @@ import (
 	"os"
 
 	"github.com/golang/glog"
+	"github.com/spf13/pflag"
 	"golang.org/x/crypto/ssh"
 	"golang.org/x/crypto/ssh/agent"
 	"golang.org/x/term"
@@ -14,6 +17,25 @@ import (
 
 	"kubevirt.io/client-go/kubecli"
 )
+
+const (
+	wrapLocalSSHDefault = false
+)
+
+func additionalUsage() string {
+	return fmt.Sprintf(`
+	# Connect to 'testvmi' using the local ssh binary found in $PATH:
+	{{ProgramName}} ssh --%s=true jdoe@testvmi`,
+		wrapLocalSSHFlag,
+	)
+}
+
+func addAdditionalCommandlineArgs(flagset *pflag.FlagSet, opts *SSHOptions) {
+	flagset.StringArrayVarP(&opts.AdditionalSSHLocalOptions, additionalOpts, additionalOptsShort, opts.AdditionalSSHLocalOptions,
+		fmt.Sprintf(`--%s="-o StrictHostKeyChecking=no" : Additional options to be passed to the local ssh. This is applied only if local-ssh=true`, additionalOpts))
+	flagset.BoolVar(&opts.WrapLocalSSH, wrapLocalSSHFlag, opts.WrapLocalSSH,
+		fmt.Sprintf("--%s=true: Set this to true to use the SSH/SCP client available on your system by using this command as ProxyCommand; If set to false, this will establish a SSH/SCP connection with limited capabilities provided by this client", wrapLocalSSHFlag))
+}
 
 type NativeSSHConnection struct {
 	ClientConfig clientcmd.ClientConfig

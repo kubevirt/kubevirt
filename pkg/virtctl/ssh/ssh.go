@@ -75,10 +75,8 @@ func AddCommandlineArgs(flagset *pflag.FlagSet, opts *SSHOptions) {
 		fmt.Sprintf("--%s=/home/jdoe/.ssh/kubevirt_known_hosts: Set the path to the known_hosts file.", knownHostsFilePathFlag))
 	flagset.IntVarP(&opts.SSHPort, portFlag, portFlagShort, opts.SSHPort,
 		fmt.Sprintf(`--%s=22: Specify a port on the VM to send SSH traffic to`, portFlag))
-	flagset.StringArrayVarP(&opts.AdditionalSSHLocalOptions, additionalOpts, additionalOptsShort, opts.AdditionalSSHLocalOptions,
-		fmt.Sprintf(`--%s="-o StrictHostKeyChecking=no" : Additional options to be passed to the local ssh. This is applied only if local-ssh=true `, commandToExecute))
-	flagset.BoolVar(&opts.WrapLocalSSH, wrapLocalSSHFlag, opts.WrapLocalSSH,
-		fmt.Sprintf("--%s=true: Set this to true to use the SSH/SCP client available on your system by using this command as ProxyCommand; If set to false, this will establish a SSH/SCP connection with limited capabilities provided by this client", wrapLocalSSHFlag))
+
+	addAdditionalCommandlineArgs(flagset, opts)
 }
 
 func DefaultSSHOptions() SSHOptions {
@@ -94,7 +92,7 @@ func DefaultSSHOptions() SSHOptions {
 		KnownHostsFilePath:        "",
 		KnownHostsFilePathDefault: "",
 		AdditionalSSHLocalOptions: []string{},
-		WrapLocalSSH:              false,
+		WrapLocalSSH:              wrapLocalSSHDefault,
 		LocalClientName:           "ssh",
 	}
 
@@ -165,15 +163,11 @@ func usage() string {
   {{ProgramName}} ssh jdoe@vm/testvm.mynamespace [--%s]
 
   # Specify a username and namespace:
-  {{ProgramName}} ssh --namespace=mynamespace --%s=jdoe testvmi
- 
-  # Connect to 'testvmi' using the local ssh binary found in $PATH:
-  {{ProgramName}} ssh --%s=true jdoe@testvmi`,
+  {{ProgramName}} ssh --namespace=mynamespace --%s=jdoe testvmi`,
 		IdentityFilePathFlag,
 		IdentityFilePathFlag,
 		usernameFlag,
-		wrapLocalSSHFlag,
-	)
+	) + additionalUsage()
 }
 
 func defaultUsername() string {
