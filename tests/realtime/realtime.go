@@ -6,7 +6,6 @@ import (
 
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
-	k8sv1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/api/resource"
 
 	k8smetav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
@@ -19,19 +18,37 @@ import (
 	"kubevirt.io/kubevirt/tests/console"
 	cd "kubevirt.io/kubevirt/tests/containerdisk"
 	"kubevirt.io/kubevirt/tests/framework/checks"
+	"kubevirt.io/kubevirt/tests/libvmi"
 	"kubevirt.io/kubevirt/tests/util"
 )
 
-const tuneAdminRealtimeCloudInitData = `#cloud-config
+const (
+	memory                         = "512Mi"
+	tuneAdminRealtimeCloudInitData = `#cloud-config
 password: fedora
 chpasswd: { expire: False }
 bootcmd:
    - sudo tuned-adm profile realtime
 `
-
-var (
-	memoryRequest = resource.MustParse("512Mi")
 )
+
+func newFedoraRealtime(realtimeMask string) *v1.VirtualMachineInstance {
+	return libvmi.New(
+		libvmi.WithRng(),
+		libvmi.WithContainerImage(cd.ContainerDiskFor(cd.ContainerDiskFedoraRealtime)),
+		libvmi.WithCloudInitNoCloudUserData(tuneAdminRealtimeCloudInitData, true),
+		libvmi.WithLimitMemory(memory),
+		libvmi.WithLimitCPU("2"),
+		libvmi.WithResourceMemory(memory),
+		libvmi.WithResourceCPU("2"),
+		libvmi.WithCPUModel(v1.CPUModeHostPassthrough),
+		libvmi.WithDedicatedCPUPlacement(),
+		libvmi.WithRealtimeMask(realtimeMask),
+		libvmi.WithNUMAGuestMappingPassthrough(),
+		libvmi.WithHugepages("2Mi"),
+		libvmi.WithGuestMemory(memory),
+	)
+}
 
 func byStartingTheVMI(vmi *v1.VirtualMachineInstance, virtClient kubecli.KubevirtClient) {
 	By("Starting a VirtualMachineInstance")
@@ -41,33 +58,9 @@ func byStartingTheVMI(vmi *v1.VirtualMachineInstance, virtClient kubecli.Kubevir
 	tests.WaitForSuccessfulVMIStart(vmi)
 }
 
-func byConfiguringTheVMIForRealtime(vmi *v1.VirtualMachineInstance, realtimeMask string) {
-	vmi.Spec.Domain.Resources.Limits = k8sv1.ResourceList{
-		k8sv1.ResourceMemory: memoryRequest,
-		k8sv1.ResourceCPU:    resource.MustParse("2"),
-	}
-	vmi.Spec.Domain.Resources.Requests = k8sv1.ResourceList{
-		k8sv1.ResourceMemory: memoryRequest,
-		k8sv1.ResourceCPU:    resource.MustParse("2"),
-	}
-	vmi.Spec.Domain.CPU = &v1.CPU{
-		Model:                 "host-passthrough",
-		DedicatedCPUPlacement: true,
-		Realtime:              &v1.Realtime{Mask: realtimeMask},
-		NUMA:                  &v1.NUMA{GuestMappingPassthrough: &v1.NUMAGuestMappingPassthrough{}},
-	}
-	vmi.Spec.Domain.Memory = &v1.Memory{
-		Hugepages: &v1.Hugepages{PageSize: "2Mi"},
-		Guest:     &memoryRequest,
-	}
-}
-
 var _ = Describe("[sig-compute-realtime][Serial]Realtime", func() {
 
-	var (
-		vmi        *v1.VirtualMachineInstance
-		virtClient kubecli.KubevirtClient
-	)
+	var virtClient kubecli.KubevirtClient
 
 	BeforeEach(func() {
 		var err error
@@ -76,12 +69,11 @@ var _ = Describe("[sig-compute-realtime][Serial]Realtime", func() {
 		checks.SkipTestIfNoFeatureGate(virtconfig.NUMAFeatureGate)
 		checks.SkipTestIfNoFeatureGate(virtconfig.CPUManager)
 		checks.SkipTestIfNotRealtimeCapable()
-
 	})
 
 	It("should start the realtime VM when no mask is specified", func() {
-		vmi = tests.NewRandomVMIWithEphemeralDiskAndUserdata(cd.ContainerDiskFor(cd.ContainerDiskFedoraRealtime), tuneAdminRealtimeCloudInitData)
-		byConfiguringTheVMIForRealtime(vmi, "")
+		const noMask = ""
+		vmi := newFedoraRealtime(noMask)
 		byStartingTheVMI(vmi, virtClient)
 		By("Validating VCPU scheduler placement information")
 		pod := tests.GetRunningPodByVirtualMachineInstance(vmi, util.NamespaceTestDefault)
@@ -111,7 +103,8 @@ var _ = Describe("[sig-compute-realtime][Serial]Realtime", func() {
 		hardLimit, err := strconv.ParseInt(limits[1], 10, 64)
 		Expect(err).ToNot(HaveOccurred())
 		Expect(softLimit).To(Equal(hardLimit))
-		requested, canConvert := memoryRequest.AsInt64()
+		mustParse := resource.MustParse(memory)
+		requested, canConvert := mustParse.AsInt64()
 		Expect(canConvert).To(BeTrue())
 		Expect(hardLimit).To(BeNumerically(">", requested))
 		By("checking if the guest is still running")
@@ -122,8 +115,7 @@ var _ = Describe("[sig-compute-realtime][Serial]Realtime", func() {
 	})
 
 	It("should start the realtime VM when realtime mask is specified", func() {
-		vmi := tests.NewRandomVMIWithEphemeralDiskAndUserdata(cd.ContainerDiskFor(cd.ContainerDiskFedoraRealtime), tuneAdminRealtimeCloudInitData)
-		byConfiguringTheVMIForRealtime(vmi, "0-1,^1")
+		vmi := newFedoraRealtime("0-1,^1")
 		byStartingTheVMI(vmi, virtClient)
 		pod := tests.GetRunningPodByVirtualMachineInstance(vmi, util.NamespaceTestDefault)
 		By("Validating VCPU scheduler placement information")
