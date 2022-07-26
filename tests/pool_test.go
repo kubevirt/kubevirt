@@ -132,8 +132,8 @@ var _ = Describe("[sig-compute]VirtualMachinePool", func() {
 		doScale(newPool.ObjectMeta.Name, int32(stopScale))
 		doScale(newPool.ObjectMeta.Name, int32(0))
 	},
-		Entry("[QUARANTINE]to three, to two and then to zero replicas", 3, 2),
-		Entry("[QUARANTINE]to five, to six and then to zero replicas", 5, 6),
+		Entry("to three, to two and then to zero replicas", 3, 2),
+		Entry("to five, to six and then to zero replicas", 5, 6),
 	)
 
 	It("should be rejected on POST if spec is invalid", func() {
