@@ -377,10 +377,10 @@ if [[ -z ${KUBEVIRT_E2E_FOCUS} && -z ${KUBEVIRT_E2E_SKIP} ]]; then
   elif [[ $TARGET =~ sig-compute-realtime ]]; then
     export KUBEVIRT_E2E_FOCUS="\\[sig-compute-realtime\\]"
   elif [[ $TARGET =~ sig-compute-migrations ]]; then
-    label_filter='--label-filter=!needs-gpu && !needs-mdev-gpu && needs-three-nodes'
+    label_filter='--label-filter=needs-three-nodes'
   elif [[ $TARGET =~ sig-compute ]]; then
     export KUBEVIRT_E2E_FOCUS="\\[sig-compute\\]"
-    label_filter='--label-filter=!needs-gpu && !needs-mdev-gpu && !needs-three-nodes'
+    label_filter='--label-filter=!/needs-.*/'
   elif [[ $TARGET =~ sig-monitoring ]]; then
       export KUBEVIRT_E2E_FOCUS="\\[sig-monitoring\\]"
   elif [[ $TARGET =~ sig-operator ]]; then
