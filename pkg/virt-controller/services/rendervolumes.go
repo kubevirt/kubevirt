@@ -337,6 +337,12 @@ func withTPM(vmi *v1.VirtualMachineInstance) VolumeRendererOption {
 		if backendstorage.HasPersistentTPMDevice(vmi) {
 			volumeName := vmi.Name + "-tpm"
 			pvcName := backendstorage.PVCPrefix + vmi.Name
+			swtpmPath := "/var/lib/libvirt/swtpm"
+			localCaPath := "/var/lib/swtpm-localca"
+			if util.IsNonRootVMI(vmi) {
+				swtpmPath = filepath.Join(util.VirtPrivateDir, "libvirt", "qemu", "swtpm")
+				localCaPath = filepath.Join(util.VirtPrivateDir, "var", "lib", "swtpm-localca")
+			}
 			renderer.podVolumes = append(renderer.podVolumes, k8sv1.Volume{
 				Name: volumeName,
 				VolumeSource: k8sv1.VolumeSource{
@@ -349,12 +355,12 @@ func withTPM(vmi *v1.VirtualMachineInstance) VolumeRendererOption {
 			renderer.podVolumeMounts = append(renderer.podVolumeMounts, k8sv1.VolumeMount{
 				Name:      volumeName,
 				ReadOnly:  false,
-				MountPath: "/var/lib/libvirt/swtpm",
+				MountPath: swtpmPath,
 				SubPath:   "swtpm",
 			}, k8sv1.VolumeMount{
 				Name:      volumeName,
 				ReadOnly:  false,
-				MountPath: "/var/lib/swtpm-localca",
+				MountPath: localCaPath,
 				SubPath:   "swtpm-localca",
 			})
 		}
