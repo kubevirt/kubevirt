@@ -50,6 +50,13 @@ func WithDataVolume(diskName, pvcName string) Option {
 	}
 }
 
+func WithPersistentVolumeClaimLun(diskName, pvcName string) Option {
+	return func(vmi *v1.VirtualMachineInstance) {
+		addDisk(vmi, newLun(diskName))
+		addVolume(vmi, newPersistentVolumeClaimVolume(diskName, pvcName))
+	}
+}
+
 func addDisk(vmi *v1.VirtualMachineInstance, disk v1.Disk) {
 	if !diskExists(vmi, disk) {
 		vmi.Spec.Domain.Devices.Disks = append(vmi.Spec.Domain.Devices.Disks, disk)
@@ -95,6 +102,17 @@ func newDisk(name string, bus v1.DiskBus) v1.Disk {
 		DiskDevice: v1.DiskDevice{
 			Disk: &v1.DiskTarget{
 				Bus: bus,
+			},
+		},
+	}
+}
+
+func newLun(name string) v1.Disk {
+	return v1.Disk{
+		Name: name,
+		DiskDevice: v1.DiskDevice{
+			LUN: &v1.LunTarget{
+				Bus: v1.DiskBusSCSI,
 			},
 		},
 	}
