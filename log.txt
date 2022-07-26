@@ -1,0 +1,217 @@
+{"component":"virt-operator","level":"info","msg":"ihol3 UpdateConditionsAvailable()","pos":"client.go:82","timestamp":"2022-07-26T11:21:56.825394Z"}
+{"component":"virt-operator","level":"info","msg":"CA update in configmap kube-system/extension-apiserver-authentication detected. Updating from resource version -1 to 17","pos":"ca-manager.go:97","timestamp":"2022-07-26T11:33:00.778940Z"}
+{"component":"virt-operator","level":"info","msg":"Updating cluster config from KubeVirt to resource version '8788'","pos":"configuration.go:320","timestamp":"2022-07-26T11:33:00.795851Z"}
+{"component":"virt-operator","kind":"","level":"info","msg":"Handling KubeVirt resource","name":"kubevirt","namespace":"kubevirt","pos":"kubevirt.go:656","timestamp":"2022-07-26T11:33:05.797352Z","uid":"fc8f2bc9-4387-4dac-a399-1a504a94de15"}
+{"component":"virt-operator","kind":"","level":"info","msg":"Handling deployment","name":"kubevirt","namespace":"kubevirt","pos":"kubevirt.go:1010","timestamp":"2022-07-26T11:33:05.798124Z","uid":"fc8f2bc9-4387-4dac-a399-1a504a94de15"}
+{"component":"virt-operator","level":"info","msg":"ihol3 UpdateConditionsDeploying()","pos":"client.go:52","timestamp":"2022-07-26T11:33:05.799123Z"}
+{"component":"virt-operator","level":"info","msg":"ServiceAccount loaded","pos":"strategy.go:759","timestamp":"2022-07-26T11:33:05.851642Z"}
+{"component":"virt-operator","level":"info","msg":"ServiceAccount loaded","pos":"strategy.go:759","timestamp":"2022-07-26T11:33:05.852368Z"}
+{"component":"virt-operator","level":"info","msg":"ServiceAccount loaded","pos":"strategy.go:759","timestamp":"2022-07-26T11:33:05.852776Z"}
+{"component":"virt-operator","level":"info","msg":"ServiceAccount loaded","pos":"strategy.go:759","timestamp":"2022-07-26T11:33:05.853108Z"}
+{"component":"virt-operator","level":"info","msg":"ClusterRole loaded","pos":"strategy.go:759","timestamp":"2022-07-26T11:33:05.853724Z"}
+{"component":"virt-operator","level":"info","msg":"ClusterRole loaded","pos":"strategy.go:759","timestamp":"2022-07-26T11:33:05.856078Z"}
+{"component":"virt-operator","level":"info","msg":"ClusterRole loaded","pos":"strategy.go:759","timestamp":"2022-07-26T11:33:05.859617Z"}
+{"component":"virt-operator","level":"info","msg":"ClusterRole loaded","pos":"strategy.go:759","timestamp":"2022-07-26T11:33:05.862060Z"}
+{"component":"virt-operator","level":"info","msg":"ClusterRole loaded","pos":"strategy.go:759","timestamp":"2022-07-26T11:33:05.864026Z"}
+{"component":"virt-operator","level":"info","msg":"ClusterRole loaded","pos":"strategy.go:759","timestamp":"2022-07-26T11:33:05.868039Z"}
+{"component":"virt-operator","level":"info","msg":"ClusterRole loaded","pos":"strategy.go:759","timestamp":"2022-07-26T11:33:05.869408Z"}
+{"component":"virt-operator","level":"info","msg":"ClusterRole loaded","pos":"strategy.go:759","timestamp":"2022-07-26T11:33:05.869780Z"}
+{"component":"virt-operator","level":"info","msg":"ClusterRoleBinding loaded","pos":"strategy.go:759","timestamp":"2022-07-26T11:33:05.870493Z"}
+{"component":"virt-operator","level":"info","msg":"ClusterRoleBinding loaded","pos":"strategy.go:759","timestamp":"2022-07-26T11:33:05.871132Z"}
+{"component":"virt-operator","level":"info","msg":"ClusterRoleBinding loaded","pos":"strategy.go:759","timestamp":"2022-07-26T11:33:05.871580Z"}
+{"component":"virt-operator","level":"info","msg":"ClusterRoleBinding loaded","pos":"strategy.go:759","timestamp":"2022-07-26T11:33:05.872082Z"}
+{"component":"virt-operator","level":"info","msg":"ClusterRoleBinding loaded","pos":"strategy.go:759","timestamp":"2022-07-26T11:33:05.872547Z"}
+{"component":"virt-operator","level":"info","msg":"ClusterRoleBinding loaded","pos":"strategy.go:759","timestamp":"2022-07-26T11:33:05.873001Z"}
+{"component":"virt-operator","level":"info","msg":"Role loaded","pos":"strategy.go:759","timestamp":"2022-07-26T11:33:05.873463Z"}
+{"component":"virt-operator","level":"info","msg":"Role loaded","pos":"strategy.go:759","timestamp":"2022-07-26T11:33:05.874164Z"}
+{"component":"virt-operator","level":"info","msg":"Role loaded","pos":"strategy.go:759","timestamp":"2022-07-26T11:33:05.874655Z"}
+{"component":"virt-operator","level":"info","msg":"Role loaded","pos":"strategy.go:759","timestamp":"2022-07-26T11:33:05.875164Z"}
+{"component":"virt-operator","level":"info","msg":"RoleBinding loaded","pos":"strategy.go:759","timestamp":"2022-07-26T11:33:05.875652Z"}
+{"component":"virt-operator","level":"info","msg":"RoleBinding loaded","pos":"strategy.go:759","timestamp":"2022-07-26T11:33:05.876109Z"}
+{"component":"virt-operator","level":"info","msg":"RoleBinding loaded","pos":"strategy.go:759","timestamp":"2022-07-26T11:33:05.876454Z"}
+{"component":"virt-operator","level":"info","msg":"RoleBinding loaded","pos":"strategy.go:759","timestamp":"2022-07-26T11:33:05.876784Z"}
+{"component":"virt-operator","level":"info","msg":"CustomResourceDefinition loaded","pos":"strategy.go:759","timestamp":"2022-07-26T11:33:05.926961Z"}
+{"component":"virt-operator","level":"info","msg":"CustomResourceDefinition loaded","pos":"strategy.go:759","timestamp":"2022-07-26T11:33:05.939267Z"}
+{"component":"virt-operator","level":"info","msg":"CustomResourceDefinition loaded","pos":"strategy.go:759","timestamp":"2022-07-26T11:33:05.971596Z"}
+{"component":"virt-operator","level":"info","msg":"CustomResourceDefinition loaded","pos":"strategy.go:759","timestamp":"2022-07-26T11:33:06.012836Z"}
+{"component":"virt-operator","level":"info","msg":"CustomResourceDefinition loaded","pos":"strategy.go:759","timestamp":"2022-07-26T11:33:06.014210Z"}
+{"component":"virt-operator","level":"info","msg":"CustomResourceDefinition loaded","pos":"strategy.go:759","timestamp":"2022-07-26T11:33:06.015122Z"}
+{"component":"virt-operator","level":"info","msg":"CustomResourceDefinition loaded","pos":"strategy.go:759","timestamp":"2022-07-26T11:33:06.051848Z"}
+{"component":"virt-operator","level":"info","msg":"CustomResourceDefinition loaded","pos":"strategy.go:759","timestamp":"2022-07-26T11:33:06.052977Z"}
+{"component":"virt-operator","level":"info","msg":"CustomResourceDefinition loaded","pos":"strategy.go:759","timestamp":"2022-07-26T11:33:06.054212Z"}
+{"component":"virt-operator","level":"info","msg":"CustomResourceDefinition loaded","pos":"strategy.go:759","timestamp":"2022-07-26T11:33:06.055424Z"}
+{"component":"virt-operator","level":"info","msg":"CustomResourceDefinition loaded","pos":"strategy.go:759","timestamp":"2022-07-26T11:33:06.077801Z"}
+{"component":"virt-operator","level":"info","msg":"CustomResourceDefinition loaded","pos":"strategy.go:759","timestamp":"2022-07-26T11:33:06.078440Z"}
+{"component":"virt-operator","level":"info","msg":"CustomResourceDefinition loaded","pos":"strategy.go:759","timestamp":"2022-07-26T11:33:06.081671Z"}
+{"component":"virt-operator","level":"info","msg":"CustomResourceDefinition loaded","pos":"strategy.go:759","timestamp":"2022-07-26T11:33:06.084673Z"}
+{"component":"virt-operator","level":"info","msg":"CustomResourceDefinition loaded","pos":"strategy.go:759","timestamp":"2022-07-26T11:33:06.086083Z"}
+{"component":"virt-operator","level":"info","msg":"CustomResourceDefinition loaded","pos":"strategy.go:759","timestamp":"2022-07-26T11:33:06.087188Z"}
+{"component":"virt-operator","level":"info","msg":"Service loaded","pos":"strategy.go:759","timestamp":"2022-07-26T11:33:06.087373Z"}
+{"component":"virt-operator","level":"info","msg":"Service loaded","pos":"strategy.go:759","timestamp":"2022-07-26T11:33:06.087495Z"}
+{"component":"virt-operator","level":"info","msg":"Service loaded","pos":"strategy.go:759","timestamp":"2022-07-26T11:33:06.087633Z"}
+{"component":"virt-operator","level":"info","msg":"Service loaded","pos":"strategy.go:759","timestamp":"2022-07-26T11:33:06.087730Z"}
+{"component":"virt-operator","level":"info","msg":"Secret loaded","pos":"strategy.go:759","timestamp":"2022-07-26T11:33:06.087790Z"}
+{"component":"virt-operator","level":"info","msg":"Secret loaded","pos":"strategy.go:759","timestamp":"2022-07-26T11:33:06.087843Z"}
+{"component":"virt-operator","level":"info","msg":"Secret loaded","pos":"strategy.go:759","timestamp":"2022-07-26T11:33:06.087893Z"}
+{"component":"virt-operator","level":"info","msg":"Secret loaded","pos":"strategy.go:759","timestamp":"2022-07-26T11:33:06.087958Z"}
+{"component":"virt-operator","level":"info","msg":"Secret loaded","pos":"strategy.go:759","timestamp":"2022-07-26T11:33:06.088008Z"}
+{"component":"virt-operator","level":"info","msg":"Secret loaded","pos":"strategy.go:759","timestamp":"2022-07-26T11:33:06.088057Z"}
+{"component":"virt-operator","level":"info","msg":"Secret loaded","pos":"strategy.go:759","timestamp":"2022-07-26T11:33:06.088107Z"}
+{"component":"virt-operator","level":"info","msg":"Secret loaded","pos":"strategy.go:759","timestamp":"2022-07-26T11:33:06.088162Z"}
+{"component":"virt-operator","level":"info","msg":"ValidatingWebhookConfiguration loaded","pos":"strategy.go:759","timestamp":"2022-07-26T11:33:06.088451Z"}
+{"component":"virt-operator","level":"info","msg":"ValidatingWebhookConfiguration loaded","pos":"strategy.go:759","timestamp":"2022-07-26T11:33:06.090542Z"}
+{"component":"virt-operator","level":"info","msg":"MutatingWebhookConfiguration loaded","pos":"strategy.go:759","timestamp":"2022-07-26T11:33:06.091093Z"}
+{"component":"virt-operator","level":"info","msg":"APIService loaded","pos":"strategy.go:759","timestamp":"2022-07-26T11:33:06.091254Z"}
+{"component":"virt-operator","level":"info","msg":"APIService loaded","pos":"strategy.go:759","timestamp":"2022-07-26T11:33:06.091367Z"}
+{"component":"virt-operator","level":"info","msg":"Deployment loaded","pos":"strategy.go:759","timestamp":"2022-07-26T11:33:06.092246Z"}
+{"component":"virt-operator","level":"info","msg":"Deployment loaded","pos":"strategy.go:759","timestamp":"2022-07-26T11:33:06.093325Z"}
+{"component":"virt-operator","level":"info","msg":"Deployment loaded","pos":"strategy.go:759","timestamp":"2022-07-26T11:33:06.094231Z"}
+{"component":"virt-operator","level":"info","msg":"DaemonSet loaded","pos":"strategy.go:759","timestamp":"2022-07-26T11:33:06.095727Z"}
+{"component":"virt-operator","level":"info","msg":"SecurityContextConstraints loaded","pos":"strategy.go:759","timestamp":"2022-07-26T11:33:06.095945Z"}
+{"component":"virt-operator","level":"info","msg":"SecurityContextConstraints loaded","pos":"strategy.go:759","timestamp":"2022-07-26T11:33:06.096125Z"}
+{"component":"virt-operator","level":"info","msg":"ConfigMap loaded","pos":"strategy.go:759","timestamp":"2022-07-26T11:33:06.096181Z"}
+{"component":"virt-operator","level":"info","msg":"ConfigMap loaded","pos":"strategy.go:759","timestamp":"2022-07-26T11:33:06.096240Z"}
+{"component":"virt-operator","level":"info","msg":"ConfigMap loaded","pos":"strategy.go:759","timestamp":"2022-07-26T11:33:06.096288Z"}
+{"component":"virt-operator","level":"info","msg":"ConfigMap loaded","pos":"strategy.go:759","timestamp":"2022-07-26T11:33:06.096333Z"}
+{"component":"virt-operator","level":"info","msg":"Route loaded","pos":"strategy.go:759","timestamp":"2022-07-26T11:33:06.096423Z"}
+{"component":"virt-operator","level":"info","msg":"Loaded install strategy for kubevirt version devel into cache","pos":"kubevirt.go:890","timestamp":"2022-07-26T11:33:06.096432Z"}
+{"component":"virt-operator","level":"info","msg":"crd virtualmachineinstances.kubevirt.io updated","pos":"crds.go:61","timestamp":"2022-07-26T11:33:06.260474Z"}
+{"component":"virt-operator","level":"info","msg":"crd virtualmachineinstancepresets.kubevirt.io updated","pos":"crds.go:61","timestamp":"2022-07-26T11:33:06.316735Z"}
+{"component":"virt-operator","level":"info","msg":"crd virtualmachineinstancereplicasets.kubevirt.io updated","pos":"crds.go:61","timestamp":"2022-07-26T11:33:06.422960Z"}
+{"component":"virt-operator","level":"info","msg":"crd virtualmachines.kubevirt.io updated","pos":"crds.go:61","timestamp":"2022-07-26T11:33:06.532715Z"}
+{"component":"virt-operator","level":"info","msg":"crd virtualmachineinstancemigrations.kubevirt.io updated","pos":"crds.go:61","timestamp":"2022-07-26T11:33:06.563826Z"}
+{"component":"virt-operator","level":"info","msg":"crd virtualmachinesnapshots.snapshot.kubevirt.io updated","pos":"crds.go:61","timestamp":"2022-07-26T11:33:06.581524Z"}
+{"component":"virt-operator","level":"info","msg":"crd virtualmachinesnapshotcontents.snapshot.kubevirt.io updated","pos":"crds.go:61","timestamp":"2022-07-26T11:33:06.739199Z"}
+{"component":"virt-operator","level":"info","msg":"crd virtualmachinerestores.snapshot.kubevirt.io updated","pos":"crds.go:61","timestamp":"2022-07-26T11:33:06.762680Z"}
+{"component":"virt-operator","level":"info","msg":"crd virtualmachineinstancetypes.instancetype.kubevirt.io updated","pos":"crds.go:61","timestamp":"2022-07-26T11:33:06.771687Z"}
+{"component":"virt-operator","level":"info","msg":"crd virtualmachineclusterinstancetypes.instancetype.kubevirt.io updated","pos":"crds.go:61","timestamp":"2022-07-26T11:33:06.779752Z"}
+{"component":"virt-operator","level":"info","msg":"crd virtualmachinepools.pool.kubevirt.io updated","pos":"crds.go:61","timestamp":"2022-07-26T11:33:06.850005Z"}
+{"component":"virt-operator","level":"info","msg":"crd migrationpolicies.migrations.kubevirt.io updated","pos":"crds.go:61","timestamp":"2022-07-26T11:33:06.872064Z"}
+{"component":"virt-operator","level":"info","msg":"crd virtualmachinepreferences.instancetype.kubevirt.io updated","pos":"crds.go:61","timestamp":"2022-07-26T11:33:06.886190Z"}
+{"component":"virt-operator","level":"info","msg":"crd virtualmachineclusterpreferences.instancetype.kubevirt.io updated","pos":"crds.go:61","timestamp":"2022-07-26T11:33:06.916773Z"}
+{"component":"virt-operator","level":"info","msg":"crd virtualmachineexports.export.kubevirt.io updated","pos":"crds.go:61","timestamp":"2022-07-26T11:33:07.142221Z"}
+{"component":"virt-operator","level":"info","msg":"crd virtualmachineclones.clone.kubevirt.io updated","pos":"crds.go:61","timestamp":"2022-07-26T11:33:07.335318Z"}
+{"component":"virt-operator","level":"info","msg":"serviceaccount kubevirt-apiserver updated","pos":"core.go:494","timestamp":"2022-07-26T11:33:07.366115Z"}
+{"component":"virt-operator","level":"info","msg":"serviceaccount kubevirt-controller updated","pos":"core.go:494","timestamp":"2022-07-26T11:33:07.386452Z"}
+{"component":"virt-operator","level":"info","msg":"serviceaccount kubevirt-handler updated","pos":"core.go:494","timestamp":"2022-07-26T11:33:07.398650Z"}
+{"component":"virt-operator","level":"info","msg":"serviceaccount kubevirt-exportproxy updated","pos":"core.go:494","timestamp":"2022-07-26T11:33:07.407884Z"}
+{"component":"virt-operator","level":"info","msg":"ClusterRole kubevirt.io:default updated","pos":"rbac.go:83","timestamp":"2022-07-26T11:33:07.423436Z"}
+{"component":"virt-operator","level":"info","msg":"ClusterRole kubevirt.io:admin updated","pos":"rbac.go:83","timestamp":"2022-07-26T11:33:07.441649Z"}
+{"component":"virt-operator","level":"info","msg":"ClusterRole kubevirt.io:edit updated","pos":"rbac.go:83","timestamp":"2022-07-26T11:33:07.455537Z"}
+{"component":"virt-operator","level":"info","msg":"ClusterRole kubevirt.io:view updated","pos":"rbac.go:83","timestamp":"2022-07-26T11:33:07.466335Z"}
+{"component":"virt-operator","level":"info","msg":"ClusterRole kubevirt-apiserver updated","pos":"rbac.go:83","timestamp":"2022-07-26T11:33:07.477363Z"}
+{"component":"virt-operator","level":"info","msg":"ClusterRole kubevirt-controller updated","pos":"rbac.go:83","timestamp":"2022-07-26T11:33:07.488339Z"}
+{"component":"virt-operator","level":"info","msg":"ClusterRole kubevirt-handler updated","pos":"rbac.go:83","timestamp":"2022-07-26T11:33:07.497569Z"}
+{"component":"virt-operator","level":"info","msg":"ClusterRole kubevirt-exportproxy updated","pos":"rbac.go:83","timestamp":"2022-07-26T11:33:07.508087Z"}
+{"component":"virt-operator","level":"info","msg":"ClusterRoleBinding kubevirt.io:default updated","pos":"rbac.go:83","timestamp":"2022-07-26T11:33:07.518759Z"}
+{"component":"virt-operator","level":"info","msg":"ClusterRoleBinding kubevirt-apiserver updated","pos":"rbac.go:83","timestamp":"2022-07-26T11:33:07.528757Z"}
+{"component":"virt-operator","level":"info","msg":"ClusterRoleBinding kubevirt-apiserver-auth-delegator updated","pos":"rbac.go:83","timestamp":"2022-07-26T11:33:07.620710Z"}
+{"component":"virt-operator","level":"info","msg":"ClusterRoleBinding kubevirt-controller updated","pos":"rbac.go:83","timestamp":"2022-07-26T11:33:07.859461Z"}
+{"component":"virt-operator","level":"info","msg":"ClusterRoleBinding kubevirt-handler updated","pos":"rbac.go:83","timestamp":"2022-07-26T11:33:08.070845Z"}
+{"component":"virt-operator","level":"info","msg":"ClusterRoleBinding kubevirt-exportproxy updated","pos":"rbac.go:83","timestamp":"2022-07-26T11:33:08.255900Z"}
+{"component":"virt-operator","level":"info","msg":"Role kubevirt-apiserver updated","pos":"rbac.go:83","timestamp":"2022-07-26T11:33:08.426166Z"}
+{"component":"virt-operator","level":"info","msg":"Role kubevirt-controller updated","pos":"rbac.go:83","timestamp":"2022-07-26T11:33:08.619117Z"}
+{"component":"virt-operator","level":"info","msg":"Role kubevirt-handler updated","pos":"rbac.go:83","timestamp":"2022-07-26T11:33:08.866370Z"}
+{"component":"virt-operator","level":"info","msg":"Role kubevirt-exportproxy updated","pos":"rbac.go:83","timestamp":"2022-07-26T11:33:09.063708Z"}
+{"component":"virt-operator","level":"info","msg":"RoleBinding kubevirt-apiserver updated","pos":"rbac.go:83","timestamp":"2022-07-26T11:33:09.269383Z"}
+{"component":"virt-operator","level":"info","msg":"RoleBinding kubevirt-controller updated","pos":"rbac.go:83","timestamp":"2022-07-26T11:33:09.465262Z"}
+{"component":"virt-operator","level":"info","msg":"RoleBinding kubevirt-handler updated","pos":"rbac.go:83","timestamp":"2022-07-26T11:33:09.618269Z"}
+{"component":"virt-operator","level":"info","msg":"RoleBinding kubevirt-exportproxy updated","pos":"rbac.go:83","timestamp":"2022-07-26T11:33:09.870437Z"}
+{"component":"virt-operator","level":"info","msg":"service kubevirt-prometheus-metrics patched","pos":"core.go:142","timestamp":"2022-07-26T11:33:09.899334Z"}
+{"component":"virt-operator","level":"info","msg":"service virt-api patched","pos":"core.go:142","timestamp":"2022-07-26T11:33:09.918053Z"}
+{"component":"virt-operator","level":"info","msg":"service kubevirt-operator-webhook patched","pos":"core.go:142","timestamp":"2022-07-26T11:33:09.936102Z"}
+{"component":"virt-operator","level":"info","msg":"service virt-exportproxy patched","pos":"core.go:142","timestamp":"2022-07-26T11:33:09.949381Z"}
+{"component":"virt-operator","level":"info","msg":"secret kubevirt-ca updated","pos":"core.go:278","timestamp":"2022-07-26T11:33:09.955809Z"}
+{"component":"virt-operator","level":"info","msg":"secret kubevirt-export-ca updated","pos":"core.go:278","timestamp":"2022-07-26T11:33:09.961259Z"}
+{"component":"virt-operator","level":"info","msg":"configMap kubevirt-ca updated","pos":"core.go:634","timestamp":"2022-07-26T11:33:09.965696Z"}
+{"component":"virt-operator","level":"info","msg":"configMap kubevirt-export-ca updated","pos":"core.go:634","timestamp":"2022-07-26T11:33:09.970362Z"}
+{"component":"virt-operator","level":"info","msg":"validatingwebhoookconfiguration virt-operator-validator updated","pos":"admissionregistration.go:248","timestamp":"2022-07-26T11:33:09.976535Z"}
+{"component":"virt-operator","level":"info","msg":"validatingwebhoookconfiguration virt-api-validator updated","pos":"admissionregistration.go:248","timestamp":"2022-07-26T11:33:09.993409Z"}
+{"component":"virt-operator","level":"info","msg":"mutatingwebhoookconfiguration virt-api-mutator updated","pos":"admissionregistration.go:352","timestamp":"2022-07-26T11:33:10.000887Z"}
+{"component":"virt-operator","level":"info","msg":"secret kubevirt-virt-api-certs updated","pos":"core.go:278","timestamp":"2022-07-26T11:33:10.020335Z"}
+{"component":"virt-operator","level":"info","msg":"secret kubevirt-controller-certs updated","pos":"core.go:278","timestamp":"2022-07-26T11:33:10.028006Z"}
+{"component":"virt-operator","level":"info","msg":"secret kubevirt-exportproxy-certs updated","pos":"core.go:278","timestamp":"2022-07-26T11:33:10.075855Z"}
+{"component":"virt-operator","level":"info","msg":"secret kubevirt-virt-handler-server-certs updated","pos":"core.go:278","timestamp":"2022-07-26T11:33:10.286192Z"}
+{"component":"virt-operator","level":"info","msg":"secret kubevirt-virt-handler-certs updated","pos":"core.go:278","timestamp":"2022-07-26T11:33:10.476659Z"}
+{"component":"virt-operator","level":"info","msg":"secret kubevirt-operator-certs updated","pos":"core.go:278","timestamp":"2022-07-26T11:33:10.876719Z"}
+{"component":"virt-operator","level":"info","msg":"ihol3 syncDaemonSet(): generations match? true. existing generation: 1, expected generation: 1","pos":"apps.go:312","timestamp":"2022-07-26T11:33:10.876979Z"}
+{"component":"virt-operator","level":"info","msg":"ihol3 syncDaemonSet():  existing annotations: map[string]string{\"deprecated.daemonset.template.generation\":\"1\", \"kubevirt.io/customizer-identifier\":\"bf21a9e8fbc5a3846fb05b4fa0859e0917b2202f\", \"kubevirt.io/generation\":\"2\", \"kubevirt.io/install-strategy-identifier\":\"bd9e4901628892ae28a2aedb409416cab0e68b02\", \"kubevirt.io/install-strategy-registry\":\"registry:5000/kubevirt\", \"kubevirt.io/install-strategy-version\":\"devel\"}","pos":"apps.go:457","timestamp":"2022-07-26T11:33:10.877042Z"}
+{"component":"virt-operator","level":"info","msg":"ihol3 syncDaemonSet():  required annotations: map[string]string{\"kubevirt.io/customizer-identifier\":\"bf21a9e8fbc5a3846fb05b4fa0859e0917b2202f\", \"kubevirt.io/generation\":\"3\", \"kubevirt.io/install-strategy-identifier\":\"bd9e4901628892ae28a2aedb409416cab0e68b02\", \"kubevirt.io/install-strategy-registry\":\"registry:5000/kubevirt\", \"kubevirt.io/install-strategy-version\":\"devel\"}","pos":"apps.go:457","timestamp":"2022-07-26T11:33:10.877078Z"}
+{"component":"virt-operator","level":"info","msg":"ihol3 syncDaemonSet(): ihol3 modified: true","pos":"apps.go:322","timestamp":"2022-07-26T11:33:10.877105Z"}
+{"component":"virt-operator","level":"info","msg":"ihol3 syncDaemonSet(): NOT DONE processCanaryUpgrade","pos":"apps.go:336","timestamp":"2022-07-26T11:33:10.889557Z"}
+{"component":"virt-operator","level":"info","msg":"ihol3 updateKubeVirtSystem(): not finished syncDaemonSet","pos":"update.go:17","timestamp":"2022-07-26T11:33:10.889630Z"}
+{"component":"virt-operator","level":"info","msg":"ihol3 Sync() not finished: updateKubeVirtSystem","pos":"reconcile.go:615","timestamp":"2022-07-26T11:33:10.889656Z"}
+{"component":"virt-operator","kind":"","level":"info","msg":"Processed deployment for this round","name":"kubevirt","namespace":"kubevirt","pos":"kubevirt.go:1087","timestamp":"2022-07-26T11:33:10.889694Z","uid":"fc8f2bc9-4387-4dac-a399-1a504a94de15"}
+{"component":"virt-operator","level":"info","msg":"Updating cluster config from KubeVirt to resource version '8910'","pos":"configuration.go:320","timestamp":"2022-07-26T11:33:10.904080Z"}
+{"component":"virt-operator","kind":"","level":"info","msg":"Handling KubeVirt resource","name":"kubevirt","namespace":"kubevirt","pos":"kubevirt.go:656","timestamp":"2022-07-26T11:33:11.296488Z","uid":"fc8f2bc9-4387-4dac-a399-1a504a94de15"}
+{"component":"virt-operator","kind":"","level":"info","msg":"Handling deployment","name":"kubevirt","namespace":"kubevirt","pos":"kubevirt.go:1010","timestamp":"2022-07-26T11:33:11.296819Z","uid":"fc8f2bc9-4387-4dac-a399-1a504a94de15"}
+{"component":"virt-operator","level":"info","msg":"ihol3 UpdateConditionsDeploying()","pos":"client.go:52","timestamp":"2022-07-26T11:33:11.297590Z"}
+{"component":"virt-operator","level":"info","msg":"service kubevirt-prometheus-metrics patched","pos":"core.go:142","timestamp":"2022-07-26T11:33:11.348355Z"}
+{"component":"virt-operator","level":"info","msg":"service virt-api patched","pos":"core.go:142","timestamp":"2022-07-26T11:33:11.494879Z"}
+{"component":"virt-operator","level":"info","msg":"service kubevirt-operator-webhook patched","pos":"core.go:142","timestamp":"2022-07-26T11:33:11.689595Z"}
+{"component":"virt-operator","level":"info","msg":"service virt-exportproxy patched","pos":"core.go:142","timestamp":"2022-07-26T11:33:11.890457Z"}
+{"component":"virt-operator","level":"info","msg":"secret kubevirt-ca updated","pos":"core.go:278","timestamp":"2022-07-26T11:33:12.153206Z"}
+{"component":"virt-operator","level":"info","msg":"secret kubevirt-export-ca updated","pos":"core.go:278","timestamp":"2022-07-26T11:33:12.500994Z"}
+{"component":"virt-operator","level":"info","msg":"configMap kubevirt-ca updated","pos":"core.go:634","timestamp":"2022-07-26T11:33:12.506783Z"}
+{"component":"virt-operator","level":"info","msg":"configMap kubevirt-export-ca updated","pos":"core.go:634","timestamp":"2022-07-26T11:33:12.688437Z"}
+{"component":"virt-operator","level":"info","msg":"validatingwebhoookconfiguration virt-operator-validator updated","pos":"admissionregistration.go:248","timestamp":"2022-07-26T11:33:12.705627Z"}
+{"component":"virt-operator","level":"info","msg":"validatingwebhoookconfiguration virt-api-validator updated","pos":"admissionregistration.go:248","timestamp":"2022-07-26T11:33:12.761215Z"}
+{"component":"virt-operator","level":"info","msg":"mutatingwebhoookconfiguration virt-api-mutator updated","pos":"admissionregistration.go:352","timestamp":"2022-07-26T11:33:12.789503Z"}
+{"component":"virt-operator","level":"info","msg":"secret kubevirt-virt-api-certs updated","pos":"core.go:278","timestamp":"2022-07-26T11:33:12.910825Z"}
+{"component":"virt-operator","level":"info","msg":"secret kubevirt-controller-certs updated","pos":"core.go:278","timestamp":"2022-07-26T11:33:13.075996Z"}
+{"component":"virt-operator","level":"info","msg":"secret kubevirt-exportproxy-certs updated","pos":"core.go:278","timestamp":"2022-07-26T11:33:13.482254Z"}
+{"component":"virt-operator","level":"info","msg":"secret kubevirt-virt-handler-server-certs updated","pos":"core.go:278","timestamp":"2022-07-26T11:33:13.878974Z"}
+{"component":"virt-operator","level":"info","msg":"secret kubevirt-virt-handler-certs updated","pos":"core.go:278","timestamp":"2022-07-26T11:33:14.091293Z"}
+{"component":"virt-operator","level":"info","msg":"secret kubevirt-operator-certs updated","pos":"core.go:278","timestamp":"2022-07-26T11:33:14.276469Z"}
+{"component":"virt-operator","level":"info","msg":"ihol3 syncDaemonSet(): generations match? true. existing generation: 1, expected generation: 1","pos":"apps.go:312","timestamp":"2022-07-26T11:33:14.276593Z"}
+{"component":"virt-operator","level":"info","msg":"ihol3 syncDaemonSet():  existing annotations: map[string]string{\"deprecated.daemonset.template.generation\":\"1\", \"kubevirt.io/customizer-identifier\":\"bf21a9e8fbc5a3846fb05b4fa0859e0917b2202f\", \"kubevirt.io/generation\":\"3\", \"kubevirt.io/install-strategy-identifier\":\"bd9e4901628892ae28a2aedb409416cab0e68b02\", \"kubevirt.io/install-strategy-registry\":\"registry:5000/kubevirt\", \"kubevirt.io/install-strategy-version\":\"devel\"}","pos":"apps.go:457","timestamp":"2022-07-26T11:33:14.276648Z"}
+{"component":"virt-operator","level":"info","msg":"ihol3 syncDaemonSet():  required annotations: map[string]string{\"kubevirt.io/customizer-identifier\":\"bf21a9e8fbc5a3846fb05b4fa0859e0917b2202f\", \"kubevirt.io/generation\":\"3\", \"kubevirt.io/install-strategy-identifier\":\"bd9e4901628892ae28a2aedb409416cab0e68b02\", \"kubevirt.io/install-strategy-registry\":\"registry:5000/kubevirt\", \"kubevirt.io/install-strategy-version\":\"devel\"}","pos":"apps.go:457","timestamp":"2022-07-26T11:33:14.276680Z"}
+{"component":"virt-operator","level":"info","msg":"ihol3 syncDeployment(): generations match? true. existing generation: 1, expected generation: 1","pos":"apps.go:93","timestamp":"2022-07-26T11:33:14.276740Z"}
+{"component":"virt-operator","level":"info","msg":"ihol3 syncDeployment():  existing annotations: map[string]string{\"deployment.kubernetes.io/revision\":\"1\", \"kubevirt.io/customizer-identifier\":\"bf21a9e8fbc5a3846fb05b4fa0859e0917b2202f\", \"kubevirt.io/generation\":\"2\", \"kubevirt.io/install-strategy-identifier\":\"bd9e4901628892ae28a2aedb409416cab0e68b02\", \"kubevirt.io/install-strategy-registry\":\"registry:5000/kubevirt\", \"kubevirt.io/install-strategy-version\":\"devel\"}","pos":"apps.go:457","timestamp":"2022-07-26T11:33:14.276773Z"}
+{"component":"virt-operator","level":"info","msg":"ihol3 syncDeployment():  required annotations: map[string]string{\"kubevirt.io/customizer-identifier\":\"bf21a9e8fbc5a3846fb05b4fa0859e0917b2202f\", \"kubevirt.io/generation\":\"3\", \"kubevirt.io/install-strategy-identifier\":\"bd9e4901628892ae28a2aedb409416cab0e68b02\", \"kubevirt.io/install-strategy-registry\":\"registry:5000/kubevirt\", \"kubevirt.io/install-strategy-version\":\"devel\"}","pos":"apps.go:457","timestamp":"2022-07-26T11:33:14.276794Z"}
+{"component":"virt-operator","level":"info","msg":"ihol3 syncDeployment(): ihol3 modified: true","pos":"apps.go:106","timestamp":"2022-07-26T11:33:14.276808Z"}
+{"component":"virt-operator","level":"info","msg":"deployment virt-controller updated","pos":"apps.go:126","timestamp":"2022-07-26T11:33:14.283103Z"}
+{"component":"virt-operator","level":"info","msg":"ihol3 syncPodDisruptionBudgetForDeployment(): generations match? true. existing generation: 1, expected generation: 1","pos":"apps.go:390","timestamp":"2022-07-26T11:33:14.283159Z"}
+{"component":"virt-operator","level":"info","msg":"ihol3 syncPodDisruptionBudgetForDeployment():  existing annotations: map[string]string{\"kubevirt.io/generation\":\"2\", \"kubevirt.io/install-strategy-identifier\":\"bd9e4901628892ae28a2aedb409416cab0e68b02\", \"kubevirt.io/install-strategy-registry\":\"registry:5000/kubevirt\", \"kubevirt.io/install-strategy-version\":\"devel\"}","pos":"apps.go:457","timestamp":"2022-07-26T11:33:14.283185Z"}
+{"component":"virt-operator","level":"info","msg":"ihol3 syncPodDisruptionBudgetForDeployment():  required annotations: map[string]string{\"kubevirt.io/generation\":\"3\", \"kubevirt.io/install-strategy-identifier\":\"bd9e4901628892ae28a2aedb409416cab0e68b02\", \"kubevirt.io/install-strategy-registry\":\"registry:5000/kubevirt\", \"kubevirt.io/install-strategy-version\":\"devel\"}","pos":"apps.go:457","timestamp":"2022-07-26T11:33:14.283201Z"}
+{"component":"virt-operator","level":"info","msg":"ihol3 syncPodDisruptionBudgetForDeployment(): ihol3 modified: true","pos":"apps.go:402","timestamp":"2022-07-26T11:33:14.283209Z"}
+{"component":"virt-operator","level":"info","msg":"poddisruptionbudget virt-controller-pdb patched","pos":"apps.go:421","timestamp":"2022-07-26T11:33:14.286801Z"}
+{"component":"virt-operator","level":"info","msg":"ihol3 syncDeployment(): generations match? true. existing generation: 1, expected generation: 1","pos":"apps.go:93","timestamp":"2022-07-26T11:33:14.483300Z"}
+{"component":"virt-operator","level":"info","msg":"ihol3 syncDeployment():  existing annotations: map[string]string{\"deployment.kubernetes.io/revision\":\"1\", \"kubevirt.io/customizer-identifier\":\"bf21a9e8fbc5a3846fb05b4fa0859e0917b2202f\", \"kubevirt.io/generation\":\"2\", \"kubevirt.io/install-strategy-identifier\":\"bd9e4901628892ae28a2aedb409416cab0e68b02\", \"kubevirt.io/install-strategy-registry\":\"registry:5000/kubevirt\", \"kubevirt.io/install-strategy-version\":\"devel\"}","pos":"apps.go:457","timestamp":"2022-07-26T11:33:14.483420Z"}
+{"component":"virt-operator","level":"info","msg":"ihol3 syncDeployment():  required annotations: map[string]string{\"kubevirt.io/customizer-identifier\":\"bf21a9e8fbc5a3846fb05b4fa0859e0917b2202f\", \"kubevirt.io/generation\":\"3\", \"kubevirt.io/install-strategy-identifier\":\"bd9e4901628892ae28a2aedb409416cab0e68b02\", \"kubevirt.io/install-strategy-registry\":\"registry:5000/kubevirt\", \"kubevirt.io/install-strategy-version\":\"devel\"}","pos":"apps.go:457","timestamp":"2022-07-26T11:33:14.483465Z"}
+{"component":"virt-operator","level":"info","msg":"ihol3 syncDeployment(): ihol3 modified: true","pos":"apps.go:106","timestamp":"2022-07-26T11:33:14.483490Z"}
+{"component":"virt-operator","level":"info","msg":"deployment virt-api updated","pos":"apps.go:126","timestamp":"2022-07-26T11:33:14.491550Z"}
+{"component":"virt-operator","level":"info","msg":"ihol3 syncPodDisruptionBudgetForDeployment(): generations match? true. existing generation: 1, expected generation: 1","pos":"apps.go:390","timestamp":"2022-07-26T11:33:14.491687Z"}
+{"component":"virt-operator","level":"info","msg":"ihol3 syncPodDisruptionBudgetForDeployment():  existing annotations: map[string]string{\"kubevirt.io/generation\":\"2\", \"kubevirt.io/install-strategy-identifier\":\"bd9e4901628892ae28a2aedb409416cab0e68b02\", \"kubevirt.io/install-strategy-registry\":\"registry:5000/kubevirt\", \"kubevirt.io/install-strategy-version\":\"devel\"}","pos":"apps.go:457","timestamp":"2022-07-26T11:33:14.491753Z"}
+{"component":"virt-operator","level":"info","msg":"ihol3 syncPodDisruptionBudgetForDeployment():  required annotations: map[string]string{\"kubevirt.io/generation\":\"3\", \"kubevirt.io/install-strategy-identifier\":\"bd9e4901628892ae28a2aedb409416cab0e68b02\", \"kubevirt.io/install-strategy-registry\":\"registry:5000/kubevirt\", \"kubevirt.io/install-strategy-version\":\"devel\"}","pos":"apps.go:457","timestamp":"2022-07-26T11:33:14.491810Z"}
+{"component":"virt-operator","level":"info","msg":"ihol3 syncPodDisruptionBudgetForDeployment(): ihol3 modified: true","pos":"apps.go:402","timestamp":"2022-07-26T11:33:14.491844Z"}
+{"component":"virt-operator","level":"info","msg":"poddisruptionbudget virt-api-pdb patched","pos":"apps.go:421","timestamp":"2022-07-26T11:33:14.497685Z"}
+{"component":"virt-operator","level":"info","msg":"Kubevirt namespace (kubevirt) labels are in sync","pos":"core.go:58","timestamp":"2022-07-26T11:33:14.497742Z"}
+{"component":"virt-operator","level":"info","msg":"ihol3 UpdateConditionsCreated()","pos":"client.go:77","timestamp":"2022-07-26T11:33:14.504639Z"}
+{"component":"virt-operator","kind":"","level":"info","msg":"All KubeVirt resources created","name":"kubevirt","namespace":"kubevirt","pos":"kubevirt.go:1075","timestamp":"2022-07-26T11:33:14.504678Z","uid":"fc8f2bc9-4387-4dac-a399-1a504a94de15"}
+{"component":"virt-operator","kind":"","level":"info","msg":"All KubeVirt components ready","name":"kubevirt","namespace":"kubevirt","pos":"kubevirt.go:1079","timestamp":"2022-07-26T11:33:14.504718Z","uid":"fc8f2bc9-4387-4dac-a399-1a504a94de15"}
+{"component":"virt-operator","level":"info","msg":"ihol3 UpdateConditionsAvailable()","pos":"client.go:82","timestamp":"2022-07-26T11:33:14.504741Z"}
+{"component":"virt-operator","level":"info","msg":"Updating cluster config from KubeVirt to resource version '8953'","pos":"configuration.go:320","timestamp":"2022-07-26T11:33:14.516228Z"}
+{"component":"virt-operator","kind":"","level":"info","msg":"Handling KubeVirt resource","name":"kubevirt","namespace":"kubevirt","pos":"kubevirt.go:656","timestamp":"2022-07-26T11:33:17.154199Z","uid":"fc8f2bc9-4387-4dac-a399-1a504a94de15"}
+{"component":"virt-operator","kind":"","level":"info","msg":"Handling deployment","name":"kubevirt","namespace":"kubevirt","pos":"kubevirt.go:1010","timestamp":"2022-07-26T11:33:17.154388Z","uid":"fc8f2bc9-4387-4dac-a399-1a504a94de15"}
+{"component":"virt-operator","level":"info","msg":"ihol3 UpdateConditionsDeploying()","pos":"client.go:52","timestamp":"2022-07-26T11:33:17.154832Z"}
+{"component":"virt-operator","level":"info","msg":"service kubevirt-prometheus-metrics patched","pos":"core.go:142","timestamp":"2022-07-26T11:33:17.186583Z"}
+{"component":"virt-operator","level":"info","msg":"service virt-api patched","pos":"core.go:142","timestamp":"2022-07-26T11:33:17.193266Z"}
+{"component":"virt-operator","level":"info","msg":"service kubevirt-operator-webhook patched","pos":"core.go:142","timestamp":"2022-07-26T11:33:17.199391Z"}
+{"component":"virt-operator","level":"info","msg":"service virt-exportproxy patched","pos":"core.go:142","timestamp":"2022-07-26T11:33:17.207747Z"}
+{"component":"virt-operator","level":"info","msg":"ihol3 syncDaemonSet(): generations match? true. existing generation: 1, expected generation: 1","pos":"apps.go:312","timestamp":"2022-07-26T11:33:17.237714Z"}
+{"component":"virt-operator","level":"info","msg":"ihol3 syncDaemonSet():  existing annotations: map[string]string{\"deprecated.daemonset.template.generation\":\"1\", \"kubevirt.io/customizer-identifier\":\"bf21a9e8fbc5a3846fb05b4fa0859e0917b2202f\", \"kubevirt.io/generation\":\"3\", \"kubevirt.io/install-strategy-identifier\":\"bd9e4901628892ae28a2aedb409416cab0e68b02\", \"kubevirt.io/install-strategy-registry\":\"registry:5000/kubevirt\", \"kubevirt.io/install-strategy-version\":\"devel\"}","pos":"apps.go:457","timestamp":"2022-07-26T11:33:17.237792Z"}
+{"component":"virt-operator","level":"info","msg":"ihol3 syncDaemonSet():  required annotations: map[string]string{\"kubevirt.io/customizer-identifier\":\"bf21a9e8fbc5a3846fb05b4fa0859e0917b2202f\", \"kubevirt.io/generation\":\"3\", \"kubevirt.io/install-strategy-identifier\":\"bd9e4901628892ae28a2aedb409416cab0e68b02\", \"kubevirt.io/install-strategy-registry\":\"registry:5000/kubevirt\", \"kubevirt.io/install-strategy-version\":\"devel\"}","pos":"apps.go:457","timestamp":"2022-07-26T11:33:17.237814Z"}
+{"component":"virt-operator","level":"info","msg":"ihol3 syncDeployment(): generations match? true. existing generation: 2, expected generation: 2","pos":"apps.go:93","timestamp":"2022-07-26T11:33:17.237864Z"}
+{"component":"virt-operator","level":"info","msg":"ihol3 syncDeployment():  existing annotations: map[string]string{\"deployment.kubernetes.io/revision\":\"1\", \"kubevirt.io/customizer-identifier\":\"bf21a9e8fbc5a3846fb05b4fa0859e0917b2202f\", \"kubevirt.io/generation\":\"3\", \"kubevirt.io/install-strategy-identifier\":\"bd9e4901628892ae28a2aedb409416cab0e68b02\", \"kubevirt.io/install-strategy-registry\":\"registry:5000/kubevirt\", \"kubevirt.io/install-strategy-version\":\"devel\"}","pos":"apps.go:457","timestamp":"2022-07-26T11:33:17.237895Z"}
+{"component":"virt-operator","level":"info","msg":"ihol3 syncDeployment():  required annotations: map[string]string{\"kubevirt.io/customizer-identifier\":\"bf21a9e8fbc5a3846fb05b4fa0859e0917b2202f\", \"kubevirt.io/generation\":\"3\", \"kubevirt.io/install-strategy-identifier\":\"bd9e4901628892ae28a2aedb409416cab0e68b02\", \"kubevirt.io/install-strategy-registry\":\"registry:5000/kubevirt\", \"kubevirt.io/install-strategy-version\":\"devel\"}","pos":"apps.go:457","timestamp":"2022-07-26T11:33:17.237932Z"}
+{"component":"virt-operator","level":"info","msg":"ihol3 syncPodDisruptionBudgetForDeployment(): generations match? true. existing generation: 1, expected generation: 1","pos":"apps.go:390","timestamp":"2022-07-26T11:33:17.237972Z"}
+{"component":"virt-operator","level":"info","msg":"ihol3 syncDeployment(): generations match? true. existing generation: 2, expected generation: 2","pos":"apps.go:93","timestamp":"2022-07-26T11:33:17.244669Z"}
+{"component":"virt-operator","level":"info","msg":"ihol3 syncDeployment():  existing annotations: map[string]string{\"deployment.kubernetes.io/revision\":\"1\", \"kubevirt.io/customizer-identifier\":\"bf21a9e8fbc5a3846fb05b4fa0859e0917b2202f\", \"kubevirt.io/generation\":\"3\", \"kubevirt.io/install-strategy-identifier\":\"bd9e4901628892ae28a2aedb409416cab0e68b02\", \"kubevirt.io/install-strategy-registry\":\"registry:5000/kubevirt\", \"kubevirt.io/install-strategy-version\":\"devel\"}","pos":"apps.go:457","timestamp":"2022-07-26T11:33:17.244753Z"}
+{"component":"virt-operator","level":"info","msg":"ihol3 syncDeployment():  required annotations: map[string]string{\"kubevirt.io/customizer-identifier\":\"bf21a9e8fbc5a3846fb05b4fa0859e0917b2202f\", \"kubevirt.io/generation\":\"3\", \"kubevirt.io/install-strategy-identifier\":\"bd9e4901628892ae28a2aedb409416cab0e68b02\", \"kubevirt.io/install-strategy-registry\":\"registry:5000/kubevirt\", \"kubevirt.io/install-strategy-version\":\"devel\"}","pos":"apps.go:457","timestamp":"2022-07-26T11:33:17.244803Z"}
+{"component":"virt-operator","level":"info","msg":"ihol3 syncPodDisruptionBudgetForDeployment(): generations match? true. existing generation: 1, expected generation: 1","pos":"apps.go:390","timestamp":"2022-07-26T11:33:17.244851Z"}
+{"component":"virt-operator","level":"info","msg":"Kubevirt namespace (kubevirt) labels are in sync","pos":"core.go:58","timestamp":"2022-07-26T11:33:17.244891Z"}
+{"component":"virt-operator","level":"info","msg":"ihol3 UpdateConditionsCreated()","pos":"client.go:77","timestamp":"2022-07-26T11:33:17.250510Z"}
+{"component":"virt-operator","kind":"","level":"info","msg":"All KubeVirt resources created","name":"kubevirt","namespace":"kubevirt","pos":"kubevirt.go:1075","timestamp":"2022-07-26T11:33:17.250569Z","uid":"fc8f2bc9-4387-4dac-a399-1a504a94de15"}
+{"component":"virt-operator","kind":"","level":"info","msg":"All KubeVirt components ready","name":"kubevirt","namespace":"kubevirt","pos":"kubevirt.go:1079","timestamp":"2022-07-26T11:33:17.250606Z","uid":"fc8f2bc9-4387-4dac-a399-1a504a94de15"}
+{"component":"virt-operator","level":"info","msg":"ihol3 UpdateConditionsAvailable()","pos":"client.go:82","timestamp":"2022-07-26T11:33:17.250621Z"}

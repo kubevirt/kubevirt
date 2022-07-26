@@ -21,6 +21,7 @@ package util
 
 import (
 	"fmt"
+	"kubevirt.io/client-go/log"
 	"time"
 
 	promv1 "github.com/coreos/prometheus-operator/pkg/apis/monitoring/v1"
@@ -48,6 +49,7 @@ const (
 )
 
 func UpdateConditionsDeploying(kv *virtv1.KubeVirt) {
+	log.Log.Infof("ihol3 UpdateConditionsDeploying()")
 	removeCondition(kv, virtv1.KubeVirtConditionSynchronized)
 	msg := fmt.Sprintf("Deploying version %s with registry %s",
 		kv.Status.TargetKubeVirtVersion,
@@ -58,6 +60,7 @@ func UpdateConditionsDeploying(kv *virtv1.KubeVirt) {
 }
 
 func UpdateConditionsUpdating(kv *virtv1.KubeVirt) {
+	log.Log.Infof("ihol3 UpdateConditionsUpdating()")
 	removeCondition(kv, virtv1.KubeVirtConditionCreated)
 	removeCondition(kv, virtv1.KubeVirtConditionSynchronized)
 	msg := fmt.Sprintf("Transitioning from previous version %s with registry %s to target version %s using registry %s",
@@ -71,10 +74,12 @@ func UpdateConditionsUpdating(kv *virtv1.KubeVirt) {
 }
 
 func UpdateConditionsCreated(kv *virtv1.KubeVirt) {
+	log.Log.Infof("ihol3 UpdateConditionsCreated()")
 	updateCondition(kv, virtv1.KubeVirtConditionCreated, k8sv1.ConditionTrue, ConditionReasonDeploymentCreated, "All resources were created.")
 }
 
 func UpdateConditionsAvailable(kv *virtv1.KubeVirt) {
+	log.Log.Infof("ihol3 UpdateConditionsAvailable()")
 	msg := "All components are ready."
 	updateCondition(kv, virtv1.KubeVirtConditionAvailable, k8sv1.ConditionTrue, ConditionReasonDeploymentReady, msg)
 	updateCondition(kv, virtv1.KubeVirtConditionProgressing, k8sv1.ConditionFalse, ConditionReasonDeploymentReady, msg)
@@ -87,6 +92,7 @@ func UpdateConditionsFailedExists(kv *virtv1.KubeVirt) {
 }
 
 func UpdateConditionsFailedError(kv *virtv1.KubeVirt, err error) {
+	log.Log.Infof("ihol3 UpdateConditionsFailedError()")
 	msg := fmt.Sprintf("An error occurred during deployment: %v", err)
 	updateCondition(kv, virtv1.KubeVirtConditionSynchronized, k8sv1.ConditionFalse, ConditionReasonDeploymentFailedError, msg)
 	updateCondition(kv, virtv1.KubeVirtConditionAvailable, k8sv1.ConditionFalse, ConditionReasonDeploymentFailedError, msg)
@@ -95,6 +101,7 @@ func UpdateConditionsFailedError(kv *virtv1.KubeVirt, err error) {
 }
 
 func UpdateConditionsDeleting(kv *virtv1.KubeVirt) {
+	log.Log.Infof("ihol3 UpdateConditionsDeleting()")
 	removeCondition(kv, virtv1.KubeVirtConditionCreated)
 	removeCondition(kv, virtv1.KubeVirtConditionSynchronized)
 	msg := fmt.Sprintf("Deletion was triggered")
@@ -104,6 +111,7 @@ func UpdateConditionsDeleting(kv *virtv1.KubeVirt) {
 }
 
 func UpdateConditionsDeletionFailed(kv *virtv1.KubeVirt, err error) {
+	log.Log.Infof("ihol3 UpdateConditionsDeletionFailed()")
 	updateCondition(kv, virtv1.KubeVirtConditionSynchronized, k8sv1.ConditionFalse, ConditionReasonDeletionFailedError, fmt.Sprintf("An error occurred during deletion: %v", err))
 }
 

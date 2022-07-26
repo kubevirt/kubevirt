@@ -4,7 +4,7 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
-
+	"k8s.io/apimachinery/pkg/api/equality"
 	"k8s.io/utils/pointer"
 
 	"kubevirt.io/client-go/kubecli"
@@ -90,6 +90,9 @@ func (r *Reconciler) syncDeployment(origDeployment *appsv1.Deployment) (*appsv1.
 	existingCopy := cachedDeployment.DeepCopy()
 	expectedGeneration := GetExpectedGeneration(deployment, kv.Status.Generations)
 
+	log.Log.Infof("ihol3 syncDeployment(): generations match? %t. existing generation: %v, expected generation: %v", existingCopy.GetGeneration() == expectedGeneration, existingCopy.GetGeneration(), expectedGeneration)
+	describe(existingCopy, deployment, "syncDeployment()")
+
 	resourcemerge.EnsureObjectMeta(modified, &existingCopy.ObjectMeta, deployment.ObjectMeta)
 
 	// there was no change to metadata, the generation matched
@@ -99,6 +102,8 @@ func (r *Reconciler) syncDeployment(origDeployment *appsv1.Deployment) (*appsv1.
 		log.Log.V(4).Infof("deployment %v is up-to-date", deployment.GetName())
 		return deployment, nil
 	}
+
+	log.Log.Infof("ihol3 syncDeployment(): ihol3 modified: %t", *modified)
 
 	newSpec, err := json.Marshal(deployment.Spec)
 	if err != nil {
@@ -304,12 +309,19 @@ func (r *Reconciler) syncDaemonSet(daemonSet *appsv1.DaemonSet) (bool, error) {
 	existingCopy := cachedDaemonSet.DeepCopy()
 	expectedGeneration := GetExpectedGeneration(daemonSet, kv.Status.Generations)
 
+	log.Log.Infof("ihol3 syncDaemonSet(): generations match? %t. existing generation: %v, expected generation: %v", existingCopy.GetGeneration() == expectedGeneration, existingCopy.GetGeneration(), expectedGeneration)
+	describe(existingCopy, daemonSet, "syncDaemonSet()")
+
 	resourcemerge.EnsureObjectMeta(modified, &existingCopy.ObjectMeta, daemonSet.ObjectMeta)
 	// there was no change to metadata, the generation was right
 	if !*modified && existingCopy.GetGeneration() == expectedGeneration {
 		log.Log.V(4).Infof("daemonset %v is up-to-date", daemonSet.GetName())
 		return true, nil
 	}
+
+	log.Log.Infof("ihol3 syncDaemonSet(): ihol3 modified: %t", *modified)
+
+
 
 	// canary pod upgrade
 	// first update virt-handler with maxUnavailable=1
@@ -320,6 +332,10 @@ func (r *Reconciler) syncDaemonSet(daemonSet *appsv1.DaemonSet) (bool, error) {
 	// wait for all nodes to complete the rollout
 	// set maxUnavailable back to 1
 	done, err, _ := r.processCanaryUpgrade(cachedDaemonSet, daemonSet, *modified)
+	if !done {
+		log.Log.Infof("ihol3 syncDaemonSet(): NOT DONE processCanaryUpgrade")
+	}
+
 	return done, err
 }
 
@@ -371,6 +387,9 @@ func (r *Reconciler) syncPodDisruptionBudgetForDeployment(deployment *appsv1.Dep
 	existingCopy := cachedPodDisruptionBudget.DeepCopy()
 	expectedGeneration := GetExpectedGeneration(podDisruptionBudget, kv.Status.Generations)
 
+	log.Log.Infof("ihol3 syncPodDisruptionBudgetForDeployment(): generations match? %t. existing generation: %v, expected generation: %v", existingCopy.GetGeneration() == expectedGeneration, existingCopy.GetGeneration(), expectedGeneration)
+	describe(existingCopy, podDisruptionBudget, "syncPodDisruptionBudgetForDeployment()")
+
 	resourcemerge.EnsureObjectMeta(modified, &existingCopy.ObjectMeta, podDisruptionBudget.ObjectMeta)
 	// there was no change to metadata or minAvailable, the generation was right
 	if !*modified &&
@@ -379,6 +398,8 @@ func (r *Reconciler) syncPodDisruptionBudgetForDeployment(deployment *appsv1.Dep
 		log.Log.V(4).Infof("poddisruptionbudget %v is up-to-date", cachedPodDisruptionBudget.GetName())
 		return nil
 	}
+
+	log.Log.Infof("ihol3 syncPodDisruptionBudgetForDeployment(): ihol3 modified: %t", *modified)
 
 	// Add Spec Patch
 	newSpec, err := json.Marshal(podDisruptionBudget.Spec)
@@ -426,4 +447,41 @@ func getDesiredApiReplicas(clientset kubecli.KubevirtClient) (replicas int32, er
 	}
 
 	return replicas, nil
+}
+
+func describe(existing, required metav1.Object, prefix string) {
+	prefix = fmt.Sprintf("ihol3 %s: ", prefix)
+
+	logFunc := func(msg string, objs ...interface{}) {
+		msg = fmt.Sprintf("%s %s", prefix, msg)
+		log.Log.Infof(msg, objs...)
+	}
+
+	eName := existing.GetName()
+	eNamespace := existing.GetNamespace()
+	eLabels := existing.GetLabels()
+	eAnnotations := existing.GetAnnotations()
+
+	rName := required.GetName()
+	rNamespace := required.GetNamespace()
+	rLabels := required.GetLabels()
+	rAnnotations := required.GetAnnotations()
+
+	if eName != rName {
+		logFunc("existing name: %s, required name: %s", eName, rName)
+	}
+
+	if eNamespace != rNamespace {
+		logFunc("existing namespace: %s, required namespace: %s", eNamespace, rNamespace)
+	}
+
+	if !equality.Semantic.DeepEqual(eLabels, rLabels) {
+		logFunc("existing labels: %#v", eLabels)
+		logFunc("required labels: %#v", rLabels)
+	}
+
+	if !equality.Semantic.DeepEqual(eAnnotations, rAnnotations) {
+		logFunc("existing annotations: %#v", eAnnotations)
+		logFunc("required annotations: %#v", rAnnotations)
+	}
 }

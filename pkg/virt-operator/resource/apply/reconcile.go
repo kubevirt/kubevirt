@@ -525,11 +525,13 @@ func (r *Reconciler) Sync(queue workqueue.RateLimitingInterface) (bool, error) {
 	if !apiDeploymentsRolledOver {
 		err := r.createDummyWebhookValidator()
 		if err != nil {
+			log.Log.Infof("ihol3 Sync() not finished: createDummyWebhookValidator")
 			return false, err
 		}
 	} else {
 		err := deleteDummyWebhookValidators(r.kv, r.clientset, r.stores, r.expectations)
 		if err != nil {
+			log.Log.Infof("ihol3 Sync() not finished: deleteDummyWebhookValidators")
 			return false, err
 		}
 	}
@@ -537,18 +539,21 @@ func (r *Reconciler) Sync(queue workqueue.RateLimitingInterface) (bool, error) {
 	// create/update CRDs
 	err := r.createOrUpdateCrds()
 	if err != nil {
+		log.Log.Infof("ihol3 Sync() not finished: createOrUpdateCrds")
 		return false, err
 	}
 
 	// create/update serviceMonitor
 	err = r.createOrUpdateServiceMonitors()
 	if err != nil {
+		log.Log.Infof("ihol3 Sync() not finished: createOrUpdateServiceMonitors")
 		return false, err
 	}
 
 	// create/update PrometheusRules
 	err = r.createOrUpdatePrometheusRules()
 	if err != nil {
+		log.Log.Infof("ihol3 Sync() not finished: createOrUpdatePrometheusRules")
 		return false, err
 	}
 
@@ -556,6 +561,7 @@ func (r *Reconciler) Sync(queue workqueue.RateLimitingInterface) (bool, error) {
 	if !infrastructureRolledOver {
 		err = r.backupRBACs()
 		if err != nil {
+			log.Log.Infof("ihol3 Sync() not finished: backupRBACs")
 			return false, err
 		}
 	}
@@ -563,18 +569,21 @@ func (r *Reconciler) Sync(queue workqueue.RateLimitingInterface) (bool, error) {
 	// create/update all RBAC rules
 	err = r.createOrUpdateRbac()
 	if err != nil {
+		log.Log.Infof("ihol3 Sync() not finished: createOrUpdateRbac")
 		return false, err
 	}
 
 	// create/update SCCs
 	err = r.createOrUpdateSCC()
 	if err != nil {
+		log.Log.Infof("ihol3 Sync() not finished: createOrUpdateSCC")
 		return false, err
 	}
 
 	// create/update Services
 	pending, err := r.createOrUpdateServices()
 	if err != nil {
+		log.Log.Infof("ihol3 Sync() not finished: createOrUpdateServices")
 		return false, err
 	} else if pending {
 		// waiting on multi step service change.
@@ -582,17 +591,20 @@ func (r *Reconciler) Sync(queue workqueue.RateLimitingInterface) (bool, error) {
 		// we have to delete the service, wait for the deletion to be observed,
 		// then create the new service. This is because a service's "type" is
 		// not mutatable.
+		log.Log.Infof("ihol3 Sync() not finished: createOrUpdateServices (else)")
 		return false, nil
 	}
 
 	err = r.createOrUpdateComponentsWithCertificates(queue)
 	if err != nil {
+		log.Log.Infof("ihol3 Sync() not finished: createOrUpdateComponentsWithCertificates")
 		return false, err
 	}
 
 	if infrastructureRolledOver {
 		err = r.removeKvServiceAccountsFromDefaultSCC(r.kv.Namespace)
 		if err != nil {
+			log.Log.Infof("ihol3 Sync() not finished: removeKvServiceAccountsFromDefaultSCC")
 			return false, err
 		}
 	}
@@ -600,21 +612,25 @@ func (r *Reconciler) Sync(queue workqueue.RateLimitingInterface) (bool, error) {
 	if shouldTakeUpdatePath(targetVersion, observedVersion) {
 		finished, err := r.updateKubeVirtSystem(controllerDeploymentsRolledOver)
 		if !finished || err != nil {
+			log.Log.Infof("ihol3 Sync() not finished: updateKubeVirtSystem")
 			return false, err
 		}
 	} else {
 		finished, err := r.createOrRollBackSystem(apiDeploymentsRolledOver)
 		if !finished || err != nil {
+			log.Log.Infof("ihol3 Sync() not finished: createOrRollBackSystem")
 			return false, err
 		}
 	}
 
 	err = r.syncKubevirtNamespaceLabels()
 	if err != nil {
+		log.Log.Infof("ihol3 Sync() not finished: syncKubevirtNamespaceLabels")
 		return false, err
 	}
 
 	if !infrastructureRolledOver {
+		log.Log.Infof("ihol3 Sync() not finished: !infrastructureRolledOver")
 		// still waiting on roll out before cleaning up.
 		return false, nil
 	}
@@ -623,6 +639,7 @@ func (r *Reconciler) Sync(queue workqueue.RateLimitingInterface) (bool, error) {
 	// some changes can only be done after the control plane rolled over
 	err = r.rolloutNonCompatibleCRDChanges()
 	if err != nil {
+		log.Log.Infof("ihol3 Sync() not finished: rolloutNonCompatibleCRDChanges")
 		return false, err
 	}
 
@@ -630,6 +647,7 @@ func (r *Reconciler) Sync(queue workqueue.RateLimitingInterface) (bool, error) {
 	// outdated webhooks can potentially block deletes of other objects during the cleanup and need to be removed first
 	err = r.deleteObjectsNotInInstallStrategy()
 	if err != nil {
+		log.Log.Infof("ihol3 Sync() not finished: deleteObjectsNotInInstallStrategy")
 		return false, err
 	}
 
@@ -646,16 +664,19 @@ func (r *Reconciler) createOrRollBackSystem(apiDeploymentsRolledOver bool) (bool
 	for _, deployment := range r.targetStrategy.ApiDeployments() {
 		deployment, err := r.syncDeployment(deployment)
 		if err != nil {
+			log.Log.Infof("ihol3 createOrRollBackSystem() not finished: ApiDeployments")
 			return false, err
 		}
 		err = r.syncPodDisruptionBudgetForDeployment(deployment)
 		if err != nil {
+			log.Log.Infof("ihol3 createOrRollBackSystem() not finished: syncPodDisruptionBudgetForDeployment")
 			return false, err
 		}
 	}
 
 	// wait on api servers to roll over
 	if !apiDeploymentsRolledOver {
+		log.Log.Infof("ihol3 createOrRollBackSystem() not finished: !apiDeploymentsRolledOver")
 		// not rolled out yet
 		return false, nil
 	}
@@ -664,10 +685,12 @@ func (r *Reconciler) createOrRollBackSystem(apiDeploymentsRolledOver bool) (bool
 	for _, deployment := range r.targetStrategy.ControllerDeployments() {
 		deployment, err := r.syncDeployment(deployment)
 		if err != nil {
+			log.Log.Infof("ihol3 createOrRollBackSystem() not finished: syncDeployment")
 			return false, err
 		}
 		err = r.syncPodDisruptionBudgetForDeployment(deployment)
 		if err != nil {
+			log.Log.Infof("ihol3 createOrRollBackSystem() not finished: syncPodDisruptionBudgetForDeployment")
 			return false, err
 		}
 	}
@@ -677,13 +700,16 @@ func (r *Reconciler) createOrRollBackSystem(apiDeploymentsRolledOver bool) (bool
 		if r.exportProxyEnabled() {
 			deployment, err := r.syncDeployment(deployment)
 			if err != nil {
+				log.Log.Infof("ihol3 createOrRollBackSystem() not finished (ExportProxyDeployments): syncDeployment")
 				return false, err
 			}
 			err = r.syncPodDisruptionBudgetForDeployment(deployment)
 			if err != nil {
+				log.Log.Infof("ihol3 createOrRollBackSystem() not finished (ExportProxyDeployments): syncPodDisruptionBudgetForDeployment")
 				return false, err
 			}
 		} else if err := r.deleteDeployment(deployment); err != nil {
+			log.Log.Infof("ihol3 createOrRollBackSystem() not finished (ExportProxyDeployments): deleteDeployment")
 			return false, err
 		}
 	}
@@ -692,6 +718,7 @@ func (r *Reconciler) createOrRollBackSystem(apiDeploymentsRolledOver bool) (bool
 	for _, daemonSet := range r.targetStrategy.DaemonSets() {
 		finished, err := r.syncDaemonSet(daemonSet)
 		if !finished || err != nil {
+			log.Log.Infof("ihol3 createOrRollBackSystem() not finished: syncDaemonSet")
 			return false, err
 		}
 	}
