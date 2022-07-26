@@ -581,9 +581,8 @@ var _ = Describe("Export controlleer", func() {
 		testVMExport := createPVCVMExport()
 		testVMExport.Spec.Source.Kind = kind
 		testVMExport.Spec.Source.APIGroup = &apigroup
-		retry, err := controller.updateVMExport(testVMExport)
+		err := controller.updateVMExport(testVMExport)
 		Expect(err).ToNot(HaveOccurred())
-		Expect(retry).To(Equal(time.Duration(0)))
 	},
 		Entry("VirtualMachineSnapshot kind blank apigroup", "VirtualMachineSnapshot", ""),
 		Entry("VirtualMachineSnapshot kind invalid apigroup", "VirtualMachineSnapshot", "invalid"),
@@ -604,9 +603,8 @@ var _ = Describe("Export controlleer", func() {
 				return true, vmExport, nil
 			})
 
-			retry, err := controller.updateVMExport(testVMExport)
+			err := controller.updateVMExport(testVMExport)
 			Expect(err).ToNot(HaveOccurred())
-			Expect(retry).To(BeEquivalentTo(time.Second))
 			service, err := k8sClient.CoreV1().Services(testNamespace).Get(context.Background(), fmt.Sprintf("%s-%s", exportPrefix, testVMExport.Name), metav1.GetOptions{})
 			Expect(err).ToNot(HaveOccurred())
 			Expect(service.Name).To(Equal(fmt.Sprintf("%s-%s", exportPrefix, testVMExport.Name)))
@@ -635,9 +633,8 @@ var _ = Describe("Export controlleer", func() {
 				verifyArchiveInternal(vmExport, vmExport.Name, testNamespace, testVMExport.Spec.Source.Name)
 				return true, vmExport, nil
 			})
-			retry, err := controller.updateVMExport(testVMExport)
+			err := controller.updateVMExport(testVMExport)
 			Expect(err).ToNot(HaveOccurred())
-			Expect(retry).To(BeEquivalentTo(time.Duration(0)))
 			service, err := k8sClient.CoreV1().Services(testNamespace).Get(context.Background(), fmt.Sprintf("%s-%s", exportPrefix, testVMExport.Name), metav1.GetOptions{})
 			Expect(err).ToNot(HaveOccurred())
 			Expect(service.Name).To(Equal(fmt.Sprintf("%s-%s", exportPrefix, testVMExport.Name)))
@@ -666,9 +663,8 @@ var _ = Describe("Export controlleer", func() {
 				verifyKubevirtExternal(vmExport, vmExport.Name, testNamespace, testVMExport.Spec.Source.Name)
 				return true, vmExport, nil
 			})
-			retry, err := controller.updateVMExport(testVMExport)
+			err := controller.updateVMExport(testVMExport)
 			Expect(err).ToNot(HaveOccurred())
-			Expect(retry).To(BeEquivalentTo(time.Duration(0)))
 			service, err := k8sClient.CoreV1().Services(testNamespace).Get(context.Background(), fmt.Sprintf("%s-%s", exportPrefix, testVMExport.Name), metav1.GetOptions{})
 			Expect(err).ToNot(HaveOccurred())
 			Expect(service.Name).To(Equal(fmt.Sprintf("%s-%s", exportPrefix, testVMExport.Name)))
@@ -685,9 +681,8 @@ var _ = Describe("Export controlleer", func() {
 				verifyLinksEmpty(vmExport)
 				return true, vmExport, nil
 			})
-			retry, err := controller.updateVMExport(testVMExport)
+			err := controller.updateVMExport(testVMExport)
 			Expect(err).ToNot(HaveOccurred())
-			Expect(retry).To(BeEquivalentTo(time.Second))
 			service, err := k8sClient.CoreV1().Services(testNamespace).Get(context.Background(), fmt.Sprintf("%s-%s", exportPrefix, testVMExport.Name), metav1.GetOptions{})
 			Expect(err).ToNot(HaveOccurred())
 			Expect(service.Name).To(Equal(fmt.Sprintf("%s-%s", exportPrefix, testVMExport.Name)))
@@ -880,9 +875,8 @@ var _ = Describe("Export controlleer", func() {
 				return true, vmExport, nil
 			})
 
-			retry, err := controller.updateVMExport(testVMExport)
+			err := controller.updateVMExport(testVMExport)
 			Expect(err).ToNot(HaveOccurred())
-			Expect(retry).To(BeEquivalentTo(time.Second))
 			service, err := k8sClient.CoreV1().Services(testNamespace).Get(context.Background(), fmt.Sprintf("%s-%s", exportPrefix, testVMExport.Name), metav1.GetOptions{})
 			Expect(err).ToNot(HaveOccurred())
 			Expect(service.Name).To(Equal(fmt.Sprintf("%s-%s", exportPrefix, testVMExport.Name)))
@@ -936,9 +930,8 @@ var _ = Describe("Export controlleer", func() {
 			vmSnapshotInformer.GetStore().Add(createTestVMSnapshot(true))
 			vmSnapshotContentInformer.GetStore().Add(createTestVMSnapshotContent("snapshot-content"))
 			fakeVolumeSnapshotProvider.Add(createTestVolumeSnapshot(testVolumesnapshotName))
-			retry, err := controller.updateVMExport(testVMExport)
+			err := controller.updateVMExport(testVMExport)
 			Expect(err).ToNot(HaveOccurred())
-			Expect(retry).To(BeEquivalentTo(time.Second))
 		})
 
 		It("Should not re-create restored PVCs from VMSnapshot if pvc already exists", func() {
@@ -969,9 +962,8 @@ var _ = Describe("Export controlleer", func() {
 			vmSnapshotInformer.GetStore().Add(createTestVMSnapshot(true))
 			vmSnapshotContentInformer.GetStore().Add(createTestVMSnapshotContent("snapshot-content"))
 			fakeVolumeSnapshotProvider.Add(createTestVolumeSnapshot(testVolumesnapshotName))
-			retry, err := controller.updateVMExport(testVMExport)
+			err := controller.updateVMExport(testVMExport)
 			Expect(err).ToNot(HaveOccurred())
-			Expect(retry).To(BeEquivalentTo(time.Second))
 		})
 
 		It("Should update status with correct links from snapshot with kubevirt content type", func() {
@@ -1020,9 +1012,8 @@ var _ = Describe("Export controlleer", func() {
 			vmSnapshotInformer.GetStore().Add(createTestVMSnapshot(true))
 			vmSnapshotContentInformer.GetStore().Add(createTestVMSnapshotContent("snapshot-content"))
 			fakeVolumeSnapshotProvider.Add(createTestVolumeSnapshot(testVolumesnapshotName))
-			retry, err := controller.updateVMExport(testVMExport)
+			err := controller.updateVMExport(testVMExport)
 			Expect(err).ToNot(HaveOccurred())
-			Expect(retry).To(BeEquivalentTo(time.Duration(0)))
 		})
 
 		It("Should update status with correct links from snapshot with other content type", func() {
@@ -1074,9 +1065,8 @@ var _ = Describe("Export controlleer", func() {
 			content.Spec.Source.VirtualMachine.Spec.Template.Spec.Volumes[0].MemoryDump = &virtv1.MemoryDumpVolumeSource{}
 			vmSnapshotContentInformer.GetStore().Add(content)
 			fakeVolumeSnapshotProvider.Add(createTestVolumeSnapshot(testVolumesnapshotName))
-			retry, err := controller.updateVMExport(testVMExport)
+			err := controller.updateVMExport(testVMExport)
 			Expect(err).ToNot(HaveOccurred())
-			Expect(retry).To(BeEquivalentTo(time.Second))
 		})
 	})
 
