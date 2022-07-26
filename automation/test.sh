@@ -371,7 +371,6 @@ if [[ -z ${KUBEVIRT_E2E_FOCUS} && -z ${KUBEVIRT_E2E_SKIP} ]]; then
     export KUBEVIRT_E2E_FOCUS="\\[sig-network\\]"
   elif [[ $TARGET =~ sig-storage ]]; then
     export KUBEVIRT_E2E_FOCUS="\\[sig-storage\\]|\\[storage-req\\]"
-    label_filter='--label-filter=!needs-three-nodes'
   elif [[ $TARGET =~ vgpu.* ]]; then
     label_filter='--label-filter=needs-mdev-gpu'
   elif [[ $TARGET =~ sig-compute-realtime ]]; then
