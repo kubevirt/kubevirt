@@ -115,7 +115,7 @@ var _ = Describe("[sig-compute]VirtualMachinePool", func() {
 
 	newVirtualMachinePool := func() *poolv1.VirtualMachinePool {
 		By("Create a new VirtualMachinePool")
-		pool := newPoolFromVMI(libvmi.NewCirros())
+		pool := newPoolFromVMI(libvmi.New(libvmi.WithResourceMemory("2Mi")))
 		running := true
 		pool.Spec.VirtualMachineTemplate.Spec.Running = &running
 		return createVirtualMachinePool(pool)
@@ -131,7 +131,6 @@ var _ = Describe("[sig-compute]VirtualMachinePool", func() {
 		doScale(newPool.ObjectMeta.Name, int32(startScale))
 		doScale(newPool.ObjectMeta.Name, int32(stopScale))
 		doScale(newPool.ObjectMeta.Name, int32(0))
-
 	},
 		Entry("[QUARANTINE]to three, to two and then to zero replicas", 3, 2),
 		Entry("[QUARANTINE]to five, to six and then to zero replicas", 5, 6),
