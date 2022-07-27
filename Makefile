@@ -54,7 +54,7 @@ client-python:
 	hack/dockerized "DOCKER_TAG=${DOCKER_TAG} ./hack/gen-client-python/generate.sh"
 
 go-build:
-	hack/dockerized "export KUBEVIRT_NO_BAZEL=true && KUBEVIRT_VERSION=${KUBEVIRT_VERSION} ./hack/build-go.sh install ${WHAT}" && ./hack/build-copy-artifacts.sh ${WHAT}
+	hack/dockerized "export KUBEVIRT_NO_BAZEL=true && KUBEVIRT_VERSION=${KUBEVIRT_VERSION} KUBEVIRT_GO_BUILD_TAGS=${KUBEVIRT_GO_BUILD_TAGS} ./hack/build-go.sh install ${WHAT}" && ./hack/build-copy-artifacts.sh ${WHAT}
 
 gosec:
 	hack/dockerized "GOSEC=${GOSEC} ARTIFACTS=${ARTIFACTS} ./hack/gosec.sh"
@@ -66,7 +66,7 @@ goveralls:
 	SYNC_OUT=false hack/dockerized "COVERALLS_TOKEN_FILE=${COVERALLS_TOKEN_FILE} COVERALLS_TOKEN=${COVERALLS_TOKEN} CI_NAME=prow CI_BRANCH=${PULL_BASE_REF} CI_PR_NUMBER=${PULL_NUMBER} GIT_ID=${PULL_PULL_SHA} PROW_JOB_ID=${PROW_JOB_ID} ./hack/bazel-goveralls.sh"
 
 go-test: go-build
-	SYNC_OUT=false hack/dockerized "export KUBEVIRT_NO_BAZEL=true && ./hack/build-go.sh test ${WHAT}"
+	SYNC_OUT=false hack/dockerized "export KUBEVIRT_NO_BAZEL=true && KUBEVIRT_GO_BUILD_TAGS=${KUBEVIRT_GO_BUILD_TAGS} ./hack/build-go.sh test ${WHAT}"
 
 test: bazel-test
 
