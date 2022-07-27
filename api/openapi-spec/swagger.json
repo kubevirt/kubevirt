@@ -18660,7 +18660,22 @@
     "type": "object"
    },
    "v1.SEV": {
-    "type": "object"
+    "type": "object",
+    "properties": {
+     "policy": {
+      "description": "Guest policy flags as defined in AMD SEV API specification. Note: due to security reasons it is not allowed to enable guest debugging. Therefore NoDebug flag is not exposed to users and is always true.",
+      "$ref": "#/definitions/v1.SEVPolicy"
+     }
+    }
+   },
+   "v1.SEVPolicy": {
+    "type": "object",
+    "properties": {
+     "encryptedState": {
+      "description": "SEV-ES is required. Defaults to false.",
+      "type": "boolean"
+     }
+    }
    },
    "v1.SMBiosConfiguration": {
     "type": "object",
