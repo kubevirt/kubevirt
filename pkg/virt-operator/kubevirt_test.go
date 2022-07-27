@@ -24,9 +24,10 @@ import (
 	"encoding/json"
 	"fmt"
 	"os"
-	"strconv"
 	"strings"
 	"time"
+
+	"k8s.io/apimachinery/pkg/api/equality"
 
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
@@ -89,6 +90,8 @@ const (
 	patchCount    = 50
 	updateCount   = 26
 )
+
+const defaultVersion = "v9.9.9"
 
 type KubeVirtTestData struct {
 	ctrl             *gomock.Controller
@@ -417,6 +420,12 @@ func (k *KubeVirtTestData) shouldExpectKubeVirtUpdateStatusFailureCondition(reas
 func (k *KubeVirtTestData) addKubeVirt(kv *v1.KubeVirt) {
 	k.mockQueue.ExpectAdds(1)
 	k.kvSource.Add(kv)
+	k.mockQueue.Wait()
+}
+
+func (k *KubeVirtTestData) modifiedKubeVirt(updatedkv *v1.KubeVirt) {
+	k.mockQueue.ExpectAdds(1)
+	k.kvSource.Modify(updatedkv)
 	k.mockQueue.Wait()
 }
 
@@ -1370,7 +1379,7 @@ func (k *KubeVirtTestData) addVirtHandler(config *util.KubeVirtDeploymentConfig,
 	handler.Annotations[v1.InstallStrategyRegistryAnnotation] = config.GetImageRegistry()
 	handler.Annotations[v1.InstallStrategyIdentifierAnnotation] = config.GetDeploymentID()
 	handler.Annotations[v1.KubeVirtCustomizeComponentAnnotationHash] = c.Hash()
-	handler.Annotations[v1.KubeVirtGenerationAnnotation] = strconv.FormatInt(kv.GetGeneration(), 10)
+	handler.Annotations[v1.KubeVirtGenerationAnnotation] = "1"
 
 	if handler.Labels == nil {
 		handler.Labels = make(map[string]string)
@@ -1529,13 +1538,31 @@ func (k *KubeVirtTestData) addInstallStrategy(config *util.KubeVirtDeploymentCon
 }
 
 func (k *KubeVirtTestData) addPodDisruptionBudgets(config *util.KubeVirtDeploymentConfig, deployments []*appsv1.Deployment, kv *v1.KubeVirt) {
+	customizer, err := apply.NewCustomizer(kv.Spec.CustomizeComponents)
+	Expect(err).ShouldNot(HaveOccurred())
+
 	minAvailable := intstr.FromInt(1)
 	for _, deployment := range deployments {
+		labels := make(map[string]string, len(deployment.Labels))
+		for deploymentKey, deploymentVal := range deployment.Labels {
+			pdbVal := deploymentVal
+			if deploymentKey == v1.AppLabel || deploymentKey == v1.AppNameLabel {
+				pdbVal += "-pdb"
+			}
+			labels[deploymentKey] = pdbVal
+		}
+		if _, exists := labels["app.kubernetes.io/version"]; !exists {
+			labels["app.kubernetes.io/version"] = defaultVersion
+		}
+
 		pdr := &policyv1.PodDisruptionBudget{
 			ObjectMeta: metav1.ObjectMeta{
 				Namespace: deployment.Namespace,
 				Name:      deployment.Name + "-pdb",
-				Labels:    deployment.Labels,
+				Labels:    labels,
+				Annotations: map[string]string{
+					v1.KubeVirtCustomizeComponentAnnotationHash: customizer.Hash(),
+				},
 			},
 			Spec: policyv1.PodDisruptionBudgetSpec{
 				MinAvailable: &minAvailable,
@@ -1657,10 +1684,18 @@ func (k *KubeVirtTestData) addPodsAndPodDisruptionBudgets(config *util.KubeVirtD
 	k.addPodsWithOptionalPodDisruptionBudgets(config, true, kv)
 }
 
+func (k *KubeVirtTestData) resetChangedResources() {
+	k.resourceChanges = make(map[string]map[string]int)
+	k.totalPatches = 0
+	k.totalAdds = 0
+	k.totalDeletions = 0
+	k.totalUpdates = 0
+}
+
 var _ = Describe("KubeVirt Operator", func() {
 
 	BeforeEach(func() {
-		err := os.Setenv(util.OperatorImageEnvName, fmt.Sprintf("%s/virt-operator:%s", "someregistry", "v9.9.9"))
+		err := os.Setenv(util.OperatorImageEnvName, fmt.Sprintf("%s/virt-operator:%s", "someregistry", defaultVersion))
 		Expect(err).NotTo(HaveOccurred())
 	})
 
@@ -1827,7 +1862,6 @@ var _ = Describe("KubeVirt Operator", func() {
 			kvTestData.fakeNamespaceModificationEvent()
 			kvTestData.shouldExpectNamespacePatch()
 			kvTestData.shouldExpectPatchesAndUpdates(kv)
-			kvTestData.shouldExpectKubeVirtUpdateStatus(1)
 
 			kvTestData.controller.Execute()
 			Expect(kvTestData.totalDeletions).To(Equal(1))
@@ -2049,7 +2083,6 @@ var _ = Describe("KubeVirt Operator", func() {
 			kvTestData.fakeNamespaceModificationEvent()
 			kvTestData.shouldExpectNamespacePatch()
 			kvTestData.shouldExpectPatchesAndUpdates(kv)
-			kvTestData.shouldExpectKubeVirtUpdateStatus(1)
 
 			kvTestData.controller.Execute()
 			Expect(kvTestData.totalDeletions).To(Equal(numResources))
@@ -2571,12 +2604,14 @@ var _ = Describe("KubeVirt Operator", func() {
 		})
 
 		DescribeTable("should update kubevirt resources when Operator version changes if no imageTag and imageRegistry is explicitly set.", func(withExport bool, patchCount, resourceCount, numPDBs int) {
-			os.Setenv(util.OperatorImageEnvName, fmt.Sprintf("%s/virt-operator:%s", "otherregistry", "1.1.1"))
-			updatedConfig := getConfig("", "")
-
 			kvTestData := KubeVirtTestData{}
 			kvTestData.BeforeTest()
 			defer kvTestData.AfterTest()
+
+			os.Setenv(util.OperatorImageEnvName, fmt.Sprintf("%s/virt-operator:%s", "otherregistry", "1.1.1"))
+			updatedConfig := getConfig("", "")
+
+			Expect(equality.Semantic.DeepEqual(kvTestData.defaultConfig, updatedConfig)).To(BeFalse(), "updated config is expected to be different than default config")
 
 			kv := &v1.KubeVirt{
 				ObjectMeta: metav1.ObjectMeta{
@@ -2939,6 +2974,83 @@ var _ = Describe("KubeVirt Operator", func() {
 
 				time.Sleep(time.Millisecond * 10)
 				Expect(kvTestData.recorder.Events).To(BeEmpty())
+			})
+		})
+
+		Context("update to kubevirt object", func() {
+
+			runAndGetKv := func(kvTestData *KubeVirtTestData, mutateKv func(*v1.KubeVirt)) *v1.KubeVirt {
+				kv := &v1.KubeVirt{
+					ObjectMeta: metav1.ObjectMeta{
+						Name:       "test-install",
+						Namespace:  NAMESPACE,
+						Generation: int64(1),
+						Finalizers: []string{util.KubeVirtFinalizer},
+					},
+					Status: v1.KubeVirtStatus{
+						Phase:              v1.KubeVirtPhaseDeployed,
+						ObservedGeneration: pointer.Int64Ptr(1),
+					},
+				}
+
+				// Add kubevirt deployment and mark everything as ready
+				kvTestData.addKubeVirt(kv)
+				err := kvTestData.informers.Namespace.GetStore().Add(&k8sv1.Namespace{
+					TypeMeta: metav1.TypeMeta{
+						Kind: "Namespace",
+					},
+					ObjectMeta: metav1.ObjectMeta{
+						Name: NAMESPACE,
+						Labels: map[string]string{
+							"openshift.io/cluster-monitoring": "true",
+						},
+					},
+				})
+				Expect(err).ToNot(HaveOccurred())
+				kubecontroller.SetLatestApiVersionAnnotation(kv)
+				kvTestData.shouldExpectKubeVirtUpdateStatus(1)
+				kvTestData.addInstallStrategy(kvTestData.defaultConfig)
+				kvTestData.addAll(kvTestData.defaultConfig, kv)
+				kvTestData.addPodsAndPodDisruptionBudgets(kvTestData.defaultConfig, kv)
+				kvTestData.makeDeploymentsReady(kv)
+				kvTestData.makeHandlerReady()
+				kvTestData.shouldExpectPatchesAndUpdates(kv)
+				util.UpdateConditionsAvailable(kv)
+
+				mutateKv(kv)
+
+				kvTestData.controller.Execute()
+
+				kvTestData.resetChangedResources()
+
+				kvObj, exists, err := kvTestData.kvInformer.GetStore().Get(kv)
+				Expect(exists).To(BeTrue(), "kubevirt object is expected to exist")
+				Expect(err).ToNot(HaveOccurred())
+				kv = kvObj.(*v1.KubeVirt)
+
+				return kv
+			}
+
+			It("when CPU model is changed, no changes to resources are expected", func() {
+				const oldCpuModel = "old-cpu-model"
+				const newCpuModel = "new-cpu-model"
+
+				kvTestData := KubeVirtTestData{}
+				kvTestData.BeforeTest()
+				defer kvTestData.AfterTest()
+
+				kv := runAndGetKv(&kvTestData, func(kv *v1.KubeVirt) {
+					kv.Spec.Configuration.CPUModel = oldCpuModel
+				})
+
+				updatedKv := kv.DeepCopy()
+				updatedKv.Spec.Configuration.CPUModel = newCpuModel
+				kvTestData.modifiedKubeVirt(updatedKv)
+
+				kvTestData.controller.Execute()
+
+				shouldExpectHCOConditions(kv, k8sv1.ConditionTrue, k8sv1.ConditionFalse, k8sv1.ConditionFalse)
+				Expect(kvTestData.totalPatches).To(Equal(0), "no patches are expected")
 			})
 		})
 	})
