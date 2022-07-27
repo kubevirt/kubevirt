@@ -42,18 +42,9 @@ import (
 var _ = SIGDescribe("[Serial] Passt", func() {
 	var err error
 	var virtClient kubecli.KubevirtClient
-	var networkData string
 
 	BeforeEach(func() {
 		virtClient, err = kubecli.GetKubevirtClient()
-		util.PanicOnError(err)
-
-		networkData, err = libnet.NewNetworkData(
-			libnet.WithEthernet("eth0",
-				libnet.WithDHCP4Enabled(),
-				libnet.WithDHCP6Enabled(),
-			),
-		)
 		util.PanicOnError(err)
 	})
 
@@ -63,7 +54,6 @@ var _ = SIGDescribe("[Serial] Passt", func() {
 			vmi := libvmi.NewAlpineWithTestTooling(
 				withPasstInterfaceWithPort(),
 				libvmi.WithNetwork(v1.DefaultPodNetwork()),
-				libvmi.WithCloudInitNoCloudNetworkData(networkData, false),
 			)
 
 			vmi, err = virtClient.VirtualMachineInstance(util.NamespaceTestDefault).Create(vmi)
@@ -85,7 +75,6 @@ var _ = SIGDescribe("[Serial] Passt", func() {
 						libvmi.WithInterface(libvmi.InterfaceDeviceWithPasstBinding(ports...)),
 						libvmi.WithNetwork(v1.DefaultPodNetwork()),
 						withPasstExtendedResourceMemory(ports...),
-						libvmi.WithCloudInitNoCloudNetworkData(networkData, false),
 					)
 
 					serverVMI, err = virtClient.VirtualMachineInstance(util.NamespaceTestDefault).Create(serverVMI)
@@ -133,7 +122,6 @@ var _ = SIGDescribe("[Serial] Passt", func() {
 						clientVMI = libvmi.NewAlpineWithTestTooling(
 							withPasstInterfaceWithPort(),
 							libvmi.WithNetwork(v1.DefaultPodNetwork()),
-							libvmi.WithCloudInitNoCloudNetworkData(networkData, false),
 						)
 
 						clientVMI, err = virtClient.VirtualMachineInstance(util.NamespaceTestDefault).Create(clientVMI)
@@ -220,7 +208,6 @@ EOL`, inetSuffix, serverIP, serverPort)
 							libvmi.WithInterface(libvmi.InterfaceDeviceWithPasstBinding()),
 							libvmi.WithNetwork(v1.DefaultPodNetwork()),
 							withPasstExtendedResourceMemory(),
-							libvmi.WithCloudInitNoCloudNetworkData(networkData, false),
 						)
 						clientVMI, err = virtClient.VirtualMachineInstance(util.NamespaceTestDefault).Create(clientVMI)
 						Expect(err).ToNot(HaveOccurred())
@@ -258,7 +245,6 @@ EOL`, inetSuffix, serverIP, serverPort)
 				vmi := libvmi.NewAlpineWithTestTooling(
 					withPasstInterfaceWithPort(),
 					libvmi.WithNetwork(v1.DefaultPodNetwork()),
-					libvmi.WithCloudInitNoCloudNetworkData(networkData, false),
 				)
 				vmi, err = virtClient.VirtualMachineInstance(util.NamespaceTestDefault).Create(vmi)
 				Expect(err).ToNot(HaveOccurred())
@@ -283,7 +269,6 @@ EOL`, inetSuffix, serverIP, serverPort)
 				vmi := libvmi.NewAlpineWithTestTooling(
 					withPasstInterfaceWithPort(),
 					libvmi.WithNetwork(v1.DefaultPodNetwork()),
-					libvmi.WithCloudInitNoCloudNetworkData(networkData, false),
 				)
 				Expect(err).ToNot(HaveOccurred())
 				vmi, err = virtClient.VirtualMachineInstance(util.NamespaceTestDefault).Create(vmi)

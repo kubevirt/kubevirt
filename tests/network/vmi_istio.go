@@ -483,7 +483,7 @@ func newVMIWithIstioSidecar(ports []v1.Port, vmType VmType) (*v1.VirtualMachineI
 		return createMasqueradeVm(ports)
 	}
 	if vmType == Passt {
-		return createPasstVm(ports)
+		return createPasstVm(ports), nil
 	}
 	return nil, nil
 }
@@ -500,22 +500,15 @@ func createMasqueradeVm(ports []v1.Port) (*v1.VirtualMachineInstance, error) {
 	return vmi, err
 }
 
-func createPasstVm(ports []v1.Port) (*v1.VirtualMachineInstance, error) {
-	networkData, err := libnet.NewNetworkData(
-		libnet.WithEthernet("eth0",
-			libnet.WithDHCP4Enabled(),
-			libnet.WithDHCP6Enabled(),
-		),
-	)
+func createPasstVm(ports []v1.Port) *v1.VirtualMachineInstance {
 	vmi := libvmi.NewAlpineWithTestTooling(
 		libvmi.WithNetwork(v1.DefaultPodNetwork()),
 		libvmi.WithInterface(libvmi.InterfaceDeviceWithPasstBinding(ports...)),
 		libvmi.WithLabel(vmiAppSelectorKey, vmiAppSelectorValue),
 		libvmi.WithAnnotation(istio.ISTIO_INJECT_ANNOTATION, "true"),
 		withPasstExtendedResourceMemory(ports...),
-		libvmi.WithCloudInitNoCloudNetworkData(networkData, false),
 	)
-	return vmi, err
+	return vmi
 }
 
 func generateIstioCNINetworkAttachmentDefinition() *k8snetworkplumbingwgv1.NetworkAttachmentDefinition {
