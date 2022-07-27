@@ -326,10 +326,6 @@ var _ = Describe("[rfe_id:393][crit:high][vendor:cnv-qe@redhat.com][level:system
 		checks.SkipIfMigrationIsNotPossible()
 	})
 
-	runVMIAndExpectLaunchIgnoreWarnings := func(vmi *v1.VirtualMachineInstance, timeout int) *v1.VirtualMachineInstance {
-		return tests.RunVMIAndExpectLaunchIgnoreWarnings(vmi, timeout)
-	}
-
 	confirmVMIPostMigrationFailed := func(vmi *v1.VirtualMachineInstance, migrationUID string) {
 		By("Retrieving the VMI post migration")
 		vmi, err = virtClient.VirtualMachineInstance(vmi.Namespace).Get(vmi.Name, &metav1.GetOptions{})
@@ -634,7 +630,7 @@ var _ = Describe("[rfe_id:393][crit:high][vendor:cnv-qe@redhat.com][level:system
 			disks := vmi.Spec.Domain.Devices.Disks
 			disks[len(disks)-1].Serial = secretDiskSerial
 
-			vmi = runVMIAndExpectLaunchIgnoreWarnings(vmi, 180)
+			vmi = tests.RunVMIAndExpectLaunchIgnoreWarnings(vmi, 180)
 
 			// Wait for cloud init to finish and start the agent inside the vmi.
 			tests.WaitAgentConnected(virtClient, vmi)
@@ -1639,7 +1635,7 @@ var _ = Describe("[rfe_id:393][crit:high][vendor:cnv-qe@redhat.com][level:system
 				vmi.Spec.Domain.Devices.Rng = &v1.Rng{}
 
 				tests.AddUserData(vmi, "cloud-init", "#!/bin/bash\n echo hello\n")
-				vmi = runVMIAndExpectLaunchIgnoreWarnings(vmi, 180)
+				vmi = tests.RunVMIAndExpectLaunchIgnoreWarnings(vmi, 180)
 
 				By("Checking guest agent")
 				tests.WaitAgentConnected(virtClient, vmi)
@@ -1711,7 +1707,7 @@ var _ = Describe("[rfe_id:393][crit:high][vendor:cnv-qe@redhat.com][level:system
 
 				By("Starting the VirtualMachineInstance")
 				// Resizing takes too long and therefor a warning is thrown
-				vmi = runVMIAndExpectLaunchIgnoreWarnings(vmi, 240)
+				vmi = tests.RunVMIAndExpectLaunchIgnoreWarnings(vmi, 240)
 
 				By("Checking that the VirtualMachineInstance console has expected output")
 				Expect(loginFunc(vmi)).To(Succeed())
@@ -1797,7 +1793,7 @@ var _ = Describe("[rfe_id:393][crit:high][vendor:cnv-qe@redhat.com][level:system
 
 				By("Starting the VirtualMachineInstance")
 				// Resizing takes too long and therefor a warning is thrown
-				vmi = runVMIAndExpectLaunchIgnoreWarnings(vmi, 240)
+				vmi = tests.RunVMIAndExpectLaunchIgnoreWarnings(vmi, 240)
 
 				By("Checking that the VirtualMachineInstance console has expected output")
 				Expect(loginFunc(vmi)).To(Succeed())
