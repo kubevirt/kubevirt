@@ -110,8 +110,55 @@ func injectOperatorMetadata(kv *v1.KubeVirt, objectMeta *metav1.ObjectMeta, vers
 	objectMeta.Annotations[v1.InstallStrategyRegistryAnnotation] = imageRegistry
 	objectMeta.Annotations[v1.InstallStrategyIdentifierAnnotation] = id
 	if injectCustomizationMetadata {
-		objectMeta.Annotations[v1.KubeVirtGenerationAnnotation] = strconv.FormatInt(kv.ObjectMeta.GetGeneration(), 10)
+		_, exists := objectMeta.Annotations[v1.KubeVirtCustomizeComponentAnnotationHash]
+		if !exists {
+			customizer, err := NewCustomizer(kv.Spec.CustomizeComponents)
+			if err != nil {
+				log.Log.Errorf("failed to create new customizer in order to inject %s annotation to %s", v1.KubeVirtCustomizeComponentAnnotationHash, objectMeta.Name)
+			}
+			objectMeta.Annotations[v1.KubeVirtCustomizeComponentAnnotationHash] = customizer.Hash()
+		}
 	}
+}
+
+func IsUpdating(kv *v1.KubeVirt) bool {
+
+	// first check to see if any version has been observed yet.
+	// If no version is observed, this means no version has been
+	// installed yet, so we can't be updating.
+	if kv.Status.ObservedDeploymentID == "" {
+		return false
+	}
+
+	// At this point we know an observed version exists.
+	// if observed doesn't match target in anyway then we are updating.
+	if kv.Status.ObservedDeploymentID != kv.Status.TargetDeploymentID {
+		return true
+	}
+
+	return false
+}
+
+func (r *Reconciler) bumpKubevirtGeneration(objectMeta *metav1.ObjectMeta) {
+	if !IsUpdating(r.kv) {
+		util.UpdateConditionsDeploying(r.kv)
+	}
+
+	generationStr, exists := objectMeta.Annotations[v1.KubeVirtGenerationAnnotation]
+	if !exists {
+		log.Log.Warningf("annotation %s was not is not set for object %s/%s", v1.KubeVirtGenerationAnnotation, objectMeta.Name, objectMeta.Namespace)
+		generationStr = "1"
+	} else {
+		generationInt, err := strconv.Atoi(generationStr)
+		if err != nil {
+			log.Log.Errorf("error converting %s generation %s to int", objectMeta.Name, generationStr)
+		}
+
+		generationInt++
+		generationStr = fmt.Sprintf("%d", generationInt)
+	}
+
+	objectMeta.Annotations[v1.KubeVirtGenerationAnnotation] = generationStr
 }
 
 const (

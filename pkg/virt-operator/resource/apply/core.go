@@ -265,6 +265,8 @@ func (r *Reconciler) createOrUpdateCertificateSecret(queue workqueue.RateLimitin
 		return crt, nil
 	}
 
+	r.bumpKubevirtGeneration(&secret.ObjectMeta)
+
 	ops, err := createSecretPatch(secret)
 	if err != nil {
 		return nil, err
@@ -480,6 +482,8 @@ func (r *Reconciler) createOrUpdateServiceAccount(sa *corev1.ServiceAccount) err
 		return nil
 	}
 
+	r.bumpKubevirtGeneration(&sa.ObjectMeta)
+
 	// Patch Labels and Annotations
 	labelAnnotationPatch, err := createLabelsAndAnnotationsPatch(&sa.ObjectMeta)
 	if err != nil {
@@ -620,6 +624,8 @@ func (r *Reconciler) createOrUpdateKubeVirtCAConfigMap(queue workqueue.RateLimit
 		log.Log.V(4).Infof("configMap %v is up-to-date", configMap.GetName())
 		return []byte(configMap.Data[components.CABundleKey]), nil
 	}
+
+	r.bumpKubevirtGeneration(&configMap.ObjectMeta)
 
 	ops, err := createConfigMapPatch(configMap)
 	if err != nil {

@@ -64,6 +64,8 @@ func (r *Reconciler) createOrUpdateServiceMonitor(serviceMonitor *promv1.Service
 		return nil
 	}
 
+	r.bumpKubevirtGeneration(&serviceMonitor.ObjectMeta)
+
 	// Add Spec Patch
 	newSpec, err := json.Marshal(serviceMonitor.Spec)
 	if err != nil {
@@ -141,6 +143,8 @@ func (r *Reconciler) createOrUpdatePrometheusRule(prometheusRule *promv1.Prometh
 		log.Log.V(4).Infof("PrometheusRule %v is up-to-date", prometheusRule.GetName())
 		return nil
 	}
+
+	r.bumpKubevirtGeneration(&prometheusRule.ObjectMeta)
 
 	// Add Spec Patch
 	newSpec, err := json.Marshal(prometheusRule.Spec)

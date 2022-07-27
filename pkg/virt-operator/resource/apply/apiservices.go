@@ -72,6 +72,8 @@ func (r *Reconciler) createOrUpdateAPIService(apiService *apiregv1.APIService, c
 		return nil
 	}
 
+	r.bumpKubevirtGeneration(&apiService.ObjectMeta)
+
 	spec, err := json.Marshal(apiService.Spec)
 	if err != nil {
 		return err

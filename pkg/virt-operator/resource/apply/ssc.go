@@ -44,6 +44,7 @@ func (r *Reconciler) createOrUpdateSCC() error {
 		} else if !objectMatchesVersion(&cachedSCC.ObjectMeta, version, imageRegistry, id, r.kv.GetGeneration()) {
 			scc.ObjectMeta = *cachedSCC.ObjectMeta.DeepCopy()
 			injectOperatorMetadata(r.kv, &scc.ObjectMeta, version, imageRegistry, id, true)
+			r.bumpKubevirtGeneration(&scc.ObjectMeta)
 			_, err := sec.SecurityContextConstraints().Update(context.Background(), scc, metav1.UpdateOptions{})
 			if err != nil {
 				return fmt.Errorf("Unable to update %s SecurityContextConstraints", scc.Name)

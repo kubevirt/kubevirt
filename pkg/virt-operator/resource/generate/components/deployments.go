@@ -251,6 +251,9 @@ func newBaseDeployment(deploymentName string, imageName string, namespace string
 				virtv1.AppLabel:     deploymentName,
 				virtv1.AppNameLabel: deploymentName,
 			},
+			Annotations: map[string]string{
+				virtv1.KubeVirtGenerationAnnotation: "1",
+			},
 		},
 		Spec: appsv1.DeploymentSpec{
 			Replicas: int32Ptr(2),
@@ -733,7 +736,9 @@ func NewPodDisruptionBudgetForDeployment(deployment *appsv1.Deployment) *policyv
 			Namespace: deployment.Namespace,
 			Name:      pdbName,
 			Labels: map[string]string{
-				virtv1.AppLabel: pdbName,
+				virtv1.AppLabel:        pdbName,
+				virtv1.AppNameLabel:    pdbName,
+				virtv1.AppVersionLabel: deployment.Labels[virtv1.AppVersionLabel],
 			},
 		},
 		Spec: policyv1.PodDisruptionBudgetSpec{
@@ -741,5 +746,6 @@ func NewPodDisruptionBudgetForDeployment(deployment *appsv1.Deployment) *policyv
 			Selector:     selector,
 		},
 	}
+
 	return podDisruptionBudget
 }

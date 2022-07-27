@@ -218,6 +218,8 @@ func (r *Reconciler) createOrUpdateValidatingWebhookConfiguration(webhook *admis
 		return nil
 	}
 
+	r.bumpKubevirtGeneration(&webhook.ObjectMeta)
+
 	// Patch if old version
 	ops := []string{
 		fmt.Sprintf(testGenerationJSONPatchTemplate, cachedWebhook.ObjectMeta.Generation),
@@ -322,6 +324,8 @@ func (r *Reconciler) createOrUpdateMutatingWebhookConfiguration(webhook *admissi
 		log.Log.V(4).Infof("mutating webhook configuration %v is up-to-date", webhook.GetName())
 		return nil
 	}
+
+	r.bumpKubevirtGeneration(&webhook.ObjectMeta)
 
 	// Patch if old version
 	ops := []string{

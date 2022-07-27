@@ -77,6 +77,8 @@ func (r *Reconciler) syncRoute(route *routev1.Route, caBundle []byte) error {
 		return nil
 	}
 
+	r.bumpKubevirtGeneration(&route.ObjectMeta)
+
 	spec, err := json.Marshal(route.Spec)
 	if err != nil {
 		return err

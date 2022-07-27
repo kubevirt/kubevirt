@@ -106,6 +106,8 @@ func (r *Reconciler) createOrUpdateCrd(crd *extv1.CustomResourceDefinition) erro
 		return nil
 	}
 
+	r.bumpKubevirtGeneration(&crd.ObjectMeta)
+
 	// Patch if old version
 	for i := range crd.Spec.Versions {
 		if needsSubresourceStatusDisable(&crd.Spec.Versions[i], cachedCrd) {

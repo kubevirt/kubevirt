@@ -977,24 +977,6 @@ func (c *KubeVirtController) checkForActiveInstall(kv *v1.KubeVirt) error {
 	return nil
 }
 
-func isUpdating(kv *v1.KubeVirt) bool {
-
-	// first check to see if any version has been observed yet.
-	// If no version is observed, this means no version has been
-	// installed yet, so we can't be updating.
-	if kv.Status.ObservedDeploymentID == "" {
-		return false
-	}
-
-	// At this point we know an observed version exists.
-	// if observed doesn't match target in anyway then we are updating.
-	if kv.Status.ObservedDeploymentID != kv.Status.TargetDeploymentID {
-		return true
-	}
-
-	return false
-}
-
 func (c *KubeVirtController) syncInstallation(kv *v1.KubeVirt) error {
 	var targetStrategy *install.Strategy
 	var targetPending bool
@@ -1021,7 +1003,7 @@ func (c *KubeVirtController) syncInstallation(kv *v1.KubeVirt) error {
 		kv.Status.Phase = v1.KubeVirtPhaseDeploying
 	}
 
-	if isUpdating(kv) {
+	if apply.IsUpdating(kv) {
 		util.UpdateConditionsUpdating(kv)
 	} else {
 		util.UpdateConditionsDeploying(kv)

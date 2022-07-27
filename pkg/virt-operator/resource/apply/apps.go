@@ -100,6 +100,8 @@ func (r *Reconciler) syncDeployment(origDeployment *appsv1.Deployment) (*appsv1.
 		return deployment, nil
 	}
 
+	r.bumpKubevirtGeneration(&deployment.ObjectMeta)
+
 	newSpec, err := json.Marshal(deployment.Spec)
 	if err != nil {
 		return nil, err
@@ -311,6 +313,8 @@ func (r *Reconciler) syncDaemonSet(daemonSet *appsv1.DaemonSet) (bool, error) {
 		return true, nil
 	}
 
+	r.bumpKubevirtGeneration(&daemonSet.ObjectMeta)
+
 	// canary pod upgrade
 	// first update virt-handler with maxUnavailable=1
 	// patch daemonSet with new version
@@ -379,6 +383,8 @@ func (r *Reconciler) syncPodDisruptionBudgetForDeployment(deployment *appsv1.Dep
 		log.Log.V(4).Infof("poddisruptionbudget %v is up-to-date", cachedPodDisruptionBudget.GetName())
 		return nil
 	}
+
+	r.bumpKubevirtGeneration(&podDisruptionBudget.ObjectMeta)
 
 	// Add Spec Patch
 	newSpec, err := json.Marshal(podDisruptionBudget.Spec)
