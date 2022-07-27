@@ -390,10 +390,10 @@ if [[ -z ${KUBEVIRT_E2E_FOCUS} && -z ${KUBEVIRT_E2E_SKIP} ]]; then
     label_filter='--label-filter=needs-gpu'
   elif [[ $TARGET =~ (okd|ocp).* ]]; then
     export KUBEVIRT_E2E_SKIP="SRIOV"
-    label_filter='--label-filter=!needs-gpu && !needs-mdev-gpu'
+    label_filter='--label-filter=!/needs-.*/'
   else
     export KUBEVIRT_E2E_SKIP="Multus|SRIOV|Macvtap"
-    label_filter='--label-filter=!needs-gpu && !needs-mdev-gpu'
+    label_filter='--label-filter=!/needs-.*/'
   fi
 
   if ! [[ $TARGET =~ sig-storage ]]; then
@@ -426,11 +426,11 @@ fi
 if [[ $KUBEVIRT_NUM_NODES = "1" && $KUBEVIRT_INFRA_REPLICAS = "1" ]]; then
   if [ -n "$KUBEVIRT_E2E_SKIP" ]; then
     export KUBEVIRT_E2E_SKIP="${KUBEVIRT_E2E_SKIP}|SRIOV|Macvtap"
-    label_filter='--label-filter=!needs-gpu && !needs-mdev-gpu && !needs-three-nodes'
+    label_filter='--label-filter=!/needs-.*/'
 
   else
     export KUBEVIRT_E2E_SKIP="SRIOV|Macvtap"
-    label_filter='--label-filter=!needs-gpu && !needs-mdev-gpu && !needs-three-nodes'
+    label_filter='--label-filter=!/needs-.*/'
   fi
 fi
 
