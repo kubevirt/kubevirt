@@ -23,28 +23,27 @@ import (
 	"encoding/json"
 	"fmt"
 
-	"k8s.io/client-go/tools/cache"
+	. "github.com/onsi/ginkgo/v2"
+	. "github.com/onsi/gomega"
 
+	"github.com/golang/mock/gomock"
+	admissionv1 "k8s.io/api/admission/v1"
+	k8sv1 "k8s.io/api/core/v1"
+	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	"k8s.io/apimachinery/pkg/runtime"
+	"k8s.io/apimachinery/pkg/util/rand"
+	"k8s.io/client-go/tools/cache"
+	"k8s.io/utils/pointer"
+
+	"kubevirt.io/api/clone"
+	clonev1lpha1 "kubevirt.io/api/clone/v1alpha1"
+	"kubevirt.io/api/core"
 	v1 "kubevirt.io/api/core/v1"
+	"kubevirt.io/client-go/kubecli"
 
 	"kubevirt.io/kubevirt/pkg/testutils"
 	virtconfig "kubevirt.io/kubevirt/pkg/virt-config"
 	"kubevirt.io/kubevirt/tests/util"
-
-	k8sv1 "k8s.io/api/core/v1"
-	"k8s.io/apimachinery/pkg/util/rand"
-	"k8s.io/utils/pointer"
-
-	"github.com/golang/mock/gomock"
-	. "github.com/onsi/ginkgo/v2"
-	. "github.com/onsi/gomega"
-	admissionv1 "k8s.io/api/admission/v1"
-	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
-	"k8s.io/apimachinery/pkg/runtime"
-
-	"kubevirt.io/api/clone"
-	clonev1lpha1 "kubevirt.io/api/clone/v1alpha1"
-	"kubevirt.io/client-go/kubecli"
 )
 
 var _ = Describe("Validating VirtualMachineClone Admitter", func() {
@@ -55,6 +54,7 @@ var _ = Describe("Validating VirtualMachineClone Admitter", func() {
 	var config *virtconfig.ClusterConfig
 	var kvInformer cache.SharedIndexInformer
 	var vmInterface *kubecli.MockVirtualMachineInterface
+	var vm *v1.VirtualMachine
 
 	enableFeatureGate := func(featureGate string) {
 		testutils.UpdateFakeKubeVirtClusterConfig(kvInformer, &v1.KubeVirt{
@@ -80,6 +80,47 @@ var _ = Describe("Validating VirtualMachineClone Admitter", func() {
 		})
 	}
 
+	newValidVM := func(namespace, name string) *v1.VirtualMachine {
+		return &v1.VirtualMachine{
+			ObjectMeta: metav1.ObjectMeta{
+				Namespace: namespace,
+				Name:      name,
+			},
+			Spec: v1.VirtualMachineSpec{
+				Template: &v1.VirtualMachineInstanceTemplateSpec{
+					Spec: v1.VirtualMachineInstanceSpec{
+						Volumes: []v1.Volume{
+							{
+								Name: "dvVol",
+								VolumeSource: v1.VolumeSource{
+									DataVolume: &v1.DataVolumeSource{},
+								},
+							},
+							{
+								Name: "pvcVol",
+								VolumeSource: v1.VolumeSource{
+									PersistentVolumeClaim: &v1.PersistentVolumeClaimVolumeSource{},
+								},
+							},
+						},
+					},
+				},
+			},
+			Status: v1.VirtualMachineStatus{
+				VolumeSnapshotStatuses: []v1.VolumeSnapshotStatus{
+					{
+						Name:    "dvVol",
+						Enabled: true,
+					},
+					{
+						Name:    "pvcVol",
+						Enabled: true,
+					},
+				},
+			},
+		}
+	}
+
 	BeforeEach(func() {
 		ctrl = gomock.NewController(GinkgoT())
 		virtClient = kubecli.NewMockKubevirtClient(ctrl)
@@ -89,7 +130,8 @@ var _ = Describe("Validating VirtualMachineClone Admitter", func() {
 
 		admitter = &VirtualMachineCloneAdmitter{Config: config, Client: virtClient}
 		vmClone = newValidClone()
-		vmInterface.EXPECT().Get(vmClone.Spec.Source.Name, gomock.Any()).Return(&v1.VirtualMachine{}, nil).AnyTimes()
+		vm = newValidVM(vmClone.Namespace, vmClone.Spec.Source.Name)
+		vmInterface.EXPECT().Get(vmClone.Spec.Source.Name, gomock.Any()).Return(vm, nil).AnyTimes()
 		vmInterface.EXPECT().Get(gomock.Any(), gomock.Any()).Return(nil, fmt.Errorf("does-not-exist")).AnyTimes()
 		enableFeatureGate("Snapshot")
 	})
@@ -126,6 +168,11 @@ var _ = Describe("Validating VirtualMachineClone Admitter", func() {
 			source.APIGroup = pointer.String("")
 			return source
 		}),
+		Entry("Source with bad kind", func() *k8sv1.TypedLocalObjectReference {
+			source := newValidObjReference()
+			source.Kind = "Foobar"
+			return source
+		}),
 	)
 
 	It("Should reject unknown source type", func() {
@@ -147,6 +194,14 @@ var _ = Describe("Validating VirtualMachineClone Admitter", func() {
 		disableFeatureGates()
 		admitter.admitAndExpect(vmClone, false)
 	})
+
+	DescribeTable("Should reject a source volume not Snapshot-able", func(index int) {
+		vm.Status.VolumeSnapshotStatuses[index].Enabled = false
+		admitter.admitAndExpect(vmClone, false)
+	},
+		Entry("DataVolume", 0),
+		Entry("PersistentVolumeClaim", 1),
+	)
 
 	Context("Annotations and labels filters", func() {
 		testFilter := func(filter string, expectAllowed bool) {
@@ -214,7 +269,7 @@ func newValidClone() *clonev1lpha1.VirtualMachineClone {
 
 func newValidObjReference() *k8sv1.TypedLocalObjectReference {
 	return &k8sv1.TypedLocalObjectReference{
-		APIGroup: pointer.String(clone.GroupName),
+		APIGroup: pointer.String(core.GroupName),
 		Kind:     "VirtualMachine",
 		Name:     "clone-source-vm",
 	}
