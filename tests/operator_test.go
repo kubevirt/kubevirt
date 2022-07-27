@@ -323,18 +323,7 @@ var _ = Describe("[Serial][sig-operator]Operator", func() {
 					return err
 				}
 
-				available := false
-				progressing := false
-				degraded := false
-				for _, condition := range kv.Status.Conditions {
-					if condition.Type == v1.KubeVirtConditionAvailable && condition.Status == k8sv1.ConditionTrue {
-						available = true
-					} else if condition.Type == v1.KubeVirtConditionProgressing && condition.Status == k8sv1.ConditionTrue {
-						progressing = true
-					} else if condition.Type == v1.KubeVirtConditionDegraded && condition.Status == k8sv1.ConditionTrue {
-						degraded = true
-					}
-				}
+				available, progressing, degraded := getKvConditions(kv)
 
 				if !available || !progressing || !degraded {
 					return fmt.Errorf("Waiting for conditions to indicate update (conditions: %+v)", kv.Status.Conditions)
@@ -2873,6 +2862,61 @@ spec:
 			waitExportProxyReady()
 		})
 	})
+
+	Context("Kubevirt should stay in available condition when a spec change doesn't require re-deployment", func() {
+
+		expectKvKeepsAvailable := func(kv *v1.KubeVirt, stop chan struct{}) {
+			defer GinkgoRecover()
+
+			var err error
+			const expectOffset = 1
+			const retryPeriod = 500 * time.Millisecond
+
+			for {
+				select {
+				case <-stop:
+					return
+
+				case <-time.After(retryPeriod):
+					kv, err = virtClient.KubeVirt(kv.Namespace).Get(kv.Name, &metav1.GetOptions{})
+					ExpectWithOffset(expectOffset, err).ShouldNot(HaveOccurred())
+
+					available, progressing, degraded := getKvConditions(kv)
+					ExpectWithOffset(expectOffset, available).To(BeTrue(), "Kubevirt is expected to be available")
+					ExpectWithOffset(expectOffset, progressing).To(BeFalse(), "Kubevirt is expected to not be progressing")
+					ExpectWithOffset(expectOffset, degraded).To(BeFalse(), "Kubevirt is expected to not be degraded")
+				}
+			}
+		}
+
+		updateKvCpuModel := func(model string) {
+			kvConfig := util2.GetCurrentKv(virtClient).Spec.Configuration.DeepCopy()
+			kvConfig.CPUModel = model
+			tests.UpdateKubeVirtConfigValueAndWait(*kvConfig)
+		}
+
+		It("with changed CPU model", func() {
+			kv := util2.GetCurrentKv(virtClient)
+
+			By("verifying that created and available condition is present")
+			waitForKv(kv)
+
+			origCpuModel := kv.Spec.Configuration.CPUModel
+			const fakeCpuModel = "fakeModel"
+
+			By("Making sure kubevirt stays available in the background")
+			stop := make(chan struct{})
+			defer close(stop)
+			go expectKvKeepsAvailable(kv, stop)
+
+			By("Updating CPU model to a fake model: " + fakeCpuModel)
+			updateKvCpuModel(fakeCpuModel)
+			defer updateKvCpuModel(origCpuModel)
+
+			By("Waiting to make sure kubevirt is still available")
+			time.Sleep(30 * time.Second)
+		})
+	})
 })
 
 func patchCRD(orig *extv1.CustomResourceDefinition, modified *extv1.CustomResourceDefinition) []byte {
@@ -3004,4 +3048,18 @@ func getTagHint() string {
 	}
 
 	return strings.TrimSpace(strings.Split(string(cmdOutput), "-rc")[0])
+}
+
+func getKvConditions(kv *v1.KubeVirt) (available, progressing, degraded bool) {
+	for _, condition := range kv.Status.Conditions {
+		if condition.Type == v1.KubeVirtConditionAvailable && condition.Status == k8sv1.ConditionTrue {
+			available = true
+		} else if condition.Type == v1.KubeVirtConditionProgressing && condition.Status == k8sv1.ConditionTrue {
+			progressing = true
+		} else if condition.Type == v1.KubeVirtConditionDegraded && condition.Status == k8sv1.ConditionTrue {
+			degraded = true
+		}
+	}
+
+	return
 }
