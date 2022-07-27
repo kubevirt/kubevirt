@@ -101,37 +101,45 @@ var _ = Describe("Validating VirtualMachineExport Admitter", func() {
 			Expect(resp.Result.Message).Should(ContainSubstring("unexpected resource"))
 		})
 
-		It("should reject blank pvc name", func() {
-			export := &exportv1.VirtualMachineExport{
-				Spec: exportv1.VirtualMachineExportSpec{
-					Source: corev1.TypedLocalObjectReference{
-						APIGroup: &apiGroup,
-						Kind:     pvc,
-						Name:     "",
-					},
-				},
+		createBlankPVCObjectRef := func() corev1.TypedLocalObjectReference {
+			return corev1.TypedLocalObjectReference{
+				APIGroup: &apiGroup,
+				Kind:     pvc,
+				Name:     "",
 			}
-			ar := createExportAdmissionReview(export)
-			resp := createTestVMExportAdmitter(config).Admit(ar)
-			Expect(resp.Allowed).To(BeFalse())
-			Expect(resp.Result.Message).Should(ContainSubstring("PVC name must not be empty"))
-		})
+		}
 
-		It("should reject blank snapshot name", func() {
+		createBlankVMSnapshotObjectRef := func() corev1.TypedLocalObjectReference {
+			return corev1.TypedLocalObjectReference{
+				APIGroup: &kubevirtApiGroup,
+				Kind:     vmSnapshotKind,
+				Name:     "",
+			}
+		}
+
+		createBlankVMObjectRef := func() corev1.TypedLocalObjectReference {
+			return corev1.TypedLocalObjectReference{
+				APIGroup: &kubevirtApiGroup,
+				Kind:     vmKind,
+				Name:     "",
+			}
+		}
+
+		DescribeTable("it should reject blank names", func(objectRefFunc func() corev1.TypedLocalObjectReference, errorString string) {
 			export := &exportv1.VirtualMachineExport{
 				Spec: exportv1.VirtualMachineExportSpec{
-					Source: corev1.TypedLocalObjectReference{
-						APIGroup: &kubevirtApiGroup,
-						Kind:     vmSnapshot,
-						Name:     "",
-					},
+					Source: objectRefFunc(),
 				},
 			}
 			ar := createExportAdmissionReview(export)
 			resp := createTestVMExportAdmitter(config).Admit(ar)
 			Expect(resp.Allowed).To(BeFalse())
-			Expect(resp.Result.Message).Should(ContainSubstring("VMSnapshot name must not be empty"))
-		})
+			Expect(resp.Result.Message).Should(ContainSubstring(errorString))
+		},
+			Entry("persistent volume claim", createBlankPVCObjectRef, "PVC name must not be empty"),
+			Entry("virtual machine snapshot", createBlankVMSnapshotObjectRef, "VMSnapshot name must not be empty"),
+			Entry("virtual machine", createBlankVMObjectRef, "Virtual Machine name must not be empty"),
+		)
 
 		It("should reject unknown kind", func() {
 			export := &exportv1.VirtualMachineExport{
@@ -224,7 +232,7 @@ var _ = Describe("Validating VirtualMachineExport Admitter", func() {
 			Expect(resp.Allowed).To(BeTrue())
 		},
 			Entry("persistent volume claim", "v1", pvc),
-			Entry("virtual machine snapshot", kubevirtApiGroup, vmSnapshot),
+			Entry("virtual machine snapshot", kubevirtApiGroup, vmSnapshotKind),
 		)
 
 	})

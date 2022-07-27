@@ -35,8 +35,9 @@ import (
 )
 
 const (
-	pvc        = "PersistentVolumeClaim"
-	vmSnapshot = "VirtualMachineSnapshot"
+	pvc            = "PersistentVolumeClaim"
+	vmSnapshotKind = "VirtualMachineSnapshot"
+	vmKind         = "VirtualMachine"
 )
 
 // VMExportAdmitter validates VirtualMachineExports
@@ -81,8 +82,13 @@ func (admitter *VMExportAdmitter) Admit(ar *admissionv1.AdmissionReview) *admiss
 			if err != nil {
 				return webhookutils.ToAdmissionResponseError(err)
 			}
-		case vmSnapshot:
+		case vmSnapshotKind:
 			causes, err = admitter.validateVMSnapshot(sourceField.Child("name"), ar.Request.Namespace, vmExport.Spec.Source.Name)
+			if err != nil {
+				return webhookutils.ToAdmissionResponseError(err)
+			}
+		case vmKind:
+			causes, err = admitter.validateVM(sourceField.Child("name"), ar.Request.Namespace, vmExport.Spec.Source.Name)
 			if err != nil {
 				return webhookutils.ToAdmissionResponseError(err)
 			}
@@ -146,6 +152,20 @@ func (admitter *VMExportAdmitter) validateVMSnapshot(field *k8sfield.Path, names
 			{
 				Type:    metav1.CauseTypeFieldValueInvalid,
 				Message: "VMSnapshot name must not be empty",
+				Field:   field.String(),
+			},
+		}, nil
+	}
+
+	return []metav1.StatusCause{}, nil
+}
+
+func (admitter *VMExportAdmitter) validateVM(field *k8sfield.Path, namespace, name string) ([]metav1.StatusCause, error) {
+	if name == "" {
+		return []metav1.StatusCause{
+			{
+				Type:    metav1.CauseTypeFieldValueInvalid,
+				Message: "Virtual Machine name must not be empty",
 				Field:   field.String(),
 			},
 		}, nil
