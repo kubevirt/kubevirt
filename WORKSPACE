@@ -1418,6 +1418,12 @@ rpm(
 )
 
 rpm(
+    name = "glibc-langpack-ff-0__2.28-207.el8.x86_64",
+    sha256 = "b4dfdbcb03399c9371ad94b29a6a82b8451e0cdbb3497b260bddbdaad021982d",
+    urls = ["http://mirror.centos.org/centos/8-stream/BaseOS/x86_64/os/Packages/glibc-langpack-ff-2.28-207.el8.x86_64.rpm"],
+)
+
+rpm(
     name = "glibc-minimal-langpack-0__2.28-207.el8.aarch64",
     sha256 = "58e10dfcd6a1019993e42ae8edc735e18f7a7465b8162669bf7f6c6a7e5dc8d2",
     urls = ["http://mirror.centos.org/centos/8-stream/BaseOS/aarch64/os/Packages/glibc-minimal-langpack-2.28-207.el8.aarch64.rpm"],
@@ -4283,6 +4289,12 @@ rpm(
 )
 
 rpm(
+    name = "qemu-kvm-common-15__6.2.0-12.module_el8.7.0__plus__1140__plus__ff0772f9.x86_64",
+    sha256 = "f89193f15a202b47b6dcd690b4d1d738b7989130ac7121575ccc85dd3778fb0d",
+    urls = ["http://mirror.centos.org/centos/8-stream/AppStream/x86_64/os/Packages/qemu-kvm-common-6.2.0-12.module_el8.7.0+1140+ff0772f9.x86_64.rpm"],
+)
+
+rpm(
     name = "qemu-kvm-common-15__6.2.0-5.module_el8.6.0__plus__1087__plus__b42c8331.aarch64",
     sha256 = "e51be1ba77f9e5436483e748bea7dd141c26f5557764cbebbece8f175034a2ab",
     urls = [
@@ -4418,12 +4430,24 @@ rpm(
 )
 
 rpm(
+    name = "seabios-bin-0__1.16.0-1.module_el8.7.0__plus__1140__plus__ff0772f9.x86_64",
+    sha256 = "0ee459f8fdd240fa6dd0f3e6267a029e25de76a8db653142f4e743f277a61b63",
+    urls = ["http://mirror.centos.org/centos/8-stream/AppStream/x86_64/os/Packages/seabios-bin-1.16.0-1.module_el8.7.0+1140+ff0772f9.noarch.rpm"],
+)
+
+rpm(
     name = "seavgabios-bin-0__1.15.0-1.module_el8.6.0__plus__1087__plus__b42c8331.x86_64",
     sha256 = "34d9c5e00e88a00e8be874470dc2f1460f7957335fd0081936e8a17fcf66605c",
     urls = [
         "http://mirror.centos.org/centos/8-stream/AppStream/x86_64/os/Packages/seavgabios-bin-1.15.0-1.module_el8.6.0+1087+b42c8331.noarch.rpm",
         "https://storage.googleapis.com/builddeps/34d9c5e00e88a00e8be874470dc2f1460f7957335fd0081936e8a17fcf66605c",
     ],
+)
+
+rpm(
+    name = "seavgabios-bin-0__1.16.0-1.module_el8.7.0__plus__1140__plus__ff0772f9.x86_64",
+    sha256 = "08eb22aa0c5344d5ee42b1c1b6b0fefb3a28dcf83a2cd69b9a181ba0076fd6ed",
+    urls = ["http://mirror.centos.org/centos/8-stream/AppStream/x86_64/os/Packages/seavgabios-bin-1.16.0-1.module_el8.7.0+1140+ff0772f9.noarch.rpm"],
 )
 
 rpm(
