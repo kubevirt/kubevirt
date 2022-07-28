@@ -10,6 +10,7 @@
 | Integration | minikube | 2020 | [link](https://minikube.sigs.k8s.io) | |
 | Integration | oVirt | 2020 | [link](https://www.ovirt.org/documentation/administration_guide/index.html#proc-adding-kubevirt-openshift-as-an-external-provider_external_providers) | oVirt can view and manage VMs that are running on a KubeVirt cluster. |
 | Integration | okd | 2020 | [link](https://www.okd.io) | [OKD Virtualization](https://docs.okd.io/latest/virt/about-virt.html) adds KubeVirt functionality to OKD. |
+| Integration | osbuild-operator | 2022 | [link](https://github.com/project-flotta/osbuild-operator) | OSBuild-Operator uses KubeVirt to provision its internal worker VMs. |
 | Vendor | EQUINIX | | [link](https://metal.equinix.com/) | |
 | Vendor | H3C | 2019 | [link](https://www.h3c.com/en/Products_Technology/Enterprise_Products/Cloud_Computing/Cloud_Computing_Products/H3C_CloudOS/H3C_CloudOS_full-stack/) | We distribute KubeVirt as part of CloudOS to enable VM workloads on Kubernetes at customer sites. |
 | Vendor | KUBERMATIC | 2019 | [link](https://www.kubermatic.com/products/kubevirt/) | As a distributor we are running KubeVirt to enable VM workload on Kubermatic Virtualization. |
