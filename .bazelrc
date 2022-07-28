@@ -4,10 +4,10 @@ try-import .bazeldnf/sandbox.bazelrc
 try-import user.bazelrc
 
 # Set common values for all builds (run, test and coverage inherit from build)
-build --action_env=GOPROXY=https://goproxy.io --stamp --workspace_status_command=./hack/print-workspace-status.sh --host_force_python=PY3
+build --action_env=GOPROXY=https://goproxy.cn --stamp --workspace_status_command=./hack/print-workspace-status.sh --host_force_python=PY3
 
 # Bazel has a rule of precedence so we can specify / overwrite architecture specific commands if needed
-build:x86_64 --platforms=@io_bazel_rules_go//go/toolchain:linux_amd64_cgo
+build:x86_64 --action_env=GOPROXY=https://goproxy.cn --platforms=@io_bazel_rules_go//go/toolchain:linux_amd64_cgo
 run:x86_64 --platforms=@io_bazel_rules_go//go/toolchain:linux_amd64_cgo
 test:x86_64 --platforms=@io_bazel_rules_go//go/toolchain:linux_amd64_cgo
 
@@ -19,10 +19,10 @@ build:crossbuild-aarch64 --incompatible_enable_cc_toolchain_resolution --platfor
 run:crossbuild-aarch64  --incompatible_enable_cc_toolchain_resolution --platforms=//bazel/platforms:aarch64-none-linux-gnu --platforms=@io_bazel_rules_go//go/toolchain:linux_arm64_cgo
 test:crossbuild-aarch64 --platforms=@io_bazel_rules_go//go/toolchain:linux_arm64_cgo --host_javabase=@local_jdk//:jdk
 
-build --define gotags=selinux
+build --action_env=GOPROXY=https://goproxy.cn --define gotags=selinux
 
 # let our unit tests produce our own junit reports
-test --action_env=GOPROXY=https://goproxy.io --action_env=GO_TEST_WRAP=0
+test --action_env=GOPROXY=https://goproxy.cn --action_env=GO_TEST_WRAP=0
 
 test --test_tag_filters=-cov
 coverage --test_tag_filters=-nocov

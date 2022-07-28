@@ -319,6 +319,7 @@ func (Disk) SwaggerDoc() map[string]string {
 		"blockSize":         "If specified, the virtual disk will be presented with the given block sizes.\n+optional",
 		"ioTune":            "If specified, will set the disk qos\n+optional",
 		"shareable":         "If specified the disk is made sharable and multiple write from different VMs are permitted\n+optional",
+		"errorPolicy":       "If specified, error_policy will be provided to the guest via config drive metadata\n+optional",
 	}
 }
 

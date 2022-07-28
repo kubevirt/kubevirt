@@ -5000,6 +5000,10 @@ var CRDsValidation map[string]string = map[string]string{
                                     description: ReadOnly. Defaults to false.
                                     type: boolean
                                 type: object
+                              errorPolicy:
+                                description: If specified, error_policy will be provided
+                                  to the guest via config drive metadata
+                                type: string
                               io:
                                 description: 'IO specifies which QEMU disk IO mode
                                   should be used. Supported values are: native, default,
@@ -6652,6 +6656,10 @@ var CRDsValidation map[string]string = map[string]string{
                             description: ReadOnly. Defaults to false.
                             type: boolean
                         type: object
+                      errorPolicy:
+                        description: If specified, error_policy will be provided to
+                          the guest via config drive metadata
+                        type: string
                       io:
                         description: 'IO specifies which QEMU disk IO mode should
                           be used. Supported values are: native, default, threads.'
@@ -8332,6 +8340,10 @@ var CRDsValidation map[string]string = map[string]string{
                             description: ReadOnly. Defaults to false.
                             type: boolean
                         type: object
+                      errorPolicy:
+                        description: If specified, error_policy will be provided to
+                          the guest via config drive metadata
+                        type: string
                       io:
                         description: 'IO specifies which QEMU disk IO mode should
                           be used. Supported values are: native, default, threads.'
@@ -10481,6 +10493,10 @@ var CRDsValidation map[string]string = map[string]string{
                             description: ReadOnly. Defaults to false.
                             type: boolean
                         type: object
+                      errorPolicy:
+                        description: If specified, error_policy will be provided to
+                          the guest via config drive metadata
+                        type: string
                       io:
                         description: 'IO specifies which QEMU disk IO mode should
                           be used. Supported values are: native, default, threads.'
@@ -12585,6 +12601,10 @@ var CRDsValidation map[string]string = map[string]string{
                                     description: ReadOnly. Defaults to false.
                                     type: boolean
                                 type: object
+                              errorPolicy:
+                                description: If specified, error_policy will be provided
+                                  to the guest via config drive metadata
+                                type: string
                               io:
                                 description: 'IO specifies which QEMU disk IO mode
                                   should be used. Supported values are: native, default,
@@ -16226,6 +16246,11 @@ var CRDsValidation map[string]string = map[string]string{
                                             description: ReadOnly. Defaults to false.
                                             type: boolean
                                         type: object
+                                      errorPolicy:
+                                        description: If specified, error_policy will
+                                          be provided to the guest via config drive
+                                          metadata
+                                        type: string
                                       io:
                                         description: 'IO specifies which QEMU disk
                                           IO mode should be used. Supported values
@@ -20247,6 +20272,11 @@ var CRDsValidation map[string]string = map[string]string{
                                                   false.
                                                 type: boolean
                                             type: object
+                                          errorPolicy:
+                                            description: If specified, error_policy
+                                              will be provided to the guest via config
+                                              drive metadata
+                                            type: string
                                           io:
                                             description: 'IO specifies which QEMU
                                               disk IO mode should be used. Supported
@@ -22054,6 +22084,10 @@ var CRDsValidation map[string]string = map[string]string{
                                         description: ReadOnly. Defaults to false.
                                         type: boolean
                                     type: object
+                                  errorPolicy:
+                                    description: If specified, error_policy will be
+                                      provided to the guest via config drive metadata
+                                    type: string
                                   io:
                                     description: 'IO specifies which QEMU disk IO
                                       mode should be used. Supported values are: native,

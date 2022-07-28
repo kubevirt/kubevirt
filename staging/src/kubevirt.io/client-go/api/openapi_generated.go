@@ -15559,6 +15559,13 @@ func schema_kubevirtio_api_core_v1_Disk(ref common.ReferenceCallback) common.Ope
 							Format:      "",
 						},
 					},
+					"errorPolicy": {
+						SchemaProps: spec.SchemaProps{
+							Description: "If specified, error_policy will be provided to the guest via config drive metadata",
+							Type:        []string{"string"},
+							Format:      "",
+						},
+					},
 				},
 				Required: []string{"name"},
 			},
