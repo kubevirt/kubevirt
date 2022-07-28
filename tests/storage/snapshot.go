@@ -1200,7 +1200,7 @@ var _ = SIGDescribe("VirtualMachineSnapshot Tests", func() {
 			})
 
 			DescribeTable("should accurately report DataVolume provisioning", func(vmif func(string) *v1.VirtualMachineInstance) {
-				dataVolume := libstorage.NewRandomDataVolumeWithRegistryImportInStorageClass(
+				dataVolume := libstorage.NewDataVolumeWithRegistryImportInStorageClass(
 					cd.DataVolumeImportUrlForContainerDisk(cd.ContainerDiskAlpine),
 					util.NamespaceTestDefault,
 					snapshotStorageClass,
@@ -1296,7 +1296,7 @@ func getSnapshotStorageClass(client kubecli.KubevirtClient) (string, error) {
 }
 
 func AddVolumeAndVerify(virtClient kubecli.KubevirtClient, storageClass string, vm *v1.VirtualMachine, addVMIOnly bool) string {
-	dv := libstorage.NewRandomBlankDataVolume(vm.Namespace, storageClass, "64Mi", corev1.ReadWriteOnce, corev1.PersistentVolumeFilesystem)
+	dv := libstorage.NewBlankDataVolume(vm.Namespace, storageClass, "64Mi", corev1.ReadWriteOnce, corev1.PersistentVolumeFilesystem)
 	_, err := virtClient.CdiClient().CdiV1beta1().DataVolumes(dv.Namespace).Create(context.Background(), dv, metav1.CreateOptions{})
 	Expect(err).ToNot(HaveOccurred())
 	Eventually(ThisDV(dv), 240).Should(HaveSucceeded())

@@ -1508,7 +1508,7 @@ var _ = SIGDescribe("VirtualMachineRestore Tests", func() {
 						Skip("Two storageclasses required for this test")
 					}
 
-					source := libstorage.NewRandomDataVolumeWithRegistryImportInStorageClass(
+					source := libstorage.NewDataVolumeWithRegistryImportInStorageClass(
 						cd.DataVolumeImportUrlForContainerDisk(cd.ContainerDiskCirros),
 						testsuite.NamespaceTestAlternative,
 						sourceSC,
@@ -1568,7 +1568,7 @@ var _ = SIGDescribe("VirtualMachineRestore Tests", func() {
 				}
 
 				createVMFromSource := func() *v1.VirtualMachine {
-					dataVolume := libstorage.NewRandomDataVolumeWithPVCSource(
+					dataVolume := libstorage.NewDataVolumeWithPVCSource(
 						sourceDV.Namespace,
 						sourceDV.Name,
 						util.NamespaceTestDefault,
