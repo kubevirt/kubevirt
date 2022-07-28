@@ -138,17 +138,17 @@ var _ = SIGDescribe("Storage", func() {
 				tests.RemoveSCSIDisk(nodeName, address)
 			})
 
-			It("should pause VMI with error disk on IO error", func() {
+			It("should pause VMI on IO error", func() {
 				By("Creating VMI with faulty disk")
 				vmi := tests.NewRandomVMIWithEphemeralDisk(cd.ContainerDiskFor(cd.ContainerDiskAlpine))
 				vmi = tests.AddPVCDisk(vmi, "pvc-disk", v1.DiskBusVirtio, pvc.Name)
-				_, err := virtClient.VirtualMachineInstance(util.NamespaceTestDefault).Create(vmi)
+				vmi, err := virtClient.VirtualMachineInstance(util.NamespaceTestDefault).Create(vmi)
 				Expect(err).ToNot(HaveOccurred(), failedCreateVMI)
 
 				tests.WaitForSuccessfulVMIStartWithTimeoutIgnoreWarnings(vmi, 180)
 
 				By("Reading from disk")
-				Expect(console.LoginToAlpine(vmi)).To(Succeed())
+				Expect(console.LoginToAlpine(vmi)).To(Succeed(), "Should login")
 				Expect(console.SafeExpectBatch(vmi, []expect.Batcher{
 					&expect.BSnd{S: "\n"},
 					&expect.BExp{R: console.PromptExpression},
@@ -246,7 +246,7 @@ var _ = SIGDescribe("Storage", func() {
 							}
 						}
 						return false
-					}, 100*time.Second, time.Second).Should(BeTrue())
+					}, 100*time.Second, time.Second).Should(BeTrue(), "Should be paused")
 				err = virtClient.VirtualMachineInstance(util.NamespaceTestDefault).Delete(vmi.ObjectMeta.Name, &metav1.DeleteOptions{})
 				Expect(err).ToNot(HaveOccurred(), failedDeleteVMI)
 				tests.WaitForVirtualMachineToDisappearWithTimeout(vmi, 180)
