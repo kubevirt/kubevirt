@@ -89,6 +89,7 @@ func (r *Reconciler) syncDeployment(origDeployment *appsv1.Deployment) (*appsv1.
 	modified := resourcemerge.BoolPtr(false)
 	existingCopy := cachedDeployment.DeepCopy()
 	expectedGeneration := GetExpectedGeneration(deployment, kv.Status.Generations)
+	deployment.Annotations[v1.KubeVirtGenerationAnnotation] = existingCopy.Annotations[v1.KubeVirtGenerationAnnotation]
 
 	resourcemerge.EnsureObjectMeta(modified, &existingCopy.ObjectMeta, deployment.ObjectMeta)
 
@@ -305,6 +306,7 @@ func (r *Reconciler) syncDaemonSet(daemonSet *appsv1.DaemonSet) (bool, error) {
 	modified := resourcemerge.BoolPtr(false)
 	existingCopy := cachedDaemonSet.DeepCopy()
 	expectedGeneration := GetExpectedGeneration(daemonSet, kv.Status.Generations)
+	daemonSet.Annotations[v1.KubeVirtGenerationAnnotation] = existingCopy.Annotations[v1.KubeVirtGenerationAnnotation]
 
 	resourcemerge.EnsureObjectMeta(modified, &existingCopy.ObjectMeta, daemonSet.ObjectMeta)
 	// there was no change to metadata, the generation was right
@@ -374,6 +376,7 @@ func (r *Reconciler) syncPodDisruptionBudgetForDeployment(deployment *appsv1.Dep
 	modified := resourcemerge.BoolPtr(false)
 	existingCopy := cachedPodDisruptionBudget.DeepCopy()
 	expectedGeneration := GetExpectedGeneration(podDisruptionBudget, kv.Status.Generations)
+	podDisruptionBudget.Annotations[v1.KubeVirtGenerationAnnotation] = existingCopy.Annotations[v1.KubeVirtGenerationAnnotation]
 
 	resourcemerge.EnsureObjectMeta(modified, &existingCopy.ObjectMeta, podDisruptionBudget.ObjectMeta)
 	// there was no change to metadata or minAvailable, the generation was right
