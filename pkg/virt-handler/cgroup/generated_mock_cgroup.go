@@ -5,6 +5,7 @@ package cgroup
 
 import (
 	gomock "github.com/golang/mock/gomock"
+	cgroups "github.com/opencontainers/runc/libcontainer/cgroups"
 	configs "github.com/opencontainers/runc/libcontainer/configs"
 )
 
@@ -69,4 +70,161 @@ func (_m *MockManager) GetCpuSet() (string, error) {
 
 func (_mr *_MockManagerRecorder) GetCpuSet() *gomock.Call {
 	return _mr.mock.ctrl.RecordCall(_mr.mock, "GetCpuSet")
+}
+
+// Mock of runcManager interface
+type MockruncManager struct {
+	ctrl     *gomock.Controller
+	recorder *_MockruncManagerRecorder
+}
+
+// Recorder for MockruncManager (not exported)
+type _MockruncManagerRecorder struct {
+	mock *MockruncManager
+}
+
+func NewMockruncManager(ctrl *gomock.Controller) *MockruncManager {
+	mock := &MockruncManager{ctrl: ctrl}
+	mock.recorder = &_MockruncManagerRecorder{mock}
+	return mock
+}
+
+func (_m *MockruncManager) EXPECT() *_MockruncManagerRecorder {
+	return _m.recorder
+}
+
+func (_m *MockruncManager) Apply(pid int) error {
+	ret := _m.ctrl.Call(_m, "Apply", pid)
+	ret0, _ := ret[0].(error)
+	return ret0
+}
+
+func (_mr *_MockruncManagerRecorder) Apply(arg0 interface{}) *gomock.Call {
+	return _mr.mock.ctrl.RecordCall(_mr.mock, "Apply", arg0)
+}
+
+func (_m *MockruncManager) GetPids() ([]int, error) {
+	ret := _m.ctrl.Call(_m, "GetPids")
+	ret0, _ := ret[0].([]int)
+	ret1, _ := ret[1].(error)
+	return ret0, ret1
+}
+
+func (_mr *_MockruncManagerRecorder) GetPids() *gomock.Call {
+	return _mr.mock.ctrl.RecordCall(_mr.mock, "GetPids")
+}
+
+func (_m *MockruncManager) GetAllPids() ([]int, error) {
+	ret := _m.ctrl.Call(_m, "GetAllPids")
+	ret0, _ := ret[0].([]int)
+	ret1, _ := ret[1].(error)
+	return ret0, ret1
+}
+
+func (_mr *_MockruncManagerRecorder) GetAllPids() *gomock.Call {
+	return _mr.mock.ctrl.RecordCall(_mr.mock, "GetAllPids")
+}
+
+func (_m *MockruncManager) GetStats() (*cgroups.Stats, error) {
+	ret := _m.ctrl.Call(_m, "GetStats")
+	ret0, _ := ret[0].(*cgroups.Stats)
+	ret1, _ := ret[1].(error)
+	return ret0, ret1
+}
+
+func (_mr *_MockruncManagerRecorder) GetStats() *gomock.Call {
+	return _mr.mock.ctrl.RecordCall(_mr.mock, "GetStats")
+}
+
+func (_m *MockruncManager) Freeze(state configs.FreezerState) error {
+	ret := _m.ctrl.Call(_m, "Freeze", state)
+	ret0, _ := ret[0].(error)
+	return ret0
+}
+
+func (_mr *_MockruncManagerRecorder) Freeze(arg0 interface{}) *gomock.Call {
+	return _mr.mock.ctrl.RecordCall(_mr.mock, "Freeze", arg0)
+}
+
+func (_m *MockruncManager) Destroy() error {
+	ret := _m.ctrl.Call(_m, "Destroy")
+	ret0, _ := ret[0].(error)
+	return ret0
+}
+
+func (_mr *_MockruncManagerRecorder) Destroy() *gomock.Call {
+	return _mr.mock.ctrl.RecordCall(_mr.mock, "Destroy")
+}
+
+func (_m *MockruncManager) Path(_param0 string) string {
+	ret := _m.ctrl.Call(_m, "Path", _param0)
+	ret0, _ := ret[0].(string)
+	return ret0
+}
+
+func (_mr *_MockruncManagerRecorder) Path(arg0 interface{}) *gomock.Call {
+	return _mr.mock.ctrl.RecordCall(_mr.mock, "Path", arg0)
+}
+
+func (_m *MockruncManager) Set(r *configs.Resources) error {
+	ret := _m.ctrl.Call(_m, "Set", r)
+	ret0, _ := ret[0].(error)
+	return ret0
+}
+
+func (_mr *_MockruncManagerRecorder) Set(arg0 interface{}) *gomock.Call {
+	return _mr.mock.ctrl.RecordCall(_mr.mock, "Set", arg0)
+}
+
+func (_m *MockruncManager) GetPaths() map[string]string {
+	ret := _m.ctrl.Call(_m, "GetPaths")
+	ret0, _ := ret[0].(map[string]string)
+	return ret0
+}
+
+func (_mr *_MockruncManagerRecorder) GetPaths() *gomock.Call {
+	return _mr.mock.ctrl.RecordCall(_mr.mock, "GetPaths")
+}
+
+func (_m *MockruncManager) GetCgroups() (*configs.Cgroup, error) {
+	ret := _m.ctrl.Call(_m, "GetCgroups")
+	ret0, _ := ret[0].(*configs.Cgroup)
+	ret1, _ := ret[1].(error)
+	return ret0, ret1
+}
+
+func (_mr *_MockruncManagerRecorder) GetCgroups() *gomock.Call {
+	return _mr.mock.ctrl.RecordCall(_mr.mock, "GetCgroups")
+}
+
+func (_m *MockruncManager) GetFreezerState() (configs.FreezerState, error) {
+	ret := _m.ctrl.Call(_m, "GetFreezerState")
+	ret0, _ := ret[0].(configs.FreezerState)
+	ret1, _ := ret[1].(error)
+	return ret0, ret1
+}
+
+func (_mr *_MockruncManagerRecorder) GetFreezerState() *gomock.Call {
+	return _mr.mock.ctrl.RecordCall(_mr.mock, "GetFreezerState")
+}
+
+func (_m *MockruncManager) Exists() bool {
+	ret := _m.ctrl.Call(_m, "Exists")
+	ret0, _ := ret[0].(bool)
+	return ret0
+}
+
+func (_mr *_MockruncManagerRecorder) Exists() *gomock.Call {
+	return _mr.mock.ctrl.RecordCall(_mr.mock, "Exists")
+}
+
+func (_m *MockruncManager) OOMKillCount() (uint64, error) {
+	ret := _m.ctrl.Call(_m, "OOMKillCount")
+	ret0, _ := ret[0].(uint64)
+	ret1, _ := ret[1].(error)
+	return ret0, ret1
+}
+
+func (_mr *_MockruncManagerRecorder) OOMKillCount() *gomock.Call {
+	return _mr.mock.ctrl.RecordCall(_mr.mock, "OOMKillCount")
 }

@@ -17,19 +17,23 @@ type v2Manager struct {
 }
 
 func newV2Manager(config *runc_configs.Cgroup, dirPath string) (Manager, error) {
-	return newCustomizedV2Manager(config, dirPath, execVirtChrootCgroups)
+	runcManager, err := runc_fs.NewManager(config, dirPath)
+	if err != nil {
+		return nil, err
+	}
+
+	return newCustomizedV2Manager(runcManager, config.Rootless, execVirtChrootCgroups)
 }
 
-func newCustomizedV2Manager(config *runc_configs.Cgroup, dirPath string, execVirtChroot execVirtChrootFunc) (Manager, error) {
-	runcManager, err := runc_fs.NewManager(config, dirPath)
+func newCustomizedV2Manager(runcManager runc_cgroups.Manager, isRootless bool, execVirtChroot execVirtChrootFunc) (Manager, error) {
 	manager := v2Manager{
 		runcManager,
-		dirPath,
-		config.Rootless,
+		runcManager.GetPaths()[""],
+		isRootless,
 		execVirtChroot,
 	}
 
-	return &manager, err
+	return &manager, nil
 }
 
 func (v *v2Manager) GetBasePathToHostSubsystem(_ string) (string, error) {
