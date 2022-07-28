@@ -101,9 +101,11 @@ func IsMounted(mountPoint *safepath.Path) (isMounted bool, err error) {
 // If error occurs, the first error is returned.
 func (r *RealIsolationResult) AreMounted(mountPoints ...*safepath.Path) (isMounted bool, err error) {
 	for _, mountPoint := range mountPoints {
-		isMounted, err = IsMounted(mountPoint)
-		if !isMounted || err != nil {
-			return
+		if mountPoint != nil {
+			isMounted, err = IsMounted(mountPoint)
+			if !isMounted || err != nil {
+				return
+			}
 		}
 	}
 
