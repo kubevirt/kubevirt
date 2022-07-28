@@ -24,6 +24,10 @@ import (
 	"encoding/json"
 	"fmt"
 
+	virtconfig "kubevirt.io/kubevirt/pkg/virt-config"
+
+	"kubevirt.io/client-go/log"
+
 	appsv1 "k8s.io/api/apps/v1"
 	corev1 "k8s.io/api/core/v1"
 	"k8s.io/utils/pointer"
@@ -37,19 +41,20 @@ import (
 
 	webhookutils "kubevirt.io/kubevirt/pkg/util/webhooks"
 	validating_webhooks "kubevirt.io/kubevirt/pkg/util/webhooks/validating-webhooks"
-	virtconfig "kubevirt.io/kubevirt/pkg/virt-config"
 	"kubevirt.io/kubevirt/pkg/virt-operator/resource/apply"
 )
 
 // KubeVirtUpdateAdmitter validates KubeVirt updates
 type KubeVirtUpdateAdmitter struct {
-	Client kubecli.KubevirtClient
+	Client        kubecli.KubevirtClient
+	ClusterConfig *virtconfig.ClusterConfig
 }
 
 // NewKubeVirtUpdateAdmitter creates a KubeVirtUpdateAdmitter
-func NewKubeVirtUpdateAdmitter(client kubecli.KubevirtClient) *KubeVirtUpdateAdmitter {
+func NewKubeVirtUpdateAdmitter(client kubecli.KubevirtClient, clusterConfig *virtconfig.ClusterConfig) *KubeVirtUpdateAdmitter {
 	return &KubeVirtUpdateAdmitter{
-		Client: client,
+		Client:        client,
+		ClusterConfig: clusterConfig,
 	}
 }
 
@@ -87,11 +92,14 @@ func (admitter *KubeVirtUpdateAdmitter) Admit(ar *admissionv1.AdmissionReview) *
 		results = append(results, validateInfraReplicas(newKV.Spec.Infra.Replicas)...)
 	}
 
-	if len(newKV.Spec.WorkloadUpdateStrategy.WorkloadUpdateMethods) > 0 {
-		results = append(results, validateWorkloadUpdateMethods(&currKV.Spec, &newKV.Spec)...)
+	response := validating_webhooks.NewAdmissionResponse(results)
+
+	if featureGatesChanged(&currKV.Spec, &newKV.Spec) {
+		featureGates := newKV.Spec.Configuration.DeveloperConfiguration.FeatureGates
+		response.Warnings = append(response.Warnings, warnDeprecatedFeatureGates(featureGates, admitter.ClusterConfig)...)
 	}
 
-	return validating_webhooks.NewAdmissionResponse(results)
+	return response
 }
 
 func getAdmissionReviewKubeVirt(ar *admissionv1.AdmissionReview) (new *v1.KubeVirt, old *v1.KubeVirt, err error) {
@@ -316,41 +324,31 @@ func validateInfraReplicas(replicas *uint8) []metav1.StatusCause {
 	return statuses
 }
 
-func validateWorkloadUpdateMethods(oldKVSpec, newKVSpec *v1.KubeVirtSpec) []metav1.StatusCause {
-	statuses := []metav1.StatusCause{}
+func featureGatesChanged(currKVSpec, newKVSpec *v1.KubeVirtSpec) bool {
+	currDevConfig := currKVSpec.Configuration.DeveloperConfiguration
+	newDevConfig := newKVSpec.Configuration.DeveloperConfiguration
 
-	isLiveMigrateMethodEnabled := func(kvSpec *v1.KubeVirtSpec) bool {
-		for _, method := range kvSpec.WorkloadUpdateStrategy.WorkloadUpdateMethods {
-			if method == v1.WorkloadUpdateMethodLiveMigrate {
-				return true
-			}
-		}
+	if (currDevConfig == nil && newDevConfig == nil) || (currDevConfig != nil && newDevConfig == nil) {
 		return false
 	}
 
-	isLiveMigrationFGEnabled := func(kvSpec *v1.KubeVirtSpec) bool {
-		if newKVSpec.Configuration.DeveloperConfiguration != nil {
-			for _, fg := range newKVSpec.Configuration.DeveloperConfiguration.FeatureGates {
-				if fg == virtconfig.LiveMigrationGate {
-					return true
-				}
-			}
+	if currDevConfig == nil && newDevConfig != nil {
+		return len(newDevConfig.FeatureGates) > 0
+	}
+
+	return !equality.Semantic.DeepEqual(currDevConfig.FeatureGates, newDevConfig.FeatureGates)
+}
+
+func warnDeprecatedFeatureGates(featureGates []string, config *virtconfig.ClusterConfig) (warnings []string) {
+	for _, featureGate := range featureGates {
+		if config.IsFeatureGateDeprecated(featureGate) {
+			const warningPattern = "feature gate %s is deprecated, therefore it can be safely removed and is redundant. " +
+				"For more info, please look at: https://github.com/kubevirt/kubevirt/blob/main/docs/deprecation.md"
+			warnings = append(warnings, fmt.Sprintf(warningPattern, featureGate))
+
+			log.Log.Warningf(warningPattern, featureGate)
 		}
-		return false
 	}
 
-	// do not return an error if the misconfiguration was already there, otherwise
-	// we risk to block any operation on the KV CR right from the start if the
-	// CR got created this way.
-	if isLiveMigrateMethodEnabled(oldKVSpec) && !isLiveMigrationFGEnabled(oldKVSpec) {
-		return statuses
-	}
-
-	if isLiveMigrateMethodEnabled(newKVSpec) && !isLiveMigrationFGEnabled(newKVSpec) {
-		statuses = append(statuses, metav1.StatusCause{
-			Type:    metav1.CauseTypeFieldValueInvalid,
-			Message: "the LiveMigration feature gate must be enabled to have LiveMigrate as a workload update method",
-		})
-	}
-	return statuses
+	return warnings
 }

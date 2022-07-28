@@ -1485,7 +1485,7 @@ spec:
 
 			// This test should run fine on single-node setups as long as no VM is created pre-update
 			createVMs := true
-			if !checks.HasLiveMigration() || !checks.HasAtLeastTwoNodes() {
+			if !checks.HasAtLeastTwoNodes() {
 				createVMs = false
 			}
 
@@ -1812,7 +1812,7 @@ spec:
 			// This ensures that we can remove kubevirt while workloads are running
 			By("Starting some vmis")
 			var vmis []*v1.VirtualMachineInstance
-			if checks.HasLiveMigration() && checks.HasAtLeastTwoNodes() {
+			if checks.HasAtLeastTwoNodes() {
 				vmis = generateMigratableVMIs(2)
 				startAllVMIs(vmis)
 			}
@@ -1983,7 +1983,7 @@ spec:
 			}
 
 			var vmis []*v1.VirtualMachineInstance
-			if checks.HasLiveMigration() && checks.HasAtLeastTwoNodes() {
+			if checks.HasAtLeastTwoNodes() {
 				vmis = generateMigratableVMIs(2)
 			}
 			vmisNonMigratable := generateNonMigratableVMIs(2)

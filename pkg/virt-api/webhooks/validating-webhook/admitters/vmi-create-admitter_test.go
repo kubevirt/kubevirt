@@ -160,13 +160,6 @@ var _ = Describe("Validating VMICreate Admitter", func() {
 			Entry("migration policy to be set nil", nil),
 		)
 
-		It("should block setting eviction policies if the feature gate is disabled", func() {
-			disableFeatureGates()
-			vmi.Spec.EvictionStrategy = &policyMigrate
-			resp := ValidateVirtualMachineInstanceSpec(k8sfield.NewPath("fake"), &vmi.Spec, config)
-			Expect(resp[0].Message).To(ContainSubstring("LiveMigration feature gate is not enabled"))
-		})
-
 		It("should allow no eviction policy to be set", func() {
 			vmi.Spec.EvictionStrategy = nil
 			resp := ValidateVirtualMachineInstanceSpec(k8sfield.NewPath("fake"), &vmi.Spec, config)

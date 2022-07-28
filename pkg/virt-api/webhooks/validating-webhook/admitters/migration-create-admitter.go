@@ -86,10 +86,6 @@ func (admitter *MigrationCreateAdmitter) Admit(ar *admissionv1.AdmissionReview) 
 		return resp
 	}
 
-	if !admitter.ClusterConfig.LiveMigrationEnabled() {
-		return webhookutils.ToAdmissionResponseError(fmt.Errorf("LiveMigration feature gate is not enabled in kubevirt-config"))
-	}
-
 	causes := ValidateVirtualMachineInstanceMigrationSpec(k8sfield.NewPath("spec"), &migration.Spec)
 	if len(causes) > 0 {
 		return webhookutils.ToAdmissionResponse(causes)

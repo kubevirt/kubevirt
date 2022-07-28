@@ -24,10 +24,6 @@ type PodEvictionAdmitter struct {
 }
 
 func (admitter *PodEvictionAdmitter) Admit(ar *admissionv1.AdmissionReview) *admissionv1.AdmissionResponse {
-	if !admitter.ClusterConfig.LiveMigrationEnabled() {
-		return validating_webhooks.NewPassingAdmissionResponse()
-	}
-
 	launcher, err := admitter.VirtClient.CoreV1().Pods(ar.Request.Namespace).Get(context.Background(), ar.Request.Name, metav1.GetOptions{})
 	if err != nil {
 		return validating_webhooks.NewPassingAdmissionResponse()

@@ -190,36 +190,6 @@ var _ = Describe("Validating MigrationCreate Admitter", func() {
 			Expect(resp.Allowed).To(BeTrue())
 		})
 
-		It("should reject valid Migration spec on create when feature gate isn't enabled", func() {
-			vmi := api.NewMinimalVMI("testvmimigrate1")
-
-			mockVMIClient.EXPECT().Get(vmi.Name, gomock.Any()).Return(vmi, nil).MaxTimes(1)
-
-			migration := v1.VirtualMachineInstanceMigration{
-				ObjectMeta: metav1.ObjectMeta{
-					Namespace: vmi.Namespace,
-				},
-				Spec: v1.VirtualMachineInstanceMigrationSpec{
-					VMIName: "testvmimigrate1",
-				},
-			}
-			migrationBytes, _ := json.Marshal(&migration)
-
-			disableFeatureGates()
-
-			ar := &admissionv1.AdmissionReview{
-				Request: &admissionv1.AdmissionRequest{
-					Resource: webhooks.MigrationGroupVersionResource,
-					Object: runtime.RawExtension{
-						Raw: migrationBytes,
-					},
-				},
-			}
-
-			resp := migrationCreateAdmitter.Admit(ar)
-			Expect(resp.Allowed).To(BeFalse())
-		})
-
 		It("should accept Migration spec on create when previous VMI migration completed", func() {
 			vmi := api.NewMinimalVMI("testmigratevmi4")
 			vmi.Status.MigrationState = &v1.VirtualMachineInstanceMigrationState{
