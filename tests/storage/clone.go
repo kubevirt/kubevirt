@@ -412,7 +412,7 @@ var _ = SIGDescribe("[Serial]VirtualMachineClone Tests", func() {
 				return candidates[0]
 			}
 
-			It("[QUARANTINE] with a simple clone", func() {
+			It("with a simple clone", func() {
 				snapshotStorageClass, err := getSnapshotStorageClass(virtClient)
 				Expect(err).ToNot(HaveOccurred())
 
