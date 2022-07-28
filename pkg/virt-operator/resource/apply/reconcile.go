@@ -140,6 +140,7 @@ func IsUpdating(kv *v1.KubeVirt) bool {
 }
 
 func (r *Reconciler) bumpKubevirtGeneration(objectMeta *metav1.ObjectMeta) {
+	// TODO ihol3: I don't think this is needed.
 	if !IsUpdating(r.kv) {
 		util.UpdateConditionsDeploying(r.kv)
 	}
