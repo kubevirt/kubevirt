@@ -26,6 +26,9 @@ import (
 	"regexp"
 	"strings"
 
+	apimachineryvalidation "k8s.io/apimachinery/pkg/api/validation"
+	unversionedvalidation "k8s.io/apimachinery/pkg/apis/meta/v1/validation"
+
 	admissionv1 "k8s.io/api/admission/v1"
 	k8sv1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/api/resource"
@@ -65,6 +68,11 @@ const (
 var validInterfaceModels = map[string]*struct{}{"e1000": nil, "e1000e": nil, "ne2k_pci": nil, "pcnet": nil, "rtl8139": nil, "virtio": nil}
 var validIOThreadsPolicies = []v1.IOThreadsPolicy{v1.IOThreadsPolicyShared, v1.IOThreadsPolicyAuto}
 var validCPUFeaturePolicies = map[string]*struct{}{"": nil, "force": nil, "require": nil, "optional": nil, "disable": nil, "forbid": nil}
+var ValidateNamespaceName = apimachineryvalidation.ValidateNamespaceName
+var ValidateNodeName = apimachineryvalidation.NameIsDNSSubdomain
+var nodeFieldSelectorValidators = map[string]func(string, bool) []string{
+	metav1.ObjectNameField: ValidateNodeName,
+}
 
 var restriectedVmiLabels = map[string]bool{
 	v1.CreatedByLabel:               true,
@@ -2475,370 +2483,235 @@ func virtioNicRequested(interfaces []v1.Interface) bool {
 	return false
 }
 
+// validateScheduler is function that validate spec.affinity
+// instead of bring in the whole kubernetes lib we simply copy it from kubernetes/pkg/apis/core/validation/validation.go
+// and vendor/k8s.io.apimachinery has to be updated because it's not updated to the latest version of the tag v0.23.5
+// which will leads to missing directory k8s.io/apimachinery/pkg/apis/meta/v1/validation eventually will cause we are unable
+// to copy validateAffinity function from kubernetes/pkg/apis/core/validation/validation.go
 func validateScheduler(field *k8sfield.Path, spec *v1.VirtualMachineInstanceSpec) (causes []metav1.StatusCause) {
 	if spec.Affinity == nil {
 		return
 	}
 
-	affinityField := field.Child("affinity")
-	// validate pod affinity
-	causes = append(causes, validatePodAffinity(affinityField, spec)...)
-	// validate pod anti-affinity
-	causes = append(causes, validatePodAntiAffinity(affinityField, spec)...)
-	// validate node affinity
-	causes = append(causes, validateNodeAffinity(affinityField, spec)...)
-	return
-}
+	errorList := validateAffinity(spec.Affinity, field)
 
-func validatePodAntiAffinity(field *k8sfield.Path, spec *v1.VirtualMachineInstanceSpec) (causes []metav1.StatusCause) {
-	if spec.Affinity.PodAntiAffinity == nil {
-		return
-	}
-
-	podAntiAffinityField := field.Child("podAntiAffinity")
-	// no rule is set at all
-	if len(spec.Affinity.PodAntiAffinity.RequiredDuringSchedulingIgnoredDuringExecution) == 0 && len(spec.Affinity.PodAntiAffinity.PreferredDuringSchedulingIgnoredDuringExecution) == 0 {
+	//convert errorList to []metav1.StatusCause
+	for _, validationErr := range errorList {
 		causes = append(causes, metav1.StatusCause{
-			Type:    metav1.CauseTypeFieldValueRequired,
-			Message: "At least one RequiredDuringSchedulingIgnoredDuringExecution or PreferredDuringSchedulingIgnoredDuringExecution is required",
-			Field:   podAntiAffinityField.String(),
-		})
-		return
-	}
-
-	causes = append(causes, validatePodAffinityTerms(podAntiAffinityField.Child("RequiredDuringSchedulingIgnoredDuringExecution"), spec.Affinity.PodAntiAffinity.RequiredDuringSchedulingIgnoredDuringExecution)...)
-	causes = append(causes, validateWeightedPodAffinityTerms(podAntiAffinityField.Child("PreferredDuringSchedulingIgnoredDuringExecution"), spec.Affinity.PodAntiAffinity.PreferredDuringSchedulingIgnoredDuringExecution)...)
-	return
-}
-
-func validatePodAffinity(field *k8sfield.Path, spec *v1.VirtualMachineInstanceSpec) (causes []metav1.StatusCause) {
-	if spec.Affinity.PodAffinity == nil {
-		return
-	}
-
-	podAffinityField := field.Child("podAffinity")
-	// no rule is set at all
-	if len(spec.Affinity.PodAffinity.RequiredDuringSchedulingIgnoredDuringExecution) == 0 && len(spec.Affinity.PodAffinity.PreferredDuringSchedulingIgnoredDuringExecution) == 0 {
-		causes = append(causes, metav1.StatusCause{
-			Type:    metav1.CauseTypeFieldValueRequired,
-			Message: "At least one RequiredDuringSchedulingIgnoredDuringExecution or PreferredDuringSchedulingIgnoredDuringExecution is required",
-			Field:   podAffinityField.String(),
-		})
-		return
-	}
-
-	causes = append(causes, validatePodAffinityTerms(podAffinityField.Child("RequiredDuringSchedulingIgnoredDuringExecution"), spec.Affinity.PodAffinity.RequiredDuringSchedulingIgnoredDuringExecution)...)
-	causes = append(causes, validateWeightedPodAffinityTerms(podAffinityField.Child("PreferredDuringSchedulingIgnoredDuringExecution"), spec.Affinity.PodAffinity.PreferredDuringSchedulingIgnoredDuringExecution)...)
-
-	return
-}
-
-func validateNodeAffinity(field *k8sfield.Path, spec *v1.VirtualMachineInstanceSpec) (causes []metav1.StatusCause) {
-	if spec.Affinity.NodeAffinity == nil {
-		return
-	}
-
-	nodeAffinityField := field.Child("nodeAffinity")
-
-	if spec.Affinity.NodeAffinity.RequiredDuringSchedulingIgnoredDuringExecution == nil && len(spec.Affinity.NodeAffinity.PreferredDuringSchedulingIgnoredDuringExecution) == 0 {
-		causes = append(causes, metav1.StatusCause{
-			Type:    metav1.CauseTypeFieldValueRequired,
-			Message: "At least one RequiredDuringSchedulingIgnoredDuringExecution or PreferredDuringSchedulingIgnoredDuringExecution is required",
-			Field:   nodeAffinityField.String(),
-		})
-		return
-	}
-
-	causes = append(causes, validateNodeSelector(nodeAffinityField.Child("RequiredDuringSchedulingIgnoredDuringExecution"), spec.Affinity.NodeAffinity.RequiredDuringSchedulingIgnoredDuringExecution)...)
-	causes = append(causes, validatePreferredSchedulingTerms(nodeAffinityField.Child("PreferredDuringSchedulingIgnoredDuringExecution"), spec.Affinity.NodeAffinity.PreferredDuringSchedulingIgnoredDuringExecution)...)
-	return
-}
-
-func validatePodAffinityTerms(field *k8sfield.Path, rules []k8sv1.PodAffinityTerm) (causes []metav1.StatusCause) {
-	if len(rules) == 0 {
-		return
-	}
-
-	for index := range rules {
-		causes = append(causes, validatePodAffinityTerm(field.Index(index), &rules[index])...)
-	}
-
-	return
-}
-
-func validatePodAffinityTerm(field *k8sfield.Path, rule *k8sv1.PodAffinityTerm) (causes []metav1.StatusCause) {
-	if rule == nil {
-		return
-	}
-
-	if rule.TopologyKey == "" {
-		causes = append(causes, metav1.StatusCause{
-			Type:    metav1.CauseTypeFieldValueRequired,
-			Message: "TopologyKey cannot be empty when RequiredDuringSchedulingIgnoredDuringExecution is used",
-			Field:   field.Child("TopologyKey").String(),
+			Type:    metav1.CauseTypeFieldValueInvalid,
+			Message: validationErr.Error(),
+			Field:   validationErr.Field,
 		})
 	}
 
-	// check property LabelSelector
-	causes = append(causes, validateAffinityLabelSelector(field.Child("LabelSelector"), rule.LabelSelector)...)
-
 	return
 }
 
-func validateWeightedPodAffinityTerms(field *k8sfield.Path, rules []k8sv1.WeightedPodAffinityTerm) (causes []metav1.StatusCause) {
-	if len(rules) == 0 {
-		return
+// validateAffinity checks if given affinities are valid
+func validateAffinity(affinity *k8sv1.Affinity, fldPath *k8sfield.Path) k8sfield.ErrorList {
+	allErrs := k8sfield.ErrorList{}
+
+	if affinity != nil {
+		if affinity.NodeAffinity != nil {
+			allErrs = append(allErrs, validateNodeAffinity(affinity.NodeAffinity, fldPath.Child("nodeAffinity"))...)
+		}
+		if affinity.PodAffinity != nil {
+			allErrs = append(allErrs, validatePodAffinity(affinity.PodAffinity, fldPath.Child("podAffinity"))...)
+		}
+		if affinity.PodAntiAffinity != nil {
+			allErrs = append(allErrs, validatePodAntiAffinity(affinity.PodAntiAffinity, fldPath.Child("podAntiAffinity"))...)
+		}
 	}
 
-	for index := range rules {
-		causes = append(causes, validateWeightedPodAffinityTerm(field.Index(index), &rules[index])...)
-	}
-
-	return
+	return allErrs
 }
 
-func validateWeightedPodAffinityTerm(field *k8sfield.Path, rule *k8sv1.WeightedPodAffinityTerm) (causes []metav1.StatusCause) {
-	if rule == nil {
-		return
+// copy from kubernetes/pkg/apis/core/validation/validation.go
+func validateNodeAffinity(na *k8sv1.NodeAffinity, fldPath *k8sfield.Path) k8sfield.ErrorList {
+	allErrs := k8sfield.ErrorList{}
+	// TODO: Uncomment the next three lines once RequiredDuringSchedulingRequiredDuringExecution is implemented.
+	// if na.RequiredDuringSchedulingRequiredDuringExecution != nil {
+	//	allErrs = append(allErrs, ValidateNodeSelector(na.RequiredDuringSchedulingRequiredDuringExecution, fldPath.Child("requiredDuringSchedulingRequiredDuringExecution"))...)
+	// }
+	if na.RequiredDuringSchedulingIgnoredDuringExecution != nil {
+		allErrs = append(allErrs, ValidateNodeSelector(na.RequiredDuringSchedulingIgnoredDuringExecution, fldPath.Child("requiredDuringSchedulingIgnoredDuringExecution"))...)
 	}
-
-	// check weight range 1-100
-	if rule.Weight <= 0 || rule.Weight > 100 {
-		causes = append(causes, metav1.StatusCause{
-			Type:    metav1.CauseTypeFieldValueRequired,
-			Message: "Weight value must be between 1 and 100",
-			Field:   field.Child("Weight").String(),
-		})
+	if len(na.PreferredDuringSchedulingIgnoredDuringExecution) > 0 {
+		allErrs = append(allErrs, ValidatePreferredSchedulingTerms(na.PreferredDuringSchedulingIgnoredDuringExecution, fldPath.Child("preferredDuringSchedulingIgnoredDuringExecution"))...)
 	}
-
-	causes = append(causes, validatePodAffinityTerm(field.Child("PodAffinityTerm"), &rule.PodAffinityTerm)...)
-	return
+	return allErrs
 }
 
-func validatePreferredSchedulingTerms(field *k8sfield.Path, rules []k8sv1.PreferredSchedulingTerm) (causes []metav1.StatusCause) {
-	if len(rules) == 0 {
-		return
-	}
+// ValidatePreferredSchedulingTerms tests that the specified SoftNodeAffinity fields has valid data
+func ValidatePreferredSchedulingTerms(terms []k8sv1.PreferredSchedulingTerm, fldPath *k8sfield.Path) k8sfield.ErrorList {
+	allErrs := k8sfield.ErrorList{}
 
-	for index := range rules {
-		causes = append(causes, validatePreferredSchedulingTerm(field.Index(index), &rules[index])...)
-	}
+	for i, term := range terms {
+		if term.Weight <= 0 || term.Weight > 100 {
+			allErrs = append(allErrs, k8sfield.Invalid(fldPath.Index(i).Child("weight"), term.Weight, "must be in the range 1-100"))
+		}
 
-	return
+		allErrs = append(allErrs, ValidateNodeSelectorTerm(term.Preference, fldPath.Index(i).Child("preference"))...)
+	}
+	return allErrs
 }
 
-func validatePreferredSchedulingTerm(field *k8sfield.Path, rule *k8sv1.PreferredSchedulingTerm) (causes []metav1.StatusCause) {
-	if rule == nil {
-		return nil
+// validatePodAffinity tests that the specified podAffinity fields have valid data
+func validatePodAffinity(podAffinity *k8sv1.PodAffinity, fldPath *k8sfield.Path) k8sfield.ErrorList {
+	allErrs := k8sfield.ErrorList{}
+	// TODO:Uncomment below code once RequiredDuringSchedulingRequiredDuringExecution is implemented.
+	// if podAffinity.RequiredDuringSchedulingRequiredDuringExecution != nil {
+	//	allErrs = append(allErrs, validatePodAffinityTerms(podAffinity.RequiredDuringSchedulingRequiredDuringExecution, false,
+	//		fldPath.Child("requiredDuringSchedulingRequiredDuringExecution"))...)
+	//}
+	if podAffinity.RequiredDuringSchedulingIgnoredDuringExecution != nil {
+		allErrs = append(allErrs, validatePodAffinityTerms(podAffinity.RequiredDuringSchedulingIgnoredDuringExecution,
+			fldPath.Child("requiredDuringSchedulingIgnoredDuringExecution"))...)
 	}
-
-	// check weight range 1-100
-	if rule.Weight <= 0 || rule.Weight > 100 {
-		causes = append(causes, metav1.StatusCause{
-			Type:    metav1.CauseTypeFieldValueRequired,
-			Message: "Weight value must be between 1 and 100",
-			Field:   field.Child("Weight").String(),
-		})
+	if podAffinity.PreferredDuringSchedulingIgnoredDuringExecution != nil {
+		allErrs = append(allErrs, validateWeightedPodAffinityTerms(podAffinity.PreferredDuringSchedulingIgnoredDuringExecution,
+			fldPath.Child("preferredDuringSchedulingIgnoredDuringExecution"))...)
 	}
-
-	causes = append(causes, validateNodeSelectorTerm(field.Child("Preference"), &rule.Preference)...)
-	return
+	return allErrs
 }
 
-func validateNodeSelector(field *k8sfield.Path, rule *k8sv1.NodeSelector) (causes []metav1.StatusCause) {
-	if rule == nil {
-		return
+// validateWeightedPodAffinityTerms tests that the specified weightedPodAffinityTerms fields have valid data
+func validateWeightedPodAffinityTerms(weightedPodAffinityTerms []k8sv1.WeightedPodAffinityTerm, fldPath *k8sfield.Path) k8sfield.ErrorList {
+	allErrs := k8sfield.ErrorList{}
+	for j, weightedTerm := range weightedPodAffinityTerms {
+		if weightedTerm.Weight <= 0 || weightedTerm.Weight > 100 {
+			allErrs = append(allErrs, k8sfield.Invalid(fldPath.Index(j).Child("weight"), weightedTerm.Weight, "must be in the range 1-100"))
+		}
+		allErrs = append(allErrs, validatePodAffinityTerm(weightedTerm.PodAffinityTerm, fldPath.Index(j).Child("podAffinityTerm"))...)
 	}
-
-	causes = append(causes, validateNodeSelectorTerms(field.Child("NodeSelectorTerms"), rule.NodeSelectorTerms)...)
-	return
+	return allErrs
 }
 
-func validateNodeSelectorTerms(field *k8sfield.Path, rules []k8sv1.NodeSelectorTerm) (causes []metav1.StatusCause) {
-	if len(rules) == 0 {
-		return
-	}
+// validatePodAffinityTerm tests that the specified podAffinityTerm fields have valid data
+func validatePodAffinityTerm(podAffinityTerm k8sv1.PodAffinityTerm, fldPath *k8sfield.Path) k8sfield.ErrorList {
+	allErrs := k8sfield.ErrorList{}
 
-	for index := range rules {
-		causes = append(causes, validateNodeSelectorTerm(field.Index(index), &rules[index])...)
-	}
+	allErrs = append(allErrs, unversionedvalidation.ValidateLabelSelector(podAffinityTerm.LabelSelector, fldPath.Child("labelSelector"))...)
+	allErrs = append(allErrs, unversionedvalidation.ValidateLabelSelector(podAffinityTerm.NamespaceSelector, fldPath.Child("namespaceSelector"))...)
 
-	return
+	for _, name := range podAffinityTerm.Namespaces {
+		for _, msg := range ValidateNamespaceName(name, false) {
+			allErrs = append(allErrs, k8sfield.Invalid(fldPath.Child("namespace"), name, msg))
+		}
+	}
+	if len(podAffinityTerm.TopologyKey) == 0 {
+		allErrs = append(allErrs, k8sfield.Required(fldPath.Child("topologyKey"), "can not be empty"))
+	}
+	return append(allErrs, unversionedvalidation.ValidateLabelName(podAffinityTerm.TopologyKey, fldPath.Child("topologyKey"))...)
 }
 
-func validateNodeSelectorTerm(field *k8sfield.Path, rule *k8sv1.NodeSelectorTerm) (causes []metav1.StatusCause) {
-	if rule == nil {
-		return
+// validatePodAntiAffinity tests that the specified podAntiAffinity fields have valid data
+func validatePodAntiAffinity(podAntiAffinity *k8sv1.PodAntiAffinity, fldPath *k8sfield.Path) k8sfield.ErrorList {
+	allErrs := k8sfield.ErrorList{}
+	// TODO:Uncomment below code once RequiredDuringSchedulingRequiredDuringExecution is implemented.
+	// if podAntiAffinity.RequiredDuringSchedulingRequiredDuringExecution != nil {
+	//	allErrs = append(allErrs, validatePodAffinityTerms(podAntiAffinity.RequiredDuringSchedulingRequiredDuringExecution, false,
+	//		fldPath.Child("requiredDuringSchedulingRequiredDuringExecution"))...)
+	//}
+	if podAntiAffinity.RequiredDuringSchedulingIgnoredDuringExecution != nil {
+		allErrs = append(allErrs, validatePodAffinityTerms(podAntiAffinity.RequiredDuringSchedulingIgnoredDuringExecution,
+			fldPath.Child("requiredDuringSchedulingIgnoredDuringExecution"))...)
 	}
-
-	if len(rule.MatchExpressions) == 0 && len(rule.MatchFields) == 0 {
-		causes = append(causes, metav1.StatusCause{
-			Type:    metav1.CauseTypeFieldValueRequired,
-			Message: "At least one MatchExpressions or MatchExpressions is required",
-			Field:   field.String(),
-		})
-		return
+	if podAntiAffinity.PreferredDuringSchedulingIgnoredDuringExecution != nil {
+		allErrs = append(allErrs, validateWeightedPodAffinityTerms(podAntiAffinity.PreferredDuringSchedulingIgnoredDuringExecution,
+			fldPath.Child("preferredDuringSchedulingIgnoredDuringExecution"))...)
 	}
-
-	causes = append(causes, ValidateNodeSelectorRequirements(field.Child("MatchExpressions"), rule.MatchExpressions)...)
-	causes = append(causes, ValidateNodeSelectorRequirements(field.Child("MatchFields"), rule.MatchFields)...)
-	return
+	return allErrs
 }
 
-func ValidateNodeSelectorRequirements(field *k8sfield.Path, rules []k8sv1.NodeSelectorRequirement) (causes []metav1.StatusCause) {
-	if len(rules) == 0 {
-		return
+// ValidateNodeSelector tests that the specified nodeSelector fields has valid data
+func ValidateNodeSelector(nodeSelector *k8sv1.NodeSelector, fldPath *k8sfield.Path) k8sfield.ErrorList {
+	allErrs := k8sfield.ErrorList{}
+
+	termFldPath := fldPath.Child("nodeSelectorTerms")
+	if len(nodeSelector.NodeSelectorTerms) == 0 {
+		return append(allErrs, k8sfield.Required(termFldPath, "must have at least one node selector term"))
 	}
 
-	for index := range rules {
-		causes = append(causes, ValidateNodeSelectorRequirement(field.Index(index), &rules[index])...)
+	for i, term := range nodeSelector.NodeSelectorTerms {
+		allErrs = append(allErrs, ValidateNodeSelectorTerm(term, termFldPath.Index(i))...)
 	}
 
-	return
+	return allErrs
 }
 
-func ValidateNodeSelectorRequirement(field *k8sfield.Path, rule *k8sv1.NodeSelectorRequirement) (causes []metav1.StatusCause) {
-	if rule == nil {
-		return
+// validatePodAffinityTerms tests that the specified podAffinityTerms fields have valid data
+func validatePodAffinityTerms(podAffinityTerms []k8sv1.PodAffinityTerm, fldPath *k8sfield.Path) k8sfield.ErrorList {
+	allErrs := k8sfield.ErrorList{}
+	for i, podAffinityTerm := range podAffinityTerms {
+		allErrs = append(allErrs, validatePodAffinityTerm(podAffinityTerm, fldPath.Index(i))...)
+	}
+	return allErrs
+}
+
+// ValidateNodeSelectorTerm tests that the specified node selector term has valid data
+func ValidateNodeSelectorTerm(term k8sv1.NodeSelectorTerm, fldPath *k8sfield.Path) k8sfield.ErrorList {
+	allErrs := k8sfield.ErrorList{}
+
+	for j, req := range term.MatchExpressions {
+		allErrs = append(allErrs, ValidateNodeSelectorRequirement(req, fldPath.Child("matchExpressions").Index(j))...)
 	}
 
-	// ensure key is set
-	if rule.Key == "" {
-		causes = append(causes, metav1.StatusCause{
-			Type:    metav1.CauseTypeFieldValueRequired,
-			Message: "Key is required",
-			Field:   field.Child("key").String(),
-		})
+	for j, req := range term.MatchFields {
+		allErrs = append(allErrs, ValidateNodeFieldSelectorRequirement(req, fldPath.Child("matchFields").Index(j))...)
 	}
 
-	// check operator is set
-	if rule.Operator == "" {
-		causes = append(causes, metav1.StatusCause{
-			Type:    metav1.CauseTypeFieldValueRequired,
-			Message: "Operator is required",
-			Field:   field.Child("Operator").String(),
-		})
-	} else if rule.Operator == k8sv1.NodeSelectorOpExists {
-		// when operator == Exists then value can be left empty
-		return
+	return allErrs
+}
+
+func ValidateNodeSelectorRequirement(rq k8sv1.NodeSelectorRequirement, fldPath *k8sfield.Path) k8sfield.ErrorList {
+	allErrs := k8sfield.ErrorList{}
+	switch rq.Operator {
+	case k8sv1.NodeSelectorOpIn, k8sv1.NodeSelectorOpNotIn:
+		if len(rq.Values) == 0 {
+			allErrs = append(allErrs, k8sfield.Required(fldPath.Child("values"), "must be specified when `operator` is 'In' or 'NotIn'"))
+		}
+	case k8sv1.NodeSelectorOpExists, k8sv1.NodeSelectorOpDoesNotExist:
+		if len(rq.Values) > 0 {
+			allErrs = append(allErrs, k8sfield.Forbidden(fldPath.Child("values"), "may not be specified when `operator` is 'Exists' or 'DoesNotExist'"))
+		}
+
+	case k8sv1.NodeSelectorOpGt, k8sv1.NodeSelectorOpLt:
+		if len(rq.Values) != 1 {
+			allErrs = append(allErrs, k8sfield.Required(fldPath.Child("values"), "must be specified single value when `operator` is 'Lt' or 'Gt'"))
+		}
+	default:
+		allErrs = append(allErrs, k8sfield.Invalid(fldPath.Child("operator"), rq.Operator, "not a valid selector operator"))
+	}
+
+	allErrs = append(allErrs, unversionedvalidation.ValidateLabelName(rq.Key, fldPath.Child("key"))...)
+
+	return allErrs
+}
+
+// copy from kubernetes/pkg/apis/core/validation/validation.go
+func ValidateNodeFieldSelectorRequirement(req k8sv1.NodeSelectorRequirement, fldPath *k8sfield.Path) k8sfield.ErrorList {
+	allErrs := k8sfield.ErrorList{}
+
+	switch req.Operator {
+	case k8sv1.NodeSelectorOpIn, k8sv1.NodeSelectorOpNotIn:
+		if len(req.Values) != 1 {
+			allErrs = append(allErrs, k8sfield.Required(fldPath.Child("values"),
+				"must be only one value when `operator` is 'In' or 'NotIn' for node field selector"))
+		}
+	default:
+		allErrs = append(allErrs, k8sfield.Invalid(fldPath.Child("operator"), req.Operator, "not a valid selector operator"))
+	}
+
+	if vf, found := nodeFieldSelectorValidators[req.Key]; !found {
+		allErrs = append(allErrs, k8sfield.Invalid(fldPath.Child("key"), req.Key, "not a valid field selector key"))
 	} else {
-		if len(rule.Values) == 0 {
-			causes = append(causes, metav1.StatusCause{
-				Type:    metav1.CauseTypeFieldValueRequired,
-				Message: "Values is required when operator value set to something beside 'Exists'",
-				Field:   field.Child("Values").String(),
-			})
-		} else {
-			for index, val := range rule.Values {
-				if val == "" {
-					causes = append(causes, metav1.StatusCause{
-						Type:    metav1.CauseTypeFieldValueRequired,
-						Message: "Values cannot be empty",
-						Field:   field.Child("Values").Index(index).String(),
-					})
-				}
+		for i, v := range req.Values {
+			for _, msg := range vf(v, false) {
+				allErrs = append(allErrs, k8sfield.Invalid(fldPath.Child("values").Index(i), v, msg))
 			}
 		}
 	}
 
-	return
-}
-
-func validateAffinityLabelSelector(field *k8sfield.Path, labelSelector *metav1.LabelSelector) (causes []metav1.StatusCause) {
-	if labelSelector == nil {
-		causes = append(causes, metav1.StatusCause{
-			Type:    metav1.CauseTypeFieldValueRequired,
-			Message: "LabelSelector cannot be empty when RequiredDuringSchedulingIgnoredDuringExecution is used",
-			Field:   field.String(),
-		})
-		return
-	}
-
-	if len(labelSelector.MatchExpressions) == 0 && len(labelSelector.MatchLabels) == 0 {
-		causes = append(causes, metav1.StatusCause{
-			Type:    metav1.CauseTypeFieldValueRequired,
-			Message: "At least one MatchExpressions or MatchLabels is required",
-			Field:   field.String(),
-		})
-		return
-	}
-
-	causes = append(causes, validateLabelSelectorRequirements(field.Child("MatchExpressions"), labelSelector.MatchExpressions)...)
-	causes = append(causes, validateMatchLabelsMap(field.Child("MatchLabels"), labelSelector.MatchLabels)...)
-	return
-}
-
-func validateLabelSelectorRequirements(field *k8sfield.Path, rules []metav1.LabelSelectorRequirement) (causes []metav1.StatusCause) {
-	if len(rules) == 0 {
-		return
-	}
-
-	for index := range rules {
-		causes = append(causes, validateLabelSelectorRequirement(field.Index(index), &rules[index])...)
-	}
-
-	return
-}
-
-func validateMatchLabelsMap(field *k8sfield.Path, matchLabels map[string]string) (causes []metav1.StatusCause) {
-	if len(matchLabels) == 0 {
-		return
-	}
-
-	for key, value := range matchLabels {
-		if value == "" {
-			causes = append(causes, metav1.StatusCause{
-				Type:    metav1.CauseTypeFieldValueRequired,
-				Message: "Value is required",
-				Field:   field.Key(key).String(),
-			})
-		}
-	}
-
-	return
-}
-
-func validateLabelSelectorRequirement(field *k8sfield.Path, rule *metav1.LabelSelectorRequirement) (causes []metav1.StatusCause) {
-	if rule == nil {
-		return
-	}
-
-	if rule.Key == "" {
-		causes = append(causes, metav1.StatusCause{
-			Type:    metav1.CauseTypeFieldValueRequired,
-			Message: "Key is required",
-			Field:   field.Child("key").String(),
-		})
-	}
-
-	if rule.Operator == "" {
-		causes = append(causes, metav1.StatusCause{
-			Type:    metav1.CauseTypeFieldValueRequired,
-			Message: "Operator is required",
-			Field:   field.Child("Operator").String(),
-		})
-	} else if rule.Operator == metav1.LabelSelectorOpExists {
-		// when operator == Exists then value can be left empty
-		return
-	} else {
-		if len(rule.Values) == 0 {
-			causes = append(causes, metav1.StatusCause{
-				Type:    metav1.CauseTypeFieldValueRequired,
-				Message: "Values is required when operator value set to something beside 'Exists'",
-				Field:   field.Child("Values").String(),
-			})
-		} else {
-			for index, val := range rule.Values {
-				if val == "" {
-					causes = append(causes, metav1.StatusCause{
-						Type:    metav1.CauseTypeFieldValueRequired,
-						Message: "Values cannot be empty",
-						Field:   field.Child("Values").Index(index).String(),
-					})
-				}
-			}
-		}
-	}
-
-	return
+	return allErrs
 }

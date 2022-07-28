@@ -3743,7 +3743,7 @@ var _ = Describe("Validating VMICreate Admitter", func() {
 			Expect(resp.Allowed).To(BeTrue())
 		})
 
-		It("(PodAffinity)Should reject when scheduler validation failed due to both RequiredDuringSchedulingIgnoredDuringExecution and PreferredDuringSchedulingIgnoredDuringExecution are set to empty", func() {
+		It("(PodAffinity)Allowed PreferredDuringSchedulingIgnoredDuringExecution and RequiredDuringSchedulingIgnoredDuringExecution both are not set", func() {
 			vmi.Spec.Affinity.PodAffinity = &k8sv1.PodAffinity{
 				PreferredDuringSchedulingIgnoredDuringExecution: nil,
 				RequiredDuringSchedulingIgnoredDuringExecution:  nil,
@@ -3760,10 +3760,7 @@ var _ = Describe("Validating VMICreate Admitter", func() {
 			}
 
 			resp := vmiCreateAdmitter.Admit(ar)
-			Expect(resp.Allowed).To(BeFalse())
-			Expect(resp.Result.Details.Causes).To(HaveLen(1))
-			Expect(resp.Result.Details.Causes[0].Field).To(Equal("spec.affinity.podAffinity"))
-			Expect(resp.Result.Details.Causes[0].Message).To(Equal("At least one RequiredDuringSchedulingIgnoredDuringExecution or PreferredDuringSchedulingIgnoredDuringExecution is required"))
+			Expect(resp.Allowed).To(BeTrue())
 		})
 
 		It("(PodAffinity)Should reject when scheduler validation failed due to TopologyKey is set to empty", func() {
@@ -3774,8 +3771,7 @@ var _ = Describe("Validating VMICreate Admitter", func() {
 							MatchExpressions: []metav1.LabelSelectorRequirement{
 								{
 									Key:      "key1",
-									Operator: "Exits",
-									Values:   []string{"value1"},
+									Operator: metav1.LabelSelectorOpExists,
 								},
 							},
 						},
@@ -3796,12 +3792,16 @@ var _ = Describe("Validating VMICreate Admitter", func() {
 
 			resp := vmiCreateAdmitter.Admit(ar)
 			Expect(resp.Allowed).To(BeFalse())
-			Expect(resp.Result.Details.Causes).To(HaveLen(1))
-			Expect(resp.Result.Details.Causes[0].Field).To(Equal("spec.affinity.podAffinity.RequiredDuringSchedulingIgnoredDuringExecution[0].TopologyKey"))
-			Expect(resp.Result.Details.Causes[0].Message).To(Equal("TopologyKey cannot be empty when RequiredDuringSchedulingIgnoredDuringExecution is used"))
+			Expect(resp.Result.Details.Causes).To(HaveLen(3))
+			Expect(resp.Result.Details.Causes[0].Field).To(Equal("spec.podAffinity.requiredDuringSchedulingIgnoredDuringExecution[0].topologyKey"))
+			Expect(resp.Result.Details.Causes[0].Message).To(Equal("spec.podAffinity.requiredDuringSchedulingIgnoredDuringExecution[0].topologyKey: Required value: can not be empty"))
+			Expect(resp.Result.Details.Causes[1].Field).To(Equal("spec.podAffinity.requiredDuringSchedulingIgnoredDuringExecution[0].topologyKey"))
+			Expect(resp.Result.Details.Causes[1].Message).To(Equal("spec.podAffinity.requiredDuringSchedulingIgnoredDuringExecution[0].topologyKey: Invalid value: \"\": name part must be non-empty"))
+			Expect(resp.Result.Details.Causes[2].Field).To(Equal("spec.podAffinity.requiredDuringSchedulingIgnoredDuringExecution[0].topologyKey"))
+			Expect(resp.Result.Details.Causes[2].Message).To(Equal("spec.podAffinity.requiredDuringSchedulingIgnoredDuringExecution[0].topologyKey: Invalid value: \"\": name part must consist of alphanumeric characters, '-', '_' or '.', and must start and end with an alphanumeric character (e.g. 'MyName',  or 'my.name',  or '123-abc', regex used for validation is '([A-Za-z0-9][-A-Za-z0-9_.]*)?[A-Za-z0-9]')"))
 		})
 
-		It("(PodAffinity)Should reject when scheduler validation failed due to first element of Values slice is set empty", func() {
+		It("(PodAffinity)Should reject when scheduler validation failed due to first element of Values slice is set to empty as well as TopologyKey", func() {
 			vmi.Spec.Affinity.PodAffinity = &k8sv1.PodAffinity{
 				RequiredDuringSchedulingIgnoredDuringExecution: []k8sv1.PodAffinityTerm{
 					{
@@ -3809,7 +3809,7 @@ var _ = Describe("Validating VMICreate Admitter", func() {
 							MatchExpressions: []metav1.LabelSelectorRequirement{
 								{
 									Key:      "key1",
-									Operator: "Exits",
+									Operator: metav1.LabelSelectorOpIn,
 									Values:   []string{""},
 								},
 							},
@@ -3831,14 +3831,16 @@ var _ = Describe("Validating VMICreate Admitter", func() {
 
 			resp := vmiCreateAdmitter.Admit(ar)
 			Expect(resp.Allowed).To(BeFalse())
-			Expect(resp.Result.Details.Causes).To(HaveLen(2))
-			Expect(resp.Result.Details.Causes[0].Field).To(Equal("spec.affinity.podAffinity.RequiredDuringSchedulingIgnoredDuringExecution[0].TopologyKey"))
-			Expect(resp.Result.Details.Causes[0].Message).To(Equal("TopologyKey cannot be empty when RequiredDuringSchedulingIgnoredDuringExecution is used"))
-			Expect(resp.Result.Details.Causes[1].Field).To(Equal("spec.affinity.podAffinity.RequiredDuringSchedulingIgnoredDuringExecution[0].LabelSelector.MatchExpressions[0].Values[0]"))
-			Expect(resp.Result.Details.Causes[1].Message).To(Equal("Values cannot be empty"))
+			Expect(resp.Result.Details.Causes).To(HaveLen(3))
+			Expect(resp.Result.Details.Causes[0].Field).To(Equal("spec.podAffinity.requiredDuringSchedulingIgnoredDuringExecution[0].topologyKey"))
+			Expect(resp.Result.Details.Causes[0].Message).To(Equal("spec.podAffinity.requiredDuringSchedulingIgnoredDuringExecution[0].topologyKey: Required value: can not be empty"))
+			Expect(resp.Result.Details.Causes[1].Field).To(Equal("spec.podAffinity.requiredDuringSchedulingIgnoredDuringExecution[0].topologyKey"))
+			Expect(resp.Result.Details.Causes[1].Message).To(Equal("spec.podAffinity.requiredDuringSchedulingIgnoredDuringExecution[0].topologyKey: Invalid value: \"\": name part must be non-empty"))
+			Expect(resp.Result.Details.Causes[2].Field).To(Equal("spec.podAffinity.requiredDuringSchedulingIgnoredDuringExecution[0].topologyKey"))
+			Expect(resp.Result.Details.Causes[2].Message).To(Equal("spec.podAffinity.requiredDuringSchedulingIgnoredDuringExecution[0].topologyKey: Invalid value: \"\": name part must consist of alphanumeric characters, '-', '_' or '.', and must start and end with an alphanumeric character (e.g. 'MyName',  or 'my.name',  or '123-abc', regex used for validation is '([A-Za-z0-9][-A-Za-z0-9_.]*)?[A-Za-z0-9]')"))
 		})
 
-		It("(PodAffinity)Should reject when scheduler validation failed due to values of MatchExpressions is set to empty", func() {
+		It("(PodAffinity)Should reject when scheduler validation failed due to values of MatchExpressions is set to empty and TopologyKey value is not valid", func() {
 			vmi.Spec.Affinity.PodAffinity = &k8sv1.PodAffinity{
 				RequiredDuringSchedulingIgnoredDuringExecution: []k8sv1.PodAffinityTerm{
 					{
@@ -3846,7 +3848,7 @@ var _ = Describe("Validating VMICreate Admitter", func() {
 							MatchExpressions: []metav1.LabelSelectorRequirement{
 								{
 									Key:      "key1",
-									Operator: "Exits",
+									Operator: metav1.LabelSelectorOpIn,
 									Values:   nil,
 								},
 							},
@@ -3868,9 +3870,11 @@ var _ = Describe("Validating VMICreate Admitter", func() {
 
 			resp := vmiCreateAdmitter.Admit(ar)
 			Expect(resp.Allowed).To(BeFalse())
-			Expect(resp.Result.Details.Causes).To(HaveLen(1))
-			Expect(resp.Result.Details.Causes[0].Field).To(Equal("spec.affinity.podAffinity.RequiredDuringSchedulingIgnoredDuringExecution[0].LabelSelector.MatchExpressions[0].Values"))
-			Expect(resp.Result.Details.Causes[0].Message).To(Equal("Values is required when operator value set to something beside 'Exists'"))
+			Expect(resp.Result.Details.Causes).To(HaveLen(2))
+			Expect(resp.Result.Details.Causes[0].Field).To(Equal("spec.podAffinity.requiredDuringSchedulingIgnoredDuringExecution[0].labelSelector.matchExpressions[0].values"))
+			Expect(resp.Result.Details.Causes[0].Message).To(Equal("spec.podAffinity.requiredDuringSchedulingIgnoredDuringExecution[0].labelSelector.matchExpressions[0].values: Required value: must be specified when `operator` is 'In' or 'NotIn'"))
+			Expect(resp.Result.Details.Causes[1].Field).To(Equal("spec.podAffinity.requiredDuringSchedulingIgnoredDuringExecution[0].topologyKey"))
+			Expect(resp.Result.Details.Causes[1].Message).To(Equal("spec.podAffinity.requiredDuringSchedulingIgnoredDuringExecution[0].topologyKey: Invalid value: \"hostname=host1\": name part must consist of alphanumeric characters, '-', '_' or '.', and must start and end with an alphanumeric character (e.g. 'MyName',  or 'my.name',  or '123-abc', regex used for validation is '([A-Za-z0-9][-A-Za-z0-9_.]*)?[A-Za-z0-9]')"))
 		})
 
 		It("(PodAffinity)Should reject when scheduler validation failed due to values of MatchExpressions and TopologyKey are both set to empty", func() {
@@ -3881,7 +3885,7 @@ var _ = Describe("Validating VMICreate Admitter", func() {
 							MatchExpressions: []metav1.LabelSelectorRequirement{
 								{
 									Key:      "key1",
-									Operator: "Exits",
+									Operator: metav1.LabelSelectorOpIn,
 									Values:   nil,
 								},
 							},
@@ -3903,9 +3907,15 @@ var _ = Describe("Validating VMICreate Admitter", func() {
 
 			resp := vmiCreateAdmitter.Admit(ar)
 			Expect(resp.Allowed).To(BeFalse())
-			Expect(resp.Result.Details.Causes).To(HaveLen(2))
-			Expect(resp.Result.Details.Causes[0].Field).To(Equal("spec.affinity.podAffinity.RequiredDuringSchedulingIgnoredDuringExecution[0].TopologyKey"))
-			Expect(resp.Result.Details.Causes[1].Field).To(Equal("spec.affinity.podAffinity.RequiredDuringSchedulingIgnoredDuringExecution[0].LabelSelector.MatchExpressions[0].Values"))
+			Expect(resp.Result.Details.Causes).To(HaveLen(4))
+			Expect(resp.Result.Details.Causes[0].Field).To(Equal("spec.podAffinity.requiredDuringSchedulingIgnoredDuringExecution[0].labelSelector.matchExpressions[0].values"))
+			Expect(resp.Result.Details.Causes[0].Message).To(Equal("spec.podAffinity.requiredDuringSchedulingIgnoredDuringExecution[0].labelSelector.matchExpressions[0].values: Required value: must be specified when `operator` is 'In' or 'NotIn'"))
+			Expect(resp.Result.Details.Causes[1].Field).To(Equal("spec.podAffinity.requiredDuringSchedulingIgnoredDuringExecution[0].topologyKey"))
+			Expect(resp.Result.Details.Causes[1].Message).To(Equal("spec.podAffinity.requiredDuringSchedulingIgnoredDuringExecution[0].topologyKey: Required value: can not be empty"))
+			Expect(resp.Result.Details.Causes[2].Field).To(Equal("spec.podAffinity.requiredDuringSchedulingIgnoredDuringExecution[0].topologyKey"))
+			Expect(resp.Result.Details.Causes[2].Message).To(Equal("spec.podAffinity.requiredDuringSchedulingIgnoredDuringExecution[0].topologyKey: Invalid value: \"\": name part must be non-empty"))
+			Expect(resp.Result.Details.Causes[3].Field).To(Equal("spec.podAffinity.requiredDuringSchedulingIgnoredDuringExecution[0].topologyKey"))
+			Expect(resp.Result.Details.Causes[3].Message).To(Equal("spec.podAffinity.requiredDuringSchedulingIgnoredDuringExecution[0].topologyKey: Invalid value: \"\": name part must consist of alphanumeric characters, '-', '_' or '.', and must start and end with an alphanumeric character (e.g. 'MyName',  or 'my.name',  or '123-abc', regex used for validation is '([A-Za-z0-9][-A-Za-z0-9_.]*)?[A-Za-z0-9]')"))
 		})
 
 		It("(PodAffinity)Should reject when scheduler validation failed due to value of weight is not valid", func() {
@@ -3933,14 +3943,12 @@ var _ = Describe("Validating VMICreate Admitter", func() {
 
 			resp := vmiCreateAdmitter.Admit(ar)
 			Expect(resp.Allowed).To(BeFalse())
-			Expect(resp.Result.Details.Causes).To(HaveLen(2))
-			Expect(resp.Result.Details.Causes[0].Field).To(Equal("spec.affinity.podAffinity.PreferredDuringSchedulingIgnoredDuringExecution[0].Weight"))
-			Expect(resp.Result.Details.Causes[0].Message).To(Equal("Weight value must be between 1 and 100"))
-			Expect(resp.Result.Details.Causes[1].Field).To(Equal("spec.affinity.podAffinity.PreferredDuringSchedulingIgnoredDuringExecution[0].PodAffinityTerm.LabelSelector"))
-			Expect(resp.Result.Details.Causes[1].Message).To(Equal("LabelSelector cannot be empty when RequiredDuringSchedulingIgnoredDuringExecution is used"))
+			Expect(resp.Result.Details.Causes).To(HaveLen(1))
+			Expect(resp.Result.Details.Causes[0].Field).To(Equal("spec.podAffinity.preferredDuringSchedulingIgnoredDuringExecution[0].weight"))
+			Expect(resp.Result.Details.Causes[0].Message).To(Equal("spec.podAffinity.preferredDuringSchedulingIgnoredDuringExecution[0].weight: Invalid value: 255: must be in the range 1-100"))
 		})
 
-		It("(PodAntiAffinity)Should reject when scheduler validation failed due to both RequiredDuringSchedulingIgnoredDuringExecution and PreferredDuringSchedulingIgnoredDuringExecution are set to empty", func() {
+		It("(PodAntiAffinity)Allowed both RequiredDuringSchedulingIgnoredDuringExecution and PreferredDuringSchedulingIgnoredDuringExecution are set to empty", func() {
 			vmi.Spec.Affinity.PodAntiAffinity = &k8sv1.PodAntiAffinity{
 				PreferredDuringSchedulingIgnoredDuringExecution: nil,
 				RequiredDuringSchedulingIgnoredDuringExecution:  nil,
@@ -3957,13 +3965,10 @@ var _ = Describe("Validating VMICreate Admitter", func() {
 			}
 
 			resp := vmiCreateAdmitter.Admit(ar)
-			Expect(resp.Allowed).To(BeFalse())
-			Expect(resp.Result.Details.Causes).To(HaveLen(1))
-			Expect(resp.Result.Details.Causes[0].Field).To(Equal("spec.affinity.podAntiAffinity"))
-			Expect(resp.Result.Details.Causes[0].Message).To(Equal("At least one RequiredDuringSchedulingIgnoredDuringExecution or PreferredDuringSchedulingIgnoredDuringExecution is required"))
+			Expect(resp.Allowed).To(BeTrue())
 		})
 
-		It("(PodAntiAffinity)Should reject when scheduler validation failed due to first element of Values slice is set empty", func() {
+		It("(PodAntiAffinity)Should reject when scheduler validation failed due to TopologyKey is empty", func() {
 			vmi.Spec.Affinity.PodAntiAffinity = &k8sv1.PodAntiAffinity{
 				RequiredDuringSchedulingIgnoredDuringExecution: []k8sv1.PodAffinityTerm{
 					{
@@ -3971,7 +3976,7 @@ var _ = Describe("Validating VMICreate Admitter", func() {
 							MatchExpressions: []metav1.LabelSelectorRequirement{
 								{
 									Key:      "key1",
-									Operator: "Exits",
+									Operator: metav1.LabelSelectorOpIn,
 									Values:   []string{""},
 								},
 							},
@@ -3993,46 +3998,13 @@ var _ = Describe("Validating VMICreate Admitter", func() {
 
 			resp := vmiCreateAdmitter.Admit(ar)
 			Expect(resp.Allowed).To(BeFalse())
-			Expect(resp.Result.Details.Causes).To(HaveLen(2))
-			Expect(resp.Result.Details.Causes[0].Field).To(Equal("spec.affinity.podAntiAffinity.RequiredDuringSchedulingIgnoredDuringExecution[0].TopologyKey"))
-			Expect(resp.Result.Details.Causes[0].Message).To(Equal("TopologyKey cannot be empty when RequiredDuringSchedulingIgnoredDuringExecution is used"))
-			Expect(resp.Result.Details.Causes[1].Field).To(Equal("spec.affinity.podAntiAffinity.RequiredDuringSchedulingIgnoredDuringExecution[0].LabelSelector.MatchExpressions[0].Values[0]"))
-			Expect(resp.Result.Details.Causes[1].Message).To(Equal("Values cannot be empty"))
-		})
-
-		It("(PodAntiAffinity)Should reject when scheduler validation failed due to TopologyKey is set to empty", func() {
-			vmi.Spec.Affinity.PodAntiAffinity = &k8sv1.PodAntiAffinity{
-				RequiredDuringSchedulingIgnoredDuringExecution: []k8sv1.PodAffinityTerm{
-					{
-						LabelSelector: &metav1.LabelSelector{
-							MatchExpressions: []metav1.LabelSelectorRequirement{
-								{
-									Key:      "key1",
-									Operator: "Exits",
-									Values:   []string{"value1"},
-								},
-							},
-						},
-						TopologyKey: "",
-					},
-				},
-			}
-			vmiBytes, _ := json.Marshal(&vmi)
-
-			ar := &admissionv1.AdmissionReview{
-				Request: &admissionv1.AdmissionRequest{
-					Resource: webhooks.VirtualMachineInstanceGroupVersionResource,
-					Object: runtime.RawExtension{
-						Raw: vmiBytes,
-					},
-				},
-			}
-
-			resp := vmiCreateAdmitter.Admit(ar)
-			Expect(resp.Allowed).To(BeFalse())
-			Expect(resp.Result.Details.Causes).To(HaveLen(1))
-			Expect(resp.Result.Details.Causes[0].Field).To(Equal("spec.affinity.podAntiAffinity.RequiredDuringSchedulingIgnoredDuringExecution[0].TopologyKey"))
-			Expect(resp.Result.Details.Causes[0].Message).To(Equal("TopologyKey cannot be empty when RequiredDuringSchedulingIgnoredDuringExecution is used"))
+			Expect(resp.Result.Details.Causes).To(HaveLen(3))
+			Expect(resp.Result.Details.Causes[0].Field).To(Equal("spec.podAntiAffinity.requiredDuringSchedulingIgnoredDuringExecution[0].topologyKey"))
+			Expect(resp.Result.Details.Causes[0].Message).To(Equal("spec.podAntiAffinity.requiredDuringSchedulingIgnoredDuringExecution[0].topologyKey: Required value: can not be empty"))
+			Expect(resp.Result.Details.Causes[1].Field).To(Equal("spec.podAntiAffinity.requiredDuringSchedulingIgnoredDuringExecution[0].topologyKey"))
+			Expect(resp.Result.Details.Causes[1].Message).To(Equal("spec.podAntiAffinity.requiredDuringSchedulingIgnoredDuringExecution[0].topologyKey: Invalid value: \"\": name part must be non-empty"))
+			Expect(resp.Result.Details.Causes[2].Field).To(Equal("spec.podAntiAffinity.requiredDuringSchedulingIgnoredDuringExecution[0].topologyKey"))
+			Expect(resp.Result.Details.Causes[2].Message).To(Equal("spec.podAntiAffinity.requiredDuringSchedulingIgnoredDuringExecution[0].topologyKey: Invalid value: \"\": name part must consist of alphanumeric characters, '-', '_' or '.', and must start and end with an alphanumeric character (e.g. 'MyName',  or 'my.name',  or '123-abc', regex used for validation is '([A-Za-z0-9][-A-Za-z0-9_.]*)?[A-Za-z0-9]')"))
 		})
 
 		It("(PodAntiAffinity)Should be ok with only PreferredDuringSchedulingIgnoredDuringExecution proper set", func() {
@@ -4045,7 +4017,7 @@ var _ = Describe("Validating VMICreate Admitter", func() {
 								MatchExpressions: []metav1.LabelSelectorRequirement{
 									{
 										Key:      "key1",
-										Operator: "in",
+										Operator: metav1.LabelSelectorOpIn,
 										Values:   []string{"a"},
 									},
 								},
@@ -4070,7 +4042,7 @@ var _ = Describe("Validating VMICreate Admitter", func() {
 			Expect(resp.Allowed).To(BeTrue())
 		})
 
-		It("(PodAntiAffinity)Should reject when scheduler validation failed due to values of MatchExpressions is set to empty", func() {
+		It("(PodAntiAffinity)Should reject when scheduler validation failed due to values of MatchExpressions is set to empty and TopologyKey is not valid", func() {
 			vmi.Spec.Affinity.PodAntiAffinity = &k8sv1.PodAntiAffinity{
 				RequiredDuringSchedulingIgnoredDuringExecution: []k8sv1.PodAffinityTerm{
 					{
@@ -4078,7 +4050,7 @@ var _ = Describe("Validating VMICreate Admitter", func() {
 							MatchExpressions: []metav1.LabelSelectorRequirement{
 								{
 									Key:      "key1",
-									Operator: "Exits",
+									Operator: metav1.LabelSelectorOpIn,
 									Values:   nil,
 								},
 							},
@@ -4100,9 +4072,11 @@ var _ = Describe("Validating VMICreate Admitter", func() {
 
 			resp := vmiCreateAdmitter.Admit(ar)
 			Expect(resp.Allowed).To(BeFalse())
-			Expect(resp.Result.Details.Causes).To(HaveLen(1))
-			Expect(resp.Result.Details.Causes[0].Field).To(Equal("spec.affinity.podAntiAffinity.RequiredDuringSchedulingIgnoredDuringExecution[0].LabelSelector.MatchExpressions[0].Values"))
-			Expect(resp.Result.Details.Causes[0].Message).To(Equal("Values is required when operator value set to something beside 'Exists'"))
+			Expect(resp.Result.Details.Causes).To(HaveLen(2))
+			Expect(resp.Result.Details.Causes[0].Field).To(Equal("spec.podAntiAffinity.requiredDuringSchedulingIgnoredDuringExecution[0].labelSelector.matchExpressions[0].values"))
+			Expect(resp.Result.Details.Causes[0].Message).To(Equal("spec.podAntiAffinity.requiredDuringSchedulingIgnoredDuringExecution[0].labelSelector.matchExpressions[0].values: Required value: must be specified when `operator` is 'In' or 'NotIn'"))
+			Expect(resp.Result.Details.Causes[1].Field).To(Equal("spec.podAntiAffinity.requiredDuringSchedulingIgnoredDuringExecution[0].topologyKey"))
+			Expect(resp.Result.Details.Causes[1].Message).To(Equal("spec.podAntiAffinity.requiredDuringSchedulingIgnoredDuringExecution[0].topologyKey: Invalid value: \"hostname=host1\": name part must consist of alphanumeric characters, '-', '_' or '.', and must start and end with an alphanumeric character (e.g. 'MyName',  or 'my.name',  or '123-abc', regex used for validation is '([A-Za-z0-9][-A-Za-z0-9_.]*)?[A-Za-z0-9]')"))
 		})
 
 		It("(PodAntiAffinity)Should reject when scheduler validation failed due to values of MatchExpressions and TopologyKey are both set to empty", func() {
@@ -4113,7 +4087,7 @@ var _ = Describe("Validating VMICreate Admitter", func() {
 							MatchExpressions: []metav1.LabelSelectorRequirement{
 								{
 									Key:      "key1",
-									Operator: "Exits",
+									Operator: metav1.LabelSelectorOpIn,
 									Values:   nil,
 								},
 							},
@@ -4135,12 +4109,18 @@ var _ = Describe("Validating VMICreate Admitter", func() {
 
 			resp := vmiCreateAdmitter.Admit(ar)
 			Expect(resp.Allowed).To(BeFalse())
-			Expect(resp.Result.Details.Causes).To(HaveLen(2))
-			Expect(resp.Result.Details.Causes[0].Field).To(Equal("spec.affinity.podAntiAffinity.RequiredDuringSchedulingIgnoredDuringExecution[0].TopologyKey"))
-			Expect(resp.Result.Details.Causes[1].Field).To(Equal("spec.affinity.podAntiAffinity.RequiredDuringSchedulingIgnoredDuringExecution[0].LabelSelector.MatchExpressions[0].Values"))
+			Expect(resp.Result.Details.Causes).To(HaveLen(4))
+			Expect(resp.Result.Details.Causes[0].Field).To(Equal("spec.podAntiAffinity.requiredDuringSchedulingIgnoredDuringExecution[0].labelSelector.matchExpressions[0].values"))
+			Expect(resp.Result.Details.Causes[0].Message).To(Equal("spec.podAntiAffinity.requiredDuringSchedulingIgnoredDuringExecution[0].labelSelector.matchExpressions[0].values: Required value: must be specified when `operator` is 'In' or 'NotIn'"))
+			Expect(resp.Result.Details.Causes[1].Field).To(Equal("spec.podAntiAffinity.requiredDuringSchedulingIgnoredDuringExecution[0].topologyKey"))
+			Expect(resp.Result.Details.Causes[1].Message).To(Equal("spec.podAntiAffinity.requiredDuringSchedulingIgnoredDuringExecution[0].topologyKey: Required value: can not be empty"))
+			Expect(resp.Result.Details.Causes[2].Field).To(Equal("spec.podAntiAffinity.requiredDuringSchedulingIgnoredDuringExecution[0].topologyKey"))
+			Expect(resp.Result.Details.Causes[2].Message).To(Equal("spec.podAntiAffinity.requiredDuringSchedulingIgnoredDuringExecution[0].topologyKey: Invalid value: \"\": name part must be non-empty"))
+			Expect(resp.Result.Details.Causes[3].Field).To(Equal("spec.podAntiAffinity.requiredDuringSchedulingIgnoredDuringExecution[0].topologyKey"))
+			Expect(resp.Result.Details.Causes[3].Message).To(Equal("spec.podAntiAffinity.requiredDuringSchedulingIgnoredDuringExecution[0].topologyKey: Invalid value: \"\": name part must consist of alphanumeric characters, '-', '_' or '.', and must start and end with an alphanumeric character (e.g. 'MyName',  or 'my.name',  or '123-abc', regex used for validation is '([A-Za-z0-9][-A-Za-z0-9_.]*)?[A-Za-z0-9]')"))
 		})
 
-		It("(NodeAffinity)Should reject when scheduler validation failed due to both RequiredDuringSchedulingIgnoredDuringExecution and PreferredDuringSchedulingIgnoredDuringExecution are set to empty", func() {
+		It("(NodeAffinity)Allowd both RequiredDuringSchedulingIgnoredDuringExecution and PreferredDuringSchedulingIgnoredDuringExecution are set to empty", func() {
 			vmi.Spec.Affinity.NodeAffinity = &k8sv1.NodeAffinity{
 				RequiredDuringSchedulingIgnoredDuringExecution:  nil,
 				PreferredDuringSchedulingIgnoredDuringExecution: nil,
@@ -4157,10 +4137,7 @@ var _ = Describe("Validating VMICreate Admitter", func() {
 			}
 
 			resp := vmiCreateAdmitter.Admit(ar)
-			Expect(resp.Allowed).To(BeFalse())
-			Expect(resp.Result.Details.Causes).To(HaveLen(1))
-			Expect(resp.Result.Details.Causes[0].Field).To(Equal("spec.affinity.nodeAffinity"))
-			Expect(resp.Result.Details.Causes[0].Message).To(Equal("At least one RequiredDuringSchedulingIgnoredDuringExecution or PreferredDuringSchedulingIgnoredDuringExecution is required"))
+			Expect(resp.Allowed).To(BeTrue())
 		})
 
 		It("(NodeAffinity)Should reject when scheduler validation failed due to NodeSelectorTerms set to empty", func() {
@@ -4188,7 +4165,7 @@ var _ = Describe("Validating VMICreate Admitter", func() {
 			Expect(resp.Result.Details.Causes[0].Message).To(Equal("spec.affinity.nodeAffinity.requiredDuringSchedulingIgnoredDuringExecution.nodeSelectorTerms in body must be of type array: \"null\""))
 		})
 
-		It("(NodeAffinity)Should reject when scheduler validation failed due to MatchExpressions and MatchFields are both set to empty", func() {
+		It("(NodeAffinity)Allowed both MatchExpressions and MatchFields are set to empty", func() {
 			vmi.Spec.Affinity.NodeAffinity = &k8sv1.NodeAffinity{
 				RequiredDuringSchedulingIgnoredDuringExecution: &k8sv1.NodeSelector{
 					NodeSelectorTerms: []k8sv1.NodeSelectorTerm{
@@ -4211,10 +4188,7 @@ var _ = Describe("Validating VMICreate Admitter", func() {
 			}
 
 			resp := vmiCreateAdmitter.Admit(ar)
-			Expect(resp.Allowed).To(BeFalse())
-			Expect(resp.Result.Details.Causes).To(HaveLen(1))
-			Expect(resp.Result.Details.Causes[0].Field).To(Equal("spec.affinity.nodeAffinity.RequiredDuringSchedulingIgnoredDuringExecution.NodeSelectorTerms[0]"))
-			Expect(resp.Result.Details.Causes[0].Message).To(Equal("At least one MatchExpressions or MatchExpressions is required"))
+			Expect(resp.Allowed).To(BeTrue())
 		})
 
 		It("(NodeAffinity)Should be ok with only MatchExpressions set", func() {
@@ -4248,7 +4222,7 @@ var _ = Describe("Validating VMICreate Admitter", func() {
 			Expect(resp.Allowed).To(BeTrue())
 		})
 
-		It("(NodeAffinity)Should be ok with only MatchFields set", func() {
+		It("(NodeAffinity)Should reject when scheduler validation failed due to NodeSelectorTerms value of key is not valid", func() {
 			vmi.Spec.Affinity.NodeAffinity = &k8sv1.NodeAffinity{
 				RequiredDuringSchedulingIgnoredDuringExecution: &k8sv1.NodeSelector{
 					NodeSelectorTerms: []k8sv1.NodeSelectorTerm{
@@ -4276,17 +4250,19 @@ var _ = Describe("Validating VMICreate Admitter", func() {
 			}
 
 			resp := vmiCreateAdmitter.Admit(ar)
-			Expect(resp.Allowed).To(BeTrue())
+			Expect(resp.Allowed).To(BeFalse())
+			Expect(resp.Result.Details.Causes[0].Field).To(Equal("spec.nodeAffinity.requiredDuringSchedulingIgnoredDuringExecution.nodeSelectorTerms[0].matchFields[0].key"))
+			Expect(resp.Result.Details.Causes[0].Message).To(Equal("spec.nodeAffinity.requiredDuringSchedulingIgnoredDuringExecution.nodeSelectorTerms[0].matchFields[0].key: Invalid value: \"key\": not a valid field selector key"))
 		})
 
-		It("(NodeAffinity)Should reject when scheduler validation failed due to first element of Values is empty", func() {
+		It("(NodeAffinity)Should reject when scheduler validation failed due no element in Values slice", func() {
 			vmi.Spec.Affinity.NodeAffinity = &k8sv1.NodeAffinity{
 				RequiredDuringSchedulingIgnoredDuringExecution: &k8sv1.NodeSelector{
 					NodeSelectorTerms: []k8sv1.NodeSelectorTerm{
 						{
 							MatchFields: []k8sv1.NodeSelectorRequirement{
 								{
-									Key:      "key",
+									Key:      "metadata.name",
 									Operator: k8sv1.NodeSelectorOpIn,
 									Values:   []string{""},
 								},
@@ -4309,8 +4285,8 @@ var _ = Describe("Validating VMICreate Admitter", func() {
 			resp := vmiCreateAdmitter.Admit(ar)
 			Expect(resp.Allowed).To(BeFalse())
 			Expect(resp.Result.Details.Causes).To(HaveLen(1))
-			Expect(resp.Result.Details.Causes[0].Field).To(Equal("spec.affinity.nodeAffinity.RequiredDuringSchedulingIgnoredDuringExecution.NodeSelectorTerms[0].MatchFields[0].Values[0]"))
-			Expect(resp.Result.Details.Causes[0].Message).To(Equal("Values cannot be empty"))
+			Expect(resp.Result.Details.Causes[0].Field).To(Equal("spec.nodeAffinity.requiredDuringSchedulingIgnoredDuringExecution.nodeSelectorTerms[0].matchFields[0].values[0]"))
+			Expect(resp.Result.Details.Causes[0].Message).To(Equal("spec.nodeAffinity.requiredDuringSchedulingIgnoredDuringExecution.nodeSelectorTerms[0].matchFields[0].values[0]: Invalid value: \"\": a lowercase RFC 1123 subdomain must consist of lower case alphanumeric characters, '-' or '.', and must start and end with an alphanumeric character (e.g. 'example.com', regex used for validation is '[a-z0-9]([-a-z0-9]*[a-z0-9])?(\\.[a-z0-9]([-a-z0-9]*[a-z0-9])?)*')"))
 		})
 
 		It("(NodeAffinity)Should be ok with only PreferredDuringSchedulingIgnoredDuringExecution proper set", func() {

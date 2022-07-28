@@ -1,4 +1,4 @@
-load("@io_bazel_rules_go//go:def.bzl", "go_library")
+load("@io_bazel_rules_go//go:def.bzl", "go_library", "go_test")
 
 go_library(
     name = "go_default_library",
@@ -10,4 +10,18 @@ go_library(
     importpath = "k8s.io/apimachinery/pkg/util/cache",
     visibility = ["//visibility:public"],
     deps = ["//vendor/k8s.io/utils/clock:go_default_library"],
+)
+
+go_test(
+    name = "go_default_test",
+    srcs = [
+        "expiring_test.go",
+        "lruexpirecache_test.go",
+    ],
+    embed = [":go_default_library"],
+    deps = [
+        "//vendor/github.com/google/go-cmp/cmp:go_default_library",
+        "//vendor/github.com/google/uuid:go_default_library",
+        "//vendor/k8s.io/utils/clock/testing:go_default_library",
+    ],
 )
