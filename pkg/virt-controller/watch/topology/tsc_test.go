@@ -77,15 +77,16 @@ var _ = Describe("TSC", func() {
 	Context("needs to be set when", func() {
 
 		It("invtsc feature exists", func() {
-			vmi := libvmi.New(
-				libvmi.WithCPUFeature("invtsc", "require"),
-			)
+			vmi := libvmi.New("test-vmi")
+			vmi.Spec.Domain.CPU = &v1.CPU{Features: []v1.CPUFeature{
+				{Name: "invtsc", Policy: "require"},
+			}}
 
 			Expect(topology.IsManualTSCFrequencyRequired(vmi)).To(BeTrue())
 		})
 
 		It("HyperV reenlightenment is enabled", func() {
-			vmi := libvmi.New()
+			vmi := libvmi.New("test-vmi")
 			vmi.Spec.Domain.Features = &v1.Features{
 				Hyperv: &v1.FeatureHyperv{
 					Reenlightenment: &v1.FeatureState{Enabled: pointer.Bool(true)},
