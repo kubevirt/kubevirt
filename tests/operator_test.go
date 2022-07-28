@@ -1111,47 +1111,34 @@ spec:
 		crdName := "virtualmachines.kubevirt.io"
 		shortNameAdded := "new"
 
-		getKubevirtGeneration := func(o metav1.Object) int {
-			annotations := o.GetAnnotations()
-			Expect(annotations).ToNot(BeNil())
-
-			generationStr := annotations[v1.KubeVirtGenerationAnnotation]
-			generationInt, err := strconv.Atoi(generationStr)
-			Expect(err).ToNot(HaveOccurred())
-
-			return generationInt
-		}
-
 		DescribeTable("checking updating resource is reverted to original state for ", func(changeResource func(), getResource func() runtime.Object, compareResource func() bool) {
 			resource := getResource()
 			By("Updating KubeVirt Object")
 			changeResource()
 
-			var k8sGeneration int64
-			var k6tGeneration int
+			var generation int64
 			By("Test that the added envvar was removed")
 			Eventually(func() bool {
 				equal := compareResource()
 				if equal {
 					r := getResource()
 					o := r.(metav1.Object)
-					k8sGeneration = o.GetGeneration()
-					k6tGeneration = getKubevirtGeneration(o)
+					generation = o.GetGeneration()
 				}
 
 				return equal
 			}, 120*time.Second, 5*time.Second).Should(BeTrue(), "waiting for deployment to revert to original state")
 
-			By("Test that the expected k8s generation is as expected")
 			Eventually(func() int64 {
 				currentKV := util2.GetCurrentKv(virtClient)
 				return apply.GetExpectedGeneration(resource, currentKV.Status.Generations)
-			}, 60*time.Second, 5*time.Second).Should(Equal(k8sGeneration), "reverted deployment generation should be set on KV resource")
+			}, 60*time.Second, 5*time.Second).Should(Equal(generation), "reverted deployment generation should be set on KV resource")
 
-			By("Test that the expected kubevirt generation is unchanged")
-			Consistently(func() int {
-				return getKubevirtGeneration(getResource().(metav1.Object))
-			}, 30*time.Second, 5*time.Second).Should(Equal(k6tGeneration))
+			By("Test that the expected generation is unchanged")
+			Consistently(func() int64 {
+				currentKV := util2.GetCurrentKv(virtClient)
+				return apply.GetExpectedGeneration(resource, currentKV.Status.Generations)
+			}, 30*time.Second, 5*time.Second).Should(Equal(generation))
 		},
 
 			Entry("[test_id:6254] deployments",
