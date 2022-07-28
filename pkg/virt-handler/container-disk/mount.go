@@ -444,19 +444,30 @@ func (m *mounter) mountKernelArtifacts(vmi *v1.VirtualMachineInstance, verify bo
 
 	nodeRes := isolation.NodeIsolationResult()
 
-	if err := safepath.TouchAtNoFollow(targetDir, filepath.Base(kb.InitrdPath), 0655); err != nil && !os.IsExist(err) {
-		return err
+	var targetInitrdPath *safepath.Path
+	var targetKernelPath *safepath.Path
+
+	if kb.InitrdPath != "" {
+
+		if err := safepath.TouchAtNoFollow(targetDir, filepath.Base(kb.InitrdPath), 0655); err != nil && !os.IsExist(err) {
+			return err
+		}
+
+		targetInitrdPath, err = safepath.JoinNoFollow(targetDir, filepath.Base(kb.InitrdPath))
+		if err != nil {
+			return err
+		}
 	}
-	if err := safepath.TouchAtNoFollow(targetDir, filepath.Base(kb.KernelPath), 0655); err != nil && !os.IsExist(err) {
-		return err
-	}
-	targetInitrdPath, err := safepath.JoinNoFollow(targetDir, filepath.Base(kb.InitrdPath))
-	if err != nil {
-		return err
-	}
-	targetKernelPath, err := safepath.JoinNoFollow(targetDir, filepath.Base(kb.KernelPath))
-	if err != nil {
-		return err
+
+	if kb.KernelPath != "" {
+		if err := safepath.TouchAtNoFollow(targetDir, filepath.Base(kb.KernelPath), 0655); err != nil && !os.IsExist(err) {
+			return err
+		}
+
+		targetKernelPath, err = safepath.JoinNoFollow(targetDir, filepath.Base(kb.KernelPath))
+		if err != nil {
+			return err
+		}
 	}
 
 	areKernelArtifactsMounted := func(artifactsDir *safepath.Path, artifactFiles ...*safepath.Path) (bool, error) {

@@ -2387,6 +2387,8 @@ var _ = Describe("Validating VMICreate Admitter", func() {
 					createKernelBoot(validKernelArgs, invalidInitrd, validKernel, validImage), false),
 				Entry("with kernel args, with container that has initrd and kernel defined but without image - should reject",
 					createKernelBoot(validKernelArgs, validInitrd, validKernel, withoutImage), false),
+				Entry("with kernel args, with container that has only kernel defined - should approve",
+					createKernelBoot(validKernelArgs, withoutInitrd, validKernel, validImage), false),
 			)
 		})
 

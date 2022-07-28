@@ -122,4 +122,60 @@ var _ = Describe("[sig-compute]VMI with external kernel boot", func() {
 			Expect(err.Error()).To(ContainSubstring("denied the request: spec.domain.firmware.kernelBoot.container must be defined with at least one of the following: kernelPath, initrdPath"))
 		})
 	})
+
+	Context("with external alpine-based kernel only", func() {
+		It("ensure successful boot", func() {
+			vmi := utils.GetVMIKernelBoot()
+			// Remove initrd path from vmi spec
+			kernelBoot := vmi.Spec.Domain.Firmware.KernelBoot
+			kernelBoot.Container.InitrdPath = ""
+
+			obj, err := virtClient.VirtualMachineInstance(util.NamespaceTestDefault).Create(vmi)
+			Expect(err).ToNot(HaveOccurred())
+			tests.WaitForSuccessfulVMIStart(obj)
+		})
+
+		It("ensure successful boot and deletion when VMI has a disk defined", func() {
+			By("Creating VMI with disk and kernel boot")
+			vmi := tests.NewRandomVMIWithEphemeralDisk(cd.ContainerDiskFor(cd.ContainerDiskAlpine))
+			vmi.Spec.Domain.Resources.Requests[k8sv1.ResourceMemory] = resource.MustParse("1Gi")
+			utils.AddKernelBootToVMI(vmi)
+			// Remove initrd path from vmi spec
+			kernelBoot := vmi.Spec.Domain.Firmware.KernelBoot
+			kernelBoot.Container.InitrdPath = ""
+
+			Expect(vmi.Spec.Volumes).ToNot(BeEmpty())
+			Expect(vmi.Spec.Domain.Devices.Disks).ToNot(BeEmpty())
+
+			By("Ensuring VMI can boot")
+			vmi, err = virtClient.VirtualMachineInstance(util.NamespaceTestDefault).Create(vmi)
+			Expect(err).ToNot(HaveOccurred())
+			tests.WaitForSuccessfulVMIStart(vmi)
+
+			By("Fetching virt-launcher pod")
+			virtLauncherPod := tests.GetRunningPodByVirtualMachineInstance(vmi, vmi.Namespace)
+
+			By("Ensuring VMI is deleted")
+			err = virtClient.VirtualMachineInstance(util.NamespaceTestDefault).Delete(vmi.Name, &v1.DeleteOptions{})
+			Expect(err).ToNot(HaveOccurred())
+			Eventually(func() (isVmiDeleted bool) {
+				vmi, err = virtClient.VirtualMachineInstance(util.NamespaceTestDefault).Get(vmi.Name, &v1.GetOptions{})
+				if errors.IsNotFound(err) {
+					return true
+				}
+				Expect(err).ToNot(HaveOccurred())
+				return false
+			}, 60*time.Second, 3*time.Second).Should(BeTrue(), "VMI Should be successfully deleted")
+
+			By("Ensuring virt-launcher is deleted")
+			Eventually(func() (isVmiDeleted bool) {
+				_, err = virtClient.CoreV1().Pods(virtLauncherPod.Namespace).Get(context.Background(), virtLauncherPod.Name, v1.GetOptions{})
+				if errors.IsNotFound(err) {
+					return true
+				}
+				Expect(err).ToNot(HaveOccurred())
+				return false
+			}, 60*time.Second, 3*time.Second).Should(BeTrue(), fmt.Sprintf("virt-launcher pod (%s) Should be successfully deleted", virtLauncherPod.Name))
+		})
+	})
 })
