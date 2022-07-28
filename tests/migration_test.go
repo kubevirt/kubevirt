@@ -3667,10 +3667,10 @@ var _ = Describe("[Serial][rfe_id:393][crit:high][vendor:cnv-qe@redhat.com][leve
 			}
 
 			It("invtsc feature exists", func() {
-				vmi := libvmi.New(
-					libvmi.WithResourceMemory("1Mi"),
-					libvmi.WithCPUFeature("invtsc", "require"),
-				)
+				vmi := libvmi.New(libvmi.WithResourceMemory("1Mi"))
+				vmi.Spec.Domain.CPU = &v1.CPU{Features: []v1.CPUFeature{
+					{Name: "invtsc", Policy: "require"},
+				}}
 				vmi = runVMIAndExpectLaunch(vmi, 240)
 
 				expectTopologyHintsToBeSet(vmi)
