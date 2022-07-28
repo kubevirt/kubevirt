@@ -89,30 +89,27 @@ func CreateSCSIDisk(nodeName string, opts []string) (address string, device stri
 	ExpectWithOffset(1, err).NotTo(HaveOccurred(), "Failed to create faulty disk")
 
 	EventuallyWithOffset(1, func() error {
-		args = []string{UsrBinVirtChroot, Mount, Proc1NsMnt, "exec", "--", "/usr/bin/lsscsi"}
+		args = []string{UsrBinVirtChroot, Mount, Proc1NsMnt, "exec", "--", "/bin/sh", "-c", "/bin/grep -l scsi_debug /sys/bus/scsi/devices/*/model"}
 		stdout, err := ExecuteCommandInVirtHandlerPod(nodeName, args)
 		if err != nil {
 			return err
 		}
 
 		// Example output
-		// [2:0:0:0]    cd/dvd  QEMU     QEMU DVD-ROM     2.5+  /dev/sr0
-		// [6:0:0:0]    disk    Linux    scsi_debug       0190  /dev/sda
-		lines := strings.Split(stdout, "\n")
-		for _, line := range lines {
-			if strings.Contains(line, "scsi_debug") {
-				line = strings.TrimSpace(line)
-				disk := strings.Split(line, " ")
-				address = disk[0]
-				address = address[1 : len(address)-1]
-				device = disk[len(disk)-1]
-				break
-			}
+		// /sys/bus/scsi/devices/0:0:0:0/model
+		if !filepath.IsAbs(stdout) {
+			return fmt.Errorf("Device path extracted from sysfs is not populated: %s", stdout)
 		}
 
-		if !filepath.IsAbs(device) {
-			return fmt.Errorf("Device path extracted from lsscsi is not populated: %s", device)
+		pathname := strings.Split(stdout, "/")
+		address = pathname[5]
+
+		args = []string{UsrBinVirtChroot, Mount, Proc1NsMnt, "exec", "--", "/bin/ls", "/sys/bus/scsi/devices/" + address + "/block"}
+		stdout, err = ExecuteCommandInVirtHandlerPod(nodeName, args)
+		if err != nil {
+			return err
 		}
+		device = "/dev/" + strings.TrimSpace(stdout)
 
 		return nil
 	}, 20*time.Second, 5*time.Second).ShouldNot(HaveOccurred())
