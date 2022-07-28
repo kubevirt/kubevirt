@@ -36,6 +36,8 @@ import (
 	"k8s.io/apimachinery/pkg/util/yaml"
 
 	"kubevirt.io/client-go/kubecli"
+	"kubevirt.io/client-go/log"
+
 	"kubevirt.io/kubevirt/tests/util"
 )
 
@@ -113,6 +115,7 @@ func DeleteRawManifest(object unstructured.Unstructured) error {
 	policy := metav1.DeletePropagationBackground
 	options := &metav1.DeleteOptions{PropagationPolicy: &policy}
 
+	log.DefaultLogger().Infof("Calling DELETE on testing manifest: %s", uri)
 	result := virtCli.CoreV1().RESTClient().Delete().RequestURI(uri).Body(options).Do(context.Background())
 	if result.Error() != nil && !k8serrors.IsNotFound(result.Error()) {
 		fmt.Printf(fmt.Sprintf("ERROR: Can not delete %s err: %#v %s\n", object.GetName(), result.Error(), object))
