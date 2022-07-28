@@ -1,10 +1,10 @@
 #!/usr/bin/env bash
 
+export KUBEVIRTCI_PODMAN_SOCKET=${KUBEVIRTCI_PODMAN_SOCKET:-"/run/podman/podman.sock"}
+
 detect_podman() {
-    if curl --unix-socket "/run/podman/podman.sock" http://d/v3.0.0/libpod/info >/dev/null 2>&1; then
-        echo "podman --remote --url=unix:///run/podman/podman.sock"
-    elif curl --unix-socket "${XDG_RUNTIME_DIR}/podman/podman.sock" http://d/v3.0.0/libpod/info >/dev/null 2>&1; then
-        echo "podman --remote --url=unix://${XDG_RUNTIME_DIR}/podman/podman.sock"
+    if curl --unix-socket "${KUBEVIRTCI_PODMAN_SOCKET}" http://d/v3.0.0/libpod/info >/dev/null 2>&1; then
+        echo "podman --remote --url=unix://${KUBEVIRTCI_PODMAN_SOCKET}"
     fi
 }
 
