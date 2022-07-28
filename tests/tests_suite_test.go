@@ -87,9 +87,9 @@ func TestTests(t *testing.T) {
 	RunSpecsWithDefaultAndCustomReporters(t, "Tests Suite", reporters)
 }
 
-var _ = SynchronizedBeforeSuite(tests.SynchronizedBeforeTestSetup, tests.BeforeTestSuitSetup)
+var _ = SynchronizedBeforeSuite(tests.SynchronizedBeforeTestSetup, tests.BeforeTestSuiteSetup)
 
-var _ = SynchronizedAfterSuite(tests.AfterTestSuitCleanup, tests.SynchronizedAfterTestSuiteCleanup)
+var _ = SynchronizedAfterSuite(tests.AfterTestSuiteCleanup, tests.SynchronizedAfterTestSuiteCleanup)
 
 func getMaxFailsFromEnv() int {
 	maxFailsEnv := os.Getenv("REPORTER_MAX_FAILS")
