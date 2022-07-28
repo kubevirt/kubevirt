@@ -1099,7 +1099,7 @@ var _ = Describe("[rfe_id:273][crit:high][arm64][vendor:cnv-qe@redhat.com][level
 				supportedCPU = supportedCPUs[0]
 
 				supportedFeatures = tests.GetSupportedCPUFeatures(*nodes)
-				Expect(supportedFeatures).ToNot(BeEmpty(), "There should be some supported cpu features")
+				Expect(len(supportedFeatures)).To(BeNumerically(">=", 2), "There should be at least 2 supported cpu features")
 
 				for key := range node.Labels {
 					if strings.Contains(key, services.NFD_KVM_INFO_PREFIX) &&
@@ -1205,11 +1205,20 @@ var _ = Describe("[rfe_id:273][crit:high][arm64][vendor:cnv-qe@redhat.com][level
 
 				By("adding a node-feature-discovery CPU model label to a node")
 				vmi := tests.NewRandomVMIWithEphemeralDiskAndUserdata(cd.ContainerDiskFor(cd.ContainerDiskCirros), "#!/bin/bash\necho 'hello'\n")
+				const featureToDisable = "fpu"
+
+				featureToRequire := supportedFeatures[0]
+
+				if featureToRequire == featureToDisable {
+					// Picking another feature since this one is going to be disabled
+					featureToRequire = supportedFeatures[1]
+				}
+
 				vmi.Spec.Domain.CPU = &v1.CPU{
 					Cores: 1,
 					Features: []v1.CPUFeature{
 						{
-							Name:   supportedFeatures[0],
+							Name:   featureToRequire,
 							Policy: "require",
 						},
 						{
@@ -1222,13 +1231,6 @@ var _ = Describe("[rfe_id:273][crit:high][arm64][vendor:cnv-qe@redhat.com][level
 				_, err = virtClient.VirtualMachineInstance(vmi.Namespace).Create(vmi)
 				Expect(err).ToNot(HaveOccurred(), "Should create VMI")
 				tests.WaitForSuccessfulVMIStart(vmi)
-
-				By("Verifying VirtualMachineInstance's status is Succeeded")
-				Eventually(func() v1.VirtualMachineInstancePhase {
-					currVMI, err := virtClient.VirtualMachineInstance(vmi.Namespace).Get(vmi.Name, &metav1.GetOptions{})
-					Expect(err).ToNot(HaveOccurred(), "Should get VMI")
-					return currVMI.Status.Phase
-				}, 120, 0.5).Should(Equal(v1.Running), "VMI should be succeeded")
 			})
 
 			It("[test_id:3203]the vmi with cpu.features that cannot match nfd labels on a node should not be scheduled", func() {
