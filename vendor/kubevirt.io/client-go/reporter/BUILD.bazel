@@ -1,0 +1,13 @@
+load("@io_bazel_rules_go//go:def.bzl", "go_library")
+
+go_library(
+    name = "go_default_library",
+    srcs = ["reporter.go"],
+    importmap = "kubevirt.io/kubevirt/vendor/kubevirt.io/client-go/reporter",
+    importpath = "kubevirt.io/client-go/reporter",
+    visibility = ["//visibility:public"],
+    deps = [
+        "//vendor/github.com/onsi/ginkgo/v2/config:go_default_library",
+        "//vendor/github.com/onsi/ginkgo/v2/types:go_default_library",
+    ],
+)
