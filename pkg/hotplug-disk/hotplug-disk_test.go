@@ -29,6 +29,7 @@ import (
 	"k8s.io/apimachinery/pkg/types"
 
 	diskutils "kubevirt.io/kubevirt/pkg/ephemeral-disk-utils"
+	"kubevirt.io/kubevirt/pkg/unsafepath"
 )
 
 var _ = Describe("HotplugDisk", func() {
@@ -80,7 +81,7 @@ var _ = Describe("HotplugDisk", func() {
 		testPath := filepath.Join(TargetPodBasePath(podsBaseDir, testUID), "testvolume")
 		exists, _ := diskutils.FileExists(testPath)
 		Expect(exists).To(BeTrue())
-		Expect(res).To(Equal(testPath))
+		Expect(unsafepath.UnsafeAbsolute(res.Raw())).To(Equal(testPath))
 	})
 
 	It("GetFileSystemDirectoryTargetPathFromHostView should return the volume directory", func() {
@@ -90,7 +91,7 @@ var _ = Describe("HotplugDisk", func() {
 		err = os.MkdirAll(testPath, os.FileMode(0755))
 		res, err := hotplug.GetFileSystemDirectoryTargetPathFromHostView(testUID, "testvolume", false)
 		Expect(err).ToNot(HaveOccurred())
-		Expect(res).To(Equal(testPath))
+		Expect(unsafepath.UnsafeAbsolute(res.Raw())).To(Equal(testPath))
 	})
 
 	It("GetFileSystemDirectoryTargetPathFromHostView should fail on invalid UID", func() {
@@ -107,7 +108,7 @@ var _ = Describe("HotplugDisk", func() {
 		targetPath := filepath.Join(TargetPodBasePath(podsBaseDir, testUID), "testvolume.img")
 		exists, _ := diskutils.FileExists(targetPath)
 		Expect(exists).To(BeTrue())
-		Expect(res).To(Equal(targetPath))
+		Expect(unsafepath.UnsafeAbsolute(res.Raw())).To(Equal(targetPath))
 	})
 
 	It("GetFileSystemDiskTargetPathFromHostView should return the disk image file", func() {
@@ -117,7 +118,7 @@ var _ = Describe("HotplugDisk", func() {
 		err = os.MkdirAll(targetPath, os.FileMode(0755))
 		res, err := hotplug.GetFileSystemDiskTargetPathFromHostView(testUID, "testvolume", false)
 		Expect(err).ToNot(HaveOccurred())
-		Expect(res).To(Equal(targetPath))
+		Expect(unsafepath.UnsafeAbsolute(res.Raw())).To(Equal(targetPath))
 	})
 
 	It("GetFileSystemDiskTargetPathFromHostView should fail on invalid UID", func() {

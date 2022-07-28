@@ -34,6 +34,7 @@ import (
 	"time"
 
 	hotplugdisk "kubevirt.io/kubevirt/pkg/hotplug-disk"
+	"kubevirt.io/kubevirt/pkg/safepath"
 	"kubevirt.io/kubevirt/pkg/virt-handler/cgroup"
 
 	"kubevirt.io/kubevirt/pkg/config"
@@ -389,18 +390,22 @@ func (d *VirtualMachineController) startDomainNotifyPipe(domainPipeStopChan chan
 	}
 
 	// inject the domain-notify.sock into the VMI pod.
-	socketPath := filepath.Join(res.MountRoot(), d.virtShareDir, "domain-notify-pipe.sock")
-
-	os.RemoveAll(socketPath)
-	err = util.MkdirAllWithNosec(filepath.Dir(socketPath))
+	root, err := res.MountRoot()
 	if err != nil {
-		log.Log.Reason(err).Error("unable to create directory for unix socket")
+		return err
+	}
+	socketDir, err := root.AppendAndResolveWithRelativeRoot(d.virtShareDir)
+	if err != nil {
 		return err
 	}
 
-	listener, err := net.Listen("unix", socketPath)
+	listener, err := safepath.ListenUnixNoFollow(socketDir, "domain-notify-pipe.sock")
 	if err != nil {
 		log.Log.Reason(err).Error("failed to create unix socket for proxy service")
+		return err
+	}
+	socketPath, err := safepath.JoinNoFollow(socketDir, "domain-notify-pipe.sock")
+	if err != nil {
 		return err
 	}
 
@@ -514,7 +519,10 @@ func (d *VirtualMachineController) setupNetwork(vmi *v1.VirtualMachineInstance) 
 	if err != nil {
 		return fmt.Errorf(failedDetectIsolationFmt, err)
 	}
-	rootMount := isolationRes.MountRoot()
+	rootMount, err := isolationRes.MountRoot()
+	if err != nil {
+		return err
+	}
 
 	return d.netConf.Setup(vmi, isolationRes.Pid(), func() error {
 		if virtutil.WantVirtioNetDevice(vmi) {
@@ -1115,16 +1123,30 @@ func (d *VirtualMachineController) updateIsoSizeStatus(vmi *v1.VirtualMachineIns
 	}
 
 	for _, volume := range vmi.Spec.Volumes {
+
 		volPath, found := IsoGuestVolumePath(vmi, &volume)
 		if !found {
 			continue
 		}
+
 		res, err := d.podIsolationDetector.Detect(vmi)
 		if err != nil {
-			log.DefaultLogger().V(2).Warningf("failed to detect VMI %s", vmi.Name)
+			log.DefaultLogger().V(2).Reason(err).Warningf("failed to detect VMI %s", vmi.Name)
 			continue
 		}
-		size, err := isolation.GetFileSize(volPath, res)
+
+		rootPath, err := res.MountRoot()
+		if err != nil {
+			log.DefaultLogger().V(2).Reason(err).Warningf("failed to detect VMI %s", vmi.Name)
+			continue
+		}
+
+		safeVolPath, err := rootPath.AppendAndResolveWithRelativeRoot(volPath)
+		if err != nil {
+			log.DefaultLogger().V(2).Warningf("failed to determine file size for volume %s", volPath)
+			continue
+		}
+		fileInfo, err := safepath.StatAtNoFollow(safeVolPath)
 		if err != nil {
 			log.DefaultLogger().V(2).Warningf("failed to determine file size for volume %s", volPath)
 			continue
@@ -1132,7 +1154,7 @@ func (d *VirtualMachineController) updateIsoSizeStatus(vmi *v1.VirtualMachineIns
 
 		for i, _ := range vmi.Status.VolumeStatus {
 			if vmi.Status.VolumeStatus[i].Name == volume.Name {
-				vmi.Status.VolumeStatus[i].Size = size
+				vmi.Status.VolumeStatus[i].Size = fileInfo.Size()
 				continue
 			}
 		}
@@ -2504,7 +2526,10 @@ func (d *VirtualMachineController) vmUpdateHelperMigrationTarget(origVMI *v1.Vir
 	if err != nil {
 		return fmt.Errorf(failedDetectIsolationFmt, err)
 	}
-	virtLauncherRootMount := isolationRes.MountRoot()
+	virtLauncherRootMount, err := isolationRes.MountRoot()
+	if err != nil {
+		return err
+	}
 
 	err = d.claimDeviceOwnership(virtLauncherRootMount, "kvm")
 	if err != nil {
@@ -2589,7 +2614,10 @@ func (d *VirtualMachineController) vmUpdateHelperDefault(origVMI *v1.VirtualMach
 		if err != nil {
 			return fmt.Errorf(failedDetectIsolationFmt, err)
 		}
-		virtLauncherRootMount := isolationRes.MountRoot()
+		virtLauncherRootMount, err := isolationRes.MountRoot()
+		if err != nil {
+			return err
+		}
 
 		err = d.claimDeviceOwnership(virtLauncherRootMount, "kvm")
 		if err != nil {
@@ -2607,7 +2635,10 @@ func (d *VirtualMachineController) vmUpdateHelperDefault(origVMI *v1.VirtualMach
 		}
 
 		if virtutil.IsSEVVMI(vmi) {
-			sevDevice := path.Join(virtLauncherRootMount, "dev", "sev")
+			sevDevice, err := safepath.JoinNoFollow(virtLauncherRootMount, filepath.Join("dev", "sev"))
+			if err != nil {
+				return err
+			}
 			if err := diskutils.DefaultOwnershipManager.SetFileOwnership(sevDevice); err != nil {
 				return fmt.Errorf("failed to set SEV device owner: %v", err)
 			}
@@ -2933,11 +2964,13 @@ func (d *VirtualMachineController) isHostModelMigratable(vmi *v1.VirtualMachineI
 	return nil
 }
 
-func (d *VirtualMachineController) claimDeviceOwnership(virtLauncherRootMount, deviceName string) error {
-	devicePath := filepath.Join(virtLauncherRootMount, "dev", deviceName)
-
-	softwareEmulation, err := util.UseSoftwareEmulationForDevice(devicePath, d.clusterConfig.AllowEmulation())
-	if err != nil || softwareEmulation {
+func (d *VirtualMachineController) claimDeviceOwnership(virtLauncherRootMount *safepath.Path, deviceName string) error {
+	softwareEmulation := d.clusterConfig.AllowEmulation()
+	devicePath, err := safepath.JoinNoFollow(virtLauncherRootMount, filepath.Join("dev", deviceName))
+	if err != nil {
+		if softwareEmulation {
+			return nil
+		}
 		return err
 	}
 

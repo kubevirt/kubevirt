@@ -137,6 +137,21 @@ var _ = Describe("Validating VMICreate Admitter", func() {
 		Expect(resp.Result.Message).To(ContainSubstring("no memory requested"))
 	})
 
+	DescribeTable("path validation should fail", func(path string) {
+		Expect(validatePath(k8sfield.NewPath("fake"), path)).To(HaveLen(1))
+	},
+		Entry("if path is not absolute", "a/b/c"),
+		Entry("if path contains relative elements", "/a/b/c/../d"),
+		Entry("if path is root", "/"),
+	)
+
+	DescribeTable("path validation should succeed", func(path string) {
+		Expect(validatePath(k8sfield.NewPath("fake"), path)).To(BeEmpty())
+	},
+		Entry("if path is absolute", "/a/b/c"),
+		Entry("if path is absolute and has trailing slash", "/a/b/c/"),
+	)
+
 	Context("tolerations with eviction policies given", func() {
 		var vmi *v1.VirtualMachineInstance
 		var policyMigrate = v1.EvictionStrategyLiveMigrate
@@ -2333,10 +2348,12 @@ var _ = Describe("Validating VMICreate Admitter", func() {
 				validImage   = "image"
 				withoutImage = ""
 
-				validInitrd   = "initrd"
+				invalidInitrd = "initrd"
+				validInitrd   = "/initrd"
 				withoutInitrd = ""
 
-				validKernel   = "kernel"
+				invalidKernel = "kernel"
+				validKernel   = "/kernel"
 				withoutKernel = ""
 			)
 
@@ -2364,9 +2381,34 @@ var _ = Describe("Validating VMICreate Admitter", func() {
 					createKernelBoot(validKernelArgs, validInitrd, withoutKernel, validImage), true),
 				Entry("with kernel args, with container that has only image defined - should reject",
 					createKernelBoot(validKernelArgs, withoutInitrd, withoutKernel, validImage), false),
+				Entry("with invalid kernel path - should reject",
+					createKernelBoot(validKernelArgs, validInitrd, invalidKernel, validImage), false),
+				Entry("with invalid initrd path - should reject",
+					createKernelBoot(validKernelArgs, invalidInitrd, validKernel, validImage), false),
 				Entry("with kernel args, with container that has initrd and kernel defined but without image - should reject",
 					createKernelBoot(validKernelArgs, validInitrd, validKernel, withoutImage), false),
 			)
+		})
+
+		It("should detect invalid containerDisk paths", func() {
+			spec := &v1.VirtualMachineInstanceSpec{}
+			disk := v1.Disk{
+				Name:   "testdisk",
+				Serial: "SN-1_a",
+			}
+			spec.Domain.Devices.Disks = []v1.Disk{disk}
+			volume := v1.Volume{
+				Name: "testdisk",
+				VolumeSource: v1.VolumeSource{
+					ContainerDisk: testutils.NewFakeContainerDiskSource(),
+				},
+			}
+			volume.ContainerDisk.Path = "invalid"
+
+			spec.Volumes = []v1.Volume{volume}
+			spec.Domain.Devices.Disks = []v1.Disk{disk}
+			causes := ValidateVirtualMachineInstanceSpec(k8sfield.NewPath("fake"), spec, config)
+			Expect(causes).To(HaveLen(1))
 		})
 	})
 

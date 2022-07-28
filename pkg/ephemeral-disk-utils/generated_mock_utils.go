@@ -5,6 +5,8 @@ package ephemeraldiskutils
 
 import (
 	gomock "github.com/golang/mock/gomock"
+
+	safepath "kubevirt.io/kubevirt/pkg/safepath"
 )
 
 // Mock of OwnershipManagerInterface interface
@@ -28,7 +30,17 @@ func (_m *MockOwnershipManagerInterface) EXPECT() *_MockOwnershipManagerInterfac
 	return _m.recorder
 }
 
-func (_m *MockOwnershipManagerInterface) SetFileOwnership(file string) error {
+func (_m *MockOwnershipManagerInterface) UnsafeSetFileOwnership(file string) error {
+	ret := _m.ctrl.Call(_m, "UnsafeSetFileOwnership", file)
+	ret0, _ := ret[0].(error)
+	return ret0
+}
+
+func (_mr *_MockOwnershipManagerInterfaceRecorder) UnsafeSetFileOwnership(arg0 interface{}) *gomock.Call {
+	return _mr.mock.ctrl.RecordCall(_mr.mock, "UnsafeSetFileOwnership", arg0)
+}
+
+func (_m *MockOwnershipManagerInterface) SetFileOwnership(file *safepath.Path) error {
 	ret := _m.ctrl.Call(_m, "SetFileOwnership", file)
 	ret0, _ := ret[0].(error)
 	return ret0

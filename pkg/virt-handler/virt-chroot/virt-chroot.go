@@ -19,7 +19,13 @@
 
 package virt_chroot
 
-import "os/exec"
+import (
+	"os/exec"
+	"strings"
+
+	"kubevirt.io/kubevirt/pkg/safepath"
+	"kubevirt.io/kubevirt/pkg/unsafepath"
+)
 
 const (
 	binaryPath     = "/usr/bin/virt-chroot"
@@ -38,7 +44,13 @@ func GetChrootMountNamespace() string {
 	return mountNamespace
 }
 
-func MountChroot(sourcePath, targetPath string, ro bool) *exec.Cmd {
+func MountChroot(sourcePath, targetPath *safepath.Path, ro bool) *exec.Cmd {
+	return UnsafeMountChroot(trimProcPrefix(sourcePath), trimProcPrefix(targetPath), ro)
+}
+
+// Deprecated: UnsafeMountChroot is used to connect to code which needs to be refactored
+// to handle mounts securely.
+func UnsafeMountChroot(sourcePath, targetPath string, ro bool) *exec.Cmd {
 	args := append(getBaseArgs(), "mount", "-o")
 	optionArgs := "bind"
 
@@ -50,7 +62,13 @@ func MountChroot(sourcePath, targetPath string, ro bool) *exec.Cmd {
 	return exec.Command(binaryPath, args...)
 }
 
-func UmountChroot(path string) *exec.Cmd {
+func UmountChroot(path *safepath.Path) *exec.Cmd {
+	return UnsafeUmountChroot(trimProcPrefix(path))
+}
+
+// Deprecated: UnsafeUmountChroot is used to connect to code which needs to be refactored
+// to handle mounts securely.
+func UnsafeUmountChroot(path string) *exec.Cmd {
 	args := append(getBaseArgs(), "umount", path)
 	return exec.Command(binaryPath, args...)
 }
@@ -70,4 +88,8 @@ func RemoveMDEVType(mdevUUID string) *exec.Cmd {
 // For general purposes
 func ExecChroot(args ...string) *exec.Cmd {
 	return exec.Command(binaryPath, args...)
+}
+
+func trimProcPrefix(path *safepath.Path) string {
+	return strings.TrimPrefix(unsafepath.UnsafeAbsolute(path.Raw()), "/proc/1/root")
 }
