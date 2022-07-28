@@ -25,6 +25,12 @@ PROVIDER_PATH="${kubevirtci_path}/cluster-up/cluster/${KUBEVIRT_PROVIDER}"
 
 RUN_KUBEVIRT_CONFORMANCE=${RUN_KUBEVIRT_CONFORMANCE:-"false"}
 
+function detect_cri() {
+    if podman ps >/dev/null 2>&1; then echo podman; elif docker ps >/dev/null 2>&1; then echo docker; fi
+}
+
+export CRI_BIN=${CRI_BIN:-$(detect_cri)}
+
 (
   cd $kubevirtci_path
   kubectl="./cluster-up/kubectl.sh"
@@ -37,7 +43,7 @@ RUN_KUBEVIRT_CONFORMANCE=${RUN_KUBEVIRT_CONFORMANCE:-"false"}
   
   nodes=$(${kubectl} get nodes --no-headers | awk '{print $1}')
   for node in $nodes; do
-    node_exec="docker exec ${node}"
+    node_exec="${CRI_BIN} exec ${node}"
     echo "[$node] network interfaces status:"
     ${node_exec} ip a
     echo ""
