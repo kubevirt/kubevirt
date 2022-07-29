@@ -20,7 +20,6 @@
 package libvmi
 
 import (
-	"k8s.io/apimachinery/pkg/api/resource"
 	v1 "kubevirt.io/api/core/v1"
 )
 
@@ -57,24 +56,5 @@ func WithNUMAGuestMappingPassthrough() Option {
 			vmi.Spec.Domain.CPU = &v1.CPU{}
 		}
 		vmi.Spec.Domain.CPU.NUMA = &v1.NUMA{GuestMappingPassthrough: &v1.NUMAGuestMappingPassthrough{}}
-	}
-}
-
-func WithHugepages(pageSize string) Option {
-	return func(vmi *v1.VirtualMachineInstance) {
-		if vmi.Spec.Domain.Memory == nil {
-			vmi.Spec.Domain.Memory = &v1.Memory{}
-		}
-		vmi.Spec.Domain.Memory.Hugepages = &v1.Hugepages{PageSize: pageSize}
-	}
-}
-
-func WithGuestMemory(memory string) Option {
-	return func(vmi *v1.VirtualMachineInstance) {
-		if vmi.Spec.Domain.Memory == nil {
-			vmi.Spec.Domain.Memory = &v1.Memory{}
-		}
-		quantity := resource.MustParse(memory)
-		vmi.Spec.Domain.Memory.Guest = &quantity
 	}
 }

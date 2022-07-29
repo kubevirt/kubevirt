@@ -4,9 +4,10 @@ go_library(
     name = "go_default_library",
     srcs = [
         "cloudinit.go",
+        "cpu.go",
         "factory.go",
+        "memory.go",
         "network.go",
-        "performance.go",
         "status.go",
         "storage.go",
         "vmi.go",
