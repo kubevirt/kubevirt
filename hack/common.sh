@@ -83,6 +83,14 @@ function build_func_tests_image() {
 # Useful for cross-compilation where the default -pkdir for cross-builds may not be writable
 #KUBEVIRT_GO_BASE_PKGDIR="${GOPATH}/crossbuild-cache-root/"
 
+# Use this environment variable to specify additional tags for the go build in hack/build-go.sh.
+# To specify tags in the bazel build modify/overwrite the build target in .bazelrc instead.
+if [ -z "$KUBEVIRT_GO_BUILD_TAGS" ]; then
+    KUBEVIRT_GO_BUILD_TAGS="selinux"
+else
+    KUBEVIRT_GO_BUILD_TAGS="selinux,${KUBEVIRT_GO_BUILD_TAGS}"
+fi
+
 # Populate an environment variable with the version info needed.
 # It should be used for everything which needs a version when building (not generating)
 # IMPORTANT:
