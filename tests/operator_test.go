@@ -30,7 +30,6 @@ import (
 	"os"
 	"os/exec"
 	"path/filepath"
-	"reflect"
 	"strconv"
 
 	"regexp"
@@ -68,6 +67,7 @@ import (
 	sdkapi "kubevirt.io/controller-lifecycle-operator-sdk/api"
 
 	"kubevirt.io/kubevirt/pkg/controller"
+	virtconfig "kubevirt.io/kubevirt/pkg/virt-config"
 	"kubevirt.io/kubevirt/pkg/virt-operator/resource/apply"
 	"kubevirt.io/kubevirt/pkg/virt-operator/resource/generate/components"
 	"kubevirt.io/kubevirt/pkg/virt-operator/util"
@@ -2829,48 +2829,19 @@ spec:
 			}, time.Minute*5, 2*time.Second).Should(Equal(true))
 		}
 
-		setOrigFeatureGates := func() {
-			kv, err := virtClient.KubeVirt(originalKv.Namespace).Get(originalKv.Name, &metav1.GetOptions{})
-			Expect(err).ToNot(HaveOccurred())
-			ofg := originalKv.Spec.Configuration.DeveloperConfiguration.FeatureGates
-			if !reflect.DeepEqual(kv.Spec.Configuration.DeveloperConfiguration.FeatureGates, ofg) {
-				kv.Spec.Configuration.DeveloperConfiguration.FeatureGates = ofg
-				_, err = virtClient.KubeVirt(kv.Namespace).Update(kv)
-				Expect(err).ToNot(HaveOccurred())
-			}
-		}
-
 		AfterEach(func() {
-			setOrigFeatureGates()
+			tests.EnableFeatureGate(virtconfig.VMExportGate)
+			waitExportProxyReady()
 		})
 
 		It("should delete and recreate virt-exportproxy", func() {
-			var newFeatureGates []string
-			exportEnabled := false
-			kv, err := virtClient.KubeVirt(originalKv.Namespace).Get(originalKv.Name, &metav1.GetOptions{})
-			Expect(err).ToNot(HaveOccurred())
-			for _, fg := range kv.Spec.Configuration.DeveloperConfiguration.FeatureGates {
-				if fg == "VMExport" {
-					exportEnabled = true
-					continue
-				}
-				newFeatureGates = append(newFeatureGates, fg)
-			}
-			Expect(exportEnabled).To(BeTrue())
-
 			waitExportProxyReady()
-
-			kv.Spec.Configuration.DeveloperConfiguration.FeatureGates = newFeatureGates
-			_, err = virtClient.KubeVirt(kv.Namespace).Update(kv)
-			Expect(err).ToNot(HaveOccurred())
+			tests.DisableFeatureGate(virtconfig.VMExportGate)
 
 			Eventually(func() bool {
 				_, err := virtClient.AppsV1().Deployments(originalKv.Namespace).Get(context.TODO(), "virt-exportproxy", metav1.GetOptions{})
 				return errors.IsNotFound(err)
 			}, time.Minute*5, time.Second*2).Should(BeTrue())
-
-			setOrigFeatureGates()
-			waitExportProxyReady()
 		})
 	})
 })
