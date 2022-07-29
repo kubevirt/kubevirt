@@ -573,17 +573,6 @@ func (t *templateService) renderLaunchManifest(vmi *v1.VirtualMachineInstance, i
 		nodeSelector[k] = v
 	}
 
-	hostName := dns.SanitizeHostname(vmi)
-
-	podLabels := map[string]string{}
-
-	for k, v := range vmi.Labels {
-		podLabels[k] = v
-	}
-	podLabels[v1.AppLabel] = "virt-launcher"
-	podLabels[v1.CreatedByLabel] = string(vmi.UID)
-	podLabels[v1.VirtualMachineNameLabel] = hostName
-
 	for i, requestedHookSidecar := range requestedHookSidecarList {
 		containers = append(
 			containers,
@@ -630,11 +619,11 @@ func (t *templateService) renderLaunchManifest(vmi *v1.VirtualMachineInstance, i
 		},
 	}
 
-	// TODO use constants for podLabels
+	hostName := dns.SanitizeHostname(vmi)
 	pod := k8sv1.Pod{
 		ObjectMeta: metav1.ObjectMeta{
 			GenerateName: "virt-launcher-" + domain + "-",
-			Labels:       podLabels,
+			Labels:       podLabels(vmi, hostName),
 			Annotations:  podAnnotations,
 			OwnerReferences: []metav1.OwnerReference{
 				*metav1.NewControllerRef(vmi, v1.VirtualMachineInstanceGroupVersionKind),
@@ -1394,4 +1383,16 @@ func (p VMIResourcePredicates) Apply() []ResourceRendererOption {
 		}
 	}
 	return options
+}
+
+func podLabels(vmi *v1.VirtualMachineInstance, hostName string) map[string]string {
+	labels := map[string]string{}
+
+	for k, v := range vmi.Labels {
+		labels[k] = v
+	}
+	labels[v1.AppLabel] = "virt-launcher"
+	labels[v1.CreatedByLabel] = string(vmi.UID)
+	labels[v1.VirtualMachineNameLabel] = hostName
+	return labels
 }
