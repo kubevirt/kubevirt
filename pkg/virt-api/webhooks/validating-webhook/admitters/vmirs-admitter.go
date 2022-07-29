@@ -22,6 +22,7 @@ package admitters
 import (
 	"encoding/json"
 	"fmt"
+	"kubevirt.io/client-go/kubecli"
 
 	admissionv1 "k8s.io/api/admission/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
@@ -37,6 +38,14 @@ import (
 
 type VMIRSAdmitter struct {
 	ClusterConfig *virtconfig.ClusterConfig
+	Client        kubecli.KubevirtClient
+}
+
+func NewVMIRSAdmitter(config *virtconfig.ClusterConfig, client kubecli.KubevirtClient) *VMIRSAdmitter {
+	return &VMIRSAdmitter{
+		ClusterConfig: config,
+		Client:        client,
+	}
 }
 
 func (admitter *VMIRSAdmitter) Admit(ar *admissionv1.AdmissionReview) *admissionv1.AdmissionResponse {
@@ -57,7 +66,7 @@ func (admitter *VMIRSAdmitter) Admit(ar *admissionv1.AdmissionReview) *admission
 		return webhookutils.ToAdmissionResponseError(err)
 	}
 
-	causes := ValidateVMIRSSpec(k8sfield.NewPath("spec"), &vmirs.Spec, admitter.ClusterConfig)
+	causes := ValidateVMIRSSpec(k8sfield.NewPath("spec"), &vmirs.Spec, admitter.ClusterConfig, admitter.Client, vmirs.Namespace)
 	if len(causes) > 0 {
 		return webhookutils.ToAdmissionResponse(causes)
 	}
@@ -67,7 +76,7 @@ func (admitter *VMIRSAdmitter) Admit(ar *admissionv1.AdmissionReview) *admission
 	return &reviewResponse
 }
 
-func ValidateVMIRSSpec(field *k8sfield.Path, spec *v1.VirtualMachineInstanceReplicaSetSpec, config *virtconfig.ClusterConfig) []metav1.StatusCause {
+func ValidateVMIRSSpec(field *k8sfield.Path, spec *v1.VirtualMachineInstanceReplicaSetSpec, config *virtconfig.ClusterConfig, client kubecli.KubevirtClient, namespace string) []metav1.StatusCause {
 	var causes []metav1.StatusCause
 
 	if spec.Template == nil {
@@ -77,7 +86,7 @@ func ValidateVMIRSSpec(field *k8sfield.Path, spec *v1.VirtualMachineInstanceRepl
 			Field:   field.Child("template").String(),
 		})
 	}
-	causes = append(causes, ValidateVirtualMachineInstanceSpec(field.Child("template", "spec"), &spec.Template.Spec, config)...)
+	causes = append(causes, ValidateVirtualMachineInstanceSpec(field.Child("template", "spec"), &spec.Template.Spec, config, client, namespace)...)
 
 	selector, err := metav1.LabelSelectorAsSelector(spec.Selector)
 	if err != nil {

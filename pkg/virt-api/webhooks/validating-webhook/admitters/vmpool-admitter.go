@@ -22,6 +22,7 @@ package admitters
 import (
 	"encoding/json"
 	"fmt"
+	"kubevirt.io/client-go/kubecli"
 
 	admissionv1 "k8s.io/api/admission/v1"
 	"k8s.io/apimachinery/pkg/api/equality"
@@ -39,6 +40,14 @@ import (
 
 type VMPoolAdmitter struct {
 	ClusterConfig *virtconfig.ClusterConfig
+	Client        kubecli.KubevirtClient
+}
+
+func NewVMPoolAdmitter(config *virtconfig.ClusterConfig, client kubecli.KubevirtClient) *VMPoolAdmitter {
+	return &VMPoolAdmitter{
+		ClusterConfig: config,
+		Client:        client,
+	}
 }
 
 func (admitter *VMPoolAdmitter) Admit(ar *admissionv1.AdmissionReview) *admissionv1.AdmissionResponse {
@@ -75,7 +84,7 @@ func (admitter *VMPoolAdmitter) Admit(ar *admissionv1.AdmissionReview) *admissio
 		return webhookutils.ToAdmissionResponseError(err)
 	}
 
-	causes := ValidateVMPoolSpec(ar, k8sfield.NewPath("spec"), &pool, admitter.ClusterConfig)
+	causes := ValidateVMPoolSpec(ar, k8sfield.NewPath("spec"), &pool, admitter.ClusterConfig, admitter.Client, pool.Namespace)
 	if len(causes) > 0 {
 		return webhookutils.ToAdmissionResponse(causes)
 	}
@@ -85,7 +94,7 @@ func (admitter *VMPoolAdmitter) Admit(ar *admissionv1.AdmissionReview) *admissio
 	return &reviewResponse
 }
 
-func ValidateVMPoolSpec(ar *admissionv1.AdmissionReview, field *k8sfield.Path, pool *poolv1.VirtualMachinePool, config *virtconfig.ClusterConfig) []metav1.StatusCause {
+func ValidateVMPoolSpec(ar *admissionv1.AdmissionReview, field *k8sfield.Path, pool *poolv1.VirtualMachinePool, config *virtconfig.ClusterConfig, client kubecli.KubevirtClient, namespace string) []metav1.StatusCause {
 	var causes []metav1.StatusCause
 
 	spec := &pool.Spec
@@ -99,7 +108,7 @@ func ValidateVMPoolSpec(ar *admissionv1.AdmissionReview, field *k8sfield.Path, p
 	}
 
 	accountName := ar.Request.UserInfo.Username
-	causes = append(causes, ValidateVirtualMachineSpec(field.Child("virtualMachineTemplate", "spec"), &spec.VirtualMachineTemplate.Spec, config, accountName)...)
+	causes = append(causes, ValidateVirtualMachineSpec(field.Child("virtualMachineTemplate", "spec"), &spec.VirtualMachineTemplate.Spec, config, accountName, client, namespace)...)
 
 	selector, err := metav1.LabelSelectorAsSelector(spec.Selector)
 	if err != nil {

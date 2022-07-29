@@ -181,13 +181,13 @@ func main() {
 
 	// Having no generics is lots of fun
 	for name, obj := range vms {
-		causes := validating_webhook.ValidateVirtualMachineSpec(k8sfield.NewPath("spec"), &obj.Spec, config, "user-account")
+		causes := validating_webhook.ValidateVirtualMachineSpec(k8sfield.NewPath("spec"), &obj.Spec, config, "user-account", nil, "")
 		handleCauses(causes, name, "vm")
 		handleError(dumpObject(name, *obj))
 	}
 
 	for name, obj := range vmis {
-		causes := validating_webhook.ValidateVirtualMachineInstanceSpec(k8sfield.NewPath("spec"), &obj.Spec, config)
+		causes := validating_webhook.ValidateVirtualMachineInstanceSpec(k8sfield.NewPath("spec"), &obj.Spec, config, nil, "")
 		handleCauses(causes, name, "vmi")
 		handleError(dumpObject(name, *obj))
 	}
@@ -205,7 +205,7 @@ func main() {
 	}
 
 	for name, obj := range vmireplicasets {
-		causes := validating_webhook.ValidateVMIRSSpec(k8sfield.NewPath("spec"), &obj.Spec, config)
+		causes := validating_webhook.ValidateVMIRSSpec(k8sfield.NewPath("spec"), &obj.Spec, config, nil, "")
 		handleCauses(causes, name, "vmi replica set")
 		handleError(dumpObject(name, *obj))
 	}
@@ -220,7 +220,7 @@ func main() {
 				Operation: admissionv1.Create,
 			},
 		}
-		causes := validating_webhook.ValidateVMPoolSpec(ar, k8sfield.NewPath("spec"), obj, config)
+		causes := validating_webhook.ValidateVMPoolSpec(ar, k8sfield.NewPath("spec"), obj, config, nil, "")
 		handleCauses(causes, name, "vm pool")
 		handleError(dumpObject(name, *obj))
 	}

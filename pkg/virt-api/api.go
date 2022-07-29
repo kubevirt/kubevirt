@@ -745,19 +745,19 @@ func (app *virtAPIApp) prepareCertManager() {
 func (app *virtAPIApp) registerValidatingWebhooks(informers *webhooks.Informers) {
 
 	http.HandleFunc(components.VMICreateValidatePath, func(w http.ResponseWriter, r *http.Request) {
-		validating_webhook.ServeVMICreate(w, r, app.clusterConfig)
+		validating_webhook.ServeVMICreate(w, r, app.clusterConfig, app.virtCli)
 	})
 	http.HandleFunc(components.VMIUpdateValidatePath, func(w http.ResponseWriter, r *http.Request) {
-		validating_webhook.ServeVMIUpdate(w, r, app.clusterConfig)
+		validating_webhook.ServeVMIUpdate(w, r, app.clusterConfig, app.virtCli)
 	})
 	http.HandleFunc(components.VMValidatePath, func(w http.ResponseWriter, r *http.Request) {
 		validating_webhook.ServeVMs(w, r, app.clusterConfig, app.virtCli, informers)
 	})
 	http.HandleFunc(components.VMIRSValidatePath, func(w http.ResponseWriter, r *http.Request) {
-		validating_webhook.ServeVMIRS(w, r, app.clusterConfig)
+		validating_webhook.ServeVMIRS(w, r, app.clusterConfig, app.virtCli)
 	})
 	http.HandleFunc(components.VMPoolValidatePath, func(w http.ResponseWriter, r *http.Request) {
-		validating_webhook.ServeVMPool(w, r, app.clusterConfig)
+		validating_webhook.ServeVMPool(w, r, app.clusterConfig, app.virtCli)
 	})
 	http.HandleFunc(components.VMIPresetValidatePath, func(w http.ResponseWriter, r *http.Request) {
 		validating_webhook.ServeVMIPreset(w, r)

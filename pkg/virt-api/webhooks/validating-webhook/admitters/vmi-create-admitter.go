@@ -20,8 +20,11 @@
 package admitters
 
 import (
+	"context"
 	"encoding/base64"
 	"fmt"
+	appsv1 "k8s.io/api/apps/v1"
+	"kubevirt.io/client-go/kubecli"
 	"net"
 	"path/filepath"
 	"regexp"
@@ -84,6 +87,14 @@ const (
 
 type VMICreateAdmitter struct {
 	ClusterConfig *virtconfig.ClusterConfig
+	Client        kubecli.KubevirtClient
+}
+
+func NewVMICreateAdmitter(config *virtconfig.ClusterConfig, client kubecli.KubevirtClient) *VMICreateAdmitter {
+	return &VMICreateAdmitter{
+		ClusterConfig: config,
+		Client:        client,
+	}
 }
 
 func (admitter *VMICreateAdmitter) Admit(ar *admissionv1.AdmissionReview) *admissionv1.AdmissionResponse {
@@ -97,7 +108,7 @@ func (admitter *VMICreateAdmitter) Admit(ar *admissionv1.AdmissionReview) *admis
 		return webhookutils.ToAdmissionResponseError(err)
 	}
 
-	causes := ValidateVirtualMachineInstanceSpec(k8sfield.NewPath("spec"), &vmi.Spec, admitter.ClusterConfig)
+	causes := ValidateVirtualMachineInstanceSpec(k8sfield.NewPath("spec"), &vmi.Spec, admitter.ClusterConfig, admitter.Client, vmi.Namespace)
 	// We only want to validate that volumes are mapped to disks or filesystems during VMI admittance, thus this logic is seperated from the above call that is shared with the VM admitter.
 	causes = append(causes, validateVirtualMachineInstanceSpecVolumeDisks(k8sfield.NewPath("spec"), &vmi.Spec)...)
 	causes = append(causes, ValidateVirtualMachineInstanceMandatoryFields(k8sfield.NewPath("spec"), &vmi.Spec)...)
@@ -117,7 +128,7 @@ func (admitter *VMICreateAdmitter) Admit(ar *admissionv1.AdmissionReview) *admis
 	return &reviewResponse
 }
 
-func ValidateVirtualMachineInstanceSpec(field *k8sfield.Path, spec *v1.VirtualMachineInstanceSpec, config *virtconfig.ClusterConfig) []metav1.StatusCause {
+func ValidateVirtualMachineInstanceSpec(field *k8sfield.Path, spec *v1.VirtualMachineInstanceSpec, config *virtconfig.ClusterConfig, client kubecli.KubevirtClient, namespace string) []metav1.StatusCause {
 	var causes []metav1.StatusCause
 	volumeNameMap := make(map[string]*v1.Volume)
 	networkNameMap := make(map[string]*v1.Network)
@@ -149,6 +160,7 @@ func ValidateVirtualMachineInstanceSpec(field *k8sfield.Path, spec *v1.VirtualMa
 	causes = append(causes, validateCPUFeaturePolicies(field, spec)...)
 	causes = append(causes, validateStartStrategy(field, spec)...)
 	causes = append(causes, validateRealtime(field, spec)...)
+	causes = append(causes, validateAffinity(spec, client, namespace)...)
 
 	maxNumberOfInterfacesExceeded := len(spec.Domain.Devices.Interfaces) > arrayLenMax
 	if maxNumberOfInterfacesExceeded {
@@ -2510,4 +2522,61 @@ func virtioNicRequested(interfaces []v1.Interface) bool {
 	}
 
 	return false
+}
+
+// validateAffinity which validate vmi.spec.affinity on k8s and will be ignored if caller is a unit test
+func validateAffinity(spec *v1.VirtualMachineInstanceSpec, client kubecli.KubevirtClient, namespace string) (causes []metav1.StatusCause) {
+	// either it's a unit test or spec.Affinity is nil, we should skip validate affinity
+	if client == nil || spec.Affinity == nil {
+		return
+	}
+
+	const (
+		dsName    = "affinity-validation-webhook"
+		mockLabel = "kubevirt.io/affinity-validation"
+		podName   = "affinity-validation-pod"
+		mockUrl   = "test.only:latest"
+	)
+
+	mockDaemonSet := &appsv1.DaemonSet{
+		ObjectMeta: metav1.ObjectMeta{
+			Name: dsName,
+		},
+		Spec: appsv1.DaemonSetSpec{
+			Selector: &metav1.LabelSelector{
+				MatchLabels: map[string]string{
+					mockLabel: "",
+				},
+			},
+			Template: k8sv1.PodTemplateSpec{
+				ObjectMeta: metav1.ObjectMeta{
+					GenerateName: podName,
+					Labels: map[string]string{
+						mockLabel: "",
+					},
+				},
+				Spec: k8sv1.PodSpec{
+					Containers: []k8sv1.Container{
+						{
+							Name:  podName,
+							Image: mockUrl,
+						},
+					},
+					// Inject vmi affinity here
+					Affinity: spec.Affinity,
+				},
+			},
+		},
+	}
+
+	_, err := client.AppsV1().DaemonSets(namespace).Create(context.Background(), mockDaemonSet, metav1.CreateOptions{DryRun: []string{metav1.DryRunAll}})
+
+	if err != nil {
+		causes = append(causes, metav1.StatusCause{
+			Type:    metav1.CauseTypeFieldValueInvalid,
+			Message: err.Error(),
+		})
+	}
+
+	return
 }

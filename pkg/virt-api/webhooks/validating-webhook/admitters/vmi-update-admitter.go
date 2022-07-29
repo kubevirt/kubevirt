@@ -21,6 +21,7 @@ package admitters
 
 import (
 	"fmt"
+	"kubevirt.io/client-go/kubecli"
 
 	admissionv1 "k8s.io/api/admission/v1"
 	"k8s.io/apimachinery/pkg/api/equality"
@@ -37,6 +38,14 @@ import (
 
 type VMIUpdateAdmitter struct {
 	ClusterConfig *virtconfig.ClusterConfig
+	Client        kubecli.KubevirtClient
+}
+
+func NewVMIUpdateAdmitter(config *virtconfig.ClusterConfig, client kubecli.KubevirtClient) *VMIUpdateAdmitter {
+	return &VMIUpdateAdmitter{
+		ClusterConfig: config,
+		Client:        client,
+	}
 }
 
 func (admitter *VMIUpdateAdmitter) Admit(ar *admissionv1.AdmissionReview) *admissionv1.AdmissionResponse {
@@ -54,7 +63,7 @@ func (admitter *VMIUpdateAdmitter) Admit(ar *admissionv1.AdmissionReview) *admis
 	if !equality.Semantic.DeepEqual(newVMI.Spec, oldVMI.Spec) {
 		// Only allow the KubeVirt SA to modify the VMI spec, since that means it went through the sub resource.
 		if webhooks.IsKubeVirtServiceAccount(ar.Request.UserInfo.Username) {
-			hotplugResponse := admitHotplug(newVMI.Spec.Volumes, oldVMI.Spec.Volumes, newVMI.Spec.Domain.Devices.Disks, oldVMI.Spec.Domain.Devices.Disks, oldVMI.Status.VolumeStatus, newVMI, admitter.ClusterConfig)
+			hotplugResponse := admitHotplug(newVMI.Spec.Volumes, oldVMI.Spec.Volumes, newVMI.Spec.Domain.Devices.Disks, oldVMI.Spec.Domain.Devices.Disks, oldVMI.Status.VolumeStatus, newVMI, admitter.ClusterConfig, admitter.Client)
 			if hotplugResponse != nil {
 				return hotplugResponse
 			}
@@ -88,7 +97,7 @@ func getExpectedDisks(newVolumes []v1.Volume) int {
 }
 
 // admitHotplug compares the old and new volumes and disks, and ensures that they match and are valid.
-func admitHotplug(newVolumes, oldVolumes []v1.Volume, newDisks, oldDisks []v1.Disk, volumeStatuses []v1.VolumeStatus, newVMI *v1.VirtualMachineInstance, config *virtconfig.ClusterConfig) *admissionv1.AdmissionResponse {
+func admitHotplug(newVolumes, oldVolumes []v1.Volume, newDisks, oldDisks []v1.Disk, volumeStatuses []v1.VolumeStatus, newVMI *v1.VirtualMachineInstance, config *virtconfig.ClusterConfig, client kubecli.KubevirtClient) *admissionv1.AdmissionResponse {
 	expectedDisks := getExpectedDisks(newVolumes)
 	if expectedDisks != len(newDisks) {
 		return webhookutils.ToAdmissionResponse([]metav1.StatusCause{
@@ -116,7 +125,7 @@ func admitHotplug(newVolumes, oldVolumes []v1.Volume, newDisks, oldDisks []v1.Di
 		return hotplugAr
 	}
 
-	causes := ValidateVirtualMachineInstanceSpec(k8sfield.NewPath("spec"), &newVMI.Spec, config)
+	causes := ValidateVirtualMachineInstanceSpec(k8sfield.NewPath("spec"), &newVMI.Spec, config, client, newVMI.Namespace)
 	if len(causes) > 0 {
 		return webhookutils.ToAdmissionResponse(causes)
 	}
