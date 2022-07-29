@@ -504,8 +504,11 @@ func (ctrl *VMExportController) getOrCreateExportService(vmExport *exportv1.Virt
 	} else if !exists {
 		service := ctrl.createServiceManifest(vmExport)
 		log.Log.V(3).Infof("Creating new exporter service %s/%s", service.Namespace, service.Name)
-		ctrl.Recorder.Eventf(vmExport, corev1.EventTypeNormal, serviceCreatedEvent, "Created service %s/%s", service.Namespace, service.Name)
-		return ctrl.Client.CoreV1().Services(vmExport.Namespace).Create(context.Background(), service, metav1.CreateOptions{})
+		service, err := ctrl.Client.CoreV1().Services(vmExport.Namespace).Create(context.Background(), service, metav1.CreateOptions{})
+		if err == nil {
+			ctrl.Recorder.Eventf(vmExport, corev1.EventTypeNormal, serviceCreatedEvent, "Created service %s/%s", service.Namespace, service.Name)
+		}
+		return service, err
 	} else {
 		return service.(*corev1.Service), nil
 	}
@@ -569,8 +572,11 @@ func (ctrl *VMExportController) createExporterPod(vmExport *exportv1.VirtualMach
 		manifest := ctrl.createExporterPodManifest(vmExport, pvcs)
 
 		log.Log.V(3).Infof("Creating new exporter pod %s/%s", manifest.Namespace, manifest.Name)
-		ctrl.Recorder.Eventf(vmExport, corev1.EventTypeNormal, exporterPodCreatedEvent, "Creating exporter pod %s/%s", manifest.Namespace, manifest.Name)
-		return ctrl.Client.CoreV1().Pods(vmExport.Namespace).Create(context.Background(), manifest, metav1.CreateOptions{})
+		pod, err := ctrl.Client.CoreV1().Pods(vmExport.Namespace).Create(context.Background(), manifest, metav1.CreateOptions{})
+		if err == nil {
+			ctrl.Recorder.Eventf(vmExport, corev1.EventTypeNormal, exporterPodCreatedEvent, "Created exporter pod %s/%s", manifest.Namespace, manifest.Name)
+		}
+		return pod, nil
 	} else {
 		pod := obj.(*corev1.Pod)
 		return pod, nil
