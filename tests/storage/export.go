@@ -1197,7 +1197,7 @@ var _ = SIGDescribe("Export", func() {
 		if !exists {
 			Skip("Skip test when Filesystem storage is not present")
 		}
-		blankDv := libstorage.NewRandomBlankDataVolume(util.NamespaceTestDefault, sc, "64Mi", k8sv1.ReadWriteOnce, k8sv1.PersistentVolumeFilesystem)
+		blankDv := libstorage.NewBlankDataVolume(util.NamespaceTestDefault, sc, "64Mi", k8sv1.ReadWriteOnce, k8sv1.PersistentVolumeFilesystem)
 		vm := tests.NewRandomVMWithDataVolumeAndUserDataInStorageClass(
 			cd.DataVolumeImportUrlForContainerDisk(cd.ContainerDiskCirros),
 			util.NamespaceTestDefault,

@@ -551,8 +551,8 @@ func GetVirtualMachineExportInformerIndexers() cache.Indexers {
 				return nil, unexpectedObjectError
 			}
 
-			if export.Spec.Source.APIGroup == nil ||
-				*export.Spec.Source.APIGroup == "" || *export.Spec.Source.APIGroup == "v1" &&
+			if (export.Spec.Source.APIGroup == nil ||
+				*export.Spec.Source.APIGroup == "" || *export.Spec.Source.APIGroup == "v1") &&
 				export.Spec.Source.Kind == "PersistentVolumeClaim" {
 				return []string{fmt.Sprintf("%s/%s", export.Namespace, export.Spec.Source.Name)}, nil
 			}
