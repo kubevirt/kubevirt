@@ -1,3 +1,5 @@
+//go:build !excludenative
+
 package ssh
 
 import (
