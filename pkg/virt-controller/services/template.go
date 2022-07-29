@@ -614,6 +614,7 @@ func (t *templateService) renderLaunchManifest(vmi *v1.VirtualMachineInstance, i
 	}
 
 	hostName := dns.SanitizeHostname(vmi)
+	enableServiceLinks := false
 	pod := k8sv1.Pod{
 		ObjectMeta: metav1.ObjectMeta{
 			GenerateName: "virt-launcher-" + domain + "-",
@@ -639,6 +640,9 @@ func (t *templateService) renderLaunchManifest(vmi *v1.VirtualMachineInstance, i
 			DNSConfig:                     vmi.Spec.DNSConfig,
 			DNSPolicy:                     vmi.Spec.DNSPolicy,
 			ReadinessGates:                readinessGates(),
+			EnableServiceLinks:            &enableServiceLinks,
+			SchedulerName:                 vmi.Spec.SchedulerName,
+			Tolerations:                   vmi.Spec.Tolerations,
 		},
 	}
 
@@ -671,13 +675,6 @@ func (t *templateService) renderLaunchManifest(vmi *v1.VirtualMachineInstance, i
 	}
 
 	SetNodeAffinityForForbiddenFeaturePolicy(vmi, &pod)
-
-	pod.Spec.Tolerations = vmi.Spec.Tolerations
-
-	pod.Spec.SchedulerName = vmi.Spec.SchedulerName
-
-	enableServiceLinks := false
-	pod.Spec.EnableServiceLinks = &enableServiceLinks
 
 	serviceAccountName := serviceAccount(vmi.Spec.Volumes...)
 	if len(serviceAccountName) > 0 {
