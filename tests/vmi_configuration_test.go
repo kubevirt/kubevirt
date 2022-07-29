@@ -2728,7 +2728,7 @@ var _ = Describe("[sig-compute]Configurations", func() {
 			domXml, err := tests.GetRunningVirtualMachineInstanceDomainXML(virtClient, vmi)
 			Expect(err).ToNot(HaveOccurred())
 			Expect(domXml).To(ContainSubstring("<entry name='family'>KubeVirt</entry>"))
-			Expect(domXml).To(ContainSubstring("<entry name='product'>None</entry>"))
+			Expect(domXml).To(ContainSubstring("<entry name='product'>KVM Virtual Machine</entry>"))
 			Expect(domXml).To(ContainSubstring("<entry name='manufacturer'>KubeVirt</entry>"))
 
 			By("Expecting console")

@@ -58,7 +58,7 @@ const (
 	DefaultPermitSlirpInterface                     = false
 	SmbiosConfigDefaultFamily                       = "KubeVirt"
 	SmbiosConfigDefaultManufacturer                 = "KubeVirt"
-	SmbiosConfigDefaultProduct                      = "None"
+	SmbiosConfigDefaultProduct                      = "KVM Virtual Machine"
 	DefaultPermitBridgeInterfaceOnPodNetwork        = true
 	DefaultSELinuxLauncherType                      = "virt_launcher.process"
 	SupportedGuestAgentVersions                     = "2.*,3.*,4.*,5.*"
