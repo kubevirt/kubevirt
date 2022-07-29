@@ -448,7 +448,6 @@ func (m *mounter) mountKernelArtifacts(vmi *v1.VirtualMachineInstance, verify bo
 	var targetKernelPath *safepath.Path
 
 	if kb.InitrdPath != "" {
-
 		if err := safepath.TouchAtNoFollow(targetDir, filepath.Base(kb.InitrdPath), 0655); err != nil && !os.IsExist(err) {
 			return err
 		}
@@ -510,12 +509,18 @@ func (m *mounter) mountKernelArtifacts(vmi *v1.VirtualMachineInstance, verify bo
 			return nil
 		}
 
-		if err = mount(kb.InitrdPath, targetInitrdPath); err != nil {
-			return err
+		if kb.InitrdPath != "" {
+			if err = mount(kb.InitrdPath, targetInitrdPath); err != nil {
+				return err
+			}
 		}
-		if err = mount(kb.KernelPath, targetKernelPath); err != nil {
-			return err
+
+		if kb.KernelPath != "" {
+			if err = mount(kb.KernelPath, targetKernelPath); err != nil {
+				return err
+			}
 		}
+
 	}
 
 	if verify {
