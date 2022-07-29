@@ -613,12 +613,6 @@ func (t *templateService) renderLaunchManifest(vmi *v1.VirtualMachineInstance, i
 		}
 	}
 
-	readinessGates := []k8sv1.PodReadinessGate{
-		{
-			ConditionType: v1.VirtualMachineUnpaused,
-		},
-	}
-
 	hostName := dns.SanitizeHostname(vmi)
 	pod := k8sv1.Pod{
 		ObjectMeta: metav1.ObjectMeta{
@@ -644,7 +638,7 @@ func (t *templateService) renderLaunchManifest(vmi *v1.VirtualMachineInstance, i
 			ImagePullSecrets:              imagePullSecrets,
 			DNSConfig:                     vmi.Spec.DNSConfig,
 			DNSPolicy:                     vmi.Spec.DNSPolicy,
-			ReadinessGates:                readinessGates,
+			ReadinessGates:                readinessGates(),
 		},
 	}
 
@@ -1395,4 +1389,12 @@ func podLabels(vmi *v1.VirtualMachineInstance, hostName string) map[string]strin
 	labels[v1.CreatedByLabel] = string(vmi.UID)
 	labels[v1.VirtualMachineNameLabel] = hostName
 	return labels
+}
+
+func readinessGates() []k8sv1.PodReadinessGate {
+	return []k8sv1.PodReadinessGate{
+		{
+			ConditionType: v1.VirtualMachineUnpaused,
+		},
+	}
 }
