@@ -48,7 +48,7 @@ func WithMasqueradeNetworking(ports ...kvirtv1.Port) []Option {
 	return []Option{
 		WithInterface(InterfaceDeviceWithMasqueradeBinding(ports...)),
 		WithNetwork(kvirtv1.DefaultPodNetwork()),
-		WithCloudInitNoCloudNetworkData(networkData, false),
+		WithCloudInitNoCloudNetworkData(networkData),
 	}
 }
 

@@ -697,7 +697,7 @@ func NewRandomFedoraVMI() *v1.VirtualMachineInstance {
 	return libvmi.NewFedora(
 		libvmi.WithInterface(libvmi.InterfaceDeviceWithMasqueradeBinding()),
 		libvmi.WithNetwork(v1.DefaultPodNetwork()),
-		libvmi.WithCloudInitNoCloudNetworkData(networkData, false),
+		libvmi.WithCloudInitNoCloudNetworkData(networkData),
 	)
 }
 
@@ -708,7 +708,7 @@ func NewRandomFedoraVMIWithGuestAgent() *v1.VirtualMachineInstance {
 	return libvmi.NewFedora(
 		libvmi.WithInterface(libvmi.InterfaceDeviceWithMasqueradeBinding()),
 		libvmi.WithNetwork(v1.DefaultPodNetwork()),
-		libvmi.WithCloudInitNoCloudNetworkData(networkData, false),
+		libvmi.WithCloudInitNoCloudNetworkData(networkData),
 	)
 }
 
@@ -720,7 +720,7 @@ func NewRandomFedoraVMIWithBlacklistGuestAgent(commands string) *v1.VirtualMachi
 		libvmi.WithInterface(libvmi.InterfaceDeviceWithMasqueradeBinding()),
 		libvmi.WithNetwork(v1.DefaultPodNetwork()),
 		libvmi.WithCloudInitNoCloudUserData(GetFedoraToolsGuestAgentBlacklistUserData(commands), false),
-		libvmi.WithCloudInitNoCloudNetworkData(networkData, false),
+		libvmi.WithCloudInitNoCloudNetworkData(networkData),
 	)
 }
 

@@ -45,17 +45,12 @@ func WithCloudInitNoCloudUserData(data string, b64Encoding bool) Option {
 }
 
 // WithCloudInitNoCloudNetworkData adds cloud-init no-cloud network data.
-func WithCloudInitNoCloudNetworkData(data string, b64Encoding bool) Option {
+func WithCloudInitNoCloudNetworkData(data string) Option {
 	return func(vmi *v1.VirtualMachineInstance) {
 		addDiskVolumeWithCloudInitNoCloud(vmi, cloudInitDiskName, v1.DiskBusVirtio)
 
 		volume := getVolume(vmi, cloudInitDiskName)
-		if b64Encoding {
-			encodedData := base64.StdEncoding.EncodeToString([]byte(data))
-			volume.CloudInitNoCloud.NetworkDataBase64 = encodedData
-		} else {
-			volume.CloudInitNoCloud.NetworkData = data
-		}
+		volume.CloudInitNoCloud.NetworkData = data
 	}
 }
 
