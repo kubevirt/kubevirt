@@ -433,8 +433,6 @@ func (t *templateService) renderLaunchManifest(vmi *v1.VirtualMachineInstance, i
 		nodeSelector[v1.CPUManager] = "true"
 	}
 
-	ovmfPath := t.clusterConfig.GetOVMFPath()
-
 	// Read requested hookSidecars from VMI meta
 	requestedHookSidecarList, err := hooks.UnmarshalHookSidecarList(vmi)
 	if err != nil {
@@ -459,7 +457,7 @@ func (t *templateService) renderLaunchManifest(vmi *v1.VirtualMachineInstance, i
 			"--container-disk-dir", t.containerDiskDir,
 			"--grace-period-seconds", strconv.Itoa(int(gracePeriodSeconds)),
 			"--hook-sidecars", strconv.Itoa(len(requestedHookSidecarList)),
-			"--ovmf-path", ovmfPath,
+			"--ovmf-path", t.clusterConfig.GetOVMFPath(),
 		}
 		if nonRoot {
 			command = append(command, "--run-as-nonroot")
@@ -573,17 +571,6 @@ func (t *templateService) renderLaunchManifest(vmi *v1.VirtualMachineInstance, i
 		nodeSelector[k] = v
 	}
 
-	hostName := dns.SanitizeHostname(vmi)
-
-	podLabels := map[string]string{}
-
-	for k, v := range vmi.Labels {
-		podLabels[k] = v
-	}
-	podLabels[v1.AppLabel] = "virt-launcher"
-	podLabels[v1.CreatedByLabel] = string(vmi.UID)
-	podLabels[v1.VirtualMachineNameLabel] = hostName
-
 	for i, requestedHookSidecar := range requestedHookSidecarList {
 		containers = append(
 			containers,
@@ -624,17 +611,12 @@ func (t *templateService) renderLaunchManifest(vmi *v1.VirtualMachineInstance, i
 		}
 	}
 
-	readinessGates := []k8sv1.PodReadinessGate{
-		{
-			ConditionType: v1.VirtualMachineUnpaused,
-		},
-	}
-
-	// TODO use constants for podLabels
+	hostName := dns.SanitizeHostname(vmi)
+	enableServiceLinks := false
 	pod := k8sv1.Pod{
 		ObjectMeta: metav1.ObjectMeta{
 			GenerateName: "virt-launcher-" + domain + "-",
-			Labels:       podLabels,
+			Labels:       podLabels(vmi, hostName),
 			Annotations:  podAnnotations,
 			OwnerReferences: []metav1.OwnerReference{
 				*metav1.NewControllerRef(vmi, v1.VirtualMachineInstanceGroupVersionKind),
@@ -655,7 +637,10 @@ func (t *templateService) renderLaunchManifest(vmi *v1.VirtualMachineInstance, i
 			ImagePullSecrets:              imagePullSecrets,
 			DNSConfig:                     vmi.Spec.DNSConfig,
 			DNSPolicy:                     vmi.Spec.DNSPolicy,
-			ReadinessGates:                readinessGates,
+			ReadinessGates:                readinessGates(),
+			EnableServiceLinks:            &enableServiceLinks,
+			SchedulerName:                 vmi.Spec.SchedulerName,
+			Tolerations:                   vmi.Spec.Tolerations,
 		},
 	}
 
@@ -688,13 +673,6 @@ func (t *templateService) renderLaunchManifest(vmi *v1.VirtualMachineInstance, i
 	}
 
 	SetNodeAffinityForForbiddenFeaturePolicy(vmi, &pod)
-
-	pod.Spec.Tolerations = vmi.Spec.Tolerations
-
-	pod.Spec.SchedulerName = vmi.Spec.SchedulerName
-
-	enableServiceLinks := false
-	pod.Spec.EnableServiceLinks = &enableServiceLinks
 
 	serviceAccountName := serviceAccount(vmi.Spec.Volumes...)
 	if len(serviceAccountName) > 0 {
@@ -1394,4 +1372,24 @@ func (p VMIResourcePredicates) Apply() []ResourceRendererOption {
 		}
 	}
 	return options
+}
+
+func podLabels(vmi *v1.VirtualMachineInstance, hostName string) map[string]string {
+	labels := map[string]string{}
+
+	for k, v := range vmi.Labels {
+		labels[k] = v
+	}
+	labels[v1.AppLabel] = "virt-launcher"
+	labels[v1.CreatedByLabel] = string(vmi.UID)
+	labels[v1.VirtualMachineNameLabel] = hostName
+	return labels
+}
+
+func readinessGates() []k8sv1.PodReadinessGate {
+	return []k8sv1.PodReadinessGate{
+		{
+			ConditionType: v1.VirtualMachineUnpaused,
+		},
+	}
 }
