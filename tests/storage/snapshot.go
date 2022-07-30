@@ -366,7 +366,7 @@ var _ = SIGDescribe("VirtualMachineSnapshot Tests", func() {
 				checkOnlineSnapshotExpectedContentSource(vm, contentName, true)
 			}
 
-			callVeleroHook := func(vmi *v1.VirtualMachineInstance, annoContainer, annoCommand string) error {
+			callVeleroHook := func(vmi *v1.VirtualMachineInstance, annoContainer, annoCommand string) (string, string, error) {
 				pod := tests.GetPodByVirtualMachineInstance(vmi)
 
 				command := pod.Annotations[annoCommand]
@@ -377,10 +377,9 @@ var _ = SIGDescribe("VirtualMachineSnapshot Tests", func() {
 				}
 				virtClient, err := kubecli.GetKubevirtClient()
 				if err != nil {
-					return err
+					return "", "", err
 				}
-				_, _, err = tests.ExecuteCommandOnPodV2(virtClient, pod, pod.Annotations[annoContainer], commandSlice)
-				return err
+				return tests.ExecuteCommandOnPodV2(virtClient, pod, pod.Annotations[annoContainer], commandSlice)
 			}
 
 			It("[test_id:6767]with volumes and guest agent available", func() {
@@ -713,7 +712,7 @@ var _ = SIGDescribe("VirtualMachineSnapshot Tests", func() {
 				Expect(console.LoginToFedora(vmi)).To(Succeed())
 
 				By("Calling Velero pre-backup hook")
-				err := callVeleroHook(vmi, VELERO_PREBACKUP_HOOK_CONTAINER_ANNOTATION, VELERO_PREBACKUP_HOOK_COMMAND_ANNOTATION)
+				_, _, err := callVeleroHook(vmi, VELERO_PREBACKUP_HOOK_CONTAINER_ANNOTATION, VELERO_PREBACKUP_HOOK_COMMAND_ANNOTATION)
 				Expect(err).ToNot(HaveOccurred())
 
 				By("Veryfing the VM was frozen")
@@ -732,7 +731,7 @@ var _ = SIGDescribe("VirtualMachineSnapshot Tests", func() {
 				}, 180*time.Second, time.Second).Should(BeTrue())
 
 				By("Calling Velero post-backup hook")
-				err = callVeleroHook(vmi, VELERO_POSTBACKUP_HOOK_CONTAINER_ANNOTATION, VELERO_POSTBACKUP_HOOK_COMMAND_ANNOTATION)
+				_, _, err = callVeleroHook(vmi, VELERO_POSTBACKUP_HOOK_CONTAINER_ANNOTATION, VELERO_POSTBACKUP_HOOK_COMMAND_ANNOTATION)
 				Expect(err).ToNot(HaveOccurred())
 
 				By("Veryfing the VM was thawed")
@@ -748,6 +747,33 @@ var _ = SIGDescribe("VirtualMachineSnapshot Tests", func() {
 					Expect(err).ToNot(HaveOccurred())
 					return vmi.Status.FSFreezeStatus == ""
 				}, 180*time.Second, time.Second).Should(BeTrue())
+			})
+
+			It("Calling Velero hooks should not error if no guest agent", func() {
+				const noGuestAgentString = "Guest agent not connected"
+				By("Creating VM")
+				var vmi *v1.VirtualMachineInstance
+				running := false
+				vm = tests.NewRandomVMWithDataVolumeWithRegistryImport(
+					cd.DataVolumeImportUrlForContainerDisk(cd.ContainerDiskAlpine),
+					util.NamespaceTestDefault,
+					snapshotStorageClass,
+					corev1.ReadWriteOnce,
+				)
+				vm.Spec.Running = &running
+
+				vm, vmi = createAndStartVM(vm)
+				tests.WaitForSuccessfulVMIStartWithTimeout(vmi, 300)
+
+				By("Calling Velero pre-backup hook")
+				_, stderr, err := callVeleroHook(vmi, VELERO_PREBACKUP_HOOK_CONTAINER_ANNOTATION, VELERO_PREBACKUP_HOOK_COMMAND_ANNOTATION)
+				Expect(err).ToNot(HaveOccurred())
+				Expect(stderr).Should(ContainSubstring(noGuestAgentString))
+
+				By("Calling Velero post-backup hook")
+				_, stderr, err = callVeleroHook(vmi, VELERO_POSTBACKUP_HOOK_CONTAINER_ANNOTATION, VELERO_POSTBACKUP_HOOK_COMMAND_ANNOTATION)
+				Expect(err).ToNot(HaveOccurred())
+				Expect(stderr).Should(ContainSubstring(noGuestAgentString))
 			})
 
 			Context("with memory dump", func() {
