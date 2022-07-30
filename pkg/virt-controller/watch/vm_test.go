@@ -2816,13 +2816,12 @@ var _ = Describe("VirtualMachine", func() {
 				k8sClient = k8sfake.NewSimpleClientset()
 				virtClient.EXPECT().AppsV1().Return(k8sClient.AppsV1()).AnyTimes()
 
-				instancetypeMemory := resource.MustParse("128M")
 				fs = instancetypev1alpha1.VirtualMachineInstancetypeSpec{
 					CPU: instancetypev1alpha1.CPUInstancetype{
 						Guest: uint32(2),
 					},
 					Memory: instancetypev1alpha1.MemoryInstancetype{
-						Guest: &instancetypeMemory,
+						Guest: resource.MustParse("128M"),
 					},
 				}
 				f = &instancetypev1alpha1.VirtualMachineInstancetype{
@@ -2899,7 +2898,7 @@ var _ = Describe("VirtualMachine", func() {
 				vmiInterface.EXPECT().Create(gomock.Any()).Times(1).Do(func(arg interface{}) {
 					vmiArg := arg.(*virtv1.VirtualMachineInstance)
 					Expect(vmiArg.Spec.Domain.CPU.Sockets).To(Equal(f.Spec.CPU.Guest))
-					Expect(*vmiArg.Spec.Domain.Memory.Guest).To(Equal(*f.Spec.Memory.Guest))
+					Expect(*vmiArg.Spec.Domain.Memory.Guest).To(Equal(f.Spec.Memory.Guest))
 					Expect(vmiArg.Annotations).To(HaveKeyWithValue(v1.InstancetypeAnnotation, f.Name))
 					Expect(vmiArg.Annotations).ToNot(HaveKey(v1.PreferenceAnnotation))
 					Expect(vmiArg.Annotations).ToNot(HaveKey(v1.ClusterInstancetypeAnnotation))
@@ -2941,7 +2940,7 @@ var _ = Describe("VirtualMachine", func() {
 				vmiInterface.EXPECT().Create(gomock.Any()).Times(1).Do(func(arg interface{}) {
 					vmiArg := arg.(*virtv1.VirtualMachineInstance)
 					Expect(vmiArg.Spec.Domain.CPU.Sockets).To(Equal(f.Spec.CPU.Guest))
-					Expect(*vmiArg.Spec.Domain.Memory.Guest).To(Equal(*f.Spec.Memory.Guest))
+					Expect(*vmiArg.Spec.Domain.Memory.Guest).To(Equal(f.Spec.Memory.Guest))
 					Expect(vmiArg.Annotations).To(HaveKeyWithValue(v1.InstancetypeAnnotation, f.Name))
 					Expect(vmiArg.Annotations).ToNot(HaveKey(v1.PreferenceAnnotation))
 					Expect(vmiArg.Annotations).ToNot(HaveKey(v1.ClusterInstancetypeAnnotation))
@@ -2978,7 +2977,7 @@ var _ = Describe("VirtualMachine", func() {
 				vmiInterface.EXPECT().Create(gomock.Any()).Times(1).Do(func(arg interface{}) {
 					vmiArg := arg.(*virtv1.VirtualMachineInstance)
 					Expect(vmiArg.Spec.Domain.CPU.Sockets).To(Equal(f.Spec.CPU.Guest))
-					Expect(*vmiArg.Spec.Domain.Memory.Guest).To(Equal(*f.Spec.Memory.Guest))
+					Expect(*vmiArg.Spec.Domain.Memory.Guest).To(Equal(f.Spec.Memory.Guest))
 					Expect(vmiArg.Annotations).To(HaveKeyWithValue(v1.InstancetypeAnnotation, f.Name))
 					Expect(vmiArg.Annotations).ToNot(HaveKey(v1.PreferenceAnnotation))
 					Expect(vmiArg.Annotations).ToNot(HaveKey(v1.ClusterInstancetypeAnnotation))
@@ -3013,7 +3012,7 @@ var _ = Describe("VirtualMachine", func() {
 				vmiInterface.EXPECT().Create(gomock.Any()).Times(1).Do(func(arg interface{}) {
 					vmiArg := arg.(*virtv1.VirtualMachineInstance)
 					Expect(vmiArg.Spec.Domain.CPU.Sockets).To(Equal(cf.Spec.CPU.Guest))
-					Expect(*vmiArg.Spec.Domain.Memory.Guest).To(Equal(*cf.Spec.Memory.Guest))
+					Expect(*vmiArg.Spec.Domain.Memory.Guest).To(Equal(cf.Spec.Memory.Guest))
 					Expect(vmiArg.Annotations).To(HaveKeyWithValue(v1.ClusterInstancetypeAnnotation, cf.Name))
 					Expect(vmiArg.Annotations).ToNot(HaveKey(v1.PreferenceAnnotation))
 					Expect(vmiArg.Annotations).ToNot(HaveKey(v1.InstancetypeAnnotation))
@@ -3054,7 +3053,7 @@ var _ = Describe("VirtualMachine", func() {
 				vmiInterface.EXPECT().Create(gomock.Any()).Times(1).Do(func(arg interface{}) {
 					vmiArg := arg.(*virtv1.VirtualMachineInstance)
 					Expect(vmiArg.Spec.Domain.CPU.Sockets).To(Equal(cf.Spec.CPU.Guest))
-					Expect(*vmiArg.Spec.Domain.Memory.Guest).To(Equal(*cf.Spec.Memory.Guest))
+					Expect(*vmiArg.Spec.Domain.Memory.Guest).To(Equal(cf.Spec.Memory.Guest))
 					Expect(vmiArg.Annotations).To(HaveKeyWithValue(v1.ClusterInstancetypeAnnotation, cf.Name))
 					Expect(vmiArg.Annotations).ToNot(HaveKey(v1.PreferenceAnnotation))
 					Expect(vmiArg.Annotations).ToNot(HaveKey(v1.InstancetypeAnnotation))
@@ -3091,7 +3090,7 @@ var _ = Describe("VirtualMachine", func() {
 				vmiInterface.EXPECT().Create(gomock.Any()).Times(1).Do(func(arg interface{}) {
 					vmiArg := arg.(*virtv1.VirtualMachineInstance)
 					Expect(vmiArg.Spec.Domain.CPU.Sockets).To(Equal(cf.Spec.CPU.Guest))
-					Expect(*vmiArg.Spec.Domain.Memory.Guest).To(Equal(*cf.Spec.Memory.Guest))
+					Expect(*vmiArg.Spec.Domain.Memory.Guest).To(Equal(cf.Spec.Memory.Guest))
 					Expect(vmiArg.Annotations).To(HaveKeyWithValue(v1.ClusterInstancetypeAnnotation, cf.Name))
 					Expect(vmiArg.Annotations).ToNot(HaveKey(v1.PreferenceAnnotation))
 					Expect(vmiArg.Annotations).ToNot(HaveKey(v1.InstancetypeAnnotation))

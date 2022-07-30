@@ -19420,6 +19420,9 @@
    "v1alpha1.MemoryInstancetype": {
     "description": "MemoryInstancetype contains the Memory related configuration of a given VirtualMachineInstancetypeSpec.\n\nGuest is a required attribute and defines the amount of RAM to be exposed to the guest by the instancetype.",
     "type": "object",
+    "required": [
+     "guest"
+    ],
     "properties": {
      "guest": {
       "description": "Required amount of memory which is visible inside the guest OS.",

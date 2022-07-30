@@ -161,7 +161,7 @@ type CPUInstancetype struct {
 type MemoryInstancetype struct {
 
 	// Required amount of memory which is visible inside the guest OS.
-	Guest *resource.Quantity `json:"guest,omitempty"`
+	Guest resource.Quantity `json:"guest"`
 
 	// Optionally enables the use of hugepages for the VirtualMachineInstance instead of regular memory.
 	// +optional

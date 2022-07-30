@@ -48,6 +48,48 @@ var _ = Describe("[crit:medium][vendor:cnv-qe@redhat.com][level:component][sig-c
 				Create(context.Background(), instancetype, metav1.CreateOptions{})
 			Expect(err).ToNot(HaveOccurred())
 		})
+
+		DescribeTable("[test_id:TODO] should reject invalid instancetype", func(instancetype instancetypev1alpha1.VirtualMachineInstancetype) {
+			_, err := virtClient.VirtualMachineInstancetype(util.NamespaceTestDefault).
+				Create(context.Background(), &instancetype, metav1.CreateOptions{})
+			Expect(err).To(HaveOccurred())
+			var apiStatus errors.APIStatus
+			Expect(goerrors.As(err, &apiStatus)).To(BeTrue(), "error should be type APIStatus")
+			cause := apiStatus.Status().Details.Causes[0]
+			Expect(cause.Type).To(Equal(metav1.CauseTypeFieldValueRequired))
+		},
+			Entry("without CPU defined", instancetypev1alpha1.VirtualMachineInstancetype{
+				Spec: instancetypev1alpha1.VirtualMachineInstancetypeSpec{
+					Memory: instancetypev1alpha1.MemoryInstancetype{
+						Guest: resource.MustParse("128M"),
+					},
+				},
+			}),
+			Entry("without CPU.Guest defined", instancetypev1alpha1.VirtualMachineInstancetype{
+				Spec: instancetypev1alpha1.VirtualMachineInstancetypeSpec{
+					CPU: instancetypev1alpha1.CPUInstancetype{},
+					Memory: instancetypev1alpha1.MemoryInstancetype{
+						Guest: resource.MustParse("128M"),
+					},
+				},
+			}),
+			Entry("without Memory defined", instancetypev1alpha1.VirtualMachineInstancetype{
+				Spec: instancetypev1alpha1.VirtualMachineInstancetypeSpec{
+					CPU: instancetypev1alpha1.CPUInstancetype{
+						Guest: 1,
+					},
+				},
+			}),
+			Entry("without Memory.Guest defined", instancetypev1alpha1.VirtualMachineInstancetype{
+				Spec: instancetypev1alpha1.VirtualMachineInstancetypeSpec{
+					CPU: instancetypev1alpha1.CPUInstancetype{
+						Guest: 1,
+					},
+					Memory: instancetypev1alpha1.MemoryInstancetype{},
+				},
+			}),
+		)
+
 	})
 
 	Context("Preference validation", func() {
@@ -244,7 +286,7 @@ var _ = Describe("[crit:medium][vendor:cnv-qe@redhat.com][level:component][sig-c
 
 			// Assert we've used sockets as instancetypev1alpha1.PreferSockets was requested
 			Expect(vmi.Spec.Domain.CPU.Sockets).To(Equal(instancetype.Spec.CPU.Guest))
-			Expect(*vmi.Spec.Domain.Memory.Guest).To(Equal(*instancetype.Spec.Memory.Guest))
+			Expect(*vmi.Spec.Domain.Memory.Guest).To(Equal(instancetype.Spec.Memory.Guest))
 
 			// Assert that the correct disk bus is used
 			for diskIndex := range vmi.Spec.Domain.Devices.Disks {
@@ -590,10 +632,10 @@ func newVirtualMachineClusterInstancetype(vmi *v1.VirtualMachineInstance) *insta
 
 func newVirtualMachineInstancetypeSpec(vmi *v1.VirtualMachineInstance) instancetypev1alpha1.VirtualMachineInstancetypeSpec {
 	// Copy the amount of memory set within the VMI so our tests don't randomly start using more resources
-	m := resource.MustParse("128M")
+	guestMemory := resource.MustParse("128M")
 	if vmi != nil {
 		if _, ok := vmi.Spec.Domain.Resources.Requests[k8sv1.ResourceMemory]; ok {
-			m = vmi.Spec.Domain.Resources.Requests[k8sv1.ResourceMemory].DeepCopy()
+			guestMemory = vmi.Spec.Domain.Resources.Requests[k8sv1.ResourceMemory].DeepCopy()
 		}
 	}
 	return instancetypev1alpha1.VirtualMachineInstancetypeSpec{
@@ -601,7 +643,7 @@ func newVirtualMachineInstancetypeSpec(vmi *v1.VirtualMachineInstance) instancet
 			Guest: uint32(1),
 		},
 		Memory: instancetypev1alpha1.MemoryInstancetype{
-			Guest: &m,
+			Guest: guestMemory,
 		},
 	}
 }

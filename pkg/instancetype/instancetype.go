@@ -588,10 +588,6 @@ func AddPreferenceNameAnnotations(vm *virtv1.VirtualMachine, target metav1.Objec
 
 func applyMemory(field *k8sfield.Path, instancetypeSpec *instancetypev1alpha1.VirtualMachineInstancetypeSpec, vmiSpec *virtv1.VirtualMachineInstanceSpec) Conflicts {
 
-	if instancetypeSpec.Memory.Guest == nil {
-		return nil
-	}
-
 	if vmiSpec.Domain.Memory != nil {
 		return Conflicts{field.Child("domain", "memory")}
 	}
