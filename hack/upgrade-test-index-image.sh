@@ -106,6 +106,10 @@ echo "----- Get virtctl"
 KV_VERSION=$( ${CMD} get kubevirt.kubevirt.io/kubevirt-kubevirt-hyperconverged -n ${HCO_NAMESPACE} -o=jsonpath="{.status.observedKubeVirtVersion}")
 ARCH=$(uname -s | tr A-Z a-z)-$(uname -m | sed 's/x86_64/amd64/') || windows-amd64.exe
 echo ${ARCH}
+### TODO: remove this once we can consume only kubevirt >= v0.55.0
+# --local-ssh-opts needed to bypass host check is available only starting with kubevirt v0.55.0
+KV_VERSION=v0.55.0
+###
 curl -L -o ~/virtctl https://github.com/kubevirt/kubevirt/releases/download/${KV_VERSION}/virtctl-${KV_VERSION}-${ARCH}
 chmod +x ~/virtctl
 ###################
@@ -117,12 +121,26 @@ KUBECTL_BINARY=${CMD} INSTALLED_NAMESPACE=${HCO_NAMESPACE} printOperatorConditio
 ### Create a VM ###
 Msg "Create a simple VM on the previous version cluster, before the upgrade"
 ${CMD} create namespace ${VMS_NAMESPACE}
+ssh-keygen -f ./hack/test_ssh -q -N ""
+cat << END > ./hack/cloud-init.sh
+#!/bin/sh
+export NEW_USER="cirros"
+export SSH_PUB_KEY="$(cat ./hack/test_ssh.pub)"
+sudo mkdir /home/\${NEW_USER}/.ssh
+sudo echo "\${SSH_PUB_KEY}" > /home/\${NEW_USER}/.ssh/authorized_keys
+sudo chown -R \${NEW_USER}: /home/\${NEW_USER}/.ssh
+sudo chmod 600 /home/\${NEW_USER}/.ssh/authorized_keys
+END
+${CMD} create secret -n ${VMS_NAMESPACE} generic testvm-secret --from-file=userdata=./hack/cloud-init.sh
 ${CMD} apply -n ${VMS_NAMESPACE} -f ./hack/vm.yaml
 ${CMD} get vm -n ${VMS_NAMESPACE} -o yaml testvm
 ~/virtctl start testvm -n ${VMS_NAMESPACE}
 ./hack/retry.sh 30 10 "${CMD} get vmi -n ${VMS_NAMESPACE} testvm -o jsonpath='{ .status.phase }' | grep 'Running'"
 ${CMD} get vmi -n ${VMS_NAMESPACE} -o yaml testvm
-INITIAL_BOOTTIME=$(./hack/vmuptime.ext | grep "^BOOTTIME" | cut -d= -f2 | tr -dc '[:digit:]')
+
+source ./hack/check-uptime.sh
+sleep 5
+INITIAL_BOOTTIME=$(check_uptime 10 60)
 
 echo "----- HCO deployOVS annotation and OVS state in CNAO CR before the upgrade"
 PREVIOUS_OVS_ANNOTATION=$(${CMD} get ${HCO_KIND} ${HCO_RESOURCE_NAME} -n ${HCO_NAMESPACE} -o jsonpath='{.metadata.annotations.deployOVS}')
@@ -243,7 +261,7 @@ Msg "make sure that the VM is still running, after the upgrade"
 ${CMD} get vm -n ${VMS_NAMESPACE} -o yaml testvm
 ${CMD} get vmi -n ${VMS_NAMESPACE} -o yaml testvm
 ${CMD} get vmi -n ${VMS_NAMESPACE} testvm -o jsonpath='{ .status.phase }' | grep 'Running'
-CURRENT_BOOTTIME=$(./hack/vmuptime.ext | grep "^BOOTTIME" | cut -d= -f2 | tr -dc '[:digit:]')
+CURRENT_BOOTTIME=$(check_uptime 10 60)
 
 if ((INITIAL_BOOTTIME - CURRENT_BOOTTIME > 3)) || ((CURRENT_BOOTTIME - INITIAL_BOOTTIME > 3)); then
     echo "ERROR: The test VM got restarted during the upgrade process."

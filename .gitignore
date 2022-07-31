@@ -6,3 +6,5 @@ _ci-configs/*
 _local/
 _kubevirtci/
 .vscode/
+hack/cloud-init.sh
+hack/test_ssh*

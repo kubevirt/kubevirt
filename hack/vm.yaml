@@ -34,4 +34,5 @@ spec:
             image: quay.io/kubevirt/cirros-container-disk-demo
         - name: cloudinitdisk
           cloudInitNoCloud:
-            userDataBase64: SGkuXG4=
+            secretRef:
+              name: testvm-secret
