@@ -129,45 +129,17 @@ var _ = Describe("[Serial][ref_id:2717][sig-compute]KubeVirt control plane resil
 			).Should(BeTrue())
 		}
 
-		setNodeUnschedulable := func(nodeName string) {
-			Eventually(func() error {
-				selectedNode, err := virtCli.CoreV1().Nodes().Get(context.Background(), nodeName, metav1.GetOptions{})
-				if err != nil {
-					return err
-				}
-				selectedNode.Spec.Unschedulable = true
-				if _, err = virtCli.CoreV1().Nodes().Update(context.Background(), selectedNode, metav1.UpdateOptions{}); err != nil {
-					return err
-				}
-				return nil
-			}, 30*time.Second, time.Second).ShouldNot(HaveOccurred())
-		}
-
-		setNodeSchedulable := func(nodeName string) {
-			Eventually(func() error {
-				selectedNode, err := virtCli.CoreV1().Nodes().Get(context.Background(), nodeName, metav1.GetOptions{})
-				if err != nil {
-					return err
-				}
-				selectedNode.Spec.Unschedulable = false
-				if _, err = virtCli.CoreV1().Nodes().Update(context.Background(), selectedNode, metav1.UpdateOptions{}); err != nil {
-					return err
-				}
-				return nil
-			}, 30*time.Second, time.Second).ShouldNot(HaveOccurred())
-		}
-
 		BeforeEach(func() {
 			nodeList = libnode.GetAllSchedulableNodes(virtCli).Items
 			for _, node := range nodeList {
-				setNodeUnschedulable(node.Name)
+				libnode.SetNodeUnschedulable(node.Name, virtCli)
 			}
 			eventuallyWithTimeout(waitForDeploymentsToStabilize)
 		})
 
 		AfterEach(func() {
 			for _, node := range nodeList {
-				setNodeSchedulable(node.Name)
+				libnode.SetNodeSchedulable(node.Name, virtCli)
 			}
 			eventuallyWithTimeout(waitForDeploymentsToStabilize)
 		})

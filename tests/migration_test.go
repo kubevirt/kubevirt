@@ -433,12 +433,10 @@ var _ = Describe("[rfe_id:393][crit:high][vendor:cnv-qe@redhat.com][level:system
 		}, timeout, 1*time.Second).ShouldNot(HaveOccurred())
 
 		By("Waiting until the Migration is Running")
-
 		Eventually(func() bool {
 			migration, err := virtClient.VirtualMachineInstanceMigration(migration.Namespace).Get(migration.Name, &metav1.GetOptions{})
 			Expect(err).ToNot(HaveOccurred())
-			return string(migration.UID) != ""
-
+			return migration.Status.Phase == v1.MigrationRunning
 		}, timeout, 1*time.Second).Should(BeTrue())
 
 		cancelMigration(migration, vmi.Name, with_virtctl)
@@ -2657,7 +2655,7 @@ var _ = Describe("[rfe_id:393][crit:high][vendor:cnv-qe@redhat.com][level:system
 				Entry("[sig-storage][test_id:2228] with ContainerDisk and virtctl", newVirtualMachineInstanceWithFedoraContainerDisk, true),
 				Entry("[sig-storage][storage-req][test_id:2732] with RWX block disk and virtctl", newVirtualMachineInstanceWithFedoraRWXBlockDisk, true))
 
-			DescribeTable("Immediate migration cancellation", func(with_virtctl bool) {
+			DescribeTable("Immediate migration cancellation after migration starts running", func(with_virtctl bool) {
 				vmi := tests.NewRandomFedoraVMIWithGuestAgent()
 				vmi.Spec.Domain.Resources.Requests[k8sv1.ResourceMemory] = resource.MustParse(fedoraVMSize)
 
@@ -2686,9 +2684,157 @@ var _ = Describe("[rfe_id:393][crit:high][vendor:cnv-qe@redhat.com][level:system
 				By("Waiting for VMI to disappear")
 				tests.WaitForVirtualMachineToDisappearWithTimeout(vmi, 240)
 			},
-				Entry("[sig-compute][test_id:3241]cancel a migration right after posting it", false),
-				Entry("[sig-compute][test_id:3246]cancel a migration with virtctl", true),
+				Entry("[sig-compute][test_id:3241]cancel a migration by deleting vmim object", false),
+				Entry("[sig-compute][test_id:8583]cancel a migration with virtctl", true),
 			)
+
+			DescribeTable("Immediate migration cancellation before migration starts running", func(with_virtctl bool) {
+				vmi := tests.NewRandomFedoraVMIWithGuestAgent()
+				vmi.Spec.Domain.Resources.Requests[k8sv1.ResourceMemory] = resource.MustParse(fedoraVMSize)
+
+				By("Limiting the bandwidth of migrations in the test namespace")
+				Expect(limitMigrationBadwidth(resource.MustParse("1Ki"))).To(Succeed())
+
+				By("Starting the VirtualMachineInstance")
+				vmi = tests.RunVMIAndExpectLaunch(vmi, 240)
+				vmiOriginalNode := vmi.Status.NodeName
+
+				// execute a migration, wait for finalized state
+				By("Starting the Migration")
+				migration := tests.NewRandomMigration(vmi.Name, vmi.Namespace)
+
+				By("Starting a Migration")
+				const timeout = 180
+				Eventually(func() error {
+					migration, err = virtClient.VirtualMachineInstanceMigration(migration.Namespace).Create(migration, &metav1.CreateOptions{})
+					return err
+				}, timeout, 1*time.Second).ShouldNot(HaveOccurred())
+
+				By("Waiting until the Migration has UID")
+				Eventually(func() bool {
+					migration, err = virtClient.VirtualMachineInstanceMigration(migration.Namespace).Get(migration.Name, &metav1.GetOptions{})
+					Expect(err).ToNot(HaveOccurred())
+					return migration.UID != ""
+				}, timeout, 1*time.Second).Should(BeTrue())
+
+				By("Cancelling migration")
+				cancelMigration(migration, vmi.Name, with_virtctl)
+
+				By("Waiting for the migration object to disappear")
+				tests.WaitForMigrationToDisappearWithTimeout(migration, 240)
+
+				By("Retrieving the VMI post migration")
+				vmi, err = virtClient.VirtualMachineInstance(vmi.Namespace).Get(vmi.Name, &metav1.GetOptions{})
+				Expect(err).ToNot(HaveOccurred())
+
+				By("Verifying the VMI's migration state")
+				Expect(vmi.Status.MigrationState).To(BeNil())
+
+				By("Verifying the VMI's is in the running state and on original node")
+				Expect(vmi.Status.Phase).To(Equal(v1.Running))
+				Expect(vmi.Status.NodeName).To(Equal(vmiOriginalNode), "expecting VMI to not migrate")
+
+				By("Deleting the VMI")
+				Expect(virtClient.VirtualMachineInstance(vmi.Namespace).Delete(vmi.Name, &metav1.DeleteOptions{})).To(Succeed())
+
+				By("Waiting for VMI to disappear")
+				tests.WaitForVirtualMachineToDisappearWithTimeout(vmi, 240)
+			},
+				Entry("[sig-compute][test_id:8584]cancel a migration by deleting vmim object", false),
+				Entry("[sig-compute][test_id:8585]cancel a migration with virtctl", true),
+			)
+
+			Context("[Serial]when target pod cannot be scheduled and is suck in Pending phase", func() {
+
+				var nodesSetUnschedulable []string
+
+				BeforeEach(func() {
+					By("Keeping only one schedulable node")
+					schedulableNodes := libnode.GetAllSchedulableNodes(virtClient).Items
+					Expect(schedulableNodes).NotTo(And(BeEmpty(), HaveLen(1)))
+
+					// Iterate on all schedulable nodes but one
+					for _, schedulableNode := range schedulableNodes[:len(schedulableNodes)-1] {
+						libnode.SetNodeUnschedulable(schedulableNode.Name, virtClient)
+						nodesSetUnschedulable = append(nodesSetUnschedulable, schedulableNode.Name)
+					}
+				})
+
+				AfterEach(func() {
+					By("Restoring nodes to be schedulable")
+					for _, schedulableNodeName := range nodesSetUnschedulable {
+						libnode.SetNodeSchedulable(schedulableNodeName, virtClient)
+					}
+				})
+
+				It("should be able to properly abort migration", func() {
+					By("Starting a VirtualMachineInstance")
+					vmi := tests.NewRandomVMI()
+					vmi = tests.RunVMIAndExpectLaunch(vmi, 240)
+
+					By("Trying to migrate VM and expect for the migration to get stuck")
+					migration := tests.NewRandomMigration(vmi.Name, vmi.Namespace)
+					migration = tests.RunMigration(virtClient, migration)
+					expectMigrationSchedulingPhase := func() v1.VirtualMachineInstanceMigrationPhase {
+						migration, err = virtClient.VirtualMachineInstanceMigration(migration.Namespace).Get(migration.Name, &metav1.GetOptions{})
+						Expect(err).ShouldNot(HaveOccurred())
+
+						return migration.Status.Phase
+					}
+					Eventually(expectMigrationSchedulingPhase, 30*time.Second, 1*time.Second).Should(Equal(v1.MigrationScheduling))
+					Consistently(expectMigrationSchedulingPhase, 60*time.Second, 5*time.Second).Should(Equal(v1.MigrationScheduling))
+
+					By("Finding VMI's pod and expecting one to be running and the other to be pending")
+					labelSelector, err := labels.Parse(fmt.Sprintf(v1.AppLabel + "=virt-launcher," + v1.CreatedByLabel + "=" + string(vmi.GetUID())))
+					Expect(err).ShouldNot(HaveOccurred())
+
+					vmiPods, err := virtClient.CoreV1().Pods(vmi.GetNamespace()).List(context.Background(), metav1.ListOptions{LabelSelector: labelSelector.String()})
+					Expect(err).ShouldNot(HaveOccurred())
+					Expect(vmiPods.Items).To(HaveLen(2), "two pods are expected for stuck vmi: source and target pods")
+
+					var sourcePod *k8sv1.Pod
+					for _, pod := range vmiPods.Items {
+
+						if pod.Status.Phase == k8sv1.PodRunning {
+							sourcePod = pod.DeepCopy()
+						} else {
+							Expect(pod.Status.Phase).ToNot(Or(Equal(k8sv1.PodSucceeded), Equal(k8sv1.PodFailed), Equal(k8sv1.PodUnknown)),
+								"VMI is expected to have exactly 2 pods: one running and one pending")
+						}
+					}
+
+					By("Aborting the migration")
+					err = virtClient.VirtualMachineInstanceMigration(migration.Namespace).Delete(migration.Name, &metav1.DeleteOptions{})
+					Expect(err).ShouldNot(HaveOccurred())
+
+					By("Expecting migration to be deleted")
+					Eventually(func() bool {
+						migration, err = virtClient.VirtualMachineInstanceMigration(migration.Namespace).Get(migration.Name, &metav1.GetOptions{})
+						return errors.IsNotFound(err)
+					}, 60*time.Second, 5*time.Second).Should(BeTrue(), `expecting to get "is not found" error`)
+
+					By("Making sure source pod is still running")
+					sourcePod, err = virtClient.CoreV1().Pods(sourcePod.Namespace).Get(context.Background(), sourcePod.Name, metav1.GetOptions{})
+					Expect(err).ShouldNot(HaveOccurred())
+					Expect(sourcePod.Status.Phase).To(Equal(k8sv1.PodRunning))
+
+					By("Making sure the VMI's migration state remains nil")
+					Consistently(func() error {
+						vmi, err = virtClient.VirtualMachineInstance(vmi.Namespace).Get(vmi.Name, &metav1.GetOptions{})
+						if err != nil {
+							return err
+						}
+
+						if vmi.Status.MigrationState != nil {
+							return fmt.Errorf("migration state is expected to be nil")
+						}
+
+						return nil
+					}, 30*time.Second, 5*time.Second).ShouldNot(HaveOccurred())
+				})
+
+			})
+
 		})
 
 		Context("with a host-model cpu", func() {

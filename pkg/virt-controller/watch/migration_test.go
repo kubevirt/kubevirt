@@ -25,6 +25,8 @@ import (
 	"strings"
 	"time"
 
+	virtcontroller "kubevirt.io/kubevirt/pkg/controller"
+
 	"github.com/prometheus/client_golang/prometheus"
 	prometheustestutil "github.com/prometheus/client_golang/prometheus/testutil"
 
@@ -231,6 +233,24 @@ var _ = Describe("Migration watcher", func() {
 
 	shouldExpectVirtualMachineInstancePatch := func(vmi *virtv1.VirtualMachineInstance, patch string) {
 		vmiInterface.EXPECT().Patch(vmi.Name, types.JSONPatchType, []byte(patch), &metav1.PatchOptions{}).Return(vmi, nil)
+	}
+
+	shouldExpectMigrationCondition := func(migration *virtv1.VirtualMachineInstanceMigration, conditionType virtv1.VirtualMachineInstanceMigrationConditionType) {
+		migrationInterface.EXPECT().UpdateStatus(gomock.Any()).Do(func(arg interface{}) (interface{}, interface{}) {
+			vmim := arg.(*virtv1.VirtualMachineInstanceMigration)
+			ExpectWithOffset(1, vmim.Name).To(Equal(migration.Name))
+
+			foundConditionType := false
+			for _, cond := range vmim.Status.Conditions {
+				if cond.Type == conditionType {
+					foundConditionType = true
+					break
+				}
+			}
+			ExpectWithOffset(1, foundConditionType).To(BeTrue(), fmt.Sprintf("condition of type %s is expected but cannot be found in migration %s", string(conditionType), migration.Name))
+
+			return arg, nil
+		})
 	}
 
 	syncCaches := func(stop chan struct{}) {
@@ -1220,6 +1240,7 @@ var _ = Describe("Migration watcher", func() {
 				TargetNodeAddress: "10.10.10.10:1234",
 				StartTimestamp:    now(),
 			}
+			controller.addHandOffKey(virtcontroller.MigrationKey(migration))
 			addMigration(migration)
 			addVirtualMachineInstance(vmi)
 			podFeeder.Add(pod)
@@ -1751,6 +1772,35 @@ var _ = Describe("Migration watcher", func() {
 
 			expectGaugeValue(migrations.CurrentSchedulingMigrations, labels, scheduling-1)
 			expectCounterValue(migrations.MigrationsFailedTotal, labels, failed+1)
+		})
+	})
+
+	Context("Migration abortion before hand-off to virt-handler", func() {
+
+		var vmi *virtv1.VirtualMachineInstance
+		var migration *virtv1.VirtualMachineInstanceMigration
+
+		BeforeEach(func() {
+			vmi = newVirtualMachine("testvmi", virtv1.Running)
+			migration = newMigration("testmigration", vmi.Name, virtv1.MigrationPending)
+			migration.DeletionTimestamp = now()
+
+			Expect(controller.isMigrationHandedOff(migration, vmi)).To(BeFalse(), "this test assumes migration was not handed off yet")
+			addMigration(migration)
+			addVirtualMachineInstance(vmi)
+		})
+
+		AfterEach(func() {
+			controller.Execute()
+			testutils.ExpectEvent(recorder, FailedMigrationReason)
+		})
+
+		It("expect abort condition", func() {
+			shouldExpectMigrationCondition(migration, virtv1.VirtualMachineInstanceMigrationAbortRequested)
+		})
+
+		It("expect failure phase", func() {
+			shouldExpectMigrationFailedState(migration)
 		})
 	})
 })

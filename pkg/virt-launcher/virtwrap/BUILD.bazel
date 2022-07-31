@@ -27,6 +27,7 @@ go_library(
         "//pkg/network/sriov:go_default_library",
         "//pkg/util:go_default_library",
         "//pkg/util/hardware:go_default_library",
+        "//pkg/util/migrations:go_default_library",
         "//pkg/util/net/ip:go_default_library",
         "//pkg/virt-handler/cmd-client:go_default_library",
         "//pkg/virt-handler/migration-proxy:go_default_library",
