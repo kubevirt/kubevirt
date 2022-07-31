@@ -9,7 +9,7 @@ manner to allow adequate time to respond.  If a security issue or
 vulnerability has been found, please disclose the details to our
 dedicated email address:
 
-cncf-kubevirt-security@lists.cncf.io [PGP](#PGP Encryption)
+cncf-kubevirt-security@lists.cncf.io [PGP](#pgp-encryption)
 
 Please include as much information as possible with the report. The
 following details assist with analysis efforts:
