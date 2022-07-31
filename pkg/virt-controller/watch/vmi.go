@@ -338,8 +338,12 @@ func (c *VMIController) execute(key string) error {
 
 	syncErr := c.sync(vmi, pod, dataVolumes)
 
-	err = c.updateStatus(vmi, pod, dataVolumes, syncErr)
+	updatedVMI, syncErr, err := c.updateStatus(vmi, pod, dataVolumes, syncErr)
 	if err != nil {
+		return err
+	}
+
+	if err = c.modifyVMIOnAPIServer(vmi, updatedVMI, syncErr); err != nil {
 		return err
 	}
 
@@ -389,7 +393,7 @@ func (c *VMIController) hasOwnerVM(vmi *virtv1.VirtualMachineInstance) bool {
 	return false
 }
 
-func (c *VMIController) updateStatus(vmi *virtv1.VirtualMachineInstance, pod *k8sv1.Pod, dataVolumes []*cdiv1.DataVolume, syncErr syncError) error {
+func (c *VMIController) updateStatus(vmi *virtv1.VirtualMachineInstance, pod *k8sv1.Pod, dataVolumes []*cdiv1.DataVolume, syncErr syncError) (*virtv1.VirtualMachineInstance, syncError, error) {
 	key := controller.VirtualMachineInstanceKey(vmi)
 	defer virtControllerVMIWorkQueueTracer.StepTrace(key, "updateStatus", trace.Field{Key: "VMI Name", Value: vmi.Name})
 
@@ -418,14 +422,14 @@ func (c *VMIController) updateStatus(vmi *virtv1.VirtualMachineInstance, pod *k8
 
 	vmiCopy, err := c.setActivePods(vmiCopy)
 	if err != nil {
-		return fmt.Errorf("Error detecting vmi pods: %v", err)
+		return nil, nil, fmt.Errorf("Error detecting vmi pods: %v", err)
 	}
 
 	c.syncReadyConditionFromPod(vmiCopy, pod)
 	if vmiPodExists {
 		err := c.syncPausedConditionToPod(vmiCopy, pod)
 		if err != nil {
-			return fmt.Errorf("error syncing paused condition to pod: %v", err)
+			return nil, nil, fmt.Errorf("error syncing paused condition to pod: %v", err)
 		}
 	}
 
@@ -440,7 +444,7 @@ func (c *VMIController) updateStatus(vmi *virtv1.VirtualMachineInstance, pod *k8
 			if vmi.Status.TopologyHints == nil {
 				if topologyHints, err := c.topologyHinter.TopologyHintsForVMI(vmi); err != nil {
 					c.recorder.Eventf(vmi, k8sv1.EventTypeWarning, FailedGatherhingClusterTopologyHints, err.Error())
-					return &syncErrorImpl{err, FailedGatherhingClusterTopologyHints}
+					return nil, nil, &syncErrorImpl{err, FailedGatherhingClusterTopologyHints}
 				} else if topologyHints != nil {
 					vmiCopy.Status.TopologyHints = topologyHints
 				}
@@ -558,7 +562,7 @@ func (c *VMIController) updateStatus(vmi *virtv1.VirtualMachineInstance, pod *k8
 	case vmi.IsFinal():
 		allDeleted, err := c.allPodsDeleted(vmi)
 		if err != nil {
-			return err
+			return nil, nil, err
 		}
 
 		if allDeleted {
@@ -595,14 +599,13 @@ func (c *VMIController) updateStatus(vmi *virtv1.VirtualMachineInstance, pod *k8
 		// Nothing here
 		break
 	default:
-		return fmt.Errorf("unknown vmi phase %v", vmi.Status.Phase)
+		return nil, nil, fmt.Errorf("unknown vmi phase %v", vmi.Status.Phase)
 	}
 
-	err = c.modifyVMIOnAPIServer(vmi, vmiCopy, syncErr, conditionManager)
-	return err
+	return vmiCopy, syncErr, nil
 }
 
-func (c *VMIController) modifyVMIOnAPIServer(vmi *virtv1.VirtualMachineInstance, vmiCopy *virtv1.VirtualMachineInstance, syncErr syncError, conditionManager *controller.VirtualMachineInstanceConditionManager) error {
+func (c *VMIController) modifyVMIOnAPIServer(vmi *virtv1.VirtualMachineInstance, vmiCopy *virtv1.VirtualMachineInstance, syncErr syncError) error {
 	// VMI is owned by virt-handler, so patch instead of update
 	if vmi.IsRunning() || vmi.IsScheduled() {
 		patchBytes, err := prepareVMIPatch(vmi, vmiCopy)
@@ -627,6 +630,7 @@ func (c *VMIController) modifyVMIOnAPIServer(vmi *virtv1.VirtualMachineInstance,
 		reason = syncErr.Reason()
 	}
 
+	conditionManager := controller.NewVirtualMachineInstanceConditionManager()
 	conditionManager.CheckFailure(vmiCopy, syncErr, reason)
 
 	controller.SetVMIPhaseTransitionTimestamp(vmi, vmiCopy)
