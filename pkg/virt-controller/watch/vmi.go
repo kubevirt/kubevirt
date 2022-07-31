@@ -598,6 +598,11 @@ func (c *VMIController) updateStatus(vmi *virtv1.VirtualMachineInstance, pod *k8
 		return fmt.Errorf("unknown vmi phase %v", vmi.Status.Phase)
 	}
 
+	err = c.modifyVMIOnAPIServer(vmi, vmiCopy, syncErr, conditionManager)
+	return err
+}
+
+func (c *VMIController) modifyVMIOnAPIServer(vmi *virtv1.VirtualMachineInstance, vmiCopy *virtv1.VirtualMachineInstance, syncErr syncError, conditionManager *controller.VirtualMachineInstanceConditionManager) error {
 	// VMI is owned by virt-handler, so patch instead of update
 	if vmi.IsRunning() || vmi.IsScheduled() {
 		patchBytes, err := prepareVMIPatch(vmi, vmiCopy)
@@ -637,7 +642,6 @@ func (c *VMIController) updateStatus(vmi *virtv1.VirtualMachineInstance, pod *k8
 			return err
 		}
 	}
-
 	return nil
 }
 
