@@ -311,11 +311,6 @@ func GeneratePatchBytes(ops []string) []byte {
 	return []byte(fmt.Sprintf("[%s]", strings.Join(ops, ", ")))
 }
 
-func EscapeJSONPointer(ptr string) string {
-	s := strings.ReplaceAll(ptr, "~", "~0")
-	return strings.ReplaceAll(s, "/", "~1")
-}
-
 func SetVMIPhaseTransitionTimestamp(oldVMI *v1.VirtualMachineInstance, newVMI *v1.VirtualMachineInstance) {
 	if oldVMI.Status.Phase != newVMI.Status.Phase {
 		for _, transitionTimeStamp := range newVMI.Status.PhaseTransitionTimestamps {

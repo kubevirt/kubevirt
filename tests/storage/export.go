@@ -46,7 +46,9 @@ import (
 	cdiv1 "kubevirt.io/containerized-data-importer-api/pkg/apis/core/v1beta1"
 
 	"kubevirt.io/kubevirt/pkg/certificates/triple/cert"
+	k6ttypes "kubevirt.io/kubevirt/pkg/util/types"
 	"kubevirt.io/kubevirt/pkg/virt-operator/resource/generate/components"
+
 	"kubevirt.io/kubevirt/tests"
 	cd "kubevirt.io/kubevirt/tests/containerdisk"
 	"kubevirt.io/kubevirt/tests/flags"
@@ -349,13 +351,23 @@ var _ = SIGDescribe("Export", func() {
 
 	populateArchiveContent := func(sc string, volumeMode k8sv1.PersistentVolumeMode) (*k8sv1.PersistentVolumeClaim, string) {
 		pvc, md5sum := populateKubeVirtContent(sc, volumeMode)
-		pvc, err := virtClient.CoreV1().PersistentVolumeClaims(pvc.Namespace).Get(context.Background(), pvc.Name, metav1.GetOptions{})
+
+		patchData, err := k6ttypes.GeneratePatchPayload(
+			k6ttypes.PatchOperation{
+				Op:    k6ttypes.PatchAddOp,
+				Path:  "/metadata/annotations/" + k6ttypes.EscapeJSONPointer(annContentType),
+				Value: "archive",
+			},
+			k6ttypes.PatchOperation{
+				Op:    k6ttypes.PatchAddOp,
+				Path:  "/metadata/ownerReferences",
+				Value: []metav1.OwnerReference{},
+			},
+		)
+		Expect(err).ToNot(HaveOccurred())
+		pvc, err = virtClient.CoreV1().PersistentVolumeClaims(pvc.Namespace).Patch(context.Background(), pvc.Name, types.JSONPatchType, patchData, metav1.PatchOptions{})
 		Expect(err).ToNot(HaveOccurred())
 
-		pvc.Annotations[annContentType] = "archive"
-		pvc.ObjectMeta.OwnerReferences = []metav1.OwnerReference{}
-		pvc, err = virtClient.CoreV1().PersistentVolumeClaims(pvc.Namespace).Update(context.Background(), pvc, metav1.UpdateOptions{})
-		Expect(err).ToNot(HaveOccurred())
 		log.DefaultLogger().Infof("Calculated MD5 %s", md5sum)
 		return pvc, md5sum
 	}

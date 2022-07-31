@@ -307,28 +307,27 @@ var _ = SIGDescribe("VirtualMachineRestore Tests", func() {
 			It("[test_id:5256]should successfully restore", func() {
 				var origSpec *v1.VirtualMachineSpec
 
-				Eventually(func() bool {
-					var updatedVM *v1.VirtualMachine
+				By("Wait for snapshot to be finished")
+				Eventually(func() *string {
 					vm, err = virtClient.VirtualMachine(vm.Namespace).Get(vm.Name, &metav1.GetOptions{})
 					Expect(err).ToNot(HaveOccurred())
 
-					if vm.Status.SnapshotInProgress != nil {
-						return false
-					}
+					return vm.Status.SnapshotInProgress
+				}, 180*time.Second, time.Second).Should(BeNil())
 
-					origSpec = vm.Spec.DeepCopy()
-					Expect(origSpec.Template.Spec.Domain.Resources.Requests[corev1.ResourceMemory]).To(Equal(resource.MustParse("128Mi")))
+				origSpec = vm.Spec.DeepCopy()
 
-					vm.Spec.Template.Spec.Domain.Resources.Requests[corev1.ResourceMemory] = resource.MustParse("256Mi")
-					updatedVM, err = virtClient.VirtualMachine(vm.Namespace).Update(vm)
-					if errors.IsConflict(err) {
-						return false
-					}
-					vm = updatedVM
-					Expect(err).ToNot(HaveOccurred())
-					Expect(vm.Spec.Template.Spec.Domain.Resources.Requests[corev1.ResourceMemory]).To(Equal(resource.MustParse("256Mi")))
-					return true
-				}, 180*time.Second, time.Second).Should(BeTrue())
+				initialRequestedMemory := resource.MustParse("128Mi")
+				increasedRequestedMemory := resource.MustParse("256Mi")
+				patchData, err := typesutil.GenerateTestReplacePatch(
+					"/spec/template/spec/domain/resources/requests/"+string(corev1.ResourceMemory),
+					initialRequestedMemory,
+					increasedRequestedMemory,
+				)
+				Expect(err).ToNot(HaveOccurred())
+
+				vm, err = virtClient.VirtualMachine(vm.Namespace).Patch(vm.Name, types.JSONPatchType, patchData, &metav1.PatchOptions{})
+				Expect(err).ToNot(HaveOccurred())
 
 				restore := createRestoreDef(vm.Name, snapshot.Name)
 
@@ -340,6 +339,7 @@ var _ = SIGDescribe("VirtualMachineRestore Tests", func() {
 				Expect(restore.Status.DeletedDataVolumes).To(BeEmpty())
 
 				vm, err = virtClient.VirtualMachine(vm.Namespace).Get(vm.Name, &metav1.GetOptions{})
+				Expect(err).ToNot(HaveOccurred())
 				Expect(vm.Spec).To(Equal(*origSpec))
 
 				deleteRestore(restore)
@@ -1183,11 +1183,15 @@ var _ = SIGDescribe("VirtualMachineRestore Tests", func() {
 						*updatedVM.Status.RestoreInProgress == restore.Name
 				}, 180*time.Second, 3*time.Second).Should(BeTrue())
 
-				running := true
-				updatedVM, err := virtClient.VirtualMachine(vm.Namespace).Get(vm.Name, &metav1.GetOptions{})
-				Expect(err).ToNot(HaveOccurred())
-				updatedVM.Spec.Running = &running
-				_, err = virtClient.VirtualMachine(updatedVM.Namespace).Update(updatedVM)
+				patchData, err := typesutil.GeneratePatchPayload(
+					typesutil.PatchOperation{
+						Op:    typesutil.PatchAddOp,
+						Path:  "/spec/running",
+						Value: true,
+					},
+				)
+				Expect(err).NotTo(HaveOccurred())
+				_, err = virtClient.VirtualMachine(vm.Namespace).Patch(vm.Name, types.JSONPatchType, patchData, &metav1.PatchOptions{})
 				Expect(err).To(HaveOccurred())
 				Expect(err.Error()).To(ContainSubstring(fmt.Sprintf("Cannot start VM until restore %q completes", restore.Name)))
 
@@ -1329,15 +1333,16 @@ var _ = SIGDescribe("VirtualMachineRestore Tests", func() {
 				newMemory := resource.MustParse("2Gi")
 				Expect(newMemory).ToNot(Equal(initialMemory))
 
-				newVM, err := virtClient.VirtualMachine(vm.Namespace).Get(vm.Name, &metav1.GetOptions{})
-				Expect(err).ToNot(HaveOccurred())
-
-				updatedVM := newVM.DeepCopy()
-				updatedVM.Spec.Template.Spec.Domain.Resources.Requests = corev1.ResourceList{
-					corev1.ResourceMemory: newMemory,
-				}
-				updatedVM, err = virtClient.VirtualMachine(updatedVM.Namespace).Update(updatedVM)
-				Expect(err).ToNot(HaveOccurred())
+				patchData, err := typesutil.GeneratePatchPayload(
+					typesutil.PatchOperation{
+						Op:    typesutil.PatchReplaceOp,
+						Path:  "/spec/template/spec/domain/resources/requests/" + string(corev1.ResourceMemory),
+						Value: newMemory,
+					},
+				)
+				Expect(err).NotTo(HaveOccurred())
+				updatedVM, err := virtClient.VirtualMachine(vm.Namespace).Patch(vm.Name, types.JSONPatchType, patchData, &metav1.PatchOptions{})
+				Expect(err).NotTo(HaveOccurred())
 
 				By(creatingSnapshot)
 				snapshot = createSnapshot(vm)

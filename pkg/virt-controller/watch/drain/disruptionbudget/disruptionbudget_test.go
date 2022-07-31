@@ -23,8 +23,8 @@ import (
 	v1 "kubevirt.io/api/core/v1"
 	"kubevirt.io/client-go/kubecli"
 
-	ctrl_util "kubevirt.io/kubevirt/pkg/controller"
 	"kubevirt.io/kubevirt/pkg/testutils"
+	kubevirttypes "kubevirt.io/kubevirt/pkg/util/types"
 	virtconfig "kubevirt.io/kubevirt/pkg/virt-config"
 	"kubevirt.io/kubevirt/pkg/virt-controller/watch/drain/disruptionbudget"
 )
@@ -111,7 +111,7 @@ var _ = Describe("Disruptionbudget", func() {
 			Expect(patch.GetPatchType()).To(Equal(types.JSONPatchType))
 
 			expectedPatch := fmt.Sprintf(`[{ "op": "replace", "path": "/spec/minAvailable", "value": 1 }, { "op": "remove", "path": "/metadata/labels/%s" }]`,
-				ctrl_util.EscapeJSONPointer(v1.MigrationNameLabel))
+				kubevirttypes.EscapeJSONPointer(v1.MigrationNameLabel))
 			Expect(string(patch.GetPatch())).To(Equal(expectedPatch))
 			return true, &policyv1.PodDisruptionBudget{}, nil
 		})
