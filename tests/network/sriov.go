@@ -45,6 +45,7 @@ import (
 	"kubevirt.io/kubevirt/pkg/virt-launcher/virtwrap/api"
 
 	"kubevirt.io/kubevirt/tests"
+	"kubevirt.io/kubevirt/tests/assert"
 	"kubevirt.io/kubevirt/tests/console"
 	"kubevirt.io/kubevirt/tests/framework/checks"
 	"kubevirt.io/kubevirt/tests/libnet"
@@ -63,6 +64,8 @@ const (
 const (
 	sriovnet1           = "sriov"
 	sriovnet2           = "sriov2"
+	sriovnet3           = "sriov3"
+	sriovnet4           = "sriov4"
 	sriovnetLinkEnabled = "sriov-linked"
 )
 
@@ -520,6 +523,39 @@ var _ = Describe("[Serial]SRIOV", func() {
 			})
 		})
 
+		Context("Connected to multiple SRIOV networks", func() {
+			sriovNetworks := []string{sriovnet1, sriovnet2, sriovnet3, sriovnet4}
+			BeforeEach(func() {
+				for _, sriovNetwork := range sriovNetworks {
+					Expect(createSriovNetworkAttachmentDefinition(sriovNetwork, util.NamespaceTestDefault, sriovConfNAD)).To(Succeed(), shouldCreateNetwork)
+				}
+			})
+
+			It("should correctly plug all the interfaces based on the specified MAC and (guest) PCI addresses", func() {
+				macAddressTemplate := "de:ad:00:be:ef:%02d"
+				pciAddressTemplate := "0000:%02d:00.0"
+				vmi := getSriovVmi(sriovNetworks, defaultCloudInitNetworkData())
+				for i := range sriovNetworks {
+					vmi.Spec.Domain.Devices.Interfaces[i+1].PciAddress = fmt.Sprintf(pciAddressTemplate, i)
+					vmi.Spec.Domain.Devices.Interfaces[i+1].MacAddress = fmt.Sprintf(macAddressTemplate, i)
+				}
+
+				vmi = startVmi(vmi)
+				vmi = waitVmi(vmi)
+
+				for _, iface := range vmi.Spec.Domain.Devices.Interfaces {
+					if iface.SRIOV == nil {
+						continue
+					}
+					guestInterfaceName, err := findIfaceByMAC(virtClient, vmi, iface.MacAddress, 30*time.Second)
+					Expect(err).ToNot(HaveOccurred())
+					assert.XFail("sriov interface mapping to pci-address is not working correctly. Tracking issue - https://github.com/kubevirt/kubevirt/issues/7444", func() {
+						Expect(pciAddressExistsInGuestInterface(vmi, iface.PciAddress, guestInterfaceName)).To(Succeed())
+					})
+				}
+			})
+		})
+
 		Context("Connected to link-enabled SRIOV network", func() {
 			BeforeEach(func() {
 				Expect(createSriovNetworkAttachmentDefinition(sriovnetLinkEnabled, util.NamespaceTestDefault, sriovLinkEnableConfNAD)).
@@ -602,6 +638,11 @@ var _ = Describe("[Serial]SRIOV", func() {
 
 func pciAddressExistsInGuest(vmi *v1.VirtualMachineInstance, pciAddress string) error {
 	command := fmt.Sprintf("grep -q %s /sys/class/net/*/device/uevent\n", pciAddress)
+	return console.RunCommand(vmi, command, 15*time.Second)
+}
+
+func pciAddressExistsInGuestInterface(vmi *v1.VirtualMachineInstance, pciAddress, interfaceName string) error {
+	command := fmt.Sprintf("grep -q PCI_SLOT_NAME=%s /sys/class/net/%s/device/uevent\n", pciAddress, interfaceName)
 	return console.RunCommand(vmi, command, 15*time.Second)
 }
 
