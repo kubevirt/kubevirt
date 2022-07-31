@@ -2696,7 +2696,7 @@ var _ = Describe("[rfe_id:393][crit:high][vendor:cnv-qe@redhat.com][level:system
 				Expect(limitMigrationBadwidth(resource.MustParse("1Ki"))).To(Succeed())
 
 				By("Starting the VirtualMachineInstance")
-				vmi = runVMIAndExpectLaunch(vmi, 240)
+				vmi = tests.RunVMIAndExpectLaunch(vmi, 240)
 				vmiOriginalNode := vmi.Status.NodeName
 
 				// execute a migration, wait for finalized state
@@ -2770,7 +2770,7 @@ var _ = Describe("[rfe_id:393][crit:high][vendor:cnv-qe@redhat.com][level:system
 				It("should be able to properly abort migration", func() {
 					By("Starting a VirtualMachineInstance")
 					vmi := tests.NewRandomVMI()
-					vmi = runVMIAndExpectLaunch(vmi, 240)
+					vmi = tests.RunVMIAndExpectLaunch(vmi, 240)
 
 					By("Trying to migrate VM and expect for the migration to get stuck")
 					migration := tests.NewRandomMigration(vmi.Name, vmi.Namespace)
