@@ -1530,27 +1530,38 @@ var _ = SIGDescribe("VirtualMachineRestore Tests", func() {
 					sourceDV = source
 					sourceDV = waitDVReady(sourceDV)
 
+					// Create roles needed to access alternative namespace
 					role, roleBinding := libstorage.GoldenImageRBAC(testsuite.NamespaceTestAlternative)
 					role, err = virtClient.RbacV1().Roles(role.Namespace).Create(context.TODO(), role, metav1.CreateOptions{})
 					Expect(err).ToNot(HaveOccurred())
 					cloneRole = role
+					DeferCleanup(func() {
+						err := virtClient.RbacV1().Roles(cloneRole.Namespace).Delete(context.TODO(), cloneRole.Name, metav1.DeleteOptions{})
+						Expect(err).ToNot(HaveOccurred())
+					})
+
 					roleBinding, err = virtClient.RbacV1().RoleBindings(roleBinding.Namespace).Create(context.TODO(), roleBinding, metav1.CreateOptions{})
 					Expect(err).ToNot(HaveOccurred())
 					cloneRoleBinding = roleBinding
+					DeferCleanup(func() {
+						err = virtClient.RbacV1().RoleBindings(cloneRoleBinding.Namespace).Delete(context.TODO(), cloneRoleBinding.Name, metav1.DeleteOptions{})
+						Expect(err).ToNot(HaveOccurred())
+					})
+
+					// Verify roles are visible
+					role, err = virtClient.RbacV1().Roles(cloneRole.Namespace).Get(context.TODO(), cloneRole.Name, metav1.GetOptions{})
+					Expect(err).ToNot(HaveOccurred())
+					Expect(role).ToNot(BeNil())
+
+					roleBinding, err = virtClient.RbacV1().RoleBindings(cloneRoleBinding.Namespace).Get(context.TODO(), cloneRoleBinding.Name, metav1.GetOptions{})
+					Expect(err).ToNot(HaveOccurred())
+					Expect(roleBinding).ToNot(BeNil())
+
 				})
 
 				AfterEach(func() {
 					if sourceDV != nil {
 						err := virtClient.CdiClient().CdiV1beta1().DataVolumes(sourceDV.Namespace).Delete(context.TODO(), sourceDV.Name, metav1.DeleteOptions{})
-						Expect(err).ToNot(HaveOccurred())
-					}
-
-					if cloneRole != nil {
-						err := virtClient.RbacV1().Roles(cloneRole.Namespace).Delete(context.TODO(), cloneRole.Name, metav1.DeleteOptions{})
-						Expect(err).ToNot(HaveOccurred())
-					}
-					if cloneRoleBinding != nil {
-						err = virtClient.RbacV1().RoleBindings(cloneRoleBinding.Namespace).Delete(context.TODO(), cloneRoleBinding.Name, metav1.DeleteOptions{})
 						Expect(err).ToNot(HaveOccurred())
 					}
 				})
