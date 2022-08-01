@@ -125,5 +125,13 @@
       "vendor/": "vendor doesn't pass vet",
       "external/": "externaldoesn't pass vet"
     }
+  },
+  "bannedAPI": {
+    "only_files": {
+      "pkg/": "only production code must not use banned imports"
+    },
+    "exclude_files": {
+      "pkg/.*_test\\.go": "unit tests are allowed to use banned imports"
+    }
   }
 }

@@ -3,9 +3,7 @@ package isolation
 import (
 	"encoding/json"
 	"fmt"
-	"os"
 	"os/exec"
-	"path/filepath"
 
 	v1 "kubevirt.io/api/core/v1"
 	"kubevirt.io/client-go/log"
@@ -44,13 +42,4 @@ func GetImageInfo(imagePath string, context IsolationResult, config *v1.DiskVeri
 		return nil, fmt.Errorf("failed to parse disk info: %v", err)
 	}
 	return info, err
-}
-
-func GetFileSize(imagePath string, context IsolationResult) (int64, error) {
-	path := filepath.Join(context.MountRoot(), imagePath)
-	info, err := os.Stat(path)
-	if err != nil {
-		return -1, err
-	}
-	return info.Size(), nil
 }

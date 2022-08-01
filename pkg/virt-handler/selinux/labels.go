@@ -8,6 +8,8 @@ import (
 	"path/filepath"
 	"strings"
 
+	"kubevirt.io/kubevirt/pkg/safepath"
+	"kubevirt.io/kubevirt/pkg/unsafepath"
 	virt_chroot "kubevirt.io/kubevirt/pkg/virt-handler/virt-chroot"
 
 	"kubevirt.io/client-go/log"
@@ -164,10 +166,10 @@ type SELinux interface {
 	IsPermissive() bool
 }
 
-func RelabelFiles(newLabel string, continueOnError bool, files ...string) error {
+func RelabelFiles(newLabel string, continueOnError bool, files ...*safepath.Path) error {
 	relabelArgs := []string{"selinux", "relabel", newLabel}
 	for _, file := range files {
-		cmd := exec.Command("virt-chroot", append(relabelArgs, file)...)
+		cmd := exec.Command("virt-chroot", append(relabelArgs, "--root", unsafepath.UnsafeRoot(file.Raw()), unsafepath.UnsafeRelative(file.Raw()))...)
 		cmd.Stdout = os.Stdout
 		cmd.Stderr = os.Stderr
 		err := cmd.Run()
