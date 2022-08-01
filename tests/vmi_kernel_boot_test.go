@@ -31,8 +31,9 @@ import (
 	. "github.com/onsi/gomega"
 	"k8s.io/apimachinery/pkg/api/errors"
 	v1 "k8s.io/apimachinery/pkg/apis/meta/v1"
-
+	kubevirtv1 "kubevirt.io/api/core/v1"
 	cd "kubevirt.io/kubevirt/tests/containerdisk"
+	"kubevirt.io/kubevirt/tests/libvmi"
 
 	"kubevirt.io/kubevirt/tests/util"
 
@@ -123,12 +124,17 @@ var _ = Describe("[sig-compute]VMI with external kernel boot", func() {
 		})
 	})
 
-	Context("with external alpine-based kernel only", func() {
-		It("ensure successful boot", func() {
+	Context("with external alpine-based kernel only (without initrd)", func() {
+		getVMIKernelBoot := func() *kubevirtv1.VirtualMachineInstance {
 			vmi := utils.GetVMIKernelBoot()
 			// Remove initrd path from vmi spec
 			kernelBoot := vmi.Spec.Domain.Firmware.KernelBoot
 			kernelBoot.Container.InitrdPath = ""
+			return vmi
+		}
+
+		It("ensure successful boot", func() {
+			vmi := getVMIKernelBoot()
 
 			obj, err := virtClient.VirtualMachineInstance(util.NamespaceTestDefault).Create(vmi)
 			Expect(err).ToNot(HaveOccurred())
@@ -137,8 +143,8 @@ var _ = Describe("[sig-compute]VMI with external kernel boot", func() {
 
 		It("ensure successful boot and deletion when VMI has a disk defined", func() {
 			By("Creating VMI with disk and kernel boot")
-			vmi := tests.NewRandomVMIWithEphemeralDisk(cd.ContainerDiskFor(cd.ContainerDiskAlpine))
-			vmi.Spec.Domain.Resources.Requests[k8sv1.ResourceMemory] = resource.MustParse("1Gi")
+			vmi := libvmi.NewAlpine(libvmi.WithResourceMemory("1Gi"))
+
 			utils.AddKernelBootToVMI(vmi)
 			// Remove initrd path from vmi spec
 			kernelBoot := vmi.Spec.Domain.Firmware.KernelBoot
