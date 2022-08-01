@@ -25,12 +25,15 @@ import (
 	"encoding/csv"
 	"flag"
 	"fmt"
+	"math/rand"
 	"os"
 	"strings"
 	"sync"
 	"time"
 
 	"github.com/containers/image/v5/docker"
+	"github.com/containers/image/v5/types"
+	"github.com/opencontainers/go-digest"
 )
 
 const (
@@ -96,7 +99,7 @@ func init() {
 	}
 }
 func main() {
-	ctx, cancel := context.WithTimeout(context.Background(), time.Second*30)
+	ctx, cancel := context.WithTimeout(context.Background(), time.Second*60)
 	defer cancel()
 
 	// Single image use-case
@@ -274,11 +277,28 @@ func readOneDigest(ctx context.Context, image *Image, index int, wg *sync.WaitGr
 	imgRef, err := docker.ParseReference(fullName)
 	exitOnError(err, "failed to parse container reference")
 
-	digest, err := docker.GetDigest(ctx, nil, imgRef)
+	digest, err := retryGetDigest(ctx, nil, imgRef, 5, 1*time.Second)
+
 	exitOnError(err, "failed to get digest from image")
 
 	ch <- message{index: index, digest: digest.Hex(), fullName: fullName}
 	wg.Done()
+}
+
+func retryGetDigest(ctx context.Context, sys *types.SystemContext, imgRef types.ImageReference, attempts int, sleep time.Duration) (digest digest.Digest, err error) {
+	for i := 0; i < attempts; i++ {
+		if i > 0 {
+			fmt.Println("retrying after error:", err)
+			jitter := time.Duration(rand.Int63n(int64(sleep)))
+			time.Sleep(sleep + jitter/2)
+			sleep *= 3
+		}
+		digest, err = docker.GetDigest(ctx, sys, imgRef)
+		if err == nil {
+			return digest, nil
+		}
+	}
+	return "", fmt.Errorf("aborting after %d attempts, last error: %w", attempts, err)
 }
 
 func buildImageDigestName(name, digest string) string {
