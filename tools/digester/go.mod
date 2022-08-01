@@ -2,7 +2,10 @@ module github.com/kubevirt/hyperconverged-cluster-operator/tools/digester
 
 go 1.18
 
-require github.com/containers/image/v5 v5.19.2
+require (
+	github.com/containers/image/v5 v5.19.2
+	github.com/opencontainers/go-digest v1.0.0
+)
 
 require (
 	github.com/BurntSushi/toml v1.0.0 // indirect
@@ -30,7 +33,6 @@ require (
 	github.com/moby/sys/mountinfo v0.5.0 // indirect
 	github.com/modern-go/concurrent v0.0.0-20180306012644-bacd9c7ef1dd // indirect
 	github.com/modern-go/reflect2 v1.0.2 // indirect
-	github.com/opencontainers/go-digest v1.0.0 // indirect
 	github.com/opencontainers/image-spec v1.0.3-0.20211202193544-a5463b7f9c84 // indirect
 	github.com/opencontainers/runc v1.1.0 // indirect
 	github.com/opencontainers/runtime-spec v1.0.3-0.20210326190908-1c3f411f0417 // indirect
