@@ -134,24 +134,18 @@ var _ = Describe("[rfe_id:127][posneg:negative][crit:medium][vendor:cnv-qe@redha
 			})
 
 			It("[test_id:1592]should wait until the virtual machine is in running state and return a stream interface", func() {
-				vmi := libvmi.NewAlpine()
-				By("Creating a new VirtualMachineInstance")
-				vmi, err := virtClient.VirtualMachineInstance(util.NamespaceTestDefault).Create(vmi)
-				Expect(err).ToNot(HaveOccurred())
+				vmi := tests.RunVMIAndExpectLaunch(libvmi.NewAlpine(), 240)
 
 				By("and connecting to it very quickly. Hopefully the VM is not yet up")
-				_, err = virtClient.VirtualMachineInstance(vmi.Namespace).SerialConsole(vmi.Name, &kubecli.SerialConsoleOptions{ConnectionTimeout: 30 * time.Second})
+				_, err := virtClient.VirtualMachineInstance(vmi.Namespace).SerialConsole(vmi.Name, &kubecli.SerialConsoleOptions{ConnectionTimeout: 30 * time.Second})
 				Expect(err).ToNot(HaveOccurred())
 			})
 
 			It("[test_id:1593]should not be connected if scheduled to non-existing host", func() {
 				vmi := libvmi.NewAlpine(withNodeAffinityTo("kubernetes.io/hostname", "nonexistent"))
+				vmi = tests.RunVMIAndExpectLaunch(vmi, 240)
 
-				By("Creating a new VirtualMachineInstance")
-				vmi, err := virtClient.VirtualMachineInstance(util.NamespaceTestDefault).Create(vmi)
-				Expect(err).ToNot(HaveOccurred())
-
-				_, err = virtClient.VirtualMachineInstance(vmi.Namespace).SerialConsole(vmi.Name, &kubecli.SerialConsoleOptions{ConnectionTimeout: 30 * time.Second})
+				_, err := virtClient.VirtualMachineInstance(vmi.Namespace).SerialConsole(vmi.Name, &kubecli.SerialConsoleOptions{ConnectionTimeout: 30 * time.Second})
 				Expect(err).To(HaveOccurred())
 				Expect(err.Error()).To(Equal("Timeout trying to connect to the virtual machine instance"))
 			})
