@@ -52,8 +52,8 @@ var _ = Describe("[rfe_id:151][crit:high][vendor:cnv-qe@redhat.com][level:compon
 
 					Expect(console.LoginToFedora(vmi)).To(Succeed())
 					Expect(console.SafeExpectBatch(vmi, []expect.Batcher{
-						&expect.BSnd{S: "ls /sys/firmware/qemu_fw_cfg/by_name/opt/com.coreos/config\n"},
-						&expect.BExp{R: "raw"},
+						&expect.BSnd{S: "cat /sys/firmware/qemu_fw_cfg/by_name/opt/com.coreos/config/raw\n"},
+						&expect.BExp{R: ignitionData},
 					}, 300)).To(Succeed())
 				})
 			})
