@@ -786,13 +786,6 @@ func CreateRestorePVCDef(restorePVCName string, volumeSnapshot *vsv1.VolumeSnaps
 		}
 	}
 
-	if pvc.Labels == nil {
-		pvc.Labels = make(map[string]string)
-	}
-
-	if pvc.Annotations == nil {
-		pvc.Annotations = make(map[string]string)
-	}
 	for _, prefix := range restoreAnnotationsToDelete {
 		for anno := range pvc.Annotations {
 			if strings.HasPrefix(anno, prefix) {
@@ -828,6 +821,13 @@ func setLastRestoreAnnotation(restore *snapshotv1.VirtualMachineRestore, obj met
 
 func CreateRestorePVCDefFromVMRestore(vmRestoreName, restorePVCName string, volumeSnapshot *vsv1.VolumeSnapshot, volumeBackup *snapshotv1.VolumeBackup, sourceVmName, sourceVmNamespace string) *corev1.PersistentVolumeClaim {
 	pvc := CreateRestorePVCDef(restorePVCName, volumeSnapshot, volumeBackup)
+	if pvc.Labels == nil {
+		pvc.Labels = make(map[string]string)
+	}
+
+	if pvc.Annotations == nil {
+		pvc.Annotations = make(map[string]string)
+	}
 	pvc.Labels[restoreSourceNameLabel] = sourceVmName
 	pvc.Labels[restoreSourceNamespaceLabel] = sourceVmNamespace
 	pvc.Annotations[pvcRestoreAnnotation] = vmRestoreName
