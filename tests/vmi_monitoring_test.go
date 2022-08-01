@@ -27,13 +27,12 @@ import (
 	. "github.com/onsi/gomega"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 
-	"kubevirt.io/kubevirt/tests/util"
-
 	v1 "kubevirt.io/api/core/v1"
 	"kubevirt.io/client-go/kubecli"
 
 	"kubevirt.io/kubevirt/tests"
 	"kubevirt.io/kubevirt/tests/console"
+	"kubevirt.io/kubevirt/tests/libvmi"
 )
 
 var _ = Describe("[sig-compute]Health Monitoring", func() {
@@ -48,10 +47,8 @@ var _ = Describe("[sig-compute]Health Monitoring", func() {
 
 	Describe("A VirtualMachineInstance with a watchdog device", func() {
 		It("[test_id:4641]should be shut down when the watchdog expires", func() {
-			vmi := tests.NewRandomVMIWithWatchdog()
-			obj, err := virtClient.VirtualMachineInstance(util.NamespaceTestDefault).Create(vmi)
-			Expect(err).ToNot(HaveOccurred())
-			tests.WaitForSuccessfulVMIStart(obj)
+			vmi := tests.RunVMIAndExpectLaunch(
+				libvmi.NewAlpine(withWatchdog()), 360)
 
 			By("Expecting the VirtualMachineInstance console")
 			Expect(console.LoginToAlpine(vmi)).To(Succeed())
@@ -78,3 +75,16 @@ var _ = Describe("[sig-compute]Health Monitoring", func() {
 		})
 	})
 })
+
+func withWatchdog() libvmi.Option {
+	return func(vmi *v1.VirtualMachineInstance) {
+		vmi.Spec.Domain.Devices.Watchdog = &v1.Watchdog{
+			Name: "mywatchdog",
+			WatchdogDevice: v1.WatchdogDevice{
+				I6300ESB: &v1.I6300ESBWatchdog{
+					Action: v1.WatchdogActionPoweroff,
+				},
+			},
+		}
+	}
+}

@@ -989,20 +989,6 @@ func NewRandomVMIWithHostDisk(diskPath string, diskType v1.HostDiskType, nodeNam
 	return vmi
 }
 
-func NewRandomVMIWithWatchdog() *v1.VirtualMachineInstance {
-	vmi := NewRandomVMIWithEphemeralDisk(cd.ContainerDiskFor(cd.ContainerDiskAlpine))
-
-	vmi.Spec.Domain.Devices.Watchdog = &v1.Watchdog{
-		Name: "mywatchdog",
-		WatchdogDevice: v1.WatchdogDevice{
-			I6300ESB: &v1.I6300ESBWatchdog{
-				Action: v1.WatchdogActionPoweroff,
-			},
-		},
-	}
-	return vmi
-}
-
 func AddConfigMapDisk(vmi *v1.VirtualMachineInstance, configMapName string, volumeName string) {
 	AddConfigMapDiskWithCustomLabel(vmi, configMapName, volumeName, "")
 
