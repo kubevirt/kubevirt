@@ -50,13 +50,8 @@ var _ = Describe("[rfe_id:151][crit:high][vendor:cnv-qe@redhat.com][level:compon
 						libvmi.NewFedora(libvmi.WithAnnotation(v1.IgnitionAnnotation, ignitionData)),
 						240)
 
+					Expect(console.LoginToFedora(vmi)).To(Succeed())
 					Expect(console.SafeExpectBatch(vmi, []expect.Batcher{
-						&expect.BSnd{S: "\n"},
-						&expect.BExp{R: "login:"},
-						&expect.BSnd{S: "fedora\n"},
-						&expect.BExp{R: "Password:"},
-						&expect.BSnd{S: "fedora" + "\n"},
-						&expect.BExp{R: console.PromptExpression},
 						&expect.BSnd{S: "ls /sys/firmware/qemu_fw_cfg/by_name/opt/com.coreos/config\n"},
 						&expect.BExp{R: "raw"},
 					}, 300)).To(Succeed())
