@@ -190,7 +190,7 @@ var _ = Describe("Test operator.go", func() {
 				cl.Get(context.TODO(),
 					types.NamespacedName{Name: expectedResource.Name, Namespace: expectedResource.Namespace},
 					foundResource),
-			).To(BeNil())
+			).To(Succeed())
 		})
 
 		It("Should not fail due to existing resourceVersions", func() {
@@ -219,7 +219,7 @@ var _ = Describe("Test operator.go", func() {
 				cl.Get(context.TODO(),
 					types.NamespacedName{Name: expectedResource.Name, Namespace: expectedResource.Namespace},
 					foundResource),
-			).To(BeNil())
+			).To(Succeed())
 		})
 
 		It("Should fail if the object was already there", func() {

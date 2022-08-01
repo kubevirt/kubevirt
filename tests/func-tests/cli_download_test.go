@@ -64,7 +64,7 @@ func checkConsoleCliDownloadSpec(client kubecli.KubevirtClient) {
 		Do(context.TODO()).Into(&ccd)
 
 	ExpectWithOffset(1, err).ToNot(HaveOccurred())
-	ExpectWithOffset(1, len(ccd.Spec.Links)).Should(Equal(3))
+	ExpectWithOffset(1, ccd.Spec.Links).Should(HaveLen(3))
 
 	for _, link := range ccd.Spec.Links {
 		By("Checking links. Link:" + link.Href)
@@ -76,7 +76,7 @@ func checkConsoleCliDownloadSpec(client kubecli.KubevirtClient) {
 		_ = resp.Body.Close()
 
 		ExpectWithOffset(1, err).ToNot(HaveOccurred())
-		ExpectWithOffset(1, resp.StatusCode).Should(Equal(200))
+		ExpectWithOffset(1, resp).Should(HaveHTTPStatus(http.StatusOK))
 
 	}
 }

@@ -37,6 +37,9 @@ goimport:
 
 lint:
 	golangci-lint run
+	go install github.com/nunnatsa/ginkgolinter/cmd/ginkgolinter@latest
+	ginkgolinter ./...
+	(cd tests && ginkgolinter ./...)
 
 build: build-operator build-csv-merger build-webhook
 

@@ -53,7 +53,7 @@ var _ = Describe("webhooks mutator", func() {
 		sspv1beta1.AddToScheme,
 		corev1.AddToScheme,
 	} {
-		Expect(f(s)).To(BeNil())
+		Expect(f(s)).To(Succeed())
 	}
 
 	codecFactory := serializer.NewCodecFactory(s)
@@ -61,7 +61,7 @@ var _ = Describe("webhooks mutator", func() {
 
 	Context("Check mutating webhook for namespace deletion", func() {
 		BeforeEach(func() {
-			Expect(os.Setenv("OPERATOR_NAMESPACE", HcoValidNamespace)).To(BeNil())
+			Expect(os.Setenv("OPERATOR_NAMESPACE", HcoValidNamespace)).To(Succeed())
 		})
 
 		cr := &v1beta1.HyperConverged{

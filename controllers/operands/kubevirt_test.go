@@ -655,7 +655,7 @@ Version: 1.2.3`)
 						cl.Get(context.TODO(),
 							types.NamespacedName{Name: existKv.Name, Namespace: existKv.Namespace},
 							foundResource),
-					).To(BeNil())
+					).To(Succeed())
 
 					mdc := foundResource.Spec.Configuration.MediatedDevicesConfiguration
 					Expect(mdc).ToNot(BeNil())
@@ -918,7 +918,7 @@ Version: 1.2.3`)
 						cl.Get(context.TODO(),
 							types.NamespacedName{Name: existKv.Name, Namespace: existKv.Namespace},
 							foundResource),
-					).To(BeNil())
+					).To(Succeed())
 
 					phd := foundResource.Spec.Configuration.PermittedHostDevices
 					Expect(phd).ToNot(BeNil())
@@ -1103,7 +1103,7 @@ Version: 1.2.3`)
 						cl.Get(context.TODO(),
 							types.NamespacedName{Name: existKv.Name, Namespace: existKv.Namespace},
 							foundResource),
-					).To(BeNil())
+					).To(Succeed())
 
 					kvCPUModel := foundResource.Spec.Configuration.CPUModel
 					Expect(kvCPUModel).ToNot(BeNil())
@@ -1130,7 +1130,7 @@ Version: 1.2.3`)
 						cl.Get(context.TODO(),
 							types.NamespacedName{Name: existKv.Name, Namespace: existKv.Namespace},
 							foundResource),
-					).To(BeNil())
+					).To(Succeed())
 
 					kvCPUModel := foundResource.Spec.Configuration.CPUModel
 					Expect(kvCPUModel).ToNot(BeNil())

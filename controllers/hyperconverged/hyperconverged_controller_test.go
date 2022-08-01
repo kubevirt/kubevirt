@@ -212,7 +212,7 @@ var _ = Describe("HyperconvergedController", func() {
 				}
 				// Get the KV
 				kvList := &kubevirtcorev1.KubeVirtList{}
-				Expect(cl.List(context.TODO(), kvList)).To(BeNil())
+				Expect(cl.List(context.TODO(), kvList)).To(Succeed())
 				Expect(kvList.Items).Should(HaveLen(1))
 				kv := kvList.Items[0]
 				Expect(kv.Spec.Configuration.DeveloperConfiguration).ToNot(BeNil())
@@ -595,16 +595,16 @@ var _ = Describe("HyperconvergedController", func() {
 
 				// mock a reconciliation triggered by a change in secondary CR
 				ph, err := getSecondaryCRPlaceholder()
-				Expect(err).To(BeNil())
+				Expect(err).ToNot(HaveOccurred())
 				rq := request
 				rq.NamespacedName = ph
 
 				counterValueBefore, err := metrics.HcoMetrics.GetOverwrittenModificationsCount(existingResource.Kind, existingResource.Name)
-				Expect(err).To(BeNil())
+				Expect(err).ToNot(HaveOccurred())
 
 				// Do the reconcile
 				res, err := r.Reconcile(context.TODO(), rq)
-				Expect(err).To(BeNil())
+				Expect(err).ToNot(HaveOccurred())
 				Expect(res).Should(Equal(reconcile.Result{Requeue: true}))
 
 				foundResource := &kubevirtcorev1.KubeVirt{}
@@ -612,7 +612,7 @@ var _ = Describe("HyperconvergedController", func() {
 					cl.Get(context.TODO(),
 						types.NamespacedName{Name: existingResource.Name, Namespace: existingResource.Namespace},
 						foundResource),
-				).To(BeNil())
+				).To(Succeed())
 
 				Expect(existingResource.Spec.Infra.NodePlacement.Tolerations).To(HaveLen(3))
 				Expect(existingResource.Spec.Workloads.NodePlacement.Tolerations).To(HaveLen(3))
@@ -625,7 +625,7 @@ var _ = Describe("HyperconvergedController", func() {
 				Expect(foundResource.Spec.Workloads.NodePlacement.NodeSelector["key2"]).Should(Equal("value2"))
 
 				counterValueAfter, err := metrics.HcoMetrics.GetOverwrittenModificationsCount(foundResource.Kind, foundResource.Name)
-				Expect(err).To(BeNil())
+				Expect(err).ToNot(HaveOccurred())
 				Expect(counterValueAfter).To(Equal(counterValueBefore + 1))
 
 			})
@@ -654,11 +654,11 @@ var _ = Describe("HyperconvergedController", func() {
 				r := initReconciler(cl, nil)
 
 				counterValueBefore, err := metrics.HcoMetrics.GetOverwrittenModificationsCount(existingResource.Kind, existingResource.Name)
-				Expect(err).To(BeNil())
+				Expect(err).ToNot(HaveOccurred())
 
 				// Do the reconcile triggered by HCO
 				res, err := r.Reconcile(context.TODO(), request)
-				Expect(err).To(BeNil())
+				Expect(err).ToNot(HaveOccurred())
 				Expect(res).Should(Equal(reconcile.Result{Requeue: true}))
 
 				foundResource := &kubevirtcorev1.KubeVirt{}
@@ -666,7 +666,7 @@ var _ = Describe("HyperconvergedController", func() {
 					cl.Get(context.TODO(),
 						types.NamespacedName{Name: existingResource.Name, Namespace: existingResource.Namespace},
 						foundResource),
-				).To(BeNil())
+				).To(Succeed())
 
 				Expect(existingResource.Spec.Infra.NodePlacement.Tolerations).To(HaveLen(3))
 				Expect(existingResource.Spec.Workloads.NodePlacement.Tolerations).To(HaveLen(3))
@@ -679,7 +679,7 @@ var _ = Describe("HyperconvergedController", func() {
 				Expect(foundResource.Spec.Workloads.NodePlacement.NodeSelector["key2"]).Should(Equal("value2"))
 
 				counterValueAfter, err := metrics.HcoMetrics.GetOverwrittenModificationsCount(foundResource.Kind, foundResource.Name)
-				Expect(err).To(BeNil())
+				Expect(err).ToNot(HaveOccurred())
 				Expect(counterValueAfter).To(Equal(counterValueBefore))
 
 			})
@@ -774,7 +774,7 @@ var _ = Describe("HyperconvergedController", func() {
 				r.monitoringReconciler = monitoringReconciler
 
 				res, err := r.Reconcile(context.TODO(), request)
-				Expect(err).To(BeNil())
+				Expect(err).ToNot(HaveOccurred())
 				Expect(res).Should(Equal(reconcile.Result{}))
 
 				foundResource := &hcov1beta1.HyperConverged{}
@@ -782,10 +782,10 @@ var _ = Describe("HyperconvergedController", func() {
 					cl.Get(context.TODO(),
 						types.NamespacedName{Name: expected.hco.Name, Namespace: expected.hco.Namespace},
 						foundResource),
-				).To(BeNil())
+				).To(Succeed())
 
 				Expect(foundResource.Status.RelatedObjects).ToNot(BeNil())
-				Expect(len(foundResource.Status.RelatedObjects)).Should(Equal(20))
+				Expect(foundResource.Status.RelatedObjects).Should(HaveLen(20))
 				Expect(foundResource.ObjectMeta.Finalizers).Should(Equal([]string{FinalizerName}))
 
 				// Now, delete HCO
@@ -796,11 +796,11 @@ var _ = Describe("HyperconvergedController", func() {
 
 				r = initReconciler(cl, nil)
 				res, err = r.Reconcile(context.TODO(), request)
-				Expect(err).To(BeNil())
+				Expect(err).ToNot(HaveOccurred())
 				Expect(res).Should(Equal(reconcile.Result{Requeue: true}))
 
 				res, err = r.Reconcile(context.TODO(), request)
-				Expect(err).To(BeNil())
+				Expect(err).ToNot(HaveOccurred())
 				Expect(res).Should(Equal(reconcile.Result{Requeue: false}))
 
 				foundResource = &hcov1beta1.HyperConverged{}
@@ -818,7 +818,7 @@ var _ = Describe("HyperconvergedController", func() {
 				cl := expected.initClient()
 				r := initReconciler(cl, nil)
 				res, err := r.Reconcile(context.TODO(), request)
-				Expect(err).To(BeNil())
+				Expect(err).ToNot(HaveOccurred())
 				Expect(res).Should(Equal(reconcile.Result{}))
 
 				foundResource := &hcov1beta1.HyperConverged{}
@@ -826,7 +826,7 @@ var _ = Describe("HyperconvergedController", func() {
 					cl.Get(context.TODO(),
 						types.NamespacedName{Name: expected.hco.Name, Namespace: expected.hco.Namespace},
 						foundResource),
-				).To(BeNil())
+				).To(Succeed())
 
 				Expect(foundResource.Status.RelatedObjects).ToNot(BeNil())
 				Expect(foundResource.ObjectMeta.Finalizers).Should(Equal([]string{FinalizerName}))
@@ -838,7 +838,7 @@ var _ = Describe("HyperconvergedController", func() {
 				cl := expected.initClient()
 				r := initReconciler(cl, nil)
 				res, err := r.Reconcile(context.TODO(), request)
-				Expect(err).To(BeNil())
+				Expect(err).ToNot(HaveOccurred())
 				Expect(res).Should(Equal(reconcile.Result{Requeue: true}))
 
 				foundResource := &hcov1beta1.HyperConverged{}
@@ -846,7 +846,7 @@ var _ = Describe("HyperconvergedController", func() {
 					cl.Get(context.TODO(),
 						types.NamespacedName{Name: expected.hco.Name, Namespace: expected.hco.Namespace},
 						foundResource),
-				).To(BeNil())
+				).To(Succeed())
 
 				Expect(foundResource.Status.RelatedObjects).ToNot(BeNil())
 				Expect(foundResource.ObjectMeta.Finalizers).Should(Equal([]string{FinalizerName}))
@@ -865,7 +865,7 @@ var _ = Describe("HyperconvergedController", func() {
 
 				// Do the reconcile
 				res, err := r.Reconcile(context.TODO(), request)
-				Expect(err).To(BeNil())
+				Expect(err).ToNot(HaveOccurred())
 				Expect(res).Should(Equal(reconcile.Result{Requeue: true}))
 
 				// Get the HCO
@@ -874,7 +874,7 @@ var _ = Describe("HyperconvergedController", func() {
 					cl.Get(context.TODO(),
 						types.NamespacedName{Name: hco.Name, Namespace: hco.Namespace},
 						foundResource),
-				).To(BeNil())
+				).To(Succeed())
 
 				// Check condition
 				foundCond := false
@@ -907,7 +907,7 @@ var _ = Describe("HyperconvergedController", func() {
 
 				// Do the reconcile
 				res, err := r.Reconcile(context.TODO(), request)
-				Expect(err).To(BeNil())
+				Expect(err).ToNot(HaveOccurred())
 				Expect(res).Should(Equal(reconcile.Result{Requeue: false}))
 
 				// Get the HCO
@@ -916,7 +916,7 @@ var _ = Describe("HyperconvergedController", func() {
 					cl.Get(context.TODO(),
 						types.NamespacedName{Name: hco.Name, Namespace: hco.Namespace},
 						foundHyperConverged),
-				).To(BeNil())
+				).To(Succeed())
 
 				// Check condition
 				foundCond := false
@@ -1165,7 +1165,7 @@ var _ = Describe("HyperconvergedController", func() {
 				}
 
 				_, err := r.Reconcile(context.TODO(), request)
-				Expect(err).To(BeNil())
+				Expect(err).ToNot(HaveOccurred())
 
 				validateOperatorCondition(r, metav1.ConditionFalse, hcoutil.UpgradeableUpgradingReason, hcoutil.UpgradeableUpgradingMessage)
 			})
@@ -1270,23 +1270,23 @@ var _ = Describe("HyperconvergedController", func() {
 						cl.Get(context.TODO(),
 							types.NamespacedName{Name: request.Name, Namespace: request.Namespace},
 							foundResource),
-					).To(BeNil())
+					).To(Succeed())
 					ver, ok := GetVersion(&foundResource.Status, hcoVersionName)
 
 					if acceptableVersion {
-						Expect(err).To(BeNil())
+						Expect(err).ToNot(HaveOccurred())
 						Expect(res.Requeue).To(BeTrue())
 						Expect(ok).To(BeTrue())
 						Expect(ver).Should(Equal(testHcoVersion))
 						// reconcile again to complete the upgrade
 						res, err = r.Reconcile(context.TODO(), request)
-						Expect(err).To(BeNil())
+						Expect(err).ToNot(HaveOccurred())
 						Expect(res.Requeue).To(BeFalse())
 						Expect(
 							cl.Get(context.TODO(),
 								types.NamespacedName{Name: request.Name, Namespace: request.Namespace},
 								foundResource),
-						).To(BeNil())
+						).To(Succeed())
 						ver, ok = GetVersion(&foundResource.Status, hcoVersionName)
 						Expect(ok).To(BeTrue())
 						Expect(ver).Should(Equal(newVersion))
@@ -1305,7 +1305,7 @@ var _ = Describe("HyperconvergedController", func() {
 							cl.Get(context.TODO(),
 								types.NamespacedName{Name: request.Name, Namespace: request.Namespace},
 								foundResource),
-						).To(BeNil())
+						).To(Succeed())
 						ver, ok = GetVersion(&foundResource.Status, hcoVersionName)
 						Expect(ok).To(BeTrue())
 						Expect(ver).Should(Equal(testHcoVersion))
@@ -1318,7 +1318,7 @@ var _ = Describe("HyperconvergedController", func() {
 							cl.Get(context.TODO(),
 								types.NamespacedName{Name: request.Name, Namespace: request.Namespace},
 								foundResource),
-						).To(BeNil())
+						).To(Succeed())
 						ver, ok = GetVersion(&foundResource.Status, hcoVersionName)
 						Expect(ok).To(BeTrue())
 						Expect(ver).Should(Equal(testHcoVersion))
@@ -1582,7 +1582,7 @@ var _ = Describe("HyperconvergedController", func() {
 						cl.Get(context.TODO(),
 							client.ObjectKeyFromObject(expected.hcoCRD),
 							foundCrd),
-					).To(BeNil())
+					).To(Succeed())
 					Expect(foundCrd.Status.StoredVersions).ShouldNot(ContainElement("v1alpha1"))
 					Expect(foundCrd.Status.StoredVersions).Should(ContainElement("v1beta1"))
 					Expect(foundCrd.Status.StoredVersions).Should(ContainElement("v1"))
@@ -1615,7 +1615,7 @@ var _ = Describe("HyperconvergedController", func() {
 						cl.Get(context.TODO(),
 							client.ObjectKeyFromObject(expected.hcoCRD),
 							foundCrd),
-					).To(BeNil())
+					).To(Succeed())
 					Expect(foundCrd.Status.StoredVersions).Should(ContainElement("v1alpha1"))
 					Expect(foundCrd.Status.StoredVersions).Should(ContainElement("v1beta1"))
 					Expect(foundCrd.Status.StoredVersions).Should(ContainElement("v1"))
@@ -1743,7 +1743,7 @@ var _ = Describe("HyperconvergedController", func() {
 					checkAvailability(foundResource, metav1.ConditionTrue)
 
 					foundCrds := apiextensionsv1.CustomResourceDefinitionList{}
-					Expect(cl.List(context.TODO(), &foundCrds)).To(BeNil())
+					Expect(cl.List(context.TODO(), &foundCrds)).To(Succeed())
 					crdNames := make([]string, len(foundCrds.Items))
 					for i := range crdNames {
 						crdNames[i] = foundCrds.Items[i].Name
@@ -1771,7 +1771,7 @@ var _ = Describe("HyperconvergedController", func() {
 					checkAvailability(foundResource, metav1.ConditionTrue)
 
 					foundCrds := apiextensionsv1.CustomResourceDefinitionList{}
-					Expect(cl.List(context.TODO(), &foundCrds)).To(BeNil())
+					Expect(cl.List(context.TODO(), &foundCrds)).To(Succeed())
 					crdNames := make([]string, len(foundCrds.Items))
 					for i := range crdNames {
 						crdNames[i] = foundCrds.Items[i].Name
@@ -2976,7 +2976,7 @@ var _ = Describe("HyperconvergedController", func() {
 
 				res, err := r.Reconcile(context.TODO(), request)
 
-				Expect(err).ToNot(BeNil())
+				Expect(err).To(HaveOccurred())
 				Expect(apierrors.IsConflict(err)).To(BeTrue())
 				Expect(res.Requeue).To(BeTrue())
 
@@ -3009,7 +3009,7 @@ var _ = Describe("HyperconvergedController", func() {
 						]`,
 					}
 					err := metrics.HcoMetrics.SetUnsafeModificationCount(0, common.JSONPatchKVAnnotationName)
-					Expect(err).To(BeNil())
+					Expect(err).ToNot(HaveOccurred())
 
 					cl := commonTestUtils.InitClient([]runtime.Object{hcoNamespace, hco})
 					r := initReconciler(cl, nil)
@@ -3025,7 +3025,7 @@ var _ = Describe("HyperconvergedController", func() {
 						cl.Get(context.TODO(),
 							types.NamespacedName{Name: hco.Name, Namespace: hco.Namespace},
 							foundResource),
-					).To(BeNil())
+					).To(Succeed())
 
 					By("Verify HC conditions", func() {
 						Expect(foundResource.Status.Conditions).To(ContainElement(commonTestUtils.RepresentCondition(metav1.Condition{
@@ -3046,7 +3046,7 @@ var _ = Describe("HyperconvergedController", func() {
 							cl.Get(context.TODO(),
 								types.NamespacedName{Name: kv.Name, Namespace: kv.Namespace},
 								kv),
-						).To(BeNil())
+						).To(Succeed())
 
 						Expect(kv.Spec.Configuration.MigrationConfiguration).ToNot(BeNil())
 						Expect(kv.Spec.Configuration.MigrationConfiguration.AllowPostCopy).ToNot(BeNil())
@@ -3063,14 +3063,14 @@ var _ = Describe("HyperconvergedController", func() {
 					})
 
 					err := metrics.HcoMetrics.SetUnsafeModificationCount(5, common.JSONPatchKVAnnotationName)
-					Expect(err).To(BeNil())
+					Expect(err).ToNot(HaveOccurred())
 
 					cl := commonTestUtils.InitClient([]runtime.Object{hcoNamespace, hco})
 					r := initReconciler(cl, nil)
 
 					// Do the reconcile
 					res, err := r.Reconcile(context.TODO(), request)
-					Expect(err).To(BeNil())
+					Expect(err).ToNot(HaveOccurred())
 
 					// Expecting "Requeue: false" since the conditions aren't empty
 					Expect(res).Should(Equal(reconcile.Result{Requeue: true}))
@@ -3081,7 +3081,7 @@ var _ = Describe("HyperconvergedController", func() {
 						cl.Get(context.TODO(),
 							types.NamespacedName{Name: hco.Name, Namespace: hco.Namespace},
 							foundResource),
-					).To(BeNil())
+					).To(Succeed())
 
 					// Check conditions
 					// Check conditions
@@ -3105,7 +3105,7 @@ var _ = Describe("HyperconvergedController", func() {
 					})
 
 					err := metrics.HcoMetrics.SetUnsafeModificationCount(5, common.JSONPatchKVAnnotationName)
-					Expect(err).To(BeNil())
+					Expect(err).ToNot(HaveOccurred())
 
 					hco.ObjectMeta.Annotations = map[string]string{
 						// Set bad json format (missing comma)
@@ -3133,7 +3133,7 @@ var _ = Describe("HyperconvergedController", func() {
 						cl.Get(context.TODO(),
 							types.NamespacedName{Name: hco.Name, Namespace: hco.Namespace},
 							foundResource),
-					).To(BeNil())
+					).To(Succeed())
 
 					// Check conditions
 					// Check conditions
@@ -3169,7 +3169,7 @@ var _ = Describe("HyperconvergedController", func() {
 					}
 
 					err := metrics.HcoMetrics.SetUnsafeModificationCount(0, common.JSONPatchCDIAnnotationName)
-					Expect(err).To(BeNil())
+					Expect(err).ToNot(HaveOccurred())
 
 					cl := commonTestUtils.InitClient([]runtime.Object{hcoNamespace, hco})
 					r := initReconciler(cl, nil)
@@ -3185,7 +3185,7 @@ var _ = Describe("HyperconvergedController", func() {
 						cl.Get(context.TODO(),
 							types.NamespacedName{Name: hco.Name, Namespace: hco.Namespace},
 							foundResource),
-					).To(BeNil())
+					).To(Succeed())
 
 					By("Verify HC conditions", func() {
 						Expect(foundResource.Status.Conditions).To(ContainElement(commonTestUtils.RepresentCondition(metav1.Condition{
@@ -3206,7 +3206,7 @@ var _ = Describe("HyperconvergedController", func() {
 							cl.Get(context.TODO(),
 								types.NamespacedName{Name: cdi.Name, Namespace: cdi.Namespace},
 								cdi),
-						).To(BeNil())
+						).To(Succeed())
 
 						Expect(cdi.Spec.Config.FeatureGates).Should(ContainElement("fg1"))
 						Expect(cdi.Spec.Config.FilesystemOverhead).ToNot(BeNil())
@@ -3227,14 +3227,14 @@ var _ = Describe("HyperconvergedController", func() {
 					})
 
 					err := metrics.HcoMetrics.SetUnsafeModificationCount(5, common.JSONPatchCDIAnnotationName)
-					Expect(err).To(BeNil())
+					Expect(err).ToNot(HaveOccurred())
 
 					cl := commonTestUtils.InitClient([]runtime.Object{hcoNamespace, hco})
 					r := initReconciler(cl, nil)
 
 					// Do the reconcile
 					res, err := r.Reconcile(context.TODO(), request)
-					Expect(err).To(BeNil())
+					Expect(err).ToNot(HaveOccurred())
 
 					// Expecting "Requeue: false" since the conditions aren't empty
 					Expect(res).Should(Equal(reconcile.Result{Requeue: true}))
@@ -3245,7 +3245,7 @@ var _ = Describe("HyperconvergedController", func() {
 						cl.Get(context.TODO(),
 							types.NamespacedName{Name: hco.Name, Namespace: hco.Namespace},
 							foundResource),
-					).To(BeNil())
+					).To(Succeed())
 
 					// Check conditions
 					// Check conditions
@@ -3269,7 +3269,7 @@ var _ = Describe("HyperconvergedController", func() {
 					})
 
 					err := metrics.HcoMetrics.SetUnsafeModificationCount(5, common.JSONPatchCDIAnnotationName)
-					Expect(err).To(BeNil())
+					Expect(err).ToNot(HaveOccurred())
 
 					hco.ObjectMeta.Annotations = map[string]string{
 						// Set bad json format (missing comma)
@@ -3290,7 +3290,7 @@ var _ = Describe("HyperconvergedController", func() {
 						cl.Get(context.TODO(),
 							types.NamespacedName{Name: hco.Name, Namespace: hco.Namespace},
 							foundResource),
-					).To(BeNil())
+					).To(Succeed())
 
 					// Check conditions
 					// Check conditions
@@ -3325,7 +3325,7 @@ var _ = Describe("HyperconvergedController", func() {
 					}
 
 					err := metrics.HcoMetrics.SetUnsafeModificationCount(0, common.JSONPatchCNAOAnnotationName)
-					Expect(err).To(BeNil())
+					Expect(err).ToNot(HaveOccurred())
 
 					cl := commonTestUtils.InitClient([]runtime.Object{hcoNamespace, hco})
 					r := initReconciler(cl, nil)
@@ -3341,7 +3341,7 @@ var _ = Describe("HyperconvergedController", func() {
 						cl.Get(context.TODO(),
 							types.NamespacedName{Name: hco.Name, Namespace: hco.Namespace},
 							foundResource),
-					).To(BeNil())
+					).To(Succeed())
 
 					By("Verify HC conditions", func() {
 						Expect(foundResource.Status.Conditions).To(ContainElement(commonTestUtils.RepresentCondition(metav1.Condition{
@@ -3362,7 +3362,7 @@ var _ = Describe("HyperconvergedController", func() {
 							cl.Get(context.TODO(),
 								types.NamespacedName{Name: cna.Name, Namespace: cna.Namespace},
 								cna),
-						).To(BeNil())
+						).To(Succeed())
 
 						Expect(cna.Spec.KubeMacPool).ToNot(BeNil())
 						Expect(cna.Spec.KubeMacPool.RangeStart).Should(Equal("1.1.1.1.1.1"))
@@ -3379,14 +3379,14 @@ var _ = Describe("HyperconvergedController", func() {
 						Message: taintedConfigurationMessage,
 					})
 					err := metrics.HcoMetrics.SetUnsafeModificationCount(5, common.JSONPatchCNAOAnnotationName)
-					Expect(err).To(BeNil())
+					Expect(err).ToNot(HaveOccurred())
 
 					cl := commonTestUtils.InitClient([]runtime.Object{hcoNamespace, hco})
 					r := initReconciler(cl, nil)
 
 					// Do the reconcile
 					res, err := r.Reconcile(context.TODO(), request)
-					Expect(err).To(BeNil())
+					Expect(err).ToNot(HaveOccurred())
 
 					// Expecting "Requeue: false" since the conditions aren't empty
 					Expect(res).Should(Equal(reconcile.Result{Requeue: true}))
@@ -3397,7 +3397,7 @@ var _ = Describe("HyperconvergedController", func() {
 						cl.Get(context.TODO(),
 							types.NamespacedName{Name: hco.Name, Namespace: hco.Namespace},
 							foundResource),
-					).To(BeNil())
+					).To(Succeed())
 
 					// Check conditions
 					// Check conditions
@@ -3418,7 +3418,7 @@ var _ = Describe("HyperconvergedController", func() {
 						common.JSONPatchKVAnnotationName: `[{`,
 					}
 					err := metrics.HcoMetrics.SetUnsafeModificationCount(5, common.JSONPatchCNAOAnnotationName)
-					Expect(err).To(BeNil())
+					Expect(err).ToNot(HaveOccurred())
 
 					cl := commonTestUtils.InitClient([]runtime.Object{hcoNamespace, hco})
 					r := initReconciler(cl, nil)
@@ -3434,7 +3434,7 @@ var _ = Describe("HyperconvergedController", func() {
 						cl.Get(context.TODO(),
 							types.NamespacedName{Name: hco.Name, Namespace: hco.Namespace},
 							foundResource),
-					).To(BeNil())
+					).To(Succeed())
 
 					// Check conditions
 					// Check conditions
@@ -3487,11 +3487,11 @@ var _ = Describe("HyperconvergedController", func() {
 						]`,
 					}
 					err := metrics.HcoMetrics.SetUnsafeModificationCount(0, common.JSONPatchKVAnnotationName)
-					Expect(err).To(BeNil())
+					Expect(err).ToNot(HaveOccurred())
 					err = metrics.HcoMetrics.SetUnsafeModificationCount(0, common.JSONPatchCDIAnnotationName)
-					Expect(err).To(BeNil())
+					Expect(err).ToNot(HaveOccurred())
 					err = metrics.HcoMetrics.SetUnsafeModificationCount(0, common.JSONPatchCNAOAnnotationName)
-					Expect(err).To(BeNil())
+					Expect(err).ToNot(HaveOccurred())
 
 					cl := commonTestUtils.InitClient([]runtime.Object{hcoNamespace, hco})
 					r := initReconciler(cl, nil)
@@ -3507,7 +3507,7 @@ var _ = Describe("HyperconvergedController", func() {
 						cl.Get(context.TODO(),
 							types.NamespacedName{Name: hco.Name, Namespace: hco.Namespace},
 							foundResource),
-					).To(BeNil())
+					).To(Succeed())
 
 					By("Verify HC conditions", func() {
 						Expect(foundResource.Status.Conditions).To(ContainElement(commonTestUtils.RepresentCondition(metav1.Condition{
@@ -3530,7 +3530,7 @@ var _ = Describe("HyperconvergedController", func() {
 							cl.Get(context.TODO(),
 								types.NamespacedName{Name: kv.Name, Namespace: kv.Namespace},
 								kv),
-						).To(BeNil())
+						).To(Succeed())
 
 						Expect(kv.Spec.Configuration.MigrationConfiguration).ToNot(BeNil())
 						Expect(kv.Spec.Configuration.MigrationConfiguration.AllowPostCopy).ToNot(BeNil())
@@ -3542,7 +3542,7 @@ var _ = Describe("HyperconvergedController", func() {
 							cl.Get(context.TODO(),
 								types.NamespacedName{Name: cdi.Name, Namespace: cdi.Namespace},
 								cdi),
-						).To(BeNil())
+						).To(Succeed())
 
 						Expect(cdi.Spec.Config.FeatureGates).Should(ContainElement("fg1"))
 						Expect(cdi.Spec.Config.FilesystemOverhead).ToNot(BeNil())
@@ -3558,7 +3558,7 @@ var _ = Describe("HyperconvergedController", func() {
 							cl.Get(context.TODO(),
 								types.NamespacedName{Name: cna.Name, Namespace: cna.Namespace},
 								cna),
-						).To(BeNil())
+						).To(Succeed())
 
 						Expect(cna.Spec.KubeMacPool).ToNot(BeNil())
 						Expect(cna.Spec.KubeMacPool.RangeStart).Should(Equal("1.1.1.1.1.1"))
