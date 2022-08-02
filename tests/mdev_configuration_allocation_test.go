@@ -36,9 +36,24 @@ var _ = Describe("[Serial][sig-compute]MediatedDevices", func() {
 		virtClient, err = kubecli.GetKubevirtClient()
 		util.PanicOnError(err)
 	})
-	checkAllMDEVCreated := func(mdevTypeName string, expectedInstancesCount int) {
-		By(fmt.Sprintf("Checking the number of created mdev types, should be %d of %s type ", expectedInstancesCount, mdevTypeName))
-		check := fmt.Sprintf(`set -x
+
+	waitForPod := func(outputPod *k8sv1.Pod, fetchPod func() (*k8sv1.Pod, error)) wait.ConditionFunc {
+		return func() (bool, error) {
+
+			latestPod, err := fetchPod()
+			if err != nil {
+				return false, err
+			}
+			*outputPod = *latestPod
+
+			return latestPod.Status.Phase == k8sv1.PodFailed || latestPod.Status.Phase == k8sv1.PodSucceeded, nil
+		}
+	}
+
+	checkAllMDEVCreated := func(mdevTypeName string, expectedInstancesCount int) func() (*k8sv1.Pod, error) {
+		return func() (*k8sv1.Pod, error) {
+			By(fmt.Sprintf("Checking the number of created mdev types, should be %d of %s type ", expectedInstancesCount, mdevTypeName))
+			check := fmt.Sprintf(`set -x
 		files_num=$(ls -A /sys/bus/mdev/devices/| wc -l)
 		if [[ $files_num != %d ]] ; then
 		  echo "failed, not enough mdevs of type %[2]s has been created"
@@ -52,26 +67,15 @@ var _ = Describe("[Serial][sig-compute]MediatedDevices", func() {
 		  fi
 		  exit 0
 		done`, expectedInstancesCount, mdevTypeName)
-		testPod := tests.RenderPod("test-all-mdev-created", []string{"/bin/bash", "-c"}, []string{check})
-		testPod, err = virtClient.CoreV1().Pods(util.NamespaceTestDefault).Create(context.Background(), testPod, metav1.CreateOptions{})
-		Expect(err).ToNot(HaveOccurred())
-		Eventually(ThisPod(testPod), 3*time.Minute, 5*time.Second).Should(BeInPhase(k8sv1.PodSucceeded))
-	}
+			testPod := tests.RenderPod("test-all-mdev-created", []string{"/bin/bash", "-c"}, []string{check})
+			testPod, err = virtClient.CoreV1().Pods(util.NamespaceTestDefault).Create(context.Background(), testPod, metav1.CreateOptions{})
+			ExpectWithOffset(1, err).ToNot(HaveOccurred())
 
-	var latestPod *k8sv1.Pod
-	waitForPod := func(fetchPod func() (*k8sv1.Pod, error)) wait.ConditionFunc {
-		return func() (bool, error) {
-
-			latestPod, err = fetchPod()
-			if err != nil {
-				return false, err
-			}
-
-			phase := latestPod.Status.Phase
-
-			return phase == k8sv1.PodFailed || phase == k8sv1.PodSucceeded, nil
-
+			var latestPod k8sv1.Pod
+			err := wait.PollImmediate(5*time.Second, 3*time.Minute, waitForPod(&latestPod, ThisPod(testPod)))
+			return &latestPod, err
 		}
+
 	}
 
 	checkAllMDEVRemoved := func() (*k8sv1.Pod, error) {
@@ -84,23 +88,24 @@ var _ = Describe("[Serial][sig-compute]MediatedDevices", func() {
 	        exit 0`
 		testPod := tests.RenderPod("test-all-mdev-removed", []string{"/bin/bash", "-c"}, []string{check})
 		testPod, err = virtClient.CoreV1().Pods(util.NamespaceTestDefault).Create(context.Background(), testPod, metav1.CreateOptions{})
-		Expect(err).ToNot(HaveOccurred())
+		ExpectWithOffset(1, err).ToNot(HaveOccurred())
 
-		err := wait.PollImmediate(time.Second, 2*time.Minute, waitForPod(ThisPod(testPod)))
-		return latestPod, err
+		var latestPod k8sv1.Pod
+		err := wait.PollImmediate(time.Second, 2*time.Minute, waitForPod(&latestPod, ThisPod(testPod)))
+		return &latestPod, err
 	}
 
 	noGPUDevicesAreAvailable := func() {
-		Eventually(checkAllMDEVRemoved, 2*time.Minute, 10*time.Second).Should(BeInPhase(k8sv1.PodSucceeded))
+		EventuallyWithOffset(2, checkAllMDEVRemoved, 2*time.Minute, 10*time.Second).Should(BeInPhase(k8sv1.PodSucceeded))
 
-		Eventually(func() int64 {
+		EventuallyWithOffset(2, func() int64 {
 			nodes, err := virtClient.CoreV1().Nodes().List(context.Background(), metav1.ListOptions{})
-			Expect(err).ToNot(HaveOccurred())
+			ExpectWithOffset(3, err).ToNot(HaveOccurred())
 			for _, node := range nodes.Items {
 				for key, amount := range node.Status.Capacity {
 					if strings.HasPrefix(string(key), "nvidia.com/") {
 						ret, ok := amount.AsInt64()
-						Expect(ok).To(BeTrue())
+						ExpectWithOffset(3, ok).To(BeTrue())
 						return ret
 					}
 				}
@@ -144,12 +149,12 @@ var _ = Describe("[Serial][sig-compute]MediatedDevices", func() {
 			tests.UpdateKubeVirtConfigValueAndWait(config)
 
 			By("Verifying that an expected amount of devices has been created")
-			checkAllMDEVCreated(desiredMdevTypeName, expectedInstancesNum)
+			Eventually(checkAllMDEVCreated(desiredMdevTypeName, expectedInstancesNum), 3*time.Minute, 15*time.Second).Should(BeInPhase(k8sv1.PodSucceeded))
 		})
 
 		cleanupConfiguredMdevs := func() {
 			By("Deleting the VMI")
-			Expect(virtClient.VirtualMachineInstance(vmi.Namespace).Delete(vmi.Name, &metav1.DeleteOptions{})).To(Succeed(), "Should delete VMI")
+			ExpectWithOffset(1, virtClient.VirtualMachineInstance(vmi.Namespace).Delete(vmi.Name, &metav1.DeleteOptions{})).To(Succeed(), "Should delete VMI")
 			By("Creating a configuration for mediated devices")
 			config.MediatedDevicesConfiguration = &v1.MediatedDevicesConfiguration{}
 			tests.UpdateKubeVirtConfigValueAndWait(config)
@@ -237,7 +242,7 @@ var _ = Describe("[Serial][sig-compute]MediatedDevices", func() {
 			}
 			tests.UpdateKubeVirtConfigValueAndWait(config)
 			By("Verify that the default mdev configuration didn't change")
-			checkAllMDEVCreated(desiredMdevTypeName, expectedInstancesNum)
+			Eventually(checkAllMDEVCreated(desiredMdevTypeName, expectedInstancesNum), 3*time.Minute, 15*time.Second).Should(BeInPhase(k8sv1.PodSucceeded))
 
 			By("Adding a mdevTestLabel1 that should trigger mdev config change")
 			// There should be only one node in this lane
@@ -261,7 +266,8 @@ var _ = Describe("[Serial][sig-compute]MediatedDevices", func() {
 			Expect(console.LoginToFedora(vmi)).To(Succeed())
 
 			By("Verifying that an expected amount of devices has been created")
-			checkAllMDEVCreated(newDesiredMdevTypeName, newExpectedInstancesNum)
+			Eventually(checkAllMDEVCreated(newDesiredMdevTypeName, newExpectedInstancesNum), 3*time.Minute, 15*time.Second).Should(BeInPhase(k8sv1.PodSucceeded))
+
 		})
 	})
 })
