@@ -42,9 +42,11 @@ function main {
 
   echo INFO: Executing "go mod tidy"
   go mod tidy -v
+  (cd tests && go mod tidy -v)
 
   echo INFO: Executing "go mod vendor"
   go mod vendor
+  (cd tests && go mod vendor)
 
   echo INFO: Executing "build-manifests.sh"...
   ./hack/build-manifests.sh
@@ -240,6 +242,7 @@ function update_go_mod() {
   if [[ -v IMPORT_REPOS[$UPDATED_COMPONENT] ]]; then
     MODULE_PATH=${IMPORT_REPOS[$UPDATED_COMPONENT]}
     sed -E -i "s|(${MODULE_PATH}.*)v.+|\1${UPDATED_VERSION}|" go.mod
+    sed -E -i "s|(${MODULE_PATH}.*)v.+|\1${UPDATED_VERSION}|" tests/go.mod
   else
     echo "No need to update go.mod for ${UPDATED_COMPONENT}"
   fi
