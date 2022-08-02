@@ -74,15 +74,19 @@ const (
 	failedKeyFromObjectFmt = "failed to get key from object: %v, %v"
 	enqueuedForSyncFmt     = "enqueued %q for sync"
 
-	pvcNotFoundReason  = "pvcNotFound"
-	pvcBoundReason     = "pvcBound"
-	pvcPendingReason   = "pvcPending"
-	pvcInUseReason     = "pvcInUse"
-	unknownReason      = "unknown"
-	initializingReason = "initializing"
-	podPendingReason   = "podPending"
-	podReadyReason     = "podReady"
-	podCompletedReason = "podCompleted"
+	pvcNotFoundReason      = "pvcNotFound"
+	pvcBoundReason         = "pvcBound"
+	pvcPendingReason       = "pvcPending"
+	pvcInUseReason         = "pvcInUse"
+	unknownReason          = "unknown"
+	initializingReason     = "initializing"
+	podPendingReason       = "podPending"
+	podReadyReason         = "podReady"
+	podCompletedReason     = "podCompleted"
+	noVolumeSnapshotReason = "vmSnapshotNoVolumes"
+	notAllPVCsCreated      = "notAllPVCsCreated"
+	allPVCsReady           = "AllPVCsReady"
+	notAllPVCsReady        = "NotAllPVCsReady"
 
 	exportServiceLabel = "kubevirt.io.virt-export-service"
 
@@ -952,11 +956,17 @@ func (ctrl *VMExportController) updateVMExportPvcStatus(vmExport *exportv1.Virtu
 		}
 	}
 
-	if len(pvcs) == 0 {
-		log.Log.V(3).Info("PVC(s) not found, updating status to not found")
-		updateCondition(vmExportCopy.Status.Conditions, newPvcCondition(corev1.ConditionFalse, pvcNotFoundReason), true)
-	} else {
-		updateCondition(vmExportCopy.Status.Conditions, ctrl.pvcConditionFromPVC(pvcs), true)
+	if ctrl.isSourcePvc(&vmExport.Spec) {
+		if len(pvcs) == 0 {
+			log.Log.V(3).Info("PVC(s) not found, updating status to not found")
+			updateCondition(vmExportCopy.Status.Conditions, newPvcCondition(corev1.ConditionFalse, pvcNotFoundReason), true)
+		} else {
+			updateCondition(vmExportCopy.Status.Conditions, ctrl.pvcConditionFromPVC(pvcs), true)
+		}
+	} else if ctrl.isSourceVMSnapshot(&vmExport.Spec) {
+		if err := ctrl.updateVMSnapshotExportStatus(vmExportCopy, pvcs); err != nil {
+			return 0, err
+		}
 	}
 
 	vmExportCopy.Status.ServiceName = service.Name
@@ -976,6 +986,40 @@ func (ctrl *VMExportController) updateVMExportPvcStatus(vmExport *exportv1.Virtu
 		}
 	}
 	return requeue, nil
+}
+
+func (ctrl *VMExportController) updateVMSnapshotExportStatus(vmExportCopy *exportv1.VirtualMachineExport, pvcs []*corev1.PersistentVolumeClaim) error {
+	vmSnapshot, exists, err := ctrl.getVmSnapshot(vmExportCopy.Namespace, vmExportCopy.Spec.Source.Name)
+	if err != nil {
+		return err
+	} else if exists {
+		if vmSnapshot.Status.VirtualMachineSnapshotContentName != nil && *vmSnapshot.Status.VirtualMachineSnapshotContentName != "" {
+			content, exists, err := ctrl.getVmSnapshotContent(vmSnapshot.Namespace, *vmSnapshot.Status.VirtualMachineSnapshotContentName)
+			if err != nil {
+				return err
+			} else if exists {
+				if len(content.Status.VolumeSnapshotStatus) == 0 {
+					vmExportCopy.Status.Conditions = updateCondition(vmExportCopy.Status.Conditions, newVolumesCreatedCondition(corev1.ConditionFalse, noVolumeSnapshotReason), true)
+					vmExportCopy.Status.Phase = exportv1.Skipped
+				} else if len(content.Status.VolumeSnapshotStatus) != len(pvcs) {
+					vmExportCopy.Status.Conditions = updateCondition(vmExportCopy.Status.Conditions, newVolumesCreatedCondition(corev1.ConditionFalse, notAllPVCsCreated), true)
+				} else {
+					readyCount := 0
+					for _, pvc := range pvcs {
+						if pvc.Status.Phase == corev1.ClaimBound {
+							readyCount++
+						}
+					}
+					if readyCount == len(pvcs) {
+						vmExportCopy.Status.Conditions = updateCondition(vmExportCopy.Status.Conditions, newVolumesCreatedCondition(corev1.ConditionTrue, allPVCsReady), true)
+					} else {
+						vmExportCopy.Status.Conditions = updateCondition(vmExportCopy.Status.Conditions, newVolumesCreatedCondition(corev1.ConditionFalse, notAllPVCsReady), true)
+					}
+				}
+			}
+		}
+	}
+	return nil
 }
 
 func (ctrl *VMExportController) getInteralLinks(pvcs []*corev1.PersistentVolumeClaim, exporterPod *corev1.Pod, service *corev1.Service) (*exportv1.VirtualMachineExportLink, error) {
@@ -1099,6 +1143,15 @@ func newReadyCondition(status corev1.ConditionStatus, reason string) exportv1.Co
 func newPvcCondition(status corev1.ConditionStatus, reason string) exportv1.Condition {
 	return exportv1.Condition{
 		Type:               exportv1.ConditionPVC,
+		Status:             status,
+		Reason:             reason,
+		LastTransitionTime: *currentTime(),
+	}
+}
+
+func newVolumesCreatedCondition(status corev1.ConditionStatus, reason string) exportv1.Condition {
+	return exportv1.Condition{
+		Type:               exportv1.ConditionVolumesCreated,
 		Status:             status,
 		Reason:             reason,
 		LastTransitionTime: *currentTime(),

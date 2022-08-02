@@ -946,6 +946,39 @@ var _ = Describe("Export controlleer", func() {
 			}
 		}
 
+		createTestVMSnapshotContentNoVolumes := func(name string) *snapshotv1.VirtualMachineSnapshotContent {
+			return &snapshotv1.VirtualMachineSnapshotContent{
+				ObjectMeta: metav1.ObjectMeta{
+					Name:      name,
+					Namespace: testNamespace,
+				},
+				Spec: snapshotv1.VirtualMachineSnapshotContentSpec{
+					VolumeBackups: []snapshotv1.VolumeBackup{},
+					Source: snapshotv1.SourceSpec{
+						VirtualMachine: &snapshotv1.VirtualMachine{
+							Spec: virtv1.VirtualMachineSpec{
+								Template: &virtv1.VirtualMachineInstanceTemplateSpec{
+									Spec: virtv1.VirtualMachineInstanceSpec{
+										Volumes: []virtv1.Volume{
+											{
+												Name: "test-volume",
+												VolumeSource: virtv1.VolumeSource{
+													DataVolume: &virtv1.DataVolumeSource{},
+												},
+											},
+										},
+									},
+								},
+							},
+						},
+					},
+				},
+				Status: &snapshotv1.VirtualMachineSnapshotContentStatus{
+					VolumeSnapshotStatus: []snapshotv1.VolumeSnapshotStatus{},
+				},
+			}
+		}
+
 		createTestVolumeSnapshot := func(name string) *vsv1.VolumeSnapshot {
 			size := resource.MustParse("1Gi")
 			return &vsv1.VolumeSnapshot{
@@ -978,6 +1011,9 @@ var _ = Describe("Export controlleer", func() {
 						Name:     testVolumesnapshotName,
 					},
 				},
+				Status: k8sv1.PersistentVolumeClaimStatus{
+					Phase: k8sv1.ClaimBound,
+				},
 			}
 		}
 
@@ -1006,6 +1042,40 @@ var _ = Describe("Export controlleer", func() {
 			Expect(service.Name).To(Equal(fmt.Sprintf("%s-%s", exportPrefix, testVMExport.Name)))
 		})
 
+		It("Should properly update VMExport status with a valid token with VMSnapshot without volumes", func() {
+			testVMExport := createSnapshotVMExport()
+			vmExportClient.Fake.PrependReactor("update", "virtualmachineexports", func(action testing.Action) (handled bool, obj runtime.Object, err error) {
+				update, ok := action.(testing.UpdateAction)
+				Expect(ok).To(BeTrue())
+				vmExport, ok := update.GetObject().(*exportv1.VirtualMachineExport)
+				Expect(ok).To(BeTrue())
+				verifyLinksEmpty(vmExport)
+				volumeCreateConditionSet := false
+				for _, condition := range vmExport.Status.Conditions {
+					if condition.Type == exportv1.ConditionReady {
+						Expect(condition.Status).To(Equal(k8sv1.ConditionFalse))
+						Expect(condition.Reason).To(Equal(initializingReason))
+					}
+					if condition.Type == exportv1.ConditionVolumesCreated {
+						volumeCreateConditionSet = true
+						Expect(condition.Status).To(Equal(k8sv1.ConditionFalse))
+						Expect(condition.Reason).To(Equal(noVolumeSnapshotReason))
+					}
+				}
+				Expect(volumeCreateConditionSet).To(BeTrue())
+				Expect(vmExport.Status.Phase).To(Equal(exportv1.Skipped))
+				return true, vmExport, nil
+			})
+			vmSnapshotInformer.GetStore().Add(createTestVMSnapshot(true))
+			vmSnapshotContentInformer.GetStore().Add(createTestVMSnapshotContentNoVolumes("snapshot-content"))
+			retry, err := controller.updateVMExport(testVMExport)
+			Expect(err).ToNot(HaveOccurred())
+			Expect(retry).To(BeEquivalentTo(0))
+			service, err := k8sClient.CoreV1().Services(testNamespace).Get(context.Background(), fmt.Sprintf("%s-%s", exportPrefix, testVMExport.Name), metav1.GetOptions{})
+			Expect(err).ToNot(HaveOccurred())
+			Expect(service.Name).To(Equal(fmt.Sprintf("%s-%s", exportPrefix, testVMExport.Name)))
+		})
+
 		It("Should create restored PVCs from VMSnapshot", func() {
 			testVMExport := createSnapshotVMExport()
 			vmExportClient.Fake.PrependReactor("update", "virtualmachineexports", func(action testing.Action) (handled bool, obj runtime.Object, err error) {
@@ -1014,12 +1084,20 @@ var _ = Describe("Export controlleer", func() {
 				vmExport, ok := update.GetObject().(*exportv1.VirtualMachineExport)
 				Expect(ok).To(BeTrue())
 				verifyLinksEmpty(vmExport)
+				volumeCreateConditionSet := false
 				for _, condition := range vmExport.Status.Conditions {
 					if condition.Type == exportv1.ConditionReady {
 						Expect(condition.Status).To(Equal(k8sv1.ConditionFalse))
 						Expect(condition.Reason).To(Equal(podPendingReason))
 					}
+					if condition.Type == exportv1.ConditionVolumesCreated {
+						volumeCreateConditionSet = true
+						Expect(condition.Status).To(Equal(k8sv1.ConditionFalse))
+						Expect(condition.Reason).To(Equal(notAllPVCsReady))
+					}
 				}
+				Expect(volumeCreateConditionSet).To(BeTrue())
+				Expect(vmExport.Status.Phase).To(Equal(exportv1.Pending))
 				return true, vmExport, nil
 			})
 
@@ -1067,12 +1145,20 @@ var _ = Describe("Export controlleer", func() {
 				vmExport, ok := update.GetObject().(*exportv1.VirtualMachineExport)
 				Expect(ok).To(BeTrue())
 				verifyLinksEmpty(vmExport)
+				volumeCreateConditionSet := false
 				for _, condition := range vmExport.Status.Conditions {
 					if condition.Type == exportv1.ConditionReady {
 						Expect(condition.Status).To(Equal(k8sv1.ConditionFalse))
 						Expect(condition.Reason).To(Equal(podPendingReason))
 					}
+					if condition.Type == exportv1.ConditionVolumesCreated {
+						volumeCreateConditionSet = true
+						Expect(condition.Status).To(Equal(k8sv1.ConditionTrue))
+						Expect(condition.Reason).To(Equal(allPVCsReady))
+					}
 				}
+				Expect(volumeCreateConditionSet).To(BeTrue())
+				Expect(vmExport.Status.Phase).To(Equal(exportv1.Pending))
 				return true, vmExport, nil
 			})
 
@@ -1204,6 +1290,20 @@ var _ = Describe("Export controlleer", func() {
 				vmExport, ok := update.GetObject().(*exportv1.VirtualMachineExport)
 				Expect(ok).To(BeTrue())
 				verifyLinksEmpty(vmExport)
+				volumeCreateConditionSet := false
+				for _, condition := range vmExport.Status.Conditions {
+					if condition.Type == exportv1.ConditionReady {
+						Expect(condition.Status).To(Equal(k8sv1.ConditionFalse))
+						Expect(condition.Reason).To(Equal(initializingReason))
+					}
+					if condition.Type == exportv1.ConditionVolumesCreated {
+						volumeCreateConditionSet = true
+						Expect(condition.Status).To(Equal(k8sv1.ConditionFalse))
+						Expect(condition.Reason).To(Equal(notAllPVCsCreated))
+					}
+				}
+				Expect(volumeCreateConditionSet).To(BeTrue())
+				Expect(vmExport.Status.Phase).To(Equal(exportv1.Pending))
 				return true, vmExport, nil
 			})
 

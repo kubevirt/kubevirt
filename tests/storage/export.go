@@ -30,6 +30,8 @@ import (
 
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
+	"github.com/onsi/gomega/format"
+	gomegatypes "github.com/onsi/gomega/types"
 
 	k8sv1 "k8s.io/api/core/v1"
 	networkingv1 "k8s.io/api/networking/v1"
@@ -78,6 +80,7 @@ const (
 	certificates = "certificates"
 
 	pvcNotFoundReason = "pvcNotFound"
+	podReadyReason    = "podReady"
 
 	proxyUrlBase = "https://virt-exportproxy.%s.svc/api/export.kubevirt.io/v1alpha1/namespaces/%s/virtualmachineexports/%s%s"
 
@@ -90,6 +93,19 @@ const (
 	exportPrefix = "virt-export"
 )
 
+var (
+	podReadyCondition = MatchConditionIgnoreTimeStamp(exportv1.Condition{
+		Type:   exportv1.ConditionReady,
+		Status: k8sv1.ConditionTrue,
+		Reason: podReadyReason,
+	})
+
+	pvcNotFoundCondition = MatchConditionIgnoreTimeStamp(exportv1.Condition{
+		Type:   exportv1.ConditionPVC,
+		Status: k8sv1.ConditionFalse,
+		Reason: pvcNotFoundReason,
+	})
+)
 var _ = SIGDescribe("Export", func() {
 	var err error
 	var token *k8sv1.Secret
@@ -485,6 +501,18 @@ var _ = SIGDescribe("Export", func() {
 		return downloadUrl, fileName
 	}
 
+	waitForReadyExport := func(export *exportv1.VirtualMachineExport) *exportv1.VirtualMachineExport {
+		Eventually(func() []exportv1.Condition {
+			export, err = virtClient.VirtualMachineExport(export.Namespace).Get(context.Background(), export.Name, metav1.GetOptions{})
+			Expect(err).ToNot(HaveOccurred())
+			if export.Status == nil {
+				return nil
+			}
+			return export.Status.Conditions
+		}, 60*time.Second, 1*time.Second).Should(ContainElement(podReadyCondition), "export %s/%s is expected to become ready %v", export.Namespace, export.Name, export)
+		return export
+	}
+
 	type populateFunction func(string, k8sv1.PersistentVolumeMode) (*k8sv1.PersistentVolumeClaim, string)
 	type verifyFunction func(string, string, *k8sv1.Pod, k8sv1.PersistentVolumeMode)
 	type storageClassFunction func() (string, bool)
@@ -520,20 +548,7 @@ var _ = SIGDescribe("Export", func() {
 		By("Creating VMExport we can start exporting the volume")
 		export, err := virtClient.VirtualMachineExport(pvc.Namespace).Create(context.Background(), vmExport, metav1.CreateOptions{})
 		Expect(err).ToNot(HaveOccurred())
-
-		Eventually(func() bool {
-			export, err = virtClient.VirtualMachineExport(pvc.Namespace).Get(context.Background(), export.Name, metav1.GetOptions{})
-			Expect(err).ToNot(HaveOccurred())
-			condReady := false
-			if export.Status != nil {
-				for _, cond := range export.Status.Conditions {
-					if cond.Type == exportv1.ConditionReady && cond.Status == k8sv1.ConditionTrue {
-						condReady = true
-					}
-				}
-			}
-			return condReady
-		}, 60*time.Second, 1*time.Second).Should(BeTrue(), "export is expected to become ready")
+		export = waitForReadyExport(export)
 
 		By("Creating download pod, so we can download image")
 		targetPvc := &k8sv1.PersistentVolumeClaim{
@@ -633,23 +648,6 @@ var _ = SIGDescribe("Export", func() {
 		By("Creating VMExport we can start exporting the volume")
 		export, err := virtClient.VirtualMachineExport(namespace).Create(context.Background(), vmExport, metav1.CreateOptions{})
 		Expect(err).ToNot(HaveOccurred())
-		return export
-	}
-
-	waitForReadyExport := func(export *exportv1.VirtualMachineExport) *exportv1.VirtualMachineExport {
-		Eventually(func() bool {
-			export, err = virtClient.VirtualMachineExport(export.Namespace).Get(context.Background(), export.Name, metav1.GetOptions{})
-			Expect(err).ToNot(HaveOccurred())
-			condReady := false
-			if export.Status != nil {
-				for _, cond := range export.Status.Conditions {
-					if cond.Type == exportv1.ConditionReady && cond.Status == k8sv1.ConditionTrue {
-						condReady = true
-					}
-				}
-			}
-			return condReady
-		}, 300*time.Second, 1*time.Second).Should(BeTrue(), "export is expected to become ready")
 		return export
 	}
 
@@ -777,18 +775,15 @@ var _ = SIGDescribe("Export", func() {
 		namespace := dv.Namespace
 		token := createExportTokenSecret(name, namespace)
 		export := createPVCExportObject(name, namespace, token)
-		Eventually(func() string {
+		Eventually(func() []exportv1.Condition {
 			export, err = virtClient.VirtualMachineExport(namespace).Get(context.Background(), export.Name, metav1.GetOptions{})
 			Expect(err).ToNot(HaveOccurred())
-			if export.Status != nil {
-				for _, cond := range export.Status.Conditions {
-					if cond.Type == exportv1.ConditionPVC {
-						return cond.Reason
-					}
-				}
+			if export.Status == nil {
+				return nil
 			}
-			return ""
-		}, 60*time.Second, 1*time.Second).Should(BeEquivalentTo(pvcNotFoundReason), "export should report missing pvc")
+			return export.Status.Conditions
+		}, 60*time.Second, 1*time.Second).Should(ContainElement(pvcNotFoundCondition), "export should report missing pvc")
+
 		dv, err = virtClient.CdiClient().CdiV1beta1().DataVolumes(dv.Namespace).Create(context.Background(), dv, metav1.CreateOptions{})
 		var pvc *k8sv1.PersistentVolumeClaim
 		Eventually(func() error {
@@ -806,19 +801,7 @@ var _ = SIGDescribe("Export", func() {
 			return dv.Status.Phase
 		}, 90*time.Second, 1*time.Second).Should(Equal(cdiv1.Succeeded))
 		By("Making sure the export becomes ready")
-		Eventually(func() bool {
-			export, err = virtClient.VirtualMachineExport(pvc.Namespace).Get(context.Background(), export.Name, metav1.GetOptions{})
-			Expect(err).ToNot(HaveOccurred())
-			condReady := false
-			if export.Status != nil {
-				for _, cond := range export.Status.Conditions {
-					if cond.Type == exportv1.ConditionReady && cond.Status == k8sv1.ConditionTrue {
-						condReady = true
-					}
-				}
-			}
-			return condReady
-		}, 60*time.Second, 1*time.Second).Should(BeTrue(), "export is expected to become ready")
+		waitForReadyExport(export)
 	})
 
 	It("should be possibe to observe exportserver pod exiting", func() {
@@ -1220,4 +1203,34 @@ var _ = SIGDescribe("Export", func() {
 
 func logToGinkgoWritter(format string, parameters ...interface{}) {
 	_, _ = fmt.Fprintf(GinkgoWriter, format, parameters...)
+}
+
+func MatchConditionIgnoreTimeStamp(expected interface{}) gomegatypes.GomegaMatcher {
+	return &ConditionNoTimeMatcher{
+		Cond: expected,
+	}
+}
+
+type ConditionNoTimeMatcher struct {
+	Cond interface{}
+}
+
+func (matcher *ConditionNoTimeMatcher) Match(actual interface{}) (success bool, err error) {
+	cond, isCond := actual.(exportv1.Condition)
+	if !isCond {
+		return false, fmt.Errorf("ConditionNoTimeMatch expects an export condition")
+	}
+	expectedCond, isCond := matcher.Cond.(exportv1.Condition)
+	if !isCond {
+		return false, fmt.Errorf("ConditionNoTimeMatch expects an export condition")
+	}
+	return cond.Type == expectedCond.Type && cond.Status == expectedCond.Status && cond.Reason == expectedCond.Reason && cond.Message == expectedCond.Message, nil
+}
+
+func (matcher *ConditionNoTimeMatcher) FailureMessage(actual interface{}) (message string) {
+	return format.Message(actual, "to match without time", matcher.Cond)
+}
+
+func (matcher *ConditionNoTimeMatcher) NegatedFailureMessage(actual interface{}) (message string) {
+	return format.Message(actual, "not to match without time", matcher.Cond)
 }
