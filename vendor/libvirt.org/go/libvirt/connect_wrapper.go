@@ -33,6 +33,17 @@ package libvirt
 #include "connect_wrapper.h"
 #include "callbacks_wrapper.h"
 
+int
+virInitializeWrapper(virErrorPtr err)
+{
+    int ret = virInitialize();
+    if (ret < 0) {
+        virCopyLastError(err);
+    }
+    return ret;
+}
+
+
 extern void closeCallback(virConnectPtr, int, long);
 void closeCallbackHelper(virConnectPtr conn, int reason, void *opaque)
 {
@@ -1027,6 +1038,25 @@ virDomainRestoreFlagsWrapper(virConnectPtr conn,
         virCopyLastError(err);
     }
     return ret;
+}
+
+
+int
+virDomainRestoreParamsWrapper(virConnectPtr conn,
+                              virTypedParameterPtr params,
+                              int nparams,
+                              unsigned int flags,
+                              virErrorPtr err)
+{
+#if LIBVIR_VERSION_NUMBER < 8004000
+    assert(0); // Caller should have checked version
+#else
+    int ret = virDomainRestoreParams(conn, params, nparams, flags);
+    if (ret < 0) {
+        virCopyLastError(err);
+    }
+    return ret;
+#endif
 }
 
 

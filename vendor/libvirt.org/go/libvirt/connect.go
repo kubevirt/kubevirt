@@ -41,10 +41,6 @@ import (
 */
 import "C"
 
-func init() {
-	C.virInitialize()
-}
-
 const (
 	VERSION_NUMBER = uint32(C.LIBVIR_VERSION_NUMBER)
 )
@@ -2495,6 +2491,27 @@ func (c *Connect) DomainRestoreFlags(srcFile, xmlConf string, flags DomainSaveRe
 	return nil
 }
 
+// See also https://libvirt.org/html/libvirt-libvirt-domain.html#virDomainRestoreParams
+func (c *Connect) DomainRestoreParams(params DomainSaveRestoreParams, flags DomainSaveRestoreFlags) error {
+	if C.LIBVIR_VERSION_NUMBER < 8004000 {
+		return makeNotImplementedError("virDomainRestoreParams")
+	}
+
+	info := getDomainSaveRestoreParametersFieldInfo(&params)
+	cparams, cnparams, gerr := typedParamsPackNew(info)
+	if gerr != nil {
+		return gerr
+	}
+
+	defer C.virTypedParamsFree(cparams, cnparams)
+
+	var err C.virError
+	if result := C.virDomainRestoreParamsWrapper(c.ptr, cparams, cnparams, C.uint(flags), &err); result == -1 {
+		return makeError(&err)
+	}
+	return nil
+}
+
 // See also https://libvirt.org/html/libvirt-libvirt-stream.html#virStreamNew
 func (c *Connect) NewStream(flags StreamFlags) (*Stream, error) {
 	var err C.virError
@@ -3052,7 +3069,7 @@ func getDomainStatsMemoryBandwidthMonitorNodeFieldInfo(idx1, idx2 int, params *D
 
 type DomainStatsDirtyRate struct {
 	CalcStatusSet         bool
-	CalcStatus            uint
+	CalcStatus            int
 	CalcStartTimeSet      bool
 	CalcStartTime         int64
 	CalcPeriodSet         bool
@@ -3065,7 +3082,7 @@ func getDomainStatsDirtyRateFieldInfo(params *DomainStatsDirtyRate) map[string]t
 	return map[string]typedParamsFieldInfo{
 		"dirtyrate.calc_status": typedParamsFieldInfo{
 			set: &params.CalcStatusSet,
-			ui:  &params.CalcStatus,
+			i:   &params.CalcStatus,
 		},
 		"dirtyrate.calc_start_time": typedParamsFieldInfo{
 			set: &params.CalcStartTimeSet,
@@ -3360,6 +3377,8 @@ type NodeSEVParameters struct {
 	MaxGuests          uint
 	MaxEsGuestsSet     bool
 	MaxEsGuests        uint
+	CPU0IDSet          bool
+	CPU0ID             string
 }
 
 func getNodeSEVFieldInfo(params *NodeSEVParameters) map[string]typedParamsFieldInfo {
@@ -3387,6 +3406,10 @@ func getNodeSEVFieldInfo(params *NodeSEVParameters) map[string]typedParamsFieldI
 		C.VIR_NODE_SEV_MAX_ES_GUESTS: typedParamsFieldInfo{
 			set: &params.MaxEsGuestsSet,
 			ui:  &params.MaxEsGuests,
+		},
+		C.VIR_NODE_SEV_CPU0_ID: typedParamsFieldInfo{
+			set: &params.CPU0IDSet,
+			s:   &params.CPU0ID,
 		},
 	}
 }
