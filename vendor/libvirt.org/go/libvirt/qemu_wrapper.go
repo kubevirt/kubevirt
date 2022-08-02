@@ -131,5 +131,28 @@ virDomainQemuMonitorCommandWrapper(virDomainPtr domain,
 }
 
 
+int
+virDomainQemuMonitorCommandWithFilesWrapper(virDomainPtr domain,
+                                            const char *cmd,
+					    unsigned int ninfiles,
+					    int *infiles,
+					    unsigned int *noutfiles,
+					    int **outfiles,
+                                            char **result,
+                                            unsigned int flags,
+                                            virErrorPtr err)
+{
+#if LIBVIR_VERSION_NUMBER < 8002000
+    assert(0); // Caller should have checked version
+#else
+    int ret = virDomainQemuMonitorCommandWithFiles(domain, cmd, ninfiles, infiles, noutfiles, outfiles, result, flags);
+    if (ret < 0) {
+        virCopyLastError(err);
+    }
+    return ret;
+#endif
+}
+
+
 */
 import "C"

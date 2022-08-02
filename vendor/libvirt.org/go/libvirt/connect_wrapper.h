@@ -31,6 +31,9 @@
 #include <libvirt/virterror.h>
 #include "connect_compat.h"
 
+int
+virInitializeWrapper(virErrorPtr err);
+
 void
 closeCallbackHelper(virConnectPtr conn,
                     int reason,
@@ -428,6 +431,13 @@ virDomainRestoreFlagsWrapper(virConnectPtr conn,
                              const char *dxml,
                              unsigned int flags,
                              virErrorPtr err);
+
+int
+virDomainRestoreParamsWrapper(virConnectPtr conn,
+                              virTypedParameterPtr params,
+                              int nparams,
+                              unsigned int flags,
+                              virErrorPtr err);
 
 int
 virDomainSaveImageDefineXMLWrapper(virConnectPtr conn,
