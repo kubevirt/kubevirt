@@ -138,13 +138,20 @@ func SetDomainSpecStr(virConn cli.Connection, vmi *v1.VirtualMachineInstance, wa
 }
 
 func SetDomainSpecStrWithHooks(virConn cli.Connection, vmi *v1.VirtualMachineInstance, wantedSpec *api.DomainSpec) (cli.VirDomain, error) {
-	spec := wantedSpec.DeepCopy()
 	hooksManager := hooks.GetManager()
 
-	domainSpec, err := hooksManager.OnDefineDomain(spec, vmi)
+	domainSpec, err := hooksManager.OnDefineDomain(wantedSpec, vmi)
 	if err != nil {
 		return nil, err
 	}
+
+	// update wantedSpec to reflect changes made to domain spec by hooks
+	domainSpecObj := &api.DomainSpec{}
+	if err = xml.Unmarshal([]byte(domainSpec), domainSpecObj); err != nil {
+		return nil, err
+	}
+	domainSpecObj.DeepCopyInto(wantedSpec)
+
 	return SetDomainSpecStr(virConn, vmi, domainSpec)
 }
 
