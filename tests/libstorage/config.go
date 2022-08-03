@@ -24,6 +24,7 @@ import (
 	"io/ioutil"
 	"os"
 
+	"kubevirt.io/kubevirt/tests/errorhandling"
 	"kubevirt.io/kubevirt/tests/flags"
 )
 
@@ -56,7 +57,7 @@ func LoadConfig() (*KubeVirtTestsConfiguration, error) {
 		return nil, err
 	}
 
-	defer jsonFile.Close()
+	defer errorhandling.SafelyCloseFile(jsonFile)
 
 	// read the configuration file as a byte array
 	byteValue, _ := ioutil.ReadAll(jsonFile)
