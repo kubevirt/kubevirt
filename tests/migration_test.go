@@ -256,8 +256,8 @@ var _ = Describe("[rfe_id:393][crit:high][vendor:cnv-qe@redhat.com][level:system
 	})
 
 	setMastersUnschedulable := func(mode bool) {
-		masters, err := virtClient.CoreV1().Nodes().List(context.Background(), metav1.ListOptions{LabelSelector: `node-role.kubernetes.io/master`})
-		Expect(err).ShouldNot(HaveOccurred(), "could not list master nodes")
+		masters, err := virtClient.CoreV1().Nodes().List(context.Background(), metav1.ListOptions{LabelSelector: `node-role.kubernetes.io/control-plane`})
+		Expect(err).ShouldNot(HaveOccurred(), "could not list control-plane nodes")
 		Expect(masters.Items).ShouldNot(BeEmpty())
 
 		for _, node := range masters.Items {

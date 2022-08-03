@@ -381,7 +381,7 @@ if [[ -z ${KUBEVIRT_E2E_FOCUS} && -z ${KUBEVIRT_E2E_SKIP} ]]; then
     export KUBEVIRT_E2E_FOCUS="\\[sig-compute\\]"
     label_filter='--label-filter=!/needs-.*/'
   elif [[ $TARGET =~ sig-monitoring ]]; then
-      export KUBEVIRT_E2E_FOCUS="\\[sig-monitoring\\]"
+    export KUBEVIRT_E2E_FOCUS="\\[sig-monitoring\\]"
   elif [[ $TARGET =~ sig-operator ]]; then
     export KUBEVIRT_E2E_FOCUS="\\[sig-operator\\]"
   elif [[ $TARGET =~ sriov.* ]]; then
