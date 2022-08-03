@@ -13879,6 +13879,9 @@
        "type": "string"
       }
      },
+     "tlsConfiguration": {
+      "$ref": "#/definitions/v1.TLSConfiguration"
+     },
      "virtualMachineInstancesPerNode": {
       "type": "integer",
       "format": "int32"
@@ -14931,6 +14934,23 @@
      "secret": {
       "description": "Secret references a k8s Secret that contains Sysprep answer file named autounattend.xml that should be attached as disk of CDROM type.",
       "$ref": "#/definitions/k8s.io.api.core.v1.LocalObjectReference"
+     }
+    }
+   },
+   "v1.TLSConfiguration": {
+    "description": "TLSConfiguration holds TLS options",
+    "type": "object",
+    "properties": {
+     "ciphers": {
+      "type": "array",
+      "items": {
+       "type": "string"
+      },
+      "x-kubernetes-list-type": "set"
+     },
+     "minTLSVersion": {
+      "description": "MinTLSVersion is a way to specify the minimum protocol version that is acceptable for TLS connections. Protocol versions are based on the following most common TLS configurations:\n\n  https://ssl-config.mozilla.org/\n\nNote that SSLv3.0 is not a supported protocol version due to well known vulnerabilities such as POODLE: https://en.wikipedia.org/wiki/POODLE",
+      "type": "string"
      }
     }
    },

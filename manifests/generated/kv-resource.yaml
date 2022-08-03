@@ -434,6 +434,28 @@ spec:
                     items:
                       type: string
                     type: array
+                  tlsConfiguration:
+                    description: TLSConfiguration holds TLS options
+                    properties:
+                      ciphers:
+                        items:
+                          type: string
+                        type: array
+                        x-kubernetes-list-type: set
+                      minTLSVersion:
+                        description: "MinTLSVersion is a way to specify the minimum
+                          protocol version that is acceptable for TLS connections.
+                          Protocol versions are based on the following most common
+                          TLS configurations: \n   https://ssl-config.mozilla.org/
+                          \n Note that SSLv3.0 is not a supported protocol version
+                          due to well known vulnerabilities such as POODLE: https://en.wikipedia.org/wiki/POODLE"
+                        enum:
+                        - VersionTLS10
+                        - VersionTLS11
+                        - VersionTLS12
+                        - VersionTLS13
+                        type: string
+                    type: object
                   virtualMachineInstancesPerNode:
                     type: integer
                   webhookConfiguration:
@@ -3051,6 +3073,28 @@ spec:
                     items:
                       type: string
                     type: array
+                  tlsConfiguration:
+                    description: TLSConfiguration holds TLS options
+                    properties:
+                      ciphers:
+                        items:
+                          type: string
+                        type: array
+                        x-kubernetes-list-type: set
+                      minTLSVersion:
+                        description: "MinTLSVersion is a way to specify the minimum
+                          protocol version that is acceptable for TLS connections.
+                          Protocol versions are based on the following most common
+                          TLS configurations: \n   https://ssl-config.mozilla.org/
+                          \n Note that SSLv3.0 is not a supported protocol version
+                          due to well known vulnerabilities such as POODLE: https://en.wikipedia.org/wiki/POODLE"
+                        enum:
+                        - VersionTLS10
+                        - VersionTLS11
+                        - VersionTLS12
+                        - VersionTLS13
+                        type: string
+                    type: object
                   virtualMachineInstancesPerNode:
                     type: integer
                   webhookConfiguration:
