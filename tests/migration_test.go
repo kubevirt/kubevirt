@@ -3667,7 +3667,7 @@ var _ = Describe("[rfe_id:393][crit:high][vendor:cnv-qe@redhat.com][level:system
 	})
 
 	Context("[Serial] with CPU pinning and huge pages", func() {
-		It("should not make migrations fail", Label("needs-three-nodes"), func() {
+		It("should not make migrations fail", Label("needs-two-nodes-with-cpumanager"), func() {
 			checks.SkipTestIfNotEnoughNodesWithCPUManagerWith2MiHugepages(2)
 			var err error
 			cpuVMI := tests.NewRandomVMIWithEphemeralDisk(cd.ContainerDiskFor(cd.ContainerDiskAlpine))
@@ -3690,7 +3690,7 @@ var _ = Describe("[rfe_id:393][crit:high][vendor:cnv-qe@redhat.com][level:system
 			tests.RunMigrationAndExpectCompletion(virtClient, migration, tests.MigrationWaitTime)
 		})
 		Context("and NUMA passthrough", func() {
-			It("should not make migrations fail", Label("needs-three-nodes"), func() {
+			It("should not make migrations fail", Label("needs-two-nodes-with-cpumanager"), func() {
 				checks.SkipTestIfNoFeatureGate(virtconfig.NUMAFeatureGate)
 				checks.SkipTestIfNotEnoughNodesWithCPUManagerWith2MiHugepages(2)
 				var err error
@@ -4037,7 +4037,7 @@ var _ = Describe("[rfe_id:393][crit:high][vendor:cnv-qe@redhat.com][level:system
 			libnode.RemoveLabelFromNode(nodes[1].Name, testLabel1)
 		})
 
-		It("should successfully update a VMI's CPU set on migration", Label("needs-three-nodes"), func() {
+		It("should successfully update a VMI's CPU set on migration", Label("needs-two-nodes-with-cpumanager"), func() {
 			By("ensuring at least 2 worker nodes have cpumanager")
 			Expect(len(nodes)).To(BeNumerically(">=", 2), "at least two worker nodes with cpumanager are required for migration")
 
