@@ -38,10 +38,10 @@ stages:
 include: '/ci/gitlab.yml'
 
 api-coverage:
-  image: $CI_REGISTRY_IMAGE/ci-centos-8:latest
+  image: $CI_REGISTRY_IMAGE/ci-almalinux-8:latest
   stage: sanity_checks
   needs:
-    - job: x86_64-centos-8-git
+    - job: x86_64-almalinux-8-git
       artifacts: true
   before_script:
     - *git_build_vars
