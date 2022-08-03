@@ -149,6 +149,7 @@ func ValidateVirtualMachineInstanceSpec(field *k8sfield.Path, spec *v1.VirtualMa
 	causes = append(causes, validateCPUFeaturePolicies(field, spec)...)
 	causes = append(causes, validateStartStrategy(field, spec)...)
 	causes = append(causes, validateRealtime(field, spec)...)
+	causes = append(causes, validateSpecAffinity(field, spec)...)
 
 	maxNumberOfInterfacesExceeded := len(spec.Domain.Devices.Interfaces) > arrayLenMax
 	if maxNumberOfInterfacesExceeded {
@@ -2480,6 +2481,27 @@ func validateKernelBoot(field *k8sfield.Path, kernelBoot *v1.KernelBoot) (causes
 	}
 	if container.InitrdPath != "" {
 		causes = append(causes, validatePath(containerField.Child("initrdPath"), container.InitrdPath)...)
+	}
+
+	return
+}
+
+// validateSpecAffinity is function that validate spec.affinity
+// instead of bring in the whole kubernetes lib we simply copy it from kubernetes/pkg/apis/core/validation/validation.go
+func validateSpecAffinity(field *k8sfield.Path, spec *v1.VirtualMachineInstanceSpec) (causes []metav1.StatusCause) {
+	if spec.Affinity == nil {
+		return
+	}
+
+	errorList := validateAffinity(spec.Affinity, field)
+
+	//convert errorList to []metav1.StatusCause
+	for _, validationErr := range errorList {
+		causes = append(causes, metav1.StatusCause{
+			Type:    metav1.CauseTypeFieldValueInvalid,
+			Message: validationErr.Error(),
+			Field:   validationErr.Field,
+		})
 	}
 
 	return

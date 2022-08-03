@@ -10,6 +10,7 @@ go_library(
         "pod-eviction-admitter.go",
         "preference-admitter.go",
         "status-admitter.go",
+        "validate-k8s-utils.go",
         "vmclone-admitter.go",
         "vmexport-admitter.go",
         "vmi-create-admitter.go",

@@ -2839,7 +2839,7 @@ var _ = Describe("[rfe_id:393][crit:high][vendor:cnv-qe@redhat.com][level:system
 
 		Context("with a host-model cpu", func() {
 			getNodeHostModel := func(node *k8sv1.Node) (hostModel string) {
-				for key, _ := range node.Labels {
+				for key := range node.Labels {
 					if strings.HasPrefix(key, v1.HostModelCPULabel) {
 						hostModel = strings.TrimPrefix(key, v1.HostModelCPULabel)
 						break
@@ -2849,7 +2849,7 @@ var _ = Describe("[rfe_id:393][crit:high][vendor:cnv-qe@redhat.com][level:system
 				return hostModel
 			}
 			getNodeHostRequiredFeatures := func(node *k8sv1.Node) (features []string) {
-				for key, _ := range node.Labels {
+				for key := range node.Labels {
 					if strings.HasPrefix(key, v1.HostModelRequiredFeaturesLabel) {
 						features = append(features, strings.TrimPrefix(key, v1.HostModelRequiredFeaturesLabel))
 					}
@@ -2857,7 +2857,7 @@ var _ = Describe("[rfe_id:393][crit:high][vendor:cnv-qe@redhat.com][level:system
 				return features
 			}
 			isModelSupportedOnNode := func(node *k8sv1.Node, model string) bool {
-				for key, _ := range node.Labels {
+				for key := range node.Labels {
 					if strings.HasPrefix(key, v1.HostModelCPULabel) && strings.Contains(key, model) {
 						return true
 					}
@@ -2866,7 +2866,7 @@ var _ = Describe("[rfe_id:393][crit:high][vendor:cnv-qe@redhat.com][level:system
 			}
 			expectFeatureToBeSupportedOnNode := func(node *k8sv1.Node, features []string) {
 				isFeatureSupported := func(feature string) bool {
-					for key, _ := range node.Labels {
+					for key := range node.Labels {
 						if strings.HasPrefix(key, v1.CPUFeatureLabel) && strings.Contains(key, feature) {
 							return true
 						}
@@ -2985,7 +2985,7 @@ var _ = Describe("[rfe_id:393][crit:high][vendor:cnv-qe@redhat.com][level:system
 				It("[test_id:7505]when no node is suited for host model", func() {
 					By("Changing node labels to support fake host model")
 					// Remove all supported host models
-					for key, _ := range node.Labels {
+					for key := range node.Labels {
 						if strings.HasPrefix(key, v1.HostModelCPULabel) {
 							libnode.RemoveLabelFromNode(node.Name, key)
 						}
@@ -3045,7 +3045,7 @@ var _ = Describe("[rfe_id:393][crit:high][vendor:cnv-qe@redhat.com][level:system
 						updatedNode := resumeNodeLabeller(node.Name, virtClient)
 
 						supportedHostModelLabelExists := false
-						for labelKey, _ := range updatedNode.Labels {
+						for labelKey := range updatedNode.Labels {
 							if strings.HasPrefix(labelKey, v1.SupportedHostModelMigrationCPU) {
 								supportedHostModelLabelExists = true
 								break
@@ -3061,7 +3061,7 @@ var _ = Describe("[rfe_id:393][crit:high][vendor:cnv-qe@redhat.com][level:system
 					for _, node := range nodes {
 						currNode, err := virtClient.CoreV1().Nodes().Get(context.Background(), node.Name, metav1.GetOptions{})
 						Expect(err).ShouldNot(HaveOccurred())
-						for key, _ := range currNode.Labels {
+						for key := range currNode.Labels {
 							if strings.HasPrefix(key, v1.SupportedHostModelMigrationCPU) {
 								libnode.RemoveLabelFromNode(currNode.Name, key)
 							}
@@ -3508,7 +3508,7 @@ var _ = Describe("[rfe_id:393][crit:high][vendor:cnv-qe@redhat.com][level:system
 												{
 													Key:      labelKey,
 													Operator: metav1.LabelSelectorOpIn,
-													Values:   []string{string("")}},
+													Values:   []string{""}},
 											},
 										},
 										TopologyKey: "kubernetes.io/hostname",
@@ -4483,7 +4483,7 @@ func resumeNodeLabeller(nodeName string, virtClient kubecli.KubevirtClient) *k8s
 		}
 
 		foundHostModelLabel := false
-		for labelKey, _ := range node.Labels {
+		for labelKey := range node.Labels {
 			if strings.HasPrefix(labelKey, v1.HostModelCPULabel) {
 				foundHostModelLabel = true
 				break
