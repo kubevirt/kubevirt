@@ -433,22 +433,12 @@ func (m *mounter) mountKernelArtifacts(vmi *v1.VirtualMachineInstance, verify bo
 		return fmt.Errorf("failed to find socker path for kernel artifacts: %v", err)
 	}
 
-	record := vmiMountTargetRecord{
-		MountTargetEntries: []vmiMountTargetEntry{{
-			TargetFile: unsafepath.UnsafeAbsolute(targetDir.Raw()),
-			SocketFile: socketFilePath,
-		}},
-	}
-
-	err = m.addMountTargetRecord(vmi, &record)
-	if err != nil {
-		return err
-	}
-
 	nodeRes := isolation.NodeIsolationResult()
 
 	var targetInitrdPath *safepath.Path
 	var targetKernelPath *safepath.Path
+
+	record := vmiMountTargetRecord{}
 
 	if kb.InitrdPath != "" {
 		if err := safepath.TouchAtNoFollow(targetDir, filepath.Base(kb.InitrdPath), 0655); err != nil && !os.IsExist(err) {
@@ -459,6 +449,11 @@ func (m *mounter) mountKernelArtifacts(vmi *v1.VirtualMachineInstance, verify bo
 		if err != nil {
 			return err
 		}
+
+		record.MountTargetEntries = append(record.MountTargetEntries, vmiMountTargetEntry{
+			TargetFile: unsafepath.UnsafeAbsolute(targetInitrdPath.Raw()),
+			SocketFile: socketFilePath,
+		})
 	}
 
 	if kb.KernelPath != "" {
@@ -467,6 +462,17 @@ func (m *mounter) mountKernelArtifacts(vmi *v1.VirtualMachineInstance, verify bo
 		}
 
 		targetKernelPath, err = safepath.JoinNoFollow(targetDir, filepath.Base(kb.KernelPath))
+		if err != nil {
+			return err
+		}
+		record.MountTargetEntries = append(record.MountTargetEntries, vmiMountTargetEntry{
+			TargetFile: unsafepath.UnsafeAbsolute(targetKernelPath.Raw()),
+			SocketFile: socketFilePath,
+		})
+	}
+
+	if len(record.MountTargetEntries) != 0 {
+		err = m.addMountTargetRecord(vmi, &record)
 		if err != nil {
 			return err
 		}
@@ -580,7 +586,7 @@ func (m *mounter) unmountKernelArtifacts(vmi *v1.VirtualMachineInstance) error {
 	}
 
 	for idx, entry := range record.MountTargetEntries {
-		if !strings.Contains(entry.TargetFile, containerdisk.KernelBootName) {
+		if !strings.HasSuffix(entry.TargetFile, containerdisk.KernelBootName) {
 			continue
 		}
 		targetDir, err := safepath.NewFileNoFollow(entry.TargetFile)
