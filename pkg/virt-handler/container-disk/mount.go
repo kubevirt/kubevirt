@@ -334,7 +334,7 @@ func (m *mounter) Unmount(vmi *v1.VirtualMachineInstance) error {
 		return nil
 	}
 
-	err := m.unmountKernelArtifacts(vmi)
+	err := m.legacyUnmountKernelArtifacts(vmi)
 	if err != nil {
 		return fmt.Errorf("error unmounting kernel artifacts: %v", err)
 	}
@@ -544,7 +544,9 @@ func (m *mounter) mountKernelArtifacts(vmi *v1.VirtualMachineInstance, verify bo
 	return nil
 }
 
-func (m *mounter) unmountKernelArtifacts(vmi *v1.VirtualMachineInstance) error {
+// Deprecated: Do not edit. Unmount of KernelArtifacts should be handled by generic container disk code.
+// This is kept here for compatibility with VMs started by older handlers
+func (m *mounter) legacyUnmountKernelArtifacts(vmi *v1.VirtualMachineInstance) error {
 	if !util.HasKernelBootContainerImage(vmi) {
 		return nil
 	}
