@@ -28,6 +28,8 @@ import (
 	"net/http/httputil"
 	"regexp"
 
+	kvtls "kubevirt.io/kubevirt/pkg/util/tls"
+
 	"github.com/prometheus/client_golang/prometheus/promhttp"
 	"k8s.io/client-go/tools/cache"
 	certificate2 "k8s.io/client-go/util/certificate"
@@ -41,7 +43,6 @@ import (
 	"kubevirt.io/kubevirt/pkg/certificates/bootstrap"
 	"kubevirt.io/kubevirt/pkg/controller"
 	"kubevirt.io/kubevirt/pkg/service"
-	webhooksutils "kubevirt.io/kubevirt/pkg/util/webhooks"
 )
 
 const (
@@ -59,7 +60,7 @@ type exportProxyApp struct {
 	tlsCertFilePath string
 	tlsKeyFilePath  string
 	certManager     certificate2.Manager
-	caManager       webhooksutils.ClientCAManager
+	caManager       kvtls.ClientCAManager
 	exportInformer  cache.SharedIndexInformer
 }
 
@@ -192,7 +193,7 @@ func (app *exportProxyApp) prepareInformers(stopChan <-chan struct{}) {
 	kubeInformerFactory.Start(stopChan)
 	kubeInformerFactory.WaitForCacheSync(stopChan)
 
-	app.caManager = webhooksutils.NewCAManager(caInformer.GetStore(), namespace, "kubevirt-export-ca")
+	app.caManager = kvtls.NewCAManager(caInformer.GetStore(), namespace, "kubevirt-export-ca")
 }
 
 func (app *exportProxyApp) prepareCertManager() {

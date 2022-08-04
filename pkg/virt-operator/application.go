@@ -27,6 +27,8 @@ import (
 	"net/http"
 	"os"
 
+	kvtls "kubevirt.io/kubevirt/pkg/util/tls"
+
 	"github.com/emicklei/go-restful"
 	"github.com/prometheus/client_golang/prometheus/promhttp"
 	"github.com/spf13/pflag"
@@ -35,7 +37,6 @@ import (
 
 	"kubevirt.io/kubevirt/pkg/certificates/bootstrap"
 
-	"kubevirt.io/kubevirt/pkg/util/webhooks"
 	validating_webhooks "kubevirt.io/kubevirt/pkg/util/webhooks/validating-webhooks"
 	"kubevirt.io/kubevirt/pkg/virt-operator/resource/generate/components"
 	operator_webhooks "kubevirt.io/kubevirt/pkg/virt-operator/webhooks"
@@ -293,7 +294,7 @@ func Execute() {
 }
 
 func (app *VirtOperatorApp) Run() {
-	promTLSConfig := webhooks.SetupPromTLS(app.operatorCertManager, app.clusterConfig)
+	promTLSConfig := kvtls.SetupPromTLS(app.operatorCertManager, app.clusterConfig)
 
 	go func() {
 
@@ -355,9 +356,9 @@ func (app *VirtOperatorApp) Run() {
 
 	go app.operatorCertManager.Start()
 
-	caManager := webhooks.NewKubernetesClientCAManager(apiAuthConfig.GetStore())
+	caManager := kvtls.NewKubernetesClientCAManager(apiAuthConfig.GetStore())
 
-	tlsConfig := webhooks.SetupTLSWithCertManager(caManager, app.operatorCertManager, tls.VerifyClientCertIfGiven, app.clusterConfig)
+	tlsConfig := kvtls.SetupTLSWithCertManager(caManager, app.operatorCertManager, tls.VerifyClientCertIfGiven, app.clusterConfig)
 
 	webhookServer := &http.Server{
 		Addr:      fmt.Sprintf("%s:%d", app.BindAddress, 8444),

@@ -17,7 +17,7 @@
  *
  */
 
-package webhooks
+package tls
 
 import (
 	"crypto/x509"

@@ -1,4 +1,4 @@
-package webhooks_test
+package tls_test
 
 import (
 	"crypto/tls"
@@ -9,6 +9,8 @@ import (
 	"net/http/httptest"
 	"strings"
 	"time"
+
+	kvtls "kubevirt.io/kubevirt/pkg/util/tls"
 
 	"k8s.io/client-go/tools/cache"
 
@@ -24,7 +26,6 @@ import (
 	"k8s.io/client-go/util/certificate"
 
 	"kubevirt.io/kubevirt/pkg/certificates/triple/cert"
-	"kubevirt.io/kubevirt/pkg/util/webhooks"
 	"kubevirt.io/kubevirt/pkg/virt-operator/resource/generate/components"
 )
 
@@ -63,7 +64,7 @@ func (m *mockCAManager) GetCurrent() (*x509.CertPool, error) {
 
 var _ = Describe("TLS", func() {
 
-	var caManager webhooks.ClientCAManager
+	var caManager kvtls.ClientCAManager
 	var certmanagers map[string]certificate.Manager
 	var clusterConfig *virtconfig.ClusterConfig
 	var kubeVirtInformer cache.SharedIndexInformer
@@ -107,8 +108,8 @@ var _ = Describe("TLS", func() {
 	})
 
 	DescribeTable("on virt-handler with self-signed CA should", func(serverSecret, clientSecret string, errStr string) {
-		serverTLSConfig := webhooks.SetupTLSForVirtHandlerServer(caManager, certmanagers[serverSecret], false, clusterConfig)
-		clientTLSConfig := webhooks.SetupTLSForVirtHandlerClients(caManager, certmanagers[clientSecret], false)
+		serverTLSConfig := kvtls.SetupTLSForVirtHandlerServer(caManager, certmanagers[serverSecret], false, clusterConfig)
+		clientTLSConfig := kvtls.SetupTLSForVirtHandlerClients(caManager, certmanagers[clientSecret], false)
 		srv := httptest.NewUnstartedServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 			fmt.Fprintln(w, "hello")
 		}))
@@ -150,8 +151,8 @@ var _ = Describe("TLS", func() {
 	)
 
 	DescribeTable("on virt-handler with externally-managed certificates should", func(serverSecret, clientSecret string, errStr string) {
-		serverTLSConfig := webhooks.SetupTLSForVirtHandlerServer(caManager, certmanagers[serverSecret], true, clusterConfig)
-		clientTLSConfig := webhooks.SetupTLSForVirtHandlerClients(caManager, certmanagers[clientSecret], true)
+		serverTLSConfig := kvtls.SetupTLSForVirtHandlerServer(caManager, certmanagers[serverSecret], true, clusterConfig)
+		clientTLSConfig := kvtls.SetupTLSForVirtHandlerClients(caManager, certmanagers[clientSecret], true)
 		srv := httptest.NewUnstartedServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 			fmt.Fprintln(w, "hello")
 		}))
@@ -193,7 +194,7 @@ var _ = Describe("TLS", func() {
 	)
 
 	It("should allow anonymous TLS connections to prometheus endpoints", func() {
-		serverTLSConfig := webhooks.SetupPromTLS(certmanagers[components.VirtHandlerServerCertSecretName], clusterConfig)
+		serverTLSConfig := kvtls.SetupPromTLS(certmanagers[components.VirtHandlerServerCertSecretName], clusterConfig)
 		srv := httptest.NewUnstartedServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 			fmt.Fprintln(w, "hello")
 		}))
@@ -210,8 +211,8 @@ var _ = Describe("TLS", func() {
 	})
 
 	DescribeTable("should verify self-signed client and server certificates", func(serverSecret, clientSecret string, errStr string) {
-		serverTLSConfig := webhooks.SetupTLSWithCertManager(caManager, certmanagers[serverSecret], tls.RequireAndVerifyClientCert, clusterConfig)
-		clientTLSConfig := webhooks.SetupTLSForVirtHandlerClients(caManager, certmanagers[clientSecret], false)
+		serverTLSConfig := kvtls.SetupTLSWithCertManager(caManager, certmanagers[serverSecret], tls.RequireAndVerifyClientCert, clusterConfig)
+		clientTLSConfig := kvtls.SetupTLSForVirtHandlerClients(caManager, certmanagers[clientSecret], false)
 		srv := httptest.NewUnstartedServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 			fmt.Fprintln(w, "hello")
 		}))
@@ -253,8 +254,8 @@ var _ = Describe("TLS", func() {
 	)
 
 	DescribeTable("should verify externally-managed client and server certificates", func(serverSecret, clientSecret string, errStr string) {
-		serverTLSConfig := webhooks.SetupTLSWithCertManager(caManager, certmanagers[serverSecret], tls.RequireAndVerifyClientCert, clusterConfig)
-		clientTLSConfig := webhooks.SetupTLSForVirtHandlerClients(caManager, certmanagers[clientSecret], true)
+		serverTLSConfig := kvtls.SetupTLSWithCertManager(caManager, certmanagers[serverSecret], tls.RequireAndVerifyClientCert, clusterConfig)
+		clientTLSConfig := kvtls.SetupTLSForVirtHandlerClients(caManager, certmanagers[clientSecret], true)
 		srv := httptest.NewUnstartedServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 			fmt.Fprintln(w, "hello")
 		}))
@@ -328,16 +329,16 @@ var _ = Describe("TLS", func() {
 	},
 		Entry("on virt-handler",
 			func() *tls.Config {
-				return webhooks.SetupTLSForVirtHandlerServer(caManager, certmanagers[components.VirtHandlerServerCertSecretName], false, clusterConfig)
+				return kvtls.SetupTLSForVirtHandlerServer(caManager, certmanagers[components.VirtHandlerServerCertSecretName], false, clusterConfig)
 			},
 
 			func() *tls.Config {
-				return webhooks.SetupTLSForVirtHandlerClients(caManager, certmanagers[components.VirtHandlerCertSecretName], false)
+				return kvtls.SetupTLSForVirtHandlerClients(caManager, certmanagers[components.VirtHandlerCertSecretName], false)
 			},
 		),
 		Entry("on prometheus endpoint",
 			func() *tls.Config {
-				return webhooks.SetupPromTLS(certmanagers[components.VirtHandlerServerCertSecretName], clusterConfig)
+				return kvtls.SetupPromTLS(certmanagers[components.VirtHandlerServerCertSecretName], clusterConfig)
 			},
 			func() *tls.Config {
 				return &tls.Config{InsecureSkipVerify: true}
