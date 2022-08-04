@@ -48,6 +48,7 @@ import (
 	containerdisk "kubevirt.io/kubevirt/pkg/container-disk"
 	"kubevirt.io/kubevirt/pkg/hooks"
 	"kubevirt.io/kubevirt/pkg/network/istio"
+	"kubevirt.io/kubevirt/pkg/network/vmispec"
 	"kubevirt.io/kubevirt/pkg/util"
 	"kubevirt.io/kubevirt/pkg/util/hardware"
 	"kubevirt.io/kubevirt/pkg/util/net/dns"
@@ -1037,6 +1038,10 @@ func (t *templateService) newVolumeRenderer(vmi *v1.VirtualMachineInstance, name
 
 	if !vmi.Spec.Domain.Devices.DisableHotplug {
 		volumeOpts = append(volumeOpts, withHotplugSupport(t.hotplugDiskDir))
+	}
+
+	if vmispec.SRIOVInterfaceExist(vmi.Spec.Domain.Devices.Interfaces) {
+		volumeOpts = append(volumeOpts, withSRIOVPciMapAnnotation())
 	}
 
 	volumeRenderer, err := NewVolumeRenderer(
