@@ -20,8 +20,10 @@
 package cgroup
 
 import (
+	"bufio"
 	"fmt"
 	"io/ioutil"
+	"os"
 	"path/filepath"
 	"strconv"
 	"strings"
@@ -178,4 +180,39 @@ func detectVMIsolation(vm *v1.VirtualMachineInstance, socket string) (isolationR
 	}
 
 	return isolationRes, nil
+}
+
+func GetCgroupThreads(manager Manager) (tIds []int, err error) {
+	tIds = make([]int, 0, 10)
+	fName := "tasks"
+	if runc_cgroups.IsCgroup2UnifiedMode() {
+		fName = "cgroup.threads"
+	}
+
+	subSysPath, err := manager.GetBasePathToHostSubsystem("cpuset")
+	if err != nil {
+		return nil, err
+	}
+
+	fh, err := os.Open(filepath.Join(subSysPath, fName))
+	if err != nil {
+		return nil, err
+	}
+	defer fh.Close()
+
+	scanner := bufio.NewScanner(fh)
+	for scanner.Scan() {
+		line := scanner.Text()
+		intVal, err := strconv.Atoi(line)
+		if err != nil {
+			log.Log.Errorf("error converting %s: %v", line, err)
+			return nil, err
+		}
+		tIds = append(tIds, intVal)
+	}
+	if err := scanner.Err(); err != nil {
+		log.Log.Errorf("error reading %s: %v", fName, err)
+		return nil, err
+	}
+	return tIds, nil
 }
