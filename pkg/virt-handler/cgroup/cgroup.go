@@ -70,6 +70,20 @@ type runcManager interface {
 	runc_cgroups.Manager
 }
 
+// If a task is moved into a sub-cgroup, we want the manager to
+// reference the root cgroup, not the sub-cgroup.
+// Currently the only sub-cgroup create is named "housekeeping".
+
+func managerPath(taskPath string) string {
+	retPath := taskPath
+	s := strings.Split(taskPath, "/")
+	if s[len(s)-1] == "housekeeping" {
+		fStr := "/" + strings.Join(s[1:len(s)-1], "/") + "/"
+		retPath = fStr
+	}
+	return retPath
+}
+
 // NewManagerFromPid initializes a new cgroup manager from VMI's pid.
 // The pid is expected to VMI's pid from the host's viewpoint.
 func NewManagerFromPid(pid int) (manager Manager, err error) {
@@ -91,6 +105,7 @@ func NewManagerFromPid(pid int) (manager Manager, err error) {
 	if runc_cgroups.IsCgroup2UnifiedMode() {
 		version = V2
 		slicePath := filepath.Join(cgroupBasePath, controllerPaths[""])
+		slicePath = managerPath(slicePath)
 		manager, err = newV2Manager(config, slicePath)
 	} else {
 		version = V1
@@ -98,6 +113,7 @@ func NewManagerFromPid(pid int) (manager Manager, err error) {
 			if path == "" {
 				continue
 			}
+			path = managerPath(path)
 			controllerPaths[subsystem] = filepath.Join("/", subsystem, path)
 		}
 
