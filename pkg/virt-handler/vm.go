@@ -30,6 +30,7 @@ import (
 	"path/filepath"
 	"regexp"
 	"sort"
+	"strconv"
 	"strings"
 	"time"
 
@@ -68,6 +69,8 @@ import (
 	container_disk "kubevirt.io/kubevirt/pkg/virt-handler/container-disk"
 	device_manager "kubevirt.io/kubevirt/pkg/virt-handler/device-manager"
 	hotplug_volume "kubevirt.io/kubevirt/pkg/virt-handler/hotplug-disk"
+
+	ps "github.com/mitchellh/go-ps"
 
 	v1 "kubevirt.io/api/core/v1"
 	"kubevirt.io/client-go/kubecli"
@@ -2577,6 +2580,76 @@ func (d *VirtualMachineController) vmUpdateHelperMigrationTarget(origVMI *v1.Vir
 	}
 	return nil
 }
+
+func (d *VirtualMachineController) configureHousekeepingCgroup(vmi *v1.VirtualMachineInstance) error {
+	cgroupManager, err := cgroup.NewManagerFromVM(vmi)
+	if err != nil {
+		return err
+	}
+
+	err = cgroupManager.CreateChildCgroup("housekeeping", "cpuset")
+	if err != nil {
+		log.Log.Reason(err).Error("CreateChildCgroup ")
+		return err
+	}
+
+	key := controller.VirtualMachineInstanceKey(vmi)
+	domain, domainExists, _, err := d.getDomainFromCache(key)
+	if err != nil {
+		return err
+	}
+	// bail out if domain does not exist
+	if domainExists == false {
+		return nil
+	}
+
+	if domain.Spec.CPUTune == nil || domain.Spec.CPUTune.EmulatorPin == nil {
+		return nil
+	}
+
+	hkcpu, err := strconv.Atoi(domain.Spec.CPUTune.EmulatorPin.CPUSet)
+	if err != nil {
+		return err
+	}
+
+	log.Log.V(3).Object(vmi).Infof("housekeeping cpu: %v", hkcpu)
+
+	err = cgroup.SetCpuSet(cgroupManager, "housekeeping", []int{hkcpu})
+	if err != nil {
+		return err
+	}
+
+	tids, err := cgroup.GetCgroupThreads(cgroupManager)
+	if err != nil {
+		return err
+	}
+	hktids := make([]int, 0, 10)
+
+	for _, tid := range tids {
+		proc, err := ps.FindProcess(tid)
+		if err != nil {
+			log.Log.Object(vmi).Errorf("Failure to find process: %s", err.Error())
+			return err
+		}
+		comm := proc.Executable()
+		if strings.Contains(comm, "CPU ") && strings.Contains(comm, "KVM") {
+			continue
+		}
+		hktids = append(hktids, tid)
+	}
+
+	log.Log.V(3).Object(vmi).Infof("hk thread ids: %v", hktids)
+	for _, tid := range hktids {
+		err = cgroupManager.AttachTID("cpuset", "housekeeping", tid)
+		if err != nil {
+			log.Log.Object(vmi).Errorf("Error attaching tid %d: %v", tid, err.Error())
+			return err
+		}
+	}
+
+	return nil
+}
+
 func (d *VirtualMachineController) vmUpdateHelperDefault(origVMI *v1.VirtualMachineInstance, domainExists bool) error {
 	client, err := d.getLauncherClient(origVMI)
 	if err != nil {
@@ -2708,6 +2781,13 @@ func (d *VirtualMachineController) vmUpdateHelperDefault(origVMI *v1.VirtualMach
 			return &virtLauncherCriticalSecurebootError{fmt.Sprintf("mismatch of Secure Boot setting and bootloaders: %v", err)}
 		}
 		return err
+	}
+
+	if vmi.IsCPUDedicated() && vmi.Spec.Domain.CPU.IsolateEmulatorThread {
+		err = d.configureHousekeepingCgroup(vmi)
+		if err != nil {
+			return err
+		}
 	}
 
 	if !domainExists {
