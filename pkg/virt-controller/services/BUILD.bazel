@@ -19,6 +19,7 @@ go_library(
         "//pkg/host-disk:go_default_library",
         "//pkg/network/istio:go_default_library",
         "//pkg/network/namescheme:go_default_library",
+        "//pkg/network/sriov:go_default_library",
         "//pkg/network/vmispec:go_default_library",
         "//pkg/storage/types:go_default_library",
         "//pkg/util:go_default_library",

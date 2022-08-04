@@ -31,8 +31,13 @@ import (
 	"kubevirt.io/kubevirt/pkg/network/vmispec"
 )
 
-const AliasPrefix = "sriov-"
-const NetworkPCIMapAnnot = "kubevirt.io/network-pci-map"
+const (
+	AliasPrefix        = "sriov-"
+	NetworkPCIMapAnnot = "kubevirt.io/network-pci-map"
+	MountPath          = "/etc/podinfo"
+	VolumeName         = "network-pci-map-annotation"
+	VolumePath         = "network-pci-map"
+)
 
 func CreateNetworkPCIAnnotationValue(networks []v1.Network, interfaces []v1.Interface, networkStatusAnnotationValue string) string {
 	networkPCIMap, err := mapNetworkNameToPCIAddress(networks, interfaces, networkStatusAnnotationValue)
