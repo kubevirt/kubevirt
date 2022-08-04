@@ -6,10 +6,14 @@ import (
 	"encoding/json"
 	"encoding/xml"
 	"fmt"
+	"runtime"
 	"strings"
 
 	"k8s.io/utils/pointer"
 
+	v1 "kubevirt.io/api/core/v1"
+
+	"kubevirt.io/kubevirt/pkg/hooks"
 	"kubevirt.io/kubevirt/pkg/virt-controller/services"
 
 	"github.com/go-kit/kit/log"
@@ -18,10 +22,13 @@ import (
 	. "github.com/onsi/gomega"
 	"libvirt.org/go/libvirt"
 
+	api2 "kubevirt.io/client-go/api"
 	kubevirtlog "kubevirt.io/client-go/log"
 
+	cmdv1 "kubevirt.io/kubevirt/pkg/handler-launcher-com/cmd/v1"
 	"kubevirt.io/kubevirt/pkg/virt-launcher/virtwrap/api"
 	"kubevirt.io/kubevirt/pkg/virt-launcher/virtwrap/cli"
+	"kubevirt.io/kubevirt/pkg/virt-launcher/virtwrap/converter"
 )
 
 const (
@@ -222,6 +229,71 @@ var _ = Describe("LibvirtHelper", func() {
 		domainSpec, err = GetDomainSpecWithRuntimeInfo(domain)
 		Expect(err).NotTo(HaveOccurred())
 		Expect(domainSpec.Metadata.KubeVirt).NotTo(BeNil())
+	})
+
+	It("should update the wantedSpec to reflect changes made by hooks", func() {
+		vmiNamespace := "test-namespace"
+		vmiName := "test-vmi"
+		ctrl := gomock.NewController(GinkgoT())
+		mockConn := cli.NewMockConnection(ctrl)
+		mockDomain := cli.NewMockVirDomain(ctrl)
+
+		vmi := api2.NewMinimalVMIWithNS(vmiNamespace, vmiName)
+		v1.SetObjectDefaults_VirtualMachineInstance(vmi)
+		domain := &api.Domain{}
+		c := &converter.ConverterContext{
+			Architecture:     runtime.GOARCH,
+			VirtualMachine:   vmi,
+			AllowEmulation:   true,
+			SMBios:           &cmdv1.SMBios{},
+			HotplugVolumes:   make(map[string]v1.VolumeStatus),
+			PermanentVolumes: make(map[string]v1.VolumeStatus),
+		}
+		Expect(converter.Convert_v1_VirtualMachineInstance_To_api_Domain(vmi, domain, c)).To(Succeed())
+		api.NewDefaulter(runtime.GOARCH).SetObjectDefaults_Domain(domain)
+
+		wantedSpec := &domain.Spec
+		wantedSpec.Devices.Disks = []api.Disk{
+			{
+				Device: "disk",
+				Type:   "file",
+				Source: api.DiskSource{
+					File: "/var/run/kubevirt-private/vmi-disks/permvolume1/disk.img",
+				},
+				Target: api.DiskTarget{
+					Bus:    v1.DiskBusVirtio,
+					Device: "vda",
+				},
+				Driver: &api.DiskDriver{
+					Cache:       "none",
+					Name:        "qemu",
+					Type:        "raw",
+					ErrorPolicy: "stop",
+				},
+				Alias: api.NewUserDefinedAlias("permvolume1"),
+			},
+		}
+
+		mutatedSpec := wantedSpec.DeepCopy()
+		mutatedSpec.Devices.Disks[0].Source.File = "/var/run/kubevirt-private/vmi-disks/permvolume1/new-disk.img"
+		mutatedSpecXml, err := xml.Marshal(mutatedSpec)
+		Expect(err).NotTo(HaveOccurred())
+
+		// mock hook manager
+		mockHookManager := hooks.NewMockManager(ctrl)
+		getHookManager = func() hooks.Manager {
+			return mockHookManager
+		}
+		defer func() {
+			getHookManager = hooks.GetManager
+		}()
+		mockHookManager.EXPECT().OnDefineDomain(wantedSpec, vmi).Return(string(mutatedSpecXml), nil)
+		mockConn.EXPECT().DomainDefineXML(string(mutatedSpecXml)).Return(mockDomain, nil)
+
+		_, err = SetDomainSpecStrWithHooks(mockConn, vmi, wantedSpec)
+		Expect(err).NotTo(HaveOccurred())
+
+		Expect(wantedSpec.Devices.Disks).To(Equal(mutatedSpec.Devices.Disks))
 	})
 
 	Context("getLibvirtLogFilters()", func() {
