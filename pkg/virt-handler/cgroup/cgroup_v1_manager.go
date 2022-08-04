@@ -2,8 +2,11 @@ package cgroup
 
 import (
 	"bytes"
+	"errors"
 	"fmt"
+	"os"
 	"path/filepath"
+	"strconv"
 
 	"kubevirt.io/client-go/log"
 
@@ -13,6 +16,8 @@ import (
 	runc_cgroups "github.com/opencontainers/runc/libcontainer/cgroups"
 	runc_fs "github.com/opencontainers/runc/libcontainer/cgroups/fs"
 	runc_configs "github.com/opencontainers/runc/libcontainer/configs"
+
+	"kubevirt.io/kubevirt/pkg/util"
 )
 
 type v1Manager struct {
@@ -108,4 +113,91 @@ func getCurrentlyDefinedRules(runcManager runc_cgroups.Manager) ([]*devices.Rule
 
 func (v *v1Manager) GetCpuSet() (string, error) {
 	return getCpuSetPath(v, "cpuset.cpus")
+}
+
+func rw_filecontents(fReadPath string, fWritePath string) (err error) {
+	rFile, err := os.Open(fReadPath)
+	if err != nil {
+		return fmt.Errorf("Open failed: %s (%v)", fReadPath, err)
+	}
+	defer rFile.Close()
+
+	wFile, err := os.OpenFile(fWritePath, os.O_RDWR, 0755)
+	if err != nil {
+		return fmt.Errorf("OpenFile failed: %s (%v)", fWritePath, err)
+	}
+	defer wFile.Close()
+
+	data := make([]byte, 20000)
+	count, err := rFile.Read(data)
+	if err != nil {
+		return fmt.Errorf("Read failed: %s (%v)", fWritePath, err)
+	}
+
+	_, err = wFile.Write(data[:count])
+	if err != nil {
+		return fmt.Errorf("Write failed: %s (%v)", fWritePath, err)
+	}
+
+	return nil
+}
+
+// Attach TID to cgroup. Optionally on a subcgroup of
+// the pods control group (if subcgroup != nil).
+func (v *v1Manager) AttachTID(subSystem string, subCgroup string, tid int) error {
+	cgroupPath, err := v.GetBasePathToHostSubsystem(subSystem)
+	if err != nil {
+		return err
+	}
+	if subCgroup != "" {
+		cgroupPath = filepath.Join(cgroupPath, subCgroup)
+	}
+
+	wVal := strconv.Itoa(tid)
+
+	err = runc_cgroups.WriteFile(cgroupPath, "tasks", wVal)
+	if err != nil {
+		return err
+	}
+
+	return nil
+}
+
+func init_cgroup(groupPath string, newCgroupName string, subSystem string) (err error) {
+	newGroupPath := filepath.Join(groupPath, newCgroupName)
+	if _, err := os.Stat(newGroupPath); !errors.Is(err, os.ErrNotExist) {
+		return nil
+	}
+	err = util.MkdirAllWithNosec(newGroupPath)
+	if err != nil {
+		log.Log.Infof("mkdir %s failed", newGroupPath)
+		return err
+	}
+	if subSystem == "cpuset" {
+		for _, fName := range []string{"cpuset.mems", "cpuset.cpus"} {
+			rPath := filepath.Join(groupPath, fName)
+			wPath := filepath.Join(newGroupPath, fName)
+
+			err = rw_filecontents(rPath, wPath)
+			if err != nil {
+				return err
+			}
+		}
+	}
+
+	return nil
+}
+
+func (v *v1Manager) CreateChildCgroup(name string, subSystem string) error {
+	subSysPath, err := v.GetBasePathToHostSubsystem(subSystem)
+	if err != nil {
+		return err
+	}
+	err = init_cgroup(subSysPath, name, subSystem)
+	if err != nil {
+		log.Log.Infof("cannot create child cgroup. err: %v", err)
+		return err
+	}
+
+	return nil
 }

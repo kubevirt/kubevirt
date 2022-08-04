@@ -72,6 +72,26 @@ func (_mr *_MockManagerRecorder) GetCpuSet() *gomock.Call {
 	return _mr.mock.ctrl.RecordCall(_mr.mock, "GetCpuSet")
 }
 
+func (_m *MockManager) CreateChildCgroup(_param0 string, _param1 string) error {
+	ret := _m.ctrl.Call(_m, "CreateChildCgroup", _param0, _param1)
+	ret0, _ := ret[0].(error)
+	return ret0
+}
+
+func (_mr *_MockManagerRecorder) CreateChildCgroup(arg0, arg1 interface{}) *gomock.Call {
+	return _mr.mock.ctrl.RecordCall(_mr.mock, "CreateChildCgroup", arg0, arg1)
+}
+
+func (_m *MockManager) AttachTID(_param0 string, _param1 string, _param2 int) error {
+	ret := _m.ctrl.Call(_m, "AttachTID", _param0, _param1, _param2)
+	ret0, _ := ret[0].(error)
+	return ret0
+}
+
+func (_mr *_MockManagerRecorder) AttachTID(arg0, arg1, arg2 interface{}) *gomock.Call {
+	return _mr.mock.ctrl.RecordCall(_mr.mock, "AttachTID", arg0, arg1, arg2)
+}
+
 // Mock of runcManager interface
 type MockruncManager struct {
 	ctrl     *gomock.Controller
