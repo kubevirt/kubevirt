@@ -81,7 +81,7 @@ var _ = Describe("[sig-compute]PortForward", func() {
 				Out: &out,
 			})
 			if err != nil {
-				fmt.Fprintln(GinkgoWriter, err)
+				_, _ = fmt.Fprintln(GinkgoWriter, err)
 			}
 			close(streamClosed)
 		}()

@@ -10,6 +10,8 @@ import (
 	"os"
 
 	"golang.org/x/crypto/ssh"
+
+	"kubevirt.io/kubevirt/tests/errorhandling"
 )
 
 func NewKeyPair() (*ecdsa.PrivateKey, ssh.PublicKey, error) {
@@ -37,7 +39,7 @@ func DumpPrivateKey(privateKey *ecdsa.PrivateKey, file string) error {
 	if err != nil {
 		return err
 	}
-	defer f.Close()
+	defer errorhandling.SafelyCloseFile(f)
 	if err = pem.Encode(f, privateKeyBlock); err != nil {
 		return fmt.Errorf("error when encode private pem: %s", err)
 

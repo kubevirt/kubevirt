@@ -24,6 +24,7 @@ import (
 
 	"kubevirt.io/kubevirt/tests"
 	"kubevirt.io/kubevirt/tests/clientcmd"
+	"kubevirt.io/kubevirt/tests/errorhandling"
 	"kubevirt.io/kubevirt/tests/flags"
 	"kubevirt.io/kubevirt/tests/libstorage"
 )
@@ -291,8 +292,8 @@ var _ = SIGDescribe("[Serial]ImageUpload", func() {
 
 	AfterEach(func() {
 		if kubectlCmd != nil {
-			kubectlCmd.Process.Kill()
-			kubectlCmd.Wait()
+			Expect(kubectlCmd.Process.Kill()).To(Succeed())
+			Expect(kubectlCmd.Wait()).To(Succeed())
 		}
 
 		err := os.Remove(imagePath)
@@ -304,7 +305,7 @@ func createArchive(targetFile, tgtDir string, sourceFilesNames ...string) string
 	tgtPath := filepath.Join(tgtDir, filepath.Base(targetFile)+".tar")
 	tgtFile, err := os.Create(tgtPath)
 	Expect(err).ToNot(HaveOccurred())
-	defer tgtFile.Close()
+	defer errorhandling.SafelyCloseFile(tgtFile)
 
 	tests.ArchiveToFile(tgtFile, sourceFilesNames...)
 

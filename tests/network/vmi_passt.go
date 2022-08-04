@@ -213,7 +213,6 @@ EOL`, inetSuffix, serverIP, serverPort)
 						Expect(err).ToNot(HaveOccurred())
 						clientVMI = tests.WaitForSuccessfulVMIStartIgnoreWarnings(clientVMI)
 						Expect(console.LoginToAlpine(clientVMI)).To(Succeed())
-						console.LoginToAlpine(clientVMI)
 
 						By("Starting and verifying UDP client")
 						// Due to a passt bug, at least one UDPv6 message has to be sent from a machine before it can receive UDPv6 messages
