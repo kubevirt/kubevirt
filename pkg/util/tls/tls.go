@@ -1,4 +1,4 @@
-package webhooks
+package tls
 
 import (
 	"crypto/tls"
@@ -225,6 +225,22 @@ func TlsVersion(version v1.TLSProtocolVersion) uint16 {
 		return tls.VersionTLS13
 	default:
 		return tls.VersionTLS12
+	}
+}
+
+// TlsVersionName converts from tls.Config id version to human-readable TLS version.
+func TlsVersionName(versionId uint16) string {
+	switch versionId {
+	case tls.VersionTLS10:
+		return string(v1.VersionTLS10)
+	case tls.VersionTLS11:
+		return string(v1.VersionTLS11)
+	case tls.VersionTLS12:
+		return string(v1.VersionTLS12)
+	case tls.VersionTLS13:
+		return string(v1.VersionTLS13)
+	default:
+		return fmt.Sprintf("0x%04X", versionId)
 	}
 }
 

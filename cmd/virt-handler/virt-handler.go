@@ -32,6 +32,8 @@ import (
 	"syscall"
 	"time"
 
+	kvtls "kubevirt.io/kubevirt/pkg/util/tls"
+
 	"github.com/emicklei/go-restful"
 	"github.com/golang/glog"
 	flag "github.com/spf13/pflag"
@@ -72,7 +74,6 @@ import (
 	_ "kubevirt.io/kubevirt/pkg/monitoring/workqueue/prometheus" // import for prometheus metrics
 	"kubevirt.io/kubevirt/pkg/service"
 	"kubevirt.io/kubevirt/pkg/util"
-	"kubevirt.io/kubevirt/pkg/util/webhooks"
 	virtconfig "kubevirt.io/kubevirt/pkg/virt-config"
 	virthandler "kubevirt.io/kubevirt/pkg/virt-handler"
 	virtcache "kubevirt.io/kubevirt/pkg/virt-handler/cache"
@@ -591,11 +592,11 @@ func (app *virtHandlerApp) setupTLS(factory controller.KubeInformerFactory) erro
 		apiHealthVersion.Clear()
 		cache.DefaultWatchErrorHandler(r, err)
 	})
-	caManager := webhooks.NewCAManager(kubevirtCAConfigInformer.GetStore(), app.namespace, app.caConfigMapName)
+	caManager := kvtls.NewCAManager(kubevirtCAConfigInformer.GetStore(), app.namespace, app.caConfigMapName)
 
-	app.promTLSConfig = webhooks.SetupPromTLS(app.servercertmanager, app.clusterConfig)
-	app.serverTLSConfig = webhooks.SetupTLSForVirtHandlerServer(caManager, app.servercertmanager, app.externallyManaged, app.clusterConfig)
-	app.clientTLSConfig = webhooks.SetupTLSForVirtHandlerClients(caManager, app.clientcertmanager, app.externallyManaged)
+	app.promTLSConfig = kvtls.SetupPromTLS(app.servercertmanager, app.clusterConfig)
+	app.serverTLSConfig = kvtls.SetupTLSForVirtHandlerServer(caManager, app.servercertmanager, app.externallyManaged, app.clusterConfig)
+	app.clientTLSConfig = kvtls.SetupTLSForVirtHandlerClients(caManager, app.clientcertmanager, app.externallyManaged)
 
 	return nil
 }

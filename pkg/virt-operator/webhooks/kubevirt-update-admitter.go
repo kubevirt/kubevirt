@@ -24,7 +24,7 @@ import (
 	"encoding/json"
 	"fmt"
 
-	kvtls "kubevirt.io/kubevirt/pkg/util/webhooks"
+	kvtls "kubevirt.io/kubevirt/pkg/util/tls"
 
 	appsv1 "k8s.io/api/apps/v1"
 	corev1 "k8s.io/api/core/v1"

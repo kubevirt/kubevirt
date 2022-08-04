@@ -28,6 +28,8 @@ import (
 	"runtime"
 	"time"
 
+	kvtls "kubevirt.io/kubevirt/pkg/util/tls"
+
 	"kubevirt.io/kubevirt/pkg/flavor"
 
 	"github.com/emicklei/go-restful"
@@ -65,7 +67,6 @@ import (
 	vmiprom "kubevirt.io/kubevirt/pkg/monitoring/vmistats" // import for prometheus metrics
 	"kubevirt.io/kubevirt/pkg/service"
 	"kubevirt.io/kubevirt/pkg/util"
-	"kubevirt.io/kubevirt/pkg/util/webhooks"
 	virtconfig "kubevirt.io/kubevirt/pkg/virt-config"
 	"kubevirt.io/kubevirt/pkg/virt-controller/leaderelectionconfig"
 	"kubevirt.io/kubevirt/pkg/virt-controller/services"
@@ -410,7 +411,7 @@ func (vca *VirtControllerApp) Run() {
 
 	promCertManager := bootstrap.NewFileCertificateManager(vca.promCertFilePath, vca.promKeyFilePath)
 	go promCertManager.Start()
-	promTLSConfig := webhooks.SetupPromTLS(promCertManager, vca.clusterConfig)
+	promTLSConfig := kvtls.SetupPromTLS(promCertManager, vca.clusterConfig)
 
 	go func() {
 		httpLogger := logger.With("service", "http")
