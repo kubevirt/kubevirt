@@ -1683,8 +1683,8 @@ var _ = Describe("Template", func() {
 				Expect(pod.Spec.Containers[0].Resources.Requests.Memory().String()).To(Equal(requestMemory))
 				Expect(pod.Spec.Containers[0].Resources.Limits.Memory().String()).To(Equal(limitMemory))
 			},
-				Entry("on amd64", "amd64", "1250465637", "2250465637"),
-				Entry("on arm64", "arm64", "1384683365", "2384683365"),
+				Entry("on amd64", "amd64", "1251514213", "2251514213"),
+				Entry("on arm64", "arm64", "1385731941", "2385731941"),
 			)
 			DescribeTable("should overcommit guest overhead if selected, by only adding the overhead to memory limits", func(arch string, limitMemory string) {
 				config, kvInformer, svc = configFactory(arch)
@@ -1719,8 +1719,8 @@ var _ = Describe("Template", func() {
 				Expect(pod.Spec.Containers[0].Resources.Requests.Memory().String()).To(Equal("1G"))
 				Expect(pod.Spec.Containers[0].Resources.Limits.Memory().String()).To(Equal(limitMemory))
 			},
-				Entry("on amd64", "amd64", "2250465637"),
-				Entry("on arm64", "arm64", "2384683365"),
+				Entry("on amd64", "amd64", "2251514213"),
+				Entry("on arm64", "arm64", "2385731941"),
 			)
 			DescribeTable("should not add unset resources", func(arch string, requestMemory int) {
 				config, kvInformer, svc = configFactory(arch)
@@ -1757,8 +1757,8 @@ var _ = Describe("Template", func() {
 				// Limits for KVM and TUN devices should be requested.
 				Expect(pod.Spec.Containers[0].Resources.Limits).ToNot(BeNil())
 			},
-				Entry("on amd64", "amd64", 330),
-				Entry("on arm64", "arm64", 464),
+				Entry("on amd64", "amd64", 331),
+				Entry("on arm64", "arm64", 465),
 			)
 
 			DescribeTable("should check autoattachGraphicsDevicse", func(arch string, autoAttach *bool, memory int) {
@@ -1793,12 +1793,12 @@ var _ = Describe("Template", func() {
 				Expect(err).ToNot(HaveOccurred())
 				Expect(pod.Spec.Containers[0].Resources.Requests.Memory().ToDec().ScaledValue(resource.Mega)).To(Equal(int64(memory)))
 			},
-				Entry("and consider graphics overhead if it is not set on amd64", "amd64", nil, 330),
-				Entry("and consider graphics overhead if it is set to true on amd64", "amd64", True(), 330),
-				Entry("and not consider graphics overhead if it is set to false on amd64", "amd64", False(), 313),
-				Entry("and consider graphics overhead if it is not set on arm64", "arm64", nil, 464),
-				Entry("and consider graphics overhead if it is set to true on arm64", "arm64", True(), 464),
-				Entry("and not consider graphics overhead if it is set to false on arm64", "arm64", False(), 447),
+				Entry("and consider graphics overhead if it is not set on amd64", "amd64", nil, 331),
+				Entry("and consider graphics overhead if it is set to true on amd64", "amd64", True(), 331),
+				Entry("and not consider graphics overhead if it is set to false on amd64", "amd64", False(), 314),
+				Entry("and consider graphics overhead if it is not set on arm64", "arm64", nil, 465),
+				Entry("and consider graphics overhead if it is set to true on arm64", "arm64", True(), 465),
+				Entry("and not consider graphics overhead if it is set to false on arm64", "arm64", False(), 448),
 			)
 			It("should calculate vcpus overhead based on guest toplogy", func() {
 				config, kvInformer, svc = configFactory(defaultArch)
@@ -1997,10 +1997,10 @@ var _ = Describe("Template", func() {
 							MountPath: "/dev/hugepages"},
 					))
 			},
-				Entry("hugepages-2Mi on amd64", "amd64", "2Mi", 249),
-				Entry("hugepages-1Gi on amd64", "amd64", "1Gi", 249),
-				Entry("hugepages-2Mi on arm64", "arm64", "2Mi", 383),
-				Entry("hugepages-1Gi on arm64", "arm64", "1Gi", 383),
+				Entry("hugepages-2Mi on amd64", "amd64", "2Mi", 250),
+				Entry("hugepages-1Gi on amd64", "amd64", "1Gi", 250),
+				Entry("hugepages-2Mi on arm64", "arm64", "2Mi", 384),
+				Entry("hugepages-1Gi on arm64", "arm64", "1Gi", 384),
 			)
 			DescribeTable("should account for difference between guest and container requested memory ", func(arch string, memorySize int) {
 				config, kvInformer, svc = configFactory(arch)
@@ -2066,8 +2066,8 @@ var _ = Describe("Template", func() {
 							MountPath: "/dev/hugepages"},
 					))
 			},
-				Entry("on amd64", "amd64", 249),
-				Entry("on arm64", "arm64", 383),
+				Entry("on amd64", "amd64", 250),
+				Entry("on arm64", "arm64", 384),
 			)
 		})
 
