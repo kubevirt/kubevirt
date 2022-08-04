@@ -3,8 +3,6 @@ package openapi_test
 import (
 	"encoding/json"
 
-	"kubevirt.io/kubevirt/pkg/virt-api/rest"
-
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
@@ -12,6 +10,7 @@ import (
 	v1 "kubevirt.io/api/core/v1"
 
 	"kubevirt.io/kubevirt/pkg/util/openapi"
+	"kubevirt.io/kubevirt/pkg/virt-api/definitions"
 )
 
 var _ = Describe("Openapi", func() {
@@ -21,7 +20,7 @@ var _ = Describe("Openapi", func() {
 	var obj *unstructured.Unstructured
 
 	BeforeEach(func() {
-		validator = openapi.CreateOpenAPIValidator(rest.ComposeAPIDefinitions())
+		validator = openapi.CreateOpenAPIValidator(definitions.ComposeAPIDefinitions())
 		vmi = v1.NewVMI("testvm", "")
 		obj = &unstructured.Unstructured{}
 	})

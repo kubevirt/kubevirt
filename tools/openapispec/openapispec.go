@@ -32,7 +32,7 @@ import (
 
 	"kubevirt.io/kubevirt/pkg/util/openapi"
 	virt_api "kubevirt.io/kubevirt/pkg/virt-api"
-	"kubevirt.io/kubevirt/pkg/virt-api/rest"
+	"kubevirt.io/kubevirt/pkg/virt-api/definitions"
 )
 
 func dumpOpenApiSpec(dumppath *string, apiws []*restful.WebService) {
@@ -59,5 +59,5 @@ func main() {
 	// arguments for NewVirtAPIApp have no influence on the generated spec
 	app := virt_api.NewVirtApi()
 	app.Compose()
-	dumpOpenApiSpec(dumpapispecpath, rest.ComposeAPIDefinitions())
+	dumpOpenApiSpec(dumpapispecpath, definitions.ComposeAPIDefinitions())
 }

@@ -50,6 +50,7 @@ import (
 	cdiv1 "kubevirt.io/containerized-data-importer-api/pkg/apis/core/v1beta1"
 
 	"kubevirt.io/kubevirt/pkg/controller"
+	"kubevirt.io/kubevirt/pkg/instancetype"
 	kutil "kubevirt.io/kubevirt/pkg/util"
 	k6ttypes "kubevirt.io/kubevirt/pkg/util/types"
 	virtconfig "kubevirt.io/kubevirt/pkg/virt-config"
@@ -84,9 +85,17 @@ type SubresourceAPIApp struct {
 	credentialsLock         *sync.Mutex
 	statusUpdater           *status.VMStatusUpdater
 	clusterConfig           *virtconfig.ClusterConfig
+	instancetypeMethods     instancetype.Methods
 }
 
 func NewSubresourceAPIApp(virtCli kubecli.KubevirtClient, consoleServerPort int, tlsConfiguration *tls.Config, clusterConfig *virtconfig.ClusterConfig) *SubresourceAPIApp {
+	// When this method is called from tools/openapispec.go when running 'make generate',
+	// the virtCli is nil, and accessing GeneratedKubeVirtClient() would cause nil dereference.
+	var instancetypeMethods instancetype.Methods
+	if virtCli != nil {
+		instancetypeMethods = instancetype.NewMethods(virtCli)
+	}
+
 	return &SubresourceAPIApp{
 		virtCli:                 virtCli,
 		consoleServerPort:       consoleServerPort,
@@ -95,6 +104,7 @@ func NewSubresourceAPIApp(virtCli kubecli.KubevirtClient, consoleServerPort int,
 		handlerTLSConfiguration: tlsConfiguration,
 		statusUpdater:           status.NewVMStatusUpdater(virtCli),
 		clusterConfig:           clusterConfig,
+		instancetypeMethods:     instancetypeMethods,
 	}
 }
 

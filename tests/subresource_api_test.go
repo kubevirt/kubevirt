@@ -29,16 +29,20 @@ import (
 	k8sv1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	"k8s.io/utils/pointer"
 
 	"kubevirt.io/kubevirt/tests/util"
 
 	cd "kubevirt.io/kubevirt/tests/containerdisk"
 
 	v1 "kubevirt.io/api/core/v1"
+	instancetypeapi "kubevirt.io/api/instancetype"
+	instancetypev1alpha1 "kubevirt.io/api/instancetype/v1alpha1"
 	"kubevirt.io/client-go/kubecli"
 
 	"kubevirt.io/kubevirt/tests"
 	"kubevirt.io/kubevirt/tests/flags"
+	"kubevirt.io/kubevirt/tests/libvmi"
 	"kubevirt.io/kubevirt/tests/testsuite"
 )
 
@@ -235,6 +239,165 @@ var _ = Describe("[sig-compute]Subresource Api", func() {
 					}
 					return newVMI.Status.Phase
 				}, 90*time.Second, 1*time.Second).Should(Equal(v1.Running))
+			})
+		})
+
+		Context("ExpandSpec endpoint", func() {
+			Context("instancetype", func() {
+				var (
+					instancetype *instancetypev1alpha1.VirtualMachineInstancetype
+					expectedCpu  *v1.CPU
+					vmi          *v1.VirtualMachineInstance
+				)
+
+				BeforeEach(func() {
+					instancetype = newVirtualMachineInstancetype(nil)
+					instancetype.Spec.CPU.Guest = 2
+
+					expectedCpu = &v1.CPU{
+						Sockets: 2,
+						Cores:   1,
+						Threads: 1,
+					}
+
+					var err error
+					instancetype, err = virtCli.VirtualMachineInstancetype(util.NamespaceTestDefault).
+						Create(context.Background(), instancetype, metav1.CreateOptions{})
+					Expect(err).ToNot(HaveOccurred())
+
+					vmi = libvmi.New()
+				})
+
+				AfterEach(func() {
+					err := virtCli.VirtualMachineInstancetype(util.NamespaceTestDefault).
+						Delete(context.Background(), instancetype.Name, metav1.DeleteOptions{})
+					Expect(err).ToNot(HaveOccurred())
+				})
+
+				It("[test_id:TODO] should return unchanged VirtualMachine, if instancetype is not used", func() {
+					vm := tests.NewRandomVirtualMachine(vmi, false)
+
+					vm.Spec.Template.Spec.Domain.CPU = &v1.CPU{Sockets: 2, Cores: 1, Threads: 1}
+
+					vm, err := virtCli.VirtualMachine(util.NamespaceTestDefault).Create(vm)
+					Expect(err).ToNot(HaveOccurred())
+
+					expandedVm, err := virtCli.VirtualMachine(util.NamespaceTestDefault).
+						GetWithExpandedSpec(vm.GetName())
+					Expect(err).ToNot(HaveOccurred())
+
+					Expect(expandedVm.Spec).To(Equal(vm.Spec))
+				})
+
+				It("[test_id:TODO] should return VirtualMachine with instancetype expanded", func() {
+
+					vm := tests.NewRandomVirtualMachine(vmi, false)
+					vm.Spec.Instancetype = &v1.InstancetypeMatcher{
+						Name: instancetype.Name,
+						Kind: instancetypeapi.SingularResourceName,
+					}
+
+					vm, err := virtCli.VirtualMachine(util.NamespaceTestDefault).Create(vm)
+					Expect(err).ToNot(HaveOccurred())
+
+					expandedVm, err := virtCli.VirtualMachine(util.NamespaceTestDefault).
+						GetWithExpandedSpec(vm.GetName())
+					Expect(err).ToNot(HaveOccurred())
+
+					Expect(expandedVm.Spec.Instancetype).To(BeNil(), "Expanded VM should not have InstancetypeMatcher")
+					Expect(expandedVm.Spec.Template.Spec.Domain.CPU).To(Equal(expectedCpu), "VM should have instancetype expanded")
+				})
+
+				It("[test_id:TODO] should fail, if referenced instancetype does not exist", func() {
+					vm := tests.NewRandomVirtualMachine(vmi, false)
+					vm.Spec.Instancetype = &v1.InstancetypeMatcher{
+						Name: "noniexisting-instancetype",
+						Kind: instancetypeapi.SingularResourceName,
+					}
+
+					vm, err := virtCli.VirtualMachine(util.NamespaceTestDefault).Create(vm)
+					Expect(err).To(HaveOccurred())
+				})
+
+				It("[test_id:TODO] should fail, if instancetype expansion hits a conflict", func() {
+					vm := tests.NewRandomVirtualMachine(vmi, false)
+					vm.Spec.Instancetype = &v1.InstancetypeMatcher{
+						Name: instancetype.Name,
+						Kind: instancetypeapi.SingularResourceName,
+					}
+
+					vm.Spec.Template.Spec.Domain.CPU = &v1.CPU{Sockets: 1, Cores: 1, Threads: 1}
+
+					vm, err := virtCli.VirtualMachine(util.NamespaceTestDefault).Create(vm)
+					Expect(err).To(HaveOccurred())
+				})
+			})
+
+			Context("preference", func() {
+				var preference *instancetypev1alpha1.VirtualMachinePreference
+
+				BeforeEach(func() {
+					preference = newVirtualMachinePreference()
+					preference.Spec.Devices = &instancetypev1alpha1.DevicePreferences{
+						PreferredAutoattachGraphicsDevice: pointer.Bool(true),
+					}
+
+					var err error
+					preference, err = virtCli.VirtualMachinePreference(util.NamespaceTestDefault).
+						Create(context.Background(), preference, metav1.CreateOptions{})
+					Expect(err).NotTo(HaveOccurred())
+				})
+
+				AfterEach(func() {
+					err := virtCli.VirtualMachinePreference(util.NamespaceTestDefault).
+						Delete(context.Background(), preference.Name, metav1.DeleteOptions{})
+					Expect(err).ToNot(HaveOccurred())
+				})
+
+				It("[test_id:TODO] should return unchanged VirtualMachine, if preference is not used", func() {
+					// Using NewCirros() here to have some data in spec.
+					vm := tests.NewRandomVirtualMachine(libvmi.NewCirros(), false)
+
+					vm, err := virtCli.VirtualMachine(util.NamespaceTestDefault).Create(vm)
+					Expect(err).ToNot(HaveOccurred())
+
+					expandedVm, err := virtCli.VirtualMachine(util.NamespaceTestDefault).
+						GetWithExpandedSpec(vm.GetName())
+					Expect(err).ToNot(HaveOccurred())
+
+					Expect(expandedVm.Spec).To(Equal(vm.Spec))
+				})
+
+				It("[test_id:TODO] should return VirtualMachine with preference expanded", func() {
+					// Using NewCirros() here to have some data in spec.
+					vm := tests.NewRandomVirtualMachine(libvmi.NewCirros(), false)
+					vm.Spec.Preference = &v1.PreferenceMatcher{
+						Name: preference.Name,
+						Kind: instancetypeapi.SingularPreferenceResourceName,
+					}
+
+					vm, err := virtCli.VirtualMachine(util.NamespaceTestDefault).Create(vm)
+					Expect(err).ToNot(HaveOccurred())
+
+					expandedVm, err := virtCli.VirtualMachine(util.NamespaceTestDefault).
+						GetWithExpandedSpec(vm.GetName())
+					Expect(err).ToNot(HaveOccurred())
+
+					Expect(expandedVm.Spec.Preference).To(BeNil(), "Expanded VM should not have InstancetypeMatcher")
+					Expect(*expandedVm.Spec.Template.Spec.Domain.Devices.AutoattachGraphicsDevice).To(Equal(true), "VM should have preference expanded")
+				})
+
+				It("[test_id:TODO] should fail, if referenced preference does not exist", func() {
+					// Using NewCirros() here to have some data in spec.
+					vm := tests.NewRandomVirtualMachine(libvmi.NewCirros(), false)
+					vm.Spec.Preference = &v1.PreferenceMatcher{
+						Name: "nonexisting-preference",
+						Kind: instancetypeapi.SingularPreferenceResourceName,
+					}
+
+					vm, err := virtCli.VirtualMachine(util.NamespaceTestDefault).Create(vm)
+					Expect(err).To(HaveOccurred())
+				})
 			})
 		})
 	})
