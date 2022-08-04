@@ -805,7 +805,7 @@ var _ = Describe("Export controlleer", func() {
 			controller.PVCInformer.GetStore().Add(pvc)
 			retry, err := controller.updateVMExport(testVMExport)
 			Expect(err).ToNot(HaveOccurred())
-			Expect(retry).To(BeEquivalentTo(time.Second))
+			Expect(retry).To(BeEquivalentTo(requeueTime))
 			service, err := k8sClient.CoreV1().Services(testNamespace).Get(context.Background(), fmt.Sprintf("%s-%s", exportPrefix, testVMExport.Name), metav1.GetOptions{})
 			Expect(err).ToNot(HaveOccurred())
 			Expect(service.Name).To(Equal(fmt.Sprintf("%s-%s", exportPrefix, testVMExport.Name)))

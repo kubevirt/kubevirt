@@ -79,8 +79,8 @@ const (
 
 	certificates = "certificates"
 
-	pvcNotFoundReason = "pvcNotFound"
-	podReadyReason    = "podReady"
+	pvcNotFoundReason = "PVCNotFound"
+	podReadyReason    = "PodReady"
 
 	proxyUrlBase = "https://virt-exportproxy.%s.svc/api/export.kubevirt.io/v1alpha1/namespaces/%s/virtualmachineexports/%s%s"
 
@@ -509,7 +509,7 @@ var _ = SIGDescribe("Export", func() {
 				return nil
 			}
 			return export.Status.Conditions
-		}, 60*time.Second, 1*time.Second).Should(ContainElement(podReadyCondition), "export %s/%s is expected to become ready %v", export.Namespace, export.Name, export)
+		}, 180*time.Second, 1*time.Second).Should(ContainElement(podReadyCondition), "export %s/%s is expected to become ready %v", export.Namespace, export.Name, export)
 		return export
 	}
 
@@ -1175,10 +1175,11 @@ var _ = SIGDescribe("Export", func() {
 
 		return vm
 	}
+
 	It("should create export from VMSnapshot with multiple volumes", func() {
 		sc, exists := libstorage.GetSnapshotStorageClass()
 		if !exists {
-			Skip("Skip test when Filesystem storage is not present")
+			Skip("Skip test when storage with snapshot is not present")
 		}
 		blankDv := libstorage.NewBlankDataVolume(util.NamespaceTestDefault, sc, "64Mi", k8sv1.ReadWriteOnce, k8sv1.PersistentVolumeFilesystem)
 		vm := tests.NewRandomVMWithDataVolumeAndUserDataInStorageClass(
@@ -1198,6 +1199,26 @@ var _ = SIGDescribe("Export", func() {
 		// [1] is the cloud init
 		restoreName2 := fmt.Sprintf("%s-%s", export.Name, vm.Spec.Template.Spec.Volumes[2].DataVolume.Name)
 		verifyMultiKubevirtInternal(export, export.Name, export.Namespace, restoreName, restoreName2)
+	})
+
+	It("should mark the status phase skipped on VMSnapshot without volumes", func() {
+		vm := tests.NewRandomVMWithEphemeralDisk(cd.ContainerDiskFor(cd.ContainerDiskCirros))
+		vm = createVM(vm)
+		snapshot := createAndVerifyVMSnapshot(vm)
+		Expect(snapshot).ToNot(BeNil())
+		defer deleteSnapshot(snapshot)
+		// For testing the token is the name of the source snapshot.
+		token := createExportTokenSecret(snapshot.Name, snapshot.Namespace)
+		export := createVMSnapshotExportObject(snapshot.Name, snapshot.Namespace, token)
+		Expect(export).ToNot(BeNil())
+		Eventually(func() exportv1.VirtualMachineExportPhase {
+			export, err = virtClient.VirtualMachineExport(export.Namespace).Get(context.Background(), export.Name, metav1.GetOptions{})
+			Expect(err).ToNot(HaveOccurred())
+			if export.Status == nil {
+				return ""
+			}
+			return export.Status.Phase
+		}, 30*time.Second, time.Second).Should(Equal(exportv1.Skipped))
 	})
 })
 
