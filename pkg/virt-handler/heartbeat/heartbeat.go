@@ -71,22 +71,37 @@ func (h *HeartBeat) heartBeat(heartBeatInterval time.Duration, stopCh chan struc
 	// 1 minute with a 1.2 jitter + the time it takes for the heartbeat function to run (sliding == true).
 	// So the amount of time between heartbeats randomly varies between 1min and 2min12sec + the heartbeat function execution time.
 	wait.JitterUntil(h.do, heartBeatInterval, 1.2, true, stopCh)
-	now, err := json.Marshal(metav1.Now())
-	if err != nil {
-		log.DefaultLogger().Reason(err).Errorf("Can't determine date")
-		return
-	}
-	var data []byte
-	data = []byte(fmt.Sprintf(`{"metadata": { "labels": {"%s": "%s", "%s": "%t"}, "annotations": {"%s": %s}}}`,
-		v1.NodeSchedulable, "false",
-		v1.CPUManager, false,
-		v1.VirtHandlerHeartbeat, string(now),
-	))
-	_, err = h.clientset.Nodes().Patch(context.Background(), h.host, types.StrategicMergePatchType, data, metav1.PatchOptions{})
-	if err != nil {
-		log.DefaultLogger().Reason(err).Errorf("Can't patch node %s", h.host)
-		return
-	}
+
+	//ensure that the node is getting marked as unschedulable when removed
+	h.labelNodeUnschedulable()
+}
+
+func (h *HeartBeat) labelNodeUnschedulable() (done chan struct{}) {
+	done = make(chan struct{})
+	go func() {
+		now, err := json.Marshal(metav1.Now())
+		if err != nil {
+			log.DefaultLogger().Reason(err).Errorf("Can't determine date")
+			return
+		}
+		var data []byte
+		cpuManagerEnabled := false
+		if h.clusterConfig.CPUManagerEnabled() {
+			cpuManagerEnabled = h.isCPUManagerEnabled(h.cpuManagerPaths)
+		}
+		data = []byte(fmt.Sprintf(`{"metadata": { "labels": {"%s": "%s", "%s": "%t"}, "annotations": {"%s": %s}}}`,
+			v1.NodeSchedulable, "false",
+			v1.CPUManager, cpuManagerEnabled,
+			v1.VirtHandlerHeartbeat, string(now),
+		))
+		_, err = h.clientset.Nodes().Patch(context.Background(), h.host, types.StrategicMergePatchType, data, metav1.PatchOptions{})
+		if err != nil {
+			log.DefaultLogger().Reason(err).Errorf("Can't patch node %s", h.host)
+			return
+		}
+		close(done)
+	}()
+	return done
 }
 
 // waitForDevicePlugins gives the device plugins additional time to successfully connect to the kubelet.
