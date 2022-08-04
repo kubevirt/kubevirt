@@ -614,5 +614,6 @@ func (m *mounter) legacyUnmountKernelArtifacts(vmi *v1.VirtualMachineInstance) e
 		return nil
 	}
 
-	return fmt.Errorf("kernel artifacts record wasn't found")
+	log.Log.Object(vmi).Info("Kernel artifacts record wasn't found for legacy unmount")
+	return nil
 }
