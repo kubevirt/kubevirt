@@ -34,6 +34,7 @@ import (
 
 	"kubevirt.io/client-go/kubecli"
 
+	network "kubevirt.io/kubevirt/pkg/network/setup"
 	netvmispec "kubevirt.io/kubevirt/pkg/network/vmispec"
 	"kubevirt.io/kubevirt/tests"
 	"kubevirt.io/kubevirt/tests/libvmi"
@@ -98,27 +99,32 @@ var _ = SIGDescribe("Infosource", func() {
 					InfoSource: netvmispec.InfoSourceDomain,
 					MAC:        primaryInterfaceMac,
 					Name:       primaryNetwork,
+					QueueCount: network.DefaultInterfaceQueueCount,
 				},
 				{
 					InfoSource:    netvmispec.InfoSourceDomainAndGA,
 					InterfaceName: "eth1",
 					MAC:           secondaryInterface1Mac,
 					Name:          secondaryInterface1Name,
+					QueueCount:    network.DefaultInterfaceQueueCount,
 				},
 				{
 					InfoSource: netvmispec.InfoSourceDomain,
 					MAC:        secondaryInterface2Mac,
 					Name:       secondaryInterface2Name,
+					QueueCount: network.DefaultInterfaceQueueCount,
 				},
 				{
 					InfoSource:    netvmispec.InfoSourceGuestAgent,
 					InterfaceName: "eth0",
 					MAC:           primaryInterfaceNewMac,
+					QueueCount:    network.UnknownInterfaceQueueCount,
 				},
 				{
 					InfoSource:    netvmispec.InfoSourceGuestAgent,
 					InterfaceName: dummyInterfaceName,
 					MAC:           dummyInterfaceMac,
+					QueueCount:    network.UnknownInterfaceQueueCount,
 				},
 			}
 

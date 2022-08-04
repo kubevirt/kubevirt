@@ -10482,6 +10482,10 @@ var CRDsValidation map[string]string = map[string]string{
                 description: Name of the interface, corresponds to name of the network
                   assigned to the interface
                 type: string
+              queueCount:
+                description: Specifies how many queues are allocated by MultiQueue
+                format: int32
+                type: integer
             type: object
           type: array
         launcherContainerImageVersion:
