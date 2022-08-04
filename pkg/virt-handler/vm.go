@@ -1407,13 +1407,17 @@ func (c *VirtualMachineController) Run(threadiness int, stopCh chan struct{}) {
 		}
 	}
 
-	go c.heartBeat.Run(c.heartBeatInterval, stopCh)
+	heartBeatDone := make(chan struct{})
+	go func() {
+		c.heartBeat.Run(c.heartBeatInterval, stopCh)
+		close(heartBeatDone)
+	}()
 
 	// Start the actual work
 	for i := 0; i < threadiness; i++ {
 		go wait.Until(c.runWorker, time.Second, stopCh)
 	}
-
+	<-heartBeatDone
 	<-stopCh
 	log.Log.Info("Stopping virt-handler controller.")
 }
