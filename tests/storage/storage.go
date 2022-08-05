@@ -1261,7 +1261,7 @@ var _ = SIGDescribe("Storage", func() {
 											{
 												Key:      labelKey,
 												Operator: metav1.LabelSelectorOpIn,
-												Values:   []string{string("")}},
+												Values:   []string{""}},
 										},
 									},
 									TopologyKey: "kubernetes.io/hostname",
@@ -1310,7 +1310,7 @@ var _ = SIGDescribe("Storage", func() {
 											{
 												Key:      labelKey,
 												Operator: metav1.LabelSelectorOpIn,
-												Values:   []string{string("")}},
+												Values:   []string{""}},
 										},
 									},
 									TopologyKey: "kubernetes.io/hostname",
