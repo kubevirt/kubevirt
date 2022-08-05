@@ -35,7 +35,7 @@ var _ = Describe("VMNetworkConfigurator", func() {
 		baseCacheCreator tempCacheCreator
 	)
 	AfterEach(func() {
-		baseCacheCreator.New("").Delete()
+		Expect(baseCacheCreator.New("").Delete()).To(Succeed())
 	})
 	Context("interface configuration", func() {
 

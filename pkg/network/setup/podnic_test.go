@@ -60,7 +60,7 @@ var _ = Describe("podNIC", func() {
 		mockDHCPConfigurator = dhcp.NewMockConfigurator(ctrl)
 	})
 	AfterEach(func() {
-		baseCacheCreator.New("").Delete()
+		Expect(baseCacheCreator.New("").Delete()).To(Succeed())
 	})
 	When("reading networking configuration succeed", func() {
 		var (
@@ -128,18 +128,22 @@ var _ = Describe("podNIC", func() {
 			api.NewDefaulter(runtime.GOARCH).SetObjectDefaults_Domain(domain)
 			podnic, err = newPhase2PodNICWithMocks(vmi)
 			Expect(err).ToNot(HaveOccurred())
-			cache.WriteDHCPInterfaceCache(
-				podnic.cacheCreator,
-				getPIDString(podnic.launcherPID),
-				podnic.podInterfaceName,
-				&cache.DHCPConfig{Name: podnic.podInterfaceName},
-			)
-			cache.WriteDomainInterfaceCache(
-				podnic.cacheCreator,
-				getPIDString(podnic.launcherPID),
-				podnic.vmiSpecIface.Name,
-				&domain.Spec.Devices.Interfaces[0],
-			)
+			Expect(
+				cache.WriteDHCPInterfaceCache(
+					podnic.cacheCreator,
+					getPIDString(podnic.launcherPID),
+					podnic.podInterfaceName,
+					&cache.DHCPConfig{Name: podnic.podInterfaceName},
+				),
+			).To(Succeed())
+			Expect(
+				cache.WriteDomainInterfaceCache(
+					podnic.cacheCreator,
+					getPIDString(podnic.launcherPID),
+					podnic.vmiSpecIface.Name,
+					&domain.Spec.Devices.Interfaces[0],
+				),
+			).To(Succeed())
 		})
 		Context("and starting the DHCP server fails", func() {
 			BeforeEach(func() {
@@ -150,7 +154,7 @@ var _ = Describe("podNIC", func() {
 				}
 			})
 			It("phase2 should panic", func() {
-				Expect(func() { podnic.PlugPhase2(domain) }).To(Panic())
+				Expect(func() { _ = podnic.PlugPhase2(domain) }).To(Panic())
 			})
 		})
 		Context("and starting the DHCP server succeed", func() {
@@ -247,7 +251,7 @@ var _ = Describe("podNIC", func() {
 				Expect(err).ToNot(HaveOccurred())
 				pid := 1
 				podnic.launcherPID = &pid
-				podnic.setState(cache.PodIfaceNetworkPreparationPending)
+				Expect(podnic.setState(cache.PodIfaceNetworkPreparationPending)).To(Succeed())
 			})
 
 			BeforeEach(func() {
@@ -286,7 +290,7 @@ var _ = Describe("podNIC", func() {
 				vmi := newVMIMasqueradeInterface("testnamespace", "testVmName", masqueradeCidr, masqueradeIpv6Cidr)
 				podnic, err = newPhase1PodNICWithMocks(vmi)
 				Expect(err).ToNot(HaveOccurred())
-				podnic.setState(cache.PodIfaceNetworkPreparationStarted)
+				Expect(podnic.setState(cache.PodIfaceNetworkPreparationStarted)).To(Succeed())
 			})
 			Context("and phase1 is called", func() {
 				It("should fail with CriticalNetworkError", func() {
@@ -305,7 +309,7 @@ var _ = Describe("podNIC", func() {
 				vmi := newVMIMasqueradeInterface("testnamespace", "testVmName", masqueradeCidr, masqueradeIpv6Cidr)
 				podnic, err = newPhase1PodNICWithMocks(vmi)
 				Expect(err).ToNot(HaveOccurred())
-				podnic.setState(cache.PodIfaceNetworkPreparationFinished)
+				Expect(podnic.setState(cache.PodIfaceNetworkPreparationFinished)).To(Succeed())
 			})
 			Context("and phase1 is called", func() {
 				It("should successfully return without calling infra configurator", func() {

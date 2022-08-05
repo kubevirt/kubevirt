@@ -61,7 +61,7 @@ var _ = Describe("Pod Network", func() {
 	})
 
 	AfterEach(func() {
-		os.RemoveAll(tmpDir)
+		Expect(os.RemoveAll(tmpDir)).To(Succeed())
 	})
 
 	Context("on successful setup", func() {

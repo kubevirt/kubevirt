@@ -25,6 +25,8 @@ import (
 	"fmt"
 	"os"
 
+	"kubevirt.io/client-go/log"
+
 	v1 "kubevirt.io/api/core/v1"
 
 	"kubevirt.io/kubevirt/pkg/network/cache"
@@ -95,7 +97,11 @@ func (d *configurator) EnsureDHCPServerStarted(podInterfaceName string, dhcpConf
 		if err != nil {
 			return fmt.Errorf("failed to create dhcp started file %s: %s", dhcpStartedFile, err)
 		}
-		newFile.Close()
+
+		if err := newFile.Close(); err != nil {
+			log.Log.Warningf(
+				"failed to close the DHCP readiness file descriptor %d: %v", int(newFile.Fd()), err)
+		}
 	}
 	return nil
 }

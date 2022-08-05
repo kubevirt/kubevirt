@@ -35,7 +35,7 @@ var _ = Describe("Bridge DHCP configurator", func() {
 	})
 
 	AfterEach(func() {
-		cacheCreator.New("").Delete()
+		Expect(cacheCreator.New("").Delete()).To(Succeed())
 	})
 
 	Context("Generate", func() {

@@ -34,7 +34,7 @@ var _ = Describe("DHCP configurator", func() {
 	})
 
 	AfterEach(func() {
-		cacheCreator.New("").Delete()
+		Expect(cacheCreator.New("").Delete()).To(Succeed())
 		Expect(os.RemoveAll(fakeDhcpStartedDir)).To(Succeed())
 	})
 

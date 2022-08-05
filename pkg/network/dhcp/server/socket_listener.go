@@ -42,7 +42,7 @@ func NewUDP4FilterListener(interfaceName, laddr string) (c ServeIfConn, e error)
 	}
 	defer func() {
 		if e != nil {
-			l.Close()
+			closeDHCPServerIgnoringError(l)
 		}
 	}()
 	p := ipv4.NewPacketConn(l)

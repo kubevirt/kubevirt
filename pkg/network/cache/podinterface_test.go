@@ -58,7 +58,7 @@ var _ = Describe("Pod Interface", func() {
 		}
 	})
 
-	AfterEach(func() { cacheCreator.New("").Delete() })
+	AfterEach(func() { Expect(cacheCreator.New("").Delete()).To(Succeed()) })
 
 	It("should return os.ErrNotExist if no cache entry exists", func() {
 		_, err := podIfaceCache.Read()
