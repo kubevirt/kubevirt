@@ -414,10 +414,10 @@ if [[ $KUBEVIRT_NONROOT =~ true ]]; then
     label_filter=$label_filter' || needs-non-root'
   fi
 else
-  if [[ -z $KUBEVIRT_E2E_SKIP ]]; then
-    export KUBEVIRT_E2E_SKIP="\\[verify-nonroot\\]"
+  if [[ -z $label_filter ]]; then
+    label_filter='!needs-non-root'
   else
-    export KUBEVIRT_E2E_SKIP="$KUBEVIRT_E2E_SKIP|\\[verify-nonroot\\]"
+    label_filter=$label_filter' || !needs-non-root'
   fi
 fi
 
