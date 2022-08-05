@@ -525,11 +525,9 @@ func GetOpenAPIDefinitions(ref common.ReferenceCallback) map[string]common.OpenA
 		"kubevirt.io/api/instancetype/v1alpha1.VirtualMachineInstancetype":                           schema_kubevirtio_api_instancetype_v1alpha1_VirtualMachineInstancetype(ref),
 		"kubevirt.io/api/instancetype/v1alpha1.VirtualMachineInstancetypeList":                       schema_kubevirtio_api_instancetype_v1alpha1_VirtualMachineInstancetypeList(ref),
 		"kubevirt.io/api/instancetype/v1alpha1.VirtualMachineInstancetypeSpec":                       schema_kubevirtio_api_instancetype_v1alpha1_VirtualMachineInstancetypeSpec(ref),
-		"kubevirt.io/api/instancetype/v1alpha1.VirtualMachineInstancetypeSpecRevision":               schema_kubevirtio_api_instancetype_v1alpha1_VirtualMachineInstancetypeSpecRevision(ref),
 		"kubevirt.io/api/instancetype/v1alpha1.VirtualMachinePreference":                             schema_kubevirtio_api_instancetype_v1alpha1_VirtualMachinePreference(ref),
 		"kubevirt.io/api/instancetype/v1alpha1.VirtualMachinePreferenceList":                         schema_kubevirtio_api_instancetype_v1alpha1_VirtualMachinePreferenceList(ref),
 		"kubevirt.io/api/instancetype/v1alpha1.VirtualMachinePreferenceSpec":                         schema_kubevirtio_api_instancetype_v1alpha1_VirtualMachinePreferenceSpec(ref),
-		"kubevirt.io/api/instancetype/v1alpha1.VirtualMachinePreferenceSpecRevision":                 schema_kubevirtio_api_instancetype_v1alpha1_VirtualMachinePreferenceSpecRevision(ref),
 		"kubevirt.io/api/migrations/v1alpha1.MigrationPolicy":                                        schema_kubevirtio_api_migrations_v1alpha1_MigrationPolicy(ref),
 		"kubevirt.io/api/migrations/v1alpha1.MigrationPolicyList":                                    schema_kubevirtio_api_migrations_v1alpha1_MigrationPolicyList(ref),
 		"kubevirt.io/api/migrations/v1alpha1.MigrationPolicySpec":                                    schema_kubevirtio_api_migrations_v1alpha1_MigrationPolicySpec(ref),
@@ -23872,39 +23870,6 @@ func schema_kubevirtio_api_instancetype_v1alpha1_VirtualMachineInstancetypeSpec(
 	}
 }
 
-func schema_kubevirtio_api_instancetype_v1alpha1_VirtualMachineInstancetypeSpecRevision(ref common.ReferenceCallback) common.OpenAPIDefinition {
-	return common.OpenAPIDefinition{
-		Schema: spec.Schema{
-			SchemaProps: spec.SchemaProps{
-				Description: "VirtualMachineInstancetypeSpecRevision is used to capture a versioned copy of VirtualMachineInstancetypeSpec within a ControllerRevision\n\n**WARNING** This struct should never change ensuring it can always be unmarshaled from a ControllerRevision",
-				Type:        []string{"object"},
-				Properties: map[string]spec.Schema{
-					"apiVersion": {
-						SchemaProps: spec.SchemaProps{
-							Description: "The specific version of VirtualMachineInstancetypeSpec that is contained below",
-							Type:        []string{"string"},
-							Format:      "",
-						},
-					},
-					"spec": {
-						VendorExtensible: spec.VendorExtensible{
-							Extensions: spec.Extensions{
-								"x-kubernetes-list-type": "atomic",
-							},
-						},
-						SchemaProps: spec.SchemaProps{
-							Description: "This is a marshaled version of the VirtualMachineInstancetypeSpec",
-							Type:        []string{"string"},
-							Format:      "byte",
-						},
-					},
-				},
-				Required: []string{"apiVersion", "spec"},
-			},
-		},
-	}
-}
-
 func schema_kubevirtio_api_instancetype_v1alpha1_VirtualMachinePreference(ref common.ReferenceCallback) common.OpenAPIDefinition {
 	return common.OpenAPIDefinition{
 		Schema: spec.Schema{
@@ -24046,39 +24011,6 @@ func schema_kubevirtio_api_instancetype_v1alpha1_VirtualMachinePreferenceSpec(re
 		},
 		Dependencies: []string{
 			"kubevirt.io/api/instancetype/v1alpha1.CPUPreferences", "kubevirt.io/api/instancetype/v1alpha1.ClockPreferences", "kubevirt.io/api/instancetype/v1alpha1.DevicePreferences", "kubevirt.io/api/instancetype/v1alpha1.FeaturePreferences", "kubevirt.io/api/instancetype/v1alpha1.FirmwarePreferences", "kubevirt.io/api/instancetype/v1alpha1.MachinePreferences"},
-	}
-}
-
-func schema_kubevirtio_api_instancetype_v1alpha1_VirtualMachinePreferenceSpecRevision(ref common.ReferenceCallback) common.OpenAPIDefinition {
-	return common.OpenAPIDefinition{
-		Schema: spec.Schema{
-			SchemaProps: spec.SchemaProps{
-				Description: "VirtualMachinePreferenceSpecRevision is used to capture a versioned copy of VirtualMachinePreferenceSpec within a ControllerRevision\n\n**WARNING** This struct should never change ensuring it can always be unmarshaled from a ControllerRevision",
-				Type:        []string{"object"},
-				Properties: map[string]spec.Schema{
-					"apiVersion": {
-						SchemaProps: spec.SchemaProps{
-							Description: "The specific version of VirtualMachinePreferenceSpec that is contained below",
-							Type:        []string{"string"},
-							Format:      "",
-						},
-					},
-					"spec": {
-						VendorExtensible: spec.VendorExtensible{
-							Extensions: spec.Extensions{
-								"x-kubernetes-list-type": "atomic",
-							},
-						},
-						SchemaProps: spec.SchemaProps{
-							Description: "This is a marshaled version of the VirtualMachinePreferenceSpec",
-							Type:        []string{"string"},
-							Format:      "byte",
-						},
-					},
-				},
-				Required: []string{"apiVersion", "spec"},
-			},
-		},
 	}
 }
 

@@ -71,19 +71,6 @@ type VirtualMachineClusterInstancetypeList struct {
 	Items           []VirtualMachineClusterInstancetype `json:"items"`
 }
 
-// VirtualMachineInstancetypeSpecRevision is used to capture a versioned copy of VirtualMachineInstancetypeSpec within a ControllerRevision
-//
-// **WARNING** This struct should never change ensuring it can always be unmarshaled from a ControllerRevision
-type VirtualMachineInstancetypeSpecRevision struct {
-
-	// The specific version of VirtualMachineInstancetypeSpec that is contained below
-	APIVersion string `json:"apiVersion" protobuf:"bytes,2,opt,name=apiVersion"`
-
-	// This is a marshaled version of the VirtualMachineInstancetypeSpec
-	// +listType=atomic
-	Spec []byte `json:"spec"`
-}
-
 // VirtualMachineInstancetypeSpec is a description of the VirtualMachineInstancetype or VirtualMachineClusterInstancetype.
 //
 // CPU and Memory are required attributes with both requiring that their Guest attribute is defined, ensuring a number of vCPUs and amount of RAM is always provided by each instancetype.
@@ -211,18 +198,6 @@ type VirtualMachineClusterPreferenceList struct {
 	metav1.ListMeta `json:"metadata,omitempty"`
 	// +listType=set
 	Items []VirtualMachineClusterPreference `json:"items"`
-}
-
-// VirtualMachinePreferenceSpecRevision is used to capture a versioned copy of VirtualMachinePreferenceSpec within a ControllerRevision
-//
-// **WARNING** This struct should never change ensuring it can always be unmarshaled from a ControllerRevision
-type VirtualMachinePreferenceSpecRevision struct {
-	// The specific version of VirtualMachinePreferenceSpec that is contained below
-	APIVersion string `json:"apiVersion" protobuf:"bytes,2,opt,name=apiVersion"`
-
-	// This is a marshaled version of the VirtualMachinePreferenceSpec
-	// +listType=atomic
-	Spec []byte `json:"spec"`
 }
 
 // VirtualMachinePreferenceSpec is a description of the VirtualMachinePreference or VirtualMachineClusterPreference.

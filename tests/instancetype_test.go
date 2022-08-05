@@ -4,6 +4,7 @@ import (
 	"context"
 	"encoding/json"
 	goerrors "errors"
+	appsv1 "k8s.io/api/apps/v1"
 	"time"
 
 	. "github.com/onsi/ginkgo/v2"
@@ -22,6 +23,7 @@ import (
 	instancetypev1alpha1 "kubevirt.io/api/instancetype/v1alpha1"
 	"kubevirt.io/client-go/kubecli"
 
+	"kubevirt.io/kubevirt/pkg/controller"
 	k6ttypes "kubevirt.io/kubevirt/pkg/util/types"
 	"kubevirt.io/kubevirt/tests"
 	"kubevirt.io/kubevirt/tests/libvmi"
@@ -496,22 +498,16 @@ var _ = Describe("[crit:medium][vendor:cnv-qe@redhat.com][level:component][sig-c
 			instancetypeRevision, err := virtClient.AppsV1().ControllerRevisions(util.NamespaceTestDefault).Get(context.Background(), vm.Spec.Instancetype.RevisionName, metav1.GetOptions{})
 			Expect(err).ToNot(HaveOccurred())
 
-			stashedInstancetypeSpecRevision := instancetypev1alpha1.VirtualMachineInstancetypeSpecRevision{}
-			stashedInstancetypeSpec := instancetypev1alpha1.VirtualMachineInstancetypeSpec{}
-			Expect(json.Unmarshal(instancetypeRevision.Data.Raw, &stashedInstancetypeSpecRevision)).To(Succeed())
-			Expect(stashedInstancetypeSpecRevision.APIVersion).To(Equal(instancetype.APIVersion))
-			Expect(json.Unmarshal(stashedInstancetypeSpecRevision.Spec, &stashedInstancetypeSpec)).To(Succeed())
-			Expect(stashedInstancetypeSpec).To(Equal(instancetype.Spec))
+			stashedInstancetype := &instancetypev1alpha1.VirtualMachineInstancetype{}
+			Expect(json.Unmarshal(instancetypeRevision.Data.Raw, stashedInstancetype)).To(Succeed())
+			Expect(stashedInstancetype.Spec).To(Equal(instancetype.Spec))
 
 			preferenceRevision, err := virtClient.AppsV1().ControllerRevisions(util.NamespaceTestDefault).Get(context.Background(), vm.Spec.Preference.RevisionName, metav1.GetOptions{})
 			Expect(err).ToNot(HaveOccurred())
 
-			stashedPreferenceSpecRevision := instancetypev1alpha1.VirtualMachinePreferenceSpecRevision{}
-			stashedPreferenceSpec := instancetypev1alpha1.VirtualMachinePreferenceSpec{}
-			Expect(json.Unmarshal(preferenceRevision.Data.Raw, &stashedPreferenceSpecRevision)).To(Succeed())
-			Expect(stashedPreferenceSpecRevision.APIVersion).To(Equal(preference.APIVersion))
-			Expect(json.Unmarshal(stashedPreferenceSpecRevision.Spec, &stashedPreferenceSpec)).To(Succeed())
-			Expect(stashedPreferenceSpec).To(Equal(preference.Spec))
+			stashedPreference := &instancetypev1alpha1.VirtualMachinePreference{}
+			Expect(json.Unmarshal(preferenceRevision.Data.Raw, stashedPreference)).To(Succeed())
+			Expect(stashedPreference.Spec).To(Equal(preference.Spec))
 
 			By("Checking that a VirtualMachineInstance has been created with the VirtualMachineInstancetype and VirtualMachinePreference applied")
 			vmi, err = virtClient.VirtualMachineInstance(util.NamespaceTestDefault).Get(vm.Name, &metav1.GetOptions{})
@@ -568,12 +564,9 @@ var _ = Describe("[crit:medium][vendor:cnv-qe@redhat.com][level:component][sig-c
 			instancetypeRevision, err = virtClient.AppsV1().ControllerRevisions(util.NamespaceTestDefault).Get(context.Background(), newVM.Spec.Instancetype.RevisionName, metav1.GetOptions{})
 			Expect(err).ToNot(HaveOccurred())
 
-			stashedInstancetypeSpecRevision = instancetypev1alpha1.VirtualMachineInstancetypeSpecRevision{}
-			stashedInstancetypeSpec = instancetypev1alpha1.VirtualMachineInstancetypeSpec{}
-			Expect(json.Unmarshal(instancetypeRevision.Data.Raw, &stashedInstancetypeSpecRevision)).To(Succeed())
-			Expect(stashedInstancetypeSpecRevision.APIVersion).To(Equal(updatedInstancetype.APIVersion))
-			Expect(json.Unmarshal(stashedInstancetypeSpecRevision.Spec, &stashedInstancetypeSpec)).To(Succeed())
-			Expect(stashedInstancetypeSpec).To(Equal(updatedInstancetype.Spec))
+			stashedInstancetype = &instancetypev1alpha1.VirtualMachineInstancetype{}
+			Expect(json.Unmarshal(instancetypeRevision.Data.Raw, stashedInstancetype)).To(Succeed())
+			Expect(stashedInstancetype.Spec).To(Equal(updatedInstancetype.Spec))
 
 			By("Checking that the new VirtualMachineInstance is using the updated VirtualMachineInstancetype")
 			newVMI, err = virtClient.VirtualMachineInstance(util.NamespaceTestDefault).Get(newVM.Name, &metav1.GetOptions{})
@@ -582,6 +575,80 @@ var _ = Describe("[crit:medium][vendor:cnv-qe@redhat.com][level:component][sig-c
 
 		})
 
+		It("[test_id:TODO] should fail if stored ControllerRevisions are different", func() {
+			vmi := libvmi.NewCirros()
+
+			By("Creating a VirtualMachineInstancetype")
+			instancetype := newVirtualMachineInstancetype(vmi)
+			instancetype, err := virtClient.VirtualMachineInstancetype(util.NamespaceTestDefault).
+				Create(context.Background(), instancetype, metav1.CreateOptions{})
+			Expect(err).ToNot(HaveOccurred())
+
+			By("Creating a VirtualMachine")
+			removeResourcesAndPreferencesFromVMI(vmi)
+			vm := tests.NewRandomVirtualMachine(vmi, false)
+
+			vm.Spec.Instancetype = &v1.InstancetypeMatcher{
+				Name: instancetype.Name,
+				Kind: instancetypeapi.SingularResourceName,
+			}
+
+			vm, err = virtClient.VirtualMachine(util.NamespaceTestDefault).Create(vm)
+			Expect(err).ToNot(HaveOccurred())
+
+			vm = tests.StartVirtualMachine(vm)
+
+			By("Waiting for VirtualMachineInstancetypeSpec ControllerRevision to be referenced from the VirtualMachine")
+			Eventually(func(g Gomega) {
+				vm, err = virtClient.VirtualMachine(vm.Namespace).Get(vm.Name, &metav1.GetOptions{})
+				g.Expect(err).ToNot(HaveOccurred())
+				g.Expect(vm.Spec.Instancetype.RevisionName).ToNot(BeEmpty())
+			}, 5*time.Minute, time.Second).Should(Succeed())
+
+			By("Checking that ControllerRevisions have been created for the VirtualMachineInstancetype and VirtualMachinePreference")
+			instancetypeRevision, err := virtClient.AppsV1().ControllerRevisions(util.NamespaceTestDefault).Get(context.Background(), vm.Spec.Instancetype.RevisionName, metav1.GetOptions{})
+			Expect(err).ToNot(HaveOccurred())
+
+			By("Stopping and removing VM")
+			vm = tests.StopVirtualMachine(vm)
+
+			err = virtClient.VirtualMachine(util.NamespaceTestDefault).Delete(vm.Name, &metav1.DeleteOptions{})
+			Expect(err).ToNot(HaveOccurred())
+
+			By("Creating changed ControllerRevision")
+			stashedInstancetype := &instancetypev1alpha1.VirtualMachineInstancetype{}
+			Expect(json.Unmarshal(instancetypeRevision.Data.Raw, stashedInstancetype)).To(Succeed())
+
+			stashedInstancetype.Spec.Memory.Guest.Add(resource.MustParse("10M"))
+
+			newInstancetypeRevision := &appsv1.ControllerRevision{
+				ObjectMeta: metav1.ObjectMeta{
+					Name:      instancetypeRevision.Name,
+					Namespace: instancetypeRevision.Namespace,
+				},
+			}
+			newInstancetypeRevision.Data.Raw, err = json.Marshal(stashedInstancetype)
+			Expect(err).ToNot(HaveOccurred())
+
+			newInstancetypeRevision, err = virtClient.AppsV1().ControllerRevisions(util.NamespaceTestDefault).Create(context.Background(), newInstancetypeRevision, metav1.CreateOptions{})
+			Expect(err).ToNot(HaveOccurred())
+
+			By("Creating and starting the VM and expecting a failure")
+			vm.Spec.Running = pointer.Bool(true)
+			vm, err = virtClient.VirtualMachine(util.NamespaceTestDefault).Create(vm)
+			Expect(err).ToNot(HaveOccurred())
+
+			Eventually(func(g Gomega) {
+				foundVm, err := virtClient.VirtualMachine(util.NamespaceTestDefault).Get(vm.Name, &metav1.GetOptions{})
+				g.Expect(err).ToNot(HaveOccurred())
+
+				cond := controller.NewVirtualMachineConditionManager().
+					GetCondition(foundVm, v1.VirtualMachineFailure)
+				g.Expect(cond).ToNot(BeNil())
+				g.Expect(cond.Status).To(Equal(k8sv1.ConditionTrue))
+				g.Expect(cond.Message).To(ContainSubstring("found existing ControllerRevision with unexpected data"))
+			}, 5*time.Minute, time.Second).Should(Succeed())
+		})
 	})
 })
 
