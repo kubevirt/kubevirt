@@ -165,7 +165,6 @@
       "pkg/inotify-informer/": "KubeVirt inotify-informer pkg does not pass errcheck yet",
       "pkg/instancetype/": "KubeVirt instancetype pkg does not pass errcheck yet",
       "pkg/monitoring/": "KubeVirt monitoring pkg does not pass errcheck yet",
-      "pkg/network/setup/": "KubeVirt network/setup pkg does not pass errcheck yet",
       "pkg/os/": "KubeVirt os pkg does not pass errcheck yet",
       "pkg/rest/": "KubeVirt rest pkg does not pass errcheck yet",
       "pkg/safepath/": "KubeVirt safepath pkg does not pass errcheck yet",
