@@ -21,15 +21,18 @@ package vmexport
 
 import (
 	"context"
+	"crypto/tls"
+	"crypto/x509"
 	"fmt"
 	"io"
 	"net/http"
 	"os"
-	"path/filepath"
+	"strconv"
 	"strings"
 	"time"
 
 	"github.com/spf13/cobra"
+	pb "gopkg.in/cheggaaa/pb.v1"
 	k8sv1 "k8s.io/api/core/v1"
 	k8serrors "k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
@@ -38,22 +41,41 @@ import (
 	exportv1 "kubevirt.io/api/export/v1alpha1"
 
 	"kubevirt.io/client-go/kubecli"
+
 	"kubevirt.io/kubevirt/pkg/util"
 	"kubevirt.io/kubevirt/pkg/virtctl/templates"
 )
 
 const (
+	// Available vmexport functions
+	CREATE   = "create"
+	DELETE   = "delete"
+	DOWNLOAD = "download"
+
+	// Available vmexport flags
+	OUTPUT_FLAG   = "--output"
+	CREATE_FLAG   = "--create"
+	VOLUME_FLAG   = "--volume"
+	VM_FLAG       = "--vm"
+	SNAPSHOT_FLAG = "--snapshot"
+	PVC_FLAG      = "--pvc"
+	RAW_FLAG      = "--raw"
+	TOKEN_FLAG    = "--secret"
+
 	// processingWaitInterval is the time interval used to wait for a virtualMachineExport to be ready
 	processingWaitInterval = 2 * time.Second
 	// processingWaitTotal is the maximum time used to wait for a virtualMachineExport to be ready
 	processingWaitTotal = 24 * time.Hour
+
+	exportTokenHeader    = "x-kubevirt-export-token"
+	dirExportTokenHeader = "/disk.img?x-kubevirt-export-token"
 
 	// ErrRequiredFlag serves as error message when a mandatory flag is missing
 	ErrRequiredFlag = "Need to specify the '%s' flag when using '%s'"
 	// ErrIncompatibleFlag serves as error message when an incompatible flag is used
 	ErrIncompatibleFlag = "The '%s' flag is incompatible with '%s'"
 	// ErrRequiredExportType serves as error message when no export kind is provided
-	ErrRequiredExportType = "Need to specify export kind when attempting to create a VirtualMachineExport [pvc|vm|snapshot]"
+	ErrRequiredExportType = "Need to specify export kind when attempting to create a VirtualMachineExport [--pvc|--vm|--snapshot]"
 	// ErrIncompatibleExportType serves as error message when an export kind is provided with an incompatible argument
 	ErrIncompatibleExportType = "Should not specify export kind"
 	// ErrBadExportArguments serves as error message when vmexport is used with bad arguments
@@ -67,7 +89,9 @@ var (
 	pvc          string
 	outputFile   string
 	shouldCreate bool
+	downloadRaw  bool
 	volumeName   string
+	secretName   string
 
 	// vmexport info
 	vmexportName string
@@ -78,11 +102,29 @@ var (
 
 type exportFunc func(client kubecli.KubevirtClient, namespace string) error
 
+type HTTPClientCreator func(*http.Transport) *http.Client
+
 type command struct {
 	clientConfig clientcmd.ClientConfig
 }
 
 var exportFunction exportFunc
+
+var httpClientCreatorFunc HTTPClientCreator
+
+// SetHTTPClientCreator allows overriding the default http client (useful for unit testing)
+func SetHTTPClientCreator(f HTTPClientCreator) {
+	httpClientCreatorFunc = f
+}
+
+// SetDefaultHTTPClientCreator sets the http client creator back to default
+func SetDefaultHTTPClientCreator() {
+	httpClientCreatorFunc = getHTTPClient
+}
+
+func init() {
+	SetDefaultHTTPClientCreator()
+}
 
 // usage provides several valid usage examples of vmexport
 func usage() string {
@@ -124,9 +166,11 @@ func NewVirtualMachineExportCommand(clientConfig clientcmd.ClientConfig) *cobra.
 	cmd.Flags().StringVar(&snapshot, "snapshot", "", "Sets VirtualMachineSnapshot as vmexport kind and specifies the snapshot name.")
 	cmd.Flags().StringVar(&pvc, "pvc", "", "Sets PersistentVolumeClaim as vmexport kind and specifies the PVC name.")
 	cmd.MarkFlagsMutuallyExclusive("vm", "snapshot", "pvc")
+	cmd.Flags().StringVar(&secretName, "secret", "", "Specifies the token name of the secret to be used in the VirtualMachineExport")
 	cmd.Flags().StringVar(&outputFile, "output", "", "Specifies the output path of the volume to be downloaded.")
 	cmd.Flags().StringVar(&volumeName, "volume", "", "Specifies the volume to be downloaded.")
 	cmd.Flags().BoolVar(&shouldCreate, "create", shouldCreate, "When used with the 'download' option, specifies that a VirtualMachineExport should be created from scratch.")
+	cmd.Flags().BoolVar(&downloadRaw, "raw", downloadRaw, "When used with the 'download' option, specifies that the file should be downloaded in a uncompressed format.")
 	cmd.SetUsageTemplate(templates.UsageTemplate())
 
 	return cmd
@@ -167,17 +211,17 @@ func parseExportArguments(args []string) error {
 
 	// Assign the appropiate vmexport function and make sure the used flags are compatible
 	switch funcName {
-	case "create":
+	case CREATE:
 		exportFunction = createVirtualMachineExport
 		if err := handleCreateFlags(args); err != nil {
 			return err
 		}
-	case "delete":
+	case DELETE:
 		exportFunction = deleteVirtualMachineExport
 		if err := handleDeleteFlags(args); err != nil {
 			return err
 		}
-	case "download":
+	case DOWNLOAD:
 		exportFunction = downloadVirtualMachineExport
 		if err := handleDownloadFlags(args); err != nil {
 			return err
@@ -212,7 +256,7 @@ func createVirtualMachineExport(client kubecli.KubevirtClient, namespace string)
 		return err
 	}
 	if vmexport != nil {
-		return fmt.Errorf("VirtualMachineExport '%s/%s' already exists", vmexportName, namespace)
+		return fmt.Errorf("VirtualMachineExport '%s/%s' already exists", namespace, vmexportName)
 	}
 
 	vmexport = &exportv1.VirtualMachineExport{
@@ -221,6 +265,7 @@ func createVirtualMachineExport(client kubecli.KubevirtClient, namespace string)
 			Namespace: namespace,
 		},
 		Spec: exportv1.VirtualMachineExportSpec{
+			TokenSecretRef: secretName,
 			Source: k8sv1.TypedLocalObjectReference{
 				APIGroup: &k8sv1.SchemeGroupVersion.Group,
 				Kind:     resourceKind,
@@ -263,32 +308,39 @@ func downloadVirtualMachineExport(client kubecli.KubevirtClient, namespace strin
 	if err != nil {
 		return err
 	}
+	if vmexport == nil {
+		return fmt.Errorf("Unable to get '%s/%s' VirtualMachineExport", namespace, vmexportName)
+	}
 
 	if err := waitForVirtualMachineExport(client, namespace, processingWaitInterval, processingWaitTotal); err != nil {
 		return err
 	}
 
-	if err := downloadVolumeInOutput(client, vmexport); err != nil {
+	if err := downloadVolume(client, vmexport); err != nil {
 		return err
 	}
 
 	return nil
 }
 
-// downloadVolumeInOutput handles the process of downloading the requested volume from a VirtualMachineExport object
-func downloadVolumeInOutput(client kubecli.KubevirtClient, vmexport *exportv1.VirtualMachineExport) error {
-	output, err := os.Open(outputFile)
+// downloadVolume handles the process of downloading the requested volume from a VirtualMachineExport
+func downloadVolume(client kubecli.KubevirtClient, vmexport *exportv1.VirtualMachineExport) error {
+	output, err := os.Create(outputFile)
 	if err != nil {
 		return err
 	}
-
 	defer util.CloseIOAndCheckErr(output, nil)
 
-	resp, err := getUrlFromVirtualMachineExport(vmexport)
+	// Extract the URL from the vmexport
+	downloadUrl, httpHeader, err := getUrlFromVirtualMachineExport(client, vmexport)
 	if err != nil {
 		return err
 	}
 
+	resp, err := handleHTTPRequest(client, vmexport, downloadUrl, httpHeader)
+	if err != nil {
+		return err
+	}
 	defer resp.Body.Close()
 
 	// Check server response
@@ -296,47 +348,57 @@ func downloadVolumeInOutput(client kubecli.KubevirtClient, vmexport *exportv1.Vi
 		return fmt.Errorf("Bad status: %s", resp.Status)
 	}
 
-	_, err = io.Copy(output, resp.Body)
-	if err != nil {
+	// Lastly, copy the file to the expected output
+	if err := copyFileWithProgressBar(output, resp); err != nil {
 		return err
 	}
 
+	fmt.Println("Download finished succesfully")
 	return nil
 }
 
 // getUrlFromVirtualMachineExport inspects the VirtualMachineExport status to fetch the extected URL
-func getUrlFromVirtualMachineExport(vmexport *exportv1.VirtualMachineExport) (*http.Response, error) {
+func getUrlFromVirtualMachineExport(client kubecli.KubevirtClient, vmexport *exportv1.VirtualMachineExport) (string, string, error) {
 	var downloadUrl string
-	outputFileExtension := filepath.Ext(outputFile)
+	var httpHeader string
 
-	if vmexport == nil || vmexport.Status == nil || vmexport.Status.Links == nil ||
-		vmexport.Status.Links.External == nil || vmexport.Status.Links.External.Volumes == nil {
-		return nil, fmt.Errorf("Unable to get URL from virtualMachineExport")
+	if vmexport.Status.Links == nil ||
+		vmexport.Status.Links.External == nil ||
+		vmexport.Status.Links.External.Volumes == nil {
+		return "", "", fmt.Errorf("Unable to access the volume info from '%s/%s' VirtualMachineExport", vmexport.Namespace, vmexport.Name)
 	}
 
 	for _, exportVolume := range vmexport.Status.Links.External.Volumes {
 		// Access the requested volume
 		if exportVolume.Name == volumeName {
 			for _, format := range exportVolume.Formats {
-				// Get the appropiate URL according to the output's extension
-				if string(format.Format) == outputFileExtension {
-					downloadUrl = format.Url
+				// If the --raw flag is used, we download the uncompressed file
+				if downloadRaw {
+					if format.Format == exportv1.KubeVirtRaw {
+						downloadUrl = format.Url
+						httpHeader = exportTokenHeader
+						break
+					} else if format.Format == exportv1.Dir {
+						downloadUrl = format.Url
+						httpHeader = dirExportTokenHeader
+						break
+					}
+				} else {
+					if format.Format == exportv1.KubeVirtGz || format.Format == exportv1.ArchiveGz {
+						downloadUrl = format.Url
+						httpHeader = exportTokenHeader
+						break
+					}
 				}
 			}
 		}
 	}
 
 	if downloadUrl == "" {
-		return nil, fmt.Errorf("Couldn't get an appropiate URL")
+		return "", "", fmt.Errorf("Unable to get URL from '%s/%s' VirtualMachineExport", vmexport.Namespace, vmexport.Name)
 	}
 
-	// get the URL
-	resp, err := http.Get(downloadUrl)
-	if err != nil {
-		return nil, err
-	}
-
-	return resp, nil
+	return downloadUrl, httpHeader, nil
 }
 
 // waitForVirtualMachineExport waits for the VirtualMachineExport status to be ready
@@ -364,6 +426,77 @@ func waitForVirtualMachineExport(client kubecli.KubevirtClient, namespace string
 	return err
 }
 
+// handleHTTPRequest generates the GET request with proper certificate handling
+func handleHTTPRequest(client kubecli.KubevirtClient, vmexport *exportv1.VirtualMachineExport, downloadUrl, httpHeader string) (*http.Response, error) {
+	token, err := getTokenFromSecret(client, vmexport)
+	if err != nil {
+		return nil, err
+	}
+
+	// Create new certPool and append our external SSL certificate
+	cert := vmexport.Status.Links.External.Cert
+	roots := x509.NewCertPool()
+	roots.AppendCertsFromPEM([]byte(cert))
+
+	transport := &http.Transport{
+		TLSClientConfig: &tls.Config{
+			RootCAs: roots,
+		},
+	}
+	httpClient := httpClientCreatorFunc(transport)
+
+	// Generate and do the request
+	req, _ := http.NewRequest("GET", downloadUrl, nil)
+	req.Header.Set(httpHeader, token)
+
+	return httpClient.Do(req)
+}
+
+// getHTTPClient assigns the default, non-mocked HTTP client
+func getHTTPClient(transport *http.Transport) *http.Client {
+	if transport == nil {
+		transport = &http.Transport{
+			TLSClientConfig: &tls.Config{
+				InsecureSkipVerify: true,
+			},
+		}
+	}
+
+	client := &http.Client{
+		Transport: transport,
+	}
+
+	return client
+}
+
+// copyFileWithProgressBar serves as a wrapper to copy the file with a progress bar
+func copyFileWithProgressBar(output *os.File, resp *http.Response) error {
+	// TODO: Unable to get file size when downloading using the compressed URL
+	filesize, _ := strconv.Atoi(resp.Header.Get("Content-Length"))
+
+	// Initiate progress bar
+	bar := pb.New(filesize).SetUnits(pb.U_BYTES)
+	rd := bar.NewProxyReader(resp.Body)
+	fmt.Println("Downloading file...")
+	bar.Start()
+
+	_, err := io.Copy(output, rd)
+	bar.Finish()
+	return err
+}
+
+// getTokenFromSecret extracts the token from the secret specified on the virtualMachineExport
+func getTokenFromSecret(client kubecli.KubevirtClient, vmexport *exportv1.VirtualMachineExport) (string, error) {
+	secret, err := client.CoreV1().Secrets(vmexport.Namespace).Get(context.Background(), vmexport.Spec.TokenSecretRef, metav1.GetOptions{})
+	if err != nil {
+		return "", err
+	}
+
+	// TODO: Need to change this hardcoded entry
+	token := secret.Data["token"]
+	return string(token), nil
+}
+
 // handleCreateFlags ensures that only compatible flag combinations are used with 'create' or with 'download' with the --create flag
 func handleCreateFlags(args []string) error {
 	if vm == "" && snapshot == "" && pvc == "" {
@@ -383,16 +516,23 @@ func handleCreateFlags(args []string) error {
 		resourceName = pvc
 	}
 
+	if secretName == "" {
+		return fmt.Errorf(ErrRequiredFlag, TOKEN_FLAG, funcName)
+	}
+
 	// These flags should only be checked when using 'create'
-	if funcName == "create" {
+	if funcName == CREATE {
 		if outputFile != "" {
-			return fmt.Errorf(ErrIncompatibleFlag, "--output", funcName)
+			return fmt.Errorf(ErrIncompatibleFlag, OUTPUT_FLAG, funcName)
 		}
 		if volumeName != "" {
-			return fmt.Errorf(ErrIncompatibleFlag, "--volume", funcName)
+			return fmt.Errorf(ErrIncompatibleFlag, VOLUME_FLAG, funcName)
 		}
 		if shouldCreate {
-			return fmt.Errorf(ErrIncompatibleFlag, "--create", funcName)
+			return fmt.Errorf(ErrIncompatibleFlag, CREATE_FLAG, funcName)
+		}
+		if downloadRaw {
+			return fmt.Errorf(ErrIncompatibleFlag, RAW_FLAG, funcName)
 		}
 	}
 
@@ -406,13 +546,16 @@ func handleDeleteFlags(args []string) error {
 	}
 
 	if outputFile != "" {
-		return fmt.Errorf(ErrIncompatibleFlag, "--output", funcName)
+		return fmt.Errorf(ErrIncompatibleFlag, OUTPUT_FLAG, funcName)
 	}
 	if volumeName != "" {
-		return fmt.Errorf(ErrIncompatibleFlag, "--volume", funcName)
+		return fmt.Errorf(ErrIncompatibleFlag, VOLUME_FLAG, funcName)
 	}
 	if shouldCreate {
-		return fmt.Errorf(ErrIncompatibleFlag, "--create", funcName)
+		return fmt.Errorf(ErrIncompatibleFlag, CREATE_FLAG, funcName)
+	}
+	if downloadRaw {
+		return fmt.Errorf(ErrIncompatibleFlag, RAW_FLAG, funcName)
 	}
 
 	return nil
@@ -430,10 +573,10 @@ func handleDownloadFlags(args []string) error {
 	}
 
 	if outputFile == "" {
-		return fmt.Errorf(ErrRequiredFlag, "--output", funcName)
+		return fmt.Errorf(ErrRequiredFlag, OUTPUT_FLAG, funcName)
 	}
 	if volumeName == "" {
-		return fmt.Errorf(ErrRequiredFlag, "--volume", funcName)
+		return fmt.Errorf(ErrRequiredFlag, VOLUME_FLAG, funcName)
 	}
 
 	return nil
