@@ -367,7 +367,7 @@ var _ = Describe("Migration watcher", func() {
 
 	addVirtualMachineInstance := func(vmi *virtv1.VirtualMachineInstance) {
 		sourcePod := newSourcePodForVirtualMachine(vmi)
-		podInformer.GetStore().Add(sourcePod)
+		ExpectWithOffset(1, podInformer.GetStore().Add(sourcePod)).To(Succeed())
 		mockQueue.ExpectAdds(1)
 		vmiSource.Add(vmi)
 		mockQueue.Wait()
@@ -520,8 +520,8 @@ var _ = Describe("Migration watcher", func() {
 			pod1.Labels[virtv1.MigrationJobLabel] = "some other job"
 			pod2 := newTargetPodForVirtualMachine(vmi, migration, k8sv1.PodRunning)
 			pod2.Labels[virtv1.MigrationJobLabel] = "some other job"
-			podInformer.GetStore().Add(pod1)
-			podInformer.GetStore().Add(pod2)
+			Expect(podInformer.GetStore().Add(pod1)).To(Succeed())
+			Expect(podInformer.GetStore().Add(pod2)).To(Succeed())
 
 			addMigration(migration)
 			addVirtualMachineInstance(vmi)
@@ -610,7 +610,7 @@ var _ = Describe("Migration watcher", func() {
 
 				addMigration(migration)
 				addVirtualMachineInstance(vmi)
-				podInformer.GetStore().Add(pod)
+				Expect(podInformer.GetStore().Add(pod)).To(Succeed())
 			}
 
 			controller.Execute()
@@ -841,7 +841,7 @@ var _ = Describe("Migration watcher", func() {
 
 					mCopy.CreationTimestamp = metav1.Unix(int64(rand.Intn(100)), int64(0))
 
-					migrationInformer.GetStore().Add(mCopy)
+					Expect(migrationInformer.GetStore().Add(mCopy)).To(Succeed())
 				}
 			}
 
@@ -852,7 +852,7 @@ var _ = Describe("Migration watcher", func() {
 
 					mCopy.CreationTimestamp = metav1.Unix(int64(rand.Intn(100)), int64(0))
 
-					migrationInformer.GetStore().Add(mCopy)
+					Expect(migrationInformer.GetStore().Add(mCopy)).To(Succeed())
 					finalizedMigrations++
 				}
 			}
@@ -863,8 +863,8 @@ var _ = Describe("Migration watcher", func() {
 			addMigration(keyMigration)
 
 			sourcePod := newSourcePodForVirtualMachine(vmi)
-			podInformer.GetStore().Add(sourcePod)
-			vmiInformer.GetStore().Add(vmi)
+			Expect(podInformer.GetStore().Add(sourcePod)).To(Succeed())
+			Expect(vmiInformer.GetStore().Add(vmi)).To(Succeed())
 
 			if keyMigration.IsFinal() {
 				finalizedMigrations++

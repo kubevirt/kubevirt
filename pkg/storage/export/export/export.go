@@ -1118,7 +1118,6 @@ func (ctrl *VMExportController) getLinks(pvcs []*corev1.PersistentVolumeClaim, e
 
 func (ctrl *VMExportController) internalExportCa() (string, error) {
 	key := controller.NamespacedKey(ctrl.KubevirtNamespace, components.KubeVirtExportCASecretName)
-	ctrl.ConfigMapInformer.GetStore().GetByKey(key)
 	obj, exists, err := ctrl.ConfigMapInformer.GetStore().GetByKey(key)
 	if err != nil || !exists {
 		return "", err
@@ -1310,7 +1309,7 @@ func (ctrl *VMExportController) getRouteCert(hostName string) (string, error) {
 func (ctrl *VMExportController) findCertByHostName(hostName string, certs []*x509.Certificate) (string, error) {
 	for _, cert := range certs {
 		if ctrl.matchesOrWildCard(hostName, cert.Subject.CommonName) {
-			return buildPemFromCert(cert), nil
+			return buildPemFromCert(cert)
 		}
 		for _, extension := range cert.Extensions {
 			if extension.Id.String() == subjectAltNameId {
@@ -1323,7 +1322,7 @@ func (ctrl *VMExportController) findCertByHostName(hostName string, certs []*x50
 				names := strings.Split(value, " ")
 				for _, name := range names {
 					if ctrl.matchesOrWildCard(hostName, name) {
-						return buildPemFromCert(cert), nil
+						return buildPemFromCert(cert)
 					}
 				}
 			}
@@ -1332,10 +1331,12 @@ func (ctrl *VMExportController) findCertByHostName(hostName string, certs []*x50
 	return "", nil
 }
 
-func buildPemFromCert(cert *x509.Certificate) string {
+func buildPemFromCert(cert *x509.Certificate) (string, error) {
 	pemOut := strings.Builder{}
-	pem.Encode(&pemOut, &pem.Block{Type: "CERTIFICATE", Bytes: cert.Raw})
-	return strings.TrimSpace(pemOut.String())
+	if err := pem.Encode(&pemOut, &pem.Block{Type: "CERTIFICATE", Bytes: cert.Raw}); err != nil {
+		return "", err
+	}
+	return strings.TrimSpace(pemOut.String()), nil
 }
 
 func (ctrl *VMExportController) matchesOrWildCard(hostName, compare string) bool {

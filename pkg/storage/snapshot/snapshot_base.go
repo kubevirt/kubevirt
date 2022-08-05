@@ -224,7 +224,9 @@ func (ctrl *VMSnapshotController) Run(threadiness int, stopCh <-chan struct{}) e
 	<-stopCh
 
 	for crd := range ctrl.dynamicInformerMap {
-		ctrl.deleteDynamicInformer(crd)
+		if _, err := ctrl.deleteDynamicInformer(crd); err != nil {
+			log.Log.Warningf("failed to delete %s informer: %v", crd, err)
+		}
 	}
 
 	return nil

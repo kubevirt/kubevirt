@@ -60,7 +60,7 @@ var _ = Describe("Pool", func() {
 			vm.Name = name
 			vm.Namespace = namespace
 			vm.GenerateName = ""
-			vmInformer.GetStore().Add(vm)
+			Expect(vmInformer.GetStore().Add(vm)).To(Succeed())
 		}
 
 		newNames := calculateNewVMNames(count, baseName, namespace, vmInformer.GetStore())

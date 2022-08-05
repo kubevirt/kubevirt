@@ -174,7 +174,6 @@
       "pkg/unsafepath/": "KubeVirt unsafepath pkg does not pass errcheck yet",
       "pkg/util/": "KubeVirt util pkg does not pass errcheck yet",
       "pkg/virt-api/": "KubeVirt virt-api pkg does not pass errcheck yet",
-      "pkg/virt-controller/watch/": "KubeVirt virt-controller/watch pkg does not pass errcheck yet",
       "pkg/virt-exportserver/": "KubeVirt virt-exportserver pkg does not pass errcheck yet",
       "pkg/virt-handler/": "KubeVirt virt-handler pkg does not pass errcheck yet",
       "pkg/virt-launcher/": "KubeVirt virt-launcher pkg does not pass errcheck yet",
