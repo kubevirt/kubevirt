@@ -2857,7 +2857,7 @@ var _ = Describe("VirtualMachine", func() {
 					addVirtualMachine(vm)
 
 					expectedRevisionName := instancetype.GetRevisionName(vm.Name, instancetypeObj.Name, instancetypeObj.UID, instancetypeObj.Generation)
-					expectedRevision, err := instancetype.CreateInstancetypeControllerRevision(vm, expectedRevisionName, instancetypeObj.TypeMeta.APIVersion, &instancetypeObj.Spec)
+					expectedRevision, err := instancetype.CreateControllerRevision(vm, expectedRevisionName, instancetypeObj)
 					Expect(err).ToNot(HaveOccurred())
 					expectedRevisionNamePatch, err := instancetype.GenerateRevisionNamePatch(expectedRevision, nil)
 					Expect(err).ToNot(HaveOccurred())
@@ -2881,18 +2881,14 @@ var _ = Describe("VirtualMachine", func() {
 					revision, err := virtClient.AppsV1().ControllerRevisions(vm.Namespace).Get(context.Background(), expectedRevisionName, metav1.GetOptions{})
 					Expect(err).ToNot(HaveOccurred())
 
-					specRevision := instancetypev1alpha2.VirtualMachineInstancetypeSpecRevision{}
-					spec := instancetypev1alpha2.VirtualMachineInstancetypeSpec{}
-					Expect(json.Unmarshal(revision.Data.Raw, &specRevision)).To(Succeed())
-					Expect(json.Unmarshal(specRevision.Spec, &spec)).To(Succeed())
-					Expect(specRevision.APIVersion).To(Equal(instancetypeObj.TypeMeta.APIVersion))
-					Expect(spec).To(Equal(instancetypeObj.Spec))
+					revisionInstancetype, ok := revision.Data.Object.(*instancetypev1alpha2.VirtualMachineInstancetype)
+					Expect(ok).To(BeTrue(), "Expected Instancetype in ControllerRevision")
 
+					Expect(revisionInstancetype.Spec).To(Equal(instancetypeObj.Spec))
 				})
 
 				It("should apply VirtualMachineInstancetype from ControllerRevision to VirtualMachineInstance", func() {
-
-					instancetypeRevision, err := instancetype.CreateInstancetypeControllerRevision(vm, instancetype.GetRevisionName(vm.Name, instancetypeObj.Name, instancetypeObj.UID, instancetypeObj.Generation), instancetypeObj.TypeMeta.APIVersion, &instancetypeObj.Spec)
+					instancetypeRevision, err := instancetype.CreateControllerRevision(vm, instancetype.GetRevisionName(vm.Name, instancetypeObj.Name, instancetypeObj.UID, instancetypeObj.Generation), instancetypeObj)
 					Expect(err).ToNot(HaveOccurred())
 
 					_, err = virtClient.AppsV1().ControllerRevisions(vm.Namespace).Create(context.Background(), instancetypeRevision, metav1.CreateOptions{})
@@ -2923,8 +2919,7 @@ var _ = Describe("VirtualMachine", func() {
 				})
 
 				It("should apply VirtualMachineInstancetype to VirtualMachineInstance if an existing ControllerRevision is present but not referenced by InstancetypeMatcher", func() {
-
-					instancetypeRevision, err := instancetype.CreateInstancetypeControllerRevision(vm, instancetype.GetRevisionName(vm.Name, instancetypeObj.Name, instancetypeObj.UID, instancetypeObj.Generation), instancetypeObj.TypeMeta.APIVersion, &instancetypeObj.Spec)
+					instancetypeRevision, err := instancetype.CreateControllerRevision(vm, instancetype.GetRevisionName(vm.Name, instancetypeObj.Name, instancetypeObj.UID, instancetypeObj.Generation), instancetypeObj)
 					Expect(err).ToNot(HaveOccurred())
 
 					_, err = virtClient.AppsV1().ControllerRevisions(vm.Namespace).Create(context.Background(), instancetypeRevision, metav1.CreateOptions{})
@@ -2971,7 +2966,7 @@ var _ = Describe("VirtualMachine", func() {
 					addVirtualMachine(vm)
 
 					expectedRevisionName := instancetype.GetRevisionName(vm.Name, clusterInstancetypeObj.Name, clusterInstancetypeObj.UID, clusterInstancetypeObj.Generation)
-					expectedRevision, err := instancetype.CreateInstancetypeControllerRevision(vm, expectedRevisionName, clusterInstancetypeObj.TypeMeta.APIVersion, &clusterInstancetypeObj.Spec)
+					expectedRevision, err := instancetype.CreateControllerRevision(vm, expectedRevisionName, clusterInstancetypeObj)
 					Expect(err).ToNot(HaveOccurred())
 					expectedRevisionNamePatch, err := instancetype.GenerateRevisionNamePatch(expectedRevision, nil)
 					Expect(err).ToNot(HaveOccurred())
@@ -2995,17 +2990,14 @@ var _ = Describe("VirtualMachine", func() {
 					revision, err := virtClient.AppsV1().ControllerRevisions(vm.Namespace).Get(context.Background(), expectedRevisionName, metav1.GetOptions{})
 					Expect(err).ToNot(HaveOccurred())
 
-					specRevision := instancetypev1alpha2.VirtualMachineInstancetypeSpecRevision{}
-					spec := instancetypev1alpha2.VirtualMachineInstancetypeSpec{}
-					Expect(json.Unmarshal(revision.Data.Raw, &specRevision)).To(Succeed())
-					Expect(json.Unmarshal(specRevision.Spec, &spec)).To(Succeed())
-					Expect(specRevision.APIVersion).To(Equal(clusterInstancetypeObj.TypeMeta.APIVersion))
-					Expect(spec).To(Equal(clusterInstancetypeObj.Spec))
+					revisionClusterInstancetype, ok := revision.Data.Object.(*instancetypev1alpha2.VirtualMachineClusterInstancetype)
+					Expect(ok).To(BeTrue(), "Expected ClusterInstancetype in ControllerRevision")
+
+					Expect(revisionClusterInstancetype.Spec).To(Equal(clusterInstancetypeObj.Spec))
 				})
 
 				It("should apply VirtualMachineClusterInstancetype from ControllerRevision to VirtualMachineInstance", func() {
-
-					instancetypeRevision, err := instancetype.CreateInstancetypeControllerRevision(vm, instancetype.GetRevisionName(vm.Name, clusterInstancetypeObj.Name, clusterInstancetypeObj.UID, clusterInstancetypeObj.Generation), clusterInstancetypeObj.TypeMeta.APIVersion, &clusterInstancetypeObj.Spec)
+					instancetypeRevision, err := instancetype.CreateControllerRevision(vm, instancetype.GetRevisionName(vm.Name, clusterInstancetypeObj.Name, clusterInstancetypeObj.UID, clusterInstancetypeObj.Generation), clusterInstancetypeObj)
 					Expect(err).ToNot(HaveOccurred())
 
 					_, err = virtClient.AppsV1().ControllerRevisions(vm.Namespace).Create(context.Background(), instancetypeRevision, metav1.CreateOptions{})
@@ -3036,8 +3028,7 @@ var _ = Describe("VirtualMachine", func() {
 				})
 
 				It("should apply VirtualMachineClusterInstancetype to VirtualMachineInstance if an existing ControllerRevision is present but not referenced by InstancetypeMatcher", func() {
-
-					instancetypeRevision, err := instancetype.CreateInstancetypeControllerRevision(vm, instancetype.GetRevisionName(vm.Name, clusterInstancetypeObj.Name, clusterInstancetypeObj.UID, clusterInstancetypeObj.Generation), clusterInstancetypeObj.TypeMeta.APIVersion, &clusterInstancetypeObj.Spec)
+					instancetypeRevision, err := instancetype.CreateControllerRevision(vm, instancetype.GetRevisionName(vm.Name, clusterInstancetypeObj.Name, clusterInstancetypeObj.UID, clusterInstancetypeObj.Generation), clusterInstancetypeObj)
 					Expect(err).ToNot(HaveOccurred())
 
 					_, err = virtClient.AppsV1().ControllerRevisions(vm.Namespace).Create(context.Background(), instancetypeRevision, metav1.CreateOptions{})
@@ -3175,14 +3166,10 @@ var _ = Describe("VirtualMachine", func() {
 				})
 
 				It("should reject if an existing ControllerRevision is found with unexpected VirtualMachineInstancetypeSpec data", func() {
+					unexpectedInstancetype := instancetypeObj.DeepCopy()
+					unexpectedInstancetype.Spec.CPU.Guest = 15
 
-					unexpectedExistingSpec := instancetypev1alpha2.VirtualMachineInstancetypeSpec{
-						CPU: instancetypev1alpha2.CPUInstancetype{
-							Guest: 15,
-						},
-					}
-
-					instancetypeRevision, err := instancetype.CreateInstancetypeControllerRevision(vm, instancetype.GetRevisionName(vm.Name, instancetypeObj.Name, instancetypeObj.UID, instancetypeObj.Generation), instancetypeObj.TypeMeta.APIVersion, &unexpectedExistingSpec)
+					instancetypeRevision, err := instancetype.CreateControllerRevision(vm, instancetype.GetRevisionName(vm.Name, instancetypeObj.Name, instancetypeObj.UID, instancetypeObj.Generation), unexpectedInstancetype)
 					Expect(err).ToNot(HaveOccurred())
 
 					_, err = virtClient.AppsV1().ControllerRevisions(vm.Namespace).Create(context.Background(), instancetypeRevision, metav1.CreateOptions{})
@@ -3263,7 +3250,7 @@ var _ = Describe("VirtualMachine", func() {
 					addVirtualMachine(vm)
 
 					expectedPreferenceRevisionName := instancetype.GetRevisionName(vm.Name, preference.Name, preference.UID, preference.Generation)
-					expectedPreferenceRevision, err := instancetype.CreatePreferenceControllerRevision(vm, expectedPreferenceRevisionName, preference.TypeMeta.APIVersion, &preference.Spec)
+					expectedPreferenceRevision, err := instancetype.CreateControllerRevision(vm, expectedPreferenceRevisionName, preference)
 					Expect(err).ToNot(HaveOccurred())
 
 					expectedRevisionNamePatch, err := instancetype.GenerateRevisionNamePatch(nil, expectedPreferenceRevision)
@@ -3288,17 +3275,13 @@ var _ = Describe("VirtualMachine", func() {
 					preferenceRevision, err := virtClient.AppsV1().ControllerRevisions(vm.Namespace).Get(context.Background(), expectedPreferenceRevisionName, metav1.GetOptions{})
 					Expect(err).ToNot(HaveOccurred())
 
-					preferenceSpecRevision := instancetypev1alpha2.VirtualMachinePreferenceSpecRevision{}
-					preferenceSpec := instancetypev1alpha2.VirtualMachinePreferenceSpec{}
-					Expect(json.Unmarshal(preferenceRevision.Data.Raw, &preferenceSpecRevision)).To(Succeed())
-					Expect(json.Unmarshal(preferenceSpecRevision.Spec, &preferenceSpec)).To(Succeed())
-					Expect(preferenceSpecRevision.APIVersion).To(Equal(preference.TypeMeta.APIVersion))
-					Expect(preferenceSpec).To(Equal(preference.Spec))
+					preferenceRevisionObj, ok := preferenceRevision.Data.Object.(*instancetypev1alpha2.VirtualMachinePreference)
+					Expect(ok).To(BeTrue(), "Expected Preference in ControllerRevision")
+					Expect(preferenceRevisionObj.Spec).To(Equal(preference.Spec))
 				})
 
 				It("should apply VirtualMachinePreference from ControllerRevision to VirtualMachineInstance", func() {
-
-					preferenceRevision, err := instancetype.CreatePreferenceControllerRevision(vm, instancetype.GetRevisionName(vm.Name, preference.Name, preference.UID, preference.Generation), preference.TypeMeta.APIVersion, &preference.Spec)
+					preferenceRevision, err := instancetype.CreateControllerRevision(vm, instancetype.GetRevisionName(vm.Name, preference.Name, preference.UID, preference.Generation), preference)
 					Expect(err).ToNot(HaveOccurred())
 
 					_, err = virtClient.AppsV1().ControllerRevisions(vm.Namespace).Create(context.Background(), preferenceRevision, metav1.CreateOptions{})
@@ -3329,8 +3312,7 @@ var _ = Describe("VirtualMachine", func() {
 				})
 
 				It("should apply VirtualMachinePreference to VirtualMachineInstance if an existing ControllerRevision is present but not referenced by PreferenceMatcher", func() {
-
-					preferenceRevision, err := instancetype.CreatePreferenceControllerRevision(vm, instancetype.GetRevisionName(vm.Name, preference.Name, preference.UID, preference.Generation), preference.TypeMeta.APIVersion, &preference.Spec)
+					preferenceRevision, err := instancetype.CreateControllerRevision(vm, instancetype.GetRevisionName(vm.Name, preference.Name, preference.UID, preference.Generation), preference)
 					Expect(err).ToNot(HaveOccurred())
 
 					_, err = virtClient.AppsV1().ControllerRevisions(vm.Namespace).Create(context.Background(), preferenceRevision, metav1.CreateOptions{})
@@ -3377,7 +3359,7 @@ var _ = Describe("VirtualMachine", func() {
 					addVirtualMachine(vm)
 
 					expectedPreferenceRevisionName := instancetype.GetRevisionName(vm.Name, clusterPreference.Name, clusterPreference.UID, clusterPreference.Generation)
-					expectedPreferenceRevision, err := instancetype.CreatePreferenceControllerRevision(vm, expectedPreferenceRevisionName, clusterPreference.TypeMeta.APIVersion, &clusterPreference.Spec)
+					expectedPreferenceRevision, err := instancetype.CreateControllerRevision(vm, expectedPreferenceRevisionName, clusterPreference)
 					Expect(err).ToNot(HaveOccurred())
 
 					expectedRevisionNamePatch, err := instancetype.GenerateRevisionNamePatch(nil, expectedPreferenceRevision)
@@ -3403,17 +3385,13 @@ var _ = Describe("VirtualMachine", func() {
 					preferenceRevision, err := virtClient.AppsV1().ControllerRevisions(vm.Namespace).Get(context.Background(), expectedPreferenceRevisionName, metav1.GetOptions{})
 					Expect(err).ToNot(HaveOccurred())
 
-					preferenceSpecRevision := instancetypev1alpha2.VirtualMachinePreferenceSpecRevision{}
-					preferenceSpec := instancetypev1alpha2.VirtualMachinePreferenceSpec{}
-					Expect(json.Unmarshal(preferenceRevision.Data.Raw, &preferenceSpecRevision)).To(Succeed())
-					Expect(json.Unmarshal(preferenceSpecRevision.Spec, &preferenceSpec)).To(Succeed())
-					Expect(preferenceSpecRevision.APIVersion).To(Equal(clusterPreference.TypeMeta.APIVersion))
-					Expect(preferenceSpec).To(Equal(clusterPreference.Spec))
+					preferenceRevisionObj, ok := preferenceRevision.Data.Object.(*instancetypev1alpha2.VirtualMachineClusterPreference)
+					Expect(ok).To(BeTrue(), "Expected Preference in ControllerRevision")
+					Expect(preferenceRevisionObj.Spec).To(Equal(clusterPreference.Spec))
 				})
 
 				It("should apply VirtualMachineClusterPreference from ControllerRevision to VirtualMachineInstance", func() {
-
-					preferenceRevision, err := instancetype.CreatePreferenceControllerRevision(vm, instancetype.GetRevisionName(vm.Name, clusterPreference.Name, clusterPreference.UID, clusterPreference.Generation), clusterPreference.TypeMeta.APIVersion, &clusterPreference.Spec)
+					preferenceRevision, err := instancetype.CreateControllerRevision(vm, instancetype.GetRevisionName(vm.Name, clusterPreference.Name, clusterPreference.UID, clusterPreference.Generation), clusterPreference)
 					Expect(err).ToNot(HaveOccurred())
 
 					_, err = virtClient.AppsV1().ControllerRevisions(vm.Namespace).Create(context.Background(), preferenceRevision, metav1.CreateOptions{})
@@ -3444,8 +3422,7 @@ var _ = Describe("VirtualMachine", func() {
 				})
 
 				It("should apply VirtualMachineClusterPreference to VirtualMachineInstance if an existing ControllerRevision is present but not referenced by PreferenceMatcher", func() {
-
-					preferenceRevision, err := instancetype.CreatePreferenceControllerRevision(vm, instancetype.GetRevisionName(vm.Name, clusterPreference.Name, clusterPreference.UID, clusterPreference.Generation), clusterPreference.TypeMeta.APIVersion, &clusterPreference.Spec)
+					preferenceRevision, err := instancetype.CreateControllerRevision(vm, instancetype.GetRevisionName(vm.Name, clusterPreference.Name, clusterPreference.UID, clusterPreference.Generation), clusterPreference)
 					Expect(err).ToNot(HaveOccurred())
 
 					_, err = virtClient.AppsV1().ControllerRevisions(vm.Namespace).Create(context.Background(), preferenceRevision, metav1.CreateOptions{})
@@ -3553,14 +3530,12 @@ var _ = Describe("VirtualMachine", func() {
 				})
 
 				It("should reject if an existing ControllerRevision is found with unexpected VirtualMachinePreferenceSpec data", func() {
-
-					unexpectedExistingSpec := instancetypev1alpha2.VirtualMachinePreferenceSpec{
-						CPU: &instancetypev1alpha2.CPUPreferences{
-							PreferredCPUTopology: instancetypev1alpha2.PreferThreads,
-						},
+					unexpectedPreference := preference.DeepCopy()
+					unexpectedPreference.Spec.Firmware = &instancetypev1alpha2.FirmwarePreferences{
+						PreferredUseBios: pointer.Bool(true),
 					}
 
-					preferenceRevision, err := instancetype.CreatePreferenceControllerRevision(vm, instancetype.GetRevisionName(vm.Name, preference.Name, preference.UID, preference.Generation), preference.TypeMeta.APIVersion, &unexpectedExistingSpec)
+					preferenceRevision, err := instancetype.CreateControllerRevision(vm, instancetype.GetRevisionName(vm.Name, preference.Name, preference.UID, preference.Generation), unexpectedPreference)
 					Expect(err).ToNot(HaveOccurred())
 
 					_, err = virtClient.AppsV1().ControllerRevisions(vm.Namespace).Create(context.Background(), preferenceRevision, metav1.CreateOptions{})
@@ -3601,7 +3576,7 @@ var _ = Describe("VirtualMachine", func() {
 					addVirtualMachine(vm)
 
 					expectedPreferenceRevisionName := instancetype.GetRevisionName(vm.Name, preference.Name, preference.UID, preference.Generation)
-					expectedPreferenceRevision, err := instancetype.CreatePreferenceControllerRevision(vm, expectedPreferenceRevisionName, preference.TypeMeta.APIVersion, &preference.Spec)
+					expectedPreferenceRevision, err := instancetype.CreateControllerRevision(vm, expectedPreferenceRevisionName, preference)
 					Expect(err).ToNot(HaveOccurred())
 
 					expectedRevisionNamePatch, err := instancetype.GenerateRevisionNamePatch(nil, expectedPreferenceRevision)
@@ -3650,7 +3625,7 @@ var _ = Describe("VirtualMachine", func() {
 					addVirtualMachine(vm)
 
 					expectedPreferenceRevisionName := instancetype.GetRevisionName(vm.Name, autoattachPodInterfacePreference.Name, autoattachPodInterfacePreference.UID, autoattachPodInterfacePreference.Generation)
-					expectedPreferenceRevision, err := instancetype.CreatePreferenceControllerRevision(vm, expectedPreferenceRevisionName, autoattachPodInterfacePreference.TypeMeta.APIVersion, &autoattachPodInterfacePreference.Spec)
+					expectedPreferenceRevision, err := instancetype.CreateControllerRevision(vm, expectedPreferenceRevisionName, autoattachPodInterfacePreference)
 					Expect(err).ToNot(HaveOccurred())
 
 					expectedRevisionNamePatch, err := instancetype.GenerateRevisionNamePatch(nil, expectedPreferenceRevision)
@@ -3701,7 +3676,7 @@ var _ = Describe("VirtualMachine", func() {
 					addVirtualMachine(vm)
 
 					expectedPreferenceRevisionName := instancetype.GetRevisionName(vm.Name, preference.Name, preference.UID, preference.Generation)
-					expectedPreferenceRevision, err := instancetype.CreatePreferenceControllerRevision(vm, expectedPreferenceRevisionName, preference.TypeMeta.APIVersion, &preference.Spec)
+					expectedPreferenceRevision, err := instancetype.CreateControllerRevision(vm, expectedPreferenceRevisionName, preference)
 					Expect(err).ToNot(HaveOccurred())
 
 					expectedRevisionNamePatch, err := instancetype.GenerateRevisionNamePatch(nil, expectedPreferenceRevision)
@@ -3735,7 +3710,7 @@ var _ = Describe("VirtualMachine", func() {
 					vm.Spec.Template.Spec.Domain.Devices.AutoattachInputDevice = pointer.Bool(true)
 
 					expectedPreferenceRevisionName := instancetype.GetRevisionName(vm.Name, preference.Name, preference.UID, preference.Generation)
-					expectedPreferenceRevision, err := instancetype.CreatePreferenceControllerRevision(vm, expectedPreferenceRevisionName, preference.TypeMeta.APIVersion, &preference.Spec)
+					expectedPreferenceRevision, err := instancetype.CreateControllerRevision(vm, expectedPreferenceRevisionName, preference)
 					Expect(err).ToNot(HaveOccurred())
 
 					expectedRevisionNamePatch, err := instancetype.GenerateRevisionNamePatch(nil, expectedPreferenceRevision)
@@ -3784,7 +3759,7 @@ var _ = Describe("VirtualMachine", func() {
 					}
 
 					expectedPreferenceRevisionName := instancetype.GetRevisionName(vm.Name, autoattachInputDevicePreference.Name, autoattachInputDevicePreference.UID, autoattachInputDevicePreference.Generation)
-					expectedPreferenceRevision, err := instancetype.CreatePreferenceControllerRevision(vm, expectedPreferenceRevisionName, autoattachInputDevicePreference.TypeMeta.APIVersion, &autoattachInputDevicePreference.Spec)
+					expectedPreferenceRevision, err := instancetype.CreateControllerRevision(vm, expectedPreferenceRevisionName, autoattachInputDevicePreference)
 					Expect(err).ToNot(HaveOccurred())
 
 					expectedRevisionNamePatch, err := instancetype.GenerateRevisionNamePatch(nil, expectedPreferenceRevision)
@@ -3834,7 +3809,7 @@ var _ = Describe("VirtualMachine", func() {
 					addVirtualMachine(vm)
 
 					expectedPreferenceRevisionName := instancetype.GetRevisionName(vm.Name, autoattachInputDevicePreference.Name, autoattachInputDevicePreference.UID, autoattachInputDevicePreference.Generation)
-					expectedPreferenceRevision, err := instancetype.CreatePreferenceControllerRevision(vm, expectedPreferenceRevisionName, autoattachInputDevicePreference.TypeMeta.APIVersion, &autoattachInputDevicePreference.Spec)
+					expectedPreferenceRevision, err := instancetype.CreateControllerRevision(vm, expectedPreferenceRevisionName, autoattachInputDevicePreference)
 					Expect(err).ToNot(HaveOccurred())
 
 					expectedRevisionNamePatch, err := instancetype.GenerateRevisionNamePatch(nil, expectedPreferenceRevision)
