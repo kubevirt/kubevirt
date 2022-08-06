@@ -1524,6 +1524,36 @@ var _ = Describe("Template", func() {
 				Expect(pod.Spec.Tolerations).To(BeEquivalentTo([]kubev1.Toleration{{Key: podToleration.Key, TolerationSeconds: &tolerationSeconds}}))
 			})
 
+			It("should add topology spread constraints to pod", func() {
+				config, kvInformer, svc = configFactory(defaultArch)
+				topologySpreadConstraints := []kubev1.TopologySpreadConstraint{
+					{
+						MaxSkew:           1,
+						TopologyKey:       "zone",
+						WhenUnsatisfiable: "DoNotSchedule",
+						LabelSelector: &metav1.LabelSelector{
+							MatchLabels: map[string]string{
+								"foo": "bar",
+							},
+						},
+					},
+				}
+				vm := v1.VirtualMachineInstance{
+					ObjectMeta: metav1.ObjectMeta{Name: "testvm", Namespace: "default", UID: "1234"},
+					Spec: v1.VirtualMachineInstanceSpec{
+						TopologySpreadConstraints: topologySpreadConstraints,
+						Domain: v1.DomainSpec{
+							Devices: v1.Devices{
+								DisableHotplug: true,
+							},
+						},
+					},
+				}
+				pod, err := svc.RenderLaunchManifest(&vm)
+				Expect(err).ToNot(HaveOccurred())
+				Expect(pod.Spec.TopologySpreadConstraints).To(Equal(topologySpreadConstraints))
+			})
+
 			It("should add the scheduler name to the pod", func() {
 				config, kvInformer, svc = configFactory(defaultArch)
 				vm := v1.VirtualMachineInstance{

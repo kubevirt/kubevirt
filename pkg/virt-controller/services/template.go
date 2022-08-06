@@ -641,6 +641,7 @@ func (t *templateService) renderLaunchManifest(vmi *v1.VirtualMachineInstance, i
 			EnableServiceLinks:            &enableServiceLinks,
 			SchedulerName:                 vmi.Spec.SchedulerName,
 			Tolerations:                   vmi.Spec.Tolerations,
+			TopologySpreadConstraints:     vmi.Spec.TopologySpreadConstraints,
 		},
 	}
 
