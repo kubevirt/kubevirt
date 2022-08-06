@@ -30,6 +30,8 @@ import (
 
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
+	"github.com/onsi/gomega/format"
+	gomegatypes "github.com/onsi/gomega/types"
 
 	k8sv1 "k8s.io/api/core/v1"
 	networkingv1 "k8s.io/api/networking/v1"
@@ -40,12 +42,13 @@ import (
 	"k8s.io/apimachinery/pkg/util/rand"
 	"k8s.io/utils/pointer"
 
+	virtv1 "kubevirt.io/api/core/v1"
 	exportv1 "kubevirt.io/api/export/v1alpha1"
+	snapshotv1 "kubevirt.io/api/snapshot/v1alpha1"
 	"kubevirt.io/client-go/kubecli"
 	"kubevirt.io/client-go/log"
 	cdiv1 "kubevirt.io/containerized-data-importer-api/pkg/apis/core/v1beta1"
 
-	"kubevirt.io/kubevirt/pkg/certificates/triple/cert"
 	k6ttypes "kubevirt.io/kubevirt/pkg/util/types"
 	"kubevirt.io/kubevirt/pkg/virt-operator/resource/generate/components"
 
@@ -57,6 +60,7 @@ import (
 	"kubevirt.io/kubevirt/tests/util"
 
 	routev1 "github.com/openshift/api/route/v1"
+
 	certutil "kubevirt.io/kubevirt/pkg/certificates/triple/cert"
 )
 
@@ -75,7 +79,8 @@ const (
 
 	certificates = "certificates"
 
-	pvcNotFoundReason = "pvcNotFound"
+	pvcNotFoundReason = "PVCNotFound"
+	podReadyReason    = "PodReady"
 
 	proxyUrlBase = "https://virt-exportproxy.%s.svc/api/export.kubevirt.io/v1alpha1/namespaces/%s/virtualmachineexports/%s%s"
 
@@ -84,8 +89,23 @@ const (
 	testKey          = "test"
 	testHostName     = "vmexport-proxy.test.net"
 	subjectAltNameId = "2.5.29.17"
+
+	exportPrefix = "virt-export"
 )
 
+var (
+	podReadyCondition = MatchConditionIgnoreTimeStamp(exportv1.Condition{
+		Type:   exportv1.ConditionReady,
+		Status: k8sv1.ConditionTrue,
+		Reason: podReadyReason,
+	})
+
+	pvcNotFoundCondition = MatchConditionIgnoreTimeStamp(exportv1.Condition{
+		Type:   exportv1.ConditionPVC,
+		Status: k8sv1.ConditionFalse,
+		Reason: pvcNotFoundReason,
+	})
+)
 var _ = SIGDescribe("Export", func() {
 	var err error
 	var token *k8sv1.Secret
@@ -299,7 +319,7 @@ var _ = SIGDescribe("Export", func() {
 		return createCaConfigMap(name, namespace, export.Status.Links.Internal.Cert)
 	}
 
-	createCaConfigMapProxy := func(name, namespace string, export *exportv1.VirtualMachineExport) *k8sv1.ConfigMap {
+	createCaConfigMapProxy := func(name, namespace string, _ *exportv1.VirtualMachineExport) *k8sv1.ConfigMap {
 		cm, err := virtClient.CoreV1().ConfigMaps(flags.KubeVirtInstallNamespace).Get(context.TODO(), "kubevirt-ca", metav1.GetOptions{})
 		Expect(err).ToNot(HaveOccurred())
 		return createCaConfigMap(name, namespace, cm.Data["ca-bundle"])
@@ -481,6 +501,18 @@ var _ = SIGDescribe("Export", func() {
 		return downloadUrl, fileName
 	}
 
+	waitForReadyExport := func(export *exportv1.VirtualMachineExport) *exportv1.VirtualMachineExport {
+		Eventually(func() []exportv1.Condition {
+			export, err = virtClient.VirtualMachineExport(export.Namespace).Get(context.Background(), export.Name, metav1.GetOptions{})
+			Expect(err).ToNot(HaveOccurred())
+			if export.Status == nil {
+				return nil
+			}
+			return export.Status.Conditions
+		}, 180*time.Second, 1*time.Second).Should(ContainElement(podReadyCondition), "export %s/%s is expected to become ready %v", export.Namespace, export.Name, export)
+		return export
+	}
+
 	type populateFunction func(string, k8sv1.PersistentVolumeMode) (*k8sv1.PersistentVolumeClaim, string)
 	type verifyFunction func(string, string, *k8sv1.Pod, k8sv1.PersistentVolumeMode)
 	type storageClassFunction func() (string, bool)
@@ -516,20 +548,7 @@ var _ = SIGDescribe("Export", func() {
 		By("Creating VMExport we can start exporting the volume")
 		export, err := virtClient.VirtualMachineExport(pvc.Namespace).Create(context.Background(), vmExport, metav1.CreateOptions{})
 		Expect(err).ToNot(HaveOccurred())
-
-		Eventually(func() bool {
-			export, err = virtClient.VirtualMachineExport(pvc.Namespace).Get(context.Background(), export.Name, metav1.GetOptions{})
-			Expect(err).ToNot(HaveOccurred())
-			condReady := false
-			if export.Status != nil {
-				for _, cond := range export.Status.Conditions {
-					if cond.Type == exportv1.ConditionReady && cond.Status == k8sv1.ConditionTrue {
-						condReady = true
-					}
-				}
-			}
-			return condReady
-		}, 60*time.Second, 1*time.Second).Should(BeTrue(), "export is expected to become ready")
+		export = waitForReadyExport(export)
 
 		By("Creating download pod, so we can download image")
 		targetPvc := &k8sv1.PersistentVolumeClaim{
@@ -589,7 +608,7 @@ var _ = SIGDescribe("Export", func() {
 		Entry("with RAW kubevirt content type block PROXY", populateKubeVirtContent, verifyKubeVirtRawContent, libstorage.GetRWOBlockStorageClass, createCaConfigMapProxy, urlGeneratorProxy, exportv1.KubeVirtRaw, kubevirtcontentUrlTemplate, k8sv1.PersistentVolumeBlock),
 	)
 
-	createExportObject := func(name, namespace string, token *k8sv1.Secret) *exportv1.VirtualMachineExport {
+	createPVCExportObject := func(name, namespace string, token *k8sv1.Secret) *exportv1.VirtualMachineExport {
 		vmExport := &exportv1.VirtualMachineExport{
 			ObjectMeta: metav1.ObjectMeta{
 				Name:      fmt.Sprintf("test-export-%s", rand.String(12)),
@@ -610,28 +629,45 @@ var _ = SIGDescribe("Export", func() {
 		return export
 	}
 
-	createRunningExport := func(sc string, volumeMode k8sv1.PersistentVolumeMode) *exportv1.VirtualMachineExport {
+	createVMSnapshotExportObject := func(name, namespace string, token *k8sv1.Secret) *exportv1.VirtualMachineExport {
+		apiGroup := "snapshot.kubevirt.io"
+		vmExport := &exportv1.VirtualMachineExport{
+			ObjectMeta: metav1.ObjectMeta{
+				Name:      fmt.Sprintf("test-export-%s", rand.String(12)),
+				Namespace: namespace,
+			},
+			Spec: exportv1.VirtualMachineExportSpec{
+				TokenSecretRef: token.Name,
+				Source: k8sv1.TypedLocalObjectReference{
+					APIGroup: &apiGroup,
+					Kind:     "VirtualMachineSnapshot",
+					Name:     name,
+				},
+			},
+		}
+		By("Creating VMExport we can start exporting the volume")
+		export, err := virtClient.VirtualMachineExport(namespace).Create(context.Background(), vmExport, metav1.CreateOptions{})
+		Expect(err).ToNot(HaveOccurred())
+		return export
+	}
+
+	createRunningPVCExport := func(sc string, volumeMode k8sv1.PersistentVolumeMode) *exportv1.VirtualMachineExport {
 		pvc, _ := populateKubeVirtContent(sc, volumeMode)
 		By("Creating the export token, we can export volumes using this token")
 		// For testing the token is the name of the source pvc.
 		token := createExportTokenSecret(pvc.Name, pvc.Namespace)
 
-		export := createExportObject(pvc.Name, pvc.Namespace, token)
+		export := createPVCExportObject(pvc.Name, pvc.Namespace, token)
 
-		Eventually(func() bool {
-			export, err = virtClient.VirtualMachineExport(pvc.Namespace).Get(context.Background(), export.Name, metav1.GetOptions{})
-			Expect(err).ToNot(HaveOccurred())
-			condReady := false
-			if export.Status != nil {
-				for _, cond := range export.Status.Conditions {
-					if cond.Type == exportv1.ConditionReady && cond.Status == k8sv1.ConditionTrue {
-						condReady = true
-					}
-				}
-			}
-			return condReady
-		}, 30*time.Second, 1*time.Second).Should(BeTrue(), "export is expected to become ready")
-		return export
+		return waitForReadyExport(export)
+	}
+
+	createRunningVMSnapshotExport := func(snapshot *snapshotv1.VirtualMachineSnapshot) *exportv1.VirtualMachineExport {
+		// For testing the token is the name of the source snapshot.
+		token := createExportTokenSecret(snapshot.Name, snapshot.Namespace)
+
+		export := createVMSnapshotExportObject(snapshot.Name, snapshot.Namespace, token)
+		return waitForReadyExport(export)
 	}
 
 	matchesCNOrAlt := func(cert *x509.Certificate, hostName string) bool {
@@ -654,7 +690,7 @@ var _ = SIGDescribe("Export", func() {
 		if !exists {
 			Skip("Skip test when Filesystem storage is not present")
 		}
-		vmExport := createRunningExport(sc, k8sv1.PersistentVolumeFilesystem)
+		vmExport := createRunningPVCExport(sc, k8sv1.PersistentVolumeFilesystem)
 		By("looking up the exporter pod and secret name")
 		exporterPod := getExporterPod(vmExport)
 		Expect(exporterPod).ToNot(BeNil())
@@ -698,7 +734,7 @@ var _ = SIGDescribe("Export", func() {
 		if !exists {
 			Skip("Skip test when Filesystem storage is not present")
 		}
-		vmExport := createRunningExport(sc, k8sv1.PersistentVolumeFilesystem)
+		vmExport := createRunningPVCExport(sc, k8sv1.PersistentVolumeFilesystem)
 		By("looking up the exporter pod and secret name")
 		exporterPod := getExporterPod(vmExport)
 		Expect(exporterPod).ToNot(BeNil())
@@ -716,7 +752,7 @@ var _ = SIGDescribe("Export", func() {
 		if !exists {
 			Skip("Skip test when Filesystem storage is not present")
 		}
-		vmExport := createRunningExport(sc, k8sv1.PersistentVolumeFilesystem)
+		vmExport := createRunningPVCExport(sc, k8sv1.PersistentVolumeFilesystem)
 		By("looking up the exporter pod and secret name")
 		exporterService := getExportService(vmExport)
 		Expect(exporterService).ToNot(BeNil())
@@ -738,19 +774,16 @@ var _ = SIGDescribe("Export", func() {
 		name := dv.Name
 		namespace := dv.Namespace
 		token := createExportTokenSecret(name, namespace)
-		export := createExportObject(name, namespace, token)
-		Eventually(func() string {
+		export := createPVCExportObject(name, namespace, token)
+		Eventually(func() []exportv1.Condition {
 			export, err = virtClient.VirtualMachineExport(namespace).Get(context.Background(), export.Name, metav1.GetOptions{})
 			Expect(err).ToNot(HaveOccurred())
-			if export.Status != nil {
-				for _, cond := range export.Status.Conditions {
-					if cond.Type == exportv1.ConditionPVC {
-						return cond.Reason
-					}
-				}
+			if export.Status == nil {
+				return nil
 			}
-			return ""
-		}, 60*time.Second, 1*time.Second).Should(BeEquivalentTo(pvcNotFoundReason), "export should report missing pvc")
+			return export.Status.Conditions
+		}, 60*time.Second, 1*time.Second).Should(ContainElement(pvcNotFoundCondition), "export should report missing pvc")
+
 		dv, err = virtClient.CdiClient().CdiV1beta1().DataVolumes(dv.Namespace).Create(context.Background(), dv, metav1.CreateOptions{})
 		var pvc *k8sv1.PersistentVolumeClaim
 		Eventually(func() error {
@@ -768,19 +801,7 @@ var _ = SIGDescribe("Export", func() {
 			return dv.Status.Phase
 		}, 90*time.Second, 1*time.Second).Should(Equal(cdiv1.Succeeded))
 		By("Making sure the export becomes ready")
-		Eventually(func() bool {
-			export, err = virtClient.VirtualMachineExport(pvc.Namespace).Get(context.Background(), export.Name, metav1.GetOptions{})
-			Expect(err).ToNot(HaveOccurred())
-			condReady := false
-			if export.Status != nil {
-				for _, cond := range export.Status.Conditions {
-					if cond.Type == exportv1.ConditionReady && cond.Status == k8sv1.ConditionTrue {
-						condReady = true
-					}
-				}
-			}
-			return condReady
-		}, 60*time.Second, 1*time.Second).Should(BeTrue(), "export is expected to become ready")
+		waitForReadyExport(export)
 	})
 
 	It("should be possibe to observe exportserver pod exiting", func() {
@@ -788,7 +809,7 @@ var _ = SIGDescribe("Export", func() {
 		if !exists {
 			Skip("Skip test when Filesystem storage is not present")
 		}
-		vmExport := createRunningExport(sc, k8sv1.PersistentVolumeFilesystem)
+		vmExport := createRunningPVCExport(sc, k8sv1.PersistentVolumeFilesystem)
 		By("looking up the exporter pod")
 		exporterPod := getExporterPod(vmExport)
 		Expect(exporterPod).ToNot(BeNil())
@@ -942,9 +963,9 @@ var _ = SIGDescribe("Export", func() {
 			testCert, err := createIngressTLSSecret(tlsSecretName)
 			Expect(err).NotTo(HaveOccurred())
 			ingress := createIngress(tlsSecretName)
-			vmExport := createRunningExport(sc, k8sv1.PersistentVolumeFilesystem)
+			vmExport := createRunningPVCExport(sc, k8sv1.PersistentVolumeFilesystem)
 			Expect(vmExport.Status.Links.External.Cert).To(Equal(testCert))
-			certs, err := cert.ParseCertsPEM([]byte(vmExport.Status.Links.External.Cert))
+			certs, err := certutil.ParseCertsPEM([]byte(vmExport.Status.Links.External.Cert))
 			Expect(err).ToNot(HaveOccurred())
 			Expect(certs).To(HaveLen(1))
 			prefix := fmt.Sprintf("%s-%s", components.VirtExportProxyServiceName, flags.KubeVirtInstallNamespace)
@@ -969,8 +990,8 @@ var _ = SIGDescribe("Export", func() {
 			if !checks.IsOpenShift() {
 				Skip("Not on openshift")
 			}
-			vmExport := createRunningExport(sc, k8sv1.PersistentVolumeFilesystem)
-			certs, err := cert.ParseCertsPEM([]byte(vmExport.Status.Links.External.Cert))
+			vmExport := createRunningPVCExport(sc, k8sv1.PersistentVolumeFilesystem)
+			certs, err := certutil.ParseCertsPEM([]byte(vmExport.Status.Links.External.Cert))
 			Expect(err).ToNot(HaveOccurred())
 			Expect(certs).To(HaveLen(1))
 			route := getExportRoute()
@@ -986,8 +1007,251 @@ var _ = SIGDescribe("Export", func() {
 
 		})
 	})
+
+	waitForDisksComplete := func(vm *virtv1.VirtualMachine) {
+		for _, volume := range vm.Spec.Template.Spec.Volumes {
+			if volume.DataVolume != nil {
+				Eventually(func() cdiv1.DataVolumePhase {
+					dv, err := virtClient.CdiClient().CdiV1beta1().DataVolumes(vm.Namespace).Get(context.Background(), volume.DataVolume.Name, metav1.GetOptions{})
+					if err != nil {
+						return ""
+					}
+					return dv.Status.Phase
+				}, 180*time.Second, time.Second).Should(Equal(cdiv1.Succeeded))
+			}
+		}
+	}
+
+	createVM := func(vm *virtv1.VirtualMachine) *virtv1.VirtualMachine {
+		vm, err := virtClient.VirtualMachine(vm.Namespace).Create(vm)
+		Expect(err).ToNot(HaveOccurred())
+		waitForDisksComplete(vm)
+		return vm
+	}
+
+	newSnapshot := func(vm *virtv1.VirtualMachine) *snapshotv1.VirtualMachineSnapshot {
+		apiGroup := "kubevirt.io"
+		return &snapshotv1.VirtualMachineSnapshot{
+			ObjectMeta: metav1.ObjectMeta{
+				Name:      "snapshot-" + vm.Name,
+				Namespace: vm.Namespace,
+			},
+			Spec: snapshotv1.VirtualMachineSnapshotSpec{
+				Source: k8sv1.TypedLocalObjectReference{
+					APIGroup: &apiGroup,
+					Kind:     "VirtualMachine",
+					Name:     vm.Name,
+				},
+			},
+		}
+	}
+
+	deleteSnapshot := func(snapshot *snapshotv1.VirtualMachineSnapshot) {
+		err := virtClient.VirtualMachineSnapshot(snapshot.Namespace).Delete(context.Background(), snapshot.Name, metav1.DeleteOptions{})
+		Expect(err).ToNot(HaveOccurred())
+	}
+
+	waitSnapshotReady := func(snapshot *snapshotv1.VirtualMachineSnapshot) {
+		Eventually(func() bool {
+			snapshot, err := virtClient.VirtualMachineSnapshot(snapshot.Namespace).Get(context.Background(), snapshot.Name, metav1.GetOptions{})
+			Expect(err).ToNot(HaveOccurred())
+			return snapshot.Status != nil && snapshot.Status.ReadyToUse != nil && *snapshot.Status.ReadyToUse
+		}, 180*time.Second, time.Second).Should(BeTrue())
+	}
+
+	createAndVerifyVMSnapshot := func(vm *virtv1.VirtualMachine) *snapshotv1.VirtualMachineSnapshot {
+		snapshot := newSnapshot(vm)
+
+		_, err := virtClient.VirtualMachineSnapshot(vm.Namespace).Create(context.Background(), snapshot, metav1.CreateOptions{})
+		Expect(err).ToNot(HaveOccurred())
+
+		waitSnapshotReady(snapshot)
+		snapshot, err = virtClient.VirtualMachineSnapshot(vm.Namespace).Get(context.Background(), snapshot.Name, metav1.GetOptions{})
+		Expect(err).ToNot(HaveOccurred())
+
+		Expect(snapshot.Status.SourceUID).ToNot(BeNil())
+		Expect(*snapshot.Status.SourceUID).To(Equal(vm.UID))
+
+		contentName := *snapshot.Status.VirtualMachineSnapshotContentName
+		Expect(snapshot.Status.Indications).To(BeEmpty())
+		content, err := virtClient.VirtualMachineSnapshotContent(vm.Namespace).Get(context.Background(), contentName, metav1.GetOptions{})
+		Expect(err).ToNot(HaveOccurred())
+
+		Expect(*content.Spec.VirtualMachineSnapshotName).To(Equal(snapshot.Name))
+		Expect(content.Spec.Source.VirtualMachine.Spec).To(Equal(vm.Spec))
+		Expect(content.Spec.Source.VirtualMachine.UID).ToNot(BeEmpty())
+		Expect(content.Spec.VolumeBackups).Should(HaveLen(len(vm.Spec.DataVolumeTemplates)))
+		return snapshot
+	}
+
+	verifyLinksInternal := func(vmExport *exportv1.VirtualMachineExport, expectedVolumeFormats ...exportv1.VirtualMachineExportVolumeFormat) {
+		Expect(vmExport.Status).ToNot(BeNil())
+		Expect(vmExport.Status.Links).ToNot(BeNil())
+		Expect(vmExport.Status.Links.Internal).NotTo(BeNil())
+		Expect(vmExport.Status.Links.Internal.Cert).NotTo(BeEmpty())
+		Expect(vmExport.Status.Links.Internal.Volumes).To(HaveLen(len(expectedVolumeFormats) / 2))
+		for _, expectedVolume := range expectedVolumeFormats {
+			found := false
+			for _, volume := range vmExport.Status.Links.Internal.Volumes {
+				Expect(volume.Formats).To(HaveLen(2))
+				for _, format := range volume.Formats {
+					if format == expectedVolume {
+						found = true
+					}
+				}
+			}
+			Expect(found).To(BeTrue())
+		}
+	}
+
+	verifyMultiKubevirtInternal := func(vmExport *exportv1.VirtualMachineExport, exportName, namespace, volumeName1, volumeName2 string) {
+		verifyLinksInternal(vmExport,
+			exportv1.VirtualMachineExportVolumeFormat{
+				Format: exportv1.KubeVirtRaw,
+				Url:    fmt.Sprintf("https://%s.%s.svc/volumes/%s/disk.img", fmt.Sprintf("%s-%s", exportPrefix, exportName), namespace, volumeName1),
+			},
+			exportv1.VirtualMachineExportVolumeFormat{
+				Format: exportv1.KubeVirtGz,
+				Url:    fmt.Sprintf("https://%s.%s.svc/volumes/%s/disk.img.gz", fmt.Sprintf("%s-%s", exportPrefix, exportName), namespace, volumeName1),
+			},
+			exportv1.VirtualMachineExportVolumeFormat{
+				Format: exportv1.KubeVirtRaw,
+				Url:    fmt.Sprintf("https://%s.%s.svc/volumes/%s/disk.img", fmt.Sprintf("%s-%s", exportPrefix, exportName), namespace, volumeName2),
+			},
+			exportv1.VirtualMachineExportVolumeFormat{
+				Format: exportv1.KubeVirtGz,
+				Url:    fmt.Sprintf("https://%s.%s.svc/volumes/%s/disk.img.gz", fmt.Sprintf("%s-%s", exportPrefix, exportName), namespace, volumeName2),
+			})
+	}
+
+	verifyKubevirtInternal := func(vmExport *exportv1.VirtualMachineExport, exportName, namespace, volumeName string) {
+		verifyLinksInternal(vmExport,
+			exportv1.VirtualMachineExportVolumeFormat{
+				Format: exportv1.KubeVirtRaw,
+				Url:    fmt.Sprintf("https://%s.%s.svc/volumes/%s/disk.img", fmt.Sprintf("%s-%s", exportPrefix, exportName), namespace, volumeName),
+			},
+			exportv1.VirtualMachineExportVolumeFormat{
+				Format: exportv1.KubeVirtGz,
+				Url:    fmt.Sprintf("https://%s.%s.svc/volumes/%s/disk.img.gz", fmt.Sprintf("%s-%s", exportPrefix, exportName), namespace, volumeName),
+			})
+	}
+
+	It("should create export from VMSnapshot", func() {
+		sc, exists := libstorage.GetSnapshotStorageClass()
+		if !exists {
+			Skip("Skip test when Filesystem storage is not present")
+		}
+		vm := createVM(tests.NewRandomVMWithDataVolumeAndUserDataInStorageClass(
+			cd.DataVolumeImportUrlForContainerDisk(cd.ContainerDiskCirros),
+			util.NamespaceTestDefault,
+			bashHelloScript,
+			sc))
+		snapshot := createAndVerifyVMSnapshot(vm)
+		Expect(snapshot).ToNot(BeNil())
+		defer deleteSnapshot(snapshot)
+		export := createRunningVMSnapshotExport(snapshot)
+		Expect(export).ToNot(BeNil())
+		restoreName := fmt.Sprintf("%s-%s", export.Name, vm.Spec.Template.Spec.Volumes[0].DataVolume.Name)
+		verifyKubevirtInternal(export, export.Name, export.Namespace, restoreName)
+	})
+
+	addDataVolumeDisk := func(vm *virtv1.VirtualMachine, diskName, dataVolumeName string) *virtv1.VirtualMachine {
+		vm.Spec.Template.Spec.Domain.Devices.Disks = append(vm.Spec.Template.Spec.Domain.Devices.Disks, virtv1.Disk{
+			Name: diskName,
+			DiskDevice: virtv1.DiskDevice{
+				Disk: &virtv1.DiskTarget{
+					Bus: virtv1.DiskBusVirtio,
+				},
+			},
+		})
+		vm.Spec.Template.Spec.Volumes = append(vm.Spec.Template.Spec.Volumes, virtv1.Volume{
+			Name: diskName,
+			VolumeSource: virtv1.VolumeSource{
+				DataVolume: &virtv1.DataVolumeSource{
+					Name: dataVolumeName,
+				},
+			},
+		})
+
+		return vm
+	}
+
+	It("should create export from VMSnapshot with multiple volumes", func() {
+		sc, exists := libstorage.GetSnapshotStorageClass()
+		if !exists {
+			Skip("Skip test when storage with snapshot is not present")
+		}
+		blankDv := libstorage.NewBlankDataVolume(util.NamespaceTestDefault, sc, "64Mi", k8sv1.ReadWriteOnce, k8sv1.PersistentVolumeFilesystem)
+		vm := tests.NewRandomVMWithDataVolumeAndUserDataInStorageClass(
+			cd.DataVolumeImportUrlForContainerDisk(cd.ContainerDiskCirros),
+			util.NamespaceTestDefault,
+			bashHelloScript,
+			sc)
+		libstorage.AddDataVolumeTemplate(vm, blankDv)
+		addDataVolumeDisk(vm, "blankdisk", blankDv.Name)
+		vm = createVM(vm)
+		snapshot := createAndVerifyVMSnapshot(vm)
+		Expect(snapshot).ToNot(BeNil())
+		defer deleteSnapshot(snapshot)
+		export := createRunningVMSnapshotExport(snapshot)
+		Expect(export).ToNot(BeNil())
+		restoreName := fmt.Sprintf("%s-%s", export.Name, vm.Spec.Template.Spec.Volumes[0].DataVolume.Name)
+		// [1] is the cloud init
+		restoreName2 := fmt.Sprintf("%s-%s", export.Name, vm.Spec.Template.Spec.Volumes[2].DataVolume.Name)
+		verifyMultiKubevirtInternal(export, export.Name, export.Namespace, restoreName, restoreName2)
+	})
+
+	It("should mark the status phase skipped on VMSnapshot without volumes", func() {
+		vm := tests.NewRandomVMWithEphemeralDisk(cd.ContainerDiskFor(cd.ContainerDiskCirros))
+		vm = createVM(vm)
+		snapshot := createAndVerifyVMSnapshot(vm)
+		Expect(snapshot).ToNot(BeNil())
+		defer deleteSnapshot(snapshot)
+		// For testing the token is the name of the source snapshot.
+		token := createExportTokenSecret(snapshot.Name, snapshot.Namespace)
+		export := createVMSnapshotExportObject(snapshot.Name, snapshot.Namespace, token)
+		Expect(export).ToNot(BeNil())
+		Eventually(func() exportv1.VirtualMachineExportPhase {
+			export, err = virtClient.VirtualMachineExport(export.Namespace).Get(context.Background(), export.Name, metav1.GetOptions{})
+			Expect(err).ToNot(HaveOccurred())
+			if export.Status == nil {
+				return ""
+			}
+			return export.Status.Phase
+		}, 30*time.Second, time.Second).Should(Equal(exportv1.Skipped))
+	})
 })
 
 func logToGinkgoWritter(format string, parameters ...interface{}) {
 	_, _ = fmt.Fprintf(GinkgoWriter, format, parameters...)
+}
+
+func MatchConditionIgnoreTimeStamp(expected interface{}) gomegatypes.GomegaMatcher {
+	return &ConditionNoTimeMatcher{
+		Cond: expected,
+	}
+}
+
+type ConditionNoTimeMatcher struct {
+	Cond interface{}
+}
+
+func (matcher *ConditionNoTimeMatcher) Match(actual interface{}) (success bool, err error) {
+	cond, isCond := actual.(exportv1.Condition)
+	if !isCond {
+		return false, fmt.Errorf("ConditionNoTimeMatch expects an export condition")
+	}
+	expectedCond, isCond := matcher.Cond.(exportv1.Condition)
+	if !isCond {
+		return false, fmt.Errorf("ConditionNoTimeMatch expects an export condition")
+	}
+	return cond.Type == expectedCond.Type && cond.Status == expectedCond.Status && cond.Reason == expectedCond.Reason && cond.Message == expectedCond.Message, nil
+}
+
+func (matcher *ConditionNoTimeMatcher) FailureMessage(actual interface{}) (message string) {
+	return format.Message(actual, "to match without time", matcher.Cond)
+}
+
+func (matcher *ConditionNoTimeMatcher) NegatedFailureMessage(actual interface{}) (message string) {
+	return format.Message(actual, "not to match without time", matcher.Cond)
 }

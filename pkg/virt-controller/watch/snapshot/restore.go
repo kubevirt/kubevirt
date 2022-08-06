@@ -293,7 +293,7 @@ func (ctrl *VMRestoreController) reconcileVolumeRestores(vmRestore *snapshotv1.V
 			if err != nil {
 				return false, err
 			}
-			if err = ctrl.createRestorePVC(vmRestore, target, backup, restore, content.Spec.Source.VirtualMachine.Name, content.Spec.Source.VirtualMachine.Namespace); err != nil {
+			if err = ctrl.createRestorePVC(vmRestore, target, backup, &restore, content.Spec.Source.VirtualMachine.Name, content.Spec.Source.VirtualMachine.Namespace); err != nil {
 				return false, err
 			}
 			createdPVC = true
@@ -310,7 +310,6 @@ func (ctrl *VMRestoreController) reconcileVolumeRestores(vmRestore *snapshotv1.V
 			return false, fmt.Errorf("PVC %s/%s in status %q", pvc.Namespace, pvc.Name, pvc.Status.Phase)
 		}
 	}
-
 	return createdPVC || waitingPVC, nil
 }
 
@@ -729,69 +728,27 @@ func (ctrl *VMRestoreController) getTarget(vmRestore *snapshotv1.VirtualMachineR
 func (ctrl *VMRestoreController) createRestorePVC(
 	vmRestore *snapshotv1.VirtualMachineRestore,
 	target restoreTarget,
-	volumeBackup snapshotv1.VolumeBackup,
-	volumeRestore snapshotv1.VolumeRestore,
+	volumeBackup *snapshotv1.VolumeBackup,
+	volumeRestore *snapshotv1.VolumeRestore,
 	sourceVmName, sourceVmNamespace string,
 ) error {
-	sourcePVC := volumeBackup.PersistentVolumeClaim.DeepCopy()
-	pvc := &corev1.PersistentVolumeClaim{
-		ObjectMeta: metav1.ObjectMeta{
-			Name:        volumeRestore.PersistentVolumeClaimName,
-			Labels:      sourcePVC.Labels,
-			Annotations: sourcePVC.Annotations,
-		},
-		Spec: sourcePVC.Spec,
-	}
-
-	if volumeBackup.VolumeSnapshotName == nil {
+	if volumeBackup == nil || volumeBackup.VolumeSnapshotName == nil {
 		log.Log.Errorf("VolumeSnapshot name missing %+v", volumeBackup)
 		return fmt.Errorf("missing VolumeSnapshot name")
 	}
 
+	if vmRestore == nil {
+		return fmt.Errorf("missing vmRestore")
+	}
 	volumeSnapshot, err := ctrl.VolumeSnapshotProvider.GetVolumeSnapshot(vmRestore.Namespace, *volumeBackup.VolumeSnapshotName)
 	if err != nil {
 		return err
 	}
 
-	if volumeSnapshot == nil {
-		log.Log.Errorf("VolumeSnapshot %s is missing", *volumeBackup.VolumeSnapshotName)
-		return fmt.Errorf("missing VolumeSnapshot %s", *volumeBackup.VolumeSnapshotName)
+	if volumeRestore == nil {
+		return fmt.Errorf("missing volumeRestore")
 	}
-
-	if volumeSnapshot.Status != nil && volumeSnapshot.Status.RestoreSize != nil {
-		restorePVCSize, ok := pvc.Spec.Resources.Requests[corev1.ResourceStorage]
-		// Update restore pvc size to be the maximum between the source PVC and the restore size
-		if !ok || restorePVCSize.Cmp(*volumeSnapshot.Status.RestoreSize) < 0 {
-			pvc.Spec.Resources.Requests[corev1.ResourceStorage] = *volumeSnapshot.Status.RestoreSize
-		}
-	}
-
-	if pvc.Labels == nil {
-		pvc.Labels = make(map[string]string)
-	}
-	pvc.Labels[restoreSourceNameLabel] = sourceVmName
-	pvc.Labels[restoreSourceNamespaceLabel] = sourceVmNamespace
-
-	if pvc.Annotations == nil {
-		pvc.Annotations = make(map[string]string)
-	}
-	for _, prefix := range restoreAnnotationsToDelete {
-		for anno := range pvc.Annotations {
-			if strings.HasPrefix(anno, prefix) {
-				delete(pvc.Annotations, anno)
-			}
-		}
-	}
-	pvc.Annotations[pvcRestoreAnnotation] = vmRestore.Name
-
-	apiGroup := vsv1.GroupName
-	pvc.Spec.DataSource = &corev1.TypedLocalObjectReference{
-		APIGroup: &apiGroup,
-		Kind:     "VolumeSnapshot",
-		Name:     *volumeBackup.VolumeSnapshotName,
-	}
-	pvc.Spec.VolumeName = ""
-
+	pvc := CreateRestorePVCDefFromVMRestore(vmRestore.Name, volumeRestore.PersistentVolumeClaimName, volumeSnapshot, volumeBackup, sourceVmName, sourceVmNamespace)
 	target.Own(pvc)
 
 	_, err = ctrl.Client.CoreV1().PersistentVolumeClaims(vmRestore.Namespace).Create(context.Background(), pvc, metav1.CreateOptions{})
@@ -800,6 +757,51 @@ func (ctrl *VMRestoreController) createRestorePVC(
 	}
 
 	return nil
+}
+
+func CreateRestorePVCDef(restorePVCName string, volumeSnapshot *vsv1.VolumeSnapshot, volumeBackup *snapshotv1.VolumeBackup) *corev1.PersistentVolumeClaim {
+	if volumeBackup == nil || volumeBackup.VolumeSnapshotName == nil {
+		log.Log.Errorf("VolumeSnapshot name missing %+v", volumeBackup)
+		return nil
+	}
+	sourcePVC := volumeBackup.PersistentVolumeClaim.DeepCopy()
+	pvc := &corev1.PersistentVolumeClaim{
+		ObjectMeta: metav1.ObjectMeta{
+			Name:        restorePVCName,
+			Labels:      sourcePVC.Labels,
+			Annotations: sourcePVC.Annotations,
+		},
+		Spec: sourcePVC.Spec,
+	}
+
+	if volumeSnapshot == nil {
+		log.Log.Errorf("VolumeSnapshot missing %+v", volumeSnapshot)
+		return nil
+	}
+	if volumeSnapshot.Status != nil && volumeSnapshot.Status.RestoreSize != nil {
+		restorePVCSize, ok := pvc.Spec.Resources.Requests[corev1.ResourceStorage]
+		// Update restore pvc size to be the maximum between the source PVC and the restore size
+		if !ok || restorePVCSize.Cmp(*volumeSnapshot.Status.RestoreSize) < 0 {
+			pvc.Spec.Resources.Requests[corev1.ResourceStorage] = *volumeSnapshot.Status.RestoreSize
+		}
+	}
+
+	for _, prefix := range restoreAnnotationsToDelete {
+		for anno := range pvc.Annotations {
+			if strings.HasPrefix(anno, prefix) {
+				delete(pvc.Annotations, anno)
+			}
+		}
+	}
+
+	apiGroup := vsv1.GroupName
+	pvc.Spec.DataSource = &corev1.TypedLocalObjectReference{
+		APIGroup: &apiGroup,
+		Kind:     "VolumeSnapshot",
+		Name:     *volumeBackup.VolumeSnapshotName,
+	}
+	pvc.Spec.VolumeName = ""
+	return pvc
 }
 
 func getRestoreAnnotationValue(restore *snapshotv1.VirtualMachineRestore) string {
@@ -815,6 +817,21 @@ func setLastRestoreAnnotation(restore *snapshotv1.VirtualMachineRestore, obj met
 		obj.SetAnnotations(make(map[string]string))
 	}
 	obj.GetAnnotations()[lastRestoreAnnotation] = getRestoreAnnotationValue(restore)
+}
+
+func CreateRestorePVCDefFromVMRestore(vmRestoreName, restorePVCName string, volumeSnapshot *vsv1.VolumeSnapshot, volumeBackup *snapshotv1.VolumeBackup, sourceVmName, sourceVmNamespace string) *corev1.PersistentVolumeClaim {
+	pvc := CreateRestorePVCDef(restorePVCName, volumeSnapshot, volumeBackup)
+	if pvc.Labels == nil {
+		pvc.Labels = make(map[string]string)
+	}
+
+	if pvc.Annotations == nil {
+		pvc.Annotations = make(map[string]string)
+	}
+	pvc.Labels[restoreSourceNameLabel] = sourceVmName
+	pvc.Labels[restoreSourceNamespaceLabel] = sourceVmNamespace
+	pvc.Annotations[pvcRestoreAnnotation] = vmRestoreName
+	return pvc
 }
 
 func updateRestoreCondition(r *snapshotv1.VirtualMachineRestore, c snapshotv1.Condition) {
@@ -836,11 +853,11 @@ func volumesNotForRestore(content *snapshotv1.VirtualMachineSnapshotContent) set
 	return noRestore
 }
 
-func getRestoreVolumeBackup(volName string, content *snapshotv1.VirtualMachineSnapshotContent) (snapshotv1.VolumeBackup, error) {
+func getRestoreVolumeBackup(volName string, content *snapshotv1.VirtualMachineSnapshotContent) (*snapshotv1.VolumeBackup, error) {
 	for _, vb := range content.Spec.VolumeBackups {
 		if vb.VolumeName == volName {
-			return vb, nil
+			return &vb, nil
 		}
 	}
-	return snapshotv1.VolumeBackup{}, fmt.Errorf("volume backup for volume %s not found", volName)
+	return &snapshotv1.VolumeBackup{}, fmt.Errorf("volume backup for volume %s not found", volName)
 }
