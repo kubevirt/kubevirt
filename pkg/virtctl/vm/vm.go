@@ -39,8 +39,8 @@ import (
 
 	cdiv1 "kubevirt.io/containerized-data-importer-api/pkg/apis/core/v1beta1"
 
+	storagetypes "kubevirt.io/kubevirt/pkg/storage/types"
 	kutil "kubevirt.io/kubevirt/pkg/util"
-	kubevirttypes "kubevirt.io/kubevirt/pkg/util/types"
 	"kubevirt.io/kubevirt/pkg/virtctl/templates"
 )
 
@@ -432,7 +432,7 @@ func calcPVCNeededSize(memoryDumpExpectedSize *resource.Quantity, storageClass *
 	if k8serrors.IsNotFound(err) {
 		// can't properly determine the overhead - continue with default overhead of 5.5%
 		fmt.Printf(fsOverheadMsg)
-		return kubevirttypes.GetSizeIncludingGivenOverhead(memoryDumpExpectedSize, filesystemOverhead)
+		return storagetypes.GetSizeIncludingGivenOverhead(memoryDumpExpectedSize, filesystemOverhead)
 	}
 	if err != nil {
 		return nil, err
@@ -443,7 +443,7 @@ func calcPVCNeededSize(memoryDumpExpectedSize *resource.Quantity, storageClass *
 		storageClass = nil
 	}
 
-	return kubevirttypes.GetSizeIncludingFSOverhead(memoryDumpExpectedSize, storageClass, &fsVolumeMode, cdiConfig)
+	return storagetypes.GetSizeIncludingFSOverhead(memoryDumpExpectedSize, storageClass, &fsVolumeMode, cdiConfig)
 }
 
 func generatePVC(size *resource.Quantity, claimName, namespace, storageClass, accessMode string) (*k8sv1.PersistentVolumeClaim, error) {
