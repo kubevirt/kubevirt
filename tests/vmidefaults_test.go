@@ -22,19 +22,16 @@ package tests_test
 import (
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
-	k8sv1 "k8s.io/api/core/v1"
-	"k8s.io/apimachinery/pkg/api/resource"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/utils/pointer"
-
-	"kubevirt.io/kubevirt/tests/libvmi"
-	"kubevirt.io/kubevirt/tests/util"
 
 	v1 "kubevirt.io/api/core/v1"
 	"kubevirt.io/client-go/kubecli"
 
 	"kubevirt.io/kubevirt/pkg/virt-launcher/virtwrap/api"
 	"kubevirt.io/kubevirt/tests"
+	"kubevirt.io/kubevirt/tests/libvmi"
+	"kubevirt.io/kubevirt/tests/util"
 )
 
 var _ = Describe("[Serial][sig-compute]VMIDefaults", func() {
@@ -51,31 +48,10 @@ var _ = Describe("[Serial][sig-compute]VMIDefaults", func() {
 	Context("Disk defaults", func() {
 		BeforeEach(func() {
 			// create VMI with missing disk target
-			vmi = tests.NewRandomVMI()
-			vmi.Spec = v1.VirtualMachineInstanceSpec{
-				Domain: v1.DomainSpec{
-					Devices: v1.Devices{
-						Disks: []v1.Disk{
-							{Name: "testdisk"},
-						},
-					},
-					Resources: v1.ResourceRequirements{
-						Requests: k8sv1.ResourceList{
-							k8sv1.ResourceMemory: resource.MustParse("8192Ki"),
-						},
-					},
-				},
-				Volumes: []v1.Volume{
-					{
-						Name: "testdisk",
-						VolumeSource: v1.VolumeSource{
-							ContainerDisk: &v1.ContainerDiskSource{
-								Image: "dummy",
-							},
-						},
-					},
-				},
-			}
+			vmi = libvmi.New(
+				libvmi.WithContainerImage("dummy"),
+				libvmi.WithResourceMemory("8192Ki"),
+			)
 		})
 
 		It("[test_id:4115]Should be applied to VMIs", func() {
@@ -113,10 +89,10 @@ var _ = Describe("[Serial][sig-compute]VMIDefaults", func() {
 
 	Context("MemBalloon defaults", func() {
 		var kvConfiguration v1.KubeVirtConfiguration
-
+		const enoughMemForSafeBiosEmulation = "32Mi"
 		BeforeEach(func() {
 			// create VMI with missing disk target
-			vmi = tests.NewRandomVMI()
+			vmi = libvmi.New(libvmi.WithResourceMemory(enoughMemForSafeBiosEmulation))
 
 			kv := util.GetCurrentKv(virtClient)
 			kvConfiguration = kv.Spec.Configuration
