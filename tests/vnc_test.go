@@ -20,7 +20,6 @@
 package tests_test
 
 import (
-	"context"
 	"encoding/json"
 	"fmt"
 	"image"
@@ -48,6 +47,7 @@ import (
 	"kubevirt.io/client-go/subresources"
 
 	"kubevirt.io/kubevirt/tests"
+	"kubevirt.io/kubevirt/tests/libvmi"
 )
 
 var _ = Describe("[rfe_id:127][crit:medium][arm64][vendor:cnv-qe@redhat.com][level:component][sig-compute]VNC", func() {
@@ -55,15 +55,17 @@ var _ = Describe("[rfe_id:127][crit:medium][arm64][vendor:cnv-qe@redhat.com][lev
 	var err error
 	var virtClient kubecli.KubevirtClient
 	var vmi *v1.VirtualMachineInstance
+	const enoughMemForSafeBiosEmulation = "32Mi"
 
 	Describe("[rfe_id:127][crit:medium][vendor:cnv-qe@redhat.com][level:component]A new VirtualMachineInstance", func() {
 		BeforeEach(func() {
 			virtClient, err = kubecli.GetKubevirtClient()
 			util.PanicOnError(err)
 
-			vmi = tests.NewRandomVMI()
-			Expect(virtClient.RestClient().Post().Resource("virtualmachineinstances").Namespace(util.NamespaceTestDefault).Body(vmi).Do(context.Background()).Error()).To(Succeed())
-			tests.WaitForSuccessfulVMIStart(vmi)
+			vmi = libvmi.New(libvmi.WithResourceMemory(enoughMemForSafeBiosEmulation))
+			vmi, err = virtClient.VirtualMachineInstance(util.NamespaceTestDefault).Create(vmi)
+			Expect(err).NotTo(HaveOccurred())
+			vmi = tests.WaitForSuccessfulVMIStart(vmi)
 		})
 
 		Context("with VNC connection", func() {
