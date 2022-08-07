@@ -1007,14 +1007,14 @@ var _ = Describe("[rfe_id:1177][crit:medium][vendor:cnv-qe@redhat.com][level:com
 			})
 
 			It("Should force stop a VMI", func() {
-
+				const enoughMemForSafeBiosEmulation = "32Mi"
 				By("getting a VM with high TerminationGracePeriod")
-				newVMI := tests.NewRandomVMI()
-				gracePeriod := int64(1600)
-				newVMI.Spec.TerminationGracePeriodSeconds = &gracePeriod
-
+				newVMI := libvmi.New(
+					libvmi.WithResourceMemory(enoughMemForSafeBiosEmulation),
+					libvmi.WithTerminationGracePeriod(1600),
+				)
 				newVM := tests.NewRandomVirtualMachine(newVMI, true)
-				_, err := virtClient.VirtualMachine(newVM.Namespace).Create(newVM)
+				newVM, err := virtClient.VirtualMachine(util.NamespaceTestDefault).Create(newVM)
 				Expect(err).ToNot(HaveOccurred())
 
 				By("Waiting for VM to be ready")
