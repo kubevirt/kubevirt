@@ -1425,8 +1425,8 @@ var _ = Describe("[rfe_id:273][crit:high][arm64][vendor:cnv-qe@redhat.com][level
 					MatchRegexp(`"kind":"Domain","level":"info","msg":"Domain is in state Shutoff reason Destroyed","name":"%s"`, vmi.GetObjectMeta().GetName()), // Domain was destroyed because the launcher pod is gone
 				), "Logs should confirm pod deletion")
 			},
-				Entry("[test_id:1641]"+util.NamespaceTestDefault, &util.NamespaceTestDefault),
-				Entry("[test_id:1642]"+testsuite.NamespaceTestAlternative, &testsuite.NamespaceTestAlternative),
+				Entry("[test_id:1641]Default test namespace", &util.NamespaceTestDefault),
+				Entry("[test_id:1642]Alternative test namespace", &testsuite.NamespaceTestAlternative),
 			)
 		})
 
