@@ -27,7 +27,6 @@ import (
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
 	k8sv1 "k8s.io/api/core/v1"
-	"k8s.io/apimachinery/pkg/api/resource"
 	"k8s.io/utils/pointer"
 
 	"kubevirt.io/kubevirt/tests/util"
@@ -38,7 +37,6 @@ import (
 
 	"kubevirt.io/kubevirt/tests"
 	"kubevirt.io/kubevirt/tests/console"
-	cd "kubevirt.io/kubevirt/tests/containerdisk"
 	"kubevirt.io/kubevirt/tests/flags"
 	"kubevirt.io/kubevirt/tests/libnet"
 	"kubevirt.io/kubevirt/tests/libvmi"
@@ -192,17 +190,11 @@ var _ = SIGDescribe("Slirp Networking", func() {
 			setDefaultNetworkInterface("bridge")
 		})
 		It("should reject VMIs with default interface slirp when it's not permitted", func() {
-			var t int64 = 0
-			vmi := tests.NewRandomVMI()
-			vmi.Spec.TerminationGracePeriodSeconds = &t
-			// Reset memory, devices and networks
-			vmi.Spec.Domain.Resources.Requests[k8sv1.ResourceMemory] = resource.MustParse("128Mi")
-			vmi.Spec.Domain.Devices = v1.Devices{}
-			vmi.Spec.Networks = nil
-			tests.AddEphemeralDisk(vmi, "disk0", v1.DiskBusVirtio, cd.ContainerDiskFor(cd.ContainerDiskCirros))
-
-			vmi, err = virtClient.VirtualMachineInstance(util.NamespaceTestDefault).Create(vmi)
+			const enoughMemForSafeBiosEmulation = "32Mi"
+			vmi := libvmi.New(libvmi.WithResourceMemory(enoughMemForSafeBiosEmulation))
+			_, err = virtClient.VirtualMachineInstance(util.NamespaceTestDefault).Create(vmi)
 			Expect(err).To(HaveOccurred())
+			Expect(err.Error()).To(ContainSubstring("Slirp"))
 		})
 	})
 })
