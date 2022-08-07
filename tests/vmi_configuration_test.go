@@ -74,13 +74,13 @@ import (
 )
 
 var _ = Describe("[sig-compute]Configurations", func() {
-	const enoughMemForSafeBiosEmulation = "32Mi"
 	var err error
 	var virtClient kubecli.KubevirtClient
 
 	const (
-		cgroupV1MemoryUsagePath = "/sys/fs/cgroup/memory/memory.usage_in_bytes"
-		cgroupV2MemoryUsagePath = "/sys/fs/cgroup/memory.current"
+		cgroupV1MemoryUsagePath       = "/sys/fs/cgroup/memory/memory.usage_in_bytes"
+		cgroupV2MemoryUsagePath       = "/sys/fs/cgroup/memory.current"
+		enoughMemForSafeBiosEmulation = "32Mi"
 	)
 
 	getPodMemoryUsage := func(pod *kubev1.Pod) (output string, err error) {
@@ -556,14 +556,10 @@ var _ = Describe("[sig-compute]Configurations", func() {
 			It("[test_id:5265]should find no bootable device by default", func() {
 				By("Creating a VMI with no disk and an explicit network interface")
 				vmi := libvmi.New(
+					libvmi.WithResourceMemory(enoughMemForSafeBiosEmulation),
 					libvmi.WithNetwork(v1.DefaultPodNetwork()),
 					libvmi.WithInterface(libvmi.InterfaceDeviceWithMasqueradeBinding()),
 				)
-				vmi.Spec.Domain.Resources = v1.ResourceRequirements{
-					Requests: kubev1.ResourceList{
-						kubev1.ResourceMemory: resource.MustParse("32M"),
-					},
-				}
 
 				By("Enabling BIOS serial output")
 				vmi.Spec.Domain.Firmware = &v1.Firmware{
@@ -1652,16 +1648,13 @@ var _ = Describe("[sig-compute]Configurations", func() {
 		Context("with volumes, disks and filesystem defined", func() {
 
 			var vmi *v1.VirtualMachineInstance
-
-			BeforeEach(func() {
-				vmi = tests.NewRandomVMI()
-			})
+			const diskName = "testdisk"
+			vmi = libvmi.New(
+				libvmi.WithResourceMemory(enoughMemForSafeBiosEmulation),
+				withDisk(diskName),
+			)
 
 			It("[test_id:6960]should reject disk with missing volume", func() {
-				const diskName = "testdisk"
-				vmi.Spec.Domain.Devices.Disks = append(vmi.Spec.Domain.Devices.Disks, v1.Disk{
-					Name: diskName,
-				})
 				vmi, err = virtClient.VirtualMachineInstance(util.NamespaceTestDefault).Create(vmi)
 				Expect(err).To(HaveOccurred())
 				const expectedErrMessage = "denied the request: spec.domain.devices.disks[0].Name '" + diskName + "' not found."
@@ -1690,7 +1683,7 @@ var _ = Describe("[sig-compute]Configurations", func() {
 				tests.UpdateKubeVirtConfigValueAndWait(*config)
 
 				By("Creating a new VMI")
-				var vmi = tests.NewRandomVMI()
+				var vmi = libvmi.New(libvmi.WithResourceMemory(enoughMemForSafeBiosEmulation))
 				vmi = tests.RunVMIAndExpectScheduling(vmi, 30)
 				Expect(err).NotTo(HaveOccurred())
 
@@ -1701,7 +1694,7 @@ var _ = Describe("[sig-compute]Configurations", func() {
 
 			It("should not apply runtimeClassName to pod when not set", func() {
 				By("Creating a VMI")
-				var vmi = tests.NewRandomVMI()
+				var vmi = libvmi.New(libvmi.WithResourceMemory(enoughMemForSafeBiosEmulation))
 				vmi, err = virtClient.VirtualMachineInstance(util.NamespaceTestDefault).Create(vmi)
 				Expect(err).NotTo(HaveOccurred())
 
@@ -1866,9 +1859,9 @@ var _ = Describe("[sig-compute]Configurations", func() {
 		})
 
 		It("[test_id:3125]should allow creating VM without Machine defined", func() {
-			vmi := tests.NewRandomVMI()
+			vmi := libvmi.New(libvmi.WithResourceMemory(enoughMemForSafeBiosEmulation))
 			vmi.Spec.Domain.Machine = nil
-			tests.RunVMIAndExpectLaunch(vmi, 30)
+			vmi = tests.RunVMIAndExpectLaunch(vmi, 30)
 			runningVMISpec, err := tests.GetRunningVMIDomainSpec(vmi)
 
 			Expect(err).ToNot(HaveOccurred())
@@ -1896,9 +1889,9 @@ var _ = Describe("[sig-compute]Configurations", func() {
 			config.MachineType = "pc"
 			tests.UpdateKubeVirtConfigValueAndWait(config)
 
-			vmi := tests.NewRandomVMI()
+			vmi := libvmi.New(libvmi.WithResourceMemory(enoughMemForSafeBiosEmulation))
 			vmi.Spec.Domain.Machine = nil
-			tests.RunVMIAndExpectLaunch(vmi, 30)
+			vmi = tests.RunVMIAndExpectLaunch(vmi, 30)
 			runningVMISpec, err := tests.GetRunningVMIDomainSpec(vmi)
 
 			Expect(err).ToNot(HaveOccurred())
@@ -1934,7 +1927,7 @@ var _ = Describe("[sig-compute]Configurations", func() {
 		})
 
 		It("[test_id:3128]should set CPU request when it is not provided", func() {
-			vmi := tests.NewRandomVMI()
+			vmi := libvmi.New(libvmi.WithResourceMemory(enoughMemForSafeBiosEmulation))
 			runningVMI := tests.RunVMIAndExpectScheduling(vmi, 30)
 
 			readyPod := libvmi.GetPodByVirtualMachineInstance(runningVMI, util.NamespaceTestDefault)
@@ -1951,7 +1944,7 @@ var _ = Describe("[sig-compute]Configurations", func() {
 			config.CPURequest = &configureCPURequest
 			tests.UpdateKubeVirtConfigValueAndWait(config)
 
-			vmi := tests.NewRandomVMI()
+			vmi := libvmi.New(libvmi.WithResourceMemory(enoughMemForSafeBiosEmulation))
 			runningVMI := tests.RunVMIAndExpectScheduling(vmi, 30)
 
 			readyPod := libvmi.GetPodByVirtualMachineInstance(runningVMI, util.NamespaceTestDefault)
@@ -1983,7 +1976,7 @@ var _ = Describe("[sig-compute]Configurations", func() {
 		})
 
 		It("[test_id:1681]should set appropriate cache modes", func() {
-			vmi := tests.NewRandomVMI()
+			vmi := libvmi.New(libvmi.WithResourceMemory(enoughMemForSafeBiosEmulation))
 
 			By("adding disks to a VMI")
 			tests.AddEphemeralDisk(vmi, "ephemeral-disk1", v1.DiskBusVirtio, cd.ContainerDiskFor(cd.ContainerDiskCirros))
@@ -1999,7 +1992,7 @@ var _ = Describe("[sig-compute]Configurations", func() {
 			tests.AddUserData(vmi, "cloud-init", "#!/bin/bash\necho 'hello'\n")
 			tmpHostDiskDir := tests.RandTmpDir()
 			tests.AddHostDisk(vmi, filepath.Join(tmpHostDiskDir, "test-disk.img"), v1.HostDiskExistsOrCreate, "hostdisk")
-			tests.RunVMIAndExpectLaunch(vmi, 60)
+			vmi = tests.RunVMIAndExpectLaunch(vmi, 60)
 			runningVMISpec, err := tests.GetRunningVMIDomainSpec(vmi)
 			Expect(err).ToNot(HaveOccurred())
 			vmiPod := tests.GetRunningPodByVirtualMachineInstance(vmi, util.NamespaceTestDefault)
@@ -2040,7 +2033,7 @@ var _ = Describe("[sig-compute]Configurations", func() {
 		})
 
 		It("[test_id:5360]should set appropriate IO modes", func() {
-			vmi := tests.NewRandomVMI()
+			vmi := libvmi.New(libvmi.WithResourceMemory(enoughMemForSafeBiosEmulation))
 
 			By("adding disks to a VMI")
 			// disk[0]:  File, sparsed, no user-input, cache=none
@@ -2058,7 +2051,7 @@ var _ = Describe("[sig-compute]Configurations", func() {
 			vmi.Spec.Domain.Devices.Disks[3].Cache = v1.CacheNone
 			vmi.Spec.Domain.Devices.Disks[3].IO = v1.IOThreads
 
-			tests.RunVMIAndExpectLaunch(vmi, 60)
+			vmi = tests.RunVMIAndExpectLaunch(vmi, 60)
 			runningVMISpec, err := tests.GetRunningVMIDomainSpec(vmi)
 			Expect(err).ToNot(HaveOccurred())
 
@@ -3164,4 +3157,13 @@ func createBlockDataVolume(virtClient kubecli.KubevirtClient) (*cdiv1.DataVolume
 	)
 
 	return virtClient.CdiClient().CdiV1beta1().DataVolumes(util.NamespaceTestDefault).Create(context.Background(), dataVolume, metav1.CreateOptions{})
+}
+
+func withDisk(diskName string) libvmi.Option {
+	return func(vmi *v1.VirtualMachineInstance) {
+		vmi.Spec.Domain.Devices.Disks = append(vmi.Spec.Domain.Devices.Disks, v1.Disk{
+			Name: diskName,
+		})
+	}
+
 }
