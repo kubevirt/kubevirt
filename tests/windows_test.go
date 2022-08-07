@@ -76,9 +76,10 @@ var _ = Describe("[Serial][sig-compute]Windows VirtualMachineInstance", func() {
 		util.PanicOnError(err)
 		checks.SkipIfMissingRequiredImage(virtClient, tests.DiskWindows)
 		libstorage.CreatePVC(OSWindows, "30Gi", libstorage.Config.StorageClassWindows, true)
-		windowsVMI = tests.NewRandomVMI()
+		windowsVMI = libvmi.New()
 		windowsVMI.Spec = getWindowsVMISpec()
 		tests.AddExplicitPodNetworkInterface(windowsVMI)
+		windowsVMI.Namespace = util.NamespaceTestDefault
 		windowsVMI.Spec.Domain.Devices.Interfaces[0].Model = "e1000"
 	})
 
