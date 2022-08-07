@@ -27,12 +27,9 @@ import (
 	"strings"
 	"time"
 
-	"kubevirt.io/kubevirt/tests/framework/checks"
-
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
 	k8sv1 "k8s.io/api/core/v1"
-	"k8s.io/apimachinery/pkg/api/resource"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/types"
 	"k8s.io/utils/pointer"
@@ -42,12 +39,10 @@ import (
 
 	"kubevirt.io/kubevirt/tests"
 	"kubevirt.io/kubevirt/tests/flags"
+	"kubevirt.io/kubevirt/tests/framework/checks"
 	"kubevirt.io/kubevirt/tests/libstorage"
+	"kubevirt.io/kubevirt/tests/libvmi"
 	"kubevirt.io/kubevirt/tests/util"
-)
-
-const (
-	windowsSealedDisk = "windows-disk"
 )
 
 const (
@@ -211,110 +206,52 @@ func insertProductKeyToAnswerFileTemplate(answerFileTemplate string) string {
 	return fmt.Sprintf(answerFileTemplate, productKey)
 }
 
-var getWindowsSysprepVMISpec = func() v1.VirtualMachineInstanceSpec {
-	gracePeriod := int64(0)
-	spinlocks := uint32(8191)
-	firmware := types.UID(windowsFirmware)
-	_false := false
-	return v1.VirtualMachineInstanceSpec{
-		TerminationGracePeriodSeconds: &gracePeriod,
-		Domain: v1.DomainSpec{
-			CPU: &v1.CPU{Cores: 2},
-			Features: &v1.Features{
-				ACPI: v1.FeatureState{},
-				APIC: &v1.FeatureAPIC{},
-				Hyperv: &v1.FeatureHyperv{
-					Relaxed:   &v1.FeatureState{},
-					VAPIC:     &v1.FeatureState{},
-					Spinlocks: &v1.FeatureSpinlocks{Retries: &spinlocks},
-				},
-			},
-			Clock: &v1.Clock{
-				ClockOffset: v1.ClockOffset{UTC: &v1.ClockOffsetUTC{}},
-				Timer: &v1.Timer{
-					HPET:   &v1.HPETTimer{Enabled: &_false},
-					PIT:    &v1.PITTimer{TickPolicy: v1.PITTickPolicyDelay},
-					RTC:    &v1.RTCTimer{TickPolicy: v1.RTCTickPolicyCatchup},
-					Hyperv: &v1.HypervTimer{},
-				},
-			},
-			Firmware: &v1.Firmware{UUID: firmware},
-			Resources: v1.ResourceRequirements{
-				Requests: k8sv1.ResourceList{
-					k8sv1.ResourceMemory: resource.MustParse("2048Mi"),
-				},
-			},
-			Devices: v1.Devices{
-				Disks: []v1.Disk{
-					{
-						Name:       windowsSealedDisk,
-						DiskDevice: v1.DiskDevice{Disk: &v1.DiskTarget{Bus: v1.DiskBusSATA}},
-					},
-					{
-						Name:       "sysprep",
-						DiskDevice: v1.DiskDevice{CDRom: &v1.CDRomTarget{Bus: v1.DiskBusSATA}},
-					},
-				},
-			},
-		},
-		Volumes: []v1.Volume{
-			{
-				Name: windowsSealedDisk,
-				VolumeSource: v1.VolumeSource{
-					Ephemeral: &v1.EphemeralVolumeSource{
-						PersistentVolumeClaim: &k8sv1.PersistentVolumeClaimVolumeSource{
-							ClaimName: tests.DiskWindowsSysprep,
-						},
-					},
-				},
-			},
-			{
-				Name: "sysprep",
-				VolumeSource: v1.VolumeSource{
-					Sysprep: &v1.SysprepSource{
-						ConfigMap: &k8sv1.LocalObjectReference{
-							Name: "sysprepautounattend",
-						},
-					},
-				},
-			},
-		},
-	}
-
-}
-
-const (
-	windowsSysprepedVMIUser     = "Admin"
-	windowsSysprepedVMIPassword = "Gauranga"
-)
-
 var _ = Describe("[Serial][Sysprep][sig-compute]Syspreped VirtualMachineInstance", func() {
-	var err error
-	var virtClient kubecli.KubevirtClient
-
-	var windowsVMI *v1.VirtualMachineInstance
-
-	BeforeEach(func() {
-		const OSWindowsSysprep = "windows-sysprep"
-		virtClient, err = kubecli.GetKubevirtClient()
-		util.PanicOnError(err)
-		checks.SkipIfMissingRequiredImage(virtClient, tests.DiskWindowsSysprep)
-		libstorage.CreatePVC(OSWindowsSysprep, "35Gi", libstorage.Config.StorageClassWindows, true)
-		answerFileWithKey := insertProductKeyToAnswerFileTemplate(answerFileTemplate)
-		tests.CreateConfigMap("sysprepautounattend", map[string]string{"Autounattend.xml": answerFileWithKey, "Unattend.xml": answerFileWithKey})
-		windowsVMI = tests.NewRandomVMI()
-		windowsVMI.Spec = getWindowsSysprepVMISpec()
-		tests.AddExplicitPodNetworkInterface(windowsVMI)
-		windowsVMI.Spec.Domain.Devices.Interfaces[0].Model = "e1000"
-	})
+	const windowsSysprepedVMIUser = "Admin"
+	const windowsSysprepedVMIPassword = "Gauranga"
+	const OSWindowsSysprep = "windows-sysprep"
+	const windowsSealedDisk = "windows-disk"
 
 	Context("[ref_id:5105]should create the Admin user as specified in the Autounattend.xml", func() {
+		var err error
+		var virtClient kubecli.KubevirtClient
+		var windowsVMI *v1.VirtualMachineInstance
 		var winrmcliPod *k8sv1.Pod
 		var cli []string
 		var output string
 		var vmiIp string
 
 		BeforeEach(func() {
+			virtClient, err = kubecli.GetKubevirtClient()
+			Expect(err).ToNot(HaveOccurred())
+
+			checks.SkipIfMissingRequiredImage(virtClient, tests.DiskWindowsSysprep)
+			libstorage.CreatePVC(OSWindowsSysprep, "35Gi", libstorage.Config.StorageClassWindows, true)
+			answerFileWithKey := insertProductKeyToAnswerFileTemplate(answerFileTemplate)
+			tests.CreateConfigMap("sysprepautounattend", map[string]string{"Autounattend.xml": answerFileWithKey, "Unattend.xml": answerFileWithKey})
+			masqueradeInterface := libvmi.InterfaceDeviceWithMasqueradeBinding()
+			masqueradeInterface.Model = "e1000"
+			windowsVMI = libvmi.New(
+				withCoreNumber(uint32(2)),
+				withACPIFeature(),
+				withAPICFeature(),
+				withRelaxedHypervFeature(),
+				withRelaxedVAPICHypervFeature(),
+				withRelaxedSpinlocksHypervFeature(uint32(8191)),
+				withClockOffsetUTC(),
+				withPITTimer(v1.PITTickPolicyDelay),
+				withRTCTimer(v1.RTCTickPolicyCatchup),
+				withHypervTimer(),
+				withFirmwareUUID(windowsFirmware),
+				libvmi.WithResourceMemory("2048Mi"),
+				withEphemeralVolumeSource(windowsSealedDisk, tests.DiskWindowsSysprep),
+				withDiskDevice(windowsSealedDisk, v1.DiskBusSATA),
+				withSysprepVolumesource("sysprep", "sysprepautounattend"),
+				withCDRomDiskDevice("sysprep", v1.DiskBusSATA),
+				libvmi.WithNetwork(v1.DefaultPodNetwork()),
+				libvmi.WithInterface(masqueradeInterface),
+			)
+
 			By("Creating winrm-cli pod for the future use")
 			winrmcliPod = winRMCliPod()
 			winrmcliPod, err = virtClient.CoreV1().Pods(util.NamespaceTestDefault).Create(context.Background(), winrmcliPod, metav1.CreateOptions{})
@@ -381,5 +318,173 @@ func winRMCliPod() *k8sv1.Pod {
 				SeccompProfile: &k8sv1.SeccompProfile{Type: k8sv1.SeccompProfileTypeRuntimeDefault},
 			},
 		},
+	}
+}
+
+func withCoreNumber(number uint32) libvmi.Option {
+	return func(vmi *v1.VirtualMachineInstance) {
+		if vmi.Spec.Domain.CPU == nil {
+			vmi.Spec.Domain.CPU = &v1.CPU{}
+		}
+		vmi.Spec.Domain.CPU.Cores = number
+	}
+}
+
+func withACPIFeature() libvmi.Option {
+	return func(vmi *v1.VirtualMachineInstance) {
+		if vmi.Spec.Domain.Features == nil {
+			vmi.Spec.Domain.Features = &v1.Features{}
+		}
+		vmi.Spec.Domain.Features.ACPI = v1.FeatureState{}
+	}
+}
+
+func withAPICFeature() libvmi.Option {
+	return func(vmi *v1.VirtualMachineInstance) {
+		if vmi.Spec.Domain.Features == nil {
+			vmi.Spec.Domain.Features = &v1.Features{}
+		}
+		vmi.Spec.Domain.Features.APIC = &v1.FeatureAPIC{}
+	}
+}
+
+func withRelaxedHypervFeature() libvmi.Option {
+	return func(vmi *v1.VirtualMachineInstance) {
+		if vmi.Spec.Domain.Features == nil {
+			vmi.Spec.Domain.Features = &v1.Features{}
+		}
+		if vmi.Spec.Domain.Features.Hyperv == nil {
+			vmi.Spec.Domain.Features.Hyperv = &v1.FeatureHyperv{}
+		}
+		vmi.Spec.Domain.Features.Hyperv.Relaxed = &v1.FeatureState{}
+	}
+}
+
+func withRelaxedVAPICHypervFeature() libvmi.Option {
+	return func(vmi *v1.VirtualMachineInstance) {
+		if vmi.Spec.Domain.Features == nil {
+			vmi.Spec.Domain.Features = &v1.Features{}
+		}
+		if vmi.Spec.Domain.Features.Hyperv == nil {
+			vmi.Spec.Domain.Features.Hyperv = &v1.FeatureHyperv{}
+		}
+		vmi.Spec.Domain.Features.Hyperv.VAPIC = &v1.FeatureState{}
+	}
+}
+
+func withRelaxedSpinlocksHypervFeature(spinlocks uint32) libvmi.Option {
+	return func(vmi *v1.VirtualMachineInstance) {
+		if vmi.Spec.Domain.Features == nil {
+			vmi.Spec.Domain.Features = &v1.Features{}
+		}
+		if vmi.Spec.Domain.Features.Hyperv == nil {
+			vmi.Spec.Domain.Features.Hyperv = &v1.FeatureHyperv{}
+		}
+		vmi.Spec.Domain.Features.Hyperv.Spinlocks = &v1.FeatureSpinlocks{Retries: &spinlocks}
+	}
+}
+
+func withClockOffsetUTC() libvmi.Option {
+	return func(vmi *v1.VirtualMachineInstance) {
+		if vmi.Spec.Domain.Clock == nil {
+			vmi.Spec.Domain.Clock = &v1.Clock{}
+		}
+		vmi.Spec.Domain.Clock.UTC = &v1.ClockOffsetUTC{}
+
+	}
+}
+
+func withPITTimer(tickPolicy v1.PITTickPolicy) libvmi.Option {
+	return func(vmi *v1.VirtualMachineInstance) {
+		if vmi.Spec.Domain.Clock == nil {
+			vmi.Spec.Domain.Clock = &v1.Clock{}
+		}
+		if vmi.Spec.Domain.Clock.Timer == nil {
+			vmi.Spec.Domain.Clock.Timer = &v1.Timer{}
+		}
+		vmi.Spec.Domain.Clock.Timer.PIT = &v1.PITTimer{TickPolicy: tickPolicy}
+	}
+}
+
+func withRTCTimer(tickPolicy v1.RTCTickPolicy) libvmi.Option {
+	return func(vmi *v1.VirtualMachineInstance) {
+		if vmi.Spec.Domain.Clock == nil {
+			vmi.Spec.Domain.Clock = &v1.Clock{}
+		}
+		if vmi.Spec.Domain.Clock.Timer == nil {
+			vmi.Spec.Domain.Clock.Timer = &v1.Timer{}
+		}
+		vmi.Spec.Domain.Clock.Timer.RTC = &v1.RTCTimer{TickPolicy: tickPolicy}
+	}
+}
+
+func withHypervTimer() libvmi.Option {
+	return func(vmi *v1.VirtualMachineInstance) {
+		if vmi.Spec.Domain.Clock == nil {
+			vmi.Spec.Domain.Clock = &v1.Clock{}
+		}
+		if vmi.Spec.Domain.Clock.Timer == nil {
+			vmi.Spec.Domain.Clock.Timer = &v1.Timer{}
+		}
+		vmi.Spec.Domain.Clock.Timer.Hyperv = &v1.HypervTimer{}
+	}
+}
+
+func withFirmwareUUID(firmware types.UID) libvmi.Option {
+	return func(vmi *v1.VirtualMachineInstance) {
+		if vmi.Spec.Domain.Firmware == nil {
+			vmi.Spec.Domain.Firmware = &v1.Firmware{}
+		}
+		vmi.Spec.Domain.Firmware.UUID = firmware
+	}
+}
+
+func withDiskDevice(diskName string, bus v1.DiskBus) libvmi.Option {
+	return func(vmi *v1.VirtualMachineInstance) {
+		disk := v1.Disk{
+			Name:       diskName,
+			DiskDevice: v1.DiskDevice{Disk: &v1.DiskTarget{Bus: bus}},
+		}
+		vmi.Spec.Domain.Devices.Disks = append(vmi.Spec.Domain.Devices.Disks, disk)
+	}
+}
+
+func withCDRomDiskDevice(diskName string, bus v1.DiskBus) libvmi.Option {
+	return func(vmi *v1.VirtualMachineInstance) {
+		disk := v1.Disk{
+			Name:       diskName,
+			DiskDevice: v1.DiskDevice{CDRom: &v1.CDRomTarget{Bus: bus}},
+		}
+		vmi.Spec.Domain.Devices.Disks = append(vmi.Spec.Domain.Devices.Disks, disk)
+	}
+}
+
+func withEphemeralVolumeSource(name, claimName string) libvmi.Option {
+	return func(vmi *v1.VirtualMachineInstance) {
+		volume := v1.Volume{
+			Name: name,
+			VolumeSource: v1.VolumeSource{
+				Ephemeral: &v1.EphemeralVolumeSource{
+					PersistentVolumeClaim: &k8sv1.PersistentVolumeClaimVolumeSource{
+						ClaimName: claimName,
+					}},
+			},
+		}
+		vmi.Spec.Volumes = append(vmi.Spec.Volumes, volume)
+	}
+}
+
+func withSysprepVolumesource(name, sysprepSourceName string) libvmi.Option {
+	return func(vmi *v1.VirtualMachineInstance) {
+		volume := v1.Volume{
+			Name: name,
+			VolumeSource: v1.VolumeSource{
+				Sysprep: &v1.SysprepSource{
+					ConfigMap: &k8sv1.LocalObjectReference{
+						Name: sysprepSourceName,
+					}},
+			},
+		}
+		vmi.Spec.Volumes = append(vmi.Spec.Volumes, volume)
 	}
 }
