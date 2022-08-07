@@ -369,6 +369,7 @@ var _ = Describe("[Serial][sig-monitoring]Prometheus Alerts", func() {
 
 	Context("Errors metrics", func() {
 		var crb *rbacv1.ClusterRoleBinding
+		const enoughMemForSafeBiosEmulation = "32Mi"
 
 		BeforeEach(func() {
 			virtClient, err = kubecli.GetKubevirtClient()
@@ -438,7 +439,7 @@ var _ = Describe("[Serial][sig-monitoring]Prometheus Alerts", func() {
 			err = virtClient.RbacV1().ClusterRoleBindings().Delete(context.Background(), "kubevirt-controller", metav1.DeleteOptions{})
 			Expect(err).ToNot(HaveOccurred())
 
-			vmi := tests.NewRandomVMI()
+			vmi := libvmi.New(libvmi.WithResourceMemory(enoughMemForSafeBiosEmulation))
 
 			for i := 0; i < 60; i++ {
 				_, _ = virtClient.VirtualMachineInstance(util.NamespaceTestDefault).Create(vmi)
@@ -461,7 +462,7 @@ var _ = Describe("[Serial][sig-monitoring]Prometheus Alerts", func() {
 			err = virtClient.RbacV1().ClusterRoleBindings().Delete(context.Background(), "kubevirt-handler", metav1.DeleteOptions{})
 			Expect(err).ToNot(HaveOccurred())
 
-			vmi := tests.NewRandomVMI()
+			vmi := libvmi.New(libvmi.WithResourceMemory(enoughMemForSafeBiosEmulation))
 
 			for i := 0; i < 60; i++ {
 				_, _ = virtClient.VirtualMachineInstance(util.NamespaceTestDefault).Create(vmi)
