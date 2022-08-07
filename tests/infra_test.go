@@ -1149,6 +1149,8 @@ var _ = Describe("[Serial][sig-compute]Infrastructure", func() {
 	Describe("Start a VirtualMachineInstance", func() {
 		Context("when the controller pod is not running and an election happens", func() {
 			It("[test_id:4642]should succeed afterwards", func() {
+				const enoughMemForSafeBiosEmulation = "32Mi"
+
 				// This test needs at least 2 controller pods. Skip on single-replica.
 				checks.SkipIfSingleReplica(virtClient)
 
@@ -1183,7 +1185,7 @@ var _ = Describe("[Serial][sig-compute]Infrastructure", func() {
 					return k8sv1.ConditionUnknown
 				}()).To(Equal(k8sv1.ConditionTrue))
 
-				vmi := tests.NewRandomVMI()
+				vmi := libvmi.New(libvmi.WithResourceMemory(enoughMemForSafeBiosEmulation))
 
 				By("Starting a new VirtualMachineInstance")
 				obj, err := virtClient.RestClient().Post().Resource("virtualmachineinstances").Namespace(util.NamespaceTestDefault).Body(vmi).Do(context.Background()).Get()
