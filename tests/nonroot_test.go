@@ -9,6 +9,7 @@ import (
 	virtconfig "kubevirt.io/kubevirt/pkg/virt-config"
 	"kubevirt.io/kubevirt/tests"
 	"kubevirt.io/kubevirt/tests/framework/checks"
+	"kubevirt.io/kubevirt/tests/libvmi"
 	"kubevirt.io/kubevirt/tests/util"
 )
 
@@ -25,8 +26,8 @@ var _ = Describe("[sig-compute]NonRoot feature", func() {
 	Context("[verify-nonroot] NonRoot feature", func() {
 		It("Fails if can't be tested", func() {
 			Expect(checks.HasFeature(virtconfig.NonRoot)).To(BeTrue())
-
-			vmi := tests.NewRandomVMI()
+			const enoughMemForSafeBiosEmulation = "32Mi"
+			vmi := libvmi.New(libvmi.WithResourceMemory(enoughMemForSafeBiosEmulation))
 			vmi, err = virtClient.VirtualMachineInstance(util.NamespaceTestDefault).Create(vmi)
 			Expect(err).NotTo(HaveOccurred())
 
