@@ -374,6 +374,9 @@ func NewApiServerDeployment(namespace string, repository string, imagePrefix str
 		container.SecurityContext = &corev1.SecurityContext{}
 	}
 	container.SecurityContext.AllowPrivilegeEscalation = pointer.Bool(false)
+	container.SecurityContext.Capabilities = &corev1.Capabilities{
+		Drop: []corev1.Capability{"ALL"},
+	}
 
 	return deployment, nil
 }
@@ -463,6 +466,9 @@ func NewControllerDeployment(namespace string, repository string, imagePrefix st
 		container.SecurityContext = &corev1.SecurityContext{}
 	}
 	container.SecurityContext.AllowPrivilegeEscalation = pointer.Bool(false)
+	container.SecurityContext.Capabilities = &corev1.Capabilities{
+		Drop: []corev1.Capability{"ALL"},
+	}
 
 	return deployment, nil
 }
@@ -579,6 +585,9 @@ func NewOperatorDeployment(namespace string, repository string, imagePrefix stri
 							},
 							SecurityContext: &corev1.SecurityContext{
 								AllowPrivilegeEscalation: pointer.Bool(false),
+								Capabilities: &corev1.Capabilities{
+									Drop: []corev1.Capability{"ALL"},
+								},
 							},
 						},
 					},
