@@ -54,6 +54,7 @@ import (
 	"kubevirt.io/kubevirt/tests/framework/checks"
 	. "kubevirt.io/kubevirt/tests/framework/matcher"
 	"kubevirt.io/kubevirt/tests/libstorage"
+	"kubevirt.io/kubevirt/tests/libvmi"
 	"kubevirt.io/kubevirt/tests/testsuite"
 	"kubevirt.io/kubevirt/tests/util"
 )
@@ -339,6 +340,8 @@ var _ = SIGDescribe("DataVolume Integration", func() {
 
 		Context("with a PVC from a Datavolume", func() {
 			var storageClass *storagev1.StorageClass
+			var vmi *v1.VirtualMachineInstance
+			var dv *cdiv1.DataVolume
 			BeforeEach(func() {
 				// ensure that we always use a storage class which binds immediately,
 				// otherwise we will never see a PVC appear for the datavolume
@@ -352,6 +355,14 @@ var _ = SIGDescribe("DataVolume Integration", func() {
 				}
 				storageClass, err = virtClient.StorageV1().StorageClasses().Create(context.Background(), storageClass, metav1.CreateOptions{})
 				Expect(err).ToNot(HaveOccurred())
+
+				dv = libstorage.NewDataVolumeWithRegistryImportInStorageClass(cd.DataVolumeImportUrlForContainerDisk(cd.ContainerDiskAlpine), util.NamespaceTestDefault, storageClass.Name, k8sv1.ReadWriteOnce, k8sv1.PersistentVolumeFilesystem)
+				vmi = libvmi.New(
+					libvmi.WithInterface(libvmi.InterfaceDeviceWithMasqueradeBinding()),
+					libvmi.WithNetwork(v1.DefaultPodNetwork()),
+					libvmi.WithResourceMemory("32Mi"),
+					libvmi.WithPersistentVolumeClaim(diskName, dv.ObjectMeta.Name),
+				)
 			})
 			AfterEach(func() {
 				if storageClass != nil && storageClass.Name != "" {
@@ -361,8 +372,6 @@ var _ = SIGDescribe("DataVolume Integration", func() {
 			})
 
 			It("[test_id:4643]should NOT be rejected when VM template lists a DataVolume, but VM lists PVC VolumeSource", func() {
-
-				dv := libstorage.NewDataVolumeWithRegistryImportInStorageClass(cd.DataVolumeImportUrlForContainerDisk(cd.ContainerDiskAlpine), util.NamespaceTestDefault, storageClass.Name, k8sv1.ReadWriteOnce, k8sv1.PersistentVolumeFilesystem)
 				_, err = virtClient.CdiClient().CdiV1beta1().DataVolumes(dv.Namespace).Create(context.Background(), dv, metav1.CreateOptions{})
 				Expect(err).ToNot(HaveOccurred())
 
@@ -374,28 +383,6 @@ var _ = SIGDescribe("DataVolume Integration", func() {
 				Eventually(func() (*k8sv1.PersistentVolumeClaim, error) {
 					return virtClient.CoreV1().PersistentVolumeClaims(dv.Namespace).Get(context.Background(), dv.Name, metav1.GetOptions{})
 				}, 30).Should(Not(BeNil()))
-
-				vmi := tests.NewRandomVMI()
-
-				diskName := "disk0"
-				vmi.Spec.Domain.Devices.Disks = append(vmi.Spec.Domain.Devices.Disks, v1.Disk{
-					Name: diskName,
-					DiskDevice: v1.DiskDevice{
-						Disk: &v1.DiskTarget{
-							Bus: v1.DiskBusVirtio,
-						},
-					},
-				})
-				vmi.Spec.Volumes = append(vmi.Spec.Volumes, v1.Volume{
-					Name: diskName,
-					VolumeSource: v1.VolumeSource{
-						PersistentVolumeClaim: &v1.PersistentVolumeClaimVolumeSource{PersistentVolumeClaimVolumeSource: k8sv1.PersistentVolumeClaimVolumeSource{
-							ClaimName: dv.ObjectMeta.Name,
-						}},
-					},
-				})
-
-				vmi.Spec.Domain.Resources.Requests[k8sv1.ResourceMemory] = resource.MustParse("512M")
 
 				vm := tests.NewRandomVirtualMachine(vmi, true)
 				dvt := &v1.DataVolumeTemplateSpec{
@@ -420,30 +407,8 @@ var _ = SIGDescribe("DataVolume Integration", func() {
 					return err
 				}, 30*time.Second, 1*time.Second).Should(BeNil())
 
-				vmi := tests.NewRandomVMI()
-
-				diskName := "disk0"
-				vmi.Spec.Domain.Devices.Disks = append(vmi.Spec.Domain.Devices.Disks, v1.Disk{
-					Name: diskName,
-					DiskDevice: v1.DiskDevice{
-						Disk: &v1.DiskTarget{
-							Bus: v1.DiskBusVirtio,
-						},
-					},
-				})
-				vmi.Spec.Volumes = append(vmi.Spec.Volumes, v1.Volume{
-					Name: diskName,
-					VolumeSource: v1.VolumeSource{
-						PersistentVolumeClaim: &v1.PersistentVolumeClaimVolumeSource{PersistentVolumeClaimVolumeSource: k8sv1.PersistentVolumeClaimVolumeSource{
-							ClaimName: dv.ObjectMeta.Name,
-						}},
-					},
-				})
-
-				vmi.Spec.Domain.Resources.Requests[k8sv1.ResourceMemory] = resource.MustParse("512M")
-
 				vm := tests.NewRandomVirtualMachine(vmi, true)
-				_, err = virtClient.VirtualMachine(util.NamespaceTestDefault).Create(vm)
+				vm, err = virtClient.VirtualMachine(util.NamespaceTestDefault).Create(vm)
 				Expect(err).ShouldNot(HaveOccurred())
 
 				Eventually(func() bool {
