@@ -1194,6 +1194,9 @@ spec:
                     memory: 250Mi
                 securityContext:
                   allowPrivilegeEscalation: false
+                  capabilities:
+                    drop:
+                    - ALL
                 volumeMounts:
                 - mountPath: /etc/virt-operator/certificates
                   name: kubevirt-operator-certs
