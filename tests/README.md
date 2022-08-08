@@ -23,6 +23,9 @@ Additional suggestions:
  * The `[Disruptive]` tag is recognized by the test suite but is not yet
    mandatory. Feel free to set it on destructive tests.
  * Conformance tests need to be marked with a `[Conformance]` tag.
+ * We try to mark tests that require advanced/special storage capabilities with `[storage-req]`,  
+   So they are easy to skip when lanes with new storage solutions are introduced.  
+   At the point of writing this we use `rook-ceph-block` which certainly qualifies for running them.
 
 ## Test Namespaces
 

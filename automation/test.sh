@@ -394,16 +394,6 @@ if [[ -z ${KUBEVIRT_E2E_FOCUS} && -z ${KUBEVIRT_E2E_SKIP} ]]; then
   else
     export KUBEVIRT_E2E_SKIP="Multus|SRIOV|GPU|Macvtap|MediatedDevices"
   fi
-
-  if ! [[ $TARGET =~ sig-storage ]]; then
-    if [[ "$KUBEVIRT_STORAGE" == "rook-ceph-default" ]]; then
-        if [[ -z $KUBEVIRT_E2E_FOCUS ]]; then
-          export KUBEVIRT_E2E_FOCUS="\\[storage-req\\]"
-        else
-          export KUBEVIRT_E2E_FOCUS="$KUBEVIRT_E2E_FOCUS|\\[storage-req\\]"
-        fi
-    fi
-  fi
 fi
 
 if [[ $KUBEVIRT_NONROOT =~ true ]]; then
