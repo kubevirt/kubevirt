@@ -56,11 +56,10 @@ var SchedulableNode = ""
 func CleanNodes() {
 	virtCli, err := kubecli.GetKubevirtClient()
 	util.PanicOnError(err)
-	nodes := GetAllSchedulableNodes(virtCli).Items
 
 	clusterDrainKey := GetNodeDrainKey()
 
-	for _, node := range nodes {
+	for _, node := range GetAllSchedulableNodes(virtCli).Items {
 
 		old, err := json.Marshal(node)
 		Expect(err).ToNot(HaveOccurred())
