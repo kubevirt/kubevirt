@@ -24,6 +24,7 @@ import (
 	"strings"
 
 	"k8s.io/apimachinery/pkg/api/resource"
+	"k8s.io/utils/pointer"
 
 	appsv1 "k8s.io/api/apps/v1"
 	corev1 "k8s.io/api/core/v1"
@@ -335,6 +336,11 @@ func NewApiServerDeployment(namespace string, repository string, imagePrefix str
 		},
 	}
 
+	if container.SecurityContext == nil {
+		container.SecurityContext = &corev1.SecurityContext{}
+	}
+	container.SecurityContext.AllowPrivilegeEscalation = pointer.Bool(false)
+
 	return deployment, nil
 }
 
@@ -414,6 +420,11 @@ func NewControllerDeployment(namespace string, repository string, imagePrefix st
 			corev1.ResourceMemory: resource.MustParse("250Mi"),
 		},
 	}
+
+	if container.SecurityContext == nil {
+		container.SecurityContext = &corev1.SecurityContext{}
+	}
+	container.SecurityContext.AllowPrivilegeEscalation = pointer.Bool(false)
 
 	return deployment, nil
 }
@@ -527,6 +538,9 @@ func NewOperatorDeployment(namespace string, repository string, imagePrefix stri
 									corev1.ResourceCPU:    resource.MustParse("10m"),
 									corev1.ResourceMemory: resource.MustParse("250Mi"),
 								},
+							},
+							SecurityContext: &corev1.SecurityContext{
+								AllowPrivilegeEscalation: pointer.Bool(false),
 							},
 						},
 					},
