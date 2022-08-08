@@ -105,7 +105,7 @@ var _ = Describe("[crit:medium][vendor:cnv-qe@redhat.com][level:component][sig-c
 
 	Context("VM with invalid InstancetypeMatcher", func() {
 		It("[test_id:TODO] should fail to create VM with non-existing cluster instancetype", func() {
-			vmi := tests.NewRandomVMI()
+			vmi := libvmi.New()
 			vm := tests.NewRandomVirtualMachine(vmi, false)
 			vm.Spec.Instancetype = &v1.InstancetypeMatcher{
 				Name: "non-existing-cluster-instancetype",
@@ -124,7 +124,7 @@ var _ = Describe("[crit:medium][vendor:cnv-qe@redhat.com][level:component][sig-c
 		})
 
 		It("[test_id:TODO] should fail to create VM with non-existing namespaced instancetype", func() {
-			vmi := tests.NewRandomVMI()
+			vmi := libvmi.New()
 			vm := tests.NewRandomVirtualMachine(vmi, false)
 			vm.Spec.Instancetype = &v1.InstancetypeMatcher{
 				Name: "non-existing-instancetype",
@@ -146,7 +146,7 @@ var _ = Describe("[crit:medium][vendor:cnv-qe@redhat.com][level:component][sig-c
 
 	Context("VM with invalid PreferenceMatcher", func() {
 		It("[test_id:TODO] should fail to create VM with non-existing cluster preference", func() {
-			vmi := tests.NewRandomVMI()
+			vmi := libvmi.New()
 			vm := tests.NewRandomVirtualMachine(vmi, false)
 			vm.Spec.Preference = &v1.PreferenceMatcher{
 				Name: "non-existing-cluster-preference",
@@ -165,7 +165,7 @@ var _ = Describe("[crit:medium][vendor:cnv-qe@redhat.com][level:component][sig-c
 		})
 
 		It("[test_id:TODO] should fail to create VM with non-existing namespaced preference", func() {
-			vmi := tests.NewRandomVMI()
+			vmi := libvmi.New()
 			vm := tests.NewRandomVirtualMachine(vmi, false)
 			vm.Spec.Preference = &v1.PreferenceMatcher{
 				Name: "non-existing-preference",
@@ -314,7 +314,7 @@ var _ = Describe("[crit:medium][vendor:cnv-qe@redhat.com][level:component][sig-c
 		})
 
 		It("[test_id:TODO] should fail if instancetype and VM define CPU", func() {
-			vmi := tests.NewRandomVMI()
+			vmi := libvmi.New()
 
 			instancetype := newVirtualMachineInstancetype(vmi)
 			instancetype, err := virtClient.VirtualMachineInstancetype(util.NamespaceTestDefault).
@@ -462,7 +462,7 @@ var _ = Describe("[crit:medium][vendor:cnv-qe@redhat.com][level:component][sig-c
 				preferenceRevision   *appsv1.ControllerRevision
 			)
 
-			vmi := tests.NewRandomVMI()
+			vmi := libvmi.New()
 
 			By("Creating a VirtualMachineInstancetype")
 			instancetype := newVirtualMachineInstancetype(vmi)
@@ -563,8 +563,7 @@ var _ = Describe("[crit:medium][vendor:cnv-qe@redhat.com][level:component][sig-c
 			Expect(vmi.Spec.Domain.CPU.Sockets).To(Equal(originalInstancetypeCPUGuest))
 
 			By("Creating a second VirtualMachine using the now updated VirtualMachineInstancetype and original VirtualMachinePreference")
-			newVMI := tests.NewRandomVMI()
-			removeResourcesAndPreferencesFromVMI(newVMI)
+			newVMI := libvmi.New()
 			newVM := tests.NewRandomVirtualMachine(newVMI, false)
 			newVM.Spec.Instancetype = &v1.InstancetypeMatcher{
 				Name: instancetype.Name,
