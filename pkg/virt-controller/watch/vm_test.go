@@ -2772,12 +2772,9 @@ var _ = Describe("VirtualMachine", func() {
 			const resourceGeneration int64 = 1
 
 			var (
-				vm                            *virtv1.VirtualMachine
-				vmi                           *virtv1.VirtualMachineInstance
-				instancetypeObj               *instancetypev1alpha1.VirtualMachineInstancetype
-				clusterInstancetypeObj        *instancetypev1alpha1.VirtualMachineClusterInstancetype
-				preference                    *instancetypev1alpha1.VirtualMachinePreference
-				clusterPreference             *instancetypev1alpha1.VirtualMachineClusterPreference
+				vm  *virtv1.VirtualMachine
+				vmi *virtv1.VirtualMachineInstance
+
 				fakeInstancetypeClients       v1alpha1.InstancetypeV1alpha1Interface
 				fakeInstancetypeClient        v1alpha1.VirtualMachineInstancetypeInterface
 				fakeClusterInstancetypeClient v1alpha1.VirtualMachineClusterInstancetypeInterface
@@ -2786,7 +2783,6 @@ var _ = Describe("VirtualMachine", func() {
 			)
 
 			BeforeEach(func() {
-
 				vm, vmi = DefaultVirtualMachine(true)
 
 				// We need to clear resource requirements here to ensure the instancetype doesn't conflict
@@ -2809,841 +2805,869 @@ var _ = Describe("VirtualMachine", func() {
 				k8sClient = k8sfake.NewSimpleClientset()
 				virtClient.EXPECT().AppsV1().Return(k8sClient.AppsV1()).AnyTimes()
 
-				instancetypeSpec := instancetypev1alpha1.VirtualMachineInstancetypeSpec{
-					CPU: instancetypev1alpha1.CPUInstancetype{
-						Guest: uint32(2),
-					},
-					Memory: instancetypev1alpha1.MemoryInstancetype{
-						Guest: resource.MustParse("128M"),
-					},
-				}
-				instancetypeObj = &instancetypev1alpha1.VirtualMachineInstancetype{
-					ObjectMeta: metav1.ObjectMeta{
-						Name:       "instancetype",
-						Namespace:  vm.Namespace,
-						UID:        resourceUID,
-						Generation: resourceGeneration,
-					},
-					Spec: instancetypeSpec,
-				}
-				virtClient.VirtualMachineInstancetype(vm.Namespace).Create(context.Background(), instancetypeObj, metav1.CreateOptions{})
-
-				clusterInstancetypeObj = &instancetypev1alpha1.VirtualMachineClusterInstancetype{
-					ObjectMeta: metav1.ObjectMeta{
-						Name:       "clusterInstancetype",
-						UID:        resourceUID,
-						Generation: resourceGeneration,
-					},
-					Spec: instancetypeSpec,
-				}
-				virtClient.VirtualMachineClusterInstancetype().Create(context.Background(), clusterInstancetypeObj, metav1.CreateOptions{})
-
-				preferenceSpec := instancetypev1alpha1.VirtualMachinePreferenceSpec{
-					Firmware: &instancetypev1alpha1.FirmwarePreferences{
-						PreferredUseEfi: pointer.Bool(true),
-					},
-					Devices: &instancetypev1alpha1.DevicePreferences{
-						PreferredDiskBus:        virtv1.DiskBusVirtio,
-						PreferredInterfaceModel: "virtio",
-					},
-				}
-				preference = &instancetypev1alpha1.VirtualMachinePreference{
-					ObjectMeta: metav1.ObjectMeta{
-						Name:       "preference",
-						Namespace:  vm.Namespace,
-						UID:        resourceUID,
-						Generation: resourceGeneration,
-					},
-					Spec: preferenceSpec,
-				}
-				virtClient.VirtualMachinePreference(vm.Namespace).Create(context.Background(), preference, metav1.CreateOptions{})
-
-				clusterPreference = &instancetypev1alpha1.VirtualMachineClusterPreference{
-					ObjectMeta: metav1.ObjectMeta{
-						Name:       "clusterPreference",
-						UID:        resourceUID,
-						Generation: resourceGeneration,
-					},
-					Spec: preferenceSpec,
-				}
-				virtClient.VirtualMachineClusterPreference().Create(context.Background(), clusterPreference, metav1.CreateOptions{})
-
 				controller.instancetypeMethods = instancetype.NewMethods(virtClient)
-
-			})
-			It("should apply VirtualMachineInstancetype to VirtualMachineInstance", func() {
-
-				vm.Spec.Instancetype = &v1.InstancetypeMatcher{
-					Name: instancetypeObj.Name,
-					Kind: instancetypeapi.SingularResourceName,
-				}
-
-				addVirtualMachine(vm)
-
-				expectedRevisionName := instancetype.GetRevisionName(vm.Name, instancetypeObj.Name, instancetypeObj.UID, instancetypeObj.Generation)
-				expectedRevision, err := instancetype.CreateInstancetypeControllerRevision(vm, expectedRevisionName, instancetypeObj.TypeMeta.APIVersion, &instancetypeObj.Spec)
-				Expect(err).ToNot(HaveOccurred())
-				expectedRevisionNamePatch, err := instancetype.GenerateRevisionNamePatch(expectedRevision, nil)
-				Expect(err).ToNot(HaveOccurred())
-
-				vmInterface.EXPECT().Patch(vm.Name, types.JSONPatchType, expectedRevisionNamePatch, &metav1.PatchOptions{})
-
-				vmiInterface.EXPECT().Create(gomock.Any()).Times(1).Do(func(arg interface{}) {
-					vmiArg := arg.(*virtv1.VirtualMachineInstance)
-					Expect(vmiArg.Spec.Domain.CPU.Sockets).To(Equal(instancetypeObj.Spec.CPU.Guest))
-					Expect(*vmiArg.Spec.Domain.Memory.Guest).To(Equal(instancetypeObj.Spec.Memory.Guest))
-					Expect(vmiArg.Annotations).To(HaveKeyWithValue(v1.InstancetypeAnnotation, instancetypeObj.Name))
-					Expect(vmiArg.Annotations).ToNot(HaveKey(v1.PreferenceAnnotation))
-					Expect(vmiArg.Annotations).ToNot(HaveKey(v1.ClusterInstancetypeAnnotation))
-					Expect(vmiArg.Annotations).ToNot(HaveKey(v1.ClusterPreferenceAnnotation))
-				}).Return(vmi, nil)
-
-				vmInterface.EXPECT().UpdateStatus(gomock.Any()).Times(1)
-
-				controller.Execute()
-
-				revision, err := virtClient.AppsV1().ControllerRevisions(vm.Namespace).Get(context.Background(), expectedRevisionName, metav1.GetOptions{})
-				Expect(err).ToNot(HaveOccurred())
-
-				specRevision := instancetypev1alpha1.VirtualMachineInstancetypeSpecRevision{}
-				spec := instancetypev1alpha1.VirtualMachineInstancetypeSpec{}
-				Expect(json.Unmarshal(revision.Data.Raw, &specRevision)).To(Succeed())
-				Expect(json.Unmarshal(specRevision.Spec, &spec)).To(Succeed())
-				Expect(specRevision.APIVersion).To(Equal(instancetypeObj.TypeMeta.APIVersion))
-				Expect(spec).To(Equal(instancetypeObj.Spec))
-
 			})
 
-			It("should apply VirtualMachineInstancetype from ControllerRevision to VirtualMachineInstance", func() {
+			Context("instancetype", func() {
+				var (
+					instancetypeObj        *instancetypev1alpha1.VirtualMachineInstancetype
+					clusterInstancetypeObj *instancetypev1alpha1.VirtualMachineClusterInstancetype
+				)
 
-				instancetypeRevision, err := instancetype.CreateInstancetypeControllerRevision(vm, instancetype.GetRevisionName(vm.Name, instancetypeObj.Name, instancetypeObj.UID, instancetypeObj.Generation), instancetypeObj.TypeMeta.APIVersion, &instancetypeObj.Spec)
-				Expect(err).ToNot(HaveOccurred())
+				BeforeEach(func() {
+					instancetypeSpec := instancetypev1alpha1.VirtualMachineInstancetypeSpec{
+						CPU: instancetypev1alpha1.CPUInstancetype{
+							Guest: uint32(2),
+						},
+						Memory: instancetypev1alpha1.MemoryInstancetype{
+							Guest: resource.MustParse("128M"),
+						},
+					}
+					instancetypeObj = &instancetypev1alpha1.VirtualMachineInstancetype{
+						ObjectMeta: metav1.ObjectMeta{
+							Name:       "instancetype",
+							Namespace:  vm.Namespace,
+							UID:        resourceUID,
+							Generation: resourceGeneration,
+						},
+						Spec: instancetypeSpec,
+					}
+					virtClient.VirtualMachineInstancetype(vm.Namespace).Create(context.Background(), instancetypeObj, metav1.CreateOptions{})
 
-				_, err = virtClient.AppsV1().ControllerRevisions(vm.Namespace).Create(context.Background(), instancetypeRevision, metav1.CreateOptions{})
-				Expect(err).ToNot(HaveOccurred())
+					clusterInstancetypeObj = &instancetypev1alpha1.VirtualMachineClusterInstancetype{
+						ObjectMeta: metav1.ObjectMeta{
+							Name:       "clusterInstancetype",
+							UID:        resourceUID,
+							Generation: resourceGeneration,
+						},
+						Spec: instancetypeSpec,
+					}
+					virtClient.VirtualMachineClusterInstancetype().Create(context.Background(), clusterInstancetypeObj, metav1.CreateOptions{})
+				})
 
-				vm.Spec.Instancetype = &v1.InstancetypeMatcher{
-					Name:         instancetypeObj.Name,
-					Kind:         instancetypeapi.SingularResourceName,
-					RevisionName: instancetypeRevision.Name,
-				}
+				It("should apply VirtualMachineInstancetype to VirtualMachineInstance", func() {
 
-				addVirtualMachine(vm)
+					vm.Spec.Instancetype = &v1.InstancetypeMatcher{
+						Name: instancetypeObj.Name,
+						Kind: instancetypeapi.SingularResourceName,
+					}
 
-				vmiInterface.EXPECT().Create(gomock.Any()).Times(1).Do(func(arg interface{}) {
-					vmiArg := arg.(*virtv1.VirtualMachineInstance)
-					Expect(vmiArg.Spec.Domain.CPU.Sockets).To(Equal(instancetypeObj.Spec.CPU.Guest))
-					Expect(*vmiArg.Spec.Domain.Memory.Guest).To(Equal(instancetypeObj.Spec.Memory.Guest))
-					Expect(vmiArg.Annotations).To(HaveKeyWithValue(v1.InstancetypeAnnotation, instancetypeObj.Name))
-					Expect(vmiArg.Annotations).ToNot(HaveKey(v1.PreferenceAnnotation))
-					Expect(vmiArg.Annotations).ToNot(HaveKey(v1.ClusterInstancetypeAnnotation))
-					Expect(vmiArg.Annotations).ToNot(HaveKey(v1.ClusterPreferenceAnnotation))
-				}).Return(vmi, nil)
+					addVirtualMachine(vm)
 
-				vmInterface.EXPECT().UpdateStatus(gomock.Any()).Times(1)
+					expectedRevisionName := instancetype.GetRevisionName(vm.Name, instancetypeObj.Name, instancetypeObj.UID, instancetypeObj.Generation)
+					expectedRevision, err := instancetype.CreateInstancetypeControllerRevision(vm, expectedRevisionName, instancetypeObj.TypeMeta.APIVersion, &instancetypeObj.Spec)
+					Expect(err).ToNot(HaveOccurred())
+					expectedRevisionNamePatch, err := instancetype.GenerateRevisionNamePatch(expectedRevision, nil)
+					Expect(err).ToNot(HaveOccurred())
 
-				controller.Execute()
+					vmInterface.EXPECT().Patch(vm.Name, types.JSONPatchType, expectedRevisionNamePatch, &metav1.PatchOptions{})
 
+					vmiInterface.EXPECT().Create(gomock.Any()).Times(1).Do(func(arg interface{}) {
+						vmiArg := arg.(*virtv1.VirtualMachineInstance)
+						Expect(vmiArg.Spec.Domain.CPU.Sockets).To(Equal(instancetypeObj.Spec.CPU.Guest))
+						Expect(*vmiArg.Spec.Domain.Memory.Guest).To(Equal(instancetypeObj.Spec.Memory.Guest))
+						Expect(vmiArg.Annotations).To(HaveKeyWithValue(v1.InstancetypeAnnotation, instancetypeObj.Name))
+						Expect(vmiArg.Annotations).ToNot(HaveKey(v1.PreferenceAnnotation))
+						Expect(vmiArg.Annotations).ToNot(HaveKey(v1.ClusterInstancetypeAnnotation))
+						Expect(vmiArg.Annotations).ToNot(HaveKey(v1.ClusterPreferenceAnnotation))
+					}).Return(vmi, nil)
+
+					vmInterface.EXPECT().UpdateStatus(gomock.Any()).Times(1)
+
+					controller.Execute()
+
+					revision, err := virtClient.AppsV1().ControllerRevisions(vm.Namespace).Get(context.Background(), expectedRevisionName, metav1.GetOptions{})
+					Expect(err).ToNot(HaveOccurred())
+
+					specRevision := instancetypev1alpha1.VirtualMachineInstancetypeSpecRevision{}
+					spec := instancetypev1alpha1.VirtualMachineInstancetypeSpec{}
+					Expect(json.Unmarshal(revision.Data.Raw, &specRevision)).To(Succeed())
+					Expect(json.Unmarshal(specRevision.Spec, &spec)).To(Succeed())
+					Expect(specRevision.APIVersion).To(Equal(instancetypeObj.TypeMeta.APIVersion))
+					Expect(spec).To(Equal(instancetypeObj.Spec))
+
+				})
+
+				It("should apply VirtualMachineInstancetype from ControllerRevision to VirtualMachineInstance", func() {
+
+					instancetypeRevision, err := instancetype.CreateInstancetypeControllerRevision(vm, instancetype.GetRevisionName(vm.Name, instancetypeObj.Name, instancetypeObj.UID, instancetypeObj.Generation), instancetypeObj.TypeMeta.APIVersion, &instancetypeObj.Spec)
+					Expect(err).ToNot(HaveOccurred())
+
+					_, err = virtClient.AppsV1().ControllerRevisions(vm.Namespace).Create(context.Background(), instancetypeRevision, metav1.CreateOptions{})
+					Expect(err).ToNot(HaveOccurred())
+
+					vm.Spec.Instancetype = &v1.InstancetypeMatcher{
+						Name:         instancetypeObj.Name,
+						Kind:         instancetypeapi.SingularResourceName,
+						RevisionName: instancetypeRevision.Name,
+					}
+
+					addVirtualMachine(vm)
+
+					vmiInterface.EXPECT().Create(gomock.Any()).Times(1).Do(func(arg interface{}) {
+						vmiArg := arg.(*virtv1.VirtualMachineInstance)
+						Expect(vmiArg.Spec.Domain.CPU.Sockets).To(Equal(instancetypeObj.Spec.CPU.Guest))
+						Expect(*vmiArg.Spec.Domain.Memory.Guest).To(Equal(instancetypeObj.Spec.Memory.Guest))
+						Expect(vmiArg.Annotations).To(HaveKeyWithValue(v1.InstancetypeAnnotation, instancetypeObj.Name))
+						Expect(vmiArg.Annotations).ToNot(HaveKey(v1.PreferenceAnnotation))
+						Expect(vmiArg.Annotations).ToNot(HaveKey(v1.ClusterInstancetypeAnnotation))
+						Expect(vmiArg.Annotations).ToNot(HaveKey(v1.ClusterPreferenceAnnotation))
+					}).Return(vmi, nil)
+
+					vmInterface.EXPECT().UpdateStatus(gomock.Any()).Times(1)
+
+					controller.Execute()
+
+				})
+
+				It("should apply VirtualMachineInstancetype to VirtualMachineInstance if an existing ControllerRevision is present but not referenced by InstancetypeMatcher", func() {
+
+					instancetypeRevision, err := instancetype.CreateInstancetypeControllerRevision(vm, instancetype.GetRevisionName(vm.Name, instancetypeObj.Name, instancetypeObj.UID, instancetypeObj.Generation), instancetypeObj.TypeMeta.APIVersion, &instancetypeObj.Spec)
+					Expect(err).ToNot(HaveOccurred())
+
+					_, err = virtClient.AppsV1().ControllerRevisions(vm.Namespace).Create(context.Background(), instancetypeRevision, metav1.CreateOptions{})
+					Expect(err).ToNot(HaveOccurred())
+
+					// We expect a request to add in the missing instancetype revisionName
+					expectedRevisionNamePatch, err := instancetype.GenerateRevisionNamePatch(instancetypeRevision, nil)
+					Expect(err).ToNot(HaveOccurred())
+
+					vm.Spec.Instancetype = &v1.InstancetypeMatcher{
+						Name: instancetypeObj.Name,
+						Kind: instancetypeapi.SingularResourceName,
+					}
+
+					addVirtualMachine(vm)
+
+					vmInterface.EXPECT().Patch(vm.Name, types.JSONPatchType, expectedRevisionNamePatch, &metav1.PatchOptions{})
+
+					vmiInterface.EXPECT().Create(gomock.Any()).Times(1).Do(func(arg interface{}) {
+						vmiArg := arg.(*virtv1.VirtualMachineInstance)
+						Expect(vmiArg.Spec.Domain.CPU.Sockets).To(Equal(instancetypeObj.Spec.CPU.Guest))
+						Expect(*vmiArg.Spec.Domain.Memory.Guest).To(Equal(instancetypeObj.Spec.Memory.Guest))
+						Expect(vmiArg.Annotations).To(HaveKeyWithValue(v1.InstancetypeAnnotation, instancetypeObj.Name))
+						Expect(vmiArg.Annotations).ToNot(HaveKey(v1.PreferenceAnnotation))
+						Expect(vmiArg.Annotations).ToNot(HaveKey(v1.ClusterInstancetypeAnnotation))
+						Expect(vmiArg.Annotations).ToNot(HaveKey(v1.ClusterPreferenceAnnotation))
+					}).Return(vmi, nil)
+
+					vmInterface.EXPECT().UpdateStatus(gomock.Any()).Times(1)
+
+					controller.Execute()
+
+					Expect(vm.Spec.Instancetype.RevisionName).To(Equal(instancetypeRevision.Name))
+
+				})
+
+				It("should apply VirtualMachineClusterInstancetype to VirtualMachineInstance", func() {
+
+					vm.Spec.Instancetype = &v1.InstancetypeMatcher{
+						Name: clusterInstancetypeObj.Name,
+						Kind: instancetypeapi.ClusterSingularResourceName,
+					}
+
+					addVirtualMachine(vm)
+
+					expectedRevisionName := instancetype.GetRevisionName(vm.Name, clusterInstancetypeObj.Name, clusterInstancetypeObj.UID, clusterInstancetypeObj.Generation)
+					expectedRevision, err := instancetype.CreateInstancetypeControllerRevision(vm, expectedRevisionName, clusterInstancetypeObj.TypeMeta.APIVersion, &clusterInstancetypeObj.Spec)
+					Expect(err).ToNot(HaveOccurred())
+					expectedRevisionNamePatch, err := instancetype.GenerateRevisionNamePatch(expectedRevision, nil)
+					Expect(err).ToNot(HaveOccurred())
+
+					vmInterface.EXPECT().Patch(vm.Name, types.JSONPatchType, expectedRevisionNamePatch, &metav1.PatchOptions{})
+
+					vmiInterface.EXPECT().Create(gomock.Any()).Times(1).Do(func(arg interface{}) {
+						vmiArg := arg.(*virtv1.VirtualMachineInstance)
+						Expect(vmiArg.Spec.Domain.CPU.Sockets).To(Equal(clusterInstancetypeObj.Spec.CPU.Guest))
+						Expect(*vmiArg.Spec.Domain.Memory.Guest).To(Equal(clusterInstancetypeObj.Spec.Memory.Guest))
+						Expect(vmiArg.Annotations).To(HaveKeyWithValue(v1.ClusterInstancetypeAnnotation, clusterInstancetypeObj.Name))
+						Expect(vmiArg.Annotations).ToNot(HaveKey(v1.PreferenceAnnotation))
+						Expect(vmiArg.Annotations).ToNot(HaveKey(v1.InstancetypeAnnotation))
+						Expect(vmiArg.Annotations).ToNot(HaveKey(v1.ClusterPreferenceAnnotation))
+					}).Return(vmi, nil)
+
+					vmInterface.EXPECT().UpdateStatus(gomock.Any()).Times(1)
+
+					controller.Execute()
+
+					revision, err := virtClient.AppsV1().ControllerRevisions(vm.Namespace).Get(context.Background(), expectedRevisionName, metav1.GetOptions{})
+					Expect(err).ToNot(HaveOccurred())
+
+					specRevision := instancetypev1alpha1.VirtualMachineInstancetypeSpecRevision{}
+					spec := instancetypev1alpha1.VirtualMachineInstancetypeSpec{}
+					Expect(json.Unmarshal(revision.Data.Raw, &specRevision)).To(Succeed())
+					Expect(json.Unmarshal(specRevision.Spec, &spec)).To(Succeed())
+					Expect(specRevision.APIVersion).To(Equal(clusterInstancetypeObj.TypeMeta.APIVersion))
+					Expect(spec).To(Equal(clusterInstancetypeObj.Spec))
+				})
+
+				It("should apply VirtualMachineClusterInstancetype from ControllerRevision to VirtualMachineInstance", func() {
+
+					instancetypeRevision, err := instancetype.CreateInstancetypeControllerRevision(vm, instancetype.GetRevisionName(vm.Name, clusterInstancetypeObj.Name, clusterInstancetypeObj.UID, clusterInstancetypeObj.Generation), clusterInstancetypeObj.TypeMeta.APIVersion, &clusterInstancetypeObj.Spec)
+					Expect(err).ToNot(HaveOccurred())
+
+					_, err = virtClient.AppsV1().ControllerRevisions(vm.Namespace).Create(context.Background(), instancetypeRevision, metav1.CreateOptions{})
+					Expect(err).ToNot(HaveOccurred())
+
+					vm.Spec.Instancetype = &v1.InstancetypeMatcher{
+						Name:         clusterInstancetypeObj.Name,
+						Kind:         instancetypeapi.ClusterSingularResourceName,
+						RevisionName: instancetypeRevision.Name,
+					}
+
+					addVirtualMachine(vm)
+
+					vmiInterface.EXPECT().Create(gomock.Any()).Times(1).Do(func(arg interface{}) {
+						vmiArg := arg.(*virtv1.VirtualMachineInstance)
+						Expect(vmiArg.Spec.Domain.CPU.Sockets).To(Equal(clusterInstancetypeObj.Spec.CPU.Guest))
+						Expect(*vmiArg.Spec.Domain.Memory.Guest).To(Equal(clusterInstancetypeObj.Spec.Memory.Guest))
+						Expect(vmiArg.Annotations).To(HaveKeyWithValue(v1.ClusterInstancetypeAnnotation, clusterInstancetypeObj.Name))
+						Expect(vmiArg.Annotations).ToNot(HaveKey(v1.PreferenceAnnotation))
+						Expect(vmiArg.Annotations).ToNot(HaveKey(v1.InstancetypeAnnotation))
+						Expect(vmiArg.Annotations).ToNot(HaveKey(v1.ClusterPreferenceAnnotation))
+					}).Return(vmi, nil)
+
+					vmInterface.EXPECT().UpdateStatus(gomock.Any()).Times(1)
+
+					controller.Execute()
+
+				})
+
+				It("should apply VirtualMachineClusterInstancetype to VirtualMachineInstance if an existing ControllerRevision is present but not referenced by InstancetypeMatcher", func() {
+
+					instancetypeRevision, err := instancetype.CreateInstancetypeControllerRevision(vm, instancetype.GetRevisionName(vm.Name, clusterInstancetypeObj.Name, clusterInstancetypeObj.UID, clusterInstancetypeObj.Generation), clusterInstancetypeObj.TypeMeta.APIVersion, &clusterInstancetypeObj.Spec)
+					Expect(err).ToNot(HaveOccurred())
+
+					_, err = virtClient.AppsV1().ControllerRevisions(vm.Namespace).Create(context.Background(), instancetypeRevision, metav1.CreateOptions{})
+					Expect(err).ToNot(HaveOccurred())
+
+					// We expect a request to add in the missing instancetype revisionName
+					expectedRevisionNamePatch, err := instancetype.GenerateRevisionNamePatch(instancetypeRevision, nil)
+					Expect(err).ToNot(HaveOccurred())
+
+					vm.Spec.Instancetype = &v1.InstancetypeMatcher{
+						Name: clusterInstancetypeObj.Name,
+						Kind: instancetypeapi.ClusterSingularResourceName,
+					}
+
+					addVirtualMachine(vm)
+
+					vmInterface.EXPECT().Patch(vm.Name, types.JSONPatchType, expectedRevisionNamePatch, &metav1.PatchOptions{})
+
+					vmiInterface.EXPECT().Create(gomock.Any()).Times(1).Do(func(arg interface{}) {
+						vmiArg := arg.(*virtv1.VirtualMachineInstance)
+						Expect(vmiArg.Spec.Domain.CPU.Sockets).To(Equal(clusterInstancetypeObj.Spec.CPU.Guest))
+						Expect(*vmiArg.Spec.Domain.Memory.Guest).To(Equal(clusterInstancetypeObj.Spec.Memory.Guest))
+						Expect(vmiArg.Annotations).To(HaveKeyWithValue(v1.ClusterInstancetypeAnnotation, clusterInstancetypeObj.Name))
+						Expect(vmiArg.Annotations).ToNot(HaveKey(v1.PreferenceAnnotation))
+						Expect(vmiArg.Annotations).ToNot(HaveKey(v1.InstancetypeAnnotation))
+						Expect(vmiArg.Annotations).ToNot(HaveKey(v1.ClusterPreferenceAnnotation))
+					}).Return(vmi, nil)
+
+					vmInterface.EXPECT().UpdateStatus(gomock.Any()).Times(1)
+
+					controller.Execute()
+
+					Expect(vm.Spec.Instancetype.RevisionName).To(Equal(instancetypeRevision.Name))
+
+				})
+
+				It("should reject request if an invalid InstancetypeMatcher Kind is provided", func() {
+
+					vm.Spec.Instancetype = &v1.InstancetypeMatcher{
+						Name: instancetypeObj.Name,
+						Kind: "foobar",
+					}
+
+					addVirtualMachine(vm)
+
+					vmInterface.EXPECT().UpdateStatus(gomock.Any()).Times(1).Do(func(obj interface{}) {
+						objVM := obj.(*virtv1.VirtualMachine)
+						cond := virtcontroller.NewVirtualMachineConditionManager().GetCondition(objVM, virtv1.VirtualMachineFailure)
+						Expect(cond).To(Not(BeNil()))
+						Expect(cond.Type).To(Equal(virtv1.VirtualMachineFailure))
+						Expect(cond.Reason).To(Equal("FailedCreate"))
+						Expect(cond.Message).To(ContainSubstring("got unexpected kind in InstancetypeMatcher"))
+					}).Return(vm, nil)
+
+					controller.Execute()
+
+					testutils.ExpectEvents(recorder, FailedCreateVirtualMachineReason)
+
+				})
+
+				It("should reject the request if a VirtualMachineInstancetype cannot be found", func() {
+
+					vm.Spec.Instancetype = &v1.InstancetypeMatcher{
+						Name: "foobar",
+						Kind: instancetypeapi.SingularResourceName,
+					}
+
+					addVirtualMachine(vm)
+
+					vmInterface.EXPECT().UpdateStatus(gomock.Any()).Times(1).Do(func(obj interface{}) {
+						objVM := obj.(*virtv1.VirtualMachine)
+						cond := virtcontroller.NewVirtualMachineConditionManager().GetCondition(objVM, virtv1.VirtualMachineFailure)
+						Expect(cond).To(Not(BeNil()))
+						Expect(cond.Type).To(Equal(virtv1.VirtualMachineFailure))
+						Expect(cond.Reason).To(Equal("FailedCreate"))
+					}).Return(vm, nil)
+
+					controller.Execute()
+
+					testutils.ExpectEvents(recorder, FailedCreateVirtualMachineReason)
+
+				})
+
+				It("should reject the request if a VirtualMachineClusterInstancetype cannot be found", func() {
+
+					vm.Spec.Instancetype = &v1.InstancetypeMatcher{
+						Name: "foobar",
+						Kind: instancetypeapi.ClusterSingularResourceName,
+					}
+
+					addVirtualMachine(vm)
+
+					vmInterface.EXPECT().UpdateStatus(gomock.Any()).Times(1).Do(func(obj interface{}) {
+						objVM := obj.(*virtv1.VirtualMachine)
+						cond := virtcontroller.NewVirtualMachineConditionManager().GetCondition(objVM, virtv1.VirtualMachineFailure)
+						Expect(cond).To(Not(BeNil()))
+						Expect(cond.Type).To(Equal(virtv1.VirtualMachineFailure))
+						Expect(cond.Reason).To(Equal("FailedCreate"))
+					}).Return(vm, nil)
+
+					controller.Execute()
+
+					testutils.ExpectEvents(recorder, FailedCreateVirtualMachineReason)
+
+				})
+
+				It("should reject the request if a VirtualMachineInstancetype conflicts with the VirtualMachineInstance", func() {
+
+					vm.Spec.Instancetype = &v1.InstancetypeMatcher{
+						Name: instancetypeObj.Name,
+						Kind: instancetypeapi.SingularResourceName,
+					}
+
+					vm.Spec.Template.Spec.Domain.CPU = &v1.CPU{
+						Sockets: uint32(1),
+						Cores:   uint32(4),
+						Threads: uint32(1),
+					}
+
+					addVirtualMachine(vm)
+
+					vmInterface.EXPECT().UpdateStatus(gomock.Any()).Times(1).Do(func(obj interface{}) {
+						objVM := obj.(*virtv1.VirtualMachine)
+						cond := virtcontroller.NewVirtualMachineConditionManager().GetCondition(objVM, virtv1.VirtualMachineFailure)
+						Expect(cond).To(Not(BeNil()))
+						Expect(cond.Type).To(Equal(virtv1.VirtualMachineFailure))
+						Expect(cond.Reason).To(Equal("FailedCreate"))
+						Expect(cond.Message).To(ContainSubstring("VMI conflicts with instancetype spec in fields"))
+						Expect(cond.Message).To(ContainSubstring("spec.domain.cpu"))
+					}).Return(vm, nil)
+
+					controller.Execute()
+
+					testutils.ExpectEvents(recorder, FailedCreateVirtualMachineReason)
+				})
+
+				It("should reject if an existing ControllerRevision is found with unexpected VirtualMachineInstancetypeSpec data", func() {
+
+					unexpectedExistingSpec := instancetypev1alpha1.VirtualMachineInstancetypeSpec{
+						CPU: instancetypev1alpha1.CPUInstancetype{
+							Guest: 15,
+						},
+					}
+
+					instancetypeRevision, err := instancetype.CreateInstancetypeControllerRevision(vm, instancetype.GetRevisionName(vm.Name, instancetypeObj.Name, instancetypeObj.UID, instancetypeObj.Generation), instancetypeObj.TypeMeta.APIVersion, &unexpectedExistingSpec)
+					Expect(err).ToNot(HaveOccurred())
+
+					_, err = virtClient.AppsV1().ControllerRevisions(vm.Namespace).Create(context.Background(), instancetypeRevision, metav1.CreateOptions{})
+					Expect(err).ToNot(HaveOccurred())
+
+					vm.Spec.Instancetype = &v1.InstancetypeMatcher{
+						Name: instancetypeObj.Name,
+						Kind: instancetypeapi.SingularResourceName,
+					}
+
+					addVirtualMachine(vm)
+
+					vmInterface.EXPECT().UpdateStatus(gomock.Any()).Times(1).Do(func(obj interface{}) {
+						objVM := obj.(*virtv1.VirtualMachine)
+						cond := virtcontroller.NewVirtualMachineConditionManager().GetCondition(objVM, virtv1.VirtualMachineFailure)
+						Expect(cond).To(Not(BeNil()))
+						Expect(cond.Type).To(Equal(virtv1.VirtualMachineFailure))
+						Expect(cond.Reason).To(Equal("FailedCreate"))
+						Expect(cond.Message).To(ContainSubstring("found existing ControllerRevision with unexpected data"))
+					}).Return(vm, nil)
+
+					controller.Execute()
+
+					testutils.ExpectEvents(recorder, FailedCreateVirtualMachineReason)
+
+				})
 			})
 
-			It("should apply VirtualMachineInstancetype to VirtualMachineInstance if an existing ControllerRevision is present but not referenced by InstancetypeMatcher", func() {
+			Context("preference", func() {
+				var (
+					preference        *instancetypev1alpha1.VirtualMachinePreference
+					clusterPreference *instancetypev1alpha1.VirtualMachineClusterPreference
+				)
+
+				BeforeEach(func() {
+					preferenceSpec := instancetypev1alpha1.VirtualMachinePreferenceSpec{
+						Firmware: &instancetypev1alpha1.FirmwarePreferences{
+							PreferredUseEfi: pointer.Bool(true),
+						},
+						Devices: &instancetypev1alpha1.DevicePreferences{
+							PreferredDiskBus:        virtv1.DiskBusVirtio,
+							PreferredInterfaceModel: "virtio",
+						},
+					}
+					preference = &instancetypev1alpha1.VirtualMachinePreference{
+						ObjectMeta: metav1.ObjectMeta{
+							Name:       "preference",
+							Namespace:  vm.Namespace,
+							UID:        resourceUID,
+							Generation: resourceGeneration,
+						},
+						Spec: preferenceSpec,
+					}
+					virtClient.VirtualMachinePreference(vm.Namespace).Create(context.Background(), preference, metav1.CreateOptions{})
+
+					clusterPreference = &instancetypev1alpha1.VirtualMachineClusterPreference{
+						ObjectMeta: metav1.ObjectMeta{
+							Name:       "clusterPreference",
+							UID:        resourceUID,
+							Generation: resourceGeneration,
+						},
+						Spec: preferenceSpec,
+					}
+					virtClient.VirtualMachineClusterPreference().Create(context.Background(), clusterPreference, metav1.CreateOptions{})
+				})
+
+				It("should apply VirtualMachinePreference to VirtualMachineInstance", func() {
+
+					vm.Spec.Preference = &v1.PreferenceMatcher{
+						Name: preference.Name,
+						Kind: instancetypeapi.SingularPreferenceResourceName,
+					}
+
+					addVirtualMachine(vm)
+
+					expectedPreferenceRevisionName := instancetype.GetRevisionName(vm.Name, preference.Name, preference.UID, preference.Generation)
+					expectedPreferenceRevision, err := instancetype.CreatePreferenceControllerRevision(vm, expectedPreferenceRevisionName, preference.TypeMeta.APIVersion, &preference.Spec)
+					Expect(err).ToNot(HaveOccurred())
+
+					expectedRevisionNamePatch, err := instancetype.GenerateRevisionNamePatch(nil, expectedPreferenceRevision)
+					Expect(err).ToNot(HaveOccurred())
+
+					vmInterface.EXPECT().Patch(vm.Name, types.JSONPatchType, expectedRevisionNamePatch, &metav1.PatchOptions{})
 
-				instancetypeRevision, err := instancetype.CreateInstancetypeControllerRevision(vm, instancetype.GetRevisionName(vm.Name, instancetypeObj.Name, instancetypeObj.UID, instancetypeObj.Generation), instancetypeObj.TypeMeta.APIVersion, &instancetypeObj.Spec)
-				Expect(err).ToNot(HaveOccurred())
+					vmiInterface.EXPECT().Create(gomock.Any()).Times(1).Do(func(arg interface{}) {
+						vmiArg := arg.(*virtv1.VirtualMachineInstance)
+						Expect(vmiArg.Spec.Domain.Firmware.Bootloader.EFI).ToNot(BeNil())
 
-				_, err = virtClient.AppsV1().ControllerRevisions(vm.Namespace).Create(context.Background(), instancetypeRevision, metav1.CreateOptions{})
-				Expect(err).ToNot(HaveOccurred())
+						Expect(vmiArg.Annotations).ToNot(HaveKey(v1.InstancetypeAnnotation))
+						Expect(vmiArg.Annotations).To(HaveKeyWithValue(v1.PreferenceAnnotation, preference.Name))
+						Expect(vmiArg.Annotations).ToNot(HaveKey(v1.ClusterInstancetypeAnnotation))
+						Expect(vmiArg.Annotations).ToNot(HaveKey(v1.ClusterPreferenceAnnotation))
+					}).Return(vmi, nil)
 
-				// We expect a request to add in the missing instancetype revisionName
-				expectedRevisionNamePatch, err := instancetype.GenerateRevisionNamePatch(instancetypeRevision, nil)
-				Expect(err).ToNot(HaveOccurred())
+					vmInterface.EXPECT().UpdateStatus(gomock.Any()).Times(1)
 
-				vm.Spec.Instancetype = &v1.InstancetypeMatcher{
-					Name: instancetypeObj.Name,
-					Kind: instancetypeapi.SingularResourceName,
-				}
+					controller.Execute()
 
-				addVirtualMachine(vm)
+					preferenceRevision, err := virtClient.AppsV1().ControllerRevisions(vm.Namespace).Get(context.Background(), expectedPreferenceRevisionName, metav1.GetOptions{})
+					Expect(err).ToNot(HaveOccurred())
 
-				vmInterface.EXPECT().Patch(vm.Name, types.JSONPatchType, expectedRevisionNamePatch, &metav1.PatchOptions{})
+					preferenceSpecRevision := instancetypev1alpha1.VirtualMachinePreferenceSpecRevision{}
+					preferenceSpec := instancetypev1alpha1.VirtualMachinePreferenceSpec{}
+					Expect(json.Unmarshal(preferenceRevision.Data.Raw, &preferenceSpecRevision)).To(Succeed())
+					Expect(json.Unmarshal(preferenceSpecRevision.Spec, &preferenceSpec)).To(Succeed())
+					Expect(preferenceSpecRevision.APIVersion).To(Equal(preference.TypeMeta.APIVersion))
+					Expect(preferenceSpec).To(Equal(preference.Spec))
+				})
 
-				vmiInterface.EXPECT().Create(gomock.Any()).Times(1).Do(func(arg interface{}) {
-					vmiArg := arg.(*virtv1.VirtualMachineInstance)
-					Expect(vmiArg.Spec.Domain.CPU.Sockets).To(Equal(instancetypeObj.Spec.CPU.Guest))
-					Expect(*vmiArg.Spec.Domain.Memory.Guest).To(Equal(instancetypeObj.Spec.Memory.Guest))
-					Expect(vmiArg.Annotations).To(HaveKeyWithValue(v1.InstancetypeAnnotation, instancetypeObj.Name))
-					Expect(vmiArg.Annotations).ToNot(HaveKey(v1.PreferenceAnnotation))
-					Expect(vmiArg.Annotations).ToNot(HaveKey(v1.ClusterInstancetypeAnnotation))
-					Expect(vmiArg.Annotations).ToNot(HaveKey(v1.ClusterPreferenceAnnotation))
-				}).Return(vmi, nil)
+				It("should apply VirtualMachinePreference from ControllerRevision to VirtualMachineInstance", func() {
 
-				vmInterface.EXPECT().UpdateStatus(gomock.Any()).Times(1)
+					preferenceRevision, err := instancetype.CreatePreferenceControllerRevision(vm, instancetype.GetRevisionName(vm.Name, preference.Name, preference.UID, preference.Generation), preference.TypeMeta.APIVersion, &preference.Spec)
+					Expect(err).ToNot(HaveOccurred())
 
-				controller.Execute()
+					_, err = virtClient.AppsV1().ControllerRevisions(vm.Namespace).Create(context.Background(), preferenceRevision, metav1.CreateOptions{})
+					Expect(err).ToNot(HaveOccurred())
 
-				Expect(vm.Spec.Instancetype.RevisionName).To(Equal(instancetypeRevision.Name))
+					vm.Spec.Preference = &v1.PreferenceMatcher{
+						Name:         preference.Name,
+						Kind:         instancetypeapi.SingularPreferenceResourceName,
+						RevisionName: preferenceRevision.Name,
+					}
 
-			})
+					addVirtualMachine(vm)
 
-			It("should apply VirtualMachineClusterInstancetype to VirtualMachineInstance", func() {
+					vmiInterface.EXPECT().Create(gomock.Any()).Times(1).Do(func(arg interface{}) {
+						vmiArg := arg.(*virtv1.VirtualMachineInstance)
+						Expect(vmiArg.Spec.Domain.Firmware.Bootloader.EFI).ToNot(BeNil())
 
-				vm.Spec.Instancetype = &v1.InstancetypeMatcher{
-					Name: clusterInstancetypeObj.Name,
-					Kind: instancetypeapi.ClusterSingularResourceName,
-				}
+						Expect(vmiArg.Annotations).ToNot(HaveKey(v1.InstancetypeAnnotation))
+						Expect(vmiArg.Annotations).To(HaveKeyWithValue(v1.PreferenceAnnotation, preference.Name))
+						Expect(vmiArg.Annotations).ToNot(HaveKey(v1.ClusterInstancetypeAnnotation))
+						Expect(vmiArg.Annotations).ToNot(HaveKey(v1.ClusterPreferenceAnnotation))
+					}).Return(vmi, nil)
 
-				addVirtualMachine(vm)
+					vmInterface.EXPECT().UpdateStatus(gomock.Any()).Times(1)
 
-				expectedRevisionName := instancetype.GetRevisionName(vm.Name, clusterInstancetypeObj.Name, clusterInstancetypeObj.UID, clusterInstancetypeObj.Generation)
-				expectedRevision, err := instancetype.CreateInstancetypeControllerRevision(vm, expectedRevisionName, clusterInstancetypeObj.TypeMeta.APIVersion, &clusterInstancetypeObj.Spec)
-				Expect(err).ToNot(HaveOccurred())
-				expectedRevisionNamePatch, err := instancetype.GenerateRevisionNamePatch(expectedRevision, nil)
-				Expect(err).ToNot(HaveOccurred())
+					controller.Execute()
 
-				vmInterface.EXPECT().Patch(vm.Name, types.JSONPatchType, expectedRevisionNamePatch, &metav1.PatchOptions{})
+				})
 
-				vmiInterface.EXPECT().Create(gomock.Any()).Times(1).Do(func(arg interface{}) {
-					vmiArg := arg.(*virtv1.VirtualMachineInstance)
-					Expect(vmiArg.Spec.Domain.CPU.Sockets).To(Equal(clusterInstancetypeObj.Spec.CPU.Guest))
-					Expect(*vmiArg.Spec.Domain.Memory.Guest).To(Equal(clusterInstancetypeObj.Spec.Memory.Guest))
-					Expect(vmiArg.Annotations).To(HaveKeyWithValue(v1.ClusterInstancetypeAnnotation, clusterInstancetypeObj.Name))
-					Expect(vmiArg.Annotations).ToNot(HaveKey(v1.PreferenceAnnotation))
-					Expect(vmiArg.Annotations).ToNot(HaveKey(v1.InstancetypeAnnotation))
-					Expect(vmiArg.Annotations).ToNot(HaveKey(v1.ClusterPreferenceAnnotation))
-				}).Return(vmi, nil)
+				It("should apply VirtualMachinePreference to VirtualMachineInstance if an existing ControllerRevision is present but not referenced by PreferenceMatcher", func() {
 
-				vmInterface.EXPECT().UpdateStatus(gomock.Any()).Times(1)
+					preferenceRevision, err := instancetype.CreatePreferenceControllerRevision(vm, instancetype.GetRevisionName(vm.Name, preference.Name, preference.UID, preference.Generation), preference.TypeMeta.APIVersion, &preference.Spec)
+					Expect(err).ToNot(HaveOccurred())
 
-				controller.Execute()
+					_, err = virtClient.AppsV1().ControllerRevisions(vm.Namespace).Create(context.Background(), preferenceRevision, metav1.CreateOptions{})
+					Expect(err).ToNot(HaveOccurred())
 
-				revision, err := virtClient.AppsV1().ControllerRevisions(vm.Namespace).Get(context.Background(), expectedRevisionName, metav1.GetOptions{})
-				Expect(err).ToNot(HaveOccurred())
+					// We expect a request to add in the missing preference revisionName
+					expectedRevisionNamePatch, err := instancetype.GenerateRevisionNamePatch(nil, preferenceRevision)
+					Expect(err).ToNot(HaveOccurred())
 
-				specRevision := instancetypev1alpha1.VirtualMachineInstancetypeSpecRevision{}
-				spec := instancetypev1alpha1.VirtualMachineInstancetypeSpec{}
-				Expect(json.Unmarshal(revision.Data.Raw, &specRevision)).To(Succeed())
-				Expect(json.Unmarshal(specRevision.Spec, &spec)).To(Succeed())
-				Expect(specRevision.APIVersion).To(Equal(clusterInstancetypeObj.TypeMeta.APIVersion))
-				Expect(spec).To(Equal(clusterInstancetypeObj.Spec))
-			})
+					vm.Spec.Preference = &v1.PreferenceMatcher{
+						Name: preference.Name,
+						Kind: instancetypeapi.SingularPreferenceResourceName,
+					}
 
-			It("should apply VirtualMachineClusterInstancetype from ControllerRevision to VirtualMachineInstance", func() {
+					addVirtualMachine(vm)
 
-				instancetypeRevision, err := instancetype.CreateInstancetypeControllerRevision(vm, instancetype.GetRevisionName(vm.Name, clusterInstancetypeObj.Name, clusterInstancetypeObj.UID, clusterInstancetypeObj.Generation), clusterInstancetypeObj.TypeMeta.APIVersion, &clusterInstancetypeObj.Spec)
-				Expect(err).ToNot(HaveOccurred())
+					vmInterface.EXPECT().Patch(vm.Name, types.JSONPatchType, expectedRevisionNamePatch, &metav1.PatchOptions{})
 
-				_, err = virtClient.AppsV1().ControllerRevisions(vm.Namespace).Create(context.Background(), instancetypeRevision, metav1.CreateOptions{})
-				Expect(err).ToNot(HaveOccurred())
+					vmiInterface.EXPECT().Create(gomock.Any()).Times(1).Do(func(arg interface{}) {
+						vmiArg := arg.(*virtv1.VirtualMachineInstance)
+						Expect(vmiArg.Spec.Domain.Firmware.Bootloader.EFI).ToNot(BeNil())
 
-				vm.Spec.Instancetype = &v1.InstancetypeMatcher{
-					Name:         clusterInstancetypeObj.Name,
-					Kind:         instancetypeapi.ClusterSingularResourceName,
-					RevisionName: instancetypeRevision.Name,
-				}
+						Expect(vmiArg.Annotations).ToNot(HaveKey(v1.InstancetypeAnnotation))
+						Expect(vmiArg.Annotations).To(HaveKeyWithValue(v1.PreferenceAnnotation, preference.Name))
+						Expect(vmiArg.Annotations).ToNot(HaveKey(v1.ClusterInstancetypeAnnotation))
+						Expect(vmiArg.Annotations).ToNot(HaveKey(v1.ClusterPreferenceAnnotation))
+					}).Return(vmi, nil)
 
-				addVirtualMachine(vm)
+					vmInterface.EXPECT().UpdateStatus(gomock.Any()).Times(1)
 
-				vmiInterface.EXPECT().Create(gomock.Any()).Times(1).Do(func(arg interface{}) {
-					vmiArg := arg.(*virtv1.VirtualMachineInstance)
-					Expect(vmiArg.Spec.Domain.CPU.Sockets).To(Equal(clusterInstancetypeObj.Spec.CPU.Guest))
-					Expect(*vmiArg.Spec.Domain.Memory.Guest).To(Equal(clusterInstancetypeObj.Spec.Memory.Guest))
-					Expect(vmiArg.Annotations).To(HaveKeyWithValue(v1.ClusterInstancetypeAnnotation, clusterInstancetypeObj.Name))
-					Expect(vmiArg.Annotations).ToNot(HaveKey(v1.PreferenceAnnotation))
-					Expect(vmiArg.Annotations).ToNot(HaveKey(v1.InstancetypeAnnotation))
-					Expect(vmiArg.Annotations).ToNot(HaveKey(v1.ClusterPreferenceAnnotation))
-				}).Return(vmi, nil)
+					controller.Execute()
 
-				vmInterface.EXPECT().UpdateStatus(gomock.Any()).Times(1)
+					Expect(vm.Spec.Preference.RevisionName).To(Equal(preferenceRevision.Name))
 
-				controller.Execute()
+				})
 
-			})
+				It("should apply VirtualMachineClusterPreference to VirtualMachineInstance", func() {
 
-			It("should apply VirtualMachineClusterInstancetype to VirtualMachineInstance if an existing ControllerRevision is present but not referenced by InstancetypeMatcher", func() {
+					vm.Spec.Preference = &v1.PreferenceMatcher{
+						Name: clusterPreference.Name,
+						Kind: instancetypeapi.ClusterSingularPreferenceResourceName,
+					}
 
-				instancetypeRevision, err := instancetype.CreateInstancetypeControllerRevision(vm, instancetype.GetRevisionName(vm.Name, clusterInstancetypeObj.Name, clusterInstancetypeObj.UID, clusterInstancetypeObj.Generation), clusterInstancetypeObj.TypeMeta.APIVersion, &clusterInstancetypeObj.Spec)
-				Expect(err).ToNot(HaveOccurred())
+					addVirtualMachine(vm)
 
-				_, err = virtClient.AppsV1().ControllerRevisions(vm.Namespace).Create(context.Background(), instancetypeRevision, metav1.CreateOptions{})
-				Expect(err).ToNot(HaveOccurred())
+					expectedPreferenceRevisionName := instancetype.GetRevisionName(vm.Name, clusterPreference.Name, clusterPreference.UID, clusterPreference.Generation)
+					expectedPreferenceRevision, err := instancetype.CreatePreferenceControllerRevision(vm, expectedPreferenceRevisionName, clusterPreference.TypeMeta.APIVersion, &clusterPreference.Spec)
+					Expect(err).ToNot(HaveOccurred())
 
-				// We expect a request to add in the missing instancetype revisionName
-				expectedRevisionNamePatch, err := instancetype.GenerateRevisionNamePatch(instancetypeRevision, nil)
-				Expect(err).ToNot(HaveOccurred())
+					expectedRevisionNamePatch, err := instancetype.GenerateRevisionNamePatch(nil, expectedPreferenceRevision)
+					Expect(err).ToNot(HaveOccurred())
 
-				vm.Spec.Instancetype = &v1.InstancetypeMatcher{
-					Name: clusterInstancetypeObj.Name,
-					Kind: instancetypeapi.ClusterSingularResourceName,
-				}
+					vmInterface.EXPECT().Patch(vm.Name, types.JSONPatchType, expectedRevisionNamePatch, &metav1.PatchOptions{})
 
-				addVirtualMachine(vm)
+					vmiInterface.EXPECT().Create(gomock.Any()).Times(1).Do(func(arg interface{}) {
+						vmiArg := arg.(*virtv1.VirtualMachineInstance)
+						Expect(vmiArg.Spec.Domain.Firmware.Bootloader.EFI).ToNot(BeNil())
 
-				vmInterface.EXPECT().Patch(vm.Name, types.JSONPatchType, expectedRevisionNamePatch, &metav1.PatchOptions{})
+						Expect(vmiArg.Annotations).ToNot(HaveKey(v1.InstancetypeAnnotation))
+						Expect(vmiArg.Annotations).To(HaveKeyWithValue(v1.ClusterPreferenceAnnotation, clusterPreference.Name))
+						Expect(vmiArg.Annotations).ToNot(HaveKey(v1.ClusterInstancetypeAnnotation))
+						Expect(vmiArg.Annotations).ToNot(HaveKey(v1.PreferenceAnnotation))
 
-				vmiInterface.EXPECT().Create(gomock.Any()).Times(1).Do(func(arg interface{}) {
-					vmiArg := arg.(*virtv1.VirtualMachineInstance)
-					Expect(vmiArg.Spec.Domain.CPU.Sockets).To(Equal(clusterInstancetypeObj.Spec.CPU.Guest))
-					Expect(*vmiArg.Spec.Domain.Memory.Guest).To(Equal(clusterInstancetypeObj.Spec.Memory.Guest))
-					Expect(vmiArg.Annotations).To(HaveKeyWithValue(v1.ClusterInstancetypeAnnotation, clusterInstancetypeObj.Name))
-					Expect(vmiArg.Annotations).ToNot(HaveKey(v1.PreferenceAnnotation))
-					Expect(vmiArg.Annotations).ToNot(HaveKey(v1.InstancetypeAnnotation))
-					Expect(vmiArg.Annotations).ToNot(HaveKey(v1.ClusterPreferenceAnnotation))
-				}).Return(vmi, nil)
+					}).Return(vmi, nil)
 
-				vmInterface.EXPECT().UpdateStatus(gomock.Any()).Times(1)
+					vmInterface.EXPECT().UpdateStatus(gomock.Any()).Times(1)
 
-				controller.Execute()
+					controller.Execute()
 
-				Expect(vm.Spec.Instancetype.RevisionName).To(Equal(instancetypeRevision.Name))
+					preferenceRevision, err := virtClient.AppsV1().ControllerRevisions(vm.Namespace).Get(context.Background(), expectedPreferenceRevisionName, metav1.GetOptions{})
+					Expect(err).ToNot(HaveOccurred())
 
-			})
+					preferenceSpecRevision := instancetypev1alpha1.VirtualMachinePreferenceSpecRevision{}
+					preferenceSpec := instancetypev1alpha1.VirtualMachinePreferenceSpec{}
+					Expect(json.Unmarshal(preferenceRevision.Data.Raw, &preferenceSpecRevision)).To(Succeed())
+					Expect(json.Unmarshal(preferenceSpecRevision.Spec, &preferenceSpec)).To(Succeed())
+					Expect(preferenceSpecRevision.APIVersion).To(Equal(clusterPreference.TypeMeta.APIVersion))
+					Expect(preferenceSpec).To(Equal(clusterPreference.Spec))
+				})
 
-			It("should apply VirtualMachinePreference to VirtualMachineInstance", func() {
-				vm.Spec.Preference = &v1.PreferenceMatcher{
-					Name: preference.Name,
-					Kind: instancetypeapi.SingularPreferenceResourceName,
-				}
+				It("should apply VirtualMachineClusterPreference from ControllerRevision to VirtualMachineInstance", func() {
 
-				addVirtualMachine(vm)
+					preferenceRevision, err := instancetype.CreatePreferenceControllerRevision(vm, instancetype.GetRevisionName(vm.Name, clusterPreference.Name, clusterPreference.UID, clusterPreference.Generation), clusterPreference.TypeMeta.APIVersion, &clusterPreference.Spec)
+					Expect(err).ToNot(HaveOccurred())
 
-				expectedPreferenceRevisionName := instancetype.GetRevisionName(vm.Name, preference.Name, preference.UID, preference.Generation)
-				expectedPreferenceRevision, err := instancetype.CreatePreferenceControllerRevision(vm, expectedPreferenceRevisionName, preference.TypeMeta.APIVersion, &preference.Spec)
-				Expect(err).ToNot(HaveOccurred())
+					_, err = virtClient.AppsV1().ControllerRevisions(vm.Namespace).Create(context.Background(), preferenceRevision, metav1.CreateOptions{})
+					Expect(err).ToNot(HaveOccurred())
 
-				expectedRevisionNamePatch, err := instancetype.GenerateRevisionNamePatch(nil, expectedPreferenceRevision)
-				Expect(err).ToNot(HaveOccurred())
+					vm.Spec.Preference = &v1.PreferenceMatcher{
+						Name:         clusterPreference.Name,
+						Kind:         instancetypeapi.ClusterSingularPreferenceResourceName,
+						RevisionName: preferenceRevision.Name,
+					}
 
-				vmInterface.EXPECT().Patch(vm.Name, types.JSONPatchType, expectedRevisionNamePatch, &metav1.PatchOptions{})
+					addVirtualMachine(vm)
 
-				vmiInterface.EXPECT().Create(gomock.Any()).Times(1).Do(func(arg interface{}) {
-					vmiArg := arg.(*virtv1.VirtualMachineInstance)
-					Expect(vmiArg.Spec.Domain.Firmware.Bootloader.EFI).ToNot(BeNil())
+					vmiInterface.EXPECT().Create(gomock.Any()).Times(1).Do(func(arg interface{}) {
+						vmiArg := arg.(*virtv1.VirtualMachineInstance)
+						Expect(vmiArg.Spec.Domain.Firmware.Bootloader.EFI).ToNot(BeNil())
 
-					Expect(vmiArg.Annotations).ToNot(HaveKey(v1.InstancetypeAnnotation))
-					Expect(vmiArg.Annotations).To(HaveKeyWithValue(v1.PreferenceAnnotation, preference.Name))
-					Expect(vmiArg.Annotations).ToNot(HaveKey(v1.ClusterInstancetypeAnnotation))
-					Expect(vmiArg.Annotations).ToNot(HaveKey(v1.ClusterPreferenceAnnotation))
-				}).Return(vmi, nil)
+						Expect(vmiArg.Annotations).ToNot(HaveKey(v1.InstancetypeAnnotation))
+						Expect(vmiArg.Annotations).To(HaveKeyWithValue(v1.ClusterPreferenceAnnotation, clusterPreference.Name))
+						Expect(vmiArg.Annotations).ToNot(HaveKey(v1.ClusterInstancetypeAnnotation))
+						Expect(vmiArg.Annotations).ToNot(HaveKey(v1.PreferenceAnnotation))
+					}).Return(vmi, nil)
 
-				vmInterface.EXPECT().UpdateStatus(gomock.Any()).Times(1)
+					vmInterface.EXPECT().UpdateStatus(gomock.Any()).Times(1)
 
-				controller.Execute()
+					controller.Execute()
 
-				preferenceRevision, err := virtClient.AppsV1().ControllerRevisions(vm.Namespace).Get(context.Background(), expectedPreferenceRevisionName, metav1.GetOptions{})
-				Expect(err).ToNot(HaveOccurred())
+				})
 
-				preferenceSpecRevision := instancetypev1alpha1.VirtualMachinePreferenceSpecRevision{}
-				preferenceSpec := instancetypev1alpha1.VirtualMachinePreferenceSpec{}
-				Expect(json.Unmarshal(preferenceRevision.Data.Raw, &preferenceSpecRevision)).To(Succeed())
-				Expect(json.Unmarshal(preferenceSpecRevision.Spec, &preferenceSpec)).To(Succeed())
-				Expect(preferenceSpecRevision.APIVersion).To(Equal(preference.TypeMeta.APIVersion))
-				Expect(preferenceSpec).To(Equal(preference.Spec))
-			})
+				It("should apply VirtualMachineClusterPreference to VirtualMachineInstance if an existing ControllerRevision is present but not referenced by PreferenceMatcher", func() {
 
-			It("should apply VirtualMachinePreference from ControllerRevision to VirtualMachineInstance", func() {
-				preferenceRevision, err := instancetype.CreatePreferenceControllerRevision(vm, instancetype.GetRevisionName(vm.Name, preference.Name, preference.UID, preference.Generation), preference.TypeMeta.APIVersion, &preference.Spec)
-				Expect(err).ToNot(HaveOccurred())
+					preferenceRevision, err := instancetype.CreatePreferenceControllerRevision(vm, instancetype.GetRevisionName(vm.Name, clusterPreference.Name, clusterPreference.UID, clusterPreference.Generation), clusterPreference.TypeMeta.APIVersion, &clusterPreference.Spec)
+					Expect(err).ToNot(HaveOccurred())
 
-				_, err = virtClient.AppsV1().ControllerRevisions(vm.Namespace).Create(context.Background(), preferenceRevision, metav1.CreateOptions{})
-				Expect(err).ToNot(HaveOccurred())
+					_, err = virtClient.AppsV1().ControllerRevisions(vm.Namespace).Create(context.Background(), preferenceRevision, metav1.CreateOptions{})
+					Expect(err).ToNot(HaveOccurred())
 
-				vm.Spec.Preference = &v1.PreferenceMatcher{
-					Name:         preference.Name,
-					Kind:         instancetypeapi.SingularPreferenceResourceName,
-					RevisionName: preferenceRevision.Name,
-				}
+					// We expect a request to add in the missing preference revisionName
+					expectedRevisionNamePatch, err := instancetype.GenerateRevisionNamePatch(nil, preferenceRevision)
+					Expect(err).ToNot(HaveOccurred())
 
-				addVirtualMachine(vm)
+					vm.Spec.Preference = &v1.PreferenceMatcher{
+						Name: clusterPreference.Name,
+						Kind: instancetypeapi.ClusterSingularPreferenceResourceName,
+					}
 
-				vmiInterface.EXPECT().Create(gomock.Any()).Times(1).Do(func(arg interface{}) {
-					vmiArg := arg.(*virtv1.VirtualMachineInstance)
-					Expect(vmiArg.Spec.Domain.Firmware.Bootloader.EFI).ToNot(BeNil())
+					addVirtualMachine(vm)
 
-					Expect(vmiArg.Annotations).ToNot(HaveKey(v1.InstancetypeAnnotation))
-					Expect(vmiArg.Annotations).To(HaveKeyWithValue(v1.PreferenceAnnotation, preference.Name))
-					Expect(vmiArg.Annotations).ToNot(HaveKey(v1.ClusterInstancetypeAnnotation))
-					Expect(vmiArg.Annotations).ToNot(HaveKey(v1.ClusterPreferenceAnnotation))
-				}).Return(vmi, nil)
+					vmInterface.EXPECT().Patch(vm.Name, types.JSONPatchType, expectedRevisionNamePatch, &metav1.PatchOptions{})
 
-				vmInterface.EXPECT().UpdateStatus(gomock.Any()).Times(1)
+					vmiInterface.EXPECT().Create(gomock.Any()).Times(1).Do(func(arg interface{}) {
+						vmiArg := arg.(*virtv1.VirtualMachineInstance)
+						Expect(vmiArg.Spec.Domain.Firmware.Bootloader.EFI).ToNot(BeNil())
 
-				controller.Execute()
-			})
+						Expect(vmiArg.Annotations).ToNot(HaveKey(v1.InstancetypeAnnotation))
+						Expect(vmiArg.Annotations).To(HaveKeyWithValue(v1.ClusterPreferenceAnnotation, clusterPreference.Name))
+						Expect(vmiArg.Annotations).ToNot(HaveKey(v1.ClusterInstancetypeAnnotation))
+						Expect(vmiArg.Annotations).ToNot(HaveKey(v1.PreferenceAnnotation))
+					}).Return(vmi, nil)
 
-			It("should apply VirtualMachinePreference to VirtualMachineInstance if an existing ControllerRevision is present but not referenced by PreferenceMatcher", func() {
-				preferenceRevision, err := instancetype.CreatePreferenceControllerRevision(vm, instancetype.GetRevisionName(vm.Name, preference.Name, preference.UID, preference.Generation), preference.TypeMeta.APIVersion, &preference.Spec)
-				Expect(err).ToNot(HaveOccurred())
+					vmInterface.EXPECT().UpdateStatus(gomock.Any()).Times(1)
 
-				_, err = virtClient.AppsV1().ControllerRevisions(vm.Namespace).Create(context.Background(), preferenceRevision, metav1.CreateOptions{})
-				Expect(err).ToNot(HaveOccurred())
+					controller.Execute()
 
-				// We expect a request to add in the missing preference revisionName
-				expectedRevisionNamePatch, err := instancetype.GenerateRevisionNamePatch(nil, preferenceRevision)
-				Expect(err).ToNot(HaveOccurred())
+					Expect(vm.Spec.Preference.RevisionName).To(Equal(preferenceRevision.Name))
 
-				vm.Spec.Preference = &v1.PreferenceMatcher{
-					Name: preference.Name,
-					Kind: instancetypeapi.SingularPreferenceResourceName,
-				}
+				})
 
-				addVirtualMachine(vm)
+				It("should reject the request if an invalid PreferenceMatcher Kind is provided", func() {
 
-				vmInterface.EXPECT().Patch(vm.Name, types.JSONPatchType, expectedRevisionNamePatch, &metav1.PatchOptions{})
+					vm.Spec.Preference = &v1.PreferenceMatcher{
+						Name: preference.Name,
+						Kind: "foobar",
+					}
 
-				vmiInterface.EXPECT().Create(gomock.Any()).Times(1).Do(func(arg interface{}) {
-					vmiArg := arg.(*virtv1.VirtualMachineInstance)
-					Expect(vmiArg.Spec.Domain.Firmware.Bootloader.EFI).ToNot(BeNil())
+					addVirtualMachine(vm)
 
-					Expect(vmiArg.Annotations).ToNot(HaveKey(v1.InstancetypeAnnotation))
-					Expect(vmiArg.Annotations).To(HaveKeyWithValue(v1.PreferenceAnnotation, preference.Name))
-					Expect(vmiArg.Annotations).ToNot(HaveKey(v1.ClusterInstancetypeAnnotation))
-					Expect(vmiArg.Annotations).ToNot(HaveKey(v1.ClusterPreferenceAnnotation))
-				}).Return(vmi, nil)
+					vmInterface.EXPECT().UpdateStatus(gomock.Any()).Times(1).Do(func(obj interface{}) {
+						objVM := obj.(*virtv1.VirtualMachine)
+						cond := virtcontroller.NewVirtualMachineConditionManager().GetCondition(objVM, virtv1.VirtualMachineFailure)
+						Expect(cond).To(Not(BeNil()))
+						Expect(cond.Type).To(Equal(virtv1.VirtualMachineFailure))
+						Expect(cond.Reason).To(Equal("FailedCreate"))
+						Expect(cond.Message).To(ContainSubstring("got unexpected kind in PreferenceMatcher"))
+					}).Return(vm, nil)
 
-				vmInterface.EXPECT().UpdateStatus(gomock.Any()).Times(1)
+					controller.Execute()
 
-				controller.Execute()
+					testutils.ExpectEvents(recorder, FailedCreateVirtualMachineReason)
 
-				Expect(vm.Spec.Preference.RevisionName).To(Equal(preferenceRevision.Name))
-			})
+				})
 
-			It("should apply VirtualMachineClusterPreference to VirtualMachineInstance", func() {
-				vm.Spec.Preference = &v1.PreferenceMatcher{
-					Name: clusterPreference.Name,
-					Kind: instancetypeapi.ClusterSingularPreferenceResourceName,
-				}
+				It("should reject the request if a VirtualMachinePreference cannot be found", func() {
 
-				addVirtualMachine(vm)
+					vm.Spec.Preference = &v1.PreferenceMatcher{
+						Name: "foobar",
+						Kind: instancetypeapi.SingularPreferenceResourceName,
+					}
 
-				expectedPreferenceRevisionName := instancetype.GetRevisionName(vm.Name, clusterPreference.Name, clusterPreference.UID, clusterPreference.Generation)
-				expectedPreferenceRevision, err := instancetype.CreatePreferenceControllerRevision(vm, expectedPreferenceRevisionName, clusterPreference.TypeMeta.APIVersion, &clusterPreference.Spec)
-				Expect(err).ToNot(HaveOccurred())
+					addVirtualMachine(vm)
 
-				expectedRevisionNamePatch, err := instancetype.GenerateRevisionNamePatch(nil, expectedPreferenceRevision)
-				Expect(err).ToNot(HaveOccurred())
+					vmInterface.EXPECT().UpdateStatus(gomock.Any()).Times(1).Do(func(obj interface{}) {
+						objVM := obj.(*virtv1.VirtualMachine)
+						cond := virtcontroller.NewVirtualMachineConditionManager().GetCondition(objVM, virtv1.VirtualMachineFailure)
+						Expect(cond).To(Not(BeNil()))
+						Expect(cond.Type).To(Equal(virtv1.VirtualMachineFailure))
+						Expect(cond.Reason).To(Equal("FailedCreate"))
+					}).Return(vm, nil)
 
-				vmInterface.EXPECT().Patch(vm.Name, types.JSONPatchType, expectedRevisionNamePatch, &metav1.PatchOptions{})
-				vmiInterface.EXPECT().Create(gomock.Any()).Times(1).Do(func(arg interface{}) {
-					vmiArg := arg.(*virtv1.VirtualMachineInstance)
-					Expect(vmiArg.Spec.Domain.Firmware.Bootloader.EFI).ToNot(BeNil())
+					controller.Execute()
 
-					Expect(vmiArg.Annotations).ToNot(HaveKey(v1.InstancetypeAnnotation))
-					Expect(vmiArg.Annotations).To(HaveKeyWithValue(v1.ClusterPreferenceAnnotation, clusterPreference.Name))
-					Expect(vmiArg.Annotations).ToNot(HaveKey(v1.ClusterInstancetypeAnnotation))
-					Expect(vmiArg.Annotations).ToNot(HaveKey(v1.PreferenceAnnotation))
+					testutils.ExpectEvents(recorder, FailedCreateVirtualMachineReason)
 
-				}).Return(vmi, nil)
-				vmInterface.EXPECT().UpdateStatus(gomock.Any()).Times(1)
+				})
 
-				controller.Execute()
+				It("should reject the request if a VirtualMachineClusterPreference cannot be found", func() {
 
-				preferenceRevision, err := virtClient.AppsV1().ControllerRevisions(vm.Namespace).Get(context.Background(), expectedPreferenceRevisionName, metav1.GetOptions{})
-				Expect(err).ToNot(HaveOccurred())
+					vm.Spec.Preference = &v1.PreferenceMatcher{
+						Name: "foobar",
+						Kind: instancetypeapi.ClusterSingularPreferenceResourceName,
+					}
 
-				preferenceSpecRevision := instancetypev1alpha1.VirtualMachinePreferenceSpecRevision{}
-				preferenceSpec := instancetypev1alpha1.VirtualMachinePreferenceSpec{}
-				Expect(json.Unmarshal(preferenceRevision.Data.Raw, &preferenceSpecRevision)).To(Succeed())
-				Expect(json.Unmarshal(preferenceSpecRevision.Spec, &preferenceSpec)).To(Succeed())
-				Expect(preferenceSpecRevision.APIVersion).To(Equal(clusterPreference.TypeMeta.APIVersion))
-				Expect(preferenceSpec).To(Equal(clusterPreference.Spec))
-			})
+					addVirtualMachine(vm)
 
-			It("should apply VirtualMachineClusterPreference from ControllerRevision to VirtualMachineInstance", func() {
-				preferenceRevision, err := instancetype.CreatePreferenceControllerRevision(vm, instancetype.GetRevisionName(vm.Name, clusterPreference.Name, clusterPreference.UID, clusterPreference.Generation), clusterPreference.TypeMeta.APIVersion, &clusterPreference.Spec)
-				Expect(err).ToNot(HaveOccurred())
+					vmInterface.EXPECT().UpdateStatus(gomock.Any()).Times(1).Do(func(obj interface{}) {
+						objVM := obj.(*virtv1.VirtualMachine)
+						cond := virtcontroller.NewVirtualMachineConditionManager().GetCondition(objVM, virtv1.VirtualMachineFailure)
+						Expect(cond).To(Not(BeNil()))
+						Expect(cond.Type).To(Equal(virtv1.VirtualMachineFailure))
+						Expect(cond.Reason).To(Equal("FailedCreate"))
+					}).Return(vm, nil)
 
-				_, err = virtClient.AppsV1().ControllerRevisions(vm.Namespace).Create(context.Background(), preferenceRevision, metav1.CreateOptions{})
-				Expect(err).ToNot(HaveOccurred())
+					controller.Execute()
 
-				vm.Spec.Preference = &v1.PreferenceMatcher{
-					Name:         clusterPreference.Name,
-					Kind:         instancetypeapi.ClusterSingularPreferenceResourceName,
-					RevisionName: preferenceRevision.Name,
-				}
+					testutils.ExpectEvents(recorder, FailedCreateVirtualMachineReason)
 
-				addVirtualMachine(vm)
+				})
 
-				vmiInterface.EXPECT().Create(gomock.Any()).Times(1).Do(func(arg interface{}) {
-					vmiArg := arg.(*virtv1.VirtualMachineInstance)
-					Expect(vmiArg.Spec.Domain.Firmware.Bootloader.EFI).ToNot(BeNil())
+				It("should reject if an existing ControllerRevision is found with unexpected VirtualMachinePreferenceSpec data", func() {
 
-					Expect(vmiArg.Annotations).ToNot(HaveKey(v1.InstancetypeAnnotation))
-					Expect(vmiArg.Annotations).To(HaveKeyWithValue(v1.ClusterPreferenceAnnotation, clusterPreference.Name))
-					Expect(vmiArg.Annotations).ToNot(HaveKey(v1.ClusterInstancetypeAnnotation))
-					Expect(vmiArg.Annotations).ToNot(HaveKey(v1.PreferenceAnnotation))
-				}).Return(vmi, nil)
+					unexpectedExistingSpec := instancetypev1alpha1.VirtualMachinePreferenceSpec{
+						CPU: &instancetypev1alpha1.CPUPreferences{
+							PreferredCPUTopology: instancetypev1alpha1.PreferThreads,
+						},
+					}
 
-				vmInterface.EXPECT().UpdateStatus(gomock.Any()).Times(1)
+					preferenceRevision, err := instancetype.CreatePreferenceControllerRevision(vm, instancetype.GetRevisionName(vm.Name, preference.Name, preference.UID, preference.Generation), preference.TypeMeta.APIVersion, &unexpectedExistingSpec)
+					Expect(err).ToNot(HaveOccurred())
 
-				controller.Execute()
+					_, err = virtClient.AppsV1().ControllerRevisions(vm.Namespace).Create(context.Background(), preferenceRevision, metav1.CreateOptions{})
+					Expect(err).ToNot(HaveOccurred())
 
-			})
+					vm.Spec.Preference = &v1.PreferenceMatcher{
+						Name: preference.Name,
+						Kind: instancetypeapi.SingularPreferenceResourceName,
+					}
 
-			It("should apply VirtualMachineClusterPreference to VirtualMachineInstance if an existing ControllerRevision is present but not referenced by PreferenceMatcher", func() {
-				preferenceRevision, err := instancetype.CreatePreferenceControllerRevision(vm, instancetype.GetRevisionName(vm.Name, clusterPreference.Name, clusterPreference.UID, clusterPreference.Generation), clusterPreference.TypeMeta.APIVersion, &clusterPreference.Spec)
-				Expect(err).ToNot(HaveOccurred())
+					addVirtualMachine(vm)
 
-				_, err = virtClient.AppsV1().ControllerRevisions(vm.Namespace).Create(context.Background(), preferenceRevision, metav1.CreateOptions{})
-				Expect(err).ToNot(HaveOccurred())
+					vmInterface.EXPECT().UpdateStatus(gomock.Any()).Times(1).Do(func(obj interface{}) {
+						objVM := obj.(*virtv1.VirtualMachine)
+						cond := virtcontroller.NewVirtualMachineConditionManager().GetCondition(objVM, virtv1.VirtualMachineFailure)
+						Expect(cond).To(Not(BeNil()))
+						Expect(cond.Type).To(Equal(virtv1.VirtualMachineFailure))
+						Expect(cond.Reason).To(Equal("FailedCreate"))
+						Expect(cond.Message).To(ContainSubstring("found existing ControllerRevision with unexpected data"))
+					}).Return(vm, nil)
 
-				// We expect a request to add in the missing preference revisionName
-				expectedRevisionNamePatch, err := instancetype.GenerateRevisionNamePatch(nil, preferenceRevision)
-				Expect(err).ToNot(HaveOccurred())
+					controller.Execute()
 
-				vm.Spec.Preference = &v1.PreferenceMatcher{
-					Name: clusterPreference.Name,
-					Kind: instancetypeapi.ClusterSingularPreferenceResourceName,
-				}
+					testutils.ExpectEvents(recorder, FailedCreateVirtualMachineReason)
 
-				addVirtualMachine(vm)
+				})
 
-				vmInterface.EXPECT().Patch(vm.Name, types.JSONPatchType, expectedRevisionNamePatch, &metav1.PatchOptions{})
+				It("should apply preferences to default network interface", func() {
 
-				vmiInterface.EXPECT().Create(gomock.Any()).Times(1).Do(func(arg interface{}) {
-					vmiArg := arg.(*virtv1.VirtualMachineInstance)
-					Expect(vmiArg.Spec.Domain.Firmware.Bootloader.EFI).ToNot(BeNil())
+					vm.Spec.Preference = &v1.PreferenceMatcher{
+						Name: preference.Name,
+						Kind: instancetypeapi.SingularPreferenceResourceName,
+					}
 
-					Expect(vmiArg.Annotations).ToNot(HaveKey(v1.InstancetypeAnnotation))
-					Expect(vmiArg.Annotations).To(HaveKeyWithValue(v1.ClusterPreferenceAnnotation, clusterPreference.Name))
-					Expect(vmiArg.Annotations).ToNot(HaveKey(v1.ClusterInstancetypeAnnotation))
-					Expect(vmiArg.Annotations).ToNot(HaveKey(v1.PreferenceAnnotation))
-				}).Return(vmi, nil)
+					vm.Spec.Template.Spec.Domain.Devices.Interfaces = []virtv1.Interface{}
+					vm.Spec.Template.Spec.Networks = []virtv1.Network{}
 
-				vmInterface.EXPECT().UpdateStatus(gomock.Any()).Times(1)
+					addVirtualMachine(vm)
 
-				controller.Execute()
+					expectedPreferenceRevisionName := instancetype.GetRevisionName(vm.Name, preference.Name, preference.UID, preference.Generation)
+					expectedPreferenceRevision, err := instancetype.CreatePreferenceControllerRevision(vm, expectedPreferenceRevisionName, preference.TypeMeta.APIVersion, &preference.Spec)
+					Expect(err).ToNot(HaveOccurred())
 
-				Expect(vm.Spec.Preference.RevisionName).To(Equal(preferenceRevision.Name))
+					expectedRevisionNamePatch, err := instancetype.GenerateRevisionNamePatch(nil, expectedPreferenceRevision)
+					Expect(err).ToNot(HaveOccurred())
 
-			})
+					vmInterface.EXPECT().Patch(vm.Name, types.JSONPatchType, expectedRevisionNamePatch, &metav1.PatchOptions{})
 
-			It("should reject request if an invalid InstancetypeMatcher Kind is provided", func() {
+					vmiInterface.EXPECT().Create(gomock.Any()).Times(1).Do(func(arg interface{}) {
+						vmiArg := arg.(*virtv1.VirtualMachineInstance)
+						Expect(vmiArg.Spec.Domain.Devices.Interfaces[0].Model).To(Equal(preference.Spec.Devices.PreferredInterfaceModel))
+						Expect(vmiArg.Spec.Networks).To(Equal([]v1.Network{*v1.DefaultPodNetwork()}))
+					}).Return(vmi, nil)
 
-				vm.Spec.Instancetype = &v1.InstancetypeMatcher{
-					Name: instancetypeObj.Name,
-					Kind: "foobar",
-				}
+					vmInterface.EXPECT().UpdateStatus(gomock.Any()).Times(1)
 
-				addVirtualMachine(vm)
+					controller.Execute()
+				})
 
-				vmInterface.EXPECT().UpdateStatus(gomock.Any()).Times(1).Do(func(obj interface{}) {
-					objVM := obj.(*virtv1.VirtualMachine)
-					cond := virtcontroller.NewVirtualMachineConditionManager().GetCondition(objVM, virtv1.VirtualMachineFailure)
-					Expect(cond).To(Not(BeNil()))
-					Expect(cond.Type).To(Equal(virtv1.VirtualMachineFailure))
-					Expect(cond.Reason).To(Equal("FailedCreate"))
-					Expect(cond.Message).To(ContainSubstring("got unexpected kind in InstancetypeMatcher"))
-				}).Return(vm, nil)
+				It("should apply preferences to default volume disk", func() {
 
-				controller.Execute()
+					vm.Spec.Preference = &v1.PreferenceMatcher{
+						Name: preference.Name,
+						Kind: instancetypeapi.SingularPreferenceResourceName,
+					}
 
-				testutils.ExpectEvents(recorder, FailedCreateVirtualMachineReason)
-
-			})
-
-			It("should reject the request if a VirtualMachineInstancetype cannot be found", func() {
-
-				vm.Spec.Instancetype = &v1.InstancetypeMatcher{
-					Name: "foobar",
-					Kind: instancetypeapi.SingularResourceName,
-				}
-
-				addVirtualMachine(vm)
-
-				vmInterface.EXPECT().UpdateStatus(gomock.Any()).Times(1).Do(func(obj interface{}) {
-					objVM := obj.(*virtv1.VirtualMachine)
-					cond := virtcontroller.NewVirtualMachineConditionManager().GetCondition(objVM, virtv1.VirtualMachineFailure)
-					Expect(cond).To(Not(BeNil()))
-					Expect(cond.Type).To(Equal(virtv1.VirtualMachineFailure))
-					Expect(cond.Reason).To(Equal("FailedCreate"))
-				}).Return(vm, nil)
-
-				controller.Execute()
-
-				testutils.ExpectEvents(recorder, FailedCreateVirtualMachineReason)
-
-			})
-
-			It("should reject the request if a VirtualMachineClusterInstancetype cannot be found", func() {
-
-				vm.Spec.Instancetype = &v1.InstancetypeMatcher{
-					Name: "foobar",
-					Kind: instancetypeapi.ClusterSingularResourceName,
-				}
-
-				addVirtualMachine(vm)
-
-				vmInterface.EXPECT().UpdateStatus(gomock.Any()).Times(1).Do(func(obj interface{}) {
-					objVM := obj.(*virtv1.VirtualMachine)
-					cond := virtcontroller.NewVirtualMachineConditionManager().GetCondition(objVM, virtv1.VirtualMachineFailure)
-					Expect(cond).To(Not(BeNil()))
-					Expect(cond.Type).To(Equal(virtv1.VirtualMachineFailure))
-					Expect(cond.Reason).To(Equal("FailedCreate"))
-				}).Return(vm, nil)
-
-				controller.Execute()
-
-				testutils.ExpectEvents(recorder, FailedCreateVirtualMachineReason)
-
-			})
-
-			It("should reject the request if an invalid PreferenceMatcher Kind is provided", func() {
-
-				vm.Spec.Preference = &v1.PreferenceMatcher{
-					Name: preference.Name,
-					Kind: "foobar",
-				}
-
-				addVirtualMachine(vm)
-
-				vmInterface.EXPECT().UpdateStatus(gomock.Any()).Times(1).Do(func(obj interface{}) {
-					objVM := obj.(*virtv1.VirtualMachine)
-					cond := virtcontroller.NewVirtualMachineConditionManager().GetCondition(objVM, virtv1.VirtualMachineFailure)
-					Expect(cond).To(Not(BeNil()))
-					Expect(cond.Type).To(Equal(virtv1.VirtualMachineFailure))
-					Expect(cond.Reason).To(Equal("FailedCreate"))
-					Expect(cond.Message).To(ContainSubstring("got unexpected kind in PreferenceMatcher"))
-				}).Return(vm, nil)
-
-				controller.Execute()
-
-				testutils.ExpectEvents(recorder, FailedCreateVirtualMachineReason)
-
-			})
-
-			It("should reject the request if a VirtualMachinePreference cannot be found", func() {
-
-				vm.Spec.Preference = &v1.PreferenceMatcher{
-					Name: "foobar",
-					Kind: instancetypeapi.SingularPreferenceResourceName,
-				}
-
-				addVirtualMachine(vm)
-
-				vmInterface.EXPECT().UpdateStatus(gomock.Any()).Times(1).Do(func(obj interface{}) {
-					objVM := obj.(*virtv1.VirtualMachine)
-					cond := virtcontroller.NewVirtualMachineConditionManager().GetCondition(objVM, virtv1.VirtualMachineFailure)
-					Expect(cond).To(Not(BeNil()))
-					Expect(cond.Type).To(Equal(virtv1.VirtualMachineFailure))
-					Expect(cond.Reason).To(Equal("FailedCreate"))
-				}).Return(vm, nil)
-
-				controller.Execute()
-
-				testutils.ExpectEvents(recorder, FailedCreateVirtualMachineReason)
-
-			})
-
-			It("should reject the request if a VirtualMachineClusterPreference cannot be found", func() {
-
-				vm.Spec.Preference = &v1.PreferenceMatcher{
-					Name: "foobar",
-					Kind: instancetypeapi.ClusterSingularPreferenceResourceName,
-				}
-
-				addVirtualMachine(vm)
-
-				vmInterface.EXPECT().UpdateStatus(gomock.Any()).Times(1).Do(func(obj interface{}) {
-					objVM := obj.(*virtv1.VirtualMachine)
-					cond := virtcontroller.NewVirtualMachineConditionManager().GetCondition(objVM, virtv1.VirtualMachineFailure)
-					Expect(cond).To(Not(BeNil()))
-					Expect(cond.Type).To(Equal(virtv1.VirtualMachineFailure))
-					Expect(cond.Reason).To(Equal("FailedCreate"))
-				}).Return(vm, nil)
-
-				controller.Execute()
-
-				testutils.ExpectEvents(recorder, FailedCreateVirtualMachineReason)
-
-			})
-
-			It("should reject the request if a VirtualMachineInstancetype conflicts with the VirtualMachineInstance", func() {
-
-				vm.Spec.Instancetype = &v1.InstancetypeMatcher{
-					Name: instancetypeObj.Name,
-					Kind: instancetypeapi.SingularResourceName,
-				}
-
-				vm.Spec.Template.Spec.Domain.CPU = &v1.CPU{
-					Sockets: uint32(1),
-					Cores:   uint32(4),
-					Threads: uint32(1),
-				}
-
-				addVirtualMachine(vm)
-
-				vmInterface.EXPECT().UpdateStatus(gomock.Any()).Times(1).Do(func(obj interface{}) {
-					objVM := obj.(*virtv1.VirtualMachine)
-					cond := virtcontroller.NewVirtualMachineConditionManager().GetCondition(objVM, virtv1.VirtualMachineFailure)
-					Expect(cond).To(Not(BeNil()))
-					Expect(cond.Type).To(Equal(virtv1.VirtualMachineFailure))
-					Expect(cond.Reason).To(Equal("FailedCreate"))
-					Expect(cond.Message).To(ContainSubstring("VMI conflicts with instancetype spec in fields"))
-					Expect(cond.Message).To(ContainSubstring("spec.domain.cpu"))
-				}).Return(vm, nil)
-
-				controller.Execute()
-
-				testutils.ExpectEvents(recorder, FailedCreateVirtualMachineReason)
-			})
-
-			It("should reject if an existing ControllerRevision is found with unexpected VirtualMachineInstancetypeSpec data", func() {
-
-				unexpectedExistingSpec := instancetypev1alpha1.VirtualMachineInstancetypeSpec{
-					CPU: instancetypev1alpha1.CPUInstancetype{
-						Guest: 15,
-					},
-				}
-
-				instancetypeRevision, err := instancetype.CreateInstancetypeControllerRevision(vm, instancetype.GetRevisionName(vm.Name, instancetypeObj.Name, instancetypeObj.UID, instancetypeObj.Generation), instancetypeObj.TypeMeta.APIVersion, &unexpectedExistingSpec)
-				Expect(err).ToNot(HaveOccurred())
-
-				_, err = virtClient.AppsV1().ControllerRevisions(vm.Namespace).Create(context.Background(), instancetypeRevision, metav1.CreateOptions{})
-				Expect(err).ToNot(HaveOccurred())
-
-				vm.Spec.Instancetype = &v1.InstancetypeMatcher{
-					Name: instancetypeObj.Name,
-					Kind: instancetypeapi.SingularResourceName,
-				}
-
-				addVirtualMachine(vm)
-
-				vmInterface.EXPECT().UpdateStatus(gomock.Any()).Times(1).Do(func(obj interface{}) {
-					objVM := obj.(*virtv1.VirtualMachine)
-					cond := virtcontroller.NewVirtualMachineConditionManager().GetCondition(objVM, virtv1.VirtualMachineFailure)
-					Expect(cond).To(Not(BeNil()))
-					Expect(cond.Type).To(Equal(virtv1.VirtualMachineFailure))
-					Expect(cond.Reason).To(Equal("FailedCreate"))
-					Expect(cond.Message).To(ContainSubstring("found existing ControllerRevision with unexpected data"))
-				}).Return(vm, nil)
-
-				controller.Execute()
-
-				testutils.ExpectEvents(recorder, FailedCreateVirtualMachineReason)
-
-			})
-
-			It("should reject if an existing ControllerRevision is found with unexpected VirtualMachinePreferenceSpec data", func() {
-
-				unexpectedExistingSpec := instancetypev1alpha1.VirtualMachinePreferenceSpec{
-					CPU: &instancetypev1alpha1.CPUPreferences{
-						PreferredCPUTopology: instancetypev1alpha1.PreferThreads,
-					},
-				}
-
-				preferenceRevision, err := instancetype.CreatePreferenceControllerRevision(vm, instancetype.GetRevisionName(vm.Name, preference.Name, preference.UID, preference.Generation), preference.TypeMeta.APIVersion, &unexpectedExistingSpec)
-				Expect(err).ToNot(HaveOccurred())
-
-				_, err = virtClient.AppsV1().ControllerRevisions(vm.Namespace).Create(context.Background(), preferenceRevision, metav1.CreateOptions{})
-				Expect(err).ToNot(HaveOccurred())
-
-				vm.Spec.Preference = &v1.PreferenceMatcher{
-					Name: preference.Name,
-					Kind: instancetypeapi.SingularPreferenceResourceName,
-				}
-
-				addVirtualMachine(vm)
-
-				vmInterface.EXPECT().UpdateStatus(gomock.Any()).Times(1).Do(func(obj interface{}) {
-					objVM := obj.(*virtv1.VirtualMachine)
-					cond := virtcontroller.NewVirtualMachineConditionManager().GetCondition(objVM, virtv1.VirtualMachineFailure)
-					Expect(cond).To(Not(BeNil()))
-					Expect(cond.Type).To(Equal(virtv1.VirtualMachineFailure))
-					Expect(cond.Reason).To(Equal("FailedCreate"))
-					Expect(cond.Message).To(ContainSubstring("found existing ControllerRevision with unexpected data"))
-				}).Return(vm, nil)
-
-				controller.Execute()
-
-				testutils.ExpectEvents(recorder, FailedCreateVirtualMachineReason)
-
-			})
-
-			It("should apply preferences to default network interface", func() {
-
-				vm.Spec.Preference = &v1.PreferenceMatcher{
-					Name: preference.Name,
-					Kind: instancetypeapi.SingularPreferenceResourceName,
-				}
-
-				vm.Spec.Template.Spec.Domain.Devices.Interfaces = []virtv1.Interface{}
-				vm.Spec.Template.Spec.Networks = []virtv1.Network{}
-
-				addVirtualMachine(vm)
-
-				expectedPreferenceRevisionName := instancetype.GetRevisionName(vm.Name, preference.Name, preference.UID, preference.Generation)
-				expectedPreferenceRevision, err := instancetype.CreatePreferenceControllerRevision(vm, expectedPreferenceRevisionName, preference.TypeMeta.APIVersion, &preference.Spec)
-				Expect(err).ToNot(HaveOccurred())
-
-				expectedRevisionNamePatch, err := instancetype.GenerateRevisionNamePatch(nil, expectedPreferenceRevision)
-				Expect(err).ToNot(HaveOccurred())
-
-				vmInterface.EXPECT().Patch(vm.Name, types.JSONPatchType, expectedRevisionNamePatch, &metav1.PatchOptions{})
-
-				vmiInterface.EXPECT().Create(gomock.Any()).Times(1).Do(func(arg interface{}) {
-					vmiArg := arg.(*virtv1.VirtualMachineInstance)
-					Expect(vmiArg.Spec.Domain.Devices.Interfaces[0].Model).To(Equal(preference.Spec.Devices.PreferredInterfaceModel))
-					Expect(vmiArg.Spec.Networks).To(Equal([]v1.Network{*v1.DefaultPodNetwork()}))
-				}).Return(vmi, nil)
-
-				vmInterface.EXPECT().UpdateStatus(gomock.Any()).Times(1)
-
-				controller.Execute()
-			})
-
-			It("should apply preferences to default volume disk", func() {
-
-				vm.Spec.Preference = &v1.PreferenceMatcher{
-					Name: preference.Name,
-					Kind: instancetypeapi.SingularPreferenceResourceName,
-				}
-
-				presentVolumeName := "present-vol"
-				missingVolumeName := "missing-vol"
-				vm.Spec.Template.Spec.Domain.Devices.Disks = []v1.Disk{
-					v1.Disk{
-						Name: presentVolumeName,
-						DiskDevice: v1.DiskDevice{
-							Disk: &v1.DiskTarget{
-								Bus: v1.DiskBusSATA,
+					presentVolumeName := "present-vol"
+					missingVolumeName := "missing-vol"
+					vm.Spec.Template.Spec.Domain.Devices.Disks = []v1.Disk{
+						v1.Disk{
+							Name: presentVolumeName,
+							DiskDevice: v1.DiskDevice{
+								Disk: &v1.DiskTarget{
+									Bus: v1.DiskBusSATA,
+								},
 							},
 						},
-					},
-				}
-				vm.Spec.Template.Spec.Volumes = []v1.Volume{
-					v1.Volume{
-						Name: presentVolumeName,
-					},
-					v1.Volume{
-						Name: missingVolumeName,
-					},
-				}
+					}
+					vm.Spec.Template.Spec.Volumes = []v1.Volume{
+						v1.Volume{
+							Name: presentVolumeName,
+						},
+						v1.Volume{
+							Name: missingVolumeName,
+						},
+					}
 
-				addVirtualMachine(vm)
+					addVirtualMachine(vm)
 
-				expectedPreferenceRevisionName := instancetype.GetRevisionName(vm.Name, preference.Name, preference.UID, preference.Generation)
-				expectedPreferenceRevision, err := instancetype.CreatePreferenceControllerRevision(vm, expectedPreferenceRevisionName, preference.TypeMeta.APIVersion, &preference.Spec)
-				Expect(err).ToNot(HaveOccurred())
+					expectedPreferenceRevisionName := instancetype.GetRevisionName(vm.Name, preference.Name, preference.UID, preference.Generation)
+					expectedPreferenceRevision, err := instancetype.CreatePreferenceControllerRevision(vm, expectedPreferenceRevisionName, preference.TypeMeta.APIVersion, &preference.Spec)
+					Expect(err).ToNot(HaveOccurred())
 
-				expectedRevisionNamePatch, err := instancetype.GenerateRevisionNamePatch(nil, expectedPreferenceRevision)
-				Expect(err).ToNot(HaveOccurred())
+					expectedRevisionNamePatch, err := instancetype.GenerateRevisionNamePatch(nil, expectedPreferenceRevision)
+					Expect(err).ToNot(HaveOccurred())
 
-				vmInterface.EXPECT().Patch(vm.Name, types.JSONPatchType, expectedRevisionNamePatch, &metav1.PatchOptions{})
+					vmInterface.EXPECT().Patch(vm.Name, types.JSONPatchType, expectedRevisionNamePatch, &metav1.PatchOptions{})
 
-				vmiInterface.EXPECT().Create(gomock.Any()).Times(1).Do(func(arg interface{}) {
-					vmiArg := arg.(*virtv1.VirtualMachineInstance)
-					Expect(vmiArg.Spec.Domain.Devices.Disks).To(HaveLen(2))
-					Expect(vmiArg.Spec.Domain.Devices.Disks[0].Name).To(Equal(presentVolumeName))
-					// Assert that the preference hasn't overwritten anything defined by the user
-					Expect(vmiArg.Spec.Domain.Devices.Disks[0].Disk.Bus).To(Equal(v1.DiskBusSATA))
-					Expect(vmiArg.Spec.Domain.Devices.Disks[1].Name).To(Equal(missingVolumeName))
-					// Assert that it has however been applied to the newly introduced disk
-					Expect(vmiArg.Spec.Domain.Devices.Disks[1].Disk.Bus).To(Equal(preference.Spec.Devices.PreferredDiskBus))
-				}).Return(vmi, nil)
+					vmiInterface.EXPECT().Create(gomock.Any()).Times(1).Do(func(arg interface{}) {
+						vmiArg := arg.(*virtv1.VirtualMachineInstance)
+						Expect(vmiArg.Spec.Domain.Devices.Disks).To(HaveLen(2))
+						Expect(vmiArg.Spec.Domain.Devices.Disks[0].Name).To(Equal(presentVolumeName))
+						// Assert that the preference hasn't overwritten anything defined by the user
+						Expect(vmiArg.Spec.Domain.Devices.Disks[0].Disk.Bus).To(Equal(v1.DiskBusSATA))
+						Expect(vmiArg.Spec.Domain.Devices.Disks[1].Name).To(Equal(missingVolumeName))
+						// Assert that it has however been applied to the newly introduced disk
+						Expect(vmiArg.Spec.Domain.Devices.Disks[1].Disk.Bus).To(Equal(preference.Spec.Devices.PreferredDiskBus))
+					}).Return(vmi, nil)
 
-				vmInterface.EXPECT().UpdateStatus(gomock.Any()).Times(1)
+					vmInterface.EXPECT().UpdateStatus(gomock.Any()).Times(1)
 
-				controller.Execute()
+					controller.Execute()
+				})
 			})
 		})
 
