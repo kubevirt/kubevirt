@@ -2774,10 +2774,8 @@ var _ = Describe("VirtualMachine", func() {
 				vm                            *virtv1.VirtualMachine
 				vmi                           *virtv1.VirtualMachineInstance
 				instancetypeObj               *instancetypev1alpha1.VirtualMachineInstancetype
-				instancetypeSpec              instancetypev1alpha1.VirtualMachineInstancetypeSpec
 				clusterInstancetypeObj        *instancetypev1alpha1.VirtualMachineClusterInstancetype
 				preference                    *instancetypev1alpha1.VirtualMachinePreference
-				preferenceSpec                instancetypev1alpha1.VirtualMachinePreferenceSpec
 				clusterPreference             *instancetypev1alpha1.VirtualMachineClusterPreference
 				fakeInstancetypeClients       v1alpha1.InstancetypeV1alpha1Interface
 				fakeInstancetypeClient        v1alpha1.VirtualMachineInstancetypeInterface
@@ -2810,7 +2808,7 @@ var _ = Describe("VirtualMachine", func() {
 				k8sClient = k8sfake.NewSimpleClientset()
 				virtClient.EXPECT().AppsV1().Return(k8sClient.AppsV1()).AnyTimes()
 
-				instancetypeSpec = instancetypev1alpha1.VirtualMachineInstancetypeSpec{
+				instancetypeSpec := instancetypev1alpha1.VirtualMachineInstancetypeSpec{
 					CPU: instancetypev1alpha1.CPUInstancetype{
 						Guest: uint32(2),
 					},
@@ -2839,7 +2837,7 @@ var _ = Describe("VirtualMachine", func() {
 				}
 				virtClient.VirtualMachineClusterInstancetype().Create(context.Background(), clusterInstancetypeObj, metav1.CreateOptions{})
 
-				preferenceSpec = instancetypev1alpha1.VirtualMachinePreferenceSpec{
+				preferenceSpec := instancetypev1alpha1.VirtualMachinePreferenceSpec{
 					CPU: &instancetypev1alpha1.CPUPreferences{
 						PreferredCPUTopology: instancetypev1alpha1.PreferThreads,
 					},
