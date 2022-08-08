@@ -31,7 +31,7 @@ var _ = Describe("cache", func() {
 		}
 	})
 
-	AfterEach(func() { cache.Delete() })
+	AfterEach(func() { Expect(cache.Delete()).To(Succeed()) })
 
 	It("should return os.ErrNotExist if no cache entry exists", func() {
 		var newData data

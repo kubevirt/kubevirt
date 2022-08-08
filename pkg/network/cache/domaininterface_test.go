@@ -21,7 +21,7 @@ var _ = Describe("DomainInterfaceCache", func() {
 	BeforeEach(dutils.MockDefaultOwnershipManager)
 
 	AfterEach(func() {
-		cacheCreator.New("").Delete()
+		Expect(cacheCreator.New("").Delete()).To(Succeed())
 	})
 
 	It("should return os.ErrNotExist if no cache entry exists", func() {

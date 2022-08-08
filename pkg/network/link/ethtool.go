@@ -6,6 +6,8 @@ import (
 	"fmt"
 	"syscall"
 	"unsafe"
+
+	"kubevirt.io/client-go/log"
 )
 
 const (
@@ -45,7 +47,7 @@ func EthtoolTXOff(name string) error {
 	if err != nil {
 		return err
 	}
-	defer syscall.Close(socket)
+	defer closeSocketIgnoringError(socket)
 
 	// Request current value
 	value := EthtoolValue{Cmd: ETHTOOL_GTXCSUM}
@@ -61,4 +63,10 @@ func EthtoolTXOff(name string) error {
 
 	value = EthtoolValue{ETHTOOL_STXCSUM, 0}
 	return ioctlEthtool(socket, uintptr(unsafe.Pointer(&request))) // #nosec Used for a RawSyscall
+}
+
+func closeSocketIgnoringError(fd int) {
+	if err := syscall.Close(fd); err != nil {
+		log.Log.Warningf("failed to close socket file descriptor %d: %v", fd, err)
+	}
 }

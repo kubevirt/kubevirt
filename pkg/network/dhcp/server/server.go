@@ -86,12 +86,18 @@ func SingleClientDHCPServer(
 	if err != nil {
 		return err
 	}
-	defer l.Close()
+	defer closeDHCPServerIgnoringError(l)
 	err = dhcp.Serve(l, handler)
 	if err != nil {
 		return err
 	}
 	return nil
+}
+
+func closeDHCPServerIgnoringError(l ServeIfConn) {
+	if err := l.Close(); err != nil {
+		log.Log.Warningf("failed to close DHCP server connection: %v", err)
+	}
 }
 
 func prepareDHCPOptions(
