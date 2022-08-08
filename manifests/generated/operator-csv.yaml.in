@@ -1073,6 +1073,8 @@ spec:
                   requests:
                     cpu: 10m
                     memory: 150Mi
+                securityContext:
+                  allowPrivilegeEscalation: false
                 volumeMounts:
                 - mountPath: /etc/virt-operator/certificates
                   name: kubevirt-operator-certs
