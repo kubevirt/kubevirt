@@ -18,19 +18,23 @@ spec:
         tier: node
         app: sriov-cni
     spec:
-      hostNetwork: true
       nodeSelector:
-        beta.kubernetes.io/arch: amd64
+        kubernetes.io/arch: amd64
       tolerations:
       - key: node-role.kubernetes.io/control-plane
         operator: Exists
         effect: NoSchedule
       containers:
       - name: kube-sriov-cni
-        image: nfvpe/sriov-cni
+        image: ghcr.io/k8snetworkplumbingwg/sriov-cni:v2.6.2
         imagePullPolicy: IfNotPresent
         securityContext:
-          privileged: true
+          allowPrivilegeEscalation: false
+          privileged: false
+          readOnlyRootFilesystem: true
+          capabilities:
+            drop:
+              - ALL
         resources:
           requests:
             cpu: "100m"
