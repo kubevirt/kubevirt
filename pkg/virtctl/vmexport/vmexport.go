@@ -40,6 +40,7 @@ import (
 	"k8s.io/client-go/tools/clientcmd"
 	exportv1 "kubevirt.io/api/export/v1alpha1"
 
+	"k8s.io/apimachinery/pkg/util/rand"
 	"kubevirt.io/client-go/kubecli"
 
 	"kubevirt.io/kubevirt/pkg/util"
@@ -60,15 +61,19 @@ const (
 	SNAPSHOT_FLAG = "--snapshot"
 	PVC_FLAG      = "--pvc"
 	RAW_FLAG      = "--raw"
-	TOKEN_FLAG    = "--secret"
 
 	// processingWaitInterval is the time interval used to wait for a virtualMachineExport to be ready
 	processingWaitInterval = 2 * time.Second
 	// processingWaitTotal is the maximum time used to wait for a virtualMachineExport to be ready
 	processingWaitTotal = 24 * time.Hour
 
-	exportTokenHeader    = "x-kubevirt-export-token"
+	// exportTokenHeader is the http header used to download the exported volume using the secret token
+	exportTokenHeader = "x-kubevirt-export-token"
+	// dirExportTokenHeader is the http header used to download a disk.img from a directory using the secret token
 	dirExportTokenHeader = "/disk.img?x-kubevirt-export-token"
+
+	// secretTokenEntry is the entry used to store the token in the virtualMachineExport secret
+	secretTokenEntry = "token"
 
 	// ErrRequiredFlag serves as error message when a mandatory flag is missing
 	ErrRequiredFlag = "Need to specify the '%s' flag when using '%s'"
@@ -91,7 +96,6 @@ var (
 	shouldCreate bool
 	downloadRaw  bool
 	volumeName   string
-	secretName   string
 
 	// vmexport info
 	vmexportName string
@@ -158,7 +162,7 @@ func NewVirtualMachineExportCommand(clientConfig clientcmd.ClientConfig) *cobra.
 		Args:    cobra.MaximumNArgs(2),
 		RunE: func(cmd *cobra.Command, args []string) error {
 			v := command{clientConfig: clientConfig}
-			return v.runVMExport(args)
+			return v.run(args)
 		},
 	}
 
@@ -166,7 +170,6 @@ func NewVirtualMachineExportCommand(clientConfig clientcmd.ClientConfig) *cobra.
 	cmd.Flags().StringVar(&snapshot, "snapshot", "", "Sets VirtualMachineSnapshot as vmexport kind and specifies the snapshot name.")
 	cmd.Flags().StringVar(&pvc, "pvc", "", "Sets PersistentVolumeClaim as vmexport kind and specifies the PVC name.")
 	cmd.MarkFlagsMutuallyExclusive("vm", "snapshot", "pvc")
-	cmd.Flags().StringVar(&secretName, "secret", "", "Specifies the token name of the secret to be used in the VirtualMachineExport")
 	cmd.Flags().StringVar(&outputFile, "output", "", "Specifies the output path of the volume to be downloaded.")
 	cmd.Flags().StringVar(&volumeName, "volume", "", "Specifies the volume to be downloaded.")
 	cmd.Flags().BoolVar(&shouldCreate, "create", shouldCreate, "When used with the 'download' option, specifies that a VirtualMachineExport should be created from scratch.")
@@ -176,8 +179,8 @@ func NewVirtualMachineExportCommand(clientConfig clientcmd.ClientConfig) *cobra.
 	return cmd
 }
 
-// runVMExport serves as entrypoint for the vmexport command
-func (c *command) runVMExport(args []string) error {
+// run serves as entrypoint for the vmexport command
+func (c *command) run(args []string) error {
 	if err := parseExportArguments(args); err != nil {
 		return err
 	}
@@ -259,13 +262,19 @@ func createVirtualMachineExport(client kubecli.KubevirtClient, namespace string)
 		return fmt.Errorf("VirtualMachineExport '%s/%s' already exists", namespace, vmexportName)
 	}
 
+	// Generate/get secret to be used with the vmexport
+	secret, err := getOrCreateTokenSecret(client, namespace)
+	if err != nil {
+		return err
+	}
+
 	vmexport = &exportv1.VirtualMachineExport{
 		ObjectMeta: metav1.ObjectMeta{
 			Name:      vmexportName,
 			Namespace: namespace,
 		},
 		Spec: exportv1.VirtualMachineExportSpec{
-			TokenSecretRef: secretName,
+			TokenSecretRef: secret.Name,
 			Source: k8sv1.TypedLocalObjectReference{
 				APIGroup: &k8sv1.SchemeGroupVersion.Group,
 				Kind:     resourceKind,
@@ -293,6 +302,12 @@ func deleteVirtualMachineExport(client kubecli.KubevirtClient, namespace string)
 	}
 
 	fmt.Printf("VirtualMachineExport '%s/%s' deleted succesfully\n", namespace, vmexportName)
+
+	// If it exists, attempt to delete the related secret
+	if err := deleteExportSecret(client, namespace); err != nil {
+		return err
+	}
+
 	return nil
 }
 
@@ -311,12 +326,17 @@ func downloadVirtualMachineExport(client kubecli.KubevirtClient, namespace strin
 	if vmexport == nil {
 		return fmt.Errorf("Unable to get '%s/%s' VirtualMachineExport", namespace, vmexportName)
 	}
-
+	// Wait for the vmexport object to be ready
 	if err := waitForVirtualMachineExport(client, namespace, processingWaitInterval, processingWaitTotal); err != nil {
 		return err
 	}
-
+	// Download the exported volume
 	if err := downloadVolume(client, vmexport); err != nil {
+		return err
+	}
+
+	fmt.Println("Cleaning resources...")
+	if err := deleteVirtualMachineExport(client, namespace); err != nil {
 		return err
 	}
 
@@ -362,9 +382,7 @@ func getUrlFromVirtualMachineExport(client kubecli.KubevirtClient, vmexport *exp
 	var downloadUrl string
 	var httpHeader string
 
-	if vmexport.Status.Links == nil ||
-		vmexport.Status.Links.External == nil ||
-		vmexport.Status.Links.External.Volumes == nil {
+	if vmexport.Status.Links.External.Volumes == nil {
 		return "", "", fmt.Errorf("Unable to access the volume info from '%s/%s' VirtualMachineExport", vmexport.Namespace, vmexport.Name)
 	}
 
@@ -395,7 +413,7 @@ func getUrlFromVirtualMachineExport(client kubecli.KubevirtClient, vmexport *exp
 	}
 
 	if downloadUrl == "" {
-		return "", "", fmt.Errorf("Unable to get URL from '%s/%s' VirtualMachineExport", vmexport.Namespace, vmexport.Name)
+		return "", "", fmt.Errorf("Unable to get a valid URL from '%s/%s' VirtualMachineExport", vmexport.Namespace, vmexport.Name)
 	}
 
 	return downloadUrl, httpHeader, nil
@@ -416,10 +434,15 @@ func waitForVirtualMachineExport(client kubecli.KubevirtClient, namespace string
 		done := vmexport.Status.Phase == "Ready"
 		if !done {
 			fmt.Printf("Waiting for VM Export %s status to be ready...\n", vmexportName)
-		} else {
-			fmt.Printf("Processing completed successfully\n")
+			return false, nil
 		}
 
+		if vmexport.Status.Links == nil || vmexport.Status.Links.External == nil {
+			fmt.Printf("Waiting for VM Export %s external links to be available...\n", vmexportName)
+			return false, nil
+		}
+
+		fmt.Printf("Processing completed successfully\n")
 		return done, nil
 	})
 
@@ -428,7 +451,7 @@ func waitForVirtualMachineExport(client kubecli.KubevirtClient, namespace string
 
 // handleHTTPRequest generates the GET request with proper certificate handling
 func handleHTTPRequest(client kubecli.KubevirtClient, vmexport *exportv1.VirtualMachineExport, downloadUrl, httpHeader string) (*http.Response, error) {
-	token, err := getTokenFromSecret(client, vmexport)
+	token, err := getTokenFromSecret(client, vmexport.Namespace)
 	if err != nil {
 		return nil, err
 	}
@@ -437,11 +460,8 @@ func handleHTTPRequest(client kubecli.KubevirtClient, vmexport *exportv1.Virtual
 	cert := vmexport.Status.Links.External.Cert
 	roots := x509.NewCertPool()
 	roots.AppendCertsFromPEM([]byte(cert))
-
 	transport := &http.Transport{
-		TLSClientConfig: &tls.Config{
-			RootCAs: roots,
-		},
+		TLSClientConfig: &tls.Config{RootCAs: roots},
 	}
 	httpClient := httpClientCreatorFunc(transport)
 
@@ -462,10 +482,7 @@ func getHTTPClient(transport *http.Transport) *http.Client {
 		}
 	}
 
-	client := &http.Client{
-		Transport: transport,
-	}
-
+	client := &http.Client{Transport: transport}
 	return client
 }
 
@@ -485,15 +502,53 @@ func copyFileWithProgressBar(output *os.File, resp *http.Response) error {
 	return err
 }
 
+// getOrCreateTokenSecret obtains a token secret to be used along with the virtualMachineExport
+func getOrCreateTokenSecret(client kubecli.KubevirtClient, namespace string) (*k8sv1.Secret, error) {
+	// Generate a random, 20 char string to be used as a token
+	token := rand.String(20)
+
+	secret := &k8sv1.Secret{
+		ObjectMeta: metav1.ObjectMeta{
+			Name:      getExportSecretName(),
+			Namespace: namespace,
+		},
+		Type: k8sv1.SecretTypeOpaque,
+		Data: map[string][]byte{
+			secretTokenEntry: []byte(token),
+		},
+	}
+
+	_, err := client.CoreV1().Secrets(namespace).Create(context.Background(), secret, metav1.CreateOptions{})
+	if err != nil && !k8serrors.IsAlreadyExists(err) {
+		return nil, err
+	}
+
+	return secret, nil
+}
+
+// deleteExportSecret deletes the secret assigned to the virtualMachineExport
+func deleteExportSecret(client kubecli.KubevirtClient, namespace string) error {
+	secretName := getExportSecretName()
+	if err := client.CoreV1().Secrets(namespace).Delete(context.TODO(), secretName, metav1.DeleteOptions{}); err != nil {
+		if !k8serrors.IsNotFound(err) {
+			return err
+		}
+		return nil
+	}
+
+	fmt.Printf("Secret '%s/%s' deleted succesfully\n", namespace, secretName)
+	return nil
+}
+
 // getTokenFromSecret extracts the token from the secret specified on the virtualMachineExport
-func getTokenFromSecret(client kubecli.KubevirtClient, vmexport *exportv1.VirtualMachineExport) (string, error) {
-	secret, err := client.CoreV1().Secrets(vmexport.Namespace).Get(context.Background(), vmexport.Spec.TokenSecretRef, metav1.GetOptions{})
+func getTokenFromSecret(client kubecli.KubevirtClient, namespace string) (string, error) {
+	secretName := getExportSecretName()
+	secret, err := client.CoreV1().Secrets(namespace).Get(context.Background(), secretName, metav1.GetOptions{})
 	if err != nil {
 		return "", err
 	}
 
-	// TODO: Need to change this hardcoded entry
-	token := secret.Data["token"]
+	token := secret.Data[secretTokenEntry]
 	return string(token), nil
 }
 
@@ -514,10 +569,6 @@ func handleCreateFlags(args []string) error {
 	if pvc != "" {
 		resourceKind = "PersistentVolumeClaim"
 		resourceName = pvc
-	}
-
-	if secretName == "" {
-		return fmt.Errorf(ErrRequiredFlag, TOKEN_FLAG, funcName)
 	}
 
 	// These flags should only be checked when using 'create'
@@ -580,4 +631,9 @@ func handleDownloadFlags(args []string) error {
 	}
 
 	return nil
+}
+
+// getExportSecretName builds the name of the token secret based on the virtualMachineExport object
+func getExportSecretName() string {
+	return fmt.Sprintf("secret-%s", vmexportName)
 }
