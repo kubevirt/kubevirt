@@ -328,19 +328,22 @@ func (m *mounter) Unmount(vmi *v1.VirtualMachineInstance) error {
 		log.DefaultLogger().Object(vmi).Infof("Found container disk mount entries")
 		for _, entry := range record.MountTargetEntries {
 			log.DefaultLogger().Object(vmi).Infof("Looking to see if containerdisk is mounted at path %s", entry.TargetFile)
-			path, err := safepath.NewFileNoFollow(entry.TargetFile)
+			file, err := safepath.NewFileNoFollow(entry.TargetFile)
 			if err != nil {
-				return fmt.Errorf(failedCheckMountPointFmt, path, err)
+				if os.IsNotExist(err) {
+					continue
+				}
+				return fmt.Errorf(failedCheckMountPointFmt, entry.TargetFile, err)
 			}
-			_ = path.Close()
-			if mounted, err := isolation.IsMounted(path.Path()); err != nil {
-				return fmt.Errorf(failedCheckMountPointFmt, path, err)
+			_ = file.Close()
+			if mounted, err := isolation.IsMounted(file.Path()); err != nil {
+				return fmt.Errorf(failedCheckMountPointFmt, file, err)
 			} else if mounted {
-				log.DefaultLogger().Object(vmi).Infof("unmounting container disk at path %s", path)
+				log.DefaultLogger().Object(vmi).Infof("unmounting container disk at file %s", file)
 				// #nosec No risk for attacket injection. Parameters are predefined strings
-				out, err := virt_chroot.UmountChroot(path.Path()).CombinedOutput()
+				out, err := virt_chroot.UmountChroot(file.Path()).CombinedOutput()
 				if err != nil {
-					return fmt.Errorf(failedUnmountFmt, path, string(out), err)
+					return fmt.Errorf(failedUnmountFmt, file, string(out), err)
 				}
 			}
 		}
