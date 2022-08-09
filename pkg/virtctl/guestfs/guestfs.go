@@ -366,8 +366,6 @@ func (client *K8sClient) getPodsForPVC(pvcName, ns string) ([]corev1.Pod, error)
 }
 
 func createLibguestfsPod(pvc, image, cmd string, args []string, kvm, isBlock bool) *corev1.Pod {
-	var rootUid int64
-	rootUid = 0
 	var resources corev1.ResourceRequirements
 	podName = fmt.Sprintf("%s-%s", podNamePrefix, pvc)
 	if kvm {
@@ -377,12 +375,18 @@ func createLibguestfsPod(pvc, image, cmd string, args []string, kvm, isBlock boo
 			},
 		}
 	}
-	var securityContext *corev1.PodSecurityContext
+	nonRoot := true
+	var uidRoot int64 = 0
+	var uid *int64
 	if root {
-		securityContext = &corev1.PodSecurityContext{
-			RunAsUser: &rootUid,
-		}
+		nonRoot = false
+		uid = &uidRoot
 	}
+	securityContext := &corev1.PodSecurityContext{
+		RunAsNonRoot: &nonRoot,
+		RunAsUser:    uid,
+	}
+
 	c := &corev1.Pod{
 		ObjectMeta: metav1.ObjectMeta{
 			Name: podName,
