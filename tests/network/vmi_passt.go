@@ -31,9 +31,11 @@ import (
 	v1 "kubevirt.io/api/core/v1"
 	"kubevirt.io/client-go/kubecli"
 
+	virtconfig "kubevirt.io/kubevirt/pkg/virt-config"
 	"kubevirt.io/kubevirt/tests"
 	"kubevirt.io/kubevirt/tests/console"
 	"kubevirt.io/kubevirt/tests/flags"
+	"kubevirt.io/kubevirt/tests/framework/checks"
 	"kubevirt.io/kubevirt/tests/libnet"
 	"kubevirt.io/kubevirt/tests/libvmi"
 	"kubevirt.io/kubevirt/tests/util"
@@ -42,6 +44,10 @@ import (
 var _ = SIGDescribe("[Serial] Passt", func() {
 	var err error
 	var virtClient kubecli.KubevirtClient
+
+	BeforeEach(func() {
+		checks.SkipTestIfNoFeatureGate(virtconfig.PasstGate)
+	})
 
 	BeforeEach(func() {
 		virtClient, err = kubecli.GetKubevirtClient()

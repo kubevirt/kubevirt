@@ -47,6 +47,7 @@ import (
 	"kubevirt.io/client-go/kubecli"
 
 	"kubevirt.io/kubevirt/pkg/network/istio"
+	virtconfig "kubevirt.io/kubevirt/pkg/virt-config"
 	"kubevirt.io/kubevirt/tests"
 	"kubevirt.io/kubevirt/tests/console"
 	"kubevirt.io/kubevirt/tests/libnet"
@@ -98,6 +99,12 @@ var istioTests = func(vmType VmType) {
 			{Port: sshPort},
 		}
 	)
+	BeforeEach(func() {
+		if vmType == Passt {
+			checks.SkipTestIfNoFeatureGate(virtconfig.PasstGate)
+		}
+	})
+
 	BeforeEach(func() {
 		if !istioServiceMeshDeployed() {
 			Skip("Istio service mesh is required for service-mesh tests to run")
