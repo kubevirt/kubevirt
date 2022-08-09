@@ -20,10 +20,17 @@
 package sriov
 
 import (
+	"errors"
 	"fmt"
+	"os"
+	"path"
 	"time"
 
+	"k8s.io/apimachinery/pkg/util/wait"
+
 	v1 "kubevirt.io/api/core/v1"
+	"kubevirt.io/client-go/log"
+
 	"kubevirt.io/kubevirt/pkg/network/sriov"
 	"kubevirt.io/kubevirt/pkg/network/vmispec"
 	"kubevirt.io/kubevirt/pkg/virt-launcher/virtwrap/api"
@@ -33,7 +40,49 @@ import (
 
 func CreateHostDevices(vmi *v1.VirtualMachineInstance) ([]api.HostDevice, error) {
 	SRIOVInterfaces := vmispec.FilterSRIOVInterfaces(vmi.Spec.Domain.Devices.Interfaces)
-	return CreateHostDevicesFromIfacesAndPool(SRIOVInterfaces, NewPCIAddressPool(SRIOVInterfaces))
+	netStatusPath := path.Join(sriov.MountPath, sriov.VolumePath)
+	pciAddressPoolWithNetworkStatus, err := newPCIAddressPoolWithNetworkStatusFromFile(netStatusPath)
+	if err != nil {
+		return nil, err
+	}
+	if pciAddressPoolWithNetworkStatus.Len() == 0 {
+		log.Log.Object(vmi).Warningf("found no SR-IOV networks to PCI-Address mapping. fall back to resource address pool")
+		return CreateHostDevicesFromIfacesAndPool(SRIOVInterfaces, NewPCIAddressPool(SRIOVInterfaces))
+	}
+
+	return CreateHostDevicesFromIfacesAndPool(SRIOVInterfaces, pciAddressPoolWithNetworkStatus)
+}
+
+// newPCIAddressPoolWithNetworkStatusFromFile polls the given file path until populated, then uses it to create the
+// PCI-Address Pool.
+// possible return values are:
+// - file populated - return PCI-Address Pool using the data in file.
+// - file empty post-polling (timeout) - return err to fail SyncVMI.
+// - other error reading file (i.e. file not exist) - return no error but PCIAddressWithNetworkStatusPool.Len() will return 0.
+func newPCIAddressPoolWithNetworkStatusFromFile(path string) (*PCIAddressWithNetworkStatusPool, error) {
+	networkPCIMapBytes, err := readFileUntilNotEmpty(path)
+	if err != nil {
+		if isFileEmptyAfterTimeout(err, networkPCIMapBytes) {
+			return nil, err
+		}
+		return nil, nil
+	}
+
+	return NewPCIAddressPoolWithNetworkStatus(networkPCIMapBytes)
+}
+
+func readFileUntilNotEmpty(networkPCIMapPath string) ([]byte, error) {
+	var networkPCIMapBytes []byte
+	err := wait.PollImmediate(100*time.Millisecond, time.Second, func() (bool, error) {
+		var err error
+		networkPCIMapBytes, err = os.ReadFile(networkPCIMapPath)
+		return len(networkPCIMapBytes) > 0, err
+	})
+	return networkPCIMapBytes, err
+}
+
+func isFileEmptyAfterTimeout(err error, data []byte) bool {
+	return errors.Is(err, wait.ErrWaitTimeout) && len(data) == 0
 }
 
 func CreateHostDevicesFromIfacesAndPool(ifaces []v1.Interface, pool hostdevice.AddressPooler) ([]api.HostDevice, error) {
