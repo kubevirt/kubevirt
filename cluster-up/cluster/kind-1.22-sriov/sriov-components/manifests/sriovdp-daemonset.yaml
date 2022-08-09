@@ -35,13 +35,20 @@ spec:
       serviceAccountName: sriov-device-plugin
       containers:
       - name: kube-sriovdp
-        image: nfvpe/sriov-device-plugin:v3.3
+        image: ghcr.io/k8snetworkplumbingwg/sriov-network-device-plugin:v3.4.0
         imagePullPolicy: IfNotPresent
         args:
         - --log-dir=sriovdp
         - --log-level=10
         securityContext:
           privileged: true
+        resources:
+          requests:
+            cpu: "250m"
+            memory: "40Mi"
+          limits:
+            cpu: 1
+            memory: "200Mi"
         volumeMounts:
         - name: devicesock
           mountPath: /var/lib/kubelet/
@@ -100,13 +107,20 @@ spec:
       serviceAccountName: sriov-device-plugin
       containers:
       - name: kube-sriovdp
-        image: nfvpe/sriov-device-plugin:ppc64le
+        image: ghcr.io/k8snetworkplumbingwg/sriov-network-device-plugin:latest-ppc64le
         imagePullPolicy: IfNotPresent
         args:
         - --log-dir=sriovdp
         - --log-level=10
         securityContext:
           privileged: true
+        resources:
+          requests:
+            cpu: "250m"
+            memory: "40Mi"
+          limits:
+            cpu: 1
+            memory: "200Mi"
         volumeMounts:
         - name: devicesock
           mountPath: /var/lib/kubelet/
@@ -164,15 +178,20 @@ spec:
       serviceAccountName: sriov-device-plugin
       containers:
       - name: kube-sriovdp
-# this is a temporary image repository for arm64 architecture, util CI/CD of the
-# sriov-device-plugin will not allow to recreate multiple images
-        image: alexeyperevalov/arm64-sriov-device-plugin
+        image: ghcr.io/k8snetworkplumbingwg/sriov-network-device-plugin:latest-arm64
         imagePullPolicy: IfNotPresent
         args:
         - --log-dir=sriovdp
         - --log-level=10
         securityContext:
           privileged: true
+        resources:
+          requests:
+            cpu: "250m"
+            memory: "40Mi"
+          limits:
+            cpu: 1
+            memory: "200Mi"
         volumeMounts:
         - name: devicesock
           mountPath: /var/lib/kubelet/

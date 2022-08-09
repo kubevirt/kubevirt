@@ -3,12 +3,12 @@ kind: Kustomization
 resources:
 - multus.yaml
 images:
-- name: nfvpe/multus
-  newName: quay.io/kubevirtci/multus
+- name: ghcr.io/k8snetworkplumbingwg/multus-cni
+  newTag: v3.8
 patchesJson6902:
 - path: patch-args.yaml
   target:
     group: apps
     version: v1
     kind: DaemonSet
-    name: kube-multus-ds-amd64
+    name: kube-multus-ds
