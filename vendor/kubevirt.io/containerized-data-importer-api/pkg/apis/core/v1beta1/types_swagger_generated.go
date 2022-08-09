@@ -215,7 +215,8 @@ func (DataSourceSource) SwaggerDoc() map[string]string {
 
 func (DataSourceStatus) SwaggerDoc() map[string]string {
 	return map[string]string{
-		"": "DataSourceStatus provides the most recently observed status of the DataSource",
+		"":       "DataSourceStatus provides the most recently observed status of the DataSource",
+		"source": "Source is the current source of the data referenced by the DataSource",
 	}
 }
 

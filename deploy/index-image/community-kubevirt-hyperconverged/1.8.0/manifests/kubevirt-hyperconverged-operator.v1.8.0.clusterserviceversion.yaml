@@ -1472,6 +1472,17 @@ spec:
           - list
           - watch
         - apiGroups:
+          - ""
+          resources:
+          - services
+          verbs:
+          - create
+          - delete
+          - get
+          - list
+          - update
+          - watch
+        - apiGroups:
           - admissionregistration.k8s.io
           resources:
           - validatingwebhookconfigurations
@@ -2496,7 +2507,7 @@ spec:
                 - name: NETWORK_ADDONS_VERSION
                   value: v0.77.0
                 - name: SSP_VERSION
-                  value: v0.15.0
+                  value: v0.16.0
                 - name: TTO_VERSION
                   value: v0.3.0
                 - name: HPPO_VERSION
@@ -2890,13 +2901,13 @@ spec:
                 env:
                 - name: KVM_INFO_IMAGE
                 - name: VALIDATOR_IMAGE
-                  value: quay.io/kubevirt/kubevirt-template-validator:v0.15.0
+                  value: quay.io/kubevirt/kubevirt-template-validator:v0.16.0
                 - name: VIRT_LAUNCHER_IMAGE
                 - name: NODE_LABELLER_IMAGE
                 - name: CPU_PLUGIN_IMAGE
                 - name: OPERATOR_VERSION
-                  value: v0.15.0
-                image: quay.io/kubevirt/ssp-operator@sha256:878cfc0fc98632aeb30fe693e6368f4b888a262241db095f0bbc681b2ea684b0
+                  value: v0.16.0
+                image: quay.io/kubevirt/ssp-operator@sha256:76a6dddcdd8ceee3baf8d7e294b5a066d671d6f14a07ca7de5b86d1a3164cbc0
                 livenessProbe:
                   httpGet:
                     path: /healthz
@@ -2923,9 +2934,14 @@ spec:
                     memory: 150Mi
                 securityContext:
                   allowPrivilegeEscalation: false
+                  capabilities:
+                    drop:
+                    - ALL
               priorityClassName: system-cluster-critical
               securityContext:
                 runAsNonRoot: true
+                seccompProfile:
+                  type: RuntimeDefault
               serviceAccountName: ssp-operator
               terminationGracePeriodSeconds: 10
       - label:
@@ -3621,7 +3637,7 @@ spec:
     name: ovs-cni-marker
   - image: quay.io/kubevirt/ovs-cni-plugin@sha256:8512de2a79fbbd55fdbd4ff794da708b596309e9aa8b76d4d6daf38f4527f0e3
     name: ovs-cni-plugin
-  - image: quay.io/kubevirt/ssp-operator@sha256:878cfc0fc98632aeb30fe693e6368f4b888a262241db095f0bbc681b2ea684b0
+  - image: quay.io/kubevirt/ssp-operator@sha256:76a6dddcdd8ceee3baf8d7e294b5a066d671d6f14a07ca7de5b86d1a3164cbc0
     name: ssp-operator
   - image: quay.io/kubevirt/tekton-tasks-operator@sha256:aa8ed6cd59dc235c02f8170e4b272e67801e87fe35767d2c6b31891e534a2295
     name: tekton-tasks-operator

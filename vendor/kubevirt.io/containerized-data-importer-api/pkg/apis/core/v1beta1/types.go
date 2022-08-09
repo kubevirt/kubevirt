@@ -443,6 +443,8 @@ type DataSourceSource struct {
 
 // DataSourceStatus provides the most recently observed status of the DataSource
 type DataSourceStatus struct {
+	// Source is the current source of the data referenced by the DataSource
+	Source     DataSourceSource      `json:"source"`
 	Conditions []DataSourceCondition `json:"conditions,omitempty" optional:"true"`
 }
 

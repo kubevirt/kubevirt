@@ -625,7 +625,7 @@ k8s.io/utils/trace
 ## explicit; go 1.17
 kubevirt.io/api/core
 kubevirt.io/api/core/v1
-# kubevirt.io/containerized-data-importer-api v1.52.0
+# kubevirt.io/containerized-data-importer-api v1.53.0
 ## explicit; go 1.18
 kubevirt.io/containerized-data-importer-api/pkg/apis/core
 kubevirt.io/containerized-data-importer-api/pkg/apis/core/v1beta1
@@ -635,8 +635,8 @@ kubevirt.io/controller-lifecycle-operator-sdk/pkg/sdk/api
 # kubevirt.io/controller-lifecycle-operator-sdk/api v0.2.4
 ## explicit; go 1.17
 kubevirt.io/controller-lifecycle-operator-sdk/api
-# kubevirt.io/ssp-operator/api v0.15.0
-## explicit; go 1.17
+# kubevirt.io/ssp-operator/api v0.16.0
+## explicit; go 1.18
 kubevirt.io/ssp-operator/api/v1beta1
 # sigs.k8s.io/controller-runtime v0.12.3
 ## explicit; go 1.17
