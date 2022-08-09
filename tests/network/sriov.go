@@ -62,6 +62,8 @@ const (
 const (
 	sriovnet1           = "sriov"
 	sriovnet2           = "sriov2"
+	sriovnet3           = "sriov3"
+	sriovnet4           = "sriov4"
 	sriovnetLinkEnabled = "sriov-linked"
 )
 
@@ -523,6 +525,38 @@ var _ = Describe("[Serial]SRIOV", func() {
 			})
 		})
 
+		Context("Connected to multiple SRIOV networks", func() {
+			sriovNetworks := []string{sriovnet1, sriovnet2, sriovnet3, sriovnet4}
+			BeforeEach(func() {
+				for _, sriovNetwork := range sriovNetworks {
+					Expect(createSriovNetworkAttachmentDefinition(sriovNetwork, util.NamespaceTestDefault, sriovConfNAD)).To(Succeed(), shouldCreateNetwork)
+				}
+			})
+
+			It("should correctly plug all the interfaces based on the specified MAC and (guest) PCI addresses", func() {
+				macAddressTemplate := "de:ad:00:be:ef:%02d"
+				pciAddressTemplate := "0000:2%d:00.0"
+				vmi := getSriovVmi(sriovNetworks, defaultCloudInitNetworkData())
+				for i := range sriovNetworks {
+					secondaryInterfaceIdx := i + 1
+					vmi.Spec.Domain.Devices.Interfaces[secondaryInterfaceIdx].MacAddress = fmt.Sprintf(macAddressTemplate, secondaryInterfaceIdx)
+					vmi.Spec.Domain.Devices.Interfaces[secondaryInterfaceIdx].PciAddress = fmt.Sprintf(pciAddressTemplate, secondaryInterfaceIdx)
+				}
+
+				vmi = startVmi(vmi)
+				vmi = waitVmi(vmi)
+
+				for _, iface := range vmi.Spec.Domain.Devices.Interfaces {
+					if iface.SRIOV == nil {
+						continue
+					}
+					guestInterfaceName, err := findIfaceByMAC(virtClient, vmi, iface.MacAddress, 30*time.Second)
+					Expect(err).ToNot(HaveOccurred())
+					Expect(pciAddressExistsInGuestInterface(vmi, iface.PciAddress, guestInterfaceName)).To(Succeed())
+				}
+			})
+		})
+
 		Context("Connected to link-enabled SRIOV network", func() {
 			BeforeEach(func() {
 				Expect(createSriovNetworkAttachmentDefinition(sriovnetLinkEnabled, util.NamespaceTestDefault, sriovLinkEnableConfNAD)).
@@ -605,6 +639,11 @@ var _ = Describe("[Serial]SRIOV", func() {
 
 func pciAddressExistsInGuest(vmi *v1.VirtualMachineInstance, pciAddress string) error {
 	command := fmt.Sprintf("grep -q %s /sys/class/net/*/device/uevent\n", pciAddress)
+	return console.RunCommand(vmi, command, 15*time.Second)
+}
+
+func pciAddressExistsInGuestInterface(vmi *v1.VirtualMachineInstance, pciAddress, interfaceName string) error {
+	command := fmt.Sprintf("grep -q PCI_SLOT_NAME=%s /sys/class/net/%s/device/uevent\n", pciAddress, interfaceName)
 	return console.RunCommand(vmi, command, 15*time.Second)
 }
 
@@ -694,7 +733,7 @@ func findIfaceByMAC(virtClient kubecli.KubevirtClient, vmi *v1.VirtualMachineIns
 		return true, nil
 	})
 	if err != nil {
-		return "", err
+		return "", fmt.Errorf("could not find interface with MAC %q on VMI %q: %v", mac, vmi.Name, err)
 	}
 	return ifaceName, nil
 }
