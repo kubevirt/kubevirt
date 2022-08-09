@@ -2393,14 +2393,6 @@ rules:
   - create
   - delete
 - apiGroups:
-  - networking.k8s.io
-  resources:
-  - ingresses
-  verbs:
-  - get
-  - list
-  - watch
-- apiGroups:
   - ""
   resources:
   - configmaps
@@ -2411,14 +2403,6 @@ rules:
   resources:
   - storageclasses
   - csidrivers
-  verbs:
-  - get
-  - list
-  - watch
-- apiGroups:
-  - route.openshift.io
-  resources:
-  - routes
   verbs:
   - get
   - list

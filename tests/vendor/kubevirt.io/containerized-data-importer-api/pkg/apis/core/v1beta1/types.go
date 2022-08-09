@@ -17,9 +17,10 @@ limitations under the License.
 package v1beta1
 
 import (
+	ocpconfigv1 "github.com/openshift/api/config/v1"
 	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
-	sdkapi "kubevirt.io/controller-lifecycle-operator-sdk/pkg/sdk/api"
+	sdkapi "kubevirt.io/controller-lifecycle-operator-sdk/api"
 )
 
 // DataVolume is an abstraction on top of PersistentVolumeClaims to allow easy population of those PersistentVolumeClaims with relation to VirtualMachines
@@ -196,6 +197,12 @@ type DataVolumeSourceHTTP struct {
 	// CertConfigMap is a configmap reference, containing a Certificate Authority(CA) public key, and a base64 encoded pem certificate
 	// +optional
 	CertConfigMap string `json:"certConfigMap,omitempty"`
+	// ExtraHeaders is a list of strings containing extra headers to include with HTTP transfer requests
+	// +optional
+	ExtraHeaders []string `json:"extraHeaders,omitempty"`
+	// SecretExtraHeaders is a list of Secret references, each containing an extra HTTP header that may include sensitive information
+	// +optional
+	SecretExtraHeaders []string `json:"secretExtraHeaders,omitempty"`
 }
 
 // DataVolumeSourceImageIO provides the parameters to create a Data Volume from an imageio source
@@ -222,6 +229,8 @@ type DataVolumeSourceVDDK struct {
 	Thumbprint string `json:"thumbprint,omitempty"`
 	// SecretRef provides a reference to a secret containing the username and password needed to access the vCenter or ESXi host
 	SecretRef string `json:"secretRef,omitempty"`
+	// InitImageURL is an optional URL to an image containing an extracted VDDK library, overrides v2v-vmware config map
+	InitImageURL string `json:"initImageURL,omitempty"`
 }
 
 // DataVolumeSourceRef defines an indirect reference to the source of data for the DataVolume
@@ -242,6 +251,8 @@ const (
 
 // DataVolumeStatus contains the current status of the DataVolume
 type DataVolumeStatus struct {
+	// ClaimName is the name of the underlying PVC used by the DataVolume.
+	ClaimName string `json:"claimName,omitempty"`
 	//Phase is the current phase of the data volume
 	Phase    DataVolumePhase    `json:"phase,omitempty"`
 	Progress DataVolumeProgress `json:"progress,omitempty"`
@@ -409,6 +420,7 @@ type StorageProfileList struct {
 // +k8s:deepcopy-gen:interfaces=k8s.io/apimachinery/pkg/runtime.Object
 // +kubebuilder:object:root=true
 // +kubebuilder:storageversion
+// +kubebuilder:resource:shortName=das,categories=all
 type DataSource struct {
 	metav1.TypeMeta   `json:",inline"`
 	metav1.ObjectMeta `json:"metadata,omitempty"`
@@ -431,21 +443,33 @@ type DataSourceSource struct {
 
 // DataSourceStatus provides the most recently observed status of the DataSource
 type DataSourceStatus struct {
+	// Source is the current source of the data referenced by the DataSource
+	Source     DataSourceSource      `json:"source"`
 	Conditions []DataSourceCondition `json:"conditions,omitempty" optional:"true"`
 }
 
 // DataSourceCondition represents the state of a data source condition
 type DataSourceCondition struct {
-	Type               DataSourceConditionType `json:"type" description:"type of condition ie. Ready"`
-	Status             corev1.ConditionStatus  `json:"status" description:"status of the condition, one of True, False, Unknown"`
-	LastTransitionTime metav1.Time             `json:"lastTransitionTime,omitempty"`
-	LastHeartbeatTime  metav1.Time             `json:"lastHeartbeatTime,omitempty"`
-	Reason             string                  `json:"reason,omitempty" description:"reason for the condition's last transition"`
-	Message            string                  `json:"message,omitempty" description:"human-readable message indicating details about last transition"`
+	Type           DataSourceConditionType `json:"type" description:"type of condition ie. Ready"`
+	ConditionState `json:",inline"`
 }
 
 // DataSourceConditionType is the string representation of known condition types
 type DataSourceConditionType string
+
+const (
+	// DataSourceReady is the condition that indicates if the data source is ready to be consumed
+	DataSourceReady DataSourceConditionType = "Ready"
+)
+
+// ConditionState represents the state of a condition
+type ConditionState struct {
+	Status             corev1.ConditionStatus `json:"status" description:"status of the condition, one of True, False, Unknown"`
+	LastTransitionTime metav1.Time            `json:"lastTransitionTime,omitempty"`
+	LastHeartbeatTime  metav1.Time            `json:"lastHeartbeatTime,omitempty"`
+	Reason             string                 `json:"reason,omitempty" description:"reason for the condition's last transition"`
+	Message            string                 `json:"message,omitempty" description:"human-readable message indicating details about last transition"`
+}
 
 // DataSourceList provides the needed parameters to do request a list of Data Sources from the system
 // +k8s:deepcopy-gen:interfaces=k8s.io/apimachinery/pkg/runtime.Object
@@ -462,6 +486,7 @@ type DataSourceList struct {
 // +k8s:deepcopy-gen:interfaces=k8s.io/apimachinery/pkg/runtime.Object
 // +kubebuilder:object:root=true
 // +kubebuilder:storageversion
+// +kubebuilder:resource:shortName=dic;dics,categories=all
 type DataImportCron struct {
 	metav1.TypeMeta   `json:",inline"`
 	metav1.ObjectMeta `json:"metadata,omitempty"`
@@ -477,7 +502,7 @@ type DataImportCronSpec struct {
 	// Schedule specifies in cron format when and how often to look for new imports
 	Schedule string `json:"schedule"`
 	// GarbageCollect specifies whether old PVCs should be cleaned up after a new PVC is imported.
-	// Options are currently "Never" and "Outdated", defaults to "Never".
+	// Options are currently "Outdated" and "Never", defaults to "Outdated".
 	// +optional
 	GarbageCollect *DataImportCronGarbageCollect `json:"garbageCollect,omitempty"`
 	// Number of import PVCs to keep when garbage collecting. Default is 3.
@@ -486,6 +511,9 @@ type DataImportCronSpec struct {
 	// ManagedDataSource specifies the name of the corresponding DataSource this cron will manage.
 	// DataSource has to be in the same namespace.
 	ManagedDataSource string `json:"managedDataSource"`
+	// RetentionPolicy specifies whether the created DataVolumes and DataSources are retained when their DataImportCron is deleted. Default is RatainAll.
+	// +optional
+	RetentionPolicy *DataImportCronRetentionPolicy `json:"retentionPolicy,omitempty"`
 }
 
 // DataImportCronGarbageCollect represents the DataImportCron garbage collection mode
@@ -496,6 +524,16 @@ const (
 	DataImportCronGarbageCollectNever DataImportCronGarbageCollect = "Never"
 	// DataImportCronGarbageCollectOutdated specifies that old PVCs should be cleaned up after a new PVC is imported
 	DataImportCronGarbageCollectOutdated DataImportCronGarbageCollect = "Outdated"
+)
+
+// DataImportCronRetentionPolicy represents the DataImportCron retention policy
+type DataImportCronRetentionPolicy string
+
+const (
+	// DataImportCronRetainNone specifies that the created DataVolumes and DataSources are deleted when their DataImportCron is deleted
+	DataImportCronRetainNone DataImportCronRetentionPolicy = "None"
+	// DataImportCronRetainAll specifies that the created DataVolumes and DataSources are retained when their DataImportCron is deleted
+	DataImportCronRetainAll DataImportCronRetentionPolicy = "All"
 )
 
 // DataImportCronStatus provides the most recently observed status of the DataImportCron
@@ -521,16 +559,20 @@ type ImportStatus struct {
 
 // DataImportCronCondition represents the state of a data import cron condition
 type DataImportCronCondition struct {
-	Type               DataImportCronConditionType `json:"type" description:"type of condition ie. Progressing, UpToDate"`
-	Status             corev1.ConditionStatus      `json:"status" description:"status of the condition, one of True, False, Unknown"`
-	LastTransitionTime metav1.Time                 `json:"lastTransitionTime,omitempty"`
-	LastHeartbeatTime  metav1.Time                 `json:"lastHeartbeatTime,omitempty"`
-	Reason             string                      `json:"reason,omitempty" description:"reason for the condition's last transition"`
-	Message            string                      `json:"message,omitempty" description:"human-readable message indicating details about last transition"`
+	Type           DataImportCronConditionType `json:"type" description:"type of condition ie. Progressing, UpToDate"`
+	ConditionState `json:",inline"`
 }
 
 // DataImportCronConditionType is the string representation of known condition types
 type DataImportCronConditionType string
+
+const (
+	// DataImportCronProgressing is the condition that indicates import is progressing
+	DataImportCronProgressing DataImportCronConditionType = "Progressing"
+
+	// DataImportCronUpToDate is the condition that indicates latest import is up to date
+	DataImportCronUpToDate DataImportCronConditionType = "UpToDate"
+)
 
 // DataImportCronList provides the needed parameters to do request a list of DataImportCrons from the system
 // +k8s:deepcopy-gen:interfaces=k8s.io/apimachinery/pkg/runtime.Object
@@ -615,13 +657,13 @@ type CDICloneStrategy string
 
 const (
 	// CloneStrategyHostAssisted specifies slower, host-assisted copy
-	CloneStrategyHostAssisted = "copy"
+	CloneStrategyHostAssisted CDICloneStrategy = "copy"
 
 	// CloneStrategySnapshot specifies snapshot-based copying
-	CloneStrategySnapshot = "snapshot"
+	CloneStrategySnapshot CDICloneStrategy = "snapshot"
 
 	// CloneStrategyCsiClone specifies csi volume clone based cloning
-	CloneStrategyCsiClone = "csi-clone"
+	CloneStrategyCsiClone CDICloneStrategy = "csi-clone"
 )
 
 // CDIUninstallStrategy defines the state to leave CDI on uninstall
@@ -703,6 +745,11 @@ type CDIConfigSpec struct {
 	Preallocation *bool `json:"preallocation,omitempty"`
 	// InsecureRegistries is a list of TLS disabled registries
 	InsecureRegistries []string `json:"insecureRegistries,omitempty"`
+	// dataVolumeTTLSeconds is the time in seconds after DataVolume completion it can be garbage collected.
+	// +optional
+	DataVolumeTTLSeconds *int32 `json:"dataVolumeTTLSeconds,omitempty"`
+	// TLSSecurityProfile is used by operators to apply cluster-wide TLS security settings to operands.
+	TLSSecurityProfile *ocpconfigv1.TLSSecurityProfile `json:"tlsSecurityProfile,omitempty"`
 }
 
 //CDIConfigStatus provides the most recently observed status of the CDI Config resource
