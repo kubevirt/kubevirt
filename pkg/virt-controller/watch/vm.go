@@ -305,6 +305,19 @@ func (c *VMController) execute(key string) error {
 		}
 	}
 
+	controllerRevisions, err := c.listInstancetypeControllerRevisions(vm)
+	if err != nil {
+		logger.Reason(err).Error("Failed to fetch ControllerRevisions of instancetype or preferences from cache.")
+		return err
+	}
+
+	if len(controllerRevisions) != 0 {
+		_, err = cm.ClaimInstancetypeControllerRevisions(controllerRevisions)
+		if err != nil {
+			return err
+		}
+	}
+
 	var syncErr syncError
 
 	syncErr, err = c.sync(vm, vmi, key, dataVolumes)
@@ -323,6 +336,30 @@ func (c *VMController) execute(key string) error {
 	}
 
 	return syncErr
+}
+
+func (c *VMController) listInstancetypeControllerRevisions(vm *virtv1.VirtualMachine) ([]*appsv1.ControllerRevision, error) {
+
+	var controllerRevisions []*appsv1.ControllerRevision
+
+	if vm.Spec.Instancetype != nil && vm.Spec.Instancetype.RevisionName != "" {
+		controllerRevision, err := c.clientset.AppsV1().ControllerRevisions(vm.Namespace).Get(context.Background(), vm.Spec.Instancetype.RevisionName, v1.GetOptions{})
+		if err != nil {
+			return nil, err
+		}
+		controllerRevisions = append(controllerRevisions, controllerRevision)
+	}
+
+	if vm.Spec.Preference != nil && vm.Spec.Preference.RevisionName != "" {
+		controllerRevision, err := c.clientset.AppsV1().ControllerRevisions(vm.Namespace).Get(context.Background(), vm.Spec.Preference.RevisionName, v1.GetOptions{})
+		if err != nil {
+			return nil, err
+		}
+		controllerRevisions = append(controllerRevisions, controllerRevision)
+	}
+
+	return controllerRevisions, nil
+
 }
 
 func (c *VMController) listDataVolumesForVM(vm *virtv1.VirtualMachine) ([]*cdiv1.DataVolume, error) {

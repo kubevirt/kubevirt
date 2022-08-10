@@ -25,6 +25,7 @@ import (
 	"fmt"
 	"sync"
 
+	v1 "k8s.io/api/apps/v1"
 	"k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/labels"
@@ -536,10 +537,69 @@ func (m *VirtualMachineControllerRefManager) ReleaseDataVolume(dataVolume *cdiv1
 	return err
 }
 
+// ClaimInstancetypeControllerRevisions tries to take ownership of ControllerRevisions used to store Instancetypes and Preferences for a VirtualMachine.
+//
+// It will reconcile the following:
+//   * Adopt orphans if the selector matches.
+//   * Release owned objects if the selector no longer matches.
+//
+// Optional: If one or more filters are specified, a ControllerRevision will only be claimed if
+// all filters return true.
+//
+// A non-nil error is returned if some form of reconciliation was attempted and
+// failed. Usually, controllers should try again later in case reconciliation
+// is still needed.
+//
+// If the error is nil, either the reconciliation succeeded, or no
+// reconciliation was necessary. The list of ControllerRevisions that you now own is returned.
+func (m *VirtualMachineControllerRefManager) ClaimInstancetypeControllerRevisions(controllerRevisions []*v1.ControllerRevision, filters ...func(controllerRevision *v1.ControllerRevision) bool) ([]*v1.ControllerRevision, error) {
+	// The ControllerRevisions provided have been pulled from the VirtualMachine so they always match
+	match := func(obj metav1.Object) bool {
+		return true
+	}
+	// We also never want to release ownership of these ControllerRevisions so return nil
+	release := func(obj metav1.Object) error {
+		return nil
+	}
+	adopt := func(obj metav1.Object) error {
+		return m.AdoptControllerRevision(obj.(*v1.ControllerRevision))
+	}
+
+	var claimed []*v1.ControllerRevision
+	var errlist []error
+
+	for _, controllerRevision := range controllerRevisions {
+		ok, err := m.ClaimObject(controllerRevision, match, adopt, release)
+		if err != nil {
+			errlist = append(errlist, err)
+			continue
+		}
+		if ok {
+			claimed = append(claimed, controllerRevision)
+		}
+	}
+
+	return claimed, utilerrors.NewAggregate(errlist)
+}
+
+func (m *VirtualMachineControllerRefManager) AdoptControllerRevision(controllerRevision *v1.ControllerRevision) error {
+	if err := m.CanAdopt(); err != nil {
+		return fmt.Errorf("can't adopt ControllerRevision %v/%v (%v): %v", controllerRevision.Namespace, controllerRevision.Name, controllerRevision.UID, err)
+	}
+	// Note that ValidateOwnerReferences() will reject this patch if another
+	// OwnerReference exists with controller=true.
+	addControllerPatch := fmt.Sprintf(
+		`{"metadata":{"ownerReferences":[{"apiVersion":"%s","kind":"%s","name":"%s","uid":"%s","controller":true,"blockOwnerDeletion":true}],"uid":"%s"}}`,
+		m.controllerKind.GroupVersion(), m.controllerKind.Kind,
+		m.Controller.GetName(), m.Controller.GetUID(), controllerRevision.UID)
+	return m.virtualMachineControl.PatchControllerRevision(controllerRevision.Namespace, controllerRevision.Name, []byte(addControllerPatch))
+}
+
 type VirtualMachineControlInterface interface {
 	PatchVirtualMachine(namespace, name string, data []byte) error
 	PatchVirtualMachineInstance(namespace, name string, data []byte) error
 	PatchDataVolume(namespace, name string, data []byte) error
+	PatchControllerRevision(namespace, name string, data []byte) error
 }
 
 type RealVirtualMachineControl struct {
@@ -561,6 +621,12 @@ func (r RealVirtualMachineControl) PatchVirtualMachine(namespace, name string, d
 func (r RealVirtualMachineControl) PatchDataVolume(namespace, name string, data []byte) error {
 	// TODO should be a strategic merge patch, but not possible until https://github.com/kubernetes/kubernetes/issues/56348 is resolved
 	_, err := r.Clientset.CdiClient().CdiV1beta1().DataVolumes(namespace).Patch(context.Background(), name, types.MergePatchType, data, metav1.PatchOptions{})
+	return err
+}
+
+func (r RealVirtualMachineControl) PatchControllerRevision(namespace, name string, data []byte) error {
+	// TODO should be a strategic merge patch, but not possible until https://github.com/kubernetes/kubernetes/issues/56348 is resolved
+	_, err := r.Clientset.AppsV1().ControllerRevisions(namespace).Patch(context.Background(), name, types.MergePatchType, data, metav1.PatchOptions{})
 	return err
 }
 

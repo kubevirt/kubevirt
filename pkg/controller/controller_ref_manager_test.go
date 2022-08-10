@@ -21,6 +21,7 @@ import (
 	"sync"
 	"testing"
 
+	appsv1 "k8s.io/api/apps/v1"
 	v1 "k8s.io/api/core/v1"
 	"k8s.io/api/extensions/v1beta1"
 	"k8s.io/apimachinery/pkg/api/equality"
@@ -291,6 +292,120 @@ func TestClaimDataVolume(t *testing.T) {
 	}
 }
 
+func newControllerRevision(name string, owner metav1.Object) *appsv1.ControllerRevision {
+	controllerRevision := &appsv1.ControllerRevision{
+		ObjectMeta: metav1.ObjectMeta{
+			Name:      name,
+			Namespace: metav1.NamespaceDefault,
+		},
+	}
+	if owner != nil {
+		controllerRevision.OwnerReferences = []metav1.OwnerReference{*newControllerRef(owner)}
+	}
+
+	return controllerRevision
+}
+
+func TestClaimInstancetypeControllerRevision(t *testing.T) {
+	controllerKind := schema.GroupVersionKind{}
+	type test struct {
+		name                string
+		manager             *VirtualMachineControllerRefManager
+		controllerrevisions []*appsv1.ControllerRevision
+		filters             []func(*appsv1.ControllerRevision) bool
+		claimed             []*appsv1.ControllerRevision
+		released            []*appsv1.ControllerRevision
+		expectError         bool
+	}
+	var tests = []test{
+		func() test {
+			controller := v1.ReplicationController{}
+			controller.UID = types.UID(controllerUID)
+			now := metav1.Now()
+			controller.DeletionTimestamp = &now
+			return test{
+				name: "Controller marked for deletion can not claim ControllerRevisions",
+				manager: NewVirtualMachineControllerRefManager(&FakeVirtualMachineControl{},
+					&controller,
+					productionLabelSelector,
+					controllerKind,
+					func() error { return nil }),
+				controllerrevisions: []*appsv1.ControllerRevision{newControllerRevision("cr1", nil), newControllerRevision("cr2", nil)},
+				claimed:             nil,
+			}
+		}(),
+		func() test {
+			controller := v1.ReplicationController{}
+			controller.UID = types.UID(controllerUID)
+			now := metav1.Now()
+			controller.DeletionTimestamp = &now
+			return test{
+				name: "Controller marked for deletion can not claim new ControllerRevisions",
+				manager: NewVirtualMachineControllerRefManager(&FakeVirtualMachineControl{},
+					&controller,
+					productionLabelSelector,
+					controllerKind,
+					func() error { return nil }),
+				controllerrevisions: []*appsv1.ControllerRevision{newControllerRevision("cr1", &controller), newControllerRevision("cr2", nil)},
+				claimed:             []*appsv1.ControllerRevision{newControllerRevision("cr1", &controller)},
+			}
+		}(),
+		func() test {
+			controller := v1.ReplicationController{}
+			controller2 := v1.ReplicationController{}
+			controller.UID = types.UID(controllerUID)
+			controller2.UID = types.UID("AAAAA")
+			return test{
+				name: "Controller can not claim ControllerRevisions owned by another controller",
+				manager: NewVirtualMachineControllerRefManager(&FakeVirtualMachineControl{},
+					&controller,
+					productionLabelSelector,
+					controllerKind,
+					func() error { return nil }),
+				controllerrevisions: []*appsv1.ControllerRevision{newControllerRevision("cr1", &controller), newControllerRevision("cr2", &controller2)},
+				claimed:             []*appsv1.ControllerRevision{newControllerRevision("cr1", &controller)},
+			}
+		}(),
+		func() test {
+			controller := v1.ReplicationController{}
+			controller.UID = types.UID(controllerUID)
+			controllerRevisionToDelete1 := newControllerRevision("cr1", &controller)
+			controllerRevisionToDelete2 := newControllerRevision("cr2", nil)
+			now := metav1.Now()
+			controllerRevisionToDelete1.DeletionTimestamp = &now
+			controllerRevisionToDelete2.DeletionTimestamp = &now
+
+			return test{
+				name: "Controller does not claim orphaned ControllerRevisions marked for deletion",
+				manager: NewVirtualMachineControllerRefManager(&FakeVirtualMachineControl{},
+					&controller,
+					productionLabelSelector,
+					controllerKind,
+					func() error { return nil }),
+				controllerrevisions: []*appsv1.ControllerRevision{controllerRevisionToDelete1, controllerRevisionToDelete2},
+				claimed:             []*appsv1.ControllerRevision{controllerRevisionToDelete1},
+			}
+		}(),
+	}
+	for _, test := range tests {
+		claimed, err := test.manager.ClaimInstancetypeControllerRevisions(test.controllerrevisions)
+		if test.expectError && err == nil {
+			t.Errorf("Test case `%s`, expected error but got nil", test.name)
+		} else if !equality.Semantic.DeepEqual(test.claimed, claimed) {
+			t.Errorf("Test case `%s`, claimed wrong datavolumes. Expected %v, got %v", test.name, controllerRevisionToStringSlice(test.claimed), controllerRevisionToStringSlice(claimed))
+		}
+
+	}
+}
+
+func controllerRevisionToStringSlice(controllerRevisions []*appsv1.ControllerRevision) []string {
+	var names []string
+	for _, cr := range controllerRevisions {
+		names = append(names, cr.Name)
+	}
+	return names
+}
+
 func datavolumeToStringSlice(dataVolumes []*cdiv1.DataVolume) []string {
 	var names []string
 	for _, dv := range dataVolumes {
@@ -337,6 +452,16 @@ func (f *FakeVirtualMachineControl) PatchVirtualMachine(_, _ string, data []byte
 }
 
 func (f *FakeVirtualMachineControl) PatchDataVolume(_, _ string, data []byte) error {
+	f.Lock()
+	defer f.Unlock()
+	f.Patches = append(f.Patches, data)
+	if f.Err != nil {
+		return f.Err
+	}
+	return nil
+}
+
+func (f *FakeVirtualMachineControl) PatchControllerRevision(_, _ string, data []byte) error {
 	f.Lock()
 	defer f.Unlock()
 	f.Patches = append(f.Patches, data)

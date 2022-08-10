@@ -2836,6 +2836,8 @@ var _ = Describe("VirtualMachine", func() {
 
 					addVirtualMachine(vm)
 
+					vmInterface.EXPECT().Get(gomock.Any(), gomock.Any()).AnyTimes().Return(vm, nil)
+
 					vmiInterface.EXPECT().Create(gomock.Any()).Times(1).Do(func(arg interface{}) {
 						vmiArg := arg.(*virtv1.VirtualMachineInstance)
 						Expect(vmiArg.Spec.Domain.CPU.Sockets).To(Equal(instancetypeObj.Spec.CPU.Guest))
@@ -2866,6 +2868,8 @@ var _ = Describe("VirtualMachine", func() {
 					}
 
 					addVirtualMachine(vm)
+
+					vmInterface.EXPECT().Get(gomock.Any(), gomock.Any()).AnyTimes().Return(vm, nil)
 
 					vmiInterface.EXPECT().Create(gomock.Any()).Times(1).Do(func(arg interface{}) {
 						vmiArg := arg.(*virtv1.VirtualMachineInstance)
@@ -2904,6 +2908,8 @@ var _ = Describe("VirtualMachine", func() {
 
 					addVirtualMachine(vm)
 
+					vmInterface.EXPECT().Get(gomock.Any(), gomock.Any()).AnyTimes().Return(vm, nil)
+
 					vmInterface.EXPECT().UpdateStatus(gomock.Any()).Times(1).Do(func(obj interface{}) {
 						objVM := obj.(*virtv1.VirtualMachine)
 						cond := virtcontroller.NewVirtualMachineConditionManager().GetCondition(objVM, virtv1.VirtualMachineFailure)
@@ -2917,6 +2923,39 @@ var _ = Describe("VirtualMachine", func() {
 					controller.Execute()
 
 					testutils.ExpectEvents(recorder, FailedCreateVirtualMachineReason)
+				})
+
+				It("should claim ownership of ControllerRevision referenced by InstancetypeMatcher", func() {
+					instancetypeRevision, err := instancetype.CreateControllerRevision(vm, instancetypeObj)
+					Expect(err).ToNot(HaveOccurred())
+
+					Expect(instancetypeRevision.OwnerReferences).To(HaveLen(0))
+
+					_, err = virtClient.AppsV1().ControllerRevisions(vm.Namespace).Create(context.Background(), instancetypeRevision, metav1.CreateOptions{})
+					Expect(err).ToNot(HaveOccurred())
+
+					vm.Spec.Instancetype = &v1.InstancetypeMatcher{
+						Name:         instancetypeObj.Name,
+						Kind:         instancetypeapi.SingularResourceName,
+						RevisionName: instancetypeRevision.Name,
+					}
+
+					addVirtualMachine(vm)
+
+					vmInterface.EXPECT().Get(gomock.Any(), gomock.Any()).AnyTimes().Return(vm, nil)
+					vmInterface.EXPECT().UpdateStatus(gomock.Any()).AnyTimes().Return(vm, nil)
+					vmiInterface.EXPECT().Create(gomock.Any()).AnyTimes().Return(vmi, nil)
+
+					controller.Execute()
+
+					instancetypeRevision, err = virtClient.AppsV1().ControllerRevisions(vm.Namespace).Get(context.Background(), instancetypeRevision.Name, metav1.GetOptions{})
+					Expect(err).ToNot(HaveOccurred())
+
+					Expect(instancetypeRevision.OwnerReferences).To(HaveLen(1))
+					Expect(instancetypeRevision.OwnerReferences[0].Name).To(Equal(vm.Name))
+					Expect(instancetypeRevision.OwnerReferences[0].UID).To(Equal(vm.UID))
+					Expect(instancetypeRevision.OwnerReferences[0].Kind).To(Equal(v1.VirtualMachineGroupVersionKind.Kind))
+					Expect(*instancetypeRevision.OwnerReferences[0].Controller).To(Equal(true))
 				})
 			})
 
@@ -2971,6 +3010,8 @@ var _ = Describe("VirtualMachine", func() {
 
 					addVirtualMachine(vm)
 
+					vmInterface.EXPECT().Get(gomock.Any(), gomock.Any()).AnyTimes().Return(vm, nil)
+
 					vmiInterface.EXPECT().Create(gomock.Any()).Times(1).Do(func(arg interface{}) {
 						vmiArg := arg.(*virtv1.VirtualMachineInstance)
 						Expect(vmiArg.Spec.Domain.Firmware.Bootloader.EFI).ToNot(BeNil())
@@ -3001,6 +3042,8 @@ var _ = Describe("VirtualMachine", func() {
 					}
 
 					addVirtualMachine(vm)
+
+					vmInterface.EXPECT().Get(gomock.Any(), gomock.Any()).AnyTimes().Return(vm, nil)
 
 					vmiInterface.EXPECT().Create(gomock.Any()).Times(1).Do(func(arg interface{}) {
 						vmiArg := arg.(*virtv1.VirtualMachineInstance)
@@ -3035,6 +3078,8 @@ var _ = Describe("VirtualMachine", func() {
 					vm.Spec.Template.Spec.Networks = []virtv1.Network{}
 
 					addVirtualMachine(vm)
+
+					vmInterface.EXPECT().Get(gomock.Any(), gomock.Any()).AnyTimes().Return(vm, nil)
 
 					vmiInterface.EXPECT().Create(gomock.Any()).Times(1).Do(func(arg interface{}) {
 						vmiArg := arg.(*virtv1.VirtualMachineInstance)
@@ -3083,6 +3128,8 @@ var _ = Describe("VirtualMachine", func() {
 
 					addVirtualMachine(vm)
 
+					vmInterface.EXPECT().Get(gomock.Any(), gomock.Any()).AnyTimes().Return(vm, nil)
+
 					vmiInterface.EXPECT().Create(gomock.Any()).Times(1).Do(func(arg interface{}) {
 						vmiArg := arg.(*virtv1.VirtualMachineInstance)
 						Expect(vmiArg.Spec.Domain.Devices.Disks).To(HaveLen(2))
@@ -3097,6 +3144,39 @@ var _ = Describe("VirtualMachine", func() {
 					vmInterface.EXPECT().UpdateStatus(gomock.Any()).Times(1)
 
 					controller.Execute()
+				})
+
+				It("should claim ownership of ControllerRevision referenced by PreferenceMatcher", func() {
+					preferenceRevision, err := instancetype.CreateControllerRevision(vm, preference)
+					Expect(err).ToNot(HaveOccurred())
+
+					Expect(preferenceRevision.OwnerReferences).To(HaveLen(0))
+
+					_, err = virtClient.AppsV1().ControllerRevisions(vm.Namespace).Create(context.Background(), preferenceRevision, metav1.CreateOptions{})
+					Expect(err).ToNot(HaveOccurred())
+
+					vm.Spec.Preference = &v1.PreferenceMatcher{
+						Name:         preference.Name,
+						Kind:         instancetypeapi.SingularPreferenceResourceName,
+						RevisionName: preferenceRevision.Name,
+					}
+
+					addVirtualMachine(vm)
+
+					vmInterface.EXPECT().Get(gomock.Any(), gomock.Any()).AnyTimes().Return(vm, nil)
+					vmInterface.EXPECT().UpdateStatus(gomock.Any()).AnyTimes().Return(vm, nil)
+					vmiInterface.EXPECT().Create(gomock.Any()).AnyTimes().Return(vmi, nil)
+
+					controller.Execute()
+
+					preferenceRevision, err = virtClient.AppsV1().ControllerRevisions(vm.Namespace).Get(context.Background(), preferenceRevision.Name, metav1.GetOptions{})
+					Expect(err).ToNot(HaveOccurred())
+
+					Expect(preferenceRevision.OwnerReferences).To(HaveLen(1))
+					Expect(preferenceRevision.OwnerReferences[0].Name).To(Equal(vm.Name))
+					Expect(preferenceRevision.OwnerReferences[0].UID).To(Equal(vm.UID))
+					Expect(preferenceRevision.OwnerReferences[0].Kind).To(Equal(v1.VirtualMachineGroupVersionKind.Kind))
+					Expect(*preferenceRevision.OwnerReferences[0].Controller).To(Equal(true))
 				})
 			})
 		})

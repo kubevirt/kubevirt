@@ -561,6 +561,7 @@ spec:
           - create
           - delete
           - get
+          - patch
         - apiGroups:
           - ""
           resources:
