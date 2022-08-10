@@ -3334,7 +3334,6 @@ var _ = Describe("[rfe_id:393][crit:high][vendor:cnv-qe@redhat.com][level:system
 			})
 
 			Context("[Serial] with node tainted during node drain", func() {
-
 				BeforeEach(func() {
 					// Taints defined by k8s are special and can't be applied manually.
 					// Temporarily configure KubeVirt to use something else for the duration of these tests.
@@ -3366,6 +3365,7 @@ var _ = Describe("[rfe_id:393][crit:high][vendor:cnv-qe@redhat.com][level:system
 
 					// Drain node.
 					node := vmi.Status.NodeName
+					libnode.Taint(node, libnode.GetNodeDrainKey(), k8sv1.TaintEffectNoSchedule)
 					drainNode(node)
 
 					// verify VMI migrated and lives on another node now.
