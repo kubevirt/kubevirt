@@ -1418,17 +1418,6 @@ var _ = SIGDescribe("[Serial]VirtualMachineRestore Tests", func() {
 					return vm
 				}
 
-				DescribeTable("should restore a vm that boots from a network cloned datavolumetemplate", func(restoreToNewVM bool) {
-					vm, vmi = createAndStartVM(createVMFromSource())
-
-					checkCloneAnnotations(vm, true)
-					doRestore("", console.LoginToCirros, offlineSnaphot, 1, getTargetVMName(restoreToNewVM))
-					checkCloneAnnotations(getTargetVM(restoreToNewVM), false)
-				},
-					Entry("to the same VM", false),
-					Entry("to a new VM", true),
-				)
-
 				DescribeTable("should restore a vm that boots from a network cloned datavolume (not template)", func(restoreToNewVM bool) {
 					vm = createVMFromSource()
 					dv := orphanDataVolumeTemplate(vm, 0)
