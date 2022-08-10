@@ -426,12 +426,16 @@ fi
 if [[ $KUBEVIRT_NUM_NODES = "1" && $KUBEVIRT_INFRA_REPLICAS = "1" ]]; then
   if [ -n "$KUBEVIRT_E2E_SKIP" ]; then
     export KUBEVIRT_E2E_SKIP="${KUBEVIRT_E2E_SKIP}|SRIOV|Macvtap"
-    label_filter='--label-filter=!/needs-.*/'
-
   else
     export KUBEVIRT_E2E_SKIP="SRIOV|Macvtap"
-    label_filter='--label-filter=!/needs-.*/'
   fi
+
+  if [[ -n $label_filter ]]; then
+    label_filter='--label-filter=!needs-gpu && !needs-mdev-gpu && !needs-two-nodes-with-cpumanager'
+  else
+    label_filter=$label_filter' && !needs-gpu && !needs-mdev-gpu && !needs-two-nodes-with-cpumanager'
+  fi
+  then 
 fi
 
 # If KUBEVIRT_QUARANTINE is not set, do not run quarantined tests. When it is
