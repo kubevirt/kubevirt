@@ -16,6 +16,7 @@ import (
 	expect "github.com/google/goexpect"
 	admissionregistrationv1 "k8s.io/api/admissionregistration/v1"
 	corev1 "k8s.io/api/core/v1"
+	rbacv1 "k8s.io/api/rbac/v1"
 	"k8s.io/apimachinery/pkg/api/errors"
 	"k8s.io/apimachinery/pkg/api/resource"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
@@ -26,6 +27,8 @@ import (
 	snapshotv1 "kubevirt.io/api/snapshot/v1alpha1"
 	"kubevirt.io/client-go/kubecli"
 	cdiv1 "kubevirt.io/containerized-data-importer-api/pkg/apis/core/v1beta1"
+
+	typesutil "kubevirt.io/kubevirt/pkg/util/types"
 	"kubevirt.io/kubevirt/tests"
 	"kubevirt.io/kubevirt/tests/console"
 	cd "kubevirt.io/kubevirt/tests/containerdisk"
@@ -40,6 +43,8 @@ const (
 	catTestDataMessageCmd     = "cat /test/data/message\n"
 	stoppingVM                = "Stopping VM"
 	creatingSnapshot          = "creating snapshot"
+
+	offlineSnaphot = false
 )
 
 var _ = SIGDescribe("[Serial]VirtualMachineRestore Tests", func() {
@@ -584,6 +589,15 @@ var _ = SIGDescribe("[Serial]VirtualMachineRestore Tests", func() {
 				Expect(console.SafeExpectBatch(vmi, batch, 20)).To(Succeed())
 			}
 
+			orphanDataVolumeTemplate := func(vm *v1.VirtualMachine, index int) *cdiv1.DataVolume {
+				dvt := &vm.Spec.DataVolumeTemplates[index]
+				dv := &cdiv1.DataVolume{}
+				dv.ObjectMeta = *dvt.ObjectMeta.DeepCopy()
+				dv.Spec = *dvt.Spec.DeepCopy()
+				vm.Spec.DataVolumeTemplates = append(vm.Spec.DataVolumeTemplates[:index], vm.Spec.DataVolumeTemplates[index+1:]...)
+				return dv
+			}
+
 			It("[test_id:5259]should restore a vm multiple from the same snapshot", func() {
 				vm, vmi = createAndStartVM(tests.NewRandomVMWithDataVolumeAndUserDataInStorageClass(
 					cd.DataVolumeImportUrlForContainerDisk(cd.ContainerDiskCirros),
@@ -675,16 +689,8 @@ var _ = SIGDescribe("[Serial]VirtualMachineRestore Tests", func() {
 					tests.BashHelloScript,
 					snapshotStorageClass,
 				)
-
-				var err error
-				dvt := &vm.Spec.DataVolumeTemplates[0]
-
-				dv := &cdiv1.DataVolume{}
-				dv.ObjectMeta = *dvt.ObjectMeta.DeepCopy()
-				dv.Spec = *dvt.Spec.DeepCopy()
-
+				dv := orphanDataVolumeTemplate(vm, 0)
 				originalPVCName := dv.Name
-				vm.Spec.DataVolumeTemplates = nil
 
 				dv, err = virtClient.CdiClient().CdiV1beta1().DataVolumes(vm.Namespace).Create(context.Background(), dv, metav1.CreateOptions{})
 				Expect(err).ToNot(HaveOccurred())
@@ -1082,6 +1088,112 @@ var _ = SIGDescribe("[Serial]VirtualMachineRestore Tests", func() {
 				}
 				Expect(foundHotPlug).To(BeTrue())
 				Expect(foundTempHotPlug).To(BeFalse())
+			})
+
+			Context("with cross namespace clone ability", func() {
+				var sourceDV *cdiv1.DataVolume
+				var cloneRole *rbacv1.Role
+				var cloneRoleBinding *rbacv1.RoleBinding
+
+				BeforeEach(func() {
+					sourceSC, exists := tests.GetRWOFileSystemStorageClass()
+					if !exists || sourceSC == snapshotStorageClass {
+						Skip("Two storageclasses required for this test")
+					}
+
+					source := tests.NewRandomDataVolumeWithRegistryImportInStorageClass(
+						cd.DataVolumeImportUrlForContainerDisk(cd.ContainerDiskCirros),
+						tests.NamespaceTestAlternative,
+						sourceSC,
+						corev1.ReadWriteOnce,
+						corev1.PersistentVolumeFilesystem,
+					)
+					if source.Annotations == nil {
+						source.Annotations = make(map[string]string)
+					}
+					source.Annotations["cdi.kubevirt.io/storage.bind.immediate.requested"] = "true"
+
+					source, err = virtClient.CdiClient().CdiV1beta1().DataVolumes(source.Namespace).Create(context.Background(), source, metav1.CreateOptions{})
+					Expect(err).ToNot(HaveOccurred())
+					sourceDV = source
+					sourceDV = waitDVReady(sourceDV)
+
+					role, roleBinding := tests.GoldenImageRBAC(tests.NamespaceTestAlternative)
+					role, err = virtClient.RbacV1().Roles(role.Namespace).Create(context.TODO(), role, metav1.CreateOptions{})
+					Expect(err).ToNot(HaveOccurred())
+					cloneRole = role
+					roleBinding, err = virtClient.RbacV1().RoleBindings(roleBinding.Namespace).Create(context.TODO(), roleBinding, metav1.CreateOptions{})
+					Expect(err).ToNot(HaveOccurred())
+					cloneRoleBinding = roleBinding
+				})
+
+				AfterEach(func() {
+					if sourceDV != nil {
+						err := virtClient.CdiClient().CdiV1beta1().DataVolumes(sourceDV.Namespace).Delete(context.TODO(), sourceDV.Name, metav1.DeleteOptions{})
+						Expect(err).ToNot(HaveOccurred())
+					}
+
+					if cloneRole != nil {
+						err := virtClient.RbacV1().Roles(cloneRole.Namespace).Delete(context.TODO(), cloneRole.Name, metav1.DeleteOptions{})
+						Expect(err).ToNot(HaveOccurred())
+					}
+					if cloneRoleBinding != nil {
+						err = virtClient.RbacV1().RoleBindings(cloneRoleBinding.Namespace).Delete(context.TODO(), cloneRoleBinding.Name, metav1.DeleteOptions{})
+						Expect(err).ToNot(HaveOccurred())
+					}
+				})
+
+				checkCloneAnnotations := func(vm *v1.VirtualMachine, shouldExist bool) {
+					pvcName := ""
+					for _, v := range vm.Spec.Template.Spec.Volumes {
+						n := typesutil.PVCNameFromVirtVolume(&v)
+						if n != "" {
+							Expect(pvcName).Should(Equal(""))
+							pvcName = n
+						}
+					}
+					pvc, err := virtClient.CoreV1().PersistentVolumeClaims(vm.Namespace).Get(context.TODO(), pvcName, metav1.GetOptions{})
+					Expect(err).ToNot(HaveOccurred())
+					for _, a := range []string{"k8s.io/CloneRequest", "k8s.io/CloneOf"} {
+						_, ok := pvc.Annotations[a]
+						Expect(ok).Should(Equal(shouldExist))
+					}
+				}
+
+				createVMFromSource := func() *v1.VirtualMachine {
+					dataVolume := tests.NewRandomDataVolumeWithPVCSource(
+						sourceDV.Namespace,
+						sourceDV.Name,
+						util.NamespaceTestDefault,
+						corev1.ReadWriteOnce,
+					)
+					tests.SetDataVolumePVCStorageClass(dataVolume, snapshotStorageClass)
+					tests.SetDataVolumePVCSize(dataVolume, "6Gi")
+					vmi := tests.NewRandomVMIWithDataVolume(dataVolume.Name)
+					tests.AddUserData(vmi, "cloud-init", tests.BashHelloScript)
+					vm := tests.NewRandomVirtualMachine(vmi, false)
+					tests.AddDataVolumeTemplate(vm, dataVolume)
+					return vm
+				}
+
+				It("should restore a vm that boots from a network cloned datavolume (not template) to the same VM", func() {
+					vm = createVMFromSource()
+					dv := orphanDataVolumeTemplate(vm, 0)
+
+					dv, err = virtClient.CdiClient().CdiV1beta1().DataVolumes(vm.Namespace).Create(context.Background(), dv, metav1.CreateOptions{})
+					Expect(err).ToNot(HaveOccurred())
+					defer func() {
+						err := virtClient.CdiClient().CdiV1beta1().DataVolumes(dv.Namespace).Delete(context.TODO(), dv.Name, metav1.DeleteOptions{})
+						Expect(err).ToNot(HaveOccurred())
+					}()
+					dv = waitDVReady(dv)
+
+					vm, vmi = createAndStartVM(vm)
+
+					checkCloneAnnotations(vm, true)
+					doRestore("", console.LoginToCirros, offlineSnaphot, 1)
+					checkCloneAnnotations(vm, false)
+				})
 			})
 		})
 	})

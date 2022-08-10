@@ -2235,7 +2235,7 @@ func NewRandomVMWithEphemeralDisk(containerImage string) *v1.VirtualMachine {
 	return vm
 }
 
-func addDataVolumeTemplate(vm *v1.VirtualMachine, dataVolume *cdiv1.DataVolume) {
+func AddDataVolumeTemplate(vm *v1.VirtualMachine, dataVolume *cdiv1.DataVolume) {
 	dvt := &v1.DataVolumeTemplateSpec{}
 
 	dvt.Spec = *dataVolume.Spec.DeepCopy()
@@ -2250,7 +2250,19 @@ func NewRandomVMWithDataVolumeWithRegistryImport(imageUrl, namespace, storageCla
 	vmi := NewRandomVMIWithDataVolume(dataVolume.Name)
 	vm := NewRandomVirtualMachine(vmi, false)
 
-	addDataVolumeTemplate(vm, dataVolume)
+	AddDataVolumeTemplate(vm, dataVolume)
+	return vm
+}
+
+func NewRandomVMWithDataVolumeCloneSourceAndUserData(sourceNamespace, sourceName, namespace, userData, storageClass string, accessMode k8sv1.PersistentVolumeAccessMode) *v1.VirtualMachine {
+	dataVolume := NewRandomDataVolumeWithPVCSource(sourceNamespace, sourceName, namespace, accessMode)
+	dataVolume.Spec.PVC.StorageClassName = &storageClass
+	dataVolume.Spec.PVC.Resources.Requests[k8sv1.ResourceStorage] = resource.MustParse("6Gi")
+	vmi := NewRandomVMIWithDataVolume(dataVolume.Name)
+	AddUserData(vmi, "cloud-init", userData)
+	vm := NewRandomVirtualMachine(vmi, false)
+
+	AddDataVolumeTemplate(vm, dataVolume)
 	return vm
 }
 
@@ -2259,7 +2271,7 @@ func NewRandomVMWithDataVolume(imageUrl string, namespace string) *v1.VirtualMac
 	vmi := NewRandomVMIWithDataVolume(dataVolume.Name)
 	vm := NewRandomVirtualMachine(vmi, false)
 
-	addDataVolumeTemplate(vm, dataVolume)
+	AddDataVolumeTemplate(vm, dataVolume)
 	return vm
 }
 
@@ -2268,7 +2280,7 @@ func NewRandomVMWithDataVolumeAndUserData(dataVolume *cdiv1.DataVolume, userData
 	AddUserData(vmi, "cloud-init", userData)
 	vm := NewRandomVirtualMachine(vmi, false)
 
-	addDataVolumeTemplate(vm, dataVolume)
+	AddDataVolumeTemplate(vm, dataVolume)
 	return vm
 }
 
@@ -2283,7 +2295,7 @@ func NewRandomVMWithCloneDataVolume(sourceNamespace, sourceName, targetNamespace
 	vmi.Namespace = targetNamespace
 	vm := NewRandomVirtualMachine(vmi, false)
 
-	addDataVolumeTemplate(vm, dataVolume)
+	AddDataVolumeTemplate(vm, dataVolume)
 	return vm
 }
 
@@ -5529,4 +5541,54 @@ func GetAllSchedulableNodes(virtClient kubecli.KubevirtClient) *k8sv1.NodeList {
 	nodes, err := virtClient.CoreV1().Nodes().List(context.Background(), metav1.ListOptions{LabelSelector: v1.NodeSchedulable + "=" + "true"})
 	Expect(err).ToNot(HaveOccurred(), "Should list compute nodes")
 	return nodes
+}
+
+func GoldenImageRBAC(namespace string) (*rbacv1.Role, *rbacv1.RoleBinding) {
+	name := "golden-rbac-" + rand.String(12)
+	role := &rbacv1.Role{
+		ObjectMeta: metav1.ObjectMeta{
+			Name:      name,
+			Namespace: namespace,
+		},
+		Rules: []rbacv1.PolicyRule{
+			{
+				APIGroups: []string{
+					"cdi.kubevirt.io",
+				},
+				Resources: []string{
+					"datavolumes/source",
+				},
+				Verbs: []string{
+					"create",
+				},
+			},
+		},
+	}
+	roleBinding := &rbacv1.RoleBinding{
+		ObjectMeta: metav1.ObjectMeta{
+			Name:      name,
+			Namespace: namespace,
+		},
+		Subjects: []rbacv1.Subject{
+			{
+				APIGroup: "rbac.authorization.k8s.io",
+				Kind:     "Group",
+				Name:     "system:authenticated",
+			},
+		},
+		RoleRef: rbacv1.RoleRef{
+			APIGroup: "rbac.authorization.k8s.io",
+			Kind:     "Role",
+			Name:     name,
+		},
+	}
+	return role, roleBinding
+}
+
+func SetDataVolumePVCStorageClass(dv *cdiv1.DataVolume, storageClass string) {
+	dv.Spec.PVC.StorageClassName = &storageClass
+}
+
+func SetDataVolumePVCSize(dv *cdiv1.DataVolume, size string) {
+	dv.Spec.PVC.Resources.Requests[k8sv1.ResourceStorage] = resource.MustParse(size)
 }
