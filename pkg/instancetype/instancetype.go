@@ -22,8 +22,6 @@ import (
 	generatedscheme "kubevirt.io/client-go/generated/kubevirt/clientset/versioned/scheme"
 	"kubevirt.io/client-go/kubecli"
 	"kubevirt.io/client-go/log"
-
-	utiltypes "kubevirt.io/kubevirt/pkg/util/types"
 )
 
 type Methods interface {
@@ -82,9 +80,8 @@ func CreateControllerRevision(vm *virtv1.VirtualMachine, object runtime.Object) 
 
 	return &appsv1.ControllerRevision{
 		ObjectMeta: metav1.ObjectMeta{
-			Name:            revisionName,
-			Namespace:       vm.Namespace,
-			OwnerReferences: []metav1.OwnerReference{*metav1.NewControllerRef(vm, virtv1.VirtualMachineGroupVersionKind)},
+			Name:      revisionName,
+			Namespace: vm.Namespace,
 		},
 		Data: runtime.RawExtension{
 			Object: objCopy,
@@ -112,23 +109,23 @@ func (m *methods) createInstancetypeRevision(vm *virtv1.VirtualMachine) (*appsv1
 	return CreateControllerRevision(vm, obj)
 }
 
-func (m *methods) storeInstancetypeRevision(vm *virtv1.VirtualMachine) (*appsv1.ControllerRevision, error) {
+func (m *methods) storeInstancetypeRevision(vm *virtv1.VirtualMachine) error {
 	if vm.Spec.Instancetype == nil || len(vm.Spec.Instancetype.RevisionName) > 0 {
-		return nil, nil
+		return nil
 	}
 
 	instancetypeRevision, err := m.createInstancetypeRevision(vm)
 	if err != nil {
-		return nil, err
+		return err
 	}
 
 	storedRevision, err := storeRevision(instancetypeRevision, m.clientset)
 	if err != nil {
-		return nil, err
+		return err
 	}
 
 	vm.Spec.Instancetype.RevisionName = storedRevision.Name
-	return storedRevision, nil
+	return nil
 }
 
 func (m *methods) createPreferenceRevision(vm *virtv1.VirtualMachine) (*appsv1.ControllerRevision, error) {
@@ -151,97 +148,40 @@ func (m *methods) createPreferenceRevision(vm *virtv1.VirtualMachine) (*appsv1.C
 	return CreateControllerRevision(vm, obj)
 }
 
-func (m *methods) storePreferenceRevision(vm *virtv1.VirtualMachine) (*appsv1.ControllerRevision, error) {
+func (m *methods) storePreferenceRevision(vm *virtv1.VirtualMachine) error {
+
 	if vm.Spec.Preference == nil || len(vm.Spec.Preference.RevisionName) > 0 {
-		return nil, nil
+		return nil
 	}
 
 	preferenceRevision, err := m.createPreferenceRevision(vm)
 	if err != nil {
-		return nil, err
+		return err
 	}
 
 	storedRevision, err := storeRevision(preferenceRevision, m.clientset)
 	if err != nil {
-		return nil, err
+		return err
 	}
 
 	vm.Spec.Preference.RevisionName = storedRevision.Name
-	return storedRevision, nil
-}
-
-func GenerateRevisionNamePatch(instancetypeRevision, preferenceRevision *appsv1.ControllerRevision) ([]byte, error) {
-	var patches []utiltypes.PatchOperation
-
-	if instancetypeRevision != nil {
-		patches = append(patches,
-			utiltypes.PatchOperation{
-				Op:    utiltypes.PatchTestOp,
-				Path:  "/spec/instancetype/revisionName",
-				Value: nil,
-			},
-			utiltypes.PatchOperation{
-				Op:    utiltypes.PatchAddOp,
-				Path:  "/spec/instancetype/revisionName",
-				Value: instancetypeRevision.Name,
-			},
-		)
-	}
-
-	if preferenceRevision != nil {
-		patches = append(patches,
-			utiltypes.PatchOperation{
-				Op:    utiltypes.PatchTestOp,
-				Path:  "/spec/preference/revisionName",
-				Value: nil,
-			},
-			utiltypes.PatchOperation{
-				Op:    utiltypes.PatchAddOp,
-				Path:  "/spec/preference/revisionName",
-				Value: preferenceRevision.Name,
-			},
-		)
-	}
-
-	if len(patches) == 0 {
-		return nil, nil
-	}
-
-	payload, err := utiltypes.GeneratePatchPayload(patches...)
-	if err != nil {
-		// This is a programmer's error and should not happen
-		return nil, fmt.Errorf("failed to generate patch payload: %w", err)
-	}
-
-	return payload, nil
+	return nil
 }
 
 func (m *methods) StoreControllerRevisions(vm *virtv1.VirtualMachine) error {
 
 	// Lazy logger construction
 	logger := func() *log.FilteredLogger { return log.Log.Object(vm) }
-	instancetypeRevision, err := m.storeInstancetypeRevision(vm)
+	err := m.storeInstancetypeRevision(vm)
 	if err != nil {
 		logger().Reason(err).Error("Failed to store ControllerRevision of VirtualMachineInstancetypeSpec for the Virtualmachine.")
 		return err
 	}
 
-	preferenceRevision, err := m.storePreferenceRevision(vm)
+	err = m.storePreferenceRevision(vm)
 	if err != nil {
 		logger().Reason(err).Error("Failed to store ControllerRevision of VirtualMachinePreferenceSpec for the Virtualmachine.")
 		return err
-	}
-
-	// Batch any writes to the VirtualMachine into a single Patch() call to avoid races in the controller.
-	patch, err := GenerateRevisionNamePatch(instancetypeRevision, preferenceRevision)
-	if err != nil {
-		return err
-	}
-	if len(patch) > 0 {
-		if _, err := m.clientset.VirtualMachine(vm.Namespace).Patch(vm.Name, types.JSONPatchType, patch, &metav1.PatchOptions{}); err != nil {
-			logger().Reason(err).Error("Failed to update VirtualMachine with instancetype and preference ControllerRevision references.")
-			return err
-		}
 	}
 
 	return nil

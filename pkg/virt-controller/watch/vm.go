@@ -1308,11 +1308,6 @@ func (c *VMController) applyInstancetypeToVmi(vm *virtv1.VirtualMachine, vmi *vi
 		return fmt.Errorf("VMI conflicts with instancetype spec in fields: [%s]", conflicts.String())
 	}
 
-	err = c.instancetypeMethods.StoreControllerRevisions(vm)
-	if err != nil {
-		return err
-	}
-
 	return nil
 }
 

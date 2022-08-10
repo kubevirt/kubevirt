@@ -30,6 +30,7 @@ import (
 	apiinstancetype "kubevirt.io/api/instancetype"
 	"kubevirt.io/client-go/log"
 
+	instancetype "kubevirt.io/kubevirt/pkg/instancetype"
 	utiltypes "kubevirt.io/kubevirt/pkg/util/types"
 	webhookutils "kubevirt.io/kubevirt/pkg/util/webhooks"
 	"kubevirt.io/kubevirt/pkg/virt-api/webhooks"
@@ -37,7 +38,8 @@ import (
 )
 
 type VMsMutator struct {
-	ClusterConfig *virtconfig.ClusterConfig
+	ClusterConfig       *virtconfig.ClusterConfig
+	InstancetypeMethods instancetype.Methods
 }
 
 func (mutator *VMsMutator) Mutate(ar *admissionv1.AdmissionReview) *admissionv1.AdmissionResponse {
@@ -63,6 +65,12 @@ func (mutator *VMsMutator) Mutate(ar *admissionv1.AdmissionReview) *admissionv1.
 	mutator.setDefaultMachineType(&vm)
 	mutator.setDefaultInstancetypeKind(&vm)
 	mutator.setDefaultPreferenceKind(&vm)
+
+	// Capture ControllerRevisions for any Instancetype or Preference referenced from the VirtualMachine
+	err = mutator.InstancetypeMethods.StoreControllerRevisions(&vm)
+	if err != nil {
+		return webhookutils.ToAdmissionResponseError(err)
+	}
 
 	patchBytes, err := utiltypes.GeneratePatchPayload(
 		utiltypes.PatchOperation{
