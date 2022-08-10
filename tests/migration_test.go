@@ -2173,37 +2173,6 @@ var _ = Describe("[rfe_id:393][crit:high][vendor:cnv-qe@redhat.com][level:system
 				tests.WaitForVirtualMachineToDisappearWithTimeout(vmi, 240)
 			})
 
-			It("[QUARANTINE][test_id:8482] Migration Metrics exposed to prometheus during VM migration", func() {
-				vmi := tests.NewRandomFedoraVMIWithGuestAgent()
-				vmi.Spec.Domain.Resources.Requests[k8sv1.ResourceMemory] = resource.MustParse(fedoraVMSize)
-
-				By("Starting the VirtualMachineInstance")
-				vmi = tests.RunVMIAndExpectLaunch(vmi, 240)
-
-				By("Checking that the VirtualMachineInstance console has expected output")
-				Expect(console.LoginToFedora(vmi)).To(Succeed())
-
-				// Need to wait for cloud init to finnish and start the agent inside the vmi.
-				tests.WaitAgentConnected(virtClient, vmi)
-
-				runStressTest(vmi, stressDefaultVMSize, stressDefaultTimeout)
-
-				// execute a migration, wait for finalized state
-				By("Starting the Migration")
-				migration := tests.NewRandomMigration(vmi.Name, vmi.Namespace)
-				migrationUID := runMigrationAndCollectMigrationMetrics(vmi, migration, 180)
-
-				// check VMI, confirm migration state
-				tests.ConfirmVMIPostMigration(virtClient, vmi, migrationUID)
-
-				// delete VMI
-				By("Deleting the VMI")
-				Expect(virtClient.VirtualMachineInstance(vmi.Namespace).Delete(vmi.Name, &metav1.DeleteOptions{})).To(Succeed())
-
-				By("Waiting for VMI to disappear")
-				tests.WaitForVirtualMachineToDisappearWithTimeout(vmi, 240)
-			})
-
 			It("[test_id:6978][QUARANTINE] Should detect a failed migration", func() {
 				vmi := tests.NewRandomFedoraVMIWithGuestAgent()
 				vmi.Spec.Domain.Resources.Requests[k8sv1.ResourceMemory] = resource.MustParse("1Gi")
@@ -3677,6 +3646,39 @@ var _ = Describe("[rfe_id:393][crit:high][vendor:cnv-qe@redhat.com][level:system
 			})
 		})
 
+	})
+
+	Context("[Serial][QUARANTINE][test_id:8482] Migration Metrics", func() {
+		It("exposed to prometheus during VM migration", func() {
+			vmi := tests.NewRandomFedoraVMIWithGuestAgent()
+			vmi.Spec.Domain.Resources.Requests[k8sv1.ResourceMemory] = resource.MustParse(fedoraVMSize)
+
+			By("Starting the VirtualMachineInstance")
+			vmi = tests.RunVMIAndExpectLaunch(vmi, 240)
+
+			By("Checking that the VirtualMachineInstance console has expected output")
+			Expect(console.LoginToFedora(vmi)).To(Succeed())
+
+			// Need to wait for cloud init to finnish and start the agent inside the vmi.
+			tests.WaitAgentConnected(virtClient, vmi)
+
+			runStressTest(vmi, stressDefaultVMSize, stressDefaultTimeout)
+
+			// execute a migration, wait for finalized state
+			By("Starting the Migration")
+			migration := tests.NewRandomMigration(vmi.Name, vmi.Namespace)
+			migrationUID := runMigrationAndCollectMigrationMetrics(vmi, migration, 180)
+
+			// check VMI, confirm migration state
+			tests.ConfirmVMIPostMigration(virtClient, vmi, migrationUID)
+
+			// delete VMI
+			By("Deleting the VMI")
+			Expect(virtClient.VirtualMachineInstance(vmi.Namespace).Delete(vmi.Name, &metav1.DeleteOptions{})).To(Succeed())
+
+			By("Waiting for VMI to disappear")
+			tests.WaitForVirtualMachineToDisappearWithTimeout(vmi, 240)
+		})
 	})
 
 	Describe("[Serial] with a cluster-wide live-migrate eviction strategy set", func() {
