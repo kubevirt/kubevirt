@@ -25,6 +25,7 @@ import (
 
 	admissionv1 "k8s.io/api/admission/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	k8sfield "k8s.io/apimachinery/pkg/util/validation/field"
 
 	v1 "kubevirt.io/api/core/v1"
 	apiinstancetype "kubevirt.io/api/instancetype"
@@ -65,6 +66,12 @@ func (mutator *VMsMutator) Mutate(ar *admissionv1.AdmissionReview) *admissionv1.
 	mutator.setDefaultMachineType(&vm)
 	mutator.setDefaultInstancetypeKind(&vm)
 	mutator.setDefaultPreferenceKind(&vm)
+
+	// Validate any instancetype or preferences referenced by a VM before we capture ControllerRevisions
+	causes := mutator.validateVMInstancetypePreference(&vm)
+	if len(causes) > 0 {
+		return webhookutils.ToAdmissionResponse(causes)
+	}
 
 	// Capture ControllerRevisions for any Instancetype or Preference referenced from the VirtualMachine
 	err = mutator.InstancetypeMethods.StoreControllerRevisions(&vm)
@@ -137,4 +144,26 @@ func (mutator *VMsMutator) setDefaultPreferenceKind(vm *v1.VirtualMachine) {
 	if vm.Spec.Preference.Kind == "" {
 		vm.Spec.Preference.Kind = apiinstancetype.ClusterSingularPreferenceResourceName
 	}
+}
+
+func (mutator *VMsMutator) validateVMInstancetypePreference(vm *v1.VirtualMachine) []metav1.StatusCause {
+	_, err := mutator.InstancetypeMethods.FindInstancetypeSpec(vm)
+	if err != nil {
+		return []metav1.StatusCause{{
+			Type:    metav1.CauseTypeFieldValueNotFound,
+			Message: fmt.Sprintf("Failure to find instancetype: %v", err),
+			Field:   k8sfield.NewPath("spec", "instancetype").String(),
+		}}
+	}
+
+	_, err = mutator.InstancetypeMethods.FindPreferenceSpec(vm)
+	if err != nil {
+		return []metav1.StatusCause{{
+			Type:    metav1.CauseTypeFieldValueNotFound,
+			Message: fmt.Sprintf("Failure to find preference: %v", err),
+			Field:   k8sfield.NewPath("spec", "preference").String(),
+		}}
+	}
+
+	return nil
 }
