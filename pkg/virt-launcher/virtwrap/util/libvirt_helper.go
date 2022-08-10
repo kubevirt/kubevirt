@@ -92,6 +92,8 @@ var PausedReasonTranslationMap = map[libvirt.DomainPausedReason]api.StateChangeR
 	libvirt.DOMAIN_PAUSED_POSTCOPY_FAILED: api.ReasonPausedPostcopyFailed,
 }
 
+var getHookManager = hooks.GetManager
+
 type LibvirtWrapper struct {
 	user uint32
 }
@@ -138,13 +140,19 @@ func SetDomainSpecStr(virConn cli.Connection, vmi *v1.VirtualMachineInstance, wa
 }
 
 func SetDomainSpecStrWithHooks(virConn cli.Connection, vmi *v1.VirtualMachineInstance, wantedSpec *api.DomainSpec) (cli.VirDomain, error) {
-	spec := wantedSpec.DeepCopy()
-	hooksManager := hooks.GetManager()
-
-	domainSpec, err := hooksManager.OnDefineDomain(spec, vmi)
+	hooksManager := getHookManager()
+	domainSpec, err := hooksManager.OnDefineDomain(wantedSpec, vmi)
 	if err != nil {
 		return nil, err
 	}
+
+	// update wantedSpec to reflect changes made to domain spec by hooks
+	domainSpecObj := &api.DomainSpec{}
+	if err = xml.Unmarshal([]byte(domainSpec), domainSpecObj); err != nil {
+		return nil, err
+	}
+	domainSpecObj.DeepCopyInto(wantedSpec)
+
 	return SetDomainSpecStr(virConn, vmi, domainSpec)
 }
 
