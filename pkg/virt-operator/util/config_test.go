@@ -134,6 +134,41 @@ var _ = Describe("Operator Config", func() {
 			false, false),
 	)
 
+	DescribeTable("Read imageName", func(image string, envVersions *KubeVirtDeploymentConfig, valid bool) {
+		os.Setenv(OperatorImageEnvName, image)
+
+		os.Unsetenv(VirtApiShasumEnvName)
+		os.Unsetenv(VirtControllerShasumEnvName)
+		os.Unsetenv(VirtHandlerShasumEnvName)
+		os.Unsetenv(VirtLauncherShasumEnvName)
+		os.Unsetenv(KubeVirtVersionEnvName)
+		os.Setenv(VirtApiImageEnvName, "a/kubevirt:api")
+		os.Setenv(VirtControllerImageEnvName, "a/kubevirt:controller")
+		os.Setenv(VirtHandlerImageEnvName, "a/kubevirt:handler")
+		os.Setenv(VirtLauncherImageEnvName, "a/kubevirt:launcher")
+
+		err := VerifyEnv()
+		if valid {
+			Expect(err).ToNot(HaveOccurred())
+		} else {
+			Expect(err).To(HaveOccurred())
+		}
+
+		parsedConfig, err := GetConfigFromEnv()
+		Expect(err).ToNot(HaveOccurred())
+
+		Expect(parsedConfig.VirtApiImage).To(Equal("a/kubevirt:api"), "api image should match")
+		Expect(parsedConfig.VirtControllerImage).To(Equal("a/kubevirt:controller"), "controller image should match")
+		Expect(parsedConfig.VirtHandlerImage).To(Equal("a/kubevirt:handler"), "handler image should match")
+		Expect(parsedConfig.VirtLauncherImage).To(Equal("a/kubevirt:launcher"), "launcher image should match")
+
+	},
+		//Entry("with all images names given", "a/kubevirt:operator",
+		Entry("with all images names given", "kubevirt/virt-operator@sha256:operator",
+			getConfig("kubevirt", "v123"),
+			true),
+	)
+
 	Describe("GetPassthroughEnv()", func() {
 		It("should eturn environment variables matching the passthrough prefix (and only those vars)", func() {
 			realKey := rand.String(10)
