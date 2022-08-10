@@ -125,9 +125,10 @@ $1{{- end}}{{else}} []{{end}}`)
 	if strings.HasPrefix(*infraReplicasFlag, "{{") {
 		infraReplicasVar := strings.TrimPrefix(*infraReplicasFlag, "{{")
 		infraReplicasVar = strings.TrimSuffix(infraReplicasVar, "}}")
-		re := regexp.MustCompile(`(?m)\n([ \t]+)replicas: ` + fmt.Sprintf("%d", infraReplicasPlaceholder))
+		re := regexp.MustCompile(`(?m)\n([ \t]+)infra:\n([ \t]+)replicas: ` + fmt.Sprintf("%d", infraReplicasPlaceholder))
 		cr = re.ReplaceAllString(cr, `{{if `+infraReplicasVar+`}}
-${1}replicas: {{`+infraReplicasVar+`}}{{end}}`)
+${1}infra:
+${2}replicas: {{`+infraReplicasVar+`}}{{end}}`)
 	}
 
 	fmt.Print(cr)
