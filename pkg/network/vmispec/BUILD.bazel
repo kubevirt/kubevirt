@@ -15,6 +15,7 @@ go_test(
     name = "go_default_test",
     srcs = [
         "interface_test.go",
+        "network_test.go",
         "vmispec_suite_test.go",
     ],
     deps = [
