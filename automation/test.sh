@@ -434,8 +434,7 @@ if [[ $KUBEVIRT_NUM_NODES = "1" && $KUBEVIRT_INFRA_REPLICAS = "1" ]]; then
     label_filter='--label-filter=!needs-gpu && !needs-mdev-gpu && !needs-two-nodes-with-cpumanager'
   else
     label_filter=$label_filter' && !needs-gpu && !needs-mdev-gpu && !needs-two-nodes-with-cpumanager'
-  fi
-  then 
+  fi 
 fi
 
 # If KUBEVIRT_QUARANTINE is not set, do not run quarantined tests. When it is
