@@ -113,8 +113,7 @@ const (
 
 	exporterPodFailedOrCompletedEvent = "ExporterPodFailedOrCompleted"
 	exporterPodCreatedEvent           = "ExporterPodCreated"
-	vmStartedEvent                    = "ExportedVMStarted"
-	pvcInUseEvent                     = "PVCInUse"
+	ExportPaused                      = "ExportPaused"
 	secretCreatedEvent                = "SecretCreated"
 	serviceCreatedEvent               = "ServiceCreated"
 
@@ -246,7 +245,15 @@ func (ctrl *VMExportController) Init() {
 		},
 		ctrl.ResyncPeriod,
 	)
-	ctrl.VMInformer.AddEventHandlerWithResyncPeriod(
+	ctrl.VMIInformer.AddEventHandlerWithResyncPeriod(
+		cache.ResourceEventHandlerFuncs{
+			AddFunc:    ctrl.handleVMI,
+			UpdateFunc: func(oldObj, newObj interface{}) { ctrl.handleVMI(newObj) },
+			DeleteFunc: ctrl.handleVMI,
+		},
+		ctrl.ResyncPeriod,
+	)
+	ctrl.VMIInformer.AddEventHandlerWithResyncPeriod(
 		cache.ResourceEventHandlerFuncs{
 			AddFunc:    ctrl.handleVM,
 			UpdateFunc: func(oldObj, newObj interface{}) { ctrl.handleVM(newObj) },
@@ -395,8 +402,8 @@ func (ctrl *VMExportController) handleVMSnapshot(obj interface{}) {
 		obj = unknown.Obj
 	}
 
-	if pvc, ok := obj.(*snapshotv1.VirtualMachineSnapshot); ok {
-		key, _ := cache.MetaNamespaceKeyFunc(pvc)
+	if snapshot, ok := obj.(*snapshotv1.VirtualMachineSnapshot); ok {
+		key, _ := cache.MetaNamespaceKeyFunc(snapshot)
 		log.Log.V(3).Infof("Processing VirtualMachineSnapshot %s", key)
 		keys, err := ctrl.VMExportInformer.GetIndexer().IndexKeys("vmsnapshot", key)
 		if err != nil {
@@ -428,6 +435,28 @@ func (ctrl *VMExportController) handleVM(obj interface{}) {
 	}
 }
 
+func (ctrl *VMExportController) handleVMI(obj interface{}) {
+	if unknown, ok := obj.(cache.DeletedFinalStateUnknown); ok && unknown.Obj != nil {
+		obj = unknown.Obj
+	}
+
+	if vmi, ok := obj.(*virtv1.VirtualMachineInstance); ok {
+		vm := ctrl.getVMFromVMI(vmi)
+		if vm != nil {
+			key, _ := cache.MetaNamespaceKeyFunc(vm)
+			log.Log.V(3).Infof("Processing VM %s", key)
+			keys, err := ctrl.VMExportInformer.GetIndexer().IndexKeys("vm", key)
+			if err != nil {
+				utilruntime.HandleError(err)
+				return
+			}
+			for _, key := range keys {
+				ctrl.vmExportQueue.Add(key)
+			}
+		}
+	}
+}
+
 func (ctrl *VMExportController) getOwnerVMexportKey(obj metav1.Object) string {
 	ownerRef := metav1.GetControllerOf(obj)
 	var key string
@@ -437,6 +466,20 @@ func (ctrl *VMExportController) getOwnerVMexportKey(obj metav1.Object) string {
 		}
 	}
 	return key
+}
+
+func (ctrl *VMExportController) getVMFromVMI(vmi *virtv1.VirtualMachineInstance) *virtv1.VirtualMachine {
+	ownerRef := metav1.GetControllerOf(vmi)
+	if ownerRef != nil {
+		if ownerRef.Kind == "VirtualMachine" && ownerRef.APIVersion == virtv1.GroupVersion.String() {
+			if vm, exists, err := ctrl.getVm(vmi.Namespace, ownerRef.Name); !exists || err != nil {
+				log.Log.V(3).Infof("Unable to get owner VM %s/%s for VMI %s/%s", vmi.Namespace, ownerRef.Name, vmi.Namespace, vmi.Name)
+			} else {
+				return vm
+			}
+		}
+	}
+	return nil
 }
 
 func (ctrl *VMExportController) updateVMExport(vmExport *exportv1.VirtualMachineExport) (time.Duration, error) {
@@ -522,7 +565,7 @@ func (ctrl *VMExportController) handleIsSourcePvc(vmExport *exportv1.VirtualMach
 		}
 		if inUse {
 			// VMI exists, stop pod if it exists.
-			if err := ctrl.deleteExporterPod(vmExport, pod, pvcInUseEvent, fmt.Sprintf("pvc %s/%s is in use", pvc.Namespace, pvc.Name)); err != nil {
+			if err := ctrl.deleteExporterPod(vmExport, pod, ExportPaused, fmt.Sprintf("pvc %s/%s is in use", pvc.Namespace, pvc.Name)); err != nil {
 				return 0, err
 			}
 		} else {
@@ -601,7 +644,7 @@ func (ctrl *VMExportController) handleIsVM(vmExport *exportv1.VirtualMachineExpo
 	} else {
 		if inUse {
 			// VMI exists, stop pod if it exists.
-			if err := ctrl.deleteExporterPod(vmExport, pod, vmStartedEvent, fmt.Sprintf("virtual machine %s/%s was started", vmi.Namespace, vmi.Name)); err != nil {
+			if err := ctrl.deleteExporterPod(vmExport, pod, ExportPaused, fmt.Sprintf("virtual machine %s/%s was started", vmi.Namespace, vmi.Name)); err != nil {
 				return 0, err
 			}
 			pod = nil
@@ -612,7 +655,7 @@ func (ctrl *VMExportController) handleIsVM(vmExport *exportv1.VirtualMachineExpo
 		}
 	}
 
-	return 0, ctrl.updateVMExporVMStatus(vmExport, pvcs, pod, service, inUse)
+	return 0, ctrl.updateVMExportVMStatus(vmExport, pvcs, pod, service, inUse)
 }
 
 func (ctrl *VMExportController) getPVCsFromVM(vmNamespace, vmName string) ([]*corev1.PersistentVolumeClaim, error) {
@@ -624,8 +667,8 @@ func (ctrl *VMExportController) getPVCsFromVM(vmNamespace, vmName string) ([]*co
 	if !exists {
 		return nil, nil
 	}
-	name := ""
 	for _, volume := range vm.Spec.Template.Spec.Volumes {
+		name := ""
 		if volume.PersistentVolumeClaim != nil {
 			name = volume.PersistentVolumeClaim.ClaimName
 		}
@@ -642,7 +685,6 @@ func (ctrl *VMExportController) getPVCsFromVM(vmNamespace, vmName string) ([]*co
 		if exists {
 			pvcs = append(pvcs, pvc)
 		}
-		name = ""
 	}
 	return pvcs, nil
 }
@@ -1111,7 +1153,7 @@ func (ctrl *VMExportController) updateVMExporVMSnapshotStatus(vmExport *exportv1
 	return nil
 }
 
-func (ctrl *VMExportController) updateVMExporVMStatus(vmExport *exportv1.VirtualMachineExport, pvcs []*corev1.PersistentVolumeClaim, exporterPod *corev1.Pod, service *corev1.Service, pvcInUse bool) error {
+func (ctrl *VMExportController) updateVMExportVMStatus(vmExport *exportv1.VirtualMachineExport, pvcs []*corev1.PersistentVolumeClaim, exporterPod *corev1.Pod, service *corev1.Service, pvcInUse bool) error {
 	vmExportCopy := vmExport.DeepCopy()
 
 	if err := ctrl.updateCommonVMExportStatusFields(vmExport, vmExportCopy, pvcs, exporterPod, service, pvcInUse); err != nil {

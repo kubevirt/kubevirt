@@ -80,13 +80,12 @@ var (
 	qemuGid int64 = 107
 )
 
-var _ = Describe("Export controlleer", func() {
+var _ = Describe("Export controller", func() {
 	var (
 		ctrl                       *gomock.Controller
 		controller                 *VMExportController
 		recorder                   *record.FakeRecorder
 		pvcInformer                cache.SharedIndexInformer
-		pvcSource                  *framework.FakeControllerSource
 		podInformer                cache.SharedIndexInformer
 		cmInformer                 cache.SharedIndexInformer
 		vmExportInformer           cache.SharedIndexInformer
@@ -94,11 +93,9 @@ var _ = Describe("Export controlleer", func() {
 		serviceInformer            cache.SharedIndexInformer
 		dvInformer                 cache.SharedIndexInformer
 		vmSnapshotInformer         cache.SharedIndexInformer
-		vmSnapshotSource           *framework.FakeControllerSource
 		vmSnapshotContentInformer  cache.SharedIndexInformer
 		secretInformer             cache.SharedIndexInformer
 		vmInformer                 cache.SharedIndexInformer
-		vmSource                   *framework.FakeControllerSource
 		vmiInformer                cache.SharedIndexInformer
 		k8sClient                  *k8sfake.Clientset
 		vmExportClient             *kubevirtfake.Clientset
@@ -150,15 +147,15 @@ var _ = Describe("Export controlleer", func() {
 		keyFilePath = filepath.Join(certDir, "tls.key")
 		writeCertsToDir(certDir)
 		virtClient := kubecli.NewMockKubevirtClient(ctrl)
-		pvcInformer, pvcSource = testutils.NewFakeInformerFor(&k8sv1.PersistentVolumeClaim{})
+		pvcInformer, _ = testutils.NewFakeInformerFor(&k8sv1.PersistentVolumeClaim{})
 		podInformer, _ = testutils.NewFakeInformerFor(&k8sv1.Pod{})
 		cmInformer, _ = testutils.NewFakeInformerFor(&k8sv1.ConfigMap{})
 		serviceInformer, _ = testutils.NewFakeInformerFor(&k8sv1.Service{})
 		vmExportInformer, vmExportSource = testutils.NewFakeInformerWithIndexersFor(&exportv1.VirtualMachineExport{}, virtcontroller.GetVirtualMachineExportInformerIndexers())
 		dvInformer, _ = testutils.NewFakeInformerFor(&cdiv1.DataVolume{})
-		vmSnapshotInformer, vmSnapshotSource = testutils.NewFakeInformerFor(&snapshotv1.VirtualMachineSnapshot{})
+		vmSnapshotInformer, _ = testutils.NewFakeInformerFor(&snapshotv1.VirtualMachineSnapshot{})
 		vmSnapshotContentInformer, _ = testutils.NewFakeInformerFor(&snapshotv1.VirtualMachineSnapshotContent{})
-		vmInformer, vmSource = testutils.NewFakeInformerFor(&virtv1.VirtualMachine{})
+		vmInformer, _ = testutils.NewFakeInformerFor(&virtv1.VirtualMachine{})
 		vmiInformer, _ = testutils.NewFakeInformerFor(&virtv1.VirtualMachineInstance{})
 		routeInformer, _ := testutils.NewFakeInformerFor(&routev1.Route{})
 		routeCache = routeInformer.GetStore()
@@ -477,10 +474,9 @@ var _ = Describe("Export controlleer", func() {
 		}
 		syncCaches(stop)
 		mockVMExportQueue.ExpectAdds(1)
-		vmExportSource.Add(vmExport)
-		pvcSource.Add(pvc)
+		vmExportInformer.GetStore().Add(vmExport)
+		controller.handlePVC(pvc)
 		mockVMExportQueue.Wait()
-		controller.processVMExportWorkItem()
 	})
 
 	It("should add vmexport to queue if matching VMSnapshot is added", func() {
@@ -496,10 +492,9 @@ var _ = Describe("Export controlleer", func() {
 		}
 		syncCaches(stop)
 		mockVMExportQueue.ExpectAdds(1)
-		vmExportSource.Add(vmExport)
-		vmSnapshotSource.Add(vmSnapshot)
+		vmExportInformer.GetStore().Add(vmExport)
+		controller.handleVMSnapshot(vmSnapshot)
 		mockVMExportQueue.Wait()
-		controller.processVMExportWorkItem()
 	})
 
 	It("should add vmexport to queue if matching VM is added", func() {
@@ -519,10 +514,101 @@ var _ = Describe("Export controlleer", func() {
 		}
 		syncCaches(stop)
 		mockVMExportQueue.ExpectAdds(1)
-		vmExportSource.Add(vmExport)
-		vmSource.Add(vm)
+		vmExportInformer.GetStore().Add(vmExport)
+		controller.handleVM(vm)
 		mockVMExportQueue.Wait()
+	})
+
+	It("should add vmexport to queue if matching VMI is added", func() {
+		vmExport := createVMVMExport()
+		vm := &virtv1.VirtualMachine{
+			ObjectMeta: metav1.ObjectMeta{
+				Name:      testVmName,
+				Namespace: testNamespace,
+			},
+			Spec: virtv1.VirtualMachineSpec{
+				Template: &virtv1.VirtualMachineInstanceTemplateSpec{
+					Spec: virtv1.VirtualMachineInstanceSpec{
+						Volumes: []virtv1.Volume{},
+					},
+				},
+			},
+		}
+		vmi := &virtv1.VirtualMachineInstance{
+			ObjectMeta: metav1.ObjectMeta{
+				Name:      testVmName,
+				Namespace: testNamespace,
+				OwnerReferences: []metav1.OwnerReference{
+					{
+						APIVersion: virtv1.GroupVersion.String(),
+						Kind:       "VirtualMachine",
+						Name:       testVmName,
+						Controller: pointer.BoolPtr(true),
+					},
+				},
+			},
+		}
+		syncCaches(stop)
+		mockVMExportQueue.ExpectAdds(2)
+		vmExportSource.Add(vmExport)
 		controller.processVMExportWorkItem()
+		vmInformer.GetStore().Add(vm)
+		controller.handleVMI(vmi)
+		mockVMExportQueue.Wait()
+	})
+
+	It("should NOT add vmexport to queue if VMI is added without matching VM", func() {
+		vmExport := createVMVMExport()
+		vm := &virtv1.VirtualMachine{
+			ObjectMeta: metav1.ObjectMeta{
+				Name:      testVmName + "-other",
+				Namespace: testNamespace,
+			},
+			Spec: virtv1.VirtualMachineSpec{
+				Template: &virtv1.VirtualMachineInstanceTemplateSpec{
+					Spec: virtv1.VirtualMachineInstanceSpec{
+						Volumes: []virtv1.Volume{},
+					},
+				},
+			},
+		}
+		vmi := &virtv1.VirtualMachineInstance{
+			ObjectMeta: metav1.ObjectMeta{
+				Name:      testVmName,
+				Namespace: testNamespace,
+				OwnerReferences: []metav1.OwnerReference{
+					{
+						APIVersion: virtv1.GroupVersion.String(),
+						Kind:       "VirtualMachine",
+						Name:       testVmName,
+						Controller: pointer.BoolPtr(true),
+					},
+				},
+			},
+		}
+		syncCaches(stop)
+		mockVMExportQueue.ExpectAdds(1)
+		vmExportSource.Add(vmExport)
+		controller.processVMExportWorkItem()
+		vmInformer.GetStore().Add(vm)
+		controller.handleVMI(vmi)
+		mockVMExportQueue.Wait()
+	})
+
+	It("should NOT add vmexport to queue if VMI is added without owner", func() {
+		vmExport := createVMVMExport()
+		vmi := &virtv1.VirtualMachineInstance{
+			ObjectMeta: metav1.ObjectMeta{
+				Name:      testVmName,
+				Namespace: testNamespace,
+			},
+		}
+		syncCaches(stop)
+		mockVMExportQueue.ExpectAdds(1)
+		vmExportSource.Add(vmExport)
+		controller.processVMExportWorkItem()
+		controller.handleVMI(vmi)
+		mockVMExportQueue.Wait()
 	})
 
 	It("Should create a service based on the name of the VMExport", func() {
@@ -1638,7 +1724,7 @@ var _ = Describe("Export controlleer", func() {
 			Expect(err).ToNot(HaveOccurred())
 			Expect(retry).To(BeEquivalentTo(0))
 			testutils.ExpectEvent(recorder, serviceCreatedEvent)
-			testutils.ExpectEvent(recorder, vmStartedEvent)
+			testutils.ExpectEvent(recorder, ExportPaused)
 		})
 
 		It("Should be in skipped phase when VM has no volumes", func() {

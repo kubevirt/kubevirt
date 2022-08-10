@@ -566,7 +566,7 @@ func GetVirtualMachineExportInformerIndexers() cache.Indexers {
 			}
 
 			if export.Spec.Source.APIGroup != nil &&
-				*export.Spec.Source.APIGroup == core.GroupName &&
+				*export.Spec.Source.APIGroup == snapshotv1.SchemeGroupVersion.Group &&
 				export.Spec.Source.Kind == "VirtualMachineSnapshot" {
 				return []string{fmt.Sprintf("%s/%s", export.Namespace, export.Spec.Source.Name)}, nil
 			}
