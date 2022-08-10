@@ -379,7 +379,7 @@ if [[ -z ${KUBEVIRT_E2E_FOCUS} && -z ${KUBEVIRT_E2E_SKIP} ]]; then
     label_filter='--label-filter=needs-two-nodes-with-cpumanager'
   elif [[ $TARGET =~ sig-compute ]]; then
     export KUBEVIRT_E2E_FOCUS="\\[sig-compute\\]"
-    label_filter='--label-filter=!/needs-.*/'
+    label_filter='--label-filter=(!needs-gpu && !needs-needs-mdev-gpu && !needs-two-nodes-with-cpumanager)'
   elif [[ $TARGET =~ sig-monitoring ]]; then
     export KUBEVIRT_E2E_FOCUS="\\[sig-monitoring\\]"
   elif [[ $TARGET =~ sig-operator ]]; then
@@ -390,10 +390,10 @@ if [[ -z ${KUBEVIRT_E2E_FOCUS} && -z ${KUBEVIRT_E2E_SKIP} ]]; then
     label_filter='--label-filter=needs-gpu'
   elif [[ $TARGET =~ (okd|ocp).* ]]; then
     export KUBEVIRT_E2E_SKIP="SRIOV"
-    label_filter='--label-filter=!/needs-.*/'
+    label_filter='--label-filter=(!needs-gpu && !needs-needs-mdev-gpu && !needs-two-nodes-with-cpumanager)'
   else
     export KUBEVIRT_E2E_SKIP="Multus|SRIOV|Macvtap"
-    label_filter='--label-filter=!/needs-.*/'
+    label_filter='--label-filter=(!needs-gpu && !needs-needs-mdev-gpu && !needs-two-nodes-with-cpumanager)'
   fi
 
   if ! [[ $TARGET =~ sig-storage ]]; then
