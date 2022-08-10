@@ -25,6 +25,8 @@ import (
 	"kubevirt.io/client-go/kubecli"
 	cdiv1 "kubevirt.io/containerized-data-importer-api/pkg/apis/core/v1beta1"
 
+	. "kubevirt.io/kubevirt/tests/framework/matcher"
+
 	typesutil "kubevirt.io/kubevirt/pkg/util/types"
 	"kubevirt.io/kubevirt/tests"
 	"kubevirt.io/kubevirt/tests/console"
@@ -112,12 +114,25 @@ var _ = SIGDescribe("VirtualMachineRestore Tests", func() {
 
 	createAndStartVM := func(vm *v1.VirtualMachine) (*v1.VirtualMachine, *v1.VirtualMachineInstance) {
 		var vmi *v1.VirtualMachineInstance
+
 		t := true
 		vm.Spec.Running = &t
 		var gracePeriod int64 = 10
 		vm.Spec.Template.Spec.TerminationGracePeriodSeconds = &gracePeriod
-		vm, err := virtClient.VirtualMachine(vm.Namespace).Create(vm)
+
+		// sometimes it takes a bit for permission to actually be applied so eventually
+		Eventually(func() bool {
+			_, err := virtClient.VirtualMachine(vm.Namespace).Create(vm)
+			if err != nil {
+				fmt.Printf("command should have succeeded maybe new permissions not applied yet\nerror\n%s\n", err)
+				return false
+			}
+			return true
+		}, 90*time.Second, time.Second).Should(BeTrue())
+
+		vm, err := ThisVM(vm)()
 		Expect(err).ToNot(HaveOccurred())
+
 		Eventually(func() bool {
 			vmi, err = virtClient.VirtualMachineInstance(vm.Namespace).Get(vm.Name, &metav1.GetOptions{})
 			if errors.IsNotFound(err) {
