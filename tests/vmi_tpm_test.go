@@ -20,7 +20,13 @@
 package tests_test
 
 import (
+	"context"
 	"time"
+
+	"kubevirt.io/kubevirt/tests/framework/kubevirt"
+	"kubevirt.io/kubevirt/tests/libwait"
+
+	"kubevirt.io/kubevirt/tests/libstorage"
 
 	"kubevirt.io/kubevirt/tests/util"
 
@@ -33,7 +39,6 @@ import (
 	"kubevirt.io/kubevirt/tests/decorators"
 
 	"kubevirt.io/kubevirt/tests/framework/checks"
-	"kubevirt.io/kubevirt/tests/framework/kubevirt"
 
 	v1 "kubevirt.io/api/core/v1"
 
@@ -102,10 +107,54 @@ var _ = Describe("[sig-storage]vTPM", decorators.SigStorage, func() {
 	})
 
 	Context("with persistent TPM VM option enabled", func() {
-		It("should persist TPM secrets across restarts", func() {
-			By("Setting nfs-csi as the backend storage class")
+		restartVM := func(vm *v1.VirtualMachine) {
+			By("Stopping the VM")
+			err = virtClient.VirtualMachine(vm.Namespace).Stop(context.Background(), vm.Name, &v1.StopOptions{})
+			ExpectWithOffset(1, err).ToNot(HaveOccurred())
+			EventuallyWithOffset(1, func() error {
+				_, err = virtClient.VirtualMachineInstance(vm.Namespace).Get(context.Background(), vm.Name, &k8smetav1.GetOptions{})
+				return err
+			}, 300*time.Second, 1*time.Second).ShouldNot(Succeed())
+
+			By("Starting the VM")
+			err = virtClient.VirtualMachine(vm.Namespace).Start(context.Background(), vm.Name, &v1.StartOptions{})
+			ExpectWithOffset(1, err).ToNot(HaveOccurred())
+			var vmi *v1.VirtualMachineInstance
+			EventuallyWithOffset(1, func() error {
+				vmi, err = virtClient.VirtualMachineInstance(vm.Namespace).Get(context.Background(), vm.Name, &k8smetav1.GetOptions{})
+				return err
+			}, 300*time.Second, 1*time.Second).Should(Succeed())
+			libwait.WaitForSuccessfulVMIStartWithTimeout(vmi, 60)
+
+			By("Logging in as root")
+			err = console.LoginToFedora(vmi)
+			Expect(err).ToNot(HaveOccurred())
+		}
+
+		migrateVMI := func(vmi *v1.VirtualMachineInstance) {
+			By("Migrating the VMI")
+			checks.SkipIfMigrationIsNotPossible()
+			migration := tests.NewRandomMigration(vmi.Name, vmi.Namespace)
+			tests.RunMigrationAndExpectCompletion(virtClient, migration, tests.MigrationWaitTime)
+
+		}
+
+		checkTPM := func(vmi *v1.VirtualMachineInstance) {
+			By("Ensuring the TPM is still functional and its state carried over")
+			ExpectWithOffset(1, console.SafeExpectBatch(vmi, []expect.Batcher{
+				&expect.BSnd{S: "tpm2_unseal -Q --object-context=0x81010002\n"},
+				&expect.BExp{R: "MYSECRET"},
+			}, 300)).To(Succeed(), "the state of the TPM did not persist")
+		}
+
+		DescribeTable("[Serial]should persist TPM secrets across", func(op1, op2 string) {
+			By("Setting the backend storage class to the default for RWX FS or skip if missing")
+			storageClass, exists := libstorage.GetRWXFileSystemStorageClass()
+			if !exists {
+				Skip("No RWX FS storage class found")
+			}
 			kv := util.GetCurrentKv(virtClient)
-			kv.Spec.Configuration.BackendStorageClass = "nfs-csi"
+			kv.Spec.Configuration.VMStateStorageClass = storageClass
 			tests.UpdateKubeVirtConfigValueAndWait(kv.Spec.Configuration)
 
 			By("Creating a VM with persistent TPM enabled")
@@ -115,15 +164,15 @@ var _ = Describe("[sig-storage]vTPM", decorators.SigStorage, func() {
 				Persistent: pointer.BoolPtr(true),
 			}
 			vm := tests.NewRandomVirtualMachine(vmi, true)
-			vm, err = virtClient.VirtualMachine(util.NamespaceTestDefault).Create(vm)
+			vm, err = virtClient.VirtualMachine(util.NamespaceTestDefault).Create(context.Background(), vm)
 			Expect(err).ToNot(HaveOccurred())
 
 			By("Waiting for the VM to start")
 			Eventually(func() error {
-				vmi, err = virtClient.VirtualMachineInstance(vm.Namespace).Get(vm.Name, &k8smetav1.GetOptions{})
+				vmi, err = virtClient.VirtualMachineInstance(vm.Namespace).Get(context.Background(), vm.Name, &k8smetav1.GetOptions{})
 				return err
 			}, 300*time.Second, 1*time.Second).Should(Succeed())
-			tests.WaitForSuccessfulVMIStartWithTimeout(vmi, 60)
+			libwait.WaitForSuccessfulVMIStartWithTimeout(vmi, 60)
 
 			By("Logging in as root")
 			err = console.LoginToFedora(vmi)
@@ -145,32 +194,28 @@ var _ = Describe("[sig-storage]vTPM", decorators.SigStorage, func() {
 				&expect.BExp{R: "MYSECRET"},
 			}, 300)).To(Succeed(), "failed to store secret into the TPM")
 
-			By("Stopping the VM")
-			err = virtClient.VirtualMachine(vm.Namespace).Stop(vm.Name, &v1.StopOptions{})
-			Expect(err).ToNot(HaveOccurred())
-			Eventually(func() error {
-				_, err = virtClient.VirtualMachineInstance(vm.Namespace).Get(vm.Name, &k8smetav1.GetOptions{})
-				return err
-			}, 300*time.Second, 1*time.Second).ShouldNot(Succeed())
+			if op1 == "migrate" {
+				migrateVMI(vmi)
+			} else if op1 == "restart" {
+				restartVM(vm)
+			}
 
-			By("Starting the VM")
-			err = virtClient.VirtualMachine(vm.Namespace).Start(vm.Name, &v1.StartOptions{})
-			Expect(err).ToNot(HaveOccurred())
-			Eventually(func() error {
-				vmi, err = virtClient.VirtualMachineInstance(vm.Namespace).Get(vm.Name, &k8smetav1.GetOptions{})
-				return err
-			}, 300*time.Second, 1*time.Second).Should(Succeed())
-			tests.WaitForSuccessfulVMIStartWithTimeout(vmi, 60)
+			checkTPM(vmi)
 
-			By("Logging in as root")
-			err = console.LoginToFedora(vmi)
-			Expect(err).ToNot(HaveOccurred())
+			if op2 == "migrate" {
+				migrateVMI(vmi)
+			} else if op2 == "restart" {
+				restartVM(vm)
+			}
 
-			By("Ensuring the TPM is still functional and its state was persisted")
-			Expect(console.SafeExpectBatch(vmi, []expect.Batcher{
-				&expect.BSnd{S: "tpm2_unseal -Q --object-context=0x81010002\n"},
-				&expect.BExp{R: "MYSECRET"},
-			}, 300)).To(Succeed(), "the state of the TPM did not persist")
-		})
+			checkTPM(vmi)
+
+			By("Removing the VM")
+			err := virtClient.VirtualMachine(util.NamespaceTestDefault).Delete(context.Background(), vm.Name, &k8smetav1.DeleteOptions{})
+			Expect(err).ToNot(HaveOccurred())
+		},
+			Entry("migration and restart", "migrate", "restart"),
+			Entry("restart and migration", "restart", "migrate"),
+		)
 	})
 })
