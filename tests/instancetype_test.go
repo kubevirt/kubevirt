@@ -26,7 +26,6 @@ import (
 	instancetypepkg "kubevirt.io/kubevirt/pkg/instancetype"
 	k6ttypes "kubevirt.io/kubevirt/pkg/util/types"
 	"kubevirt.io/kubevirt/tests"
-	cd "kubevirt.io/kubevirt/tests/containerdisk"
 	"kubevirt.io/kubevirt/tests/libvmi"
 	"kubevirt.io/kubevirt/tests/util"
 )
@@ -188,9 +187,8 @@ var _ = Describe("[crit:medium][vendor:cnv-qe@redhat.com][level:component][sig-c
 	Context("Instancetype and preference application", func() {
 
 		It("[test_id:TODO] should find and apply cluster instancetype and preferences when kind isn't provided", func() {
-			vmi := tests.NewRandomVMIWithEphemeralDisk(
-				cd.ContainerDiskFor(cd.ContainerDiskCirros),
-			)
+			vmi := libvmi.NewCirros()
+
 			instancetype := newVirtualMachineClusterInstancetype(vmi)
 			instancetype, err := virtClient.VirtualMachineClusterInstancetype().
 				Create(context.Background(), instancetype, metav1.CreateOptions{})
@@ -225,9 +223,7 @@ var _ = Describe("[crit:medium][vendor:cnv-qe@redhat.com][level:component][sig-c
 		})
 
 		It("[test_id:TODO] should apply instancetype and preferences to VMI", func() {
-			vmi := tests.NewRandomVMIWithEphemeralDisk(
-				cd.ContainerDiskFor(cd.ContainerDiskCirros),
-			)
+			vmi := libvmi.NewCirros()
 
 			instancetype := newVirtualMachineInstancetype(vmi)
 			instancetype, err := virtClient.VirtualMachineInstancetype(util.NamespaceTestDefault).
@@ -344,8 +340,8 @@ var _ = Describe("[crit:medium][vendor:cnv-qe@redhat.com][level:component][sig-c
 		})
 
 		DescribeTable("[test_id:TODO] should fail if the VirtualMachine has ", func(resources virtv1.ResourceRequirements, expectedField string) {
+			vmi := libvmi.New()
 
-			vmi := libvmi.NewCirros(libvmi.WithResourceMemory("1Mi"))
 			instancetype := newVirtualMachineInstancetype(vmi)
 			instancetype, err := virtClient.VirtualMachineInstancetype(util.NamespaceTestDefault).
 				Create(context.Background(), instancetype, metav1.CreateOptions{})
@@ -393,9 +389,7 @@ var _ = Describe("[crit:medium][vendor:cnv-qe@redhat.com][level:component][sig-c
 		)
 
 		It("[test_id:TODO] should apply preferences to default network interface", func() {
-			vmi := tests.NewRandomVMIWithEphemeralDisk(
-				cd.ContainerDiskFor(cd.ContainerDiskCirros),
-			)
+			vmi := libvmi.New()
 
 			preference := newVirtualMachineClusterPreference()
 			preference.Spec.Devices = &instancetypev1alpha1.DevicePreferences{
@@ -423,9 +417,7 @@ var _ = Describe("[crit:medium][vendor:cnv-qe@redhat.com][level:component][sig-c
 		})
 
 		It("[test_id:TODO] should apply preferences to default volume disks", func() {
-			vmi := tests.NewRandomVMIWithEphemeralDisk(
-				cd.ContainerDiskFor(cd.ContainerDiskCirros),
-			)
+			vmi := libvmi.NewCirros()
 
 			preference := newVirtualMachineClusterPreference()
 			preference.Spec.Devices = &instancetypev1alpha1.DevicePreferences{
@@ -462,7 +454,7 @@ var _ = Describe("[crit:medium][vendor:cnv-qe@redhat.com][level:component][sig-c
 				preferenceRevision   *appsv1.ControllerRevision
 			)
 
-			vmi := libvmi.New()
+			vmi := libvmi.NewCirros()
 
 			By("Creating a VirtualMachineInstancetype")
 			instancetype := newVirtualMachineInstancetype(vmi)
