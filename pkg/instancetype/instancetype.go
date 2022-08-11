@@ -143,7 +143,6 @@ func (m *methods) createInstancetypeRevision(vm *virtv1.VirtualMachine) (*appsv1
 }
 
 func (m *methods) storeInstancetypeRevision(vm *virtv1.VirtualMachine) (*appsv1.ControllerRevision, error) {
-
 	if vm.Spec.Instancetype == nil || len(vm.Spec.Instancetype.RevisionName) > 0 {
 		return nil, nil
 	}
@@ -153,27 +152,13 @@ func (m *methods) storeInstancetypeRevision(vm *virtv1.VirtualMachine) (*appsv1.
 		return nil, err
 	}
 
-	_, err = m.clientset.AppsV1().ControllerRevisions(vm.Namespace).Create(context.Background(), instancetypeRevision, metav1.CreateOptions{})
+	storedRevision, err := storeRevision(instancetypeRevision, m.clientset)
 	if err != nil {
-		if errors.IsAlreadyExists(err) {
-			// Grab the existing revision to check the data it contains
-			existingRevision, err := m.clientset.AppsV1().ControllerRevisions(vm.Namespace).Get(context.Background(), instancetypeRevision.Name, metav1.GetOptions{})
-			if err != nil {
-				return nil, err
-			}
-			// If the data between the two differs return an error, otherwise continue and store the name below.
-			if bytes.Compare(existingRevision.Data.Raw, instancetypeRevision.Data.Raw) != 0 {
-				return nil, fmt.Errorf("found existing ControllerRevision with unexpected data: %s", instancetypeRevision.Name)
-			}
-		} else {
-			return nil, err
-		}
+		return nil, err
 	}
 
-	vm.Spec.Instancetype.RevisionName = instancetypeRevision.Name
-
-	return instancetypeRevision, nil
-
+	vm.Spec.Instancetype.RevisionName = storedRevision.Name
+	return storedRevision, nil
 }
 
 func CreatePreferenceControllerRevision(vm *virtv1.VirtualMachine, revisionName string, preferenceApiVersion string, preferenceSpec *instancetypev1alpha1.VirtualMachinePreferenceSpec) (*appsv1.ControllerRevision, error) {
@@ -235,7 +220,6 @@ func (m *methods) createPreferenceRevision(vm *virtv1.VirtualMachine) (*appsv1.C
 }
 
 func (m *methods) storePreferenceRevision(vm *virtv1.VirtualMachine) (*appsv1.ControllerRevision, error) {
-
 	if vm.Spec.Preference == nil || len(vm.Spec.Preference.RevisionName) > 0 {
 		return nil, nil
 	}
@@ -245,27 +229,13 @@ func (m *methods) storePreferenceRevision(vm *virtv1.VirtualMachine) (*appsv1.Co
 		return nil, err
 	}
 
-	_, err = m.clientset.AppsV1().ControllerRevisions(vm.Namespace).Create(context.Background(), preferenceRevision, metav1.CreateOptions{})
+	storedRevision, err := storeRevision(preferenceRevision, m.clientset)
 	if err != nil {
-		if errors.IsAlreadyExists(err) {
-			// Grab the existing revision to check the data it contains
-			existingRevision, err := m.clientset.AppsV1().ControllerRevisions(vm.Namespace).Get(context.Background(), preferenceRevision.Name, metav1.GetOptions{})
-			if err != nil {
-				return nil, err
-			}
-			// If the data between the two differs return an error, otherwise continue and store the name below.
-			if bytes.Compare(existingRevision.Data.Raw, preferenceRevision.Data.Raw) != 0 {
-				return nil, fmt.Errorf("found existing ControllerRevision with unexpected data: %s", preferenceRevision.Name)
-			}
-		} else {
-			return nil, err
-		}
+		return nil, err
 	}
 
-	vm.Spec.Preference.RevisionName = preferenceRevision.Name
-
-	return preferenceRevision, nil
-
+	vm.Spec.Preference.RevisionName = storedRevision.Name
+	return storedRevision, nil
 }
 
 func GenerateRevisionNamePatch(instancetypeRevision, preferenceRevision *appsv1.ControllerRevision) ([]byte, error) {
@@ -335,6 +305,27 @@ func (m *methods) StoreControllerRevisions(vm *virtv1.VirtualMachine) error {
 	}
 
 	return nil
+}
+
+func storeRevision(revision *appsv1.ControllerRevision, clientset kubecli.KubevirtClient) (*appsv1.ControllerRevision, error) {
+	foundRevision, err := clientset.AppsV1().ControllerRevisions(revision.Namespace).Create(context.Background(), revision, metav1.CreateOptions{})
+	if err != nil {
+		if !errors.IsAlreadyExists(err) {
+			return nil, fmt.Errorf("failed to create ControllerRevision: %w", err)
+		}
+
+		// Grab the existing revision to check the data it contains
+		existingRevision, err := clientset.AppsV1().ControllerRevisions(revision.Namespace).Get(context.Background(), revision.Name, metav1.GetOptions{})
+		if err != nil {
+			return nil, fmt.Errorf("failed to get ControllerRevision: %w", err)
+		}
+		// If the data between the two differs, return an error
+		if bytes.Compare(existingRevision.Data.Raw, revision.Data.Raw) != 0 {
+			return nil, fmt.Errorf("found existing ControllerRevision with unexpected data: %s", revision.Name)
+		}
+		return existingRevision, nil
+	}
+	return foundRevision, nil
 }
 
 func (m *methods) ApplyToVmi(field *k8sfield.Path, instancetypeSpec *instancetypev1alpha1.VirtualMachineInstancetypeSpec, preferenceSpec *instancetypev1alpha1.VirtualMachinePreferenceSpec, vmiSpec *virtv1.VirtualMachineInstanceSpec) Conflicts {
