@@ -100,7 +100,7 @@ var _ = Describe("[Serial]SRIOV", func() {
 				libvmi.WithNetwork(v1.DefaultPodNetwork()),
 			}
 			if cloudInitNetworkData != "" {
-				cloudinitOption := libvmi.WithCloudInitNoCloudNetworkData(cloudInitNetworkData, false)
+				cloudinitOption := libvmi.WithCloudInitNoCloudNetworkData(cloudInitNetworkData)
 				withVmiOptions = append(withVmiOptions, cloudinitOption)
 			}
 			// sriov network interfaces
