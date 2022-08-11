@@ -393,31 +393,6 @@ var _ = SIGDescribe("DataVolume Integration", func() {
 				_, err = virtClient.VirtualMachine(util.NamespaceTestDefault).Create(vm)
 				Expect(err).ToNot(HaveOccurred())
 			})
-			It("[Serial][test_id:4644]should fail to start when a volume is backed by PVC created by DataVolume instead of the DataVolume itself", func() {
-				dv := libstorage.NewDataVolumeWithRegistryImportInStorageClass(cd.DataVolumeImportUrlForContainerDisk(cd.ContainerDiskAlpine), util.NamespaceTestDefault, storageClass.Name, k8sv1.ReadWriteOnce, k8sv1.PersistentVolumeFilesystem)
-				_, err := virtClient.CdiClient().CdiV1beta1().DataVolumes(dv.Namespace).Create(context.Background(), dv, metav1.CreateOptions{})
-				Expect(err).ToNot(HaveOccurred())
-
-				defer func(dv *cdiv1.DataVolume) {
-					By(deletingDataVolume)
-					ExpectWithOffset(1, virtClient.CdiClient().CdiV1beta1().DataVolumes(dv.Namespace).Delete(context.Background(), dv.Name, metav1.DeleteOptions{})).To(Succeed(), metav1.DeleteOptions{})
-				}(dv)
-				Eventually(func() error {
-					_, err := virtClient.CoreV1().PersistentVolumeClaims(dv.Namespace).Get(context.Background(), dv.Name, metav1.GetOptions{})
-					return err
-				}, 30*time.Second, 1*time.Second).Should(BeNil())
-
-				vm := tests.NewRandomVirtualMachine(vmi, true)
-				vm, err = virtClient.VirtualMachine(util.NamespaceTestDefault).Create(vm)
-				Expect(err).ShouldNot(HaveOccurred())
-
-				Eventually(func() bool {
-					vm, err := virtClient.VirtualMachine(vm.Namespace).Get(vm.Name, &metav1.GetOptions{})
-					Expect(err).ToNot(HaveOccurred())
-
-					return vm.Status.Created
-				}, 30*time.Second, 1*time.Second).Should(Equal(false))
-			})
 		})
 	})
 
