@@ -3346,10 +3346,6 @@ var _ = Describe("[rfe_id:393][crit:high][vendor:cnv-qe@redhat.com][level:system
 					setMastersUnschedulable(true)
 				})
 
-				AfterEach(func() {
-					libnode.CleanNodes()
-				})
-
 				It("[test_id:6982]should migrate a VMI only one time", func() {
 					checks.SkipIfVersionBelow("Eviction of completed pods requires v1.13 and above", "1.13")
 
