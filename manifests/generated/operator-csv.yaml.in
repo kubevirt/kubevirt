@@ -1083,6 +1083,8 @@ spec:
                   capabilities:
                     drop:
                     - ALL
+                  seccompProfile:
+                    type: RuntimeDefault
                 volumeMounts:
                 - mountPath: /etc/virt-operator/certificates
                   name: kubevirt-operator-certs
@@ -1094,6 +1096,8 @@ spec:
               priorityClassName: kubevirt-cluster-critical
               securityContext:
                 runAsNonRoot: true
+                seccompProfile:
+                  type: RuntimeDefault
               serviceAccountName: kubevirt-operator
               tolerations:
               - key: CriticalAddonsOnly
