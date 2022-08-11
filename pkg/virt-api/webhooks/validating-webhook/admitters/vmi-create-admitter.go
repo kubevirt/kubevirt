@@ -150,6 +150,7 @@ func ValidateVirtualMachineInstanceSpec(field *k8sfield.Path, spec *v1.VirtualMa
 	causes = append(causes, validateStartStrategy(field, spec)...)
 	causes = append(causes, validateRealtime(field, spec)...)
 	causes = append(causes, validateSpecAffinity(field, spec)...)
+	causes = append(causes, validateSpecTopologySpreadConstraints(field, spec)...)
 
 	maxNumberOfInterfacesExceeded := len(spec.Domain.Devices.Interfaces) > arrayLenMax
 	if maxNumberOfInterfacesExceeded {
@@ -2494,6 +2495,27 @@ func validateSpecAffinity(field *k8sfield.Path, spec *v1.VirtualMachineInstanceS
 	}
 
 	errorList := validateAffinity(spec.Affinity, field)
+
+	//convert errorList to []metav1.StatusCause
+	for _, validationErr := range errorList {
+		causes = append(causes, metav1.StatusCause{
+			Type:    metav1.CauseTypeFieldValueInvalid,
+			Message: validationErr.Error(),
+			Field:   validationErr.Field,
+		})
+	}
+
+	return
+}
+
+// validateSpecTopologySpreadConstraints is function that validate spec.validateSpecTopologySpreadConstraints
+// instead of bring in the whole kubernetes lib we simply copy it from kubernetes/pkg/apis/core/validation/validation.go
+func validateSpecTopologySpreadConstraints(field *k8sfield.Path, spec *v1.VirtualMachineInstanceSpec) (causes []metav1.StatusCause) {
+	if spec.TopologySpreadConstraints == nil {
+		return
+	}
+
+	errorList := validateTopologySpreadConstraints(spec.TopologySpreadConstraints, field.Child("topologySpreadConstraints"))
 
 	//convert errorList to []metav1.StatusCause
 	for _, validationErr := range errorList {
