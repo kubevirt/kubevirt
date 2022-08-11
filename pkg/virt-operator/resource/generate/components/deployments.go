@@ -320,7 +320,8 @@ func NewApiServerDeployment(namespace string, repository string, imagePrefix str
 	pod := &deployment.Spec.Template.Spec
 	pod.ServiceAccountName = rbac.ApiServiceAccountName
 	pod.SecurityContext = &corev1.PodSecurityContext{
-		RunAsNonRoot: boolPtr(true),
+		RunAsNonRoot:   boolPtr(true),
+		SeccompProfile: &corev1.SeccompProfile{Type: corev1.SeccompProfileTypeRuntimeDefault},
 	}
 
 	container := &deployment.Spec.Template.Spec.Containers[0]
@@ -370,14 +371,13 @@ func NewApiServerDeployment(namespace string, repository string, imagePrefix str
 		},
 	}
 
-	if container.SecurityContext == nil {
-		container.SecurityContext = &corev1.SecurityContext{}
+	container.SecurityContext = &corev1.SecurityContext{
+		AllowPrivilegeEscalation: pointer.Bool(false),
+		Capabilities: &corev1.Capabilities{
+			Drop: []corev1.Capability{"ALL"},
+		},
+		SeccompProfile: &corev1.SeccompProfile{Type: corev1.SeccompProfileTypeRuntimeDefault},
 	}
-	container.SecurityContext.AllowPrivilegeEscalation = pointer.Bool(false)
-	container.SecurityContext.Capabilities = &corev1.Capabilities{
-		Drop: []corev1.Capability{"ALL"},
-	}
-
 	return deployment, nil
 }
 
@@ -394,7 +394,8 @@ func NewControllerDeployment(namespace string, repository string, imagePrefix st
 	pod := &deployment.Spec.Template.Spec
 	pod.ServiceAccountName = rbac.ControllerServiceAccountName
 	pod.SecurityContext = &corev1.PodSecurityContext{
-		RunAsNonRoot: boolPtr(true),
+		RunAsNonRoot:   boolPtr(true),
+		SeccompProfile: &corev1.SeccompProfile{Type: corev1.SeccompProfileTypeRuntimeDefault},
 	}
 
 	launcherVersion = AddVersionSeparatorPrefix(launcherVersion)
@@ -462,14 +463,13 @@ func NewControllerDeployment(namespace string, repository string, imagePrefix st
 		},
 	}
 
-	if container.SecurityContext == nil {
-		container.SecurityContext = &corev1.SecurityContext{}
+	container.SecurityContext = &corev1.SecurityContext{
+		AllowPrivilegeEscalation: pointer.Bool(false),
+		Capabilities: &corev1.Capabilities{
+			Drop: []corev1.Capability{"ALL"},
+		},
+		SeccompProfile: &corev1.SeccompProfile{Type: corev1.SeccompProfileTypeRuntimeDefault},
 	}
-	container.SecurityContext.AllowPrivilegeEscalation = pointer.Bool(false)
-	container.SecurityContext.Capabilities = &corev1.Capabilities{
-		Drop: []corev1.Capability{"ALL"},
-	}
-
 	return deployment, nil
 }
 
@@ -588,11 +588,13 @@ func NewOperatorDeployment(namespace string, repository string, imagePrefix stri
 								Capabilities: &corev1.Capabilities{
 									Drop: []corev1.Capability{"ALL"},
 								},
+								SeccompProfile: &corev1.SeccompProfile{Type: corev1.SeccompProfileTypeRuntimeDefault},
 							},
 						},
 					},
 					SecurityContext: &corev1.PodSecurityContext{
-						RunAsNonRoot: boolPtr(true),
+						RunAsNonRoot:   boolPtr(true),
+						SeccompProfile: &corev1.SeccompProfile{Type: corev1.SeccompProfileTypeRuntimeDefault},
 					},
 				},
 			},
