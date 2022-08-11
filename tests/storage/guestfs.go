@@ -82,15 +82,14 @@ var _ = SIGDescribe("[rfe_id:6364][[Serial]Guestfs", func() {
 		// Waiting until the libguestfs pod is running
 		Eventually(func() bool {
 			pod, _ := virtClient.CoreV1().Pods(util.NamespaceTestDefault).Get(context.Background(), podName, metav1.GetOptions{})
-			ready := false
 			for _, status := range pod.Status.ContainerStatuses {
 				if status.State.Running != nil {
 					return true
 				}
 			}
-			return ready
+			return false
 
-		}, 90*time.Second, 2*time.Second).Should(BeTrue())
+		}, 180*time.Second, 2*time.Second).Should(BeTrue())
 		// Verify that the appliance has been extracted before running any tests by checking the done file
 		Eventually(func() bool {
 			_, _, err := execCommandLibguestfsPod(podName, []string{"ls", "/usr/local/lib/guestfs/appliance/done"})
