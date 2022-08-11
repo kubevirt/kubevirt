@@ -68,7 +68,6 @@ const (
 
 var _ = Describe("[Serial]SRIOV", func() {
 
-	var err error
 	var virtClient kubecli.KubevirtClient
 
 	sriovResourceName := os.Getenv("SRIOV_RESOURCE_NAME")
@@ -83,6 +82,7 @@ var _ = Describe("[Serial]SRIOV", func() {
 	}
 
 	BeforeEach(func() {
+		var err error
 		virtClient, err = kubecli.GetKubevirtClient()
 		util.PanicOnError(err)
 
@@ -114,7 +114,7 @@ var _ = Describe("[Serial]SRIOV", func() {
 		}
 
 		startVmi := func(vmi *v1.VirtualMachineInstance) *v1.VirtualMachineInstance {
-			vmi, err = virtClient.VirtualMachineInstance(util.NamespaceTestDefault).Create(vmi)
+			vmi, err := virtClient.VirtualMachineInstance(util.NamespaceTestDefault).Create(vmi)
 			Expect(err).ToNot(HaveOccurred())
 			return vmi
 		}
@@ -137,7 +137,7 @@ var _ = Describe("[Serial]SRIOV", func() {
 			vmiPod := tests.GetRunningPodByVirtualMachineInstance(vmi, vmi.Namespace)
 
 			By("checking default interface is present")
-			_, err = tests.ExecuteCommandOnPod(
+			_, err := tests.ExecuteCommandOnPod(
 				virtClient,
 				vmiPod,
 				"compute",
@@ -218,7 +218,7 @@ var _ = Describe("[Serial]SRIOV", func() {
 
 				vmim := tests.NewRandomMigration(vmi.Name, vmi.Namespace)
 				Eventually(func() error {
-					_, err = virtClient.VirtualMachineInstanceMigration(vmim.Namespace).Create(vmim, &k8smetav1.CreateOptions{})
+					_, err := virtClient.VirtualMachineInstanceMigration(vmim.Namespace).Create(vmim, &k8smetav1.CreateOptions{})
 					return err
 				}, 1*time.Minute, 20*time.Second).ShouldNot(Succeed())
 			})
