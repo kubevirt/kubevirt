@@ -236,10 +236,37 @@ func DeleteDataVolume(dv **v1beta1.DataVolume) {
 	*dv = nil
 }
 
+func SetDataVolumeGC(virtCli kubecli.KubevirtClient, ttlSec *int32) {
+	cdi := GetCDI(virtCli)
+	if cdi.Spec.Config.DataVolumeTTLSeconds == ttlSec {
+		return
+	}
+	cdi.Spec.Config.DataVolumeTTLSeconds = ttlSec
+	_, err := virtCli.CdiClient().CdiV1beta1().CDIs().Update(context.TODO(), cdi, v12.UpdateOptions{})
+	Expect(err).ToNot(HaveOccurred())
+
+	Eventually(func() *int32 {
+		config, err := virtCli.CdiClient().CdiV1beta1().CDIConfigs().Get(context.TODO(), "config", v12.GetOptions{})
+		Expect(err).ToNot(HaveOccurred())
+		return config.Spec.DataVolumeTTLSeconds
+	}, 10, time.Second).Should(Equal(ttlSec))
+}
+
 func IsDataVolumeGC(virtCli kubecli.KubevirtClient) bool {
 	config, err := virtCli.CdiClient().CdiV1beta1().CDIConfigs().Get(context.TODO(), "config", v12.GetOptions{})
 	Expect(err).ToNot(HaveOccurred())
 	return config.Spec.DataVolumeTTLSeconds != nil
+}
+
+func GetCDI(virtCli kubecli.KubevirtClient) *v1beta1.CDI {
+	cdiList, err := virtCli.CdiClient().CdiV1beta1().CDIs().List(context.Background(), v12.ListOptions{})
+	Expect(err).ToNot(HaveOccurred())
+	Expect(cdiList.Items).To(HaveLen(1))
+
+	cdi := &cdiList.Items[0]
+	cdi, err = virtCli.CdiClient().CdiV1beta1().CDIs().Get(context.TODO(), cdi.Name, v12.GetOptions{})
+	Expect(err).ToNot(HaveOccurred())
+	return cdi
 }
 
 func HasDataVolumeCRD() bool {
