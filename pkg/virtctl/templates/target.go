@@ -33,10 +33,11 @@ func ParseTarget(arg string) (kind string, namespace string, name string, err er
 		return r == '.'
 	})
 
-	name = parts[0]
-
 	if len(parts) > 1 {
-		namespace = parts[1]
+		name = strings.Join(parts[:len(parts)-1], ".")
+		namespace = parts[len(parts)-1]
+	} else {
+		name = parts[0]
 	}
 
 	return kind, namespace, name, nil
