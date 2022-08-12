@@ -411,7 +411,7 @@ if [[ $KUBEVIRT_NONROOT =~ true ]]; then
   if [[ -z $label_filter ]]; then
     label_filter='needs-non-root'
   else
-    label_filter=$label_filter' || needs-non-root'
+    label_filter=$label_filter' && needs-non-root'
   fi
 else
   if [[ -z $label_filter ]]; then
