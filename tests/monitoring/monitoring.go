@@ -36,6 +36,7 @@ import (
 	"kubevirt.io/kubevirt/tests"
 	"kubevirt.io/kubevirt/tests/flags"
 	"kubevirt.io/kubevirt/tests/framework/checks"
+	"kubevirt.io/kubevirt/tests/libvmi"
 	"kubevirt.io/kubevirt/tests/util"
 
 	autoscalingv1 "k8s.io/api/autoscaling/v1"
@@ -461,6 +462,34 @@ var _ = Describe("[Serial][sig-monitoring]Prometheus Alerts", func() {
 			}
 
 			verifyAlertExist(virtHandler.restErrorsBurtsAlert)
+		})
+	})
+
+	Context("Migration Alerts", func() {
+		It("KubeVirtVMIExcessiveMigrations should be triggered when a VMI has been migrated more than 12 times during the last 24 hours", func() {
+			By("Starting the VirtualMachineInstance")
+			opts := append(libvmi.WithMasqueradeNetworking(), libvmi.WithResourceMemory("2Mi"))
+			vmi := libvmi.New(opts...)
+			vmi = tests.RunVMIAndExpectLaunch(vmi, 90)
+
+			By("Migrating the VMI 13 times")
+			for i := 0; i < 13; i++ {
+				migration := tests.NewRandomMigration(vmi.Name, vmi.Namespace)
+				migrationUID := tests.RunMigrationAndExpectCompletion(virtClient, migration, tests.MigrationWaitTime)
+
+				// check VMI, confirm migration state
+				tests.ConfirmVMIPostMigration(virtClient, vmi, migrationUID)
+			}
+
+			// delete VMI
+			By("Deleting the VMI")
+			Expect(virtClient.VirtualMachineInstance(vmi.Namespace).Delete(vmi.Name, &metav1.DeleteOptions{})).To(Succeed())
+
+			By("Waiting for VMI to disappear")
+			tests.WaitForVirtualMachineToDisappearWithTimeout(vmi, 240)
+
+			By("Verifying KubeVirtVMIExcessiveMigration alert exists")
+			verifyAlertExist("KubeVirtVMIExcessiveMigrations")
 		})
 	})
 })
