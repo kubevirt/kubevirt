@@ -94,25 +94,6 @@ var _ = Describe("[Serial]SRIOV", func() {
 
 	Context("VirtualMachineInstance with sriov plugin interface", func() {
 
-		getSriovVmi := func(networks []string, cloudInitNetworkData string) *v1.VirtualMachineInstance {
-			withVmiOptions := []libvmi.Option{
-				libvmi.WithInterface(libvmi.InterfaceDeviceWithMasqueradeBinding()),
-				libvmi.WithNetwork(v1.DefaultPodNetwork()),
-			}
-			if cloudInitNetworkData != "" {
-				cloudinitOption := libvmi.WithCloudInitNoCloudNetworkData(cloudInitNetworkData)
-				withVmiOptions = append(withVmiOptions, cloudinitOption)
-			}
-			// sriov network interfaces
-			for _, name := range networks {
-				withVmiOptions = append(withVmiOptions,
-					libvmi.WithInterface(libvmi.InterfaceDeviceWithSRIOVBinding(name)),
-					libvmi.WithNetwork(libvmi.MultusNetwork(name, name)),
-				)
-			}
-			return libvmi.NewFedora(withVmiOptions...)
-		}
-
 		startVmi := func(vmi *v1.VirtualMachineInstance) *v1.VirtualMachineInstance {
 			vmi, err := virtClient.VirtualMachineInstance(util.NamespaceTestDefault).Create(vmi)
 			Expect(err).ToNot(HaveOccurred())
@@ -155,12 +136,6 @@ var _ = Describe("[Serial]SRIOV", func() {
 			Expect(err).ToNot(HaveOccurred())
 		}
 
-		checkInterfacesInGuest := func(vmi *v1.VirtualMachineInstance, interfaces []string) {
-			for _, iface := range interfaces {
-				Expect(checkInterface(vmi, iface)).To(Succeed())
-			}
-		}
-
 		// createSriovVMs instantiates two VMs on the same node connected through SR-IOV.
 		createSriovVMs := func(networkNameA, networkNameB, cidrA, cidrB string) (*v1.VirtualMachineInstance, *v1.VirtualMachineInstance) {
 			// Explicitly choose different random mac addresses instead of relying on kubemacpool to do it:
@@ -178,8 +153,8 @@ var _ = Describe("[Serial]SRIOV", func() {
 			// start peer machines with sriov interfaces from the same resource pool
 			// manually configure IP/link on sriov interfaces because there is
 			// no DHCP server to serve the address to the guest
-			vmi1 := getSriovVmi([]string{networkNameA}, cloudInitNetworkDataWithStaticIPsByMac(networkNameA, mac1.String(), cidrA))
-			vmi2 := getSriovVmi([]string{networkNameB}, cloudInitNetworkDataWithStaticIPsByMac(networkNameB, mac2.String(), cidrB))
+			vmi1 := newSRIOVVmi([]string{networkNameA}, cloudInitNetworkDataWithStaticIPsByMac(networkNameA, mac1.String(), cidrA))
+			vmi2 := newSRIOVVmi([]string{networkNameB}, cloudInitNetworkDataWithStaticIPsByMac(networkNameB, mac2.String(), cidrB))
 
 			vmi1.Spec.Domain.Devices.Interfaces[1].MacAddress = mac1.String()
 			vmi2.Spec.Domain.Devices.Interfaces[1].MacAddress = mac2.String()
@@ -212,7 +187,7 @@ var _ = Describe("[Serial]SRIOV", func() {
 				tests.EnableFeatureGate(virtconfig.LiveMigrationGate)
 				defer tests.UpdateKubeVirtConfigValueAndWait(testsuite.KubeVirtDefaultConfig)
 
-				vmi := getSriovVmi([]string{sriovnet1}, defaultCloudInitNetworkData())
+				vmi := newSRIOVVmi([]string{sriovnet1}, defaultCloudInitNetworkData())
 				vmi = startVmi(vmi)
 				vmi = waitVmi(vmi)
 
@@ -225,7 +200,7 @@ var _ = Describe("[Serial]SRIOV", func() {
 			It("should have cloud-init meta_data with aligned cpus to sriov interface numa node for VMIs with dedicatedCPUs", func() {
 				checks.SkipTestIfNoCPUManager()
 				noCloudInitNetworkData := ""
-				vmi := getSriovVmi([]string{sriovnet1}, noCloudInitNetworkData)
+				vmi := newSRIOVVmi([]string{sriovnet1}, noCloudInitNetworkData)
 				tests.AddCloudInitConfigDriveData(vmi, "disk1", "", defaultCloudInitNetworkData(), false)
 				vmi.Spec.Domain.CPU = &v1.CPU{
 					Cores:                 4,
@@ -291,7 +266,7 @@ var _ = Describe("[Serial]SRIOV", func() {
 
 			It("should have cloud-init meta_data with tagged sriov nics", func() {
 				noCloudInitNetworkData := ""
-				vmi := getSriovVmi([]string{sriovnet1}, noCloudInitNetworkData)
+				vmi := newSRIOVVmi([]string{sriovnet1}, noCloudInitNetworkData)
 				testInstancetype := "testInstancetype"
 				if vmi.Annotations == nil {
 					vmi.Annotations = make(map[string]string)
@@ -352,7 +327,7 @@ var _ = Describe("[Serial]SRIOV", func() {
 			})
 
 			It("[test_id:1754]should create a virtual machine with sriov interface", func() {
-				vmi := getSriovVmi([]string{sriovnet1}, defaultCloudInitNetworkData())
+				vmi := newSRIOVVmi([]string{sriovnet1}, defaultCloudInitNetworkData())
 				vmi = startVmi(vmi)
 				vmi = waitVmi(vmi)
 
@@ -370,7 +345,7 @@ var _ = Describe("[Serial]SRIOV", func() {
 			})
 
 			It("[test_id:1754]should create a virtual machine with sriov interface with all pci devices on the root bus", func() {
-				vmi := getSriovVmi([]string{sriovnet1}, defaultCloudInitNetworkData())
+				vmi := newSRIOVVmi([]string{sriovnet1}, defaultCloudInitNetworkData())
 				vmi.Annotations = map[string]string{
 					v1.PlacePCIDevicesOnRootComplex: "true",
 				}
@@ -400,7 +375,7 @@ var _ = Describe("[Serial]SRIOV", func() {
 				checks.SkipTestIfNoCPUManager()
 				// In addition to verifying that we can start a VMI with CPU pinning
 				// this also tests if we've correctly calculated the overhead for VFIO devices.
-				vmi := getSriovVmi([]string{sriovnet1}, defaultCloudInitNetworkData())
+				vmi := newSRIOVVmi([]string{sriovnet1}, defaultCloudInitNetworkData())
 				vmi.Spec.Domain.CPU = &v1.CPU{
 					Cores:                 2,
 					DedicatedCPUPlacement: true,
@@ -418,7 +393,7 @@ var _ = Describe("[Serial]SRIOV", func() {
 			})
 			It("[test_id:3985]should create a virtual machine with sriov interface with custom MAC address", func() {
 				const mac = "de:ad:00:00:be:ef"
-				vmi := getSriovVmi([]string{sriovnet1}, defaultCloudInitNetworkData())
+				vmi := newSRIOVVmi([]string{sriovnet1}, defaultCloudInitNetworkData())
 				vmi.Spec.Domain.Devices.Interfaces[1].MacAddress = mac
 
 				vmi = startVmi(vmi)
@@ -461,7 +436,7 @@ var _ = Describe("[Serial]SRIOV", func() {
 
 				BeforeEach(func() {
 					// The SR-IOV VF MAC should be preserved on migration, therefore explicitly specify it.
-					vmi = getSriovVmi([]string{sriovnet1}, defaultCloudInitNetworkData())
+					vmi = newSRIOVVmi([]string{sriovnet1}, defaultCloudInitNetworkData())
 					vmi.Spec.Domain.Devices.Interfaces[1].MacAddress = mac
 
 					vmi = startVmi(vmi)
@@ -499,7 +474,7 @@ var _ = Describe("[Serial]SRIOV", func() {
 
 			It("[test_id:1755]should create a virtual machine with two sriov interfaces referring the same resource", func() {
 				sriovNetworks := []string{sriovnet1, sriovnet2}
-				vmi := getSriovVmi(sriovNetworks, defaultCloudInitNetworkData())
+				vmi := newSRIOVVmi(sriovNetworks, defaultCloudInitNetworkData())
 				vmi.Spec.Domain.Devices.Interfaces[1].PciAddress = "0000:06:00.0"
 				vmi.Spec.Domain.Devices.Interfaces[2].PciAddress = "0000:07:00.0"
 				vmi = startVmi(vmi)
@@ -694,4 +669,29 @@ func findIfaceByMAC(virtClient kubecli.KubevirtClient, vmi *v1.VirtualMachineIns
 		return "", fmt.Errorf("could not find interface with MAC %q on VMI %q: %v", mac, vmi.Name, err)
 	}
 	return ifaceName, nil
+}
+
+func newSRIOVVmi(networks []string, cloudInitNetworkData string) *v1.VirtualMachineInstance {
+	options := []libvmi.Option{
+		libvmi.WithInterface(libvmi.InterfaceDeviceWithMasqueradeBinding()),
+		libvmi.WithNetwork(v1.DefaultPodNetwork()),
+	}
+	if cloudInitNetworkData != "" {
+		cloudinitOption := libvmi.WithCloudInitNoCloudNetworkData(cloudInitNetworkData)
+		options = append(options, cloudinitOption)
+	}
+
+	for _, name := range networks {
+		options = append(options,
+			libvmi.WithInterface(libvmi.InterfaceDeviceWithSRIOVBinding(name)),
+			libvmi.WithNetwork(libvmi.MultusNetwork(name, name)),
+		)
+	}
+	return libvmi.NewFedora(options...)
+}
+
+func checkInterfacesInGuest(vmi *v1.VirtualMachineInstance, interfaces []string) {
+	for _, iface := range interfaces {
+		Expect(checkInterface(vmi, iface)).To(Succeed())
+	}
 }
