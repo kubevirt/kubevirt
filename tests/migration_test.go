@@ -1415,7 +1415,7 @@ var _ = Describe("[rfe_id:393][crit:high][vendor:cnv-qe@redhat.com][level:system
 				_, err := virtClient.CdiClient().CdiV1beta1().DataVolumes(dataVolume.Namespace).Create(context.Background(), dataVolume, metav1.CreateOptions{})
 				Expect(err).ToNot(HaveOccurred())
 
-				Eventually(ThisDV(dataVolume), 240).Should(Or(HaveSucceeded(), BeInPhase(cdiv1.WaitForFirstConsumer)))
+				libstorage.EventuallyDV(dataVolume, 240, Or(HaveSucceeded(), BeInPhase(cdiv1.WaitForFirstConsumer)))
 
 				vmi = tests.RunVMIAndExpectLaunch(vmi, 240)
 
@@ -1447,8 +1447,7 @@ var _ = Describe("[rfe_id:393][crit:high][vendor:cnv-qe@redhat.com][level:system
 
 				By("Waiting for VMI to disappear")
 				tests.WaitForVirtualMachineToDisappearWithTimeout(vmi, 120)
-
-				Expect(virtClient.CdiClient().CdiV1beta1().DataVolumes(dataVolume.Namespace).Delete(context.Background(), dataVolume.Name, metav1.DeleteOptions{})).To(Succeed(), metav1.DeleteOptions{})
+				libstorage.DeleteDataVolume(&dataVolume)
 			})
 			It("[test_id:1479][storage-req] should migrate a vmi with a shared block disk", func() {
 				vmi, _ := tests.NewRandomVirtualMachineInstanceWithBlockDisk(cd.DataVolumeImportUrlForContainerDisk(cd.ContainerDiskAlpine), util.NamespaceTestDefault, k8sv1.ReadWriteMany)
@@ -1620,11 +1619,7 @@ var _ = Describe("[rfe_id:393][crit:high][vendor:cnv-qe@redhat.com][level:system
 			})
 
 			AfterEach(func() {
-				if dv != nil {
-					By("Deleting the DataVolume")
-					Expect(virtClient.CdiClient().CdiV1beta1().DataVolumes(dv.Namespace).Delete(context.Background(), dv.Name, metav1.DeleteOptions{})).To(Succeed())
-					dv = nil
-				}
+				libstorage.DeleteDataVolume(&dv)
 			})
 
 			It("[test_id:2653] should be migrated successfully, using guest agent on VM with default migration configuration", func() {
@@ -1679,7 +1674,7 @@ var _ = Describe("[rfe_id:393][crit:high][vendor:cnv-qe@redhat.com][level:system
 				return pvc
 			}, 30*time.Second).Should(Not(BeNil()))
 			By("waiting for the dv import to pvc to finish")
-			Eventually(ThisDV(dv), 180*time.Second).Should(HaveSucceeded())
+			libstorage.EventuallyDV(dv, 180, HaveSucceeded())
 			tests.ChangeImgFilePermissionsToNonQEMU(pvc)
 			pvName = pvc.Name
 			return dv
@@ -1697,11 +1692,7 @@ var _ = Describe("[rfe_id:393][crit:high][vendor:cnv-qe@redhat.com][level:system
 			})
 			AfterEach(func() {
 				tests.EnableFeatureGate(virtconfig.NonRoot)
-				if dv != nil {
-					By("Deleting the DataVolume")
-					Expect(virtClient.CdiClient().CdiV1beta1().DataVolumes(dv.Namespace).Delete(context.Background(), dv.Name, metav1.DeleteOptions{})).To(Succeed())
-					dv = nil
-				}
+				libstorage.DeleteDataVolume(&dv)
 			})
 
 			DescribeTable("should migrate root implementation to nonroot", func(createVMI func() *v1.VirtualMachineInstance, loginFunc func(*v1.VirtualMachineInstance) error) {
@@ -1784,8 +1775,7 @@ var _ = Describe("[rfe_id:393][crit:high][vendor:cnv-qe@redhat.com][level:system
 					tests.EnableFeatureGate(virtconfig.NonRoot)
 				}
 				if dv != nil {
-					By("Deleting the DataVolume")
-					Expect(virtClient.CdiClient().CdiV1beta1().DataVolumes(dv.Namespace).Delete(context.Background(), dv.Name, metav1.DeleteOptions{})).To(Succeed())
+					libstorage.DeleteDataVolume(&dv)
 					dv = nil
 				}
 			})
@@ -2064,7 +2054,7 @@ var _ = Describe("[rfe_id:393][crit:high][vendor:cnv-qe@redhat.com][level:system
 				quantity, err := resource.ParseQuantity(cd.FedoraVolumeSize)
 				Expect(err).ToNot(HaveOccurred())
 				url := "docker://" + cd.ContainerDiskFor(cd.ContainerDiskFedoraTestTooling)
-				dv := libstorage.NewDataVolumeWithRegistryImport(url, util.NamespaceTestDefault, k8sv1.ReadWriteMany)
+				dv = libstorage.NewDataVolumeWithRegistryImport(url, util.NamespaceTestDefault, k8sv1.ReadWriteMany)
 				dv.Spec.PVC.Resources.Requests["storage"] = quantity
 				_, err = virtClient.CdiClient().CdiV1beta1().DataVolumes(dv.Namespace).Create(context.Background(), dv, metav1.CreateOptions{})
 				Expect(err).ToNot(HaveOccurred())
@@ -2072,11 +2062,7 @@ var _ = Describe("[rfe_id:393][crit:high][vendor:cnv-qe@redhat.com][level:system
 			})
 
 			AfterEach(func() {
-				if dv != nil {
-					By("Deleting the DataVolume")
-					Expect(virtClient.CdiClient().CdiV1beta1().DataVolumes(dv.Namespace).Delete(context.Background(), dv.Name, metav1.DeleteOptions{})).To(Succeed())
-					dv = nil
-				}
+				libstorage.DeleteDataVolume(&dv)
 			})
 
 			It("[test_id:5004] should be migrated successfully, using guest agent on VM with postcopy", func() {
@@ -2567,7 +2553,7 @@ var _ = Describe("[rfe_id:393][crit:high][vendor:cnv-qe@redhat.com][level:system
 
 				_, err = virtClient.CdiClient().CdiV1beta1().DataVolumes(dv.Namespace).Create(context.Background(), dv, metav1.CreateOptions{})
 				Expect(err).ToNot(HaveOccurred())
-				Eventually(ThisDV(dv), 600).Should(HaveSucceeded())
+				libstorage.EventuallyDV(dv, 600, HaveSucceeded())
 				vmi := tests.NewRandomVMIWithDataVolume(dv.Name)
 				tests.AddUserData(vmi, "disk1", "#!/bin/bash\n echo hello\n")
 				return vmi

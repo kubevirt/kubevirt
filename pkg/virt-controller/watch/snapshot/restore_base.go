@@ -35,6 +35,8 @@ import (
 	"kubevirt.io/client-go/kubecli"
 	"kubevirt.io/client-go/log"
 
+	"kubevirt.io/containerized-data-importer-api/pkg/apis/core/v1beta1"
+
 	"kubevirt.io/kubevirt/pkg/util/status"
 	watchutil "kubevirt.io/kubevirt/pkg/virt-controller/watch/util"
 )
@@ -69,6 +71,13 @@ func (ctrl *VMRestoreController) Init() {
 		cache.ResourceEventHandlerFuncs{
 			AddFunc:    ctrl.handleVMRestore,
 			UpdateFunc: func(oldObj, newObj interface{}) { ctrl.handleVMRestore(newObj) },
+		},
+	)
+
+	ctrl.DataVolumeInformer.AddEventHandler(
+		cache.ResourceEventHandlerFuncs{
+			AddFunc:    ctrl.handleDataVolume,
+			UpdateFunc: func(oldObj, newObj interface{}) { ctrl.handleDataVolume(newObj) },
 		},
 	)
 
@@ -159,13 +168,31 @@ func (ctrl *VMRestoreController) handleVMRestore(obj interface{}) {
 	}
 }
 
+func (ctrl *VMRestoreController) handleDataVolume(obj interface{}) {
+	if unknown, ok := obj.(cache.DeletedFinalStateUnknown); ok && unknown.Obj != nil {
+		obj = unknown.Obj
+	}
+
+	if dv, ok := obj.(*v1beta1.DataVolume); ok {
+		restoreName, ok := dv.Annotations[restoreNameAnnotation]
+		if !ok {
+			return
+		}
+
+		objName := cacheKeyFunc(dv.Namespace, restoreName)
+
+		log.Log.V(3).Infof("Handling DV %s/%s, Restore %s", dv.Namespace, dv.Name, objName)
+		ctrl.vmRestoreQueue.Add(objName)
+	}
+}
+
 func (ctrl *VMRestoreController) handlePVC(obj interface{}) {
 	if unknown, ok := obj.(cache.DeletedFinalStateUnknown); ok && unknown.Obj != nil {
 		obj = unknown.Obj
 	}
 
 	if pvc, ok := obj.(*corev1.PersistentVolumeClaim); ok {
-		restoreName, ok := pvc.Annotations[pvcRestoreAnnotation]
+		restoreName, ok := pvc.Annotations[restoreNameAnnotation]
 		if !ok {
 			return
 		}

@@ -47,7 +47,6 @@ import (
 	snapshotv1 "kubevirt.io/api/snapshot/v1alpha1"
 	"kubevirt.io/client-go/kubecli"
 	"kubevirt.io/client-go/log"
-	cdiv1 "kubevirt.io/containerized-data-importer-api/pkg/apis/core/v1beta1"
 
 	k6ttypes "kubevirt.io/kubevirt/pkg/util/types"
 	"kubevirt.io/kubevirt/pkg/virt-operator/resource/generate/components"
@@ -56,6 +55,7 @@ import (
 	cd "kubevirt.io/kubevirt/tests/containerdisk"
 	"kubevirt.io/kubevirt/tests/flags"
 	"kubevirt.io/kubevirt/tests/framework/checks"
+	. "kubevirt.io/kubevirt/tests/framework/matcher"
 	"kubevirt.io/kubevirt/tests/libstorage"
 	"kubevirt.io/kubevirt/tests/util"
 
@@ -344,13 +344,7 @@ var _ = SIGDescribe("Export", func() {
 		ensurePVCBound(pvc)
 
 		By("Making sure the DV is successful")
-		Eventually(func() cdiv1.DataVolumePhase {
-			dv, err = virtClient.CdiClient().CdiV1beta1().DataVolumes(dv.Namespace).Get(context.Background(), dv.Name, metav1.GetOptions{})
-			if !errors.IsNotFound(err) {
-				Expect(err).ToNot(HaveOccurred())
-			}
-			return dv.Status.Phase
-		}, 90*time.Second, 1*time.Second).Should(Equal(cdiv1.Succeeded))
+		libstorage.EventuallyDV(dv, 90, HaveSucceeded())
 
 		pod := createSourcePodChecker(pvc)
 
@@ -793,13 +787,8 @@ var _ = SIGDescribe("Export", func() {
 		ensurePVCBound(pvc)
 
 		By("Making sure the DV is successful")
-		Eventually(func() cdiv1.DataVolumePhase {
-			dv, err = virtClient.CdiClient().CdiV1beta1().DataVolumes(dv.Namespace).Get(context.Background(), dv.Name, metav1.GetOptions{})
-			if !errors.IsNotFound(err) {
-				Expect(err).ToNot(HaveOccurred())
-			}
-			return dv.Status.Phase
-		}, 90*time.Second, 1*time.Second).Should(Equal(cdiv1.Succeeded))
+		libstorage.EventuallyDV(dv, 90, HaveSucceeded())
+
 		By("Making sure the export becomes ready")
 		waitForReadyExport(export)
 	})
@@ -1011,13 +1000,7 @@ var _ = SIGDescribe("Export", func() {
 	waitForDisksComplete := func(vm *virtv1.VirtualMachine) {
 		for _, volume := range vm.Spec.Template.Spec.Volumes {
 			if volume.DataVolume != nil {
-				Eventually(func() cdiv1.DataVolumePhase {
-					dv, err := virtClient.CdiClient().CdiV1beta1().DataVolumes(vm.Namespace).Get(context.Background(), volume.DataVolume.Name, metav1.GetOptions{})
-					if err != nil {
-						return ""
-					}
-					return dv.Status.Phase
-				}, 180*time.Second, time.Second).Should(Equal(cdiv1.Succeeded))
+				libstorage.EventuallyDVWith(vm.Namespace, volume.DataVolume.Name, 180, HaveSucceeded())
 			}
 		}
 	}

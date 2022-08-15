@@ -20,14 +20,22 @@
 package util
 
 import (
+	"context"
 	"fmt"
 	"time"
 
 	corev1 "k8s.io/api/core/v1"
+	v1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	utilruntime "k8s.io/apimachinery/pkg/util/runtime"
 	"k8s.io/apimachinery/pkg/util/sets"
 	"k8s.io/client-go/tools/cache"
 	"k8s.io/client-go/util/workqueue"
+
+	virtv1 "kubevirt.io/api/core/v1"
+	"kubevirt.io/client-go/kubecli"
+	cdiv1 "kubevirt.io/containerized-data-importer-api/pkg/apis/core/v1beta1"
+
+	typesutil "kubevirt.io/kubevirt/pkg/util/types"
 )
 
 func ProcessWorkItem(queue workqueue.RateLimitingInterface, handler func(string) (time.Duration, error)) bool {
@@ -96,4 +104,48 @@ func PodsUsingPVCs(podInformer cache.SharedIndexInformer, namespace string, pvcN
 	}
 
 	return pods, nil
+}
+
+func CreateDataVolumeManifest(clientset kubecli.KubevirtClient, dataVolumeTemplate virtv1.DataVolumeTemplateSpec, vm *virtv1.VirtualMachine) (*cdiv1.DataVolume, error) {
+	newDataVolume := &cdiv1.DataVolume{}
+	newDataVolume.Spec = *dataVolumeTemplate.Spec.DeepCopy()
+	newDataVolume.ObjectMeta = *dataVolumeTemplate.ObjectMeta.DeepCopy()
+
+	labels := map[string]string{}
+	labels[virtv1.CreatedByLabel] = string(vm.UID)
+	for k, v := range dataVolumeTemplate.Labels {
+		labels[k] = v
+	}
+	newDataVolume.ObjectMeta.Labels = labels
+
+	annotations := map[string]string{}
+	for k, v := range dataVolumeTemplate.Annotations {
+		annotations[k] = v
+	}
+	newDataVolume.ObjectMeta.Annotations = annotations
+
+	newDataVolume.ObjectMeta.OwnerReferences = []v1.OwnerReference{
+		*v1.NewControllerRef(vm, virtv1.VirtualMachineGroupVersionKind),
+	}
+
+	if newDataVolume.Spec.PriorityClassName == "" && vm.Spec.Template.Spec.PriorityClassName != "" {
+		newDataVolume.Spec.PriorityClassName = vm.Spec.Template.Spec.PriorityClassName
+	}
+
+	cloneSource, err := typesutil.GetCloneSource(context.TODO(), clientset, vm, &newDataVolume.Spec)
+	if err != nil {
+		return nil, err
+	}
+
+	if cloneSource != nil && newDataVolume.Spec.SourceRef != nil {
+		newDataVolume.Spec.SourceRef = nil
+		newDataVolume.Spec.Source = &cdiv1.DataVolumeSource{
+			PVC: &cdiv1.DataVolumeSourcePVC{
+				Namespace: cloneSource.Namespace,
+				Name:      cloneSource.Name,
+			},
+		}
+	}
+
+	return newDataVolume, nil
 }

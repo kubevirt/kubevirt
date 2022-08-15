@@ -31,6 +31,7 @@ import (
 	"kubevirt.io/kubevirt/tests"
 	"kubevirt.io/kubevirt/tests/console"
 	cd "kubevirt.io/kubevirt/tests/containerdisk"
+	"kubevirt.io/kubevirt/tests/framework/matcher"
 	"kubevirt.io/kubevirt/tests/libstorage"
 	"kubevirt.io/kubevirt/tests/libvmi"
 	"kubevirt.io/kubevirt/tests/testsuite"
@@ -169,12 +170,7 @@ var _ = SIGDescribe("VirtualMachineRestore Tests", func() {
 	}
 
 	waitDVReady := func(dv *cdiv1.DataVolume) *cdiv1.DataVolume {
-		Eventually(func() bool {
-			var err error
-			dv, err = virtClient.CdiClient().CdiV1beta1().DataVolumes(dv.Namespace).Get(context.Background(), dv.Name, metav1.GetOptions{})
-			Expect(err).ToNot(HaveOccurred())
-			return dv.Status.Phase == cdiv1.Succeeded
-		}, 180*time.Second, time.Second).Should(BeTrue())
+		libstorage.EventuallyDV(dv, 180, matcher.HaveSucceeded())
 		return dv
 	}
 
@@ -847,6 +843,56 @@ var _ = SIGDescribe("VirtualMachineRestore Tests", func() {
 				return dv
 			}
 
+			verifyOwnerRef := func(obj metav1.Object, apiVersion, kind, name string, uid types.UID) {
+				ownerRefs := obj.GetOwnerReferences()
+				Expect(ownerRefs).To(HaveLen(1))
+				ownerRef := ownerRefs[0]
+				Expect(ownerRef.APIVersion).To(Equal(apiVersion))
+				Expect(ownerRef.Kind).To(Equal(kind))
+				Expect(ownerRef.Name).To(Equal(name))
+				Expect(ownerRef.UID).To(Equal(uid))
+			}
+
+			verifyRestore := func(restoreToNewVM bool, originalDVName string) {
+				if restoreToNewVM {
+					checkNewVMEquality()
+					Expect(restore.Status.DeletedDataVolumes).To(HaveLen(0))
+				} else {
+					Expect(restore.Status.DeletedDataVolumes).To(HaveLen(1))
+					Expect(restore.Status.DeletedDataVolumes).To(ContainElement(originalDVName))
+					_, err = virtClient.CdiClient().CdiV1beta1().DataVolumes(util.NamespaceTestDefault).Get(context.Background(), originalDVName, metav1.GetOptions{})
+					Expect(errors.IsNotFound(err)).To(BeTrue())
+				}
+
+				restores := restore.Status.Restores
+				Expect(restores).To(HaveLen(1))
+
+				pvcName := restores[0].PersistentVolumeClaimName
+				Expect(pvcName).ToNot(BeEmpty())
+				pvc, err := virtClient.CoreV1().PersistentVolumeClaims(util.NamespaceTestDefault).Get(context.Background(), pvcName, metav1.GetOptions{})
+				Expect(err).ToNot(HaveOccurred())
+
+				dvName := restores[0].DataVolumeName
+				Expect(dvName).ToNot(BeNil())
+				Expect(*dvName).ToNot(BeEmpty())
+
+				targetVM := getTargetVM(restoreToNewVM)
+
+				if libstorage.IsDataVolumeGC(virtClient) {
+					Eventually(func() bool {
+						_, err := virtClient.CdiClient().CdiV1beta1().DataVolumes(util.NamespaceTestDefault).Get(context.Background(), *dvName, metav1.GetOptions{})
+						return errors.IsNotFound(err)
+					}, 30*time.Second, time.Second).Should(BeTrue())
+					verifyOwnerRef(pvc, targetVM.APIVersion, targetVM.Kind, targetVM.Name, targetVM.UID)
+					return
+				}
+
+				dv, err := virtClient.CdiClient().CdiV1beta1().DataVolumes(util.NamespaceTestDefault).Get(context.Background(), *dvName, metav1.GetOptions{})
+				Expect(err).ToNot(HaveOccurred())
+				verifyOwnerRef(dv, targetVM.APIVersion, targetVM.Kind, targetVM.Name, targetVM.UID)
+				verifyOwnerRef(pvc, "cdi.kubevirt.io/v1beta1", "DataVolume", dv.Name, dv.UID)
+			}
+
 			It("[test_id:5259]should restore a vm multiple from the same snapshot", func() {
 				vm, vmi = createAndStartVM(tests.NewRandomVMWithDataVolumeAndUserDataInStorageClass(
 					cd.DataVolumeImportUrlForContainerDisk(cd.ContainerDiskCirros),
@@ -925,19 +971,8 @@ var _ = SIGDescribe("VirtualMachineRestore Tests", func() {
 				))
 
 				originalDVName := vm.Spec.DataVolumeTemplates[0].Name
-
 				doRestore("", console.LoginToCirros, offlineSnaphot, getTargetVMName(restoreToNewVM, newVmName))
-				Expect(restore.Status.Restores).To(HaveLen(1))
-				if restoreToNewVM {
-					checkNewVMEquality()
-					Expect(restore.Status.DeletedDataVolumes).To(HaveLen(0))
-				} else {
-					Expect(restore.Status.DeletedDataVolumes).To(HaveLen(1))
-					Expect(restore.Status.DeletedDataVolumes).To(ContainElement(originalDVName))
-
-					_, err = virtClient.CdiClient().CdiV1beta1().DataVolumes(util.NamespaceTestDefault).Get(context.Background(), originalDVName, metav1.GetOptions{})
-					Expect(errors.IsNotFound(err)).To(BeTrue())
-				}
+				verifyRestore(restoreToNewVM, originalDVName)
 			},
 				Entry("[test_id:5260] to the same VM", false),
 				Entry("to a new VM", true),
@@ -965,9 +1000,10 @@ var _ = SIGDescribe("VirtualMachineRestore Tests", func() {
 				}
 				Expect(restore.Status.DeletedDataVolumes).To(BeEmpty())
 
-				_, err = virtClient.CdiClient().CdiV1beta1().DataVolumes(vm.Namespace).Get(context.Background(), dv.Name, metav1.GetOptions{})
-				Expect(err).ToNot(HaveOccurred())
-
+				if !libstorage.IsDataVolumeGC(virtClient) {
+					_, err = virtClient.CdiClient().CdiV1beta1().DataVolumes(vm.Namespace).Get(context.Background(), dv.Name, metav1.GetOptions{})
+					Expect(err).ToNot(HaveOccurred())
+				}
 				_, err = virtClient.CoreV1().PersistentVolumeClaims(vm.Namespace).Get(context.Background(), originalPVCName, metav1.GetOptions{})
 				Expect(err).ToNot(HaveOccurred())
 
@@ -976,10 +1012,7 @@ var _ = SIGDescribe("VirtualMachineRestore Tests", func() {
 						Expect(v.PersistentVolumeClaim.ClaimName).ToNot(Equal(originalPVCName))
 						pvc, err := virtClient.CoreV1().PersistentVolumeClaims(vm.Namespace).Get(context.Background(), v.PersistentVolumeClaim.ClaimName, metav1.GetOptions{})
 						Expect(err).ToNot(HaveOccurred())
-						Expect(pvc.OwnerReferences[0].APIVersion).To(Equal(v1.GroupVersion.String()))
-						Expect(pvc.OwnerReferences[0].Kind).To(Equal("VirtualMachine"))
-						Expect(pvc.OwnerReferences[0].Name).To(Equal(vm.Name))
-						Expect(pvc.OwnerReferences[0].UID).To(Equal(vm.UID))
+						verifyOwnerRef(pvc, v1.GroupVersion.String(), "VirtualMachine", vm.Name, vm.UID)
 					}
 				}
 			},
@@ -1316,19 +1349,8 @@ var _ = SIGDescribe("VirtualMachineRestore Tests", func() {
 				Expect(console.LoginToFedora(vmi)).To(Succeed())
 
 				originalDVName := vm.Spec.DataVolumeTemplates[0].Name
-
 				doRestore("", console.LoginToFedora, onlineSnapshot, getTargetVMName(restoreToNewVM, newVmName))
-				Expect(restore.Status.Restores).To(HaveLen(1))
-				if restoreToNewVM {
-					Expect(restore.Status.DeletedDataVolumes).To(HaveLen(0))
-					checkNewVMEquality()
-				} else {
-					Expect(restore.Status.DeletedDataVolumes).To(HaveLen(1))
-					Expect(restore.Status.DeletedDataVolumes).To(ContainElement(originalDVName))
-
-					_, err = virtClient.CdiClient().CdiV1beta1().DataVolumes(util.NamespaceTestDefault).Get(context.Background(), originalDVName, metav1.GetOptions{})
-					Expect(errors.IsNotFound(err)).To(BeTrue())
-				}
+				verifyRestore(restoreToNewVM, originalDVName)
 			},
 				Entry("[test_id:6836] to the same VM", false),
 				Entry("to a new VM", true),
@@ -1555,10 +1577,7 @@ var _ = SIGDescribe("VirtualMachineRestore Tests", func() {
 				})
 
 				AfterEach(func() {
-					if sourceDV != nil {
-						err := virtClient.CdiClient().CdiV1beta1().DataVolumes(sourceDV.Namespace).Delete(context.TODO(), sourceDV.Name, metav1.DeleteOptions{})
-						Expect(err).ToNot(HaveOccurred())
-					}
+					libstorage.DeleteDataVolume(&sourceDV)
 
 					if cloneRole != nil {
 						err := virtClient.RbacV1().Roles(cloneRole.Namespace).Delete(context.TODO(), cloneRole.Name, metav1.DeleteOptions{})
@@ -1620,11 +1639,8 @@ var _ = SIGDescribe("VirtualMachineRestore Tests", func() {
 
 					dv, err = virtClient.CdiClient().CdiV1beta1().DataVolumes(vm.Namespace).Create(context.Background(), dv, metav1.CreateOptions{})
 					Expect(err).ToNot(HaveOccurred())
-					defer func() {
-						err := virtClient.CdiClient().CdiV1beta1().DataVolumes(dv.Namespace).Delete(context.TODO(), dv.Name, metav1.DeleteOptions{})
-						Expect(err).ToNot(HaveOccurred())
-					}()
-					dv = waitDVReady(dv)
+					defer libstorage.DeleteDataVolume(&dv)
+					waitDVReady(dv)
 
 					vm, vmi = createAndStartVM(vm)
 

@@ -161,14 +161,6 @@ func (e PvcNotFoundError) Error() string {
 	return e.Reason
 }
 
-type DataVolumeNotFoundError struct {
-	Reason string
-}
-
-func (e DataVolumeNotFoundError) Error() string {
-	return e.Reason
-}
-
 func isFeatureStateEnabled(fs *v1.FeatureState) bool {
 	return fs != nil && fs.Enabled != nil && *fs.Enabled
 }

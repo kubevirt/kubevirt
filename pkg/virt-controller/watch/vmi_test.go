@@ -885,7 +885,7 @@ var _ = Describe("VirtualMachineInstance watcher", func() {
 			Expect(mockQueue.GetRateLimitedEnqueueCount()).To(Equal(0))
 			testutils.ExpectEvent(recorder, SuccessfulCreatePodReason)
 		})
-		DescribeTable("should create PodScheduled and Synchronized conditions exactly once each for repeated FailedPvcNotFoundReason/FailedDataVolumeNotFoundReason sync errors",
+		DescribeTable("should create PodScheduled and Synchronized conditions exactly once each for repeated FailedPvcNotFoundReason sync errors",
 			func(syncReason string, volumeSource virtv1.VolumeSource) {
 
 				expectConditions := func(vmi *virtv1.VirtualMachineInstance) {
@@ -954,7 +954,7 @@ var _ = Describe("VirtualMachineInstance watcher", func() {
 						},
 					},
 				}),
-			Entry("when DataVolume does not exist", FailedDataVolumeNotFoundReason,
+			Entry("when DataVolume does not exist", FailedPvcNotFoundReason,
 				virtv1.VolumeSource{
 					DataVolume: &virtv1.DataVolumeSource{
 						Name: "something",

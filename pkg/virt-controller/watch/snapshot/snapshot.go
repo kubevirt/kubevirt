@@ -479,7 +479,7 @@ func (ctrl *VMSnapshotController) createContent(vmSnapshot *snapshotv1.VirtualMa
 		}
 
 		if pvc == nil {
-			log.Log.Warningf("No VolumeSnapshotClass for %s/%s", vmSnapshot.Namespace, pvcName)
+			log.Log.Warningf("No snapshot PVC for %s/%s", vmSnapshot.Namespace, pvcName)
 			continue
 		}
 
@@ -812,8 +812,8 @@ func (ctrl *VMSnapshotController) getStorageClassNameForDV(namespace string, dvN
 	}
 
 	if !exists {
-		log.Log.V(3).Infof("DV not in cache [%s]", key)
-		return "", fmt.Errorf("DV '%s' not found", key)
+		log.Log.V(3).Infof("DV is not in cache [%s]", key)
+		return ctrl.getStorageClassNameForPVC(key)
 	}
 
 	dv := obj.(*cdiv1.DataVolume)
@@ -847,10 +847,7 @@ func (ctrl *VMSnapshotController) getStorageClassNameForDV(namespace string, dvN
 	// Third, if everything else fails, wait for PVC to read its StorageClass
 	// NOTE: this will give possibly incorrect `false` value for the status until the
 	// PVC is ready.
-	pvcKey := cacheKeyFunc(namespace, dvName)
-	// TODO Change when PVC rename PR is implemented
-
-	return ctrl.getStorageClassNameForPVC(pvcKey)
+	return ctrl.getStorageClassNameForPVC(key)
 }
 
 func (ctrl *VMSnapshotController) getVM(vmSnapshot *snapshotv1.VirtualMachineSnapshot) (*kubevirtv1.VirtualMachine, error) {
