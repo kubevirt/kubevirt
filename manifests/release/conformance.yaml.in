@@ -7,7 +7,3 @@ spec:
   - /usr/bin/conformance
   image: {{.DockerPrefix}}/conformance:{{.DockerTag}}
   name: plugin
-  resources: {}
-  volumeMounts:
-  - mountPath: /tmp/results
-    name: results
