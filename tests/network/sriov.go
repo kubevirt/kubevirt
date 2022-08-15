@@ -88,26 +88,6 @@ var _ = Describe("[Serial]SRIOV", func() {
 		}
 	})
 
-	startVmi := func(vmi *v1.VirtualMachineInstance) *v1.VirtualMachineInstance {
-		vmi, err := virtClient.VirtualMachineInstance(util.NamespaceTestDefault).Create(vmi)
-		Expect(err).ToNot(HaveOccurred())
-		return vmi
-	}
-
-	waitVmi := func(vmi *v1.VirtualMachineInstance) *v1.VirtualMachineInstance {
-		// Need to wait for cloud init to finish and start the agent inside the vmi.
-		vmi, err := virtClient.VirtualMachineInstance(vmi.Namespace).Get(vmi.Name, &k8smetav1.GetOptions{})
-		Expect(err).ToNot(HaveOccurred())
-
-		// Running multi sriov jobs with Kind, DinD is resource extensive, causing DeadlineExceeded transient warning
-		// Kubevirt re-enqueue the request once it happens, so its safe to ignore this warning.
-		// see https://github.com/kubevirt/kubevirt/issues/5027
-		warningsIgnoreList := []string{"unknown error encountered sending command SyncVMI: rpc error: code = DeadlineExceeded desc = context deadline exceeded"}
-		tests.WaitUntilVMIReadyIgnoreSelectedWarnings(vmi, console.LoginToFedora, warningsIgnoreList)
-		tests.WaitAgentConnected(virtClient, vmi)
-		return vmi
-	}
-
 	checkDefaultInterfaceInPod := func(vmi *v1.VirtualMachineInstance) {
 		vmiPod := tests.GetRunningPodByVirtualMachineInstance(vmi, vmi.Namespace)
 
@@ -160,12 +140,9 @@ var _ = Describe("[Serial]SRIOV", func() {
 		vmi1 = tests.CreateVmiOnNode(vmi1, sriovNode)
 		vmi2 = tests.CreateVmiOnNode(vmi2, sriovNode)
 
-		vmi1 = waitVmi(vmi1)
-		vmi2 = waitVmi(vmi2)
-
-		vmi1, err = virtClient.VirtualMachineInstance(vmi1.Namespace).Get(vmi1.Name, &k8smetav1.GetOptions{})
+		vmi1, err = waitVMI(virtClient, vmi1)
 		Expect(err).NotTo(HaveOccurred())
-		vmi2, err = virtClient.VirtualMachineInstance(vmi2.Namespace).Get(vmi2.Name, &k8smetav1.GetOptions{})
+		vmi2, err = waitVMI(virtClient, vmi2)
 		Expect(err).NotTo(HaveOccurred())
 
 		return vmi1, vmi2
@@ -182,8 +159,8 @@ var _ = Describe("[Serial]SRIOV", func() {
 			defer tests.UpdateKubeVirtConfigValueAndWait(testsuite.KubeVirtDefaultConfig)
 
 			vmi := newSRIOVVmi([]string{sriovnet1}, defaultCloudInitNetworkData())
-			vmi = startVmi(vmi)
-			vmi = waitVmi(vmi)
+			vmi, err := createVMIAndWait(vmi)
+			Expect(err).ToNot(HaveOccurred())
 
 			vmim := tests.NewRandomMigration(vmi.Name, vmi.Namespace)
 			Eventually(func() error {
@@ -207,8 +184,8 @@ var _ = Describe("[Serial]SRIOV", func() {
 					vmi.Spec.Domain.Devices.Interfaces[idx] = iface
 				}
 			}
-			vmi = startVmi(vmi)
-			vmi = waitVmi(vmi)
+			vmi, err := createVMIAndWait(vmi)
+			Expect(err).ToNot(HaveOccurred())
 
 			domXml, err := tests.GetRunningVirtualMachineInstanceDomainXML(virtClient, vmi)
 			Expect(err).ToNot(HaveOccurred())
@@ -274,8 +251,8 @@ var _ = Describe("[Serial]SRIOV", func() {
 					vmi.Spec.Domain.Devices.Interfaces[idx] = iface
 				}
 			}
-			vmi = startVmi(vmi)
-			vmi = waitVmi(vmi)
+			vmi, err := createVMIAndWait(vmi)
+			Expect(err).ToNot(HaveOccurred())
 
 			domXml, err := tests.GetRunningVirtualMachineInstanceDomainXML(virtClient, vmi)
 			Expect(err).ToNot(HaveOccurred())
@@ -322,8 +299,8 @@ var _ = Describe("[Serial]SRIOV", func() {
 
 		It("[test_id:1754]should create a virtual machine with sriov interface", func() {
 			vmi := newSRIOVVmi([]string{sriovnet1}, defaultCloudInitNetworkData())
-			vmi = startVmi(vmi)
-			vmi = waitVmi(vmi)
+			vmi, err := createVMIAndWait(vmi)
+			Expect(err).ToNot(HaveOccurred())
 
 			By("checking KUBEVIRT_RESOURCE_NAME_<networkName> variable is defined in pod")
 			Expect(validatePodKubevirtResourceNameByVMI(virtClient, vmi, sriovnet1, sriovResourceName)).To(Succeed())
@@ -343,8 +320,8 @@ var _ = Describe("[Serial]SRIOV", func() {
 			vmi.Annotations = map[string]string{
 				v1.PlacePCIDevicesOnRootComplex: "true",
 			}
-			vmi = startVmi(vmi)
-			vmi = waitVmi(vmi)
+			vmi, err := createVMIAndWait(vmi)
+			Expect(err).ToNot(HaveOccurred())
 
 			By("checking KUBEVIRT_RESOURCE_NAME_<networkName> variable is defined in pod")
 			Expect(validatePodKubevirtResourceNameByVMI(virtClient, vmi, sriovnet1, sriovResourceName)).To(Succeed())
@@ -374,8 +351,8 @@ var _ = Describe("[Serial]SRIOV", func() {
 				Cores:                 2,
 				DedicatedCPUPlacement: true,
 			}
-			vmi = startVmi(vmi)
-			vmi = waitVmi(vmi)
+			vmi, err := createVMIAndWait(vmi)
+			Expect(err).ToNot(HaveOccurred())
 
 			By("checking KUBEVIRT_RESOURCE_NAME_<networkName> variable is defined in pod")
 			Expect(validatePodKubevirtResourceNameByVMI(virtClient, vmi, sriovnet1, sriovResourceName)).To(Succeed())
@@ -390,8 +367,8 @@ var _ = Describe("[Serial]SRIOV", func() {
 			vmi := newSRIOVVmi([]string{sriovnet1}, defaultCloudInitNetworkData())
 			vmi.Spec.Domain.Devices.Interfaces[1].MacAddress = mac
 
-			vmi = startVmi(vmi)
-			vmi = waitVmi(vmi)
+			vmi, err := createVMIAndWait(vmi)
+			Expect(err).ToNot(HaveOccurred())
 
 			By("checking virtual machine instance has an interface with the requested MAC address")
 			ifaceName, err := findIfaceByMAC(virtClient, vmi, mac, 140*time.Second)
@@ -433,8 +410,9 @@ var _ = Describe("[Serial]SRIOV", func() {
 				vmi = newSRIOVVmi([]string{sriovnet1}, defaultCloudInitNetworkData())
 				vmi.Spec.Domain.Devices.Interfaces[1].MacAddress = mac
 
-				vmi = startVmi(vmi)
-				vmi = waitVmi(vmi)
+				var err error
+				vmi, err = createVMIAndWait(vmi)
+				Expect(err).ToNot(HaveOccurred())
 
 				ifaceName, err := findIfaceByMAC(virtClient, vmi, mac, 30*time.Second)
 				Expect(err).NotTo(HaveOccurred())
@@ -471,8 +449,9 @@ var _ = Describe("[Serial]SRIOV", func() {
 			vmi := newSRIOVVmi(sriovNetworks, defaultCloudInitNetworkData())
 			vmi.Spec.Domain.Devices.Interfaces[1].PciAddress = "0000:06:00.0"
 			vmi.Spec.Domain.Devices.Interfaces[2].PciAddress = "0000:07:00.0"
-			vmi = startVmi(vmi)
-			vmi = waitVmi(vmi)
+
+			vmi, err := createVMIAndWait(vmi)
+			Expect(err).ToNot(HaveOccurred())
 
 			By("checking KUBEVIRT_RESOURCE_NAME_<networkName> variables are defined in pod")
 			for _, name := range sriovNetworks {
@@ -696,4 +675,31 @@ func checkInterfacesInGuest(vmi *v1.VirtualMachineInstance, interfaces []string)
 	for _, iface := range interfaces {
 		Expect(checkInterface(vmi, iface)).To(Succeed())
 	}
+}
+
+// createVMIAndWait creates the received VMI and waits for the guest to load the guest-agent
+func createVMIAndWait(vmi *v1.VirtualMachineInstance) (*v1.VirtualMachineInstance, error) {
+	virtClient, err := kubecli.GetKubevirtClient()
+	if err != nil {
+		panic(err)
+	}
+
+	vmi, err = virtClient.VirtualMachineInstance(util.NamespaceTestDefault).Create(vmi)
+	if err != nil {
+		return nil, err
+	}
+
+	return waitVMI(virtClient, vmi)
+}
+
+func waitVMI(virtClient kubecli.KubevirtClient, vmi *v1.VirtualMachineInstance) (*v1.VirtualMachineInstance, error) {
+	// Running multi sriov jobs with Kind, DinD is resource extensive, causing DeadlineExceeded transient warning
+	// Kubevirt re-enqueue the request once it happens, so its safe to ignore this warning.
+	// see https://github.com/kubevirt/kubevirt/issues/5027
+	warningsIgnoreList := []string{"unknown error encountered sending command SyncVMI: rpc error: code = DeadlineExceeded desc = context deadline exceeded"}
+	tests.WaitUntilVMIReadyIgnoreSelectedWarnings(vmi, console.LoginToFedora, warningsIgnoreList)
+
+	tests.WaitAgentConnected(virtClient, vmi)
+
+	return virtClient.VirtualMachineInstance(vmi.Namespace).Get(vmi.Name, &k8smetav1.GetOptions{})
 }
