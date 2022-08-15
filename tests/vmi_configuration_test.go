@@ -2998,14 +2998,18 @@ var _ = Describe("[sig-compute]Configurations", func() {
 				Expect(len(fields)).To(BeNumerically(">=", 2))
 				rss := fields[0]
 				command := filepath.Base(fields[1])
+				// Handle the qemu binary: e.g. qemu-kvm or qemu-system-x86_64
+				if command == "qemu-kvm" || strings.HasPrefix(command, "qemu-system-") {
+					command = "qemu"
+				}
 				switch command {
-				case "virt-launcher-monitor", "virt-launcher", "virtlogd", "libvirtd", "qemu-kvm":
+				case "virt-launcher-monitor", "virt-launcher", "virtlogd", "libvirtd", "qemu":
 					Expect(processRss).ToNot(HaveKey(command), "multiple %s processes found", command)
 					value := resource.MustParse(rss + "Ki")
 					processRss[command] = value
 				}
 			}
-			for _, process := range []string{"virt-launcher-monitor", "virt-launcher", "virtlogd", "libvirtd", "qemu-kvm"} {
+			for _, process := range []string{"virt-launcher-monitor", "virt-launcher", "virtlogd", "libvirtd", "qemu"} {
 				Expect(processRss).To(HaveKey(process), "no %s process found", process)
 			}
 
@@ -3016,7 +3020,7 @@ var _ = Describe("[sig-compute]Configurations", func() {
 			doesntExceedMemoryUsage(&processRss, "libvirtd", resource.MustParse(services.LibvirtdOverhead))
 			qemuExpected := resource.MustParse(services.QemuOverhead)
 			qemuExpected.Add(vmi.Spec.Domain.Resources.Requests[k8sv1.ResourceMemory])
-			doesntExceedMemoryUsage(&processRss, "qemu-kvm", qemuExpected)
+			doesntExceedMemoryUsage(&processRss, "qemu", qemuExpected)
 		})
 	})
 
