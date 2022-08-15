@@ -49,7 +49,6 @@ import (
 	"kubevirt.io/kubevirt/tests"
 	"kubevirt.io/kubevirt/tests/clientcmd"
 	"kubevirt.io/kubevirt/tests/console"
-	cd "kubevirt.io/kubevirt/tests/containerdisk"
 	"kubevirt.io/kubevirt/tests/libnode"
 	"kubevirt.io/kubevirt/tests/libstorage"
 	"kubevirt.io/kubevirt/tests/libvmi"
@@ -94,19 +93,6 @@ var _ = SIGDescribe("Hotplug", func() {
 			return []string{metav1.DryRunAll}
 		}
 		return nil
-	}
-
-	newVirtualMachineInstanceWithContainerDisk := func() (*v1.VirtualMachineInstance, *cdiv1.DataVolume) {
-		vmiImage := cd.ContainerDiskFor(cd.ContainerDiskCirros)
-		return tests.NewRandomVMIWithEphemeralDiskAndUserdata(vmiImage, "echo Hi\n"), nil
-	}
-
-	createVirtualMachine := func(running bool, template *v1.VirtualMachineInstance) *v1.VirtualMachine {
-		By("Creating VirtualMachine")
-		vm := tests.NewRandomVirtualMachine(template, running)
-		newVM, err := virtClient.VirtualMachine(util.NamespaceTestDefault).Create(vm)
-		Expect(err).ToNot(HaveOccurred())
-		return newVM
 	}
 
 	deleteVirtualMachine := func(vm *v1.VirtualMachine) error {
@@ -440,8 +426,8 @@ var _ = SIGDescribe("Hotplug", func() {
 	}
 
 	createAndStartWFFCStorageHotplugVM := func() *v1.VirtualMachine {
-		template := libvmi.NewCirros()
-		vm := createVirtualMachine(true, template)
+		vm, err := virtClient.VirtualMachine(util.NamespaceTestDefault).Create(tests.NewRandomVirtualMachine(libvmi.NewCirros(), true))
+		Expect(err).ToNot(HaveOccurred())
 		Eventually(func() bool {
 			vm, err := virtClient.VirtualMachine(util.NamespaceTestDefault).Get(vm.Name, &metav1.GetOptions{})
 			Expect(err).ToNot(HaveOccurred())
@@ -497,8 +483,8 @@ var _ = SIGDescribe("Hotplug", func() {
 		)
 		BeforeEach(func() {
 			By("Creating VirtualMachine")
-			template, _ := newVirtualMachineInstanceWithContainerDisk()
-			vm = createVirtualMachine(false, template)
+			vm, err = virtClient.VirtualMachine(util.NamespaceTestDefault).Create(tests.NewRandomVirtualMachine(libvmi.NewCirros(), false))
+			Expect(err).ToNot(HaveOccurred())
 		})
 
 		AfterEach(func() {
@@ -612,13 +598,15 @@ var _ = SIGDescribe("Hotplug", func() {
 					Skip("Skip test when RWXBlock storage class is not present")
 				}
 
-				template := libvmi.NewCirros()
 				node := findCPUManagerWorkerNode()
+				opts := []libvmi.Option{}
 				if node != "" {
-					template.Spec.NodeSelector = make(map[string]string)
-					template.Spec.NodeSelector[corev1.LabelHostname] = node
+					opts = append(opts, libvmi.WithNodeSelectorFor(&corev1.Node{ObjectMeta: metav1.ObjectMeta{Name: node}}))
 				}
-				vm = createVirtualMachine(true, template)
+				vmi := libvmi.NewCirros(opts...)
+
+				vm, err = virtClient.VirtualMachine(util.NamespaceTestDefault).Create(tests.NewRandomVirtualMachine(vmi, true))
+				Expect(err).ToNot(HaveOccurred())
 				Eventually(func() bool {
 					vm, err := virtClient.VirtualMachine(util.NamespaceTestDefault).Get(vm.Name, &metav1.GetOptions{})
 					Expect(err).ToNot(HaveOccurred())
@@ -946,7 +934,10 @@ var _ = SIGDescribe("Hotplug", func() {
 				// Ensure the virt-launcher pod is scheduled on the chosen source node and then
 				// migrated to the proper target.
 				libnode.AddLabelToNode(sourceNode, hotplugLabelKey, hotplugLabelValue)
-				vmi, _ = newVirtualMachineInstanceWithContainerDisk()
+				vmi = libvmi.NewCirros(
+					libvmi.WithInterface(libvmi.InterfaceDeviceWithMasqueradeBinding()),
+					libvmi.WithNetwork(v1.DefaultPodNetwork()),
+				)
 				vmi.Spec.NodeSelector = map[string]string{hotplugLabelKey: hotplugLabelValue}
 				vmi = tests.RunVMIAndExpectLaunch(vmi, 240)
 				libnode.AddLabelToNode(targetNode, hotplugLabelKey, hotplugLabelValue)
@@ -1041,12 +1032,15 @@ var _ = SIGDescribe("Hotplug", func() {
 			libstorage.CreateStorageClass(storageClassHostPath, &immediateBinding)
 			pvNode := libstorage.CreateHostPathPvWithSizeAndStorageClass(tests.CustomHostPath, hotplugPvPath, "1Gi", storageClassHostPath)
 			libstorage.CreatePVC(tests.CustomHostPath, "1Gi", storageClassHostPath, false)
-			template := libvmi.NewCirros()
+
+			opts := []libvmi.Option{}
 			if pvNode != "" {
-				template.Spec.NodeSelector = make(map[string]string)
-				template.Spec.NodeSelector[corev1.LabelHostname] = pvNode
+				opts = append(opts, libvmi.WithNodeSelectorFor(&corev1.Node{ObjectMeta: metav1.ObjectMeta{Name: pvNode}}))
 			}
-			vm = createVirtualMachine(true, template)
+			vmi := libvmi.NewCirros(opts...)
+
+			vm, err = virtClient.VirtualMachine(util.NamespaceTestDefault).Create(tests.NewRandomVirtualMachine(vmi, true))
+			Expect(err).ToNot(HaveOccurred())
 			Eventually(func() bool {
 				vm, err := virtClient.VirtualMachine(util.NamespaceTestDefault).Get(vm.Name, &metav1.GetOptions{})
 				Expect(err).ToNot(HaveOccurred())
@@ -1090,10 +1084,11 @@ var _ = SIGDescribe("Hotplug", func() {
 		)
 
 		BeforeEach(func() {
-			template := libvmi.NewCirros()
+			vmi := libvmi.NewCirros()
 			policy := v1.IOThreadsPolicyShared
-			template.Spec.Domain.IOThreadsPolicy = &policy
-			vm = createVirtualMachine(true, template)
+			vmi.Spec.Domain.IOThreadsPolicy = &policy
+			vm, err = virtClient.VirtualMachine(util.NamespaceTestDefault).Create(tests.NewRandomVirtualMachine(vmi, true))
+			Expect(err).ToNot(HaveOccurred())
 			Eventually(func() bool {
 				vm, err := virtClient.VirtualMachine(util.NamespaceTestDefault).Get(vm.Name, &metav1.GetOptions{})
 				Expect(err).ToNot(HaveOccurred())
@@ -1140,7 +1135,8 @@ var _ = SIGDescribe("Hotplug", func() {
 
 		BeforeEach(func() {
 			libstorage.CreateAllSeparateDeviceHostPathPvs(tests.CustomHostPath)
-			vm = createVirtualMachine(true, libvmi.NewCirros())
+			vm, err = virtClient.VirtualMachine(util.NamespaceTestDefault).Create(tests.NewRandomVirtualMachine(libvmi.NewCirros(), true))
+			Expect(err).ToNot(HaveOccurred())
 			Eventually(func() bool {
 				vm, err := virtClient.VirtualMachine(util.NamespaceTestDefault).Get(vm.Name, &metav1.GetOptions{})
 				Expect(err).ToNot(HaveOccurred())
