@@ -88,28 +88,6 @@ var _ = Describe("[Serial]SRIOV", func() {
 		}
 	})
 
-	checkDefaultInterfaceInPod := func(vmi *v1.VirtualMachineInstance) {
-		vmiPod := tests.GetRunningPodByVirtualMachineInstance(vmi, vmi.Namespace)
-
-		By("checking default interface is present")
-		_, err := tests.ExecuteCommandOnPod(
-			virtClient,
-			vmiPod,
-			"compute",
-			[]string{"ip", "address", "show", "eth0"},
-		)
-		Expect(err).ToNot(HaveOccurred())
-
-		By("checking default interface is attached to VMI")
-		_, err = tests.ExecuteCommandOnPod(
-			virtClient,
-			vmiPod,
-			"compute",
-			[]string{"ip", "address", "show", "k6t-eth0"},
-		)
-		Expect(err).ToNot(HaveOccurred())
-	}
-
 	// createSriovVMs instantiates two VMs on the same node connected through SR-IOV.
 	createSriovVMs := func(networkNameA, networkNameB, cidrA, cidrB string) (*v1.VirtualMachineInstance, *v1.VirtualMachineInstance) {
 		// Explicitly choose different random mac addresses instead of relying on kubemacpool to do it:
@@ -305,7 +283,7 @@ var _ = Describe("[Serial]SRIOV", func() {
 			By("checking KUBEVIRT_RESOURCE_NAME_<networkName> variable is defined in pod")
 			Expect(validatePodKubevirtResourceNameByVMI(virtClient, vmi, sriovnet1, sriovResourceName)).To(Succeed())
 
-			checkDefaultInterfaceInPod(vmi)
+			Expect(checkDefaultInterfaceInPod(vmi)).To(Succeed())
 
 			By("checking virtual machine instance has two interfaces")
 			checkInterfacesInGuest(vmi, []string{"eth0", "eth1"})
@@ -326,7 +304,7 @@ var _ = Describe("[Serial]SRIOV", func() {
 			By("checking KUBEVIRT_RESOURCE_NAME_<networkName> variable is defined in pod")
 			Expect(validatePodKubevirtResourceNameByVMI(virtClient, vmi, sriovnet1, sriovResourceName)).To(Succeed())
 
-			checkDefaultInterfaceInPod(vmi)
+			Expect(checkDefaultInterfaceInPod(vmi)).To(Succeed())
 
 			By("checking virtual machine instance has two interfaces")
 			checkInterfacesInGuest(vmi, []string{"eth0", "eth1"})
@@ -357,7 +335,7 @@ var _ = Describe("[Serial]SRIOV", func() {
 			By("checking KUBEVIRT_RESOURCE_NAME_<networkName> variable is defined in pod")
 			Expect(validatePodKubevirtResourceNameByVMI(virtClient, vmi, sriovnet1, sriovResourceName)).To(Succeed())
 
-			checkDefaultInterfaceInPod(vmi)
+			Expect(checkDefaultInterfaceInPod(vmi)).To(Succeed())
 
 			By("checking virtual machine instance has two interfaces")
 			checkInterfacesInGuest(vmi, []string{"eth0", "eth1"})
@@ -458,7 +436,7 @@ var _ = Describe("[Serial]SRIOV", func() {
 				Expect(validatePodKubevirtResourceNameByVMI(virtClient, vmi, name, sriovResourceName)).To(Succeed())
 			}
 
-			checkDefaultInterfaceInPod(vmi)
+			Expect(checkDefaultInterfaceInPod(vmi)).To(Succeed())
 
 			By("checking virtual machine instance has three interfaces")
 			checkInterfacesInGuest(vmi, []string{"eth0", "eth1", "eth2"})
@@ -707,4 +685,37 @@ func waitVMI(vmi *v1.VirtualMachineInstance) (*v1.VirtualMachineInstance, error)
 	tests.WaitAgentConnected(virtClient, vmi)
 
 	return virtClient.VirtualMachineInstance(vmi.Namespace).Get(vmi.Name, &k8smetav1.GetOptions{})
+}
+
+func checkDefaultInterfaceInPod(vmi *v1.VirtualMachineInstance) error {
+	vmiPod := tests.GetRunningPodByVirtualMachineInstance(vmi, vmi.Namespace)
+
+	virtClient, err := kubecli.GetKubevirtClient()
+	if err != nil {
+		panic(err)
+	}
+
+	By("checking default interface is present")
+	_, err = tests.ExecuteCommandOnPod(
+		virtClient,
+		vmiPod,
+		"compute",
+		[]string{"ip", "address", "show", "eth0"},
+	)
+	if err != nil {
+		return err
+	}
+
+	By("checking default interface is attached to VMI")
+	_, err = tests.ExecuteCommandOnPod(
+		virtClient,
+		vmiPod,
+		"compute",
+		[]string{"ip", "address", "show", "k6t-eth0"},
+	)
+	if err != nil {
+		return err
+	}
+
+	return nil
 }
