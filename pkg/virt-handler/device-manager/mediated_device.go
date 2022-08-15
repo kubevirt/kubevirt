@@ -421,7 +421,17 @@ func (dpi *MediatedDevicePlugin) healthCheck() error {
 						Health: pluginapi.Healthy,
 					}
 				} else if (event.Op == fsnotify.Remove) || (event.Op == fsnotify.Rename) {
-					logger.Infof("monitored device %s disappeared", dpi.resourceName)
+					mdev, ok := dpi.iommuToMDEVMap[monDevId]
+					if !ok {
+						mdev = " not recognized"
+					}
+
+					if event.Op == fsnotify.Rename {
+						logger.Infof("Mediated device %s with id %s for resource %s was renamed", mdev, monDevId, dpi.resourceName)
+					} else {
+						logger.Infof("Mediated device %s with id %s for resource %s disappeared", mdev, monDevId, dpi.resourceName)
+					}
+
 					dpi.health <- deviceHealth{
 						DevId:  monDevId,
 						Health: pluginapi.Unhealthy,
