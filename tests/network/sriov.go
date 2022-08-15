@@ -88,44 +88,6 @@ var _ = Describe("[Serial]SRIOV", func() {
 		}
 	})
 
-	// createSriovVMs instantiates two VMs on the same node connected through SR-IOV.
-	createSriovVMs := func(networkNameA, networkNameB, cidrA, cidrB string) (*v1.VirtualMachineInstance, *v1.VirtualMachineInstance) {
-		// Explicitly choose different random mac addresses instead of relying on kubemacpool to do it:
-		// 1) we don't at the moment deploy kubemacpool in kind providers
-		// 2) even if we would do, it's probably a good idea to have the suite not depend on this fact
-		//
-		// This step is needed to guarantee that no VFs on the PF carry a duplicate MAC address that may affect
-		// ability of VMIs to send and receive ICMP packets on their ports.
-		mac1, err := GenerateRandomMac()
-		Expect(err).ToNot(HaveOccurred())
-
-		mac2, err := GenerateRandomMac()
-		Expect(err).ToNot(HaveOccurred())
-
-		// start peer machines with sriov interfaces from the same resource pool
-		// manually configure IP/link on sriov interfaces because there is
-		// no DHCP server to serve the address to the guest
-		vmi1 := newSRIOVVmi([]string{networkNameA}, cloudInitNetworkDataWithStaticIPsByMac(networkNameA, mac1.String(), cidrA))
-		vmi2 := newSRIOVVmi([]string{networkNameB}, cloudInitNetworkDataWithStaticIPsByMac(networkNameB, mac2.String(), cidrB))
-
-		vmi1.Spec.Domain.Devices.Interfaces[1].MacAddress = mac1.String()
-		vmi2.Spec.Domain.Devices.Interfaces[1].MacAddress = mac2.String()
-
-		// schedule both VM's on the same node to prevent test from being affected by how the SR-IOV card port's are connected
-		sriovNodes := getNodesWithAllocatedResource(virtClient, sriovResourceName)
-		Expect(sriovNodes).ToNot(BeEmpty())
-		sriovNode := sriovNodes[0].Name
-		vmi1 = tests.CreateVmiOnNode(vmi1, sriovNode)
-		vmi2 = tests.CreateVmiOnNode(vmi2, sriovNode)
-
-		vmi1, err = waitVMI(vmi1)
-		Expect(err).NotTo(HaveOccurred())
-		vmi2, err = waitVMI(vmi2)
-		Expect(err).NotTo(HaveOccurred())
-
-		return vmi1, vmi2
-	}
-
 	Context("VMI connected to single SRIOV network", func() {
 		BeforeEach(func() {
 			Expect(createSriovNetworkAttachmentDefinition(sriovnet1, util.NamespaceTestDefault, sriovConfNAD)).
@@ -447,6 +409,14 @@ var _ = Describe("[Serial]SRIOV", func() {
 	})
 
 	Context("VMI connected to link-enabled SRIOV network", func() {
+		var sriovNode string
+
+		BeforeEach(func() {
+			var err error
+			sriovNode, err = sriovNodeName(sriovResourceName)
+			Expect(err).ToNot(HaveOccurred())
+		})
+
 		BeforeEach(func() {
 			Expect(createSriovNetworkAttachmentDefinition(sriovnetLinkEnabled, util.NamespaceTestDefault, sriovLinkEnableConfNAD)).
 				To(Succeed(), shouldCreateNetwork)
@@ -461,7 +431,15 @@ var _ = Describe("[Serial]SRIOV", func() {
 			Expect(err).ToNot(HaveOccurred())
 
 			//create two vms on the same sriov network
-			vmi1, vmi2 := createSriovVMs(sriovnetLinkEnabled, sriovnetLinkEnabled, cidrA, cidrB)
+			vmi1, err := createSRIOVVmiOnNode(sriovNode, sriovnetLinkEnabled, cidrA)
+			Expect(err).ToNot(HaveOccurred())
+			vmi2, err := createSRIOVVmiOnNode(sriovNode, sriovnetLinkEnabled, cidrB)
+			Expect(err).ToNot(HaveOccurred())
+
+			vmi1, err = waitVMI(vmi1)
+			Expect(err).NotTo(HaveOccurred())
+			vmi2, err = waitVMI(vmi2)
+			Expect(err).NotTo(HaveOccurred())
 
 			Eventually(func() error {
 				return libnet.PingFromVMConsole(vmi1, ipB)
@@ -480,7 +458,15 @@ var _ = Describe("[Serial]SRIOV", func() {
 			Expect(err).ToNot(HaveOccurred())
 
 			//create two vms on the same sriov network
-			vmi1, vmi2 := createSriovVMs(sriovnetLinkEnabled, sriovnetLinkEnabled, vmi1CIDR, vmi2CIDR)
+			vmi1, err := createSRIOVVmiOnNode(sriovNode, sriovnetLinkEnabled, vmi1CIDR)
+			Expect(err).ToNot(HaveOccurred())
+			vmi2, err := createSRIOVVmiOnNode(sriovNode, sriovnetLinkEnabled, vmi2CIDR)
+			Expect(err).ToNot(HaveOccurred())
+
+			vmi1, err = waitVMI(vmi1)
+			Expect(err).NotTo(HaveOccurred())
+			vmi2, err = waitVMI(vmi2)
+			Expect(err).NotTo(HaveOccurred())
 
 			Eventually(func() error {
 				return libnet.PingFromVMConsole(vmi1, vmi2IP)
@@ -505,7 +491,15 @@ var _ = Describe("[Serial]SRIOV", func() {
 			})
 
 			It("should be able to ping between two VMIs with the same VLAN over SRIOV network", func() {
-				_, vlanedVMI2 := createSriovVMs(sriovnetVlanned, sriovnetVlanned, cidrVlaned1, "192.168.0.2/24")
+				vlanedVMI1, err := createSRIOVVmiOnNode(sriovNode, sriovnetVlanned, cidrVlaned1)
+				Expect(err).ToNot(HaveOccurred())
+				vlanedVMI2, err := createSRIOVVmiOnNode(sriovNode, sriovnetVlanned, "192.168.0.2/24")
+				Expect(err).ToNot(HaveOccurred())
+
+				_, err = waitVMI(vlanedVMI1)
+				Expect(err).NotTo(HaveOccurred())
+				vlanedVMI2, err = waitVMI(vlanedVMI2)
+				Expect(err).NotTo(HaveOccurred())
 
 				By("pinging from vlanedVMI2 and the anonymous vmi over vlan")
 				Eventually(func() error {
@@ -514,7 +508,15 @@ var _ = Describe("[Serial]SRIOV", func() {
 			})
 
 			It("should NOT be able to ping between Vlaned VMI and a non Vlaned VMI", func() {
-				_, nonVlanedVMI := createSriovVMs(sriovnetVlanned, sriovnetLinkEnabled, cidrVlaned1, "192.168.0.3/24")
+				vlanedVMI, err := createSRIOVVmiOnNode(sriovNode, sriovnetVlanned, cidrVlaned1)
+				Expect(err).ToNot(HaveOccurred())
+				nonVlanedVMI, err := createSRIOVVmiOnNode(sriovNode, sriovnetLinkEnabled, "192.168.0.3/24")
+				Expect(err).ToNot(HaveOccurred())
+
+				_, err = waitVMI(vlanedVMI)
+				Expect(err).NotTo(HaveOccurred())
+				nonVlanedVMI, err = waitVMI(nonVlanedVMI)
+				Expect(err).NotTo(HaveOccurred())
 
 				By("pinging between nonVlanedVMIand the anonymous vmi")
 				Eventually(func() error {
@@ -718,4 +720,41 @@ func checkDefaultInterfaceInPod(vmi *v1.VirtualMachineInstance) error {
 	}
 
 	return nil
+}
+
+// createSRIOVVmiOnNode creates a VMI on the specified node, connected to the specified SR-IOV network.
+func createSRIOVVmiOnNode(nodeName, networkName, cidr string) (*v1.VirtualMachineInstance, error) {
+	// Explicitly choose different random mac addresses instead of relying on kubemacpool to do it:
+	// 1) we don't at the moment deploy kubemacpool in kind providers
+	// 2) even if we would do, it's probably a good idea to have the suite not depend on this fact
+	//
+	// This step is needed to guarantee that no VFs on the PF carry a duplicate MAC address that may affect
+	// ability of VMIs to send and receive ICMP packets on their ports.
+	mac, err := GenerateRandomMac()
+	if err != nil {
+		return nil, err
+	}
+
+	// manually configure IP/link on sriov interfaces because there is
+	// no DHCP server to serve the address to the guest
+	vmi := newSRIOVVmi([]string{networkName}, cloudInitNetworkDataWithStaticIPsByMac(networkName, mac.String(), cidr))
+	const secondaryInterfaceIndex = 1
+	vmi.Spec.Domain.Devices.Interfaces[secondaryInterfaceIndex].MacAddress = mac.String()
+
+	vmi = tests.CreateVmiOnNode(vmi, nodeName)
+
+	return vmi, nil
+}
+
+func sriovNodeName(sriovResourceName string) (string, error) {
+	virtClient, err := kubecli.GetKubevirtClient()
+	if err != nil {
+		panic(err)
+	}
+
+	sriovNodes := getNodesWithAllocatedResource(virtClient, sriovResourceName)
+	if len(sriovNodes) == 0 {
+		return "", fmt.Errorf("failed to detect nodes with allocatable resources (%s)", sriovResourceName)
+	}
+	return sriovNodes[0].Name, nil
 }
