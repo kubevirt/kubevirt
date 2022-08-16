@@ -44,8 +44,8 @@ var _ = Describe("[sig-compute]NonRoot feature", func() {
 		})
 	})
 
-	Context("[verify-nonroot] NonRoot feature", Label("needs-non-root"), func() {
-		It("Fails if can't be tested", func() {
+	Context("[verify-nonroot] NonRoot feature", func() {
+		It("Fails if can't be tested", Label("needs-non-root"), func() {
 			Expect(checks.HasFeature(virtconfig.NonRoot)).To(BeTrue())
 
 			vmi := tests.NewRandomVMI()
