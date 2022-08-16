@@ -373,10 +373,12 @@ if [[ -z ${KUBEVIRT_E2E_FOCUS} && -z ${KUBEVIRT_E2E_SKIP} ]]; then
     export KUBEVIRT_E2E_FOCUS="\\[sig-storage\\]|\\[storage-req\\]"
   elif [[ $TARGET =~ vgpu.* ]]; then
     label_filter='--label-filter=needs-mdev-gpu'
+    is_hardware_lane=1
   elif [[ $TARGET =~ sig-compute-realtime ]]; then
     export KUBEVIRT_E2E_FOCUS="\\[sig-compute-realtime\\]"
   elif [[ $TARGET =~ sig-compute-migrations ]]; then
     label_filter='--label-filter=needs-two-nodes-with-cpumanager'
+    is_hardware_lane=1
   elif [[ $TARGET =~ sig-compute ]]; then
     export KUBEVIRT_E2E_FOCUS="\\[sig-compute\\]"
     label_filter='--label-filter=(!needs-gpu && !needs-mdev-gpu && !needs-two-nodes-with-cpumanager)'
@@ -388,6 +390,7 @@ if [[ -z ${KUBEVIRT_E2E_FOCUS} && -z ${KUBEVIRT_E2E_SKIP} ]]; then
     export KUBEVIRT_E2E_FOCUS="SRIOV"
   elif [[ $TARGET =~ gpu.* ]]; then
     label_filter='--label-filter=needs-gpu'
+    is_hardware_lane=1
   elif [[ $TARGET =~ (okd|ocp).* ]]; then
     export KUBEVIRT_E2E_SKIP="SRIOV"
     label_filter='--label-filter=(!needs-gpu && !needs-mdev-gpu && !needs-two-nodes-with-cpumanager)'
@@ -411,7 +414,10 @@ if [[ $KUBEVIRT_NONROOT =~ true ]]; then
   if [[ -z $label_filter ]]; then
     label_filter='needs-non-root'
   else
-    label_filter=$label_filter' && needs-non-root'
+    if [ $is_hardware_lane==1 ]; then
+      label_filter=$label_filter' || needs-non-root'
+    else
+      label_filter=$label_filter' && needs-non-root'
   fi
 else
   if [[ -z $label_filter ]]; then
