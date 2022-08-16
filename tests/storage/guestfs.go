@@ -89,7 +89,7 @@ var _ = SIGDescribe("[rfe_id:6364][[Serial]Guestfs", func() {
 			}
 			return false
 
-		}, 180*time.Second, 2*time.Second).Should(BeTrue())
+		}, 90*time.Second, 2*time.Second).Should(BeTrue())
 		// Verify that the appliance has been extracted before running any tests by checking the done file
 		Eventually(func() bool {
 			_, _, err := execCommandLibguestfsPod(podName, []string{"ls", "/usr/local/lib/guestfs/appliance/done"})
