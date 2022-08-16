@@ -70,11 +70,7 @@ var _ = Describe("[Serial]SRIOV", func() {
 
 	var virtClient kubecli.KubevirtClient
 
-	sriovResourceName := os.Getenv("SRIOV_RESOURCE_NAME")
-
-	if sriovResourceName == "" {
-		sriovResourceName = "kubevirt.io/sriov_net"
-	}
+	sriovResourceName := readSRIOVResourceName()
 
 	createSriovNetworkAttachmentDefinition := func(networkName string, namespace string, networkAttachmentDefinition string) error {
 		sriovNad := fmt.Sprintf(networkAttachmentDefinition, networkName, namespace, sriovResourceName)
@@ -574,6 +570,15 @@ var _ = Describe("[Serial]SRIOV", func() {
 		})
 	})
 })
+
+func readSRIOVResourceName() string {
+	sriovResourceName := os.Getenv("SRIOV_RESOURCE_NAME")
+	if sriovResourceName == "" {
+		const defaultTestSRIOVResourceName = "kubevirt.io/sriov_net"
+		sriovResourceName = defaultTestSRIOVResourceName
+	}
+	return sriovResourceName
+}
 
 func pciAddressExistsInGuest(vmi *v1.VirtualMachineInstance, pciAddress string) error {
 	command := fmt.Sprintf("grep -q %s /sys/class/net/*/device/uevent\n", pciAddress)
