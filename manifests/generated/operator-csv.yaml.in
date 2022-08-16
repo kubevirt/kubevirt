@@ -482,6 +482,7 @@ spec:
           - delete
           - update
           - create
+          - patch
         - apiGroups:
           - ""
           resources:
