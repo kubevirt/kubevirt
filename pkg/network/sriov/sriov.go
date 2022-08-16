@@ -32,6 +32,7 @@ import (
 )
 
 const AliasPrefix = "sriov-"
+const NetworkPCIMapAnnot = "kubevirt.io/network-pci-map"
 
 func CreateNetworkPCIAnnotationValue(networks []v1.Network, interfaces []v1.Interface, networkStatusAnnotationValue string) string {
 	networkPCIMap, err := mapNetworkNameToPCIAddress(networks, interfaces, networkStatusAnnotationValue)

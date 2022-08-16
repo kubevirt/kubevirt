@@ -1,5 +1,4 @@
 load("@io_bazel_rules_go//go:def.bzl", "go_library", "go_test")
-load("@kubevirt//tools/ginkgo:ginkgo.bzl", "ginkgo_test")
 
 go_library(
     name = "go_default_library",
@@ -26,6 +25,8 @@ go_library(
         "//pkg/monitoring/perfscale:go_default_library",
         "//pkg/monitoring/profiler:go_default_library",
         "//pkg/monitoring/vmistats:go_default_library",
+        "//pkg/network/sriov:go_default_library",
+        "//pkg/network/vmispec:go_default_library",
         "//pkg/service:go_default_library",
         "//pkg/storage/export/export:go_default_library",
         "//pkg/storage/snapshot:go_default_library",
@@ -60,6 +61,7 @@ go_library(
         "//staging/src/kubevirt.io/client-go/log:go_default_library",
         "//staging/src/kubevirt.io/client-go/util:go_default_library",
         "//vendor/github.com/emicklei/go-restful:go_default_library",
+        "//vendor/github.com/k8snetworkplumbingwg/network-attachment-definition-client/pkg/apis/k8s.cni.cncf.io/v1:go_default_library",
         "//vendor/github.com/kubernetes-csi/external-snapshotter/client/v4/apis/volumesnapshot/v1:go_default_library",
         "//vendor/github.com/pborman/uuid:go_default_library",
         "//vendor/github.com/prometheus/client_golang/prometheus:go_default_library",
@@ -109,11 +111,11 @@ go_test(
         "watch_suite_test.go",
     ],
     embed = [":go_default_library"],
-    tags = ["cov"],
     deps = [
         "//pkg/controller:go_default_library",
         "//pkg/instancetype:go_default_library",
         "//pkg/monitoring/migration:go_default_library",
+        "//pkg/network/sriov:go_default_library",
         "//pkg/rest:go_default_library",
         "//pkg/storage/export/export:go_default_library",
         "//pkg/storage/snapshot:go_default_library",
@@ -146,6 +148,7 @@ go_test(
         "//vendor/github.com/emicklei/go-restful:go_default_library",
         "//vendor/github.com/evanphx/json-patch:go_default_library",
         "//vendor/github.com/golang/mock/gomock:go_default_library",
+        "//vendor/github.com/k8snetworkplumbingwg/network-attachment-definition-client/pkg/apis/k8s.cni.cncf.io/v1:go_default_library",
         "//vendor/github.com/onsi/ginkgo/v2:go_default_library",
         "//vendor/github.com/onsi/gomega:go_default_library",
         "//vendor/github.com/onsi/gomega/gstruct:go_default_library",
@@ -176,11 +179,4 @@ go_test(
         "//vendor/k8s.io/utils/pointer:go_default_library",
         "//vendor/kubevirt.io/containerized-data-importer-api/pkg/apis/core/v1beta1:go_default_library",
     ],
-)
-
-ginkgo_test(
-    name = "go_parallel_test",
-    ginkgo_args = ["-p"],
-    go_test = ":go_default_test",
-    tags = ["nocov"],
 )
