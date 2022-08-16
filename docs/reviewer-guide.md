@@ -41,6 +41,58 @@ Make a few passes over the code you want to review.
 * List ordering on CRD APIs matter. If two components need to update a list on the same object, make sure both components do it in a way that preserves the order of the list. For example, both virt-handler and virt-controller need to modify conditions on the VMI status. If both virt-handler and virt-controller are constantly changing the order of the conditions list, that will cause an update storm where both components are competing with one another to write changes.
 * Privileged node-level operations should be added to virt-handler and not virt-launcher to keep the privileges on virt-launcher at a minimum.
 
+## In-Depth PATCH/UPDATE considerations
+
+When trying to determine if an UPDATE or a PATCH should be used, the following has to be considered:
+
+### Updating `spec` or `metadata` sections with a controller
+
+Did the controller in question CREATE the object it operates on?
+- Yes: `Update` can be used
+- No: `Patch` with a narrow focus on the fields of interest needs to be used
+
+Reasoning:
+
+A controller which did not create an object can not have a full picture of the
+object which it operates on. Operating on a compatible API does not mean that
+the typed rest clients of k8s see all existing fields. Deserializing and
+serializing an object can therefore lead to lost information since a the
+final `Update` call would just remove the unknown fields.
+
+On the other hand, if the controller created an object, the operator added all
+information which mattered itself. Any additional information, since the
+controller is the owner, can only be defaulted from the apiserver. Still one has
+to be careful to not hot-loop on such defaulted values.
+
+### Updating `status` sections from a single controller
+
+Does the controller own the `status`?
+- Yes: `UpdateStatus` can be used
+- No: `Patch` needs to be used
+
+Reasoning:
+
+`status` sections are exclusively owned by controllers and are never owned by
+end-users. As such, even if an object gets created by users, and the controller
+does not own the `spec` and the `metadata` it usually owns the `status`.
+
+Since it owns the status it is solely responsible for it and as such it can do
+`UpdateStatus` operations on that section.
+
+### Updating `status` sections from multiple controllers
+
+Does the controller own the `status`?
+- Yes: `UpdateStatus` can be used
+
+Does the controller only enrich certain sections of the `status` and does not own it?
+- Yes: `Patch` with a narrow focus on the fields of interest needs to be used
+
+Reasoning:
+
+This can be derived from the reasoning of the use-cases above. Such
+multi-controller cases very often require special handling during updates (like
+which components get updated first).
+
 ## When is a PR good enough?
 
 For defining the lowest acceptable standards the project relies on automation.
