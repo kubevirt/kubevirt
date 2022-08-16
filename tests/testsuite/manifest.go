@@ -115,10 +115,11 @@ func DeleteRawManifest(object unstructured.Unstructured) error {
 	options := &metav1.DeleteOptions{PropagationPolicy: &policy}
 
 	result := virtCli.CoreV1().RESTClient().Delete().RequestURI(uri).Body(options).Do(context.Background())
-	if result.Error() != nil && !k8serrors.IsNotFound(result.Error()) {
-		fmt.Printf(fmt.Sprintf("ERROR: Can not delete %s err: %#v %s\n", object.GetName(), result.Error(), object))
-		panic(err)
+	if err = result.Error(); err != nil && !k8serrors.IsNotFound(err) {
+		panic(fmt.Errorf("ERROR: Can not delete %s err: %#v %s\n", object.GetName(), err, object))
+
 	}
+
 	return nil
 }
 
