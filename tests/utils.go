@@ -128,11 +128,13 @@ const MigrationWaitTime = 240
 const ContainerCompletionWaitTime = 60
 
 func TestCleanup() {
+	GinkgoWriter.Println("Global test cleanup started.")
 	testsuite.CleanNamespaces()
 	libnode.CleanNodes()
 	resetToDefaultConfig()
 	testsuite.EnsureKubevirtInfra()
 	SetupAlpineHostPath()
+	GinkgoWriter.Println("Global test cleanup ended.")
 }
 
 func SetupAlpineHostPath() {
