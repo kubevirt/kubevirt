@@ -27,6 +27,7 @@ import (
 	"strings"
 	"time"
 
+	networkv1 "github.com/k8snetworkplumbingwg/network-attachment-definition-client/pkg/apis/k8s.cni.cncf.io/v1"
 	k8sv1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/api/equality"
 	k8serrors "k8s.io/apimachinery/pkg/api/errors"
@@ -38,18 +39,20 @@ import (
 	"k8s.io/client-go/util/workqueue"
 	"k8s.io/utils/trace"
 
-	traceUtils "kubevirt.io/kubevirt/pkg/util/trace"
-	"kubevirt.io/kubevirt/pkg/virt-controller/watch/topology"
-
 	virtv1 "kubevirt.io/api/core/v1"
 	"kubevirt.io/client-go/kubecli"
 	"kubevirt.io/client-go/log"
 	cdiv1 "kubevirt.io/containerized-data-importer-api/pkg/apis/core/v1beta1"
 
 	"kubevirt.io/kubevirt/pkg/controller"
+	"kubevirt.io/kubevirt/pkg/network/sriov"
+	"kubevirt.io/kubevirt/pkg/network/vmispec"
 	kubevirttypes "kubevirt.io/kubevirt/pkg/storage/types"
+	traceUtils "kubevirt.io/kubevirt/pkg/util/trace"
+	patchtypes "kubevirt.io/kubevirt/pkg/util/types"
 	virtconfig "kubevirt.io/kubevirt/pkg/virt-config"
 	"kubevirt.io/kubevirt/pkg/virt-controller/services"
+	"kubevirt.io/kubevirt/pkg/virt-controller/watch/topology"
 )
 
 const (
@@ -131,6 +134,8 @@ const (
 	// NoSuitableNodesForHostModelMigration is set when a VMI with host-model CPU mode tries to migrate but no node
 	// is suitable for migration (since CPU model / required features are not supported)
 	NoSuitableNodesForHostModelMigration = "NoSuitableNodesForHostModelMigration"
+	// FailedPodPatchReason is set when a pod patch error occurs during sync
+	FailedPodPatchReason = "FailedPodPatch"
 )
 
 const failedToRenderLaunchManifestErrFormat = "failed to render launch manifest: %v"
@@ -345,7 +350,30 @@ func (c *VMIController) execute(key string) error {
 	}
 
 	return nil
+}
 
+func (c *VMIController) syncPodAnnotations(pod *k8sv1.Pod, newAnnotations map[string]string) (*k8sv1.Pod, error) {
+	var patchOps []string
+	for key, newValue := range newAnnotations {
+		if podAnnotationValue, keyExist := pod.Annotations[key]; !keyExist || (keyExist && podAnnotationValue != newValue) {
+			patchOp, err := prepareAnnotationsPatchAddOp(key, newValue)
+			if err != nil {
+				return nil, err
+			}
+			patchOps = append(patchOps, patchOp)
+		}
+	}
+	var patchedPod *k8sv1.Pod
+	patchBytes := controller.GeneratePatchBytes(patchOps)
+	if len(patchBytes) > 0 {
+		var err error
+		patchedPod, err = c.clientset.CoreV1().Pods(pod.Namespace).Patch(context.Background(), pod.Name, types.JSONPatchType, patchBytes, v1.PatchOptions{})
+		if err != nil {
+			log.Log.Object(pod).Errorf("failed to sync pod annotations during sync: %v", err)
+			return nil, err
+		}
+	}
+	return patchedPod, nil
 }
 
 func (c *VMIController) setLauncherContainerInfo(vmi *virtv1.VirtualMachineInstance, curPodImage string) *virtv1.VirtualMachineInstance {
@@ -636,6 +664,17 @@ func (c *VMIController) updateStatus(vmi *virtv1.VirtualMachineInstance, pod *k8
 	}
 
 	return nil
+}
+
+func prepareAnnotationsPatchAddOp(key, value string) (string, error) {
+	valueBytes, err := json.Marshal(value)
+	if err != nil {
+		return "", fmt.Errorf("failed to prepare new annotation patchOp for key %s: %v", key, err)
+	}
+
+	key = patchtypes.EscapeJSONPointer(key)
+	return fmt.Sprintf(`{ "op": "add", "path": "/metadata/annotations/%s", "value": %s }`, key, string(valueBytes)), nil
+
 }
 
 func preparePodPatch(oldPod, newPod *k8sv1.Pod) ([]byte, error) {
@@ -1056,6 +1095,18 @@ func (c *VMIController) sync(vmi *virtv1.VirtualMachineInstance, pod *k8sv1.Pod,
 	}
 
 	if !isTempPod(pod) && isPodReady(pod) {
+		if vmispec.SRIOVInterfaceExist(vmi.Spec.Domain.Devices.Interfaces) {
+			networkPCIMapAnnotationValue := sriov.CreateNetworkPCIAnnotationValue(
+				vmi.Spec.Networks, vmi.Spec.Domain.Devices.Interfaces, pod.Annotations[networkv1.NetworkStatusAnnot],
+			)
+			newAnnotations := map[string]string{sriov.NetworkPCIMapAnnot: networkPCIMapAnnotationValue}
+			patchedPod, err := c.syncPodAnnotations(pod, newAnnotations)
+			if err != nil {
+				return &syncErrorImpl{err, FailedPodPatchReason}
+			}
+			*pod = *patchedPod
+		}
+
 		hotplugVolumes := getHotplugVolumes(vmi, pod)
 		hotplugAttachmentPods, err := controller.AttachmentPods(pod, c.podInformer)
 		if err != nil {
