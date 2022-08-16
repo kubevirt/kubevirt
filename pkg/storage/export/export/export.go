@@ -453,8 +453,42 @@ func (ctrl *VMExportController) handleVMI(obj interface{}) {
 			for _, key := range keys {
 				ctrl.vmExportQueue.Add(key)
 			}
+			return
+		}
+		pvcs := ctrl.getPVCsFromVMI(vmi)
+		for _, pvc := range pvcs {
+			ctrl.handlePVC(pvc)
 		}
 	}
+}
+
+func (ctrl *VMExportController) getPVCsFromVMI(vmi *virtv1.VirtualMachineInstance) []*corev1.PersistentVolumeClaim {
+	var pvcs []*corev1.PersistentVolumeClaim
+	for _, volume := range vmi.Spec.Volumes {
+		if volume.PersistentVolumeClaim != nil {
+			if pvc := ctrl.getPVCsFromName(vmi.Namespace, volume.PersistentVolumeClaim.ClaimName); pvc != nil {
+				pvcs = append(pvcs, pvc)
+			}
+		}
+		if volume.DataVolume != nil {
+			if pvc := ctrl.getPVCsFromName(vmi.Namespace, volume.DataVolume.Name); pvc != nil {
+				pvcs = append(pvcs, pvc)
+			}
+		}
+	}
+	return pvcs
+}
+
+func (ctrl *VMExportController) getPVCsFromName(namespace, name string) *corev1.PersistentVolumeClaim {
+	pvc, exists, err := ctrl.getPvc(namespace, name)
+	if err != nil {
+		log.Log.V(3).Infof("Error getting pvc by name %v", err)
+		return nil
+	}
+	if exists {
+		return pvc
+	}
+	return nil
 }
 
 func (ctrl *VMExportController) getOwnerVMexportKey(obj metav1.Object) string {
@@ -527,30 +561,29 @@ func (ctrl *VMExportController) createPodAndSecret(vmExport *exportv1.VirtualMac
 
 func (ctrl *VMExportController) handleIsSourcePvc(vmExport *exportv1.VirtualMachineExport, service *corev1.Service) (time.Duration, error) {
 	var pvcs []*corev1.PersistentVolumeClaim
+	isPopulated := false
 	pvc, exists, err := ctrl.getPvc(vmExport.Namespace, vmExport.Spec.Source.Name)
 	if err != nil {
 		return 0, err
 	}
 	if exists {
 		pvcs = append(pvcs, pvc)
+		isPopulated, err = ctrl.isPVCPopulated(pvc)
+		if err != nil {
+			return 0, err
+		}
 	}
-
 	pod, exists, err := ctrl.getExporterPod(vmExport)
-	inUse := false
-	isPopulated := false
 	if err != nil {
 		return 0, err
 	}
+	inUse := false
 	if !exists {
 		inUse, err = ctrl.isPVCInUse(vmExport, pvc)
 		if err != nil {
 			return 0, err
 		}
 		if !inUse && len(pvcs) > 0 {
-			isPopulated, err = ctrl.isPVCPopulated(pvc)
-			if err != nil {
-				return 0, err
-			}
 			if isPopulated {
 				pod, err = ctrl.createPodAndSecret(vmExport, pvcs)
 				if err != nil {
@@ -564,7 +597,7 @@ func (ctrl *VMExportController) handleIsSourcePvc(vmExport *exportv1.VirtualMach
 			return 0, err
 		}
 		if inUse {
-			// VMI exists, stop pod if it exists.
+			// Other pod is using PVC, stop pod if it exists.
 			if err := ctrl.deleteExporterPod(vmExport, pod, ExportPaused, fmt.Sprintf("pvc %s/%s is in use", pvc.Namespace, pvc.Name)); err != nil {
 				return 0, err
 			}

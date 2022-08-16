@@ -37,6 +37,7 @@ import (
 	networkingv1 "k8s.io/api/networking/v1"
 	storagev1 "k8s.io/api/storage/v1"
 	"k8s.io/apimachinery/pkg/api/errors"
+	"k8s.io/apimachinery/pkg/api/resource"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/types"
 	"k8s.io/apimachinery/pkg/util/rand"
@@ -47,6 +48,7 @@ import (
 	snapshotv1 "kubevirt.io/api/snapshot/v1alpha1"
 	"kubevirt.io/client-go/kubecli"
 	"kubevirt.io/client-go/log"
+	cdiv1 "kubevirt.io/containerized-data-importer-api/pkg/apis/core/v1beta1"
 
 	k6ttypes "kubevirt.io/kubevirt/pkg/util/types"
 	"kubevirt.io/kubevirt/pkg/virt-operator/resource/generate/components"
@@ -1034,6 +1036,23 @@ var _ = SIGDescribe("Export", func() {
 		}
 	}
 
+	createDataVolume := func(dv *cdiv1.DataVolume) *cdiv1.DataVolume {
+		dv, err := virtClient.CdiClient().CdiV1beta1().DataVolumes(dv.Namespace).Create(context.Background(), dv, metav1.CreateOptions{})
+		Expect(err).ToNot(HaveOccurred())
+		return dv
+	}
+
+	createVMI := func(vmi *virtv1.VirtualMachineInstance) *virtv1.VirtualMachineInstance {
+		vmi, err := virtClient.VirtualMachineInstance(vmi.Namespace).Create(vmi)
+		Expect(err).ToNot(HaveOccurred())
+		for _, volume := range vmi.Spec.Volumes {
+			if volume.DataVolume != nil {
+				libstorage.EventuallyDVWith(vmi.Namespace, volume.DataVolume.Name, 180, HaveSucceeded())
+			}
+		}
+		return vmi
+	}
+
 	createVM := func(vm *virtv1.VirtualMachine) *virtv1.VirtualMachine {
 		vm, err := virtClient.VirtualMachine(vm.Namespace).Create(vm)
 		Expect(err).ToNot(HaveOccurred())
@@ -1048,6 +1067,11 @@ var _ = SIGDescribe("Export", func() {
 		vm, err = virtClient.VirtualMachine(vm.Namespace).Update(vm)
 		Expect(err).ToNot(HaveOccurred())
 		return vm
+	}
+
+	deleteVMI := func(vmi *virtv1.VirtualMachineInstance) {
+		err := virtClient.VirtualMachineInstance(vmi.Namespace).Delete(vmi.Name, &metav1.DeleteOptions{})
+		Expect(err).ToNot(HaveOccurred())
 	}
 
 	startVM := func(vm *virtv1.VirtualMachine) *virtv1.VirtualMachine {
@@ -1293,6 +1317,49 @@ var _ = SIGDescribe("Export", func() {
 		verifyKubevirtInternal(export, export.Name, export.Namespace, vm.Spec.Template.Spec.Volumes[0].DataVolume.Name)
 		By("Starting VM, the export should return to pending")
 		vm = startVM(vm)
+		waitForExportPhase(export, exportv1.Pending)
+		waitForExportCondition(export, pvcInUseCondition, "export should report pvc in use")
+	})
+
+	It("should report export pending if PVC is in use because of VMI using it, and start the VM export if the PVC is not in use, then stop again once pvc in use again", func() {
+		sc, exists := libstorage.GetRWOFileSystemStorageClass()
+		if !exists {
+			Skip("Skip test when Filesystem storage is not present")
+		}
+		dataVolume := libstorage.NewDataVolumeWithRegistryImportInStorageClass(cd.DataVolumeImportUrlForContainerDisk(cd.ContainerDiskAlpine), util.NamespaceTestDefault, sc, k8sv1.ReadWriteOnce, k8sv1.PersistentVolumeFilesystem)
+		dataVolume.Spec.PVC.Resources.Requests[k8sv1.ResourceStorage] = resource.MustParse("6Gi")
+		dataVolume = createDataVolume(dataVolume)
+		vmi := tests.NewRandomVMIWithDataVolume(dataVolume.Name)
+		vmi = createVMI(vmi)
+		Eventually(func() virtv1.VirtualMachineInstancePhase {
+			vmi, err := virtClient.VirtualMachineInstance(vmi.Namespace).Get(vmi.Name, &metav1.GetOptions{})
+			if errors.IsNotFound(err) {
+				return ""
+			}
+			Expect(err).ToNot(HaveOccurred())
+			return vmi.Status.Phase
+		}, 180*time.Second, time.Second).Should(Equal(virtv1.Running))
+		// For testing the token is the name of the source VM.
+		token := createExportTokenSecret(vmi.Name, vmi.Namespace)
+		pvcName := ""
+		for _, volume := range vmi.Spec.Volumes {
+			if volume.DataVolume != nil {
+				pvcName = volume.DataVolume.Name
+			}
+		}
+		Expect(pvcName).ToNot(BeEmpty())
+		export := createPVCExportObject(pvcName, vmi.Namespace, token)
+		Expect(export).ToNot(BeNil())
+		waitForExportPhase(export, exportv1.Pending)
+		waitForExportCondition(export, pvcInUseCondition, "export should report pvc in use")
+
+		By("Deleting VMI, we should get the export ready eventually")
+		deleteVMI(vmi)
+		export = waitForReadyExport(export)
+		verifyKubevirtInternal(export, export.Name, export.Namespace, vmi.Spec.Volumes[0].DataVolume.Name)
+		By("Starting VMI, the export should return to pending")
+		vmi = tests.NewRandomVMIWithDataVolume(dataVolume.Name)
+		vmi = createVMI(vmi)
 		waitForExportPhase(export, exportv1.Pending)
 		waitForExportCondition(export, pvcInUseCondition, "export should report pvc in use")
 	})

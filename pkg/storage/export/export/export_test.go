@@ -611,6 +611,80 @@ var _ = Describe("Export controller", func() {
 		mockVMExportQueue.Wait()
 	})
 
+	DescribeTable("should add vmexport to queue if VMI (pvc) is added that matches PVC export", func(source virtv1.VolumeSource) {
+		vmExport := createPVCVMExport()
+		vmi := &virtv1.VirtualMachineInstance{
+			ObjectMeta: metav1.ObjectMeta{
+				Name:      testVmName,
+				Namespace: testNamespace,
+			},
+			Spec: virtv1.VirtualMachineInstanceSpec{
+				Volumes: []virtv1.Volume{
+					{
+						Name:         "testVolume",
+						VolumeSource: source,
+					},
+				},
+			},
+		}
+		pvc := &k8sv1.PersistentVolumeClaim{
+			ObjectMeta: metav1.ObjectMeta{
+				Name:      testPVCName,
+				Namespace: testNamespace,
+			},
+		}
+		syncCaches(stop)
+		mockVMExportQueue.ExpectAdds(2)
+		vmExportSource.Add(vmExport)
+		controller.processVMExportWorkItem()
+		pvcInformer.GetStore().Add(pvc)
+		vmiInformer.GetStore().Add(vmi)
+		controller.handleVMI(vmi)
+		mockVMExportQueue.Wait()
+	},
+		Entry("PVC", virtv1.VolumeSource{
+			PersistentVolumeClaim: &virtv1.PersistentVolumeClaimVolumeSource{
+				PersistentVolumeClaimVolumeSource: k8sv1.PersistentVolumeClaimVolumeSource{
+					ClaimName: testPVCName,
+				},
+			},
+		}),
+		Entry("DV", virtv1.VolumeSource{
+			DataVolume: &virtv1.DataVolumeSource{
+				Name: testPVCName,
+			},
+		}),
+	)
+
+	It("should not add vmexport to queue if VMI (dv) is added that doesn't match a PVC export", func() {
+		vmExport := createPVCVMExport()
+		vmi := &virtv1.VirtualMachineInstance{
+			ObjectMeta: metav1.ObjectMeta{
+				Name:      testVmName,
+				Namespace: testNamespace,
+			},
+			Spec: virtv1.VirtualMachineInstanceSpec{
+				Volumes: []virtv1.Volume{
+					{
+						Name: "testVolume",
+						VolumeSource: virtv1.VolumeSource{
+							DataVolume: &virtv1.DataVolumeSource{
+								Name: testPVCName,
+							},
+						},
+					},
+				},
+			},
+		}
+		syncCaches(stop)
+		mockVMExportQueue.ExpectAdds(1)
+		vmExportSource.Add(vmExport)
+		controller.processVMExportWorkItem()
+		vmiInformer.GetStore().Add(vmi)
+		controller.handleVMI(vmi)
+		mockVMExportQueue.Wait()
+	})
+
 	It("Should create a service based on the name of the VMExport", func() {
 		var service *k8sv1.Service
 		testVMExport := &exportv1.VirtualMachineExport{
