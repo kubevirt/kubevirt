@@ -18,13 +18,13 @@ import (
 
 	diskutils "kubevirt.io/kubevirt/pkg/ephemeral-disk-utils"
 	hotplugdisk "kubevirt.io/kubevirt/pkg/hotplug-disk"
+	storagetypes "kubevirt.io/kubevirt/pkg/storage/types"
 	"kubevirt.io/kubevirt/pkg/virt-handler/cgroup"
 	"kubevirt.io/kubevirt/pkg/virt-handler/isolation"
 
 	"github.com/opencontainers/runc/libcontainer/configs"
 
 	"github.com/opencontainers/runc/libcontainer/devices"
-	k8sv1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/types"
 
 	v1 "kubevirt.io/api/core/v1"
@@ -375,7 +375,7 @@ func (m *volumeMounter) isBlockVolume(vmiStatus *v1.VirtualMachineInstanceStatus
 	// Check if the volumeDevices directory exists in the attachment pod, if so, its a block device, otherwise its file system.
 	for _, status := range vmiStatus.VolumeStatus {
 		if status.Name == volumeName {
-			return status.PersistentVolumeClaimInfo != nil && status.PersistentVolumeClaimInfo.VolumeMode != nil && *status.PersistentVolumeClaimInfo.VolumeMode == k8sv1.PersistentVolumeBlock
+			return status.PersistentVolumeClaimInfo != nil && storagetypes.IsPVCBlock(status.PersistentVolumeClaimInfo.VolumeMode)
 		}
 	}
 	return false

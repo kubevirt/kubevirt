@@ -40,7 +40,7 @@ import (
 	cdiclone "kubevirt.io/containerized-data-importer/pkg/clone"
 
 	"kubevirt.io/kubevirt/pkg/instancetype"
-	typesutil "kubevirt.io/kubevirt/pkg/util/types"
+	typesutil "kubevirt.io/kubevirt/pkg/storage/types"
 	webhookutils "kubevirt.io/kubevirt/pkg/util/webhooks"
 	"kubevirt.io/kubevirt/pkg/virt-api/webhooks"
 	virtconfig "kubevirt.io/kubevirt/pkg/virt-config"

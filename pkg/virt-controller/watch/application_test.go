@@ -57,12 +57,12 @@ import (
 
 	"kubevirt.io/kubevirt/pkg/controller"
 	"kubevirt.io/kubevirt/pkg/rest"
+	"kubevirt.io/kubevirt/pkg/storage/export/export"
+	"kubevirt.io/kubevirt/pkg/storage/snapshot"
 	testutils "kubevirt.io/kubevirt/pkg/testutils"
 	"kubevirt.io/kubevirt/pkg/virt-controller/services"
 	"kubevirt.io/kubevirt/pkg/virt-controller/watch/drain/disruptionbudget"
 	"kubevirt.io/kubevirt/pkg/virt-controller/watch/drain/evacuation"
-	"kubevirt.io/kubevirt/pkg/virt-controller/watch/export"
-	"kubevirt.io/kubevirt/pkg/virt-controller/watch/snapshot"
 
 	storagev1 "k8s.io/api/storage/v1"
 	extv1 "k8s.io/apiextensions-apiserver/pkg/apis/apiextensions/v1"

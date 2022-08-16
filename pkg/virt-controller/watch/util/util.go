@@ -35,7 +35,7 @@ import (
 	"kubevirt.io/client-go/kubecli"
 	cdiv1 "kubevirt.io/containerized-data-importer-api/pkg/apis/core/v1beta1"
 
-	typesutil "kubevirt.io/kubevirt/pkg/util/types"
+	typesutil "kubevirt.io/kubevirt/pkg/storage/types"
 )
 
 func ProcessWorkItem(queue workqueue.RateLimitingInterface, handler func(string) (time.Duration, error)) bool {

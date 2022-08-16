@@ -37,8 +37,8 @@ import (
 
 	v1 "kubevirt.io/api/core/v1"
 
+	"kubevirt.io/kubevirt/pkg/storage/types"
 	"kubevirt.io/kubevirt/pkg/util"
-	"kubevirt.io/kubevirt/pkg/util/types"
 )
 
 var pvcBaseDir = "/var/run/kubevirt-private/vmi-disks"

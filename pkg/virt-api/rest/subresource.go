@@ -51,6 +51,7 @@ import (
 
 	"kubevirt.io/kubevirt/pkg/controller"
 	"kubevirt.io/kubevirt/pkg/instancetype"
+	storagetypes "kubevirt.io/kubevirt/pkg/storage/types"
 	kutil "kubevirt.io/kubevirt/pkg/util"
 	k6ttypes "kubevirt.io/kubevirt/pkg/util/types"
 	virtconfig "kubevirt.io/kubevirt/pkg/virt-config"
@@ -1395,11 +1396,11 @@ func (app *SubresourceAPIApp) validateMemoryDumpClaim(vmi *v1.VirtualMachineInst
 	if err != nil {
 		return err
 	}
-	if k6ttypes.IsPVCBlock(pvc.Spec.VolumeMode) {
+	if storagetypes.IsPVCBlock(pvc.Spec.VolumeMode) {
 		return errors.NewConflict(v1.Resource("persistentvolumeclaim"), claimName, fmt.Errorf(pvcVolumeModeErr))
 	}
 
-	if k6ttypes.IsReadOnlyAccessMode(pvc.Spec.AccessModes) {
+	if storagetypes.IsReadOnlyAccessMode(pvc.Spec.AccessModes) {
 		return errors.NewConflict(v1.Resource("persistentvolumeclaim"), claimName, fmt.Errorf(pvcAccessModeErr))
 	}
 
@@ -1415,9 +1416,9 @@ func (app *SubresourceAPIApp) validateMemoryDumpClaim(vmi *v1.VirtualMachineInst
 	var overheadErr error
 	if cdiConfig == nil {
 		log.Log.Object(vmi).V(3).Infof(fsOverheadMsg)
-		expectedPvcSize, overheadErr = k6ttypes.GetSizeIncludingGivenOverhead(expectedMemoryDumpSize, filesystemOverhead)
+		expectedPvcSize, overheadErr = storagetypes.GetSizeIncludingGivenOverhead(expectedMemoryDumpSize, filesystemOverhead)
 	} else {
-		expectedPvcSize, overheadErr = k6ttypes.GetSizeIncludingFSOverhead(expectedMemoryDumpSize, pvc.Spec.StorageClassName, pvc.Spec.VolumeMode, cdiConfig)
+		expectedPvcSize, overheadErr = storagetypes.GetSizeIncludingFSOverhead(expectedMemoryDumpSize, pvc.Spec.StorageClassName, pvc.Spec.VolumeMode, cdiConfig)
 	}
 	if overheadErr != nil {
 		return errors.NewInternalError(overheadErr)

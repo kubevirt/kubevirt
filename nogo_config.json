@@ -169,6 +169,7 @@
       "pkg/rest/": "KubeVirt rest pkg does not pass errcheck yet",
       "pkg/safepath/": "KubeVirt safepath pkg does not pass errcheck yet",
       "pkg/service/": "KubeVirt service pkg does not pass errcheck yet",
+      "pkg/storage/": "KubeVirt service pkg does not pass errcheck yet",
       "pkg/testutils/": "KubeVirt test-utils pkg does not pass errcheck yet",
       "pkg/unsafepath/": "KubeVirt unsafepath pkg does not pass errcheck yet",
       "pkg/util/": "KubeVirt util pkg does not pass errcheck yet",

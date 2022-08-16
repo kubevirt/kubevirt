@@ -58,6 +58,7 @@ import (
 
 	"kubevirt.io/kubevirt/pkg/controller"
 	metrics "kubevirt.io/kubevirt/pkg/monitoring/migration"
+	storagetypes "kubevirt.io/kubevirt/pkg/storage/types"
 	kubevirttypes "kubevirt.io/kubevirt/pkg/util/types"
 	"kubevirt.io/kubevirt/pkg/virt-controller/services"
 )
@@ -900,7 +901,7 @@ func (c *MigrationController) createAttachmentPod(migration *virtv1.VirtualMachi
 
 	volumes := getHotplugVolumes(vmi, sourcePod)
 
-	volumeNamesPVCMap, err := kubevirttypes.VirtVolumesToPVCMap(volumes, c.pvcInformer.GetStore(), virtLauncherPod.Namespace)
+	volumeNamesPVCMap, err := storagetypes.VirtVolumesToPVCMap(volumes, c.pvcInformer.GetStore(), virtLauncherPod.Namespace)
 	if err != nil {
 		return fmt.Errorf("failed to get PVC map: %v", err)
 	}
