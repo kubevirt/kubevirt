@@ -5,12 +5,12 @@ go_library(
     srcs = [
         "hostdev.go",
         "pcipool.go",
-        "vmispec.go",
     ],
     importpath = "kubevirt.io/kubevirt/pkg/virt-launcher/virtwrap/device/hostdevice/sriov",
     visibility = ["//visibility:public"],
     deps = [
         "//pkg/network/sriov:go_default_library",
+        "//pkg/network/vmispec:go_default_library",
         "//pkg/virt-launcher/virtwrap/api:go_default_library",
         "//pkg/virt-launcher/virtwrap/device:go_default_library",
         "//pkg/virt-launcher/virtwrap/device/hostdevice:go_default_library",
