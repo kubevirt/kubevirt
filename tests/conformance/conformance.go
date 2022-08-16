@@ -20,7 +20,7 @@ func done(files []string) {
 func main() {
 	err := execute()
 	done([]string{
-		"/tmp/sonobuoy/results/junit.xml",
+		"/tmp/sonobuoy/results",
 	})
 	if err != nil {
 		os.Exit(1)
