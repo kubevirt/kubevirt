@@ -318,28 +318,14 @@ func (m *volumeMounter) mountHotplugVolume(vmi *v1.VirtualMachineInstance, volum
 }
 
 func (m *volumeMounter) Mount(vmi *v1.VirtualMachineInstance) error {
-	record, err := m.getMountTargetRecord(vmi)
-	if err != nil {
-		return err
-	}
-	for _, volumeStatus := range vmi.Status.VolumeStatus {
-		if volumeStatus.HotplugVolume == nil {
-			// Skip non hotplug volumes
-			continue
-		}
-		mountDirectory := false
-		if volumeStatus.MemoryDumpVolume != nil {
-			mountDirectory = true
-		}
-		sourceUID := volumeStatus.HotplugVolume.AttachPodUID
-		if err := m.mountHotplugVolume(vmi, volumeStatus.Name, sourceUID, record, mountDirectory); err != nil {
-			return err
-		}
-	}
-	return nil
+	return m.mountFromPod(vmi, types.UID(""))
 }
 
 func (m *volumeMounter) MountFromPod(vmi *v1.VirtualMachineInstance, sourceUID types.UID) error {
+	return m.mountFromPod(vmi, sourceUID)
+}
+
+func (m *volumeMounter) mountFromPod(vmi *v1.VirtualMachineInstance, sourceUID types.UID) error {
 	record, err := m.getMountTargetRecord(vmi)
 	if err != nil {
 		return err
@@ -352,6 +338,9 @@ func (m *volumeMounter) MountFromPod(vmi *v1.VirtualMachineInstance, sourceUID t
 		mountDirectory := false
 		if volumeStatus.MemoryDumpVolume != nil {
 			mountDirectory = true
+		}
+		if sourceUID == types.UID("") {
+			sourceUID = volumeStatus.HotplugVolume.AttachPodUID
 		}
 		if err := m.mountHotplugVolume(vmi, volumeStatus.Name, sourceUID, record, mountDirectory); err != nil {
 			return err
