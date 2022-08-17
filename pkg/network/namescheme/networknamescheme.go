@@ -19,4 +19,38 @@
 
 package namescheme
 
+import (
+	"fmt"
+
+	v1 "kubevirt.io/api/core/v1"
+
+	"kubevirt.io/kubevirt/pkg/network/vmispec"
+)
+
 const PrimaryPodInterfaceName = "eth0"
+
+// CreateNetworkNameScheme iterates over the VMI's Networks, and creates for each a pod interface name.
+// The returned map associates between the network name and the generated pod interface name.
+// Primary network will use "eth0" and the secondary ones will use "net<id>" format, where id is an enumeration
+// from 1 to n.
+func CreateNetworkNameScheme(vmiNetworks []v1.Network) map[string]string {
+	networkNameSchemeMap := mapMultusNonDefaultNetworksToPodInterfaceName(vmiNetworks)
+
+	if multusDefaultNetwork := vmispec.LookUpDefaultNetwork(vmiNetworks); multusDefaultNetwork != nil {
+		networkNameSchemeMap[multusDefaultNetwork.Name] = PrimaryPodInterfaceName
+	}
+
+	return networkNameSchemeMap
+}
+
+func mapMultusNonDefaultNetworksToPodInterfaceName(networks []v1.Network) map[string]string {
+	networkNameSchemeMap := map[string]string{}
+	for i, network := range vmispec.FilterMultusNonDefaultNetworks(networks) {
+		networkNameSchemeMap[network.Name] = secondaryInterfaceName(i + 1)
+	}
+	return networkNameSchemeMap
+}
+
+func secondaryInterfaceName(idx int) string {
+	return fmt.Sprintf("net%d", idx)
+}
