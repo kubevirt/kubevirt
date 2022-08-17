@@ -654,33 +654,27 @@ func (m *volumeMounter) Unmount(vmi *v1.VirtualMachineInstance) error {
 			if volumeStatus.HotplugVolume == nil {
 				continue
 			}
+			var path *safepath.Path
+			var err error
 			if m.isBlockVolume(&vmi.Status, volumeStatus.Name) {
-				path, err := safepath.JoinNoFollow(basePath, volumeStatus.Name)
-				if err != nil {
-					return err
-				}
-				currentHotplugPaths[unsafepath.UnsafeAbsolute(path.Raw())] = virtlauncherUID
+				path, err = safepath.JoinNoFollow(basePath, volumeStatus.Name)
 			} else if m.isDirectoryMounted(&vmi.Status, volumeStatus.Name) {
-				path, err := m.hotplugDiskManager.GetFileSystemDirectoryTargetPathFromHostView(virtlauncherUID, volumeStatus.Name, false)
+				path, err = m.hotplugDiskManager.GetFileSystemDirectoryTargetPathFromHostView(virtlauncherUID, volumeStatus.Name, false)
 				if os.IsExist(err) {
 					// already unmounted or never mounted
 					continue
 				}
-				if err != nil {
-					return err
-				}
-				currentHotplugPaths[unsafepath.UnsafeAbsolute(path.Raw())] = virtlauncherUID
 			} else {
-				path, err := m.hotplugDiskManager.GetFileSystemDiskTargetPathFromHostView(virtlauncherUID, volumeStatus.Name, false)
+				path, err = m.hotplugDiskManager.GetFileSystemDiskTargetPathFromHostView(virtlauncherUID, volumeStatus.Name, false)
 				if os.IsNotExist(err) {
 					// already unmounted or never mounted
 					continue
 				}
-				if err != nil {
-					return err
-				}
-				currentHotplugPaths[unsafepath.UnsafeAbsolute(path.Raw())] = virtlauncherUID
 			}
+			if err != nil {
+				return err
+			}
+			currentHotplugPaths[unsafepath.UnsafeAbsolute(path.Raw())] = virtlauncherUID
 		}
 		newRecord := vmiMountTargetRecord{
 			MountTargetEntries: make([]vmiMountTargetEntry, 0),
