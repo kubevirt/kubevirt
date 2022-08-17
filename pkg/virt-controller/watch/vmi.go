@@ -520,16 +520,6 @@ func (c *VMIController) updateStatus(vmi *virtv1.VirtualMachineInstance, pod *k8
 					break
 				}
 
-				hotplugPodsReady := false
-				hotplugPodsReady, syncErr = c.hotplugPodsReady(vmi, pod)
-				if syncErr != nil {
-					break
-				}
-				if !hotplugPodsReady {
-					log.Log.V(3).Object(vmi).Infof("Postpone the pod hand-over and await the attachment pod ready")
-					break
-				}
-
 				// Initialize the volume status field with information
 				// about the PVCs that the VMI is consuming. This prevents
 				// virt-handler from needing to make API calls to GET the pvc

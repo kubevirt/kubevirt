@@ -11021,6 +11021,10 @@ var CRDsValidation map[string]string = map[string]string{
             launcher
           format: int64
           type: integer
+        selinuxContext:
+          description: SELinuxContext is the actual SELinux context of the virt-launcher
+            pod
+          type: string
         topologyHints:
           properties:
             tscFrequency:

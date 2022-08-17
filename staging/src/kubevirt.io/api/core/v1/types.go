@@ -261,6 +261,10 @@ type VirtualMachineInstanceStatus struct {
 	// RuntimeUser is used to determine what user will be used in launcher
 	// +optional
 	RuntimeUser uint64 `json:"runtimeUser"`
+
+	// SELinuxContext is the actual SELinux context of the virt-launcher pod
+	// +optional
+	SelinuxContext string `json:"selinuxContext,omitempty"`
 }
 
 // PersistentVolumeClaimInfo contains the relavant information virt-handler needs cached about a PVC
