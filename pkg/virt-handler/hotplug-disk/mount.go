@@ -522,9 +522,11 @@ func (m *volumeMounter) mountFileSystemHotplugVolume(vmi *v1.VirtualMachineInsta
 		return err
 	}
 
-	if isMounted, err := isMounted(target); err != nil {
+	isMounted, err := isMounted(target)
+	if err != nil {
 		return fmt.Errorf("failed to determine if %s is already mounted: %v", target, err)
-	} else if !isMounted {
+	}
+	if !isMounted {
 		sourcePath, err := m.getSourcePodFilePath(sourceUID, vmi, volume)
 		if err != nil {
 			log.DefaultLogger().V(3).Infof("Error getting source path: %v", err)
@@ -535,28 +537,16 @@ func (m *volumeMounter) mountFileSystemHotplugVolume(vmi *v1.VirtualMachineInsta
 		if err := m.writePathToMountRecord(unsafepath.UnsafeAbsolute(target.Raw()), vmi, record); err != nil {
 			return err
 		}
-		if mountDirectory {
-			target, err = m.hotplugDiskManager.GetFileSystemDirectoryTargetPathFromHostView(virtlauncherUID, volume, true)
-			if err != nil {
-				return err
-			}
-			if out, err := mountCommand(sourcePath, target); err != nil {
-				return fmt.Errorf("failed to bindmount hotplug directory %v: %v : %v", volume, string(out), err)
-			}
-		} else {
-			target, err = m.hotplugDiskManager.GetFileSystemDiskTargetPathFromHostView(virtlauncherUID, volume, true)
-			if err != nil {
-				return err
-			}
+		if !mountDirectory {
 			sourcePath, err = sourcePath.AppendAndResolveWithRelativeRoot("disk.img")
 			if err != nil {
 				return err
 			}
-			if out, err := mountCommand(sourcePath, target); err != nil {
-				return fmt.Errorf("failed to bindmount hotplug-disk %v to %v: %v : %v", sourcePath, target, string(out), err)
-			}
-			log.DefaultLogger().V(1).Infof("successfully mounted %v", volume)
 		}
+		if out, err := mountCommand(sourcePath, target); err != nil {
+			return fmt.Errorf("failed to bindmount hotplug volume source from %v to %v: %v : %v", sourcePath, target, string(out), err)
+		}
+		log.DefaultLogger().V(1).Infof("successfully mounted %v", volume)
 	}
 
 	return m.ownershipManager.SetFileOwnership(target)
