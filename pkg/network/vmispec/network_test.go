@@ -55,6 +55,33 @@ var _ = Describe("Network", func() {
 				multusSecondaryNetwork3,
 			}),
 	)
+
+	DescribeTable("should fail to return the default network", func(inputNetworks []v1.Network) {
+		Expect(vmispec.LookUpDefaultNetwork(inputNetworks)).To(BeNil())
+	},
+		Entry("when there are no networks", []v1.Network{}),
+		Entry("when there are no default networks", []v1.Network{multusSecondaryNetwork1, multusSecondaryNetwork2}),
+	)
+	DescribeTable("should succeed to return the default network", func(inputNetworks []v1.Network, expectNetwork *v1.Network) {
+		Expect(vmispec.LookUpDefaultNetwork(inputNetworks)).To(Equal(expectNetwork))
+	},
+		Entry("when there is a default pod network",
+			[]v1.Network{
+				podNetwork,
+				multusSecondaryNetwork1,
+				multusSecondaryNetwork2,
+			},
+			&podNetwork,
+		),
+		Entry("when there is a multus default network",
+			[]v1.Network{
+				multusDefaultNetwork,
+				multusSecondaryNetwork1,
+				multusSecondaryNetwork2,
+			},
+			&multusDefaultNetwork,
+		),
+	)
 })
 
 func createMultusSecondaryNetwork(name, networkName string) v1.Network {

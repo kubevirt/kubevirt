@@ -18,3 +18,73 @@
  */
 
 package namescheme_test
+
+import (
+	. "github.com/onsi/ginkgo/v2"
+	. "github.com/onsi/gomega"
+
+	virtv1 "kubevirt.io/api/core/v1"
+
+	"kubevirt.io/kubevirt/pkg/network/namescheme"
+)
+
+var _ = Describe("Network Name Scheme", func() {
+	Context("CreateNetworkNameScheme", func() {
+		DescribeTable("should return the expected NetworkNameSchemeMap",
+			func(networkList []virtv1.Network, expectedNetworkNameSchemeMap map[string]string) {
+				podIfacesNameScheme := namescheme.CreateNetworkNameScheme(networkList)
+
+				Expect(podIfacesNameScheme).To(Equal(expectedNetworkNameSchemeMap))
+			},
+			Entry("when network list is nil", nil, map[string]string{}),
+			Entry("when no multus networks exist",
+				[]virtv1.Network{
+					newPodNetwork("default"),
+				},
+				map[string]string{
+					"default": namescheme.PrimaryPodInterfaceName,
+				}),
+			Entry("when default multus networks exist",
+				[]virtv1.Network{
+					createMultusDefaultNetwork("network0", "default/nad0"),
+					createMultusSecondaryNetwork("network1", "default/nad1"),
+					createMultusSecondaryNetwork("network2", "default/nad2"),
+				},
+				map[string]string{
+					"network0": namescheme.PrimaryPodInterfaceName,
+					"network1": "net1",
+					"network2": "net2",
+				}),
+		)
+	})
+})
+
+func createMultusSecondaryNetwork(name, networkName string) virtv1.Network {
+	return createMultusNetwork(name, networkName)
+}
+
+func createMultusDefaultNetwork(name, networkName string) virtv1.Network {
+	multusNetwork := createMultusNetwork(name, networkName)
+	multusNetwork.Multus.Default = true
+	return multusNetwork
+}
+
+func createMultusNetwork(name, networkName string) virtv1.Network {
+	return virtv1.Network{
+		Name: name,
+		NetworkSource: virtv1.NetworkSource{
+			Multus: &virtv1.MultusNetwork{
+				NetworkName: networkName,
+			},
+		},
+	}
+}
+
+func newPodNetwork(name string) virtv1.Network {
+	return virtv1.Network{
+		Name: name,
+		NetworkSource: virtv1.NetworkSource{
+			Pod: &virtv1.PodNetwork{},
+		},
+	}
+}
