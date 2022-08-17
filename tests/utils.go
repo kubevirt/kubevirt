@@ -726,51 +726,6 @@ func NewRandomFedoraVMIWithBlacklistGuestAgent(commands string) *v1.VirtualMachi
 	)
 }
 
-func AddPVCFS(vmi *v1.VirtualMachineInstance, name string, claimName string) *v1.VirtualMachineInstance {
-	vmi.Spec.Domain.Devices.Filesystems = append(vmi.Spec.Domain.Devices.Filesystems, v1.Filesystem{
-		Name:     name,
-		Virtiofs: &v1.FilesystemVirtiofs{},
-	})
-	vmi.Spec.Volumes = append(vmi.Spec.Volumes, v1.Volume{
-		Name: name,
-		VolumeSource: v1.VolumeSource{
-			PersistentVolumeClaim: &v1.PersistentVolumeClaimVolumeSource{PersistentVolumeClaimVolumeSource: k8sv1.PersistentVolumeClaimVolumeSource{
-				ClaimName: claimName,
-			}},
-		},
-	})
-
-	return vmi
-}
-
-func NewRandomVMIWithFSFromDataVolume(dataVolumeName string) *v1.VirtualMachineInstance {
-	vmi := NewRandomVMI()
-	containerImage := cd.ContainerDiskFor(cd.ContainerDiskFedoraTestTooling)
-	AddEphemeralDisk(vmi, "disk0", v1.DiskBusVirtio, containerImage)
-	vmi.Spec.Domain.Devices.Filesystems = append(vmi.Spec.Domain.Devices.Filesystems, v1.Filesystem{
-		Name:     "disk1",
-		Virtiofs: &v1.FilesystemVirtiofs{},
-	})
-	vmi.Spec.Volumes = append(vmi.Spec.Volumes, v1.Volume{
-		Name: "disk1",
-		VolumeSource: v1.VolumeSource{
-			DataVolume: &v1.DataVolumeSource{
-				Name: dataVolumeName,
-			},
-		},
-	})
-	return vmi
-}
-
-func NewRandomVMIWithPVCFS(claimName string) *v1.VirtualMachineInstance {
-	vmi := NewRandomVMI()
-
-	containerImage := cd.ContainerDiskFor(cd.ContainerDiskFedoraTestTooling)
-	AddEphemeralDisk(vmi, "disk0", v1.DiskBusVirtio, containerImage)
-	vmi = AddPVCFS(vmi, "disk1", claimName)
-	return vmi
-}
-
 func NewRandomFedoraVMIWithDmidecode() *v1.VirtualMachineInstance {
 	vmi := NewRandomVMIWithEphemeralDiskHighMemory(cd.ContainerDiskFor(cd.ContainerDiskFedoraTestTooling))
 	return vmi
@@ -890,30 +845,6 @@ func DeletePvAndPvc(name string) {
 	if !errors.IsNotFound(err) {
 		util2.PanicOnError(err)
 	}
-}
-
-func NewRandomVMIWithCDRom(claimName string) *v1.VirtualMachineInstance {
-	vmi := NewRandomVMI()
-
-	vmi.Spec.Domain.Devices.Disks = append(vmi.Spec.Domain.Devices.Disks, v1.Disk{
-		Name: "disk0",
-		DiskDevice: v1.DiskDevice{
-			CDRom: &v1.CDRomTarget{
-				// Do not specify ReadOnly flag so that
-				// default behavior can be tested
-				Bus: v1.DiskBusSATA,
-			},
-		},
-	})
-	vmi.Spec.Volumes = append(vmi.Spec.Volumes, v1.Volume{
-		Name: "disk0",
-		VolumeSource: v1.VolumeSource{
-			PersistentVolumeClaim: &v1.PersistentVolumeClaimVolumeSource{PersistentVolumeClaimVolumeSource: k8sv1.PersistentVolumeClaimVolumeSource{
-				ClaimName: claimName,
-			}},
-		},
-	})
-	return vmi
 }
 
 func NewRandomVMIWithEphemeralPVC(claimName string) *v1.VirtualMachineInstance {
