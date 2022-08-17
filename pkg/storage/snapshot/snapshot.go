@@ -90,9 +90,13 @@ func vmSnapshotProgressing(vmSnapshot *snapshotv1.VirtualMachineSnapshot) bool {
 		!vmSnapshotFailed(vmSnapshot) && !vmSnapshotSucceeded(vmSnapshot)
 }
 
-func shouldDeleteContent(vmSnapshot *snapshotv1.VirtualMachineSnapshot) bool {
+func deleteContentPolicy(vmSnapshot *snapshotv1.VirtualMachineSnapshot) bool {
 	return vmSnapshot.Spec.DeletionPolicy == nil ||
 		*vmSnapshot.Spec.DeletionPolicy == snapshotv1.VirtualMachineSnapshotContentDelete
+}
+
+func shouldDeleteContent(vmSnapshot *snapshotv1.VirtualMachineSnapshot, content *snapshotv1.VirtualMachineSnapshotContent) bool {
+	return deleteContentPolicy(vmSnapshot) || !vmSnapshotContentReady(content)
 }
 
 func vmSnapshotDeadlineExceeded(vmSnapshot *snapshotv1.VirtualMachineSnapshot) bool {
@@ -184,7 +188,10 @@ func (ctrl *VMSnapshotController) updateVMSnapshot(vmSnapshot *snapshotv1.Virtua
 			}
 		}
 
-		if shouldDeleteContent(vmSnapshot) {
+		// Delete content if that's the policy or if the snapshot
+		// is marked to be deleted and the content is not ready yet
+		// - no point of keeping an unready content
+		if shouldDeleteContent(vmSnapshot, content) {
 			log.Log.V(2).Infof("Deleting vmsnapshotcontent %s/%s", content.Namespace, content.Name)
 
 			err = ctrl.Client.VirtualMachineSnapshotContent(vmSnapshot.Namespace).Delete(context.Background(), content.Name, metav1.DeleteOptions{})
@@ -218,7 +225,7 @@ func (ctrl *VMSnapshotController) updateVMSnapshotContent(content *snapshotv1.Vi
 	if err != nil || vmSnapshot == nil {
 		return 0, err
 	}
-	if vmSnapshotDeadlineExceeded(vmSnapshot) || (vmSnapshot.DeletionTimestamp != nil && shouldDeleteContent(vmSnapshot)) {
+	if vmSnapshotDeadlineExceeded(vmSnapshot) || (vmSnapshot.DeletionTimestamp != nil && shouldDeleteContent(vmSnapshot, content)) {
 		return 0, nil
 	}
 
