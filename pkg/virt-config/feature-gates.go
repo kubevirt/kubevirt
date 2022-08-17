@@ -48,6 +48,8 @@ const (
 	NonRoot                    = "NonRoot"
 	ClusterProfiler            = "ClusterProfiler"
 	WorkloadEncryptionSEV      = "WorkloadEncryptionSEV"
+	// DockerSELinuxMCSWorkaround sets the SELinux level of all the non-compute virt-launcher containers to "s0".
+	DockerSELinuxMCSWorkaround = "DockerSELinuxMCSWorkaround"
 )
 
 var deprecatedFeatureGates = [...]string{
@@ -166,4 +168,8 @@ func (config *ClusterConfig) ClusterProfilerEnabled() bool {
 
 func (config *ClusterConfig) WorkloadEncryptionSEVEnabled() bool {
 	return config.isFeatureGateEnabled(WorkloadEncryptionSEV)
+}
+
+func (config *ClusterConfig) DockerSELinuxMCSWorkaroundEnabled() bool {
+	return config.isFeatureGateEnabled(DockerSELinuxMCSWorkaround)
 }
