@@ -184,6 +184,16 @@ func (dpi *MediatedDevicePlugin) Allocate(_ context.Context, r *pluginapi.Alloca
 			if mdevUUID, exist := dpi.iommuToMDEVMap[devID]; exist {
 				log.DefaultLogger().Infof("Allocate: got devID: %s for uuid: %s", devID, mdevUUID)
 				allocatedDevices = append(allocatedDevices, mdevUUID)
+
+				// Perform check that node didn't disappear
+				_, err := os.Stat(filepath.Join(dpi.deviceRoot, dpi.devicePath, devID))
+				if err != nil {
+					if os.IsNotExist(err) {
+						log.DefaultLogger().Errorf("Mediated device %s with id %s for resource %s disappeared", mdevUUID, devID, dpi.resourceName)
+					}
+					return resp, fmt.Errorf("Failed to allocate resource %s", dpi.resourceName)
+				}
+
 				formattedVFIO := formatVFIODeviceSpecs(devID)
 				log.DefaultLogger().Infof("Allocate: formatted vfio: %v", formattedVFIO)
 				deviceSpecs = append(deviceSpecs, formattedVFIO...)
@@ -411,7 +421,17 @@ func (dpi *MediatedDevicePlugin) healthCheck() error {
 						Health: pluginapi.Healthy,
 					}
 				} else if (event.Op == fsnotify.Remove) || (event.Op == fsnotify.Rename) {
-					logger.Infof("monitored device %s disappeared", dpi.resourceName)
+					mdev, ok := dpi.iommuToMDEVMap[monDevId]
+					if !ok {
+						mdev = " not recognized"
+					}
+
+					if event.Op == fsnotify.Rename {
+						logger.Infof("Mediated device %s with id %s for resource %s was renamed", mdev, monDevId, dpi.resourceName)
+					} else {
+						logger.Infof("Mediated device %s with id %s for resource %s disappeared", mdev, monDevId, dpi.resourceName)
+					}
+
 					dpi.health <- deviceHealth{
 						DevId:  monDevId,
 						Health: pluginapi.Unhealthy,
