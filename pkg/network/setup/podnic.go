@@ -23,17 +23,17 @@ import (
 	"fmt"
 	"os"
 
-	"kubevirt.io/kubevirt/pkg/network/domainspec"
-
 	v1 "kubevirt.io/api/core/v1"
 	"kubevirt.io/client-go/log"
 	"kubevirt.io/client-go/precond"
 
 	"kubevirt.io/kubevirt/pkg/network/cache"
 	dhcpconfigurator "kubevirt.io/kubevirt/pkg/network/dhcp"
+	"kubevirt.io/kubevirt/pkg/network/domainspec"
 	netdriver "kubevirt.io/kubevirt/pkg/network/driver"
 	"kubevirt.io/kubevirt/pkg/network/errors"
 	"kubevirt.io/kubevirt/pkg/network/infraconfigurators"
+	"kubevirt.io/kubevirt/pkg/network/namescheme"
 	"kubevirt.io/kubevirt/pkg/network/vmispec"
 	"kubevirt.io/kubevirt/pkg/virt-launcher/virtwrap/api"
 )
@@ -376,7 +376,7 @@ func composePodInterfaceName(vmi *v1.VirtualMachineInstance, network *v1.Network
 		}
 		return fmt.Sprintf("net%d", multusIndex), nil
 	}
-	return primaryPodInterfaceName, nil
+	return namescheme.PrimaryPodInterfaceName, nil
 }
 
 func findMultusIndex(vmi *v1.VirtualMachineInstance, networkToFind *v1.Network) int {
