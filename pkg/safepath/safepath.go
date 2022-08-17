@@ -215,6 +215,26 @@ func StatAtNoFollow(path *Path) (os.FileInfo, error) {
 	return os.Stat(pathFd.SafePath())
 }
 
+func GetxattrNoFollow(path *Path, attr string) ([]byte, error) {
+	var ret []byte
+	pathFd, err := OpenAtNoFollow(path)
+	if err != nil {
+		return nil, err
+	}
+	defer pathFd.Close()
+	size, err := syscall.Getxattr(pathFd.SafePath(), attr, ret)
+	if err != nil {
+		return nil, err
+	}
+	ret = make([]byte, size)
+	_, err = syscall.Getxattr(pathFd.SafePath(), attr, ret)
+	if err != nil {
+		return nil, err
+	}
+
+	return ret[:len(ret)-1], nil
+}
+
 type File struct {
 	fd   int
 	path *Path

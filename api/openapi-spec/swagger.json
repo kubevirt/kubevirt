@@ -19167,6 +19167,10 @@
       "type": "integer",
       "format": "int64"
      },
+     "selinuxContext": {
+      "description": "SELinuxContext is the actual SELinux context of the virt-launcher pod",
+      "type": "string"
+     },
      "topologyHints": {
       "$ref": "#/definitions/v1.TopologyHints"
      },
