@@ -45,8 +45,8 @@ import (
 	netcache "kubevirt.io/kubevirt/pkg/network/cache"
 	neterrors "kubevirt.io/kubevirt/pkg/network/errors"
 	"kubevirt.io/kubevirt/pkg/util"
-	container_disk "kubevirt.io/kubevirt/pkg/virt-handler/container-disk"
-	hotplug_volume "kubevirt.io/kubevirt/pkg/virt-handler/hotplug-disk"
+	container_disk "kubevirt.io/kubevirt/pkg/virt-handler/mount-manager/container-disk"
+	hotplug_volume "kubevirt.io/kubevirt/pkg/virt-handler/mount-manager/hotplug-disk"
 
 	"github.com/golang/mock/gomock"
 	. "github.com/onsi/ginkgo/v2"

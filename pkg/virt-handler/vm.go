@@ -46,7 +46,6 @@ import (
 	hotplugdisk "kubevirt.io/kubevirt/pkg/hotplug-disk"
 	"kubevirt.io/kubevirt/pkg/safepath"
 	"kubevirt.io/kubevirt/pkg/virt-handler/cgroup"
-	"kubevirt.io/kubevirt/pkg/virt-handler/mount-manager"
 	mount_manager "kubevirt.io/kubevirt/pkg/virt-handler/mount-manager"
 
 	"github.com/opencontainers/runc/libcontainer/cgroups"
@@ -296,7 +295,7 @@ type VirtualMachineController struct {
 	deviceManagerController  *device_manager.DeviceController
 	migrationProxy           migrationproxy.ProxyManager
 	podIsolationDetector     isolation.PodIsolationDetector
-	mountManager             mount.MountManager
+	mountManager             mount_manager.MountManager
 	clusterConfig            *virtconfig.ClusterConfig
 	sriovHotplugExecutorPool *executor.RateLimitedExecutorPool
 

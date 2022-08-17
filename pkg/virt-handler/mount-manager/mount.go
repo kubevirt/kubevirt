@@ -1,4 +1,4 @@
-package mount
+package mount_manager
 
 import (
 	"fmt"
@@ -10,9 +10,9 @@ import (
 
 	containerdisk "kubevirt.io/kubevirt/pkg/container-disk"
 	virtconfig "kubevirt.io/kubevirt/pkg/virt-config"
-	container_disk "kubevirt.io/kubevirt/pkg/virt-handler/container-disk"
-	hotplug_volume "kubevirt.io/kubevirt/pkg/virt-handler/hotplug-disk"
 	"kubevirt.io/kubevirt/pkg/virt-handler/isolation"
+	container_disk "kubevirt.io/kubevirt/pkg/virt-handler/mount-manager/container-disk"
+	hotplug_volume "kubevirt.io/kubevirt/pkg/virt-handler/mount-manager/hotplug-disk"
 )
 
 // MountInfo wraps all the mount information

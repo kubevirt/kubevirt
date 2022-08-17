@@ -167,10 +167,8 @@ type vmiMountTargetRecord struct {
 }
 
 // NewVolumeMounter creates a new VolumeMounter
-func NewVolumeMounter(mountStateDir string, kubeletPodsDir string) VolumeMounter {
+func NewVolumeMounter(mountRecorder mountutils.MountRecorder, kubeletPodsDir string) VolumeMounter {
 	return &volumeMounter{
-		mountRecords:       make(map[types.UID]*vmiMountTargetRecord),
-		mountStateDir:      mountStateDir,
 		hotplugDiskManager: hotplugdisk.NewHotplugDiskManager(kubeletPodsDir),
 		ownershipManager:   diskutils.DefaultOwnershipManager,
 	}
