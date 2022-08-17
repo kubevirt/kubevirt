@@ -8,6 +8,11 @@ import (
 	"path/filepath"
 	"strings"
 
+	v1 "kubevirt.io/api/core/v1"
+
+	"kubevirt.io/kubevirt/pkg/util"
+	"kubevirt.io/kubevirt/pkg/virt-handler/isolation"
+
 	"kubevirt.io/kubevirt/pkg/safepath"
 	"kubevirt.io/kubevirt/pkg/unsafepath"
 	virt_chroot "kubevirt.io/kubevirt/pkg/virt-handler/virt-chroot"
@@ -183,4 +188,22 @@ func RelabelFiles(newLabel string, continueOnError bool, files ...*safepath.Path
 		}
 	}
 	return nil
+}
+
+func GetVirtLauncherContext(vmi *v1.VirtualMachineInstance) (string, error) {
+	detector := isolation.NewSocketBasedIsolationDetector(util.VirtShareDir)
+	isolationRes, err := detector.Detect(vmi)
+	if err != nil {
+		return "", err
+	}
+	virtLauncherRoot, err := isolationRes.MountRoot()
+	if err != nil {
+		return "", err
+	}
+	context, err := safepath.GetxattrNoFollow(virtLauncherRoot, "security.selinux")
+	if err != nil {
+		return "", err
+	}
+
+	return string(context), nil
 }

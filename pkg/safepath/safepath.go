@@ -215,6 +215,30 @@ func StatAtNoFollow(path *Path) (os.FileInfo, error) {
 	return os.Stat(pathFd.SafePath())
 }
 
+func GetxattrNoFollow(path *Path, attr string) ([]byte, error) {
+	file, err := OpenAtNoFollow(path)
+	if err != nil {
+		return nil, err
+	}
+	defer file.Close()
+	// let's first find out the actual buffer size
+	var buffer []byte
+	labelLength, err := unix.Fgetxattr(file.fd, attr, buffer)
+	if err != nil {
+		return nil, fmt.Errorf("error reading fgetxattr: %v", err)
+	}
+	// now ask with the needed size
+	buffer = make([]byte, labelLength)
+	labelLength, err = unix.Fgetxattr(file.fd, attr, buffer)
+	if err != nil {
+		return nil, fmt.Errorf("error reading fgetxattr: %v", err)
+	}
+	if labelLength > 0 && buffer[labelLength-1] == '\x00' {
+		labelLength = labelLength - 1
+	}
+	return buffer[:labelLength], nil
+}
+
 type File struct {
 	fd   int
 	path *Path
