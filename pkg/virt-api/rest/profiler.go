@@ -280,49 +280,47 @@ func (app *SubresourceAPIApp) DumpClusterProfilerHandler(request *restful.Reques
 	wg.Add(len(pods))
 	defer close(errorChan)
 
-	go func() {
-		for _, pod := range pods {
-			ip := pod.Status.PodIP
-			name := pod.Name
-			log.Log.Infof("Executing Cluster Profiler %s on Pod %s", command, name)
-			go func(ip string, name string) {
-				defer wg.Done()
-				url := fmt.Sprintf("https://%s:%d/%s-profiler", ip, app.profilerComponentPort, command)
-				req, _ := http.NewRequest("GET", url, nil)
-				resp, err := client.Do(req)
-				if err != nil {
-					log.Log.Infof("Encountered error during ClusterProfiler %s on Pod %s: %v", command, name, err)
-					errorChan <- err
-					return
-				}
-				defer resp.Body.Close()
+	for _, pod := range pods {
+		ip := pod.Status.PodIP
+		name := pod.Name
+		log.Log.Infof("Executing Cluster Profiler %s on Pod %s", command, name)
+		go func(ip string, name string) {
+			defer wg.Done()
+			url := fmt.Sprintf("https://%s:%d/%s-profiler", ip, app.profilerComponentPort, command)
+			req, _ := http.NewRequest("GET", url, nil)
+			resp, err := client.Do(req)
+			if err != nil {
+				log.Log.Infof("Encountered error during ClusterProfiler %s on Pod %s: %v", command, name, err)
+				errorChan <- err
+				return
+			}
+			defer resp.Body.Close()
 
-				if resp.StatusCode != http.StatusOK {
-					errorChan <- fmt.Errorf("encountered [%d] status code while contacting url [%s] for pod [%s]", resp.StatusCode, url, name)
-					return
+			if resp.StatusCode != http.StatusOK {
+				errorChan <- fmt.Errorf("encountered [%d] status code while contacting url [%s] for pod [%s]", resp.StatusCode, url, name)
+				return
 
-				}
+			}
 
-				data, err := ioutil.ReadAll(resp.Body)
-				if err != nil {
-					errorChan <- err
-					return
-				}
+			data, err := ioutil.ReadAll(resp.Body)
+			if err != nil {
+				errorChan <- err
+				return
+			}
 
-				componentResult := v1.ProfilerResult{}
-				err = json.Unmarshal(data, &componentResult)
-				if err != nil {
-					errorChan <- fmt.Errorf("Failure to unmarshal json body: %s\nerr: %v", string(data), err)
-					return
-				}
+			componentResult := v1.ProfilerResult{}
+			err = json.Unmarshal(data, &componentResult)
+			if err != nil {
+				errorChan <- fmt.Errorf("Failure to unmarshal json body: %s\nerr: %v", string(data), err)
+				return
+			}
 
-				resultsLock.Lock()
-				defer resultsLock.Unlock()
-				results.ComponentResults[name] = componentResult
+			resultsLock.Lock()
+			defer resultsLock.Unlock()
+			results.ComponentResults[name] = componentResult
 
-			}(ip, name)
-		}
-	}()
+		}(ip, name)
+	}
 
 	wg.Wait()
 	select {
