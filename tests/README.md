@@ -126,11 +126,15 @@ docker run \
 
 1. `GPU` tests in test-lane `$TARGET =~ gpu.*`
 2. `MediatedDevices` tests in test lane `$TARGET =~ vgpu.*`
+3. `Migration tests` (which need at least 2 nodes and a CPU manager) in test lane `$TARGET =~ sig-compute-migrations`
+4. Non-root tests if `$KUBEVIRT_NONROOT =~ true`
 
 This adds new labels to the group of tests written in the test files mentioned below:
 
 1. Label- `needs-gpu` in file `kubevirt/tests/vmi_gpu_test.go`
 2. Label- `needs-mdev-gpu` in file `kubevirt/tests/mdev_configuration_allocation_test.go`. 
+3. Label- `needs-two-nodes-with-cpumanager` in file `kubevirt/tests/migration_test.go`.
+4. Label- `needs-non-root` in file `kubevirt/tests/nonroot_test.go`.
 
 This eliminates the dependency on the use of random keywords matchers.
 --label-filter is then used with gingko params in automation/test.sh, to indicate all test lanes that require these tests.
