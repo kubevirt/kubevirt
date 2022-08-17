@@ -71,7 +71,7 @@ func vmSnapshotContentReady(vmSnapshotContent *snapshotv1.VirtualMachineSnapshot
 }
 
 func vmSnapshotError(vmSnapshot *snapshotv1.VirtualMachineSnapshot) *snapshotv1.Error {
-	if vmSnapshot.Status != nil && vmSnapshot.Status.Error != nil {
+	if vmSnapshot != nil && vmSnapshot.Status != nil && vmSnapshot.Status.Error != nil {
 		return vmSnapshot.Status.Error
 	}
 	return nil
@@ -214,6 +214,23 @@ func (ctrl *VMSnapshotController) updateVMSnapshot(vmSnapshot *snapshotv1.Virtua
 	return retry, nil
 }
 
+func (ctrl *VMSnapshotController) unfreezeSource(vmSnapshot *snapshotv1.VirtualMachineSnapshot) error {
+	if vmSnapshot == nil {
+		return nil
+	}
+	source, err := ctrl.getSnapshotSource(vmSnapshot)
+	if err != nil {
+		return err
+	}
+
+	if source != nil {
+		if err := source.Unfreeze(); err != nil {
+			return err
+		}
+	}
+	return nil
+}
+
 func (ctrl *VMSnapshotController) updateVMSnapshotContent(content *snapshotv1.VirtualMachineSnapshotContent) (time.Duration, error) {
 	log.Log.V(3).Infof("Updating VirtualMachineSnapshotContent %s/%s", content.Namespace, content.Name)
 
@@ -222,11 +239,13 @@ func (ctrl *VMSnapshotController) updateVMSnapshotContent(content *snapshotv1.Vi
 	var didFreeze bool
 
 	vmSnapshot, err := ctrl.getVMSnapshot(content)
-	if err != nil || vmSnapshot == nil {
+	if err != nil {
 		return 0, err
 	}
-	if vmSnapshotDeadlineExceeded(vmSnapshot) || (vmSnapshot.DeletionTimestamp != nil && shouldDeleteContent(vmSnapshot, content)) {
-		return 0, nil
+	if vmSnapshot != nil {
+		if vmSnapshotDeadlineExceeded(vmSnapshot) || (vmSnapshot.DeletionTimestamp != nil && shouldDeleteContent(vmSnapshot, content)) {
+			return 0, nil
+		}
 	}
 
 	currentlyReady := vmSnapshotContentReady(content)
@@ -259,7 +278,7 @@ func (ctrl *VMSnapshotController) updateVMSnapshotContent(content *snapshotv1.Vi
 				continue
 			}
 
-			if vmSnapshot.DeletionTimestamp != nil {
+			if vmSnapshot == nil || vmSnapshot.DeletionTimestamp != nil {
 				log.Log.V(3).Infof("Not creating snapshot %s because vm snapshot is deleted", vsName)
 				skippedSnapshots = append(skippedSnapshots, vsName)
 				continue
@@ -333,7 +352,7 @@ func (ctrl *VMSnapshotController) updateVMSnapshotContent(content *snapshotv1.Vi
 		errorMessage = fmt.Sprintf("VolumeSnapshots (%s) missing", strings.Join(deletedSnapshots, ","))
 	} else if len(skippedSnapshots) > 0 {
 		ready = false
-		if vmSnapshot.DeletionTimestamp != nil {
+		if vmSnapshot == nil || vmSnapshot.DeletionTimestamp != nil {
 			errorMessage = fmt.Sprintf("VolumeSnapshots (%s) skipped because vm snapshot is deleted", strings.Join(skippedSnapshots, ","))
 		} else {
 			errorMessage = fmt.Sprintf("VolumeSnapshots (%s) skipped because in error state", strings.Join(skippedSnapshots, ","))
@@ -352,15 +371,9 @@ func (ctrl *VMSnapshotController) updateVMSnapshotContent(content *snapshotv1.Vi
 
 		// TODO revisit with deadline
 		// currently only go into error after becoming ready once
-		source, err := ctrl.getSnapshotSource(vmSnapshot)
+		err = ctrl.unfreezeSource(vmSnapshot)
 		if err != nil {
 			return 0, err
-		}
-
-		if source != nil {
-			if err := source.Unfreeze(); err != nil {
-				return 0, err
-			}
 		}
 	}
 
