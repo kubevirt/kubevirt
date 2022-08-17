@@ -1,0 +1,17 @@
+load("@io_bazel_rules_go//go:def.bzl", "go_library", "go_test")
+
+go_library(
+    name = "go_default_library",
+    srcs = ["networknamescheme.go"],
+    importpath = "kubevirt.io/kubevirt/pkg/network/namescheme",
+    visibility = ["//visibility:public"],
+)
+
+go_test(
+    name = "go_default_test",
+    srcs = [
+        "networknamescheme_suite_test.go",
+        "networknamescheme_test.go",
+    ],
+    deps = ["//staging/src/kubevirt.io/client-go/testutils:go_default_library"],
+)
