@@ -24,13 +24,10 @@ import (
 
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
-
 	k8sv1 "k8s.io/api/core/v1"
 	storagev1 "k8s.io/api/storage/v1"
-	v1 "k8s.io/api/storage/v1"
 	"k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
-
 	"kubevirt.io/client-go/kubecli"
 
 	"kubevirt.io/kubevirt/tests/util"
@@ -38,11 +35,11 @@ import (
 
 var wffc = storagev1.VolumeBindingWaitForFirstConsumer
 
-func CreateStorageClass(name string, bindingMode *v1.VolumeBindingMode) {
+func CreateStorageClass(name string, bindingMode *storagev1.VolumeBindingMode) {
 	virtClient, err := kubecli.GetKubevirtClient()
 	util.PanicOnError(err)
 
-	sc := &v1.StorageClass{
+	sc := &storagev1.StorageClass{
 		ObjectMeta: metav1.ObjectMeta{
 			Name: name,
 			Labels: map[string]string{
@@ -121,17 +118,29 @@ func CheckNoProvisionerStorageClassPVs(storageClassName string, numExpectedPVs i
 	// Verify we have at least `numExpectedPVs` available file system PVs
 	pvList, err := virtClient.CoreV1().PersistentVolumes().List(context.TODO(), metav1.ListOptions{})
 	Expect(err).ToNot(HaveOccurred())
+
+	if countLocalStoragePVAvailableForUse(pvList, storageClassName) < numExpectedPVs {
+		Skip("Not enough available filesystem local storage PVs available, expected: %d", numExpectedPVs)
+	}
+}
+
+func countLocalStoragePVAvailableForUse(pvList *k8sv1.PersistentVolumeList, storageClassName string) int {
 	count := 0
 	for _, pv := range pvList.Items {
-		if pv.Spec.StorageClassName != storageClassName || pv.Spec.NodeAffinity == nil || pv.Spec.NodeAffinity.Required == nil || len(pv.Spec.NodeAffinity.Required.NodeSelectorTerms) == 0 || (pv.Spec.VolumeMode != nil && *pv.Spec.VolumeMode == k8sv1.PersistentVolumeBlock) {
-			// Not a local volume filesystem PV
-			continue
-		}
-		if pv.Spec.ClaimRef == nil {
+		if pv.Spec.StorageClassName == storageClassName && isLocalPV(pv) && isPVAvailable(pv) {
 			count++
 		}
 	}
-	if count < numExpectedPVs {
-		Skip("Not enough available filesystem local storage PVs available, expected: %d", numExpectedPVs)
-	}
+	return count
+}
+
+func isLocalPV(pv k8sv1.PersistentVolume) bool {
+	return pv.Spec.NodeAffinity != nil &&
+		pv.Spec.NodeAffinity.Required != nil &&
+		len(pv.Spec.NodeAffinity.Required.NodeSelectorTerms) > 0 &&
+		(pv.Spec.VolumeMode == nil || *pv.Spec.VolumeMode != k8sv1.PersistentVolumeBlock)
+}
+
+func isPVAvailable(pv k8sv1.PersistentVolume) bool {
+	return pv.Spec.ClaimRef == nil
 }
