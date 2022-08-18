@@ -4,7 +4,7 @@ kind: VirtualMachineInstance
 metadata:
   annotations:
     hooks.kubevirt.io/hookSidecars: '[{"args": ["--version", "v1alpha2"], "image":
-      "registry:5000/kubevirt/example-hook-sidecar:devel"}]'
+      "quay.io/kubevirt/example-hook-sidecar:devel"}]'
     smbios.vm.kubevirt.io/baseBoardManufacturer: Radical Edward
   labels:
     special: vmi-with-sidecar-hook
@@ -26,7 +26,7 @@ spec:
   terminationGracePeriodSeconds: 0
   volumes:
   - containerDisk:
-      image: registry:5000/kubevirt/fedora-with-test-tooling-container-disk:devel
+      image: quay.io/kubevirt/fedora-with-test-tooling-container-disk:devel
     name: containerdisk
   - cloudInitNoCloud:
       userData: |-

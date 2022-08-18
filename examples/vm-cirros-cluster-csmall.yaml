@@ -8,7 +8,7 @@ metadata:
 spec:
   instancetype:
     kind: VirtualMachineClusterInstancetype
-    name: csmall
+    name: cluster-csmall
   running: false
   template:
     metadata:
@@ -27,7 +27,7 @@ spec:
       terminationGracePeriodSeconds: 0
       volumes:
       - containerDisk:
-          image: registry:5000/kubevirt/cirros-container-disk-demo:devel
+          image: quay.io/kubevirt/cirros-container-disk-demo:devel
         name: containerdisk
       - cloudInitNoCloud:
           userData: |
