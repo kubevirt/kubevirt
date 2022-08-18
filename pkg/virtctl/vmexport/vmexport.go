@@ -46,6 +46,7 @@ import (
 	"kubevirt.io/client-go/kubecli"
 
 	snapshotv1 "kubevirt.io/api/snapshot/v1alpha1"
+
 	"kubevirt.io/kubevirt/pkg/util"
 	"kubevirt.io/kubevirt/pkg/virtctl/templates"
 )
