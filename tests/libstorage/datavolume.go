@@ -99,9 +99,12 @@ func newDataVolume(namespace, storageClass string, size string, accessMode v1.Pe
 
 func NewDataVolumeWithRegistryImportInStorageClass(imageUrl, namespace, storageClass string, accessMode v1.PersistentVolumeAccessMode, volumeMode v1.PersistentVolumeMode) *v1beta1.DataVolume {
 	size := "512Mi"
+	// Uses node cache, does not require extra scratch space PVC
+	pullMethod := v1beta1.RegistryPullNode
 	dataVolumeSource := v1beta1.DataVolumeSource{
 		Registry: &v1beta1.DataVolumeSourceRegistry{
-			URL: &imageUrl,
+			URL:        &imageUrl,
+			PullMethod: &pullMethod,
 		},
 	}
 	return newDataVolume(namespace, storageClass, size, accessMode, volumeMode, dataVolumeSource)
