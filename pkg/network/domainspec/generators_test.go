@@ -100,7 +100,7 @@ var _ = Describe("Pod Network", func() {
 			It("Should create an interface in the qemu command line, remove it from the interfaces and leave the other interfaces inplace", func() {
 				domain.Spec.Devices.Interfaces = append(domain.Spec.Devices.Interfaces, api.Interface{
 					Model: &api.Model{
-						Type: "virtio",
+						Type: v1.VirtIO,
 					},
 					Type: "bridge",
 					Source: api.InterfaceSource{

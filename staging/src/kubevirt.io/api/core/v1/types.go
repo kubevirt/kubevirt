@@ -819,6 +819,8 @@ const (
 	// This label represents vendor of cpu model on the node
 	CPUModelVendorLabel = "cpu-vendor.node.kubevirt.io/"
 
+	VirtIO = "virtio"
+
 	// This label represents the host model CPU name
 	HostModelCPULabel = "host-model-cpu.node.kubevirt.io/"
 	// This label represents the host model required features

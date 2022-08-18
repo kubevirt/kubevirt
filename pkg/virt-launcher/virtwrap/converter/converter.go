@@ -169,7 +169,7 @@ func Convert_v1_Disk_To_api_Disk(c *ConverterContext, diskDevice *v1.Disk, disk 
 			disk.Address = addr
 		}
 		if diskDevice.Disk.Bus == v1.DiskBusVirtio {
-			disk.Model = translateModel(c, "virtio")
+			disk.Model = translateModel(c, v1.VirtIO)
 		}
 		disk.ReadOnly = toApiReadOnly(diskDevice.Disk.ReadOnly)
 		disk.Serial = diskDevice.Serial
@@ -564,7 +564,7 @@ func Add_Agent_To_api_Channel() (channel api.Channel) {
 	channel.Source = nil
 	channel.Target = &api.ChannelTarget{
 		Name: "org.qemu.guest_agent.0",
-		Type: "virtio",
+		Type: v1.VirtIO,
 	}
 
 	return
@@ -807,7 +807,7 @@ func Convert_v1_DownwardMetricSource_To_api_Disk(disk *api.Disk, c *ConverterCon
 		Name: "qemu",
 	}
 	// This disk always needs `virtio`. Validation ensures that bus is unset or is already virtio
-	disk.Model = translateModel(c, "virtio")
+	disk.Model = translateModel(c, v1.VirtIO)
 	disk.Source = api.DiskSource{
 		File: config.DownwardMetricDisk,
 	}
@@ -895,7 +895,7 @@ func Convert_v1_Watchdog_To_api_Watchdog(source *v1.Watchdog, watchdog *api.Watc
 func Convert_v1_Rng_To_api_Rng(_ *v1.Rng, rng *api.Rng, c *ConverterContext) error {
 
 	// default rng model for KVM/QEMU virtualization
-	rng.Model = translateModel(c, "virtio")
+	rng.Model = translateModel(c, v1.VirtIO)
 
 	// default backend model, random
 	rng.Backend = &api.RngBackend{
@@ -982,7 +982,7 @@ func Convert_v1_Input_To_api_InputDevice(input *v1.Input, inputDevice *api.Input
 	inputDevice.Alias = api.NewUserDefinedAlias(input.Name)
 
 	if input.Bus == v1.InputBusVirtio {
-		inputDevice.Model = "virtio"
+		inputDevice.Model = v1.VirtIO
 	}
 	return nil
 }
@@ -1131,7 +1131,7 @@ func ConvertV1ToAPIBalloning(source *v1.Devices, ballooning *api.MemBalloon, c *
 		ballooning.Model = "none"
 		ballooning.Stats = nil
 	} else {
-		ballooning.Model = translateModel(c, "virtio")
+		ballooning.Model = translateModel(c, v1.VirtIO)
 		if c.MemBalloonStatsPeriod != 0 {
 			ballooning.Stats = &api.Stats{Period: c.MemBalloonStatsPeriod}
 		}
@@ -1616,7 +1616,7 @@ func Convert_v1_VirtualMachineInstance_To_api_Domain(vmi *v1.VirtualMachineInsta
 		scsiController := api.Controller{
 			Type:   "scsi",
 			Index:  "0",
-			Model:  translateModel(c, "virtio"),
+			Model:  translateModel(c, v1.VirtIO),
 			Driver: controllerDriver,
 		}
 		if useIOThreads {
@@ -1704,7 +1704,7 @@ func Convert_v1_VirtualMachineInstance_To_api_Domain(vmi *v1.VirtualMachineInsta
 		domain.Spec.Devices.Controllers = append(domain.Spec.Devices.Controllers, api.Controller{
 			Type:   "virtio-serial",
 			Index:  "0",
-			Model:  translateModel(c, "virtio"),
+			Model:  translateModel(c, v1.VirtIO),
 			Driver: controllerDriver,
 		})
 
@@ -1743,7 +1743,7 @@ func Convert_v1_VirtualMachineInstance_To_api_Domain(vmi *v1.VirtualMachineInsta
 			domain.Spec.Devices.Video = []api.Video{
 				{
 					Model: api.VideoModel{
-						Type:  "virtio",
+						Type:  v1.VirtIO,
 						Heads: &heads,
 					},
 				},
@@ -1931,7 +1931,7 @@ func newDeviceNamer(volumeStatuses []v1.VolumeStatus, disks []v1.Disk) map[strin
 
 func translateModel(ctx *ConverterContext, bus string) string {
 	switch bus {
-	case "virtio":
+	case v1.VirtIO:
 		if ctx.UseVirtioTransitional {
 			return "virtio-transitional"
 		} else {

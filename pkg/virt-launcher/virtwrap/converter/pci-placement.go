@@ -45,7 +45,7 @@ func PlacePCIDevicesOnRootComplex(spec *api.DomainSpec) (err error) {
 		}
 	}
 	for i, input := range spec.Devices.Inputs {
-		if input.Bus != "virtio" {
+		if input.Bus != v1.VirtIO {
 			continue
 		}
 		spec.Devices.Inputs[i].Address, err = assigner.PlacePCIDeviceAtNextSlot(input.Address)

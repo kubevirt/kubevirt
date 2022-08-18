@@ -1192,7 +1192,7 @@ var _ = Describe("Instancetype and Preferences", func() {
 						PreferredLunBus:         v1.DiskBusSATA,
 						PreferredInputBus:       v1.InputBusVirtio,
 						PreferredInputType:      v1.InputTypeTablet,
-						PreferredInterfaceModel: "virtio",
+						PreferredInterfaceModel: v1.VirtIO,
 						PreferredSoundModel:     "ac97",
 						PreferredRng:            &v1.Rng{},
 						PreferredTPM:            &v1.TPMDevice{},
