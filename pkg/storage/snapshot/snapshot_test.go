@@ -507,40 +507,6 @@ var _ = Describe("Snapshot controlleer", func() {
 				controller.processVMSnapshotWorkItem()
 			})
 
-			It("should be status error when VM snapshot deleted while in progress", func() {
-				vmSnapshot := createVMSnapshotInProgress()
-				vmSnapshot.DeletionTimestamp = timeFunc()
-				vm := createLockedVM()
-				updatedVM := vm.DeepCopy()
-				updatedVM.ResourceVersion = "2"
-				updatedVM.Finalizers = []string{}
-				vmInterface.EXPECT().Update(updatedVM).Return(updatedVM, nil).Times(1)
-				statusUpdate := updatedVM.DeepCopy()
-				statusUpdate.Status.SnapshotInProgress = nil
-				vmInterface.EXPECT().UpdateStatus(statusUpdate).Return(statusUpdate, nil).Times(1)
-				vmSource.Add(vm)
-				updatedSnapshot := vmSnapshot.DeepCopy()
-				updatedSnapshot.ResourceVersion = "1"
-				updatedSnapshot.Finalizers = []string{}
-				updatedSnapshot.Status.Conditions = []snapshotv1.Condition{
-					newProgressingCondition(corev1.ConditionTrue, "Source locked and operation in progress"),
-					newReadyCondition(corev1.ConditionFalse, "Not ready"),
-				}
-				updatedSnapshot.Status.Indications = []snapshotv1.Indication{}
-				content := createVMSnapshotContent()
-				updatedContent := content.DeepCopy()
-				updatedContent.ResourceVersion = "1"
-				updatedContent.Finalizers = []string{}
-
-				vmSnapshotContentSource.Add(content)
-				expectVMSnapshotContentUpdate(vmSnapshotClient, updatedContent)
-				expectVMSnapshotContentDelete(vmSnapshotClient, updatedContent.Name)
-				expectVMSnapshotUpdate(vmSnapshotClient, updatedSnapshot)
-				vmSource.Add(vm)
-				addVirtualMachineSnapshot(vmSnapshot)
-				controller.processVMSnapshotWorkItem()
-			})
-
 			It("cleanup when VirtualMachineSnapshot is deleted", func() {
 				vmSnapshot := createVMSnapshotSuccess()
 				vmSnapshot.DeletionTimestamp = timeFunc()
