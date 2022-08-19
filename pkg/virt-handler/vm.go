@@ -991,6 +991,9 @@ func (d *VirtualMachineController) updateGuestAgentConditions(vmi *v1.VirtualMac
 			for _, version := range d.clusterConfig.GetSupportedAgentVersions() {
 				supported = supported || regexp.MustCompile(version).MatchString(guestInfo.GAVersion)
 			}
+			if !supported {
+				reason = fmt.Sprintf("Guest agent version '%s' is not supported", guestInfo.GAVersion)
+			}
 		}
 
 		if !supported {
