@@ -254,6 +254,16 @@ func (_mr *_MockNetworkHandlerRecorder) ConfigureIpForwarding(arg0 interface{}) 
 	return _mr.mock.ctrl.RecordCall(_mr.mock, "ConfigureIpForwarding", arg0)
 }
 
+func (_m *MockNetworkHandler) ConfigureRouteLocalNet(_param0 string) error {
+	ret := _m.ctrl.Call(_m, "ConfigureRouteLocalNet", _param0)
+	ret0, _ := ret[0].(error)
+	return ret0
+}
+
+func (_mr *_MockNetworkHandlerRecorder) ConfigureRouteLocalNet(arg0 interface{}) *gomock.Call {
+	return _mr.mock.ctrl.RecordCall(_mr.mock, "ConfigureRouteLocalNet", arg0)
+}
+
 func (_m *MockNetworkHandler) ConfigureIpv4ArpIgnore() error {
 	ret := _m.ctrl.Call(_m, "ConfigureIpv4ArpIgnore")
 	ret0, _ := ret[0].(error)

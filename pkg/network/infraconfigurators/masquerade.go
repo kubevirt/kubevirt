@@ -136,6 +136,11 @@ func (b *MasqueradePodNetworkConfigurator) PreparePodNetworkInterface() error {
 		return err
 	}
 	if ipv4Enabled {
+		err = b.handler.ConfigureRouteLocalNet(api.DefaultBridgeName)
+		if err != nil {
+			log.Log.Reason(err).Errorf("failed to configure routing of local addresses for %s", api.DefaultBridgeName)
+			return err
+		}
 		err = b.createNatRules(iptables.ProtocolIPv4)
 		if err != nil {
 			log.Log.Reason(err).Errorf("failed to create ipv4 nat rules for vm error: %v", err)
