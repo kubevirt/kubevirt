@@ -31,6 +31,7 @@ import (
 	"k8s.io/apimachinery/pkg/api/errors"
 	"k8s.io/apimachinery/pkg/api/resource"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	"k8s.io/apimachinery/pkg/util/rand"
 
 	v1 "kubevirt.io/api/core/v1"
 	"kubevirt.io/client-go/kubecli"
@@ -288,7 +289,7 @@ func CreateHostPathPvWithSizeAndStorageClass(osName, hostPath, size, sc string) 
 
 	hostPathType := k8sv1.HostPathDirectoryOrCreate
 
-	name := fmt.Sprintf("%s-disk-for-tests", osName)
+	name := fmt.Sprintf("%s-disk-for-tests-%s", osName, rand.String(12))
 	pv := &k8sv1.PersistentVolume{
 		ObjectMeta: metav1.ObjectMeta{
 			Name: fmt.Sprintf("%s-%s", name, util.NamespaceTestDefault),

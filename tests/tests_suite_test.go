@@ -90,9 +90,9 @@ func TestTests(t *testing.T) {
 	RunSpecs(t, "Tests Suite")
 }
 
-var _ = SynchronizedBeforeSuite(testsuite.SynchronizedBeforeTestSetup, testsuite.BeforeTestSuitSetup)
+var _ = SynchronizedBeforeSuite(testsuite.SynchronizedBeforeTestSetup, testsuite.BeforeTestSuiteSetup)
 
-var _ = SynchronizedAfterSuite(testsuite.AfterTestSuitCleanup, testsuite.SynchronizedAfterTestSuiteCleanup)
+var _ = SynchronizedAfterSuite(testsuite.AfterTestSuiteCleanup, testsuite.SynchronizedAfterTestSuiteCleanup)
 
 var _ = AfterEach(func() {
 	tests.TestCleanup()

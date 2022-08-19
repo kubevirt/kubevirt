@@ -67,14 +67,11 @@ func SynchronizedAfterTestSuiteCleanup() {
 	libnode.CleanNodes()
 }
 
-func AfterTestSuitCleanup() {
+func AfterTestSuiteCleanup() {
 
 	cleanupServiceAccounts()
 	CleanNamespaces()
 
-	if flags.DeployTestingInfrastructureFlag {
-		WipeTestingInfrastructure()
-	}
 	removeNamespaces()
 }
 
@@ -98,7 +95,7 @@ func SynchronizedBeforeTestSetup() []byte {
 	return nil
 }
 
-func BeforeTestSuitSetup(_ []byte) {
+func BeforeTestSuiteSetup(_ []byte) {
 
 	worker := GinkgoParallelProcess()
 	rand.Seed(int64(worker))
