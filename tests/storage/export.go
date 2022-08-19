@@ -83,7 +83,7 @@ const (
 
 	pvcNotFoundReason = "PVCNotFound"
 	podReadyReason    = "PodReady"
-	pvcInUseReason    = "PVCInUse"
+	inUseReason       = "InUse"
 
 	proxyUrlBase = "https://virt-exportproxy.%s.svc/api/export.kubevirt.io/v1alpha1/namespaces/%s/virtualmachineexports/%s%s"
 
@@ -102,19 +102,8 @@ var (
 		Status: k8sv1.ConditionTrue,
 		Reason: podReadyReason,
 	})
-
-	pvcNotFoundCondition = MatchConditionIgnoreTimeStamp(exportv1.Condition{
-		Type:   exportv1.ConditionPVC,
-		Status: k8sv1.ConditionFalse,
-		Reason: pvcNotFoundReason,
-	})
-
-	pvcInUseCondition = MatchConditionIgnoreTimeStamp(exportv1.Condition{
-		Type:   exportv1.ConditionReady,
-		Status: k8sv1.ConditionFalse,
-		Reason: pvcInUseReason,
-	})
 )
+
 var _ = SIGDescribe("Export", func() {
 	var err error
 	var token *k8sv1.Secret
@@ -800,6 +789,13 @@ var _ = SIGDescribe("Export", func() {
 		namespace := dv.Namespace
 		token := createExportTokenSecret(name, namespace)
 		export := createPVCExportObject(name, namespace, token)
+		expectedCond := MatchConditionIgnoreTimeStamp(exportv1.Condition{
+			Type:    exportv1.ConditionPVC,
+			Status:  k8sv1.ConditionFalse,
+			Reason:  pvcNotFoundReason,
+			Message: fmt.Sprintf("pvc %s/%s not found", namespace, name),
+		})
+
 		Eventually(func() []exportv1.Condition {
 			export, err = virtClient.VirtualMachineExport(namespace).Get(context.Background(), export.Name, metav1.GetOptions{})
 			Expect(err).ToNot(HaveOccurred())
@@ -807,7 +803,7 @@ var _ = SIGDescribe("Export", func() {
 				return nil
 			}
 			return export.Status.Conditions
-		}, 60*time.Second, 1*time.Second).Should(ContainElement(pvcNotFoundCondition), "export should report missing pvc")
+		}, 60*time.Second, 1*time.Second).Should(ContainElement(expectedCond), "export should report missing pvc")
 
 		dv, err = virtClient.CdiClient().CdiV1beta1().DataVolumes(dv.Namespace).Create(context.Background(), dv, metav1.CreateOptions{})
 		var pvc *k8sv1.PersistentVolumeClaim
@@ -1284,6 +1280,24 @@ var _ = SIGDescribe("Export", func() {
 		waitForExportPhase(export, exportv1.Skipped)
 	})
 
+	expectedVMRunningCondition := func(name, namespace string) gomegatypes.GomegaMatcher {
+		return MatchConditionIgnoreTimeStamp(exportv1.Condition{
+			Type:    exportv1.ConditionReady,
+			Status:  k8sv1.ConditionFalse,
+			Reason:  inUseReason,
+			Message: fmt.Sprintf("Virtual Machine %s/%s is running", namespace, name),
+		})
+	}
+
+	expectedPVCInUseCondition := func(name, namespace string) gomegatypes.GomegaMatcher {
+		return MatchConditionIgnoreTimeStamp(exportv1.Condition{
+			Type:    exportv1.ConditionReady,
+			Status:  k8sv1.ConditionFalse,
+			Reason:  inUseReason,
+			Message: fmt.Sprintf("pvc %s/%s is in use", namespace, name),
+		})
+	}
+
 	It("should report export pending if VM is running, and start the VM export if the VM is not running, then stop again once VM started", func() {
 		sc, exists := libstorage.GetRWOFileSystemStorageClass()
 		if !exists {
@@ -1309,7 +1323,8 @@ var _ = SIGDescribe("Export", func() {
 		export := createVMExportObject(vm.Name, vm.Namespace, token)
 		Expect(export).ToNot(BeNil())
 		waitForExportPhase(export, exportv1.Pending)
-		waitForExportCondition(export, pvcInUseCondition, "export should report pvc in use")
+
+		waitForExportCondition(export, expectedVMRunningCondition(vm.Name, vm.Namespace), "export should report VM running")
 
 		By("Stopping VM, we should get the export ready eventually")
 		vm = stopVM(vm)
@@ -1318,7 +1333,7 @@ var _ = SIGDescribe("Export", func() {
 		By("Starting VM, the export should return to pending")
 		vm = startVM(vm)
 		waitForExportPhase(export, exportv1.Pending)
-		waitForExportCondition(export, pvcInUseCondition, "export should report pvc in use")
+		waitForExportCondition(export, expectedVMRunningCondition(vm.Name, vm.Namespace), "export should report VM running")
 	})
 
 	It("should report export pending if PVC is in use because of VMI using it, and start the VM export if the PVC is not in use, then stop again once pvc in use again", func() {
@@ -1351,7 +1366,7 @@ var _ = SIGDescribe("Export", func() {
 		export := createPVCExportObject(pvcName, vmi.Namespace, token)
 		Expect(export).ToNot(BeNil())
 		waitForExportPhase(export, exportv1.Pending)
-		waitForExportCondition(export, pvcInUseCondition, "export should report pvc in use")
+		waitForExportCondition(export, expectedPVCInUseCondition(dataVolume.Name, dataVolume.Namespace), "export should report pvc in use")
 
 		By("Deleting VMI, we should get the export ready eventually")
 		deleteVMI(vmi)
@@ -1361,7 +1376,7 @@ var _ = SIGDescribe("Export", func() {
 		vmi = tests.NewRandomVMIWithDataVolume(dataVolume.Name)
 		vmi = createVMI(vmi)
 		waitForExportPhase(export, exportv1.Pending)
-		waitForExportCondition(export, pvcInUseCondition, "export should report pvc in use")
+		waitForExportCondition(export, expectedPVCInUseCondition(dataVolume.Name, dataVolume.Namespace), "export should report pvc in use")
 	})
 
 	It("should mark the status phase skipped on VM without volumes", func() {

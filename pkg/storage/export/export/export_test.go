@@ -464,6 +464,21 @@ var _ = Describe("Export controller", func() {
 			fmt.Sprintf("https://virt-exportproxy-kubevirt.apps-crc.testing/api/export.kubevirt.io/v1alpha1/namespaces/%s/virtualmachineexports/%s/volumes/%s/disk.tar.gz", namespace, exportName, volumeName))
 	}
 
+	createPVC := func(name, contentType string) *k8sv1.PersistentVolumeClaim {
+		return &k8sv1.PersistentVolumeClaim{
+			ObjectMeta: metav1.ObjectMeta{
+				Name:      name,
+				Namespace: testNamespace,
+				Annotations: map[string]string{
+					annContentType: contentType,
+				},
+			},
+			Status: k8sv1.PersistentVolumeClaimStatus{
+				Phase: k8sv1.ClaimBound,
+			},
+		}
+	}
+
 	It("should add vmexport to queue if matching PVC is added", func() {
 		vmExport := createPVCVMExport()
 		pvc := &k8sv1.PersistentVolumeClaim{
@@ -901,17 +916,7 @@ var _ = Describe("Export controller", func() {
 
 		It("Should properly update VMExport status with a valid token and archive pvc no route", func() {
 			testVMExport := createPVCVMExport()
-			Expect(
-				pvcInformer.GetStore().Add(&k8sv1.PersistentVolumeClaim{
-					ObjectMeta: metav1.ObjectMeta{
-						Name:      testPVCName,
-						Namespace: testNamespace,
-						Annotations: map[string]string{
-							annContentType: "archive",
-						},
-					},
-				}),
-			).To(Succeed())
+			Expect(pvcInformer.GetStore().Add(createPVC(testPVCName, "archive"))).To(Succeed())
 			expectExporterCreate(k8sClient, k8sv1.PodRunning)
 			vmExportClient.Fake.PrependReactor("update", "virtualmachineexports", func(action testing.Action) (handled bool, obj runtime.Object, err error) {
 				update, ok := action.(testing.UpdateAction)
@@ -934,17 +939,7 @@ var _ = Describe("Export controller", func() {
 
 		It("Should properly update VMExport status with a valid token and kubevirt pvc with route", func() {
 			testVMExport := createPVCVMExport()
-			Expect(
-				pvcInformer.GetStore().Add(&k8sv1.PersistentVolumeClaim{
-					ObjectMeta: metav1.ObjectMeta{
-						Name:      testPVCName,
-						Namespace: testNamespace,
-						Annotations: map[string]string{
-							annContentType: "kubevirt",
-						},
-					},
-				}),
-			).To(Succeed())
+			Expect(pvcInformer.GetStore().Add(createPVC(testPVCName, "kubevirt"))).To(Succeed())
 			expectExporterCreate(k8sClient, k8sv1.PodRunning)
 			Expect(
 				controller.RouteCache.Add(routeToHostAndService(components.VirtExportProxyServiceName))).To(Succeed())
@@ -966,7 +961,7 @@ var _ = Describe("Export controller", func() {
 			Expect(service.Name).To(Equal(fmt.Sprintf("%s-%s", exportPrefix, testVMExport.Name)))
 		})
 
-		It("Should properly update VMExport status with a valid token and pvc, pending pod", func() {
+		It("Should properly update VMExport status with a valid token and no pvc, pending pod", func() {
 			testVMExport := createPVCVMExport()
 			expectExporterCreate(k8sClient, k8sv1.PodPending)
 			vmExportClient.Fake.PrependReactor("update", "virtualmachineexports", func(action testing.Action) (handled bool, obj runtime.Object, err error) {
@@ -1080,21 +1075,22 @@ var _ = Describe("Export controller", func() {
 			Entry("content-type archive", cdiv1.DataVolumeArchive, false),
 		)
 
-		DescribeTable("should create proper condition from PVC", func(phase k8sv1.PersistentVolumeClaimPhase, status k8sv1.ConditionStatus, reason string) {
+		DescribeTable("should create proper condition from PVC", func(phase k8sv1.PersistentVolumeClaimPhase, status k8sv1.ConditionStatus, reason, message string) {
 			pvc := &k8sv1.PersistentVolumeClaim{
 				Status: k8sv1.PersistentVolumeClaimStatus{
 					Phase: phase,
 				},
 			}
-			expectedCond := newPvcCondition(status, reason)
+			expectedCond := newPvcCondition(status, reason, message)
 			condRes := controller.pvcConditionFromPVC([]*k8sv1.PersistentVolumeClaim{pvc})
 			Expect(condRes.Type).To(Equal(expectedCond.Type))
 			Expect(condRes.Status).To(Equal(expectedCond.Status))
 			Expect(condRes.Reason).To(Equal(expectedCond.Reason))
+			Expect(condRes.Message).To(Equal(message))
 		},
-			Entry("PVC bound", k8sv1.ClaimBound, k8sv1.ConditionTrue, pvcBoundReason),
-			Entry("PVC claim lost", k8sv1.ClaimLost, k8sv1.ConditionFalse, unknownReason),
-			Entry("PVC pending", k8sv1.ClaimPending, k8sv1.ConditionFalse, pvcPendingReason),
+			Entry("PVC bound", k8sv1.ClaimBound, k8sv1.ConditionTrue, pvcBoundReason, ""),
+			Entry("PVC claim lost", k8sv1.ClaimLost, k8sv1.ConditionFalse, unknownReason, ""),
+			Entry("PVC pending", k8sv1.ClaimPending, k8sv1.ConditionFalse, pvcPendingReason, ""),
 		)
 	})
 
@@ -1249,6 +1245,12 @@ var _ = Describe("Export controller", func() {
 					if condition.Type == exportv1.ConditionReady {
 						Expect(condition.Status).To(Equal(k8sv1.ConditionFalse))
 						Expect(condition.Reason).To(Equal(initializingReason))
+						Expect(condition.Message).To(Equal(""))
+					}
+					if condition.Type == exportv1.ConditionVolumesCreated {
+						Expect(condition.Status).To(Equal(k8sv1.ConditionFalse))
+						Expect(condition.Reason).To(Equal(noVolumeSnapshotReason))
+						Expect(condition.Message).To(Equal(fmt.Sprintf("VirtualMachineSnapshot %s/%s does not contain any volume snapshots", vmExport.Namespace, vmExport.Spec.Source.Name)))
 					}
 				}
 				return true, vmExport, nil
@@ -1275,11 +1277,13 @@ var _ = Describe("Export controller", func() {
 					if condition.Type == exportv1.ConditionReady {
 						Expect(condition.Status).To(Equal(k8sv1.ConditionFalse))
 						Expect(condition.Reason).To(Equal(initializingReason))
+						Expect(condition.Message).To(Equal(""))
 					}
 					if condition.Type == exportv1.ConditionVolumesCreated {
 						volumeCreateConditionSet = true
 						Expect(condition.Status).To(Equal(k8sv1.ConditionFalse))
 						Expect(condition.Reason).To(Equal(noVolumeSnapshotReason))
+						Expect(condition.Message).To(Equal(fmt.Sprintf("VirtualMachineSnapshot %s/%s does not contain any volume snapshots", vmExport.Namespace, vmExport.Spec.Source.Name)))
 					}
 				}
 				Expect(volumeCreateConditionSet).To(BeTrue())
@@ -1311,11 +1315,13 @@ var _ = Describe("Export controller", func() {
 					if condition.Type == exportv1.ConditionReady {
 						Expect(condition.Status).To(Equal(k8sv1.ConditionFalse))
 						Expect(condition.Reason).To(Equal(podPendingReason))
+						Expect(condition.Message).To(Equal(""))
 					}
 					if condition.Type == exportv1.ConditionVolumesCreated {
 						volumeCreateConditionSet = true
 						Expect(condition.Status).To(Equal(k8sv1.ConditionFalse))
 						Expect(condition.Reason).To(Equal(notAllPVCsReady))
+						Expect(condition.Message).To(Equal("Not all PVCs are ready"))
 					}
 				}
 				Expect(volumeCreateConditionSet).To(BeTrue())
@@ -1374,11 +1380,13 @@ var _ = Describe("Export controller", func() {
 					if condition.Type == exportv1.ConditionReady {
 						Expect(condition.Status).To(Equal(k8sv1.ConditionFalse))
 						Expect(condition.Reason).To(Equal(podPendingReason))
+						Expect(condition.Message).To(Equal(""))
 					}
 					if condition.Type == exportv1.ConditionVolumesCreated {
 						volumeCreateConditionSet = true
 						Expect(condition.Status).To(Equal(k8sv1.ConditionTrue))
 						Expect(condition.Reason).To(Equal(allPVCsReady))
+						Expect(condition.Message).To(Equal(""))
 					}
 				}
 				Expect(volumeCreateConditionSet).To(BeTrue())
@@ -1523,12 +1531,14 @@ var _ = Describe("Export controller", func() {
 				for _, condition := range vmExport.Status.Conditions {
 					if condition.Type == exportv1.ConditionReady {
 						Expect(condition.Status).To(Equal(k8sv1.ConditionFalse))
-						Expect(condition.Reason).To(Equal(initializingReason))
+						Expect(condition.Reason).To(Equal(inUseReason))
+						Expect(condition.Message).To(Equal(fmt.Sprintf("VirtualMachineSnapshot %s/%s is not ready to use", vmExport.Namespace, vmExport.Spec.Source.Name)))
 					}
 					if condition.Type == exportv1.ConditionVolumesCreated {
 						volumeCreateConditionSet = true
 						Expect(condition.Status).To(Equal(k8sv1.ConditionFalse))
 						Expect(condition.Reason).To(Equal(notAllPVCsCreated))
+						Expect(condition.Message).To(Equal(fmt.Sprintf("VirtualMachineSnapshot %s/%s is not ready to use", vmExport.Namespace, vmExport.Spec.Source.Name)))
 					}
 				}
 				Expect(volumeCreateConditionSet).To(BeTrue())
@@ -1671,21 +1681,6 @@ var _ = Describe("Export controller", func() {
 			}
 		}
 
-		createPVC := func(name, contentType string) *k8sv1.PersistentVolumeClaim {
-			return &k8sv1.PersistentVolumeClaim{
-				ObjectMeta: metav1.ObjectMeta{
-					Name:      name,
-					Namespace: testNamespace,
-					Annotations: map[string]string{
-						annContentType: contentType,
-					},
-				},
-				Status: k8sv1.PersistentVolumeClaimStatus{
-					Phase: k8sv1.ClaimBound,
-				},
-			}
-		}
-
 		verifyMixedInternal := func(vmExport *exportv1.VirtualMachineExport, exportName, namespace string, volumeNames ...string) {
 			exportVolumeFormats := make([]exportv1.VirtualMachineExportVolumeFormat, 0)
 			exportVolumeFormats = append(exportVolumeFormats, exportv1.VirtualMachineExportVolumeFormat{
@@ -1740,7 +1735,8 @@ var _ = Describe("Export controller", func() {
 		It("Should NOT create VM export, when VM is started", func() {
 			testVMExport := createVMVMExport()
 			controller.VMInformer.GetStore().Add(createVMWithDataVolumes())
-			controller.VMIInformer.GetStore().Add(createVMIWithDataVolumes())
+			vmi := createVMIWithDataVolumes()
+			controller.VMIInformer.GetStore().Add(vmi)
 			controller.PVCInformer.GetStore().Add(createPVC("volume1", "kubevirt"))
 			controller.PVCInformer.GetStore().Add(createPVC("volume2", "kubevirt"))
 			expectExporterCreate(k8sClient, k8sv1.PodRunning)
@@ -1753,7 +1749,8 @@ var _ = Describe("Export controller", func() {
 				for _, condition := range vmExport.Status.Conditions {
 					if condition.Type == exportv1.ConditionReady {
 						Expect(condition.Status).To(Equal(k8sv1.ConditionFalse))
-						Expect(condition.Reason).To(Equal(pvcInUseReason))
+						Expect(condition.Reason).To(Equal(inUseReason))
+						Expect(condition.Message).To(Equal(fmt.Sprintf("Virtual Machine %s/%s is running", vmi.Namespace, vmi.Name)))
 					}
 				}
 				return true, vmExport, nil
@@ -1776,7 +1773,8 @@ var _ = Describe("Export controller", func() {
 			podName := controller.getExportPodName(testVMExport)
 			controller.PodInformer.GetStore().Add(createExporterPod(podName, k8sv1.PodRunning))
 			controller.VMInformer.GetStore().Add(createVMWithDataVolumes())
-			controller.VMIInformer.GetStore().Add(createVMIWithDataVolumes())
+			vmi := createVMIWithDataVolumes()
+			controller.VMIInformer.GetStore().Add(vmi)
 			controller.PVCInformer.GetStore().Add(createPVC("volume1", "kubevirt"))
 			controller.PVCInformer.GetStore().Add(createPVC("volume2", "kubevirt"))
 			expectExporterDelete(k8sClient, podName)
@@ -1789,7 +1787,8 @@ var _ = Describe("Export controller", func() {
 				for _, condition := range vmExport.Status.Conditions {
 					if condition.Type == exportv1.ConditionReady {
 						Expect(condition.Status).To(Equal(k8sv1.ConditionFalse))
-						Expect(condition.Reason).To(Equal(pvcInUseReason))
+						Expect(condition.Reason).To(Equal(inUseReason))
+						Expect(condition.Message).To(Equal(fmt.Sprintf("Virtual Machine %s/%s is running", vmi.Namespace, vmi.Name)), "%v", vmExport.Status.Conditions)
 					}
 				}
 				return true, vmExport, nil
