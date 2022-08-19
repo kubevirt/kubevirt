@@ -1,12 +1,10 @@
 package hotplug_volume
 
 import (
-	"encoding/json"
 	"errors"
 	"fmt"
 	"os"
 	"path/filepath"
-	"sync"
 	"syscall"
 
 	"kubevirt.io/kubevirt/pkg/unsafepath"
@@ -21,6 +19,7 @@ import (
 	storagetypes "kubevirt.io/kubevirt/pkg/storage/types"
 	"kubevirt.io/kubevirt/pkg/virt-handler/cgroup"
 	"kubevirt.io/kubevirt/pkg/virt-handler/isolation"
+	"kubevirt.io/kubevirt/pkg/virt-handler/mount-manager/recorder"
 
 	"github.com/opencontainers/runc/libcontainer/configs"
 
@@ -136,9 +135,7 @@ var (
 )
 
 type volumeMounter struct {
-	mountStateDir      string
-	mountRecords       map[types.UID]*vmiMountTargetRecord
-	mountRecordsLock   sync.Mutex
+	mountRecorder      recorder.MountRecorder
 	skipSafetyCheck    bool
 	hotplugDiskManager hotplugdisk.HotplugDiskManagerInterface
 	ownershipManager   diskutils.OwnershipManagerInterface
@@ -157,154 +154,26 @@ type VolumeMounter interface {
 	IsMounted(vmi *v1.VirtualMachineInstance, volume string, sourceUID types.UID) (bool, error)
 }
 
-type vmiMountTargetEntry struct {
-	TargetFile string `json:"targetFile"`
-}
-
-type vmiMountTargetRecord struct {
-	MountTargetEntries []vmiMountTargetEntry `json:"mountTargetEntries"`
-	UsesSafePaths      bool                  `json:"usesSafePaths"`
-}
-
 // NewVolumeMounter creates a new VolumeMounter
-func NewVolumeMounter(mountRecorder mountutils.MountRecorder, kubeletPodsDir string) VolumeMounter {
+func NewVolumeMounter(mountRecorder recorder.MountRecorder, kubeletPodsDir string) VolumeMounter {
 	return &volumeMounter{
 		hotplugDiskManager: hotplugdisk.NewHotplugDiskManager(kubeletPodsDir),
 		ownershipManager:   diskutils.DefaultOwnershipManager,
+		mountRecorder:      mountRecorder,
 	}
 }
 
-func (m *volumeMounter) deleteMountTargetRecord(vmi *v1.VirtualMachineInstance) error {
-	if string(vmi.UID) == "" {
-		return fmt.Errorf(unableFindHotplugMountedDir)
-	}
-
-	recordFile := filepath.Join(m.mountStateDir, string(vmi.UID))
-	exists, err := diskutils.FileExists(recordFile)
-	if err != nil {
-		return err
-	}
-
-	if exists {
-		record, err := m.getMountTargetRecord(vmi)
-		if err != nil {
-			return err
-		}
-
-		for _, target := range record.MountTargetEntries {
-			os.Remove(target.TargetFile)
-		}
-
-		os.Remove(recordFile)
-	}
-
-	m.mountRecordsLock.Lock()
-	defer m.mountRecordsLock.Unlock()
-	delete(m.mountRecords, vmi.UID)
-
-	return nil
-}
-
-func (m *volumeMounter) getMountTargetRecord(vmi *v1.VirtualMachineInstance) (*vmiMountTargetRecord, error) {
-	var ok bool
-	var existingRecord *vmiMountTargetRecord
-
-	if string(vmi.UID) == "" {
-		return nil, fmt.Errorf(unableFindHotplugMountedDir)
-	}
-
-	m.mountRecordsLock.Lock()
-	defer m.mountRecordsLock.Unlock()
-	existingRecord, ok = m.mountRecords[vmi.UID]
-
-	// first check memory cache
-	if ok {
-		return existingRecord, nil
-	}
-
-	// if not there, see if record is on disk, this can happen if virt-handler restarts
-	recordFile := filepath.Join(m.mountStateDir, string(vmi.UID))
-
-	exists, err := diskutils.FileExists(recordFile)
-	if err != nil {
-		return nil, err
-	}
-
-	if exists {
-		record := vmiMountTargetRecord{}
-		bytes, err := os.ReadFile(recordFile)
-		if err != nil {
-			return nil, err
-		}
-		err = json.Unmarshal(bytes, &record)
-		if err != nil {
-			return nil, err
-		}
-
-		// XXX: backward compatibility for old unresolved paths, can be removed in July 2023
-		// After a one-time convert and persist, old records are safe too.
-		if !record.UsesSafePaths {
-			for i, path := range record.MountTargetEntries {
-				record.UsesSafePaths = true
-				safePath, err := safepath.JoinAndResolveWithRelativeRoot("/", path.TargetFile)
-				if err != nil {
-					return nil, fmt.Errorf("failed converting legacy path to safepath: %v", err)
-				}
-				record.MountTargetEntries[i].TargetFile = unsafepath.UnsafeAbsolute(safePath.Raw())
-			}
-		}
-
-		m.mountRecords[vmi.UID] = &record
-		return &record, nil
-	}
-
-	// not found
-	return &vmiMountTargetRecord{UsesSafePaths: true}, nil
-}
-
-func (m *volumeMounter) setMountTargetRecord(vmi *v1.VirtualMachineInstance, record *vmiMountTargetRecord) error {
-	if string(vmi.UID) == "" {
-		return fmt.Errorf(unableFindHotplugMountedDir)
-	}
-
-	// XXX: backward compatibility for old unresolved paths, can be removed in July 2023
-	// After a one-time convert and persist, old records are safe too.
-	record.UsesSafePaths = true
-
-	recordFile := filepath.Join(m.mountStateDir, string(vmi.UID))
-
-	m.mountRecordsLock.Lock()
-	defer m.mountRecordsLock.Unlock()
-
-	bytes, err := json.Marshal(record)
-	if err != nil {
-		return err
-	}
-
-	err = os.MkdirAll(filepath.Dir(recordFile), 0750)
-	if err != nil {
-		return err
-	}
-
-	err = os.WriteFile(recordFile, bytes, 0600)
-	if err != nil {
-		return err
-	}
-	m.mountRecords[vmi.UID] = record
-	return nil
-}
-
-func (m *volumeMounter) writePathToMountRecord(path string, vmi *v1.VirtualMachineInstance, record *vmiMountTargetRecord) error {
-	record.MountTargetEntries = append(record.MountTargetEntries, vmiMountTargetEntry{
+func (m *volumeMounter) writePathToMountRecord(path string, vmi *v1.VirtualMachineInstance, record []recorder.MountTargetEntry) error {
+	record = append(record, recorder.MountTargetEntry{
 		TargetFile: path,
 	})
-	if err := m.setMountTargetRecord(vmi, record); err != nil {
+	if err := m.mountRecorder.SetMountRecord(vmi, record); err != nil {
 		return err
 	}
 	return nil
 }
 
-func (m *volumeMounter) mountHotplugVolume(vmi *v1.VirtualMachineInstance, volumeName string, sourceUID types.UID, record *vmiMountTargetRecord, mountDirectory bool) error {
+func (m *volumeMounter) mountHotplugVolume(vmi *v1.VirtualMachineInstance, volumeName string, sourceUID types.UID, record []recorder.MountTargetEntry, mountDirectory bool) error {
 	logger := log.DefaultLogger()
 	logger.V(4).Infof("Hotplug check volume name: %s", volumeName)
 	if sourceUID != types.UID("") {
@@ -332,7 +201,7 @@ func (m *volumeMounter) MountFromPod(vmi *v1.VirtualMachineInstance, sourceUID t
 }
 
 func (m *volumeMounter) mountFromPod(vmi *v1.VirtualMachineInstance, sourceUID types.UID) error {
-	record, err := m.getMountTargetRecord(vmi)
+	record, err := m.mountRecorder.GetMountRecord(vmi)
 	if err != nil {
 		return err
 	}
@@ -376,7 +245,7 @@ func (m *volumeMounter) isBlockVolume(vmiStatus *v1.VirtualMachineInstanceStatus
 	return false
 }
 
-func (m *volumeMounter) mountBlockHotplugVolume(vmi *v1.VirtualMachineInstance, volume string, sourceUID types.UID, record *vmiMountTargetRecord) error {
+func (m *volumeMounter) mountBlockHotplugVolume(vmi *v1.VirtualMachineInstance, volume string, sourceUID types.UID, record []recorder.MountTargetEntry) error {
 	virtlauncherUID := m.findVirtlauncherUID(vmi)
 	if virtlauncherUID == "" {
 		// This is not the node the pod is running on.
@@ -511,7 +380,7 @@ func (m *volumeMounter) createBlockDeviceFile(basePath *safepath.Path, deviceNam
 	}
 }
 
-func (m *volumeMounter) mountFileSystemHotplugVolume(vmi *v1.VirtualMachineInstance, volume string, sourceUID types.UID, record *vmiMountTargetRecord, mountDirectory bool) error {
+func (m *volumeMounter) mountFileSystemHotplugVolume(vmi *v1.VirtualMachineInstance, volume string, sourceUID types.UID, record []recorder.MountTargetEntry, mountDirectory bool) error {
 	virtlauncherUID := m.findVirtlauncherUID(vmi)
 	if virtlauncherUID == "" {
 		// This is not the node the pod is running on.
@@ -632,14 +501,12 @@ func (m *volumeMounter) getSourcePodFilePath(sourceUID types.UID, vmi *v1.Virtua
 // Unmount unmounts all hotplug disk that are no longer part of the VMI
 func (m *volumeMounter) Unmount(vmi *v1.VirtualMachineInstance) error {
 	if vmi.UID != "" {
-		record, err := m.getMountTargetRecord(vmi)
+		record, err := m.mountRecorder.GetMountRecord(vmi)
 		if err != nil {
 			return err
-		} else if record == nil {
-			// no entries to unmount
-			return nil
 		}
-		if len(record.MountTargetEntries) == 0 {
+
+		if len(record) == 0 {
 			return nil
 		}
 
@@ -650,8 +517,8 @@ func (m *volumeMounter) Unmount(vmi *v1.VirtualMachineInstance) error {
 		if err != nil {
 			if errors.Is(err, os.ErrNotExist) {
 				// no mounts left, the base path does not even exist anymore
-				if err := m.deleteMountTargetRecord(vmi); err != nil {
-					return fmt.Errorf("failed to delete mount target records: %v", err)
+				if err := m.mountRecorder.DeleteMountRecord(vmi); err != nil {
+					return fmt.Errorf("failed to delete hp mount target records: %v", err)
 				}
 				return nil
 			}
@@ -667,7 +534,7 @@ func (m *volumeMounter) Unmount(vmi *v1.VirtualMachineInstance) error {
 				path, err = safepath.JoinNoFollow(basePath, volumeStatus.Name)
 			} else if m.isDirectoryMounted(&vmi.Status, volumeStatus.Name) {
 				path, err = m.hotplugDiskManager.GetFileSystemDirectoryTargetPathFromHostView(virtlauncherUID, volumeStatus.Name, false)
-				if os.IsExist(err) {
+				if errors.Is(err, os.ErrExist) {
 					// already unmounted or never mounted
 					continue
 				}
@@ -683,10 +550,8 @@ func (m *volumeMounter) Unmount(vmi *v1.VirtualMachineInstance) error {
 			}
 			currentHotplugPaths[unsafepath.UnsafeAbsolute(path.Raw())] = virtlauncherUID
 		}
-		newRecord := vmiMountTargetRecord{
-			MountTargetEntries: make([]vmiMountTargetEntry, 0),
-		}
-		for _, entry := range record.MountTargetEntries {
+		newRecord := []recorder.MountTargetEntry{}
+		for _, entry := range record {
 			fd, err := safepath.NewFileNoFollow(entry.TargetFile)
 			if err != nil {
 				return err
@@ -705,15 +570,15 @@ func (m *volumeMounter) Unmount(vmi *v1.VirtualMachineInstance) error {
 					return err
 				}
 			} else {
-				newRecord.MountTargetEntries = append(newRecord.MountTargetEntries, vmiMountTargetEntry{
+				newRecord = append(newRecord, recorder.MountTargetEntry{
 					TargetFile: unsafepath.UnsafeAbsolute(diskPath.Raw()),
 				})
 			}
 		}
-		if len(newRecord.MountTargetEntries) > 0 {
-			err = m.setMountTargetRecord(vmi, &newRecord)
+		if len(newRecord) > 0 {
+			err = m.mountRecorder.SetMountRecord(vmi, newRecord)
 		} else {
-			err = m.deleteMountTargetRecord(vmi)
+			err = m.mountRecorder.DeleteMountRecord(vmi)
 		}
 		if err != nil {
 			return err
@@ -765,7 +630,7 @@ func (m *volumeMounter) UnmountAll(vmi *v1.VirtualMachineInstance) error {
 	if vmi.UID != "" {
 		logger := log.DefaultLogger().Object(vmi)
 		logger.Info("Cleaning up remaining hotplug volumes")
-		record, err := m.getMountTargetRecord(vmi)
+		record, err := m.mountRecorder.GetMountRecord(vmi)
 		if err != nil {
 			return err
 		} else if record == nil {
@@ -774,7 +639,7 @@ func (m *volumeMounter) UnmountAll(vmi *v1.VirtualMachineInstance) error {
 			return nil
 		}
 
-		for _, entry := range record.MountTargetEntries {
+		for _, entry := range record {
 			diskPath, err := safepath.NewFileNoFollow(entry.TargetFile)
 			if err != nil {
 				if errors.Is(err, os.ErrNotExist) {
@@ -799,7 +664,7 @@ func (m *volumeMounter) UnmountAll(vmi *v1.VirtualMachineInstance) error {
 				}
 			}
 		}
-		err = m.deleteMountTargetRecord(vmi)
+		err = m.mountRecorder.DeleteMountRecord(vmi)
 		if err != nil {
 			return err
 		}

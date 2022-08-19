@@ -35,6 +35,10 @@
           "allowedPkg": "kubevirt.io/kubevirt/pkg/virt-handler/mount-manager/hotplug-disk"
         },
         {
+          "justification ": "XXX: mount entries are recoreded in a separate file with absolute files. No additional risk, but confusing from an audit perspective, must be changed at some point.",
+          "allowedPkg": "kubevirt.io/kubevirt/pkg/virt-handler/mount-manager/recorder"
+        },
+        {
           "justification ": "for selinux labeling safepaths need to be deconstructed to hand them over to the virt-chroot binary",
           "allowedPkg": "kubevirt.io/kubevirt/pkg/virt-handler/selinux"
         }

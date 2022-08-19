@@ -14,6 +14,7 @@ go_library(
         "//pkg/virt-handler/isolation:go_default_library",
         "//pkg/virt-handler/mount-manager/container-disk:go_default_library",
         "//pkg/virt-handler/mount-manager/hotplug-disk:go_default_library",
+        "//pkg/virt-handler/mount-manager/recorder:go_default_library",
         "//staging/src/kubevirt.io/api/core/v1:go_default_library",
         "//vendor/github.com/golang/mock/gomock:go_default_library",
         "//vendor/k8s.io/apimachinery/pkg/types:go_default_library",

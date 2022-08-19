@@ -2,6 +2,7 @@ package mount_manager
 
 import (
 	"fmt"
+	"path/filepath"
 	"time"
 
 	"k8s.io/apimachinery/pkg/types"
@@ -13,6 +14,7 @@ import (
 	"kubevirt.io/kubevirt/pkg/virt-handler/isolation"
 	container_disk "kubevirt.io/kubevirt/pkg/virt-handler/mount-manager/container-disk"
 	hotplug_volume "kubevirt.io/kubevirt/pkg/virt-handler/mount-manager/hotplug-disk"
+	"kubevirt.io/kubevirt/pkg/virt-handler/mount-manager/recorder"
 )
 
 //go:generate mockgen -source $GOFILE -package=$GOPACKAGE -destination=generated_mock_$GOFILE
@@ -42,10 +44,9 @@ type mountManager struct {
 }
 
 func NewMounter(virtPrivateDir string, podIsolationDetector isolation.PodIsolationDetector, clusterConfig *virtconfig.ClusterConfig, kubeletPodsDir string) MountManager {
-	mountRecorder := mountutils.NewMountRecorder(virtPrivateDir)
 	return &mountManager{
-		containerDiskMounter: container_disk.NewMounter(podIsolationDetector, clusterConfig, mountRecorder),
-		hotplugVolumeMounter: hotplug_volume.NewVolumeMounter(mountRecorder, kubeletPodsDir),
+		containerDiskMounter: container_disk.NewMounter(podIsolationDetector, clusterConfig, recorder.NewMountRecorder(filepath.Join(virtPrivateDir, "container-disk-mount-state"))),
+		hotplugVolumeMounter: hotplug_volume.NewVolumeMounter(recorder.NewMountRecorder(filepath.Join(virtPrivateDir, "hotplug-volume-mount-state")), kubeletPodsDir),
 	}
 }
 
