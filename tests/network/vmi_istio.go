@@ -356,15 +356,15 @@ var istioTests = func(vmType VmType) {
 					libvmi.WithLabel(vmiAppSelectorKey, vmiServerAppSelectorValue),
 					libvmi.WithCloudInitNoCloudNetworkData(networkData),
 				)
-				serverVMI, err = virtClient.VirtualMachineInstance(util.NamespaceTestDefault).Create(serverVMI)
-				Expect(err).ToNot(HaveOccurred())
+				By("Starting VirtualMachineInstance")
+				serverVMI = tests.RunVMIAndExpectLaunch(serverVMI, 240)
 
 				serverVMIService := netservice.BuildSpec("vmi-server", vmiServerTestPort, vmiServerTestPort, vmiAppSelectorKey, vmiServerAppSelectorValue)
 				_, err = virtClient.CoreV1().Services(util.NamespaceTestDefault).Create(context.Background(), serverVMIService, metav1.CreateOptions{})
 				Expect(err).ToNot(HaveOccurred())
 
-				Expect(console.LoginToAlpine(serverVMI)).To(Succeed())
 				By("Starting HTTP Server")
+				Expect(console.LoginToAlpine(serverVMI)).To(Succeed())
 				tests.StartPythonHttpServer(serverVMI, vmiServerTestPort)
 
 				By("Creating Istio VirtualService")
