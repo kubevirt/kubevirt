@@ -653,7 +653,7 @@ func validateNetworksAssignedToInterfaces(field *k8sfield.Path, spec *v1.Virtual
 
 func validateInputDevices(field *k8sfield.Path, spec *v1.VirtualMachineInstanceSpec) (causes []metav1.StatusCause) {
 	for idx, input := range spec.Domain.Devices.Inputs {
-		if input.Bus != "virtio" && input.Bus != "usb" && input.Bus != "" {
+		if input.Bus != v1.InputBusVirtio && input.Bus != v1.InputBusUSB && input.Bus != "" {
 			causes = append(causes, metav1.StatusCause{
 				Type:    metav1.CauseTypeFieldValueInvalid,
 				Message: "Input device can have only virtio or usb bus.",
@@ -661,7 +661,7 @@ func validateInputDevices(field *k8sfield.Path, spec *v1.VirtualMachineInstanceS
 			})
 		}
 
-		if input.Type != "tablet" {
+		if input.Type != v1.InputTypeTablet {
 			causes = append(causes, metav1.StatusCause{
 				Type:    metav1.CauseTypeFieldValueInvalid,
 				Message: "Input device can have only tablet type.",

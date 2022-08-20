@@ -1160,6 +1160,7 @@ var _ = Describe("Instancetype and Preferences", func() {
 						PreferredAutoattachMemBalloon:       pointer.Bool(true),
 						PreferredAutoattachPodInterface:     pointer.Bool(true),
 						PreferredAutoattachSerialConsole:    pointer.Bool(true),
+						PreferredAutoattachInputDevice:      pointer.Bool(true),
 						PreferredDiskDedicatedIoThread:      pointer.Bool(true),
 						PreferredDisableHotplug:             pointer.Bool(true),
 						PreferredUseVirtioTransitional:      pointer.Bool(true),
@@ -1176,8 +1177,8 @@ var _ = Describe("Instancetype and Preferences", func() {
 						PreferredDiskBus:        v1.DiskBusVirtio,
 						PreferredCdromBus:       v1.DiskBusSCSI,
 						PreferredLunBus:         v1.DiskBusSATA,
-						PreferredInputBus:       "virtio",
-						PreferredInputType:      "tablet",
+						PreferredInputBus:       v1.InputBusVirtio,
+						PreferredInputType:      v1.InputTypeTablet,
 						PreferredInterfaceModel: "virtio",
 						PreferredSoundModel:     "ac97",
 						PreferredRng:            &v1.Rng{},
@@ -1194,6 +1195,7 @@ var _ = Describe("Instancetype and Preferences", func() {
 
 				Expect(*vmi.Spec.Domain.Devices.AutoattachGraphicsDevice).To(BeFalse())
 				Expect(*vmi.Spec.Domain.Devices.AutoattachMemBalloon).To(BeFalse())
+				Expect(*vmi.Spec.Domain.Devices.AutoattachInputDevice).To(BeTrue())
 				Expect(vmi.Spec.Domain.Devices.Disks[0].Cache).To(Equal(v1.CacheWriteBack))
 				Expect(vmi.Spec.Domain.Devices.Disks[0].IO).To(Equal(v1.IODefault))
 				Expect(*vmi.Spec.Domain.Devices.Disks[0].DedicatedIOThread).To(BeFalse())
@@ -1201,8 +1203,8 @@ var _ = Describe("Instancetype and Preferences", func() {
 				Expect(vmi.Spec.Domain.Devices.Disks[0].DiskDevice.Disk.Bus).To(Equal(v1.DiskBusSCSI))
 				Expect(vmi.Spec.Domain.Devices.Disks[2].DiskDevice.CDRom.Bus).To(Equal(v1.DiskBusSATA))
 				Expect(vmi.Spec.Domain.Devices.Disks[4].DiskDevice.LUN.Bus).To(Equal(v1.DiskBusSATA))
-				Expect(vmi.Spec.Domain.Devices.Inputs[0].Bus).To(Equal("usb"))
-				Expect(vmi.Spec.Domain.Devices.Inputs[0].Type).To(Equal("tablet"))
+				Expect(vmi.Spec.Domain.Devices.Inputs[0].Bus).To(Equal(v1.InputBusUSB))
+				Expect(vmi.Spec.Domain.Devices.Inputs[0].Type).To(Equal(v1.InputTypeTablet))
 				Expect(vmi.Spec.Domain.Devices.Interfaces[0].Model).To(Equal("e1000"))
 
 				// Assert that everything that isn't defined in the VM/VMI should use Preferences

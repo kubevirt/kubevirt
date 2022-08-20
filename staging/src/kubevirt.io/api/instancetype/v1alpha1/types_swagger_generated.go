@@ -130,6 +130,7 @@ func (DevicePreferences) SwaggerDoc() map[string]string {
 		"preferredAutoattachMemBalloon":       "PreferredAutoattachMemBalloon optionally defines the preferred value of AutoattachMemBalloon\n\n+optional",
 		"preferredAutoattachPodInterface":     "PreferredAutoattachPodInterface optionally defines the preferred value of AutoattachPodInterface\n\n+optional",
 		"preferredAutoattachSerialConsole":    "PreferredAutoattachSerialConsole optionally defines the preferred value of AutoattachSerialConsole\n\n+optional",
+		"preferredAutoattachInputDevice":      "PreferredAutoattachInputDevice optionally defines the preferred value of AutoattachInputDevice\n\n+optional",
 		"preferredDisableHotplug":             "PreferredDisableHotplug optionally defines the preferred value of DisableHotplug\n\n+optional",
 		"preferredVirtualGPUOptions":          "PreferredVirtualGPUOptions optionally defines the preferred value of VirtualGPUOptions\n\n+optional",
 		"preferredSoundModel":                 "PreferredSoundModel optionally defines the preferred model for Sound devices.\n\n+optional",

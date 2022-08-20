@@ -15700,6 +15700,13 @@ func schema_kubevirtio_api_core_v1_Devices(ref common.ReferenceCallback) common.
 							Format:      "",
 						},
 					},
+					"autoattachInputDevice": {
+						SchemaProps: spec.SchemaProps{
+							Description: "Whether to attach an Input Device. Defaults to false.",
+							Type:        []string{"boolean"},
+							Format:      "",
+						},
+					},
 					"rng": {
 						SchemaProps: spec.SchemaProps{
 							Description: "Whether to have random number generator from host",
@@ -23252,6 +23259,13 @@ func schema_kubevirtio_api_instancetype_v1alpha1_DevicePreferences(ref common.Re
 					"preferredAutoattachSerialConsole": {
 						SchemaProps: spec.SchemaProps{
 							Description: "PreferredAutoattachSerialConsole optionally defines the preferred value of AutoattachSerialConsole",
+							Type:        []string{"boolean"},
+							Format:      "",
+						},
+					},
+					"preferredAutoattachInputDevice": {
+						SchemaProps: spec.SchemaProps{
+							Description: "PreferredAutoattachInputDevice optionally defines the preferred value of AutoattachInputDevice",
 							Type:        []string{"boolean"},
 							Format:      "",
 						},

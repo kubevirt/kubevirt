@@ -4833,6 +4833,10 @@ var CRDsValidation map[string]string = map[string]string{
                             or not. VNC will not be available if set to false. Defaults
                             to true.
                           type: boolean
+                        autoattachInputDevice:
+                          description: Whether to attach an Input Device. Defaults
+                            to false.
+                          type: boolean
                         autoattachMemBalloon:
                           description: Whether to attach the Memory balloon device
                             with default period. Period can be adjusted in virt-config.
@@ -7315,6 +7319,10 @@ var CRDsValidation map[string]string = map[string]string{
               description: PreferredAutoattachGraphicsDevice optionally defines the
                 preferred value of AutoattachGraphicsDevice
               type: boolean
+            preferredAutoattachInputDevice:
+              description: PreferredAutoattachInputDevice optionally defines the preferred
+                value of AutoattachInputDevice
+              type: boolean
             preferredAutoattachMemBalloon:
               description: PreferredAutoattachMemBalloon optionally defines the preferred
                 value of AutoattachMemBalloon
@@ -8985,6 +8993,9 @@ var CRDsValidation map[string]string = map[string]string{
                 autoattachGraphicsDevice:
                   description: Whether to attach the default graphics device or not.
                     VNC will not be available if set to false. Defaults to true.
+                  type: boolean
+                autoattachInputDevice:
+                  description: Whether to attach an Input Device. Defaults to false.
                   type: boolean
                 autoattachMemBalloon:
                   description: Whether to attach the Memory balloon device with default
@@ -11280,6 +11291,9 @@ var CRDsValidation map[string]string = map[string]string{
                   description: Whether to attach the default graphics device or not.
                     VNC will not be available if set to false. Defaults to true.
                   type: boolean
+                autoattachInputDevice:
+                  description: Whether to attach an Input Device. Defaults to false.
+                  type: boolean
                 autoattachMemBalloon:
                   description: Whether to attach the Memory balloon device with default
                     period. Period can be adjusted in virt-config. Defaults to true.
@@ -13350,6 +13364,10 @@ var CRDsValidation map[string]string = map[string]string{
                           description: Whether to attach the default graphics device
                             or not. VNC will not be available if set to false. Defaults
                             to true.
+                          type: boolean
+                        autoattachInputDevice:
+                          description: Whether to attach an Input Device. Defaults
+                            to false.
                           type: boolean
                         autoattachMemBalloon:
                           description: Whether to attach the Memory balloon device
@@ -17281,6 +17299,10 @@ var CRDsValidation map[string]string = map[string]string{
                                     device or not. VNC will not be available if set
                                     to false. Defaults to true.
                                   type: boolean
+                                autoattachInputDevice:
+                                  description: Whether to attach an Input Device.
+                                    Defaults to false.
+                                  type: boolean
                                 autoattachMemBalloon:
                                   description: Whether to attach the Memory balloon
                                     device with default period. Period can be adjusted
@@ -19260,6 +19282,10 @@ var CRDsValidation map[string]string = map[string]string{
             preferredAutoattachGraphicsDevice:
               description: PreferredAutoattachGraphicsDevice optionally defines the
                 preferred value of AutoattachGraphicsDevice
+              type: boolean
+            preferredAutoattachInputDevice:
+              description: PreferredAutoattachInputDevice optionally defines the preferred
+                value of AutoattachInputDevice
               type: boolean
             preferredAutoattachMemBalloon:
               description: PreferredAutoattachMemBalloon optionally defines the preferred
@@ -21914,6 +21940,10 @@ var CRDsValidation map[string]string = map[string]string{
                                       description: Whether to attach the default graphics
                                         device or not. VNC will not be available if
                                         set to false. Defaults to true.
+                                      type: boolean
+                                    autoattachInputDevice:
+                                      description: Whether to attach an Input Device.
+                                        Defaults to false.
                                       type: boolean
                                     autoattachMemBalloon:
                                       description: Whether to attach the Memory balloon

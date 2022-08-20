@@ -488,6 +488,18 @@ var _ = Describe("VirtualMachineInstance Mutator", func() {
 		Expect(vmiSpec.Domain.Devices.Disks[1].Name).To(Equal(missingVolumeName))
 	})
 
+	It("should set defaults for input devices", func() {
+		vmi.Spec.Domain.Devices.Inputs = []v1.Input{{
+			Name: "default-0",
+		}}
+
+		_, vmiSpec, _ := getMetaSpecStatusFromAdmit()
+		Expect(vmiSpec.Domain.Devices.Inputs).To(HaveLen(1))
+		Expect(vmiSpec.Domain.Devices.Inputs[0].Name).To(Equal("default-0"))
+		Expect(vmiSpec.Domain.Devices.Inputs[0].Bus).To(Equal(v1.InputBusUSB))
+		Expect(vmiSpec.Domain.Devices.Inputs[0].Type).To(Equal(v1.InputTypeTablet))
+	})
+
 	It("should not override specified properties with defaults on VMI create", func() {
 		testutils.UpdateFakeKubeVirtClusterConfig(kvInformer, &v1.KubeVirt{
 			Spec: v1.KubeVirtSpec{
