@@ -265,9 +265,18 @@ func (VirtualMachineInstanceMigrationSpec) SwaggerDoc() map[string]string {
 	}
 }
 
+func (VirtualMachineInstanceMigrationPhaseTransitionTimestamp) SwaggerDoc() map[string]string {
+	return map[string]string{
+		"":                         "VirtualMachineInstanceMigrationPhaseTransitionTimestamp gives a timestamp in relation to when a phase is set on a vmi",
+		"phase":                    "Phase is the status of the VirtualMachineInstanceMigrationPhase in kubernetes world. It is not the VirtualMachineInstanceMigrationPhase status, but partially correlates to it.",
+		"phaseTransitionTimestamp": "PhaseTransitionTimestamp is the timestamp of when the phase change occurred",
+	}
+}
+
 func (VirtualMachineInstanceMigrationStatus) SwaggerDoc() map[string]string {
 	return map[string]string{
-		"": "VirtualMachineInstanceMigration reprents information pertaining to a VMI's migration.",
+		"":                          "VirtualMachineInstanceMigration reprents information pertaining to a VMI's migration.",
+		"phaseTransitionTimestamps": "PhaseTransitionTimestamp is the timestamp of when the last phase change occurred\n+listType=atomic\n+optional",
 	}
 }
 
@@ -310,7 +319,7 @@ func (VirtualMachineSpec) SwaggerDoc() map[string]string {
 		"":                    "VirtualMachineSpec describes how the proper VirtualMachine\nshould look like",
 		"running":             "Running controls whether the associatied VirtualMachineInstance is created or not\nMutually exclusive with RunStrategy",
 		"runStrategy":         "Running state indicates the requested running state of the VirtualMachineInstance\nmutually exclusive with Running",
-		"flavor":              "FlavorMatcher references a flavor that is used to fill fields in Template",
+		"instancetype":        "InstancetypeMatcher references a instancetype that is used to fill fields in Template",
 		"preference":          "PreferenceMatcher references a set of preference that is used to fill fields in Template",
 		"template":            "Template is the direct specification of VirtualMachineInstance",
 		"dataVolumeTemplates": "dataVolumeTemplates is a list of dataVolumes that the VirtualMachineInstance template can reference.\nDataVolumes in this list are dynamically created for the VirtualMachine and are tied to the VirtualMachine's life-cycle.",
@@ -607,10 +616,11 @@ func (VirtualMachineMemoryDumpRequest) SwaggerDoc() map[string]string {
 		"":               "VirtualMachineMemoryDumpRequest represent the memory dump request phase and info",
 		"claimName":      "ClaimName is the name of the pvc that will contain the memory dump",
 		"phase":          "Phase represents the memory dump phase",
-		"startTimestamp": "StartTimestamp represents the time the memory dump started",
-		"endTimestamp":   "EndTimestamp represents the time the memory dump was completed",
-		"fileName":       "FileName represents the name of the output file",
-		"message":        "Message is a detailed message about failure of the memory dump",
+		"remove":         "Remove represents request of dissociating the memory dump pvc\n+optional",
+		"startTimestamp": "StartTimestamp represents the time the memory dump started\n+optional",
+		"endTimestamp":   "EndTimestamp represents the time the memory dump was completed\n+optional",
+		"fileName":       "FileName represents the name of the output file\n+optional",
+		"message":        "Message is a detailed message about failure of the memory dump\n+optional",
 	}
 }
 
@@ -759,18 +769,20 @@ func (ClusterProfilerRequest) SwaggerDoc() map[string]string {
 	return map[string]string{}
 }
 
-func (FlavorMatcher) SwaggerDoc() map[string]string {
+func (InstancetypeMatcher) SwaggerDoc() map[string]string {
 	return map[string]string{
-		"":     "FlavorMatcher references a flavor that is used to fill fields in the VMI template.",
-		"name": "Name is the name of the VirtualMachineFlavor or VirtualMachineClusterFlavor",
-		"kind": "Kind specifies which flavor resource is referenced.\nAllowed values are: \"VirtualMachineFlavor\" and \"VirtualMachineClusterFlavor\".\nIf not specified, \"VirtualMachineClusterFlavor\" is used by default.\n\n+optional",
+		"":             "InstancetypeMatcher references a instancetype that is used to fill fields in the VMI template.",
+		"name":         "Name is the name of the VirtualMachineInstancetype or VirtualMachineClusterInstancetype",
+		"kind":         "Kind specifies which instancetype resource is referenced.\nAllowed values are: \"VirtualMachineInstancetype\" and \"VirtualMachineClusterInstancetype\".\nIf not specified, \"VirtualMachineClusterInstancetype\" is used by default.\n\n+optional",
+		"revisionName": "RevisionName specifies a ControllerRevision containing a specific copy of the\nVirtualMachineInstancetype or VirtualMachineClusterInstancetype to be used. This is initially\ncaptured the first time the instancetype is applied to the VirtualMachineInstance.\n\n+optional",
 	}
 }
 
 func (PreferenceMatcher) SwaggerDoc() map[string]string {
 	return map[string]string{
-		"":     "PreferenceMatcher references a set of preference that is used to fill fields in the VMI template.",
-		"name": "Name is the name of the VirtualMachinePreference or VirtualMachineClusterPreference",
-		"kind": "Kind specifies which preference resource is referenced.\nAllowed values are: \"VirtualMachinePreference\" and \"VirtualMachineClusterPreference\".\nIf not specified, \"VirtualMachineClusterPreference\" is used by default.\n\n+optional",
+		"":             "PreferenceMatcher references a set of preference that is used to fill fields in the VMI template.",
+		"name":         "Name is the name of the VirtualMachinePreference or VirtualMachineClusterPreference",
+		"kind":         "Kind specifies which preference resource is referenced.\nAllowed values are: \"VirtualMachinePreference\" and \"VirtualMachineClusterPreference\".\nIf not specified, \"VirtualMachineClusterPreference\" is used by default.\n\n+optional",
+		"revisionName": "RevisionName specifies a ControllerRevision containing a specific copy of the\nVirtualMachinePreference or VirtualMachineClusterPreference to be used. This is\ninitially captured the first time the instancetype is applied to the VirtualMachineInstance.\n\n+optional",
 	}
 }

@@ -936,20 +936,6 @@ rules:
   - update
   - patch
 - apiGroups:
-  - subresources.kubevirt.io
-  resources:
-  - virtualmachineinstances/pause
-  - virtualmachineinstances/unpause
-  - virtualmachineinstances/addvolume
-  - virtualmachineinstances/removevolume
-  - virtualmachineinstances/freeze
-  - virtualmachineinstances/unfreeze
-  - virtualmachineinstances/softreboot
-  - virtualmachineinstances/portforward
-  verbs:
-  - update
-  - get
-- apiGroups:
   - ""
   resources:
   - namespaces
@@ -958,6 +944,22 @@ rules:
   - list
   - watch
   - patch
+- apiGroups:
+  - flavor.kubevirt.io
+  resources:
+  - virtualmachineflavors
+  - virtualmachineclusterflavors
+  - virtualmachinepreferences
+  - virtualmachineclusterpreferences
+  verbs:
+  - get
+  - delete
+  - create
+  - update
+  - patch
+  - list
+  - watch
+  - deletecollection
 - apiGroups:
   - ""
   resources:
@@ -1056,10 +1058,10 @@ rules:
   - list
   - watch
 - apiGroups:
-  - flavor.kubevirt.io
+  - instancetype.kubevirt.io
   resources:
-  - virtualmachineflavors
-  - virtualmachineclusterflavors
+  - virtualmachineinstancetypes
+  - virtualmachineclusterinstancetypes
   - virtualmachinepreferences
   - virtualmachineclusterpreferences
   verbs:
@@ -1282,10 +1284,10 @@ rules:
   - list
   - watch
 - apiGroups:
-  - flavor.kubevirt.io
+  - instancetype.kubevirt.io
   resources:
-  - virtualmachineflavors
-  - virtualmachineclusterflavors
+  - virtualmachineinstancetypes
+  - virtualmachineclusterinstancetypes
   - virtualmachinepreferences
   - virtualmachineclusterpreferences
   verbs:
@@ -1328,6 +1330,30 @@ rules:
   - namespaces
   verbs:
   - get
+- apiGroups:
+  - route.openshift.io
+  resources:
+  - routes
+  verbs:
+  - list
+  - get
+  - watch
+- apiGroups:
+  - ""
+  resources:
+  - secrets
+  verbs:
+  - list
+  - get
+  - watch
+- apiGroups:
+  - networking.k8s.io
+  resources:
+  - ingresses
+  verbs:
+  - list
+  - get
+  - watch
 - apiGroups:
   - kubevirt.io
   resources:
@@ -1486,10 +1512,10 @@ rules:
   - watch
   - deletecollection
 - apiGroups:
-  - flavor.kubevirt.io
+  - instancetype.kubevirt.io
   resources:
-  - virtualmachineflavors
-  - virtualmachineclusterflavors
+  - virtualmachineinstancetypes
+  - virtualmachineclusterinstancetypes
   - virtualmachinepreferences
   - virtualmachineclusterpreferences
   verbs:
@@ -1588,10 +1614,10 @@ rules:
   - list
   - watch
 - apiGroups:
-  - flavor.kubevirt.io
+  - instancetype.kubevirt.io
   resources:
-  - virtualmachineflavors
-  - virtualmachineclusterflavors
+  - virtualmachineinstancetypes
+  - virtualmachineclusterinstancetypes
   - virtualmachinepreferences
   - virtualmachineclusterpreferences
   verbs:
@@ -1660,10 +1686,10 @@ rules:
   - list
   - watch
 - apiGroups:
-  - flavor.kubevirt.io
+  - instancetype.kubevirt.io
   resources:
-  - virtualmachineflavors
-  - virtualmachineclusterflavors
+  - virtualmachineinstancetypes
+  - virtualmachineclusterinstancetypes
   - virtualmachinepreferences
   - virtualmachineclusterpreferences
   verbs:

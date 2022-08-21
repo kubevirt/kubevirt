@@ -27,6 +27,7 @@ import (
 	"k8s.io/utils/net"
 
 	v1 "kubevirt.io/api/core/v1"
+
 	"kubevirt.io/kubevirt/tests/console"
 )
 
@@ -45,12 +46,13 @@ func PingFromVMConsole(vmi *v1.VirtualMachineInstance, ipAddr string, args ...st
 	if len(args) == 0 {
 		args = []string{"-c 5", "-w 10"}
 	}
-	args = append([]string{pingString, ipAddr}, args...)
+	args = append([]string{pingString}, args...)
+	args = append(args, ipAddr)
 	cmdCheck := strings.Join(args, " ")
 
 	err := console.RunCommand(vmi, cmdCheck, maxCommandTimeout)
 	if err != nil {
-		return fmt.Errorf("Failed to ping VMI %s, error: %v", vmi.Name, err)
+		return fmt.Errorf("failed to ping VMI %s, error: %v", vmi.Name, err)
 	}
 	return nil
 }

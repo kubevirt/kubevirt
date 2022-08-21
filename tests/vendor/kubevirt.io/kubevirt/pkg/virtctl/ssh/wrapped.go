@@ -12,13 +12,20 @@ var runCommand = func(cmd *exec.Cmd) error {
 	return cmd.Run()
 }
 
-func (o *SSH) runLocalCommandClient(kind, namespace, name string) error {
+func RunLocalClient(kind, namespace, name string, options *SSHOptions, clientArgs []string) error {
+	args := []string{"-o"}
+	args = append(args, buildProxyCommandOption(kind, namespace, name, options.SSHPort))
 
-	args := []string{}
-	args = append(args, o.buildProxyCommandOption(kind, namespace, name))
-	args = append(args, o.buildSSHTarget(kind, namespace, name))
+	if len(options.AdditionalSSHLocalOptions) > 0 {
+		args = append(args, options.AdditionalSSHLocalOptions...)
+	}
+	if options.IdentityFilePathProvided {
+		args = append(args, "-i", options.IdentityFilePath)
+	}
 
-	cmd := exec.Command("ssh", args...)
+	args = append(args, clientArgs...)
+
+	cmd := exec.Command(options.LocalClientName, args...)
 	fmt.Println("running:", cmd)
 	cmd.Stdout = os.Stdout
 	cmd.Stderr = os.Stderr
@@ -27,26 +34,23 @@ func (o *SSH) runLocalCommandClient(kind, namespace, name string) error {
 	return runCommand(cmd)
 }
 
-func (o *SSH) buildProxyCommandOption(kind, namespace, name string) string {
+func buildProxyCommandOption(kind, namespace, name string, port int) string {
 	proxyCommand := strings.Builder{}
-	proxyCommand.WriteString("-o ProxyCommand=")
+	proxyCommand.WriteString("ProxyCommand=")
 	proxyCommand.WriteString(os.Args[0])
 	proxyCommand.WriteString(" port-forward --stdio=true ")
 	proxyCommand.WriteString(fmt.Sprintf("%s/%s.%s", kind, name, namespace))
 	proxyCommand.WriteString(" ")
 
-	proxyCommand.WriteString(strconv.Itoa(o.options.SshPort))
+	proxyCommand.WriteString(strconv.Itoa(port))
 
 	return proxyCommand.String()
 }
 
-func (o *SSH) buildSSHTarget(kind, namespace, name string) string {
+func (o *SSH) buildSSHTarget(kind, namespace, name string) (opts []string) {
 	target := strings.Builder{}
-	if o.options.IdentityFilePathProvided {
-		target.WriteString(fmt.Sprintf(" -i %s ", o.options.IdentityFilePath))
-	}
-	if len(o.options.SshUsername) > 0 {
-		target.WriteString(o.options.SshUsername)
+	if len(o.options.SSHUsername) > 0 {
+		target.WriteString(o.options.SSHUsername)
 		target.WriteRune('@')
 	}
 	target.WriteString(kind)
@@ -54,5 +58,10 @@ func (o *SSH) buildSSHTarget(kind, namespace, name string) string {
 	target.WriteString(name)
 	target.WriteRune('.')
 	target.WriteString(namespace)
-	return target.String()
+
+	opts = append(opts, target.String())
+	if o.command != "" {
+		opts = append(opts, o.command)
+	}
+	return
 }

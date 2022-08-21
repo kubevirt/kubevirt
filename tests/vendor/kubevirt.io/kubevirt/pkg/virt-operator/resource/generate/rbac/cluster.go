@@ -23,7 +23,7 @@ import (
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/runtime"
 
-	"kubevirt.io/api/flavor"
+	"kubevirt.io/api/instancetype"
 
 	virtv1 "kubevirt.io/api/core/v1"
 
@@ -33,7 +33,7 @@ import (
 const (
 	GroupNameSubresources  = "subresources.kubevirt.io"
 	GroupNameSnapshot      = "snapshot.kubevirt.io"
-	GroupNameFlavor        = "flavor.kubevirt.io"
+	GroupNameInstancetype  = "instancetype.kubevirt.io"
 	GroupNamePool          = "pool.kubevirt.io"
 	NameDefault            = "kubevirt.io:default"
 	VMInstancesGuestOSInfo = "virtualmachineinstances/guestosinfo"
@@ -213,13 +213,13 @@ func newAdminClusterRole() *rbacv1.ClusterRole {
 			},
 			{
 				APIGroups: []string{
-					GroupNameFlavor,
+					GroupNameInstancetype,
 				},
 				Resources: []string{
-					flavor.PluralResourceName,
-					flavor.ClusterPluralResourceName,
-					flavor.PluralPreferenceResourceName,
-					flavor.ClusterPluralPreferenceResourceName,
+					instancetype.PluralResourceName,
+					instancetype.ClusterPluralResourceName,
+					instancetype.PluralPreferenceResourceName,
+					instancetype.ClusterPluralPreferenceResourceName,
 				},
 				Verbs: []string{
 					"get", "delete", "create", "update", "patch", "list", "watch", "deletecollection",
@@ -345,13 +345,13 @@ func newEditClusterRole() *rbacv1.ClusterRole {
 			},
 			{
 				APIGroups: []string{
-					GroupNameFlavor,
+					GroupNameInstancetype,
 				},
 				Resources: []string{
-					flavor.PluralResourceName,
-					flavor.ClusterPluralResourceName,
-					flavor.PluralPreferenceResourceName,
-					flavor.ClusterPluralPreferenceResourceName,
+					instancetype.PluralResourceName,
+					instancetype.ClusterPluralResourceName,
+					instancetype.PluralPreferenceResourceName,
+					instancetype.ClusterPluralPreferenceResourceName,
 				},
 				Verbs: []string{
 					"get", "delete", "create", "update", "patch", "list", "watch",
@@ -451,13 +451,13 @@ func newViewClusterRole() *rbacv1.ClusterRole {
 			},
 			{
 				APIGroups: []string{
-					GroupNameFlavor,
+					GroupNameInstancetype,
 				},
 				Resources: []string{
-					flavor.PluralResourceName,
-					flavor.ClusterPluralResourceName,
-					flavor.PluralPreferenceResourceName,
-					flavor.ClusterPluralPreferenceResourceName,
+					instancetype.PluralResourceName,
+					instancetype.ClusterPluralResourceName,
+					instancetype.PluralPreferenceResourceName,
+					instancetype.ClusterPluralPreferenceResourceName,
 				},
 				Verbs: []string{
 					"get", "list", "watch",

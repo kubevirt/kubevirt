@@ -11,6 +11,7 @@ import (
 	k8score "k8s.io/api/core/v1"
 
 	KVv1 "kubevirt.io/api/core/v1"
+
 	virtconfig "kubevirt.io/kubevirt/pkg/virt-config"
 )
 
@@ -55,7 +56,7 @@ func NewFakeContainerDiskSource() *KVv1.ContainerDiskSource {
 	return &KVv1.ContainerDiskSource{
 		Image:           "fake-image",
 		ImagePullSecret: "fake-pull-secret",
-		Path:            "fake-path",
+		Path:            "/fake-path",
 	}
 }
 

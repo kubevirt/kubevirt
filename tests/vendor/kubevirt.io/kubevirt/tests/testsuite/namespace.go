@@ -35,6 +35,7 @@ import (
 
 	v1 "kubevirt.io/api/core/v1"
 	"kubevirt.io/client-go/kubecli"
+
 	"kubevirt.io/kubevirt/pkg/controller"
 
 	"kubevirt.io/kubevirt/tests/flags"
@@ -57,6 +58,9 @@ func CleanNamespaces() {
 	util.PanicOnError(err)
 
 	for _, namespace := range TestNamespaces {
+		listOptions := metav1.ListOptions{
+			LabelSelector: cleanup.TestLabelForNamespace(namespace),
+		}
 
 		_, err := virtCli.CoreV1().Namespaces().Get(context.Background(), namespace, metav1.GetOptions{})
 		if err != nil {
@@ -122,9 +126,7 @@ func CleanNamespaces() {
 			util.PanicOnError(virtCli.CdiClient().CdiV1beta1().RESTClient().Delete().Namespace(namespace).Resource("datavolumes").Do(context.Background()).Error())
 		}
 		// Remove PVs
-		pvs, err := virtCli.CoreV1().PersistentVolumes().List(context.Background(), metav1.ListOptions{
-			LabelSelector: fmt.Sprintf("%s", cleanup.TestLabelForNamespace(namespace)),
-		})
+		pvs, err := virtCli.CoreV1().PersistentVolumes().List(context.Background(), listOptions)
 		util.PanicOnError(err)
 		for _, pv := range pvs.Items {
 			err := virtCli.CoreV1().PersistentVolumes().Delete(context.Background(), pv.Name, metav1.DeleteOptions{})
@@ -134,7 +136,7 @@ func CleanNamespaces() {
 		}
 
 		// Remove all VirtualMachineInstance Secrets
-		labelSelector := fmt.Sprintf("%s", SecretLabel)
+		labelSelector := util.SecretLabel
 		util.PanicOnError(
 			virtCli.CoreV1().Secrets(namespace).DeleteCollection(context.Background(),
 				metav1.DeleteOptions{}, metav1.ListOptions{LabelSelector: labelSelector},
@@ -176,12 +178,17 @@ func CleanNamespaces() {
 		util.PanicOnError(removeAllGroupVersionResourceFromNamespace(schema.GroupVersionResource{Group: "security.istio.io", Version: "v1beta1", Resource: "peerauthentications"}, namespace))
 
 		// Remove migration policies
-		migrationPolicyList, err := virtCli.MigrationPolicy().List(context.Background(), metav1.ListOptions{
-			LabelSelector: fmt.Sprintf("%s", cleanup.TestLabelForNamespace(namespace)),
-		})
+		migrationPolicyList, err := virtCli.MigrationPolicy().List(context.Background(), listOptions)
 		util.PanicOnError(err)
 		for _, policy := range migrationPolicyList.Items {
 			util.PanicOnError(virtCli.MigrationPolicy().Delete(context.Background(), policy.Name, metav1.DeleteOptions{}))
+		}
+
+		// Remove clones
+		clonesList, err := virtCli.VirtualMachineClone(namespace).List(context.Background(), metav1.ListOptions{})
+		util.PanicOnError(err)
+		for _, clone := range clonesList.Items {
+			util.PanicOnError(virtCli.VirtualMachineClone(namespace).Delete(context.Background(), clone.Name, metav1.DeleteOptions{}))
 		}
 	}
 }

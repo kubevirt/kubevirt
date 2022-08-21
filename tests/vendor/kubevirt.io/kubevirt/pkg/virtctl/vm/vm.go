@@ -26,6 +26,8 @@ import (
 	"strings"
 
 	k8sv1 "k8s.io/api/core/v1"
+	k8serrors "k8s.io/apimachinery/pkg/api/errors"
+	"k8s.io/apimachinery/pkg/api/resource"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 
 	v1 "kubevirt.io/api/core/v1"
@@ -34,6 +36,11 @@ import (
 	"k8s.io/client-go/tools/clientcmd"
 
 	"kubevirt.io/client-go/kubecli"
+
+	cdiv1 "kubevirt.io/containerized-data-importer-api/pkg/apis/core/v1beta1"
+
+	kutil "kubevirt.io/kubevirt/pkg/util"
+	kubevirttypes "kubevirt.io/kubevirt/pkg/util/types"
 	"kubevirt.io/kubevirt/pkg/virtctl/templates"
 )
 
@@ -55,12 +62,19 @@ const (
 	notDefinedGracePeriod = -1
 	dryRunCommandUsage    = "--dry-run=false: Flag used to set whether to perform a dry run or not. If true the command will be executed without performing any changes."
 
-	dryRunArg      = "dry-run"
-	pausedArg      = "paused"
-	forceArg       = "force"
-	gracePeriodArg = "grace-period"
-	serialArg      = "serial"
-	persistArg     = "persist"
+	dryRunArg       = "dry-run"
+	pausedArg       = "paused"
+	forceArg        = "force"
+	gracePeriodArg  = "grace-period"
+	serialArg       = "serial"
+	persistArg      = "persist"
+	createClaimArg  = "create-claim"
+	storageClassArg = "storage-class"
+	accessModeArg   = "access-mode"
+
+	configName         = "config"
+	filesystemOverhead = cdiv1.Percent("0.055")
+	fsOverheadMsg      = "Using default 5.5%% filesystem overhead for pvc size"
 )
 
 var (
@@ -72,6 +86,9 @@ var (
 	startPaused  bool
 	dryRun       bool
 	claimName    string
+	createClaim  bool
+	storageClass string
+	accessMode   string
 )
 
 func NewStartCommand(clientConfig clientcmd.ClientConfig) *cobra.Command {
@@ -207,7 +224,7 @@ func NewFSListCommand(clientConfig clientcmd.ClientConfig) *cobra.Command {
 func NewMemoryDumpCommand(clientConfig clientcmd.ClientConfig) *cobra.Command {
 	cmd := &cobra.Command{
 		Use:     "memory-dump get/remove (VM)",
-		Short:   "Dump the memory of a running VM to a given pvc",
+		Short:   "Dump the memory of a running VM to a pvc",
 		Example: usageMemoryDump(),
 		Args:    templates.ExactArgs("memory-dump", 2),
 		RunE: func(cmd *cobra.Command, args []string) error {
@@ -217,6 +234,9 @@ func NewMemoryDumpCommand(clientConfig clientcmd.ClientConfig) *cobra.Command {
 	}
 	cmd.SetUsageTemplate(templates.UsageTemplate())
 	cmd.Flags().StringVar(&claimName, claimNameArg, "", "pvc name to contain the memory dump")
+	cmd.Flags().BoolVar(&createClaim, createClaimArg, false, "Create the pvc that will conatin the memory dump")
+	cmd.Flags().StringVar(&storageClass, storageClassArg, "", "The storage class for the PVC.")
+	cmd.Flags().StringVar(&accessMode, accessModeArg, "", "The access mode for the PVC.")
 
 	return cmd
 }
@@ -306,8 +326,11 @@ func usage(cmd string) string {
 }
 
 func usageMemoryDump() string {
-	usage := `  #Dump memory of a virtual machine instance called 'myvm' to a pvc called 'memoryvolume'.
+	usage := `  #Dump memory of a virtual machine instance called 'myvm' to an existing pvc called 'memoryvolume'.
   {{ProgramName}} memory-dump get myvm --claim-name=memoryvolume
+
+  #Create a PVC called 'memoryvolume' and dump the memory of a virtual machine instance called 'myvm' to it.
+  {{ProgramName}} memory-dump get myvm --claim-name=memoryvolume --create-claim
 
   #Dump memory again to the same virtual machine with an already associated pvc(existing memory dump on vm status).
   {{ProgramName}} memory-dump get myvm
@@ -395,10 +418,127 @@ func removeVolume(vmiName, volumeName, namespace string, virtClient kubecli.Kube
 	return nil
 }
 
+func calcMemoryDumpExpectedSize(vmName, namespace string, virtClient kubecli.KubevirtClient) (*resource.Quantity, error) {
+	vmi, err := virtClient.VirtualMachineInstance(namespace).Get(vmName, &metav1.GetOptions{})
+	if err != nil {
+		return nil, err
+	}
+
+	return kutil.CalcExpectedMemoryDumpSize(vmi), nil
+}
+
+func calcPVCNeededSize(memoryDumpExpectedSize *resource.Quantity, storageClass *string, virtClient kubecli.KubevirtClient) (*resource.Quantity, error) {
+	cdiConfig, err := virtClient.CdiClient().CdiV1beta1().CDIConfigs().Get(context.Background(), configName, metav1.GetOptions{})
+	if k8serrors.IsNotFound(err) {
+		// can't properly determine the overhead - continue with default overhead of 5.5%
+		fmt.Printf(fsOverheadMsg)
+		return kubevirttypes.GetSizeIncludingGivenOverhead(memoryDumpExpectedSize, filesystemOverhead)
+	}
+	if err != nil {
+		return nil, err
+	}
+
+	fsVolumeMode := k8sv1.PersistentVolumeFilesystem
+	if *storageClass == "" {
+		storageClass = nil
+	}
+
+	return kubevirttypes.GetSizeIncludingFSOverhead(memoryDumpExpectedSize, storageClass, &fsVolumeMode, cdiConfig)
+}
+
+func generatePVC(size *resource.Quantity, claimName, namespace, storageClass, accessMode string) (*k8sv1.PersistentVolumeClaim, error) {
+	pvc := &k8sv1.PersistentVolumeClaim{
+		ObjectMeta: metav1.ObjectMeta{
+			Name:      claimName,
+			Namespace: namespace,
+		},
+		Spec: k8sv1.PersistentVolumeClaimSpec{
+			Resources: k8sv1.ResourceRequirements{
+				Requests: k8sv1.ResourceList{
+					k8sv1.ResourceStorage: *size,
+				},
+			},
+		},
+	}
+
+	if storageClass != "" {
+		pvc.Spec.StorageClassName = &storageClass
+	}
+
+	if accessMode == string(k8sv1.ReadOnlyMany) {
+		return nil, fmt.Errorf("cannot dump memory to a readonly pvc, use either ReadWriteOnce or ReadWriteMany if supported")
+	}
+	if accessMode != "" {
+		pvc.Spec.AccessModes = []k8sv1.PersistentVolumeAccessMode{k8sv1.PersistentVolumeAccessMode(accessMode)}
+	} else {
+		pvc.Spec.AccessModes = []k8sv1.PersistentVolumeAccessMode{k8sv1.ReadWriteOnce}
+	}
+
+	return pvc, nil
+}
+
+func createPVCforMemoryDump(namespace, vmName, claimName string, virtClient kubecli.KubevirtClient) error {
+	_, err := virtClient.CoreV1().PersistentVolumeClaims(namespace).Get(context.Background(), claimName, metav1.GetOptions{})
+	if err == nil {
+		return fmt.Errorf("PVC %s/%s already exists, check if it should be created if not remove create flag\n", namespace, claimName)
+	}
+	if !k8serrors.IsNotFound(err) {
+		return err
+	}
+
+	memoryDumpExpectedSize, err := calcMemoryDumpExpectedSize(vmName, namespace, virtClient)
+	if err != nil {
+		return err
+	}
+
+	neededSize, err := calcPVCNeededSize(memoryDumpExpectedSize, &storageClass, virtClient)
+	if err != nil {
+		return err
+	}
+
+	pvc, err := generatePVC(neededSize, claimName, namespace, storageClass, accessMode)
+	if err != nil {
+		return err
+	}
+
+	_, err = virtClient.CoreV1().PersistentVolumeClaims(namespace).Create(context.Background(), pvc, metav1.CreateOptions{})
+	if err != nil {
+		return err
+	}
+
+	fmt.Printf("PVC %s/%s created\n", namespace, claimName)
+
+	return nil
+}
+
+func checkNoAssociatedMemoryDump(namespace, vmName string, virtClient kubecli.KubevirtClient) error {
+	vm, err := virtClient.VirtualMachine(namespace).Get(vmName, &metav1.GetOptions{})
+	if err != nil {
+		return err
+	}
+	if vm.Status.MemoryDumpRequest != nil {
+		return fmt.Errorf("please remove current memory dump association before creating a new claim for a new memory dump")
+	}
+	return nil
+}
+
 func memoryDump(args []string, claimName, namespace string, virtClient kubecli.KubevirtClient) error {
 	vmName := args[1]
 	switch args[0] {
 	case "get":
+		if createClaim {
+			if claimName == "" {
+				return fmt.Errorf("missing claim name")
+			}
+			err := checkNoAssociatedMemoryDump(namespace, vmName, virtClient)
+			if err != nil {
+				return err
+			}
+			err = createPVCforMemoryDump(namespace, vmName, claimName, virtClient)
+			if err != nil {
+				return err
+			}
+		}
 		memoryDumpRequest := &v1.VirtualMachineMemoryDumpRequest{
 			ClaimName: claimName,
 		}
@@ -464,7 +604,7 @@ func (o *Command) Run(args []string) error {
 			if gracePeriodIsSet(gracePeriod) {
 				err = virtClient.VirtualMachine(namespace).ForceStop(vmiName, &v1.StopOptions{GracePeriod: &gracePeriod, DryRun: dryRunOption})
 				if err != nil {
-					return fmt.Errorf("Error force stoping VirtualMachine, %v", err)
+					return fmt.Errorf("Error force stopping VirtualMachine, %v", err)
 				}
 			} else if !gracePeriodIsSet(gracePeriod) {
 				return fmt.Errorf("Can not force stop without gracePeriod")

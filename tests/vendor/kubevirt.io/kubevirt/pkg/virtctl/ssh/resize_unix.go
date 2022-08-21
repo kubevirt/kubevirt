@@ -1,4 +1,4 @@
-//go:build !windows
+//go:build !windows && !excludenative
 
 package ssh
 
@@ -13,16 +13,16 @@ import (
 )
 
 // resizeSessionOnWindowChange watches for SIGWINCH and refreshes the session with the new window size
-func resizeSessionOnWindowChange(session *ssh.Session, fd uintptr) {
+func resizeSessionOnWindowChange(session *ssh.Session, _ uintptr) {
 	sigs := make(chan os.Signal, 1)
 	signal.Notify(sigs, syscall.SIGWINCH)
 
 	for range sigs {
-		session.SendRequest("window-change", false, windowSizePayloadFor(fd))
+		session.SendRequest("window-change", false, windowSizePayloadFor())
 	}
 }
 
-func windowSizePayloadFor(fd uintptr) []byte {
+func windowSizePayloadFor() []byte {
 	w, h, err := term.GetSize(int(os.Stdin.Fd()))
 	if err != nil {
 		return buildWindowSizePayload(80, 24)

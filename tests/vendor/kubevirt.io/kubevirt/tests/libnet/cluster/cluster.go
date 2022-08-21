@@ -11,6 +11,7 @@ import (
 
 	v1 "kubevirt.io/api/core/v1"
 	"kubevirt.io/client-go/kubecli"
+
 	"kubevirt.io/kubevirt/tests/flags"
 )
 
@@ -36,19 +37,19 @@ func DualStack(virtClient kubecli.KubevirtClient) (bool, error) {
 
 func SupportsIpv4(virtClient kubecli.KubevirtClient) (bool, error) {
 	onceIPv4.Do(func() {
-		clusterSupportsIpv4, errIPv4 = clusterAnswersIpCondition(virtClient, netutils.IsIPv4String)
+		clusterSupportsIpv4, errIPv4 = clusterAnswersIPCondition(virtClient, netutils.IsIPv4String)
 	})
 	return clusterSupportsIpv4, errIPv4
 }
 
 func SupportsIpv6(virtClient kubecli.KubevirtClient) (bool, error) {
 	onceIPv6.Do(func() {
-		clusterSupportsIpv6, errIPv6 = clusterAnswersIpCondition(virtClient, netutils.IsIPv6String)
+		clusterSupportsIpv6, errIPv6 = clusterAnswersIPCondition(virtClient, netutils.IsIPv6String)
 	})
 	return clusterSupportsIpv6, errIPv6
 }
 
-func clusterAnswersIpCondition(virtClient kubecli.KubevirtClient, ipCondition func(ip string) bool) (bool, error) {
+func clusterAnswersIPCondition(virtClient kubecli.KubevirtClient, ipCondition func(ip string) bool) (bool, error) {
 	// grab us some neat kubevirt pod; let's say virt-handler is our target.
 	targetPodType := "virt-handler"
 	virtHandlerPod, err := getPodByKubeVirtRole(virtClient, targetPodType)
@@ -66,11 +67,14 @@ func clusterAnswersIpCondition(virtClient kubecli.KubevirtClient, ipCondition fu
 
 func getPodByKubeVirtRole(virtClient kubecli.KubevirtClient, kubevirtPodRole string) (*k8sv1.Pod, error) {
 	labelSelectorValue := fmt.Sprintf("%s = %s", v1.AppLabel, kubevirtPodRole)
-	pods, err := virtClient.CoreV1().Pods(flags.KubeVirtInstallNamespace).List(context.Background(), metav1.ListOptions{LabelSelector: labelSelectorValue})
+	pods, err := virtClient.CoreV1().Pods(flags.KubeVirtInstallNamespace).List(
+		context.Background(),
+		metav1.ListOptions{LabelSelector: labelSelectorValue},
+	)
 	if err != nil {
 		return nil, fmt.Errorf("could not filter virt-handler pods: %v", err)
 	}
-	if len(pods.Items) <= 0 {
+	if len(pods.Items) == 0 {
 		return nil, fmt.Errorf("could not find virt-handler pods on the system")
 	}
 	return &pods.Items[0], nil

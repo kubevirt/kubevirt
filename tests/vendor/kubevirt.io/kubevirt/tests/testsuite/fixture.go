@@ -36,6 +36,7 @@ import (
 	v1 "kubevirt.io/api/core/v1"
 	"kubevirt.io/client-go/kubecli"
 	"kubevirt.io/client-go/log"
+
 	"kubevirt.io/kubevirt/pkg/virt-controller/services"
 	"kubevirt.io/kubevirt/pkg/virt-operator/resource/generate/components"
 
@@ -98,6 +99,7 @@ func SynchronizedBeforeTestSetup() []byte {
 }
 
 func BeforeTestSuitSetup(_ []byte) {
+
 	worker := GinkgoParallelProcess()
 	rand.Seed(int64(worker))
 	log.InitializeLogging("tests")

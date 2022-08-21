@@ -23,8 +23,8 @@ import (
 	"context"
 
 	"github.com/onsi/ginkgo/v2"
-
 	v1 "k8s.io/api/core/v1"
+	rbacv1 "k8s.io/api/rbac/v1"
 	"k8s.io/apiextensions-apiserver/pkg/client/clientset/clientset"
 	"k8s.io/apimachinery/pkg/api/resource"
 	v12 "k8s.io/apimachinery/pkg/apis/meta/v1"
@@ -37,7 +37,7 @@ import (
 	"kubevirt.io/kubevirt/tests/util"
 )
 
-func NewRandomBlockDataVolumeWithRegistryImport(imageUrl, namespace string, accessMode v1.PersistentVolumeAccessMode) *v1beta1.DataVolume {
+func NewBlockDataVolumeWithRegistryImport(imageUrl, namespace string, accessMode v1.PersistentVolumeAccessMode) *v1beta1.DataVolume {
 	sc, exists := GetRWOBlockStorageClass()
 	if accessMode == v1.ReadWriteMany {
 		sc, exists = GetRWXBlockStorageClass()
@@ -45,10 +45,10 @@ func NewRandomBlockDataVolumeWithRegistryImport(imageUrl, namespace string, acce
 	if !exists {
 		ginkgo.Skip("Skip test when Block storage is not present")
 	}
-	return NewRandomDataVolumeWithRegistryImportInStorageClass(imageUrl, namespace, sc, accessMode, v1.PersistentVolumeBlock)
+	return NewDataVolumeWithRegistryImportInStorageClass(imageUrl, namespace, sc, accessMode, v1.PersistentVolumeBlock)
 }
 
-func NewRandomDataVolumeWithRegistryImport(imageUrl, namespace string, accessMode v1.PersistentVolumeAccessMode) *v1beta1.DataVolume {
+func NewDataVolumeWithRegistryImport(imageUrl, namespace string, accessMode v1.PersistentVolumeAccessMode) *v1beta1.DataVolume {
 	sc, exists := GetRWOFileSystemStorageClass()
 	if accessMode == v1.ReadWriteMany {
 		sc, exists = GetRWXFileSystemStorageClass()
@@ -56,7 +56,7 @@ func NewRandomDataVolumeWithRegistryImport(imageUrl, namespace string, accessMod
 	if !exists {
 		ginkgo.Skip("Skip test when Filesystem storage is not present")
 	}
-	return NewRandomDataVolumeWithRegistryImportInStorageClass(imageUrl, namespace, sc, accessMode, v1.PersistentVolumeFilesystem)
+	return NewDataVolumeWithRegistryImportInStorageClass(imageUrl, namespace, sc, accessMode, v1.PersistentVolumeFilesystem)
 }
 
 func newDataVolume(namespace, storageClass string, size string, accessMode v1.PersistentVolumeAccessMode, volumeMode v1.PersistentVolumeMode, dataVolumeSource v1beta1.DataVolumeSource) *v1beta1.DataVolume {
@@ -91,7 +91,7 @@ func newDataVolume(namespace, storageClass string, size string, accessMode v1.Pe
 	return dataVolume
 }
 
-func NewRandomDataVolumeWithRegistryImportInStorageClass(imageUrl, namespace, storageClass string, accessMode v1.PersistentVolumeAccessMode, volumeMode v1.PersistentVolumeMode) *v1beta1.DataVolume {
+func NewDataVolumeWithRegistryImportInStorageClass(imageUrl, namespace, storageClass string, accessMode v1.PersistentVolumeAccessMode, volumeMode v1.PersistentVolumeMode) *v1beta1.DataVolume {
 	size := "512Mi"
 	dataVolumeSource := v1beta1.DataVolumeSource{
 		Registry: &v1beta1.DataVolumeSourceRegistry{
@@ -101,14 +101,14 @@ func NewRandomDataVolumeWithRegistryImportInStorageClass(imageUrl, namespace, st
 	return newDataVolume(namespace, storageClass, size, accessMode, volumeMode, dataVolumeSource)
 }
 
-func NewRandomBlankDataVolume(namespace, storageClass, size string, accessMode v1.PersistentVolumeAccessMode, volumeMode v1.PersistentVolumeMode) *v1beta1.DataVolume {
+func NewBlankDataVolume(namespace, storageClass, size string, accessMode v1.PersistentVolumeAccessMode, volumeMode v1.PersistentVolumeMode) *v1beta1.DataVolume {
 	dataVolumeSource := v1beta1.DataVolumeSource{
 		Blank: &v1beta1.DataVolumeBlankImage{},
 	}
 	return newDataVolume(namespace, storageClass, size, accessMode, volumeMode, dataVolumeSource)
 }
 
-func NewRandomDataVolumeWithPVCSource(sourceNamespace, sourceName, targetNamespace string, accessMode v1.PersistentVolumeAccessMode) *v1beta1.DataVolume {
+func NewDataVolumeWithPVCSource(sourceNamespace, sourceName, targetNamespace string, accessMode v1.PersistentVolumeAccessMode) *v1beta1.DataVolume {
 	sc, exists := GetRWOFileSystemStorageClass()
 	if accessMode == v1.ReadWriteMany {
 		sc, exists = GetRWXFileSystemStorageClass()
@@ -116,10 +116,10 @@ func NewRandomDataVolumeWithPVCSource(sourceNamespace, sourceName, targetNamespa
 	if !exists {
 		ginkgo.Skip("Skip test when Filesystem storage is not present")
 	}
-	return newRandomDataVolumeWithPVCSourceWithStorageClass(sourceNamespace, sourceName, targetNamespace, sc, "1Gi", accessMode)
+	return newDataVolumeWithPVCSourceWithStorageClass(sourceNamespace, sourceName, targetNamespace, sc, "1Gi", accessMode)
 }
 
-func newRandomDataVolumeWithPVCSourceWithStorageClass(sourceNamespace, sourceName, targetNamespace, storageClass, size string, accessMode v1.PersistentVolumeAccessMode) *v1beta1.DataVolume {
+func newDataVolumeWithPVCSourceWithStorageClass(sourceNamespace, sourceName, targetNamespace, storageClass, size string, accessMode v1.PersistentVolumeAccessMode) *v1beta1.DataVolume {
 	dataVolumeSource := v1beta1.DataVolumeSource{
 		PVC: &v1beta1.DataVolumeSourcePVC{
 			Namespace: sourceNamespace,
@@ -160,6 +160,14 @@ func AddDataVolumeTemplate(vm *v13.VirtualMachine, dataVolume *v1beta1.DataVolum
 	vm.Spec.DataVolumeTemplates = append(vm.Spec.DataVolumeTemplates, *dvt)
 }
 
+func SetDataVolumePVCStorageClass(dv *v1beta1.DataVolume, storageClass string) {
+	dv.Spec.PVC.StorageClassName = &storageClass
+}
+
+func SetDataVolumePVCSize(dv *v1beta1.DataVolume, size string) {
+	dv.Spec.PVC.Resources.Requests[v1.ResourceStorage] = resource.MustParse(size)
+}
+
 func HasDataVolumeCRD() bool {
 	virtClient, err := kubecli.GetKubevirtClient()
 	util.PanicOnError(err)
@@ -177,4 +185,46 @@ func HasDataVolumeCRD() bool {
 
 func HasCDI() bool {
 	return HasDataVolumeCRD()
+}
+
+func GoldenImageRBAC(namespace string) (*rbacv1.Role, *rbacv1.RoleBinding) {
+	name := "golden-rbac-" + rand.String(12)
+	role := &rbacv1.Role{
+		ObjectMeta: v12.ObjectMeta{
+			Name:      name,
+			Namespace: namespace,
+		},
+		Rules: []rbacv1.PolicyRule{
+			{
+				APIGroups: []string{
+					"cdi.kubevirt.io",
+				},
+				Resources: []string{
+					"datavolumes/source",
+				},
+				Verbs: []string{
+					"create",
+				},
+			},
+		},
+	}
+	roleBinding := &rbacv1.RoleBinding{
+		ObjectMeta: v12.ObjectMeta{
+			Name:      name,
+			Namespace: namespace,
+		},
+		Subjects: []rbacv1.Subject{
+			{
+				APIGroup: "rbac.authorization.k8s.io",
+				Kind:     "Group",
+				Name:     "system:authenticated",
+			},
+		},
+		RoleRef: rbacv1.RoleRef{
+			APIGroup: "rbac.authorization.k8s.io",
+			Kind:     "Role",
+			Name:     name,
+		},
+	}
+	return role, roleBinding
 }

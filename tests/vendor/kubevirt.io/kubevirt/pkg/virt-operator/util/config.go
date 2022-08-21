@@ -39,13 +39,15 @@ import (
 
 const (
 	// Name of env var containing the operator's image name
-	OperatorImageEnvName        = "OPERATOR_IMAGE"
-	VirtApiShasumEnvName        = "VIRT_API_SHASUM"
-	VirtControllerShasumEnvName = "VIRT_CONTROLLER_SHASUM"
-	VirtHandlerShasumEnvName    = "VIRT_HANDLER_SHASUM"
-	VirtLauncherShasumEnvName   = "VIRT_LAUNCHER_SHASUM"
-	GsEnvShasumName             = "GS_SHASUM"
-	KubeVirtVersionEnvName      = "KUBEVIRT_VERSION"
+	OperatorImageEnvName          = "OPERATOR_IMAGE"
+	VirtApiShasumEnvName          = "VIRT_API_SHASUM"
+	VirtControllerShasumEnvName   = "VIRT_CONTROLLER_SHASUM"
+	VirtHandlerShasumEnvName      = "VIRT_HANDLER_SHASUM"
+	VirtLauncherShasumEnvName     = "VIRT_LAUNCHER_SHASUM"
+	VirtExportProxyShasumEnvName  = "VIRT_EXPORTPROXY_SHASUM"
+	VirtExportServerShasumEnvName = "VIRT_EXPORTSERVER_SHASUM"
+	GsEnvShasumName               = "GS_SHASUM"
+	KubeVirtVersionEnvName        = "KUBEVIRT_VERSION"
 	// Deprecated, use TargetDeploymentConfig instead
 	TargetInstallNamespace = "TARGET_INSTALL_NAMESPACE"
 	// Deprecated, use TargetDeploymentConfig instead
@@ -86,9 +88,6 @@ const (
 	// #nosec 101, the variable is not holding any credential
 	// Prefix for env vars that will be passed along
 	PassthroughEnvPrefix = "KV_IO_EXTRA_ENV_"
-
-	// DefaultInfraReplicas is the default number of replicas for virt-api and virt-controller
-	DefaultInfraReplicas = 2
 )
 
 // DefaultMonitorNamespaces holds a set of well known prometheus-operator namespaces.
@@ -110,12 +109,14 @@ type KubeVirtDeploymentConfig struct {
 	KubeVirtVersion string `json:"kubeVirtVersion,omitempty" optional:"true"`
 
 	// the shasums of every image we use
-	VirtOperatorSha   string `json:"virtOperatorSha,omitempty" optional:"true"`
-	VirtApiSha        string `json:"virtApiSha,omitempty" optional:"true"`
-	VirtControllerSha string `json:"virtControllerSha,omitempty" optional:"true"`
-	VirtHandlerSha    string `json:"virtHandlerSha,omitempty" optional:"true"`
-	VirtLauncherSha   string `json:"virtLauncherSha,omitempty" optional:"true"`
-	GsSha             string `json:"gsSha,omitempty" optional:"true"`
+	VirtOperatorSha     string `json:"virtOperatorSha,omitempty" optional:"true"`
+	VirtApiSha          string `json:"virtApiSha,omitempty" optional:"true"`
+	VirtControllerSha   string `json:"virtControllerSha,omitempty" optional:"true"`
+	VirtHandlerSha      string `json:"virtHandlerSha,omitempty" optional:"true"`
+	VirtLauncherSha     string `json:"virtLauncherSha,omitempty" optional:"true"`
+	VirtExportProxySha  string `json:"virtExportProxySha,omitempty" optional:"true"`
+	VirtExportServerSha string `json:"virtExportServerSha,omitempty" optional:"true"`
+	GsSha               string `json:"gsSha,omitempty" optional:"true"`
 
 	// everything else, which can e.g. come from KubeVirt CR spec
 	AdditionalProperties map[string]string `json:"additionalProperties,omitempty" optional:"true"`
@@ -255,10 +256,12 @@ func getConfig(registry, tag, namespace string, additionalProperties map[string]
 	controllerSha := os.Getenv(VirtControllerShasumEnvName)
 	handlerSha := os.Getenv(VirtHandlerShasumEnvName)
 	launcherSha := os.Getenv(VirtLauncherShasumEnvName)
+	exportProxySha := os.Getenv(VirtExportProxyShasumEnvName)
+	exportServerSha := os.Getenv(VirtExportServerShasumEnvName)
 	gsSha := os.Getenv(GsEnvShasumName)
 	kubeVirtVersion := os.Getenv(KubeVirtVersionEnvName)
 	if operatorSha != "" && apiSha != "" && controllerSha != "" && handlerSha != "" && launcherSha != "" && kubeVirtVersion != "" {
-		config = newDeploymentConfigWithShasums(registry, imagePrefix, kubeVirtVersion, operatorSha, apiSha, controllerSha, handlerSha, launcherSha, gsSha, namespace, additionalProperties, passthroughEnv)
+		config = newDeploymentConfigWithShasums(registry, imagePrefix, kubeVirtVersion, operatorSha, apiSha, controllerSha, handlerSha, launcherSha, exportProxySha, exportServerSha, gsSha, namespace, additionalProperties, passthroughEnv)
 	}
 
 	return config
@@ -319,7 +322,7 @@ func newDeploymentConfigWithTag(registry, imagePrefix, tag, namespace string, kv
 	return c
 }
 
-func newDeploymentConfigWithShasums(registry, imagePrefix, kubeVirtVersion, operatorSha, apiSha, controllerSha, handlerSha, launcherSha, gsSha, namespace string, additionalProperties, passthroughEnv map[string]string) *KubeVirtDeploymentConfig {
+func newDeploymentConfigWithShasums(registry, imagePrefix, kubeVirtVersion, operatorSha, apiSha, controllerSha, handlerSha, launcherSha, exportProxySha, exportServerSha, gsSha, namespace string, additionalProperties, passthroughEnv map[string]string) *KubeVirtDeploymentConfig {
 	c := &KubeVirtDeploymentConfig{
 		Registry:             registry,
 		ImagePrefix:          imagePrefix,
@@ -329,6 +332,8 @@ func newDeploymentConfigWithShasums(registry, imagePrefix, kubeVirtVersion, oper
 		VirtControllerSha:    controllerSha,
 		VirtHandlerSha:       handlerSha,
 		VirtLauncherSha:      launcherSha,
+		VirtExportProxySha:   exportProxySha,
+		VirtExportServerSha:  exportServerSha,
 		GsSha:                gsSha,
 		Namespace:            namespace,
 		AdditionalProperties: additionalProperties,
@@ -369,6 +374,20 @@ func (c *KubeVirtDeploymentConfig) GetHandlerVersion() string {
 func (c *KubeVirtDeploymentConfig) GetLauncherVersion() string {
 	if c.UseShasums() {
 		return c.VirtLauncherSha
+	}
+	return c.KubeVirtVersion
+}
+
+func (c *KubeVirtDeploymentConfig) GetExportProxyVersion() string {
+	if c.UseShasums() {
+		return c.VirtExportProxySha
+	}
+	return c.KubeVirtVersion
+}
+
+func (c *KubeVirtDeploymentConfig) GetExportServerVersion() string {
+	if c.UseShasums() {
+		return c.VirtExportServerSha
 	}
 	return c.KubeVirtVersion
 }

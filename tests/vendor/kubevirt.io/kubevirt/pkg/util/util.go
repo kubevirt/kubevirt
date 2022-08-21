@@ -5,6 +5,8 @@ import (
 	"os"
 	"strings"
 
+	"k8s.io/apimachinery/pkg/api/resource"
+
 	v1 "kubevirt.io/api/core/v1"
 	"kubevirt.io/client-go/log"
 )
@@ -24,6 +26,7 @@ const (
 const NonRootUID = 107
 const NonRootUserString = "qemu"
 const RootUser = 0
+const memoryDumpOverhead = 100 * 1024 * 1024
 
 func IsNonRootVMI(vmi *v1.VirtualMachineInstance) bool {
 	_, ok := vmi.Annotations[v1.DeprecatedNonRootVMIAnnotation]
@@ -184,4 +187,36 @@ func CanBeNonRoot(vmi *v1.VirtualMachineInstance) error {
 
 func MarkAsNonroot(vmi *v1.VirtualMachineInstance) {
 	vmi.Status.RuntimeUser = 107
+}
+
+func SetDefaultVolumeDisk(obj *v1.VirtualMachineInstance) {
+
+	diskAndFilesystemNames := make(map[string]struct{})
+
+	for _, disk := range obj.Spec.Domain.Devices.Disks {
+		diskAndFilesystemNames[disk.Name] = struct{}{}
+	}
+
+	for _, fs := range obj.Spec.Domain.Devices.Filesystems {
+		diskAndFilesystemNames[fs.Name] = struct{}{}
+	}
+
+	for _, volume := range obj.Spec.Volumes {
+		if _, foundDisk := diskAndFilesystemNames[volume.Name]; !foundDisk {
+			obj.Spec.Domain.Devices.Disks = append(
+				obj.Spec.Domain.Devices.Disks,
+				v1.Disk{
+					Name: volume.Name,
+				},
+			)
+		}
+	}
+}
+
+func CalcExpectedMemoryDumpSize(vmi *v1.VirtualMachineInstance) *resource.Quantity {
+	domain := vmi.Spec.Domain
+	vmiMemoryReq := domain.Resources.Requests.Memory()
+	expectedPvcSize := resource.NewQuantity(int64(memoryDumpOverhead), vmiMemoryReq.Format)
+	expectedPvcSize.Add(*vmiMemoryReq)
+	return expectedPvcSize
 }

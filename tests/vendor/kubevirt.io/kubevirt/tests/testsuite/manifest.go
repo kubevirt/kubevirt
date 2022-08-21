@@ -36,6 +36,7 @@ import (
 	"k8s.io/apimachinery/pkg/util/yaml"
 
 	"kubevirt.io/client-go/kubecli"
+
 	"kubevirt.io/kubevirt/tests/util"
 )
 

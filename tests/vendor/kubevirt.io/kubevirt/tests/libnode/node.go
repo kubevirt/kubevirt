@@ -22,9 +22,15 @@ package libnode
 import (
 	"context"
 	"encoding/json"
+	"fmt"
 	"strings"
+	"time"
 
 	"kubevirt.io/kubevirt/pkg/util/nodes"
+
+	utiltype "kubevirt.io/kubevirt/pkg/util/types"
+
+	"k8s.io/apimachinery/pkg/api/equality"
 
 	. "github.com/onsi/gomega"
 
@@ -35,6 +41,7 @@ import (
 
 	v1 "kubevirt.io/api/core/v1"
 	"kubevirt.io/client-go/kubecli"
+
 	virtconfig "kubevirt.io/kubevirt/pkg/virt-config"
 	"kubevirt.io/kubevirt/pkg/virt-controller/services"
 
@@ -122,56 +129,125 @@ func GetNodeDrainKey() string {
 	return virtconfig.NodeDrainTaintDefaultKey
 }
 
-func addLabelAnnotationHelper(nodeName, key, value string, isLabel bool) {
-	virtCli, err := kubecli.GetKubevirtClient()
-	util.PanicOnError(err)
+type mapType string
 
-	origNode, err := virtCli.CoreV1().Nodes().Get(context.Background(), nodeName, k8smetav1.GetOptions{})
-	Expect(err).ToNot(HaveOccurred())
+const (
+	label      mapType = "label"
+	annotation mapType = "annotation"
+)
 
-	newNode := origNode.DeepCopy()
-	if isLabel {
-		newNode.Labels[key] = value
-	} else {
-		newNode.Annotations[key] = value
+type mapAction string
+
+const (
+	add    mapAction = "add"
+	remove mapAction = "remove"
+)
+
+func patchLabelAnnotationHelper(virtCli kubecli.KubevirtClient, nodeName string, newMap, oldMap map[string]string, mapType mapType) (*k8sv1.Node, error) {
+	p := []utiltype.PatchOperation{
+		{
+			Op:    "test",
+			Path:  "/metadata/" + string(mapType) + "s",
+			Value: oldMap,
+		},
+		{
+			Op:    "replace",
+			Path:  "/metadata/" + string(mapType) + "s",
+			Value: newMap,
+		},
 	}
 
-	// This is done in an inefficient way since we can patch only labels/annotations here.
-	err = nodes.PatchNode(virtCli, origNode, newNode)
-	Expect(err).ShouldNot(HaveOccurred())
-}
-
-func AddLabelToNode(nodeName, key, value string) {
-	addLabelAnnotationHelper(nodeName, key, value, true)
-}
-
-func AddAnnotationToNode(nodeName, key, value string) {
-	addLabelAnnotationHelper(nodeName, key, value, false)
-}
-
-func RemoveLabelFromNode(nodeName string, key string) {
-	virtCli, err := kubecli.GetKubevirtClient()
-	util.PanicOnError(err)
-	node, err := virtCli.CoreV1().Nodes().Get(context.Background(), nodeName, k8smetav1.GetOptions{})
+	patchBytes, err := json.Marshal(p)
 	Expect(err).ToNot(HaveOccurred())
 
-	if _, exists := node.Labels[key]; !exists {
-		return
+	patchedNode, err := virtCli.CoreV1().Nodes().Patch(context.Background(), nodeName, types.JSONPatchType, patchBytes, k8smetav1.PatchOptions{})
+	return patchedNode, err
+}
+
+// Adds or removes a label or annotation from a node. When removing a label/annotation, the "value" parameter
+// is ignored.
+func addRemoveLabelAnnotationHelper(nodeName, key, value string, mapType mapType, mapAction mapAction) *k8sv1.Node {
+	var fetchMap func(node *k8sv1.Node) map[string]string
+	var mutateMap func(key, val string, m map[string]string) map[string]string
+
+	switch mapType {
+	case label:
+		fetchMap = func(node *k8sv1.Node) map[string]string { return node.Labels }
+	case annotation:
+		fetchMap = func(node *k8sv1.Node) map[string]string { return node.Annotations }
 	}
 
-	old, err := json.Marshal(node)
-	Expect(err).ToNot(HaveOccurred())
-	new := node.DeepCopy()
-	delete(new.Labels, key)
+	switch mapAction {
+	case add:
+		mutateMap = func(key, val string, m map[string]string) map[string]string {
+			m[key] = val
+			return m
+		}
+	case remove:
+		mutateMap = func(key, val string, m map[string]string) map[string]string {
+			delete(m, key)
+			return m
+		}
+	}
 
-	newJson, err := json.Marshal(new)
+	Expect(fetchMap).ToNot(BeNil())
+	Expect(mutateMap).ToNot(BeNil())
+
+	virtCli, err := kubecli.GetKubevirtClient()
 	Expect(err).ToNot(HaveOccurred())
 
-	patch, err := strategicpatch.CreateTwoWayMergePatch(old, newJson, node)
-	Expect(err).ToNot(HaveOccurred())
+	var nodeToReturn *k8sv1.Node
+	EventuallyWithOffset(2, func() error {
+		origNode, err := virtCli.CoreV1().Nodes().Get(context.Background(), nodeName, k8smetav1.GetOptions{})
+		Expect(err).ToNot(HaveOccurred())
 
-	_, err = virtCli.CoreV1().Nodes().Patch(context.Background(), node.Name, types.StrategicMergePatchType, patch, k8smetav1.PatchOptions{})
-	Expect(err).ToNot(HaveOccurred())
+		originalMap := fetchMap(origNode)
+		expectedMap := make(map[string]string, len(originalMap))
+		for k, v := range originalMap {
+			expectedMap[k] = v
+		}
+
+		expectedMap = mutateMap(key, value, expectedMap)
+
+		if equality.Semantic.DeepEqual(originalMap, expectedMap) {
+			// key and value already exist in node
+			nodeToReturn = origNode
+			return nil
+		}
+
+		patchedNode, err := patchLabelAnnotationHelper(virtCli, nodeName, expectedMap, originalMap, mapType)
+		if err != nil {
+			return err
+		}
+
+		resultMap := fetchMap(patchedNode)
+
+		const errPattern = "adding %s (key: %s. value: %s) to node %s failed. Expected %ss: %v, actual: %v"
+		if !equality.Semantic.DeepEqual(resultMap, expectedMap) {
+			return fmt.Errorf(errPattern, string(mapType), key, value, nodeName, string(mapType), expectedMap, resultMap)
+		}
+
+		nodeToReturn = patchedNode
+		return nil
+	}, 10*time.Second, 1*time.Second).ShouldNot(HaveOccurred())
+
+	return nodeToReturn
+}
+
+func AddLabelToNode(nodeName, key, value string) *k8sv1.Node {
+	return addRemoveLabelAnnotationHelper(nodeName, key, value, label, add)
+}
+
+func AddAnnotationToNode(nodeName, key, value string) *k8sv1.Node {
+	return addRemoveLabelAnnotationHelper(nodeName, key, value, annotation, add)
+}
+
+func RemoveLabelFromNode(nodeName string, key string) *k8sv1.Node {
+	return addRemoveLabelAnnotationHelper(nodeName, key, "", label, remove)
+}
+
+func RemoveAnnotationFromNode(nodeName string, key string) *k8sv1.Node {
+	return addRemoveLabelAnnotationHelper(nodeName, key, "", annotation, remove)
 }
 
 func Taint(nodeName string, key string, effect k8sv1.TaintEffect) {
@@ -258,4 +334,30 @@ func GetArch() string {
 	nodes := GetAllSchedulableNodes(virtCli).Items
 	Expect(nodes).ToNot(BeEmpty(), "There should be some node")
 	return nodes[0].Status.NodeInfo.Architecture
+}
+
+func setNodeSchedualability(nodeName string, virtCli kubecli.KubevirtClient, setSchedulable bool) {
+	origNode, err := virtCli.CoreV1().Nodes().Get(context.Background(), nodeName, k8smetav1.GetOptions{})
+	Expect(err).ShouldNot(HaveOccurred())
+
+	nodeCopy := origNode.DeepCopy()
+	nodeCopy.Spec.Unschedulable = !setSchedulable
+
+	err = nodes.PatchNode(virtCli, origNode, nodeCopy)
+	Expect(err).ShouldNot(HaveOccurred())
+
+	Eventually(func() bool {
+		patchedNode, err := virtCli.CoreV1().Nodes().Get(context.Background(), nodeName, k8smetav1.GetOptions{})
+		Expect(err).ShouldNot(HaveOccurred())
+
+		return patchedNode.Spec.Unschedulable
+	}, 30*time.Second, time.Second).Should(Equal(!setSchedulable), fmt.Sprintf("node %s is expected to set to Unschedulable=%t, but it's set to %t", nodeName, !setSchedulable, setSchedulable))
+}
+
+func SetNodeUnschedulable(nodeName string, virtCli kubecli.KubevirtClient) {
+	setNodeSchedualability(nodeName, virtCli, false)
+}
+
+func SetNodeSchedulable(nodeName string, virtCli kubecli.KubevirtClient) {
+	setNodeSchedualability(nodeName, virtCli, true)
 }

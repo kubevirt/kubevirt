@@ -5,6 +5,7 @@ import (
 	"strconv"
 
 	v1 "kubevirt.io/api/core/v1"
+
 	"kubevirt.io/kubevirt/pkg/config"
 	"kubevirt.io/kubevirt/pkg/downwardmetrics/vhostmd"
 )

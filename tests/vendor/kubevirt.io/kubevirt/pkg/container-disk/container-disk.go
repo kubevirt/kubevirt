@@ -33,9 +33,12 @@ import (
 	kubev1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/api/resource"
 
+	"kubevirt.io/kubevirt/pkg/safepath"
+
 	ephemeraldisk "kubevirt.io/kubevirt/pkg/ephemeral-disk"
 
 	v1 "kubevirt.io/api/core/v1"
+
 	diskutils "kubevirt.io/kubevirt/pkg/ephemeral-disk-utils"
 	"kubevirt.io/kubevirt/pkg/util"
 )
@@ -64,7 +67,7 @@ func GetVolumeMountDirOnGuest(vmi *v1.VirtualMachineInstance) string {
 	return filepath.Join(mountBaseDir, string(vmi.UID))
 }
 
-func GetVolumeMountDirOnHost(vmi *v1.VirtualMachineInstance) (string, bool, error) {
+func GetVolumeMountDirOnHost(vmi *v1.VirtualMachineInstance) (*safepath.Path, error) {
 	basepath := ""
 	foundEntries := 0
 	foundBasepath := ""
@@ -72,7 +75,7 @@ func GetVolumeMountDirOnHost(vmi *v1.VirtualMachineInstance) (string, bool, erro
 		basepath = fmt.Sprintf("%s/%s/volumes/kubernetes.io~empty-dir/container-disks", podsBaseDir, string(podUID))
 		exists, err := diskutils.FileExists(basepath)
 		if err != nil {
-			return "", false, err
+			return nil, err
 		} else if exists {
 			foundEntries++
 			foundBasepath = basepath
@@ -80,37 +83,29 @@ func GetVolumeMountDirOnHost(vmi *v1.VirtualMachineInstance) (string, bool, erro
 	}
 
 	if foundEntries == 1 {
-		return foundBasepath, true, nil
+		return safepath.JoinAndResolveWithRelativeRoot("/", foundBasepath)
 	} else if foundEntries > 1 {
 		// Don't mount until outdated pod environments are removed
 		// otherwise we might stomp on a previous cleanup
-		return "", false, fmt.Errorf("Found multiple pods active for vmi %s/%s. Waiting on outdated pod directories to be removed", vmi.Namespace, vmi.Name)
+		return nil, fmt.Errorf("Found multiple pods active for vmi %s/%s. Waiting on outdated pod directories to be removed", vmi.Namespace, vmi.Name)
 	}
-	return "", false, nil
+	return nil, os.ErrNotExist
 }
 
-func GetDiskTargetDirFromHostView(vmi *v1.VirtualMachineInstance) (string, error) {
-	basepath, found, err := GetVolumeMountDirOnHost(vmi)
+func GetDiskTargetDirFromHostView(vmi *v1.VirtualMachineInstance) (*safepath.Path, error) {
+	basepath, err := GetVolumeMountDirOnHost(vmi)
 	if err != nil {
-		return "", err
-	} else if !found {
-		return "", fmt.Errorf("container disk volume for vmi not found")
+		return nil, err
 	}
-
 	return basepath, nil
 }
 
-func GetDiskTargetPathFromHostView(vmi *v1.VirtualMachineInstance, volumeIndex int) (string, error) {
-	basepath, err := GetDiskTargetDirFromHostView(vmi)
-	if err != nil {
-		return "", err
-	}
-
-	return fmt.Sprintf("%s/disk_%d.img", basepath, volumeIndex), nil
+func GetDiskTargetName(volumeIndex int) string {
+	return fmt.Sprintf("disk_%d.img", volumeIndex)
 }
 
 func GetDiskTargetPathFromLauncherView(volumeIndex int) string {
-	return filepath.Join(mountBaseDir, fmt.Sprintf("disk_%d.img", volumeIndex))
+	return filepath.Join(mountBaseDir, GetDiskTargetName(volumeIndex))
 }
 
 func GetKernelBootArtifactPathFromLauncherView(artifact string) string {
@@ -184,28 +179,39 @@ func NewKernelBootSocketPathGetter(baseDir string) KernelBootSocketPathGetter {
 	}
 }
 
-func GetImage(root string, imagePath string) (string, error) {
-	fallbackPath := filepath.Join(root, DiskSourceFallbackPath)
+func GetImage(root *safepath.Path, imagePath string) (*safepath.Path, error) {
 	if imagePath != "" {
-		imagePath = filepath.Join(root, imagePath)
-		if _, err := os.Stat(imagePath); err != nil {
-			if os.IsNotExist(err) {
-				return "", fmt.Errorf("No image on path %s", imagePath)
-			} else {
-				return "", fmt.Errorf("Failed to check if an image exists at %s", imagePath)
-			}
-		}
-	} else {
-		files, err := os.ReadDir(fallbackPath)
+		var err error
+		resolvedPath, err := root.AppendAndResolveWithRelativeRoot(imagePath)
 		if err != nil {
-			return "", fmt.Errorf("Failed to check %s for disks: %v", fallbackPath, err)
+			return nil, fmt.Errorf("failed to determine custom image path %s: %v", imagePath, err)
 		}
-		if len(files) > 1 {
-			return "", fmt.Errorf("More than one file found in folder %s, only one disk is allowed", DiskSourceFallbackPath)
+		return resolvedPath, nil
+	} else {
+		fallbackPath, err := root.AppendAndResolveWithRelativeRoot(DiskSourceFallbackPath)
+		if err != nil {
+			return nil, fmt.Errorf("failed to determine default image path %v: %v", fallbackPath, err)
 		}
-		imagePath = filepath.Join(fallbackPath, files[0].Name())
+		var files []os.DirEntry
+		err = fallbackPath.ExecuteNoFollow(func(safePath string) (err error) {
+			files, err = os.ReadDir(safePath)
+			return err
+		})
+		if err != nil {
+			return nil, fmt.Errorf("failed to check default image path %s: %v", fallbackPath, err)
+		}
+		if len(files) == 0 {
+			return nil, fmt.Errorf("no file found in folder %s, no disk present", DiskSourceFallbackPath)
+		} else if len(files) > 1 {
+			return nil, fmt.Errorf("more than one file found in folder %s, only one disk is allowed", DiskSourceFallbackPath)
+		}
+		fileName := files[0].Name()
+		resolvedPath, err := root.AppendAndResolveWithRelativeRoot(DiskSourceFallbackPath, fileName)
+		if err != nil {
+			return nil, fmt.Errorf("failed to check default image path %s: %v", imagePath, err)
+		}
+		return resolvedPath, nil
 	}
-	return imagePath, nil
 }
 
 func GenerateInitContainers(vmi *v1.VirtualMachineInstance, imageIDs map[string]string, podVolumeName string, binVolumeName string) []kubev1.Container {

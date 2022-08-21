@@ -23,6 +23,7 @@ import (
 	"k8s.io/client-go/tools/cache"
 
 	v1 "kubevirt.io/api/core/v1"
+
 	"kubevirt.io/kubevirt/pkg/controller"
 )
 
@@ -40,6 +41,7 @@ type Stores struct {
 	MutatingWebhookCache          cache.Store
 	APIServiceCache               cache.Store
 	SCCCache                      cache.Store
+	RouteCache                    cache.Store
 	InstallStrategyConfigMapCache cache.Store
 	InstallStrategyJobCache       cache.Store
 	InfrastructurePodCache        cache.Store
@@ -69,6 +71,7 @@ func (s *Stores) AllEmpty() bool {
 		IsStoreEmpty(s.APIServiceCache) &&
 		IsStoreEmpty(s.PodDisruptionBudgetCache) &&
 		IsSCCStoreEmpty(s.SCCCache) &&
+		IsStoreEmpty(s.RouteCache) &&
 		IsStoreEmpty(s.ServiceMonitorCache) &&
 		IsStoreEmpty(s.PrometheusRuleCache) &&
 		IsStoreEmpty(s.SecretCache) &&
@@ -113,6 +116,7 @@ type Expectations struct {
 	MutatingWebhook          *controller.UIDTrackingControllerExpectations
 	APIService               *controller.UIDTrackingControllerExpectations
 	SCC                      *controller.UIDTrackingControllerExpectations
+	Route                    *controller.UIDTrackingControllerExpectations
 	InstallStrategyConfigMap *controller.UIDTrackingControllerExpectations
 	InstallStrategyJob       *controller.UIDTrackingControllerExpectations
 	PodDisruptionBudget      *controller.UIDTrackingControllerExpectations
@@ -136,6 +140,7 @@ type Informers struct {
 	MutatingWebhook          cache.SharedIndexInformer
 	APIService               cache.SharedIndexInformer
 	SCC                      cache.SharedIndexInformer
+	Route                    cache.SharedIndexInformer
 	InstallStrategyConfigMap cache.SharedIndexInformer
 	InstallStrategyJob       cache.SharedIndexInformer
 	InfrastructurePod        cache.SharedIndexInformer
@@ -161,6 +166,7 @@ func (e *Expectations) DeleteExpectations(key string) {
 	e.MutatingWebhook.DeleteExpectations(key)
 	e.APIService.DeleteExpectations(key)
 	e.SCC.DeleteExpectations(key)
+	e.Route.DeleteExpectations(key)
 	e.InstallStrategyConfigMap.DeleteExpectations(key)
 	e.InstallStrategyJob.DeleteExpectations(key)
 	e.PodDisruptionBudget.DeleteExpectations(key)
@@ -184,6 +190,7 @@ func (e *Expectations) ResetExpectations(key string) {
 	e.MutatingWebhook.SetExpectations(key, 0, 0)
 	e.APIService.SetExpectations(key, 0, 0)
 	e.SCC.SetExpectations(key, 0, 0)
+	e.Route.SetExpectations(key, 0, 0)
 	e.InstallStrategyConfigMap.SetExpectations(key, 0, 0)
 	e.InstallStrategyJob.SetExpectations(key, 0, 0)
 	e.PodDisruptionBudget.SetExpectations(key, 0, 0)
@@ -207,6 +214,7 @@ func (e *Expectations) SatisfiedExpectations(key string) bool {
 		e.MutatingWebhook.SatisfiedExpectations(key) &&
 		e.APIService.SatisfiedExpectations(key) &&
 		e.SCC.SatisfiedExpectations(key) &&
+		e.Route.SatisfiedExpectations(key) &&
 		e.InstallStrategyConfigMap.SatisfiedExpectations(key) &&
 		e.InstallStrategyJob.SatisfiedExpectations(key) &&
 		e.PodDisruptionBudget.SatisfiedExpectations(key) &&

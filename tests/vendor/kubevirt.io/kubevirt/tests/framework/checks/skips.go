@@ -15,6 +15,7 @@ import (
 	"github.com/onsi/ginkgo/v2"
 
 	"kubevirt.io/client-go/kubecli"
+
 	virtconfig "kubevirt.io/kubevirt/pkg/virt-config"
 
 	"kubevirt.io/kubevirt/tests/libnode"
@@ -218,10 +219,6 @@ func SkipIfOpenShift4(message string) {
 }
 
 func SkipIfMigrationIsNotPossible() {
-	if !HasLiveMigration() {
-		ginkgo.Skip("LiveMigration feature gate is not enabled in kubevirt-config")
-	}
-
 	if !HasAtLeastTwoNodes() {
 		ginkgo.Skip("Migration tests require at least 2 nodes")
 	}

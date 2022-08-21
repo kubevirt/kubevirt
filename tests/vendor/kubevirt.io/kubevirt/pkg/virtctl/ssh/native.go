@@ -1,12 +1,14 @@
+//go:build !excludenative
+
 package ssh
 
 import (
 	"fmt"
-	"io/ioutil"
 	"net"
 	"os"
 
 	"github.com/golang/glog"
+	"github.com/spf13/pflag"
 	"golang.org/x/crypto/ssh"
 	"golang.org/x/crypto/ssh/agent"
 	"golang.org/x/term"
@@ -16,9 +18,40 @@ import (
 	"kubevirt.io/client-go/kubecli"
 )
 
+const (
+	wrapLocalSSHDefault = false
+)
+
+func additionalUsage() string {
+	return fmt.Sprintf(`
+	# Connect to 'testvmi' using the local ssh binary found in $PATH:
+	{{ProgramName}} ssh --%s=true jdoe@testvmi`,
+		wrapLocalSSHFlag,
+	)
+}
+
+func addAdditionalCommandlineArgs(flagset *pflag.FlagSet, opts *SSHOptions) {
+	flagset.StringArrayVarP(&opts.AdditionalSSHLocalOptions, additionalOpts, additionalOptsShort, opts.AdditionalSSHLocalOptions,
+		fmt.Sprintf(`--%s="-o StrictHostKeyChecking=no" : Additional options to be passed to the local ssh. This is applied only if local-ssh=true`, additionalOpts))
+	flagset.BoolVar(&opts.WrapLocalSSH, wrapLocalSSHFlag, opts.WrapLocalSSH,
+		fmt.Sprintf("--%s=true: Set this to true to use the SSH/SCP client available on your system by using this command as ProxyCommand; If set to false, this will establish a SSH/SCP connection with limited capabilities provided by this client", wrapLocalSSHFlag))
+}
+
 type NativeSSHConnection struct {
 	ClientConfig clientcmd.ClientConfig
 	Options      SSHOptions
+}
+
+func (o *SSH) nativeSSH(kind, namespace, name string) error {
+	conn := NativeSSHConnection{
+		ClientConfig: o.clientConfig,
+		Options:      o.options,
+	}
+	client, err := conn.PrepareSSHClient(kind, namespace, name)
+	if err != nil {
+		return err
+	}
+	return conn.StartSession(client, o.command)
 }
 
 func (o *NativeSSHConnection) PrepareSSHClient(kind, namespace, name string) (*ssh.Client, error) {
@@ -28,7 +61,7 @@ func (o *NativeSSHConnection) PrepareSSHClient(kind, namespace, name string) (*s
 	}
 
 	conn := streamer.AsConn()
-	addr := fmt.Sprintf("%s/%s.%s:%d", kind, name, namespace, o.Options.SshPort)
+	addr := fmt.Sprintf("%s/%s.%s:%d", kind, name, namespace, o.Options.SSHPort)
 	authMethods := o.getAuthMethods(kind, namespace, name)
 
 	hostKeyCallback := ssh.InsecureIgnoreHostKey()
@@ -46,7 +79,7 @@ func (o *NativeSSHConnection) PrepareSSHClient(kind, namespace, name string) (*s
 		&ssh.ClientConfig{
 			HostKeyCallback: hostKeyCallback,
 			Auth:            authMethods,
-			User:            o.Options.SshUsername,
+			User:            o.Options.SSHUsername,
 		},
 	)
 	if err != nil {
@@ -63,7 +96,7 @@ func (o *NativeSSHConnection) getAuthMethods(kind, namespace, name string) []ssh
 	methods = o.tryPrivateKey(methods)
 
 	methods = append(methods, ssh.PasswordCallback(func() (secret string, err error) {
-		password, err := readPassword(fmt.Sprintf("%s@%s/%s.%s's password: ", o.Options.SshUsername, kind, name, namespace))
+		password, err := readPassword(fmt.Sprintf("%s@%s/%s.%s's password: ", o.Options.SSHUsername, kind, name, namespace))
 		fmt.Println()
 		return string(password), err
 	}))
@@ -87,7 +120,6 @@ func (o *NativeSSHConnection) trySSHAgent(methods []ssh.AuthMethod) []ssh.AuthMe
 }
 
 func (o *NativeSSHConnection) tryPrivateKey(methods []ssh.AuthMethod) []ssh.AuthMethod {
-
 	// If the identity file at the default does not exist but was
 	// not explicitly provided, don't add the authentication mechanism.
 	if !o.Options.IdentityFilePathProvided {
@@ -98,7 +130,7 @@ func (o *NativeSSHConnection) tryPrivateKey(methods []ssh.AuthMethod) []ssh.Auth
 	}
 
 	callback := ssh.PublicKeysCallback(func() (signers []ssh.Signer, err error) {
-		key, err := ioutil.ReadFile(o.Options.IdentityFilePath)
+		key, err := os.ReadFile(o.Options.IdentityFilePath)
 		if err != nil {
 			return nil, err
 		}
@@ -132,7 +164,7 @@ func readPassword(reason string) ([]byte, error) {
 	return term.ReadPassword(int(os.Stdin.Fd()))
 }
 
-func (o *NativeSSHConnection) StartSession(client *ssh.Client) error {
+func (o *NativeSSHConnection) StartSession(client *ssh.Client, command string) error {
 	session, err := client.NewSession()
 	if err != nil {
 		return err
@@ -143,6 +175,13 @@ func (o *NativeSSHConnection) StartSession(client *ssh.Client) error {
 	session.Stderr = os.Stderr
 	session.Stdout = os.Stdout
 
+	if command != "" {
+		if err := session.Run(command); err != nil {
+			return err
+		}
+		return nil
+	}
+
 	restore, err := setupTerminal(int(os.Stdin.Fd()))
 	if err != nil {
 		return err
@@ -152,7 +191,6 @@ func (o *NativeSSHConnection) StartSession(client *ssh.Client) error {
 	if err := requestPty(session); err != nil {
 		return err
 	}
-
 	if err := session.Shell(); err != nil {
 		return err
 	}
@@ -198,12 +236,12 @@ func (o *NativeSSHConnection) prepareSSHTunnel(kind, namespace, name string) (ku
 
 	var stream kubecli.StreamInterface
 	if kind == "vmi" {
-		stream, err = virtCli.VirtualMachineInstance(namespace).PortForward(name, o.Options.SshPort, "tcp")
+		stream, err = virtCli.VirtualMachineInstance(namespace).PortForward(name, o.Options.SSHPort, "tcp")
 		if err != nil {
 			return nil, fmt.Errorf("can't access VMI %s: %w", name, err)
 		}
 	} else if kind == "vm" {
-		stream, err = virtCli.VirtualMachine(namespace).PortForward(name, o.Options.SshPort, "tcp")
+		stream, err = virtCli.VirtualMachine(namespace).PortForward(name, o.Options.SSHPort, "tcp")
 		if err != nil {
 			return nil, fmt.Errorf("can't access VM %s: %w", name, err)
 		}

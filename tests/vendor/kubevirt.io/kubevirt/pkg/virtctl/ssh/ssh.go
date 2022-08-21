@@ -39,14 +39,14 @@ const (
 	usernameFlag, usernameFlagShort                 = "username", "l"
 	IdentityFilePathFlag, identityFilePathFlagShort = "identity-file", "i"
 	knownHostsFilePathFlag                          = "known-hosts"
+	commandToExecute, commandToExecuteShort         = "command", "c"
+	additionalOpts, additionalOptsShort             = "local-ssh-opts", "t"
 )
 
 func NewCommand(clientConfig clientcmd.ClientConfig) *cobra.Command {
-
 	c := &SSH{
 		clientConfig: clientConfig,
 		options:      DefaultSSHOptions(),
-		WrapLocalSSH: false,
 	}
 
 	cmd := &cobra.Command{
@@ -60,21 +60,23 @@ func NewCommand(clientConfig clientcmd.ClientConfig) *cobra.Command {
 	}
 
 	AddCommandlineArgs(cmd.Flags(), &c.options)
-	cmd.Flags().BoolVar(&c.WrapLocalSSH, wrapLocalSSHFlag, c.WrapLocalSSH,
-		fmt.Sprintf("--%s=true: Set this to true to use the SSH command available on your system by using this command as ProxyCommand; If unassigned, this will establish a SSH connection with limited capabilities provided by this client", wrapLocalSSHFlag))
+	cmd.Flags().StringVarP(&c.command, commandToExecute, commandToExecuteShort, c.command,
+		fmt.Sprintf(`--%s='ls /': Specify a command to execute in the VM`, commandToExecute))
 	cmd.SetUsageTemplate(templates.UsageTemplate())
 	return cmd
 }
 
 func AddCommandlineArgs(flagset *pflag.FlagSet, opts *SSHOptions) {
-	flagset.StringVarP(&opts.SshUsername, usernameFlag, usernameFlagShort, opts.SshUsername,
-		fmt.Sprintf("--%s=%s: Set this to the user you want to open the SSH connection as; If unassigned, this will be empty and the SSH default will apply", usernameFlag, opts.SshUsername))
+	flagset.StringVarP(&opts.SSHUsername, usernameFlag, usernameFlagShort, opts.SSHUsername,
+		fmt.Sprintf("--%s=%s: Set this to the user you want to open the SSH connection as; If unassigned, this will be empty and the SSH default will apply", usernameFlag, opts.SSHUsername))
 	flagset.StringVarP(&opts.IdentityFilePath, IdentityFilePathFlag, identityFilePathFlagShort, opts.IdentityFilePath,
 		fmt.Sprintf("--%s=/home/jdoe/.ssh/id_rsa: Set the path to a private key used for authenticating to the server; If not provided, the client will try to use the local ssh-agent at $SSH_AUTH_SOCK", IdentityFilePathFlag))
 	flagset.StringVar(&opts.KnownHostsFilePath, knownHostsFilePathFlag, opts.KnownHostsFilePathDefault,
 		fmt.Sprintf("--%s=/home/jdoe/.ssh/kubevirt_known_hosts: Set the path to the known_hosts file.", knownHostsFilePathFlag))
-	flagset.IntVarP(&opts.SshPort, portFlag, portFlagShort, opts.SshPort,
+	flagset.IntVarP(&opts.SSHPort, portFlag, portFlagShort, opts.SSHPort,
 		fmt.Sprintf(`--%s=22: Specify a port on the VM to send SSH traffic to`, portFlag))
+
+	addAdditionalCommandlineArgs(flagset, opts)
 }
 
 func DefaultSSHOptions() SSHOptions {
@@ -83,12 +85,15 @@ func DefaultSSHOptions() SSHOptions {
 		glog.Warningf("failed to determine user home directory: %v", err)
 	}
 	options := SSHOptions{
-		SshPort:                   22,
-		SshUsername:               defaultUsername(),
+		SSHPort:                   22,
+		SSHUsername:               defaultUsername(),
 		IdentityFilePath:          filepath.Join(homeDir, ".ssh", "id_rsa"),
 		IdentityFilePathProvided:  false,
 		KnownHostsFilePath:        "",
 		KnownHostsFilePathDefault: "",
+		AdditionalSSHLocalOptions: []string{},
+		WrapLocalSSH:              wrapLocalSSHDefault,
+		LocalClientName:           "ssh",
 	}
 
 	if len(homeDir) > 0 {
@@ -100,16 +105,19 @@ func DefaultSSHOptions() SSHOptions {
 type SSH struct {
 	clientConfig clientcmd.ClientConfig
 	options      SSHOptions
-	WrapLocalSSH bool
+	command      string
 }
 
 type SSHOptions struct {
-	SshPort                   int
-	SshUsername               string
+	SSHPort                   int
+	SSHUsername               string
 	IdentityFilePath          string
 	IdentityFilePathProvided  bool
 	KnownHostsFilePath        string
 	KnownHostsFilePathDefault string
+	AdditionalSSHLocalOptions []string
+	WrapLocalSSH              bool
+	LocalClientName           string
 }
 
 func (o *SSH) Run(cmd *cobra.Command, args []string) error {
@@ -118,19 +126,12 @@ func (o *SSH) Run(cmd *cobra.Command, args []string) error {
 		return err
 	}
 
-	if o.WrapLocalSSH {
-		return o.runLocalCommandClient(kind, namespace, name)
+	if o.options.WrapLocalSSH {
+		clientArgs := o.buildSSHTarget(kind, namespace, name)
+		return RunLocalClient(kind, namespace, name, &o.options, clientArgs)
 	}
 
-	ssh := NativeSSHConnection{
-		ClientConfig: o.clientConfig,
-		Options:      o.options,
-	}
-	client, err := ssh.PrepareSSHClient(kind, namespace, name)
-	if err != nil {
-		return err
-	}
-	return ssh.StartSession(client)
+	return o.nativeSSH(kind, namespace, name)
 }
 
 func PrepareCommand(cmd *cobra.Command, clientConfig clientcmd.ClientConfig, opts *SSHOptions, args []string) (kind, namespace, name string, err error) {
@@ -149,28 +150,24 @@ func PrepareCommand(cmd *cobra.Command, clientConfig clientcmd.ClientConfig, opt
 	}
 
 	if len(targetUsername) > 0 {
-		opts.SshUsername = targetUsername
+		opts.SSHUsername = targetUsername
 	}
 	return
 }
 
 func usage() string {
-	return fmt.Sprintf(`  # Connect to 'testvmi' (using the built-in SSH client):
+	return fmt.Sprintf(`  # Connect to 'testvmi':
   {{ProgramName}} ssh jdoe@testvmi [--%s]
 
   # Connect to 'testvm' in 'mynamespace' namespace
   {{ProgramName}} ssh jdoe@vm/testvm.mynamespace [--%s]
 
   # Specify a username and namespace:
-  {{ProgramName}} ssh --namespace=mynamespace --%s=jdoe testvmi
- 
-  # Connect to 'testvmi' using the local ssh binary found in $PATH:
-  {{ProgramName}} ssh --%s=true jdoe@testvmi`,
+  {{ProgramName}} ssh --namespace=mynamespace --%s=jdoe testvmi`,
 		IdentityFilePathFlag,
 		IdentityFilePathFlag,
 		usernameFlag,
-		wrapLocalSSHFlag,
-	)
+	) + additionalUsage()
 }
 
 func defaultUsername() string {

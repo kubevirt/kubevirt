@@ -27,24 +27,17 @@ import (
 	"kubevirt.io/kubevirt/tests/testsuite"
 )
 
-// Default VMI values
-const (
-	DefaultTestGracePeriod int64 = 0
-	DefaultVmiName               = "testvmi"
-)
-
 // NewFedora instantiates a new Fedora based VMI configuration,
 // building its extra properties based on the specified With* options.
 // This image has tooling for the guest agent, stress, SR-IOV and more.
 func NewFedora(opts ...Option) *kvirtv1.VirtualMachineInstance {
 	fedoraOptions := []Option{
-		WithTerminationGracePeriod(DefaultTestGracePeriod),
 		WithResourceMemory("512M"),
 		WithRng(),
 		WithContainerImage(cd.ContainerDiskFor(cd.ContainerDiskFedoraTestTooling)),
 	}
 	opts = append(fedoraOptions, opts...)
-	return New(RandName(DefaultVmiName), opts...)
+	return New(opts...)
 }
 
 // NewCirros instantiates a new CirrOS based VMI configuration
@@ -56,10 +49,9 @@ func NewCirros(opts ...Option) *kvirtv1.VirtualMachineInstance {
 		WithContainerImage(cd.ContainerDiskFor(cd.ContainerDiskCirros)),
 		withNonEmptyUserData,
 		WithResourceMemory(cirrosMemory()),
-		WithTerminationGracePeriod(DefaultTestGracePeriod),
 	}
 	cirrosOpts = append(cirrosOpts, opts...)
-	return New(RandName(DefaultVmiName), cirrosOpts...)
+	return New(cirrosOpts...)
 }
 
 // NewAlpine instantiates a new Alpine based VMI configuration
@@ -69,22 +61,23 @@ func NewAlpine(opts ...Option) *kvirtv1.VirtualMachineInstance {
 		WithContainerImage(cd.ContainerDiskFor(cd.ContainerDiskAlpine)),
 		WithResourceMemory(alpineMemory()),
 		WithRng(),
-		WithTerminationGracePeriod(DefaultTestGracePeriod),
 	}
 	alpineOpts = append(alpineOpts, opts...)
-	return New(RandName(DefaultVmiName), alpineOpts...)
+	return New(alpineOpts...)
 }
 
 func NewAlpineWithTestTooling(opts ...Option) *kvirtv1.VirtualMachineInstance {
+	// Supplied with no user data, AlpimeWithTestTooling image takes more than 200s to allow login
+	withNonEmptyUserData := WithCloudInitNoCloudUserData("#!/bin/bash\necho hello\n", true)
 	alpineMemory := cirrosMemory
 	alpineOpts := []Option{
 		WithContainerImage(cd.ContainerDiskFor(cd.ContainerDiskAlpineTestTooling)),
+		withNonEmptyUserData,
 		WithResourceMemory(alpineMemory()),
 		WithRng(),
-		WithTerminationGracePeriod(DefaultTestGracePeriod),
 	}
 	alpineOpts = append(alpineOpts, opts...)
-	return New(RandName(DefaultVmiName), alpineOpts...)
+	return New(alpineOpts...)
 }
 
 func cirrosMemory() string {

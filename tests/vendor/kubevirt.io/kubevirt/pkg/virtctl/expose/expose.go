@@ -20,6 +20,7 @@ import (
 
 	virtv1 "kubevirt.io/api/core/v1"
 	"kubevirt.io/client-go/kubecli"
+
 	"kubevirt.io/kubevirt/pkg/virtctl/templates"
 )
 
@@ -77,7 +78,7 @@ virtualmachineinstance (vmi), virtualmachine (vm), virtualmachineinstancereplica
 	cmd.Flags().StringVar(&strTargetPort, "target-port", "", "Name or number for the port on the VM that the service should direct traffic to. Optional.")
 	cmd.Flags().StringVar(&strServiceType, "type", "ClusterIP", "Type for this service: ClusterIP, NodePort, or LoadBalancer.")
 	cmd.Flags().StringVar(&portName, "port-name", "", "Name of the port. Optional.")
-	cmd.Flags().StringVar(&strIPFamily, "ip-family", "IPv4", "IP family over which the service will be exposed. Valid values are 'IPv4', 'IPv6', 'IPv4,IPv6' or 'IPv6,IPv4'")
+	cmd.Flags().StringVar(&strIPFamily, "ip-family", "", "IP family over which the service will be exposed. Valid values are 'IPv4', 'IPv6', 'IPv4,IPv6' or 'IPv6,IPv4'")
 	cmd.Flags().StringVar(&strIPFamilyPolicy, "ip-family-policy", "", "IP family policy defines whether the service can use IPv4, IPv6, or both. Valid values are 'SingleStack', 'PreferDualStack' or 'RequireDualStack'")
 	cmd.SetUsageTemplate(templates.UsageTemplate())
 
@@ -281,6 +282,8 @@ func (o *Command) RunE(args []string) error {
 
 func convertIPFamily(strIPFamily string) ([]v1.IPFamily, error) {
 	switch strings.ToLower(strIPFamily) {
+	case "":
+		return []v1.IPFamily{}, nil
 	case "ipv4":
 		return []v1.IPFamily{v1.IPv4Protocol}, nil
 	case "ipv6":

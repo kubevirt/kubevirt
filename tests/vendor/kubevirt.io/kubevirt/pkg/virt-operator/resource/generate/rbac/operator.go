@@ -30,6 +30,7 @@ import (
 
 const (
 	GroupNameSecurity = "security.openshift.io"
+	GroupNameRoute    = "route.openshift.io"
 	serviceAccountFmt = "%s:%s:%s"
 )
 const OperatorServiceAccountName = "kubevirt-operator"
@@ -297,27 +298,6 @@ func NewOperatorClusterRole() *rbacv1.ClusterRole {
 					"get", "list", "watch", "create", "delete", "update", "patch",
 				},
 			},
-			// Until v0.43 a `get` verb was granted to these resources, but there is no get endpoint.
-			// The get permission needs to be kept on the operator level so that updates work.
-			{
-				APIGroups: []string{
-					"subresources.kubevirt.io",
-				},
-				Resources: []string{
-					"virtualmachineinstances/pause",
-					"virtualmachineinstances/unpause",
-					"virtualmachineinstances/addvolume",
-					"virtualmachineinstances/removevolume",
-					"virtualmachineinstances/freeze",
-					"virtualmachineinstances/unfreeze",
-					"virtualmachineinstances/softreboot",
-					"virtualmachineinstances/portforward",
-				},
-				Verbs: []string{
-					"update",
-					"get",
-				},
-			},
 			{
 				APIGroups: []string{
 					"",
@@ -330,6 +310,21 @@ func NewOperatorClusterRole() *rbacv1.ClusterRole {
 					"list",
 					"watch",
 					"patch",
+				},
+			},
+			// FIXME - Keep the flavor (now renamed instancetype) permissions around until v0.56 to allow the operator to update from v0.54.
+			{
+				APIGroups: []string{
+					"flavor.kubevirt.io",
+				},
+				Resources: []string{
+					"virtualmachineflavors",
+					"virtualmachineclusterflavors",
+					"virtualmachinepreferences",
+					"virtualmachineclusterpreferences",
+				},
+				Verbs: []string{
+					"get", "delete", "create", "update", "patch", "list", "watch", "deletecollection",
 				},
 			},
 		},
@@ -348,6 +343,7 @@ func getKubeVirtComponentsRules() []rbacv1.PolicyRule {
 	all := GetAllApiServer("")
 	all = append(all, GetAllController("")...)
 	all = append(all, GetAllHandler("")...)
+	all = append(all, GetAllExportProxy("")...)
 	all = append(all, GetAllCluster()...)
 
 	for _, resource := range all {
@@ -493,6 +489,33 @@ func NewOperatorRole(namespace string) *rbacv1.Role {
 					"watch",
 					"patch",
 					"delete",
+				},
+			},
+			{
+				APIGroups: []string{
+					GroupNameRoute,
+				},
+				Resources: []string{
+					"routes",
+				},
+				Verbs: []string{
+					"create",
+					"get",
+					"list",
+					"watch",
+					"patch",
+					"delete",
+				},
+			},
+			{
+				APIGroups: []string{
+					GroupNameRoute,
+				},
+				Resources: []string{
+					"routes/custom-host",
+				},
+				Verbs: []string{
+					"create",
 				},
 			},
 		},

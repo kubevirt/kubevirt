@@ -12,7 +12,13 @@ import (
 
 	"kubevirt.io/client-go/kubecli"
 	"kubevirt.io/client-go/log"
+
 	"kubevirt.io/kubevirt/pkg/util/net/dns"
+)
+
+const (
+	connectionTimeout = 10 * time.Second
+	promptTimeout     = 5 * time.Second
 )
 
 // LoginToFunction represents any of the LoginTo* functions
@@ -24,7 +30,7 @@ func LoginToCirros(vmi *v1.VirtualMachineInstance) error {
 	if err != nil {
 		panic(err)
 	}
-	expecter, _, err := NewExpecter(virtClient, vmi, 10*time.Second)
+	expecter, _, err := NewExpecter(virtClient, vmi, connectionTimeout)
 	if err != nil {
 		return err
 	}
@@ -36,12 +42,12 @@ func LoginToCirros(vmi *v1.VirtualMachineInstance) error {
 	if err != nil {
 		return err
 	}
-	_, _, err = expecter.Expect(regexp.MustCompile(`\$`), 5*time.Second)
+	_, _, err = expecter.Expect(regexp.MustCompile(`\$`), promptTimeout)
 	if err == nil {
 		return nil
 	}
 
-	b := append([]expect.Batcher{
+	b := []expect.Batcher{
 		&expect.BSnd{S: "\n"},
 		&expect.BExp{R: "login as 'cirros' user. default password: 'gocubsgo'. use 'sudo' for root."},
 		&expect.BSnd{S: "\n"},
@@ -49,8 +55,10 @@ func LoginToCirros(vmi *v1.VirtualMachineInstance) error {
 		&expect.BSnd{S: "cirros\n"},
 		&expect.BExp{R: "Password:"},
 		&expect.BSnd{S: "gocubsgo\n"},
-		&expect.BExp{R: PromptExpression}})
-	resp, err := expecter.ExpectBatch(b, 180*time.Second)
+		&expect.BExp{R: PromptExpression},
+	}
+	const loginTimeout = 180 * time.Second
+	resp, err := expecter.ExpectBatch(b, loginTimeout)
 
 	if err != nil {
 		log.DefaultLogger().Object(vmi).Infof("Login: %v", resp)
@@ -71,7 +79,7 @@ func LoginToAlpine(vmi *v1.VirtualMachineInstance) error {
 		panic(err)
 	}
 
-	expecter, _, err := NewExpecter(virtClient, vmi, 10*time.Second)
+	expecter, _, err := NewExpecter(virtClient, vmi, connectionTimeout)
 	if err != nil {
 		return err
 	}
@@ -85,23 +93,25 @@ func LoginToAlpine(vmi *v1.VirtualMachineInstance) error {
 	hostName := dns.SanitizeHostname(vmi)
 
 	// Do not login, if we already logged in
-	b := append([]expect.Batcher{
+	b := []expect.Batcher{
 		&expect.BSnd{S: "\n"},
 		&expect.BExp{R: fmt.Sprintf(`(localhost|%s):~\# `, hostName)},
-	})
-	_, err = expecter.ExpectBatch(b, 5*time.Second)
+	}
+	_, err = expecter.ExpectBatch(b, promptTimeout)
 	if err == nil {
 		return nil
 	}
 
-	b = append([]expect.Batcher{
+	b = []expect.Batcher{
 		&expect.BSnd{S: "\n"},
 		&expect.BExp{R: fmt.Sprintf(`(localhost|%s) login: `, hostName)},
 		&expect.BSnd{S: "root\n"},
-		&expect.BExp{R: PromptExpression}})
-	res, err := expecter.ExpectBatch(b, 180*time.Second)
+		&expect.BExp{R: PromptExpression},
+	}
+	const loginTimeout = 180 * time.Second
+	res, err := expecter.ExpectBatch(b, loginTimeout)
 	if err != nil {
-		log.DefaultLogger().Object(vmi).Infof("Login: %v", res)
+		log.DefaultLogger().Object(vmi).Reason(err).Errorf("Login failed: %+v", res)
 		return err
 	}
 
@@ -119,7 +129,7 @@ func LoginToFedora(vmi *v1.VirtualMachineInstance) error {
 		panic(err)
 	}
 
-	expecter, _, err := NewExpecter(virtClient, vmi, 10*time.Second)
+	expecter, _, err := NewExpecter(virtClient, vmi, connectionTimeout)
 	if err != nil {
 		return err
 	}
@@ -131,16 +141,16 @@ func LoginToFedora(vmi *v1.VirtualMachineInstance) error {
 	}
 
 	// Do not login, if we already logged in
-	b := append([]expect.Batcher{
+	b := []expect.Batcher{
 		&expect.BSnd{S: "\n"},
 		&expect.BExp{R: fmt.Sprintf(`(\[fedora@(localhost|fedora|%s) ~\]\$ |\[root@(localhost|fedora|%s) fedora\]\# )`, vmi.Name, vmi.Name)},
-	})
-	_, err = expecter.ExpectBatch(b, 5*time.Second)
+	}
+	_, err = expecter.ExpectBatch(b, promptTimeout)
 	if err == nil {
 		return nil
 	}
 
-	b = append([]expect.Batcher{
+	b = []expect.Batcher{
 		&expect.BSnd{S: "\n"},
 		&expect.BSnd{S: "\n"},
 		&expect.BCas{C: []expect.Caser{
@@ -170,15 +180,15 @@ func LoginToFedora(vmi *v1.VirtualMachineInstance) error {
 		}},
 		&expect.BSnd{S: "sudo su\n"},
 		&expect.BExp{R: PromptExpression},
-	})
-	res, err := expecter.ExpectBatch(b, 2*time.Minute)
+	}
+	const loginTimeout = 2 * time.Minute
+	res, err := expecter.ExpectBatch(b, loginTimeout)
 	if err != nil {
 		log.DefaultLogger().Object(vmi).Reason(err).Errorf("Login attempt failed: %+v", res)
 		// Try once more since sometimes the login prompt is ripped apart by asynchronous daemon updates
-		res, err := expecter.ExpectBatch(b, 1*time.Minute)
-		if err != nil {
-			log.DefaultLogger().Object(vmi).Reason(err).Errorf("Retried login attempt after two minutes failed: %+v", res)
-			return err
+		if retryRes, retryErr := expecter.ExpectBatch(b, 1*time.Minute); retryErr != nil {
+			log.DefaultLogger().Object(vmi).Reason(retryErr).Errorf("Retried login attempt after two minutes failed: %+v", retryRes)
+			return retryErr
 		}
 	}
 
@@ -196,15 +206,16 @@ func OnPrivilegedPrompt(vmi *v1.VirtualMachineInstance, timeout int) bool {
 		panic(err)
 	}
 
-	expecter, _, err := NewExpecter(virtClient, vmi, 10*time.Second)
+	expecter, _, err := NewExpecter(virtClient, vmi, connectionTimeout)
 	if err != nil {
 		return false
 	}
 	defer expecter.Close()
 
-	b := append([]expect.Batcher{
+	b := []expect.Batcher{
 		&expect.BSnd{S: "\n"},
-		&expect.BExp{R: PromptExpression}})
+		&expect.BExp{R: PromptExpression},
+	}
 	res, err := expecter.ExpectBatch(b, time.Duration(timeout)*time.Second)
 	if err != nil {
 		log.DefaultLogger().Object(vmi).Infof("Login: %+v", res)
@@ -219,7 +230,7 @@ func configureConsole(expecter expect.Expecter, shouldSudo bool) error {
 	if shouldSudo {
 		sudoString = "sudo "
 	}
-	batch := append([]expect.Batcher{
+	batch := []expect.Batcher{
 		&expect.BSnd{S: "stty cols 500 rows 500\n"},
 		&expect.BExp{R: PromptExpression},
 		&expect.BSnd{S: "echo $?\n"},
@@ -227,8 +238,10 @@ func configureConsole(expecter expect.Expecter, shouldSudo bool) error {
 		&expect.BSnd{S: fmt.Sprintf("%sdmesg -n 1\n", sudoString)},
 		&expect.BExp{R: PromptExpression},
 		&expect.BSnd{S: "echo $?\n"},
-		&expect.BExp{R: RetValue("0")}})
-	resp, err := expecter.ExpectBatch(batch, 30*time.Second)
+		&expect.BExp{R: RetValue("0")},
+	}
+	const configureConsoleTimeout = 30 * time.Second
+	resp, err := expecter.ExpectBatch(batch, configureConsoleTimeout)
 	if err != nil {
 		log.DefaultLogger().Infof("%v", resp)
 	}

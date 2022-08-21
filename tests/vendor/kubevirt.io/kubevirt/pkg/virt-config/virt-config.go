@@ -24,6 +24,8 @@ package virtconfig
 */
 
 import (
+	"fmt"
+
 	k8sv1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/api/resource"
 
@@ -74,8 +76,8 @@ const (
 	// Default REST configuration settings
 	DefaultVirtHandlerQPS         float32 = 5
 	DefaultVirtHandlerBurst               = 10
-	DefaultVirtControllerQPS      float32 = 20
-	DefaultVirtControllerBurst            = 30
+	DefaultVirtControllerQPS      float32 = 200
+	DefaultVirtControllerBurst            = 400
 	DefaultVirtAPIQPS             float32 = 5
 	DefaultVirtAPIBurst                   = 10
 	DefaultVirtWebhookClientQPS           = 200
@@ -163,6 +165,36 @@ func (c *ClusterConfig) GetNodeSelectors() map[string]string {
 
 func (c *ClusterConfig) GetDefaultNetworkInterface() string {
 	return c.GetConfig().NetworkConfiguration.NetworkInterface
+}
+
+func (c *ClusterConfig) SetVMIDefaultNetworkInterface(vmi *v1.VirtualMachineInstance) error {
+	autoAttach := vmi.Spec.Domain.Devices.AutoattachPodInterface
+	if autoAttach != nil && *autoAttach == false {
+		return nil
+	}
+
+	// Override only when nothing is specified
+	if len(vmi.Spec.Networks) == 0 && len(vmi.Spec.Domain.Devices.Interfaces) == 0 {
+		iface := v1.NetworkInterfaceType(c.GetDefaultNetworkInterface())
+		switch iface {
+		case v1.BridgeInterface:
+			if !c.IsBridgeInterfaceOnPodNetworkEnabled() {
+				return fmt.Errorf("Bridge interface is not enabled in kubevirt-config")
+			}
+			vmi.Spec.Domain.Devices.Interfaces = []v1.Interface{*v1.DefaultBridgeNetworkInterface()}
+		case v1.MasqueradeInterface:
+			vmi.Spec.Domain.Devices.Interfaces = []v1.Interface{*v1.DefaultMasqueradeNetworkInterface()}
+		case v1.SlirpInterface:
+			if !c.IsSlirpInterfaceEnabled() {
+				return fmt.Errorf("Slirp interface is not enabled in kubevirt-config")
+			}
+			defaultIface := v1.DefaultSlirpNetworkInterface()
+			vmi.Spec.Domain.Devices.Interfaces = []v1.Interface{*defaultIface}
+		}
+
+		vmi.Spec.Networks = []v1.Network{*v1.DefaultPodNetwork()}
+	}
+	return nil
 }
 
 func (c *ClusterConfig) IsSlirpInterfaceEnabled() bool {

@@ -375,7 +375,8 @@ func NewPrometheusRuleSpec(ns string, workloadUpdatesEnabled bool) *v1.Prometheu
 						Alert: "VirtApiRESTErrorsHigh",
 						Expr:  intstr.FromString(getErrorRatio(ns, "virt-api", "(4|5)[0-9][0-9]", 60) + " >= 0.05"),
 						Annotations: map[string]string{
-							"summary": getRestCallsFailedWarning(5, "virt-api", "hour"),
+							"summary":     getRestCallsFailedWarning(5, "virt-api", "hour"),
+							"runbook_url": runbookUrlBasePath + "VirtApiRESTErrorsHigh",
 						},
 						Labels: map[string]string{
 							severityAlertLabelKey: "warning",
@@ -386,7 +387,8 @@ func NewPrometheusRuleSpec(ns string, workloadUpdatesEnabled bool) *v1.Prometheu
 						Expr:  intstr.FromString(getErrorRatio(ns, "virt-api", "(4|5)[0-9][0-9]", 5) + " >= 0.8"),
 						For:   "5m",
 						Annotations: map[string]string{
-							"summary": getRestCallsFailedWarning(80, "virt-api", durationFiveMinutes),
+							"summary":     getRestCallsFailedWarning(80, "virt-api", durationFiveMinutes),
+							"runbook_url": runbookUrlBasePath + "VirtApiRESTErrorsBurst",
 						},
 						Labels: map[string]string{
 							severityAlertLabelKey: "critical",
@@ -398,18 +400,18 @@ func NewPrometheusRuleSpec(ns string, workloadUpdatesEnabled bool) *v1.Prometheu
 					},
 					{
 						Record: "kubevirt_vm_container_free_memory_bytes_based_on_working_set_bytes",
-						Expr:   intstr.FromString("sum by(pod, container) (kube_pod_container_resource_requests{pod=~'virt-launcher-.*', container='compute', resource='memory'}- on(pod,container) container_memory_working_set_bytes{pod=~'virt-launcher-.*', container='compute'})"),
+						Expr:   intstr.FromString("sum by(pod, container, namespace) (kube_pod_container_resource_requests{pod=~'virt-launcher-.*', container='compute', resource='memory'}- on(pod,container, namespace) container_memory_working_set_bytes{pod=~'virt-launcher-.*', container='compute'})"),
 					},
 					{
 						Record: "kubevirt_vm_container_free_memory_bytes_based_on_rss",
-						Expr:   intstr.FromString("sum by(pod, container) (kube_pod_container_resource_requests{pod=~'virt-launcher-.*', container='compute', resource='memory'}- on(pod,container) container_memory_rss{pod=~'virt-launcher-.*', container='compute'})"),
+						Expr:   intstr.FromString("sum by(pod, container, namespace) (kube_pod_container_resource_requests{pod=~'virt-launcher-.*', container='compute', resource='memory'}- on(pod,container, namespace) container_memory_rss{pod=~'virt-launcher-.*', container='compute'})"),
 					},
 					{
 						Alert: "KubevirtVmHighMemoryUsage",
 						Expr:  intstr.FromString("kubevirt_vm_container_free_memory_bytes_based_on_working_set_bytes < 20971520 or kubevirt_vm_container_free_memory_bytes_based_on_rss < 20971520"),
 						For:   "1m",
 						Annotations: map[string]string{
-							"description": "Container {{ $labels.container }} in pod {{ $labels.pod }} free memory is less than 20 MB and it is close to requested memory",
+							"description": "Container {{ $labels.container }} in pod {{ $labels.pod }} in namespace {{ $labels.namespace }} free memory is less than 20 MB and it is close to requested memory",
 							"summary":     "VM is at risk of being evicted and in serious cases of memory exhaustion being terminated by the runtime.",
 							"runbook_url": runbookUrlBasePath + "KubevirtVmHighMemoryUsage",
 						},
@@ -418,15 +420,11 @@ func NewPrometheusRuleSpec(ns string, workloadUpdatesEnabled bool) *v1.Prometheu
 						},
 					},
 					{
-						Record: "kubevirt_num_virt_handlers_by_node_running_virt_launcher",
-						Expr:   intstr.FromString("count by(node)(node_namespace_pod:kube_pod_info:{pod=~'virt-launcher-.*'} ) * on (node) group_left(pod) (1*(kube_pod_container_status_ready{pod=~'virt-handler-.*'} + on (pod) group_left(node) (0 * node_namespace_pod:kube_pod_info:{pod=~'virt-handler-.*'} ))) or on (node) (0 * node_namespace_pod:kube_pod_info:{pod=~'virt-launcher-.*'} )"),
-					},
-					{
 						Alert: "OrphanedVirtualMachineInstances",
-						Expr:  intstr.FromString("(kubevirt_num_virt_handlers_by_node_running_virt_launcher) == 0"),
-						For:   "60m",
+						Expr:  intstr.FromString("((count by (node) (kube_pod_status_ready{condition='true',pod=~'virt-handler.*'} * on(pod) group_left(node) kube_pod_info{pod=~'virt-handler.*'})) or (count by (node)(kube_pod_info{pod=~'virt-launcher.*'})*0)) == 0"),
+						For:   "10m",
 						Annotations: map[string]string{
-							"summary":     "No virt-handler pod detected on node {{ $labels.node }} with running vmis for more than an hour",
+							"summary":     "No ready virt-handler pod detected on node {{ $labels.node }} with running vmis for more than 10 minutes",
 							"runbook_url": runbookUrlBasePath + "OrphanedVirtualMachineInstances",
 						},
 						Labels: map[string]string{

@@ -37,10 +37,12 @@ const (
 	GPUGate                    = "GPU"
 	HostDevicesGate            = "HostDevices"
 	SnapshotGate               = "Snapshot"
+	VMExportGate               = "VMExport"
 	HotplugVolumesGate         = "HotplugVolumes"
 	HostDiskGate               = "HostDisk"
 	VirtIOFSGate               = "ExperimentalVirtiofsSupport"
 	MacvtapGate                = "Macvtap"
+	PasstGate                  = "Passt"
 	DownwardMetricsFeatureGate = "DownwardMetrics"
 	NonRootDeprecated          = "NonRootExperimental"
 	NonRoot                    = "NonRoot"
@@ -48,12 +50,32 @@ const (
 	WorkloadEncryptionSEV      = "WorkloadEncryptionSEV"
 )
 
+var deprecatedFeatureGates = [...]string{
+	LiveMigrationGate,
+}
+
 func (c *ClusterConfig) isFeatureGateEnabled(featureGate string) bool {
+	if c.IsFeatureGateDeprecated(featureGate) {
+		// Deprecated feature gates are considered enabled and no-op.
+		// For more info about deprecation policy: https://github.com/kubevirt/kubevirt/blob/main/docs/deprecation.md
+		return true
+	}
+
 	for _, fg := range c.GetConfig().DeveloperConfiguration.FeatureGates {
 		if fg == featureGate {
 			return true
 		}
 	}
+	return false
+}
+
+func (c *ClusterConfig) IsFeatureGateDeprecated(featureGate string) bool {
+	for _, deprecatedFeatureGate := range deprecatedFeatureGates {
+		if featureGate == deprecatedFeatureGate {
+			return true
+		}
+	}
+
 	return false
 }
 
@@ -78,8 +100,7 @@ func (config *ClusterConfig) IgnitionEnabled() bool {
 }
 
 func (config *ClusterConfig) LiveMigrationEnabled() bool {
-	return config.isFeatureGateEnabled(LiveMigrationGate) ||
-		config.isFeatureGateEnabled(SRIOVLiveMigrationGate)
+	return config.isFeatureGateEnabled(LiveMigrationGate)
 }
 
 func (config *ClusterConfig) SRIOVLiveMigrationEnabled() bool {
@@ -106,6 +127,10 @@ func (config *ClusterConfig) SnapshotEnabled() bool {
 	return config.isFeatureGateEnabled(SnapshotGate)
 }
 
+func (config *ClusterConfig) VMExportEnabled() bool {
+	return config.isFeatureGateEnabled(VMExportGate)
+}
+
 func (config *ClusterConfig) HotplugVolumesEnabled() bool {
 	return config.isFeatureGateEnabled(HotplugVolumesGate)
 }
@@ -120,6 +145,10 @@ func (config *ClusterConfig) VirtiofsEnabled() bool {
 
 func (config *ClusterConfig) MacvtapEnabled() bool {
 	return config.isFeatureGateEnabled(MacvtapGate)
+}
+
+func (config *ClusterConfig) PasstEnabled() bool {
+	return config.isFeatureGateEnabled(PasstGate)
 }
 
 func (config *ClusterConfig) HostDevicesPassthroughEnabled() bool {

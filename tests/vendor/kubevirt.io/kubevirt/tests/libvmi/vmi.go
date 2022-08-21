@@ -26,18 +26,18 @@ import (
 	"k8s.io/apimachinery/pkg/util/rand"
 	"k8s.io/utils/pointer"
 
-	kvirtv1 "kubevirt.io/api/core/v1"
 	v1 "kubevirt.io/api/core/v1"
 )
 
 // Option represents an action that enables an option.
-type Option func(vmi *kvirtv1.VirtualMachineInstance)
+type Option func(vmi *v1.VirtualMachineInstance)
 
 // New instantiates a new VMI configuration,
 // building its properties based on the specified With* options.
-func New(name string, opts ...Option) *kvirtv1.VirtualMachineInstance {
-	vmi := baseVmi(name)
+func New(opts ...Option) *v1.VirtualMachineInstance {
+	vmi := baseVmi(randName())
 
+	WithTerminationGracePeriod(0)(vmi)
 	for _, f := range opts {
 		f(vmi)
 	}
@@ -45,14 +45,15 @@ func New(name string, opts ...Option) *kvirtv1.VirtualMachineInstance {
 	return vmi
 }
 
-// RandName returns a random name by concatenating the given name with a hyphen and a random string.
-func RandName(name string) string {
-	return name + "-" + rand.String(5)
+// randName returns a random name for a virtual machine
+func randName() string {
+	const randomPostfixLen = 5
+	return "testvmi" + "-" + rand.String(randomPostfixLen)
 }
 
 // WithLabel sets a label with specified value
 func WithLabel(key, value string) Option {
-	return func(vmi *kvirtv1.VirtualMachineInstance) {
+	return func(vmi *v1.VirtualMachineInstance) {
 		if vmi.Labels == nil {
 			vmi.Labels = map[string]string{}
 		}
@@ -62,7 +63,7 @@ func WithLabel(key, value string) Option {
 
 // WithAnnotation adds an annotation with specified value
 func WithAnnotation(key, value string) Option {
-	return func(vmi *kvirtv1.VirtualMachineInstance) {
+	return func(vmi *v1.VirtualMachineInstance) {
 		if vmi.Annotations == nil {
 			vmi.Annotations = map[string]string{}
 		}
@@ -72,30 +73,61 @@ func WithAnnotation(key, value string) Option {
 
 // WithTerminationGracePeriod specifies the termination grace period in seconds.
 func WithTerminationGracePeriod(seconds int64) Option {
-	return func(vmi *kvirtv1.VirtualMachineInstance) {
+	return func(vmi *v1.VirtualMachineInstance) {
 		vmi.Spec.TerminationGracePeriodSeconds = &seconds
 	}
 }
 
 // WithRng adds `rng` to the the vmi devices.
 func WithRng() Option {
-	return func(vmi *kvirtv1.VirtualMachineInstance) {
-		vmi.Spec.Domain.Devices.Rng = &kvirtv1.Rng{}
+	return func(vmi *v1.VirtualMachineInstance) {
+		vmi.Spec.Domain.Devices.Rng = &v1.Rng{}
 	}
 }
 
 // WithResourceMemory specifies the vmi memory resource.
 func WithResourceMemory(value string) Option {
-	return func(vmi *kvirtv1.VirtualMachineInstance) {
-		vmi.Spec.Domain.Resources.Requests = k8sv1.ResourceList{
-			k8sv1.ResourceMemory: resource.MustParse(value),
+	return func(vmi *v1.VirtualMachineInstance) {
+		if vmi.Spec.Domain.Resources.Requests == nil {
+			vmi.Spec.Domain.Resources.Requests = k8sv1.ResourceList{}
 		}
+		vmi.Spec.Domain.Resources.Requests[k8sv1.ResourceMemory] = resource.MustParse(value)
+	}
+}
+
+// WithResourceCPU specifies the vmi CPU resource.
+func WithResourceCPU(value string) Option {
+	return func(vmi *v1.VirtualMachineInstance) {
+		if vmi.Spec.Domain.Resources.Requests == nil {
+			vmi.Spec.Domain.Resources.Requests = k8sv1.ResourceList{}
+		}
+		vmi.Spec.Domain.Resources.Requests[k8sv1.ResourceCPU] = resource.MustParse(value)
+	}
+}
+
+// WithLimitMemory specifies the VMI memory limit.
+func WithLimitMemory(value string) Option {
+	return func(vmi *v1.VirtualMachineInstance) {
+		if vmi.Spec.Domain.Resources.Limits == nil {
+			vmi.Spec.Domain.Resources.Limits = k8sv1.ResourceList{}
+		}
+		vmi.Spec.Domain.Resources.Limits[k8sv1.ResourceMemory] = resource.MustParse(value)
+	}
+}
+
+// WithLimitCPU specifies the VMI CPU limit.
+func WithLimitCPU(value string) Option {
+	return func(vmi *v1.VirtualMachineInstance) {
+		if vmi.Spec.Domain.Resources.Limits == nil {
+			vmi.Spec.Domain.Resources.Limits = k8sv1.ResourceList{}
+		}
+		vmi.Spec.Domain.Resources.Limits[k8sv1.ResourceCPU] = resource.MustParse(value)
 	}
 }
 
 // WithNodeSelectorFor ensures that the VMI gets scheduled on the specified node
 func WithNodeSelectorFor(node *k8sv1.Node) Option {
-	return func(vmi *kvirtv1.VirtualMachineInstance) {
+	return func(vmi *v1.VirtualMachineInstance) {
 		if vmi.Spec.NodeSelector == nil {
 			vmi.Spec.NodeSelector = map[string]string{}
 		}
@@ -105,31 +137,58 @@ func WithNodeSelectorFor(node *k8sv1.Node) Option {
 
 // WithUefi configures EFI bootloader and SecureBoot.
 func WithUefi(secureBoot bool) Option {
-	return func(vmi *kvirtv1.VirtualMachineInstance) {
-		vmi.Spec.Domain.Firmware = &v1.Firmware{
-			Bootloader: &v1.Bootloader{
-				EFI: &v1.EFI{
-					SecureBoot: pointer.BoolPtr(secureBoot),
-				},
-			},
+	return func(vmi *v1.VirtualMachineInstance) {
+		if vmi.Spec.Domain.Firmware == nil {
+			vmi.Spec.Domain.Firmware = &v1.Firmware{}
+		}
+		if vmi.Spec.Domain.Firmware.Bootloader == nil {
+			vmi.Spec.Domain.Firmware.Bootloader = &v1.Bootloader{}
+		}
+		if vmi.Spec.Domain.Firmware.Bootloader.EFI == nil {
+			vmi.Spec.Domain.Firmware.Bootloader.EFI = &v1.EFI{}
+		}
+		vmi.Spec.Domain.Firmware.Bootloader.EFI.SecureBoot = pointer.Bool(secureBoot)
+		// secureBoot Requires SMM to be enabled
+		if secureBoot {
+			if vmi.Spec.Domain.Features == nil {
+				vmi.Spec.Domain.Features = &v1.Features{}
+			}
+			if vmi.Spec.Domain.Features.SMM == nil {
+				vmi.Spec.Domain.Features.SMM = &v1.FeatureState{}
+			}
+			vmi.Spec.Domain.Features.SMM.Enabled = pointer.Bool(secureBoot)
 		}
 	}
 }
 
 // WithSEV adds `launchSecurity` with `sev`.
 func WithSEV() Option {
-	return func(vmi *kvirtv1.VirtualMachineInstance) {
-		vmi.Spec.Domain.LaunchSecurity = &v1.LaunchSecurity{
-			SEV: &v1.SEV{},
+	return func(vmi *v1.VirtualMachineInstance) {
+		if vmi.Spec.Domain.LaunchSecurity == nil {
+			vmi.Spec.Domain.LaunchSecurity = &v1.LaunchSecurity{}
 		}
+		vmi.Spec.Domain.LaunchSecurity.SEV = &v1.SEV{}
 	}
 }
 
-func baseVmi(name string) *kvirtv1.VirtualMachineInstance {
-	vmi := kvirtv1.NewVMIReferenceFromNameWithNS("", name)
-	vmi.Spec = kvirtv1.VirtualMachineInstanceSpec{Domain: kvirtv1.DomainSpec{}}
+func WithCPUFeature(featureName, policy string) Option {
+	return func(vmi *v1.VirtualMachineInstance) {
+		if vmi.Spec.Domain.CPU == nil {
+			vmi.Spec.Domain.CPU = &v1.CPU{}
+		}
+
+		vmi.Spec.Domain.CPU.Features = append(vmi.Spec.Domain.CPU.Features, v1.CPUFeature{
+			Name:   featureName,
+			Policy: policy,
+		})
+	}
+}
+
+func baseVmi(name string) *v1.VirtualMachineInstance {
+	vmi := v1.NewVMIReferenceFromNameWithNS("", name)
+	vmi.Spec = v1.VirtualMachineInstanceSpec{Domain: v1.DomainSpec{}}
 	vmi.TypeMeta = k8smetav1.TypeMeta{
-		APIVersion: kvirtv1.GroupVersion.String(),
+		APIVersion: v1.GroupVersion.String(),
 		Kind:       "VirtualMachineInstance",
 	}
 	return vmi

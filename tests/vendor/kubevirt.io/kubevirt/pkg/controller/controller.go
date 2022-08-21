@@ -311,11 +311,6 @@ func GeneratePatchBytes(ops []string) []byte {
 	return []byte(fmt.Sprintf("[%s]", strings.Join(ops, ", ")))
 }
 
-func EscapeJSONPointer(ptr string) string {
-	s := strings.ReplaceAll(ptr, "~", "~0")
-	return strings.ReplaceAll(s, "/", "~1")
-}
-
 func SetVMIPhaseTransitionTimestamp(oldVMI *v1.VirtualMachineInstance, newVMI *v1.VirtualMachineInstance) {
 	if oldVMI.Status.Phase != newVMI.Status.Phase {
 		for _, transitionTimeStamp := range newVMI.Status.PhaseTransitionTimestamps {
@@ -328,6 +323,23 @@ func SetVMIPhaseTransitionTimestamp(oldVMI *v1.VirtualMachineInstance, newVMI *v
 		now := metav1.NewTime(time.Now())
 		newVMI.Status.PhaseTransitionTimestamps = append(newVMI.Status.PhaseTransitionTimestamps, v1.VirtualMachineInstancePhaseTransitionTimestamp{
 			Phase:                    newVMI.Status.Phase,
+			PhaseTransitionTimestamp: now,
+		})
+	}
+}
+
+func SetVMIMigrationPhaseTransitionTimestamp(oldVMIMigration *v1.VirtualMachineInstanceMigration, newVMIMigration *v1.VirtualMachineInstanceMigration) {
+	if oldVMIMigration.Status.Phase != newVMIMigration.Status.Phase {
+		for _, transitionTimeStamp := range newVMIMigration.Status.PhaseTransitionTimestamps {
+			if transitionTimeStamp.Phase == newVMIMigration.Status.Phase {
+				// already exists.
+				return
+			}
+		}
+
+		now := metav1.NewTime(time.Now())
+		newVMIMigration.Status.PhaseTransitionTimestamps = append(newVMIMigration.Status.PhaseTransitionTimestamps, v1.VirtualMachineInstanceMigrationPhaseTransitionTimestamp{
+			Phase:                    newVMIMigration.Status.Phase,
 			PhaseTransitionTimestamp: now,
 		})
 	}

@@ -35,6 +35,7 @@ import (
 
 	v1 "kubevirt.io/api/core/v1"
 	"kubevirt.io/client-go/kubecli"
+
 	virtconfig "kubevirt.io/kubevirt/pkg/virt-config"
 	"kubevirt.io/kubevirt/tests/flags"
 	"kubevirt.io/kubevirt/tests/framework/checks"
@@ -91,8 +92,10 @@ func AdjustKubeVirtResource() {
 		virtconfig.DownwardMetricsFeatureGate,
 		virtconfig.NUMAFeatureGate,
 		virtconfig.MacvtapGate,
+		virtconfig.PasstGate,
 		virtconfig.ExpandDisksGate,
 		virtconfig.WorkloadEncryptionSEV,
+		virtconfig.VMExportGate,
 	)
 	kv.Spec.Configuration.SELinuxLauncherType = "virt_launcher.process"
 

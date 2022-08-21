@@ -1,8 +1,13 @@
-load("@io_bazel_rules_go//go:def.bzl", "go_library")
+load("@io_bazel_rules_go//go:def.bzl", "go_library", "go_test")
 
 go_library(
     name = "go_default_library",
-    srcs = ["scp.go"],
+    srcs = [
+        "native.go",
+        "native_unsupported.go",
+        "scp.go",
+        "wrapped.go",
+    ],
     importpath = "kubevirt.io/kubevirt/pkg/virtctl/scp",
     visibility = ["//visibility:public"],
     deps = [
@@ -11,5 +16,21 @@ go_library(
         "//vendor/github.com/povsister/scp:go_default_library",
         "//vendor/github.com/spf13/cobra:go_default_library",
         "//vendor/k8s.io/client-go/tools/clientcmd:go_default_library",
+    ],
+)
+
+go_test(
+    name = "go_default_test",
+    srcs = [
+        "scp_suite_test.go",
+        "wrapped_test.go",
+    ],
+    embed = [":go_default_library"],
+    deps = [
+        "//pkg/virtctl/ssh:go_default_library",
+        "//pkg/virtctl/templates:go_default_library",
+        "//staging/src/kubevirt.io/client-go/testutils:go_default_library",
+        "//vendor/github.com/onsi/ginkgo/v2:go_default_library",
+        "//vendor/github.com/onsi/gomega:go_default_library",
     ],
 )

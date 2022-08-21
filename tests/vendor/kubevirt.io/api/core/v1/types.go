@@ -586,6 +586,7 @@ type VirtualMachineInstanceMigrationState struct {
 	// The time the migration action ended
 	// +nullable
 	EndTimestamp *metav1.Time `json:"endTimestamp,omitempty"`
+
 	// The Target Node has seen the Domain Start Event
 	TargetNodeDomainDetected bool `json:"targetNodeDomainDetected,omitempty"`
 	// The address of the target node to use for the migration
@@ -849,16 +850,16 @@ const (
 	// SEVLabel marks the node as capable of running workloads with SEV
 	SEVLabel string = "kubevirt.io/sev"
 
-	// FlavorAnnotation is the name of a VirtualMachineFlavor
-	FlavorAnnotation string = "kubevirt.io/flavor-name"
+	// InstancetypeAnnotation is the name of a VirtualMachineInstancetype
+	InstancetypeAnnotation string = "kubevirt.io/instancetype-name"
 
-	// ClusterFlavorAnnotation is the name of a VirtualMachineClusterFlavor
-	ClusterFlavorAnnotation string = "kubevirt.io/cluster-flavor-name"
+	// ClusterInstancetypeAnnotation is the name of a VirtualMachineClusterInstancetype
+	ClusterInstancetypeAnnotation string = "kubevirt.io/cluster-instancetype-name"
 
-	// FlavorAnnotation is the name of a VirtualMachinePreference
+	// InstancetypeAnnotation is the name of a VirtualMachinePreference
 	PreferenceAnnotation string = "kubevirt.io/preference-name"
 
-	// ClusterFlavorAnnotation is the name of a VirtualMachinePreferenceFlavor
+	// ClusterInstancetypeAnnotation is the name of a VirtualMachinePreferenceInstancetype
 	ClusterPreferenceAnnotation string = "kubevirt.io/cluster-preference-name"
 
 	// VirtualMachinePoolRevisionName is used to store the vmpool revision's name this object
@@ -867,6 +868,10 @@ const (
 
 	// VirtualMachineNameLabel is the name of the Virtual Machine
 	VirtualMachineNameLabel string = "vm.kubevirt.io/name"
+
+	// PVCMemoryDumpAnnotation is the name of the memory dump representing the vm name,
+	// pvc name and the timestamp the memory dump was collected
+	PVCMemoryDumpAnnotation string = "kubevirt.io/memory-dump"
 )
 
 func NewVMI(name string, uid types.UID) *VirtualMachineInstance {
@@ -1128,10 +1133,22 @@ type VirtualMachineInstanceMigrationSpec struct {
 	VMIName string `json:"vmiName,omitempty" valid:"required"`
 }
 
+// VirtualMachineInstanceMigrationPhaseTransitionTimestamp gives a timestamp in relation to when a phase is set on a vmi
+type VirtualMachineInstanceMigrationPhaseTransitionTimestamp struct {
+	// Phase is the status of the VirtualMachineInstanceMigrationPhase in kubernetes world. It is not the VirtualMachineInstanceMigrationPhase status, but partially correlates to it.
+	Phase VirtualMachineInstanceMigrationPhase `json:"phase,omitempty"`
+	// PhaseTransitionTimestamp is the timestamp of when the phase change occurred
+	PhaseTransitionTimestamp metav1.Time `json:"phaseTransitionTimestamp,omitempty"`
+}
+
 // VirtualMachineInstanceMigration reprents information pertaining to a VMI's migration.
 type VirtualMachineInstanceMigrationStatus struct {
 	Phase      VirtualMachineInstanceMigrationPhase       `json:"phase,omitempty"`
 	Conditions []VirtualMachineInstanceMigrationCondition `json:"conditions,omitempty"`
+	// PhaseTransitionTimestamp is the timestamp of when the last phase change occurred
+	// +listType=atomic
+	// +optional
+	PhaseTransitionTimestamps []VirtualMachineInstanceMigrationPhaseTransitionTimestamp `json:"phaseTransitionTimestamps,omitempty"`
 }
 
 // VirtualMachineInstanceMigrationPhase is a label for the condition of a VirtualMachineInstanceMigration at the current time.
@@ -1282,8 +1299,8 @@ type VirtualMachineSpec struct {
 	// mutually exclusive with Running
 	RunStrategy *VirtualMachineRunStrategy `json:"runStrategy,omitempty" optional:"true"`
 
-	// FlavorMatcher references a flavor that is used to fill fields in Template
-	Flavor *FlavorMatcher `json:"flavor,omitempty" optional:"true"`
+	// InstancetypeMatcher references a instancetype that is used to fill fields in Template
+	Instancetype *InstancetypeMatcher `json:"instancetype,omitempty" optional:"true"`
 
 	// PreferenceMatcher references a set of preference that is used to fill fields in Template
 	Preference *PreferenceMatcher `json:"preference,omitempty" optional:"true"`
@@ -1477,6 +1494,8 @@ const (
 	SlirpInterface NetworkInterfaceType = "slirp"
 	// Virtual machine instance masquerade interface
 	MasqueradeInterface NetworkInterfaceType = "masquerade"
+	// Virtual machine instance passt interface
+	PasstInterface NetworkInterfaceType = "passt"
 )
 
 type DriverCache string
@@ -2032,13 +2051,20 @@ type VirtualMachineMemoryDumpRequest struct {
 	ClaimName string `json:"claimName"`
 	// Phase represents the memory dump phase
 	Phase MemoryDumpPhase `json:"phase"`
+	// Remove represents request of dissociating the memory dump pvc
+	// +optional
+	Remove bool `json:"remove,omitempty"`
 	// StartTimestamp represents the time the memory dump started
+	// +optional
 	StartTimestamp *metav1.Time `json:"startTimestamp,omitempty"`
 	// EndTimestamp represents the time the memory dump was completed
+	// +optional
 	EndTimestamp *metav1.Time `json:"endTimestamp,omitempty"`
 	// FileName represents the name of the output file
+	// +optional
 	FileName *string `json:"fileName,omitempty"`
 	// Message is a detailed message about failure of the memory dump
+	// +optional
 	Message string `json:"message,omitempty"`
 }
 
@@ -2212,6 +2238,11 @@ type LogVerbosity struct {
 	NodeVerbosity map[string]uint `json:"nodeVerbosity,omitempty"`
 }
 
+const (
+	PCIResourcePrefix  = "PCI_RESOURCE"
+	MDevResourcePrefix = "MDEV_PCI_RESOURCE"
+)
+
 // PermittedHostDevices holds information about devices allowed for passthrough
 type PermittedHostDevices struct {
 	// +listType=atomic
@@ -2288,17 +2319,24 @@ type ClusterProfilerRequest struct {
 	PageSize      int64  `json:"pageSize"`
 }
 
-// FlavorMatcher references a flavor that is used to fill fields in the VMI template.
-type FlavorMatcher struct {
-	// Name is the name of the VirtualMachineFlavor or VirtualMachineClusterFlavor
+// InstancetypeMatcher references a instancetype that is used to fill fields in the VMI template.
+type InstancetypeMatcher struct {
+	// Name is the name of the VirtualMachineInstancetype or VirtualMachineClusterInstancetype
 	Name string `json:"name"`
 
-	// Kind specifies which flavor resource is referenced.
-	// Allowed values are: "VirtualMachineFlavor" and "VirtualMachineClusterFlavor".
-	// If not specified, "VirtualMachineClusterFlavor" is used by default.
+	// Kind specifies which instancetype resource is referenced.
+	// Allowed values are: "VirtualMachineInstancetype" and "VirtualMachineClusterInstancetype".
+	// If not specified, "VirtualMachineClusterInstancetype" is used by default.
 	//
 	// +optional
 	Kind string `json:"kind,omitempty"`
+
+	// RevisionName specifies a ControllerRevision containing a specific copy of the
+	// VirtualMachineInstancetype or VirtualMachineClusterInstancetype to be used. This is initially
+	// captured the first time the instancetype is applied to the VirtualMachineInstance.
+	//
+	// +optional
+	RevisionName string `json:"revisionName,omitempty"`
 }
 
 // PreferenceMatcher references a set of preference that is used to fill fields in the VMI template.
@@ -2312,4 +2350,11 @@ type PreferenceMatcher struct {
 	//
 	// +optional
 	Kind string `json:"kind,omitempty"`
+
+	// RevisionName specifies a ControllerRevision containing a specific copy of the
+	// VirtualMachinePreference or VirtualMachineClusterPreference to be used. This is
+	// initially captured the first time the instancetype is applied to the VirtualMachineInstance.
+	//
+	// +optional
+	RevisionName string `json:"revisionName,omitempty"`
 }

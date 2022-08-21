@@ -4,40 +4,49 @@ import (
 	k8sfield "k8s.io/apimachinery/pkg/util/validation/field"
 
 	v1 "kubevirt.io/api/core/v1"
-	flavorv1alpha1 "kubevirt.io/api/flavor/v1alpha1"
-	"kubevirt.io/kubevirt/pkg/flavor"
+	instancetypev1alpha1 "kubevirt.io/api/instancetype/v1alpha1"
+
+	"kubevirt.io/kubevirt/pkg/instancetype"
 )
 
-type MockFlavorMethods struct {
-	FindFlavorSpecFunc     func(vm *v1.VirtualMachine) (*flavorv1alpha1.VirtualMachineFlavorSpec, error)
-	ApplyToVmiFunc         func(field *k8sfield.Path, flavorspec *flavorv1alpha1.VirtualMachineFlavorSpec, preferenceSpec *flavorv1alpha1.VirtualMachinePreferenceSpec, vmiSpec *v1.VirtualMachineInstanceSpec) flavor.Conflicts
-	FindPreferenceSpecFunc func(vm *v1.VirtualMachine) (*flavorv1alpha1.VirtualMachinePreferenceSpec, error)
+type MockInstancetypeMethods struct {
+	FindInstancetypeSpecFunc     func(vm *v1.VirtualMachine) (*instancetypev1alpha1.VirtualMachineInstancetypeSpec, error)
+	ApplyToVmiFunc               func(field *k8sfield.Path, instancetypespec *instancetypev1alpha1.VirtualMachineInstancetypeSpec, preferenceSpec *instancetypev1alpha1.VirtualMachinePreferenceSpec, vmiSpec *v1.VirtualMachineInstanceSpec) instancetype.Conflicts
+	FindPreferenceSpecFunc       func(vm *v1.VirtualMachine) (*instancetypev1alpha1.VirtualMachinePreferenceSpec, error)
+	StoreControllerRevisionsFunc func(vm *v1.VirtualMachine) error
 }
 
-var _ flavor.Methods = &MockFlavorMethods{}
+var _ instancetype.Methods = &MockInstancetypeMethods{}
 
-func (m *MockFlavorMethods) FindFlavorSpec(vm *v1.VirtualMachine) (*flavorv1alpha1.VirtualMachineFlavorSpec, error) {
-	return m.FindFlavorSpecFunc(vm)
+func (m *MockInstancetypeMethods) FindInstancetypeSpec(vm *v1.VirtualMachine) (*instancetypev1alpha1.VirtualMachineInstancetypeSpec, error) {
+	return m.FindInstancetypeSpecFunc(vm)
 }
 
-func (m *MockFlavorMethods) ApplyToVmi(field *k8sfield.Path, flavorspec *flavorv1alpha1.VirtualMachineFlavorSpec, preferenceSpec *flavorv1alpha1.VirtualMachinePreferenceSpec, vmiSpec *v1.VirtualMachineInstanceSpec) flavor.Conflicts {
-	return m.ApplyToVmiFunc(field, flavorspec, preferenceSpec, vmiSpec)
+func (m *MockInstancetypeMethods) ApplyToVmi(field *k8sfield.Path, instancetypespec *instancetypev1alpha1.VirtualMachineInstancetypeSpec, preferenceSpec *instancetypev1alpha1.VirtualMachinePreferenceSpec, vmiSpec *v1.VirtualMachineInstanceSpec) instancetype.Conflicts {
+	return m.ApplyToVmiFunc(field, instancetypespec, preferenceSpec, vmiSpec)
 }
 
-func (m *MockFlavorMethods) FindPreferenceSpec(vm *v1.VirtualMachine) (*flavorv1alpha1.VirtualMachinePreferenceSpec, error) {
+func (m *MockInstancetypeMethods) FindPreferenceSpec(vm *v1.VirtualMachine) (*instancetypev1alpha1.VirtualMachinePreferenceSpec, error) {
 	return m.FindPreferenceSpecFunc(vm)
 }
 
-func NewMockFlavorMethods() *MockFlavorMethods {
-	return &MockFlavorMethods{
-		FindFlavorSpecFunc: func(_ *v1.VirtualMachine) (*flavorv1alpha1.VirtualMachineFlavorSpec, error) {
+func (m *MockInstancetypeMethods) StoreControllerRevisions(vm *v1.VirtualMachine) error {
+	return m.StoreControllerRevisionsFunc(vm)
+}
+
+func NewMockInstancetypeMethods() *MockInstancetypeMethods {
+	return &MockInstancetypeMethods{
+		FindInstancetypeSpecFunc: func(_ *v1.VirtualMachine) (*instancetypev1alpha1.VirtualMachineInstancetypeSpec, error) {
 			return nil, nil
 		},
-		ApplyToVmiFunc: func(_ *k8sfield.Path, _ *flavorv1alpha1.VirtualMachineFlavorSpec, _ *flavorv1alpha1.VirtualMachinePreferenceSpec, _ *v1.VirtualMachineInstanceSpec) flavor.Conflicts {
+		ApplyToVmiFunc: func(_ *k8sfield.Path, _ *instancetypev1alpha1.VirtualMachineInstancetypeSpec, _ *instancetypev1alpha1.VirtualMachinePreferenceSpec, _ *v1.VirtualMachineInstanceSpec) instancetype.Conflicts {
 			return nil
 		},
-		FindPreferenceSpecFunc: func(_ *v1.VirtualMachine) (*flavorv1alpha1.VirtualMachinePreferenceSpec, error) {
+		FindPreferenceSpecFunc: func(_ *v1.VirtualMachine) (*instancetypev1alpha1.VirtualMachinePreferenceSpec, error) {
 			return nil, nil
+		},
+		StoreControllerRevisionsFunc: func(_ *v1.VirtualMachine) error {
+			return nil
 		},
 	}
 }

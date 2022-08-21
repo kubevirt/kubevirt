@@ -23,6 +23,7 @@ import (
 	"path/filepath"
 
 	v1 "kubevirt.io/api/core/v1"
+
 	ephemeraldiskutils "kubevirt.io/kubevirt/pkg/ephemeral-disk-utils"
 )
 
@@ -55,7 +56,7 @@ func CreateConfigMapDisks(vmi *v1.VirtualMachineInstance, emptyIso bool) error {
 				return err
 			}
 
-			if err := ephemeraldiskutils.DefaultOwnershipManager.SetFileOwnership(disk); err != nil {
+			if err := ephemeraldiskutils.DefaultOwnershipManager.UnsafeSetFileOwnership(disk); err != nil {
 				return err
 			}
 		}

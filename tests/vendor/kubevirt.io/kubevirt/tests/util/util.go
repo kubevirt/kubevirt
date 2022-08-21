@@ -8,6 +8,7 @@ import (
 
 	k6sv1 "kubevirt.io/api/core/v1"
 	"kubevirt.io/client-go/kubecli"
+
 	"kubevirt.io/kubevirt/tests/flags"
 )
 
