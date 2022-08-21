@@ -21,7 +21,6 @@ package main
 
 import (
 	"os"
-	"strings"
 
 	"github.com/spf13/pflag"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
@@ -41,10 +40,6 @@ func getGrpcClient() (cmdclient.LauncherClient, error) {
 	}
 
 	return client, err
-}
-
-func isGuestAgentNotConnected(err error) bool {
-	return strings.Contains(err.Error(), "QEMU guest agent is not connected")
 }
 
 func main() {
@@ -81,22 +76,28 @@ func main() {
 		os.Exit(1)
 	}
 
+	info, err := client.GetGuestInfo()
+	if err != nil {
+		log.Log.Reason(err).Error("Failed to get guest info")
+		os.Exit(1)
+	}
+
+	log.Log.Infof("Guest agent version is %s", info.GAVersion)
+	if info.GAVersion == "" {
+		log.Log.Info("No guest agent, exiting")
+		os.Exit(0)
+	}
+
 	if *freeze {
 		err = client.FreezeVirtualMachine(vmi, *unfreezeTimeoutSeconds)
 		if err != nil {
 			log.Log.Reason(err).Error("Freezeing VMI failed")
+			os.Exit(1)
 		}
 	} else {
 		err = client.UnfreezeVirtualMachine(vmi)
 		if err != nil {
 			log.Log.Reason(err).Error("Unfreezeing VMI failed")
-		}
-	}
-
-	if err != nil {
-		if isGuestAgentNotConnected(err) {
-			log.Log.Info("Guest agent not connected")
-		} else {
 			os.Exit(1)
 		}
 	}

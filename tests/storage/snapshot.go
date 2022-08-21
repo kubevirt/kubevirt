@@ -750,7 +750,7 @@ var _ = SIGDescribe("VirtualMachineSnapshot Tests", func() {
 			})
 
 			It("Calling Velero hooks should not error if no guest agent", func() {
-				const noGuestAgentString = "Guest agent not connected"
+				const noGuestAgentString = "No guest agent, exiting"
 				By("Creating VM")
 				var vmi *v1.VirtualMachineInstance
 				running := false
