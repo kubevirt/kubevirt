@@ -14,8 +14,8 @@ set -ex
 
 PROJECT_ROOT="$(readlink -e "$(dirname "${BASH_SOURCE[0]}")"/../)"
 DEPLOY_DIR="${PROJECT_ROOT}/deploy/olm-catalog"
+OUT_DIR="${PROJECT_ROOT}/_out"
 PACKAGE_NAME="community-kubevirt-hyperconverged"
-INDEX_IMAGE_PARAM=
 IMAGE_REGISTRY=${IMAGE_REGISTRY:-quay.io}
 REGISTRY_NAMESPACE=${REGISTRY_NAMESPACE:-kubevirt}
 BUNDLE_REGISTRY_IMAGE_NAME=${BUNDLE_REGISTRY_IMAGE_NAME:-hyperconverged-cluster-bundle}
@@ -35,12 +35,6 @@ function create_index_image() {
   BUNDLE_IMAGE_NAME="${IMAGE_REGISTRY}/${REGISTRY_NAMESPACE}/${BUNDLE_REGISTRY_IMAGE_NAME}:${CURRENT_VERSION}"
   INDEX_IMAGE_NAME="${IMAGE_REGISTRY}/${REGISTRY_NAMESPACE}/${INDEX_REGISTRY_IMAGE_NAME}:${CURRENT_VERSION}"
 
-  INDEX_IMAGE_PARAM=
-  if [[ -n ${2} ]]; then
-    PREV_INDEX_IMAGE="${IMAGE_REGISTRY}/${REGISTRY_NAMESPACE}/${INDEX_REGISTRY_IMAGE_NAME}:${PREV_VERSION}"
-    INDEX_IMAGE_PARAM=--from-index="${PREV_INDEX_IMAGE}"
-  fi
-
   podman build -t "${BUNDLE_IMAGE_NAME}" -f bundle.Dockerfile --build-arg "VERSION=${CURRENT_VERSION}" .
   podman push "${BUNDLE_IMAGE_NAME}"
 
@@ -48,9 +42,54 @@ function create_index_image() {
   # unalignment between cached index image and fetched bundle image.
   BUNDLE_IMAGE_NAME=$("${PROJECT_ROOT}/tools/digester/digester" --image "${BUNDLE_IMAGE_NAME}")
 
-  # shellcheck disable=SC2086
-  ${OPM} index add --bundles "${BUNDLE_IMAGE_NAME}" ${INDEX_IMAGE_PARAM} --tag "${INDEX_IMAGE_NAME}" -u podman --mode semver
+  (cd "${OUT_DIR}" && create_file_based_catalog)
+
   podman push "${INDEX_IMAGE_NAME}"
+}
+
+function create_file_based_catalog() {
+  # File-Based Catalog handling
+  rm -rf fbc-catalog*
+  ${OPM} migrate "${INDEX_IMAGE_NAME}" fbc-catalog || true
+  if [ ! -d fbc-catalog ]
+  then
+    # The index image is already in file-based format. Extracting its catalog file
+    oc image extract "${INDEX_IMAGE_NAME}" --file /configs/catalog.json
+  else
+    # The migration took place
+    mv fbc-catalog/community-kubevirt-hyperconverged/catalog.json catalog.json
+  fi
+
+  ${OPM} render "${BUNDLE_IMAGE_NAME}" > bundle.json
+  CSV_NAME=$(jq -r .name bundle.json)
+  VERSION=${CSV_NAME##*.v}
+  SKIPRANGE="<"${VERSION}
+  CHANNEL=${CURRENT_VERSION%-*}
+
+  # Remove the existing channel schema from the catalog
+  jq --arg CHANNEL "$CHANNEL" 'del(. | select(.schema=="olm.channel" and .name==$CHANNEL))' \
+   catalog.json > updated_fbc.json
+
+  # Insert the new channel schema for the new bundle instead of the one we removed previously
+  jq --arg CSV_NAME "$CSV_NAME" --arg SKIPRANGE "$SKIPRANGE" --arg CHANNEL "$CHANNEL" '. |
+    select(.schema=="olm.channel" and .name==$CHANNEL) |
+    .entries[0].name=$CSV_NAME |
+    .entries[0].skipRange=$SKIPRANGE' \
+      catalog.json >> updated_fbc.json
+
+  mv updated_fbc.json updated_fbc.json.tmp
+  # Remove the existing bundle schema from the catalog
+  jq --arg CHANNEL "$CHANNEL" 'del(. |
+    select(.schema=="olm.bundle" and (.name | contains($CHANNEL))))' \
+    updated_fbc.json.tmp > updated_fbc.json
+
+  mkdir -p fbc-catalog
+  cat bundle.json >> updated_fbc.json
+  sed -i '/null/d' updated_fbc.json
+  mv updated_fbc.json fbc-catalog/catalog.json
+  ${OPM} validate fbc-catalog
+  ${OPM} generate dockerfile fbc-catalog
+  podman build -t "${INDEX_IMAGE_NAME}" -f fbc-catalog.Dockerfile
 }
 
 function create_all_versions() {
