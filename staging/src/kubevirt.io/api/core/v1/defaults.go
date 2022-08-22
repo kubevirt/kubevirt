@@ -126,25 +126,9 @@ func SetDefaults_VirtualMachineInstance(obj *VirtualMachineInstance) {
 }
 
 func setDefaults_Disk(obj *VirtualMachineInstance) {
-	// Setting SATA as the default bus since it is typically supported out of the box by
-	// guest operating systems (we support only q35 and therefore IDE is not supported)
-	// TODO: consider making this OS-specific (VIRTIO for linux, SATA for others)
-	bus := DiskBusSATA
-
 	for i := range obj.Spec.Domain.Devices.Disks {
 		disk := &obj.Spec.Domain.Devices.Disks[i].DiskDevice
-
 		SetDefaults_DiskDevice(disk)
-
-		if disk.Disk != nil && disk.Disk.Bus == "" {
-			disk.Disk.Bus = bus
-		}
-		if disk.CDRom != nil && disk.CDRom.Bus == "" {
-			disk.CDRom.Bus = bus
-		}
-		if disk.LUN != nil && disk.LUN.Bus == "" {
-			disk.LUN.Bus = bus
-		}
 	}
 }
 

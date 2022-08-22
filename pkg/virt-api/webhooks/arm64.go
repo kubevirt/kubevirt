@@ -21,8 +21,6 @@
 package webhooks
 
 import (
-	"fmt"
-
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	k8sfield "k8s.io/apimachinery/pkg/util/validation/field"
 
@@ -35,40 +33,75 @@ const (
 	defaultCPUModel = v1.CPUModeHostPassthrough
 )
 
-// verifyInvalidSetting verify if VMI spec contain unavailable setting for arm64, check following items:
+// ValidateVirtualMachineInstanceArm64Setting is validation function for validating-webhook
 // 1. if setting bios boot
 // 2. if use uefi secure boot
 // 3. if use host-model for cpu model
-func verifyInvalidSetting(field *k8sfield.Path, spec *v1.VirtualMachineInstanceSpec) (metav1.StatusCause, bool) {
+// 4. if not use 'scsi', 'virtio' as disk bus
+func ValidateVirtualMachineInstanceArm64Setting(field *k8sfield.Path, spec *v1.VirtualMachineInstanceSpec) []metav1.StatusCause {
+	var statusCauses []metav1.StatusCause
 	if spec.Domain.Firmware != nil && spec.Domain.Firmware.Bootloader != nil {
 		if spec.Domain.Firmware.Bootloader.BIOS != nil {
-			return metav1.StatusCause{
+			statusCauses = append(statusCauses, metav1.StatusCause{
 				Type:    metav1.CauseTypeFieldValueNotSupported,
 				Message: "Arm64 does not support bios boot, please change to uefi boot",
 				Field:   field.Child("domain", "firmware", "bootloader", "bios").String(),
-			}, false
+			})
 		}
 		if spec.Domain.Firmware.Bootloader.EFI != nil {
 			// When EFI is enable, secureboot is enabled by default, so here check two condition
 			// 1 is EFI is enabled without Secureboot setting
 			// 2 is both EFI and Secureboot enabled
 			if spec.Domain.Firmware.Bootloader.EFI.SecureBoot == nil || (spec.Domain.Firmware.Bootloader.EFI.SecureBoot != nil && *spec.Domain.Firmware.Bootloader.EFI.SecureBoot) {
-				return metav1.StatusCause{
+				statusCauses = append(statusCauses, metav1.StatusCause{
 					Type:    metav1.CauseTypeFieldValueNotSupported,
 					Message: "UEFI secure boot is currently not supported on aarch64 Arch",
 					Field:   field.Child("domain", "firmware", "bootloader", "efi", "secureboot").String(),
-				}, false
+				})
 			}
 		}
 	}
 	if spec.Domain.CPU != nil && (&spec.Domain.CPU.Model != nil) && spec.Domain.CPU.Model == "host-model" {
-		return metav1.StatusCause{
+		statusCauses = append(statusCauses, metav1.StatusCause{
 			Type:    metav1.CauseTypeFieldValueNotSupported,
 			Message: "Arm64 not support host model well",
 			Field:   field.Child("domain", "cpu", "model").String(),
-		}, false
+		})
 	}
-	return metav1.StatusCause{}, true
+	if spec.Domain.Devices.Disks != nil {
+		// checkIfBusAvailable: if bus type is nil, virtio, scsi return true, otherwise, return false
+		checkIfBusAvailable := func(bus v1.DiskBus) bool {
+			if bus == "" || bus == v1.DiskBusVirtio || bus == v1.DiskBusSCSI {
+				return true
+			}
+			return false
+		}
+
+		for i, disk := range spec.Domain.Devices.Disks {
+			if disk.Disk != nil && !checkIfBusAvailable(disk.Disk.Bus) {
+				statusCauses = append(statusCauses, metav1.StatusCause{
+					Type:    metav1.CauseTypeFieldValueNotSupported,
+					Message: "Arm64 not support this disk bus type, please use virtio or scsi",
+					Field:   field.Child("domain", "devices", "disks").Index(i).Child("disk", "bus").String(),
+				})
+			}
+			if disk.CDRom != nil && !checkIfBusAvailable(disk.CDRom.Bus) {
+				statusCauses = append(statusCauses, metav1.StatusCause{
+					Type:    metav1.CauseTypeFieldValueNotSupported,
+					Message: "Arm64 not support this disk bus type, please use virtio or scsi",
+					Field:   field.Child("domain", "devices", "disks").Index(i).Child("cdrom", "bus").String(),
+				})
+			}
+			if disk.LUN != nil && !checkIfBusAvailable(disk.LUN.Bus) {
+				statusCauses = append(statusCauses, metav1.StatusCause{
+					Type:    metav1.CauseTypeFieldValueNotSupported,
+					Message: "Arm64 not support this disk bus type, please use virtio or scsi",
+					Field:   field.Child("domain", "devices", "disks").Index(i).Child("lun", "bus").String(),
+				})
+			}
+		}
+	}
+	return statusCauses
 }
 
 // setDefaultCPUModel set default cpu model to host-passthrough
@@ -77,7 +110,9 @@ func setDefaultCPUModel(vmi *v1.VirtualMachineInstance) {
 		vmi.Spec.Domain.CPU = &v1.CPU{}
 	}
 
-	vmi.Spec.Domain.CPU.Model = defaultCPUModel
+	if vmi.Spec.Domain.CPU.Model == "" {
+		vmi.Spec.Domain.CPU.Model = defaultCPUModel
+	}
 }
 
 // setDefaultBootloader set default bootloader to uefi boot
@@ -94,23 +129,29 @@ func setDefaultBootloader(vmi *v1.VirtualMachineInstance) {
 	}
 }
 
-// ValidateVirtualMachineInstanceArm64Setting is validation function for validating-webhook
-func ValidateVirtualMachineInstanceArm64Setting(field *k8sfield.Path, spec *v1.VirtualMachineInstanceSpec) []metav1.StatusCause {
-	var causes []metav1.StatusCause
-	if cause, ok := verifyInvalidSetting(field, spec); !ok {
-		causes = append(causes, cause)
+// setDefaultDisksBus set default Disks Bus, because sata is not supported by qemu-kvm of Arm64
+func setDefaultDisksBus(vmi *v1.VirtualMachineInstance) {
+	bus := v1.DiskBusVirtio
+
+	for i := range vmi.Spec.Domain.Devices.Disks {
+		disk := &vmi.Spec.Domain.Devices.Disks[i].DiskDevice
+
+		if disk.Disk != nil && disk.Disk.Bus == "" {
+			disk.Disk.Bus = bus
+		}
+		if disk.CDRom != nil && disk.CDRom.Bus == "" {
+			disk.CDRom.Bus = bus
+		}
+		if disk.LUN != nil && disk.LUN.Bus == "" {
+			disk.LUN.Bus = bus
+		}
 	}
-	return causes
+
 }
 
 // SetVirtualMachineInstanceArm64Defaults is mutating function for mutating-webhook
-func SetVirtualMachineInstanceArm64Defaults(vmi *v1.VirtualMachineInstance) error {
-	path := k8sfield.NewPath("spec")
-	if cause, ok := verifyInvalidSetting(path, &vmi.Spec); ok {
-		setDefaultCPUModel(vmi)
-		setDefaultBootloader(vmi)
-	} else {
-		return fmt.Errorf("%s", cause.Message)
-	}
-	return nil
+func SetVirtualMachineInstanceArm64Defaults(vmi *v1.VirtualMachineInstance) {
+	setDefaultCPUModel(vmi)
+	setDefaultBootloader(vmi)
+	setDefaultDisksBus(vmi)
 }

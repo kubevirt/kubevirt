@@ -200,29 +200,28 @@ var _ = Describe("VirtualMachineInstance Mutator", func() {
 		Expect(vmiSpec.Domain.Resources.Limits.Memory().String()).To(Equal(memoryLimit))
 	})
 
-	It("should apply defaults on VMI create", func() {
+	DescribeTable("should apply defaults on VMI create", func(arch string, cpuModel string) {
 		// no limits wanted on this test, to not copy the limit to requests
+		defer func() {
+			webhooks.Arch = rt.GOARCH
+		}()
+		webhooks.Arch = arch
 		mutator.NamespaceLimitsInformer, _ = testutils.NewFakeInformerFor(&k8sv1.LimitRange{})
 		_, vmiSpec, _ := getMetaSpecStatusFromAdmit()
-		if webhooks.IsPPC64() {
-			Expect(vmiSpec.Domain.Machine.Type).To(Equal("pseries"))
-			Expect(vmiSpec.Domain.CPU.Model).To(Equal(v1.DefaultCPUModel))
-		} else if webhooks.IsARM64() {
-			Expect(vmiSpec.Domain.Machine.Type).To(Equal("virt"))
-			Expect(vmiSpec.Domain.CPU.Model).To(Equal(v1.CPUModeHostPassthrough))
-		} else {
-			Expect(vmiSpec.Domain.Machine.Type).To(Equal("q35"))
-			Expect(vmiSpec.Domain.CPU.Model).To(Equal(v1.DefaultCPUModel))
-		}
-
-		Expect(v1.DefaultCPUModel).To(Equal(v1.CPUModeHostModel))
+		Expect(vmiSpec.Domain.CPU.Model).To(Equal(cpuModel))
 		Expect(vmiSpec.Domain.Resources.Requests.Cpu().IsZero()).To(BeTrue())
-		// no default for requested memory when no memory is specified
 		Expect(vmiSpec.Domain.Resources.Requests.Memory().Value()).To(Equal(int64(0)))
-	})
+	},
+		Entry("on amd64", "amd64", v1.DefaultCPUModel),
+		Entry("on arm64", "arm64", v1.CPUModeHostPassthrough),
+		Entry("on ppc64le", "ppc64le", v1.DefaultCPUModel),
+	)
 
-	It("should apply configurable defaults on VMI create", func() {
-		// no limits wanted on this test, to not copy the limit to requests
+	DescribeTable("should apply configurable defaults on VMI create", func(arch string, cpuModel string) {
+		defer func() {
+			webhooks.Arch = rt.GOARCH
+		}()
+		webhooks.Arch = arch
 		mutator.NamespaceLimitsInformer, _ = testutils.NewFakeInformerFor(&k8sv1.LimitRange{})
 		testutils.UpdateFakeKubeVirtClusterConfig(kvInformer, &v1.KubeVirt{
 			Spec: v1.KubeVirtSpec{
@@ -235,10 +234,15 @@ var _ = Describe("VirtualMachineInstance Mutator", func() {
 		})
 
 		_, vmiSpec, _ := getMetaSpecStatusFromAdmit()
-		Expect(vmiSpec.Domain.CPU.Model).To(Equal(cpuModelFromConfig))
+		Expect(vmiSpec.Domain.CPU.Model).To(Equal(cpuModel))
 		Expect(vmiSpec.Domain.Machine.Type).To(Equal(machineTypeFromConfig))
 		Expect(*vmiSpec.Domain.Resources.Requests.Cpu()).To(Equal(cpuReq))
-	})
+	},
+		Entry("on amd64", "amd64", cpuModelFromConfig),
+		// Currently only Host-Passthrough is supported on Arm64, so you can only
+		// modify the CPU Model in a VMI yaml file, rather than in cluster config
+		Entry("on arm64", "arm64", v1.CPUModeHostPassthrough),
+	)
 
 	DescribeTable("it should", func(given []v1.Volume, expected []v1.Volume) {
 		vmi.Spec.Volumes = given
@@ -806,16 +810,80 @@ var _ = Describe("VirtualMachineInstance Mutator", func() {
 	// Check following convert for ARM64
 	// 1. should convert CPU model to host-passthrough
 	// 2. should convert default bootloader to UEFI non secureboot
-	It("should convert cpu model, AutoattachGraphicsDevice and UEFI boot on ARM64", func() {
-		// turn on arm validation/mutation
-		webhooks.Arch = "arm64"
+	It("should convert cpu model and UEFI boot on ARM64", func() {
 		defer func() {
 			webhooks.Arch = rt.GOARCH
 		}()
+		// turn on arm validation/mutation
+		webhooks.Arch = "arm64"
 		_, vmiSpec, _ := getMetaSpecStatusFromAdmit()
 		Expect(*(vmiSpec.Domain.Firmware.Bootloader.EFI.SecureBoot)).To(BeFalse())
 		Expect(vmiSpec.Domain.CPU.Model).To(Equal("host-passthrough"))
 	})
+
+	DescribeTable("should convert disk bus to virtio or scsi on ARM64", func(given v1.Disk, diskType string, expectedBus v1.DiskBus) {
+		defer func() {
+			webhooks.Arch = rt.GOARCH
+		}()
+		// turn on arm validation/mutation
+		webhooks.Arch = "arm64"
+		vmi.Spec.Volumes = append(vmi.Spec.Volumes, v1.Volume{
+			Name: "a",
+			VolumeSource: v1.VolumeSource{
+				ContainerDisk: &v1.ContainerDiskSource{
+					Image: "test:latest",
+				},
+			},
+		})
+		vmi.Spec.Domain.Devices.Disks = append(vmi.Spec.Domain.Devices.Disks, given)
+		_, vmiSpec, _ := getMetaSpecStatusFromAdmit()
+
+		getDiskDeviceBus := func(device string) v1.DiskBus {
+			switch device {
+			case "Disk":
+				return vmiSpec.Domain.Devices.Disks[0].DiskDevice.Disk.Bus
+			case "CDRom":
+				return vmiSpec.Domain.Devices.Disks[0].DiskDevice.CDRom.Bus
+			case "LUN":
+				return vmiSpec.Domain.Devices.Disks[0].DiskDevice.LUN.Bus
+			default:
+				return ""
+			}
+		}
+
+		Expect(getDiskDeviceBus(diskType), expectedBus)
+	},
+		Entry("Disk device",
+			v1.Disk{
+				Name: "a",
+			}, "Disk", v1.DiskBusVirtio),
+
+		Entry("Disk device with virtio bus",
+			v1.Disk{
+				Name: "a",
+				DiskDevice: v1.DiskDevice{
+					Disk: &v1.DiskTarget{
+						Bus: "scsi",
+					},
+				},
+			}, "Disk", v1.DiskBusSCSI),
+
+		Entry("CDRom device",
+			v1.Disk{
+				Name: "a",
+				DiskDevice: v1.DiskDevice{
+					CDRom: &v1.CDRomTarget{},
+				},
+			}, "CDRom", v1.DiskBusVirtio),
+
+		Entry("LUN device",
+			v1.Disk{
+				Name: "a",
+				DiskDevice: v1.DiskDevice{
+					LUN: &v1.LunTarget{},
+				},
+			}, "LUN", v1.DiskBusVirtio),
+	)
 
 	var (
 		vmxFeature = v1.CPUFeature{

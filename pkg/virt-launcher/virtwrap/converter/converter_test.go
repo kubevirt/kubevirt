@@ -41,6 +41,7 @@ import (
 	k8smeta "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/utils/pointer"
 
+	"kubevirt.io/kubevirt/pkg/virt-api/webhooks"
 	"kubevirt.io/kubevirt/pkg/virt-controller/services"
 
 	"kubevirt.io/kubevirt/pkg/ephemeral-disk/fake"
@@ -960,6 +961,8 @@ var _ = Describe("Converter", func() {
   <memory unit="b">8388608</memory>
   <os>
     <type arch="aarch64" machine="virt">hvm</type>
+    <loader readonly="yes" secure="no" type="pflash"></loader>
+    <nvram>/tmp/mynamespace_testvmi</nvram>
   </os>
   <sysinfo type="smbios">
     <system>
@@ -1008,26 +1011,26 @@ var _ = Describe("Converter", func() {
     </disk>
     <disk device="cdrom" type="file">
       <source file="/var/run/libvirt/cloud-init-dir/mynamespace/testvmi/noCloud.iso"></source>
-      <target bus="sata" dev="sda" tray="closed"></target>
+      <target bus="virtio" dev="vdc" tray="closed"></target>
       <driver error_policy="stop" name="qemu" type="raw" iothread="1"></driver>
       <alias name="ua-cdrom_tray_unspecified"></alias>
     </disk>
     <disk device="cdrom" type="file">
       <source file="/var/run/kubevirt-private/vmi-disks/cdrom_tray_open/disk.img"></source>
-      <target bus="sata" dev="sdb" tray="open"></target>
+      <target bus="virtio" dev="vdd" tray="open"></target>
       <driver error_policy="stop" name="qemu" type="raw" iothread="1"></driver>
       <readonly></readonly>
       <alias name="ua-cdrom_tray_open"></alias>
     </disk>
-    <disk device="disk" type="file">
+    <disk device="disk" type="file" model="virtio-non-transitional">
       <source file="/var/run/kubevirt-private/vmi-disks/should_default_to_disk/disk.img"></source>
-      <target bus="sata" dev="sdc"></target>
+      <target bus="virtio" dev="vde"></target>
       <driver error_policy="stop" name="qemu" type="raw" iothread="1" discard="unmap"></driver>
       <alias name="ua-should_default_to_disk"></alias>
     </disk>
-    <disk device="disk" type="file">
+    <disk device="disk" type="file" model="virtio-non-transitional">
       <source file="/var/run/libvirt/kubevirt-ephemeral-disk/ephemeral_pvc/disk.qcow2"></source>
-      <target bus="sata" dev="sdd"></target>
+      <target bus="virtio" dev="vdf"></target>
       <driver cache="none" error_policy="stop" name="qemu" type="qcow2" iothread="1" discard="unmap"></driver>
       <alias name="ua-ephemeral_pvc"></alias>
       <backingStore type="file">
@@ -1035,47 +1038,47 @@ var _ = Describe("Converter", func() {
         <source file="/var/run/kubevirt-private/vmi-disks/ephemeral_pvc/disk.img"></source>
       </backingStore>
     </disk>
-    <disk device="disk" type="file">
+    <disk device="disk" type="file" model="virtio-non-transitional">
       <source file="/var/run/kubevirt-private/secret-disks/secret_test.iso"></source>
-      <target bus="sata" dev="sde"></target>
+      <target bus="virtio" dev="vdg"></target>
       <serial>D23YZ9W6WA5DJ487</serial>
       <driver error_policy="stop" name="qemu" type="raw" iothread="1" discard="unmap"></driver>
       <alias name="ua-secret_test"></alias>
     </disk>
-    <disk device="disk" type="file">
+    <disk device="disk" type="file" model="virtio-non-transitional">
       <source file="/var/run/kubevirt-private/config-map-disks/configmap_test.iso"></source>
-      <target bus="sata" dev="sdf"></target>
+      <target bus="virtio" dev="vdh"></target>
       <serial>CVLY623300HK240D</serial>
       <driver error_policy="stop" name="qemu" type="raw" iothread="1" discard="unmap"></driver>
       <alias name="ua-configmap_test"></alias>
     </disk>
-    <disk device="disk" type="block">
+    <disk device="disk" type="block" model="virtio-non-transitional">
       <source dev="/dev/pvc_block_test" name="pvc_block_test"></source>
-      <target bus="sata" dev="sdg"></target>
+      <target bus="virtio" dev="vdi"></target>
       <driver cache="writethrough" error_policy="stop" name="qemu" type="raw" iothread="1" discard="unmap"></driver>
       <alias name="ua-pvc_block_test"></alias>
     </disk>
-    <disk device="disk" type="block">
+    <disk device="disk" type="block" model="virtio-non-transitional">
       <source dev="/dev/dv_block_test" name="dv_block_test"></source>
-      <target bus="sata" dev="sdh"></target>
+      <target bus="virtio" dev="vdj"></target>
       <driver cache="writethrough" error_policy="stop" name="qemu" type="raw" iothread="1" discard="unmap"></driver>
       <alias name="ua-dv_block_test"></alias>
     </disk>
-    <disk device="disk" type="file">
+    <disk device="disk" type="file" model="virtio-non-transitional">
       <source file="/var/run/kubevirt-private/service-account-disk/service-account.iso"></source>
-      <target bus="sata" dev="sdi"></target>
+      <target bus="virtio" dev="vdk"></target>
       <driver error_policy="stop" name="qemu" type="raw" iothread="1" discard="unmap"></driver>
       <alias name="ua-serviceaccount_test"></alias>
     </disk>
     <disk device="cdrom" type="file">
       <source file="/var/run/kubevirt-private/sysprep-disks/sysprep.iso"></source>
-      <target bus="sata" dev="sdj" tray="closed"></target>
+      <target bus="virtio" dev="vdl" tray="closed"></target>
       <driver error_policy="stop" name="qemu" type="raw" iothread="1"></driver>
       <alias name="ua-sysprep"></alias>
     </disk>
     <disk device="cdrom" type="file">
       <source file="/var/run/kubevirt-private/sysprep-disks/sysprep_secret.iso"></source>
-      <target bus="sata" dev="sdk" tray="closed"></target>
+      <target bus="virtio" dev="vdm" tray="closed"></target>
       <driver error_policy="stop" name="qemu" type="raw" iothread="1"></driver>
       <alias name="ua-sysprep_secret"></alias>
     </disk>
@@ -1139,7 +1142,7 @@ var _ = Describe("Converter", func() {
     </kvm>
     <pvspinlock state="off"></pvspinlock>
   </features>
-  <cpu mode="host-model">
+  <cpu mode="host-passthrough">
     <topology sockets="1" cores="1" threads="1"></topology>
   </cpu>
   <vcpu placement="static">1</vcpu>
@@ -1406,6 +1409,7 @@ var _ = Describe("Converter", func() {
 			v1.SetObjectDefaults_VirtualMachineInstance(vmi)
 			vmi.Spec.Domain.Devices.Rng = &v1.Rng{}
 			c.Architecture = arch
+			vmiArchMutate(arch, vmi, c)
 			Expect(vmiToDomainXML(vmi, c)).To(Equal(domain))
 		},
 			Entry("for amd64", "amd64", convertedDomain),
@@ -1417,6 +1421,7 @@ var _ = Describe("Converter", func() {
 			v1.SetObjectDefaults_VirtualMachineInstance(vmi)
 			vmi.Spec.Domain.Devices.Rng = &v1.Rng{}
 			c.Architecture = arch
+			vmiArchMutate(arch, vmi, c)
 			c.MemBalloonStatsPeriod = period
 			Expect(vmiToDomainXML(vmi, c)).To(Equal(domain))
 		},
@@ -1433,6 +1438,7 @@ var _ = Describe("Converter", func() {
 			vmi.Spec.Domain.Devices.Rng = &v1.Rng{}
 			vmi.Spec.Domain.Devices.AutoattachMemBalloon = False()
 			c.Architecture = arch
+			vmiArchMutate(arch, vmi, c)
 			Expect(vmiToDomainXML(vmi, c)).To(Equal(domain))
 		},
 			Entry("when Autoattach memballoon device is false for amd64", "amd64", convertedDomainWithFalseAutoattach),
@@ -1450,6 +1456,7 @@ var _ = Describe("Converter", func() {
 				v1.SetObjectDefaults_VirtualMachineInstance(vmi)
 				vmi.Spec.Domain.Devices.Rng = &v1.Rng{}
 				c.Architecture = "amd64"
+				vmiArchMutate("amd64", vmi, c)
 				spec := vmiToDomain(vmi, c).Spec.DeepCopy()
 				Expect(PlacePCIDevicesOnRootComplex(spec)).To(Succeed())
 				data, err := xml.MarshalIndent(spec, "", "  ")
@@ -3429,4 +3436,20 @@ func True() *bool {
 func False() *bool {
 	b := false
 	return &b
+}
+
+// As the arch specific default disk is set in the mutating webhook, so in some tests,
+// it needs to run the mutate function before verifying converter
+func vmiArchMutate(arch string, vmi *v1.VirtualMachineInstance, c *ConverterContext) {
+	if arch == "arm64" {
+		webhooks.SetVirtualMachineInstanceArm64Defaults(vmi)
+		// bootloader has been initialized in webhooks.SetVirtualMachineInstanceArm64Defaults,
+		// c.EFIConfiguration.SecureLoader is needed in the converter.Convert_v1_VirtualMachineInstance_To_api_Domain.
+		c.EFIConfiguration = &EFIConfiguration{
+			SecureLoader: false,
+		}
+
+	} else {
+		webhooks.SetVirtualMachineInstanceAmd64Defaults(vmi)
+	}
 }
