@@ -22,6 +22,8 @@ import (
 
 	"kubevirt.io/client-go/kubecli"
 
+	"k8s.io/utils/pointer"
+
 	"kubevirt.io/kubevirt/pkg/virtctl/templates"
 	"kubevirt.io/kubevirt/pkg/virtctl/utils"
 )
@@ -54,6 +56,7 @@ var (
 	podName       string
 	root          bool
 	fsGroup       string
+	uid           string
 )
 
 type guestfsCommand struct {
@@ -77,6 +80,7 @@ func NewGuestfsShellCommand(clientConfig clientcmd.ClientConfig) *cobra.Command 
 	cmd.PersistentFlags().StringVar(&pullPolicy, "pull-policy", string(pullPolicyDefault), "pull policy for the libguestfs image")
 	cmd.PersistentFlags().BoolVar(&kvm, "kvm", true, "Use kvm for the libguestfs-tools container")
 	cmd.PersistentFlags().BoolVar(&root, "root", false, "Set uid 0 for the libguestfs-tool container")
+	cmd.PersistentFlags().StringVar(&uid, "uid", "", "Set uid for the libguestfs-tool container. It doesn't work with root")
 	cmd.SetUsageTemplate(templates.UsageTemplate())
 	cmd.PersistentFlags().StringVar(&fsGroup, "fsGroup", "", "Set the fsgroup for the libguestfs-tool container")
 
@@ -386,6 +390,26 @@ func setGroupLibguestfs() (*int64, error) {
 	return nil, nil
 }
 
+// setUIDLibugestfs returns the guestfs uid
+func setUIDLibugestfs() (*int64, error) {
+	switch {
+	case root:
+		var zero int64
+		if uid != "" {
+			return nil, fmt.Errorf("cannot set uid if root is true")
+		}
+		return &zero, nil
+	case uid != "":
+		n, err := strconv.ParseInt(uid, 10, 64)
+		if err != nil {
+			return nil, err
+		}
+		return &n, nil
+	default:
+		return nil, nil
+	}
+}
+
 func createLibguestfsPod(pvc, image, cmd string, args []string, kvm, isBlock bool) (*corev1.Pod, error) {
 	var resources corev1.ResourceRequirements
 	podName = fmt.Sprintf("%s-%s", podNamePrefix, pvc)
@@ -396,12 +420,9 @@ func createLibguestfsPod(pvc, image, cmd string, args []string, kvm, isBlock boo
 			},
 		}
 	}
-	nonRoot := true
-	var uidRoot int64 = 0
-	var uid *int64
-	if root {
-		nonRoot = false
-		uid = &uidRoot
+	u, err := setUIDLibugestfs()
+	if err != nil {
+		return nil, err
 	}
 	g, err := setGroupLibguestfs()
 	if err != nil {
@@ -414,10 +435,9 @@ func createLibguestfsPod(pvc, image, cmd string, args []string, kvm, isBlock boo
 			Drop: []corev1.Capability{"ALL"},
 		},
 	}
-
 	securityContext := &corev1.PodSecurityContext{
-		RunAsNonRoot: &nonRoot,
-		RunAsUser:    uid,
+		RunAsNonRoot: pointer.Bool(!root),
+		RunAsUser:    u,
 		FSGroup:      g,
 		SeccompProfile: &corev1.SeccompProfile{
 			Type: corev1.SeccompProfileTypeRuntimeDefault,
