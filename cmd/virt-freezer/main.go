@@ -82,11 +82,12 @@ func main() {
 		os.Exit(1)
 	}
 
-	log.Log.Infof("Guest agent version is %s", info.GAVersion)
 	if info.GAVersion == "" {
 		log.Log.Info("No guest agent, exiting")
 		os.Exit(0)
 	}
+
+	log.Log.Infof("Guest agent version is %s", info.GAVersion)
 
 	if *freeze {
 		err = client.FreezeVirtualMachine(vmi, *unfreezeTimeoutSeconds)
