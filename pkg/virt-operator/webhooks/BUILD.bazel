@@ -9,6 +9,7 @@ go_library(
     importpath = "kubevirt.io/kubevirt/pkg/virt-operator/webhooks",
     visibility = ["//visibility:public"],
     deps = [
+        "//pkg/util/tls:go_default_library",
         "//pkg/util/webhooks:go_default_library",
         "//pkg/util/webhooks/validating-webhooks:go_default_library",
         "//pkg/virt-config:go_default_library",

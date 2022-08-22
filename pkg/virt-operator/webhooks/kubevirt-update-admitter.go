@@ -23,6 +23,7 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
+
 	kvtls "kubevirt.io/kubevirt/pkg/util/tls"
 
 	virtconfig "kubevirt.io/kubevirt/pkg/virt-config"

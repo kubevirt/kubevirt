@@ -5,6 +5,8 @@ import (
 	"crypto/x509"
 	"fmt"
 
+	"k8s.io/client-go/tools/cache"
+
 	v1 "kubevirt.io/api/core/v1"
 
 	virtconfig "kubevirt.io/kubevirt/pkg/virt-config"
@@ -33,13 +35,14 @@ func SetupPromTLS(certManager certificate.Manager, clusterConfig *virtconfig.Clu
 		GetConfigForClient: func(hi *tls.ClientHelloInfo) (*tls.Config, error) {
 			crt := certManager.Current()
 			if crt == nil {
-				log.Log.Error("failed to get a certificate")
-				return nil, fmt.Errorf("failed to get a certificate")
+				log.Log.Error(noSrvCertMessage)
+				return nil, fmt.Errorf(noSrvCertMessage)
 			}
 
-			tlsConfig := getTLSConfiguration(clusterConfig)
+			kv := clusterConfig.GetConfigFromKubeVirtCR()
+			tlsConfig := getTLSConfiguration(kv)
 			ciphers := CipherSuiteIds(tlsConfig.Ciphers)
-			minTLSVersion := TlsVersion(tlsConfig.MinTLSVersion)
+			minTLSVersion := TLSVersion(tlsConfig.MinTLSVersion)
 			config := &tls.Config{
 				CipherSuites: ciphers,
 				MinVersion:   minTLSVersion,
@@ -54,6 +57,40 @@ func SetupPromTLS(certManager certificate.Manager, clusterConfig *virtconfig.Clu
 	tlsConfig.BuildNameToCertificate()
 	return tlsConfig
 }
+
+func SetupExportProxyTLS(certManager certificate.Manager, kubeVirtInformer cache.SharedIndexInformer) *tls.Config {
+	tlsConfig := &tls.Config{
+		GetCertificate: func(info *tls.ClientHelloInfo) (certificate *tls.Certificate, err error) {
+			cert := certManager.Current()
+			if cert == nil {
+				return nil, fmt.Errorf(noSrvCertMessage)
+			}
+			return cert, nil
+		},
+		GetConfigForClient: func(hi *tls.ClientHelloInfo) (*tls.Config, error) {
+			crt := certManager.Current()
+			if crt == nil {
+				log.Log.Error(noSrvCertMessage)
+				return nil, fmt.Errorf(noSrvCertMessage)
+			}
+
+			kv := getKubevirt(kubeVirtInformer)
+			tlsConfig := getTLSConfiguration(kv)
+			ciphers := CipherSuiteIds(tlsConfig.Ciphers)
+			minTLSVersion := TLSVersion(tlsConfig.MinTLSVersion)
+			config := &tls.Config{
+				CipherSuites: ciphers,
+				MinVersion:   minTLSVersion,
+				Certificates: []tls.Certificate{*crt},
+			}
+
+			config.BuildNameToCertificate()
+			return config, nil
+		},
+	}
+	return tlsConfig
+}
+
 func SetupTLSWithCertManager(caManager ClientCAManager, certManager certificate.Manager, clientAuth tls.ClientAuthType, clusterConfig *virtconfig.ClusterConfig) *tls.Config {
 	tlsConfig := &tls.Config{
 		GetCertificate: func(info *tls.ClientHelloInfo) (certificate *tls.Certificate, err error) {
@@ -75,9 +112,10 @@ func SetupTLSWithCertManager(caManager ClientCAManager, certManager certificate.
 				return nil, err
 			}
 
-			tlsConfig := getTLSConfiguration(clusterConfig)
+			kv := clusterConfig.GetConfigFromKubeVirtCR()
+			tlsConfig := getTLSConfiguration(kv)
 			ciphers := CipherSuiteIds(tlsConfig.Ciphers)
-			minTLSVersion := TlsVersion(tlsConfig.MinTLSVersion)
+			minTLSVersion := TLSVersion(tlsConfig.MinTLSVersion)
 			config := &tls.Config{
 				CipherSuites: ciphers,
 				MinVersion:   minTLSVersion,
@@ -121,9 +159,10 @@ func SetupTLSForVirtHandlerServer(caManager ClientCAManager, certManager certifi
 				return nil, fmt.Errorf(noSrvCertMessage)
 			}
 
-			tlsConfig := getTLSConfiguration(clusterConfig)
+			kv := clusterConfig.GetConfigFromKubeVirtCR()
+			tlsConfig := getTLSConfiguration(kv)
 			ciphers := CipherSuiteIds(tlsConfig.Ciphers)
-			minTLSVersion := TlsVersion(tlsConfig.MinTLSVersion)
+			minTLSVersion := TLSVersion(tlsConfig.MinTLSVersion)
 			config = &tls.Config{
 				CipherSuites: ciphers,
 				MinVersion:   minTLSVersion,
@@ -176,15 +215,14 @@ func SetupTLSForVirtHandlerClients(caManager ClientCAManager, certManager certif
 	}
 }
 
-func getTLSConfiguration(clusterConfig *virtconfig.ClusterConfig) *v1.TLSConfiguration {
+func getTLSConfiguration(kubevirt *v1.KubeVirt) *v1.TLSConfiguration {
 	tlsConfiguration := &v1.TLSConfiguration{
-		MinTLSVersion: "VersionTLS12",
+		MinTLSVersion: v1.VersionTLS12,
 		Ciphers:       nil,
 	}
 
-	kv := clusterConfig.GetConfigFromKubeVirtCR()
-	if kv != nil && kv.Spec.Configuration.TLSConfiguration != nil {
-		tlsConfiguration = kv.Spec.Configuration.TLSConfiguration
+	if kubevirt != nil && kubevirt.Spec.Configuration.TLSConfiguration != nil {
+		tlsConfiguration = kubevirt.Spec.Configuration.TLSConfiguration
 	}
 	return tlsConfiguration
 }
@@ -211,9 +249,9 @@ func CipherSuiteNameMap() map[string]uint16 {
 	return idByName
 }
 
-// TlsVersion converts from human-readable TLS version (for example "1.1")
+// TLSVersion converts from human-readable TLS version (for example "1.1")
 // to the values accepted by tls.Config (for example 0x301).
-func TlsVersion(version v1.TLSProtocolVersion) uint16 {
+func TLSVersion(version v1.TLSProtocolVersion) uint16 {
 	switch version {
 	case v1.VersionTLS10:
 		return tls.VersionTLS10
@@ -228,8 +266,8 @@ func TlsVersion(version v1.TLSProtocolVersion) uint16 {
 	}
 }
 
-// TlsVersionName converts from tls.Config id version to human-readable TLS version.
-func TlsVersionName(versionId uint16) string {
+// TLSVersionName converts from tls.Config id version to human-readable TLS version.
+func TLSVersionName(versionId uint16) string {
 	switch versionId {
 	case tls.VersionTLS10:
 		return string(v1.VersionTLS10)
@@ -288,4 +326,16 @@ func createIntermediatePool(externallyManaged bool, rawIntermediates [][]byte) *
 		}
 	}
 	return intermediatePool
+}
+
+func getKubevirt(kubeVirtInformer cache.SharedIndexInformer) *v1.KubeVirt {
+	objects := kubeVirtInformer.GetStore().List()
+	for _, obj := range objects {
+		if kv, ok := obj.(*v1.KubeVirt); ok && kv.DeletionTimestamp == nil {
+			if kv.Status.Phase != "" {
+				return obj.(*v1.KubeVirt)
+			}
+		}
+	}
+	return nil
 }

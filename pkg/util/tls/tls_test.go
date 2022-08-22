@@ -193,12 +193,11 @@ var _ = Describe("TLS", func() {
 		),
 	)
 
-	It("should allow anonymous TLS connections to prometheus endpoints", func() {
-		serverTLSConfig := kvtls.SetupPromTLS(certmanagers[components.VirtHandlerServerCertSecretName], clusterConfig)
+	DescribeTable("should allow anonymous TLS connections", func(setupTLS func() *tls.Config) {
 		srv := httptest.NewUnstartedServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 			fmt.Fprintln(w, "hello")
 		}))
-		srv.TLS = serverTLSConfig
+		srv.TLS = setupTLS()
 		srv.StartTLS()
 		defer srv.Close()
 		srv.Client()
@@ -208,7 +207,14 @@ var _ = Describe("TLS", func() {
 		body, err := ioutil.ReadAll(resp.Body)
 		Expect(err).ToNot(HaveOccurred())
 		Expect(strings.TrimSpace(string(body))).To(Equal("hello"))
-	})
+	},
+		Entry("to prometheus endopoints", func() *tls.Config {
+			return kvtls.SetupPromTLS(certmanagers[components.VirtHandlerServerCertSecretName], clusterConfig)
+		}),
+		Entry("to exportproxy endpoints", func() *tls.Config {
+			return kvtls.SetupExportProxyTLS(certmanagers[components.VirtHandlerServerCertSecretName], kubeVirtInformer)
+		}),
+	)
 
 	DescribeTable("should verify self-signed client and server certificates", func(serverSecret, clientSecret string, errStr string) {
 		serverTLSConfig := kvtls.SetupTLSWithCertManager(caManager, certmanagers[serverSecret], tls.RequireAndVerifyClientCert, clusterConfig)
@@ -339,6 +345,14 @@ var _ = Describe("TLS", func() {
 		Entry("on prometheus endpoint",
 			func() *tls.Config {
 				return kvtls.SetupPromTLS(certmanagers[components.VirtHandlerServerCertSecretName], clusterConfig)
+			},
+			func() *tls.Config {
+				return &tls.Config{InsecureSkipVerify: true}
+			},
+		),
+		Entry("on exportproxy endpoint",
+			func() *tls.Config {
+				return kvtls.SetupExportProxyTLS(certmanagers[components.VirtHandlerServerCertSecretName], kubeVirtInformer)
 			},
 			func() *tls.Config {
 				return &tls.Config{InsecureSkipVerify: true}
