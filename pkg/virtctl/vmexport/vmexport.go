@@ -64,6 +64,7 @@ const (
 	VM_FLAG       = "--vm"
 	SNAPSHOT_FLAG = "--snapshot"
 	INSECURE_FLAG = "--insecure"
+	KEEP_FLAG     = "--keep-vme"
 	PVC_FLAG      = "--pvc"
 
 	// processingWaitInterval is the time interval used to wait for a virtualMachineExport to be ready
@@ -84,8 +85,6 @@ const (
 	ErrRequiredExportType = "Need to specify export kind when attempting to create a VirtualMachineExport [--pvc|--vm|--snapshot]"
 	// ErrIncompatibleExportType serves as error message when an export kind is provided with an incompatible argument
 	ErrIncompatibleExportType = "Should not specify export kind"
-	// ErrBadExportArguments serves as error message when vmexport is used with bad arguments
-	ErrBadExportArguments = "Expecting two args: vmexport function [create|delete|download] and VirtualMachineExport name"
 
 	// progressBarCycle is a const used to store the cycle displayed in the progress bar when downloading the exported volume
 	progressBarCycle = `"[___________________]" "[==>________________]" "[====>______________]" "[======>____________]" "[========>__________]" "[==========>________]" "[============>______]" "[==============>____]" "[================>__]" "[==================>]"`
@@ -99,6 +98,7 @@ var (
 	outputFile   string
 	shouldCreate bool
 	insecure     bool
+	keepvme      bool
 	volumeName   string
 
 	// vmexport info
@@ -151,7 +151,7 @@ func usage() string {
 	{{ProgramName}} vmexport download vm1-export --volume=volume1 --output=disk.img.gz
   
 	# Create a VirtualMachineExport and download the requested volume from it
-	{{ProgramName}} vmexport download vm1-export --create --volume=volume1 --output=disk.img.gz`
+	{{ProgramName}} vmexport download vm1-export --create --pvc=pvc1 --volume=volume1 --output=disk.img.gz`
 
 	return usage
 }
@@ -162,7 +162,7 @@ func NewVirtualMachineExportCommand(clientConfig clientcmd.ClientConfig) *cobra.
 		Use:     "vmexport",
 		Short:   "Export a VM volume.",
 		Example: usage(),
-		Args:    cobra.MaximumNArgs(2),
+		Args:    templates.ExactArgs("vmexport", 2),
 		RunE: func(cmd *cobra.Command, args []string) error {
 			v := command{clientConfig: clientConfig}
 			return v.run(args)
@@ -175,8 +175,9 @@ func NewVirtualMachineExportCommand(clientConfig clientcmd.ClientConfig) *cobra.
 	cmd.MarkFlagsMutuallyExclusive("vm", "snapshot", "pvc")
 	cmd.Flags().StringVar(&outputFile, "output", "", "Specifies the output path of the volume to be downloaded.")
 	cmd.Flags().StringVar(&volumeName, "volume", "", "Specifies the volume to be downloaded.")
-	cmd.Flags().BoolVar(&shouldCreate, "create", shouldCreate, "When used with the 'download' option, specifies that a VirtualMachineExport should be created from scratch.")
-	cmd.Flags().BoolVar(&insecure, "insecure", insecure, "When used with the 'download' option, specifies that the http request should be insecure.")
+	cmd.Flags().BoolVar(&shouldCreate, "create", false, "When used with the 'download' option, specifies that a VirtualMachineExport should be created from scratch.")
+	cmd.Flags().BoolVar(&insecure, "insecure", false, "When used with the 'download' option, specifies that the http request should be insecure.")
+	cmd.Flags().BoolVar(&keepvme, "keep-vme", false, "When used with the 'download' option, specifies that the vmexport object should not be deleted after the download finishes.")
 	cmd.SetUsageTemplate(templates.UsageTemplate())
 
 	return cmd
@@ -209,10 +210,6 @@ func (c *command) run(args []string) error {
 // 	1. The vmexport function (create|delete|download)
 // 	2. The VirtualMachineExport name
 func parseExportArguments(args []string) error {
-	if len(args) != 2 {
-		return fmt.Errorf(ErrBadExportArguments)
-	}
-
 	funcName = strings.ToLower(args[0])
 
 	// Assign the appropiate vmexport function and make sure the used flags are compatible
@@ -312,7 +309,9 @@ func downloadVirtualMachineExport(client kubecli.KubevirtClient, namespace strin
 		}
 	}
 
-	defer deleteVirtualMachineExport(client, namespace)
+	if !keepvme {
+		defer deleteVirtualMachineExport(client, namespace)
+	}
 
 	// Wait for the vmexport object to be ready
 	if err := waitForVirtualMachineExport(client, namespace, processingWaitInterval, processingWaitTotal); err != nil {
@@ -569,6 +568,9 @@ func handleCreateFlags(args []string) error {
 		if insecure {
 			return fmt.Errorf(ErrIncompatibleFlag, INSECURE_FLAG, funcName)
 		}
+		if keepvme {
+			return fmt.Errorf(ErrIncompatibleFlag, KEEP_FLAG, funcName)
+		}
 	}
 
 	return nil
@@ -591,6 +593,9 @@ func handleDeleteFlags(args []string) error {
 	}
 	if insecure {
 		return fmt.Errorf(ErrIncompatibleFlag, INSECURE_FLAG, funcName)
+	}
+	if keepvme {
+		return fmt.Errorf(ErrIncompatibleFlag, KEEP_FLAG, funcName)
 	}
 
 	return nil
