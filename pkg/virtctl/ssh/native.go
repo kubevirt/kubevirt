@@ -182,7 +182,7 @@ func (o *NativeSSHConnection) StartSession(client *ssh.Client, command string) e
 		return nil
 	}
 
-	restore, err := setupTerminal(int(os.Stdin.Fd()))
+	restore, err := setupTerminal()
 	if err != nil {
 		return err
 	}
@@ -199,32 +199,6 @@ func (o *NativeSSHConnection) StartSession(client *ssh.Client, command string) e
 	if _, exited := err.(*ssh.ExitError); !exited {
 		return err
 	}
-	return nil
-}
-
-func setupTerminal(fd int) (func(), error) {
-	state, err := term.MakeRaw(fd)
-	if err != nil {
-		return nil, err
-	}
-	return func() { term.Restore(fd, state) }, nil
-}
-
-func requestPty(session *ssh.Session) error {
-	w, h, err := term.GetSize(int(os.Stdin.Fd()))
-	if err != nil {
-		return err
-	}
-	if err := session.RequestPty(
-		os.Getenv("TERM"),
-		h, w,
-		ssh.TerminalModes{},
-	); err != nil {
-		return err
-	}
-
-	go resizeSessionOnWindowChange(session, os.Stdin.Fd())
-
 	return nil
 }
 

@@ -6,9 +6,9 @@ go_library(
         "knownhosts.go",
         "native.go",
         "native_unsupported.go",
-        "resize_unix.go",
-        "resize_windows.go",
         "ssh.go",
+        "terminal_unix.go",
+        "terminal_windows.go",
         "wrapped.go",
     ],
     importpath = "kubevirt.io/kubevirt/pkg/virtctl/ssh",
@@ -24,7 +24,12 @@ go_library(
         "//vendor/golang.org/x/crypto/ssh/knownhosts:go_default_library",
         "//vendor/golang.org/x/term:go_default_library",
         "//vendor/k8s.io/client-go/tools/clientcmd:go_default_library",
-    ],
+    ] + select({
+        "@io_bazel_rules_go//go/platform:windows": [
+            "//vendor/golang.org/x/sys/windows:go_default_library",
+        ],
+        "//conditions:default": [],
+    }),
 )
 
 go_test(
