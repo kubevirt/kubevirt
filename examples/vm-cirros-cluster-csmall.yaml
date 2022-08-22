@@ -8,7 +8,7 @@ metadata:
 spec:
   instancetype:
     kind: VirtualMachineClusterInstancetype
-    name: csmall
+    name: cluster-csmall
   running: false
   template:
     metadata:

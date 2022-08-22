@@ -1259,7 +1259,7 @@ func GetVmCirrosClusterInstancetypeComputeSmall() *v1.VirtualMachine {
 	})
 
 	vm.Spec.Instancetype = &v1.InstancetypeMatcher{
-		Name: VirtualMachineInstancetypeComputeSmall,
+		Name: VirtualMachineClusterInstancetypeComputeSmall,
 		Kind: "VirtualMachineClusterInstancetype",
 	}
 
