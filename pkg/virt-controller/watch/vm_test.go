@@ -3558,6 +3558,13 @@ var _ = Describe("VirtualMachine", func() {
 
 			It("should reject the request if a VirtualMachineInstancetype conflicts with the VirtualMachineInstance", func() {
 
+				expectedInstancetypeRevisionName := instancetype.GetRevisionName(vm.Name, f.Name, f.UID, f.Generation)
+				expectedInstancetypeRevision, err := instancetype.CreateInstancetypeControllerRevision(vm, expectedInstancetypeRevisionName, f.TypeMeta.APIVersion, &f.Spec)
+				Expect(err).ToNot(HaveOccurred())
+
+				expectedRevisionNamePatch, err := instancetype.GenerateRevisionNamePatch(expectedInstancetypeRevision, nil)
+				Expect(err).ToNot(HaveOccurred())
+
 				vm.Spec.Instancetype = &v1.InstancetypeMatcher{
 					Name: f.Name,
 					Kind: instancetypeapi.SingularResourceName,
@@ -3570,6 +3577,8 @@ var _ = Describe("VirtualMachine", func() {
 				}
 
 				addVirtualMachine(vm)
+
+				vmInterface.EXPECT().Patch(vm.Name, types.JSONPatchType, expectedRevisionNamePatch, &metav1.PatchOptions{})
 
 				vmInterface.EXPECT().UpdateStatus(gomock.Any()).Times(1).Do(func(obj interface{}) {
 					objVM := obj.(*virtv1.VirtualMachine)

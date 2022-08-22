@@ -491,8 +491,6 @@ var _ = Describe("[crit:medium][vendor:cnv-qe@redhat.com][level:component][sig-c
 			vm, err = virtClient.VirtualMachine(util.NamespaceTestDefault).Create(vm)
 			Expect(err).ToNot(HaveOccurred())
 
-			vm = tests.StartVirtualMachine(vm)
-
 			expectedInstancetypeRevisionName := instancetypepkg.GetRevisionName(vm.Name, instancetype.Name, instancetype.UID, instancetype.Generation)
 			By("Waiting for a VirtualMachineInstancetypeSpec ControllerRevision to be referenced from the VirtualMachine")
 			Eventually(func() string {
@@ -534,6 +532,8 @@ var _ = Describe("[crit:medium][vendor:cnv-qe@redhat.com][level:component][sig-c
 			Expect(json.Unmarshal(stashedPreferenceSpecRevision.Spec, &stashedPreferenceSpec)).To(Succeed())
 			Expect(stashedPreferenceSpec).To(Equal(preference.Spec))
 
+			vm = tests.StartVirtualMachine(vm)
+
 			By("Checking that a VirtualMachineInstance has been created with the VirtualMachineInstancetype and VirtualMachinePreference applied")
 			vmi, err = virtClient.VirtualMachineInstance(util.NamespaceTestDefault).Get(vm.Name, &metav1.GetOptions{})
 			Expect(err).ToNot(HaveOccurred())
@@ -569,8 +569,6 @@ var _ = Describe("[crit:medium][vendor:cnv-qe@redhat.com][level:component][sig-c
 			newVM, err = virtClient.VirtualMachine(util.NamespaceTestDefault).Create(newVM)
 			Expect(err).ToNot(HaveOccurred())
 
-			newVM = tests.StartVirtualMachine(newVM)
-
 			By("Waiting for a VirtualMachineInstancetypeSpec ControllerRevision to be referenced from the new VirtualMachine")
 			Eventually(func() string {
 				newVM, err = virtClient.VirtualMachine(newVM.Namespace).Get(newVM.Name, &metav1.GetOptions{})
@@ -594,6 +592,8 @@ var _ = Describe("[crit:medium][vendor:cnv-qe@redhat.com][level:component][sig-c
 			Expect(stashedInstancetypeSpecRevision.APIVersion).To(Equal(updatedInstancetype.APIVersion))
 			Expect(json.Unmarshal(stashedInstancetypeSpecRevision.Spec, &stashedInstancetypeSpec)).To(Succeed())
 			Expect(stashedInstancetypeSpec).To(Equal(updatedInstancetype.Spec))
+
+			newVM = tests.StartVirtualMachine(newVM)
 
 			By("Checking that the new VirtualMachineInstance is using the updated VirtualMachineInstancetype")
 			newVMI, err = virtClient.VirtualMachineInstance(util.NamespaceTestDefault).Get(newVM.Name, &metav1.GetOptions{})
