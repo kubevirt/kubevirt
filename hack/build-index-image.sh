@@ -42,6 +42,7 @@ function create_index_image() {
   # unalignment between cached index image and fetched bundle image.
   BUNDLE_IMAGE_NAME=$("${PROJECT_ROOT}/tools/digester/digester" --image "${BUNDLE_IMAGE_NAME}")
 
+  mkdir -p "${OUT_DIR}"
   (cd "${OUT_DIR}" && create_file_based_catalog)
 
   podman push "${INDEX_IMAGE_NAME}"
