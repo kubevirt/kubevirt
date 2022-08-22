@@ -19,7 +19,6 @@
 package export
 
 import (
-	"context"
 	"crypto/tls"
 	"encoding/pem"
 	"fmt"
@@ -34,7 +33,6 @@ import (
 	. "github.com/onsi/gomega"
 	routev1 "github.com/openshift/api/route/v1"
 	"k8s.io/apimachinery/pkg/api/errors"
-	"k8s.io/apimachinery/pkg/api/resource"
 	"k8s.io/apimachinery/pkg/runtime/schema"
 	"k8s.io/utils/pointer"
 
@@ -69,11 +67,7 @@ import (
 )
 
 const (
-	testNamespace          = "default"
-	testPVCName            = "test-pvc"
-	testVmsnapshotName     = "test-vmsnapshot"
-	testVmName             = "test-vm"
-	testVolumesnapshotName = "test-snapshot"
+	testNamespace = "default"
 )
 
 var (
@@ -244,18 +238,6 @@ var _ = Describe("Export controller", func() {
 
 	var expectedPem = generateExpectedCert()
 
-	createExporterPod := func(name string, phase k8sv1.PodPhase) *k8sv1.Pod {
-		return &k8sv1.Pod{
-			ObjectMeta: metav1.ObjectMeta{
-				Name:      name,
-				Namespace: testNamespace,
-			},
-			Status: k8sv1.PodStatus{
-				Phase: phase,
-			},
-		}
-	}
-
 	generateRouteCert := func() string {
 		key, err := certutil.NewPrivateKey()
 		Expect(err).ToNot(HaveOccurred())
@@ -355,126 +337,6 @@ var _ = Describe("Export controller", func() {
 						Host: "rule-host",
 					},
 				},
-			},
-		}
-	}
-
-	routeToHostAndService := func(serviceName string) *routev1.Route {
-		return &routev1.Route{
-			Spec: routev1.RouteSpec{
-				To: routev1.RouteTargetReference{
-					Name: serviceName,
-				},
-			},
-			Status: routev1.RouteStatus{
-				Ingress: []routev1.RouteIngress{
-					{
-						Host: fmt.Sprintf("%s-kubevirt.apps-crc.testing", components.VirtExportProxyServiceName),
-					},
-				},
-			},
-		}
-	}
-
-	routeToHostAndNoIngress := func() *routev1.Route {
-		return &routev1.Route{
-			Spec: routev1.RouteSpec{
-				To: routev1.RouteTargetReference{
-					Name: components.VirtExportProxyServiceName,
-				},
-			},
-			Status: routev1.RouteStatus{
-				Ingress: []routev1.RouteIngress{},
-			},
-		}
-	}
-
-	verifyLinksInternal := func(vmExport *exportv1.VirtualMachineExport, expectedVolumeFormats ...exportv1.VirtualMachineExportVolumeFormat) {
-		Expect(vmExport.Status).ToNot(BeNil())
-		Expect(vmExport.Status.Links).ToNot(BeNil())
-		Expect(vmExport.Status.Links.Internal).NotTo(BeNil())
-		Expect(vmExport.Status.Links.Internal.Cert).NotTo(BeEmpty())
-		Expect(vmExport.Status.Links.Internal.Volumes).To(HaveLen(len(expectedVolumeFormats) / 2))
-		for _, volume := range vmExport.Status.Links.Internal.Volumes {
-			Expect(volume.Formats).To(HaveLen(2))
-			Expect(expectedVolumeFormats).To(ContainElements(volume.Formats))
-		}
-	}
-
-	verifyLinksExternal := func(vmExport *exportv1.VirtualMachineExport, link1Format exportv1.ExportVolumeFormat, link1Url string, link2Format exportv1.ExportVolumeFormat, link2Url string) {
-		Expect(vmExport.Status.Links.External).ToNot(BeNil())
-		Expect(vmExport.Status.Links.External.Cert).To(BeEmpty())
-		Expect(vmExport.Status.Links.External.Volumes).To(HaveLen(1))
-		Expect(vmExport.Status.Links.External.Volumes[0].Formats).To(HaveLen(2))
-		Expect(vmExport.Status.Links.External.Volumes[0].Formats).To(ContainElements(exportv1.VirtualMachineExportVolumeFormat{
-			Format: link1Format,
-			Url:    link1Url,
-		}, exportv1.VirtualMachineExportVolumeFormat{
-			Format: link2Format,
-			Url:    link2Url,
-		}))
-	}
-
-	verifyLinksEmpty := func(vmExport *exportv1.VirtualMachineExport) {
-		Expect(vmExport.Status).ToNot(BeNil())
-		Expect(vmExport.Status.Links).ToNot(BeNil())
-		Expect(vmExport.Status.Links.Internal).To(BeNil())
-		Expect(vmExport.Status.Links.External).To(BeNil())
-	}
-
-	verifyKubevirtInternal := func(vmExport *exportv1.VirtualMachineExport, exportName, namespace string, volumeNames ...string) {
-		exportVolumeFormats := make([]exportv1.VirtualMachineExportVolumeFormat, 0)
-		for _, volumeName := range volumeNames {
-			exportVolumeFormats = append(exportVolumeFormats, exportv1.VirtualMachineExportVolumeFormat{
-				Format: exportv1.KubeVirtRaw,
-				Url:    fmt.Sprintf("https://%s.%s.svc/volumes/%s/disk.img", fmt.Sprintf("%s-%s", exportPrefix, exportName), namespace, volumeName),
-			})
-			exportVolumeFormats = append(exportVolumeFormats, exportv1.VirtualMachineExportVolumeFormat{
-				Format: exportv1.KubeVirtGz,
-				Url:    fmt.Sprintf("https://%s.%s.svc/volumes/%s/disk.img.gz", fmt.Sprintf("%s-%s", exportPrefix, exportName), namespace, volumeName),
-			})
-		}
-		verifyLinksInternal(vmExport, exportVolumeFormats...)
-	}
-
-	verifyKubevirtExternal := func(vmExport *exportv1.VirtualMachineExport, exportName, namespace, volumeName string) {
-		verifyLinksExternal(vmExport,
-			exportv1.KubeVirtRaw,
-			fmt.Sprintf("https://virt-exportproxy-kubevirt.apps-crc.testing/api/export.kubevirt.io/v1alpha1/namespaces/%s/virtualmachineexports/%s/volumes/%s/disk.img", namespace, exportName, volumeName),
-			exportv1.KubeVirtGz,
-			fmt.Sprintf("https://virt-exportproxy-kubevirt.apps-crc.testing/api/export.kubevirt.io/v1alpha1/namespaces/%s/virtualmachineexports/%s/volumes/%s/disk.img.gz", namespace, exportName, volumeName))
-	}
-
-	verifyArchiveInternal := func(vmExport *exportv1.VirtualMachineExport, exportName, namespace, volumeName string) {
-		verifyLinksInternal(vmExport,
-			exportv1.VirtualMachineExportVolumeFormat{
-				Format: exportv1.Dir,
-				Url:    fmt.Sprintf("https://%s.%s.svc/volumes/%s/dir", fmt.Sprintf("%s-%s", exportPrefix, exportName), namespace, volumeName),
-			}, exportv1.VirtualMachineExportVolumeFormat{
-				Format: exportv1.ArchiveGz,
-				Url:    fmt.Sprintf("https://%s.%s.svc/volumes/%s/disk.tar.gz", fmt.Sprintf("%s-%s", exportPrefix, exportName), namespace, volumeName),
-			})
-	}
-
-	verifyArchiveExternal := func(vmExport *exportv1.VirtualMachineExport, exportName, namespace, volumeName string) {
-		verifyLinksExternal(vmExport,
-			exportv1.Dir,
-			fmt.Sprintf("https://virt-exportproxy-kubevirt.apps-crc.testing/api/export.kubevirt.io/v1alpha1/namespaces/%s/virtualmachineexports/%s/volumes/%s/dir", namespace, exportName, volumeName),
-			exportv1.ArchiveGz,
-			fmt.Sprintf("https://virt-exportproxy-kubevirt.apps-crc.testing/api/export.kubevirt.io/v1alpha1/namespaces/%s/virtualmachineexports/%s/volumes/%s/disk.tar.gz", namespace, exportName, volumeName))
-	}
-
-	createPVC := func(name, contentType string) *k8sv1.PersistentVolumeClaim {
-		return &k8sv1.PersistentVolumeClaim{
-			ObjectMeta: metav1.ObjectMeta{
-				Name:      name,
-				Namespace: testNamespace,
-				Annotations: map[string]string{
-					annContentType: contentType,
-				},
-			},
-			Status: k8sv1.PersistentVolumeClaimStatus{
-				Phase: k8sv1.ClaimBound,
 			},
 		}
 	}
@@ -893,964 +755,6 @@ var _ = Describe("Export controller", func() {
 		Entry("PersistentVolumeClaim kind VMSnapshot apigroup", "PersistentVolumeClaim", snapshotv1.SchemeGroupVersion.Group),
 	)
 
-	Context("PersistentVolumeClaim export", func() {
-		It("Should properly update VMExport status with a valid token and no pvc", func() {
-			testVMExport := createPVCVMExport()
-			expectExporterCreate(k8sClient, k8sv1.PodRunning)
-			vmExportClient.Fake.PrependReactor("update", "virtualmachineexports", func(action testing.Action) (handled bool, obj runtime.Object, err error) {
-				update, ok := action.(testing.UpdateAction)
-				Expect(ok).To(BeTrue())
-				vmExport, ok := update.GetObject().(*exportv1.VirtualMachineExport)
-				Expect(ok).To(BeTrue())
-				verifyLinksEmpty(vmExport)
-				return true, vmExport, nil
-			})
-
-			retry, err := controller.updateVMExport(testVMExport)
-			Expect(err).ToNot(HaveOccurred())
-			Expect(retry).To(BeEquivalentTo(0))
-			service, err := k8sClient.CoreV1().Services(testNamespace).Get(context.Background(), fmt.Sprintf("%s-%s", exportPrefix, testVMExport.Name), metav1.GetOptions{})
-			Expect(err).ToNot(HaveOccurred())
-			Expect(service.Name).To(Equal(fmt.Sprintf("%s-%s", exportPrefix, testVMExport.Name)))
-		})
-
-		It("Should properly update VMExport status with a valid token and archive pvc no route", func() {
-			testVMExport := createPVCVMExport()
-			Expect(pvcInformer.GetStore().Add(createPVC(testPVCName, "archive"))).To(Succeed())
-			expectExporterCreate(k8sClient, k8sv1.PodRunning)
-			vmExportClient.Fake.PrependReactor("update", "virtualmachineexports", func(action testing.Action) (handled bool, obj runtime.Object, err error) {
-				update, ok := action.(testing.UpdateAction)
-				Expect(ok).To(BeTrue())
-				vmExport, ok := update.GetObject().(*exportv1.VirtualMachineExport)
-				Expect(ok).To(BeTrue())
-				Expect(vmExport.Status).ToNot(BeNil())
-				Expect(vmExport.Status.Links).ToNot(BeNil())
-				Expect(vmExport.Status.Links.External).To(BeNil())
-				verifyArchiveInternal(vmExport, vmExport.Name, testNamespace, testVMExport.Spec.Source.Name)
-				return true, vmExport, nil
-			})
-			retry, err := controller.updateVMExport(testVMExport)
-			Expect(err).ToNot(HaveOccurred())
-			Expect(retry).To(BeEquivalentTo(0))
-			service, err := k8sClient.CoreV1().Services(testNamespace).Get(context.Background(), fmt.Sprintf("%s-%s", exportPrefix, testVMExport.Name), metav1.GetOptions{})
-			Expect(err).ToNot(HaveOccurred())
-			Expect(service.Name).To(Equal(fmt.Sprintf("%s-%s", exportPrefix, testVMExport.Name)))
-		})
-
-		It("Should properly update VMExport status with a valid token and kubevirt pvc with route", func() {
-			testVMExport := createPVCVMExport()
-			Expect(pvcInformer.GetStore().Add(createPVC(testPVCName, "kubevirt"))).To(Succeed())
-			expectExporterCreate(k8sClient, k8sv1.PodRunning)
-			Expect(
-				controller.RouteCache.Add(routeToHostAndService(components.VirtExportProxyServiceName))).To(Succeed())
-
-			vmExportClient.Fake.PrependReactor("update", "virtualmachineexports", func(action testing.Action) (handled bool, obj runtime.Object, err error) {
-				update, ok := action.(testing.UpdateAction)
-				Expect(ok).To(BeTrue())
-				vmExport, ok := update.GetObject().(*exportv1.VirtualMachineExport)
-				Expect(ok).To(BeTrue())
-				verifyKubevirtInternal(vmExport, vmExport.Name, testNamespace, testVMExport.Spec.Source.Name)
-				verifyKubevirtExternal(vmExport, vmExport.Name, testNamespace, testVMExport.Spec.Source.Name)
-				return true, vmExport, nil
-			})
-			retry, err := controller.updateVMExport(testVMExport)
-			Expect(err).ToNot(HaveOccurred())
-			Expect(retry).To(BeEquivalentTo(0))
-			service, err := k8sClient.CoreV1().Services(testNamespace).Get(context.Background(), fmt.Sprintf("%s-%s", exportPrefix, testVMExport.Name), metav1.GetOptions{})
-			Expect(err).ToNot(HaveOccurred())
-			Expect(service.Name).To(Equal(fmt.Sprintf("%s-%s", exportPrefix, testVMExport.Name)))
-		})
-
-		It("Should properly update VMExport status with a valid token and no pvc, pending pod", func() {
-			testVMExport := createPVCVMExport()
-			expectExporterCreate(k8sClient, k8sv1.PodPending)
-			vmExportClient.Fake.PrependReactor("update", "virtualmachineexports", func(action testing.Action) (handled bool, obj runtime.Object, err error) {
-				update, ok := action.(testing.UpdateAction)
-				Expect(ok).To(BeTrue())
-				vmExport, ok := update.GetObject().(*exportv1.VirtualMachineExport)
-				Expect(ok).To(BeTrue())
-				verifyLinksEmpty(vmExport)
-				return true, vmExport, nil
-			})
-			retry, err := controller.updateVMExport(testVMExport)
-			Expect(err).ToNot(HaveOccurred())
-			Expect(retry).To(BeEquivalentTo(0))
-			service, err := k8sClient.CoreV1().Services(testNamespace).Get(context.Background(), fmt.Sprintf("%s-%s", exportPrefix, testVMExport.Name), metav1.GetOptions{})
-			Expect(err).ToNot(HaveOccurred())
-			Expect(service.Name).To(Equal(fmt.Sprintf("%s-%s", exportPrefix, testVMExport.Name)))
-		})
-
-		It("Should retry if PVC is in use by other pod", func() {
-			testVMExport := createPVCVMExport()
-			pod := &k8sv1.Pod{
-				ObjectMeta: metav1.ObjectMeta{
-					Name:      "inuse-pod",
-					Namespace: testNamespace,
-				},
-				Spec: k8sv1.PodSpec{
-					Volumes: []k8sv1.Volume{
-						{
-							VolumeSource: k8sv1.VolumeSource{
-								PersistentVolumeClaim: &k8sv1.PersistentVolumeClaimVolumeSource{
-									ClaimName: testPVCName,
-								},
-							},
-						},
-					},
-				},
-			}
-			pvc := &k8sv1.PersistentVolumeClaim{
-				ObjectMeta: metav1.ObjectMeta{
-					Name:      testPVCName,
-					Namespace: testNamespace,
-				},
-				Status: k8sv1.PersistentVolumeClaimStatus{
-					Phase: k8sv1.ClaimBound,
-				},
-			}
-			vmExportClient.Fake.PrependReactor("update", "virtualmachineexports", func(action testing.Action) (handled bool, obj runtime.Object, err error) {
-				update, ok := action.(testing.UpdateAction)
-				Expect(ok).To(BeTrue())
-				vmExport, ok := update.GetObject().(*exportv1.VirtualMachineExport)
-				Expect(ok).To(BeTrue())
-				verifyLinksEmpty(vmExport)
-				return true, vmExport, nil
-			})
-			Expect(controller.PodInformer.GetStore().Add(pod)).To(Succeed())
-			Expect(controller.PVCInformer.GetStore().Add(pvc)).To(Succeed())
-			retry, err := controller.updateVMExport(testVMExport)
-			Expect(err).ToNot(HaveOccurred())
-			Expect(retry).To(BeEquivalentTo(requeueTime))
-			service, err := k8sClient.CoreV1().Services(testNamespace).Get(context.Background(), fmt.Sprintf("%s-%s", exportPrefix, testVMExport.Name), metav1.GetOptions{})
-			Expect(err).ToNot(HaveOccurred())
-			Expect(service.Name).To(Equal(fmt.Sprintf("%s-%s", exportPrefix, testVMExport.Name)))
-		})
-
-		DescribeTable("should detect content type properly", func(key, contentType string, expectedRes bool) {
-			pvc := &k8sv1.PersistentVolumeClaim{
-				ObjectMeta: metav1.ObjectMeta{
-					Annotations: map[string]string{
-						key: contentType,
-					},
-				},
-			}
-			res := controller.isKubevirtContentType(pvc)
-			Expect(res).To(Equal(expectedRes))
-		},
-			Entry("missing content-type", "something", "something", false),
-			Entry("blank content-type", annContentType, "", true),
-			Entry("kubevirt content-type", annContentType, string(cdiv1.DataVolumeKubeVirt), true),
-			Entry("archive content-type", annContentType, string(cdiv1.DataVolumeArchive), false),
-		)
-
-		DescribeTable("should detect kubevirt content type if a datavolume exists that is kubevirt", func(contentType cdiv1.DataVolumeContentType, expected bool) {
-			dv := &cdiv1.DataVolume{
-				ObjectMeta: metav1.ObjectMeta{
-					Name:      "test-dv",
-					Namespace: testNamespace,
-				},
-				Spec: cdiv1.DataVolumeSpec{
-					ContentType: contentType,
-				},
-			}
-			Expect(controller.DataVolumeInformer.GetStore().Add(dv)).To(Succeed())
-			pvc := &k8sv1.PersistentVolumeClaim{
-				ObjectMeta: metav1.ObjectMeta{
-					Name:      "test-dv",
-					Namespace: testNamespace,
-					OwnerReferences: []metav1.OwnerReference{
-						*metav1.NewControllerRef(dv, schema.GroupVersionKind{
-							Group:   cdiv1.SchemeGroupVersion.Group,
-							Version: cdiv1.SchemeGroupVersion.Version,
-							Kind:    "DataVolume",
-						}),
-					},
-				},
-			}
-			res := controller.isKubevirtContentType(pvc)
-			Expect(res).To(Equal(expected))
-		},
-			Entry("missing content-type", cdiv1.DataVolumeContentType(""), true),
-			Entry("content-type kubevirt", cdiv1.DataVolumeKubeVirt, true),
-			Entry("content-type archive", cdiv1.DataVolumeArchive, false),
-		)
-
-		DescribeTable("should create proper condition from PVC", func(phase k8sv1.PersistentVolumeClaimPhase, status k8sv1.ConditionStatus, reason, message string) {
-			pvc := &k8sv1.PersistentVolumeClaim{
-				Status: k8sv1.PersistentVolumeClaimStatus{
-					Phase: phase,
-				},
-			}
-			expectedCond := newPvcCondition(status, reason, message)
-			condRes := controller.pvcConditionFromPVC([]*k8sv1.PersistentVolumeClaim{pvc})
-			Expect(condRes.Type).To(Equal(expectedCond.Type))
-			Expect(condRes.Status).To(Equal(expectedCond.Status))
-			Expect(condRes.Reason).To(Equal(expectedCond.Reason))
-			Expect(condRes.Message).To(Equal(message))
-		},
-			Entry("PVC bound", k8sv1.ClaimBound, k8sv1.ConditionTrue, pvcBoundReason, ""),
-			Entry("PVC claim lost", k8sv1.ClaimLost, k8sv1.ConditionFalse, unknownReason, ""),
-			Entry("PVC pending", k8sv1.ClaimPending, k8sv1.ConditionFalse, pvcPendingReason, ""),
-		)
-	})
-
-	Context("VMSnapshot export", func() {
-		createTestVMSnapshot := func(ready bool) *snapshotv1.VirtualMachineSnapshot {
-			return &snapshotv1.VirtualMachineSnapshot{
-				ObjectMeta: metav1.ObjectMeta{
-					Name:      testVmsnapshotName,
-					Namespace: testNamespace,
-				},
-				Spec: snapshotv1.VirtualMachineSnapshotSpec{},
-				Status: &snapshotv1.VirtualMachineSnapshotStatus{
-					VirtualMachineSnapshotContentName: pointer.StringPtr("snapshot-content"),
-					ReadyToUse:                        pointer.BoolPtr(ready),
-				},
-			}
-		}
-
-		createTestVMSnapshotContent := func(name string) *snapshotv1.VirtualMachineSnapshotContent {
-			return &snapshotv1.VirtualMachineSnapshotContent{
-				ObjectMeta: metav1.ObjectMeta{
-					Name:      name,
-					Namespace: testNamespace,
-				},
-				Spec: snapshotv1.VirtualMachineSnapshotContentSpec{
-					VolumeBackups: []snapshotv1.VolumeBackup{
-						{
-							VolumeName: "test-volume",
-							PersistentVolumeClaim: snapshotv1.PersistentVolumeClaim{
-								ObjectMeta: metav1.ObjectMeta{
-									Name: "test-snapshot",
-								},
-								Spec: k8sv1.PersistentVolumeClaimSpec{
-									Resources: k8sv1.ResourceRequirements{
-										Requests: k8sv1.ResourceList{},
-									},
-								},
-							},
-							VolumeSnapshotName: pointer.StringPtr(testVolumesnapshotName),
-						},
-					},
-					Source: snapshotv1.SourceSpec{
-						VirtualMachine: &snapshotv1.VirtualMachine{
-							Spec: virtv1.VirtualMachineSpec{
-								Template: &virtv1.VirtualMachineInstanceTemplateSpec{
-									Spec: virtv1.VirtualMachineInstanceSpec{
-										Volumes: []virtv1.Volume{
-											{
-												Name: "test-volume",
-												VolumeSource: virtv1.VolumeSource{
-													DataVolume: &virtv1.DataVolumeSource{},
-												},
-											},
-										},
-									},
-								},
-							},
-						},
-					},
-				},
-				Status: &snapshotv1.VirtualMachineSnapshotContentStatus{
-					VolumeSnapshotStatus: []snapshotv1.VolumeSnapshotStatus{
-						{
-							VolumeSnapshotName: testVolumesnapshotName,
-							ReadyToUse:         pointer.BoolPtr(true),
-						},
-					},
-				},
-			}
-		}
-
-		createTestVMSnapshotContentNoVolumes := func(name string) *snapshotv1.VirtualMachineSnapshotContent {
-			return &snapshotv1.VirtualMachineSnapshotContent{
-				ObjectMeta: metav1.ObjectMeta{
-					Name:      name,
-					Namespace: testNamespace,
-				},
-				Spec: snapshotv1.VirtualMachineSnapshotContentSpec{
-					VolumeBackups: []snapshotv1.VolumeBackup{},
-					Source: snapshotv1.SourceSpec{
-						VirtualMachine: &snapshotv1.VirtualMachine{
-							Spec: virtv1.VirtualMachineSpec{
-								Template: &virtv1.VirtualMachineInstanceTemplateSpec{
-									Spec: virtv1.VirtualMachineInstanceSpec{
-										Volumes: []virtv1.Volume{
-											{
-												Name: "test-volume",
-												VolumeSource: virtv1.VolumeSource{
-													DataVolume: &virtv1.DataVolumeSource{},
-												},
-											},
-										},
-									},
-								},
-							},
-						},
-					},
-				},
-				Status: &snapshotv1.VirtualMachineSnapshotContentStatus{
-					VolumeSnapshotStatus: []snapshotv1.VolumeSnapshotStatus{},
-				},
-			}
-		}
-
-		createTestVolumeSnapshot := func(name string) *vsv1.VolumeSnapshot {
-			size := resource.MustParse("1Gi")
-			return &vsv1.VolumeSnapshot{
-				ObjectMeta: metav1.ObjectMeta{
-					Name:      name,
-					Namespace: testNamespace,
-				},
-				Spec: vsv1.VolumeSnapshotSpec{},
-				Status: &vsv1.VolumeSnapshotStatus{
-					RestoreSize: &size,
-				},
-			}
-		}
-
-		createRestoredPVC := func(name string) *k8sv1.PersistentVolumeClaim {
-			return &k8sv1.PersistentVolumeClaim{
-				ObjectMeta: metav1.ObjectMeta{
-					Name:      name,
-					Namespace: testNamespace,
-				},
-				Spec: k8sv1.PersistentVolumeClaimSpec{
-					Resources: k8sv1.ResourceRequirements{
-						Requests: k8sv1.ResourceList{
-							k8sv1.ResourceStorage: resource.MustParse("1Gi"),
-						},
-					},
-					DataSource: &k8sv1.TypedLocalObjectReference{
-						APIGroup: pointer.StringPtr(vsv1.GroupName),
-						Kind:     "VolumeSnapshot",
-						Name:     testVolumesnapshotName,
-					},
-				},
-				Status: k8sv1.PersistentVolumeClaimStatus{
-					Phase: k8sv1.ClaimBound,
-				},
-			}
-		}
-
-		It("Should properly update VMExport status with a valid token and no VMSnapshot", func() {
-			testVMExport := createSnapshotVMExport()
-			vmExportClient.Fake.PrependReactor("update", "virtualmachineexports", func(action testing.Action) (handled bool, obj runtime.Object, err error) {
-				update, ok := action.(testing.UpdateAction)
-				Expect(ok).To(BeTrue())
-				vmExport, ok := update.GetObject().(*exportv1.VirtualMachineExport)
-				Expect(ok).To(BeTrue())
-				verifyLinksEmpty(vmExport)
-				for _, condition := range vmExport.Status.Conditions {
-					if condition.Type == exportv1.ConditionReady {
-						Expect(condition.Status).To(Equal(k8sv1.ConditionFalse))
-						Expect(condition.Reason).To(Equal(initializingReason))
-						Expect(condition.Message).To(Equal(""))
-					}
-					if condition.Type == exportv1.ConditionVolumesCreated {
-						Expect(condition.Status).To(Equal(k8sv1.ConditionFalse))
-						Expect(condition.Reason).To(Equal(noVolumeSnapshotReason))
-						Expect(condition.Message).To(Equal(fmt.Sprintf("VirtualMachineSnapshot %s/%s does not contain any volume snapshots", vmExport.Namespace, vmExport.Spec.Source.Name)))
-					}
-				}
-				return true, vmExport, nil
-			})
-
-			retry, err := controller.updateVMExport(testVMExport)
-			Expect(err).ToNot(HaveOccurred())
-			Expect(retry).To(BeEquivalentTo(0))
-			service, err := k8sClient.CoreV1().Services(testNamespace).Get(context.Background(), fmt.Sprintf("%s-%s", exportPrefix, testVMExport.Name), metav1.GetOptions{})
-			Expect(err).ToNot(HaveOccurred())
-			Expect(service.Name).To(Equal(fmt.Sprintf("%s-%s", exportPrefix, testVMExport.Name)))
-		})
-
-		It("Should properly update VMExport status with a valid token with VMSnapshot without volumes", func() {
-			testVMExport := createSnapshotVMExport()
-			vmExportClient.Fake.PrependReactor("update", "virtualmachineexports", func(action testing.Action) (handled bool, obj runtime.Object, err error) {
-				update, ok := action.(testing.UpdateAction)
-				Expect(ok).To(BeTrue())
-				vmExport, ok := update.GetObject().(*exportv1.VirtualMachineExport)
-				Expect(ok).To(BeTrue())
-				verifyLinksEmpty(vmExport)
-				volumeCreateConditionSet := false
-				for _, condition := range vmExport.Status.Conditions {
-					if condition.Type == exportv1.ConditionReady {
-						Expect(condition.Status).To(Equal(k8sv1.ConditionFalse))
-						Expect(condition.Reason).To(Equal(initializingReason))
-						Expect(condition.Message).To(Equal(""))
-					}
-					if condition.Type == exportv1.ConditionVolumesCreated {
-						volumeCreateConditionSet = true
-						Expect(condition.Status).To(Equal(k8sv1.ConditionFalse))
-						Expect(condition.Reason).To(Equal(noVolumeSnapshotReason))
-						Expect(condition.Message).To(Equal(fmt.Sprintf("VirtualMachineSnapshot %s/%s does not contain any volume snapshots", vmExport.Namespace, vmExport.Spec.Source.Name)))
-					}
-				}
-				Expect(volumeCreateConditionSet).To(BeTrue())
-				Expect(vmExport.Status.Phase).To(Equal(exportv1.Skipped))
-				return true, vmExport, nil
-			})
-			Expect(vmSnapshotInformer.GetStore().Add(createTestVMSnapshot(true))).To(Succeed())
-			Expect(
-				vmSnapshotContentInformer.GetStore().Add(createTestVMSnapshotContentNoVolumes("snapshot-content")),
-			).To(Succeed())
-			retry, err := controller.updateVMExport(testVMExport)
-			Expect(err).ToNot(HaveOccurred())
-			Expect(retry).To(BeEquivalentTo(0))
-			service, err := k8sClient.CoreV1().Services(testNamespace).Get(context.Background(), fmt.Sprintf("%s-%s", exportPrefix, testVMExport.Name), metav1.GetOptions{})
-			Expect(err).ToNot(HaveOccurred())
-			Expect(service.Name).To(Equal(fmt.Sprintf("%s-%s", exportPrefix, testVMExport.Name)))
-		})
-
-		It("Should create restored PVCs from VMSnapshot", func() {
-			testVMExport := createSnapshotVMExport()
-			vmExportClient.Fake.PrependReactor("update", "virtualmachineexports", func(action testing.Action) (handled bool, obj runtime.Object, err error) {
-				update, ok := action.(testing.UpdateAction)
-				Expect(ok).To(BeTrue())
-				vmExport, ok := update.GetObject().(*exportv1.VirtualMachineExport)
-				Expect(ok).To(BeTrue())
-				verifyLinksEmpty(vmExport)
-				volumeCreateConditionSet := false
-				for _, condition := range vmExport.Status.Conditions {
-					if condition.Type == exportv1.ConditionReady {
-						Expect(condition.Status).To(Equal(k8sv1.ConditionFalse))
-						Expect(condition.Reason).To(Equal(podPendingReason))
-						Expect(condition.Message).To(Equal(""))
-					}
-					if condition.Type == exportv1.ConditionVolumesCreated {
-						volumeCreateConditionSet = true
-						Expect(condition.Status).To(Equal(k8sv1.ConditionFalse))
-						Expect(condition.Reason).To(Equal(notAllPVCsReady))
-						Expect(condition.Message).To(Equal("Not all PVCs are ready"))
-					}
-				}
-				Expect(volumeCreateConditionSet).To(BeTrue())
-				Expect(vmExport.Status.Phase).To(Equal(exportv1.Pending))
-				return true, vmExport, nil
-			})
-
-			k8sClient.Fake.PrependReactor("create", "persistentvolumeclaims", func(action testing.Action) (handled bool, obj runtime.Object, err error) {
-				create, ok := action.(testing.CreateAction)
-				Expect(ok).To(BeTrue())
-				pvc, ok := create.GetObject().(*k8sv1.PersistentVolumeClaim)
-				Expect(ok).To(BeTrue())
-				Expect(pvc.Name).To(Equal("test-test-snapshot"))
-				Expect(pvc.Spec.DataSource).ToNot(BeNil())
-				Expect(pvc.Spec.Resources.Requests).ToNot(BeEmpty())
-				Expect(pvc.Spec.Resources.Requests[k8sv1.ResourceStorage]).To(Equal(resource.MustParse("1Gi")))
-				Expect(pvc.Spec.DataSource).To(Equal(&k8sv1.TypedLocalObjectReference{
-					APIGroup: pointer.StringPtr(vsv1.GroupName),
-					Kind:     "VolumeSnapshot",
-					Name:     testVolumesnapshotName,
-				}))
-				By("Ensuring the PVC is owned by the vmExport")
-				Expect(pvc.OwnerReferences).To(HaveLen(1))
-				Expect(pvc.OwnerReferences[0]).To(Equal(metav1.OwnerReference{
-					APIVersion:         apiVersion,
-					Kind:               "VirtualMachineExport",
-					Name:               testVMExport.Name,
-					UID:                testVMExport.UID,
-					Controller:         pointer.BoolPtr(true),
-					BlockOwnerDeletion: pointer.BoolPtr(true),
-				}))
-				return true, pvc, nil
-			})
-			expectExporterCreate(k8sClient, k8sv1.PodPending)
-
-			Expect(vmSnapshotInformer.GetStore().Add(createTestVMSnapshot(true))).To(Succeed())
-			Expect(
-				vmSnapshotContentInformer.GetStore().Add(createTestVMSnapshotContent("snapshot-content")),
-			).To(Succeed())
-			fakeVolumeSnapshotProvider.Add(createTestVolumeSnapshot(testVolumesnapshotName))
-			retry, err := controller.updateVMExport(testVMExport)
-			Expect(err).ToNot(HaveOccurred())
-			Expect(retry).To(BeEquivalentTo(0))
-		})
-
-		It("Should not re-create restored PVCs from VMSnapshot if pvc already exists", func() {
-			testVMExport := createSnapshotVMExport()
-			vmExportClient.Fake.PrependReactor("update", "virtualmachineexports", func(action testing.Action) (handled bool, obj runtime.Object, err error) {
-				update, ok := action.(testing.UpdateAction)
-				Expect(ok).To(BeTrue())
-				vmExport, ok := update.GetObject().(*exportv1.VirtualMachineExport)
-				Expect(ok).To(BeTrue())
-				verifyLinksEmpty(vmExport)
-				volumeCreateConditionSet := false
-				for _, condition := range vmExport.Status.Conditions {
-					if condition.Type == exportv1.ConditionReady {
-						Expect(condition.Status).To(Equal(k8sv1.ConditionFalse))
-						Expect(condition.Reason).To(Equal(podPendingReason))
-						Expect(condition.Message).To(Equal(""))
-					}
-					if condition.Type == exportv1.ConditionVolumesCreated {
-						volumeCreateConditionSet = true
-						Expect(condition.Status).To(Equal(k8sv1.ConditionTrue))
-						Expect(condition.Reason).To(Equal(allPVCsReady))
-						Expect(condition.Message).To(Equal(""))
-					}
-				}
-				Expect(volumeCreateConditionSet).To(BeTrue())
-				Expect(vmExport.Status.Phase).To(Equal(exportv1.Pending))
-				return true, vmExport, nil
-			})
-
-			k8sClient.Fake.PrependReactor("create", "persistentvolumeclaims", func(action testing.Action) (handled bool, obj runtime.Object, err error) {
-				_, ok := action.(testing.CreateAction)
-				Expect(ok).To(BeTrue())
-				Fail("unexpected create persistentvolumeclaims called")
-				return true, nil, nil
-			})
-			expectExporterCreate(k8sClient, k8sv1.PodPending)
-			Expect(pvcInformer.GetStore().Add(createRestoredPVC("test-test-snapshot"))).To(Succeed())
-			Expect(vmSnapshotInformer.GetStore().Add(createTestVMSnapshot(true))).To(Succeed())
-			Expect(
-				vmSnapshotContentInformer.GetStore().Add(createTestVMSnapshotContent("snapshot-content")),
-			).To(Succeed())
-			fakeVolumeSnapshotProvider.Add(createTestVolumeSnapshot(testVolumesnapshotName))
-			retry, err := controller.updateVMExport(testVMExport)
-			Expect(err).ToNot(HaveOccurred())
-			Expect(retry).To(BeEquivalentTo(0))
-		})
-
-		It("Should update status with correct links from snapshot with kubevirt content type", func() {
-			testVMExport := createSnapshotVMExport()
-			restoreName := fmt.Sprintf("%s-%s", testVMExport.Name, testVolumesnapshotName)
-			vmExportClient.Fake.PrependReactor("update", "virtualmachineexports", func(action testing.Action) (handled bool, obj runtime.Object, err error) {
-				update, ok := action.(testing.UpdateAction)
-				Expect(ok).To(BeTrue())
-				vmExport, ok := update.GetObject().(*exportv1.VirtualMachineExport)
-				Expect(ok).To(BeTrue())
-				verifyKubevirtInternal(vmExport, vmExport.Name, testNamespace, restoreName)
-				verifyKubevirtExternal(vmExport, vmExport.Name, testNamespace, restoreName)
-				return true, vmExport, nil
-			})
-
-			k8sClient.Fake.PrependReactor("create", "persistentvolumeclaims", func(action testing.Action) (handled bool, obj runtime.Object, err error) {
-				create, ok := action.(testing.CreateAction)
-				Expect(ok).To(BeTrue())
-				pvc, ok := create.GetObject().(*k8sv1.PersistentVolumeClaim)
-				Expect(ok).To(BeTrue())
-				Expect(pvc.Name).To(Equal("test-test-snapshot"))
-				Expect(pvc.Spec.DataSource).ToNot(BeNil())
-				Expect(pvc.Spec.Resources.Requests).ToNot(BeEmpty())
-				Expect(pvc.Spec.Resources.Requests[k8sv1.ResourceStorage]).To(Equal(resource.MustParse("1Gi")))
-				Expect(pvc.Spec.DataSource).To(Equal(&k8sv1.TypedLocalObjectReference{
-					APIGroup: pointer.StringPtr(vsv1.GroupName),
-					Kind:     "VolumeSnapshot",
-					Name:     testVolumesnapshotName,
-				}))
-				By("Ensuring the PVC is owned by the vmExport")
-				Expect(pvc.OwnerReferences).To(HaveLen(1))
-				Expect(pvc.OwnerReferences[0]).To(Equal(metav1.OwnerReference{
-					APIVersion:         apiVersion,
-					Kind:               "VirtualMachineExport",
-					Name:               testVMExport.Name,
-					UID:                testVMExport.UID,
-					Controller:         pointer.BoolPtr(true),
-					BlockOwnerDeletion: pointer.BoolPtr(true),
-				}))
-				Expect(pvc.GetAnnotations()).ToNot(BeEmpty())
-				Expect(pvc.GetAnnotations()[annContentType]).To(BeEquivalentTo(cdiv1.DataVolumeKubeVirt))
-				return true, pvc, nil
-			})
-			expectExporterCreate(k8sClient, k8sv1.PodRunning)
-			Expect(controller.RouteCache.Add(routeToHostAndService(components.VirtExportProxyServiceName))).To(Succeed())
-			Expect(vmSnapshotInformer.GetStore().Add(createTestVMSnapshot(true))).To(Succeed())
-			Expect(
-				vmSnapshotContentInformer.GetStore().Add(createTestVMSnapshotContent("snapshot-content")),
-			).To(Succeed())
-			fakeVolumeSnapshotProvider.Add(createTestVolumeSnapshot(testVolumesnapshotName))
-			retry, err := controller.updateVMExport(testVMExport)
-			Expect(err).ToNot(HaveOccurred())
-			Expect(retry).To(BeEquivalentTo(0))
-		})
-
-		It("Should update status with correct links from snapshot with other content type", func() {
-			testVMExport := createSnapshotVMExport()
-			restoreName := fmt.Sprintf("%s-%s", testVMExport.Name, testVolumesnapshotName)
-			vmExportClient.Fake.PrependReactor("update", "virtualmachineexports", func(action testing.Action) (handled bool, obj runtime.Object, err error) {
-				update, ok := action.(testing.UpdateAction)
-				Expect(ok).To(BeTrue())
-				vmExport, ok := update.GetObject().(*exportv1.VirtualMachineExport)
-				Expect(ok).To(BeTrue())
-				verifyArchiveInternal(vmExport, vmExport.Name, testNamespace, restoreName)
-				verifyArchiveExternal(vmExport, vmExport.Name, testNamespace, restoreName)
-				return true, vmExport, nil
-			})
-
-			k8sClient.Fake.PrependReactor("create", "persistentvolumeclaims", func(action testing.Action) (handled bool, obj runtime.Object, err error) {
-				create, ok := action.(testing.CreateAction)
-				Expect(ok).To(BeTrue())
-				pvc, ok := create.GetObject().(*k8sv1.PersistentVolumeClaim)
-				Expect(ok).To(BeTrue())
-				Expect(pvc.Name).To(Equal("test-test-snapshot"))
-				Expect(pvc.Spec.DataSource).ToNot(BeNil())
-				Expect(pvc.Spec.Resources.Requests).ToNot(BeEmpty())
-				Expect(pvc.Spec.Resources.Requests[k8sv1.ResourceStorage]).To(Equal(resource.MustParse("1Gi")))
-				Expect(pvc.Spec.DataSource).To(Equal(&k8sv1.TypedLocalObjectReference{
-					APIGroup: pointer.StringPtr(vsv1.GroupName),
-					Kind:     "VolumeSnapshot",
-					Name:     testVolumesnapshotName,
-				}))
-				By("Ensuring the PVC is owned by the vmExport")
-				Expect(pvc.OwnerReferences).To(HaveLen(1))
-				Expect(pvc.OwnerReferences[0]).To(Equal(metav1.OwnerReference{
-					APIVersion:         apiVersion,
-					Kind:               "VirtualMachineExport",
-					Name:               testVMExport.Name,
-					UID:                testVMExport.UID,
-					Controller:         pointer.BoolPtr(true),
-					BlockOwnerDeletion: pointer.BoolPtr(true),
-				}))
-				Expect(pvc.GetAnnotations()[annContentType]).To(BeEmpty())
-				return true, pvc, nil
-			})
-			expectExporterCreate(k8sClient, k8sv1.PodRunning)
-			Expect(
-				controller.RouteCache.Add(routeToHostAndService(components.VirtExportProxyServiceName))).To(Succeed())
-			Expect(vmSnapshotInformer.GetStore().Add(createTestVMSnapshot(true))).To(Succeed())
-			content := createTestVMSnapshotContent("snapshot-content")
-			content.Spec.Source.VirtualMachine.Spec.Template.Spec.Volumes[0].DataVolume = nil
-			content.Spec.Source.VirtualMachine.Spec.Template.Spec.Volumes[0].MemoryDump = &virtv1.MemoryDumpVolumeSource{}
-			Expect(vmSnapshotContentInformer.GetStore().Add(content)).To(Succeed())
-			fakeVolumeSnapshotProvider.Add(createTestVolumeSnapshot(testVolumesnapshotName))
-			retry, err := controller.updateVMExport(testVMExport)
-			Expect(err).ToNot(HaveOccurred())
-			Expect(retry).To(BeEquivalentTo(0))
-		})
-
-		It("Should update status with no links and not ready if snapshot is not ready", func() {
-			testVMExport := createSnapshotVMExport()
-			vmExportClient.Fake.PrependReactor("update", "virtualmachineexports", func(action testing.Action) (handled bool, obj runtime.Object, err error) {
-				update, ok := action.(testing.UpdateAction)
-				Expect(ok).To(BeTrue())
-				vmExport, ok := update.GetObject().(*exportv1.VirtualMachineExport)
-				Expect(ok).To(BeTrue())
-				verifyLinksEmpty(vmExport)
-				volumeCreateConditionSet := false
-				for _, condition := range vmExport.Status.Conditions {
-					if condition.Type == exportv1.ConditionReady {
-						Expect(condition.Status).To(Equal(k8sv1.ConditionFalse))
-						Expect(condition.Reason).To(Equal(inUseReason))
-						Expect(condition.Message).To(Equal(fmt.Sprintf("VirtualMachineSnapshot %s/%s is not ready to use", vmExport.Namespace, vmExport.Spec.Source.Name)))
-					}
-					if condition.Type == exportv1.ConditionVolumesCreated {
-						volumeCreateConditionSet = true
-						Expect(condition.Status).To(Equal(k8sv1.ConditionFalse))
-						Expect(condition.Reason).To(Equal(notAllPVCsCreated))
-						Expect(condition.Message).To(Equal(fmt.Sprintf("VirtualMachineSnapshot %s/%s is not ready to use", vmExport.Namespace, vmExport.Spec.Source.Name)))
-					}
-				}
-				Expect(volumeCreateConditionSet).To(BeTrue())
-				Expect(vmExport.Status.Phase).To(Equal(exportv1.Pending))
-				return true, vmExport, nil
-			})
-
-			k8sClient.Fake.PrependReactor("create", "persistentvolumeclaims", func(action testing.Action) (handled bool, obj runtime.Object, err error) {
-				_, ok := action.(testing.CreateAction)
-				Expect(ok).To(BeTrue())
-				Fail("Should not create PVCs")
-				return true, nil, nil
-			})
-			Expect(vmSnapshotInformer.GetStore().Add(createTestVMSnapshot(false))).To(Succeed())
-			content := createTestVMSnapshotContent("snapshot-content")
-			Expect(vmSnapshotContentInformer.GetStore().Add(content)).To(Succeed())
-			fakeVolumeSnapshotProvider.Add(createTestVolumeSnapshot(testVolumesnapshotName))
-			retry, err := controller.updateVMExport(testVMExport)
-			Expect(err).ToNot(HaveOccurred())
-			Expect(retry).To(BeEquivalentTo(0))
-		})
-	})
-
-	Context("VMs export", func() {
-		createVMWithoutVolumes := func() *virtv1.VirtualMachine {
-			return &virtv1.VirtualMachine{
-				ObjectMeta: metav1.ObjectMeta{
-					Name:      testVmName,
-					Namespace: testNamespace,
-				},
-				Spec: virtv1.VirtualMachineSpec{
-					Template: &virtv1.VirtualMachineInstanceTemplateSpec{
-						Spec: virtv1.VirtualMachineInstanceSpec{
-							Volumes: []virtv1.Volume{},
-						},
-					},
-				},
-			}
-		}
-
-		createVMWithDataVolumes := func() *virtv1.VirtualMachine {
-			vm := createVMWithoutVolumes()
-			vm.Spec.Template.Spec.Volumes = append(vm.Spec.Template.Spec.Volumes, virtv1.Volume{
-				Name: "volume1",
-				VolumeSource: virtv1.VolumeSource{
-					DataVolume: &virtv1.DataVolumeSource{
-						Name: "volume1",
-					},
-				},
-			})
-			vm.Spec.Template.Spec.Volumes = append(vm.Spec.Template.Spec.Volumes, virtv1.Volume{
-				Name: "volume2",
-				VolumeSource: virtv1.VolumeSource{
-					DataVolume: &virtv1.DataVolumeSource{
-						Name: "volume2",
-					},
-				},
-			})
-			return vm
-		}
-
-		createVMWithPVCs := func() *virtv1.VirtualMachine {
-			vm := createVMWithoutVolumes()
-			vm.Spec.Template.Spec.Volumes = append(vm.Spec.Template.Spec.Volumes, virtv1.Volume{
-				Name: "volume1",
-				VolumeSource: virtv1.VolumeSource{
-					PersistentVolumeClaim: &virtv1.PersistentVolumeClaimVolumeSource{
-						PersistentVolumeClaimVolumeSource: k8sv1.PersistentVolumeClaimVolumeSource{
-							ClaimName: "volume1",
-						},
-					},
-				},
-			})
-			vm.Spec.Template.Spec.Volumes = append(vm.Spec.Template.Spec.Volumes, virtv1.Volume{
-				Name: "volume2",
-				VolumeSource: virtv1.VolumeSource{
-					PersistentVolumeClaim: &virtv1.PersistentVolumeClaimVolumeSource{
-						PersistentVolumeClaimVolumeSource: k8sv1.PersistentVolumeClaimVolumeSource{
-							ClaimName: "volume2",
-						},
-					},
-				},
-			})
-			return vm
-		}
-
-		createVMWithPVCandMemoryDump := func() *virtv1.VirtualMachine {
-			vm := createVMWithoutVolumes()
-			vm.Spec.Template.Spec.Volumes = append(vm.Spec.Template.Spec.Volumes, virtv1.Volume{
-				Name: "volume1",
-				VolumeSource: virtv1.VolumeSource{
-					PersistentVolumeClaim: &virtv1.PersistentVolumeClaimVolumeSource{
-						PersistentVolumeClaimVolumeSource: k8sv1.PersistentVolumeClaimVolumeSource{
-							ClaimName: "volume1",
-						},
-					},
-				},
-			})
-			vm.Spec.Template.Spec.Volumes = append(vm.Spec.Template.Spec.Volumes, virtv1.Volume{
-				Name: "volume2",
-				VolumeSource: virtv1.VolumeSource{
-					MemoryDump: &virtv1.MemoryDumpVolumeSource{
-						PersistentVolumeClaimVolumeSource: virtv1.PersistentVolumeClaimVolumeSource{
-							PersistentVolumeClaimVolumeSource: k8sv1.PersistentVolumeClaimVolumeSource{
-								ClaimName: "volume2",
-							},
-						},
-					},
-				},
-			})
-			return vm
-		}
-
-		createVMIWithDataVolumes := func() *virtv1.VirtualMachineInstance {
-			return &virtv1.VirtualMachineInstance{
-				ObjectMeta: metav1.ObjectMeta{
-					Name:      testVmName,
-					Namespace: testNamespace,
-				},
-				Spec: virtv1.VirtualMachineInstanceSpec{
-					Volumes: []virtv1.Volume{
-						{
-							Name: "volume1",
-							VolumeSource: virtv1.VolumeSource{
-								DataVolume: &virtv1.DataVolumeSource{
-									Name: "volume1",
-								},
-							},
-						},
-						{
-							Name: "volume2",
-							VolumeSource: virtv1.VolumeSource{
-								DataVolume: &virtv1.DataVolumeSource{
-									Name: "volume2",
-								},
-							},
-						},
-					},
-				},
-			}
-		}
-
-		verifyMixedInternal := func(vmExport *exportv1.VirtualMachineExport, exportName, namespace string, volumeNames ...string) {
-			exportVolumeFormats := make([]exportv1.VirtualMachineExportVolumeFormat, 0)
-			exportVolumeFormats = append(exportVolumeFormats, exportv1.VirtualMachineExportVolumeFormat{
-				Format: exportv1.KubeVirtRaw,
-				Url:    fmt.Sprintf("https://%s.%s.svc/volumes/%s/disk.img", fmt.Sprintf("%s-%s", exportPrefix, exportName), namespace, volumeNames[0]),
-			})
-			exportVolumeFormats = append(exportVolumeFormats, exportv1.VirtualMachineExportVolumeFormat{
-				Format: exportv1.KubeVirtGz,
-				Url:    fmt.Sprintf("https://%s.%s.svc/volumes/%s/disk.img.gz", fmt.Sprintf("%s-%s", exportPrefix, exportName), namespace, volumeNames[0]),
-			})
-			exportVolumeFormats = append(exportVolumeFormats, exportv1.VirtualMachineExportVolumeFormat{
-				Format: exportv1.Dir,
-				Url:    fmt.Sprintf("https://%s.%s.svc/volumes/%s/dir", fmt.Sprintf("%s-%s", exportPrefix, exportName), namespace, volumeNames[1]),
-			})
-			exportVolumeFormats = append(exportVolumeFormats, exportv1.VirtualMachineExportVolumeFormat{
-				Format: exportv1.ArchiveGz,
-				Url:    fmt.Sprintf("https://%s.%s.svc/volumes/%s/disk.tar.gz", fmt.Sprintf("%s-%s", exportPrefix, exportName), namespace, volumeNames[1]),
-			})
-			verifyLinksInternal(vmExport, exportVolumeFormats...)
-		}
-
-		DescribeTable("Should create VM export, when VM is stopped", func(createVMFunc func() *virtv1.VirtualMachine, contentType1, contentType2 string, verifyFunc func(vmExport *exportv1.VirtualMachineExport, exportName, namespace string, volumeNames ...string)) {
-			testVMExport := createVMVMExport()
-			controller.VMInformer.GetStore().Add(createVMFunc())
-			controller.PVCInformer.GetStore().Add(createPVC("volume1", contentType1))
-			controller.PVCInformer.GetStore().Add(createPVC("volume2", contentType2))
-			expectExporterCreate(k8sClient, k8sv1.PodRunning)
-			vmExportClient.Fake.PrependReactor("update", "virtualmachineexports", func(action testing.Action) (handled bool, obj runtime.Object, err error) {
-				update, ok := action.(testing.UpdateAction)
-				Expect(ok).To(BeTrue())
-				vmExport, ok := update.GetObject().(*exportv1.VirtualMachineExport)
-				Expect(ok).To(BeTrue())
-				verifyFunc(vmExport, vmExport.Name, testNamespace, "volume1", "volume2")
-				for _, condition := range vmExport.Status.Conditions {
-					if condition.Type == exportv1.ConditionReady {
-						Expect(condition.Status).To(Equal(k8sv1.ConditionTrue))
-						Expect(condition.Reason).To(Equal(podReadyReason))
-					}
-				}
-				return true, vmExport, nil
-			})
-			retry, err := controller.updateVMExport(testVMExport)
-			Expect(err).ToNot(HaveOccurred())
-			Expect(retry).To(BeEquivalentTo(0))
-			testutils.ExpectEvent(recorder, serviceCreatedEvent)
-		},
-			Entry("DataVolumes", createVMWithDataVolumes, "kubevirt", "kubevirt", verifyKubevirtInternal),
-			Entry("PVCs", createVMWithPVCs, "kubevirt", "kubevirt", verifyKubevirtInternal),
-			Entry("Memorydump and pvc", createVMWithPVCandMemoryDump, "kubevirt", "archive", verifyMixedInternal),
-		)
-
-		It("Should NOT create VM export, when VM is started", func() {
-			testVMExport := createVMVMExport()
-			controller.VMInformer.GetStore().Add(createVMWithDataVolumes())
-			vmi := createVMIWithDataVolumes()
-			controller.VMIInformer.GetStore().Add(vmi)
-			controller.PVCInformer.GetStore().Add(createPVC("volume1", "kubevirt"))
-			controller.PVCInformer.GetStore().Add(createPVC("volume2", "kubevirt"))
-			expectExporterCreate(k8sClient, k8sv1.PodRunning)
-			vmExportClient.Fake.PrependReactor("update", "virtualmachineexports", func(action testing.Action) (handled bool, obj runtime.Object, err error) {
-				update, ok := action.(testing.UpdateAction)
-				Expect(ok).To(BeTrue())
-				vmExport, ok := update.GetObject().(*exportv1.VirtualMachineExport)
-				Expect(ok).To(BeTrue())
-				verifyLinksEmpty(vmExport)
-				for _, condition := range vmExport.Status.Conditions {
-					if condition.Type == exportv1.ConditionReady {
-						Expect(condition.Status).To(Equal(k8sv1.ConditionFalse))
-						Expect(condition.Reason).To(Equal(inUseReason))
-						Expect(condition.Message).To(Equal(fmt.Sprintf("Virtual Machine %s/%s is running", vmi.Namespace, vmi.Name)))
-					}
-				}
-				return true, vmExport, nil
-			})
-			k8sClient.Fake.PrependReactor("create", "pods", func(action testing.Action) (handled bool, obj runtime.Object, err error) {
-				_, ok := action.(testing.CreateAction)
-				Expect(ok).To(BeTrue())
-				Fail("Unexpected create pod call")
-				return true, nil, nil
-			})
-
-			retry, err := controller.updateVMExport(testVMExport)
-			Expect(err).ToNot(HaveOccurred())
-			Expect(retry).To(BeEquivalentTo(0))
-			testutils.ExpectEvent(recorder, serviceCreatedEvent)
-		})
-
-		It("Should stop running VM export, when VM is started", func() {
-			testVMExport := createVMVMExport()
-			podName := controller.getExportPodName(testVMExport)
-			controller.PodInformer.GetStore().Add(createExporterPod(podName, k8sv1.PodRunning))
-			controller.VMInformer.GetStore().Add(createVMWithDataVolumes())
-			vmi := createVMIWithDataVolumes()
-			controller.VMIInformer.GetStore().Add(vmi)
-			controller.PVCInformer.GetStore().Add(createPVC("volume1", "kubevirt"))
-			controller.PVCInformer.GetStore().Add(createPVC("volume2", "kubevirt"))
-			expectExporterDelete(k8sClient, podName)
-			vmExportClient.Fake.PrependReactor("update", "virtualmachineexports", func(action testing.Action) (handled bool, obj runtime.Object, err error) {
-				update, ok := action.(testing.UpdateAction)
-				Expect(ok).To(BeTrue())
-				vmExport, ok := update.GetObject().(*exportv1.VirtualMachineExport)
-				Expect(ok).To(BeTrue())
-				verifyLinksEmpty(vmExport)
-				for _, condition := range vmExport.Status.Conditions {
-					if condition.Type == exportv1.ConditionReady {
-						Expect(condition.Status).To(Equal(k8sv1.ConditionFalse))
-						Expect(condition.Reason).To(Equal(inUseReason))
-						Expect(condition.Message).To(Equal(fmt.Sprintf("Virtual Machine %s/%s is running", vmi.Namespace, vmi.Name)), "%v", vmExport.Status.Conditions)
-					}
-				}
-				return true, vmExport, nil
-			})
-			retry, err := controller.updateVMExport(testVMExport)
-			Expect(err).ToNot(HaveOccurred())
-			Expect(retry).To(BeEquivalentTo(0))
-			testutils.ExpectEvent(recorder, serviceCreatedEvent)
-			testutils.ExpectEvent(recorder, ExportPaused)
-		})
-
-		It("Should be in skipped phase when VM has no volumes", func() {
-			testVMExport := createVMVMExport()
-			controller.VMInformer.GetStore().Add(createVMWithoutVolumes())
-			vmExportClient.Fake.PrependReactor("update", "virtualmachineexports", func(action testing.Action) (handled bool, obj runtime.Object, err error) {
-				update, ok := action.(testing.UpdateAction)
-				Expect(ok).To(BeTrue())
-				vmExport, ok := update.GetObject().(*exportv1.VirtualMachineExport)
-				Expect(ok).To(BeTrue())
-				verifyLinksEmpty(vmExport)
-				for _, condition := range vmExport.Status.Conditions {
-					if condition.Type == exportv1.ConditionReady {
-						Expect(condition.Status).To(Equal(k8sv1.ConditionFalse))
-						Expect(condition.Reason).To(Equal(noVolumeVMReason))
-					}
-				}
-				return true, vmExport, nil
-			})
-			retry, err := controller.updateVMExport(testVMExport)
-			Expect(err).ToNot(HaveOccurred())
-			Expect(retry).To(BeEquivalentTo(0))
-		})
-
-		It("Should handle failed exporter pod", func() {
-			testVMExport := createVMVMExport()
-			podName := controller.getExportPodName(testVMExport)
-			controller.PodInformer.GetStore().Add(createExporterPod(podName, k8sv1.PodFailed))
-			controller.VMInformer.GetStore().Add(createVMWithDataVolumes())
-			controller.PVCInformer.GetStore().Add(createPVC("volume1", "kubevirt"))
-			controller.PVCInformer.GetStore().Add(createPVC("volume2", "kubevirt"))
-			vmExportClient.Fake.PrependReactor("update", "virtualmachineexports", func(action testing.Action) (handled bool, obj runtime.Object, err error) {
-				update, ok := action.(testing.UpdateAction)
-				Expect(ok).To(BeTrue())
-				vmExport, ok := update.GetObject().(*exportv1.VirtualMachineExport)
-				Expect(ok).To(BeTrue())
-				verifyLinksEmpty(vmExport)
-				for _, condition := range vmExport.Status.Conditions {
-					if condition.Type == exportv1.ConditionReady {
-						Expect(condition.Status).To(Equal(k8sv1.ConditionFalse))
-						Expect(condition.Reason).To(Equal(unknownReason))
-					}
-				}
-				return true, vmExport, nil
-			})
-			retry, err := controller.updateVMExport(testVMExport)
-			Expect(err).ToNot(HaveOccurred())
-			Expect(retry).To(BeEquivalentTo(0))
-			testutils.ExpectEvent(recorder, serviceCreatedEvent)
-			testutils.ExpectEvent(recorder, exporterPodFailedOrCompletedEvent)
-		})
-	})
-
 	DescribeTable("should find host when Ingress is defined", func(ingress *networkingv1.Ingress, hostname string) {
 		Expect(controller.IngressCache.Add(ingress)).To(Succeed())
 		host, _ := controller.getExternalLinkHostAndCert()
@@ -1885,6 +789,111 @@ var _ = Describe("Export controller", func() {
 		Expect("backend-host").To(Equal(host))
 	})
 })
+
+func verifyLinksEmpty(vmExport *exportv1.VirtualMachineExport) {
+	Expect(vmExport.Status).ToNot(BeNil())
+	Expect(vmExport.Status.Links).ToNot(BeNil())
+	Expect(vmExport.Status.Links.Internal).To(BeNil())
+	Expect(vmExport.Status.Links.External).To(BeNil())
+}
+
+func verifyLinksInternal(vmExport *exportv1.VirtualMachineExport, expectedVolumeFormats ...exportv1.VirtualMachineExportVolumeFormat) {
+	Expect(vmExport.Status).ToNot(BeNil())
+	Expect(vmExport.Status.Links).ToNot(BeNil())
+	Expect(vmExport.Status.Links.Internal).NotTo(BeNil())
+	Expect(vmExport.Status.Links.Internal.Cert).NotTo(BeEmpty())
+	Expect(vmExport.Status.Links.Internal.Volumes).To(HaveLen(len(expectedVolumeFormats) / 2))
+	for _, volume := range vmExport.Status.Links.Internal.Volumes {
+		Expect(volume.Formats).To(HaveLen(2))
+		Expect(expectedVolumeFormats).To(ContainElements(volume.Formats))
+	}
+}
+
+func verifyLinksExternal(vmExport *exportv1.VirtualMachineExport, link1Format exportv1.ExportVolumeFormat, link1Url string, link2Format exportv1.ExportVolumeFormat, link2Url string) {
+	Expect(vmExport.Status.Links.External).ToNot(BeNil())
+	Expect(vmExport.Status.Links.External.Cert).To(BeEmpty())
+	Expect(vmExport.Status.Links.External.Volumes).To(HaveLen(1))
+	Expect(vmExport.Status.Links.External.Volumes[0].Formats).To(HaveLen(2))
+	Expect(vmExport.Status.Links.External.Volumes[0].Formats).To(ContainElements(exportv1.VirtualMachineExportVolumeFormat{
+		Format: link1Format,
+		Url:    link1Url,
+	}, exportv1.VirtualMachineExportVolumeFormat{
+		Format: link2Format,
+		Url:    link2Url,
+	}))
+}
+
+func verifyKubevirtInternal(vmExport *exportv1.VirtualMachineExport, exportName, namespace string, volumeNames ...string) {
+	exportVolumeFormats := make([]exportv1.VirtualMachineExportVolumeFormat, 0)
+	for _, volumeName := range volumeNames {
+		exportVolumeFormats = append(exportVolumeFormats, exportv1.VirtualMachineExportVolumeFormat{
+			Format: exportv1.KubeVirtRaw,
+			Url:    fmt.Sprintf("https://%s.%s.svc/volumes/%s/disk.img", fmt.Sprintf("%s-%s", exportPrefix, exportName), namespace, volumeName),
+		})
+		exportVolumeFormats = append(exportVolumeFormats, exportv1.VirtualMachineExportVolumeFormat{
+			Format: exportv1.KubeVirtGz,
+			Url:    fmt.Sprintf("https://%s.%s.svc/volumes/%s/disk.img.gz", fmt.Sprintf("%s-%s", exportPrefix, exportName), namespace, volumeName),
+		})
+	}
+	verifyLinksInternal(vmExport, exportVolumeFormats...)
+}
+
+func verifyKubevirtExternal(vmExport *exportv1.VirtualMachineExport, exportName, namespace, volumeName string) {
+	verifyLinksExternal(vmExport,
+		exportv1.KubeVirtRaw,
+		fmt.Sprintf("https://virt-exportproxy-kubevirt.apps-crc.testing/api/export.kubevirt.io/v1alpha1/namespaces/%s/virtualmachineexports/%s/volumes/%s/disk.img", namespace, exportName, volumeName),
+		exportv1.KubeVirtGz,
+		fmt.Sprintf("https://virt-exportproxy-kubevirt.apps-crc.testing/api/export.kubevirt.io/v1alpha1/namespaces/%s/virtualmachineexports/%s/volumes/%s/disk.img.gz", namespace, exportName, volumeName))
+}
+
+func verifyArchiveInternal(vmExport *exportv1.VirtualMachineExport, exportName, namespace, volumeName string) {
+	verifyLinksInternal(vmExport,
+		exportv1.VirtualMachineExportVolumeFormat{
+			Format: exportv1.Dir,
+			Url:    fmt.Sprintf("https://%s.%s.svc/volumes/%s/dir", fmt.Sprintf("%s-%s", exportPrefix, exportName), namespace, volumeName),
+		}, exportv1.VirtualMachineExportVolumeFormat{
+			Format: exportv1.ArchiveGz,
+			Url:    fmt.Sprintf("https://%s.%s.svc/volumes/%s/disk.tar.gz", fmt.Sprintf("%s-%s", exportPrefix, exportName), namespace, volumeName),
+		})
+}
+
+func routeToHostAndService(serviceName string) *routev1.Route {
+	return &routev1.Route{
+		Spec: routev1.RouteSpec{
+			To: routev1.RouteTargetReference{
+				Name: serviceName,
+			},
+		},
+		Status: routev1.RouteStatus{
+			Ingress: []routev1.RouteIngress{
+				{
+					Host: fmt.Sprintf("%s-kubevirt.apps-crc.testing", components.VirtExportProxyServiceName),
+				},
+			},
+		},
+	}
+}
+
+func routeToHostAndNoIngress() *routev1.Route {
+	return &routev1.Route{
+		Spec: routev1.RouteSpec{
+			To: routev1.RouteTargetReference{
+				Name: components.VirtExportProxyServiceName,
+			},
+		},
+		Status: routev1.RouteStatus{
+			Ingress: []routev1.RouteIngress{},
+		},
+	}
+}
+
+func verifyArchiveExternal(vmExport *exportv1.VirtualMachineExport, exportName, namespace, volumeName string) {
+	verifyLinksExternal(vmExport,
+		exportv1.Dir,
+		fmt.Sprintf("https://virt-exportproxy-kubevirt.apps-crc.testing/api/export.kubevirt.io/v1alpha1/namespaces/%s/virtualmachineexports/%s/volumes/%s/dir", namespace, exportName, volumeName),
+		exportv1.ArchiveGz,
+		fmt.Sprintf("https://virt-exportproxy-kubevirt.apps-crc.testing/api/export.kubevirt.io/v1alpha1/namespaces/%s/virtualmachineexports/%s/volumes/%s/disk.tar.gz", namespace, exportName, volumeName))
+}
 
 func writeCertsToDir(dir string) {
 	caKeyPair, _ := triple.NewCA("kubevirt.io", time.Hour*24*7)
@@ -1943,6 +952,21 @@ func createVMVMExport() *exportv1.VirtualMachineExport {
 				Name:     testVmName,
 			},
 			TokenSecretRef: "token",
+		},
+	}
+}
+
+func createPVC(name, contentType string) *k8sv1.PersistentVolumeClaim {
+	return &k8sv1.PersistentVolumeClaim{
+		ObjectMeta: metav1.ObjectMeta{
+			Name:      name,
+			Namespace: testNamespace,
+			Annotations: map[string]string{
+				annContentType: contentType,
+			},
+		},
+		Status: k8sv1.PersistentVolumeClaimStatus{
+			Phase: k8sv1.ClaimBound,
 		},
 	}
 }

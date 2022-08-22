@@ -2,7 +2,13 @@ load("@io_bazel_rules_go//go:def.bzl", "go_library", "go_test")
 
 go_library(
     name = "go_default_library",
-    srcs = ["export.go"],
+    srcs = [
+        "export.go",
+        "links.go",
+        "pvc-source.go",
+        "vm-source.go",
+        "vmsnapshot-source.go",
+    ],
     importpath = "kubevirt.io/kubevirt/pkg/storage/export/export",
     visibility = ["//visibility:public"],
     deps = [
@@ -47,6 +53,9 @@ go_test(
     srcs = [
         "export_suite_test.go",
         "export_test.go",
+        "pvc-source_test.go",
+        "vm-source_test.go",
+        "vmsnapshot-source_test.go",
     ],
     embed = [":go_default_library"],
     deps = [
