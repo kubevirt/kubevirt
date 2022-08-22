@@ -55,7 +55,7 @@ const (
 
 	vmiMemoryUsedBytes     = "kubevirt_vmi_memory_used_bytes"
 	vmiMemoryUsedBytesDesc = "Amount of `used` memory as seen by the domain."
-	vmiMemoryUsedBytesType = "Counter"
+	vmiMemoryUsedBytesType = "Gauge"
 )
 
 func main() {
