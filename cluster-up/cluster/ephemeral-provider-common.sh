@@ -97,6 +97,8 @@ function _add_common_params() {
 
     if [ -n "${KUBEVIRTCI_PROVISION_CHECK}" ]; then
         params=" --container-registry=quay.io --container-suffix=:latest $params"
+    elif [[ ${KUBEVIRT_SLIM} == "true" ]]; then
+        params=" --slim $params"
     fi
 
     if [ $KUBEVIRT_WITH_ETC_IN_MEMORY == "true" ]; then
