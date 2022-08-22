@@ -51,6 +51,13 @@ export KUBEVIRT_CGROUPV2=true
 make cluster-up
 ```
 
+## Use slim provider (without pre-pulled images of the optional components such as CDI, CNAO etc)
+
+```bash
+export KUBEVIRT_SLIM=true
+make cluster-up
+```
+
 ## Enabling IPv6 connectivity
 
 In order to be able to reach from the cluster to the host's IPv6 network, IPv6
