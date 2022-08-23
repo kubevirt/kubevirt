@@ -269,6 +269,20 @@ var _ = Describe("[rfe_id:588][crit:medium][vendor:cnv-qe@redhat.com][level:comp
 			})
 		})
 	})
+	Describe("Bogus container disk path", func() {
+		Context("that points to outside of the volume", func() {
+			It("should be rejected on VMI creation", func() {
+				vmi := libvmi.NewAlpine()
+				vmi.Spec.Volumes[0].ContainerDisk.Path = "../test"
+				By("Starting the VirtualMachineInstance")
+				_, err := virtClient.RestClient().Post().Resource("virtualmachineinstances").Namespace(util.NamespaceTestDefault).Body(vmi).Do(context.Background()).Get()
+				Expect(err).To(HaveOccurred())
+				Expect(err.Error()).To(ContainSubstring("admission webhook"))
+				Expect(err.Error()).To(ContainSubstring("denied the request"))
+				Expect(err.Error()).To(ContainSubstring("must be an absolute path to a file without relative components"))
+			})
+		})
+	})
 })
 
 func getContainerDiskContainerOfPod(pod *k8sv1.Pod, volumeName string) *k8sv1.Container {
