@@ -45,11 +45,10 @@ import (
 	"kubevirt.io/kubevirt/tests"
 	"kubevirt.io/kubevirt/tests/clientcmd"
 	"kubevirt.io/kubevirt/tests/libvmi"
-
-	virtctl "kubevirt.io/kubevirt/pkg/virtctl/vm"
 )
 
 const (
+	commandMemoryDump                = "memory-dump"
 	verifierPodName                  = "verifier"
 	noPreviousOutput                 = ""
 	noClaimName                      = ""
@@ -291,7 +290,7 @@ var _ = SIGDescribe("Memory dump", func() {
 
 	memoryDumpVirtctl := func(name, namespace, claimName string) {
 		By("Invoking virtlctl memory dump")
-		commandAndArgs := []string{virtctl.COMMAND_MEMORYDUMP, "get", name, virtCtlNamespace, namespace}
+		commandAndArgs := []string{commandMemoryDump, "get", name, virtCtlNamespace, namespace}
 		if claimName != "" {
 			commandAndArgs = append(commandAndArgs, fmt.Sprintf(virtCtlClaimName, claimName))
 		}
@@ -303,7 +302,7 @@ var _ = SIGDescribe("Memory dump", func() {
 
 	memoryDumpVirtctlCreatePVC := func(name, namespace, claimName string) {
 		By("Invoking virtlctl memory dump with create flag")
-		commandAndArgs := []string{virtctl.COMMAND_MEMORYDUMP, "get", name, virtCtlNamespace, namespace}
+		commandAndArgs := []string{commandMemoryDump, "get", name, virtCtlNamespace, namespace}
 		commandAndArgs = append(commandAndArgs, fmt.Sprintf(virtCtlClaimName, claimName))
 		commandAndArgs = append(commandAndArgs, virtCtlCreate)
 		memorydumpCommand := clientcmd.NewRepeatableVirtctlCommand(commandAndArgs...)
@@ -325,7 +324,7 @@ var _ = SIGDescribe("Memory dump", func() {
 
 	memoryDumpVirtctlCreatePVCWithStorgeClass := func(name, namespace, claimName, storageClass string) {
 		By("Invoking virtlctl memory dump with create flag")
-		commandAndArgs := []string{virtctl.COMMAND_MEMORYDUMP, "get", name, virtCtlNamespace, namespace}
+		commandAndArgs := []string{commandMemoryDump, "get", name, virtCtlNamespace, namespace}
 		commandAndArgs = append(commandAndArgs, fmt.Sprintf(virtCtlClaimName, claimName))
 		commandAndArgs = append(commandAndArgs, virtCtlCreate)
 		commandAndArgs = append(commandAndArgs, fmt.Sprintf(virtCtlStorageClass, storageClass))
@@ -354,7 +353,7 @@ var _ = SIGDescribe("Memory dump", func() {
 
 	removeMemoryDumpVirtctl := func(name, namespace string) {
 		By("Invoking virtlctl remove memory dump")
-		commandAndArgs := []string{virtctl.COMMAND_MEMORYDUMP, "remove", name, virtCtlNamespace, namespace}
+		commandAndArgs := []string{commandMemoryDump, "remove", name, virtCtlNamespace, namespace}
 		removeMemorydumpCommand := clientcmd.NewRepeatableVirtctlCommand(commandAndArgs...)
 		Eventually(func() error {
 			return removeMemorydumpCommand()
@@ -503,7 +502,7 @@ var _ = SIGDescribe("Memory dump", func() {
 		It("[test_id:8501]Run memory dump with pvc too small should fail", func() {
 			By("Trying to get memory dump with small pvc")
 			memoryDumpSmallPVC = libstorage.CreateFSPVC(memoryDumpSmallPVCName, "200Mi")
-			commandAndArgs := []string{virtctl.COMMAND_MEMORYDUMP, "get", vm.Name, fmt.Sprintf(virtCtlClaimName, memoryDumpSmallPVCName), virtCtlNamespace, vm.Namespace}
+			commandAndArgs := []string{commandMemoryDump, "get", vm.Name, fmt.Sprintf(virtCtlClaimName, memoryDumpSmallPVCName), virtCtlNamespace, vm.Namespace}
 			memorydumpCommand := clientcmd.NewRepeatableVirtctlCommand(commandAndArgs...)
 			Eventually(func() string {
 				err := memorydumpCommand()
