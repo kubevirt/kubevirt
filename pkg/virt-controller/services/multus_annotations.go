@@ -24,6 +24,9 @@ import (
 	"fmt"
 
 	v1 "kubevirt.io/api/core/v1"
+
+	"kubevirt.io/kubevirt/pkg/network/namescheme"
+	"kubevirt.io/kubevirt/pkg/network/vmispec"
 )
 
 type multusNetworkAnnotation struct {
@@ -56,29 +59,19 @@ func (mnap multusNetworkAnnotationPool) toString() (string, error) {
 func generateMultusCNIAnnotation(vmi *v1.VirtualMachineInstance) (string, error) {
 	multusNetworkAnnotationPool := multusNetworkAnnotationPool{}
 
-	multusNonDefaultNetworks := filterMultusNonDefaultNetworks(vmi.Spec.Networks)
-	for i, network := range multusNonDefaultNetworks {
-		multusNetworkAnnotationPool.add(
-			newMultusAnnotationData(vmi, network, fmt.Sprintf("net%d", i+1)))
+	networkNameScheme := namescheme.CreateNetworkNameScheme(vmi.Spec.Networks)
+	for _, network := range vmi.Spec.Networks {
+		if vmispec.IsSecondaryMultusNetwork(network) {
+			podInterfaceName := networkNameScheme[network.Name]
+			multusNetworkAnnotationPool.add(
+				newMultusAnnotationData(vmi, network, podInterfaceName))
+		}
 	}
 
 	if !multusNetworkAnnotationPool.isEmpty() {
 		return multusNetworkAnnotationPool.toString()
 	}
 	return "", nil
-}
-
-func filterMultusNonDefaultNetworks(networks []v1.Network) []v1.Network {
-	var multusNetworks []v1.Network
-	for _, network := range networks {
-		if network.Multus != nil {
-			if network.Multus.Default {
-				continue
-			}
-			multusNetworks = append(multusNetworks, network)
-		}
-	}
-	return multusNetworks
 }
 
 func newMultusAnnotationData(vmi *v1.VirtualMachineInstance, network v1.Network, podInterfaceName string) multusNetworkAnnotation {

@@ -13,22 +13,18 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  *
- * Copyright 2021 Red Hat, Inc.
+ * Copyright 2022 Red Hat, Inc.
  *
  */
 
-package sriov
+package namescheme_test
 
 import (
-	v1 "kubevirt.io/api/core/v1"
+	"testing"
+
+	"kubevirt.io/client-go/testutils"
 )
 
-func filterVMISRIOVInterfaces(vmi *v1.VirtualMachineInstance) []v1.Interface {
-	var interfaces []v1.Interface
-	for _, iface := range vmi.Spec.Domain.Devices.Interfaces {
-		if iface.SRIOV != nil {
-			interfaces = append(interfaces, iface)
-		}
-	}
-	return interfaces
+func TestPodInterfaceNameScheme(t *testing.T) {
+	testutils.KubeVirtTestSuiteSetup(t)
 }
