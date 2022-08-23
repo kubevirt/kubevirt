@@ -209,7 +209,7 @@ replace (
 	golang.org/x/crypto/ssh/terminal => golang.org/x/crypto/ssh/terminal v0.0.0-20220525230936-793ad666bf5e
 )
 
-replace github.com/opencontainers/runc => github.com/opencontainers/runc v1.0.3
+replace github.com/opencontainers/runc => github.com/opencontainers/runc v1.1.2
 
 replace github.com/u-root/u-root => github.com/u-root/u-root v0.1.0
 
