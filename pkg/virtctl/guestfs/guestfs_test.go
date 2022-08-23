@@ -148,6 +148,14 @@ var _ = Describe("Guestfs shell", func() {
 			Expect(err).To(HaveOccurred())
 			Expect(err.Error()).Should(Equal(fmt.Sprintf("The PVC %s doesn't exist", pvcName)))
 		})
+
+		It("UID cannot be used with root", func() {
+			guestfs.SetClient(fakeCreateClientPVC)
+			cmd := virtctlcmd.NewRepeatableVirtctlCommand(commandName, pvcName, "--root=true", "--uid=1001")
+			err := cmd()
+			Expect(err).To(HaveOccurred())
+			Expect(err.Error()).Should(Equal(fmt.Sprintf("cannot set uid if root is true")))
+		})
 	})
 
 	Context("URL authenticity", func() {
