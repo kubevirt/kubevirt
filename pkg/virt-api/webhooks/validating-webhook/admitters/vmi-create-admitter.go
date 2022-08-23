@@ -23,6 +23,7 @@ import (
 	"encoding/base64"
 	"fmt"
 	"net"
+	"path/filepath"
 	"regexp"
 	"strings"
 
@@ -192,6 +193,7 @@ func ValidateVirtualMachineInstanceSpec(field *k8sfield.Path, spec *v1.VirtualMa
 
 	causes = append(causes, validateDomainSpec(field.Child("domain"), &spec.Domain)...)
 	causes = append(causes, validateVolumes(field.Child("volumes"), spec.Volumes, config)...)
+	causes = append(causes, validateContainerDisks(field, spec)...)
 
 	causes = append(causes, validateAccessCredentials(field.Child("accessCredentials"), spec.AccessCredentials, spec.Volumes)...)
 
@@ -1443,6 +1445,43 @@ func validateRealtime(field *k8sfield.Path, spec *v1.VirtualMachineInstanceSpec)
 	return causes
 }
 
+func validateContainerDisks(field *k8sfield.Path, spec *v1.VirtualMachineInstanceSpec) (causes []metav1.StatusCause) {
+	for idx, volume := range spec.Volumes {
+		if volume.ContainerDisk == nil || volume.ContainerDisk.Path == "" {
+			continue
+		}
+		causes = append(causes, validatePath(field.Child("volumes").Index(idx).Child("conatinerDisk"), volume.ContainerDisk.Path)...)
+	}
+	return causes
+}
+
+func validatePath(field *k8sfield.Path, path string) (causes []metav1.StatusCause) {
+	if path == "/" {
+		causes = append(causes, metav1.StatusCause{
+			Type: metav1.CauseTypeFieldValueInvalid,
+			Message: fmt.Sprintf("%s must not point to root",
+				field.String(),
+			),
+			Field: field.String(),
+		})
+	} else {
+		cleanedPath := filepath.Join("/", path)
+		providedPath := strings.TrimSuffix(path, "/") // Join trims suffix slashes
+
+		if cleanedPath != providedPath {
+			causes = append(causes, metav1.StatusCause{
+				Type: metav1.CauseTypeFieldValueInvalid,
+				Message: fmt.Sprintf("%s must be an absolute path to a file without relative components",
+					field.String(),
+				),
+				Field: field.String(),
+			})
+		}
+	}
+	return causes
+
+}
+
 func validateCPURealtime(field *k8sfield.Path, spec *v1.VirtualMachineInstanceSpec) (causes []metav1.StatusCause) {
 	if !spec.Domain.CPU.DedicatedCPUPlacement {
 		causes = append(causes, metav1.StatusCause{
@@ -2399,13 +2438,13 @@ func validateKernelBoot(field *k8sfield.Path, kernelBoot *v1.KernelBoot) (causes
 	}
 
 	container := kernelBoot.Container
-	containerField := field.Child("container").String()
+	containerField := field.Child("container")
 
 	if container.Image == "" {
 		causes = append(causes, metav1.StatusCause{
 			Type:    metav1.CauseTypeFieldValueRequired,
 			Message: fmt.Sprintf("%s must be defined with an image", containerField),
-			Field:   containerField,
+			Field:   containerField.Child("image").String(),
 		})
 	}
 
@@ -2413,8 +2452,15 @@ func validateKernelBoot(field *k8sfield.Path, kernelBoot *v1.KernelBoot) (causes
 		causes = append(causes, metav1.StatusCause{
 			Type:    metav1.CauseTypeFieldValueRequired,
 			Message: fmt.Sprintf("%s must be defined with at least one of the following: kernelPath, initrdPath", containerField),
-			Field:   containerField,
+			Field:   containerField.String(),
 		})
+	}
+
+	if container.KernelPath != "" {
+		causes = append(causes, validatePath(containerField.Child("kernelPath"), container.KernelPath)...)
+	}
+	if container.InitrdPath != "" {
+		causes = append(causes, validatePath(containerField.Child("initrdPath"), container.InitrdPath)...)
 	}
 
 	return

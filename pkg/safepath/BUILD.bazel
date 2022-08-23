@@ -2,29 +2,30 @@ load("@io_bazel_rules_go//go:def.bzl", "go_library", "go_test")
 
 go_library(
     name = "go_default_library",
-    srcs = ["hotplug-disk.go"],
-    importpath = "kubevirt.io/kubevirt/pkg/hotplug-disk",
+    srcs = [
+        "safepath.go",
+        "safepath_linux.go",
+    ],
+    importpath = "kubevirt.io/kubevirt/pkg/safepath",
     visibility = ["//visibility:public"],
     deps = [
-        "//pkg/safepath:go_default_library",
-        "//pkg/util:go_default_library",
-        "//vendor/k8s.io/apimachinery/pkg/types:go_default_library",
+        "//pkg/unsafepath:go_default_library",
+        "//vendor/golang.org/x/sys/unix:go_default_library",
     ],
 )
 
 go_test(
     name = "go_default_test",
     srcs = [
-        "hotplug-disk_suite_test.go",
-        "hotplug-disk_test.go",
+        "safepath_suite_test.go",
+        "safepath_test.go",
     ],
     embed = [":go_default_library"],
     deps = [
-        "//pkg/ephemeral-disk-utils:go_default_library",
         "//pkg/unsafepath:go_default_library",
         "//staging/src/kubevirt.io/client-go/testutils:go_default_library",
         "//vendor/github.com/onsi/ginkgo:go_default_library",
+        "//vendor/github.com/onsi/ginkgo/extensions/table:go_default_library",
         "//vendor/github.com/onsi/gomega:go_default_library",
-        "//vendor/k8s.io/apimachinery/pkg/types:go_default_library",
     ],
 )
