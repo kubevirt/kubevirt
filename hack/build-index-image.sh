@@ -42,8 +42,16 @@ function create_index_image() {
   # unalignment between cached index image and fetched bundle image.
   BUNDLE_IMAGE_NAME=$("${PROJECT_ROOT}/tools/digester/digester" --image "${BUNDLE_IMAGE_NAME}")
 
-  mkdir -p "${OUT_DIR}"
-  (cd "${OUT_DIR}" && create_file_based_catalog)
+  if [[ "${UNSTABLE}" == "UNSTABLE" ]]; then
+    # Currently, ci-operator does not support index images with file-based catalogs.
+    # To maintain CI functionality, we'll keep using SQLite-based catalogs for the unstable tags
+    # until FBC handling will be implemented in openshift ci-operator.
+    # shellcheck disable=SC2086
+    ${OPM} index add --bundles "${BUNDLE_IMAGE_NAME}" ${INDEX_IMAGE_PARAM} --tag "${INDEX_IMAGE_NAME}" -u podman --mode semver
+  else
+    mkdir -p "${OUT_DIR}"
+    (cd "${OUT_DIR}" && create_file_based_catalog)
+  fi
 
   podman push "${INDEX_IMAGE_NAME}"
 }
