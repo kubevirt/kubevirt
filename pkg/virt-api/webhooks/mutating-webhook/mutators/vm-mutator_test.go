@@ -19,19 +19,28 @@
 package mutators
 
 import (
+	"context"
 	"encoding/json"
 	"net/http"
 
+	"github.com/golang/mock/gomock"
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
 	admissionv1 "k8s.io/api/admission/v1"
+	k8sv1 "k8s.io/api/core/v1"
 	k8smetav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/client-go/tools/cache"
 
 	v1 "kubevirt.io/api/core/v1"
 	apiinstancetype "kubevirt.io/api/instancetype"
+	instancetypev1alpha1 "kubevirt.io/api/instancetype/v1alpha1"
+	"kubevirt.io/client-go/kubecli"
 
+	fakeclientset "kubevirt.io/client-go/generated/kubevirt/clientset/versioned/fake"
+	instancetypeclientset "kubevirt.io/client-go/generated/kubevirt/clientset/versioned/typed/instancetype/v1alpha1"
+
+	"kubevirt.io/kubevirt/pkg/instancetype"
 	"kubevirt.io/kubevirt/pkg/testutils"
 	utiltypes "kubevirt.io/kubevirt/pkg/util/types"
 	"kubevirt.io/kubevirt/pkg/virt-api/webhooks"
@@ -41,6 +50,10 @@ var _ = Describe("VirtualMachine Mutator", func() {
 	var vm *v1.VirtualMachine
 	var kvInformer cache.SharedIndexInformer
 	var mutator *VMsMutator
+	var ctrl *gomock.Controller
+	var virtClient *kubecli.MockKubevirtClient
+	var fakeInstancetypeClients instancetypeclientset.InstancetypeV1alpha1Interface
+	var fakePreferenceClient instancetypeclientset.VirtualMachinePreferenceInterface
 
 	machineTypeFromConfig := "pc-q35-3.0"
 
@@ -80,10 +93,20 @@ var _ = Describe("VirtualMachine Mutator", func() {
 				Labels: map[string]string{"test": "test"},
 			},
 		}
+		vm.Namespace = k8sv1.NamespaceDefault
 		vm.Spec.Template = &v1.VirtualMachineInstanceTemplateSpec{}
 
 		mutator = &VMsMutator{}
 		mutator.ClusterConfig, _, kvInformer = testutils.NewFakeClusterConfigUsingKVConfig(&v1.KubeVirtConfiguration{})
+
+		ctrl = gomock.NewController(GinkgoT())
+		virtClient = kubecli.NewMockKubevirtClient(ctrl)
+
+		fakeInstancetypeClients = fakeclientset.NewSimpleClientset().InstancetypeV1alpha1()
+		fakePreferenceClient = fakeInstancetypeClients.VirtualMachinePreferences(vm.Namespace)
+		virtClient.EXPECT().VirtualMachinePreference(gomock.Any()).Return(fakePreferenceClient).AnyTimes()
+
+		mutator.InstancetypeMethods = instancetype.NewMethods(virtClient)
 	})
 
 	It("should apply defaults on VM create", func() {
@@ -119,10 +142,99 @@ var _ = Describe("VirtualMachine Mutator", func() {
 			},
 		})
 
-		vm.Spec.Template.Spec.Domain.Machine = &v1.Machine{Type: "q35"}
+		vm.Spec.Template.Spec.Domain.Machine = &v1.Machine{Type: "pc-q35-2.0"}
 
 		vmSpec, _ := getVMSpecMetaFromResponse()
 		Expect(vmSpec.Template.Spec.Domain.Machine.Type).To(Equal(vm.Spec.Template.Spec.Domain.Machine.Type))
+	})
+
+	It("should not override user specified MachineType with PreferredMachineType or cluster config on VM create", func() {
+		vm.Spec.Template.Spec.Domain.Machine = &v1.Machine{Type: "pc-q35-2.0"}
+		preference := &instancetypev1alpha1.VirtualMachinePreference{
+			ObjectMeta: k8smetav1.ObjectMeta{
+				Name: "machineTypePreference",
+			},
+			TypeMeta: k8smetav1.TypeMeta{
+				Kind:       apiinstancetype.SingularPreferenceResourceName,
+				APIVersion: instancetypev1alpha1.SchemeGroupVersion.String(),
+			},
+			Spec: instancetypev1alpha1.VirtualMachinePreferenceSpec{
+				Machine: &instancetypev1alpha1.MachinePreferences{
+					PreferredMachineType: "pc-q35-4.0",
+				},
+			},
+		}
+		_, err := virtClient.VirtualMachinePreference(vm.Namespace).Create(context.Background(), preference, k8smetav1.CreateOptions{})
+		Expect(err).ToNot(HaveOccurred())
+
+		vm.Spec.Preference = &v1.PreferenceMatcher{
+			Name: preference.Name,
+			Kind: apiinstancetype.SingularPreferenceResourceName,
+		}
+
+		testutils.UpdateFakeKubeVirtClusterConfig(kvInformer, &v1.KubeVirt{
+			Spec: v1.KubeVirtSpec{
+				Configuration: v1.KubeVirtConfiguration{
+					MachineType: machineTypeFromConfig,
+				},
+			},
+		})
+
+		vmSpec, _ := getVMSpecMetaFromResponse()
+		Expect(vmSpec.Template.Spec.Domain.Machine.Type).To(Equal(vm.Spec.Template.Spec.Domain.Machine.Type))
+	})
+
+	It("should use PreferredMachineType over cluster config on VM create", func() {
+		preference := &instancetypev1alpha1.VirtualMachinePreference{
+			ObjectMeta: k8smetav1.ObjectMeta{
+				Name: "machineTypePreference",
+			},
+			TypeMeta: k8smetav1.TypeMeta{
+				Kind:       apiinstancetype.SingularPreferenceResourceName,
+				APIVersion: instancetypev1alpha1.SchemeGroupVersion.String(),
+			},
+			Spec: instancetypev1alpha1.VirtualMachinePreferenceSpec{
+				Machine: &instancetypev1alpha1.MachinePreferences{
+					PreferredMachineType: "pc-q35-4.0",
+				},
+			},
+		}
+		_, err := virtClient.VirtualMachinePreference(vm.Namespace).Create(context.Background(), preference, k8smetav1.CreateOptions{})
+		Expect(err).ToNot(HaveOccurred())
+
+		vm.Spec.Preference = &v1.PreferenceMatcher{
+			Name: preference.Name,
+			Kind: apiinstancetype.SingularPreferenceResourceName,
+		}
+
+		testutils.UpdateFakeKubeVirtClusterConfig(kvInformer, &v1.KubeVirt{
+			Spec: v1.KubeVirtSpec{
+				Configuration: v1.KubeVirtConfiguration{
+					MachineType: machineTypeFromConfig,
+				},
+			},
+		})
+
+		vmSpec, _ := getVMSpecMetaFromResponse()
+		Expect(vmSpec.Template.Spec.Domain.Machine.Type).To(Equal(preference.Spec.Machine.PreferredMachineType))
+	})
+
+	It("should ignore error looking up preference and apply cluster config on VM create", func() {
+		vm.Spec.Preference = &v1.PreferenceMatcher{
+			Name: "foobar",
+			Kind: apiinstancetype.SingularPreferenceResourceName,
+		}
+
+		testutils.UpdateFakeKubeVirtClusterConfig(kvInformer, &v1.KubeVirt{
+			Spec: v1.KubeVirtSpec{
+				Configuration: v1.KubeVirtConfiguration{
+					MachineType: machineTypeFromConfig,
+				},
+			},
+		})
+
+		vmSpec, _ := getVMSpecMetaFromResponse()
+		Expect(vmSpec.Template.Spec.Domain.Machine.Type).To(Equal(machineTypeFromConfig))
 	})
 
 	It("should default instancetype kind to ClusterSingularResourceName when not provided", func() {
