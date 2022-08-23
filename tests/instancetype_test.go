@@ -254,10 +254,6 @@ var _ = Describe("[crit:medium][vendor:cnv-qe@redhat.com][level:component][sig-c
 			preference.Spec.Firmware = &instancetypev1alpha1.FirmwarePreferences{
 				PreferredUseBios: pointer.Bool(true),
 			}
-			// We don't want to break tests randomly so just use the q35 alias for now
-			preference.Spec.Machine = &instancetypev1alpha1.MachinePreferences{
-				PreferredMachineType: "q35",
-			}
 
 			preference, err = virtClient.VirtualMachinePreference(util.NamespaceTestDefault).
 				Create(context.Background(), preference, metav1.CreateOptions{})
@@ -302,9 +298,6 @@ var _ = Describe("[crit:medium][vendor:cnv-qe@redhat.com][level:component][sig-c
 
 			// Assert that the correct firmware preferences are enabled
 			Expect(vmi.Spec.Domain.Firmware.Bootloader.BIOS).ToNot(BeNil())
-
-			// Assert that the correct machine type preference is applied to the VMI
-			Expect(vmi.Spec.Domain.Machine.Type).To(Equal(preference.Spec.Machine.PreferredMachineType))
 
 			// Assert the correct annotations have been set
 			Expect(vmi.Annotations[v1.InstancetypeAnnotation]).To(Equal(instancetype.Name))
