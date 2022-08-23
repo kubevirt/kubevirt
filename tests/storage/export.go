@@ -28,6 +28,8 @@ import (
 	"strings"
 	"time"
 
+	"kubevirt.io/kubevirt/tests/testsuite"
+
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
 	"github.com/onsi/gomega/format"
@@ -107,22 +109,11 @@ var _ = SIGDescribe("Export", func() {
 	var token *k8sv1.Secret
 	var virtClient kubecli.KubevirtClient
 
-	waitExportProxyReady := func() {
-		Eventually(func() bool {
-			d, err := virtClient.AppsV1().Deployments(flags.KubeVirtInstallNamespace).Get(context.TODO(), "virt-exportproxy", metav1.GetOptions{})
-			if errors.IsNotFound(err) {
-				return false
-			}
-			Expect(err).ToNot(HaveOccurred())
-			return d.Status.AvailableReplicas > 0
-		}, 90*time.Second, 1*time.Second).Should(BeTrue())
-	}
-
 	BeforeEach(func() {
 		virtClient, err = kubecli.GetKubevirtClient()
 		util.PanicOnError(err)
 
-		waitExportProxyReady()
+		testsuite.WaitExportProxyReady()
 	})
 
 	AfterEach(func() {

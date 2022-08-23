@@ -25,6 +25,8 @@ import (
 	"path/filepath"
 	"time"
 
+	"k8s.io/apimachinery/pkg/api/errors"
+
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
 
@@ -255,4 +257,17 @@ func waitForAllPodsReady(timeout time.Duration, listOptions metav1.ListOptions) 
 		return podsNotReady
 	}
 	Eventually(checkForPodsToBeReady, timeout, 2*time.Second).Should(BeEmpty(), "There are pods in system which are not ready.")
+}
+
+func WaitExportProxyReady() {
+	Eventually(func() bool {
+		virtClient, err := kubecli.GetKubevirtClient()
+		util.PanicOnError(err)
+		d, err := virtClient.AppsV1().Deployments(flags.KubeVirtInstallNamespace).Get(context.TODO(), "virt-exportproxy", metav1.GetOptions{})
+		if errors.IsNotFound(err) {
+			return false
+		}
+		Expect(err).ToNot(HaveOccurred())
+		return d.Status.AvailableReplicas > 0
+	}, 90*time.Second, 1*time.Second).Should(BeTrue())
 }
