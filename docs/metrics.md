@@ -73,7 +73,7 @@ Amount of `unused` memory as seen by the domain. Type: Gauge.
 The amount of memory which can be reclaimed by balloon without causing host swapping in bytes. Type: Gauge.
 
 ### kubevirt_vmi_memory_used_bytes
-Amount of `used` memory as seen by the domain. Type: Counter.
+Amount of `used` memory as seen by the domain. Type: Gauge.
 
 ### kubevirt_vmi_network_receive_bytes_total
 Network traffic receive in bytes. Type: Counter.
