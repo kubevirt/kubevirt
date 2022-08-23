@@ -1183,6 +1183,29 @@ var _ = SIGDescribe("Storage", func() {
 				}, 10*time.Second)).To(Succeed())
 			})
 
+			Context("With a USB device", func() {
+				It("should successfully start and have the USB storage device attached", func() {
+					vmi = libvmi.NewAlpine(
+						libvmi.WithEmptyDisk("emptydisk1", v1.DiskBusUSB, resource.MustParse("128Mi")),
+					)
+					vmi = tests.RunVMIAndExpectLaunch(vmi, 90)
+					Expect(console.LoginToAlpine(vmi)).To(Succeed())
+
+					By("Checking that /dev/sda has a capacity of 128Mi")
+					Expect(console.ExpectBatch(vmi, []expect.Batcher{
+						&expect.BSnd{S: "blockdev --getsize64 /dev/sda\n"},
+						&expect.BExp{R: "134217728"},
+					}, 10*time.Second)).To(Succeed())
+
+					By("Checking that the usb_storage kernel module has been loaded")
+					Expect(console.ExpectBatch(vmi, []expect.Batcher{
+						&expect.BSnd{S: "mkdir /sys/module/usb_storage\n"},
+						&expect.BExp{R: "mkdir: can't create directory '/sys/module/usb_storage': File exists"},
+					}, 10*time.Second)).To(Succeed())
+				})
+
+			})
+
 		})
 
 		Context("[storage-req] With a volumeMode block backed ephemeral disk", func() {

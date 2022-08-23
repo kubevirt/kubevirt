@@ -2974,6 +2974,14 @@ var _ = Describe("Validating VMICreate Admitter", func() {
 			vmi.Spec.Domain.Devices.Disks = append(vmi.Spec.Domain.Devices.Disks, v1.Disk{
 				Name: "testdisk4",
 				DiskDevice: v1.DiskDevice{
+					Disk: &v1.DiskTarget{
+						Bus: v1.DiskBusUSB,
+					},
+				},
+			})
+			vmi.Spec.Domain.Devices.Disks = append(vmi.Spec.Domain.Devices.Disks, v1.Disk{
+				Name: "testdisk5",
+				DiskDevice: v1.DiskDevice{
 					Disk: &v1.DiskTarget{},
 				},
 			})

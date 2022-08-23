@@ -249,6 +249,7 @@ var _ = Describe("[rfe_id:393][crit:high][vendor:cnv-qe@redhat.com][level:system
 			withKernelBoot(),
 			withSecret(secretName),
 			withConfigMap(configMapName),
+			libvmi.WithEmptyDisk("usb-disk", v1.DiskBusUSB, resource.MustParse("64Mi")),
 			libvmi.WithCloudInitNoCloudUserData("#!/bin/bash\necho 'hello'\n", true),
 		)
 	}
@@ -996,6 +997,29 @@ var _ = Describe("[rfe_id:393][crit:high][vendor:cnv-qe@redhat.com][level:system
 
 				By("Waiting for VMI to disappear")
 				tests.WaitForVirtualMachineToDisappearWithTimeout(vmi, 240)
+			})
+
+			It("should migrate vmi with a usb disk", func() {
+
+				vmi := libvmi.NewAlpineWithTestTooling(
+					libvmi.WithEmptyDisk("disk0", v1.DiskBusUSB, resource.MustParse("128Mi")),
+					libvmi.WithInterface(libvmi.InterfaceDeviceWithMasqueradeBinding()),
+					libvmi.WithNetwork(v1.DefaultPodNetwork()),
+				)
+
+				By("Starting the VirtualMachineInstance")
+				vmi = tests.RunVMIAndExpectLaunch(vmi, 240)
+
+				By("Checking that the VirtualMachineInstance console has expected output")
+				Expect(console.LoginToAlpine(vmi)).To(Succeed())
+
+				// execute a migration, wait for finalized state
+				By("starting the migration")
+				migration := tests.NewRandomMigration(vmi.Name, vmi.Namespace)
+				migrationUID := tests.RunMigrationAndExpectCompletion(virtClient, migration, tests.MigrationWaitTime)
+
+				// check VMI, confirm migration state
+				tests.ConfirmVMIPostMigration(virtClient, vmi, migrationUID)
 			})
 
 			It("[test_id:1783]should be successfully migrated multiple times with cloud-init disk", func() {
@@ -3102,10 +3126,10 @@ var _ = Describe("[rfe_id:393][crit:high][vendor:cnv-qe@redhat.com][level:system
 
 	Context("with sata disks", func() {
 
-		It("[test_id:1853]VM with containerDisk + CloudInit + ServiceAccount + ConfigMap + Secret + DownwardAPI + External Kernel Boot", func() {
+		It("[test_id:1853]VM with containerDisk + CloudInit + ServiceAccount + ConfigMap + Secret + DownwardAPI + External Kernel Boot + USB Disk", func() {
 			vmi := prepareVMIWithAllVolumeSources()
 
-			Expect(vmi.Spec.Domain.Devices.Disks).To(HaveLen(6))
+			Expect(vmi.Spec.Domain.Devices.Disks).To(HaveLen(7))
 			Expect(vmi.Spec.Domain.Devices.Interfaces).To(HaveLen(1))
 
 			vmi = tests.RunVMIAndExpectLaunch(vmi, 180)

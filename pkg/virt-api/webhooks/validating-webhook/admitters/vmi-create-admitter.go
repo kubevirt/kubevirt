@@ -2303,7 +2303,7 @@ func validateDisks(field *k8sfield.Path, disks []v1.Disk) []metav1.StatusCause {
 					Field:   field.Index(idx).Child(diskType, "bus").String(),
 				})
 			} else {
-				buses := []v1.DiskBus{v1.DiskBusVirtio, v1.DiskBusSCSI, v1.DiskBusSATA}
+				buses := []v1.DiskBus{v1.DiskBusVirtio, v1.DiskBusSCSI, v1.DiskBusSATA, v1.DiskBusUSB}
 				validBus := false
 				for _, b := range buses {
 					if b == bus {

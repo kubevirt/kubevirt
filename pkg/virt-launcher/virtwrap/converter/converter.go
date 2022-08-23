@@ -916,12 +916,12 @@ func Convert_v1_Rng_To_api_Rng(_ *v1.Rng, rng *api.Rng, c *ConverterContext) err
 	return nil
 }
 
-func Convert_v1_Usbredir_To_api_Usbredir(vmi *v1.VirtualMachineInstance, domainDevices *api.Devices, _ *ConverterContext) (bool, error) {
+func Convert_v1_Usbredir_To_api_Usbredir(vmi *v1.VirtualMachineInstance, domainDevices *api.Devices, _ *ConverterContext) error {
 	clientDevices := vmi.Spec.Domain.Devices.ClientPassthrough
 
 	// Default is to have USB Redirection disabled
 	if clientDevices == nil {
-		return false, nil
+		return nil
 	}
 
 	// Note that at the moment, we don't require any specific input to configure the USB devices
@@ -940,7 +940,7 @@ func Convert_v1_Usbredir_To_api_Usbredir(vmi *v1.VirtualMachineInstance, domainD
 		}
 	}
 	domainDevices.Redirs = redirectDevices
-	return true, nil
+	return nil
 }
 
 func Convert_v1_Sound_To_api_Sound(vmi *v1.VirtualMachineInstance, domainDevices *api.Devices, _ *ConverterContext) {
@@ -1153,6 +1153,35 @@ func initializeQEMUCmdAndQEMUArg(domain *api.Domain) {
 	if domain.Spec.QEMUCmd.QEMUArg == nil {
 		domain.Spec.QEMUCmd.QEMUArg = make([]api.Arg, 0)
 	}
+}
+
+func isUSBNeeded(c *ConverterContext, vmi *v1.VirtualMachineInstance) bool {
+	//In ppc64le usb devices like mouse / keyboard are set by default,
+	//so we can't disable the controller otherwise we run into the following error:
+	//"unsupported configuration: USB is disabled for this domain, but USB devices are present in the domain XML"
+	if !isAMD64(c.Architecture) {
+		return true
+	}
+
+	for i := range vmi.Spec.Domain.Devices.Inputs {
+		if vmi.Spec.Domain.Devices.Inputs[i].Bus == "usb" {
+			return true
+		}
+	}
+
+	for i := range vmi.Spec.Domain.Devices.Disks {
+		disk := vmi.Spec.Domain.Devices.Disks[i].Disk
+
+		if disk != nil && disk.Bus == v1.DiskBusUSB {
+			return true
+		}
+	}
+
+	if vmi.Spec.Domain.Devices.ClientPassthrough != nil {
+		return true
+	}
+
+	return false
 }
 
 func Convert_v1_VirtualMachineInstance_To_api_Domain(vmi *v1.VirtualMachineInstance, domain *api.Domain, c *ConverterContext) (err error) {
@@ -1583,7 +1612,9 @@ func Convert_v1_VirtualMachineInstance_To_api_Domain(vmi *v1.VirtualMachineInsta
 		domain.Spec.Devices.Rng = newRng
 	}
 
-	isUSBDevicePresent := false
+	domain.Spec.Devices.Ballooning = &api.MemBalloon{}
+	ConvertV1ToAPIBalloning(&vmi.Spec.Domain.Devices, domain.Spec.Devices.Ballooning, c)
+
 	if vmi.Spec.Domain.Devices.Inputs != nil {
 		inputDevices := make([]api.Input, 0)
 		for i := range vmi.Spec.Domain.Devices.Inputs {
@@ -1593,38 +1624,27 @@ func Convert_v1_VirtualMachineInstance_To_api_Domain(vmi *v1.VirtualMachineInsta
 				return err
 			}
 			inputDevices = append(inputDevices, inputDevice)
-			if inputDevice.Bus == "usb" {
-				isUSBDevicePresent = true
-			}
 		}
 		domain.Spec.Devices.Inputs = inputDevices
 	}
 
-	isUSBRedirEnabled, err := Convert_v1_Usbredir_To_api_Usbredir(vmi, &domain.Spec.Devices, c)
+	err = Convert_v1_Usbredir_To_api_Usbredir(vmi, &domain.Spec.Devices, c)
 	if err != nil {
 		return err
 	}
 
-	domain.Spec.Devices.Ballooning = &api.MemBalloon{}
-	ConvertV1ToAPIBalloning(&vmi.Spec.Domain.Devices, domain.Spec.Devices.Ballooning, c)
-
-	//usb controller is turned on, only when user specify input device with usb bus,
-	//otherwise it is turned off
-	//In ppc64le usb devices like mouse / keyboard are set by default,
-	//so we can't disable the controller otherwise we run into the following error:
-	//"unsupported configuration: USB is disabled for this domain, but USB devices are present in the domain XML"
-	if !isUSBDevicePresent && !isUSBRedirEnabled && isAMD64(c.Architecture) {
+	if isUSBNeeded(c, vmi) {
+		domain.Spec.Devices.Controllers = append(domain.Spec.Devices.Controllers, api.Controller{
+			Type:  "usb",
+			Index: "0",
+			Model: "qemu-xhci",
+		})
+	} else {
 		// disable usb controller
 		domain.Spec.Devices.Controllers = append(domain.Spec.Devices.Controllers, api.Controller{
 			Type:  "usb",
 			Index: "0",
 			Model: "none",
-		})
-	} else {
-		domain.Spec.Devices.Controllers = append(domain.Spec.Devices.Controllers, api.Controller{
-			Type:  "usb",
-			Index: "0",
-			Model: "qemu-xhci",
 		})
 	}
 
@@ -1908,7 +1928,7 @@ func getPrefixFromBus(bus v1.DiskBus) string {
 	switch bus {
 	case v1.DiskBusVirtio:
 		return "vd"
-	case v1.DiskBusSATA, v1.DiskBusSCSI:
+	case v1.DiskBusSATA, v1.DiskBusSCSI, v1.DiskBusUSB:
 		return "sd"
 	default:
 		log.Log.Errorf("Unrecognized bus '%s'", bus)
