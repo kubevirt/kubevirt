@@ -1594,7 +1594,7 @@ Version: 1.2.3`)
 					By("Make sure the existing KV is with the the expected FGs", func() {
 						Expect(existingResource.Spec.Configuration.DeveloperConfiguration).NotTo(BeNil())
 						Expect(existingResource.Spec.Configuration.DeveloperConfiguration.FeatureGates).
-							To(ContainElements(kvLiveMigrationGate, kvWithHostPassthroughCPU, kvSRIOVLiveMigration))
+							To(ContainElements(kvWithHostPassthroughCPU, kvSRIOVLiveMigration))
 					})
 
 					cl := commonTestUtils.InitClient([]runtime.Object{hco, existingResource})
@@ -1791,26 +1791,6 @@ Version: 1.2.3`)
 						len(hardCodeKvFgs)+2,
 						[][]string{hardCodeKvFgs, {kvWithHostPassthroughCPU}},
 					))
-
-				It("Should include LiveMigration if running in openshift with HighlyAvailable infrastructure", func() {
-					hcoutil.GetClusterInfo = func() hcoutil.ClusterInfo {
-						return &commonTestUtils.ClusterInfoMock{}
-					}
-					hco_fg := hcov1beta1.HyperConvergedFeatureGates{}
-					fgs := getKvFeatureGateList(&hco_fg)
-					Expect(fgs).To(HaveLen(len(hardCodeKvFgs)))
-					Expect(fgs).To(ContainElement(kvLiveMigrationGate))
-				})
-
-				It("Should include LiveMigration if running in openshift with SingleReplica infrastructure", func() {
-					hcoutil.GetClusterInfo = func() hcoutil.ClusterInfo {
-						return &commonTestUtils.ClusterInfoSNOMock{}
-					}
-					hco_fg := hcov1beta1.HyperConvergedFeatureGates{}
-					fgs := getKvFeatureGateList(&hco_fg)
-					Expect(fgs).To(HaveLen(len(hardCodeKvFgs)))
-					Expect(fgs).To(ContainElement(kvLiveMigrationGate))
-				})
 			})
 
 			Context("Test getMandatoryKvFeatureGates", func() {

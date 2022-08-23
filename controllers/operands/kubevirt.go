@@ -61,9 +61,6 @@ const (
 	// Enable Single-root input/output virtualization
 	kvSRIOVGate = "SRIOV"
 
-	// Enables VMIs to be live migrated. Without this, migrations are not possible and will be blocked
-	kvLiveMigrationGate = "LiveMigration"
-
 	// Enables the CPUManager feature gate to label the nodes which have the Kubernetes CPUManager running. VMIs that
 	// require dedicated CPU resources will automatically be scheduled on the labeled nodes
 	kvCPUManagerGate = "CPUManager"
@@ -106,7 +103,6 @@ var (
 		kvHostDevicesGate,
 		kvDownwardMetricsGate,
 		kvNUMA,
-		kvLiveMigrationGate,
 	}
 
 	// holds a list of mandatory KubeVirt feature gates. Some of them are the hard coded feature gates and some of

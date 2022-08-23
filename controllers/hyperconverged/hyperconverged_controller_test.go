@@ -196,7 +196,6 @@ var _ = Describe("HyperconvergedController", func() {
 				expectedFeatureGates := []string{
 					"DataVolumes",
 					"SRIOV",
-					"LiveMigration",
 					"CPUManager",
 					"CPUNodeDiscovery",
 					"Snapshot",
