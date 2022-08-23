@@ -20,6 +20,8 @@
 package libvmi
 
 import (
+	"fmt"
+
 	k8sv1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/api/resource"
 
@@ -60,15 +62,19 @@ func WithEmptyDisk(diskName string, bus v1.DiskBus, capacity resource.Quantity) 
 }
 
 func addDisk(vmi *v1.VirtualMachineInstance, disk v1.Disk) {
-	if !diskExists(vmi, disk) {
-		vmi.Spec.Domain.Devices.Disks = append(vmi.Spec.Domain.Devices.Disks, disk)
+	if diskExists(vmi, disk) {
+		panic(fmt.Errorf("disk %s already exists", disk.Name))
 	}
+
+	vmi.Spec.Domain.Devices.Disks = append(vmi.Spec.Domain.Devices.Disks, disk)
 }
 
 func addVolume(vmi *v1.VirtualMachineInstance, volume v1.Volume) {
-	if !volumeExists(vmi, volume) {
-		vmi.Spec.Volumes = append(vmi.Spec.Volumes, volume)
+	if volumeExists(vmi, volume) {
+		panic(fmt.Errorf("volume %s already exists", volume.Name))
 	}
+
+	vmi.Spec.Volumes = append(vmi.Spec.Volumes, volume)
 }
 
 func getVolume(vmi *v1.VirtualMachineInstance, name string) *v1.Volume {
