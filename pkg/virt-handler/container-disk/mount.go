@@ -9,6 +9,9 @@ import (
 	"sync"
 	"time"
 
+	"kubevirt.io/kubevirt/pkg/unsafepath"
+
+	"kubevirt.io/kubevirt/pkg/safepath"
 	"kubevirt.io/kubevirt/pkg/util"
 	virtconfig "kubevirt.io/kubevirt/pkg/virt-config"
 	virt_chroot "kubevirt.io/kubevirt/pkg/virt-handler/virt-chroot"
@@ -55,6 +58,7 @@ type vmiMountTargetEntry struct {
 
 type vmiMountTargetRecord struct {
 	MountTargetEntries []vmiMountTargetEntry `json:"mountTargetEntries"`
+	UsesSafePaths      bool                  `json:"usesSafePaths"`
 }
 
 func NewMounter(isoDetector isolation.PodIsolationDetector, mountStateDir string, clusterConfig *virtconfig.ClusterConfig) Mounter {
@@ -139,6 +143,19 @@ func (m *mounter) getMountTargetRecord(vmi *v1.VirtualMachineInstance) (*vmiMoun
 			return nil, err
 		}
 
+		// XXX: backward compatibility for old unresolved paths, can be removed in July 2023
+		// After a one-time convert and persist, old records are safe too.
+		if !record.UsesSafePaths {
+			record.UsesSafePaths = true
+			for i, entry := range record.MountTargetEntries {
+				safePath, err := safepath.JoinAndResolveWithRelativeRoot("/", entry.TargetFile)
+				if err != nil {
+					return nil, fmt.Errorf("failed converting legacy path to safepath: %v", err)
+				}
+				record.MountTargetEntries[i].TargetFile = unsafepath.UnsafeAbsolute(safePath.Raw())
+			}
+		}
+
 		m.mountRecords[vmi.UID] = &record
 		return &record, nil
 	}
@@ -159,6 +176,9 @@ func (m *mounter) setAddMountTargetRecordHelper(vmi *v1.VirtualMachineInstance, 
 	if string(vmi.UID) == "" {
 		return fmt.Errorf("unable to set container disk mounted directories for vmi without uid")
 	}
+	// XXX: backward compatibility for old unresolved paths, can be removed in July 2023
+	// After a one-time convert and persist, old records are safe too.
+	record.UsesSafePaths = true
 
 	recordFile := filepath.Join(m.mountStateDir, string(vmi.UID))
 	fileExists, err := diskutils.FileExists(recordFile)
@@ -207,7 +227,18 @@ func (m *mounter) MountAndVerify(vmi *v1.VirtualMachineInstance) (map[string]*co
 
 	for i, volume := range vmi.Spec.Volumes {
 		if volume.ContainerDisk != nil {
-			targetFile, err := containerdisk.GetDiskTargetPathFromHostView(vmi, i)
+			diskTargetDir, err := containerdisk.GetDiskTargetDirFromHostView(vmi)
+			if err != nil {
+				return nil, err
+			}
+			diskName := containerdisk.GetDiskTargetName(i)
+			// If diskName is a symlink it will fail if the target exists.
+			if err := safepath.TouchAtNoFollow(diskTargetDir, diskName, os.ModePerm); err != nil {
+				if err != nil && !os.IsExist(err) {
+					return nil, fmt.Errorf("failed to create mount point target: %v", err)
+				}
+			}
+			targetFile, err := safepath.JoinNoFollow(diskTargetDir, diskName)
 			if err != nil {
 				return nil, err
 			}
@@ -218,7 +249,7 @@ func (m *mounter) MountAndVerify(vmi *v1.VirtualMachineInstance) (map[string]*co
 			}
 
 			record.MountTargetEntries = append(record.MountTargetEntries, vmiMountTargetEntry{
-				TargetFile: targetFile,
+				TargetFile: unsafepath.UnsafeAbsolute(targetFile.Raw()),
 				SocketFile: sock,
 			})
 		}
@@ -238,14 +269,19 @@ func (m *mounter) MountAndVerify(vmi *v1.VirtualMachineInstance) (map[string]*co
 
 	for i, volume := range vmi.Spec.Volumes {
 		if volume.ContainerDisk != nil {
-			targetFile, err := containerdisk.GetDiskTargetPathFromHostView(vmi, i)
+			diskTargetDir, err := containerdisk.GetDiskTargetDirFromHostView(vmi)
+			if err != nil {
+				return nil, err
+			}
+			diskName := containerdisk.GetDiskTargetName(i)
+			targetFile, err := safepath.JoinNoFollow(diskTargetDir, diskName)
 			if err != nil {
 				return nil, err
 			}
 
 			nodeRes := isolation.NodeIsolationResult()
 
-			if isMounted, err := nodeRes.IsMounted(targetFile); err != nil {
+			if isMounted, err := isolation.IsMounted(targetFile); err != nil {
 				return nil, fmt.Errorf("failed to determine if %s is already mounted: %v", targetFile, err)
 			} else if !isMounted {
 				sock, err := m.socketPathGetter(vmi, i)
@@ -265,14 +301,9 @@ func (m *mounter) MountAndVerify(vmi *v1.VirtualMachineInstance) (map[string]*co
 				if err != nil {
 					return nil, fmt.Errorf("failed to find a sourceFile in containerDisk %v: %v", volume.Name, err)
 				}
-				f, err := os.Create(targetFile)
-				if err != nil {
-					return nil, fmt.Errorf("failed to create mount point target %v: %v", targetFile, err)
-				}
-				f.Close()
 
-				log.DefaultLogger().Object(vmi).Infof("Bind mounting container disk at %s to %s", strings.TrimPrefix(sourceFile, nodeRes.MountRoot()), targetFile)
-				out, err := virt_chroot.MountChroot(strings.TrimPrefix(sourceFile, nodeRes.MountRoot()), targetFile, true).CombinedOutput()
+				log.DefaultLogger().Object(vmi).Infof("Bind mounting container disk at %s to %s", sourceFile, targetFile)
+				out, err := virt_chroot.MountChroot(sourceFile, targetFile, true).CombinedOutput()
 				if err != nil {
 					return nil, fmt.Errorf("failed to bindmount containerDisk %v: %v : %v", volume.Name, string(out), err)
 				}
@@ -296,40 +327,6 @@ func (m *mounter) MountAndVerify(vmi *v1.VirtualMachineInstance) (map[string]*co
 	return disksInfo, nil
 }
 
-// Legacy Unmount unmounts all container disks of a given VMI when the hold HostPath method was in use.
-// This exists for backwards compatibility for VMIs running before a KubeVirt update occurs.
-func (m *mounter) legacyUnmount(vmi *v1.VirtualMachineInstance) error {
-	mountDir := containerdisk.GetLegacyVolumeMountDirOnHost(vmi)
-
-	files, err := os.ReadDir(mountDir)
-	if err != nil && !os.IsNotExist(err) {
-		return fmt.Errorf("failed to list container disk mounts: %v", err)
-	}
-
-	if vmi.UID != "" {
-		for _, file := range files {
-			path := filepath.Join(mountDir, file.Name())
-			if strings.HasSuffix(path, ".sock") {
-				continue
-			}
-			if mounted, err := isolation.NodeIsolationResult().IsMounted(path); err != nil {
-				return fmt.Errorf(failedCheckMountPointFmt, path, err)
-			} else if mounted {
-				// #nosec No risk for attacket injection. Parameters are predefined strings
-				out, err := virt_chroot.UmountChroot(path).CombinedOutput()
-				if err != nil {
-					return fmt.Errorf(failedUnmountFmt, path, string(out), err)
-				}
-			}
-		}
-
-		if err := os.RemoveAll(mountDir); err != nil {
-			return fmt.Errorf("failed to remove containerDisk files: %v", err)
-		}
-	}
-	return nil
-}
-
 // Unmount unmounts all container disks of a given VMI.
 func (m *mounter) Unmount(vmi *v1.VirtualMachineInstance) error {
 	if vmi.UID == "" {
@@ -339,13 +336,6 @@ func (m *mounter) Unmount(vmi *v1.VirtualMachineInstance) error {
 	err := m.unmountKernelArtifacts(vmi)
 	if err != nil {
 		return fmt.Errorf("error unmounting kernel artifacts: %v", err)
-	}
-
-	// this will catch unmounting a vmi's container disk when
-	// an old VMI is left over after a KubeVirt update
-	err = m.legacyUnmount(vmi)
-	if err != nil {
-		return err
 	}
 
 	record, err := m.getMountTargetRecord(vmi)
@@ -360,19 +350,25 @@ func (m *mounter) Unmount(vmi *v1.VirtualMachineInstance) error {
 
 	log.DefaultLogger().Object(vmi).Infof("Found container disk mount entries")
 	for _, entry := range record.MountTargetEntries {
-		path := entry.TargetFile
-		log.DefaultLogger().Object(vmi).Infof("Looking to see if containerdisk is mounted at path %s", path)
-		if mounted, err := isolation.NodeIsolationResult().IsMounted(path); err != nil {
-			return fmt.Errorf(failedCheckMountPointFmt, path, err)
+		log.DefaultLogger().Object(vmi).Infof("Looking to see if containerdisk is mounted at path %s", entry.TargetFile)
+		file, err := safepath.NewFileNoFollow(entry.TargetFile)
+		if err != nil {
+			if os.IsNotExist(err) {
+				continue
+			}
+			return fmt.Errorf(failedCheckMountPointFmt, entry.TargetFile, err)
+		}
+		_ = file.Close()
+		if mounted, err := isolation.IsMounted(file.Path()); err != nil {
+			return fmt.Errorf(failedCheckMountPointFmt, file, err)
 		} else if mounted {
-			log.DefaultLogger().Object(vmi).Infof("unmounting container disk at path %s", path)
+			log.DefaultLogger().Object(vmi).Infof("unmounting container disk at path %s", file)
 			// #nosec No risk for attacket injection. Parameters are predefined strings
-			out, err := virt_chroot.UmountChroot(path).CombinedOutput()
+			out, err := virt_chroot.UmountChroot(file.Path()).CombinedOutput()
 			if err != nil {
-				return fmt.Errorf(failedUnmountFmt, path, string(out), err)
+				return fmt.Errorf(failedUnmountFmt, file, string(out), err)
 			}
 		}
-
 	}
 	err = m.deleteMountTargetRecord(vmi)
 	if err != nil {
@@ -417,7 +413,19 @@ func (m *mounter) mountKernelArtifacts(vmi *v1.VirtualMachineInstance, verify bo
 	if err != nil {
 		return fmt.Errorf("failed to get disk target dir: %v", err)
 	}
-	targetDir = filepath.Join(targetDir, containerdisk.KernelBootName)
+	if err := safepath.MkdirAtNoFollow(targetDir, containerdisk.KernelBootName, 0755); err != nil {
+		if !os.IsExist(err) {
+			return err
+		}
+	}
+
+	targetDir, err = safepath.JoinNoFollow(targetDir, containerdisk.KernelBootName)
+	if err != nil {
+		return err
+	}
+	if err := safepath.ChpermAtNoFollow(targetDir, 0, 0, 0755); err != nil {
+		return err
+	}
 
 	socketFilePath, err := m.kernelBootSocketPathGetter(vmi)
 	if err != nil {
@@ -426,7 +434,7 @@ func (m *mounter) mountKernelArtifacts(vmi *v1.VirtualMachineInstance, verify bo
 
 	record := vmiMountTargetRecord{
 		MountTargetEntries: []vmiMountTargetEntry{{
-			TargetFile: targetDir,
+			TargetFile: unsafepath.UnsafeAbsolute(targetDir.Raw()),
 			SocketFile: socketFilePath,
 		}},
 	}
@@ -438,11 +446,23 @@ func (m *mounter) mountKernelArtifacts(vmi *v1.VirtualMachineInstance, verify bo
 
 	nodeRes := isolation.NodeIsolationResult()
 
-	targetInitrdPath := filepath.Join(targetDir, filepath.Base(kb.InitrdPath))
-	targetKernelPath := filepath.Join(targetDir, filepath.Base(kb.KernelPath))
+	if err := safepath.TouchAtNoFollow(targetDir, filepath.Base(kb.InitrdPath), 0655); err != nil && !os.IsExist(err) {
+		return err
+	}
+	if err := safepath.TouchAtNoFollow(targetDir, filepath.Base(kb.KernelPath), 0655); err != nil && !os.IsExist(err) {
+		return err
+	}
+	targetInitrdPath, err := safepath.JoinNoFollow(targetDir, filepath.Base(kb.InitrdPath))
+	if err != nil {
+		return err
+	}
+	targetKernelPath, err := safepath.JoinNoFollow(targetDir, filepath.Base(kb.KernelPath))
+	if err != nil {
+		return err
+	}
 
-	areKernelArtifactsMounted := func(artifactsDir string, artifactFiles ...string) (bool, error) {
-		if _, err = os.Stat(artifactsDir); os.IsNotExist(err) {
+	areKernelArtifactsMounted := func(artifactsDir *safepath.Path, artifactFiles ...*safepath.Path) (bool, error) {
+		if _, err = safepath.StatAtNoFollow(artifactsDir); os.IsNotExist(err) {
 			return false, nil
 		} else if err != nil {
 			return false, err
@@ -455,7 +475,7 @@ func (m *mounter) mountKernelArtifacts(vmi *v1.VirtualMachineInstance, verify bo
 	if isMounted, err := areKernelArtifactsMounted(targetDir, targetInitrdPath, targetKernelPath); err != nil {
 		return fmt.Errorf("failed to determine if %s is already mounted: %v", targetDir, err)
 	} else if !isMounted {
-		log.Log.Object(vmi).Infof("mounting kernel artifacts are not mounted - mounting...")
+		log.Log.Object(vmi).Infof("kernel artifacts are not mounted - mounting...")
 
 		res, err := m.podIsolationDetector.DetectForSocket(vmi, socketFilePath)
 		if err != nil {
@@ -466,26 +486,12 @@ func (m *mounter) mountKernelArtifacts(vmi *v1.VirtualMachineInstance, verify bo
 			return fmt.Errorf("failed to detect root mount point of %v on the node: %v", kernelBootName, err)
 		}
 
-		err = os.Mkdir(targetDir, 0755)
-		if err != nil {
-			return fmt.Errorf("failed to create mount point target %v: %v", targetDir, err)
-		}
-
-		mount := func(artifactPath, targetPath string) error {
-			if artifactPath == "" {
-				return nil
-			}
+		mount := func(artifactPath string, targetPath *safepath.Path) error {
 
 			sourcePath, err := containerdisk.GetImage(mountRootPath, artifactPath)
 			if err != nil {
 				return err
 			}
-
-			file, err := os.Create(targetPath)
-			if err != nil {
-				return err
-			}
-			file.Close()
 
 			out, err := virt_chroot.MountChroot(sourcePath, targetPath, true).CombinedOutput()
 			if err != nil {
@@ -532,14 +538,17 @@ func (m *mounter) unmountKernelArtifacts(vmi *v1.VirtualMachineInstance) error {
 		return nil
 	}
 
-	unmount := func(targetDir string, artifactPaths ...string) error {
+	unmount := func(targetDir *safepath.Path, artifactPaths ...string) error {
 		for _, artifactPath := range artifactPaths {
 			if artifactPath == "" {
 				continue
 			}
 
-			targetPath := filepath.Join(targetDir, filepath.Base(artifactPath))
-			if mounted, err := isolation.NodeIsolationResult().IsMounted(targetPath); err != nil {
+			targetPath, err := safepath.JoinNoFollow(targetDir, filepath.Base(artifactPath))
+			if err != nil {
+				return fmt.Errorf(failedCheckMountPointFmt, targetPath, err)
+			}
+			if mounted, err := isolation.IsMounted(targetPath); err != nil {
 				return fmt.Errorf(failedCheckMountPointFmt, targetPath, err)
 			} else if mounted {
 				log.DefaultLogger().Object(vmi).Infof("unmounting container disk at targetDir %s", targetPath)
@@ -554,21 +563,20 @@ func (m *mounter) unmountKernelArtifacts(vmi *v1.VirtualMachineInstance) error {
 	}
 
 	for idx, entry := range record.MountTargetEntries {
-		targetDir := entry.TargetFile
-		if !strings.Contains(targetDir, containerdisk.KernelBootName) {
+		if !strings.Contains(entry.TargetFile, containerdisk.KernelBootName) {
 			continue
 		}
-		log.DefaultLogger().Object(vmi).Infof("unmounting kernel artifacts in path: %s", targetDir)
+		targetDir, err := safepath.NewFileNoFollow(entry.TargetFile)
+		if err != nil {
+			return fmt.Errorf("failed to obtaining a reference to the target directory %q: %v", targetDir, err)
+		}
+		_ = targetDir.Close()
+		log.DefaultLogger().Object(vmi).Infof("unmounting kernel artifacts in path: %v", targetDir)
 
-		if err = unmount(targetDir, kb.InitrdPath, kb.KernelPath); err != nil {
+		if err = unmount(targetDir.Path(), kb.InitrdPath, kb.KernelPath); err != nil {
 			// Not returning here since even if unmount wasn't successful it's better to keep
 			// cleaning the mounted files.
 			log.Log.Object(vmi).Reason(err).Error("unable to unmount kernel artifacts")
-		}
-
-		err = os.RemoveAll(targetDir)
-		if err != nil {
-			log.DefaultLogger().Object(vmi).Infof("cannot delete dir %s. err: %v", targetDir, err)
 		}
 
 		removeSliceElement := func(s []vmiMountTargetEntry, idxToRemove int) []vmiMountTargetEntry {

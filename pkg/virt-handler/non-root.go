@@ -13,9 +13,9 @@ import (
 	v1 "kubevirt.io/api/core/v1"
 	diskutils "kubevirt.io/kubevirt/pkg/ephemeral-disk-utils"
 	hostdisk "kubevirt.io/kubevirt/pkg/host-disk"
+	"kubevirt.io/kubevirt/pkg/safepath"
 	"kubevirt.io/kubevirt/pkg/util/types"
 	"kubevirt.io/kubevirt/pkg/virt-handler/isolation"
-	"kubevirt.io/kubevirt/pkg/virt-handler/selinux"
 )
 
 func changeOwnershipOfBlockDevices(vmi *v1.VirtualMachineInstance, res isolation.IsolationResult) error {
@@ -40,9 +40,11 @@ func changeOwnershipOfBlockDevices(vmi *v1.VirtualMachineInstance, res isolation
 		if !types.IsPVCBlock(volumeMode) {
 			continue
 		}
-
-		devPath := filepath.Join(string(filepath.Separator), "dev", volume.Name)
-		if err := diskutils.DefaultOwnershipManager.SetFileOwnership(filepath.Join(res.MountRoot(), devPath)); err != nil {
+		devPath, err := isolation.SafeJoin(res, string(filepath.Separator), "dev", vmi.Spec.Volumes[i].Name)
+		if err != nil {
+			return nil
+		}
+		if err := diskutils.DefaultOwnershipManager.SetFileOwnership(devPath); err != nil {
 			return err
 		}
 
@@ -50,22 +52,12 @@ func changeOwnershipOfBlockDevices(vmi *v1.VirtualMachineInstance, res isolation
 	return nil
 }
 
-func changeOwnershipAndRelabel(path string) error {
+func changeOwnership(path *safepath.Path) error {
 	err := diskutils.DefaultOwnershipManager.SetFileOwnership(path)
 	if err != nil {
 		return err
 	}
-
-	seLinux, selinuxEnabled, err := selinux.NewSELinux()
-	if err == nil && selinuxEnabled {
-		unprivilegedContainerSELinuxLabel := "system_u:object_r:container_file_t:s0"
-		err = selinux.RelabelFiles(unprivilegedContainerSELinuxLabel, seLinux.IsPermissive(), filepath.Join(path))
-		if err != nil {
-			return (fmt.Errorf("error relabeling %s: %v", path, err))
-		}
-
-	}
-	return err
+	return nil
 }
 
 // changeOwnershipOfHostDisks needs unmodified vmi (not passed to ReplacePVCByHostDisk function)
@@ -79,7 +71,11 @@ func changeOwnershipOfHostDisks(vmiWithAllPVCs *v1.VirtualMachineInstance, res i
 			if err != nil {
 				if os.IsNotExist(err) {
 					diskDir := hostdisk.GetMountedHostDiskDir(volumeName)
-					if err := changeOwnershipAndRelabel(filepath.Join(res.MountRoot(), diskDir)); err != nil {
+					path, err := isolation.SafeJoin(res, diskDir)
+					if err != nil {
+						return fmt.Errorf("Failed to change ownership of HostDisk dir %s, %s", volumeName, err)
+					}
+					if err := changeOwnership(path); err != nil {
 						return fmt.Errorf("Failed to change ownership of HostDisk dir %s, %s", volumeName, err)
 					}
 					continue
@@ -87,7 +83,11 @@ func changeOwnershipOfHostDisks(vmiWithAllPVCs *v1.VirtualMachineInstance, res i
 				return fmt.Errorf("Failed to recognize if hostdisk contains image, %s", err)
 			}
 
-			err = changeOwnershipAndRelabel(filepath.Join(res.MountRoot(), diskPath))
+			path, err := isolation.SafeJoin(res, diskPath)
+			if err != nil {
+				return fmt.Errorf("Failed to change ownership of HostDisk image: %s", err)
+			}
+			err = changeOwnership(path)
 			if err != nil {
 				return fmt.Errorf("Failed to change ownership of HostDisk image: %s", err)
 			}
@@ -125,18 +125,31 @@ func getTapDevices(vmi *v1.VirtualMachineInstance) []string {
 func (d *VirtualMachineController) prepareTap(vmi *v1.VirtualMachineInstance, res isolation.IsolationResult) error {
 	tapDevices := getTapDevices(vmi)
 	for _, tap := range tapDevices {
-		path := filepath.Join(res.MountRoot(), "sys", "class", "net", tap, "ifindex")
-		b, err := ioutil.ReadFile(path)
+		path, err := isolation.SafeJoin(res, "sys", "class", "net", tap, "ifindex")
 		if err != nil {
-			return fmt.Errorf("Failed to read if index, %v", err)
+			return err
 		}
+		index, err := func(path *safepath.Path) (int, error) {
+			df, err := safepath.OpenAtNoFollow(path)
+			if err != nil {
+				return 0, err
+			}
+			defer df.Close()
+			b, err := ioutil.ReadFile(df.SafePath())
+			if err != nil {
+				return 0, fmt.Errorf("Failed to read if index, %v", err)
+			}
 
-		index, err := strconv.Atoi(strings.TrimSpace(string(b)))
+			return strconv.Atoi(strings.TrimSpace(string(b)))
+		}(path)
 		if err != nil {
 			return err
 		}
 
-		pathToTap := filepath.Join(res.MountRoot(), "dev", fmt.Sprintf("tap%d", index))
+		pathToTap, err := isolation.SafeJoin(res, "dev", fmt.Sprintf("tap%d", index))
+		if err != nil {
+			return err
+		}
 
 		if err := diskutils.DefaultOwnershipManager.SetFileOwnership(pathToTap); err != nil {
 			return err
@@ -147,25 +160,41 @@ func (d *VirtualMachineController) prepareTap(vmi *v1.VirtualMachineInstance, re
 }
 
 func (*VirtualMachineController) prepareVFIO(vmi *v1.VirtualMachineInstance, res isolation.IsolationResult) error {
-	vfioPath := filepath.Join(res.MountRoot(), "dev", "vfio")
-	err := os.Chmod(filepath.Join(vfioPath, "vfio"), 0666)
+	vfioBasePath, err := isolation.SafeJoin(res, "dev", "vfio")
 	if err != nil {
 		if os.IsNotExist(err) {
 			return nil
 		}
-		return err
 	}
-
-	groups, err := ioutil.ReadDir(vfioPath)
+	vfioPath, err := safepath.JoinNoFollow(vfioBasePath, "vfio")
+	if err != nil {
+		if os.IsNotExist(err) {
+			return nil
+		}
+	}
+	err = safepath.ChmodAtNoFollow(vfioPath, 0666)
 	if err != nil {
 		return err
 	}
 
-	for _, group := range groups {
+	var files []os.DirEntry
+	err = vfioBasePath.ExecuteNoFollow(func(safePath string) (err error) {
+		files, err = os.ReadDir(safePath)
+		return err
+	})
+	if err != nil {
+		return err
+	}
+
+	for _, group := range files {
 		if group.Name() == "vfio" {
 			continue
 		}
-		if err := diskutils.DefaultOwnershipManager.SetFileOwnership(filepath.Join(vfioPath, group.Name())); err != nil {
+		groupPath, err := safepath.JoinNoFollow(vfioBasePath, group.Name())
+		if err != nil {
+			return err
+		}
+		if err := diskutils.DefaultOwnershipManager.SetFileOwnership(groupPath); err != nil {
 			return err
 		}
 	}
