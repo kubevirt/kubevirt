@@ -107,6 +107,18 @@ var _ = SIGDescribe("[rfe_id:6364][[Serial]Guestfs", func() {
 
 	}
 
+	verifyCanRunOnFSPVC := func(podName string) {
+		stdout, stderr, err := execCommandLibguestfsPod(podName, []string{"qemu-img", "create", "/disk/disk.img", "500M"})
+		Expect(stderr).To(Equal(""))
+		Expect(stdout).To(ContainSubstring("Formatting"))
+		Expect(err).ToNot(HaveOccurred())
+		stdout, stderr, err = execCommandLibguestfsPod(podName, []string{"guestfish", "-a", "/disk/disk.img", "run"})
+		Expect(stderr).To(BeEmpty())
+		Expect(stdout).To(BeEmpty())
+		Expect(err).ToNot(HaveOccurred())
+
+	}
+
 	Context("Run libguestfs on PVCs", func() {
 		BeforeEach(func() {
 			var err error
@@ -142,15 +154,7 @@ var _ = SIGDescribe("[rfe_id:6364][[Serial]Guestfs", func() {
 			podName := libguestsTools + pvcClaim
 			createPVCFilesystem(pvcClaim)
 			runGuestfsOnPVC(pvcClaim)
-			stdout, stderr, err := execCommandLibguestfsPod(podName, []string{"qemu-img", "create", "/disk/disk.img", "500M"})
-			Expect(stderr).To(Equal(""))
-			Expect(stdout).To(ContainSubstring("Formatting"))
-			Expect(err).ToNot(HaveOccurred())
-			stdout, stderr, err = execCommandLibguestfsPod(podName, []string{"guestfish", "-a", "/disk/disk.img", "run"})
-			Expect(stderr).To(Equal(""))
-			Expect(stdout).To(Equal(""))
-			Expect(err).ToNot(HaveOccurred())
-
+			verifyCanRunOnFSPVC(podName)
 		})
 
 		It("[posneg:negative][test_id:6480]Should fail to run the guestfs command on a PVC in use", func() {
@@ -179,6 +183,15 @@ var _ = SIGDescribe("[rfe_id:6364][[Serial]Guestfs", func() {
 			Expect(err).ToNot(HaveOccurred())
 
 		})
+		It("Should successfully run guestfs command on a filesystem-based PVC setting the uid", func() {
+			f := createFakeAttacher()
+			defer f.closeChannel()
+			pvcClaim = "pvc-fs-with-different-uid"
+			podName := libguestsTools + pvcClaim
+			createPVCFilesystem(pvcClaim)
+			runGuestfsOnPVC(pvcClaim, "--uid", "1002")
+			verifyCanRunOnFSPVC(podName)
+		})
 	})
 	Context("Run libguestfs on PVCs with root", func() {
 		BeforeEach(func() {
@@ -199,15 +212,7 @@ var _ = SIGDescribe("[rfe_id:6364][[Serial]Guestfs", func() {
 			podName := libguestsTools + pvcClaim
 			createPVCFilesystem(pvcClaim)
 			runGuestfsOnPVC(pvcClaim, "--root")
-			stdout, stderr, err := execCommandLibguestfsPod(podName, []string{"qemu-img", "create", "/disk/disk.img", "500M"})
-			Expect(stderr).To(Equal(""))
-			Expect(stdout).To(ContainSubstring("Formatting"))
-			Expect(err).ToNot(HaveOccurred())
-			stdout, stderr, err = execCommandLibguestfsPod(podName, []string{"guestfish", "-a", "/disk/disk.img", "run"})
-			Expect(stderr).To(Equal(""))
-			Expect(stdout).To(Equal(""))
-			Expect(err).ToNot(HaveOccurred())
-
+			verifyCanRunOnFSPVC(podName)
 		})
 	})
 
