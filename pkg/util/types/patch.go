@@ -35,6 +35,7 @@ const (
 	PatchReplaceOp = "replace"
 	PatchTestOp    = "test"
 	PatchAddOp     = "add"
+	PatchRemoveOp  = "remove"
 )
 
 func GeneratePatchPayload(patches ...PatchOperation) ([]byte, error) {
