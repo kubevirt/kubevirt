@@ -2358,6 +2358,14 @@ spec:
           - delete
           - update
         - apiGroups:
+          - config.openshift.io
+          resources:
+          - apiservers
+          verbs:
+          - get
+          - list
+          - watch
+        - apiGroups:
           - storage.k8s.io
           resources:
           - storageclasses
@@ -2521,7 +2529,7 @@ spec:
                 - name: TTO_VERSION
                   value: v0.3.0
                 - name: HPPO_VERSION
-                  value: v0.13.0
+                  value: v0.14.0
                 - name: KV_CONSOLE_PLUGIN_IMAGE
                   value: quay.io/kubevirt-ui/kubevirt-plugin@sha256:f3013bd965b3f4e9bdb493bc3257b59b6004258f347d871793c5eabe2f8953cf
                 image: +IMAGE_TO_REPLACE+
@@ -3142,7 +3150,7 @@ spec:
                 - name: OPERATOR_NAME
                   value: hostpath-provisioner-operator
                 - name: OPERATOR_IMAGE
-                  value: quay.io/kubevirt/hostpath-provisioner-operator@sha256:ffde3b1c4b682de6c3ca1932bbb9526a794b214560a262608d3a4c43b9aa7481
+                  value: quay.io/kubevirt/hostpath-provisioner-operator@sha256:bc99b32091b39d64881200a01bb859682288fc0c8dd3aa4e0482d5d436b7b355
                 - name: PROVISIONER_IMAGE
                   value: quay.io/kubevirt/hostpath-provisioner@sha256:f1cd0f057ff7b125b3dd5b3ce6a40796467a1d9df4a1224fb0ed6af24b13b8a6
                 - name: CSI_PROVISIONER_IMAGE
@@ -3160,7 +3168,7 @@ spec:
                 - name: MONITORING_NAMESPACE
                 - name: PRIORITY_CLASS
                   value: kubevirt-cluster-critical
-                image: quay.io/kubevirt/hostpath-provisioner-operator@sha256:ffde3b1c4b682de6c3ca1932bbb9526a794b214560a262608d3a4c43b9aa7481
+                image: quay.io/kubevirt/hostpath-provisioner-operator@sha256:bc99b32091b39d64881200a01bb859682288fc0c8dd3aa4e0482d5d436b7b355
                 imagePullPolicy: IfNotPresent
                 livenessProbe:
                   failureThreshold: 1
@@ -3625,7 +3633,7 @@ spec:
     name: hostpath-csi-driver
   - image: quay.io/kubevirt/hostpath-provisioner@sha256:f1cd0f057ff7b125b3dd5b3ce6a40796467a1d9df4a1224fb0ed6af24b13b8a6
     name: hostpath-provisioner
-  - image: quay.io/kubevirt/hostpath-provisioner-operator@sha256:ffde3b1c4b682de6c3ca1932bbb9526a794b214560a262608d3a4c43b9aa7481
+  - image: quay.io/kubevirt/hostpath-provisioner-operator@sha256:bc99b32091b39d64881200a01bb859682288fc0c8dd3aa4e0482d5d436b7b355
     name: hostpath-provisioner-operator
   - image: +IMAGE_TO_REPLACE+
     name: hyperconverged-cluster-operator

@@ -932,6 +932,6 @@ sigs.k8s.io/yaml
 # golang.org/x/crypto => golang.org/x/crypto v0.0.0-20220525230936-793ad666bf5e
 # golang.org/x/crypto/ssh => golang.org/x/crypto/ssh v0.0.0-20220525230936-793ad666bf5e
 # golang.org/x/crypto/ssh/terminal => golang.org/x/crypto/ssh/terminal v0.0.0-20220525230936-793ad666bf5e
-# github.com/opencontainers/runc => github.com/opencontainers/runc v1.0.3
+# github.com/opencontainers/runc => github.com/opencontainers/runc v1.1.2
 # github.com/u-root/u-root => github.com/u-root/u-root v0.1.0
 # gopkg.in/yaml.v3 => gopkg.in/yaml.v3 v3.0.1
