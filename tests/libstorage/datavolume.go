@@ -166,6 +166,25 @@ func AddDataVolumeTemplate(vm *v13.VirtualMachine, dataVolume *v1beta1.DataVolum
 	vm.Spec.DataVolumeTemplates = append(vm.Spec.DataVolumeTemplates, *dvt)
 }
 
+func AddDataVolume(vm *v13.VirtualMachine, diskName string, dataVolume *v1beta1.DataVolume) {
+	vm.Spec.Template.Spec.Domain.Devices.Disks = append(vm.Spec.Template.Spec.Domain.Devices.Disks, v13.Disk{
+		Name: diskName,
+		DiskDevice: v13.DiskDevice{
+			Disk: &v13.DiskTarget{
+				Bus: v13.DiskBusVirtio,
+			},
+		},
+	})
+	vm.Spec.Template.Spec.Volumes = append(vm.Spec.Template.Spec.Volumes, v13.Volume{
+		Name: diskName,
+		VolumeSource: v13.VolumeSource{
+			DataVolume: &v13.DataVolumeSource{
+				Name: dataVolume.Name,
+			},
+		},
+	})
+}
+
 func SetDataVolumePVCStorageClass(dv *v1beta1.DataVolume, storageClass string) {
 	dv.Spec.PVC.StorageClassName = &storageClass
 }

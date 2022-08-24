@@ -235,7 +235,7 @@ func (ctrl *VMExportController) Init() {
 		},
 		ctrl.ResyncPeriod,
 	)
-	ctrl.VMIInformer.AddEventHandlerWithResyncPeriod(
+	ctrl.VMInformer.AddEventHandlerWithResyncPeriod(
 		cache.ResourceEventHandlerFuncs{
 			AddFunc:    ctrl.handleVM,
 			UpdateFunc: func(oldObj, newObj interface{}) { ctrl.handleVM(newObj) },
@@ -312,13 +312,13 @@ func (ctrl *VMExportController) handlePod(obj interface{}) {
 
 	if pod, ok := obj.(*corev1.Pod); ok {
 		key := ctrl.getOwnerVMexportKey(pod)
-		log.Log.V(3).Infof("Processing pod %s", key)
 		_, exists, err := ctrl.VMExportInformer.GetStore().GetByKey(key)
 		if err != nil {
 			utilruntime.HandleError(err)
 			return
 		}
 		if exists {
+			log.Log.V(3).Infof("Adding VMExport due to pod %s", key)
 			ctrl.vmExportQueue.Add(key)
 		}
 	}
@@ -330,15 +330,15 @@ func (ctrl *VMExportController) handleService(obj interface{}) {
 	}
 
 	if service, ok := obj.(*corev1.Service); ok {
-		key := ctrl.getOwnerVMexportKey(service)
-		log.Log.V(3).Infof("Processing service %s", key)
-		_, exists, err := ctrl.VMExportInformer.GetStore().GetByKey(key)
+		serviceKey := ctrl.getOwnerVMexportKey(service)
+		_, exists, err := ctrl.VMExportInformer.GetStore().GetByKey(serviceKey)
 		if err != nil {
 			utilruntime.HandleError(err)
 			return
 		}
 		if exists {
-			ctrl.vmExportQueue.Add(key)
+			log.Log.V(3).Infof("Adding VMExport due to service %s", serviceKey)
+			ctrl.vmExportQueue.Add(serviceKey)
 		}
 	}
 }
@@ -387,6 +387,7 @@ func (ctrl *VMExportController) handleSource(vmExport *exportv1.VirtualMachineEx
 	if err != nil {
 		return 0, err
 	}
+	log.Log.V(4).Infof("Source volumes %v", sourceVolumes)
 
 	pod, err := ctrl.manageExporterPod(vmExport, sourceVolumes)
 	if err != nil {
@@ -452,7 +453,6 @@ func (ctrl *VMExportController) handlePodSucceededOrFailed(vmExport *exportv1.Vi
 func (ctrl *VMExportController) isPVCPopulated(pvc *corev1.PersistentVolumeClaim) (bool, error) {
 	return cdiv1.IsPopulated(pvc, func(name, namespace string) (*cdiv1.DataVolume, error) {
 		obj, exists, err := ctrl.DataVolumeInformer.GetStore().GetByKey(controller.NamespacedKey(namespace, name))
-		log.DefaultLogger().Infof("Found DV %v, exists %t", obj, exists)
 		if err != nil {
 			return nil, err
 		}

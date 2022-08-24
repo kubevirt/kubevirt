@@ -63,14 +63,14 @@ func (ctrl *VMExportController) handleVM(obj interface{}) {
 	}
 
 	if vm, ok := obj.(*virtv1.VirtualMachine); ok {
-		key, _ := cache.MetaNamespaceKeyFunc(vm)
-		log.Log.V(3).Infof("Processing VM %s", key)
-		keys, err := ctrl.VMExportInformer.GetIndexer().IndexKeys("vm", key)
+		vmKey, _ := cache.MetaNamespaceKeyFunc(vm)
+		keys, err := ctrl.VMExportInformer.GetIndexer().IndexKeys("vm", vmKey)
 		if err != nil {
 			utilruntime.HandleError(err)
 			return
 		}
 		for _, key := range keys {
+			log.Log.V(3).Infof("Adding VMExport due to vm %s", vmKey)
 			ctrl.vmExportQueue.Add(key)
 		}
 	}
@@ -84,20 +84,21 @@ func (ctrl *VMExportController) handleVMI(obj interface{}) {
 	if vmi, ok := obj.(*virtv1.VirtualMachineInstance); ok {
 		vm := ctrl.getVMFromVMI(vmi)
 		if vm != nil {
-			key, _ := cache.MetaNamespaceKeyFunc(vm)
-			log.Log.V(3).Infof("Processing VM %s", key)
-			keys, err := ctrl.VMExportInformer.GetIndexer().IndexKeys("vm", key)
+			vmKey, _ := cache.MetaNamespaceKeyFunc(vm)
+			keys, err := ctrl.VMExportInformer.GetIndexer().IndexKeys("vm", vmKey)
 			if err != nil {
 				utilruntime.HandleError(err)
 				return
 			}
 			for _, key := range keys {
+				log.Log.V(3).Infof("Adding VMExport due to VM %s", vmKey)
 				ctrl.vmExportQueue.Add(key)
 			}
 			return
 		}
 		pvcs := ctrl.getPVCsFromVMI(vmi)
 		for _, pvc := range pvcs {
+			log.Log.V(3).Infof("Adding VMExport due to PVC %s/%s", pvc.Namespace, pvc.Name)
 			ctrl.handlePVC(pvc)
 		}
 	}
@@ -155,7 +156,8 @@ func (ctrl *VMExportController) getPVCFromSourceVM(vmExport *exportv1.VirtualMac
 	if err != nil {
 		return &sourceVolumes{}, err
 	}
-	if pvcs != nil && !allPopulated {
+	log.Log.V(3).Infof("Number of volumes found for VM %s/%s, %d, allPopulated %t", vmExport.Namespace, vmExport.Spec.Source.Name, len(pvcs), allPopulated)
+	if len(pvcs) > 0 && !allPopulated {
 		return &sourceVolumes{
 			volumes:          pvcs,
 			sourceAvailable:  allPopulated,
@@ -195,9 +197,8 @@ func (ctrl *VMExportController) getPVCsFromVM(vmNamespace, vmName string) ([]*co
 			if err != nil {
 				return nil, false, err
 			}
-			if populated {
-				pvcs = append(pvcs, pvc)
-			} else {
+			pvcs = append(pvcs, pvc)
+			if !populated {
 				allPopulated = false
 			}
 		}

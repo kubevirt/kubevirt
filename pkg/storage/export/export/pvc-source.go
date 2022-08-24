@@ -42,15 +42,15 @@ func (ctrl *VMExportController) handlePVC(obj interface{}) {
 	}
 
 	if pvc, ok := obj.(*corev1.PersistentVolumeClaim); ok {
-		key, _ := cache.MetaNamespaceKeyFunc(pvc)
-		log.Log.V(3).Infof("Processing PVC %s", key)
-		keys, err := ctrl.VMExportInformer.GetIndexer().IndexKeys("pvc", key)
+		pvcKey, _ := cache.MetaNamespaceKeyFunc(pvc)
+		keys, err := ctrl.VMExportInformer.GetIndexer().IndexKeys("pvc", pvcKey)
 		if err != nil {
 			utilruntime.HandleError(err)
 			return
 		}
 
 		for _, key := range keys {
+			log.Log.V(3).Infof("Adding VMExport due to pvc %s", pvcKey)
 			ctrl.vmExportQueue.Add(key)
 		}
 	}

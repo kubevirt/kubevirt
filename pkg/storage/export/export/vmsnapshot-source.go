@@ -54,14 +54,14 @@ func (ctrl *VMExportController) handleVMSnapshot(obj interface{}) {
 	}
 
 	if snapshot, ok := obj.(*snapshotv1.VirtualMachineSnapshot); ok {
-		key, _ := cache.MetaNamespaceKeyFunc(snapshot)
-		log.Log.V(3).Infof("Processing VirtualMachineSnapshot %s", key)
-		keys, err := ctrl.VMExportInformer.GetIndexer().IndexKeys("vmsnapshot", key)
+		snapshotKey, _ := cache.MetaNamespaceKeyFunc(snapshot)
+		keys, err := ctrl.VMExportInformer.GetIndexer().IndexKeys("vmsnapshot", snapshotKey)
 		if err != nil {
 			utilruntime.HandleError(err)
 			return
 		}
 		for _, key := range keys {
+			log.Log.V(3).Infof("Adding VMExport due to VMSnapshot %s", snapshotKey)
 			ctrl.vmExportQueue.Add(key)
 		}
 	}

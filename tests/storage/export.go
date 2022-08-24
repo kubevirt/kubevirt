@@ -1057,11 +1057,15 @@ var _ = SIGDescribe("Export", func() {
 	}
 
 	stopVM := func(vm *virtv1.VirtualMachine) *virtv1.VirtualMachine {
-		vm, err = virtClient.VirtualMachine(vm.Namespace).Get(vm.Name, &metav1.GetOptions{})
-		Expect(err).ToNot(HaveOccurred())
-		vm.Spec.Running = pointer.BoolPtr(false)
-		vm, err = virtClient.VirtualMachine(vm.Namespace).Update(vm)
-		Expect(err).ToNot(HaveOccurred())
+		Eventually(func() error {
+			vm, err = virtClient.VirtualMachine(vm.Namespace).Get(vm.Name, &metav1.GetOptions{})
+			if err != nil {
+				return err
+			}
+			vm.Spec.Running = pointer.BoolPtr(false)
+			vm, err = virtClient.VirtualMachine(vm.Namespace).Update(vm)
+			return err
+		}, 15*time.Second, time.Second).Should(BeNil())
 		return vm
 	}
 
@@ -1298,6 +1302,15 @@ var _ = SIGDescribe("Export", func() {
 		})
 	}
 
+	expectedPVCPopulatingCondition := func(name, namespace string) gomegatypes.GomegaMatcher {
+		return MatchConditionIgnoreTimeStamp(exportv1.Condition{
+			Type:    exportv1.ConditionReady,
+			Status:  k8sv1.ConditionFalse,
+			Reason:  inUseReason,
+			Message: fmt.Sprintf("Not all volumes in the Virtual Machine %s/%s are populated", namespace, name),
+		})
+	}
+
 	It("should report export pending if VM is running, and start the VM export if the VM is not running, then stop again once VM started", func() {
 		sc, exists := libstorage.GetRWOFileSystemStorageClass()
 		if !exists {
@@ -1380,6 +1393,10 @@ var _ = SIGDescribe("Export", func() {
 	})
 
 	It("should mark the status phase skipped on VM without volumes", func() {
+		sc, exists := libstorage.GetRWOFileSystemStorageClass()
+		if !exists {
+			Skip("Skip test when Filesystem storage is not present")
+		}
 		vm := tests.NewRandomVMWithEphemeralDisk(cd.ContainerDiskFor(cd.ContainerDiskCirros))
 		vm = createVM(vm)
 		// For testing the token is the name of the source VM.
@@ -1387,6 +1404,27 @@ var _ = SIGDescribe("Export", func() {
 		export := createVMExportObject(vm.Name, vm.Namespace, token)
 		Expect(export).ToNot(BeNil())
 		waitForExportPhase(export, exportv1.Skipped)
+		dv := libstorage.NewBlankDataVolume(vm.Namespace, sc, "512Mi", k8sv1.ReadWriteOnce, k8sv1.PersistentVolumeFilesystem)
+		dv = createDataVolume(dv)
+		vm, err = virtClient.VirtualMachine(vm.Namespace).Get(vm.Name, &metav1.GetOptions{})
+		Expect(err).ToNot(HaveOccurred())
+		libstorage.AddDataVolume(vm, "blank-disk", dv)
+		vm, err = virtClient.VirtualMachine(vm.Namespace).Update(vm)
+		Expect(err).ToNot(HaveOccurred())
+		if libstorage.IsStorageClassBindingModeWaitForFirstConsumer(sc) {
+			// With WFFC we expect the volume to not be populated and the condition to be not ready and reason populating
+			// start the VM which triggers the populating, and then it should become ready.
+			waitForExportPhase(export, exportv1.Pending)
+			waitForExportCondition(export, expectedPVCPopulatingCondition(vm.Name, vm.Namespace), "export should report PVCs in VM populating")
+			startVM(vm)
+			waitForDisksComplete(vm)
+			stopVM(vm)
+			waitForExportPhase(export, exportv1.Ready)
+		} else {
+			// With non WFFC storage we expect the disk to populate immediately and thus the export to become ready
+			waitForDisksComplete(vm)
+			waitForExportPhase(export, exportv1.Ready)
+		}
 	})
 })
 
