@@ -25,6 +25,8 @@ import (
 	"strings"
 	"time"
 
+	"kubevirt.io/kubevirt/pkg/virt-controller/watch/topology"
+
 	"kubevirt.io/kubevirt/tests/framework/checks"
 
 	. "github.com/onsi/ginkgo/v2"
@@ -75,20 +77,27 @@ var _ = Describe("[Serial][sig-compute]Windows VirtualMachineInstance", func() {
 		windowsVMI.Spec.Domain.Devices.Interfaces[0].Model = "e1000"
 	})
 
-	It("should be able to migrate when HyperV reenlightenment is enabled", func() {
-		var err error
+	Context("VMI with HyperV reenlightenment enabled", func() {
+		When("TSC frequency is exposed on the cluster", func() {
+			It("should be able to migrate", func() {
+				if !isTSCFrequencyExposed(virtClient) {
+					Skip("TSC frequency is not exposed on the cluster")
+				}
 
-		By("Creating a windows VM")
-		windowsVMI, err = virtClient.VirtualMachineInstance(util.NamespaceTestDefault).Create(windowsVMI)
-		Expect(err).ToNot(HaveOccurred())
-		tests.WaitForSuccessfulVMIStartWithTimeout(windowsVMI, 360)
+				var err error
+				By("Creating a windows VM")
+				windowsVMI, err = virtClient.VirtualMachineInstance(util.NamespaceTestDefault).Create(windowsVMI)
+				Expect(err).ToNot(HaveOccurred())
+				tests.WaitForSuccessfulVMIStartWithTimeout(windowsVMI, 360)
 
-		By("Migrating the VM")
-		migration := tests.NewRandomMigration(windowsVMI.Name, windowsVMI.Namespace)
-		migrationUID := tests.RunMigrationAndExpectCompletion(virtClient, migration, tests.MigrationWaitTime)
+				By("Migrating the VM")
+				migration := tests.NewRandomMigration(windowsVMI.Name, windowsVMI.Namespace)
+				migrationUID := tests.RunMigrationAndExpectCompletion(virtClient, migration, tests.MigrationWaitTime)
 
-		By("Checking VMI, confirm migration state")
-		tests.ConfirmVMIPostMigration(virtClient, windowsVMI, migrationUID)
+				By("Checking VMI, confirm migration state")
+				tests.ConfirmVMIPostMigration(virtClient, windowsVMI, migrationUID)
+			})
+		})
 	})
 
 	Context("with winrm connection", func() {
@@ -379,4 +388,17 @@ func runCommandAndExpectOutput(virtClient kubecli.KubevirtClient, winrmcliPod *k
 		Expect(err).ToNot(HaveOccurred())
 		return output
 	}, time.Minute*1, time.Second*10).Should(MatchRegexp(expectedOutputRegex))
+}
+
+func isTSCFrequencyExposed(virtClient kubecli.KubevirtClient) bool {
+	nodeList, err := virtClient.CoreV1().Nodes().List(context.Background(), metav1.ListOptions{})
+	Expect(err).ToNot(HaveOccurred())
+
+	for _, node := range nodeList.Items {
+		if _, isExposed := node.Labels[topology.TSCFrequencyLabel]; isExposed {
+			return true
+		}
+	}
+
+	return false
 }
