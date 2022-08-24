@@ -26,6 +26,8 @@ import (
 	"strings"
 	"time"
 
+	"kubevirt.io/kubevirt/pkg/virt-controller/watch/topology"
+
 	"kubevirt.io/kubevirt/tests/framework/checks"
 
 	. "github.com/onsi/ginkgo/v2"
@@ -60,7 +62,7 @@ const (
 	winrmCliCmd = "winrm-cli"
 )
 
-var getWindowsVMISpec = func() v1.VirtualMachineInstanceSpec {
+func getWindowsVMISpec() v1.VirtualMachineInstanceSpec {
 	gracePeriod := int64(0)
 	spinlocks := uint32(8191)
 	firmware := types.UID(windowsFirmware)
@@ -156,6 +158,29 @@ var _ = Describe("[Serial][sig-compute]Windows VirtualMachineInstance", func() {
 		By("Stopping the vmi")
 		err = virtClient.VirtualMachineInstance(vmi.Namespace).Delete(vmi.Name, &metav1.DeleteOptions{})
 		Expect(err).To(BeNil())
+	})
+
+	Context("VMI with HyperV reenlightenment enabled", func() {
+		When("TSC frequency is exposed on the cluster", func() {
+			It("should be able to migrate", func() {
+				if !isTSCFrequencyExposed(virtClient) {
+					Skip("TSC frequency is not exposed on the cluster")
+				}
+
+				var err error
+				By("Creating a windows VM")
+				windowsVMI, err = virtClient.VirtualMachineInstance(util.NamespaceTestDefault).Create(windowsVMI)
+				Expect(err).ToNot(HaveOccurred())
+				tests.WaitForSuccessfulVMIStartWithTimeout(windowsVMI, 360)
+
+				By("Migrating the VM")
+				migration := tests.NewRandomMigration(windowsVMI.Name, windowsVMI.Namespace)
+				migrationUID := tests.RunMigrationAndExpectCompletion(virtClient, migration, tests.MigrationWaitTime)
+
+				By("Checking VMI, confirm migration state")
+				tests.ConfirmVMIPostMigration(virtClient, windowsVMI, migrationUID)
+			})
+		})
 	})
 
 	Context("with winrm connection", func() {
@@ -416,4 +441,17 @@ func runCommandAndExpectOutput(virtClient kubecli.KubevirtClient, winrmcliPod *k
 		Expect(err).ToNot(HaveOccurred())
 		return output
 	}, time.Minute*1, time.Second*10).Should(MatchRegexp(expectedOutputRegex))
+}
+
+func isTSCFrequencyExposed(virtClient kubecli.KubevirtClient) bool {
+	nodeList, err := virtClient.CoreV1().Nodes().List(context.Background(), metav1.ListOptions{})
+	Expect(err).ToNot(HaveOccurred())
+
+	for _, node := range nodeList.Items {
+		if _, isExposed := node.Labels[topology.TSCFrequencyLabel]; isExposed {
+			return true
+		}
+	}
+
+	return false
 }
