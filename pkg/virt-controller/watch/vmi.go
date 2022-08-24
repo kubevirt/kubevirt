@@ -436,7 +436,7 @@ func (c *VMIController) updateStatus(vmi *virtv1.VirtualMachineInstance, pod *k8
 		} else {
 			vmiCopy.Status.Phase = virtv1.Pending
 			if vmi.Status.TopologyHints == nil {
-				if topologyHints, err := c.topologyHinter.TopologyHintsForVMI(vmi); err != nil {
+				if topologyHints, tscRequirement, err := c.topologyHinter.TopologyHintsForVMI(vmi); err != nil && tscRequirement == topology.RequiredForBoot {
 					c.recorder.Eventf(vmi, k8sv1.EventTypeWarning, FailedGatherhingClusterTopologyHints, err.Error())
 					return &syncErrorImpl{err, FailedGatherhingClusterTopologyHints}
 				} else if topologyHints != nil {
@@ -1007,7 +1007,7 @@ func (c *VMIController) sync(vmi *virtv1.VirtualMachineInstance, pod *k8sv1.Pod,
 			return nil
 		}
 		// let's check if we already have topology hints or if we are still waiting for them
-		if vmi.Status.TopologyHints == nil && c.topologyHinter.TopologyHintsRequiredForVMI(vmi) {
+		if vmi.Status.TopologyHints == nil && c.topologyHinter.IsTscFrequencyRequiredForBoot(vmi) {
 			log.Log.V(3).Object(vmi).Infof("Delaying pod creation until topology hints are set")
 			return nil
 		}
