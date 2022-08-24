@@ -1479,7 +1479,7 @@ func validateContainerDisks(field *k8sfield.Path, spec *v1.VirtualMachineInstanc
 		if volume.ContainerDisk == nil || volume.ContainerDisk.Path == "" {
 			continue
 		}
-		causes = append(causes, validatePath(field.Child("volumes").Index(idx).Child("conatinerDisk"), volume.ContainerDisk.Path)...)
+		causes = append(causes, validatePath(field.Child("volumes").Index(idx).Child("containerDisk"), volume.ContainerDisk.Path)...)
 	}
 	return causes
 }
