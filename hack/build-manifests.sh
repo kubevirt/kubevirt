@@ -105,6 +105,8 @@ function create_virt_csv() {
   controllerSha="${KUBEVIRT_CONTROLLER_IMAGE/*@/}"
   launcherSha="${KUBEVIRT_LAUNCHER_IMAGE/*@/}"
   handlerSha="${KUBEVIRT_HANDLER_IMAGE/*@/}"
+  exportProxySha="${KUBEVIRT_EXPORTPROXY_IMAGE/*@/}"
+  exportServerSha="${KUBEVIRT_EXPORSERVER_IMAGE/*@/}"
 
   local operatorName="kubevirt"
   local dumpCRDsArg="--dumpCRDs"
@@ -119,6 +121,8 @@ function create_virt_csv() {
     --controllerSha=${controllerSha} \
     --handlerSha=${handlerSha} \
     --launcherSha=${launcherSha} \
+    --exportProxySha=${exportProxySha} \
+    --exportServerSha=${exportServerSha} \
     --gsSha=${KUBEVIRT_LIBGUESTFS_TOOLS_IMAGE/*@/} \
   "
 

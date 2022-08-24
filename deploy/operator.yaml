@@ -400,7 +400,9 @@ spec:
         - name: VIRT_LAUNCHER_SHASUM
           value: sha256:2e67bbb25b969de1aa97435e1a8d09e9f88fc4cfc305da0794ddd804dfb24d00
         - name: VIRT_EXPORTPROXY_SHASUM
+          value: sha256:1884939a045b3988b710c385366ff6771850e67fcd07d55e95936f64d0ab7e5f
         - name: VIRT_EXPORTSERVER_SHASUM
+          value: sha256:c9755f2de25f0f74ca6f3a641383c2a884c64dc9fa25fec573ed0a7b4e2bed76
         - name: GS_SHASUM
           value: sha256:cb1e20bf1cb88bd69ac58176f8f0d59bf5a0e1091bda404bf9e152ca9132fe2c
         image: quay.io/kubevirt/virt-operator@sha256:0e5161a1876829bb473b54ebf680ad00b44929ba41841b75f5ba924c658f90bb

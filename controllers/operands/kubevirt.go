@@ -88,6 +88,9 @@ const (
 
 	// Allow automatic numa mapping on VMs with dedicated CPUs, if requested
 	kvNUMA = "NUMA"
+
+	// Export VMs to outside of the cluster
+	kvVMExportGate = "VMExport"
 )
 
 var (
@@ -103,6 +106,7 @@ var (
 		kvHostDevicesGate,
 		kvDownwardMetricsGate,
 		kvNUMA,
+		kvVMExportGate,
 	}
 
 	// holds a list of mandatory KubeVirt feature gates. Some of them are the hard coded feature gates and some of

@@ -208,6 +208,7 @@ var _ = Describe("HyperconvergedController", func() {
 					"ExpandDisks",
 					"NUMA",
 					"WithHostPassthroughCPU",
+					"VMExport",
 				}
 				// Get the KV
 				kvList := &kubevirtcorev1.KubeVirtList{}

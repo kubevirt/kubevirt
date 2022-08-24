@@ -2844,7 +2844,9 @@ spec:
                 - name: VIRT_LAUNCHER_SHASUM
                   value: sha256:2e67bbb25b969de1aa97435e1a8d09e9f88fc4cfc305da0794ddd804dfb24d00
                 - name: VIRT_EXPORTPROXY_SHASUM
+                  value: sha256:1884939a045b3988b710c385366ff6771850e67fcd07d55e95936f64d0ab7e5f
                 - name: VIRT_EXPORTSERVER_SHASUM
+                  value: sha256:c9755f2de25f0f74ca6f3a641383c2a884c64dc9fa25fec573ed0a7b4e2bed76
                 - name: GS_SHASUM
                   value: sha256:cb1e20bf1cb88bd69ac58176f8f0d59bf5a0e1091bda404bf9e152ca9132fe2c
                 image: quay.io/kubevirt/virt-operator@sha256:0e5161a1876829bb473b54ebf680ad00b44929ba41841b75f5ba924c658f90bb
@@ -3665,6 +3667,10 @@ spec:
     name: virt-api
   - image: quay.io/kubevirt/virt-controller@sha256:802d764e1e43bc2bf29a49dbfc773d2599365e127a3f6cbc4ca538776c9e8f2b
     name: virt-controller
+  - image: quay.io/kubevirt/virt-exportproxy@sha256:1884939a045b3988b710c385366ff6771850e67fcd07d55e95936f64d0ab7e5f
+    name: virt-exportproxy
+  - image: quay.io/kubevirt/virt-exportserver@sha256:c9755f2de25f0f74ca6f3a641383c2a884c64dc9fa25fec573ed0a7b4e2bed76
+    name: virt-exportserver
   - image: quay.io/kubevirt/virt-handler@sha256:7b98f226edda42e49a20c101f850fd2fc6fc08c6c34d36359b2f2af6df5ffde2
     name: virt-handler
   - image: quay.io/kubevirt/virt-launcher@sha256:2e67bbb25b969de1aa97435e1a8d09e9f88fc4cfc305da0794ddd804dfb24d00
