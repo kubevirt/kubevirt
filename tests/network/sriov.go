@@ -31,7 +31,6 @@ import (
 	. "github.com/onsi/gomega"
 
 	k8sv1 "k8s.io/api/core/v1"
-	k8serrors "k8s.io/apimachinery/pkg/api/errors"
 	k8smetav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/util/wait"
 
@@ -52,6 +51,7 @@ import (
 	"kubevirt.io/kubevirt/tests/libnet"
 	"kubevirt.io/kubevirt/tests/libnode"
 	"kubevirt.io/kubevirt/tests/libvmi"
+	libvmioper "kubevirt.io/kubevirt/tests/libvmi/oper"
 	"kubevirt.io/kubevirt/tests/util"
 )
 
@@ -727,27 +727,8 @@ func waitVMI(vmi *v1.VirtualMachineInstance) (*v1.VirtualMachineInstance, error)
 // to assure resources (VF/s) are fully released before reused again on a new VMI.
 // Ref: https://github.com/k8snetworkplumbingwg/sriov-cni/issues/219
 func deleteVMI(vmi *v1.VirtualMachineInstance) error {
-	virtClient, err := kubecli.GetKubevirtClient()
-	if err != nil {
-		panic(err)
-	}
-
 	GinkgoWriter.Println("sriov:", vmi.Name, "deletion started")
-	if err = virtClient.VirtualMachineInstance(vmi.Namespace).Delete(vmi.Name, &k8smetav1.DeleteOptions{}); err != nil {
-		if k8serrors.IsNotFound(err) {
-			return nil
-		}
-		return fmt.Errorf("failed to delete VMI: %v", err)
-	}
-
-	const timeout = 30 * time.Second
-	return wait.PollImmediate(1*time.Second, timeout, func() (done bool, err error) {
-		_, err = virtClient.VirtualMachineInstance(vmi.Namespace).Get(vmi.Name, &k8smetav1.GetOptions{})
-		if k8serrors.IsNotFound(err) {
-			return true, nil
-		}
-		return false, err
-	})
+	return libvmioper.SyncDelete(vmi)
 }
 
 func checkDefaultInterfaceInPod(vmi *v1.VirtualMachineInstance) error {
