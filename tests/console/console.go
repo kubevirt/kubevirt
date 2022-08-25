@@ -130,12 +130,13 @@ func RunCommand(vmi *v1.VirtualMachineInstance, command string, timeout time.Dur
 
 // SecureBootExpecter should be called on a VMI that has EFI enabled
 // It will parse the kernel output (dmesg) and succeed if it finds that Secure boot is enabled
+// The VMI was just created and may not be running yet. This is because we want to catch early boot logs.
 func SecureBootExpecter(vmi *v1.VirtualMachineInstance) error {
 	virtClient, err := kubecli.GetKubevirtClient()
 	if err != nil {
 		return err
 	}
-	expecter, _, err := NewExpecter(virtClient, vmi, 10*time.Second)
+	expecter, _, err := NewExpecter(virtClient, vmi, 30*time.Second)
 	if err != nil {
 		return err
 	}
@@ -155,12 +156,13 @@ func SecureBootExpecter(vmi *v1.VirtualMachineInstance) error {
 
 // NetBootExpecter should be called on a VMI that has BIOS serial logging enabled
 // It will parse the SeaBIOS output and succeed if it finds the string "iPXE"
+// The VMI was just created and may not be running yet. This is because we want to catch early boot logs.
 func NetBootExpecter(vmi *v1.VirtualMachineInstance) error {
 	virtClient, err := kubecli.GetKubevirtClient()
 	if err != nil {
 		return err
 	}
-	expecter, _, err := NewExpecter(virtClient, vmi, 10*time.Second)
+	expecter, _, err := NewExpecter(virtClient, vmi, 30*time.Second)
 	if err != nil {
 		return err
 	}
