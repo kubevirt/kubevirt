@@ -140,15 +140,15 @@ func (ctrl *VMExportController) getVMFromVMI(vmi *virtv1.VirtualMachineInstance)
 	return nil
 }
 
-func (ctrl *VMExportController) isSourceAvailableVM(vmExport *exportv1.VirtualMachineExport) (bool, string, error) {
+func (ctrl *VMExportController) isSourceInUseVM(vmExport *exportv1.VirtualMachineExport) (bool, string, error) {
 	vmi, exists, err := ctrl.getVmi(vmExport.Namespace, vmExport.Spec.Source.Name)
 	if err != nil {
 		return false, "", err
 	}
 	if exists {
-		return false, fmt.Sprintf("Virtual Machine %s/%s is running", vmi.Namespace, vmi.Name), nil
+		return exists, fmt.Sprintf("Virtual Machine %s/%s is running", vmi.Namespace, vmi.Name), nil
 	}
-	return true, "", nil
+	return exists, "", nil
 }
 
 func (ctrl *VMExportController) getPVCFromSourceVM(vmExport *exportv1.VirtualMachineExport) (*sourceVolumes, error) {
@@ -160,16 +160,18 @@ func (ctrl *VMExportController) getPVCFromSourceVM(vmExport *exportv1.VirtualMac
 	if len(pvcs) > 0 && !allPopulated {
 		return &sourceVolumes{
 			volumes:          pvcs,
-			sourceAvailable:  allPopulated,
+			inUse:            false,
+			isPopulated:      allPopulated,
 			availableMessage: fmt.Sprintf("Not all volumes in the Virtual Machine %s/%s are populated", vmExport.Namespace, vmExport.Spec.Source.Name)}, nil
 	}
-	sourceAvailable, availableMessage, err := ctrl.isSourceAvailableVM(vmExport)
+	inUse, availableMessage, err := ctrl.isSourceInUseVM(vmExport)
 	if err != nil {
 		return &sourceVolumes{}, err
 	}
 	return &sourceVolumes{
 		volumes:          pvcs,
-		sourceAvailable:  sourceAvailable,
+		inUse:            inUse,
+		isPopulated:      allPopulated,
 		availableMessage: availableMessage}, nil
 }
 
@@ -207,19 +209,23 @@ func (ctrl *VMExportController) getPVCsFromVM(vmNamespace, vmName string) ([]*co
 }
 
 func (ctrl *VMExportController) updateVMExportVMStatus(vmExport *exportv1.VirtualMachineExport, exporterPod *corev1.Pod, service *corev1.Service, sourceVolumes *sourceVolumes) (time.Duration, error) {
-	vmExportCopy := vmExport.DeepCopy()
+	var requeue time.Duration
 
+	vmExportCopy := vmExport.DeepCopy()
 	if err := ctrl.updateCommonVMExportStatusFields(vmExport, vmExportCopy, exporterPod, service, sourceVolumes); err != nil {
-		return 0, err
+		return requeue, err
 	}
 	if len(sourceVolumes.volumes) == 0 {
 		vmExportCopy.Status.Conditions = updateCondition(vmExportCopy.Status.Conditions, newReadyCondition(corev1.ConditionFalse, noVolumeVMReason, sourceVolumes.availableMessage))
 		vmExportCopy.Status.Phase = exportv1.Skipped
 	}
-	if err := ctrl.updateVMExportStatus(vmExport, vmExportCopy); err != nil {
-		return 0, err
+	if !sourceVolumes.isPopulated {
+		requeue = requeueTime
 	}
-	return 0, nil
+	if err := ctrl.updateVMExportStatus(vmExport, vmExportCopy); err != nil {
+		return requeue, err
+	}
+	return requeue, nil
 }
 
 func (ctrl *VMExportController) isSourceVM(source *exportv1.VirtualMachineExportSpec) bool {

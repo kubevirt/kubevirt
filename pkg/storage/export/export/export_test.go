@@ -426,9 +426,8 @@ var _ = Describe("Export controller", func() {
 			},
 		}
 		syncCaches(stop)
-		mockVMExportQueue.ExpectAdds(2)
-		vmExportSource.Add(vmExport)
-		controller.processVMExportWorkItem()
+		mockVMExportQueue.ExpectAdds(1)
+		vmExportInformer.GetStore().Add(vmExport)
 		vmInformer.GetStore().Add(vm)
 		controller.handleVMI(vmi)
 		mockVMExportQueue.Wait()
@@ -466,7 +465,6 @@ var _ = Describe("Export controller", func() {
 		syncCaches(stop)
 		mockVMExportQueue.ExpectAdds(1)
 		vmExportSource.Add(vmExport)
-		controller.processVMExportWorkItem()
 		vmInformer.GetStore().Add(vm)
 		controller.handleVMI(vmi)
 		mockVMExportQueue.Wait()
@@ -483,7 +481,6 @@ var _ = Describe("Export controller", func() {
 		syncCaches(stop)
 		mockVMExportQueue.ExpectAdds(1)
 		vmExportSource.Add(vmExport)
-		controller.processVMExportWorkItem()
 		controller.handleVMI(vmi)
 		mockVMExportQueue.Wait()
 	})

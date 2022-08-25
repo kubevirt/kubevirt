@@ -75,7 +75,8 @@ func (ctrl *VMExportController) getPVCFromSourceVMSnapshot(vmExport *exportv1.Vi
 	if !exists {
 		return &sourceVolumes{
 			volumes:          nil,
-			sourceAvailable:  false,
+			inUse:            false,
+			isPopulated:      false,
 			availableMessage: fmt.Sprintf("VirtualMachineSnapshot %s/%s does not exist", vmExport.Namespace, vmExport.Spec.Source.Name)}, nil
 	}
 	if vmSnapshot.Status.ReadyToUse != nil && *vmSnapshot.Status.ReadyToUse {
@@ -86,23 +87,27 @@ func (ctrl *VMExportController) getPVCFromSourceVMSnapshot(vmExport *exportv1.Vi
 		if len(pvcs) == restoreableSnapshots && restoreableSnapshots > 0 {
 			return &sourceVolumes{
 				volumes:          pvcs,
-				sourceAvailable:  true,
+				inUse:            false,
+				isPopulated:      true,
 				availableMessage: ""}, nil
 		}
 		if restoreableSnapshots == 0 {
 			return &sourceVolumes{
 				volumes:          nil,
-				sourceAvailable:  false,
+				inUse:            false,
+				isPopulated:      false,
 				availableMessage: fmt.Sprintf("VirtualMachineSnapshot %s/%s does not contain any volume snapshots", vmExport.Namespace, vmExport.Spec.Source.Name)}, nil
 		}
 		return &sourceVolumes{
 			volumes:          nil,
-			sourceAvailable:  false,
+			inUse:            false,
+			isPopulated:      false,
 			availableMessage: "Not all PVCs have been successfully restored"}, nil
 	}
 	return &sourceVolumes{
 		volumes:          nil,
-		sourceAvailable:  false,
+		inUse:            false,
+		isPopulated:      false,
 		availableMessage: fmt.Sprintf("VirtualMachineSnapshot %s/%s is not ready to use", vmExport.Namespace, vmExport.Spec.Source.Name)}, nil
 }
 

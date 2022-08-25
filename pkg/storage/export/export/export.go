@@ -143,8 +143,13 @@ func dirURI(pvc *corev1.PersistentVolumeClaim) string {
 
 type sourceVolumes struct {
 	volumes          []*corev1.PersistentVolumeClaim
-	sourceAvailable  bool
+	inUse            bool
+	isPopulated      bool
 	availableMessage string
+}
+
+func (sv *sourceVolumes) isSourceAvailable() bool {
+	return !sv.inUse && sv.isPopulated
 }
 
 // VMExportController is resonsible for exporting VMs
@@ -403,7 +408,7 @@ func (ctrl *VMExportController) manageExporterPod(vmExport *exportv1.VirtualMach
 		return nil, err
 	}
 	if !podExists {
-		if sourceVolumes.sourceAvailable {
+		if sourceVolumes.isSourceAvailable() {
 			if len(sourceVolumes.volumes) > 0 {
 				pod, err = ctrl.createExporterPod(vmExport, sourceVolumes.volumes)
 				if err != nil {
@@ -419,7 +424,7 @@ func (ctrl *VMExportController) manageExporterPod(vmExport *exportv1.VirtualMach
 			}
 		}
 
-		if sourceVolumes.sourceAvailable {
+		if sourceVolumes.isSourceAvailable() {
 			if err := ctrl.handlePodSucceededOrFailed(vmExport, pod); err != nil {
 				return nil, err
 			}

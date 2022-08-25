@@ -425,7 +425,7 @@ var _ = Describe("PVC source", func() {
 
 		retry, err := controller.updateVMExport(testVMExport)
 		Expect(err).ToNot(HaveOccurred())
-		Expect(retry).To(BeEquivalentTo(0))
+		Expect(retry).To(BeEquivalentTo(requeueTime))
 		testutils.ExpectEvent(recorder, serviceCreatedEvent)
 	})
 

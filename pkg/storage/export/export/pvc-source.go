@@ -69,25 +69,25 @@ func (ctrl *VMExportController) getPvc(namespace, name string) (*corev1.Persiste
 	return obj.(*corev1.PersistentVolumeClaim).DeepCopy(), true, nil
 }
 
-func (ctrl *VMExportController) isSourceAvailablePVC(vmExport *exportv1.VirtualMachineExport, pvc *corev1.PersistentVolumeClaim) (bool, string, error) {
+func (ctrl *VMExportController) isSourceAvailablePVC(vmExport *exportv1.VirtualMachineExport, pvc *corev1.PersistentVolumeClaim) (bool, bool, string, error) {
 	availableMessage := ""
-	sourceAvailable, err := ctrl.isPVCPopulated(pvc)
+	isPopulated, err := ctrl.isPVCPopulated(pvc)
+	inUse := false
 	if err != nil {
-		return false, "", err
+		return false, false, "", err
 	}
-	if sourceAvailable {
-		inUse, err := ctrl.isPVCInUse(vmExport, pvc)
+	if isPopulated {
+		inUse, err = ctrl.isPVCInUse(vmExport, pvc)
 		if err != nil {
-			return false, "", err
+			return false, false, "", err
 		}
 		if inUse {
 			availableMessage = fmt.Sprintf("pvc %s/%s is in use", pvc.Namespace, pvc.Name)
 		}
-		sourceAvailable = sourceAvailable && !inUse
 	} else {
 		availableMessage = fmt.Sprintf("pvc %s/%s is not populated", pvc.Namespace, pvc.Name)
 	}
-	return sourceAvailable, availableMessage, nil
+	return isPopulated, inUse, availableMessage, nil
 }
 
 func (ctrl *VMExportController) getPVCFromSourcePVC(vmExport *exportv1.VirtualMachineExport) (*sourceVolumes, error) {
@@ -98,17 +98,19 @@ func (ctrl *VMExportController) getPVCFromSourcePVC(vmExport *exportv1.VirtualMa
 	if !pvcExists {
 		return &sourceVolumes{
 			volumes:          nil,
-			sourceAvailable:  true,
+			inUse:            false,
+			isPopulated:      false,
 			availableMessage: fmt.Sprintf("pvc %s/%s not found", vmExport.Namespace, vmExport.Spec.Source.Name)}, nil
 	}
 
-	sourceAvailable, availableMessage, err := ctrl.isSourceAvailablePVC(vmExport, pvc)
+	isPopulated, inUse, availableMessage, err := ctrl.isSourceAvailablePVC(vmExport, pvc)
 	if err != nil {
 		return &sourceVolumes{}, err
 	}
 	return &sourceVolumes{
 		volumes:          []*corev1.PersistentVolumeClaim{pvc},
-		sourceAvailable:  sourceAvailable,
+		inUse:            inUse,
+		isPopulated:      isPopulated,
 		availableMessage: availableMessage}, nil
 }
 
@@ -132,7 +134,7 @@ func (ctrl *VMExportController) isPVCInUse(vmExport *exportv1.VirtualMachineExpo
 func (ctrl *VMExportController) updateVMExportPvcStatus(vmExport *exportv1.VirtualMachineExport, exporterPod *corev1.Pod, service *corev1.Service, sourceVolumes *sourceVolumes) (time.Duration, error) {
 	var requeue time.Duration
 
-	if !sourceVolumes.sourceAvailable {
+	if !sourceVolumes.isSourceAvailable() && len(sourceVolumes.volumes) > 0 {
 		log.Log.V(4).Infof("Source is not available %s, requeuing", sourceVolumes.availableMessage)
 		requeue = requeueTime
 	}
