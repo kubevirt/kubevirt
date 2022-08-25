@@ -73,7 +73,7 @@ import (
 )
 
 var _ = Describe("[sig-compute]Configurations", func() {
-
+	const enoughMemForSafeBiosEmulation = "32Mi"
 	var err error
 	var virtClient kubecli.KubevirtClient
 
@@ -546,29 +546,18 @@ var _ = Describe("[sig-compute]Configurations", func() {
 			})
 
 			It("[test_id:5266]should boot to NIC rom if a boot order was set on a network interface", func() {
-				By("Creating a VMI with no disk and an explicit network interface")
-				vmi := libvmi.New(
-					libvmi.WithNetwork(v1.DefaultPodNetwork()),
-					libvmi.WithInterface(libvmi.InterfaceDeviceWithMasqueradeBinding()),
-				)
-				vmi.Spec.Domain.Resources = v1.ResourceRequirements{
-					Requests: kubev1.ResourceList{
-						kubev1.ResourceMemory: resource.MustParse("32M"),
-					},
-				}
-
-				By("Enabling BIOS serial output")
-				vmi.Spec.Domain.Firmware = &v1.Firmware{
-					Bootloader: &v1.Bootloader{
-						BIOS: &v1.BIOS{
-							UseSerial: tests.NewBool(true),
-						},
-					},
-				}
-
 				By("Enabling network boot")
 				var bootOrder uint = 1
-				vmi.Spec.Domain.Devices.Interfaces[0].BootOrder = &bootOrder
+				interfaceDeviceWithMasqueradeBinding := libvmi.InterfaceDeviceWithMasqueradeBinding()
+				interfaceDeviceWithMasqueradeBinding.BootOrder = &bootOrder
+
+				By("Creating a VMI with no disk and an explicit network interface")
+				vmi := libvmi.New(
+					libvmi.WithResourceMemory(enoughMemForSafeBiosEmulation),
+					libvmi.WithNetwork(v1.DefaultPodNetwork()),
+					libvmi.WithInterface(interfaceDeviceWithMasqueradeBinding),
+					withSerialBIOS(),
+				)
 
 				By("Starting a VirtualMachineInstance")
 				vmi, err = virtClient.VirtualMachineInstance(util.NamespaceTestDefault).Create(vmi)
@@ -1820,7 +1809,7 @@ var _ = Describe("[sig-compute]Configurations", func() {
 
 		It("[test_id:3124]should set machine type from VMI spec", func() {
 			vmi := libvmi.New(
-				libvmi.WithResourceMemory("32Mi"),
+				libvmi.WithResourceMemory(enoughMemForSafeBiosEmulation),
 				withMachineType("pc"),
 			)
 			vmi = tests.RunVMIAndExpectLaunch(vmi, 30)
@@ -1843,7 +1832,7 @@ var _ = Describe("[sig-compute]Configurations", func() {
 		It("[test_id:6964]should allow creating VM defined with Machine with an empty Type", func() {
 			// This is needed to provide backward compatibility since our example VMIs used to be defined in this way
 			vmi := libvmi.New(
-				libvmi.WithResourceMemory("32Mi"),
+				libvmi.WithResourceMemory(enoughMemForSafeBiosEmulation),
 				withMachineType(""),
 			)
 
@@ -1874,7 +1863,7 @@ var _ = Describe("[sig-compute]Configurations", func() {
 	Context("with a custom scheduler", func() {
 		It("[test_id:4631]should set the custom scheduler on the pod", func() {
 			vmi := libvmi.New(
-				libvmi.WithResourceMemory("32Mi"),
+				libvmi.WithResourceMemory(enoughMemForSafeBiosEmulation),
 				WithSchedulerName("my-custom-scheduler"),
 			)
 			runningVMI := tests.RunVMIAndExpectScheduling(vmi, 30)
@@ -1886,8 +1875,10 @@ var _ = Describe("[sig-compute]Configurations", func() {
 	Context("[rfe_id:140][crit:medium][vendor:cnv-qe@redhat.com][level:component]with CPU request settings", func() {
 
 		It("[test_id:3127]should set CPU request from VMI spec", func() {
-			vmi := tests.NewRandomVMI()
-			vmi.Spec.Domain.Resources.Requests[kubev1.ResourceCPU] = resource.MustParse("500m")
+			vmi := libvmi.New(
+				libvmi.WithResourceMemory(enoughMemForSafeBiosEmulation),
+				libvmi.WithResourceCPU("500m"),
+			)
 			runningVMI := tests.RunVMIAndExpectScheduling(vmi, 30)
 
 			readyPod := libvmi.GetPodByVirtualMachineInstance(runningVMI, util.NamespaceTestDefault)
@@ -3098,5 +3089,20 @@ func withMachineType(machineType string) libvmi.Option {
 func WithSchedulerName(schedulerName string) libvmi.Option {
 	return func(vmi *v1.VirtualMachineInstance) {
 		vmi.Spec.SchedulerName = schedulerName
+	}
+}
+
+func withSerialBIOS() libvmi.Option {
+	return func(vmi *v1.VirtualMachineInstance) {
+		if vmi.Spec.Domain.Firmware == nil {
+			vmi.Spec.Domain.Firmware = &v1.Firmware{}
+		}
+		if vmi.Spec.Domain.Firmware.Bootloader == nil {
+			vmi.Spec.Domain.Firmware.Bootloader = &v1.Bootloader{}
+		}
+		if vmi.Spec.Domain.Firmware.Bootloader.BIOS == nil {
+			vmi.Spec.Domain.Firmware.Bootloader.BIOS = &v1.BIOS{}
+		}
+		vmi.Spec.Domain.Firmware.Bootloader.BIOS.UseSerial = pointer.Bool(true)
 	}
 }
