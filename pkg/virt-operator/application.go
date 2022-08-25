@@ -288,7 +288,7 @@ func Execute() {
 }
 
 func (app *VirtOperatorApp) Run() {
-	promTLSConfig := webhooks.SetupPromTLS(app.operatorCertManager)
+	promTLSConfig := webhooks.SetupPromTLS(app.operatorCertManager, app.clusterConfig)
 
 	go func() {
 
@@ -352,7 +352,7 @@ func (app *VirtOperatorApp) Run() {
 
 	caManager := webhooks.NewKubernetesClientCAManager(apiAuthConfig.GetStore())
 
-	tlsConfig := webhooks.SetupTLSWithCertManager(caManager, app.operatorCertManager, tls.VerifyClientCertIfGiven)
+	tlsConfig := webhooks.SetupTLSWithCertManager(caManager, app.operatorCertManager, tls.VerifyClientCertIfGiven, app.clusterConfig)
 
 	webhookServer := &http.Server{
 		Addr:      fmt.Sprintf("%s:%d", app.BindAddress, 8444),

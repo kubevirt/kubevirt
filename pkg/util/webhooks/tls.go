@@ -5,6 +5,10 @@ import (
 	"crypto/x509"
 	"fmt"
 
+	v1 "kubevirt.io/api/core/v1"
+
+	virtconfig "kubevirt.io/kubevirt/pkg/virt-config"
+
 	"k8s.io/client-go/util/certificate"
 
 	"kubevirt.io/client-go/log"
@@ -12,9 +16,13 @@ import (
 
 const noSrvCertMessage = "No server certificate, server is not yet ready to receive traffic"
 
-func SetupPromTLS(certManager certificate.Manager) *tls.Config {
+var (
+	cipherSuites         = tls.CipherSuites()
+	insecureCipherSuites = tls.InsecureCipherSuites()
+)
+
+func SetupPromTLS(certManager certificate.Manager, clusterConfig *virtconfig.ClusterConfig) *tls.Config {
 	tlsConfig := &tls.Config{
-		MinVersion: tls.VersionTLS12,
 		GetCertificate: func(info *tls.ClientHelloInfo) (certificate *tls.Certificate, err error) {
 			cert := certManager.Current()
 			if cert == nil {
@@ -28,8 +36,13 @@ func SetupPromTLS(certManager certificate.Manager) *tls.Config {
 				log.Log.Error("failed to get a certificate")
 				return nil, fmt.Errorf("failed to get a certificate")
 			}
+
+			tlsConfig := getTLSConfiguration(clusterConfig)
+			ciphers := CipherSuiteIds(tlsConfig.Ciphers)
+			minTLSVersion := TlsVersion(tlsConfig.MinTLSVersion)
 			config := &tls.Config{
-				MinVersion:   tls.VersionTLS12,
+				CipherSuites: ciphers,
+				MinVersion:   minTLSVersion,
 				Certificates: []tls.Certificate{*crt},
 				ClientAuth:   tls.VerifyClientCertIfGiven,
 			}
@@ -41,7 +54,7 @@ func SetupPromTLS(certManager certificate.Manager) *tls.Config {
 	tlsConfig.BuildNameToCertificate()
 	return tlsConfig
 }
-func SetupTLSWithCertManager(caManager ClientCAManager, certManager certificate.Manager, clientAuth tls.ClientAuthType) *tls.Config {
+func SetupTLSWithCertManager(caManager ClientCAManager, certManager certificate.Manager, clientAuth tls.ClientAuthType, clusterConfig *virtconfig.ClusterConfig) *tls.Config {
 	tlsConfig := &tls.Config{
 		GetCertificate: func(info *tls.ClientHelloInfo) (certificate *tls.Certificate, err error) {
 			cert := certManager.Current()
@@ -61,8 +74,13 @@ func SetupTLSWithCertManager(caManager ClientCAManager, certManager certificate.
 				log.Log.Reason(err).Error("Failed to get requestheader client CA")
 				return nil, err
 			}
+
+			tlsConfig := getTLSConfiguration(clusterConfig)
+			ciphers := CipherSuiteIds(tlsConfig.Ciphers)
+			minTLSVersion := TlsVersion(tlsConfig.MinTLSVersion)
 			config := &tls.Config{
-				MinVersion:   tls.VersionTLS12,
+				CipherSuites: ciphers,
+				MinVersion:   minTLSVersion,
 				Certificates: []tls.Certificate{*cert},
 				ClientCAs:    clientCAPool,
 				ClientAuth:   clientAuth,
@@ -76,7 +94,7 @@ func SetupTLSWithCertManager(caManager ClientCAManager, certManager certificate.
 	return tlsConfig
 }
 
-func SetupTLSForVirtHandlerServer(caManager ClientCAManager, certManager certificate.Manager, externallyManaged bool) *tls.Config {
+func SetupTLSForVirtHandlerServer(caManager ClientCAManager, certManager certificate.Manager, externallyManaged bool, clusterConfig *virtconfig.ClusterConfig) *tls.Config {
 	// #nosec cause: InsecureSkipVerify: true
 	// resolution: Neither the client nor the server should validate anything itself, `VerifyPeerCertificate` is still executed
 	return &tls.Config{
@@ -103,9 +121,13 @@ func SetupTLSForVirtHandlerServer(caManager ClientCAManager, certManager certifi
 				return nil, fmt.Errorf(noSrvCertMessage)
 			}
 
+			tlsConfig := getTLSConfiguration(clusterConfig)
+			ciphers := CipherSuiteIds(tlsConfig.Ciphers)
+			minTLSVersion := TlsVersion(tlsConfig.MinTLSVersion)
 			config = &tls.Config{
-				MinVersion: tls.VersionTLS12,
-				ClientCAs:  certPool,
+				CipherSuites: ciphers,
+				MinVersion:   minTLSVersion,
+				ClientCAs:    certPool,
 				GetCertificate: func(info *tls.ClientHelloInfo) (i *tls.Certificate, e error) {
 					return cert, nil
 				},
@@ -151,6 +173,53 @@ func SetupTLSForVirtHandlerClients(caManager ClientCAManager, certManager certif
 			}
 			return verifyPeerCert(rawCerts, externallyManaged, certPool, x509.ExtKeyUsageServerAuth, "node")
 		},
+	}
+}
+
+func getTLSConfiguration(clusterConfig *virtconfig.ClusterConfig) *v1.TLSConfiguration {
+	tlsConfiguration := &v1.TLSConfiguration{
+		MinTLSVersion: "VersionTLS12",
+		Ciphers:       nil,
+	}
+
+	kv := clusterConfig.GetConfigFromKubeVirtCR()
+	if kv != nil && kv.Spec.Configuration.TLSConfiguration != nil {
+		tlsConfiguration = kv.Spec.Configuration.TLSConfiguration
+	}
+	return tlsConfiguration
+}
+
+func CipherSuiteIds(names []string) []uint16 {
+	var idByName = map[string]uint16{}
+	for _, cipherSuite := range cipherSuites {
+		idByName[cipherSuite.Name] = cipherSuite.ID
+	}
+	for _, cipherSuite := range insecureCipherSuites {
+		idByName[cipherSuite.Name] = cipherSuite.ID
+	}
+	var ids []uint16
+	for _, name := range names {
+		if id, ok := idByName[name]; ok {
+			ids = append(ids, id)
+		}
+	}
+	return ids
+}
+
+// TlsVersion converts from human-readable TLS version (for example "1.1")
+// to the values accepted by tls.Config (for example 0x301).
+func TlsVersion(version v1.TLSProtocolVersion) uint16 {
+	switch version {
+	case v1.VersionTLS10:
+		return tls.VersionTLS10
+	case v1.VersionTLS11:
+		return tls.VersionTLS11
+	case v1.VersionTLS12:
+		return tls.VersionTLS12
+	case v1.VersionTLS13:
+		return tls.VersionTLS13
+	default:
+		return tls.VersionTLS12
 	}
 }
 
