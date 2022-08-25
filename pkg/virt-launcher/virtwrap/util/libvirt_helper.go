@@ -140,6 +140,7 @@ func SetDomainSpecStrWithHooks(virConn cli.Connection, vmi *v1.VirtualMachineIns
 	hooksManager := hooks.GetManager()
 
 	domainSpec, err := hooksManager.OnDefineDomain(spec, vmi)
+	log.Log.Infof("ihol3 XML: %s", domainSpec)
 	if err != nil {
 		return nil, err
 	}
