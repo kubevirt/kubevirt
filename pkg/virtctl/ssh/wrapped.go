@@ -6,6 +6,8 @@ import (
 	"os/exec"
 	"strconv"
 	"strings"
+
+	"github.com/golang/glog"
 )
 
 var runCommand = func(cmd *exec.Cmd) error {
@@ -26,7 +28,7 @@ func RunLocalClient(kind, namespace, name string, options *SSHOptions, clientArg
 	args = append(args, clientArgs...)
 
 	cmd := exec.Command(options.LocalClientName, args...)
-	fmt.Println("running:", cmd)
+	glog.V(3).Info("running: ", cmd)
 	cmd.Stdout = os.Stdout
 	cmd.Stderr = os.Stderr
 	cmd.Stdin = os.Stdin
