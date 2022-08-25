@@ -14,7 +14,7 @@ type fakeVMCollector struct {
 func (fc fakeVMCollector) Describe(_ chan<- *prometheus.Desc) {
 }
 
-//Collect needs to report all metrics to see it in docs
+// Collect needs to report all metrics to see it in docs
 func (fc fakeVMCollector) Collect(ch chan<- prometheus.Metric) {
 	ps := vmstats.NewPrometheusScraper(ch)
 
@@ -25,7 +25,7 @@ func (fc fakeVMCollector) Collect(ch chan<- prometheus.Metric) {
 	ps.Report(vms)
 }
 
-func RegisterFakeMigrationsCollector() {
+func RegisterFakeVMCollector() {
 	prometheus.MustRegister(fakeVMCollector{})
 }
 
