@@ -27,9 +27,6 @@ import (
 
 	virtcontroller "kubevirt.io/kubevirt/pkg/controller"
 
-	"github.com/prometheus/client_golang/prometheus"
-	prometheustestutil "github.com/prometheus/client_golang/prometheus/testutil"
-
 	"k8s.io/apimachinery/pkg/api/resource"
 	"k8s.io/utils/pointer"
 
@@ -63,7 +60,6 @@ import (
 	fakenetworkclient "kubevirt.io/client-go/generated/network-attachment-definition-client/clientset/versioned/fake"
 	"kubevirt.io/client-go/kubecli"
 
-	migrations "kubevirt.io/kubevirt/pkg/monitoring/migration"
 	"kubevirt.io/kubevirt/pkg/testutils"
 	utiltype "kubevirt.io/kubevirt/pkg/util/types"
 	"kubevirt.io/kubevirt/pkg/virt-controller/services"
@@ -171,13 +167,6 @@ var _ = Describe("Migration watcher", func() {
 
 	shouldExpectGenericMigrationUpdate := func() {
 		migrationInterface.EXPECT().UpdateStatus(gomock.Any()).DoAndReturn(func(arg interface{}) (interface{}, interface{}) {
-			return arg, nil
-		})
-	}
-
-	shouldExpectMigrationPendingState := func(migration *virtv1.VirtualMachineInstanceMigration) {
-		migrationInterface.EXPECT().UpdateStatus(gomock.Any()).DoAndReturn(func(arg interface{}) (interface{}, interface{}) {
-			Expect(arg.(*virtv1.VirtualMachineInstanceMigration).Status.Phase).To(Equal(virtv1.MigrationPending))
 			return arg, nil
 		})
 	}
@@ -295,24 +284,6 @@ var _ = Describe("Migration watcher", func() {
 		podFeeder = testutils.NewPodFeeder(mockQueue, podSource)
 	}
 
-	getGaugeValue := func(gauge *prometheus.GaugeVec, labels prometheus.Labels) float64 {
-		return prometheustestutil.ToFloat64(gauge.With(labels))
-	}
-
-	expectGaugeValue := func(gauge *prometheus.GaugeVec, labels prometheus.Labels, expectedCount float64) {
-		gaugeValue := getGaugeValue(gauge, labels)
-		Expect(gaugeValue).Should(Equal(expectedCount))
-	}
-
-	getCounterValue := func(counter *prometheus.CounterVec, labels prometheus.Labels) float64 {
-		return prometheustestutil.ToFloat64(counter.With(labels))
-	}
-
-	expectCounterValue := func(counter *prometheus.CounterVec, labels prometheus.Labels, expectedCount float64) {
-		counterValue := getCounterValue(counter, labels)
-		Expect(counterValue).Should(Equal(expectedCount))
-	}
-
 	BeforeEach(func() {
 		stop = make(chan struct{})
 		ctrl = gomock.NewController(GinkgoT())
@@ -420,15 +391,6 @@ var _ = Describe("Migration watcher", func() {
 		Expect(err).ToNot(HaveOccurred())
 
 		return fmt.Sprintf(`"migrationConfiguration":%s`, string(marshalledConfigs))
-	}
-
-	addObjects := func(migration *virtv1.VirtualMachineInstanceMigration, vmi *virtv1.VirtualMachineInstance, targetPod *k8sv1.Pod, attachmentPod *k8sv1.Pod) {
-		addMigration(migration)
-		addVirtualMachineInstance(vmi)
-		podFeeder.Add(targetPod)
-		if attachmentPod != nil {
-			podFeeder.Add(attachmentPod)
-		}
 	}
 
 	Context("Migration with hotplug volumes", func() {
@@ -1672,111 +1634,6 @@ var _ = Describe("Migration watcher", func() {
 			testutils.ExpectEvent(recorder, SuccessfulDeletePodReason)
 		})
 
-	})
-
-	Context("Migration monitoring", func() {
-		var (
-			vmi           *virtv1.VirtualMachineInstance
-			migration     *virtv1.VirtualMachineInstanceMigration
-			targetPod     *k8sv1.Pod
-			attachmentPod *k8sv1.Pod
-			labels        prometheus.Labels
-		)
-
-		BeforeEach(func() {
-			vmi = newVirtualMachineWithHotplugVolume("testvmi-monitoring-"+rand.String(6), virtv1.Running)
-			migration = newMigration("testmigration", vmi.Name, virtv1.MigrationPending)
-			targetPod = newTargetPodForVirtualMachine(vmi, migration, k8sv1.PodRunning)
-			attachmentPod = newAttachmentPodForVirtualMachine(targetPod, migration, k8sv1.PodRunning)
-
-			vmi.Status.NodeName = "node02"
-			targetPod.Spec.NodeName = "node01"
-			labels = prometheus.Labels{"vmi": vmi.Name, "source": vmi.Status.NodeName, "target": targetPod.Spec.NodeName}
-		})
-
-		It("should update metrics on pending migration", func() {
-			pending := getGaugeValue(migrations.CurrentPendingMigrations, labels)
-
-			migration.Status.Phase = virtv1.MigrationPhaseUnset
-			addObjects(migration, vmi, targetPod, nil)
-
-			shouldExpectMigrationPendingState(migration)
-			controller.Execute()
-
-			expectGaugeValue(migrations.CurrentPendingMigrations, labels, pending+1)
-		})
-
-		It("should update metrics on scheduling migration", func() {
-			scheduling := getGaugeValue(migrations.CurrentSchedulingMigrations, labels)
-
-			addObjects(migration, vmi, targetPod, attachmentPod)
-
-			shouldExpectMigrationSchedulingState(migration)
-			controller.Execute()
-
-			expectGaugeValue(migrations.CurrentSchedulingMigrations, labels, scheduling+1)
-		})
-
-		It("should update metrics on running migration", func() {
-			running := getGaugeValue(migrations.CurrentRunningMigrations, labels)
-
-			vmi.Status.MigrationState = &virtv1.VirtualMachineInstanceMigrationState{
-				MigrationUID:      migration.UID,
-				TargetNode:        "node01",
-				SourceNode:        "node02",
-				TargetNodeAddress: "10.10.10.10:1234",
-				StartTimestamp:    now(),
-			}
-			migration.Status.Phase = virtv1.MigrationTargetReady
-			addObjects(migration, vmi, targetPod, attachmentPod)
-
-			shouldExpectMigrationRunningState(migration)
-			controller.Execute()
-
-			expectGaugeValue(migrations.CurrentRunningMigrations, labels, running+1)
-		})
-
-		It("should update metrics on succeeded migration", func() {
-			running := getGaugeValue(migrations.CurrentRunningMigrations, labels)
-			succeeded := getCounterValue(migrations.MigrationsSucceededTotal, labels)
-
-			migration.Status.Phase = virtv1.MigrationRunning
-			vmi.Status.MigrationState = &virtv1.VirtualMachineInstanceMigrationState{
-				MigrationUID:      migration.UID,
-				TargetNode:        "node01",
-				SourceNode:        "node02",
-				TargetNodeAddress: "10.10.10.10:1234",
-				StartTimestamp:    now(),
-				EndTimestamp:      now(),
-				Failed:            false,
-				Completed:         true,
-			}
-			addObjects(migration, vmi, targetPod, nil)
-
-			shouldExpectMigrationCompletedState(migration)
-			controller.Execute()
-			testutils.ExpectEvent(recorder, SuccessfulMigrationReason)
-
-			expectGaugeValue(migrations.CurrentRunningMigrations, labels, running-1)
-			expectCounterValue(migrations.MigrationsSucceededTotal, labels, succeeded+1)
-		})
-
-		It("should update metrics on failed migration", func() {
-			scheduling := getGaugeValue(migrations.CurrentSchedulingMigrations, labels)
-			failed := getCounterValue(migrations.MigrationsFailedTotal, labels)
-
-			migration.Status.Phase = virtv1.MigrationScheduling
-			attachmentPod.Status.Phase = k8sv1.PodFailed
-
-			addObjects(migration, vmi, targetPod, attachmentPod)
-
-			shouldExpectMigrationFailedState(migration)
-			controller.Execute()
-			testutils.ExpectEvent(recorder, FailedMigrationReason)
-
-			expectGaugeValue(migrations.CurrentSchedulingMigrations, labels, scheduling-1)
-			expectCounterValue(migrations.MigrationsFailedTotal, labels, failed+1)
-		})
 	})
 
 	Context("Migration abortion before hand-off to virt-handler", func() {
