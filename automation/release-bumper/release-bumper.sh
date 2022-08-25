@@ -99,7 +99,7 @@ function get_updated_versions {
   )
 
   IMPORT_REPOS=(
-    ["KUBEVIRT"]="kubevirt.io/api"
+    ["KUBEVIRT"]="kubevirt.io/api,kubevirt.io/client-go,kubevirt.io/kubevirt"
     ["CDI"]="kubevirt.io/containerized-data-importer-api"
     ["NETWORK_ADDONS"]="kubevirt/cluster-network-addons-operator"
     ["SSP"]="kubevirt.io/ssp-operator/api"
@@ -240,9 +240,12 @@ function update_go_mod() {
   UPDATED_VERSION=$(cat updated_version.txt)
 
   if [[ -v IMPORT_REPOS[$UPDATED_COMPONENT] ]]; then
-    MODULE_PATH=${IMPORT_REPOS[$UPDATED_COMPONENT]}
-    sed -E -i "s|(${MODULE_PATH}.*)v.+|\1${UPDATED_VERSION}|" go.mod
-    sed -E -i "s|(${MODULE_PATH}.*)v.+|\1${UPDATED_VERSION}|" tests/go.mod
+    MODULE_PATH_LIST=${IMPORT_REPOS[$UPDATED_COMPONENT]}
+    for MODULE_PATH in $(echo "${MODULE_PATH_LIST}" | tr "," "\n")
+    do
+      sed -E -i "s|(${MODULE_PATH}.*)v.+|\1${UPDATED_VERSION}|" go.mod
+      sed -E -i "s|(${MODULE_PATH}.*)v.+|\1${UPDATED_VERSION}|" tests/go.mod
+    done
   else
     echo "No need to update go.mod for ${UPDATED_COMPONENT}"
   fi
