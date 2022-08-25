@@ -807,6 +807,54 @@ var _ = SIGDescribe("DataVolume Integration", func() {
 		})
 	})
 
+	Describe("[Serial][rfe_id:8400][crit:high][vendor:cnv-qe@redhat.com][level:system] Garbage collection of succeeded DV", func() {
+		var originalTTL *int32
+		ttl0 := int32(0)
+
+		BeforeEach(func() {
+			cdi := libstorage.GetCDI(virtClient)
+			originalTTL = cdi.Spec.Config.DataVolumeTTLSeconds
+		})
+
+		AfterEach(func() {
+			libstorage.SetDataVolumeGC(virtClient, originalTTL)
+		})
+
+		DescribeTable("Verify DV of VM with DataVolumeTemplates is garbage collected when", func(ttlBefore, ttlAfter *int32, gcAnnotation string) {
+			libstorage.SetDataVolumeGC(virtClient, ttlBefore)
+
+			vm := tests.NewRandomVMWithDataVolume(cd.DataVolumeImportUrlForContainerDisk(cd.ContainerDiskAlpine), util.NamespaceTestDefault)
+
+			vm, err = virtClient.VirtualMachine(util.NamespaceTestDefault).Create(vm)
+			Expect(err).ToNot(HaveOccurred())
+
+			vm = tests.StartVirtualMachine(vm)
+			By(checkingVMInstanceConsoleExpectedOut)
+			vmi, err := virtClient.VirtualMachineInstance(vm.Namespace).Get(vm.Name, &metav1.GetOptions{})
+			Expect(err).ToNot(HaveOccurred())
+			Expect(console.LoginToAlpine(vmi)).To(Succeed())
+
+			libstorage.SetDataVolumeGC(virtClient, ttlAfter)
+
+			dvName := vm.Spec.DataVolumeTemplates[0].Name
+
+			if gcAnnotation != "" {
+				dv, err := virtClient.CdiClient().CdiV1beta1().DataVolumes(vm.Namespace).Get(context.TODO(), dvName, metav1.GetOptions{})
+				Expect(err).ToNot(HaveOccurred())
+				dv.Annotations = map[string]string{"cdi.kubevirt.io/storage.deleteAfterCompletion": gcAnnotation}
+				_, err = virtClient.CdiClient().CdiV1beta1().DataVolumes(vm.Namespace).Update(context.TODO(), dv, metav1.UpdateOptions{})
+				Expect(err).ToNot(HaveOccurred())
+			}
+
+			libstorage.EventuallyDVWith(vm.Namespace, dvName, 100, BeNil())
+
+			vm = tests.StopVirtualMachine(vm)
+		},
+			Entry("[test_id:8567]GC is enabled", &ttl0, &ttl0, ""),
+			Entry("[test_id:8571]GC is disabled, and after VM creation, GC is enabled and DV is annotated", nil, &ttl0, "true"),
+		)
+	})
+
 	Context("Fedora VMI tests", func() {
 		imageSizeEqual := func(a, b int64) bool {
 			// Our OCS image size method probe is very precise and can show a few
