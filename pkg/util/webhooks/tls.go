@@ -113,34 +113,7 @@ func SetupTLSForVirtHandlerServer(caManager ClientCAManager, certManager certifi
 				InsecureSkipVerify: true,
 				// XXX: We need to verify the cert ourselves because we don't have DNS or IP on the certs at the moment
 				VerifyPeerCertificate: func(rawCerts [][]byte, verifiedChains [][]*x509.Certificate) error {
-
-					// impossible with RequireAnyClientCert
-					if len(rawCerts) == 0 {
-						return fmt.Errorf("no client certificate provided.")
-					}
-
-					rawClient, rawIntermediates := rawCerts[0], rawCerts[1:]
-					c, err := x509.ParseCertificate(rawClient)
-					if err != nil {
-						return fmt.Errorf("failed to parse peer certificate: %v", err)
-					}
-
-					intermediatePool := createIntermediatePool(externallyManaged, rawIntermediates)
-
-					_, err = c.Verify(x509.VerifyOptions{
-						Roots:         certPool,
-						Intermediates: intermediatePool,
-						KeyUsages:     []x509.ExtKeyUsage{x509.ExtKeyUsageClientAuth},
-					})
-					if err != nil {
-						return fmt.Errorf("could not verify peer certificate: %v", err)
-					}
-
-					if !externallyManaged && c.Subject.CommonName != "kubevirt.io:system:client:virt-handler" {
-						return fmt.Errorf("common name is invalid, expected %s, but got %s", "kubevirt.io:system:client:virt-handler", c.Subject.CommonName)
-					}
-
-					return nil
+					return verifyPeerCert(rawCerts, externallyManaged, certPool, x509.ExtKeyUsageClientAuth, "client")
 				},
 				ClientAuth: tls.RequireAndVerifyClientCert,
 			}
@@ -176,35 +149,40 @@ func SetupTLSForVirtHandlerClients(caManager ClientCAManager, certManager certif
 				log.Log.Reason(err).Error("Failed to get kubevirt CA")
 				return err
 			}
-			// impossible with RequireAnyClientCert
-			if len(rawCerts) == 0 {
-				return fmt.Errorf("no client certificate provided.")
-			}
-
-			rawServer, rawIntermediates := rawCerts[0], rawCerts[1:]
-			c, err := x509.ParseCertificate(rawServer)
-			if err != nil {
-				return fmt.Errorf("failed to parse peer certificate: %v", err)
-			}
-
-			intermediatePool := createIntermediatePool(externallyManaged, rawIntermediates)
-
-			_, err = c.Verify(x509.VerifyOptions{
-				Roots:         certPool,
-				Intermediates: intermediatePool,
-				KeyUsages:     []x509.ExtKeyUsage{x509.ExtKeyUsageServerAuth},
-			})
-			if err != nil {
-				return fmt.Errorf("could not verify peer certificate: %v", err)
-			}
-
-			if !externallyManaged && c.Subject.CommonName != "kubevirt.io:system:node:virt-handler" {
-				return fmt.Errorf("common name is invalid, expected %s, but got %s", "kubevirt.io:system:node:virt-handler", c.Subject.CommonName)
-			}
-
-			return nil
+			return verifyPeerCert(rawCerts, externallyManaged, certPool, x509.ExtKeyUsageServerAuth, "node")
 		},
 	}
+}
+
+func verifyPeerCert(rawCerts [][]byte, externallyManaged bool, certPool *x509.CertPool, usage x509.ExtKeyUsage, commonName string) error {
+	// impossible with RequireAnyClientCert
+	if len(rawCerts) == 0 {
+		return fmt.Errorf("no client certificate provided.")
+	}
+
+	rawPeer, rawIntermediates := rawCerts[0], rawCerts[1:]
+	c, err := x509.ParseCertificate(rawPeer)
+	if err != nil {
+		return fmt.Errorf("failed to parse peer certificate: %v", err)
+	}
+
+	intermediatePool := createIntermediatePool(externallyManaged, rawIntermediates)
+
+	_, err = c.Verify(x509.VerifyOptions{
+		Roots:         certPool,
+		Intermediates: intermediatePool,
+		KeyUsages:     []x509.ExtKeyUsage{usage},
+	})
+	if err != nil {
+		return fmt.Errorf("could not verify peer certificate: %v", err)
+	}
+
+	fullCommonName := fmt.Sprintf("kubevirt.io:system:%s:virt-handler", commonName)
+	if !externallyManaged && c.Subject.CommonName != fullCommonName {
+		return fmt.Errorf("common name is invalid, expected %s, but got %s", fullCommonName, c.Subject.CommonName)
+	}
+
+	return nil
 }
 
 func createIntermediatePool(externallyManaged bool, rawIntermediates [][]byte) *x509.CertPool {
