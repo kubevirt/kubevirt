@@ -13,14 +13,14 @@ import (
 	"kubevirt.io/kubevirt/pkg/virt-launcher/virtwrap/statsconv/util"
 )
 
-type fakeCollector struct {
+type fakeDomainCollector struct {
 }
 
-func (fc fakeCollector) Describe(_ chan<- *prometheus.Desc) {
+func (fc fakeDomainCollector) Describe(_ chan<- *prometheus.Desc) {
 }
 
 //Collect needs to report all metrics to see it in docs
-func (fc fakeCollector) Collect(ch chan<- prometheus.Metric) {
+func (fc fakeDomainCollector) Collect(ch chan<- prometheus.Metric) {
 	ps := domainstats.NewPrometheusScraper(ch)
 
 	libstatst, err := util.LoadStats()
@@ -34,7 +34,7 @@ func (fc fakeCollector) Collect(ch chan<- prometheus.Metric) {
 	jobInfo := stats.DomainJobInfo{}
 	out := stats.DomainStats{}
 	fs := k6tv1.VirtualMachineInstanceFileSystemList{}
-	ident := statsconv.DomainIdentifier(&fakeIdentifier{})
+	ident := statsconv.DomainIdentifier(&fakeDomainIdentifier{})
 	devAliasMap := make(map[string]string)
 
 	if err = statsconv.Convert_libvirt_DomainStats_to_stats_DomainStats(ident, in, inMem, inDomInfo, devAliasMap, &jobInfo, &out); err != nil {
@@ -71,17 +71,17 @@ func (fc fakeCollector) Collect(ch chan<- prometheus.Metric) {
 	ps.Report("test", &vmi, &domainstats.VirtualMachineInstanceStats{DomainStats: &out, FsStats: fs})
 }
 
-type fakeIdentifier struct {
+type fakeDomainIdentifier struct {
 }
 
-func (*fakeIdentifier) GetName() (string, error) {
+func (*fakeDomainIdentifier) GetName() (string, error) {
 	return "test", nil
 }
 
-func (*fakeIdentifier) GetUUIDString() (string, error) {
+func (*fakeDomainIdentifier) GetUUIDString() (string, error) {
 	return "uuid", nil
 }
 
-func RegisterFakeCollector() {
-	prometheus.MustRegister(fakeCollector{})
+func RegisterFakeDomainCollector() {
+	prometheus.MustRegister(fakeDomainCollector{})
 }

@@ -4,13 +4,15 @@ go_library(
     name = "go_default_library",
     srcs = [
         "doc-generator.go",
-        "fakeCollector.go",
+        "fakeDomainCollector.go",
+        "fakeMigrationsCollector.go",
         "fakeVMCollector.go",
     ],
     importpath = "kubevirt.io/kubevirt/tools/doc-generator",
     visibility = ["//visibility:private"],
     deps = [
         "//pkg/monitoring/domainstats/prometheus:go_default_library",
+        "//pkg/monitoring/migrationstats:go_default_library",
         "//pkg/monitoring/vmstats:go_default_library",
         "//pkg/virt-controller/watch:go_default_library",
         "//pkg/virt-launcher/virtwrap/stats:go_default_library",

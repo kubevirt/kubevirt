@@ -25,7 +25,7 @@ func (fc fakeVMCollector) Collect(ch chan<- prometheus.Metric) {
 	ps.Report(vms)
 }
 
-func RegisterFakeMigrationsCollector() {
+func RegisterFakeVMCollector() {
 	prometheus.MustRegister(fakeVMCollector{})
 }
 
