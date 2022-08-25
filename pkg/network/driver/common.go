@@ -51,6 +51,7 @@ const (
 	randomMacGenerationAttempts = 10
 	allowForwarding             = "1"
 	LibvirtUserAndGroupId       = "0"
+	allowRouteLocalNet          = "1"
 )
 
 type NetworkHandler interface {
@@ -75,6 +76,7 @@ type NetworkHandler interface {
 	HasIPv6GlobalUnicastAddress(interfaceName string) (bool, error)
 	IsIpv4Primary() (bool, error)
 	ConfigureIpForwarding(proto iptables.Protocol) error
+	ConfigureRouteLocalNet(string) error
 	ConfigureIpv4ArpIgnore() error
 	ConfigurePingGroupRange() error
 	IptablesNewChain(proto iptables.Protocol, table, chain string) error
@@ -168,6 +170,12 @@ func (h *NetworkUtilsHandler) ConfigureIpForwarding(proto iptables.Protocol) err
 
 func (h *NetworkUtilsHandler) ConfigurePingGroupRange() error {
 	err := sysctl.New().SetSysctl(sysctl.PingGroupRange, "107 107")
+	return err
+}
+
+func (h *NetworkUtilsHandler) ConfigureRouteLocalNet(iface string) error {
+	routeLocalNetForIface := fmt.Sprintf(sysctl.IPv4RouteLocalNet, iface)
+	err := sysctl.New().SetSysctl(routeLocalNetForIface, allowRouteLocalNet)
 	return err
 }
 

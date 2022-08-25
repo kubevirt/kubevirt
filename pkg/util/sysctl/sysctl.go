@@ -30,6 +30,7 @@ const (
 	NetIPv4Forwarding = "net/ipv4/ip_forward"
 	Ipv4ArpIgnoreAll  = "net/ipv4/conf/all/arp_ignore"
 	PingGroupRange    = "net/ipv4/ping_group_range"
+	IPv4RouteLocalNet = "net/ipv4/conf/%s/route_localnet"
 )
 
 // Interface is an injectable interface for running sysctl commands.

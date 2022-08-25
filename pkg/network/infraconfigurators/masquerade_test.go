@@ -448,6 +448,7 @@ func mockNATNetfilterRules(configurator MasqueradePodNetworkConfigurator, dhcpCo
 		if proto == iptables.ProtocolIPv4 {
 			vmIP = dhcpConfig.IP.IP.String()
 			gwIP = dhcpConfig.AdvertisingIPAddr.String()
+			handler.EXPECT().ConfigureRouteLocalNet("k6t-eth0").Return(nil)
 		}
 
 		if proto == iptables.ProtocolIPv6 {
