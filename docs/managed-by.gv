@@ -66,6 +66,9 @@ digraph "managed-by" {
 	"deployment/virt-controller" [label="deployment/virt-controller"]
 	"deployment/virt-operator" [label="deployment/virt-operator"]
 	"deployment/virt-operator" -> "deployment/virt-controller"
+	"deployment/virt-exportproxy" [label="deployment/virt-exportproxy"]
+	"deployment/virt-operator" [label="deployment/virt-operator"]
+	"deployment/virt-operator" -> "deployment/virt-exportproxy"
 	"deployment/virt-operator" [label="deployment/virt-operator"]
 	olm [label=olm]
 	olm -> "deployment/virt-operator"

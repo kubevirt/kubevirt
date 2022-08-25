@@ -7,6 +7,7 @@ digraph component {
 		"daemonset/virt-handler" [label="daemonset/virt-handler"]
 		"deployment/virt-api" [label="deployment/virt-api"]
 		"deployment/virt-controller" [label="deployment/virt-controller"]
+		"deployment/virt-exportproxy" [label="deployment/virt-exportproxy"]
 		"deployment/virt-operator" [label="deployment/virt-operator"]
 	}
 	subgraph cluster_deployment {
