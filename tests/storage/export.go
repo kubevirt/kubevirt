@@ -1057,13 +1057,16 @@ var _ = SIGDescribe("Export", func() {
 	}
 
 	stopVM := func(vm *virtv1.VirtualMachine) *virtv1.VirtualMachine {
+		vmName := vm.Name
+		vmNamespace := vm.Namespace
+		var err error
 		Eventually(func() error {
-			vm, err = virtClient.VirtualMachine(vm.Namespace).Get(vm.Name, &metav1.GetOptions{})
+			vm, err = virtClient.VirtualMachine(vmNamespace).Get(vmName, &metav1.GetOptions{})
 			if err != nil {
 				return err
 			}
 			vm.Spec.Running = pointer.BoolPtr(false)
-			vm, err = virtClient.VirtualMachine(vm.Namespace).Update(vm)
+			vm, err = virtClient.VirtualMachine(vmNamespace).Update(vm)
 			return err
 		}, 15*time.Second, time.Second).Should(BeNil())
 		return vm
@@ -1416,7 +1419,7 @@ var _ = SIGDescribe("Export", func() {
 			// start the VM which triggers the populating, and then it should become ready.
 			waitForExportPhase(export, exportv1.Pending)
 			waitForExportCondition(export, expectedPVCPopulatingCondition(vm.Name, vm.Namespace), "export should report PVCs in VM populating")
-			startVM(vm)
+			vm = startVM(vm)
 			waitForDisksComplete(vm)
 			stopVM(vm)
 			waitForExportPhase(export, exportv1.Ready)
