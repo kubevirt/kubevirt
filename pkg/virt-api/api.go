@@ -861,7 +861,7 @@ func (app *virtAPIApp) setupTLS(k8sCAManager webhooksutils.ClientCAManager, kube
 	// response is given. That status request won't send a peer cert regardless
 	// if the TLS handshake requests it. As a result, the TLS handshake fails
 	// and our aggregated endpoint never becomes available.
-	app.tlsConfig = webhooksutils.SetupTLSWithCertManager(k8sCAManager, app.certmanager, tls.VerifyClientCertIfGiven)
+	app.tlsConfig = webhooksutils.SetupTLSWithCertManager(k8sCAManager, app.certmanager, tls.VerifyClientCertIfGiven, app.clusterConfig)
 	app.handlerTLSConfiguration = webhooksutils.SetupTLSForVirtHandlerClients(kubevirtCAManager, app.handlerCertManager, app.externallyManaged)
 }
 
@@ -882,7 +882,6 @@ func (app *virtAPIApp) startTLS(informerFactory controller.KubeInformerFactory) 
 
 	k8sCAManager := webhooksutils.NewKubernetesClientCAManager(authConfigMapInformer.GetStore())
 	kubevirtCAInformer := webhooksutils.NewCAManager(kubevirtCAConfigInformer.GetStore(), app.namespace, app.caConfigMapName)
-
 	app.setupTLS(k8sCAManager, kubevirtCAInformer)
 
 	app.Compose()
