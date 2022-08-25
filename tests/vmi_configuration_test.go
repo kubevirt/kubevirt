@@ -2387,6 +2387,26 @@ var _ = Describe("[sig-compute]Configurations", func() {
 				pinnedCPUsList, err := hw_utils.ParseCPUSetLine(output, 100)
 				Expect(err).ToNot(HaveOccurred())
 
+				output, err = tests.ListCgroupThreads(readyPod)
+				Expect(err).ToNot(HaveOccurred())
+				pids := strings.Split(output, "\n")
+
+				getProcessNameErrors := 0
+				By("Expecting only vcpu threads on root of pod cgroup")
+				for _, pid := range pids {
+					if len(pid) == 0 {
+						continue
+					}
+					output, err = tests.GetProcessName(readyPod, pid)
+					if err != nil {
+						getProcessNameErrors++
+						continue
+					}
+					Expect(output).To(ContainSubstring("CPU "))
+					Expect(output).To(ContainSubstring("KVM"))
+				}
+				Expect(getProcessNameErrors).Should(BeNumerically("<=", 1))
+
 				// 1 additioan pcpus should be allocated on the pod for the emulation threads
 				Expect(pinnedCPUsList).To(HaveLen(int(cpuVmi.Spec.Domain.CPU.Cores) + 1))
 
