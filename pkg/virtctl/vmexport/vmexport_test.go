@@ -102,7 +102,7 @@ var _ = Describe("vmexport", func() {
 			w.WriteHeader(statusCode)
 		}))
 
-		vmexport.SetHTTPClientCreator(func(*http.Transport) *http.Client {
+		vmexport.SetHTTPClientCreator(func(*http.Transport, bool) *http.Client {
 			return server.Client()
 		})
 	}
