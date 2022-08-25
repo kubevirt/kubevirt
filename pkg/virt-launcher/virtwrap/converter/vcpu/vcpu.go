@@ -517,14 +517,16 @@ func GetVirtualMemory(vmi *v12.VirtualMachineInstance) *resource.Quantity {
 		return vmi.Spec.Domain.Memory.Guest
 	}
 
-	// Otherwise, take memory from the memory-limit, if set
-	if v, ok := vmi.Spec.Domain.Resources.Limits[k8sv1.ResourceMemory]; ok {
+	// Get the requested memory
+	reqMemory, isReqMemSet := vmi.Spec.Domain.Resources.Requests[k8sv1.ResourceMemory]
+
+	// Otherwise, take memory from the memory-limit, if set and requested Memory not set
+	if v, ok := vmi.Spec.Domain.Resources.Limits[k8sv1.ResourceMemory]; ok && !isReqMemSet {
 		return &v
 	}
 
 	// Otherwise, take memory from the requested memory
-	v, _ := vmi.Spec.Domain.Resources.Requests[k8sv1.ResourceMemory]
-	return &v
+	return &reqMemory
 }
 
 // numaMapping maps numa nodes based on already applied VCPU pinning. The sort result is stable compared to the order

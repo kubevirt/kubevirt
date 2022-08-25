@@ -1400,7 +1400,7 @@ var _ = Describe("Converter", func() {
 		})
 
 		It("should handle float memory", func() {
-			vmi.Spec.Domain.Resources.Limits[k8sv1.ResourceMemory] = resource.MustParse("2222222200m")
+			vmi.Spec.Domain.Resources.Requests[k8sv1.ResourceMemory] = resource.MustParse("2222222200m")
 			xml := vmiToDomainXML(vmi, c)
 			Expect(strings.Contains(xml, `<memory unit="b">2222222</memory>`)).To(BeTrue(), xml)
 		})
