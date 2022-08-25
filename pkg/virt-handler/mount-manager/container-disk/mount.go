@@ -418,7 +418,7 @@ func (m *mounter) unmountKernelArtifacts(vmi *v1.VirtualMachineInstance) error {
 		return nil
 	}
 
-	for _, entry := range record {
+	for idx, entry := range record {
 		if !strings.Contains(entry.TargetFile, containerdisk.KernelBootName) {
 			continue
 		}
@@ -434,7 +434,7 @@ func (m *mounter) unmountKernelArtifacts(vmi *v1.VirtualMachineInstance) error {
 			// cleaning the mounted files.
 			log.Log.Object(vmi).Reason(err).Error("unable to unmount kernel artifacts")
 		}
-		return nil
+		return m.mountRecorder.DeleteMountRecordEntry(vmi, idx)
 	}
 
 	return fmt.Errorf("kernel artifacts record wasn't found")
