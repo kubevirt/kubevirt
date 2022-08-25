@@ -1,0 +1,28 @@
+---
+apiVersion: kubevirt.io/v1
+kind: VirtualMachineInstance
+metadata:
+  name: vmi-usb-disk
+  annotations:
+    hooks.kubevirt.io/hookSidecars: '[{"image": "registry:5000/usb-disk-hook123:devel", "args": ["hook", "--disk", "containerdisk"], "imagePullPolicy": "Always"}]'
+spec:
+  domain:
+    devices:
+      disks:
+      - disk:
+          bus: virtio
+        name: containerdisk
+      interfaces:
+      - masquerade: {}
+        name: default
+    resources:
+      requests:
+        memory: 128Mi
+  networks:
+  - name: default
+    pod: {}
+  terminationGracePeriodSeconds: 0
+  volumes:
+  - containerDisk:
+      image: registry:5000/kubevirt/alpine-container-disk-demo:devel
+    name: containerdisk
