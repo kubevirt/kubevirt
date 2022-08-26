@@ -333,14 +333,6 @@ var _ = Describe("[Serial]SRIOV", func() {
 				}
 			})
 
-			BeforeEach(func() {
-				tests.EnableFeatureGate(virtconfig.SRIOVLiveMigrationGate)
-			})
-
-			AfterEach(func() {
-				tests.DisableFeatureGate(virtconfig.SRIOVLiveMigrationGate)
-			})
-
 			var vmi *v1.VirtualMachineInstance
 
 			const mac = "de:ad:00:00:be:ef"
