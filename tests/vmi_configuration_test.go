@@ -237,6 +237,46 @@ var _ = Describe("[sig-compute]Configurations", func() {
 			libvmi.WithInterface(libvmi.InterfaceDeviceWithMasqueradeBinding()),
 			libvmi.WithNetwork(v1.DefaultPodNetwork()),
 		)
+
+		DescribeTable("with memory configuration", func(vmiOptions []libvmi.Option, expectedGuestMemory int) {
+			vmi := libvmi.New(vmiOptions...)
+
+			By("Starting a VirtualMachineInstance")
+			vmi = tests.RunVMIAndExpectScheduling(vmi, 60)
+			tests.WaitForSuccessfulVMIStart(vmi)
+
+			expectedMemoryInKiB := expectedGuestMemory * 1024
+			expectedMemoryXMLStr := fmt.Sprintf("unit='KiB'>%d", expectedMemoryInKiB)
+
+			domXml, err := tests.GetRunningVirtualMachineInstanceDomainXML(virtClient, vmi)
+			Expect(err).ToNot(HaveOccurred())
+			Expect(domXml).To(ContainSubstring(expectedMemoryXMLStr))
+
+		},
+			Entry("provided by domain spec directly",
+				[]libvmi.Option{
+					libvmi.WithGuestMemory("512Mi"),
+				},
+				512,
+			),
+			Entry("provided by resources limits",
+				[]libvmi.Option{
+					libvmi.WithLimitMemory("256Mi"),
+					libvmi.WithLimitCPU("1"),
+				},
+				256,
+			),
+			Entry("provided by resources requests and limits",
+				[]libvmi.Option{
+					libvmi.WithResourceCPU("1"),
+					libvmi.WithLimitCPU("1"),
+					libvmi.WithResourceMemory("64Mi"),
+					libvmi.WithLimitMemory("256Mi"),
+				},
+				64,
+			),
+		)
+
 		Context("[Serial][rfe_id:2065][crit:medium][vendor:cnv-qe@redhat.com][level:component]with 3 CPU cores", func() {
 			var availableNumberOfCPUs int
 			var vmi *v1.VirtualMachineInstance
@@ -622,11 +662,11 @@ var _ = Describe("[sig-compute]Configurations", func() {
 		})
 
 		Context("[rfe_id:140][crit:medium][vendor:cnv-qe@redhat.com][level:component]with diverging memory limit from memory request and no guest memory", func() {
-			It("[test_id:3115]should show the memory limit inside the VMI", func() {
-				vmi := libvmi.NewCirros()
-				vmi.Spec.Domain.Resources.Limits = kubev1.ResourceList{
-					kubev1.ResourceMemory: resource.MustParse("256Mi"),
-				}
+			It("[test_id:3115]should show the memory request inside the VMI", func() {
+				vmi := libvmi.NewCirros(
+					libvmi.WithResourceMemory("256Mi"),
+					libvmi.WithLimitMemory("512Mi"),
+				)
 				vmi, err := virtClient.VirtualMachineInstance(util.NamespaceTestDefault).Create(vmi)
 				Expect(err).ToNot(HaveOccurred())
 				tests.WaitForSuccessfulVMIStart(vmi)
