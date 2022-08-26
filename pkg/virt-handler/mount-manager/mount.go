@@ -15,6 +15,8 @@ import (
 	hotplug_volume "kubevirt.io/kubevirt/pkg/virt-handler/mount-manager/hotplug-disk"
 )
 
+//go:generate mockgen -source $GOFILE -package=$GOPACKAGE -destination=generated_mock_$GOFILE
+
 // MountInfo wraps all the mount information
 type MountInfo struct {
 	containerDisksInfo map[string]*containerdisk.DiskInfo
