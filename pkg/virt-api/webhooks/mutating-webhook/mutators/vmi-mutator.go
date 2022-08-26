@@ -49,6 +49,8 @@ type VMIsMutator struct {
 	NamespaceLimitsInformer cache.SharedIndexInformer
 }
 
+const presetDeprecationWarning = "kubevirt.io/v1 VirtualMachineInstancePresets is now deprecated and will be removed in v2."
+
 func (mutator *VMIsMutator) Mutate(ar *admissionv1.AdmissionReview) *admissionv1.AdmissionResponse {
 	if !webhookutils.ValidateRequestResource(ar.Request.Resource, webhooks.VirtualMachineInstanceGroupVersionResource.Group, webhooks.VirtualMachineInstanceGroupVersionResource.Resource) {
 		err := fmt.Errorf("expect resource to be '%s'", webhooks.VirtualMachineInstanceGroupVersionResource.Resource)
@@ -194,6 +196,19 @@ func (mutator *VMIsMutator) Mutate(ar *admissionv1.AdmissionReview) *admissionv1
 	}
 
 	jsonPatchType := admissionv1.PatchTypeJSONPatch
+
+	// If newVMI has been annotated with presets include a deprecation warning in the response
+	for annotation := range newVMI.Annotations {
+		if strings.Contains(annotation, "virtualmachinepreset") {
+			return &admissionv1.AdmissionResponse{
+				Allowed:   true,
+				Patch:     patchBytes,
+				PatchType: &jsonPatchType,
+				Warnings:  []string{presetDeprecationWarning},
+			}
+		}
+	}
+
 	return &admissionv1.AdmissionResponse{
 		Allowed:   true,
 		Patch:     patchBytes,

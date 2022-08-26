@@ -284,7 +284,7 @@ func (VirtualMachineInstanceMigrationStatus) SwaggerDoc() map[string]string {
 
 func (VirtualMachineInstancePreset) SwaggerDoc() map[string]string {
 	return map[string]string{
-		"":     "VirtualMachineInstancePreset defines a VMI spec.domain to be applied to all VMIs that match the provided label selector\nMore info: https://kubevirt.io/user-guide/virtual_machines/presets/#overrides\n\n+k8s:deepcopy-gen:interfaces=k8s.io/apimachinery/pkg/runtime.Object\n+genclient",
+		"":     "Deprecated for removal in v2, please use VirtualMachineInstanceType and VirtualMachinePreference instead.\n\nVirtualMachineInstancePreset defines a VMI spec.domain to be applied to all VMIs that match the provided label selector\nMore info: https://kubevirt.io/user-guide/virtual_machines/presets/#overrides\n\n+k8s:deepcopy-gen:interfaces=k8s.io/apimachinery/pkg/runtime.Object\n+genclient",
 		"spec": "VirtualMachineInstance Spec contains the VirtualMachineInstance specification.",
 	}
 }

@@ -21242,7 +21242,7 @@ func schema_kubevirtio_api_core_v1_VirtualMachineInstancePreset(ref common.Refer
 	return common.OpenAPIDefinition{
 		Schema: spec.Schema{
 			SchemaProps: spec.SchemaProps{
-				Description: "VirtualMachineInstancePreset defines a VMI spec.domain to be applied to all VMIs that match the provided label selector More info: https://kubevirt.io/user-guide/virtual_machines/presets/#overrides",
+				Description: "Deprecated for removal in v2, please use VirtualMachineInstanceType and VirtualMachinePreference instead.\n\nVirtualMachineInstancePreset defines a VMI spec.domain to be applied to all VMIs that match the provided label selector More info: https://kubevirt.io/user-guide/virtual_machines/presets/#overrides",
 				Type:        []string{"object"},
 				Properties: map[string]spec.Schema{
 					"kind": {

@@ -195,6 +195,13 @@ var _ = Describe("VirtualMachineInstance Mutator", func() {
 		Expect(vmiSpec.Domain.CPU.Cores).To(Equal(uint32(4)))
 	})
 
+	It("should include deprecation warning in response when presets are applied to VMI", func() {
+		resp := admitVMI()
+		Expect(resp.Allowed).To(BeTrue())
+		Expect(resp.Warnings).ToNot(BeEmpty())
+		Expect(resp.Warnings[0]).To(ContainSubstring("VirtualMachineInstancePresets is now deprecated"))
+	})
+
 	It("should apply namespace limit ranges on VMI create", func() {
 		_, vmiSpec, _ := getMetaSpecStatusFromAdmit()
 		Expect(vmiSpec.Domain.Resources.Limits.Memory().String()).To(Equal(memoryLimit))
