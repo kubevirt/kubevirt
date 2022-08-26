@@ -203,6 +203,13 @@ func (ctrl *VMExportController) getPVCsFromVM(vmNamespace, vmName string) ([]*co
 			if !populated {
 				allPopulated = false
 			}
+			continue
+		}
+		if volume.DataVolume != nil {
+			// PVC has not been created yet, otherwise exist would be true. Setting allPopulated to false will
+			// trigger a requeue
+			log.Log.V(2).Infof("Found data volume %s but PVC does not exist yet", volume.DataVolume.Name)
+			allPopulated = false
 		}
 	}
 	return pvcs, allPopulated, nil

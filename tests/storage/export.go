@@ -1078,11 +1078,13 @@ var _ = SIGDescribe("Export", func() {
 	}
 
 	startVM := func(vm *virtv1.VirtualMachine) *virtv1.VirtualMachine {
-		vm, err = virtClient.VirtualMachine(vm.Namespace).Get(vm.Name, &metav1.GetOptions{})
-		Expect(err).ToNot(HaveOccurred())
-		vm.Spec.Running = pointer.BoolPtr(true)
-		vm, err = virtClient.VirtualMachine(vm.Namespace).Update(vm)
-		Expect(err).ToNot(HaveOccurred())
+		Eventually(func() error {
+			vm, err = virtClient.VirtualMachine(vm.Namespace).Get(vm.Name, &metav1.GetOptions{})
+			Expect(err).ToNot(HaveOccurred())
+			vm.Spec.Running = pointer.BoolPtr(true)
+			vm, err = virtClient.VirtualMachine(vm.Namespace).Update(vm)
+			return err
+		}, 15*time.Second, time.Second).Should(BeNil())
 		return vm
 	}
 
@@ -1409,6 +1411,7 @@ var _ = SIGDescribe("Export", func() {
 		waitForExportPhase(export, exportv1.Skipped)
 		dv := libstorage.NewBlankDataVolume(vm.Namespace, sc, "512Mi", k8sv1.ReadWriteOnce, k8sv1.PersistentVolumeFilesystem)
 		dv = createDataVolume(dv)
+		Eventually(ThisPVCWith(vm.Namespace, dv.Name), 160).Should(Exist())
 		vm, err = virtClient.VirtualMachine(vm.Namespace).Get(vm.Name, &metav1.GetOptions{})
 		Expect(err).ToNot(HaveOccurred())
 		libstorage.AddDataVolume(vm, "blank-disk", dv)
