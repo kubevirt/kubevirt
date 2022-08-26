@@ -200,20 +200,22 @@ var _ = Describe("Export controlleer", func() {
 		mockVMExportQueue = testutils.NewMockWorkQueue(controller.vmExportQueue)
 		controller.vmExportQueue = mockVMExportQueue
 
-		cmInformer.GetStore().Add(&k8sv1.ConfigMap{
-			ObjectMeta: metav1.ObjectMeta{
-				Namespace: controller.KubevirtNamespace,
-				Name:      components.KubeVirtExportCASecretName,
-			},
-			Data: map[string]string{
-				"ca-bundle": "replace me with ca cert",
-			},
-		})
+		Expect(
+			cmInformer.GetStore().Add(&k8sv1.ConfigMap{
+				ObjectMeta: metav1.ObjectMeta{
+					Namespace: controller.KubevirtNamespace,
+					Name:      components.KubeVirtExportCASecretName,
+				},
+				Data: map[string]string{
+					"ca-bundle": "replace me with ca cert",
+				},
+			}),
+		).To(Succeed())
 	})
 
 	AfterEach(func() {
 		controller.caCertManager.Stop()
-		os.RemoveAll(certDir)
+		Expect(os.RemoveAll(certDir)).To(Succeed())
 	})
 
 	generateExpectedCert := func() string {
@@ -227,7 +229,7 @@ var _ = Describe("Export controlleer", func() {
 		cert, err := certutil.NewSelfSignedCACertWithAltNames(config, key, time.Hour, "hahaha.wwoo", "*.apps-crc.testing", "fgdgd.dfsgdf")
 		Expect(err).ToNot(HaveOccurred())
 		pemOut := strings.Builder{}
-		pem.Encode(&pemOut, &pem.Block{Type: "CERTIFICATE", Bytes: cert.Raw})
+		Expect(pem.Encode(&pemOut, &pem.Block{Type: "CERTIFICATE", Bytes: cert.Raw})).To(Succeed())
 		return strings.TrimSpace(pemOut.String())
 	}
 
@@ -244,7 +246,7 @@ var _ = Describe("Export controlleer", func() {
 		cert, err := certutil.NewSelfSignedCACert(config, key, time.Hour)
 		Expect(err).ToNot(HaveOccurred())
 		pemOut := strings.Builder{}
-		pem.Encode(&pemOut, &pem.Block{Type: "CERTIFICATE", Bytes: cert.Raw})
+		Expect(pem.Encode(&pemOut, &pem.Block{Type: "CERTIFICATE", Bytes: cert.Raw})).To(Succeed())
 		return strings.TrimSpace(pemOut.String()) + "\n" + expectedPem
 	}
 
@@ -504,20 +506,22 @@ var _ = Describe("Export controlleer", func() {
 		Expect(service).ToNot(BeNil())
 		Expect(service.Status.Conditions[0].Type).To(Equal("test"))
 
-		serviceInformer.GetStore().Add(&k8sv1.Service{
-			ObjectMeta: metav1.ObjectMeta{
-				Name:      controller.getExportServiceName(testVMExport),
-				Namespace: testVMExport.Namespace,
-			},
-			Spec: k8sv1.ServiceSpec{},
-			Status: k8sv1.ServiceStatus{
-				Conditions: []metav1.Condition{
-					{
-						Type: "test2",
+		Expect(
+			serviceInformer.GetStore().Add(&k8sv1.Service{
+				ObjectMeta: metav1.ObjectMeta{
+					Name:      controller.getExportServiceName(testVMExport),
+					Namespace: testVMExport.Namespace,
+				},
+				Spec: k8sv1.ServiceSpec{},
+				Status: k8sv1.ServiceStatus{
+					Conditions: []metav1.Condition{
+						{
+							Type: "test2",
+						},
 					},
 				},
-			},
-		})
+			}),
+		).To(Succeed())
 		service, err = controller.getOrCreateExportService(testVMExport)
 		Expect(err).ToNot(HaveOccurred())
 		Expect(service).ToNot(BeNil())
@@ -686,15 +690,17 @@ var _ = Describe("Export controlleer", func() {
 
 		It("Should properly update VMExport status with a valid token and archive pvc no route", func() {
 			testVMExport := createPVCVMExport()
-			pvcInformer.GetStore().Add(&k8sv1.PersistentVolumeClaim{
-				ObjectMeta: metav1.ObjectMeta{
-					Name:      testPVCName,
-					Namespace: testNamespace,
-					Annotations: map[string]string{
-						annContentType: "archive",
+			Expect(
+				pvcInformer.GetStore().Add(&k8sv1.PersistentVolumeClaim{
+					ObjectMeta: metav1.ObjectMeta{
+						Name:      testPVCName,
+						Namespace: testNamespace,
+						Annotations: map[string]string{
+							annContentType: "archive",
+						},
 					},
-				},
-			})
+				}),
+			).To(Succeed())
 			expectExporterCreate(k8sClient, k8sv1.PodRunning)
 			vmExportClient.Fake.PrependReactor("update", "virtualmachineexports", func(action testing.Action) (handled bool, obj runtime.Object, err error) {
 				update, ok := action.(testing.UpdateAction)
@@ -717,17 +723,20 @@ var _ = Describe("Export controlleer", func() {
 
 		It("Should properly update VMExport status with a valid token and kubevirt pvc with route", func() {
 			testVMExport := createPVCVMExport()
-			pvcInformer.GetStore().Add(&k8sv1.PersistentVolumeClaim{
-				ObjectMeta: metav1.ObjectMeta{
-					Name:      testPVCName,
-					Namespace: testNamespace,
-					Annotations: map[string]string{
-						annContentType: "kubevirt",
+			Expect(
+				pvcInformer.GetStore().Add(&k8sv1.PersistentVolumeClaim{
+					ObjectMeta: metav1.ObjectMeta{
+						Name:      testPVCName,
+						Namespace: testNamespace,
+						Annotations: map[string]string{
+							annContentType: "kubevirt",
+						},
 					},
-				},
-			})
+				}),
+			).To(Succeed())
 			expectExporterCreate(k8sClient, k8sv1.PodRunning)
-			controller.RouteCache.Add(routeToHostAndService(components.VirtExportProxyServiceName))
+			Expect(
+				controller.RouteCache.Add(routeToHostAndService(components.VirtExportProxyServiceName))).To(Succeed())
 
 			vmExportClient.Fake.PrependReactor("update", "virtualmachineexports", func(action testing.Action) (handled bool, obj runtime.Object, err error) {
 				update, ok := action.(testing.UpdateAction)
@@ -801,8 +810,8 @@ var _ = Describe("Export controlleer", func() {
 				verifyLinksEmpty(vmExport)
 				return true, vmExport, nil
 			})
-			controller.PodInformer.GetStore().Add(pod)
-			controller.PVCInformer.GetStore().Add(pvc)
+			Expect(controller.PodInformer.GetStore().Add(pod)).To(Succeed())
+			Expect(controller.PVCInformer.GetStore().Add(pvc)).To(Succeed())
 			retry, err := controller.updateVMExport(testVMExport)
 			Expect(err).ToNot(HaveOccurred())
 			Expect(retry).To(BeEquivalentTo(requeueTime))
@@ -838,7 +847,7 @@ var _ = Describe("Export controlleer", func() {
 					ContentType: contentType,
 				},
 			}
-			controller.DataVolumeInformer.GetStore().Add(dv)
+			Expect(controller.DataVolumeInformer.GetStore().Add(dv)).To(Succeed())
 			pvc := &k8sv1.PersistentVolumeClaim{
 				ObjectMeta: metav1.ObjectMeta{
 					Name:      "test-dv",
@@ -1066,8 +1075,10 @@ var _ = Describe("Export controlleer", func() {
 				Expect(vmExport.Status.Phase).To(Equal(exportv1.Skipped))
 				return true, vmExport, nil
 			})
-			vmSnapshotInformer.GetStore().Add(createTestVMSnapshot(true))
-			vmSnapshotContentInformer.GetStore().Add(createTestVMSnapshotContentNoVolumes("snapshot-content"))
+			Expect(vmSnapshotInformer.GetStore().Add(createTestVMSnapshot(true))).To(Succeed())
+			Expect(
+				vmSnapshotContentInformer.GetStore().Add(createTestVMSnapshotContentNoVolumes("snapshot-content")),
+			).To(Succeed())
 			retry, err := controller.updateVMExport(testVMExport)
 			Expect(err).ToNot(HaveOccurred())
 			Expect(retry).To(BeEquivalentTo(0))
@@ -1129,8 +1140,10 @@ var _ = Describe("Export controlleer", func() {
 			})
 			expectExporterCreate(k8sClient, k8sv1.PodPending)
 
-			vmSnapshotInformer.GetStore().Add(createTestVMSnapshot(true))
-			vmSnapshotContentInformer.GetStore().Add(createTestVMSnapshotContent("snapshot-content"))
+			Expect(vmSnapshotInformer.GetStore().Add(createTestVMSnapshot(true))).To(Succeed())
+			Expect(
+				vmSnapshotContentInformer.GetStore().Add(createTestVMSnapshotContent("snapshot-content")),
+			).To(Succeed())
 			fakeVolumeSnapshotProvider.Add(createTestVolumeSnapshot(testVolumesnapshotName))
 			retry, err := controller.updateVMExport(testVMExport)
 			Expect(err).ToNot(HaveOccurred())
@@ -1169,9 +1182,11 @@ var _ = Describe("Export controlleer", func() {
 				return true, nil, nil
 			})
 			expectExporterCreate(k8sClient, k8sv1.PodPending)
-			pvcInformer.GetStore().Add(createRestoredPVC("test-test-snapshot"))
-			vmSnapshotInformer.GetStore().Add(createTestVMSnapshot(true))
-			vmSnapshotContentInformer.GetStore().Add(createTestVMSnapshotContent("snapshot-content"))
+			Expect(pvcInformer.GetStore().Add(createRestoredPVC("test-test-snapshot"))).To(Succeed())
+			Expect(vmSnapshotInformer.GetStore().Add(createTestVMSnapshot(true))).To(Succeed())
+			Expect(
+				vmSnapshotContentInformer.GetStore().Add(createTestVMSnapshotContent("snapshot-content")),
+			).To(Succeed())
 			fakeVolumeSnapshotProvider.Add(createTestVolumeSnapshot(testVolumesnapshotName))
 			retry, err := controller.updateVMExport(testVMExport)
 			Expect(err).ToNot(HaveOccurred())
@@ -1220,9 +1235,11 @@ var _ = Describe("Export controlleer", func() {
 				return true, pvc, nil
 			})
 			expectExporterCreate(k8sClient, k8sv1.PodRunning)
-			controller.RouteCache.Add(routeToHostAndService(components.VirtExportProxyServiceName))
-			vmSnapshotInformer.GetStore().Add(createTestVMSnapshot(true))
-			vmSnapshotContentInformer.GetStore().Add(createTestVMSnapshotContent("snapshot-content"))
+			Expect(controller.RouteCache.Add(routeToHostAndService(components.VirtExportProxyServiceName))).To(Succeed())
+			Expect(vmSnapshotInformer.GetStore().Add(createTestVMSnapshot(true))).To(Succeed())
+			Expect(
+				vmSnapshotContentInformer.GetStore().Add(createTestVMSnapshotContent("snapshot-content")),
+			).To(Succeed())
 			fakeVolumeSnapshotProvider.Add(createTestVolumeSnapshot(testVolumesnapshotName))
 			retry, err := controller.updateVMExport(testVMExport)
 			Expect(err).ToNot(HaveOccurred())
@@ -1270,12 +1287,13 @@ var _ = Describe("Export controlleer", func() {
 				return true, pvc, nil
 			})
 			expectExporterCreate(k8sClient, k8sv1.PodRunning)
-			controller.RouteCache.Add(routeToHostAndService(components.VirtExportProxyServiceName))
-			vmSnapshotInformer.GetStore().Add(createTestVMSnapshot(true))
+			Expect(
+				controller.RouteCache.Add(routeToHostAndService(components.VirtExportProxyServiceName))).To(Succeed())
+			Expect(vmSnapshotInformer.GetStore().Add(createTestVMSnapshot(true))).To(Succeed())
 			content := createTestVMSnapshotContent("snapshot-content")
 			content.Spec.Source.VirtualMachine.Spec.Template.Spec.Volumes[0].DataVolume = nil
 			content.Spec.Source.VirtualMachine.Spec.Template.Spec.Volumes[0].MemoryDump = &virtv1.MemoryDumpVolumeSource{}
-			vmSnapshotContentInformer.GetStore().Add(content)
+			Expect(vmSnapshotContentInformer.GetStore().Add(content)).To(Succeed())
 			fakeVolumeSnapshotProvider.Add(createTestVolumeSnapshot(testVolumesnapshotName))
 			retry, err := controller.updateVMExport(testVMExport)
 			Expect(err).ToNot(HaveOccurred())
@@ -1313,9 +1331,9 @@ var _ = Describe("Export controlleer", func() {
 				Fail("Should not create PVCs")
 				return true, nil, nil
 			})
-			vmSnapshotInformer.GetStore().Add(createTestVMSnapshot(false))
+			Expect(vmSnapshotInformer.GetStore().Add(createTestVMSnapshot(false))).To(Succeed())
 			content := createTestVMSnapshotContent("snapshot-content")
-			vmSnapshotContentInformer.GetStore().Add(content)
+			Expect(vmSnapshotContentInformer.GetStore().Add(content)).To(Succeed())
 			fakeVolumeSnapshotProvider.Add(createTestVolumeSnapshot(testVolumesnapshotName))
 			retry, err := controller.updateVMExport(testVMExport)
 			Expect(err).ToNot(HaveOccurred())
@@ -1324,7 +1342,7 @@ var _ = Describe("Export controlleer", func() {
 	})
 
 	DescribeTable("should find host when Ingress is defined", func(ingress *networkingv1.Ingress, hostname string) {
-		controller.IngressCache.Add(ingress)
+		Expect(controller.IngressCache.Add(ingress)).To(Succeed())
 		host, _ := controller.getExternalLinkHostAndCert()
 		Expect(hostname).To(Equal(host))
 	},
@@ -1337,8 +1355,8 @@ var _ = Describe("Export controlleer", func() {
 	)
 
 	DescribeTable("should find host when route is defined", func(route *routev1.Route, hostname, expectedCert string) {
-		controller.RouteCache.Add(route)
-		controller.RouteConfigMapInformer.GetStore().Add(createRouteConfigMap())
+		Expect(controller.RouteCache.Add(route)).To(Succeed())
+		Expect(controller.RouteConfigMapInformer.GetStore().Add(createRouteConfigMap())).To(Succeed())
 		host, cert := controller.getExternalLinkHostAndCert()
 		Expect(hostname).To(Equal(host))
 		Expect(expectedCert).To(Equal(cert))
@@ -1349,8 +1367,10 @@ var _ = Describe("Export controlleer", func() {
 	)
 
 	It("should pick ingress over route if both exist", func() {
-		controller.IngressCache.Add(validIngressDefaultBackend(components.VirtExportProxyServiceName))
-		controller.RouteCache.Add(routeToHostAndService(components.VirtExportProxyServiceName))
+		Expect(
+			controller.IngressCache.Add(validIngressDefaultBackend(components.VirtExportProxyServiceName)),
+		).To(Succeed())
+		Expect(controller.RouteCache.Add(routeToHostAndService(components.VirtExportProxyServiceName))).To(Succeed())
 		host, _ := controller.getExternalLinkHostAndCert()
 		Expect("backend-host").To(Equal(host))
 	})

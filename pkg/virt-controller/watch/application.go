@@ -42,6 +42,7 @@ import (
 	"github.com/prometheus/client_golang/prometheus/promhttp"
 	flag "github.com/spf13/pflag"
 	k8sv1 "k8s.io/api/core/v1"
+	utilruntime "k8s.io/apimachinery/pkg/util/runtime"
 	"k8s.io/client-go/kubernetes/scheme"
 	k8coresv1 "k8s.io/client-go/kubernetes/typed/core/v1"
 	clientrest "k8s.io/client-go/rest"
@@ -254,11 +255,11 @@ type VirtControllerApp struct {
 var _ service.Service = &VirtControllerApp{}
 
 func init() {
-	vsv1.AddToScheme(scheme.Scheme)
-	snapshotv1.AddToScheme(scheme.Scheme)
-	exportv1.AddToScheme(scheme.Scheme)
-	poolv1.AddToScheme(scheme.Scheme)
-	clonev1alpha1.AddToScheme(scheme.Scheme)
+	utilruntime.Must(vsv1.AddToScheme(scheme.Scheme))
+	utilruntime.Must(snapshotv1.AddToScheme(scheme.Scheme))
+	utilruntime.Must(exportv1.AddToScheme(scheme.Scheme))
+	utilruntime.Must(poolv1.AddToScheme(scheme.Scheme))
+	utilruntime.Must(clonev1alpha1.AddToScheme(scheme.Scheme))
 
 	prometheus.MustRegister(leaderGauge)
 	prometheus.MustRegister(readyGauge)
@@ -309,12 +310,14 @@ func Execute() {
 
 	app.crdInformer = app.informerFactory.CRD()
 	app.kubeVirtInformer = app.informerFactory.KubeVirt()
-	app.informerFactory.Start(stopChan)
 
-	app.kubeVirtInformer.SetWatchErrorHandler(func(r *cache.Reflector, err error) {
+	if err := app.kubeVirtInformer.SetWatchErrorHandler(func(r *cache.Reflector, err error) {
 		apiHealthVersion.Clear()
 		cache.DefaultWatchErrorHandler(r, err)
-	})
+	}); err != nil {
+		golog.Fatalf("failed to set the watch error handler: %v", err)
+	}
+	app.informerFactory.Start(stopChan)
 
 	cache.WaitForCacheSync(stopChan, app.crdInformer.HasSynced, app.kubeVirtInformer.HasSynced)
 	app.clusterConfig = virtconfig.NewClusterConfig(app.crdInformer, app.kubeVirtInformer, app.kubevirtNamespace)
@@ -443,8 +446,11 @@ func (app *VirtControllerApp) shouldChangeRateLimiter() {
 // Update virt-controller log verbosity on relevant config changes
 func (vca *VirtControllerApp) shouldChangeLogVerbosity() {
 	verbosity := vca.clusterConfig.GetVirtControllerVerbosity(vca.host)
-	log.Log.SetVerbosityLevel(int(verbosity))
-	log.Log.V(2).Infof("set log verbosity to %d", verbosity)
+	if err := log.Log.SetVerbosityLevel(int(verbosity)); err != nil {
+		log.Log.Warningf("failed up update log verbosity to %d: %v", verbosity, err)
+	} else {
+		log.Log.V(2).Infof("set log verbosity to %d", verbosity)
+	}
 }
 
 func (vca *VirtControllerApp) Run() {
@@ -456,7 +462,7 @@ func (vca *VirtControllerApp) Run() {
 
 	go func() {
 		httpLogger := logger.With("service", "http")
-		httpLogger.Level(log.INFO).Log("action", "listening", "interface", vca.BindAddress, "port", vca.Port)
+		_ = httpLogger.Level(log.INFO).Log("action", "listening", "interface", vca.BindAddress, "port", vca.Port)
 		http.Handle("/metrics", promhttp.Handler())
 		server := http.Server{
 			Addr:      vca.Address(),
@@ -505,12 +511,28 @@ func (vca *VirtControllerApp) onStartedLeading() func(ctx context.Context) {
 		go vca.poolController.Run(vca.poolControllerThreads, stop)
 		go vca.vmController.Run(vca.vmControllerThreads, stop)
 		go vca.migrationController.Run(vca.migrationControllerThreads, stop)
-		go vca.snapshotController.Run(vca.snapshotControllerThreads, stop)
-		go vca.restoreController.Run(vca.restoreControllerThreads, stop)
-		go vca.exportController.Run(vca.exportControllerThreads, stop)
+		go func() {
+			if err := vca.snapshotController.Run(vca.snapshotControllerThreads, stop); err != nil {
+				log.Log.Warningf("error running the snapshot controller: %v", err)
+			}
+		}()
+		go func() {
+			if err := vca.restoreController.Run(vca.restoreControllerThreads, stop); err != nil {
+				log.Log.Warningf("error running the restore controller: %v", err)
+			}
+		}()
+		go func() {
+			if err := vca.exportController.Run(vca.exportControllerThreads, stop); err != nil {
+				log.Log.Warningf("error running the export controller: %v", err)
+			}
+		}()
 		go vca.workloadUpdateController.Run(stop)
 		go vca.nodeTopologyUpdater.Run(vca.nodeTopologyUpdatePeriod, stop)
-		go vca.vmCloneController.Run(vca.cloneControllerThreads, stop)
+		go func() {
+			if err := vca.vmCloneController.Run(vca.cloneControllerThreads, stop); err != nil {
+				log.Log.Warningf("error running the clone controller: %v", err)
+			}
+		}()
 
 		cache.WaitForCacheSync(stop, vca.persistentVolumeClaimInformer.HasSynced)
 		close(vca.readyChan)
@@ -532,7 +554,9 @@ func (vca *VirtControllerApp) initCommon() {
 		golog.Fatal(err)
 	}
 
-	containerdisk.SetLocalDirectory(filepath.Join(vca.ephemeralDiskDir, "container-disk-data"))
+	if err := containerdisk.SetLocalDirectory(filepath.Join(vca.ephemeralDiskDir, "container-disk-data")); err != nil {
+		log.Log.Warningf("failed to create ephemeral disk dir: %v", err)
+	}
 	vca.templateService = services.NewTemplateService(vca.launcherImage,
 		vca.launcherQemuTimeout,
 		vca.virtShareDir,
@@ -731,13 +755,17 @@ func (vca *VirtControllerApp) leaderProbe(_ *restful.Request, response *restful.
 	case _, opened := <-vca.readyChan:
 		if !opened {
 			res["apiserver"] = map[string]interface{}{"leader": "true"}
-			response.WriteHeaderAndJson(http.StatusOK, res, restful.MIME_JSON)
+			if err := response.WriteHeaderAndJson(http.StatusOK, res, restful.MIME_JSON); err != nil {
+				log.Log.Warningf("failed to return 200 OK reply: %v", err)
+			}
 			return
 		}
 	default:
 	}
 	res["apiserver"] = map[string]interface{}{"leader": "false"}
-	response.WriteHeaderAndJson(http.StatusOK, res, restful.MIME_JSON)
+	if err := response.WriteHeaderAndJson(http.StatusOK, res, restful.MIME_JSON); err != nil {
+		log.Log.Warningf("failed to return 200 OK reply: %v", err)
+	}
 }
 
 func (vca *VirtControllerApp) AddFlags() {

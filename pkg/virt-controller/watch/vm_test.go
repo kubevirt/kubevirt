@@ -1472,7 +1472,7 @@ var _ = Describe("VirtualMachine", func() {
 
 			orphanDV := dv.DeepCopy()
 			orphanDV.ObjectMeta.OwnerReferences = nil
-			dataVolumeInformer.GetStore().Add(orphanDV)
+			Expect(dataVolumeInformer.GetStore().Add(orphanDV)).To(Succeed())
 
 			cdiClient.Fake.PrependReactor("patch", "datavolumes", func(action testing.Action) (handled bool, obj runtime.Object, err error) {
 				patch, ok := action.(testing.PatchAction)
@@ -2023,7 +2023,7 @@ var _ = Describe("VirtualMachine", func() {
 						Namespace: vm.Namespace,
 					},
 				}
-				pvcInformer.GetStore().Add(&pvc)
+				Expect(pvcInformer.GetStore().Add(&pvc)).To(Succeed())
 
 				pvcAnnotationUpdated := make(chan bool, 1)
 				defer close(pvcAnnotationUpdated)
@@ -2348,7 +2348,7 @@ var _ = Describe("VirtualMachine", func() {
 							Phase: k8score.ClaimPending,
 						},
 					}
-					pvcInformer.GetStore().Add(&pvc)
+					Expect(pvcInformer.GetStore().Add(&pvc)).To(Succeed())
 
 					vmInterface.EXPECT().UpdateStatus(gomock.Any()).Times(1).Do(func(obj interface{}) {
 						objVM := obj.(*virtv1.VirtualMachine)
@@ -2517,7 +2517,7 @@ var _ = Describe("VirtualMachine", func() {
 							Phase: pvcPhase,
 						},
 					}
-					pvcInformer.GetStore().Add(&pvc)
+					Expect(pvcInformer.GetStore().Add(&pvc)).To(Succeed())
 
 					vmInterface.EXPECT().UpdateStatus(gomock.Any()).Times(1).Do(func(obj interface{}) {
 						objVM := obj.(*virtv1.VirtualMachine)
@@ -2828,7 +2828,8 @@ var _ = Describe("VirtualMachine", func() {
 					},
 					Spec: fs,
 				}
-				virtClient.VirtualMachineInstancetype(vm.Namespace).Create(context.Background(), f, metav1.CreateOptions{})
+				_, err := virtClient.VirtualMachineInstancetype(vm.Namespace).Create(context.Background(), f, metav1.CreateOptions{})
+				Expect(err).NotTo(HaveOccurred())
 
 				cf = &instancetypev1alpha1.VirtualMachineClusterInstancetype{
 					ObjectMeta: metav1.ObjectMeta{
@@ -2838,7 +2839,8 @@ var _ = Describe("VirtualMachine", func() {
 					},
 					Spec: fs,
 				}
-				virtClient.VirtualMachineClusterInstancetype().Create(context.Background(), cf, metav1.CreateOptions{})
+				_, err = virtClient.VirtualMachineClusterInstancetype().Create(context.Background(), cf, metav1.CreateOptions{})
+				Expect(err).NotTo(HaveOccurred())
 
 				ps = instancetypev1alpha1.VirtualMachinePreferenceSpec{
 					CPU: &instancetypev1alpha1.CPUPreferences{
@@ -2860,7 +2862,8 @@ var _ = Describe("VirtualMachine", func() {
 					},
 					Spec: ps,
 				}
-				virtClient.VirtualMachinePreference(vm.Namespace).Create(context.Background(), p, metav1.CreateOptions{})
+				_, err = virtClient.VirtualMachinePreference(vm.Namespace).Create(context.Background(), p, metav1.CreateOptions{})
+				Expect(err).NotTo(HaveOccurred())
 
 				cp = &instancetypev1alpha1.VirtualMachineClusterPreference{
 					ObjectMeta: metav1.ObjectMeta{
@@ -2870,7 +2873,8 @@ var _ = Describe("VirtualMachine", func() {
 					},
 					Spec: ps,
 				}
-				virtClient.VirtualMachineClusterPreference().Create(context.Background(), cp, metav1.CreateOptions{})
+				_, err = virtClient.VirtualMachineClusterPreference().Create(context.Background(), cp, metav1.CreateOptions{})
+				Expect(err).NotTo(HaveOccurred())
 
 				controller.instancetypeMethods = instancetype.NewMethods(virtClient)
 
@@ -3702,7 +3706,8 @@ var _ = Describe("VirtualMachine", func() {
 					},
 				}
 
-				virtClient.VirtualMachinePreference(vm.Namespace).Create(context.Background(), autoattachPodInterfacePreference, metav1.CreateOptions{})
+				_, err := virtClient.VirtualMachinePreference(vm.Namespace).Create(context.Background(), autoattachPodInterfacePreference, metav1.CreateOptions{})
+				Expect(err).NotTo(HaveOccurred())
 
 				vm.Spec.Preference = &v1.PreferenceMatcher{
 					Name: autoattachPodInterfacePreference.Name,
@@ -3840,7 +3845,8 @@ var _ = Describe("VirtualMachine", func() {
 						},
 					},
 				}
-				virtClient.VirtualMachinePreference(vm.Namespace).Create(context.Background(), autoattachInputDevicePreference, metav1.CreateOptions{})
+				_, err := virtClient.VirtualMachinePreference(vm.Namespace).Create(context.Background(), autoattachInputDevicePreference, metav1.CreateOptions{})
+				Expect(err).NotTo(HaveOccurred())
 
 				vm.Spec.Preference = &v1.PreferenceMatcher{
 					Name: autoattachInputDevicePreference.Name,
@@ -3887,7 +3893,8 @@ var _ = Describe("VirtualMachine", func() {
 					},
 				}
 
-				virtClient.VirtualMachinePreference(vm.Namespace).Create(context.Background(), autoattachInputDevicePreference, metav1.CreateOptions{})
+				_, err := virtClient.VirtualMachinePreference(vm.Namespace).Create(context.Background(), autoattachInputDevicePreference, metav1.CreateOptions{})
+				Expect(err).NotTo(HaveOccurred())
 
 				vm.Spec.Preference = &v1.PreferenceMatcher{
 					Name: autoattachInputDevicePreference.Name,

@@ -285,7 +285,7 @@ var _ = Describe("VirtualMachineInstance watcher", func() {
 			dvPVC := NewPvc(vmi.Namespace, "test1")
 			// we are mocking a successful DataVolume. we expect the PVC to
 			// be available in the store if DV is successful.
-			pvcInformer.GetIndexer().Add(dvPVC)
+			Expect(pvcInformer.GetIndexer().Add(dvPVC)).To(Succeed())
 
 			dataVolume := NewDv(vmi.Namespace, "test1", cdiv1.Succeeded)
 
@@ -311,7 +311,7 @@ var _ = Describe("VirtualMachineInstance watcher", func() {
 			dvPVC.Status.Phase = k8sv1.ClaimPending
 			// we are mocking a DataVolume in WFFC phase. we expect the PVC to
 			// be in available but in the Pending state.
-			pvcInformer.GetIndexer().Add(dvPVC)
+			Expect(pvcInformer.GetIndexer().Add(dvPVC)).To(Succeed())
 
 			addVirtualMachine(vmi)
 			dataVolumeFeeder.Add(dataVolume)
@@ -361,7 +361,7 @@ var _ = Describe("VirtualMachineInstance watcher", func() {
 			dvPVC.Status.Phase = k8sv1.ClaimPending
 			// we are mocking a DataVolume in WFFC phase. we expect the PVC to
 			// be in available but in the Pending state.
-			pvcInformer.GetIndexer().Add(dvPVC)
+			Expect(pvcInformer.GetIndexer().Add(dvPVC)).To(Succeed())
 
 			addVirtualMachine(vmi)
 			podFeeder.Add(pod)
@@ -399,7 +399,7 @@ var _ = Describe("VirtualMachineInstance watcher", func() {
 			dvPVC := NewPvcWithOwner(vmi.Namespace, "test1", dataVolume.Name, &controllerOf)
 			// we are mocking a DataVolume in Succeeded phase. we expect the PVC to
 			// be in available
-			pvcInformer.GetIndexer().Add(dvPVC)
+			Expect(pvcInformer.GetIndexer().Add(dvPVC)).To(Succeed())
 
 			addVirtualMachine(vmi)
 			podFeeder.Add(pod)
@@ -418,7 +418,7 @@ var _ = Describe("VirtualMachineInstance watcher", func() {
 			vmi := NewPendingVirtualMachine("testvmi")
 			pod := NewPodForVirtualMachine(vmi, k8sv1.PodRunning)
 			pod.Annotations[virtv1.EphemeralProvisioningObject] = "true"
-			podInformer.GetIndexer().Add(pod)
+			Expect(podInformer.GetIndexer().Add(pod)).To(Succeed())
 
 			// Non owned pod that shouldn't be found by waitForFirstConsumerTemporaryPods
 			nonOwnedPod := &k8sv1.Pod{
@@ -433,7 +433,7 @@ var _ = Describe("VirtualMachineInstance watcher", func() {
 					Phase: k8sv1.PodRunning,
 				},
 			}
-			podInformer.GetIndexer().Add(nonOwnedPod)
+			Expect(podInformer.GetIndexer().Add(nonOwnedPod)).To(Succeed())
 
 			res, err := controller.waitForFirstConsumerTemporaryPods(vmi, pod)
 			Expect(err).ToNot(HaveOccurred())
@@ -460,7 +460,7 @@ var _ = Describe("VirtualMachineInstance watcher", func() {
 				dataVolume := NewDv(vmi.Namespace, "test1", cdiv1.WaitForFirstConsumer)
 				dvPVC := NewPvcWithOwner(vmi.Namespace, "test1", dataVolume.Name, &controllerOf)
 				dvPVC.Status.Phase = k8sv1.ClaimBound
-				pvcInformer.GetIndexer().Add(dvPVC)
+				Expect(pvcInformer.GetIndexer().Add(dvPVC)).To(Succeed())
 
 				addVirtualMachine(vmi)
 				podFeeder.Add(pod)
@@ -498,7 +498,7 @@ var _ = Describe("VirtualMachineInstance watcher", func() {
 			dataVolume := NewDv(vmi.Namespace, "test1", cdiv1.Pending)
 			dvPVC := NewPvcWithOwner(vmi.Namespace, "test1", dataVolume.Name, &controllerOf)
 			dvPVC.Status.Phase = k8sv1.ClaimPending
-			pvcInformer.GetIndexer().Add(dvPVC)
+			Expect(pvcInformer.GetIndexer().Add(dvPVC)).To(Succeed())
 
 			addVirtualMachine(vmi)
 			dataVolumeFeeder.Add(dataVolume)
@@ -525,7 +525,7 @@ var _ = Describe("VirtualMachineInstance watcher", func() {
 			dvPVC := NewPvcWithOwner(vmi.Namespace, "test1", "test1", &controllerOf)
 			// we are mocking a successful DataVolume. we expect the PVC to
 			// be available in the store if DV is successful.
-			pvcInformer.GetIndexer().Add(dvPVC)
+			Expect(pvcInformer.GetIndexer().Add(dvPVC)).To(Succeed())
 
 			dataVolume := NewDv(vmi.Namespace, "test1", cdiv1.Succeeded)
 
@@ -549,7 +549,7 @@ var _ = Describe("VirtualMachineInstance watcher", func() {
 			dvPVC.Status.Phase = k8sv1.ClaimPending
 			// we are mocking a DataVolume in WFFC phase. we expect the PVC to
 			// be in available but in the Pending state.
-			pvcInformer.GetIndexer().Add(dvPVC)
+			Expect(pvcInformer.GetIndexer().Add(dvPVC)).To(Succeed())
 
 			dataVolume := NewDv(vmi.Namespace, "test1", cdiv1.WaitForFirstConsumer)
 
@@ -595,7 +595,7 @@ var _ = Describe("VirtualMachineInstance watcher", func() {
 			dvPVC.Status.Phase = k8sv1.ClaimPending
 			// we are mocking a DataVolume in WFFC phase. we expect the PVC to
 			// be in available but in the Pending state.
-			pvcInformer.GetIndexer().Add(dvPVC)
+			Expect(pvcInformer.GetIndexer().Add(dvPVC)).To(Succeed())
 
 			dataVolume := NewDv(vmi.Namespace, "test1", cdiv1.WaitForFirstConsumer)
 
@@ -634,7 +634,7 @@ var _ = Describe("VirtualMachineInstance watcher", func() {
 			dvPVC.Status.Phase = k8sv1.ClaimBound
 			// we are mocking a DataVolume in Succeeded phase. we expect the PVC to
 			// be in available
-			pvcInformer.GetIndexer().Add(dvPVC)
+			Expect(pvcInformer.GetIndexer().Add(dvPVC)).To(Succeed())
 
 			addVirtualMachine(vmi)
 			podFeeder.Add(pod)
@@ -661,7 +661,7 @@ var _ = Describe("VirtualMachineInstance watcher", func() {
 			dvPVC.Status.Phase = k8sv1.ClaimPending
 			// we are mocking a successful DataVolume. we expect the PVC to
 			// be available in the store if DV is successful.
-			pvcInformer.GetIndexer().Add(dvPVC)
+			Expect(pvcInformer.GetIndexer().Add(dvPVC)).To(Succeed())
 
 			dataVolume := NewDv(vmi.Namespace, "test1", cdiv1.Pending)
 
@@ -680,7 +680,7 @@ var _ = Describe("VirtualMachineInstance watcher", func() {
 			})
 
 			pvc := NewPvc(vmi.Namespace, "test1")
-			pvcInformer.GetIndexer().Add(pvc)
+			Expect(pvcInformer.GetIndexer().Add(pvc)).To(Succeed())
 
 			addVirtualMachine(vmi)
 			shouldExpectPodCreation(vmi.UID)
@@ -927,7 +927,7 @@ var _ = Describe("VirtualMachineInstance watcher", func() {
 				update := vmiInterface.EXPECT().Update(gomock.Any())
 				update.Do(func(vmi *virtv1.VirtualMachineInstance) {
 					expectConditions(vmi)
-					vmiInformer.GetStore().Update(vmi)
+					_ = vmiInformer.GetStore().Update(vmi)
 					key := kvcontroller.VirtualMachineInstanceKey(vmi)
 					controller.vmiExpectations.LowerExpectations(key, 1, 0)
 					update.Return(vmi, nil)
@@ -1135,7 +1135,7 @@ var _ = Describe("VirtualMachineInstance watcher", func() {
 		DescribeTable("With a virt-launcher pod and an attachment pod, it", func(attachmentPodPhase k8sv1.PodPhase, expectedPhase virtv1.VirtualMachineInstancePhase) {
 			vmi := NewPendingVirtualMachine("testvmi")
 			pvc := NewHotplugPVC("test-dv", vmi.Namespace, k8sv1.ClaimBound)
-			pvcInformer.GetIndexer().Add(pvc)
+			Expect(pvcInformer.GetIndexer().Add(pvc)).To(Succeed())
 			dv := &cdiv1.DataVolume{
 				ObjectMeta: metav1.ObjectMeta{
 					Name:      "test-dv",
@@ -1145,8 +1145,8 @@ var _ = Describe("VirtualMachineInstance watcher", func() {
 					Phase: cdiv1.Pending,
 				},
 			}
-			dataVolumeInformer.GetIndexer().Add(dv)
-			pvcInformer.GetIndexer().Add(pvc)
+			Expect(dataVolumeInformer.GetIndexer().Add(dv)).To(Succeed())
+			Expect(pvcInformer.GetIndexer().Add(pvc)).To(Succeed())
 			volume := virtv1.Volume{
 				Name: "test-dv",
 				VolumeSource: virtv1.VolumeSource{
@@ -1950,7 +1950,7 @@ var _ = Describe("VirtualMachineInstance watcher", func() {
 			vmi := NewPendingVirtualMachine("testvmi")
 			virtlauncherPod := NewPodForVirtualMachine(vmi, k8sv1.PodRunning)
 			pvc := NewHotplugPVC("test-dv", vmi.Namespace, k8sv1.ClaimPending)
-			pvcInformer.GetIndexer().Add(pvc)
+			Expect(pvcInformer.GetIndexer().Add(pvc)).To(Succeed())
 			dv := &cdiv1.DataVolume{
 				ObjectMeta: metav1.ObjectMeta{
 					Name:      "test-dv",
@@ -1960,7 +1960,7 @@ var _ = Describe("VirtualMachineInstance watcher", func() {
 					Phase: cdiv1.Pending,
 				},
 			}
-			dataVolumeInformer.GetIndexer().Add(dv)
+			Expect(dataVolumeInformer.GetIndexer().Add(dv)).To(Succeed())
 			addVirtualMachine(vmi)
 			podFeeder.Add(virtlauncherPod)
 			volume := &virtv1.Volume{
@@ -1992,7 +1992,7 @@ var _ = Describe("VirtualMachineInstance watcher", func() {
 			})
 			virtlauncherPod := NewPodForVirtualMachine(vmi, k8sv1.PodRunning)
 			pvc := NewHotplugPVC("test-dv", vmi.Namespace, k8sv1.ClaimBound)
-			pvcInformer.GetIndexer().Add(pvc)
+			Expect(pvcInformer.GetIndexer().Add(pvc)).To(Succeed())
 			dv := &cdiv1.DataVolume{
 				ObjectMeta: metav1.ObjectMeta{
 					Name:      "test-dv",
@@ -2002,7 +2002,7 @@ var _ = Describe("VirtualMachineInstance watcher", func() {
 					Phase: cdiv1.Pending,
 				},
 			}
-			dataVolumeInformer.GetIndexer().Add(dv)
+			Expect(dataVolumeInformer.GetIndexer().Add(dv)).To(Succeed())
 			addVirtualMachine(vmi)
 			podFeeder.Add(virtlauncherPod)
 			volume := &virtv1.Volume{
@@ -2027,7 +2027,7 @@ var _ = Describe("VirtualMachineInstance watcher", func() {
 			vmi := NewPendingVirtualMachine("testvmi")
 			virtlauncherPod := NewPodForVirtualMachine(vmi, k8sv1.PodRunning)
 			pvc := NewHotplugPVC("test-dv", vmi.Namespace, k8sv1.ClaimBound)
-			pvcInformer.GetIndexer().Add(pvc)
+			Expect(pvcInformer.GetIndexer().Add(pvc)).To(Succeed())
 			dv := &cdiv1.DataVolume{
 				ObjectMeta: metav1.ObjectMeta{
 					Name:      "test-dv",
@@ -2037,7 +2037,7 @@ var _ = Describe("VirtualMachineInstance watcher", func() {
 					Phase: cdiv1.Succeeded,
 				},
 			}
-			dataVolumeInformer.GetIndexer().Add(dv)
+			Expect(dataVolumeInformer.GetIndexer().Add(dv)).To(Succeed())
 			addVirtualMachine(vmi)
 			podFeeder.Add(virtlauncherPod)
 			volume := &virtv1.Volume{
@@ -2237,8 +2237,8 @@ var _ = Describe("VirtualMachineInstance watcher", func() {
 						Phase: cdiv1.Succeeded,
 					},
 				}
-				dataVolumeInformer.GetIndexer().Add(dv)
-				pvcInformer.GetIndexer().Add(pvc)
+				Expect(dataVolumeInformer.GetIndexer().Add(dv)).To(Succeed())
+				Expect(pvcInformer.GetIndexer().Add(pvc)).To(Succeed())
 			}
 		}
 
@@ -2300,7 +2300,7 @@ var _ = Describe("VirtualMachineInstance watcher", func() {
 			virtlauncherPod := NewPodForVirtualMachine(vmi, k8sv1.PodRunning)
 			for i := 0; i < podCount; i++ {
 				attachmentPod := NewPodForVirtlauncher(virtlauncherPod, fmt.Sprintf("test-pod%d", i), fmt.Sprintf("abcd%d", i), k8sv1.PodRunning)
-				podInformer.GetIndexer().Add(attachmentPod)
+				Expect(podInformer.GetIndexer().Add(attachmentPod)).To(Succeed())
 			}
 			// Add some non owned pods.
 			for i := 0; i < 5; i++ {
@@ -2313,7 +2313,7 @@ var _ = Describe("VirtualMachineInstance watcher", func() {
 						Phase: k8sv1.PodRunning,
 					},
 				}
-				podInformer.GetIndexer().Add(pod)
+				Expect(podInformer.GetIndexer().Add(pod)).To(Succeed())
 			}
 			otherPod := &k8sv1.Pod{
 				ObjectMeta: metav1.ObjectMeta{
@@ -2325,10 +2325,10 @@ var _ = Describe("VirtualMachineInstance watcher", func() {
 					Phase: k8sv1.PodRunning,
 				},
 			}
-			podInformer.GetIndexer().Add(otherPod)
+			Expect(podInformer.GetIndexer().Add(otherPod)).To(Succeed())
 			for i := 10; i < 10+podCount; i++ {
 				attachmentPod := NewPodForVirtlauncher(otherPod, fmt.Sprintf("test-pod%d", i), fmt.Sprintf("abcde%d", i), k8sv1.PodRunning)
-				podInformer.GetIndexer().Add(attachmentPod)
+				Expect(podInformer.GetIndexer().Add(attachmentPod)).To(Succeed())
 			}
 
 			res, err := kvcontroller.AttachmentPods(virtlauncherPod, podInformer)
@@ -2421,11 +2421,11 @@ var _ = Describe("VirtualMachineInstance watcher", func() {
 			now := metav1.Now()
 			for _, pod := range attachmentPods {
 				pod.DeletionTimestamp = &now
-				podInformer.GetIndexer().Add(pod)
+				Expect(podInformer.GetIndexer().Add(pod)).To(Succeed())
 			}
 			for _, pvcIndex := range pvcIndexes {
 				pvc := NewHotplugPVC(fmt.Sprintf("claim%d", pvcIndex), k8sv1.NamespaceDefault, k8sv1.ClaimBound)
-				pvcInformer.GetIndexer().Add(pvc)
+				Expect(pvcInformer.GetIndexer().Add(pvc)).To(Succeed())
 			}
 
 			err := controller.updateVolumeStatus(vmi, virtlauncherPod)
@@ -2496,8 +2496,8 @@ var _ = Describe("VirtualMachineInstance watcher", func() {
 				},
 			}
 			// We add multiple CDI instances to trigger the error
-			cdiInformer.GetIndexer().Add(&cdi)
-			cdiInformer.GetIndexer().Add(&cdi2)
+			Expect(cdiInformer.GetIndexer().Add(&cdi)).To(Succeed())
+			Expect(cdiInformer.GetIndexer().Add(&cdi2)).To(Succeed())
 
 			fsOverhead, err := controller.getFilesystemOverhead(nil)
 			Expect(err).To(HaveOccurred())
@@ -2519,7 +2519,7 @@ var _ = Describe("VirtualMachineInstance watcher", func() {
 				},
 			}
 
-			cdiInformer.GetIndexer().Add(&cdi)
+			Expect(cdiInformer.GetIndexer().Add(&cdi)).To(Succeed())
 
 			fsOverhead, err := controller.getFilesystemOverhead(nil)
 			Expect(err).To(HaveOccurred())
@@ -2559,8 +2559,8 @@ var _ = Describe("VirtualMachineInstance watcher", func() {
 				pvc.Spec.StorageClassName = &scName
 			}
 
-			cdiInformer.GetIndexer().Add(&cdi)
-			cdiConfigInformer.GetIndexer().Add(&cfg)
+			Expect(cdiInformer.GetIndexer().Add(&cdi)).To(Succeed())
+			Expect(cdiConfigInformer.GetIndexer().Add(&cfg)).To(Succeed())
 
 			fsOverhead, err := controller.getFilesystemOverhead(pvc)
 			Expect(err).ToNot(HaveOccurred())
@@ -2650,14 +2650,14 @@ var _ = Describe("VirtualMachineInstance watcher", func() {
 					},
 				},
 			})
-			pvcInformer.GetIndexer().Add(existingPVC)
-			pvcInformer.GetIndexer().Add(hpPVC)
+			Expect(pvcInformer.GetIndexer().Add(existingPVC)).To(Succeed())
+			Expect(pvcInformer.GetIndexer().Add(hpPVC)).To(Succeed())
 			kubeClient.Fake.PrependReactor("get", "persistentvolumeclaims", func(action testing.Action) (handled bool, obj k8sruntime.Object, err error) {
 				return true, existingPVC, nil
 			})
 			shouldExpectHotplugPod()
 			addVirtualMachine(vmi)
-			podInformer.GetIndexer().Add(virtlauncherPod)
+			Expect(podInformer.GetIndexer().Add(virtlauncherPod)).To(Succeed())
 			//Modify by adding a new hotplugged disk
 			patch := `[{ "op": "test", "path": "/status/volumeStatus", "value": [{"name":"existing","target":""}] }, { "op": "replace", "path": "/status/volumeStatus", "value": [{"name":"existing","target":"","persistentVolumeClaimInfo":{"filesystemOverhead":"0.055"}},{"name":"hotplug","target":"","phase":"Bound","reason":"PVCNotReady","message":"PVC is in phase Bound","persistentVolumeClaimInfo":{"filesystemOverhead":"0.055"},"hotplugVolume":{}}] }]`
 			vmiInterface.EXPECT().Patch(vmi.Name, types.JSONPatchType, []byte(patch), &metav1.PatchOptions{}).Return(vmi, nil)
@@ -2739,15 +2739,15 @@ var _ = Describe("VirtualMachineInstance watcher", func() {
 					PersistentVolumeClaim: &k8sv1.PersistentVolumeClaimVolumeSource{},
 				},
 			})
-			podInformer.GetIndexer().Add(hpPod)
-			pvcInformer.GetIndexer().Add(existingPVC)
-			pvcInformer.GetIndexer().Add(hpPVC)
+			Expect(podInformer.GetIndexer().Add(hpPod)).To(Succeed())
+			Expect(pvcInformer.GetIndexer().Add(existingPVC)).To(Succeed())
+			Expect(pvcInformer.GetIndexer().Add(hpPVC)).To(Succeed())
 			kubeClient.Fake.PrependReactor("get", "persistentvolumeclaims", func(action testing.Action) (handled bool, obj k8sruntime.Object, err error) {
 				return true, existingPVC, nil
 			})
 			shouldExpectPodDeletion(hpPod)
 			addVirtualMachine(vmi)
-			podInformer.GetIndexer().Add(virtlauncherPod)
+			Expect(podInformer.GetIndexer().Add(virtlauncherPod)).To(Succeed())
 			//Modify by adding a new hotplugged disk
 			patch := `[{ "op": "test", "path": "/status/volumeStatus", "value": [{"name":"existing","target":""},{"name":"hotplug","target":"","hotplugVolume":{"attachPodName":"hp-volume-hotplug","attachPodUID":"abcd"}}] }, { "op": "replace", "path": "/status/volumeStatus", "value": [{"name":"existing","target":"","persistentVolumeClaimInfo":{"filesystemOverhead":"0.055"}},{"name":"hotplug","target":"","phase":"Detaching","hotplugVolume":{"attachPodName":"hp-volume-hotplug","attachPodUID":"abcd"}}] }]`
 			vmiInterface.EXPECT().Patch(vmi.Name, types.JSONPatchType, []byte(patch), &metav1.PatchOptions{}).Return(vmi, nil)

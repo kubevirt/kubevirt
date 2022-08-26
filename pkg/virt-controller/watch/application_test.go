@@ -221,7 +221,7 @@ var _ = Describe("Application", func() {
 
 		By("Checking prometheus metric before sync")
 		dto := &io_prometheus_client.Metric{}
-		leaderGauge.Write(dto)
+		Expect(leaderGauge.Write(dto)).To(Succeed())
 
 		zero := 0.0
 		Expect(dto.GetGauge().Value).To(Equal(&zero), "Leader should be reported after virt-controller is fully operational")
@@ -233,7 +233,7 @@ var _ = Describe("Application", func() {
 
 		By("Checking prometheus metric")
 		dto = &io_prometheus_client.Metric{}
-		leaderGauge.Write(dto)
+		Expect(leaderGauge.Write(dto)).To(Succeed())
 
 		one := 1.0
 		Expect(dto.GetGauge().Value).To(Equal(&one))

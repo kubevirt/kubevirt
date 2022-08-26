@@ -528,7 +528,9 @@ func (c *VMIController) updateStatus(vmi *virtv1.VirtualMachineInstance, pod *k8
 				// about the PVCs that the VMI is consuming. This prevents
 				// virt-handler from needing to make API calls to GET the pvc
 				// during reconcile
-				c.updateVolumeStatus(vmiCopy, pod)
+				if err := c.updateVolumeStatus(vmiCopy, pod); err != nil {
+					return err
+				}
 				// vmi is still owned by the controller but pod is already ready,
 				// so let's hand over the vmi too
 				vmiCopy.Status.Phase = virtv1.Scheduled
@@ -577,7 +579,9 @@ func (c *VMIController) updateStatus(vmi *virtv1.VirtualMachineInstance, pod *k8
 			break
 		}
 
-		c.updateVolumeStatus(vmiCopy, pod)
+		if err := c.updateVolumeStatus(vmiCopy, pod); err != nil {
+			return err
+		}
 
 		var foundImage string
 		for _, container := range pod.Spec.Containers {
@@ -1068,7 +1072,9 @@ func (c *VMIController) sync(vmi *virtv1.VirtualMachineInstance, pod *k8sv1.Pod,
 			if hotplugSyncErr != nil {
 				if hotplugSyncErr.Reason() == MissingAttachmentPodReason {
 					// We are missing an essential hotplug pod. Delete all pods associated with the VMI.
-					c.deleteAllMatchingPods(vmi)
+					if err := c.deleteAllMatchingPods(vmi); err != nil {
+						log.Log.Warningf("failed to deleted VMI %s pods: %v", vmi.GetUID(), err)
+					}
 				} else {
 					return hotplugSyncErr
 				}
@@ -1511,7 +1517,9 @@ func (c *VMIController) deleteAllMatchingPods(vmi *virtv1.VirtualMachineInstance
 		}
 		c.recorder.Eventf(vmi, k8sv1.EventTypeNormal, SuccessfulDeletePodReason, "Deleted virtual machine pod %s", pod.Name)
 	}
-	c.deleteAllAttachmentPods(vmi)
+	if err := c.deleteAllAttachmentPods(vmi); err != nil {
+		return err
+	}
 	return nil
 }
 

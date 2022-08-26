@@ -169,7 +169,7 @@ var _ = Describe("Node controller with", func() {
 			})
 			vmiInterface.EXPECT().Patch(vmi.Name, types.JSONPatchType, gomock.Any(), &v1.PatchOptions{})
 
-			controller.checkVirtLauncherPodsAndUpdateVMIStatus(node.Name, []*virtv1.VirtualMachineInstance{vmi}, log.DefaultLogger())
+			Expect(controller.checkVirtLauncherPodsAndUpdateVMIStatus(node.Name, []*virtv1.VirtualMachineInstance{vmi}, log.DefaultLogger())).To(Succeed())
 			testutils.ExpectEvent(recorder, NodeUnresponsiveReason)
 		},
 			Entry("running state", virtv1.Running),
@@ -185,7 +185,7 @@ var _ = Describe("Node controller with", func() {
 			vmiInterface.EXPECT().Patch(vmi1.Name, types.JSONPatchType, gomock.Any(), &v1.PatchOptions{}).Return(nil, fmt.Errorf("some error")).Times(1)
 			vmiInterface.EXPECT().Patch(vmi2.Name, types.JSONPatchType, gomock.Any(), &v1.PatchOptions{}).Times(1)
 
-			controller.updateVMIWithFailedStatus([]*virtv1.VirtualMachineInstance{vmi, vmi1, vmi2}, log.DefaultLogger())
+			Expect(controller.updateVMIWithFailedStatus([]*virtv1.VirtualMachineInstance{vmi, vmi1, vmi2}, log.DefaultLogger())).To(HaveOccurred())
 			testutils.ExpectEvent(recorder, NodeUnresponsiveReason)
 			testutils.ExpectEvent(recorder, NodeUnresponsiveReason)
 			testutils.ExpectEvent(recorder, NodeUnresponsiveReason)
@@ -220,14 +220,14 @@ var _ = Describe("Node controller with", func() {
 
 			vmiInterface.EXPECT().Patch(vmi.Name, types.JSONPatchType, gomock.Any(), &v1.PatchOptions{})
 
-			controller.checkVirtLauncherPodsAndUpdateVMIStatus("testnode", []*virtv1.VirtualMachineInstance{vmi}, log.DefaultLogger())
+			Expect(controller.checkVirtLauncherPodsAndUpdateVMIStatus("testnode", []*virtv1.VirtualMachineInstance{vmi}, log.DefaultLogger())).To(Succeed())
 			testutils.ExpectEvent(recorder, NodeUnresponsiveReason)
 		})
 		It("should set a vmi without a pod to failed state, triggered by node update", func() {
 			node := NewUnhealthyNode("testnode")
 			vmi := NewRunningVirtualMachine("vmi1", node)
 
-			nodeInformer.GetStore().Add(node)
+			Expect(nodeInformer.GetStore().Add(node)).To(Succeed())
 			modifyNode(node.DeepCopy())
 			kubeClient.Fake.PrependReactor("list", "pods", func(action testing.Action) (handled bool, obj runtime.Object, err error) {
 				a, _ := action.(testing.ListAction)
@@ -248,7 +248,7 @@ var _ = Describe("Node controller with", func() {
 			node := NewUnhealthyNode("testnode")
 			vmi := NewRunningVirtualMachine("vmi1", node)
 
-			nodeInformer.GetStore().Add(node)
+			Expect(nodeInformer.GetStore().Add(node)).To(Succeed())
 			deleteNode(node.DeepCopy())
 			kubeClient.Fake.PrependReactor("list", "pods", func(action testing.Action) (handled bool, obj runtime.Object, err error) {
 				a, _ := action.(testing.ListAction)
@@ -269,7 +269,7 @@ var _ = Describe("Node controller with", func() {
 			node := NewUnhealthyNode("testnode")
 			vmi := NewRunningVirtualMachine("vmi1", node)
 
-			vmiInformer.GetStore().Add(vmi)
+			Expect(vmiInformer.GetStore().Add(vmi)).To(Succeed())
 			vmiFeeder.Modify(vmi)
 			kubeClient.Fake.PrependReactor("list", "pods", func(action testing.Action) (handled bool, obj runtime.Object, err error) {
 				a, _ := action.(testing.ListAction)
@@ -290,7 +290,7 @@ var _ = Describe("Node controller with", func() {
 			node := NewUnhealthyNode("testnode")
 			vmi := NewRunningVirtualMachine("vmi1", node)
 
-			vmiInformer.GetStore().Add(vmi)
+			Expect(vmiInformer.GetStore().Add(vmi)).To(Succeed())
 			vmiFeeder.Modify(vmi)
 			kubeClient.Fake.PrependReactor("list", "pods", func(action testing.Action) (handled bool, obj runtime.Object, err error) {
 				a, _ := action.(testing.ListAction)
@@ -322,7 +322,7 @@ var _ = Describe("Node controller with", func() {
 			By("checking that only a vmi with a pod gets removed")
 			vmiInterface.EXPECT().Patch(vmi.Name, types.JSONPatchType, gomock.Any(), &v1.PatchOptions{})
 
-			controller.checkVirtLauncherPodsAndUpdateVMIStatus(node.Name, []*virtv1.VirtualMachineInstance{vmi}, log.DefaultLogger())
+			Expect(controller.checkVirtLauncherPodsAndUpdateVMIStatus(node.Name, []*virtv1.VirtualMachineInstance{vmi}, log.DefaultLogger())).To(Succeed())
 			testutils.ExpectEvent(recorder, NodeUnresponsiveReason)
 		},
 			Entry("running state", virtv1.Running),

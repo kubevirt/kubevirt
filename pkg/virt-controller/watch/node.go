@@ -173,7 +173,9 @@ func (c *NodeController) execute(key string) error {
 
 	if unresponsive {
 		if nodeIsSchedulable(node) {
-			c.markNodeAsUnresponsive(node, logger)
+			if err := c.markNodeAsUnresponsive(node, logger); err != nil {
+				return err
+			}
 		}
 
 		err = c.checkNodeForOrphanedAndErroredVMIs(key, node, logger)

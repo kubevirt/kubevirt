@@ -164,7 +164,7 @@ var _ = Describe("Workload Updater", func() {
 
 			By("Checking prometheus metric before sync")
 			dto := &io_prometheus_client.Metric{}
-			outdatedVirtualMachineInstanceWorkloads.Write(dto)
+			Expect(outdatedVirtualMachineInstanceWorkloads.Write(dto)).To(Succeed())
 
 			zero := 0.0
 			Expect(dto.GetGauge().Value).To(Equal(&zero), "outdated vmi workload reported should be equal to zero")
@@ -212,7 +212,7 @@ var _ = Describe("Workload Updater", func() {
 
 			By("Checking prometheus metric")
 			dto = &io_prometheus_client.Metric{}
-			outdatedVirtualMachineInstanceWorkloads.Write(dto)
+			Expect(outdatedVirtualMachineInstanceWorkloads.Write(dto)).To(Succeed())
 
 			val := 100.0
 
