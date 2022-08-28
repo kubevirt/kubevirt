@@ -502,14 +502,11 @@ func SynchronizedAfterTestSuiteCleanup() {
 	CleanNodes()
 }
 
-func AfterTestSuitCleanup() {
+func AfterTestSuiteCleanup() {
 
 	cleanupServiceAccounts()
 	cleanNamespaces()
 
-	if flags.DeployTestingInfrastructureFlag {
-		WipeTestingInfrastructure()
-	}
 	removeNamespaces()
 }
 
@@ -686,7 +683,7 @@ func SynchronizedBeforeTestSetup() []byte {
 	return nil
 }
 
-func BeforeTestSuitSetup(_ []byte) {
+func BeforeTestSuiteSetup(_ []byte) {
 	rand.Seed(int64(config.GinkgoConfig.ParallelNode))
 	log.InitializeLogging("tests")
 	log.Log.SetIOWriter(GinkgoWriter)
@@ -1156,7 +1153,7 @@ func CreateHostPathPvWithSizeAndStorageClass(osName, hostPath, size, sc string) 
 
 	hostPathType := k8sv1.HostPathDirectoryOrCreate
 
-	name := fmt.Sprintf("%s-disk-for-tests", osName)
+	name := fmt.Sprintf("%s-disk-for-tests-%s", osName, rand.String(12))
 	pv := &k8sv1.PersistentVolume{
 		ObjectMeta: metav1.ObjectMeta{
 			Name: fmt.Sprintf("%s-%s", name, util2.NamespaceTestDefault),
@@ -1342,6 +1339,7 @@ func DeleteRawManifest(object unstructured.Unstructured) error {
 	policy := metav1.DeletePropagationBackground
 	options := &metav1.DeleteOptions{PropagationPolicy: &policy}
 
+	log.DefaultLogger().Infof("Calling DELETE on testing manifest: %s", uri)
 	result := virtCli.CoreV1().RESTClient().Delete().RequestURI(uri).Body(options).Do(context.Background())
 	if result.Error() != nil && !errors.IsNotFound(result.Error()) {
 		fmt.Printf(fmt.Sprintf("ERROR: Can not delete %s err: %#v %s\n", object.GetName(), result.Error(), object))
