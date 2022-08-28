@@ -88,7 +88,7 @@ require (
 	k8s.io/kube-openapi v0.0.0-20220124234850-424119656bbf // indirect
 	k8s.io/kubectl v0.23.1 // indirect
 	k8s.io/utils v0.0.0-20211116205334-6203023598ed // indirect
-	kubevirt.io/containerized-data-importer-api v1.53.1 // indirect
+	kubevirt.io/containerized-data-importer-api v1.54.0 // indirect
 	sigs.k8s.io/controller-runtime v0.11.1 // indirect
 	sigs.k8s.io/json v0.0.0-20211020170558-c049b76a60c6 // indirect
 	sigs.k8s.io/structured-merge-diff/v4 v4.2.1 // indirect
@@ -181,7 +181,7 @@ replace (
 	go.mongodb.org/mongo-driver => go.mongodb.org/mongo-driver v1.5.1
 	kubevirt.io/api => kubevirt.io/api v0.56.0
 	kubevirt.io/client-go => kubevirt.io/client-go v0.56.0
-	kubevirt.io/containerized-data-importer-api => kubevirt.io/containerized-data-importer-api v1.53.1
+	kubevirt.io/containerized-data-importer-api => kubevirt.io/containerized-data-importer-api v1.54.0
 )
 
 // Aligning with https://github.com/kubevirt/containerized-data-importer-api/blob/release-v1.41.1
