@@ -139,6 +139,8 @@ func (r *KubernetesReporter) dumpNamespaces(duration time.Duration, vmiNamespace
 	r.logNamespaces(virtCli)
 	r.logPVCs(virtCli)
 	r.logPVs(virtCli)
+	r.logStorageClasses(virtCli)
+	r.logCSIDrivers(virtCli)
 	r.logAPIServices(virtCli)
 	r.logServices(virtCli)
 	r.logEndpoints(virtCli)
@@ -659,6 +661,26 @@ func (r *KubernetesReporter) logPVs(virtCli kubecli.KubevirtClient) {
 	}
 
 	r.logObjects(virtCli, pvs, "pvs")
+}
+
+func (r *KubernetesReporter) logStorageClasses(virtCli kubecli.KubevirtClient) {
+	storageClasses, err := virtCli.StorageV1().StorageClasses().List(context.Background(), metav1.ListOptions{})
+	if err != nil {
+		fmt.Fprintf(os.Stderr, "failed to fetch storageclasses: %v\n", err)
+		return
+	}
+
+	r.logObjects(virtCli, storageClasses, "storageclasses")
+}
+
+func (r *KubernetesReporter) logCSIDrivers(virtCli kubecli.KubevirtClient) {
+	csiDrivers, err := virtCli.StorageV1().CSIDrivers().List(context.Background(), metav1.ListOptions{})
+	if err != nil {
+		fmt.Fprintf(os.Stderr, "failed to fetch csidrivers: %v\n", err)
+		return
+	}
+
+	r.logObjects(virtCli, csiDrivers, "csidrivers")
 }
 
 func (r *KubernetesReporter) logPVCs(virtCli kubecli.KubevirtClient) {
