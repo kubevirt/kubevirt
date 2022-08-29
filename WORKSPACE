@@ -2649,6 +2649,7 @@ rpm(
         "https://ftp.cc.uoc.gr/pub/linux/fedora/linux/releases/32/Everything/aarch64/os/Packages/k/kde-filesystem-4-63.fc32.aarch64.rpm",
         "https://fedora.mirror.garr.it/fedora/linux/releases/32/Everything/aarch64/os/Packages/k/kde-filesystem-4-63.fc32.aarch64.rpm",
         "https://mirror.23media.com/fedora/linux/releases/32/Everything/aarch64/os/Packages/k/kde-filesystem-4-63.fc32.aarch64.rpm",
+        "https://storage.googleapis.com/builddeps/e545e03430221aed4a4eac22857a7ed1fc3c9b8b9e7df53ed46aea7af96321aa",
     ],
 )
 
@@ -2660,6 +2661,7 @@ rpm(
         "https://mirror.vpsnet.com/fedora/linux/releases/32/Everything/x86_64/os/Packages/k/kde-filesystem-4-63.fc32.x86_64.rpm",
         "https://fedora.ip-connect.info/linux/releases/32/Everything/x86_64/os/Packages/k/kde-filesystem-4-63.fc32.x86_64.rpm",
         "https://mirror.23media.com/fedora/linux/releases/32/Everything/x86_64/os/Packages/k/kde-filesystem-4-63.fc32.x86_64.rpm",
+        "https://storage.googleapis.com/builddeps/f8aecd3ff4786a15d434ef8366f2e35e5d70e256c7fe2d521e7923064c232402",
     ],
 )
 
@@ -2731,6 +2733,7 @@ rpm(
         "https://fedora.mirror.liteserver.nl/linux/updates/32/Everything/aarch64/Packages/k/kf5-filesystem-5.75.0-1.fc32.aarch64.rpm",
         "https://ftp.byfly.by/pub/fedoraproject.org/linux/updates/32/Everything/aarch64/Packages/k/kf5-filesystem-5.75.0-1.fc32.aarch64.rpm",
         "https://mirrors.xtom.ee/fedora/updates/32/Everything/aarch64/Packages/k/kf5-filesystem-5.75.0-1.fc32.aarch64.rpm",
+        "https://storage.googleapis.com/builddeps/d5f8ad9874db4e71dacec64086f3d24dcec9eda5314b0ca999ec5cac5b2678ba",
     ],
 )
 
@@ -2742,6 +2745,7 @@ rpm(
         "https://mirror.serverion.com/fedora/updates/32/Everything/x86_64/Packages/k/kf5-filesystem-5.75.0-1.fc32.x86_64.rpm",
         "https://fedora.mirror.liteserver.nl/linux/updates/32/Everything/x86_64/Packages/k/kf5-filesystem-5.75.0-1.fc32.x86_64.rpm",
         "https://ftp.halifax.rwth-aachen.de/fedora/linux/updates/32/Everything/x86_64/Packages/k/kf5-filesystem-5.75.0-1.fc32.x86_64.rpm",
+        "https://storage.googleapis.com/builddeps/0876037d1952c7855c38ddbacfcdbce0c8a54c39f26beab2f6e6ea88b2c02deb",
     ],
 )
 
@@ -3072,6 +3076,7 @@ rpm(
         "https://fedora.mirror.liteserver.nl/linux/updates/32/Everything/aarch64/Packages/l/libburn-1.5.4-2.fc32.aarch64.rpm",
         "https://ftp.byfly.by/pub/fedoraproject.org/linux/updates/32/Everything/aarch64/Packages/l/libburn-1.5.4-2.fc32.aarch64.rpm",
         "https://mirrors.xtom.ee/fedora/updates/32/Everything/aarch64/Packages/l/libburn-1.5.4-2.fc32.aarch64.rpm",
+        "https://storage.googleapis.com/builddeps/50a792dd4d00cada9ec37e947fe425058d07844eec79087b8ee79839479c5750",
     ],
 )
 
@@ -3083,6 +3088,7 @@ rpm(
         "https://mirror.serverion.com/fedora/updates/32/Everything/x86_64/Packages/l/libburn-1.5.4-2.fc32.x86_64.rpm",
         "https://fedora.mirror.liteserver.nl/linux/updates/32/Everything/x86_64/Packages/l/libburn-1.5.4-2.fc32.x86_64.rpm",
         "https://ftp.halifax.rwth-aachen.de/fedora/linux/updates/32/Everything/x86_64/Packages/l/libburn-1.5.4-2.fc32.x86_64.rpm",
+        "https://storage.googleapis.com/builddeps/9b92acf62e9cd4ee78748fe28393f9feb37b0d6e01ad1a270c966f841a8bb503",
     ],
 )
 
@@ -3672,6 +3678,7 @@ rpm(
         "https://fedora.mirror.liteserver.nl/linux/updates/32/Everything/aarch64/Packages/l/libisoburn-1.5.4-2.fc32.aarch64.rpm",
         "https://ftp.byfly.by/pub/fedoraproject.org/linux/updates/32/Everything/aarch64/Packages/l/libisoburn-1.5.4-2.fc32.aarch64.rpm",
         "https://mirrors.xtom.ee/fedora/updates/32/Everything/aarch64/Packages/l/libisoburn-1.5.4-2.fc32.aarch64.rpm",
+        "https://storage.googleapis.com/builddeps/f2dca49457a25ac07e660ccb208851c5cb40e624c2a2f6a6251a4264204024af",
     ],
 )
 
@@ -3683,6 +3690,7 @@ rpm(
         "https://mirror.serverion.com/fedora/updates/32/Everything/x86_64/Packages/l/libisoburn-1.5.4-2.fc32.x86_64.rpm",
         "https://fedora.mirror.liteserver.nl/linux/updates/32/Everything/x86_64/Packages/l/libisoburn-1.5.4-2.fc32.x86_64.rpm",
         "https://ftp.halifax.rwth-aachen.de/fedora/linux/updates/32/Everything/x86_64/Packages/l/libisoburn-1.5.4-2.fc32.x86_64.rpm",
+        "https://storage.googleapis.com/builddeps/987f36bf84c5435fd99d961eab69cec5626f039ab414d361854d14bc2f77914a",
     ],
 )
 
@@ -3694,6 +3702,7 @@ rpm(
         "https://fedora.mirror.liteserver.nl/linux/updates/32/Everything/aarch64/Packages/l/libisofs-1.5.4-1.fc32.aarch64.rpm",
         "https://ftp.byfly.by/pub/fedoraproject.org/linux/updates/32/Everything/aarch64/Packages/l/libisofs-1.5.4-1.fc32.aarch64.rpm",
         "https://mirrors.xtom.ee/fedora/updates/32/Everything/aarch64/Packages/l/libisofs-1.5.4-1.fc32.aarch64.rpm",
+        "https://storage.googleapis.com/builddeps/f6460d264552bf1a4b1630dd7bfca3eec2ef7bdd5d31753aef7bcf9c2c1e43f3",
     ],
 )
 
@@ -3705,6 +3714,7 @@ rpm(
         "https://mirror.serverion.com/fedora/updates/32/Everything/x86_64/Packages/l/libisofs-1.5.4-1.fc32.x86_64.rpm",
         "https://fedora.mirror.liteserver.nl/linux/updates/32/Everything/x86_64/Packages/l/libisofs-1.5.4-1.fc32.x86_64.rpm",
         "https://ftp.halifax.rwth-aachen.de/fedora/linux/updates/32/Everything/x86_64/Packages/l/libisofs-1.5.4-1.fc32.x86_64.rpm",
+        "https://storage.googleapis.com/builddeps/e024cfa9312d6752cd7677fb396ffec3895e4452e133d131f4715f6d7317ee9d",
     ],
 )
 
@@ -9260,6 +9270,7 @@ rpm(
         "https://fedora.mirror.liteserver.nl/linux/updates/32/Everything/aarch64/Packages/x/xorriso-1.5.4-2.fc32.aarch64.rpm",
         "https://ftp.byfly.by/pub/fedoraproject.org/linux/updates/32/Everything/aarch64/Packages/x/xorriso-1.5.4-2.fc32.aarch64.rpm",
         "https://mirrors.xtom.ee/fedora/updates/32/Everything/aarch64/Packages/x/xorriso-1.5.4-2.fc32.aarch64.rpm",
+        "https://storage.googleapis.com/builddeps/de49c96d30ecc193263ecd2262f72d9e5bd2c8377a60005f51699c7bcd8c9bd9",
     ],
 )
 
@@ -9271,6 +9282,7 @@ rpm(
         "https://mirror.serverion.com/fedora/updates/32/Everything/x86_64/Packages/x/xorriso-1.5.4-2.fc32.x86_64.rpm",
         "https://fedora.mirror.liteserver.nl/linux/updates/32/Everything/x86_64/Packages/x/xorriso-1.5.4-2.fc32.x86_64.rpm",
         "https://ftp.halifax.rwth-aachen.de/fedora/linux/updates/32/Everything/x86_64/Packages/x/xorriso-1.5.4-2.fc32.x86_64.rpm",
+        "https://storage.googleapis.com/builddeps/ada8be281e15fda282f2ce366082a4761deb4621a0d9d5bd93893699ded8c85b",
     ],
 )
 
