@@ -426,7 +426,7 @@ var _ = Describe("VMSnapshot source", func() {
 			By("Ensuring the PVC is owned by the vmExport")
 			Expect(pvc.OwnerReferences).To(HaveLen(1))
 			Expect(pvc.OwnerReferences[0]).To(Equal(metav1.OwnerReference{
-				APIVersion:         apiVersion,
+				APIVersion:         exportGVK.GroupVersion().String(),
 				Kind:               "VirtualMachineExport",
 				Name:               testVMExport.Name,
 				UID:                testVMExport.UID,
@@ -518,7 +518,7 @@ var _ = Describe("VMSnapshot source", func() {
 			By("Ensuring the PVC is owned by the vmExport")
 			Expect(pvc.OwnerReferences).To(HaveLen(1))
 			Expect(pvc.OwnerReferences[0]).To(Equal(metav1.OwnerReference{
-				APIVersion:         apiVersion,
+				APIVersion:         exportGVK.GroupVersion().String(),
 				Kind:               "VirtualMachineExport",
 				Name:               testVMExport.Name,
 				UID:                testVMExport.UID,
@@ -569,7 +569,7 @@ var _ = Describe("VMSnapshot source", func() {
 			By("Ensuring the PVC is owned by the vmExport")
 			Expect(pvc.OwnerReferences).To(HaveLen(1))
 			Expect(pvc.OwnerReferences[0]).To(Equal(metav1.OwnerReference{
-				APIVersion:         apiVersion,
+				APIVersion:         exportGVK.GroupVersion().String(),
 				Kind:               "VirtualMachineExport",
 				Name:               testVMExport.Name,
 				UID:                testVMExport.UID,

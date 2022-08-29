@@ -561,9 +561,9 @@ func (ctrl *VMExportController) createServiceManifest(vmExport *exportv1.Virtual
 			Namespace: vmExport.Namespace,
 			OwnerReferences: []metav1.OwnerReference{
 				*metav1.NewControllerRef(vmExport, schema.GroupVersionKind{
-					Group:   exportv1.SchemeGroupVersion.Group,
-					Version: exportv1.SchemeGroupVersion.Version,
-					Kind:    "VirtualMachineExport",
+					Group:   exportGVK.Group,
+					Version: exportGVK.Version,
+					Kind:    exportGVK.Kind,
 				}),
 			},
 			Labels: map[string]string{
