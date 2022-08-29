@@ -2523,6 +2523,17 @@ var _ = Describe("VirtualMachineInstance", func() {
 			)
 		})
 
+		It("HyperV reenlightenment shouldn't be migratable when tsc frequency is missing", func() {
+			vmi := api2.NewMinimalVMI("testvmi")
+			vmi.Spec.Domain.Features = &v1.Features{Hyperv: &v1.FeatureHyperv{Reenlightenment: &v1.FeatureState{Enabled: pointer.Bool(true)}}}
+			vmi.Status.TopologyHints = nil
+
+			cond, _ := controller.calculateLiveMigrationCondition(vmi)
+			Expect(cond).ToNot(BeNil())
+			Expect(cond.Type).To(Equal(v1.VirtualMachineInstanceIsMigratable))
+			Expect(cond.Status).To(Equal(k8sv1.ConditionFalse))
+		})
+
 	})
 
 	Context("VirtualMachineInstance network status", func() {

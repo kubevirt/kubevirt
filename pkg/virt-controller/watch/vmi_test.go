@@ -2643,7 +2643,7 @@ var _ = Describe("VirtualMachineInstance watcher", func() {
 				var vmi *virtv1.VirtualMachineInstance
 				vmiInterface.EXPECT().Update(gomock.Any()).Do(func(arg interface{}) {
 					vmi = arg.(*virtv1.VirtualMachineInstance)
-					Expect(topology.IsManualTSCFrequencyRequired(vmi)).To(BeTrue())
+					Expect(topology.AreTSCFrequencyTopologyHintsDefined(vmi)).To(BeTrue())
 				}).Return(vmi, nil)
 			}
 
@@ -2668,16 +2668,44 @@ var _ = Describe("VirtualMachineInstance watcher", func() {
 				runController(vmi)
 			})
 
-			It("HyperV reenlightenment is enabled", func() {
-				vmi := NewPendingVirtualMachine("testvmi")
-				vmi.Spec.Domain.Features = &v1.Features{
-					Hyperv: &v1.FeatureHyperv{
-						Reenlightenment: &v1.FeatureState{Enabled: pointer.Bool(true)},
-					},
-				}
+			Context("HyperV reenlightenment is enabled", func() {
+				var vmi *v1.VirtualMachineInstance
 
-				expectTopologyHintsUpdate()
-				runController(vmi)
+				BeforeEach(func() {
+					vmi = NewPendingVirtualMachine("testvmi")
+					vmi.Spec.Domain.Features = &v1.Features{
+						Hyperv: &v1.FeatureHyperv{
+							Reenlightenment: &v1.FeatureState{Enabled: pointer.Bool(true)},
+						},
+					}
+				})
+
+				When("TSC frequency is exposed", func() {
+					It("topology hints need to be set", func() {
+						expectTopologyHintsUpdate()
+						runController(vmi)
+
+						testutils.ExpectEvent(recorder, SuccessfulCreatePodReason)
+					})
+				})
+
+				When("TSC frequency is not exposed", func() {
+					unexposeTscFrequency := func(requirement topology.TscFrequencyRequirementType) {
+						mockHinter := topology.NewMockHinter(ctrl)
+						mockHinter.EXPECT().TopologyHintsForVMI(gomock.Any()).Return(nil, requirement, fmt.Errorf("tsc frequency is not exposed on the cluster")).AnyTimes()
+						mockHinter.EXPECT().IsTscFrequencyRequiredForBoot(gomock.Any()).Return(requirement == topology.RequiredForBoot)
+						controller.topologyHinter = mockHinter
+					}
+
+					It("topology hints don't need to be set and VMI needs to be non-migratable", func() {
+						unexposeTscFrequency(topology.RequiredForMigration)
+						// Make sure no update occurs
+						runController(vmi)
+
+						testutils.ExpectEvent(recorder, SuccessfulCreatePodReason)
+					})
+				})
+
 			})
 
 		})
