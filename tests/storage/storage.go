@@ -409,7 +409,6 @@ var _ = SIGDescribe("Storage", func() {
 
 			BeforeEach(func() {
 				checks.SkipTestIfNoFeatureGate(virtconfig.VirtIOFSGate)
-				checks.SkipIfNonRoot("VirtioFS")
 				libstorage.CreateHostPathPv(pvc, filepath.Join(testsuite.HostPathBase, pvc))
 				libstorage.CreateHostPathPVC(pvc, "1G")
 			})
@@ -457,7 +456,6 @@ var _ = SIGDescribe("Storage", func() {
 			var dataVolume *cdiv1.DataVolume
 			BeforeEach(func() {
 				checks.SkipTestIfNoFeatureGate(virtconfig.VirtIOFSGate)
-				checks.SkipIfNonRoot("VirtioFS")
 				if !libstorage.HasCDI() {
 					Skip("Skip DataVolume tests when CDI is not present")
 				}
@@ -694,11 +692,7 @@ var _ = SIGDescribe("Storage", func() {
 				Expect(err).ToNot(HaveOccurred())
 				_, err = virtClient.VirtualMachineInstance(util.NamespaceTestDefault).Create(vmi)
 				Expect(err).To(HaveOccurred())
-				if checks.HasFeature(virtconfig.NonRoot) {
-					Expect(err.Error()).To(And(ContainSubstring("VirtioFS"), ContainSubstring("session mode")))
-				} else {
-					Expect(err.Error()).To(ContainSubstring("virtiofs feature gate is not enabled"))
-				}
+				Expect(err.Error()).To(ContainSubstring("virtiofs feature gate is not enabled"))
 			})
 		})
 

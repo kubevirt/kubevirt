@@ -193,13 +193,6 @@ func AlignImageSizeTo1MiB(size int64, logger *log.FilteredLogger) int64 {
 	}
 
 }
-func CanBeNonRoot(vmi *v1.VirtualMachineInstance) error {
-	// VirtioFS doesn't work with session mode
-	if IsVMIVirtiofsEnabled(vmi) {
-		return fmt.Errorf("VirtioFS doesn't work with session mode(used by nonroot)")
-	}
-	return nil
-}
 
 func MarkAsNonroot(vmi *v1.VirtualMachineInstance) {
 	vmi.Status.RuntimeUser = 107
