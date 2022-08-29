@@ -60,6 +60,20 @@ func resourcesForVirtioFSContainer(dedicatedCPUs bool, guaranteedQOS bool) k8sv1
 
 var userAndGroup = int64(util.RootUser)
 
+func getVirtiofsCapabilities() []k8sv1.Capability {
+	return []k8sv1.Capability{
+		"CHOWN",
+		"DAC_OVERRIDE",
+		"FOWNER",
+		"FSETID",
+		"SETGID",
+		"SETUID",
+		"MKNOD",
+		"SETFCAP",
+		"SYS_CHROOT",
+	}
+}
+
 func securityContextVirtioFS() *k8sv1.SecurityContext {
 
 	return &k8sv1.SecurityContext{
@@ -67,7 +81,7 @@ func securityContextVirtioFS() *k8sv1.SecurityContext {
 		RunAsGroup:   &userAndGroup,
 		RunAsNonRoot: pointer.Bool(false),
 		Capabilities: &k8sv1.Capabilities{
-			Add: append(getVirtiofsCapabilities(), k8sv1.Capability("SYS_CHROOT")),
+			Add: getVirtiofsCapabilities(),
 		},
 	}
 }

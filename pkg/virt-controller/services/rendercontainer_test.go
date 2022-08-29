@@ -79,6 +79,11 @@ var _ = Describe("Container spec renderer", func() {
 	})
 
 	Context("vmi capabilities", func() {
+		allowedCapabilities := []k8sv1.Capability{
+			CAP_NET_BIND_SERVICE,
+			CAP_SYS_NICE,
+			CAP_SYS_PTRACE,
+		}
 		Context("a VMI running as root", func() {
 			BeforeEach(func() {
 				specRenderer = NewContainerSpecRenderer(containerName, img, pullPolicy, WithCapabilities(simplestVMI()))
@@ -91,10 +96,7 @@ var _ = Describe("Container spec renderer", func() {
 
 			It("must request to add the NET_BIND_SERVICE, SYS_NICE and SYS_PTRACE capabilities", func() {
 				Expect(specRenderer.Render(exampleCommand).SecurityContext.Capabilities.Add).To(
-					ConsistOf(
-						k8sv1.Capability(CAP_NET_BIND_SERVICE),
-						k8sv1.Capability(CAP_SYS_NICE),
-						k8sv1.Capability(CAP_SYS_PTRACE)))
+					ConsistOf(allowedCapabilities))
 			})
 
 			Context("with a virtioFS filesystem", func() {
@@ -107,17 +109,9 @@ var _ = Describe("Container spec renderer", func() {
 						WithCapabilities(vmiWithVirtioFS(rootUser)))
 				})
 
-				It("must request the virtio related capabilities", func() {
+				It("cannot request additional capabilities", func() {
 					Expect(specRenderer.Render(exampleCommand).SecurityContext.Capabilities.Add).Should(
-						ConsistOf(
-							append(
-								[]k8sv1.Capability{
-									CAP_NET_BIND_SERVICE,
-									CAP_SYS_NICE,
-									CAP_SYS_ADMIN,
-									CAP_SYS_PTRACE},
-								getVirtiofsCapabilities()...),
-						))
+						ConsistOf(allowedCapabilities))
 				})
 			})
 		})

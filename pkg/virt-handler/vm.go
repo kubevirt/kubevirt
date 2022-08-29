@@ -37,6 +37,7 @@ import (
 
 	hotplugdisk "kubevirt.io/kubevirt/pkg/hotplug-disk"
 	"kubevirt.io/kubevirt/pkg/safepath"
+	"kubevirt.io/kubevirt/pkg/virt-controller/services"
 	"kubevirt.io/kubevirt/pkg/virt-handler/cgroup"
 
 	"kubevirt.io/kubevirt/pkg/config"
@@ -2647,6 +2648,15 @@ func (d *VirtualMachineController) vmUpdateHelperDefault(origVMI *v1.VirtualMach
 
 		if virtutil.IsNonRootVMI(vmi) {
 			if err := d.nonRootSetup(origVMI, vmi); err != nil {
+				return err
+			}
+		}
+		for _, fs := range vmi.Spec.Domain.Devices.Filesystems {
+			socketPath, err := isolation.SafeJoin(isolationRes, services.VirtioFSSocketPath(fs.Name))
+			if err != nil {
+				return err
+			}
+			if err := diskutils.DefaultOwnershipManager.SetFileOwnership(socketPath); err != nil {
 				return err
 			}
 		}

@@ -244,11 +244,6 @@ func requiredCapabilities(vmi *v1.VirtualMachineInstance) []k8sv1.Capability {
 	if !util.IsNonRootVMI(vmi) {
 		// add a CAP_SYS_NICE capability to allow setting cpu affinity
 		capabilities = append(capabilities, CAP_SYS_NICE)
-		// add CAP_SYS_ADMIN capability to allow virtiofs
-		if util.IsVMIVirtiofsEnabled(vmi) {
-			capabilities = append(capabilities, CAP_SYS_ADMIN)
-			capabilities = append(capabilities, getVirtiofsCapabilities()...)
-		}
 	}
 
 	return capabilities
