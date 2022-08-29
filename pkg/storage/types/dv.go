@@ -23,12 +23,15 @@ import (
 	"context"
 	"fmt"
 
+	v1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/client-go/tools/cache"
 
 	virtv1 "kubevirt.io/api/core/v1"
 	"kubevirt.io/client-go/kubecli"
+	"kubevirt.io/client-go/log"
 	cdiv1 "kubevirt.io/containerized-data-importer-api/pkg/apis/core/v1beta1"
+	"kubevirt.io/kubevirt/pkg/controller"
 )
 
 type CloneSource struct {
@@ -113,4 +116,137 @@ func GetCloneSource(ctx context.Context, client kubecli.KubevirtClient, vm *virt
 	}
 
 	return cloneSource, nil
+}
+
+func GetDataVolumeFromCache(namespace, name string, dataVolumeInformer cache.SharedIndexInformer) (*cdiv1.DataVolume, error) {
+	key := controller.NamespacedKey(namespace, name)
+	obj, exists, err := dataVolumeInformer.GetStore().GetByKey(key)
+
+	if err != nil {
+		return nil, fmt.Errorf("error fetching DataVolume %s: %v", key, err)
+	}
+	if !exists {
+		return nil, nil
+	}
+
+	dv, ok := obj.(*cdiv1.DataVolume)
+	if !ok {
+		return nil, fmt.Errorf("error converting object to DataVolume: object is of type %T", obj)
+	}
+
+	return dv, nil
+}
+
+func HasDataVolumeErrors(namespace string, volumes []virtv1.Volume, dataVolumeInformer cache.SharedIndexInformer) error {
+	for _, volume := range volumes {
+		if volume.DataVolume == nil {
+			continue
+		}
+
+		dv, err := GetDataVolumeFromCache(namespace, volume.DataVolume.Name, dataVolumeInformer)
+		if err != nil {
+			log.Log.Errorf("Error fetching DataVolume %s: %v", volume.DataVolume.Name, err)
+			continue
+		}
+		if dv == nil {
+			continue
+		}
+
+		if dv.Status.Phase == cdiv1.Failed {
+			return fmt.Errorf("DataVolume %s is in Failed phase", volume.DataVolume.Name)
+		}
+
+		dvRunningCond := NewDataVolumeConditionManager().GetCondition(dv, cdiv1.DataVolumeRunning)
+		if dvRunningCond != nil &&
+			dvRunningCond.Status == v1.ConditionFalse &&
+			dvRunningCond.Reason == "Error" {
+			return fmt.Errorf("DataVolume %s importer has stopped running due to an error: %v",
+				volume.DataVolume.Name, dvRunningCond.Message)
+		}
+	}
+
+	return nil
+}
+
+func HasDataVolumeProvisioning(namespace string, volumes []virtv1.Volume, dataVolumeInformer cache.SharedIndexInformer) bool {
+	for _, volume := range volumes {
+		if volume.DataVolume == nil {
+			continue
+		}
+
+		dv, err := GetDataVolumeFromCache(namespace, volume.DataVolume.Name, dataVolumeInformer)
+		if err != nil {
+			log.Log.Errorf("Error fetching DataVolume %s while determining virtual machine status: %v", volume.DataVolume.Name, err)
+			continue
+		}
+		if dv == nil {
+			continue
+		}
+
+		// Skip DataVolumes with unbound PVCs since these cannot possibly be provisioning
+		dvConditions := NewDataVolumeConditionManager()
+		if !dvConditions.HasConditionWithStatus(dv, cdiv1.DataVolumeBound, v1.ConditionTrue) {
+			continue
+		}
+
+		if dv.Status.Phase != cdiv1.Succeeded {
+			return true
+		}
+	}
+
+	return false
+}
+
+func ListDataVolumesFromTemplates(namespace string, dvTemplates []virtv1.DataVolumeTemplateSpec, dataVolumeInformer cache.SharedIndexInformer) ([]*cdiv1.DataVolume, error) {
+	var dataVolumes []*cdiv1.DataVolume
+
+	if len(dvTemplates) == 0 {
+		return dataVolumes, nil
+	}
+
+	for _, template := range dvTemplates {
+		// get DataVolume from cache for each templated dataVolume
+		dv, err := GetDataVolumeFromCache(namespace, template.Name, dataVolumeInformer)
+		if err != nil {
+			return dataVolumes, err
+		} else if dv == nil {
+			continue
+		}
+
+		dataVolumes = append(dataVolumes, dv)
+	}
+	return dataVolumes, nil
+}
+
+type DataVolumeConditionManager struct {
+}
+
+func NewDataVolumeConditionManager() *DataVolumeConditionManager {
+	return &DataVolumeConditionManager{}
+}
+
+func (d *DataVolumeConditionManager) GetCondition(dv *cdiv1.DataVolume, cond cdiv1.DataVolumeConditionType) *cdiv1.DataVolumeCondition {
+	if dv == nil {
+		return nil
+	}
+	for _, c := range dv.Status.Conditions {
+		if c.Type == cond {
+			return &c
+		}
+	}
+	return nil
+}
+
+func (d *DataVolumeConditionManager) HasCondition(dv *cdiv1.DataVolume, cond cdiv1.DataVolumeConditionType) bool {
+	return d.GetCondition(dv, cond) != nil
+}
+
+func (d *DataVolumeConditionManager) HasConditionWithStatus(dv *cdiv1.DataVolume, cond cdiv1.DataVolumeConditionType, status v1.ConditionStatus) bool {
+	c := d.GetCondition(dv, cond)
+	return c != nil && c.Status == status
+}
+
+func (d *DataVolumeConditionManager) HasConditionWithStatusAndReason(dv *cdiv1.DataVolume, cond cdiv1.DataVolumeConditionType, status v1.ConditionStatus, reason string) bool {
+	c := d.GetCondition(dv, cond)
+	return c != nil && c.Status == status && c.Reason == reason
 }

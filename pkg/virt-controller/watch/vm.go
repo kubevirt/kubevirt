@@ -293,7 +293,7 @@ func (c *VMController) execute(key string) error {
 		}
 	}
 
-	dataVolumes, err := c.listDataVolumesForVM(vm)
+	dataVolumes, err := typesutil.ListDataVolumesFromTemplates(vm.Namespace, vm.Spec.DataVolumeTemplates, c.dataVolumeInformer)
 	if err != nil {
 		logger.Reason(err).Error("Failed to fetch dataVolumes for namespace from cache.")
 		return err
@@ -324,66 +324,6 @@ func (c *VMController) execute(key string) error {
 	}
 
 	return syncErr
-}
-
-func (c *VMController) listDataVolumesForVM(vm *virtv1.VirtualMachine) ([]*cdiv1.DataVolume, error) {
-
-	var dataVolumes []*cdiv1.DataVolume
-
-	if len(vm.Spec.DataVolumeTemplates) == 0 {
-		return dataVolumes, nil
-	}
-
-	for _, template := range vm.Spec.DataVolumeTemplates {
-		// get DataVolume from cache for each templated dataVolume
-		dv, err := c.getDataVolumeFromCache(vm.Namespace, template.Name)
-		if err != nil {
-			return dataVolumes, err
-		} else if dv == nil {
-			continue
-		}
-
-		dataVolumes = append(dataVolumes, dv)
-	}
-	return dataVolumes, nil
-}
-
-func (c *VMController) getDataVolumeFromCache(namespace, name string) (*cdiv1.DataVolume, error) {
-	key := controller.NamespacedKey(namespace, name)
-	obj, exists, err := c.dataVolumeInformer.GetStore().GetByKey(key)
-
-	if err != nil {
-		return nil, fmt.Errorf("error fetching DataVolume %s: %v", key, err)
-	}
-	if !exists {
-		return nil, nil
-	}
-
-	dv, ok := obj.(*cdiv1.DataVolume)
-	if !ok {
-		return nil, fmt.Errorf("error converting object to DataVolume: object is of type %T", obj)
-	}
-
-	return dv, nil
-}
-
-func (c *VMController) getPersistentVolumeClaimFromCache(namespace, name string) (*k8score.PersistentVolumeClaim, error) {
-	key := controller.NamespacedKey(namespace, name)
-	obj, exists, err := c.pvcInformer.GetStore().GetByKey(key)
-
-	if err != nil {
-		return nil, fmt.Errorf("error fetching PersistentVolumeClaim %s: %v", key, err)
-	}
-	if !exists {
-		return nil, nil
-	}
-
-	pvc, ok := obj.(*k8score.PersistentVolumeClaim)
-	if !ok {
-		return nil, fmt.Errorf("error converting object to PersistentVolumeClaim: object is of type %T", obj)
-	}
-
-	return pvc, nil
 }
 
 func (c *VMController) authorizeDataVolume(vm *virtv1.VirtualMachine, dataVolume *cdiv1.DataVolume) error {
@@ -436,7 +376,7 @@ func (c *VMController) handleDataVolumes(vm *virtv1.VirtualMachine, dataVolumes 
 		}
 		if !exists {
 			// Don't create DV if PVC already exists
-			pvc, err := c.getPersistentVolumeClaimFromCache(vm.Namespace, template.Name)
+			pvc, err := typesutil.GetPersistentVolumeClaimFromCache(vm.Namespace, template.Name, c.pvcInformer)
 			if err != nil {
 				return false, err
 			}
@@ -473,39 +413,6 @@ func (c *VMController) handleDataVolumes(vm *virtv1.VirtualMachine, dataVolumes 
 		}
 	}
 	return ready, nil
-}
-
-func (c *VMController) hasDataVolumeErrors(vm *virtv1.VirtualMachine) bool {
-	for _, volume := range vm.Spec.Template.Spec.Volumes {
-		if volume.DataVolume == nil {
-			continue
-		}
-
-		dv, err := c.getDataVolumeFromCache(vm.Namespace, volume.DataVolume.Name)
-		if err != nil {
-			log.Log.Object(vm).Errorf("Error fetching DataVolume %s: %v", volume.DataVolume.Name, err)
-			continue
-		}
-		if dv == nil {
-			continue
-		}
-
-		if dv.Status.Phase == cdiv1.Failed {
-			log.Log.Object(vm).Errorf("DataVolume %s is in Failed phase", volume.DataVolume.Name)
-			return true
-		}
-
-		dvRunningCond := controller.NewDataVolumeConditionManager().GetCondition(dv, cdiv1.DataVolumeRunning)
-		if dvRunningCond != nil &&
-			dvRunningCond.Status == k8score.ConditionFalse &&
-			dvRunningCond.Reason == "Error" {
-			log.Log.Object(vm).Errorf("DataVolume %s importer has stopped running due to an error: %v",
-				volume.DataVolume.Name, dvRunningCond.Message)
-			return true
-		}
-	}
-
-	return false
 }
 
 func removeMemoryDumpVolumeFromVMISpec(vmiSpec *virtv1.VirtualMachineInstanceSpec, claimName string) *virtv1.VirtualMachineInstanceSpec {
@@ -601,7 +508,7 @@ func needUpdatePVCMemoryDumpAnnotation(pvc *k8score.PersistentVolumeClaim, reque
 
 func (c *VMController) updatePVCMemoryDumpAnnotation(vm *virtv1.VirtualMachine) error {
 	request := vm.Status.MemoryDumpRequest
-	pvc, err := c.getPersistentVolumeClaimFromCache(vm.Namespace, request.ClaimName)
+	pvc, err := typesutil.GetPersistentVolumeClaimFromCache(vm.Namespace, request.ClaimName, c.pvcInformer)
 	if err != nil {
 		log.Log.Object(vm).Errorf("Error getting PersistentVolumeClaim to update memory dump annotation: %v", err)
 		return err
@@ -1880,32 +1787,7 @@ func (c *VMController) isVirtualMachineStatusStopped(vm *virtv1.VirtualMachine, 
 
 // isVirtualMachineStatusStopped determines whether the VM status field should be set to "Provisioning".
 func (c *VMController) isVirtualMachineStatusProvisioning(vm *virtv1.VirtualMachine, vmi *virtv1.VirtualMachineInstance) bool {
-	for _, volume := range vm.Spec.Template.Spec.Volumes {
-		if volume.DataVolume == nil {
-			continue
-		}
-
-		dv, err := c.getDataVolumeFromCache(vm.Namespace, volume.DataVolume.Name)
-		if err != nil {
-			log.Log.Object(vm).Errorf("Error fetching DataVolume while determining virtual machine status: %v", err)
-			continue
-		}
-		if dv == nil {
-			continue
-		}
-
-		// Skip DataVolumes with unbound PVCs since these cannot possibly be provisioning
-		dvConditions := controller.NewDataVolumeConditionManager()
-		if !dvConditions.HasConditionWithStatus(dv, cdiv1.DataVolumeBound, k8score.ConditionTrue) {
-			continue
-		}
-
-		if dv.Status.Phase != cdiv1.Succeeded {
-			return true
-		}
-	}
-
-	return false
+	return typesutil.HasDataVolumeProvisioning(vm.Namespace, vm.Spec.Template.Spec.Volumes, c.dataVolumeInformer)
 }
 
 // isVirtualMachineStatusWaitingForVolumeBinding
@@ -1914,27 +1796,7 @@ func (c *VMController) isVirtualMachineStatusWaitingForVolumeBinding(vm *virtv1.
 		return false
 	}
 
-	for _, volume := range vm.Spec.Template.Spec.Volumes {
-		claimName := typesutil.PVCNameFromVirtVolume(&volume)
-		if claimName == "" {
-			continue
-		}
-
-		pvc, err := c.getPersistentVolumeClaimFromCache(vm.Namespace, claimName)
-		if err != nil {
-			log.Log.Object(vm).Errorf("Error fetching PersistentVolumeClaim while determining virtual machine status: %v", err)
-			continue
-		}
-		if pvc == nil {
-			continue
-		}
-
-		if pvc.Status.Phase != k8score.ClaimBound {
-			return true
-		}
-	}
-
-	return false
+	return typesutil.HasPVCBinding(vm.Namespace, vm.Spec.Template.Spec.Volumes, c.pvcInformer)
 }
 
 // isVirtualMachineStatusStarting determines whether the VM status field should be set to "Starting".
@@ -2016,7 +1878,12 @@ func (c *VMController) isVirtualMachineStatusPvcNotFound(vm *virtv1.VirtualMachi
 
 // isVirtualMachineStatusDataVolumeError determines whether the VM status field should be set to "DataVolumeError"
 func (c *VMController) isVirtualMachineStatusDataVolumeError(vm *virtv1.VirtualMachine, vmi *virtv1.VirtualMachineInstance) bool {
-	return c.hasDataVolumeErrors(vm)
+	err := typesutil.HasDataVolumeErrors(vm.Namespace, vm.Spec.Template.Spec.Volumes, c.dataVolumeInformer)
+	if err != nil {
+		log.Log.Object(vm).Errorf("%v", err)
+		return true
+	}
+	return false
 }
 
 func (c *VMController) syncReadyConditionFromVMI(vm *virtv1.VirtualMachine, vmi *virtv1.VirtualMachineInstance) {

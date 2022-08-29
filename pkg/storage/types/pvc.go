@@ -30,7 +30,9 @@ import (
 	"k8s.io/client-go/tools/cache"
 
 	virtv1 "kubevirt.io/api/core/v1"
+	"kubevirt.io/client-go/log"
 	cdiv1 "kubevirt.io/containerized-data-importer-api/pkg/apis/core/v1beta1"
+	"kubevirt.io/kubevirt/pkg/controller"
 )
 
 const MiB = 1024 * 1024
@@ -154,4 +156,46 @@ func GetSizeIncludingGivenOverhead(size *resource.Quantity, overhead cdiv1.Perce
 func GetSizeIncludingFSOverhead(size *resource.Quantity, storageClass *string, volumeMode *k8sv1.PersistentVolumeMode, cdiConfig *cdiv1.CDIConfig) (*resource.Quantity, error) {
 	cdiFSOverhead := GetFilesystemOverhead(volumeMode, storageClass, cdiConfig)
 	return GetSizeIncludingGivenOverhead(size, cdiFSOverhead)
+}
+
+func GetPersistentVolumeClaimFromCache(namespace, name string, pvcInformer cache.SharedIndexInformer) (*k8sv1.PersistentVolumeClaim, error) {
+	key := controller.NamespacedKey(namespace, name)
+	obj, exists, err := pvcInformer.GetStore().GetByKey(key)
+
+	if err != nil {
+		return nil, fmt.Errorf("error fetching PersistentVolumeClaim %s: %v", key, err)
+	}
+	if !exists {
+		return nil, nil
+	}
+
+	pvc, ok := obj.(*k8sv1.PersistentVolumeClaim)
+	if !ok {
+		return nil, fmt.Errorf("error converting object to PersistentVolumeClaim: object is of type %T", obj)
+	}
+
+	return pvc, nil
+}
+func HasPVCBinding(namespace string, volumes []virtv1.Volume, pvcInformer cache.SharedIndexInformer) bool {
+	for _, volume := range volumes {
+		claimName := PVCNameFromVirtVolume(&volume)
+		if claimName == "" {
+			continue
+		}
+
+		pvc, err := GetPersistentVolumeClaimFromCache(namespace, claimName, pvcInformer)
+		if err != nil {
+			log.Log.Errorf("Error fetching PersistentVolumeClaim %s while determining virtual machine status: %v", claimName, err)
+			continue
+		}
+		if pvc == nil {
+			continue
+		}
+
+		if pvc.Status.Phase != k8sv1.ClaimBound {
+			return true
+		}
+	}
+
+	return false
 }
