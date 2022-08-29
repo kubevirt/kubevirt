@@ -16905,6 +16905,13 @@ func schema_kubevirtio_api_core_v1_HostDisk(ref common.ReferenceCallback) common
 							Format:      "",
 						},
 					},
+					"format": {
+						SchemaProps: spec.SchemaProps{
+							Description: "The format of HostDisk image file",
+							Type:        []string{"string"},
+							Format:      "",
+						},
+					},
 				},
 				Required: []string{"path", "type"},
 			},

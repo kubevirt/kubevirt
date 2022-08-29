@@ -16315,6 +16315,10 @@
       "description": "Capacity of the sparse disk",
       "$ref": "#/definitions/k8s.io.apimachinery.pkg.api.resource.Quantity"
      },
+     "format": {
+      "description": "The format of HostDisk image file",
+      "type": "string"
+     },
      "path": {
       "description": "The path to HostDisk image located on the cluster",
       "type": "string"

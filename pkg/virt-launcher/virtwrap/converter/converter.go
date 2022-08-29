@@ -584,7 +584,7 @@ func Convert_v1_Volume_To_api_Disk(source *v1.Volume, disk *api.Disk, c *Convert
 	}
 
 	if source.HostDisk != nil {
-		return Convert_v1_HostDisk_To_api_Disk(source.Name, source.HostDisk.Path, disk)
+		return Convert_v1_HostDisk_To_api_Disk(source.Name, source.HostDisk.Path, disk, source.HostDisk.Format)
 	}
 
 	if source.PersistentVolumeClaim != nil {
@@ -758,9 +758,13 @@ func Convert_v1_Hotplug_BlockVolumeSource_To_api_Disk(volumeName string, disk *a
 	return nil
 }
 
-func Convert_v1_HostDisk_To_api_Disk(volumeName string, path string, disk *api.Disk) error {
+func Convert_v1_HostDisk_To_api_Disk(volumeName string, path string, disk *api.Disk, format v1.ImageFileFormat) error {
 	disk.Type = "file"
-	disk.Driver.Type = "raw"
+	if format == v1.Qcow2Format {
+		disk.Driver.Type = "qcow2"
+	} else {
+		disk.Driver.Type = "raw"
+	}
 	disk.Driver.ErrorPolicy = "stop"
 	disk.Source.File = hostdisk.GetMountedHostDiskPath(volumeName, path)
 	return nil

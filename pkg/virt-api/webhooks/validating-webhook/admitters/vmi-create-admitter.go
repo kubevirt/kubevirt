@@ -2130,6 +2130,15 @@ func validateVolumes(field *k8sfield.Path, volumes []v1.Volume, config *virtconf
 				})
 			}
 
+			if hostDisk.Type == v1.HostDiskExistsOrCreate && hostDisk.Format == v1.Qcow2Format {
+				causes = append(causes, metav1.StatusCause{
+					Type:    metav1.CauseTypeFieldValueInvalid,
+					Message: fmt.Sprintf("%s only support '%s' when use qcow2 file format", field.Index(idx).Child("hostDisk", "type").String(), v1.HostDiskExists),
+					Field:   field.Index(idx).Child("hostDisk", "type").String(),
+				})
+
+			}
+
 			// if disk.img already exists and user knows that by specifying type 'Disk' it is pointless to set capacity
 			if hostDisk.Type == v1.HostDiskExists && !hostDisk.Capacity.IsZero() {
 				causes = append(causes, metav1.StatusCause{

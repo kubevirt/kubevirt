@@ -1495,6 +1495,15 @@ const (
 	HostDiskExists HostDiskType = "Disk"
 )
 
+type ImageFileFormat string
+
+const (
+	// a raw format disk image file
+	RawFormat ImageFileFormat = "raw"
+	// a qcow2 format disk image file
+	Qcow2Format ImageFileFormat = "qcow2"
+)
+
 type NetworkInterfaceType string
 
 const (
@@ -1650,7 +1659,6 @@ const (
 	WorkloadUpdateMethodEvict WorkloadUpdateMethod = "Evict"
 )
 
-//
 // KubeVirtWorkloadUpdateStrategy defines options related to updating a KubeVirt install
 type KubeVirtWorkloadUpdateStrategy struct {
 	// WorkloadUpdateMethods defines the methods that can be used to disrupt workloads

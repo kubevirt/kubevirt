@@ -53,6 +53,8 @@ type HostDisk struct {
 	Capacity resource.Quantity `json:"capacity,omitempty"`
 	// Shared indicate whether the path is shared between nodes
 	Shared *bool `json:"shared,omitempty"`
+	// The format of HostDisk image file
+	Format ImageFileFormat `json:"format,omitempty"`
 }
 
 // ConfigMapVolumeSource adapts a ConfigMap into a volume.

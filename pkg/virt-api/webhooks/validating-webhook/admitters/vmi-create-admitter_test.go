@@ -3359,6 +3359,44 @@ var _ = Describe("Validating VMICreate Admitter", func() {
 			Expect(causes).To(BeEmpty())
 		})
 
+		It("should reject hostDisk volumes if the hostDisk.Type is DiskOrCreate when image is qcow2 format", func() {
+			enableFeatureGate(virtconfig.HostDiskGate)
+			vmi := api.NewMinimalVMI("testvmi")
+
+			vmi.Spec.Volumes = append(vmi.Spec.Volumes, v1.Volume{
+				Name: "testHostDisk",
+				VolumeSource: v1.VolumeSource{
+					HostDisk: &v1.HostDisk{
+						Type:   v1.HostDiskExistsOrCreate,
+						Path:   "/hostdisktest.qcow2",
+						Format: "qcow2",
+					},
+				},
+			})
+
+			causes := validateVolumes(k8sfield.NewPath("fake"), vmi.Spec.Volumes, config)
+			Expect(causes).To(BeEmpty())
+		})
+
+		It("should accept hostDisk volumes if the hostDisk.Type is Disk when image is qcow2 format", func() {
+			enableFeatureGate(virtconfig.HostDiskGate)
+			vmi := api.NewMinimalVMI("testvmi")
+
+			vmi.Spec.Volumes = append(vmi.Spec.Volumes, v1.Volume{
+				Name: "testHostDisk",
+				VolumeSource: v1.VolumeSource{
+					HostDisk: &v1.HostDisk{
+						Type:   v1.HostDiskExists,
+						Path:   "/hostdisktest.qcow2",
+						Format: "qcow2",
+					},
+				},
+			})
+
+			causes := validateVolumes(k8sfield.NewPath("fake"), vmi.Spec.Volumes, config)
+			Expect(causes).To(BeEmpty())
+		})
+
 		It("should accept sysprep volumes", func() {
 			vmi := api.NewMinimalVMI("fake-vmi")
 			vmi.Spec.Volumes = append(vmi.Spec.Volumes, v1.Volume{

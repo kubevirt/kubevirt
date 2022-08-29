@@ -6413,6 +6413,9 @@ var CRDsValidation map[string]string = map[string]string{
                             description: Capacity of the sparse disk
                             pattern: ^(\+|-)?(([0-9]+(\.[0-9]*)?)|(\.[0-9]+))(([KMGTPE]i)|[numkMGTPE]|([eE](\+|-)?(([0-9]+(\.[0-9]*)?)|(\.[0-9]+))))?$
                             x-kubernetes-int-or-string: true
+                          format:
+                            description: The format of HostDisk image file
+                            type: string
                           path:
                             description: The path to HostDisk image located on the
                               cluster
@@ -10483,6 +10486,9 @@ var CRDsValidation map[string]string = map[string]string{
                     description: Capacity of the sparse disk
                     pattern: ^(\+|-)?(([0-9]+(\.[0-9]*)?)|(\.[0-9]+))(([KMGTPE]i)|[numkMGTPE]|([eE](\+|-)?(([0-9]+(\.[0-9]*)?)|(\.[0-9]+))))?$
                     x-kubernetes-int-or-string: true
+                  format:
+                    description: The format of HostDisk image file
+                    type: string
                   path:
                     description: The path to HostDisk image located on the cluster
                     type: string
@@ -14947,6 +14953,9 @@ var CRDsValidation map[string]string = map[string]string{
                             description: Capacity of the sparse disk
                             pattern: ^(\+|-)?(([0-9]+(\.[0-9]*)?)|(\.[0-9]+))(([KMGTPE]i)|[numkMGTPE]|([eE](\+|-)?(([0-9]+(\.[0-9]*)?)|(\.[0-9]+))))?$
                             x-kubernetes-int-or-string: true
+                          format:
+                            description: The format of HostDisk image file
+                            type: string
                           path:
                             description: The path to HostDisk image located on the
                               cluster
@@ -18980,6 +18989,9 @@ var CRDsValidation map[string]string = map[string]string{
                                     description: Capacity of the sparse disk
                                     pattern: ^(\+|-)?(([0-9]+(\.[0-9]*)?)|(\.[0-9]+))(([KMGTPE]i)|[numkMGTPE]|([eE](\+|-)?(([0-9]+(\.[0-9]*)?)|(\.[0-9]+))))?$
                                     x-kubernetes-int-or-string: true
+                                  format:
+                                    description: The format of HostDisk image file
+                                    type: string
                                   path:
                                     description: The path to HostDisk image located
                                       on the cluster
@@ -23683,6 +23695,10 @@ var CRDsValidation map[string]string = map[string]string{
                                         description: Capacity of the sparse disk
                                         pattern: ^(\+|-)?(([0-9]+(\.[0-9]*)?)|(\.[0-9]+))(([KMGTPE]i)|[numkMGTPE]|([eE](\+|-)?(([0-9]+(\.[0-9]*)?)|(\.[0-9]+))))?$
                                         x-kubernetes-int-or-string: true
+                                      format:
+                                        description: The format of HostDisk image
+                                          file
+                                        type: string
                                       path:
                                         description: The path to HostDisk image located
                                           on the cluster
