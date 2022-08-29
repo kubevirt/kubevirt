@@ -201,6 +201,8 @@ var _ = Describe("Application", func() {
 			SecretInformer:            secretInformer,
 			VMSnapshotInformer:        vmSnapshotInformer,
 			VMSnapshotContentInformer: vmSnapshotContentInformer,
+			VMInformer:                vmInformer,
+			VMIInformer:               vmiInformer,
 		}
 		app.exportController.Init()
 		app.persistentVolumeClaimInformer = pvcInformer

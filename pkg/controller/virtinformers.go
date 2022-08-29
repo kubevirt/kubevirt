@@ -566,8 +566,22 @@ func GetVirtualMachineExportInformerIndexers() cache.Indexers {
 			}
 
 			if export.Spec.Source.APIGroup != nil &&
-				*export.Spec.Source.APIGroup == core.GroupName &&
+				*export.Spec.Source.APIGroup == snapshotv1.SchemeGroupVersion.Group &&
 				export.Spec.Source.Kind == "VirtualMachineSnapshot" {
+				return []string{fmt.Sprintf("%s/%s", export.Namespace, export.Spec.Source.Name)}, nil
+			}
+
+			return nil, nil
+		},
+		"vm": func(obj interface{}) ([]string, error) {
+			export, ok := obj.(*exportv1.VirtualMachineExport)
+			if !ok {
+				return nil, unexpectedObjectError
+			}
+
+			if export.Spec.Source.APIGroup != nil &&
+				*export.Spec.Source.APIGroup == core.GroupName &&
+				export.Spec.Source.Kind == "VirtualMachine" {
 				return []string{fmt.Sprintf("%s/%s", export.Namespace, export.Spec.Source.Name)}, nil
 			}
 

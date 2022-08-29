@@ -737,6 +737,8 @@ func (vca *VirtControllerApp) initExportController() {
 		VolumeSnapshotProvider:    vca.snapshotController,
 		VMSnapshotInformer:        vca.vmSnapshotInformer,
 		VMSnapshotContentInformer: vca.vmSnapshotContentInformer,
+		VMInformer:                vca.vmInformer,
+		VMIInformer:               vca.vmiInformer,
 	}
 	vca.exportController.Init()
 }

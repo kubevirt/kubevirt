@@ -907,7 +907,6 @@ var _ = SIGDescribe("VirtualMachineRestore Tests", func() {
 
 				By(creatingSnapshot)
 				snapshot = createSnapshot(vm)
-
 				for i := 0; i < 2; i++ {
 					By(fmt.Sprintf("Restoring VM iteration %d", i))
 					restore = createRestoreDef(vm.Name, snapshot.Name)
