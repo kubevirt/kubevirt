@@ -1425,8 +1425,8 @@ rpmtree(
     ],
     symlinks = {
         "/var/run": "../run",
-        "/usr/bin/python": "/usr/bin/python3.6",
-        "/usr/bin/python3": "/usr/bin/python3.6",
+        "/usr/bin/python": "/usr/bin/python3.9",
+        "/usr/bin/python3": "/usr/bin/python3.9",
         "/usr/bin/ld": "/usr/bin/ld.bfd",
     },
     visibility = ["//visibility:public"],
@@ -1534,8 +1534,8 @@ rpmtree(
     ],
     symlinks = {
         "/var/run": "../run",
-        "/usr/bin/python": "/usr/bin/python3.6",
-        "/usr/bin/python3": "/usr/bin/python3.6",
+        "/usr/bin/python": "/usr/bin/python3.9",
+        "/usr/bin/python3": "/usr/bin/python3.9",
         "/usr/bin/ld": "/usr/bin/ld.bfd",
     },
     visibility = ["//visibility:public"],

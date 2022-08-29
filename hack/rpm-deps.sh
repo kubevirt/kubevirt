@@ -38,7 +38,7 @@ fi
 
 centos_main="
   acl
-  curl
+  curl-minimal
   vim-minimal
 "
 centos_extra="
@@ -77,7 +77,7 @@ sandboxroot_main="
   findutils
   gcc
   glibc-static
-  python36
+  python3
   sssd-client
 "
 
@@ -90,7 +90,7 @@ launcherbase_main="
 "
 launcherbase_x86_64="
   edk2-ovmf-${EDK2_VERSION}
-  qemu-kvm-hw-usbredir-${QEMU_VERSION}
+  qemu-kvm-device-usb-redirect-${QEMU_VERSION}
   seabios-${SEABIOS_VERSION}
 "
 launcherbase_aarch64="
@@ -99,7 +99,7 @@ launcherbase_aarch64="
 launcherbase_extra="
   ethtool
   findutils
-  iptables
+  iptables-nft
   nftables
   nmap-ncat
   procps-ng
@@ -116,7 +116,7 @@ handlerbase_main="
 handlerbase_extra="
   findutils
   iproute
-  iptables
+  iptables-nft
   nftables
   procps-ng
   selinux-policy
