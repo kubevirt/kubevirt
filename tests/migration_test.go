@@ -2573,7 +2573,7 @@ var _ = Describe("[rfe_id:393][crit:high][vendor:cnv-qe@redhat.com][level:system
 					Skip("Skip DataVolume tests when CDI is not present")
 				}
 
-				quantity, err := resource.ParseQuantity("5Gi")
+				quantity, err := resource.ParseQuantity(cd.FedoraVolumeSize)
 				Expect(err).ToNot(HaveOccurred())
 
 				url := "docker://" + cd.ContainerDiskFor(cd.ContainerDiskFedoraTestTooling)
