@@ -31,6 +31,7 @@ import (
 	. "github.com/onsi/gomega"
 
 	k8sv1 "k8s.io/api/core/v1"
+	k8serrors "k8s.io/apimachinery/pkg/api/errors"
 	k8smetav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/util/wait"
 
@@ -101,6 +102,7 @@ var _ = Describe("[Serial]SRIOV", func() {
 			vmi := newSRIOVVmi([]string{sriovnet1}, defaultCloudInitNetworkData())
 			vmi, err := createVMIAndWait(vmi)
 			Expect(err).ToNot(HaveOccurred())
+			DeferCleanup(deleteVMI, vmi)
 
 			vmim := tests.NewRandomMigration(vmi.Name, vmi.Namespace)
 			Eventually(func() error {
@@ -126,6 +128,7 @@ var _ = Describe("[Serial]SRIOV", func() {
 			}
 			vmi, err := createVMIAndWait(vmi)
 			Expect(err).ToNot(HaveOccurred())
+			DeferCleanup(deleteVMI, vmi)
 
 			domXml, err := tests.GetRunningVirtualMachineInstanceDomainXML(virtClient, vmi)
 			Expect(err).ToNot(HaveOccurred())
@@ -193,6 +196,7 @@ var _ = Describe("[Serial]SRIOV", func() {
 			}
 			vmi, err := createVMIAndWait(vmi)
 			Expect(err).ToNot(HaveOccurred())
+			DeferCleanup(deleteVMI, vmi)
 
 			domXml, err := tests.GetRunningVirtualMachineInstanceDomainXML(virtClient, vmi)
 			Expect(err).ToNot(HaveOccurred())
@@ -241,6 +245,7 @@ var _ = Describe("[Serial]SRIOV", func() {
 			vmi := newSRIOVVmi([]string{sriovnet1}, defaultCloudInitNetworkData())
 			vmi, err := createVMIAndWait(vmi)
 			Expect(err).ToNot(HaveOccurred())
+			DeferCleanup(deleteVMI, vmi)
 
 			By("checking KUBEVIRT_RESOURCE_NAME_<networkName> variable is defined in pod")
 			Expect(validatePodKubevirtResourceNameByVMI(virtClient, vmi, sriovnet1, sriovResourceName)).To(Succeed())
@@ -262,6 +267,7 @@ var _ = Describe("[Serial]SRIOV", func() {
 			}
 			vmi, err := createVMIAndWait(vmi)
 			Expect(err).ToNot(HaveOccurred())
+			DeferCleanup(deleteVMI, vmi)
 
 			By("checking KUBEVIRT_RESOURCE_NAME_<networkName> variable is defined in pod")
 			Expect(validatePodKubevirtResourceNameByVMI(virtClient, vmi, sriovnet1, sriovResourceName)).To(Succeed())
@@ -293,6 +299,7 @@ var _ = Describe("[Serial]SRIOV", func() {
 			}
 			vmi, err := createVMIAndWait(vmi)
 			Expect(err).ToNot(HaveOccurred())
+			DeferCleanup(deleteVMI, vmi)
 
 			By("checking KUBEVIRT_RESOURCE_NAME_<networkName> variable is defined in pod")
 			Expect(validatePodKubevirtResourceNameByVMI(virtClient, vmi, sriovnet1, sriovResourceName)).To(Succeed())
@@ -309,6 +316,7 @@ var _ = Describe("[Serial]SRIOV", func() {
 
 			vmi, err := createVMIAndWait(vmi)
 			Expect(err).ToNot(HaveOccurred())
+			DeferCleanup(deleteVMI, vmi)
 
 			By("checking virtual machine instance has an interface with the requested MAC address")
 			ifaceName, err := findIfaceByMAC(virtClient, vmi, mac, 140*time.Second)
@@ -345,6 +353,7 @@ var _ = Describe("[Serial]SRIOV", func() {
 				var err error
 				vmi, err = createVMIAndWait(vmi)
 				Expect(err).ToNot(HaveOccurred())
+				DeferCleanup(deleteVMI, vmi)
 
 				ifaceName, err := findIfaceByMAC(virtClient, vmi, mac, 30*time.Second)
 				Expect(err).NotTo(HaveOccurred())
@@ -384,6 +393,7 @@ var _ = Describe("[Serial]SRIOV", func() {
 
 			vmi, err := createVMIAndWait(vmi)
 			Expect(err).ToNot(HaveOccurred())
+			DeferCleanup(deleteVMI, vmi)
 
 			By("checking KUBEVIRT_RESOURCE_NAME_<networkName> variables are defined in pod")
 			for _, name := range sriovNetworks {
@@ -425,8 +435,10 @@ var _ = Describe("[Serial]SRIOV", func() {
 			//create two vms on the same sriov network
 			vmi1, err := createSRIOVVmiOnNode(sriovNode, sriovnetLinkEnabled, cidrA)
 			Expect(err).ToNot(HaveOccurred())
+			DeferCleanup(deleteVMI, vmi1)
 			vmi2, err := createSRIOVVmiOnNode(sriovNode, sriovnetLinkEnabled, cidrB)
 			Expect(err).ToNot(HaveOccurred())
+			DeferCleanup(deleteVMI, vmi2)
 
 			vmi1, err = waitVMI(vmi1)
 			Expect(err).NotTo(HaveOccurred())
@@ -452,8 +464,10 @@ var _ = Describe("[Serial]SRIOV", func() {
 			//create two vms on the same sriov network
 			vmi1, err := createSRIOVVmiOnNode(sriovNode, sriovnetLinkEnabled, vmi1CIDR)
 			Expect(err).ToNot(HaveOccurred())
+			DeferCleanup(deleteVMI, vmi1)
 			vmi2, err := createSRIOVVmiOnNode(sriovNode, sriovnetLinkEnabled, vmi2CIDR)
 			Expect(err).ToNot(HaveOccurred())
+			DeferCleanup(deleteVMI, vmi2)
 
 			vmi1, err = waitVMI(vmi1)
 			Expect(err).NotTo(HaveOccurred())
@@ -485,8 +499,10 @@ var _ = Describe("[Serial]SRIOV", func() {
 			It("should be able to ping between two VMIs with the same VLAN over SRIOV network", func() {
 				vlanedVMI1, err := createSRIOVVmiOnNode(sriovNode, sriovnetVlanned, cidrVlaned1)
 				Expect(err).ToNot(HaveOccurred())
+				DeferCleanup(deleteVMI, vlanedVMI1)
 				vlanedVMI2, err := createSRIOVVmiOnNode(sriovNode, sriovnetVlanned, "192.168.0.2/24")
 				Expect(err).ToNot(HaveOccurred())
+				DeferCleanup(deleteVMI, vlanedVMI2)
 
 				_, err = waitVMI(vlanedVMI1)
 				Expect(err).NotTo(HaveOccurred())
@@ -502,8 +518,10 @@ var _ = Describe("[Serial]SRIOV", func() {
 			It("should NOT be able to ping between Vlaned VMI and a non Vlaned VMI", func() {
 				vlanedVMI, err := createSRIOVVmiOnNode(sriovNode, sriovnetVlanned, cidrVlaned1)
 				Expect(err).ToNot(HaveOccurred())
+				DeferCleanup(deleteVMI, vlanedVMI)
 				nonVlanedVMI, err := createSRIOVVmiOnNode(sriovNode, sriovnetLinkEnabled, "192.168.0.3/24")
 				Expect(err).ToNot(HaveOccurred())
+				DeferCleanup(deleteVMI, nonVlanedVMI)
 
 				_, err = waitVMI(vlanedVMI)
 				Expect(err).NotTo(HaveOccurred())
@@ -679,6 +697,34 @@ func waitVMI(vmi *v1.VirtualMachineInstance) (*v1.VirtualMachineInstance, error)
 	tests.WaitAgentConnected(virtClient, vmi)
 
 	return virtClient.VirtualMachineInstance(vmi.Namespace).Get(vmi.Name, &k8smetav1.GetOptions{})
+}
+
+// deleteVMI deletes the specified VMI and waits for its absence.
+// Waiting for the VMI removal is placed intentionally for VMI/s with SR-IOV networks in order
+// to assure resources (VF/s) are fully released before reused again on a new VMI.
+// Ref: https://github.com/k8snetworkplumbingwg/sriov-cni/issues/219
+func deleteVMI(vmi *v1.VirtualMachineInstance) error {
+	virtClient, err := kubecli.GetKubevirtClient()
+	if err != nil {
+		panic(err)
+	}
+
+	GinkgoWriter.Println("sriov:", vmi.Name, "deletion started")
+	if err = virtClient.VirtualMachineInstance(vmi.Namespace).Delete(vmi.Name, &k8smetav1.DeleteOptions{}); err != nil {
+		if k8serrors.IsNotFound(err) {
+			return nil
+		}
+		return fmt.Errorf("failed to delete VMI: %v", err)
+	}
+
+	const timeout = 30 * time.Second
+	return wait.PollImmediate(1*time.Second, timeout, func() (done bool, err error) {
+		_, err = virtClient.VirtualMachineInstance(vmi.Namespace).Get(vmi.Name, &k8smetav1.GetOptions{})
+		if k8serrors.IsNotFound(err) {
+			return true, nil
+		}
+		return false, err
+	})
 }
 
 func checkDefaultInterfaceInPod(vmi *v1.VirtualMachineInstance) error {
