@@ -22,26 +22,28 @@ package rest
 import (
 	"crypto/tls"
 	"crypto/x509"
+	"errors"
 	"net/http"
 	"net/url"
 
 	restful "github.com/emicklei/go-restful"
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
-	"github.com/onsi/gomega/ghttp"
-	authorizationclient "k8s.io/client-go/kubernetes/typed/authorization/v1"
-	"k8s.io/client-go/tools/clientcmd"
+	authorization "k8s.io/api/authorization/v1"
+	"k8s.io/apimachinery/pkg/runtime"
+	"k8s.io/client-go/kubernetes/fake"
+	"k8s.io/client-go/testing"
 )
 
 var _ = Describe("Authorizer", func() {
 
 	Describe("VirtualMachineInstance Subresources", func() {
-		var server *ghttp.Server
-		var req *restful.Request
+		var (
+			req        *restful.Request
+			sarHandler func(sar *authorization.SubjectAccessReview) (*authorization.SubjectAccessReview, error)
+			app        VirtApiAuthorizor
+		)
 
-		fakecert := &x509.Certificate{}
-
-		app := authorizor{}
 		BeforeEach(func() {
 			req = &restful.Request{}
 			req.Request = &http.Request{}
@@ -52,22 +54,31 @@ var _ = Describe("Authorizer", func() {
 			req.Request.Header[userExtraHeaderPrefix+"test"] = []string{"userExtraValue"}
 			req.Request.Method = http.MethodGet
 			req.Request.URL.Path = "/apis/subresources.kubevirt.io/v1alpha3/namespaces/default/virtualmachineinstances/testvmi/console"
+			req.Request.TLS = &tls.ConnectionState{}
+			req.Request.TLS.PeerCertificates = append(req.Request.TLS.PeerCertificates, &x509.Certificate{})
 
-			server = ghttp.NewServer()
-			config, err := clientcmd.BuildConfigFromFlags(server.URL(), "")
-			Expect(err).ToNot(HaveOccurred())
+			sarHandler = func(sar *authorization.SubjectAccessReview) (*authorization.SubjectAccessReview, error) {
+				panic("unexpected call to sarHandler")
+			}
 
-			client, err := authorizationclient.NewForConfig(config)
-			Expect(err).ToNot(HaveOccurred())
+			kubeClient := fake.NewSimpleClientset()
+			kubeClient.Fake.PrependReactor("create", "subjectaccessreviews", func(action testing.Action) (handled bool, ret runtime.Object, err error) {
+				create, ok := action.(testing.CreateAction)
+				Expect(ok).To(BeTrue())
+				sar, ok := create.GetObject().(*authorization.SubjectAccessReview)
+				Expect(ok).To(BeTrue())
 
-			app.subjectAccessReview = client.SubjectAccessReviews()
-			app.userHeaders = append(app.userHeaders, userHeader)
-			app.groupHeaders = append(app.groupHeaders, groupHeader)
-			app.userExtraHeaderPrefixes = append(app.userExtraHeaderPrefixes, userExtraHeaderPrefix)
+				sarOut, err := sarHandler(sar)
+				return true, sarOut, err
+			})
+
+			app = NewAuthorizorFromClient(kubeClient.AuthorizationV1().SubjectAccessReviews())
 		})
 
 		Context("Subresource api", func() {
 			It("should reject unauthenticated user", func() {
+				req.Request.TLS = nil
+
 				allowed, reason, err := app.Authorize(req)
 				Expect(err).ToNot(HaveOccurred())
 				Expect(allowed).To(BeFalse())
@@ -75,21 +86,11 @@ var _ = Describe("Authorizer", func() {
 			})
 
 			It("should reject unauthorized user", func() {
-
-				req.Request.TLS = &tls.ConnectionState{}
-				req.Request.TLS.PeerCertificates = append(req.Request.TLS.PeerCertificates, fakecert)
-
-				result, err := app.generateAccessReview(req)
-				Expect(err).ToNot(HaveOccurred())
-				result.Status.Allowed = false
-				result.Status.Reason = "just because"
-
-				server.AppendHandlers(
-					ghttp.CombineHandlers(
-						ghttp.VerifyRequest("POST", "/apis/authorization.k8s.io/v1/subjectaccessreviews"),
-						ghttp.RespondWithJSONEncoded(http.StatusOK, result),
-					),
-				)
+				sarHandler = func(sar *authorization.SubjectAccessReview) (*authorization.SubjectAccessReview, error) {
+					sar.Status.Allowed = false
+					sar.Status.Reason = "just because"
+					return sar, nil
+				}
 
 				allowed, reason, err := app.Authorize(req)
 				Expect(err).ToNot(HaveOccurred())
@@ -98,20 +99,10 @@ var _ = Describe("Authorizer", func() {
 			})
 
 			It("should allow authorized user", func() {
-
-				req.Request.TLS = &tls.ConnectionState{}
-				req.Request.TLS.PeerCertificates = append(req.Request.TLS.PeerCertificates, fakecert)
-
-				result, err := app.generateAccessReview(req)
-				Expect(err).ToNot(HaveOccurred())
-				result.Status.Allowed = true
-
-				server.AppendHandlers(
-					ghttp.CombineHandlers(
-						ghttp.VerifyRequest("POST", "/apis/authorization.k8s.io/v1/subjectaccessreviews"),
-						ghttp.RespondWithJSONEncoded(http.StatusOK, result),
-					),
-				)
+				sarHandler = func(sar *authorization.SubjectAccessReview) (*authorization.SubjectAccessReview, error) {
+					sar.Status.Allowed = true
+					return sar, nil
+				}
 
 				allowed, _, err := app.Authorize(req)
 				Expect(err).ToNot(HaveOccurred())
@@ -119,16 +110,9 @@ var _ = Describe("Authorizer", func() {
 			})
 
 			It("should not allow user if auth check fails", func() {
-
-				req.Request.TLS = &tls.ConnectionState{}
-				req.Request.TLS.PeerCertificates = append(req.Request.TLS.PeerCertificates, fakecert)
-
-				server.AppendHandlers(
-					ghttp.CombineHandlers(
-						ghttp.VerifyRequest("POST", "/apis/authorization.k8s.io/v1/subjectaccessreviews"),
-						ghttp.RespondWithJSONEncoded(http.StatusInternalServerError, nil),
-					),
-				)
+				sarHandler = func(sar *authorization.SubjectAccessReview) (*authorization.SubjectAccessReview, error) {
+					return nil, errors.New("internal error")
+				}
 
 				allowed, _, err := app.Authorize(req)
 				Expect(err).To(HaveOccurred())
@@ -136,6 +120,7 @@ var _ = Describe("Authorizer", func() {
 			})
 
 			DescribeTable("should allow all users for info endpoints", func(path string) {
+				req.Request.TLS = nil
 				req.Request.URL.Path = path
 				allowed, _, err := app.Authorize(req)
 				Expect(err).ToNot(HaveOccurred())
@@ -152,8 +137,6 @@ var _ = Describe("Authorizer", func() {
 			)
 
 			DescribeTable("should reject all users for unknown endpoint paths", func(path string) {
-				req.Request.TLS = &tls.ConnectionState{}
-				req.Request.TLS.PeerCertificates = append(req.Request.TLS.PeerCertificates, fakecert)
 				req.Request.URL.Path = path
 				allowed, _, err := app.Authorize(req)
 				Expect(err).ToNot(HaveOccurred())
@@ -166,11 +149,6 @@ var _ = Describe("Authorizer", func() {
 				Entry("invalid resource type", "/apis/subresources.kubevirt.io/v1alpha3/namespaces/default/madeupresource/testvmi/console"),
 			)
 		})
-
-		AfterEach(func() {
-			server.Close()
-		})
-
 	})
 
 	DescribeTable("should map verbs", func(httpVerb string, resourceName string, expectedRbacVerb string) {
