@@ -154,14 +154,6 @@ type templateService struct {
 	launcherSubGid             int64
 }
 
-type PvcNotFoundError struct {
-	Reason string
-}
-
-func (e PvcNotFoundError) Error() string {
-	return e.Reason
-}
-
 func isFeatureStateEnabled(fs *v1.FeatureState) bool {
 	return fs != nil && fs.Enabled != nil && *fs.Enabled
 }

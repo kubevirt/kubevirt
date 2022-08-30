@@ -50,6 +50,7 @@ import (
 
 	"kubevirt.io/kubevirt/pkg/hooks"
 	"kubevirt.io/kubevirt/pkg/network/istio"
+	storagetypes "kubevirt.io/kubevirt/pkg/storage/types"
 	"kubevirt.io/kubevirt/pkg/testutils"
 	"kubevirt.io/kubevirt/pkg/util"
 	virtconfig "kubevirt.io/kubevirt/pkg/virt-config"
@@ -2224,7 +2225,7 @@ var _ = Describe("Template", func() {
 
 				_, err := svc.RenderLaunchManifest(&vmi)
 				Expect(err).To(HaveOccurred(), "Render manifest results in an error")
-				Expect(err).To(BeAssignableToTypeOf(PvcNotFoundError{}), "Render manifest results in an PvsNotFoundError")
+				Expect(err).To(BeAssignableToTypeOf(storagetypes.PvcNotFoundError{}), "Render manifest results in an PvsNotFoundError")
 			})
 		})
 

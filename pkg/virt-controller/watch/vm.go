@@ -79,6 +79,16 @@ const (
 	failedProcessDeleteNotificationErrMsg = "Failed to process delete notification"
 	failureDeletingVmiErrFormat           = "Failure attempting to delete VMI: %v"
 	failedMemoryDump                      = "Memory dump failed"
+
+	// UnauthorizedDataVolumeCreateReason is added in an event when the DataVolume
+	// ServiceAccount doesn't have permission to create a DataVolume
+	UnauthorizedDataVolumeCreateReason = "UnauthorizedDataVolumeCreate"
+	// FailedDataVolumeCreateReason is added in an event when posting a dynamically
+	// generated dataVolume to the cluster fails.
+	FailedDataVolumeCreateReason = "FailedDataVolumeCreate"
+	// SuccessfulDataVolumeCreateReason is added in an event when a dynamically generated
+	// dataVolume is successfully created
+	SuccessfulDataVolumeCreateReason = "SuccessfulDataVolumeCreate"
 )
 
 const (

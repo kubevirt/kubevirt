@@ -32,10 +32,19 @@ import (
 	virtv1 "kubevirt.io/api/core/v1"
 	"kubevirt.io/client-go/log"
 	cdiv1 "kubevirt.io/containerized-data-importer-api/pkg/apis/core/v1beta1"
+
 	"kubevirt.io/kubevirt/pkg/controller"
 )
 
 const MiB = 1024 * 1024
+
+type PvcNotFoundError struct {
+	Reason string
+}
+
+func (e PvcNotFoundError) Error() string {
+	return e.Reason
+}
 
 func IsPVCBlockFromStore(store cache.Store, namespace string, claimName string) (pvc *k8sv1.PersistentVolumeClaim, exists bool, isBlockDevice bool, err error) {
 	obj, exists, err := store.GetByKey(namespace + "/" + claimName)
@@ -198,4 +207,34 @@ func HasPVCBinding(namespace string, volumes []virtv1.Volume, pvcInformer cache.
 	}
 
 	return false
+}
+
+func VolumeReadyToAttachToNode(namespace string, volume virtv1.Volume, dataVolumes []*cdiv1.DataVolume, dataVolumeInformer, pvcInformer cache.SharedIndexInformer) (bool, bool, error) {
+	name := PVCNameFromVirtVolume(&volume)
+
+	dataVolumeFunc := DataVolumeByNameFunc(dataVolumeInformer, dataVolumes)
+	wffc := false
+	ready := false
+	// err is always nil
+	pvcInterface, pvcExists, _ := pvcInformer.GetStore().GetByKey(fmt.Sprintf("%s/%s", namespace, name))
+	if pvcExists {
+		var err error
+		pvc := pvcInterface.(*k8sv1.PersistentVolumeClaim)
+		ready, err = cdiv1.IsPopulated(pvc, dataVolumeFunc)
+		if err != nil {
+			return false, false, err
+		}
+		if !ready {
+			waitsForFirstConsumer, err := cdiv1.IsWaitForFirstConsumerBeforePopulating(pvc, dataVolumeFunc)
+			if err != nil {
+				return false, false, err
+			}
+			if waitsForFirstConsumer {
+				wffc = true
+			}
+		}
+	} else {
+		return false, false, PvcNotFoundError{Reason: fmt.Sprintf("didn't find PVC %v", name)}
+	}
+	return ready, wffc, nil
 }
