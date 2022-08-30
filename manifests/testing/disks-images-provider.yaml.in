@@ -16,6 +16,9 @@ spec:
         kubevirt.io: disks-images-provider
       name: disks-images-provider
     spec:
+      tolerations:
+        - key: CriticalAddonsOnly
+          operator: Exists
       serviceAccountName: kubevirt-testing
       containers:
         - name: target
