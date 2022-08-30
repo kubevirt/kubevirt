@@ -26,7 +26,6 @@ import (
 	"os"
 	"os/exec"
 	"path/filepath"
-	"regexp"
 	"strings"
 
 	log "github.com/sirupsen/logrus"
@@ -57,12 +56,6 @@ type ginkgoNode struct {
 	Nodes []*ginkgoNode `json:"nodes"`
 }
 
-var skipLeaves *regexp.Regexp
-
-func init() {
-	skipLeaves = regexp.MustCompile("By|BeforeEach|AfterEach")
-}
-
 func main() {
 	workDir, err := os.Getwd()
 	fatalIfErr("could not get work dir", err)
@@ -72,6 +65,7 @@ func main() {
 		fatalIfErr("error finding ginkgo binary", err)
 	}
 
+	testNamesUnique := map[string]struct{}{}
 	err = filepath.WalkDir(filepath.Join(workDir, "tests"), func(path string, d fs.DirEntry, err error) error {
 		if d.IsDir() || !strings.HasSuffix(d.Name(), ".go") || strings.HasSuffix(d.Name(), "_suite_test.go") {
 			return nil
@@ -82,7 +76,7 @@ func main() {
 		outlineCmd := exec.Command("_out/tests/ginkgo", "outline", "--format=json", filename)
 		bytes, err := outlineCmd.Output()
 		if err != nil {
-			log.Debugf(fmt.Sprintf("%q: error fetching ginkgo outline output for: %v", filename), err)
+			log.Debug(fmt.Sprintf("%q: error fetching ginkgo outline output for: %v", filename, err))
 			return nil
 		}
 
@@ -90,7 +84,6 @@ func main() {
 		json.Unmarshal(bytes, &nodes)
 
 		testNames := expandTestNames("", nodes)
-		testNamesUnique := map[string]struct{}{}
 		for _, testName := range testNames {
 			if _, exists := testNamesUnique[testName]; exists {
 				return fmt.Errorf("%q: test name not unique: %q", filename, testName)
@@ -107,17 +100,18 @@ func main() {
 func expandTestNames(parentText string, nodes []*ginkgoNode) []string {
 	var result []string
 	for _, node := range nodes {
-		if node.Text == "undefined" {
+		trimmedNodeTextWithParent := strings.Trim(fmt.Sprintf("%s %s", parentText, node.Text), " ")
+		// node.Spec is only true for *It, *Specify, *Entry elements
+		if node.Spec == true {
+			// if the description inside a spec is itself referencing a const, then it will appear as "undefined" here
+			// see tests/network/expose.go:207
+			if node.Text != "undefined" {
+				result = append(result, trimmedNodeTextWithParent)
+			}
 			continue
 		}
-		trimmedNodeTextWithParent := strings.Trim(fmt.Sprintf("%s %s", parentText, node.Text), " ")
 		if len(node.Nodes) > 0 {
 			result = append(result, expandTestNames(trimmedNodeTextWithParent, node.Nodes)...)
-		} else {
-			if skipLeaves.MatchString(node.Name) {
-				continue
-			}
-			result = append(result, trimmedNodeTextWithParent)
 		}
 	}
 	return result
