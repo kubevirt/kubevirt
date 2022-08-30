@@ -138,25 +138,6 @@ func (a *authorizor) generateAccessReview(req *restful.Request) (*authorization.
 		return nil, fmt.Errorf("no URL in http request")
 	}
 
-	// URL example
-	// /apis/subresources.kubevirt.io/v1alpha3/namespaces/default/virtualmachineinstances/testvmi/console
-	pathSplit := strings.Split(url.Path, "/")
-	if len(pathSplit) < 9 {
-		return nil, fmt.Errorf("unknown api endpoint %s", url.Path)
-	}
-
-	group := pathSplit[2]
-	version := pathSplit[3]
-	namespace := pathSplit[5]
-	resource := pathSplit[6]
-	resourceName := pathSplit[7]
-	subresource := pathSplit[8]
-	userExtras := a.getUserExtras(headers)
-
-	if resource != "virtualmachineinstances" && resource != "virtualmachines" {
-		return nil, fmt.Errorf("unknown resource type %s", resource)
-	}
-
 	userName, err := a.getUserName(headers)
 	if err != nil {
 		return nil, err
@@ -167,19 +148,50 @@ func (a *authorizor) generateAccessReview(req *restful.Request) (*authorization.
 		return nil, err
 	}
 
+	r := &authorization.SubjectAccessReview{}
+	r.Spec = authorization.SubjectAccessReviewSpec{
+		User:   userName,
+		Groups: userGroups,
+		Extra:  a.getUserExtras(headers),
+	}
+
+	// URL example
+	// /apis/subresources.kubevirt.io/v1alpha3/namespaces/default/virtualmachineinstances/testvmi/console
+	pathSplit := strings.Split(url.Path, "/")
+
+	resourceAttributes, err := getResourceAttributes(pathSplit, httpRequest)
+	if err != nil {
+		return nil, err
+	}
+
+	r.Spec.ResourceAttributes = resourceAttributes
+	return r, nil
+}
+
+func getResourceAttributes(pathSplit []string, httpRequest *http.Request) (*authorization.ResourceAttributes, error) {
+	// URL example
+	// /apis/subresources.kubevirt.io/v1alpha3/namespaces/default/virtualmachineinstances/testvmi/console
+	if len(pathSplit) < 9 {
+		return nil, fmt.Errorf("unknown api endpoint %s", httpRequest.URL.Path)
+	}
+
+	group := pathSplit[2]
+	version := pathSplit[3]
+	namespace := pathSplit[5]
+	resource := pathSplit[6]
+	resourceName := pathSplit[7]
+	subresource := pathSplit[8]
+
+	if resource != "virtualmachineinstances" && resource != "virtualmachines" {
+		return nil, fmt.Errorf("unknown resource type %s", resource)
+	}
+
 	verb, err := mapHttpVerbToRbacVerb(httpRequest.Method, resourceName)
 	if err != nil {
 		return nil, err
 	}
 
-	r := &authorization.SubjectAccessReview{}
-	r.Spec = authorization.SubjectAccessReviewSpec{
-		User:   userName,
-		Groups: userGroups,
-		Extra:  userExtras,
-	}
-
-	r.Spec.ResourceAttributes = &authorization.ResourceAttributes{
+	return &authorization.ResourceAttributes{
 		Namespace:   namespace,
 		Verb:        verb,
 		Group:       group,
@@ -187,9 +199,7 @@ func (a *authorizor) generateAccessReview(req *restful.Request) (*authorization.
 		Resource:    resource,
 		Subresource: subresource,
 		Name:        resourceName,
-	}
-
-	return r, nil
+	}, nil
 }
 
 func mapHttpVerbToRbacVerb(httpVerb string, name string) (string, error) {
