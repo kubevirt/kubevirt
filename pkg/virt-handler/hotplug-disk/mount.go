@@ -11,8 +11,11 @@ import (
 	"path"
 	"path/filepath"
 	"reflect"
+	"strings"
 	"sync"
 	"syscall"
+
+	"kubevirt.io/kubevirt/pkg/util"
 
 	"kubevirt.io/kubevirt/pkg/unsafepath"
 
@@ -368,7 +371,7 @@ func (m *volumeMounter) mountBlockHotplugVolume(vmi *v1.VirtualMachineInstance, 
 		if err != nil {
 			return err
 		}
-		dev, permissions, err := m.getSourceMajorMinor(sourceUID, volume)
+		dev, permissions, err := m.getSourceMajorMinor(sourceUID)
 		if err != nil {
 			return err
 		}
@@ -406,7 +409,7 @@ func (m *volumeMounter) mountBlockHotplugVolume(vmi *v1.VirtualMachineInstance, 
 		if err != nil {
 			return err
 		}
-		dev, _, err := m.getSourceMajorMinor(sourceUID, volume)
+		dev, _, err := m.getSourceMajorMinor(sourceUID)
 		if err != nil {
 			return err
 		}
@@ -432,16 +435,62 @@ func (m *volumeMounter) volumeStatusReady(volumeName string, vmi *v1.VirtualMach
 	return true
 }
 
-func (m *volumeMounter) getSourceMajorMinor(sourceUID types.UID, volumeName string) (uint64, os.FileMode, error) {
-	basePath, err := deviceBasePath(sourceUID)
-	if err != nil {
-		return 0, 0, err
+func (m *volumeMounter) getSourceMajorMinor(sourceUID types.UID) (uint64, os.FileMode, error) {
+	var result uint64
+	var perms os.FileMode
+	if sourceUID != types.UID("") {
+		basepath, err := deviceBasePath(sourceUID)
+		if err != nil {
+			return 0, 0, err
+		}
+		basepath, err = basepath.AppendAndResolveWithRelativeRoot("volumes")
+		if err != nil {
+			return 0, 0, err
+		}
+		err = basepath.ExecuteNoFollow(func(safePath string) error {
+			return filepath.Walk(safePath, func(filePath string, info os.FileInfo, err error) error {
+				if info != nil && !info.IsDir() {
+					// Walk doesn't follow symlinks which is good because I need to massage symlinks
+					linkInfo, err := os.Lstat(filePath)
+					if err != nil {
+						return err
+					}
+					path := filePath
+					if linkInfo.Mode()&os.ModeSymlink != 0 {
+						// Its a symlink, follow it
+						link, err := os.Readlink(filePath)
+						if err != nil {
+							return err
+						}
+						if !strings.HasPrefix(link, util.HostRootMount) {
+							path = filepath.Join(util.HostRootMount, link)
+						} else {
+							path = link
+						}
+					}
+					sPath, err := safepath.JoinAndResolveWithRelativeRoot("/", path)
+					if err != nil {
+						return err
+					}
+					result, perms, err = m.getBlockFileMajorMinor(sPath, statDevice)
+					// Err != nil means not a block device or unable to determine major/minor, try next file
+					if err == nil {
+						// Successfully located
+						return io.EOF
+					}
+					return nil
+				}
+				return nil
+			})
+		})
+		if err != nil && err != io.EOF {
+			return 0, 0, err
+		}
 	}
-	devicePath, err := basePath.AppendAndResolveWithRelativeRoot("volumes", volumeName)
-	if err != nil {
-		return 0, 0, err
+	if perms == 0 {
+		return 0, 0, fmt.Errorf("Unable to find block device")
 	}
-	return m.getBlockFileMajorMinor(devicePath, statSourceDevice)
+	return result, perms, nil
 }
 
 func (m *volumeMounter) getBlockFileMajorMinor(devicePath *safepath.Path, getter func(fileName *safepath.Path) (os.FileInfo, error)) (uint64, os.FileMode, error) {

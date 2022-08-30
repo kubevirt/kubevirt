@@ -55,7 +55,7 @@ func GetFileSystemDiskTargetPathFromHostView(virtlauncherPodUID types.UID, volum
 	}
 	diskPath, err := safepath.JoinNoFollow(targetPath, volumeName)
 	if err != nil && create {
-		err = safepath.MkdirAtNoFollow(targetPath, volumeName, os.ModePerm)
+		err = safepath.MkdirAtNoFollow(targetPath, volumeName, 0750)
 		if err != nil {
 			return nil, err
 		}
