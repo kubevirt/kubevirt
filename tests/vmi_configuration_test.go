@@ -2209,7 +2209,7 @@ var _ = Describe("[sig-compute]Configurations", func() {
 			// As such, relying on a specific value is flakey.
 			// As long as we have a value, the exact value doesn't matter.
 			Expect(disks[0].BlockIO.LogicalBlockSize).ToNot(BeZero())
-			// A filesystem only has a a single size so logical == physical
+			// A filesystem only has a single size so logical == physical
 			Expect(disks[0].BlockIO.LogicalBlockSize).To(Equal(disks[0].BlockIO.PhysicalBlockSize))
 		})
 	})

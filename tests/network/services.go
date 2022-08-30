@@ -288,7 +288,7 @@ var _ = SIGDescribe("Services", func() {
 					Expect(err).NotTo(HaveOccurred(), "the k8sv1.Service entity should have been created.")
 				})
 
-				By("checking connectivity the the exposed service")
+				By("checking connectivity the exposed service")
 				var err error
 
 				jobCleanup, err = assertConnectivityToService(serviceName, inboundVMI.Namespace, servicePort)

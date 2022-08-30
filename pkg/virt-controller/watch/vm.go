@@ -1361,7 +1361,7 @@ const magicUUID = "6a1a24a1-4061-4607-8bf4-a3963d0c5895"
 
 var firmwareUUIDns = uuid.Parse(magicUUID)
 
-// setStableUUID makes sure the VirtualMachineInstance being started has a a 'stable' UUID.
+// setStableUUID makes sure the VirtualMachineInstance being started has a 'stable' UUID.
 // The UUID is 'stable' if doesn't change across reboots.
 func setupStableFirmwareUUID(vm *virtv1.VirtualMachine, vmi *virtv1.VirtualMachineInstance) {
 
