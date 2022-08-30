@@ -259,12 +259,17 @@ var _ = Describe("[rfe_id:393][crit:high][vendor:cnv-qe@redhat.com][level:system
 		Expect(err).ToNot(HaveOccurred())
 	})
 
-	setMastersUnschedulable := func(mode bool) {
-		masters, err := virtClient.CoreV1().Nodes().List(context.Background(), metav1.ListOptions{LabelSelector: `node-role.kubernetes.io/master`})
-		Expect(err).ShouldNot(HaveOccurred(), "could not list master nodes")
-		Expect(masters.Items).ShouldNot(BeEmpty())
+	setControlPlaneUnschedulable := func(mode bool) {
+		controlPlaneNodes, err := virtClient.
+			CoreV1().
+			Nodes().
+			List(context.Background(),
+				metav1.ListOptions{LabelSelector: `node-role.kubernetes.io/control-plane`})
+		Expect(err).ShouldNot(HaveOccurred(), "could not list control-plane nodes")
+		Expect(controlPlaneNodes.Items).ShouldNot(BeEmpty(),
+			"There are no control-plane nodes in the cluster")
 
-		for _, node := range masters.Items {
+		for _, node := range controlPlaneNodes.Items {
 			nodeCopy := node.DeepCopy()
 			nodeCopy.Spec.Unschedulable = mode
 
@@ -3322,7 +3327,7 @@ var _ = Describe("[rfe_id:393][crit:high][vendor:cnv-qe@redhat.com][level:system
 						cfg.MigrationConfiguration.NodeDrainTaintKey = &drain
 						tests.UpdateKubeVirtConfigValueAndWait(cfg)
 					}
-					setMastersUnschedulable(true)
+					setControlPlaneUnschedulable(true)
 				})
 
 				It("[test_id:6982]should migrate a VMI only one time", func() {
@@ -3336,7 +3341,7 @@ var _ = Describe("[rfe_id:393][crit:high][vendor:cnv-qe@redhat.com][level:system
 					tests.WaitAgentConnected(virtClient, vmi)
 
 					// Mark the masters as schedulable so we can migrate there
-					setMastersUnschedulable(false)
+					setControlPlaneUnschedulable(false)
 
 					// Drain node.
 					node := vmi.Status.NodeName
@@ -3393,7 +3398,7 @@ var _ = Describe("[rfe_id:393][crit:high][vendor:cnv-qe@redhat.com][level:system
 					runStressTest(vmi, stressDefaultVMSize, stressDefaultTimeout)
 
 					// Mark the masters as schedulable so we can migrate there
-					setMastersUnschedulable(false)
+					setControlPlaneUnschedulable(false)
 
 					// Taint Node.
 					By("Tainting node with node drain key")
@@ -3436,7 +3441,7 @@ var _ = Describe("[rfe_id:393][crit:high][vendor:cnv-qe@redhat.com][level:system
 					vmi = tests.RunVMIAndExpectLaunch(vmi, 180)
 
 					// Mark the masters as schedulable so we can migrate there
-					setMastersUnschedulable(false)
+					setControlPlaneUnschedulable(false)
 
 					// Taint Node.
 					By("Tainting node with kubevirt.io/alt-drain=NoSchedule")
@@ -3529,7 +3534,7 @@ var _ = Describe("[rfe_id:393][crit:high][vendor:cnv-qe@redhat.com][level:system
 					Expect(vmi_evict1.Status.NodeName).To(Equal(vmi_noevict.Status.NodeName))
 
 					// Mark the masters as schedulable so we can migrate there
-					setMastersUnschedulable(false)
+					setControlPlaneUnschedulable(false)
 
 					// Taint Node.
 					By("Tainting node with the node drain key")

@@ -426,18 +426,20 @@ var _ = Describe("[Serial][sig-compute]Infrastructure", func() {
 				}
 
 				By("selecting one compute only node that runs kubevirt components")
-				// master nodes should never have the CriticalAddonsOnly taint because core components might not
+				// control-plane nodes should never have the CriticalAddonsOnly taint because core components might not
 				// tolerate this taint because it is meant to be used on compute nodes only. If we set this taint
-				// on a master node, we risk in breaking the test cluster.
+				// on a control-plane node, we risk in breaking the test cluster.
 				for _, pod := range pods.Items {
 					node, ok := schedulableNodes[pod.Spec.NodeName]
 					if !ok {
 						// Pod is running on a non-schedulable node?
 						continue
 					}
-					if _, isMaster := node.Labels["node-role.kubernetes.io/master"]; isMaster {
+
+					if _, isControlPlane := node.Labels["node-role.kubernetes.io/control-plane"]; isControlPlane {
 						continue
 					}
+
 					selectedNodeName = node.Name
 					break
 				}
