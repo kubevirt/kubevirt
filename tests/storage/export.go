@@ -36,6 +36,7 @@ import (
 	k8sv1 "k8s.io/api/core/v1"
 	networkingv1 "k8s.io/api/networking/v1"
 	storagev1 "k8s.io/api/storage/v1"
+	"k8s.io/apimachinery/pkg/api/equality"
 	"k8s.io/apimachinery/pkg/api/errors"
 	"k8s.io/apimachinery/pkg/api/resource"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
@@ -43,6 +44,7 @@ import (
 	"k8s.io/apimachinery/pkg/util/rand"
 	"k8s.io/utils/pointer"
 
+	routev1 "github.com/openshift/api/route/v1"
 	virtv1 "kubevirt.io/api/core/v1"
 	exportv1 "kubevirt.io/api/export/v1alpha1"
 	snapshotv1 "kubevirt.io/api/snapshot/v1alpha1"
@@ -50,9 +52,9 @@ import (
 	"kubevirt.io/client-go/log"
 	cdiv1 "kubevirt.io/containerized-data-importer-api/pkg/apis/core/v1beta1"
 
+	certutil "kubevirt.io/kubevirt/pkg/certificates/triple/cert"
 	k6ttypes "kubevirt.io/kubevirt/pkg/util/types"
 	"kubevirt.io/kubevirt/pkg/virt-operator/resource/generate/components"
-
 	"kubevirt.io/kubevirt/tests"
 	cd "kubevirt.io/kubevirt/tests/containerdisk"
 	"kubevirt.io/kubevirt/tests/flags"
@@ -60,10 +62,6 @@ import (
 	. "kubevirt.io/kubevirt/tests/framework/matcher"
 	"kubevirt.io/kubevirt/tests/libstorage"
 	"kubevirt.io/kubevirt/tests/util"
-
-	routev1 "github.com/openshift/api/route/v1"
-
-	certutil "kubevirt.io/kubevirt/pkg/certificates/triple/cert"
 )
 
 const (
@@ -1431,6 +1429,68 @@ var _ = SIGDescribe("Export", func() {
 			waitForDisksComplete(vm)
 			waitForExportPhase(export, exportv1.Ready)
 		}
+	})
+
+	Context("[Serial] with potential KubeVirt CR update", func() {
+		var beforeCertParams *virtv1.KubeVirtCertificateRotateStrategy
+
+		BeforeEach(func() {
+			kv := util.GetCurrentKv(virtClient)
+			beforeCertParams = kv.Spec.CertificateRotationStrategy.DeepCopy()
+		})
+
+		AfterEach(func() {
+			kv := util.GetCurrentKv(virtClient)
+			if equality.Semantic.DeepEqual(beforeCertParams, &kv.Spec.CertificateRotationStrategy) {
+				return
+			}
+			kv.Spec.CertificateRotationStrategy = *beforeCertParams
+			_, err := virtClient.KubeVirt(kv.Namespace).Update(kv)
+			Expect(err).ToNot(HaveOccurred())
+		})
+
+		updateCertConfig := func() {
+			kv := util.GetCurrentKv(virtClient)
+			kv.Spec.CertificateRotationStrategy.SelfSigned = &virtv1.KubeVirtSelfSignConfiguration{
+				CA: &virtv1.CertConfig{
+					Duration:    &metav1.Duration{Duration: 24 * time.Hour},
+					RenewBefore: &metav1.Duration{Duration: 3 * time.Hour},
+				},
+				Server: &virtv1.CertConfig{
+					Duration:    &metav1.Duration{Duration: 2 * time.Hour},
+					RenewBefore: &metav1.Duration{Duration: 1 * time.Hour},
+				},
+			}
+			_, err := virtClient.KubeVirt(kv.Namespace).Update(kv)
+			Expect(err).ToNot(HaveOccurred())
+		}
+
+		It("should recreate exportserver pod when KubeVirt cert params updated", func() {
+			sc, exists := libstorage.GetRWOFileSystemStorageClass()
+			if !exists {
+				Skip("Skip test when Filesystem storage is not present")
+			}
+			vmExport := createRunningPVCExport(sc, k8sv1.PersistentVolumeFilesystem)
+			By("looking up the exporter pod")
+			exporterPod := getExporterPod(vmExport)
+			Expect(exporterPod).ToNot(BeNil())
+			podUID := exporterPod.GetUID()
+			preCertParamms := exporterPod.Annotations["kubevirt.io/export.certParameters"]
+			Expect(preCertParamms).ToNot(BeEmpty())
+
+			By("updating cert configuration")
+			updateCertConfig()
+
+			By("Verifying the pod is killed and a new one created")
+			Eventually(func() types.UID {
+				exporterPod = getExporterPod(vmExport)
+				return exporterPod.UID
+			}, 30*time.Second, 1*time.Second).ShouldNot(BeEquivalentTo(podUID))
+
+			postCertParamms := exporterPod.Annotations["kubevirt.io/export.certParameters"]
+			Expect(postCertParamms).ToNot(BeEmpty())
+			Expect(postCertParamms).ToNot(Equal(preCertParamms))
+		})
 	})
 })
 

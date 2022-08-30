@@ -22,10 +22,12 @@ package export
 import (
 	"context"
 	"crypto/rsa"
+	"encoding/json"
 	"fmt"
 	"path"
 	"time"
 
+	"github.com/openshift/library-go/pkg/build/naming"
 	corev1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/api/equality"
 	"k8s.io/apimachinery/pkg/api/errors"
@@ -34,6 +36,7 @@ import (
 	"k8s.io/apimachinery/pkg/util/intstr"
 	"k8s.io/apimachinery/pkg/util/rand"
 	utilruntime "k8s.io/apimachinery/pkg/util/runtime"
+	validation "k8s.io/apimachinery/pkg/util/validation"
 	"k8s.io/apimachinery/pkg/util/wait"
 	"k8s.io/client-go/tools/cache"
 	"k8s.io/client-go/tools/record"
@@ -50,15 +53,13 @@ import (
 	"kubevirt.io/kubevirt/pkg/certificates/triple"
 	"kubevirt.io/kubevirt/pkg/certificates/triple/cert"
 	"kubevirt.io/kubevirt/pkg/controller"
-	"kubevirt.io/kubevirt/pkg/virt-operator/resource/generate/components"
-
 	"kubevirt.io/kubevirt/pkg/storage/snapshot"
 	"kubevirt.io/kubevirt/pkg/storage/types"
+	virtconfig "kubevirt.io/kubevirt/pkg/virt-config"
 	"kubevirt.io/kubevirt/pkg/virt-controller/services"
 	watchutil "kubevirt.io/kubevirt/pkg/virt-controller/watch/util"
-
-	"github.com/openshift/library-go/pkg/build/naming"
-	validation "k8s.io/apimachinery/pkg/util/validation"
+	"kubevirt.io/kubevirt/pkg/virt-operator/resource/apply"
+	"kubevirt.io/kubevirt/pkg/virt-operator/resource/generate/components"
 )
 
 const (
@@ -86,6 +87,8 @@ const (
 
 	// annContentType is an annotation on a PVC indicating the content type. This is populated by CDI.
 	annContentType = "cdi.kubevirt.io/storage.contentType"
+	// annCertParams stores "current" cert rotation params in pod in order to detect changes
+	annCertParams = "kubevirt.io/export.certParameters"
 
 	caDefaultPath = "/etc/virt-controller/exportca"
 	caCertFile    = caDefaultPath + "/tls.crt"
@@ -98,9 +101,7 @@ const (
 	ExportPaused                      = "ExportPaused"
 	secretCreatedEvent                = "SecretCreated"
 	serviceCreatedEvent               = "ServiceCreated"
-
-	certExpiry = time.Duration(30 * time.Hour) // 30 hours
-	deadline   = time.Duration(24 * time.Hour) // 24 hours
+	certParamsChangedEvent            = "CertificateParametersChanged"
 
 	kvm = 107
 
@@ -172,16 +173,40 @@ type VMExportController struct {
 	RouteCache                cache.Store
 	IngressCache              cache.Store
 	SecretInformer            cache.SharedIndexInformer
+	CRDInformer               cache.SharedIndexInformer
+	KubeVirtInformer          cache.SharedIndexInformer
 	VolumeSnapshotProvider    snapshot.VolumeSnapshotProvider
 
 	Recorder record.EventRecorder
 
 	KubevirtNamespace string
-	ResyncPeriod      time.Duration
 
 	vmExportQueue workqueue.RateLimitingInterface
 
 	caCertManager *bootstrap.FileCertificateManager
+
+	clusterConfig *virtconfig.ClusterConfig
+}
+
+type CertParams struct {
+	Duration    time.Duration
+	RenewBefore time.Duration
+}
+
+func serializeCertParams(cp *CertParams) (string, error) {
+	bs, err := json.Marshal(cp)
+	if err != nil {
+		return "", err
+	}
+	return string(bs), nil
+}
+
+func deserializeCertParams(value string) (*CertParams, error) {
+	cp := &CertParams{}
+	if err := json.Unmarshal([]byte(value), cp); err != nil {
+		return nil, err
+	}
+	return cp, nil
 }
 
 var initCert = func(ctrl *VMExportController) {
@@ -191,62 +216,61 @@ var initCert = func(ctrl *VMExportController) {
 
 // Init initializes the export controller
 func (ctrl *VMExportController) Init() {
+	ctrl.clusterConfig = virtconfig.NewClusterConfig(ctrl.CRDInformer, ctrl.KubeVirtInformer, ctrl.KubevirtNamespace)
 	ctrl.vmExportQueue = workqueue.NewNamedRateLimitingQueue(workqueue.DefaultControllerRateLimiter(), "virt-controller-export-vmexport")
 
-	ctrl.VMExportInformer.AddEventHandlerWithResyncPeriod(
+	ctrl.VMExportInformer.AddEventHandler(
 		cache.ResourceEventHandlerFuncs{
 			AddFunc:    ctrl.handleVMExport,
 			UpdateFunc: func(oldObj, newObj interface{}) { ctrl.handleVMExport(newObj) },
 		},
-		ctrl.ResyncPeriod,
 	)
-	ctrl.PodInformer.AddEventHandlerWithResyncPeriod(
+	ctrl.PodInformer.AddEventHandler(
 		cache.ResourceEventHandlerFuncs{
 			AddFunc:    ctrl.handlePod,
 			UpdateFunc: func(oldObj, newObj interface{}) { ctrl.handlePod(newObj) },
 			DeleteFunc: ctrl.handlePod,
 		},
-		ctrl.ResyncPeriod,
 	)
-	ctrl.ServiceInformer.AddEventHandlerWithResyncPeriod(
+	ctrl.ServiceInformer.AddEventHandler(
 		cache.ResourceEventHandlerFuncs{
 			AddFunc:    ctrl.handleService,
 			UpdateFunc: func(oldObj, newObj interface{}) { ctrl.handleService(newObj) },
 			DeleteFunc: ctrl.handleService,
 		},
-		ctrl.ResyncPeriod,
 	)
-	ctrl.PVCInformer.AddEventHandlerWithResyncPeriod(
+	ctrl.PVCInformer.AddEventHandler(
 		cache.ResourceEventHandlerFuncs{
 			AddFunc:    ctrl.handlePVC,
 			UpdateFunc: func(oldObj, newObj interface{}) { ctrl.handlePVC(newObj) },
 			DeleteFunc: ctrl.handlePVC,
 		},
-		ctrl.ResyncPeriod,
 	)
-	ctrl.VMSnapshotInformer.AddEventHandlerWithResyncPeriod(
+	ctrl.VMSnapshotInformer.AddEventHandler(
 		cache.ResourceEventHandlerFuncs{
 			AddFunc:    ctrl.handleVMSnapshot,
 			UpdateFunc: func(oldObj, newObj interface{}) { ctrl.handleVMSnapshot(newObj) },
 			DeleteFunc: ctrl.handleVMSnapshot,
 		},
-		ctrl.ResyncPeriod,
 	)
-	ctrl.VMIInformer.AddEventHandlerWithResyncPeriod(
+	ctrl.VMIInformer.AddEventHandler(
 		cache.ResourceEventHandlerFuncs{
 			AddFunc:    ctrl.handleVMI,
 			UpdateFunc: func(oldObj, newObj interface{}) { ctrl.handleVMI(newObj) },
 			DeleteFunc: ctrl.handleVMI,
 		},
-		ctrl.ResyncPeriod,
 	)
-	ctrl.VMInformer.AddEventHandlerWithResyncPeriod(
+	ctrl.VMInformer.AddEventHandler(
 		cache.ResourceEventHandlerFuncs{
 			AddFunc:    ctrl.handleVM,
 			UpdateFunc: func(oldObj, newObj interface{}) { ctrl.handleVM(newObj) },
 			DeleteFunc: ctrl.handleVM,
 		},
-		ctrl.ResyncPeriod,
+	)
+	ctrl.KubeVirtInformer.AddEventHandler(
+		cache.ResourceEventHandlerFuncs{
+			UpdateFunc: ctrl.handleKubeVirt,
+		},
 	)
 
 	initCert(ctrl)
@@ -274,6 +298,8 @@ func (ctrl *VMExportController) Run(threadiness int, stopCh <-chan struct{}) err
 		ctrl.VMSnapshotContentInformer.HasSynced,
 		ctrl.VMInformer.HasSynced,
 		ctrl.VMIInformer.HasSynced,
+		ctrl.CRDInformer.HasSynced,
+		ctrl.KubeVirtInformer.HasSynced,
 	) {
 		return fmt.Errorf("failed to wait for caches to sync")
 	}
@@ -348,6 +374,28 @@ func (ctrl *VMExportController) handleService(obj interface{}) {
 	}
 }
 
+func (ctrl *VMExportController) handleKubeVirt(oldObj, newObj interface{}) {
+	okv, ok := oldObj.(*virtv1.KubeVirt)
+	if !ok {
+		return
+	}
+
+	nkv, ok := newObj.(*virtv1.KubeVirt)
+	if !ok {
+		return
+	}
+
+	if equality.Semantic.DeepEqual(okv.Spec.CertificateRotationStrategy, nkv.Spec.CertificateRotationStrategy) {
+		return
+	}
+
+	// queue everything
+	keys := ctrl.VMExportInformer.GetStore().ListKeys()
+	for _, key := range keys {
+		ctrl.vmExportQueue.Add(key)
+	}
+}
+
 func (ctrl *VMExportController) getPVCsFromName(namespace, name string) *corev1.PersistentVolumeClaim {
 	pvc, exists, err := ctrl.getPvc(namespace, name)
 	if err != nil {
@@ -419,13 +467,13 @@ func (ctrl *VMExportController) manageExporterPod(vmExport *exportv1.VirtualMach
 	}
 	if pod != nil {
 		if pod.Status.Phase == corev1.PodPending {
-			if err := ctrl.getOrCreateCertSecret(vmExport, pod); err != nil {
+			if err := ctrl.createCertSecret(vmExport, pod); err != nil {
 				return nil, err
 			}
 		}
 
 		if sourceVolumes.isSourceAvailable() {
-			if err := ctrl.handlePodSucceededOrFailed(vmExport, pod); err != nil {
+			if err := ctrl.checkPod(vmExport, pod); err != nil {
 				return nil, err
 			}
 		} else {
@@ -447,10 +495,28 @@ func (ctrl *VMExportController) deleteExporterPod(vmExport *exportv1.VirtualMach
 	return nil
 }
 
-func (ctrl *VMExportController) handlePodSucceededOrFailed(vmExport *exportv1.VirtualMachineExport, pod *corev1.Pod) error {
+func (ctrl *VMExportController) checkPod(vmExport *exportv1.VirtualMachineExport, pod *corev1.Pod) error {
+	if pod.DeletionTimestamp != nil {
+		return nil
+	}
+
 	if pod.Status.Phase == corev1.PodSucceeded || pod.Status.Phase == corev1.PodFailed {
 		// The server died or completed, delete the pod.
 		return ctrl.deleteExporterPod(vmExport, pod, exporterPodFailedOrCompletedEvent, fmt.Sprintf("Exporter pod %s/%s is in phase %s", pod.Namespace, pod.Name, pod.Status.Phase))
+	}
+
+	certParams, err := ctrl.getCertParams()
+	if err != nil {
+		return err
+	}
+	scp, err := serializeCertParams(certParams)
+	if err != nil {
+		return err
+	}
+
+	if pod.Annotations[annCertParams] != scp {
+		// must recreate pod/secret because params changed
+		return ctrl.deleteExporterPod(vmExport, pod, certParamsChangedEvent, "Exporter TLS certificate parameters updated")
 	}
 	return nil
 }
@@ -471,8 +537,12 @@ func (ctrl *VMExportController) isPVCPopulated(pvc *corev1.PersistentVolumeClaim
 	})
 }
 
-func (ctrl *VMExportController) getOrCreateCertSecret(vmExport *exportv1.VirtualMachineExport, ownerPod *corev1.Pod) error {
-	_, err := ctrl.Client.CoreV1().Secrets(vmExport.Namespace).Create(context.Background(), ctrl.createCertSecretManifest(vmExport, ownerPod), metav1.CreateOptions{})
+func (ctrl *VMExportController) createCertSecret(vmExport *exportv1.VirtualMachineExport, ownerPod *corev1.Pod) error {
+	secret, err := ctrl.createCertSecretManifest(vmExport, ownerPod)
+	if err != nil {
+		return err
+	}
+	_, err = ctrl.Client.CoreV1().Secrets(vmExport.Namespace).Create(context.Background(), secret, metav1.CreateOptions{})
 	if err != nil && !errors.IsAlreadyExists(err) {
 		return err
 	} else {
@@ -482,7 +552,17 @@ func (ctrl *VMExportController) getOrCreateCertSecret(vmExport *exportv1.Virtual
 	return nil
 }
 
-func (ctrl *VMExportController) createCertSecretManifest(vmExport *exportv1.VirtualMachineExport, ownerPod *corev1.Pod) *corev1.Secret {
+func (ctrl *VMExportController) createCertSecretManifest(vmExport *exportv1.VirtualMachineExport, ownerPod *corev1.Pod) (*corev1.Secret, error) {
+	v, exists := ownerPod.Annotations[annCertParams]
+	if !exists {
+		return nil, fmt.Errorf("pod missing cert parameter annotation")
+	}
+
+	certParams, err := deserializeCertParams(v)
+	if err != nil {
+		return nil, err
+	}
+
 	caCert := ctrl.caCertManager.Current()
 	caKeyPair := &triple.KeyPair{
 		Key:  caCert.PrivateKey.(*rsa.PrivateKey),
@@ -496,7 +576,7 @@ func (ctrl *VMExportController) createCertSecretManifest(vmExport *exportv1.Virt
 		components.CaClusterLocal,
 		nil,
 		nil,
-		certExpiry,
+		certParams.Duration,
 	)
 
 	return &corev1.Secret{
@@ -516,7 +596,7 @@ func (ctrl *VMExportController) createCertSecretManifest(vmExport *exportv1.Virt
 			"tls.crt": cert.EncodeCertPEM(keyPair.Cert),
 			"tls.key": cert.EncodePrivateKeyPEM(keyPair.Key),
 		},
-	}
+	}, nil
 }
 
 func (ctrl *VMExportController) getExportSecretName(ownerPod *corev1.Pod) string {
@@ -609,7 +689,10 @@ func (ctrl *VMExportController) createExporterPod(vmExport *exportv1.VirtualMach
 		log.Log.V(3).Errorf("error %v", err)
 		return nil, err
 	} else if !exists {
-		manifest := ctrl.createExporterPodManifest(vmExport, pvcs)
+		manifest, err := ctrl.createExporterPodManifest(vmExport, pvcs)
+		if err != nil {
+			return nil, err
+		}
 
 		log.Log.V(3).Infof("Creating new exporter pod %s/%s", manifest.Namespace, manifest.Name)
 		pod, err := ctrl.Client.CoreV1().Pods(vmExport.Namespace).Create(context.Background(), manifest, metav1.CreateOptions{})
@@ -623,9 +706,21 @@ func (ctrl *VMExportController) createExporterPod(vmExport *exportv1.VirtualMach
 	}
 }
 
-func (ctrl *VMExportController) createExporterPodManifest(vmExport *exportv1.VirtualMachineExport, pvcs []*corev1.PersistentVolumeClaim) *corev1.Pod {
+func (ctrl *VMExportController) createExporterPodManifest(vmExport *exportv1.VirtualMachineExport, pvcs []*corev1.PersistentVolumeClaim) (*corev1.Pod, error) {
+	certParams, err := ctrl.getCertParams()
+	if err != nil {
+		return nil, err
+	}
+
+	scp, err := serializeCertParams(certParams)
+	if err != nil {
+		return nil, err
+	}
+
+	deadline := certParams.Duration - certParams.RenewBefore
 	podManifest := ctrl.TemplateService.RenderExporterManifest(vmExport, exportPrefix)
-	podManifest.ObjectMeta.Labels = map[string]string{exportServiceLabel: vmExport.Name}
+	podManifest.Labels = map[string]string{exportServiceLabel: vmExport.Name}
+	podManifest.Annotations = map[string]string{annCertParams: scp}
 	podManifest.Spec.SecurityContext = &corev1.PodSecurityContext{
 		RunAsNonRoot: pointer.Bool(true),
 		RunAsGroup:   pointer.Int64Ptr(kvm),
@@ -697,7 +792,7 @@ func (ctrl *VMExportController) createExporterPodManifest(vmExport *exportv1.Vir
 		Name:      vmExport.Spec.TokenSecretRef,
 		MountPath: "/token",
 	})
-	return podManifest
+	return podManifest, nil
 }
 
 func (ctrl *VMExportController) addVolumeEnvironmentVariables(exportContainer *corev1.Container, pvc *corev1.PersistentVolumeClaim, index int, mountPoint string) {
@@ -812,6 +907,19 @@ func (ctrl *VMExportController) updateVMExportStatus(vmExport, vmExportCopy *exp
 		}
 	}
 	return nil
+}
+
+func (ctrl *VMExportController) getCertParams() (*CertParams, error) {
+	kv := ctrl.clusterConfig.GetConfigFromKubeVirtCR()
+	if kv == nil {
+		return nil, fmt.Errorf("no KubeVirt CR")
+	}
+	duration := apply.GetCertDuration(kv.Spec.CertificateRotationStrategy.SelfSigned)
+	renewBefore := apply.GetCertRenewBefore(kv.Spec.CertificateRotationStrategy.SelfSigned)
+	return &CertParams{
+		Duration:    duration.Duration,
+		RenewBefore: renewBefore.Duration,
+	}, nil
 }
 
 func newReadyCondition(status corev1.ConditionStatus, reason, message string) exportv1.Condition {

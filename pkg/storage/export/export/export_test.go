@@ -31,39 +31,37 @@ import (
 	"github.com/golang/mock/gomock"
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
-	routev1 "github.com/openshift/api/route/v1"
-	"k8s.io/apimachinery/pkg/api/errors"
-	"k8s.io/apimachinery/pkg/runtime/schema"
-	"k8s.io/utils/pointer"
 
+	routev1 "github.com/openshift/api/route/v1"
 	k8sv1 "k8s.io/api/core/v1"
 	networkingv1 "k8s.io/api/networking/v1"
+	extv1 "k8s.io/apiextensions-apiserver/pkg/apis/apiextensions/v1"
+	"k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/runtime"
+	"k8s.io/apimachinery/pkg/runtime/schema"
 	k8sfake "k8s.io/client-go/kubernetes/fake"
 	"k8s.io/client-go/testing"
 	"k8s.io/client-go/tools/cache"
 	"k8s.io/client-go/tools/record"
+	"k8s.io/utils/pointer"
 
 	vsv1 "github.com/kubernetes-csi/external-snapshotter/client/v4/apis/volumesnapshot/v1"
 	framework "k8s.io/client-go/tools/cache/testing"
 	virtv1 "kubevirt.io/api/core/v1"
-	kubevirtfake "kubevirt.io/client-go/generated/kubevirt/clientset/versioned/fake"
-
 	exportv1 "kubevirt.io/api/export/v1alpha1"
+	snapshotv1 "kubevirt.io/api/snapshot/v1alpha1"
+	kubevirtfake "kubevirt.io/client-go/generated/kubevirt/clientset/versioned/fake"
 	"kubevirt.io/client-go/kubecli"
 	cdiv1 "kubevirt.io/containerized-data-importer-api/pkg/apis/core/v1beta1"
 
-	snapshotv1 "kubevirt.io/api/snapshot/v1alpha1"
-
 	"kubevirt.io/kubevirt/pkg/certificates/bootstrap"
 	"kubevirt.io/kubevirt/pkg/certificates/triple"
+	certutil "kubevirt.io/kubevirt/pkg/certificates/triple/cert"
 	virtcontroller "kubevirt.io/kubevirt/pkg/controller"
 	"kubevirt.io/kubevirt/pkg/testutils"
 	"kubevirt.io/kubevirt/pkg/virt-controller/services"
 	"kubevirt.io/kubevirt/pkg/virt-operator/resource/generate/components"
-
-	certutil "kubevirt.io/kubevirt/pkg/certificates/triple/cert"
 )
 
 const (
@@ -91,6 +89,8 @@ var _ = Describe("Export controller", func() {
 		secretInformer             cache.SharedIndexInformer
 		vmInformer                 cache.SharedIndexInformer
 		vmiInformer                cache.SharedIndexInformer
+		kvInformer                 cache.SharedIndexInformer
+		crdInformer                cache.SharedIndexInformer
 		k8sClient                  *k8sfake.Clientset
 		vmExportClient             *kubevirtfake.Clientset
 		fakeVolumeSnapshotProvider *MockVolumeSnapshotProvider
@@ -115,6 +115,8 @@ var _ = Describe("Export controller", func() {
 		go vmSnapshotContentInformer.Run(stop)
 		go vmInformer.Run(stop)
 		go vmiInformer.Run(stop)
+		go crdInformer.Run(stop)
+		go kvInformer.Run(stop)
 		Expect(cache.WaitForCacheSync(
 			stop,
 			vmExportInformer.HasSynced,
@@ -128,6 +130,8 @@ var _ = Describe("Export controller", func() {
 			vmSnapshotContentInformer.HasSynced,
 			vmInformer.HasSynced,
 			vmiInformer.HasSynced,
+			crdInformer.HasSynced,
+			kvInformer.HasSynced,
 		)).To(BeTrue())
 	}
 
@@ -156,6 +160,8 @@ var _ = Describe("Export controller", func() {
 		ingressInformer, _ := testutils.NewFakeInformerFor(&networkingv1.Ingress{})
 		ingressCache = ingressInformer.GetStore()
 		secretInformer, _ = testutils.NewFakeInformerFor(&k8sv1.Secret{})
+		kvInformer, _ = testutils.NewFakeInformerFor(&virtv1.KubeVirt{})
+		crdInformer, _ = testutils.NewFakeInformerFor(&extv1.CustomResourceDefinition{})
 		fakeVolumeSnapshotProvider = &MockVolumeSnapshotProvider{
 			volumeSnapshots: []*vsv1.VolumeSnapshot{},
 		}
@@ -190,6 +196,8 @@ var _ = Describe("Export controller", func() {
 			VolumeSnapshotProvider:    fakeVolumeSnapshotProvider,
 			VMInformer:                vmInformer,
 			VMIInformer:               vmiInformer,
+			CRDInformer:               crdInformer,
+			KubeVirtInformer:          kvInformer,
 		}
 		initCert = func(ctrl *VMExportController) {
 			go controller.caCertManager.Start()
@@ -211,6 +219,32 @@ var _ = Describe("Export controller", func() {
 				},
 				Data: map[string]string{
 					"ca-bundle": "replace me with ca cert",
+				},
+			}),
+		).To(Succeed())
+
+		Expect(
+			kvInformer.GetStore().Add(&virtv1.KubeVirt{
+				ObjectMeta: metav1.ObjectMeta{
+					Namespace: controller.KubevirtNamespace,
+					Name:      "kv",
+				},
+				Spec: virtv1.KubeVirtSpec{
+					CertificateRotationStrategy: virtv1.KubeVirtCertificateRotateStrategy{
+						SelfSigned: &virtv1.KubeVirtSelfSignConfiguration{
+							CA: &virtv1.CertConfig{
+								Duration:    &metav1.Duration{Duration: 24 * time.Hour},
+								RenewBefore: &metav1.Duration{Duration: 3 * time.Hour},
+							},
+							Server: &virtv1.CertConfig{
+								Duration:    &metav1.Duration{Duration: 2 * time.Hour},
+								RenewBefore: &metav1.Duration{Duration: 1 * time.Hour},
+							},
+						},
+					},
+				},
+				Status: virtv1.KubeVirtStatus{
+					Phase: virtv1.KubeVirtPhaseDeployed,
 				},
 			}),
 		).To(Succeed())
@@ -680,13 +714,20 @@ var _ = Describe("Export controller", func() {
 			Name:      testVMExport.Spec.TokenSecretRef,
 			MountPath: "/token",
 		}))
+		Expect(pod.Annotations[annCertParams]).To(Equal("{\"Duration\":7200000000000,\"RenewBefore\":3600000000000}"))
 	})
 
 	It("Should create a secret based on the vm export", func() {
+		cp := &CertParams{Duration: 24 * time.Hour, RenewBefore: 2 * time.Hour}
+		scp, err := serializeCertParams(cp)
+		Expect(err).ToNot(HaveOccurred())
 		testVMExport := createPVCVMExport()
 		testExportPod := &k8sv1.Pod{
 			ObjectMeta: metav1.ObjectMeta{
 				Name: "test-export-pod",
+				Annotations: map[string]string{
+					annCertParams: scp,
+				},
 			},
 			Spec: k8sv1.PodSpec{
 				Volumes: []k8sv1.Volume{
@@ -710,7 +751,7 @@ var _ = Describe("Export controller", func() {
 			Expect(secret.GetNamespace()).To(Equal(testNamespace))
 			return true, secret, nil
 		})
-		err := controller.getOrCreateCertSecret(testVMExport, testExportPod)
+		err = controller.createCertSecret(testVMExport, testExportPod)
 		Expect(err).ToNot(HaveOccurred())
 		By("Creating again, and returning exists")
 		k8sClient.Fake.PrependReactor("create", "secrets", func(action testing.Action) (handled bool, obj runtime.Object, err error) {
@@ -723,7 +764,7 @@ var _ = Describe("Export controller", func() {
 			secret.Name = "something"
 			return true, secret, errors.NewAlreadyExists(schema.GroupResource{}, "already exists")
 		})
-		err = controller.getOrCreateCertSecret(testVMExport, testExportPod)
+		err = controller.createCertSecret(testVMExport, testExportPod)
 		Expect(err).ToNot(HaveOccurred())
 		k8sClient.Fake.PrependReactor("create", "secrets", func(action testing.Action) (handled bool, obj runtime.Object, err error) {
 			create, ok := action.(testing.CreateAction)
@@ -734,7 +775,7 @@ var _ = Describe("Export controller", func() {
 			Expect(secret.GetNamespace()).To(Equal(testNamespace))
 			return true, nil, fmt.Errorf("failure")
 		})
-		err = controller.getOrCreateCertSecret(testVMExport, testExportPod)
+		err = controller.createCertSecret(testVMExport, testExportPod)
 		Expect(err).To(HaveOccurred())
 	})
 

@@ -727,7 +727,6 @@ func (vca *VirtControllerApp) initExportController() {
 		DataVolumeInformer:        vca.dataVolumeInformer,
 		ServiceInformer:           vca.exportServiceInformer,
 		Recorder:                  recorder,
-		ResyncPeriod:              vca.snapshotControllerResyncPeriod,
 		ConfigMapInformer:         vca.caExportConfigMapInformer,
 		IngressCache:              vca.ingressCache,
 		RouteCache:                vca.routeCache,
@@ -739,6 +738,8 @@ func (vca *VirtControllerApp) initExportController() {
 		VMSnapshotContentInformer: vca.vmSnapshotContentInformer,
 		VMInformer:                vca.vmInformer,
 		VMIInformer:               vca.vmiInformer,
+		CRDInformer:               vca.crdInformer,
+		KubeVirtInformer:          vca.kubeVirtInformer,
 	}
 	vca.exportController.Init()
 }

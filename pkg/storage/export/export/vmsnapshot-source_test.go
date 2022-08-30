@@ -35,6 +35,7 @@ import (
 
 	k8sv1 "k8s.io/api/core/v1"
 	networkingv1 "k8s.io/api/networking/v1"
+	extv1 "k8s.io/apiextensions-apiserver/pkg/apis/apiextensions/v1"
 	"k8s.io/apimachinery/pkg/api/resource"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/runtime"
@@ -79,6 +80,8 @@ var _ = Describe("VMSnapshot source", func() {
 		secretInformer             cache.SharedIndexInformer
 		vmInformer                 cache.SharedIndexInformer
 		vmiInformer                cache.SharedIndexInformer
+		kvInformer                 cache.SharedIndexInformer
+		crdInformer                cache.SharedIndexInformer
 		k8sClient                  *k8sfake.Clientset
 		vmExportClient             *kubevirtfake.Clientset
 		fakeVolumeSnapshotProvider *MockVolumeSnapshotProvider
@@ -114,6 +117,8 @@ var _ = Describe("VMSnapshot source", func() {
 		ingressInformer, _ := testutils.NewFakeInformerFor(&networkingv1.Ingress{})
 		ingressCache = ingressInformer.GetStore()
 		secretInformer, _ = testutils.NewFakeInformerFor(&k8sv1.Secret{})
+		kvInformer, _ = testutils.NewFakeInformerFor(&virtv1.KubeVirt{})
+		crdInformer, _ = testutils.NewFakeInformerFor(&extv1.CustomResourceDefinition{})
 		fakeVolumeSnapshotProvider = &MockVolumeSnapshotProvider{
 			volumeSnapshots: []*vsv1.VolumeSnapshot{},
 		}
@@ -148,6 +153,8 @@ var _ = Describe("VMSnapshot source", func() {
 			VolumeSnapshotProvider:    fakeVolumeSnapshotProvider,
 			VMInformer:                vmInformer,
 			VMIInformer:               vmiInformer,
+			CRDInformer:               crdInformer,
+			KubeVirtInformer:          kvInformer,
 		}
 		initCert = func(ctrl *VMExportController) {
 			go controller.caCertManager.Start()
@@ -161,15 +168,29 @@ var _ = Describe("VMSnapshot source", func() {
 		mockVMExportQueue = testutils.NewMockWorkQueue(controller.vmExportQueue)
 		controller.vmExportQueue = mockVMExportQueue
 
-		cmInformer.GetStore().Add(&k8sv1.ConfigMap{
-			ObjectMeta: metav1.ObjectMeta{
-				Namespace: controller.KubevirtNamespace,
-				Name:      components.KubeVirtExportCASecretName,
-			},
-			Data: map[string]string{
-				"ca-bundle": "replace me with ca cert",
-			},
-		})
+		Expect(
+			cmInformer.GetStore().Add(&k8sv1.ConfigMap{
+				ObjectMeta: metav1.ObjectMeta{
+					Namespace: controller.KubevirtNamespace,
+					Name:      components.KubeVirtExportCASecretName,
+				},
+				Data: map[string]string{
+					"ca-bundle": "replace me with ca cert",
+				},
+			}),
+		).To(Succeed())
+
+		Expect(
+			kvInformer.GetStore().Add(&virtv1.KubeVirt{
+				ObjectMeta: metav1.ObjectMeta{
+					Namespace: controller.KubevirtNamespace,
+					Name:      "kv",
+				},
+				Status: virtv1.KubeVirtStatus{
+					Phase: virtv1.KubeVirtPhaseDeployed,
+				},
+			}),
+		).To(Succeed())
 	})
 
 	AfterEach(func() {
