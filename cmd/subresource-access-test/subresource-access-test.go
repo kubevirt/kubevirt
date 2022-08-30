@@ -24,11 +24,31 @@ import (
 	"flag"
 	"fmt"
 
+	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/client-go/rest"
 
 	v1 "kubevirt.io/api/core/v1"
 	"kubevirt.io/client-go/kubecli"
 )
+
+const expandSpec = "expand-spec"
+
+func getGenericRequest(resource string, restClient *rest.RESTClient) *rest.Request {
+	return restClient.Get().Resource(resource)
+}
+
+func getExpandSpecRequest(restClient *rest.RESTClient) *rest.Request {
+	vm := &v1.VirtualMachine{
+		ObjectMeta: metav1.ObjectMeta{
+			Name:      "vm-test",
+			Namespace: "default",
+		},
+		Spec: v1.VirtualMachineSpec{},
+	}
+	vm.SetGroupVersionKind(v1.VirtualMachineGroupVersionKind)
+
+	return restClient.Put().Resource(expandSpec).Body(vm)
+}
 
 func main() {
 	var statusCode int
@@ -39,14 +59,21 @@ func main() {
 
 	resource = flag.Arg(0)
 
-	if resource == "version" || resource == "guestfs" {
+	if resource == "version" || resource == "guestfs" || resource == expandSpec {
 		client, err := kubecli.GetKubevirtSubresourceClient()
 		if err != nil {
 			panic(err)
 		}
 		restClient := client.RestClient()
-		var result rest.Result
-		result = restClient.Get().Resource(resource).Do(context.Background())
+
+		var request *rest.Request
+		if resource == expandSpec {
+			request = getExpandSpecRequest(restClient)
+		} else {
+			request = getGenericRequest(resource, restClient)
+		}
+
+		result := request.Do(context.Background())
 		err = result.Error()
 		if err != nil {
 			panic(err)

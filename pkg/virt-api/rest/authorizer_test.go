@@ -119,6 +119,50 @@ var _ = Describe("Authorizer", func() {
 				Expect(allowed).To(BeFalse())
 			})
 
+			Context("with non-resource endpoint", func() {
+				It("should allow authorized user", func() {
+					const endpointPath = "/apis/subresources.kubevirt.io/v1alpha3/expand-spec"
+
+					req.Request.Method = http.MethodGet
+					req.Request.URL.Path = endpointPath
+
+					sarHandler = func(sar *authorization.SubjectAccessReview) (*authorization.SubjectAccessReview, error) {
+						Expect(sar.Spec.NonResourceAttributes).ToNot(BeNil())
+						Expect(sar.Spec.NonResourceAttributes.Verb).To(Equal(http.MethodGet))
+						Expect(sar.Spec.NonResourceAttributes.Path).To(Equal(endpointPath))
+
+						sar.Status.Allowed = true
+						return sar, nil
+					}
+
+					allowed, _, err := app.Authorize(req)
+					Expect(err).ToNot(HaveOccurred())
+					Expect(allowed).To(BeTrue())
+				})
+
+				It("should not allow unauthorized user", func() {
+					const endpointPath = "/apis/subresources.kubevirt.io/v1alpha3/expand-spec"
+
+					req.Request.Method = http.MethodGet
+					req.Request.URL.Path = endpointPath
+
+					sarHandler = func(sar *authorization.SubjectAccessReview) (*authorization.SubjectAccessReview, error) {
+						Expect(sar.Spec.NonResourceAttributes).ToNot(BeNil())
+						Expect(sar.Spec.NonResourceAttributes.Verb).To(Equal(http.MethodGet))
+						Expect(sar.Spec.NonResourceAttributes.Path).To(Equal(endpointPath))
+
+						sar.Status.Allowed = false
+						sar.Status.Reason = "unauthorized"
+						return sar, nil
+					}
+
+					allowed, reason, err := app.Authorize(req)
+					Expect(err).ToNot(HaveOccurred())
+					Expect(allowed).To(BeFalse())
+					Expect(reason).To(Equal("unauthorized"))
+				})
+			})
+
 			DescribeTable("should allow all users for info endpoints", func(path string) {
 				req.Request.TLS = nil
 				req.Request.URL.Path = path

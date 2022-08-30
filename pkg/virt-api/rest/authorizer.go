@@ -157,13 +157,24 @@ func (a *authorizor) generateAccessReview(req *restful.Request) (*authorization.
 	// URL example
 	// /apis/subresources.kubevirt.io/v1alpha3/namespaces/default/virtualmachineinstances/testvmi/console
 	pathSplit := strings.Split(url.Path, "/")
-
-	resourceAttributes, err := getResourceAttributes(pathSplit, httpRequest)
-	if err != nil {
-		return nil, err
+	if len(pathSplit) < 5 {
+		return nil, fmt.Errorf("unknown api endpoint: %s", url.Path)
 	}
 
-	r.Spec.ResourceAttributes = resourceAttributes
+	// "namespaces" after version means that the URL points to a subresource
+	if pathSplit[4] == "namespaces" {
+		resourceAttributes, err := getResourceAttributes(pathSplit, httpRequest)
+		if err != nil {
+			return nil, err
+		}
+		r.Spec.ResourceAttributes = resourceAttributes
+	} else {
+		r.Spec.NonResourceAttributes = &authorization.NonResourceAttributes{
+			Path: url.Path,
+			Verb: httpRequest.Method,
+		}
+	}
+
 	return r, nil
 }
 
