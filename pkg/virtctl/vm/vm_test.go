@@ -809,9 +809,6 @@ var _ = Describe("VirtualMachine", func() {
 		})
 
 		It("should fail call memory dump subresource with readonly access mode", func() {
-			expectGetCDIConfig()
-			expectGetVMNoAssociatedMemoryDump()
-			expectGetVMI()
 			commandAndArgs := []string{"memory-dump", "get", "testvm", claimNameFlag, createClaimFlag, "--access-mode=ReadOnlyMany"}
 			cmd := clientcmd.NewVirtctlCommand(commandAndArgs...)
 			res := cmd.Execute()

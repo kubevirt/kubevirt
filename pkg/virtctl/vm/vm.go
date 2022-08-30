@@ -455,37 +455,6 @@ func calcPVCNeededSize(memoryDumpExpectedSize *resource.Quantity, storageClass *
 	return storagetypes.GetSizeIncludingFSOverhead(memoryDumpExpectedSize, storageClass, &fsVolumeMode, cdiConfig)
 }
 
-func generatePVC(size *resource.Quantity, claimName, namespace, storageClass, accessMode string) (*k8sv1.PersistentVolumeClaim, error) {
-	pvc := &k8sv1.PersistentVolumeClaim{
-		ObjectMeta: metav1.ObjectMeta{
-			Name:      claimName,
-			Namespace: namespace,
-		},
-		Spec: k8sv1.PersistentVolumeClaimSpec{
-			Resources: k8sv1.ResourceRequirements{
-				Requests: k8sv1.ResourceList{
-					k8sv1.ResourceStorage: *size,
-				},
-			},
-		},
-	}
-
-	if storageClass != "" {
-		pvc.Spec.StorageClassName = &storageClass
-	}
-
-	if accessMode == string(k8sv1.ReadOnlyMany) {
-		return nil, fmt.Errorf("cannot dump memory to a readonly pvc, use either ReadWriteOnce or ReadWriteMany if supported")
-	}
-	if accessMode != "" {
-		pvc.Spec.AccessModes = []k8sv1.PersistentVolumeAccessMode{k8sv1.PersistentVolumeAccessMode(accessMode)}
-	} else {
-		pvc.Spec.AccessModes = []k8sv1.PersistentVolumeAccessMode{k8sv1.ReadWriteOnce}
-	}
-
-	return pvc, nil
-}
-
 func createPVCforMemoryDump(namespace, vmName, claimName string, virtClient kubecli.KubevirtClient) error {
 	_, err := virtClient.CoreV1().PersistentVolumeClaims(namespace).Get(context.Background(), claimName, metav1.GetOptions{})
 	if err == nil {
@@ -505,10 +474,7 @@ func createPVCforMemoryDump(namespace, vmName, claimName string, virtClient kube
 		return err
 	}
 
-	pvc, err := generatePVC(neededSize, claimName, namespace, storageClass, accessMode)
-	if err != nil {
-		return err
-	}
+	pvc := storagetypes.GeneratePVC(neededSize, claimName, namespace, storageClass, accessMode, false)
 
 	_, err = virtClient.CoreV1().PersistentVolumeClaims(namespace).Create(context.Background(), pvc, metav1.CreateOptions{})
 	if err != nil {
@@ -538,6 +504,9 @@ func memoryDump(args []string, claimName, namespace string, virtClient kubecli.K
 		if createClaim {
 			if claimName == "" {
 				return fmt.Errorf("missing claim name")
+			}
+			if accessMode == string(k8sv1.ReadOnlyMany) {
+				return fmt.Errorf("cannot dump memory to a readonly pvc, use either ReadWriteOnce or ReadWriteMany if supported")
 			}
 			err := checkNoAssociatedMemoryDump(namespace, vmName, virtClient)
 			if err != nil {

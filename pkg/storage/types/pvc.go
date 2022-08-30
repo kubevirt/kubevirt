@@ -24,6 +24,9 @@ import (
 	"strings"
 
 	k8sv1 "k8s.io/api/core/v1"
+	v1 "k8s.io/api/core/v1"
+	"k8s.io/apimachinery/pkg/api/resource"
+	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/client-go/tools/cache"
 
 	virtv1 "kubevirt.io/api/core/v1"
@@ -194,4 +197,37 @@ func VolumeReadyToAttachToNode(namespace string, volume virtv1.Volume, dataVolum
 		return false, false, PvcNotFoundError{Reason: fmt.Sprintf("didn't find PVC %v", name)}
 	}
 	return ready, wffc, nil
+}
+
+func GeneratePVC(size *resource.Quantity, claimName, namespace, storageClass, accessMode string, blockVolume bool) *k8sv1.PersistentVolumeClaim {
+	pvc := &k8sv1.PersistentVolumeClaim{
+		ObjectMeta: metav1.ObjectMeta{
+			Name:      claimName,
+			Namespace: namespace,
+		},
+		Spec: k8sv1.PersistentVolumeClaimSpec{
+			Resources: k8sv1.ResourceRequirements{
+				Requests: k8sv1.ResourceList{
+					k8sv1.ResourceStorage: *size,
+				},
+			},
+		},
+	}
+
+	if storageClass != "" {
+		pvc.Spec.StorageClassName = &storageClass
+	}
+
+	if accessMode != "" {
+		pvc.Spec.AccessModes = []k8sv1.PersistentVolumeAccessMode{k8sv1.PersistentVolumeAccessMode(accessMode)}
+	} else {
+		pvc.Spec.AccessModes = []k8sv1.PersistentVolumeAccessMode{k8sv1.ReadWriteOnce}
+	}
+
+	if blockVolume {
+		volMode := v1.PersistentVolumeBlock
+		pvc.Spec.VolumeMode = &volMode
+	}
+
+	return pvc
 }
