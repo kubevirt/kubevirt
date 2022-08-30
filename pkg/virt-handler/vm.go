@@ -35,6 +35,7 @@ import (
 	"time"
 
 	"kubevirt.io/kubevirt/pkg/config"
+	"kubevirt.io/kubevirt/pkg/safepath"
 
 	"github.com/opencontainers/runc/libcontainer/cgroups"
 
@@ -365,18 +366,22 @@ func (d *VirtualMachineController) startDomainNotifyPipe(domainPipeStopChan chan
 	}
 
 	// inject the domain-notify.sock into the VMI pod.
-	socketPath := filepath.Join(res.MountRoot(), d.virtShareDir, "domain-notify-pipe.sock")
-
-	os.RemoveAll(socketPath)
-	err = util.MkdirAllWithNosec(filepath.Dir(socketPath))
+	root, err := res.MountRoot()
 	if err != nil {
-		log.Log.Reason(err).Error("unable to create directory for unix socket")
+		return err
+	}
+	socketDir, err := root.AppendAndResolveWithRelativeRoot(d.virtShareDir)
+	if err != nil {
 		return err
 	}
 
-	listener, err := net.Listen("unix", socketPath)
+	listener, err := safepath.ListenUnixNoFollow(socketDir, "domain-notify-pipe.sock")
 	if err != nil {
 		log.Log.Reason(err).Error("failed to create unix socket for proxy service")
+		return err
+	}
+	socketPath, err := safepath.JoinNoFollow(socketDir, "domain-notify-pipe.sock")
+	if err != nil {
 		return err
 	}
 
@@ -512,8 +517,15 @@ func (d *VirtualMachineController) setPodNetworkPhase1(vmi *v1.VirtualMachineIns
 	}
 
 	if virtutil.IsNonRootVMI(vmi) && virtutil.NeedVirtioNetDevice(vmi, d.clusterConfig.IsUseEmulation()) {
-		vhostNet := path.Join(res.MountRoot(), "dev", "vhost-net")
-		err := diskutils.DefaultOwnershipManager.SetFileOwnership(vhostNet)
+		mountRoot, err := res.MountRoot()
+		if err != nil {
+			return true, fmt.Errorf("Failed to set up vhost-net device, %s", err)
+		}
+		vhostNet, err := safepath.JoinNoFollow(mountRoot, filepath.Join("dev", "vhost-net"))
+		if err != nil {
+			return true, fmt.Errorf("Failed to set up vhost-net device, %s", err)
+		}
+		err = diskutils.DefaultOwnershipManager.SetFileOwnership(vhostNet)
 		if err != nil {
 			return true, fmt.Errorf("Failed to set up vhost-net device, %s", err)
 		}
@@ -901,7 +913,17 @@ func (d *VirtualMachineController) updateIsoSizeStatus(vmi *v1.VirtualMachineIns
 			log.DefaultLogger().V(2).Warningf("failed to detect VMI %s", vmi.Name)
 			continue
 		}
-		size, err := isolation.GetFileSize(volPath, res)
+		rootPath, err := res.MountRoot()
+		if err != nil {
+			log.DefaultLogger().V(2).Reason(err).Warningf("failed to detect VMI %s", vmi.Name)
+			continue
+		}
+		safeVolPath, err := rootPath.AppendAndResolveWithRelativeRoot(volPath)
+		if err != nil {
+			log.DefaultLogger().V(2).Warningf("failed to determine file size for volume %s", volPath)
+			continue
+		}
+		fileInfo, err := safepath.StatAtNoFollow(safeVolPath)
 		if err != nil {
 			log.DefaultLogger().V(2).Warningf("failed to determine file size for volume %s", volPath)
 			continue
@@ -909,7 +931,7 @@ func (d *VirtualMachineController) updateIsoSizeStatus(vmi *v1.VirtualMachineIns
 
 		for i, _ := range vmi.Status.VolumeStatus {
 			if vmi.Status.VolumeStatus[i].Name == volume.Name {
-				vmi.Status.VolumeStatus[i].Size = size
+				vmi.Status.VolumeStatus[i].Size = fileInfo.Size()
 				continue
 			}
 		}
@@ -2523,8 +2545,12 @@ func (d *VirtualMachineController) vmUpdateHelperMigrationTarget(origVMI *v1.Vir
 	lessPVCSpaceToleration := d.clusterConfig.GetLessPVCSpaceToleration()
 	minimumPVCReserveBytes := d.clusterConfig.GetMinimumReservePVCBytes()
 
+	mountRoot, err := res.MountRoot()
+	if err != nil {
+		return err
+	}
 	// initialize disks images for empty PVC
-	hostDiskCreator := hostdisk.NewHostDiskCreator(d.recorder, lessPVCSpaceToleration, minimumPVCReserveBytes, res.MountRoot())
+	hostDiskCreator := hostdisk.NewHostDiskCreator(d.recorder, lessPVCSpaceToleration, minimumPVCReserveBytes, mountRoot)
 	err = hostDiskCreator.Create(vmi)
 	if err != nil {
 		return fmt.Errorf("preparing host-disks failed: %v", err)
@@ -2611,8 +2637,12 @@ func (d *VirtualMachineController) vmUpdateHelperDefault(origVMI *v1.VirtualMach
 		lessPVCSpaceToleration := d.clusterConfig.GetLessPVCSpaceToleration()
 		minimumPVCReserveBytes := d.clusterConfig.GetMinimumReservePVCBytes()
 
+		mountRoot, err := res.MountRoot()
+		if err != nil {
+			return err
+		}
 		// initialize disks images for empty PVC
-		hostDiskCreator := hostdisk.NewHostDiskCreator(d.recorder, lessPVCSpaceToleration, minimumPVCReserveBytes, res.MountRoot())
+		hostDiskCreator := hostdisk.NewHostDiskCreator(d.recorder, lessPVCSpaceToleration, minimumPVCReserveBytes, mountRoot)
 		err = hostDiskCreator.Create(vmi)
 		if err != nil {
 			return fmt.Errorf("preparing host-disks failed: %v", err)
@@ -2883,19 +2913,25 @@ func (d *VirtualMachineController) isHostModelMigratable(vmi *v1.VirtualMachineI
 }
 
 func (d *VirtualMachineController) claimKVMDeviceOwnership(vmi *v1.VirtualMachineInstance) error {
+	softwareEmulation := d.clusterConfig.IsUseEmulation()
 	isolation, err := d.podIsolationDetector.Detect(vmi)
 	if err != nil {
 		return err
 	}
 
-	kvmPath := filepath.Join(isolation.MountRoot(), "dev", "kvm")
-
-	softwareEmulation, err := util.UseSoftwareEmulationForDevice(kvmPath, d.clusterConfig.IsUseEmulation())
-	if err != nil || softwareEmulation {
+	mountRoot, err := isolation.MountRoot()
+	if err != nil {
+		return err
+	}
+	devicePath, err := safepath.JoinNoFollow(mountRoot, filepath.Join("dev", "kvm"))
+	if err != nil {
+		if softwareEmulation {
+			return nil
+		}
 		return err
 	}
 
-	return diskutils.DefaultOwnershipManager.SetFileOwnership(kvmPath)
+	return diskutils.DefaultOwnershipManager.SetFileOwnership(devicePath)
 }
 
 func nodeHasHostModelLabel(node *k8sv1.Node) bool {

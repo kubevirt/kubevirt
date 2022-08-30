@@ -102,7 +102,7 @@ func createIsoImageAndSetFileOwnership(volumeName string, filesPath []string, si
 	if err := createIsoConfigImage(disk, sysprepVolumeLabel, filesPath, size); err != nil {
 		return err
 	}
-	if err := ephemeraldiskutils.DefaultOwnershipManager.SetFileOwnership(disk); err != nil {
+	if err := ephemeraldiskutils.DefaultOwnershipManager.UnsafeSetFileOwnership(disk); err != nil {
 		return err
 	}
 

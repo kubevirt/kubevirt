@@ -36,6 +36,8 @@ import (
 
 	v1 "kubevirt.io/client-go/api/v1"
 	"kubevirt.io/kubevirt/pkg/virt-handler/cgroup"
+
+	"kubevirt.io/kubevirt/pkg/unsafepath"
 	cmdclient "kubevirt.io/kubevirt/pkg/virt-handler/cmd-client"
 )
 
@@ -137,7 +139,9 @@ var _ = Describe("Isolation Detector", func() {
 		It("Should detect the Mount root of the test suite", func() {
 			result, err := NewSocketBasedIsolationDetector(tmpDir, cgroupParser).Whitelist([]string{"devices"}).Detect(vm)
 			Expect(err).ToNot(HaveOccurred())
-			Expect(result.MountRoot()).To(Equal(fmt.Sprintf("/proc/%d/root", os.Getpid())))
+			root, err := result.MountRoot()
+			Expect(err).ToNot(HaveOccurred())
+			Expect(unsafepath.UnsafeAbsolute(root.Raw())).To(Equal(fmt.Sprintf("/proc/%d/root", os.Getpid())))
 		})
 
 		It("Should detect the Network namespace of the test suite", func() {
