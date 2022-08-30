@@ -121,9 +121,6 @@ const (
 
 const failedToRenderLaunchManifestErrFormat = "failed to render launch manifest: %v"
 
-var failedToFindCdi error = errors.New("No CDI instances found")
-var multipleCdiInstances error = errors.New("Detected more than one CDI instance")
-
 func NewVMIController(templateService services.TemplateService,
 	vmiInformer cache.SharedIndexInformer,
 	vmInformer cache.SharedIndexInformer,
@@ -1988,10 +1985,7 @@ func (c *VMIController) updateVolumeStatus(vmi *virtv1.VirtualMachineInstance, v
 					Preallocated: kubevirttypes.IsPreallocated(pvc.ObjectMeta.Annotations),
 				}
 				filesystemOverhead, err := c.getFilesystemOverhead(pvc)
-				if errors.Is(err, failedToFindCdi) || errors.Is(err, multipleCdiInstances) {
-					filesystemOverhead = cdiv1.Percent("0.055")
-					log.Log.V(3).Object(pvc).Reason(err).Infof("Failed to detect CDI, continuing with default filesystem overhead of 5.5%%")
-				} else if err != nil {
+				if err != nil {
 					log.Log.Reason(err).Errorf("Failed to get filesystem overhead for PVC %s/%s", vmi.Namespace, pvcName)
 					return err
 				}
@@ -2030,12 +2024,14 @@ func (c *VMIController) getFilesystemOverhead(pvc *k8sv1.PersistentVolumeClaim) 
 	// To avoid conflicts, we only allow having one CDI instance
 	if cdiInstances := len(c.cdiInformer.GetStore().List()); cdiInstances != 1 {
 		if cdiInstances > 1 {
-			return "0", multipleCdiInstances
+			log.Log.V(3).Object(pvc).Reason(kubevirttypes.ErrMultipleCdiInstances).Infof(kubevirttypes.FSOverheadMsg)
+		} else {
+			log.Log.V(3).Object(pvc).Reason(kubevirttypes.ErrFailedToFindCdi).Infof(kubevirttypes.FSOverheadMsg)
 		}
-		return "0", failedToFindCdi
+		return kubevirttypes.DefaultFSOverhead, nil
 	}
 
-	cdiConfigInterface, cdiConfigExists, err := c.cdiConfigInformer.GetStore().GetByKey("config")
+	cdiConfigInterface, cdiConfigExists, err := c.cdiConfigInformer.GetStore().GetByKey(kubevirttypes.ConfigName)
 	if !cdiConfigExists || err != nil {
 		return "0", fmt.Errorf("Failed to find CDIConfig but CDI exists: %w", err)
 	}

@@ -72,10 +72,6 @@ const (
 	pvcSizeErrFmt                = "pvc size [%s] should be bigger then [%s]"
 	memoryDumpNameConflictErr    = "can't request memory dump for pvc [%s] while pvc [%s] is still associated as the memory dump pvc"
 	defaultProfilerComponentPort = 8443
-
-	configName         = "config"
-	filesystemOverhead = cdiv1.Percent("0.055")
-	fsOverheadMsg      = "Using default 5.5%% filesystem overhead for pvc size"
 )
 
 type SubresourceAPIApp struct {
@@ -1381,7 +1377,7 @@ func (app *SubresourceAPIApp) fetchPersistentVolumeClaim(name string, namespace 
 }
 
 func (app *SubresourceAPIApp) fetchCDIConfig() (*cdiv1.CDIConfig, *errors.StatusError) {
-	cdiConfig, err := app.virtCli.CdiClient().CdiV1beta1().CDIConfigs().Get(context.Background(), configName, k8smetav1.GetOptions{})
+	cdiConfig, err := app.virtCli.CdiClient().CdiV1beta1().CDIConfigs().Get(context.Background(), storagetypes.ConfigName, k8smetav1.GetOptions{})
 	if errors.IsNotFound(err) {
 		return nil, nil
 	}
@@ -1415,8 +1411,8 @@ func (app *SubresourceAPIApp) validateMemoryDumpClaim(vmi *v1.VirtualMachineInst
 	var expectedPvcSize *resource.Quantity
 	var overheadErr error
 	if cdiConfig == nil {
-		log.Log.Object(vmi).V(3).Infof(fsOverheadMsg)
-		expectedPvcSize, overheadErr = storagetypes.GetSizeIncludingGivenOverhead(expectedMemoryDumpSize, filesystemOverhead)
+		log.Log.Object(vmi).V(3).Infof(storagetypes.FSOverheadMsg)
+		expectedPvcSize, overheadErr = storagetypes.GetSizeIncludingDefaultFSOverhead(expectedMemoryDumpSize)
 	} else {
 		expectedPvcSize, overheadErr = storagetypes.GetSizeIncludingFSOverhead(expectedMemoryDumpSize, pvc.Spec.StorageClassName, pvc.Spec.VolumeMode, cdiConfig)
 	}

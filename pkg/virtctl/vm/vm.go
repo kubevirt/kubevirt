@@ -37,8 +37,6 @@ import (
 
 	"kubevirt.io/client-go/kubecli"
 
-	cdiv1 "kubevirt.io/containerized-data-importer-api/pkg/apis/core/v1beta1"
-
 	storagetypes "kubevirt.io/kubevirt/pkg/storage/types"
 	kutil "kubevirt.io/kubevirt/pkg/util"
 	"kubevirt.io/kubevirt/pkg/virtctl/templates"
@@ -72,10 +70,6 @@ const (
 	storageClassArg = "storage-class"
 	accessModeArg   = "access-mode"
 	cacheArg        = "cache"
-
-	configName         = "config"
-	filesystemOverhead = cdiv1.Percent("0.055")
-	fsOverheadMsg      = "Using default 5.5%% filesystem overhead for pvc size"
 )
 
 var (
@@ -443,11 +437,11 @@ func calcMemoryDumpExpectedSize(vmName, namespace string, virtClient kubecli.Kub
 }
 
 func calcPVCNeededSize(memoryDumpExpectedSize *resource.Quantity, storageClass *string, virtClient kubecli.KubevirtClient) (*resource.Quantity, error) {
-	cdiConfig, err := virtClient.CdiClient().CdiV1beta1().CDIConfigs().Get(context.Background(), configName, metav1.GetOptions{})
+	cdiConfig, err := virtClient.CdiClient().CdiV1beta1().CDIConfigs().Get(context.Background(), storagetypes.ConfigName, metav1.GetOptions{})
 	if k8serrors.IsNotFound(err) {
 		// can't properly determine the overhead - continue with default overhead of 5.5%
-		fmt.Printf(fsOverheadMsg)
-		return storagetypes.GetSizeIncludingGivenOverhead(memoryDumpExpectedSize, filesystemOverhead)
+		fmt.Printf(storagetypes.FSOverheadMsg)
+		return storagetypes.GetSizeIncludingDefaultFSOverhead(memoryDumpExpectedSize)
 	}
 	if err != nil {
 		return nil, err
