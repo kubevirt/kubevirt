@@ -166,8 +166,8 @@ func (ctrl *VMExportController) getOrCreatePVCFromSnapshot(vmExport *exportv1.Vi
 	}
 	pvc.SetOwnerReferences([]metav1.OwnerReference{
 		{
-			APIVersion:         apiVersion,
-			Kind:               "VirtualMachineExport",
+			APIVersion:         exportGVK.GroupVersion().String(),
+			Kind:               exportGVK.Kind,
 			Name:               vmExport.Name,
 			UID:                vmExport.UID,
 			Controller:         pointer.BoolPtr(true),
