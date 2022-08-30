@@ -1577,7 +1577,9 @@ var _ = SIGDescribe("VirtualMachineRestore Tests", func() {
 				})
 
 				AfterEach(func() {
-					libstorage.DeleteDataVolume(&sourceDV)
+					if sourceDV != nil {
+						libstorage.DeleteDataVolume(&sourceDV)
+					}
 
 					if cloneRole != nil {
 						err := virtClient.RbacV1().Roles(cloneRole.Namespace).Delete(context.TODO(), cloneRole.Name, metav1.DeleteOptions{})
@@ -1622,18 +1624,24 @@ var _ = SIGDescribe("VirtualMachineRestore Tests", func() {
 					return vm
 				}
 
-				DescribeTable("should restore a vm that boots from a network cloned datavolumetemplate", func(restoreToNewVM bool) {
+				DescribeTable("should restore a vm that boots from a network cloned datavolumetemplate", func(restoreToNewVM, deleteSourcePVC bool) {
 					vm, vmi = createAndStartVM(createVMFromSource())
 
 					checkCloneAnnotations(vm, true)
+					if deleteSourcePVC {
+						libstorage.DeleteDataVolume(&sourceDV)
+					}
+
 					doRestore("", console.LoginToCirros, offlineSnaphot, getTargetVMName(restoreToNewVM, newVmName))
 					checkCloneAnnotations(getTargetVM(restoreToNewVM), false)
 				},
-					Entry("to the same VM", false),
-					Entry("to a new VM", true),
+					Entry("to the same VM", false, false),
+					Entry("to a new VM", true, false),
+					Entry("to the same VM, no source pvc", false, true),
+					Entry("to a new VM, no source pvc", true, true),
 				)
 
-				DescribeTable("should restore a vm that boots from a network cloned datavolume (not template)", func(restoreToNewVM bool) {
+				DescribeTable("should restore a vm that boots from a network cloned datavolume (not template)", func(restoreToNewVM, deleteSourcePVC bool) {
 					vm = createVMFromSource()
 					dv := orphanDataVolumeTemplate(vm, 0)
 
@@ -1645,11 +1653,16 @@ var _ = SIGDescribe("VirtualMachineRestore Tests", func() {
 					vm, vmi = createAndStartVM(vm)
 
 					checkCloneAnnotations(vm, true)
+					if deleteSourcePVC {
+						libstorage.DeleteDataVolume(&sourceDV)
+					}
 					doRestore("", console.LoginToCirros, offlineSnaphot, getTargetVMName(restoreToNewVM, newVmName))
 					checkCloneAnnotations(getTargetVM(restoreToNewVM), false)
 				},
-					Entry("to the same VM", false),
-					Entry("to a new VM", true),
+					Entry("to the same VM", false, false),
+					Entry("to a new VM", true, false),
+					Entry("to the same VM, no source pvc", false, true),
+					Entry("to a new VM, no source pvc", true, true),
 				)
 			})
 		})
