@@ -375,7 +375,7 @@ var _ = SIGDescribe("DataVolume Integration", func() {
 
 				Eventually(func() (*k8sv1.PersistentVolumeClaim, error) {
 					return virtClient.CoreV1().PersistentVolumeClaims(dv.Namespace).Get(context.Background(), dv.Name, metav1.GetOptions{})
-				}, 30).Should(Not(BeNil()))
+				}, 90).Should(Not(BeNil()))
 
 				vm := tests.NewRandomVirtualMachine(vmi, true)
 				dvt := &v1.DataVolumeTemplateSpec{
