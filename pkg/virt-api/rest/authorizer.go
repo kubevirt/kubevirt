@@ -31,7 +31,6 @@ import (
 	authorization "k8s.io/api/authorization/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	authorizationclient "k8s.io/client-go/kubernetes/typed/authorization/v1"
-	restclient "k8s.io/client-go/rest"
 	"k8s.io/client-go/util/flowcontrol"
 
 	"kubevirt.io/client-go/kubecli"
@@ -308,24 +307,13 @@ func (a *authorizor) Authorize(req *restful.Request) (bool, string, error) {
 	return false, result.Status.Reason, nil
 }
 
-func NewAuthorizorFromConfig(config *restclient.Config) (VirtApiAuthorizor, error) {
-	client, err := authorizationclient.NewForConfig(config)
-	if err != nil {
-		return nil, err
+func NewAuthorizorFromClient(client authorizationclient.SubjectAccessReviewInterface) VirtApiAuthorizor {
+	return &authorizor{
+		userHeaders:             []string{userHeader},
+		groupHeaders:            []string{groupHeader},
+		userExtraHeaderPrefixes: []string{userExtraHeaderPrefix},
+		subjectAccessReview:     client,
 	}
-
-	subjectAccessReview := client.SubjectAccessReviews()
-
-	a := &authorizor{
-		subjectAccessReview: subjectAccessReview,
-	}
-
-	// add default headers
-	a.userHeaders = append(a.userHeaders, userHeader)
-	a.groupHeaders = append(a.groupHeaders, groupHeader)
-	a.userExtraHeaderPrefixes = append(a.userExtraHeaderPrefixes, userExtraHeaderPrefix)
-
-	return a, nil
 }
 
 func NewAuthorizor(rateLimiter flowcontrol.RateLimiter) (VirtApiAuthorizor, error) {
@@ -335,5 +323,10 @@ func NewAuthorizor(rateLimiter flowcontrol.RateLimiter) (VirtApiAuthorizor, erro
 	}
 	config.RateLimiter = rateLimiter
 
-	return NewAuthorizorFromConfig(config)
+	client, err := authorizationclient.NewForConfig(config)
+	if err != nil {
+		return nil, err
+	}
+
+	return NewAuthorizorFromClient(client.SubjectAccessReviews()), nil
 }
