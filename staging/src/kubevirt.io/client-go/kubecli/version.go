@@ -25,6 +25,7 @@ import (
 	"encoding/json"
 	"fmt"
 	"net/url"
+	"path"
 
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/client-go/rest"
@@ -41,12 +42,14 @@ const (
 func (k *kubevirt) ServerVersion() ServerVersionInterface {
 	return &ServerVersion{
 		restClient: k.restClient,
+		config:     k.config,
 		resource:   "version",
 	}
 }
 
 type ServerVersion struct {
 	restClient *rest.RESTClient
+	config     *rest.Config
 	resource   string
 }
 
@@ -54,7 +57,12 @@ func (v *ServerVersion) Get() (*version.Info, error) {
 
 	var group metav1.APIGroup
 	// First, find out which version to query
-	uri := ApiGroupName
+	u, err := url.Parse(v.config.Host)
+	if err != nil {
+		return nil, err
+	}
+	uri := path.Join(u.Path, ApiGroupName)
+
 	result := v.restClient.Get().RequestURI(uri).Do(context.Background())
 	if data, err := result.Raw(); err != nil {
 		connErr, isConnectionErr := err.(*url.Error)
@@ -69,7 +77,7 @@ func (v *ServerVersion) Get() (*version.Info, error) {
 	}
 
 	// Now, query the preferred version
-	uri = fmt.Sprintf("/apis/%s/version", group.PreferredVersion.GroupVersion)
+	uri = fmt.Sprintf("%s/apis/%s/version", u.Path, group.PreferredVersion.GroupVersion)
 	var serverInfo version.Info
 
 	result = v.restClient.Get().RequestURI(uri).Do(context.Background())
