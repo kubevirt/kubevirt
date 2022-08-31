@@ -290,7 +290,7 @@ var _ = SIGDescribe("DataVolume Integration", func() {
 				Expect(err).To(BeNil())
 			})
 
-			It("should accurately report DataVolume provisioning", func() {
+			It("[QUARANTINE] should accurately report DataVolume provisioning", func() {
 				sc, exists := libstorage.GetSnapshotStorageClass()
 				if !exists {
 					Skip("no snapshot storage class configured")
