@@ -251,7 +251,7 @@ var _ = Describe("ContainerDisk", func() {
 					Expect(err).To(HaveOccurred())
 				})
 
-				It("shoud succeed if the the socket is there", func() {
+				It("shoud succeed if the socket is there", func() {
 					path1, err := NewSocketPathGetter(tmpDir)(vmi, 0)
 					Expect(err).ToNot(HaveOccurred())
 					Expect(path1).To(Equal(fmt.Sprintf("%s/pods/%s/volumes/kubernetes.io~empty-dir/container-disks/disk_0.sock", tmpDir, "poduid")))
