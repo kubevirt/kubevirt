@@ -25,6 +25,7 @@ import (
 	"fmt"
 	"net"
 	"path/filepath"
+	"reflect"
 	"regexp"
 	"strings"
 
@@ -698,20 +699,13 @@ func validateProbe(field *k8sfield.Path, probe *v1.Probe) (causes []metav1.Statu
 	if probe == nil {
 		return causes
 	}
-	numHandlers := 0
 
-	if probe.HTTPGet != nil {
-		numHandlers++
-	}
-	if probe.TCPSocket != nil {
-		numHandlers++
-	}
-	if probe.Exec != nil {
-		numHandlers++
-	}
-	if probe.GuestAgentPing != nil {
-		numHandlers++
-	}
+	numHandlers := countNonNil(
+		probe.HTTPGet,
+		probe.TCPSocket,
+		probe.Exec,
+		probe.GuestAgentPing,
+	)
 
 	if numHandlers > 1 {
 		causes = append(causes, metav1.StatusCause{
@@ -724,10 +718,11 @@ func validateProbe(field *k8sfield.Path, probe *v1.Probe) (causes []metav1.Statu
 	if numHandlers < 1 {
 		causes = append(causes, metav1.StatusCause{
 			Type: metav1.CauseTypeFieldValueRequired,
-			Message: fmt.Sprintf("either %s, %s or %s must be set if a %s is specified",
+			Message: fmt.Sprintf("either %s, %s, %s or %s must be set if a %s is specified",
 				field.Child("tcpSocket").String(),
 				field.Child("exec").String(),
 				field.Child("httpGet").String(),
+				field.Child("guestAgentPing").String(),
 				field,
 			),
 			Field: field.String(),
@@ -940,13 +935,10 @@ func appendStatusCauseForCNIPluginHasNoNetworkName(field *k8sfield.Path, incomin
 }
 
 func validateNetworkHasOnlyOneType(field *k8sfield.Path, network *v1.Network, causes []metav1.StatusCause, idx int) []metav1.StatusCause {
-	cniTypesCount := 0
-	if network.Pod != nil {
-		cniTypesCount++
-	}
-	if network.Multus != nil {
-		cniTypesCount++
-	}
+	cniTypesCount := countNonNil(
+		network.Pod,
+		network.Multus,
+	)
 
 	if cniTypesCount == 0 {
 		return append(causes, metav1.StatusCause{
@@ -1823,17 +1815,10 @@ func validateAccessCredentials(field *k8sfield.Path, accessCredentials []v1.Acce
 
 	var causes []metav1.StatusCause
 	for idx, accessCred := range accessCredentials {
-		count := 0
-		// one access cred type must be selected
-		if accessCred.SSHPublicKey != nil {
-			count++
-			causes = append(causes, validateAccessCredentialSSH(field.Index(idx), accessCred.SSHPublicKey, hasConfigDriveVolume)...)
-		}
-
-		if accessCred.UserPassword != nil {
-			count++
-			causes = append(causes, validateAccessCredentialUserPassword(field.Index(idx), accessCred.UserPassword)...)
-		}
+		count := countNonNil(
+			accessCred.SSHPublicKey,
+			accessCred.UserPassword,
+		)
 
 		if count != 1 {
 			causes = append(causes, metav1.StatusCause{
@@ -1841,6 +1826,14 @@ func validateAccessCredentials(field *k8sfield.Path, accessCredentials []v1.Acce
 				Message: fmt.Sprintf("%s must have exactly one access credential type set", field.Index(idx).String()),
 				Field:   field.Index(idx).String(),
 			})
+		}
+
+		if accessCred.SSHPublicKey != nil {
+			causes = append(causes, validateAccessCredentialSSH(field.Index(idx), accessCred.SSHPublicKey, hasConfigDriveVolume)...)
+		}
+
+		if accessCred.UserPassword != nil {
+			causes = append(causes, validateAccessCredentialUserPassword(field.Index(idx), accessCred.UserPassword)...)
 		}
 	}
 
@@ -1854,14 +1847,27 @@ func validateAccessCredentialSSH(field *k8sfield.Path, sshPublicKey *v1.SSHPubli
 
 	var causes []metav1.StatusCause
 
-	sourceCount := 0
-	if sshPublicKey.Source.Secret != nil {
-		sourceCount++
+	if sshPublicKey.Source.Secret == nil {
+		causes = append(causes, metav1.StatusCause{
+			Type:    metav1.CauseTypeFieldValueInvalid,
+			Message: fmt.Sprintf("%s must have exactly one source set", field.String()),
+			Field:   field.Child("sshPublicKey", "source").String(),
+		})
 	}
 
-	methodCount := 0
+	methodCount := countNonNil(
+		sshPublicKey.PropagationMethod.ConfigDrive,
+		sshPublicKey.PropagationMethod.QemuGuestAgent,
+	)
+	if methodCount != 1 {
+		causes = append(causes, metav1.StatusCause{
+			Type:    metav1.CauseTypeFieldValueInvalid,
+			Message: fmt.Sprintf("%s must have exactly one propagationMethod set", field.String()),
+			Field:   field.Child("sshPublicKey", "propagationMethod").String(),
+		})
+	}
+
 	if sshPublicKey.PropagationMethod.ConfigDrive != nil {
-		methodCount++
 		if !hasConfigDriveVolume {
 			causes = append(causes, metav1.StatusCause{
 				Type:    metav1.CauseTypeFieldValueInvalid,
@@ -1879,22 +1885,6 @@ func validateAccessCredentialSSH(field *k8sfield.Path, sshPublicKey *v1.SSHPubli
 				Field:   field.Child("sshPublicKey", "propagationMethod", "qemuGuestAgent", "users").String(),
 			})
 		}
-		methodCount++
-	}
-
-	if sourceCount != 1 {
-		causes = append(causes, metav1.StatusCause{
-			Type:    metav1.CauseTypeFieldValueInvalid,
-			Message: fmt.Sprintf("%s must have exactly one source set", field.String()),
-			Field:   field.Child("sshPublicKey", "source").String(),
-		})
-	}
-	if methodCount != 1 {
-		causes = append(causes, metav1.StatusCause{
-			Type:    metav1.CauseTypeFieldValueInvalid,
-			Message: fmt.Sprintf("%s must have exactly one propagationMethod set", field.String()),
-			Field:   field.Child("sshPublicKey", "propagationMethod").String(),
-		})
 	}
 
 	return causes
@@ -1905,13 +1895,8 @@ func validateAccessCredentialUserPassword(field *k8sfield.Path, userPassword *v1
 		return nil
 	}
 
-	sourceCount := 0
-	if userPassword.Source.Secret != nil {
-		sourceCount++
-	}
-
 	var causes []metav1.StatusCause
-	if sourceCount != 1 {
+	if userPassword.Source.Secret == nil {
 		causes = append(causes, metav1.StatusCause{
 			Type:    metav1.CauseTypeFieldValueInvalid,
 			Message: fmt.Sprintf("%s must have exactly one source set", field.String()),
@@ -1919,11 +1904,7 @@ func validateAccessCredentialUserPassword(field *k8sfield.Path, userPassword *v1
 		})
 	}
 
-	methodCount := 0
-	if userPassword.PropagationMethod.QemuGuestAgent != nil {
-		methodCount++
-	}
-	if methodCount != 1 {
+	if userPassword.PropagationMethod.QemuGuestAgent == nil {
 		causes = append(causes, metav1.StatusCause{
 			Type:    metav1.CauseTypeFieldValueInvalid,
 			Message: fmt.Sprintf("%s must have exactly one propagationMethod set", field.String()),
@@ -2000,31 +1981,32 @@ func validateVolumes(field *k8sfield.Path, volumes []v1.Volume, config *virtconf
 func validateVolume(field *k8sfield.Path, volume v1.Volume, config *virtconfig.ClusterConfig) []metav1.StatusCause {
 	var causes []metav1.StatusCause
 	// Verify exactly one source is set
-	volumeSourceSetCount := 0
-	if volume.PersistentVolumeClaim != nil {
-		volumeSourceSetCount++
+	volumeSourceSetCount := countNonNil(
+		volume.PersistentVolumeClaim,
+		volume.Sysprep,
+		volume.CloudInitNoCloud,
+		volume.CloudInitConfigDrive,
+		volume.ContainerDisk,
+		volume.Ephemeral,
+		volume.EmptyDisk,
+		volume.HostDisk,
+		volume.DataVolume,
+		volume.ConfigMap,
+		volume.Secret,
+		volume.DownwardAPI,
+		volume.ServiceAccount,
+		volume.DownwardMetrics,
+		volume.MemoryDump,
+	)
+
+	if volumeSourceSetCount != 1 {
+		causes = append(causes, metav1.StatusCause{
+			Type:    metav1.CauseTypeFieldValueInvalid,
+			Message: fmt.Sprintf("%s must have exactly one source type set", field.String()),
+			Field:   field.String(),
+		})
 	}
-	if volume.Sysprep != nil {
-		volumeSourceSetCount++
-	}
-	if volume.CloudInitNoCloud != nil {
-		volumeSourceSetCount++
-	}
-	if volume.CloudInitConfigDrive != nil {
-		volumeSourceSetCount++
-	}
-	if volume.ContainerDisk != nil {
-		volumeSourceSetCount++
-	}
-	if volume.Ephemeral != nil {
-		volumeSourceSetCount++
-	}
-	if volume.EmptyDisk != nil {
-		volumeSourceSetCount++
-	}
-	if volume.HostDisk != nil {
-		volumeSourceSetCount++
-	}
+
 	if volume.DataVolume != nil {
 		if !config.HasDataVolumeAPI() {
 			causes = append(causes, metav1.StatusCause{
@@ -2041,33 +2023,6 @@ func validateVolume(field *k8sfield.Path, volume v1.Volume, config *virtconfig.C
 				Field:   field.Child("name").String(),
 			})
 		}
-		volumeSourceSetCount++
-	}
-	if volume.ConfigMap != nil {
-		volumeSourceSetCount++
-	}
-	if volume.Secret != nil {
-		volumeSourceSetCount++
-	}
-	if volume.DownwardAPI != nil {
-		volumeSourceSetCount++
-	}
-	if volume.ServiceAccount != nil {
-		volumeSourceSetCount++
-	}
-	if volume.DownwardMetrics != nil {
-		volumeSourceSetCount++
-	}
-	if volume.MemoryDump != nil {
-		volumeSourceSetCount++
-	}
-
-	if volumeSourceSetCount != 1 {
-		causes = append(causes, metav1.StatusCause{
-			Type:    metav1.CauseTypeFieldValueInvalid,
-			Message: fmt.Sprintf("%s must have exactly one source type set", field.String()),
-			Field:   field.String(),
-		})
 	}
 
 	causes = append(causes, validateVolumeCloudInit(field, volume)...)
@@ -2315,24 +2270,11 @@ func validateDisks(field *k8sfield.Path, disks []v1.Disk) []metav1.StatusCause {
 		}
 
 		// Verify only a single device type is set.
-		deviceTargetSetCount := 0
-		var diskType string
-		var bus v1.DiskBus
-		if disk.Disk != nil {
-			deviceTargetSetCount++
-			diskType = "disk"
-			bus = disk.Disk.Bus
-		}
-		if disk.LUN != nil {
-			deviceTargetSetCount++
-			diskType = "lun"
-			bus = disk.LUN.Bus
-		}
-		if disk.CDRom != nil {
-			deviceTargetSetCount++
-			diskType = "cdrom"
-			bus = disk.CDRom.Bus
-		}
+		deviceTargetSetCount := countNonNil(
+			disk.Disk,
+			disk.LUN,
+			disk.CDRom,
+		)
 
 		// NOTE: not setting a device target is okay. We default to Disk.
 		// However, only a single device target is allowed to be set at a time.
@@ -2371,6 +2313,21 @@ func validateDisks(field *k8sfield.Path, disks []v1.Disk) []metav1.StatusCause {
 				Message: fmt.Sprintf("%s must have a boot order > 0, if supplied", field.Index(idx).String()),
 				Field:   field.Index(idx).Child("bootOrder").String(),
 			})
+		}
+
+		var diskType string
+		var bus v1.DiskBus
+		if disk.Disk != nil {
+			diskType = "disk"
+			bus = disk.Disk.Bus
+		}
+		if disk.LUN != nil {
+			diskType = "lun"
+			bus = disk.LUN.Bus
+		}
+		if disk.CDRom != nil {
+			diskType = "cdrom"
+			bus = disk.CDRom.Bus
 		}
 
 		// Verify bus is supported, if provided
@@ -2622,4 +2579,14 @@ func validateVSOCK(field *k8sfield.Path, spec *v1.VirtualMachineInstanceSpec, co
 	}
 
 	return
+}
+
+func countNonNil(values ...interface{}) int {
+	count := 0
+	for _, v := range values {
+		if v != nil && !reflect.ValueOf(v).IsNil() {
+			count++
+		}
+	}
+	return count
 }

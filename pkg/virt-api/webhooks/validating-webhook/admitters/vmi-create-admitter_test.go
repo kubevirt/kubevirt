@@ -185,7 +185,7 @@ var _ = Describe("Validating VMICreate Admitter", func() {
 
 			resp := vmiCreateAdmitter.Admit(ar)
 			Expect(resp.Allowed).To(BeFalse())
-			Expect(resp.Result.Message).To(Equal(`either spec.readinessProbe.tcpSocket, spec.readinessProbe.exec or spec.readinessProbe.httpGet must be set if a spec.readinessProbe is specified, either spec.livenessProbe.tcpSocket, spec.livenessProbe.exec or spec.livenessProbe.httpGet must be set if a spec.livenessProbe is specified`))
+			Expect(resp.Result.Message).To(Equal(`either spec.readinessProbe.tcpSocket, spec.readinessProbe.exec, spec.readinessProbe.httpGet or spec.readinessProbe.guestAgentPing must be set if a spec.readinessProbe is specified, either spec.livenessProbe.tcpSocket, spec.livenessProbe.exec, spec.livenessProbe.httpGet or spec.livenessProbe.guestAgentPing must be set if a spec.livenessProbe is specified`))
 		})
 		It("should reject probes with more than one action per probe configured", func() {
 			vmi := api.NewMinimalVMI("testvmi")
