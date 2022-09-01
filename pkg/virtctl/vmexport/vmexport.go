@@ -457,7 +457,7 @@ func waitForVirtualMachineExport(client kubecli.KubevirtClient, vmeInfo *VMExpor
 
 // handleHTTPRequest generates the GET request with proper certificate handling
 func handleHTTPRequest(client kubecli.KubevirtClient, vmexport *exportv1.VirtualMachineExport, downloadUrl string, insecure bool) (*http.Response, error) {
-	token, err := getTokenFromSecret(client, vmexport.Namespace, vmexport.Name)
+	token, err := getTokenFromSecret(client, vmexport)
 	if err != nil {
 		return nil, err
 	}
@@ -538,9 +538,8 @@ func getOrCreateTokenSecret(client kubecli.KubevirtClient, vmexport *exportv1.Vi
 }
 
 // getTokenFromSecret extracts the token from the secret specified on the virtualMachineExport
-func getTokenFromSecret(client kubecli.KubevirtClient, namespace, vmexportName string) (string, error) {
-	secretName := getExportSecretName(vmexportName)
-	secret, err := client.CoreV1().Secrets(namespace).Get(context.Background(), secretName, metav1.GetOptions{})
+func getTokenFromSecret(client kubecli.KubevirtClient, vmexport *exportv1.VirtualMachineExport) (string, error) {
+	secret, err := client.CoreV1().Secrets(vmexport.Namespace).Get(context.Background(), vmexport.Spec.TokenSecretRef, metav1.GetOptions{})
 	if err != nil {
 		return "", err
 	}
