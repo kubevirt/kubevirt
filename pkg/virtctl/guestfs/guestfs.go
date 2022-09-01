@@ -382,11 +382,21 @@ func createLibguestfsPod(pvc, image, cmd string, args []string, kvm, isBlock boo
 		nonRoot = false
 		uid = &uidRoot
 	}
+	allowPrivilegeEscalation := false
+	containerSecurityContext := &corev1.SecurityContext{
+		AllowPrivilegeEscalation: &allowPrivilegeEscalation,
+		Capabilities: &corev1.Capabilities{
+			Drop: []corev1.Capability{"ALL"},
+		},
+	}
+
 	securityContext := &corev1.PodSecurityContext{
 		RunAsNonRoot: &nonRoot,
 		RunAsUser:    uid,
+		SeccompProfile: &corev1.SeccompProfile{
+			Type: corev1.SeccompProfileTypeRuntimeDefault,
+		},
 	}
-
 	c := &corev1.Pod{
 		ObjectMeta: metav1.ObjectMeta{
 			Name: podName,
@@ -445,6 +455,7 @@ func createLibguestfsPod(pvc, image, cmd string, args []string, kvm, isBlock boo
 							Value: appliancePath,
 						},
 					},
+					SecurityContext: containerSecurityContext,
 					VolumeMounts: []corev1.VolumeMount{
 						{
 							Name:      tmpDirVolumeName,
