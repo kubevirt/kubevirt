@@ -321,11 +321,11 @@ func (r *Reconciler) createOrUpdateCertificateSecrets(queue workqueue.RateLimiti
 
 func (r *Reconciler) createOrUpdateComponentsWithCertificates(queue workqueue.RateLimitingInterface) error {
 	caDuration := GetCADuration(r.kv.Spec.CertificateRotationStrategy.SelfSigned)
-	caExportDuration := metav1.Duration{Duration: time.Hour * 24 * 7} // 7 days
+	caExportDuration := GetCADuration(r.kv.Spec.CertificateRotationStrategy.SelfSigned)
 	caRenewBefore := GetCARenewBefore(r.kv.Spec.CertificateRotationStrategy.SelfSigned)
 	certDuration := GetCertDuration(r.kv.Spec.CertificateRotationStrategy.SelfSigned)
 	certRenewBefore := GetCertRenewBefore(r.kv.Spec.CertificateRotationStrategy.SelfSigned)
-	caExportRenewBefore := metav1.Duration{Duration: time.Hour * 24 * 5} // 5 days
+	caExportRenewBefore := GetCertRenewBefore(r.kv.Spec.CertificateRotationStrategy.SelfSigned)
 
 	// create/update CA Certificate secret
 	caCert, err := r.createOrUpdateCACertificateSecret(queue, components.KubeVirtCASecretName, caDuration, caRenewBefore)
@@ -334,7 +334,7 @@ func (r *Reconciler) createOrUpdateComponentsWithCertificates(queue workqueue.Ra
 	}
 
 	// create/update CA Certificate secret
-	caExportCert, err := r.createOrUpdateCACertificateSecret(queue, components.KubeVirtExportCASecretName, &caExportDuration, &caExportRenewBefore)
+	caExportCert, err := r.createOrUpdateCACertificateSecret(queue, components.KubeVirtExportCASecretName, caExportDuration, caExportRenewBefore)
 	if err != nil {
 		return err
 	}
@@ -346,7 +346,7 @@ func (r *Reconciler) createOrUpdateComponentsWithCertificates(queue workqueue.Ra
 	}
 
 	// create/update export CA config map
-	_, err = r.createOrUpdateKubeVirtCAConfigMap(queue, caExportCert, &caExportRenewBefore, findRequiredCAConfigMap(components.KubeVirtExportCASecretName, r.targetStrategy.ConfigMaps()))
+	_, err = r.createOrUpdateKubeVirtCAConfigMap(queue, caExportCert, caExportRenewBefore, findRequiredCAConfigMap(components.KubeVirtExportCASecretName, r.targetStrategy.ConfigMaps()))
 	if err != nil {
 		return err
 	}
