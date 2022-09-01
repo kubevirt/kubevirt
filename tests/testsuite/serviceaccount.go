@@ -205,6 +205,11 @@ func createSubresourceServiceAccount() {
 				Resources: []string{"virtualmachines/start"},
 				Verbs:     []string{"update"},
 			},
+			{
+				APIGroups: []string{"subresources.kubevirt.io"},
+				Resources: []string{"virtualmachines/expand-spec"},
+				Verbs:     []string{"get"},
+			},
 		},
 	}
 
