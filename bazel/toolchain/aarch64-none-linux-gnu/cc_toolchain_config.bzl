@@ -109,11 +109,12 @@ def _impl(ctx):
     return cc_common.create_cc_toolchain_config_info(
         ctx = ctx,
         cxx_builtin_include_directories = [
-            "/proc/self/cwd/external/aarch64-none-linux-gnu/aarch64-none-linux-gnu/include/c++/10.2.1/",
+            "/proc/self/cwd/external/aarch64-none-linux-gnu/aarch64-none-linux-gnu/include/c++/11.3.1/",
             "/proc/self/cwd/external/aarch64-none-linux-gnu/aarch64-none-linux-gnu/libc/usr/include/",
-            "/proc/self/cwd/external/aarch64-none-linux-gnu/lib/gcc/aarch64-none-linux-gnu/10.2.1/include/",
+            "/proc/self/cwd/external/aarch64-none-linux-gnu/lib/gcc/aarch64-none-linux-gnu/11.3.1/include/",
+            "/proc/self/cwd/external/aarch64-none-linux-gnu/lib/gcc/aarch64-none-linux-gnu/11.3.1/include-fixed/",
             "/proc/self/cwd/external/aarch64-none-linux-gnu/aarch64-none-linux-gnu/libc/lib/",
-            "/usr/lib/gcc/aarch64-redhat-linux/8/include",
+            "/usr/lib/gcc/aarch64-redhat-linux/11/include",
         ],
         features = features,
         toolchain_identifier = "aarch64-toolchain",

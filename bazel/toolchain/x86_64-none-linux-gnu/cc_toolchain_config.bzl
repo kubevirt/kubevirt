@@ -84,7 +84,7 @@ def _impl(ctx):
                             "-D__DATE__=\"redacted\"",
                             "-D__TIMESTAMP__=\"redacted\"",
                             "-D__TIME__=\"redacted\"",
-                            "-D__TOOLCHAIN_SYSROOT__=\"centos-stream-8\"",
+                            "-D__TOOLCHAIN_SYSROOT__=\"centos-stream-9\"",
                         ],
                     ),
                 ],
@@ -117,7 +117,7 @@ def _impl(ctx):
     return cc_common.create_cc_toolchain_config_info(
         ctx = ctx,
         cxx_builtin_include_directories = [
-            "/usr/lib/gcc/x86_64-redhat-linux/8/include",
+            "/usr/lib/gcc/x86_64-redhat-linux/11/include",
             "/usr/include",
         ],
         features = features,
