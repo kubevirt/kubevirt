@@ -26,40 +26,32 @@ Make sure to provide enough delay and failureThreshold for the VM and the agent 
 
 ### Example
 
-**Note**: The Fedora image used in this example does not have qemu-guest-agent available by default.
-We need to install and enable it via cloud-init as shown in the example below.
+The Fedora image used in this example does have qemu-guest-agent available by default. Nevertheless, in
+case qemu-guest-agent is not installed, it will be installed and enabled via cloud-init as shown in the example below. 
+Also, cloud-init assigns the proper SELinux context, i.e. virt_qemu_ga_exec_t, to the `/tmp/healthy.txt` file. 
+Otherwise, SELinux will deny the attempts to open the `/tmp/healthy.txt` file causing the probe to fail.
 
-1. Create VM manifest
+> Note:  If SELinux is not installed in your container disk image, the command `chcon` should be removed from the VM
+> manifest shown below. Otherwise, the `chcon`  command will fail.
+
+1. Create the VM 
 
 ```yaml
-# /tmp/probe-test.vm.yaml
-apiVersion: kubevirt.io/v1alpha3
+$ cat <<EOF | kubectl apply -f -
+apiVersion: kubevirt.io/v1
 kind: VirtualMachine
 metadata:
-  name: probe-test
-  namespace: default
   labels:
-    app: probe-test
-    vm.kubevirt.io/name: probe-test
-    kubevirt.io/domain: probe-test
+    kubevirt.io/vm: readiness-probe-vm
+  name: readiness-probe
 spec:
-  running: false
+  running: true 
   template:
     metadata:
       labels:
-        vm.kubevirt.io/name: probe-test
-        kubevirt.io/domain: probe-test
+        kubevirt.io/domain: readiness-probe
+        kubevirt.io/vm: readiness-probe
     spec:
-      readinessProbe:
-        exec:
-          command:
-          - cat
-          - /tmp/ready.txt
-        failureThreshold: 10
-        initialDelaySeconds: 120
-        periodSeconds: 10
-        # Note that timeoutSeconds value does not have any impact before K8s v1.20.
-        timeoutSeconds: 5
       domain:
         cpu:
           cores: 1
@@ -67,64 +59,62 @@ spec:
           threads: 1
         devices:
           disks:
-            - disk:
-                bus: virtio
-              name: cloudinitdisk
-            - bootOrder: 1
+            - name: containerdisk
               disk:
                 bus: virtio
-              name: rootdisk
-          interfaces:
-            - masquerade: {}
-              model: virtio
-              name: nic-0
-          networkInterfaceMultiqueue: true
+            - name: cloudinitdisk
+              disk:
+                bus: virtio
           rng: {}
-        machine:
-          type: pc-q35-rhel8.2.0
         resources:
           requests:
             memory: 1Gi
-      hostname: probe-test
-      networks:
-        - name: nic-0
-          pod: {}
+      readinessProbe:
+        exec:
+          command: ["cat", "/tmp/healthy.txt"]
+        failureThreshold: 10
+        initialDelaySeconds: 120
+        periodSeconds: 10
+        # Note that timeoutSeconds value does not have any impact before K8s v1.20.
+        timeoutSeconds: 5
       terminationGracePeriodSeconds: 180
       volumes:
+        - containerDisk:
+            image: quay.io/containerdisks/fedora
+          name: containerdisk
         - cloudInitNoCloud:
             userData: |
               #cloud-config
-              user: fedora
-              password: fedora
               chpasswd:
                 expire: false
+              password: password
+              user: fedora
               packages:
                 qemu-guest-agent
               runcmd:
-                - [ "systemctl", "enable", "--now", "qemu-guest-agent" ]
-                - [ "touch" "/tmp/ready.txt" ]
+                - ["touch", "/tmp/healthy.txt"]
+                - ["sudo", "chcon", "--type", "virt_qemu_ga_exec_t", "/tmp/healthy.txt"]
+                - ["sudo", "systemctl", "enable", "--now", "qemu-guest-agent"]
           name: cloudinitdisk
-        - containerDisk:
-            image: kubevirt/fedora-cloud-container-disk-demo
-          name: rootdisk
+EOF
 ```
-2. Apply the VM manifest
-
-```sh
-kubectl apply -f /tmp/probe-test.yaml
-```
-
-3. Start the VM
-
-```sh
-kubectl virt start probe-test
-```
-
-4. (optional) Watch the VM events in a separate shell
+2. (optional) Watch the VM events in a separate shell
 
 ```sh
 # This will stream the events including any probe failures.
-# Observe the guest-agent becomming available here.
+# Observe the guest-agent becoming available here.
 kubectl get events --watch
 ```
 
+3. Wait for the `.status.ready` field to be `true`, it may take a bit
+
+```sh
+kubectl wait vms/readiness-probe --for=condition=Ready --timeout=5m
+```
+
+4. (optional) Log in to the VM and watch the incoming qemu-ga commands
+
+```sh
+virtctl console readiness-probe
+journalctl --follow
+```
