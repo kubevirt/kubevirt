@@ -36,7 +36,7 @@ Indication for a virt-controller that is ready to take the lead. Type: Gauge.
 ### kubevirt_vmi_cpu_affinity
 The vcpu affinity details. Type: Counter.
 
-### kubevirt_vmi_filesystem_total_bytes
+### kubevirt_vmi_filesystem_capacity_bytes_total
 Total VM filesystem capacity in bytes. Type: Gauge.
 
 ### kubevirt_vmi_filesystem_used_bytes
@@ -48,7 +48,7 @@ Current balloon bytes. Type: Gauge.
 ### kubevirt_vmi_memory_available_bytes
 Amount of `usable` memory as seen by the domain. Type: Gauge.
 
-### kubevirt_vmi_memory_domain_total_bytes
+### kubevirt_vmi_memory_domain_bytes_total
 The amount of memory in bytes allocated to the domain. The `memory` value in domain xml file. Type: Gauge.
 
 ### kubevirt_vmi_memory_pgmajfault
