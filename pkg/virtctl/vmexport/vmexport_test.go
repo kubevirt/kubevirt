@@ -154,7 +154,7 @@ var _ = Describe("vmexport", func() {
 			Expect(err.Error()).Should(ContainSubstring("VirtualMachineExport 'default/test-vme' does not exist"))
 		})
 
-		It("VirtualMachineExport doesn't exist when using 'download' without the --create flag", func() {
+		It("VirtualMachineExport doesn't exist when using 'download' without source type", func() {
 			testInit(http.StatusOK)
 			cmd := clientcmd.NewRepeatableVirtctlCommand(commandName, DOWNLOAD, vmexportName, setflag(VOLUME_FLAG, volumeName), setflag(OUTPUT_FLAG, "output.img"))
 			err := cmd()
@@ -162,20 +162,10 @@ var _ = Describe("vmexport", func() {
 			Expect(err.Error()).Should(ContainSubstring("Unable to get 'default/test-vme' VirtualMachineExport"))
 		})
 
-		It("VirtualMachineExport already exists when using 'download' with the --create flag", func() {
-			testInit(http.StatusOK)
-			vmexport := vmexportSpec(vmexportName, defaultNamespace, "pvc", "test-pvc")
-			expectVMExportGet(vmExportClient, vmexport)
-			cmd := clientcmd.NewRepeatableVirtctlCommand(commandName, DOWNLOAD, vmexportName, setflag(PVC_FLAG, "test-pvc"), CREATE_FLAG, setflag(OUTPUT_FLAG, "disk.img"), setflag(VOLUME_FLAG, volumeName))
-			err := cmd()
-			Expect(err).To(HaveOccurred())
-			Expect(err.Error()).Should(ContainSubstring("VirtualMachineExport 'default/test-vme' already exists"))
-		})
-
 		It("VirtualMachineExport processing fails when using 'download'", func() {
 			testInit(http.StatusOK)
 			vmexport.ExportProcessingComplete = waitExportCompleteError
-			cmd := clientcmd.NewRepeatableVirtctlCommand(commandName, DOWNLOAD, vmexportName, setflag(PVC_FLAG, "test-pvc"), CREATE_FLAG, setflag(OUTPUT_FLAG, "disk.img"), setflag(VOLUME_FLAG, volumeName))
+			cmd := clientcmd.NewRepeatableVirtctlCommand(commandName, DOWNLOAD, vmexportName, setflag(PVC_FLAG, "test-pvc"), setflag(OUTPUT_FLAG, "disk.img"), setflag(VOLUME_FLAG, volumeName))
 			err := cmd()
 			Expect(err).To(HaveOccurred())
 			Expect(err.Error()).Should(Equal("Processing failed: Test error"))
@@ -326,8 +316,6 @@ var _ = Describe("vmexport", func() {
 			Entry("Using 'create' with invalid flag", fmt.Sprintf(ErrIncompatibleFlag, INSECURE_FLAG, CREATE), []string{CREATE, vmexportName, setflag(PVC_FLAG, "test"), INSECURE_FLAG}),
 			Entry("Using 'delete' with export type", ErrIncompatibleExportType, []string{DELETE, vmexportName, setflag(PVC_FLAG, "test")}),
 			Entry("Using 'delete' with invalid flag", fmt.Sprintf(ErrIncompatibleFlag, INSECURE_FLAG, DELETE), []string{DELETE, vmexportName, INSECURE_FLAG}),
-			Entry("Using 'download' with --create and without export type", ErrRequiredExportType, []string{DOWNLOAD, vmexportName, CREATE_FLAG}),
-			Entry("Using 'download' without --create flag and with export type", ErrIncompatibleExportType, []string{DOWNLOAD, vmexportName, setflag(PVC_FLAG, "test")}),
 			Entry("Using 'download' without required flags", fmt.Sprintf(ErrRequiredFlag, OUTPUT_FLAG, DOWNLOAD), []string{DOWNLOAD, vmexportName}),
 		)
 
@@ -395,7 +383,7 @@ var _ = Describe("vmexport", func() {
 			expectSecretGet(kubeClient)
 			expectVMExportCreate(vmExportClient, vmexport)
 
-			cmd := clientcmd.NewRepeatableVirtctlCommand(commandName, DOWNLOAD, vmexportName, CREATE_FLAG, setflag(PVC_FLAG, "test-pvc"), setflag(VOLUME_FLAG, volumeName), setflag(OUTPUT_FLAG, "test-pvc"), INSECURE_FLAG)
+			cmd := clientcmd.NewRepeatableVirtctlCommand(commandName, DOWNLOAD, vmexportName, setflag(PVC_FLAG, "test-pvc"), setflag(VOLUME_FLAG, volumeName), setflag(OUTPUT_FLAG, "test-pvc"), INSECURE_FLAG)
 			err := cmd()
 			Expect(err).ToNot(HaveOccurred())
 		})

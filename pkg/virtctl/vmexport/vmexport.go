@@ -59,7 +59,6 @@ const (
 
 	// Available vmexport flags
 	OUTPUT_FLAG   = "--output"
-	CREATE_FLAG   = "--create"
 	VOLUME_FLAG   = "--volume"
 	VM_FLAG       = "--vm"
 	SNAPSHOT_FLAG = "--snapshot"
@@ -96,9 +95,9 @@ var (
 	snapshot     string
 	pvc          string
 	outputFile   string
-	shouldCreate bool
 	insecure     bool
-	keepvme      bool
+	keepVme      bool
+	shouldCreate bool
 	volumeName   string
 )
 
@@ -163,7 +162,7 @@ func usage() string {
 	{{ProgramName}} vmexport download vm1-export --volume=volume1 --output=disk.img.gz
   
 	# Create a VirtualMachineExport and download the requested volume from it
-	{{ProgramName}} vmexport download vm1-export --create --pvc=pvc1 --volume=volume1 --output=disk.img.gz`
+	{{ProgramName}} vmexport download vm1-export --pvc=pvc1 --volume=volume1 --output=disk.img.gz`
 
 	return usage
 }
@@ -187,9 +186,8 @@ func NewVirtualMachineExportCommand(clientConfig clientcmd.ClientConfig) *cobra.
 	cmd.MarkFlagsMutuallyExclusive("vm", "snapshot", "pvc")
 	cmd.Flags().StringVar(&outputFile, "output", "", "Specifies the output path of the volume to be downloaded.")
 	cmd.Flags().StringVar(&volumeName, "volume", "", "Specifies the volume to be downloaded.")
-	cmd.Flags().BoolVar(&shouldCreate, "create", false, "When used with the 'download' option, specifies that a VirtualMachineExport should be created from scratch.")
 	cmd.Flags().BoolVar(&insecure, "insecure", false, "When used with the 'download' option, specifies that the http request should be insecure.")
-	cmd.Flags().BoolVar(&keepvme, "keep-vme", false, "When used with the 'download' option, specifies that the vmexport object should not be deleted after the download finishes.")
+	cmd.Flags().BoolVar(&keepVme, "keep-vme", false, "When used with the 'download' option, specifies that the vmexport object should not be deleted after the download finishes.")
 	cmd.SetUsageTemplate(templates.UsageTemplate())
 
 	return cmd
@@ -231,17 +229,17 @@ func parseExportArguments(args []string, vmeInfo *VMExportInfo) error {
 	switch funcName {
 	case CREATE:
 		exportFunction = CreateVirtualMachineExport
-		if err := handleCreateFlags(args); err != nil {
+		if err := handleCreateFlags(); err != nil {
 			return err
 		}
 	case DELETE:
 		exportFunction = DeleteVirtualMachineExport
-		if err := handleDeleteFlags(args); err != nil {
+		if err := handleDeleteFlags(); err != nil {
 			return err
 		}
 	case DOWNLOAD:
 		exportFunction = DownloadVirtualMachineExport
-		if err := handleDownloadFlags(args); err != nil {
+		if err := handleDownloadFlags(); err != nil {
 			return err
 		}
 	default:
@@ -256,7 +254,7 @@ func parseExportArguments(args []string, vmeInfo *VMExportInfo) error {
 	vmeInfo.OutputFile = outputFile
 	vmeInfo.ShouldCreate = shouldCreate
 	vmeInfo.Insecure = insecure
-	vmeInfo.KeepVme = keepvme
+	vmeInfo.KeepVme = keepVme
 	vmeInfo.VolumeName = volumeName
 
 	return nil
@@ -328,7 +326,9 @@ func DeleteVirtualMachineExport(client kubecli.KubevirtClient, vmeInfo *VMExport
 func DownloadVirtualMachineExport(client kubecli.KubevirtClient, vmeInfo *VMExportInfo) error {
 	if vmeInfo.ShouldCreate {
 		if err := CreateVirtualMachineExport(client, vmeInfo); err != nil {
-			return err
+			if !errExportAlreadyExists(err) {
+				return err
+			}
 		}
 	}
 
@@ -578,7 +578,7 @@ func getExportSource() k8sv1.TypedLocalObjectReference {
 }
 
 // handleCreateFlags ensures that only compatible flag combinations are used with 'create'
-func handleCreateFlags(args []string) error {
+func handleCreateFlags() error {
 	if vm == "" && snapshot == "" && pvc == "" {
 		return fmt.Errorf(ErrRequiredExportType)
 	}
@@ -589,13 +589,10 @@ func handleCreateFlags(args []string) error {
 	if volumeName != "" {
 		return fmt.Errorf(ErrIncompatibleFlag, VOLUME_FLAG, CREATE)
 	}
-	if shouldCreate {
-		return fmt.Errorf(ErrIncompatibleFlag, CREATE_FLAG, CREATE)
-	}
 	if insecure {
 		return fmt.Errorf(ErrIncompatibleFlag, INSECURE_FLAG, CREATE)
 	}
-	if keepvme {
+	if keepVme {
 		return fmt.Errorf(ErrIncompatibleFlag, KEEP_FLAG, CREATE)
 	}
 
@@ -603,7 +600,7 @@ func handleCreateFlags(args []string) error {
 }
 
 // handleDeleteFlags ensures that only compatible flag combinations are used with 'delete'
-func handleDeleteFlags(args []string) error {
+func handleDeleteFlags() error {
 	if vm != "" || snapshot != "" || pvc != "" {
 		return fmt.Errorf(ErrIncompatibleExportType)
 	}
@@ -614,13 +611,10 @@ func handleDeleteFlags(args []string) error {
 	if volumeName != "" {
 		return fmt.Errorf(ErrIncompatibleFlag, VOLUME_FLAG, DELETE)
 	}
-	if shouldCreate {
-		return fmt.Errorf(ErrIncompatibleFlag, CREATE_FLAG, DELETE)
-	}
 	if insecure {
 		return fmt.Errorf(ErrIncompatibleFlag, INSECURE_FLAG, DELETE)
 	}
-	if keepvme {
+	if keepVme {
 		return fmt.Errorf(ErrIncompatibleFlag, KEEP_FLAG, DELETE)
 	}
 
@@ -628,13 +622,10 @@ func handleDeleteFlags(args []string) error {
 }
 
 // handleDownloadFlags ensures that only compatible flag combinations are used with 'download'
-func handleDownloadFlags(args []string) error {
-	hasSource := vm != "" || snapshot != "" || pvc != ""
-	if shouldCreate && !hasSource {
-		return fmt.Errorf(ErrRequiredExportType)
-	}
-	if !shouldCreate && hasSource {
-		return fmt.Errorf(ErrIncompatibleExportType)
+func handleDownloadFlags() error {
+	// We assume that the vmexport should be created if a source has been specified
+	if hasSource := vm != "" || snapshot != "" || pvc != ""; hasSource {
+		shouldCreate = true
 	}
 
 	if outputFile == "" {
@@ -650,4 +641,9 @@ func handleDownloadFlags(args []string) error {
 // getExportSecretName builds the name of the token secret based on the virtualMachineExport object
 func getExportSecretName(vmexportName string) string {
 	return fmt.Sprintf("secret-%s", vmexportName)
+}
+
+// errExportAlreadyExists is used to the determine if an error happened when creating an already existing vmexport
+func errExportAlreadyExists(err error) bool {
+	return strings.Contains(err.Error(), "VirtualMachineExport") && strings.Contains(err.Error(), "already exists")
 }
