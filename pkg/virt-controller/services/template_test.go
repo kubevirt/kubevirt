@@ -428,7 +428,39 @@ var _ = Describe("Template", func() {
 			)
 		})
 		Context("with SELinux types", func() {
-			It("should run under the SELinux type virt_launcher.process if none specified", func() {
+			DescribeTable("should run under the SELinux type virt_launcher.process", func(hugePages, virtiofs bool) {
+				config, kvInformer, svc = configFactory(defaultArch)
+				vmi := v1.VirtualMachineInstance{
+					ObjectMeta: metav1.ObjectMeta{
+						Name: "testvmi", Namespace: "default", UID: "1234",
+					},
+					Spec: v1.VirtualMachineInstanceSpec{Volumes: []v1.Volume{}, Domain: v1.DomainSpec{
+						Devices: v1.Devices{
+							DisableHotplug: true,
+						},
+					}},
+				}
+				if hugePages {
+					vmi.Spec.Domain.Memory = &v1.Memory{Hugepages: &v1.Hugepages{PageSize: "2Mi"}}
+				}
+				if virtiofs {
+					vmi.Spec.Domain.Devices.Filesystems = []v1.Filesystem{{
+						Name:     "virtiofs",
+						Virtiofs: &v1.FilesystemVirtiofs{},
+					}}
+				}
+				pod, err := svc.RenderLaunchManifest(&vmi)
+				Expect(err).ToNot(HaveOccurred())
+				if pod.Spec.SecurityContext != nil {
+					Expect(pod.Spec.SecurityContext.SELinuxOptions).ToNot(BeNil())
+					Expect(pod.Spec.SecurityContext.SELinuxOptions.Type).To(Equal("virt_launcher.process"))
+				}
+			},
+				Entry("if hugepages are enabled", true, false),
+				Entry("if virtiofs is enabled", false, true),
+				Entry("if hugepages and virtiofs are enabled", true, true),
+			)
+			It("should be nil if no SELinux type is specified and none is needed", func() {
 				config, kvInformer, svc = configFactory(defaultArch)
 				vmi := v1.VirtualMachineInstance{
 					ObjectMeta: metav1.ObjectMeta{
@@ -443,8 +475,7 @@ var _ = Describe("Template", func() {
 				pod, err := svc.RenderLaunchManifest(&vmi)
 				Expect(err).ToNot(HaveOccurred())
 				if pod.Spec.SecurityContext != nil {
-					Expect(pod.Spec.SecurityContext.SELinuxOptions).ToNot(BeNil())
-					Expect(pod.Spec.SecurityContext.SELinuxOptions.Type).To(Equal("virt_launcher.process"))
+					Expect(pod.Spec.SecurityContext.SELinuxOptions).To(BeNil())
 				}
 			})
 			It("should run under the corresponding SELinux type if specified", func() {

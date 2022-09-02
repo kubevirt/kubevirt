@@ -992,7 +992,10 @@ var _ = Describe("[sig-compute]Configurations", func() {
 				hugepagesVmi = libvmi.NewCirros()
 			})
 
-			DescribeTable("should consume hugepages ", func(hugepageSize string, memory string, guestMemory string) {
+			DescribeTable("should consume hugepages ", func(hugepageSize string, memory string, guestMemory string, option1, option2 libvmi.Option) {
+				if option1 != nil && option2 != nil {
+					hugepagesVmi = libvmi.NewCirros(option1, option2)
+				}
 				hugepageType := kubev1.ResourceName(kubev1.ResourceHugePagesPrefix + hugepageSize)
 				v, err := cluster.GetKubernetesVersion()
 				Expect(err).ShouldNot(HaveOccurred())
@@ -1039,9 +1042,11 @@ var _ = Describe("[sig-compute]Configurations", func() {
 				By("Checking that the VM memory equals to a number of consumed hugepages")
 				Eventually(func() bool { return verifyHugepagesConsumption() }, 30*time.Second, 5*time.Second).Should(BeTrue())
 			},
-				Entry("[Serial][test_id:1671]hugepages-2Mi", "2Mi", "64Mi", "None"),
-				Entry("[Serial][test_id:1672]hugepages-1Gi", "1Gi", "1Gi", "None"),
-				Entry("[Serial][test_id:1672]hugepages-2Mi with guest memory set explicitly", "2Mi", "70Mi", "64Mi"),
+				Entry("[Serial][test_id:1671]hugepages-2Mi", "2Mi", "64Mi", "None", nil, nil),
+				Entry("[Serial][test_id:1672]hugepages-1Gi", "1Gi", "1Gi", "None", nil, nil),
+				Entry("[Serial][test_id:1672]hugepages-2Mi with guest memory set explicitly", "2Mi", "70Mi", "64Mi", nil, nil),
+				Entry("[Serial]hugepages-2Mi with passt enabled", "2Mi", "64Mi", "None",
+					libvmi.WithPasstInterfaceWithPort(), libvmi.WithNetwork(v1.DefaultPodNetwork())),
 			)
 
 			Context("with unsupported page size", func() {
