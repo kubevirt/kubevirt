@@ -184,6 +184,10 @@ func WithCPUFeature(featureName, policy string) Option {
 	}
 }
 
+func WithPasstInterfaceWithPort() Option {
+	return WithInterface(InterfaceDeviceWithPasstBinding([]v1.Port{{Port: 1234, Protocol: "TCP"}}...))
+}
+
 func baseVmi(name string) *v1.VirtualMachineInstance {
 	vmi := v1.NewVMIReferenceFromNameWithNS("", name)
 	vmi.Spec = v1.VirtualMachineInstanceSpec{Domain: v1.DomainSpec{}}
