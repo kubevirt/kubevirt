@@ -328,7 +328,7 @@ func main() {
 	virtShareDir := pflag.String("kubevirt-share-dir", "/var/run/kubevirt", "Shared directory between virt-handler and virt-launcher")
 	ephemeralDiskDir := pflag.String("ephemeral-disk-dir", "/var/run/kubevirt-ephemeral-disks", "Base directory for ephemeral disk data")
 	containerDiskDir := pflag.String("container-disk-dir", "/var/run/kubevirt/container-disks", "Base directory for container disk data")
-	hotplugDiskDir := pflag.String("hotplug-disk-dir", "/var/run/kubevirt/hotplug-disks", "Base directory for hotplug disk data")
+	hotplugDiskDir := pflag.String("hotplug-disk-dir", v1.HotplugDiskDir, "Base directory for hotplug disk data")
 	name := pflag.String("name", "", "Name of the VirtualMachineInstance")
 	uid := pflag.String("uid", "", "UID of the VirtualMachineInstance")
 	namespace := pflag.String("namespace", "", "Namespace of the VirtualMachineInstance")

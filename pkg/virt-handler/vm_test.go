@@ -2784,7 +2784,7 @@ var _ = Describe("VirtualMachineInstance", func() {
 					Device: "disk",
 					Type:   "file",
 					Source: api.DiskSource{
-						File: "/var/run/kubevirt/hotplug-disks/hpvolume1/disk.img",
+						File: filepath.Join(v1.HotplugDiskDir, "hpvolume1/disk.img"),
 					},
 					Target: api.DiskTarget{
 						Bus:    v1.DiskBusSCSI,

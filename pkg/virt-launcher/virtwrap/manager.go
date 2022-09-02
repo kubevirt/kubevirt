@@ -1018,6 +1018,10 @@ func checkIfDiskReadyToUseFunc(filename string) (bool, error) {
 	return true, nil
 }
 
+func isHotplugDisk(disk api.Disk) bool {
+	return strings.HasPrefix(getSourceFile(disk), v1.HotplugDiskDir)
+}
+
 func getDetachedDisks(oldDisks, newDisks []api.Disk) []api.Disk {
 	newDiskMap := make(map[string]api.Disk)
 	for _, disk := range newDisks {
@@ -1028,6 +1032,9 @@ func getDetachedDisks(oldDisks, newDisks []api.Disk) []api.Disk {
 	}
 	res := make([]api.Disk, 0)
 	for _, oldDisk := range oldDisks {
+		if !isHotplugDisk(oldDisk) {
+			continue
+		}
 		if _, ok := newDiskMap[getSourceFile(oldDisk)]; !ok {
 			// This disk got detached, add it to the list
 			res = append(res, oldDisk)
@@ -1046,6 +1053,9 @@ func getAttachedDisks(oldDisks, newDisks []api.Disk) []api.Disk {
 	}
 	res := make([]api.Disk, 0)
 	for _, newDisk := range newDisks {
+		if !isHotplugDisk(newDisk) {
+			continue
+		}
 		if _, ok := oldDiskMap[getSourceFile(newDisk)]; !ok {
 			// This disk got attached, add it to the list
 			res = append(res, newDisk)

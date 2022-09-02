@@ -3125,10 +3125,10 @@ var _ = Describe("Converter", func() {
 				expectedDisk.Driver.ErrorPolicy = "stop"
 				if isBlockMode {
 					expectedDisk.Type = "block"
-					expectedDisk.Source.Dev = fmt.Sprintf("/var/run/kubevirt/hotplug-disks/%s", volumeName)
+					expectedDisk.Source.Dev = filepath.Join(v1.HotplugDiskDir, volumeName)
 				} else {
 					expectedDisk.Type = "file"
-					expectedDisk.Source.File = fmt.Sprintf("/var/run/kubevirt/hotplug-disks/%s.img", volumeName)
+					expectedDisk.Source.File = fmt.Sprintf("%s.img", filepath.Join(v1.HotplugDiskDir, volumeName))
 				}
 				if !ignoreDiscard {
 					expectedDisk.Driver.Discard = "unmap"

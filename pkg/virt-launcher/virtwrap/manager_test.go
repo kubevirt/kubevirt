@@ -677,7 +677,7 @@ var _ = Describe("Manager", func() {
 			xmlDomain, err := xml.MarshalIndent(domainSpec, "", "\t")
 			Expect(err).ToNot(HaveOccurred())
 			checkIfDiskReadyToUse = func(filename string) (bool, error) {
-				Expect(filename).To(Equal("/var/run/kubevirt/hotplug-disks/hpvolume1.img"))
+				Expect(filename).To(Equal(filepath.Join(v1.HotplugDiskDir, "/hpvolume1.img")))
 				return true, nil
 			}
 			domainSpec.Devices.Disks = []api.Disk{
@@ -704,7 +704,7 @@ var _ = Describe("Manager", func() {
 				Device: "disk",
 				Type:   "file",
 				Source: api.DiskSource{
-					File: "/var/run/kubevirt/hotplug-disks/hpvolume1.img",
+					File: filepath.Join(v1.HotplugDiskDir, "hpvolume1.img"),
 				},
 				Target: api.DiskTarget{
 					Bus:    "scsi",
@@ -809,7 +809,7 @@ var _ = Describe("Manager", func() {
 				Device: "disk",
 				Type:   "file",
 				Source: api.DiskSource{
-					File: "/var/run/kubevirt/hotplug-disks/hpvolume1.img",
+					File: filepath.Join(v1.HotplugDiskDir, "hpvolume1.img"),
 				},
 				Target: api.DiskTarget{
 					Bus:    "scsi",
@@ -916,7 +916,7 @@ var _ = Describe("Manager", func() {
 			xmlDomain, err := xml.MarshalIndent(domainSpec, "", "\t")
 			Expect(err).ToNot(HaveOccurred())
 			checkIfDiskReadyToUse = func(filename string) (bool, error) {
-				Expect(filename).To(Equal("/var/run/kubevirt/hotplug-disks/hpvolume1.img"))
+				Expect(filename).To(Equal(filepath.Join(v1.HotplugDiskDir, "hpvolume1.img")))
 				return true, nil
 			}
 			mockConn.EXPECT().DomainDefineXML(string(xmlDomain)).Return(mockDomain, nil)
@@ -995,7 +995,7 @@ var _ = Describe("Manager", func() {
 			xmlDomain, err := xml.MarshalIndent(domainSpec, "", "\t")
 			Expect(err).ToNot(HaveOccurred())
 			checkIfDiskReadyToUse = func(filename string) (bool, error) {
-				Expect(filename).To(Equal("/var/run/kubevirt/hotplug-disks/hpvolume1.img"))
+				Expect(filename).To(Equal(filepath.Join(v1.HotplugDiskDir, "hpvolume1.img")))
 				return false, nil
 			}
 			domainSpec.Devices.Disks = []api.Disk{
@@ -2212,7 +2212,7 @@ var _ = Describe("getAttachedDisks", func() {
 				{
 					Source: api.DiskSource{
 						Name: "test2",
-						File: "file2",
+						File: filepath.Join(v1.HotplugDiskDir, "file2"),
 					},
 				},
 			},
@@ -2220,10 +2220,34 @@ var _ = Describe("getAttachedDisks", func() {
 				{
 					Source: api.DiskSource{
 						Name: "test2",
-						File: "file2",
+						File: filepath.Join(v1.HotplugDiskDir, "file2"),
 					},
 				},
 			}),
+		Entry("be empty if non-hotplug disk is added",
+			[]api.Disk{
+				{
+					Source: api.DiskSource{
+						Name: "test",
+						File: "file",
+					},
+				},
+			},
+			[]api.Disk{
+				{
+					Source: api.DiskSource{
+						Name: "test",
+						File: "file",
+					},
+				},
+				{
+					Source: api.DiskSource{
+						Name: "test2",
+						File: "file2",
+					},
+				},
+			},
+			[]api.Disk{}),
 	)
 })
 
@@ -2265,7 +2289,7 @@ var _ = Describe("getDetachedDisks", func() {
 				{
 					Source: api.DiskSource{
 						Name: "test2",
-						File: "file2",
+						File: filepath.Join(v1.HotplugDiskDir, "file2"),
 					},
 				},
 			},
@@ -2281,10 +2305,28 @@ var _ = Describe("getDetachedDisks", func() {
 				{
 					Source: api.DiskSource{
 						Name: "test2",
-						File: "file2",
+						File: filepath.Join(v1.HotplugDiskDir, "file2"),
 					},
 				},
 			}),
+		Entry("be empty if non-hotplug disk changed",
+			[]api.Disk{
+				{
+					Source: api.DiskSource{
+						Name: "test",
+						File: "file",
+					},
+				},
+			},
+			[]api.Disk{
+				{
+					Source: api.DiskSource{
+						Name: "test",
+						File: "file-changed",
+					},
+				},
+			},
+			[]api.Disk{}),
 	)
 })
 
