@@ -11,6 +11,7 @@ QEMU_VERSION=${QEMU_VERSION:-15:6.2.0-5.module_el8.6.0+1087+b42c8331}
 SEABIOS_VERSION=${SEABIOS_VERSION:-0:1.15.0-1.module_el8.6.0+1087+b42c8331}
 EDK2_VERSION=${EDK2_VERSION:-0:20220126gitbb1bba3d77-2.el8}
 LIBGUESTFS_VERSION=${LIBGUESTFS_VERSION:-1:1.44.0-5.module_el8.6.0+1087+b42c8331}
+PASST_VERSION=${PASST_VERSION:-0:0.git.2022_08_29.60ffc5b-1.el8}
 SINGLE_ARCH=${SINGLE_ARCH:-""}
 
 bazeldnf_repos="--repofile rpm/repo.yaml"
@@ -81,7 +82,7 @@ launcherbase_base="
   libvirt-client-${LIBVIRT_VERSION}
   libvirt-daemon-driver-qemu-${LIBVIRT_VERSION}
   qemu-kvm-core-${QEMU_VERSION}
-  passt
+  passt-${PASST_VERSION}
 "
 launcherbase_x86_64="
   edk2-ovmf-${EDK2_VERSION}
