@@ -1499,12 +1499,15 @@ var _ = SIGDescribe("Export", func() {
 	var _ = Describe("virtctl vmexport command", func() {
 		const (
 			commandName    = "vmexport"
-			defaultOutput  = "/tmp/test-disk.img"
-			defaultVMEName = "vme-test"
+			defaultOutput  = "/tmp/test-disk-%s.img"
+			defaultVMEName = "vme-test-%s"
 		)
 
-		sc := ""
-		vmeName := ""
+		var (
+			sc         string
+			vmeName    string
+			outputFile string
+		)
 
 		checkForReadyExport := func(name string) {
 			vmexport, err := virtClient.VirtualMachineExport(util.NamespaceTestDefault).Get(context.Background(), name, metav1.GetOptions{})
@@ -1518,7 +1521,7 @@ var _ = SIGDescribe("Export", func() {
 				Skip("Skip test when Filesystem storage is not present")
 			}
 			sc = storageClass
-			vmeName = defaultVMEName
+			vmeName = fmt.Sprintf(defaultVMEName, rand.String(12))
 		})
 
 		AfterEach(func() {
@@ -1617,179 +1620,163 @@ var _ = SIGDescribe("Export", func() {
 			virtctlCmd := clientcmd.NewRepeatableVirtctlCommand(commandName, "delete", vmeName, "--namespace", util.NamespaceTestDefault)
 			err = virtctlCmd()
 			Expect(err).ToNot(HaveOccurred())
+			By("Verifying the vmexport was deleted")
+			Eventually(func() bool {
+				_, err := virtClient.VirtualMachineExport(util.NamespaceTestDefault).Get(context.Background(), vmExport.Name, metav1.GetOptions{})
+				if err == nil {
+					return false
+				}
+				return errors.IsNotFound(err)
+			}, 180*time.Second, time.Second).Should(Equal(true))
 		})
 
-		It("Delete fails when vmexport doesn't exist", func() {
+		It("Delete succeeds when vmexport doesn't exist", func() {
 			// Run vmexport
 			By("Running vmexport command")
 			virtctlCmd := clientcmd.NewRepeatableVirtctlCommand(commandName, "delete", vmeName, "--namespace", util.NamespaceTestDefault)
 			err = virtctlCmd()
-			Expect(err).To(HaveOccurred())
-			errString := fmt.Sprintf("VirtualMachineExport '%s/%s' does not exist", util.NamespaceTestDefault, vmeName)
-			Expect(err.Error()).Should(Equal(errString))
-		})
-
-		It("Download succeeds creating and downloading a vmexport using PVC source", func() {
-			if !checks.IsOpenShift() {
-				Skip("Not on openshift")
-			}
-
-			// Create populated PVC
-			pvc, _ := populateKubeVirtContent(sc, k8sv1.PersistentVolumeFilesystem)
-			// Run vmexport
-			By("Running vmexport command")
-			virtctlCmd := clientcmd.NewRepeatableVirtctlCommand(commandName,
-				"download",
-				vmeName,
-				"--pvc", pvc.Name,
-				"--output", defaultOutput,
-				"--volume", pvc.Name,
-				"--insecure",
-				"--namespace", util.NamespaceTestDefault)
-
-			err = virtctlCmd()
-			Expect(err).ToNot(HaveOccurred())
-			_, err = os.Stat(defaultOutput)
-			Expect(err).ToNot(HaveOccurred())
-			err = os.Remove(defaultOutput)
 			Expect(err).ToNot(HaveOccurred())
 		})
 
-		It("Download succeeds creating and downloading a vmexport using Snapshot source", func() {
-			if !checks.IsOpenShift() {
-				Skip("Not on openshift")
-			}
-			sc, exists := libstorage.GetSnapshotStorageClass()
-			if !exists {
-				Skip("Skip test when storage with snapshot is not present")
-			}
-
-			// Create a populated Snapshot
-			blankDv := libstorage.NewBlankDataVolume(util.NamespaceTestDefault, sc, "64Mi", k8sv1.ReadWriteOnce, k8sv1.PersistentVolumeFilesystem)
-			vm := tests.NewRandomVMWithDataVolumeAndUserDataInStorageClass(
-				cd.DataVolumeImportUrlForContainerDisk(cd.ContainerDiskCirros),
-				util.NamespaceTestDefault,
-				bashHelloScript,
-				sc)
-			libstorage.AddDataVolumeTemplate(vm, blankDv)
-			addDataVolumeDisk(vm, "blankdisk", blankDv.Name)
-			vm = createVM(vm)
-			snapshot := createAndVerifyVMSnapshot(vm)
-			Expect(snapshot).ToNot(BeNil())
-			defer deleteSnapshot(snapshot)
-
-			// Run vmexport
-			By("Running vmexport command")
-			virtctlCmd := clientcmd.NewRepeatableVirtctlCommand(commandName,
-				"download",
-				vmeName,
-				"--snapshot", snapshot.Name,
-				"--output", defaultOutput,
-				"--volume", snapshot.Name,
-				"--insecure",
-				"--namespace", util.NamespaceTestDefault)
-
-			err = virtctlCmd()
-			Expect(err).ToNot(HaveOccurred())
-			_, err = os.Stat(defaultOutput)
-			Expect(err).ToNot(HaveOccurred())
-			err = os.Remove(defaultOutput)
-			Expect(err).ToNot(HaveOccurred())
-		})
-
-		It("Download succeeds creating and downloading a vmexport using VM source", func() {
-			if !checks.IsOpenShift() {
-				Skip("Not on openshift")
-			}
-
-			// Create a populated VM
-			vm := tests.NewRandomVMWithDataVolumeWithRegistryImport(
-				cd.DataVolumeImportUrlForContainerDisk(cd.ContainerDiskAlpine),
-				util.NamespaceTestDefault,
-				sc,
-				k8sv1.ReadWriteOnce)
-			vm.Spec.Running = pointer.BoolPtr(true)
-			vm = createVM(vm)
-			Eventually(func() virtv1.VirtualMachineInstancePhase {
-				vmi, err := virtClient.VirtualMachineInstance(vm.Namespace).Get(vm.Name, &metav1.GetOptions{})
-				if errors.IsNotFound(err) {
-					return ""
+		Context("Download a volume with vmexport", func() {
+			BeforeEach(func() {
+				if !checks.IsOpenShift() {
+					Skip("Not on openshift")
 				}
+
+				outputFile = fmt.Sprintf(defaultOutput, rand.String(12))
+			})
+
+			AfterEach(func() {
+				_, err := os.Stat(outputFile)
 				Expect(err).ToNot(HaveOccurred())
-				return vmi.Status.Phase
-			}, 180*time.Second, time.Second).Should(Equal(virtv1.Running))
+				err = os.Remove(outputFile)
+				Expect(err).ToNot(HaveOccurred())
+			})
 
-			By("Stopping VM, we should get the export ready eventually")
-			vm = stopVM(vm)
+			It("Download succeeds creating and downloading a vmexport using PVC source", func() {
+				// Create populated PVC
+				pvc, _ := populateKubeVirtContent(sc, k8sv1.PersistentVolumeFilesystem)
+				// Run vmexport
+				By("Running vmexport command")
+				virtctlCmd := clientcmd.NewRepeatableVirtctlCommand(commandName,
+					"download",
+					vmeName,
+					"--pvc", pvc.Name,
+					"--output", outputFile,
+					"--volume", pvc.Name,
+					"--insecure",
+					"--namespace", util.NamespaceTestDefault)
 
-			// Run vmexport
-			By("Running vmexport command")
-			virtctlCmd := clientcmd.NewRepeatableVirtctlCommand(commandName,
-				"download",
-				vmeName,
-				"--vm", vm.Name,
-				"--output", defaultOutput,
-				"--volume", vm.Spec.Template.Spec.Volumes[0].DataVolume.Name,
-				"--insecure",
-				"--namespace", util.NamespaceTestDefault)
+				err = virtctlCmd()
+				Expect(err).ToNot(HaveOccurred())
+			})
 
-			err = virtctlCmd()
-			Expect(err).ToNot(HaveOccurred())
-			_, err = os.Stat(defaultOutput)
-			Expect(err).ToNot(HaveOccurred())
-			err = os.Remove(defaultOutput)
-			Expect(err).ToNot(HaveOccurred())
-		})
+			It("Download succeeds creating and downloading a vmexport using Snapshot source", func() {
+				sc, exists := libstorage.GetSnapshotStorageClass()
+				if !exists {
+					Skip("Skip test when storage with snapshot is not present")
+				}
 
-		It("Download succeeds with an already existing vmexport", func() {
-			if !checks.IsOpenShift() {
-				Skip("Not on openshift")
-			}
+				// Create a populated Snapshot
+				blankDv := libstorage.NewBlankDataVolume(util.NamespaceTestDefault, sc, "64Mi", k8sv1.ReadWriteOnce, k8sv1.PersistentVolumeFilesystem)
+				vm := tests.NewRandomVMWithDataVolumeAndUserDataInStorageClass(
+					cd.DataVolumeImportUrlForContainerDisk(cd.ContainerDiskCirros),
+					util.NamespaceTestDefault,
+					bashHelloScript,
+					sc)
+				libstorage.AddDataVolumeTemplate(vm, blankDv)
+				addDataVolumeDisk(vm, "blankdisk", blankDv.Name)
+				vm = createVM(vm)
+				snapshot := createAndVerifyVMSnapshot(vm)
+				Expect(snapshot).ToNot(BeNil())
+				defer deleteSnapshot(snapshot)
 
-			vmExport := createRunningPVCExport(sc, k8sv1.PersistentVolumeFilesystem)
-			vmeName = vmExport.Name
-			// Run vmexport
-			By("Running vmexport command")
-			virtctlCmd := clientcmd.NewRepeatableVirtctlCommand(commandName,
-				"download",
-				vmeName,
-				"--output", defaultOutput,
-				"--volume", vmExport.Status.Links.External.Volumes[0].Name,
-				"--insecure",
-				"--namespace", util.NamespaceTestDefault)
+				// Run vmexport
+				By("Running vmexport command")
+				virtctlCmd := clientcmd.NewRepeatableVirtctlCommand(commandName,
+					"download",
+					vmeName,
+					"--snapshot", snapshot.Name,
+					"--output", outputFile,
+					"--volume", snapshot.Name,
+					"--insecure",
+					"--namespace", util.NamespaceTestDefault)
 
-			err = virtctlCmd()
-			Expect(err).ToNot(HaveOccurred())
-			_, err = os.Stat(defaultOutput)
-			Expect(err).ToNot(HaveOccurred())
-			err = os.Remove(defaultOutput)
-			Expect(err).ToNot(HaveOccurred())
-		})
+				err = virtctlCmd()
+				Expect(err).ToNot(HaveOccurred())
+			})
 
-		It("Download succeeds and keeps the vmexport after finishing the download", func() {
-			if !checks.IsOpenShift() {
-				Skip("Not on openshift")
-			}
+			It("Download succeeds creating and downloading a vmexport using VM source", func() {
+				// Create a populated VM
+				vm := tests.NewRandomVMWithDataVolumeWithRegistryImport(
+					cd.DataVolumeImportUrlForContainerDisk(cd.ContainerDiskAlpine),
+					util.NamespaceTestDefault,
+					sc,
+					k8sv1.ReadWriteOnce)
+				vm.Spec.Running = pointer.BoolPtr(true)
+				vm = createVM(vm)
+				Eventually(func() virtv1.VirtualMachineInstancePhase {
+					vmi, err := virtClient.VirtualMachineInstance(vm.Namespace).Get(vm.Name, &metav1.GetOptions{})
+					if errors.IsNotFound(err) {
+						return ""
+					}
+					Expect(err).ToNot(HaveOccurred())
+					return vmi.Status.Phase
+				}, 180*time.Second, time.Second).Should(Equal(virtv1.Running))
 
-			vmExport := createRunningPVCExport(sc, k8sv1.PersistentVolumeFilesystem)
-			vmeName = vmExport.Name
-			// Run vmexport
-			By("Running vmexport command")
-			virtctlCmd := clientcmd.NewRepeatableVirtctlCommand(commandName,
-				"download",
-				vmeName,
-				"--output", defaultOutput,
-				"--volume", vmExport.Status.Links.External.Volumes[0].Name,
-				"--insecure",
-				"--keep-vme",
-				"--namespace", util.NamespaceTestDefault)
-			err = virtctlCmd()
-			Expect(err).ToNot(HaveOccurred())
-			checkForReadyExport(vmeName)
-			_, err = os.Stat(defaultOutput)
-			Expect(err).ToNot(HaveOccurred())
-			err = os.Remove(defaultOutput)
-			Expect(err).ToNot(HaveOccurred())
+				By("Stopping VM, we should get the export ready eventually")
+				vm = stopVM(vm)
+
+				// Run vmexport
+				By("Running vmexport command")
+				virtctlCmd := clientcmd.NewRepeatableVirtctlCommand(commandName,
+					"download",
+					vmeName,
+					"--vm", vm.Name,
+					"--output", outputFile,
+					"--volume", vm.Spec.Template.Spec.Volumes[0].DataVolume.Name,
+					"--insecure",
+					"--namespace", util.NamespaceTestDefault)
+
+				err = virtctlCmd()
+				Expect(err).ToNot(HaveOccurred())
+			})
+
+			It("Download succeeds with an already existing vmexport", func() {
+				vmExport := createRunningPVCExport(sc, k8sv1.PersistentVolumeFilesystem)
+				vmeName = vmExport.Name
+				// Run vmexport
+				By("Running vmexport command")
+				virtctlCmd := clientcmd.NewRepeatableVirtctlCommand(commandName,
+					"download",
+					vmeName,
+					"--output", outputFile,
+					"--volume", vmExport.Status.Links.External.Volumes[0].Name,
+					"--insecure",
+					"--namespace", util.NamespaceTestDefault)
+
+				err = virtctlCmd()
+				Expect(err).ToNot(HaveOccurred())
+			})
+
+			It("Download succeeds and keeps the vmexport after finishing the download", func() {
+				vmExport := createRunningPVCExport(sc, k8sv1.PersistentVolumeFilesystem)
+				vmeName = vmExport.Name
+				// Run vmexport
+				By("Running vmexport command")
+				virtctlCmd := clientcmd.NewRepeatableVirtctlCommand(commandName,
+					"download",
+					vmeName,
+					"--output", outputFile,
+					"--volume", vmExport.Status.Links.External.Volumes[0].Name,
+					"--insecure",
+					"--keep-vme",
+					"--namespace", util.NamespaceTestDefault)
+				err = virtctlCmd()
+				Expect(err).ToNot(HaveOccurred())
+				checkForReadyExport(vmeName)
+			})
 		})
 	})
 })

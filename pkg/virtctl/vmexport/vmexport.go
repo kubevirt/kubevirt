@@ -37,7 +37,6 @@ import (
 	k8serrors "k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/runtime/schema"
-	"k8s.io/apimachinery/pkg/util/rand"
 	"k8s.io/apimachinery/pkg/util/wait"
 	"k8s.io/client-go/tools/clientcmd"
 
@@ -75,6 +74,8 @@ const (
 	exportTokenHeader = "x-kubevirt-export-token"
 	// secretTokenKey is the entry used to store the token in the virtualMachineExport secret
 	secretTokenKey = "token"
+	// secretTokenLenght is the lenght of the randomly generated token
+	secretTokenLenght = 20
 
 	// ErrRequiredFlag serves as error message when a mandatory flag is missing
 	ErrRequiredFlag = "Need to specify the '%s' flag when using '%s'"
@@ -158,11 +159,11 @@ func usage() string {
 	# Delete a VirtualMachineExport resource
 	{{ProgramName}} vmexport delete snap1-export
   
-	# Download a volume from an already existing VirtualMachineExport
+	# Download a volume from an already existing VirtualMachineExport (--volume is optional when only one volume is available)
 	{{ProgramName}} vmexport download vm1-export --volume=volume1 --output=disk.img.gz
   
 	# Create a VirtualMachineExport and download the requested volume from it
-	{{ProgramName}} vmexport download vm1-export --pvc=pvc1 --volume=volume1 --output=disk.img.gz`
+	{{ProgramName}} vmexport download vm1-export --vm=vm1 --volume=volume1 --output=disk.img.gz`
 
 	return usage
 }
@@ -315,7 +316,8 @@ func DeleteVirtualMachineExport(client kubecli.KubevirtClient, vmeInfo *VMExport
 		if !k8serrors.IsNotFound(err) {
 			return err
 		}
-		return fmt.Errorf("VirtualMachineExport '%s/%s' does not exist", vmeInfo.Namespace, vmeInfo.Name)
+		fmt.Printf("VirtualMachineExport '%s/%s' does not exist", vmeInfo.Namespace, vmeInfo.Name)
+		return nil
 	}
 
 	fmt.Printf("VirtualMachineExport '%s/%s' deleted succesfully\n", vmeInfo.Namespace, vmeInfo.Name)
@@ -395,15 +397,20 @@ func downloadVolume(client kubecli.KubevirtClient, vmexport *exportv1.VirtualMac
 func GetUrlFromVirtualMachineExport(vmexport *exportv1.VirtualMachineExport, vmeInfo *VMExportInfo) (string, error) {
 	var downloadUrl string
 
-	if vmexport.Status.Links.External.Volumes == nil {
+	if vmexport.Status.Links == nil || vmexport.Status.Links.External == nil || len(vmexport.Status.Links.External.Volumes) <= 0 {
 		return "", fmt.Errorf("Unable to access the volume info from '%s/%s' VirtualMachineExport", vmexport.Namespace, vmexport.Name)
+	}
+
+	volumeNumber := len(vmexport.Status.Links.External.Volumes)
+	if volumeNumber > 1 && vmeInfo.VolumeName == "" {
+		return "", fmt.Errorf("Detected more than one downloadable volume in '%s/%s' VirtualMachineExport: Select the expected volume using the --volume flag", vmexport.Namespace, vmexport.Name)
 	}
 
 	for _, exportVolume := range vmexport.Status.Links.External.Volumes {
 		// Access the requested volume
-		if exportVolume.Name == vmeInfo.VolumeName {
+		if volumeNumber == 1 || exportVolume.Name == vmeInfo.VolumeName {
 			for _, format := range exportVolume.Formats {
-				// We always attempt to find and get the compressed file URL
+				// We always attempt to find and get the compressed file URL, so we only break the loop when one is found
 				if format.Format == exportv1.KubeVirtGz || format.Format == exportv1.ArchiveGz {
 					downloadUrl = format.Url
 					break
@@ -421,7 +428,7 @@ func GetUrlFromVirtualMachineExport(vmexport *exportv1.VirtualMachineExport, vme
 	return downloadUrl, nil
 }
 
-// waitForVirtualMachineExport waits for the VirtualMachineExport status to be ready
+// waitForVirtualMachineExport waits for the VirtualMachineExport status and external links to be ready
 func waitForVirtualMachineExport(client kubecli.KubevirtClient, vmeInfo *VMExportInfo, interval, timeout time.Duration) error {
 	err := wait.PollImmediate(interval, timeout, func() (bool, error) {
 		vmexport, err := getVirtualMachineExport(client, vmeInfo)
@@ -437,8 +444,7 @@ func waitForVirtualMachineExport(client kubecli.KubevirtClient, vmeInfo *VMExpor
 			return false, nil
 		}
 
-		done := vmexport.Status.Phase == "Ready"
-		if !done {
+		if vmexport.Status.Phase != exportv1.Ready {
 			fmt.Printf("Waiting for VM Export %s status to be ready...\n", vmeInfo.Name)
 			return false, nil
 		}
@@ -449,7 +455,7 @@ func waitForVirtualMachineExport(client kubecli.KubevirtClient, vmeInfo *VMExpor
 		}
 
 		fmt.Printf("Processing completed successfully\n")
-		return done, nil
+		return true, nil
 	})
 
 	return err
@@ -508,8 +514,11 @@ func copyFileWithProgressBar(output *os.File, resp *http.Response) error {
 
 // getOrCreateTokenSecret obtains a token secret to be used along with the virtualMachineExport
 func getOrCreateTokenSecret(client kubecli.KubevirtClient, vmexport *exportv1.VirtualMachineExport) (*k8sv1.Secret, error) {
-	// Generate a random, 20 char string to be used as a token
-	token := rand.String(20)
+	// Securely randomize a 20 char string to be used as a token
+	token, err := util.GenerateSecureRandomString(secretTokenLenght)
+	if err != nil {
+		return nil, err
+	}
 
 	secret := &k8sv1.Secret{
 		ObjectMeta: metav1.ObjectMeta{
@@ -529,7 +538,7 @@ func getOrCreateTokenSecret(client kubecli.KubevirtClient, vmexport *exportv1.Vi
 		},
 	}
 
-	_, err := client.CoreV1().Secrets(vmexport.Namespace).Create(context.Background(), secret, metav1.CreateOptions{})
+	secret, err = client.CoreV1().Secrets(vmexport.Namespace).Create(context.Background(), secret, metav1.CreateOptions{})
 	if err != nil && !k8serrors.IsAlreadyExists(err) {
 		return nil, err
 	}
@@ -629,9 +638,6 @@ func handleDownloadFlags() error {
 
 	if outputFile == "" {
 		return fmt.Errorf(ErrRequiredFlag, OUTPUT_FLAG, DOWNLOAD)
-	}
-	if volumeName == "" {
-		return fmt.Errorf(ErrRequiredFlag, VOLUME_FLAG, DOWNLOAD)
 	}
 
 	return nil
