@@ -31,6 +31,7 @@ import (
 	"k8s.io/apimachinery/pkg/api/equality"
 	"k8s.io/apimachinery/pkg/api/resource"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	k8sfield "k8s.io/apimachinery/pkg/util/validation/field"
 	"k8s.io/client-go/tools/cache"
 
 	v1 "kubevirt.io/api/core/v1"
@@ -64,6 +65,19 @@ func (mutator *VMIsMutator) Mutate(ar *admissionv1.AdmissionReview) *admissionv1
 	newVMI, oldVMI, err := webhookutils.GetVMIFromAdmissionReview(ar)
 	if err != nil {
 		return webhookutils.ToAdmissionResponseError(err)
+	}
+
+	// DomainSpec is optional within the VirtualMachineInstanceSpec schema to allow it to be used by
+	// VirtualMachine but it is however required when used by VirtualMachineInstance so enforce
+	// that requirement here early in the mutation webhook before we attempt any mutations.
+	if newVMI.Spec.Domain == nil || oldVMI != nil && oldVMI.Spec.Domain == nil {
+		return webhookutils.ToAdmissionResponse([]metav1.StatusCause{
+			{
+				Type:    metav1.CauseTypeFieldValueRequired,
+				Message: "DomainSpec not provided",
+				Field:   k8sfield.NewPath("spec.domain").String(),
+			}},
+		)
 	}
 
 	var patch []utiltypes.PatchOperation

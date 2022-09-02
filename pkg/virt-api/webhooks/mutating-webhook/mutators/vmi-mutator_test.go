@@ -189,6 +189,15 @@ var _ = Describe("VirtualMachineInstance Mutator", func() {
 		mutator.NamespaceLimitsInformer = namespaceLimitInformer
 	})
 
+	It("should reject VMI without DomainSpec", func() {
+		vmi.Spec.Domain = nil
+		resp := admitVMI()
+		Expect(resp.Allowed).To(BeFalse())
+		Expect(resp.Result.Details.Causes).To(HaveLen(1))
+		Expect(resp.Result.Details.Causes[0].Field).To(Equal("spec.domain"))
+		Expect(resp.Result.Message).To(ContainSubstring("DomainSpec not provided"))
+	})
+
 	It("should apply presets on VMI create", func() {
 		_, vmiSpec, _ := getMetaSpecStatusFromAdmit()
 		Expect(vmiSpec.Domain.CPU).ToNot(BeNil())
@@ -795,7 +804,11 @@ var _ = Describe("VirtualMachineInstance Mutator", func() {
 		Expect(ok).To(BeTrue())
 	})
 	DescribeTable("modify the VMI status", func(user string, shouldChange bool) {
-		oldVMI := &v1.VirtualMachineInstance{}
+		oldVMI := &v1.VirtualMachineInstance{
+			Spec: v1.VirtualMachineInstanceSpec{
+				Domain: &v1.DomainSpec{},
+			},
+		}
 		oldVMI.Status = v1.VirtualMachineInstanceStatus{
 			Phase: v1.Running,
 		}
