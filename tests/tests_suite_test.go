@@ -39,6 +39,8 @@ import (
 
 	vmsgeneratorutils "kubevirt.io/kubevirt/tools/vms-generator/utils"
 
+	_ "k8s.io/client-go/plugin/pkg/client/auth"
+
 	_ "kubevirt.io/kubevirt/tests/launchsecurity"
 	_ "kubevirt.io/kubevirt/tests/monitoring"
 	_ "kubevirt.io/kubevirt/tests/network"
