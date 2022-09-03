@@ -136,7 +136,7 @@ var _ = SIGDescribe("Infosource", func() {
 				Expect(err).NotTo(HaveOccurred())
 
 				return dummyInterfaceExists(vmi)
-			}, 120*time.Second, 2*time.Second).Should(Equal(true))
+			}, 120*time.Second, 2*time.Second).Should(BeTrue())
 
 			networkInterface := netvmispec.LookupInterfaceStatusByMac(vmi.Status.Interfaces, primaryInterfaceMac)
 			Expect(networkInterface).NotTo(BeNil(), "interface not found")

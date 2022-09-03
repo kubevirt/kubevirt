@@ -81,7 +81,7 @@ var _ = Describe("[Serial][sig-compute]GPU", func() {
 			pod := libvmi.GetPodByVirtualMachineInstance(vmi, util.NamespaceTestDefault)
 			Expect(pod.Status.Phase).To(Equal(k8sv1.PodPending))
 			Expect(pod.Status.Conditions[0].Type).To(Equal(k8sv1.PodScheduled))
-			Expect(strings.Contains(pod.Status.Conditions[0].Message, "Insufficient "+gpuName)).To(Equal(true))
+			Expect(strings.Contains(pod.Status.Conditions[0].Message, "Insufficient "+gpuName)).To(BeTrue())
 			Expect(pod.Status.Conditions[0].Reason).To(Equal("Unschedulable"))
 		})
 

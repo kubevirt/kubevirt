@@ -290,7 +290,7 @@ var _ = Describe("AccessCredentials", func() {
 		}()
 
 		manager.watchSecrets(vmi)
-		Expect(matched).To(Equal(true))
+		Expect(matched).To(BeTrue())
 
 		// And wait again after modifying file
 		// Another execute command should occur with the updated password
