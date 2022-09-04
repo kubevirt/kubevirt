@@ -1268,9 +1268,8 @@ var _ = Describe("[Serial][sig-compute]Infrastructure", func() {
 				for key := range node.Labels {
 					if strings.Contains(key, v1.CPUModelLabel) {
 						model := strings.TrimPrefix(key, v1.CPUModelLabel)
-						for obsoleteModel := range nodelabellerutil.DefaultObsoleteCPUModels {
-							Expect(model == obsoleteModel).To(Equal(false), "Node can't contain label with cpu model, which is in default obsolete filter")
-						}
+						Expect(nodelabellerutil.DefaultObsoleteCPUModels).ToNot(HaveKey(model),
+							"Node can't contain label with cpu model, which is in default obsolete filter")
 					}
 				}
 			})
