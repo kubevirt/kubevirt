@@ -474,7 +474,7 @@ func createPVCforMemoryDump(namespace, vmName, claimName string, virtClient kube
 		return err
 	}
 
-	pvc := storagetypes.GeneratePVC(neededSize, claimName, namespace, storageClass, accessMode, false)
+	pvc := storagetypes.RenderPVC(neededSize, claimName, namespace, storageClass, accessMode, false)
 
 	_, err = virtClient.CoreV1().PersistentVolumeClaims(namespace).Create(context.Background(), pvc, metav1.CreateOptions{})
 	if err != nil {

@@ -621,7 +621,7 @@ func createUploadPVC(client kubernetes.Interface, namespace, name, size, storage
 	if err != nil {
 		return nil, fmt.Errorf("validation failed for size=%s: %s", size, err)
 	}
-	pvc := storagetypes.GeneratePVC(&quantity, name, namespace, storageClass, accessMode, blockVolume)
+	pvc := storagetypes.RenderPVC(&quantity, name, namespace, storageClass, accessMode, blockVolume)
 
 	contentType := string(cdiv1.DataVolumeKubeVirt)
 	if archiveUpload {

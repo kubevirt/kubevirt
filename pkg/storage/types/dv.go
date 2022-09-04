@@ -66,7 +66,7 @@ func HasFailedDataVolumes(dvs []*cdiv1.DataVolume) bool {
 	return false
 }
 
-func GetCloneSourceWithInformers(vm *virtv1.VirtualMachine, dvSpec *cdiv1.DataVolumeSpec, dataSourceInformer cache.SharedIndexInformer) (*CloneSource, error) {
+func GetCloneSourceWithInformers(vm *virtv1.VirtualMachine, dvSpec *cdiv1.DataVolumeSpec, dataSourceInformer cache.SharedInformer) (*CloneSource, error) {
 	var cloneSource *CloneSource
 	if dvSpec.Source != nil && dvSpec.Source.PVC != nil {
 		cloneSource = &CloneSource{
@@ -183,7 +183,7 @@ func GenerateDataVolumeFromTemplate(clientset kubecli.KubevirtClient, dataVolume
 
 	return newDataVolume, nil
 }
-func GetDataVolumeFromCache(namespace, name string, dataVolumeInformer cache.SharedIndexInformer) (*cdiv1.DataVolume, error) {
+func GetDataVolumeFromCache(namespace, name string, dataVolumeInformer cache.SharedInformer) (*cdiv1.DataVolume, error) {
 	key := controller.NamespacedKey(namespace, name)
 	obj, exists, err := dataVolumeInformer.GetStore().GetByKey(key)
 
@@ -202,7 +202,7 @@ func GetDataVolumeFromCache(namespace, name string, dataVolumeInformer cache.Sha
 	return dv, nil
 }
 
-func HasDataVolumeErrors(namespace string, volumes []virtv1.Volume, dataVolumeInformer cache.SharedIndexInformer) error {
+func HasDataVolumeErrors(namespace string, volumes []virtv1.Volume, dataVolumeInformer cache.SharedInformer) error {
 	for _, volume := range volumes {
 		if volume.DataVolume == nil {
 			continue
@@ -233,7 +233,7 @@ func HasDataVolumeErrors(namespace string, volumes []virtv1.Volume, dataVolumeIn
 	return nil
 }
 
-func HasDataVolumeProvisioning(namespace string, volumes []virtv1.Volume, dataVolumeInformer cache.SharedIndexInformer) bool {
+func HasDataVolumeProvisioning(namespace string, volumes []virtv1.Volume, dataVolumeInformer cache.SharedInformer) bool {
 	for _, volume := range volumes {
 		if volume.DataVolume == nil {
 			continue
@@ -262,7 +262,7 @@ func HasDataVolumeProvisioning(namespace string, volumes []virtv1.Volume, dataVo
 	return false
 }
 
-func ListDataVolumesFromTemplates(namespace string, dvTemplates []virtv1.DataVolumeTemplateSpec, dataVolumeInformer cache.SharedIndexInformer) ([]*cdiv1.DataVolume, error) {
+func ListDataVolumesFromTemplates(namespace string, dvTemplates []virtv1.DataVolumeTemplateSpec, dataVolumeInformer cache.SharedInformer) ([]*cdiv1.DataVolume, error) {
 	dataVolumes := []*cdiv1.DataVolume{}
 
 	for _, template := range dvTemplates {
@@ -279,7 +279,7 @@ func ListDataVolumesFromTemplates(namespace string, dvTemplates []virtv1.DataVol
 	return dataVolumes, nil
 }
 
-func ListDataVolumesFromVolumes(namespace string, volumes []virtv1.Volume, dataVolumeInformer cache.SharedIndexInformer, pvcInformer cache.SharedIndexInformer) ([]*cdiv1.DataVolume, error) {
+func ListDataVolumesFromVolumes(namespace string, volumes []virtv1.Volume, dataVolumeInformer cache.SharedInformer, pvcInformer cache.SharedInformer) ([]*cdiv1.DataVolume, error) {
 	dataVolumes := []*cdiv1.DataVolume{}
 
 	for _, volume := range volumes {
@@ -301,7 +301,7 @@ func ListDataVolumesFromVolumes(namespace string, volumes []virtv1.Volume, dataV
 	return dataVolumes, nil
 }
 
-func getDataVolumeName(namespace string, volume virtv1.Volume, pvcInformer cache.SharedIndexInformer) *string {
+func getDataVolumeName(namespace string, volume virtv1.Volume, pvcInformer cache.SharedInformer) *string {
 	if volume.VolumeSource.PersistentVolumeClaim != nil {
 		pvcInterface, pvcExists, _ := pvcInformer.GetStore().
 			GetByKey(fmt.Sprintf("%s/%s", namespace, volume.VolumeSource.PersistentVolumeClaim.ClaimName))
@@ -318,7 +318,7 @@ func getDataVolumeName(namespace string, volume virtv1.Volume, pvcInformer cache
 	return nil
 }
 
-func DataVolumeByNameFunc(dataVolumeInformer cache.SharedIndexInformer, dataVolumes []*cdiv1.DataVolume) func(name string, namespace string) (*cdiv1.DataVolume, error) {
+func DataVolumeByNameFunc(dataVolumeInformer cache.SharedInformer, dataVolumes []*cdiv1.DataVolume) func(name string, namespace string) (*cdiv1.DataVolume, error) {
 	return func(name, namespace string) (*cdiv1.DataVolume, error) {
 		for _, dataVolume := range dataVolumes {
 			if dataVolume.Name == name && dataVolume.Namespace == namespace {

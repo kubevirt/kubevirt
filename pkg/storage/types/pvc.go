@@ -127,7 +127,7 @@ func VirtVolumesToPVCMap(volumes []*virtv1.Volume, pvcStore cache.Store, namespa
 	return volumeNamesPVCMap, nil
 }
 
-func GetPersistentVolumeClaimFromCache(namespace, name string, pvcInformer cache.SharedIndexInformer) (*k8sv1.PersistentVolumeClaim, error) {
+func GetPersistentVolumeClaimFromCache(namespace, name string, pvcInformer cache.SharedInformer) (*k8sv1.PersistentVolumeClaim, error) {
 	key := controller.NamespacedKey(namespace, name)
 	obj, exists, err := pvcInformer.GetStore().GetByKey(key)
 
@@ -145,7 +145,7 @@ func GetPersistentVolumeClaimFromCache(namespace, name string, pvcInformer cache
 
 	return pvc, nil
 }
-func HasPVCBinding(namespace string, volumes []virtv1.Volume, pvcInformer cache.SharedIndexInformer) bool {
+func HasUnboundPVC(namespace string, volumes []virtv1.Volume, pvcInformer cache.SharedInformer) bool {
 	for _, volume := range volumes {
 		claimName := PVCNameFromVirtVolume(&volume)
 		if claimName == "" {
@@ -169,7 +169,7 @@ func HasPVCBinding(namespace string, volumes []virtv1.Volume, pvcInformer cache.
 	return false
 }
 
-func VolumeReadyToAttachToNode(namespace string, volume virtv1.Volume, dataVolumes []*cdiv1.DataVolume, dataVolumeInformer, pvcInformer cache.SharedIndexInformer) (bool, bool, error) {
+func VolumeReadyToAttachToNode(namespace string, volume virtv1.Volume, dataVolumes []*cdiv1.DataVolume, dataVolumeInformer, pvcInformer cache.SharedInformer) (bool, bool, error) {
 	name := PVCNameFromVirtVolume(&volume)
 
 	dataVolumeFunc := DataVolumeByNameFunc(dataVolumeInformer, dataVolumes)
@@ -199,7 +199,7 @@ func VolumeReadyToAttachToNode(namespace string, volume virtv1.Volume, dataVolum
 	return ready, wffc, nil
 }
 
-func GeneratePVC(size *resource.Quantity, claimName, namespace, storageClass, accessMode string, blockVolume bool) *k8sv1.PersistentVolumeClaim {
+func RenderPVC(size *resource.Quantity, claimName, namespace, storageClass, accessMode string, blockVolume bool) *k8sv1.PersistentVolumeClaim {
 	pvc := &k8sv1.PersistentVolumeClaim{
 		ObjectMeta: metav1.ObjectMeta{
 			Name:      claimName,
