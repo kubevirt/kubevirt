@@ -60,6 +60,8 @@ const (
 	vmSnapshotDeadlineExceededError = "snapshot deadline exceeded"
 
 	snapshotRetryInterval = 5 * time.Second
+
+	contentDeletionInterval = 5 * time.Second
 )
 
 func VmSnapshotReady(vmSnapshot *snapshotv1.VirtualMachineSnapshot) bool {
@@ -97,6 +99,10 @@ func deleteContentPolicy(vmSnapshot *snapshotv1.VirtualMachineSnapshot) bool {
 
 func shouldDeleteContent(vmSnapshot *snapshotv1.VirtualMachineSnapshot, content *snapshotv1.VirtualMachineSnapshotContent) bool {
 	return deleteContentPolicy(vmSnapshot) || !vmSnapshotContentReady(content)
+}
+
+func vmSnapshotContentDeleting(content *snapshotv1.VirtualMachineSnapshotContent) bool {
+	return content != nil && content.DeletionTimestamp != nil
 }
 
 func vmSnapshotDeleting(vmSnapshot *snapshotv1.VirtualMachineSnapshot) bool {
@@ -274,6 +280,12 @@ func (ctrl *VMSnapshotController) updateVMSnapshotContent(content *snapshotv1.Vi
 		if vmSnapshot != nil && shouldDeleteContent(vmSnapshot, content) {
 			return 0, nil
 		}
+	}
+
+	if vmSnapshotContentDeleting(content) {
+		log.Log.V(3).Infof("Content deleting %s/%s", content.Namespace, content.Name)
+		return contentDeletionInterval, nil
+
 	}
 
 	currentlyReady := vmSnapshotContentReady(content)
