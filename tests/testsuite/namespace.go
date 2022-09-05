@@ -22,6 +22,7 @@ package testsuite
 import (
 	"context"
 	"fmt"
+	"strings"
 	"time"
 
 	. "github.com/onsi/ginkgo/v2"
@@ -32,6 +33,7 @@ import (
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/runtime/schema"
 	"k8s.io/apimachinery/pkg/types"
+	"k8s.io/klog/v2"
 
 	v1 "kubevirt.io/api/core/v1"
 	"kubevirt.io/client-go/kubecli"
@@ -53,8 +55,22 @@ var NamespaceTestOperator = "kubevirt-test-operator"
 
 var TestNamespaces = []string{util.NamespaceTestDefault, NamespaceTestAlternative, NamespaceTestOperator}
 
+type IgnoreDeprecationWarningsLogger struct{}
+
+func (IgnoreDeprecationWarningsLogger) HandleWarningHeader(code int, agent string, message string) {
+	if !strings.Contains(message, "VirtualMachineInstancePresets is now deprecated and will be removed in v2") {
+		klog.Warning(message)
+	}
+}
+
 func CleanNamespaces() {
-	virtCli, err := kubecli.GetKubevirtClient()
+	// Replace the warning handler with a custom one that ignores certain deprecation warnings from KubeVirt
+	restConfig, err := kubecli.GetKubevirtClientConfig()
+	util.PanicOnError(err)
+
+	restConfig.WarningHandler = IgnoreDeprecationWarningsLogger{}
+
+	virtCli, err := kubecli.GetKubevirtClientFromRESTConfig(restConfig)
 	util.PanicOnError(err)
 
 	for _, namespace := range TestNamespaces {
