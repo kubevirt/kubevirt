@@ -258,16 +258,19 @@ var _ = Describe("MemoryDump", func() {
 		Expect(res.Error()).To(ContainSubstring("not found"))
 	})
 
-	It("should fail call memory dump subresource with readonly access mode", func() {
+	DescribeTable("should fail call memory dump subresource with invalid access mode", func(accessMode, expectedErr string) {
 		expectGetCDIConfig()
 		expectGetVMNoAssociatedMemoryDump()
 		expectGetVMI()
-		commandAndArgs := []string{"memory-dump", "get", "testvm", claimNameFlag, createClaimFlag, "--access-mode=ReadOnlyMany"}
+		commandAndArgs := []string{"memory-dump", "get", "testvm", claimNameFlag, createClaimFlag, fmt.Sprintf("--access-mode=%s", accessMode)}
 		cmd := clientcmd.NewVirtctlCommand(commandAndArgs...)
 		res := cmd.Execute()
 		Expect(res).To(HaveOccurred())
-		Expect(res.Error()).To(ContainSubstring("cannot dump memory to a readonly pvc"))
-	})
+		Expect(res.Error()).To(ContainSubstring(expectedErr))
+	},
+		Entry("readonly accessMode", "ReadOnlyMany", "cannot dump memory to a readonly pvc"),
+		Entry("invalid accessMode", "RWX", "invalid access mode"),
+	)
 
 	DescribeTable("should create pvc for memory dump and call subresource", func(storageclass, accessMode string) {
 		expectGetCDIConfig()
