@@ -74,6 +74,7 @@ func NewOperandHandler(client client.Client, scheme *runtime.Scheme, ci hcoutil.
 	}
 }
 
+// FirstUseInitiation is a lazy init function
 // The k8s client is not available when calling to NewOperandHandler.
 // Initial operations that need to read/write from the cluster can only be done when the client is already working.
 func (h *OperandHandler) FirstUseInitiation(scheme *runtime.Scheme, ci hcoutil.ClusterInfo, hc *hcov1beta1.HyperConverged) {
@@ -130,7 +131,7 @@ func (h *OperandHandler) addOperands(scheme *runtime.Scheme, hc *hcov1beta1.Hype
 	}
 }
 
-func (h OperandHandler) Ensure(req *common.HcoRequest) error {
+func (h *OperandHandler) Ensure(req *common.HcoRequest) error {
 	for _, handler := range h.operands {
 		res := handler.ensure(req)
 		if res.Err != nil {
@@ -161,19 +162,21 @@ func (h OperandHandler) Ensure(req *common.HcoRequest) error {
 
 }
 
-func (h OperandHandler) handleUpdatedOperand(req *common.HcoRequest, res *EnsureResult) {
+func (h *OperandHandler) handleUpdatedOperand(req *common.HcoRequest, res *EnsureResult) {
 	if !res.Overwritten {
 		h.eventEmitter.EmitEvent(req.Instance, corev1.EventTypeNormal, "Updated", fmt.Sprintf("Updated %s %s", res.Type, res.Name))
 	} else {
 		h.eventEmitter.EmitEvent(req.Instance, corev1.EventTypeWarning, "Overwritten", fmt.Sprintf("Overwritten %s %s", res.Type, res.Name))
-		err := metrics.HcoMetrics.IncOverwrittenModifications(res.Type, res.Name)
-		if err != nil {
-			req.Logger.Error(err, "couldn't update 'OverwrittenModifications' metric")
+		if !req.UpgradeMode {
+			err := metrics.HcoMetrics.IncOverwrittenModifications(res.Type, res.Name)
+			if err != nil {
+				req.Logger.Error(err, "couldn't update 'OverwrittenModifications' metric")
+			}
 		}
 	}
 }
 
-func (h OperandHandler) EnsureDeleted(req *common.HcoRequest) error {
+func (h *OperandHandler) EnsureDeleted(req *common.HcoRequest) error {
 
 	tCtx, cancel := context.WithTimeout(req.Ctx, deleteTimeOut)
 	defer cancel()

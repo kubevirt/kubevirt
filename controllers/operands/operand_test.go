@@ -179,11 +179,11 @@ var _ = Describe("Test operator.go", func() {
 			operand := genericOperand{Scheme: scheme.Scheme, Client: cl}
 			outRes := operand.createNewCr(req, expectedResource, res)
 			Expect(outRes.Err).ToNot(HaveOccurred())
-			Expect(outRes.Created).To(Equal(true))
-			Expect(outRes.Deleted).To(Equal(false))
-			Expect(outRes.Updated).To(Equal(false))
-			Expect(outRes.Overwritten).To(Equal(false))
-			Expect(outRes.UpgradeDone).To(Equal(false))
+			Expect(outRes.Created).To(BeTrue())
+			Expect(outRes.Deleted).To(BeFalse())
+			Expect(outRes.Updated).To(BeFalse())
+			Expect(outRes.Overwritten).To(BeFalse())
+			Expect(outRes.UpgradeDone).To(BeFalse())
 
 			foundResource := &cdiv1beta1.CDI{}
 			Expect(
@@ -208,11 +208,11 @@ var _ = Describe("Test operator.go", func() {
 			operand := genericOperand{Scheme: scheme.Scheme, Client: cl}
 			outRes := operand.createNewCr(req, expectedResource, res)
 			Expect(outRes.Err).ToNot(HaveOccurred())
-			Expect(outRes.Created).To(Equal(true))
-			Expect(outRes.Deleted).To(Equal(false))
-			Expect(outRes.Updated).To(Equal(false))
-			Expect(outRes.Overwritten).To(Equal(false))
-			Expect(outRes.UpgradeDone).To(Equal(false))
+			Expect(outRes.Created).To(BeTrue())
+			Expect(outRes.Deleted).To(BeFalse())
+			Expect(outRes.Updated).To(BeFalse())
+			Expect(outRes.Overwritten).To(BeFalse())
+			Expect(outRes.UpgradeDone).To(BeFalse())
 
 			foundResource := &cdiv1beta1.CDI{}
 			Expect(
@@ -236,12 +236,12 @@ var _ = Describe("Test operator.go", func() {
 			operand := genericOperand{Scheme: scheme.Scheme, Client: cl}
 			outRes := operand.createNewCr(req, expectedResource, res)
 			Expect(outRes.Err).To(HaveOccurred())
-			Expect(apierrors.IsAlreadyExists(outRes.Err)).To(Equal(true))
-			Expect(outRes.Created).To(Equal(false))
-			Expect(outRes.Deleted).To(Equal(false))
-			Expect(outRes.Updated).To(Equal(false))
-			Expect(outRes.Overwritten).To(Equal(false))
-			Expect(outRes.UpgradeDone).To(Equal(false))
+			Expect(apierrors.IsAlreadyExists(outRes.Err)).To(BeTrue())
+			Expect(outRes.Created).To(BeFalse())
+			Expect(outRes.Deleted).To(BeFalse())
+			Expect(outRes.Updated).To(BeFalse())
+			Expect(outRes.Overwritten).To(BeFalse())
+			Expect(outRes.UpgradeDone).To(BeFalse())
 
 		})
 

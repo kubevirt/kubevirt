@@ -240,6 +240,7 @@ func getBasicDeployment() *BasicExpected {
 	expectedCDI, err := operands.NewCDI(hco)
 	ExpectWithOffset(1, err).ToNot(HaveOccurred())
 	expectedCDI.Status.Conditions = getGenericCompletedConditions()
+	expectedCDI.Kind = cdiv1beta1.CDIGroupVersionKind.Kind
 	res.cdi = expectedCDI
 
 	expectedCNA, err := operands.NewNetworkAddons(hco)

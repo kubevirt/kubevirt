@@ -1147,7 +1147,7 @@ func (r *ReconcileHyperConverged) migrateBeforeUpgrade(req *common.HcoRequest) (
 	return upgradePatched, nil
 }
 
-func (r ReconcileHyperConverged) applyUpgradePatches(req *common.HcoRequest) (bool, error) {
+func (r *ReconcileHyperConverged) applyUpgradePatches(req *common.HcoRequest) (bool, error) {
 	modified := false
 
 	knownHcoVersion, _ := GetVersion(&req.Instance.Status, hcoVersionName)
@@ -1194,7 +1194,7 @@ func (r ReconcileHyperConverged) applyUpgradePatches(req *common.HcoRequest) (bo
 	return modified, nil
 }
 
-func (r ReconcileHyperConverged) applyUpgradePatch(req *common.HcoRequest, hcoJson []byte, knownHcoSV semver.Version, p hcoCRPatch) ([]byte, error) {
+func (r *ReconcileHyperConverged) applyUpgradePatch(req *common.HcoRequest, hcoJson []byte, knownHcoSV semver.Version, p hcoCRPatch) ([]byte, error) {
 	affectedRange, err := semver.ParseRange(p.SemverRange)
 	if err != nil {
 		return hcoJson, err
@@ -1214,7 +1214,7 @@ func (r ReconcileHyperConverged) applyUpgradePatch(req *common.HcoRequest, hcoJs
 	return hcoJson, nil
 }
 
-func (r ReconcileHyperConverged) removeLeftover(req *common.HcoRequest, knownHcoSV semver.Version, p objectToBeRemoved) (bool, error) {
+func (r *ReconcileHyperConverged) removeLeftover(req *common.HcoRequest, knownHcoSV semver.Version, p objectToBeRemoved) (bool, error) {
 
 	affectedRange, err := semver.ParseRange(p.SemverRange)
 	if err != nil {
@@ -1271,7 +1271,7 @@ func initOldMetricsObjects(req *common.HcoRequest) {
 	}
 }
 
-func (r ReconcileHyperConverged) removeOldMetricsObjs(req *common.HcoRequest) error {
+func (r *ReconcileHyperConverged) removeOldMetricsObjs(req *common.HcoRequest) error {
 	initOldMetricsObjects(req)
 
 	for name, object := range oldMetricsObjects {

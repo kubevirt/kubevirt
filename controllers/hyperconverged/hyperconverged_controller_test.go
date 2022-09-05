@@ -1253,6 +1253,47 @@ var _ = Describe("HyperconvergedController", func() {
 				validateOperatorCondition(reconciler, metav1.ConditionTrue, hcoutil.UpgradeableAllowReason, hcoutil.UpgradeableAllowMessage)
 			})
 
+			It("don't increase the overwrittenModifications metric during upgrade", func() {
+				// old HCO Version is set
+				UpdateVersion(&expected.hco.Status, hcoVersionName, oldVersion)
+
+				// CDI is not ready
+				expected.cdi.Status.Conditions = getGenericProgressingConditions()
+				expected.cdi.Spec.Config.FeatureGates = []string{"fake_feature_gate"}
+
+				cl := expected.initClient()
+				r := initReconciler(cl, nil)
+
+				ph, err := getSecondaryCRPlaceholder()
+				Expect(err).ToNot(HaveOccurred())
+				rq := reconcile.Request{
+					NamespacedName: ph,
+				}
+
+				counterValueBefore, err := metrics.HcoMetrics.GetOverwrittenModificationsCount(expected.cdi.Kind, expected.cdi.Name)
+				Expect(err).ToNot(HaveOccurred())
+
+				result, err := r.Reconcile(context.Background(), rq)
+				Expect(err).ToNot(HaveOccurred())
+				Expect(result.Requeue).To(BeTrue())
+
+				foundHC := &hcov1beta1.HyperConverged{}
+				Expect(
+					cl.Get(context.TODO(),
+						types.NamespacedName{Name: expected.hco.Name, Namespace: expected.hco.Namespace},
+						foundHC),
+				).ToNot(HaveOccurred())
+
+				// check that the HCO version is not set, because upgrade is not completed
+				ver, ok := GetVersion(&foundHC.Status, hcoVersionName)
+				Expect(ok).To(BeTrue())
+				Expect(ver).Should(Equal(oldVersion))
+
+				counterValueAfter, err := metrics.HcoMetrics.GetOverwrittenModificationsCount(expected.cdi.Kind, expected.cdi.Name)
+				Expect(err).ToNot(HaveOccurred())
+				Expect(counterValueAfter).To(Equal(counterValueBefore))
+			})
+
 			DescribeTable(
 				"be tolerant parsing parse version",
 				func(testHcoVersion string, acceptableVersion bool, errorMessage string) {
@@ -2480,7 +2521,6 @@ var _ = Describe("HyperconvergedController", func() {
 				})
 
 			})
-
 		})
 
 		Context("Aggregate Negative Conditions", func() {
