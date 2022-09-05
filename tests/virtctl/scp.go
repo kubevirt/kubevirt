@@ -50,7 +50,6 @@ var _ = Describe("[sig-compute][virtctl]SCP", func() {
 			"--identity-file", keyFile,
 			"-t", "-o StrictHostKeyChecking=no",
 			"-t", "-o UserKnownHostsFile=/dev/null",
-			"-t", "-O",
 		}
 		if recursive {
 			args = append(args, "--recursive")
@@ -61,7 +60,7 @@ var _ = Describe("[sig-compute][virtctl]SCP", func() {
 		Expect(err).ToNot(HaveOccurred())
 
 		out, err := cmd.CombinedOutput()
-		Expect(err).ToNot(HaveOccurred())
+		Expect(err).ToNot(HaveOccurred(), "out[%s]", string(out))
 		Expect(out).ToNot(BeEmpty())
 	}
 
