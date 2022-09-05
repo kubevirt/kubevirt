@@ -169,6 +169,8 @@ func generatePVC(size *resource.Quantity, claimName, namespace, storageClass, ac
 
 	if accessMode == string(k8sv1.ReadOnlyMany) {
 		return nil, fmt.Errorf("cannot dump memory to a readonly pvc, use either ReadWriteOnce or ReadWriteMany if supported")
+	} else if accessMode != "" && accessMode != string(k8sv1.ReadWriteOnce) && accessMode != string(k8sv1.ReadWriteMany) {
+		return nil, fmt.Errorf("invalid access mode, use either ReadWriteOnce or ReadWriteMany if supported")
 	}
 	if accessMode != "" {
 		pvc.Spec.AccessModes = []k8sv1.PersistentVolumeAccessMode{k8sv1.PersistentVolumeAccessMode(accessMode)}
