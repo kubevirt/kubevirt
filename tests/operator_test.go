@@ -2826,7 +2826,7 @@ spec:
 				}
 				Expect(err).ToNot(HaveOccurred())
 				return d.Status.AvailableReplicas > 0
-			}, time.Minute*5, 2*time.Second).Should(Equal(true))
+			}, time.Minute*5, 2*time.Second).Should(BeTrue())
 		}
 
 		AfterEach(func() {

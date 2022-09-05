@@ -218,7 +218,7 @@ var _ = Describe("Validating VM Admitter", func() {
 		virtClient.EXPECT().VirtualMachineInstance(gomock.Any()).Return(mockVMIClient)
 		mockVMIClient.EXPECT().Get(gomock.Any(), gomock.Any()).Return(vmi, nil)
 		resp := vmsAdmitter.Admit(ar)
-		Expect(resp.Allowed).To(Equal(false))
+		Expect(resp.Allowed).To(BeFalse())
 	},
 		Entry("with valid request to add volume", []v1.VirtualMachineVolumeRequest{
 			{

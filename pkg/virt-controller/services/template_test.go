@@ -1069,7 +1069,7 @@ var _ = Describe("Template", func() {
 				Expect(err).ToNot(HaveOccurred())
 			})
 			It("should mount default serviceAccountToken", func() {
-				Expect(*pod.Spec.AutomountServiceAccountToken).To(Equal(true))
+				Expect(*pod.Spec.AutomountServiceAccountToken).To(BeTrue())
 			})
 		})
 		Context("with node selectors", func() {
@@ -3005,7 +3005,7 @@ var _ = Describe("Template", func() {
 
 				resources := pod.Spec.Containers[0].Resources
 				val, ok := resources.Requests["vendor.com/gpu_name"]
-				Expect(ok).To(Equal(true))
+				Expect(ok).To(BeTrue())
 				Expect(val).To(Equal(*resource.NewQuantity(1, resource.DecimalSI)))
 			})
 		})
@@ -3082,7 +3082,7 @@ var _ = Describe("Template", func() {
 
 				resources := pod.Spec.Containers[0].Resources
 				val, ok := resources.Requests["vendor.com/dev_name"]
-				Expect(ok).To(Equal(true))
+				Expect(ok).To(BeTrue())
 				Expect(val).To(Equal(*resource.NewQuantity(1, resource.DecimalSI)))
 			})
 		})

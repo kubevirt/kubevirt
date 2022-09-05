@@ -384,7 +384,7 @@ var _ = Describe("[sig-compute]Subresource Api", func() {
 					Expect(err).ToNot(HaveOccurred())
 
 					Expect(expandedVm.Spec.Preference).To(BeNil(), "Expanded VM should not have InstancetypeMatcher")
-					Expect(*expandedVm.Spec.Template.Spec.Domain.Devices.AutoattachGraphicsDevice).To(Equal(true), "VM should have preference expanded")
+					Expect(*expandedVm.Spec.Template.Spec.Domain.Devices.AutoattachGraphicsDevice).To(BeTrue(), "VM should have preference expanded")
 				})
 
 				It("[test_id:TODO] should fail, if referenced preference does not exist", func() {

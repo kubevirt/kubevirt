@@ -90,7 +90,7 @@ var _ = Describe("Node-labeller config", func() {
 		Expect(err).ToNot(HaveOccurred())
 		for _, val := range features {
 			if _, ok := f[val]; !ok {
-				Expect(ok).To(Equal(false), "expect feature")
+				Expect(ok).To(BeFalse(), "expect feature")
 			}
 		}
 

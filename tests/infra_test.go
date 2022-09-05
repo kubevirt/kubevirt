@@ -1040,7 +1040,7 @@ var _ = Describe("[Serial][sig-compute]Infrastructure", func() {
 					containK8sLabel = true
 				}
 			}
-			Expect(containK8sLabel).To(Equal(true))
+			Expect(containK8sLabel).To(BeTrue())
 		},
 			Entry("[test_id:4147] by IPv4", k8sv1.IPv4Protocol),
 			Entry("[test_id:6244] by IPv6", k8sv1.IPv6Protocol),
@@ -1219,7 +1219,7 @@ var _ = Describe("[Serial][sig-compute]Infrastructure", func() {
 						}
 					}
 					return true
-				}, 15*time.Second, 1*time.Second).Should(Equal(true))
+				}, 15*time.Second, 1*time.Second).Should(BeTrue())
 			})
 
 			It("[test_id:6246] label nodes with cpu model, cpu features and host cpu model", func() {
@@ -1268,9 +1268,8 @@ var _ = Describe("[Serial][sig-compute]Infrastructure", func() {
 				for key := range node.Labels {
 					if strings.Contains(key, v1.CPUModelLabel) {
 						model := strings.TrimPrefix(key, v1.CPUModelLabel)
-						for obsoleteModel := range nodelabellerutil.DefaultObsoleteCPUModels {
-							Expect(model == obsoleteModel).To(Equal(false), "Node can't contain label with cpu model, which is in default obsolete filter")
-						}
+						Expect(nodelabellerutil.DefaultObsoleteCPUModels).ToNot(HaveKey(model),
+							"Node can't contain label with cpu model, which is in default obsolete filter")
 					}
 				}
 			})

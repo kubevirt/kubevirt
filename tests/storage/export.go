@@ -115,7 +115,7 @@ var _ = SIGDescribe("Export", func() {
 			}
 			Expect(err).ToNot(HaveOccurred())
 			return d.Status.AvailableReplicas > 0
-		}, 90*time.Second, 1*time.Second).Should(Equal(true))
+		}, 90*time.Second, 1*time.Second).Should(BeTrue())
 	}
 
 	BeforeEach(func() {
