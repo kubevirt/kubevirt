@@ -306,6 +306,11 @@ type DevicePreferences struct {
 	// +optional
 	PreferredAutoattachSerialConsole *bool `json:"preferredAutoattachSerialConsole,omitempty"`
 
+	// PreferredAutoattachInputDevice optionally defines the preferred value of AutoattachInputDevice
+	//
+	// +optional
+	PreferredAutoattachInputDevice *bool `json:"preferredAutoattachInputDevice,omitempty"`
+
 	// PreferredDisableHotplug optionally defines the preferred value of DisableHotplug
 	//
 	// +optional
@@ -329,12 +334,12 @@ type DevicePreferences struct {
 	// PreferredInputBus optionally defines the preferred bus for Input devices.
 	//
 	// +optional
-	PreferredInputBus string `json:"preferredInputBus,omitempty"`
+	PreferredInputBus v1.InputBus `json:"preferredInputBus,omitempty"`
 
 	// PreferredInputType optionally defines the preferred type for Input devices.
 	//
 	// +optional
-	PreferredInputType string `json:"preferredInputType,omitempty"`
+	PreferredInputType v1.InputType `json:"preferredInputType,omitempty"`
 
 	// PreferredDiskBus optionally defines the preferred bus for Disk Disk devices.
 	//

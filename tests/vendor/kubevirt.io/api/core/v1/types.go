@@ -100,7 +100,15 @@ type VirtualMachineInstanceSpec struct {
 	SchedulerName string `json:"schedulerName,omitempty"`
 	// If toleration is specified, obey all the toleration rules.
 	Tolerations []k8sv1.Toleration `json:"tolerations,omitempty"`
-
+	// TopologySpreadConstraints describes how a group of VMIs will be spread across a given topology
+	// domains. K8s scheduler will schedule VMI pods in a way which abides by the constraints.
+	// +optional
+	// +patchMergeKey=topologyKey
+	// +patchStrategy=merge
+	// +listType=map
+	// +listMapKey=topologyKey
+	// +listMapKey=whenUnsatisfiable
+	TopologySpreadConstraints []k8sv1.TopologySpreadConstraint `json:"topologySpreadConstraints,omitempty" patchStrategy:"merge" patchMergeKey:"topologyKey"`
 	// EvictionStrategy can be set to "LiveMigrate" if the VirtualMachineInstance should be
 	// migrated instead of shut-off in case of a node drain.
 	//
@@ -552,6 +560,8 @@ type VirtualMachineInstanceNetworkInterface struct {
 	InterfaceName string `json:"interfaceName,omitempty"`
 	// Specifies the origin of the interface data collected. values: domain, guest-agent, or both
 	InfoSource string `json:"infoSource,omitempty"`
+	// Specifies how many queues are allocated by MultiQueue
+	QueueCount int32 `json:"queueCount,omitempty"`
 }
 
 type VirtualMachineInstanceGuestOSInfo struct {
@@ -1175,6 +1185,8 @@ const (
 	MigrationFailed VirtualMachineInstanceMigrationPhase = "Failed"
 )
 
+// Deprecated for removal in v2, please use VirtualMachineInstanceType and VirtualMachinePreference instead.
+//
 // VirtualMachineInstancePreset defines a VMI spec.domain to be applied to all VMIs that match the provided label selector
 // More info: https://kubevirt.io/user-guide/virtual_machines/presets/#overrides
 //
@@ -1362,8 +1374,6 @@ const (
 	VirtualMachineStatusImagePullBackOff VirtualMachinePrintableStatus = "ImagePullBackOff"
 	// VirtualMachineStatusPvcNotFound indicates that the virtual machine references a PVC volume which doesn't exist.
 	VirtualMachineStatusPvcNotFound VirtualMachinePrintableStatus = "ErrorPvcNotFound"
-	// VirtualMachineStatusDataVolumeNotFound indicates that the virtual machine references a DataVolume volume which doesn't exist.
-	VirtualMachineStatusDataVolumeNotFound VirtualMachinePrintableStatus = "ErrorDataVolumeNotFound"
 	// VirtualMachineStatusDataVolumeError indicates that an error has been reported by one of the DataVolumes
 	// referenced by the virtual machines.
 	VirtualMachineStatusDataVolumeError VirtualMachinePrintableStatus = "DataVolumeError"

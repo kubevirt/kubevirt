@@ -117,6 +117,11 @@ func (in *DevicePreferences) DeepCopyInto(out *DevicePreferences) {
 		*out = new(bool)
 		**out = **in
 	}
+	if in.PreferredAutoattachInputDevice != nil {
+		in, out := &in.PreferredAutoattachInputDevice, &out.PreferredAutoattachInputDevice
+		*out = new(bool)
+		**out = **in
+	}
 	if in.PreferredDisableHotplug != nil {
 		in, out := &in.PreferredDisableHotplug, &out.PreferredDisableHotplug
 		*out = new(bool)

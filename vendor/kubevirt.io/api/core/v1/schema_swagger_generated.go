@@ -237,6 +237,7 @@ func (Devices) SwaggerDoc() map[string]string {
 		"autoattachGraphicsDevice":   "Whether to attach the default graphics device or not.\nVNC will not be available if set to false. Defaults to true.",
 		"autoattachSerialConsole":    "Whether to attach the default serial console or not.\nSerial console access will not be available if set to false. Defaults to true.",
 		"autoattachMemBalloon":       "Whether to attach the Memory balloon device with default period.\nPeriod can be adjusted in virt-config.\nDefaults to true.\n+optional",
+		"autoattachInputDevice":      "Whether to attach an Input Device.\nDefaults to false.\n+optional",
 		"rng":                        "Whether to have random number generator from host\n+optional",
 		"blockMultiQueue":            "Whether or not to enable virtio multi-queue for block devices.\nDefaults to false.\n+optional",
 		"networkInterfaceMultiqueue": "If specified, virtual network interfaces configured with a virtio bus will also enable the vhost multiqueue feature for network devices. The number of queues created depends on additional factors of the VirtualMachineInstance, like the number of guest CPUs.\n+optional",
@@ -348,7 +349,7 @@ func (DiskDevice) SwaggerDoc() map[string]string {
 
 func (DiskTarget) SwaggerDoc() map[string]string {
 	return map[string]string{
-		"bus":        "Bus indicates the type of disk device to emulate.\nsupported values: virtio, sata, scsi.",
+		"bus":        "Bus indicates the type of disk device to emulate.\nsupported values: virtio, sata, scsi, usb.",
 		"readonly":   "ReadOnly.\nDefaults to false.",
 		"pciAddress": "If specified, the virtual disk will be placed on the guests pci address with the specified PCI address. For example: 0000:81:01.10\n+optional",
 	}

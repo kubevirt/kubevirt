@@ -543,10 +543,57 @@ func (f *kubeInformerFactory) VirtualMachine() cache.SharedIndexInformer {
 	})
 }
 
+func GetVirtualMachineExportInformerIndexers() cache.Indexers {
+	return cache.Indexers{
+		"pvc": func(obj interface{}) ([]string, error) {
+			export, ok := obj.(*exportv1.VirtualMachineExport)
+			if !ok {
+				return nil, unexpectedObjectError
+			}
+
+			if (export.Spec.Source.APIGroup == nil ||
+				*export.Spec.Source.APIGroup == "" || *export.Spec.Source.APIGroup == "v1") &&
+				export.Spec.Source.Kind == "PersistentVolumeClaim" {
+				return []string{fmt.Sprintf("%s/%s", export.Namespace, export.Spec.Source.Name)}, nil
+			}
+
+			return nil, nil
+		},
+		"vmsnapshot": func(obj interface{}) ([]string, error) {
+			export, ok := obj.(*exportv1.VirtualMachineExport)
+			if !ok {
+				return nil, unexpectedObjectError
+			}
+
+			if export.Spec.Source.APIGroup != nil &&
+				*export.Spec.Source.APIGroup == snapshotv1.SchemeGroupVersion.Group &&
+				export.Spec.Source.Kind == "VirtualMachineSnapshot" {
+				return []string{fmt.Sprintf("%s/%s", export.Namespace, export.Spec.Source.Name)}, nil
+			}
+
+			return nil, nil
+		},
+		"vm": func(obj interface{}) ([]string, error) {
+			export, ok := obj.(*exportv1.VirtualMachineExport)
+			if !ok {
+				return nil, unexpectedObjectError
+			}
+
+			if export.Spec.Source.APIGroup != nil &&
+				*export.Spec.Source.APIGroup == core.GroupName &&
+				export.Spec.Source.Kind == "VirtualMachine" {
+				return []string{fmt.Sprintf("%s/%s", export.Namespace, export.Spec.Source.Name)}, nil
+			}
+
+			return nil, nil
+		},
+	}
+}
+
 func (f *kubeInformerFactory) VirtualMachineExport() cache.SharedIndexInformer {
 	return f.getInformer("vmExportInformer", func() cache.SharedIndexInformer {
 		lw := cache.NewListWatchFromClient(f.clientSet.GeneratedKubeVirtClient().ExportV1alpha1().RESTClient(), "virtualmachineexports", k8sv1.NamespaceAll, fields.Everything())
-		return cache.NewSharedIndexInformer(lw, &exportv1.VirtualMachineExport{}, f.defaultResync, cache.Indexers{})
+		return cache.NewSharedIndexInformer(lw, &exportv1.VirtualMachineExport{}, f.defaultResync, GetVirtualMachineExportInformerIndexers())
 	})
 }
 

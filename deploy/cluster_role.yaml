@@ -1306,17 +1306,8 @@ rules:
   - clone.kubevirt.io
   resources:
   - virtualmachineclones
-  verbs:
-  - get
-  - list
-  - watch
-  - update
-  - patch
-  - delete
-- apiGroups:
-  - clone.kubevirt.io
-  resources:
   - virtualmachineclones/status
+  - virtualmachineclones/finalizers
   verbs:
   - get
   - list

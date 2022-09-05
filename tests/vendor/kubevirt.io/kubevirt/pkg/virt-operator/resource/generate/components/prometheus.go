@@ -113,12 +113,12 @@ func NewPrometheusRuleSpec(ns string, workloadUpdatesEnabled bool) *v1.Prometheu
 						},
 					},
 					{
-						Record: "num_of_allocatable_nodes",
+						Record: "kubevirt_allocatable_nodes_count",
 						Expr:   intstr.FromString("count(count (kube_node_status_allocatable) by (node))"),
 					},
 					{
 						Alert: "LowVirtAPICount",
-						Expr:  intstr.FromString("(num_of_allocatable_nodes > 1) and (kubevirt_virt_api_up_total < 2)"),
+						Expr:  intstr.FromString("(kubevirt_allocatable_nodes_count > 1) and (kubevirt_virt_api_up_total < 2)"),
 						For:   "60m",
 						Annotations: map[string]string{
 							"summary":     "More than one virt-api should be running if more than one worker nodes exist.",
@@ -129,12 +129,12 @@ func NewPrometheusRuleSpec(ns string, workloadUpdatesEnabled bool) *v1.Prometheu
 						},
 					},
 					{
-						Record: "num_of_kvm_available_nodes",
-						Expr:   intstr.FromString("num_of_allocatable_nodes - count(kube_node_status_allocatable{resource=\"devices_kubevirt_io_kvm\"} == 0)"),
+						Record: "kubevirt_kvm_available_nodes_count",
+						Expr:   intstr.FromString("kubevirt_allocatable_nodes_count - count(kube_node_status_allocatable{resource=\"devices_kubevirt_io_kvm\"} == 0)"),
 					},
 					{
 						Alert: "LowKVMNodesCount",
-						Expr:  intstr.FromString("(num_of_allocatable_nodes > 1) and (num_of_kvm_available_nodes < 2)"),
+						Expr:  intstr.FromString("(kubevirt_allocatable_nodes_count > 1) and (kubevirt_kvm_available_nodes_count < 2)"),
 						For:   "5m",
 						Annotations: map[string]string{
 							"description": "Low number of nodes with KVM resource available.",
@@ -195,7 +195,7 @@ func NewPrometheusRuleSpec(ns string, workloadUpdatesEnabled bool) *v1.Prometheu
 					},
 					{
 						Alert: "LowVirtControllersCount",
-						Expr:  intstr.FromString("(num_of_allocatable_nodes > 1) and (kubevirt_virt_controller_ready_total < 2)"),
+						Expr:  intstr.FromString("(kubevirt_allocatable_nodes_count > 1) and (kubevirt_virt_controller_ready_total < 2)"),
 						For:   "10m",
 						Annotations: map[string]string{
 							"summary":     "More than one virt-controller should be ready if more than one worker node.",
@@ -248,7 +248,7 @@ func NewPrometheusRuleSpec(ns string, workloadUpdatesEnabled bool) *v1.Prometheu
 					},
 					{
 						Alert: "LowVirtOperatorCount",
-						Expr:  intstr.FromString("(num_of_allocatable_nodes > 1) and (kubevirt_virt_operator_up_total < 2)"),
+						Expr:  intstr.FromString("(kubevirt_allocatable_nodes_count > 1) and (kubevirt_virt_operator_up_total < 2)"),
 						For:   "60m",
 						Annotations: map[string]string{
 							"summary":     "More than one virt-operator should be running if more than one worker nodes exist.",
@@ -421,7 +421,7 @@ func NewPrometheusRuleSpec(ns string, workloadUpdatesEnabled bool) *v1.Prometheu
 					},
 					{
 						Alert: "OrphanedVirtualMachineInstances",
-						Expr:  intstr.FromString("((count by (node) (kube_pod_status_ready{condition='true',pod=~'virt-handler.*'} * on(pod) group_left(node) kube_pod_info{pod=~'virt-handler.*'})) or (count by (node)(kube_pod_info{pod=~'virt-launcher.*'})*0)) == 0"),
+						Expr:  intstr.FromString("(((sum by (node) (kube_pod_status_ready{condition='true',pod=~'virt-handler.*'} * on(pod) group_left(node) sum by(pod,node)(kube_pod_info{pod=~'virt-handler.*',node!=''})) ) == 1) or (count by (node)( kube_pod_info{pod=~'virt-launcher.*',node!=''})*0)) == 0"),
 						For:   "10m",
 						Annotations: map[string]string{
 							"summary":     "No ready virt-handler pod detected on node {{ $labels.node }} with running vmis for more than 10 minutes",

@@ -469,17 +469,8 @@ func newControllerClusterRole() *rbacv1.ClusterRole {
 				},
 				Resources: []string{
 					clone.ResourceVMClonePlural,
-				},
-				Verbs: []string{
-					"get", "list", "watch", "update", "patch", "delete",
-				},
-			},
-			{
-				APIGroups: []string{
-					clone.GroupName,
-				},
-				Resources: []string{
 					clone.ResourceVMClonePlural + "/status",
+					clone.ResourceVMClonePlural + "/finalizers",
 				},
 				Verbs: []string{
 					"get", "list", "watch", "update", "patch", "delete",

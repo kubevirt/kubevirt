@@ -68,6 +68,8 @@ const (
 	Ready VirtualMachineExportPhase = "Ready"
 	// Terminated means the Virtual Machine export is terminated and no longer available
 	Terminated VirtualMachineExportPhase = "Terminated"
+	// Skipped means the export is invalid in a way so the exporter pod cannot start, and we are skipping creating the exporter server pod.
+	Skipped VirtualMachineExportPhase = "Skipped"
 )
 
 // VirtualMachineExportStatus is the status for a VirtualMachineExport resource
@@ -147,6 +149,8 @@ const (
 	ConditionReady ConditionType = "Ready"
 	// ConditionPVC is the condition of the PVC we are exporting
 	ConditionPVC ConditionType = "PVCReady"
+	// ConditionVolumesCreated is the condition to see if volumes are created from volume snapshots
+	ConditionVolumesCreated ConditionType = "VolumesCreated"
 )
 
 // Condition defines conditions

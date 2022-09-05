@@ -36,6 +36,7 @@ import (
 	extv1 "k8s.io/apiextensions-apiserver/pkg/apis/apiextensions/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	k8syaml "k8s.io/apimachinery/pkg/util/yaml"
+	"k8s.io/utils/pointer"
 
 	virtv1 "kubevirt.io/api/core/v1"
 	exportv1 "kubevirt.io/api/export/v1alpha1"
@@ -218,9 +219,24 @@ func NewPresetCrd() (*extv1.CustomResourceDefinition, error) {
 
 	crd.ObjectMeta.Name = VIRTUALMACHINEINSTANCEPRESET
 	crd.Spec = extv1.CustomResourceDefinitionSpec{
-		Group:    virtv1.VirtualMachineInstancePresetGroupVersionKind.Group,
-		Versions: newCRDVersions(),
-		Scope:    "Namespaced",
+		Group: virtv1.VirtualMachineInstancePresetGroupVersionKind.Group,
+		Versions: []extv1.CustomResourceDefinitionVersion{
+			{
+				Name:               "v1",
+				Served:             true,
+				Storage:            false,
+				Deprecated:         true,
+				DeprecationWarning: pointer.String("kubevirt.io/v1 VirtualMachineInstancePresets is now deprecated and will be removed in v2."),
+			},
+			{
+				Name:               "v1alpha3",
+				Served:             true,
+				Storage:            true,
+				Deprecated:         true,
+				DeprecationWarning: pointer.String("kubevirt.io/v1alpha3 VirtualMachineInstancePresets is now deprecated and will be removed in v2."),
+			},
+		},
+		Scope: "Namespaced",
 
 		Names: extv1.CustomResourceDefinitionNames{
 			Plural:     "virtualmachineinstancepresets",

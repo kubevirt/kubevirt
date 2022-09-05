@@ -326,7 +326,7 @@ func (m *methods) ApplyToVmi(field *k8sfield.Path, instancetypeSpec *instancetyp
 
 	if preferenceSpec != nil {
 		// By design Preferences can't conflict with the VMI so we don't return any
-		applyDevicePreferences(preferenceSpec, vmiSpec)
+		ApplyDevicePreferences(preferenceSpec, vmiSpec)
 		applyFeaturePreferences(preferenceSpec, vmiSpec)
 		applyFirmwarePreferences(preferenceSpec, vmiSpec)
 		applyMachinePreferences(preferenceSpec, vmiSpec)
@@ -675,7 +675,7 @@ func applyHostDevices(field *k8sfield.Path, instancetypeSpec *instancetypev1alph
 	return nil
 }
 
-func applyDevicePreferences(preferenceSpec *instancetypev1alpha1.VirtualMachinePreferenceSpec, vmiSpec *virtv1.VirtualMachineInstanceSpec) {
+func ApplyDevicePreferences(preferenceSpec *instancetypev1alpha1.VirtualMachinePreferenceSpec, vmiSpec *virtv1.VirtualMachineInstanceSpec) {
 
 	if preferenceSpec.Devices == nil {
 		return
@@ -684,32 +684,43 @@ func applyDevicePreferences(preferenceSpec *instancetypev1alpha1.VirtualMachineP
 	// We only want to apply a preference bool when...
 	//
 	// 1. A preference has actually been provided
-	// 2. The preference is true
-	// 3. The user hasn't defined the corresponding attribute already within the VMI
+	// 2. The user hasn't defined the corresponding attribute already within the VMI
 	//
-	if preferenceSpec.Devices.PreferredAutoattachGraphicsDevice != nil && *preferenceSpec.Devices.PreferredAutoattachGraphicsDevice && vmiSpec.Domain.Devices.AutoattachGraphicsDevice == nil {
-		vmiSpec.Domain.Devices.AutoattachGraphicsDevice = pointer.Bool(true)
+	if preferenceSpec.Devices.PreferredAutoattachGraphicsDevice != nil && vmiSpec.Domain.Devices.AutoattachGraphicsDevice == nil {
+		vmiSpec.Domain.Devices.AutoattachGraphicsDevice = pointer.Bool(*preferenceSpec.Devices.PreferredAutoattachGraphicsDevice)
 	}
 
-	if preferenceSpec.Devices.PreferredAutoattachMemBalloon != nil && *preferenceSpec.Devices.PreferredAutoattachMemBalloon && vmiSpec.Domain.Devices.AutoattachMemBalloon == nil {
-		vmiSpec.Domain.Devices.AutoattachMemBalloon = pointer.Bool(true)
+	if preferenceSpec.Devices.PreferredAutoattachMemBalloon != nil && vmiSpec.Domain.Devices.AutoattachMemBalloon == nil {
+		vmiSpec.Domain.Devices.AutoattachMemBalloon = pointer.Bool(*preferenceSpec.Devices.PreferredAutoattachMemBalloon)
 	}
 
-	if preferenceSpec.Devices.PreferredAutoattachPodInterface != nil && *preferenceSpec.Devices.PreferredAutoattachPodInterface && vmiSpec.Domain.Devices.AutoattachPodInterface == nil {
-		vmiSpec.Domain.Devices.AutoattachPodInterface = pointer.Bool(true)
+	if preferenceSpec.Devices.PreferredAutoattachPodInterface != nil && vmiSpec.Domain.Devices.AutoattachPodInterface == nil {
+		vmiSpec.Domain.Devices.AutoattachPodInterface = pointer.Bool(*preferenceSpec.Devices.PreferredAutoattachPodInterface)
 	}
 
-	if preferenceSpec.Devices.PreferredAutoattachSerialConsole != nil && *preferenceSpec.Devices.PreferredAutoattachSerialConsole && vmiSpec.Domain.Devices.AutoattachSerialConsole == nil {
-		vmiSpec.Domain.Devices.AutoattachSerialConsole = pointer.Bool(true)
+	if preferenceSpec.Devices.PreferredAutoattachSerialConsole != nil && vmiSpec.Domain.Devices.AutoattachSerialConsole == nil {
+		vmiSpec.Domain.Devices.AutoattachSerialConsole = pointer.Bool(*preferenceSpec.Devices.PreferredAutoattachSerialConsole)
 	}
 
-	if preferenceSpec.Devices.PreferredUseVirtioTransitional != nil && *preferenceSpec.Devices.PreferredUseVirtioTransitional && vmiSpec.Domain.Devices.UseVirtioTransitional == nil {
-		vmiSpec.Domain.Devices.UseVirtioTransitional = pointer.Bool(true)
+	if preferenceSpec.Devices.PreferredUseVirtioTransitional != nil && vmiSpec.Domain.Devices.UseVirtioTransitional == nil {
+		vmiSpec.Domain.Devices.UseVirtioTransitional = pointer.Bool(*preferenceSpec.Devices.PreferredUseVirtioTransitional)
+	}
+
+	if preferenceSpec.Devices.PreferredBlockMultiQueue != nil && vmiSpec.Domain.Devices.BlockMultiQueue == nil {
+		vmiSpec.Domain.Devices.BlockMultiQueue = pointer.Bool(*preferenceSpec.Devices.PreferredBlockMultiQueue)
+	}
+
+	if preferenceSpec.Devices.PreferredNetworkInterfaceMultiQueue != nil && vmiSpec.Domain.Devices.NetworkInterfaceMultiQueue == nil {
+		vmiSpec.Domain.Devices.NetworkInterfaceMultiQueue = pointer.Bool(*preferenceSpec.Devices.PreferredNetworkInterfaceMultiQueue)
+	}
+
+	if preferenceSpec.Devices.PreferredAutoattachInputDevice != nil && vmiSpec.Domain.Devices.AutoattachInputDevice == nil {
+		vmiSpec.Domain.Devices.AutoattachInputDevice = pointer.Bool(*preferenceSpec.Devices.PreferredAutoattachInputDevice)
 	}
 
 	// FIXME DisableHotplug isn't a pointer bool so we don't have a way to tell if a user has actually set it, for now override.
-	if preferenceSpec.Devices.PreferredDisableHotplug != nil && *preferenceSpec.Devices.PreferredDisableHotplug {
-		vmiSpec.Domain.Devices.DisableHotplug = true
+	if preferenceSpec.Devices.PreferredDisableHotplug != nil {
+		vmiSpec.Domain.Devices.DisableHotplug = *preferenceSpec.Devices.PreferredDisableHotplug
 	}
 
 	if preferenceSpec.Devices.PreferredSoundModel != "" && vmiSpec.Domain.Devices.Sound != nil && vmiSpec.Domain.Devices.Sound.Model == "" {
@@ -718,14 +729,6 @@ func applyDevicePreferences(preferenceSpec *instancetypev1alpha1.VirtualMachineP
 
 	if preferenceSpec.Devices.PreferredRng != nil && vmiSpec.Domain.Devices.Rng == nil {
 		vmiSpec.Domain.Devices.Rng = preferenceSpec.Devices.PreferredRng.DeepCopy()
-	}
-
-	if preferenceSpec.Devices.PreferredBlockMultiQueue != nil && *preferenceSpec.Devices.PreferredBlockMultiQueue && vmiSpec.Domain.Devices.BlockMultiQueue == nil {
-		vmiSpec.Domain.Devices.BlockMultiQueue = pointer.Bool(true)
-	}
-
-	if preferenceSpec.Devices.PreferredNetworkInterfaceMultiQueue != nil && *preferenceSpec.Devices.PreferredNetworkInterfaceMultiQueue && vmiSpec.Domain.Devices.NetworkInterfaceMultiQueue == nil {
-		vmiSpec.Domain.Devices.NetworkInterfaceMultiQueue = pointer.Bool(true)
 	}
 
 	if preferenceSpec.Devices.PreferredTPM != nil && vmiSpec.Domain.Devices.TPM == nil {
@@ -763,8 +766,8 @@ func applyDiskPreferences(preferenceSpec *instancetypev1alpha1.VirtualMachinePre
 				vmiDisk.IO = preferenceSpec.Devices.PreferredDiskIO
 			}
 
-			if preferenceSpec.Devices.PreferredDiskDedicatedIoThread != nil && *preferenceSpec.Devices.PreferredDiskDedicatedIoThread && vmiDisk.DedicatedIOThread == nil {
-				vmiDisk.DedicatedIOThread = pointer.Bool(true)
+			if preferenceSpec.Devices.PreferredDiskDedicatedIoThread != nil && vmiDisk.DedicatedIOThread == nil {
+				vmiDisk.DedicatedIOThread = pointer.Bool(*preferenceSpec.Devices.PreferredDiskDedicatedIoThread)
 			}
 
 		} else if vmiDisk.DiskDevice.CDRom != nil {
@@ -921,16 +924,16 @@ func applyFirmwarePreferences(preferenceSpec *instancetypev1alpha1.VirtualMachin
 		vmiSpec.Domain.Firmware.Bootloader.BIOS = &v1.BIOS{}
 	}
 
-	if preferenceSpec.Firmware.PreferredUseBiosSerial != nil && *preferenceSpec.Firmware.PreferredUseBiosSerial && vmiSpec.Domain.Firmware.Bootloader.BIOS != nil {
-		vmiSpec.Domain.Firmware.Bootloader.BIOS.UseSerial = pointer.Bool(true)
+	if preferenceSpec.Firmware.PreferredUseBiosSerial != nil && vmiSpec.Domain.Firmware.Bootloader.BIOS != nil {
+		vmiSpec.Domain.Firmware.Bootloader.BIOS.UseSerial = pointer.Bool(*preferenceSpec.Firmware.PreferredUseBiosSerial)
 	}
 
 	if preferenceSpec.Firmware.PreferredUseEfi != nil && *preferenceSpec.Firmware.PreferredUseEfi && vmiSpec.Domain.Firmware.Bootloader.EFI == nil && vmiSpec.Domain.Firmware.Bootloader.BIOS == nil {
 		vmiSpec.Domain.Firmware.Bootloader.EFI = &v1.EFI{}
 	}
 
-	if preferenceSpec.Firmware.PreferredUseSecureBoot != nil && *preferenceSpec.Firmware.PreferredUseSecureBoot && vmiSpec.Domain.Firmware.Bootloader.EFI != nil {
-		vmiSpec.Domain.Firmware.Bootloader.EFI.SecureBoot = pointer.Bool(true)
+	if preferenceSpec.Firmware.PreferredUseSecureBoot != nil && vmiSpec.Domain.Firmware.Bootloader.EFI != nil {
+		vmiSpec.Domain.Firmware.Bootloader.EFI.SecureBoot = pointer.Bool(*preferenceSpec.Firmware.PreferredUseSecureBoot)
 	}
 }
 

@@ -4833,6 +4833,10 @@ var CRDsValidation map[string]string = map[string]string{
                             or not. VNC will not be available if set to false. Defaults
                             to true.
                           type: boolean
+                        autoattachInputDevice:
+                          description: Whether to attach an Input Device. Defaults
+                            to false.
+                          type: boolean
                         autoattachMemBalloon:
                           description: Whether to attach the Memory balloon device
                             with default period. Period can be adjusted in virt-config.
@@ -4932,7 +4936,7 @@ var CRDsValidation map[string]string = map[string]string{
                                   bus:
                                     description: 'Bus indicates the type of disk device
                                       to emulate. supported values: virtio, sata,
-                                      scsi.'
+                                      scsi, usb.'
                                     type: string
                                   pciAddress:
                                     description: 'If specified, the virtual disk will
@@ -6015,6 +6019,113 @@ var CRDsValidation map[string]string = map[string]string{
                         type: string
                     type: object
                   type: array
+                topologySpreadConstraints:
+                  description: TopologySpreadConstraints describes how a group of
+                    VMIs will be spread across a given topology domains. K8s scheduler
+                    will schedule VMI pods in a way which abides by the constraints.
+                  items:
+                    description: TopologySpreadConstraint specifies how to spread
+                      matching pods among the given topology.
+                    properties:
+                      labelSelector:
+                        description: LabelSelector is used to find matching pods.
+                          Pods that match this label selector are counted to determine
+                          the number of pods in their corresponding topology domain.
+                        properties:
+                          matchExpressions:
+                            description: matchExpressions is a list of label selector
+                              requirements. The requirements are ANDed.
+                            items:
+                              description: A label selector requirement is a selector
+                                that contains values, a key, and an operator that
+                                relates the key and values.
+                              properties:
+                                key:
+                                  description: key is the label key that the selector
+                                    applies to.
+                                  type: string
+                                operator:
+                                  description: operator represents a key's relationship
+                                    to a set of values. Valid operators are In, NotIn,
+                                    Exists and DoesNotExist.
+                                  type: string
+                                values:
+                                  description: values is an array of string values.
+                                    If the operator is In or NotIn, the values array
+                                    must be non-empty. If the operator is Exists or
+                                    DoesNotExist, the values array must be empty.
+                                    This array is replaced during a strategic merge
+                                    patch.
+                                  items:
+                                    type: string
+                                  type: array
+                              required:
+                              - key
+                              - operator
+                              type: object
+                            type: array
+                          matchLabels:
+                            additionalProperties:
+                              type: string
+                            description: matchLabels is a map of {key,value} pairs.
+                              A single {key,value} in the matchLabels map is equivalent
+                              to an element of matchExpressions, whose key field is
+                              "key", the operator is "In", and the values array contains
+                              only "value". The requirements are ANDed.
+                            type: object
+                        type: object
+                      maxSkew:
+                        description: 'MaxSkew describes the degree to which pods may
+                          be unevenly distributed. When ''whenUnsatisfiable=DoNotSchedule'',
+                          it is the maximum permitted difference between the number
+                          of matching pods in the target topology and the global minimum.
+                          For example, in a 3-zone cluster, MaxSkew is set to 1, and
+                          pods with the same labelSelector spread as 1/1/0: | zone1
+                          | zone2 | zone3 | |   P   |   P   |       | - if MaxSkew
+                          is 1, incoming pod can only be scheduled to zone3 to become
+                          1/1/1; scheduling it onto zone1(zone2) would make the ActualSkew(2-0)
+                          on zone1(zone2) violate MaxSkew(1). - if MaxSkew is 2, incoming
+                          pod can be scheduled onto any zone. When ''whenUnsatisfiable=ScheduleAnyway'',
+                          it is used to give higher precedence to topologies that
+                          satisfy it. It''s a required field. Default value is 1 and
+                          0 is not allowed.'
+                        format: int32
+                        type: integer
+                      topologyKey:
+                        description: TopologyKey is the key of node labels. Nodes
+                          that have a label with this key and identical values are
+                          considered to be in the same topology. We consider each
+                          <key, value> as a "bucket", and try to put balanced number
+                          of pods into each bucket. It's a required field.
+                        type: string
+                      whenUnsatisfiable:
+                        description: 'WhenUnsatisfiable indicates how to deal with
+                          a pod if it doesn''t satisfy the spread constraint. - DoNotSchedule
+                          (default) tells the scheduler not to schedule it. - ScheduleAnyway
+                          tells the scheduler to schedule the pod in any location,   but
+                          giving higher precedence to topologies that would help reduce
+                          the   skew. A constraint is considered "Unsatisfiable" for
+                          an incoming pod if and only if every possible node assignment
+                          for that pod would violate "MaxSkew" on some topology. For
+                          example, in a 3-zone cluster, MaxSkew is set to 1, and pods
+                          with the same labelSelector spread as 3/1/1: | zone1 | zone2
+                          | zone3 | | P P P |   P   |   P   | If WhenUnsatisfiable
+                          is set to DoNotSchedule, incoming pod can only be scheduled
+                          to zone2(zone3) to become 3/2/1(3/1/2) as ActualSkew(2-1)
+                          on zone2(zone3) satisfies MaxSkew(1). In other words, the
+                          cluster can still be imbalanced, but scheduler won''t make
+                          it *more* imbalanced. It''s a required field.'
+                        type: string
+                    required:
+                    - maxSkew
+                    - topologyKey
+                    - whenUnsatisfiable
+                    type: object
+                  type: array
+                  x-kubernetes-list-map-keys:
+                  - topologyKey
+                  - whenUnsatisfiable
+                  x-kubernetes-list-type: map
                 volumes:
                   description: List of volumes that can be mounted by disks belonging
                     to the vmi.
@@ -6628,7 +6739,7 @@ var CRDsValidation map[string]string = map[string]string{
                         properties:
                           bus:
                             description: 'Bus indicates the type of disk device to
-                              emulate. supported values: virtio, sata, scsi.'
+                              emulate. supported values: virtio, sata, scsi, usb.'
                             type: string
                           pciAddress:
                             description: 'If specified, the virtual disk will be placed
@@ -7207,6 +7318,10 @@ var CRDsValidation map[string]string = map[string]string{
             preferredAutoattachGraphicsDevice:
               description: PreferredAutoattachGraphicsDevice optionally defines the
                 preferred value of AutoattachGraphicsDevice
+              type: boolean
+            preferredAutoattachInputDevice:
+              description: PreferredAutoattachInputDevice optionally defines the preferred
+                value of AutoattachInputDevice
               type: boolean
             preferredAutoattachMemBalloon:
               description: PreferredAutoattachMemBalloon optionally defines the preferred
@@ -8879,6 +8994,9 @@ var CRDsValidation map[string]string = map[string]string{
                   description: Whether to attach the default graphics device or not.
                     VNC will not be available if set to false. Defaults to true.
                   type: boolean
+                autoattachInputDevice:
+                  description: Whether to attach an Input Device. Defaults to false.
+                  type: boolean
                 autoattachMemBalloon:
                   description: Whether to attach the Memory balloon device with default
                     period. Period can be adjusted in virt-config. Defaults to true.
@@ -8971,7 +9089,7 @@ var CRDsValidation map[string]string = map[string]string{
                         properties:
                           bus:
                             description: 'Bus indicates the type of disk device to
-                              emulate. supported values: virtio, sata, scsi.'
+                              emulate. supported values: virtio, sata, scsi, usb.'
                             type: string
                           pciAddress:
                             description: 'If specified, the virtual disk will be placed
@@ -9990,6 +10108,109 @@ var CRDsValidation map[string]string = map[string]string{
                 type: string
             type: object
           type: array
+        topologySpreadConstraints:
+          description: TopologySpreadConstraints describes how a group of VMIs will
+            be spread across a given topology domains. K8s scheduler will schedule
+            VMI pods in a way which abides by the constraints.
+          items:
+            description: TopologySpreadConstraint specifies how to spread matching
+              pods among the given topology.
+            properties:
+              labelSelector:
+                description: LabelSelector is used to find matching pods. Pods that
+                  match this label selector are counted to determine the number of
+                  pods in their corresponding topology domain.
+                properties:
+                  matchExpressions:
+                    description: matchExpressions is a list of label selector requirements.
+                      The requirements are ANDed.
+                    items:
+                      description: A label selector requirement is a selector that
+                        contains values, a key, and an operator that relates the key
+                        and values.
+                      properties:
+                        key:
+                          description: key is the label key that the selector applies
+                            to.
+                          type: string
+                        operator:
+                          description: operator represents a key's relationship to
+                            a set of values. Valid operators are In, NotIn, Exists
+                            and DoesNotExist.
+                          type: string
+                        values:
+                          description: values is an array of string values. If the
+                            operator is In or NotIn, the values array must be non-empty.
+                            If the operator is Exists or DoesNotExist, the values
+                            array must be empty. This array is replaced during a strategic
+                            merge patch.
+                          items:
+                            type: string
+                          type: array
+                      required:
+                      - key
+                      - operator
+                      type: object
+                    type: array
+                  matchLabels:
+                    additionalProperties:
+                      type: string
+                    description: matchLabels is a map of {key,value} pairs. A single
+                      {key,value} in the matchLabels map is equivalent to an element
+                      of matchExpressions, whose key field is "key", the operator
+                      is "In", and the values array contains only "value". The requirements
+                      are ANDed.
+                    type: object
+                type: object
+              maxSkew:
+                description: 'MaxSkew describes the degree to which pods may be unevenly
+                  distributed. When ''whenUnsatisfiable=DoNotSchedule'', it is the
+                  maximum permitted difference between the number of matching pods
+                  in the target topology and the global minimum. For example, in a
+                  3-zone cluster, MaxSkew is set to 1, and pods with the same labelSelector
+                  spread as 1/1/0: | zone1 | zone2 | zone3 | |   P   |   P   |       |
+                  - if MaxSkew is 1, incoming pod can only be scheduled to zone3 to
+                  become 1/1/1; scheduling it onto zone1(zone2) would make the ActualSkew(2-0)
+                  on zone1(zone2) violate MaxSkew(1). - if MaxSkew is 2, incoming
+                  pod can be scheduled onto any zone. When ''whenUnsatisfiable=ScheduleAnyway'',
+                  it is used to give higher precedence to topologies that satisfy
+                  it. It''s a required field. Default value is 1 and 0 is not allowed.'
+                format: int32
+                type: integer
+              topologyKey:
+                description: TopologyKey is the key of node labels. Nodes that have
+                  a label with this key and identical values are considered to be
+                  in the same topology. We consider each <key, value> as a "bucket",
+                  and try to put balanced number of pods into each bucket. It's a
+                  required field.
+                type: string
+              whenUnsatisfiable:
+                description: 'WhenUnsatisfiable indicates how to deal with a pod if
+                  it doesn''t satisfy the spread constraint. - DoNotSchedule (default)
+                  tells the scheduler not to schedule it. - ScheduleAnyway tells the
+                  scheduler to schedule the pod in any location,   but giving higher
+                  precedence to topologies that would help reduce the   skew. A constraint
+                  is considered "Unsatisfiable" for an incoming pod if and only if
+                  every possible node assignment for that pod would violate "MaxSkew"
+                  on some topology. For example, in a 3-zone cluster, MaxSkew is set
+                  to 1, and pods with the same labelSelector spread as 3/1/1: | zone1
+                  | zone2 | zone3 | | P P P |   P   |   P   | If WhenUnsatisfiable
+                  is set to DoNotSchedule, incoming pod can only be scheduled to zone2(zone3)
+                  to become 3/2/1(3/1/2) as ActualSkew(2-1) on zone2(zone3) satisfies
+                  MaxSkew(1). In other words, the cluster can still be imbalanced,
+                  but scheduler won''t make it *more* imbalanced. It''s a required
+                  field.'
+                type: string
+            required:
+            - maxSkew
+            - topologyKey
+            - whenUnsatisfiable
+            type: object
+          type: array
+          x-kubernetes-list-map-keys:
+          - topologyKey
+          - whenUnsatisfiable
+          x-kubernetes-list-type: map
         volumes:
           description: List of volumes that can be mounted by disks belonging to the
             vmi.
@@ -10482,6 +10703,10 @@ var CRDsValidation map[string]string = map[string]string{
                 description: Name of the interface, corresponds to name of the network
                   assigned to the interface
                 type: string
+              queueCount:
+                description: Specifies how many queues are allocated by MultiQueue
+                format: int32
+                type: integer
             type: object
           type: array
         launcherContainerImageVersion:
@@ -10854,8 +11079,10 @@ var CRDsValidation map[string]string = map[string]string{
   type: object
 `,
 	"virtualmachineinstancepreset": `openAPIV3Schema:
-  description: 'VirtualMachineInstancePreset defines a VMI spec.domain to be applied
-    to all VMIs that match the provided label selector More info: https://kubevirt.io/user-guide/virtual_machines/presets/#overrides'
+  description: "Deprecated for removal in v2, please use VirtualMachineInstanceType
+    and VirtualMachinePreference instead. \n VirtualMachineInstancePreset defines
+    a VMI spec.domain to be applied to all VMIs that match the provided label selector
+    More info: https://kubevirt.io/user-guide/virtual_machines/presets/#overrides"
   properties:
     apiVersion:
       description: 'APIVersion defines the versioned schema of this representation
@@ -11066,6 +11293,9 @@ var CRDsValidation map[string]string = map[string]string{
                   description: Whether to attach the default graphics device or not.
                     VNC will not be available if set to false. Defaults to true.
                   type: boolean
+                autoattachInputDevice:
+                  description: Whether to attach an Input Device. Defaults to false.
+                  type: boolean
                 autoattachMemBalloon:
                   description: Whether to attach the Memory balloon device with default
                     period. Period can be adjusted in virt-config. Defaults to true.
@@ -11158,7 +11388,7 @@ var CRDsValidation map[string]string = map[string]string{
                         properties:
                           bus:
                             description: 'Bus indicates the type of disk device to
-                              emulate. supported values: virtio, sata, scsi.'
+                              emulate. supported values: virtio, sata, scsi, usb.'
                             type: string
                           pciAddress:
                             description: 'If specified, the virtual disk will be placed
@@ -13137,6 +13367,10 @@ var CRDsValidation map[string]string = map[string]string{
                             or not. VNC will not be available if set to false. Defaults
                             to true.
                           type: boolean
+                        autoattachInputDevice:
+                          description: Whether to attach an Input Device. Defaults
+                            to false.
+                          type: boolean
                         autoattachMemBalloon:
                           description: Whether to attach the Memory balloon device
                             with default period. Period can be adjusted in virt-config.
@@ -13236,7 +13470,7 @@ var CRDsValidation map[string]string = map[string]string{
                                   bus:
                                     description: 'Bus indicates the type of disk device
                                       to emulate. supported values: virtio, sata,
-                                      scsi.'
+                                      scsi, usb.'
                                     type: string
                                   pciAddress:
                                     description: 'If specified, the virtual disk will
@@ -14319,6 +14553,113 @@ var CRDsValidation map[string]string = map[string]string{
                         type: string
                     type: object
                   type: array
+                topologySpreadConstraints:
+                  description: TopologySpreadConstraints describes how a group of
+                    VMIs will be spread across a given topology domains. K8s scheduler
+                    will schedule VMI pods in a way which abides by the constraints.
+                  items:
+                    description: TopologySpreadConstraint specifies how to spread
+                      matching pods among the given topology.
+                    properties:
+                      labelSelector:
+                        description: LabelSelector is used to find matching pods.
+                          Pods that match this label selector are counted to determine
+                          the number of pods in their corresponding topology domain.
+                        properties:
+                          matchExpressions:
+                            description: matchExpressions is a list of label selector
+                              requirements. The requirements are ANDed.
+                            items:
+                              description: A label selector requirement is a selector
+                                that contains values, a key, and an operator that
+                                relates the key and values.
+                              properties:
+                                key:
+                                  description: key is the label key that the selector
+                                    applies to.
+                                  type: string
+                                operator:
+                                  description: operator represents a key's relationship
+                                    to a set of values. Valid operators are In, NotIn,
+                                    Exists and DoesNotExist.
+                                  type: string
+                                values:
+                                  description: values is an array of string values.
+                                    If the operator is In or NotIn, the values array
+                                    must be non-empty. If the operator is Exists or
+                                    DoesNotExist, the values array must be empty.
+                                    This array is replaced during a strategic merge
+                                    patch.
+                                  items:
+                                    type: string
+                                  type: array
+                              required:
+                              - key
+                              - operator
+                              type: object
+                            type: array
+                          matchLabels:
+                            additionalProperties:
+                              type: string
+                            description: matchLabels is a map of {key,value} pairs.
+                              A single {key,value} in the matchLabels map is equivalent
+                              to an element of matchExpressions, whose key field is
+                              "key", the operator is "In", and the values array contains
+                              only "value". The requirements are ANDed.
+                            type: object
+                        type: object
+                      maxSkew:
+                        description: 'MaxSkew describes the degree to which pods may
+                          be unevenly distributed. When ''whenUnsatisfiable=DoNotSchedule'',
+                          it is the maximum permitted difference between the number
+                          of matching pods in the target topology and the global minimum.
+                          For example, in a 3-zone cluster, MaxSkew is set to 1, and
+                          pods with the same labelSelector spread as 1/1/0: | zone1
+                          | zone2 | zone3 | |   P   |   P   |       | - if MaxSkew
+                          is 1, incoming pod can only be scheduled to zone3 to become
+                          1/1/1; scheduling it onto zone1(zone2) would make the ActualSkew(2-0)
+                          on zone1(zone2) violate MaxSkew(1). - if MaxSkew is 2, incoming
+                          pod can be scheduled onto any zone. When ''whenUnsatisfiable=ScheduleAnyway'',
+                          it is used to give higher precedence to topologies that
+                          satisfy it. It''s a required field. Default value is 1 and
+                          0 is not allowed.'
+                        format: int32
+                        type: integer
+                      topologyKey:
+                        description: TopologyKey is the key of node labels. Nodes
+                          that have a label with this key and identical values are
+                          considered to be in the same topology. We consider each
+                          <key, value> as a "bucket", and try to put balanced number
+                          of pods into each bucket. It's a required field.
+                        type: string
+                      whenUnsatisfiable:
+                        description: 'WhenUnsatisfiable indicates how to deal with
+                          a pod if it doesn''t satisfy the spread constraint. - DoNotSchedule
+                          (default) tells the scheduler not to schedule it. - ScheduleAnyway
+                          tells the scheduler to schedule the pod in any location,   but
+                          giving higher precedence to topologies that would help reduce
+                          the   skew. A constraint is considered "Unsatisfiable" for
+                          an incoming pod if and only if every possible node assignment
+                          for that pod would violate "MaxSkew" on some topology. For
+                          example, in a 3-zone cluster, MaxSkew is set to 1, and pods
+                          with the same labelSelector spread as 3/1/1: | zone1 | zone2
+                          | zone3 | | P P P |   P   |   P   | If WhenUnsatisfiable
+                          is set to DoNotSchedule, incoming pod can only be scheduled
+                          to zone2(zone3) to become 3/2/1(3/1/2) as ActualSkew(2-1)
+                          on zone2(zone3) satisfies MaxSkew(1). In other words, the
+                          cluster can still be imbalanced, but scheduler won''t make
+                          it *more* imbalanced. It''s a required field.'
+                        type: string
+                    required:
+                    - maxSkew
+                    - topologyKey
+                    - whenUnsatisfiable
+                    type: object
+                  type: array
+                  x-kubernetes-list-map-keys:
+                  - topologyKey
+                  - whenUnsatisfiable
+                  x-kubernetes-list-type: map
                 volumes:
                   description: List of volumes that can be mounted by disks belonging
                     to the vmi.
@@ -16960,6 +17301,10 @@ var CRDsValidation map[string]string = map[string]string{
                                     device or not. VNC will not be available if set
                                     to false. Defaults to true.
                                   type: boolean
+                                autoattachInputDevice:
+                                  description: Whether to attach an Input Device.
+                                    Defaults to false.
+                                  type: boolean
                                 autoattachMemBalloon:
                                   description: Whether to attach the Memory balloon
                                     device with default period. Period can be adjusted
@@ -17066,7 +17411,7 @@ var CRDsValidation map[string]string = map[string]string{
                                           bus:
                                             description: 'Bus indicates the type of
                                               disk device to emulate. supported values:
-                                              virtio, sata, scsi.'
+                                              virtio, sata, scsi, usb.'
                                             type: string
                                           pciAddress:
                                             description: 'If specified, the virtual
@@ -18210,6 +18555,122 @@ var CRDsValidation map[string]string = map[string]string{
                                 type: string
                             type: object
                           type: array
+                        topologySpreadConstraints:
+                          description: TopologySpreadConstraints describes how a group
+                            of VMIs will be spread across a given topology domains.
+                            K8s scheduler will schedule VMI pods in a way which abides
+                            by the constraints.
+                          items:
+                            description: TopologySpreadConstraint specifies how to
+                              spread matching pods among the given topology.
+                            properties:
+                              labelSelector:
+                                description: LabelSelector is used to find matching
+                                  pods. Pods that match this label selector are counted
+                                  to determine the number of pods in their corresponding
+                                  topology domain.
+                                properties:
+                                  matchExpressions:
+                                    description: matchExpressions is a list of label
+                                      selector requirements. The requirements are
+                                      ANDed.
+                                    items:
+                                      description: A label selector requirement is
+                                        a selector that contains values, a key, and
+                                        an operator that relates the key and values.
+                                      properties:
+                                        key:
+                                          description: key is the label key that the
+                                            selector applies to.
+                                          type: string
+                                        operator:
+                                          description: operator represents a key's
+                                            relationship to a set of values. Valid
+                                            operators are In, NotIn, Exists and DoesNotExist.
+                                          type: string
+                                        values:
+                                          description: values is an array of string
+                                            values. If the operator is In or NotIn,
+                                            the values array must be non-empty. If
+                                            the operator is Exists or DoesNotExist,
+                                            the values array must be empty. This array
+                                            is replaced during a strategic merge patch.
+                                          items:
+                                            type: string
+                                          type: array
+                                      required:
+                                      - key
+                                      - operator
+                                      type: object
+                                    type: array
+                                  matchLabels:
+                                    additionalProperties:
+                                      type: string
+                                    description: matchLabels is a map of {key,value}
+                                      pairs. A single {key,value} in the matchLabels
+                                      map is equivalent to an element of matchExpressions,
+                                      whose key field is "key", the operator is "In",
+                                      and the values array contains only "value".
+                                      The requirements are ANDed.
+                                    type: object
+                                type: object
+                              maxSkew:
+                                description: 'MaxSkew describes the degree to which
+                                  pods may be unevenly distributed. When ''whenUnsatisfiable=DoNotSchedule'',
+                                  it is the maximum permitted difference between the
+                                  number of matching pods in the target topology and
+                                  the global minimum. For example, in a 3-zone cluster,
+                                  MaxSkew is set to 1, and pods with the same labelSelector
+                                  spread as 1/1/0: | zone1 | zone2 | zone3 | |   P   |   P   |       |
+                                  - if MaxSkew is 1, incoming pod can only be scheduled
+                                  to zone3 to become 1/1/1; scheduling it onto zone1(zone2)
+                                  would make the ActualSkew(2-0) on zone1(zone2) violate
+                                  MaxSkew(1). - if MaxSkew is 2, incoming pod can
+                                  be scheduled onto any zone. When ''whenUnsatisfiable=ScheduleAnyway'',
+                                  it is used to give higher precedence to topologies
+                                  that satisfy it. It''s a required field. Default
+                                  value is 1 and 0 is not allowed.'
+                                format: int32
+                                type: integer
+                              topologyKey:
+                                description: TopologyKey is the key of node labels.
+                                  Nodes that have a label with this key and identical
+                                  values are considered to be in the same topology.
+                                  We consider each <key, value> as a "bucket", and
+                                  try to put balanced number of pods into each bucket.
+                                  It's a required field.
+                                type: string
+                              whenUnsatisfiable:
+                                description: 'WhenUnsatisfiable indicates how to deal
+                                  with a pod if it doesn''t satisfy the spread constraint.
+                                  - DoNotSchedule (default) tells the scheduler not
+                                  to schedule it. - ScheduleAnyway tells the scheduler
+                                  to schedule the pod in any location,   but giving
+                                  higher precedence to topologies that would help
+                                  reduce the   skew. A constraint is considered "Unsatisfiable"
+                                  for an incoming pod if and only if every possible
+                                  node assignment for that pod would violate "MaxSkew"
+                                  on some topology. For example, in a 3-zone cluster,
+                                  MaxSkew is set to 1, and pods with the same labelSelector
+                                  spread as 3/1/1: | zone1 | zone2 | zone3 | | P P
+                                  P |   P   |   P   | If WhenUnsatisfiable is set
+                                  to DoNotSchedule, incoming pod can only be scheduled
+                                  to zone2(zone3) to become 3/2/1(3/1/2) as ActualSkew(2-1)
+                                  on zone2(zone3) satisfies MaxSkew(1). In other words,
+                                  the cluster can still be imbalanced, but scheduler
+                                  won''t make it *more* imbalanced. It''s a required
+                                  field.'
+                                type: string
+                            required:
+                            - maxSkew
+                            - topologyKey
+                            - whenUnsatisfiable
+                            type: object
+                          type: array
+                          x-kubernetes-list-map-keys:
+                          - topologyKey
+                          - whenUnsatisfiable
+                          x-kubernetes-list-type: map
                         volumes:
                           description: List of volumes that can be mounted by disks
                             belonging to the vmi.
@@ -18823,6 +19284,10 @@ var CRDsValidation map[string]string = map[string]string{
             preferredAutoattachGraphicsDevice:
               description: PreferredAutoattachGraphicsDevice optionally defines the
                 preferred value of AutoattachGraphicsDevice
+              type: boolean
+            preferredAutoattachInputDevice:
+              description: PreferredAutoattachInputDevice optionally defines the preferred
+                value of AutoattachInputDevice
               type: boolean
             preferredAutoattachMemBalloon:
               description: PreferredAutoattachMemBalloon optionally defines the preferred
@@ -21478,6 +21943,10 @@ var CRDsValidation map[string]string = map[string]string{
                                         device or not. VNC will not be available if
                                         set to false. Defaults to true.
                                       type: boolean
+                                    autoattachInputDevice:
+                                      description: Whether to attach an Input Device.
+                                        Defaults to false.
+                                      type: boolean
                                     autoattachMemBalloon:
                                       description: Whether to attach the Memory balloon
                                         device with default period. Period can be
@@ -21588,7 +22057,7 @@ var CRDsValidation map[string]string = map[string]string{
                                               bus:
                                                 description: 'Bus indicates the type
                                                   of disk device to emulate. supported
-                                                  values: virtio, sata, scsi.'
+                                                  values: virtio, sata, scsi, usb.'
                                                 type: string
                                               pciAddress:
                                                 description: 'If specified, the virtual
@@ -22769,6 +23238,129 @@ var CRDsValidation map[string]string = map[string]string{
                                     type: string
                                 type: object
                               type: array
+                            topologySpreadConstraints:
+                              description: TopologySpreadConstraints describes how
+                                a group of VMIs will be spread across a given topology
+                                domains. K8s scheduler will schedule VMI pods in a
+                                way which abides by the constraints.
+                              items:
+                                description: TopologySpreadConstraint specifies how
+                                  to spread matching pods among the given topology.
+                                properties:
+                                  labelSelector:
+                                    description: LabelSelector is used to find matching
+                                      pods. Pods that match this label selector are
+                                      counted to determine the number of pods in their
+                                      corresponding topology domain.
+                                    properties:
+                                      matchExpressions:
+                                        description: matchExpressions is a list of
+                                          label selector requirements. The requirements
+                                          are ANDed.
+                                        items:
+                                          description: A label selector requirement
+                                            is a selector that contains values, a
+                                            key, and an operator that relates the
+                                            key and values.
+                                          properties:
+                                            key:
+                                              description: key is the label key that
+                                                the selector applies to.
+                                              type: string
+                                            operator:
+                                              description: operator represents a key's
+                                                relationship to a set of values. Valid
+                                                operators are In, NotIn, Exists and
+                                                DoesNotExist.
+                                              type: string
+                                            values:
+                                              description: values is an array of string
+                                                values. If the operator is In or NotIn,
+                                                the values array must be non-empty.
+                                                If the operator is Exists or DoesNotExist,
+                                                the values array must be empty. This
+                                                array is replaced during a strategic
+                                                merge patch.
+                                              items:
+                                                type: string
+                                              type: array
+                                          required:
+                                          - key
+                                          - operator
+                                          type: object
+                                        type: array
+                                      matchLabels:
+                                        additionalProperties:
+                                          type: string
+                                        description: matchLabels is a map of {key,value}
+                                          pairs. A single {key,value} in the matchLabels
+                                          map is equivalent to an element of matchExpressions,
+                                          whose key field is "key", the operator is
+                                          "In", and the values array contains only
+                                          "value". The requirements are ANDed.
+                                        type: object
+                                    type: object
+                                  maxSkew:
+                                    description: 'MaxSkew describes the degree to
+                                      which pods may be unevenly distributed. When
+                                      ''whenUnsatisfiable=DoNotSchedule'', it is the
+                                      maximum permitted difference between the number
+                                      of matching pods in the target topology and
+                                      the global minimum. For example, in a 3-zone
+                                      cluster, MaxSkew is set to 1, and pods with
+                                      the same labelSelector spread as 1/1/0: | zone1
+                                      | zone2 | zone3 | |   P   |   P   |       |
+                                      - if MaxSkew is 1, incoming pod can only be
+                                      scheduled to zone3 to become 1/1/1; scheduling
+                                      it onto zone1(zone2) would make the ActualSkew(2-0)
+                                      on zone1(zone2) violate MaxSkew(1). - if MaxSkew
+                                      is 2, incoming pod can be scheduled onto any
+                                      zone. When ''whenUnsatisfiable=ScheduleAnyway'',
+                                      it is used to give higher precedence to topologies
+                                      that satisfy it. It''s a required field. Default
+                                      value is 1 and 0 is not allowed.'
+                                    format: int32
+                                    type: integer
+                                  topologyKey:
+                                    description: TopologyKey is the key of node labels.
+                                      Nodes that have a label with this key and identical
+                                      values are considered to be in the same topology.
+                                      We consider each <key, value> as a "bucket",
+                                      and try to put balanced number of pods into
+                                      each bucket. It's a required field.
+                                    type: string
+                                  whenUnsatisfiable:
+                                    description: 'WhenUnsatisfiable indicates how
+                                      to deal with a pod if it doesn''t satisfy the
+                                      spread constraint. - DoNotSchedule (default)
+                                      tells the scheduler not to schedule it. - ScheduleAnyway
+                                      tells the scheduler to schedule the pod in any
+                                      location,   but giving higher precedence to
+                                      topologies that would help reduce the   skew.
+                                      A constraint is considered "Unsatisfiable" for
+                                      an incoming pod if and only if every possible
+                                      node assignment for that pod would violate "MaxSkew"
+                                      on some topology. For example, in a 3-zone cluster,
+                                      MaxSkew is set to 1, and pods with the same
+                                      labelSelector spread as 3/1/1: | zone1 | zone2
+                                      | zone3 | | P P P |   P   |   P   | If WhenUnsatisfiable
+                                      is set to DoNotSchedule, incoming pod can only
+                                      be scheduled to zone2(zone3) to become 3/2/1(3/1/2)
+                                      as ActualSkew(2-1) on zone2(zone3) satisfies
+                                      MaxSkew(1). In other words, the cluster can
+                                      still be imbalanced, but scheduler won''t make
+                                      it *more* imbalanced. It''s a required field.'
+                                    type: string
+                                required:
+                                - maxSkew
+                                - topologyKey
+                                - whenUnsatisfiable
+                                type: object
+                              type: array
+                              x-kubernetes-list-map-keys:
+                              - topologyKey
+                              - whenUnsatisfiable
+                              x-kubernetes-list-type: map
                             volumes:
                               description: List of volumes that can be mounted by
                                 disks belonging to the vmi.
@@ -23448,7 +24040,7 @@ var CRDsValidation map[string]string = map[string]string{
                                       bus:
                                         description: 'Bus indicates the type of disk
                                           device to emulate. supported values: virtio,
-                                          sata, scsi.'
+                                          sata, scsi, usb.'
                                         type: string
                                       pciAddress:
                                         description: 'If specified, the virtual disk

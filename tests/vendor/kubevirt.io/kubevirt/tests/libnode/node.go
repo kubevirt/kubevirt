@@ -45,7 +45,6 @@ import (
 	virtconfig "kubevirt.io/kubevirt/pkg/virt-config"
 	"kubevirt.io/kubevirt/pkg/virt-controller/services"
 
-	"kubevirt.io/kubevirt/tests/clientcmd"
 	"kubevirt.io/kubevirt/tests/flags"
 	"kubevirt.io/kubevirt/tests/framework/cleanup"
 	"kubevirt.io/kubevirt/tests/util"
@@ -56,22 +55,13 @@ var SchedulableNode = ""
 func CleanNodes() {
 	virtCli, err := kubecli.GetKubevirtClient()
 	util.PanicOnError(err)
-	nodes := GetAllSchedulableNodes(virtCli).Items
 
 	clusterDrainKey := GetNodeDrainKey()
 
-	for _, node := range nodes {
-
+	for _, node := range GetAllSchedulableNodes(virtCli).Items {
 		old, err := json.Marshal(node)
 		Expect(err).ToNot(HaveOccurred())
 		new := node.DeepCopy()
-
-		k8sClient := clientcmd.GetK8sCmdClient()
-		if k8sClient == "oc" {
-			clientcmd.RunCommandWithNS("", k8sClient, "adm", "uncordon", node.Name)
-		} else {
-			clientcmd.RunCommandWithNS("", k8sClient, "uncordon", node.Name)
-		}
 
 		found := false
 		taints := []k8sv1.Taint{}

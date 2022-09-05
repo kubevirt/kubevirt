@@ -46,9 +46,9 @@ import (
 	containerdisk "kubevirt.io/kubevirt/pkg/container-disk"
 	"kubevirt.io/kubevirt/pkg/hooks"
 	"kubevirt.io/kubevirt/pkg/network/istio"
+	"kubevirt.io/kubevirt/pkg/storage/types"
 	"kubevirt.io/kubevirt/pkg/util"
 	"kubevirt.io/kubevirt/pkg/util/net/dns"
-	"kubevirt.io/kubevirt/pkg/util/types"
 	virtconfig "kubevirt.io/kubevirt/pkg/virt-config"
 	"kubevirt.io/kubevirt/pkg/virt-launcher/virtwrap/api"
 )
@@ -120,8 +120,8 @@ const ephemeralStorageOverheadSize = "50M"
 const (
 	VirtLauncherMonitorOverhead = "25Mi"  // The `ps` RSS for virt-launcher-monitor
 	VirtLauncherOverhead        = "100Mi" // The `ps` RSS for the virt-launcher process
-	VirtlogdOverhead            = "17Mi"  // The `ps` RSS for virtlogd
-	LibvirtdOverhead            = "33Mi"  // The `ps` RSS for libvirtd
+	VirtlogdOverhead            = "18Mi"  // The `ps` RSS for virtlogd
+	LibvirtdOverhead            = "35Mi"  // The `ps` RSS for libvirtd
 	QemuOverhead                = "30Mi"  // The `ps` RSS for qemu, minus the RAM of its (stressed) guest, minus the virtual page table
 )
 
@@ -158,14 +158,6 @@ type PvcNotFoundError struct {
 }
 
 func (e PvcNotFoundError) Error() string {
-	return e.Reason
-}
-
-type DataVolumeNotFoundError struct {
-	Reason string
-}
-
-func (e DataVolumeNotFoundError) Error() string {
 	return e.Reason
 }
 
@@ -641,6 +633,7 @@ func (t *templateService) renderLaunchManifest(vmi *v1.VirtualMachineInstance, i
 			EnableServiceLinks:            &enableServiceLinks,
 			SchedulerName:                 vmi.Spec.SchedulerName,
 			Tolerations:                   vmi.Spec.Tolerations,
+			TopologySpreadConstraints:     vmi.Spec.TopologySpreadConstraints,
 		},
 	}
 
@@ -920,7 +913,7 @@ func (t *templateService) RenderHotplugAttachmentPodTemplate(volumes []*v1.Volum
 		if !skipMount {
 			pvc := claimMap[volume.Name]
 			if pvc != nil {
-				if pvc.Spec.VolumeMode != nil && *pvc.Spec.VolumeMode == k8sv1.PersistentVolumeBlock {
+				if types.IsPVCBlock(pvc.Spec.VolumeMode) {
 					pod.Spec.Containers[0].VolumeDevices = append(pod.Spec.Containers[0].VolumeDevices, k8sv1.VolumeDevice{
 						Name:       volume.Name,
 						DevicePath: fmt.Sprintf("/path/%s/%s", volume.Name, pvc.GetUID()),

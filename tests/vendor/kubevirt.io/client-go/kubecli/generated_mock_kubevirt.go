@@ -259,6 +259,16 @@ func (_mr *_MockKubevirtClientRecorder) MigrationPolicy() *gomock.Call {
 	return _mr.mock.ctrl.RecordCall(_mr.mock, "MigrationPolicy")
 }
 
+func (_m *MockKubevirtClient) ExpandSpec() *ExpandSpec {
+	ret := _m.ctrl.Call(_m, "ExpandSpec")
+	ret0, _ := ret[0].(*ExpandSpec)
+	return ret0
+}
+
+func (_mr *_MockKubevirtClientRecorder) ExpandSpec() *gomock.Call {
+	return _mr.mock.ctrl.RecordCall(_mr.mock, "ExpandSpec")
+}
+
 func (_m *MockKubevirtClient) ServerVersion() ServerVersionInterface {
 	ret := _m.ctrl.Call(_m, "ServerVersion")
 	ret0, _ := ret[0].(ServerVersionInterface)
@@ -1435,6 +1445,17 @@ func (_m *MockVirtualMachineInterface) Get(name string, options *v12.GetOptions)
 
 func (_mr *_MockVirtualMachineInterfaceRecorder) Get(arg0, arg1 interface{}) *gomock.Call {
 	return _mr.mock.ctrl.RecordCall(_mr.mock, "Get", arg0, arg1)
+}
+
+func (_m *MockVirtualMachineInterface) GetWithExpandedSpec(name string) (*v120.VirtualMachine, error) {
+	ret := _m.ctrl.Call(_m, "GetWithExpandedSpec", name)
+	ret0, _ := ret[0].(*v120.VirtualMachine)
+	ret1, _ := ret[1].(error)
+	return ret0, ret1
+}
+
+func (_mr *_MockVirtualMachineInterfaceRecorder) GetWithExpandedSpec(arg0 interface{}) *gomock.Call {
+	return _mr.mock.ctrl.RecordCall(_mr.mock, "GetWithExpandedSpec", arg0)
 }
 
 func (_m *MockVirtualMachineInterface) List(opts *v12.ListOptions) (*v120.VirtualMachineList, error) {

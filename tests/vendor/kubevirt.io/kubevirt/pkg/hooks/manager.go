@@ -42,6 +42,8 @@ import (
 	virtwrapApi "kubevirt.io/kubevirt/pkg/virt-launcher/virtwrap/api"
 )
 
+//go:generate mockgen -source $GOFILE -package=$GOPACKAGE -destination=generated_mock_$GOFILE
+
 const dialSockErr = "Failed to Dial hook socket: %s"
 
 type callBackClient struct {
@@ -50,26 +52,33 @@ type callBackClient struct {
 	subscribedHookPoints []*hooksInfo.HookPoint
 }
 
-var manager *Manager
+var manager Manager
 var once sync.Once
 
-type Manager struct {
-	CallbacksPerHookPoint     map[string][]*callBackClient
-	hookSocketSharedDirectory string
-}
+type (
+	Manager interface {
+		Collect(uint, time.Duration) error
+		OnDefineDomain(*virtwrapApi.DomainSpec, *v1.VirtualMachineInstance) (string, error)
+		PreCloudInitIso(*v1.VirtualMachineInstance, *cloudinit.CloudInitData) (*cloudinit.CloudInitData, error)
+	}
+	hookManager struct {
+		CallbacksPerHookPoint     map[string][]*callBackClient
+		hookSocketSharedDirectory string
+	}
+)
 
-func GetManager() *Manager {
+func GetManager() Manager {
 	once.Do(func() {
 		manager = newManager(HookSocketsSharedDirectory)
 	})
 	return manager
 }
 
-func newManager(baseDir string) *Manager {
-	return &Manager{CallbacksPerHookPoint: make(map[string][]*callBackClient), hookSocketSharedDirectory: baseDir}
+func newManager(baseDir string) *hookManager {
+	return &hookManager{CallbacksPerHookPoint: make(map[string][]*callBackClient), hookSocketSharedDirectory: baseDir}
 }
 
-func (m *Manager) Collect(numberOfRequestedHookSidecars uint, timeout time.Duration) error {
+func (m *hookManager) Collect(numberOfRequestedHookSidecars uint, timeout time.Duration) error {
 	callbacksPerHookPoint, err := m.collectSideCarSockets(numberOfRequestedHookSidecars, timeout)
 	if err != nil {
 		return err
@@ -85,7 +94,7 @@ func (m *Manager) Collect(numberOfRequestedHookSidecars uint, timeout time.Durat
 }
 
 // TODO: Handle sockets in parallel, when a socket appears, run a goroutine trying to read Info from it
-func (m *Manager) collectSideCarSockets(numberOfRequestedHookSidecars uint, timeout time.Duration) (map[string][]*callBackClient, error) {
+func (m *hookManager) collectSideCarSockets(numberOfRequestedHookSidecars uint, timeout time.Duration) (map[string][]*callBackClient, error) {
 	callbacksPerHookPoint := make(map[string][]*callBackClient)
 	processedSockets := make(map[string]bool)
 
@@ -183,7 +192,7 @@ func sortCallbacksPerHookPoint(callbacksPerHookPoint map[string][]*callBackClien
 	}
 }
 
-func (m *Manager) OnDefineDomain(domainSpec *virtwrapApi.DomainSpec, vmi *v1.VirtualMachineInstance) (string, error) {
+func (m *hookManager) OnDefineDomain(domainSpec *virtwrapApi.DomainSpec, vmi *v1.VirtualMachineInstance) (string, error) {
 	domainSpecXML, err := xml.MarshalIndent(domainSpec, "", "\t")
 	if err != nil {
 		return "", fmt.Errorf("Failed to marshal domain spec: %v", domainSpec)
@@ -209,7 +218,7 @@ func (m *Manager) OnDefineDomain(domainSpec *virtwrapApi.DomainSpec, vmi *v1.Vir
 	return string(domainSpecXML), nil
 }
 
-func (m *Manager) onDefineDomainCallback(callback *callBackClient, domainSpecXML, vmiJSON []byte) ([]byte, error) {
+func (m *hookManager) onDefineDomainCallback(callback *callBackClient, domainSpecXML, vmiJSON []byte) ([]byte, error) {
 	conn, err := grpcutil.DialSocketWithTimeout(callback.SocketPath, 1)
 	if err != nil {
 		log.Log.Reason(err).Infof(dialSockErr, callback.SocketPath)
@@ -248,7 +257,7 @@ func (m *Manager) onDefineDomainCallback(callback *callBackClient, domainSpecXML
 	return domainSpecXML, nil
 }
 
-func (m *Manager) PreCloudInitIso(vmi *v1.VirtualMachineInstance, cloudInitData *cloudinit.CloudInitData) (*cloudinit.CloudInitData, error) {
+func (m *hookManager) PreCloudInitIso(vmi *v1.VirtualMachineInstance, cloudInitData *cloudinit.CloudInitData) (*cloudinit.CloudInitData, error) {
 	if callbacks, found := m.CallbacksPerHookPoint[hooksInfo.PreCloudInitIsoHookPointName]; found {
 		for _, callback := range callbacks {
 			if callback.Version == hooksV1alpha2.Version {
