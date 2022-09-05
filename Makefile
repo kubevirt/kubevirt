@@ -194,6 +194,7 @@ lint:
 	hack/dockerized "golangci-lint run --timeout 20m --verbose \
 	  pkg/network/namescheme/... \
 	  pkg/network/domainspec/... \
+	  pkg/network/sriov/... \
 	  tests/console/... \
 	  tests/libnet/... \
 	  tests/libvmi/... \
