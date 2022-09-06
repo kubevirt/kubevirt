@@ -1,0 +1,7 @@
+[allowlist]
+  description = "Repo Allowlist"
+  paths = [
+    # testFile key pair used only in unit tests
+    '''pkg/webhooks/testFiles/apiserver.crt''',
+    '''pkg/webhooks/testFiles/apiserver.key''',
+  ]

@@ -47,8 +47,11 @@ sleep 60
 # Check the defaulting mechanism
 KUBECTL_BINARY=${KUBECTL_BINARY} ./hack/check_defaults.sh
 
-# check golden images
+# Check golden images
 KUBECTL_BINARY=${KUBECTL_BINARY} ./hack/check_golden_images.sh
+
+# Check TLS profile on the webhook
+KUBECTL_BINARY=${KUBECTL_BINARY} ./hack/check_tlsprofile.sh
 
 # check if HCO is able to correctly add back a label used as a label selector
 ${KUBECTL_BINARY} label priorityclass kubevirt-cluster-critical app-
@@ -57,5 +60,5 @@ sleep 10
 
 ./hack/check_update_priority_class.sh
 
-# Check the webhook, to see if it allow deleteing of the HyperConverged CR
+# Check the webhook, to see if it allow deleting of the HyperConverged CR
 ./hack/retry.sh 10 30 "${KUBECTL_BINARY} delete hco -n ${INSTALLED_NAMESPACE} kubevirt-hyperconverged"

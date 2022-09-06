@@ -5,6 +5,14 @@ import (
 	"fmt"
 	"os"
 
+	webhookscontrollers "github.com/kubevirt/hyperconverged-cluster-operator/controllers/webhooks"
+
+	csvv1alpha1 "github.com/operator-framework/api/pkg/operators/v1alpha1"
+	appsv1 "k8s.io/api/apps/v1"
+	apierrors "k8s.io/apimachinery/pkg/api/errors"
+
+	hcov1beta1 "github.com/kubevirt/hyperconverged-cluster-operator/api/v1beta1"
+
 	openshiftconfigv1 "github.com/openshift/api/config/v1"
 	admissionregistrationv1 "k8s.io/api/admissionregistration/v1"
 	corev1 "k8s.io/api/core/v1"
@@ -35,6 +43,7 @@ var (
 	resourcesSchemeFuncs = []func(*apiruntime.Scheme) error{
 		api.AddToScheme,
 		corev1.AddToScheme,
+		appsv1.AddToScheme,
 		cdiv1beta1.AddToScheme,
 		networkaddonsv1.AddToScheme,
 		sspv1beta1.AddToScheme,
@@ -42,6 +51,8 @@ var (
 		admissionregistrationv1.AddToScheme,
 		openshiftconfigv1.Install,
 		kubevirtcorev1.AddToScheme,
+		openshiftconfigv1.Install,
+		csvv1alpha1.AddToScheme,
 	}
 )
 
@@ -50,6 +61,8 @@ func main() {
 	cmdHelper.InitiateCommand()
 
 	watchNamespace := cmdHelper.GetWatchNS()
+	operatorNamespace, err := hcoutil.GetOperatorNamespaceFromEnv()
+	cmdHelper.ExitOnError(err, "can't get operator expected namespace")
 
 	// Get a config to talk to the apiserver
 	cfg, err := config.GetConfig()
@@ -104,7 +117,32 @@ func main() {
 
 	// CreateServiceMonitors will automatically create the prometheus-operator ServiceMonitor resources
 	// necessary to configure Prometheus to scrape metrics from this operator.
-	if err = webhooks.SetupWebhookWithManager(ctx, mgr, ci.IsOpenshift()); err != nil {
+
+	// apiclient.New() returns a client without cache.
+	// cache is not initialized before mgr.Start()
+	// we need this because we need to read the HCO CR, if there,
+	// to fetch the configured TLSSecurityProfile
+	apiClient, apiCerr := client.New(mgr.GetConfig(), client.Options{
+		Scheme: mgr.GetScheme(),
+	})
+	cmdHelper.ExitOnError(apiCerr, "Cannot create a new API client")
+
+	hcoCR := &hcov1beta1.HyperConverged{}
+	hcoCR.Name = hcoutil.HyperConvergedName
+	hcoCR.Namespace = operatorNamespace
+
+	var hcoTLSSecurityProfile *openshiftconfigv1.TLSSecurityProfile = nil
+	err = apiClient.Get(ctx, client.ObjectKeyFromObject(hcoCR), hcoCR)
+	if err != nil && !apierrors.IsNotFound(err) {
+		cmdHelper.ExitOnError(err, "Cannot read existing HCO CR")
+	} else {
+		hcoTLSSecurityProfile = hcoCR.Spec.TLSSecurityProfile
+	}
+
+	err = webhookscontrollers.RegisterReconciler(mgr, ci)
+	cmdHelper.ExitOnError(err, "Cannot register APIServer reconciler")
+
+	if err = webhooks.SetupWebhookWithManager(ctx, mgr, ci.IsOpenshift(), ci.GetTLSSecurityProfile(hcoTLSSecurityProfile)); err != nil {
 		logger.Error(err, "unable to create webhook", "webhook", "HyperConverged")
 		eventEmitter.EmitEvent(nil, corev1.EventTypeWarning, "InitError", "Unable to create webhook")
 		os.Exit(1)

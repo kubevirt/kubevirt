@@ -2,10 +2,12 @@ package webhooks
 
 import (
 	"context"
+	"crypto/tls"
 	"os"
 	"path/filepath"
 
-	hcov1beta1 "github.com/kubevirt/hyperconverged-cluster-operator/api/v1beta1"
+	openshiftconfigv1 "github.com/openshift/api/config/v1"
+
 	"github.com/kubevirt/hyperconverged-cluster-operator/pkg/webhooks/mutator"
 	"github.com/kubevirt/hyperconverged-cluster-operator/pkg/webhooks/validator"
 
@@ -36,15 +38,14 @@ func GetWebhookCertDir() string {
 	return hcoutil.DefaultWebhookCertDir
 }
 
-func SetupWebhookWithManager(ctx context.Context, mgr ctrl.Manager, isOpenshift bool) error {
+func SetupWebhookWithManager(ctx context.Context, mgr ctrl.Manager, isOpenshift bool, tlsSecurityProfile *openshiftconfigv1.TLSSecurityProfile) error {
 	operatorNsEnv, nserr := hcoutil.GetOperatorNamespaceFromEnv()
 	if nserr != nil {
 		logger.Error(nserr, "failed to get operator namespace from the environment")
 		return nserr
 	}
 
-	whHandler := validator.NewWebhookHandler(logger, mgr.GetClient(), operatorNsEnv, isOpenshift)
-	hcov1beta1.SetValidatorWebhookHandler(whHandler)
+	whHandler := validator.NewWebhookHandler(logger, mgr.GetClient(), operatorNsEnv, isOpenshift, tlsSecurityProfile)
 
 	nsMutator := mutator.NewNsMutator(mgr.GetClient(), operatorNsEnv)
 
@@ -62,16 +63,18 @@ func SetupWebhookWithManager(ctx context.Context, mgr ctrl.Manager, isOpenshift 
 		return err
 	}
 
-	bldr := ctrl.NewWebhookManagedBy(mgr).For(&hcov1beta1.HyperConverged{})
-
 	srv := mgr.GetWebhookServer()
 	srv.CertDir = GetWebhookCertDir()
 	srv.CertName = hcoutil.WebhookCertName
 	srv.KeyName = hcoutil.WebhookKeyName
 	srv.Port = hcoutil.WebhookPort
-	srv.Register(hcoutil.HCONSWebhookPath, &webhook.Admission{Handler: nsMutator})
 
-	return bldr.Complete()
+	srv.TLSOpts = []func(*tls.Config){whHandler.MutateTLSConfig}
+
+	srv.Register(hcoutil.HCONSWebhookPath, &webhook.Admission{Handler: nsMutator})
+	srv.Register(hcoutil.HCOWebhookPath, &webhook.Admission{Handler: whHandler})
+
+	return nil
 }
 
 // The OLM limits the webhook scope to the namespaces that are defined in the OperatorGroup

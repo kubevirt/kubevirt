@@ -15,6 +15,7 @@ require (
 	github.com/onsi/gomega v1.20.0
 	github.com/openshift/api v3.9.1-0.20190924102528-32369d4db2ad+incompatible
 	github.com/openshift/custom-resource-status v1.1.2
+	github.com/openshift/library-go v0.0.0-20220727134723-6802b30e83ba
 	github.com/operator-framework/api v0.15.0
 	github.com/operator-framework/operator-lib v0.11.0
 	github.com/pkg/errors v0.9.1
@@ -87,6 +88,7 @@ require (
 	gopkg.in/inf.v0 v0.9.1 // indirect
 	gopkg.in/yaml.v2 v2.4.0 // indirect
 	gopkg.in/yaml.v3 v3.0.1 // indirect
+	k8s.io/apiserver v0.24.3 // indirect
 	k8s.io/component-base v0.24.3 // indirect
 	k8s.io/klog/v2 v2.70.1 // indirect
 	kubevirt.io/controller-lifecycle-operator-sdk v0.2.3 // indirect
@@ -177,7 +179,6 @@ replace (
 replace (
 	github.com/openshift/api => github.com/openshift/api v0.0.0-20220315184754-d7c10d0b647e
 	github.com/openshift/client-go => github.com/openshift/client-go v0.0.0-20200521150516-05eb9880269c
-	github.com/openshift/library-go => github.com/mhenriks/library-go v0.0.0-20200804184258-4fc3a5379c7a
 	sigs.k8s.io/structured-merge-diff => sigs.k8s.io/structured-merge-diff v1.0.2
 )
 

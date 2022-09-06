@@ -156,6 +156,9 @@ github.com/openshift/api/route/v1
 ## explicit; go 1.12
 github.com/openshift/custom-resource-status/conditions/v1
 github.com/openshift/custom-resource-status/objectreferences/v1
+# github.com/openshift/library-go v0.0.0-20220727134723-6802b30e83ba
+## explicit; go 1.17
+github.com/openshift/library-go/pkg/crypto
 # github.com/operator-framework/api v0.15.0
 ## explicit; go 1.17
 github.com/operator-framework/api/pkg/lib/version
@@ -456,6 +459,9 @@ k8s.io/apimachinery/pkg/version
 k8s.io/apimachinery/pkg/watch
 k8s.io/apimachinery/third_party/forked/golang/json
 k8s.io/apimachinery/third_party/forked/golang/reflect
+# k8s.io/apiserver v0.24.3 => k8s.io/apiserver v0.24.3
+## explicit; go 1.16
+k8s.io/apiserver/pkg/authentication/user
 # k8s.io/client-go v12.0.0+incompatible => k8s.io/client-go v0.24.3
 ## explicit; go 1.16
 k8s.io/client-go/applyconfigurations/admissionregistration/v1
@@ -733,7 +739,6 @@ sigs.k8s.io/yaml
 # github.com/openshift/machine-api-operator => github.com/openshift/machine-api-operator v0.2.1-0.20191025120018-fb3724fc7bdf
 # github.com/openshift/api => github.com/openshift/api v0.0.0-20220315184754-d7c10d0b647e
 # github.com/openshift/client-go => github.com/openshift/client-go v0.0.0-20200521150516-05eb9880269c
-# github.com/openshift/library-go => github.com/mhenriks/library-go v0.0.0-20200804184258-4fc3a5379c7a
 # sigs.k8s.io/structured-merge-diff => sigs.k8s.io/structured-merge-diff v1.0.2
 # github.com/docker/docker => github.com/moby/moby v1.4.2-0.20200203170920-46ec8731fbce
 # vbom.ml/util => github.com/fvbommel/util v0.0.0-20180919145318-efcd4e0f9787

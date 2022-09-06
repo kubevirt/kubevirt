@@ -72,6 +72,10 @@ spec:
     volumeMounts:
       - mountPath: /test/output
         name: output-volume
+    securityContext:
+      runAsUser: 0
+      capabilities:
+        add: ["NET_RAW"]
   - name: copy
     image: $computed_test_image
     command: ["/bin/sh"]
@@ -79,6 +83,10 @@ spec:
     volumeMounts:
       - mountPath: /test/output
         name: output-volume
+    securityContext:
+      runAsUser: 0
+      capabilities:
+        add: ["NET_RAW"]
   volumes:
     - name: output-volume
       emptyDir: { }

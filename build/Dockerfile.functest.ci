@@ -13,7 +13,7 @@ ENV USER_UID=1001 \
 WORKDIR ${TEST_OUT_PATH}
 ENTRYPOINT ["./hack/run-tests.sh"]
 
-RUN microdnf install tar gzip && \
+RUN microdnf install tar gzip which openssl diffutils && \
     curl -Lo /usr/local/bin/kubectl "https://storage.googleapis.com/kubernetes-release/release/$(curl -s https://storage.googleapis.com/kubernetes-release/release/stable.txt)/bin/linux/amd64/kubectl" && \
     chmod a+x /usr/local/bin/kubectl && \
     curl -Lsv --fail https://mirror.openshift.com/pub/openshift-v4/x86_64/clients/ocp/stable/openshift-client-linux.tar.gz | tar xvzf - -C /usr/local/bin/ oc && \
