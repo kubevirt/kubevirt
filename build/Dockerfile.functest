@@ -12,11 +12,12 @@ ENV USER_UID=1001 \
 WORKDIR ${TEST_OUT_PATH}
 ENTRYPOINT ["./hack/run-tests.sh"]
 
-RUN curl -Lo /usr/local/bin/kubectl "https://storage.googleapis.com/kubernetes-release/release/$(curl -s https://storage.googleapis.com/kubernetes-release/release/stable.txt)/bin/linux/amd64/kubectl" && \
+RUN microdnf install tar gzip && \
+    curl -Lo /usr/local/bin/kubectl "https://storage.googleapis.com/kubernetes-release/release/$(curl -s https://storage.googleapis.com/kubernetes-release/release/stable.txt)/bin/linux/amd64/kubectl" && \
     chmod a+x /usr/local/bin/kubectl && \
+    curl -Lsv --fail https://mirror.openshift.com/pub/openshift-v4/x86_64/clients/ocp/stable/openshift-client-linux.tar.gz | tar xvzf - -C /usr/local/bin/ oc && \
     curl -Lo /usr/local/bin/jq https://github.com/stedolan/jq/releases/download/jq-1.6/jq-linux64 && \
-    chmod a+x /usr/local/bin/jq && \
-    microdnf install tar
+    chmod a+x /usr/local/bin/jq
 
 COPY --from=builder --chown=${USER_UID}:0 /go/src/github.com/kubevirt/hyperconverged-cluster-operator/tests/func-tests/_out/func-tests.test  ${TEST_OUT_PATH}/
 COPY --from=builder --chown=${USER_UID}:0 /go/src/github.com/kubevirt/hyperconverged-cluster-operator/hack  ${TEST_OUT_PATH}/hack

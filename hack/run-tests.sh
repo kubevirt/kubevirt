@@ -15,7 +15,7 @@ if [ "${JOB_TYPE}" == "stdci" ]; then
     KUBECTL_BINARY="cluster/kubectl.sh"
 fi
 
-if [[ ${JOB_TYPE} = "prow" ]]; then
+if [ -n "${OPENSHIFT_BUILD_NAMESPACE:-}" ]; then
     KUBECTL_BINARY="oc"
 fi
 
