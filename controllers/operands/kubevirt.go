@@ -133,7 +133,6 @@ var (
 // KubeVirt feature gates that are exposed in HCO API
 const (
 	kvWithHostPassthroughCPU = "WithHostPassthroughCPU"
-	kvSRIOVLiveMigration     = "SRIOVLiveMigration"
 	kvNonRoot                = "NonRoot"
 )
 
@@ -522,10 +521,6 @@ func getFeatureGateChecks(featureGates *hcov1beta1.HyperConvergedFeatureGates) [
 
 	if featureGates.WithHostPassthroughCPU {
 		fgs = append(fgs, kvWithHostPassthroughCPU)
-	}
-
-	if featureGates.SRIOVLiveMigration {
-		fgs = append(fgs, kvSRIOVLiveMigration)
 	}
 
 	if featureGates.NonRoot {

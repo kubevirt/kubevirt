@@ -1,6 +1,6 @@
 #!/bin/bash
 
-set -euo pipefail
+set -euxo pipefail
 
 export PATH=$PATH:$HOME/gopath/bin
 JOB_TYPE="${JOB_TYPE:-}"

@@ -199,14 +199,6 @@ func schema_kubevirt_hyperconverged_cluster_operator_api_v1beta1_HyperConvergedF
 							Format:      "",
 						},
 					},
-					"sriovLiveMigration": {
-						SchemaProps: spec.SchemaProps{
-							Description: "Allow migrating a virtual machine with SRIOV interfaces.",
-							Default:     false,
-							Type:        []string{"boolean"},
-							Format:      "",
-						},
-					},
 					"enableCommonBootImageImport": {
 						SchemaProps: spec.SchemaProps{
 							Description: "Opt-in to automatic delivery/updates of the common data import cron templates. There are two sources for the data import cron templates: hard coded list of common templates, and custom templates that can be added to the dataImportCronTemplates field. This feature gates only control the common templates. It is possible to use custom templates by adding them to the dataImportCronTemplates field.",

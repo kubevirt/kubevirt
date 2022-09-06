@@ -1944,34 +1944,6 @@ var _ = Describe("HyperconvergedController", func() {
 					Expect(foundResource.Spec.LiveMigrationConfig.BandwidthPerMigration).Should(Not(BeNil()))
 					Expect(*foundResource.Spec.LiveMigrationConfig.BandwidthPerMigration).Should(Equal(badBandwidthPerMigration))
 				})
-
-				It("should amend spec.featureGates.sriovLiveMigration upgrading from <= 1.5.0", func() {
-					UpdateVersion(&expected.hco.Status, hcoVersionName, "1.4.99")
-					expected.hco.Spec.FeatureGates.SRIOVLiveMigration = false
-
-					cl := expected.initClient()
-					_, reconciler, requeue := doReconcile(cl, expected.hco, nil)
-					Expect(requeue).To(BeTrue())
-					_, reconciler, requeue = doReconcile(cl, expected.hco, reconciler)
-					Expect(requeue).To(BeTrue())
-					foundResource, _, requeue := doReconcile(cl, expected.hco, reconciler)
-					Expect(requeue).To(BeFalse())
-
-					Expect(foundResource.Spec.FeatureGates.SRIOVLiveMigration).Should(BeTrue())
-				})
-
-				It("should not amend spec.featureGates.sriovLiveMigration upgrading from >= 1.5.1", func() {
-					UpdateVersion(&expected.hco.Status, hcoVersionName, "1.5.1")
-					expected.hco.Spec.FeatureGates.SRIOVLiveMigration = false
-
-					cl := expected.initClient()
-					foundResource, reconciler, requeue := doReconcile(cl, expected.hco, nil)
-					Expect(requeue).To(BeTrue())
-					foundResource, _, requeue = doReconcile(cl, foundResource, reconciler)
-					Expect(requeue).To(BeFalse())
-					Expect(foundResource.Spec.FeatureGates.SRIOVLiveMigration).Should(Not(BeTrue()))
-				})
-
 			})
 
 			Context("remove old quickstart guides", func() {

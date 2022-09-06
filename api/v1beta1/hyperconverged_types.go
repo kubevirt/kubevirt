@@ -49,7 +49,7 @@ type HyperConvergedSpec struct {
 
 	// featureGates is a map of feature gate flags. Setting a flag to `true` will enable
 	// the feature. Setting `false` or removing the feature gate, disables the feature.
-	// +kubebuilder:default={"withHostPassthroughCPU": false, "sriovLiveMigration": true, "enableCommonBootImageImport": true, "deployTektonTaskResources": false, "nonRoot": true}
+	// +kubebuilder:default={"withHostPassthroughCPU": false, "enableCommonBootImageImport": true, "deployTektonTaskResources": false, "nonRoot": true}
 	// +optional
 	FeatureGates HyperConvergedFeatureGates `json:"featureGates,omitempty"`
 
@@ -256,11 +256,6 @@ type HyperConvergedFeatureGates struct {
 	// +optional
 	// +kubebuilder:default=false
 	WithHostPassthroughCPU bool `json:"withHostPassthroughCPU"`
-
-	// Allow migrating a virtual machine with SRIOV interfaces.
-	// +optional
-	// +kubebuilder:default=true
-	SRIOVLiveMigration bool `json:"sriovLiveMigration"`
 
 	// Opt-in to automatic delivery/updates of the common data import cron templates.
 	// There are two sources for the data import cron templates: hard coded list of common templates, and custom
@@ -528,7 +523,7 @@ type HyperConverged struct {
 	metav1.TypeMeta   `json:",inline"`
 	metav1.ObjectMeta `json:"metadata,omitempty"`
 
-	// +kubebuilder:default={"certConfig": {"ca": {"duration": "48h0m0s", "renewBefore": "24h0m0s"}, "server": {"duration": "24h0m0s", "renewBefore": "12h0m0s"}}, "featureGates": {"withHostPassthroughCPU": false, "sriovLiveMigration": true, "enableCommonBootImageImport": true, "deployTektonTaskResources": false, "nonRoot": true}, "liveMigrationConfig": {"completionTimeoutPerGiB": 800, "parallelMigrationsPerCluster": 5, "parallelOutboundMigrationsPerNode": 2, "progressTimeout": 150}, "uninstallStrategy": "BlockUninstallIfWorkloadsExist"}
+	// +kubebuilder:default={"certConfig": {"ca": {"duration": "48h0m0s", "renewBefore": "24h0m0s"}, "server": {"duration": "24h0m0s", "renewBefore": "12h0m0s"}}, "featureGates": {"withHostPassthroughCPU": false, "enableCommonBootImageImport": true, "deployTektonTaskResources": false, "nonRoot": true}, "liveMigrationConfig": {"completionTimeoutPerGiB": 800, "parallelMigrationsPerCluster": 5, "parallelOutboundMigrationsPerNode": 2, "progressTimeout": 150}, "uninstallStrategy": "BlockUninstallIfWorkloadsExist"}
 	// +optional
 	Spec   HyperConvergedSpec   `json:"spec,omitempty"`
 	Status HyperConvergedStatus `json:"status,omitempty"`

@@ -139,14 +139,6 @@ CPU HW perspective.
 
 Additional information: [LibvirtXMLCPUModel](https://wiki.openstack.org/wiki/LibvirtXMLCPUModel)
 
-### sriovLiveMigration Feature Gate
-
-Set the `sriovLiveMigration` feature gate in order to allow migrating a virtual machine with SRIOV interfaces. When
-enabled virt-launcher pods of virtual machines with SRIOV interfaces run with CAP_SYS_RESOURCE capability. This may
-degrade virt-launcher security.
-
-**Default**: `true`
-
 ### enableCommonBootImageImport Feature Gate
 
 Set the `enableCommonBootImageImport` feature gate to `false` in order to disable the common golden images in the cluster 
@@ -190,7 +182,6 @@ spec:
   workloads: {}
   featureGates:
     withHostPassthroughCPU: true
-    sriovLiveMigration: true
     enableCommonBootImageImport: true
     deployTektonTaskResources: true
 ```

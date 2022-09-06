@@ -55,7 +55,6 @@ spec:
                 deployTektonTaskResources: false
                 enableCommonBootImageImport: true
                 nonRoot: true
-                sriovLiveMigration: true
                 withHostPassthroughCPU: false
               liveMigrationConfig:
                 completionTimeoutPerGiB: 800
@@ -866,7 +865,6 @@ spec:
                   deployTektonTaskResources: false
                   enableCommonBootImageImport: true
                   nonRoot: true
-                  sriovLiveMigration: true
                   withHostPassthroughCPU: false
                 description: featureGates is a map of feature gate flags. Setting
                   a flag to `true` will enable the feature. Setting `false` or removing
@@ -890,10 +888,6 @@ spec:
                   nonRoot:
                     default: true
                     description: Enables rootless virt-launcher.
-                    type: boolean
-                  sriovLiveMigration:
-                    default: true
-                    description: Allow migrating a virtual machine with SRIOV interfaces.
                     type: boolean
                   withHostPassthroughCPU:
                     default: false

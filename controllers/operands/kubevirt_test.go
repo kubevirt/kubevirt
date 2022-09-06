@@ -1364,34 +1364,6 @@ Version: 1.2.3`)
 					})
 				})
 
-				It("should add the SRIOVLiveMigration feature gate if it's set in HyperConverged CR", func() {
-					// one enabled, one disabled and one missing
-					hco.Spec.FeatureGates = hcov1beta1.HyperConvergedFeatureGates{
-						SRIOVLiveMigration: true,
-					}
-
-					existingResource, err := NewKubeVirt(hco)
-					Expect(err).ToNot(HaveOccurred())
-					By("KV CR should contain the SRIOVLiveMigration feature gate", func() {
-						Expect(existingResource.Spec.Configuration.DeveloperConfiguration).NotTo(BeNil())
-						Expect(existingResource.Spec.Configuration.DeveloperConfiguration.FeatureGates).To(ContainElement(kvSRIOVLiveMigration))
-					})
-				})
-
-				It("should not add the SRIOVLiveMigration feature gate if it's disabled in HyperConverged CR", func() {
-					// one enabled, one disabled and one missing
-					hco.Spec.FeatureGates = hcov1beta1.HyperConvergedFeatureGates{
-						SRIOVLiveMigration: false,
-					}
-
-					existingResource, err := NewKubeVirt(hco)
-					Expect(err).ToNot(HaveOccurred())
-					By("KV CR should contain the SRIOVLiveMigration feature gate", func() {
-						Expect(existingResource.Spec.Configuration.DeveloperConfiguration).NotTo(BeNil())
-						Expect(existingResource.Spec.Configuration.DeveloperConfiguration.FeatureGates).ToNot(ContainElement("SRIOVLiveMigration"))
-					})
-				})
-
 				It("should add the NonRoot feature gate if it's set in HyperConverged CR", func() {
 					hco.Spec.FeatureGates = hcov1beta1.HyperConvergedFeatureGates{
 						NonRoot: true,
@@ -1415,42 +1387,6 @@ Version: 1.2.3`)
 					By("KV CR should contain the NonRoot feature gate", func() {
 						Expect(existingResource.Spec.Configuration.DeveloperConfiguration).NotTo(BeNil())
 						Expect(existingResource.Spec.Configuration.DeveloperConfiguration.FeatureGates).ToNot(ContainElement("NonRoot"))
-					})
-				})
-
-				Context("should honor SRIOVLiveMigration on SNO ", func() {
-					BeforeEach(func() {
-						hcoutil.GetClusterInfo = func() hcoutil.ClusterInfo {
-							return &commonTestUtils.ClusterInfoSNOMock{}
-						}
-					})
-
-					It("should add the SRIOVLiveMigration feature gate if it's set in HyperConverged on SNO", func() {
-						// one enabled, one disabled and one missing
-						hco.Spec.FeatureGates = hcov1beta1.HyperConvergedFeatureGates{
-							SRIOVLiveMigration: true,
-						}
-
-						existingResource, err := NewKubeVirt(hco)
-						Expect(err).ToNot(HaveOccurred())
-						By("KV CR should contain the SRIOVLiveMigration feature gate", func() {
-							Expect(existingResource.Spec.Configuration.DeveloperConfiguration).NotTo(BeNil())
-							Expect(existingResource.Spec.Configuration.DeveloperConfiguration.FeatureGates).To(ContainElement(kvSRIOVLiveMigration))
-						})
-					})
-
-					It("should not add the SRIOVLiveMigration feature gate if it's disabled in HyperConverged CR on SNO", func() {
-						// one enabled, one disabled and one missing
-						hco.Spec.FeatureGates = hcov1beta1.HyperConvergedFeatureGates{
-							SRIOVLiveMigration: false,
-						}
-
-						existingResource, err := NewKubeVirt(hco)
-						Expect(err).ToNot(HaveOccurred())
-						By("KV CR should contain the SRIOVLiveMigration feature gate", func() {
-							Expect(existingResource.Spec.Configuration.DeveloperConfiguration).NotTo(BeNil())
-							Expect(existingResource.Spec.Configuration.DeveloperConfiguration.FeatureGates).ToNot(ContainElement("SRIOVLiveMigration"))
-						})
 					})
 				})
 
@@ -1489,7 +1425,6 @@ Version: 1.2.3`)
 
 					hco.Spec.FeatureGates = hcov1beta1.HyperConvergedFeatureGates{
 						WithHostPassthroughCPU: true,
-						SRIOVLiveMigration:     true,
 					}
 
 					cl := commonTestUtils.InitClient([]runtime.Object{hco, existingResource})
@@ -1510,7 +1445,7 @@ Version: 1.2.3`)
 					By("KV CR should contain the HC enabled managed feature gates", func() {
 						Expect(foundResource.Spec.Configuration.DeveloperConfiguration).NotTo(BeNil())
 						Expect(foundResource.Spec.Configuration.DeveloperConfiguration.FeatureGates).
-							To(ContainElements(kvWithHostPassthroughCPU, kvSRIOVLiveMigration))
+							To(ContainElements(kvWithHostPassthroughCPU))
 					})
 				})
 
@@ -1520,7 +1455,6 @@ Version: 1.2.3`)
 
 					hco.Spec.FeatureGates = hcov1beta1.HyperConvergedFeatureGates{
 						WithHostPassthroughCPU: false,
-						SRIOVLiveMigration:     false,
 					}
 
 					cl := commonTestUtils.InitClient([]runtime.Object{hco, existingResource})
@@ -1581,20 +1515,19 @@ Version: 1.2.3`)
 
 				It("should keep FG if already exist", func() {
 					mandatoryKvFeatureGates = getMandatoryKvFeatureGates(true)
-					fgs := append(hardCodeKvFgs, kvWithHostPassthroughCPU, kvSRIOVLiveMigration)
+					fgs := append(hardCodeKvFgs, kvWithHostPassthroughCPU)
 					existingResource, err := NewKubeVirt(hco)
 					Expect(err).ToNot(HaveOccurred())
 					existingResource.Spec.Configuration.DeveloperConfiguration.FeatureGates = fgs
 
 					hco.Spec.FeatureGates = hcov1beta1.HyperConvergedFeatureGates{
 						WithHostPassthroughCPU: true,
-						SRIOVLiveMigration:     true,
 					}
 
 					By("Make sure the existing KV is with the the expected FGs", func() {
 						Expect(existingResource.Spec.Configuration.DeveloperConfiguration).NotTo(BeNil())
 						Expect(existingResource.Spec.Configuration.DeveloperConfiguration.FeatureGates).
-							To(ContainElements(kvWithHostPassthroughCPU, kvSRIOVLiveMigration))
+							To(ContainElements(kvWithHostPassthroughCPU))
 					})
 
 					cl := commonTestUtils.InitClient([]runtime.Object{hco, existingResource})
@@ -1614,7 +1547,7 @@ Version: 1.2.3`)
 
 					Expect(foundResource.Spec.Configuration.DeveloperConfiguration).NotTo(BeNil())
 					Expect(foundResource.Spec.Configuration.DeveloperConfiguration.FeatureGates).
-						To(ContainElements(kvWithHostPassthroughCPU, kvSRIOVLiveMigration))
+						To(ContainElements(kvWithHostPassthroughCPU))
 
 				})
 
@@ -1623,18 +1556,17 @@ Version: 1.2.3`)
 					existingResource, err := NewKubeVirt(hco)
 					Expect(err).ToNot(HaveOccurred())
 					existingResource.Spec.Configuration.DeveloperConfiguration = &kubevirtcorev1.DeveloperConfiguration{
-						FeatureGates: []string{kvWithHostPassthroughCPU, kvSRIOVLiveMigration},
+						FeatureGates: []string{kvWithHostPassthroughCPU},
 					}
 
 					By("Make sure the existing KV is with the the expected FGs", func() {
 						Expect(existingResource.Spec.Configuration.DeveloperConfiguration).ToNot(BeNil())
 						Expect(existingResource.Spec.Configuration.DeveloperConfiguration.FeatureGates).
-							To(ContainElements(kvWithHostPassthroughCPU, kvSRIOVLiveMigration))
+							To(ContainElements(kvWithHostPassthroughCPU))
 					})
 
 					hco.Spec.FeatureGates = hcov1beta1.HyperConvergedFeatureGates{
 						WithHostPassthroughCPU: false,
-						SRIOVLiveMigration:     false,
 					}
 
 					cl := commonTestUtils.InitClient([]runtime.Object{hco, existingResource})
@@ -1663,13 +1595,13 @@ Version: 1.2.3`)
 					existingResource, err := NewKubeVirt(hco)
 					Expect(err).ToNot(HaveOccurred())
 					existingResource.Spec.Configuration.DeveloperConfiguration = &kubevirtcorev1.DeveloperConfiguration{
-						FeatureGates: []string{kvWithHostPassthroughCPU, kvSRIOVLiveMigration},
+						FeatureGates: []string{kvWithHostPassthroughCPU},
 					}
 
 					By("Make sure the existing KV is with the the expected FGs", func() {
 						Expect(existingResource.Spec.Configuration.DeveloperConfiguration).ToNot(BeNil())
 						Expect(existingResource.Spec.Configuration.DeveloperConfiguration.FeatureGates).
-							To(ContainElements(kvWithHostPassthroughCPU, kvSRIOVLiveMigration))
+							To(ContainElements(kvWithHostPassthroughCPU))
 					})
 
 					hco.Spec.FeatureGates = hcov1beta1.HyperConvergedFeatureGates{}
@@ -1700,13 +1632,13 @@ Version: 1.2.3`)
 					existingResource, err := NewKubeVirt(hco)
 					Expect(err).ToNot(HaveOccurred())
 					existingResource.Spec.Configuration.DeveloperConfiguration = &kubevirtcorev1.DeveloperConfiguration{
-						FeatureGates: []string{kvWithHostPassthroughCPU, kvSRIOVLiveMigration},
+						FeatureGates: []string{kvWithHostPassthroughCPU},
 					}
 
 					By("Make sure the existing KV is with the the expected FGs", func() {
 						Expect(existingResource.Spec.Configuration.DeveloperConfiguration).ToNot(BeNil())
 						Expect(existingResource.Spec.Configuration.DeveloperConfiguration.FeatureGates).
-							To(ContainElements(kvWithHostPassthroughCPU, kvSRIOVLiveMigration))
+							To(ContainElements(kvWithHostPassthroughCPU))
 					})
 
 					hco.Spec.FeatureGates = hcov1beta1.HyperConvergedFeatureGates{}
@@ -1769,26 +1701,26 @@ Version: 1.2.3`)
 					),
 					Entry("When not using kvm-emulation and all FGs are disabled",
 						false,
-						&hcov1beta1.HyperConvergedFeatureGates{SRIOVLiveMigration: false, WithHostPassthroughCPU: false},
+						&hcov1beta1.HyperConvergedFeatureGates{WithHostPassthroughCPU: false},
 						basicNumFgOnOpenshift,
 						[][]string{hardCodeKvFgs, sspConditionKvFgs},
 					),
 					Entry("When using kvm-emulation all FGs are disabled",
 						true,
-						&hcov1beta1.HyperConvergedFeatureGates{SRIOVLiveMigration: false, WithHostPassthroughCPU: false},
+						&hcov1beta1.HyperConvergedFeatureGates{WithHostPassthroughCPU: false},
 						len(hardCodeKvFgs),
 						[][]string{hardCodeKvFgs},
 					),
 					Entry("When not using kvm-emulation and all FGs are enabled",
 						false,
-						&hcov1beta1.HyperConvergedFeatureGates{SRIOVLiveMigration: true, WithHostPassthroughCPU: true},
-						basicNumFgOnOpenshift+2,
+						&hcov1beta1.HyperConvergedFeatureGates{WithHostPassthroughCPU: true},
+						basicNumFgOnOpenshift+1,
 						[][]string{hardCodeKvFgs, sspConditionKvFgs, {kvWithHostPassthroughCPU}},
 					),
 					Entry("When using kvm-emulation all FGs are enabled",
 						true,
-						&hcov1beta1.HyperConvergedFeatureGates{SRIOVLiveMigration: true, WithHostPassthroughCPU: true},
-						len(hardCodeKvFgs)+2,
+						&hcov1beta1.HyperConvergedFeatureGates{WithHostPassthroughCPU: true},
+						len(hardCodeKvFgs)+1,
 						[][]string{hardCodeKvFgs, {kvWithHostPassthroughCPU}},
 					))
 			})
@@ -2804,7 +2736,7 @@ Version: 1.2.3`)
 				).ToNot(HaveOccurred())
 
 				Expect(kv.Spec.Configuration.DeveloperConfiguration).ToNot(BeNil())
-				Expect(kv.Spec.Configuration.DeveloperConfiguration.FeatureGates).To(HaveLen(len(mandatoryKvFeatureGates) + 2))
+				Expect(kv.Spec.Configuration.DeveloperConfiguration.FeatureGates).To(HaveLen(len(mandatoryKvFeatureGates) + 1))
 				Expect(kv.Spec.Configuration.DeveloperConfiguration.FeatureGates).To(ContainElements(hardCodeKvFgs))
 				Expect(kv.Spec.Configuration.DeveloperConfiguration.FeatureGates).To(ContainElement(kvSRIOVGate))
 				Expect(kv.Spec.Configuration.CPURequest).To(BeNil())
