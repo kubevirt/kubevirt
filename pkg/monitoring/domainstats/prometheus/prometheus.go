@@ -206,7 +206,7 @@ func (metrics *vmiMetrics) updateMemory(mem *stats.DomainStatsMemory) {
 
 	if mem.TotalSet {
 		metrics.pushCommonMetric(
-			"kubevirt_vmi_memory_domain_total_bytes",
+			"kubevirt_vmi_memory_domain_bytes_total",
 			"The amount of memory in bytes allocated to the domain. The `memory` value in domain xml file.",
 			prometheus.GaugeValue,
 			float64(mem.Total)*1024,
@@ -491,7 +491,7 @@ func (metrics *vmiMetrics) updateFilesystem(vmFSStats k6tv1.VirtualMachineInstan
 		fsLabelValues := []string{fsStat.DiskName, fsStat.MountPoint, fsStat.FileSystemType}
 
 		metrics.pushCustomMetric(
-			"kubevirt_vmi_filesystem_total_bytes",
+			"kubevirt_vmi_filesystem_capacity_bytes_total",
 			"Total VM filesystem capacity in bytes.",
 			prometheus.GaugeValue,
 			float64(fsStat.TotalBytes),

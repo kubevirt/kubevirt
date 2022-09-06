@@ -320,7 +320,7 @@ var _ = Describe("Prometheus", func() {
 			result.Write(dto)
 
 			Expect(result).ToNot(BeNil())
-			Expect(result.Desc().String()).To(ContainSubstring("kubevirt_vmi_memory_domain_total_bytes"))
+			Expect(result.Desc().String()).To(ContainSubstring("kubevirt_vmi_memory_domain_bytes_total"))
 			Expect(dto.Gauge.GetValue()).To(BeEquivalentTo(float64(1024)))
 		})
 
@@ -1181,7 +1181,7 @@ var _ = Describe("Prometheus", func() {
 			ps.Report("test", &vmi, newVmStats(domainStats, fsStats))
 			result := <-ch
 			Expect(result).ToNot(BeNil())
-			Expect(result.Desc().String()).To(ContainSubstring("kubevirt_vmi_filesystem_total_bytes"))
+			Expect(result.Desc().String()).To(ContainSubstring("kubevirt_vmi_filesystem_capacity_bytes_total"))
 			result = <-ch
 			Expect(result).ToNot(BeNil())
 			Expect(result.Desc().String()).To(ContainSubstring("kubevirt_vmi_filesystem_used_bytes"))
