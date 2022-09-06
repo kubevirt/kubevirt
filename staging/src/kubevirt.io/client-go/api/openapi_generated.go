@@ -23040,7 +23040,7 @@ func schema_kubevirtio_api_export_v1alpha1_VirtualMachineExportSpec(ref common.R
 						},
 					},
 				},
-				Required: []string{"source", "tokenSecretRef"},
+				Required: []string{"source"},
 			},
 		},
 		Dependencies: []string{

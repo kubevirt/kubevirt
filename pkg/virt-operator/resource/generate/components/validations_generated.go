@@ -7743,7 +7743,6 @@ var CRDsValidation map[string]string = map[string]string{
           type: string
       required:
       - source
-      - tokenSecretRef
       type: object
     status:
       description: VirtualMachineExportStatus is the status for a VirtualMachineExport

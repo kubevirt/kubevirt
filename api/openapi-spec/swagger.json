@@ -20131,8 +20131,7 @@
     "description": "VirtualMachineExportSpec is the spec for a VirtualMachineExport resource",
     "type": "object",
     "required": [
-     "source",
-     "tokenSecretRef"
+     "source"
     ],
     "properties": {
      "source": {

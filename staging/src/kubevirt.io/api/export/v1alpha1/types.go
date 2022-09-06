@@ -55,7 +55,7 @@ type VirtualMachineExportSpec struct {
 	Source corev1.TypedLocalObjectReference `json:"source"`
 
 	// TokenSecretRef is the name of the secret that contains the token used by the export server pod
-	TokenSecretRef string `json:"tokenSecretRef"`
+	TokenSecretRef string `json:"tokenSecretRef,omitempty"`
 }
 
 // VirtualMachineExportPhase is the current phase of the VirtualMachineExport

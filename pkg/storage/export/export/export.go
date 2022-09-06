@@ -105,6 +105,11 @@ const (
 
 	kvm = 107
 
+	// secretTokenLenght is the lenght of the randomly generated token
+	secretTokenLenght = 20
+	// secretTokenKey is the entry used to store the token in the virtualMachineExport secret
+	secretTokenKey = "token"
+
 	requeueTime = time.Second * 3
 )
 
@@ -420,6 +425,10 @@ func (ctrl *VMExportController) updateVMExport(vmExport *exportv1.VirtualMachine
 		return 0, err
 	}
 
+	if err := ctrl.handleVMExportSecret(vmExport); err != nil {
+		return 0, err
+	}
+
 	if ctrl.isSourcePvc(&vmExport.Spec) {
 		return ctrl.handleSource(vmExport, service, ctrl.getPVCFromSourcePVC, ctrl.updateVMExportPvcStatus)
 	}
@@ -599,6 +608,53 @@ func (ctrl *VMExportController) createCertSecretManifest(vmExport *exportv1.Virt
 	}, nil
 }
 
+// handleVMExportSecret checks if a secret has been specified for the current export object and, if not, creates one specific to it
+func (ctrl *VMExportController) handleVMExportSecret(vmExport *exportv1.VirtualMachineExport) error {
+	// If a tokenSecretRef has been specified, we assume that the corresponding
+	// secret has already been created and managed appropiately by the user
+	if isTokenSpecified := vmExport.Spec.TokenSecretRef != ""; isTokenSpecified {
+		return nil
+	}
+
+	// The secret name is constructed so it can be specific to the current vmExport object
+	tokenSecretName := getDefaultTokenSecretName(vmExport)
+
+	token := rand.String(secretTokenLenght)
+
+	secret := &corev1.Secret{
+		ObjectMeta: metav1.ObjectMeta{
+			Name:      tokenSecretName,
+			Namespace: vmExport.Namespace,
+			OwnerReferences: []metav1.OwnerReference{
+				*metav1.NewControllerRef(vmExport, schema.GroupVersionKind{
+					Group:   exportv1.SchemeGroupVersion.Group,
+					Version: exportv1.SchemeGroupVersion.Version,
+					Kind:    "VirtualMachineExport",
+				}),
+			},
+		},
+		Type: corev1.SecretTypeOpaque,
+		Data: map[string][]byte{
+			secretTokenKey: []byte(token),
+		},
+	}
+
+	secret, err := ctrl.Client.CoreV1().Secrets(vmExport.Namespace).Create(context.Background(), secret, metav1.CreateOptions{})
+	if err != nil {
+		if errors.IsAlreadyExists(err) {
+			return nil
+		}
+		return err
+	}
+	ctrl.Recorder.Eventf(vmExport, corev1.EventTypeNormal, secretCreatedEvent, "Created default secret %s/%s", secret.Namespace, secret.Name)
+	return nil
+}
+
+// getDefaultTokenSecretName returns a secret name specifically created for the current export object
+func getDefaultTokenSecretName(vme *exportv1.VirtualMachineExport) string {
+	return fmt.Sprintf("secret-%s-%s", vme.Name, string(vme.UID))
+}
+
 func (ctrl *VMExportController) getExportSecretName(ownerPod *corev1.Pod) string {
 	var certSecretName string
 	for _, volume := range ownerPod.Spec.Volumes {
@@ -767,6 +823,12 @@ func (ctrl *VMExportController) createExporterPodManifest(vmExport *exportv1.Vir
 		Value: currentTime().Add(deadline).Format(time.RFC3339),
 	})
 
+	// If no tokenSecretRef has been specified, we use one specific to the current export object
+	tokenSecretRef := vmExport.Spec.TokenSecretRef
+	if tokenSecretRef == "" {
+		tokenSecretRef = getDefaultTokenSecretName(vmExport)
+	}
+
 	secretName := fmt.Sprintf("secret-%s", rand.String(10))
 	podManifest.Spec.Volumes = append(podManifest.Spec.Volumes, corev1.Volume{
 		Name: certificates,
@@ -776,10 +838,10 @@ func (ctrl *VMExportController) createExporterPodManifest(vmExport *exportv1.Vir
 			},
 		},
 	}, corev1.Volume{
-		Name: vmExport.Spec.TokenSecretRef,
+		Name: tokenSecretRef,
 		VolumeSource: corev1.VolumeSource{
 			Secret: &corev1.SecretVolumeSource{
-				SecretName: vmExport.Spec.TokenSecretRef,
+				SecretName: tokenSecretRef,
 			},
 		},
 	})
@@ -788,7 +850,7 @@ func (ctrl *VMExportController) createExporterPodManifest(vmExport *exportv1.Vir
 		Name:      certificates,
 		MountPath: "/cert",
 	}, corev1.VolumeMount{
-		Name:      vmExport.Spec.TokenSecretRef,
+		Name:      tokenSecretRef,
 		MountPath: "/token",
 	})
 	return podManifest, nil
