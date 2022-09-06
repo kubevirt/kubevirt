@@ -30,4 +30,9 @@ mailing list and published to the
 page.
 
 ## Security Team
-The security team currently consists of the Maintainers of Kubevirt.
+
+The security team currently consists of the Maintainers of KubeVirt and is
+supported by security teams of involved vendors.
+
+List of involved vendor security teams:
+- Red Hat <secalert@redhat.com>
