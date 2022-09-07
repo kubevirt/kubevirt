@@ -7738,8 +7738,8 @@ var CRDsValidation map[string]string = map[string]string{
           - name
           type: object
         tokenSecretRef:
-          description: TokenSecretRef is the name of the secret that contains the
-            token used by the export server pod
+          description: TokenSecretRef is the name of the custom-defined secret that
+            contains the token used by the export server pod
           type: string
       required:
       - source
@@ -7881,6 +7881,10 @@ var CRDsValidation map[string]string = map[string]string{
           description: ServiceName is the name of the service created associated with
             the Virtual Machine export. It will be used to create the internal URLs
             for downloading the images
+          type: string
+        tokenSecretRef:
+          description: TokenSecretRef is the name of the secret that contains the
+            token used by the export server pod
           type: string
       type: object
   required:

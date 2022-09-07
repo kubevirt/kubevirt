@@ -23034,7 +23034,7 @@ func schema_kubevirtio_api_export_v1alpha1_VirtualMachineExportSpec(ref common.R
 					},
 					"tokenSecretRef": {
 						SchemaProps: spec.SchemaProps{
-							Description: "TokenSecretRef is the name of the secret that contains the token used by the export server pod",
+							Description: "TokenSecretRef is the name of the custom-defined secret that contains the token used by the export server pod",
 							Type:        []string{"string"},
 							Format:      "",
 						},
@@ -23064,6 +23064,13 @@ func schema_kubevirtio_api_export_v1alpha1_VirtualMachineExportStatus(ref common
 					"links": {
 						SchemaProps: spec.SchemaProps{
 							Ref: ref("kubevirt.io/api/export/v1alpha1.VirtualMachineExportLinks"),
+						},
+					},
+					"tokenSecretRef": {
+						SchemaProps: spec.SchemaProps{
+							Description: "TokenSecretRef is the name of the secret that contains the token used by the export server pod",
+							Type:        []string{"string"},
+							Format:      "",
 						},
 					},
 					"serviceName": {
