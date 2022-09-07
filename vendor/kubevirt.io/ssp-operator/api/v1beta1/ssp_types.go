@@ -17,6 +17,7 @@ limitations under the License.
 package v1beta1
 
 import (
+	ocpv1 "github.com/openshift/api/config/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	cdiv1beta1 "kubevirt.io/containerized-data-importer-api/pkg/apis/core/v1beta1"
 	lifecycleapi "kubevirt.io/controller-lifecycle-operator-sdk/api"
@@ -62,6 +63,9 @@ type SSPSpec struct {
 
 	// NodeLabeller is configuration of the node-labeller operand
 	NodeLabeller NodeLabeller `json:"nodeLabeller,omitempty"`
+
+	// TLSSecurityProfile is a configuration for the TLS.
+	TLSSecurityProfile *ocpv1.TLSSecurityProfile `json:"tlsSecurityProfile,omitempty"`
 }
 
 // DataImportCronTemplate defines the template type for DataImportCrons.
