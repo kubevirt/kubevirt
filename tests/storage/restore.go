@@ -1616,7 +1616,6 @@ var _ = SIGDescribe("VirtualMachineRestore Tests", func() {
 						corev1.ReadWriteOnce,
 					)
 					libstorage.SetDataVolumePVCStorageClass(dataVolume, snapshotStorageClass)
-					libstorage.SetDataVolumePVCSize(dataVolume, "6Gi")
 					vmi := tests.NewRandomVMIWithDataVolume(dataVolume.Name)
 					tests.AddUserData(vmi, "cloud-init", bashHelloScript)
 					vm := tests.NewRandomVirtualMachine(vmi, false)

@@ -391,8 +391,10 @@ var _ = SIGDescribe("DataVolume Integration", func() {
 
 	Describe("[rfe_id:3188][crit:high][vendor:cnv-qe@redhat.com][level:system] Starting a VirtualMachine with an invalid DataVolume", func() {
 		Context("using DataVolume with invalid URL", func() {
-			It("shold be possible to stop VM if datavolume is crashing", func() {
+			It("should be possible to stop VM if datavolume is crashing", func() {
 				dataVolume := libstorage.NewDataVolumeWithRegistryImport(InvalidDataVolumeUrl, util.NamespaceTestDefault, k8sv1.ReadWriteOnce)
+				pullMethod := cdiv1.RegistryPullPod
+				dataVolume.Spec.Source.Registry.PullMethod = &pullMethod
 				vm := tests.NewRandomVirtualMachine(tests.NewRandomVMIWithDataVolume(dataVolume.Name), true)
 				vm.Spec.DataVolumeTemplates = []v1.DataVolumeTemplateSpec{
 					{
@@ -448,6 +450,8 @@ var _ = SIGDescribe("DataVolume Integration", func() {
 					util.NamespaceTestDefault,
 					k8sv1.ReadWriteOnce,
 				)
+				pullMethod := cdiv1.RegistryPullPod
+				dataVolume.Spec.Source.Registry.PullMethod = &pullMethod
 				defer libstorage.DeleteDataVolume(&dataVolume)
 
 				By("Creating DataVolume with invalid URL")
