@@ -465,10 +465,15 @@ var _ = Describe("Template", func() {
 				Expect(pod.Spec.SecurityContext.SELinuxOptions).ToNot(BeNil())
 				Expect(pod.Spec.SecurityContext.SELinuxOptions.Type).To(Equal("spc_t"))
 			})
-			It("should have a level of s0 on all but compute if a type is specified", func() {
+			DescribeTable("should have an SELinux level of", func(enableWorkaround bool) {
 				config, kvInformer, svc = configFactory(defaultArch)
 				kvConfig := kv.DeepCopy()
 				kvConfig.Spec.Configuration.SELinuxLauncherType = "spc_t"
+				if enableWorkaround {
+					kvConfig.Spec.Configuration.DeveloperConfiguration.FeatureGates =
+						append(kvConfig.Spec.Configuration.DeveloperConfiguration.FeatureGates,
+							virtconfig.DockerSELinuxMCSWorkaround)
+				}
 				testutils.UpdateFakeKubeVirtClusterConfig(kvInformer, kvConfig)
 
 				volumes := []v1.Volume{
@@ -513,10 +518,17 @@ var _ = Describe("Template", func() {
 				Expect(err).ToNot(HaveOccurred())
 				for _, c := range pod.Spec.Containers {
 					if c.Name != "compute" {
-						Expect(c.SecurityContext.SELinuxOptions.Level).To(Equal("s0"))
+						if enableWorkaround {
+							Expect(c.SecurityContext.SELinuxOptions.Level).To(Equal("s0"), "failed on "+c.Name)
+						} else {
+							Expect(c.SecurityContext.SELinuxOptions.Level).To(BeEmpty(), "failed on "+c.Name)
+						}
 					}
 				}
-			})
+			},
+				Entry(`"" on all virt-launcher containers`, false),
+				Entry(`"s0" on all but compute if the docker workaround is enabled`, true),
+			)
 		})
 		DescribeTable("should check if proper environment variable is ",
 			func(debugLogsAnnotationValue string, exceptedValues []string) {
