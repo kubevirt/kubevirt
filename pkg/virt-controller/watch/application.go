@@ -139,6 +139,8 @@ type VirtControllerApp struct {
 	vmiInformer   cache.SharedIndexInformer
 	vmiRecorder   record.EventRecorder
 
+	namespaceStore cache.Store
+
 	kubeVirtInformer cache.SharedIndexInformer
 
 	clusterConfig *virtconfig.ClusterConfig
@@ -316,7 +318,7 @@ func Execute() {
 	app.vmiInformer = app.informerFactory.VMI()
 	app.kvPodInformer = app.informerFactory.KubeVirtPod()
 	app.nodeInformer = app.informerFactory.KubeVirtNode()
-
+	app.namespaceStore = app.informerFactory.Namespace().GetStore()
 	app.vmiCache = app.vmiInformer.GetStore()
 	app.vmiRecorder = app.newRecorder(k8sv1.NamespaceAll, "virtualmachine-controller")
 
@@ -512,6 +514,7 @@ func (vca *VirtControllerApp) initCommon() {
 		vca.cdiConfigInformer,
 		vca.clusterConfig,
 		topologyHinter,
+		vca.namespaceStore,
 	)
 
 	recorder := vca.newRecorder(k8sv1.NamespaceAll, "node-controller")
@@ -528,6 +531,7 @@ func (vca *VirtControllerApp) initCommon() {
 		vca.vmiRecorder,
 		vca.clientSet,
 		vca.clusterConfig,
+		vca.namespaceStore,
 	)
 
 	vca.nodeTopologyUpdater = topology.NewNodeTopologyUpdater(vca.clientSet, topologyHinter, vca.nodeInformer)

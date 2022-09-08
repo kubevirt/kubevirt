@@ -79,6 +79,7 @@ var _ = Describe("VirtualMachineInstance watcher", func() {
 	var kubeClient *fake.Clientset
 	var networkClient *fakenetworkclient.Clientset
 	var pvcInformer cache.SharedIndexInformer
+	var namespaceStore cache.Store
 
 	var dataVolumeSource *framework.FakeControllerSource
 	var dataVolumeInformer cache.SharedIndexInformer
@@ -250,6 +251,7 @@ var _ = Describe("VirtualMachineInstance watcher", func() {
 		pvcInformer, _ = testutils.NewFakeInformerFor(&k8sv1.PersistentVolumeClaim{})
 		cdiInformer, _ = testutils.NewFakeInformerFor(&cdiv1.CDIConfig{})
 		cdiConfigInformer, _ = testutils.NewFakeInformerFor(&cdiv1.CDIConfig{})
+		namespaceStore = cache.NewStore(cache.DeletionHandlingMetaNamespaceKeyFunc)
 		controller = NewVMIController(
 			services.NewTemplateService("a", 240, "b", "c", "d", "e", "f", "g", pvcInformer.GetStore(), virtClient, config, qemuGid),
 			vmiInformer,
@@ -263,6 +265,7 @@ var _ = Describe("VirtualMachineInstance watcher", func() {
 			cdiConfigInformer,
 			config,
 			topology.NewTopologyHinter(&cache.FakeCustomStore{}, &cache.FakeCustomStore{}, "amd64", config),
+			namespaceStore,
 		)
 		// Wrap our workqueue to have a way to detect when we are done processing updates
 		mockQueue = testutils.NewMockWorkQueue(controller.Queue)
