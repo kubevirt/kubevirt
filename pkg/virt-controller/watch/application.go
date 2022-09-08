@@ -253,6 +253,8 @@ type VirtControllerApp struct {
 	nodeTopologyUpdatePeriod time.Duration
 	reloadableRateLimiter    *ratelimiter.ReloadableRateLimiter
 	leaderElector            *leaderelection.LeaderElector
+
+	onOpenshift bool
 }
 
 var _ service.Service = &VirtControllerApp{}
@@ -405,6 +407,8 @@ func Execute() {
 	app.migrationPolicyInformer = app.informerFactory.MigrationPolicy()
 
 	app.vmCloneInformer = app.informerFactory.VirtualMachineClone()
+
+	app.onOpenshift = onOpenShift
 
 	app.initCommon()
 	app.initReplicaSet()
@@ -590,6 +594,7 @@ func (vca *VirtControllerApp) initCommon() {
 		vca.clusterConfig,
 		topologyHinter,
 		vca.namespaceStore,
+		vca.onOpenshift,
 	)
 
 	recorder := vca.newRecorder(k8sv1.NamespaceAll, "node-controller")
@@ -607,6 +612,7 @@ func (vca *VirtControllerApp) initCommon() {
 		vca.clientSet,
 		vca.clusterConfig,
 		vca.namespaceStore,
+		vca.onOpenshift,
 	)
 
 	vca.nodeTopologyUpdater = topology.NewNodeTopologyUpdater(vca.clientSet, topologyHinter, vca.nodeInformer)

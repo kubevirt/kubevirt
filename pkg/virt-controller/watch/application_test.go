@@ -130,6 +130,7 @@ var _ = Describe("Application", func() {
 			config,
 			topology.NewTopologyHinter(&cache.FakeCustomStore{}, &cache.FakeCustomStore{}, "amd64", nil),
 			nil,
+			false,
 		)
 		app.rsController = NewVMIReplicaSet(vmiInformer, rsInformer, recorder, virtClient, uint(10))
 		app.vmController = NewVMController(vmiInformer,
@@ -153,6 +154,7 @@ var _ = Describe("Application", func() {
 			virtClient,
 			config,
 			nil,
+			false,
 		)
 		app.snapshotController = &snapshot.VMSnapshotController{
 			Client:                    virtClient,
