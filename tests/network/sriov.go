@@ -27,6 +27,8 @@ import (
 	"strings"
 	"time"
 
+	networkv1 "github.com/k8snetworkplumbingwg/network-attachment-definition-client/pkg/apis/k8s.cni.cncf.io/v1"
+
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
 
@@ -563,6 +565,11 @@ var _ = Describe("[Serial]SRIOV", func() {
 				vmi = startVmi(vmi)
 				vmi = waitVmi(vmi)
 
+				// Since there is no consistent way to tell if the network-status Multus annotation contains the
+				// PCI-Address data for SR-IOV interfaces in the version deployed, manually checking if it exists
+				if !networkStatusAnnotationContainsPCIData(vmi) {
+					Skip("Skipping test. network-status annotation must contain PCI-Address data")
+				}
 				for _, iface := range vmi.Spec.Domain.Devices.Interfaces {
 					if iface.SRIOV == nil {
 						continue
@@ -753,4 +760,10 @@ func findIfaceByMAC(virtClient kubecli.KubevirtClient, vmi *v1.VirtualMachineIns
 		return "", fmt.Errorf("could not find interface with MAC %q on VMI %q: %v", mac, vmi.Name, err)
 	}
 	return ifaceName, nil
+}
+
+func networkStatusAnnotationContainsPCIData(vmi *v1.VirtualMachineInstance) bool {
+	vmiPod := tests.GetRunningPodByVirtualMachineInstance(vmi, vmi.Namespace)
+	networkStatusAnnotation, exist := vmiPod.Annotations[networkv1.NetworkStatusAnnot]
+	return exist && strings.Contains(networkStatusAnnotation, fmt.Sprintf("\"type\": \"%s\"", networkv1.DeviceInfoTypePCI))
 }
