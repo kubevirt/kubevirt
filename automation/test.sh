@@ -71,6 +71,7 @@ else
 fi
 
 if [[ $TARGET =~ psa ]]; then
+  export KUBEVIRT_DEPLOY_CDI=false
   if [[ -z $FEATURE_GATES ]]; then
     export FEATURE_GATES="PSA"
   else
