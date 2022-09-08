@@ -65,37 +65,37 @@ else
   sleep 5
 fi
 
-${KUBECTL_BINARY} patch hco -n ${INSTALLED_NAMESPACE} --type=json kubevirt-hyperconverged -p '[{"op": "replace", "path": /spec/tlsSecurityProfile, "value": {old: {}, type: "Old"} }]'
+./hack/retry.sh 10 3 "${KUBECTL_BINARY} patch hco -n ${INSTALLED_NAMESPACE} --type=json kubevirt-hyperconverged -p '[{\"op\": \"replace\", \"path\": /spec/tlsSecurityProfile, \"value\": {old: {}, type: \"Old\"} }]'"
 sleep 2
 run_nmap old.txt
 clean_nmap_output old.txt
 diff old.txt hack/tlsprofiles/old.expected${FIPS}
 
 # nothing should happen in dry-run mode
-${KUBECTL_BINARY} patch hco --dry-run=client -n ${INSTALLED_NAMESPACE} --type=json kubevirt-hyperconverged -p '[{"op": "replace", "path": /spec/tlsSecurityProfile, "value": {modern: {}, type: "Modern"} }]'
+./hack/retry.sh 10 3 "${KUBECTL_BINARY} patch hco --dry-run=client -n ${INSTALLED_NAMESPACE} --type=json kubevirt-hyperconverged -p '[{\"op\": \"replace\", \"path\": /spec/tlsSecurityProfile, \"value\": {modern: {}, type: \"Modern\"} }]'"
 sleep 2
 run_nmap old.txt
 clean_nmap_output old.txt
 diff old.txt hack/tlsprofiles/old.expected${FIPS}
 
-${KUBECTL_BINARY} patch hco -n ${INSTALLED_NAMESPACE} --type=json kubevirt-hyperconverged -p '[{"op": "replace", "path": /spec/tlsSecurityProfile, "value": {intermediate: {}, type: "Intermediate"} }]'
+./hack/retry.sh 10 3 "${KUBECTL_BINARY} patch hco -n ${INSTALLED_NAMESPACE} --type=json kubevirt-hyperconverged -p '[{\"op\": \"replace\", \"path\": /spec/tlsSecurityProfile, \"value\": {intermediate: {}, type: \"Intermediate\"} }]'"
 sleep 2
 run_nmap intermediate.txt
 clean_nmap_output intermediate.txt
 diff intermediate.txt hack/tlsprofiles/intermediate.expected${FIPS}
 
-${KUBECTL_BINARY} patch hco -n ${INSTALLED_NAMESPACE} --type=json kubevirt-hyperconverged -p '[{"op": "replace", "path": /spec/tlsSecurityProfile, "value": {modern: {}, type: "Modern"} }]'
+./hack/retry.sh 10 3 "${KUBECTL_BINARY} patch hco -n ${INSTALLED_NAMESPACE} --type=json kubevirt-hyperconverged -p '[{\"op\": \"replace\", \"path\": /spec/tlsSecurityProfile, \"value\": {modern: {}, type: \"Modern\"} }]'"
 sleep 2
 run_nmap modern.txt
 clean_nmap_output modern.txt
 diff modern.txt hack/tlsprofiles/modern.expected${FIPS}
 
-${KUBECTL_BINARY} patch hco -n ${INSTALLED_NAMESPACE} --type=json kubevirt-hyperconverged -p '[{"op": "replace", "path": /spec/tlsSecurityProfile, "value": {custom: {minTLSVersion: "VersionTLS12", ciphers: ["ECDHE-ECDSA-CHACHA20-POLY1305", "ECDHE-ECDSA-AES256-GCM-SHA384", "AES256-GCM-SHA384", "AES128-SHA256"]}, type: "Custom"} }]'
+./hack/retry.sh 10 3 "${KUBECTL_BINARY} patch hco -n ${INSTALLED_NAMESPACE} --type=json kubevirt-hyperconverged -p '[{\"op\": \"replace\", \"path\": /spec/tlsSecurityProfile, \"value\": {custom: {minTLSVersion: \"VersionTLS12\", ciphers: [\"ECDHE-ECDSA-CHACHA20-POLY1305\", \"ECDHE-ECDSA-AES256-GCM-SHA384\", \"AES256-GCM-SHA384\", \"AES128-SHA256\"]}, type: \"Custom\"} }]'"
 run_nmap custom.txt
 clean_nmap_output custom.txt
 diff custom.txt hack/tlsprofiles/custom.expected${FIPS}
 
-${KUBECTL_BINARY} patch hco -n ${INSTALLED_NAMESPACE} --type=json kubevirt-hyperconverged -p '[{"op": "remove", "path": /spec/tlsSecurityProfile }]'
+./hack/retry.sh 10 3 "${KUBECTL_BINARY} patch hco -n ${INSTALLED_NAMESPACE} --type=json kubevirt-hyperconverged -p '[{\"op\": \"remove\", \"path\": /spec/tlsSecurityProfile }]'"
 sleep 2
 run_nmap default.txt
 clean_nmap_output default.txt

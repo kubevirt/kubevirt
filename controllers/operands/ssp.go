@@ -156,7 +156,8 @@ func NewSSP(hc *hcov1beta1.HyperConverged, _ ...string) (*sspv1beta1.SSP, []hcov
 		// NodeLabeller field is explicitly initialized to its zero-value,
 		// in order to future-proof from bugs if SSP changes it to pointer-type,
 		// causing nil pointers dereferences at the DeepCopyInto() below.
-		NodeLabeller: sspv1beta1.NodeLabeller{},
+		NodeLabeller:       sspv1beta1.NodeLabeller{},
+		TLSSecurityProfile: hcoutil.GetClusterInfo().GetTLSSecurityProfile(hc.Spec.TLSSecurityProfile),
 	}
 
 	if hc.Spec.Infra.NodePlacement != nil {

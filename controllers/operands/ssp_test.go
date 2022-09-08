@@ -7,6 +7,8 @@ import (
 	"path"
 	"time"
 
+	openshiftconfigv1 "github.com/openshift/api/config/v1"
+
 	"k8s.io/utils/pointer"
 
 	. "github.com/onsi/ginkgo/v2"
@@ -1420,6 +1422,78 @@ var _ = Describe("SSP Operands", func() {
 				})
 			})
 		})
+
+		Context("TLSSecurityProfile", func() {
+
+			intermediateTLSSecurityProfile := &openshiftconfigv1.TLSSecurityProfile{
+				Type:         openshiftconfigv1.TLSProfileIntermediateType,
+				Intermediate: &openshiftconfigv1.IntermediateTLSProfile{},
+			}
+			modernTLSSecurityProfile := &openshiftconfigv1.TLSSecurityProfile{
+				Type:   openshiftconfigv1.TLSProfileModernType,
+				Modern: &openshiftconfigv1.ModernTLSProfile{},
+			}
+
+			It("should modify TLSSecurityProfile on SSP CR according to ApiServer or HCO CR", func() {
+				existingResource, _, err := NewSSP(hco)
+				Expect(err).ToNot(HaveOccurred())
+				Expect(existingResource.Spec.TLSSecurityProfile).To(Equal(intermediateTLSSecurityProfile))
+
+				// now, modify HCO's TLSSecurityProfile
+				hco.Spec.TLSSecurityProfile = modernTLSSecurityProfile
+
+				cl := commonTestUtils.InitClient([]runtime.Object{hco, existingResource})
+				handler := newSspHandler(cl, commonTestUtils.GetScheme())
+				res := handler.ensure(req)
+				Expect(res.UpgradeDone).To(BeFalse())
+				Expect(res.Updated).To(BeTrue())
+				Expect(res.Err).ToNot(HaveOccurred())
+
+				foundResource := &sspv1beta1.SSP{}
+				Expect(
+					cl.Get(context.TODO(),
+						types.NamespacedName{Name: existingResource.Name, Namespace: existingResource.Namespace},
+						foundResource),
+				).ToNot(HaveOccurred())
+
+				Expect(foundResource.Spec.TLSSecurityProfile).To(Equal(modernTLSSecurityProfile))
+
+				Expect(req.Conditions).To(BeEmpty())
+			})
+
+			It("should overwrite TLSSecurityProfile if directly set on SSP CR", func() {
+				hco.Spec.TLSSecurityProfile = intermediateTLSSecurityProfile
+				existingResource, _, err := NewSSP(hco)
+				Expect(err).ToNot(HaveOccurred())
+
+				// mock a reconciliation triggered by a change in CDI CR
+				req.HCOTriggered = false
+
+				// now, modify SSP TLSSecurityProfile
+				existingResource.Spec.TLSSecurityProfile = modernTLSSecurityProfile
+
+				cl := commonTestUtils.InitClient([]runtime.Object{hco, existingResource})
+				handler := newSspHandler(cl, commonTestUtils.GetScheme())
+				res := handler.ensure(req)
+				Expect(res.UpgradeDone).To(BeFalse())
+				Expect(res.Updated).To(BeTrue())
+				Expect(res.Overwritten).To(BeTrue())
+				Expect(res.Err).ToNot(HaveOccurred())
+
+				foundResource := &sspv1beta1.SSP{}
+				Expect(
+					cl.Get(context.TODO(),
+						types.NamespacedName{Name: existingResource.Name, Namespace: existingResource.Namespace},
+						foundResource),
+				).ToNot(HaveOccurred())
+
+				Expect(foundResource.Spec.TLSSecurityProfile).To(Equal(hco.Spec.TLSSecurityProfile))
+				Expect(foundResource.Spec.TLSSecurityProfile).ToNot(Equal(existingResource.Spec.TLSSecurityProfile))
+
+				Expect(req.Conditions).To(BeEmpty())
+			})
+		})
+
 	})
 })
 
