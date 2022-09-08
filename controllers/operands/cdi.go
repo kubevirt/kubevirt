@@ -101,7 +101,18 @@ func NewCDI(hc *hcov1beta1.HyperConverged, opts ...string) (*cdiv1beta1.CDI, err
 	spec := cdiv1beta1.CDISpec{
 		UninstallStrategy: &uninstallStrategy,
 		Config: &cdiv1beta1.CDIConfigSpec{
-			FeatureGates: getDefaultFeatureGates(),
+			FeatureGates:       getDefaultFeatureGates(),
+			TLSSecurityProfile: hcoutil.GetClusterInfo().GetTLSSecurityProfile(hc.Spec.TLSSecurityProfile),
+		},
+		CertConfig: &cdiv1beta1.CDICertConfig{
+			CA: &cdiv1beta1.CertConfig{
+				Duration:    &hc.Spec.CertConfig.CA.Duration,
+				RenewBefore: &hc.Spec.CertConfig.CA.RenewBefore,
+			},
+			Server: &cdiv1beta1.CertConfig{
+				Duration:    &hc.Spec.CertConfig.Server.Duration,
+				RenewBefore: &hc.Spec.CertConfig.Server.RenewBefore,
+			},
 		},
 	}
 
@@ -130,20 +141,6 @@ func NewCDI(hc *hcov1beta1.HyperConverged, opts ...string) (*cdiv1beta1.CDI, err
 
 	if hc.Spec.Workloads.NodePlacement != nil {
 		hc.Spec.Workloads.NodePlacement.DeepCopyInto(&spec.Workloads)
-	}
-
-	certConfig := hc.Spec.CertConfig
-
-	spec.CertConfig = &cdiv1beta1.CDICertConfig{}
-
-	spec.CertConfig.CA = &cdiv1beta1.CertConfig{
-		Duration:    certConfig.CA.Duration.DeepCopy(),
-		RenewBefore: certConfig.CA.RenewBefore.DeepCopy(),
-	}
-
-	spec.CertConfig.Server = &cdiv1beta1.CertConfig{
-		Duration:    certConfig.Server.Duration.DeepCopy(),
-		RenewBefore: certConfig.Server.RenewBefore.DeepCopy(),
 	}
 
 	cdi := NewCDIWithNameOnly(hc, opts...)

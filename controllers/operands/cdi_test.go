@@ -4,9 +4,12 @@ import (
 	"context"
 	"time"
 
+	openshiftconfigv1 "github.com/openshift/api/config/v1"
+	conditionsv1 "github.com/openshift/custom-resource-status/conditions/v1"
+
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
-	conditionsv1 "github.com/openshift/custom-resource-status/conditions/v1"
+
 	corev1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/api/errors"
 	"k8s.io/apimachinery/pkg/api/resource"
@@ -1220,6 +1223,77 @@ var _ = Describe("CDI Operand", func() {
 				Expect(crI == crII).To(BeFalse())
 				Expect(handler.hooks.(*cdiHooks).cache == crI).To(BeFalse())
 				Expect(handler.hooks.(*cdiHooks).cache == crII).To(BeTrue())
+			})
+		})
+
+		Context("TLSSecurityProfile", func() {
+
+			intermediateTLSSecurityProfile := &openshiftconfigv1.TLSSecurityProfile{
+				Type:         openshiftconfigv1.TLSProfileIntermediateType,
+				Intermediate: &openshiftconfigv1.IntermediateTLSProfile{},
+			}
+			modernTLSSecurityProfile := &openshiftconfigv1.TLSSecurityProfile{
+				Type:   openshiftconfigv1.TLSProfileModernType,
+				Modern: &openshiftconfigv1.ModernTLSProfile{},
+			}
+
+			It("should modify TLSSecurityProfile on CDI CR according to ApiServer or HCO CR", func() {
+				existingResource, err := NewCDI(hco)
+				Expect(err).ToNot(HaveOccurred())
+				Expect(existingResource.Spec.Config.TLSSecurityProfile).To(Equal(intermediateTLSSecurityProfile))
+
+				// now, modify HCO's TLSSecurityProfile
+				hco.Spec.TLSSecurityProfile = modernTLSSecurityProfile
+
+				cl := commonTestUtils.InitClient([]runtime.Object{hco, existingResource})
+				handler := (*genericOperand)(newCdiHandler(cl, commonTestUtils.GetScheme()))
+				res := handler.ensure(req)
+				Expect(res.UpgradeDone).To(BeFalse())
+				Expect(res.Updated).To(BeTrue())
+				Expect(res.Err).ToNot(HaveOccurred())
+
+				foundResource := &cdiv1beta1.CDI{}
+				Expect(
+					cl.Get(context.TODO(),
+						types.NamespacedName{Name: existingResource.Name, Namespace: existingResource.Namespace},
+						foundResource),
+				).ToNot(HaveOccurred())
+
+				Expect(foundResource.Spec.Config.TLSSecurityProfile).To(Equal(modernTLSSecurityProfile))
+
+				Expect(req.Conditions).To(BeEmpty())
+			})
+
+			It("should overwrite TLSSecurityProfile if directly set on CDI CR", func() {
+				hco.Spec.TLSSecurityProfile = intermediateTLSSecurityProfile
+				existingResource, err := NewCDI(hco)
+				Expect(err).ToNot(HaveOccurred())
+
+				// mock a reconciliation triggered by a change in CDI CR
+				req.HCOTriggered = false
+
+				// now, modify CDI node placement
+				existingResource.Spec.Config.TLSSecurityProfile = modernTLSSecurityProfile
+
+				cl := commonTestUtils.InitClient([]runtime.Object{hco, existingResource})
+				handler := (*genericOperand)(newCdiHandler(cl, commonTestUtils.GetScheme()))
+				res := handler.ensure(req)
+				Expect(res.UpgradeDone).To(BeFalse())
+				Expect(res.Updated).To(BeTrue())
+				Expect(res.Overwritten).To(BeTrue())
+				Expect(res.Err).ToNot(HaveOccurred())
+
+				foundResource := &cdiv1beta1.CDI{}
+				Expect(
+					cl.Get(context.TODO(),
+						types.NamespacedName{Name: existingResource.Name, Namespace: existingResource.Namespace},
+						foundResource),
+				).ToNot(HaveOccurred())
+
+				Expect(foundResource.Spec.Config.TLSSecurityProfile).To(Equal(hco.Spec.TLSSecurityProfile))
+				Expect(foundResource.Spec.Config.TLSSecurityProfile).ToNot(Equal(existingResource.Spec.Config.TLSSecurityProfile))
+
+				Expect(req.Conditions).To(BeEmpty())
 			})
 		})
 
