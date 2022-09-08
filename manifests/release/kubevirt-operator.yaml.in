@@ -4,6 +4,7 @@ kind: Namespace
 metadata:
   labels:
     kubevirt.io: ""
+    pod-security.kubernetes.io/enforce: "privileged"
   name: {{.Namespace}}
 {{index .GeneratedManifests "kv-resource.yaml"}}
 ---
