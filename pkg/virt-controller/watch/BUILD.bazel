@@ -29,6 +29,7 @@ go_library(
         "//pkg/network/vmispec:go_default_library",
         "//pkg/service:go_default_library",
         "//pkg/util:go_default_library",
+        "//pkg/util/cluster:go_default_library",
         "//pkg/util/lookup:go_default_library",
         "//pkg/util/migrations:go_default_library",
         "//pkg/util/pdbs:go_default_library",

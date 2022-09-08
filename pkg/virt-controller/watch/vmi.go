@@ -157,6 +157,7 @@ func NewVMIController(templateService services.TemplateService,
 	clusterConfig *virtconfig.ClusterConfig,
 	topologyHinter topology.Hinter,
 	namespaceStore cache.Store,
+	onOpenshift bool,
 ) *VMIController {
 
 	c := &VMIController{
@@ -176,6 +177,7 @@ func NewVMIController(templateService services.TemplateService,
 		clusterConfig:      clusterConfig,
 		topologyHinter:     topologyHinter,
 		namespaceStore:     namespaceStore,
+		onOpenshift:        onOpenshift,
 	}
 
 	c.vmiInformer.AddEventHandler(cache.ResourceEventHandlerFuncs{
@@ -238,6 +240,7 @@ type VMIController struct {
 	cdiConfigInformer  cache.SharedIndexInformer
 	clusterConfig      *virtconfig.ClusterConfig
 	namespaceStore     cache.Store
+	onOpenshift        bool
 }
 
 func (c *VMIController) Run(threadiness int, stopCh <-chan struct{}) {
@@ -1076,7 +1079,7 @@ func (c *VMIController) sync(vmi *virtv1.VirtualMachineInstance, pod *k8sv1.Pod,
 
 		if c.clusterConfig.PSAEnabled() {
 			namespace := vmi.GetNamespace()
-			if err := escalateNamespace(c.namespaceStore, c.clientset, namespace); err != nil {
+			if err := escalateNamespace(c.namespaceStore, c.clientset, namespace, c.onOpenshift); err != nil {
 				return &syncErrorImpl{err, fmt.Sprintf("Failed to apply enforce label on namespace %s", namespace)}
 			}
 		}
@@ -1824,7 +1827,7 @@ func (c *VMIController) createAttachmentPod(vmi *virtv1.VirtualMachineInstance, 
 
 	if c.clusterConfig.PSAEnabled() {
 		namespace := vmi.GetNamespace()
-		if err := escalateNamespace(c.namespaceStore, c.clientset, namespace); err != nil {
+		if err := escalateNamespace(c.namespaceStore, c.clientset, namespace, c.onOpenshift); err != nil {
 			return &syncErrorImpl{err, fmt.Sprintf("Failed to apply enforce label on namespace %s while creating attachment pod", namespace)}
 		}
 	}
@@ -1850,7 +1853,7 @@ func (c *VMIController) triggerHotplugPopulation(volume *virtv1.Volume, vmi *vir
 
 		if c.clusterConfig.PSAEnabled() {
 			namespace := vmi.GetNamespace()
-			if err := escalateNamespace(c.namespaceStore, c.clientset, namespace); err != nil {
+			if err := escalateNamespace(c.namespaceStore, c.clientset, namespace, c.onOpenshift); err != nil {
 				return &syncErrorImpl{err, fmt.Sprintf("Failed to apply enforce label on namespace %s while creating hotplug population trigger pod", namespace)}
 			}
 		}

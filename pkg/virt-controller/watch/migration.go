@@ -104,6 +104,8 @@ type MigrationController struct {
 
 	unschedulablePendingTimeoutSeconds int64
 	catchAllPendingTimeoutSeconds      int64
+
+	onOpenshift bool
 }
 
 func NewMigrationController(templateService services.TemplateService,
@@ -118,6 +120,7 @@ func NewMigrationController(templateService services.TemplateService,
 	clientset kubecli.KubevirtClient,
 	clusterConfig *virtconfig.ClusterConfig,
 	namespaceStore cache.Store,
+	onOpenshift bool,
 ) *MigrationController {
 
 	c := &MigrationController{
@@ -141,6 +144,7 @@ func NewMigrationController(templateService services.TemplateService,
 		catchAllPendingTimeoutSeconds:      defaultCatchAllPendingTimeoutSeconds,
 
 		namespaceStore: namespaceStore,
+		onOpenshift:    onOpenshift,
 	}
 
 	c.vmiInformer.AddEventHandler(cache.ResourceEventHandlerFuncs{
@@ -589,7 +593,7 @@ func (c *MigrationController) createTargetPod(migration *virtv1.VirtualMachineIn
 
 	if c.clusterConfig.PSAEnabled() {
 		// Check my impact
-		if err := escalateNamespace(c.namespaceStore, c.clientset, vmi.GetNamespace()); err != nil {
+		if err := escalateNamespace(c.namespaceStore, c.clientset, vmi.GetNamespace(), c.onOpenshift); err != nil {
 			return err
 		}
 	}
@@ -859,7 +863,7 @@ func (c *MigrationController) createAttachmentPod(migration *virtv1.VirtualMachi
 
 	if c.clusterConfig.PSAEnabled() {
 		// Check my impact
-		if err := escalateNamespace(c.namespaceStore, c.clientset, vmi.GetNamespace()); err != nil {
+		if err := escalateNamespace(c.namespaceStore, c.clientset, vmi.GetNamespace(), c.onOpenshift); err != nil {
 			return err
 		}
 	}

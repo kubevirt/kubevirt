@@ -6,6 +6,7 @@ import (
 	"github.com/golang/mock/gomock"
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
+	"github.com/onsi/gomega/types"
 	k8sv1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	k8sruntime "k8s.io/apimachinery/pkg/runtime"
@@ -22,6 +23,7 @@ var _ = Describe("PSA", func() {
 		client         *kubecli.MockKubevirtClient
 		kubeClient     *fake.Clientset
 		ctrl           *gomock.Controller
+		notOnOpenshift = false
 	)
 
 	BeforeEach(func() {
@@ -33,21 +35,28 @@ var _ = Describe("PSA", func() {
 	})
 
 	Context("should patch namespace with enforce level", func() {
-		BeforeEach(func() {
+		var (
+			onOpenshift          = true
+			psaLabels            = HaveKeyWithValue(PSALabel, "privileged")
+			psaLabelsOnOpenshift = And(HaveKeyWithValue(PSALabel, "privileged"), HaveKeyWithValue(OpenshiftPSAsync, "false"))
+		)
+
+		expectLabels := func(expectedLabels types.GomegaMatcher) {
 			kubeClient.Fake.PrependReactor("patch", "namespaces",
 				func(action testing.Action) (handled bool, obj k8sruntime.Object, err error) {
 					patchAction, ok := action.(testing.PatchAction)
 					Expect(ok).To(BeTrue())
 					patchBytes := patchAction.GetPatch()
 					namespace := &k8sv1.Namespace{}
-					Expect(json.Unmarshal(patchBytes, namespace)).To(Succeed())
+					Expect(json.Unmarshal(patchBytes, namespace)).To(Succeed(), string(patchBytes))
 
-					Expect(namespace.Labels).To(HaveKeyWithValue(PSALabel, "privileged"))
+					Expect(namespace.Labels).To(expectedLabels)
 					return true, nil, nil
 				})
-		})
+		}
 
-		It("when label is missing", func() {
+		DescribeTable("when label is missing", func(expectedLabels types.GomegaMatcher, onOpenshift bool) {
+			expectLabels(expectedLabels)
 			namespace := &k8sv1.Namespace{
 				TypeMeta: metav1.TypeMeta{
 					Kind: "Namespace",
@@ -58,10 +67,14 @@ var _ = Describe("PSA", func() {
 			}
 			Expect(namespaceStore.Add(namespace)).NotTo(HaveOccurred())
 
-			Expect(escalateNamespace(namespaceStore, client, "test")).To(Succeed())
-		})
+			Expect(escalateNamespace(namespaceStore, client, "test", onOpenshift)).To(Succeed())
+		},
+			Entry("on plain Kubernetes", psaLabels, notOnOpenshift),
+			Entry("on Openshift", psaLabelsOnOpenshift, onOpenshift),
+		)
 
-		It("when enforce label is not privileged", func() {
+		DescribeTable("when enforce label is not privileged", func(expectedLabels types.GomegaMatcher, onOpenshift bool) {
+			expectLabels(expectedLabels)
 			namespace := &k8sv1.Namespace{
 				TypeMeta: metav1.TypeMeta{
 					Kind: "Namespace",
@@ -75,8 +88,11 @@ var _ = Describe("PSA", func() {
 			}
 			Expect(namespaceStore.Add(namespace)).NotTo(HaveOccurred())
 
-			Expect(escalateNamespace(namespaceStore, client, "test")).To(Succeed())
-		})
+			Expect(escalateNamespace(namespaceStore, client, "test", onOpenshift)).To(Succeed())
+		},
+			Entry("on plain Kubernetes", psaLabels, notOnOpenshift),
+			Entry("on Openshift", psaLabelsOnOpenshift, onOpenshift),
+		)
 	})
 	It("should not patch namespace when enforce label is set to privileged", func() {
 		namespace := &k8sv1.Namespace{
@@ -93,7 +109,7 @@ var _ = Describe("PSA", func() {
 				Expect("Patch namespaces is not expected").To(BeEmpty())
 				return true, nil, nil
 			})
-		Expect(escalateNamespace(namespaceStore, client, "test")).To(Succeed())
+		Expect(escalateNamespace(namespaceStore, client, "test", notOnOpenshift)).To(Succeed())
 	})
 
 })

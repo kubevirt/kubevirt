@@ -31,8 +31,9 @@ import (
 )
 
 const PSALabel = "pod-security.kubernetes.io/enforce"
+const OpenshiftPSAsync = "security.openshift.io/scc.podSecurityLabelSync"
 
-func escalateNamespace(namespaceStore cache.Store, client kubecli.KubevirtClient, namespace string) error {
+func escalateNamespace(namespaceStore cache.Store, client kubecli.KubevirtClient, namespace string, onOpenshift bool) error {
 	obj, exists, err := namespaceStore.GetByKey(namespace)
 	if err != nil {
 		return fmt.Errorf("Failed to get namespace, %w", err)
@@ -43,7 +44,13 @@ func escalateNamespace(namespaceStore cache.Store, client kubecli.KubevirtClient
 	namespaceObj := obj.(*k8sv1.Namespace)
 	enforceLevel, labelExist := namespaceObj.Labels[PSALabel]
 	if !labelExist || enforceLevel != "privileged" {
-		data := []byte(fmt.Sprintf(`{"metadata": { "labels": {"%s": "privileged"}}}`, PSALabel))
+		labels := ""
+		if !onOpenshift {
+			labels = fmt.Sprintf(`{"%s": "privileged"}`, PSALabel)
+		} else {
+			labels = fmt.Sprintf(`{"%s": "privileged", "%s": "false"}`, PSALabel, OpenshiftPSAsync)
+		}
+		data := []byte(fmt.Sprintf(`{"metadata": { "labels": %s}}`, labels))
 		_, err := client.CoreV1().Namespaces().Patch(context.TODO(), namespace, types.StrategicMergePatchType, data, v1.PatchOptions{})
 		if err != nil {
 			return &syncErrorImpl{err, fmt.Sprintf("Failed to apply enforce label on namespace %s", namespace)}
