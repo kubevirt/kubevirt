@@ -72,6 +72,11 @@ var _ = Describe("Instancetype and Preferences", func() {
 		instancetypeMethods = instancetype.NewMethods(virtClient)
 
 		vm = kubecli.NewMinimalVM("testvm")
+		vm.Spec.Template = &v1.VirtualMachineInstanceTemplateSpec{
+			Spec: v1.VirtualMachineInstanceSpec{
+				Domain: v1.DomainSpec{},
+			},
+		}
 		vm.Namespace = k8sv1.NamespaceDefault
 
 	})
@@ -230,6 +235,14 @@ var _ = Describe("Instancetype and Preferences", func() {
 				Expect(instancetypeMethods.StoreControllerRevisions(vm)).To(MatchError(ContainSubstring("found existing ControllerRevision with unexpected data")))
 			})
 
+			It("store ControllerRevision fails if instancetype conflicts with vm", func() {
+				vm.Spec.Template.Spec.Domain.CPU = &v1.CPU{
+					Cores: 1,
+				}
+
+				Expect(instancetypeMethods.StoreControllerRevisions(vm)).To(MatchError(ContainSubstring("VM field conflicts with selected Instancetype")))
+			})
+
 		})
 
 		Context("Using namespaced Instancetype", func() {
@@ -351,6 +364,14 @@ var _ = Describe("Instancetype and Preferences", func() {
 				Expect(err).ToNot(HaveOccurred())
 
 				Expect(instancetypeMethods.StoreControllerRevisions(vm)).To(MatchError(ContainSubstring("found existing ControllerRevision with unexpected data")))
+			})
+
+			It("store ControllerRevision fails if instancetype conflicts with vm", func() {
+				vm.Spec.Template.Spec.Domain.CPU = &v1.CPU{
+					Cores: 1,
+				}
+
+				Expect(instancetypeMethods.StoreControllerRevisions(vm)).To(MatchError(ContainSubstring("VM field conflicts with selected Instancetype")))
 			})
 		})
 	})

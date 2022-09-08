@@ -87,6 +87,16 @@ func CreateInstancetypeControllerRevision(vm *virtv1.VirtualMachine, revisionNam
 
 }
 
+func (m *methods) checkForInstancetypeConflicts(instancetypeSpec *instancetypev1alpha1.VirtualMachineInstancetypeSpec, vmiSpec *virtv1.VirtualMachineInstanceSpec) error {
+	// Apply the instancetype to a copy of the VMISpec as we don't want to persist any changes here in the VM being passed around
+	vmiSpecCopy := vmiSpec.DeepCopy()
+	conflicts := m.ApplyToVmi(k8sfield.NewPath("spec", "template", "spec"), instancetypeSpec, nil, vmiSpecCopy)
+	if len(conflicts) > 0 {
+		return fmt.Errorf("VM field conflicts with selected Instancetype: %v", conflicts.String())
+	}
+	return nil
+}
+
 func (m *methods) createInstancetypeRevision(vm *virtv1.VirtualMachine) (*appsv1.ControllerRevision, error) {
 
 	switch strings.ToLower(vm.Spec.Instancetype.Kind) {
@@ -95,6 +105,14 @@ func (m *methods) createInstancetypeRevision(vm *virtv1.VirtualMachine) (*appsv1
 		if err != nil {
 			return nil, err
 		}
+
+		// There is still a window where the instancetype can be updated between the VirtualMachine validation webhook accepting
+		// the VirtualMachine and the VirtualMachine controller creating a ControllerRevison. As such we need to check one final
+		// time that there are no conflicts when applying the instancetype to the VirtualMachine before continuing.
+		if err = m.checkForInstancetypeConflicts(&instancetype.Spec, &vm.Spec.Template.Spec); err != nil {
+			return nil, err
+		}
+
 		revision, err := CreateInstancetypeControllerRevision(vm, GetRevisionName(vm.Name, instancetype.Name, instancetype.UID, instancetype.Generation), instancetype.APIVersion, &instancetype.Spec)
 		if err != nil {
 			return nil, err
@@ -104,6 +122,13 @@ func (m *methods) createInstancetypeRevision(vm *virtv1.VirtualMachine) (*appsv1
 	case apiinstancetype.ClusterSingularResourceName, apiinstancetype.ClusterPluralResourceName:
 		clusterInstancetype, err := m.findClusterInstancetype(vm)
 		if err != nil {
+			return nil, err
+		}
+
+		// There is still a window where the instancetype can be updated between the VirtualMachine validation webhook accepting
+		// the VirtualMachine and the VirtualMachine controller creating a ControllerRevison. As such we need to check one final
+		// time that there are no conflicts when applying the instancetype to the VirtualMachine before continuing.
+		if err = m.checkForInstancetypeConflicts(&clusterInstancetype.Spec, &vm.Spec.Template.Spec); err != nil {
 			return nil, err
 		}
 

@@ -2791,8 +2791,8 @@ var _ = Describe("VirtualMachine", func() {
 
 				vm, vmi = DefaultVirtualMachine(true)
 
-				// We need to clear resource requirements here to ensure the instancetype doesn't conflict
-				vm.Spec.Template.Spec.Domain.Resources = virtv1.ResourceRequirements{}
+				// We need to clear the domainSpec here to ensure the instancetype doesn't conflict
+				vm.Spec.Template.Spec.Domain = v1.DomainSpec{}
 
 				fakeInstancetypeClients = fakeclientset.NewSimpleClientset().InstancetypeV1alpha1()
 
@@ -3556,14 +3556,7 @@ var _ = Describe("VirtualMachine", func() {
 
 			})
 
-			It("should reject the request if a VirtualMachineInstancetype conflicts with the VirtualMachineInstance", func() {
-
-				expectedInstancetypeRevisionName := instancetype.GetRevisionName(vm.Name, f.Name, f.UID, f.Generation)
-				expectedInstancetypeRevision, err := instancetype.CreateInstancetypeControllerRevision(vm, expectedInstancetypeRevisionName, f.TypeMeta.APIVersion, &f.Spec)
-				Expect(err).ToNot(HaveOccurred())
-
-				expectedRevisionNamePatch, err := instancetype.GenerateRevisionNamePatch(expectedInstancetypeRevision, nil)
-				Expect(err).ToNot(HaveOccurred())
+			It("should fail if the VirtualMachineInstancetype conflicts with the VirtualMachineInstance", func() {
 
 				vm.Spec.Instancetype = &v1.InstancetypeMatcher{
 					Name: f.Name,
@@ -3578,16 +3571,14 @@ var _ = Describe("VirtualMachine", func() {
 
 				addVirtualMachine(vm)
 
-				vmInterface.EXPECT().Patch(vm.Name, types.JSONPatchType, expectedRevisionNamePatch, &metav1.PatchOptions{})
-
 				vmInterface.EXPECT().UpdateStatus(gomock.Any()).Times(1).Do(func(obj interface{}) {
 					objVM := obj.(*virtv1.VirtualMachine)
 					cond := virtcontroller.NewVirtualMachineConditionManager().GetCondition(objVM, virtv1.VirtualMachineFailure)
 					Expect(cond).To(Not(BeNil()))
 					Expect(cond.Type).To(Equal(virtv1.VirtualMachineFailure))
 					Expect(cond.Reason).To(Equal("FailedCreate"))
-					Expect(cond.Message).To(ContainSubstring("VMI conflicts with instancetype spec in fields"))
-					Expect(cond.Message).To(ContainSubstring("spec.domain.cpu"))
+					Expect(cond.Message).To(ContainSubstring("Error encountered while storing Instancetype ControllerRevisions: VM field conflicts with selected Instancetype"))
+					Expect(cond.Message).To(ContainSubstring("spec.template.spec.domain.cpu"))
 				}).Return(vm, nil)
 
 				controller.Execute()
