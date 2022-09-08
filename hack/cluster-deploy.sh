@@ -74,6 +74,8 @@ apiVersion: v1
 kind: Namespace
 metadata:
   name: ${namespace:?}
+  labels:
+    pod-security.kubernetes.io/enforce: "privileged"
 EOF
 
 if [[ "$KUBEVIRT_PROVIDER" =~ kind.* ]]; then
