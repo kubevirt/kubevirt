@@ -665,11 +665,6 @@ func (ctrl *VMExportController) handleVMExportSecret(vmExport *exportv1.VirtualM
 	return nil
 }
 
-// getDefaultTokenSecretName returns a secret name specifically created for the current export object
-func getDefaultTokenSecretName(vme *exportv1.VirtualMachineExport) string {
-	return fmt.Sprintf("secret-%s-%s", vme.Name, string(vme.UID))
-}
-
 func (ctrl *VMExportController) getExportSecretName(ownerPod *corev1.Pod) string {
 	var certSecretName string
 	for _, volume := range ownerPod.Spec.Volumes {
@@ -678,6 +673,11 @@ func (ctrl *VMExportController) getExportSecretName(ownerPod *corev1.Pod) string
 		}
 	}
 	return certSecretName
+}
+
+// getDefaultTokenSecretName returns a secret name specifically created for the current export object
+func getDefaultTokenSecretName(vme *exportv1.VirtualMachineExport) string {
+	return naming.GetName("export-secret", vme.Name, validation.DNS1035LabelMaxLength)
 }
 
 func (ctrl *VMExportController) getExportServiceName(vmExport *exportv1.VirtualMachineExport) string {
@@ -767,9 +767,10 @@ func (ctrl *VMExportController) createExporterPod(vmExport *exportv1.VirtualMach
 
 		log.Log.V(3).Infof("Creating new exporter pod %s/%s", manifest.Namespace, manifest.Name)
 		pod, err := ctrl.Client.CoreV1().Pods(vmExport.Namespace).Create(context.Background(), manifest, metav1.CreateOptions{})
-		if err == nil {
-			ctrl.Recorder.Eventf(vmExport, corev1.EventTypeNormal, exporterPodCreatedEvent, "Created exporter pod %s/%s", manifest.Namespace, manifest.Name)
+		if err != nil {
+			return nil, err
 		}
+		ctrl.Recorder.Eventf(vmExport, corev1.EventTypeNormal, exporterPodCreatedEvent, "Created exporter pod %s/%s", manifest.Namespace, manifest.Name)
 		return pod, nil
 	} else {
 		pod := obj.(*corev1.Pod)
