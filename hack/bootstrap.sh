@@ -64,6 +64,16 @@ build --sandbox_add_mount_pair=${sandbox_root}/lib64:/lib64
 build --sandbox_add_mount_pair=${sandbox_root}/lib:/lib
 build --sandbox_add_mount_pair=${sandbox_root}/bin:/bin
 
+run --sandbox_add_mount_pair=${sandbox_root}/usr/:/usr/
+run --sandbox_add_mount_pair=${sandbox_root}/lib64:/lib64
+run --sandbox_add_mount_pair=${sandbox_root}/lib:/lib
+run --sandbox_add_mount_pair=${sandbox_root}/bin:/bin
+
+coverage --sandbox_add_mount_pair=${sandbox_root}/usr/:/usr/
+coverage --sandbox_add_mount_pair=${sandbox_root}/lib64:/lib64
+coverage --sandbox_add_mount_pair=${sandbox_root}/lib:/lib
+coverage --sandbox_add_mount_pair=${sandbox_root}/bin:/bin
+
 build --incompatible_enable_cc_toolchain_resolution --platforms=//bazel/platforms:x86_64-none-linux-gnu
 EOT
 }
