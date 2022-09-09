@@ -21,6 +21,7 @@ package admitters
 
 import (
 	"encoding/json"
+	"errors"
 	"fmt"
 	"strings"
 
@@ -1985,7 +1986,7 @@ var _ = Describe("Validating VMICreate Admitter", func() {
 				{Option: 240, Value: "sameextra.options.kubevirt.io"},
 			}
 			err := ValidateDuplicateDHCPPrivateOptions(testDHCPPrivateOptions)
-			Expect(err).To(Equal(fmt.Errorf("You have provided duplicate DHCPPrivateOptions")))
+			Expect(err).To(Equal(errors.New("you have provided duplicate DHCPPrivateOptions")))
 		})
 
 		It("should not return error if unique DHCPPrivateOptions", func() {
