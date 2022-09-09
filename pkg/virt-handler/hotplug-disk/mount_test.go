@@ -77,6 +77,7 @@ var (
 	orgFindMntByVolume     = findMntByVolume
 	orgFindMntByDevice     = findMntByDevice
 	orgNodeIsolationResult = nodeIsolationResult
+	orgParentPathForMount  = parentPathForMount
 )
 
 var _ = Describe("HotplugVolume", func() {
@@ -141,6 +142,16 @@ var _ = Describe("HotplugVolume", func() {
 
 		nodeIsolationResult = func() isolation.IsolationResult {
 			return isolation.NewIsolationResult(os.Getpid(), os.Getppid())
+		}
+
+		parentPathForMount = func(
+			parent isolation.IsolationResult,
+			_ isolation.IsolationResult,
+			findmntInfo FindmntInfo,
+		) (*safepath.Path, error) {
+			path, err := parent.MountRoot()
+			Expect(err).ToNot(HaveOccurred())
+			return path.AppendAndResolveWithRelativeRoot(findmntInfo.GetSourcePath())
 		}
 	})
 
@@ -546,7 +557,6 @@ var _ = Describe("HotplugVolume", func() {
 
 			deviceBasePath = func(podUID types.UID) (*safepath.Path, error) {
 				return volumeDir, nil
-
 			}
 			isolationDetector = func(path string) isolation.PodIsolationDetector {
 				return &mockIsolationDetector{

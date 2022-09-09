@@ -160,16 +160,20 @@ func (r *RealIsolationResult) Mounts(filter mount.FilterFunc) ([]*mount.Info, er
 	return mount.GetMountsFromReader(in, filter)
 }
 
-// MountInfoRoot returns the mount information for the root mount point
-func MountInfoRoot(r IsolationResult) (mountInfo *mount.Info, err error) {
-	mounts, err := r.Mounts(mount.SingleEntryFilter("/"))
+func mountInfoFor(r IsolationResult, mountPoint string) (mountinfo *mount.Info, err error) {
+	mounts, err := r.Mounts(mount.SingleEntryFilter(mountPoint))
 	if err != nil {
 		return nil, fmt.Errorf("failed to process mountinfo for pid %d: %v", r.Pid(), err)
 	}
 	if len(mounts) <= 0 {
-		return nil, fmt.Errorf("no root mount point entry found for pid %d", r.Pid())
+		return nil, fmt.Errorf("no '%s' mount point entry found for pid %d", mountPoint, r.Pid())
 	}
 	return mounts[0], nil
+}
+
+// MountInfoRoot returns the mount information for the root mount point
+func MountInfoRoot(r IsolationResult) (mountinfo *mount.Info, err error) {
+	return mountInfoFor(r, "/")
 }
 
 // parentMountInfoFor takes the mountInfo record of a container (child) and
@@ -195,14 +199,12 @@ func parentMountInfoFor(parent IsolationResult, mountInfo *mount.Info) (*mount.I
 	return mounts[0], nil
 }
 
-// ParentPathForRootMount takes a container (child) and composes a path to
-// the root mount point in the context of the parent.
-func ParentPathForRootMount(parent IsolationResult, child IsolationResult) (*safepath.Path, error) {
-	childRootMountInfo, err := MountInfoRoot(child)
+func ParentPathForMount(parent IsolationResult, child IsolationResult, mountPoint string) (*safepath.Path, error) {
+	childMountInfo, err := mountInfoFor(child, mountPoint)
 	if err != nil {
 		return nil, err
 	}
-	parentMountInfo, err := parentMountInfoFor(parent, childRootMountInfo)
+	parentMountInfo, err := parentMountInfoFor(parent, childMountInfo)
 	if err != nil {
 		return nil, err
 	}
@@ -215,7 +217,13 @@ func ParentPathForRootMount(parent IsolationResult, child IsolationResult) (*saf
 	if err != nil {
 		return nil, err
 	}
-	return path.AppendAndResolveWithRelativeRoot(strings.TrimPrefix(childRootMountInfo.Root, parentMountInfo.Root))
+	return path.AppendAndResolveWithRelativeRoot(strings.TrimPrefix(childMountInfo.Root, parentMountInfo.Root))
+}
+
+// ParentPathForRootMount takes a container (child) and composes a path to
+// the root mount point in the context of the parent.
+func ParentPathForRootMount(parent IsolationResult, child IsolationResult) (*safepath.Path, error) {
+	return ParentPathForMount(parent, child, "/")
 }
 
 func SafeJoin(res IsolationResult, elems ...string) (*safepath.Path, error) {
