@@ -7,6 +7,7 @@ import (
 	"time"
 
 	"kubevirt.io/kubevirt/tests/framework/cleanup"
+	"kubevirt.io/kubevirt/tests/testsuite"
 
 	expect "github.com/google/goexpect"
 	. "github.com/onsi/ginkgo/v2"
@@ -68,7 +69,7 @@ var _ = Describe("[Serial][sig-compute]MediatedDevices", func() {
 		  exit 0
 		done`, expectedInstancesCount, mdevTypeName)
 			testPod := tests.RenderPod("test-all-mdev-created", []string{"/bin/bash", "-c"}, []string{check})
-			testPod, err = virtClient.CoreV1().Pods(util.NamespaceTestDefault).Create(context.Background(), testPod, metav1.CreateOptions{})
+			testPod, err = virtClient.CoreV1().Pods(testsuite.NamespacePrivileged).Create(context.Background(), testPod, metav1.CreateOptions{})
 			ExpectWithOffset(1, err).ToNot(HaveOccurred())
 
 			var latestPod k8sv1.Pod
@@ -87,7 +88,7 @@ var _ = Describe("[Serial][sig-compute]MediatedDevices", func() {
 		fi
 	        exit 0`
 		testPod := tests.RenderPod("test-all-mdev-removed", []string{"/bin/bash", "-c"}, []string{check})
-		testPod, err = virtClient.CoreV1().Pods(util.NamespaceTestDefault).Create(context.Background(), testPod, metav1.CreateOptions{})
+		testPod, err = virtClient.CoreV1().Pods(testsuite.NamespacePrivileged).Create(context.Background(), testPod, metav1.CreateOptions{})
 		ExpectWithOffset(1, err).ToNot(HaveOccurred())
 
 		var latestPod k8sv1.Pod

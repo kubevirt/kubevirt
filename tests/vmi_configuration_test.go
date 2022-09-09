@@ -2172,18 +2172,14 @@ var _ = Describe("[sig-compute]Configurations", func() {
 			var nodeName string
 			tmpHostDiskDir := tests.RandTmpDir()
 			tmpHostDiskPath := filepath.Join(tmpHostDiskDir, fmt.Sprintf("disk-%s.img", uuid.NewRandom().String()))
+
 			job := tests.CreateHostDiskImage(tmpHostDiskPath)
-			job, err = virtClient.CoreV1().Pods(util.NamespaceTestDefault).Create(context.Background(), job, metav1.CreateOptions{})
+			job, err = virtClient.CoreV1().Pods(testsuite.NamespacePrivileged).Create(context.Background(), job, metav1.CreateOptions{})
 			Expect(err).ToNot(HaveOccurred())
-			getStatus := func() k8sv1.PodPhase {
-				pod, err := virtClient.CoreV1().Pods(util.NamespaceTestDefault).Get(context.Background(), job.Name, metav1.GetOptions{})
-				Expect(err).ToNot(HaveOccurred())
-				if pod.Spec.NodeName != "" && nodeName == "" {
-					nodeName = pod.Spec.NodeName
-				}
-				return pod.Status.Phase
-			}
-			Eventually(getStatus, 30, 1).Should(Equal(k8sv1.PodSucceeded))
+			Eventually(ThisPod(job), 30*time.Second, 1*time.Second).Should(BeInPhase(k8sv1.PodSucceeded))
+			pod, err := ThisPod(job)()
+			Expect(err).NotTo(HaveOccurred())
+			nodeName = pod.Spec.NodeName
 			defer tests.RemoveHostDiskImage(tmpHostDiskDir, nodeName)
 
 			vmi := tests.NewRandomVMIWithHostDisk(tmpHostDiskPath, v1.HostDiskExistsOrCreate, nodeName)
