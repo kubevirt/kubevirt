@@ -23,6 +23,7 @@ import (
 	. "kubevirt.io/kubevirt/tests/framework/matcher"
 
 	v1 "kubevirt.io/api/core/v1"
+	instancetypev1alpha1 "kubevirt.io/api/instancetype/v1alpha1"
 	snapshotv1 "kubevirt.io/api/snapshot/v1alpha1"
 	"kubevirt.io/client-go/kubecli"
 	cdiv1 "kubevirt.io/containerized-data-importer-api/pkg/apis/core/v1beta1"
@@ -1282,6 +1283,80 @@ var _ = SIGDescribe("VirtualMachineSnapshot Tests", func() {
 				Entry("with DataVolume volume", tests.NewRandomVMIWithDataVolume),
 				Entry("with PVC volume", tests.NewRandomVMIWithPVC),
 			)
+		})
+
+		Context("With VM using instancetype and preferences", Label("instancetype"), func() {
+
+			var instancetype *instancetypev1alpha1.VirtualMachineInstancetype
+
+			BeforeEach(func() {
+
+				instancetype = &instancetypev1alpha1.VirtualMachineInstancetype{
+					ObjectMeta: metav1.ObjectMeta{
+						GenerateName: "vm-instancetype-",
+						Namespace:    util.NamespaceTestDefault,
+					},
+					Spec: instancetypev1alpha1.VirtualMachineInstancetypeSpec{
+						CPU: instancetypev1alpha1.CPUInstancetype{
+							Guest: 1,
+						},
+						Memory: instancetypev1alpha1.MemoryInstancetype{
+							Guest: resource.MustParse("128Mi"),
+						},
+					},
+				}
+
+				instancetype, err := virtClient.VirtualMachineInstancetype(util.NamespaceTestDefault).Create(context.Background(), instancetype, metav1.CreateOptions{})
+				Expect(err).ToNot(HaveOccurred())
+
+				running := false
+				vm = tests.NewRandomVMWithDataVolumeWithRegistryImport(
+					cd.DataVolumeImportUrlForContainerDisk(cd.ContainerDiskAlpine),
+					util.NamespaceTestDefault,
+					snapshotStorageClass,
+					corev1.ReadWriteOnce,
+				)
+				vm.Spec.Running = &running
+				vm.Spec.Instancetype = &v1.InstancetypeMatcher{
+					Name: instancetype.Name,
+					Kind: "VirtualMachineInstanceType",
+				}
+
+				vm.Spec.Template.Spec.Networks = []v1.Network{}
+
+				// Clear the domainspec so the instnacetype doesn't conflict
+				vm.Spec.Template.Spec.Domain = v1.DomainSpec{}
+
+				vm, err = virtClient.VirtualMachine(vm.Namespace).Create(vm)
+				Expect(err).ToNot(HaveOccurred())
+
+				for _, dvt := range vm.Spec.DataVolumeTemplates {
+					libstorage.EventuallyDVWith(vm.Namespace, dvt.Name, 180, HaveSucceeded())
+				}
+			})
+
+			It("Bug #8435 - should create a snapshot successfully, currently fails as source remains locked", func() {
+				snapshot = newSnapshot()
+				snapshot, err = virtClient.VirtualMachineSnapshot(snapshot.Namespace).Create(context.Background(), snapshot, metav1.CreateOptions{})
+				Expect(err).ToNot(HaveOccurred())
+
+				Eventually(func() bool {
+					snapshot, err = virtClient.VirtualMachineSnapshot(vm.Namespace).Get(context.Background(), snapshot.Name, metav1.GetOptions{})
+					Expect(err).ToNot(HaveOccurred())
+
+					if snapshot.Status == nil {
+						return false
+					}
+
+					// FIXME - The source remains unlocked here as the snapshot controller is unable to apply a finalizer to the VirtualMachine.
+					c1 := snapshot.Status.Conditions[0]
+					if c1.Type == snapshotv1.ConditionProgressing && c1.Status == corev1.ConditionFalse && strings.Contains(c1.Reason, "Source not locked") {
+						return true
+					}
+
+					return false
+				}, 90*time.Second, 10*time.Second).Should(BeTrue())
+			})
 		})
 	})
 })
