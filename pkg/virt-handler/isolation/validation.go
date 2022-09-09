@@ -3,9 +3,7 @@ package isolation
 import (
 	"encoding/json"
 	"fmt"
-	"os"
 	"os/exec"
-	"path/filepath"
 
 	virt_chroot "kubevirt.io/kubevirt/pkg/virt-handler/virt-chroot"
 
@@ -37,13 +35,4 @@ func GetImageInfo(imagePath string, context IsolationResult) (*containerdisk.Dis
 		return nil, fmt.Errorf("failed to parse disk info: %v", err)
 	}
 	return info, err
-}
-
-func GetFileSize(imagePath string, context IsolationResult) (int64, error) {
-	path := filepath.Join(context.MountRoot(), imagePath)
-	info, err := os.Stat(path)
-	if err != nil {
-		return -1, err
-	}
-	return info.Size(), nil
 }

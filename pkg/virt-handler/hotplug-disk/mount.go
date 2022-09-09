@@ -16,6 +16,9 @@ import (
 	"strings"
 	"sync"
 
+	"kubevirt.io/kubevirt/pkg/safepath"
+	"kubevirt.io/kubevirt/pkg/unsafepath"
+
 	virt_chroot "kubevirt.io/kubevirt/pkg/virt-handler/virt-chroot"
 
 	diskutils "kubevirt.io/kubevirt/pkg/ephemeral-disk-utils"
@@ -40,8 +43,8 @@ var (
 		return fmt.Sprintf("/proc/1/root/var/lib/kubelet/pods/%s/volumeDevices", string(podUID))
 	}
 
-	sourcePodBasePath = func(podUID types.UID) string {
-		return fmt.Sprintf("/proc/1/root/var/lib/kubelet/pods/%s/volumes", string(podUID))
+	sourcePodBasePath = func(podUID types.UID) (*safepath.Path, error) {
+		return safepath.JoinAndResolveWithRelativeRoot("/proc/1/root", fmt.Sprintf("/var/lib/kubelet/pods/%s/volumes", string(podUID)))
 	}
 
 	socketPath = func(podUID types.UID) string {
@@ -60,20 +63,24 @@ var (
 		return exec.Command("/usr/bin/mknod", "--mode", fmt.Sprintf("0%s", blockDevicePermissions), deviceName, "b", strconv.FormatInt(major, 10), strconv.FormatInt(minor, 10)).CombinedOutput()
 	}
 
-	mountCommand = func(sourcePath, targetPath string) ([]byte, error) {
-		return virt_chroot.MountChroot(strings.TrimPrefix(sourcePath, isolation.NodeIsolationResult().MountRoot()), targetPath, false).CombinedOutput()
+	mountCommand = func(sourcePath, targetPath *safepath.Path) ([]byte, error) {
+		return virt_chroot.MountChroot(sourcePath, targetPath, false).CombinedOutput()
 	}
 
-	unmountCommand = func(diskPath string) ([]byte, error) {
+	unmountCommand = func(diskPath *safepath.Path) ([]byte, error) {
 		return virt_chroot.UmountChroot(diskPath).CombinedOutput()
 	}
 
-	isMounted = func(path string) (bool, error) {
+	isMounted = func(path *safepath.Path) (bool, error) {
 		return isolation.NodeIsolationResult().IsMounted(path)
 	}
 
 	isBlockDevice = func(path string) (bool, error) {
-		return isolation.NodeIsolationResult().IsBlockDevice(path)
+		sPath, err := safepath.JoinAndResolveWithRelativeRoot(path)
+		if err != nil {
+			return false, err
+		}
+		return isolation.NodeIsolationResult().IsBlockDevice(sPath)
 	}
 
 	isolationDetector = func(path string) isolation.PodIsolationDetector {
@@ -297,7 +304,7 @@ func (m *volumeMounter) mountBlockHotplugVolume(vmi *v1.VirtualMachineInstance, 
 		return err
 	}
 
-	deviceName := filepath.Join(targetPath, volume)
+	deviceName := filepath.Join(unsafepath.UnsafeAbsolute(targetPath.Raw()), volume)
 
 	if isBlockExists, _ := isBlockDevice(deviceName); !isBlockExists {
 		computeCGroupPath, err := m.getTargetCgroupPath(vmi)
@@ -554,7 +561,7 @@ func (m *volumeMounter) mountFileSystemHotplugVolume(vmi *v1.VirtualMachineInsta
 	if isMounted, err := isMounted(targetPath); err != nil {
 		return fmt.Errorf("failed to determine if %s is already mounted: %v", targetPath, err)
 	} else if !isMounted {
-		if err := m.writePathToMountRecord(targetPath, vmi, record); err != nil {
+		if err := m.writePathToMountRecord(unsafepath.UnsafeAbsolute(targetPath.Raw()), vmi, record); err != nil {
 			return err
 		}
 		if out, err := mountCommand(sourcePath, targetPath); err != nil {
@@ -576,11 +583,14 @@ func (m *volumeMounter) findVirtlauncherUID(vmi *v1.VirtualMachineInstance) type
 	return types.UID("")
 }
 
-func (m *volumeMounter) getSourcePodFilePath(sourceUID types.UID, vmi *v1.VirtualMachineInstance, volume string) (string, error) {
+func (m *volumeMounter) getSourcePodFilePath(sourceUID types.UID, vmi *v1.VirtualMachineInstance, volume string) (*safepath.Path, error) {
 	diskPath := ""
 	if sourceUID != types.UID("") {
-		basepath := sourcePodBasePath(sourceUID)
-		err := filepath.Walk(basepath, func(filePath string, info os.FileInfo, err error) error {
+		basepath, err := sourcePodBasePath(sourceUID)
+		if err != nil {
+			return nil, err
+		}
+		err = filepath.Walk(unsafepath.UnsafeAbsolute(basepath.Raw()), func(filePath string, info os.FileInfo, err error) error {
 			if path.Base(filePath) == "disk.img" {
 				// Found disk image
 				diskPath = path.Dir(filePath)
@@ -589,7 +599,7 @@ func (m *volumeMounter) getSourcePodFilePath(sourceUID types.UID, vmi *v1.Virtua
 			return nil
 		})
 		if err != nil && err != io.EOF {
-			return diskPath, err
+			return nil, err
 		}
 	}
 	if diskPath == "" {
@@ -598,23 +608,23 @@ func (m *volumeMounter) getSourcePodFilePath(sourceUID types.UID, vmi *v1.Virtua
 		iso := isolationDetector("/path")
 		isoRes, err := iso.DetectForSocket(vmi, socketPath(sourceUID))
 		if err != nil {
-			return "", err
+			return nil, err
 		}
 		mounts, err := procMounts(isoRes.Pid())
 		if err != nil {
-			return "", err
+			return nil, err
 		}
 		for _, mount := range mounts {
 			if mount.MountPoint == "/pvc" {
-				return mount.Root, nil
+				return safepath.JoinAndResolveWithRelativeRoot("/proc/1/root", mount.Root)
 			}
 		}
 	}
 	if diskPath == "" {
 		// Did not find the disk image file, return error
-		return diskPath, fmt.Errorf("Unable to find source disk image path for pod %s", sourceUID)
+		return nil, fmt.Errorf("Unable to find source disk image path for pod %s", sourceUID)
 	}
-	return diskPath, nil
+	return safepath.JoinAndResolveWithRelativeRoot("/", diskPath)
 }
 
 // Unmount unmounts all hotplug disk that are no longer part of the VMI
@@ -643,14 +653,14 @@ func (m *volumeMounter) Unmount(vmi *v1.VirtualMachineInstance) error {
 				continue
 			}
 			if m.isBlockVolume(volumeStatus.HotplugVolume.AttachPodUID) {
-				path := filepath.Join(basePath, volumeStatus.Name)
+				path := filepath.Join(unsafepath.UnsafeAbsolute(basePath.Raw()), volumeStatus.Name)
 				currentHotplugPaths[path] = virtlauncherUID
 			} else {
 				path, err := hotplugdisk.GetFileSystemDiskTargetPathFromHostView(virtlauncherUID, volumeStatus.Name, false)
 				if err != nil {
 					return err
 				}
-				currentHotplugPaths[path] = virtlauncherUID
+				currentHotplugPaths[unsafepath.UnsafeAbsolute(path.Raw())] = virtlauncherUID
 			}
 		}
 		newRecord := vmiMountTargetRecord{
@@ -687,10 +697,14 @@ func (m *volumeMounter) Unmount(vmi *v1.VirtualMachineInstance) error {
 }
 
 func (m *volumeMounter) unmountFileSystemHotplugVolumes(diskPath string) error {
-	if mounted, err := isMounted(diskPath); err != nil {
+	safeDiskPath, err := safepath.JoinAndResolveWithRelativeRoot(diskPath)
+	if err != nil {
+		return err
+	}
+	if mounted, err := isMounted(safeDiskPath); err != nil {
 		return fmt.Errorf("failed to check mount point for hotplug disk %v: %v", diskPath, err)
 	} else if mounted {
-		out, err := unmountCommand(diskPath)
+		out, err := unmountCommand(safeDiskPath)
 		if err != nil {
 			return fmt.Errorf("failed to unmount hotplug disk %v: %v : %v", diskPath, string(out), err)
 		}
@@ -771,9 +785,13 @@ func (m *volumeMounter) IsMounted(vmi *v1.VirtualMachineInstance, volume string,
 		return false, err
 	}
 	if m.isBlockVolume(sourceUID) {
-		deviceName := filepath.Join(targetPath, volume)
+		deviceName := filepath.Join(unsafepath.UnsafeAbsolute(targetPath.Raw()), volume)
 		isBlockExists, _ := isBlockDevice(deviceName)
 		return isBlockExists, nil
 	}
-	return isMounted(filepath.Join(targetPath, volume))
+	targetFile, err := targetPath.AppendAndResolveWithRelativeRoot(volume)
+	if err != nil {
+		return false, err
+	}
+	return isMounted(targetFile)
 }

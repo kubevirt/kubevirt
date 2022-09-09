@@ -31,17 +31,23 @@ import (
 	"io"
 	"net"
 	"os"
-	"path/filepath"
 	"strings"
 	"syscall"
 	"time"
 	"unsafe"
 
+	"kubevirt.io/kubevirt/pkg/unsafepath"
+
 	"golang.org/x/sys/unix"
 
+	"kubevirt.io/kubevirt/pkg/safepath"
+
 	"github.com/containernetworking/plugins/pkg/ns"
+
 	ps "github.com/mitchellh/go-ps"
 	"k8s.io/apimachinery/pkg/api/resource"
+
+	mount "github.com/moby/sys/mountinfo"
 
 	v1 "kubevirt.io/client-go/api/v1"
 	"kubevirt.io/client-go/log"
@@ -229,7 +235,7 @@ type IsolationResult interface {
 	// full path to the process namespace
 	PIDNamespace() string
 	// full path to the process root mount
-	MountRoot() string
+	MountRoot() (*safepath.Path, error)
 	// retrieve additional information about the process root mount
 	MountInfoRoot() (*MountInfo, error)
 	// full path to the mount namespace
@@ -324,28 +330,31 @@ func (r *realIsolationResult) MountInfoRoot() (mountInfo *MountInfo, err error) 
 	return
 }
 
-// IsMounted checks if a path in the mount namespace of a
-// given process isolation result is a mount point. Works with symlinks.
-func (r *realIsolationResult) IsMounted(mountPoint string) (isMounted bool, err error) {
-	mountPoint, err = filepath.EvalSymlinks(mountPoint)
-	if os.IsNotExist(err) {
-		return false, nil
-	}
+// IsMounted checks if the given path is a mount point or not.
+func (r *realIsolationResult) IsMounted(mountPoint *safepath.Path) (isMounted bool, err error) {
+	// Ensure that the path is still a valid absolute path without symlinks
+	f, err := safepath.OpenAtNoFollow(mountPoint)
 	if err != nil {
-		return false, fmt.Errorf("could not resolve mount point path: %v", err)
-	}
-	if err = forEachRecord(r.mountInfo(), func(record []string) bool {
-		isMounted = record[4] == mountPoint
-		return isMounted
-	}); err != nil {
+		// treat os.IsNotExist() as error too
+		// since the inherent property of a safepath.Path is that the path must
+		// have existed at the point of object creation
 		return false, err
 	}
-	return
+	defer f.Close()
+	if mountPoint.IsRoot() {
+		// mount.Mounted has purely string matching based special logic on how to treat "/".
+		// Emulating this for safepath here without ever having to call an unsafe method on our
+		// safepath.
+		return true, nil
+	} else {
+		// TODO: Unsafe full path is required, and not a fd, since otherwise mount table lookups and such would not work.
+		return mount.Mounted(unsafepath.UnsafeAbsolute(mountPoint.Raw()))
+	}
 }
 
 // IsBlockDevice check if the path given is a block device or not.
-func (r *realIsolationResult) IsBlockDevice(path string) (bool, error) {
-	fileInfo, err := os.Stat(path)
+func (r *realIsolationResult) IsBlockDevice(path *safepath.Path) (bool, error) {
+	fileInfo, err := safepath.StatAtNoFollow(path)
 	if err == nil {
 		if !fileInfo.IsDir() && (fileInfo.Mode()&os.ModeDevice) != 0 {
 			return true, nil
@@ -378,27 +387,48 @@ func (r *realIsolationResult) ParentMountInfoFor(mountInfo *MountInfo) (parentMo
 
 // FullPath takes the mount info from a container and composes the full path starting from
 // the root mount of the given process.
-func (r *realIsolationResult) FullPath(mountInfo *MountInfo) (path string, err error) {
+func (r *realIsolationResult) FullPath(mountInfo *MountInfo) (path *safepath.Path, err error) {
 	// Handle btrfs subvolumes: mountInfo.Root seems to already provide the needed path
 	if strings.HasPrefix(mountInfo.Root, "/@") {
-		path = filepath.Join(r.MountRoot(), strings.TrimPrefix(mountInfo.Root, "/@"))
-		return
+		mountRoot, err := r.MountRoot()
+		if err != nil {
+			return nil, err
+		}
+		path, err = mountRoot.AppendAndResolveWithRelativeRoot(strings.TrimPrefix(mountInfo.Root, "/@"))
+		if err != nil {
+			return nil, err
+		}
+		return path, nil
 	}
-
 	parentMountInfo, err := r.ParentMountInfoFor(mountInfo)
 	if err != nil {
 		return
 	}
-	path = filepath.Join(r.MountRoot(), parentMountInfo.Root, parentMountInfo.MountPoint, mountInfo.Root)
-	return
+	mountRoot, err := r.MountRoot()
+	if err != nil {
+		return nil, err
+	}
+	path, err = mountRoot.AppendAndResolveWithRelativeRoot(parentMountInfo.Root, parentMountInfo.MountPoint, mountInfo.Root)
+	if err != nil {
+		return nil, err
+	}
+	return path, nil
 }
 
 func (r *realIsolationResult) NetNamespace() string {
 	return fmt.Sprintf("/proc/%d/ns/net", r.pid)
 }
 
-func (r *realIsolationResult) MountRoot() string {
-	return fmt.Sprintf("/proc/%d/root", r.pid)
+func (r *realIsolationResult) MountRoot() (*safepath.Path, error) {
+	return safepath.JoinAndResolveWithRelativeRoot(fmt.Sprintf("/proc/%d/root", r.pid))
+}
+
+func (r *realIsolationResult) MountRootRelative(relativePath string) (*safepath.Path, error) {
+	mountRoot, err := r.MountRoot()
+	if err != nil {
+		return nil, err
+	}
+	return mountRoot.AppendAndResolveWithRelativeRoot(relativePath)
 }
 
 func (r *realIsolationResult) Pid() int {

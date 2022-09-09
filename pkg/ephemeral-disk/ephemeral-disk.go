@@ -110,7 +110,7 @@ func CreateBackedImageForVolume(volume v1.Volume, backingFile string) error {
 	}
 
 	// We need to ensure that the permissions are setup correctly.
-	err = diskutils.DefaultOwnershipManager.SetFileOwnership(imagePath)
+	err = diskutils.DefaultOwnershipManager.UnsafeSetFileOwnership(imagePath)
 	return err
 }
 

@@ -26,10 +26,10 @@ import (
 	"path/filepath"
 	"syscall"
 
+	k8sv1 "k8s.io/api/core/v1"
+
 	"kubevirt.io/client-go/log"
 	ephemeraldiskutils "kubevirt.io/kubevirt/pkg/ephemeral-disk-utils"
-
-	k8sv1 "k8s.io/api/core/v1"
 
 	v1 "kubevirt.io/client-go/api/v1"
 	"kubevirt.io/client-go/kubecli"
@@ -88,7 +88,7 @@ func ReplacePVCByHostDisk(vmi *v1.VirtualMachineInstance, clientset kubecli.Kube
 			// PersistenVolumeClaim is replaced by HostDisk
 			volumeSource.PersistentVolumeClaim = nil
 			// Set ownership of the disk.img to qemu
-			if err := ephemeraldiskutils.DefaultOwnershipManager.SetFileOwnership(file); err != nil && !os.IsNotExist(err) {
+			if err := ephemeraldiskutils.DefaultOwnershipManager.UnsafeSetFileOwnership(file); err != nil && !os.IsNotExist(err) {
 				log.Log.Reason(err).Errorf("Couldn't set Ownership on %s: %v", file, err)
 				return err
 			}
@@ -182,7 +182,7 @@ func (hdc *DiskImgCreator) mountHostDiskAndSetOwnership(vmi *v1.VirtualMachineIn
 		}
 	}
 	// Change file ownership to the qemu user.
-	if err := ephemeraldiskutils.DefaultOwnershipManager.SetFileOwnership(diskPath); err != nil {
+	if err := ephemeraldiskutils.DefaultOwnershipManager.UnsafeSetFileOwnership(diskPath); err != nil {
 		log.Log.Reason(err).Errorf("Couldn't set Ownership on %s: %v", diskPath, err)
 		return err
 	}

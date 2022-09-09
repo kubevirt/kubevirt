@@ -23,6 +23,7 @@ import (
 	"encoding/base64"
 	"fmt"
 	"net"
+	"path/filepath"
 	"regexp"
 	"strings"
 
@@ -187,6 +188,7 @@ func ValidateVirtualMachineInstanceSpec(field *k8sfield.Path, spec *v1.VirtualMa
 
 	causes = append(causes, validateDomainSpec(field.Child("domain"), &spec.Domain)...)
 	causes = append(causes, validateVolumes(field.Child("volumes"), spec.Volumes, config)...)
+	causes = append(causes, validateContainerDisks(field, spec)...)
 
 	causes = append(causes, validateAccessCredentials(field.Child("accessCredentials"), spec.AccessCredentials, spec.Volumes)...)
 
@@ -1293,6 +1295,43 @@ func validateHostNameNotConformingToDNSLabelRules(field *k8sfield.Path, spec *v1
 		}
 	}
 	return causes
+}
+
+func validateContainerDisks(field *k8sfield.Path, spec *v1.VirtualMachineInstanceSpec) (causes []metav1.StatusCause) {
+	for idx, volume := range spec.Volumes {
+		if volume.ContainerDisk == nil || volume.ContainerDisk.Path == "" {
+			continue
+		}
+		causes = append(causes, validatePath(field.Child("volumes").Index(idx).Child("conatinerDisk"), volume.ContainerDisk.Path)...)
+	}
+	return causes
+}
+
+func validatePath(field *k8sfield.Path, path string) (causes []metav1.StatusCause) {
+	if path == "/" {
+		causes = append(causes, metav1.StatusCause{
+			Type: metav1.CauseTypeFieldValueInvalid,
+			Message: fmt.Sprintf("%s must not point to root",
+				field.String(),
+			),
+			Field: field.String(),
+		})
+	} else {
+		cleanedPath := filepath.Join("/", path)
+		providedPath := strings.TrimSuffix(path, "/") // Join trims suffix slashes
+
+		if cleanedPath != providedPath {
+			causes = append(causes, metav1.StatusCause{
+				Type: metav1.CauseTypeFieldValueInvalid,
+				Message: fmt.Sprintf("%s must be an absolute path to a file without relative components",
+					field.String(),
+				),
+				Field: field.String(),
+			})
+		}
+	}
+	return causes
+
 }
 
 func appendNewStatusCauseForHostNameNotConformingToDNSLabelRules(field *k8sfield.Path, causes []metav1.StatusCause, errors []string) []metav1.StatusCause {

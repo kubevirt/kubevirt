@@ -36,6 +36,7 @@ import (
 	"time"
 
 	"kubevirt.io/kubevirt/pkg/config"
+	"kubevirt.io/kubevirt/pkg/safepath"
 
 	"github.com/opencontainers/runc/libcontainer/cgroups"
 
@@ -48,7 +49,6 @@ import (
 	"k8s.io/client-go/tools/record"
 	"k8s.io/client-go/util/workqueue"
 
-	"kubevirt.io/kubevirt/pkg/util"
 	netcache "kubevirt.io/kubevirt/pkg/virt-launcher/virtwrap/network/cache"
 
 	"kubevirt.io/kubevirt/pkg/virt-handler/heartbeat"
@@ -371,16 +371,16 @@ func (d *VirtualMachineController) startDomainNotifyPipe(domainPipeStopChan chan
 	}
 
 	// inject the domain-notify.sock into the VMI pod.
-	socketPath := filepath.Join(res.MountRoot(), d.virtShareDir, "domain-notify-pipe.sock")
-
-	os.RemoveAll(socketPath)
-	err = util.MkdirAllWithNosec(filepath.Dir(socketPath))
+	root, err := res.MountRoot()
 	if err != nil {
-		log.Log.Reason(err).Error("unable to create directory for unix socket")
+		return err
+	}
+	socketDir, err := root.AppendAndResolveWithRelativeRoot(d.virtShareDir)
+	if err != nil {
 		return err
 	}
 
-	listener, err := net.Listen("unix", socketPath)
+	listener, err := safepath.ListenUnixNoFollow(socketDir, "domain-notify-pipe.sock")
 	if err != nil {
 		log.Log.Reason(err).Error("failed to create unix socket for proxy service")
 		return err
@@ -1221,7 +1221,17 @@ func (d *VirtualMachineController) updateIsoSizeStatus(vmi *v1.VirtualMachineIns
 			log.DefaultLogger().V(2).Warningf("failed to detect VMI %s", vmi.Name)
 			continue
 		}
-		size, err := isolation.GetFileSize(volPath, res)
+		rootPath, err := res.MountRoot()
+		if err != nil {
+			log.DefaultLogger().V(2).Reason(err).Warningf("failed to detect VMI %s", vmi.Name)
+			continue
+		}
+		safeVolPath, err := rootPath.AppendAndResolveWithRelativeRoot(volPath)
+		if err != nil {
+			log.DefaultLogger().V(2).Warningf("failed to determine file size for volume %s", volPath)
+			continue
+		}
+		fileInfo, err := safepath.StatAtNoFollow(safeVolPath)
 		if err != nil {
 			log.DefaultLogger().V(2).Warningf("failed to determine file size for volume %s", volPath)
 			continue
@@ -1229,7 +1239,7 @@ func (d *VirtualMachineController) updateIsoSizeStatus(vmi *v1.VirtualMachineIns
 
 		for i, _ := range vmi.Status.VolumeStatus {
 			if vmi.Status.VolumeStatus[i].Name == volume.Name {
-				vmi.Status.VolumeStatus[i].Size = size
+				vmi.Status.VolumeStatus[i].Size = fileInfo.Size()
 				continue
 			}
 		}
