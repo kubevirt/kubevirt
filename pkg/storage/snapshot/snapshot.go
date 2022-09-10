@@ -706,6 +706,9 @@ func (ctrl *VMSnapshotController) updateVolumeSnapshotStatuses(vm *kubevirtv1.Vi
 	}
 
 	vmCopy.Status.VolumeSnapshotStatuses = statuses
+	if equality.Semantic.DeepEqual(vmCopy.Status.VolumeSnapshotStatuses, vm.Status.VolumeSnapshotStatuses) {
+		return nil
+	}
 	return ctrl.vmStatusUpdater.UpdateStatus(vmCopy)
 }
 
