@@ -11,5 +11,6 @@ go_library(
         "//vendor/github.com/onsi/ginkgo/v2:go_default_library",
         "//vendor/github.com/onsi/ginkgo/v2/reporters:go_default_library",
         "//vendor/github.com/onsi/gomega:go_default_library",
+        "//vendor/github.com/onsi/gomega/format:go_default_library",
     ],
 )
