@@ -7,6 +7,8 @@ import (
 	"encoding/json"
 	"fmt"
 
+	"k8s.io/client-go/util/flowcontrol"
+
 	"os"
 	"path/filepath"
 	"regexp"
@@ -113,9 +115,16 @@ func (r *KubernetesReporter) DumpAllNamespaces(duration time.Duration) {
 }
 
 func (r *KubernetesReporter) dumpNamespaces(duration time.Duration, vmiNamespaces []string) {
-	virtCli, err := kubecli.GetKubevirtClient()
+	cfg, err := kubecli.GetKubevirtClientConfig()
 	if err != nil {
-		fmt.Fprintf(os.Stderr, "failed to get client: %v\n", err)
+		fmt.Fprintf(os.Stderr, "failed to get client config: %v\n", err)
+		return
+	}
+	// we fetch quite some stuff, this can take ages if we don't increase the default rate limit
+	cfg.RateLimiter = flowcontrol.NewTokenBucketRateLimiter(100, 100)
+	virtCli, err := kubecli.GetKubevirtClientFromRESTConfig(cfg)
+	if err != nil {
+		fmt.Fprintf(os.Stderr, "failed to create client: %v\n", err)
 		return
 	}
 
@@ -1010,7 +1019,7 @@ func (r *KubernetesReporter) logClusterOverview() {
 	}
 }
 
-//getNodesWithVirtLauncher returns all node where a virt-launcher pod ran (finished) or still runs
+// getNodesWithVirtLauncher returns all node where a virt-launcher pod ran (finished) or still runs
 func getNodesWithVirtLauncher(virtCli kubecli.KubevirtClient) []string {
 	pods, err := virtCli.CoreV1().Pods(v1.NamespaceAll).List(context.Background(), metav1.ListOptions{LabelSelector: fmt.Sprintf(virtLauncherNameFmt, v12.AppLabel)})
 	if err != nil {
