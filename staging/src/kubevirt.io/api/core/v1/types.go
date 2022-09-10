@@ -2191,6 +2191,7 @@ type KubeVirtConfiguration struct {
 	WebhookConfiguration           *ReloadableComponentConfiguration `json:"webhookConfiguration,omitempty"`
 	ControllerConfiguration        *ReloadableComponentConfiguration `json:"controllerConfiguration,omitempty"`
 	HandlerConfiguration           *ReloadableComponentConfiguration `json:"handlerConfiguration,omitempty"`
+	TLSConfiguration               *TLSConfiguration                 `json:"tlsConfiguration,omitempty"`
 }
 
 type SMBiosConfiguration struct {
@@ -2199,6 +2200,34 @@ type SMBiosConfiguration struct {
 	Version      string `json:"version,omitempty"`
 	Sku          string `json:"sku,omitempty"`
 	Family       string `json:"family,omitempty"`
+}
+
+type TLSProtocolVersion string
+
+const (
+	// VersionTLS10 is version 1.0 of the TLS security protocol.
+	VersionTLS10 TLSProtocolVersion = "VersionTLS10"
+	// VersionTLS11 is version 1.1 of the TLS security protocol.
+	VersionTLS11 TLSProtocolVersion = "VersionTLS11"
+	// VersionTLS12 is version 1.2 of the TLS security protocol.
+	VersionTLS12 TLSProtocolVersion = "VersionTLS12"
+	// VersionTLS13 is version 1.3 of the TLS security protocol.
+	VersionTLS13 TLSProtocolVersion = "VersionTLS13"
+)
+
+// TLSConfiguration holds TLS options
+type TLSConfiguration struct {
+	// MinTLSVersion is a way to specify the minimum protocol version that is acceptable for TLS connections.
+	// Protocol versions are based on the following most common TLS configurations:
+	//
+	//   https://ssl-config.mozilla.org/
+	//
+	// Note that SSLv3.0 is not a supported protocol version due to well known
+	// vulnerabilities such as POODLE: https://en.wikipedia.org/wiki/POODLE
+	// +kubebuilder:validation:Enum=VersionTLS10;VersionTLS11;VersionTLS12;VersionTLS13
+	MinTLSVersion TLSProtocolVersion `json:"minTLSVersion,omitempty"`
+	// +listType=set
+	Ciphers []string `json:"ciphers,omitempty"`
 }
 
 // MigrationConfiguration holds migration options

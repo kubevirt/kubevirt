@@ -2818,24 +2818,13 @@ spec:
 
 	Context("with VMExport feature gate toggled", func() {
 
-		waitExportProxyReady := func() {
-			Eventually(func() bool {
-				d, err := virtClient.AppsV1().Deployments(originalKv.Namespace).Get(context.TODO(), "virt-exportproxy", metav1.GetOptions{})
-				if errors.IsNotFound(err) {
-					return false
-				}
-				Expect(err).ToNot(HaveOccurred())
-				return d.Status.AvailableReplicas > 0
-			}, time.Minute*5, 2*time.Second).Should(BeTrue())
-		}
-
 		AfterEach(func() {
 			tests.EnableFeatureGate(virtconfig.VMExportGate)
-			waitExportProxyReady()
+			testsuite.WaitExportProxyReady()
 		})
 
 		It("should delete and recreate virt-exportproxy", func() {
-			waitExportProxyReady()
+			testsuite.WaitExportProxyReady()
 			tests.DisableFeatureGate(virtconfig.VMExportGate)
 
 			Eventually(func() bool {

@@ -28,6 +28,8 @@ import (
 	"net/http/httputil"
 	"regexp"
 
+	kvtls "kubevirt.io/kubevirt/pkg/util/tls"
+
 	"github.com/prometheus/client_golang/prometheus/promhttp"
 	"k8s.io/client-go/tools/cache"
 	certificate2 "k8s.io/client-go/util/certificate"
@@ -41,7 +43,6 @@ import (
 	"kubevirt.io/kubevirt/pkg/certificates/bootstrap"
 	"kubevirt.io/kubevirt/pkg/controller"
 	"kubevirt.io/kubevirt/pkg/service"
-	webhooksutils "kubevirt.io/kubevirt/pkg/util/webhooks"
 )
 
 const (
@@ -56,11 +57,12 @@ const (
 
 type exportProxyApp struct {
 	service.ServiceListen
-	tlsCertFilePath string
-	tlsKeyFilePath  string
-	certManager     certificate2.Manager
-	caManager       webhooksutils.ClientCAManager
-	exportInformer  cache.SharedIndexInformer
+	tlsCertFilePath  string
+	tlsKeyFilePath   string
+	certManager      certificate2.Manager
+	caManager        kvtls.ClientCAManager
+	exportInformer   cache.SharedIndexInformer
+	kubeVirtInformer cache.SharedIndexInformer
 }
 
 func NewExportProxyApp() service.Service {
@@ -85,23 +87,16 @@ func (app *exportProxyApp) Run() {
 	app.prepareCertManager()
 	go app.certManager.Start()
 
+	appTLSConfig := kvtls.SetupExportProxyTLS(app.certManager, app.kubeVirtInformer)
 	mux := http.NewServeMux()
 	mux.HandleFunc("/", app.proxyHandler)
 	mux.HandleFunc("/healthz", app.healthzHandler)
 	mux.Handle("/metrics", promhttp.Handler())
 
 	server := &http.Server{
-		Addr:    app.Address(),
-		Handler: mux,
-		TLSConfig: &tls.Config{
-			GetCertificate: func(info *tls.ClientHelloInfo) (certificate *tls.Certificate, err error) {
-				cert := app.certManager.Current()
-				if cert == nil {
-					return nil, fmt.Errorf("error getting cert")
-				}
-				return cert, nil
-			},
-		},
+		Addr:      app.Address(),
+		Handler:   mux,
+		TLSConfig: appTLSConfig,
 	}
 
 	if err := server.ListenAndServeTLS("", ""); err != nil {
@@ -189,10 +184,11 @@ func (app *exportProxyApp) prepareInformers(stopChan <-chan struct{}) {
 	kubeInformerFactory := controller.NewKubeInformerFactory(virtCli.RestClient(), virtCli, aggregatorClient, namespace)
 	caInformer := kubeInformerFactory.KubeVirtExportCAConfigMap()
 	app.exportInformer = kubeInformerFactory.VirtualMachineExport()
+	app.kubeVirtInformer = kubeInformerFactory.KubeVirt()
 	kubeInformerFactory.Start(stopChan)
 	kubeInformerFactory.WaitForCacheSync(stopChan)
 
-	app.caManager = webhooksutils.NewCAManager(caInformer.GetStore(), namespace, "kubevirt-export-ca")
+	app.caManager = kvtls.NewCAManager(caInformer.GetStore(), namespace, "kubevirt-export-ca")
 }
 
 func (app *exportProxyApp) prepareCertManager() {

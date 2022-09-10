@@ -28,6 +28,8 @@ import (
 	"runtime"
 	"time"
 
+	kvtls "kubevirt.io/kubevirt/pkg/util/tls"
+
 	"kubevirt.io/kubevirt/pkg/monitoring/migration"
 
 	clonev1alpha1 "kubevirt.io/api/clone/v1alpha1"
@@ -77,7 +79,6 @@ import (
 	"kubevirt.io/kubevirt/pkg/storage/export/export"
 	"kubevirt.io/kubevirt/pkg/storage/snapshot"
 	"kubevirt.io/kubevirt/pkg/util"
-	"kubevirt.io/kubevirt/pkg/util/webhooks"
 	virtconfig "kubevirt.io/kubevirt/pkg/virt-config"
 	"kubevirt.io/kubevirt/pkg/virt-controller/leaderelectionconfig"
 	"kubevirt.io/kubevirt/pkg/virt-controller/services"
@@ -458,7 +459,7 @@ func (vca *VirtControllerApp) Run() {
 
 	promCertManager := bootstrap.NewFileCertificateManager(vca.promCertFilePath, vca.promKeyFilePath)
 	go promCertManager.Start()
-	promTLSConfig := webhooks.SetupPromTLS(promCertManager)
+	promTLSConfig := kvtls.SetupPromTLS(promCertManager, vca.clusterConfig)
 
 	go func() {
 		httpLogger := logger.With("service", "http")

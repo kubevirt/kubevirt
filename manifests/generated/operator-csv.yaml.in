@@ -805,6 +805,13 @@ spec:
           - list
           - watch
         - apiGroups:
+          - kubevirt.io
+          resources:
+          - kubevirts
+          verbs:
+          - list
+          - watch
+        - apiGroups:
           - ""
           resourceNames:
           - kubevirt-export-ca
