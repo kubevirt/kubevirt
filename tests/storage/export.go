@@ -60,6 +60,7 @@ import (
 	"kubevirt.io/kubevirt/tests"
 	"kubevirt.io/kubevirt/tests/clientcmd"
 	cd "kubevirt.io/kubevirt/tests/containerdisk"
+	"kubevirt.io/kubevirt/tests/dvbuilder"
 	"kubevirt.io/kubevirt/tests/flags"
 	"kubevirt.io/kubevirt/tests/framework/checks"
 	. "kubevirt.io/kubevirt/tests/framework/matcher"
@@ -1308,7 +1309,12 @@ var _ = SIGDescribe("Export", func() {
 		if !exists {
 			Skip("Skip test when storage with snapshot is not present")
 		}
-		blankDv := libstorage.NewBlankDataVolume(util.NamespaceTestDefault, sc, "64Mi", k8sv1.ReadWriteOnce, k8sv1.PersistentVolumeFilesystem)
+
+		blankDv := dvbuilder.NewDataVolume(
+			dvbuilder.WithBlankImageSource(),
+			dvbuilder.WithPVC(sc, "64Mi", k8sv1.ReadWriteOnce, k8sv1.PersistentVolumeFilesystem),
+		)
+
 		vm := tests.NewRandomVMWithDataVolumeAndUserDataInStorageClass(
 			cd.DataVolumeImportUrlForContainerDisk(cd.ContainerDiskCirros),
 			util.NamespaceTestDefault,
@@ -1465,9 +1471,15 @@ var _ = SIGDescribe("Export", func() {
 		export := createVMExportObject(vm.Name, vm.Namespace, token)
 		Expect(export).ToNot(BeNil())
 		waitForExportPhase(export, exportv1.Skipped)
-		dv := libstorage.NewBlankDataVolume(vm.Namespace, sc, "512Mi", k8sv1.ReadWriteOnce, k8sv1.PersistentVolumeFilesystem)
+
+		dv := dvbuilder.NewDataVolume(
+			dvbuilder.WithNamespace(vm.Namespace),
+			dvbuilder.WithBlankImageSource(),
+			dvbuilder.WithPVC(sc, dvbuilder.PVCSizeForRegistryImport, k8sv1.ReadWriteOnce, k8sv1.PersistentVolumeFilesystem),
+		)
 		dv = createDataVolume(dv)
 		Eventually(ThisPVCWith(vm.Namespace, dv.Name), 160).Should(Exist())
+
 		vm, err = virtClient.VirtualMachine(vm.Namespace).Get(vm.Name, &metav1.GetOptions{})
 		Expect(err).ToNot(HaveOccurred())
 		libstorage.AddDataVolume(vm, "blank-disk", dv)
@@ -1606,7 +1618,11 @@ var _ = SIGDescribe("Export", func() {
 				Skip("Skip test when storage with snapshot is not present")
 			}
 			// Create a populated Snapshot
-			blankDv := libstorage.NewBlankDataVolume(util.NamespaceTestDefault, sc, "64Mi", k8sv1.ReadWriteOnce, k8sv1.PersistentVolumeFilesystem)
+			blankDv := dvbuilder.NewDataVolume(
+				dvbuilder.WithBlankImageSource(),
+				dvbuilder.WithPVC(sc, "64mi", k8sv1.ReadWriteOnce, k8sv1.PersistentVolumeFilesystem),
+			)
+
 			vm := tests.NewRandomVMWithDataVolumeAndUserDataInStorageClass(
 				cd.DataVolumeImportUrlForContainerDisk(cd.ContainerDiskCirros),
 				util.NamespaceTestDefault,
@@ -1735,7 +1751,10 @@ var _ = SIGDescribe("Export", func() {
 				}
 
 				// Create a populated Snapshot
-				blankDv := libstorage.NewBlankDataVolume(util.NamespaceTestDefault, sc, "64Mi", k8sv1.ReadWriteOnce, k8sv1.PersistentVolumeFilesystem)
+				blankDv := dvbuilder.NewDataVolume(
+					dvbuilder.WithBlankImageSource(),
+					dvbuilder.WithPVC(sc, "64mi", k8sv1.ReadWriteOnce, k8sv1.PersistentVolumeFilesystem),
+				)
 				vm := tests.NewRandomVMWithDataVolumeAndUserDataInStorageClass(
 					cd.DataVolumeImportUrlForContainerDisk(cd.ContainerDiskCirros),
 					util.NamespaceTestDefault,

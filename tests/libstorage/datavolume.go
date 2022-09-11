@@ -71,14 +71,6 @@ func NewDataVolumeWithRegistryImportInStorageClass(imageUrl, namespace, storageC
 	)
 }
 
-func NewBlankDataVolume(namespace, storageClass, size string, accessMode v1.PersistentVolumeAccessMode, volumeMode v1.PersistentVolumeMode) *v1beta1.DataVolume {
-	return dvbuilder.NewDataVolume(
-		dvbuilder.WithNamespace(namespace),
-		dvbuilder.WithBlankImageSource(),
-		dvbuilder.WithPVC(storageClass, size, accessMode, volumeMode),
-	)
-}
-
 // todo: this is wrong to skip the test from here. This function should only produce a DV instance and should not deal
 //       with test logic.
 //       Change the function to return error, and skip the test from the caller.
