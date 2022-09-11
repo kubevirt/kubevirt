@@ -43,6 +43,7 @@ import (
 	virtconfig "kubevirt.io/kubevirt/pkg/virt-config"
 	virthandler "kubevirt.io/kubevirt/pkg/virt-handler"
 	"kubevirt.io/kubevirt/tests/clientcmd"
+	"kubevirt.io/kubevirt/tests/dvbuilder"
 	"kubevirt.io/kubevirt/tests/framework/checks"
 	"kubevirt.io/kubevirt/tests/libnode"
 	"kubevirt.io/kubevirt/tests/util"
@@ -2582,14 +2583,17 @@ var _ = Describe("[rfe_id:393][crit:high][vendor:cnv-qe@redhat.com][level:system
 					Skip("Skip DataVolume tests when CDI is not present")
 				}
 
-				quantity, err := resource.ParseQuantity(cd.FedoraVolumeSize)
-				Expect(err).ToNot(HaveOccurred())
+				sc, foundSC := libstorage.GetBlockStorageClass(k8sv1.ReadWriteMany)
+				if !foundSC {
+					Skip("Skip test when Block storage is not present")
+				}
 
-				url := "docker://" + cd.ContainerDiskFor(cd.ContainerDiskFedoraTestTooling)
-				dv := libstorage.NewBlockDataVolumeWithRegistryImport(url, util.NamespaceTestDefault, k8sv1.ReadWriteMany)
-				dv.Spec.PVC.Resources.Requests["storage"] = quantity
+				dv := dvbuilder.NewDataVolume(
+					dvbuilder.WithRegistryURLSource("docker://"+cd.ContainerDiskFor(cd.ContainerDiskFedoraTestTooling)),
+					dvbuilder.WithPVC(sc, cd.FedoraVolumeSize, k8sv1.ReadWriteMany, k8sv1.PersistentVolumeBlock),
+				)
 
-				_, err = virtClient.CdiClient().CdiV1beta1().DataVolumes(dv.Namespace).Create(context.Background(), dv, metav1.CreateOptions{})
+				_, err = virtClient.CdiClient().CdiV1beta1().DataVolumes(util.NamespaceTestDefault).Create(context.Background(), dv, metav1.CreateOptions{})
 				Expect(err).ToNot(HaveOccurred())
 				libstorage.EventuallyDV(dv, 600, HaveSucceeded())
 				vmi := tests.NewRandomVMIWithDataVolume(dv.Name)

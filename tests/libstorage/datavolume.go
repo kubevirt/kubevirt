@@ -47,25 +47,6 @@ import (
 // todo: this is wrong to skip the test from here. This function should only produce a DV instance and should not deal
 //       with test logic.
 //       Change the function to return error, and skip the test from the caller.
-func NewBlockDataVolumeWithRegistryImport(imageUrl, namespace string, accessMode v1.PersistentVolumeAccessMode) *v1beta1.DataVolume {
-	sc, exists := GetRWOBlockStorageClass()
-	if accessMode == v1.ReadWriteMany {
-		sc, exists = GetRWXBlockStorageClass()
-	}
-	if !exists {
-		ginkgo.Skip("Skip test when Block storage is not present")
-	}
-
-	return dvbuilder.NewDataVolume(
-		dvbuilder.WithNamespace(namespace),
-		dvbuilder.WithRegistryURLSource(imageUrl),
-		dvbuilder.WithPVC(sc, dvbuilder.PVCSizeForRegistryImport, accessMode, v1.PersistentVolumeBlock),
-	)
-}
-
-// todo: this is wrong to skip the test from here. This function should only produce a DV instance and should not deal
-//       with test logic.
-//       Change the function to return error, and skip the test from the caller.
 func NewDataVolumeWithRegistryImport(imageUrl, namespace string, accessMode v1.PersistentVolumeAccessMode) *v1beta1.DataVolume {
 	sc, exists := GetRWOFileSystemStorageClass()
 	if accessMode == v1.ReadWriteMany {

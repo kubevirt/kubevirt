@@ -56,6 +56,7 @@ import (
 	"kubevirt.io/kubevirt/tests"
 	"kubevirt.io/kubevirt/tests/console"
 	cd "kubevirt.io/kubevirt/tests/containerdisk"
+	"kubevirt.io/kubevirt/tests/dvbuilder"
 	. "kubevirt.io/kubevirt/tests/framework/matcher"
 	"kubevirt.io/kubevirt/tests/libnet"
 	"kubevirt.io/kubevirt/tests/libstorage"
@@ -1024,10 +1025,11 @@ var _ = SIGDescribe("Storage", func() {
 
 			BeforeEach(func() {
 				// create a new PV and PVC (PVs can't be reused)
-				dataVolume = libstorage.NewBlockDataVolumeWithRegistryImport(cd.DataVolumeImportUrlForContainerDisk(cd.ContainerDiskCirros), util.NamespaceTestDefault, k8sv1.ReadWriteOnce)
-
-				_, err := virtClient.CdiClient().CdiV1beta1().DataVolumes(dataVolume.Namespace).Create(context.Background(), dataVolume, metav1.CreateOptions{})
+				dataVolume, err = createBlockDataVolume(virtClient)
 				Expect(err).ToNot(HaveOccurred())
+				if dataVolume == nil {
+					Skip("Skip test when Block storage is not present")
+				}
 
 				libstorage.EventuallyDV(dataVolume, 240, Or(HaveSucceeded(), BeInPhase(cdiv1.WaitForFirstConsumer)))
 			})
@@ -1167,10 +1169,11 @@ var _ = SIGDescribe("Storage", func() {
 			var dataVolume *cdiv1.DataVolume
 
 			BeforeEach(func() {
-				dataVolume = libstorage.NewBlockDataVolumeWithRegistryImport(cd.DataVolumeImportUrlForContainerDisk(cd.ContainerDiskCirros), util.NamespaceTestDefault, k8sv1.ReadWriteOnce)
-
-				_, err := virtClient.CdiClient().CdiV1beta1().DataVolumes(dataVolume.Namespace).Create(context.Background(), dataVolume, metav1.CreateOptions{})
+				dataVolume, err = createBlockDataVolume(virtClient)
 				Expect(err).ToNot(HaveOccurred())
+				if dataVolume == nil {
+					Skip("Skip test when Block storage is not present")
+				}
 
 				libstorage.EventuallyDV(dataVolume, 240, Or(HaveSucceeded(), BeInPhase(cdiv1.WaitForFirstConsumer)))
 				vmi = nil
@@ -1397,4 +1400,20 @@ func waitForPodToDisappearWithTimeout(podName string, seconds int) {
 		_, err := virtClient.CoreV1().Pods(util.NamespaceTestDefault).Get(context.Background(), podName, metav1.GetOptions{})
 		return errors.IsNotFound(err)
 	}, seconds, 1*time.Second).Should(BeTrue())
+}
+
+func createBlockDataVolume(virtClient kubecli.KubevirtClient) (*cdiv1.DataVolume, error) {
+	sc, foundSC := libstorage.GetBlockStorageClass(k8sv1.ReadWriteOnce)
+	if !foundSC {
+		return nil, nil
+	}
+
+	dataVolume := dvbuilder.NewDataVolume(
+		dvbuilder.WithRegistryURLSource(cd.DataVolumeImportUrlForContainerDisk(cd.ContainerDiskCirros)),
+		dvbuilder.WithPVC(sc, dvbuilder.PVCSizeForRegistryImport, k8sv1.ReadWriteOnce, k8sv1.PersistentVolumeBlock),
+	)
+
+	_, err := virtClient.CdiClient().CdiV1beta1().DataVolumes(util.NamespaceTestDefault).Create(context.Background(), dataVolume, metav1.CreateOptions{})
+
+	return dataVolume, err
 }
