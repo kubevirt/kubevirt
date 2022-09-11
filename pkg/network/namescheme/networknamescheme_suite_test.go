@@ -17,7 +17,7 @@
  *
  */
 
-package vmispec_test
+package namescheme_test
 
 import (
 	"testing"
@@ -25,6 +25,6 @@ import (
 	"kubevirt.io/client-go/testutils"
 )
 
-func TestVmiSpec(t *testing.T) {
+func TestPodInterfaceNameScheme(t *testing.T) {
 	testutils.KubeVirtTestSuiteSetup(t)
 }
