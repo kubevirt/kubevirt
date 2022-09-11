@@ -27,6 +27,7 @@ import (
 
 	jsonpatch "github.com/evanphx/json-patch"
 	"github.com/golang/mock/gomock"
+	networkv1 "github.com/k8snetworkplumbingwg/network-attachment-definition-client/pkg/apis/k8s.cni.cncf.io/v1"
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
 	. "github.com/onsi/gomega/gstruct"
@@ -51,6 +52,7 @@ import (
 	"kubevirt.io/client-go/kubecli"
 	cdiv1 "kubevirt.io/containerized-data-importer-api/pkg/apis/core/v1beta1"
 	kvcontroller "kubevirt.io/kubevirt/pkg/controller"
+	"kubevirt.io/kubevirt/pkg/network/sriov"
 	"kubevirt.io/kubevirt/pkg/testutils"
 	"kubevirt.io/kubevirt/pkg/virt-controller/services"
 	"kubevirt.io/kubevirt/pkg/virt-controller/watch/topology"
@@ -123,6 +125,34 @@ var _ = Describe("VirtualMachineInstance watcher", func() {
 			Expect(ok).To(BeTrue())
 			Expect(pod.Namespace).To(Equal(update.GetNamespace()))
 			return true, nil, nil
+		})
+	}
+
+	prependInjectPodPatch := func(pod *k8sv1.Pod) {
+		kubeClient.Fake.PrependReactor("patch", "pods", func(action testing.Action) (handled bool, obj k8sruntime.Object, err error) {
+			originalPodBytes, err := json.Marshal(pod)
+			if err != nil {
+				return false, nil, err
+			}
+
+			patch := action.(testing.PatchAction)
+			patchBytes := patch.GetPatch()
+
+			patchJSON, err := jsonpatch.DecodePatch(patchBytes)
+			if err != nil {
+				return false, nil, err
+			}
+			newPodBytes, err := patchJSON.Apply(originalPodBytes)
+			if err != nil {
+				return false, nil, err
+			}
+
+			var newPod *k8sv1.Pod
+			if err = json.Unmarshal(newPodBytes, &newPod); err != nil {
+				return false, nil, err
+			}
+
+			return true, newPod, nil
 		})
 	}
 
@@ -681,6 +711,82 @@ var _ = Describe("VirtualMachineInstance watcher", func() {
 			testutils.ExpectEvent(recorder, SuccessfulCreatePodReason)
 		})
 
+	})
+
+	Context("with network-status annotation", func() {
+		const (
+			defaultNetworkName = "default"
+			sriovNetworkName   = "network1"
+			netAttachDefName   = "default/nad1"
+			selectedPCIAddress = "0000:04:02.5"
+		)
+
+		It("should not patch network-pci-map when no SR-IOV networks exist", func() {
+			vmi := NewPendingVirtualMachine("testvmi")
+			vmi.Status.Phase = virtv1.Running
+			vmi = addDefaultNetwork(vmi, defaultNetworkName)
+			pod := NewPodForVirtualMachine(vmi, k8sv1.PodRunning)
+			addVirtualMachine(vmi)
+			podFeeder.Add(pod)
+			addActivePods(vmi, pod.UID, "")
+			pod.Annotations[networkv1.NetworkStatusAnnot] = `
+			[
+			{
+			"name": "kindnet",
+			"interface": "eth0",
+			"ips": [
+			  "10.244.2.131"
+			],
+			"mac": "82:cf:7c:98:43:7e",
+			"default": true,
+			"dns": {}
+			}
+			]`
+
+			vmiInterface.EXPECT().Patch(vmi.Name, types.JSONPatchType, gomock.Any(), &metav1.PatchOptions{}).Return(vmi, nil)
+			controller.Execute()
+			Expect(pod.Annotations).ToNot(HaveKey(sriov.NetworkPCIMapAnnot))
+		})
+		It("should patch network-pci-map when SR-IOV networks exist", func() {
+			vmi := NewPendingVirtualMachine("testvmi")
+			vmi.Status.Phase = virtv1.Running
+			vmi = addDefaultNetwork(vmi, defaultNetworkName)
+			vmi = addSRIOVNetwork(vmi, sriovNetworkName, netAttachDefName)
+			pod := NewPodForVirtualMachine(vmi, k8sv1.PodRunning)
+			addVirtualMachine(vmi)
+			podFeeder.Add(pod)
+			addActivePods(vmi, pod.UID, "")
+			pod.Annotations[networkv1.NetworkStatusAnnot] = `
+			[
+			{
+			"name": "kindnet",
+			"interface": "eth0",
+			"ips": [
+			  "10.244.2.131"
+			],
+			"mac": "82:cf:7c:98:43:7e",
+			"default": true,
+			"dns": {}
+			},
+			{
+			"name": "` + netAttachDefName + `",
+			"interface": "net1",
+			"dns": {},
+			"device-info": {
+			  "type": "pci",
+			  "version": "1.0.0",
+			  "pci": {
+			    "pci-address": "` + selectedPCIAddress + `"
+			  }
+			}
+			}
+			]`
+
+			vmiInterface.EXPECT().Patch(vmi.Name, types.JSONPatchType, gomock.Any(), &metav1.PatchOptions{}).Return(vmi, nil)
+			prependInjectPodPatch(pod)
+			controller.Execute()
+			Expect(pod.Annotations).To(HaveKeyWithValue(sriov.NetworkPCIMapAnnot, `{"`+sriovNetworkName+`":"`+selectedPCIAddress+`"}`))
+		})
 	})
 
 	Context("On valid VirtualMachineInstance given", func() {
@@ -2852,4 +2958,50 @@ func addActivePods(vmi *virtv1.VirtualMachineInstance, podUID types.UID, hostNam
 		}
 	}
 	return vmi
+}
+
+func addDefaultNetwork(vmi *virtv1.VirtualMachineInstance, networkName string) *virtv1.VirtualMachineInstance {
+	vmi.Spec.Domain.Devices.Interfaces = append(vmi.Spec.Domain.Devices.Interfaces, newMasqueradePrimaryInterface(networkName))
+	vmi.Spec.Networks = append(vmi.Spec.Networks, newMasqueradeDefaultNetwork(networkName))
+	return vmi
+}
+
+func addSRIOVNetwork(vmi *virtv1.VirtualMachineInstance, networkName, nadName string) *virtv1.VirtualMachineInstance {
+	vmi.Spec.Domain.Devices.Interfaces = append(vmi.Spec.Domain.Devices.Interfaces, newSRIOVInterface(networkName))
+	vmi.Spec.Networks = append(vmi.Spec.Networks, newMultusNetwork(networkName, nadName))
+	return vmi
+}
+
+func newSRIOVInterface(name string) virtv1.Interface {
+	return virtv1.Interface{
+		Name:                   name,
+		InterfaceBindingMethod: virtv1.InterfaceBindingMethod{SRIOV: &virtv1.InterfaceSRIOV{}},
+	}
+}
+
+func newMasqueradePrimaryInterface(name string) virtv1.Interface {
+	return virtv1.Interface{
+		Name:                   name,
+		InterfaceBindingMethod: virtv1.InterfaceBindingMethod{Masquerade: &virtv1.InterfaceMasquerade{}},
+	}
+}
+
+func newMasqueradeDefaultNetwork(name string) virtv1.Network {
+	return virtv1.Network{
+		Name: name,
+		NetworkSource: virtv1.NetworkSource{
+			Pod: &virtv1.PodNetwork{},
+		},
+	}
+}
+
+func newMultusNetwork(name, networkName string) virtv1.Network {
+	return virtv1.Network{
+		Name: name,
+		NetworkSource: virtv1.NetworkSource{
+			Multus: &virtv1.MultusNetwork{
+				NetworkName: networkName,
+			},
+		},
+	}
 }

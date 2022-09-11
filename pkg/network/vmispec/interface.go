@@ -39,6 +39,15 @@ func FilterSRIOVInterfaces(ifaces []v1.Interface) []v1.Interface {
 	return sriovIfaces
 }
 
+func SRIOVInterfaceExist(ifaces []v1.Interface) bool {
+	for _, iface := range ifaces {
+		if iface.SRIOV != nil {
+			return true
+		}
+	}
+	return false
+}
+
 func FilterInterfacesSpec(ifaces []v1.Interface, predicate func(i v1.Interface) bool) []v1.Interface {
 	var filteredIfaces []v1.Interface
 	for _, iface := range ifaces {
