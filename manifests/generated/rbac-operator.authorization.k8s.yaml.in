@@ -393,6 +393,7 @@ rules:
   - delete
   - update
   - create
+  - patch
 - apiGroups:
   - ""
   resources:

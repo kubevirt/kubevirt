@@ -1,8 +1,8 @@
 package v1
 
 import (
-	"net"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	"net"
 )
 
 // +genclient
@@ -38,15 +38,74 @@ type DNS struct {
 	Options     []string `json:"options,omitempty"`
 }
 
+const (
+	DeviceInfoTypePCI       = "pci"
+	DeviceInfoTypeVHostUser = "vhost-user"
+	DeviceInfoTypeMemif     = "memif"
+	DeviceInfoTypeVDPA      = "vdpa"
+	DeviceInfoVersion       = "1.0.0"
+)
+
+// DeviceInfo contains the information of the device associated
+// with this network (if any)
+type DeviceInfo struct {
+	Type      string       `json:"type,omitempty"`
+	Version   string       `json:"version,omitempty"`
+	Pci       *PciDevice   `json:"pci,omitempty"`
+	Vdpa      *VdpaDevice  `json:"vdpa,omitempty"`
+	VhostUser *VhostDevice `json:"vhost-user,omitempty"`
+	Memif     *MemifDevice `json:"memif,omitempty"`
+}
+
+type PciDevice struct {
+	PciAddress   string `json:"pci-address,omitempty"`
+	Vhostnet     string `json:"vhost-net,omitempty"`
+	RdmaDevice   string `json:"rdma-device,omitempty"`
+	PfPciAddress string `json:"pf-pci-address,omitempty"`
+}
+
+type VdpaDevice struct {
+	ParentDevice string `json:"parent-device,omitempty"`
+	Driver       string `json:"driver,omitempty"`
+	Path         string `json:"path,omitempty"`
+	PciAddress   string `json:"pci-address,omitempty"`
+	PfPciAddress string `json:"pf-pci-address,omitempty"`
+}
+
+const (
+	VhostDeviceModeClient = "client"
+	VhostDeviceModeServer = "server"
+)
+
+type VhostDevice struct {
+	Mode string `json:"mode,omitempty"`
+	Path string `json:"path,omitempty"`
+}
+
+const (
+	MemifDeviceRoleMaster   = "master"
+	MemitDeviceRoleSlave    = "slave"
+	MemifDeviceModeEthernet = "ethernet"
+	MemitDeviceModeIP       = "ip"
+	MemitDeviceModePunt     = "punt"
+)
+
+type MemifDevice struct {
+	Role string `json:"role,omitempty"`
+	Path string `json:"path,omitempty"`
+	Mode string `json:"mode,omitempty"`
+}
+
 // NetworkStatus is for network status annotation for pod
 // +k8s:deepcopy-gen=false
 type NetworkStatus struct {
-	Name      string   `json:"name"`
-	Interface string   `json:"interface,omitempty"`
-	IPs       []string `json:"ips,omitempty"`
-	Mac       string   `json:"mac,omitempty"`
-	Default   bool     `json:"default,omitempty"`
-	DNS       DNS      `json:"dns,omitempty"`
+	Name       string      `json:"name"`
+	Interface  string      `json:"interface,omitempty"`
+	IPs        []string    `json:"ips,omitempty"`
+	Mac        string      `json:"mac,omitempty"`
+	Default    bool        `json:"default,omitempty"`
+	DNS        DNS         `json:"dns,omitempty"`
+	DeviceInfo *DeviceInfo `json:"device-info,omitempty"`
 }
 
 // PortMapEntry for CNI PortMapEntry
@@ -78,12 +137,15 @@ type NetworkSelectionElement struct {
 	// Namespace contains the optional namespace that the network referenced
 	// by Name exists in
 	Namespace string `json:"namespace,omitempty"`
-	// IPRequest contains an optional requested IP address for this network
+	// IPRequest contains an optional requested IP addresses for this network
 	// attachment
-	IPRequest string `json:"ips,omitempty"`
+	IPRequest []string `json:"ips,omitempty"`
 	// MacRequest contains an optional requested MAC address for this
 	// network attachment
 	MacRequest string `json:"mac,omitempty"`
+	// InfinibandGUIDRequest contains an optional requested Infiniband GUID
+	// address for this network attachment
+	InfinibandGUIDRequest string `json:"infiniband-guid,omitempty"`
 	// InterfaceRequest contains an optional requested name for the
 	// network interface this attachment will create in the container
 	InterfaceRequest string `json:"interface,omitempty"`
@@ -94,7 +156,7 @@ type NetworkSelectionElement struct {
 	// the network
 	BandwidthRequest *BandwidthEntry `json:"bandwidth,omitempty"`
 	// CNIArgs contains additional CNI arguments for the network interface
-	CNIArgs *map[string]interface{} `json:"cni-args"`
+	CNIArgs *map[string]interface{} `json:"cni-args,omitempty"`
 	// GatewayRequest contains default route IP address for the pod
 	GatewayRequest []net.IP `json:"default-route,omitempty"`
 }
@@ -103,7 +165,7 @@ const (
 	// Pod annotation for network-attachment-definition
 	NetworkAttachmentAnnot = "k8s.v1.cni.cncf.io/networks"
 	// Pod annotation for network status
-	NetworkStatusAnnot = "k8s.v1.cni.cncf.io/networks-status"
+	NetworkStatusAnnot = "k8s.v1.cni.cncf.io/network-status"
 )
 
 // NoK8sNetworkError indicates error, no network in kubernetes

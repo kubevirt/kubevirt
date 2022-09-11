@@ -64,6 +64,7 @@ var _ = Describe("VMI network spec", func() {
 			}
 
 			Expect(netvmispec.FilterSRIOVInterfaces(ifaces)).To(BeEmpty())
+			Expect(netvmispec.SRIOVInterfaceExist(ifaces)).To(BeFalse())
 		})
 
 		It("finds two SR-IOV interfaces in list", func() {
@@ -86,6 +87,7 @@ var _ = Describe("VMI network spec", func() {
 			}
 
 			Expect(netvmispec.FilterSRIOVInterfaces(ifaces)).To(Equal([]v1.Interface{sriov_net1, sriov_net2}))
+			Expect(netvmispec.SRIOVInterfaceExist(ifaces)).To(BeTrue())
 		})
 	})
 
