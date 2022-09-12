@@ -32,8 +32,8 @@ import (
 	"kubevirt.io/kubevirt/tests"
 	"kubevirt.io/kubevirt/tests/console"
 	cd "kubevirt.io/kubevirt/tests/containerdisk"
-	"kubevirt.io/kubevirt/tests/dvbuilder"
 	"kubevirt.io/kubevirt/tests/framework/matcher"
+	"kubevirt.io/kubevirt/tests/libdv"
 	"kubevirt.io/kubevirt/tests/libstorage"
 	"kubevirt.io/kubevirt/tests/libvmi"
 	"kubevirt.io/kubevirt/tests/testsuite"
@@ -1551,14 +1551,14 @@ var _ = SIGDescribe("VirtualMachineRestore Tests", func() {
 						Skip("Two storageclasses required for this test")
 					}
 
-					source := dvbuilder.NewDataVolume(
-						dvbuilder.WithNamespace(namespace),
-						dvbuilder.WithRegistryURLSourceAndPullMethod(cd.DataVolumeImportUrlForContainerDisk(cd.ContainerDiskCirros), cdiv1.RegistryPullNode),
-						dvbuilder.WithPVC(sourceSC, "512Mi", corev1.ReadWriteOnce, corev1.PersistentVolumeFilesystem),
-						dvbuilder.WithForceBindAnnotation(),
+					source := libdv.NewDataVolume(
+						libdv.WithNamespace(testsuite.NamespaceTestAlternative),
+						libdv.WithRegistryURLSourceAndPullMethod(cd.DataVolumeImportUrlForContainerDisk(cd.ContainerDiskCirros), cdiv1.RegistryPullNode),
+						libdv.WithPVC(sourceSC, cd.CirrosVolumeSize, corev1.ReadWriteOnce, corev1.PersistentVolumeFilesystem),
+						libdv.WithForceBindAnnotation(),
 					)
 
-					source, err = virtClient.CdiClient().CdiV1beta1().DataVolumes(source.Namespace).Create(context.Background(), source, metav1.CreateOptions{})
+					source, err = virtClient.CdiClient().CdiV1beta1().DataVolumes(testsuite.NamespaceTestAlternative).Create(context.Background(), source, metav1.CreateOptions{})
 					Expect(err).ToNot(HaveOccurred())
 					sourceDV = source
 					sourceDV = waitDVReady(sourceDV)
@@ -1605,9 +1605,9 @@ var _ = SIGDescribe("VirtualMachineRestore Tests", func() {
 				}
 
 				createVMFromSource := func() *v1.VirtualMachine {
-					dataVolume := dvbuilder.NewDataVolume(
-						dvbuilder.WithPVCSource(sourceDV.Namespace, sourceDV.Name),
-						dvbuilder.WithPVC(snapshotStorageClass, "1Gi", corev1.ReadWriteOnce, corev1.PersistentVolumeFilesystem),
+					dataVolume := libdv.NewDataVolume(
+						libdv.WithPVCSource(sourceDV.Namespace, sourceDV.Name),
+						libdv.WithPVC(snapshotStorageClass, "1Gi", corev1.ReadWriteOnce, corev1.PersistentVolumeFilesystem),
 					)
 
 					vmi := tests.NewRandomVMIWithDataVolume(dataVolume.Name)

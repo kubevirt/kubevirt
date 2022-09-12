@@ -43,8 +43,8 @@ import (
 	virtconfig "kubevirt.io/kubevirt/pkg/virt-config"
 	virthandler "kubevirt.io/kubevirt/pkg/virt-handler"
 	"kubevirt.io/kubevirt/tests/clientcmd"
-	"kubevirt.io/kubevirt/tests/dvbuilder"
 	"kubevirt.io/kubevirt/tests/framework/checks"
+	"kubevirt.io/kubevirt/tests/libdv"
 	"kubevirt.io/kubevirt/tests/libnode"
 	"kubevirt.io/kubevirt/tests/util"
 	"kubevirt.io/kubevirt/tools/vms-generator/utils"
@@ -1454,10 +1454,10 @@ var _ = Describe("[rfe_id:393][crit:high][vendor:cnv-qe@redhat.com][level:system
 					Skip("Skip test when Filesystem storage is not present")
 				}
 
-				dataVolume := dvbuilder.NewDataVolume(
-					dvbuilder.WithNamespace(util.NamespaceTestDefault), // for deletion
-					dvbuilder.WithRegistryURLSource(cd.DataVolumeImportUrlForContainerDisk(cd.ContainerDiskAlpine)),
-					dvbuilder.WithPVC(sc, dvbuilder.PVCSizeForRegistryImport, k8sv1.ReadWriteOnce, k8sv1.PersistentVolumeFilesystem),
+				dataVolume := libdv.NewDataVolume(
+					libdv.WithNamespace(util.NamespaceTestDefault), // for deletion
+					libdv.WithRegistryURLSource(cd.DataVolumeImportUrlForContainerDisk(cd.ContainerDiskAlpine)),
+					libdv.WithPVC(sc, cd.CirrosVolumeSize, k8sv1.ReadWriteOnce, k8sv1.PersistentVolumeFilesystem),
 				)
 
 				vmi := tests.NewRandomVMIWithDataVolume(dataVolume.Name)
@@ -1664,10 +1664,10 @@ var _ = Describe("[rfe_id:393][crit:high][vendor:cnv-qe@redhat.com][level:system
 				}
 
 				url := "docker://" + cd.ContainerDiskFor(cd.ContainerDiskFedoraTestTooling)
-				dv = dvbuilder.NewDataVolume(
-					dvbuilder.WithNamespace(util.NamespaceTestDefault), // for deletion
-					dvbuilder.WithRegistryURLSource(url),
-					dvbuilder.WithPVC(sc, cd.FedoraVolumeSize, k8sv1.ReadWriteMany, k8sv1.PersistentVolumeFilesystem),
+				dv = libdv.NewDataVolume(
+					libdv.WithNamespace(util.NamespaceTestDefault), // for deletion
+					libdv.WithRegistryURLSource(url),
+					libdv.WithPVC(sc, cd.FedoraVolumeSize, k8sv1.ReadWriteMany, k8sv1.PersistentVolumeFilesystem),
 				)
 
 				_, err = virtClient.CdiClient().CdiV1beta1().DataVolumes(util.NamespaceTestDefault).Create(context.Background(), dv, metav1.CreateOptions{})
@@ -1720,11 +1720,11 @@ var _ = Describe("[rfe_id:393][crit:high][vendor:cnv-qe@redhat.com][level:system
 				Skip("Skip test when Filesystem storage is not present")
 			}
 
-			dv := dvbuilder.NewDataVolume(
-				dvbuilder.WithNamespace(util.NamespaceTestDefault), // for deletion, if needed
-				dvbuilder.WithRegistryURLSource("docker://"+cd.ContainerDiskFor(cd.ContainerDiskAlpine)),
-				dvbuilder.WithPVC(sc, size, k8sv1.ReadWriteMany, k8sv1.PersistentVolumeFilesystem),
-				dvbuilder.WithForceBindAnnotation(),
+			dv := libdv.NewDataVolume(
+				libdv.WithNamespace(util.NamespaceTestDefault), // for deletion, if needed
+				libdv.WithRegistryURLSource("docker://"+cd.ContainerDiskFor(cd.ContainerDiskAlpine)),
+				libdv.WithPVC(sc, size, k8sv1.ReadWriteMany, k8sv1.PersistentVolumeFilesystem),
+				libdv.WithForceBindAnnotation(),
 			)
 
 			_, err := virtClient.CdiClient().CdiV1beta1().DataVolumes(util.NamespaceTestDefault).Create(context.Background(), dv, metav1.CreateOptions{})
@@ -2118,11 +2118,12 @@ var _ = Describe("[rfe_id:393][crit:high][vendor:cnv-qe@redhat.com][level:system
 				config.MigrationConfiguration.AllowPostCopy = pointer.BoolPtr(true)
 				config.MigrationConfiguration.CompletionTimeoutPerGiB = pointer.Int64Ptr(1)
 				tests.UpdateKubeVirtConfigValueAndWait(config)
+				memoryRequestSize = resource.MustParse("1Gi")
 
-				dv = dvbuilder.NewDataVolume(
-					dvbuilder.WithNamespace(util.NamespaceTestDefault),
-					dvbuilder.WithRegistryURLSource("docker://"+cd.ContainerDiskFor(cd.ContainerDiskFedoraTestTooling)),
-					dvbuilder.WithPVC(sc, "1Gi", k8sv1.ReadWriteMany, k8sv1.PersistentVolumeFilesystem),
+				dv = libdv.NewDataVolume(
+					libdv.WithNamespace(util.NamespaceTestDefault),
+					libdv.WithRegistryURLSource("docker://"+cd.ContainerDiskFor(cd.ContainerDiskFedoraTestTooling)),
+					libdv.WithPVC(sc, cd.FedoraVolumeSize, k8sv1.ReadWriteMany, k8sv1.PersistentVolumeFilesystem),
 				)
 
 				_, err = virtClient.CdiClient().CdiV1beta1().DataVolumes(util.NamespaceTestDefault).Create(context.Background(), dv, metav1.CreateOptions{})
@@ -2618,12 +2619,12 @@ var _ = Describe("[rfe_id:393][crit:high][vendor:cnv-qe@redhat.com][level:system
 					Skip("Skip test when Block storage is not present")
 				}
 
-				dv := dvbuilder.NewDataVolume(
-					dvbuilder.WithRegistryURLSource("docker://"+cd.ContainerDiskFor(cd.ContainerDiskFedoraTestTooling)),
-					dvbuilder.WithPVC(sc, cd.FedoraVolumeSize, k8sv1.ReadWriteMany, k8sv1.PersistentVolumeBlock),
+				dv := libdv.NewDataVolume(
+					libdv.WithRegistryURLSource("docker://"+cd.ContainerDiskFor(cd.ContainerDiskFedoraTestTooling)),
+					libdv.WithPVC(sc, cd.FedoraVolumeSize, k8sv1.ReadWriteMany, k8sv1.PersistentVolumeBlock),
 				)
 
-				_, err = virtClient.CdiClient().CdiV1beta1().DataVolumes(util.NamespaceTestDefault).Create(context.Background(), dv, metav1.CreateOptions{})
+				dv, err = virtClient.CdiClient().CdiV1beta1().DataVolumes(util.NamespaceTestDefault).Create(context.Background(), dv, metav1.CreateOptions{})
 				Expect(err).ToNot(HaveOccurred())
 				libstorage.EventuallyDV(dv, 600, HaveSucceeded())
 				vmi := tests.NewRandomVMIWithDataVolume(dv.Name)

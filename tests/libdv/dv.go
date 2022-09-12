@@ -17,7 +17,7 @@
  *
  */
 
-package dvbuilder
+package libdv
 
 import (
 	corev1 "k8s.io/api/core/v1"
@@ -28,8 +28,7 @@ import (
 )
 
 const (
-	dvRandomNameLength       = 12
-	PVCSizeForRegistryImport = "512Mi"
+	dvRandomNameLength = 12
 )
 
 // dvOption is an option type for the NewDataVolume function

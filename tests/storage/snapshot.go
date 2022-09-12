@@ -29,7 +29,7 @@ import (
 	"kubevirt.io/kubevirt/tests"
 	"kubevirt.io/kubevirt/tests/console"
 	cd "kubevirt.io/kubevirt/tests/containerdisk"
-	"kubevirt.io/kubevirt/tests/dvbuilder"
+	"kubevirt.io/kubevirt/tests/libdv"
 	"kubevirt.io/kubevirt/tests/libstorage"
 	"kubevirt.io/kubevirt/tests/util"
 )
@@ -1249,10 +1249,10 @@ var _ = SIGDescribe("VirtualMachineSnapshot Tests", func() {
 			})
 
 			DescribeTable("should accurately report DataVolume provisioning", func(vmif func(string) *v1.VirtualMachineInstance) {
-				dataVolume := dvbuilder.NewDataVolume(
-					dvbuilder.WithNamespace(util.NamespaceTestDefault),
-					dvbuilder.WithRegistryURLSourceAndPullMethod(cd.DataVolumeImportUrlForContainerDisk(cd.ContainerDiskAlpine), cdiv1.RegistryPullNode),
-					dvbuilder.WithPVC(snapshotStorageClass, "512Mi", corev1.ReadWriteOnce, corev1.PersistentVolumeFilesystem),
+				dataVolume := libdv.NewDataVolume(
+					libdv.WithNamespace(util.NamespaceTestDefault),
+					libdv.WithRegistryURLSourceAndPullMethod(cd.DataVolumeImportUrlForContainerDisk(cd.ContainerDiskAlpine), cdiv1.RegistryPullNode),
+					libdv.WithPVC(snapshotStorageClass, cd.CirrosVolumeSize, corev1.ReadWriteOnce, corev1.PersistentVolumeFilesystem),
 				)
 
 				vmi := vmif(dataVolume.Name)
@@ -1268,7 +1268,7 @@ var _ = SIGDescribe("VirtualMachineSnapshot Tests", func() {
 						!vm.Status.VolumeSnapshotStatuses[0].Enabled
 				}, 180*time.Second, 1*time.Second).Should(BeTrue())
 
-				dv, err = virtClient.CdiClient().CdiV1beta1().DataVolumes(dataVolume.Namespace).Create(context.Background(), dataVolume, metav1.CreateOptions{})
+				dv, err = virtClient.CdiClient().CdiV1beta1().DataVolumes(util.NamespaceTestDefault).Create(context.Background(), dataVolume, metav1.CreateOptions{})
 				Expect(err).ToNot(HaveOccurred())
 
 				Eventually(func() bool {
@@ -1344,9 +1344,9 @@ func getSnapshotStorageClass(client kubecli.KubevirtClient) (string, error) {
 }
 
 func AddVolumeAndVerify(virtClient kubecli.KubevirtClient, storageClass string, vm *v1.VirtualMachine, addVMIOnly bool) string {
-	dv := dvbuilder.NewDataVolume(
-		dvbuilder.WithBlankImageSource(),
-		dvbuilder.WithPVC(storageClass, "64Mi", corev1.ReadWriteOnce, corev1.PersistentVolumeFilesystem),
+	dv := libdv.NewDataVolume(
+		libdv.WithBlankImageSource(),
+		libdv.WithPVC(storageClass, cd.BlankVolumeSize, corev1.ReadWriteOnce, corev1.PersistentVolumeFilesystem),
 	)
 
 	var err error

@@ -60,10 +60,10 @@ import (
 	"kubevirt.io/kubevirt/tests"
 	"kubevirt.io/kubevirt/tests/clientcmd"
 	cd "kubevirt.io/kubevirt/tests/containerdisk"
-	"kubevirt.io/kubevirt/tests/dvbuilder"
 	"kubevirt.io/kubevirt/tests/flags"
 	"kubevirt.io/kubevirt/tests/framework/checks"
 	. "kubevirt.io/kubevirt/tests/framework/matcher"
+	"kubevirt.io/kubevirt/tests/libdv"
 	"kubevirt.io/kubevirt/tests/libstorage"
 	"kubevirt.io/kubevirt/tests/util"
 )
@@ -324,15 +324,16 @@ var _ = SIGDescribe("Export", func() {
 
 	populateKubeVirtContent := func(sc string, volumeMode k8sv1.PersistentVolumeMode) (*k8sv1.PersistentVolumeClaim, string) {
 		By("Creating source volume")
-		dv := dvbuilder.NewDataVolume(
-			dvbuilder.WithNamespace(util.NamespaceTestDefault),
-			dvbuilder.WithRegistryURLSourceAndPullMethod(cd.DataVolumeImportUrlForContainerDisk(cd.ContainerDiskCirros), cdiv1.RegistryPullNode),
-			dvbuilder.WithPVC(sc, "512Mi", k8sv1.ReadWriteOnce, volumeMode),
+		dv := libdv.NewDataVolume(
+			libdv.WithNamespace(util.NamespaceTestDefault),
+			libdv.WithRegistryURLSourceAndPullMethod(cd.DataVolumeImportUrlForContainerDisk(cd.ContainerDiskCirros), cdiv1.RegistryPullNode),
+			libdv.WithPVC(sc, cd.CirrosVolumeSize, k8sv1.ReadWriteOnce, volumeMode),
 		)
-		dv, err = virtClient.CdiClient().CdiV1beta1().DataVolumes(dv.Namespace).Create(context.Background(), dv, metav1.CreateOptions{})
+
+		dv, err = virtClient.CdiClient().CdiV1beta1().DataVolumes(util.NamespaceTestDefault).Create(context.Background(), dv, metav1.CreateOptions{})
 		var pvc *k8sv1.PersistentVolumeClaim
 		Eventually(func() error {
-			pvc, err = virtClient.CoreV1().PersistentVolumeClaims(dv.Namespace).Get(context.Background(), dv.Name, metav1.GetOptions{})
+			pvc, err = virtClient.CoreV1().PersistentVolumeClaims(util.NamespaceTestDefault).Get(context.Background(), dv.Name, metav1.GetOptions{})
 			return err
 		}, 60*time.Second, 1*time.Second).Should(BeNil(), "persistent volume associated with DV should be created")
 		ensurePVCBound(pvc)
@@ -813,25 +814,24 @@ var _ = SIGDescribe("Export", func() {
 		if !exists {
 			Skip("Skip test when Filesystem storage is not present")
 		}
-		dv := dvbuilder.NewDataVolume(
-			dvbuilder.WithNamespace(util.NamespaceTestDefault),
-			dvbuilder.WithRegistryURLSourceAndPullMethod(cd.DataVolumeImportUrlForContainerDisk(cd.ContainerDiskCirros), cdiv1.RegistryPullNode),
-			dvbuilder.WithPVC(sc, "512Mi", k8sv1.ReadWriteOnce, k8sv1.PersistentVolumeFilesystem),
+		dv := libdv.NewDataVolume(
+			libdv.WithNamespace(util.NamespaceTestDefault),
+			libdv.WithRegistryURLSourceAndPullMethod(cd.DataVolumeImportUrlForContainerDisk(cd.ContainerDiskCirros), cdiv1.RegistryPullNode),
+			libdv.WithPVC(sc, cd.CirrosVolumeSize, k8sv1.ReadWriteOnce, k8sv1.PersistentVolumeFilesystem),
 		)
 
 		name := dv.Name
-		namespace := dv.Namespace
-		token := createExportTokenSecret(name, namespace)
-		export := createPVCExportObject(name, namespace, token)
+		token := createExportTokenSecret(name, util.NamespaceTestDefault)
+		export := createPVCExportObject(name, util.NamespaceTestDefault, token)
 		expectedCond := MatchConditionIgnoreTimeStamp(exportv1.Condition{
 			Type:    exportv1.ConditionPVC,
 			Status:  k8sv1.ConditionFalse,
 			Reason:  pvcNotFoundReason,
-			Message: fmt.Sprintf("pvc %s/%s not found", namespace, name),
+			Message: fmt.Sprintf("pvc %s/%s not found", util.NamespaceTestDefault, name),
 		})
 
 		Eventually(func() []exportv1.Condition {
-			export, err = virtClient.VirtualMachineExport(namespace).Get(context.Background(), export.Name, metav1.GetOptions{})
+			export, err = virtClient.VirtualMachineExport(util.NamespaceTestDefault).Get(context.Background(), export.Name, metav1.GetOptions{})
 			Expect(err).ToNot(HaveOccurred())
 			if export.Status == nil {
 				return nil
@@ -839,10 +839,10 @@ var _ = SIGDescribe("Export", func() {
 			return export.Status.Conditions
 		}, 60*time.Second, 1*time.Second).Should(ContainElement(expectedCond), "export should report missing pvc")
 
-		dv, err = virtClient.CdiClient().CdiV1beta1().DataVolumes(dv.Namespace).Create(context.Background(), dv, metav1.CreateOptions{})
+		dv, err = virtClient.CdiClient().CdiV1beta1().DataVolumes(util.NamespaceTestDefault).Create(context.Background(), dv, metav1.CreateOptions{})
 		var pvc *k8sv1.PersistentVolumeClaim
 		Eventually(func() error {
-			pvc, err = virtClient.CoreV1().PersistentVolumeClaims(dv.Namespace).Get(context.Background(), dv.Name, metav1.GetOptions{})
+			pvc, err = virtClient.CoreV1().PersistentVolumeClaims(util.NamespaceTestDefault).Get(context.Background(), dv.Name, metav1.GetOptions{})
 			return err
 		}, 60*time.Second, 1*time.Second).Should(BeNil(), "persistent volume associated with DV should be created")
 		ensurePVCBound(pvc)
@@ -1319,9 +1319,9 @@ var _ = SIGDescribe("Export", func() {
 			Skip("Skip test when storage with snapshot is not present")
 		}
 
-		blankDv := dvbuilder.NewDataVolume(
-			dvbuilder.WithBlankImageSource(),
-			dvbuilder.WithPVC(sc, "64Mi", k8sv1.ReadWriteOnce, k8sv1.PersistentVolumeFilesystem),
+		blankDv := libdv.NewDataVolume(
+			libdv.WithBlankImageSource(),
+			libdv.WithPVC(sc, cd.BlankVolumeSize, k8sv1.ReadWriteOnce, k8sv1.PersistentVolumeFilesystem),
 		)
 
 		vm := tests.NewRandomVMWithDataVolumeAndUserDataInStorageClass(
@@ -1429,10 +1429,10 @@ var _ = SIGDescribe("Export", func() {
 		if !exists {
 			Skip("Skip test when Filesystem storage is not present")
 		}
-		dataVolume := dvbuilder.NewDataVolume(
-			dvbuilder.WithNamespace(util.NamespaceTestDefault),
-			dvbuilder.WithRegistryURLSourceAndPullMethod(cd.DataVolumeImportUrlForContainerDisk(cd.ContainerDiskAlpine), cdiv1.RegistryPullNode),
-			dvbuilder.WithPVC(sc, "512Mi", k8sv1.ReadWriteOnce, k8sv1.PersistentVolumeFilesystem),
+		dataVolume := libdv.NewDataVolume(
+			libdv.WithNamespace(util.NamespaceTestDefault),
+			libdv.WithRegistryURLSourceAndPullMethod(cd.DataVolumeImportUrlForContainerDisk(cd.ContainerDiskAlpine), cdiv1.RegistryPullNode),
+			libdv.WithPVC(sc, cd.CirrosVolumeSize, k8sv1.ReadWriteOnce, k8sv1.PersistentVolumeFilesystem),
 		)
 		dataVolume = createDataVolume(dataVolume)
 		vmi := tests.NewRandomVMIWithDataVolume(dataVolume.Name)
@@ -1485,10 +1485,10 @@ var _ = SIGDescribe("Export", func() {
 		Expect(export).ToNot(BeNil())
 		waitForExportPhase(export, exportv1.Skipped)
 
-		dv := dvbuilder.NewDataVolume(
-			dvbuilder.WithNamespace(vm.Namespace),
-			dvbuilder.WithBlankImageSource(),
-			dvbuilder.WithPVC(sc, dvbuilder.PVCSizeForRegistryImport, k8sv1.ReadWriteOnce, k8sv1.PersistentVolumeFilesystem),
+		dv := libdv.NewDataVolume(
+			libdv.WithNamespace(vm.Namespace),
+			libdv.WithBlankImageSource(),
+			libdv.WithPVC(sc, cd.CirrosVolumeSize, k8sv1.ReadWriteOnce, k8sv1.PersistentVolumeFilesystem),
 		)
 		dv = createDataVolume(dv)
 		Eventually(ThisPVCWith(vm.Namespace, dv.Name), 160).Should(Exist())
@@ -1631,9 +1631,9 @@ var _ = SIGDescribe("Export", func() {
 				Skip("Skip test when storage with snapshot is not present")
 			}
 			// Create a populated Snapshot
-			blankDv := dvbuilder.NewDataVolume(
-				dvbuilder.WithBlankImageSource(),
-				dvbuilder.WithPVC(sc, "64mi", k8sv1.ReadWriteOnce, k8sv1.PersistentVolumeFilesystem),
+			blankDv := libdv.NewDataVolume(
+				libdv.WithBlankImageSource(),
+				libdv.WithPVC(sc, cd.BlankVolumeSize, k8sv1.ReadWriteOnce, k8sv1.PersistentVolumeFilesystem),
 			)
 
 			vm := tests.NewRandomVMWithDataVolumeAndUserDataInStorageClass(
@@ -1764,9 +1764,9 @@ var _ = SIGDescribe("Export", func() {
 				}
 
 				// Create a populated Snapshot
-				blankDv := dvbuilder.NewDataVolume(
-					dvbuilder.WithBlankImageSource(),
-					dvbuilder.WithPVC(sc, "64mi", k8sv1.ReadWriteOnce, k8sv1.PersistentVolumeFilesystem),
+				blankDv := libdv.NewDataVolume(
+					libdv.WithBlankImageSource(),
+					libdv.WithPVC(sc, cd.BlankVolumeSize, k8sv1.ReadWriteOnce, k8sv1.PersistentVolumeFilesystem),
 				)
 				vm := tests.NewRandomVMWithDataVolumeAndUserDataInStorageClass(
 					cd.DataVolumeImportUrlForContainerDisk(cd.ContainerDiskCirros),
