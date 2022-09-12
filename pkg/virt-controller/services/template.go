@@ -27,6 +27,9 @@ import (
 	"strconv"
 	"strings"
 
+	"kubevirt.io/kubevirt/pkg/network/sriov"
+	"kubevirt.io/kubevirt/pkg/network/vmispec"
+
 	"k8s.io/kubectl/pkg/cmd/util/podcmd"
 
 	k8sv1 "k8s.io/api/core/v1"
@@ -565,6 +568,17 @@ func (t *templateService) renderLaunchManifest(vmi *v1.VirtualMachineInstance, i
 			EmptyDir: &k8sv1.EmptyDirVolumeSource{},
 		},
 	})
+
+	if vmispec.SRIOVInterfaceExist(vmi.Spec.Domain.Devices.Interfaces) {
+		volumeMounts = append(volumeMounts, k8sv1.VolumeMount{
+			Name:      sriov.VolumeName,
+			MountPath: sriov.MountPath,
+		})
+		volumes = append(volumes,
+			downwardAPIDirVolume(
+				sriov.VolumeName, sriov.VolumePath, fmt.Sprintf("metadata.annotations['%s']", sriov.NetworkPCIMapAnnot)),
+		)
+	}
 
 	serviceAccountName := ""
 
@@ -1538,6 +1552,24 @@ func validatePermittedHostDevices(spec *v1.VirtualMachineInstanceSpec, config *v
 	}
 
 	return nil
+}
+
+func downwardAPIDirVolume(name, path, fieldPath string) k8sv1.Volume {
+	return k8sv1.Volume{
+		Name: name,
+		VolumeSource: k8sv1.VolumeSource{
+			DownwardAPI: &k8sv1.DownwardAPIVolumeSource{
+				Items: []k8sv1.DownwardAPIVolumeFile{
+					{
+						Path: path,
+						FieldRef: &k8sv1.ObjectFieldSelector{
+							FieldPath: fieldPath,
+						},
+					},
+				},
+			},
+		},
+	}
 }
 
 func (t *templateService) RenderHotplugAttachmentPodTemplate(volumes []*v1.Volume, ownerPod *k8sv1.Pod, vmi *v1.VirtualMachineInstance, claimMap map[string]*k8sv1.PersistentVolumeClaim, tempPod bool) (*k8sv1.Pod, error) {

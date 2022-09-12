@@ -31,6 +31,7 @@ import (
 
 	v1 "kubevirt.io/api/core/v1"
 	"kubevirt.io/kubevirt/pkg/network/cache"
+	"kubevirt.io/kubevirt/pkg/network/namescheme"
 )
 
 var _ = Describe("Common Methods", func() {
@@ -121,8 +122,7 @@ var _ = Describe("Common Methods", func() {
 
 	Context("FilterPodNetworkRoutes function", func() {
 		const (
-			mac                     = "12:34:56:78:9A:BC"
-			primaryPodInterfaceName = "eth0"
+			mac = "12:34:56:78:9A:BC"
 		)
 
 		defRoute := netlink.Route{
@@ -142,7 +142,7 @@ var _ = Describe("Common Methods", func() {
 		address := &net.IPNet{IP: net.IPv4(10, 35, 0, 6), Mask: net.CIDRMask(24, 32)}
 		fakeMac, _ := net.ParseMAC(mac)
 		testDhcpConfig := &cache.DHCPConfig{
-			Name:              primaryPodInterfaceName,
+			Name:              namescheme.PrimaryPodInterfaceName,
 			IP:                netlink.Addr{IPNet: address},
 			MAC:               fakeMac,
 			Mtu:               uint16(1410),

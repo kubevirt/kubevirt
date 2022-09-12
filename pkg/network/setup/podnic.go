@@ -23,16 +23,16 @@ import (
 	"fmt"
 	"os"
 
-	"kubevirt.io/kubevirt/pkg/network/domainspec"
-
 	v1 "kubevirt.io/api/core/v1"
 	"kubevirt.io/client-go/log"
 	"kubevirt.io/client-go/precond"
 	"kubevirt.io/kubevirt/pkg/network/cache"
 	dhcpconfigurator "kubevirt.io/kubevirt/pkg/network/dhcp"
+	"kubevirt.io/kubevirt/pkg/network/domainspec"
 	netdriver "kubevirt.io/kubevirt/pkg/network/driver"
 	"kubevirt.io/kubevirt/pkg/network/errors"
 	"kubevirt.io/kubevirt/pkg/network/infraconfigurators"
+	"kubevirt.io/kubevirt/pkg/network/namescheme"
 	"kubevirt.io/kubevirt/pkg/network/vmispec"
 	"kubevirt.io/kubevirt/pkg/virt-launcher/virtwrap/api"
 )
@@ -103,9 +103,10 @@ func newPodNIC(vmi *v1.VirtualMachineInstance, network *v1.Network, handler netd
 		return nil, fmt.Errorf("no iface matching with network %s", network.Name)
 	}
 
-	podInterfaceName, err := composePodInterfaceName(vmi, network)
-	if err != nil {
-		return nil, err
+	networkNameScheme := namescheme.CreateNetworkNameScheme(vmi.Spec.Networks)
+	podInterfaceName, exists := networkNameScheme[network.Name]
+	if !exists {
+		return nil, fmt.Errorf("pod interface name not found for network %s", network.Name)
 	}
 
 	return &podNIC{
@@ -359,35 +360,6 @@ func (l *podNIC) state() (cache.PodIfaceState, error) {
 
 func generateInPodBridgeInterfaceName(podInterfaceName string) string {
 	return fmt.Sprintf("k6t-%s", podInterfaceName)
-}
-
-func composePodInterfaceName(vmi *v1.VirtualMachineInstance, network *v1.Network) (string, error) {
-	if isSecondaryMultusNetwork(*network) {
-		multusIndex := findMultusIndex(vmi, network)
-		if multusIndex == -1 {
-			return "", fmt.Errorf("Network name %s not found", network.Name)
-		}
-		return fmt.Sprintf("net%d", multusIndex), nil
-	}
-	return primaryPodInterfaceName, nil
-}
-
-func findMultusIndex(vmi *v1.VirtualMachineInstance, networkToFind *v1.Network) int {
-	idxMultus := 0
-	for _, network := range vmi.Spec.Networks {
-		if isSecondaryMultusNetwork(network) {
-			// multus pod interfaces start from 1
-			idxMultus++
-			if network.Name == networkToFind.Name {
-				return idxMultus
-			}
-		}
-	}
-	return -1
-}
-
-func isSecondaryMultusNetwork(net v1.Network) bool {
-	return net.Multus != nil && !net.Multus.Default
 }
 
 func getPIDString(pid *int) string {
