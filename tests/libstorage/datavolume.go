@@ -27,11 +27,9 @@ import (
 	. "github.com/onsi/gomega"
 	gomegatypes "github.com/onsi/gomega/types"
 
-	v1 "k8s.io/api/core/v1"
 	rbacv1 "k8s.io/api/rbac/v1"
 	"k8s.io/apiextensions-apiserver/pkg/client/clientset/clientset"
 	"k8s.io/apimachinery/pkg/api/errors"
-	"k8s.io/apimachinery/pkg/api/resource"
 	v12 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/util/rand"
 
@@ -90,14 +88,6 @@ func AddDataVolume(vm *v13.VirtualMachine, diskName string, dataVolume *v1beta1.
 			},
 		},
 	})
-}
-
-func SetDataVolumePVCStorageClass(dv *v1beta1.DataVolume, storageClass string) {
-	dv.Spec.PVC.StorageClassName = &storageClass
-}
-
-func SetDataVolumePVCSize(dv *v1beta1.DataVolume, size string) {
-	dv.Spec.PVC.Resources.Requests[v1.ResourceStorage] = resource.MustParse(size)
 }
 
 func EventuallyDV(dv *v1beta1.DataVolume, timeoutSec int, matcher gomegatypes.GomegaMatcher) {
