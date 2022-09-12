@@ -1815,15 +1815,6 @@ func EnableFeatureGate(feature string) *v1.KubeVirt {
 	return UpdateKubeVirtConfigValueAndWait(kv.Spec.Configuration)
 }
 
-func SetDataVolumeForceBindAnnotation(dv *cdiv1.DataVolume) {
-	annotations := dv.GetAnnotations()
-	if annotations == nil {
-		annotations = make(map[string]string)
-	}
-	annotations["cdi.kubevirt.io/storage.bind.immediate.requested"] = "true"
-	dv.SetAnnotations(annotations)
-}
-
 func GetVmPodName(virtCli kubecli.KubevirtClient, vmi *v1.VirtualMachineInstance) string {
 	namespace := vmi.GetObjectMeta().GetNamespace()
 	uid := vmi.GetObjectMeta().GetUID()
