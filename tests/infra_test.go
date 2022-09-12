@@ -38,6 +38,7 @@ import (
 
 	kvtls "kubevirt.io/kubevirt/pkg/util/tls"
 
+	"kubevirt.io/kubevirt/tests/exec"
 	"kubevirt.io/kubevirt/tests/framework/checks"
 
 	expect "github.com/google/goexpect"
@@ -640,7 +641,7 @@ var _ = Describe("[Serial][sig-compute]Infrastructure", func() {
 			// We need a token from a service account that can view all namespaces in the cluster
 			By("extracting virt-operator sa token")
 			cmd := []string{"cat", "/var/run/secrets/kubernetes.io/serviceaccount/token"}
-			token, stderr, err := tests.ExecuteCommandOnPodV2(virtClient, &op, "virt-operator", cmd)
+			token, stderr, err := exec.ExecuteCommandOnPodV2(virtClient, &op, "virt-operator", cmd)
 			Expect(err).ToNot(HaveOccurred(), fmt.Sprintf(remoteCmdErrPattern, strings.Join(cmd, " "), token, stderr, err))
 			Expect(token).ToNot(BeEmpty(), "virt-operator sa token returned empty")
 
@@ -659,7 +660,7 @@ var _ = Describe("[Serial][sig-compute]Infrastructure", func() {
 					vmi.Name,
 				)}
 
-			stdout, stderr, err := tests.ExecuteCommandOnPodV2(virtClient, &op, "virt-operator", cmd)
+			stdout, stderr, err := exec.ExecuteCommandOnPodV2(virtClient, &op, "virt-operator", cmd)
 			Expect(err).ToNot(HaveOccurred(), fmt.Sprintf(remoteCmdErrPattern, strings.Join(cmd, " "), stdout, stderr, err))
 
 			// the Prometheus go-client does not export queryResult, and
@@ -803,7 +804,7 @@ var _ = Describe("[Serial][sig-compute]Infrastructure", func() {
 				}
 
 				cmd := fmt.Sprintf("curl -L -k https://%s:8443/metrics", tests.FormatIPForURL(ep.IP))
-				stdout, stderr, err := tests.ExecuteCommandOnPodV2(virtClient, pod, "virt-handler", strings.Fields(cmd))
+				stdout, stderr, err := exec.ExecuteCommandOnPodV2(virtClient, pod, "virt-handler", strings.Fields(cmd))
 				Expect(err).ToNot(HaveOccurred(), fmt.Sprintf(remoteCmdErrPattern, cmd, stdout, stderr, err))
 
 				scrapedData := strings.Split(stdout, "\n")
@@ -838,7 +839,7 @@ var _ = Describe("[Serial][sig-compute]Infrastructure", func() {
 				}
 
 				cmd := fmt.Sprintf("curl -L -k https://%s:8443/metrics", tests.FormatIPForURL(ep.IP))
-				stdout, stderr, err := tests.ExecuteCommandOnPodV2(virtClient, pod, "virt-handler", strings.Fields(cmd))
+				stdout, stderr, err := exec.ExecuteCommandOnPodV2(virtClient, pod, "virt-handler", strings.Fields(cmd))
 				Expect(err).ToNot(HaveOccurred(), fmt.Sprintf(remoteCmdErrPattern, cmd, stdout, stderr, err))
 
 				scrapedData := strings.Split(stdout, "\n")
@@ -890,7 +891,7 @@ var _ = Describe("[Serial][sig-compute]Infrastructure", func() {
 			Expect(err).ToNot(HaveOccurred())
 			for _, ep := range endpoint.Subsets[0].Addresses {
 				cmd := fmt.Sprintf("curl -L -k https://%s:8443/metrics", tests.FormatIPForURL(ep.IP))
-				stdout, stderr, err := tests.ExecuteCommandOnPodV2(virtClient, pod, "virt-handler", strings.Fields(cmd))
+				stdout, stderr, err := exec.ExecuteCommandOnPodV2(virtClient, pod, "virt-handler", strings.Fields(cmd))
 				Expect(err).ToNot(HaveOccurred(), fmt.Sprintf(remoteCmdErrPattern, cmd, stdout, stderr, err))
 				Expect(stdout).To(ContainSubstring("go_goroutines"))
 			}

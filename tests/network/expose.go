@@ -8,6 +8,7 @@ import (
 	"time"
 
 	"kubevirt.io/kubevirt/tests/console"
+	"kubevirt.io/kubevirt/tests/exec"
 
 	"kubevirt.io/kubevirt/tests/framework/checks"
 	"kubevirt.io/kubevirt/tests/libnet/cluster"
@@ -788,7 +789,7 @@ func getNodeHostname(nodeAddresses []k8sv1.NodeAddress) *string {
 
 func resolveNodeIp(virtclient kubecli.KubevirtClient, pod *k8sv1.Pod, hostname string, ipFamily k8sv1.IPFamily) (string, error) {
 	ahostsCmd := string("ahosts" + ipFamily[2:])
-	output, err := tests.ExecuteCommandOnPod(
+	output, err := exec.ExecuteCommandOnPod(
 		virtclient,
 		pod,
 		"compute",

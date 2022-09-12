@@ -38,6 +38,7 @@ import (
 	"kubevirt.io/client-go/kubecli"
 
 	"kubevirt.io/kubevirt/tests"
+	"kubevirt.io/kubevirt/tests/exec"
 	"kubevirt.io/kubevirt/tests/flags"
 	"kubevirt.io/kubevirt/tests/framework/checks"
 	"kubevirt.io/kubevirt/tests/libnode"
@@ -248,7 +249,7 @@ var _ = Describe("[Serial][ref_id:2717][sig-compute]KubeVirt control plane resil
 				Expect(err).NotTo(HaveOccurred())
 
 				for _, pod := range pods.Items {
-					_, err = tests.ExecuteCommandOnPod(virtCli, &pod, componentName, []string{"ip", "route", addOrDel, "blackhole", serviceIp})
+					_, err = exec.ExecuteCommandOnPod(virtCli, &pod, componentName, []string{"ip", "route", addOrDel, "blackhole", serviceIp})
 					Expect(err).NotTo(HaveOccurred())
 				}
 			}

@@ -12,6 +12,7 @@ import (
 	k8sv1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 
+	"kubevirt.io/kubevirt/tests/exec"
 	"kubevirt.io/kubevirt/tests/util"
 
 	v1 "kubevirt.io/api/core/v1"
@@ -119,7 +120,7 @@ var _ = Describe("[Serial][sig-compute]GPU", func() {
 
 			readyPod := tests.GetRunningPodByVirtualMachineInstance(vmi, util.NamespaceTestDefault)
 
-			gpuOutput, err := tests.ExecuteCommandOnPod(
+			gpuOutput, err := exec.ExecuteCommandOnPod(
 				virtClient,
 				readyPod,
 				"compute",

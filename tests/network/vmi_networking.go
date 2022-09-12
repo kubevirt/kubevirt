@@ -27,6 +27,7 @@ import (
 	"strings"
 	"time"
 
+	"kubevirt.io/kubevirt/tests/exec"
 	"kubevirt.io/kubevirt/tests/framework/checks"
 
 	expect "github.com/google/goexpect"
@@ -150,7 +151,7 @@ var _ = SIGDescribe("[rfe_id:694][crit:medium][vendor:cnv-qe@redhat.com][level:c
 				var mtu int
 				for _, ifaceName := range []string{"k6t-eth0", "tap0"} {
 					By(fmt.Sprintf("checking %s MTU inside the pod", ifaceName))
-					output, err := tests.ExecuteCommandOnPod(
+					output, err := exec.ExecuteCommandOnPod(
 						virtClient,
 						vmiPod,
 						"compute",
@@ -943,7 +944,7 @@ var _ = SIGDescribe("[rfe_id:694][crit:medium][vendor:cnv-qe@redhat.com][level:c
 			var anotherVmi *v1.VirtualMachineInstance
 
 			getMtu := func(pod *k8sv1.Pod, ifaceName string) int {
-				output, err := tests.ExecuteCommandOnPod(
+				output, err := exec.ExecuteCommandOnPod(
 					virtClient,
 					pod,
 					"compute",

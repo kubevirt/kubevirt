@@ -14,8 +14,8 @@ import (
 	"kubevirt.io/client-go/kubecli"
 
 	"kubevirt.io/kubevirt/pkg/virtctl/guestfs"
-	"kubevirt.io/kubevirt/tests"
 	"kubevirt.io/kubevirt/tests/clientcmd"
+	"kubevirt.io/kubevirt/tests/exec"
 	"kubevirt.io/kubevirt/tests/libstorage"
 	"kubevirt.io/kubevirt/tests/util"
 )
@@ -46,7 +46,7 @@ var _ = SIGDescribe("[rfe_id:6364][[Serial]Guestfs", func() {
 	execCommandLibguestfsPod := func(podName string, c []string) (string, string, error) {
 		pod, err := virtClient.CoreV1().Pods(util.NamespaceTestDefault).Get(context.Background(), podName, metav1.GetOptions{})
 		Expect(err).ToNot(HaveOccurred())
-		return tests.ExecuteCommandOnPodV2(virtClient, pod, "libguestfs", c)
+		return exec.ExecuteCommandOnPodV2(virtClient, pod, "libguestfs", c)
 	}
 
 	createPVCFilesystem := func(name string) {

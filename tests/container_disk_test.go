@@ -33,6 +33,7 @@ import (
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/runtime"
 
+	"kubevirt.io/kubevirt/tests/exec"
 	"kubevirt.io/kubevirt/tests/util"
 
 	v1 "kubevirt.io/api/core/v1"
@@ -244,7 +245,7 @@ var _ = Describe("[rfe_id:588][crit:medium][vendor:cnv-qe@redhat.com][level:comp
 
 				writableImagePath := fmt.Sprintf("/var/run/kubevirt-ephemeral-disks/disk-data/%v/disk.qcow2", vmi.Spec.Domain.Devices.Disks[0].Name)
 
-				writableImageOctalMode, err := tests.ExecuteCommandOnPod(
+				writableImageOctalMode, err := exec.ExecuteCommandOnPod(
 					virtClient,
 					pod,
 					"compute",
@@ -255,7 +256,7 @@ var _ = Describe("[rfe_id:588][crit:medium][vendor:cnv-qe@redhat.com][level:comp
 				By("Checking the writable Image Octal mode")
 				Expect(strings.Trim(writableImageOctalMode, "\n")).To(Equal("640"), "Octal Mode of writable Image should be 640")
 
-				readonlyImageOctalMode, err := tests.ExecuteCommandOnPod(
+				readonlyImageOctalMode, err := exec.ExecuteCommandOnPod(
 					virtClient,
 					pod,
 					"compute",
