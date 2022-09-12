@@ -18,26 +18,32 @@ import (
 )
 
 type vmiFetcher func(namespace, name string) (*v1.VirtualMachineInstance, *errors.StatusError)
-type dialer func(vmi *v1.VirtualMachineInstance) (net.Conn, *errors.StatusError)
 type validator func(vmi *v1.VirtualMachineInstance) *errors.StatusError
 type streamFunc func(clientConn *websocket.Conn, serverConn net.Conn, result chan<- streamFuncResult)
 type streamFuncResult error
 
+type dialer interface {
+	Dial(vmi *v1.VirtualMachineInstance) (*websocket.Conn, *errors.StatusError)
+	DialUnderlying(vmi *v1.VirtualMachineInstance) (net.Conn, *errors.StatusError)
+}
+
 type Streamer struct {
-	fetchVMI        vmiFetcher
-	validateVMI     validator
-	dial            dialer
+	dialer          *DirectDialer
 	keepAliveClient func(ctx context.Context, conn *websocket.Conn, cancel func())
 
 	streamToClient streamFunc
 	streamToServer streamFunc
 }
 
+type DirectDialer struct {
+	fetchVMI    vmiFetcher
+	validateVMI validator
+	dial        dialer
+}
+
 func NewRawStreamer(fetch vmiFetcher, validate validator, dial dialer) *Streamer {
 	return &Streamer{
-		fetchVMI:    fetch,
-		validateVMI: validate,
-		dial:        dial,
+		dialer: NewDirectDialer(fetch, validate, dial),
 		streamToServer: func(clientConn *websocket.Conn, serverConn net.Conn, result chan<- streamFuncResult) {
 			_, err := io.Copy(serverConn, clientConn.UnderlyingConn())
 			result <- err
@@ -51,9 +57,7 @@ func NewRawStreamer(fetch vmiFetcher, validate validator, dial dialer) *Streamer
 
 func NewWebsocketStreamer(fetch vmiFetcher, validate validator, dial dialer) *Streamer {
 	return &Streamer{
-		fetchVMI:        fetch,
-		validateVMI:     validate,
-		dial:            dial,
+		dialer:          NewDirectDialer(fetch, validate, dial),
 		keepAliveClient: keepAliveClientStream,
 		streamToServer: func(clientConn *websocket.Conn, serverConn net.Conn, result chan<- streamFuncResult) {
 			_, err := kubecli.CopyFrom(serverConn, clientConn)
@@ -69,18 +73,13 @@ func NewWebsocketStreamer(fetch vmiFetcher, validate validator, dial dialer) *St
 func (s *Streamer) Handle(request *restful.Request, response *restful.Response) error {
 	namespace := request.PathParameter(definitions.NamespaceParamName)
 	name := request.PathParameter(definitions.NameParamName)
+	serverConn, statusErr := s.dialer.DialUnderlying(namespace, name)
 
-	vmi, statusErr := s.fetchAndValidateVMI(namespace, name)
 	if statusErr != nil {
 		writeError(statusErr, response)
 		return statusErr
 	}
 
-	serverConn, statusErr := s.dial(vmi)
-	if statusErr != nil {
-		writeError(statusErr, response)
-		return statusErr
-	}
 	clientConn, err := clientConnectionUpgrade(request, response)
 	if err != nil {
 		writeError(errors.NewBadRequest(err.Error()), response)
@@ -110,17 +109,6 @@ func (s *Streamer) Handle(request *restful.Request, response *restful.Response) 
 		return result1
 	}
 	return result2
-}
-
-func (s *Streamer) fetchAndValidateVMI(namespace, name string) (*v1.VirtualMachineInstance, *errors.StatusError) {
-	vmi, err := s.fetchVMI(namespace, name)
-	if err != nil {
-		return nil, err
-	}
-	if err := s.validateVMI(vmi); err != nil {
-		return nil, err
-	}
-	return vmi, nil
 }
 
 const streamTimeout = 10 * time.Second
@@ -164,4 +152,41 @@ func keepAliveClientStream(ctx context.Context, conn *websocket.Conn, cancel fun
 			}
 		}
 	}
+}
+
+func NewDirectDialer(fetch vmiFetcher, validate validator, dial dialer) *DirectDialer {
+	return &DirectDialer{
+		fetchVMI:    fetch,
+		validateVMI: validate,
+		dial:        dial,
+	}
+}
+
+func (d *DirectDialer) Dial(namespace, name string) (*websocket.Conn, *errors.StatusError) {
+	vmi, err := d.fetchAndValidateVMI(namespace, name)
+	if err != nil {
+		return nil, err
+	}
+
+	return d.dial.Dial(vmi)
+}
+
+func (d *DirectDialer) DialUnderlying(namespace, name string) (net.Conn, *errors.StatusError) {
+	vmi, err := d.fetchAndValidateVMI(namespace, name)
+	if err != nil {
+		return nil, err
+	}
+
+	return d.dial.DialUnderlying(vmi)
+}
+
+func (d *DirectDialer) fetchAndValidateVMI(namespace, name string) (*v1.VirtualMachineInstance, *errors.StatusError) {
+	vmi, err := d.fetchVMI(namespace, name)
+	if err != nil {
+		return nil, err
+	}
+	if err := d.validateVMI(vmi); err != nil {
+		return nil, err
+	}
+	return vmi, nil
 }

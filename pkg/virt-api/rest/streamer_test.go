@@ -46,25 +46,31 @@ var _ = Describe("Streamer", func() {
 		dialCalled           bool
 		streamToClientCalled chan struct{}
 		streamToServerCalled chan struct{}
+		directDialer         *DirectDialer
 	)
 	BeforeEach(func() {
 		testVMI = &v1.VirtualMachineInstance{ObjectMeta: metav1.ObjectMeta{Name: "test-vmi"}}
 		streamToClientCalled = make(chan struct{}, 1)
 		streamToServerCalled = make(chan struct{}, 1)
 		serverConn, serverPipe = net.Pipe()
-		streamer = &Streamer{
-			fetchVMI: func(_, _ string) (*v1.VirtualMachineInstance, *errors.StatusError) {
+		directDialer = NewDirectDialer(
+			func(_, _ string) (*v1.VirtualMachineInstance, *errors.StatusError) {
 				fetchVMICalled = true
 				return testVMI, nil
 			},
-			validateVMI: func(vmi *v1.VirtualMachineInstance) *errors.StatusError {
+			func(vmi *v1.VirtualMachineInstance) *errors.StatusError {
 				validateVMICalled = true
 				return nil
 			},
-			dial: func(vmi *v1.VirtualMachineInstance) (net.Conn, *errors.StatusError) {
-				dialCalled = true
-				return serverConn, nil
+			mockDialer{
+				dialUnderlying: func(vmi *v1.VirtualMachineInstance) (net.Conn, *errors.StatusError) {
+					dialCalled = true
+					return serverConn, nil
+				},
 			},
+		)
+		streamer = &Streamer{
+			dialer: directDialer,
 			streamToClient: func(clientSocket *websocket.Conn, serverConn net.Conn, result chan<- streamFuncResult) {
 				result <- nil
 				streamToClientCalled <- struct{}{}
@@ -102,14 +108,14 @@ var _ = Describe("Streamer", func() {
 		Expect(validateVMICalled).To(BeTrue())
 	})
 	It("validates the fetched VMI", func() {
-		streamer.validateVMI = func(vmi *v1.VirtualMachineInstance) *errors.StatusError {
+		directDialer.validateVMI = func(vmi *v1.VirtualMachineInstance) *errors.StatusError {
 			Expect(vmi).To(Equal(testVMI))
 			return nil
 		}
 		streamer.Handle(req, resp)
 	})
 	It("does not validate the VMI if it can't be fetched", func() {
-		streamer.fetchVMI = func(_, _ string) (*v1.VirtualMachineInstance, *errors.StatusError) {
+		directDialer.fetchVMI = func(_, _ string) (*v1.VirtualMachineInstance, *errors.StatusError) {
 			return nil, errors.NewInternalError(goerrors.New("test error"))
 		}
 
@@ -121,14 +127,16 @@ var _ = Describe("Streamer", func() {
 		Expect(dialCalled).To(BeTrue())
 	})
 	It("dials the fetched VMI", func() {
-		streamer.dial = func(vmi *v1.VirtualMachineInstance) (net.Conn, *errors.StatusError) {
-			Expect(vmi).To(Equal(testVMI))
-			return nil, nil
+		directDialer.dial = mockDialer{
+			dialUnderlying: func(vmi *v1.VirtualMachineInstance) (net.Conn, *errors.StatusError) {
+				Expect(vmi).To(Equal(testVMI))
+				return nil, nil
+			},
 		}
 		streamer.Handle(req, resp)
 	})
 	It("does not dial when VMI is invalid", func() {
-		streamer.validateVMI = func(_ *v1.VirtualMachineInstance) *errors.StatusError {
+		directDialer.validateVMI = func(_ *v1.VirtualMachineInstance) *errors.StatusError {
 			return errors.NewInternalError(goerrors.New("test error"))
 		}
 
@@ -145,8 +153,10 @@ var _ = Describe("Streamer", func() {
 		defer ws.Close()
 	})
 	It("does not attempt the client connection upgrade on a failed dial", func() {
-		streamer.dial = func(vmi *v1.VirtualMachineInstance) (net.Conn, *errors.StatusError) {
-			return nil, errors.NewInternalError(goerrors.New("test error"))
+		directDialer.dial = mockDialer{
+			dialUnderlying: func(vmi *v1.VirtualMachineInstance) (net.Conn, *errors.StatusError) {
+				return nil, errors.NewInternalError(goerrors.New("test error"))
+			},
 		}
 		srv, _, wsResp, err := testWebsocketDial(http.HandlerFunc(func(rw http.ResponseWriter, r *http.Request) {
 			handleErr := streamer.Handle(restful.NewRequest(r), restful.NewResponse(rw))
@@ -406,4 +416,17 @@ func testWebsocketDial(handler http.HandlerFunc) (*httptest.Server, *websocket.C
 	srv := httptest.NewServer(handler)
 	ws, resp, err := websocket.DefaultDialer.Dial("ws"+strings.TrimPrefix(srv.URL, "http"), nil)
 	return srv, ws, resp, err
+}
+
+type mockDialer struct {
+	dial           func(vmi *v1.VirtualMachineInstance) (*websocket.Conn, *errors.StatusError)
+	dialUnderlying func(vmi *v1.VirtualMachineInstance) (net.Conn, *errors.StatusError)
+}
+
+func (m mockDialer) Dial(vmi *v1.VirtualMachineInstance) (*websocket.Conn, *errors.StatusError) {
+	return m.dial(vmi)
+}
+
+func (m mockDialer) DialUnderlying(vmi *v1.VirtualMachineInstance) (net.Conn, *errors.StatusError) {
+	return m.dialUnderlying(vmi)
 }
