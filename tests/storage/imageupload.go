@@ -1,6 +1,7 @@
 package storage
 
 import (
+	"bytes"
 	"context"
 	"fmt"
 	"os"
@@ -15,9 +16,11 @@ import (
 
 	"kubevirt.io/kubevirt/tests/util"
 
+	k8sv1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/util/rand"
+	"k8s.io/client-go/tools/remotecommand"
 
 	"kubevirt.io/client-go/kubecli"
 	cdiv1 "kubevirt.io/containerized-data-importer-api/pkg/apis/core/v1beta1"
@@ -25,6 +28,7 @@ import (
 	"kubevirt.io/kubevirt/tests"
 	"kubevirt.io/kubevirt/tests/clientcmd"
 	"kubevirt.io/kubevirt/tests/errorhandling"
+	execute "kubevirt.io/kubevirt/tests/exec"
 	"kubevirt.io/kubevirt/tests/flags"
 	"kubevirt.io/kubevirt/tests/libstorage"
 )
@@ -62,7 +66,7 @@ var _ = SIGDescribe("[Serial]ImageUpload", func() {
 		Expect(err).ToNot(HaveOccurred())
 		Expect(pods.Items).ToNot(BeEmpty())
 
-		stderr, err := tests.CopyFromPod(virtClient, &pods.Items[0], "target", "/images/alpine/disk.img", imagePath)
+		stderr, err := copyFromPod(virtClient, &pods.Items[0], "target", "/images/alpine/disk.img", imagePath)
 		log.DefaultLogger().Info(stderr)
 		Expect(err).ToNot(HaveOccurred())
 
@@ -398,4 +402,21 @@ func createArchive(targetFile, tgtDir string, sourceFilesNames ...string) string
 	tests.ArchiveToFile(tgtFile, sourceFilesNames...)
 
 	return tgtPath
+}
+
+func copyFromPod(virtCli kubecli.KubevirtClient, pod *k8sv1.Pod, containerName, sourceFile, targetFile string) (stderr string, err error) {
+	var (
+		stderrBuf bytes.Buffer
+	)
+	file, err := os.Create(targetFile)
+	Expect(err).ToNot(HaveOccurred())
+	defer file.Close()
+
+	options := remotecommand.StreamOptions{
+		Stdout: file,
+		Stderr: &stderrBuf,
+		Tty:    false,
+	}
+	err = execute.ExecCommandOnPod(virtCli, pod, containerName, []string{"cat", sourceFile}, options)
+	return stderrBuf.String(), err
 }

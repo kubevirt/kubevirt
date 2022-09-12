@@ -1365,23 +1365,6 @@ func ExecuteCommandOnPod(virtCli kubecli.KubevirtClient, pod *k8sv1.Pod, contain
 	return stdout, nil
 }
 
-func CopyFromPod(virtCli kubecli.KubevirtClient, pod *k8sv1.Pod, containerName, sourceFile, targetFile string) (stderr string, err error) {
-	var (
-		stderrBuf bytes.Buffer
-	)
-	file, err := os.Create(targetFile)
-	Expect(err).ToNot(HaveOccurred())
-	defer file.Close()
-
-	options := remotecommand.StreamOptions{
-		Stdout: file,
-		Stderr: &stderrBuf,
-		Tty:    false,
-	}
-	err = execCommandOnPod(virtCli, pod, containerName, []string{"cat", sourceFile}, options)
-	return stderrBuf.String(), err
-}
-
 func ExecuteCommandOnPodV2(virtCli kubecli.KubevirtClient, pod *k8sv1.Pod, containerName string, command []string) (stdout, stderr string, err error) {
 	var (
 		stdoutBuf bytes.Buffer
