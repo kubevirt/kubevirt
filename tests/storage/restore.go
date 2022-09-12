@@ -1551,17 +1551,12 @@ var _ = SIGDescribe("VirtualMachineRestore Tests", func() {
 						Skip("Two storageclasses required for this test")
 					}
 
-					source := libstorage.NewDataVolumeWithRegistryImportInStorageClass(
-						cd.DataVolumeImportUrlForContainerDisk(cd.ContainerDiskCirros),
-						testsuite.NamespaceTestAlternative,
-						sourceSC,
-						corev1.ReadWriteOnce,
-						corev1.PersistentVolumeFilesystem,
+					source := dvbuilder.NewDataVolume(
+						dvbuilder.WithNamespace(namespace),
+						dvbuilder.WithRegistryURLSourceAndPullMethod(cd.DataVolumeImportUrlForContainerDisk(cd.ContainerDiskCirros), cdiv1.RegistryPullNode),
+						dvbuilder.WithPVC(sourceSC, "512Mi", corev1.ReadWriteOnce, corev1.PersistentVolumeFilesystem),
+						dvbuilder.WithForceBindAnnotation(),
 					)
-					if source.Annotations == nil {
-						source.Annotations = make(map[string]string)
-					}
-					source.Annotations["cdi.kubevirt.io/storage.bind.immediate.requested"] = "true"
 
 					source, err = virtClient.CdiClient().CdiV1beta1().DataVolumes(source.Namespace).Create(context.Background(), source, metav1.CreateOptions{})
 					Expect(err).ToNot(HaveOccurred())

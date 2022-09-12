@@ -324,7 +324,11 @@ var _ = SIGDescribe("Export", func() {
 
 	populateKubeVirtContent := func(sc string, volumeMode k8sv1.PersistentVolumeMode) (*k8sv1.PersistentVolumeClaim, string) {
 		By("Creating source volume")
-		dv := libstorage.NewDataVolumeWithRegistryImportInStorageClass(cd.DataVolumeImportUrlForContainerDisk(cd.ContainerDiskCirros), util.NamespaceTestDefault, sc, k8sv1.ReadWriteOnce, volumeMode)
+		dv := dvbuilder.NewDataVolume(
+			dvbuilder.WithNamespace(util.NamespaceTestDefault),
+			dvbuilder.WithRegistryURLSourceAndPullMethod(cd.DataVolumeImportUrlForContainerDisk(cd.ContainerDiskCirros), cdiv1.RegistryPullNode),
+			dvbuilder.WithPVC(sc, "512Mi", k8sv1.ReadWriteOnce, volumeMode),
+		)
 		dv, err = virtClient.CdiClient().CdiV1beta1().DataVolumes(dv.Namespace).Create(context.Background(), dv, metav1.CreateOptions{})
 		var pvc *k8sv1.PersistentVolumeClaim
 		Eventually(func() error {
@@ -809,7 +813,12 @@ var _ = SIGDescribe("Export", func() {
 		if !exists {
 			Skip("Skip test when Filesystem storage is not present")
 		}
-		dv := libstorage.NewDataVolumeWithRegistryImportInStorageClass(cd.DataVolumeImportUrlForContainerDisk(cd.ContainerDiskCirros), util.NamespaceTestDefault, sc, k8sv1.ReadWriteOnce, k8sv1.PersistentVolumeFilesystem)
+		dv := dvbuilder.NewDataVolume(
+			dvbuilder.WithNamespace(util.NamespaceTestDefault),
+			dvbuilder.WithRegistryURLSourceAndPullMethod(cd.DataVolumeImportUrlForContainerDisk(cd.ContainerDiskCirros), cdiv1.RegistryPullNode),
+			dvbuilder.WithPVC(sc, "512Mi", k8sv1.ReadWriteOnce, k8sv1.PersistentVolumeFilesystem),
+		)
+
 		name := dv.Name
 		namespace := dv.Namespace
 		token := createExportTokenSecret(name, namespace)
@@ -1420,7 +1429,11 @@ var _ = SIGDescribe("Export", func() {
 		if !exists {
 			Skip("Skip test when Filesystem storage is not present")
 		}
-		dataVolume := libstorage.NewDataVolumeWithRegistryImportInStorageClass(cd.DataVolumeImportUrlForContainerDisk(cd.ContainerDiskAlpine), util.NamespaceTestDefault, sc, k8sv1.ReadWriteOnce, k8sv1.PersistentVolumeFilesystem)
+		dataVolume := dvbuilder.NewDataVolume(
+			dvbuilder.WithNamespace(util.NamespaceTestDefault),
+			dvbuilder.WithRegistryURLSourceAndPullMethod(cd.DataVolumeImportUrlForContainerDisk(cd.ContainerDiskAlpine), cdiv1.RegistryPullNode),
+			dvbuilder.WithPVC(sc, "512Mi", k8sv1.ReadWriteOnce, k8sv1.PersistentVolumeFilesystem),
+		)
 		dataVolume = createDataVolume(dataVolume)
 		vmi := tests.NewRandomVMIWithDataVolume(dataVolume.Name)
 		vmi = createVMI(vmi)

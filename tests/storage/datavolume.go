@@ -299,13 +299,12 @@ var _ = SIGDescribe("DataVolume Integration", func() {
 					Skip("no snapshot storage class configured")
 				}
 
-				dataVolume := libstorage.NewDataVolumeWithRegistryImportInStorageClass(
-					cd.DataVolumeImportUrlForContainerDisk(cd.ContainerDiskAlpine),
-					util.NamespaceTestDefault,
-					sc,
-					k8sv1.ReadWriteOnce,
-					k8sv1.PersistentVolumeFilesystem,
+				dataVolume := dvbuilder.NewDataVolume(
+					dvbuilder.WithNamespace(util.NamespaceTestDefault),
+					dvbuilder.WithRegistryURLSourceAndPullMethod(cd.DataVolumeImportUrlForContainerDisk(cd.ContainerDiskAlpine), cdiv1.RegistryPullNode),
+					dvbuilder.WithPVC(sc, "512Mi", k8sv1.ReadWriteOnce, k8sv1.PersistentVolumeFilesystem),
 				)
+
 				vmi := tests.NewRandomVMIWithDataVolume(dataVolume.Name)
 				vmSpec := tests.NewRandomVirtualMachine(vmi, false)
 
@@ -354,7 +353,11 @@ var _ = SIGDescribe("DataVolume Integration", func() {
 				storageClass, err = virtClient.StorageV1().StorageClasses().Create(context.Background(), storageClass, metav1.CreateOptions{})
 				Expect(err).ToNot(HaveOccurred())
 
-				dv = libstorage.NewDataVolumeWithRegistryImportInStorageClass(cd.DataVolumeImportUrlForContainerDisk(cd.ContainerDiskAlpine), util.NamespaceTestDefault, storageClass.Name, k8sv1.ReadWriteOnce, k8sv1.PersistentVolumeFilesystem)
+				dv = dvbuilder.NewDataVolume(
+					dvbuilder.WithNamespace(util.NamespaceTestDefault),
+					dvbuilder.WithRegistryURLSourceAndPullMethod(cd.DataVolumeImportUrlForContainerDisk(cd.ContainerDiskAlpine), cdiv1.RegistryPullNode),
+					dvbuilder.WithPVC(storageClass.Name, "512Mi", k8sv1.ReadWriteOnce, k8sv1.PersistentVolumeFilesystem),
+				)
 				vmi = libvmi.New(
 					libvmi.WithInterface(libvmi.InterfaceDeviceWithMasqueradeBinding()),
 					libvmi.WithNetwork(v1.DefaultPodNetwork()),
@@ -676,8 +679,13 @@ var _ = SIGDescribe("DataVolume Integration", func() {
 					Skip("Skip test when RWOFileSystem storage class is not present")
 				}
 				var err error
-				dv := libstorage.NewDataVolumeWithRegistryImportInStorageClass(cd.DataVolumeImportUrlForContainerDisk(cd.ContainerDiskAlpine), testsuite.NamespaceTestAlternative, storageClass, k8sv1.ReadWriteOnce, k8sv1.PersistentVolumeFilesystem)
-				tests.SetDataVolumeForceBindAnnotation(dv)
+				dv := dvbuilder.NewDataVolume(
+					dvbuilder.WithNamespace(testsuite.NamespaceTestAlternative),
+					dvbuilder.WithRegistryURLSourceAndPullMethod(cd.DataVolumeImportUrlForContainerDisk(cd.ContainerDiskAlpine), cdiv1.RegistryPullNode),
+					dvbuilder.WithPVC(storageClass, "512Mi", k8sv1.ReadWriteOnce, k8sv1.PersistentVolumeFilesystem),
+					dvbuilder.WithForceBindAnnotation(),
+				)
+
 				dataVolume, err = virtClient.CdiClient().CdiV1beta1().DataVolumes(dv.Namespace).Create(context.Background(), dv, metav1.CreateOptions{})
 				Expect(err).ToNot(HaveOccurred())
 				libstorage.EventuallyDV(dataVolume, 90, HaveSucceeded())

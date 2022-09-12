@@ -63,14 +63,6 @@ func NewDataVolumeWithRegistryImport(imageUrl, namespace string, accessMode v1.P
 	)
 }
 
-func NewDataVolumeWithRegistryImportInStorageClass(imageUrl, namespace, storageClass string, accessMode v1.PersistentVolumeAccessMode, volumeMode v1.PersistentVolumeMode) *v1beta1.DataVolume {
-	return dvbuilder.NewDataVolume(
-		dvbuilder.WithNamespace(namespace),
-		dvbuilder.WithRegistryURLSource(imageUrl),
-		dvbuilder.WithPVC(storageClass, dvbuilder.PVCSizeForRegistryImport, accessMode, volumeMode),
-	)
-}
-
 func AddDataVolumeDisk(vmi *v13.VirtualMachineInstance, diskName, dataVolumeName string) *v13.VirtualMachineInstance {
 	vmi.Spec.Domain.Devices.Disks = append(vmi.Spec.Domain.Devices.Disks, v13.Disk{
 		Name: diskName,

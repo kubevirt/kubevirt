@@ -1249,13 +1249,12 @@ var _ = SIGDescribe("VirtualMachineSnapshot Tests", func() {
 			})
 
 			DescribeTable("should accurately report DataVolume provisioning", func(vmif func(string) *v1.VirtualMachineInstance) {
-				dataVolume := libstorage.NewDataVolumeWithRegistryImportInStorageClass(
-					cd.DataVolumeImportUrlForContainerDisk(cd.ContainerDiskAlpine),
-					util.NamespaceTestDefault,
-					snapshotStorageClass,
-					corev1.ReadWriteOnce,
-					corev1.PersistentVolumeFilesystem,
+				dataVolume := dvbuilder.NewDataVolume(
+					dvbuilder.WithNamespace(util.NamespaceTestDefault),
+					dvbuilder.WithRegistryURLSourceAndPullMethod(cd.DataVolumeImportUrlForContainerDisk(cd.ContainerDiskAlpine), cdiv1.RegistryPullNode),
+					dvbuilder.WithPVC(snapshotStorageClass, "512Mi", corev1.ReadWriteOnce, corev1.PersistentVolumeFilesystem),
 				)
+
 				vmi := vmif(dataVolume.Name)
 				vm = tests.NewRandomVirtualMachine(vmi, false)
 
