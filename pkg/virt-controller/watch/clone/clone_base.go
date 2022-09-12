@@ -33,7 +33,7 @@ const (
 	TargetVMCreated Event = "TargetVMCreated"
 
 	SnapshotDeleted    Event = "SnapshotDeleted"
-	SnapshotNotCreated Event = "SnapshotNotCreated"
+	SourceDoesNotExist Event = "SourceDoesNotExist"
 )
 
 type VMCloneController struct {
