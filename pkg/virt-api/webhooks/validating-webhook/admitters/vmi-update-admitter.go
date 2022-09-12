@@ -305,7 +305,7 @@ func filterKubevirtLabels(labels map[string]string) map[string]string {
 		return m
 	}
 	for label, value := range labels {
-		if _, ok := restriectedVmiLabels[label]; ok {
+		if _, ok := restrictedVmiLabels[label]; ok {
 			m[label] = value
 		}
 	}

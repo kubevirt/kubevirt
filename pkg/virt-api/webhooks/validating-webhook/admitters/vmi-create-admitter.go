@@ -21,6 +21,7 @@ package admitters
 
 import (
 	"encoding/base64"
+	"errors"
 	"fmt"
 	"net"
 	"path/filepath"
@@ -67,7 +68,7 @@ var validInterfaceModels = map[string]*struct{}{"e1000": nil, "e1000e": nil, "ne
 var validIOThreadsPolicies = []v1.IOThreadsPolicy{v1.IOThreadsPolicyShared, v1.IOThreadsPolicyAuto}
 var validCPUFeaturePolicies = map[string]*struct{}{"": nil, "force": nil, "require": nil, "optional": nil, "disable": nil, "forbid": nil}
 
-var restriectedVmiLabels = map[string]bool{
+var restrictedVmiLabels = map[string]bool{
 	v1.CreatedByLabel:               true,
 	v1.MigrationJobLabel:            true,
 	v1.NodeNameLabel:                true,
@@ -293,7 +294,7 @@ func validateInterfaceNetworkBasics(field *k8sfield.Path, networkExists bool, id
 	} else if iface.Slirp != nil && networkData.Pod != nil && !config.IsSlirpInterfaceEnabled() {
 		causes = appendStatusCauseForSlirpNotEnabled(field, causes, idx)
 	} else if iface.Masquerade != nil && networkData.Pod == nil {
-		causes = appendStatusCauseForMasqueradeWithourPodNetwork(field, causes, idx)
+		causes = appendStatusCauseForMasqueradeWithoutPodNetwork(field, causes, idx)
 	} else if iface.Masquerade != nil && link.IsReserved(iface.MacAddress) {
 		causes = appendStatusCauseForInvalidMasqueradeMacAddress(field, causes, idx)
 	} else if iface.InterfaceBindingMethod.Bridge != nil && networkData.NetworkSource.Pod != nil && !config.IsBridgeInterfaceOnPodNetworkEnabled() {
@@ -537,7 +538,7 @@ func appendStatusCauseForBridgeNotEnabled(field *k8sfield.Path, causes []metav1.
 	return causes
 }
 
-func appendStatusCauseForMasqueradeWithourPodNetwork(field *k8sfield.Path, causes []metav1.StatusCause, idx int) []metav1.StatusCause {
+func appendStatusCauseForMasqueradeWithoutPodNetwork(field *k8sfield.Path, causes []metav1.StatusCause, idx int) []metav1.StatusCause {
 	causes = append(causes, metav1.StatusCause{
 		Type:    metav1.CauseTypeFieldValueInvalid,
 		Message: "Masquerade interface only implemented with pod network",
@@ -787,7 +788,7 @@ func validateGPUsWithPassthroughEnabled(field *k8sfield.Path, spec *v1.VirtualMa
 	if spec.Domain.Devices.GPUs != nil && !config.GPUPassthroughEnabled() {
 		causes = append(causes, metav1.StatusCause{
 			Type:    metav1.CauseTypeFieldValueInvalid,
-			Message: fmt.Sprintf("GPU feature gate is not enabled in kubevirt-config"),
+			Message: "GPU feature gate is not enabled in kubevirt-config",
 			Field:   field.Child("GPUs").String(),
 		})
 	}
@@ -798,7 +799,7 @@ func validateFilesystemsWithVirtIOFSEnabled(field *k8sfield.Path, spec *v1.Virtu
 	if spec.Domain.Devices.Filesystems != nil && !config.VirtiofsEnabled() {
 		causes = append(causes, metav1.StatusCause{
 			Type:    metav1.CauseTypeFieldValueInvalid,
-			Message: fmt.Sprintf("virtiofs feature gate is not enabled in kubevirt-config"),
+			Message: "virtiofs feature gate is not enabled in kubevirt-config",
 			Field:   field.Child("Filesystems").String(),
 		})
 	}
@@ -809,7 +810,7 @@ func validateHostDevicesWithPassthroughEnabled(field *k8sfield.Path, spec *v1.Vi
 	if spec.Domain.Devices.HostDevices != nil && !config.HostDevicesPassthroughEnabled() {
 		causes = append(causes, metav1.StatusCause{
 			Type:    metav1.CauseTypeFieldValueInvalid,
-			Message: fmt.Sprintf("Host Devices feature gate is not enabled in kubevirt-config"),
+			Message: "Host Devices feature gate is not enabled in kubevirt-config",
 			Field:   field.Child("HostDevices").String(),
 		})
 	}
@@ -822,7 +823,7 @@ func validateSoundDevices(field *k8sfield.Path, spec *v1.VirtualMachineInstanceS
 		if model != "" && model != "ich9" && model != "ac97" {
 			causes = append(causes, metav1.StatusCause{
 				Type:    metav1.CauseTypeFieldValueInvalid,
-				Message: fmt.Sprintf("Sound device type is not supported. Options: 'ich9' or 'ac97'"),
+				Message: "Sound device type is not supported. Options: 'ich9' or 'ac97'",
 				Field:   field.Child("Sound").String(),
 			})
 		}
@@ -830,7 +831,7 @@ func validateSoundDevices(field *k8sfield.Path, spec *v1.VirtualMachineInstanceS
 		if name == "" {
 			causes = append(causes, metav1.StatusCause{
 				Type:    metav1.CauseTypeFieldValueInvalid,
-				Message: fmt.Sprintf("Sound device requires a name field."),
+				Message: "Sound device requires a name field.",
 				Field:   field.Child("Sound").String(),
 			})
 		}
@@ -851,13 +852,13 @@ func validateLaunchSecurity(field *k8sfield.Path, spec *v1.VirtualMachineInstanc
 		if firmware == nil || firmware.Bootloader == nil || firmware.Bootloader.EFI == nil {
 			causes = append(causes, metav1.StatusCause{
 				Type:    metav1.CauseTypeFieldValueInvalid,
-				Message: fmt.Sprintf("SEV requires OVMF (UEFI)"),
+				Message: "SEV requires OVMF (UEFI)",
 				Field:   field.Child("launchSecurity").String(),
 			})
 		} else if firmware.Bootloader.EFI.SecureBoot == nil || *firmware.Bootloader.EFI.SecureBoot {
 			causes = append(causes, metav1.StatusCause{
 				Type:    metav1.CauseTypeFieldValueInvalid,
-				Message: fmt.Sprintf("SEV does not work along with SecureBoot"),
+				Message: "SEV does not work along with SecureBoot",
 				Field:   field.Child("launchSecurity").String(),
 			})
 		}
@@ -1060,7 +1061,7 @@ func validateCPUIsolatorThread(field *k8sfield.Path, spec *v1.VirtualMachineInst
 	if spec.Domain.CPU != nil && spec.Domain.CPU.IsolateEmulatorThread && !spec.Domain.CPU.DedicatedCPUPlacement {
 		causes = append(causes, metav1.StatusCause{
 			Type:    metav1.CauseTypeFieldValueInvalid,
-			Message: fmt.Sprintf("IsolateEmulatorThread should be only set in combination with DedicatedCPUPlacement"),
+			Message: "IsolateEmulatorThread should be only set in combination with DedicatedCPUPlacement",
 			Field:   field.Child("domain", "cpu", "isolateEmulatorThread").String(),
 		})
 	}
@@ -1318,6 +1319,7 @@ func validateEmulatedMachine(field *k8sfield.Path, spec *v1.VirtualMachineInstan
 		for _, val := range supportedMachines {
 			if regexp.MustCompile(val).MatchString(machine.Type) {
 				match = true
+				break
 			}
 		}
 		if !match {
@@ -1628,8 +1630,8 @@ func ValidateVirtualMachineInstanceMetadata(field *k8sfield.Path, metadata *meta
 func ValidateDuplicateDHCPPrivateOptions(PrivateOptions []v1.DHCPPrivateOptions) error {
 	isUnique := map[int]bool{}
 	for _, DHCPPrivateOption := range PrivateOptions {
-		if isUnique[DHCPPrivateOption.Option] == true {
-			return fmt.Errorf("You have provided duplicate DHCPPrivateOptions")
+		if isUnique[DHCPPrivateOption.Option] {
+			return errors.New("you have provided duplicate DHCPPrivateOptions")
 		}
 		isUnique[DHCPPrivateOption.Option] = true
 	}
@@ -2336,7 +2338,7 @@ func validateDisks(field *k8sfield.Path, disks []v1.Disk) []metav1.StatusCause {
 			if isIOThreadsWithSataBus {
 				causes = append(causes, metav1.StatusCause{
 					Type:    metav1.CauseTypeFieldValueNotSupported,
-					Message: fmt.Sprintf("IOThreads are not supported for disks on a SATA bus"),
+					Message: "IOThreads are not supported for disks on a SATA bus",
 					Field:   field.Child("domain", "devices", "disks").Index(idx).String(),
 				})
 			}
