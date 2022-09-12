@@ -32,6 +32,7 @@ import (
 	"kubevirt.io/kubevirt/tests"
 	"kubevirt.io/kubevirt/tests/console"
 	cd "kubevirt.io/kubevirt/tests/containerdisk"
+	"kubevirt.io/kubevirt/tests/dvbuilder"
 	"kubevirt.io/kubevirt/tests/framework/matcher"
 	"kubevirt.io/kubevirt/tests/libstorage"
 	"kubevirt.io/kubevirt/tests/libvmi"
@@ -1609,13 +1610,11 @@ var _ = SIGDescribe("VirtualMachineRestore Tests", func() {
 				}
 
 				createVMFromSource := func() *v1.VirtualMachine {
-					dataVolume := libstorage.NewDataVolumeWithPVCSource(
-						sourceDV.Namespace,
-						sourceDV.Name,
-						util.NamespaceTestDefault,
-						corev1.ReadWriteOnce,
+					dataVolume := dvbuilder.NewDataVolume(
+						dvbuilder.WithPVCSource(sourceDV.Namespace, sourceDV.Name),
+						dvbuilder.WithPVC(snapshotStorageClass, "1Gi", corev1.ReadWriteOnce, corev1.PersistentVolumeFilesystem),
 					)
-					libstorage.SetDataVolumePVCStorageClass(dataVolume, snapshotStorageClass)
+
 					vmi := tests.NewRandomVMIWithDataVolume(dataVolume.Name)
 					tests.AddUserData(vmi, "cloud-init", bashHelloScript)
 					vm := tests.NewRandomVirtualMachine(vmi, false)

@@ -71,25 +71,6 @@ func NewDataVolumeWithRegistryImportInStorageClass(imageUrl, namespace, storageC
 	)
 }
 
-// todo: this is wrong to skip the test from here. This function should only produce a DV instance and should not deal
-//       with test logic.
-//       Change the function to return error, and skip the test from the caller.
-func NewDataVolumeWithPVCSource(sourceNamespace, sourceName, targetNamespace string, accessMode v1.PersistentVolumeAccessMode) *v1beta1.DataVolume {
-	sc, exists := GetRWOFileSystemStorageClass()
-	if accessMode == v1.ReadWriteMany {
-		sc, exists = GetRWXFileSystemStorageClass()
-	}
-	if !exists {
-		ginkgo.Skip("Skip test when Filesystem storage is not present")
-	}
-
-	return dvbuilder.NewDataVolume(
-		dvbuilder.WithNamespace(targetNamespace),
-		dvbuilder.WithPVCSource(sourceNamespace, sourceName),
-		dvbuilder.WithPVC(sc, "1Gi", accessMode, v1.PersistentVolumeFilesystem),
-	)
-}
-
 func AddDataVolumeDisk(vmi *v13.VirtualMachineInstance, diskName, dataVolumeName string) *v13.VirtualMachineInstance {
 	vmi.Spec.Domain.Devices.Disks = append(vmi.Spec.Domain.Devices.Disks, v13.Disk{
 		Name: diskName,

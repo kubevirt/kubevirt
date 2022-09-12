@@ -51,6 +51,7 @@ import (
 	"kubevirt.io/kubevirt/tests/clientcmd"
 	"kubevirt.io/kubevirt/tests/console"
 	cd "kubevirt.io/kubevirt/tests/containerdisk"
+	"kubevirt.io/kubevirt/tests/dvbuilder"
 	"kubevirt.io/kubevirt/tests/flags"
 	"kubevirt.io/kubevirt/tests/framework/checks"
 	. "kubevirt.io/kubevirt/tests/framework/matcher"
@@ -681,7 +682,8 @@ var _ = SIGDescribe("DataVolume Integration", func() {
 				Expect(err).ToNot(HaveOccurred())
 				libstorage.EventuallyDV(dataVolume, 90, HaveSucceeded())
 
-				vm = tests.NewRandomVMWithCloneDataVolume(dataVolume.Namespace, dataVolume.Name, util.NamespaceTestDefault)
+				vm = newRandomVMWithCloneDataVolume(dataVolume.Namespace, dataVolume.Name, util.NamespaceTestDefault, storageClass)
+
 				const volumeName = "sa"
 				saVol := v1.Volume{
 					Name: volumeName,
@@ -1089,4 +1091,18 @@ func volumeExpansionAllowed(sc string) bool {
 	Expect(err).ToNot(HaveOccurred())
 	return storageClass.AllowVolumeExpansion != nil &&
 		*storageClass.AllowVolumeExpansion
+}
+
+func newRandomVMWithCloneDataVolume(sourceNamespace, sourceName, targetNamespace, sc string) *v1.VirtualMachine {
+	dataVolume := dvbuilder.NewDataVolume(
+		dvbuilder.WithPVCSource(sourceNamespace, sourceName),
+		dvbuilder.WithPVC(sc, "1Gi", k8sv1.ReadWriteOnce, k8sv1.PersistentVolumeFilesystem),
+	)
+
+	vmi := tests.NewRandomVMIWithDataVolume(dataVolume.Name)
+	vmi.Namespace = targetNamespace
+	vm := tests.NewRandomVirtualMachine(vmi, false)
+
+	libstorage.AddDataVolumeTemplate(vm, dataVolume)
+	return vm
 }
