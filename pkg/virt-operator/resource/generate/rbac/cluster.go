@@ -140,6 +140,7 @@ func newAdminClusterRole() *rbacv1.ClusterRole {
 				Resources: []string{
 					"virtualmachineinstances/console",
 					"virtualmachineinstances/vnc",
+					"virtualmachineinstances/vnc/screenshot",
 					VMInstancesGuestOSInfo,
 					VMInstancesFileSysList,
 					VMInstancesUserList,
@@ -272,6 +273,7 @@ func newEditClusterRole() *rbacv1.ClusterRole {
 				Resources: []string{
 					"virtualmachineinstances/console",
 					"virtualmachineinstances/vnc",
+					"virtualmachineinstances/vnc/screenshot",
 					VMInstancesGuestOSInfo,
 					VMInstancesFileSysList,
 					VMInstancesUserList,
