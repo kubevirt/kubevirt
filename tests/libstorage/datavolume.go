@@ -39,29 +39,9 @@ import (
 	"kubevirt.io/client-go/kubecli"
 	"kubevirt.io/containerized-data-importer-api/pkg/apis/core/v1beta1"
 
-	"kubevirt.io/kubevirt/tests/dvbuilder"
 	. "kubevirt.io/kubevirt/tests/framework/matcher"
 	"kubevirt.io/kubevirt/tests/util"
 )
-
-// todo: this is wrong to skip the test from here. This function should only produce a DV instance and should not deal
-//       with test logic.
-//       Change the function to return error, and skip the test from the caller.
-func NewDataVolumeWithRegistryImport(imageUrl, namespace string, accessMode v1.PersistentVolumeAccessMode) *v1beta1.DataVolume {
-	sc, exists := GetRWOFileSystemStorageClass()
-	if accessMode == v1.ReadWriteMany {
-		sc, exists = GetRWXFileSystemStorageClass()
-	}
-	if !exists {
-		ginkgo.Skip("Skip test when Filesystem storage is not present")
-	}
-
-	return dvbuilder.NewDataVolume(
-		dvbuilder.WithNamespace(namespace),
-		dvbuilder.WithRegistryURLSource(imageUrl),
-		dvbuilder.WithPVC(sc, dvbuilder.PVCSizeForRegistryImport, accessMode, v1.PersistentVolumeFilesystem),
-	)
-}
 
 func AddDataVolumeDisk(vmi *v13.VirtualMachineInstance, diskName, dataVolumeName string) *v13.VirtualMachineInstance {
 	vmi.Spec.Domain.Devices.Disks = append(vmi.Spec.Domain.Devices.Disks, v13.Disk{

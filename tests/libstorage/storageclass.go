@@ -95,12 +95,12 @@ func GetRWXBlockStorageClass() (string, bool) {
 }
 
 func GetBlockStorageClass(accessMode k8sv1.PersistentVolumeAccessMode) (string, bool) {
-	sc, exists := GetRWOBlockStorageClass()
+	sc, foundSC := GetRWOBlockStorageClass()
 	if accessMode == k8sv1.ReadWriteMany {
-		sc, exists = GetRWXBlockStorageClass()
+		sc, foundSC = GetRWXBlockStorageClass()
 	}
 
-	return sc, exists
+	return sc, foundSC
 }
 
 func IsStorageClassBindingModeWaitForFirstConsumer(sc string) bool {

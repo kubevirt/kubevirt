@@ -460,8 +460,19 @@ var _ = SIGDescribe("Storage", func() {
 				if !libstorage.HasCDI() {
 					Skip("Skip DataVolume tests when CDI is not present")
 				}
-				dataVolume = libstorage.NewDataVolumeWithRegistryImport(cd.DataVolumeImportUrlForContainerDisk(cd.ContainerDiskAlpine), util.NamespaceTestDefault, k8sv1.ReadWriteOnce)
+
+				sc, exists := libstorage.GetRWOFileSystemStorageClass()
+				if !exists {
+					Skip("Skip test when Filesystem storage is not present")
+				}
+
+				dataVolume = dvbuilder.NewDataVolume(
+					dvbuilder.WithNamespace(util.NamespaceTestDefault),
+					dvbuilder.WithRegistryURLSource(cd.DataVolumeImportUrlForContainerDisk(cd.ContainerDiskAlpine)),
+					dvbuilder.WithPVC(sc, dvbuilder.PVCSizeForRegistryImport, k8sv1.ReadWriteOnce, k8sv1.PersistentVolumeFilesystem),
+				)
 			})
+
 			AfterEach(func() {
 				libstorage.DeleteDataVolume(&dataVolume)
 			})
@@ -1219,7 +1230,17 @@ var _ = SIGDescribe("Storage", func() {
 				vmi1, vmi2 *virtv1.VirtualMachineInstance
 			)
 			BeforeEach(func() {
-				dv = libstorage.NewDataVolumeWithRegistryImport(cd.DataVolumeImportUrlForContainerDisk(cd.ContainerDiskCirros), util.NamespaceTestDefault, k8sv1.ReadWriteOnce)
+				sc, exists := libstorage.GetRWOFileSystemStorageClass()
+				if !exists {
+					Skip("Skip test when Filesystem storage is not present")
+				}
+
+				dv = dvbuilder.NewDataVolume(
+					dvbuilder.WithNamespace(util.NamespaceTestDefault),
+					dvbuilder.WithRegistryURLSource(cd.DataVolumeImportUrlForContainerDisk(cd.ContainerDiskCirros)),
+					dvbuilder.WithPVC(sc, dvbuilder.PVCSizeForRegistryImport, k8sv1.ReadWriteOnce, k8sv1.PersistentVolumeFilesystem),
+				)
+
 				_, err := virtClient.CdiClient().CdiV1beta1().DataVolumes(util.NamespaceTestDefault).Create(context.Background(), dv, metav1.CreateOptions{})
 				Expect(err).ToNot(HaveOccurred())
 				labelKey := "testshareablekey"

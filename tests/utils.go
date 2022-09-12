@@ -470,11 +470,11 @@ func NewRandomVirtualMachineInstanceWithFileDisk(imageUrl, namespace string, acc
 	if !libstorage.HasCDI() {
 		Skip("Skip DataVolume tests when CDI is not present")
 	}
-	sc, exists := libstorage.GetRWOFileSystemStorageClass()
+	sc, foundSC := libstorage.GetRWOFileSystemStorageClass()
 	if accessMode == k8sv1.ReadWriteMany {
-		sc, exists = libstorage.GetRWXFileSystemStorageClass()
+		sc, foundSC = libstorage.GetRWXFileSystemStorageClass()
 	}
-	if !exists {
+	if !foundSC {
 		Skip("Skip test when Filesystem storage is not present")
 	}
 
@@ -549,13 +549,23 @@ func NewRandomVMWithDataVolumeWithRegistryImport(imageUrl, namespace, storageCla
 	return vm
 }
 
-func NewRandomVMWithDataVolume(imageUrl string, namespace string) *v1.VirtualMachine {
-	dataVolume := libstorage.NewDataVolumeWithRegistryImport(imageUrl, namespace, k8sv1.ReadWriteOnce)
+func NewRandomVMWithDataVolume(imageUrl string, namespace string) (*v1.VirtualMachine, bool) {
+	sc, exists := libstorage.GetRWOFileSystemStorageClass()
+	if !exists {
+		return nil, false
+	}
+
+	dataVolume := dvbuilder.NewDataVolume(
+		dvbuilder.WithNamespace(namespace),
+		dvbuilder.WithRegistryURLSource(imageUrl),
+		dvbuilder.WithPVC(sc, dvbuilder.PVCSizeForRegistryImport, k8sv1.ReadWriteOnce, k8sv1.PersistentVolumeFilesystem),
+	)
+
 	vmi := NewRandomVMIWithDataVolume(dataVolume.Name)
 	vm := NewRandomVirtualMachine(vmi, false)
 
 	libstorage.AddDataVolumeTemplate(vm, dataVolume)
-	return vm
+	return vm, true
 }
 
 func NewRandomVMWithDataVolumeAndUserData(dataVolume *cdiv1.DataVolume, userData string) *v1.VirtualMachine {

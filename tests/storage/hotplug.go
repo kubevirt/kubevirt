@@ -36,10 +36,8 @@ import (
 	. "github.com/onsi/gomega"
 
 	corev1 "k8s.io/api/core/v1"
-	k8sv1 "k8s.io/api/core/v1"
 	storagev1 "k8s.io/api/storage/v1"
 	"k8s.io/apimachinery/pkg/api/errors"
-	"k8s.io/apimachinery/pkg/api/resource"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 
 	v1 "kubevirt.io/api/core/v1"
@@ -1075,10 +1073,19 @@ var _ = SIGDescribe("Hotplug", func() {
 
 				var err error
 				url := cd.DataVolumeImportUrlForContainerDisk(cd.ContainerDiskCirros)
-				dv = libstorage.NewDataVolumeWithRegistryImport(url, util.NamespaceTestDefault, k8sv1.ReadWriteMany)
-				tests.SetDataVolumeForceBindAnnotation(dv)
 
-				dv.Spec.PVC.Resources.Requests[k8sv1.ResourceStorage] = resource.MustParse("256Mi")
+				storageClass, foundSC := libstorage.GetRWXFileSystemStorageClass()
+				if !foundSC {
+					Skip("Skip test when Filesystem storage is not present")
+				}
+
+				dv = dvbuilder.NewDataVolume(
+					dvbuilder.WithNamespace(util.NamespaceTestDefault),
+					dvbuilder.WithRegistryURLSource(url),
+					dvbuilder.WithPVC(storageClass, "256Mi", corev1.ReadWriteMany, corev1.PersistentVolumeFilesystem),
+					dvbuilder.WithForceBindAnnotation(),
+				)
+
 				dv, err = virtClient.CdiClient().CdiV1beta1().DataVolumes(dv.Namespace).Create(context.Background(), dv, metav1.CreateOptions{})
 				Expect(err).ToNot(HaveOccurred())
 
