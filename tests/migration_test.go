@@ -302,6 +302,15 @@ var _ = Describe("[rfe_id:393][crit:high][vendor:cnv-qe@redhat.com][level:system
 		}
 	}
 
+	// temporaryNodeDrain also sets the `NoSchedule` taint on the node.
+	// nodes with this taint will be reset to their original state on each
+	// test teardown by the test framework. Check `libnode.CleanNodes`.
+	temporaryNodeDrain := func(nodeName string) {
+		By("taining the node with `NoExecute`, the framework will reset the node's taints and un-schedulable properties on test teardown")
+		libnode.Taint(nodeName, libnode.GetNodeDrainKey(), k8sv1.TaintEffectNoSchedule)
+		drainNode(nodeName)
+	}
+
 	confirmMigrationMode := func(vmi *v1.VirtualMachineInstance, expectedMode v1.MigrationMode) {
 		By("Retrieving the VMI post migration")
 		vmi, err = virtClient.VirtualMachineInstance(vmi.Namespace).Get(vmi.Name, &metav1.GetOptions{})
@@ -3343,10 +3352,8 @@ var _ = Describe("[rfe_id:393][crit:high][vendor:cnv-qe@redhat.com][level:system
 					// Mark the masters as schedulable so we can migrate there
 					setControlPlaneUnschedulable(false)
 
-					// Drain node.
 					node := vmi.Status.NodeName
-					libnode.Taint(node, libnode.GetNodeDrainKey(), k8sv1.TaintEffectNoSchedule)
-					drainNode(node)
+					temporaryNodeDrain(node)
 
 					// verify VMI migrated and lives on another node now.
 					Eventually(func() error {
@@ -3400,12 +3407,8 @@ var _ = Describe("[rfe_id:393][crit:high][vendor:cnv-qe@redhat.com][level:system
 					// Mark the masters as schedulable so we can migrate there
 					setControlPlaneUnschedulable(false)
 
-					// Taint Node.
-					By("Tainting node with node drain key")
 					node := vmi.Status.NodeName
-					libnode.Taint(node, libnode.GetNodeDrainKey(), k8sv1.TaintEffectNoSchedule)
-
-					drainNode(node)
+					temporaryNodeDrain(node)
 
 					// verify VMI migrated and lives on another node now.
 					Eventually(func() error {
@@ -3443,12 +3446,8 @@ var _ = Describe("[rfe_id:393][crit:high][vendor:cnv-qe@redhat.com][level:system
 					// Mark the masters as schedulable so we can migrate there
 					setControlPlaneUnschedulable(false)
 
-					// Taint Node.
-					By("Tainting node with kubevirt.io/alt-drain=NoSchedule")
 					node := vmi.Status.NodeName
-					libnode.Taint(node, "kubevirt.io/alt-drain", k8sv1.TaintEffectNoSchedule)
-
-					drainNode(node)
+					temporaryNodeDrain(node)
 
 					// verify VMI migrated and lives on another node now.
 					Eventually(func() error {
@@ -3536,14 +3535,8 @@ var _ = Describe("[rfe_id:393][crit:high][vendor:cnv-qe@redhat.com][level:system
 					// Mark the masters as schedulable so we can migrate there
 					setControlPlaneUnschedulable(false)
 
-					// Taint Node.
-					By("Tainting node with the node drain key")
 					node := vmi_evict1.Status.NodeName
-					libnode.Taint(node, libnode.GetNodeDrainKey(), k8sv1.TaintEffectNoSchedule)
-
-					// Drain Node using cli client
-					By("Draining using kubectl drain")
-					drainNode(node)
+					temporaryNodeDrain(node)
 
 					By("Verify expected vmis migrated after node drain completes")
 					// verify migrated where expected to migrate.
