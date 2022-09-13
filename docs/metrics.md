@@ -34,7 +34,7 @@ Indication for an operating virt-controller. Type: Gauge.
 Indication for a virt-controller that is ready to take the lead. Type: Gauge.
 
 ### kubevirt_vmi_cpu_affinity
-The vcpu affinity details. Type: Counter.
+Details the cpu pinning map via boolean labels in the form of vcpu_X_cpu_Y. Type: Counter.
 
 ### kubevirt_vmi_filesystem_capacity_bytes_total
 Total VM filesystem capacity in bytes. Type: Gauge.
@@ -43,70 +43,70 @@ Total VM filesystem capacity in bytes. Type: Gauge.
 Used VM filesystem capacity in bytes. Type: Gauge.
 
 ### kubevirt_vmi_memory_actual_balloon_bytes
-Current balloon bytes. Type: Gauge.
+Current balloon size in bytes. Type: Gauge.
 
 ### kubevirt_vmi_memory_available_bytes
-Amount of `usable` memory as seen by the domain. Type: Gauge.
+Amount of usable memory as seen by the domain. This value may not be accurate if a balloon driver is in use or if the guest OS does not initialize all assigned pages Type: Gauge.
 
 ### kubevirt_vmi_memory_domain_bytes_total
 The amount of memory in bytes allocated to the domain. The `memory` value in domain xml file. Type: Gauge.
 
 ### kubevirt_vmi_memory_pgmajfault
-The number of page faults when disk IO was required. Type: Counter.
+The number of page faults when disk IO was required. Page faults occur when a process makes a valid access to virtual memory that is not available. When servicing the page fault, if disk IO is required, it is considered as major fault. Type: Counter.
 
 ### kubevirt_vmi_memory_pgminfault
-The number of other page faults, when disk IO was not required. Type: Counter.
+The number of other page faults, when disk IO was not required. Page faults occur when a process makes a valid access to virtual memory that is not available. When servicing the page fault, if disk IO is NOT required, it is considered as minor fault. Type: Counter.
 
 ### kubevirt_vmi_memory_resident_bytes
 Resident set size of the process running the domain. Type: Gauge.
 
 ### kubevirt_vmi_memory_swap_in_traffic_bytes_total
-Swap in memory traffic in bytes. Type: Gauge.
+The total amount of data read from swap space of the guest in bytes. Type: Gauge.
 
 ### kubevirt_vmi_memory_swap_out_traffic_bytes_total
-Swap out memory traffic in bytes. Type: Gauge.
+The total amount of memory written out to swap space of the guest in bytes. Type: Gauge.
 
 ### kubevirt_vmi_memory_unused_bytes
-Amount of `unused` memory as seen by the domain. Type: Gauge.
+The amount of memory left completely unused by the system. Memory that is available but used for reclaimable caches should NOT be reported as free. Type: Gauge.
 
 ### kubevirt_vmi_memory_usable_bytes
-The amount of memory which can be reclaimed by balloon without causing host swapping in bytes. Type: Gauge.
+The amount of memory which can be reclaimed by balloon without pushing the guest system to swap, corresponds to 'Available' in /proc/meminfo Type: Gauge.
 
 ### kubevirt_vmi_memory_used_bytes
 Amount of `used` memory as seen by the domain. Type: Gauge.
 
 ### kubevirt_vmi_network_receive_bytes_total
-Network traffic receive in bytes. Type: Counter.
+Total network traffic received in bytes. Type: Counter.
 
 ### kubevirt_vmi_network_receive_errors_total
-Network receive error packets. Type: Counter.
+Total network received error packets. Type: Counter.
 
 ### kubevirt_vmi_network_receive_packets_dropped_total
-The number of rx packets dropped on vNIC interfaces. Type: Counter.
+The total number of rx packets dropped on vNIC interfaces. Type: Counter.
 
 ### kubevirt_vmi_network_receive_packets_total
-Network traffic receive packets. Type: Counter.
+Total network traffic received packets. Type: Counter.
 
 ### kubevirt_vmi_network_traffic_bytes_total
 Deprecated. Type: Counter.
 
 ### kubevirt_vmi_network_transmit_bytes_total
-Network traffic transmit in bytes. Type: Counter.
+Total network traffic transmitted in bytes. Type: Counter.
 
 ### kubevirt_vmi_network_transmit_errors_total
-Network transmit error packets. Type: Counter.
+Total network transmitted error packets. Type: Counter.
 
 ### kubevirt_vmi_network_transmit_packets_dropped_total
-The number of tx packets dropped on vNIC interfaces. Type: Counter.
+The total number of tx packets dropped on vNIC interfaces. Type: Counter.
 
 ### kubevirt_vmi_network_transmit_packets_total
-Network traffic transmit packets. Type: Counter.
+Total network traffic transmitted packets. Type: Counter.
 
 ### kubevirt_vmi_non_evictable
 Indication for a VirtualMachine that its eviction strategy is set to Live Migration but is not migratable. Type: Gauge.
 
 ### kubevirt_vmi_outdated_count
-Indication for the number of VirtualMachineInstance workloads that are not running within the most up-to-date version of the virt-launcher environment. Type: Gauge.
+Indication for the total number of VirtualMachineInstance workloads that are not running within the most up-to-date version of the virt-launcher environment. Type: Gauge.
 
 ### kubevirt_vmi_phase_count
 Sum of VMIs per phase and node.
@@ -114,31 +114,31 @@ Sum of VMIs per phase and node.
 `phase` can be one of the following: [`Pending`, `Scheduling`, `Scheduled`, `Running`, `Succeeded`, `Failed`, `Unknown`]. Type: Gauge.
 
 ### kubevirt_vmi_storage_flush_requests_total
-Storage flush requests. Type: Counter.
+Total storage flush requests. Type: Counter.
 
 ### kubevirt_vmi_storage_flush_times_ms_total
 Total time (ms) spent on cache flushing. Type: Counter.
 
 ### kubevirt_vmi_storage_iops_read_total
-I/O read operations. Type: Counter.
+Total number of I/O read operations. Type: Counter.
 
 ### kubevirt_vmi_storage_iops_write_total
-I/O write operations. Type: Counter.
+Total number of I/O write operations. Type: Counter.
 
 ### kubevirt_vmi_storage_read_times_ms_total
-Storage read operation time. Type: Counter.
+Total time (ms) spent on read operations. Type: Counter.
 
 ### kubevirt_vmi_storage_read_traffic_bytes_total
-Storage read traffic in bytes. Type: Counter.
+Total number of bytes read from storage. Type: Counter.
 
 ### kubevirt_vmi_storage_write_times_ms_total
-Storage write operation time. Type: Counter.
+Total time (ms) spent on write operations. Type: Counter.
 
 ### kubevirt_vmi_storage_write_traffic_bytes_total
-Storage write traffic in bytes. Type: Counter.
+Total number of written bytes. Type: Counter.
 
 ### kubevirt_vmi_vcpu_seconds
-Amount of time spent in each state by each vcpu. Where `id` is the vcpu identifier and `state` can be one of the following: [`OFFLINE`, `RUNNING`, `BLOCKED`]. Type: Counter.
+Total amount of time spent in each state by each vcpu. Where `id` is the vcpu identifier and `state` can be one of the following: [`OFFLINE`, `RUNNING`, `BLOCKED`]. Type: Counter.
 
 ### kubevirt_vmi_vcpu_wait_seconds
 Amount of time spent by each vcpu while waiting on I/O. Type: Counter.
