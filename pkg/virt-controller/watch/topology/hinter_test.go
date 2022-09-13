@@ -52,9 +52,7 @@ var _ = Describe("Hinter", func() {
 			NodeWithTSC("node4", 12, false),
 		)
 		vmi := vmiWithTSCFrequencyOnNode("myvmi", 12, "oldnode")
-		g.Expect(hinter.TopologyHintsRequiredForVMI(
-			vmi),
-		).To(g.BeTrue())
+		g.Expect(GetTscFrequencyRequirement(vmi).Type).ToNot(g.Equal(NotRequired))
 		g.Expect(hinter.TopologyHintsForVMI(vmi)).To(g.Equal(
 			&virtv1.TopologyHints{
 				TSCFrequency: pointer.Int64Ptr(12),
@@ -80,10 +78,11 @@ var _ = Describe("Hinter", func() {
 		)
 		hinter.arch = arch
 		vmi := vmiWithoutTSCFrequency("myvmi")
-		g.Expect(hinter.TopologyHintsRequiredForVMI(
-			vmi),
-		).To(g.BeFalse())
-		g.Expect(hinter.TopologyHintsForVMI(vmi)).To(g.BeNil())
+		g.Expect(hinter.IsTscFrequencyRequiredForBoot(vmi)).To(g.BeFalse())
+
+		hints, _, err := hinter.TopologyHintsForVMI(vmi)
+		g.Expect(hints).To(g.BeNil())
+		g.Expect(err).To(g.Not(g.HaveOccurred()))
 	},
 		Entry("arm64", "arm64"),
 		Entry("ppc64le", "ppc64le"),

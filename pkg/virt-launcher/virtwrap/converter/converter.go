@@ -35,11 +35,11 @@ import (
 	"strings"
 	"syscall"
 
+	"kubevirt.io/kubevirt/pkg/virt-controller/watch/topology"
+
 	"golang.org/x/sys/unix"
 
 	"kubevirt.io/kubevirt/pkg/virt-launcher/virtwrap/converter/vcpu"
-
-	"kubevirt.io/kubevirt/pkg/virt-controller/watch/topology"
 
 	"kubevirt.io/kubevirt/pkg/virt-controller/services"
 
@@ -1696,17 +1696,6 @@ func Convert_v1_VirtualMachineInstance_To_api_Domain(vmi *v1.VirtualMachineInsta
 			}
 		}
 
-		// Make use of the tsc frequency topology hint
-		if topology.IsManualTSCFrequencyRequired(vmi) && topology.AreTSCFrequencyTopologyHintsDefined(vmi) {
-			freq := *vmi.Status.TopologyHints.TSCFrequency
-			clock := domain.Spec.Clock
-			if clock == nil {
-				clock = &api.Clock{}
-			}
-			clock.Timer = append(clock.Timer, api.Timer{Name: "tsc", Frequency: strconv.FormatInt(freq, 10)})
-			domain.Spec.Clock = clock
-		}
-
 		// Adjust guest vcpu config. Currently will handle vCPUs to pCPUs pinning
 		if vmi.IsCPUDedicated() {
 			err = vcpu.AdjustDomainForTopologyAndCPUSet(domain, vmi, c.Topology, c.CPUSet, useIOThreads)
@@ -1714,6 +1703,17 @@ func Convert_v1_VirtualMachineInstance_To_api_Domain(vmi *v1.VirtualMachineInsta
 				return err
 			}
 		}
+	}
+
+	// Make use of the tsc frequency topology hint
+	if topology.IsManualTSCFrequencyRequired(vmi) && topology.AreTSCFrequencyTopologyHintsDefined(vmi) {
+		freq := *vmi.Status.TopologyHints.TSCFrequency
+		clock := domain.Spec.Clock
+		if clock == nil {
+			clock = &api.Clock{}
+		}
+		clock.Timer = append(clock.Timer, api.Timer{Name: "tsc", Frequency: strconv.FormatInt(freq, 10)})
+		domain.Spec.Clock = clock
 	}
 
 	domain.Spec.Devices.HostDevices = append(domain.Spec.Devices.HostDevices, c.GenericHostDevices...)
