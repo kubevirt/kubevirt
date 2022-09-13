@@ -20,9 +20,14 @@
 package admitters
 
 import (
+	"context"
 	"encoding/json"
 	"fmt"
 	"strings"
+
+	"kubevirt.io/api/snapshot/v1alpha1"
+
+	"kubevirt.io/kubevirt/pkg/storage/snapshot"
 
 	admissionv1 "k8s.io/api/admission/v1"
 	"k8s.io/apimachinery/pkg/api/errors"
@@ -80,11 +85,11 @@ func (admitter *VirtualMachineCloneAdmitter) Admit(ar *admissionv1.AdmissionRevi
 		causes = append(causes, newCauses...)
 	}
 
-	if newCauses := validateSource(admitter.Client, vmClone); newCauses != nil {
+	if newCauses := validateSourceAndTargetKind(vmClone); newCauses != nil {
 		causes = append(causes, newCauses...)
 	}
 
-	if newCauses := validateSourceAndTargetKind(vmClone); newCauses != nil {
+	if newCauses := validateSource(admitter.Client, vmClone); newCauses != nil {
 		causes = append(causes, newCauses...)
 	}
 
@@ -139,7 +144,7 @@ func validateSourceAndTargetKind(vmClone *clonev1alpha1.VirtualMachineClone) []m
 	var causes []metav1.StatusCause = nil
 	sourceField := k8sfield.NewPath("spec")
 
-	supportedSourceTypes := []string{"VirtualMachine"}
+	supportedSourceTypes := []string{"VirtualMachine", "VirtualMachineSnapshot"}
 	supportedTargetTypes := []string{"VirtualMachine"}
 
 	if !doesSliceContainStr(supportedSourceTypes, vmClone.Spec.Source.Kind) {
@@ -202,6 +207,8 @@ func validateSource(client kubecli.KubevirtClient, vmClone *clonev1alpha1.Virtua
 		switch source.Kind {
 		case "VirtualMachine":
 			causes = append(causes, validateCloneSourceVM(client, source.Name, vmClone.Namespace, sourceField.Child("Source"))...)
+		case "VirtualMachineSnapshot":
+			causes = append(causes, validateCloneSourceSnapshot(client, source.Name, vmClone.Namespace, sourceField.Child("Source"))...)
 		default:
 			causes = append(causes, metav1.StatusCause{
 				Type:    metav1.CauseTypeFieldValueInvalid,
@@ -224,31 +231,63 @@ func doesSliceContainStr(slice []string, str string) (isFound bool) {
 	return isFound
 }
 
+func validateCloneSourceExists(clientGetErr error, sourceField *k8sfield.Path, kind, name, namespace string) []metav1.StatusCause {
+	if errors.IsNotFound(clientGetErr) {
+		return []metav1.StatusCause{
+			{
+				Type:    metav1.CauseTypeFieldValueInvalid,
+				Message: fmt.Sprintf("%s %s does not exist in namespace %s", kind, name, namespace),
+				Field:   sourceField.String(),
+			},
+		}
+	} else if clientGetErr != nil {
+		return []metav1.StatusCause{
+			{
+				Type:    metav1.CauseTypeFieldValueInvalid,
+				Message: fmt.Sprintf("error occurred while trying to get source %s: %v", kind, clientGetErr),
+				Field:   sourceField.String(),
+			},
+		}
+	}
+
+	return nil
+}
+
 func validateCloneSourceVM(client kubecli.KubevirtClient, name, namespace string, sourceField *k8sfield.Path) []metav1.StatusCause {
 	vm, err := client.VirtualMachine(namespace).Get(name, &metav1.GetOptions{})
-	if errors.IsNotFound(err) {
-		return []metav1.StatusCause{
-			{
-				Type:    metav1.CauseTypeFieldValueInvalid,
-				Message: fmt.Sprintf("Virtual Machine %s does not exist in namespace %s", name, namespace),
-				Field:   sourceField.String(),
-			},
-		}
-	} else if err != nil {
-		return []metav1.StatusCause{
-			{
-				Type:    metav1.CauseTypeFieldValueInvalid,
-				Message: fmt.Sprintf("error occurred while trying to get source VM: %v", err),
-				Field:   sourceField.String(),
-			},
-		}
+	causes := validateCloneSourceExists(err, sourceField, "VirtualMachine", name, namespace)
+
+	if causes != nil {
+		return causes
 	}
 
 	// currently, cloning leverages vm snapshot/restore to copy volumes
 	// snapshot/restore requires that volumes support CSI snapshots
 	// this limitation should be removed eventually
 	// probably by leveraging CDI cloning
-	return validateCloneVolumeSnapshotSupportVM(vm, sourceField)
+	causes = append(causes, validateCloneVolumeSnapshotSupportVM(vm, sourceField)...)
+
+	return causes
+}
+
+func validateCloneSourceSnapshot(client kubecli.KubevirtClient, name, namespace string, sourceField *k8sfield.Path) []metav1.StatusCause {
+	vmSnapshot, err := client.VirtualMachineSnapshot(namespace).Get(context.Background(), name, metav1.GetOptions{})
+	causes := validateCloneSourceExists(err, sourceField, "VirtualMachineSnapshot", name, namespace)
+	if causes != nil {
+		return causes
+	}
+
+	snapshotContent, err := snapshot.GetSnapshotContents(vmSnapshot, client)
+	if err != nil {
+		return append(causes, metav1.StatusCause{
+			Type:    metav1.CauseTypeFieldValueInvalid,
+			Message: fmt.Sprintf("cannot get snapshot contents: %v", err),
+			Field:   sourceField.String(),
+		})
+	}
+
+	causes = append(causes, validateCloneVolumeSnapshotSupportVMSnapshotContent(snapshotContent, sourceField)...)
+	return causes
 }
 
 func validateCloneVolumeSnapshotSupportVM(vm *v1.VirtualMachine, sourceField *k8sfield.Path) []metav1.StatusCause {
@@ -282,6 +321,55 @@ func validateCloneVolumeSnapshotSupportVM(vm *v1.VirtualMachine, sourceField *k8
 					Field:   sourceField.String(),
 				})
 			}
+		}
+	}
+
+	return result
+}
+
+func validateCloneVolumeSnapshotSupportVMSnapshotContent(snapshotContents *v1alpha1.VirtualMachineSnapshotContent, sourceField *k8sfield.Path) []metav1.StatusCause {
+	var result []metav1.StatusCause
+
+	if snapshotContents.Spec.VirtualMachineSnapshotName == nil {
+		return []metav1.StatusCause{
+			{
+				Type:    metav1.CauseTypeFieldValueInvalid,
+				Message: fmt.Sprintf("cannot get snapshot name from content %s", snapshotContents.Name),
+				Field:   sourceField.String(),
+			},
+		}
+	}
+
+	snapshotName := *snapshotContents.Spec.VirtualMachineSnapshotName
+	vm := snapshotContents.Spec.Source.VirtualMachine
+
+	addVolumeIsNotBackedUpCause := func(volumeName string) {
+		result = append(result, metav1.StatusCause{
+			Type:    metav1.CauseTypeFieldValueInvalid,
+			Message: fmt.Sprintf("volume %s is not backed up in snapshot %s", volumeName, snapshotName),
+			Field:   sourceField.String(),
+		})
+	}
+
+	if vm.Spec.Template == nil {
+		return nil
+	}
+
+	for _, volume := range vm.Spec.Template.Spec.Volumes {
+		if volume.PersistentVolumeClaim == nil && volume.DataVolume == nil {
+			continue
+		}
+
+		foundBackup := false
+		for _, volumeBackup := range snapshotContents.Spec.VolumeBackups {
+			if volume.Name == volumeBackup.VolumeName {
+				foundBackup = true
+				break
+			}
+		}
+
+		if !foundBackup {
+			addVolumeIsNotBackedUpCause(volume.Name)
 		}
 	}
 

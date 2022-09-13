@@ -20,8 +20,11 @@
 package snapshot
 
 import (
+	"context"
 	"fmt"
 	"time"
+
+	"kubevirt.io/client-go/kubecli"
 
 	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
@@ -115,4 +118,18 @@ func getSimplifiedMetaObject(meta metav1.ObjectMeta) *metav1.ObjectMeta {
 	result.ManagedFields = nil
 
 	return result
+}
+
+func GetSnapshotContents(vmSnapshot *snapshotv1.VirtualMachineSnapshot, client kubecli.KubevirtClient) (*snapshotv1.VirtualMachineSnapshotContent, error) {
+	if vmSnapshot == nil {
+		return nil, fmt.Errorf("VirtualMachineSnapshot is nil")
+	}
+
+	if vmSnapshot.Status == nil || vmSnapshot.Status.VirtualMachineSnapshotContentName == nil {
+		return nil, fmt.Errorf("VirtualMachineSnapshot %s has nil contents name", vmSnapshot.Name)
+	}
+
+	vmSnapshotContentName := *vmSnapshot.Status.VirtualMachineSnapshotContentName
+
+	return client.VirtualMachineSnapshotContent(vmSnapshot.Namespace).Get(context.Background(), vmSnapshotContentName, metav1.GetOptions{})
 }
