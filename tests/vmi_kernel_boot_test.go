@@ -134,7 +134,7 @@ var _ = Describe("[sig-compute]VMI with external kernel boot", func() {
 			return vmi
 		}
 
-		It("[QUARANTINE] ensure successful boot", func() {
+		It("ensure successful boot", func() {
 			vmi := getVMIKernelBoot()
 
 			obj, err := virtClient.VirtualMachineInstance(util.NamespaceTestDefault).Create(vmi)
