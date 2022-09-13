@@ -22,9 +22,7 @@ package apply
 import (
 	"bufio"
 	"bytes"
-
-	installstrategy "kubevirt.io/kubevirt/pkg/virt-operator/resource/generate/install"
-	marshalutil "kubevirt.io/kubevirt/tools/util"
+	goruntime "runtime"
 
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
@@ -34,8 +32,10 @@ import (
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 
 	v1 "kubevirt.io/api/core/v1"
+
 	"kubevirt.io/kubevirt/pkg/virt-operator/resource/generate/install"
 	"kubevirt.io/kubevirt/pkg/virt-operator/util"
+	marshalutil "kubevirt.io/kubevirt/tools/util"
 )
 
 type MockStore struct {
@@ -101,12 +101,12 @@ func loadTargetStrategy(resource interface{}, config *util.KubeVirtDeploymentCon
 			},
 		},
 		Data: map[string]string{
-			"manifests": string(b.Bytes()),
+			"manifests": b.String(),
 		},
 	}
 
 	stores.InstallStrategyConfigMapCache.Add(configMap)
-	targetStrategy, err := installstrategy.LoadInstallStrategyFromCache(stores, config)
+	targetStrategy, err := install.LoadInstallStrategyFromCache(stores, config)
 	Expect(err).ToNot(HaveOccurred())
 
 	return targetStrategy
@@ -337,20 +337,20 @@ var _ = Describe("Apply", func() {
 		It("should succeed if componentConfig is nil", func() {
 			// if componentConfig is nil
 			injectPlacementMetadata(nil, podSpec)
-			Expect(podSpec.NodeSelector).To(HaveLen(1))
+			Expect(podSpec.NodeSelector).To(HaveLen(2))
 			Expect(podSpec.NodeSelector[kubernetesOSLabel]).To(Equal(kubernetesOSLinux))
 		})
 
 		It("should succeed if nodePlacement is nil", func() {
 			componentConfig.NodePlacement = nil
 			injectPlacementMetadata(componentConfig, podSpec)
-			Expect(podSpec.NodeSelector).To(HaveLen(1))
+			Expect(podSpec.NodeSelector).To(HaveLen(2))
 			Expect(podSpec.NodeSelector[kubernetesOSLabel]).To(Equal(kubernetesOSLinux))
 		})
 
 		It("should succeed if podSpec is nil", func() {
 			orig := componentConfig.DeepCopy()
-			orig.NodePlacement.NodeSelector = map[string]string{kubernetesOSLabel: kubernetesOSLinux}
+			orig.NodePlacement.NodeSelector = map[string]string{kubernetesOSLabel: kubernetesOSLinux, kubernetesArchLabel: goruntime.GOARCH}
 			injectPlacementMetadata(componentConfig, nil)
 			Expect(equality.Semantic.DeepEqual(orig, componentConfig)).To(BeTrue())
 		})
@@ -359,7 +359,7 @@ var _ = Describe("Apply", func() {
 			nodePlacement.NodeSelector = make(map[string]string)
 			nodePlacement.NodeSelector["foo"] = "bar"
 			injectPlacementMetadata(componentConfig, podSpec)
-			Expect(podSpec.NodeSelector).To(HaveLen(2))
+			Expect(podSpec.NodeSelector).To(HaveLen(3))
 			Expect(podSpec.NodeSelector["foo"]).To(Equal("bar"))
 			Expect(podSpec.NodeSelector[kubernetesOSLabel]).To(Equal(kubernetesOSLinux))
 		})
@@ -370,10 +370,11 @@ var _ = Describe("Apply", func() {
 			podSpec.NodeSelector = make(map[string]string)
 			podSpec.NodeSelector["existing"] = "value"
 			injectPlacementMetadata(componentConfig, podSpec)
-			Expect(podSpec.NodeSelector).To(HaveLen(3))
+			Expect(podSpec.NodeSelector).To(HaveLen(4))
 			Expect(podSpec.NodeSelector["foo"]).To(Equal("bar"))
 			Expect(podSpec.NodeSelector["existing"]).To(Equal("value"))
 			Expect(podSpec.NodeSelector[kubernetesOSLabel]).To(Equal(kubernetesOSLinux))
+			Expect(podSpec.NodeSelector[kubernetesArchLabel]).To(Equal(goruntime.GOARCH))
 		})
 
 		It("should favor podSpec if NodeSelectors collide", func() {
@@ -382,40 +383,63 @@ var _ = Describe("Apply", func() {
 			podSpec.NodeSelector = make(map[string]string)
 			podSpec.NodeSelector["foo"] = "from-podspec"
 			injectPlacementMetadata(componentConfig, podSpec)
-			Expect(podSpec.NodeSelector).To(HaveLen(2))
+			Expect(podSpec.NodeSelector).To(HaveLen(3))
 			Expect(podSpec.NodeSelector["foo"]).To(Equal("from-podspec"))
 			Expect(podSpec.NodeSelector[kubernetesOSLabel]).To(Equal(kubernetesOSLinux))
+			Expect(podSpec.NodeSelector[kubernetesArchLabel]).To(Equal(goruntime.GOARCH))
 		})
 
-		It("should set OS label if not defined", func() {
+		It("should set OS && arch label if not defined", func() {
 			nodePlacement.NodeSelector = make(map[string]string)
 			injectPlacementMetadata(componentConfig, podSpec)
 			Expect(podSpec.NodeSelector[kubernetesOSLabel]).To(Equal(kubernetesOSLinux))
+			Expect(podSpec.NodeSelector[kubernetesArchLabel]).To(Equal(goruntime.GOARCH))
 		})
 
 		It("should favor NodeSelector OS label if present", func() {
 			nodePlacement.NodeSelector = make(map[string]string)
 			nodePlacement.NodeSelector[kubernetesOSLabel] = "linux-custom"
 			injectPlacementMetadata(componentConfig, podSpec)
-			Expect(podSpec.NodeSelector).To(HaveLen(1))
+			Expect(podSpec.NodeSelector).To(HaveLen(2))
 			Expect(podSpec.NodeSelector[kubernetesOSLabel]).To(Equal("linux-custom"))
+			Expect(podSpec.NodeSelector[kubernetesArchLabel]).To(Equal(goruntime.GOARCH))
+		})
+
+		It("should favor NodeSelector arch label if present", func() {
+			nodePlacement.NodeSelector = make(map[string]string)
+			nodePlacement.NodeSelector[kubernetesArchLabel] = "arm64"
+			injectPlacementMetadata(componentConfig, podSpec)
+			Expect(podSpec.NodeSelector).To(HaveLen(2))
+			Expect(podSpec.NodeSelector[kubernetesOSLabel]).To(Equal(kubernetesOSLinux))
+			Expect(podSpec.NodeSelector[kubernetesArchLabel]).To(Equal("arm64"))
 		})
 
 		It("should favor podSpec OS label if present", func() {
 			podSpec.NodeSelector = make(map[string]string)
 			podSpec.NodeSelector[kubernetesOSLabel] = "linux-custom"
 			injectPlacementMetadata(componentConfig, podSpec)
-			Expect(podSpec.NodeSelector).To(HaveLen(1))
+			Expect(podSpec.NodeSelector).To(HaveLen(2))
 			Expect(podSpec.NodeSelector[kubernetesOSLabel]).To(Equal("linux-custom"))
+			Expect(podSpec.NodeSelector[kubernetesArchLabel]).To(Equal(goruntime.GOARCH))
+		})
+
+		It("should favor podSpec arch label if present", func() {
+			podSpec.NodeSelector = make(map[string]string)
+			podSpec.NodeSelector[kubernetesArchLabel] = "arm64"
+			injectPlacementMetadata(componentConfig, podSpec)
+			Expect(podSpec.NodeSelector).To(HaveLen(2))
+			Expect(podSpec.NodeSelector[kubernetesOSLabel]).To(Equal(kubernetesOSLinux))
+			Expect(podSpec.NodeSelector[kubernetesArchLabel]).To(Equal("arm64"))
 		})
 
 		It("should preserve NodeSelectors if nodePlacement has none", func() {
 			podSpec.NodeSelector = make(map[string]string)
 			podSpec.NodeSelector["foo"] = "from-podspec"
 			injectPlacementMetadata(componentConfig, podSpec)
-			Expect(podSpec.NodeSelector).To(HaveLen(2))
+			Expect(podSpec.NodeSelector).To(HaveLen(3))
 			Expect(podSpec.NodeSelector["foo"]).To(Equal("from-podspec"))
 			Expect(podSpec.NodeSelector[kubernetesOSLabel]).To(Equal(kubernetesOSLinux))
+			Expect(podSpec.NodeSelector[kubernetesArchLabel]).To(Equal(goruntime.GOARCH))
 		})
 
 		// tolerations

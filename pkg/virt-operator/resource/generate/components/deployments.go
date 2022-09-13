@@ -458,7 +458,7 @@ func NewControllerDeployment(namespace string, repository string, imagePrefix st
 
 // Used for manifest generation only
 func NewOperatorDeployment(namespace string, repository string, imagePrefix string, version string,
-	pullPolicy corev1.PullPolicy, verbosity string,
+	pullPolicy corev1.PullPolicy, verbosity string, arch string,
 	kubeVirtVersionEnv string, virtApiShaEnv string, virtControllerShaEnv string,
 	virtHandlerShaEnv string, virtLauncherShaEnv string, virtExportProxyShaEnv string, virtExportServerShaEnv string, gsShaEnv string) (*appsv1.Deployment, error) {
 
@@ -466,6 +466,12 @@ func NewOperatorDeployment(namespace string, repository string, imagePrefix stri
 	podAntiAffinity := newPodAntiAffinity(kubevirtLabelKey, kubernetesHostnameTopologyKey, metav1.LabelSelectorOpIn, []string{VirtOperatorName})
 	version = AddVersionSeparatorPrefix(version)
 	image := fmt.Sprintf("%s/%s%s%s", repository, imagePrefix, VirtOperatorName, version)
+	nodeSelector := map[string]string{
+		corev1.LabelOSStable: kubernetesOSLinux,
+	}
+	if len(arch) != 0 {
+		nodeSelector[corev1.LabelArchStable] = arch
+	}
 
 	deployment := &appsv1.Deployment{
 		TypeMeta: metav1.TypeMeta{
@@ -503,9 +509,7 @@ func NewOperatorDeployment(namespace string, repository string, imagePrefix stri
 					Tolerations:        criticalAddonsToleration(),
 					Affinity:           podAntiAffinity,
 					ServiceAccountName: "kubevirt-operator",
-					NodeSelector: map[string]string{
-						corev1.LabelOSStable: kubernetesOSLinux,
-					},
+					NodeSelector:       nodeSelector,
 					Containers: []corev1.Container{
 						{
 							Name:            VirtOperatorName,

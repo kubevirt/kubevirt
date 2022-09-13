@@ -50,6 +50,7 @@ type templateData struct {
 	ImagePrefix            string
 	ImagePullPolicy        string
 	Verbosity              string
+	Arch                   string
 	CsvVersion             string
 	QuayRepository         string
 	ReplacesCsvVersion     string
@@ -83,6 +84,7 @@ func main() {
 	csvVersion := flag.String("csv-version", "", "")
 	imagePullPolicy := flag.String("image-pull-policy", "IfNotPresent", "")
 	verbosity := flag.String("verbosity", "2", "")
+	arch := flag.String("arch", "", "")
 	genDir := flag.String("generated-manifests-dir", "", "")
 	inputFile := flag.String("input-file", "", "")
 	processFiles := flag.Bool("process-files", false, "")
@@ -134,6 +136,7 @@ func main() {
 		data.ImagePrefix = *imagePrefix
 		data.ImagePullPolicy = *imagePullPolicy
 		data.Verbosity = fmt.Sprintf("\"%s\"", *verbosity)
+		data.Arch = *arch
 		data.CsvVersion = *csvVersion
 		data.QuayRepository = *quayRepository
 		data.VirtOperatorSha = *virtOperatorSha
@@ -170,7 +173,7 @@ func main() {
 				if latestVersion != "" {
 					// prevent generating the same version again
 					if strings.HasSuffix(latestVersion, *csvVersion) {
-						panic(fmt.Errorf("CSV version %s is already published!", *csvVersion))
+						panic(fmt.Errorf("CSV version %s is already published", *csvVersion))
 					}
 					data.ReplacesCsvVersion = latestVersion
 					// also copy old manifests to out dir
@@ -188,6 +191,7 @@ func main() {
 		data.ImagePrefix = "{{.ImagePrefix}}"
 		data.ImagePullPolicy = "{{.ImagePullPolicy}}"
 		data.Verbosity = "{{.Verbosity}}"
+		data.Arch = "{{.Arch}}"
 		data.CsvVersion = "{{.CsvVersion}}"
 		data.QuayRepository = "{{.QuayRepository}}"
 		data.VirtOperatorSha = "{{.VirtOperatorSha}}"
@@ -266,6 +270,7 @@ func getOperatorDeploymentSpec(data templateData, indentation int) string {
 		version,
 		v1.PullPolicy(data.ImagePullPolicy),
 		data.Verbosity,
+		data.Arch,
 		data.DockerTag,
 		data.VirtApiSha,
 		data.VirtControllerSha,

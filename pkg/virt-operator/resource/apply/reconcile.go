@@ -23,6 +23,7 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
+	"runtime"
 	"strconv"
 	"strings"
 	"time"
@@ -115,11 +116,12 @@ func injectOperatorMetadata(kv *v1.KubeVirt, objectMeta *metav1.ObjectMeta, vers
 }
 
 const (
-	kubernetesOSLabel = corev1.LabelOSStable
-	kubernetesOSLinux = "linux"
+	kubernetesOSLabel   = corev1.LabelOSStable
+	kubernetesOSLinux   = "linux"
+	kubernetesArchLabel = corev1.LabelArchStable
 )
 
-// Merge all Tolerations, Affinity and NodeSelectos from NodePlacement into pod spec
+// Merge all Tolerations, Affinity and NodeSelectors from NodePlacement into pod spec
 func injectPlacementMetadata(componentConfig *v1.ComponentConfig, podSpec *corev1.PodSpec) {
 	if podSpec == nil {
 		podSpec = &corev1.PodSpec{}
@@ -135,6 +137,9 @@ func injectPlacementMetadata(componentConfig *v1.ComponentConfig, podSpec *corev
 	}
 	if _, ok := nodePlacement.NodeSelector[kubernetesOSLabel]; !ok {
 		nodePlacement.NodeSelector[kubernetesOSLabel] = kubernetesOSLinux
+	}
+	if _, ok := nodePlacement.NodeSelector[kubernetesArchLabel]; !ok {
+		nodePlacement.NodeSelector[kubernetesArchLabel] = runtime.GOARCH
 	}
 	if len(podSpec.NodeSelector) == 0 {
 		podSpec.NodeSelector = make(map[string]string, len(nodePlacement.NodeSelector))
@@ -164,16 +169,12 @@ func injectPlacementMetadata(componentConfig *v1.ComponentConfig, podSpec *corev
 							podSpec.Affinity.NodeAffinity.RequiredDuringSchedulingIgnoredDuringExecution = nodePlacement.Affinity.NodeAffinity.RequiredDuringSchedulingIgnoredDuringExecution.DeepCopy()
 						} else {
 							// merge the list of terms from NodePlacement into podSpec
-							for _, term := range nodePlacement.Affinity.NodeAffinity.RequiredDuringSchedulingIgnoredDuringExecution.NodeSelectorTerms {
-								podSpec.Affinity.NodeAffinity.RequiredDuringSchedulingIgnoredDuringExecution.NodeSelectorTerms = append(podSpec.Affinity.NodeAffinity.RequiredDuringSchedulingIgnoredDuringExecution.NodeSelectorTerms, term)
-							}
+							podSpec.Affinity.NodeAffinity.RequiredDuringSchedulingIgnoredDuringExecution.NodeSelectorTerms = append(podSpec.Affinity.NodeAffinity.RequiredDuringSchedulingIgnoredDuringExecution.NodeSelectorTerms, nodePlacement.Affinity.NodeAffinity.RequiredDuringSchedulingIgnoredDuringExecution.NodeSelectorTerms...)
 						}
 					}
 
-					//PreferredDuringSchedulingIgnoredDuringExecution
-					for _, term := range nodePlacement.Affinity.NodeAffinity.PreferredDuringSchedulingIgnoredDuringExecution {
-						podSpec.Affinity.NodeAffinity.PreferredDuringSchedulingIgnoredDuringExecution = append(podSpec.Affinity.NodeAffinity.PreferredDuringSchedulingIgnoredDuringExecution, term)
-					}
+					// PreferredDuringSchedulingIgnoredDuringExecution
+					podSpec.Affinity.NodeAffinity.PreferredDuringSchedulingIgnoredDuringExecution = append(podSpec.Affinity.NodeAffinity.PreferredDuringSchedulingIgnoredDuringExecution, nodePlacement.Affinity.NodeAffinity.PreferredDuringSchedulingIgnoredDuringExecution...)
 
 				}
 			}
@@ -182,14 +183,10 @@ func injectPlacementMetadata(componentConfig *v1.ComponentConfig, podSpec *corev
 				if podSpec.Affinity.PodAffinity == nil {
 					podSpec.Affinity.PodAffinity = nodePlacement.Affinity.PodAffinity.DeepCopy()
 				} else {
-					//RequiredDuringSchedulingIgnoredDuringExecution
-					for _, term := range nodePlacement.Affinity.PodAffinity.RequiredDuringSchedulingIgnoredDuringExecution {
-						podSpec.Affinity.PodAffinity.RequiredDuringSchedulingIgnoredDuringExecution = append(podSpec.Affinity.PodAffinity.RequiredDuringSchedulingIgnoredDuringExecution, term)
-					}
-					//PreferredDuringSchedulingIgnoredDuringExecution
-					for _, term := range nodePlacement.Affinity.PodAffinity.PreferredDuringSchedulingIgnoredDuringExecution {
-						podSpec.Affinity.PodAffinity.PreferredDuringSchedulingIgnoredDuringExecution = append(podSpec.Affinity.PodAffinity.PreferredDuringSchedulingIgnoredDuringExecution, term)
-					}
+					// RequiredDuringSchedulingIgnoredDuringExecution
+					podSpec.Affinity.PodAffinity.RequiredDuringSchedulingIgnoredDuringExecution = append(podSpec.Affinity.PodAffinity.RequiredDuringSchedulingIgnoredDuringExecution, nodePlacement.Affinity.PodAffinity.RequiredDuringSchedulingIgnoredDuringExecution...)
+					// PreferredDuringSchedulingIgnoredDuringExecution
+					podSpec.Affinity.PodAffinity.PreferredDuringSchedulingIgnoredDuringExecution = append(podSpec.Affinity.PodAffinity.PreferredDuringSchedulingIgnoredDuringExecution, nodePlacement.Affinity.PodAffinity.PreferredDuringSchedulingIgnoredDuringExecution...)
 				}
 			}
 			// podSpec.Affinity.PodAntiAffinity
@@ -197,14 +194,10 @@ func injectPlacementMetadata(componentConfig *v1.ComponentConfig, podSpec *corev
 				if podSpec.Affinity.PodAntiAffinity == nil {
 					podSpec.Affinity.PodAntiAffinity = nodePlacement.Affinity.PodAntiAffinity.DeepCopy()
 				} else {
-					//RequiredDuringSchedulingIgnoredDuringExecution
-					for _, term := range nodePlacement.Affinity.PodAntiAffinity.RequiredDuringSchedulingIgnoredDuringExecution {
-						podSpec.Affinity.PodAntiAffinity.RequiredDuringSchedulingIgnoredDuringExecution = append(podSpec.Affinity.PodAntiAffinity.RequiredDuringSchedulingIgnoredDuringExecution, term)
-					}
-					//PreferredDuringSchedulingIgnoredDuringExecution
-					for _, term := range nodePlacement.Affinity.PodAntiAffinity.PreferredDuringSchedulingIgnoredDuringExecution {
-						podSpec.Affinity.PodAntiAffinity.PreferredDuringSchedulingIgnoredDuringExecution = append(podSpec.Affinity.PodAntiAffinity.PreferredDuringSchedulingIgnoredDuringExecution, term)
-					}
+					// RequiredDuringSchedulingIgnoredDuringExecution
+					podSpec.Affinity.PodAntiAffinity.RequiredDuringSchedulingIgnoredDuringExecution = append(podSpec.Affinity.PodAntiAffinity.RequiredDuringSchedulingIgnoredDuringExecution, nodePlacement.Affinity.PodAntiAffinity.RequiredDuringSchedulingIgnoredDuringExecution...)
+					// PreferredDuringSchedulingIgnoredDuringExecution
+					podSpec.Affinity.PodAntiAffinity.PreferredDuringSchedulingIgnoredDuringExecution = append(podSpec.Affinity.PodAntiAffinity.PreferredDuringSchedulingIgnoredDuringExecution, nodePlacement.Affinity.PodAntiAffinity.PreferredDuringSchedulingIgnoredDuringExecution...)
 				}
 			}
 		}
@@ -215,9 +208,7 @@ func injectPlacementMetadata(componentConfig *v1.ComponentConfig, podSpec *corev
 		if len(podSpec.Tolerations) == 0 {
 			podSpec.Tolerations = []corev1.Toleration{}
 		}
-		for _, toleration := range nodePlacement.Tolerations {
-			podSpec.Tolerations = append(podSpec.Tolerations, toleration)
-		}
+		podSpec.Tolerations = append(podSpec.Tolerations, nodePlacement.Tolerations...)
 	}
 }
 
@@ -1174,7 +1165,7 @@ func (r *Reconciler) deleteObjectsNotInInstallStrategy() error {
 		}
 	}
 
-	// remove unused prometheus serviceMonitor obejcts
+	// remove unused prometheus serviceMonitor objects
 	objects = r.stores.ServiceMonitorCache.List()
 	for _, obj := range objects {
 		if cacheServiceMonitor, ok := obj.(*promv1.ServiceMonitor); ok && cacheServiceMonitor.DeletionTimestamp == nil {

@@ -84,6 +84,7 @@ for arg in $args; do
         --container-tag=${docker_tag} \
         --image-pull-policy=${image_pull_policy} \
         --verbosity=${verbosity} \
+        --arch=${BUILD_ARCH} \
         --csv-version=${csv_version} \
         --kubevirt-logo-path=${kubevirt_logo_path} \
         --package-name=${package_name} \

@@ -21,6 +21,7 @@ package csv
 import (
 	"encoding/json"
 	"fmt"
+	"runtime"
 
 	"k8s.io/utils/pointer"
 
@@ -154,6 +155,7 @@ func NewClusterServiceVersion(data *NewClusterServiceVersionData) (*csvv1.Cluste
 		data.OperatorImageVersion,
 		v1.PullPolicy(data.ImagePullPolicy),
 		data.Verbosity,
+		runtime.GOARCH,
 		data.KubeVirtVersion,
 		data.VirtApiSha,
 		data.VirtControllerSha,
