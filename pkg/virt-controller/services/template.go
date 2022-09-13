@@ -33,8 +33,6 @@ import (
 	"k8s.io/apimachinery/pkg/runtime/schema"
 	"k8s.io/client-go/tools/cache"
 
-	"kubevirt.io/kubevirt/pkg/virt-controller/watch/topology"
-
 	networkv1 "github.com/k8snetworkplumbingwg/network-attachment-definition-client/pkg/apis/k8s.cni.cncf.io/v1"
 
 	v1 "kubevirt.io/api/core/v1"
@@ -166,117 +164,6 @@ func isFeatureStateEnabled(fs *v1.FeatureState) bool {
 	return fs != nil && fs.Enabled != nil && *fs.Enabled
 }
 
-type hvFeatureLabel struct {
-	Feature *v1.FeatureState
-	Label   string
-}
-
-// makeHVFeatureLabelTable creates the mapping table between the VMI hyperv state and the label names.
-// The table needs pointers to v1.FeatureHyperv struct, so it has to be generated and can't be a
-// static var
-func makeHVFeatureLabelTable(vmi *v1.VirtualMachineInstance) []hvFeatureLabel {
-	// The following HyperV features don't require support from the host kernel, according to inspection
-	// of the QEMU sources (4.0 - adb3321bfd)
-	// VAPIC, Relaxed, Spinlocks, VendorID
-	// VPIndex, SyNIC: depend on both MSR and capability
-	// IPI, TLBFlush: depend on KVM Capabilities
-	// Runtime, Reset, SyNICTimer, Frequencies, Reenlightenment: depend on KVM MSRs availability
-	// EVMCS: depends on KVM capability, but the only way to know that is enable it, QEMU doesn't do
-	// any check before that, so we leave it out
-	//
-	// see also https://schd.ws/hosted_files/devconfcz2019/cf/vkuznets_enlightening_kvm_devconf2019.pdf
-	// to learn about dependencies between enlightenments
-
-	hyperv := vmi.Spec.Domain.Features.Hyperv // shortcut
-
-	syNICTimer := &v1.FeatureState{}
-	if hyperv.SyNICTimer != nil {
-		syNICTimer.Enabled = hyperv.SyNICTimer.Enabled
-	}
-
-	return []hvFeatureLabel{
-		{
-			Feature: hyperv.VPIndex,
-			Label:   "vpindex",
-		},
-		{
-			Feature: hyperv.Runtime,
-			Label:   "runtime",
-		},
-		{
-			Feature: hyperv.Reset,
-			Label:   "reset",
-		},
-		{
-			// TODO: SyNIC depends on vp-index on QEMU level. We should enforce this constraint.
-			Feature: hyperv.SyNIC,
-			Label:   "synic",
-		},
-		{
-			// TODO: SyNICTimer depends on SyNIC and Relaxed. We should enforce this constraint.
-			Feature: syNICTimer,
-			Label:   "synictimer",
-		},
-		{
-			Feature: hyperv.Frequencies,
-			Label:   "frequencies",
-		},
-		{
-			Feature: hyperv.Reenlightenment,
-			Label:   "reenlightenment",
-		},
-		{
-			Feature: hyperv.TLBFlush,
-			Label:   "tlbflush",
-		},
-		{
-			Feature: hyperv.IPI,
-			Label:   "ipi",
-		},
-	}
-}
-
-func getHypervNodeSelectors(vmi *v1.VirtualMachineInstance) map[string]string {
-	nodeSelectors := make(map[string]string)
-	if vmi.Spec.Domain.Features == nil || vmi.Spec.Domain.Features.Hyperv == nil {
-		return nodeSelectors
-	}
-
-	hvFeatureLabels := makeHVFeatureLabelTable(vmi)
-	for _, hv := range hvFeatureLabels {
-		if isFeatureStateEnabled(hv.Feature) {
-			nodeSelectors[NFD_KVM_INFO_PREFIX+hv.Label] = "true"
-		}
-	}
-
-	if vmi.Spec.Domain.Features.Hyperv.EVMCS != nil {
-		nodeSelectors[v1.CPUModelVendorLabel+IntelVendorName] = "true"
-	}
-
-	return nodeSelectors
-}
-
-func CPUModelLabelFromCPUModel(vmi *v1.VirtualMachineInstance) (label string, err error) {
-	if vmi.Spec.Domain.CPU == nil || vmi.Spec.Domain.CPU.Model == "" {
-		err = fmt.Errorf("Cannot create CPU Model label, vmi spec is mising CPU model")
-		return
-	}
-	label = NFD_CPU_MODEL_PREFIX + vmi.Spec.Domain.CPU.Model
-	return
-}
-
-func CPUFeatureLabelsFromCPUFeatures(vmi *v1.VirtualMachineInstance) []string {
-	var labels []string
-	if vmi.Spec.Domain.CPU != nil && vmi.Spec.Domain.CPU.Features != nil {
-		for _, feature := range vmi.Spec.Domain.CPU.Features {
-			if feature.Policy == "" || feature.Policy == "require" {
-				labels = append(labels, NFD_CPU_FEATURE_PREFIX+feature.Name)
-			}
-		}
-	}
-	return labels
-}
-
 func SetNodeAffinityForForbiddenFeaturePolicy(vmi *v1.VirtualMachineInstance, pod *k8sv1.Pod) {
 
 	if vmi.Spec.Domain.CPU == nil || vmi.Spec.Domain.CPU.Features == nil {
@@ -386,7 +273,6 @@ func (t *templateService) renderLaunchManifest(vmi *v1.VirtualMachineInstance, i
 	precond.MustNotBeNil(vmi)
 	domain := precond.MustNotBeEmpty(vmi.GetObjectMeta().GetName())
 	namespace := precond.MustNotBeEmpty(vmi.GetObjectMeta().GetNamespace())
-	nodeSelector := map[string]string{}
 
 	var userId int64 = util.RootUser
 
@@ -420,11 +306,6 @@ func (t *templateService) renderLaunchManifest(vmi *v1.VirtualMachineInstance, i
 		return nil, err
 	}
 	resources := resourceRenderer.ResourceRequirements()
-
-	if vmi.IsCPUDedicated() {
-		// schedule only on nodes with a running cpu manager
-		nodeSelector[v1.CPUManager] = "true"
-	}
 
 	// Read requested hookSidecars from VMI meta
 	requestedHookSidecarList, err := hooks.UnmarshalHookSidecarList(vmi)
@@ -532,38 +413,6 @@ func (t *templateService) renderLaunchManifest(vmi *v1.VirtualMachineInstance, i
 		containers = append(containers, *kernelBootContainer)
 	}
 
-	for k, v := range vmi.Spec.NodeSelector {
-		nodeSelector[k] = v
-
-	}
-	if cpuModelLabel, err := CPUModelLabelFromCPUModel(vmi); err == nil {
-		if vmi.Spec.Domain.CPU.Model != v1.CPUModeHostModel && vmi.Spec.Domain.CPU.Model != v1.CPUModeHostPassthrough {
-			nodeSelector[cpuModelLabel] = "true"
-		}
-		for _, cpuFeatureLable := range CPUFeatureLabelsFromCPUFeatures(vmi) {
-			nodeSelector[cpuFeatureLable] = "true"
-		}
-	}
-
-	if t.clusterConfig.HypervStrictCheckEnabled() {
-		hvNodeSelectors := getHypervNodeSelectors(vmi)
-		for k, v := range hvNodeSelectors {
-			nodeSelector[k] = v
-		}
-	}
-
-	if vmi.Status.TopologyHints != nil {
-		if vmi.Status.TopologyHints.TSCFrequency != nil {
-			nodeSelector[topology.ToTSCSchedulableLabel(*vmi.Status.TopologyHints.TSCFrequency)] = "true"
-		}
-	}
-
-	nodeSelector[v1.NodeSchedulable] = "true"
-	nodeSelectors := t.clusterConfig.GetNodeSelectors()
-	for k, v := range nodeSelectors {
-		nodeSelector[k] = v
-	}
-
 	for i, requestedHookSidecar := range requestedHookSidecarList {
 		containers = append(
 			containers,
@@ -625,7 +474,7 @@ func (t *templateService) renderLaunchManifest(vmi *v1.VirtualMachineInstance, i
 			RestartPolicy:                 k8sv1.RestartPolicyNever,
 			Containers:                    containers,
 			InitContainers:                initContainers,
-			NodeSelector:                  nodeSelector,
+			NodeSelector:                  t.newNodeSelectorRenderer(vmi).Render(),
 			Volumes:                       volumeRenderer.Volumes(),
 			ImagePullSecrets:              imagePullSecrets,
 			DNSConfig:                     vmi.Spec.DNSConfig,
@@ -682,6 +531,33 @@ func (t *templateService) renderLaunchManifest(vmi *v1.VirtualMachineInstance, i
 	}
 
 	return &pod, nil
+}
+
+func (t *templateService) newNodeSelectorRenderer(vmi *v1.VirtualMachineInstance) *NodeSelectorRenderer {
+	var opts []NodeSelectorRendererOption
+	if vmi.IsCPUDedicated() {
+		opts = append(opts, WithDedicatedCPU())
+	}
+	if t.clusterConfig.HypervStrictCheckEnabled() {
+		opts = append(opts, WithHyperv(vmi.Spec.Domain.Features))
+	}
+
+	if modelLabel, err := CPUModelLabelFromCPUModel(vmi); err == nil {
+		opts = append(
+			opts,
+			WithModelAndFeatureLabels(modelLabel, CPUFeatureLabelsFromCPUFeatures(vmi)...),
+		)
+	}
+
+	if vmi.Status.TopologyHints != nil && vmi.Status.TopologyHints.TSCFrequency != nil {
+		opts = append(opts, WithTSCTimer(vmi.Status.TopologyHints.TSCFrequency))
+	}
+
+	return NewNodeSelectorRenderer(
+		vmi.Spec.NodeSelector,
+		t.clusterConfig.GetNodeSelectors(),
+		opts...,
+	)
 }
 
 func initContainerVolumeMount() k8sv1.VolumeMount {

@@ -1377,6 +1377,36 @@ var _ = Describe("Template", func() {
 				Expect(pod.Spec.NodeSelector).To(Not(HaveKey(ContainSubstring(NFD_KVM_INFO_PREFIX))))
 			})
 
+			It("should add node selector for particular TSC frequency nodes when it is available in the VMI status", func() {
+				config, kvInformer, svc = configFactory(defaultArch)
+
+				var someHertzios int64 = 123123
+				vmi := v1.VirtualMachineInstance{
+					ObjectMeta: metav1.ObjectMeta{
+						Name:      "testvmi",
+						Namespace: "default",
+						UID:       "1234",
+					},
+					Spec: v1.VirtualMachineInstanceSpec{
+						Domain: v1.DomainSpec{
+							Devices: v1.Devices{
+								DisableHotplug: true,
+							},
+						},
+					},
+					Status: v1.VirtualMachineInstanceStatus{
+						TopologyHints: &v1.TopologyHints{
+							TSCFrequency: &someHertzios,
+						},
+					},
+				}
+
+				pod, err := svc.RenderLaunchManifest(&vmi)
+				Expect(err).ToNot(HaveOccurred())
+
+				Expect(pod.Spec.NodeSelector).To(HaveKeyWithValue("scheduling.node.kubevirt.io/tsc-frequency-123123", "true"))
+			})
+
 			It("should add default cpu/memory resources to the sidecar container if cpu pinning was requested", func() {
 				config, kvInformer, svc = configFactory(defaultArch)
 				nodeSelector := map[string]string{
