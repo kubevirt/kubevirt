@@ -101,8 +101,6 @@ func (s *vmSnapshotSource) Lock() (bool, error) {
 		return false, nil
 	}
 
-	log.Log.Infof("Adding VM snapshot finalizer to %s", s.vm.Name)
-
 	vmCopy := s.vm.DeepCopy()
 
 	if vmCopy.Status.SnapshotInProgress == nil {
@@ -114,6 +112,7 @@ func (s *vmSnapshotSource) Lock() (bool, error) {
 	}
 
 	if !controller.HasFinalizer(vmCopy, sourceFinalizer) {
+		log.Log.Infof("Adding VM snapshot finalizer to %s", s.vm.Name)
 		controller.AddFinalizer(vmCopy, sourceFinalizer)
 		_, err = s.controller.Client.VirtualMachine(vmCopy.Namespace).Update(vmCopy)
 		if err != nil {
