@@ -1519,6 +1519,30 @@ var _ = Describe("Validating VM Admitter", func() {
 			Expect(response.Result.Details.Causes[0].Field).
 				To(Equal("spec.template.spec.domain.resources.requests.memory"))
 		})
+
+		It("should not apply instancetype to the VMISpec of the original VM", func() {
+
+			instancetypeMethods.FindInstancetypeSpecFunc = func(_ *v1.VirtualMachine) (*instancetypev1alpha1.VirtualMachineInstancetypeSpec, error) {
+				return &instancetypev1alpha1.VirtualMachineInstancetypeSpec{}, nil
+			}
+
+			// Mock out ApplyToVmiFunc so that it applies some changes to the CPU of the provided VMISpec
+			instancetypeMethods.ApplyToVmiFunc = func(_ *k8sfield.Path, _ *instancetypev1alpha1.VirtualMachineInstancetypeSpec, _ *instancetypev1alpha1.VirtualMachinePreferenceSpec, vmiSpec *v1.VirtualMachineInstanceSpec) instancetype.Conflicts {
+				vmiSpec.Domain.CPU = &v1.CPU{Cores: 1, Threads: 1, Sockets: 1}
+				return nil
+			}
+
+			// Nil out CPU within the DomainSpec of the VMISpec being admitted to assert this remains untouched
+			vm.Spec.Template.Spec.Domain.CPU = nil
+
+			// The VM should be admitted successfully
+			response := admitVm(vmsAdmitter, vm)
+			Expect(response.Allowed).To(BeTrue())
+
+			// Ensure CPU has remained nil within the now admitted VMISpec
+			Expect(vm.Spec.Template.Spec.Domain.CPU).To(BeNil())
+
+		})
 	})
 })
 

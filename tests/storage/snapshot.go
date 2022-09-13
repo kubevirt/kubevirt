@@ -1285,12 +1285,11 @@ var _ = SIGDescribe("VirtualMachineSnapshot Tests", func() {
 			)
 		})
 
-		Context("With VM using instancetype and preferences", Label("instancetype"), func() {
+		Context("With VM using instancetype and preferences", func() {
 
 			var instancetype *instancetypev1alpha1.VirtualMachineInstancetype
 
 			BeforeEach(func() {
-
 				instancetype = &instancetypev1alpha1.VirtualMachineInstancetype{
 					ObjectMeta: metav1.ObjectMeta{
 						GenerateName: "vm-instancetype-",
@@ -1305,28 +1304,20 @@ var _ = SIGDescribe("VirtualMachineSnapshot Tests", func() {
 						},
 					},
 				}
-
 				instancetype, err := virtClient.VirtualMachineInstancetype(util.NamespaceTestDefault).Create(context.Background(), instancetype, metav1.CreateOptions{})
 				Expect(err).ToNot(HaveOccurred())
 
-				running := false
 				vm = tests.NewRandomVMWithDataVolumeWithRegistryImport(
 					cd.DataVolumeImportUrlForContainerDisk(cd.ContainerDiskAlpine),
 					util.NamespaceTestDefault,
 					snapshotStorageClass,
 					corev1.ReadWriteOnce,
 				)
-				vm.Spec.Running = &running
+				vm.Spec.Template.Spec.Domain.Resources = v1.ResourceRequirements{}
 				vm.Spec.Instancetype = &v1.InstancetypeMatcher{
 					Name: instancetype.Name,
 					Kind: "VirtualMachineInstanceType",
 				}
-
-				vm.Spec.Template.Spec.Networks = []v1.Network{}
-
-				// Clear the domainspec so the instnacetype doesn't conflict
-				vm.Spec.Template.Spec.Domain = v1.DomainSpec{}
-
 				vm, err = virtClient.VirtualMachine(vm.Namespace).Create(vm)
 				Expect(err).ToNot(HaveOccurred())
 
@@ -1335,27 +1326,11 @@ var _ = SIGDescribe("VirtualMachineSnapshot Tests", func() {
 				}
 			})
 
-			It("Bug #8435 - should create a snapshot successfully, currently fails as source remains locked", func() {
+			It("Bug #8435 - should create a snapshot successfully", func() {
 				snapshot = newSnapshot()
 				snapshot, err = virtClient.VirtualMachineSnapshot(snapshot.Namespace).Create(context.Background(), snapshot, metav1.CreateOptions{})
 				Expect(err).ToNot(HaveOccurred())
-
-				Eventually(func() bool {
-					snapshot, err = virtClient.VirtualMachineSnapshot(vm.Namespace).Get(context.Background(), snapshot.Name, metav1.GetOptions{})
-					Expect(err).ToNot(HaveOccurred())
-
-					if snapshot.Status == nil {
-						return false
-					}
-
-					// FIXME - The source remains unlocked here as the snapshot controller is unable to apply a finalizer to the VirtualMachine.
-					c1 := snapshot.Status.Conditions[0]
-					if c1.Type == snapshotv1.ConditionProgressing && c1.Status == corev1.ConditionFalse && strings.Contains(c1.Reason, "Source not locked") {
-						return true
-					}
-
-					return false
-				}, 90*time.Second, 10*time.Second).Should(BeTrue())
+				waitSnapshotReady()
 			})
 		})
 	})
