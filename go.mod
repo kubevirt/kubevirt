@@ -70,6 +70,7 @@ require (
 	k8s.io/apiextensions-apiserver v0.23.5
 	k8s.io/apimachinery v0.23.5
 	k8s.io/client-go v12.0.0+incompatible
+	k8s.io/klog/v2 v2.40.1
 	k8s.io/kube-aggregator v0.23.5
 	k8s.io/kube-openapi v0.0.0-20220124234850-424119656bbf
 	k8s.io/kubectl v0.0.0-00010101000000-000000000000
@@ -147,7 +148,6 @@ require (
 	google.golang.org/protobuf v1.27.1 // indirect
 	gopkg.in/inf.v0 v0.9.1 // indirect
 	gopkg.in/yaml.v3 v3.0.0-20210107192922-496545a6307b // indirect
-	k8s.io/klog/v2 v2.40.1 // indirect
 	mvdan.cc/editorconfig v0.1.1-0.20200121172147-e40951bde157 // indirect
 	sigs.k8s.io/controller-runtime v0.8.3 // indirect
 	sigs.k8s.io/json v0.0.0-20211020170558-c049b76a60c6 // indirect
