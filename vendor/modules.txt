@@ -276,8 +276,8 @@ github.com/mdlayher/socket
 # github.com/mdlayher/vsock v1.1.1
 ## explicit; go 1.17
 github.com/mdlayher/vsock
-# github.com/mitchellh/go-ps v0.0.0-20190716172923-621e5597135b
-## explicit
+# github.com/mitchellh/go-ps v1.0.0
+## explicit; go 1.13
 github.com/mitchellh/go-ps
 # github.com/mitchellh/go-vnc v0.0.0-20150629162542-723ed9867aed
 ## explicit
