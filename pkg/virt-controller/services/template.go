@@ -301,7 +301,6 @@ func (t *templateService) renderLaunchManifest(vmi *v1.VirtualMachineInstance, i
 	if err != nil {
 		return nil, err
 	}
-	resources := resourceRenderer.ResourceRequirements()
 
 	// Read requested hookSidecars from VMI meta
 	requestedHookSidecarList, err := hooks.UnmarshalHookSidecarList(vmi)
@@ -356,7 +355,12 @@ func (t *templateService) renderLaunchManifest(vmi *v1.VirtualMachineInstance, i
 		return nil, err
 	}
 
-	compute := t.newContainerSpecRenderer(vmi, volumeRenderer, resources, userId).Render(command)
+	compute := t.newContainerSpecRenderer(
+		vmi,
+		volumeRenderer,
+		resourceRenderer.ResourceRequirements(),
+		userId,
+	).Render(command)
 
 	for networkName, resourceName := range networkToResourceMap {
 		varName := fmt.Sprintf("KUBEVIRT_RESOURCE_NAME_%s", networkName)
