@@ -61,7 +61,7 @@ require (
 	golang.org/x/sys v0.0.0-20220919091848-fb04ddd9f9c8
 	golang.org/x/term v0.0.0-20220526004731-065cf7ba2467
 	golang.org/x/time v0.0.0-20210723032227-1f47c861a9ac
-	golang.org/x/tools v0.1.11
+	golang.org/x/tools v0.1.12
 	google.golang.org/grpc v1.48.0
 	gopkg.in/cheggaaa/pb.v1 v1.0.28
 	gopkg.in/yaml.v2 v2.4.0
@@ -170,16 +170,12 @@ require (
 
 replace (
 	github.com/golang/glog => ./staging/src/github.com/golang/glog
-	github.com/onsi/ginkgo/v2 => github.com/onsi/ginkgo/v2 v2.1.3
 	github.com/onsi/gomega => github.com/onsi/gomega v1.17.0
 	github.com/opencontainers/selinux => github.com/opencontainers/selinux v1.6.0
 	github.com/openshift/api => github.com/openshift/api v0.0.0-20220124143425-d74727069f6f // release-4.10
 	github.com/openshift/client-go => github.com/openshift/client-go v0.0.0-20211209144617-7385dd6338e3 // release-4.10
 	github.com/operator-framework/operator-lifecycle-manager => github.com/operator-framework/operator-lifecycle-manager v0.0.0-20190128024246-5eb7ae5bdb7a
 
-	k8s.io/api => k8s.io/api v0.23.5
-	k8s.io/apiextensions-apiserver => k8s.io/apiextensions-apiserver v0.23.5
-	k8s.io/apimachinery => k8s.io/apimachinery v0.23.5
 	k8s.io/apiserver => k8s.io/apiserver v0.23.5
 	k8s.io/cli-runtime => k8s.io/cli-runtime v0.23.5
 	k8s.io/client-go => k8s.io/client-go v0.23.5

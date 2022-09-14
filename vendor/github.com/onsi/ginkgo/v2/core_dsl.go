@@ -277,7 +277,7 @@ func RunSpecs(t GinkgoTestingT, description string, args ...interface{}) bool {
 	suitePath, err = filepath.Abs(suitePath)
 	exitIfErr(err)
 
-	passed, hasFocusedTests := global.Suite.Run(description, suiteLabels, suitePath, global.Failer, reporter, writer, outputInterceptor, interrupt_handler.NewInterruptHandler(suiteConfig.Timeout, client), client, suiteConfig)
+	passed, hasFocusedTests := global.Suite.Run(description, suiteLabels, suitePath, global.Failer, reporter, writer, outputInterceptor, interrupt_handler.NewInterruptHandler(suiteConfig.Timeout, client), client, internal.RegisterForProgressSignal, suiteConfig)
 	outputInterceptor.Shutdown()
 
 	flagSet.ValidateDeprecations(deprecationTracker)
@@ -421,7 +421,23 @@ var XDescribe = PDescribe
 var Context, FContext, PContext, XContext = Describe, FDescribe, PDescribe, XDescribe
 
 /* When is an alias for Describe - it generates the exact same kind of Container node */
-var When, FWhen, PWhen, XWhen = Describe, FDescribe, PDescribe, XDescribe
+func When(text string, args ...interface{}) bool {
+	return pushNode(internal.NewNode(deprecationTracker, types.NodeTypeContainer, "when "+text, args...))
+}
+
+/* When is an alias for Describe - it generates the exact same kind of Container node */
+func FWhen(text string, args ...interface{}) bool {
+	args = append(args, internal.Focus)
+	return pushNode(internal.NewNode(deprecationTracker, types.NodeTypeContainer, "when "+text, args...))
+}
+
+/* When is an alias for Describe - it generates the exact same kind of Container node */
+func PWhen(text string, args ...interface{}) bool {
+	args = append(args, internal.Pending)
+	return pushNode(internal.NewNode(deprecationTracker, types.NodeTypeContainer, "when "+text, args...))
+}
+
+var XWhen = PWhen
 
 /*
 It nodes are Subject nodes that contain your spec code and assertions.
@@ -488,6 +504,11 @@ func By(text string, callback ...func()) {
 		Text: text,
 	}
 	t := time.Now()
+	global.Suite.SetProgressStepCursor(internal.ProgressStepCursor{
+		Text:         text,
+		CodeLocation: types.NewCodeLocation(1),
+		StartTime:    t,
+	})
 	AddReportEntry("By Step", ReportEntryVisibilityNever, Offset(1), &value, t)
 	formatter := formatter.NewWithNoColorBool(reporterConfig.NoColor)
 	GinkgoWriter.Println(formatter.F("{{bold}}STEP:{{/}} %s {{gray}}%s{{/}}", text, t.Format(types.GINKGO_TIME_FORMAT)))
@@ -509,8 +530,10 @@ You may only register *one* BeforeSuite handler per test suite.  You typically d
 You cannot nest any other Ginkgo nodes within a BeforeSuite node's closure.
 You can learn more here: https://onsi.github.io/ginkgo/#suite-setup-and-cleanup-beforesuite-and-aftersuite
 */
-func BeforeSuite(body func()) bool {
-	return pushNode(internal.NewNode(deprecationTracker, types.NodeTypeBeforeSuite, "", body))
+func BeforeSuite(body func(), args ...interface{}) bool {
+	combinedArgs := []interface{}{body}
+	combinedArgs = append(combinedArgs, args...)
+	return pushNode(internal.NewNode(deprecationTracker, types.NodeTypeBeforeSuite, "", combinedArgs...))
 }
 
 /*
@@ -524,8 +547,10 @@ You may only register *one* AfterSuite handler per test suite.  You typically do
 You cannot nest any other Ginkgo nodes within an AfterSuite node's closure.
 You can learn more here: https://onsi.github.io/ginkgo/#suite-setup-and-cleanup-beforesuite-and-aftersuite
 */
-func AfterSuite(body func()) bool {
-	return pushNode(internal.NewNode(deprecationTracker, types.NodeTypeAfterSuite, "", body))
+func AfterSuite(body func(), args ...interface{}) bool {
+	combinedArgs := []interface{}{body}
+	combinedArgs = append(combinedArgs, args...)
+	return pushNode(internal.NewNode(deprecationTracker, types.NodeTypeAfterSuite, "", combinedArgs...))
 }
 
 /*
@@ -547,8 +572,11 @@ The byte array returned by the first function is then passed to the second funct
 You cannot nest any other Ginkgo nodes within an SynchronizedBeforeSuite node's closure.
 You can learn more, and see some examples, here: https://onsi.github.io/ginkgo/#parallel-suite-setup-and-cleanup-synchronizedbeforesuite-and-synchronizedaftersuite
 */
-func SynchronizedBeforeSuite(process1Body func() []byte, allProcessBody func([]byte)) bool {
-	return pushNode(internal.NewSynchronizedBeforeSuiteNode(process1Body, allProcessBody, types.NewCodeLocation(1)))
+func SynchronizedBeforeSuite(process1Body func() []byte, allProcessBody func([]byte), args ...interface{}) bool {
+	combinedArgs := []interface{}{process1Body, allProcessBody}
+	combinedArgs = append(combinedArgs, args...)
+
+	return pushNode(internal.NewNode(deprecationTracker, types.NodeTypeSynchronizedBeforeSuite, "", combinedArgs...))
 }
 
 /*
@@ -564,8 +592,11 @@ Note that you can also use DeferCleanup() in SynchronizedBeforeSuite to accompli
 You cannot nest any other Ginkgo nodes within an SynchronizedAfterSuite node's closure.
 You can learn more, and see some examples, here: https://onsi.github.io/ginkgo/#parallel-suite-setup-and-cleanup-synchronizedbeforesuite-and-synchronizedaftersuite
 */
-func SynchronizedAfterSuite(allProcessBody func(), process1Body func()) bool {
-	return pushNode(internal.NewSynchronizedAfterSuiteNode(allProcessBody, process1Body, types.NewCodeLocation(1)))
+func SynchronizedAfterSuite(allProcessBody func(), process1Body func(), args ...interface{}) bool {
+	combinedArgs := []interface{}{allProcessBody, process1Body}
+	combinedArgs = append(combinedArgs, args...)
+
+	return pushNode(internal.NewNode(deprecationTracker, types.NodeTypeSynchronizedAfterSuite, "", combinedArgs...))
 }
 
 /*
@@ -614,7 +645,7 @@ func JustAfterEach(args ...interface{}) bool {
 }
 
 /*
-BeforeAll nodes are Setup nodes that can occur inside Ordered contaienrs.  They run just once before any specs in the Ordered container run.
+BeforeAll nodes are Setup nodes that can occur inside Ordered containers.  They run just once before any specs in the Ordered container run.
 
 Multiple BeforeAll nodes can be defined in a given Ordered container however they cannot be nested inside any other container.
 
@@ -627,7 +658,7 @@ func BeforeAll(args ...interface{}) bool {
 }
 
 /*
-AfterAll nodes are Setup nodes that can occur inside Ordered contaienrs.  They run just once after all specs in the Ordered container have run.
+AfterAll nodes are Setup nodes that can occur inside Ordered containers.  They run just once after all specs in the Ordered container have run.
 
 Multiple AfterAll nodes can be defined in a given Ordered container however they cannot be nested inside any other container.
 
