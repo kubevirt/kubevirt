@@ -62,9 +62,6 @@ github.com/containernetworking/plugins/pkg/ns
 # github.com/containers/common v0.50.1
 ## explicit; go 1.17
 github.com/containers/common/pkg/seccomp
-# github.com/coreos/go-semver v0.3.0
-## explicit
-github.com/coreos/go-semver/semver
 # github.com/coreos/go-systemd/v22 v22.4.0
 ## explicit; go 1.12
 github.com/coreos/go-systemd/v22/dbus
@@ -84,7 +81,7 @@ github.com/emicklei/go-restful-openapi
 # github.com/evanphx/json-patch v4.12.0+incompatible
 ## explicit
 github.com/evanphx/json-patch
-# github.com/fatih/color v1.10.0
+# github.com/fatih/color v1.12.0
 ## explicit; go 1.13
 github.com/fatih/color
 # github.com/form3tech-oss/jwt-go v3.2.3+incompatible
@@ -384,6 +381,11 @@ github.com/openshift/custom-resource-status/conditions/v1
 ## explicit; go 1.17
 github.com/openshift/library-go/pkg/build/naming
 github.com/openshift/library-go/pkg/operator/resource/resourcemerge
+# github.com/operator-framework/api v0.11.1
+## explicit; go 1.16
+github.com/operator-framework/api/pkg/lib/version
+github.com/operator-framework/api/pkg/operators
+github.com/operator-framework/api/pkg/operators/v1alpha1
 # github.com/operator-framework/go-appr v0.0.0-20180917210448-f2aef88446f2
 ## explicit
 github.com/operator-framework/go-appr/appregistry
@@ -393,10 +395,6 @@ github.com/operator-framework/go-appr/appregistry/channel
 github.com/operator-framework/go-appr/appregistry/info
 github.com/operator-framework/go-appr/appregistry/package_appr
 github.com/operator-framework/go-appr/models
-# github.com/operator-framework/operator-lifecycle-manager v0.0.0-20190725173916-b56e63a643cc => github.com/operator-framework/operator-lifecycle-manager v0.0.0-20190128024246-5eb7ae5bdb7a
-## explicit
-github.com/operator-framework/operator-lifecycle-manager/pkg/api/apis/operators
-github.com/operator-framework/operator-lifecycle-manager/pkg/api/apis/operators/v1alpha1
 # github.com/operator-framework/operator-marketplace v0.0.0-20190617165322-1cbd32624349
 ## explicit
 github.com/operator-framework/operator-marketplace/pkg/apis/operators/shared
