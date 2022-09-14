@@ -126,6 +126,14 @@ var (
 	getCgroupManager = func(vmi *v1.VirtualMachineInstance) (cgroup.Manager, error) {
 		return cgroup.NewManagerFromVM(vmi)
 	}
+
+	parentPathForMount = func(
+		parent isolation.IsolationResult,
+		child isolation.IsolationResult,
+		findmntInfo FindmntInfo,
+	) (*safepath.Path, error) {
+		return isolation.ParentPathForMount(parent, child, findmntInfo.Target)
+	}
 )
 
 type volumeMounter struct {
@@ -579,7 +587,8 @@ func (m *volumeMounter) getSourcePodFilePath(sourceUID types.UID, vmi *v1.Virtua
 	if err != nil {
 		return nil, err
 	}
-	mountRoot, err := nodeIsolationResult().MountRoot()
+	nodeIsoRes := nodeIsolationResult()
+	mountRoot, err := nodeIsoRes.MountRoot()
 	if err != nil {
 		return nil, err
 	}
@@ -587,7 +596,7 @@ func (m *volumeMounter) getSourcePodFilePath(sourceUID types.UID, vmi *v1.Virtua
 	for _, findmnt := range findmounts {
 		if filepath.Base(findmnt.Target) == volume {
 			source := findmnt.GetSourcePath()
-			path, err := mountRoot.AppendAndResolveWithRelativeRoot(source)
+			path, err := parentPathForMount(nodeIsoRes, isoRes, findmnt)
 			exists := !errors.Is(err, os.ErrNotExist)
 			if err != nil && !errors.Is(err, os.ErrNotExist) {
 				return nil, err
