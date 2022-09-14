@@ -3241,6 +3241,80 @@ var _ = Describe("Converter", func() {
 			Expect(domain.Spec.Devices.Interfaces[1].Rom.Enabled).To(Equal("no"))
 		})
 	})
+
+	Context("when TSC Frequency", func() {
+		var (
+			vmi *v1.VirtualMachineInstance
+			c   *ConverterContext
+		)
+
+		const fakeFrequency = 12345
+
+		BeforeEach(func() {
+			vmi = kvapi.NewMinimalVMI("testvmi")
+			v1.SetObjectDefaults_VirtualMachineInstance(vmi)
+			vmi.Status.TopologyHints = &v1.TopologyHints{TSCFrequency: pointer.Int64(fakeFrequency)}
+			c = &ConverterContext{
+				AllowEmulation: true,
+			}
+		})
+
+		expectTsc := func(domain *api.Domain, expectExists bool) {
+			Expect(domain).ToNot(BeNil())
+			if !expectExists && domain.Spec.Clock == nil {
+				return
+			}
+
+			Expect(domain.Spec.Clock).ToNot(BeNil())
+
+			found := false
+			for _, timer := range domain.Spec.Clock.Timer {
+				if timer.Name == "tsc" {
+					actualFrequency, err := strconv.Atoi(timer.Frequency)
+					Expect(err).ToNot(HaveOccurred(), "frequency cannot be converted into a number")
+					Expect(actualFrequency).To(Equal(fakeFrequency), "set frequency is incorrect")
+
+					found = true
+					break
+				}
+			}
+
+			expectationStr := "exist"
+			if !expectExists {
+				expectationStr = "not " + expectationStr
+			}
+			Expect(found).To(Equal(expectExists), fmt.Sprintf("domain TSC frequency is expected to %s", expectationStr))
+		}
+
+		Context("is required because VMI is using", func() {
+			It("hyperV reenlightenment", func() {
+				vmi.Spec.Domain.Features = &v1.Features{
+					Hyperv: &v1.FeatureHyperv{
+						Reenlightenment: &v1.FeatureState{Enabled: pointer.Bool(true)},
+					},
+				}
+
+				domain := vmiToDomain(vmi, c)
+				expectTsc(domain, true)
+			})
+
+			It("invtsc CPU feature", func() {
+				vmi.Spec.Domain.CPU = &v1.CPU{
+					Features: []v1.CPUFeature{
+						{Name: "invtsc", Policy: "require"},
+					},
+				}
+
+				domain := vmiToDomain(vmi, c)
+				expectTsc(domain, true)
+			})
+		})
+
+		It("is not required", func() {
+			domain := vmiToDomain(vmi, c)
+			expectTsc(domain, false)
+		})
+	})
 })
 
 var _ = Describe("disk device naming", func() {
