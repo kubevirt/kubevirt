@@ -101,7 +101,7 @@ func (c *FakeRoutes) UpdateStatus(ctx context.Context, route *routev1.Route, opt
 // Delete takes name of the route and deletes it. Returns an error if one occurs.
 func (c *FakeRoutes) Delete(ctx context.Context, name string, opts v1.DeleteOptions) error {
 	_, err := c.Fake.
-		Invokes(testing.NewDeleteAction(routesResource, c.ns, name), &routev1.Route{})
+		Invokes(testing.NewDeleteActionWithOptions(routesResource, c.ns, name, opts), &routev1.Route{})
 
 	return err
 }

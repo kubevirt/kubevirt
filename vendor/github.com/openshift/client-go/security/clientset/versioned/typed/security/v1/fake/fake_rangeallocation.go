@@ -83,7 +83,7 @@ func (c *FakeRangeAllocations) Update(ctx context.Context, rangeAllocation *secu
 // Delete takes name of the rangeAllocation and deletes it. Returns an error if one occurs.
 func (c *FakeRangeAllocations) Delete(ctx context.Context, name string, opts v1.DeleteOptions) error {
 	_, err := c.Fake.
-		Invokes(testing.NewRootDeleteAction(rangeallocationsResource, name), &securityv1.RangeAllocation{})
+		Invokes(testing.NewRootDeleteActionWithOptions(rangeallocationsResource, name, opts), &securityv1.RangeAllocation{})
 	return err
 }
 

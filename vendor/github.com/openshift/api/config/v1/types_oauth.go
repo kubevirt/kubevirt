@@ -11,13 +11,17 @@ import metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 // OAuth holds cluster-wide information about OAuth.  The canonical name is `cluster`.
 // It is used to configure the integrated OAuth server.
 // This configuration is only honored when the top level Authentication config has type set to IntegratedOAuth.
+//
+// Compatibility level 1: Stable within a major release for a minimum of 12 months or 3 minor releases (whichever is longer).
+// +openshift:compatibility-gen:level=1
 type OAuth struct {
 	metav1.TypeMeta   `json:",inline"`
 	metav1.ObjectMeta `json:"metadata"`
-
+	// spec holds user settable values for configuration
 	// +kubebuilder:validation:Required
 	// +required
 	Spec OAuthSpec `json:"spec"`
+	// status holds observed values from the cluster. They may not be overridden.
 	// +optional
 	Status OAuthStatus `json:"status"`
 }
@@ -27,6 +31,7 @@ type OAuthSpec struct {
 	// identityProviders is an ordered list of ways for a user to identify themselves.
 	// When this list is empty, no identities are provisioned for users.
 	// +optional
+	// +listType=atomic
 	IdentityProviders []IdentityProvider `json:"identityProviders,omitempty"`
 
 	// tokenConfig contains options for authorization and access tokens
@@ -45,21 +50,27 @@ type OAuthStatus struct {
 // TokenConfig holds the necessary configuration options for authorization and access tokens
 type TokenConfig struct {
 	// accessTokenMaxAgeSeconds defines the maximum age of access tokens
-	AccessTokenMaxAgeSeconds int32 `json:"accessTokenMaxAgeSeconds"`
+	AccessTokenMaxAgeSeconds int32 `json:"accessTokenMaxAgeSeconds,omitempty"`
 
-	// accessTokenInactivityTimeoutSeconds defines the default token
-	// inactivity timeout for tokens granted by any client.
+	// accessTokenInactivityTimeoutSeconds - DEPRECATED: setting this field has no effect.
+	// +optional
+	AccessTokenInactivityTimeoutSeconds int32 `json:"accessTokenInactivityTimeoutSeconds,omitempty"`
+
+	// accessTokenInactivityTimeout defines the token inactivity timeout
+	// for tokens granted by any client.
 	// The value represents the maximum amount of time that can occur between
 	// consecutive uses of the token. Tokens become invalid if they are not
 	// used within this temporal window. The user will need to acquire a new
-	// token to regain access once a token times out.
-	// Valid values are integer values:
-	//   x < 0  Tokens time out is enabled but tokens never timeout unless configured per client (e.g. `-1`)
-	//   x = 0  Tokens time out is disabled (default)
-	//   x > 0  Tokens time out if there is no activity for x seconds
-	// The current minimum allowed value for X is 300 (5 minutes)
+	// token to regain access once a token times out. Takes valid time
+	// duration string such as "5m", "1.5h" or "2h45m". The minimum allowed
+	// value for duration is 300s (5 minutes). If the timeout is configured
+	// per client, then that value takes precedence. If the timeout value is
+	// not specified and the client does not override the value, then tokens
+	// are valid until their lifetime.
+	//
+	// WARNING: existing tokens' timeout will not be affected (lowered) by changing this value
 	// +optional
-	AccessTokenInactivityTimeoutSeconds int32 `json:"accessTokenInactivityTimeoutSeconds,omitempty"`
+	AccessTokenInactivityTimeout *metav1.Duration `json:"accessTokenInactivityTimeout,omitempty"`
 }
 
 const (
@@ -529,26 +540,43 @@ type OpenIDIdentityProvider struct {
 //   iss Claim and the sub Claim."
 const UserIDClaim = "sub"
 
+// OpenIDClaim represents a claim retrieved from an OpenID provider's tokens or userInfo
+// responses
+// +kubebuilder:validation:MinLength=1
+type OpenIDClaim string
+
 // OpenIDClaims contains a list of OpenID claims to use when authenticating with an OpenID identity provider
 type OpenIDClaims struct {
 	// preferredUsername is the list of claims whose values should be used as the preferred username.
 	// If unspecified, the preferred username is determined from the value of the sub claim
+	// +listType=atomic
 	// +optional
 	PreferredUsername []string `json:"preferredUsername,omitempty"`
 
 	// name is the list of claims whose values should be used as the display name. Optional.
 	// If unspecified, no display name is set for the identity
+	// +listType=atomic
 	// +optional
 	Name []string `json:"name,omitempty"`
 
 	// email is the list of claims whose values should be used as the email address. Optional.
 	// If unspecified, no email is set for the identity
+	// +listType=atomic
 	// +optional
 	Email []string `json:"email,omitempty"`
+
+	// groups is the list of claims value of which should be used to synchronize groups
+	// from the OIDC provider to OpenShift for the user.
+	// If multiple claims are specified, the first one with a non-empty value is used.
+	// +listType=atomic
+	// +optional
+	Groups []OpenIDClaim `json:"groups,omitempty"`
 }
 
 // +k8s:deepcopy-gen:interfaces=k8s.io/apimachinery/pkg/runtime.Object
 
+// Compatibility level 1: Stable within a major release for a minimum of 12 months or 3 minor releases (whichever is longer).
+// +openshift:compatibility-gen:level=1
 type OAuthList struct {
 	metav1.TypeMeta `json:",inline"`
 	metav1.ListMeta `json:"metadata"`

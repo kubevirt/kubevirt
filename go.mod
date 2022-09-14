@@ -174,8 +174,8 @@ replace (
 	github.com/onsi/ginkgo/v2 => github.com/onsi/ginkgo/v2 v2.1.3
 	github.com/onsi/gomega => github.com/onsi/gomega v1.17.0
 	github.com/opencontainers/selinux => github.com/opencontainers/selinux v1.6.0
-	github.com/openshift/api => github.com/openshift/api v0.0.0-20191219222812-2987a591a72c
-	github.com/openshift/client-go => github.com/openshift/client-go v0.0.0-20210112165513-ebc401615f47
+	github.com/openshift/api => github.com/openshift/api v0.0.0-20220124143425-d74727069f6f // release-4.10
+	github.com/openshift/client-go => github.com/openshift/client-go v0.0.0-20211209144617-7385dd6338e3 // release-4.10
 	github.com/operator-framework/operator-lifecycle-manager => github.com/operator-framework/operator-lifecycle-manager v0.0.0-20190128024246-5eb7ae5bdb7a
 
 	k8s.io/api => k8s.io/api v0.23.5

@@ -11,6 +11,9 @@ import (
 // +k8s:deepcopy-gen:interfaces=k8s.io/apimachinery/pkg/runtime.Object
 
 // Console provides a means to configure an operator to manage the console.
+//
+// Compatibility level 1: Stable within a major release for a minimum of 12 months or 3 minor releases (whichever is longer).
+// +openshift:compatibility-gen:level=1
 type Console struct {
 	metav1.TypeMeta   `json:",inline"`
 	metav1.ObjectMeta `json:"metadata,omitempty"`
@@ -31,6 +34,37 @@ type ConsoleSpec struct {
 	Customization ConsoleCustomization `json:"customization"`
 	// providers contains configuration for using specific service providers.
 	Providers ConsoleProviders `json:"providers"`
+	// route contains hostname and secret reference that contains the serving certificate.
+	// If a custom route is specified, a new route will be created with the
+	// provided hostname, under which console will be available.
+	// In case of custom hostname uses the default routing suffix of the cluster,
+	// the Secret specification for a serving certificate will not be needed.
+	// In case of custom hostname points to an arbitrary domain, manual DNS configurations steps are necessary.
+	// The default console route will be maintained to reserve the default hostname
+	// for console if the custom route is removed.
+	// If not specified, default route will be used.
+	// DEPRECATED
+	// +optional
+	Route ConsoleConfigRoute `json:"route"`
+	// plugins defines a list of enabled console plugin names.
+	// +optional
+	Plugins []string `json:"plugins,omitempty"`
+}
+
+// ConsoleConfigRoute holds information on external route access to console.
+// DEPRECATED
+type ConsoleConfigRoute struct {
+	// hostname is the desired custom domain under which console will be available.
+	Hostname string `json:"hostname"`
+	// secret points to secret in the openshift-config namespace that contains custom
+	// certificate and key and needs to be created manually by the cluster admin.
+	// Referenced Secret is required to contain following key value pairs:
+	// - "tls.crt" - to specifies custom certificate
+	// - "tls.key" - to specifies private key of the custom certificate
+	// If the custom hostname uses the default routing suffix of the cluster,
+	// the Secret specification for a serving certificate will not be needed.
+	// +optional
+	Secret configv1.SecretNameReference `json:"secret"`
 }
 
 // ConsoleStatus defines the observed status of the Console.
@@ -80,6 +114,92 @@ type ConsoleCustomization struct {
 	// SVG format preferred
 	// +optional
 	CustomLogoFile configv1.ConfigMapFileReference `json:"customLogoFile,omitempty"`
+	// developerCatalog allows to configure the shown developer catalog categories.
+	// +kubebuilder:validation:Optional
+	// +optional
+	DeveloperCatalog DeveloperConsoleCatalogCustomization `json:"developerCatalog,omitempty"`
+	// projectAccess allows customizing the available list of ClusterRoles in the Developer perspective
+	// Project access page which can be used by a project admin to specify roles to other users and
+	// restrict access within the project. If set, the list will replace the default ClusterRole options.
+	// +kubebuilder:validation:Optional
+	// +optional
+	ProjectAccess ProjectAccess `json:"projectAccess,omitempty"`
+	// quickStarts allows customization of available ConsoleQuickStart resources in console.
+	// +kubebuilder:validation:Optional
+	// +optional
+	QuickStarts QuickStarts `json:"quickStarts,omitempty"`
+	// addPage allows customizing actions on the Add page in developer perspective.
+	// +kubebuilder:validation:Optional
+	// +optional
+	AddPage AddPage `json:"addPage,omitempty"`
+}
+
+// ProjectAccess contains options for project access roles
+type ProjectAccess struct {
+	// availableClusterRoles is the list of ClusterRole names that are assignable to users
+	// through the project access tab.
+	// +kubebuilder:validation:Optional
+	// +optional
+	AvailableClusterRoles []string `json:"availableClusterRoles,omitempty"`
+}
+
+// DeveloperConsoleCatalogCustomization allow cluster admin to configure developer catalog.
+type DeveloperConsoleCatalogCustomization struct {
+	// categories which are shown in the developer catalog.
+	// +kubebuilder:validation:Optional
+	// +optional
+	Categories []DeveloperConsoleCatalogCategory `json:"categories,omitempty"`
+}
+
+// DeveloperConsoleCatalogCategoryMeta are the key identifiers of a developer catalog category.
+type DeveloperConsoleCatalogCategoryMeta struct {
+	// ID is an identifier used in the URL to enable deep linking in console.
+	// ID is required and must have 1-32 URL safe (A-Z, a-z, 0-9, - and _) characters.
+	// +kubebuilder:validation:Required
+	// +kubebuilder:validation:MinLength=1
+	// +kubebuilder:validation:MaxLength=32
+	// +kubebuilder:validation:Pattern=`^[A-Za-z0-9-_]+$`
+	// +required
+	ID string `json:"id"`
+	// label defines a category display label. It is required and must have 1-64 characters.
+	// +kubebuilder:validation:Required
+	// +kubebuilder:validation:MinLength=1
+	// +kubebuilder:validation:MaxLength=64
+	// +required
+	Label string `json:"label"`
+	// tags is a list of strings that will match the category. A selected category
+	// show all items which has at least one overlapping tag between category and item.
+	// +kubebuilder:validation:Optional
+	// +optional
+	Tags []string `json:"tags,omitempty"`
+}
+
+// DeveloperConsoleCatalogCategory for the developer console catalog.
+type DeveloperConsoleCatalogCategory struct {
+	// defines top level category ID, label and filter tags.
+	DeveloperConsoleCatalogCategoryMeta `json:",inline"`
+	// subcategories defines a list of child categories.
+	// +kubebuilder:validation:Optional
+	// +optional
+	Subcategories []DeveloperConsoleCatalogCategoryMeta `json:"subcategories,omitempty"`
+}
+
+// QuickStarts allow cluster admins to customize available ConsoleQuickStart resources.
+type QuickStarts struct {
+	// disabled is a list of ConsoleQuickStart resource names that are not shown to users.
+	// +kubebuilder:validation:Optional
+	// +optional
+	Disabled []string `json:"disabled,omitempty"`
+}
+
+// AddPage allows customizing actions on the Add page in developer perspective.
+type AddPage struct {
+	// disabledActions is a list of actions that are not shown to users.
+	// Each action in the list is represented by its ID.
+	// +kubebuilder:validation:Optional
+	// +kubebuilder:validation:MinItems=1
+	// +optional
+	DisabledActions []string `json:"disabledActions,omitempty"`
 }
 
 // Brand is a specific supported brand within the console.
@@ -103,6 +223,8 @@ const (
 
 // +k8s:deepcopy-gen:interfaces=k8s.io/apimachinery/pkg/runtime.Object
 
+// Compatibility level 1: Stable within a major release for a minimum of 12 months or 3 minor releases (whichever is longer).
+// +openshift:compatibility-gen:level=1
 type ConsoleList struct {
 	metav1.TypeMeta `json:",inline"`
 	metav1.ListMeta `json:"metadata"`

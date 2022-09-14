@@ -83,7 +83,7 @@ func (c *FakeSecurityContextConstraints) Update(ctx context.Context, securityCon
 // Delete takes name of the securityContextConstraints and deletes it. Returns an error if one occurs.
 func (c *FakeSecurityContextConstraints) Delete(ctx context.Context, name string, opts v1.DeleteOptions) error {
 	_, err := c.Fake.
-		Invokes(testing.NewRootDeleteAction(securitycontextconstraintsResource, name), &securityv1.SecurityContextConstraints{})
+		Invokes(testing.NewRootDeleteActionWithOptions(securitycontextconstraintsResource, name, opts), &securityv1.SecurityContextConstraints{})
 	return err
 }
 

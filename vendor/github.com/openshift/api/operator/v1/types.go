@@ -6,6 +6,9 @@ import (
 )
 
 // MyOperatorResource is an example operator configuration type
+//
+// Compatibility level 4: No compatibility is provided, the API can change at any point for any reason. These capabilities should not be used by applications needing long term support.
+// +openshift:compatibility-gen:internal
 type MyOperatorResource struct {
 	metav1.TypeMeta   `json:",inline"`
 	metav1.ObjectMeta `json:"metadata"`
@@ -51,13 +54,21 @@ type OperatorSpec struct {
 
 	// logLevel is an intent based logging for an overall component.  It does not give fine grained control, but it is a
 	// simple way to manage coarse grained logging choices that operators have to interpret for their operands.
+	//
+	// Valid values are: "Normal", "Debug", "Trace", "TraceAll".
+	// Defaults to "Normal".
 	// +optional
-	LogLevel LogLevel `json:"logLevel"`
+	// +kubebuilder:default=Normal
+	LogLevel LogLevel `json:"logLevel,omitempty"`
 
 	// operatorLogLevel is an intent based logging for the operator itself.  It does not give fine grained control, but it is a
 	// simple way to manage coarse grained logging choices that operators have to interpret for themselves.
+	//
+	// Valid values are: "Normal", "Debug", "Trace", "TraceAll".
+	// Defaults to "Normal".
 	// +optional
-	OperatorLogLevel LogLevel `json:"operatorLogLevel"`
+	// +kubebuilder:default=Normal
+	OperatorLogLevel LogLevel `json:"operatorLogLevel,omitempty"`
 
 	// unsupportedConfigOverrides holds a sparse config that will override any previously set options.  It only needs to be the fields to override
 	// it will end up overlaying in the following order:
@@ -77,6 +88,7 @@ type OperatorSpec struct {
 	ObservedConfig runtime.RawExtension `json:"observedConfig"`
 }
 
+// +kubebuilder:validation:Enum="";Normal;Debug;Trace;TraceAll
 type LogLevel string
 
 var (
@@ -206,9 +218,17 @@ type NodeStatus struct {
 	CurrentRevision int32 `json:"currentRevision"`
 	// targetRevision is the generation of the deployment we're trying to apply
 	TargetRevision int32 `json:"targetRevision,omitempty"`
+
 	// lastFailedRevision is the generation of the deployment we tried and failed to deploy.
 	LastFailedRevision int32 `json:"lastFailedRevision,omitempty"`
-
-	// lastFailedRevisionErrors is a list of the errors during the failed deployment referenced in lastFailedRevision
+	// lastFailedTime is the time the last failed revision failed the last time.
+	LastFailedTime *metav1.Time `json:"lastFailedTime,omitempty"`
+	// lastFailedReason is a machine readable failure reason string.
+	LastFailedReason string `json:"lastFailedReason,omitempty"`
+	// lastFailedCount is how often the installer pod of the last failed revision failed.
+	LastFailedCount int `json:"lastFailedCount,omitempty"`
+	// lastFallbackCount is how often a fallback to a previous revision happened.
+	LastFallbackCount int `json:"lastFallbackCount,omitempty"`
+	// lastFailedRevisionErrors is a list of human readable errors during the failed deployment referenced in lastFailedRevision.
 	LastFailedRevisionErrors []string `json:"lastFailedRevisionErrors,omitempty"`
 }

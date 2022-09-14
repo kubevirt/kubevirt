@@ -9,6 +9,9 @@ import (
 // +k8s:deepcopy-gen:interfaces=k8s.io/apimachinery/pkg/runtime.Object
 
 // Proxy holds cluster-wide information on how to configure default proxies for the cluster. The canonical name is `cluster`
+//
+// Compatibility level 1: Stable within a major release for a minimum of 12 months or 3 minor releases (whichever is longer).
+// +openshift:compatibility-gen:level=1
 type Proxy struct {
 	metav1.TypeMeta   `json:",inline"`
 	metav1.ObjectMeta `json:"metadata,omitempty"`
@@ -32,7 +35,7 @@ type ProxySpec struct {
 	// +optional
 	HTTPSProxy string `json:"httpsProxy,omitempty"`
 
-	// noProxy is a comma-separated list of hostnames and/or CIDRs for which the proxy should not be used.
+	// noProxy is a comma-separated list of hostnames and/or CIDRs and/or IPs for which the proxy should not be used.
 	// Empty means unset and will not result in an env var.
 	// +optional
 	NoProxy string `json:"noProxy,omitempty"`
@@ -41,13 +44,17 @@ type ProxySpec struct {
 	// +optional
 	ReadinessEndpoints []string `json:"readinessEndpoints,omitempty"`
 
-	// trustedCA is a reference to a ConfigMap containing a CA certificate bundle used
-	// for client egress HTTPS connections. The certificate bundle must be from the CA
-	// that signed the proxy's certificate and be signed for everything. The trustedCA
-	// field should only be consumed by a proxy validator. The validator is responsible
-	// for reading the certificate bundle from required key "ca-bundle.crt" and copying
-	// it to a ConfigMap named "trusted-ca-bundle" in the "openshift-config-managed"
-	// namespace. The namespace for the ConfigMap referenced by trustedCA is
+	// trustedCA is a reference to a ConfigMap containing a CA certificate bundle.
+	// The trustedCA field should only be consumed by a proxy validator. The
+	// validator is responsible for reading the certificate bundle from the required
+	// key "ca-bundle.crt", merging it with the system default trust bundle,
+	// and writing the merged trust bundle to a ConfigMap named "trusted-ca-bundle"
+	// in the "openshift-config-managed" namespace. Clients that expect to make
+	// proxy connections must use the trusted-ca-bundle for all HTTPS requests to
+	// the proxy, and may use the trusted-ca-bundle for non-proxy HTTPS requests as
+	// well.
+	//
+	// The namespace for the ConfigMap referenced by trustedCA is
 	// "openshift-config". Here is an example ConfigMap (in yaml):
 	//
 	// apiVersion: v1
@@ -82,6 +89,8 @@ type ProxyStatus struct {
 
 // +k8s:deepcopy-gen:interfaces=k8s.io/apimachinery/pkg/runtime.Object
 
+// Compatibility level 1: Stable within a major release for a minimum of 12 months or 3 minor releases (whichever is longer).
+// +openshift:compatibility-gen:level=1
 type ProxyList struct {
 	metav1.TypeMeta `json:",inline"`
 	metav1.ListMeta `json:"metadata"`
