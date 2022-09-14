@@ -23,7 +23,7 @@ import (
 	"fmt"
 	"time"
 
-	promv1 "github.com/coreos/prometheus-operator/pkg/apis/monitoring/v1"
+	promv1 "github.com/prometheus-operator/prometheus-operator/pkg/apis/monitoring/v1"
 	"k8s.io/client-go/discovery"
 
 	k8sv1 "k8s.io/api/core/v1"

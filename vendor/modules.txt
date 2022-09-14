@@ -68,10 +68,6 @@ github.com/coreos/go-semver/semver
 # github.com/coreos/go-systemd/v22 v22.4.0
 ## explicit; go 1.12
 github.com/coreos/go-systemd/v22/dbus
-# github.com/coreos/prometheus-operator v0.38.1-0.20200424145508-7e176fda06cc
-## explicit; go 1.13
-github.com/coreos/prometheus-operator/pkg/apis/monitoring
-github.com/coreos/prometheus-operator/pkg/apis/monitoring/v1
 # github.com/cyphar/filepath-securejoin v0.2.3
 ## explicit; go 1.13
 github.com/cyphar/filepath-securejoin
@@ -419,6 +415,10 @@ github.com/pkg/errors
 # github.com/povsister/scp v0.0.0-20210427074412-33febfd9f13e
 ## explicit; go 1.15
 github.com/povsister/scp
+# github.com/prometheus-operator/prometheus-operator/pkg/apis/monitoring v0.42.1
+## explicit; go 1.14
+github.com/prometheus-operator/prometheus-operator/pkg/apis/monitoring
+github.com/prometheus-operator/prometheus-operator/pkg/apis/monitoring/v1
 # github.com/prometheus/client_golang v1.11.1
 ## explicit; go 1.13
 github.com/prometheus/client_golang/api

@@ -3,7 +3,6 @@ module kubevirt.io/client-go
 go 1.17
 
 require (
-	github.com/coreos/prometheus-operator v0.38.0
 	github.com/go-kit/kit v0.9.0
 	github.com/go-openapi/spec v0.19.3
 	github.com/golang/glog v1.0.0
@@ -15,6 +14,7 @@ require (
 	github.com/onsi/ginkgo/v2 v2.1.3
 	github.com/onsi/gomega v1.18.1
 	github.com/openshift/client-go v0.0.0-20210112165513-ebc401615f47
+	github.com/prometheus-operator/prometheus-operator/pkg/apis/monitoring v0.42.1
 	github.com/spf13/pflag v1.0.5
 	k8s.io/api v0.23.5
 	k8s.io/apiextensions-apiserver v0.23.5

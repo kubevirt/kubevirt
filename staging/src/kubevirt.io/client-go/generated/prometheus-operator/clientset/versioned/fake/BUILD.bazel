@@ -13,7 +13,7 @@ go_library(
         "//staging/src/kubevirt.io/client-go/generated/prometheus-operator/clientset/versioned:go_default_library",
         "//staging/src/kubevirt.io/client-go/generated/prometheus-operator/clientset/versioned/typed/monitoring/v1:go_default_library",
         "//staging/src/kubevirt.io/client-go/generated/prometheus-operator/clientset/versioned/typed/monitoring/v1/fake:go_default_library",
-        "//vendor/github.com/coreos/prometheus-operator/pkg/apis/monitoring/v1:go_default_library",
+        "//vendor/github.com/prometheus-operator/prometheus-operator/pkg/apis/monitoring/v1:go_default_library",
         "//vendor/k8s.io/apimachinery/pkg/apis/meta/v1:go_default_library",
         "//vendor/k8s.io/apimachinery/pkg/runtime:go_default_library",
         "//vendor/k8s.io/apimachinery/pkg/runtime/schema:go_default_library",
