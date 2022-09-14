@@ -657,6 +657,7 @@ var _ = Describe("Export controller", func() {
 		testVMExport := createPVCVMExport()
 		// We call handleVMExportSecret to populate the Status field appropiately
 		err := controller.handleVMExportSecret(testVMExport)
+		Expect(testVMExport.Status.TokenSecretRef).ToNot(BeNil())
 		Expect(err).ToNot(HaveOccurred())
 		k8sClient.Fake.PrependReactor("create", "pods", func(action testing.Action) (handled bool, obj runtime.Object, err error) {
 			create, ok := action.(testing.CreateAction)
@@ -714,7 +715,7 @@ var _ = Describe("Export controller", func() {
 			MountPath: "/cert",
 		}))
 		Expect(pod.Spec.Containers[0].VolumeMounts).To(ContainElement(k8sv1.VolumeMount{
-			Name:      testVMExport.Status.TokenSecretRef,
+			Name:      *testVMExport.Status.TokenSecretRef,
 			MountPath: "/token",
 		}))
 		Expect(pod.Annotations[annCertParams]).To(Equal("{\"Duration\":7200000000000,\"RenewBefore\":3600000000000}"))
@@ -785,7 +786,7 @@ var _ = Describe("Export controller", func() {
 		Expect(err).To(HaveOccurred())
 	})
 
-	It("handleVMExportSecret should create the export secret if no secretTokenRef is specified", func() {
+	It("handleVMExportSecret should create the export secret if no TokenSecretRef is specified", func() {
 		testVMExport := createPVCVMExportWithoutSecret()
 		expectedName := getDefaultTokenSecretName(testVMExport)
 		k8sClient.Fake.PrependReactor("create", "secrets", func(action testing.Action) (handled bool, obj runtime.Object, err error) {
@@ -799,16 +800,43 @@ var _ = Describe("Export controller", func() {
 		})
 		err := controller.handleVMExportSecret(testVMExport)
 		Expect(err).ToNot(HaveOccurred())
-		Expect(testVMExport.Status.TokenSecretRef).To(Equal(expectedName))
+		Expect(testVMExport.Status.TokenSecretRef).ToNot(BeNil())
+		Expect(*testVMExport.Status.TokenSecretRef).To(Equal(expectedName))
 		testutils.ExpectEvent(recorder, secretCreatedEvent)
 	})
 
-	It("handleVMExportSecret should use the user-specified secret if secretTokenRef is specified", func() {
-		testVMExport := createPVCVMExport()
-		expectedName := testVMExport.Spec.TokenSecretRef
+	It("handleVMExportSecret should use the already specified secret if the status is already populated", func() {
+		testVMExport := createPVCVMExportWithoutSecret()
+		oldSecretRef := "oldToken"
+		newSecretRef := getDefaultTokenSecretName(testVMExport)
+		testVMExport.Status = &exportv1.VirtualMachineExportStatus{
+			TokenSecretRef: &oldSecretRef,
+		}
+		k8sClient.Fake.PrependReactor("create", "secrets", func(action testing.Action) (handled bool, obj runtime.Object, err error) {
+			create, ok := action.(testing.CreateAction)
+			Expect(ok).To(BeTrue())
+			secret, ok := create.GetObject().(*k8sv1.Secret)
+			Expect(ok).To(BeTrue())
+			Expect(secret.GetName()).To(Equal(oldSecretRef))
+			Expect(secret.GetNamespace()).To(Equal(testNamespace))
+			return true, secret, nil
+		})
 		err := controller.handleVMExportSecret(testVMExport)
 		Expect(err).ToNot(HaveOccurred())
-		Expect(testVMExport.Status.TokenSecretRef).To(Equal(expectedName))
+		Expect(testVMExport.Status.TokenSecretRef).ToNot(BeNil())
+		Expect(*testVMExport.Status.TokenSecretRef).ToNot(Equal(newSecretRef))
+		Expect(*testVMExport.Status.TokenSecretRef).To(Equal(oldSecretRef))
+		testutils.ExpectEvent(recorder, secretCreatedEvent)
+	})
+
+	It("handleVMExportSecret should use the user-specified secret if TokenSecretRef is specified", func() {
+		testVMExport := createPVCVMExport()
+		Expect(testVMExport.Spec.TokenSecretRef).ToNot(BeNil())
+		expectedName := *testVMExport.Spec.TokenSecretRef
+		err := controller.handleVMExportSecret(testVMExport)
+		Expect(err).ToNot(HaveOccurred())
+		Expect(testVMExport.Status.TokenSecretRef).ToNot(BeNil())
+		Expect(*testVMExport.Status.TokenSecretRef).To(Equal(expectedName))
 	})
 
 	DescribeTable("Should ignore invalid VMExports kind/api combinations", func(kind, apigroup string) {
@@ -974,6 +1002,7 @@ func writeCertsToDir(dir string) {
 }
 
 func createPVCVMExport() *exportv1.VirtualMachineExport {
+	token := "token"
 	return &exportv1.VirtualMachineExport{
 		ObjectMeta: metav1.ObjectMeta{
 			Name:      "test",
@@ -985,7 +1014,7 @@ func createPVCVMExport() *exportv1.VirtualMachineExport {
 				Kind:     "PersistentVolumeClaim",
 				Name:     testPVCName,
 			},
-			TokenSecretRef: "token",
+			TokenSecretRef: &token,
 		},
 	}
 }
@@ -1007,6 +1036,7 @@ func createPVCVMExportWithoutSecret() *exportv1.VirtualMachineExport {
 }
 
 func createSnapshotVMExport() *exportv1.VirtualMachineExport {
+	token := "token"
 	return &exportv1.VirtualMachineExport{
 		ObjectMeta: metav1.ObjectMeta{
 			Name:      "test",
@@ -1019,12 +1049,13 @@ func createSnapshotVMExport() *exportv1.VirtualMachineExport {
 				Kind:     "VirtualMachineSnapshot",
 				Name:     testVmsnapshotName,
 			},
-			TokenSecretRef: "token",
+			TokenSecretRef: &token,
 		},
 	}
 }
 
 func createVMVMExport() *exportv1.VirtualMachineExport {
+	token := "token"
 	return &exportv1.VirtualMachineExport{
 		ObjectMeta: metav1.ObjectMeta{
 			Name:      "test",
@@ -1037,7 +1068,7 @@ func createVMVMExport() *exportv1.VirtualMachineExport {
 				Kind:     "VirtualMachine",
 				Name:     testVmName,
 			},
-			TokenSecretRef: "token",
+			TokenSecretRef: &token,
 		},
 	}
 }

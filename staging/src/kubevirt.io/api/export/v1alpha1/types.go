@@ -56,7 +56,7 @@ type VirtualMachineExportSpec struct {
 
 	// +optional
 	// TokenSecretRef is the name of the custom-defined secret that contains the token used by the export server pod
-	TokenSecretRef string `json:"tokenSecretRef,omitempty"`
+	TokenSecretRef *string `json:"tokenSecretRef,omitempty"`
 }
 
 // VirtualMachineExportPhase is the current phase of the VirtualMachineExport
@@ -83,7 +83,7 @@ type VirtualMachineExportStatus struct {
 
 	// +optional
 	// TokenSecretRef is the name of the secret that contains the token used by the export server pod
-	TokenSecretRef string `json:"tokenSecretRef,omitempty"`
+	TokenSecretRef *string `json:"tokenSecretRef,omitempty"`
 
 	// +optional
 	// ServiceName is the name of the service created associated with the Virtual Machine export. It will be used to

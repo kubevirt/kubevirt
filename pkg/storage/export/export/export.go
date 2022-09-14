@@ -106,8 +106,8 @@ const (
 
 	kvm = 107
 
-	// secretTokenLenght is the lenght of the randomly generated token
-	secretTokenLenght = 20
+	// secretTokenLength is the lenght of the randomly generated token
+	secretTokenLength = 20
 	// secretTokenKey is the entry used to store the token in the virtualMachineExport secret
 	secretTokenKey = "token"
 
@@ -623,22 +623,25 @@ func (ctrl *VMExportController) handleVMExportSecret(vmExport *exportv1.VirtualM
 
 	// If a tokenSecretRef has been specified, we assume that the corresponding
 	// secret has already been created and managed appropiately by the user
-	if isTokenSpecified := vmExport.Spec.TokenSecretRef != ""; isTokenSpecified {
+	if isTokenSpecified := vmExport.Spec.TokenSecretRef != nil; isTokenSpecified {
 		vmExport.Status.TokenSecretRef = vmExport.Spec.TokenSecretRef
 		return nil
 	}
 
 	// If not, the secret name is constructed so it can be specific to the current vmExport object
-	vmExport.Status.TokenSecretRef = getDefaultTokenSecretName(vmExport)
+	if vmExport.Status.TokenSecretRef == nil {
+		generatedSecretName := getDefaultTokenSecretName(vmExport)
+		vmExport.Status.TokenSecretRef = &generatedSecretName
+	}
 
-	token, err := kutil.GenerateSecureRandomString(secretTokenLenght)
+	token, err := kutil.GenerateSecureRandomString(secretTokenLength)
 	if err != nil {
 		return err
 	}
 
 	secret := &corev1.Secret{
 		ObjectMeta: metav1.ObjectMeta{
-			Name:      vmExport.Status.TokenSecretRef,
+			Name:      *vmExport.Status.TokenSecretRef,
 			Namespace: vmExport.Namespace,
 			OwnerReferences: []metav1.OwnerReference{
 				*metav1.NewControllerRef(vmExport, schema.GroupVersionKind{
@@ -839,6 +842,11 @@ func (ctrl *VMExportController) createExporterPodManifest(vmExport *exportv1.Vir
 		Value: currentTime().Add(deadline).Format(time.RFC3339),
 	})
 
+	tokenSecretRef := ""
+	if vmExport.Status != nil && vmExport.Status.TokenSecretRef != nil {
+		tokenSecretRef = *vmExport.Status.TokenSecretRef
+	}
+
 	secretName := fmt.Sprintf("secret-%s", rand.String(10))
 	podManifest.Spec.Volumes = append(podManifest.Spec.Volumes, corev1.Volume{
 		Name: certificates,
@@ -848,10 +856,10 @@ func (ctrl *VMExportController) createExporterPodManifest(vmExport *exportv1.Vir
 			},
 		},
 	}, corev1.Volume{
-		Name: vmExport.Status.TokenSecretRef,
+		Name: tokenSecretRef,
 		VolumeSource: corev1.VolumeSource{
 			Secret: &corev1.SecretVolumeSource{
-				SecretName: vmExport.Status.TokenSecretRef,
+				SecretName: tokenSecretRef,
 			},
 		},
 	})
@@ -860,7 +868,7 @@ func (ctrl *VMExportController) createExporterPodManifest(vmExport *exportv1.Vir
 		Name:      certificates,
 		MountPath: "/cert",
 	}, corev1.VolumeMount{
-		Name:      vmExport.Status.TokenSecretRef,
+		Name:      tokenSecretRef,
 		MountPath: "/token",
 	})
 	return podManifest, nil

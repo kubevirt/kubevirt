@@ -496,6 +496,14 @@ var _ = SIGDescribe("Export", func() {
 		return export
 	}
 
+	checkExportSecretRef := func(vmExport *exportv1.VirtualMachineExport) {
+		By("Making sure vmexport status contains the right secretRef")
+		Expect(vmExport.Spec.TokenSecretRef).ToNot(BeNil())
+		Expect(vmExport.Status.TokenSecretRef).ToNot(BeNil())
+		Expect(*vmExport.Spec.TokenSecretRef).To(Equal(*vmExport.Status.TokenSecretRef))
+		Expect(*vmExport.Status.TokenSecretRef).ToNot(BeEmpty())
+	}
+
 	type populateFunction func(string, k8sv1.PersistentVolumeMode) (*k8sv1.PersistentVolumeClaim, string)
 	type verifyFunction func(string, string, *k8sv1.Pod, k8sv1.PersistentVolumeMode)
 	type storageClassFunction func() (string, bool)
@@ -520,7 +528,7 @@ var _ = SIGDescribe("Export", func() {
 				Namespace: pvc.Namespace,
 			},
 			Spec: exportv1.VirtualMachineExportSpec{
-				TokenSecretRef: token.Name,
+				TokenSecretRef: &token.Name,
 				Source: k8sv1.TypedLocalObjectReference{
 					APIGroup: &k8sv1.SchemeGroupVersion.Group,
 					Kind:     "PersistentVolumeClaim",
@@ -532,7 +540,8 @@ var _ = SIGDescribe("Export", func() {
 		export, err := virtClient.VirtualMachineExport(pvc.Namespace).Create(context.Background(), vmExport, metav1.CreateOptions{})
 		Expect(err).ToNot(HaveOccurred())
 		export = waitForReadyExport(export)
-		Expect(export.Status.TokenSecretRef).To(Equal(token.Name))
+		checkExportSecretRef(export)
+		Expect(*export.Status.TokenSecretRef).To(Equal(token.Name))
 
 		By("Creating download pod, so we can download image")
 		targetPvc := &k8sv1.PersistentVolumeClaim{
@@ -599,7 +608,7 @@ var _ = SIGDescribe("Export", func() {
 				Namespace: namespace,
 			},
 			Spec: exportv1.VirtualMachineExportSpec{
-				TokenSecretRef: token.Name,
+				TokenSecretRef: &token.Name,
 				Source: k8sv1.TypedLocalObjectReference{
 					APIGroup: &k8sv1.SchemeGroupVersion.Group,
 					Kind:     "PersistentVolumeClaim",
@@ -641,7 +650,7 @@ var _ = SIGDescribe("Export", func() {
 				Namespace: namespace,
 			},
 			Spec: exportv1.VirtualMachineExportSpec{
-				TokenSecretRef: token.Name,
+				TokenSecretRef: &token.Name,
 				Source: k8sv1.TypedLocalObjectReference{
 					APIGroup: &apiGroup,
 					Kind:     "VirtualMachineSnapshot",
@@ -663,7 +672,7 @@ var _ = SIGDescribe("Export", func() {
 				Namespace: namespace,
 			},
 			Spec: exportv1.VirtualMachineExportSpec{
-				TokenSecretRef: token.Name,
+				TokenSecretRef: &token.Name,
 				Source: k8sv1.TypedLocalObjectReference{
 					APIGroup: &apiGroup,
 					Kind:     "VirtualMachine",
@@ -717,7 +726,7 @@ var _ = SIGDescribe("Export", func() {
 			Skip("Skip test when Filesystem storage is not present")
 		}
 		vmExport := createRunningPVCExport(sc, k8sv1.PersistentVolumeFilesystem)
-		Expect(vmExport.Spec.TokenSecretRef).To(Equal(vmExport.Status.TokenSecretRef))
+		checkExportSecretRef(vmExport)
 		By("looking up the exporter pod and secret name")
 		exporterPod := getExporterPod(vmExport)
 		Expect(exporterPod).ToNot(BeNil())
@@ -762,7 +771,7 @@ var _ = SIGDescribe("Export", func() {
 			Skip("Skip test when Filesystem storage is not present")
 		}
 		vmExport := createRunningPVCExport(sc, k8sv1.PersistentVolumeFilesystem)
-		Expect(vmExport.Spec.TokenSecretRef).To(Equal(vmExport.Status.TokenSecretRef))
+		checkExportSecretRef(vmExport)
 		By("looking up the exporter pod and secret name")
 		exporterPod := getExporterPod(vmExport)
 		Expect(exporterPod).ToNot(BeNil())
@@ -781,7 +790,7 @@ var _ = SIGDescribe("Export", func() {
 			Skip("Skip test when Filesystem storage is not present")
 		}
 		vmExport := createRunningPVCExport(sc, k8sv1.PersistentVolumeFilesystem)
-		Expect(vmExport.Spec.TokenSecretRef).To(Equal(vmExport.Status.TokenSecretRef))
+		checkExportSecretRef(vmExport)
 		By("looking up the exporter pod and secret name")
 		exporterService := getExportService(vmExport)
 		Expect(exporterService).ToNot(BeNil())
@@ -833,7 +842,8 @@ var _ = SIGDescribe("Export", func() {
 
 		By("Making sure the export becomes ready")
 		waitForReadyExport(export)
-		Expect(export.Status.TokenSecretRef).To(Equal(token.Name))
+		checkExportSecretRef(export)
+		Expect(*export.Status.TokenSecretRef).To(Equal(token.Name))
 	})
 
 	It("should be possibe to observe exportserver pod exiting", func() {
@@ -842,7 +852,7 @@ var _ = SIGDescribe("Export", func() {
 			Skip("Skip test when Filesystem storage is not present")
 		}
 		vmExport := createRunningPVCExport(sc, k8sv1.PersistentVolumeFilesystem)
-		Expect(vmExport.Spec.TokenSecretRef).To(Equal(vmExport.Status.TokenSecretRef))
+		checkExportSecretRef(vmExport)
 		By("looking up the exporter pod")
 		exporterPod := getExporterPod(vmExport)
 		Expect(exporterPod).ToNot(BeNil())
@@ -887,9 +897,12 @@ var _ = SIGDescribe("Export", func() {
 		By("Making sure the default secret is created")
 		export, err = virtClient.VirtualMachineExport(export.Namespace).Get(context.Background(), export.Name, metav1.GetOptions{})
 		Expect(err).ToNot(HaveOccurred())
-		token, err = virtClient.CoreV1().Secrets(export.Namespace).Get(context.Background(), export.Status.TokenSecretRef, metav1.GetOptions{})
+		Expect(export.Status.TokenSecretRef).ToNot(BeNil())
+
+		token, err = virtClient.CoreV1().Secrets(export.Namespace).Get(context.Background(), *export.Status.TokenSecretRef, metav1.GetOptions{})
 		Expect(err).ToNot(HaveOccurred())
-		Expect(token.Name).To(Equal(export.Status.TokenSecretRef))
+		Expect(token.Name).To(Equal(*export.Status.TokenSecretRef))
+		Expect(*export.Status.TokenSecretRef).ToNot(BeEmpty())
 	})
 
 	Context("Ingress", func() {
@@ -1016,7 +1029,7 @@ var _ = SIGDescribe("Export", func() {
 			Expect(err).NotTo(HaveOccurred())
 			ingress := createIngress(tlsSecretName)
 			vmExport := createRunningPVCExport(sc, k8sv1.PersistentVolumeFilesystem)
-			Expect(vmExport.Spec.TokenSecretRef).To(Equal(vmExport.Status.TokenSecretRef))
+			checkExportSecretRef(vmExport)
 			Expect(vmExport.Status.Links.External.Cert).To(Equal(testCert))
 			certs, err := certutil.ParseCertsPEM([]byte(vmExport.Status.Links.External.Cert))
 			Expect(err).ToNot(HaveOccurred())
@@ -1044,7 +1057,7 @@ var _ = SIGDescribe("Export", func() {
 				Skip("Not on openshift")
 			}
 			vmExport := createRunningPVCExport(sc, k8sv1.PersistentVolumeFilesystem)
-			Expect(vmExport.Spec.TokenSecretRef).To(Equal(vmExport.Status.TokenSecretRef))
+			checkExportSecretRef(vmExport)
 			certs, err := certutil.ParseCertsPEM([]byte(vmExport.Status.Links.External.Cert))
 			Expect(err).ToNot(HaveOccurred())
 			Expect(certs).To(HaveLen(1))
@@ -1240,7 +1253,7 @@ var _ = SIGDescribe("Export", func() {
 		defer deleteSnapshot(snapshot)
 		export := createRunningVMSnapshotExport(snapshot)
 		Expect(export).ToNot(BeNil())
-		Expect(export.Spec.TokenSecretRef).To(Equal(export.Status.TokenSecretRef))
+		checkExportSecretRef(export)
 		restoreName := fmt.Sprintf("%s-%s", export.Name, vm.Spec.Template.Spec.Volumes[0].DataVolume.Name)
 		verifyKubevirtInternal(export, export.Name, export.Namespace, restoreName)
 	})
@@ -1309,7 +1322,7 @@ var _ = SIGDescribe("Export", func() {
 		defer deleteSnapshot(snapshot)
 		export := createRunningVMSnapshotExport(snapshot)
 		Expect(export).ToNot(BeNil())
-		Expect(export.Spec.TokenSecretRef).To(Equal(export.Status.TokenSecretRef))
+		checkExportSecretRef(export)
 		restoreName := fmt.Sprintf("%s-%s", export.Name, vm.Spec.Template.Spec.Volumes[0].DataVolume.Name)
 		// [1] is the cloud init
 		restoreName2 := fmt.Sprintf("%s-%s", export.Name, vm.Spec.Template.Spec.Volumes[2].DataVolume.Name)
@@ -1387,7 +1400,8 @@ var _ = SIGDescribe("Export", func() {
 		By("Stopping VM, we should get the export ready eventually")
 		vm = stopVM(vm)
 		export = waitForReadyExport(export)
-		Expect(export.Status.TokenSecretRef).To(Equal(token.Name))
+		checkExportSecretRef(export)
+		Expect(*export.Status.TokenSecretRef).To(Equal(token.Name))
 		verifyKubevirtInternal(export, export.Name, export.Namespace, vm.Spec.Template.Spec.Volumes[0].DataVolume.Name)
 		By("Starting VM, the export should return to pending")
 		vm = startVM(vm)
@@ -1429,7 +1443,8 @@ var _ = SIGDescribe("Export", func() {
 		By("Deleting VMI, we should get the export ready eventually")
 		deleteVMI(vmi)
 		export = waitForReadyExport(export)
-		Expect(export.Status.TokenSecretRef).To(Equal(token.Name))
+		checkExportSecretRef(export)
+		Expect(*export.Status.TokenSecretRef).To(Equal(token.Name))
 		verifyKubevirtInternal(export, export.Name, export.Namespace, vmi.Spec.Volumes[0].DataVolume.Name)
 		By("Starting VMI, the export should return to pending")
 		vmi = tests.NewRandomVMIWithDataVolume(dataVolume.Name)
@@ -1514,7 +1529,7 @@ var _ = SIGDescribe("Export", func() {
 				Skip("Skip test when Filesystem storage is not present")
 			}
 			vmExport := createRunningPVCExport(sc, k8sv1.PersistentVolumeFilesystem)
-			Expect(vmExport.Spec.TokenSecretRef).To(Equal(vmExport.Status.TokenSecretRef))
+			checkExportSecretRef(vmExport)
 			By("looking up the exporter pod")
 			exporterPod := getExporterPod(vmExport)
 			Expect(exporterPod).ToNot(BeNil())
