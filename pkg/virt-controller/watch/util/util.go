@@ -20,7 +20,6 @@
 package util
 
 import (
-	"context"
 	"fmt"
 	"time"
 
@@ -107,44 +106,14 @@ func PodsUsingPVCs(podInformer cache.SharedIndexInformer, namespace string, pvcN
 }
 
 func CreateDataVolumeManifest(clientset kubecli.KubevirtClient, dataVolumeTemplate virtv1.DataVolumeTemplateSpec, vm *virtv1.VirtualMachine) (*cdiv1.DataVolume, error) {
-	newDataVolume := &cdiv1.DataVolume{}
-	newDataVolume.Spec = *dataVolumeTemplate.Spec.DeepCopy()
-	newDataVolume.ObjectMeta = *dataVolumeTemplate.ObjectMeta.DeepCopy()
-
-	labels := map[string]string{}
-	labels[virtv1.CreatedByLabel] = string(vm.UID)
-	for k, v := range dataVolumeTemplate.Labels {
-		labels[k] = v
-	}
-	newDataVolume.ObjectMeta.Labels = labels
-
-	annotations := map[string]string{}
-	for k, v := range dataVolumeTemplate.Annotations {
-		annotations[k] = v
-	}
-	newDataVolume.ObjectMeta.Annotations = annotations
-
-	newDataVolume.ObjectMeta.OwnerReferences = []v1.OwnerReference{
-		*v1.NewControllerRef(vm, virtv1.VirtualMachineGroupVersionKind),
-	}
-
-	if newDataVolume.Spec.PriorityClassName == "" && vm.Spec.Template.Spec.PriorityClassName != "" {
-		newDataVolume.Spec.PriorityClassName = vm.Spec.Template.Spec.PriorityClassName
-	}
-
-	cloneSource, err := typesutil.GetCloneSource(context.TODO(), clientset, vm, &newDataVolume.Spec)
+	newDataVolume, err := typesutil.GenerateDataVolumeFromTemplate(clientset, dataVolumeTemplate, vm.Namespace, vm.Spec.Template.Spec.PriorityClassName)
 	if err != nil {
 		return nil, err
 	}
 
-	if cloneSource != nil && newDataVolume.Spec.SourceRef != nil {
-		newDataVolume.Spec.SourceRef = nil
-		newDataVolume.Spec.Source = &cdiv1.DataVolumeSource{
-			PVC: &cdiv1.DataVolumeSourcePVC{
-				Namespace: cloneSource.Namespace,
-				Name:      cloneSource.Name,
-			},
-		}
+	newDataVolume.ObjectMeta.Labels[virtv1.CreatedByLabel] = string(vm.UID)
+	newDataVolume.ObjectMeta.OwnerReferences = []v1.OwnerReference{
+		*v1.NewControllerRef(vm, virtv1.VirtualMachineGroupVersionKind),
 	}
 
 	return newDataVolume, nil

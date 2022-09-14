@@ -48,6 +48,7 @@ import (
 	cdiv1 "kubevirt.io/containerized-data-importer-api/pkg/apis/core/v1beta1"
 	uploadcdiv1 "kubevirt.io/containerized-data-importer-api/pkg/apis/upload/v1beta1"
 
+	storagetypes "kubevirt.io/kubevirt/pkg/storage/types"
 	"kubevirt.io/kubevirt/pkg/util"
 	"kubevirt.io/kubevirt/pkg/virtctl/templates"
 )
@@ -612,10 +613,15 @@ func createStorageSpec(client kubecli.KubevirtClient, size, storageClass, access
 }
 
 func createUploadPVC(client kubernetes.Interface, namespace, name, size, storageClass, accessMode string, blockVolume, archiveUpload bool) (*v1.PersistentVolumeClaim, error) {
-	pvcSpec, err := createPVCSpec(size, storageClass, accessMode, blockVolume)
-	if err != nil {
-		return nil, err
+	if accessMode == string(v1.ReadOnlyMany) {
+		return nil, fmt.Errorf("cannot upload to a readonly volume, use either ReadWriteOnce or ReadWriteMany if supported")
 	}
+
+	quantity, err := resource.ParseQuantity(size)
+	if err != nil {
+		return nil, fmt.Errorf("validation failed for size=%s: %s", size, err)
+	}
+	pvc := storagetypes.RenderPVC(&quantity, name, namespace, storageClass, accessMode, blockVolume)
 
 	contentType := string(cdiv1.DataVolumeKubeVirt)
 	if archiveUpload {
@@ -631,14 +637,7 @@ func createUploadPVC(client kubernetes.Interface, namespace, name, size, storage
 		annotations[forceImmediateBindingAnnotation] = ""
 	}
 
-	pvc := &v1.PersistentVolumeClaim{
-		ObjectMeta: metav1.ObjectMeta{
-			Name:        name,
-			Namespace:   namespace,
-			Annotations: annotations,
-		},
-		Spec: *pvcSpec,
-	}
+	pvc.ObjectMeta.Annotations = annotations
 
 	pvc, err = client.CoreV1().PersistentVolumeClaims(namespace).Create(context.Background(), pvc, metav1.CreateOptions{})
 	if err != nil {
@@ -646,41 +645,6 @@ func createUploadPVC(client kubernetes.Interface, namespace, name, size, storage
 	}
 
 	return pvc, nil
-}
-
-func createPVCSpec(size, storageClass, accessMode string, blockVolume bool) (*v1.PersistentVolumeClaimSpec, error) {
-	quantity, err := resource.ParseQuantity(size)
-	if err != nil {
-		return nil, fmt.Errorf("validation failed for size=%s: %s", size, err)
-	}
-
-	spec := &v1.PersistentVolumeClaimSpec{
-		Resources: v1.ResourceRequirements{
-			Requests: v1.ResourceList{
-				v1.ResourceStorage: quantity,
-			},
-		},
-	}
-
-	if storageClass != "" {
-		spec.StorageClassName = &storageClass
-	}
-
-	if accessMode == string(v1.ReadOnlyMany) {
-		return nil, fmt.Errorf("cannot upload to a readonly volume, use either ReadWriteOnce or ReadWriteMany if supported")
-	}
-	if accessMode != "" {
-		spec.AccessModes = []v1.PersistentVolumeAccessMode{v1.PersistentVolumeAccessMode(accessMode)}
-	} else {
-		spec.AccessModes = []v1.PersistentVolumeAccessMode{v1.ReadWriteOnce}
-	}
-
-	if blockVolume {
-		volMode := v1.PersistentVolumeBlock
-		spec.VolumeMode = &volMode
-	}
-
-	return spec, nil
 }
 
 func ensurePVCSupportsUpload(client kubernetes.Interface, pvc *v1.PersistentVolumeClaim) (*v1.PersistentVolumeClaim, error) {

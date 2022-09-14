@@ -37,8 +37,6 @@ import (
 
 	"kubevirt.io/client-go/kubecli"
 
-	cdiv1 "kubevirt.io/containerized-data-importer-api/pkg/apis/core/v1beta1"
-
 	storagetypes "kubevirt.io/kubevirt/pkg/storage/types"
 	kutil "kubevirt.io/kubevirt/pkg/util"
 	"kubevirt.io/kubevirt/pkg/virtctl/templates"
@@ -72,10 +70,6 @@ const (
 	storageClassArg = "storage-class"
 	accessModeArg   = "access-mode"
 	cacheArg        = "cache"
-
-	configName         = "config"
-	filesystemOverhead = cdiv1.Percent("0.055")
-	fsOverheadMsg      = "Using default 5.5%% filesystem overhead for pvc size"
 )
 
 var (
@@ -443,11 +437,11 @@ func calcMemoryDumpExpectedSize(vmName, namespace string, virtClient kubecli.Kub
 }
 
 func calcPVCNeededSize(memoryDumpExpectedSize *resource.Quantity, storageClass *string, virtClient kubecli.KubevirtClient) (*resource.Quantity, error) {
-	cdiConfig, err := virtClient.CdiClient().CdiV1beta1().CDIConfigs().Get(context.Background(), configName, metav1.GetOptions{})
+	cdiConfig, err := virtClient.CdiClient().CdiV1beta1().CDIConfigs().Get(context.Background(), storagetypes.ConfigName, metav1.GetOptions{})
 	if k8serrors.IsNotFound(err) {
 		// can't properly determine the overhead - continue with default overhead of 5.5%
-		fmt.Printf(fsOverheadMsg)
-		return storagetypes.GetSizeIncludingGivenOverhead(memoryDumpExpectedSize, filesystemOverhead)
+		fmt.Printf(storagetypes.FSOverheadMsg)
+		return storagetypes.GetSizeIncludingDefaultFSOverhead(memoryDumpExpectedSize)
 	}
 	if err != nil {
 		return nil, err
@@ -459,37 +453,6 @@ func calcPVCNeededSize(memoryDumpExpectedSize *resource.Quantity, storageClass *
 	}
 
 	return storagetypes.GetSizeIncludingFSOverhead(memoryDumpExpectedSize, storageClass, &fsVolumeMode, cdiConfig)
-}
-
-func generatePVC(size *resource.Quantity, claimName, namespace, storageClass, accessMode string) (*k8sv1.PersistentVolumeClaim, error) {
-	pvc := &k8sv1.PersistentVolumeClaim{
-		ObjectMeta: metav1.ObjectMeta{
-			Name:      claimName,
-			Namespace: namespace,
-		},
-		Spec: k8sv1.PersistentVolumeClaimSpec{
-			Resources: k8sv1.ResourceRequirements{
-				Requests: k8sv1.ResourceList{
-					k8sv1.ResourceStorage: *size,
-				},
-			},
-		},
-	}
-
-	if storageClass != "" {
-		pvc.Spec.StorageClassName = &storageClass
-	}
-
-	if accessMode == string(k8sv1.ReadOnlyMany) {
-		return nil, fmt.Errorf("cannot dump memory to a readonly pvc, use either ReadWriteOnce or ReadWriteMany if supported")
-	}
-	if accessMode != "" {
-		pvc.Spec.AccessModes = []k8sv1.PersistentVolumeAccessMode{k8sv1.PersistentVolumeAccessMode(accessMode)}
-	} else {
-		pvc.Spec.AccessModes = []k8sv1.PersistentVolumeAccessMode{k8sv1.ReadWriteOnce}
-	}
-
-	return pvc, nil
 }
 
 func createPVCforMemoryDump(namespace, vmName, claimName string, virtClient kubecli.KubevirtClient) error {
@@ -511,10 +474,7 @@ func createPVCforMemoryDump(namespace, vmName, claimName string, virtClient kube
 		return err
 	}
 
-	pvc, err := generatePVC(neededSize, claimName, namespace, storageClass, accessMode)
-	if err != nil {
-		return err
-	}
+	pvc := storagetypes.RenderPVC(neededSize, claimName, namespace, storageClass, accessMode, false)
 
 	_, err = virtClient.CoreV1().PersistentVolumeClaims(namespace).Create(context.Background(), pvc, metav1.CreateOptions{})
 	if err != nil {
@@ -544,6 +504,9 @@ func memoryDump(args []string, claimName, namespace string, virtClient kubecli.K
 		if createClaim {
 			if claimName == "" {
 				return fmt.Errorf("missing claim name")
+			}
+			if accessMode == string(k8sv1.ReadOnlyMany) {
+				return fmt.Errorf("cannot dump memory to a readonly pvc, use either ReadWriteOnce or ReadWriteMany if supported")
 			}
 			err := checkNoAssociatedMemoryDump(namespace, vmName, virtClient)
 			if err != nil {

@@ -59,7 +59,7 @@ var _ = Describe("DataVolume utils test", func() {
 				},
 			}
 
-			cs, err := GetCloneSource(context.TODO(), createClient(), vm, dv)
+			cs, err := GetCloneSource(context.TODO(), createClient(), vm.Namespace, dv)
 			Expect(err).ToNot(HaveOccurred())
 			Expect(cs).To(BeNil())
 		})
@@ -75,7 +75,7 @@ var _ = Describe("DataVolume utils test", func() {
 				},
 			}
 
-			cs, err := GetCloneSource(context.TODO(), createClient(), vm, dv)
+			cs, err := GetCloneSource(context.TODO(), createClient(), vm.Namespace, dv)
 			Expect(err).ToNot(HaveOccurred())
 			Expect(cs).ToNot(BeNil())
 			Expect(cs.Namespace).To(Equal(expectedNamespace))
@@ -95,7 +95,7 @@ var _ = Describe("DataVolume utils test", func() {
 				},
 			}
 
-			cs, err := GetCloneSource(context.TODO(), createClient(), vm, dv)
+			cs, err := GetCloneSource(context.TODO(), createClient(), vm.Namespace, dv)
 			Expect(err).To(HaveOccurred())
 			Expect(cs).To(BeNil())
 		})
@@ -131,7 +131,7 @@ var _ = Describe("DataVolume utils test", func() {
 				dv.SourceRef.Namespace = &sourceRefNamespace
 			}
 
-			cs, err := GetCloneSource(context.TODO(), createClient(ref), vm, dv)
+			cs, err := GetCloneSource(context.TODO(), createClient(ref), vm.Namespace, dv)
 			Expect(err).ToNot(HaveOccurred())
 			Expect(cs).ToNot(BeNil())
 			Expect(cs.Namespace).To(Equal(expectedNamespace))

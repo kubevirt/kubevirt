@@ -21,19 +21,30 @@ package types
 
 import (
 	"fmt"
-	"math"
-	"strconv"
 	"strings"
 
 	k8sv1 "k8s.io/api/core/v1"
+	v1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/api/resource"
+	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/client-go/tools/cache"
 
 	virtv1 "kubevirt.io/api/core/v1"
+	"kubevirt.io/client-go/log"
 	cdiv1 "kubevirt.io/containerized-data-importer-api/pkg/apis/core/v1beta1"
+
+	"kubevirt.io/kubevirt/pkg/controller"
 )
 
 const MiB = 1024 * 1024
+
+type PvcNotFoundError struct {
+	Reason string
+}
+
+func (e PvcNotFoundError) Error() string {
+	return e.Reason
+}
 
 func IsPVCBlockFromStore(store cache.Store, namespace string, claimName string) (pvc *k8sv1.PersistentVolumeClaim, exists bool, isBlockDevice bool, err error) {
 	obj, exists, err := store.GetByKey(namespace + "/" + claimName)
@@ -116,42 +127,107 @@ func VirtVolumesToPVCMap(volumes []*virtv1.Volume, pvcStore cache.Store, namespa
 	return volumeNamesPVCMap, nil
 }
 
-func GetFilesystemOverhead(volumeMode *k8sv1.PersistentVolumeMode, storageClass *string, cdiConfig *cdiv1.CDIConfig) cdiv1.Percent {
-	if IsPVCBlock(volumeMode) {
-		return "0"
-	}
-	if storageClass == nil {
-		return cdiConfig.Status.FilesystemOverhead.Global
-	}
-	fsOverhead, ok := cdiConfig.Status.FilesystemOverhead.StorageClass[*storageClass]
-	if !ok {
-		return cdiConfig.Status.FilesystemOverhead.Global
-	}
-	return fsOverhead
-}
+func GetPersistentVolumeClaimFromCache(namespace, name string, pvcInformer cache.SharedInformer) (*k8sv1.PersistentVolumeClaim, error) {
+	key := controller.NamespacedKey(namespace, name)
+	obj, exists, err := pvcInformer.GetStore().GetByKey(key)
 
-func roundUpToUnit(size, unit float64) float64 {
-	if size < unit {
-		return unit
-	}
-	return math.Ceil(size/unit) * unit
-}
-
-func alignSizeUpTo1MiB(size float64) float64 {
-	return roundUpToUnit(size, float64(MiB))
-}
-
-func GetSizeIncludingGivenOverhead(size *resource.Quantity, overhead cdiv1.Percent) (*resource.Quantity, error) {
-	fsOverhead, err := strconv.ParseFloat(string(overhead), 64)
 	if err != nil {
-		return nil, fmt.Errorf("failed to parse filesystem overhead as float: %v", err)
+		return nil, fmt.Errorf("error fetching PersistentVolumeClaim %s: %v", key, err)
 	}
-	totalSize := (1 + fsOverhead) * size.AsApproximateFloat64()
-	totalSize = alignSizeUpTo1MiB(totalSize)
-	return resource.NewQuantity(int64(totalSize), size.Format), nil
+	if !exists {
+		return nil, nil
+	}
+
+	pvc, ok := obj.(*k8sv1.PersistentVolumeClaim)
+	if !ok {
+		return nil, fmt.Errorf("error converting object to PersistentVolumeClaim: object is of type %T", obj)
+	}
+
+	return pvc, nil
+}
+func HasUnboundPVC(namespace string, volumes []virtv1.Volume, pvcInformer cache.SharedInformer) bool {
+	for _, volume := range volumes {
+		claimName := PVCNameFromVirtVolume(&volume)
+		if claimName == "" {
+			continue
+		}
+
+		pvc, err := GetPersistentVolumeClaimFromCache(namespace, claimName, pvcInformer)
+		if err != nil {
+			log.Log.Errorf("Error fetching PersistentVolumeClaim %s while determining virtual machine status: %v", claimName, err)
+			continue
+		}
+		if pvc == nil {
+			continue
+		}
+
+		if pvc.Status.Phase != k8sv1.ClaimBound {
+			return true
+		}
+	}
+
+	return false
 }
 
-func GetSizeIncludingFSOverhead(size *resource.Quantity, storageClass *string, volumeMode *k8sv1.PersistentVolumeMode, cdiConfig *cdiv1.CDIConfig) (*resource.Quantity, error) {
-	cdiFSOverhead := GetFilesystemOverhead(volumeMode, storageClass, cdiConfig)
-	return GetSizeIncludingGivenOverhead(size, cdiFSOverhead)
+func VolumeReadyToAttachToNode(namespace string, volume virtv1.Volume, dataVolumes []*cdiv1.DataVolume, dataVolumeInformer, pvcInformer cache.SharedInformer) (bool, bool, error) {
+	name := PVCNameFromVirtVolume(&volume)
+
+	dataVolumeFunc := DataVolumeByNameFunc(dataVolumeInformer, dataVolumes)
+	wffc := false
+	ready := false
+	// err is always nil
+	pvcInterface, pvcExists, _ := pvcInformer.GetStore().GetByKey(fmt.Sprintf("%s/%s", namespace, name))
+	if pvcExists {
+		var err error
+		pvc := pvcInterface.(*k8sv1.PersistentVolumeClaim)
+		ready, err = cdiv1.IsPopulated(pvc, dataVolumeFunc)
+		if err != nil {
+			return false, false, err
+		}
+		if !ready {
+			waitsForFirstConsumer, err := cdiv1.IsWaitForFirstConsumerBeforePopulating(pvc, dataVolumeFunc)
+			if err != nil {
+				return false, false, err
+			}
+			if waitsForFirstConsumer {
+				wffc = true
+			}
+		}
+	} else {
+		return false, false, PvcNotFoundError{Reason: fmt.Sprintf("didn't find PVC %v", name)}
+	}
+	return ready, wffc, nil
+}
+
+func RenderPVC(size *resource.Quantity, claimName, namespace, storageClass, accessMode string, blockVolume bool) *k8sv1.PersistentVolumeClaim {
+	pvc := &k8sv1.PersistentVolumeClaim{
+		ObjectMeta: metav1.ObjectMeta{
+			Name:      claimName,
+			Namespace: namespace,
+		},
+		Spec: k8sv1.PersistentVolumeClaimSpec{
+			Resources: k8sv1.ResourceRequirements{
+				Requests: k8sv1.ResourceList{
+					k8sv1.ResourceStorage: *size,
+				},
+			},
+		},
+	}
+
+	if storageClass != "" {
+		pvc.Spec.StorageClassName = &storageClass
+	}
+
+	if accessMode != "" {
+		pvc.Spec.AccessModes = []k8sv1.PersistentVolumeAccessMode{k8sv1.PersistentVolumeAccessMode(accessMode)}
+	} else {
+		pvc.Spec.AccessModes = []k8sv1.PersistentVolumeAccessMode{k8sv1.ReadWriteOnce}
+	}
+
+	if blockVolume {
+		volMode := v1.PersistentVolumeBlock
+		pvc.Spec.VolumeMode = &volMode
+	}
+
+	return pvc
 }

@@ -384,7 +384,7 @@ func (vr *VolumeRenderer) addPVCToLaunchManifest(pvcStore cache.Store, volume v1
 		return err
 	} else if !exists {
 		logger.Errorf("didn't find PVC %v", claimName)
-		return PvcNotFoundError{Reason: fmt.Sprintf("didn't find PVC %v", claimName)}
+		return types.PvcNotFoundError{Reason: fmt.Sprintf("didn't find PVC %v", claimName)}
 	} else if isBlock {
 		devicePath := filepath.Join(string(filepath.Separator), "dev", volume.Name)
 		device := k8sv1.VolumeDevice{

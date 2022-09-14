@@ -119,6 +119,7 @@ go_test(
         "//pkg/rest:go_default_library",
         "//pkg/storage/export/export:go_default_library",
         "//pkg/storage/snapshot:go_default_library",
+        "//pkg/storage/types:go_default_library",
         "//pkg/testutils:go_default_library",
         "//pkg/util/types:go_default_library",
         "//pkg/virt-config:go_default_library",

@@ -47,7 +47,7 @@ import (
 	"kubevirt.io/kubevirt/pkg/controller"
 	"kubevirt.io/kubevirt/pkg/network/sriov"
 	"kubevirt.io/kubevirt/pkg/network/vmispec"
-	kubevirttypes "kubevirt.io/kubevirt/pkg/storage/types"
+	storagetypes "kubevirt.io/kubevirt/pkg/storage/types"
 	traceUtils "kubevirt.io/kubevirt/pkg/util/trace"
 	patchtypes "kubevirt.io/kubevirt/pkg/util/types"
 	virtconfig "kubevirt.io/kubevirt/pkg/virt-config"
@@ -80,28 +80,9 @@ const (
 	// SuccessfulHandOverPodReason is added in an event
 	// when the pod ownership transfer from the controller to virt-hander succeeds.
 	SuccessfulHandOverPodReason = "SuccessfulHandOver"
-
-	// UnauthorizedDataVolumeCreateReason is added in an event when the DataVolume
-	// ServiceAccount doesn't have permission to create a DataVolume
-	UnauthorizedDataVolumeCreateReason = "UnauthorizedDataVolumeCreate"
 	// FailedDataVolumeImportReason is added in an event when a dynamically generated
 	// dataVolume reaches the failed status phase.
 	FailedDataVolumeImportReason = "FailedDataVolumeImport"
-	// FailedDataVolumeCreateReason is added in an event when posting a dynamically
-	// generated dataVolume to the cluster fails.
-	FailedDataVolumeCreateReason = "FailedDataVolumeCreate"
-	// FailedDataVolumeDeleteReason is added in an event when deleting a dynamically
-	// generated dataVolume in the cluster fails.
-	FailedDataVolumeDeleteReason = "FailedDataVolumeDelete"
-	// SuccessfulDataVolumeCreateReason is added in an event when a dynamically generated
-	// dataVolume is successfully created
-	SuccessfulDataVolumeCreateReason = "SuccessfulDataVolumeCreate"
-	// SuccessfulDataVolumeImportReason is added in an event when a dynamically generated
-	// dataVolume is successfully imports its data
-	SuccessfulDataVolumeImportReason = "SuccessfulDataVolumeImport"
-	// SuccessfulDataVolumeDeleteReason is added in an event when a dynamically generated
-	// dataVolume is successfully deleted
-	SuccessfulDataVolumeDeleteReason = "SuccessfulDataVolumeDelete"
 	// FailedGuaranteePodResourcesReason is added in an event and in a vmi controller condition
 	// when a pod has been created without a Guaranteed resources.
 	FailedGuaranteePodResourcesReason = "FailedGuaranteeResources"
@@ -139,9 +120,6 @@ const (
 )
 
 const failedToRenderLaunchManifestErrFormat = "failed to render launch manifest: %v"
-
-var failedToFindCdi error = errors.New("No CDI instances found")
-var multipleCdiInstances error = errors.New("Detected more than one CDI instance")
 
 func NewVMIController(templateService services.TemplateService,
 	vmiInformer cache.SharedIndexInformer,
@@ -332,7 +310,7 @@ func (c *VMIController) execute(key string) error {
 	}
 
 	// Get all dataVolumes associated with this vmi
-	dataVolumes, err := c.listMatchingDataVolumes(vmi)
+	dataVolumes, err := storagetypes.ListDataVolumesFromVolumes(vmi.Namespace, vmi.Spec.Volumes, c.dataVolumeInformer, c.pvcInformer)
 	if err != nil {
 		logger.Reason(err).Error("Failed to fetch dataVolumes for namespace from cache.")
 		return err
@@ -418,21 +396,12 @@ func (c *VMIController) updateStatus(vmi *virtv1.VirtualMachineInstance, pod *k8
 	key := controller.VirtualMachineInstanceKey(vmi)
 	defer virtControllerVMIWorkQueueTracer.StepTrace(key, "updateStatus", trace.Field{Key: "VMI Name", Value: vmi.Name})
 
-	hasFailedDataVolume := false
-	for _, dataVolume := range dataVolumes {
-		if dataVolume.Status.Phase == cdiv1.Failed {
-			hasFailedDataVolume = true
-		}
-	}
+	hasFailedDataVolume := storagetypes.HasFailedDataVolumes(dataVolumes)
 
 	hasWffcDataVolume := false
 	// there is no reason to check for waitForFirstConsumer is there are failed DV's
 	if !hasFailedDataVolume {
-		for _, dataVolume := range dataVolumes {
-			if dataVolume.Status.Phase == cdiv1.WaitForFirstConsumer {
-				hasWffcDataVolume = true
-			}
-		}
+		hasWffcDataVolume = storagetypes.HasWFFCDataVolumes(dataVolumes)
 	}
 
 	conditionManager := controller.NewVirtualMachineInstanceConditionManager()
@@ -1072,7 +1041,7 @@ func (c *VMIController) sync(vmi *virtv1.VirtualMachineInstance, pod *k8sv1.Pod,
 		} else {
 			templatePod, err = c.templateService.RenderLaunchManifest(vmi)
 		}
-		if _, ok := err.(services.PvcNotFoundError); ok {
+		if _, ok := err.(storagetypes.PvcNotFoundError); ok {
 			c.recorder.Eventf(vmi, k8sv1.EventTypeWarning, FailedPvcNotFoundReason, failedToRenderLaunchManifestErrFormat, err)
 			return &syncErrorImpl{fmt.Errorf(failedToRenderLaunchManifestErrFormat, err), FailedPvcNotFoundReason}
 		} else if err != nil {
@@ -1143,10 +1112,10 @@ func (c *VMIController) handleSyncDataVolumes(vmi *virtv1.VirtualMachineInstance
 	for _, volume := range vmi.Spec.Volumes {
 		// Check both DVs and PVCs
 		if volume.VolumeSource.DataVolume != nil || volume.VolumeSource.PersistentVolumeClaim != nil {
-			volumeReady, volumeWffc, err := c.volumeReadyToAttachToNode(vmi.Namespace, volume, dataVolumes)
+			volumeReady, volumeWffc, err := storagetypes.VolumeReadyToAttachToNode(vmi.Namespace, volume, dataVolumes, c.dataVolumeInformer, c.pvcInformer)
 			if err != nil {
 				// Keep existing behavior of missing PVC = ready. This in turn triggers template render, which sets conditions and events, and fails appropriately
-				if _, ok := err.(services.PvcNotFoundError); ok {
+				if _, ok := err.(storagetypes.PvcNotFoundError); ok {
 					continue
 				} else {
 					c.recorder.Eventf(vmi, k8sv1.EventTypeWarning, FailedPvcNotFoundReason, "Error determining if volume is ready: %v", err)
@@ -1160,21 +1129,6 @@ func (c *VMIController) handleSyncDataVolumes(vmi *virtv1.VirtualMachineInstance
 	}
 
 	return ready, wffc, nil
-}
-
-func dataVolumeByNameFunc(dataVolumeInformer cache.SharedIndexInformer, dataVolumes []*cdiv1.DataVolume) func(name string, namespace string) (*cdiv1.DataVolume, error) {
-	return func(name, namespace string) (*cdiv1.DataVolume, error) {
-		for _, dataVolume := range dataVolumes {
-			if dataVolume.Name == name && dataVolume.Namespace == namespace {
-				return dataVolume, nil
-			}
-		}
-		dv, exists, _ := dataVolumeInformer.GetStore().GetByKey(fmt.Sprintf("%s/%s", namespace, name))
-		if !exists {
-			return nil, fmt.Errorf("Unable to find datavolume %s/%s", namespace, name)
-		}
-		return dv.(*cdiv1.DataVolume), nil
-	}
 }
 
 func (c *VMIController) updatePVC(old, cur interface{}) {
@@ -1487,45 +1441,6 @@ func (c *VMIController) listVMIsMatchingDV(namespace string, dvName string) ([]*
 	return vmis, nil
 }
 
-func (c *VMIController) listMatchingDataVolumes(vmi *virtv1.VirtualMachineInstance) ([]*cdiv1.DataVolume, error) {
-
-	dataVolumes := []*cdiv1.DataVolume{}
-	for _, volume := range vmi.Spec.Volumes {
-		dataVolumeName := c.getDataVolumeName(vmi.Namespace, volume)
-		if dataVolumeName == nil {
-			continue
-		}
-
-		obj, exists, err := c.dataVolumeInformer.GetStore().GetByKey(fmt.Sprintf("%s/%s", vmi.Namespace, *dataVolumeName))
-
-		if err != nil {
-			return dataVolumes, err
-		} else if exists {
-			dataVolume := obj.(*cdiv1.DataVolume)
-			dataVolumes = append(dataVolumes, dataVolume)
-		}
-	}
-
-	return dataVolumes, nil
-}
-
-func (c *VMIController) getDataVolumeName(namespace string, volume virtv1.Volume) *string {
-	if volume.VolumeSource.PersistentVolumeClaim != nil {
-		pvcInterface, pvcExists, _ := c.pvcInformer.GetStore().
-			GetByKey(fmt.Sprintf("%s/%s", namespace, volume.VolumeSource.PersistentVolumeClaim.ClaimName))
-		if pvcExists {
-			pvc := pvcInterface.(*k8sv1.PersistentVolumeClaim)
-			pvcOwner := v1.GetControllerOf(pvc)
-			if pvcOwner != nil && pvcOwner.Kind == "DataVolume" {
-				return &pvcOwner.Name
-			}
-		}
-	} else if volume.VolumeSource.DataVolume != nil {
-		return &volume.VolumeSource.DataVolume.Name
-	}
-	return nil
-}
-
 func (c *VMIController) allPodsDeleted(vmi *virtv1.VirtualMachineInstance) (bool, error) {
 	pods, err := c.listPodsFromNamespace(vmi.Namespace)
 	if err != nil {
@@ -1724,7 +1639,7 @@ func (c *VMIController) handleHotplugVolumes(hotplugVolumes []*virtv1.Volume, ho
 	// Find all ready volumes
 	for _, volume := range hotplugVolumes {
 		var err error
-		ready, wffc, err := c.volumeReadyToAttachToNode(vmi.Namespace, *volume, dataVolumes)
+		ready, wffc, err := storagetypes.VolumeReadyToAttachToNode(vmi.Namespace, *volume, dataVolumes, c.dataVolumeInformer, c.pvcInformer)
 		if err != nil {
 			return &syncErrorImpl{fmt.Errorf("Error determining volume status %v", err), PVCNotReadyReason}
 		}
@@ -1826,36 +1741,6 @@ func (c *VMIController) triggerHotplugPopulation(volume *virtv1.Volume, vmi *vir
 	return nil
 }
 
-func (c *VMIController) volumeReadyToAttachToNode(namespace string, volume virtv1.Volume, dataVolumes []*cdiv1.DataVolume) (bool, bool, error) {
-	name := kubevirttypes.PVCNameFromVirtVolume(&volume)
-
-	dataVolumeFunc := dataVolumeByNameFunc(c.dataVolumeInformer, dataVolumes)
-	wffc := false
-	ready := false
-	// err is always nil
-	pvcInterface, pvcExists, _ := c.pvcInformer.GetStore().GetByKey(fmt.Sprintf("%s/%s", namespace, name))
-	if pvcExists {
-		var err error
-		pvc := pvcInterface.(*k8sv1.PersistentVolumeClaim)
-		ready, err = cdiv1.IsPopulated(pvc, dataVolumeFunc)
-		if err != nil {
-			return false, false, err
-		}
-		if !ready {
-			waitsForFirstConsumer, err := cdiv1.IsWaitForFirstConsumerBeforePopulating(pvc, dataVolumeFunc)
-			if err != nil {
-				return false, false, err
-			}
-			if waitsForFirstConsumer {
-				wffc = true
-			}
-		}
-	} else {
-		return false, false, services.PvcNotFoundError{Reason: fmt.Sprintf("didn't find PVC %v", name)}
-	}
-	return ready, wffc, nil
-}
-
 func (c *VMIController) volumeStatusContainsVolumeAndPod(volumeStatus []virtv1.VolumeStatus, volume *virtv1.Volume) bool {
 	for _, status := range volumeStatus {
 		if status.Name == volume.Name && status.HotplugVolume != nil && status.HotplugVolume.AttachPodName != "" {
@@ -1926,7 +1811,7 @@ func (c *VMIController) createAttachmentPodTemplate(vmi *virtv1.VirtualMachineIn
 	var pod *k8sv1.Pod
 	var err error
 
-	volumeNamesPVCMap, err := kubevirttypes.VirtVolumesToPVCMap(volumes, c.pvcInformer.GetStore(), virtlauncherPod.Namespace)
+	volumeNamesPVCMap, err := storagetypes.VirtVolumesToPVCMap(volumes, c.pvcInformer.GetStore(), virtlauncherPod.Namespace)
 	if err != nil {
 		return nil, fmt.Errorf("failed to get PVC map: %v", err)
 	}
@@ -1955,12 +1840,12 @@ func (c *VMIController) createAttachmentPodTemplate(vmi *virtv1.VirtualMachineIn
 }
 
 func (c *VMIController) createAttachmentPopulateTriggerPodTemplate(volume *virtv1.Volume, virtlauncherPod *k8sv1.Pod, vmi *virtv1.VirtualMachineInstance) (*k8sv1.Pod, error) {
-	claimName := kubevirttypes.PVCNameFromVirtVolume(volume)
+	claimName := storagetypes.PVCNameFromVirtVolume(volume)
 	if claimName == "" {
 		return nil, errors.New("Unable to hotplug, claim not PVC or Datavolume")
 	}
 
-	pvc, exists, isBlock, err := kubevirttypes.IsPVCBlockFromStore(c.pvcInformer.GetStore(), virtlauncherPod.Namespace, claimName)
+	pvc, exists, isBlock, err := storagetypes.IsPVCBlockFromStore(c.pvcInformer.GetStore(), virtlauncherPod.Namespace, claimName)
 	if err != nil {
 		return nil, err
 	}
@@ -2087,7 +1972,7 @@ func (c *VMIController) updateVolumeStatus(vmi *virtv1.VirtualMachineInstance, v
 
 		if volume.VolumeSource.PersistentVolumeClaim != nil || volume.VolumeSource.DataVolume != nil || volume.VolumeSource.MemoryDump != nil {
 
-			pvcName := kubevirttypes.PVCNameFromVirtVolume(&volume)
+			pvcName := storagetypes.PVCNameFromVirtVolume(&volume)
 
 			pvcInterface, pvcExists, _ := c.pvcInformer.GetStore().GetByKey(fmt.Sprintf("%s/%s", vmi.Namespace, pvcName))
 			if pvcExists {
@@ -2097,13 +1982,10 @@ func (c *VMIController) updateVolumeStatus(vmi *virtv1.VirtualMachineInstance, v
 					VolumeMode:   pvc.Spec.VolumeMode,
 					Capacity:     pvc.Status.Capacity,
 					Requests:     pvc.Spec.Resources.Requests,
-					Preallocated: kubevirttypes.IsPreallocated(pvc.ObjectMeta.Annotations),
+					Preallocated: storagetypes.IsPreallocated(pvc.ObjectMeta.Annotations),
 				}
 				filesystemOverhead, err := c.getFilesystemOverhead(pvc)
-				if errors.Is(err, failedToFindCdi) || errors.Is(err, multipleCdiInstances) {
-					filesystemOverhead = cdiv1.Percent("0.055")
-					log.Log.V(3).Object(pvc).Reason(err).Infof("Failed to detect CDI, continuing with default filesystem overhead of 5.5%%")
-				} else if err != nil {
+				if err != nil {
 					log.Log.Reason(err).Errorf("Failed to get filesystem overhead for PVC %s/%s", vmi.Namespace, pvcName)
 					return err
 				}
@@ -2142,12 +2024,14 @@ func (c *VMIController) getFilesystemOverhead(pvc *k8sv1.PersistentVolumeClaim) 
 	// To avoid conflicts, we only allow having one CDI instance
 	if cdiInstances := len(c.cdiInformer.GetStore().List()); cdiInstances != 1 {
 		if cdiInstances > 1 {
-			return "0", multipleCdiInstances
+			log.Log.V(3).Object(pvc).Reason(storagetypes.ErrMultipleCdiInstances).Infof(storagetypes.FSOverheadMsg)
+		} else {
+			log.Log.V(3).Object(pvc).Reason(storagetypes.ErrFailedToFindCdi).Infof(storagetypes.FSOverheadMsg)
 		}
-		return "0", failedToFindCdi
+		return storagetypes.DefaultFSOverhead, nil
 	}
 
-	cdiConfigInterface, cdiConfigExists, err := c.cdiConfigInformer.GetStore().GetByKey("config")
+	cdiConfigInterface, cdiConfigExists, err := c.cdiConfigInformer.GetStore().GetByKey(storagetypes.ConfigName)
 	if !cdiConfigExists || err != nil {
 		return "0", fmt.Errorf("Failed to find CDIConfig but CDI exists: %w", err)
 	}
@@ -2156,7 +2040,7 @@ func (c *VMIController) getFilesystemOverhead(pvc *k8sv1.PersistentVolumeClaim) 
 		return "0", fmt.Errorf("Failed to convert CDIConfig object %v to type CDIConfig", cdiConfigInterface)
 	}
 
-	return kubevirttypes.GetFilesystemOverhead(pvc.Spec.VolumeMode, pvc.Spec.StorageClassName, cdiConfig), nil
+	return storagetypes.GetFilesystemOverhead(pvc.Spec.VolumeMode, pvc.Spec.StorageClassName, cdiConfig), nil
 }
 
 func (c *VMIController) canMoveToAttachedPhase(currentPhase virtv1.VolumePhase) bool {
@@ -2176,7 +2060,7 @@ func (c *VMIController) findAttachmentPodByVolumeName(volumeName string, attachm
 }
 
 func (c *VMIController) getVolumePhaseMessageReason(volume *virtv1.Volume, namespace string) (virtv1.VolumePhase, string, string) {
-	claimName := kubevirttypes.PVCNameFromVirtVolume(volume)
+	claimName := storagetypes.PVCNameFromVirtVolume(volume)
 
 	pvcInterface, pvcExists, _ := c.pvcInformer.GetStore().GetByKey(fmt.Sprintf("%s/%s", namespace, claimName))
 	if !pvcExists {

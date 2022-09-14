@@ -56,6 +56,7 @@ import (
 
 	kvcontroller "kubevirt.io/kubevirt/pkg/controller"
 	"kubevirt.io/kubevirt/pkg/network/sriov"
+	storagetypes "kubevirt.io/kubevirt/pkg/storage/types"
 	"kubevirt.io/kubevirt/pkg/testutils"
 	"kubevirt.io/kubevirt/pkg/virt-controller/services"
 	"kubevirt.io/kubevirt/pkg/virt-controller/watch/topology"
@@ -2480,8 +2481,7 @@ var _ = Describe("VirtualMachineInstance watcher", func() {
 		makeVolumeStatusesForUpdateWithMessage := func(podName, podUID string, phase virtv1.VolumePhase, message, reason string, indexes ...int) []virtv1.VolumeStatus {
 			res := make([]virtv1.VolumeStatus, 0)
 			for _, index := range indexes {
-				var fsOverhead cdiv1.Percent
-				fsOverhead = "0.055"
+				fsOverhead := storagetypes.DefaultFSOverhead
 				res = append(res, virtv1.VolumeStatus{
 					Name: fmt.Sprintf("volume%d", index),
 					HotplugVolume: &virtv1.HotplugVolumeStatus{
@@ -2590,7 +2590,7 @@ var _ = Describe("VirtualMachineInstance watcher", func() {
 				[]string{SuccessfulCreatePodReason}),
 		)
 
-		It("Should fail to get filesystem overhead if there are multiple CDI instances", func() {
+		It("Should get default filesystem overhead if there are multiple CDI instances", func() {
 			cdi := cdiv1.CDI{
 				ObjectMeta: metav1.ObjectMeta{
 					Name: "testCDI1",
@@ -2605,17 +2605,15 @@ var _ = Describe("VirtualMachineInstance watcher", func() {
 			Expect(cdiInformer.GetIndexer().Add(&cdi)).To(Succeed())
 			Expect(cdiInformer.GetIndexer().Add(&cdi2)).To(Succeed())
 
-			fsOverhead, err := controller.getFilesystemOverhead(nil)
-			Expect(err).To(HaveOccurred())
-			Expect(err.Error()).To(Equal(multipleCdiInstances.Error()))
-			Expect(fsOverhead).To(Equal(cdiv1.Percent("0")))
+			fsOverhead, err := controller.getFilesystemOverhead(&k8sv1.PersistentVolumeClaim{})
+			Expect(err).ToNot(HaveOccurred())
+			Expect(fsOverhead).To(Equal(storagetypes.DefaultFSOverhead))
 		})
 
-		It("Should fail to get filesystem overhead if there is no CDI available", func() {
-			fsOverhead, err := controller.getFilesystemOverhead(nil)
-			Expect(err).To(HaveOccurred())
-			Expect(err.Error()).To(Equal(failedToFindCdi.Error()))
-			Expect(fsOverhead).To(Equal(cdiv1.Percent("0")))
+		It("Should get default filesystem overhead if there is no CDI available", func() {
+			fsOverhead, err := controller.getFilesystemOverhead(&k8sv1.PersistentVolumeClaim{})
+			Expect(err).ToNot(HaveOccurred())
+			Expect(fsOverhead).To(Equal(storagetypes.DefaultFSOverhead))
 		})
 
 		It("Should fail to get filesystem overhead if there's no valid CDI config available", func() {

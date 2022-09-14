@@ -22,6 +22,7 @@ import (
 	"kubevirt.io/client-go/kubecli"
 	"kubevirt.io/containerized-data-importer-api/pkg/apis/core/v1beta1"
 
+	storagetypes "kubevirt.io/kubevirt/pkg/storage/types"
 	"kubevirt.io/kubevirt/pkg/virtctl/utils"
 	"kubevirt.io/kubevirt/tests/clientcmd"
 
@@ -588,14 +589,14 @@ var _ = Describe("VirtualMachine", func() {
 		cdiConfigInit := func() (cdiConfig *v1beta1.CDIConfig) {
 			cdiConfig = &v1beta1.CDIConfig{
 				ObjectMeta: k8smetav1.ObjectMeta{
-					Name: configName,
+					Name: storagetypes.ConfigName,
 				},
 				Spec: v1beta1.CDIConfigSpec{
 					UploadProxyURLOverride: nil,
 				},
 				Status: v1beta1.CDIConfigStatus{
 					FilesystemOverhead: &v1beta1.FilesystemOverhead{
-						Global: v1beta1.Percent("0.055"),
+						Global: storagetypes.DefaultFSOverhead,
 					},
 				},
 			}
@@ -808,9 +809,6 @@ var _ = Describe("VirtualMachine", func() {
 		})
 
 		It("should fail call memory dump subresource with readonly access mode", func() {
-			expectGetCDIConfig()
-			expectGetVMNoAssociatedMemoryDump()
-			expectGetVMI()
 			commandAndArgs := []string{"memory-dump", "get", "testvm", claimNameFlag, createClaimFlag, "--access-mode=ReadOnlyMany"}
 			cmd := clientcmd.NewVirtctlCommand(commandAndArgs...)
 			res := cmd.Execute()

@@ -59,6 +59,8 @@ import (
 	cdifake "kubevirt.io/client-go/generated/containerized-data-importer/clientset/versioned/fake"
 	"kubevirt.io/client-go/kubecli"
 
+	storagetypes "kubevirt.io/kubevirt/pkg/storage/types"
+
 	"kubevirt.io/kubevirt/pkg/testutils"
 	virtconfig "kubevirt.io/kubevirt/pkg/virt-config"
 )
@@ -1086,14 +1088,14 @@ var _ = Describe("VirtualMachineInstance Subresources", func() {
 		cdiConfigInit := func() (cdiConfig *v1beta1.CDIConfig) {
 			cdiConfig = &v1beta1.CDIConfig{
 				ObjectMeta: k8smetav1.ObjectMeta{
-					Name: configName,
+					Name: storagetypes.ConfigName,
 				},
 				Spec: v1beta1.CDIConfigSpec{
 					UploadProxyURLOverride: nil,
 				},
 				Status: v1beta1.CDIConfigStatus{
 					FilesystemOverhead: &v1beta1.FilesystemOverhead{
-						Global: v1beta1.Percent("0.055"),
+						Global: storagetypes.DefaultFSOverhead,
 					},
 				},
 			}
