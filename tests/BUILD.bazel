@@ -249,7 +249,7 @@ go_test(
         "//tests/virtctl:go_default_library",
         "//tests/watcher:go_default_library",
         "//tools/vms-generator/utils:go_default_library",
-        "//vendor/github.com/Masterminds/semver:go_default_library",
+        "//vendor/github.com/blang/semver/v4:go_default_library",
         "//vendor/github.com/evanphx/json-patch:go_default_library",
         "//vendor/github.com/google/go-github/v32/github:go_default_library",
         "//vendor/github.com/google/goexpect:go_default_library",

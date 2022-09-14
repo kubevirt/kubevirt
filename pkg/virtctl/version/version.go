@@ -4,7 +4,7 @@ import (
 	"fmt"
 	"strings"
 
-	"github.com/blang/semver"
+	"github.com/blang/semver/v4"
 
 	"github.com/spf13/cobra"
 	"k8s.io/client-go/tools/clientcmd"

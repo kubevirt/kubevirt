@@ -1,8 +1,7 @@
 module kubevirt.io/kubevirt
 
 require (
-	github.com/Masterminds/semver v1.5.0
-	github.com/blang/semver v3.5.1+incompatible
+	github.com/blang/semver/v4 v4.0.0
 	github.com/c9s/goprocinfo v0.0.0-20210130143923-c95fcf8c64a8
 	github.com/cheggaaa/pb/v3 v3.1.0
 	github.com/containernetworking/plugins v1.1.1

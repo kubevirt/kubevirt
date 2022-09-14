@@ -39,7 +39,7 @@ import (
 	"strings"
 	"time"
 
-	"github.com/Masterminds/semver"
+	"github.com/blang/semver/v4"
 	jsonpatch "github.com/evanphx/json-patch"
 	"github.com/google/go-github/v32/github"
 	. "github.com/onsi/ginkgo/v2"
@@ -3124,7 +3124,7 @@ func detectLatestUpstreamOfficialTag() (string, error) {
 		return err
 	}, 10*time.Second, 1*time.Second).ShouldNot(HaveOccurred())
 
-	var vs []*semver.Version
+	var vs []semver.Version
 
 	for _, release := range releases {
 		if *release.Draft ||
@@ -3133,7 +3133,7 @@ func detectLatestUpstreamOfficialTag() (string, error) {
 
 			continue
 		}
-		v, err := semver.NewVersion(*release.TagName)
+		v, err := semver.ParseTolerant(*release.TagName)
 		if err != nil {
 			panic(err)
 		}
@@ -3145,7 +3145,7 @@ func detectLatestUpstreamOfficialTag() (string, error) {
 	}
 
 	// decending order from most recent.
-	sort.Sort(sort.Reverse(semver.Collection(vs)))
+	sort.Sort(sort.Reverse(semver.Versions(vs)))
 
 	// most recent tag
 	tag := fmt.Sprintf("v%v", vs[0])
@@ -3156,11 +3156,11 @@ func detectLatestUpstreamOfficialTag() (string, error) {
 	// all best effort. If a tag hint can't be detected, we move on with the most
 	// recent release from master.
 	tagHint := getTagHint()
-	hint, err := semver.NewVersion(tagHint)
+	hint, err := semver.ParseTolerant(tagHint)
 
 	if tagHint != "" && err == nil {
 		for _, v := range vs {
-			if v.LessThan(hint) || v.Equal(hint) {
+			if v.LTE(hint) {
 				tag = fmt.Sprintf("v%v", v)
 				By(fmt.Sprintf("Choosing tag %s influenced by tag hint %s", tag, tagHint))
 				break
