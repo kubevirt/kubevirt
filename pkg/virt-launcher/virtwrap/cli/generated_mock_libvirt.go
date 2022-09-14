@@ -553,6 +553,16 @@ func (_mr *_MockVirDomainRecorder) SetTime(arg0, arg1, arg2 interface{}) *gomock
 	return _mr.mock.ctrl.RecordCall(_mr.mock, "SetTime", arg0, arg1, arg2)
 }
 
+func (_m *MockVirDomain) UpdateDeviceFlags(xml string, flags libvirt.DomainDeviceModifyFlags) error {
+	ret := _m.ctrl.Call(_m, "UpdateDeviceFlags", xml, flags)
+	ret0, _ := ret[0].(error)
+	return ret0
+}
+
+func (_mr *_MockVirDomainRecorder) UpdateDeviceFlags(arg0, arg1 interface{}) *gomock.Call {
+	return _mr.mock.ctrl.RecordCall(_mr.mock, "UpdateDeviceFlags", arg0, arg1)
+}
+
 func (_m *MockVirDomain) AbortJob() error {
 	ret := _m.ctrl.Call(_m, "AbortJob")
 	ret0, _ := ret[0].(error)

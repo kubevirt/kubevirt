@@ -66,11 +66,13 @@ import (
 	policyv1beta1 "k8s.io/api/policy/v1beta1"
 	"k8s.io/apimachinery/pkg/api/errors"
 	"k8s.io/apimachinery/pkg/api/resource"
+	k8smetav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/labels"
 	"k8s.io/apimachinery/pkg/types"
 	"k8s.io/apimachinery/pkg/util/intstr"
 	"k8s.io/apimachinery/pkg/util/rand"
+	"k8s.io/apimachinery/pkg/util/wait"
 	"k8s.io/utils/pointer"
 
 	"kubevirt.io/kubevirt/tests/libvmi"
@@ -692,7 +694,7 @@ var _ = Describe("[rfe_id:393][crit:high][vendor:cnv-qe@redhat.com][level:system
 			libwait.WaitForVirtualMachineToDisappearWithTimeout(vmi, 120)
 		}
 
-		Context("with a bridge network interface", func() {
+		Context("with a bridge network interface when feature-gate NetworkAwareLiveMigration is off", func() {
 			It("[test_id:3226]should reject a migration of a vmi with a bridge interface", func() {
 				vmi := tests.NewRandomVMIWithEphemeralDisk(cd.ContainerDiskFor(cd.ContainerDiskAlpine))
 				vmi.Spec.Domain.Devices.Interfaces = []v1.Interface{
@@ -728,6 +730,103 @@ var _ = Describe("[rfe_id:393][crit:high][vendor:cnv-qe@redhat.com][level:system
 				libwait.WaitForVirtualMachineToDisappearWithTimeout(vmi, 120)
 			})
 		})
+
+		Context("[Serial] with a bridge network interface when feature-gate NetworkAwareLiveMigration is on", func() {
+			BeforeEach(func() {
+				tests.EnableFeatureGate(virtconfig.NetworkAwareLiveMigrationGate)
+			})
+			AfterEach(func() {
+				tests.DisableFeatureGate(virtconfig.NetworkAwareLiveMigrationGate)
+			})
+
+			var clientVMI *v1.VirtualMachineInstance
+			var serverVMI *v1.VirtualMachineInstance
+			var clientVMIPodName string
+			var serverIP string
+			defaultNetworkName := "default"
+			ifaceIPReportTimeout := 4 * time.Minute
+
+			waitVMIfaceIPReport := func(vmi *v1.VirtualMachineInstance, ifaceName string, timeout time.Duration) (string, error) {
+				var vmiIP string
+				err := wait.PollImmediate(time.Second, timeout, func() (done bool, err error) {
+					vmi, err := virtClient.VirtualMachineInstance(vmi.Namespace).Get(context.Background(), vmi.Name, &metav1.GetOptions{})
+					if err != nil {
+						return false, err
+					}
+
+					for _, iface := range vmi.Status.Interfaces {
+						if iface.Name == ifaceName {
+							if ip := iface.IP; ip != "" {
+								vmiIP = ip
+								return true, nil
+							}
+							return false, nil
+						}
+					}
+
+					return false, nil
+				})
+				if err != nil {
+					return "", err
+				}
+
+				return vmiIP, nil
+			}
+
+			waitForPodCompleted := func(podNamespace string, podName string) error {
+				pod, err := virtClient.CoreV1().Pods(podNamespace).Get(context.TODO(), podName, k8smetav1.GetOptions{})
+				if err != nil {
+					return err
+				}
+				if pod.Status.Phase == k8sv1.PodSucceeded || pod.Status.Phase == k8sv1.PodFailed {
+					return nil
+				}
+				return fmt.Errorf("pod hasn't completed, current Phase: %s", pod.Status.Phase)
+			}
+
+			BeforeEach(func() {
+				clientVMI = tests.NewRandomVMIWithEphemeralDisk(cd.ContainerDiskFor(cd.ContainerDiskFedoraTestTooling))
+				clientVMI.Spec.Domain.Resources.Requests[k8sv1.ResourceMemory] = resource.MustParse(fedoraVMSize)
+				clientVMI.Spec.Domain.Devices.Interfaces = []v1.Interface{
+					{
+						Name: defaultNetworkName,
+						InterfaceBindingMethod: v1.InterfaceBindingMethod{
+							Bridge: &v1.InterfaceBridge{},
+						},
+					},
+				}
+				clientVMI = tests.RunVMIAndExpectLaunch(clientVMI, 240)
+				clientVMIPodName = tests.GetVmPodName(virtClient, clientVMI)
+
+				Expect(console.LoginToFedora(clientVMI)).To(Succeed(), "Should be able to login to the Fedora VM")
+			})
+
+			BeforeEach(func() {
+				serverVMI = tests.NewRandomVMIWithEphemeralDisk(cd.ContainerDiskFor(cd.ContainerDiskFedoraTestTooling))
+				serverVMI.Spec.Domain.Resources.Requests[k8sv1.ResourceMemory] = resource.MustParse(fedoraVMSize)
+				serverVMI = tests.RunVMIAndExpectLaunch(serverVMI, 240)
+				serverIP, err = waitVMIfaceIPReport(serverVMI, defaultNetworkName, ifaceIPReportTimeout)
+				Expect(err).NotTo(HaveOccurred(), "should have managed to figure out the IP of the server VMI")
+				Expect(console.LoginToFedora(serverVMI)).To(Succeed(), "Should be able to login to the Fedora VM")
+
+				// TODO test also the IPv6 address (issue- https://github.com/kubevirt/kubevirt/issues/7506)
+				libnet.SkipWhenClusterNotSupportIpv4()
+				Expect(libnet.PingFromVMConsole(clientVMI, serverIP)).To(Succeed(), "connectivity is expected *before* migrating the VMI")
+			})
+
+			It("[test_id:2656]should keep connectivity after a migration", func() {
+				migration := tests.NewRandomMigration(clientVMI.Name, clientVMI.GetNamespace())
+				_ = tests.RunMigrationAndExpectCompletion(virtClient, migration, tests.MigrationWaitTime)
+				// In case of clientVMI and serverVMI running on the same node before migration, the serverVMI
+				// will be reachable only when the original launcher pod terminates.
+				Eventually(func() error {
+					return waitForPodCompleted(clientVMI.Namespace, clientVMIPodName)
+				}, tests.ContainerCompletionWaitTime, time.Second).Should(Succeed(), fmt.Sprintf("all containers should complete in source virt-launcher pod: %s", clientVMIPodName))
+
+				Expect(libnet.PingFromVMConsole(clientVMI, serverIP)).To(Succeed(), "connectivity is expected *after* migrating the VMI")
+			})
+		})
+
 		Context("[Serial] with bandwidth limitations", Serial, func() {
 
 			var repeatedlyMigrateWithBandwidthLimitation = func(vmi *v1.VirtualMachineInstance, bandwidth string, repeat int) time.Duration {

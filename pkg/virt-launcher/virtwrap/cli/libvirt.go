@@ -482,6 +482,7 @@ type VirDomain interface {
 	GetJobInfo() (*libvirt.DomainJobInfo, error)
 	GetDiskErrors(flags uint32) ([]libvirt.DomainDiskError, error)
 	SetTime(secs int64, nsecs uint, flags libvirt.DomainSetTimeFlags) error
+	UpdateDeviceFlags(xml string, flags libvirt.DomainDeviceModifyFlags) error
 	AbortJob() error
 	Free() error
 	CoreDumpWithFormat(to string, format libvirt.DomainCoreDumpFormat, flags libvirt.DomainCoreDumpFlags) error

@@ -89,6 +89,7 @@ import (
 const (
 	failedSyncGuestTime             = "failed to sync guest time"
 	failedGetDomain                 = "Getting the domain failed."
+	failedReconnectGuestNic         = "failed to reconnect guest interfaces"
 	failedGetDomainState            = "Getting the domain state failed."
 	failedDomainMemoryDump          = "Domain memory dump failed"
 	affectLiveAndConfigLibvirtFlags = libvirt.DOMAIN_DEVICE_MODIFY_LIVE | libvirt.DOMAIN_DEVICE_MODIFY_CONFIG
@@ -96,6 +97,10 @@ const (
 
 const maxConcurrentHotplugHostDevices = 1
 const maxConcurrentMemoryDumps = 1
+
+type cacheCreator interface {
+	New(filePath string) *cache.Cache
+}
 
 type contextStore struct {
 	ctx    context.Context
@@ -308,6 +313,117 @@ func (l *LibvirtDomainManager) setGuestTime(vmi *v1.VirtualMachineInstance) erro
 		}
 	}()
 
+	return nil
+}
+
+// Set interfaces link down and up to renew DHCP leases
+func (l *LibvirtDomainManager) reconnectGuestNics(vmi *v1.VirtualMachineInstance, c cacheCreator) error {
+	logger := log.Log.Object(vmi)
+	domName := api.VMINamespaceKeyFunc(vmi)
+	dom, err := l.virConn.LookupDomainByName(domName)
+	if err != nil {
+		log.Log.Object(vmi).Reason(err).Error(failedReconnectGuestNic)
+		return err
+	}
+	defer dom.Free()
+	xmlstr, err := dom.GetXMLDesc(0)
+	if err != nil {
+		return err
+	}
+
+	var domain api.DomainSpec
+	err = xml.Unmarshal([]byte(xmlstr), &domain)
+	if err != nil {
+		return fmt.Errorf("parsing domain XML failed, err: %v", err)
+	}
+
+	// Look up all the interfaces and reconnect them
+	for _, iface := range domain.Devices.Interfaces {
+		specIface := getIfaceByName(vmi, iface.Alias.GetName())
+
+		// TODO: support macvtap as well (PR #7648)
+		if specIface.Bridge == nil {
+			continue
+		}
+
+		cachedMAC, err := getIfaceMACAddressFromCache(iface, c)
+		if err != nil {
+			return fmt.Errorf("failed to get actual MAC address for network %s, err: %v", iface.Alias.GetName(), err)
+		}
+		if cachedMAC != "" && cachedMAC != iface.MAC.MAC {
+			logger.Info("MAC address for " + iface.Alias.GetName() + " network is changed. Reattaching interfaces")
+			err = reattachIfaceWithMacAddress(dom, iface, cachedMAC)
+		} else {
+			// TODO: should we check if local DHCP is running?
+			logger.Info("MAC address for " + iface.Alias.GetName() + " network does not require update. Forcing VM to renew DHCP lease")
+			err = reconnectIface(dom, iface)
+		}
+		if err != nil {
+			return fmt.Errorf("failed to update network %s, err: %v", iface.Alias.GetName(), err)
+		}
+	}
+
+	return nil
+}
+
+// Returns actual MAC address for NIC
+func getIfaceMACAddressFromCache(iface api.Interface, c cacheCreator) (string, error) {
+	if iface.MAC == nil {
+		return "", nil
+	}
+	cachedIface, err := cache.ReadDomainInterfaceCache(c, "1", iface.Alias.GetName())
+	if os.IsNotExist(err) {
+		return iface.MAC.MAC, nil
+	}
+	if err != nil {
+		return iface.MAC.MAC, fmt.Errorf("failed to read pod interface network state from cache %s", err.Error())
+	}
+	return cachedIface.MAC.MAC, nil
+}
+
+// Reattaches NIC with new MAC Address
+func reattachIfaceWithMacAddress(dom cli.VirDomain, iface api.Interface, mac string) error {
+	ifaceBytes, err := xml.Marshal(iface)
+	if err != nil {
+		return fmt.Errorf("failed to encode (xml) interface, err: %v", err)
+	}
+	newIface := iface.DeepCopy()
+	newIface.MAC.MAC = mac
+	newIfaceBytes, err := xml.Marshal(newIface)
+	if err != nil {
+		return fmt.Errorf("failed to encode (xml) interface, err: %v", err)
+	}
+	err = dom.DetachDevice(string(ifaceBytes))
+	if err != nil {
+		return fmt.Errorf("failed to detach network interface, err: %v", err)
+	}
+	err = dom.AttachDevice(string(newIfaceBytes))
+	if err != nil {
+		return fmt.Errorf("failed to attach network interface, err: %v", err)
+	}
+	return nil
+}
+
+// Sets link down and up for specified interface
+func reconnectIface(dom cli.VirDomain, iface api.Interface) error {
+	ifaceBytes, err := xml.Marshal(iface)
+	if err != nil {
+		return fmt.Errorf("failed to encode (xml) interface, err: %v", err)
+	}
+	disconnectedIface := iface.DeepCopy()
+	disconnectedIface.LinkState = &api.LinkState{State: "down"}
+	disconnectedIfaceBytes, err := xml.Marshal(disconnectedIface)
+	if err != nil {
+		return fmt.Errorf("failed to encode (xml) interface, err: %v", err)
+	}
+	err = dom.UpdateDeviceFlags(string(disconnectedIfaceBytes), affectLiveAndConfigLibvirtFlags)
+	if err != nil {
+		return fmt.Errorf("failed to set link down, err: %v", err)
+	}
+	err = dom.UpdateDeviceFlags(string(ifaceBytes), affectLiveAndConfigLibvirtFlags)
+	if err != nil {
+		return fmt.Errorf("failed to set link up, err: %v", err)
+	}
 	return nil
 }
 
@@ -1880,4 +1996,13 @@ func getDomainCreateFlags(vmi *v1.VirtualMachineInstance) libvirt.DomainCreateFl
 		flags |= libvirt.DOMAIN_START_PAUSED
 	}
 	return flags
+}
+
+func getIfaceByName(vmi *v1.VirtualMachineInstance, name string) *v1.Interface {
+	for i, iface := range vmi.Spec.Domain.Devices.Interfaces {
+		if iface.Name == name {
+			return &vmi.Spec.Domain.Devices.Interfaces[i]
+		}
+	}
+	return nil
 }

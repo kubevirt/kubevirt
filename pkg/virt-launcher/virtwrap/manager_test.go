@@ -24,10 +24,12 @@ import (
 	"encoding/json"
 	"encoding/xml"
 	"fmt"
+	"io/ioutil"
 	"os"
 	"path/filepath"
 	"runtime"
 	"strings"
+	"sync"
 	"time"
 
 	"k8s.io/apimachinery/pkg/types"
@@ -51,6 +53,8 @@ import (
 	ephemeraldiskutils "kubevirt.io/kubevirt/pkg/ephemeral-disk-utils"
 	"kubevirt.io/kubevirt/pkg/ephemeral-disk/fake"
 	cmdv1 "kubevirt.io/kubevirt/pkg/handler-launcher-com/cmd/v1"
+	"kubevirt.io/kubevirt/pkg/network/cache"
+	kfs "kubevirt.io/kubevirt/pkg/os/fs"
 	"kubevirt.io/kubevirt/pkg/util/net/ip"
 	cmdclient "kubevirt.io/kubevirt/pkg/virt-handler/cmd-client"
 	"kubevirt.io/kubevirt/pkg/virt-launcher/metadata"
@@ -126,6 +130,17 @@ var _ = Describe("Manager", func() {
 		}
 		Expect(converter.Convert_v1_VirtualMachineInstance_To_api_Domain(vmi, domain, c)).To(Succeed())
 		api.NewDefaulter(runtime.GOARCH).SetObjectDefaults_Domain(domain)
+		for _, iface := range vmi.Spec.Domain.Devices.Interfaces {
+			if iface.MacAddress == "" {
+				continue
+			}
+			for i, xmlIface := range domain.Spec.Devices.Interfaces {
+				if xmlIface.Alias.GetName() == iface.Name {
+					domain.Spec.Devices.Interfaces[i].MAC = &api.MAC{MAC: iface.MacAddress}
+					break
+				}
+			}
+		}
 
 		return &domain.Spec
 	}
@@ -1922,6 +1937,207 @@ var _ = Describe("Manager", func() {
 		Expect(err).To(MatchError(ContainSubstring("failed to find the status of volume test1")))
 	})
 
+	It("executes reconnectGuestNics with bridge and same MAC address", func() {
+		// Make sure that we always free the domain after use
+		mockDomain.EXPECT().Free()
+
+		manager, _ := NewLibvirtDomainManager(mockConn, testVirtShareDir, testEphemeralDiskDir, nil, "/usr/share/OVMF", ephemeralDiskCreatorMock)
+
+		// we need the non-typecast object to make the function we want to test available
+		libvirtmanager := manager.(*LibvirtDomainManager)
+
+		vmi := newVMI(testNamespace, testVmName)
+
+		// define bridged pod network with cached MAC address, which is actual
+		iface := api.Interface{
+			MAC:   &api.MAC{MAC: "de:ad:00:00:be:af"},
+			Alias: api.NewUserDefinedAlias("default"),
+			Target: &api.InterfaceTarget{
+				Managed: "no",
+				Device:  "tap0",
+			},
+		}
+
+		cacheCreator := new(tempCacheCreator)
+		Expect(cache.WriteDomainInterfaceCache(cacheCreator, "1", iface.Alias.GetName(), &iface)).To(Succeed())
+		vmi.Spec.Domain.Devices.Interfaces = append(
+			vmi.Spec.Domain.Devices.Interfaces,
+			v1.Interface{
+				Name: "default",
+				InterfaceBindingMethod: v1.InterfaceBindingMethod{
+					Bridge: &v1.InterfaceBridge{},
+				},
+				MacAddress: "de:ad:00:00:be:af",
+			},
+		)
+		vmi.Spec.Networks = append(
+			vmi.Spec.Networks,
+			v1.Network{Name: "default",
+				NetworkSource: v1.NetworkSource{
+					Pod: &v1.PodNetwork{},
+				}},
+		)
+
+		domainSpec := expectedDomainFor(vmi)
+		xmlDomain, err := xml.MarshalIndent(domainSpec, "", "\t")
+		Expect(err).ToNot(HaveOccurred())
+		mockConn.EXPECT().LookupDomainByName(testDomainName).Return(mockDomain, nil)
+		mockDomain.EXPECT().GetXMLDesc(libvirt.DomainXMLFlags(0)).MaxTimes(1).Return(string(xmlDomain), nil)
+		mockDomain.EXPECT().UpdateDeviceFlags(`<interface type="ethernet"><source></source><model type="virtio-non-transitional"></model><mac address="de:ad:00:00:be:af"></mac><alias name="ua-default"></alias><rom enabled="no"></rom></interface>`, libvirt.DomainDeviceModifyFlags(3)).Return(nil)
+		mockDomain.EXPECT().UpdateDeviceFlags(`<interface type="ethernet"><source></source><model type="virtio-non-transitional"></model><mac address="de:ad:00:00:be:af"></mac><link state="down"></link><alias name="ua-default"></alias><rom enabled="no"></rom></interface>`, libvirt.DomainDeviceModifyFlags(3)).Return(nil)
+		Expect(libvirtmanager.reconnectGuestNics(vmi, cacheCreator)).To(Succeed())
+	})
+
+	It("executes reconnectGuestNics with bridge and updated MAC address", func() {
+
+		// Make sure that we always free the domain after use
+		mockDomain.EXPECT().Free()
+
+		manager, _ := NewLibvirtDomainManager(mockConn, testVirtShareDir, testEphemeralDiskDir, nil, "/usr/share/OVMF", ephemeralDiskCreatorMock)
+
+		// we need the non-typecast object to make the function we want to test available
+		libvirtmanager := manager.(*LibvirtDomainManager)
+
+		vmi := newVMI(testNamespace, testVmName)
+
+		// define bridged pod network with cached MAC address, which is updated
+		iface := api.Interface{
+			MAC:   &api.MAC{MAC: "de:ad:00:00:be:ab"},
+			Alias: api.NewUserDefinedAlias("default"),
+			Target: &api.InterfaceTarget{
+				Managed: "no",
+				Device:  "tap0",
+			},
+		}
+		cacheCreator := new(tempCacheCreator)
+		Expect(cache.WriteDomainInterfaceCache(cacheCreator, "1", iface.Alias.GetName(), &iface)).To(Succeed())
+		vmi.Spec.Domain.Devices.Interfaces = append(
+			vmi.Spec.Domain.Devices.Interfaces,
+			v1.Interface{
+				Name: "default",
+				InterfaceBindingMethod: v1.InterfaceBindingMethod{
+					Bridge: &v1.InterfaceBridge{},
+				},
+				MacAddress: "de:ad:00:00:be:af",
+			},
+		)
+		vmi.Spec.Networks = append(
+			vmi.Spec.Networks,
+			v1.Network{Name: "default",
+				NetworkSource: v1.NetworkSource{
+					Pod: &v1.PodNetwork{},
+				}},
+		)
+
+		domainSpec := expectedDomainFor(vmi)
+		xmlDomain, err := xml.MarshalIndent(domainSpec, "", "\t")
+		Expect(err).ToNot(HaveOccurred())
+		mockConn.EXPECT().LookupDomainByName(testDomainName).Return(mockDomain, nil)
+		mockDomain.EXPECT().GetXMLDesc(libvirt.DomainXMLFlags(0)).MaxTimes(1).Return(string(xmlDomain), nil)
+		mockDomain.EXPECT().AttachDevice(`<interface type="ethernet"><source></source><model type="virtio-non-transitional"></model><mac address="de:ad:00:00:be:ab"></mac><alias name="ua-default"></alias><rom enabled="no"></rom></interface>`).Return(nil)
+		mockDomain.EXPECT().DetachDevice(`<interface type="ethernet"><source></source><model type="virtio-non-transitional"></model><mac address="de:ad:00:00:be:af"></mac><alias name="ua-default"></alias><rom enabled="no"></rom></interface>`).Return(nil)
+		Expect(libvirtmanager.reconnectGuestNics(vmi, cacheCreator)).To(Succeed())
+	})
+
+	It("executes reconnectGuestNics with masquerade and bridged multus networks", func() {
+		// Make sure that we always free the domain after use
+		mockDomain.EXPECT().Free()
+
+		manager, _ := NewLibvirtDomainManager(mockConn, testVirtShareDir, testEphemeralDiskDir, nil, "/usr/share/OVMF", ephemeralDiskCreatorMock)
+
+		// we need the non-typecast object to make the function we want to test available
+		libvirtmanager := manager.(*LibvirtDomainManager)
+
+		vmi := newVMI(testNamespace, testVmName)
+
+		// define macvtap pod network
+		vmi.Spec.Domain.Devices.Interfaces = append(
+			vmi.Spec.Domain.Devices.Interfaces,
+			v1.Interface{
+				Name: "default",
+				InterfaceBindingMethod: v1.InterfaceBindingMethod{
+					Masquerade: &v1.InterfaceMasquerade{},
+				},
+				MacAddress: "de:ad:00:00:be:af",
+			},
+		)
+		vmi.Spec.Networks = append(
+			vmi.Spec.Networks,
+			v1.Network{Name: "default",
+				NetworkSource: v1.NetworkSource{
+					Pod: &v1.PodNetwork{},
+				}},
+		)
+
+		// define bridged multus network with cached MAC address, which is actual
+		iface := api.Interface{
+			MAC:   &api.MAC{MAC: "de:ad:00:00:aa:ff"},
+			Alias: api.NewUserDefinedAlias("test1"),
+			Target: &api.InterfaceTarget{
+				Managed: "no",
+				Device:  "tap1",
+			},
+		}
+		cacheCreator := new(tempCacheCreator)
+		Expect(cache.WriteDomainInterfaceCache(cacheCreator, "1", iface.Alias.GetName(), &iface)).To(Succeed())
+		vmi.Spec.Domain.Devices.Interfaces = append(
+			vmi.Spec.Domain.Devices.Interfaces,
+			v1.Interface{
+				Name: "test1",
+				InterfaceBindingMethod: v1.InterfaceBindingMethod{
+					Bridge: &v1.InterfaceBridge{},
+				},
+				MacAddress: "de:ad:00:00:aa:ff",
+			},
+		)
+		vmi.Spec.Networks = append(
+			vmi.Spec.Networks,
+			v1.Network{Name: "test1",
+				NetworkSource: v1.NetworkSource{
+					Multus: &v1.MultusNetwork{NetworkName: "test1"},
+				}},
+		)
+
+		// define bridged multus network with cached MAC address, which is updated
+		iface = api.Interface{
+			MAC:   &api.MAC{MAC: "de:ad:00:00:cc:dd"},
+			Alias: api.NewUserDefinedAlias("test2"),
+			Target: &api.InterfaceTarget{
+				Managed: "no",
+				Device:  "tap2",
+			},
+		}
+		Expect(cache.WriteDomainInterfaceCache(cacheCreator, "1", iface.Alias.GetName(), &iface)).To(Succeed())
+		vmi.Spec.Domain.Devices.Interfaces = append(
+			vmi.Spec.Domain.Devices.Interfaces,
+			v1.Interface{
+				Name: "test2",
+				InterfaceBindingMethod: v1.InterfaceBindingMethod{
+					Bridge: &v1.InterfaceBridge{},
+				},
+				MacAddress: "de:ad:00:00:cc:aa",
+			},
+		)
+		vmi.Spec.Networks = append(
+			vmi.Spec.Networks,
+			v1.Network{Name: "test2",
+				NetworkSource: v1.NetworkSource{
+					Multus: &v1.MultusNetwork{NetworkName: "test2"},
+				}},
+		)
+
+		domainSpec := expectedDomainFor(vmi)
+		xmlDomain, err := xml.MarshalIndent(domainSpec, "", "\t")
+		Expect(err).ToNot(HaveOccurred())
+		mockConn.EXPECT().LookupDomainByName(testDomainName).Return(mockDomain, nil)
+		mockDomain.EXPECT().GetXMLDesc(libvirt.DomainXMLFlags(0)).MaxTimes(1).Return(string(xmlDomain), nil)
+		mockDomain.EXPECT().AttachDevice(`<interface type="ethernet"><source></source><model type="virtio-non-transitional"></model><mac address="de:ad:00:00:cc:dd"></mac><alias name="ua-test2"></alias><rom enabled="no"></rom></interface>`).Return(nil)
+		mockDomain.EXPECT().DetachDevice(`<interface type="ethernet"><source></source><model type="virtio-non-transitional"></model><mac address="de:ad:00:00:cc:aa"></mac><alias name="ua-test2"></alias><rom enabled="no"></rom></interface>`).Return(nil)
+		mockDomain.EXPECT().UpdateDeviceFlags(`<interface type="ethernet"><source></source><model type="virtio-non-transitional"></model><mac address="de:ad:00:00:aa:ff"></mac><alias name="ua-test1"></alias><rom enabled="no"></rom></interface>`, libvirt.DomainDeviceModifyFlags(3)).Return(nil)
+		mockDomain.EXPECT().UpdateDeviceFlags(`<interface type="ethernet"><source></source><model type="virtio-non-transitional"></model><mac address="de:ad:00:00:aa:ff"></mac><link state="down"></link><alias name="ua-test1"></alias><rom enabled="no"></rom></interface>`, libvirt.DomainDeviceModifyFlags(3)).Return(nil)
+		Expect(libvirtmanager.reconnectGuestNics(vmi, cacheCreator)).To(Succeed())
+	})
+
 	// TODO: test error reporting on non successful VirtualMachineInstance syncs and kill attempts
 })
 
@@ -2292,6 +2508,10 @@ var _ = Describe("Manager helper functions", func() {
 
 	})
 
+	Context("possibleGuestSize", func() {
+
+	})
+
 })
 
 func newVMI(namespace, name string) *v1.VirtualMachineInstance {
@@ -2325,4 +2545,20 @@ func addCloudInitDisk(vmi *v1.VirtualMachineInstance, userData string, networkDa
 func isoCreationFunc(isoOutFile, volumeID string, inDir string) error {
 	_, err := os.Create(isoOutFile)
 	return err
+}
+
+type tempCacheCreator struct {
+	once   sync.Once
+	tmpDir string
+}
+
+func (c *tempCacheCreator) New(filePath string) *cache.Cache {
+	c.once.Do(func() {
+		tmpDir, err := ioutil.TempDir("", "temp-cache")
+		if err != nil {
+			panic("Unable to create temp cache directory")
+		}
+		c.tmpDir = tmpDir
+	})
+	return cache.NewCustomCache(filePath, kfs.NewWithRootPath(c.tmpDir))
 }

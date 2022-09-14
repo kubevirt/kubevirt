@@ -2416,7 +2416,7 @@ var _ = Describe("VirtualMachineInstance", func() {
 			Expect(condition.Reason).To(Equal(v1.VirtualMachineInstanceReasonVirtIOFSNotMigratable))
 		})
 
-		It("should not be allowed to live-migrate if the VMI does not use masquerade to connect to the pod network", func() {
+		It("should not be allowed to live-migrate if the VMI does not use masquerade to connect to the pod network when feature-gate NetworkAwareLiveMigration is off", func() {
 			vmi := api2.NewMinimalVMI("testvmi")
 
 			strategy := v1.EvictionStrategyLiveMigrate
@@ -2495,7 +2495,7 @@ var _ = Describe("VirtualMachineInstance", func() {
 		})
 
 		Context("with network configuration", func() {
-			It("should block migration for bridge binding assigned to the pod network", func() {
+			It("should block migration for bridge binding assigned to the pod network when feature-gate NetworkAwareLiveMigration is off", func() {
 				vmi := api2.NewMinimalVMI("testvmi")
 				interface_name := "interface_name"
 
@@ -2517,7 +2517,36 @@ var _ = Describe("VirtualMachineInstance", func() {
 				err := controller.checkNetworkInterfacesForMigration(vmi)
 				Expect(err).To(HaveOccurred())
 			})
+			It("should not block migration for bridge binding assigned to the pod network when feature-gate NetworkAwareLiveMigration is on", func() {
+				vmi := api2.NewMinimalVMI("testvmi")
+				interface_name := "interface_name"
 
+				vmi.Spec.Networks = []v1.Network{
+					{
+						Name:          interface_name,
+						NetworkSource: v1.NetworkSource{Pod: &v1.PodNetwork{}},
+					},
+				}
+				vmi.Spec.Domain.Devices.Interfaces = []v1.Interface{
+					{
+						Name: interface_name,
+						InterfaceBindingMethod: v1.InterfaceBindingMethod{
+							Bridge: &v1.InterfaceBridge{},
+						},
+					},
+				}
+				config, _, _ := testutils.NewFakeClusterConfigUsingKVConfig(&v1.KubeVirtConfiguration{
+					DeveloperConfiguration: &v1.DeveloperConfiguration{
+						FeatureGates: []string{virtconfig.NetworkAwareLiveMigrationGate},
+					},
+				})
+				controller.clusterConfig = config
+
+				Expect(controller.checkNetworkInterfacesForMigration(vmi)).Should(Succeed())
+
+				err := controller.checkNetworkInterfacesForMigration(vmi)
+				Expect(err).ToNot(HaveOccurred())
+			})
 			It("should not block migration for masquerade binding assigned to the pod network", func() {
 				vmi := api2.NewMinimalVMI("testvmi")
 				interface_name := "interface_name"

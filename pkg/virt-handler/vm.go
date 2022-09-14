@@ -2289,8 +2289,9 @@ func (d *VirtualMachineController) checkNetworkInterfacesForMigration(vmi *v1.Vi
 		return nil
 	}
 
-	if !netvmispec.IsPodNetworkWithMasqueradeBindingInterface(vmi.Spec.Networks, ifaces) {
-		return fmt.Errorf("cannot migrate VMI which does not use masquerade to connect to the pod network")
+	networkAwareLiveMigrationEnabled := d.clusterConfig.NetworkAwareLiveMigrationEnabled()
+	if !netvmispec.IsPodNetworkWithMasqueradeBindingInterface(vmi.Spec.Networks, ifaces) && !networkAwareLiveMigrationEnabled {
+		return fmt.Errorf("NetworkAwareLiveMigration feature-gate is closed, cannot migrate VMI which does not use masquerade to connect to the pod network")
 	}
 
 	return nil

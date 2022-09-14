@@ -8,10 +8,42 @@ import (
 	v1 "kubevirt.io/api/core/v1"
 
 	v10 "kubevirt.io/kubevirt/pkg/handler-launcher-com/cmd/v1"
+	cache "kubevirt.io/kubevirt/pkg/network/cache"
 	cmd_client "kubevirt.io/kubevirt/pkg/virt-handler/cmd-client"
 	api "kubevirt.io/kubevirt/pkg/virt-launcher/virtwrap/api"
 	stats "kubevirt.io/kubevirt/pkg/virt-launcher/virtwrap/stats"
 )
+
+// Mock of cacheCreator interface
+type MockcacheCreator struct {
+	ctrl     *gomock.Controller
+	recorder *_MockcacheCreatorRecorder
+}
+
+// Recorder for MockcacheCreator (not exported)
+type _MockcacheCreatorRecorder struct {
+	mock *MockcacheCreator
+}
+
+func NewMockcacheCreator(ctrl *gomock.Controller) *MockcacheCreator {
+	mock := &MockcacheCreator{ctrl: ctrl}
+	mock.recorder = &_MockcacheCreatorRecorder{mock}
+	return mock
+}
+
+func (_m *MockcacheCreator) EXPECT() *_MockcacheCreatorRecorder {
+	return _m.recorder
+}
+
+func (_m *MockcacheCreator) New(filePath string) *cache.Cache {
+	ret := _m.ctrl.Call(_m, "New", filePath)
+	ret0, _ := ret[0].(*cache.Cache)
+	return ret0
+}
+
+func (_mr *_MockcacheCreatorRecorder) New(arg0 interface{}) *gomock.Call {
+	return _mr.mock.ctrl.RecordCall(_mr.mock, "New", arg0)
+}
 
 // Mock of DomainManager interface
 type MockDomainManager struct {
