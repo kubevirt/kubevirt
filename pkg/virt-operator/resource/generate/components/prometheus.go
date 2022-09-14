@@ -511,8 +511,7 @@ func NewPrometheusRuleSpec(ns string, workloadUpdatesEnabled bool) *v1.Prometheu
 					},
 					{
 						Alert: "KubeVirtVMIExcessiveMigrations",
-						Expr:  intstr.FromString("floor(increase(sum by (vmi) (kubevirt_migrate_vmi_succeeded_total)[1d:1m])) >= 12"),
-						For:   "1m",
+						Expr:  intstr.FromString("sum by (vmi) (max_over_time(kubevirt_migrate_vmi_succeeded_total[1d])) >= 12"),
 						Annotations: map[string]string{
 							"description": "VirtualMachineInstance {{ $labels.vmi }} has been migrated more than 12 times during the last 24 hours",
 							"summary":     "An excessive amount of migrations have been detected on a VirtualMachineInstance in the last 24 hours.",
