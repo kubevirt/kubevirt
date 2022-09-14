@@ -1,13 +1,13 @@
 [![CircleCI](https://circleci.com/gh/google/goexpect.svg?style=svg)](https://circleci.com/gh/google/goexpect)
 
-This package is an implementation of [Expect](https://en.wikipedia.org/wiki/Expect) in [Go](golang.org).
+This package is an implementation of [Expect](https://en.wikipedia.org/wiki/Expect) in [Go](https://golang.org).
 
 
 ## Features:
  - Spawning and controlling local processes with real PTYs.
  - Native SSH spawner.
  - Expect backed spawner for testing.
- - Generic spawner to make implementing additonal Spawners simple.
+ - Generic spawner to make implementing additional Spawners simple.
  - Has a batcher for implementing workflows without having to write extra logic
    and code.
 
@@ -42,7 +42,7 @@ This option turns that check off.
 ### DebugCheck
 
 The DebugCheck option adds debugging to the alive Check done by the Expecter, this will start logging information
-everytime the check is run. Can be used for troubleshooting and debugging of Spawners.
+every time the check is run. Can be used for troubleshooting and debugging of Spawners.
 
 ### ChangeCheck
 
@@ -52,6 +52,9 @@ The ChangeCheck option makes it possible to replace the Spawner Check function w
 
 The SendTimeout set timeout on the `Send` command, without timeout the `Send` command will wait forewer for the expecter process.
 
+### BufferSize
+
+The BufferSize option provides a mechanism to configure the client io buffer size in bytes.
 
 ## Basic Examples
 
@@ -134,7 +137,7 @@ func main() {
 ```
 
 In essence to run and attach to a process the `expect.Spawn(<cmd>,<timeout>)` is used.
-The spawn returns and Expecter that can rund `e.Expect` and `e.Send` commands to match information
+The spawn returns an Expecter `e` that can run `e.Expect` and `e.Send` commands to match information
 in the output and Send information in.
 
 *See the https://github.com/google/goexpect/blob/master/examples/newspawner/telnet.go  example for a slightly more fleshed out version*

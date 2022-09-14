@@ -21,7 +21,7 @@ require (
 	github.com/golang/mock v1.5.0
 	github.com/golang/protobuf v1.5.2
 	github.com/google/go-github/v32 v32.0.0
-	github.com/google/goexpect v0.0.0-20190425035906-112704a48083
+	github.com/google/goexpect v0.0.0-20210430020637-ab937bf7fd6f
 	github.com/google/gofuzz v1.1.0
 	github.com/google/uuid v1.3.0
 	github.com/gordonklaus/ineffassign v0.0.0-20210209182638-d0e41b2fc8ed
@@ -165,7 +165,7 @@ require (
 
 require (
 	github.com/containers/common v0.50.1
-	github.com/google/goterm v0.0.0-20190311235235-ce302be1d114 // indirect; indirect github.com/gophercloud/gophercloud v0.4.0 // indirect
+	github.com/google/goterm v0.0.0-20190703233501-fc88cf888a3f // indirect
 	github.com/operator-framework/go-appr v0.0.0-20180917210448-f2aef88446f2 // indirect
 )
 
