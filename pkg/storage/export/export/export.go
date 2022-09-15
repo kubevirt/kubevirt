@@ -723,7 +723,6 @@ func (ctrl *VMExportController) createExporterPodManifest(vmExport *exportv1.Vir
 	podManifest.Annotations = map[string]string{annCertParams: scp}
 	podManifest.Spec.SecurityContext = &corev1.PodSecurityContext{
 		RunAsNonRoot: pointer.Bool(true),
-		RunAsGroup:   pointer.Int64Ptr(kvm),
 		FSGroup:      pointer.Int64Ptr(kvm),
 	}
 	for i, pvc := range pvcs {
