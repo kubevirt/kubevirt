@@ -301,6 +301,15 @@ func (c *ClusterConfig) GetVirtControllerVerbosity(nodeName string) uint {
 	return logConf.VirtController
 }
 
+func (c *ClusterConfig) GetVirtOperatorVerbosity(nodeName string) uint {
+	logConf := c.GetConfig().DeveloperConfiguration.LogVerbosity
+	if level := logConf.NodeVerbosity[nodeName]; level != 0 {
+		return level
+	}
+	return logConf.VirtOperator
+}
+
+
 func (c *ClusterConfig) GetVirtLauncherVerbosity() uint {
 	logConf := c.GetConfig().DeveloperConfiguration.LogVerbosity
 	return logConf.VirtLauncher
