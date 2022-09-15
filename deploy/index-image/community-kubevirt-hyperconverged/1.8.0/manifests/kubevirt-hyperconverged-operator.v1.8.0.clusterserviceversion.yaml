@@ -2522,7 +2522,7 @@ spec:
                 - name: HPPO_VERSION
                   value: v0.14.0
                 - name: KV_CONSOLE_PLUGIN_IMAGE
-                  value: quay.io/kubevirt-ui/kubevirt-plugin@sha256:f3013bd965b3f4e9bdb493bc3257b59b6004258f347d871793c5eabe2f8953cf
+                  value: quay.io/kubevirt-ui/kubevirt-plugin@sha256:cbadf29a77612a3cf57751d11d13c365eabed82e588203ac6ab0a4ddc45dc37c
                 image: +IMAGE_TO_REPLACE+
                 imagePullPolicy: IfNotPresent
                 livenessProbe:
@@ -3646,7 +3646,7 @@ spec:
     name: hyperconverged-cluster-webhook
   - image: quay.io/kubevirt/kubemacpool@sha256:fb07b1be9e0990e3846ef628e993694bf0765602af5907abf98f7e218db0cb4a
     name: kubemacpool
-  - image: quay.io/kubevirt-ui/kubevirt-plugin@sha256:f3013bd965b3f4e9bdb493bc3257b59b6004258f347d871793c5eabe2f8953cf
+  - image: quay.io/kubevirt-ui/kubevirt-plugin@sha256:cbadf29a77612a3cf57751d11d13c365eabed82e588203ac6ab0a4ddc45dc37c
     name: kubevirt-plugin
   - image: quay.io/kubevirt/libguestfs-tools@sha256:2f7ab9aebf91ad2e9be4c809a4864a2b1dcaa1e1b76c8a7d987fd122275e3891
     name: libguestfs-tools
