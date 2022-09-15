@@ -12,4 +12,5 @@ go_library(
     importmap = "kubevirt.io/kubevirt/vendor/github.com/mattn/go-runewidth",
     importpath = "github.com/mattn/go-runewidth",
     visibility = ["//visibility:public"],
+    deps = ["//vendor/github.com/rivo/uniseg:go_default_library"],
 )

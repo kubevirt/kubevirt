@@ -27,6 +27,7 @@ import (
 	"kubevirt.io/kubevirt/pkg/virtctl/usbredir"
 	"kubevirt.io/kubevirt/pkg/virtctl/version"
 	"kubevirt.io/kubevirt/pkg/virtctl/vm"
+	"kubevirt.io/kubevirt/pkg/virtctl/vmexport"
 	"kubevirt.io/kubevirt/pkg/virtctl/vnc"
 )
 
@@ -102,6 +103,7 @@ func NewVirtctlCommand() (*cobra.Command, clientcmd.ClientConfig) {
 		version.VersionCommand(clientConfig),
 		imageupload.NewImageUploadCommand(clientConfig),
 		guestfs.NewGuestfsShellCommand(clientConfig),
+		vmexport.NewVirtualMachineExportCommand(clientConfig),
 		optionsCmd,
 	)
 	return rootCmd, clientConfig
