@@ -1225,7 +1225,6 @@ func RenderPod(name string, cmd []string, args []string) *k8sv1.Pod {
 	pod := k8sv1.Pod{
 		ObjectMeta: metav1.ObjectMeta{
 			GenerateName: name,
-			Namespace:    util2.NamespaceTestDefault,
 			Labels: map[string]string{
 				v1.AppLabel: "test",
 			},
@@ -1255,17 +1254,21 @@ func newExecutorPodWithPVC(podName string, pvc *k8sv1.PersistentVolumeClaim) *k8
 	return libstorage.RenderPodWithPVC(podName, []string{"/bin/bash", "-c", "while true; do echo hello; sleep 2;done"}, nil, pvc)
 }
 
-func RunPod(pod *k8sv1.Pod) *k8sv1.Pod {
+func RunPodInNamespace(pod *k8sv1.Pod, namespace string) *k8sv1.Pod {
 	virtClient, err := kubecli.GetKubevirtClient()
 	util2.PanicOnError(err)
 
-	pod, err = virtClient.CoreV1().Pods(util2.NamespaceTestDefault).Create(context.Background(), pod, metav1.CreateOptions{})
+	pod, err = virtClient.CoreV1().Pods(namespace).Create(context.Background(), pod, metav1.CreateOptions{})
 	Expect(err).ToNot(HaveOccurred())
 	Eventually(ThisPod(pod), 180).Should(BeInPhase(k8sv1.PodRunning))
 
 	pod, err = ThisPod(pod)()
 	Expect(err).ToNot(HaveOccurred())
 	return pod
+}
+
+func RunPod(pod *k8sv1.Pod) *k8sv1.Pod {
+	return RunPodInNamespace(pod, util2.NamespaceTestDefault)
 }
 
 func RunPodAndExpectCompletion(pod *k8sv1.Pod) *k8sv1.Pod {

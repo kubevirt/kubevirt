@@ -479,6 +479,15 @@ spec:
           - list
           - watch
         - apiGroups:
+          - ""
+          resources:
+          - namespaces
+          verbs:
+          - get
+          - list
+          - watch
+          - patch
+        - apiGroups:
           - policy
           resources:
           - poddisruptionbudgets
@@ -1191,6 +1200,13 @@ spec:
                   requests:
                     cpu: 10m
                     memory: 250Mi
+                securityContext:
+                  allowPrivilegeEscalation: false
+                  capabilities:
+                    drop:
+                    - ALL
+                  seccompProfile:
+                    type: RuntimeDefault
                 volumeMounts:
                 - mountPath: /etc/virt-operator/certificates
                   name: kubevirt-operator-certs
@@ -1202,6 +1218,8 @@ spec:
               priorityClassName: kubevirt-cluster-critical
               securityContext:
                 runAsNonRoot: true
+                seccompProfile:
+                  type: RuntimeDefault
               serviceAccountName: kubevirt-operator
               tolerations:
               - key: CriticalAddonsOnly

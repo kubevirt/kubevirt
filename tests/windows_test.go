@@ -184,19 +184,7 @@ var _ = Describe("[Serial][sig-compute]Windows VirtualMachineInstance", func() {
 
 		BeforeEach(func() {
 			By("Creating winrm-cli pod for the future use")
-			winrmcliPod = &k8sv1.Pod{
-				ObjectMeta: metav1.ObjectMeta{GenerateName: winrmCli},
-				Spec: k8sv1.PodSpec{
-					Containers: []k8sv1.Container{
-						{
-							Name:    winrmCli,
-							Image:   fmt.Sprintf("%s/%s:%s", flags.KubeVirtUtilityRepoPrefix, winrmCli, flags.KubeVirtUtilityVersionTag),
-							Command: []string{"sleep"},
-							Args:    []string{"3600"},
-						},
-					},
-				},
-			}
+			winrmcliPod = winRMCliPod()
 
 			var err error
 			winrmcliPod, err = virtClient.CoreV1().Pods(util.NamespaceTestDefault).Create(context.Background(), winrmcliPod, metav1.CreateOptions{})

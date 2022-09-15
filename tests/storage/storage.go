@@ -805,17 +805,13 @@ var _ = SIGDescribe("Storage", func() {
 						diskPath = filepath.Join(hostDiskDir, diskName)
 						// create a disk image before test
 						job := tests.CreateHostDiskImage(diskPath)
-						job, err = virtClient.CoreV1().Pods(util.NamespaceTestDefault).Create(context.Background(), job, metav1.CreateOptions{})
+						job, err = virtClient.CoreV1().Pods(testsuite.NamespacePrivileged).Create(context.Background(), job, metav1.CreateOptions{})
 						Expect(err).ToNot(HaveOccurred())
-						getStatus := func() k8sv1.PodPhase {
-							pod, err := virtClient.CoreV1().Pods(util.NamespaceTestDefault).Get(context.Background(), job.Name, metav1.GetOptions{})
-							Expect(err).ToNot(HaveOccurred())
-							if pod.Spec.NodeName != "" && nodeName == "" {
-								nodeName = pod.Spec.NodeName
-							}
-							return pod.Status.Phase
-						}
-						Eventually(getStatus, 30, 1).Should(Equal(k8sv1.PodSucceeded))
+
+						Eventually(ThisPod(job), 30*time.Second, 1*time.Second).Should(BeInPhase(k8sv1.PodSucceeded))
+						pod, err := ThisPod(job)()
+						Expect(err).NotTo(HaveOccurred())
+						nodeName = pod.Spec.NodeName
 					})
 
 					It("[test_id:2306]Should use existing disk image and start", func() {

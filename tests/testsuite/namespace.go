@@ -53,7 +53,10 @@ var NamespaceTestAlternative = "kubevirt-test-alternative"
 // NamespaceTestOperator is used to test if namespaces can still be deleted when kubevirt is uninstalled
 var NamespaceTestOperator = "kubevirt-test-operator"
 
-var TestNamespaces = []string{util.NamespaceTestDefault, NamespaceTestAlternative, NamespaceTestOperator}
+// NamespacePrivileged is used for helper pods that requires to be privileged
+var NamespacePrivileged = "kubevirt-test-privileged"
+
+var TestNamespaces = []string{util.NamespaceTestDefault, NamespaceTestAlternative, NamespaceTestOperator, NamespacePrivileged}
 
 type IgnoreDeprecationWarningsLogger struct{}
 
@@ -278,10 +281,15 @@ func createNamespaces() {
 			ObjectMeta: metav1.ObjectMeta{
 				Name: namespace,
 				Labels: map[string]string{
-					cleanup.TestLabelForNamespace(namespace): "",
+					cleanup.TestLabelForNamespace(namespace):         "",
+					"security.openshift.io/scc.podSecurityLabelSync": "false",
 				},
 			},
 		}
+		if namespace == NamespacePrivileged {
+			ns.Labels["pod-security.kubernetes.io/enforce"] = "privileged"
+		}
+
 		_, err = virtCli.CoreV1().Namespaces().Create(context.Background(), ns, metav1.CreateOptions{})
 		if err != nil {
 			util.PanicOnError(err)
@@ -294,8 +302,9 @@ func CalculateNamespaces() {
 	worker := GinkgoParallelProcess()
 	util.NamespaceTestDefault = fmt.Sprintf("%s%d", util.NamespaceTestDefault, worker)
 	NamespaceTestAlternative = fmt.Sprintf("%s%d", NamespaceTestAlternative, worker)
+	NamespacePrivileged = fmt.Sprintf("%s%d", NamespacePrivileged, worker)
 	// TODO, that is not needed, just a shortcut to not have to treat this namespace
 	// differently when running in parallel
 	NamespaceTestOperator = fmt.Sprintf("%s%d", NamespaceTestOperator, worker)
-	TestNamespaces = []string{util.NamespaceTestDefault, NamespaceTestAlternative, NamespaceTestOperator}
+	TestNamespaces = []string{util.NamespaceTestDefault, NamespaceTestAlternative, NamespaceTestOperator, NamespacePrivileged}
 }
