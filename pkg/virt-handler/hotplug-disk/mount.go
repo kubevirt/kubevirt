@@ -2,7 +2,6 @@ package hotplug_volume
 
 import (
 	"encoding/json"
-	"errors"
 	"fmt"
 	"io/ioutil"
 	"os"
@@ -395,7 +394,7 @@ func (m *volumeMounter) mountBlockHotplugVolume(vmi *v1.VirtualMachineInstance, 
 		return fmt.Errorf(failedToCreateCgroupManagerErrTemplate, err)
 	}
 
-	if _, err := safepath.JoinNoFollow(targetPath, volume); errors.Is(err, os.ErrNotExist) {
+	if _, err := safepath.JoinNoFollow(targetPath, volume); os.IsNotExist(err) {
 		dev, permissions, err := m.getSourceMajorMinor(sourceUID, volume)
 		if err != nil {
 			return err
@@ -507,7 +506,7 @@ func (m *volumeMounter) updateBlockMajorMinor(dev uint64, allow bool, manager cg
 }
 
 func (m *volumeMounter) createBlockDeviceFile(basePath *safepath.Path, deviceName string, dev uint64, blockDevicePermissions os.FileMode) error {
-	if _, err := safepath.JoinNoFollow(basePath, deviceName); errors.Is(err, os.ErrNotExist) {
+	if _, err := safepath.JoinNoFollow(basePath, deviceName); os.IsNotExist(err) {
 		return mknodCommand(basePath, deviceName, dev, blockDevicePermissions)
 	} else {
 		return err
@@ -597,8 +596,8 @@ func (m *volumeMounter) getSourcePodFilePath(sourceUID types.UID, vmi *v1.Virtua
 		if filepath.Base(findmnt.Target) == volume {
 			source := findmnt.GetSourcePath()
 			path, err := parentPathForMount(nodeIsoRes, isoRes, findmnt)
-			exists := !errors.Is(err, os.ErrNotExist)
-			if err != nil && !errors.Is(err, os.ErrNotExist) {
+			exists := !os.IsNotExist(err)
+			if err != nil && !os.IsNotExist(err) {
 				return nil, err
 			}
 
@@ -651,7 +650,7 @@ func (m *volumeMounter) Unmount(vmi *v1.VirtualMachineInstance) error {
 
 		basePath, err := m.hotplugDiskManager.GetHotplugTargetPodPathOnHost(virtlauncherUID)
 		if err != nil {
-			if errors.Is(err, os.ErrNotExist) {
+			if os.IsNotExist(err) {
 				// no mounts left, the base path does not even exist anymore
 				if err := m.deleteMountTargetRecord(vmi); err != nil {
 					return fmt.Errorf("failed to delete mount target records: %v", err)
@@ -676,7 +675,7 @@ func (m *volumeMounter) Unmount(vmi *v1.VirtualMachineInstance) error {
 				}
 			} else {
 				path, err = m.hotplugDiskManager.GetFileSystemDiskTargetPathFromHostView(virtlauncherUID, volumeStatus.Name, false)
-				if errors.Is(err, os.ErrNotExist) {
+				if os.IsNotExist(err) {
 					// already unmounted or never mounted
 					continue
 				}
@@ -780,7 +779,7 @@ func (m *volumeMounter) UnmountAll(vmi *v1.VirtualMachineInstance) error {
 		for _, entry := range record.MountTargetEntries {
 			diskPath, err := safepath.NewFileNoFollow(entry.TargetFile)
 			if err != nil {
-				if errors.Is(err, os.ErrNotExist) {
+				if os.IsNotExist(err) {
 					logger.Infof("Device %v is not mounted anymore, continuing.", entry.TargetFile)
 					continue
 				}
@@ -818,7 +817,7 @@ func (m *volumeMounter) IsMounted(vmi *v1.VirtualMachineInstance, volume string,
 	}
 	targetPath, err := m.hotplugDiskManager.GetHotplugTargetPodPathOnHost(virtlauncherUID)
 	if err != nil {
-		if errors.Is(err, os.ErrNotExist) {
+		if os.IsNotExist(err) {
 			return false, nil
 		}
 		return false, err
@@ -826,7 +825,7 @@ func (m *volumeMounter) IsMounted(vmi *v1.VirtualMachineInstance, volume string,
 	if m.isBlockVolume(&vmi.Status, volume) {
 		deviceName, err := safepath.JoinNoFollow(targetPath, volume)
 		if err != nil {
-			if errors.Is(err, os.ErrNotExist) {
+			if os.IsNotExist(err) {
 				return false, nil
 			}
 			return false, err
@@ -837,7 +836,7 @@ func (m *volumeMounter) IsMounted(vmi *v1.VirtualMachineInstance, volume string,
 	if m.isDirectoryMounted(&vmi.Status, volume) {
 		path, err := safepath.JoinNoFollow(targetPath, volume)
 		if err != nil {
-			if errors.Is(err, os.ErrNotExist) {
+			if os.IsNotExist(err) {
 				return false, nil
 			}
 			return false, err
@@ -846,7 +845,7 @@ func (m *volumeMounter) IsMounted(vmi *v1.VirtualMachineInstance, volume string,
 	}
 	path, err := safepath.JoinNoFollow(targetPath, fmt.Sprintf("%s.img", volume))
 	if err != nil {
-		if errors.Is(err, os.ErrNotExist) {
+		if os.IsNotExist(err) {
 			return false, nil
 		}
 		return false, err
