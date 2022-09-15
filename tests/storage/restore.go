@@ -454,9 +454,8 @@ var _ = SIGDescribe("VirtualMachineRestore Tests", func() {
 
 			It("should fail restoring to a different VM that already exists", func() {
 				By("Creating a new VM")
-				newVMI := tests.NewRandomVMIWithEphemeralDiskAndUserdata(cd.ContainerDiskFor(cd.ContainerDiskCirros), bashHelloScript)
-				newVM := tests.NewRandomVirtualMachine(newVMI, false)
-				newVM, err = virtClient.VirtualMachine(newVM.Namespace).Create(newVM)
+				newVM := tests.NewRandomVirtualMachine(libvmi.NewCirros(), false)
+				newVM, err = virtClient.VirtualMachine(util.NamespaceTestDefault).Create(newVM)
 				Expect(err).ToNot(HaveOccurred())
 				defer deleteVM(newVM)
 
@@ -1090,11 +1089,12 @@ var _ = SIGDescribe("VirtualMachineRestore Tests", func() {
 			DescribeTable("should restore a vm with containerdisk and blank datavolume", func(restoreToNewVM bool) {
 				quantity, err := resource.ParseQuantity("1Gi")
 				Expect(err).ToNot(HaveOccurred())
-				vmi = tests.NewRandomVMIWithEphemeralDiskAndUserdata(
-					cd.ContainerDiskFor(cd.ContainerDiskCirros),
-					bashHelloScript,
+				vmi = libvmi.NewCirros(
+					libvmi.WithInterface(libvmi.InterfaceDeviceWithMasqueradeBinding()),
+					libvmi.WithNetwork(v1.DefaultPodNetwork()),
 				)
 				vm = tests.NewRandomVirtualMachine(vmi, false)
+				vm.Namespace = util.NamespaceTestDefault
 
 				dvName := "dv-" + vm.Name
 				vm.Spec.DataVolumeTemplates = []v1.DataVolumeTemplateSpec{
