@@ -308,46 +308,13 @@ func (t *templateService) renderLaunchManifest(vmi *v1.VirtualMachineInstance, i
 		return nil, err
 	}
 
-	var command []string
+	var commandRenderer *VirtLauncherCommandRenderer
 	if tempPod {
 		logger := log.DefaultLogger()
 		logger.Infof("RUNNING doppleganger pod for %s", vmi.Name)
-		command = []string{"/bin/bash",
-			"-c",
-			"echo", "bound PVCs"}
+		commandRenderer = NewDoppelgangerPodRender(t.launcherCommandRendererOptions(vmi)...)
 	} else {
-		command = []string{"/usr/bin/virt-launcher-monitor",
-			"--qemu-timeout", generateQemuTimeoutWithJitter(t.launcherQemuTimeout),
-			"--name", domain,
-			"--uid", string(vmi.UID),
-			"--namespace", namespace,
-			"--kubevirt-share-dir", t.virtShareDir,
-			"--ephemeral-disk-dir", t.ephemeralDiskDir,
-			"--container-disk-dir", t.containerDiskDir,
-			"--grace-period-seconds", strconv.Itoa(int(gracePeriodSeconds)),
-			"--hook-sidecars", strconv.Itoa(len(requestedHookSidecarList)),
-			"--ovmf-path", t.clusterConfig.GetOVMFPath(),
-		}
-		if nonRoot {
-			command = append(command, "--run-as-nonroot")
-		}
-		if customDebugFilters, exists := vmi.Annotations[v1.CustomLibvirtLogFiltersAnnotation]; exists {
-			log.Log.Object(vmi).Infof("Applying custom debug filters for vmi %s: %s", vmi.Name, customDebugFilters)
-			command = append(command, "--libvirt-log-filters", customDebugFilters)
-		}
-	}
-
-	if t.clusterConfig.AllowEmulation() {
-		command = append(command, "--allow-emulation")
-	}
-
-	if checkForKeepLauncherAfterFailure(vmi) {
-		command = append(command, "--keep-after-failure")
-	}
-
-	_, ok := vmi.Annotations[v1.FuncTestLauncherFailFastAnnotation]
-	if ok {
-		command = append(command, "--simulate-crash")
+		commandRenderer = t.newVirtLauncherCommandRenderer(vmi, domain, gracePeriodSeconds, requestedHookSidecarList)
 	}
 
 	volumeRenderer, err := t.newVolumeRenderer(vmi, namespace, requestedHookSidecarList)
@@ -360,7 +327,7 @@ func (t *templateService) renderLaunchManifest(vmi *v1.VirtualMachineInstance, i
 		volumeRenderer,
 		resourceRenderer.ResourceRequirements(),
 		userId,
-	).Render(command)
+	).Render(commandRenderer.Render())
 
 	for networkName, resourceName := range networkToResourceMap {
 		varName := fmt.Sprintf("KUBEVIRT_RESOURCE_NAME_%s", networkName)
@@ -529,6 +496,43 @@ func (t *templateService) renderLaunchManifest(vmi *v1.VirtualMachineInstance, i
 	}
 
 	return &pod, nil
+}
+
+func VMICustomDebugFilters(vmi *v1.VirtualMachineInstance) string {
+	if customDebugFilters, exists := vmi.Annotations[v1.CustomLibvirtLogFiltersAnnotation]; exists {
+		return customDebugFilters
+	}
+	return ""
+}
+
+func (t *templateService) newVirtLauncherCommandRenderer(vmi *v1.VirtualMachineInstance, domainName string, gracePeriodSeconds int64, requestedHookSidecarList hooks.HookSidecarList) *VirtLauncherCommandRenderer {
+	var options []VirtLauncherCommandRendererOption
+	if util.IsNonRootVMI(vmi) {
+		options = append(options, WithNonRootUser())
+	}
+	if customDebugFilters := VMICustomDebugFilters(vmi); customDebugFilters != "" {
+		log.Log.Object(vmi).Infof("Applying custom debug filters for vmi %s: %s", vmi.Name, customDebugFilters)
+		options = append(options, WithLibvirtCustomDebugFilters(customDebugFilters))
+	}
+	return NewVirtLauncherCommandRenderer(
+		string(vmi.UID),
+		domainName,
+		int(gracePeriodSeconds),
+		len(requestedHookSidecarList),
+		vmi.GetNamespace(),
+		t.virtLauncherStaticConfig(),
+		append(options, t.launcherCommandRendererOptions(vmi)...)...,
+	)
+}
+
+func (t *templateService) virtLauncherStaticConfig() VirtLauncherStaticConfig {
+	return VirtLauncherStaticConfig{
+		containerDiskDir: t.containerDiskDir,
+		ephemeralDiskDir: t.ephemeralDiskDir,
+		launcherTimeout:  t.launcherQemuTimeout,
+		ovmfPath:         t.clusterConfig.GetOVMFPath(),
+		virtShareDir:     t.virtShareDir,
+	}
 }
 
 func (t *templateService) newNodeSelectorRenderer(vmi *v1.VirtualMachineInstance) *NodeSelectorRenderer {
@@ -1284,4 +1288,26 @@ func readinessGates() []k8sv1.PodReadinessGate {
 			ConditionType: v1.VirtualMachineUnpaused,
 		},
 	}
+}
+
+func (t *templateService) launcherCommandRendererOptions(vmi *v1.VirtualMachineInstance) []VirtLauncherCommandRendererOption {
+	var launcherCommandOptions []VirtLauncherCommandRendererOption
+	if t.clusterConfig.AllowEmulation() {
+		launcherCommandOptions = append(launcherCommandOptions, WithEmulation())
+	}
+
+	if checkForKeepLauncherAfterFailure(vmi) {
+		launcherCommandOptions = append(launcherCommandOptions, WithKeepAfterFailure())
+	}
+
+	if HasFailFastAnnotation(vmi) {
+		launcherCommandOptions = append(launcherCommandOptions, WithSimulatedCrash())
+	}
+
+	return launcherCommandOptions
+}
+
+func HasFailFastAnnotation(vmi *v1.VirtualMachineInstance) bool {
+	_, ok := vmi.Annotations[v1.FuncTestLauncherFailFastAnnotation]
+	return ok
 }
