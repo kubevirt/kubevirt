@@ -101,6 +101,7 @@ type VirtOperatorApp struct {
 	operatorCertManager certificate.Manager
 
 	clusterConfig *virtconfig.ClusterConfig
+	host          string
 }
 
 var (
@@ -135,6 +136,12 @@ func Execute() {
 	service.Setup(&app)
 
 	log.InitializeLogging(VirtOperator)
+
+	host, err := os.Hostname()
+	if err != nil {
+		golog.Fatalf("unable to get hostname: %v", err)
+	}
+	app.host = host
 
 	err = util.VerifyEnv()
 	if err != nil {
@@ -286,9 +293,13 @@ func Execute() {
 	}
 	log.Log.Infof("Operator image: %s", image)
 
-	app.clusterConfig = virtconfig.NewClusterConfig(app.informerFactory.CRD(),
+	app.clusterConfig = virtconfig.NewClusterConfig(
+		app.informerFactory.CRD(),
 		app.informerFactory.KubeVirt(),
-		app.operatorNamespace)
+		app.operatorNamespace,
+	)
+
+	app.clusterConfig.SetConfigModifiedCallback(app.shouldChangeLogVerbosity)
 
 	app.Run()
 }
@@ -438,4 +449,13 @@ func (app *VirtOperatorApp) prepareCertManagers() {
 			app.informers.Secrets.GetStore(),
 		),
 	)
+}
+
+func (app *VirtOperatorApp) shouldChangeLogVerbosity() {
+	verbosity := app.clusterConfig.GetVirtOperatorVerbosity(app.host)
+	if err := log.Log.SetVerbosityLevel(int(verbosity)); err != nil {
+		log.Log.Warningf("failed up update log verbosity to %d: %v", verbosity, err)
+	} else {
+		log.Log.V(2).Infof("set log verbosity to %d", verbosity)
+	}
 }
