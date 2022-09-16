@@ -42,7 +42,6 @@ import (
 	"kubevirt.io/kubevirt/pkg/network/vmispec"
 	"kubevirt.io/kubevirt/pkg/util/hardware"
 	"kubevirt.io/kubevirt/pkg/util/net/dns"
-	virtconfig "kubevirt.io/kubevirt/pkg/virt-config"
 	"kubevirt.io/kubevirt/pkg/virt-launcher/virtwrap/api"
 
 	"kubevirt.io/kubevirt/tests"
@@ -51,7 +50,6 @@ import (
 	"kubevirt.io/kubevirt/tests/libnet"
 	"kubevirt.io/kubevirt/tests/libnode"
 	"kubevirt.io/kubevirt/tests/libvmi"
-	"kubevirt.io/kubevirt/tests/testsuite"
 	"kubevirt.io/kubevirt/tests/util"
 )
 
@@ -97,21 +95,6 @@ var _ = Describe("[Serial]SRIOV", func() {
 				To(Succeed(), shouldCreateNetwork)
 		})
 
-		It("should block migration for SR-IOV VMI's when LiveMigration feature-gate is on but SRIOVLiveMigration is off", func() {
-			tests.EnableFeatureGate(virtconfig.LiveMigrationGate)
-			defer tests.UpdateKubeVirtConfigValueAndWait(testsuite.KubeVirtDefaultConfig)
-
-			vmi := newSRIOVVmi([]string{sriovnet1}, defaultCloudInitNetworkData())
-			vmi, err := createVMIAndWait(vmi)
-			Expect(err).ToNot(HaveOccurred())
-			DeferCleanup(deleteVMI, vmi)
-
-			vmim := tests.NewRandomMigration(vmi.Name, vmi.Namespace)
-			Eventually(func() error {
-				_, err := virtClient.VirtualMachineInstanceMigration(vmim.Namespace).Create(vmim, &k8smetav1.CreateOptions{})
-				return err
-			}, 1*time.Minute, 20*time.Second).ShouldNot(Succeed())
-		})
 		It("should have cloud-init meta_data with aligned cpus to sriov interface numa node for VMIs with dedicatedCPUs", func() {
 			checks.SkipTestIfNoCPUManager()
 			noCloudInitNetworkData := ""
