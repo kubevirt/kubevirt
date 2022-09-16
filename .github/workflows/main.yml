@@ -78,16 +78,6 @@ jobs:
         run: |
           export DOCKER_PREFIX_TAG=$(cat VERSION)-test
           export DOCKER_PREFIX=$DOCKER_USERNAME
-
-      - name: Create and push ecx-hook-sidecar manifest images
-        env:
-          DOCKER_USERNAME: ${{ secrets.DOCKER_USERNAME }}
-          DOCKER_PASSWORD: ${{ secrets.DOCKER_PASSWORD }}
-        uses: Noelware/docker-manifest-action@v0.1.0
-        with:
-          base-image: $DOCKER_USERNAME/ecx-hook-sidecar:$(cat VERSION)-test
-          extra-images: $DOCKER_USERNAME/ecx-hook-sidecar:$(cat VERSION)-test-amd64,$DOCKER_USERNAME/ecx-hook-sidecar:$(cat VERSION)-test-arm64
-          push: true
       - name: Create docker manifest
         run: docker manifest create $DOCKER_USERNAME/${{ matrix.docekr_image }}:$DOCKER_PREFIX_TAG-amd64 --amend  $DOCKER_USERNAME/${{ matrix.docekr_image }}:$DOCKER_PREFIX_TAG-arm64
       - name: Push the new manifest file
