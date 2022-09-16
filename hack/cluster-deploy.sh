@@ -21,7 +21,7 @@ set -ex pipefail
 
 DOCKER_TAG=${DOCKER_TAG:-devel}
 KUBEVIRT_DEPLOY_CDI=${KUBEVIRT_DEPLOY_CDI:-true}
-CDI_DV_GC=${CDI_DV_GC:-false}
+CDI_DV_GC=${CDI_DV_GC:-0}
 
 source hack/common.sh
 # shellcheck disable=SC1090
@@ -58,9 +58,7 @@ function _ensure_cdi_deployment() {
     _kubectl patch cdi ${cdi_namespace} --type merge -p '{"spec": {"config": {"uploadProxyURLOverride": "'"$override"'"}}}'
 
     # Enable succeeded DataVolume garbage collection
-    if [[ $CDI_DV_GC != "false" ]]; then
-        _kubectl patch cdi ${cdi_namespace} --type merge -p '{"spec": {"config": {"dataVolumeTTLSeconds": '"$CDI_DV_GC"'}}}'
-    fi
+    _kubectl patch cdi ${cdi_namespace} --type merge -p '{"spec": {"config": {"dataVolumeTTLSeconds": '"$CDI_DV_GC"'}}}'
 }
 
 function configure_prometheus() {
