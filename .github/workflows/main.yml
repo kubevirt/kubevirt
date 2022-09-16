@@ -68,17 +68,15 @@ jobs:
         docekr_image: [ecx-hook-sidecar, example-hook-sidecar, example-cloudinit-hook-sidecar, subresource-access-test,alpine-container-disk-demo,cirros-container-disk-demo,cirros-custom-container-disk-demo,microlivecd-container-disk-demo,virtio-container-disk,alpine-ext-kernel-boot-demo,fedora-with-test-tooling-container-disk,fedora-realtime-container-disk,disks-images-provider,nfs-server,vm-killer,winrmcli,virt-api,virt-controller,virt-handler,virt-launcher,virt-operator]
     steps:
       - name: Login to DockerHub
-        uses: docker/login-action@v1
+        uses: docker/login-action@v2
         with:
           username: ${{ secrets.DOCKER_USERNAME }}
           password: ${{ secrets.DOCKER_PASSWORD }}
-      - name: set env
+      - name: Create docker manifest and Push the new manifest file
         env:
           DOCKER_USERNAME: ${{ secrets.DOCKER_USERNAME }}
         run: |
           export DOCKER_PREFIX_TAG=$(cat VERSION)-test
           export DOCKER_PREFIX=$DOCKER_USERNAME
-      - name: Create docker manifest
-        run: docker manifest create $DOCKER_USERNAME/${{ matrix.docekr_image }}:$DOCKER_PREFIX_TAG-amd64 --amend  $DOCKER_USERNAME/${{ matrix.docekr_image }}:$DOCKER_PREFIX_TAG-arm64
-      - name: Push the new manifest file
-        run: docker manifest push $DOCKER_USERNAME/${{ matrix.docekr_image }}:$DOCKER_PREFIX_TAG
+          docker manifest create $DOCKER_USERNAME/${{ matrix.docekr_image }}:$DOCKER_PREFIX_TAG-amd64 --amend  $DOCKER_USERNAME/${{ matrix.docekr_image }}:$DOCKER_PREFIX_TAG-arm64
+          docker manifest push $DOCKER_USERNAME/${{ matrix.docekr_image }}:$DOCKER_PREFIX_TAG
