@@ -184,6 +184,39 @@ func WithCPUFeature(featureName, policy string) Option {
 	}
 }
 
+func WithPasstInterfaceWithPort() Option {
+	return WithInterface(InterfaceDeviceWithPasstBinding([]v1.Port{{Port: 1234, Protocol: "TCP"}}...))
+}
+
+func WithNodeAffinityFor(node *k8sv1.Node) Option {
+	return func(vmi *v1.VirtualMachineInstance) {
+		nodeSelectorTerm := k8sv1.NodeSelectorTerm{
+			MatchExpressions: []k8sv1.NodeSelectorRequirement{
+				{Key: "kubernetes.io/hostname", Operator: k8sv1.NodeSelectorOpIn, Values: []string{node.Name}},
+			},
+		}
+
+		if vmi.Spec.Affinity == nil {
+			vmi.Spec.Affinity = &k8sv1.Affinity{}
+		}
+
+		if vmi.Spec.Affinity.NodeAffinity == nil {
+			vmi.Spec.Affinity.NodeAffinity = &k8sv1.NodeAffinity{}
+		}
+
+		if vmi.Spec.Affinity.NodeAffinity.RequiredDuringSchedulingIgnoredDuringExecution == nil {
+			vmi.Spec.Affinity.NodeAffinity.RequiredDuringSchedulingIgnoredDuringExecution = &k8sv1.NodeSelector{}
+		}
+
+		if vmi.Spec.Affinity.NodeAffinity.RequiredDuringSchedulingIgnoredDuringExecution.NodeSelectorTerms == nil {
+			vmi.Spec.Affinity.NodeAffinity.RequiredDuringSchedulingIgnoredDuringExecution.NodeSelectorTerms = []k8sv1.NodeSelectorTerm{}
+		}
+
+		vmi.Spec.Affinity.NodeAffinity.RequiredDuringSchedulingIgnoredDuringExecution.NodeSelectorTerms =
+			append(vmi.Spec.Affinity.NodeAffinity.RequiredDuringSchedulingIgnoredDuringExecution.NodeSelectorTerms, nodeSelectorTerm)
+	}
+}
+
 func baseVmi(name string) *v1.VirtualMachineInstance {
 	vmi := v1.NewVMIReferenceFromNameWithNS("", name)
 	vmi.Spec = v1.VirtualMachineInstanceSpec{Domain: v1.DomainSpec{}}
