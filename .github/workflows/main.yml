@@ -28,8 +28,9 @@ jobs:
           DOCKER_PASSWORD: ${{ secrets.DOCKER_PASSWORD }}
         run: |
           echo "$DOCKER_PASSWORD" | docker login -u "$DOCKER_USERNAME" --password-stdin
-          export DOCKER_TAG=$(cat VERSION)-test
+          export DOCKER_TAG=$(cat VERSION)-test-amd64
           export DOCKER_PREFIX=$DOCKER_USERNAME
+          export BUILD_ARCH=x86_64
           make bazel-build
           make bazel-build-images
           make bazel-push-images
@@ -52,9 +53,208 @@ jobs:
           DOCKER_PASSWORD: ${{ secrets.DOCKER_PASSWORD }}
         run: |
           echo "$DOCKER_PASSWORD" | docker login -u "$DOCKER_USERNAME" --password-stdin
-          export DOCKER_TAG=$(cat VERSION)-test
+          export DOCKER_TAG=$(cat VERSION)-test-arm64
           export DOCKER_PREFIX=$DOCKER_USERNAME
           export BUILD_ARCH=aarch64
           make bazel-build
           make bazel-build-images
           make bazel-push-images
+  push_manifest_list:
+    runs-on: ubuntu-18.04
+    name: push manifest list
+    needs: [ build_x86, build_arm]
+    steps:
+      - name: Login to DockerHub
+        uses: docker/login-action@v1
+        with:
+          username: ${{ secrets.DOCKER_USERNAME }}
+          password: ${{ secrets.DOCKER_PASSWORD }}
+      - name: Create and push ecx-hook-sidecar manifest images
+        env:
+          DOCKER_USERNAME: ${{ secrets.DOCKER_USERNAME }}
+          DOCKER_PASSWORD: ${{ secrets.DOCKER_PASSWORD }}
+        uses: Noelware/docker-manifest-action@v0.1.0
+        with:
+          base-image: $DOCKER_USERNAME/ecx-hook-sidecar:$(cat VERSION)-test
+          extra-images: $DOCKER_USERNAME/ecx-hook-sidecar:$(cat VERSION)-test-amd64,$DOCKER_USERNAME/ecx-hook-sidecar:$(cat VERSION)-test-arm64
+          push: true
+      - name: Create and push example-hook-sidecar manifest images
+        env:
+          DOCKER_USERNAME: ${{ secrets.DOCKER_USERNAME }}
+          DOCKER_PASSWORD: ${{ secrets.DOCKER_PASSWORD }}
+        uses: Noelware/docker-manifest-action@v0.1.0
+        with:
+          base-image: $DOCKER_USERNAME/example-hook-sidecar:$(cat VERSION)-test
+          extra-images: $DOCKER_USERNAME/example-hook-sidecar:$(cat VERSION)-test-amd64,$DOCKER_USERNAME/example-hook-sidecar:$(cat VERSION)-test-arm64
+          push: true
+      - name: Create and push example-cloudinit-hook-sidecar manifest images
+        env:
+          DOCKER_USERNAME: ${{ secrets.DOCKER_USERNAME }}
+          DOCKER_PASSWORD: ${{ secrets.DOCKER_PASSWORD }}
+        uses: Noelware/docker-manifest-action@v0.1.0
+        with:
+          base-image: $DOCKER_USERNAME/example-cloudinit-hook-sidecar:$(cat VERSION)-test
+          extra-images: $DOCKER_USERNAME/example-cloudinit-hook-sidecar:$(cat VERSION)-test-amd64,$DOCKER_USERNAME/example-cloudinit-hook-sidecar:$(cat VERSION)-test-arm64
+          push: true
+      - name: Create and push subresource-access-test manifest images
+        env:
+          DOCKER_USERNAME: ${{ secrets.DOCKER_USERNAME }}
+          DOCKER_PASSWORD: ${{ secrets.DOCKER_PASSWORD }}
+        uses: Noelware/docker-manifest-action@v0.1.0
+        with:
+          base-image: $DOCKER_USERNAME/subresource-access-test:$(cat VERSION)-test
+          extra-images: $DOCKER_USERNAME/subresource-access-test:$(cat VERSION)-test-amd64,$DOCKER_USERNAME/subresource-access-test:$(cat VERSION)-test-arm64
+          push: true
+      - name: Create and push alpine-container-disk-demo manifest images
+        env:
+          DOCKER_USERNAME: ${{ secrets.DOCKER_USERNAME }}
+          DOCKER_PASSWORD: ${{ secrets.DOCKER_PASSWORD }}
+        uses: Noelware/docker-manifest-action@v0.1.0
+        with:
+          base-image: $DOCKER_USERNAME/alpine-container-disk-demo:$(cat VERSION)-test
+          extra-images: $DOCKER_USERNAME/alpine-container-disk-demo:$(cat VERSION)-test-amd64,$DOCKER_USERNAME/alpine-container-disk-demo:$(cat VERSION)-test-arm64
+          push: true
+      - name: Create and push cirros-container-disk-demo manifest images
+        env:
+          DOCKER_USERNAME: ${{ secrets.DOCKER_USERNAME }}
+          DOCKER_PASSWORD: ${{ secrets.DOCKER_PASSWORD }}
+        uses: Noelware/docker-manifest-action@v0.1.0
+        with:
+          base-image: $DOCKER_USERNAME/cirros-container-disk-demo:$(cat VERSION)-test
+          extra-images: $DOCKER_USERNAME/cirros-container-disk-demo:$(cat VERSION)-test-amd64,$DOCKER_USERNAME/cirros-container-disk-demo:$(cat VERSION)-test-arm64
+          push: true
+      - name: Create and push cirros-custom-container-disk-demo manifest images
+        env:
+          DOCKER_USERNAME: ${{ secrets.DOCKER_USERNAME }}
+          DOCKER_PASSWORD: ${{ secrets.DOCKER_PASSWORD }}
+        uses: Noelware/docker-manifest-action@v0.1.0
+        with:
+          base-image: $DOCKER_USERNAME/cirros-custom-container-disk-demo:$(cat VERSION)-test
+          extra-images: $DOCKER_USERNAME/cirros-custom-container-disk-demo:$(cat VERSION)-test-amd64,$DOCKER_USERNAME/cirros-custom-container-disk-demo:$(cat VERSION)-test-arm64
+          push: true
+      - name: Create and push microlivecd-container-disk-demo manifest images
+        env:
+          DOCKER_USERNAME: ${{ secrets.DOCKER_USERNAME }}
+          DOCKER_PASSWORD: ${{ secrets.DOCKER_PASSWORD }}
+        uses: Noelware/docker-manifest-action@v0.1.0
+        with:
+          base-image: $DOCKER_USERNAME/microlivecd-container-disk-demo:$(cat VERSION)-test
+          extra-images: $DOCKER_USERNAME/microlivecd-container-disk-demo:$(cat VERSION)-test-amd64,$DOCKER_USERNAME/microlivecd-container-disk-demo:$(cat VERSION)-test-arm64
+          push: true
+      - name: Create and push virtio-container-disk manifest images
+        env:
+          DOCKER_USERNAME: ${{ secrets.DOCKER_USERNAME }}
+          DOCKER_PASSWORD: ${{ secrets.DOCKER_PASSWORD }}
+        uses: Noelware/docker-manifest-action@v0.1.0
+        with:
+          base-image: $DOCKER_USERNAME/virtio-container-disk:$(cat VERSION)-test
+          extra-images: $DOCKER_USERNAME/virtio-container-disk:$(cat VERSION)-test-amd64,$DOCKER_USERNAME/virtio-container-disk:$(cat VERSION)-test-arm64
+          push: true
+      - name: Create and push alpine-ext-kernel-boot-demo manifest images
+        env:
+          DOCKER_USERNAME: ${{ secrets.DOCKER_USERNAME }}
+          DOCKER_PASSWORD: ${{ secrets.DOCKER_PASSWORD }}
+        uses: Noelware/docker-manifest-action@v0.1.0
+        with:
+          base-image: $DOCKER_USERNAME/alpine-ext-kernel-boot-demo:$(cat VERSION)-test
+          extra-images: $DOCKER_USERNAME/alpine-ext-kernel-boot-demo:$(cat VERSION)-test-amd64,$DOCKER_USERNAME/alpine-ext-kernel-boot-demo:$(cat VERSION)-test-arm64
+          push: true
+      - name: Create and push fedora-with-test-tooling-container-disk manifest images
+        env:
+          DOCKER_USERNAME: ${{ secrets.DOCKER_USERNAME }}
+          DOCKER_PASSWORD: ${{ secrets.DOCKER_PASSWORD }}
+        uses: Noelware/docker-manifest-action@v0.1.0
+        with:
+          base-image: $DOCKER_USERNAME/fedora-with-test-tooling-container-disk:$(cat VERSION)-test
+          extra-images: $DOCKER_USERNAME/fedora-with-test-tooling-container-disk:$(cat VERSION)-test-amd64,$DOCKER_USERNAME/fedora-with-test-tooling-container-disk:$(cat VERSION)-test-arm64
+          push: true
+      - name: Create and push fedora-realtime-container-disk manifest images
+        env:
+          DOCKER_USERNAME: ${{ secrets.DOCKER_USERNAME }}
+          DOCKER_PASSWORD: ${{ secrets.DOCKER_PASSWORD }}
+        uses: Noelware/docker-manifest-action@v0.1.0
+        with:
+          base-image: $DOCKER_USERNAME/fedora-realtime-container-disk:$(cat VERSION)-test
+          extra-images: $DOCKER_USERNAME/efedora-realtime-container-disk:$(cat VERSION)-test-amd64,$DOCKER_USERNAME/fedora-realtime-container-disk:$(cat VERSION)-test-arm64
+          push: true
+      - name: Create and push disks-images-provider manifest images
+        env:
+          DOCKER_USERNAME: ${{ secrets.DOCKER_USERNAME }}
+          DOCKER_PASSWORD: ${{ secrets.DOCKER_PASSWORD }}
+        uses: Noelware/docker-manifest-action@v0.1.0
+        with:
+          base-image: $DOCKER_USERNAME/disks-images-provider:$(cat VERSION)-test
+          extra-images: $DOCKER_USERNAME/disks-images-provider:$(cat VERSION)-test-amd64,$DOCKER_USERNAME/disks-images-provider:$(cat VERSION)-test-arm64
+          push: true
+      - name: Create and push nfs-server manifest images
+        env:
+          DOCKER_USERNAME: ${{ secrets.DOCKER_USERNAME }}
+          DOCKER_PASSWORD: ${{ secrets.DOCKER_PASSWORD }}
+        uses: Noelware/docker-manifest-action@v0.1.0
+        with:
+          base-image: $DOCKER_USERNAME/nfs-server:$(cat VERSION)-test
+          extra-images: $DOCKER_USERNAME/nfs-server:$(cat VERSION)-test-amd64,$DOCKER_USERNAME/nfs-server:$(cat VERSION)-test-arm64
+          push: true
+      - name: Create and push vm-killer manifest images
+        env:
+          DOCKER_USERNAME: ${{ secrets.DOCKER_USERNAME }}
+          DOCKER_PASSWORD: ${{ secrets.DOCKER_PASSWORD }}
+        uses: Noelware/docker-manifest-action@v0.1.0
+        with:
+          base-image: $DOCKER_USERNAME/vm-killer:$(cat VERSION)-test
+          extra-images: $DOCKER_USERNAME/vm-killer:$(cat VERSION)-test-amd64,$DOCKER_USERNAME/vm-killer:$(cat VERSION)-test-arm64
+          push: true
+      - name: Create and push winrmcli manifest images
+        env:
+          DOCKER_USERNAME: ${{ secrets.DOCKER_USERNAME }}
+          DOCKER_PASSWORD: ${{ secrets.DOCKER_PASSWORD }}
+        uses: Noelware/docker-manifest-action@v0.1.0
+        with:
+          base-image: $DOCKER_USERNAME/winrmcli:$(cat VERSION)-test
+          extra-images: $DOCKER_USERNAME/winrmcli:$(cat VERSION)-test-amd64,$DOCKER_USERNAME/winrmcli:$(cat VERSION)-test-arm64
+          push: true
+      - name: Create and push virt-api manifest images
+        env:
+          DOCKER_USERNAME: ${{ secrets.DOCKER_USERNAME }}
+          DOCKER_PASSWORD: ${{ secrets.DOCKER_PASSWORD }}
+        uses: Noelware/docker-manifest-action@v0.1.0
+        with:
+          base-image: $DOCKER_USERNAME/virt-api:$(cat VERSION)-test
+          extra-images: $DOCKER_USERNAME/virt-api:$(cat VERSION)-test-amd64,$DOCKER_USERNAME/virt-api:$(cat VERSION)-test-arm64
+          push: true
+      - name: Create and push virt-controller manifest images
+        env:
+          DOCKER_USERNAME: ${{ secrets.DOCKER_USERNAME }}
+          DOCKER_PASSWORD: ${{ secrets.DOCKER_PASSWORD }}
+        uses: Noelware/docker-manifest-action@v0.1.0
+        with:
+          base-image: $DOCKER_USERNAME/virt-controller:$(cat VERSION)-test
+          extra-images: $DOCKER_USERNAME/virt-controller:$(cat VERSION)-test-amd64,$DOCKER_USERNAME/virt-controller:$(cat VERSION)-test-arm64
+          push: true
+      - name: Create and push virt-handler manifest images
+        env:
+          DOCKER_USERNAME: ${{ secrets.DOCKER_USERNAME }}
+          DOCKER_PASSWORD: ${{ secrets.DOCKER_PASSWORD }}
+        uses: Noelware/docker-manifest-action@v0.1.0
+        with:
+          base-image: $DOCKER_USERNAME/virt-handler:$(cat VERSION)-test
+          extra-images: $DOCKER_USERNAME/virt-handler:$(cat VERSION)-test-amd64,$DOCKER_USERNAME/virt-handler:$(cat VERSION)-test-arm64
+          push: true
+      - name: Create and push virt-launcher manifest images
+        env:
+          DOCKER_USERNAME: ${{ secrets.DOCKER_USERNAME }}
+          DOCKER_PASSWORD: ${{ secrets.DOCKER_PASSWORD }}
+        uses: Noelware/docker-manifest-action@v0.1.0
+        with:
+          base-image: $DOCKER_USERNAME/virt-launcher:$(cat VERSION)-test
+          extra-images: $DOCKER_USERNAME/virt-launcher:$(cat VERSION)-test-amd64,$DOCKER_USERNAME/virt-launcher:$(cat VERSION)-test-arm64
+          push: true
+      - name: Create and push virt-operator manifest images
+        env:
+          DOCKER_USERNAME: ${{ secrets.DOCKER_USERNAME }}
+          DOCKER_PASSWORD: ${{ secrets.DOCKER_PASSWORD }}
+        uses: Noelware/docker-manifest-action@v0.1.0
+        with:
+          base-image: $DOCKER_USERNAME/virt-operator:$(cat VERSION)-test
+          extra-images: $DOCKER_USERNAME/virt-operator:$(cat VERSION)-test-amd64,$DOCKER_USERNAME/virt-operator:$(cat VERSION)-test-arm64
+          push: true
