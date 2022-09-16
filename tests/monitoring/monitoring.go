@@ -28,9 +28,14 @@ import (
 	"strings"
 	"time"
 
+	"kubevirt.io/kubevirt/tests/framework/matcher"
+
+	k8sv1 "k8s.io/api/core/v1"
 	rbacv1 "k8s.io/api/rbac/v1"
 	"k8s.io/apimachinery/pkg/api/errors"
 	"k8s.io/apimachinery/pkg/util/rand"
+
+	"kubevirt.io/kubevirt/tests/libnode"
 
 	"kubevirt.io/kubevirt/tests/clientcmd"
 
@@ -178,9 +183,9 @@ var _ = Describe("[Serial][sig-monitoring]Prometheus Alerts", func() {
 		tests.UpdateKubeVirtConfigValueAndWait(originalKubeVirt.Spec.Configuration)
 	}
 
-	waitForMetricValue := func(client kubecli.KubevirtClient, metric string, expectedValue int64) {
+	waitForMetricValueWithLabels := func(client kubecli.KubevirtClient, metric string, expectedValue int64, labels map[string]string) {
 		Eventually(func() int {
-			v, err := getMetricValue(client, metric)
+			v, err := getMetricValueWithLabels(client, metric, labels)
 			if err != nil {
 				return -1
 			}
@@ -188,6 +193,10 @@ var _ = Describe("[Serial][sig-monitoring]Prometheus Alerts", func() {
 			Expect(err).ToNot(HaveOccurred())
 			return i
 		}, 3*time.Minute, 1*time.Second).Should(BeNumerically("==", expectedValue))
+	}
+
+	waitForMetricValue := func(client kubecli.KubevirtClient, metric string, expectedValue int64) {
+		waitForMetricValueWithLabels(client, metric, expectedValue, nil)
 	}
 
 	updatePromRules := func(newRules *promv1.PrometheusRule) {
@@ -285,6 +294,71 @@ var _ = Describe("[Serial][sig-monitoring]Prometheus Alerts", func() {
 					}
 				}
 			}
+		})
+	})
+
+	Context("VM migration metrics", func() {
+		var nodes *k8sv1.NodeList
+
+		BeforeEach(func() {
+			checks.SkipIfMigrationIsNotPossible()
+
+			Eventually(func() []k8sv1.Node {
+				nodes = libnode.GetAllSchedulableNodes(virtClient)
+				return nodes.Items
+			}, 60*time.Second, 1*time.Second).ShouldNot(BeEmpty(), "There should be some compute node")
+		})
+
+		It("Should correctly update metrics on successful VMIM", func() {
+			By("Creating VMIs")
+			vmi := tests.NewRandomFedoraVMIWithGuestAgent()
+			vmi = tests.RunVMIAndExpectLaunch(vmi, 240)
+
+			By("Migrating VMIs")
+			migration := tests.NewRandomMigration(vmi.Name, vmi.Namespace)
+			tests.RunMigrationAndExpectCompletion(virtClient, migration, tests.MigrationWaitTime)
+
+			waitForMetricValue(virtClient, "kubevirt_migrate_vmi_pending_count", 0)
+			waitForMetricValue(virtClient, "kubevirt_migrate_vmi_scheduling_count", 0)
+			waitForMetricValue(virtClient, "kubevirt_migrate_vmi_running_count", 0)
+
+			labels := map[string]string{
+				"vmi": vmi.Name,
+			}
+			waitForMetricValueWithLabels(virtClient, "kubevirt_migrate_vmi_succeeded_total", 1, labels)
+
+			By("Delete VMIs")
+			Expect(virtClient.VirtualMachineInstance(vmi.Namespace).Delete(vmi.Name, &metav1.DeleteOptions{})).To(Succeed())
+			tests.WaitForVirtualMachineToDisappearWithTimeout(vmi, 240)
+		})
+
+		It("Should correctly update metrics on failing VMIM", func() {
+			By("Creating VMIs")
+			vmi := libvmi.NewFedora(
+				libvmi.WithInterface(libvmi.InterfaceDeviceWithMasqueradeBinding()),
+				libvmi.WithNetwork(v1.DefaultPodNetwork()),
+				libvmi.WithNodeAffinityFor(&nodes.Items[0]),
+			)
+			vmi = tests.RunVMIAndExpectLaunch(vmi, 240)
+			labels := map[string]string{
+				"vmi": vmi.Name,
+			}
+
+			By("Starting the Migration")
+			migration := tests.NewRandomMigration(vmi.Name, vmi.Namespace)
+			migration.Annotations = map[string]string{v1.MigrationUnschedulablePodTimeoutSecondsAnnotation: "60"}
+			migration = tests.RunMigration(virtClient, migration)
+
+			waitForMetricValue(virtClient, "kubevirt_migrate_vmi_scheduling_count", 1)
+
+			Eventually(matcher.ThisMigration(migration), 2*time.Minute, 5*time.Second).Should(matcher.BeInPhase(v1.MigrationFailed), "migration creation should fail")
+
+			waitForMetricValue(virtClient, "kubevirt_migrate_vmi_scheduling_count", 0)
+			waitForMetricValueWithLabels(virtClient, "kubevirt_migrate_vmi_failed_total", 1, labels)
+
+			By("Deleting the VMI")
+			Expect(virtClient.VirtualMachineInstance(vmi.Namespace).Delete(vmi.Name, &metav1.DeleteOptions{})).To(Succeed())
+			tests.WaitForVirtualMachineToDisappearWithTimeout(vmi, 240)
 		})
 	})
 
@@ -388,8 +462,10 @@ var _ = Describe("[Serial][sig-monitoring]Prometheus Alerts", func() {
 			revertScale(virtOperator.deploymentName)
 
 			time.Sleep(10 * time.Second)
-			waitUntilAlertDoesNotExist("VirtOperatorDown")
-			waitUntilAlertDoesNotExist("NoReadyVirtOperator")
+			waitUntilAlertDoesNotExist(virtOperator.downAlert)
+			waitUntilAlertDoesNotExist(virtApi.downAlert)
+			waitUntilAlertDoesNotExist(virtController.downAlert)
+			waitUntilAlertDoesNotExist(virtHandler.downAlert)
 		})
 
 		It("VirtOperatorDown and NoReadyVirtOperator should be triggered when virt-operator is down", func() {
@@ -449,8 +525,10 @@ var _ = Describe("[Serial][sig-monitoring]Prometheus Alerts", func() {
 			revertScale(virtOperator.deploymentName)
 
 			time.Sleep(10 * time.Second)
-			waitUntilAlertDoesNotExist("VirtOperatorDown")
-			waitUntilAlertDoesNotExist("NoReadyVirtOperator")
+			waitUntilAlertDoesNotExist(virtOperator.downAlert)
+			waitUntilAlertDoesNotExist(virtApi.downAlert)
+			waitUntilAlertDoesNotExist(virtController.downAlert)
+			waitUntilAlertDoesNotExist(virtHandler.downAlert)
 		})
 
 		It("VirtApiRESTErrorsBurst should be triggered when requests to virt-api are failing", func() {
@@ -538,7 +616,7 @@ var _ = Describe("[Serial][sig-monitoring]Prometheus Alerts", func() {
 			By("Starting the VirtualMachineInstance")
 			opts := append(libvmi.WithMasqueradeNetworking(), libvmi.WithResourceMemory("2Mi"))
 			vmi := libvmi.New(opts...)
-			vmi = tests.RunVMIAndExpectLaunch(vmi, 90)
+			vmi = tests.RunVMIAndExpectLaunch(vmi, 240)
 
 			By("Migrating the VMI 13 times")
 			for i := 0; i < 13; i++ {
@@ -549,15 +627,15 @@ var _ = Describe("[Serial][sig-monitoring]Prometheus Alerts", func() {
 				tests.ConfirmVMIPostMigration(virtClient, vmi, migrationUID)
 			}
 
+			By("Verifying KubeVirtVMIExcessiveMigration alert exists")
+			verifyAlertExist("KubeVirtVMIExcessiveMigrations")
+
 			// delete VMI
 			By("Deleting the VMI")
 			Expect(virtClient.VirtualMachineInstance(vmi.Namespace).Delete(vmi.Name, &metav1.DeleteOptions{})).To(Succeed())
 
 			By("Waiting for VMI to disappear")
 			tests.WaitForVirtualMachineToDisappearWithTimeout(vmi, 240)
-
-			By("Verifying KubeVirtVMIExcessiveMigration alert exists")
-			verifyAlertExist("KubeVirtVMIExcessiveMigrations")
 		})
 	})
 })
