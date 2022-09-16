@@ -60,6 +60,8 @@ const (
 	vmSnapshotDeadlineExceededError = "snapshot deadline exceeded"
 
 	snapshotRetryInterval = 5 * time.Second
+
+	contentDeletionInterval = 5 * time.Second
 )
 
 func VmSnapshotReady(vmSnapshot *snapshotv1.VirtualMachineSnapshot) bool {
@@ -71,7 +73,7 @@ func vmSnapshotContentReady(vmSnapshotContent *snapshotv1.VirtualMachineSnapshot
 }
 
 func vmSnapshotError(vmSnapshot *snapshotv1.VirtualMachineSnapshot) *snapshotv1.Error {
-	if vmSnapshot.Status != nil && vmSnapshot.Status.Error != nil {
+	if vmSnapshot != nil && vmSnapshot.Status != nil && vmSnapshot.Status.Error != nil {
 		return vmSnapshot.Status.Error
 	}
 	return nil
@@ -90,9 +92,35 @@ func vmSnapshotProgressing(vmSnapshot *snapshotv1.VirtualMachineSnapshot) bool {
 		!vmSnapshotFailed(vmSnapshot) && !vmSnapshotSucceeded(vmSnapshot)
 }
 
-func shouldDeleteContent(vmSnapshot *snapshotv1.VirtualMachineSnapshot) bool {
+func deleteContentPolicy(vmSnapshot *snapshotv1.VirtualMachineSnapshot) bool {
 	return vmSnapshot.Spec.DeletionPolicy == nil ||
 		*vmSnapshot.Spec.DeletionPolicy == snapshotv1.VirtualMachineSnapshotContentDelete
+}
+
+func shouldDeleteContent(vmSnapshot *snapshotv1.VirtualMachineSnapshot, content *snapshotv1.VirtualMachineSnapshotContent) bool {
+	return deleteContentPolicy(vmSnapshot) || !vmSnapshotContentReady(content)
+}
+
+func vmSnapshotContentDeleting(content *snapshotv1.VirtualMachineSnapshotContent) bool {
+	return content != nil && content.DeletionTimestamp != nil
+}
+
+func vmSnapshotDeleting(vmSnapshot *snapshotv1.VirtualMachineSnapshot) bool {
+	return vmSnapshot != nil && vmSnapshot.DeletionTimestamp != nil
+}
+
+func vmSnapshotTerminating(vmSnapshot *snapshotv1.VirtualMachineSnapshot) bool {
+	return vmSnapshotDeleting(vmSnapshot) || vmSnapshotDeadlineExceeded(vmSnapshot)
+}
+
+func contentDeletedIfNeeded(vmSnapshot *snapshotv1.VirtualMachineSnapshot, content *snapshotv1.VirtualMachineSnapshotContent) bool {
+	return content == nil || !shouldDeleteContent(vmSnapshot, content)
+}
+
+// can unlock source either if the snapshot was completed or if snapshot deleted/exceeded deadline and the content is deleted if it should be
+func canUnlockSource(vmSnapshot *snapshotv1.VirtualMachineSnapshot, content *snapshotv1.VirtualMachineSnapshotContent) bool {
+	return !vmSnapshotProgressing(vmSnapshot) ||
+		(vmSnapshotTerminating(vmSnapshot) && contentDeletedIfNeeded(vmSnapshot, content))
 }
 
 func vmSnapshotDeadlineExceeded(vmSnapshot *snapshotv1.VirtualMachineSnapshot) bool {
@@ -141,7 +169,7 @@ func (ctrl *VMSnapshotController) updateVMSnapshot(vmSnapshot *snapshotv1.Virtua
 	// Make sure status is initialized before doing anything
 	if vmSnapshot.Status != nil {
 		if source != nil {
-			if vmSnapshotProgressing(vmSnapshot) && vmSnapshot.DeletionTimestamp == nil && !vmSnapshotDeadlineExceeded(vmSnapshot) {
+			if vmSnapshotProgressing(vmSnapshot) && !vmSnapshotTerminating(vmSnapshot) {
 				// attempt to lock source
 				// if fails will attempt again when source is updated
 				if !source.Locked() {
@@ -161,11 +189,7 @@ func (ctrl *VMSnapshotController) updateVMSnapshot(vmSnapshot *snapshotv1.Virtua
 						}
 					}
 				}
-			} else {
-				if err := source.Unfreeze(); err != nil {
-					return 0, err
-				}
-
+			} else if canUnlockSource(vmSnapshot, content) {
 				if _, err := source.Unlock(); err != nil {
 					return 0, err
 				}
@@ -173,18 +197,11 @@ func (ctrl *VMSnapshotController) updateVMSnapshot(vmSnapshot *snapshotv1.Virtua
 		}
 	}
 
-	if (vmSnapshot.DeletionTimestamp != nil || vmSnapshotDeadlineExceeded(vmSnapshot)) && content != nil {
-		if controller.HasFinalizer(content, vmSnapshotContentFinalizer) {
-			cpy := content.DeepCopy()
-			controller.RemoveFinalizer(cpy, vmSnapshotContentFinalizer)
-
-			_, err := ctrl.Client.VirtualMachineSnapshotContent(cpy.Namespace).Update(context.Background(), cpy, metav1.UpdateOptions{})
-			if err != nil {
-				return 0, err
-			}
-		}
-
-		if shouldDeleteContent(vmSnapshot) {
+	if vmSnapshotTerminating(vmSnapshot) && content != nil {
+		// Delete content if that's the policy or if the snapshot
+		// is marked to be deleted and the content is not ready yet
+		// - no point of keeping an unready content
+		if shouldDeleteContent(vmSnapshot, content) {
 			log.Log.V(2).Infof("Deleting vmsnapshotcontent %s/%s", content.Namespace, content.Name)
 
 			err = ctrl.Client.VirtualMachineSnapshotContent(vmSnapshot.Namespace).Delete(context.Background(), content.Name, metav1.DeleteOptions{})
@@ -207,6 +224,37 @@ func (ctrl *VMSnapshotController) updateVMSnapshot(vmSnapshot *snapshotv1.Virtua
 	return retry, nil
 }
 
+func (ctrl *VMSnapshotController) unfreezeSource(vmSnapshot *snapshotv1.VirtualMachineSnapshot) error {
+	if vmSnapshot == nil {
+		return nil
+	}
+	source, err := ctrl.getSnapshotSource(vmSnapshot)
+	if err != nil {
+		return err
+	}
+
+	if source != nil {
+		if err := source.Unfreeze(); err != nil {
+			return err
+		}
+	}
+	return nil
+}
+
+func (ctrl *VMSnapshotController) removeContentFinalizer(content *snapshotv1.VirtualMachineSnapshotContent) error {
+	if controller.HasFinalizer(content, vmSnapshotContentFinalizer) {
+		cpy := content.DeepCopy()
+		controller.RemoveFinalizer(cpy, vmSnapshotContentFinalizer)
+
+		_, err := ctrl.Client.VirtualMachineSnapshotContent(cpy.Namespace).Update(context.Background(), cpy, metav1.UpdateOptions{})
+		if err != nil {
+			return err
+		}
+	}
+
+	return nil
+}
+
 func (ctrl *VMSnapshotController) updateVMSnapshotContent(content *snapshotv1.VirtualMachineSnapshotContent) (time.Duration, error) {
 	log.Log.V(3).Infof("Updating VirtualMachineSnapshotContent %s/%s", content.Namespace, content.Name)
 
@@ -215,11 +263,29 @@ func (ctrl *VMSnapshotController) updateVMSnapshotContent(content *snapshotv1.Vi
 	var didFreeze bool
 
 	vmSnapshot, err := ctrl.getVMSnapshot(content)
-	if err != nil || vmSnapshot == nil {
+	if err != nil {
 		return 0, err
 	}
-	if vmSnapshotDeadlineExceeded(vmSnapshot) || (vmSnapshot.DeletionTimestamp != nil && shouldDeleteContent(vmSnapshot)) {
-		return 0, nil
+
+	if vmSnapshot == nil || vmSnapshotTerminating(vmSnapshot) {
+		err = ctrl.unfreezeSource(vmSnapshot)
+		if err != nil {
+			return 0, err
+		}
+		err = ctrl.removeContentFinalizer(content)
+		if err != nil {
+			return 0, err
+		}
+
+		if vmSnapshot != nil && shouldDeleteContent(vmSnapshot, content) {
+			return 0, nil
+		}
+	}
+
+	if vmSnapshotContentDeleting(content) {
+		log.Log.V(3).Infof("Content deleting %s/%s", content.Namespace, content.Name)
+		return contentDeletionInterval, nil
+
 	}
 
 	currentlyReady := vmSnapshotContentReady(content)
@@ -252,7 +318,7 @@ func (ctrl *VMSnapshotController) updateVMSnapshotContent(content *snapshotv1.Vi
 				continue
 			}
 
-			if vmSnapshot.DeletionTimestamp != nil {
+			if vmSnapshot == nil || vmSnapshotDeleting(vmSnapshot) {
 				log.Log.V(3).Infof("Not creating snapshot %s because vm snapshot is deleted", vsName)
 				skippedSnapshots = append(skippedSnapshots, vsName)
 				continue
@@ -326,7 +392,7 @@ func (ctrl *VMSnapshotController) updateVMSnapshotContent(content *snapshotv1.Vi
 		errorMessage = fmt.Sprintf("VolumeSnapshots (%s) missing", strings.Join(deletedSnapshots, ","))
 	} else if len(skippedSnapshots) > 0 {
 		ready = false
-		if vmSnapshot.DeletionTimestamp != nil {
+		if vmSnapshot == nil || vmSnapshotDeleting(vmSnapshot) {
 			errorMessage = fmt.Sprintf("VolumeSnapshots (%s) skipped because vm snapshot is deleted", strings.Join(skippedSnapshots, ","))
 		} else {
 			errorMessage = fmt.Sprintf("VolumeSnapshots (%s) skipped because in error state", strings.Join(skippedSnapshots, ","))
@@ -343,17 +409,9 @@ func (ctrl *VMSnapshotController) updateVMSnapshotContent(content *snapshotv1.Vi
 	if ready && contentCpy.Status.CreationTime == nil {
 		contentCpy.Status.CreationTime = currentTime()
 
-		// TODO revisit with deadline
-		// currently only go into error after becoming ready once
-		source, err := ctrl.getSnapshotSource(vmSnapshot)
+		err = ctrl.unfreezeSource(vmSnapshot)
 		if err != nil {
 			return 0, err
-		}
-
-		if source != nil {
-			if err := source.Unfreeze(); err != nil {
-				return 0, err
-			}
 		}
 	}
 
@@ -613,16 +671,20 @@ func (ctrl *VMSnapshotController) updateSnapshotStatus(vmSnapshot *snapshotv1.Vi
 		vmSnapshotCpy.Status.SourceUID = &uid
 	}
 
-	if vmSnapshotCpy.DeletionTimestamp != nil {
-		controller.RemoveFinalizer(vmSnapshotCpy, vmSnapshotFinalizer)
+	content, err := ctrl.getContent(vmSnapshot)
+	if err != nil {
+		return err
+	}
+
+	if vmSnapshotDeleting(vmSnapshotCpy) {
+		// Enable the vmsnapshot to be deleted only in case it completed
+		// or after waiting until the content is deleted if needed
+		if !vmSnapshotProgressing(vmSnapshot) || contentDeletedIfNeeded(vmSnapshotCpy, content) {
+			controller.RemoveFinalizer(vmSnapshotCpy, vmSnapshotFinalizer)
+		}
 	} else {
 		// since no status subresource can update metadata and status
 		controller.AddFinalizer(vmSnapshotCpy, vmSnapshotFinalizer)
-
-		content, err := ctrl.getContent(vmSnapshot)
-		if err != nil {
-			return err
-		}
 
 		if content != nil && content.Status != nil {
 			// content exists and is initialized
@@ -672,6 +734,11 @@ func (ctrl *VMSnapshotController) updateSnapshotStatus(vmSnapshot *snapshotv1.Vi
 			updateSnapshotCondition(vmSnapshotCpy, newProgressingCondition(corev1.ConditionFalse, "Source does not exist"))
 		}
 		updateSnapshotCondition(vmSnapshotCpy, newReadyCondition(corev1.ConditionFalse, "Not ready"))
+		if vmSnapshotDeleting(vmSnapshotCpy) {
+			vmSnapshotCpy.Status.Phase = snapshotv1.Deleting
+			updateSnapshotCondition(vmSnapshotCpy, newProgressingCondition(corev1.ConditionFalse, "VM snapshot is deleting"))
+			updateSnapshotCondition(vmSnapshotCpy, newReadyCondition(corev1.ConditionFalse, "VM snapshot is deleting"))
+		}
 	} else if vmSnapshotError(vmSnapshotCpy) != nil {
 		updateSnapshotCondition(vmSnapshotCpy, newProgressingCondition(corev1.ConditionFalse, "In error state"))
 		updateSnapshotCondition(vmSnapshotCpy, newReadyCondition(corev1.ConditionFalse, "Error"))

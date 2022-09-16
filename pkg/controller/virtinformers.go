@@ -613,6 +613,19 @@ func GetVirtualMachineSnapshotInformerIndexers() cache.Indexers {
 
 			return nil, nil
 		},
+		"vmSnapshotContent": func(obj interface{}) ([]string, error) {
+			vms, ok := obj.(*snapshotv1.VirtualMachineSnapshot)
+			if !ok {
+				return nil, unexpectedObjectError
+			}
+
+			if vms.Status != nil &&
+				vms.Status.VirtualMachineSnapshotContentName != nil {
+				return []string{fmt.Sprintf("%s/%s", vms.Namespace, *vms.Status.VirtualMachineSnapshotContentName)}, nil
+			}
+
+			return nil, nil
+		},
 	}
 }
 
