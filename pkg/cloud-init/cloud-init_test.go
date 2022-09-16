@@ -29,6 +29,11 @@ import (
 	"path/filepath"
 	"time"
 
+	"k8s.io/apimachinery/pkg/util/rand"
+	"kubevirt.io/client-go/api"
+
+	"kubevirt.io/kubevirt/tests/util"
+
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
 
@@ -603,6 +608,42 @@ var _ = Describe("CloudInit", func() {
 			Expect(err).ToNot(HaveOccurred())
 			_, err = os.Stat(expectedPath)
 			Expect(err).ToNot(HaveOccurred())
+		})
+	})
+
+	Context("Hostname generation", func() {
+		const cloudinitHostname = "cloudinit-hostname"
+		const userDataWithHostnamePrefix = `#cloud-config
+password: fedora
+#some random comment
+#hostname: bad-hostname
+chpasswd: { expire: False }
+hostname: `
+		const userDataWithHostname = userDataWithHostnamePrefix + cloudinitHostname
+
+		getVmWithHostnameSpec := func(hostname string) *v1.VirtualMachineInstance {
+			vmi := api.NewMinimalVMIWithNS(util.NamespaceTestDefault, fmt.Sprintf("test-vmi-%s", rand.String(4)))
+			vmi.Spec.Hostname = hostname
+
+			return vmi
+		}
+
+		It("should generate a valid hostname", func() {
+			hostname, err := getHostname(nil, userDataWithHostname)
+			Expect(err).ShouldNot(HaveOccurred())
+
+			Expect(hostname).To(Equal(cloudinitHostname))
+		})
+
+		It("should use spec hostname if exists", func() {
+			const specHostname = "spec-hostname"
+
+			vmi := getVmWithHostnameSpec(specHostname)
+
+			hostname, err := getHostname(vmi, userDataWithHostname)
+			Expect(err).ShouldNot(HaveOccurred())
+
+			Expect(hostname).To(Equal(specHostname))
 		})
 	})
 })
