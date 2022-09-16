@@ -426,7 +426,7 @@ func (ctrl *VMExportController) updateVMExport(vmExport *exportv1.VirtualMachine
 		return 0, err
 	}
 
-	if err := ctrl.handleVMExportSecret(vmExport); err != nil {
+	if err := ctrl.handleVMExportToken(vmExport); err != nil {
 		return 0, err
 	}
 
@@ -609,8 +609,8 @@ func (ctrl *VMExportController) createCertSecretManifest(vmExport *exportv1.Virt
 	}, nil
 }
 
-// handleVMExportSecret checks if a secret has been specified for the current export object and, if not, creates one specific to it
-func (ctrl *VMExportController) handleVMExportSecret(vmExport *exportv1.VirtualMachineExport) error {
+// handleVMExportToken checks if a secret has been specified for the current export object and, if not, creates one specific to it
+func (ctrl *VMExportController) handleVMExportToken(vmExport *exportv1.VirtualMachineExport) error {
 	if vmExport.Status == nil {
 		vmExport.Status = &exportv1.VirtualMachineExportStatus{
 			Phase: exportv1.Pending,
@@ -623,7 +623,7 @@ func (ctrl *VMExportController) handleVMExportSecret(vmExport *exportv1.VirtualM
 
 	// If a tokenSecretRef has been specified, we assume that the corresponding
 	// secret has already been created and managed appropiately by the user
-	if isTokenSpecified := vmExport.Spec.TokenSecretRef != nil; isTokenSpecified {
+	if vmExport.Spec.TokenSecretRef != nil {
 		vmExport.Status.TokenSecretRef = vmExport.Spec.TokenSecretRef
 		return nil
 	}
@@ -680,7 +680,7 @@ func (ctrl *VMExportController) getExportSecretName(ownerPod *corev1.Pod) string
 
 // getDefaultTokenSecretName returns a secret name specifically created for the current export object
 func getDefaultTokenSecretName(vme *exportv1.VirtualMachineExport) string {
-	return naming.GetName("export-secret", vme.Name, validation.DNS1035LabelMaxLength)
+	return naming.GetName("export-token", vme.Name, validation.DNS1035LabelMaxLength)
 }
 
 func (ctrl *VMExportController) getExportServiceName(vmExport *exportv1.VirtualMachineExport) string {
@@ -937,15 +937,6 @@ func (ctrl *VMExportController) isKubevirtContentType(pvc *corev1.PersistentVolu
 
 func (ctrl *VMExportController) updateCommonVMExportStatusFields(vmExport, vmExportCopy *exportv1.VirtualMachineExport, exporterPod *corev1.Pod, service *corev1.Service, sourceVolumes *sourceVolumes) error {
 	var err error
-	if vmExportCopy.Status == nil {
-		vmExportCopy.Status = &exportv1.VirtualMachineExportStatus{
-			Phase: exportv1.Pending,
-			Conditions: []exportv1.Condition{
-				newReadyCondition(corev1.ConditionFalse, initializingReason, ""),
-				newPvcCondition(corev1.ConditionFalse, unknownReason, ""),
-			},
-		}
-	}
 
 	vmExportCopy.Status.ServiceName = service.Name
 	vmExportCopy.Status.Links = &exportv1.VirtualMachineExportLinks{}

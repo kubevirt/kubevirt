@@ -1816,6 +1816,31 @@ var _ = SIGDescribe("Export", func() {
 				Expect(err).ToNot(HaveOccurred())
 			})
 
+			It("Download succeeds with a vmexport without user-defined TokenSecretRef", func() {
+				pvc, _ := populateKubeVirtContent(sc, k8sv1.PersistentVolumeFilesystem)
+				export := createPVCExportObjectWithoutSecret(pvc.Name, pvc.Namespace)
+				By("Making sure the export becomes ready")
+				waitForReadyExport(export)
+
+				By("Making sure the default secret is created")
+				export, err = virtClient.VirtualMachineExport(export.Namespace).Get(context.Background(), export.Name, metav1.GetOptions{})
+				Expect(err).ToNot(HaveOccurred())
+				Expect(export.Status.TokenSecretRef).ToNot(BeNil())
+
+				vmeName = export.Name
+				// Run vmexport
+				By("Running vmexport command")
+				virtctlCmd := clientcmd.NewRepeatableVirtctlCommand(commandName,
+					"download",
+					vmeName,
+					"--output", outputFile,
+					"--insecure",
+					"--namespace", util.NamespaceTestDefault)
+
+				err = virtctlCmd()
+				Expect(err).ToNot(HaveOccurred())
+			})
+
 			It("Download succeeds and keeps the vmexport after finishing the download", func() {
 				vmExport := createRunningPVCExport(sc, k8sv1.PersistentVolumeFilesystem)
 				vmeName = vmExport.Name
