@@ -31,6 +31,8 @@ import (
 	"strings"
 	"time"
 
+	"gopkg.in/yaml.v3"
+
 	"kubevirt.io/kubevirt/pkg/util/net/dns"
 
 	"github.com/pborman/uuid"
@@ -127,6 +129,36 @@ func cloudInitUUIDFromVMI(vmi *v1.VirtualMachineInstance) string {
 	return string(vmi.Spec.Domain.Firmware.UUID)
 }
 
+func getHostname(vmi *v1.VirtualMachineInstance, userData string) (string, error) {
+	const errPrefix = "cannot generate hostname:"
+
+	if vmi != nil && vmi.Spec.Hostname != "" {
+		return vmi.Spec.Hostname, nil
+	}
+
+	// This indicates that userdata is of YAML format.
+	// For more info: https://cloudinit.readthedocs.io/en/latest/topics/format.html
+	if !strings.HasPrefix(userData, "#cloud-config") && !strings.HasPrefix(userData, "Content-Type: text/cloud-config") {
+		if vmi == nil {
+			return "", fmt.Errorf("%s hostname was not defined in user data and vmi is nil", errPrefix)
+		}
+
+		return dns.SanitizeHostname(vmi), nil
+	}
+
+	u := UserData{}
+	err := yaml.Unmarshal([]byte(userData), &u)
+	if err != nil {
+		return "", fmt.Errorf("%s error unmarshalling cloud init user data: %v", errPrefix, err)
+	}
+
+	if u.Hostname != "" {
+		return u.Hostname, nil
+	}
+
+	return dns.SanitizeHostname(vmi), nil
+}
+
 // ReadCloudInitVolumeDataSource scans the given VMI for CloudInit volumes and
 // reads their content into a CloudInitData struct. Does not resolve secret refs.
 func ReadCloudInitVolumeDataSource(vmi *v1.VirtualMachineInstance, secretSourceDir string) (cloudInitData *CloudInitData, err error) {
@@ -138,8 +170,6 @@ func ReadCloudInitVolumeDataSource(vmi *v1.VirtualMachineInstance, secretSourceD
 		instancetype = vmi.Annotations[v1.InstancetypeAnnotation]
 	}
 
-	hostname := dns.SanitizeHostname(vmi)
-
 	for _, volume := range vmi.Spec.Volumes {
 		if volume.CloudInitNoCloud != nil {
 			err := resolveNoCloudSecrets(vmi, secretSourceDir)
@@ -148,6 +178,13 @@ func ReadCloudInitVolumeDataSource(vmi *v1.VirtualMachineInstance, secretSourceD
 			}
 
 			cloudInitData, err = readCloudInitNoCloudSource(volume.CloudInitNoCloud)
+			if err != nil {
+				return cloudInitData, err
+			}
+			hostname, err := getHostname(vmi, cloudInitData.UserData)
+			if err != nil {
+				return cloudInitData, err
+			}
 			cloudInitData.NoCloudMetaData = readCloudInitNoCloudMetaData(hostname, cloudInitUUIDFromVMI(vmi), instancetype)
 			cloudInitData.VolumeName = volume.Name
 			return cloudInitData, err
@@ -161,6 +198,13 @@ func ReadCloudInitVolumeDataSource(vmi *v1.VirtualMachineInstance, secretSourceD
 
 			uuid := cloudInitUUIDFromVMI(vmi)
 			cloudInitData, err = readCloudInitConfigDriveSource(volume.CloudInitConfigDrive)
+			if err != nil {
+				return cloudInitData, err
+			}
+			hostname, err := getHostname(vmi, cloudInitData.UserData)
+			if err != nil {
+				return cloudInitData, err
+			}
 			cloudInitData.ConfigDriveMetaData = readCloudInitConfigDriveMetaData(vmi.Name, uuid, hostname, vmi.Namespace, keys, instancetype)
 			cloudInitData.VolumeName = volume.Name
 			return cloudInitData, err
