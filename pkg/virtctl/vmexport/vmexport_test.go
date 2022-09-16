@@ -56,13 +56,14 @@ var _ = Describe("vmexport", func() {
 	}
 
 	vmexportSpec := func(name, namespace, kind, resourceName string) *exportv1.VirtualMachineExport {
+		tokenSecretRef := secretName
 		vmexport := &exportv1.VirtualMachineExport{
 			ObjectMeta: metav1.ObjectMeta{
 				Name:      name,
 				Namespace: namespace,
 			},
 			Spec: exportv1.VirtualMachineExportSpec{
-				TokenSecretRef: secretName,
+				TokenSecretRef: &tokenSecretRef,
 				Source: v1.TypedLocalObjectReference{
 					APIGroup: &v1.SchemeGroupVersion.Group,
 					Kind:     kind,
@@ -74,7 +75,8 @@ var _ = Describe("vmexport", func() {
 		return vmexport
 	}
 
-	getVMELinks := func(volumes []exportv1.VirtualMachineExportVolume) *exportv1.VirtualMachineExportStatus {
+	getVMEStatus := func(volumes []exportv1.VirtualMachineExportVolume) *exportv1.VirtualMachineExportStatus {
+		tokenSecretRef := secretName
 		// Mock the expected vme status
 		return &exportv1.VirtualMachineExportStatus{
 			Phase: exportv1.Ready,
@@ -83,6 +85,7 @@ var _ = Describe("vmexport", func() {
 					Volumes: volumes,
 				},
 			},
+			TokenSecretRef: &tokenSecretRef,
 		}
 	}
 
@@ -175,7 +178,7 @@ var _ = Describe("vmexport", func() {
 		It("VirtualMachineExport download fails when there's no volume available", func() {
 			testInit(http.StatusOK)
 			vme := vmexportSpec(vmexportName, defaultNamespace, "pvc", "test-pvc")
-			vme.Status = getVMELinks(nil)
+			vme.Status = getVMEStatus(nil)
 			expectVMExportGet(vmExportClient, vme)
 
 			cmd := clientcmd.NewRepeatableVirtctlCommand(commandName, DOWNLOAD, vmexportName, setflag(OUTPUT_FLAG, "disk.img"), setflag(VOLUME_FLAG, volumeName))
@@ -188,7 +191,7 @@ var _ = Describe("vmexport", func() {
 		It("VirtualMachineExport download fails when the volumes have a different name than expected", func() {
 			testInit(http.StatusOK)
 			vme := vmexportSpec(vmexportName, defaultNamespace, "pvc", "test-pvc")
-			vme.Status = getVMELinks([]exportv1.VirtualMachineExportVolume{
+			vme.Status = getVMEStatus([]exportv1.VirtualMachineExportVolume{
 				{
 					Name:    "no-test-volume",
 					Formats: getExportVolumeFormat(server.URL, exportv1.KubeVirtRaw),
@@ -210,7 +213,7 @@ var _ = Describe("vmexport", func() {
 		It("VirtualMachineExport download fails when there are multiple volumes and no volume name has been specified", func() {
 			testInit(http.StatusOK)
 			vme := vmexportSpec(vmexportName, defaultNamespace, "pvc", "test-pvc")
-			vme.Status = getVMELinks([]exportv1.VirtualMachineExportVolume{
+			vme.Status = getVMEStatus([]exportv1.VirtualMachineExportVolume{
 				{
 					Name:    "no-test-volume",
 					Formats: getExportVolumeFormat(server.URL, exportv1.KubeVirtRaw),
@@ -232,7 +235,7 @@ var _ = Describe("vmexport", func() {
 		It("VirtualMachineExport download fails when no format is available", func() {
 			testInit(http.StatusOK)
 			vme := vmexportSpec(vmexportName, defaultNamespace, "pvc", "test-pvc")
-			vme.Status = getVMELinks([]exportv1.VirtualMachineExportVolume{{Name: volumeName}})
+			vme.Status = getVMEStatus([]exportv1.VirtualMachineExportVolume{{Name: volumeName}})
 			expectVMExportGet(vmExportClient, vme)
 
 			cmd := clientcmd.NewRepeatableVirtctlCommand(commandName, DOWNLOAD, vmexportName, setflag(OUTPUT_FLAG, "disk.img"), setflag(VOLUME_FLAG, volumeName))
@@ -245,7 +248,7 @@ var _ = Describe("vmexport", func() {
 		It("VirtualMachineExport download fails when the only available format is incompatible with download", func() {
 			testInit(http.StatusOK)
 			vme := vmexportSpec(vmexportName, defaultNamespace, "pvc", "test-pvc")
-			vme.Status = getVMELinks([]exportv1.VirtualMachineExportVolume{
+			vme.Status = getVMEStatus([]exportv1.VirtualMachineExportVolume{
 				{
 					Name:    volumeName,
 					Formats: getExportVolumeFormat(server.URL, exportv1.Dir),
@@ -263,7 +266,7 @@ var _ = Describe("vmexport", func() {
 		It("VirtualMachineExport download fails when the secret token is not attainable", func() {
 			testInit(http.StatusOK)
 			vme := vmexportSpec(vmexportName, defaultNamespace, "pvc", "test-pvc")
-			vme.Status = getVMELinks([]exportv1.VirtualMachineExportVolume{
+			vme.Status = getVMEStatus([]exportv1.VirtualMachineExportVolume{
 				{
 					Name:    volumeName,
 					Formats: getExportVolumeFormat(server.URL, exportv1.KubeVirtRaw),
@@ -283,7 +286,7 @@ var _ = Describe("vmexport", func() {
 		It("VirtualMachineExport download fails if the server returns a bad status", func() {
 			testInit(http.StatusInternalServerError)
 			vme := vmexportSpec(vmexportName, defaultNamespace, "pvc", "test-pvc")
-			vme.Status = getVMELinks([]exportv1.VirtualMachineExportVolume{
+			vme.Status = getVMEStatus([]exportv1.VirtualMachineExportVolume{
 				{
 					Name:    volumeName,
 					Formats: getExportVolumeFormat(server.URL, exportv1.KubeVirtRaw),
@@ -362,7 +365,7 @@ var _ = Describe("vmexport", func() {
 		// Download tests
 		It("Succesfully download from an already existing VirtualMachineExport", func() {
 			vmexport := vmexportSpec(vmexportName, defaultNamespace, "pvc", "test-pvc")
-			vmexport.Status = getVMELinks([]exportv1.VirtualMachineExportVolume{
+			vmexport.Status = getVMEStatus([]exportv1.VirtualMachineExportVolume{
 				{
 					Name:    volumeName,
 					Formats: getExportVolumeFormat(server.URL, exportv1.KubeVirtGz),
@@ -378,7 +381,7 @@ var _ = Describe("vmexport", func() {
 
 		It("Succesfully create and download a VirtualMachineExport", func() {
 			vmexport := vmexportSpec(vmexportName, defaultNamespace, "pvc", "test-pvc")
-			vmexport.Status = getVMELinks([]exportv1.VirtualMachineExportVolume{
+			vmexport.Status = getVMEStatus([]exportv1.VirtualMachineExportVolume{
 				{
 					Name:    volumeName,
 					Formats: getExportVolumeFormat(server.URL, exportv1.KubeVirtGz),
@@ -394,7 +397,7 @@ var _ = Describe("vmexport", func() {
 
 		It("Succesfully download a VirtualMachineExport with just 'raw' links", func() {
 			vmexport := vmexportSpec(vmexportName, defaultNamespace, "pvc", "test-pvc")
-			vmexport.Status = getVMELinks([]exportv1.VirtualMachineExportVolume{
+			vmexport.Status = getVMEStatus([]exportv1.VirtualMachineExportVolume{
 				{
 					Name:    volumeName,
 					Formats: getExportVolumeFormat(server.URL, exportv1.KubeVirtRaw),
@@ -411,7 +414,7 @@ var _ = Describe("vmexport", func() {
 		It("VirtualMachineExport download succeeds when the volume has a different name than expected but there's only one volume", func() {
 			testInit(http.StatusOK)
 			vme := vmexportSpec(vmexportName, defaultNamespace, "pvc", "test-pvc")
-			vme.Status = getVMELinks([]exportv1.VirtualMachineExportVolume{
+			vme.Status = getVMEStatus([]exportv1.VirtualMachineExportVolume{
 				{
 					Name:    "no-test-volume",
 					Formats: getExportVolumeFormat(server.URL, exportv1.KubeVirtRaw),
@@ -428,7 +431,7 @@ var _ = Describe("vmexport", func() {
 		It("VirtualMachineExport download succeeds when there's only one volume and no --volume has been specified", func() {
 			testInit(http.StatusOK)
 			vme := vmexportSpec(vmexportName, defaultNamespace, "pvc", "test-pvc")
-			vme.Status = getVMELinks([]exportv1.VirtualMachineExportVolume{
+			vme.Status = getVMEStatus([]exportv1.VirtualMachineExportVolume{
 				{
 					Name:    "no-test-volume",
 					Formats: getExportVolumeFormat(server.URL, exportv1.KubeVirtRaw),
@@ -456,7 +459,7 @@ var _ = Describe("vmexport", func() {
 
 		It("Should get compressed URL even when there's multiple URLs", func() {
 			vmexport := vmexportSpec(vmexportName, defaultNamespace, "pvc", "test-pvc")
-			vmexport.Status = getVMELinks([]exportv1.VirtualMachineExportVolume{
+			vmexport.Status = getVMEStatus([]exportv1.VirtualMachineExportVolume{
 				{
 					Name: volumeName,
 					Formats: []exportv1.VirtualMachineExportVolumeFormat{
@@ -486,7 +489,7 @@ var _ = Describe("vmexport", func() {
 
 		It("Should get raw URL when there's no other option", func() {
 			vmexport := vmexportSpec(vmexportName, defaultNamespace, "pvc", "test-pvc")
-			vmexport.Status = getVMELinks([]exportv1.VirtualMachineExportVolume{
+			vmexport.Status = getVMEStatus([]exportv1.VirtualMachineExportVolume{
 				{
 					Name:    volumeName,
 					Formats: getExportVolumeFormat("raw", exportv1.KubeVirtRaw),
@@ -499,7 +502,7 @@ var _ = Describe("vmexport", func() {
 
 		It("Should not get any URL when there's no valid options", func() {
 			vmexport := vmexportSpec(vmexportName, defaultNamespace, "pvc", "test-pvc")
-			vmexport.Status = getVMELinks([]exportv1.VirtualMachineExportVolume{
+			vmexport.Status = getVMEStatus([]exportv1.VirtualMachineExportVolume{
 				{
 					Name:    volumeName,
 					Formats: getExportVolumeFormat(server.URL, exportv1.Dir),

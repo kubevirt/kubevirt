@@ -284,13 +284,14 @@ func CreateVirtualMachineExport(client kubecli.KubevirtClient, vmeInfo *VMExport
 		return fmt.Errorf("VirtualMachineExport '%s/%s' already exists", vmeInfo.Namespace, vmeInfo.Name)
 	}
 
+	secretRef := getExportSecretName(vmeInfo.Name)
 	vmexport = &exportv1.VirtualMachineExport{
 		ObjectMeta: metav1.ObjectMeta{
 			Name:      vmeInfo.Name,
 			Namespace: vmeInfo.Namespace,
 		},
 		Spec: exportv1.VirtualMachineExportSpec{
-			TokenSecretRef: getExportSecretName(vmeInfo.Name),
+			TokenSecretRef: &secretRef,
 			Source:         vmeInfo.ExportSource,
 		},
 	}
@@ -548,7 +549,12 @@ func getOrCreateTokenSecret(client kubecli.KubevirtClient, vmexport *exportv1.Vi
 
 // getTokenFromSecret extracts the token from the secret specified on the virtualMachineExport
 func getTokenFromSecret(client kubecli.KubevirtClient, vmexport *exportv1.VirtualMachineExport) (string, error) {
-	secret, err := client.CoreV1().Secrets(vmexport.Namespace).Get(context.Background(), vmexport.Spec.TokenSecretRef, metav1.GetOptions{})
+	secretName := ""
+	if vmexport.Status != nil && vmexport.Status.TokenSecretRef != nil {
+		secretName = *vmexport.Status.TokenSecretRef
+	}
+
+	secret, err := client.CoreV1().Secrets(vmexport.Namespace).Get(context.Background(), secretName, metav1.GetOptions{})
 	if err != nil {
 		return "", err
 	}
