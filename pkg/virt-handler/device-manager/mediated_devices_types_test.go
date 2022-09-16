@@ -36,36 +36,36 @@ var _ = Describe("Mediated Devices Types configuration", func() {
 	var configuredMdevTypesOnCards map[string]map[string]struct{}
 	var clientTest *fake.Clientset
 	var mdevTypesDetailsMap = map[string]mdevTypesDetails{
-		"nvidia-222": mdevTypesDetails{
+		"nvidia-222": {
 			name:               "GRID T4-1B",
 			availableInstances: 16,
 		},
-		"nvidia-223": mdevTypesDetails{
+		"nvidia-223": {
 			name:               "GRID T4-2B",
 			availableInstances: 8,
 		},
-		"nvidia-224": mdevTypesDetails{
+		"nvidia-224": {
 			name:               "GRID T4-2B4",
 			availableInstances: 8,
 		},
-		"nvidia-228": mdevTypesDetails{
+		"nvidia-228": {
 			name:               "GRID T4-8A",
 			availableInstances: 2,
 		},
-		"nvidia-229": mdevTypesDetails{
+		"nvidia-229": {
 			name:               "GRID T4-16A",
 			availableInstances: 1,
 		},
-		"i915-GVTg_V5_1": mdevTypesDetails{
+		"i915-GVTg_V5_1": {
 			availableInstances: 1,
 		},
-		"i915-GVTg_V5_2": mdevTypesDetails{
+		"i915-GVTg_V5_2": {
 			availableInstances: 1,
 		},
-		"i915-GVTg_V5_4": mdevTypesDetails{
+		"i915-GVTg_V5_4": {
 			availableInstances: 1,
 		},
-		"i915-GVTg_V5_8": mdevTypesDetails{
+		"i915-GVTg_V5_8": {
 			availableInstances: 2,
 		},
 	}
@@ -185,7 +185,7 @@ var _ = Describe("Mediated Devices Types configuration", func() {
 			"0000:65:00.0": mdevTypesForIdenticalPciDevices,
 			"0000:66:00.0": mdevTypesForIdenticalPciDevices,
 			"0000:67:00.0": mdevTypesForIdenticalPciDevices,
-			"0000:00:02.0": []string{"i915-GVTg_V5_1", "i915-GVTg_V5_2", "i915-GVTg_V5_4", "i915-GVTg_V5_8"},
+			"0000:00:02.0": {"i915-GVTg_V5_1", "i915-GVTg_V5_2", "i915-GVTg_V5_4", "i915-GVTg_V5_8"},
 		}
 		return &scenarioValues{
 			pciMDEVDevicesMap:       pciMDEVDevicesMap,
@@ -230,12 +230,12 @@ var _ = Describe("Mediated Devices Types configuration", func() {
 			expectedConfiguredTypes: []string{},
 		}
 	}
-	deafultTypesNotNodeSpecific := func() *scenarioValues {
+	defaultTypesNotNodeSpecific := func() *scenarioValues {
 		mdevTypesForIdenticalPciDevices := []string{"nvidia-222", "nvidia-223", "nvidia-224", "nvidia-228", "nvidia-229"}
 		pciMDEVDevicesMap := map[string][]string{
 			"0000:65:00.0": mdevTypesForIdenticalPciDevices,
 			"0000:66:00.0": mdevTypesForIdenticalPciDevices,
-			"0000:00:02.0": []string{"i915-GVTg_V5_1", "i915-GVTg_V5_2", "i915-GVTg_V5_4", "i915-GVTg_V5_8"},
+			"0000:00:02.0": {"i915-GVTg_V5_1", "i915-GVTg_V5_2", "i915-GVTg_V5_4", "i915-GVTg_V5_8"},
 		}
 		return &scenarioValues{
 			pciMDEVDevicesMap:       pciMDEVDevicesMap,
@@ -289,7 +289,8 @@ var _ = Describe("Mediated Devices Types configuration", func() {
 			sc := scenario()
 			createTempMDEVSysfsStructure(sc.pciMDEVDevicesMap)
 			mdevManager := NewMDEVTypesManager()
-			mdevManager.updateMDEVTypesConfiguration(sc.desiredDevicesList)
+			_, err := mdevManager.updateMDEVTypesConfiguration(sc.desiredDevicesList)
+			Expect(err).ToNot(HaveOccurred())
 
 			By("creating the desired mdev types")
 			desiredDevicesToConfigure := make(map[string]struct{})
@@ -302,7 +303,7 @@ var _ = Describe("Mediated Devices Types configuration", func() {
 			if len(sc.expectedConfiguredTypes) == 1 && sc.expectedConfiguredTypes[0] == "ANY" {
 				Expect(configuredMdevTypesOnCards).To(HaveLen(len(sc.pciMDEVDevicesMap)))
 			} else {
-				for mdevType, _ := range mdevTypesDetailsMap {
+				for mdevType := range mdevTypesDetailsMap {
 					numberOfCreatedMDEVs := countCreatedMdevs(mdevType)
 					if _, exist := desiredDevicesToConfigure[mdevType]; exist {
 						numberOfCardsConfiguredWithMdevType := len(configuredMdevTypesOnCards[mdevType])
@@ -319,7 +320,8 @@ var _ = Describe("Mediated Devices Types configuration", func() {
 			}
 
 			By("removing all created mdevs")
-			mdevManager.updateMDEVTypesConfiguration([]string{})
+			_, err = mdevManager.updateMDEVTypesConfiguration([]string{})
+			Expect(err).ToNot(HaveOccurred())
 			files, err := os.ReadDir(fakeMdevDevicesPath)
 			Expect(err).ToNot(HaveOccurred())
 			Expect(files).To(BeEmpty())
@@ -329,10 +331,14 @@ var _ = Describe("Mediated Devices Types configuration", func() {
 			Entry("many types many cards", multipleTypeOneCards),
 			Entry("no cards support requeted types", noCardsSupportTypes),
 		)
-		DescribeTable("should create and remove relevant mdev types matching a specific node", func(scenario func() *scenarioValues) {
+		DescribeTable("should create and remove relevant mdev types matching a specific node", func(scenario func() *scenarioValues, late bool) {
 			sc := scenario()
 			clientTest = fake.NewSimpleClientset()
-			createTempMDEVSysfsStructure(sc.pciMDEVDevicesMap)
+			if !late {
+				By("creating the sysfs structure")
+				createTempMDEVSysfsStructure(sc.pciMDEVDevicesMap)
+			}
+
 			By("creating a cluster config")
 			kv := &v1.KubeVirt{
 				ObjectMeta: metav1.ObjectMeta{
@@ -347,6 +353,7 @@ var _ = Describe("Mediated Devices Types configuration", func() {
 				},
 			}
 			fakeClusterConfig, _, kvInformer := testutils.NewFakeClusterConfigUsingKV(kv)
+
 			kvConfig := kv.DeepCopy()
 			kvConfig.Spec.Configuration.MediatedDevicesConfiguration = &v1.MediatedDevicesConfiguration{
 				MediatedDevicesTypes: []string{
@@ -400,7 +407,18 @@ var _ = Describe("Mediated Devices Types configuration", func() {
 			By("creating an empty device controller")
 			var noDevices []Device
 			deviceController := NewDeviceController("master", 100, "rw", noDevices, fakeClusterConfig, clientTest.CoreV1())
-			deviceController.refreshMediatedDevicesTypes()
+
+			if late {
+				By("refreshing the mediated devices types with no sysfs structure")
+				deviceController.refreshMediatedDevicesTypes()
+
+				By("creating the sysfs structure late")
+				createTempMDEVSysfsStructure(sc.pciMDEVDevicesMap)
+			}
+
+			By("refreshing the mediated devices types")
+			shouldRefresh := deviceController.refreshMediatedDevicesTypes()
+			Expect(shouldRefresh).To(BeTrue())
 			By("creating the desired mdev types")
 			desiredDevicesToConfigure := make(map[string]struct{})
 			for _, dev := range sc.desiredDevicesList {
@@ -412,7 +430,7 @@ var _ = Describe("Mediated Devices Types configuration", func() {
 			if len(sc.expectedConfiguredTypes) == 1 && sc.expectedConfiguredTypes[0] == "ANY" {
 				Expect(configuredMdevTypesOnCards).To(HaveLen(len(sc.pciMDEVDevicesMap)))
 			} else {
-				for mdevType, _ := range mdevTypesDetailsMap {
+				for mdevType := range mdevTypesDetailsMap {
 					numberOfCreatedMDEVs := countCreatedMdevs(mdevType)
 					if _, exist := desiredDevicesToConfigure[mdevType]; exist {
 						numberOfCardsConfiguredWithMdevType := len(configuredMdevTypesOnCards[mdevType])
@@ -436,10 +454,11 @@ var _ = Describe("Mediated Devices Types configuration", func() {
 			Expect(err).ToNot(HaveOccurred())
 			Expect(files).To(BeEmpty())
 		},
-			Entry("configure default mdev types", deafultTypesNotNodeSpecific),
-			Entry("configure mdev types that match all node selectors", matchAllNodeLabels),
-			Entry("configure mdev types that match a node selector", matchSingleNodeLabel),
-			Entry("configure a merged list of mdev types when multiple selectors match node", mergeAllTypesMatchedByNodeLabels),
+			Entry("configure default mdev types", defaultTypesNotNodeSpecific, false),
+			Entry("configure default mdev types even if the hardware appears later", defaultTypesNotNodeSpecific, true),
+			Entry("configure mdev types that match all node selectors", matchAllNodeLabels, false),
+			Entry("configure mdev types that match a node selector", matchSingleNodeLabel, false),
+			Entry("configure a merged list of mdev types when multiple selectors match node", mergeAllTypesMatchedByNodeLabels, false),
 		)
 	})
 })

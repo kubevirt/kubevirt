@@ -3,6 +3,8 @@ package tests_test
 import (
 	"context"
 	"fmt"
+	"path/filepath"
+	"regexp"
 	"strings"
 	"time"
 
@@ -116,13 +118,13 @@ var _ = Describe("[Serial][sig-compute]MediatedDevices", func() {
 	}
 	Context("with mediated devices configuration", func() {
 		var vmi *v1.VirtualMachineInstance
-		var deviceName string = "nvidia.com/GRID_T4-1B"
-		var mdevSelector string = "GRID T4-1B"
-		var updatedDeviceName string = "nvidia.com/GRID_T4-2B"
-		var updatedMdevSelector string = "GRID T4-2B"
-		var parentDeviceID string = "10de:1eb8"
-		var desiredMdevTypeName string = "nvidia-222"
-		var expectedInstancesNum int = 16
+		var deviceName = "nvidia.com/GRID_T4-1B"
+		var mdevSelector = "GRID T4-1B"
+		var updatedDeviceName = "nvidia.com/GRID_T4-2B"
+		var updatedMdevSelector = "GRID T4-2B"
+		var parentDeviceID = "10de:1eb8"
+		var desiredMdevTypeName = "nvidia-222"
+		var expectedInstancesNum = 16
 		var config v1.KubeVirtConfiguration
 		var mdevTestLabel = "mdevTestLabel1"
 
@@ -269,6 +271,151 @@ var _ = Describe("[Serial][sig-compute]MediatedDevices", func() {
 			By("Verifying that an expected amount of devices has been created")
 			Eventually(checkAllMDEVCreated(newDesiredMdevTypeName, newExpectedInstancesNum), 3*time.Minute, 15*time.Second).Should(BeInPhase(k8sv1.PodSucceeded))
 
+		})
+	})
+	Context("with generic mediated devices", func() {
+		const mdevBusPath = "/sys/class/mdev_bus/"
+		const findMdevCapableDevices = "ls -df1 " + mdevBusPath + "0000* | head -1"
+		const findSupportedTypeFmt = "ls -df1 " + mdevBusPath + "%s/mdev_supported_types/* | head -1"
+		const deviceNameFmt = mdevBusPath + "%s/mdev_supported_types/%s/name"
+		const unbindCmdFmt = "echo %s > %s/unbind"
+		const bindCmdFmt = "echo %s > %s/bind"
+		const uuidRegex = "????????-????-????-????-????????????"
+		const mdevUUIDPathFmt = "/sys/class/mdev_bus/%s/%s"
+		const mdevTypePathFmt = "/sys/class/mdev_bus/%s/%s/mdev_type"
+
+		var node string
+		var driverPath string
+		var rootPCIId string
+
+		runBashCmd := func(cmd string) (string, string, error) {
+			args := []string{"bash", "-x", "-c", cmd}
+			stdout, stderr, err := tests.ExecuteCommandOnNodeThroughVirtHandler(virtClient, node, args)
+			stdout = strings.TrimSpace(stdout)
+			stderr = strings.TrimSpace(stderr)
+			return stdout, stderr, err
+		}
+
+		runBashCmdRw := func(cmd string) error {
+			// On kind, virt-handler seems to have /sys mounted as read-only.
+			// This uses a privileged pod with /sys explitly mounted in read/write mode.
+			testPod := tests.RenderPrivilegedPod("test-rw-sysfs", []string{"bash", "-x", "-c"}, []string{cmd})
+			testPod.Spec.Volumes = append(testPod.Spec.Volumes, k8sv1.Volume{
+				Name: "sys",
+				VolumeSource: k8sv1.VolumeSource{
+					HostPath: &k8sv1.HostPathVolumeSource{Path: "/sys"},
+				},
+			})
+			testPod.Spec.Containers[0].VolumeMounts = append(testPod.Spec.Containers[0].VolumeMounts, k8sv1.VolumeMount{
+				Name:      "sys",
+				ReadOnly:  false,
+				MountPath: "/sys",
+			})
+			testPod, err = virtClient.CoreV1().Pods(testsuite.NamespacePrivileged).Create(context.Background(), testPod, metav1.CreateOptions{})
+			ExpectWithOffset(1, err).ToNot(HaveOccurred())
+
+			var latestPod k8sv1.Pod
+			err := wait.PollImmediate(time.Second, 2*time.Minute, waitForPod(&latestPod, ThisPod(testPod)))
+			return err
+		}
+
+		BeforeEach(func() {
+			Skip("Unbinding older NVIDIA GPUs, such as the Tesla T4 found on vgpu lanes, doesn't work reliably")
+			nodes := libnode.GetAllSchedulableNodes(virtClient).Items
+			Expect(nodes).To(HaveLen(1))
+			node = nodes[0].Name
+			rootPCIId = "none"
+		})
+
+		AfterEach(func() {
+			if CurrentSpecReport().Failed() && rootPCIId != "none" && driverPath != "none" {
+				// The last test went far enough to un-bind the device and then failed.
+				// Make sure we don't leave the device in an unbound state
+				_ = runBashCmdRw(fmt.Sprintf(bindCmdFmt, rootPCIId, driverPath))
+			}
+		})
+
+		It("should create mdevs on devices that appear after CR configuration", func() {
+			By("looking for an mdev-compatible PCI device")
+			out, e, err := runBashCmd(findMdevCapableDevices)
+			Expect(err).ToNot(HaveOccurred(), e)
+			Expect(out).To(ContainSubstring(mdevBusPath))
+			pciId := "'" + filepath.Base(out) + "'"
+
+			By("finding the driver")
+			driverPath, e, err = runBashCmd("readlink -e " + mdevBusPath + pciId + "/driver")
+			Expect(err).ToNot(HaveOccurred(), e)
+			Expect(driverPath).To(ContainSubstring("drivers"))
+
+			By("finding a supported type")
+			out, e, err = runBashCmd(fmt.Sprintf(findSupportedTypeFmt, pciId))
+			Expect(err).ToNot(HaveOccurred(), e)
+			Expect(out).ToNot(BeEmpty())
+			mdevType := filepath.Base(out)
+
+			By("finding the name of the device")
+			fileName := fmt.Sprintf(deviceNameFmt, pciId, mdevType)
+			deviceName, e, err := runBashCmd("cat " + fileName)
+			Expect(err).ToNot(HaveOccurred(), e)
+			Expect(deviceName).ToNot(BeEmpty())
+
+			By("unbinding the device from its driver")
+			re := regexp.MustCompile(`[\da-f]{2}\.[\da-f]'$`)
+			rootPCIId = re.ReplaceAllString(pciId, "00.0'")
+			err = runBashCmdRw(fmt.Sprintf(unbindCmdFmt, rootPCIId, driverPath))
+			Expect(err).ToNot(HaveOccurred())
+			Eventually(func() error {
+				_, _, err = runBashCmd("ls " + mdevBusPath + pciId)
+				return err
+			}).Should(HaveOccurred(), "failed to disable the VFs on "+rootPCIId)
+
+			By("adding the device to the KubeVirt CR")
+			resourceName := filepath.Base(driverPath) + ".com/" + strings.ReplaceAll(deviceName, " ", "_")
+			kv := util.GetCurrentKv(virtClient)
+			config := kv.Spec.Configuration
+			config.DeveloperConfiguration.FeatureGates = append(config.DeveloperConfiguration.FeatureGates, virtconfig.GPUGate)
+			config.MediatedDevicesConfiguration = &v1.MediatedDevicesConfiguration{
+				MediatedDevicesTypes: []string{mdevType},
+			}
+			config.PermittedHostDevices = &v1.PermittedHostDevices{
+				MediatedDevices: []v1.MediatedHostDevice{
+					{
+						MDEVNameSelector: deviceName,
+						ResourceName:     resourceName,
+					},
+				},
+			}
+			tests.UpdateKubeVirtConfigValueAndWait(config)
+
+			By("re-binding the device to its driver")
+			err = runBashCmdRw(fmt.Sprintf(bindCmdFmt, rootPCIId, driverPath))
+			Expect(err).ToNot(HaveOccurred())
+			Eventually(func() error {
+				_, _, err = runBashCmd("ls " + mdevBusPath + pciId)
+				return err
+			}).ShouldNot(HaveOccurred(), "failed to re-enable the VFs on "+rootPCIId)
+
+			By("expecting the creation of a mediated device")
+			mdevUUIDPath := fmt.Sprintf(mdevUUIDPathFmt, pciId, uuidRegex)
+			Eventually(func() error {
+				uuidPath, _, err := runBashCmd("ls -d " + mdevUUIDPath + " | head -1")
+				if err != nil {
+					return err
+				}
+				if uuidPath == "" {
+					return fmt.Errorf("no UUID found at %s", mdevUUIDPath)
+				}
+				uuid := strings.TrimSpace(filepath.Base(uuidPath))
+				mdevTypePath := fmt.Sprintf(mdevTypePathFmt, pciId, uuid)
+				effectiveTypePath, _, err := runBashCmd("readlink -e " + mdevTypePath)
+				if err != nil {
+					return err
+				}
+				if filepath.Base(effectiveTypePath) != mdevType {
+					return fmt.Errorf("%s != %s", filepath.Base(effectiveTypePath), mdevType)
+				}
+				return nil
+			}, 5*time.Minute, time.Second).ShouldNot(HaveOccurred())
 		})
 	})
 })
