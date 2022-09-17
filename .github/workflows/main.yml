@@ -7,6 +7,8 @@ on:
   push:
     branches:
       - tianhy3
+env:
+  VERSION: v0.51.0.2
 
 jobs:
   build_x86:
@@ -28,7 +30,7 @@ jobs:
           DOCKER_PASSWORD: ${{ secrets.DOCKER_PASSWORD }}
         run: |
           echo "$DOCKER_PASSWORD" | docker login -u "$DOCKER_USERNAME" --password-stdin
-          export DOCKER_TAG=$(cat VERSION)-test-amd64
+          export DOCKER_TAG=$VERSION-test-amd64
           export DOCKER_PREFIX=$DOCKER_USERNAME
           export BUILD_ARCH=x86_64
           make bazel-build
@@ -53,7 +55,7 @@ jobs:
           DOCKER_PASSWORD: ${{ secrets.DOCKER_PASSWORD }}
         run: |
           echo "$DOCKER_PASSWORD" | docker login -u "$DOCKER_USERNAME" --password-stdin
-          export DOCKER_TAG=$(cat VERSION)-test-arm64
+          export DOCKER_TAG=$VERSION-test-arm64
           export DOCKER_PREFIX=$DOCKER_USERNAME
           export BUILD_ARCH=aarch64
           make bazel-build
@@ -67,8 +69,6 @@ jobs:
       matrix:
         docekr_image: [ecx-hook-sidecar, example-hook-sidecar, example-cloudinit-hook-sidecar, subresource-access-test,alpine-container-disk-demo,cirros-container-disk-demo,cirros-custom-container-disk-demo,microlivecd-container-disk-demo,virtio-container-disk,alpine-ext-kernel-boot-demo,fedora-with-test-tooling-container-disk,fedora-realtime-container-disk,disks-images-provider,nfs-server,vm-killer,winrmcli,virt-api,virt-controller,virt-handler,virt-launcher,virt-operator]
     steps:
-      - name: Check out code into the Go module directory
-        uses: actions/checkout@v2
       - name: Login to DockerHub
         uses: docker/login-action@v2
         with:
@@ -78,7 +78,7 @@ jobs:
         env:
           DOCKER_USERNAME: ${{ secrets.DOCKER_USERNAME }}
         run: |
-          export DOCKER_PREFIX_TAG=$(cat VERSION)-test
+          export DOCKER_PREFIX_TAG=$VERSION-test
           export DOCKER_PREFIX=$DOCKER_USERNAME
           docker manifest create $DOCKER_USERNAME/${{ matrix.docekr_image }}:$DOCKER_PREFIX_TAG-amd64 --amend  $DOCKER_USERNAME/${{ matrix.docekr_image }}:$DOCKER_PREFIX_TAG-arm64
           docker manifest push $DOCKER_USERNAME/${{ matrix.docekr_image }}:$DOCKER_PREFIX_TAG
