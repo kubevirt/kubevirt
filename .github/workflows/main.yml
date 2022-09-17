@@ -3,10 +3,10 @@ name: Build x86 and arm Image
 on:
   pull_request:
     branches:
-      - tianhy3
+      - exc-*
   push:
     branches:
-      - tianhy3
+      - ecx-*
 env:
   VERSION: v0.51.0.2
 
@@ -30,7 +30,7 @@ jobs:
           DOCKER_PASSWORD: ${{ secrets.DOCKER_PASSWORD }}
         run: |
           echo "$DOCKER_PASSWORD" | docker login -u "$DOCKER_USERNAME" --password-stdin
-          export DOCKER_TAG=$VERSION-test-amd64
+          export DOCKER_TAG=$VERSION-amd64
           export DOCKER_PREFIX=$DOCKER_USERNAME
           export BUILD_ARCH=x86_64
           make bazel-build
@@ -55,7 +55,7 @@ jobs:
           DOCKER_PASSWORD: ${{ secrets.DOCKER_PASSWORD }}
         run: |
           echo "$DOCKER_PASSWORD" | docker login -u "$DOCKER_USERNAME" --password-stdin
-          export DOCKER_TAG=$VERSION-test-arm64
+          export DOCKER_TAG=$VERSION-arm64
           export DOCKER_PREFIX=$DOCKER_USERNAME
           export BUILD_ARCH=aarch64
           make bazel-build
@@ -78,7 +78,7 @@ jobs:
         env:
           DOCKER_USERNAME: ${{ secrets.DOCKER_USERNAME }}
         run: |
-          export DOCKER_PREFIX_TAG=$VERSION-test
+          export DOCKER_PREFIX_TAG=$VERSION
           export DOCKER_PREFIX=$DOCKER_USERNAME
           docker manifest create $DOCKER_USERNAME/${{ matrix.docekr_image }}:$DOCKER_PREFIX_TAG $DOCKER_USERNAME/${{ matrix.docekr_image }}:$DOCKER_PREFIX_TAG-amd64 $DOCKER_USERNAME/${{ matrix.docekr_image }}:$DOCKER_PREFIX_TAG-arm64
           docker manifest push $DOCKER_USERNAME/${{ matrix.docekr_image }}:$DOCKER_PREFIX_TAG
