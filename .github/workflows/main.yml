@@ -1,4 +1,4 @@
-name: Build x86 Image
+name: Build x86 and arm Image
 
 on:
   pull_request:
@@ -7,9 +7,11 @@ on:
   push:
     branches:
       - ecx-*
+env:
+  VERSION: v0.51.0.2
 
 jobs:
-  build:
+  build_x86:
     name: Build x86
     runs-on: ubuntu-18.04
     steps:
@@ -28,8 +30,55 @@ jobs:
           DOCKER_PASSWORD: ${{ secrets.DOCKER_PASSWORD }}
         run: |
           echo "$DOCKER_PASSWORD" | docker login -u "$DOCKER_USERNAME" --password-stdin
-          export DOCKER_TAG=$(cat VERSION)
+          export DOCKER_TAG=$VERSION-amd64
           export DOCKER_PREFIX=$DOCKER_USERNAME
+          export BUILD_ARCH=x86_64
           make bazel-build
           make bazel-build-images
           make bazel-push-images
+  build_arm:
+    name: Build arm
+    runs-on: ubuntu-18.04
+    steps:
+      - name: Set up Go 1.x
+        uses: actions/setup-go@v2
+        with:
+          go-version: 1.16.7
+        id: go
+
+      - name: Check out code into the Go module directory
+        uses: actions/checkout@v2
+
+      - name: Build
+        env:
+          DOCKER_USERNAME: ${{ secrets.DOCKER_USERNAME }}
+          DOCKER_PASSWORD: ${{ secrets.DOCKER_PASSWORD }}
+        run: |
+          echo "$DOCKER_PASSWORD" | docker login -u "$DOCKER_USERNAME" --password-stdin
+          export DOCKER_TAG=$VERSION-arm64
+          export DOCKER_PREFIX=$DOCKER_USERNAME
+          export BUILD_ARCH=aarch64
+          make bazel-build
+          make bazel-build-images
+          make bazel-push-images
+  push_manifest_list:
+    runs-on: ubuntu-18.04
+    name: push manifest list
+    needs: [ build_x86, build_arm]
+    strategy: # 矩阵策略
+      matrix:
+        docekr_image: [ecx-hook-sidecar, example-hook-sidecar, example-cloudinit-hook-sidecar, subresource-access-test,alpine-container-disk-demo,cirros-container-disk-demo,cirros-custom-container-disk-demo,microlivecd-container-disk-demo,virtio-container-disk,alpine-ext-kernel-boot-demo,fedora-with-test-tooling-container-disk,fedora-realtime-container-disk,disks-images-provider,nfs-server,vm-killer,winrmcli,virt-api,virt-controller,virt-handler,virt-launcher,virt-operator]
+    steps:
+      - name: Login to DockerHub
+        uses: docker/login-action@v2
+        with:
+          username: ${{ secrets.DOCKER_USERNAME }}
+          password: ${{ secrets.DOCKER_PASSWORD }}
+      - name: Create docker manifest and Push the new manifest file
+        env:
+          DOCKER_USERNAME: ${{ secrets.DOCKER_USERNAME }}
+        run: |
+          export DOCKER_PREFIX_TAG=$VERSION
+          export DOCKER_PREFIX=$DOCKER_USERNAME
+          docker manifest create $DOCKER_USERNAME/${{ matrix.docekr_image }}:$DOCKER_PREFIX_TAG $DOCKER_USERNAME/${{ matrix.docekr_image }}:$DOCKER_PREFIX_TAG-amd64 $DOCKER_USERNAME/${{ matrix.docekr_image }}:$DOCKER_PREFIX_TAG-arm64
+          docker manifest push $DOCKER_USERNAME/${{ matrix.docekr_image }}:$DOCKER_PREFIX_TAG
