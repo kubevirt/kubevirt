@@ -21,11 +21,30 @@ const (
 	promptTimeout     = 5 * time.Second
 )
 
+type LoginConfiguration interface {
+	GetHostname(*v1.VirtualMachineInstance) string
+}
+
 // LoginToFunction represents any of the LoginTo* functions
 type LoginToFunction func(*v1.VirtualMachineInstance) error
+type LoginToFunctionWithConfig func(*v1.VirtualMachineInstance, LoginConfiguration) error
 
 // LoginToCirros performs a console login to a Cirros base VM
 func LoginToCirros(vmi *v1.VirtualMachineInstance) error {
+	return LoginToCirrosWithConfig(vmi, defaultLoginConfig{})
+}
+
+// LoginToAlpine performs a console login to an Alpine base VM
+func LoginToAlpine(vmi *v1.VirtualMachineInstance) error {
+	return LoginToAlpineWithConfig(vmi, defaultLoginConfig{})
+}
+
+// LoginToFedora performs a console login to a Fedora base VM
+func LoginToFedora(vmi *v1.VirtualMachineInstance) error {
+	return LoginToFedoraWithConfig(vmi, defaultLoginConfig{})
+}
+
+func LoginToCirrosWithConfig(vmi *v1.VirtualMachineInstance, config LoginConfiguration) error {
 	virtClient, err := kubecli.GetKubevirtClient()
 	if err != nil {
 		panic(err)
@@ -35,7 +54,7 @@ func LoginToCirros(vmi *v1.VirtualMachineInstance) error {
 		return err
 	}
 	defer expecter.Close()
-	hostName := dns.SanitizeHostname(vmi)
+	hostName := config.GetHostname(vmi)
 
 	// Do not login, if we already logged in
 	err = expecter.Send("\n")
@@ -72,8 +91,7 @@ func LoginToCirros(vmi *v1.VirtualMachineInstance) error {
 	return nil
 }
 
-// LoginToAlpine performs a console login to an Alpine base VM
-func LoginToAlpine(vmi *v1.VirtualMachineInstance) error {
+func LoginToAlpineWithConfig(vmi *v1.VirtualMachineInstance, config LoginConfiguration) error {
 	virtClient, err := kubecli.GetKubevirtClient()
 	if err != nil {
 		panic(err)
@@ -90,7 +108,7 @@ func LoginToAlpine(vmi *v1.VirtualMachineInstance) error {
 		return err
 	}
 
-	hostName := dns.SanitizeHostname(vmi)
+	hostName := config.GetHostname(vmi)
 
 	// Do not login, if we already logged in
 	b := []expect.Batcher{
@@ -122,8 +140,7 @@ func LoginToAlpine(vmi *v1.VirtualMachineInstance) error {
 	return err
 }
 
-// LoginToFedora performs a console login to a Fedora base VM
-func LoginToFedora(vmi *v1.VirtualMachineInstance) error {
+func LoginToFedoraWithConfig(vmi *v1.VirtualMachineInstance, config LoginConfiguration) error {
 	virtClient, err := kubecli.GetKubevirtClient()
 	if err != nil {
 		panic(err)
@@ -246,4 +263,10 @@ func configureConsole(expecter expect.Expecter, shouldSudo bool) error {
 		log.DefaultLogger().Infof("%v", resp)
 	}
 	return err
+}
+
+type defaultLoginConfig struct{}
+
+func (d defaultLoginConfig) GetHostname(vmi *v1.VirtualMachineInstance) string {
+	return dns.SanitizeHostname(vmi)
 }
