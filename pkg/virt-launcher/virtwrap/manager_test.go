@@ -89,6 +89,8 @@ var _ = Describe("Manager", func() {
 	testDomainName := fmt.Sprintf("%s_%s", testNamespace, testVmName)
 	ephemeralDiskCreatorMock := &fake.MockEphemeralDiskImageCreator{}
 
+	const fakeUserData = "#fake user data"
+
 	BeforeEach(func() {
 		testVirtShareDir = fmt.Sprintf("fake-virt-share-%d", GinkgoRandomSeed())
 		testEphemeralDiskDir = fmt.Sprintf("fake-ephemeral-disk-%d", GinkgoRandomSeed())
@@ -175,9 +177,8 @@ var _ = Describe("Manager", func() {
 			vmi := newVMI(testNamespace, testVmName)
 			mockConn.EXPECT().LookupDomainByName(testDomainName).Return(mockDomain, libvirt.Error{Code: libvirt.ERR_NO_DOMAIN})
 
-			userData := "fake\nuser\ndata\n"
 			networkData := ""
-			addCloudInitDisk(vmi, userData, networkData)
+			addCloudInitDisk(vmi, fakeUserData, networkData)
 			domainSpec := expectedDomainFor(vmi)
 			xml, err := xml.MarshalIndent(domainSpec, "", "\t")
 			Expect(err).ToNot(HaveOccurred())
@@ -195,9 +196,8 @@ var _ = Describe("Manager", func() {
 			mockDomain.EXPECT().Free()
 			vmi := newVMI(testNamespace, testVmName)
 			mockConn.EXPECT().LookupDomainByName(testDomainName).Return(mockDomain, libvirt.Error{Code: libvirt.ERR_NO_DOMAIN})
-			userData := "fake\nuser\ndata\n"
 			networkData := "FakeNetwork"
-			addCloudInitDisk(vmi, userData, networkData)
+			addCloudInitDisk(vmi, fakeUserData, networkData)
 			domainSpec := expectedDomainFor(vmi)
 			xml, err := xml.MarshalIndent(domainSpec, "", "\t")
 			Expect(err).ToNot(HaveOccurred())
@@ -1612,9 +1612,8 @@ var _ = Describe("Manager", func() {
 				MigrationUID: "111222333",
 			}
 
-			userData := "fake\nuser\ndata\n"
 			networkData := "FakeNetwork"
-			addCloudInitDisk(vmi, userData, networkData)
+			addCloudInitDisk(vmi, fakeUserData, networkData)
 			domainSpec := expectedDomainFor(vmi)
 			domainSpec.Metadata.KubeVirt.Migration = &api.MigrationMetadata{}
 
@@ -1765,9 +1764,8 @@ var _ = Describe("Manager", func() {
 					},
 				},
 			}
-			userData := "fake\nuser\ndata\n"
 			networkData := "FakeNetwork"
-			addCloudInitDisk(vmi, userData, networkData)
+			addCloudInitDisk(vmi, fakeUserData, networkData)
 
 			mockDomain.EXPECT().GetXMLDesc(libvirt.DomainXMLFlags(0)).Return(string(convertedDomain), nil)
 
@@ -2115,9 +2113,8 @@ var _ = Describe("Manager", func() {
 			Size: 42,
 		}
 
-		userData := "fake\nuser\ndata\n"
 		networkData := "FakeNetwork"
-		addCloudInitDisk(vmi, userData, networkData)
+		addCloudInitDisk(vmi, fakeUserData, networkData)
 		libvirtmanager.cloudInitDataStore = &cloudinit.CloudInitData{
 			DataSource: cloudinit.DataSourceNoCloud,
 			VolumeName: "test1",
@@ -2151,9 +2148,8 @@ var _ = Describe("Manager", func() {
 		vmi := newVMI(testNamespace, testVmName)
 		vmi.Status.VolumeStatus = make([]v1.VolumeStatus, 1)
 
-		userData := "fake\nuser\ndata\n"
 		networkData := "FakeNetwork"
-		addCloudInitDisk(vmi, userData, networkData)
+		addCloudInitDisk(vmi, fakeUserData, networkData)
 		libvirtmanager.cloudInitDataStore = &cloudinit.CloudInitData{
 			DataSource: cloudinit.DataSourceNoCloud,
 			VolumeName: "test1",
