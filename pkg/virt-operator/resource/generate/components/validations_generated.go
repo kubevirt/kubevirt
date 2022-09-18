@@ -7805,6 +7805,12 @@ var CRDsValidation map[string]string = map[string]string{
           description: TokenSecretRef is the name of the custom-defined secret that
             contains the token used by the export server pod
           type: string
+        ttlDuration:
+          description: ttlDuration limits the lifetime of an export If this field
+            is set, after this duration has passed from counting from CreationTimestamp,
+            the export is eligible to be automatically deleted. If this field is omitted,
+            a reasonable default is applied.
+          type: string
       required:
       - source
       type: object
@@ -7949,6 +7955,11 @@ var CRDsValidation map[string]string = map[string]string{
         tokenSecretRef:
           description: TokenSecretRef is the name of the secret that contains the
             token used by the export server pod
+          type: string
+        ttlExpirationTime:
+          description: The time at which the VM Export will be completely removed
+            according to specified TTL Formula is CreationTimestamp + TTL
+          format: date-time
           type: string
       type: object
   required:
