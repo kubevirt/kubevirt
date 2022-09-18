@@ -661,5 +661,64 @@ var _ = Describe("[rfe_id:151][crit:high][vendor:cnv-qe@redhat.com][level:compon
 			)
 		})
 
+		Context("custom hostname generation", func() {
+			type cloudInitType string
+			const (
+				cloudInitNoCloud     cloudInitType = "cloudInitNoCloud"
+				cloudInitConfigDrive cloudInitType = "cloudInitConfigDrive"
+			)
+
+			addCloudInitUserData := func(vmi *v1.VirtualMachineInstance, initType cloudInitType, userData string, toEncodeBase64 bool) {
+				switch initType {
+				case cloudInitNoCloud:
+					tests.AddCloudInitNoCloudData(vmi, "disk1", userData, "", toEncodeBase64)
+				case cloudInitConfigDrive:
+					tests.AddCloudInitConfigDriveData(vmi, "disk1", userData, "", toEncodeBase64)
+				}
+			}
+
+			expectHostname := func(vmi *v1.VirtualMachineInstance, expectedHostname string) {
+				loginConfig := getCustomLoginConfig(expectedHostname)
+
+				ExpectWithOffset(1, console.LoginToCirrosWithConfig(vmi, loginConfig)).To(Succeed())
+
+				ExpectWithOffset(1, console.SafeExpectBatch(vmi, []expect.Batcher{
+					&expect.BSnd{S: "hostname\n"},
+					&expect.BExp{R: expectedHostname},
+				}, 10)).To(Succeed(), "vmi's hostname is different than expected")
+			}
+
+			DescribeTable("should process customized hostname", func(toEncodeBase64 bool, initType cloudInitType) {
+				const expectedHostname = "test-hostname"
+				const userData = `#cloud-config
+hostname: ` + expectedHostname
+
+				vmi := tests.NewRandomVMIWithEphemeralDisk(cd.ContainerDiskFor(cd.ContainerDiskCirros))
+				addCloudInitUserData(vmi, initType, userData, toEncodeBase64)
+
+				vmi = LaunchVMI(vmi)
+				expectHostname(vmi, expectedHostname)
+			},
+				Entry("cloudInitNoCloud encoded to base64", true, cloudInitNoCloud),
+				Entry("cloudInitNoCloud as plain text", false, cloudInitNoCloud),
+				Entry("cloudInitConfigDrive encoded to base64", true, cloudInitConfigDrive),
+				Entry("cloudInitConfigDrive as plain text", false, cloudInitConfigDrive),
+			)
+		})
+
 	})
 })
+
+type loginConfigurationImpl struct {
+	hostname string
+}
+
+func (l loginConfigurationImpl) GetHostname(_ *v1.VirtualMachineInstance) string {
+	return l.hostname
+}
+
+func getCustomLoginConfig(expectedHostname string) console.LoginConfiguration {
+	return loginConfigurationImpl{
+		hostname: expectedHostname,
+	}
+}
