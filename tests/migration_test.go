@@ -1719,7 +1719,7 @@ var _ = Describe("[rfe_id:393][crit:high][vendor:cnv-qe@redhat.com][level:system
 			}
 
 			dv := libdv.NewDataVolume(
-				libdv.WithRegistryURLSource("docker://"+cd.ContainerDiskFor(cd.ContainerDiskAlpine)),
+				libdv.WithRegistryURLSource(cd.DataVolumeImportUrlForContainerDisk(cd.ContainerDiskAlpine)),
 				libdv.WithPVC(sc, size, k8sv1.ReadWriteMany, k8sv1.PersistentVolumeFilesystem),
 				libdv.WithForceBindAnnotation(),
 			)
@@ -2118,7 +2118,7 @@ var _ = Describe("[rfe_id:393][crit:high][vendor:cnv-qe@redhat.com][level:system
 				memoryRequestSize = resource.MustParse("1Gi")
 
 				dv = libdv.NewDataVolume(
-					libdv.WithRegistryURLSource("docker://"+cd.ContainerDiskFor(cd.ContainerDiskFedoraTestTooling)),
+					libdv.WithRegistryURLSource(cd.DataVolumeImportUrlForContainerDisk(cd.ContainerDiskFedoraTestTooling)),
 					libdv.WithPVC(sc, cd.FedoraVolumeSize, k8sv1.ReadWriteMany, k8sv1.PersistentVolumeFilesystem),
 				)
 
@@ -2616,7 +2616,7 @@ var _ = Describe("[rfe_id:393][crit:high][vendor:cnv-qe@redhat.com][level:system
 				}
 
 				dv := libdv.NewDataVolume(
-					libdv.WithRegistryURLSource("docker://"+cd.ContainerDiskFor(cd.ContainerDiskFedoraTestTooling)),
+					libdv.WithRegistryURLSource(cd.DataVolumeImportUrlForContainerDisk(cd.ContainerDiskFedoraTestTooling)),
 					libdv.WithPVC(sc, cd.FedoraVolumeSize, k8sv1.ReadWriteMany, k8sv1.PersistentVolumeBlock),
 				)
 

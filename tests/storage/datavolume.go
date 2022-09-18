@@ -171,7 +171,7 @@ var _ = SIGDescribe("DataVolume Integration", func() {
 				}
 
 				dv := libdv.NewDataVolume(
-					libdv.WithRegistryURLSource("docker://"+cd.ContainerDiskFor(cd.ContainerDiskAlpine)),
+					libdv.WithRegistryURLSource(cd.DataVolumeImportUrlForContainerDisk(cd.ContainerDiskAlpine)),
 					libdv.WithPVC(sc, size, k8sv1.ReadWriteMany, k8sv1.PersistentVolumeFilesystem),
 					libdv.WithForceBindAnnotation(),
 				)
