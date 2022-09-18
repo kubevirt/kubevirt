@@ -473,13 +473,12 @@ var _ = SIGDescribe("Hotplug", func() {
 
 		By("Creating DataVolume")
 		dvBlock := libdv.NewDataVolume(
-			libdv.WithNamespace(util.NamespaceTestDefault),
 			libdv.WithBlankImageSource(),
 			libdv.WithPVC(sc, cd.BlankVolumeSize, accessMode, volumeMode),
 			libdv.WithForceBindAnnotation(),
 		)
 
-		_, err := virtClient.CdiClient().CdiV1beta1().DataVolumes(util.NamespaceTestDefault).Create(context.Background(), dvBlock, metav1.CreateOptions{})
+		dvBlock, err := virtClient.CdiClient().CdiV1beta1().DataVolumes(util.NamespaceTestDefault).Create(context.Background(), dvBlock, metav1.CreateOptions{})
 		Expect(err).ToNot(HaveOccurred())
 		libstorage.EventuallyDV(dvBlock, 240, HaveSucceeded())
 		return dvBlock
@@ -575,12 +574,11 @@ var _ = SIGDescribe("Hotplug", func() {
 			dvNames := make([]string, 0)
 			for i := 0; i < numPVs; i++ {
 				dv := libdv.NewDataVolume(
-					libdv.WithNamespace(util.NamespaceTestDefault),
 					libdv.WithBlankImageSource(),
 					libdv.WithPVC(sc, cd.BlankVolumeSize, corev1.ReadWriteOnce, corev1.PersistentVolumeFilesystem),
 				)
 
-				_, err := virtClient.CdiClient().CdiV1beta1().DataVolumes(util.NamespaceTestDefault).Create(context.TODO(), dv, metav1.CreateOptions{})
+				dv, err = virtClient.CdiClient().CdiV1beta1().DataVolumes(util.NamespaceTestDefault).Create(context.TODO(), dv, metav1.CreateOptions{})
 				Expect(err).ToNot(HaveOccurred())
 				dvNames = append(dvNames, dv.Name)
 			}
@@ -1209,12 +1207,11 @@ var _ = SIGDescribe("Hotplug", func() {
 			}
 
 			dv := libdv.NewDataVolume(
-				libdv.WithNamespace(util.NamespaceTestDefault),
 				libdv.WithBlankImageSource(),
 				libdv.WithPVC(sc, cd.BlankVolumeSize, corev1.ReadWriteOnce, corev1.PersistentVolumeFilesystem),
 			)
 
-			_, err := virtClient.CdiClient().CdiV1beta1().DataVolumes(util.NamespaceTestDefault).Create(context.TODO(), dv, metav1.CreateOptions{})
+			dv, err = virtClient.CdiClient().CdiV1beta1().DataVolumes(util.NamespaceTestDefault).Create(context.TODO(), dv, metav1.CreateOptions{})
 			Expect(err).ToNot(HaveOccurred())
 
 			vmi, err := virtClient.VirtualMachineInstance(vm.Namespace).Get(vm.Name, &metav1.GetOptions{})
@@ -1262,12 +1259,11 @@ var _ = SIGDescribe("Hotplug", func() {
 
 		It("should attach a hostpath based volume to running VM", func() {
 			dv := libdv.NewDataVolume(
-				libdv.WithNamespace(util.NamespaceTestDefault),
 				libdv.WithBlankImageSource(),
 				libdv.WithPVC(libstorage.StorageClassHostPathSeparateDevice, cd.BlankVolumeSize, corev1.ReadWriteOnce, corev1.PersistentVolumeFilesystem),
 			)
 
-			_, err := virtClient.CdiClient().CdiV1beta1().DataVolumes(util.NamespaceTestDefault).Create(context.TODO(), dv, metav1.CreateOptions{})
+			dv, err = virtClient.CdiClient().CdiV1beta1().DataVolumes(util.NamespaceTestDefault).Create(context.TODO(), dv, metav1.CreateOptions{})
 			Expect(err).ToNot(HaveOccurred())
 
 			vmi, err := virtClient.VirtualMachineInstance(vm.Namespace).Get(vm.Name, &metav1.GetOptions{})
@@ -1314,12 +1310,11 @@ var _ = SIGDescribe("Hotplug", func() {
 			tests.WaitForSuccessfulVMIStartWithTimeout(vmi, 240)
 
 			dv := libdv.NewDataVolume(
-				libdv.WithNamespace(util.NamespaceTestDefault),
 				libdv.WithBlankImageSource(),
 				libdv.WithPVC(sc, cd.BlankVolumeSize, corev1.ReadWriteOnce, corev1.PersistentVolumeFilesystem),
 			)
 
-			_, err = virtClient.CdiClient().CdiV1beta1().DataVolumes(util.NamespaceTestDefault).Create(context.TODO(), dv, metav1.CreateOptions{})
+			dv, err = virtClient.CdiClient().CdiV1beta1().DataVolumes(util.NamespaceTestDefault).Create(context.TODO(), dv, metav1.CreateOptions{})
 			Expect(err).ToNot(HaveOccurred())
 			Eventually(func() error {
 				_, err = virtClient.CdiClient().CdiV1beta1().DataVolumes(util.NamespaceTestDefault).Get(context.TODO(), dv.Name, metav1.GetOptions{})
@@ -1348,12 +1343,11 @@ var _ = SIGDescribe("Hotplug", func() {
 			Expect(err).ToNot(HaveOccurred())
 			tests.WaitForSuccessfulVMIStartWithTimeout(vmi, 240)
 			dv := libdv.NewDataVolume(
-				libdv.WithNamespace(util.NamespaceTestDefault),
 				libdv.WithBlankImageSource(),
 				libdv.WithPVC(sc, cd.BlankVolumeSize, corev1.ReadWriteOnce, corev1.PersistentVolumeFilesystem),
 			)
 
-			_, err = virtClient.CdiClient().CdiV1beta1().DataVolumes(util.NamespaceTestDefault).Create(context.TODO(), dv, metav1.CreateOptions{})
+			dv, err = virtClient.CdiClient().CdiV1beta1().DataVolumes(util.NamespaceTestDefault).Create(context.TODO(), dv, metav1.CreateOptions{})
 			Expect(err).ToNot(HaveOccurred())
 			Eventually(func() error {
 				_, err = virtClient.CdiClient().CdiV1beta1().DataVolumes(util.NamespaceTestDefault).Get(context.TODO(), dv.Name, metav1.GetOptions{})

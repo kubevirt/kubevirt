@@ -1455,14 +1455,13 @@ var _ = Describe("[rfe_id:393][crit:high][vendor:cnv-qe@redhat.com][level:system
 				}
 
 				dataVolume := libdv.NewDataVolume(
-					libdv.WithNamespace(util.NamespaceTestDefault), // for deletion
 					libdv.WithRegistryURLSource(cd.DataVolumeImportUrlForContainerDisk(cd.ContainerDiskAlpine)),
 					libdv.WithPVC(sc, cd.CirrosVolumeSize, k8sv1.ReadWriteOnce, k8sv1.PersistentVolumeFilesystem),
 				)
 
 				vmi := tests.NewRandomVMIWithDataVolume(dataVolume.Name)
 
-				_, err := virtClient.CdiClient().CdiV1beta1().DataVolumes(util.NamespaceTestDefault).Create(context.Background(), dataVolume, metav1.CreateOptions{})
+				dataVolume, err = virtClient.CdiClient().CdiV1beta1().DataVolumes(util.NamespaceTestDefault).Create(context.Background(), dataVolume, metav1.CreateOptions{})
 				Expect(err).ToNot(HaveOccurred())
 
 				libstorage.EventuallyDV(dataVolume, 240, Or(HaveSucceeded(), BeInPhase(cdiv1.WaitForFirstConsumer)))
@@ -1665,12 +1664,11 @@ var _ = Describe("[rfe_id:393][crit:high][vendor:cnv-qe@redhat.com][level:system
 
 				url := "docker://" + cd.ContainerDiskFor(cd.ContainerDiskFedoraTestTooling)
 				dv = libdv.NewDataVolume(
-					libdv.WithNamespace(util.NamespaceTestDefault), // for deletion
 					libdv.WithRegistryURLSource(url),
 					libdv.WithPVC(sc, cd.FedoraVolumeSize, k8sv1.ReadWriteMany, k8sv1.PersistentVolumeFilesystem),
 				)
 
-				_, err = virtClient.CdiClient().CdiV1beta1().DataVolumes(util.NamespaceTestDefault).Create(context.Background(), dv, metav1.CreateOptions{})
+				dv, err = virtClient.CdiClient().CdiV1beta1().DataVolumes(util.NamespaceTestDefault).Create(context.Background(), dv, metav1.CreateOptions{})
 				Expect(err).ToNot(HaveOccurred())
 				pvName = dv.Name
 			})
@@ -1721,13 +1719,12 @@ var _ = Describe("[rfe_id:393][crit:high][vendor:cnv-qe@redhat.com][level:system
 			}
 
 			dv := libdv.NewDataVolume(
-				libdv.WithNamespace(util.NamespaceTestDefault), // for deletion, if needed
 				libdv.WithRegistryURLSource("docker://"+cd.ContainerDiskFor(cd.ContainerDiskAlpine)),
 				libdv.WithPVC(sc, size, k8sv1.ReadWriteMany, k8sv1.PersistentVolumeFilesystem),
 				libdv.WithForceBindAnnotation(),
 			)
 
-			_, err := virtClient.CdiClient().CdiV1beta1().DataVolumes(util.NamespaceTestDefault).Create(context.Background(), dv, metav1.CreateOptions{})
+			dv, err = virtClient.CdiClient().CdiV1beta1().DataVolumes(util.NamespaceTestDefault).Create(context.Background(), dv, metav1.CreateOptions{})
 			Expect(err).ToNot(HaveOccurred())
 			var pvc *k8sv1.PersistentVolumeClaim
 			Eventually(func() *k8sv1.PersistentVolumeClaim {
@@ -2121,12 +2118,11 @@ var _ = Describe("[rfe_id:393][crit:high][vendor:cnv-qe@redhat.com][level:system
 				memoryRequestSize = resource.MustParse("1Gi")
 
 				dv = libdv.NewDataVolume(
-					libdv.WithNamespace(util.NamespaceTestDefault),
 					libdv.WithRegistryURLSource("docker://"+cd.ContainerDiskFor(cd.ContainerDiskFedoraTestTooling)),
 					libdv.WithPVC(sc, cd.FedoraVolumeSize, k8sv1.ReadWriteMany, k8sv1.PersistentVolumeFilesystem),
 				)
 
-				_, err = virtClient.CdiClient().CdiV1beta1().DataVolumes(util.NamespaceTestDefault).Create(context.Background(), dv, metav1.CreateOptions{})
+				dv, err = virtClient.CdiClient().CdiV1beta1().DataVolumes(util.NamespaceTestDefault).Create(context.Background(), dv, metav1.CreateOptions{})
 				Expect(err).ToNot(HaveOccurred())
 				pvName = dv.Name
 			})

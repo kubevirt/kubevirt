@@ -325,7 +325,6 @@ var _ = SIGDescribe("Export", func() {
 	populateKubeVirtContent := func(sc string, volumeMode k8sv1.PersistentVolumeMode) (*k8sv1.PersistentVolumeClaim, string) {
 		By("Creating source volume")
 		dv := libdv.NewDataVolume(
-			libdv.WithNamespace(util.NamespaceTestDefault),
 			libdv.WithRegistryURLSourceAndPullMethod(cd.DataVolumeImportUrlForContainerDisk(cd.ContainerDiskCirros), cdiv1.RegistryPullNode),
 			libdv.WithPVC(sc, cd.CirrosVolumeSize, k8sv1.ReadWriteOnce, volumeMode),
 		)
@@ -815,7 +814,6 @@ var _ = SIGDescribe("Export", func() {
 			Skip("Skip test when Filesystem storage is not present")
 		}
 		dv := libdv.NewDataVolume(
-			libdv.WithNamespace(util.NamespaceTestDefault),
 			libdv.WithRegistryURLSourceAndPullMethod(cd.DataVolumeImportUrlForContainerDisk(cd.ContainerDiskCirros), cdiv1.RegistryPullNode),
 			libdv.WithPVC(sc, cd.CirrosVolumeSize, k8sv1.ReadWriteOnce, k8sv1.PersistentVolumeFilesystem),
 		)
@@ -1094,7 +1092,7 @@ var _ = SIGDescribe("Export", func() {
 	}
 
 	createDataVolume := func(dv *cdiv1.DataVolume) *cdiv1.DataVolume {
-		dv, err := virtClient.CdiClient().CdiV1beta1().DataVolumes(dv.Namespace).Create(context.Background(), dv, metav1.CreateOptions{})
+		dv, err = virtClient.CdiClient().CdiV1beta1().DataVolumes(dv.Namespace).Create(context.Background(), dv, metav1.CreateOptions{})
 		Expect(err).ToNot(HaveOccurred())
 		return dv
 	}

@@ -455,7 +455,6 @@ func NewRandomVirtualMachineInstanceWithDisk(imageUrl, namespace, sc string, acc
 	util2.PanicOnError(err)
 
 	dv := libdv.NewDataVolume(
-		libdv.WithNamespace(namespace),
 		libdv.WithRegistryURLSourceAndPullMethod(imageUrl, cdiv1.RegistryPullNode),
 		libdv.WithPVC(sc, dvSizeBySourceURL(imageUrl), accessMode, volMode),
 	)
@@ -537,7 +536,6 @@ func NewRandomVMWithEphemeralDisk(containerImage string) *v1.VirtualMachine {
 
 func NewRandomVMWithDataVolumeWithRegistryImport(imageUrl, namespace, storageClass string, accessMode k8sv1.PersistentVolumeAccessMode) *v1.VirtualMachine {
 	dataVolume := libdv.NewDataVolume(
-		libdv.WithNamespace(namespace),
 		libdv.WithRegistryURLSourceAndPullMethod(imageUrl, cdiv1.RegistryPullNode),
 		libdv.WithPVC(storageClass, dvSizeBySourceURL(imageUrl), accessMode, k8sv1.PersistentVolumeFilesystem),
 	)
@@ -556,7 +554,6 @@ func NewRandomVMWithDataVolume(imageUrl string, namespace string) (*v1.VirtualMa
 	}
 
 	dataVolume := libdv.NewDataVolume(
-		libdv.WithNamespace(namespace),
 		libdv.WithRegistryURLSource(imageUrl),
 		libdv.WithPVC(sc, cd.CirrosVolumeSize, k8sv1.ReadWriteOnce, k8sv1.PersistentVolumeFilesystem),
 	)
@@ -579,7 +576,6 @@ func NewRandomVMWithDataVolumeAndUserData(dataVolume *cdiv1.DataVolume, userData
 
 func NewRandomVMWithDataVolumeAndUserDataInStorageClass(imageUrl, namespace, userData, storageClass string) *v1.VirtualMachine {
 	dataVolume := libdv.NewDataVolume(
-		libdv.WithNamespace(namespace),
 		libdv.WithRegistryURLSourceAndPullMethod(imageUrl, cdiv1.RegistryPullNode),
 		libdv.WithPVC(storageClass, dvSizeBySourceURL(imageUrl), k8sv1.ReadWriteOnce, k8sv1.PersistentVolumeFilesystem),
 	)

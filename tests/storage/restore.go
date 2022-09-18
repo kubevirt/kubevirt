@@ -1552,7 +1552,6 @@ var _ = SIGDescribe("VirtualMachineRestore Tests", func() {
 					}
 
 					source := libdv.NewDataVolume(
-						libdv.WithNamespace(testsuite.NamespaceTestAlternative),
 						libdv.WithRegistryURLSourceAndPullMethod(cd.DataVolumeImportUrlForContainerDisk(cd.ContainerDiskCirros), cdiv1.RegistryPullNode),
 						libdv.WithPVC(sourceSC, cd.CirrosVolumeSize, corev1.ReadWriteOnce, corev1.PersistentVolumeFilesystem),
 						libdv.WithForceBindAnnotation(),

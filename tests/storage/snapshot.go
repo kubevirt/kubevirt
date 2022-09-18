@@ -1250,7 +1250,6 @@ var _ = SIGDescribe("VirtualMachineSnapshot Tests", func() {
 
 			DescribeTable("should accurately report DataVolume provisioning", func(vmif func(string) *v1.VirtualMachineInstance) {
 				dataVolume := libdv.NewDataVolume(
-					libdv.WithNamespace(util.NamespaceTestDefault),
 					libdv.WithRegistryURLSourceAndPullMethod(cd.DataVolumeImportUrlForContainerDisk(cd.ContainerDiskAlpine), cdiv1.RegistryPullNode),
 					libdv.WithPVC(snapshotStorageClass, cd.CirrosVolumeSize, corev1.ReadWriteOnce, corev1.PersistentVolumeFilesystem),
 				)
