@@ -863,9 +863,6 @@ func Convert_v1_EphemeralVolumeSource_To_api_Disk(volumeName string, disk *api.D
 		Format: &api.BackingStoreFormat{},
 		Source: &api.DiskSource{},
 	}
-	if !contains(c.VolumesDiscardIgnore, volumeName) {
-		disk.Driver.Discard = "unmap"
-	}
 
 	backingDisk := &api.Disk{Driver: &api.DiskDriver{}}
 	if c.IsBlockPVC[volumeName] {
