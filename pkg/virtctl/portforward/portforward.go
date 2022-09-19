@@ -158,7 +158,7 @@ func (o *PortForward) startStdoutStream(namespace, name string, port forwardedPo
 		return err
 	}
 
-	glog.Infof("forwarding to %s/%s:%d", namespace, name, port.remote)
+	glog.V(3).Infof("forwarding to %s/%s:%d", namespace, name, port.remote)
 	if err := streamer.Stream(kubecli.StreamOptions{
 		In:  os.Stdin,
 		Out: os.Stdout,
