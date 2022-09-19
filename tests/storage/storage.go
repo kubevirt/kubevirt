@@ -403,6 +403,80 @@ var _ = SIGDescribe("Storage", func() {
 			})
 
 		})
+		Context("VirtIO-FS with multiple PVCs", func() {
+			pvc1 := "pvc-1"
+			pvc2 := "pvc-2"
+			createPVC := func(name string) {
+				sc, _ := libstorage.GetRWXFileSystemStorageClass()
+				pvc := libstorage.NewPVC(name, "1Gi", sc)
+				_, err = virtClient.CoreV1().PersistentVolumeClaims(util.NamespaceTestDefault).Create(context.Background(), pvc, metav1.CreateOptions{})
+				ExpectWithOffset(1, err).NotTo(HaveOccurred())
+			}
+
+			BeforeEach(func() {
+				checks.SkipTestIfNoFeatureGate(virtconfig.VirtIOFSGate)
+				createPVC(pvc1)
+				createPVC(pvc2)
+			})
+
+			AfterEach(func() {
+				libstorage.DeletePVC(pvc1)
+				libstorage.DeletePVC(pvc2)
+			})
+
+			It("should be successfully started and accessible", func() {
+
+				virtiofsMountPath := func(pvcName string) string { return fmt.Sprintf("/mnt/virtiofs_%s", pvcName) }
+				virtiofsTestFile := func(virtiofsMountPath string) string { return fmt.Sprintf("%s/virtiofs_test", virtiofsMountPath) }
+				mountVirtiofsCommands := fmt.Sprintf(`#!/bin/bash
+                                   mkdir %s
+                                   mount -t virtiofs %s %s
+                                   touch %s
+
+								   mkdir %s
+                                   mount -t virtiofs %s %s
+                                   touch %s
+                           `, virtiofsMountPath(pvc1), pvc1, virtiofsMountPath(pvc1), virtiofsTestFile(virtiofsMountPath(pvc1)),
+					virtiofsMountPath(pvc2), pvc2, virtiofsMountPath(pvc2), virtiofsTestFile(virtiofsMountPath(pvc2)))
+
+				vmi = libvmi.NewFedora(
+					libvmi.WithCloudInitNoCloudUserData(mountVirtiofsCommands, true),
+					libvmi.WithFilesystemPVC(pvc1),
+					libvmi.WithFilesystemPVC(pvc2),
+				)
+
+				vmi = tests.RunVMIAndExpectLaunchIgnoreWarnings(vmi, 300)
+
+				// Wait for cloud init to finish and start the agent inside the vmi.
+				tests.WaitAgentConnected(virtClient, vmi)
+
+				By(checkingVMInstanceConsoleOut)
+				Expect(console.LoginToFedora(vmi)).To(Succeed(), "Should be able to login to the Fedora VM")
+
+				virtioFsFileTestCmd := fmt.Sprintf("test -f /run/kubevirt-private/vmi-disks/%s/virtiofs_test && echo exist", pvc1)
+				pod := tests.GetRunningPodByVirtualMachineInstance(vmi, util.NamespaceTestDefault)
+				podVirtioFsFileExist, err := tests.ExecuteCommandOnPod(
+					virtClient,
+					pod,
+					"compute",
+					[]string{tests.BinBash, "-c", virtioFsFileTestCmd},
+				)
+				Expect(err).ToNot(HaveOccurred())
+				Expect(strings.Trim(podVirtioFsFileExist, "\n")).To(Equal("exist"))
+
+				virtioFsFileTestCmd = fmt.Sprintf("test -f /run/kubevirt-private/vmi-disks/%s/virtiofs_test && echo exist", pvc2)
+				pod = tests.GetRunningPodByVirtualMachineInstance(vmi, util.NamespaceTestDefault)
+				podVirtioFsFileExist, err = tests.ExecuteCommandOnPod(
+					virtClient,
+					pod,
+					"compute",
+					[]string{tests.BinBash, "-c", virtioFsFileTestCmd},
+				)
+				Expect(err).ToNot(HaveOccurred())
+				Expect(strings.Trim(podVirtioFsFileExist, "\n")).To(Equal("exist"))
+			})
+
+		})
 		Context("VirtIO-FS with an empty PVC", func() {
 
 			var pvc = "empty-pvc1"
