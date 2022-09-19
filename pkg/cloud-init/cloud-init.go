@@ -31,6 +31,8 @@ import (
 	"strings"
 	"time"
 
+	"kubevirt.io/kubevirt/pkg/util/net/dns"
+
 	"github.com/pborman/uuid"
 
 	v1 "kubevirt.io/api/core/v1"
@@ -39,7 +41,6 @@ import (
 
 	diskutils "kubevirt.io/kubevirt/pkg/ephemeral-disk-utils"
 	"kubevirt.io/kubevirt/pkg/util"
-	"kubevirt.io/kubevirt/pkg/util/net/dns"
 )
 
 const isoStagingFmt = "%s.staging"
@@ -106,6 +107,12 @@ type DeviceData struct {
 	NumaNode    uint32             `json:"numaNode,omitempty"`
 	AlignedCPUs []uint32           `json:"alignedCPUs,omitempty"`
 	Tags        []string           `json:"tags"`
+}
+
+type UserData struct {
+	// UserData contains more fields that aren't needed for unmarshalling. If more are needed
+	// in the future, they can be added here.
+	Hostname string `json:"hostname"`
 }
 
 // IsValidCloudInitData checks if the given CloudInitData object is valid in the sense that GenerateLocalData can be called with it.
