@@ -1833,7 +1833,8 @@ var _ = Describe("[rfe_id:393][crit:high][vendor:cnv-qe@redhat.com][level:system
 
 				Entry("with CD + CloudInit + SA + ConfigMap + Secret + DownwardAPI + Kernel Boot", func() *v1.VirtualMachineInstance {
 					return prepareVMIWithAllVolumeSources()
-				}, console.LoginToFedora),
+					//We need new login func for this case
+				}, func(*v1.VirtualMachineInstance) error { return nil }),
 
 				Entry("with PVC", func() *v1.VirtualMachineInstance {
 					dv = createDataVolumePVCAndChangeDiskImgPermissions(size)
