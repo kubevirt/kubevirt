@@ -37,36 +37,36 @@ var _ = Describe("Mediated Devices Types configuration", func() {
 	var configuredMdevTypesOnCards map[string]map[string]struct{}
 	var clientTest *fake.Clientset
 	var mdevTypesDetailsMap = map[string]mdevTypesDetails{
-		"nvidia-222": mdevTypesDetails{
+		"nvidia-222": {
 			name:               "GRID T4-1B",
 			availableInstances: 16,
 		},
-		"nvidia-223": mdevTypesDetails{
+		"nvidia-223": {
 			name:               "GRID T4-2B",
 			availableInstances: 8,
 		},
-		"nvidia-224": mdevTypesDetails{
+		"nvidia-224": {
 			name:               "GRID T4-2B4",
 			availableInstances: 8,
 		},
-		"nvidia-228": mdevTypesDetails{
+		"nvidia-228": {
 			name:               "GRID T4-8A",
 			availableInstances: 2,
 		},
-		"nvidia-229": mdevTypesDetails{
+		"nvidia-229": {
 			name:               "GRID T4-16A",
 			availableInstances: 1,
 		},
-		"i915-GVTg_V5_1": mdevTypesDetails{
+		"i915-GVTg_V5_1": {
 			availableInstances: 1,
 		},
-		"i915-GVTg_V5_2": mdevTypesDetails{
+		"i915-GVTg_V5_2": {
 			availableInstances: 1,
 		},
-		"i915-GVTg_V5_4": mdevTypesDetails{
+		"i915-GVTg_V5_4": {
 			availableInstances: 1,
 		},
-		"i915-GVTg_V5_8": mdevTypesDetails{
+		"i915-GVTg_V5_8": {
 			availableInstances: 2,
 		},
 	}
@@ -180,13 +180,13 @@ var _ = Describe("Mediated Devices Types configuration", func() {
 		nodeLabels              map[string]string
 	}
 
-	spreadTypesAccossIdenticalCard := func() *scenarioValues {
+	spreadTypesAcrossIdenticalCard := func() *scenarioValues {
 		mdevTypesForIdenticalPciDevices := []string{"nvidia-222", "nvidia-223", "nvidia-224", "nvidia-228", "nvidia-229"}
 		pciMDEVDevicesMap := map[string][]string{
 			"0000:65:00.0": mdevTypesForIdenticalPciDevices,
 			"0000:66:00.0": mdevTypesForIdenticalPciDevices,
 			"0000:67:00.0": mdevTypesForIdenticalPciDevices,
-			"0000:00:02.0": []string{"i915-GVTg_V5_1", "i915-GVTg_V5_2", "i915-GVTg_V5_4", "i915-GVTg_V5_8"},
+			"0000:00:02.0": {"i915-GVTg_V5_1", "i915-GVTg_V5_2", "i915-GVTg_V5_4", "i915-GVTg_V5_8"},
 		}
 		return &scenarioValues{
 			pciMDEVDevicesMap:       pciMDEVDevicesMap,
@@ -231,12 +231,12 @@ var _ = Describe("Mediated Devices Types configuration", func() {
 			expectedConfiguredTypes: []string{},
 		}
 	}
-	deafultTypesNotNodeSpecific := func() *scenarioValues {
+	defaultTypesNotNodeSpecific := func() *scenarioValues {
 		mdevTypesForIdenticalPciDevices := []string{"nvidia-222", "nvidia-223", "nvidia-224", "nvidia-228", "nvidia-229"}
 		pciMDEVDevicesMap := map[string][]string{
 			"0000:65:00.0": mdevTypesForIdenticalPciDevices,
 			"0000:66:00.0": mdevTypesForIdenticalPciDevices,
-			"0000:00:02.0": []string{"i915-GVTg_V5_1", "i915-GVTg_V5_2", "i915-GVTg_V5_4", "i915-GVTg_V5_8"},
+			"0000:00:02.0": {"i915-GVTg_V5_1", "i915-GVTg_V5_2", "i915-GVTg_V5_4", "i915-GVTg_V5_8"},
 		}
 		return &scenarioValues{
 			pciMDEVDevicesMap:       pciMDEVDevicesMap,
@@ -299,11 +299,11 @@ var _ = Describe("Mediated Devices Types configuration", func() {
 			}
 			By("making sure that a correct amount of mdevs is created for each type")
 			// in cases where multiple mdev types are required to be configured but the amount of cards is significantly lower
-			// it will be hard to estimate which of the requested types will be created. Simply check that amount of created types matches the avaiable cards.
+			// it will be hard to estimate which of the requested types will be created. Simply check that amount of created types matches the available cards.
 			if len(sc.expectedConfiguredTypes) == 1 && sc.expectedConfiguredTypes[0] == "ANY" {
 				Expect(configuredMdevTypesOnCards).To(HaveLen(len(sc.pciMDEVDevicesMap)))
 			} else {
-				for mdevType, _ := range mdevTypesDetailsMap {
+				for mdevType := range mdevTypesDetailsMap {
 					numberOfCreatedMDEVs := countCreatedMdevs(mdevType)
 					if _, exist := desiredDevicesToConfigure[mdevType]; exist {
 						numberOfCardsConfiguredWithMdevType := len(configuredMdevTypesOnCards[mdevType])
@@ -319,16 +319,30 @@ var _ = Describe("Mediated Devices Types configuration", func() {
 				Expect(desiredDevicesToConfigure).To(BeEmpty(), "add types should be created")
 			}
 
+			By("removing one type of created mdevs")
+			Expect(sc.desiredDevicesList).NotTo(BeEmpty())
+			mdevManager.updateMDEVTypesConfiguration(sc.desiredDevicesList[1:])
+			removed := sc.desiredDevicesList[0]
+			files, err := ioutil.ReadDir(fakeMdevDevicesPath)
+			Expect(err).ToNot(HaveOccurred())
+			for _, file := range files {
+				if file.IsDir() {
+					linkTypePath, err := os.Readlink(filepath.Join(fakeMdevDevicesPath, file.Name(), "mdev_type"))
+					Expect(err).ToNot(HaveOccurred())
+					Expect(filepath.Base(linkTypePath)).NotTo(Equal(removed))
+				}
+			}
+
 			By("removing all created mdevs")
 			mdevManager.updateMDEVTypesConfiguration([]string{})
-			files, err := ioutil.ReadDir(fakeMdevDevicesPath)
+			files, err = ioutil.ReadDir(fakeMdevDevicesPath)
 			Expect(err).ToNot(HaveOccurred())
 			Expect(files).To(BeEmpty())
 		},
-			Entry("spread types accoss identical cards", spreadTypesAccossIdenticalCard),
-			Entry("one yype many cards", oneTypeManyCards),
+			Entry("spread types across identical cards", spreadTypesAcrossIdenticalCard),
+			Entry("one type many cards", oneTypeManyCards),
 			Entry("many types many cards", multipleTypeOneCards),
-			Entry("no cards support requeted types", noCardsSupportTypes),
+			Entry("no cards support requested types", noCardsSupportTypes),
 		)
 		DescribeTable("should create and remove relevant mdev types matching a specific node", func(scenario func() *scenarioValues) {
 			sc := scenario()
@@ -409,11 +423,11 @@ var _ = Describe("Mediated Devices Types configuration", func() {
 			}
 			By("making sure that a correct amount of mdevs is created for each type")
 			// in cases where multiple mdev types are required to be configured but the amount of cards is significantly lower
-			// it will be hard to estimate which of the requested types will be created. Simply check that amount of created types matches the avaiable cards.
+			// it will be hard to estimate which of the requested types will be created. Simply check that amount of created types matches the available cards.
 			if len(sc.expectedConfiguredTypes) == 1 && sc.expectedConfiguredTypes[0] == "ANY" {
 				Expect(configuredMdevTypesOnCards).To(HaveLen(len(sc.pciMDEVDevicesMap)))
 			} else {
-				for mdevType, _ := range mdevTypesDetailsMap {
+				for mdevType := range mdevTypesDetailsMap {
 					numberOfCreatedMDEVs := countCreatedMdevs(mdevType)
 					if _, exist := desiredDevicesToConfigure[mdevType]; exist {
 						numberOfCardsConfiguredWithMdevType := len(configuredMdevTypesOnCards[mdevType])
@@ -437,7 +451,7 @@ var _ = Describe("Mediated Devices Types configuration", func() {
 			Expect(err).ToNot(HaveOccurred())
 			Expect(files).To(BeEmpty())
 		},
-			Entry("configure default mdev types", deafultTypesNotNodeSpecific),
+			Entry("configure default mdev types", defaultTypesNotNodeSpecific),
 			Entry("configure mdev types that match all node selectors", matchAllNodeLabels),
 			Entry("configure mdev types that match a node selector", matchSingleNodeLabel),
 			Entry("configure a merged list of mdev types when multiple selectors match node", mergeAllTypesMatchedByNodeLabels),

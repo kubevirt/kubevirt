@@ -54,8 +54,7 @@ func (m *MDEVTypesManager) updateMDEVTypesConfiguration(desiredTypesList []strin
 	defer m.mdevsConfigurationMutex.Unlock()
 
 	desiredTypesBytes := []byte(strings.Join(desiredTypesList, ","))
-	if bytes.Compare(m.configuredMdevTypes, desiredTypesBytes) != 0 {
-
+	if !bytes.Equal(m.configuredMdevTypes, desiredTypesBytes) {
 		// construct a map of desired types for lookup
 		desiredTypesMap := make(map[string]struct{})
 		for _, mdevType := range desiredTypesList {
@@ -107,16 +106,20 @@ func (m *MDEVTypesManager) discoverConfigurableMDEVTypes(desiredTypesMap map[str
 		// get this type's ID
 		typeID := filepath.Base(file)
 
-		// find out if type was requested by name
+		// find out if type was requested by name or ID
 		_, typeNameExist := desiredTypesMap[typeNameStr]
 		_, typeIDExist := desiredTypesMap[typeID]
+		ar, exist := m.availableMdevTypesMap[typeID]
 		if typeNameExist || typeIDExist {
-			ar, exist := m.availableMdevTypesMap[typeID]
 			if !exist {
 				ar = []string{}
 			}
 			ar = append(ar, parentID)
 			m.availableMdevTypesMap[typeID] = ar
+			m.unconfiguredParentsMap[parentID] = struct{}{}
+		} else if exist {
+			// handle removal of a mdev type
+			delete(m.availableMdevTypesMap, typeID)
 			m.unconfiguredParentsMap[parentID] = struct{}{}
 		}
 	}
@@ -128,7 +131,7 @@ func (m *MDEVTypesManager) initMDEVTypesRing() *ring.Ring {
 	r := ring.New(len(m.availableMdevTypesMap))
 
 	// Initialize the ring with some integer values
-	for desiredType, _ := range m.availableMdevTypesMap {
+	for desiredType := range m.availableMdevTypesMap {
 		r.Value = desiredType
 		r = r.Next()
 	}
@@ -158,7 +161,7 @@ func (m *MDEVTypesManager) configureDesiredMDEVTypes() {
 		if parents, exist := m.availableMdevTypesMap[mdevTypeToConfigure]; exist {
 			if len(parents) > 0 {
 				// Currently, we can configure only one mdev type per card.
-				// Find the next available parent to congigure and remove the
+				// Find the next available parent to configure and remove the
 				// configured parents from the list.
 				parent, remainingParents := m.getNextAvailableParentToConfigure(parents)
 				parents = remainingParents
