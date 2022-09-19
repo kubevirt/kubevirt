@@ -31,6 +31,8 @@ import (
 	fakeexportv1alpha1 "kubevirt.io/client-go/generated/kubevirt/clientset/versioned/typed/export/v1alpha1/fake"
 	instancetypev1alpha1 "kubevirt.io/client-go/generated/kubevirt/clientset/versioned/typed/instancetype/v1alpha1"
 	fakeinstancetypev1alpha1 "kubevirt.io/client-go/generated/kubevirt/clientset/versioned/typed/instancetype/v1alpha1/fake"
+	instancetypev1alpha2 "kubevirt.io/client-go/generated/kubevirt/clientset/versioned/typed/instancetype/v1alpha2"
+	fakeinstancetypev1alpha2 "kubevirt.io/client-go/generated/kubevirt/clientset/versioned/typed/instancetype/v1alpha2/fake"
 	migrationsv1alpha1 "kubevirt.io/client-go/generated/kubevirt/clientset/versioned/typed/migrations/v1alpha1"
 	fakemigrationsv1alpha1 "kubevirt.io/client-go/generated/kubevirt/clientset/versioned/typed/migrations/v1alpha1/fake"
 	poolv1alpha1 "kubevirt.io/client-go/generated/kubevirt/clientset/versioned/typed/pool/v1alpha1"
@@ -99,6 +101,11 @@ func (c *Clientset) ExportV1alpha1() exportv1alpha1.ExportV1alpha1Interface {
 // InstancetypeV1alpha1 retrieves the InstancetypeV1alpha1Client
 func (c *Clientset) InstancetypeV1alpha1() instancetypev1alpha1.InstancetypeV1alpha1Interface {
 	return &fakeinstancetypev1alpha1.FakeInstancetypeV1alpha1{Fake: &c.Fake}
+}
+
+// InstancetypeV1alpha2 retrieves the InstancetypeV1alpha2Client
+func (c *Clientset) InstancetypeV1alpha2() instancetypev1alpha2.InstancetypeV1alpha2Interface {
+	return &fakeinstancetypev1alpha2.FakeInstancetypeV1alpha2{Fake: &c.Fake}
 }
 
 // MigrationsV1alpha1 retrieves the MigrationsV1alpha1Client
