@@ -86,7 +86,6 @@ import (
 	"kubevirt.io/kubevirt/pkg/virt-handler/isolation"
 	migrationproxy "kubevirt.io/kubevirt/pkg/virt-handler/migration-proxy"
 	"kubevirt.io/kubevirt/pkg/virt-launcher/virtwrap/api"
-	"kubevirt.io/kubevirt/pkg/watchdog"
 )
 
 type netconf interface {
@@ -1826,17 +1825,8 @@ func (d *VirtualMachineController) execute(key string) error {
 	// to retrieve it from the ghost record
 	if string(vmi.UID) == "" {
 		uid := virtcache.LastKnownUIDFromGhostRecordCache(key)
-		if uid != "" {
-			log.Log.Object(vmi).V(3).Infof("ghost record cache provided %s as UID", uid)
-			vmi.UID = uid
-		} else {
-			// legacy support, attempt to find UID from watchdog file it exists.
-			uid := watchdog.WatchdogFileGetUID(d.virtShareDir, vmi)
-			if uid != "" {
-				log.Log.Object(vmi).V(3).Infof("watchdog file provided %s as UID", uid)
-				vmi.UID = types.UID(uid)
-			}
-		}
+		log.Log.Object(vmi).V(3).Infof("ghost record cache provided %s as UID", uid)
+		vmi.UID = uid
 	}
 
 	if vmiExists && domainExists && domain.Spec.Metadata.KubeVirt.UID != vmi.UID {
@@ -1954,13 +1944,6 @@ func (d *VirtualMachineController) closeLauncherClient(vmi *v1.VirtualMachineIns
 		}
 	}
 
-	// for legacy support, ensure watchdog is removed when client is removed
-	// in the event that watchdog VMIs are still in use
-	err := watchdog.WatchdogFileRemove(d.virtShareDir, vmi)
-	if err != nil {
-		return err
-	}
-
 	virtcache.DeleteGhostRecord(vmi.Namespace, vmi.Name)
 	d.launcherClients.Delete(vmi.UID)
 	return nil
@@ -2017,18 +2000,9 @@ func (d *VirtualMachineController) isLauncherClientUnresponsive(vmi *v1.VirtualM
 		clientInfo.Ready = true
 		clientInfo.SocketFile = socketFile
 	}
-	// The new way of detecting unresponsive VMIs monitors the
-	// cmd socket. This requires an updated VMI image. Old VMIs
-	// still use the watchdog method.
-	watchDogExists, _ := watchdog.WatchdogFileExists(d.virtShareDir, vmi)
-	if cmdclient.SocketMonitoringEnabled(socketFile) && !watchDogExists {
-		isUnresponsive := cmdclient.IsSocketUnresponsive(socketFile)
-		return isUnresponsive, true, nil
-	}
 
-	// fall back to legacy watchdog support for backwards compatibility
-	isUnresponsive, err := watchdog.WatchdogFileIsExpired(d.watchdogTimeoutSeconds, d.virtShareDir, vmi)
-	return isUnresponsive, true, err
+	isUnresponsive := cmdclient.IsSocketUnresponsive(socketFile)
+	return isUnresponsive, true, nil
 }
 
 func (d *VirtualMachineController) getLauncherClient(vmi *v1.VirtualMachineInstance) (cmdclient.LauncherClient, error) {

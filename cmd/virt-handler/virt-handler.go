@@ -85,7 +85,6 @@ import (
 	"kubevirt.io/kubevirt/pkg/virt-handler/rest"
 	"kubevirt.io/kubevirt/pkg/virt-handler/selinux"
 	virt_api "kubevirt.io/kubevirt/pkg/virt-launcher/virtwrap/api"
-	"kubevirt.io/kubevirt/pkg/watchdog"
 )
 
 const (
@@ -252,12 +251,6 @@ func (app *virtHandlerApp) Run() {
 
 	// Wire Domain controller
 	domainSharedInformer, err := virtcache.NewSharedInformer(app.VirtShareDir, int(app.WatchdogTimeoutDuration.Seconds()), recorder, vmiSourceInformer.GetStore(), time.Duration(app.domainResyncPeriodSeconds)*time.Second)
-	if err != nil {
-		panic(err)
-	}
-
-	// Legacy directory for watchdog files
-	err = os.MkdirAll(watchdog.WatchdogFileDirectory(app.VirtShareDir), 0755)
 	if err != nil {
 		panic(err)
 	}
