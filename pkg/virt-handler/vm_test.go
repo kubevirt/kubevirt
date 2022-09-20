@@ -69,7 +69,6 @@ import (
 
 	v1 "kubevirt.io/api/core/v1"
 	"kubevirt.io/client-go/kubecli"
-	"kubevirt.io/client-go/precond"
 
 	diskutils "kubevirt.io/kubevirt/pkg/ephemeral-disk-utils"
 	"kubevirt.io/kubevirt/pkg/testutils"
@@ -93,9 +92,7 @@ var _ = Describe("VirtualMachineInstance", func() {
 	var vmiTargetInformer cache.SharedIndexInformer
 	var domainSource *framework.FakeControllerSource
 	var domainInformer cache.SharedIndexInformer
-	var gracefulShutdownInformer cache.SharedIndexInformer
 	var mockQueue *testutils.MockWorkQueue
-	var mockGracefulShutdown *MockGracefulShutdown
 	var mockIsolationDetector *isolation.MockPodIsolationDetector
 	var mockIsolationResult *isolation.MockIsolationResult
 	var mockContainerDiskMounter *container_disk.MockMounter
@@ -168,7 +165,6 @@ var _ = Describe("VirtualMachineInstance", func() {
 		vmiSourceInformer, vmiSource = testutils.NewFakeInformerFor(&v1.VirtualMachineInstance{})
 		vmiTargetInformer, _ = testutils.NewFakeInformerFor(&v1.VirtualMachineInstance{})
 		domainInformer, domainSource = testutils.NewFakeInformerFor(&api.Domain{})
-		gracefulShutdownInformer, _ = testutils.NewFakeInformerFor(&api.Domain{})
 		recorder = record.NewFakeRecorder(100)
 		recorder.IncludeObject = true
 
@@ -179,7 +175,6 @@ var _ = Describe("VirtualMachineInstance", func() {
 		vmiInterface = kubecli.NewMockVirtualMachineInstanceInterface(ctrl)
 		virtClient.EXPECT().VirtualMachineInstance(metav1.NamespaceDefault).Return(vmiInterface).AnyTimes()
 
-		mockGracefulShutdown = &MockGracefulShutdown{shareDir}
 		config, _, _ := testutils.NewFakeClusterConfigUsingKVConfig(&v1.KubeVirtConfiguration{})
 
 		Expect(os.MkdirAll(filepath.Join(vmiShareDir, "dev"), 0755)).To(Succeed())
@@ -210,7 +205,6 @@ var _ = Describe("VirtualMachineInstance", func() {
 			vmiSourceInformer,
 			vmiTargetInformer,
 			domainInformer,
-			gracefulShutdownInformer,
 			1,
 			10,
 			config,
@@ -239,12 +233,11 @@ var _ = Describe("VirtualMachineInstance", func() {
 		vmiFeeder = testutils.NewVirtualMachineFeeder(mockQueue, vmiSource)
 		domainFeeder = testutils.NewDomainFeeder(mockQueue, domainSource)
 
-		wg.Add(5)
+		wg.Add(4)
 		go func() { vmiSourceInformer.Run(stop); wg.Done() }()
 		go func() { vmiTargetInformer.Run(stop); wg.Done() }()
 		go func() { domainInformer.Run(stop); wg.Done() }()
-		go func() { gracefulShutdownInformer.Run(stop); wg.Done() }()
-		Expect(cache.WaitForCacheSync(stop, vmiSourceInformer.HasSynced, vmiTargetInformer.HasSynced, domainInformer.HasSynced, gracefulShutdownInformer.HasSynced)).To(BeTrue())
+		Expect(cache.WaitForCacheSync(stop, vmiSourceInformer.HasSynced, vmiTargetInformer.HasSynced, domainInformer.HasSynced)).To(BeTrue())
 
 		go func() {
 			notifyserver.RunServer(shareDir, stop, eventChan, nil, nil)
@@ -301,6 +294,10 @@ var _ = Describe("VirtualMachineInstance", func() {
 		dom.Spec.Metadata.KubeVirt.GracePeriod.DeletionGracePeriodSeconds = gracePeriod
 	}
 
+	triggerGracefulShutdown := func(dom *api.Domain) {
+		dom.Spec.Metadata.KubeVirt.GracePeriod.MarkedForGracefulShutdown = pointer.Bool(true)
+	}
+
 	Context("VirtualMachineInstance controller gets informed about a Domain change through the Domain controller", func() {
 		BeforeEach(func() {
 			diskutils.MockDefaultOwnershipManager()
@@ -337,7 +334,7 @@ var _ = Describe("VirtualMachineInstance", func() {
 			domain.Status.Status = api.Crashed
 
 			initGracePeriodHelper(1, vmi, domain)
-			mockGracefulShutdown.TriggerShutdown(vmi)
+			triggerGracefulShutdown(domain)
 
 			client.EXPECT().Ping()
 			client.EXPECT().DeleteDomain(v1.NewVMIReferenceWithUUID(metav1.NamespaceDefault, "testvmi", vmiTestUUID))
@@ -345,27 +342,6 @@ var _ = Describe("VirtualMachineInstance", func() {
 
 			controller.Execute()
 			testutils.ExpectEvent(recorder, VMISignalDeletion)
-		})
-		It("should attempt graceful shutdown of Domain if trigger file exists.", func() {
-			vmi := api2.NewMinimalVMI("testvmi")
-			vmi.UID = vmiTestUUID
-			vmi.Status.Phase = v1.Running
-
-			domain := api.NewMinimalDomainWithUUID("testvmi", vmiTestUUID)
-			domain.Status.Status = api.Running
-
-			initGracePeriodHelper(1, vmi, domain)
-			mockGracefulShutdown.TriggerShutdown(vmi)
-
-			vmiFeeder.Add(vmi)
-			vmiInterface.EXPECT().Update(gomock.Any())
-
-			client.EXPECT().Ping()
-			client.EXPECT().ShutdownVirtualMachine(vmi)
-			domainFeeder.Add(domain)
-
-			controller.Execute()
-			testutils.ExpectEvent(recorder, VMIGracefulShutdown)
 		})
 
 		It("should attempt graceful shutdown of Domain if no cluster wide equivalent exists", func() {
@@ -523,8 +499,7 @@ var _ = Describe("VirtualMachineInstance", func() {
 			metav1.Now()
 			now := metav1.Time{Time: time.Unix(time.Now().UTC().Unix()-3, 0)}
 			domain.Spec.Metadata.KubeVirt.GracePeriod.DeletionTimestamp = &now
-
-			mockGracefulShutdown.TriggerShutdown(vmi)
+			triggerGracefulShutdown(domain)
 
 			client.EXPECT().Ping()
 			client.EXPECT().KillVirtualMachine(v1.NewVMIReferenceWithUUID(metav1.NamespaceDefault, "testvmi", vmiTestUUID))
@@ -541,7 +516,7 @@ var _ = Describe("VirtualMachineInstance", func() {
 			vmi.UID = vmiTestUUID
 
 			initGracePeriodHelper(0, vmi, domain)
-			mockGracefulShutdown.TriggerShutdown(vmi)
+			triggerGracefulShutdown(domain)
 
 			client.EXPECT().Ping()
 			client.EXPECT().KillVirtualMachine(v1.NewVMIReferenceWithUUID(metav1.NamespaceDefault, "testvmi", vmiTestUUID))
@@ -2959,21 +2934,6 @@ var _ = Describe("DomainNotifyServerRestarts", func() {
 		})
 	})
 })
-
-type MockGracefulShutdown struct {
-	baseDir string
-}
-
-func (m *MockGracefulShutdown) TriggerShutdown(vmi *v1.VirtualMachineInstance) {
-	Expect(os.MkdirAll(filepath.Join(m.baseDir, "graceful-shutdown-trigger"), os.ModePerm)).To(Succeed())
-
-	namespace := precond.MustNotBeEmpty(vmi.GetObjectMeta().GetNamespace())
-	domain := precond.MustNotBeEmpty(vmi.GetObjectMeta().GetName())
-	triggerFile := gracefulShutdownTriggerFromNamespaceName(m.baseDir, namespace, domain)
-	f, err := os.Create(triggerFile)
-	Expect(err).NotTo(HaveOccurred())
-	f.Close()
-}
 
 type vmiCondMatcher struct {
 	vmi v1.VirtualMachineInstance

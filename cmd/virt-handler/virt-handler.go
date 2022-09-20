@@ -67,7 +67,6 @@ import (
 	"kubevirt.io/kubevirt/pkg/certificates/bootstrap"
 	containerdisk "kubevirt.io/kubevirt/pkg/container-disk"
 	"kubevirt.io/kubevirt/pkg/controller"
-	inotifyinformer "kubevirt.io/kubevirt/pkg/inotify-informer"
 	_ "kubevirt.io/kubevirt/pkg/monitoring/client/prometheus"               // import for prometheus metrics
 	promdomain "kubevirt.io/kubevirt/pkg/monitoring/domainstats/prometheus" // import for prometheus metrics
 	"kubevirt.io/kubevirt/pkg/monitoring/profiler"
@@ -84,7 +83,6 @@ import (
 	nodelabeller "kubevirt.io/kubevirt/pkg/virt-handler/node-labeller"
 	"kubevirt.io/kubevirt/pkg/virt-handler/rest"
 	"kubevirt.io/kubevirt/pkg/virt-handler/selinux"
-	virt_api "kubevirt.io/kubevirt/pkg/virt-launcher/virtwrap/api"
 )
 
 const (
@@ -255,12 +253,6 @@ func (app *virtHandlerApp) Run() {
 		panic(err)
 	}
 
-	// Legacy Directory for graceful shutdown trigger files.
-	err = os.MkdirAll(filepath.Join(app.VirtShareDir, "graceful-shutdown-trigger"), 0755)
-	if err != nil {
-		panic(err)
-	}
-
 	// We keep a record on disk of every VMI virt-handler starts.
 	// That record isn't deleted from this node until the VMI
 	// is completely torn down.
@@ -280,14 +272,6 @@ func (app *virtHandlerApp) Run() {
 	if err := app.prepareCertManager(); err != nil {
 		glog.Fatalf("Error preparing the certificate manager: %v", err)
 	}
-
-	// Legacy support, Remove this informer once we no longer support
-	// VMIs with graceful shutdown trigger
-	gracefulShutdownInformer := cache.NewSharedIndexInformer(
-		inotifyinformer.NewFileListWatchFromClient(filepath.Join(app.VirtShareDir, "graceful-shutdown-trigger")),
-		&virt_api.Domain{},
-		0,
-		cache.Indexers{cache.NamespaceIndex: cache.MetaNamespaceIndexFunc})
 
 	podIsolationDetector := isolation.NewSocketBasedIsolationDetector(app.VirtShareDir)
 	app.clusterConfig = virtconfig.NewClusterConfig(factory.CRD(), factory.KubeVirt(), app.namespace)
@@ -335,7 +319,6 @@ func (app *virtHandlerApp) Run() {
 		vmiSourceInformer,
 		vmiTargetInformer,
 		domainSharedInformer,
-		gracefulShutdownInformer,
 		int(app.WatchdogTimeoutDuration.Seconds()),
 		app.MaxDevices,
 		app.clusterConfig,
@@ -370,7 +353,6 @@ func (app *virtHandlerApp) Run() {
 	// Bootstrapping. From here on the startup order matters
 
 	factory.Start(stop)
-	go gracefulShutdownInformer.Run(stop)
 	go domainSharedInformer.Run(stop)
 
 	se, exists, err := selinux.NewSELinux()
