@@ -65,7 +65,7 @@ var _ = Describe("Kubevirt Version Client", func() {
 				ghttp.RespondWithJSONEncoded(http.StatusOK, groupInfo),
 			),
 			ghttp.CombineHandlers(
-				ghttp.VerifyRequest("GET", "/apis/"+groupInfo.PreferredVersion.GroupVersion+"/version"),
+				ghttp.VerifyRequest("GET", "/apis"+groupInfo.PreferredVersion.GroupVersion+"/version"),
 				ghttp.RespondWithJSONEncoded(http.StatusOK, info),
 			),
 		)
