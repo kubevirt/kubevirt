@@ -23,10 +23,12 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
+	"image/png"
 	"io"
 	"net"
 	"net/http"
 	"os"
+	"path/filepath"
 	"time"
 
 	"github.com/mitchellh/go-vnc"
@@ -239,6 +241,22 @@ var _ = Describe("[rfe_id:127][crit:medium][arm64][vendor:cnv-qe@redhat.com][lev
 
 				return nil
 			}, 60*time.Second).ShouldNot(HaveOccurred())
+		})
+
+		It("should allow creating a VNC screenshot in PNG format", func() {
+			filePath := filepath.Join(GinkgoT().TempDir(), "screenshot.png")
+
+			cmd := clientcmd.NewVirtctlCommand("vnc", "screenshot", "--namespace", vmi.Namespace, "--file", filePath, vmi.Name)
+			Expect(cmd.Execute()).To(Succeed())
+
+			f, err := os.Open(filePath)
+			Expect(err).ToNot(HaveOccurred())
+			defer f.Close()
+
+			img, err := png.Decode(f)
+			Expect(err).ToNot(HaveOccurred())
+			Expect(img.Bounds().Size().X).To(BeNumerically("==", 720))
+			Expect(img.Bounds().Size().Y).To(BeNumerically("==", 400))
 		})
 	})
 })
