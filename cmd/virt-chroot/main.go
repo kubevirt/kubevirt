@@ -11,8 +11,6 @@ import (
 
 	"github.com/spf13/cobra"
 	"golang.org/x/sys/unix"
-
-	"kubevirt.io/kubevirt/pkg/safepath"
 )
 
 var (
@@ -151,25 +149,7 @@ func main() {
 				}
 			}
 
-			// Ensure that sourceFile is a real path. It will be kept open until used
-			// by the syscall via the file descriptor path in proc (SafePath) to ensure
-			// that no symlink injection can happen after the check.
-			sourceFile, err := safepath.NewFileNoFollow(args[0])
-			if err != nil {
-				return fmt.Errorf("mount source invalid: %v", err)
-			}
-			defer sourceFile.Close()
-
-			// Ensure that targetFile is a real path. It will be kept open until used
-			// by the syscall via the file descriptor path in proc (SafePath) to ensure
-			// that no symlink injection can happen after the check.
-			targetFile, err := safepath.NewFileNoFollow(args[1])
-			if err != nil {
-				return fmt.Errorf("mount target invalid: %v", err)
-			}
-			defer targetFile.Close()
-
-			return syscall.Mount(sourceFile.SafePath(), targetFile.SafePath(), fsType, uintptr(mntOpts), "")
+			return syscall.Mount(args[0], args[1], fsType, uintptr(mntOpts), "")
 		},
 	}
 	mntCmd.Flags().StringP("options", "o", "", "comma separated list of mount options")
@@ -180,23 +160,7 @@ func main() {
 		Short: "unmount in a specific mount namespace",
 		Args:  cobra.MinimumNArgs(1),
 		RunE: func(cmd *cobra.Command, args []string) error {
-			// Ensure that targetFile is a real path. It will be kept open until used
-			// by the syscall via the file descriptor path in proc (SafePath) to ensure
-			// that no symlink injection can happen after the check.
-			targetFile, err := safepath.NewPathNoFollow(args[0])
-			if err != nil {
-				return fmt.Errorf("mount target invalid: %v", err)
-			}
-			err = targetFile.ExecuteNoFollow(func(safePath string) error {
-				// we actively hold an open reference to the mount point,
-				// we have to lazy unmount, to not block ourselves
-				// with the active file-descriptor.
-				return syscall.Unmount(safePath, unix.MNT_DETACH)
-			})
-			if err != nil {
-				return fmt.Errorf("umount failed: %v", err)
-			}
-			return nil
+			return syscall.Unmount(args[0], 0)
 		},
 	}
 
