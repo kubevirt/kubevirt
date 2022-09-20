@@ -501,6 +501,7 @@ func GetOpenAPIDefinitions(ref common.ReferenceCallback) map[string]common.OpenA
 		"kubevirt.io/api/core/v1.VolumeSnapshotStatus":                                               schema_kubevirtio_api_core_v1_VolumeSnapshotStatus(ref),
 		"kubevirt.io/api/core/v1.VolumeSource":                                                       schema_kubevirtio_api_core_v1_VolumeSource(ref),
 		"kubevirt.io/api/core/v1.VolumeStatus":                                                       schema_kubevirtio_api_core_v1_VolumeStatus(ref),
+		"kubevirt.io/api/core/v1.Vsock":                                                              schema_kubevirtio_api_core_v1_Vsock(ref),
 		"kubevirt.io/api/core/v1.Watchdog":                                                           schema_kubevirtio_api_core_v1_Watchdog(ref),
 		"kubevirt.io/api/core/v1.WatchdogDevice":                                                     schema_kubevirtio_api_core_v1_WatchdogDevice(ref),
 		"kubevirt.io/api/export/v1alpha1.Condition":                                                  schema_kubevirtio_api_export_v1alpha1_Condition(ref),
@@ -15801,11 +15802,17 @@ func schema_kubevirtio_api_core_v1_Devices(ref common.ReferenceCallback) common.
 							Ref:         ref("kubevirt.io/api/core/v1.TPMDevice"),
 						},
 					},
+					"vsock": {
+						SchemaProps: spec.SchemaProps{
+							Description: "Whether to attach Vsock devices",
+							Ref:         ref("kubevirt.io/api/core/v1.Vsock"),
+						},
+					},
 				},
 			},
 		},
 		Dependencies: []string{
-			"kubevirt.io/api/core/v1.ClientPassthroughDevices", "kubevirt.io/api/core/v1.Disk", "kubevirt.io/api/core/v1.Filesystem", "kubevirt.io/api/core/v1.GPU", "kubevirt.io/api/core/v1.HostDevice", "kubevirt.io/api/core/v1.Input", "kubevirt.io/api/core/v1.Interface", "kubevirt.io/api/core/v1.Rng", "kubevirt.io/api/core/v1.SoundDevice", "kubevirt.io/api/core/v1.TPMDevice", "kubevirt.io/api/core/v1.Watchdog"},
+			"kubevirt.io/api/core/v1.ClientPassthroughDevices", "kubevirt.io/api/core/v1.Disk", "kubevirt.io/api/core/v1.Filesystem", "kubevirt.io/api/core/v1.GPU", "kubevirt.io/api/core/v1.HostDevice", "kubevirt.io/api/core/v1.Input", "kubevirt.io/api/core/v1.Interface", "kubevirt.io/api/core/v1.Rng", "kubevirt.io/api/core/v1.SoundDevice", "kubevirt.io/api/core/v1.TPMDevice", "kubevirt.io/api/core/v1.Vsock", "kubevirt.io/api/core/v1.Watchdog"},
 	}
 }
 
@@ -22771,6 +22778,17 @@ func schema_kubevirtio_api_core_v1_VolumeStatus(ref common.ReferenceCallback) co
 		},
 		Dependencies: []string{
 			"kubevirt.io/api/core/v1.DomainMemoryDumpInfo", "kubevirt.io/api/core/v1.HotplugVolumeStatus", "kubevirt.io/api/core/v1.PersistentVolumeClaimInfo"},
+	}
+}
+
+func schema_kubevirtio_api_core_v1_Vsock(ref common.ReferenceCallback) common.OpenAPIDefinition {
+	return common.OpenAPIDefinition{
+		Schema: spec.Schema{
+			SchemaProps: spec.SchemaProps{
+				Description: "Vsock represents information about virtual socket host/guest interface",
+				Type:        []string{"object"},
+			},
+		},
 	}
 }
 

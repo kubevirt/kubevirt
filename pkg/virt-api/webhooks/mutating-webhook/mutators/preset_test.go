@@ -636,6 +636,16 @@ var _ = Describe("Mutating Webhook Presets", func() {
 			Expect(vmi.Spec.Domain.IOThreadsPolicy).ToNot(BeNil(), "IOThreads policy should have been applied by preset")
 			Expect(*vmi.Spec.Domain.IOThreadsPolicy).To(Equal(ioThreads), "Expected IOThreadsPolicy to be 'shared' (set by preset)")
 		})
+		It("Should apply Vsock settings", func() {
+			vsock := &v1.Vsock{}
+			preset.Spec.Domain.Devices.Vsock = vsock
+
+			presetInformer.GetIndexer().Add(preset)
+			applyPresets(&vmi, presetInformer)
+
+			Expect(vmi.Spec.Domain.Devices.Vsock).To(Equal(vsock))
+		})
+
 	})
 
 	Context("Filter Matching", func() {

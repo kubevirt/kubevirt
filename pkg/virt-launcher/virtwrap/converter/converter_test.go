@@ -3316,6 +3316,30 @@ var _ = Describe("Converter", func() {
 			expectTsc(domain, false)
 		})
 	})
+
+	Context("when Vsock is defined", func() {
+		var (
+			vmi *v1.VirtualMachineInstance
+			c   *ConverterContext
+		)
+
+		BeforeEach(func() {
+			vmi = kvapi.NewMinimalVMI("testvmi")
+			v1.SetObjectDefaults_VirtualMachineInstance(vmi)
+			c = &ConverterContext{
+				AllowEmulation: true,
+			}
+		})
+		It("should set default Vsock attributes", func() {
+			vmi.Spec.Domain.Devices.Vsock = &v1.Vsock{}
+			v1.SetObjectDefaults_VirtualMachineInstance(vmi)
+
+			domainSpec := vmiToDomainXMLToDomainSpec(vmi, c)
+
+			Expect(domainSpec.Devices.Vsock.CID.Auto).To(Equal("yes"))
+		})
+	})
+
 })
 
 var _ = Describe("disk device naming", func() {

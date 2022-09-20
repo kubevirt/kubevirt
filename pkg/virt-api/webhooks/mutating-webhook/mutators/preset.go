@@ -113,6 +113,12 @@ func checkMergeConflicts(presetSpec *kubev1.DomainSpec, vmiSpec *kubev1.DomainSp
 		}
 	}
 
+	if presetSpec.Devices.Vsock != nil && vmiSpec.Devices.Vsock != nil {
+		if !equality.Semantic.DeepEqual(presetSpec.Devices.Vsock, vmiSpec.Devices.Vsock) {
+			errors = append(errors, fmt.Errorf("spec.devices.vsock: %v != %v", presetSpec.Devices.Vsock, vmiSpec.Devices.Vsock))
+		}
+	}
+
 	if len(errors) > 0 {
 		return utilerrors.NewAggregate(errors)
 	}
@@ -195,6 +201,14 @@ func mergeDomainSpec(presetSpec *kubev1.DomainSpec, vmiSpec *kubev1.DomainSpec) 
 			vmiSpec.IOThreadsPolicy = &(ioThreadsPolicy)
 		}
 		if equality.Semantic.DeepEqual(vmiSpec.IOThreadsPolicy, presetSpec.IOThreadsPolicy) {
+			applied = true
+		}
+	}
+
+	if presetSpec.Devices.Vsock != nil {
+		if vmiSpec.Devices.Vsock == nil {
+			vmiSpec.Devices.Vsock = &kubev1.Vsock{}
+			presetSpec.Devices.Vsock.DeepCopyInto(vmiSpec.Devices.Vsock)
 			applied = true
 		}
 	}

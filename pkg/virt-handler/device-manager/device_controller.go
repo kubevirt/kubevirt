@@ -103,9 +103,10 @@ func (c *controlledDevice) GetName() string {
 
 func PermanentHostDevicePlugins(maxDevices int, permissions string) []Device {
 	var permanentDevicePluginPaths = map[string]string{
-		"kvm":       "/dev/kvm",
-		"tun":       "/dev/net/tun",
-		"vhost-net": "/dev/vhost-net",
+		"kvm":         "/dev/kvm",
+		"tun":         "/dev/net/tun",
+		"vhost-net":   "/dev/vhost-net",
+		"vhost-vsock": "/dev/vhost-vsock",
 	}
 
 	ret := make([]Device, 0, len(permanentDevicePluginPaths))
@@ -178,6 +179,7 @@ func (c *DeviceController) updatePermittedHostDevicePlugins() []Device {
 		IsAllowed func() bool
 	}{
 		{"sev", "/dev/sev", c.virtConfig.WorkloadEncryptionSEVEnabled},
+		{"vhost-vsock", "/dev/vhost-vsock", c.virtConfig.VsockEnabled},
 	}
 	for _, dev := range featureGatedDevices {
 		if dev.IsAllowed() {

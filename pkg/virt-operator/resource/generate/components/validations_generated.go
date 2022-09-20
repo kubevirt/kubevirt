@@ -5272,6 +5272,9 @@ var CRDsValidation map[string]string = map[string]string{
                             like CentOS6 or RHEL6 which do not understand virtio_non_transitional
                             (virtio 1.0).
                           type: boolean
+                        vsock:
+                          description: Whether to attach Vsock devices
+                          type: object
                         watchdog:
                           description: Watchdog describes a watchdog device which
                             can be added to the vmi.
@@ -9417,6 +9420,9 @@ var CRDsValidation map[string]string = map[string]string{
                     CentOS6 or RHEL6 which do not understand virtio_non_transitional
                     (virtio 1.0).
                   type: boolean
+                vsock:
+                  description: Whether to attach Vsock devices
+                  type: object
                 watchdog:
                   description: Watchdog describes a watchdog device which can be added
                     to the vmi.
@@ -11716,6 +11722,9 @@ var CRDsValidation map[string]string = map[string]string{
                     CentOS6 or RHEL6 which do not understand virtio_non_transitional
                     (virtio 1.0).
                   type: boolean
+                vsock:
+                  description: Whether to attach Vsock devices
+                  type: object
                 watchdog:
                   description: Watchdog describes a watchdog device which can be added
                     to the vmi.
@@ -13809,6 +13818,9 @@ var CRDsValidation map[string]string = map[string]string{
                             like CentOS6 or RHEL6 which do not understand virtio_non_transitional
                             (virtio 1.0).
                           type: boolean
+                        vsock:
+                          description: Whether to attach Vsock devices
+                          type: object
                         watchdog:
                           description: Watchdog describes a watchdog device which
                             can be added to the vmi.
@@ -17775,6 +17787,9 @@ var CRDsValidation map[string]string = map[string]string{
                                     which do not understand virtio_non_transitional
                                     (virtio 1.0).
                                   type: boolean
+                                vsock:
+                                  description: Whether to attach Vsock devices
+                                  type: object
                                 watchdog:
                                   description: Watchdog describes a watchdog device
                                     which can be added to the vmi.
@@ -22434,6 +22449,9 @@ var CRDsValidation map[string]string = map[string]string{
                                         or RHEL6 which do not understand virtio_non_transitional
                                         (virtio 1.0).
                                       type: boolean
+                                    vsock:
+                                      description: Whether to attach Vsock devices
+                                      type: object
                                     watchdog:
                                       description: Watchdog describes a watchdog device
                                         which can be added to the vmi.

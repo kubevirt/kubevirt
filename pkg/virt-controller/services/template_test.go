@@ -3514,6 +3514,18 @@ var _ = Describe("Template", func() {
 			Expect(int(sev.Value())).To(Equal(1))
 		})
 	})
+	Context("with Vsock enabled", func() {
+		It("should add Vsock device to resources", func() {
+			vmi := api.NewMinimalVMI("fake-vmi")
+			vmi.Spec.Domain.Devices.Vsock = &v1.Vsock{}
+
+			pod, err := svc.RenderLaunchManifest(vmi)
+			Expect(err).NotTo(HaveOccurred())
+			Expect(pod).ToNot(BeNil())
+			Expect(pod.Spec.Containers[0].Resources.Limits).To(HaveKey(kubev1.ResourceName(VhostVsockDevice)))
+		})
+	})
+
 })
 
 var _ = Describe("getResourceNameForNetwork", func() {

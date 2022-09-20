@@ -470,6 +470,17 @@ type Devices struct {
 	Redirs      []RedirectedDevice `xml:"redirdev,omitempty"`
 	SoundCards  []SoundCard        `xml:"sound,omitempty"`
 	TPMs        []TPM              `xml:"tpm,omitempty"`
+	Vsock       *Vsock             `xml:"vsock,omitempty"`
+}
+
+type Vsock struct {
+	Model string `xml:"model,attr,omitempty"`
+	CID   CID    `xml:"cid"`
+}
+
+type CID struct {
+	Auto    string `xml:"auto,attr"`
+	Address string `xml:"address,attr,omitempty"`
 }
 
 type TPM struct {

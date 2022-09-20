@@ -462,6 +462,9 @@ type Devices struct {
 	// Whether to emulate a TPM device.
 	// +optional
 	TPM *TPMDevice `json:"tpm,omitempty"`
+	// Whether to attach Vsock devices
+	// +optional
+	Vsock *Vsock `json:"vsock,omitempty"`
 }
 
 // Represent a subset of client devices that can be accessed by VMI. At the
@@ -491,6 +494,9 @@ type SoundDevice struct {
 }
 
 type TPMDevice struct{}
+
+// Vsock represents information about virtual socket host/guest interface
+type Vsock struct{}
 
 type InputBus string
 

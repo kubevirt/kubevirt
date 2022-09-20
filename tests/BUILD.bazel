@@ -151,6 +151,7 @@ go_test(
         "vmi_multiqueue_test.go",
         "vmi_sound_test.go",
         "vmi_tpm_test.go",
+        "vmi_vsock_test.go",
         "vmidefaults_test.go",
         "vmipreset_test.go",
         "vnc_test.go",

@@ -1865,6 +1865,22 @@ func Convert_v1_VirtualMachineInstance_To_api_Domain(vmi *v1.VirtualMachineInsta
 		}
 	}
 
+	if vsock := vmi.Spec.Domain.Devices.Vsock; vsock != nil {
+		// handle virtio model
+		model := "virtio-non-transitional"
+		if vmi.Spec.Domain.Devices.UseVirtioTransitional != nil && *vmi.Spec.Domain.Devices.UseVirtioTransitional {
+			model = "virtio-transitional"
+		}
+
+		// default CID to auto
+		cid := api.CID{Auto: "yes"}
+
+		domain.Spec.Devices.Vsock = &api.Vsock{
+			Model: model,
+			CID:   cid,
+		}
+	}
+
 	return nil
 }
 

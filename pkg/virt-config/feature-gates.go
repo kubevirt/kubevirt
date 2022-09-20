@@ -51,6 +51,7 @@ const (
 	// DockerSELinuxMCSWorkaround sets the SELinux level of all the non-compute virt-launcher containers to "s0".
 	DockerSELinuxMCSWorkaround = "DockerSELinuxMCSWorkaround"
 	PSA                        = "PSA"
+	VsockGate                  = "Vsock"
 )
 
 var deprecatedFeatureGates = [...]string{
@@ -177,4 +178,8 @@ func (config *ClusterConfig) DockerSELinuxMCSWorkaroundEnabled() bool {
 
 func (config *ClusterConfig) PSAEnabled() bool {
 	return config.isFeatureGateEnabled(PSA)
+}
+
+func (config *ClusterConfig) VsockEnabled() bool {
+	return config.isFeatureGateEnabled(VsockGate)
 }

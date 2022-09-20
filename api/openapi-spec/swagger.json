@@ -15817,6 +15817,10 @@
       "description": "Fall back to legacy virtio 0.9 support if virtio bus is selected on devices. This is helpful for old machines like CentOS6 or RHEL6 which do not understand virtio_non_transitional (virtio 1.0).",
       "type": "boolean"
      },
+     "vsock": {
+      "description": "Whether to attach Vsock devices",
+      "$ref": "#/definitions/v1.Vsock"
+     },
      "watchdog": {
       "description": "Watchdog describes a watchdog device which can be added to the vmi.",
       "$ref": "#/definitions/v1.Watchdog"
@@ -19452,6 +19456,10 @@
       "type": "string"
      }
     }
+   },
+   "v1.Vsock": {
+    "description": "Vsock represents information about virtual socket host/guest interface",
+    "type": "object"
    },
    "v1.Watchdog": {
     "description": "Named watchdog device.",

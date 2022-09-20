@@ -265,10 +265,11 @@ func copyResources(srcResources, dstResources k8sv1.ResourceList) {
 // This includes the memory needed for the guest and memory
 // for Qemu and OS overhead.
 //
-// The return value is overhead memory quantity
+// # The return value is overhead memory quantity
 //
 // Note: This is the best estimation we were able to come up with
-//       and is still not 100% accurate
+//
+//	and is still not 100% accurate
 func GetMemoryOverhead(vmi *v1.VirtualMachineInstance, cpuArch string) *resource.Quantity {
 	domain := vmi.Spec.Domain
 	vmiMemoryReq := domain.Resources.Requests.Memory()
@@ -422,6 +423,9 @@ func getRequiredResources(vmi *v1.VirtualMachineInstance, allowEmulation bool) k
 	}
 	if !allowEmulation {
 		res[KvmDevice] = resource.MustParse("1")
+	}
+	if vmi.Spec.Domain.Devices.Vsock != nil {
+		res[VhostVsockDevice] = resource.MustParse("1")
 	}
 	return res
 }

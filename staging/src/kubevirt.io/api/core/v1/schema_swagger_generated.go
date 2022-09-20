@@ -247,6 +247,7 @@ func (Devices) SwaggerDoc() map[string]string {
 		"clientPassthrough":          "To configure and access client devices such as redirecting USB\n+optional",
 		"sound":                      "Whether to emulate a sound device.\n+optional",
 		"tpm":                        "Whether to emulate a TPM device.\n+optional",
+		"vsock":                      "Whether to attach Vsock devices\n+optional",
 	}
 }
 
@@ -266,6 +267,12 @@ func (SoundDevice) SwaggerDoc() map[string]string {
 
 func (TPMDevice) SwaggerDoc() map[string]string {
 	return map[string]string{}
+}
+
+func (Vsock) SwaggerDoc() map[string]string {
+	return map[string]string{
+		"": "Vsock represents information about virtual socket host/guest interface",
+	}
 }
 
 func (Input) SwaggerDoc() map[string]string {
