@@ -14,6 +14,7 @@ import (
 	"kubevirt.io/kubevirt/pkg/config"
 	"kubevirt.io/kubevirt/pkg/hooks"
 	hostdisk "kubevirt.io/kubevirt/pkg/host-disk"
+	"kubevirt.io/kubevirt/pkg/network/sriov"
 	"kubevirt.io/kubevirt/pkg/storage/types"
 	"kubevirt.io/kubevirt/pkg/util"
 )
@@ -95,6 +96,24 @@ func emptyDirVolume(name string) k8sv1.Volume {
 		Name: name,
 		VolumeSource: k8sv1.VolumeSource{
 			EmptyDir: &k8sv1.EmptyDirVolumeSource{}},
+	}
+}
+
+func downwardAPIDirVolume(name, path, fieldPath string) k8sv1.Volume {
+	return k8sv1.Volume{
+		Name: name,
+		VolumeSource: k8sv1.VolumeSource{
+			DownwardAPI: &k8sv1.DownwardAPIVolumeSource{
+				Items: []k8sv1.DownwardAPIVolumeFile{
+					{
+						Path: path,
+						FieldRef: &k8sv1.ObjectFieldSelector{
+							FieldPath: fieldPath,
+						},
+					},
+				},
+			},
+		},
 	}
 }
 
@@ -321,6 +340,17 @@ func withHotplugSupport(hotplugDiskDir string) VolumeRendererOption {
 			MountPropagation: &prop,
 		})
 		renderer.podVolumes = append(renderer.podVolumes, emptyDirVolume(hotplugDisks))
+		return nil
+	}
+}
+
+func withSRIOVPciMapAnnotation() VolumeRendererOption {
+	return func(renderer *VolumeRenderer) error {
+		renderer.podVolumeMounts = append(renderer.podVolumeMounts, mountPath(sriov.VolumeName, sriov.MountPath))
+		renderer.podVolumes = append(renderer.podVolumes,
+			downwardAPIDirVolume(
+				sriov.VolumeName, sriov.VolumePath, fmt.Sprintf("metadata.annotations['%s']", sriov.NetworkPCIMapAnnot)),
+		)
 		return nil
 	}
 }
