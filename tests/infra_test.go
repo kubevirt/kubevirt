@@ -379,7 +379,11 @@ var _ = Describe("[Serial][sig-compute]Infrastructure", func() {
 				Skip(fmt.Sprintf("Cluster has the %s featuregate disabled, skipping  the tests", virtconfig.VMExportGate))
 			}
 
-			cipher = tls.CipherSuites()[0]
+			// FIPS-compliant so we can test on different platforms (otherwise won't revert properly)
+			cipher = &tls.CipherSuite{
+				ID:   tls.TLS_ECDHE_RSA_WITH_AES_128_GCM_SHA256,
+				Name: "TLS_ECDHE_RSA_WITH_AES_128_GCM_SHA256",
+			}
 			kvConfig := util.GetCurrentKv(virtClient).Spec.Configuration.DeepCopy()
 			kvConfig.TLSConfiguration = &v1.TLSConfiguration{
 				MinTLSVersion: v1.VersionTLS12,
