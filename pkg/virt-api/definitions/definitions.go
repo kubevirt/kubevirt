@@ -41,7 +41,7 @@ import (
 
 	v1 "kubevirt.io/api/core/v1"
 	exportv1 "kubevirt.io/api/export/v1alpha1"
-	instancetypev1alpha1 "kubevirt.io/api/instancetype/v1alpha1"
+	instancetypev1alpha2 "kubevirt.io/api/instancetype/v1alpha2"
 	poolv1alpha1 "kubevirt.io/api/pool/v1alpha1"
 	snapshotv1 "kubevirt.io/api/snapshot/v1alpha1"
 
@@ -194,32 +194,32 @@ func migrationPoliciesApiServiceDefinitions() []*restful.WebService {
 }
 
 func instancetypeApiServiceDefinitions() []*restful.WebService {
-	instancetypeGVR := instancetypev1alpha1.SchemeGroupVersion.WithResource(instancetype.PluralResourceName)
-	clusterInstancetypeGVR := instancetypev1alpha1.SchemeGroupVersion.WithResource(instancetype.ClusterPluralResourceName)
-	preferenceGVR := instancetypev1alpha1.SchemeGroupVersion.WithResource(instancetype.PluralPreferenceResourceName)
-	clusterPreferenceGVR := instancetypev1alpha1.SchemeGroupVersion.WithResource(instancetype.ClusterPluralPreferenceResourceName)
+	instancetypeGVR := instancetypev1alpha2.SchemeGroupVersion.WithResource(instancetype.PluralResourceName)
+	clusterInstancetypeGVR := instancetypev1alpha2.SchemeGroupVersion.WithResource(instancetype.ClusterPluralResourceName)
+	preferenceGVR := instancetypev1alpha2.SchemeGroupVersion.WithResource(instancetype.PluralPreferenceResourceName)
+	clusterPreferenceGVR := instancetypev1alpha2.SchemeGroupVersion.WithResource(instancetype.ClusterPluralPreferenceResourceName)
 
-	ws, err := groupVersionProxyBase(instancetypev1alpha1.SchemeGroupVersion)
+	ws, err := groupVersionProxyBase(instancetypev1alpha2.SchemeGroupVersion)
 	if err != nil {
 		panic(err)
 	}
 
-	ws, err = genericNamespacedResourceProxy(ws, instancetypeGVR, &instancetypev1alpha1.VirtualMachineInstancetype{}, "VirtualMachineInstancetype", &instancetypev1alpha1.VirtualMachineInstancetypeList{})
+	ws, err = genericNamespacedResourceProxy(ws, instancetypeGVR, &instancetypev1alpha2.VirtualMachineInstancetype{}, "VirtualMachineInstancetype", &instancetypev1alpha2.VirtualMachineInstancetypeList{})
 	if err != nil {
 		panic(err)
 	}
 
-	ws, err = genericClusterResourceProxy(ws, clusterInstancetypeGVR, &instancetypev1alpha1.VirtualMachineClusterInstancetype{}, "VirtualMachineClusterInstancetype", &instancetypev1alpha1.VirtualMachineClusterInstancetypeList{})
+	ws, err = genericClusterResourceProxy(ws, clusterInstancetypeGVR, &instancetypev1alpha2.VirtualMachineClusterInstancetype{}, "VirtualMachineClusterInstancetype", &instancetypev1alpha2.VirtualMachineClusterInstancetypeList{})
 	if err != nil {
 		panic(err)
 	}
 
-	ws, err = genericNamespacedResourceProxy(ws, preferenceGVR, &instancetypev1alpha1.VirtualMachinePreference{}, "VirtualMachinePreference", &instancetypev1alpha1.VirtualMachinePreferenceList{})
+	ws, err = genericNamespacedResourceProxy(ws, preferenceGVR, &instancetypev1alpha2.VirtualMachinePreference{}, "VirtualMachinePreference", &instancetypev1alpha2.VirtualMachinePreferenceList{})
 	if err != nil {
 		panic(err)
 	}
 
-	ws, err = genericClusterResourceProxy(ws, clusterPreferenceGVR, &instancetypev1alpha1.VirtualMachineClusterPreference{}, "VirtualMachineClusterPreference", &instancetypev1alpha1.VirtualMachineClusterPreferenceList{})
+	ws, err = genericClusterResourceProxy(ws, clusterPreferenceGVR, &instancetypev1alpha2.VirtualMachineClusterPreference{}, "VirtualMachineClusterPreference", &instancetypev1alpha2.VirtualMachineClusterPreferenceList{})
 	if err != nil {
 		panic(err)
 	}

@@ -37,7 +37,7 @@ import (
 
 	v1 "kubevirt.io/api/core/v1"
 	instancetypeapi "kubevirt.io/api/instancetype"
-	instancetypev1alpha1 "kubevirt.io/api/instancetype/v1alpha1"
+	instancetypev1alpha2 "kubevirt.io/api/instancetype/v1alpha2"
 	"kubevirt.io/client-go/kubecli"
 
 	"kubevirt.io/kubevirt/tests"
@@ -245,7 +245,7 @@ var _ = Describe("[sig-compute]Subresource Api", func() {
 		Context("ExpandSpec endpoint", func() {
 			Context("instancetype", func() {
 				var (
-					instancetype *instancetypev1alpha1.VirtualMachineInstancetype
+					instancetype *instancetypev1alpha2.VirtualMachineInstancetype
 					expectedCpu  *v1.CPU
 					vmi          *v1.VirtualMachineInstance
 				)
@@ -334,11 +334,11 @@ var _ = Describe("[sig-compute]Subresource Api", func() {
 			})
 
 			Context("preference", func() {
-				var preference *instancetypev1alpha1.VirtualMachinePreference
+				var preference *instancetypev1alpha2.VirtualMachinePreference
 
 				BeforeEach(func() {
 					preference = newVirtualMachinePreference()
-					preference.Spec.Devices = &instancetypev1alpha1.DevicePreferences{
+					preference.Spec.Devices = &instancetypev1alpha2.DevicePreferences{
 						PreferredAutoattachGraphicsDevice: pointer.Bool(true),
 					}
 

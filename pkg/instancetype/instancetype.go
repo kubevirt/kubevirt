@@ -19,7 +19,7 @@ import (
 	v1 "kubevirt.io/api/core/v1"
 	virtv1 "kubevirt.io/api/core/v1"
 	apiinstancetype "kubevirt.io/api/instancetype"
-	instancetypev1alpha1 "kubevirt.io/api/instancetype/v1alpha1"
+	instancetypev1alpha2 "kubevirt.io/api/instancetype/v1alpha2"
 	"kubevirt.io/client-go/kubecli"
 	"kubevirt.io/client-go/log"
 
@@ -27,9 +27,9 @@ import (
 )
 
 type Methods interface {
-	FindInstancetypeSpec(vm *virtv1.VirtualMachine) (*instancetypev1alpha1.VirtualMachineInstancetypeSpec, error)
-	ApplyToVmi(field *k8sfield.Path, instancetypespec *instancetypev1alpha1.VirtualMachineInstancetypeSpec, prefernceSpec *instancetypev1alpha1.VirtualMachinePreferenceSpec, vmiSpec *virtv1.VirtualMachineInstanceSpec) Conflicts
-	FindPreferenceSpec(vm *virtv1.VirtualMachine) (*instancetypev1alpha1.VirtualMachinePreferenceSpec, error)
+	FindInstancetypeSpec(vm *virtv1.VirtualMachine) (*instancetypev1alpha2.VirtualMachineInstancetypeSpec, error)
+	ApplyToVmi(field *k8sfield.Path, instancetypespec *instancetypev1alpha2.VirtualMachineInstancetypeSpec, prefernceSpec *instancetypev1alpha2.VirtualMachinePreferenceSpec, vmiSpec *virtv1.VirtualMachineInstanceSpec) Conflicts
+	FindPreferenceSpec(vm *virtv1.VirtualMachine) (*instancetypev1alpha2.VirtualMachinePreferenceSpec, error)
 	StoreControllerRevisions(vm *virtv1.VirtualMachine) error
 }
 
@@ -59,14 +59,14 @@ func GetRevisionName(vmName, resourceName string, resourceUID types.UID, resourc
 	return fmt.Sprintf("%s-%s-%s-%d", vmName, resourceName, resourceUID, resourceGeneration)
 }
 
-func CreateInstancetypeControllerRevision(vm *virtv1.VirtualMachine, revisionName string, instancetypeApiVersion string, instancetypeSpec *instancetypev1alpha1.VirtualMachineInstancetypeSpec) (*appsv1.ControllerRevision, error) {
+func CreateInstancetypeControllerRevision(vm *virtv1.VirtualMachine, revisionName string, instancetypeApiVersion string, instancetypeSpec *instancetypev1alpha2.VirtualMachineInstancetypeSpec) (*appsv1.ControllerRevision, error) {
 
 	instancetypeSpecPatch, err := json.Marshal(*instancetypeSpec)
 	if err != nil {
 		return nil, err
 	}
 
-	specRevision := instancetypev1alpha1.VirtualMachineInstancetypeSpecRevision{
+	specRevision := instancetypev1alpha2.VirtualMachineInstancetypeSpecRevision{
 		APIVersion: instancetypeApiVersion,
 		Spec:       instancetypeSpecPatch,
 	}
@@ -87,7 +87,7 @@ func CreateInstancetypeControllerRevision(vm *virtv1.VirtualMachine, revisionNam
 
 }
 
-func (m *methods) checkForInstancetypeConflicts(instancetypeSpec *instancetypev1alpha1.VirtualMachineInstancetypeSpec, vmiSpec *virtv1.VirtualMachineInstanceSpec) error {
+func (m *methods) checkForInstancetypeConflicts(instancetypeSpec *instancetypev1alpha2.VirtualMachineInstancetypeSpec, vmiSpec *virtv1.VirtualMachineInstanceSpec) error {
 	// Apply the instancetype to a copy of the VMISpec as we don't want to persist any changes here in the VM being passed around
 	vmiSpecCopy := vmiSpec.DeepCopy()
 	conflicts := m.ApplyToVmi(k8sfield.NewPath("spec", "template", "spec"), instancetypeSpec, nil, vmiSpecCopy)
@@ -161,14 +161,14 @@ func (m *methods) storeInstancetypeRevision(vm *virtv1.VirtualMachine) (*appsv1.
 	return storedRevision, nil
 }
 
-func CreatePreferenceControllerRevision(vm *virtv1.VirtualMachine, revisionName string, preferenceApiVersion string, preferenceSpec *instancetypev1alpha1.VirtualMachinePreferenceSpec) (*appsv1.ControllerRevision, error) {
+func CreatePreferenceControllerRevision(vm *virtv1.VirtualMachine, revisionName string, preferenceApiVersion string, preferenceSpec *instancetypev1alpha2.VirtualMachinePreferenceSpec) (*appsv1.ControllerRevision, error) {
 
 	preferenceSpecPatch, err := json.Marshal(*preferenceSpec)
 	if err != nil {
 		return nil, err
 	}
 
-	specRevision := instancetypev1alpha1.VirtualMachinePreferenceSpecRevision{
+	specRevision := instancetypev1alpha2.VirtualMachinePreferenceSpecRevision{
 		APIVersion: preferenceApiVersion,
 		Spec:       preferenceSpecPatch,
 	}
@@ -328,7 +328,7 @@ func storeRevision(revision *appsv1.ControllerRevision, clientset kubecli.Kubevi
 	return foundRevision, nil
 }
 
-func (m *methods) ApplyToVmi(field *k8sfield.Path, instancetypeSpec *instancetypev1alpha1.VirtualMachineInstancetypeSpec, preferenceSpec *instancetypev1alpha1.VirtualMachinePreferenceSpec, vmiSpec *virtv1.VirtualMachineInstanceSpec) Conflicts {
+func (m *methods) ApplyToVmi(field *k8sfield.Path, instancetypeSpec *instancetypev1alpha2.VirtualMachineInstancetypeSpec, preferenceSpec *instancetypev1alpha2.VirtualMachinePreferenceSpec, vmiSpec *virtv1.VirtualMachineInstanceSpec) Conflicts {
 	var conflicts Conflicts
 
 	if instancetypeSpec != nil {
@@ -352,11 +352,11 @@ func (m *methods) ApplyToVmi(field *k8sfield.Path, instancetypeSpec *instancetyp
 	return conflicts
 }
 
-func (m *methods) FindPreferenceSpec(vm *virtv1.VirtualMachine) (*instancetypev1alpha1.VirtualMachinePreferenceSpec, error) {
+func (m *methods) FindPreferenceSpec(vm *virtv1.VirtualMachine) (*instancetypev1alpha2.VirtualMachinePreferenceSpec, error) {
 
 	var err error
-	var preference *instancetypev1alpha1.VirtualMachinePreference
-	var clusterPreference *instancetypev1alpha1.VirtualMachineClusterPreference
+	var preference *instancetypev1alpha2.VirtualMachinePreference
+	var clusterPreference *instancetypev1alpha2.VirtualMachineClusterPreference
 
 	if vm.Spec.Preference == nil {
 		return nil, nil
@@ -390,21 +390,21 @@ func (m *methods) FindPreferenceSpec(vm *virtv1.VirtualMachine) (*instancetypev1
 	return nil, nil
 }
 
-func (m *methods) getPreferenceSpecRevision(revisionName string, namespace string) (*instancetypev1alpha1.VirtualMachinePreferenceSpec, error) {
+func (m *methods) getPreferenceSpecRevision(revisionName string, namespace string) (*instancetypev1alpha2.VirtualMachinePreferenceSpec, error) {
 
 	revision, err := m.clientset.AppsV1().ControllerRevisions(namespace).Get(context.Background(), revisionName, metav1.GetOptions{})
 	if err != nil {
 		return nil, err
 	}
 
-	preferenceSpecRevision := instancetypev1alpha1.VirtualMachinePreferenceSpecRevision{}
+	preferenceSpecRevision := instancetypev1alpha2.VirtualMachinePreferenceSpecRevision{}
 	err = json.Unmarshal(revision.Data.Raw, &preferenceSpecRevision)
 	if err != nil {
 		return nil, err
 	}
 
 	// For now we only support a single version of VirtualMachinePreferenceSpec but in the future we will need to handle older versions here
-	preferenceSpec := instancetypev1alpha1.VirtualMachinePreferenceSpec{}
+	preferenceSpec := instancetypev1alpha2.VirtualMachinePreferenceSpec{}
 	err = json.Unmarshal(preferenceSpecRevision.Spec, &preferenceSpec)
 	if err != nil {
 		return nil, err
@@ -413,7 +413,7 @@ func (m *methods) getPreferenceSpecRevision(revisionName string, namespace strin
 	return &preferenceSpec, nil
 }
 
-func (m *methods) findPreference(vm *virtv1.VirtualMachine) (*instancetypev1alpha1.VirtualMachinePreference, error) {
+func (m *methods) findPreference(vm *virtv1.VirtualMachine) (*instancetypev1alpha2.VirtualMachinePreference, error) {
 
 	if vm.Spec.Preference == nil {
 		return nil, nil
@@ -427,7 +427,7 @@ func (m *methods) findPreference(vm *virtv1.VirtualMachine) (*instancetypev1alph
 	return preference, nil
 }
 
-func (m *methods) findClusterPreference(vm *virtv1.VirtualMachine) (*instancetypev1alpha1.VirtualMachineClusterPreference, error) {
+func (m *methods) findClusterPreference(vm *virtv1.VirtualMachine) (*instancetypev1alpha2.VirtualMachineClusterPreference, error) {
 
 	if vm.Spec.Preference == nil {
 		return nil, nil
@@ -440,11 +440,11 @@ func (m *methods) findClusterPreference(vm *virtv1.VirtualMachine) (*instancetyp
 	return preference, nil
 }
 
-func (m *methods) FindInstancetypeSpec(vm *virtv1.VirtualMachine) (*instancetypev1alpha1.VirtualMachineInstancetypeSpec, error) {
+func (m *methods) FindInstancetypeSpec(vm *virtv1.VirtualMachine) (*instancetypev1alpha2.VirtualMachineInstancetypeSpec, error) {
 
 	var err error
-	var instancetype *instancetypev1alpha1.VirtualMachineInstancetype
-	var clusterInstancetype *instancetypev1alpha1.VirtualMachineClusterInstancetype
+	var instancetype *instancetypev1alpha2.VirtualMachineInstancetype
+	var clusterInstancetype *instancetypev1alpha2.VirtualMachineClusterInstancetype
 
 	if vm.Spec.Instancetype == nil {
 		return nil, nil
@@ -478,21 +478,21 @@ func (m *methods) FindInstancetypeSpec(vm *virtv1.VirtualMachine) (*instancetype
 	return nil, nil
 }
 
-func (m *methods) getInstancetypeSpecRevision(revisionName string, namespace string) (*instancetypev1alpha1.VirtualMachineInstancetypeSpec, error) {
+func (m *methods) getInstancetypeSpecRevision(revisionName string, namespace string) (*instancetypev1alpha2.VirtualMachineInstancetypeSpec, error) {
 
 	revision, err := m.clientset.AppsV1().ControllerRevisions(namespace).Get(context.Background(), revisionName, metav1.GetOptions{})
 	if err != nil {
 		return nil, err
 	}
 
-	instancetypeSpecRevision := instancetypev1alpha1.VirtualMachineInstancetypeSpecRevision{}
+	instancetypeSpecRevision := instancetypev1alpha2.VirtualMachineInstancetypeSpecRevision{}
 	err = json.Unmarshal(revision.Data.Raw, &instancetypeSpecRevision)
 	if err != nil {
 		return nil, err
 	}
 
 	// For now we only support a single version of VirtualMachineInstancetypeSpec but in the future we will need to handle older versions here
-	instancetypeSpec := instancetypev1alpha1.VirtualMachineInstancetypeSpec{}
+	instancetypeSpec := instancetypev1alpha2.VirtualMachineInstancetypeSpec{}
 	err = json.Unmarshal(instancetypeSpecRevision.Spec, &instancetypeSpec)
 	if err != nil {
 		return nil, err
@@ -501,7 +501,7 @@ func (m *methods) getInstancetypeSpecRevision(revisionName string, namespace str
 	return &instancetypeSpec, nil
 }
 
-func (m *methods) findInstancetype(vm *virtv1.VirtualMachine) (*instancetypev1alpha1.VirtualMachineInstancetype, error) {
+func (m *methods) findInstancetype(vm *virtv1.VirtualMachine) (*instancetypev1alpha2.VirtualMachineInstancetype, error) {
 
 	if vm.Spec.Instancetype == nil {
 		return nil, nil
@@ -514,7 +514,7 @@ func (m *methods) findInstancetype(vm *virtv1.VirtualMachine) (*instancetypev1al
 	return instancetype, nil
 }
 
-func (m *methods) findClusterInstancetype(vm *virtv1.VirtualMachine) (*instancetypev1alpha1.VirtualMachineClusterInstancetype, error) {
+func (m *methods) findClusterInstancetype(vm *virtv1.VirtualMachine) (*instancetypev1alpha2.VirtualMachineClusterInstancetype, error) {
 
 	if vm.Spec.Instancetype == nil {
 		return nil, nil
@@ -528,7 +528,7 @@ func (m *methods) findClusterInstancetype(vm *virtv1.VirtualMachine) (*instancet
 	return instancetype, nil
 }
 
-func applyCpu(field *k8sfield.Path, instancetypeSpec *instancetypev1alpha1.VirtualMachineInstancetypeSpec, preferenceSpec *instancetypev1alpha1.VirtualMachinePreferenceSpec, vmiSpec *virtv1.VirtualMachineInstanceSpec) Conflicts {
+func applyCpu(field *k8sfield.Path, instancetypeSpec *instancetypev1alpha2.VirtualMachineInstancetypeSpec, preferenceSpec *instancetypev1alpha2.VirtualMachinePreferenceSpec, vmiSpec *virtv1.VirtualMachineInstanceSpec) Conflicts {
 	if vmiSpec.Domain.CPU != nil {
 		return Conflicts{field.Child("domain", "cpu")}
 	}
@@ -553,17 +553,17 @@ func applyCpu(field *k8sfield.Path, instancetypeSpec *instancetypev1alpha1.Virtu
 	}
 
 	// Default to PreferSockets when a PreferredCPUTopology isn't provided
-	preferredTopology := instancetypev1alpha1.PreferSockets
+	preferredTopology := instancetypev1alpha2.PreferSockets
 	if preferenceSpec != nil && preferenceSpec.CPU != nil && preferenceSpec.CPU.PreferredCPUTopology != "" {
 		preferredTopology = preferenceSpec.CPU.PreferredCPUTopology
 	}
 
 	switch preferredTopology {
-	case instancetypev1alpha1.PreferCores:
+	case instancetypev1alpha2.PreferCores:
 		vmiSpec.Domain.CPU.Cores = instancetypeSpec.CPU.Guest
-	case instancetypev1alpha1.PreferSockets:
+	case instancetypev1alpha2.PreferSockets:
 		vmiSpec.Domain.CPU.Sockets = instancetypeSpec.CPU.Guest
-	case instancetypev1alpha1.PreferThreads:
+	case instancetypev1alpha2.PreferThreads:
 		vmiSpec.Domain.CPU.Threads = instancetypeSpec.CPU.Guest
 	}
 
@@ -602,7 +602,7 @@ func AddPreferenceNameAnnotations(vm *virtv1.VirtualMachine, target metav1.Objec
 	}
 }
 
-func applyMemory(field *k8sfield.Path, instancetypeSpec *instancetypev1alpha1.VirtualMachineInstancetypeSpec, vmiSpec *virtv1.VirtualMachineInstanceSpec) Conflicts {
+func applyMemory(field *k8sfield.Path, instancetypeSpec *instancetypev1alpha2.VirtualMachineInstancetypeSpec, vmiSpec *virtv1.VirtualMachineInstanceSpec) Conflicts {
 
 	if vmiSpec.Domain.Memory != nil {
 		return Conflicts{field.Child("domain", "memory")}
@@ -628,7 +628,7 @@ func applyMemory(field *k8sfield.Path, instancetypeSpec *instancetypev1alpha1.Vi
 	return nil
 }
 
-func applyIOThreadPolicy(field *k8sfield.Path, instancetypeSpec *instancetypev1alpha1.VirtualMachineInstancetypeSpec, vmiSpec *virtv1.VirtualMachineInstanceSpec) Conflicts {
+func applyIOThreadPolicy(field *k8sfield.Path, instancetypeSpec *instancetypev1alpha2.VirtualMachineInstancetypeSpec, vmiSpec *virtv1.VirtualMachineInstanceSpec) Conflicts {
 
 	if instancetypeSpec.IOThreadsPolicy == nil {
 		return nil
@@ -644,7 +644,7 @@ func applyIOThreadPolicy(field *k8sfield.Path, instancetypeSpec *instancetypev1a
 	return nil
 }
 
-func applyLaunchSecurity(field *k8sfield.Path, instancetypeSpec *instancetypev1alpha1.VirtualMachineInstancetypeSpec, vmiSpec *virtv1.VirtualMachineInstanceSpec) Conflicts {
+func applyLaunchSecurity(field *k8sfield.Path, instancetypeSpec *instancetypev1alpha2.VirtualMachineInstancetypeSpec, vmiSpec *virtv1.VirtualMachineInstanceSpec) Conflicts {
 
 	if instancetypeSpec.LaunchSecurity == nil {
 		return nil
@@ -659,7 +659,7 @@ func applyLaunchSecurity(field *k8sfield.Path, instancetypeSpec *instancetypev1a
 	return nil
 }
 
-func applyGPUs(field *k8sfield.Path, instancetypeSpec *instancetypev1alpha1.VirtualMachineInstancetypeSpec, vmiSpec *virtv1.VirtualMachineInstanceSpec) Conflicts {
+func applyGPUs(field *k8sfield.Path, instancetypeSpec *instancetypev1alpha2.VirtualMachineInstancetypeSpec, vmiSpec *virtv1.VirtualMachineInstanceSpec) Conflicts {
 
 	if len(instancetypeSpec.GPUs) == 0 {
 		return nil
@@ -675,7 +675,7 @@ func applyGPUs(field *k8sfield.Path, instancetypeSpec *instancetypev1alpha1.Virt
 	return nil
 }
 
-func applyHostDevices(field *k8sfield.Path, instancetypeSpec *instancetypev1alpha1.VirtualMachineInstancetypeSpec, vmiSpec *virtv1.VirtualMachineInstanceSpec) Conflicts {
+func applyHostDevices(field *k8sfield.Path, instancetypeSpec *instancetypev1alpha2.VirtualMachineInstancetypeSpec, vmiSpec *virtv1.VirtualMachineInstanceSpec) Conflicts {
 
 	if len(instancetypeSpec.HostDevices) == 0 {
 		return nil
@@ -691,7 +691,7 @@ func applyHostDevices(field *k8sfield.Path, instancetypeSpec *instancetypev1alph
 	return nil
 }
 
-func ApplyDevicePreferences(preferenceSpec *instancetypev1alpha1.VirtualMachinePreferenceSpec, vmiSpec *virtv1.VirtualMachineInstanceSpec) {
+func ApplyDevicePreferences(preferenceSpec *instancetypev1alpha2.VirtualMachinePreferenceSpec, vmiSpec *virtv1.VirtualMachineInstanceSpec) {
 
 	if preferenceSpec.Devices == nil {
 		return
@@ -757,7 +757,7 @@ func ApplyDevicePreferences(preferenceSpec *instancetypev1alpha1.VirtualMachineP
 
 }
 
-func applyDiskPreferences(preferenceSpec *instancetypev1alpha1.VirtualMachinePreferenceSpec, vmiSpec *virtv1.VirtualMachineInstanceSpec) {
+func applyDiskPreferences(preferenceSpec *instancetypev1alpha2.VirtualMachinePreferenceSpec, vmiSpec *virtv1.VirtualMachineInstanceSpec) {
 	for diskIndex := range vmiSpec.Domain.Devices.Disks {
 		vmiDisk := &vmiSpec.Domain.Devices.Disks[diskIndex]
 		// If we don't have a target device defined default to a DiskTarget so we can apply preferences
@@ -799,7 +799,7 @@ func applyDiskPreferences(preferenceSpec *instancetypev1alpha1.VirtualMachinePre
 	}
 }
 
-func applyInterfacePreferences(preferenceSpec *instancetypev1alpha1.VirtualMachinePreferenceSpec, vmiSpec *virtv1.VirtualMachineInstanceSpec) {
+func applyInterfacePreferences(preferenceSpec *instancetypev1alpha2.VirtualMachinePreferenceSpec, vmiSpec *virtv1.VirtualMachineInstanceSpec) {
 	for ifaceIndex := range vmiSpec.Domain.Devices.Interfaces {
 		vmiIface := &vmiSpec.Domain.Devices.Interfaces[ifaceIndex]
 		if preferenceSpec.Devices.PreferredInterfaceModel != "" && vmiIface.Model == "" {
@@ -808,7 +808,7 @@ func applyInterfacePreferences(preferenceSpec *instancetypev1alpha1.VirtualMachi
 	}
 }
 
-func applyInputPreferences(preferenceSpec *instancetypev1alpha1.VirtualMachinePreferenceSpec, vmiSpec *virtv1.VirtualMachineInstanceSpec) {
+func applyInputPreferences(preferenceSpec *instancetypev1alpha2.VirtualMachinePreferenceSpec, vmiSpec *virtv1.VirtualMachineInstanceSpec) {
 	for inputIndex := range vmiSpec.Domain.Devices.Inputs {
 		vmiInput := &vmiSpec.Domain.Devices.Inputs[inputIndex]
 		if preferenceSpec.Devices.PreferredInputBus != "" && vmiInput.Bus == "" {
@@ -821,7 +821,7 @@ func applyInputPreferences(preferenceSpec *instancetypev1alpha1.VirtualMachinePr
 	}
 }
 
-func applyFeaturePreferences(preferenceSpec *instancetypev1alpha1.VirtualMachinePreferenceSpec, vmiSpec *virtv1.VirtualMachineInstanceSpec) {
+func applyFeaturePreferences(preferenceSpec *instancetypev1alpha2.VirtualMachinePreferenceSpec, vmiSpec *virtv1.VirtualMachineInstanceSpec) {
 
 	if preferenceSpec.Features == nil {
 		return
@@ -858,7 +858,7 @@ func applyFeaturePreferences(preferenceSpec *instancetypev1alpha1.VirtualMachine
 
 }
 
-func applyHyperVFeaturePreferences(preferenceSpec *instancetypev1alpha1.VirtualMachinePreferenceSpec, vmiSpec *virtv1.VirtualMachineInstanceSpec) {
+func applyHyperVFeaturePreferences(preferenceSpec *instancetypev1alpha2.VirtualMachinePreferenceSpec, vmiSpec *virtv1.VirtualMachineInstanceSpec) {
 
 	if vmiSpec.Domain.Features.Hyperv == nil {
 		vmiSpec.Domain.Features.Hyperv = &v1.FeatureHyperv{}
@@ -922,7 +922,7 @@ func applyHyperVFeaturePreferences(preferenceSpec *instancetypev1alpha1.VirtualM
 	}
 }
 
-func applyFirmwarePreferences(preferenceSpec *instancetypev1alpha1.VirtualMachinePreferenceSpec, vmiSpec *virtv1.VirtualMachineInstanceSpec) {
+func applyFirmwarePreferences(preferenceSpec *instancetypev1alpha2.VirtualMachinePreferenceSpec, vmiSpec *virtv1.VirtualMachineInstanceSpec) {
 
 	if preferenceSpec.Firmware == nil {
 		return
@@ -953,7 +953,7 @@ func applyFirmwarePreferences(preferenceSpec *instancetypev1alpha1.VirtualMachin
 	}
 }
 
-func applyMachinePreferences(preferenceSpec *instancetypev1alpha1.VirtualMachinePreferenceSpec, vmiSpec *virtv1.VirtualMachineInstanceSpec) {
+func applyMachinePreferences(preferenceSpec *instancetypev1alpha2.VirtualMachinePreferenceSpec, vmiSpec *virtv1.VirtualMachineInstanceSpec) {
 
 	if preferenceSpec.Machine == nil {
 		return
@@ -968,7 +968,7 @@ func applyMachinePreferences(preferenceSpec *instancetypev1alpha1.VirtualMachine
 	}
 }
 
-func applyClockPreferences(preferenceSpec *instancetypev1alpha1.VirtualMachinePreferenceSpec, vmiSpec *virtv1.VirtualMachineInstanceSpec) {
+func applyClockPreferences(preferenceSpec *instancetypev1alpha2.VirtualMachinePreferenceSpec, vmiSpec *virtv1.VirtualMachineInstanceSpec) {
 	if preferenceSpec.Clock == nil {
 		return
 	}

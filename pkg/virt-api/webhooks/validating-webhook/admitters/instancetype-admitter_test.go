@@ -13,19 +13,19 @@ import (
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/runtime"
 
-	instancetypev1alpha1 "kubevirt.io/api/instancetype/v1alpha1"
+	instancetypev1alpha2 "kubevirt.io/api/instancetype/v1alpha2"
 )
 
 var _ = Describe("Validating Instancetype Admitter", func() {
 	var (
 		admitter        *InstancetypeAdmitter
-		instancetypeObj *instancetypev1alpha1.VirtualMachineInstancetype
+		instancetypeObj *instancetypev1alpha2.VirtualMachineInstancetype
 	)
 
 	BeforeEach(func() {
 		admitter = &InstancetypeAdmitter{}
 
-		instancetypeObj = &instancetypev1alpha1.VirtualMachineInstancetype{
+		instancetypeObj = &instancetypev1alpha2.VirtualMachineInstancetype{
 			ObjectMeta: metav1.ObjectMeta{
 				Name:      "test-name",
 				Namespace: "test-namespace",
@@ -52,13 +52,13 @@ var _ = Describe("Validating Instancetype Admitter", func() {
 var _ = Describe("Validating ClusterInstancetype Admitter", func() {
 	var (
 		admitter               *ClusterInstancetypeAdmitter
-		clusterInstancetypeObj *instancetypev1alpha1.VirtualMachineClusterInstancetype
+		clusterInstancetypeObj *instancetypev1alpha2.VirtualMachineClusterInstancetype
 	)
 
 	BeforeEach(func() {
 		admitter = &ClusterInstancetypeAdmitter{}
 
-		clusterInstancetypeObj = &instancetypev1alpha1.VirtualMachineClusterInstancetype{
+		clusterInstancetypeObj = &instancetypev1alpha2.VirtualMachineClusterInstancetype{
 			ObjectMeta: metav1.ObjectMeta{
 				Name:      "test-name",
 				Namespace: "test-namespace",
@@ -82,7 +82,7 @@ var _ = Describe("Validating ClusterInstancetype Admitter", func() {
 	})
 })
 
-func createInstancetypeAdmissionReview(instancetype *instancetypev1alpha1.VirtualMachineInstancetype) *admissionv1.AdmissionReview {
+func createInstancetypeAdmissionReview(instancetype *instancetypev1alpha2.VirtualMachineInstancetype) *admissionv1.AdmissionReview {
 	bytes, err := json.Marshal(instancetype)
 	ExpectWithOffset(1, err).ToNot(HaveOccurred(), "Could not JSON encode instancetype: %v", instancetype)
 
@@ -90,8 +90,8 @@ func createInstancetypeAdmissionReview(instancetype *instancetypev1alpha1.Virtua
 		Request: &admissionv1.AdmissionRequest{
 			Operation: admissionv1.Create,
 			Resource: metav1.GroupVersionResource{
-				Group:    instancetypev1alpha1.SchemeGroupVersion.Group,
-				Version:  instancetypev1alpha1.SchemeGroupVersion.Version,
+				Group:    instancetypev1alpha2.SchemeGroupVersion.Group,
+				Version:  instancetypev1alpha2.SchemeGroupVersion.Version,
 				Resource: apiinstancetype.PluralResourceName,
 			},
 			Object: runtime.RawExtension{
@@ -101,7 +101,7 @@ func createInstancetypeAdmissionReview(instancetype *instancetypev1alpha1.Virtua
 	}
 }
 
-func createClusterInstancetypeAdmissionReview(clusterInstancetype *instancetypev1alpha1.VirtualMachineClusterInstancetype) *admissionv1.AdmissionReview {
+func createClusterInstancetypeAdmissionReview(clusterInstancetype *instancetypev1alpha2.VirtualMachineClusterInstancetype) *admissionv1.AdmissionReview {
 	bytes, err := json.Marshal(clusterInstancetype)
 	ExpectWithOffset(1, err).ToNot(HaveOccurred(), "Could not JSON encode instancetype: %v", clusterInstancetype)
 
@@ -109,8 +109,8 @@ func createClusterInstancetypeAdmissionReview(clusterInstancetype *instancetypev
 		Request: &admissionv1.AdmissionRequest{
 			Operation: admissionv1.Create,
 			Resource: metav1.GroupVersionResource{
-				Group:    instancetypev1alpha1.SchemeGroupVersion.Group,
-				Version:  instancetypev1alpha1.SchemeGroupVersion.Version,
+				Group:    instancetypev1alpha2.SchemeGroupVersion.Group,
+				Version:  instancetypev1alpha2.SchemeGroupVersion.Version,
 				Resource: apiinstancetype.ClusterPluralResourceName,
 			},
 			Object: runtime.RawExtension{
