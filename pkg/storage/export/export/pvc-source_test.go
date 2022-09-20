@@ -184,6 +184,20 @@ var _ = Describe("PVC source", func() {
 					Namespace: controller.KubevirtNamespace,
 					Name:      "kv",
 				},
+				Spec: virtv1.KubeVirtSpec{
+					CertificateRotationStrategy: virtv1.KubeVirtCertificateRotateStrategy{
+						SelfSigned: &virtv1.KubeVirtSelfSignConfiguration{
+							CA: &virtv1.CertConfig{
+								Duration:    &metav1.Duration{Duration: 24 * time.Hour},
+								RenewBefore: &metav1.Duration{Duration: 3 * time.Hour},
+							},
+							Server: &virtv1.CertConfig{
+								Duration:    &metav1.Duration{Duration: 2 * time.Hour},
+								RenewBefore: &metav1.Duration{Duration: 1 * time.Hour},
+							},
+						},
+					},
+				},
 				Status: virtv1.KubeVirtStatus{
 					Phase: virtv1.KubeVirtPhaseDeployed,
 				},
