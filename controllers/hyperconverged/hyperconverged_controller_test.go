@@ -1035,6 +1035,39 @@ var _ = Describe("HyperconvergedController", func() {
 				checkAvailability(foundResource, metav1.ConditionTrue)
 				Expect(foundResource.Spec.TLSSecurityProfile).To(BeNil(), "TLSSecurityProfile on HCO CR should still be nil")
 
+				// TODO: check also Kubevirt once managed
+				By("Verify that CDI was properly configured with initialTLSSecurityProfile", func() {
+					cdi := operands.NewCDIWithNameOnly(foundResource)
+					Expect(
+						cl.Get(context.TODO(),
+							types.NamespacedName{Name: cdi.Name, Namespace: cdi.Namespace},
+							cdi),
+					).To(Succeed())
+
+					Expect(cdi.Spec.Config.TLSSecurityProfile).To(Equal(initialTLSSecurityProfile))
+
+				})
+				By("Verify that CNA was properly configured with initialTLSSecurityProfile", func() {
+					cna := operands.NewNetworkAddonsWithNameOnly(foundResource)
+					Expect(
+						cl.Get(context.TODO(),
+							types.NamespacedName{Name: cna.Name, Namespace: cna.Namespace},
+							cna),
+					).To(Succeed())
+
+					Expect(cna.Spec.TLSSecurityProfile).To(Equal(initialTLSSecurityProfile))
+				})
+				By("Verify that SSP was properly configured with initialTLSSecurityProfile", func() {
+					ssp := operands.NewSSPWithNameOnly(foundResource)
+					Expect(
+						cl.Get(context.TODO(),
+							types.NamespacedName{Name: ssp.Name, Namespace: ssp.Namespace},
+							ssp),
+					).To(Succeed())
+
+					Expect(ssp.Spec.TLSSecurityProfile).To(Equal(initialTLSSecurityProfile))
+				})
+
 				// Update ApiServer CR
 				apiServer.Spec.TLSSecurityProfile = customTLSSecurityProfile
 				err = cl.Update(context.TODO(), apiServer)
@@ -1062,6 +1095,39 @@ var _ = Describe("HyperconvergedController", func() {
 				Expect(foundResource.Spec.TLSSecurityProfile).To(BeNil(), "TLSSecurityProfile on HCO CR should still be nil")
 
 				Expect(hcoutil.GetClusterInfo().GetTLSSecurityProfile(expected.hco.Spec.TLSSecurityProfile)).To(Equal(customTLSSecurityProfile), "should return the up-to-date value")
+
+				// TODO: check also Kubevirt once managed
+				By("Verify that CDI was properly updated with customTLSSecurityProfile", func() {
+					cdi := operands.NewCDIWithNameOnly(foundResource)
+					Expect(
+						cl.Get(context.TODO(),
+							types.NamespacedName{Name: cdi.Name, Namespace: cdi.Namespace},
+							cdi),
+					).To(Succeed())
+
+					Expect(cdi.Spec.Config.TLSSecurityProfile).To(Equal(customTLSSecurityProfile))
+
+				})
+				By("Verify that CNA was properly updated with customTLSSecurityProfile", func() {
+					cna := operands.NewNetworkAddonsWithNameOnly(foundResource)
+					Expect(
+						cl.Get(context.TODO(),
+							types.NamespacedName{Name: cna.Name, Namespace: cna.Namespace},
+							cna),
+					).To(Succeed())
+
+					Expect(cna.Spec.TLSSecurityProfile).To(Equal(customTLSSecurityProfile))
+				})
+				By("Verify that SSP was properly updated with customTLSSecurityProfile", func() {
+					ssp := operands.NewSSPWithNameOnly(foundResource)
+					Expect(
+						cl.Get(context.TODO(),
+							types.NamespacedName{Name: ssp.Name, Namespace: ssp.Namespace},
+							ssp),
+					).To(Succeed())
+
+					Expect(ssp.Spec.TLSSecurityProfile).To(Equal(customTLSSecurityProfile))
+				})
 
 			})
 

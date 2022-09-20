@@ -276,6 +276,10 @@ func (r *ReconcileHyperConverged) Reconcile(ctx context.Context, request reconci
 	}
 	hcoRequest := common.NewHcoRequest(ctx, resolvedRequest, log, r.upgradeMode, hcoTriggered)
 
+	if hcoTriggered {
+		r.operandHandler.Reset()
+	}
+
 	err = r.monitoringReconciler.Reconcile(hcoRequest)
 	if err != nil {
 		return reconcile.Result{}, err
@@ -338,8 +342,15 @@ func (r *ReconcileHyperConverged) resolveReconcileRequest(ctx context.Context, l
 	}
 	if hcoTriggered {
 		logger.Info("Reconciling HyperConverged operator")
-		r.operandHandler.Reset()
 		return originalRequest, hcoTriggered, nil
+	}
+
+	hc, err := getHyperConvergedNamespacedName()
+	if err != nil {
+		return reconcile.Request{}, hcoTriggered, err
+	}
+	resolvedRequest := reconcile.Request{
+		NamespacedName: hc,
 	}
 
 	apiServerCRTriggered, err := isTriggeredByApiServerCR(originalRequest)
@@ -354,17 +365,10 @@ func (r *ReconcileHyperConverged) resolveReconcileRequest(ctx context.Context, l
 		}
 		// consider a change in APIServerCr like a change in HCO
 		hcoTriggered = true
-		return originalRequest, hcoTriggered, nil
+		return resolvedRequest, hcoTriggered, nil
 	}
 
 	logger.Info("The reconciliation got triggered by a secondary CR object")
-	hc, err := getHyperConvergedNamespacedName()
-	if err != nil {
-		return reconcile.Request{}, hcoTriggered, err
-	}
-	resolvedRequest := reconcile.Request{
-		NamespacedName: hc,
-	}
 	return resolvedRequest, hcoTriggered, nil
 }
 
