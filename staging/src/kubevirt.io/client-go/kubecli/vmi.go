@@ -461,6 +461,21 @@ func (v *vmis) FilesystemList(name string) (v1.VirtualMachineInstanceFileSystemL
 	return fsList, err
 }
 
+func (v *vmis) Screenshot(name string, screenshotOptions *v1.ScreenshotOptions) ([]byte, error) {
+	moveCursor := "false"
+	if screenshotOptions.MoveCursor == true {
+		moveCursor = "true"
+	}
+
+	uri := fmt.Sprintf(vmiSubresourceURL, v1.ApiStorageVersion, v.namespace, name, "vnc/screenshot")
+	res := v.restClient.Get().RequestURI(v.adaptUriForHostPath(uri)).Param("moveCursor", moveCursor).Do(context.Background())
+	raw, err := res.Raw()
+	if err != nil {
+		return nil, res.Error()
+	}
+	return raw, nil
+}
+
 func (v *vmis) AddVolume(name string, addVolumeOptions *v1.AddVolumeOptions) error {
 	uri := fmt.Sprintf(vmiSubresourceURL, v1.ApiStorageVersion, v.namespace, name, "addvolume")
 

@@ -238,6 +238,7 @@ type VirtualMachineInstanceInterface interface {
 	SerialConsole(name string, options *SerialConsoleOptions) (StreamInterface, error)
 	USBRedir(vmiName string) (StreamInterface, error)
 	VNC(name string) (StreamInterface, error)
+	Screenshot(name string, options *v1.ScreenshotOptions) ([]byte, error)
 	PortForward(name string, port int, protocol string) (StreamInterface, error)
 	Pause(name string, pauseOptions *v1.PauseOptions) error
 	Unpause(name string, unpauseOptions *v1.UnpauseOptions) error
