@@ -22,6 +22,7 @@ package device_manager
 import (
 	"bytes"
 	"container/ring"
+	"errors"
 	"io/ioutil"
 	"os"
 	"path/filepath"
@@ -95,7 +96,7 @@ func (m *MDEVTypesManager) discoverConfigurableMDEVTypes(desiredTypesMap map[str
 		//find the type's name
 		rawName, err := ioutil.ReadFile(filepath.Join(file, "name"))
 		if err != nil {
-			if !os.IsNotExist(err) {
+			if !errors.Is(err, os.ErrNotExist) {
 				return err
 			}
 		}

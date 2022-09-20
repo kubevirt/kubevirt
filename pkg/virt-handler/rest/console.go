@@ -20,6 +20,7 @@
 package rest
 
 import (
+	"errors"
 	"fmt"
 	"io"
 	"net"
@@ -201,7 +202,7 @@ func (t *ConsoleHandler) getUnixSocketPath(vmi *v1.VirtualMachineInstance, socke
 	}
 	socketDir := path.Join("proc", strconv.Itoa(result.Pid()), "root", "var", "run", "kubevirt-private", string(vmi.GetUID()))
 	socketPath := path.Join(socketDir, socketName)
-	if _, err = os.Stat(socketPath); os.IsNotExist(err) {
+	if _, err = os.Stat(socketPath); errors.Is(err, os.ErrNotExist) {
 		return "", err
 	}
 

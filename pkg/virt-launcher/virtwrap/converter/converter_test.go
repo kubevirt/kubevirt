@@ -21,6 +21,7 @@ package converter
 
 import (
 	"encoding/xml"
+	"errors"
 	"fmt"
 	"io/fs"
 	"io/ioutil"
@@ -251,7 +252,7 @@ var _ = Describe("Converter", func() {
 
 		var vmi *v1.VirtualMachineInstance
 		domainType := "kvm"
-		if _, err := os.Stat("/dev/kvm"); os.IsNotExist(err) {
+		if _, err := os.Stat("/dev/kvm"); errors.Is(err, os.ErrNotExist) {
 			domainType = "qemu"
 		}
 

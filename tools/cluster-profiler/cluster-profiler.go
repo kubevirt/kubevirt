@@ -20,6 +20,7 @@
 package main
 
 import (
+	"errors"
 	"fmt"
 	"io/ioutil"
 	"log"
@@ -58,7 +59,7 @@ func prepareDir(dir string, reuseOutputDir bool) error {
 				return err
 			}
 		}
-	} else if !os.IsNotExist(err) {
+	} else if !errors.Is(err, os.ErrNotExist) {
 		return err
 	}
 	return os.MkdirAll(dir, 0744)

@@ -1,6 +1,7 @@
 package device_manager
 
 import (
+	"errors"
 	"os"
 	"strings"
 
@@ -40,7 +41,7 @@ var _ = Describe("PCI Device", func() {
 		clientTest = fake.NewSimpleClientset()
 		By("making sure the environment has a PCI device at " + fakeAddress)
 		_, err := os.Stat("/sys/bus/pci/devices/" + fakeAddress)
-		if os.IsNotExist(err) {
+		if errors.Is(err, os.ErrNotExist) {
 			Skip("No PCI device found at " + fakeAddress + ", can't run PCI tests")
 		}
 

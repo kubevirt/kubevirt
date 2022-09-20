@@ -1,6 +1,7 @@
 package emptydisk
 
 import (
+	"errors"
 	"fmt"
 	"os"
 	"os/exec"
@@ -39,7 +40,7 @@ func (c *emptyDiskCreator) CreateTemporaryDisks(vmi *v1.VirtualMachineInstance) 
 			if err := util.MkdirAllWithNosec(c.emptyDiskBaseDir); err != nil {
 				return err
 			}
-			if _, err := os.Stat(file); os.IsNotExist(err) {
+			if _, err := os.Stat(file); errors.Is(err, os.ErrNotExist) {
 				if err := c.discCreateFunc(file, size); err != nil {
 					return err
 				}

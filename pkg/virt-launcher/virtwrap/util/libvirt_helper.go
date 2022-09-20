@@ -4,6 +4,7 @@ import (
 	"bufio"
 	"encoding/base64"
 	"encoding/xml"
+	"errors"
 	"fmt"
 	"io"
 	"os"
@@ -318,7 +319,7 @@ func startVirtlogdLogging(stopChan chan struct{}, domainName string, nonRoot boo
 			// It can take a few seconds to the log file to be created
 			for {
 				_, err = os.Stat(logfile)
-				if !os.IsNotExist(err) {
+				if !errors.Is(err, os.ErrNotExist) {
 					break
 				}
 				time.Sleep(time.Second)
@@ -468,7 +469,7 @@ func configureQemuConf(qemuFilename string) (err error) {
 	_, err = os.Stat("/dev/hugepages")
 	if err == nil {
 		_, err = qemuConf.WriteString("hugetlbfs_mount = \"/dev/hugepages\"\n")
-	} else if !os.IsNotExist(err) {
+	} else if !errors.Is(err, os.ErrNotExist) {
 		return err
 	}
 

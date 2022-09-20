@@ -20,6 +20,7 @@
 package device_manager
 
 import (
+	"errors"
 	"fmt"
 	"net"
 	"os"
@@ -189,7 +190,7 @@ func (dpi *MediatedDevicePlugin) Allocate(_ context.Context, r *pluginapi.Alloca
 				// Perform check that node didn't disappear
 				_, err := os.Stat(filepath.Join(dpi.deviceRoot, dpi.devicePath, devID))
 				if err != nil {
-					if os.IsNotExist(err) {
+					if errors.Is(err, os.ErrNotExist) {
 						log.DefaultLogger().Errorf("Mediated device %s with id %s for resource %s disappeared", mdevUUID, devID, dpi.resourceName)
 					}
 					return resp, fmt.Errorf("Failed to allocate resource %s", dpi.resourceName)
@@ -296,7 +297,7 @@ func (dpi *MediatedDevicePlugin) ListAndWatch(_ *pluginapi.Empty, s pluginapi.De
 }
 
 func (dpi *MediatedDevicePlugin) cleanup() error {
-	if err := os.Remove(dpi.socketPath); err != nil && !os.IsNotExist(err) {
+	if err := os.Remove(dpi.socketPath); err != nil && !errors.Is(err, os.ErrNotExist) {
 		return err
 	}
 
@@ -379,7 +380,7 @@ func (dpi *MediatedDevicePlugin) healthCheck() error {
 
 	_, err = os.Stat(devicePath)
 	if err != nil {
-		if !os.IsNotExist(err) {
+		if !errors.Is(err, os.ErrNotExist) {
 			return fmt.Errorf("could not stat the device: %v", err)
 		}
 	}
@@ -450,7 +451,7 @@ func getMdevTypeName(mdevUUID string) (string, error) {
 	// #nosec No risk for path injection. Path is composed from static base  "mdevBasePath" and static components
 	rawName, err := os.ReadFile(filepath.Join(mdevBasePath, mdevUUID, "mdev_type/name"))
 	if err != nil {
-		if os.IsNotExist(err) {
+		if errors.Is(err, os.ErrNotExist) {
 			originFile, err := os.Readlink(filepath.Join(mdevBasePath, mdevUUID, "mdev_type"))
 			if err != nil {
 				return "", err

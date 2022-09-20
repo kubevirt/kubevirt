@@ -21,6 +21,7 @@ package hotplug_volume
 
 import (
 	"encoding/json"
+	"errors"
 	"fmt"
 	"io/fs"
 	"io/ioutil"
@@ -414,7 +415,7 @@ var _ = Describe("HotplugVolume", func() {
 			Expect(err).ToNot(HaveOccurred())
 			_, _, err := m.getSourceMajorMinor("fghij", "test-volume")
 			Expect(err).To(HaveOccurred())
-			Expect(os.IsNotExist(err)).To(BeTrue())
+			Expect(errors.Is(err, os.ErrNotExist)).To(BeTrue())
 		})
 
 		DescribeTable("Should return proper values", func(stat func(safePath *safepath.Path) (os.FileInfo, error), major, minor uint32, perm os.FileMode, expectErr bool) {

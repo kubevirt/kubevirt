@@ -20,6 +20,7 @@
 package containerdisk
 
 import (
+	"errors"
 	"fmt"
 	"io/ioutil"
 	"os"
@@ -106,7 +107,7 @@ var _ = Describe("ContainerDisk", func() {
 				// should not be found if dir doesn't exist
 				path, err := GetVolumeMountDirOnHost(vmi)
 				Expect(err).To(HaveOccurred())
-				Expect(os.IsNotExist(err)).To(BeTrue())
+				Expect(errors.Is(err, os.ErrNotExist)).To(BeTrue())
 
 				// should be found if dir does exist
 				expectedPath := fmt.Sprintf("%s/1234/volumes/kubernetes.io~empty-dir/container-disks", tmpDir)

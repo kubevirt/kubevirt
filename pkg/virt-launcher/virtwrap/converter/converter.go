@@ -27,6 +27,7 @@ package converter
 
 import (
 	"encoding/json"
+	"errors"
 	"fmt"
 	"os"
 	"os/exec"
@@ -280,7 +281,7 @@ func (c *directIOChecker) CheckBlockDevice(path string) (bool, error) {
 
 func (c *directIOChecker) CheckFile(path string) (bool, error) {
 	flags := syscall.O_RDONLY
-	if _, err := os.Stat(path); os.IsNotExist(err) {
+	if _, err := os.Stat(path); errors.Is(err, os.ErrNotExist) {
 		// try to create the file and perform the check
 		flags = flags | syscall.O_CREAT
 		defer os.Remove(path)
@@ -1214,7 +1215,7 @@ func Convert_v1_VirtualMachineInstance_To_api_Domain(vmi *v1.VirtualMachineInsta
 		logger := log.DefaultLogger()
 		logger.Infof("Hardware emulation device '%s' not present. Using software emulation.", kvmPath)
 		domain.Spec.Type = "qemu"
-	} else if _, err := os.Stat(kvmPath); os.IsNotExist(err) {
+	} else if _, err := os.Stat(kvmPath); errors.Is(err, os.ErrNotExist) {
 		return fmt.Errorf("hardware emulation device '%s' not present", kvmPath)
 	} else if err != nil {
 		return err
@@ -1227,7 +1228,7 @@ func Convert_v1_VirtualMachineInstance_To_api_Domain(vmi *v1.VirtualMachineInsta
 	} else if softwareEmulation {
 		logger := log.DefaultLogger()
 		logger.Infof("In-kernel virtio-net device emulation '%s' not present. Falling back to QEMU userland emulation.", vhostNetPath)
-	} else if _, err := os.Stat(vhostNetPath); os.IsNotExist(err) {
+	} else if _, err := os.Stat(vhostNetPath); errors.Is(err, os.ErrNotExist) {
 		virtioNetProhibited = true
 	} else if err != nil {
 		return err

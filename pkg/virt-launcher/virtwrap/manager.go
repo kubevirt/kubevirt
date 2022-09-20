@@ -28,6 +28,7 @@ package virtwrap
 import (
 	"context"
 	"encoding/xml"
+	"errors"
 	"fmt"
 	"io/ioutil"
 	"os"
@@ -990,7 +991,7 @@ var checkIfDiskReadyToUse = checkIfDiskReadyToUseFunc
 func checkIfDiskReadyToUseFunc(filename string) (bool, error) {
 	info, err := os.Stat(filename)
 	if err != nil {
-		if os.IsNotExist(err) {
+		if errors.Is(err, os.ErrNotExist) {
 			return false, nil
 		}
 		log.DefaultLogger().V(1).Infof("stat error: %v", err)
@@ -1079,7 +1080,7 @@ func isBlockDeviceVolumeFunc(volumeName string) (bool, error) {
 		}
 		return false, fmt.Errorf("found %v, but it's not a block device", path)
 	}
-	if os.IsNotExist(err) {
+	if errors.Is(err, os.ErrNotExist) {
 		// cross check: is it a filesystem volume
 		path = converter.GetFilesystemVolumePath(volumeName)
 		fileInfo, err := os.Stat(path)
@@ -1089,7 +1090,7 @@ func isBlockDeviceVolumeFunc(volumeName string) (bool, error) {
 			}
 			return false, fmt.Errorf("found %v, but it's not a regular file", path)
 		}
-		if os.IsNotExist(err) {
+		if errors.Is(err, os.ErrNotExist) {
 			return false, fmt.Errorf("neither found block device nor regular file for volume %v", volumeName)
 		}
 	}

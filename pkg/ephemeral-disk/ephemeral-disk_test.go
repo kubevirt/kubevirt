@@ -20,6 +20,7 @@
 package ephemeraldisk
 
 import (
+	"errors"
 	"fmt"
 	"os"
 	"path/filepath"
@@ -183,7 +184,7 @@ func fakeCreateBackingDisk(backingFile string, backingFormat string, imagePath s
 		return nil, fmt.Errorf("wrong backing format")
 	}
 	_, err := os.Stat(backingFile)
-	if os.IsNotExist(err) {
+	if errors.Is(err, os.ErrNotExist) {
 		return nil, err
 	}
 	f, _ := os.Create(imagePath)

@@ -17,7 +17,7 @@ import (
 // InteractiveHostKeyCallback verifying the host key against known_hosts and adding the key if
 // the user replies accordingly.
 func InteractiveHostKeyCallback(knownHostsFilePath string) (ssh.HostKeyCallback, error) {
-	if _, err := os.Stat(knownHostsFilePath); os.IsNotExist(err) {
+	if _, err := os.Stat(knownHostsFilePath); errors.Is(err, os.ErrNotExist) {
 		f, err := os.Create(knownHostsFilePath)
 		if err != nil {
 			return nil, fmt.Errorf("failed creating known hosts file %q: %v", knownHostsFilePath, err)

@@ -2,6 +2,7 @@ package util
 
 import (
 	"crypto/rand"
+	"errors"
 	"fmt"
 	"math/big"
 	"os"
@@ -136,7 +137,7 @@ func UseSoftwareEmulationForDevice(devicePath string, allowEmulation bool) (bool
 	if err == nil {
 		return false, nil
 	}
-	if os.IsNotExist(err) {
+	if errors.Is(err, os.ErrNotExist) {
 		return true, nil
 	}
 	return false, err
