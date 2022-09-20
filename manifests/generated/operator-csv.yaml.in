@@ -843,6 +843,7 @@ spec:
           resources:
           - virtualmachineinstances/console
           - virtualmachineinstances/vnc
+          - virtualmachineinstances/vnc/screenshot
           - virtualmachineinstances/guestosinfo
           - virtualmachineinstances/filesystemlist
           - virtualmachineinstances/userlist
@@ -947,6 +948,7 @@ spec:
           resources:
           - virtualmachineinstances/console
           - virtualmachineinstances/vnc
+          - virtualmachineinstances/vnc/screenshot
           - virtualmachineinstances/guestosinfo
           - virtualmachineinstances/filesystemlist
           - virtualmachineinstances/userlist

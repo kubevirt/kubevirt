@@ -438,6 +438,7 @@ func GetOpenAPIDefinitions(ref common.ReferenceCallback) map[string]common.OpenA
 		"kubevirt.io/api/core/v1.SSHPublicKeyAccessCredential":                                       schema_kubevirtio_api_core_v1_SSHPublicKeyAccessCredential(ref),
 		"kubevirt.io/api/core/v1.SSHPublicKeyAccessCredentialPropagationMethod":                      schema_kubevirtio_api_core_v1_SSHPublicKeyAccessCredentialPropagationMethod(ref),
 		"kubevirt.io/api/core/v1.SSHPublicKeyAccessCredentialSource":                                 schema_kubevirtio_api_core_v1_SSHPublicKeyAccessCredentialSource(ref),
+		"kubevirt.io/api/core/v1.ScreenshotOptions":                                                  schema_kubevirtio_api_core_v1_ScreenshotOptions(ref),
 		"kubevirt.io/api/core/v1.SecretVolumeSource":                                                 schema_kubevirtio_api_core_v1_SecretVolumeSource(ref),
 		"kubevirt.io/api/core/v1.ServiceAccountVolumeSource":                                         schema_kubevirtio_api_core_v1_ServiceAccountVolumeSource(ref),
 		"kubevirt.io/api/core/v1.SoundDevice":                                                        schema_kubevirtio_api_core_v1_SoundDevice(ref),
@@ -19614,6 +19615,25 @@ func schema_kubevirtio_api_core_v1_SSHPublicKeyAccessCredentialSource(ref common
 		},
 		Dependencies: []string{
 			"kubevirt.io/api/core/v1.AccessCredentialSecretSource"},
+	}
+}
+
+func schema_kubevirtio_api_core_v1_ScreenshotOptions(ref common.ReferenceCallback) common.OpenAPIDefinition {
+	return common.OpenAPIDefinition{
+		Schema: spec.Schema{
+			SchemaProps: spec.SchemaProps{
+				Type: []string{"object"},
+				Properties: map[string]spec.Schema{
+					"moveCursor": {
+						SchemaProps: spec.SchemaProps{
+							Type:   []string{"boolean"},
+							Format: "",
+						},
+					},
+				},
+				Required: []string{"moveCursor"},
+			},
+		},
 	}
 }
 

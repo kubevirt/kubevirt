@@ -762,6 +762,7 @@ rules:
   resources:
   - virtualmachineinstances/console
   - virtualmachineinstances/vnc
+  - virtualmachineinstances/vnc/screenshot
   - virtualmachineinstances/guestosinfo
   - virtualmachineinstances/filesystemlist
   - virtualmachineinstances/userlist
@@ -866,6 +867,7 @@ rules:
   resources:
   - virtualmachineinstances/console
   - virtualmachineinstances/vnc
+  - virtualmachineinstances/vnc/screenshot
   - virtualmachineinstances/guestosinfo
   - virtualmachineinstances/filesystemlist
   - virtualmachineinstances/userlist
