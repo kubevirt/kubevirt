@@ -1417,8 +1417,9 @@ func (c *VirtualMachineController) Run(threadiness int, stopCh chan struct{}) {
 	for i := 0; i < threadiness; i++ {
 		go wait.Until(c.runWorker, time.Second, stopCh)
 	}
-	<-heartBeatDone
+
 	<-stopCh
+	<-heartBeatDone
 	log.Log.Info("Stopping virt-handler controller.")
 }
 
