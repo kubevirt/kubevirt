@@ -101,6 +101,15 @@ var _ = SIGDescribe("Storage", func() {
 			targetImagePath = testsuite.HostPathAlpine
 		})
 
+		isPausedOnIOError := func(conditions []v1.VirtualMachineInstanceCondition) bool {
+			for _, condition := range conditions {
+				if condition.Type == virtv1.VirtualMachineInstancePaused {
+					return condition.Status == k8sv1.ConditionTrue && condition.Reason == "PausedIOError"
+				}
+			}
+			return false
+		}
+
 		createNFSPvAndPvc := func(ipFamily k8sv1.IPFamily, nfsPod *k8sv1.Pod) string {
 			pvName := fmt.Sprintf("test-nfs%s", rand.String(48))
 
@@ -160,18 +169,12 @@ var _ = SIGDescribe("Storage", func() {
 
 				refresh := ThisVMI(vmi)
 				By("Expecting VMI to be paused")
-				Eventually(func() bool {
+				Eventually(func() []v1.VirtualMachineInstanceCondition {
 					vmi, err := refresh()
 					Expect(err).ToNot(HaveOccurred())
 
-					for _, condition := range vmi.Status.Conditions {
-						if condition.Type == virtv1.VirtualMachineInstancePaused {
-							return condition.Status == k8sv1.ConditionTrue && condition.Reason == "PausedIOError"
-						}
-					}
-					return false
-
-				}, 100*time.Second, time.Second).Should(BeTrue())
+					return vmi.Status.Conditions
+				}, 100*time.Second, time.Second).Should(Satisfy(isPausedOnIOError))
 
 				By("Fixing the device")
 				tests.FixErrorDevice(nodeName)
@@ -202,7 +205,7 @@ var _ = SIGDescribe("Storage", func() {
 
 			var (
 				nodeName   string
-				deviceName string = "error"
+				deviceName = "error"
 				pv         *k8sv1.PersistentVolume
 				pvc        *k8sv1.PersistentVolumeClaim
 			)
@@ -237,18 +240,13 @@ var _ = SIGDescribe("Storage", func() {
 
 				refresh := ThisVMI(vmi)
 				By("Expecting VMI to be paused")
-				Eventually(
-					func() bool {
-						vmi, err := refresh()
-						Expect(err).NotTo(HaveOccurred())
+				Eventually(func() []v1.VirtualMachineInstanceCondition {
+					vmi, err := refresh()
+					Expect(err).NotTo(HaveOccurred())
+					return vmi.Status.Conditions
+				}, 100*time.Second, time.Second).Should(Satisfy(isPausedOnIOError))
 
-						for _, condition := range vmi.Status.Conditions {
-							if condition.Type == virtv1.VirtualMachineInstancePaused {
-								return condition.Status == k8sv1.ConditionTrue && condition.Reason == "PausedIOError"
-							}
-						}
-						return false
-					}, 100*time.Second, time.Second).Should(BeTrue(), "Should be paused")
+				By("Cleaning up")
 				err = virtClient.VirtualMachineInstance(util.NamespaceTestDefault).Delete(vmi.ObjectMeta.Name, &metav1.DeleteOptions{})
 				Expect(err).ToNot(HaveOccurred(), failedDeleteVMI)
 				tests.WaitForVirtualMachineToDisappearWithTimeout(vmi, 180)
