@@ -244,8 +244,12 @@ func getConfig(registry, tag, namespace string, additionalProperties map[string]
 		}
 	}
 
-	passthroughEnv := GetPassthroughEnv()
+	kubeVirtVersionEnv := os.Getenv("KUBEVIRT_VERSION")
+	if kubeVirtVersionEnv != "" {
+		tag = kubeVirtVersionEnv
+	}
 
+	passthroughEnv := GetPassthroughEnv()
 	config := newDeploymentConfigWithTag(registry, imagePrefix, tag, namespace, additionalProperties, passthroughEnv)
 	if skipShasums {
 		return config
@@ -268,29 +272,17 @@ func getConfig(registry, tag, namespace string, additionalProperties map[string]
 }
 
 func VerifyEnv() error {
-	// ensure the operator image is valid
-	imageString := os.Getenv(OperatorImageEnvName)
-	if imageString == "" {
-		return fmt.Errorf("empty env var %s for operator image", OperatorImageEnvName)
-	}
-	imageRegEx := regexp.MustCompile(operatorImageRegex)
-	matches := imageRegEx.FindAllStringSubmatch(imageString, 1)
-	if len(matches) != 1 || len(matches[0]) != 4 {
-		return fmt.Errorf("can not parse operator image env var %s", imageString)
-	}
 
 	// ensure that all or no shasums are given
-	missingShas := make([]string, 0)
-	count := 0
-	for _, name := range []string{VirtApiShasumEnvName, VirtControllerShasumEnvName, VirtHandlerShasumEnvName, VirtLauncherShasumEnvName, KubeVirtVersionEnvName} {
-		count++
-		sha := os.Getenv(name)
-		if sha == "" {
-			missingShas = append(missingShas, name)
+	missingImageNames := make([]string, 0)
+	for _, name := range []string{"KUBEVIRT_VERSION", "OPERATOR_IMAGE", "VIRT_API_IMAGE", "VIRT_CONTROLLER_IMAGE", "VIRT_HANDLER_IMAGE", "VIRT_LAUNCHER_IMAGE", "VIRT_EXPORTPROXY_IMAGE", "VIRT_EXPORTSERVER_IMAGE"} {
+		imageName := os.Getenv(name)
+		if imageName == "" {
+			missingImageNames = append(missingImageNames, name)
 		}
 	}
-	if len(missingShas) > 0 && len(missingShas) < count {
-		return fmt.Errorf("incomplete configuration, missing env vars %v", missingShas)
+	if len(missingImageNames) > 0 {
+		return fmt.Errorf("incomplete configuration, missing env vars %v", missingImageNames)
 	}
 
 	return nil

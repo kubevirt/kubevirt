@@ -23,6 +23,7 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
+	"os"
 	"sync"
 	"time"
 
@@ -47,7 +48,6 @@ import (
 	"kubevirt.io/kubevirt/pkg/controller"
 	"kubevirt.io/kubevirt/pkg/util/status"
 	"kubevirt.io/kubevirt/pkg/virt-operator/resource/apply"
-	"kubevirt.io/kubevirt/pkg/virt-operator/resource/generate/components"
 	install "kubevirt.io/kubevirt/pkg/virt-operator/resource/generate/install"
 	"kubevirt.io/kubevirt/pkg/virt-operator/util"
 	operatorutil "kubevirt.io/kubevirt/pkg/virt-operator/util"
@@ -705,7 +705,7 @@ func (c *KubeVirtController) execute(key string) error {
 
 func (c *KubeVirtController) generateInstallStrategyJob(config *operatorutil.KubeVirtDeploymentConfig) (*batchv1.Job, error) {
 
-	operatorImage := fmt.Sprintf("%s/%s%s%s", config.GetImageRegistry(), config.GetImagePrefix(), VirtOperator, components.AddVersionSeparatorPrefix(config.GetOperatorVersion()))
+	operatorImage := os.Getenv("OPERATOR_IMAGE")
 	deploymentConfigJson, err := config.GetJson()
 	if err != nil {
 		return nil, err
@@ -753,6 +753,34 @@ func (c *KubeVirtController) generateInstallStrategyJob(config *operatorutil.Kub
 								"--dump-install-strategy",
 							},
 							Env: []k8sv1.EnvVar{
+								{
+									Name:  "KUBEVIRT_VERSION",
+									Value: os.Getenv("KUBEVIRT_VERSION"),
+								},
+								{
+									Name:  "VIRT_API_IMAGE",
+									Value: os.Getenv("VIRT_API_IMAGE"),
+								},
+								{
+									Name:  "VIRT_CONTROLLER_IMAGE",
+									Value: os.Getenv("VIRT_CONTROLLER_IMAGE"),
+								},
+								{
+									Name:  "VIRT_HANDLER_IMAGE",
+									Value: os.Getenv("VIRT_HANDLER_IMAGE"),
+								},
+								{
+									Name:  "VIRT_LAUNCHER_IMAGE",
+									Value: os.Getenv("VIRT_LAUNCHER_IMAGE"),
+								},
+								{
+									Name:  "VIRT_EXPORTPROXY_IMAGE",
+									Value: os.Getenv("VIRT_EXPORTPROXY_IMAGE"),
+								},
+								{
+									Name:  "VIRT_EXPORTSERVER_IMAGE",
+									Value: os.Getenv("VIRT_EXPORTSERVER_IMAGE"),
+								},
 								{
 									// Deprecated, keep it for backwards compatibility
 									Name:  util.OperatorImageEnvName,

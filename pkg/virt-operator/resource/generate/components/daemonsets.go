@@ -2,6 +2,7 @@ package components
 
 import (
 	"fmt"
+	"os"
 	"runtime"
 
 	appsv1 "k8s.io/api/apps/v1"
@@ -25,7 +26,7 @@ const (
 func NewHandlerDaemonSet(namespace string, repository string, imagePrefix string, version string, launcherVersion string, productName string, productVersion string, productComponent string, pullPolicy corev1.PullPolicy, migrationNetwork *string, verbosity string, extraEnv map[string]string) (*appsv1.DaemonSet, error) {
 
 	deploymentName := VirtHandlerName
-	imageName := fmt.Sprintf("%s%s", imagePrefix, deploymentName)
+	imageName := os.Getenv("VIRT_HANDLER_IMAGE")
 	env := operatorutil.NewEnvVarMap(extraEnv)
 	podTemplateSpec, err := newPodTemplateSpec(deploymentName, imageName, repository, version, productName, productVersion, productComponent, pullPolicy, nil, env)
 	if err != nil {
@@ -82,14 +83,13 @@ func NewHandlerDaemonSet(namespace string, repository string, imagePrefix string
 
 	// nodelabeller currently only support x86
 	if virtconfig.IsAMD64(runtime.GOARCH) {
-		launcherVersion = AddVersionSeparatorPrefix(launcherVersion)
 		pod.InitContainers = []corev1.Container{
 			{
 				Command: []string{
 					"/bin/sh",
 					"-c",
 				},
-				Image: fmt.Sprintf("%s/%s%s%s", repository, imagePrefix, "virt-launcher", launcherVersion),
+				Image: os.Getenv("VIRT_LAUNCHER_IMAGE"),
 				Name:  "virt-launcher",
 				Args: []string{
 					"node-labeller.sh",
