@@ -51,6 +51,9 @@ func (h *HeartBeat) Run(heartBeatInterval time.Duration, stopCh chan struct{}) (
 	done = make(chan struct{})
 	go func() {
 		h.heartBeat(heartBeatInterval, stopCh)
+		//ensure that the node is getting marked as unschedulable when removed
+		labelNodeDone := h.labelNodeUnschedulable()
+		<-labelNodeDone
 		close(done)
 	}()
 	return done
@@ -71,9 +74,6 @@ func (h *HeartBeat) heartBeat(heartBeatInterval time.Duration, stopCh chan struc
 	// 1 minute with a 1.2 jitter + the time it takes for the heartbeat function to run (sliding == true).
 	// So the amount of time between heartbeats randomly varies between 1min and 2min12sec + the heartbeat function execution time.
 	wait.JitterUntil(h.do, heartBeatInterval, 1.2, true, stopCh)
-
-	//ensure that the node is getting marked as unschedulable when removed
-	h.labelNodeUnschedulable()
 }
 
 func (h *HeartBeat) labelNodeUnschedulable() (done chan struct{}) {

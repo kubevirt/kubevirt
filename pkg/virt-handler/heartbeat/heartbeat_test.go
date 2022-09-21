@@ -36,6 +36,25 @@ var _ = Describe("Heartbeat", func() {
 		}
 		fakeClient = fake.NewSimpleClientset(node)
 	})
+	Context("upon finishing", func() {
+		It("should set the node to not schedulable", func() {
+			heartbeat := NewHeartBeat(fakeClient.CoreV1(), deviceController(true), config(), "mynode")
+			stopChan := make(chan struct{})
+			done := heartbeat.Run(30*time.Second, stopChan)
+			Eventually(func() map[string]string {
+				node, err := fakeClient.CoreV1().Nodes().Get(context.Background(), "mynode", metav1.GetOptions{})
+				Expect(err).ToNot(HaveOccurred())
+				return node.Labels
+			}).Should(And(
+				HaveKeyWithValue(virtv1.NodeSchedulable, "true"),
+			))
+			close(stopChan)
+			<-done
+			node, err := fakeClient.CoreV1().Nodes().Get(context.Background(), "mynode", metav1.GetOptions{})
+			Expect(err).ToNot(HaveOccurred())
+			Expect(node.Labels).To(HaveKeyWithValue(virtv1.NodeSchedulable, "false"))
+		})
+	})
 
 	DescribeTable("with cpumanager featuregate should set the node to", func(deviceController device_manager.DeviceControllerInterface, cpuManagerPaths []string, schedulable string, cpumanager string) {
 		heartbeat := NewHeartBeat(fakeClient.CoreV1(), deviceController, config(virtconfig.CPUManager), "mynode")
