@@ -1016,7 +1016,7 @@ var _ = Describe("[rfe_id:393][crit:high][vendor:cnv-qe@redhat.com][level:system
 			It("should migrate vmi with a usb disk", func() {
 
 				vmi := libvmi.NewAlpineWithTestTooling(
-					libvmi.WithEmptyDisk("disk0", v1.DiskBusUSB, resource.MustParse("128Mi")),
+					libvmi.WithEmptyDisk("uniqueusbdisk", v1.DiskBusUSB, resource.MustParse("128Mi")),
 					libvmi.WithInterface(libvmi.InterfaceDeviceWithMasqueradeBinding()),
 					libvmi.WithNetwork(v1.DefaultPodNetwork()),
 				)
