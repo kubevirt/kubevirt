@@ -136,7 +136,6 @@ var _ = Describe("HotplugVolume", func() {
 		cgroupManagerMock = cgroup.NewMockManager(ctrl)
 		cgroupManagerMock.EXPECT().GetCgroupVersion().AnyTimes()
 		expectedCgroupRule = nil
-		ownershipManager = diskutils.NewMockOwnershipManagerInterface(ctrl)
 
 		nodeIsolationResult = func() isolation.IsolationResult {
 			return isolation.NewIsolationResult(os.Getpid(), os.Getppid())
@@ -355,9 +354,8 @@ var _ = Describe("HotplugVolume", func() {
 			Expect(ioutil.WriteFile(unsafepath.UnsafeAbsolute(deviceFile.Raw()), []byte("test"), 0644))
 
 			vmi.Status.VolumeStatus = []v1.VolumeStatus{{Name: "testvolume", HotplugVolume: &v1.HotplugVolumeStatus{}}}
-			targetDevicePath, err := newFile(targetPodPath, "testvolume")
+			_, err = newFile(targetPodPath, "testvolume")
 			Expect(err).ToNot(HaveOccurred())
-			ownershipManager.EXPECT().SetFileOwnership(targetDevicePath)
 			statSourceDevice = func(fileName *safepath.Path) (os.FileInfo, error) {
 				return fakeStat(true, 0666, 123456), nil
 			}

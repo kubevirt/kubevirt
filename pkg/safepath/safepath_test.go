@@ -9,9 +9,11 @@ import (
 	"strconv"
 	"syscall"
 
+	"github.com/onsi/ginkgo/extensions/table"
+
 	"kubevirt.io/kubevirt/pkg/unsafepath"
 
-	. "github.com/onsi/ginkgo/v2"
+	. "github.com/onsi/ginkgo"
 	. "github.com/onsi/gomega"
 )
 
@@ -55,7 +57,9 @@ func (p *pathBuilder) SystemRoot() string {
 // Build the defined path. Absolute links are prefixed wit the SystemRoot which
 // will be the base of a ginkgo managed tmp directory.
 func (p *pathBuilder) Build() (string, error) {
-	p.systemRoot = GinkgoT().TempDir()
+	var err error
+	p.systemRoot, err = os.MkdirTemp("", "ginkgo")
+	Expect(err).ToNot(HaveOccurred())
 	relativeRoot := filepath.Join(p.systemRoot, p.relativeRoot)
 	parent := relativeRoot
 	if err := os.MkdirAll(parent, os.ModePerm); err != nil {
@@ -85,41 +89,41 @@ func (p *pathBuilder) Build() (string, error) {
 
 var _ = Describe("safepath", func() {
 
-	DescribeTable("should prevent an escape via", func(builder *pathBuilder, expectedPath string) {
+	table.DescribeTable("should prevent an escape via", func(builder *pathBuilder, expectedPath string) {
 		path, err := builder.Build()
 		Expect(err).ToNot(HaveOccurred())
 		constructedPath, err := JoinAndResolveWithRelativeRoot(builder.RelativeRoot(), path)
 		Expect(err).ToNot(HaveOccurred())
 		Expect(unsafepath.UnsafeAbsolute(constructedPath.Raw())).To(Equal(filepath.Join(builder.RelativeRoot(), expectedPath)))
 	},
-		Entry("an absolute link to root subdirectory", new("/var/lib/rel/root").Path("link/back/to").Link("link", "/link"),
+		table.Entry("an absolute link to root subdirectory", new("/var/lib/rel/root").Path("link/back/to").Link("link", "/link"),
 			"/link",
 		),
-		Entry("an absolute link to root", new("/var/lib/rel/root").Path("link/back/to").Link("link", "/"),
+		table.Entry("an absolute link to root", new("/var/lib/rel/root").Path("link/back/to").Link("link", "/"),
 			"/",
 		),
-		Entry("a relative link", new("/var/lib/rel/root").Path("link/back/to").Link("var", "../../../../../"),
+		table.Entry("a relative link", new("/var/lib/rel/root").Path("link/back/to").Link("var", "../../../../../"),
 			"/",
 		),
 	)
 
-	DescribeTable("should be able to", func(builder *pathBuilder, expectedPath string) {
+	table.DescribeTable("should be able to", func(builder *pathBuilder, expectedPath string) {
 		path, err := builder.Build()
 		Expect(err).ToNot(HaveOccurred())
 		constructedPath, err := JoinAndResolveWithRelativeRoot(builder.RelativeRoot(), path)
 		Expect(err).ToNot(HaveOccurred())
 		Expect(unsafepath.UnsafeAbsolute(constructedPath.Raw())).To(Equal(filepath.Join(builder.RelativeRoot(), expectedPath)))
 	},
-		Entry("handle relative paths by cutting off at the relative root", new("/var/lib/rel/root").Path("link/back/to").Path("../../../../../"),
+		table.Entry("handle relative paths by cutting off at the relative root", new("/var/lib/rel/root").Path("link/back/to").Path("../../../../../"),
 			`/`,
 		),
-		Entry("handle relative legitimate paths", new("/var/lib/rel/root").Path("link/back/to").Path("../../"),
+		table.Entry("handle relative legitimate paths", new("/var/lib/rel/root").Path("link/back/to").Path("../../"),
 			`/link`,
 		),
-		Entry("handle legitimate paths with relative symlinks", new("/var/lib/rel/root").Path("link/back/to").Link("test", "../../"),
+		table.Entry("handle legitimate paths with relative symlinks", new("/var/lib/rel/root").Path("link/back/to").Link("test", "../../"),
 			`/link`,
 		),
-		Entry("handle multiple legitimate symlink redirects", new("/var/lib/rel/root").Path("link/back/to").Link("test", "../../").Path("b/c").Link("yeah", "../"),
+		table.Entry("handle multiple legitimate symlink redirects", new("/var/lib/rel/root").Path("link/back/to").Link("test", "../../").Path("b/c").Link("yeah", "../"),
 			`/link/b`,
 		),
 	)
@@ -133,7 +137,8 @@ var _ = Describe("safepath", func() {
 	})
 
 	It("should follow a sequence of linked links", func() {
-		root := GinkgoT().TempDir()
+		root, err := os.MkdirTemp("", "ginkgo")
+		Expect(err).ToNot(HaveOccurred())
 		relativeRoot := filepath.Join(root, "testroot")
 		path := "some/path/to/follow"
 		Expect(os.MkdirAll(filepath.Join(relativeRoot, path, "test3", "test4"), os.ModePerm))
@@ -147,7 +152,8 @@ var _ = Describe("safepath", func() {
 	})
 
 	It("should detect too many redirects", func() {
-		root := GinkgoT().TempDir()
+		root, err := os.MkdirTemp("", "ginkgo")
+		Expect(err).ToNot(HaveOccurred())
 		relativeRoot := filepath.Join(root, "testroot")
 		path := "some/path/to/follow"
 		Expect(os.MkdirAll(filepath.Join(relativeRoot, path, "test3", "test4"), os.ModePerm))
@@ -157,13 +163,14 @@ var _ = Describe("safepath", func() {
 		}
 
 		// try to reach the test4 directory over the test1 link
-		_, err := JoinAndResolveWithRelativeRoot(relativeRoot, path, "/test435/test4")
+		_, err = JoinAndResolveWithRelativeRoot(relativeRoot, path, "/test435/test4")
 		Expect(err).To(HaveOccurred())
 		Expect(err.Error()).To(Equal("more than 256 path elements evaluated"))
 	})
 
 	It("should not resolve symlinks in the root path", func() {
-		root := GinkgoT().TempDir()
+		root, err := os.MkdirTemp("", "ginkgo")
+		Expect(err).ToNot(HaveOccurred())
 		relativeRoot := filepath.Join(root, "testroot")
 		path := "some/path/to/follow"
 		Expect(os.MkdirAll(filepath.Join(relativeRoot, path, "test3", "test4"), os.ModePerm))
@@ -177,7 +184,9 @@ var _ = Describe("safepath", func() {
 	})
 
 	It("should create a socket repeatedly the safe way", func() {
-		root, err := JoinAndResolveWithRelativeRoot("/", GinkgoT().TempDir())
+		tmpDir, err := os.MkdirTemp("", "ginkgo")
+		Expect(err).ToNot(HaveOccurred())
+		root, err := JoinAndResolveWithRelativeRoot("/", tmpDir)
 		Expect(err).ToNot(HaveOccurred())
 		l, err := ListenUnixNoFollow(root, "my.sock")
 		Expect(err).ToNot(HaveOccurred())
@@ -188,7 +197,9 @@ var _ = Describe("safepath", func() {
 	})
 
 	It("should open a safepath and provide its filedescriptor path with execute", func() {
-		root, err := JoinAndResolveWithRelativeRoot("/", GinkgoT().TempDir())
+		tmpDir, err := os.MkdirTemp("", "ginkgo")
+		Expect(err).ToNot(HaveOccurred())
+		root, err := JoinAndResolveWithRelativeRoot("/", tmpDir)
 		Expect(err).ToNot(HaveOccurred())
 		Expect(os.MkdirAll(filepath.Join(unsafepath.UnsafeAbsolute(root.Raw()), "test"), os.ModePerm)).To(Succeed())
 
@@ -201,7 +212,9 @@ var _ = Describe("safepath", func() {
 	})
 
 	It("should create a child directory", func() {
-		root, err := JoinAndResolveWithRelativeRoot("/", GinkgoT().TempDir())
+		tmpDir, err := os.MkdirTemp("", "ginkgo")
+		Expect(err).ToNot(HaveOccurred())
+		root, err := JoinAndResolveWithRelativeRoot("/", tmpDir)
 		Expect(err).ToNot(HaveOccurred())
 		Expect(MkdirAtNoFollow(root, "test", os.ModePerm)).To(Succeed())
 		_, err = os.Stat(filepath.Join(unsafepath.UnsafeAbsolute(root.Raw()), "test"))
@@ -209,7 +222,9 @@ var _ = Describe("safepath", func() {
 	})
 
 	It("should set owner and file permissions", func() {
-		root, err := JoinAndResolveWithRelativeRoot("/", GinkgoT().TempDir())
+		tmpDir, err := os.MkdirTemp("", "ginkgo")
+		Expect(err).ToNot(HaveOccurred())
+		root, err := JoinAndResolveWithRelativeRoot("/", tmpDir)
 		Expect(err).ToNot(HaveOccurred())
 		u, err := user.Current()
 		Expect(err).ToNot(HaveOccurred())
@@ -232,7 +247,9 @@ var _ = Describe("safepath", func() {
 	})
 
 	It("should unlink files and directories", func() {
-		root, err := JoinAndResolveWithRelativeRoot("/", GinkgoT().TempDir())
+		tmpDir, err := os.MkdirTemp("", "ginkgo")
+		Expect(err).ToNot(HaveOccurred())
+		root, err := JoinAndResolveWithRelativeRoot("/", tmpDir)
 		Expect(err).ToNot(HaveOccurred())
 		Expect(TouchAtNoFollow(root, "test", os.ModePerm)).To(Succeed())
 		Expect(MkdirAtNoFollow(root, "testdir", os.ModePerm)).To(Succeed())
@@ -253,7 +270,8 @@ var _ = Describe("safepath", func() {
 	})
 
 	It("should return base and relative paths correctly", func() {
-		baseDir := GinkgoT().TempDir()
+		baseDir, err := os.MkdirTemp("", "ginkgo")
+		Expect(err).ToNot(HaveOccurred())
 		root, err := JoinAndResolveWithRelativeRoot(baseDir)
 		Expect(err).ToNot(HaveOccurred())
 		Expect(MkdirAtNoFollow(root, "test", os.ModePerm)).To(Succeed())
@@ -264,7 +282,8 @@ var _ = Describe("safepath", func() {
 	})
 
 	It("should append new relative root components to the relative path", func() {
-		baseDir := GinkgoT().TempDir()
+		baseDir, err := os.MkdirTemp("", "ginkgo")
+		Expect(err).ToNot(HaveOccurred())
 		root, err := JoinAndResolveWithRelativeRoot(baseDir)
 		Expect(err).ToNot(HaveOccurred())
 		Expect(MkdirAtNoFollow(root, "test", os.ModePerm)).To(Succeed())
@@ -278,13 +297,16 @@ var _ = Describe("safepath", func() {
 		p, err := NewPathNoFollow("/")
 		Expect(err).ToNot(HaveOccurred())
 		Expect(p.IsRoot()).To(BeTrue())
-		tmpDir, err := JoinAndResolveWithRelativeRoot("/", GinkgoT().TempDir())
+		tmpDirPath, err := os.MkdirTemp("", "ginkgo")
+		Expect(err).ToNot(HaveOccurred())
+		tmpDir, err := JoinAndResolveWithRelativeRoot("/", tmpDirPath)
 		Expect(err).ToNot(HaveOccurred())
 		Expect(tmpDir.IsRoot()).To(BeFalse())
 	})
 
 	It("should be possible to use os.ReadDir on a safepath", func() {
-		baseDir := GinkgoT().TempDir()
+		baseDir, err := os.MkdirTemp("", "ginkgo")
+		Expect(err).ToNot(HaveOccurred())
 		root, err := JoinAndResolveWithRelativeRoot(baseDir)
 		Expect(err).ToNot(HaveOccurred())
 

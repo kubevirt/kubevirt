@@ -139,19 +139,19 @@ var _ = Describe("Validating VMICreate Admitter", func() {
 		Expect(resp.Result.Message).To(ContainSubstring("no memory requested"))
 	})
 
-	DescribeTable("path validation should fail", func(path string) {
+	table.DescribeTable("path validation should fail", func(path string) {
 		Expect(validatePath(k8sfield.NewPath("fake"), path)).To(HaveLen(1))
 	},
-		Entry("if path is not absolute", "a/b/c"),
-		Entry("if path contains relative elements", "/a/b/c/../d"),
-		Entry("if path is root", "/"),
+		table.Entry("if path is not absolute", "a/b/c"),
+		table.Entry("if path contains relative elements", "/a/b/c/../d"),
+		table.Entry("if path is root", "/"),
 	)
 
-	DescribeTable("path validation should succeed", func(path string) {
+	table.DescribeTable("path validation should succeed", func(path string) {
 		Expect(validatePath(k8sfield.NewPath("fake"), path)).To(BeEmpty())
 	},
-		Entry("if path is absolute", "/a/b/c"),
-		Entry("if path is absolute and has trailing slash", "/a/b/c/"),
+		table.Entry("if path is absolute", "/a/b/c"),
+		table.Entry("if path is absolute and has trailing slash", "/a/b/c/"),
 	)
 
 	Context("tolerations with eviction policies given", func() {
@@ -2230,8 +2230,10 @@ var _ = Describe("Validating VMICreate Admitter", func() {
 			const (
 				fakeKernelArgs = "args"
 				fakeImage      = "image"
-				fakeInitrd     = "initrd"
-				fakeKernel     = "kernel"
+				fakeInitrd     = "/initrd"
+				fakeKernel     = "/kernel"
+				invalidInitrd  = "initrd"
+				invalidKernel  = "kernel"
 			)
 
 			table.DescribeTable("", func(kernelArgs, initrdPath, kernelPath, image string, defineContainerNil bool, shouldBeValid bool) {
@@ -2271,6 +2273,10 @@ var _ = Describe("Validating VMICreate Admitter", func() {
 					fakeKernelArgs, fakeInitrd, "", fakeImage, false, true),
 				table.Entry("with kernel args, with container that has only image defined - should reject",
 					fakeKernelArgs, "", "", fakeImage, false, false),
+				table.Entry("with invalid kernel path - should reject",
+					fakeKernelArgs, fakeInitrd, invalidKernel, fakeImage, false, false),
+				table.Entry("with invalid initrd path - should reject",
+					fakeKernelArgs, invalidInitrd, fakeKernel, fakeImage, false, false),
 				table.Entry("with kernel args, with container that has initrd and kernel defined but without image - should reject",
 					fakeKernelArgs, fakeInitrd, fakeKernel, "", false, false),
 				table.Entry("with kernel args, with container that has nothing defined", "", "", "", "", false, false),

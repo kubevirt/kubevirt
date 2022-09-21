@@ -58,8 +58,10 @@ var _ = Describe("IsolationResult", func() {
 		var tmpDir string
 
 		BeforeEach(func() {
+			var err error
 			ctrl = gomock.NewController(GinkgoT())
-			tmpDir = GinkgoT().TempDir()
+			tmpDir, err = os.MkdirTemp("", "ginkgo")
+			Expect(err).ToNot(HaveOccurred())
 			root, err := safepath.JoinAndResolveWithRelativeRoot(filepath.Join("/proc/self/root", tmpDir))
 			Expect(err).ToNot(HaveOccurred())
 
