@@ -3,6 +3,7 @@ package network
 import (
 	"context"
 	"fmt"
+	"time"
 
 	expect "github.com/google/goexpect"
 	. "github.com/onsi/ginkgo/v2"
@@ -18,6 +19,7 @@ import (
 
 	"kubevirt.io/kubevirt/tests"
 	"kubevirt.io/kubevirt/tests/console"
+	"kubevirt.io/kubevirt/tests/framework/matcher"
 	"kubevirt.io/kubevirt/tests/libnet"
 	"kubevirt.io/kubevirt/tests/libvmi"
 )
@@ -226,6 +228,27 @@ var _ = SIGDescribe("[ref_id:1182]Probes", func() {
 			Entry("[test_id:1201][posneg:positive]with working HTTP probe and http server on ipv6", httpProbe, corev1.IPv6Protocol),
 			Entry("[test_id:TODO]with working Exec probe", createExecProbe(period, initialSeconds, timeoutSeconds, "uname", "-a"), blankIPFamily),
 		)
+
+		Context("guest agent ping", func() {
+			BeforeEach(func() {
+				vmi = libvmi.NewFedora(withMasqueradeNetworkingAndFurtherUserConfig(
+					withLivelinessProbe(createGuestAgentPingProbe(period, initialSeconds)),
+				)...)
+				vmi = tests.VMILauncherIgnoreWarnings(virtClient)(vmi)
+
+				By("Waiting for agent to connect")
+				tests.WaitAgentConnected(virtClient, vmi)
+				Expect(console.LoginToFedora(vmi)).To(Succeed())
+			})
+
+			It("[test_id:TODO] VM stops when guest agent is disabled", func() {
+				Expect(stopGuestAgent(vmi)).To(Succeed())
+
+				Eventually(func() (*v1.VirtualMachineInstance, error) {
+					return virtClient.VirtualMachineInstance(util.NamespaceTestDefault).Get(vmi.Name, &metav1.GetOptions{})
+				}, 2*time.Minute, 1*time.Second).Should(Or(matcher.BeInPhase(v1.Failed), matcher.HaveSucceeded()))
+			})
+		})
 
 		DescribeTable("should fail the VMI", func(livenessProbe *v1.Probe, vmiFactory func(opts ...libvmi.Option) *v1.VirtualMachineInstance) {
 			By("Specifying a VMI with a livenessProbe probe")
