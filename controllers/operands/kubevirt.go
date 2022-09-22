@@ -91,6 +91,9 @@ const (
 
 	// Export VMs to outside of the cluster
 	kvVMExportGate = "VMExport"
+
+	// enable Pod Security Admission handling
+	kvPSA = "PSA"
 )
 
 var (
@@ -107,6 +110,7 @@ var (
 		kvDownwardMetricsGate,
 		kvNUMA,
 		kvVMExportGate,
+		kvPSA,
 	}
 
 	// holds a list of mandatory KubeVirt feature gates. Some of them are the hard coded feature gates and some of
