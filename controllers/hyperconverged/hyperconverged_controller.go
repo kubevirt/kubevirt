@@ -176,8 +176,6 @@ func add(mgr manager.Manager, r reconcile.Reconciler, ci hcoutil.ClusterInfo) er
 		&kubevirtcorev1.KubeVirt{},
 		&cdiv1beta1.CDI{},
 		&networkaddonsv1.NetworkAddonsConfig{},
-		&sspv1beta1.SSP{},
-		&ttov1alpha1.TektonTasks{},
 		&schedulingv1.PriorityClass{},
 		&corev1.ConfigMap{},
 		&corev1.Service{},
@@ -186,6 +184,8 @@ func add(mgr manager.Manager, r reconcile.Reconciler, ci hcoutil.ClusterInfo) er
 	}
 	if ci.IsOpenshift() {
 		secondaryResources = append(secondaryResources, []client.Object{
+			&sspv1beta1.SSP{},
+			&ttov1alpha1.TektonTasks{},
 			&corev1.Service{},
 			&monitoringv1.ServiceMonitor{},
 			&monitoringv1.PrometheusRule{},

@@ -297,24 +297,24 @@ var _ = Describe("HyperconvergedController", func() {
 					Reason:  reconcileCompleted,
 					Message: reconcileCompletedMessage,
 				})))
-				// Why SSP? Because it is the last to be checked, so the last missing overwrites everything
+				// Why TTO? Because it is the last to be checked, so the last missing overwrites everything
 				Expect(foundResource.Status.Conditions).To(ContainElement(commonTestUtils.RepresentCondition(metav1.Condition{
 					Type:    hcov1beta1.ConditionAvailable,
 					Status:  metav1.ConditionFalse,
-					Reason:  "SSPConditions",
-					Message: "SSP resource has no conditions",
+					Reason:  "TektonTasksConditions",
+					Message: "TektonTasks resource has no conditions",
 				})))
 				Expect(foundResource.Status.Conditions).To(ContainElement(commonTestUtils.RepresentCondition(metav1.Condition{
 					Type:    hcov1beta1.ConditionProgressing,
 					Status:  metav1.ConditionTrue,
-					Reason:  "SSPConditions",
-					Message: "SSP resource has no conditions",
+					Reason:  "TektonTasksConditions",
+					Message: "TektonTasks resource has no conditions",
 				})))
 				Expect(foundResource.Status.Conditions).To(ContainElement(commonTestUtils.RepresentCondition(metav1.Condition{
 					Type:    hcov1beta1.ConditionUpgradeable,
 					Status:  metav1.ConditionFalse,
-					Reason:  "SSPConditions",
-					Message: "SSP resource has no conditions",
+					Reason:  "TektonTasksConditions",
+					Message: "TektonTasks resource has no conditions",
 				})))
 
 				Expect(foundResource.Status.RelatedObjects).To(HaveLen(20))
