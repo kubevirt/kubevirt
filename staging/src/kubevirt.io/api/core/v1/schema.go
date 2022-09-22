@@ -37,6 +37,8 @@ const (
 	DefaultCPUModel                        = CPUModeHostModel
 )
 
+const HotplugDiskDir = "/var/run/kubevirt/hotplug-disks/"
+
 /*
  ATTENTION: Rerun code generators when comments on structs or fields are modified.
 */

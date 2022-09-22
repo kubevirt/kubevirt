@@ -109,7 +109,7 @@ var _ = Describe("Template", func() {
 				"/var/lib/kubevirt",
 				"/var/run/kubevirt-ephemeral-disks",
 				"/var/run/kubevirt/container-disks",
-				"/var/run/kubevirt/hotplug-disks",
+				v1.HotplugDiskDir,
 				"pull-secret-1",
 				pvcCache,
 				virtClient,
