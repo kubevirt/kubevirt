@@ -1140,14 +1140,14 @@ func getSnapshotStorageClass(client kubecli.KubevirtClient) (string, error) {
 		return "", err
 	}
 
-	hasV1beta1 := false
+	hasV1 := false
 	for _, v := range crd.Spec.Versions {
-		if v.Name == "v1beta1" && v.Served {
-			hasV1beta1 = true
+		if v.Name == "v1" && v.Served {
+			hasV1 = true
 		}
 	}
 
-	if !hasV1beta1 {
+	if !hasV1 {
 		return "", nil
 	}
 
