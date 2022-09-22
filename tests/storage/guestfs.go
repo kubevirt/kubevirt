@@ -40,6 +40,8 @@ var _ = SIGDescribe("[rfe_id:6364][[Serial]Guestfs", func() {
 	var (
 		virtClient kubecli.KubevirtClient
 		pvcClaim   string
+		setGroup   bool
+		testGroup  string
 	)
 	execCommandLibguestfsPod := func(podName string, c []string) (string, string, error) {
 		pod, err := virtClient.CoreV1().Pods(util.NamespaceTestDefault).Get(context.Background(), podName, metav1.GetOptions{})
@@ -74,6 +76,9 @@ var _ = SIGDescribe("[rfe_id:6364][[Serial]Guestfs", func() {
 	runGuestfsOnPVC := func(pvcClaim string, options ...string) {
 		podName := libguestsTools + pvcClaim
 		o := append([]string{"guestfs", pvcClaim, "--namespace", util.NamespaceTestDefault}, options...)
+		if setGroup {
+			o = append(o, "--group", testGroup)
+		}
 		guestfsCmd := clientcmd.NewVirtctlCommand(o...)
 		go func() {
 			defer GinkgoRecover()
@@ -107,6 +112,9 @@ var _ = SIGDescribe("[rfe_id:6364][[Serial]Guestfs", func() {
 			var err error
 			virtClient, err = kubecli.GetKubevirtClient()
 			Expect(err).ToNot(HaveOccurred())
+			// TODO: Always setGroup to true until we have the ability to control how virtctl guestfs is run
+			setGroup = true
+			testGroup = "2000"
 		})
 
 		AfterEach(func() {
@@ -171,6 +179,19 @@ var _ = SIGDescribe("[rfe_id:6364][[Serial]Guestfs", func() {
 			Expect(err).ToNot(HaveOccurred())
 
 		})
+	})
+	Context("Run libguestfs on PVCs with root", func() {
+		BeforeEach(func() {
+			var err error
+			virtClient, err = kubecli.GetKubevirtClient()
+			Expect(err).ToNot(HaveOccurred())
+			setGroup = false
+		})
+
+		AfterEach(func() {
+			err := virtClient.CoreV1().PersistentVolumeClaims(util.NamespaceTestDefault).Delete(context.Background(), pvcClaim, metav1.DeleteOptions{})
+			Expect(err).ToNot(HaveOccurred())
+		})
 		It("Should successfully run guestfs command on a filesystem-based PVC with root", func() {
 			f := createFakeAttacher()
 			defer f.closeChannel()
@@ -188,6 +209,6 @@ var _ = SIGDescribe("[rfe_id:6364][[Serial]Guestfs", func() {
 			Expect(err).ToNot(HaveOccurred())
 
 		})
-
 	})
+
 })

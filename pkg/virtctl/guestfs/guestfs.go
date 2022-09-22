@@ -6,6 +6,7 @@ import (
 	"io"
 	"os"
 	"os/signal"
+	"strconv"
 	"syscall"
 	"time"
 
@@ -52,6 +53,7 @@ var (
 	kvm           bool
 	podName       string
 	root          bool
+	group         string
 )
 
 type guestfsCommand struct {
@@ -76,6 +78,7 @@ func NewGuestfsShellCommand(clientConfig clientcmd.ClientConfig) *cobra.Command 
 	cmd.PersistentFlags().BoolVar(&kvm, "kvm", true, "Use kvm for the libguestfs-tools container")
 	cmd.PersistentFlags().BoolVar(&root, "root", false, "Set uid 0 for the libguestfs-tool container")
 	cmd.SetUsageTemplate(templates.UsageTemplate())
+	cmd.PersistentFlags().StringVar(&group, "group", "", "Set the gid and fsgroup for the libguestfs-tool container")
 
 	return cmd
 }
@@ -365,7 +368,25 @@ func (client *K8sClient) getPodsForPVC(pvcName, ns string) ([]corev1.Pod, error)
 	return pods, nil
 }
 
-func createLibguestfsPod(pvc, image, cmd string, args []string, kvm, isBlock bool) *corev1.Pod {
+func setGroupLibguestfs() (*int64, error) {
+	if root && group != "" {
+		return nil, fmt.Errorf("cannot set group id with root")
+	}
+	if group != "" {
+		n, err := strconv.ParseInt(group, 10, 64)
+		if err != nil {
+			return nil, err
+		}
+		return &n, nil
+	}
+	if root {
+		var rootGID int64 = 0
+		return &rootGID, nil
+	}
+	return nil, nil
+}
+
+func createLibguestfsPod(pvc, image, cmd string, args []string, kvm, isBlock bool) (*corev1.Pod, error) {
 	var resources corev1.ResourceRequirements
 	podName = fmt.Sprintf("%s-%s", podNamePrefix, pvc)
 	if kvm {
@@ -382,6 +403,10 @@ func createLibguestfsPod(pvc, image, cmd string, args []string, kvm, isBlock boo
 		nonRoot = false
 		uid = &uidRoot
 	}
+	g, err := setGroupLibguestfs()
+	if err != nil {
+		return nil, err
+	}
 	allowPrivilegeEscalation := false
 	containerSecurityContext := &corev1.SecurityContext{
 		AllowPrivilegeEscalation: &allowPrivilegeEscalation,
@@ -393,6 +418,8 @@ func createLibguestfsPod(pvc, image, cmd string, args []string, kvm, isBlock boo
 	securityContext := &corev1.PodSecurityContext{
 		RunAsNonRoot: &nonRoot,
 		RunAsUser:    uid,
+		RunAsGroup:   g,
+		FSGroup:      g,
 		SeccompProfile: &corev1.SeccompProfile{
 			Type: corev1.SeccompProfileTypeRuntimeDefault,
 		},
@@ -483,7 +510,7 @@ func createLibguestfsPod(pvc, image, cmd string, args []string, kvm, isBlock boo
 			DevicePath: diskPath,
 		})
 		fmt.Printf("The PVC has been mounted at %s \n", diskPath)
-		return c
+		return c, nil
 	}
 	// PVC volume mode is filesystem
 	c.Spec.Containers[0].VolumeMounts = append(c.Spec.Containers[0].VolumeMounts, corev1.VolumeMount{
@@ -495,7 +522,7 @@ func createLibguestfsPod(pvc, image, cmd string, args []string, kvm, isBlock boo
 	c.Spec.Containers[0].WorkingDir = diskDir
 	fmt.Printf("The PVC has been mounted at %s \n", diskDir)
 
-	return c
+	return c, nil
 }
 
 // createAttacher attaches the stdin, stdout, and stderr to the container shell
@@ -535,7 +562,10 @@ func createAttacher(client *K8sClient, p *corev1.Pod, command string) error {
 }
 
 func (client *K8sClient) createInteractivePodWithPVC(pvc, image, ns, command string, args []string, isblock bool) error {
-	pod := createLibguestfsPod(pvc, image, command, args, kvm, isblock)
+	pod, err := createLibguestfsPod(pvc, image, command, args, kvm, isblock)
+	if err != nil {
+		return err
+	}
 	p, err := client.Client.CoreV1().Pods(ns).Create(context.TODO(), pod, metav1.CreateOptions{})
 	if err != nil {
 		return err
