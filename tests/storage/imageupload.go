@@ -300,6 +300,84 @@ var _ = SIGDescribe("[Serial]ImageUpload", func() {
 		)
 	})
 
+	Context("Upload fails", func() {
+		var archivePath string
+		invalidStorageClass := "no-sc"
+
+		BeforeEach(func() {
+			archivePath = createArchive("archive", os.TempDir(), imagePath)
+		})
+
+		AfterEach(func() {
+			err := os.Remove(archivePath)
+			Expect(err).ToNot(HaveOccurred())
+		})
+
+		It("Upload fails creating a DV when using a non-existent storageClass", func() {
+			virtctlCmd := clientcmd.NewRepeatableVirtctlCommand(imageUpload,
+				"dv", "alpine-archive-dv-"+rand.String(12),
+				namespace, util.NamespaceTestDefault,
+				"--archive-path", archivePath,
+				"--storage-class", invalidStorageClass,
+				size, pvcSize,
+				"--force-bind",
+				insecure)
+
+			err := virtctlCmd()
+			Expect(err).To(HaveOccurred())
+			Expect(err.Error()).To(ContainSubstring("storageclasses.storage.k8s.io \"no-sc\" not found"))
+		})
+
+		It("Upload fails creating a PVC when using a non-existent storageClass", func() {
+			virtctlCmd := clientcmd.NewRepeatableVirtctlCommand(imageUpload,
+				"pvc", "alpine-archive-"+rand.String(12),
+				namespace, util.NamespaceTestDefault,
+				"--archive-path", archivePath,
+				"--storage-class", invalidStorageClass,
+				size, pvcSize,
+				"--force-bind",
+				insecure)
+
+			err := virtctlCmd()
+			Expect(err).To(HaveOccurred())
+			Expect(err.Error()).To(ContainSubstring("storageclasses.storage.k8s.io \"no-sc\" not found"))
+		})
+
+		It("Upload doesn't succeed when DV provisioning fails", func() {
+			libstorage.CreateStorageClass(invalidStorageClass, nil)
+			virtctlCmd := clientcmd.NewRepeatableVirtctlCommand(imageUpload,
+				"dv", "alpine-archive-dv-"+rand.String(12),
+				namespace, util.NamespaceTestDefault,
+				"--archive-path", archivePath,
+				"--storage-class", invalidStorageClass,
+				size, pvcSize,
+				"--force-bind",
+				insecure)
+
+			err := virtctlCmd()
+			Expect(err).To(HaveOccurred())
+			Expect(err.Error()).To(ContainSubstring("Claim not valid"))
+			libstorage.DeleteStorageClass(invalidStorageClass)
+		})
+
+		It("Upload doesn't succeed when PVC provisioning fails", func() {
+			libstorage.CreateStorageClass(invalidStorageClass, nil)
+			virtctlCmd := clientcmd.NewRepeatableVirtctlCommand(imageUpload,
+				"pvc", "alpine-archive-pvc-"+rand.String(12),
+				namespace, util.NamespaceTestDefault,
+				"--archive-path", archivePath,
+				"--storage-class", invalidStorageClass,
+				size, pvcSize,
+				"--force-bind",
+				insecure)
+
+			err := virtctlCmd()
+			Expect(err).To(HaveOccurred())
+			Expect(err.Error()).To(ContainSubstring("Provisioning failed"))
+			libstorage.DeleteStorageClass(invalidStorageClass)
+		})
+	})
+
 	AfterEach(func() {
 		if kubectlCmd != nil {
 			Expect(kubectlCmd.Process.Kill()).To(Succeed())
