@@ -67,7 +67,7 @@ var _ = Describe("MemoryDump", func() {
 		kubecli.MockKubevirtClientInstance.EXPECT().CoreV1().Return(coreClient.CoreV1()).AnyTimes()
 	})
 
-	expectGetCDIConfig := func() {
+	handleGetCDIConfig := func() {
 		kubecli.MockKubevirtClientInstance.EXPECT().CdiClient().Return(cdiClient).AnyTimes()
 	}
 
@@ -185,7 +185,7 @@ var _ = Describe("MemoryDump", func() {
 		})
 	}
 
-	expectPVCGet := func(pvc *k8sv1.PersistentVolumeClaim) {
+	handlePVCGet := func(pvc *k8sv1.PersistentVolumeClaim) {
 		coreClient.Fake.PrependReactor("get", "persistentvolumeclaims", func(action testing.Action) (bool, runtime.Object, error) {
 			get, ok := action.(testing.GetAction)
 			Expect(ok).To(BeTrue())
@@ -247,7 +247,7 @@ var _ = Describe("MemoryDump", func() {
 
 	It("should fail call memory dump subresource with create-claim and existing pvc", func() {
 		expectGetVMNoAssociatedMemoryDump()
-		expectPVCGet(pvcSpec())
+		handlePVCGet(pvcSpec())
 		commandAndArgs := []string{"memory-dump", "get", "testvm", claimNameFlag, createClaimFlag}
 		cmd := clientcmd.NewVirtctlCommand(commandAndArgs...)
 		res := cmd.Execute()
@@ -267,7 +267,7 @@ var _ = Describe("MemoryDump", func() {
 	})
 
 	DescribeTable("should fail call memory dump subresource with invalid access mode", func(accessMode, expectedErr string) {
-		expectGetCDIConfig()
+		handleGetCDIConfig()
 		expectGetVMNoAssociatedMemoryDump()
 		expectGetVMI()
 		commandAndArgs := []string{"memory-dump", "get", "testvm", claimNameFlag, createClaimFlag, fmt.Sprintf("--access-mode=%s", accessMode)}
@@ -281,7 +281,7 @@ var _ = Describe("MemoryDump", func() {
 	)
 
 	DescribeTable("should create pvc for memory dump and call subresource", func(storageclass, accessMode string) {
-		expectGetCDIConfig()
+		handleGetCDIConfig()
 		expectGetVMNoAssociatedMemoryDump()
 		expectGetVMI()
 		expectPVCCreate(claimName, storageclass, accessMode)
@@ -376,8 +376,8 @@ var _ = Describe("MemoryDump", func() {
 					Formats: utils.GetExportVolumeFormat(server.URL, exportv1.KubeVirtGz),
 				},
 			}, secretName)
-			utils.ExpectSecretGet(coreClient, secretName)
-			utils.ExpectVMExportCreate(vmExportClient, vmexport)
+			utils.HandleSecretGet(coreClient, secretName)
+			utils.HandleVMExportCreate(vmExportClient, vmexport)
 
 			commandAndArgs := []string{"memory-dump", "get", "testvm", outputFileFlag}
 			cmd := clientcmd.NewVirtctlCommand(commandAndArgs...)
@@ -393,8 +393,8 @@ var _ = Describe("MemoryDump", func() {
 					Formats: utils.GetExportVolumeFormat(server.URL, exportv1.KubeVirtGz),
 				},
 			}, secretName)
-			utils.ExpectSecretGet(coreClient, secretName)
-			utils.ExpectVMExportCreate(vmExportClient, vmexport)
+			utils.HandleSecretGet(coreClient, secretName)
+			utils.HandleVMExportCreate(vmExportClient, vmexport)
 
 			commandAndArgs := []string{"memory-dump", "download", "testvm", outputFileFlag}
 			cmd := clientcmd.NewVirtctlCommand(commandAndArgs...)

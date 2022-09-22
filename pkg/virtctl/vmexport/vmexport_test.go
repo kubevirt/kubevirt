@@ -97,7 +97,7 @@ var _ = Describe("vmexport", func() {
 		It("VirtualMachineExport already exists when using 'create'", func() {
 			testInit(http.StatusOK)
 			vmexport := utils.VMExportSpec(vmexportName, metav1.NamespaceDefault, "pvc", "test-pvc", secretName)
-			utils.ExpectVMExportGet(vmExportClient, vmexport, vmexportName)
+			utils.HandleVMExportGet(vmExportClient, vmexport, vmexportName)
 			cmd := clientcmd.NewRepeatableVirtctlCommand(commandName, CREATE, vmexportName, setflag(PVC_FLAG, "test-pvc"))
 			err := cmd()
 			Expect(err).To(HaveOccurred())
@@ -125,7 +125,7 @@ var _ = Describe("vmexport", func() {
 			testInit(http.StatusOK)
 			vme := utils.VMExportSpec(vmexportName, metav1.NamespaceDefault, "pvc", "test-pvc", secretName)
 			vme.Status = utils.GetVMEStatus(nil, secretName)
-			utils.ExpectVMExportGet(vmExportClient, vme, vmexportName)
+			utils.HandleVMExportGet(vmExportClient, vme, vmexportName)
 
 			cmd := clientcmd.NewRepeatableVirtctlCommand(commandName, DOWNLOAD, vmexportName, setflag(OUTPUT_FLAG, "disk.img"), setflag(VOLUME_FLAG, volumeName))
 			err := cmd()
@@ -147,7 +147,7 @@ var _ = Describe("vmexport", func() {
 					Formats: utils.GetExportVolumeFormat(server.URL, exportv1.KubeVirtRaw),
 				},
 			}, secretName)
-			utils.ExpectVMExportGet(vmExportClient, vme, vmexportName)
+			utils.HandleVMExportGet(vmExportClient, vme, vmexportName)
 
 			cmd := clientcmd.NewRepeatableVirtctlCommand(commandName, DOWNLOAD, vmexportName, setflag(OUTPUT_FLAG, "disk.img"), setflag(VOLUME_FLAG, volumeName))
 			err := cmd()
@@ -169,7 +169,7 @@ var _ = Describe("vmexport", func() {
 					Formats: utils.GetExportVolumeFormat(server.URL, exportv1.KubeVirtRaw),
 				},
 			}, secretName)
-			utils.ExpectVMExportGet(vmExportClient, vme, vmexportName)
+			utils.HandleVMExportGet(vmExportClient, vme, vmexportName)
 
 			cmd := clientcmd.NewRepeatableVirtctlCommand(commandName, DOWNLOAD, vmexportName, setflag(OUTPUT_FLAG, "disk.img"))
 			err := cmd()
@@ -182,7 +182,7 @@ var _ = Describe("vmexport", func() {
 			testInit(http.StatusOK)
 			vme := utils.VMExportSpec(vmexportName, metav1.NamespaceDefault, "pvc", "test-pvc", secretName)
 			vme.Status = utils.GetVMEStatus([]exportv1.VirtualMachineExportVolume{{Name: volumeName}}, secretName)
-			utils.ExpectVMExportGet(vmExportClient, vme, vmexportName)
+			utils.HandleVMExportGet(vmExportClient, vme, vmexportName)
 
 			cmd := clientcmd.NewRepeatableVirtctlCommand(commandName, DOWNLOAD, vmexportName, setflag(OUTPUT_FLAG, "disk.img"), setflag(VOLUME_FLAG, volumeName))
 			err := cmd()
@@ -200,7 +200,7 @@ var _ = Describe("vmexport", func() {
 					Formats: utils.GetExportVolumeFormat(server.URL, exportv1.Dir),
 				},
 			}, secretName)
-			utils.ExpectVMExportGet(vmExportClient, vme, vmexportName)
+			utils.HandleVMExportGet(vmExportClient, vme, vmexportName)
 
 			cmd := clientcmd.NewRepeatableVirtctlCommand(commandName, DOWNLOAD, vmexportName, setflag(OUTPUT_FLAG, "disk.img"), setflag(VOLUME_FLAG, volumeName))
 			err := cmd()
@@ -218,7 +218,7 @@ var _ = Describe("vmexport", func() {
 					Formats: utils.GetExportVolumeFormat(server.URL, exportv1.KubeVirtRaw),
 				},
 			}, secretName)
-			utils.ExpectVMExportGet(vmExportClient, vme, vmexportName)
+			utils.HandleVMExportGet(vmExportClient, vme, vmexportName)
 			// Adding a new reactor so the client returns a nil secret
 			kubeClient.Fake.PrependReactor("create", "secrets", func(action testing.Action) (handled bool, obj runtime.Object, err error) { return false, nil, nil })
 
@@ -238,8 +238,8 @@ var _ = Describe("vmexport", func() {
 					Formats: utils.GetExportVolumeFormat(server.URL, exportv1.KubeVirtRaw),
 				},
 			}, secretName)
-			utils.ExpectVMExportGet(vmExportClient, vme, vmexportName)
-			utils.ExpectSecretGet(kubeClient, secretName)
+			utils.HandleVMExportGet(vmExportClient, vme, vmexportName)
+			utils.HandleSecretGet(kubeClient, secretName)
 
 			cmd := clientcmd.NewRepeatableVirtctlCommand(commandName, DOWNLOAD, vmexportName, setflag(OUTPUT_FLAG, "disk.img"), setflag(VOLUME_FLAG, volumeName))
 			err := cmd()
@@ -287,7 +287,7 @@ var _ = Describe("vmexport", func() {
 
 		// Create tests
 		It("VirtualMachineExport is created succesfully", func() {
-			utils.ExpectVMExportCreate(vmExportClient, nil)
+			utils.HandleVMExportCreate(vmExportClient, nil)
 			cmd := clientcmd.NewRepeatableVirtctlCommand(commandName, CREATE, vmexportName, setflag(PVC_FLAG, "test-pvc"))
 			err := cmd()
 			Expect(err).ToNot(HaveOccurred())
@@ -295,7 +295,7 @@ var _ = Describe("vmexport", func() {
 
 		// Delete tests
 		It("VirtualMachineExport is deleted succesfully", func() {
-			expectVMExportDelete(vmExportClient, vmexportName)
+			handleVMExportDelete(vmExportClient, vmexportName)
 			cmd := clientcmd.NewRepeatableVirtctlCommand(commandName, DELETE, vmexportName)
 			err := cmd()
 			Expect(err).ToNot(HaveOccurred())
@@ -317,8 +317,8 @@ var _ = Describe("vmexport", func() {
 					Formats: utils.GetExportVolumeFormat(server.URL, exportv1.KubeVirtGz),
 				},
 			}, secretName)
-			utils.ExpectSecretGet(kubeClient, secretName)
-			utils.ExpectVMExportGet(vmExportClient, vmexport, vmexportName)
+			utils.HandleSecretGet(kubeClient, secretName)
+			utils.HandleVMExportGet(vmExportClient, vmexport, vmexportName)
 
 			cmd := clientcmd.NewRepeatableVirtctlCommand(commandName, DOWNLOAD, vmexportName, setflag(VOLUME_FLAG, volumeName), setflag(OUTPUT_FLAG, "test-pvc"), INSECURE_FLAG)
 			err := cmd()
@@ -333,8 +333,8 @@ var _ = Describe("vmexport", func() {
 					Formats: utils.GetExportVolumeFormat(server.URL, exportv1.KubeVirtGz),
 				},
 			}, secretName)
-			utils.ExpectSecretGet(kubeClient, secretName)
-			utils.ExpectVMExportCreate(vmExportClient, vmexport)
+			utils.HandleSecretGet(kubeClient, secretName)
+			utils.HandleVMExportCreate(vmExportClient, vmexport)
 
 			cmd := clientcmd.NewRepeatableVirtctlCommand(commandName, DOWNLOAD, vmexportName, setflag(PVC_FLAG, "test-pvc"), setflag(VOLUME_FLAG, volumeName), setflag(OUTPUT_FLAG, "test-pvc"), INSECURE_FLAG)
 			err := cmd()
@@ -349,8 +349,8 @@ var _ = Describe("vmexport", func() {
 					Formats: utils.GetExportVolumeFormat(server.URL, exportv1.KubeVirtRaw),
 				},
 			}, secretName)
-			utils.ExpectSecretGet(kubeClient, secretName)
-			utils.ExpectVMExportGet(vmExportClient, vmexport, vmexportName)
+			utils.HandleSecretGet(kubeClient, secretName)
+			utils.HandleVMExportGet(vmExportClient, vmexport, vmexportName)
 
 			cmd := clientcmd.NewRepeatableVirtctlCommand(commandName, DOWNLOAD, vmexportName, setflag(VOLUME_FLAG, volumeName), setflag(OUTPUT_FLAG, "test-pvc"), INSECURE_FLAG)
 			err := cmd()
@@ -366,8 +366,8 @@ var _ = Describe("vmexport", func() {
 					Formats: utils.GetExportVolumeFormat(server.URL, exportv1.KubeVirtRaw),
 				},
 			}, secretName)
-			utils.ExpectSecretGet(kubeClient, secretName)
-			utils.ExpectVMExportGet(vmExportClient, vme, vmexportName)
+			utils.HandleSecretGet(kubeClient, secretName)
+			utils.HandleVMExportGet(vmExportClient, vme, vmexportName)
 
 			cmd := clientcmd.NewRepeatableVirtctlCommand(commandName, DOWNLOAD, vmexportName, setflag(OUTPUT_FLAG, "disk.img"), setflag(VOLUME_FLAG, volumeName))
 			err := cmd()
@@ -383,8 +383,8 @@ var _ = Describe("vmexport", func() {
 					Formats: utils.GetExportVolumeFormat(server.URL, exportv1.KubeVirtRaw),
 				},
 			}, secretName)
-			utils.ExpectSecretGet(kubeClient, secretName)
-			utils.ExpectVMExportGet(vmExportClient, vme, vmexportName)
+			utils.HandleSecretGet(kubeClient, secretName)
+			utils.HandleVMExportGet(vmExportClient, vme, vmexportName)
 
 			cmd := clientcmd.NewRepeatableVirtctlCommand(commandName, DOWNLOAD, vmexportName, setflag(OUTPUT_FLAG, "disk.img"))
 			err := cmd()
@@ -465,7 +465,7 @@ var _ = Describe("vmexport", func() {
 	})
 })
 
-func expectVMExportDelete(client *kubevirtfake.Clientset, name string) {
+func handleVMExportDelete(client *kubevirtfake.Clientset, name string) {
 	client.Fake.PrependReactor("delete", "virtualmachineexports", func(action testing.Action) (handled bool, obj runtime.Object, err error) {
 		delete, ok := action.(testing.DeleteAction)
 		Expect(ok).To(BeTrue())

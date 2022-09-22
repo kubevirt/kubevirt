@@ -21,6 +21,7 @@ package storage
 
 import (
 	"context"
+	goerrors "errors"
 	"fmt"
 	"os"
 	"strconv"
@@ -175,7 +176,7 @@ var _ = SIGDescribe("Memory dump", func() {
 				return fmt.Errorf(waitVMIMemoryDumpPvcVolumeStatus)
 			}
 			return nil
-		}, 90*time.Second, 1*time.Second).ShouldNot(HaveOccurred())
+		}, 90*time.Second, 2*time.Second).ShouldNot(HaveOccurred())
 	}
 
 	waitAndVerifyMemoryDumpCompletion := func(vm *v1.VirtualMachine, memoryDumpPVC string) {
@@ -212,7 +213,7 @@ var _ = SIGDescribe("Memory dump", func() {
 			Expect(pvc.Annotations[v1.PVCMemoryDumpAnnotation]).To(Equal(*updatedVM.Status.MemoryDumpRequest.FileName))
 
 			return nil
-		}, 90*time.Second, 1*time.Second).ShouldNot(HaveOccurred())
+		}, 90*time.Second, 2*time.Second).ShouldNot(HaveOccurred())
 
 	}
 
@@ -239,7 +240,7 @@ var _ = SIGDescribe("Memory dump", func() {
 			}
 
 			return nil
-		}, 90*time.Second, 1*time.Second).ShouldNot(HaveOccurred())
+		}, 90*time.Second, 2*time.Second).ShouldNot(HaveOccurred())
 
 	}
 
@@ -288,11 +289,11 @@ var _ = SIGDescribe("Memory dump", func() {
 			}
 
 			return virtClient.VirtualMachine(namespace).MemoryDump(vmName, memoryDumpRequest)
-		}, 3*time.Second, 1*time.Second).ShouldNot(HaveOccurred())
+		}, 10*time.Second, 2*time.Second).ShouldNot(HaveOccurred())
 	}
 
 	memoryDumpVirtctl := func(name, namespace, claimName string) {
-		By("Invoking virtlctl memory dump")
+		By("Invoking virtctl memory dump")
 		commandAndArgs := []string{commandMemoryDump, "get", name, virtCtlNamespace, namespace}
 		if claimName != "" {
 			commandAndArgs = append(commandAndArgs, fmt.Sprintf(virtCtlClaimName, claimName))
@@ -300,11 +301,11 @@ var _ = SIGDescribe("Memory dump", func() {
 		memorydumpCommand := clientcmd.NewRepeatableVirtctlCommand(commandAndArgs...)
 		Eventually(func() error {
 			return memorydumpCommand()
-		}, 3*time.Second, 1*time.Second).ShouldNot(HaveOccurred())
+		}, 10*time.Second, 2*time.Second).ShouldNot(HaveOccurred())
 	}
 
 	memoryDumpVirtctlCreatePVC := func(name, namespace, claimName string) {
-		By("Invoking virtlctl memory dump with create flag")
+		By("Invoking virtctl memory dump with create flag")
 		commandAndArgs := []string{commandMemoryDump, "get", name, virtCtlNamespace, namespace}
 		commandAndArgs = append(commandAndArgs, fmt.Sprintf(virtCtlClaimName, claimName))
 		commandAndArgs = append(commandAndArgs, virtCtlCreate)
@@ -322,11 +323,11 @@ var _ = SIGDescribe("Memory dump", func() {
 				}
 			}
 			return err
-		}, 6*time.Second, 1*time.Second).ShouldNot(HaveOccurred())
+		}, 20*time.Second, 2*time.Second).ShouldNot(HaveOccurred())
 	}
 
 	memoryDumpVirtctlCreatePVCWithStorgeClass := func(name, namespace, claimName, storageClass string) {
-		By("Invoking virtlctl memory dump with create flag")
+		By("Invoking virtctl memory dump with create flag")
 		commandAndArgs := []string{commandMemoryDump, "get", name, virtCtlNamespace, namespace}
 		commandAndArgs = append(commandAndArgs, fmt.Sprintf(virtCtlClaimName, claimName))
 		commandAndArgs = append(commandAndArgs, virtCtlCreate)
@@ -345,22 +346,22 @@ var _ = SIGDescribe("Memory dump", func() {
 				}
 			}
 			return err
-		}, 6*time.Second, 1*time.Second).ShouldNot(HaveOccurred())
+		}, 20*time.Second, 2*time.Second).ShouldNot(HaveOccurred())
 	}
 
 	removeMemoryDumpVMSubresource := func(vmName, namespace string) {
 		Eventually(func() error {
 			return virtClient.VirtualMachine(namespace).RemoveMemoryDump(vmName)
-		}, 3*time.Second, 1*time.Second).ShouldNot(HaveOccurred())
+		}, 10*time.Second, 2*time.Second).ShouldNot(HaveOccurred())
 	}
 
 	removeMemoryDumpVirtctl := func(name, namespace string) {
-		By("Invoking virtlctl remove memory dump")
+		By("Invoking virtctl remove memory dump")
 		commandAndArgs := []string{commandMemoryDump, "remove", name, virtCtlNamespace, namespace}
 		removeMemorydumpCommand := clientcmd.NewRepeatableVirtctlCommand(commandAndArgs...)
 		Eventually(func() error {
 			return removeMemorydumpCommand()
-		}, 3*time.Second, 1*time.Second).ShouldNot(HaveOccurred())
+		}, 10*time.Second, 2*time.Second).ShouldNot(HaveOccurred())
 	}
 
 	createMemoryDumpAndVerify := func(vm *v1.VirtualMachine, pvcName, previousOutput string, memoryDumpFunc memoryDumpFunction) string {
@@ -510,7 +511,7 @@ var _ = SIGDescribe("Memory dump", func() {
 			Eventually(func() string {
 				err := memorydumpCommand()
 				return err.Error()
-			}, 3*time.Second, 1*time.Second).Should(ContainSubstring("should be bigger then"))
+			}, 10*time.Second, 2*time.Second).Should(ContainSubstring("should be bigger then"))
 		})
 	})
 
@@ -602,7 +603,7 @@ var _ = SIGDescribe("Memory dump", func() {
 				}
 
 				return nil
-			}, 90*time.Second, 1*time.Second).ShouldNot(HaveOccurred())
+			}, 90*time.Second, 2*time.Second).ShouldNot(HaveOccurred())
 			By("Running remove memory dump")
 			removeMemoryDumpVirtctl(vm.Name, vm.Namespace)
 			waitAndVerifyMemoryDumpDissociation(vm, memoryDumpPVCName)
@@ -616,37 +617,38 @@ var _ = SIGDescribe("Memory dump", func() {
 
 	Context("Memory dump with download", func() {
 		var (
-			vm *v1.VirtualMachine
+			vm         *v1.VirtualMachine
+			outputFile string
 		)
 		const (
 			numPVs        = 1
 			tlsSecretName = "test-tls"
-			outputFile    = "/tmp/memorydump.dump.gz"
+			defaultOutput = "/tmp/memorydump-%s.dump.gz"
 		)
 
 		memoryDumpVirtctlDownload := func(name, namespace, outputFile string) {
-			By("Invoking virtlctl memory dump download")
+			By("Invoking virtctl memory dump download")
 			commandAndArgs := []string{commandMemoryDump, "download", name, virtCtlNamespace, namespace}
 			commandAndArgs = append(commandAndArgs, fmt.Sprintf(virtCtlOutputFile, outputFile))
 			memorydumpCommand := clientcmd.NewRepeatableVirtctlCommand(commandAndArgs...)
 			Eventually(func() error {
 				return memorydumpCommand()
-			}, 6*time.Second, 1*time.Second).ShouldNot(HaveOccurred())
+			}, 20*time.Second, 2*time.Second).ShouldNot(HaveOccurred())
 		}
 
 		memoryDumpVirtctlGetWithDownload := func(name, namespace, claimName, outputFile string) {
-			By("Invoking virtlctl memory dump")
+			By("Invoking virtctl memory dump")
 			commandAndArgs := []string{commandMemoryDump, "get", name, virtCtlNamespace, namespace}
 			commandAndArgs = append(commandAndArgs, fmt.Sprintf(virtCtlClaimName, claimName))
 			commandAndArgs = append(commandAndArgs, fmt.Sprintf(virtCtlOutputFile, outputFile))
 			memorydumpCommand := clientcmd.NewRepeatableVirtctlCommand(commandAndArgs...)
 			Eventually(func() error {
 				return memorydumpCommand()
-			}, 6*time.Second, 1*time.Second).ShouldNot(HaveOccurred())
+			}, 20*time.Second, 2*time.Second).ShouldNot(HaveOccurred())
 		}
 
 		memoryDumpVirtctlCreateWithDownload := func(name, namespace, claimName, outputFile string) {
-			By("Invoking virtlctl memory dump with create flag")
+			By("Invoking virtctl memory dump with create flag")
 			commandAndArgs := []string{commandMemoryDump, "get", name, virtCtlNamespace, namespace}
 			commandAndArgs = append(commandAndArgs, fmt.Sprintf(virtCtlClaimName, claimName))
 			commandAndArgs = append(commandAndArgs, virtCtlCreate)
@@ -665,12 +667,12 @@ var _ = SIGDescribe("Memory dump", func() {
 					}
 				}
 				return err
-			}, 6*time.Second, 1*time.Second).ShouldNot(HaveOccurred())
+			}, 20*time.Second, 2*time.Second).ShouldNot(HaveOccurred())
 		}
 
 		BeforeEach(func() {
 			if !checks.IsOpenShift() {
-				Skip("Not on openshift")
+				Skip("Need ingress to run this test which we only have on openshift")
 			}
 			sc, exists := libstorage.GetRWOFileSystemStorageClass()
 			if !exists {
@@ -679,6 +681,7 @@ var _ = SIGDescribe("Memory dump", func() {
 			libstorage.CheckNoProvisionerStorageClassPVs(sc, numPVs)
 
 			vm = createAndStartVM()
+			outputFile = fmt.Sprintf(defaultOutput, rand.String(12))
 		})
 
 		AfterEach(func() {
@@ -689,20 +692,24 @@ var _ = SIGDescribe("Memory dump", func() {
 			if err == nil && pvc != nil {
 				deletePVC(pvc)
 			}
-
-			_, err = os.Stat(outputFile)
-			Expect(err).ToNot(HaveOccurred())
-			err = os.Remove(outputFile)
-			Expect(err).ToNot(HaveOccurred())
+			if err := os.Remove(outputFile); err != nil && !goerrors.Is(err, os.ErrNotExist) {
+				Fail(err.Error())
+			}
 		})
 
 		It("should create memory dump and download it", func() {
 			memoryDumpVirtctlCreateWithDownload(vm.Name, vm.Namespace, memoryDumpPVCName, outputFile)
+			//Check the outputFile was created
+			_, err = os.Stat(outputFile)
+			Expect(err).ToNot(HaveOccurred())
 		})
 
 		It("should download existing memory dump", func() {
 			memoryDumpVirtctlCreatePVC(vm.Name, vm.Namespace, memoryDumpPVCName)
 			memoryDumpVirtctlDownload(vm.Name, vm.Namespace, outputFile)
+			//Check the outputFile was created
+			_, err = os.Stat(outputFile)
+			Expect(err).ToNot(HaveOccurred())
 		})
 	})
 

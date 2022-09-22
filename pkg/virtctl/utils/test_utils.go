@@ -63,7 +63,7 @@ func VMExportSpec(name, namespace, kind, resourceName, secretName string) *expor
 	return vmexport
 }
 
-func ExpectVMExportGet(client *kubevirtfake.Clientset, vme *exportv1.VirtualMachineExport, vmexportName string) {
+func HandleVMExportGet(client *kubevirtfake.Clientset, vme *exportv1.VirtualMachineExport, vmexportName string) {
 	client.Fake.PrependReactor("get", "virtualmachineexports", func(action testing.Action) (bool, runtime.Object, error) {
 		get, ok := action.(testing.GetAction)
 		Expect(ok).To(BeTrue())
@@ -76,7 +76,7 @@ func ExpectVMExportGet(client *kubevirtfake.Clientset, vme *exportv1.VirtualMach
 	})
 }
 
-func ExpectVMExportCreate(client *kubevirtfake.Clientset, vme *exportv1.VirtualMachineExport) {
+func HandleVMExportCreate(client *kubevirtfake.Clientset, vme *exportv1.VirtualMachineExport) {
 	client.Fake.PrependReactor("create", "virtualmachineexports", func(action testing.Action) (handled bool, obj runtime.Object, err error) {
 		create, ok := action.(testing.CreateAction)
 		Expect(ok).To(BeTrue())
@@ -88,12 +88,12 @@ func ExpectVMExportCreate(client *kubevirtfake.Clientset, vme *exportv1.VirtualM
 		}
 
 		Expect(ok).To(BeTrue())
-		ExpectVMExportGet(client, vme, vme.Name)
+		HandleVMExportGet(client, vme, vme.Name)
 		return true, vme, nil
 	})
 }
 
-func ExpectSecretGet(k8sClient *fakek8sclient.Clientset, secretName string) {
+func HandleSecretGet(k8sClient *fakek8sclient.Clientset, secretName string) {
 	secret := &v1.Secret{
 		ObjectMeta: k8smetav1.ObjectMeta{
 			Name:      secretName,
@@ -106,13 +106,11 @@ func ExpectSecretGet(k8sClient *fakek8sclient.Clientset, secretName string) {
 	}
 
 	k8sClient.Fake.PrependReactor("get", "secrets", func(action testing.Action) (handled bool, obj runtime.Object, err error) {
-		fmt.Println("GETTTTTTTTTTTTT secret ")
 		get, ok := action.(testing.GetAction)
 		Expect(ok).To(BeTrue())
 		Expect(get.GetNamespace()).To(Equal(k8smetav1.NamespaceDefault))
 		Expect(get.GetName()).To(Equal(secretName))
 		if secret == nil {
-			fmt.Println("secret not found")
 			return true, nil, errors.NewNotFound(v1.Resource("Secret"), secretName)
 		}
 		return true, secret, nil

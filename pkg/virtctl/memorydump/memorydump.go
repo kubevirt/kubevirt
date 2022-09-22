@@ -189,12 +189,15 @@ func generatePVC(size *resource.Quantity, claimName, namespace, storageClass, ac
 		pvc.Spec.StorageClassName = &storageClass
 	}
 
-	if accessMode == string(k8sv1.ReadOnlyMany) {
-		return nil, fmt.Errorf("cannot dump memory to a readonly pvc, use either ReadWriteOnce or ReadWriteMany if supported")
-	} else if accessMode != "" && accessMode != string(k8sv1.ReadWriteOnce) && accessMode != string(k8sv1.ReadWriteMany) {
-		return nil, fmt.Errorf("invalid access mode, use either ReadWriteOnce or ReadWriteMany if supported")
-	}
 	if accessMode != "" {
+		if accessMode == string(k8sv1.ReadOnlyMany) {
+			return nil, fmt.Errorf("cannot dump memory to a readonly pvc, use either ReadWriteOnce or ReadWriteMany if supported")
+		}
+		// TODO: fix when issue: https://github.com/kubevirt/containerized-data-importer/issues/2365 is done
+		if accessMode != string(k8sv1.ReadWriteOnce) && accessMode != string(k8sv1.ReadWriteMany) {
+			return nil, fmt.Errorf("invalid access mode, use either ReadWriteOnce or ReadWriteMany if supported")
+		}
+
 		pvc.Spec.AccessModes = []k8sv1.PersistentVolumeAccessMode{k8sv1.PersistentVolumeAccessMode(accessMode)}
 	} else {
 		pvc.Spec.AccessModes = []k8sv1.PersistentVolumeAccessMode{k8sv1.ReadWriteOnce}
@@ -304,7 +307,8 @@ func downloadMemoryDump(namespace, vmName string, virtClient kubecli.KubevirtCli
 	claimName, err := WaitMemoryDumpComplete(virtClient, namespace, vmName, processingWaitInterval, processingWaitTotal)
 	if err != nil {
 		return err
-	} else if claimName == "" {
+	}
+	if claimName == "" {
 		return fmt.Errorf("claim name not on vm memory dump request")
 	}
 	exportSource := k8sv1.TypedLocalObjectReference{
