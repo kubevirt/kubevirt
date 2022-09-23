@@ -284,6 +284,16 @@ func (_mr *_MockNetworkHandlerRecorder) ConfigurePingGroupRange() *gomock.Call {
 	return _mr.mock.ctrl.RecordCall(_mr.mock, "ConfigurePingGroupRange")
 }
 
+func (_m *MockNetworkHandler) ConfigureUnprivilegedPortStart(_param0 string) error {
+	ret := _m.ctrl.Call(_m, "ConfigureUnprivilegedPortStart", _param0)
+	ret0, _ := ret[0].(error)
+	return ret0
+}
+
+func (_mr *_MockNetworkHandlerRecorder) ConfigureUnprivilegedPortStart(arg0 interface{}) *gomock.Call {
+	return _mr.mock.ctrl.RecordCall(_mr.mock, "ConfigureUnprivilegedPortStart", arg0)
+}
+
 func (_m *MockNetworkHandler) IptablesNewChain(proto iptables.Protocol, table string, chain string) error {
 	ret := _m.ctrl.Call(_m, "IptablesNewChain", proto, table, chain)
 	ret0, _ := ret[0].(error)
