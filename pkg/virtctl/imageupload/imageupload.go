@@ -39,6 +39,7 @@ import (
 	k8serrors "k8s.io/apimachinery/pkg/api/errors"
 	"k8s.io/apimachinery/pkg/api/resource"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	"k8s.io/apimachinery/pkg/types"
 	"k8s.io/apimachinery/pkg/util/wait"
 	"k8s.io/client-go/kubernetes"
 	"k8s.io/client-go/tools/clientcmd"
@@ -497,7 +498,7 @@ func waitDvUploadScheduled(client kubecli.KubevirtClient, namespace, name string
 	return err
 }
 
-func waitUploadServerReady(client kubernetes.Interface, namespace, name string, interval, timeout time.Duration) error {
+func waitUploadServerReady(client kubecli.KubevirtClient, namespace, name string, interval, timeout time.Duration) error {
 	loggedStatus := false
 
 	err := wait.PollImmediate(interval, timeout, func() (bool, error) {
@@ -561,7 +562,7 @@ func createUploadDataVolume(client kubecli.KubevirtClient, namespace, name, size
 		return nil, err
 	}
 
-	// We check if the storageClass exists before attempting to create the dataVolume
+	// We check if the user-defined storageClass exists before attempting to create the dataVolume
 	if storageClass != "" {
 		_, err = client.StorageV1().StorageClasses().Get(context.Background(), storageClass, metav1.GetOptions{})
 		if err != nil {
@@ -635,12 +636,12 @@ func createStorageSpec(client kubecli.KubevirtClient, size, storageClass, access
 	return spec, nil
 }
 
-func createUploadPVC(client kubernetes.Interface, namespace, name, size, storageClass, accessMode string, blockVolume, archiveUpload bool) (*v1.PersistentVolumeClaim, error) {
+func createUploadPVC(client kubecli.KubevirtClient, namespace, name, size, storageClass, accessMode string, blockVolume, archiveUpload bool) (*v1.PersistentVolumeClaim, error) {
 	if accessMode == string(v1.ReadOnlyMany) {
 		return nil, fmt.Errorf("cannot upload to a readonly volume, use either ReadWriteOnce or ReadWriteMany if supported")
 	}
 
-	// We check if the storageClass exists before attempting to create the PVC
+	// We check if the user-defined storageClass exists before attempting to create the PVC
 	if storageClass != "" {
 		_, err := client.StorageV1().StorageClasses().Get(context.Background(), storageClass, metav1.GetOptions{})
 		if err != nil {
@@ -755,31 +756,50 @@ func getUploadProxyURL(client cdiClientset.Interface) (string, error) {
 	return "", nil
 }
 
-// handleEventErrors checks PVC and DV-related events and, when encountered, returns appropiate errors
-func handleEventErrors(client kubernetes.Interface, pvcName, dvName, namespace string) error {
-	var err error
+// handleEventErrors checks PVC and DV-related events and, when encountered, returns appropriate errors
+func handleEventErrors(client kubecli.KubevirtClient, pvcName, dvName, namespace string) error {
+	var pvcUID types.UID
+	var dvUID types.UID
 
-	eventList, err := client.CoreV1().Events(namespace).List(context.TODO(), metav1.ListOptions{})
+	eventList, err := client.CoreV1().Events(namespace).List(context.Background(), metav1.ListOptions{})
 	if err != nil {
 		return err
+	}
+
+	if pvcName != "" {
+		pvc, err := client.CoreV1().PersistentVolumeClaims(namespace).Get(context.Background(), pvcName, metav1.GetOptions{})
+		if !k8serrors.IsNotFound(err) {
+			if err != nil {
+				return err
+			}
+			pvcUID = pvc.GetUID()
+		}
+	}
+
+	if dvName != "" {
+		dv, err := client.CdiClient().CdiV1beta1().DataVolumes(namespace).Get(context.Background(), dvName, metav1.GetOptions{})
+		if !k8serrors.IsNotFound(err) {
+			if err != nil {
+				return err
+			}
+			dvUID = dv.GetUID()
+		}
 	}
 
 	// TODO: Currently, we only check 'ProvisioningFailed' and 'ErrClaimNotValid' events.
 	// If necessary, support more relevant errors
 	for _, event := range eventList.Items {
-		if event.InvolvedObject.Kind == "PersistentVolumeClaim" && event.InvolvedObject.Name == pvcName {
+		if event.InvolvedObject.Kind == "PersistentVolumeClaim" && event.InvolvedObject.UID == pvcUID {
 			if event.Reason == ProvisioningFailed {
-				err = fmt.Errorf("Provisioning failed: %s", event.Message)
-				break
+				return fmt.Errorf("Provisioning failed: %s", event.Message)
 			}
 		}
-		if event.InvolvedObject.Kind == "DataVolume" && event.InvolvedObject.Name == dvName {
+		if event.InvolvedObject.Kind == "DataVolume" && event.InvolvedObject.UID == dvUID {
 			if event.Reason == ErrClaimNotValid {
-				err = fmt.Errorf("Claim not valid: %s", event.Message)
-				break
+				return fmt.Errorf("Claim not valid: %s", event.Message)
 			}
 		}
 	}
 
-	return err
+	return nil
 }
