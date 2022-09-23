@@ -774,7 +774,7 @@ var _ = SIGDescribe("[rfe_id:253][crit:medium][vendor:cnv-qe@redhat.com][level:c
 				Entry(overDualStackIPv6, dualIPv6Primary),
 			)
 
-			DescribeTable("[label:masquerade_binding_connectivity]Should Verify an exposed service of a VM is not functional after VM deletion.", func(svcIpFamily ipFamily) {
+			DescribeTable("[label:masquerade_binding_connectivity][QUARANTINE]Should Verify an exposed service of a VM is not functional after VM deletion.", func(svcIpFamily ipFamily) {
 				skipIfNotSupportedCluster(svcIpFamily)
 				vmExposeArgs = appendIpFamilyToExposeArgs(svcIpFamily, vmExposeArgs)
 

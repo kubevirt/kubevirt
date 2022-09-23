@@ -314,7 +314,7 @@ var _ = SIGDescribe("[Serial]VirtualMachineClone Tests", func() {
 					expectEqualAnnotations(targetVM, sourceVM)
 				})
 
-				It("should strip firmware UUID", func() {
+				It("[QUARANTINE] should strip firmware UUID", func() {
 					const fakeFirmwareUUID = "fake-uuid"
 
 					sourceVM = createVM(

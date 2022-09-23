@@ -1074,7 +1074,7 @@ var _ = SIGDescribe("VirtualMachineSnapshot Tests", func() {
 				Expect(*snapshot.Status.ReadyToUse).To(BeTrue())
 			})
 
-			It("[test_id:6952]snapshot change phase to in progress and succeeded and then should not fail", func() {
+			It("[test_id:6952][QUARANTINE]snapshot change phase to in progress and succeeded and then should not fail", func() {
 				createDenyVolumeSnapshotCreateWebhook()
 				snapshot = newSnapshot()
 				snapshot.Spec.FailureDeadline = &metav1.Duration{Duration: time.Minute}
