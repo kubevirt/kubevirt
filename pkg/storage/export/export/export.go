@@ -55,6 +55,7 @@ import (
 	"kubevirt.io/kubevirt/pkg/controller"
 	"kubevirt.io/kubevirt/pkg/storage/snapshot"
 	"kubevirt.io/kubevirt/pkg/storage/types"
+	kutil "kubevirt.io/kubevirt/pkg/util"
 	virtconfig "kubevirt.io/kubevirt/pkg/virt-config"
 	"kubevirt.io/kubevirt/pkg/virt-controller/services"
 	watchutil "kubevirt.io/kubevirt/pkg/virt-controller/watch/util"
@@ -104,6 +105,11 @@ const (
 	certParamsChangedEvent            = "CertificateParametersChanged"
 
 	kvm = 107
+
+	// secretTokenLength is the lenght of the randomly generated token
+	secretTokenLength = 20
+	// secretTokenKey is the entry used to store the token in the virtualMachineExport secret
+	secretTokenKey = "token"
 
 	requeueTime = time.Second * 3
 )
@@ -420,6 +426,10 @@ func (ctrl *VMExportController) updateVMExport(vmExport *exportv1.VirtualMachine
 		return 0, err
 	}
 
+	if err := ctrl.handleVMExportToken(vmExport); err != nil {
+		return 0, err
+	}
+
 	if ctrl.isSourcePvc(&vmExport.Spec) {
 		return ctrl.handleSource(vmExport, service, ctrl.getPVCFromSourcePVC, ctrl.updateVMExportPvcStatus)
 	}
@@ -599,6 +609,65 @@ func (ctrl *VMExportController) createCertSecretManifest(vmExport *exportv1.Virt
 	}, nil
 }
 
+// handleVMExportToken checks if a secret has been specified for the current export object and, if not, creates one specific to it
+func (ctrl *VMExportController) handleVMExportToken(vmExport *exportv1.VirtualMachineExport) error {
+	if vmExport.Status == nil {
+		vmExport.Status = &exportv1.VirtualMachineExportStatus{
+			Phase: exportv1.Pending,
+			Conditions: []exportv1.Condition{
+				newReadyCondition(corev1.ConditionFalse, initializingReason, ""),
+				newPvcCondition(corev1.ConditionFalse, unknownReason, ""),
+			},
+		}
+	}
+
+	// If a tokenSecretRef has been specified, we assume that the corresponding
+	// secret has already been created and managed appropiately by the user
+	if vmExport.Spec.TokenSecretRef != nil {
+		vmExport.Status.TokenSecretRef = vmExport.Spec.TokenSecretRef
+		return nil
+	}
+
+	// If not, the secret name is constructed so it can be specific to the current vmExport object
+	if vmExport.Status.TokenSecretRef == nil {
+		generatedSecretName := getDefaultTokenSecretName(vmExport)
+		vmExport.Status.TokenSecretRef = &generatedSecretName
+	}
+
+	token, err := kutil.GenerateSecureRandomString(secretTokenLength)
+	if err != nil {
+		return err
+	}
+
+	secret := &corev1.Secret{
+		ObjectMeta: metav1.ObjectMeta{
+			Name:      *vmExport.Status.TokenSecretRef,
+			Namespace: vmExport.Namespace,
+			OwnerReferences: []metav1.OwnerReference{
+				*metav1.NewControllerRef(vmExport, schema.GroupVersionKind{
+					Group:   exportv1.SchemeGroupVersion.Group,
+					Version: exportv1.SchemeGroupVersion.Version,
+					Kind:    "VirtualMachineExport",
+				}),
+			},
+		},
+		Type: corev1.SecretTypeOpaque,
+		Data: map[string][]byte{
+			secretTokenKey: []byte(token),
+		},
+	}
+
+	secret, err = ctrl.Client.CoreV1().Secrets(vmExport.Namespace).Create(context.Background(), secret, metav1.CreateOptions{})
+	if err != nil {
+		if errors.IsAlreadyExists(err) {
+			return nil
+		}
+		return err
+	}
+	ctrl.Recorder.Eventf(vmExport, corev1.EventTypeNormal, secretCreatedEvent, "Created default secret %s/%s", secret.Namespace, secret.Name)
+	return nil
+}
+
 func (ctrl *VMExportController) getExportSecretName(ownerPod *corev1.Pod) string {
 	var certSecretName string
 	for _, volume := range ownerPod.Spec.Volumes {
@@ -607,6 +676,11 @@ func (ctrl *VMExportController) getExportSecretName(ownerPod *corev1.Pod) string
 		}
 	}
 	return certSecretName
+}
+
+// getDefaultTokenSecretName returns a secret name specifically created for the current export object
+func getDefaultTokenSecretName(vme *exportv1.VirtualMachineExport) string {
+	return naming.GetName("export-token", vme.Name, validation.DNS1035LabelMaxLength)
 }
 
 func (ctrl *VMExportController) getExportServiceName(vmExport *exportv1.VirtualMachineExport) string {
@@ -696,9 +770,10 @@ func (ctrl *VMExportController) createExporterPod(vmExport *exportv1.VirtualMach
 
 		log.Log.V(3).Infof("Creating new exporter pod %s/%s", manifest.Namespace, manifest.Name)
 		pod, err := ctrl.Client.CoreV1().Pods(vmExport.Namespace).Create(context.Background(), manifest, metav1.CreateOptions{})
-		if err == nil {
-			ctrl.Recorder.Eventf(vmExport, corev1.EventTypeNormal, exporterPodCreatedEvent, "Created exporter pod %s/%s", manifest.Namespace, manifest.Name)
+		if err != nil {
+			return nil, err
 		}
+		ctrl.Recorder.Eventf(vmExport, corev1.EventTypeNormal, exporterPodCreatedEvent, "Created exporter pod %s/%s", manifest.Namespace, manifest.Name)
 		return pod, nil
 	} else {
 		pod := obj.(*corev1.Pod)
@@ -767,6 +842,11 @@ func (ctrl *VMExportController) createExporterPodManifest(vmExport *exportv1.Vir
 		Value: currentTime().Add(deadline).Format(time.RFC3339),
 	})
 
+	tokenSecretRef := ""
+	if vmExport.Status != nil && vmExport.Status.TokenSecretRef != nil {
+		tokenSecretRef = *vmExport.Status.TokenSecretRef
+	}
+
 	secretName := fmt.Sprintf("secret-%s", rand.String(10))
 	podManifest.Spec.Volumes = append(podManifest.Spec.Volumes, corev1.Volume{
 		Name: certificates,
@@ -776,10 +856,10 @@ func (ctrl *VMExportController) createExporterPodManifest(vmExport *exportv1.Vir
 			},
 		},
 	}, corev1.Volume{
-		Name: vmExport.Spec.TokenSecretRef,
+		Name: tokenSecretRef,
 		VolumeSource: corev1.VolumeSource{
 			Secret: &corev1.SecretVolumeSource{
-				SecretName: vmExport.Spec.TokenSecretRef,
+				SecretName: tokenSecretRef,
 			},
 		},
 	})
@@ -788,7 +868,7 @@ func (ctrl *VMExportController) createExporterPodManifest(vmExport *exportv1.Vir
 		Name:      certificates,
 		MountPath: "/cert",
 	}, corev1.VolumeMount{
-		Name:      vmExport.Spec.TokenSecretRef,
+		Name:      tokenSecretRef,
 		MountPath: "/token",
 	})
 	return podManifest, nil
@@ -857,15 +937,6 @@ func (ctrl *VMExportController) isKubevirtContentType(pvc *corev1.PersistentVolu
 
 func (ctrl *VMExportController) updateCommonVMExportStatusFields(vmExport, vmExportCopy *exportv1.VirtualMachineExport, exporterPod *corev1.Pod, service *corev1.Service, sourceVolumes *sourceVolumes) error {
 	var err error
-	if vmExportCopy.Status == nil {
-		vmExportCopy.Status = &exportv1.VirtualMachineExportStatus{
-			Phase: exportv1.Pending,
-			Conditions: []exportv1.Condition{
-				newReadyCondition(corev1.ConditionFalse, initializingReason, ""),
-				newPvcCondition(corev1.ConditionFalse, unknownReason, ""),
-			},
-		}
-	}
 
 	vmExportCopy.Status.ServiceName = service.Name
 	vmExportCopy.Status.Links = &exportv1.VirtualMachineExportLinks{}

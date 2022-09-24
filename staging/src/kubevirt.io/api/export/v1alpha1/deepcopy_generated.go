@@ -161,6 +161,11 @@ func (in *VirtualMachineExportList) DeepCopyObject() runtime.Object {
 func (in *VirtualMachineExportSpec) DeepCopyInto(out *VirtualMachineExportSpec) {
 	*out = *in
 	in.Source.DeepCopyInto(&out.Source)
+	if in.TokenSecretRef != nil {
+		in, out := &in.TokenSecretRef, &out.TokenSecretRef
+		*out = new(string)
+		**out = **in
+	}
 	return
 }
 
@@ -181,6 +186,11 @@ func (in *VirtualMachineExportStatus) DeepCopyInto(out *VirtualMachineExportStat
 		in, out := &in.Links, &out.Links
 		*out = new(VirtualMachineExportLinks)
 		(*in).DeepCopyInto(*out)
+	}
+	if in.TokenSecretRef != nil {
+		in, out := &in.TokenSecretRef, &out.TokenSecretRef
+		*out = new(string)
+		**out = **in
 	}
 	if in.Conditions != nil {
 		in, out := &in.Conditions, &out.Conditions
