@@ -219,6 +219,7 @@ func deployOrWipeTestingInfrastrucure(actionOnObject func(unstructured.Unstructu
 		}
 	}
 
+	waitForAllDaemonSetsReady(3 * time.Minute)
 	waitForAllPodsReady(3*time.Minute, metav1.ListOptions{})
 }
 
@@ -228,6 +229,25 @@ func DeployTestingInfrastructure() {
 
 func WipeTestingInfrastructure() {
 	deployOrWipeTestingInfrastrucure(DeleteRawManifest)
+}
+
+func waitForAllDaemonSetsReady(timeout time.Duration) {
+	checkForDaemonSetsReady := func() []string {
+		dsNotReady := make([]string, 0)
+		virtClient, err := kubecli.GetKubevirtClient()
+		util.PanicOnError(err)
+
+		dsList, err := virtClient.AppsV1().DaemonSets(k8sv1.NamespaceAll).List(context.Background(), metav1.ListOptions{})
+		util.PanicOnError(err)
+		for _, ds := range dsList.Items {
+			if ds.Status.DesiredNumberScheduled != ds.Status.NumberReady {
+				dsNotReady = append(dsNotReady, ds.Name)
+			}
+		}
+		return dsNotReady
+
+	}
+	Eventually(checkForDaemonSetsReady, timeout, 2*time.Second).Should(BeEmpty(), "There are daemonsets in system which are not ready.")
 }
 
 func waitForAllPodsReady(timeout time.Duration, listOptions metav1.ListOptions) {
