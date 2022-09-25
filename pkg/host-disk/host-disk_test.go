@@ -20,6 +20,7 @@
 package hostdisk
 
 import (
+	"errors"
 	"fmt"
 	"io/ioutil"
 	"os"
@@ -146,7 +147,7 @@ var _ = Describe("HostDisk", func() {
 
 			// disk.img should not exist
 			_, err = os.Stat(vmi.Spec.Volumes[0].HostDisk.Path)
-			Expect(true).To(Equal(os.IsNotExist(err)))
+			Expect(true).To(Equal(errors.Is(err, os.ErrNotExist)))
 		})
 	})
 
@@ -200,10 +201,10 @@ var _ = Describe("HostDisk", func() {
 					Expect(img1.Size()).To(Equal(int64(67108864))) // 64Mi
 
 					_, err = os.Stat(vmi.Spec.Volumes[1].HostDisk.Path)
-					Expect(true).To(Equal(os.IsNotExist(err)))
+					Expect(true).To(Equal(errors.Is(err, os.ErrNotExist)))
 
 					_, err = os.Stat(vmi.Spec.Volumes[2].HostDisk.Path)
-					Expect(true).To(Equal(os.IsNotExist(err)))
+					Expect(true).To(Equal(errors.Is(err, os.ErrNotExist)))
 				})
 
 				It("Should NOT subtract reserve if there is enough space on storage for requested size", func() {
@@ -262,7 +263,7 @@ var _ = Describe("HostDisk", func() {
 					Expect(err.Error()).To(ContainSubstring("unable to create"))
 
 					_, err = os.Stat(vmi.Spec.Volumes[0].HostDisk.Path)
-					Expect(true).To(Equal(os.IsNotExist(err)))
+					Expect(true).To(Equal(errors.Is(err, os.ErrNotExist)))
 				})
 
 				It("Should take lessPVCSpaceToleration into account when creating disk images", func() {
@@ -313,7 +314,7 @@ var _ = Describe("HostDisk", func() {
 					Expect(uint64(img2.Size())).To(Equal(calcToleratedSize(size64Mi, 0))) // 64Mi
 
 					_, err = os.Stat(vmi.Spec.Volumes[2].HostDisk.Path)
-					Expect(true).To(Equal(os.IsNotExist(err)))
+					Expect(true).To(Equal(errors.Is(err, os.ErrNotExist)))
 
 					testutils.ExpectEvent(recorder, "PV size too small")
 				})
@@ -362,7 +363,7 @@ var _ = Describe("HostDisk", func() {
 
 			// disk.img should not exist
 			_, err = os.Stat(vmi.Spec.Volumes[0].HostDisk.Path)
-			Expect(true).To(Equal(os.IsNotExist(err)))
+			Expect(true).To(Equal(errors.Is(err, os.ErrNotExist)))
 		})
 	})
 

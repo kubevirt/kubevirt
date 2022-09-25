@@ -1,6 +1,7 @@
 package virthandler
 
 import (
+	"errors"
 	"fmt"
 	"io/ioutil"
 	"os"
@@ -70,7 +71,7 @@ func changeOwnershipOfHostDisks(vmiWithAllPVCs *v1.VirtualMachineInstance, res i
 
 			_, err := os.Stat(diskPath)
 			if err != nil {
-				if os.IsNotExist(err) {
+				if errors.Is(err, os.ErrNotExist) {
 					diskDir := hostdisk.GetMountedHostDiskDir(volumeName)
 					path, err := isolation.SafeJoin(res, diskDir)
 					if err != nil {
@@ -163,13 +164,13 @@ func (d *VirtualMachineController) prepareTap(vmi *v1.VirtualMachineInstance, re
 func (*VirtualMachineController) prepareVFIO(vmi *v1.VirtualMachineInstance, res isolation.IsolationResult) error {
 	vfioBasePath, err := isolation.SafeJoin(res, "dev", "vfio")
 	if err != nil {
-		if os.IsNotExist(err) {
+		if errors.Is(err, os.ErrNotExist) {
 			return nil
 		}
 	}
 	vfioPath, err := safepath.JoinNoFollow(vfioBasePath, "vfio")
 	if err != nil {
-		if os.IsNotExist(err) {
+		if errors.Is(err, os.ErrNotExist) {
 			return nil
 		}
 	}

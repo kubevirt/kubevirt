@@ -131,7 +131,9 @@
       "pkg/": "only production code must not use banned imports"
     },
     "exclude_files": {
-      "pkg/.*_test\\.go": "unit tests are allowed to use banned imports"
+      "pkg/.*_test\\.go": "unit tests are allowed to use banned imports",
+      "vendor/": "vendor doesn't pass bannedAPI",
+      "external/": "external doesn't pass bannedAPI"
     }
   },
   "ginkgolinter": {

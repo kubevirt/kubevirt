@@ -21,6 +21,7 @@ package tests_test
 
 import (
 	"encoding/json"
+	"errors"
 	"fmt"
 	"io/ioutil"
 	"os"
@@ -34,13 +35,13 @@ import (
 
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
-	"k8s.io/apimachinery/pkg/api/errors"
 	"k8s.io/apimachinery/pkg/api/resource"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/util/rand"
 
 	"kubevirt.io/kubevirt/tests/util"
 
+	k8serrors "k8s.io/apimachinery/pkg/api/errors"
 	"kubevirt.io/client-go/kubecli"
 
 	cd "kubevirt.io/kubevirt/tests/containerdisk"
@@ -91,7 +92,7 @@ var _ = Describe("[Serial][sig-compute]Templates", func() {
 				ExpectWithOffset(1, templateParams).To(HaveKeyWithValue("MEMORY", MatchRegexp(`^([+-]?[0-9.]+)([eEinumkKMGTP]*[-+]?[0-9]*)$`)), "invalid MEMORY parameter: %q is not valid quantity", templateParams["MEMORY"])
 				vmName = templateParams["NAME"]
 				vm, err := virtClient.VirtualMachine(util.NamespaceTestDefault).Get(vmName, &metav1.GetOptions{})
-				ExpectWithOffset(1, errors.IsNotFound(err) || vm.ObjectMeta.DeletionTimestamp != nil).To(BeTrue(), "invalid NAME parameter: VirtualMachine %q already exists", vmName)
+				ExpectWithOffset(1, k8serrors.IsNotFound(err) || vm.ObjectMeta.DeletionTimestamp != nil).To(BeTrue(), "invalid NAME parameter: VirtualMachine %q already exists", vmName)
 			}
 		}
 
@@ -112,7 +113,7 @@ var _ = Describe("[Serial][sig-compute]Templates", func() {
 							ExpectWithOffset(1, value).NotTo(BeEmpty(), "invalid NAME parameter: VirtualMachine name cannot be empty string")
 							vmName = value
 							vm, err := virtClient.VirtualMachine(util.NamespaceTestDefault).Get(vmName, &metav1.GetOptions{})
-							ExpectWithOffset(1, errors.IsNotFound(err) || vm.ObjectMeta.DeletionTimestamp != nil).To(BeTrue(), "invalid NAME parameter: VirtualMachine %q already exists", vmName)
+							ExpectWithOffset(1, k8serrors.IsNotFound(err) || vm.ObjectMeta.DeletionTimestamp != nil).To(BeTrue(), "invalid NAME parameter: VirtualMachine %q already exists", vmName)
 						case "CPU_CORES":
 							ExpectWithOffset(1, templateParams).To(HaveKeyWithValue("CPU_CORES", MatchRegexp(`^[0-9]+$`)), "invalid CPU_CORES parameter: %q is not unsigned integer", templateParams["CPU_CORES"])
 						case "MEMORY":
@@ -131,11 +132,11 @@ var _ = Describe("[Serial][sig-compute]Templates", func() {
 					ExpectWithOffset(1, virtClient.VirtualMachine(util.NamespaceTestDefault).Delete(vmName, &metav1.DeleteOptions{})).To(Succeed(), "failed to delete VirtualMachine %q: %v", vmName, err)
 					EventuallyWithOffset(1, func() bool {
 						obj, err := virtClient.VirtualMachine(util.NamespaceTestDefault).Get(vmName, &metav1.GetOptions{})
-						return errors.IsNotFound(err) || obj.ObjectMeta.DeletionTimestamp != nil
+						return k8serrors.IsNotFound(err) || obj.ObjectMeta.DeletionTimestamp != nil
 					}).Should(BeTrue(), "VirtualMachine %q still exists and the deletion timestamp was not set", vmName)
 				}
 				if templateFile != "" {
-					if _, err := os.Stat(templateFile); !os.IsNotExist(err) {
+					if _, err := os.Stat(templateFile); !errors.Is(err, os.ErrNotExist) {
 						By("Deleting template JSON file")
 						ExpectWithOffset(1, os.RemoveAll(filepath.Dir(templateFile))).To(Succeed(), "failed to remove template JSON file %q: %v", templateFile, err)
 						ExpectWithOffset(1, templateFile).NotTo(BeAnExistingFile(), "template JSON file %q was not removed", templateFile)
@@ -184,7 +185,7 @@ var _ = Describe("[Serial][sig-compute]Templates", func() {
 				By("Checking if the VM does not exist anymore")
 				EventuallyWithOffset(1, func() bool {
 					vm, err := virtClient.VirtualMachine(util.NamespaceTestDefault).Get(vmName, &metav1.GetOptions{})
-					return errors.IsNotFound(err) || vm.ObjectMeta.DeletionTimestamp != nil
+					return k8serrors.IsNotFound(err) || vm.ObjectMeta.DeletionTimestamp != nil
 				}).Should(BeTrue(), "the VirtualMachine %q still exists and deletion timestamp was not set", vmName)
 			}
 		}

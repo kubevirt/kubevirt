@@ -3,6 +3,7 @@
 package scp
 
 import (
+	"errors"
 	"fmt"
 	"os"
 	"path/filepath"
@@ -89,7 +90,7 @@ func (o *SCP) copyFromRemote(client *scp.Client, localPath, remotePath string) e
 
 func stat(path string) (isFile, isDir, exists bool, err error) {
 	s, err := os.Stat(path)
-	if os.IsNotExist(err) {
+	if errors.Is(err, os.ErrNotExist) {
 		return false, false, false, nil
 	} else if err != nil {
 		return false, false, false, err

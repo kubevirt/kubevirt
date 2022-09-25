@@ -20,6 +20,7 @@
 package device_manager
 
 import (
+	"errors"
 	"fmt"
 	"net"
 	"os"
@@ -245,7 +246,7 @@ func (dpi *PCIDevicePlugin) healthCheck() error {
 
 	_, err = os.Stat(devicePath)
 	if err != nil {
-		if !os.IsNotExist(err) {
+		if !errors.Is(err, os.ErrNotExist) {
 			return fmt.Errorf("could not stat the device: %v", err)
 		}
 	}
@@ -354,7 +355,7 @@ func (dpi *PCIDevicePlugin) register() error {
 }
 
 func (dpi *PCIDevicePlugin) cleanup() error {
-	if err := os.Remove(dpi.socketPath); err != nil && !os.IsNotExist(err) {
+	if err := os.Remove(dpi.socketPath); err != nil && !errors.Is(err, os.ErrNotExist) {
 		return err
 	}
 

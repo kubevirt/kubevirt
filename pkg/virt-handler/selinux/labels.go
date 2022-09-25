@@ -1,6 +1,7 @@
 package selinux
 
 import (
+	"errors"
 	"fmt"
 	"io/ioutil"
 	"os"
@@ -69,7 +70,7 @@ func lookupPath(binary string, prefix string, paths []string) (string, bool, err
 	for _, path := range paths {
 		fullPath := filepath.Join(prefix, path, binary)
 		_, err := os.Stat(fullPath)
-		if os.IsNotExist(err) {
+		if errors.Is(err, os.ErrNotExist) {
 			continue
 		} else if err != nil {
 			return "", false, err

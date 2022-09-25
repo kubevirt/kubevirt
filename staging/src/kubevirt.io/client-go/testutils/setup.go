@@ -1,6 +1,7 @@
 package testutils
 
 import (
+	"errors"
 	"fmt"
 	"os"
 	"path/filepath"
@@ -69,7 +70,7 @@ func findRoot() string {
 		}
 		if _, err := os.Stat(filepath.Join(current, "WORKSPACE")); err == nil {
 			return strings.TrimSuffix(current, "/") + "/"
-		} else if os.IsNotExist(err) {
+		} else if errors.Is(err, os.ErrNotExist) {
 			continue
 		} else if err != nil {
 			panic(err)

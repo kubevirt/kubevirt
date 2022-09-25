@@ -1,4 +1,10 @@
 {
+  "functions": [
+     {
+       "name": "os.IsNotExist",
+       "msg": "use errors.Is(err, os.ErrNotExist) instead of os.IsNotExist(err)"
+     }
+  ],
   "imports": [
     {
       "name": "kubevirt.io/kubevirt/pkg/unsafepath",

@@ -80,7 +80,7 @@ func IsMounted(mountPoint *safepath.Path) (isMounted bool, err error) {
 	// Ensure that the path is still a valid absolute path without symlinks
 	f, err := safepath.OpenAtNoFollow(mountPoint)
 	if err != nil {
-		// treat os.IsNotExist() as error too
+		// treat ErrNotExist as error too
 		// since the inherent property of a safepath.Path is that the path must
 		// have existed at the point of object creation
 		return false, err

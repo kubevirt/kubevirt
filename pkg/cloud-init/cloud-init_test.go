@@ -22,6 +22,7 @@ package cloudinit
 import (
 	"encoding/base64"
 	"encoding/json"
+	"errors"
 	"fmt"
 	"io/ioutil"
 	"os"
@@ -308,7 +309,7 @@ var _ = Describe("CloudInit", func() {
 
 				// verify iso and entire dir is deleted
 				_, err = os.Stat(fmt.Sprintf("%s/%s/%s", tmpDir, namespace, domain))
-				if os.IsNotExist(err) {
+				if errors.Is(err, os.ErrNotExist) {
 					err = nil
 				}
 				Expect(err).ToNot(HaveOccurred())

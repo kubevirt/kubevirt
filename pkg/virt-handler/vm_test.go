@@ -21,6 +21,7 @@ package virthandler
 
 import (
 	"crypto/tls"
+	"errors"
 	"fmt"
 	"io/ioutil"
 	"net"
@@ -480,7 +481,7 @@ var _ = Describe("VirtualMachineInstance", func() {
 			Expect(mockQueue.Len()).To(Equal(0))
 			Expect(mockQueue.GetRateLimitedEnqueueCount()).To(Equal(0))
 			_, err := os.Stat(mockWatchdog.File(oldVMI))
-			Expect(os.IsNotExist(err)).To(BeFalse())
+			Expect(errors.Is(err, os.ErrNotExist)).To(BeFalse())
 		})
 
 		It("should silently retry if the command socket is not yet ready", func() {
@@ -555,7 +556,7 @@ var _ = Describe("VirtualMachineInstance", func() {
 			Expect(mockQueue.Len()).To(Equal(0))
 			Expect(mockQueue.GetRateLimitedEnqueueCount()).To(Equal(0))
 			_, err := os.Stat(mockWatchdog.File(oldVMI))
-			Expect(os.IsNotExist(err)).To(BeTrue())
+			Expect(errors.Is(err, os.ErrNotExist)).To(BeTrue())
 			Expect(controller.netConf.SetupCompleted(vmi)).To(BeFalse())
 			Expect(controller.netConf.SetupCompleted(oldVMI)).To(BeFalse())
 		})
@@ -574,7 +575,7 @@ var _ = Describe("VirtualMachineInstance", func() {
 			Expect(mockQueue.Len()).To(Equal(0))
 			Expect(mockQueue.GetRateLimitedEnqueueCount()).To(Equal(0))
 			_, err := os.Stat(mockWatchdog.File(vmi))
-			Expect(os.IsNotExist(err)).To(BeTrue())
+			Expect(errors.Is(err, os.ErrNotExist)).To(BeTrue())
 			Expect(controller.netConf.SetupCompleted(vmi)).To(BeFalse())
 		})
 
@@ -604,7 +605,7 @@ var _ = Describe("VirtualMachineInstance", func() {
 			Expect(mockQueue.Len()).To(Equal(0))
 			Expect(mockQueue.GetRateLimitedEnqueueCount()).To(Equal(0))
 			_, err := os.Stat(mockWatchdog.File(vmi))
-			Expect(os.IsNotExist(err)).To(BeFalse())
+			Expect(errors.Is(err, os.ErrNotExist)).To(BeFalse())
 		})
 
 		It("should attempt force terminate Domain if grace period expires", func() {

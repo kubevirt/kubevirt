@@ -3,6 +3,7 @@
 package ssh
 
 import (
+	"errors"
 	"fmt"
 	"net"
 	"os"
@@ -123,7 +124,7 @@ func (o *NativeSSHConnection) tryPrivateKey(methods []ssh.AuthMethod) []ssh.Auth
 	// If the identity file at the default does not exist but was
 	// not explicitly provided, don't add the authentication mechanism.
 	if !o.Options.IdentityFilePathProvided {
-		if _, err := os.Stat(o.Options.IdentityFilePath); os.IsNotExist(err) {
+		if _, err := os.Stat(o.Options.IdentityFilePath); errors.Is(err, os.ErrNotExist) {
 			glog.V(3).Infof("No ssh key at the default location %q found, skipping RSA authentication.", o.Options.IdentityFilePath)
 			return methods
 		}

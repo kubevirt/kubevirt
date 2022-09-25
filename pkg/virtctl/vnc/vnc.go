@@ -21,6 +21,7 @@ package vnc
 
 import (
 	"encoding/json"
+	"errors"
 	"fmt"
 	"io"
 	"net"
@@ -241,20 +242,20 @@ func checkAndRunVNCViewer(doneChan chan struct{}, viewResChan chan error, port i
 		} else if _, err := os.Stat(MACOS_CHICKEN_VNC); err == nil {
 			vncBin = MACOS_CHICKEN_VNC
 			args = chickenVncArgs(port)
-		} else if !os.IsNotExist(err) {
+		} else if !errors.Is(err, os.ErrNotExist) {
 			viewResChan <- err
 			return
 		} else if _, err := os.Stat(MACOS_REAL_VNC); err == nil {
 			vncBin = MACOS_REAL_VNC
 			args = realVncArgs(port)
-		} else if !os.IsNotExist(err) {
+		} else if !errors.Is(err, os.ErrNotExist) {
 			viewResChan <- err
 			return
 		} else if _, err := exec.LookPath(REMOTE_VIEWER); err == nil {
 			// fall back to user supplied script/binary in path
 			vncBin = REMOTE_VIEWER
 			args = remoteViewerArgs(port)
-		} else if !os.IsNotExist(err) {
+		} else if !errors.Is(err, os.ErrNotExist) {
 			viewResChan <- err
 			return
 		}

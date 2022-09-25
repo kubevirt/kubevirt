@@ -55,7 +55,7 @@ var _ = Describe("[sig-compute]VMI with external kernel boot", func() {
 	})
 
 	Context("with external alpine-based kernel & initrd images", func() {
-		It("[test_id:7748][QUARANTINE]ensure successful boot", func() {
+		It("[test_id:7748]ensure successful boot", func() {
 			vmi := utils.GetVMIKernelBoot()
 			obj, err := virtClient.VirtualMachineInstance(util.NamespaceTestDefault).Create(vmi)
 			Expect(err).ToNot(HaveOccurred())
@@ -134,7 +134,7 @@ var _ = Describe("[sig-compute]VMI with external kernel boot", func() {
 			return vmi
 		}
 
-		It("[QUARANTINE] ensure successful boot", func() {
+		It("ensure successful boot", func() {
 			vmi := getVMIKernelBoot()
 
 			obj, err := virtClient.VirtualMachineInstance(util.NamespaceTestDefault).Create(vmi)

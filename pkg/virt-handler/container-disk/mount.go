@@ -2,6 +2,7 @@ package container_disk
 
 import (
 	"encoding/json"
+	"errors"
 	"fmt"
 	"os"
 	"path/filepath"
@@ -354,7 +355,7 @@ func (m *mounter) Unmount(vmi *v1.VirtualMachineInstance) error {
 		log.DefaultLogger().Object(vmi).Infof("Looking to see if containerdisk is mounted at path %s", entry.TargetFile)
 		file, err := safepath.NewFileNoFollow(entry.TargetFile)
 		if err != nil {
-			if os.IsNotExist(err) {
+			if errors.Is(err, os.ErrNotExist) {
 				continue
 			}
 			return fmt.Errorf(failedCheckMountPointFmt, entry.TargetFile, err)
@@ -473,7 +474,7 @@ func (m *mounter) mountKernelArtifacts(vmi *v1.VirtualMachineInstance, verify bo
 	}
 
 	areKernelArtifactsMounted := func(artifactsDir *safepath.Path, artifactFiles ...*safepath.Path) (bool, error) {
-		if _, err = safepath.StatAtNoFollow(artifactsDir); os.IsNotExist(err) {
+		if _, err = safepath.StatAtNoFollow(artifactsDir); errors.Is(err, os.ErrNotExist) {
 			return false, nil
 		} else if err != nil {
 			return false, err

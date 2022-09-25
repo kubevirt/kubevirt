@@ -21,6 +21,7 @@ package tests_test
 
 import (
 	"context"
+	"errors"
 	"fmt"
 	"net/http"
 	"os"
@@ -35,7 +36,7 @@ import (
 	. "github.com/onsi/gomega/gstruct"
 	k8sv1 "k8s.io/api/core/v1"
 	policyv1beta1 "k8s.io/api/policy/v1beta1"
-	"k8s.io/apimachinery/pkg/api/errors"
+	k8serrors "k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/types"
 	"k8s.io/apimachinery/pkg/util/json"
@@ -224,7 +225,7 @@ var _ = Describe("[rfe_id:273][crit:high][arm64][vendor:cnv-qe@redhat.com][level
 			err = virtClient.CoreV1().Pods(vmi.Namespace).EvictV1beta1(context.Background(), &policyv1beta1.Eviction{ObjectMeta: metav1.ObjectMeta{Name: pod.Name}})
 			// The "too many requests" err is what get's returned when an
 			// eviction would invalidate a pdb. This is what we want to see here.
-			Expect(errors.IsTooManyRequests(err)).To(BeTrue())
+			Expect(k8serrors.IsTooManyRequests(err)).To(BeTrue())
 
 			By("should have evacuation node name set on vmi status")
 			Consistently(func() error {
@@ -758,7 +759,7 @@ var _ = Describe("[rfe_id:273][crit:high][arm64][vendor:cnv-qe@redhat.com][level
 
 				Eventually(func() bool {
 					_, err := virtClient.CoreV1().Pods(virtHandler.Namespace).Get(context.Background(), virtHandler.Name, metav1.GetOptions{})
-					return errors.IsNotFound(err)
+					return k8serrors.IsNotFound(err)
 				}, 120*time.Second, 1*time.Second).Should(BeTrue(), "The virthandler pod should be gone")
 			})
 
@@ -1513,7 +1514,7 @@ var _ = Describe("[rfe_id:273][crit:high][arm64][vendor:cnv-qe@redhat.com][level
 				converter.Convert_v1_VirtualMachineInstance_To_api_Domain(newVMI, domain, context)
 
 				expectedType := ""
-				if _, err := os.Stat("/dev/kvm"); os.IsNotExist(err) {
+				if _, err := os.Stat("/dev/kvm"); errors.Is(err, os.ErrNotExist) {
 					expectedType = "qemu"
 				}
 

@@ -20,6 +20,7 @@
 package flags
 
 import (
+	"errors"
 	"flag"
 	"os"
 	"path/filepath"
@@ -50,7 +51,7 @@ func init() {
 			Kubeconfig = os.Getenv("KUBECONFIG")
 		} else {
 			_, err := os.Stat(filepath.Join(os.Getenv("HOME"), ".kube", "config"))
-			if !os.IsNotExist(err) {
+			if !errors.Is(err, os.ErrNotExist) {
 				Kubeconfig = filepath.Join(os.Getenv("HOME"), ".kube", "config")
 			}
 		}

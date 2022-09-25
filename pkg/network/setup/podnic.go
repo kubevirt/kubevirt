@@ -27,6 +27,8 @@ import (
 	"kubevirt.io/client-go/log"
 	"kubevirt.io/client-go/precond"
 
+	goerrors "errors"
+
 	"kubevirt.io/kubevirt/pkg/network/cache"
 	dhcpconfigurator "kubevirt.io/kubevirt/pkg/network/dhcp"
 	"kubevirt.io/kubevirt/pkg/network/domainspec"
@@ -318,7 +320,7 @@ func (l *podNIC) newLibvirtSpecGenerator(domain *api.Domain) domainspec.LibvirtS
 func (l *podNIC) cachedDomainInterface() (*api.Interface, error) {
 	var ifaceConfig *api.Interface
 	ifaceConfig, err := cache.ReadDomainInterfaceCache(l.cacheCreator, getPIDString(l.launcherPID), l.vmiSpecIface.Name)
-	if os.IsNotExist(err) {
+	if goerrors.Is(err, os.ErrNotExist) {
 		return nil, nil
 	}
 
@@ -336,11 +338,11 @@ func (l *podNIC) storeCachedDomainIface(domainIface api.Interface) error {
 func (l *podNIC) setState(state cache.PodIfaceState) error {
 	var podIfaceCacheData *cache.PodIfaceCacheData
 	podIfaceCacheData, err := cache.ReadPodInterfaceCache(l.cacheCreator, string(l.vmi.UID), l.vmiSpecIface.Name)
-	if err != nil && !os.IsNotExist(err) {
+	if err != nil && !goerrors.Is(err, os.ErrNotExist) {
 		log.Log.Reason(err).Errorf("failed to read pod interface network state from cache, %s", err.Error())
 		return err
 	}
-	if os.IsNotExist(err) {
+	if goerrors.Is(err, os.ErrNotExist) {
 		podIfaceCacheData = &cache.PodIfaceCacheData{}
 	}
 	podIfaceCacheData.State = state
@@ -356,7 +358,7 @@ func (l *podNIC) state() (cache.PodIfaceState, error) {
 	var podIfaceCacheData *cache.PodIfaceCacheData
 	podIfaceCacheData, err := cache.ReadPodInterfaceCache(l.cacheCreator, string(l.vmi.UID), l.vmiSpecIface.Name)
 	if err != nil {
-		if os.IsNotExist(err) {
+		if goerrors.Is(err, os.ErrNotExist) {
 			return defaultState, nil
 		}
 		log.Log.Reason(err).Errorf("failed to read pod interface network state from cache %s", err.Error())

@@ -20,6 +20,7 @@
 package device_manager
 
 import (
+	"errors"
 	"fmt"
 	"net"
 	"os"
@@ -260,7 +261,7 @@ func (dpi *GenericDevicePlugin) Allocate(ctx context.Context, r *pluginapi.Alloc
 }
 
 func (dpi *GenericDevicePlugin) cleanup() error {
-	if err := os.Remove(dpi.socketPath); err != nil && !os.IsNotExist(err) {
+	if err := os.Remove(dpi.socketPath); err != nil && !errors.Is(err, os.ErrNotExist) {
 		return err
 	}
 
@@ -300,7 +301,7 @@ func (dpi *GenericDevicePlugin) healthCheck() error {
 
 	_, err = os.Stat(devicePath)
 	if err != nil {
-		if !os.IsNotExist(err) {
+		if !errors.Is(err, os.ErrNotExist) {
 			return fmt.Errorf("could not stat the device: %v", err)
 		}
 		logger.Warningf("device '%s' is not present, the device plugin can't expose it.", dpi.devicePath)

@@ -1,6 +1,7 @@
 package util
 
 import (
+	"errors"
 	"fmt"
 	"io/ioutil"
 	"os"
@@ -15,7 +16,7 @@ func GetNamespace() (string, error) {
 		if ns := strings.TrimSpace(string(data)); len(ns) > 0 {
 			return ns, nil
 		}
-	} else if err != nil && !os.IsNotExist(err) {
+	} else if err != nil && !errors.Is(err, os.ErrNotExist) {
 		return "", fmt.Errorf("failed to determine namespace from %s: %v", ServiceAccountNamespaceFile, err)
 	}
 	return namespaceKubevirt, nil

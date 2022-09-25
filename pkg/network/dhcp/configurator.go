@@ -22,6 +22,7 @@
 package dhcp
 
 import (
+	"errors"
 	"fmt"
 	"os"
 
@@ -89,7 +90,7 @@ func (d *configurator) EnsureDHCPServerStarted(podInterfaceName string, dhcpConf
 	}
 	dhcpStartedFile := d.getDHCPStartedFilePath(podInterfaceName)
 	_, err := os.Stat(dhcpStartedFile)
-	if os.IsNotExist(err) {
+	if errors.Is(err, os.ErrNotExist) {
 		if err := d.handler.StartDHCP(&dhcpConfig, d.advertisingIfaceName, dhcpOptions); err != nil {
 			return fmt.Errorf("failed to start DHCP server for interface %s", podInterfaceName)
 		}

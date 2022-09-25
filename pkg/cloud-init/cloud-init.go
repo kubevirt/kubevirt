@@ -22,6 +22,7 @@ package cloudinit
 import (
 	"encoding/base64"
 	"encoding/json"
+	"errors"
 	"fmt"
 	"os"
 	"os/exec"
@@ -489,7 +490,7 @@ func PrepareLocalPath(vmiName string, namespace string) error {
 func removeLocalData(domain string, namespace string) error {
 	domainBasePath := getDomainBasePath(domain, namespace)
 	err := os.RemoveAll(domainBasePath)
-	if err != nil && os.IsNotExist(err) {
+	if err != nil && errors.Is(err, os.ErrNotExist) {
 		return nil
 	}
 	return err
