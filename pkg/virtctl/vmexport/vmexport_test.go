@@ -445,6 +445,30 @@ var _ = Describe("vmexport", func() {
 			Expect(err).ToNot(HaveOccurred())
 		})
 
+		It("Succesfully create VirtualMachineExport with TTL", func() {
+			vmexport := vmexportSpec(vmexportName, defaultNamespace, "pvc", "test-pvc")
+			vmexport.Status = getVMEStatus([]exportv1.VirtualMachineExportVolume{
+				{
+					Name:    volumeName,
+					Formats: getExportVolumeFormat(server.URL, exportv1.KubeVirtGz),
+				},
+			})
+			expectSecretGet(kubeClient)
+			vmExportClient.Fake.PrependReactor("create", "virtualmachineexports", func(action testing.Action) (handled bool, obj runtime.Object, err error) {
+				create, ok := action.(testing.CreateAction)
+				Expect(ok).To(BeTrue())
+				vme, ok := create.GetObject().(*exportv1.VirtualMachineExport)
+				Expect(ok).To(BeTrue())
+				Expect(*vme.Spec.TTLDuration).To(Equal(metav1.Duration{Duration: time.Minute}))
+
+				return true, vme, nil
+			})
+
+			cmd := clientcmd.NewRepeatableVirtctlCommand(commandName, CREATE, vmexportName, setflag(PVC_FLAG, "test-pvc"), setflag(TTL_FLAG, "1m"))
+			err := cmd()
+			Expect(err).ToNot(HaveOccurred())
+		})
+
 		AfterEach(func() {
 			testDone()
 		})
