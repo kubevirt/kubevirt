@@ -1763,6 +1763,19 @@ var _ = SIGDescribe("Export", func() {
 			Expect(err).ToNot(HaveOccurred())
 		})
 
+		It("Create with TTL", func() {
+			ttl := &metav1.Duration{Duration: 2 * time.Minute}
+			pvc, _ := populateKubeVirtContent(sc, k8sv1.PersistentVolumeFilesystem)
+			// Run vmexport
+			By("Running vmexport command")
+			virtctlCmd := clientcmd.NewRepeatableVirtctlCommand(commandName, "create", vmeName, "--pvc", pvc.Name, "--namespace", util.NamespaceTestDefault, "--ttl", ttl.Duration.String())
+			err = virtctlCmd()
+			Expect(err).ToNot(HaveOccurred())
+			export, err := virtClient.VirtualMachineExport(util.NamespaceTestDefault).Get(context.Background(), vmeName, metav1.GetOptions{})
+			Expect(err).ToNot(HaveOccurred())
+			Expect(export.Spec.TTLDuration).To(Equal(ttl))
+		})
+
 		Context("Download a volume with vmexport", func() {
 			BeforeEach(func() {
 				if !checks.IsOpenShift() {
