@@ -4,6 +4,8 @@ import (
 	"fmt"
 	"net"
 
+	"github.com/gorilla/websocket"
+
 	restful "github.com/emicklei/go-restful"
 	"k8s.io/apimachinery/pkg/api/errors"
 
@@ -14,47 +16,71 @@ import (
 	"kubevirt.io/kubevirt/pkg/virt-api/definitions"
 )
 
-func netDialer(request *restful.Request) dialer {
-	return func(vmi *v1.VirtualMachineInstance) (net.Conn, *errors.StatusError) {
-		logger := log.Log.Object(vmi)
+type netDial struct {
+	request *restful.Request
+}
 
-		targetIP, err := getTargetInterfaceIP(vmi)
-		if err != nil {
-			logger.Reason(err).Error("Can't establish TCP tunnel.")
-			return nil, errors.NewBadRequest(err.Error())
-		}
+type handlerDial struct {
+	getURL URLResolver
+	app    *SubresourceAPIApp
+}
 
-		port := request.PathParameter(definitions.PortParamName)
-		if len(port) < 1 {
-			return nil, errors.NewBadRequest("port must not be empty")
-		}
-
-		protocol := "tcp"
-		if protocolParam := request.PathParameter(definitions.ProtocolParamName); len(protocolParam) > 0 {
-			protocol = protocolParam
-		}
-
-		addr := fmt.Sprintf("%s:%s", targetIP, port)
-		conn, err := net.Dial(protocol, addr)
-		if err != nil {
-			logger.Reason(err).Errorf("Can't dial %s %s", protocol, addr)
-			return nil, errors.NewInternalError(fmt.Errorf("dialing VM: %w", err))
-		}
-		return conn, nil
+func (h handlerDial) Dial(vmi *v1.VirtualMachineInstance) (*websocket.Conn, *errors.StatusError) {
+	url, _, statusError := h.app.getVirtHandlerFor(vmi, h.getURL)
+	if statusError != nil {
+		return nil, statusError
 	}
+	conn, _, err := kubecli.Dial(url, h.app.handlerTLSConfiguration)
+	if err != nil {
+		return nil, errors.NewInternalError(fmt.Errorf("dialing virt-handler: %w", err))
+	}
+	return conn, nil
+}
+
+func (h handlerDial) DialUnderlying(vmi *v1.VirtualMachineInstance) (net.Conn, *errors.StatusError) {
+	conn, err := h.Dial(vmi)
+	if err != nil {
+		return nil, err
+	}
+	return conn.UnderlyingConn(), nil
+}
+
+func (n netDial) Dial(vmi *v1.VirtualMachineInstance) (*websocket.Conn, *errors.StatusError) {
+	panic("don't call me")
+}
+
+func (n netDial) DialUnderlying(vmi *v1.VirtualMachineInstance) (net.Conn, *errors.StatusError) {
+	logger := log.Log.Object(vmi)
+
+	targetIP, err := getTargetInterfaceIP(vmi)
+	if err != nil {
+		logger.Reason(err).Error("Can't establish TCP tunnel.")
+		return nil, errors.NewBadRequest(err.Error())
+	}
+
+	port := n.request.PathParameter(definitions.PortParamName)
+	if len(port) < 1 {
+		return nil, errors.NewBadRequest("port must not be empty")
+	}
+
+	protocol := "tcp"
+	if protocolParam := n.request.PathParameter(definitions.ProtocolParamName); len(protocolParam) > 0 {
+		protocol = protocolParam
+	}
+
+	addr := fmt.Sprintf("%s:%s", targetIP, port)
+	conn, err := net.Dial(protocol, addr)
+	if err != nil {
+		logger.Reason(err).Errorf("Can't dial %s %s", protocol, addr)
+		return nil, errors.NewInternalError(fmt.Errorf("dialing VM: %w", err))
+	}
+	return conn, nil
 }
 
 func (app *SubresourceAPIApp) virtHandlerDialer(getURL URLResolver) dialer {
-	return func(vmi *v1.VirtualMachineInstance) (net.Conn, *errors.StatusError) {
-		url, _, statusError := app.getVirtHandlerFor(vmi, getURL)
-		if statusError != nil {
-			return nil, statusError
-		}
-		conn, _, err := kubecli.Dial(url, app.handlerTLSConfiguration)
-		if err != nil {
-			return nil, errors.NewInternalError(fmt.Errorf("dialing virt-handler: %w", err))
-		}
-		return conn.UnderlyingConn(), nil
+	return handlerDial{
+		getURL: getURL,
+		app:    app,
 	}
 }
 

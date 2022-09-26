@@ -1075,6 +1075,17 @@ func (_mr *_MockVirtualMachineInstanceInterfaceRecorder) VNC(arg0 interface{}) *
 	return _mr.mock.ctrl.RecordCall(_mr.mock, "VNC", arg0)
 }
 
+func (_m *MockVirtualMachineInstanceInterface) Screenshot(name string, options *v120.ScreenshotOptions) ([]byte, error) {
+	ret := _m.ctrl.Call(_m, "Screenshot", name, options)
+	ret0, _ := ret[0].([]byte)
+	ret1, _ := ret[1].(error)
+	return ret0, ret1
+}
+
+func (_mr *_MockVirtualMachineInstanceInterfaceRecorder) Screenshot(arg0, arg1 interface{}) *gomock.Call {
+	return _mr.mock.ctrl.RecordCall(_mr.mock, "Screenshot", arg0, arg1)
+}
+
 func (_m *MockVirtualMachineInstanceInterface) PortForward(name string, port int, protocol string) (StreamInterface, error) {
 	ret := _m.ctrl.Call(_m, "PortForward", name, port, protocol)
 	ret0, _ := ret[0].(StreamInterface)

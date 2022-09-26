@@ -565,8 +565,9 @@ func addPatchParams(ws *restful.WebService, builder *restful.RouteBuilder) *rest
 }
 
 const (
-	NamespaceParamName = "namespace"
-	NameParamName      = "name"
+	NamespaceParamName  = "namespace"
+	NameParamName       = "name"
+	MoveCursorParamName = "moveCursor"
 )
 
 func NameParam(ws *restful.WebService) *restful.Parameter {
@@ -575,6 +576,10 @@ func NameParam(ws *restful.WebService) *restful.Parameter {
 
 func NamespaceParam(ws *restful.WebService) *restful.Parameter {
 	return ws.PathParameter(NamespaceParamName, "Object name and auth scope, such as for teams and projects").Required(true)
+}
+
+func MoveCursorParam(ws *restful.WebService) *restful.Parameter {
+	return ws.QueryParameter(MoveCursorParamName, "Move the cursor on the VNC display to wake up the screen").DataType("boolean").DefaultValue("false")
 }
 
 func labelSelectorParam(ws *restful.WebService) *restful.Parameter {

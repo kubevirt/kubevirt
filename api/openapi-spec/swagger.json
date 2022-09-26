@@ -11875,6 +11875,42 @@
      }
     ]
    },
+   "/apis/subresources.kubevirt.io/v1/namespaces/{namespace:[a-z0-9][a-z0-9\\-]*}/virtualmachineinstances/{name:[a-z0-9][a-z0-9\\-]*}/vnc/screenshot": {
+    "get": {
+     "description": "Get a PNG VNC screenshot of the specified VirtualMachineInstance.",
+     "operationId": "v1VNCScreenshot",
+     "responses": {
+      "401": {
+       "description": "Unauthorized"
+      }
+     }
+    },
+    "parameters": [
+     {
+      "uniqueItems": true,
+      "type": "boolean",
+      "description": "Move the cursor on the VNC display to wake up the screen",
+      "name": "moveCursor",
+      "in": "query"
+     },
+     {
+      "uniqueItems": true,
+      "type": "string",
+      "description": "Name of the resource",
+      "name": "name",
+      "in": "path",
+      "required": true
+     },
+     {
+      "uniqueItems": true,
+      "type": "string",
+      "description": "Object name and auth scope, such as for teams and projects",
+      "name": "namespace",
+      "in": "path",
+      "required": true
+     }
+    ]
+   },
    "/apis/subresources.kubevirt.io/v1/namespaces/{namespace:[a-z0-9][a-z0-9\\-]*}/virtualmachines/{name:[a-z0-9][a-z0-9\\-]*}/addvolume": {
     "put": {
      "description": "Add a volume and disk to a running Virtual Machine.",
@@ -13210,6 +13246,42 @@
      }
     },
     "parameters": [
+     {
+      "uniqueItems": true,
+      "type": "string",
+      "description": "Name of the resource",
+      "name": "name",
+      "in": "path",
+      "required": true
+     },
+     {
+      "uniqueItems": true,
+      "type": "string",
+      "description": "Object name and auth scope, such as for teams and projects",
+      "name": "namespace",
+      "in": "path",
+      "required": true
+     }
+    ]
+   },
+   "/apis/subresources.kubevirt.io/v1alpha3/namespaces/{namespace:[a-z0-9][a-z0-9\\-]*}/virtualmachineinstances/{name:[a-z0-9][a-z0-9\\-]*}/vnc/screenshot": {
+    "get": {
+     "description": "Get a PNG VNC screenshot of the specified VirtualMachineInstance.",
+     "operationId": "v1alpha3VNCScreenshot",
+     "responses": {
+      "401": {
+       "description": "Unauthorized"
+      }
+     }
+    },
+    "parameters": [
+     {
+      "uniqueItems": true,
+      "type": "boolean",
+      "description": "Move the cursor on the VNC display to wake up the screen",
+      "name": "moveCursor",
+      "in": "query"
+     },
      {
       "uniqueItems": true,
       "type": "string",

@@ -39,6 +39,7 @@ import (
 	"kubevirt.io/client-go/kubecli"
 
 	"kubevirt.io/kubevirt/pkg/virtctl/templates"
+	"kubevirt.io/kubevirt/pkg/virtctl/vnc/screenshot"
 )
 
 const (
@@ -82,6 +83,7 @@ func NewCommand(clientConfig clientcmd.ClientConfig) *cobra.Command {
 	cmd.Flags().IntVar(&customPort, "port", customPort,
 		"--port=0: Assigning a port value to this will try to run the proxy on the given port if the port is accessible; If unassigned, the proxy will run on a random port")
 	cmd.SetUsageTemplate(templates.UsageTemplate())
+	cmd.AddCommand(screenshot.NewScreenshotCommand(clientConfig))
 	return cmd
 }
 
@@ -329,6 +331,6 @@ func remoteViewerArgs(port int) (args []string) {
 }
 
 func usage() string {
-	return `  # Connect to 'testvmi' via remote-viewer:\n"
+	return `  # Connect to 'testvmi' via remote-viewer:
    {{ProgramName}} vnc testvmi`
 }

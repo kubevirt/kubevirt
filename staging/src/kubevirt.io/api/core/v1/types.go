@@ -2117,6 +2117,10 @@ type AddVolumeOptions struct {
 	DryRun []string `json:"dryRun,omitempty"`
 }
 
+type ScreenshotOptions struct {
+	MoveCursor bool `json:"moveCursor"`
+}
+
 // RemoveVolumeOptions is provided when dynamically hot unplugging volume and disk
 type RemoveVolumeOptions struct {
 	// Name represents the name that maps to both the disk and volume that

@@ -413,6 +413,7 @@ var _ = Describe("[rfe_id:500][crit:high][arm64][vendor:cnv-qe@redhat.com][level
 				Entry("[test_id:2921]given a vmi (softreboot)", "virtualmachineinstances/softreboot", "update"),
 				Entry("[test_id:2921]given a vmi (console)", "virtualmachineinstances/console", "get"),
 				Entry("[test_id:2921]given a vmi (vnc)", "virtualmachineinstances/vnc", "get"),
+				Entry("[test_id:2921]given a vmi (vnc/screenshot)", "virtualmachineinstances/vnc/screenshot", "get"),
 			)
 		})
 
@@ -454,6 +455,7 @@ var _ = Describe("[rfe_id:500][crit:high][arm64][vendor:cnv-qe@redhat.com][level
 				Entry("[test_id:2921]given a vmi (softreboot)", "virtualmachineinstances/softreboot", "update"),
 				Entry("[test_id:2921]given a vmi (console)", "virtualmachineinstances/console", "get"),
 				Entry("[test_id:2921]given a vmi (vnc)", "virtualmachineinstances/vnc", "get"),
+				Entry("[test_id:2921]given a vmi (vnc/screenshot)", "virtualmachineinstances/vnc/screenshot", "get"),
 				Entry("[test_id:2921]given a vmi (guestosinfo)", "virtualmachineinstances/guestosinfo", "get"),
 			)
 		})
