@@ -94,6 +94,7 @@ type MigrationController struct {
 	pvcInformer             cache.SharedIndexInformer
 	pdbInformer             cache.SharedIndexInformer
 	migrationPolicyInformer cache.SharedIndexInformer
+	namespaceStore          cache.Store
 	recorder                record.EventRecorder
 	podExpectations         *controller.UIDTrackingControllerExpectations
 	migrationStartLock      *sync.Mutex
@@ -115,6 +116,7 @@ func NewMigrationController(templateService services.TemplateService,
 	recorder record.EventRecorder,
 	clientset kubecli.KubevirtClient,
 	clusterConfig *virtconfig.ClusterConfig,
+	namespaceStore cache.Store,
 ) *MigrationController {
 
 	c := &MigrationController{
@@ -136,6 +138,8 @@ func NewMigrationController(templateService services.TemplateService,
 
 		unschedulablePendingTimeoutSeconds: defaultUnschedulablePendingTimeoutSeconds,
 		catchAllPendingTimeoutSeconds:      defaultCatchAllPendingTimeoutSeconds,
+
+		namespaceStore: namespaceStore,
 	}
 
 	c.vmiInformer.AddEventHandler(cache.ResourceEventHandlerFuncs{
@@ -582,6 +586,13 @@ func (c *MigrationController) createTargetPod(migration *virtv1.VirtualMachineIn
 		}
 	}
 
+	if c.clusterConfig.PSAEnabled() {
+		// Check my impact
+		if err := escalateNamespace(c.namespaceStore, c.clientset, vmi.GetNamespace()); err != nil {
+			return err
+		}
+	}
+
 	key := controller.MigrationKey(migration)
 	c.podExpectations.ExpectCreations(key, 1)
 	pod, err := c.clientset.CoreV1().Pods(vmi.GetNamespace()).Create(context.Background(), templatePod, v1.CreateOptions{})
@@ -840,8 +851,15 @@ func (c *MigrationController) createAttachmentPod(migration *virtv1.VirtualMachi
 	attachmentPodTemplate.ObjectMeta.Labels[virtv1.MigrationJobLabel] = string(migration.UID)
 	attachmentPodTemplate.ObjectMeta.Annotations[virtv1.MigrationJobNameAnnotation] = string(migration.Name)
 
+	if c.clusterConfig.PSAEnabled() {
+		// Check my impact
+		if err := escalateNamespace(c.namespaceStore, c.clientset, vmi.GetNamespace()); err != nil {
+			return err
+		}
+	}
 	key := controller.MigrationKey(migration)
 	c.podExpectations.ExpectCreations(key, 1)
+
 	attachmentPod, err := c.clientset.CoreV1().Pods(vmi.GetNamespace()).Create(context.Background(), attachmentPodTemplate, v1.CreateOptions{})
 	if err != nil {
 		c.podExpectations.CreationObserved(key)
