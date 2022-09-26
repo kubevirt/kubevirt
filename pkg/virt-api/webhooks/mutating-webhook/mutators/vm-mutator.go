@@ -30,6 +30,7 @@ import (
 	apiinstancetype "kubevirt.io/api/instancetype"
 	"kubevirt.io/client-go/log"
 
+	"kubevirt.io/kubevirt/pkg/instancetype"
 	utiltypes "kubevirt.io/kubevirt/pkg/util/types"
 	webhookutils "kubevirt.io/kubevirt/pkg/util/webhooks"
 	"kubevirt.io/kubevirt/pkg/virt-api/webhooks"
@@ -37,7 +38,8 @@ import (
 )
 
 type VMsMutator struct {
-	ClusterConfig *virtconfig.ClusterConfig
+	ClusterConfig       *virtconfig.ClusterConfig
+	InstancetypeMethods instancetype.Methods
 }
 
 func (mutator *VMsMutator) Mutate(ar *admissionv1.AdmissionReview) *admissionv1.AdmissionResponse {
@@ -96,19 +98,38 @@ func (mutator *VMsMutator) Mutate(ar *admissionv1.AdmissionReview) *admissionv1.
 }
 
 func (mutator *VMsMutator) setDefaultMachineType(vm *v1.VirtualMachine) {
+	// Nothing to do, let's the validating webhook fail later
 	if vm.Spec.Template == nil {
-		// nothing to do, let's the validating webhook fail later
 		return
 	}
-	machineType := mutator.ClusterConfig.GetMachineType()
 
-	if machine := vm.Spec.Template.Spec.Domain.Machine; machine != nil {
-		if machine.Type == "" {
-			machine.Type = machineType
-		}
-	} else {
-		vm.Spec.Template.Spec.Domain.Machine = &v1.Machine{Type: machineType}
+	if machine := vm.Spec.Template.Spec.Domain.Machine; machine != nil && machine.Type != "" {
+		return
 	}
+
+	if vm.Spec.Template.Spec.Domain.Machine == nil {
+		vm.Spec.Template.Spec.Domain.Machine = &v1.Machine{}
+	}
+
+	vm.Spec.Template.Spec.Domain.Machine.Type = mutator.getPreferenceMachineType(vm)
+
+	// Only use the cluster default if the user hasn't provided a machine type or referenced a preference with PreferredMachineType
+	if vm.Spec.Template.Spec.Domain.Machine.Type == "" {
+		vm.Spec.Template.Spec.Domain.Machine.Type = mutator.ClusterConfig.GetMachineType()
+	}
+}
+
+func (mutator *VMsMutator) getPreferenceMachineType(vm *v1.VirtualMachine) string {
+	preferenceSpec, err := mutator.InstancetypeMethods.FindPreferenceSpec(vm)
+	if err != nil {
+		// Log but ultimately swallow any preference lookup errors here and let the validating webhook handle them
+		log.Log.Reason(err).Error("Ignoring error attempting to lookup PreferredMachineType.")
+		return ""
+	}
+	if preferenceSpec != nil && preferenceSpec.Machine != nil {
+		return preferenceSpec.Machine.PreferredMachineType
+	}
+	return ""
 }
 
 func (mutator *VMsMutator) setDefaultInstancetypeKind(vm *v1.VirtualMachine) {

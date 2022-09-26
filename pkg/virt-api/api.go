@@ -836,7 +836,7 @@ func (app *virtAPIApp) registerValidatingWebhooks(informers *webhooks.Informers)
 func (app *virtAPIApp) registerMutatingWebhook(informers *webhooks.Informers) {
 
 	http.HandleFunc(components.VMMutatePath, func(w http.ResponseWriter, r *http.Request) {
-		mutating_webhook.ServeVMs(w, r, app.clusterConfig)
+		mutating_webhook.ServeVMs(w, r, app.clusterConfig, app.virtCli)
 	})
 	http.HandleFunc(components.VMIMutatePath, func(w http.ResponseWriter, r *http.Request) {
 		mutating_webhook.ServeVMIs(w, r, app.clusterConfig, informers)
