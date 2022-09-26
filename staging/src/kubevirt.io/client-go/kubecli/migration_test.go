@@ -34,23 +34,22 @@ import (
 )
 
 var _ = Describe("Kubevirt Migration Client", func() {
-
 	var server *ghttp.Server
-	var client KubevirtClient
 	basePath := "/apis/kubevirt.io/v1alpha3/namespaces/default/virtualmachineinstancemigrations"
 	migrationPath := path.Join(basePath, "testmigration")
+	proxyPath := "/proxy/path"
 
 	BeforeEach(func() {
-		var err error
 		server = ghttp.NewServer()
-		client, err = GetKubevirtClientFromFlags(server.URL(), "")
-		Expect(err).ToNot(HaveOccurred())
 	})
 
-	It("should fetch a MigrationMigration", func() {
+	DescribeTable("should fetch a MigrationMigration", func(proxyPath string) {
+		client, err := GetKubevirtClientFromFlags(server.URL()+proxyPath, "")
+		Expect(err).ToNot(HaveOccurred())
+
 		migration := NewMinimalMigration("testmigration")
 		server.AppendHandlers(ghttp.CombineHandlers(
-			ghttp.VerifyRequest("GET", migrationPath),
+			ghttp.VerifyRequest("GET", path.Join(proxyPath, migrationPath)),
 			ghttp.RespondWithJSONEncoded(http.StatusOK, migration),
 		))
 		fetchedMigration, err := client.VirtualMachineInstanceMigration(k8sv1.NamespaceDefault).Get("testmigration", &k8smetav1.GetOptions{})
@@ -58,24 +57,36 @@ var _ = Describe("Kubevirt Migration Client", func() {
 		Expect(server.ReceivedRequests()).To(HaveLen(1))
 		Expect(err).ToNot(HaveOccurred())
 		Expect(fetchedMigration).To(Equal(migration))
-	})
+	},
+		Entry("with regular server URL", ""),
+		Entry("with proxied server URL", proxyPath),
+	)
 
-	It("should detect non existent Migrations", func() {
+	DescribeTable("should detect non existent Migrations", func(proxyPath string) {
+		client, err := GetKubevirtClientFromFlags(server.URL()+proxyPath, "")
+		Expect(err).ToNot(HaveOccurred())
+
 		server.AppendHandlers(ghttp.CombineHandlers(
-			ghttp.VerifyRequest("GET", migrationPath),
+			ghttp.VerifyRequest("GET", path.Join(proxyPath, migrationPath)),
 			ghttp.RespondWithJSONEncoded(http.StatusNotFound, errors.NewNotFound(schema.GroupResource{}, "testmigration")),
 		))
-		_, err := client.VirtualMachineInstanceMigration(k8sv1.NamespaceDefault).Get("testmigration", &k8smetav1.GetOptions{})
+		_, err = client.VirtualMachineInstanceMigration(k8sv1.NamespaceDefault).Get("testmigration", &k8smetav1.GetOptions{})
 
 		Expect(server.ReceivedRequests()).To(HaveLen(1))
 		Expect(err).To(HaveOccurred())
 		Expect(errors.IsNotFound(err)).To(BeTrue())
-	})
+	},
+		Entry("with regular server URL", ""),
+		Entry("with proxied server URL", proxyPath),
+	)
 
-	It("should fetch a Migration list", func() {
+	DescribeTable("should fetch a Migration list", func(proxyPath string) {
+		client, err := GetKubevirtClientFromFlags(server.URL()+proxyPath, "")
+		Expect(err).ToNot(HaveOccurred())
+
 		migration := NewMinimalMigration("testmigration")
 		server.AppendHandlers(ghttp.CombineHandlers(
-			ghttp.VerifyRequest("GET", basePath),
+			ghttp.VerifyRequest("GET", path.Join(proxyPath, basePath)),
 			ghttp.RespondWithJSONEncoded(http.StatusOK, NewMigrationList(*migration)),
 		))
 		fetchedMigrationList, err := client.VirtualMachineInstanceMigration(k8sv1.NamespaceDefault).List(&k8smetav1.ListOptions{})
@@ -84,12 +95,18 @@ var _ = Describe("Kubevirt Migration Client", func() {
 		Expect(err).ToNot(HaveOccurred())
 		Expect(fetchedMigrationList.Items).To(HaveLen(1))
 		Expect(fetchedMigrationList.Items[0]).To(Equal(*migration))
-	})
+	},
+		Entry("with regular server URL", ""),
+		Entry("with proxied server URL", proxyPath),
+	)
 
-	It("should create a Migration", func() {
+	DescribeTable("should create a Migration", func(proxyPath string) {
+		client, err := GetKubevirtClientFromFlags(server.URL()+proxyPath, "")
+		Expect(err).ToNot(HaveOccurred())
+
 		migration := NewMinimalMigration("testmigration")
 		server.AppendHandlers(ghttp.CombineHandlers(
-			ghttp.VerifyRequest("POST", basePath),
+			ghttp.VerifyRequest("POST", path.Join(proxyPath, basePath)),
 			ghttp.RespondWithJSONEncoded(http.StatusCreated, migration),
 		))
 		createdMigration, err := client.VirtualMachineInstanceMigration(k8sv1.NamespaceDefault).Create(migration, &k8smetav1.CreateOptions{})
@@ -97,12 +114,18 @@ var _ = Describe("Kubevirt Migration Client", func() {
 		Expect(server.ReceivedRequests()).To(HaveLen(1))
 		Expect(err).ToNot(HaveOccurred())
 		Expect(createdMigration).To(Equal(migration))
-	})
+	},
+		Entry("with regular server URL", ""),
+		Entry("with proxied server URL", proxyPath),
+	)
 
-	It("should update a Migration", func() {
+	DescribeTable("should update a Migration", func(proxyPath string) {
+		client, err := GetKubevirtClientFromFlags(server.URL()+proxyPath, "")
+		Expect(err).ToNot(HaveOccurred())
+
 		migration := NewMinimalMigration("testmigration")
 		server.AppendHandlers(ghttp.CombineHandlers(
-			ghttp.VerifyRequest("PUT", migrationPath),
+			ghttp.VerifyRequest("PUT", path.Join(proxyPath, migrationPath)),
 			ghttp.RespondWithJSONEncoded(http.StatusOK, migration),
 		))
 		updatedMigration, err := client.VirtualMachineInstanceMigration(k8sv1.NamespaceDefault).Update(migration)
@@ -110,35 +133,50 @@ var _ = Describe("Kubevirt Migration Client", func() {
 		Expect(server.ReceivedRequests()).To(HaveLen(1))
 		Expect(err).ToNot(HaveOccurred())
 		Expect(updatedMigration).To(Equal(migration))
-	})
+	},
+		Entry("with regular server URL", ""),
+		Entry("with proxied server URL", proxyPath),
+	)
 
-	It("should patch a Migration", func() {
+	DescribeTable("should patch a Migration", func(proxyPath string) {
+		client, err := GetKubevirtClientFromFlags(server.URL()+proxyPath, "")
+		Expect(err).ToNot(HaveOccurred())
+
 		migration := NewMinimalMigration("testmigration")
 		migration.Spec.VMIName = "somethingelse"
 
 		server.AppendHandlers(ghttp.CombineHandlers(
-			ghttp.VerifyRequest("PATCH", migrationPath),
+			ghttp.VerifyRequest("PATCH", path.Join(proxyPath, migrationPath)),
 			ghttp.VerifyBody([]byte("{\"spec\":{\"vmiName\":something}}")),
 			ghttp.RespondWithJSONEncoded(http.StatusOK, migration),
 		))
 
-		_, err := client.VirtualMachineInstanceMigration(k8sv1.NamespaceDefault).Patch(migration.Name, types.MergePatchType,
+		_, err = client.VirtualMachineInstanceMigration(k8sv1.NamespaceDefault).Patch(migration.Name, types.MergePatchType,
 			[]byte("{\"spec\":{\"vmiName\":something}}"))
 
 		Expect(server.ReceivedRequests()).To(HaveLen(1))
 		Expect(err).ToNot(HaveOccurred())
-	})
+	},
+		Entry("with regular server URL", ""),
+		Entry("with proxied server URL", proxyPath),
+	)
 
-	It("should delete a Migration", func() {
+	DescribeTable("should delete a Migration", func(proxyPath string) {
+		client, err := GetKubevirtClientFromFlags(server.URL()+proxyPath, "")
+		Expect(err).ToNot(HaveOccurred())
+
 		server.AppendHandlers(ghttp.CombineHandlers(
-			ghttp.VerifyRequest("DELETE", migrationPath),
+			ghttp.VerifyRequest("DELETE", path.Join(proxyPath, migrationPath)),
 			ghttp.RespondWithJSONEncoded(http.StatusOK, nil),
 		))
-		err := client.VirtualMachineInstanceMigration(k8sv1.NamespaceDefault).Delete("testmigration", &k8smetav1.DeleteOptions{})
+		err = client.VirtualMachineInstanceMigration(k8sv1.NamespaceDefault).Delete("testmigration", &k8smetav1.DeleteOptions{})
 
 		Expect(server.ReceivedRequests()).To(HaveLen(1))
 		Expect(err).ToNot(HaveOccurred())
-	})
+	},
+		Entry("with regular server URL", ""),
+		Entry("with proxied server URL", proxyPath),
+	)
 
 	AfterEach(func() {
 		server.Close()

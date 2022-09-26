@@ -37,23 +37,19 @@ import (
 
 const (
 	testPolicyName = "testpolicy"
+	proxyPath      = "/proxy/path"
 )
 
 var _ = Describe("Kubevirt MigrationPolicy Client", func() {
 
 	var server *ghttp.Server
-	var client KubevirtClient
 	var basePath, policyPath string
 
 	BeforeEach(func() {
-
 		basePath = "/apis/migrations.kubevirt.io/v1alpha1/migrationpolicies"
 		policyPath = path.Join(basePath, testPolicyName)
 
-		var err error
 		server = ghttp.NewServer()
-		client, err = GetKubevirtClientFromFlags(server.URL(), "")
-		Expect(err).ToNot(HaveOccurred())
 	})
 
 	expectPoliciesAreEqual := func(actual, expect *v1alpha12.MigrationPolicy) {
@@ -63,10 +59,13 @@ var _ = Describe("Kubevirt MigrationPolicy Client", func() {
 		Expect(actual).To(Equal(expect))
 	}
 
-	It("should fetch a MigrationPolicy", func() {
+	DescribeTable("should fetch a MigrationPolicy", func(proxyPath string) {
+		client, err := GetKubevirtClientFromFlags(server.URL()+proxyPath, "")
+		Expect(err).ToNot(HaveOccurred())
+
 		policy := NewMinimalMigrationPolicy(testPolicyName)
 		server.AppendHandlers(ghttp.CombineHandlers(
-			ghttp.VerifyRequest("GET", policyPath),
+			ghttp.VerifyRequest("GET", path.Join(proxyPath, policyPath)),
 			ghttp.RespondWithJSONEncoded(http.StatusOK, policy),
 		))
 		fetchedMigrationPolicy, err := client.MigrationPolicy().Get(context.Background(), testPolicyName, k8smetav1.GetOptions{})
@@ -74,24 +73,36 @@ var _ = Describe("Kubevirt MigrationPolicy Client", func() {
 		Expect(server.ReceivedRequests()).To(HaveLen(1))
 		Expect(err).ToNot(HaveOccurred())
 		expectPoliciesAreEqual(fetchedMigrationPolicy, policy)
-	})
+	},
+		Entry("with regular server URL", ""),
+		Entry("with proxied server URL", proxyPath),
+	)
 
-	It("should detect non existent Migration Policy", func() {
+	DescribeTable("should detect non existent Migration Policy", func(proxyPath string) {
+		client, err := GetKubevirtClientFromFlags(server.URL()+proxyPath, "")
+		Expect(err).ToNot(HaveOccurred())
+
 		server.AppendHandlers(ghttp.CombineHandlers(
-			ghttp.VerifyRequest("GET", policyPath),
+			ghttp.VerifyRequest("GET", path.Join(proxyPath, policyPath)),
 			ghttp.RespondWithJSONEncoded(http.StatusNotFound, errors.NewNotFound(schema.GroupResource{}, testPolicyName)),
 		))
-		_, err := client.MigrationPolicy().Get(context.Background(), testPolicyName, k8smetav1.GetOptions{})
+		_, err = client.MigrationPolicy().Get(context.Background(), testPolicyName, k8smetav1.GetOptions{})
 
 		Expect(server.ReceivedRequests()).To(HaveLen(1))
 		Expect(err).To(HaveOccurred())
 		Expect(errors.IsNotFound(err)).To(BeTrue())
-	})
+	},
+		Entry("with regular server URL", ""),
+		Entry("with proxied server URL", proxyPath),
+	)
 
-	It("should fetch a MigrationPolicy list", func() {
+	DescribeTable("should fetch a MigrationPolicy list", func(proxyPath string) {
+		client, err := GetKubevirtClientFromFlags(server.URL()+proxyPath, "")
+		Expect(err).ToNot(HaveOccurred())
+
 		policy := NewMinimalMigrationPolicy(testPolicyName)
 		server.AppendHandlers(ghttp.CombineHandlers(
-			ghttp.VerifyRequest("GET", basePath),
+			ghttp.VerifyRequest("GET", path.Join(proxyPath, basePath)),
 			ghttp.RespondWithJSONEncoded(http.StatusOK, NewMinimalMigrationPolicyList(*policy)),
 		))
 		fetchedMigrationPolicy, err := client.MigrationPolicy().List(context.Background(), k8smetav1.ListOptions{})
@@ -100,12 +111,18 @@ var _ = Describe("Kubevirt MigrationPolicy Client", func() {
 		Expect(server.ReceivedRequests()).To(HaveLen(1))
 		Expect(fetchedMigrationPolicy.Items).To(HaveLen(1))
 		expectPoliciesAreEqual(&fetchedMigrationPolicy.Items[0], policy)
-	})
+	},
+		Entry("with regular server URL", ""),
+		Entry("with proxied server URL", proxyPath),
+	)
 
-	It("should create a MigrationPolicy", func() {
+	DescribeTable("should create a MigrationPolicy", func(proxyPath string) {
+		client, err := GetKubevirtClientFromFlags(server.URL()+proxyPath, "")
+		Expect(err).ToNot(HaveOccurred())
+
 		policy := NewMinimalMigrationPolicy(testPolicyName)
 		server.AppendHandlers(ghttp.CombineHandlers(
-			ghttp.VerifyRequest("POST", basePath),
+			ghttp.VerifyRequest("POST", path.Join(proxyPath, basePath)),
 			ghttp.RespondWithJSONEncoded(http.StatusCreated, policy),
 		))
 		createdMigrationPolicy, err := client.MigrationPolicy().Create(context.Background(), policy, k8smetav1.CreateOptions{})
@@ -113,12 +130,18 @@ var _ = Describe("Kubevirt MigrationPolicy Client", func() {
 		Expect(server.ReceivedRequests()).To(HaveLen(1))
 		Expect(err).ToNot(HaveOccurred())
 		expectPoliciesAreEqual(createdMigrationPolicy, policy)
-	})
+	},
+		Entry("with regular server URL", ""),
+		Entry("with proxied server URL", proxyPath),
+	)
 
-	It("should update a MigrationPolicy", func() {
+	DescribeTable("should update a MigrationPolicy", func(proxyPath string) {
+		client, err := GetKubevirtClientFromFlags(server.URL()+proxyPath, "")
+		Expect(err).ToNot(HaveOccurred())
+
 		policy := NewMinimalMigrationPolicy(testPolicyName)
 		server.AppendHandlers(ghttp.CombineHandlers(
-			ghttp.VerifyRequest("PUT", policyPath),
+			ghttp.VerifyRequest("PUT", path.Join(proxyPath, policyPath)),
 			ghttp.RespondWithJSONEncoded(http.StatusOK, policy),
 		))
 		updatedMigrationPolicy, err := client.MigrationPolicy().Update(context.Background(), policy, k8smetav1.UpdateOptions{})
@@ -126,18 +149,27 @@ var _ = Describe("Kubevirt MigrationPolicy Client", func() {
 		Expect(server.ReceivedRequests()).To(HaveLen(1))
 		Expect(err).ToNot(HaveOccurred())
 		expectPoliciesAreEqual(updatedMigrationPolicy, policy)
-	})
+	},
+		Entry("with regular server URL", ""),
+		Entry("with proxied server URL", proxyPath),
+	)
 
-	It("should delete a MigrationPolicy", func() {
+	DescribeTable("should delete a MigrationPolicy", func(proxyPath string) {
+		client, err := GetKubevirtClientFromFlags(server.URL()+proxyPath, "")
+		Expect(err).ToNot(HaveOccurred())
+
 		server.AppendHandlers(ghttp.CombineHandlers(
-			ghttp.VerifyRequest("DELETE", policyPath),
+			ghttp.VerifyRequest("DELETE", path.Join(proxyPath, policyPath)),
 			ghttp.RespondWithJSONEncoded(http.StatusOK, nil),
 		))
-		err := client.MigrationPolicy().Delete(context.Background(), testPolicyName, k8smetav1.DeleteOptions{})
+		err = client.MigrationPolicy().Delete(context.Background(), testPolicyName, k8smetav1.DeleteOptions{})
 
 		Expect(server.ReceivedRequests()).To(HaveLen(1))
 		Expect(err).ToNot(HaveOccurred())
-	})
+	},
+		Entry("with regular server URL", ""),
+		Entry("with proxied server URL", proxyPath),
+	)
 
 	AfterEach(func() {
 		server.Close()

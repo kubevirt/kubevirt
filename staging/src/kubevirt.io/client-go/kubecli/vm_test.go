@@ -40,91 +40,121 @@ import (
 var _ = Describe("Kubevirt VirtualMachine Client", func() {
 
 	var server *ghttp.Server
-	var client KubevirtClient
 	basePath := "/apis/kubevirt.io/v1alpha3/namespaces/default/virtualmachines"
-	vmiPath := path.Join(basePath, "testvm")
+	vmPath := path.Join(basePath, "testvm")
 	subBasePath := fmt.Sprintf("/apis/subresources.kubevirt.io/%s/namespaces/default/virtualmachines", v1.SubresourceStorageGroupVersion.Version)
-	subVMIPath := path.Join(subBasePath, "testvm")
+	subVMPath := path.Join(subBasePath, "testvm")
+	proxyPath := "/proxy/path"
 
 	BeforeEach(func() {
-		var err error
 		server = ghttp.NewServer()
-		client, err = GetKubevirtClientFromFlags(server.URL(), "")
-		Expect(err).ToNot(HaveOccurred())
 	})
 
-	It("should fetch a VirtualMachineInstance", func() {
+	DescribeTable("should fetch a VirtualMachineInstance", func(proxyPath string) {
+		client, err := GetKubevirtClientFromFlags(server.URL()+proxyPath, "")
+		Expect(err).ToNot(HaveOccurred())
+
 		vm := NewMinimalVM("testvm")
 		server.AppendHandlers(ghttp.CombineHandlers(
-			ghttp.VerifyRequest("GET", vmiPath),
+			ghttp.VerifyRequest("GET", path.Join(proxyPath, vmPath)),
 			ghttp.RespondWithJSONEncoded(http.StatusOK, vm),
 		))
-		fetchedVMI, err := client.VirtualMachine(k8sv1.NamespaceDefault).Get("testvm", &k8smetav1.GetOptions{})
+		fetchedVM, err := client.VirtualMachine(k8sv1.NamespaceDefault).Get("testvm", &k8smetav1.GetOptions{})
 
 		Expect(server.ReceivedRequests()).To(HaveLen(1))
 		Expect(err).ToNot(HaveOccurred())
-		Expect(fetchedVMI).To(Equal(vm))
-	})
+		Expect(fetchedVM).To(Equal(vm))
+	},
+		Entry("with regular server URL", ""),
+		Entry("with proxied server URL", proxyPath),
+	)
 
-	It("should detect non existent VirtualMachines", func() {
+	DescribeTable("should detect non existent VirtualMachines", func(proxyPath string) {
+		client, err := GetKubevirtClientFromFlags(server.URL()+proxyPath, "")
+		Expect(err).ToNot(HaveOccurred())
+
 		server.AppendHandlers(ghttp.CombineHandlers(
-			ghttp.VerifyRequest("GET", vmiPath),
+			ghttp.VerifyRequest("GET", path.Join(proxyPath, vmPath)),
 			ghttp.RespondWithJSONEncoded(http.StatusNotFound, errors.NewNotFound(schema.GroupResource{}, "testvm")),
 		))
-		_, err := client.VirtualMachine(k8sv1.NamespaceDefault).Get("testvm", &k8smetav1.GetOptions{})
+		_, err = client.VirtualMachine(k8sv1.NamespaceDefault).Get("testvm", &k8smetav1.GetOptions{})
 
 		Expect(server.ReceivedRequests()).To(HaveLen(1))
 		Expect(err).To(HaveOccurred())
 		Expect(errors.IsNotFound(err)).To(BeTrue())
-	})
+	},
+		Entry("with regular server URL", ""),
+		Entry("with proxied server URL", proxyPath),
+	)
 
-	It("should fetch a VirtualMachine list", func() {
+	DescribeTable("should fetch a VirtualMachine list", func(proxyPath string) {
+		client, err := GetKubevirtClientFromFlags(server.URL()+proxyPath, "")
+		Expect(err).ToNot(HaveOccurred())
+
 		vm := NewMinimalVM("testvm")
 		server.AppendHandlers(ghttp.CombineHandlers(
-			ghttp.VerifyRequest("GET", basePath),
+			ghttp.VerifyRequest("GET", path.Join(proxyPath, basePath)),
 			ghttp.RespondWithJSONEncoded(http.StatusOK, NewVMList(*vm)),
 		))
-		fetchedVMIList, err := client.VirtualMachine(k8sv1.NamespaceDefault).List(&k8smetav1.ListOptions{})
+		fetchedVMList, err := client.VirtualMachine(k8sv1.NamespaceDefault).List(&k8smetav1.ListOptions{})
 
 		Expect(server.ReceivedRequests()).To(HaveLen(1))
 		Expect(err).ToNot(HaveOccurred())
-		Expect(fetchedVMIList.Items).To(HaveLen(1))
-		Expect(fetchedVMIList.Items[0]).To(Equal(*vm))
-	})
+		Expect(fetchedVMList.Items).To(HaveLen(1))
+		Expect(fetchedVMList.Items[0]).To(Equal(*vm))
+	},
+		Entry("with regular server URL", ""),
+		Entry("with proxied server URL", proxyPath),
+	)
 
-	It("should create a VirtualMachine", func() {
+	DescribeTable("should create a VirtualMachine", func(proxyPath string) {
+		client, err := GetKubevirtClientFromFlags(server.URL()+proxyPath, "")
+		Expect(err).ToNot(HaveOccurred())
+
 		vm := NewMinimalVM("testvm")
 		server.AppendHandlers(ghttp.CombineHandlers(
-			ghttp.VerifyRequest("POST", basePath),
+			ghttp.VerifyRequest("POST", path.Join(proxyPath, basePath)),
 			ghttp.RespondWithJSONEncoded(http.StatusCreated, vm),
 		))
-		createdVMI, err := client.VirtualMachine(k8sv1.NamespaceDefault).Create(vm)
+		createdVM, err := client.VirtualMachine(k8sv1.NamespaceDefault).Create(vm)
 
 		Expect(server.ReceivedRequests()).To(HaveLen(1))
 		Expect(err).ToNot(HaveOccurred())
-		Expect(createdVMI).To(Equal(vm))
-	})
+		Expect(createdVM).To(Equal(vm))
+	},
+		Entry("with regular server URL", ""),
+		Entry("with proxied server URL", proxyPath),
+	)
 
-	It("should update a VirtualMachine", func() {
+	DescribeTable("should update a VirtualMachine", func(proxyPath string) {
+		client, err := GetKubevirtClientFromFlags(server.URL()+proxyPath, "")
+		Expect(err).ToNot(HaveOccurred())
+
 		vm := NewMinimalVM("testvm")
 		server.AppendHandlers(ghttp.CombineHandlers(
-			ghttp.VerifyRequest("PUT", vmiPath),
+			ghttp.VerifyRequest("PUT", path.Join(proxyPath, vmPath)),
 			ghttp.RespondWithJSONEncoded(http.StatusOK, vm),
 		))
-		updatedVMI, err := client.VirtualMachine(k8sv1.NamespaceDefault).Update(vm)
+		updatedVM, err := client.VirtualMachine(k8sv1.NamespaceDefault).Update(vm)
 
 		Expect(server.ReceivedRequests()).To(HaveLen(1))
 		Expect(err).ToNot(HaveOccurred())
-		Expect(updatedVMI).To(Equal(vm))
-	})
+		Expect(updatedVM).To(Equal(vm))
+	},
+		Entry("with regular server URL", ""),
+		Entry("with proxied server URL", proxyPath),
+	)
 
-	It("should patch a VirtualMachine", func() {
+	DescribeTable("should patch a VirtualMachine", func(proxyPath string) {
+		client, err := GetKubevirtClientFromFlags(server.URL()+proxyPath, "")
+		Expect(err).ToNot(HaveOccurred())
+
 		vm := NewMinimalVM("testvm")
 		running := true
 		vm.Spec.Running = &running
 
 		server.AppendHandlers(ghttp.CombineHandlers(
-			ghttp.VerifyRequest("PATCH", vmiPath),
+			ghttp.VerifyRequest("PATCH", path.Join(proxyPath, vmPath)),
 			ghttp.VerifyBody([]byte("{\"spec\":{\"running\":true}}")),
 			ghttp.RespondWithJSONEncoded(http.StatusOK, vm),
 		))
@@ -135,14 +165,19 @@ var _ = Describe("Kubevirt VirtualMachine Client", func() {
 		Expect(server.ReceivedRequests()).To(HaveLen(1))
 		Expect(err).ToNot(HaveOccurred())
 		Expect(vm.Spec.Running).To(Equal(patchedVM.Spec.Running))
+	},
+		Entry("with regular server URL", ""),
+		Entry("with proxied server URL", proxyPath),
+	)
 
-	})
+	DescribeTable("should fail on patch a VirtualMachine", func(proxyPath string) {
+		client, err := GetKubevirtClientFromFlags(server.URL()+proxyPath, "")
+		Expect(err).ToNot(HaveOccurred())
 
-	It("should fail on patch a VirtualMachine", func() {
 		vm := NewMinimalVM("testvm")
 
 		server.AppendHandlers(ghttp.CombineHandlers(
-			ghttp.VerifyRequest("PATCH", vmiPath),
+			ghttp.VerifyRequest("PATCH", path.Join(proxyPath, vmPath)),
 			ghttp.VerifyBody([]byte("{\"spec\":{\"running\":true}}")),
 			ghttp.RespondWithJSONEncoded(http.StatusNotFound, vm),
 		))
@@ -153,41 +188,61 @@ var _ = Describe("Kubevirt VirtualMachine Client", func() {
 		Expect(server.ReceivedRequests()).To(HaveLen(1))
 		Expect(err).To(HaveOccurred())
 		Expect(vm.Spec.Running).To(Equal(patchedVM.Spec.Running))
+	},
+		Entry("with regular server URL", ""),
+		Entry("with proxied server URL", proxyPath),
+	)
 
-	})
+	DescribeTable("should delete a VirtualMachineInstance", func(proxyPath string) {
+		client, err := GetKubevirtClientFromFlags(server.URL()+proxyPath, "")
+		Expect(err).ToNot(HaveOccurred())
 
-	It("should delete a VirtualMachineInstance", func() {
 		server.AppendHandlers(ghttp.CombineHandlers(
-			ghttp.VerifyRequest("DELETE", vmiPath),
+			ghttp.VerifyRequest("DELETE", path.Join(proxyPath, vmPath)),
 			ghttp.RespondWithJSONEncoded(http.StatusOK, nil),
 		))
-		err := client.VirtualMachine(k8sv1.NamespaceDefault).Delete("testvm", &k8smetav1.DeleteOptions{})
+		err = client.VirtualMachine(k8sv1.NamespaceDefault).Delete("testvm", &k8smetav1.DeleteOptions{})
 
 		Expect(server.ReceivedRequests()).To(HaveLen(1))
 		Expect(err).ToNot(HaveOccurred())
-	})
+	},
+		Entry("with regular server URL", ""),
+		Entry("with proxied server URL", proxyPath),
+	)
 
-	It("should restart a VirtualMachine", func() {
+	DescribeTable("should restart a VirtualMachine", func(proxyPath string) {
+		client, err := GetKubevirtClientFromFlags(server.URL()+proxyPath, "")
+		Expect(err).ToNot(HaveOccurred())
+
 		server.AppendHandlers(ghttp.CombineHandlers(
-			ghttp.VerifyRequest("PUT", path.Join(subVMIPath, "restart")),
+			ghttp.VerifyRequest("PUT", path.Join(proxyPath, subVMPath, "restart")),
 			ghttp.RespondWithJSONEncoded(http.StatusOK, nil),
 		))
-		err := client.VirtualMachine(k8sv1.NamespaceDefault).Restart("testvm", &v1.RestartOptions{})
+		err = client.VirtualMachine(k8sv1.NamespaceDefault).Restart("testvm", &v1.RestartOptions{})
 
 		Expect(server.ReceivedRequests()).To(HaveLen(1))
 		Expect(err).ToNot(HaveOccurred())
-	})
+	},
+		Entry("with regular server URL", ""),
+		Entry("with proxied server URL", proxyPath),
+	)
 
-	It("should migrate a VirtualMachine", func() {
+	DescribeTable("should migrate a VirtualMachine", func(proxyPath string) {
+		client, err := GetKubevirtClientFromFlags(server.URL()+proxyPath, "")
+		Expect(err).ToNot(HaveOccurred())
+
 		server.AppendHandlers(ghttp.CombineHandlers(
-			ghttp.VerifyRequest("PUT", path.Join(subVMIPath, "migrate")),
+			ghttp.VerifyRequest("PUT", path.Join(proxyPath, subVMPath, "migrate")),
 			ghttp.RespondWithJSONEncoded(http.StatusOK, nil),
 		))
-		err := client.VirtualMachine(k8sv1.NamespaceDefault).Migrate("testvm", &virtv1.MigrateOptions{})
+		err = client.VirtualMachine(k8sv1.NamespaceDefault).Migrate("testvm", &virtv1.MigrateOptions{})
 
 		Expect(server.ReceivedRequests()).To(HaveLen(1))
 		Expect(err).ToNot(HaveOccurred())
-	})
+	},
+		Entry("with regular server URL", ""),
+		Entry("with proxied server URL", proxyPath),
+	)
 
 	AfterEach(func() {
 		server.Close()
