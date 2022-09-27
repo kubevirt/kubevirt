@@ -39,6 +39,7 @@ import (
 	"kubevirt.io/kubevirt/pkg/virt-handler/cgroup"
 
 	"kubevirt.io/kubevirt/pkg/util/hardware"
+	utiltypes "kubevirt.io/kubevirt/pkg/util/types"
 	"kubevirt.io/kubevirt/pkg/virt-controller/watch"
 
 	virtconfig "kubevirt.io/kubevirt/pkg/virt-config"
@@ -609,6 +610,19 @@ var _ = Describe("[rfe_id:393][crit:high][vendor:cnv-qe@redhat.com][level:system
 
 			return events.Items
 		}, 30*time.Second, 1*time.Second).Should(HaveLen(expectedEventsAmount))
+	}
+
+	expectEvent := func(eventListOpts metav1.ListOptions) {
+		// This function is dangerous to use from parallel tests as events might override each other.
+		// This can be removed in the future if these functions are used with great caution.
+		expectSerialRun()
+
+		Eventually(func() []k8sv1.Event {
+			events, err := virtClient.CoreV1().Events(util.NamespaceTestDefault).List(context.Background(), eventListOpts)
+			Expect(err).ToNot(HaveOccurred())
+
+			return events.Items
+		}, 30*time.Second, 1*time.Second).ShouldNot(BeEmpty())
 	}
 
 	deleteEvents := func(eventListOpts metav1.ListOptions) {
@@ -2355,6 +2369,7 @@ var _ = Describe("[rfe_id:393][crit:high][vendor:cnv-qe@redhat.com][level:system
 					By("Starting the Migration")
 					migration := tests.NewRandomMigration(vmi.Name, vmi.Namespace)
 					migration.Name = fmt.Sprintf("%s-iter-%d", vmi.Name, i)
+					migration.Annotations = map[string]string{v1.FuncTestForceIgnoreMigrationBackoffAnnotation: ""}
 					migrationUID := runMigrationAndExpectFailure(migration, 180)
 
 					// check VMI, confirm migration state
@@ -4450,6 +4465,72 @@ var _ = Describe("[rfe_id:393][crit:high][vendor:cnv-qe@redhat.com][level:system
 
 		})
 
+	})
+
+	Context("when migrating fails", func() {
+		var vmi *v1.VirtualMachineInstance
+
+		BeforeEach(func() {
+			vmi = libvmi.NewCirros(
+				libvmi.WithInterface(libvmi.InterfaceDeviceWithMasqueradeBinding()),
+				libvmi.WithNetwork(v1.DefaultPodNetwork()),
+				libvmi.WithAnnotation(v1.FuncTestForceLauncherMigrationFailureAnnotation, ""),
+			)
+		})
+
+		It("[Serial] retrying immediately should be blocked by the migration backoff", func() {
+			By("Starting the VirtualMachineInstance")
+			vmi = tests.RunVMIAndExpectLaunch(vmi, 240)
+
+			By("Waiting for the migration to fail")
+			migration := tests.NewRandomMigration(vmi.Name, vmi.Namespace)
+			_ = runMigrationAndExpectFailure(migration, tests.MigrationWaitTime)
+
+			By("Try again")
+			migration = tests.NewRandomMigration(vmi.Name, vmi.Namespace)
+			_ = runMigrationAndExpectFailure(migration, tests.MigrationWaitTime)
+
+			By("Expecting for a MigrationBackoff event to be sent")
+			eventListOpts := metav1.ListOptions{
+				FieldSelector: fmt.Sprintf("type=%s,reason=%s", k8sv1.EventTypeWarning, watch.MigrationBackoffReason),
+			}
+			expectEvent(eventListOpts)
+			deleteEvents(eventListOpts)
+		})
+
+		It("[Serial] after a successful migration backoff should be cleared", func() {
+			By("Starting the VirtualMachineInstance")
+			vmi = tests.RunVMIAndExpectLaunch(vmi, 240)
+
+			By("Waiting for the migration to fail")
+			migration := tests.NewRandomMigration(vmi.Name, vmi.Namespace)
+			_ = runMigrationAndExpectFailure(migration, tests.MigrationWaitTime)
+
+			By("Patch VMI")
+			patch := []byte(fmt.Sprintf(`[{"op": "remove", "path": "/metadata/annotations/%s"}]`, utiltypes.EscapeJSONPointer(v1.FuncTestForceLauncherMigrationFailureAnnotation)))
+			_, err := virtClient.VirtualMachineInstance(vmi.Namespace).Patch(vmi.Name, types.JSONPatchType, patch, &metav1.PatchOptions{})
+			Expect(err).ToNot(HaveOccurred())
+
+			By("Try again with backoff")
+			migration = tests.NewRandomMigration(vmi.Name, vmi.Namespace)
+			_ = tests.RunMigrationAndExpectCompletion(virtClient, migration, tests.MigrationWaitTime)
+
+			eventListOpts := metav1.ListOptions{
+				FieldSelector: fmt.Sprintf("type=%s,reason=%s", k8sv1.EventTypeWarning, watch.MigrationBackoffReason),
+			}
+			deleteEvents(eventListOpts)
+
+			By("There should be no backoff now")
+			migration = tests.NewRandomMigration(vmi.Name, vmi.Namespace)
+			_ = tests.RunMigrationAndExpectCompletion(virtClient, migration, tests.MigrationWaitTime)
+
+			By("Checking that no backoff event occurred")
+			events, err := virtClient.CoreV1().Events(util.NamespaceTestDefault).List(context.Background(), metav1.ListOptions{})
+			Expect(err).ToNot(HaveOccurred())
+			for _, ev := range events.Items {
+				Expect(ev.Reason).ToNot(Equal(watch.MigrationBackoffReason))
+			}
+		})
 	})
 })
 

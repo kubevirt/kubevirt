@@ -118,6 +118,9 @@ const (
 	NoSuitableNodesForHostModelMigration = "NoSuitableNodesForHostModelMigration"
 	// FailedPodPatchReason is set when a pod patch error occurs during sync
 	FailedPodPatchReason = "FailedPodPatch"
+	// MigrationBackoffReason is set when an error has occured while migrating
+	// and virt-controller is backing off before retrying.
+	MigrationBackoffReason = "MigrationBackoff"
 )
 
 const failedToRenderLaunchManifestErrFormat = "failed to render launch manifest: %v"
