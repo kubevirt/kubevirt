@@ -23,6 +23,7 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
+	"image"
 	"image/png"
 	"io"
 	"net"
@@ -246,17 +247,20 @@ var _ = Describe("[rfe_id:127][crit:medium][arm64][vendor:cnv-qe@redhat.com][lev
 		It("should allow creating a VNC screenshot in PNG format", func() {
 			filePath := filepath.Join(GinkgoT().TempDir(), "screenshot.png")
 
-			cmd := clientcmd.NewVirtctlCommand("vnc", "screenshot", "--namespace", vmi.Namespace, "--file", filePath, vmi.Name)
-			Expect(cmd.Execute()).To(Succeed())
+			// Sometimes we can see initially a 640x480 resolution if we connect very early
+			By("gathering screenshots until we are past the first boot screen and see the expected 720x400 resolution")
+			Eventually(func() image.Image {
+				cmd := clientcmd.NewVirtctlCommand("vnc", "screenshot", "--namespace", vmi.Namespace, "--file", filePath, vmi.Name)
+				Expect(cmd.Execute()).To(Succeed())
 
-			f, err := os.Open(filePath)
-			Expect(err).ToNot(HaveOccurred())
-			defer f.Close()
+				f, err := os.Open(filePath)
+				Expect(err).ToNot(HaveOccurred())
+				defer f.Close()
 
-			img, err := png.Decode(f)
-			Expect(err).ToNot(HaveOccurred())
-			Expect(img.Bounds().Size().X).To(BeNumerically("==", 720))
-			Expect(img.Bounds().Size().Y).To(BeNumerically("==", 400))
+				img, err := png.Decode(f)
+				Expect(err).ToNot(HaveOccurred())
+				return img
+			}, 10*time.Second).Should(HaveResolution(720, 400))
 		})
 	})
 })
@@ -298,4 +302,48 @@ func upgradeCheckRoundTripperFromConfig(config *rest.Config, subprotocols []stri
 	return &checkUpgradeRoundTripper{
 		Dialer: dialer,
 	}, nil
+}
+
+type ResolutionMatcher struct {
+	X, Y int
+}
+
+func (h ResolutionMatcher) Match(actual interface{}) (success bool, err error) {
+	x, y, err := imgSize(actual)
+	if err != nil {
+		return false, nil
+	}
+	return x == h.X && y == h.Y, nil
+}
+
+func (h ResolutionMatcher) FailureMessage(actual interface{}) (message string) {
+	x, y, err := imgSize(actual)
+	if err != nil {
+		return err.Error()
+	}
+	return fmt.Sprintf("Expected (X: %d, Y: %d) to match (X: %d, Y: %d)", x, y, h.X, h.Y)
+}
+
+func (h ResolutionMatcher) NegatedFailureMessage(actual interface{}) (message string) {
+	x, y, err := imgSize(actual)
+	if err != nil {
+		return err.Error()
+	}
+	return fmt.Sprintf("Expected (X: %d, Y: %d) to not match (X: %d, Y: %d)", x, y, h.X, h.Y)
+}
+
+func HaveResolution(X, Y int) ResolutionMatcher {
+	return ResolutionMatcher{X: X, Y: Y}
+}
+
+func imgSize(actual interface{}) (X, Y int, err error) {
+	if actual == nil {
+		return -1, -1, fmt.Errorf("expected an object of type image.Image but got nil")
+	}
+	img, ok := actual.(image.Image)
+	if !ok {
+		return -1, -1, fmt.Errorf("expected an object of type image.Image")
+	}
+	size := img.Bounds().Size()
+	return size.X, size.Y, nil
 }
