@@ -54,7 +54,7 @@ func NewOperandHandler(client client.Client, scheme *runtime.Scheme, ci hcoutil.
 
 	if ci.IsOpenshift() {
 		operands = append(operands, []Operand{
-			newSspHandler(client, scheme),
+			(*genericOperand)(newSspHandler(client, scheme)),
 			(*genericOperand)(newTtoHandler(client, scheme)),
 			(*genericOperand)(newCliDownloadHandler(client, scheme)),
 			(*genericOperand)(newCliDownloadsRouteHandler(client, scheme)),

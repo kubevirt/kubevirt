@@ -48,19 +48,15 @@ func init() {
 	}
 }
 
-type sspHandler struct {
-	genericOperand
-}
+type sspHandler genericOperand
 
 func newSspHandler(Client client.Client, Scheme *runtime.Scheme) *sspHandler {
 	return &sspHandler{
-		genericOperand: genericOperand{
-			Client:                 Client,
-			Scheme:                 Scheme,
-			crType:                 "SSP",
-			setControllerReference: false,
-			hooks:                  &sspHooks{},
-		},
+		Client:                 Client,
+		Scheme:                 Scheme,
+		crType:                 "SSP",
+		setControllerReference: false,
+		hooks:                  &sspHooks{},
 	}
 }
 
