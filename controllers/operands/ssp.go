@@ -77,11 +77,11 @@ func (h *sspHooks) getFullCr(hc *hcov1beta1.HyperConverged) (client.Object, erro
 	return h.cache, nil
 }
 
-func (h sspHooks) getEmptyCr() client.Object { return &sspv1beta1.SSP{} }
-func (h sspHooks) getConditions(cr runtime.Object) []metav1.Condition {
+func (*sspHooks) getEmptyCr() client.Object { return &sspv1beta1.SSP{} }
+func (*sspHooks) getConditions(cr runtime.Object) []metav1.Condition {
 	return osConditionsToK8s(cr.(*sspv1beta1.SSP).Status.Conditions)
 }
-func (h sspHooks) checkComponentVersion(cr runtime.Object) bool {
+func (*sspHooks) checkComponentVersion(cr runtime.Object) bool {
 	found := cr.(*sspv1beta1.SSP)
 	return checkComponentVersion(hcoutil.SspVersionEnvV, found.Status.ObservedVersion)
 }
@@ -90,7 +90,7 @@ func (h *sspHooks) reset() {
 	h.dictStatuses = nil
 }
 
-func (h *sspHooks) updateCr(req *common.HcoRequest, client client.Client, exists runtime.Object, required runtime.Object) (bool, bool, error) {
+func (*sspHooks) updateCr(req *common.HcoRequest, client client.Client, exists runtime.Object, required runtime.Object) (bool, bool, error) {
 	ssp, ok1 := required.(*sspv1beta1.SSP)
 	found, ok2 := exists.(*sspv1beta1.SSP)
 	if !ok1 || !ok2 {
@@ -114,7 +114,7 @@ func (h *sspHooks) updateCr(req *common.HcoRequest, client client.Client, exists
 	return false, false, nil
 }
 
-func (h sspHooks) justBeforeComplete(req *common.HcoRequest) {
+func (h *sspHooks) justBeforeComplete(req *common.HcoRequest) {
 	if !reflect.DeepEqual(h.dictStatuses, req.Instance.Status.DataImportCronTemplates) {
 		req.Instance.Status.DataImportCronTemplates = h.dictStatuses
 		req.StatusDirty = true

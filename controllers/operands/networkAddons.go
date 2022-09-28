@@ -46,11 +46,11 @@ func (h *cnaHooks) getFullCr(hc *hcov1beta1.HyperConverged) (client.Object, erro
 	return h.cache, nil
 }
 
-func (h cnaHooks) getEmptyCr() client.Object { return &networkaddonsv1.NetworkAddonsConfig{} }
-func (h cnaHooks) getConditions(cr runtime.Object) []metav1.Condition {
+func (h *cnaHooks) getEmptyCr() client.Object { return &networkaddonsv1.NetworkAddonsConfig{} }
+func (h *cnaHooks) getConditions(cr runtime.Object) []metav1.Condition {
 	return osConditionsToK8s(cr.(*networkaddonsv1.NetworkAddonsConfig).Status.Conditions)
 }
-func (h cnaHooks) checkComponentVersion(cr runtime.Object) bool {
+func (h *cnaHooks) checkComponentVersion(cr runtime.Object) bool {
 	found := cr.(*networkaddonsv1.NetworkAddonsConfig)
 	return checkComponentVersion(hcoutil.CnaoVersionEnvV, found.Status.ObservedVersion)
 }
@@ -66,7 +66,7 @@ func (h *cnaHooks) updateCr(req *common.HcoRequest, Client client.Client, exists
 		return false, false, errors.New("can't convert to CNA")
 	}
 
-	h.setDeployOvsAnnotation(req, found)
+	setDeployOvsAnnotation(req, found)
 
 	changed := h.updateSpec(req, found, networkAddons)
 	changed = h.updateLabels(found, networkAddons) || changed
@@ -78,9 +78,9 @@ func (h *cnaHooks) updateCr(req *common.HcoRequest, Client client.Client, exists
 	return false, false, nil
 }
 
-func (h cnaHooks) justBeforeComplete(_ *common.HcoRequest) { /* no implementation */ }
+func (*cnaHooks) justBeforeComplete(_ *common.HcoRequest) { /* no implementation */ }
 
-func (h *cnaHooks) updateCnaCr(req *common.HcoRequest, Client client.Client, found *networkaddonsv1.NetworkAddonsConfig) (bool, bool, error) {
+func (*cnaHooks) updateCnaCr(req *common.HcoRequest, Client client.Client, found *networkaddonsv1.NetworkAddonsConfig) (bool, bool, error) {
 	err := Client.Update(req.Ctx, found)
 	if err != nil {
 		return false, false, err
@@ -88,7 +88,7 @@ func (h *cnaHooks) updateCnaCr(req *common.HcoRequest, Client client.Client, fou
 	return true, !req.HCOTriggered, nil
 }
 
-func (h *cnaHooks) updateLabels(found *networkaddonsv1.NetworkAddonsConfig, networkAddons *networkaddonsv1.NetworkAddonsConfig) bool {
+func (*cnaHooks) updateLabels(found *networkaddonsv1.NetworkAddonsConfig, networkAddons *networkaddonsv1.NetworkAddonsConfig) bool {
 	if !reflect.DeepEqual(found.Labels, networkAddons.Labels) {
 		util.DeepCopyLabels(&networkAddons.ObjectMeta, &found.ObjectMeta)
 		return true
@@ -96,7 +96,7 @@ func (h *cnaHooks) updateLabels(found *networkaddonsv1.NetworkAddonsConfig, netw
 	return false
 }
 
-func (h *cnaHooks) updateSpec(req *common.HcoRequest, found *networkaddonsv1.NetworkAddonsConfig, networkAddons *networkaddonsv1.NetworkAddonsConfig) bool {
+func (*cnaHooks) updateSpec(req *common.HcoRequest, found *networkaddonsv1.NetworkAddonsConfig, networkAddons *networkaddonsv1.NetworkAddonsConfig) bool {
 	if !reflect.DeepEqual(found.Spec, networkAddons.Spec) && !req.UpgradeMode {
 		if req.HCOTriggered {
 			req.Logger.Info("Updating existing Network Addons's Spec to new opinionated values")
@@ -111,7 +111,7 @@ func (h *cnaHooks) updateSpec(req *common.HcoRequest, found *networkaddonsv1.Net
 
 // If deployOVS annotation doesn't exists prior the upgrade - set this annotation to true;
 // Otherwise - remain the value as it is.
-func (h *cnaHooks) setDeployOvsAnnotation(req *common.HcoRequest, found *networkaddonsv1.NetworkAddonsConfig) {
+func setDeployOvsAnnotation(req *common.HcoRequest, found *networkaddonsv1.NetworkAddonsConfig) {
 	if req.UpgradeMode {
 		_, exists := req.Instance.Annotations["deployOVS"]
 		if !exists {

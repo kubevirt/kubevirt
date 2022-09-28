@@ -41,15 +41,15 @@ func newCliDownloadHandler(Client client.Client, Scheme *runtime.Scheme) *cliDow
 
 type cliDownloadHooks struct{}
 
-func (h cliDownloadHooks) getFullCr(hc *hcov1beta1.HyperConverged) (client.Object, error) {
+func (*cliDownloadHooks) getFullCr(hc *hcov1beta1.HyperConverged) (client.Object, error) {
 	return NewConsoleCLIDownload(hc), nil
 }
 
-func (h cliDownloadHooks) getEmptyCr() client.Object {
+func (*cliDownloadHooks) getEmptyCr() client.Object {
 	return &consolev1.ConsoleCLIDownload{}
 }
 
-func (h *cliDownloadHooks) updateCr(req *common.HcoRequest, Client client.Client, exists runtime.Object, required runtime.Object) (bool, bool, error) {
+func (*cliDownloadHooks) updateCr(req *common.HcoRequest, Client client.Client, exists runtime.Object, required runtime.Object) (bool, bool, error) {
 	ccd, ok1 := required.(*consolev1.ConsoleCLIDownload)
 	found, ok2 := exists.(*consolev1.ConsoleCLIDownload)
 	if !ok1 || !ok2 {
@@ -73,7 +73,7 @@ func (h *cliDownloadHooks) updateCr(req *common.HcoRequest, Client client.Client
 	return false, false, nil
 }
 
-func (h cliDownloadHooks) justBeforeComplete(_ *common.HcoRequest) { /* no implementation */ }
+func (*cliDownloadHooks) justBeforeComplete(_ *common.HcoRequest) { /* no implementation */ }
 
 func NewConsoleCLIDownload(hc *hcov1beta1.HyperConverged) *consolev1.ConsoleCLIDownload {
 	baseUrl := "https://" + cliDownloadsServiceName + "-" + hc.Namespace + "." + hcoutil.GetClusterInfo().GetDomain()
@@ -147,15 +147,15 @@ func newCliDownloadsRouteHandler(Client client.Client, Scheme *runtime.Scheme) *
 
 type cliDownloadsRouteHooks struct{}
 
-func (h cliDownloadsRouteHooks) getFullCr(hc *hcov1beta1.HyperConverged) (client.Object, error) {
+func (cliDownloadsRouteHooks) getFullCr(hc *hcov1beta1.HyperConverged) (client.Object, error) {
 	return NewCliDownloadsRoute(hc), nil
 }
 
-func (h cliDownloadsRouteHooks) getEmptyCr() client.Object {
+func (cliDownloadsRouteHooks) getEmptyCr() client.Object {
 	return &routev1.Route{}
 }
 
-func (h *cliDownloadsRouteHooks) updateCr(req *common.HcoRequest, Client client.Client, exists runtime.Object, required runtime.Object) (bool, bool, error) {
+func (*cliDownloadsRouteHooks) updateCr(req *common.HcoRequest, Client client.Client, exists runtime.Object, required runtime.Object) (bool, bool, error) {
 	route, ok1 := required.(*routev1.Route)
 	found, ok2 := exists.(*routev1.Route)
 	if !ok1 || !ok2 {
@@ -178,7 +178,7 @@ func (h *cliDownloadsRouteHooks) updateCr(req *common.HcoRequest, Client client.
 	return false, false, nil
 }
 
-func (h cliDownloadsRouteHooks) justBeforeComplete(_ *common.HcoRequest) { /* no implementation */ }
+func (cliDownloadsRouteHooks) justBeforeComplete(_ *common.HcoRequest) { /* no implementation */ }
 
 func NewCliDownloadsRoute(hc *hcov1beta1.HyperConverged) *routev1.Route {
 	weight := int32(100)

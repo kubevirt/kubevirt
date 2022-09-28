@@ -40,12 +40,12 @@ func (h *ttoHooks) getFullCr(hc *hcov1beta1.HyperConverged) (client.Object, erro
 	return h.cache, nil
 }
 
-func (h ttoHooks) getEmptyCr() client.Object { return &ttov1alpha1.TektonTasks{} }
+func (*ttoHooks) getEmptyCr() client.Object { return &ttov1alpha1.TektonTasks{} }
 
-func (h ttoHooks) getConditions(cr runtime.Object) []metav1.Condition {
+func (*ttoHooks) getConditions(cr runtime.Object) []metav1.Condition {
 	return osConditionsToK8s(cr.(*ttov1alpha1.TektonTasks).Status.Conditions)
 }
-func (h ttoHooks) checkComponentVersion(cr runtime.Object) bool {
+func (*ttoHooks) checkComponentVersion(cr runtime.Object) bool {
 	found := cr.(*ttov1alpha1.TektonTasks)
 	return checkComponentVersion(hcoutil.TtoVersionEnvV, found.Status.ObservedVersion)
 }
@@ -53,9 +53,9 @@ func (h *ttoHooks) reset() {
 	h.cache = nil
 }
 
-func (h ttoHooks) justBeforeComplete(_ *common.HcoRequest) { /* no implementation */ }
+func (*ttoHooks) justBeforeComplete(_ *common.HcoRequest) { /* no implementation */ }
 
-func (h *ttoHooks) updateCr(req *common.HcoRequest, client client.Client, exists runtime.Object, required runtime.Object) (bool, bool, error) {
+func (*ttoHooks) updateCr(req *common.HcoRequest, client client.Client, exists runtime.Object, required runtime.Object) (bool, bool, error) {
 	tto, ok1 := required.(*ttov1alpha1.TektonTasks)
 	found, ok2 := exists.(*ttov1alpha1.TektonTasks)
 	if !ok1 || !ok2 {

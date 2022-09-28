@@ -47,11 +47,11 @@ func (h *cdiHooks) getFullCr(hc *hcov1beta1.HyperConverged) (client.Object, erro
 	}
 	return h.cache, nil
 }
-func (h cdiHooks) getEmptyCr() client.Object { return &cdiv1beta1.CDI{} }
-func (h cdiHooks) getConditions(cr runtime.Object) []metav1.Condition {
+func (*cdiHooks) getEmptyCr() client.Object { return &cdiv1beta1.CDI{} }
+func (*cdiHooks) getConditions(cr runtime.Object) []metav1.Condition {
 	return osConditionsToK8s(cr.(*cdiv1beta1.CDI).Status.Conditions)
 }
-func (h cdiHooks) checkComponentVersion(cr runtime.Object) bool {
+func (*cdiHooks) checkComponentVersion(cr runtime.Object) bool {
 	found := cr.(*cdiv1beta1.CDI)
 	return checkComponentVersion(hcoutil.CdiVersionEnvV, found.Status.ObservedVersion)
 }
@@ -59,7 +59,7 @@ func (h *cdiHooks) reset() {
 	h.cache = nil
 }
 
-func (h *cdiHooks) updateCr(req *common.HcoRequest, Client client.Client, exists runtime.Object, required runtime.Object) (bool, bool, error) {
+func (*cdiHooks) updateCr(req *common.HcoRequest, Client client.Client, exists runtime.Object, required runtime.Object) (bool, bool, error) {
 	cdi, ok1 := required.(*cdiv1beta1.CDI)
 	found, ok2 := exists.(*cdiv1beta1.CDI)
 	if !ok1 || !ok2 {
@@ -86,7 +86,7 @@ func (h *cdiHooks) updateCr(req *common.HcoRequest, Client client.Client, exists
 	return false, false, nil
 }
 
-func (h cdiHooks) justBeforeComplete(_ *common.HcoRequest) { /* no implementation */ }
+func (*cdiHooks) justBeforeComplete(_ *common.HcoRequest) { /* no implementation */ }
 
 func getDefaultFeatureGates() []string {
 	return []string{HonorWaitForFirstConsumerGate}

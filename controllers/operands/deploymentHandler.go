@@ -41,9 +41,7 @@ func (h deploymentHooks) getEmptyCr() client.Object {
 	}
 }
 
-func (h deploymentHooks) reset() { /* no implementation */ }
-
-func (h deploymentHooks) justBeforeComplete(_ *common.HcoRequest) { /* no implementation */ }
+func (deploymentHooks) justBeforeComplete(_ *common.HcoRequest) { /* no implementation */ }
 
 func (h deploymentHooks) updateCr(req *common.HcoRequest, Client client.Client, exists runtime.Object, _ runtime.Object) (bool, bool, error) {
 	found, ok := exists.(*appsv1.Deployment)

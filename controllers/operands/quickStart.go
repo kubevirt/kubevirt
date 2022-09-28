@@ -84,7 +84,7 @@ func (h qsHooks) updateCr(req *common.HcoRequest, Client client.Client, exists r
 	return false, false, nil
 }
 
-func (h qsHooks) justBeforeComplete(_ *common.HcoRequest) { /* no implementation */ }
+func (qsHooks) justBeforeComplete(_ *common.HcoRequest) { /* no implementation */ }
 
 // This function returns 3-state error:
 //   err := checkCrdExists(...)

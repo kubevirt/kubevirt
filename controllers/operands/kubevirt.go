@@ -194,11 +194,11 @@ func (h *kubevirtHooks) getFullCr(hc *hcov1beta1.HyperConverged) (client.Object,
 	return h.cache, nil
 }
 
-func (h kubevirtHooks) getEmptyCr() client.Object { return &kubevirtcorev1.KubeVirt{} }
-func (h kubevirtHooks) getConditions(cr runtime.Object) []metav1.Condition {
+func (*kubevirtHooks) getEmptyCr() client.Object { return &kubevirtcorev1.KubeVirt{} }
+func (*kubevirtHooks) getConditions(cr runtime.Object) []metav1.Condition {
 	return translateKubeVirtConds(cr.(*kubevirtcorev1.KubeVirt).Status.Conditions)
 }
-func (h kubevirtHooks) checkComponentVersion(cr runtime.Object) bool {
+func (*kubevirtHooks) checkComponentVersion(cr runtime.Object) bool {
 	found := cr.(*kubevirtcorev1.KubeVirt)
 	return checkComponentVersion(hcoutil.KubevirtVersionEnvV, found.Status.ObservedKubeVirtVersion)
 }
@@ -206,7 +206,7 @@ func (h *kubevirtHooks) reset() {
 	h.cache = nil
 }
 
-func (h *kubevirtHooks) updateCr(req *common.HcoRequest, Client client.Client, exists runtime.Object, required runtime.Object) (bool, bool, error) {
+func (*kubevirtHooks) updateCr(req *common.HcoRequest, Client client.Client, exists runtime.Object, required runtime.Object) (bool, bool, error) {
 	virt, ok1 := required.(*kubevirtcorev1.KubeVirt)
 	found, ok2 := exists.(*kubevirtcorev1.KubeVirt)
 	if !ok1 || !ok2 {
@@ -230,7 +230,7 @@ func (h *kubevirtHooks) updateCr(req *common.HcoRequest, Client client.Client, e
 	return false, false, nil
 }
 
-func (h kubevirtHooks) justBeforeComplete(_ *common.HcoRequest) { /* no implementation */ }
+func (*kubevirtHooks) justBeforeComplete(_ *common.HcoRequest) { /* no implementation */ }
 
 func NewKubeVirt(hc *hcov1beta1.HyperConverged, opts ...string) (*kubevirtcorev1.KubeVirt, error) {
 	config, err := getKVConfig(hc)
@@ -549,12 +549,12 @@ func newKvPriorityClassHandler(Client client.Client, Scheme *runtime.Scheme) *kv
 
 type kvPriorityClassHooks struct{}
 
-func (h kvPriorityClassHooks) getFullCr(hc *hcov1beta1.HyperConverged) (client.Object, error) {
+func (kvPriorityClassHooks) getFullCr(hc *hcov1beta1.HyperConverged) (client.Object, error) {
 	return NewKubeVirtPriorityClass(hc), nil
 }
-func (h kvPriorityClassHooks) getEmptyCr() client.Object { return &schedulingv1.PriorityClass{} }
+func (kvPriorityClassHooks) getEmptyCr() client.Object { return &schedulingv1.PriorityClass{} }
 
-func (h *kvPriorityClassHooks) updateCr(req *common.HcoRequest, Client client.Client, exists runtime.Object, required runtime.Object) (bool, bool, error) {
+func (kvPriorityClassHooks) updateCr(req *common.HcoRequest, Client client.Client, exists runtime.Object, required runtime.Object) (bool, bool, error) {
 	pc, ok1 := required.(*schedulingv1.PriorityClass)
 	found, ok2 := exists.(*schedulingv1.PriorityClass)
 	if !ok1 || !ok2 {
@@ -590,7 +590,7 @@ func (h *kvPriorityClassHooks) updateCr(req *common.HcoRequest, Client client.Cl
 	return true, !req.HCOTriggered, nil
 }
 
-func (h kvPriorityClassHooks) justBeforeComplete(_ *common.HcoRequest) { /* no implementation */ }
+func (kvPriorityClassHooks) justBeforeComplete(_ *common.HcoRequest) { /* no implementation */ }
 
 func NewKubeVirtPriorityClass(hc *hcov1beta1.HyperConverged) *schedulingv1.PriorityClass {
 	return &schedulingv1.PriorityClass{

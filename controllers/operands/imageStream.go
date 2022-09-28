@@ -139,9 +139,9 @@ func (h isHooks) updateCr(req *common.HcoRequest, Client client.Client, exists r
 	return true, !req.HCOTriggered, nil
 }
 
-func (h isHooks) justBeforeComplete(_ *common.HcoRequest) { /* no implementation */ }
+func (isHooks) justBeforeComplete(_ *common.HcoRequest) { /* no implementation */ }
 
-func (h *isHooks) compareAndUpgradeImageStream(found *imagev1.ImageStream) bool {
+func (h isHooks) compareAndUpgradeImageStream(found *imagev1.ImageStream) bool {
 	modified := false
 	if !reflect.DeepEqual(h.required.Labels, found.Labels) {
 		util.DeepCopyLabels(&h.required.ObjectMeta, &found.ObjectMeta)
@@ -157,7 +157,7 @@ func (h *isHooks) compareAndUpgradeImageStream(found *imagev1.ImageStream) bool 
 			continue
 		}
 
-		if h.compareOneTag(&foundTag, &reqTag) {
+		if compareOneTag(&foundTag, &reqTag) {
 			modified = true
 		}
 
@@ -174,7 +174,7 @@ func (h *isHooks) compareAndUpgradeImageStream(found *imagev1.ImageStream) bool 
 	return modified
 }
 
-func (h *isHooks) addMissingTags(found *imagev1.ImageStream, newTags []imagev1.TagReference, modified bool) ([]imagev1.TagReference, bool) {
+func (h isHooks) addMissingTags(found *imagev1.ImageStream, newTags []imagev1.TagReference, modified bool) ([]imagev1.TagReference, bool) {
 	for reqTagName, reqTag := range h.tags {
 		tagExist := false
 		for _, foundTag := range found.Spec.Tags {
@@ -230,7 +230,7 @@ func createImageStreamHandlersFromFiles(logger log.Logger, Client client.Client,
 	return handlers, err
 }
 
-func (h *isHooks) compareOneTag(foundTag, reqTag *imagev1.TagReference) bool {
+func compareOneTag(foundTag, reqTag *imagev1.TagReference) bool {
 	modified := false
 	if reqTag.From.Name != foundTag.From.Name || reqTag.From.Kind != foundTag.From.Kind {
 		foundTag.From = reqTag.From.DeepCopy()

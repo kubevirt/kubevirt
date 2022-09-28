@@ -249,9 +249,7 @@ func (h consolePluginHooks) getEmptyCr() client.Object {
 	}
 }
 
-func (h consolePluginHooks) reset() { /* no implementation */ }
-
-func (h consolePluginHooks) justBeforeComplete(_ *common.HcoRequest) { /* no implementation */ }
+func (consolePluginHooks) justBeforeComplete(_ *common.HcoRequest) { /* no implementation */ }
 
 func (h consolePluginHooks) updateCr(req *common.HcoRequest, Client client.Client, exists runtime.Object, _ runtime.Object) (bool, bool, error) {
 	found, ok := exists.(*consolev1alpha1.ConsolePlugin)
@@ -321,7 +319,7 @@ func (h consoleHandler) ensure(req *common.HcoRequest) *EnsureResult {
 	}
 }
 
-func (h consoleHandler) reset() { /* no implementation */ }
+func (consoleHandler) reset() { /* no implementation */ }
 
 func newConsoleHandler(Client client.Client) Operand {
 	h := &consoleHandler{

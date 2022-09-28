@@ -32,19 +32,17 @@ type serviceHooks struct {
 	newCrFunc newSvcFunc
 }
 
-func (h *serviceHooks) getFullCr(hc *hcov1beta1.HyperConverged) (client.Object, error) {
+func (h serviceHooks) getFullCr(hc *hcov1beta1.HyperConverged) (client.Object, error) {
 	return h.newCrFunc(hc), nil
 }
 
-func (h serviceHooks) getEmptyCr() client.Object {
+func (serviceHooks) getEmptyCr() client.Object {
 	return &corev1.Service{}
 }
 
-func (h serviceHooks) reset() { /* no implementation */ }
+func (serviceHooks) justBeforeComplete(_ *common.HcoRequest) { /* no implementation */ }
 
-func (h serviceHooks) justBeforeComplete(_ *common.HcoRequest) { /* no implementation */ }
-
-func (h serviceHooks) updateCr(req *common.HcoRequest, Client client.Client, exists runtime.Object, required runtime.Object) (bool, bool, error) {
+func (serviceHooks) updateCr(req *common.HcoRequest, Client client.Client, exists runtime.Object, required runtime.Object) (bool, bool, error) {
 	return updateService(req, Client, exists, required)
 }
 

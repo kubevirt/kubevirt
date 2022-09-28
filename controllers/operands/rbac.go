@@ -68,7 +68,7 @@ func (h *roleHooks) updateCr(req *common.HcoRequest, Client client.Client, exist
 	return false, false, nil
 }
 
-func (h roleHooks) justBeforeComplete(_ *common.HcoRequest) { /* no implementation */ }
+func (roleHooks) justBeforeComplete(_ *common.HcoRequest) { /* no implementation */ }
 
 // ********* Role Binding Handler *****************************
 
@@ -96,7 +96,7 @@ func (h roleBindingHooks) getEmptyCr() client.Object {
 		},
 	}
 }
-func (h *roleBindingHooks) updateCr(req *common.HcoRequest, Client client.Client, exists runtime.Object, _ runtime.Object) (bool, bool, error) {
+func (h roleBindingHooks) updateCr(req *common.HcoRequest, Client client.Client, exists runtime.Object, _ runtime.Object) (bool, bool, error) {
 	configReaderRoleBinding := h.required
 	found, ok := exists.(*rbacv1.RoleBinding)
 	if !ok {
@@ -123,4 +123,4 @@ func (h *roleBindingHooks) updateCr(req *common.HcoRequest, Client client.Client
 	return false, false, nil
 }
 
-func (h roleBindingHooks) justBeforeComplete(_ *common.HcoRequest) { /* no implementation */ }
+func (roleBindingHooks) justBeforeComplete(_ *common.HcoRequest) { /* no implementation */ }
