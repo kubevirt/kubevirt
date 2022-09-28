@@ -398,13 +398,9 @@ func (ctrl *VMSnapshotController) handleVMSnapshotContent(obj interface{}) {
 			log.Log.Errorf(failedKeyFromObjectFmt, err, content)
 			return
 		}
-		keys, err := ctrl.VMSnapshotInformer.GetIndexer().IndexKeys("vmSnapshotContent", objName)
-		if err != nil {
-			utilruntime.HandleError(err)
-			return
-		}
 
-		for _, k := range keys {
+		if content.Spec.VirtualMachineSnapshotName != nil {
+			k := cacheKeyFunc(content.Namespace, *content.Spec.VirtualMachineSnapshotName)
 			log.Log.V(5).Infof("enqueued vmsnapshot %q for sync", k)
 			ctrl.vmSnapshotQueue.Add(k)
 		}
