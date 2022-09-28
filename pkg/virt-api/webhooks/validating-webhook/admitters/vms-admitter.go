@@ -99,12 +99,16 @@ func (admitter *VMsAdmitter) Admit(ar *admissionv1.AdmissionReview) *admissionv1
 		return webhookutils.ToAdmissionResponseError(err)
 	}
 
-	causes := admitter.applyInstancetypeToVm(&vm)
+	// We apply any referenced instancetype and preferences early here to the VirtualMachine in order to
+	// validate the resulting VirtualMachineInstanceSpec below. As we don't want to persist these changes
+	// we pass a copy of the original VirtualMachine here and to the validation call below.
+	vmCopy := vm.DeepCopy()
+	causes := admitter.applyInstancetypeToVm(vmCopy)
 	if len(causes) > 0 {
 		return webhookutils.ToAdmissionResponse(causes)
 	}
 
-	causes = ValidateVirtualMachineSpec(k8sfield.NewPath("spec"), &vm.Spec, admitter.ClusterConfig, accountName)
+	causes = ValidateVirtualMachineSpec(k8sfield.NewPath("spec"), &vmCopy.Spec, admitter.ClusterConfig, accountName)
 	if len(causes) > 0 {
 		return webhookutils.ToAdmissionResponse(causes)
 	}
