@@ -15,6 +15,7 @@ import (
 	"k8s.io/apimachinery/pkg/types"
 	"k8s.io/apimachinery/pkg/util/validation/field"
 	"k8s.io/client-go/testing"
+	"k8s.io/client-go/tools/cache"
 	"k8s.io/utils/pointer"
 
 	k8sfield "k8s.io/apimachinery/pkg/util/validation/field"
@@ -24,6 +25,7 @@ import (
 	"kubevirt.io/client-go/kubecli"
 
 	"kubevirt.io/kubevirt/pkg/instancetype"
+	"kubevirt.io/kubevirt/pkg/testutils"
 
 	v1 "kubevirt.io/api/core/v1"
 	apiinstancetype "kubevirt.io/api/instancetype"
@@ -37,14 +39,18 @@ const resourceGeneration int64 = 1
 
 var _ = Describe("Instancetype and Preferences", func() {
 	var (
-		ctrl                    *gomock.Controller
-		instancetypeMethods     instancetype.Methods
-		vm                      *v1.VirtualMachine
-		vmi                     *v1.VirtualMachineInstance
-		virtClient              *kubecli.MockKubevirtClient
-		vmInterface             *kubecli.MockVirtualMachineInterface
-		fakeInstancetypeClients v1alpha2.InstancetypeV1alpha2Interface
-		k8sClient               *k8sfake.Clientset
+		ctrl                             *gomock.Controller
+		instancetypeMethods              instancetype.Methods
+		vm                               *v1.VirtualMachine
+		vmi                              *v1.VirtualMachineInstance
+		virtClient                       *kubecli.MockKubevirtClient
+		vmInterface                      *kubecli.MockVirtualMachineInterface
+		fakeInstancetypeClients          v1alpha2.InstancetypeV1alpha2Interface
+		k8sClient                        *k8sfake.Clientset
+		instancetypeInformerStore        cache.Store
+		clusterInstancetypeInformerStore cache.Store
+		preferenceInformerStore          cache.Store
+		clusterPreferenceInformerStore   cache.Store
 	)
 
 	expectControllerRevisionCreation := func(instancetypeSpecRevision *appsv1.ControllerRevision) {
@@ -69,7 +75,25 @@ var _ = Describe("Instancetype and Preferences", func() {
 		virtClient.EXPECT().AppsV1().Return(k8sClient.AppsV1()).AnyTimes()
 		fakeInstancetypeClients = fakeclientset.NewSimpleClientset().InstancetypeV1alpha2()
 
-		instancetypeMethods = instancetype.NewMethods(virtClient)
+		instancetypeInformer, _ := testutils.NewFakeInformerFor(&instancetypev1alpha2.VirtualMachineInstancetype{})
+		instancetypeInformerStore = instancetypeInformer.GetStore()
+
+		clusterInstancetypeInformer, _ := testutils.NewFakeInformerFor(&instancetypev1alpha2.VirtualMachineClusterInstancetype{})
+		clusterInstancetypeInformerStore = clusterInstancetypeInformer.GetStore()
+
+		preferenceInformer, _ := testutils.NewFakeInformerFor(&instancetypev1alpha2.VirtualMachinePreference{})
+		preferenceInformerStore = preferenceInformer.GetStore()
+
+		clusterPreferenceInformer, _ := testutils.NewFakeInformerFor(&instancetypev1alpha2.VirtualMachineClusterPreference{})
+		clusterPreferenceInformerStore = clusterPreferenceInformer.GetStore()
+
+		instancetypeMethods = instancetype.NewMethods(
+			instancetypeInformerStore,
+			clusterInstancetypeInformerStore,
+			preferenceInformerStore,
+			clusterPreferenceInformerStore,
+			virtClient,
+		)
 
 		vm = kubecli.NewMinimalVM("testvm")
 		vm.Spec.Template = &v1.VirtualMachineInstanceTemplateSpec{
@@ -142,6 +166,9 @@ var _ = Describe("Instancetype and Preferences", func() {
 				_, err := virtClient.VirtualMachineClusterInstancetype().Create(context.Background(), clusterInstancetype, metav1.CreateOptions{})
 				Expect(err).ToNot(HaveOccurred())
 
+				err = clusterInstancetypeInformerStore.Add(clusterInstancetype)
+				Expect(err).ToNot(HaveOccurred())
+
 				vm.Spec.Instancetype = &v1.InstancetypeMatcher{
 					Name: clusterInstancetype.Name,
 					Kind: apiinstancetype.ClusterSingularResourceName,
@@ -149,6 +176,23 @@ var _ = Describe("Instancetype and Preferences", func() {
 			})
 
 			It("returns expected instancetype", func() {
+
+				f, err := instancetypeMethods.FindInstancetypeSpec(vm)
+				Expect(err).ToNot(HaveOccurred())
+				Expect(*f).To(Equal(clusterInstancetype.Spec))
+			})
+
+			It("uses client when instancetype not found within informer", func() {
+				err := clusterInstancetypeInformerStore.Delete(clusterInstancetype)
+				Expect(err).ToNot(HaveOccurred())
+
+				f, err := instancetypeMethods.FindInstancetypeSpec(vm)
+				Expect(err).ToNot(HaveOccurred())
+				Expect(*f).To(Equal(clusterInstancetype.Spec))
+			})
+
+			It("returns expected instancetype using only the client", func() {
+				instancetypeMethods = instancetype.NewMethods(nil, nil, nil, nil, virtClient)
 
 				f, err := instancetypeMethods.FindInstancetypeSpec(vm)
 				Expect(err).ToNot(HaveOccurred())
@@ -275,6 +319,9 @@ var _ = Describe("Instancetype and Preferences", func() {
 				_, err := virtClient.VirtualMachineInstancetype(vm.Namespace).Create(context.Background(), f, metav1.CreateOptions{})
 				Expect(err).ToNot(HaveOccurred())
 
+				err = instancetypeInformerStore.Add(f)
+				Expect(err).ToNot(HaveOccurred())
+
 				vm.Spec.Instancetype = &v1.InstancetypeMatcher{
 					Name: f.Name,
 					Kind: apiinstancetype.SingularResourceName,
@@ -282,6 +329,23 @@ var _ = Describe("Instancetype and Preferences", func() {
 			})
 
 			It("find returns expected instancetype", func() {
+				instancetypeSpec, err := instancetypeMethods.FindInstancetypeSpec(vm)
+				Expect(err).ToNot(HaveOccurred())
+				Expect(*instancetypeSpec).To(Equal(f.Spec))
+			})
+
+			It("uses client when instancetype not found within informer", func() {
+				err := clusterInstancetypeInformerStore.Delete(f)
+				Expect(err).ToNot(HaveOccurred())
+
+				instancetypeSpec, err := instancetypeMethods.FindInstancetypeSpec(vm)
+				Expect(err).ToNot(HaveOccurred())
+				Expect(*instancetypeSpec).To(Equal(f.Spec))
+			})
+
+			It("returns expected instancetype using only the client", func() {
+				instancetypeMethods = instancetype.NewMethods(nil, nil, nil, nil, virtClient)
+
 				instancetypeSpec, err := instancetypeMethods.FindInstancetypeSpec(vm)
 				Expect(err).ToNot(HaveOccurred())
 				Expect(*instancetypeSpec).To(Equal(f.Spec))
@@ -472,6 +536,9 @@ var _ = Describe("Instancetype and Preferences", func() {
 				_, err := virtClient.VirtualMachineClusterPreference().Create(context.Background(), clusterPreference, metav1.CreateOptions{})
 				Expect(err).ToNot(HaveOccurred())
 
+				err = clusterPreferenceInformerStore.Add(clusterPreference)
+				Expect(err).ToNot(HaveOccurred())
+
 				vm.Spec.Preference = &v1.PreferenceMatcher{
 					Name: clusterPreference.Name,
 					Kind: apiinstancetype.ClusterSingularPreferenceResourceName,
@@ -482,6 +549,23 @@ var _ = Describe("Instancetype and Preferences", func() {
 				s, err := instancetypeMethods.FindPreferenceSpec(vm)
 				Expect(err).ToNot(HaveOccurred())
 				Expect(*s).To(Equal(clusterPreference.Spec))
+			})
+
+			It("uses client when preference not found within informer", func() {
+				err := clusterPreferenceInformerStore.Delete(clusterPreference)
+				Expect(err).ToNot(HaveOccurred())
+
+				preferenceSpec, err := instancetypeMethods.FindPreferenceSpec(vm)
+				Expect(err).ToNot(HaveOccurred())
+				Expect(*preferenceSpec).To(Equal(clusterPreference.Spec))
+			})
+
+			It("returns expected preference using only the client", func() {
+				instancetypeMethods = instancetype.NewMethods(nil, nil, nil, nil, virtClient)
+
+				preferenceSpec, err := instancetypeMethods.FindPreferenceSpec(vm)
+				Expect(err).ToNot(HaveOccurred())
+				Expect(*preferenceSpec).To(Equal(clusterPreference.Spec))
 			})
 
 			It("find fails when preference does not exist", func() {
@@ -589,6 +673,9 @@ var _ = Describe("Instancetype and Preferences", func() {
 				_, err := virtClient.VirtualMachinePreference(vm.Namespace).Create(context.Background(), preference, metav1.CreateOptions{})
 				Expect(err).ToNot(HaveOccurred())
 
+				err = preferenceInformerStore.Add(preference)
+				Expect(err).ToNot(HaveOccurred())
+
 				vm.Spec.Preference = &v1.PreferenceMatcher{
 					Name: preference.Name,
 					Kind: apiinstancetype.SingularPreferenceResourceName,
@@ -599,6 +686,23 @@ var _ = Describe("Instancetype and Preferences", func() {
 				s, err := instancetypeMethods.FindPreferenceSpec(vm)
 				Expect(err).ToNot(HaveOccurred())
 				Expect(*s).To(Equal(preference.Spec))
+			})
+
+			It("uses client when preference not found within informer", func() {
+				err := preferenceInformerStore.Delete(preference)
+				Expect(err).ToNot(HaveOccurred())
+
+				preferenceSpec, err := instancetypeMethods.FindPreferenceSpec(vm)
+				Expect(err).ToNot(HaveOccurred())
+				Expect(*preferenceSpec).To(Equal(preference.Spec))
+			})
+
+			It("returns expected preference using only the client", func() {
+				instancetypeMethods = instancetype.NewMethods(nil, nil, nil, nil, virtClient)
+
+				preferenceSpec, err := instancetypeMethods.FindPreferenceSpec(vm)
+				Expect(err).ToNot(HaveOccurred())
+				Expect(*preferenceSpec).To(Equal(preference.Spec))
 			})
 
 			It("find fails when preference does not exist", func() {
