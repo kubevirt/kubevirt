@@ -8,7 +8,7 @@ JOB_TYPE="${JOB_TYPE:-}"
 if [ "${JOB_TYPE}" == "travis" ]; then
     go get -v -t ./...
     go install github.com/mattn/goveralls@latest
-    go install github.com/onsi/ginkgo/v2/ginkgo@v2.1.3
+    go install github.com/onsi/ginkgo/v2/ginkgo@latest
     go mod vendor
     PKG_PACKAGE_PATH="./pkg/"
     CONTROLLERS_PACKAGE_PATH="./controllers/"

@@ -338,34 +338,34 @@ func LoadRoots(roots ...string) ([]*Package, error) {
 // supports roots that are filesystem paths. For more information, please
 // refer to the high-level outline of this function's logic:
 //
-//     1. If no roots are provided then load the working directory and return
-//        early.
+//  1. If no roots are provided then load the working directory and return
+//     early.
 //
-//     2. Otherwise sort the provided roots into two, distinct buckets:
+//  2. Otherwise sort the provided roots into two, distinct buckets:
 //
-//            a. package/module names
-//            b. filesystem paths
+//     a. package/module names
+//     b. filesystem paths
 //
-//        A filesystem path is distinguished from a Go package/module name by
-//        the same rules as followed by the "go" command. At a high level, a
-//        root is a filesystem path IFF it meets ANY of the following criteria:
+//     A filesystem path is distinguished from a Go package/module name by
+//     the same rules as followed by the "go" command. At a high level, a
+//     root is a filesystem path IFF it meets ANY of the following criteria:
 //
-//            * is absolute
-//            * begins with .
-//            * begins with ..
+//     * is absolute
+//     * begins with .
+//     * begins with ..
 //
-//        For more information please refer to the output of the command
-//        "go help packages".
+//     For more information please refer to the output of the command
+//     "go help packages".
 //
-//     3. Load the package/module roots as a single call to packages.Load. If
-//        there are no filesystem path roots then return early.
+//  3. Load the package/module roots as a single call to packages.Load. If
+//     there are no filesystem path roots then return early.
 //
-//     4. For filesystem path roots ending with "...", check to see if its
-//        descendants include any nested, Go modules. If so, add the directory
-//        that contains the nested Go module to the filesystem path roots.
+//  4. For filesystem path roots ending with "...", check to see if its
+//     descendants include any nested, Go modules. If so, add the directory
+//     that contains the nested Go module to the filesystem path roots.
 //
-//     5. Load the filesystem path roots and return the load packages for the
-//        package/module roots AND the filesystem path roots.
+//  5. Load the filesystem path roots and return the load packages for the
+//     package/module roots AND the filesystem path roots.
 func LoadRootsWithConfig(cfg *packages.Config, roots ...string) ([]*Package, error) {
 	l := &loader{
 		cfg:      cfg,

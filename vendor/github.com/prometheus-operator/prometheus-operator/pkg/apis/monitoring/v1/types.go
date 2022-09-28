@@ -88,17 +88,6 @@ type CommonPrometheusFields struct {
 	ProbeNamespaceSelector *metav1.LabelSelector `json:"probeNamespaceSelector,omitempty"`
 	// Version of Prometheus to be deployed.
 	Version string `json:"version,omitempty"`
-	// Tag of Prometheus container image to be deployed. Defaults to the value of `version`.
-	// Version is ignored if Tag is set.
-	// Deprecated: use 'image' instead.  The image tag can be specified
-	// as part of the image URL.
-	Tag string `json:"tag,omitempty"`
-	// SHA of Prometheus container image to be deployed. Defaults to the value of `version`.
-	// Similar to a tag, but the SHA explicitly deploys an immutable container image.
-	// Version and Tag are ignored if SHA is set.
-	// Deprecated: use 'image' instead.  The image digest can be specified
-	// as part of the image URL.
-	SHA string `json:"sha,omitempty"`
 	// When a Prometheus deployment is paused, no actions except for deletion
 	// will be performed on the underlying objects.
 	Paused bool `json:"paused,omitempty"`
@@ -107,9 +96,6 @@ type CommonPrometheusFields struct {
 	// Prometheus Operator knows what version of Prometheus is being
 	// configured.
 	Image *string `json:"image,omitempty"`
-	// Base image to use for a Prometheus deployment.
-	// Deprecated: use 'image' instead
-	BaseImage string `json:"baseImage,omitempty"`
 	// An optional list of references to secrets in the same namespace
 	// to use for pulling prometheus and alertmanager images from registries
 	// see http://kubernetes.io/docs/user-guide/images#specifying-imagepullsecrets-on-a-pod
@@ -146,19 +132,9 @@ type CommonPrometheusFields struct {
 	ScrapeInterval Duration `json:"scrapeInterval,omitempty"`
 	// Number of seconds to wait for target to respond before erroring.
 	ScrapeTimeout Duration `json:"scrapeTimeout,omitempty"`
-	// Interval between consecutive evaluations. Default: `30s`
-	// +kubebuilder:default:="30s"
-	EvaluationInterval Duration `json:"evaluationInterval,omitempty"`
 	// The labels to add to any time series or alerts when communicating with
 	// external systems (federation, remote storage, Alertmanager).
 	ExternalLabels map[string]string `json:"externalLabels,omitempty"`
-	// Enable access to prometheus web admin API. Defaults to the value of `false`.
-	// WARNING: Enabling the admin APIs enables mutating endpoints, to delete data,
-	// shutdown Prometheus, and more. Enabling this should be done with care and the
-	// user is advised to add additional authentication authorization via a proxy to
-	// ensure only clients authorized to perform these actions can do so.
-	// For more information see https://prometheus.io/docs/prometheus/latest/querying/api/#tsdb-admin-apis
-	EnableAdminAPI bool `json:"enableAdminAPI,omitempty"`
 	// Enable Prometheus to be used as a receiver for the Prometheus remote write protocol. Defaults to the value of `false`.
 	// WARNING: This is not considered an efficient way of ingesting samples.
 	// Use it with caution for specific low-volume use cases.
@@ -342,6 +318,22 @@ type CommonPrometheusFields struct {
 	// +listType=map
 	// +listMapKey=ip
 	HostAliases []HostAlias `json:"hostAliases,omitempty"`
+	// AdditionalArgs allows setting additional arguments for the Prometheus container.
+	// It is intended for e.g. activating hidden flags which are not supported by
+	// the dedicated configuration options yet. The arguments are passed as-is to the
+	// Prometheus container which may cause issues if they are invalid or not supporeted
+	// by the given Prometheus version.
+	// In case of an argument conflict (e.g. an argument which is already set by the
+	// operator itself) or when providing an invalid argument the reconciliation will
+	// fail and an error will be logged.
+	AdditionalArgs []Argument `json:"additionalArgs,omitempty"`
+	// Enable compression of the write-ahead log using Snappy. This flag is
+	// only available in versions of Prometheus >= 2.11.0.
+	WALCompression *bool `json:"walCompression,omitempty"`
+	// List of references to PodMonitor, ServiceMonitor, Probe and PrometheusRule objects
+	// to be excluded from enforcing a namespace label of origin.
+	// Applies only if enforcedNamespaceLabel set to true.
+	ExcludedFromEnforcement []ObjectReference `json:"excludedFromEnforcement,omitempty"`
 }
 
 // +genclient
@@ -409,6 +401,20 @@ type HostAlias struct {
 // +k8s:openapi-gen=true
 type PrometheusSpec struct {
 	CommonPrometheusFields `json:",inline"`
+	// Base image to use for a Prometheus deployment.
+	// Deprecated: use 'image' instead
+	BaseImage string `json:"baseImage,omitempty"`
+	// Tag of Prometheus container image to be deployed. Defaults to the value of `version`.
+	// Version is ignored if Tag is set.
+	// Deprecated: use 'image' instead.  The image tag can be specified
+	// as part of the image URL.
+	Tag string `json:"tag,omitempty"`
+	// SHA of Prometheus container image to be deployed. Defaults to the value of `version`.
+	// Similar to a tag, but the SHA explicitly deploys an immutable container image.
+	// Version and Tag are ignored if SHA is set.
+	// Deprecated: use 'image' instead.  The image digest can be specified
+	// as part of the image URL.
+	SHA string `json:"sha,omitempty"`
 	// Time duration Prometheus shall retain data for. Default is '24h' if
 	// retentionSize is not set, and must match the regular expression `[0-9]+(ms|s|m|h|d|w|y)`
 	// (milliseconds seconds minutes hours days weeks years).
@@ -417,15 +423,8 @@ type PrometheusSpec struct {
 	RetentionSize ByteSize `json:"retentionSize,omitempty"`
 	// Disable prometheus compaction.
 	DisableCompaction bool `json:"disableCompaction,omitempty"`
-	// Enable compression of the write-ahead log using Snappy. This flag is
-	// only available in versions of Prometheus >= 2.11.0.
-	WALCompression *bool `json:"walCompression,omitempty"`
 	// /--rules.*/ command-line arguments.
 	Rules Rules `json:"rules,omitempty"`
-	// List of references to PodMonitor, ServiceMonitor, Probe and PrometheusRule objects
-	// to be excluded from enforcing a namespace label of origin.
-	// Applies only if enforcedNamespaceLabel set to true.
-	ExcludedFromEnforcement []ObjectReference `json:"excludedFromEnforcement,omitempty"`
 	// PrometheusRulesExcludedFromEnforce - list of prometheus rules to be excluded from enforcing
 	// of adding namespace labels. Works only if enforcedNamespaceLabel set to true.
 	// Make sure both ruleNamespace and ruleName are set for each pair.
@@ -494,6 +493,16 @@ type PrometheusSpec struct {
 	// Exemplars related settings that are runtime reloadable.
 	// It requires to enable the exemplar storage feature to be effective.
 	Exemplars *Exemplars `json:"exemplars,omitempty"`
+	// Interval between consecutive evaluations. Default: `30s`
+	// +kubebuilder:default:="30s"
+	EvaluationInterval Duration `json:"evaluationInterval,omitempty"`
+	// Enable access to prometheus web admin API. Defaults to the value of `false`.
+	// WARNING: Enabling the admin APIs enables mutating endpoints, to delete data,
+	// shutdown Prometheus, and more. Enabling this should be done with care and the
+	// user is advised to add additional authentication authorization via a proxy to
+	// ensure only clients authorized to perform these actions can do so.
+	// For more information see https://prometheus.io/docs/prometheus/latest/querying/api/#tsdb-admin-apis
+	EnableAdminAPI bool `json:"enableAdminAPI,omitempty"`
 }
 
 type Exemplars struct {
@@ -743,18 +752,67 @@ type QuerySpec struct {
 	Timeout *Duration `json:"timeout,omitempty"`
 }
 
-// PrometheusWebSpec defines the query command line flags when starting Prometheus.
+// PrometheusWebSpec defines the web command line flags when starting Prometheus.
 // +k8s:openapi-gen=true
 type PrometheusWebSpec struct {
+	WebConfigFileFields `json:",inline"`
 	// The prometheus web page title
-	PageTitle *string       `json:"pageTitle,omitempty"`
-	TLSConfig *WebTLSConfig `json:"tlsConfig,omitempty"`
+	PageTitle *string `json:"pageTitle,omitempty"`
 }
 
-// AlertmanagerWebSpec defines the query command line flags when starting Alertmanager.
+// AlertmanagerWebSpec defines the web command line flags when starting Alertmanager.
 // +k8s:openapi-gen=true
 type AlertmanagerWebSpec struct {
+	WebConfigFileFields `json:",inline"`
+}
+
+// WebConfigFileFields defines the file content for --web.config.file flag.
+// +k8s:deepcopy-gen=true
+type WebConfigFileFields struct {
+	// Defines the TLS parameters for HTTPS.
 	TLSConfig *WebTLSConfig `json:"tlsConfig,omitempty"`
+	// Defines HTTP parameters for web server.
+	HTTPConfig *WebHTTPConfig `json:"httpConfig,omitempty"`
+}
+
+// WebHTTPConfig defines HTTP parameters for web server.
+// +k8s:openapi-gen=true
+type WebHTTPConfig struct {
+	// Enable HTTP/2 support. Note that HTTP/2 is only supported with TLS.
+	// When TLSConfig is not configured, HTTP/2 will be disabled.
+	// Whenever the value of the field changes, a rolling update will be triggered.
+	HTTP2 *bool `json:"http2,omitempty"`
+	// List of headers that can be added to HTTP responses.
+	Headers *WebHTTPHeaders `json:"headers,omitempty"`
+}
+
+// WebHTTPHeaders defines the list of headers that can be added to HTTP responses.
+// +k8s:openapi-gen=true
+type WebHTTPHeaders struct {
+	// Set the Content-Security-Policy header to HTTP responses.
+	// Unset if blank.
+	ContentSecurityPolicy string `json:"contentSecurityPolicy,omitempty"`
+	// Set the X-Frame-Options header to HTTP responses.
+	// Unset if blank. Accepted values are deny and sameorigin.
+	// https://developer.mozilla.org/en-US/docs/Web/HTTP/Headers/X-Frame-Options
+	//+kubebuilder:validation:Enum="";Deny;SameOrigin
+	XFrameOptions string `json:"xFrameOptions,omitempty"`
+	// Set the X-Content-Type-Options header to HTTP responses.
+	// Unset if blank. Accepted value is nosniff.
+	// https://developer.mozilla.org/en-US/docs/Web/HTTP/Headers/X-Content-Type-Options
+	//+kubebuilder:validation:Enum="";NoSniff
+	XContentTypeOptions string `json:"xContentTypeOptions,omitempty"`
+	// Set the X-XSS-Protection header to all responses.
+	// Unset if blank.
+	// https://developer.mozilla.org/en-US/docs/Web/HTTP/Headers/X-XSS-Protection
+	XXSSProtection string `json:"xXSSProtection,omitempty"`
+	// Set the Strict-Transport-Security header to HTTP responses.
+	// Unset if blank.
+	// Please make sure that you use this with care as this header might force
+	// browsers to load Prometheus and the other applications hosted on the same
+	// domain and subdomains over HTTPS.
+	// https://developer.mozilla.org/en-US/docs/Web/HTTP/Headers/Strict-Transport-Security
+	StrictTransportSecurity string `json:"strictTransportSecurity,omitempty"`
 }
 
 // WebTLSConfig defines the TLS parameters for HTTPS.
@@ -885,6 +943,13 @@ type ThanosSpec struct {
 	// VolumeMounts allows configuration of additional VolumeMounts on the output StatefulSet definition.
 	// VolumeMounts specified will be appended to other VolumeMounts in the thanos-sidecar container.
 	VolumeMounts []v1.VolumeMount `json:"volumeMounts,omitempty"`
+	// AdditionalArgs allows setting additional arguments for the Thanos container.
+	// The arguments are passed as-is to the Thanos container which may cause issues
+	// if they are invalid or not supporeted the given Thanos version.
+	// In case of an argument conflict (e.g. an argument which is already set by the
+	// operator itself) or when providing an invalid argument the reconciliation will
+	// fail and an error will be logged.
+	AdditionalArgs []Argument `json:"additionalArgs,omitempty"`
 }
 
 // RemoteWriteSpec defines the configuration to write samples from Prometheus
@@ -1900,20 +1965,66 @@ type AlertmanagerSpec struct {
 	HostAliases []HostAlias `json:"hostAliases,omitempty"`
 	// Defines the web command line flags when starting Alertmanager.
 	Web *AlertmanagerWebSpec `json:"web,omitempty"`
-	// EXPERIMENTAL: alertmanagerConfiguration specifies the global Alertmanager configuration.
+	// EXPERIMENTAL: alertmanagerConfiguration specifies the configuration of Alertmanager.
 	// If defined, it takes precedence over the `configSecret` field.
 	// This field may change in future releases.
 	AlertmanagerConfiguration *AlertmanagerConfiguration `json:"alertmanagerConfiguration,omitempty"`
 }
 
-// AlertmanagerConfiguration defines the global Alertmanager configuration.
+// AlertmanagerConfiguration defines the Alertmanager configuration.
 // +k8s:openapi-gen=true
 type AlertmanagerConfiguration struct {
-	// The name of the AlertmanagerConfig resource which is used to generate the global configuration.
+	// The name of the AlertmanagerConfig resource which is used to generate the Alertmanager configuration.
 	// It must be defined in the same namespace as the Alertmanager object.
 	// The operator will not enforce a `namespace` label for routes and inhibition rules.
 	// +kubebuilder:validation:MinLength=1
 	Name string `json:"name,omitempty"`
+	// Defines the global parameters of the Alertmanager configuration.
+	// +optional
+	Global *AlertmanagerGlobalConfig `json:"global,omitempty"`
+}
+
+// AlertmanagerGlobalConfig configures parameters that are valid in all other configuration contexts.
+// See https://prometheus.io/docs/alerting/latest/configuration/#configuration-file
+type AlertmanagerGlobalConfig struct {
+	// ResolveTimeout is the default value used by alertmanager if the alert does
+	// not include EndsAt, after this time passes it can declare the alert as resolved if it has not been updated.
+	// This has no impact on alerts from Prometheus, as they always include EndsAt.
+	ResolveTimeout Duration `json:"resolveTimeout,omitempty"`
+
+	// HTTP client configuration.
+	HTTPConfig *HTTPConfig `json:"httpConfig,omitempty"`
+}
+
+// HTTPConfig defines a client HTTP configuration.
+// See https://prometheus.io/docs/alerting/latest/configuration/#http_config
+type HTTPConfig struct {
+	// Authorization header configuration for the client.
+	// This is mutually exclusive with BasicAuth and is only available starting from Alertmanager v0.22+.
+	// +optional
+	Authorization *SafeAuthorization `json:"authorization,omitempty"`
+	// BasicAuth for the client.
+	// This is mutually exclusive with Authorization. If both are defined, BasicAuth takes precedence.
+	// +optional
+	BasicAuth *BasicAuth `json:"basicAuth,omitempty"`
+	// OAuth2 client credentials used to fetch a token for the targets.
+	// +optional
+	OAuth2 *OAuth2 `json:"oauth2,omitempty"`
+	// The secret's key that contains the bearer token to be used by the client
+	// for authentication.
+	// The secret needs to be in the same namespace as the Alertmanager
+	// object and accessible by the Prometheus Operator.
+	// +optional
+	BearerTokenSecret *v1.SecretKeySelector `json:"bearerTokenSecret,omitempty"`
+	// TLS configuration for the client.
+	// +optional
+	TLSConfig *SafeTLSConfig `json:"tlsConfig,omitempty"`
+	// Optional proxy URL.
+	// +optional
+	ProxyURL string `json:"proxyURL,omitempty"`
+	// FollowRedirects specifies whether the client should follow HTTP 3xx redirects.
+	// +optional
+	FollowRedirects *bool `json:"followRedirects,omitempty"`
 }
 
 // AlertmanagerList is a list of Alertmanagers.
@@ -2114,4 +2225,14 @@ type AuthorizationValidationError struct {
 
 func (e *AuthorizationValidationError) Error() string {
 	return e.err
+}
+
+// Argument as part of the AdditionalArgs list.
+// +k8s:openapi-gen=true
+type Argument struct {
+	// Name of the argument, e.g. "scrape.discovery-reload-interval".
+	// +kubebuilder:validation:MinLength=1
+	Name string `json:"name"`
+	// Argument value, e.g. 30s. Can be empty for name-only arguments (e.g. --storage.tsdb.no-lockfile)
+	Value string `json:"value,omitempty"`
 }

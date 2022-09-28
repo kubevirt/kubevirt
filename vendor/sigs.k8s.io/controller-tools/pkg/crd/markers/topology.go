@@ -55,15 +55,15 @@ func init() {
 //
 // Possible data-structure types of a list are:
 //
-// - "map": it needs to have a key field, which will be used to build an
-//   associative list. A typical example is a the pod container list,
-//   which is indexed by the container name.
+//   - "map": it needs to have a key field, which will be used to build an
+//     associative list. A typical example is a the pod container list,
+//     which is indexed by the container name.
 //
-// - "set": Fields need to be "scalar", and there can be only one
-//   occurrence of each.
+//   - "set": Fields need to be "scalar", and there can be only one
+//     occurrence of each.
 //
-// - "atomic": All the fields in the list are treated as a single value,
-//   are typically manipulated together by the same actor.
+//   - "atomic": All the fields in the list are treated as a single value,
+//     are typically manipulated together by the same actor.
 type ListType string
 
 // +controllertools:marker:generateHelp:category="CRD processing"
@@ -83,12 +83,12 @@ type ListMapKey string
 //
 // Possible values:
 //
-// - "granular": items in the map are independent of each other,
-//   and can be manipulated by different actors.
-//   This is the default behavior.
+//   - "granular": items in the map are independent of each other,
+//     and can be manipulated by different actors.
+//     This is the default behavior.
 //
-// - "atomic": all fields are treated as one unit.
-//   Any changes have to replace the entire map.
+//   - "atomic": all fields are treated as one unit.
+//     Any changes have to replace the entire map.
 type MapType string
 
 // +controllertools:marker:generateHelp:category="CRD processing"
@@ -99,12 +99,12 @@ type MapType string
 //
 // Possible values:
 //
-// - "granular": fields in the struct are independent of each other,
-//   and can be manipulated by different actors.
-//   This is the default behavior.
+//   - "granular": fields in the struct are independent of each other,
+//     and can be manipulated by different actors.
+//     This is the default behavior.
 //
-// - "atomic": all fields are treated as one unit.
-//   Any changes have to replace the entire struct.
+//   - "atomic": all fields are treated as one unit.
+//     Any changes have to replace the entire struct.
 type StructType string
 
 func (l ListType) ApplyToSchema(schema *apiext.JSONSchemaProps) error {

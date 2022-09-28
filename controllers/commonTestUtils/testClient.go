@@ -24,13 +24,13 @@ type HcoTestClient struct {
 	deleteError FakeWriteErrorGenerator
 }
 
-func (c *HcoTestClient) Get(ctx context.Context, key client.ObjectKey, obj client.Object) error {
+func (c *HcoTestClient) Get(ctx context.Context, key client.ObjectKey, obj client.Object, opts ...client.GetOption) error {
 	if c.getError != nil {
 		if err := c.getError(key); err != nil {
 			return err
 		}
 	}
-	return c.client.Get(ctx, key, obj)
+	return c.client.Get(ctx, key, obj, opts...)
 }
 
 func (c *HcoTestClient) List(ctx context.Context, list client.ObjectList, opts ...client.ListOption) error {
