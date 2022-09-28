@@ -96,9 +96,15 @@ const (
 	ResultTypeCreatePodsCount ResultType = "CREATE-pods-count"
 
 	// kubevirt_vmi_phase_transition_time_from_creation_seconds_bucket
-	ResultTypeVMICreationToRunningP99 ResultType = "vmiCreationToRunningSecondsP99"
-	ResultTypeVMICreationToRunningP95 ResultType = "vmiCreationToRunningSecondsP95"
-	ResultTypeVMICreationToRunningP50 ResultType = "vmiCreationToRunningSecondsP50"
+	ResultTypeVMICreationToRunningP99   ResultType = "vmiCreationToRunningSecondsP99"
+	ResultTypeVMICreationToRunningP95   ResultType = "vmiCreationToRunningSecondsP95"
+	ResultTypeVMICreationToRunningP50   ResultType = "vmiCreationToRunningSecondsP50"
+	ResultTypeVMIDeletionToSucceededP99 ResultType = "vmiDeletionToSucceededSecondsP99"
+	ResultTypeVMIDeletionToSucceededP95 ResultType = "vmiDeletionToSucceededSecondsP95"
+	ResultTypeVMIDeletionToSucceededP50 ResultType = "vmiDeletionToSucceededSecondsP50"
+	ResultTypeVMIDeletionToFailedP99    ResultType = "vmiDeletionToFailedSecondsP99"
+	ResultTypeVMIDeletionToFailedP95    ResultType = "vmiDeletionToFailedSecondsP95"
+	ResultTypeVMIDeletionToFailedP50    ResultType = "vmiDeletionToFailedSecondsP50"
 )
 
 const (
