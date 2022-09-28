@@ -28,7 +28,9 @@ import (
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	k8sfield "k8s.io/apimachinery/pkg/util/validation/field"
 
+	virt "kubevirt.io/api/core"
 	exportv1 "kubevirt.io/api/export/v1alpha1"
+	"kubevirt.io/api/snapshot"
 
 	webhookutils "kubevirt.io/kubevirt/pkg/util/webhooks"
 	virtconfig "kubevirt.io/kubevirt/pkg/virt-config"
@@ -78,20 +80,14 @@ func (admitter *VMExportAdmitter) Admit(ar *admissionv1.AdmissionReview) *admiss
 
 		switch vmExport.Spec.Source.Kind {
 		case pvc:
-			causes, err = admitter.validatePVC(sourceField.Child("name"), ar.Request.Namespace, vmExport.Spec.Source.Name)
-			if err != nil {
-				return webhookutils.ToAdmissionResponseError(err)
-			}
+			causes = append(causes, admitter.validatePVCName(sourceField.Child("name"), vmExport.Spec.Source.Name)...)
+			causes = append(causes, admitter.validatePVCApiGroup(sourceField.Child("APIGroup"), vmExport.Spec.Source.APIGroup)...)
 		case vmSnapshotKind:
-			causes, err = admitter.validateVMSnapshot(sourceField.Child("name"), ar.Request.Namespace, vmExport.Spec.Source.Name)
-			if err != nil {
-				return webhookutils.ToAdmissionResponseError(err)
-			}
+			causes = append(causes, admitter.validateVMSnapshotName(sourceField.Child("name"), vmExport.Spec.Source.Name)...)
+			causes = append(causes, admitter.validateVMSnapshotApiGroup(sourceField.Child("APIGroup"), vmExport.Spec.Source.APIGroup)...)
 		case vmKind:
-			causes, err = admitter.validateVM(sourceField.Child("name"), ar.Request.Namespace, vmExport.Spec.Source.Name)
-			if err != nil {
-				return webhookutils.ToAdmissionResponseError(err)
-			}
+			causes = append(causes, admitter.validateVMName(sourceField.Child("name"), vmExport.Spec.Source.Name)...)
+			causes = append(causes, admitter.validateVMApiGroup(sourceField.Child("APIGroup"), vmExport.Spec.Source.APIGroup)...)
 		default:
 			causes = []metav1.StatusCause{
 				{
@@ -132,7 +128,7 @@ func (admitter *VMExportAdmitter) Admit(ar *admissionv1.AdmissionReview) *admiss
 	return &reviewResponse
 }
 
-func (admitter *VMExportAdmitter) validatePVC(field *k8sfield.Path, namespace, name string) ([]metav1.StatusCause, error) {
+func (admitter *VMExportAdmitter) validatePVCName(field *k8sfield.Path, name string) []metav1.StatusCause {
 	if name == "" {
 		return []metav1.StatusCause{
 			{
@@ -140,13 +136,27 @@ func (admitter *VMExportAdmitter) validatePVC(field *k8sfield.Path, namespace, n
 				Message: "PVC name must not be empty",
 				Field:   field.String(),
 			},
-		}, nil
+		}
 	}
 
-	return []metav1.StatusCause{}, nil
+	return []metav1.StatusCause{}
 }
 
-func (admitter *VMExportAdmitter) validateVMSnapshot(field *k8sfield.Path, namespace, name string) ([]metav1.StatusCause, error) {
+func (admitter *VMExportAdmitter) validatePVCApiGroup(field *k8sfield.Path, apigroup *string) []metav1.StatusCause {
+	if apigroup != nil && *apigroup != "" {
+		return []metav1.StatusCause{
+			{
+				Type:    metav1.CauseTypeFieldValueInvalid,
+				Message: "PVC API group must be missing or blank",
+				Field:   field.String(),
+			},
+		}
+	}
+
+	return []metav1.StatusCause{}
+}
+
+func (admitter *VMExportAdmitter) validateVMSnapshotName(field *k8sfield.Path, name string) []metav1.StatusCause {
 	if name == "" {
 		return []metav1.StatusCause{
 			{
@@ -154,13 +164,27 @@ func (admitter *VMExportAdmitter) validateVMSnapshot(field *k8sfield.Path, names
 				Message: "VMSnapshot name must not be empty",
 				Field:   field.String(),
 			},
-		}, nil
+		}
 	}
 
-	return []metav1.StatusCause{}, nil
+	return []metav1.StatusCause{}
 }
 
-func (admitter *VMExportAdmitter) validateVM(field *k8sfield.Path, namespace, name string) ([]metav1.StatusCause, error) {
+func (admitter *VMExportAdmitter) validateVMSnapshotApiGroup(field *k8sfield.Path, apigroup *string) []metav1.StatusCause {
+	if apigroup == nil || *apigroup != snapshot.GroupName {
+		return []metav1.StatusCause{
+			{
+				Type:    metav1.CauseTypeFieldValueInvalid,
+				Message: "VMSnapshot API group must be " + snapshot.GroupName,
+				Field:   field.String(),
+			},
+		}
+	}
+
+	return []metav1.StatusCause{}
+}
+
+func (admitter *VMExportAdmitter) validateVMName(field *k8sfield.Path, name string) []metav1.StatusCause {
 	if name == "" {
 		return []metav1.StatusCause{
 			{
@@ -168,8 +192,22 @@ func (admitter *VMExportAdmitter) validateVM(field *k8sfield.Path, namespace, na
 				Message: "Virtual Machine name must not be empty",
 				Field:   field.String(),
 			},
-		}, nil
+		}
 	}
 
-	return []metav1.StatusCause{}, nil
+	return []metav1.StatusCause{}
+}
+
+func (admitter *VMExportAdmitter) validateVMApiGroup(field *k8sfield.Path, apigroup *string) []metav1.StatusCause {
+	if apigroup == nil || *apigroup != virt.GroupName {
+		return []metav1.StatusCause{
+			{
+				Type:    metav1.CauseTypeFieldValueInvalid,
+				Message: "VM API group must be " + virt.GroupName,
+				Field:   field.String(),
+			},
+		}
+	}
+
+	return []metav1.StatusCause{}
 }

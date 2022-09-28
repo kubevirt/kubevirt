@@ -40,6 +40,7 @@ import (
 
 var _ = Describe("Validating VirtualMachineExport Admitter", func() {
 	apiGroup := "v1"
+	snapshotApiGroup := "snapshot.kubevirt.io"
 	kubevirtApiGroup := "kubevirt.io"
 
 	config, _, kvInformer := testutils.NewFakeClusterConfigUsingKVConfig(&v1.KubeVirtConfiguration{})
@@ -229,12 +230,32 @@ var _ = Describe("Validating VirtualMachineExport Admitter", func() {
 
 			ar := createExportAdmissionReview(export)
 			resp := createTestVMExportAdmitter(config).Admit(ar)
-			Expect(resp.Allowed).To(BeTrue())
+			Expect(resp.Allowed).To(BeTrue(), "should allow APIGroup: %s, Kind: %s", apiGroup, kind)
 		},
-			Entry("persistent volume claim", "v1", pvc),
-			Entry("virtual machine snapshot", kubevirtApiGroup, vmSnapshotKind),
+			Entry("persistent volume claim blank", "", pvc),
+			Entry("virtual machine snapshot", snapshotApiGroup, vmSnapshotKind),
+			Entry("virtual machine", kubevirtApiGroup, vmKind),
 		)
 
+		DescribeTable("it should reject invalid apigroups", func(apiGroup, kind string) {
+			export := &exportv1.VirtualMachineExport{
+				Spec: exportv1.VirtualMachineExportSpec{
+					Source: corev1.TypedLocalObjectReference{
+						APIGroup: &apiGroup,
+						Kind:     kind,
+						Name:     "test",
+					},
+				},
+			}
+
+			ar := createExportAdmissionReview(export)
+			resp := createTestVMExportAdmitter(config).Admit(ar)
+			Expect(resp.Allowed).To(BeFalse(), "should reject APIGroup: %s, Kind: %s", apiGroup, kind)
+		},
+			Entry("persistent volume claim", "invalid", pvc),
+			Entry("virtual machine snapshot", "invalid", vmSnapshotKind),
+			Entry("virtual machine", "invalid", vmKind),
+		)
 	})
 })
 
