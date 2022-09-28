@@ -17,6 +17,7 @@ import (
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/types"
 	"k8s.io/apimachinery/pkg/util/rand"
+	"k8s.io/utils/pointer"
 
 	. "kubevirt.io/kubevirt/tests/framework/matcher"
 
@@ -1161,7 +1162,6 @@ var _ = SIGDescribe("VirtualMachineSnapshot Tests", func() {
 
 		Context("[Serial]With more complicated VM with/out GC of succeeded DV", func() {
 			var originalTTL *int32
-			ttl0 := int32(0)
 
 			BeforeEach(func() {
 				cdi := libstorage.GetCDI(virtClient)
@@ -1237,8 +1237,8 @@ var _ = SIGDescribe("VirtualMachineSnapshot Tests", func() {
 					Expect(found).To(BeTrue())
 				}
 			},
-				Entry("[test_id:4611] without DV garbage collection", nil),
-				Entry("[test_id:8668] with DV garbage collection", &ttl0),
+				Entry("[test_id:4611] without DV garbage collection", pointer.Int32(-1)),
+				Entry("[test_id:8668] with DV garbage collection", pointer.Int32(0)),
 			)
 		})
 

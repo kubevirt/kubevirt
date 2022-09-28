@@ -892,7 +892,6 @@ var _ = SIGDescribe("DataVolume Integration", func() {
 
 	Describe("[Serial][rfe_id:8400][crit:high][vendor:cnv-qe@redhat.com][level:system] Garbage collection of succeeded DV", func() {
 		var originalTTL *int32
-		ttl0 := int32(0)
 
 		BeforeEach(func() {
 			cdi := libstorage.GetCDI(virtClient)
@@ -936,8 +935,8 @@ var _ = SIGDescribe("DataVolume Integration", func() {
 
 			vm = tests.StopVirtualMachine(vm)
 		},
-			Entry("[test_id:8567]GC is enabled", &ttl0, &ttl0, ""),
-			Entry("[test_id:8571]GC is disabled, and after VM creation, GC is enabled and DV is annotated", nil, &ttl0, "true"),
+			Entry("[test_id:8567]GC is enabled", pointer.Int32(0), pointer.Int32(0), ""),
+			Entry("[test_id:8571]GC is disabled, and after VM creation, GC is enabled and DV is annotated", pointer.Int32(-1), pointer.Int32(0), "true"),
 		)
 	})
 
