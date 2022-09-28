@@ -397,6 +397,9 @@ var _ = Describe("CloudInit", func() {
 									UserDataSecretRef: &k8sv1.LocalObjectReference{
 										Name: secret,
 									},
+									NetworkDataSecretRef: &k8sv1.LocalObjectReference{
+										Name: secret,
+									},
 								},
 							},
 						}
@@ -510,6 +513,9 @@ var _ = Describe("CloudInit", func() {
 							VolumeSource: v1.VolumeSource{
 								CloudInitConfigDrive: &v1.CloudInitConfigDriveSource{
 									UserDataSecretRef: &k8sv1.LocalObjectReference{
+										Name: secret,
+									},
+									NetworkDataSecretRef: &k8sv1.LocalObjectReference{
 										Name: secret,
 									},
 								},
