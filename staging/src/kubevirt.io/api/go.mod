@@ -8,7 +8,7 @@ require (
 	k8s.io/apiextensions-apiserver v0.23.5
 	k8s.io/apimachinery v0.23.5
 	k8s.io/utils v0.0.0-20211116205334-6203023598ed
-	kubevirt.io/containerized-data-importer-api v1.50.0
+	kubevirt.io/containerized-data-importer-api v1.55.0
 )
 
 require (
@@ -20,6 +20,7 @@ require (
 	github.com/json-iterator/go v1.1.12 // indirect
 	github.com/modern-go/concurrent v0.0.0-20180306012644-bacd9c7ef1dd // indirect
 	github.com/modern-go/reflect2 v1.0.2 // indirect
+	github.com/openshift/api v0.0.0-20211217221424-8779abfbd571 // indirect
 	github.com/openshift/custom-resource-status v1.1.2 // indirect
 	golang.org/x/net v0.0.0-20220225172249-27dd8689420f // indirect
 	golang.org/x/text v0.3.7 // indirect
