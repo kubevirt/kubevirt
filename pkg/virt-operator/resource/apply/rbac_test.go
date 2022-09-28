@@ -30,6 +30,7 @@ import (
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
 	rbacv1 "k8s.io/api/rbac/v1"
+	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/client-go/kubernetes/fake"
 	"k8s.io/client-go/testing"
@@ -285,6 +286,7 @@ var _ = Describe("RBAC test", func() {
 			required := newEmptyResource(resourceType)
 
 			assignRulesToRoles(newFakePolicyRules("policy1"), existing, required)
+			getRbacMetaObject(required).OwnerReferences = []metav1.OwnerReference{}
 			addToCache(existing)
 
 			if changeExisting {
@@ -309,6 +311,7 @@ var _ = Describe("RBAC test", func() {
 
 			assignSubjectsToBinding(newFakeSubjects("policy1"), existing, required)
 			assignRoleRefToBinding(newFakeRoleRef("policy1"), existing, required)
+			getRbacMetaObject(required).OwnerReferences = []metav1.OwnerReference{}
 			addToCache(existing)
 
 			if changeExistingSubjects {
