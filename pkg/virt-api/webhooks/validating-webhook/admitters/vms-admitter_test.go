@@ -1522,12 +1522,12 @@ var _ = Describe("Validating VM Admitter", func() {
 
 		It("should not apply instancetype to the VMISpec of the original VM", func() {
 
-			instancetypeMethods.FindInstancetypeSpecFunc = func(_ *v1.VirtualMachine) (*instancetypev1alpha1.VirtualMachineInstancetypeSpec, error) {
-				return &instancetypev1alpha1.VirtualMachineInstancetypeSpec{}, nil
+			instancetypeMethods.FindInstancetypeSpecFunc = func(_ *v1.VirtualMachine) (*instancetypev1alpha2.VirtualMachineInstancetypeSpec, error) {
+				return &instancetypev1alpha2.VirtualMachineInstancetypeSpec{}, nil
 			}
 
 			// Mock out ApplyToVmiFunc so that it applies some changes to the CPU of the provided VMISpec
-			instancetypeMethods.ApplyToVmiFunc = func(_ *k8sfield.Path, _ *instancetypev1alpha1.VirtualMachineInstancetypeSpec, _ *instancetypev1alpha1.VirtualMachinePreferenceSpec, vmiSpec *v1.VirtualMachineInstanceSpec) instancetype.Conflicts {
+			instancetypeMethods.ApplyToVmiFunc = func(_ *k8sfield.Path, _ *instancetypev1alpha2.VirtualMachineInstancetypeSpec, _ *instancetypev1alpha2.VirtualMachinePreferenceSpec, vmiSpec *v1.VirtualMachineInstanceSpec) instancetype.Conflicts {
 				vmiSpec.Domain.CPU = &v1.CPU{Cores: 1, Threads: 1, Sockets: 1}
 				return nil
 			}

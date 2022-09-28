@@ -34,11 +34,11 @@ import (
 
 	v1 "kubevirt.io/api/core/v1"
 	apiinstancetype "kubevirt.io/api/instancetype"
-	instancetypev1alpha1 "kubevirt.io/api/instancetype/v1alpha1"
+	instancetypev1alpha2 "kubevirt.io/api/instancetype/v1alpha2"
 	"kubevirt.io/client-go/kubecli"
 
 	fakeclientset "kubevirt.io/client-go/generated/kubevirt/clientset/versioned/fake"
-	instancetypeclientset "kubevirt.io/client-go/generated/kubevirt/clientset/versioned/typed/instancetype/v1alpha1"
+	instancetypeclientset "kubevirt.io/client-go/generated/kubevirt/clientset/versioned/typed/instancetype/v1alpha2"
 
 	"kubevirt.io/kubevirt/pkg/instancetype"
 	"kubevirt.io/kubevirt/pkg/testutils"
@@ -52,7 +52,7 @@ var _ = Describe("VirtualMachine Mutator", func() {
 	var mutator *VMsMutator
 	var ctrl *gomock.Controller
 	var virtClient *kubecli.MockKubevirtClient
-	var fakeInstancetypeClients instancetypeclientset.InstancetypeV1alpha1Interface
+	var fakeInstancetypeClients instancetypeclientset.InstancetypeV1alpha2Interface
 	var fakePreferenceClient instancetypeclientset.VirtualMachinePreferenceInterface
 
 	machineTypeFromConfig := "pc-q35-3.0"
@@ -102,7 +102,7 @@ var _ = Describe("VirtualMachine Mutator", func() {
 		ctrl = gomock.NewController(GinkgoT())
 		virtClient = kubecli.NewMockKubevirtClient(ctrl)
 
-		fakeInstancetypeClients = fakeclientset.NewSimpleClientset().InstancetypeV1alpha1()
+		fakeInstancetypeClients = fakeclientset.NewSimpleClientset().InstancetypeV1alpha2()
 		fakePreferenceClient = fakeInstancetypeClients.VirtualMachinePreferences(vm.Namespace)
 		virtClient.EXPECT().VirtualMachinePreference(gomock.Any()).Return(fakePreferenceClient).AnyTimes()
 
@@ -150,16 +150,16 @@ var _ = Describe("VirtualMachine Mutator", func() {
 
 	It("should not override user specified MachineType with PreferredMachineType or cluster config on VM create", func() {
 		vm.Spec.Template.Spec.Domain.Machine = &v1.Machine{Type: "pc-q35-2.0"}
-		preference := &instancetypev1alpha1.VirtualMachinePreference{
+		preference := &instancetypev1alpha2.VirtualMachinePreference{
 			ObjectMeta: k8smetav1.ObjectMeta{
 				Name: "machineTypePreference",
 			},
 			TypeMeta: k8smetav1.TypeMeta{
 				Kind:       apiinstancetype.SingularPreferenceResourceName,
-				APIVersion: instancetypev1alpha1.SchemeGroupVersion.String(),
+				APIVersion: instancetypev1alpha2.SchemeGroupVersion.String(),
 			},
-			Spec: instancetypev1alpha1.VirtualMachinePreferenceSpec{
-				Machine: &instancetypev1alpha1.MachinePreferences{
+			Spec: instancetypev1alpha2.VirtualMachinePreferenceSpec{
+				Machine: &instancetypev1alpha2.MachinePreferences{
 					PreferredMachineType: "pc-q35-4.0",
 				},
 			},
@@ -185,16 +185,16 @@ var _ = Describe("VirtualMachine Mutator", func() {
 	})
 
 	It("should use PreferredMachineType over cluster config on VM create", func() {
-		preference := &instancetypev1alpha1.VirtualMachinePreference{
+		preference := &instancetypev1alpha2.VirtualMachinePreference{
 			ObjectMeta: k8smetav1.ObjectMeta{
 				Name: "machineTypePreference",
 			},
 			TypeMeta: k8smetav1.TypeMeta{
 				Kind:       apiinstancetype.SingularPreferenceResourceName,
-				APIVersion: instancetypev1alpha1.SchemeGroupVersion.String(),
+				APIVersion: instancetypev1alpha2.SchemeGroupVersion.String(),
 			},
-			Spec: instancetypev1alpha1.VirtualMachinePreferenceSpec{
-				Machine: &instancetypev1alpha1.MachinePreferences{
+			Spec: instancetypev1alpha2.VirtualMachinePreferenceSpec{
+				Machine: &instancetypev1alpha2.MachinePreferences{
 					PreferredMachineType: "pc-q35-4.0",
 				},
 			},

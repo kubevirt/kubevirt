@@ -21,7 +21,7 @@ import (
 	. "kubevirt.io/kubevirt/tests/framework/matcher"
 
 	v1 "kubevirt.io/api/core/v1"
-	instancetypev1alpha1 "kubevirt.io/api/instancetype/v1alpha1"
+	instancetypev1alpha2 "kubevirt.io/api/instancetype/v1alpha2"
 	snapshotv1 "kubevirt.io/api/snapshot/v1alpha1"
 	"kubevirt.io/client-go/kubecli"
 	cdiv1 "kubevirt.io/containerized-data-importer-api/pkg/apis/core/v1beta1"
@@ -1285,19 +1285,19 @@ var _ = SIGDescribe("VirtualMachineSnapshot Tests", func() {
 
 		Context("With VM using instancetype and preferences", func() {
 
-			var instancetype *instancetypev1alpha1.VirtualMachineInstancetype
+			var instancetype *instancetypev1alpha2.VirtualMachineInstancetype
 
 			BeforeEach(func() {
-				instancetype = &instancetypev1alpha1.VirtualMachineInstancetype{
+				instancetype = &instancetypev1alpha2.VirtualMachineInstancetype{
 					ObjectMeta: metav1.ObjectMeta{
 						GenerateName: "vm-instancetype-",
 						Namespace:    util.NamespaceTestDefault,
 					},
-					Spec: instancetypev1alpha1.VirtualMachineInstancetypeSpec{
-						CPU: instancetypev1alpha1.CPUInstancetype{
+					Spec: instancetypev1alpha2.VirtualMachineInstancetypeSpec{
+						CPU: instancetypev1alpha2.CPUInstancetype{
 							Guest: 1,
 						},
-						Memory: instancetypev1alpha1.MemoryInstancetype{
+						Memory: instancetypev1alpha2.MemoryInstancetype{
 							Guest: resource.MustParse("128Mi"),
 						},
 					},
