@@ -409,8 +409,14 @@ func copyFromPod(virtCli kubecli.KubevirtClient, pod *k8sv1.Pod, containerName, 
 		stderrBuf bytes.Buffer
 	)
 	file, err := os.Create(targetFile)
-	Expect(err).ToNot(HaveOccurred())
-	defer file.Close()
+	if err != nil {
+		Expect(err).ToNot(HaveOccurred())
+	}
+	defer func() {
+		if err := file.Close(); err != nil {
+			Expect(err).ToNot(HaveOccurred())
+		}
+	}()
 
 	options := remotecommand.StreamOptions{
 		Stdout: file,
