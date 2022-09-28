@@ -46,7 +46,7 @@ var _ = SIGDescribe("[rfe_id:6364][[Serial]Guestfs", func() {
 	execCommandLibguestfsPod := func(podName string, c []string) (string, string, error) {
 		pod, err := virtClient.CoreV1().Pods(util.NamespaceTestDefault).Get(context.Background(), podName, metav1.GetOptions{})
 		Expect(err).ToNot(HaveOccurred())
-		return exec.ExecuteCommandOnPodV2(virtClient, pod, "libguestfs", c)
+		return exec.ExecuteCommandOnPodWithResults(virtClient, pod, "libguestfs", c)
 	}
 
 	createPVCFilesystem := func(name string) {

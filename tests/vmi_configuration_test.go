@@ -3017,7 +3017,7 @@ var _ = Describe("[sig-compute]Configurations", func() {
 			var stdout, stderr string
 			errorMassageFormat := "failed after running the `ps` command with stdout:\n %v \n stderr:\n %v \n err: \n %v \n"
 			Eventually(func() error {
-				stdout, stderr, err = exec.ExecuteCommandOnPodV2(virtClient, &pods.Items[0], "compute",
+				stdout, stderr, err = exec.ExecuteCommandOnPodWithResults(virtClient, &pods.Items[0], "compute",
 					[]string{
 						"ps",
 						"--no-header",

@@ -110,7 +110,7 @@ func getQEMUPID(virtClient kubecli.KubevirtClient, handlerPod *k8sv1.Pod, vmi *v
 	// The retry is a desperate try to cope with URG in case that URG is not catches by the script
 	// since URG keep ps failing
 	Eventually(func() (err error) {
-		stdout, stderr, err = exec.ExecuteCommandOnPodV2(virtClient, handlerPod, "virt-handler",
+		stdout, stderr, err = exec.ExecuteCommandOnPodWithResults(virtClient, handlerPod, "virt-handler",
 			[]string{
 				"/bin/bash",
 				"-c",
@@ -139,7 +139,7 @@ func getQEMUPID(virtClient kubecli.KubevirtClient, handlerPod *k8sv1.Pod, vmi *v
 }
 
 func getNUMAMapping(virtClient kubecli.KubevirtClient, pod *k8sv1.Pod, pid string) string {
-	stdout, stderr, err := exec.ExecuteCommandOnPodV2(virtClient, pod, "virt-handler",
+	stdout, stderr, err := exec.ExecuteCommandOnPodWithResults(virtClient, pod, "virt-handler",
 		[]string{
 			"/bin/bash",
 			"-c",

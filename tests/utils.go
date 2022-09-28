@@ -1369,7 +1369,7 @@ func GetRunningVirtualMachineInstanceDomainXML(virtClient kubecli.KubevirtClient
 	}
 	command = append(command, []string{"dumpxml", vmi.Namespace + "_" + vmi.Name}...)
 
-	stdout, stderr, err := exec.ExecuteCommandOnPodV2(
+	stdout, stderr, err := exec.ExecuteCommandOnPodWithResults(
 		virtClient,
 		vmiPod,
 		GetComputeContainerOfPod(vmiPod).Name,
@@ -1387,7 +1387,7 @@ func LibvirtDomainIsPaused(virtClient kubecli.KubevirtClient, vmi *v1.VirtualMac
 		return false, err
 	}
 
-	stdout, stderr, err := exec.ExecuteCommandOnPodV2(
+	stdout, stderr, err := exec.ExecuteCommandOnPodWithResults(
 		virtClient,
 		vmiPod,
 		GetComputeContainerOfPod(vmiPod).Name,
@@ -1481,7 +1481,7 @@ func RemoveHostDiskImage(diskPath string, nodeName string) {
 	procPath := filepath.Join("/proc/1/root", diskPath)
 	virtHandlerPod, err := kubecli.NewVirtHandlerClient(virtClient).Namespace(flags.KubeVirtInstallNamespace).ForNode(nodeName).Pod()
 	Expect(err).ToNot(HaveOccurred())
-	_, _, err = exec.ExecuteCommandOnPodV2(virtClient, virtHandlerPod, "virt-handler", []string{"rm", "-rf", procPath})
+	_, _, err = exec.ExecuteCommandOnPodWithResults(virtClient, virtHandlerPod, "virt-handler", []string{"rm", "-rf", procPath})
 	Expect(err).ToNot(HaveOccurred())
 }
 
@@ -2424,13 +2424,13 @@ func ExecuteCommandOnNodeThroughVirtHandler(virtCli kubecli.KubevirtClient, node
 	if err != nil {
 		return "", "", err
 	}
-	return exec.ExecuteCommandOnPodV2(virtCli, virtHandlerPod, components.VirtHandlerName, command)
+	return exec.ExecuteCommandOnPodWithResults(virtCli, virtHandlerPod, components.VirtHandlerName, command)
 }
 
 func GetKubevirtVMMetricsFunc(virtClient *kubecli.KubevirtClient, pod *k8sv1.Pod) func(string) string {
 	return func(ip string) string {
 		metricsURL := PrepareMetricsURL(ip, 8443)
-		stdout, _, err := exec.ExecuteCommandOnPodV2(*virtClient,
+		stdout, _, err := exec.ExecuteCommandOnPodWithResults(*virtClient,
 			pod,
 			"virt-handler",
 			[]string{

@@ -298,7 +298,7 @@ func (r *KubernetesReporter) logDMESG(virtCli kubecli.KubevirtClient, logsdir st
 			}
 
 			// TODO may need to be improved, in case that the auditlog is really huge, since stdout is in memory
-			stdout, _, err := exec.ExecuteCommandOnPodV2(virtCli, pod, virtHandlerName, commands)
+			stdout, _, err := exec.ExecuteCommandOnPodWithResults(virtCli, pod, virtHandlerName, commands)
 			if err != nil {
 				fmt.Fprintf(
 					os.Stderr,
@@ -359,7 +359,7 @@ func (r *KubernetesReporter) logAuditLogs(virtCli kubecli.KubevirtClient, logsdi
 			}
 			// TODO may need to be improved, in case that the auditlog is really huge, since stdout is in memory
 			getAuditLogCmd := []string{"cat", "/proc/1/root/var/log/audit/audit.log"}
-			stdout, _, err := exec.ExecuteCommandOnPodV2(virtCli, pod, virtHandlerName, getAuditLogCmd)
+			stdout, _, err := exec.ExecuteCommandOnPodWithResults(virtCli, pod, virtHandlerName, getAuditLogCmd)
 			if err != nil {
 				fmt.Fprintf(
 					os.Stderr,
@@ -582,7 +582,7 @@ func (r *KubernetesReporter) logJournal(virtCli kubecli.KubevirtClient, logsdir 
 		}
 		commands = append(commands, unitCommandArgs...)
 
-		stdout, stderr, err := exec.ExecuteCommandOnPodV2(virtCli, pod, virtHandlerName, commands)
+		stdout, stderr, err := exec.ExecuteCommandOnPodWithResults(virtCli, pod, virtHandlerName, commands)
 		if err != nil {
 			fmt.Fprintf(
 				os.Stderr,
@@ -1160,7 +1160,7 @@ func (r *KubernetesReporter) executeContainerCommands(virtCli kubecli.KubevirtCl
 	for _, cmd := range cmds {
 		command := strings.Split(cmd.command, " ")
 
-		stdout, stderr, err := exec.ExecuteCommandOnPodV2(virtCli, pod, container, command)
+		stdout, stderr, err := exec.ExecuteCommandOnPodWithResults(virtCli, pod, container, command)
 		if err != nil {
 			fmt.Fprintf(
 				os.Stderr,
@@ -1229,7 +1229,7 @@ func (r *KubernetesReporter) executeVMICommands(vmi v12.VirtualMachineInstance, 
 func (r *KubernetesReporter) executePriviledgedVirtLauncherCommands(virtCli kubecli.KubevirtClient, virtHandlerPod *v1.Pod, logsdir, pid, target string) {
 	nftCommand := strings.Split(fmt.Sprintf("nsenter -t %s -n -- nft list ruleset", pid), " ")
 
-	stdout, stderr, err := exec.ExecuteCommandOnPodV2(virtCli, virtHandlerPod, virtHandlerName, nftCommand)
+	stdout, stderr, err := exec.ExecuteCommandOnPodWithResults(virtCli, virtHandlerPod, virtHandlerName, nftCommand)
 	if err != nil {
 		fmt.Fprintf(
 			os.Stderr,
@@ -1285,7 +1285,7 @@ func getVirtLauncherMonitorPID(virtCli kubecli.KubevirtClient, virtHandlerPod *v
 		fmt.Sprintf("pgrep -f \"monitor.*uid %s\"", uid),
 	}
 
-	stdout, stderr, err := exec.ExecuteCommandOnPodV2(virtCli, virtHandlerPod, virtHandlerName, command)
+	stdout, stderr, err := exec.ExecuteCommandOnPodWithResults(virtCli, virtHandlerPod, virtHandlerName, command)
 	if err != nil {
 		fmt.Fprintf(
 			os.Stderr,

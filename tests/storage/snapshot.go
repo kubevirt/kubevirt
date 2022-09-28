@@ -396,7 +396,7 @@ var _ = SIGDescribe("VirtualMachineSnapshot Tests", func() {
 				if err != nil {
 					return "", "", err
 				}
-				return exec.ExecuteCommandOnPodV2(virtClient, pod, pod.Annotations[annoContainer], commandSlice)
+				return exec.ExecuteCommandOnPodWithResults(virtClient, pod, pod.Annotations[annoContainer], commandSlice)
 			}
 
 			It("[test_id:6767]with volumes and guest agent available", func() {
