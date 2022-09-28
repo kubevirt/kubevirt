@@ -17,6 +17,7 @@ import (
 	"kubevirt.io/kubevirt/pkg/network/sriov"
 	"kubevirt.io/kubevirt/pkg/storage/types"
 	"kubevirt.io/kubevirt/pkg/util"
+	"kubevirt.io/kubevirt/pkg/virtiofs"
 )
 
 type VolumeRendererOption func(renderer *VolumeRenderer) error
@@ -309,6 +310,14 @@ func withSidecarVolumes(hookSidecars hooks.HookSidecarList) VolumeRendererOption
 				MountPath: hooks.HookSocketsSharedDirectory,
 			})
 		}
+		return nil
+	}
+}
+
+func withVirioFS() VolumeRendererOption {
+	return func(renderer *VolumeRenderer) error {
+		renderer.podVolumeMounts = append(renderer.podVolumeMounts, mountPath(virtiofs.VirtioFSContainers, virtiofs.VirtioFSContainersMountBaseDir))
+		renderer.podVolumes = append(renderer.podVolumes, emptyDirVolume(virtiofs.VirtioFSContainers))
 		return nil
 	}
 }

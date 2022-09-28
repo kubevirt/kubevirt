@@ -9,6 +9,7 @@ go_library(
         "renderresources.go",
         "rendervolumes.go",
         "template.go",
+        "virtiofs.go",
     ],
     importpath = "kubevirt.io/kubevirt/pkg/virt-controller/services",
     visibility = ["//visibility:public"],
@@ -29,6 +30,7 @@ go_library(
         "//pkg/virt-config:go_default_library",
         "//pkg/virt-controller/watch/topology:go_default_library",
         "//pkg/virt-launcher/virtwrap/api:go_default_library",
+        "//pkg/virtiofs:go_default_library",
         "//staging/src/kubevirt.io/api/core/v1:go_default_library",
         "//staging/src/kubevirt.io/api/export/v1alpha1:go_default_library",
         "//staging/src/kubevirt.io/client-go/kubecli:go_default_library",
@@ -41,6 +43,7 @@ go_library(
         "//vendor/k8s.io/apimachinery/pkg/runtime/schema:go_default_library",
         "//vendor/k8s.io/client-go/tools/cache:go_default_library",
         "//vendor/k8s.io/kubectl/pkg/cmd/util/podcmd:go_default_library",
+        "//vendor/k8s.io/utils/pointer:go_default_library",
     ],
 )
 

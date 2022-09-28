@@ -1044,16 +1044,6 @@ var _ = Describe("VirtualMachineInstance Mutator", func() {
 			_, _, status := getMetaSpecStatusFromAdmit()
 			Expect(status.RuntimeUser).NotTo(BeZero())
 		})
-
-		It("Should reject VirtioFS vmi", func() {
-			vmi.Spec.Domain.Devices.Filesystems = append(vmi.Spec.Domain.Devices.Filesystems, v1.Filesystem{
-				Virtiofs: &v1.FilesystemVirtiofs{},
-			})
-
-			resp := admitVMI()
-			Expect(resp.Allowed).To(BeFalse())
-			Expect(resp.Result.Message).To(And(ContainSubstring("VirtioFS"), ContainSubstring("nonroot")))
-		})
 	})
 
 	It("should add realtime node label selector with realtime workload", func() {

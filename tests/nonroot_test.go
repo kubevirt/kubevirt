@@ -1,10 +1,6 @@
 package tests_test
 
 import (
-	"fmt"
-
-	"kubevirt.io/kubevirt/tests/libvmi"
-
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
 
@@ -24,26 +20,6 @@ var _ = Describe("[sig-compute]NonRoot feature", func() {
 	BeforeEach(func() {
 		virtClient, err = kubecli.GetKubevirtClient()
 		util.PanicOnError(err)
-	})
-
-	Context("should cause fail in creating of vmi with", func() {
-		BeforeEach(func() {
-			if !checks.HasFeature(virtconfig.NonRoot) {
-				Skip("Test specific to NonRoot featureGate that is not enabled")
-			}
-		})
-
-		It("[test_id:7127]VirtioFS", func() {
-			if !checks.HasFeature(virtconfig.VirtIOFSGate) {
-				Skip(fmt.Sprintf("Missing %s, enable %s featureGate.", virtconfig.VirtIOFSGate, virtconfig.VirtIOFSGate))
-			}
-
-			vmi := libvmi.New(libvmi.WithFilesystemPVC("test"))
-			_, err := virtClient.VirtualMachineInstance(util.NamespaceTestDefault).Create(vmi)
-			Expect(err).To(HaveOccurred())
-			Expect(err.Error()).To(And(ContainSubstring("VirtioFS"), ContainSubstring("nonroot")))
-
-		})
 	})
 
 	Context("[verify-nonroot] NonRoot feature", func() {

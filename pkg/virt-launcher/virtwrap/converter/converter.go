@@ -1554,41 +1554,7 @@ func Convert_v1_VirtualMachineInstance_To_api_Domain(vmi *v1.VirtualMachineInsta
 		}
 	}
 	// Handle virtioFS
-	for _, fs := range vmi.Spec.Domain.Devices.Filesystems {
-		if fs.Virtiofs != nil {
-			newFS := api.FilesystemDevice{}
-
-			newFS.Type = "mount"
-			newFS.AccessMode = "passthrough"
-			newFS.Driver = &api.FilesystemDriver{
-				Type:  "virtiofs",
-				Queue: "1024",
-			}
-			newFS.Binary = &api.FilesystemBinary{
-				Path:  "/usr/libexec/virtiofsd",
-				Xattr: "on",
-				Cache: &api.FilesystemBinaryCache{
-					Mode: "none",
-				},
-				Lock: &api.FilesystemBinaryLock{
-					Posix: "on",
-					Flock: "on",
-				},
-			}
-			newFS.Target = &api.FilesystemTarget{
-				Dir: fs.Name,
-			}
-
-			volume := volumes[fs.Name]
-			if volume == nil {
-				return fmt.Errorf("No matching volume with name %s found", fs.Name)
-			}
-			volDir, _ := filepath.Split(GetFilesystemVolumePath(volume.Name))
-			newFS.Source = &api.FilesystemSource{}
-			newFS.Source.Dir = volDir
-			domain.Spec.Devices.Filesystems = append(domain.Spec.Devices.Filesystems, newFS)
-		}
-	}
+	domain.Spec.Devices.Filesystems = append(domain.Spec.Devices.Filesystems, convertFileSystems(vmi.Spec.Domain.Devices.Filesystems)...)
 
 	Convert_v1_Sound_To_api_Sound(vmi, &domain.Spec.Devices, c)
 

@@ -87,8 +87,8 @@ const (
 // Libvirt needs roughly 10 seconds to start.
 const LibvirtStartupDelay = 10
 
-//These perfixes for node feature discovery, are used in a NodeSelector on the pod
-//to match a VirtualMachineInstance CPU model(Family) and/or features to nodes that support them.
+// These perfixes for node feature discovery, are used in a NodeSelector on the pod
+// to match a VirtualMachineInstance CPU model(Family) and/or features to nodes that support them.
 const NFD_CPU_MODEL_PREFIX = "cpu-model.node.kubevirt.io/"
 const NFD_CPU_FEATURE_PREFIX = "cpu-feature.node.kubevirt.io/"
 const NFD_KVM_INFO_PREFIX = "hyperv.node.kubevirt.io/"
@@ -405,6 +405,11 @@ func (t *templateService) renderLaunchManifest(vmi *v1.VirtualMachineInstance, i
 		containers = append(containers, *kernelBootContainer)
 	}
 
+	virtiofsContainers := generateVirtioFSContainers(vmi, t.launcherImage)
+	if virtiofsContainers != nil {
+		containers = append(containers, virtiofsContainers...)
+	}
+
 	for i, requestedHookSidecar := range requestedHookSidecarList {
 		containers = append(
 			containers,
@@ -640,6 +645,10 @@ func (t *templateService) newVolumeRenderer(vmi *v1.VirtualMachineInstance, name
 
 	if vmispec.SRIOVInterfaceExist(vmi.Spec.Domain.Devices.Interfaces) {
 		volumeOpts = append(volumeOpts, withSRIOVPciMapAnnotation())
+	}
+
+	if util.IsVMIVirtiofsEnabled(vmi) {
+		volumeOpts = append(volumeOpts, withVirioFS())
 	}
 
 	volumeRenderer, err := NewVolumeRenderer(
@@ -965,19 +974,6 @@ func (t *templateService) RenderExporterManifest(vmExport *exportv1.VirtualMachi
 		},
 	}
 	return exporterPod
-}
-
-func getVirtiofsCapabilities() []k8sv1.Capability {
-	return []k8sv1.Capability{
-		"CHOWN",
-		"DAC_OVERRIDE",
-		"FOWNER",
-		"FSETID",
-		"SETGID",
-		"SETUID",
-		"MKNOD",
-		"SETFCAP",
-	}
 }
 
 func appendUniqueImagePullSecret(secrets []k8sv1.LocalObjectReference, newsecret k8sv1.LocalObjectReference) []k8sv1.LocalObjectReference {
