@@ -46,8 +46,8 @@ jobs:
             ```release-note
             Update configmaps of dashboards
             ```
-          assignees: erkanerol
-          reviewers: erkanerol
+          assignees: srdaco
+          reviewers: sradco
           team-reviewers: owners, maintainers
           branch: update_dashboard_configmaps
           delete-branch: true
