@@ -350,6 +350,7 @@ rules:
   resources:
   - virtualmachinesnapshots
   - virtualmachinerestores
+  - virtualmachinesnapshotcontents
   verbs:
   - get
   - list
