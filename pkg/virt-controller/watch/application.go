@@ -656,6 +656,7 @@ func (vca *VirtControllerApp) initVirtualMachines() {
 		vca.clusterInstancetypeInformer.GetStore(),
 		vca.preferenceInformer.GetStore(),
 		vca.clusterPreferenceInformer.GetStore(),
+		vca.controllerRevisionInformer.GetStore(),
 		vca.clientSet,
 	)
 

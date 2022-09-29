@@ -128,7 +128,7 @@ var _ = Describe("VirtualMachine Mutator", func() {
 		cdiClient = cdifake.NewSimpleClientset()
 		virtClient.EXPECT().CdiClient().Return(cdiClient).AnyTimes()
 
-		mutator.InstancetypeMethods = instancetype.NewMethods(nil, nil, nil, nil, virtClient)
+		mutator.InstancetypeMethods = instancetype.NewMethods(nil, nil, nil, nil, nil, virtClient)
 	})
 
 	It("should apply defaults on VM create", func() {

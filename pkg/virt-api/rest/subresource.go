@@ -92,7 +92,7 @@ func NewSubresourceAPIApp(virtCli kubecli.KubevirtClient, consoleServerPort int,
 	// the virtCli is nil, and accessing GeneratedKubeVirtClient() would cause nil dereference.
 	var instancetypeMethods instancetype.Methods
 	if virtCli != nil {
-		instancetypeMethods = instancetype.NewMethods(nil, nil, nil, nil, virtCli)
+		instancetypeMethods = instancetype.NewMethods(nil, nil, nil, nil, nil, virtCli)
 	}
 
 	httpClient := &http.Client{

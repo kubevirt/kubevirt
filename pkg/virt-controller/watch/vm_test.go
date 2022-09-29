@@ -2785,6 +2785,7 @@ var _ = Describe("VirtualMachine", func() {
 				clusterInstancetypeInformerStore cache.Store
 				preferenceInformerStore          cache.Store
 				clusterPreferenceInformerStore   cache.Store
+				controllerrevisionInformerStore  cache.Store
 			)
 
 			BeforeEach(func() {
@@ -2822,11 +2823,15 @@ var _ = Describe("VirtualMachine", func() {
 				clusterPreferenceInformer, _ := testutils.NewFakeInformerFor(&instancetypev1alpha2.VirtualMachineClusterPreference{})
 				clusterPreferenceInformerStore = clusterPreferenceInformer.GetStore()
 
+				controllerrevisionInformer, _ := testutils.NewFakeInformerFor(&appsv1.ControllerRevision{})
+				controllerrevisionInformerStore = controllerrevisionInformer.GetStore()
+
 				controller.instancetypeMethods = instancetype.NewMethods(
 					instancetypeInformerStore,
 					clusterInstancetypeInformerStore,
 					preferenceInformerStore,
 					clusterPreferenceInformerStore,
+					controllerrevisionInformerStore,
 					virtClient,
 				)
 			})
