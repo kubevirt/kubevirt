@@ -25,6 +25,7 @@ import (
 	"strings"
 
 	"k8s.io/apimachinery/pkg/util/validation"
+	"k8s.io/utils/pointer"
 
 	"kubevirt.io/client-go/api"
 
@@ -3543,6 +3544,18 @@ var _ = Describe("Template", func() {
 			sev, ok := pod.Spec.Containers[0].Resources.Limits[SevDevice]
 			Expect(ok).To(BeTrue())
 			Expect(int(sev.Value())).To(Equal(1))
+		})
+	})
+
+	Context("with VSOCK enabled", func() {
+		It("should add VSOCK device to resources", func() {
+			vmi := api.NewMinimalVMI("fake-vmi")
+			vmi.Spec.Domain.Devices.AutoattachVSOCK = pointer.Bool(true)
+
+			pod, err := svc.RenderLaunchManifest(vmi)
+			Expect(err).NotTo(HaveOccurred())
+			Expect(pod).ToNot(BeNil())
+			Expect(pod.Spec.Containers[0].Resources.Limits).To(HaveKey(kubev1.ResourceName(VhostVsockDevice)))
 		})
 	})
 })

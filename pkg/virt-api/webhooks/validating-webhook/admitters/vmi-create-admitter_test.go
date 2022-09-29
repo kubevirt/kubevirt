@@ -3739,6 +3739,34 @@ var _ = Describe("Validating VMICreate Admitter", func() {
 		})
 	})
 
+	Context("with vsocks defined", func() {
+		var vmi *v1.VirtualMachineInstance
+		BeforeEach(func() {
+			vmi = api.NewMinimalVMI("testvmi")
+			enableFeatureGate(virtconfig.VSOCKGate)
+		})
+		Context("feature gate enabled", func() {
+			It("should accept vmi with no vsocks defined", func() {
+				causes := ValidateVirtualMachineInstanceSpec(k8sfield.NewPath("fake"), &vmi.Spec, config)
+				Expect(causes).To(HaveLen(0))
+			})
+			It("should accept vmi with vsocks defined", func() {
+				vmi.Spec.Domain.Devices.AutoattachVSOCK = pointer.Bool(true)
+				causes := ValidateVirtualMachineInstanceSpec(k8sfield.NewPath("fake"), &vmi.Spec, config)
+				Expect(causes).To(HaveLen(0))
+			})
+		})
+		Context("feature gate disabled", func() {
+			It("should reject when the feature gate is disabled", func() {
+				disableFeatureGates()
+				vmi.Spec.Domain.Devices.AutoattachVSOCK = pointer.Bool(true)
+				causes := ValidateVirtualMachineInstanceSpec(k8sfield.NewPath("fake"), &vmi.Spec, config)
+				Expect(causes).To(HaveLen(1))
+				Expect(causes[0].Message).To(ContainSubstring(fmt.Sprintf("%s feature gate is not enabled", virtconfig.VSOCKGate)))
+			})
+		})
+	})
+
 	Context("with affinity checks", func() {
 		var vmi *v1.VirtualMachineInstance
 		BeforeEach(func() {

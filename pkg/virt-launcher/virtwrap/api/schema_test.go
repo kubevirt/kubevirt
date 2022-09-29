@@ -565,6 +565,28 @@ var _ = ginkgo.Describe("Schema", func() {
 			Expect(newCpuTune).To(Equal(exampleCpuTune))
 		})
 	})
+
+	ginkgo.Context("With vsock", func() {
+		ginkgo.It("Generate expected libvirt xml", func() {
+			domain := NewMinimalDomainSpec("mynamespace_testvmi")
+			domain.Devices.VSOCK = &VSOCK{
+				Model: "virtio",
+				CID: CID{
+					Auto:    "no",
+					Address: 3,
+				},
+			}
+			buf, err := xml.Marshal(domain)
+			Expect(err).ToNot(HaveOccurred())
+
+			newDomain := DomainSpec{}
+			err = xml.Unmarshal(buf, &newDomain)
+			Expect(err).ToNot(HaveOccurred())
+
+			domain.XMLName.Local = "domain"
+			Expect(newDomain).To(Equal(*domain))
+		})
+	})
 })
 
 var testAliasName = "alias0"

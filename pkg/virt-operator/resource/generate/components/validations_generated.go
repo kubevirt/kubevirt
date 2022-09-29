@@ -4937,6 +4937,11 @@ var CRDsValidation map[string]string = map[string]string{
                             or not. Serial console access will not be available if
                             set to false. Defaults to true.
                           type: boolean
+                        autoattachVSOCK:
+                          description: Whether to attach the VSOCK CID to the VM or
+                            not. VSOCK access will be available if set to true. Defaults
+                            to false.
+                          type: boolean
                         blockMultiQueue:
                           description: Whether or not to enable virtio multi-queue
                             for block devices. Defaults to false.
@@ -9099,6 +9104,10 @@ var CRDsValidation map[string]string = map[string]string{
                     Serial console access will not be available if set to false. Defaults
                     to true.
                   type: boolean
+                autoattachVSOCK:
+                  description: Whether to attach the VSOCK CID to the VM or not. VSOCK
+                    access will be available if set to true. Defaults to false.
+                  type: boolean
                 blockMultiQueue:
                   description: Whether or not to enable virtio multi-queue for block
                     devices. Defaults to false.
@@ -10695,6 +10704,10 @@ var CRDsValidation map[string]string = map[string]string{
       description: Status is the high level overview of how the VirtualMachineInstance
         is doing. It contains information available to controllers and users.
       properties:
+        VSOCKCID:
+          description: VSOCKCID is used to track the allocated VSOCK CID in the VM.
+          format: int32
+          type: integer
         activePods:
           additionalProperties:
             type: string
@@ -11435,6 +11448,10 @@ var CRDsValidation map[string]string = map[string]string{
                   description: Whether to attach the default serial console or not.
                     Serial console access will not be available if set to false. Defaults
                     to true.
+                  type: boolean
+                autoattachVSOCK:
+                  description: Whether to attach the VSOCK CID to the VM or not. VSOCK
+                    access will be available if set to true. Defaults to false.
                   type: boolean
                 blockMultiQueue:
                   description: Whether or not to enable virtio multi-queue for block
@@ -13511,6 +13528,11 @@ var CRDsValidation map[string]string = map[string]string{
                           description: Whether to attach the default serial console
                             or not. Serial console access will not be available if
                             set to false. Defaults to true.
+                          type: boolean
+                        autoattachVSOCK:
+                          description: Whether to attach the VSOCK CID to the VM or
+                            not. VSOCK access will be available if set to true. Defaults
+                            to false.
                           type: boolean
                         blockMultiQueue:
                           description: Whether or not to enable virtio multi-queue
@@ -17445,6 +17467,11 @@ var CRDsValidation map[string]string = map[string]string{
                                   description: Whether to attach the default serial
                                     console or not. Serial console access will not
                                     be available if set to false. Defaults to true.
+                                  type: boolean
+                                autoattachVSOCK:
+                                  description: Whether to attach the VSOCK CID to
+                                    the VM or not. VSOCK access will be available
+                                    if set to true. Defaults to false.
                                   type: boolean
                                 blockMultiQueue:
                                   description: Whether or not to enable virtio multi-queue
@@ -22088,6 +22115,11 @@ var CRDsValidation map[string]string = map[string]string{
                                         console or not. Serial console access will
                                         not be available if set to false. Defaults
                                         to true.
+                                      type: boolean
+                                    autoattachVSOCK:
+                                      description: Whether to attach the VSOCK CID
+                                        to the VM or not. VSOCK access will be available
+                                        if set to true. Defaults to false.
                                       type: boolean
                                     blockMultiQueue:
                                       description: Whether or not to enable virtio
