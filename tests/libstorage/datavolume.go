@@ -27,11 +27,9 @@ import (
 	. "github.com/onsi/gomega"
 	gomegatypes "github.com/onsi/gomega/types"
 
-	v1 "k8s.io/api/core/v1"
 	rbacv1 "k8s.io/api/rbac/v1"
 	"k8s.io/apiextensions-apiserver/pkg/client/clientset/clientset"
 	"k8s.io/apimachinery/pkg/api/errors"
-	"k8s.io/apimachinery/pkg/api/resource"
 	v12 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/util/rand"
 
@@ -39,112 +37,9 @@ import (
 	"kubevirt.io/client-go/kubecli"
 	"kubevirt.io/containerized-data-importer-api/pkg/apis/core/v1beta1"
 
-	cd "kubevirt.io/kubevirt/tests/containerdisk"
 	. "kubevirt.io/kubevirt/tests/framework/matcher"
 	"kubevirt.io/kubevirt/tests/util"
 )
-
-func NewBlockDataVolumeWithRegistryImport(imageUrl, namespace string, accessMode v1.PersistentVolumeAccessMode) *v1beta1.DataVolume {
-	sc, exists := GetRWOBlockStorageClass()
-	if accessMode == v1.ReadWriteMany {
-		sc, exists = GetRWXBlockStorageClass()
-	}
-	if !exists {
-		ginkgo.Skip("Skip test when Block storage is not present")
-	}
-	return NewDataVolumeWithRegistryImportInStorageClass(imageUrl, namespace, sc, accessMode, v1.PersistentVolumeBlock)
-}
-
-func NewDataVolumeWithRegistryImport(imageUrl, namespace string, accessMode v1.PersistentVolumeAccessMode) *v1beta1.DataVolume {
-	sc, exists := GetRWOFileSystemStorageClass()
-	if accessMode == v1.ReadWriteMany {
-		sc, exists = GetRWXFileSystemStorageClass()
-	}
-	if !exists {
-		ginkgo.Skip("Skip test when Filesystem storage is not present")
-	}
-	return NewDataVolumeWithRegistryImportInStorageClass(imageUrl, namespace, sc, accessMode, v1.PersistentVolumeFilesystem)
-}
-
-func newDataVolume(namespace, storageClass string, size string, accessMode v1.PersistentVolumeAccessMode, volumeMode v1.PersistentVolumeMode, dataVolumeSource v1beta1.DataVolumeSource) *v1beta1.DataVolume {
-	name := "test-datavolume-" + rand.String(12)
-	quantity, err := resource.ParseQuantity(size)
-	util.PanicOnError(err)
-	dataVolume := &v1beta1.DataVolume{
-		ObjectMeta: v12.ObjectMeta{
-			Name:      name,
-			Namespace: namespace,
-		},
-		Spec: v1beta1.DataVolumeSpec{
-			Source: &dataVolumeSource,
-			PVC: &v1.PersistentVolumeClaimSpec{
-				AccessModes: []v1.PersistentVolumeAccessMode{accessMode},
-				VolumeMode:  &volumeMode,
-				Resources: v1.ResourceRequirements{
-					Requests: v1.ResourceList{
-						"storage": quantity,
-					},
-				},
-				StorageClassName: &storageClass,
-			},
-		},
-	}
-
-	dataVolume.TypeMeta = v12.TypeMeta{
-		APIVersion: "cdi.kubevirt.io/v1beta1",
-		Kind:       "DataVolume",
-	}
-
-	return dataVolume
-}
-
-func NewDataVolumeWithRegistryImportInStorageClass(imageUrl, namespace, storageClass string, accessMode v1.PersistentVolumeAccessMode, volumeMode v1.PersistentVolumeMode) *v1beta1.DataVolume {
-	var size string
-	switch imageUrl {
-	case cd.DataVolumeImportUrlForContainerDisk(cd.ContainerDiskFedoraTestTooling), cd.DataVolumeImportUrlForContainerDisk(cd.ContainerDiskFedoraRealtime):
-		size = cd.FedoraVolumeSize
-	default:
-		size = "512Mi"
-	}
-	// Uses node cache, does not require extra scratch space PVC
-	pullMethod := v1beta1.RegistryPullNode
-	dataVolumeSource := v1beta1.DataVolumeSource{
-		Registry: &v1beta1.DataVolumeSourceRegistry{
-			URL:        &imageUrl,
-			PullMethod: &pullMethod,
-		},
-	}
-	return newDataVolume(namespace, storageClass, size, accessMode, volumeMode, dataVolumeSource)
-}
-
-func NewBlankDataVolume(namespace, storageClass, size string, accessMode v1.PersistentVolumeAccessMode, volumeMode v1.PersistentVolumeMode) *v1beta1.DataVolume {
-	dataVolumeSource := v1beta1.DataVolumeSource{
-		Blank: &v1beta1.DataVolumeBlankImage{},
-	}
-	return newDataVolume(namespace, storageClass, size, accessMode, volumeMode, dataVolumeSource)
-}
-
-func NewDataVolumeWithPVCSource(sourceNamespace, sourceName, targetNamespace string, accessMode v1.PersistentVolumeAccessMode) *v1beta1.DataVolume {
-	sc, exists := GetRWOFileSystemStorageClass()
-	if accessMode == v1.ReadWriteMany {
-		sc, exists = GetRWXFileSystemStorageClass()
-	}
-	if !exists {
-		ginkgo.Skip("Skip test when Filesystem storage is not present")
-	}
-	return newDataVolumeWithPVCSourceWithStorageClass(sourceNamespace, sourceName, targetNamespace, sc, "1Gi", accessMode)
-}
-
-func newDataVolumeWithPVCSourceWithStorageClass(sourceNamespace, sourceName, targetNamespace, storageClass, size string, accessMode v1.PersistentVolumeAccessMode) *v1beta1.DataVolume {
-	dataVolumeSource := v1beta1.DataVolumeSource{
-		PVC: &v1beta1.DataVolumeSourcePVC{
-			Namespace: sourceNamespace,
-			Name:      sourceName,
-		},
-	}
-	volumeMode := v1.PersistentVolumeFilesystem
-	return newDataVolume(targetNamespace, storageClass, size, accessMode, volumeMode, dataVolumeSource)
-}
 
 func AddDataVolumeDisk(vmi *v13.VirtualMachineInstance, diskName, dataVolumeName string) *v13.VirtualMachineInstance {
 	vmi.Spec.Domain.Devices.Disks = append(vmi.Spec.Domain.Devices.Disks, v13.Disk{
@@ -193,14 +88,6 @@ func AddDataVolume(vm *v13.VirtualMachine, diskName string, dataVolume *v1beta1.
 			},
 		},
 	})
-}
-
-func SetDataVolumePVCStorageClass(dv *v1beta1.DataVolume, storageClass string) {
-	dv.Spec.PVC.StorageClassName = &storageClass
-}
-
-func SetDataVolumePVCSize(dv *v1beta1.DataVolume, size string) {
-	dv.Spec.PVC.Resources.Requests[v1.ResourceStorage] = resource.MustParse(size)
 }
 
 func EventuallyDV(dv *v1beta1.DataVolume, timeoutSec int, matcher gomegatypes.GomegaMatcher) {

@@ -65,6 +65,7 @@ import (
 	"kubevirt.io/kubevirt/tests"
 	"kubevirt.io/kubevirt/tests/console"
 	cd "kubevirt.io/kubevirt/tests/containerdisk"
+	"kubevirt.io/kubevirt/tests/libdv"
 	"kubevirt.io/kubevirt/tests/libnode"
 	"kubevirt.io/kubevirt/tests/libstorage"
 	"kubevirt.io/kubevirt/tests/libvmi"
@@ -1962,11 +1963,12 @@ var _ = Describe("[sig-compute]Configurations", func() {
 			if !checks.HasFeature(virtconfig.HostDiskGate) {
 				Skip("Cluster has the HostDisk featuregate disabled, skipping  the tests")
 			}
-			// create a new PV and PVC (PVs can't be reused)
-			dataVolume = libstorage.NewBlockDataVolumeWithRegistryImport(cd.DataVolumeImportUrlForContainerDisk(cd.ContainerDiskCirros), util.NamespaceTestDefault, k8sv1.ReadWriteOnce)
 
-			_, err := virtClient.CdiClient().CdiV1beta1().DataVolumes(dataVolume.Namespace).Create(context.Background(), dataVolume, metav1.CreateOptions{})
+			dataVolume, err = createBlockDataVolume(virtClient)
 			Expect(err).ToNot(HaveOccurred())
+			if dataVolume == nil {
+				Skip("Skip test when Block storage is not present")
+			}
 
 			libstorage.EventuallyDV(dataVolume, 240, Or(HaveSucceeded(), BeInPhase(cdiv1.WaitForFirstConsumer)))
 		})
@@ -2094,10 +2096,11 @@ var _ = Describe("[sig-compute]Configurations", func() {
 
 		It("[test_id:6965][storage-req]Should set BlockIO when using custom block sizes", func() {
 			By("creating a block volume")
-			dataVolume := libstorage.NewBlockDataVolumeWithRegistryImport(cd.DataVolumeImportUrlForContainerDisk(cd.ContainerDiskCirros), util.NamespaceTestDefault, k8sv1.ReadWriteOnce)
-
-			_, err := virtClient.CdiClient().CdiV1beta1().DataVolumes(dataVolume.Namespace).Create(context.Background(), dataVolume, metav1.CreateOptions{})
+			dataVolume, err := createBlockDataVolume(virtClient)
 			Expect(err).ToNot(HaveOccurred())
+			if dataVolume == nil {
+				Skip("Skip test when Block storage is not present")
+			}
 
 			libstorage.EventuallyDV(dataVolume, 240, Or(HaveSucceeded(), BeInPhase(cdiv1.WaitForFirstConsumer)))
 
@@ -2131,10 +2134,11 @@ var _ = Describe("[sig-compute]Configurations", func() {
 
 		It("[test_id:6966][storage-req]Should set BlockIO when set to match volume block sizes on block devices", func() {
 			By("creating a block volume")
-			dataVolume := libstorage.NewBlockDataVolumeWithRegistryImport(cd.DataVolumeImportUrlForContainerDisk(cd.ContainerDiskCirros), util.NamespaceTestDefault, k8sv1.ReadWriteOnce)
-
-			_, err := virtClient.CdiClient().CdiV1beta1().DataVolumes(dataVolume.Namespace).Create(context.Background(), dataVolume, metav1.CreateOptions{})
+			dataVolume, err := createBlockDataVolume(virtClient)
 			Expect(err).ToNot(HaveOccurred())
+			if dataVolume == nil {
+				Skip("Skip test when Block storage is not present")
+			}
 
 			libstorage.EventuallyDV(dataVolume, 240, Or(HaveSucceeded(), BeInPhase(cdiv1.WaitForFirstConsumer)))
 
@@ -3141,4 +3145,18 @@ func withSerialBIOS() libvmi.Option {
 		}
 		vmi.Spec.Domain.Firmware.Bootloader.BIOS.UseSerial = pointer.Bool(true)
 	}
+}
+
+func createBlockDataVolume(virtClient kubecli.KubevirtClient) (*cdiv1.DataVolume, error) {
+	sc, foundSC := libstorage.GetBlockStorageClass(k8sv1.ReadWriteOnce)
+	if !foundSC {
+		return nil, nil
+	}
+
+	dataVolume := libdv.NewDataVolume(
+		libdv.WithRegistryURLSource(cd.DataVolumeImportUrlForContainerDisk(cd.ContainerDiskCirros)),
+		libdv.WithPVC(sc, cd.CirrosVolumeSize, k8sv1.ReadWriteOnce, k8sv1.PersistentVolumeBlock),
+	)
+
+	return virtClient.CdiClient().CdiV1beta1().DataVolumes(util.NamespaceTestDefault).Create(context.Background(), dataVolume, metav1.CreateOptions{})
 }

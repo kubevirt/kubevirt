@@ -2284,7 +2284,12 @@ spec:
 			checks.SkipIfVersionBelow("Skipping dynamic cdi test in versions below 1.13 because crd garbage collection is broken", "1.13")
 
 			// This tests starting infrastructure with and without the DataVolumes feature gate
-			vm = tests.NewRandomVMWithDataVolume(cd.DataVolumeImportUrlForContainerDisk(cd.ContainerDiskAlpine), util2.NamespaceTestDefault)
+			var foundSC bool
+			vm, foundSC = tests.NewRandomVMWithDataVolume(cd.DataVolumeImportUrlForContainerDisk(cd.ContainerDiskAlpine), util2.NamespaceTestDefault)
+			if !foundSC {
+				Skip("Skip test when Filesystem storage is not present")
+			}
+
 			running := false
 			vm.Spec.Running = &running
 

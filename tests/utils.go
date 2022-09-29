@@ -93,6 +93,7 @@ import (
 	cd "kubevirt.io/kubevirt/tests/containerdisk"
 	"kubevirt.io/kubevirt/tests/flags"
 	. "kubevirt.io/kubevirt/tests/framework/matcher"
+	"kubevirt.io/kubevirt/tests/libdv"
 	"kubevirt.io/kubevirt/tests/libnet"
 	"kubevirt.io/kubevirt/tests/libnode"
 	"kubevirt.io/kubevirt/tests/libstorage"
@@ -102,11 +103,10 @@ import (
 )
 
 const (
-	BinBash                      = "/bin/bash"
-	StartingVMInstance           = "Starting a VirtualMachineInstance"
-	WaitingVMInstanceStart       = "Waiting until the VirtualMachineInstance will start"
-	CouldNotFindComputeContainer = "could not find compute container for pod"
-	EchoLastReturnValue          = "echo $?\n"
+	BinBash                = "/bin/bash"
+	StartingVMInstance     = "Starting a VirtualMachineInstance"
+	WaitingVMInstanceStart = "Waiting until the VirtualMachineInstance will start"
+	EchoLastReturnValue    = "echo $?\n"
 )
 
 const (
@@ -454,8 +454,12 @@ func NewRandomVirtualMachineInstanceWithDisk(imageUrl, namespace, sc string, acc
 	virtCli, err := kubecli.GetKubevirtClient()
 	util2.PanicOnError(err)
 
-	dv := libstorage.NewDataVolumeWithRegistryImportInStorageClass(imageUrl, namespace, sc, accessMode, volMode)
-	_, err = virtCli.CdiClient().CdiV1beta1().DataVolumes(dv.Namespace).Create(context.Background(), dv, metav1.CreateOptions{})
+	dv := libdv.NewDataVolume(
+		libdv.WithRegistryURLSourceAndPullMethod(imageUrl, cdiv1.RegistryPullNode),
+		libdv.WithPVC(sc, dvSizeBySourceURL(imageUrl), accessMode, volMode),
+	)
+
+	dv, err = virtCli.CdiClient().CdiV1beta1().DataVolumes(namespace).Create(context.Background(), dv, metav1.CreateOptions{})
 	Expect(err).ToNot(HaveOccurred())
 	libstorage.EventuallyDV(dv, 240, Or(HaveSucceeded(), BeInPhase(cdiv1.WaitForFirstConsumer)))
 	return NewRandomVMIWithDataVolume(dv.Name), dv
@@ -465,11 +469,11 @@ func NewRandomVirtualMachineInstanceWithFileDisk(imageUrl, namespace string, acc
 	if !libstorage.HasCDI() {
 		Skip("Skip DataVolume tests when CDI is not present")
 	}
-	sc, exists := libstorage.GetRWOFileSystemStorageClass()
+	sc, foundSC := libstorage.GetRWOFileSystemStorageClass()
 	if accessMode == k8sv1.ReadWriteMany {
-		sc, exists = libstorage.GetRWXFileSystemStorageClass()
+		sc, foundSC = libstorage.GetRWXFileSystemStorageClass()
 	}
-	if !exists {
+	if !foundSC {
 		Skip("Skip test when Filesystem storage is not present")
 	}
 
@@ -531,7 +535,11 @@ func NewRandomVMWithEphemeralDisk(containerImage string) *v1.VirtualMachine {
 }
 
 func NewRandomVMWithDataVolumeWithRegistryImport(imageUrl, namespace, storageClass string, accessMode k8sv1.PersistentVolumeAccessMode) *v1.VirtualMachine {
-	dataVolume := libstorage.NewDataVolumeWithRegistryImportInStorageClass(imageUrl, namespace, storageClass, accessMode, k8sv1.PersistentVolumeFilesystem)
+	dataVolume := libdv.NewDataVolume(
+		libdv.WithRegistryURLSourceAndPullMethod(imageUrl, cdiv1.RegistryPullNode),
+		libdv.WithPVC(storageClass, dvSizeBySourceURL(imageUrl), accessMode, k8sv1.PersistentVolumeFilesystem),
+	)
+
 	vmi := NewRandomVMIWithDataVolume(dataVolume.Name)
 	vm := NewRandomVirtualMachine(vmi, false)
 
@@ -539,13 +547,22 @@ func NewRandomVMWithDataVolumeWithRegistryImport(imageUrl, namespace, storageCla
 	return vm
 }
 
-func NewRandomVMWithDataVolume(imageUrl string, namespace string) *v1.VirtualMachine {
-	dataVolume := libstorage.NewDataVolumeWithRegistryImport(imageUrl, namespace, k8sv1.ReadWriteOnce)
+func NewRandomVMWithDataVolume(imageUrl string, namespace string) (*v1.VirtualMachine, bool) {
+	sc, exists := libstorage.GetRWOFileSystemStorageClass()
+	if !exists {
+		return nil, false
+	}
+
+	dataVolume := libdv.NewDataVolume(
+		libdv.WithRegistryURLSource(imageUrl),
+		libdv.WithPVC(sc, cd.CirrosVolumeSize, k8sv1.ReadWriteOnce, k8sv1.PersistentVolumeFilesystem),
+	)
+
 	vmi := NewRandomVMIWithDataVolume(dataVolume.Name)
 	vm := NewRandomVirtualMachine(vmi, false)
 
 	libstorage.AddDataVolumeTemplate(vm, dataVolume)
-	return vm
+	return vm, true
 }
 
 func NewRandomVMWithDataVolumeAndUserData(dataVolume *cdiv1.DataVolume, userData string) *v1.VirtualMachine {
@@ -558,18 +575,12 @@ func NewRandomVMWithDataVolumeAndUserData(dataVolume *cdiv1.DataVolume, userData
 }
 
 func NewRandomVMWithDataVolumeAndUserDataInStorageClass(imageUrl, namespace, userData, storageClass string) *v1.VirtualMachine {
-	dataVolume := libstorage.NewDataVolumeWithRegistryImportInStorageClass(imageUrl, namespace, storageClass, k8sv1.ReadWriteOnce, k8sv1.PersistentVolumeFilesystem)
+	dataVolume := libdv.NewDataVolume(
+		libdv.WithRegistryURLSourceAndPullMethod(imageUrl, cdiv1.RegistryPullNode),
+		libdv.WithPVC(storageClass, dvSizeBySourceURL(imageUrl), k8sv1.ReadWriteOnce, k8sv1.PersistentVolumeFilesystem),
+	)
+
 	return NewRandomVMWithDataVolumeAndUserData(dataVolume, userData)
-}
-
-func NewRandomVMWithCloneDataVolume(sourceNamespace, sourceName, targetNamespace string) *v1.VirtualMachine {
-	dataVolume := libstorage.NewDataVolumeWithPVCSource(sourceNamespace, sourceName, targetNamespace, k8sv1.ReadWriteOnce)
-	vmi := NewRandomVMIWithDataVolume(dataVolume.Name)
-	vmi.Namespace = targetNamespace
-	vm := NewRandomVirtualMachine(vmi, false)
-
-	libstorage.AddDataVolumeTemplate(vm, dataVolume)
-	return vm
 }
 
 func NewRandomVMIWithEphemeralDiskHighMemory(containerImage string) *v1.VirtualMachineInstance {
@@ -1810,15 +1821,6 @@ func EnableFeatureGate(feature string) *v1.KubeVirt {
 	return UpdateKubeVirtConfigValueAndWait(kv.Spec.Configuration)
 }
 
-func SetDataVolumeForceBindAnnotation(dv *cdiv1.DataVolume) {
-	annotations := dv.GetAnnotations()
-	if annotations == nil {
-		annotations = make(map[string]string)
-	}
-	annotations["cdi.kubevirt.io/storage.bind.immediate.requested"] = "true"
-	dv.SetAnnotations(annotations)
-}
-
 func GetVmPodName(virtCli kubecli.KubevirtClient, vmi *v1.VirtualMachineInstance) string {
 	namespace := vmi.GetObjectMeta().GetNamespace()
 	uid := vmi.GetObjectMeta().GetUID()
@@ -2661,4 +2663,13 @@ func AffinityToMigrateFromSourceToTargetAndBack(sourceNode *k8sv1.Node, targetNo
 			},
 		},
 	}, nil
+}
+
+func dvSizeBySourceURL(url string) string {
+	if url == cd.DataVolumeImportUrlForContainerDisk(cd.ContainerDiskFedoraTestTooling) ||
+		url == cd.DataVolumeImportUrlForContainerDisk(cd.ContainerDiskFedoraRealtime) {
+		return cd.FedoraVolumeSize
+	}
+
+	return cd.CirrosVolumeSize
 }

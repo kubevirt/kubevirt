@@ -6,8 +6,6 @@ import (
 	"strings"
 	"time"
 
-	typesutil "kubevirt.io/kubevirt/pkg/util/types"
-
 	expect "github.com/google/goexpect"
 	vsv1 "github.com/kubernetes-csi/external-snapshotter/client/v4/apis/volumesnapshot/v1"
 	. "github.com/onsi/ginkgo/v2"
@@ -28,9 +26,11 @@ import (
 	"kubevirt.io/client-go/kubecli"
 	cdiv1 "kubevirt.io/containerized-data-importer-api/pkg/apis/core/v1beta1"
 
+	typesutil "kubevirt.io/kubevirt/pkg/util/types"
 	"kubevirt.io/kubevirt/tests"
 	"kubevirt.io/kubevirt/tests/console"
 	cd "kubevirt.io/kubevirt/tests/containerdisk"
+	"kubevirt.io/kubevirt/tests/libdv"
 	"kubevirt.io/kubevirt/tests/libstorage"
 	"kubevirt.io/kubevirt/tests/util"
 )
@@ -1250,13 +1250,11 @@ var _ = SIGDescribe("VirtualMachineSnapshot Tests", func() {
 			})
 
 			DescribeTable("should accurately report DataVolume provisioning", func(vmif func(string) *v1.VirtualMachineInstance) {
-				dataVolume := libstorage.NewDataVolumeWithRegistryImportInStorageClass(
-					cd.DataVolumeImportUrlForContainerDisk(cd.ContainerDiskAlpine),
-					util.NamespaceTestDefault,
-					snapshotStorageClass,
-					corev1.ReadWriteOnce,
-					corev1.PersistentVolumeFilesystem,
+				dataVolume := libdv.NewDataVolume(
+					libdv.WithRegistryURLSourceAndPullMethod(cd.DataVolumeImportUrlForContainerDisk(cd.ContainerDiskAlpine), cdiv1.RegistryPullNode),
+					libdv.WithPVC(snapshotStorageClass, cd.CirrosVolumeSize, corev1.ReadWriteOnce, corev1.PersistentVolumeFilesystem),
 				)
+
 				vmi := vmif(dataVolume.Name)
 				vm = tests.NewRandomVirtualMachine(vmi, false)
 
@@ -1270,7 +1268,7 @@ var _ = SIGDescribe("VirtualMachineSnapshot Tests", func() {
 						!vm.Status.VolumeSnapshotStatuses[0].Enabled
 				}, 180*time.Second, 1*time.Second).Should(BeTrue())
 
-				dv, err = virtClient.CdiClient().CdiV1beta1().DataVolumes(dataVolume.Namespace).Create(context.Background(), dataVolume, metav1.CreateOptions{})
+				dv, err = virtClient.CdiClient().CdiV1beta1().DataVolumes(util.NamespaceTestDefault).Create(context.Background(), dataVolume, metav1.CreateOptions{})
 				Expect(err).ToNot(HaveOccurred())
 
 				Eventually(func() bool {
@@ -1395,9 +1393,15 @@ func getSnapshotStorageClass(client kubecli.KubevirtClient) (string, error) {
 }
 
 func AddVolumeAndVerify(virtClient kubecli.KubevirtClient, storageClass string, vm *v1.VirtualMachine, addVMIOnly bool) string {
-	dv := libstorage.NewBlankDataVolume(vm.Namespace, storageClass, "64Mi", corev1.ReadWriteOnce, corev1.PersistentVolumeFilesystem)
-	_, err := virtClient.CdiClient().CdiV1beta1().DataVolumes(dv.Namespace).Create(context.Background(), dv, metav1.CreateOptions{})
+	dv := libdv.NewDataVolume(
+		libdv.WithBlankImageSource(),
+		libdv.WithPVC(storageClass, cd.BlankVolumeSize, corev1.ReadWriteOnce, corev1.PersistentVolumeFilesystem),
+	)
+
+	var err error
+	dv, err = virtClient.CdiClient().CdiV1beta1().DataVolumes(vm.Namespace).Create(context.Background(), dv, metav1.CreateOptions{})
 	Expect(err).ToNot(HaveOccurred())
+
 	libstorage.EventuallyDV(dv, 240, HaveSucceeded())
 	volumeSource := &v1.HotplugVolumeSource{
 		DataVolume: &v1.DataVolumeSource{

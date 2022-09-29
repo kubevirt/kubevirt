@@ -57,6 +57,7 @@ import (
 	"kubevirt.io/kubevirt/tests/console"
 	cd "kubevirt.io/kubevirt/tests/containerdisk"
 	. "kubevirt.io/kubevirt/tests/framework/matcher"
+	"kubevirt.io/kubevirt/tests/libdv"
 	"kubevirt.io/kubevirt/tests/libnet"
 	"kubevirt.io/kubevirt/tests/libstorage"
 	"kubevirt.io/kubevirt/tests/testsuite"
@@ -531,14 +532,24 @@ var _ = SIGDescribe("Storage", func() {
 				if !libstorage.HasCDI() {
 					Skip("Skip DataVolume tests when CDI is not present")
 				}
-				dataVolume = libstorage.NewDataVolumeWithRegistryImport(cd.DataVolumeImportUrlForContainerDisk(cd.ContainerDiskAlpine), util.NamespaceTestDefault, k8sv1.ReadWriteOnce)
+
+				sc, exists := libstorage.GetRWOFileSystemStorageClass()
+				if !exists {
+					Skip("Skip test when Filesystem storage is not present")
+				}
+
+				dataVolume = libdv.NewDataVolume(
+					libdv.WithRegistryURLSource(cd.DataVolumeImportUrlForContainerDisk(cd.ContainerDiskAlpine)),
+					libdv.WithPVC(sc, cd.CirrosVolumeSize, k8sv1.ReadWriteOnce, k8sv1.PersistentVolumeFilesystem),
+				)
 			})
+
 			AfterEach(func() {
 				libstorage.DeleteDataVolume(&dataVolume)
 			})
 
 			It("should be successfully started and virtiofs could be accessed", func() {
-				_, err := virtClient.CdiClient().CdiV1beta1().DataVolumes(dataVolume.Namespace).Create(context.Background(), dataVolume, metav1.CreateOptions{})
+				dataVolume, err = virtClient.CdiClient().CdiV1beta1().DataVolumes(util.NamespaceTestDefault).Create(context.Background(), dataVolume, metav1.CreateOptions{})
 				Expect(err).ToNot(HaveOccurred())
 				By("Waiting until the DataVolume is ready")
 				if libstorage.IsStorageClassBindingModeWaitForFirstConsumer(libstorage.Config.StorageRWOFileSystem) {
@@ -1092,10 +1103,11 @@ var _ = SIGDescribe("Storage", func() {
 
 			BeforeEach(func() {
 				// create a new PV and PVC (PVs can't be reused)
-				dataVolume = libstorage.NewBlockDataVolumeWithRegistryImport(cd.DataVolumeImportUrlForContainerDisk(cd.ContainerDiskCirros), util.NamespaceTestDefault, k8sv1.ReadWriteOnce)
-
-				_, err := virtClient.CdiClient().CdiV1beta1().DataVolumes(dataVolume.Namespace).Create(context.Background(), dataVolume, metav1.CreateOptions{})
+				dataVolume, err = createBlockDataVolume(virtClient)
 				Expect(err).ToNot(HaveOccurred())
+				if dataVolume == nil {
+					Skip("Skip test when Block storage is not present")
+				}
 
 				libstorage.EventuallyDV(dataVolume, 240, Or(HaveSucceeded(), BeInPhase(cdiv1.WaitForFirstConsumer)))
 			})
@@ -1235,10 +1247,11 @@ var _ = SIGDescribe("Storage", func() {
 			var dataVolume *cdiv1.DataVolume
 
 			BeforeEach(func() {
-				dataVolume = libstorage.NewBlockDataVolumeWithRegistryImport(cd.DataVolumeImportUrlForContainerDisk(cd.ContainerDiskCirros), util.NamespaceTestDefault, k8sv1.ReadWriteOnce)
-
-				_, err := virtClient.CdiClient().CdiV1beta1().DataVolumes(dataVolume.Namespace).Create(context.Background(), dataVolume, metav1.CreateOptions{})
+				dataVolume, err = createBlockDataVolume(virtClient)
 				Expect(err).ToNot(HaveOccurred())
+				if dataVolume == nil {
+					Skip("Skip test when Block storage is not present")
+				}
 
 				libstorage.EventuallyDV(dataVolume, 240, Or(HaveSucceeded(), BeInPhase(cdiv1.WaitForFirstConsumer)))
 				vmi = nil
@@ -1284,8 +1297,17 @@ var _ = SIGDescribe("Storage", func() {
 				vmi1, vmi2 *virtv1.VirtualMachineInstance
 			)
 			BeforeEach(func() {
-				dv = libstorage.NewDataVolumeWithRegistryImport(cd.DataVolumeImportUrlForContainerDisk(cd.ContainerDiskCirros), util.NamespaceTestDefault, k8sv1.ReadWriteOnce)
-				_, err := virtClient.CdiClient().CdiV1beta1().DataVolumes(util.NamespaceTestDefault).Create(context.Background(), dv, metav1.CreateOptions{})
+				sc, exists := libstorage.GetRWOFileSystemStorageClass()
+				if !exists {
+					Skip("Skip test when Filesystem storage is not present")
+				}
+
+				dv = libdv.NewDataVolume(
+					libdv.WithRegistryURLSource(cd.DataVolumeImportUrlForContainerDisk(cd.ContainerDiskCirros)),
+					libdv.WithPVC(sc, cd.CirrosVolumeSize, k8sv1.ReadWriteOnce, k8sv1.PersistentVolumeFilesystem),
+				)
+
+				dv, err = virtClient.CdiClient().CdiV1beta1().DataVolumes(util.NamespaceTestDefault).Create(context.Background(), dv, metav1.CreateOptions{})
 				Expect(err).ToNot(HaveOccurred())
 				labelKey := "testshareablekey"
 				labels := map[string]string{
@@ -1465,4 +1487,18 @@ func waitForPodToDisappearWithTimeout(podName string, seconds int) {
 		_, err := virtClient.CoreV1().Pods(util.NamespaceTestDefault).Get(context.Background(), podName, metav1.GetOptions{})
 		return errors.IsNotFound(err)
 	}, seconds, 1*time.Second).Should(BeTrue())
+}
+
+func createBlockDataVolume(virtClient kubecli.KubevirtClient) (*cdiv1.DataVolume, error) {
+	sc, foundSC := libstorage.GetBlockStorageClass(k8sv1.ReadWriteOnce)
+	if !foundSC {
+		return nil, nil
+	}
+
+	dataVolume := libdv.NewDataVolume(
+		libdv.WithRegistryURLSource(cd.DataVolumeImportUrlForContainerDisk(cd.ContainerDiskCirros)),
+		libdv.WithPVC(sc, cd.CirrosVolumeSize, k8sv1.ReadWriteOnce, k8sv1.PersistentVolumeBlock),
+	)
+
+	return virtClient.CdiClient().CdiV1beta1().DataVolumes(util.NamespaceTestDefault).Create(context.Background(), dataVolume, metav1.CreateOptions{})
 }

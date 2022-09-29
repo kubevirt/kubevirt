@@ -109,7 +109,10 @@ var _ = Describe("[sig-compute]VirtualMachinePool", func() {
 	newPersistentStorageVirtualMachinePool := func() *poolv1.VirtualMachinePool {
 		By("Create a new VirtualMachinePool with persistent storage")
 
-		vm := tests.NewRandomVMWithDataVolume(cd.DataVolumeImportUrlForContainerDisk(cd.ContainerDiskCirros), util.NamespaceTestDefault)
+		vm, foundSC := tests.NewRandomVMWithDataVolume(cd.DataVolumeImportUrlForContainerDisk(cd.ContainerDiskCirros), util.NamespaceTestDefault)
+		if !foundSC {
+			Skip("Skip test when Filesystem storage is not present")
+		}
 
 		newPool := newPoolFromVMI(&v1.VirtualMachineInstance{
 			ObjectMeta: vm.Spec.Template.ObjectMeta,

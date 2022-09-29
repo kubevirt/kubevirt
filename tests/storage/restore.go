@@ -33,6 +33,7 @@ import (
 	"kubevirt.io/kubevirt/tests/console"
 	cd "kubevirt.io/kubevirt/tests/containerdisk"
 	"kubevirt.io/kubevirt/tests/framework/matcher"
+	"kubevirt.io/kubevirt/tests/libdv"
 	"kubevirt.io/kubevirt/tests/libstorage"
 	"kubevirt.io/kubevirt/tests/libvmi"
 	"kubevirt.io/kubevirt/tests/testsuite"
@@ -1550,19 +1551,13 @@ var _ = SIGDescribe("VirtualMachineRestore Tests", func() {
 						Skip("Two storageclasses required for this test")
 					}
 
-					source := libstorage.NewDataVolumeWithRegistryImportInStorageClass(
-						cd.DataVolumeImportUrlForContainerDisk(cd.ContainerDiskCirros),
-						testsuite.NamespaceTestAlternative,
-						sourceSC,
-						corev1.ReadWriteOnce,
-						corev1.PersistentVolumeFilesystem,
+					source := libdv.NewDataVolume(
+						libdv.WithRegistryURLSourceAndPullMethod(cd.DataVolumeImportUrlForContainerDisk(cd.ContainerDiskCirros), cdiv1.RegistryPullNode),
+						libdv.WithPVC(sourceSC, cd.CirrosVolumeSize, corev1.ReadWriteOnce, corev1.PersistentVolumeFilesystem),
+						libdv.WithForceBindAnnotation(),
 					)
-					if source.Annotations == nil {
-						source.Annotations = make(map[string]string)
-					}
-					source.Annotations["cdi.kubevirt.io/storage.bind.immediate.requested"] = "true"
 
-					source, err = virtClient.CdiClient().CdiV1beta1().DataVolumes(source.Namespace).Create(context.Background(), source, metav1.CreateOptions{})
+					source, err = virtClient.CdiClient().CdiV1beta1().DataVolumes(testsuite.NamespaceTestAlternative).Create(context.Background(), source, metav1.CreateOptions{})
 					Expect(err).ToNot(HaveOccurred())
 					sourceDV = source
 					sourceDV = waitDVReady(sourceDV)
@@ -1609,13 +1604,11 @@ var _ = SIGDescribe("VirtualMachineRestore Tests", func() {
 				}
 
 				createVMFromSource := func() *v1.VirtualMachine {
-					dataVolume := libstorage.NewDataVolumeWithPVCSource(
-						sourceDV.Namespace,
-						sourceDV.Name,
-						util.NamespaceTestDefault,
-						corev1.ReadWriteOnce,
+					dataVolume := libdv.NewDataVolume(
+						libdv.WithPVCSource(sourceDV.Namespace, sourceDV.Name),
+						libdv.WithPVC(snapshotStorageClass, "1Gi", corev1.ReadWriteOnce, corev1.PersistentVolumeFilesystem),
 					)
-					libstorage.SetDataVolumePVCStorageClass(dataVolume, snapshotStorageClass)
+
 					vmi := tests.NewRandomVMIWithDataVolume(dataVolume.Name)
 					tests.AddUserData(vmi, "cloud-init", bashHelloScript)
 					vm := tests.NewRandomVirtualMachine(vmi, false)

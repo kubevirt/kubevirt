@@ -94,6 +94,15 @@ func GetRWXBlockStorageClass() (string, bool) {
 	return storageRWXBlock, storageRWXBlock != ""
 }
 
+func GetBlockStorageClass(accessMode k8sv1.PersistentVolumeAccessMode) (string, bool) {
+	sc, foundSC := GetRWOBlockStorageClass()
+	if accessMode == k8sv1.ReadWriteMany {
+		sc, foundSC = GetRWXBlockStorageClass()
+	}
+
+	return sc, foundSC
+}
+
 func IsStorageClassBindingModeWaitForFirstConsumer(sc string) bool {
 	virtClient, err := kubecli.GetKubevirtClient()
 	Expect(err).ToNot(HaveOccurred())
