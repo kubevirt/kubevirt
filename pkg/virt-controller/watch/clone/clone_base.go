@@ -124,6 +124,22 @@ func (ctrl *VMCloneController) handleSnapshot(obj interface{}) {
 	if ownedByClone, key := isOwnedByClone(snapshot); ownedByClone {
 		ctrl.vmCloneQueue.AddRateLimited(key)
 	}
+
+	snapshotKey, err := cache.MetaNamespaceKeyFunc(snapshot)
+	if err != nil {
+		log.Log.Object(snapshot).Reason(err).Error("cannot get snapshot key")
+		return
+	}
+
+	keys, err := ctrl.vmCloneInformer.GetIndexer().IndexKeys("snapshotSource", snapshotKey)
+	if err != nil {
+		log.Log.Object(snapshot).Reason(err).Error("cannot get clone keys from snapshotSource indexer")
+		return
+	}
+
+	for _, key := range keys {
+		ctrl.vmCloneQueue.AddRateLimited(key)
+	}
 }
 
 func (ctrl *VMCloneController) handleRestore(obj interface{}) {
