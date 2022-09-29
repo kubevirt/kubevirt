@@ -1252,7 +1252,7 @@ var _ = SIGDescribe("VirtualMachineSnapshot Tests", func() {
 			DescribeTable("should accurately report DataVolume provisioning", func(vmif func(string) *v1.VirtualMachineInstance) {
 				dataVolume := libdv.NewDataVolume(
 					libdv.WithRegistryURLSourceAndPullMethod(cd.DataVolumeImportUrlForContainerDisk(cd.ContainerDiskAlpine), cdiv1.RegistryPullNode),
-					libdv.WithPVC(snapshotStorageClass, cd.CirrosVolumeSize, corev1.ReadWriteOnce, corev1.PersistentVolumeFilesystem),
+					libdv.WithPVC(libdv.PVCWithStorageClass(snapshotStorageClass)),
 				)
 
 				vmi := vmif(dataVolume.Name)
@@ -1395,7 +1395,7 @@ func getSnapshotStorageClass(client kubecli.KubevirtClient) (string, error) {
 func AddVolumeAndVerify(virtClient kubecli.KubevirtClient, storageClass string, vm *v1.VirtualMachine, addVMIOnly bool) string {
 	dv := libdv.NewDataVolume(
 		libdv.WithBlankImageSource(),
-		libdv.WithPVC(storageClass, cd.BlankVolumeSize, corev1.ReadWriteOnce, corev1.PersistentVolumeFilesystem),
+		libdv.WithPVC(libdv.PVCWithStorageClass(storageClass), libdv.PVCWithVolumeSize(cd.BlankVolumeSize)),
 	)
 
 	var err error

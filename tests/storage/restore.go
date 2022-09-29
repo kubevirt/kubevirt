@@ -1553,7 +1553,7 @@ var _ = SIGDescribe("VirtualMachineRestore Tests", func() {
 
 					source := libdv.NewDataVolume(
 						libdv.WithRegistryURLSourceAndPullMethod(cd.DataVolumeImportUrlForContainerDisk(cd.ContainerDiskCirros), cdiv1.RegistryPullNode),
-						libdv.WithPVC(sourceSC, cd.CirrosVolumeSize, corev1.ReadWriteOnce, corev1.PersistentVolumeFilesystem),
+						libdv.WithPVC(libdv.PVCWithStorageClass(sourceSC)),
 						libdv.WithForceBindAnnotation(),
 					)
 
@@ -1606,7 +1606,7 @@ var _ = SIGDescribe("VirtualMachineRestore Tests", func() {
 				createVMFromSource := func() *v1.VirtualMachine {
 					dataVolume := libdv.NewDataVolume(
 						libdv.WithPVCSource(sourceDV.Namespace, sourceDV.Name),
-						libdv.WithPVC(snapshotStorageClass, "1Gi", corev1.ReadWriteOnce, corev1.PersistentVolumeFilesystem),
+						libdv.WithPVC(libdv.PVCWithStorageClass(snapshotStorageClass), libdv.PVCWithVolumeSize("1Gi")),
 					)
 
 					vmi := tests.NewRandomVMIWithDataVolume(dataVolume.Name)

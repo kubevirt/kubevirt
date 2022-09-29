@@ -326,7 +326,7 @@ var _ = SIGDescribe("Export", func() {
 		By("Creating source volume")
 		dv := libdv.NewDataVolume(
 			libdv.WithRegistryURLSourceAndPullMethod(cd.DataVolumeImportUrlForContainerDisk(cd.ContainerDiskCirros), cdiv1.RegistryPullNode),
-			libdv.WithPVC(sc, cd.CirrosVolumeSize, k8sv1.ReadWriteOnce, volumeMode),
+			libdv.WithPVC(libdv.PVCWithStorageClass(sc), libdv.PVCWithVolumeMode(volumeMode)),
 		)
 
 		dv, err = virtClient.CdiClient().CdiV1beta1().DataVolumes(util.NamespaceTestDefault).Create(context.Background(), dv, metav1.CreateOptions{})
@@ -815,7 +815,7 @@ var _ = SIGDescribe("Export", func() {
 		}
 		dv := libdv.NewDataVolume(
 			libdv.WithRegistryURLSourceAndPullMethod(cd.DataVolumeImportUrlForContainerDisk(cd.ContainerDiskCirros), cdiv1.RegistryPullNode),
-			libdv.WithPVC(sc, cd.CirrosVolumeSize, k8sv1.ReadWriteOnce, k8sv1.PersistentVolumeFilesystem),
+			libdv.WithPVC(libdv.PVCWithStorageClass(sc)),
 		)
 
 		name := dv.Name
@@ -1319,7 +1319,7 @@ var _ = SIGDescribe("Export", func() {
 
 		blankDv := libdv.NewDataVolume(
 			libdv.WithBlankImageSource(),
-			libdv.WithPVC(sc, cd.BlankVolumeSize, k8sv1.ReadWriteOnce, k8sv1.PersistentVolumeFilesystem),
+			libdv.WithPVC(libdv.PVCWithStorageClass(sc), libdv.PVCWithVolumeSize(cd.BlankVolumeSize)),
 		)
 
 		vm := tests.NewRandomVMWithDataVolumeAndUserDataInStorageClass(
@@ -1430,7 +1430,7 @@ var _ = SIGDescribe("Export", func() {
 		dataVolume := libdv.NewDataVolume(
 			libdv.WithNamespace(util.NamespaceTestDefault),
 			libdv.WithRegistryURLSourceAndPullMethod(cd.DataVolumeImportUrlForContainerDisk(cd.ContainerDiskAlpine), cdiv1.RegistryPullNode),
-			libdv.WithPVC(sc, cd.CirrosVolumeSize, k8sv1.ReadWriteOnce, k8sv1.PersistentVolumeFilesystem),
+			libdv.WithPVC(libdv.PVCWithStorageClass(sc)),
 		)
 		dataVolume = createDataVolume(dataVolume)
 		vmi := tests.NewRandomVMIWithDataVolume(dataVolume.Name)
@@ -1486,7 +1486,7 @@ var _ = SIGDescribe("Export", func() {
 		dv := libdv.NewDataVolume(
 			libdv.WithNamespace(vm.Namespace),
 			libdv.WithBlankImageSource(),
-			libdv.WithPVC(sc, cd.CirrosVolumeSize, k8sv1.ReadWriteOnce, k8sv1.PersistentVolumeFilesystem),
+			libdv.WithPVC(libdv.PVCWithStorageClass(sc)),
 		)
 		dv = createDataVolume(dv)
 		Eventually(ThisPVCWith(vm.Namespace, dv.Name), 160).Should(Exist())
@@ -1631,7 +1631,7 @@ var _ = SIGDescribe("Export", func() {
 			// Create a populated Snapshot
 			blankDv := libdv.NewDataVolume(
 				libdv.WithBlankImageSource(),
-				libdv.WithPVC(sc, cd.BlankVolumeSize, k8sv1.ReadWriteOnce, k8sv1.PersistentVolumeFilesystem),
+				libdv.WithPVC(libdv.PVCWithStorageClass(sc), libdv.PVCWithVolumeSize(cd.BlankVolumeSize)),
 			)
 
 			vm := tests.NewRandomVMWithDataVolumeAndUserDataInStorageClass(
@@ -1764,7 +1764,7 @@ var _ = SIGDescribe("Export", func() {
 				// Create a populated Snapshot
 				blankDv := libdv.NewDataVolume(
 					libdv.WithBlankImageSource(),
-					libdv.WithPVC(sc, cd.BlankVolumeSize, k8sv1.ReadWriteOnce, k8sv1.PersistentVolumeFilesystem),
+					libdv.WithPVC(libdv.PVCWithStorageClass(sc), libdv.PVCWithVolumeSize(cd.BlankVolumeSize)),
 				)
 				vm := tests.NewRandomVMWithDataVolumeAndUserDataInStorageClass(
 					cd.DataVolumeImportUrlForContainerDisk(cd.ContainerDiskCirros),

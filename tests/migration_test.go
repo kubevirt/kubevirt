@@ -1456,7 +1456,7 @@ var _ = Describe("[rfe_id:393][crit:high][vendor:cnv-qe@redhat.com][level:system
 
 				dataVolume := libdv.NewDataVolume(
 					libdv.WithRegistryURLSource(cd.DataVolumeImportUrlForContainerDisk(cd.ContainerDiskAlpine)),
-					libdv.WithPVC(sc, cd.CirrosVolumeSize, k8sv1.ReadWriteOnce, k8sv1.PersistentVolumeFilesystem),
+					libdv.WithPVC(libdv.PVCWithStorageClass(sc)),
 				)
 
 				vmi := tests.NewRandomVMIWithDataVolume(dataVolume.Name)
@@ -1665,7 +1665,11 @@ var _ = Describe("[rfe_id:393][crit:high][vendor:cnv-qe@redhat.com][level:system
 				url := "docker://" + cd.ContainerDiskFor(cd.ContainerDiskFedoraTestTooling)
 				dv = libdv.NewDataVolume(
 					libdv.WithRegistryURLSource(url),
-					libdv.WithPVC(sc, cd.FedoraVolumeSize, k8sv1.ReadWriteMany, k8sv1.PersistentVolumeFilesystem),
+					libdv.WithPVC(
+						libdv.PVCWithStorageClass(sc),
+						libdv.PVCWithVolumeSize(cd.FedoraVolumeSize),
+						libdv.PVCWithReadWriteManyAccessMode(),
+					),
 				)
 
 				dv, err = virtClient.CdiClient().CdiV1beta1().DataVolumes(util.NamespaceTestDefault).Create(context.Background(), dv, metav1.CreateOptions{})
@@ -1720,7 +1724,11 @@ var _ = Describe("[rfe_id:393][crit:high][vendor:cnv-qe@redhat.com][level:system
 
 			dv := libdv.NewDataVolume(
 				libdv.WithRegistryURLSource(cd.DataVolumeImportUrlForContainerDisk(cd.ContainerDiskAlpine)),
-				libdv.WithPVC(sc, size, k8sv1.ReadWriteMany, k8sv1.PersistentVolumeFilesystem),
+				libdv.WithPVC(
+					libdv.PVCWithStorageClass(sc),
+					libdv.PVCWithVolumeSize(size),
+					libdv.PVCWithReadWriteManyAccessMode(),
+				),
 				libdv.WithForceBindAnnotation(),
 			)
 
@@ -2119,7 +2127,11 @@ var _ = Describe("[rfe_id:393][crit:high][vendor:cnv-qe@redhat.com][level:system
 
 				dv = libdv.NewDataVolume(
 					libdv.WithRegistryURLSource(cd.DataVolumeImportUrlForContainerDisk(cd.ContainerDiskFedoraTestTooling)),
-					libdv.WithPVC(sc, cd.FedoraVolumeSize, k8sv1.ReadWriteMany, k8sv1.PersistentVolumeFilesystem),
+					libdv.WithPVC(
+						libdv.PVCWithStorageClass(sc),
+						libdv.PVCWithVolumeSize(cd.FedoraVolumeSize),
+						libdv.PVCWithReadWriteManyAccessMode(),
+					),
 				)
 
 				dv, err = virtClient.CdiClient().CdiV1beta1().DataVolumes(util.NamespaceTestDefault).Create(context.Background(), dv, metav1.CreateOptions{})
@@ -2617,7 +2629,12 @@ var _ = Describe("[rfe_id:393][crit:high][vendor:cnv-qe@redhat.com][level:system
 
 				dv := libdv.NewDataVolume(
 					libdv.WithRegistryURLSource(cd.DataVolumeImportUrlForContainerDisk(cd.ContainerDiskFedoraTestTooling)),
-					libdv.WithPVC(sc, cd.FedoraVolumeSize, k8sv1.ReadWriteMany, k8sv1.PersistentVolumeBlock),
+					libdv.WithPVC(
+						libdv.PVCWithStorageClass(sc),
+						libdv.PVCWithVolumeSize(cd.FedoraVolumeSize),
+						libdv.PVCWithReadWriteManyAccessMode(),
+						libdv.PVCWithBlockVolumeMode(),
+					),
 				)
 
 				dv, err = virtClient.CdiClient().CdiV1beta1().DataVolumes(util.NamespaceTestDefault).Create(context.Background(), dv, metav1.CreateOptions{})
