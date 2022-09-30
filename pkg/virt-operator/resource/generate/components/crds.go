@@ -41,6 +41,7 @@ import (
 	virtv1 "kubevirt.io/api/core/v1"
 	exportv1 "kubevirt.io/api/export/v1alpha1"
 	instancetypev1alpha1 "kubevirt.io/api/instancetype/v1alpha1"
+	instancetypev1alpha2 "kubevirt.io/api/instancetype/v1alpha2"
 	poolv1 "kubevirt.io/api/pool/v1alpha1"
 	snapshotv1 "kubevirt.io/api/snapshot/v1alpha1"
 )
@@ -585,9 +586,9 @@ func NewVirtualMachineExportCrd() (*extv1.CustomResourceDefinition, error) {
 func NewVirtualMachineInstancetypeCrd() (*extv1.CustomResourceDefinition, error) {
 	crd := newBlankCrd()
 
-	crd.Name = "virtualmachineinstancetypes." + instancetypev1alpha1.SchemeGroupVersion.Group
+	crd.Name = "virtualmachineinstancetypes." + instancetypev1alpha2.SchemeGroupVersion.Group
 	crd.Spec = extv1.CustomResourceDefinitionSpec{
-		Group: instancetypev1alpha1.SchemeGroupVersion.Group,
+		Group: instancetypev1alpha2.SchemeGroupVersion.Group,
 		Names: extv1.CustomResourceDefinitionNames{
 			Plural:     instancetype.PluralResourceName,
 			Singular:   instancetype.SingularResourceName,
@@ -596,8 +597,15 @@ func NewVirtualMachineInstancetypeCrd() (*extv1.CustomResourceDefinition, error)
 			Categories: []string{"all"},
 		},
 		Scope: extv1.NamespaceScoped,
+		Conversion: &extv1.CustomResourceConversion{
+			Strategy: extv1.NoneConverter,
+		},
 		Versions: []extv1.CustomResourceDefinitionVersion{{
 			Name:    instancetypev1alpha1.SchemeGroupVersion.Version,
+			Served:  true,
+			Storage: false,
+		}, {
+			Name:    instancetypev1alpha2.SchemeGroupVersion.Version,
 			Served:  true,
 			Storage: true,
 		}},
@@ -612,9 +620,9 @@ func NewVirtualMachineInstancetypeCrd() (*extv1.CustomResourceDefinition, error)
 func NewVirtualMachineClusterInstancetypeCrd() (*extv1.CustomResourceDefinition, error) {
 	crd := newBlankCrd()
 
-	crd.Name = "virtualmachineclusterinstancetypes." + instancetypev1alpha1.SchemeGroupVersion.Group
+	crd.Name = "virtualmachineclusterinstancetypes." + instancetypev1alpha2.SchemeGroupVersion.Group
 	crd.Spec = extv1.CustomResourceDefinitionSpec{
-		Group: instancetypev1alpha1.SchemeGroupVersion.Group,
+		Group: instancetypev1alpha2.SchemeGroupVersion.Group,
 		Names: extv1.CustomResourceDefinitionNames{
 			Plural:     instancetype.ClusterPluralResourceName,
 			Singular:   instancetype.ClusterSingularResourceName,
@@ -623,8 +631,15 @@ func NewVirtualMachineClusterInstancetypeCrd() (*extv1.CustomResourceDefinition,
 			Categories: []string{"all"},
 		},
 		Scope: extv1.ClusterScoped,
+		Conversion: &extv1.CustomResourceConversion{
+			Strategy: extv1.NoneConverter,
+		},
 		Versions: []extv1.CustomResourceDefinitionVersion{{
 			Name:    instancetypev1alpha1.SchemeGroupVersion.Version,
+			Served:  true,
+			Storage: false,
+		}, {
+			Name:    instancetypev1alpha2.SchemeGroupVersion.Version,
 			Served:  true,
 			Storage: true,
 		}},
@@ -639,9 +654,9 @@ func NewVirtualMachineClusterInstancetypeCrd() (*extv1.CustomResourceDefinition,
 func NewVirtualMachinePreferenceCrd() (*extv1.CustomResourceDefinition, error) {
 	crd := newBlankCrd()
 
-	crd.Name = "virtualmachinepreferences." + instancetypev1alpha1.SchemeGroupVersion.Group
+	crd.Name = "virtualmachinepreferences." + instancetypev1alpha2.SchemeGroupVersion.Group
 	crd.Spec = extv1.CustomResourceDefinitionSpec{
-		Group: instancetypev1alpha1.SchemeGroupVersion.Group,
+		Group: instancetypev1alpha2.SchemeGroupVersion.Group,
 		Names: extv1.CustomResourceDefinitionNames{
 			Plural:     instancetype.PluralPreferenceResourceName,
 			Singular:   instancetype.SingularPreferenceResourceName,
@@ -650,8 +665,15 @@ func NewVirtualMachinePreferenceCrd() (*extv1.CustomResourceDefinition, error) {
 			Categories: []string{"all"},
 		},
 		Scope: extv1.NamespaceScoped,
+		Conversion: &extv1.CustomResourceConversion{
+			Strategy: extv1.NoneConverter,
+		},
 		Versions: []extv1.CustomResourceDefinitionVersion{{
 			Name:    instancetypev1alpha1.SchemeGroupVersion.Version,
+			Served:  true,
+			Storage: false,
+		}, {
+			Name:    instancetypev1alpha2.SchemeGroupVersion.Version,
 			Served:  true,
 			Storage: true,
 		}},
@@ -666,9 +688,9 @@ func NewVirtualMachinePreferenceCrd() (*extv1.CustomResourceDefinition, error) {
 func NewVirtualMachineClusterPreferenceCrd() (*extv1.CustomResourceDefinition, error) {
 	crd := newBlankCrd()
 
-	crd.Name = "virtualmachineclusterpreferences." + instancetypev1alpha1.SchemeGroupVersion.Group
+	crd.Name = "virtualmachineclusterpreferences." + instancetypev1alpha2.SchemeGroupVersion.Group
 	crd.Spec = extv1.CustomResourceDefinitionSpec{
-		Group: instancetypev1alpha1.SchemeGroupVersion.Group,
+		Group: instancetypev1alpha2.SchemeGroupVersion.Group,
 		Names: extv1.CustomResourceDefinitionNames{
 			Plural:     instancetype.ClusterPluralPreferenceResourceName,
 			Singular:   instancetype.ClusterSingularPreferenceResourceName,
@@ -677,8 +699,15 @@ func NewVirtualMachineClusterPreferenceCrd() (*extv1.CustomResourceDefinition, e
 			Categories: []string{"all"},
 		},
 		Scope: extv1.ClusterScoped,
+		Conversion: &extv1.CustomResourceConversion{
+			Strategy: extv1.NoneConverter,
+		},
 		Versions: []extv1.CustomResourceDefinitionVersion{{
 			Name:    instancetypev1alpha1.SchemeGroupVersion.Version,
+			Served:  true,
+			Storage: false,
+		}, {
+			Name:    instancetypev1alpha2.SchemeGroupVersion.Version,
 			Served:  true,
 			Storage: true,
 		}},

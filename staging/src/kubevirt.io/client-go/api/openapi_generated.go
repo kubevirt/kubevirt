@@ -532,6 +532,24 @@ func GetOpenAPIDefinitions(ref common.ReferenceCallback) map[string]common.OpenA
 		"kubevirt.io/api/instancetype/v1alpha1.VirtualMachinePreferenceList":                         schema_kubevirtio_api_instancetype_v1alpha1_VirtualMachinePreferenceList(ref),
 		"kubevirt.io/api/instancetype/v1alpha1.VirtualMachinePreferenceSpec":                         schema_kubevirtio_api_instancetype_v1alpha1_VirtualMachinePreferenceSpec(ref),
 		"kubevirt.io/api/instancetype/v1alpha1.VirtualMachinePreferenceSpecRevision":                 schema_kubevirtio_api_instancetype_v1alpha1_VirtualMachinePreferenceSpecRevision(ref),
+		"kubevirt.io/api/instancetype/v1alpha2.CPUInstancetype":                                      schema_kubevirtio_api_instancetype_v1alpha2_CPUInstancetype(ref),
+		"kubevirt.io/api/instancetype/v1alpha2.CPUPreferences":                                       schema_kubevirtio_api_instancetype_v1alpha2_CPUPreferences(ref),
+		"kubevirt.io/api/instancetype/v1alpha2.ClockPreferences":                                     schema_kubevirtio_api_instancetype_v1alpha2_ClockPreferences(ref),
+		"kubevirt.io/api/instancetype/v1alpha2.DevicePreferences":                                    schema_kubevirtio_api_instancetype_v1alpha2_DevicePreferences(ref),
+		"kubevirt.io/api/instancetype/v1alpha2.FeaturePreferences":                                   schema_kubevirtio_api_instancetype_v1alpha2_FeaturePreferences(ref),
+		"kubevirt.io/api/instancetype/v1alpha2.FirmwarePreferences":                                  schema_kubevirtio_api_instancetype_v1alpha2_FirmwarePreferences(ref),
+		"kubevirt.io/api/instancetype/v1alpha2.MachinePreferences":                                   schema_kubevirtio_api_instancetype_v1alpha2_MachinePreferences(ref),
+		"kubevirt.io/api/instancetype/v1alpha2.MemoryInstancetype":                                   schema_kubevirtio_api_instancetype_v1alpha2_MemoryInstancetype(ref),
+		"kubevirt.io/api/instancetype/v1alpha2.VirtualMachineClusterInstancetype":                    schema_kubevirtio_api_instancetype_v1alpha2_VirtualMachineClusterInstancetype(ref),
+		"kubevirt.io/api/instancetype/v1alpha2.VirtualMachineClusterInstancetypeList":                schema_kubevirtio_api_instancetype_v1alpha2_VirtualMachineClusterInstancetypeList(ref),
+		"kubevirt.io/api/instancetype/v1alpha2.VirtualMachineClusterPreference":                      schema_kubevirtio_api_instancetype_v1alpha2_VirtualMachineClusterPreference(ref),
+		"kubevirt.io/api/instancetype/v1alpha2.VirtualMachineClusterPreferenceList":                  schema_kubevirtio_api_instancetype_v1alpha2_VirtualMachineClusterPreferenceList(ref),
+		"kubevirt.io/api/instancetype/v1alpha2.VirtualMachineInstancetype":                           schema_kubevirtio_api_instancetype_v1alpha2_VirtualMachineInstancetype(ref),
+		"kubevirt.io/api/instancetype/v1alpha2.VirtualMachineInstancetypeList":                       schema_kubevirtio_api_instancetype_v1alpha2_VirtualMachineInstancetypeList(ref),
+		"kubevirt.io/api/instancetype/v1alpha2.VirtualMachineInstancetypeSpec":                       schema_kubevirtio_api_instancetype_v1alpha2_VirtualMachineInstancetypeSpec(ref),
+		"kubevirt.io/api/instancetype/v1alpha2.VirtualMachinePreference":                             schema_kubevirtio_api_instancetype_v1alpha2_VirtualMachinePreference(ref),
+		"kubevirt.io/api/instancetype/v1alpha2.VirtualMachinePreferenceList":                         schema_kubevirtio_api_instancetype_v1alpha2_VirtualMachinePreferenceList(ref),
+		"kubevirt.io/api/instancetype/v1alpha2.VirtualMachinePreferenceSpec":                         schema_kubevirtio_api_instancetype_v1alpha2_VirtualMachinePreferenceSpec(ref),
 		"kubevirt.io/api/migrations/v1alpha1.MigrationPolicy":                                        schema_kubevirtio_api_migrations_v1alpha1_MigrationPolicy(ref),
 		"kubevirt.io/api/migrations/v1alpha1.MigrationPolicyList":                                    schema_kubevirtio_api_migrations_v1alpha1_MigrationPolicyList(ref),
 		"kubevirt.io/api/migrations/v1alpha1.MigrationPolicySpec":                                    schema_kubevirtio_api_migrations_v1alpha1_MigrationPolicySpec(ref),
@@ -24181,6 +24199,911 @@ func schema_kubevirtio_api_instancetype_v1alpha1_VirtualMachinePreferenceSpecRev
 				Required: []string{"apiVersion", "spec"},
 			},
 		},
+	}
+}
+
+func schema_kubevirtio_api_instancetype_v1alpha2_CPUInstancetype(ref common.ReferenceCallback) common.OpenAPIDefinition {
+	return common.OpenAPIDefinition{
+		Schema: spec.Schema{
+			SchemaProps: spec.SchemaProps{
+				Description: "CPUInstancetype contains the CPU related configuration of a given VirtualMachineInstancetypeSpec.\n\nGuest is a required attribute and defines the number of vCPUs to be exposed to the guest by the instancetype.",
+				Type:        []string{"object"},
+				Properties: map[string]spec.Schema{
+					"guest": {
+						SchemaProps: spec.SchemaProps{
+							Description: "Required number of vCPUs to expose to the guest.\n\nThe resulting CPU topology being derived from the optional PreferredCPUTopology attribute of CPUPreferences that itself defaults to PreferCores.",
+							Type:        []string{"integer"},
+							Format:      "int64",
+						},
+					},
+					"model": {
+						SchemaProps: spec.SchemaProps{
+							Description: "Model specifies the CPU model inside the VMI. List of available models https://github.com/libvirt/libvirt/tree/master/src/cpu_map. It is possible to specify special cases like \"host-passthrough\" to get the same CPU as the node and \"host-model\" to get CPU closest to the node one. Defaults to host-model.",
+							Type:        []string{"string"},
+							Format:      "",
+						},
+					},
+					"dedicatedCPUPlacement": {
+						SchemaProps: spec.SchemaProps{
+							Description: "DedicatedCPUPlacement requests the scheduler to place the VirtualMachineInstance on a node with enough dedicated pCPUs and pin the vCPUs to it.",
+							Type:        []string{"boolean"},
+							Format:      "",
+						},
+					},
+					"numa": {
+						SchemaProps: spec.SchemaProps{
+							Description: "NUMA allows specifying settings for the guest NUMA topology",
+							Ref:         ref("kubevirt.io/api/core/v1.NUMA"),
+						},
+					},
+					"isolateEmulatorThread": {
+						SchemaProps: spec.SchemaProps{
+							Description: "IsolateEmulatorThread requests one more dedicated pCPU to be allocated for the VMI to place the emulator thread on it.",
+							Type:        []string{"boolean"},
+							Format:      "",
+						},
+					},
+					"realtime": {
+						SchemaProps: spec.SchemaProps{
+							Description: "Realtime instructs the virt-launcher to tune the VMI for lower latency, optional for real time workloads",
+							Ref:         ref("kubevirt.io/api/core/v1.Realtime"),
+						},
+					},
+				},
+				Required: []string{"guest"},
+			},
+		},
+		Dependencies: []string{
+			"kubevirt.io/api/core/v1.NUMA", "kubevirt.io/api/core/v1.Realtime"},
+	}
+}
+
+func schema_kubevirtio_api_instancetype_v1alpha2_CPUPreferences(ref common.ReferenceCallback) common.OpenAPIDefinition {
+	return common.OpenAPIDefinition{
+		Schema: spec.Schema{
+			SchemaProps: spec.SchemaProps{
+				Description: "CPUPreferences contains various optional CPU preferences.",
+				Type:        []string{"object"},
+				Properties: map[string]spec.Schema{
+					"preferredCPUTopology": {
+						SchemaProps: spec.SchemaProps{
+							Description: "PreferredCPUTopology optionally defines the preferred guest visible CPU topology, defaults to PreferSockets.",
+							Type:        []string{"string"},
+							Format:      "",
+						},
+					},
+				},
+			},
+		},
+	}
+}
+
+func schema_kubevirtio_api_instancetype_v1alpha2_ClockPreferences(ref common.ReferenceCallback) common.OpenAPIDefinition {
+	return common.OpenAPIDefinition{
+		Schema: spec.Schema{
+			SchemaProps: spec.SchemaProps{
+				Description: "ClockPreferences contains various optional defaults for Clock.",
+				Type:        []string{"object"},
+				Properties: map[string]spec.Schema{
+					"preferredClockOffset": {
+						SchemaProps: spec.SchemaProps{
+							Description: "ClockOffset allows specifying the UTC offset or the timezone of the guest clock.",
+							Ref:         ref("kubevirt.io/api/core/v1.ClockOffset"),
+						},
+					},
+					"preferredTimer": {
+						SchemaProps: spec.SchemaProps{
+							Description: "Timer specifies whih timers are attached to the vmi.",
+							Ref:         ref("kubevirt.io/api/core/v1.Timer"),
+						},
+					},
+				},
+			},
+		},
+		Dependencies: []string{
+			"kubevirt.io/api/core/v1.ClockOffset", "kubevirt.io/api/core/v1.Timer"},
+	}
+}
+
+func schema_kubevirtio_api_instancetype_v1alpha2_DevicePreferences(ref common.ReferenceCallback) common.OpenAPIDefinition {
+	return common.OpenAPIDefinition{
+		Schema: spec.Schema{
+			SchemaProps: spec.SchemaProps{
+				Description: "DevicePreferences contains various optional Device preferences.",
+				Type:        []string{"object"},
+				Properties: map[string]spec.Schema{
+					"preferredAutoattachGraphicsDevice": {
+						SchemaProps: spec.SchemaProps{
+							Description: "PreferredAutoattachGraphicsDevice optionally defines the preferred value of AutoattachGraphicsDevice",
+							Type:        []string{"boolean"},
+							Format:      "",
+						},
+					},
+					"preferredAutoattachMemBalloon": {
+						SchemaProps: spec.SchemaProps{
+							Description: "PreferredAutoattachMemBalloon optionally defines the preferred value of AutoattachMemBalloon",
+							Type:        []string{"boolean"},
+							Format:      "",
+						},
+					},
+					"preferredAutoattachPodInterface": {
+						SchemaProps: spec.SchemaProps{
+							Description: "PreferredAutoattachPodInterface optionally defines the preferred value of AutoattachPodInterface",
+							Type:        []string{"boolean"},
+							Format:      "",
+						},
+					},
+					"preferredAutoattachSerialConsole": {
+						SchemaProps: spec.SchemaProps{
+							Description: "PreferredAutoattachSerialConsole optionally defines the preferred value of AutoattachSerialConsole",
+							Type:        []string{"boolean"},
+							Format:      "",
+						},
+					},
+					"preferredAutoattachInputDevice": {
+						SchemaProps: spec.SchemaProps{
+							Description: "PreferredAutoattachInputDevice optionally defines the preferred value of AutoattachInputDevice",
+							Type:        []string{"boolean"},
+							Format:      "",
+						},
+					},
+					"preferredDisableHotplug": {
+						SchemaProps: spec.SchemaProps{
+							Description: "PreferredDisableHotplug optionally defines the preferred value of DisableHotplug",
+							Type:        []string{"boolean"},
+							Format:      "",
+						},
+					},
+					"preferredVirtualGPUOptions": {
+						SchemaProps: spec.SchemaProps{
+							Description: "PreferredVirtualGPUOptions optionally defines the preferred value of VirtualGPUOptions",
+							Ref:         ref("kubevirt.io/api/core/v1.VGPUOptions"),
+						},
+					},
+					"preferredSoundModel": {
+						SchemaProps: spec.SchemaProps{
+							Description: "PreferredSoundModel optionally defines the preferred model for Sound devices.",
+							Type:        []string{"string"},
+							Format:      "",
+						},
+					},
+					"preferredUseVirtioTransitional": {
+						SchemaProps: spec.SchemaProps{
+							Description: "PreferredUseVirtioTransitional optionally defines the preferred value of UseVirtioTransitional",
+							Type:        []string{"boolean"},
+							Format:      "",
+						},
+					},
+					"preferredInputBus": {
+						SchemaProps: spec.SchemaProps{
+							Description: "PreferredInputBus optionally defines the preferred bus for Input devices.",
+							Type:        []string{"string"},
+							Format:      "",
+						},
+					},
+					"preferredInputType": {
+						SchemaProps: spec.SchemaProps{
+							Description: "PreferredInputType optionally defines the preferred type for Input devices.",
+							Type:        []string{"string"},
+							Format:      "",
+						},
+					},
+					"preferredDiskBus": {
+						SchemaProps: spec.SchemaProps{
+							Description: "PreferredDiskBus optionally defines the preferred bus for Disk Disk devices.",
+							Type:        []string{"string"},
+							Format:      "",
+						},
+					},
+					"preferredLunBus": {
+						SchemaProps: spec.SchemaProps{
+							Description: "PreferredLunBus optionally defines the preferred bus for Lun Disk devices.",
+							Type:        []string{"string"},
+							Format:      "",
+						},
+					},
+					"preferredCdromBus": {
+						SchemaProps: spec.SchemaProps{
+							Description: "PreferredCdromBus optionally defines the preferred bus for Cdrom Disk devices.",
+							Type:        []string{"string"},
+							Format:      "",
+						},
+					},
+					"preferredDiskDedicatedIoThread": {
+						SchemaProps: spec.SchemaProps{
+							Description: "PreferredDedicatedIoThread optionally enables dedicated IO threads for Disk devices.",
+							Type:        []string{"boolean"},
+							Format:      "",
+						},
+					},
+					"preferredDiskCache": {
+						SchemaProps: spec.SchemaProps{
+							Description: "PreferredCache optionally defines the DriverCache to be used by Disk devices.",
+							Type:        []string{"string"},
+							Format:      "",
+						},
+					},
+					"preferredDiskIO": {
+						SchemaProps: spec.SchemaProps{
+							Description: "PreferredIo optionally defines the QEMU disk IO mode to be used by Disk devices.",
+							Type:        []string{"string"},
+							Format:      "",
+						},
+					},
+					"preferredDiskBlockSize": {
+						SchemaProps: spec.SchemaProps{
+							Description: "PreferredBlockSize optionally defines the block size of Disk devices.",
+							Ref:         ref("kubevirt.io/api/core/v1.BlockSize"),
+						},
+					},
+					"preferredInterfaceModel": {
+						SchemaProps: spec.SchemaProps{
+							Description: "PreferredInterfaceModel optionally defines the preferred model to be used by Interface devices.",
+							Type:        []string{"string"},
+							Format:      "",
+						},
+					},
+					"preferredRng": {
+						SchemaProps: spec.SchemaProps{
+							Description: "PreferredRng optionally defines the preferred rng device to be used.",
+							Ref:         ref("kubevirt.io/api/core/v1.Rng"),
+						},
+					},
+					"preferredBlockMultiQueue": {
+						SchemaProps: spec.SchemaProps{
+							Description: "PreferredBlockMultiQueue optionally enables the vhost multiqueue feature for virtio disks.",
+							Type:        []string{"boolean"},
+							Format:      "",
+						},
+					},
+					"preferredNetworkInterfaceMultiQueue": {
+						SchemaProps: spec.SchemaProps{
+							Description: "PreferredNetworkInterfaceMultiQueue optionally enables the vhost multiqueue feature for virtio interfaces.",
+							Type:        []string{"boolean"},
+							Format:      "",
+						},
+					},
+					"preferredTPM": {
+						SchemaProps: spec.SchemaProps{
+							Description: "PreferredTPM optionally defines the preferred TPM device to be used.",
+							Ref:         ref("kubevirt.io/api/core/v1.TPMDevice"),
+						},
+					},
+				},
+			},
+		},
+		Dependencies: []string{
+			"kubevirt.io/api/core/v1.BlockSize", "kubevirt.io/api/core/v1.Rng", "kubevirt.io/api/core/v1.TPMDevice", "kubevirt.io/api/core/v1.VGPUOptions"},
+	}
+}
+
+func schema_kubevirtio_api_instancetype_v1alpha2_FeaturePreferences(ref common.ReferenceCallback) common.OpenAPIDefinition {
+	return common.OpenAPIDefinition{
+		Schema: spec.Schema{
+			SchemaProps: spec.SchemaProps{
+				Description: "FeaturePreferences contains various optional defaults for Features.",
+				Type:        []string{"object"},
+				Properties: map[string]spec.Schema{
+					"preferredAcpi": {
+						SchemaProps: spec.SchemaProps{
+							Description: "PreferredAcpi optionally enables the ACPI feature",
+							Ref:         ref("kubevirt.io/api/core/v1.FeatureState"),
+						},
+					},
+					"preferredApic": {
+						SchemaProps: spec.SchemaProps{
+							Description: "PreferredApic optionally enables and configures the APIC feature",
+							Ref:         ref("kubevirt.io/api/core/v1.FeatureAPIC"),
+						},
+					},
+					"preferredHyperv": {
+						SchemaProps: spec.SchemaProps{
+							Description: "PreferredHyperv optionally enables and configures HyperV features",
+							Ref:         ref("kubevirt.io/api/core/v1.FeatureHyperv"),
+						},
+					},
+					"preferredKvm": {
+						SchemaProps: spec.SchemaProps{
+							Description: "PreferredKvm optionally enables and configures KVM features",
+							Ref:         ref("kubevirt.io/api/core/v1.FeatureKVM"),
+						},
+					},
+					"preferredPvspinlock": {
+						SchemaProps: spec.SchemaProps{
+							Description: "PreferredPvspinlock optionally enables the Pvspinlock feature",
+							Ref:         ref("kubevirt.io/api/core/v1.FeatureState"),
+						},
+					},
+					"preferredSmm": {
+						SchemaProps: spec.SchemaProps{
+							Description: "PreferredSmm optionally enables the SMM feature",
+							Ref:         ref("kubevirt.io/api/core/v1.FeatureState"),
+						},
+					},
+				},
+			},
+		},
+		Dependencies: []string{
+			"kubevirt.io/api/core/v1.FeatureAPIC", "kubevirt.io/api/core/v1.FeatureHyperv", "kubevirt.io/api/core/v1.FeatureKVM", "kubevirt.io/api/core/v1.FeatureState"},
+	}
+}
+
+func schema_kubevirtio_api_instancetype_v1alpha2_FirmwarePreferences(ref common.ReferenceCallback) common.OpenAPIDefinition {
+	return common.OpenAPIDefinition{
+		Schema: spec.Schema{
+			SchemaProps: spec.SchemaProps{
+				Description: "FirmwarePreferences contains various optional defaults for Firmware.",
+				Type:        []string{"object"},
+				Properties: map[string]spec.Schema{
+					"preferredUseBios": {
+						SchemaProps: spec.SchemaProps{
+							Description: "PreferredUseBios optionally enables BIOS",
+							Type:        []string{"boolean"},
+							Format:      "",
+						},
+					},
+					"preferredUseBiosSerial": {
+						SchemaProps: spec.SchemaProps{
+							Description: "PreferredUseBiosSerial optionally transmitts BIOS output over the serial.\n\nRequires PreferredUseBios to be enabled.",
+							Type:        []string{"boolean"},
+							Format:      "",
+						},
+					},
+					"preferredUseEfi": {
+						SchemaProps: spec.SchemaProps{
+							Description: "PreferredUseEfi optionally enables EFI",
+							Type:        []string{"boolean"},
+							Format:      "",
+						},
+					},
+					"preferredUseSecureBoot": {
+						SchemaProps: spec.SchemaProps{
+							Description: "PreferredUseSecureBoot optionally enables SecureBoot and the OVMF roms will be swapped for SecureBoot-enabled ones.\n\nRequires PreferredUseEfi and PreferredSmm to be enabled.",
+							Type:        []string{"boolean"},
+							Format:      "",
+						},
+					},
+				},
+			},
+		},
+	}
+}
+
+func schema_kubevirtio_api_instancetype_v1alpha2_MachinePreferences(ref common.ReferenceCallback) common.OpenAPIDefinition {
+	return common.OpenAPIDefinition{
+		Schema: spec.Schema{
+			SchemaProps: spec.SchemaProps{
+				Description: "MachinePreferences contains various optional defaults for Machine.",
+				Type:        []string{"object"},
+				Properties: map[string]spec.Schema{
+					"preferredMachineType": {
+						SchemaProps: spec.SchemaProps{
+							Description: "PreferredMachineType optionally defines the preferred machine type to use.",
+							Type:        []string{"string"},
+							Format:      "",
+						},
+					},
+				},
+			},
+		},
+	}
+}
+
+func schema_kubevirtio_api_instancetype_v1alpha2_MemoryInstancetype(ref common.ReferenceCallback) common.OpenAPIDefinition {
+	return common.OpenAPIDefinition{
+		Schema: spec.Schema{
+			SchemaProps: spec.SchemaProps{
+				Description: "MemoryInstancetype contains the Memory related configuration of a given VirtualMachineInstancetypeSpec.\n\nGuest is a required attribute and defines the amount of RAM to be exposed to the guest by the instancetype.",
+				Type:        []string{"object"},
+				Properties: map[string]spec.Schema{
+					"guest": {
+						SchemaProps: spec.SchemaProps{
+							Description: "Required amount of memory which is visible inside the guest OS.",
+							Ref:         ref("k8s.io/apimachinery/pkg/api/resource.Quantity"),
+						},
+					},
+					"hugepages": {
+						SchemaProps: spec.SchemaProps{
+							Description: "Optionally enables the use of hugepages for the VirtualMachineInstance instead of regular memory.",
+							Ref:         ref("kubevirt.io/api/core/v1.Hugepages"),
+						},
+					},
+				},
+				Required: []string{"guest"},
+			},
+		},
+		Dependencies: []string{
+			"k8s.io/apimachinery/pkg/api/resource.Quantity", "kubevirt.io/api/core/v1.Hugepages"},
+	}
+}
+
+func schema_kubevirtio_api_instancetype_v1alpha2_VirtualMachineClusterInstancetype(ref common.ReferenceCallback) common.OpenAPIDefinition {
+	return common.OpenAPIDefinition{
+		Schema: spec.Schema{
+			SchemaProps: spec.SchemaProps{
+				Description: "VirtualMachineClusterInstancetype is a cluster scoped version of VirtualMachineInstancetype resource.",
+				Type:        []string{"object"},
+				Properties: map[string]spec.Schema{
+					"kind": {
+						SchemaProps: spec.SchemaProps{
+							Description: "Kind is a string value representing the REST resource this object represents. Servers may infer this from the endpoint the client submits requests to. Cannot be updated. In CamelCase. More info: https://git.k8s.io/community/contributors/devel/sig-architecture/api-conventions.md#types-kinds",
+							Type:        []string{"string"},
+							Format:      "",
+						},
+					},
+					"apiVersion": {
+						SchemaProps: spec.SchemaProps{
+							Description: "APIVersion defines the versioned schema of this representation of an object. Servers should convert recognized schemas to the latest internal value, and may reject unrecognized values. More info: https://git.k8s.io/community/contributors/devel/sig-architecture/api-conventions.md#resources",
+							Type:        []string{"string"},
+							Format:      "",
+						},
+					},
+					"metadata": {
+						SchemaProps: spec.SchemaProps{
+							Ref: ref("k8s.io/apimachinery/pkg/apis/meta/v1.ObjectMeta"),
+						},
+					},
+					"spec": {
+						SchemaProps: spec.SchemaProps{
+							Description: "Required spec describing the instancetype",
+							Ref:         ref("kubevirt.io/api/instancetype/v1alpha2.VirtualMachineInstancetypeSpec"),
+						},
+					},
+				},
+				Required: []string{"spec"},
+			},
+		},
+		Dependencies: []string{
+			"k8s.io/apimachinery/pkg/apis/meta/v1.ObjectMeta", "kubevirt.io/api/instancetype/v1alpha2.VirtualMachineInstancetypeSpec"},
+	}
+}
+
+func schema_kubevirtio_api_instancetype_v1alpha2_VirtualMachineClusterInstancetypeList(ref common.ReferenceCallback) common.OpenAPIDefinition {
+	return common.OpenAPIDefinition{
+		Schema: spec.Schema{
+			SchemaProps: spec.SchemaProps{
+				Description: "VirtualMachineClusterInstancetypeList is a list of VirtualMachineClusterInstancetype resources.",
+				Type:        []string{"object"},
+				Properties: map[string]spec.Schema{
+					"kind": {
+						SchemaProps: spec.SchemaProps{
+							Description: "Kind is a string value representing the REST resource this object represents. Servers may infer this from the endpoint the client submits requests to. Cannot be updated. In CamelCase. More info: https://git.k8s.io/community/contributors/devel/sig-architecture/api-conventions.md#types-kinds",
+							Type:        []string{"string"},
+							Format:      "",
+						},
+					},
+					"apiVersion": {
+						SchemaProps: spec.SchemaProps{
+							Description: "APIVersion defines the versioned schema of this representation of an object. Servers should convert recognized schemas to the latest internal value, and may reject unrecognized values. More info: https://git.k8s.io/community/contributors/devel/sig-architecture/api-conventions.md#resources",
+							Type:        []string{"string"},
+							Format:      "",
+						},
+					},
+					"metadata": {
+						SchemaProps: spec.SchemaProps{
+							Ref: ref("k8s.io/apimachinery/pkg/apis/meta/v1.ListMeta"),
+						},
+					},
+					"items": {
+						SchemaProps: spec.SchemaProps{
+							Type: []string{"array"},
+							Items: &spec.SchemaOrArray{
+								Schema: &spec.Schema{
+									SchemaProps: spec.SchemaProps{
+										Ref: ref("kubevirt.io/api/instancetype/v1alpha2.VirtualMachineClusterInstancetype"),
+									},
+								},
+							},
+						},
+					},
+				},
+				Required: []string{"items"},
+			},
+		},
+		Dependencies: []string{
+			"k8s.io/apimachinery/pkg/apis/meta/v1.ListMeta", "kubevirt.io/api/instancetype/v1alpha2.VirtualMachineClusterInstancetype"},
+	}
+}
+
+func schema_kubevirtio_api_instancetype_v1alpha2_VirtualMachineClusterPreference(ref common.ReferenceCallback) common.OpenAPIDefinition {
+	return common.OpenAPIDefinition{
+		Schema: spec.Schema{
+			SchemaProps: spec.SchemaProps{
+				Description: "VirtualMachineClusterPreference is a cluster scoped version of the VirtualMachinePreference resource.",
+				Type:        []string{"object"},
+				Properties: map[string]spec.Schema{
+					"kind": {
+						SchemaProps: spec.SchemaProps{
+							Description: "Kind is a string value representing the REST resource this object represents. Servers may infer this from the endpoint the client submits requests to. Cannot be updated. In CamelCase. More info: https://git.k8s.io/community/contributors/devel/sig-architecture/api-conventions.md#types-kinds",
+							Type:        []string{"string"},
+							Format:      "",
+						},
+					},
+					"apiVersion": {
+						SchemaProps: spec.SchemaProps{
+							Description: "APIVersion defines the versioned schema of this representation of an object. Servers should convert recognized schemas to the latest internal value, and may reject unrecognized values. More info: https://git.k8s.io/community/contributors/devel/sig-architecture/api-conventions.md#resources",
+							Type:        []string{"string"},
+							Format:      "",
+						},
+					},
+					"metadata": {
+						SchemaProps: spec.SchemaProps{
+							Ref: ref("k8s.io/apimachinery/pkg/apis/meta/v1.ObjectMeta"),
+						},
+					},
+					"spec": {
+						SchemaProps: spec.SchemaProps{
+							Description: "Required spec describing the preferences",
+							Ref:         ref("kubevirt.io/api/instancetype/v1alpha2.VirtualMachinePreferenceSpec"),
+						},
+					},
+				},
+				Required: []string{"spec"},
+			},
+		},
+		Dependencies: []string{
+			"k8s.io/apimachinery/pkg/apis/meta/v1.ObjectMeta", "kubevirt.io/api/instancetype/v1alpha2.VirtualMachinePreferenceSpec"},
+	}
+}
+
+func schema_kubevirtio_api_instancetype_v1alpha2_VirtualMachineClusterPreferenceList(ref common.ReferenceCallback) common.OpenAPIDefinition {
+	return common.OpenAPIDefinition{
+		Schema: spec.Schema{
+			SchemaProps: spec.SchemaProps{
+				Description: "VirtualMachineClusterPreferenceList is a list of VirtualMachineClusterPreference resources.",
+				Type:        []string{"object"},
+				Properties: map[string]spec.Schema{
+					"kind": {
+						SchemaProps: spec.SchemaProps{
+							Description: "Kind is a string value representing the REST resource this object represents. Servers may infer this from the endpoint the client submits requests to. Cannot be updated. In CamelCase. More info: https://git.k8s.io/community/contributors/devel/sig-architecture/api-conventions.md#types-kinds",
+							Type:        []string{"string"},
+							Format:      "",
+						},
+					},
+					"apiVersion": {
+						SchemaProps: spec.SchemaProps{
+							Description: "APIVersion defines the versioned schema of this representation of an object. Servers should convert recognized schemas to the latest internal value, and may reject unrecognized values. More info: https://git.k8s.io/community/contributors/devel/sig-architecture/api-conventions.md#resources",
+							Type:        []string{"string"},
+							Format:      "",
+						},
+					},
+					"metadata": {
+						SchemaProps: spec.SchemaProps{
+							Ref: ref("k8s.io/apimachinery/pkg/apis/meta/v1.ListMeta"),
+						},
+					},
+					"items": {
+						VendorExtensible: spec.VendorExtensible{
+							Extensions: spec.Extensions{
+								"x-kubernetes-list-type": "set",
+							},
+						},
+						SchemaProps: spec.SchemaProps{
+							Type: []string{"array"},
+							Items: &spec.SchemaOrArray{
+								Schema: &spec.Schema{
+									SchemaProps: spec.SchemaProps{
+										Ref: ref("kubevirt.io/api/instancetype/v1alpha2.VirtualMachineClusterPreference"),
+									},
+								},
+							},
+						},
+					},
+				},
+				Required: []string{"items"},
+			},
+		},
+		Dependencies: []string{
+			"k8s.io/apimachinery/pkg/apis/meta/v1.ListMeta", "kubevirt.io/api/instancetype/v1alpha2.VirtualMachineClusterPreference"},
+	}
+}
+
+func schema_kubevirtio_api_instancetype_v1alpha2_VirtualMachineInstancetype(ref common.ReferenceCallback) common.OpenAPIDefinition {
+	return common.OpenAPIDefinition{
+		Schema: spec.Schema{
+			SchemaProps: spec.SchemaProps{
+				Description: "VirtualMachineInstancetype resource contains quantitative and resource related VirtualMachine configuration that can be used by multiple VirtualMachine resources.",
+				Type:        []string{"object"},
+				Properties: map[string]spec.Schema{
+					"kind": {
+						SchemaProps: spec.SchemaProps{
+							Description: "Kind is a string value representing the REST resource this object represents. Servers may infer this from the endpoint the client submits requests to. Cannot be updated. In CamelCase. More info: https://git.k8s.io/community/contributors/devel/sig-architecture/api-conventions.md#types-kinds",
+							Type:        []string{"string"},
+							Format:      "",
+						},
+					},
+					"apiVersion": {
+						SchemaProps: spec.SchemaProps{
+							Description: "APIVersion defines the versioned schema of this representation of an object. Servers should convert recognized schemas to the latest internal value, and may reject unrecognized values. More info: https://git.k8s.io/community/contributors/devel/sig-architecture/api-conventions.md#resources",
+							Type:        []string{"string"},
+							Format:      "",
+						},
+					},
+					"metadata": {
+						SchemaProps: spec.SchemaProps{
+							Ref: ref("k8s.io/apimachinery/pkg/apis/meta/v1.ObjectMeta"),
+						},
+					},
+					"spec": {
+						SchemaProps: spec.SchemaProps{
+							Description: "Required spec describing the instancetype",
+							Ref:         ref("kubevirt.io/api/instancetype/v1alpha2.VirtualMachineInstancetypeSpec"),
+						},
+					},
+				},
+				Required: []string{"spec"},
+			},
+		},
+		Dependencies: []string{
+			"k8s.io/apimachinery/pkg/apis/meta/v1.ObjectMeta", "kubevirt.io/api/instancetype/v1alpha2.VirtualMachineInstancetypeSpec"},
+	}
+}
+
+func schema_kubevirtio_api_instancetype_v1alpha2_VirtualMachineInstancetypeList(ref common.ReferenceCallback) common.OpenAPIDefinition {
+	return common.OpenAPIDefinition{
+		Schema: spec.Schema{
+			SchemaProps: spec.SchemaProps{
+				Description: "VirtualMachineInstancetypeList is a list of VirtualMachineInstancetype resources.",
+				Type:        []string{"object"},
+				Properties: map[string]spec.Schema{
+					"kind": {
+						SchemaProps: spec.SchemaProps{
+							Description: "Kind is a string value representing the REST resource this object represents. Servers may infer this from the endpoint the client submits requests to. Cannot be updated. In CamelCase. More info: https://git.k8s.io/community/contributors/devel/sig-architecture/api-conventions.md#types-kinds",
+							Type:        []string{"string"},
+							Format:      "",
+						},
+					},
+					"apiVersion": {
+						SchemaProps: spec.SchemaProps{
+							Description: "APIVersion defines the versioned schema of this representation of an object. Servers should convert recognized schemas to the latest internal value, and may reject unrecognized values. More info: https://git.k8s.io/community/contributors/devel/sig-architecture/api-conventions.md#resources",
+							Type:        []string{"string"},
+							Format:      "",
+						},
+					},
+					"metadata": {
+						SchemaProps: spec.SchemaProps{
+							Ref: ref("k8s.io/apimachinery/pkg/apis/meta/v1.ListMeta"),
+						},
+					},
+					"items": {
+						SchemaProps: spec.SchemaProps{
+							Type: []string{"array"},
+							Items: &spec.SchemaOrArray{
+								Schema: &spec.Schema{
+									SchemaProps: spec.SchemaProps{
+										Ref: ref("kubevirt.io/api/instancetype/v1alpha2.VirtualMachineInstancetype"),
+									},
+								},
+							},
+						},
+					},
+				},
+				Required: []string{"items"},
+			},
+		},
+		Dependencies: []string{
+			"k8s.io/apimachinery/pkg/apis/meta/v1.ListMeta", "kubevirt.io/api/instancetype/v1alpha2.VirtualMachineInstancetype"},
+	}
+}
+
+func schema_kubevirtio_api_instancetype_v1alpha2_VirtualMachineInstancetypeSpec(ref common.ReferenceCallback) common.OpenAPIDefinition {
+	return common.OpenAPIDefinition{
+		Schema: spec.Schema{
+			SchemaProps: spec.SchemaProps{
+				Description: "VirtualMachineInstancetypeSpec is a description of the VirtualMachineInstancetype or VirtualMachineClusterInstancetype.\n\nCPU and Memory are required attributes with both requiring that their Guest attribute is defined, ensuring a number of vCPUs and amount of RAM is always provided by each instancetype.",
+				Type:        []string{"object"},
+				Properties: map[string]spec.Schema{
+					"cpu": {
+						SchemaProps: spec.SchemaProps{
+							Description: "Required CPU related attributes of the instancetype.",
+							Ref:         ref("kubevirt.io/api/instancetype/v1alpha2.CPUInstancetype"),
+						},
+					},
+					"memory": {
+						SchemaProps: spec.SchemaProps{
+							Description: "Required Memory related attributes of the instancetype.",
+							Ref:         ref("kubevirt.io/api/instancetype/v1alpha2.MemoryInstancetype"),
+						},
+					},
+					"gpus": {
+						VendorExtensible: spec.VendorExtensible{
+							Extensions: spec.Extensions{
+								"x-kubernetes-list-type": "atomic",
+							},
+						},
+						SchemaProps: spec.SchemaProps{
+							Description: "Optionally defines any GPU devices associated with the instancetype.",
+							Type:        []string{"array"},
+							Items: &spec.SchemaOrArray{
+								Schema: &spec.Schema{
+									SchemaProps: spec.SchemaProps{
+										Ref: ref("kubevirt.io/api/core/v1.GPU"),
+									},
+								},
+							},
+						},
+					},
+					"hostDevices": {
+						VendorExtensible: spec.VendorExtensible{
+							Extensions: spec.Extensions{
+								"x-kubernetes-list-type": "atomic",
+							},
+						},
+						SchemaProps: spec.SchemaProps{
+							Description: "Optionally defines any HostDevices associated with the instancetype.",
+							Type:        []string{"array"},
+							Items: &spec.SchemaOrArray{
+								Schema: &spec.Schema{
+									SchemaProps: spec.SchemaProps{
+										Ref: ref("kubevirt.io/api/core/v1.HostDevice"),
+									},
+								},
+							},
+						},
+					},
+					"ioThreadsPolicy": {
+						SchemaProps: spec.SchemaProps{
+							Description: "Optionally defines the IOThreadsPolicy to be used by the instancetype.",
+							Type:        []string{"string"},
+							Format:      "",
+						},
+					},
+					"launchSecurity": {
+						SchemaProps: spec.SchemaProps{
+							Description: "Optionally defines the LaunchSecurity to be used by the instancetype.",
+							Ref:         ref("kubevirt.io/api/core/v1.LaunchSecurity"),
+						},
+					},
+				},
+				Required: []string{"cpu", "memory"},
+			},
+		},
+		Dependencies: []string{
+			"kubevirt.io/api/core/v1.GPU", "kubevirt.io/api/core/v1.HostDevice", "kubevirt.io/api/core/v1.LaunchSecurity", "kubevirt.io/api/instancetype/v1alpha2.CPUInstancetype", "kubevirt.io/api/instancetype/v1alpha2.MemoryInstancetype"},
+	}
+}
+
+func schema_kubevirtio_api_instancetype_v1alpha2_VirtualMachinePreference(ref common.ReferenceCallback) common.OpenAPIDefinition {
+	return common.OpenAPIDefinition{
+		Schema: spec.Schema{
+			SchemaProps: spec.SchemaProps{
+				Description: "VirtualMachinePreference resource contains optional preferences related to the VirtualMachine.",
+				Type:        []string{"object"},
+				Properties: map[string]spec.Schema{
+					"kind": {
+						SchemaProps: spec.SchemaProps{
+							Description: "Kind is a string value representing the REST resource this object represents. Servers may infer this from the endpoint the client submits requests to. Cannot be updated. In CamelCase. More info: https://git.k8s.io/community/contributors/devel/sig-architecture/api-conventions.md#types-kinds",
+							Type:        []string{"string"},
+							Format:      "",
+						},
+					},
+					"apiVersion": {
+						SchemaProps: spec.SchemaProps{
+							Description: "APIVersion defines the versioned schema of this representation of an object. Servers should convert recognized schemas to the latest internal value, and may reject unrecognized values. More info: https://git.k8s.io/community/contributors/devel/sig-architecture/api-conventions.md#resources",
+							Type:        []string{"string"},
+							Format:      "",
+						},
+					},
+					"metadata": {
+						SchemaProps: spec.SchemaProps{
+							Ref: ref("k8s.io/apimachinery/pkg/apis/meta/v1.ObjectMeta"),
+						},
+					},
+					"spec": {
+						SchemaProps: spec.SchemaProps{
+							Description: "Required spec describing the preferences",
+							Ref:         ref("kubevirt.io/api/instancetype/v1alpha2.VirtualMachinePreferenceSpec"),
+						},
+					},
+				},
+				Required: []string{"spec"},
+			},
+		},
+		Dependencies: []string{
+			"k8s.io/apimachinery/pkg/apis/meta/v1.ObjectMeta", "kubevirt.io/api/instancetype/v1alpha2.VirtualMachinePreferenceSpec"},
+	}
+}
+
+func schema_kubevirtio_api_instancetype_v1alpha2_VirtualMachinePreferenceList(ref common.ReferenceCallback) common.OpenAPIDefinition {
+	return common.OpenAPIDefinition{
+		Schema: spec.Schema{
+			SchemaProps: spec.SchemaProps{
+				Description: "VirtualMachinePreferenceList is a list of VirtualMachinePreference resources.",
+				Type:        []string{"object"},
+				Properties: map[string]spec.Schema{
+					"kind": {
+						SchemaProps: spec.SchemaProps{
+							Description: "Kind is a string value representing the REST resource this object represents. Servers may infer this from the endpoint the client submits requests to. Cannot be updated. In CamelCase. More info: https://git.k8s.io/community/contributors/devel/sig-architecture/api-conventions.md#types-kinds",
+							Type:        []string{"string"},
+							Format:      "",
+						},
+					},
+					"apiVersion": {
+						SchemaProps: spec.SchemaProps{
+							Description: "APIVersion defines the versioned schema of this representation of an object. Servers should convert recognized schemas to the latest internal value, and may reject unrecognized values. More info: https://git.k8s.io/community/contributors/devel/sig-architecture/api-conventions.md#resources",
+							Type:        []string{"string"},
+							Format:      "",
+						},
+					},
+					"metadata": {
+						SchemaProps: spec.SchemaProps{
+							Ref: ref("k8s.io/apimachinery/pkg/apis/meta/v1.ListMeta"),
+						},
+					},
+					"items": {
+						VendorExtensible: spec.VendorExtensible{
+							Extensions: spec.Extensions{
+								"x-kubernetes-list-type": "set",
+							},
+						},
+						SchemaProps: spec.SchemaProps{
+							Type: []string{"array"},
+							Items: &spec.SchemaOrArray{
+								Schema: &spec.Schema{
+									SchemaProps: spec.SchemaProps{
+										Ref: ref("kubevirt.io/api/instancetype/v1alpha2.VirtualMachinePreference"),
+									},
+								},
+							},
+						},
+					},
+				},
+				Required: []string{"items"},
+			},
+		},
+		Dependencies: []string{
+			"k8s.io/apimachinery/pkg/apis/meta/v1.ListMeta", "kubevirt.io/api/instancetype/v1alpha2.VirtualMachinePreference"},
+	}
+}
+
+func schema_kubevirtio_api_instancetype_v1alpha2_VirtualMachinePreferenceSpec(ref common.ReferenceCallback) common.OpenAPIDefinition {
+	return common.OpenAPIDefinition{
+		Schema: spec.Schema{
+			SchemaProps: spec.SchemaProps{
+				Description: "VirtualMachinePreferenceSpec is a description of the VirtualMachinePreference or VirtualMachineClusterPreference.",
+				Type:        []string{"object"},
+				Properties: map[string]spec.Schema{
+					"clock": {
+						SchemaProps: spec.SchemaProps{
+							Description: "Clock optionally defines preferences associated with the Clock attribute of a VirtualMachineInstance DomainSpec",
+							Ref:         ref("kubevirt.io/api/instancetype/v1alpha2.ClockPreferences"),
+						},
+					},
+					"cpu": {
+						SchemaProps: spec.SchemaProps{
+							Description: "CPU optionally defines preferences associated with the CPU attribute of a VirtualMachineInstance DomainSpec",
+							Ref:         ref("kubevirt.io/api/instancetype/v1alpha2.CPUPreferences"),
+						},
+					},
+					"devices": {
+						SchemaProps: spec.SchemaProps{
+							Description: "Devices optionally defines preferences associated with the Devices attribute of a VirtualMachineInstance DomainSpec",
+							Ref:         ref("kubevirt.io/api/instancetype/v1alpha2.DevicePreferences"),
+						},
+					},
+					"features": {
+						SchemaProps: spec.SchemaProps{
+							Description: "Features optionally defines preferences associated with the Features attribute of a VirtualMachineInstance DomainSpec",
+							Ref:         ref("kubevirt.io/api/instancetype/v1alpha2.FeaturePreferences"),
+						},
+					},
+					"firmware": {
+						SchemaProps: spec.SchemaProps{
+							Description: "Firmware optionally defines preferences associated with the Firmware attribute of a VirtualMachineInstance DomainSpec",
+							Ref:         ref("kubevirt.io/api/instancetype/v1alpha2.FirmwarePreferences"),
+						},
+					},
+					"machine": {
+						SchemaProps: spec.SchemaProps{
+							Description: "Machine optionally defines preferences associated with the Machine attribute of a VirtualMachineInstance DomainSpec",
+							Ref:         ref("kubevirt.io/api/instancetype/v1alpha2.MachinePreferences"),
+						},
+					},
+				},
+			},
+		},
+		Dependencies: []string{
+			"kubevirt.io/api/instancetype/v1alpha2.CPUPreferences", "kubevirt.io/api/instancetype/v1alpha2.ClockPreferences", "kubevirt.io/api/instancetype/v1alpha2.DevicePreferences", "kubevirt.io/api/instancetype/v1alpha2.FeaturePreferences", "kubevirt.io/api/instancetype/v1alpha2.FirmwarePreferences", "kubevirt.io/api/instancetype/v1alpha2.MachinePreferences"},
 	}
 }
 

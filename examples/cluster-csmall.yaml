@@ -1,5 +1,5 @@
 ---
-apiVersion: instancetype.kubevirt.io/v1alpha1
+apiVersion: instancetype.kubevirt.io/v1alpha2
 kind: VirtualMachineClusterInstancetype
 metadata:
   name: cluster-csmall

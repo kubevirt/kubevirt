@@ -9,7 +9,7 @@ import (
 	admissionv1 "k8s.io/api/admission/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 
-	instancetypev1alpha1 "kubevirt.io/api/instancetype/v1alpha1"
+	instancetypev1alpha2 "kubevirt.io/api/instancetype/v1alpha2"
 
 	webhookutils "kubevirt.io/kubevirt/pkg/util/webhooks"
 	validating_webhooks "kubevirt.io/kubevirt/pkg/util/webhooks/validating-webhooks"
@@ -22,12 +22,12 @@ var _ validating_webhooks.Admitter = &InstancetypeAdmitter{}
 func (f *InstancetypeAdmitter) Admit(ar *admissionv1.AdmissionReview) *admissionv1.AdmissionResponse {
 	return admitInstancetype(ar,
 		metav1.GroupVersionResource{
-			Group:    instancetypev1alpha1.SchemeGroupVersion.Group,
-			Version:  instancetypev1alpha1.SchemeGroupVersion.Version,
+			Group:    instancetypev1alpha2.SchemeGroupVersion.Group,
+			Version:  instancetypev1alpha2.SchemeGroupVersion.Version,
 			Resource: instancetype.PluralResourceName,
 		},
-		func(raw []byte) (*instancetypev1alpha1.VirtualMachineInstancetype, error) {
-			instancetypeObj := &instancetypev1alpha1.VirtualMachineInstancetype{}
+		func(raw []byte) (*instancetypev1alpha2.VirtualMachineInstancetype, error) {
+			instancetypeObj := &instancetypev1alpha2.VirtualMachineInstancetype{}
 			err := json.Unmarshal(raw, &instancetypeObj)
 			if err != nil {
 				return nil, err
@@ -37,7 +37,7 @@ func (f *InstancetypeAdmitter) Admit(ar *admissionv1.AdmissionReview) *admission
 	)
 }
 
-type extractInstancetypeFunc = func([]byte) (*instancetypev1alpha1.VirtualMachineInstancetype, error)
+type extractInstancetypeFunc = func([]byte) (*instancetypev1alpha2.VirtualMachineInstancetype, error)
 
 func admitInstancetype(ar *admissionv1.AdmissionReview, expectedGvr metav1.GroupVersionResource, extractInstancetype extractInstancetypeFunc) *admissionv1.AdmissionResponse {
 	// Only handle create and update
@@ -70,12 +70,12 @@ var _ validating_webhooks.Admitter = &ClusterInstancetypeAdmitter{}
 func (f *ClusterInstancetypeAdmitter) Admit(ar *admissionv1.AdmissionReview) *admissionv1.AdmissionResponse {
 	return admitClusterInstancetype(ar,
 		metav1.GroupVersionResource{
-			Group:    instancetypev1alpha1.SchemeGroupVersion.Group,
-			Version:  instancetypev1alpha1.SchemeGroupVersion.Version,
+			Group:    instancetypev1alpha2.SchemeGroupVersion.Group,
+			Version:  instancetypev1alpha2.SchemeGroupVersion.Version,
 			Resource: instancetype.ClusterPluralResourceName,
 		},
-		func(raw []byte) (*instancetypev1alpha1.VirtualMachineClusterInstancetype, error) {
-			clusterInstancetypeObj := &instancetypev1alpha1.VirtualMachineClusterInstancetype{}
+		func(raw []byte) (*instancetypev1alpha2.VirtualMachineClusterInstancetype, error) {
+			clusterInstancetypeObj := &instancetypev1alpha2.VirtualMachineClusterInstancetype{}
 			err := json.Unmarshal(raw, &clusterInstancetypeObj)
 			if err != nil {
 				return nil, err
@@ -85,7 +85,7 @@ func (f *ClusterInstancetypeAdmitter) Admit(ar *admissionv1.AdmissionReview) *ad
 	)
 }
 
-type extractClusterInstancetypeFunc = func([]byte) (*instancetypev1alpha1.VirtualMachineClusterInstancetype, error)
+type extractClusterInstancetypeFunc = func([]byte) (*instancetypev1alpha2.VirtualMachineClusterInstancetype, error)
 
 func admitClusterInstancetype(ar *admissionv1.AdmissionReview, expectedGvr metav1.GroupVersionResource, extractClusterInstancetype extractClusterInstancetypeFunc) *admissionv1.AdmissionResponse {
 	// Only handle create and update
