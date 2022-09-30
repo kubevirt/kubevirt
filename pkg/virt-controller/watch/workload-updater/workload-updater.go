@@ -48,7 +48,7 @@ var (
 	outdatedVirtualMachineInstanceWorkloads = prometheus.NewGauge(
 		prometheus.GaugeOpts{
 			Name: "kubevirt_vmi_outdated_count",
-			Help: "Indication for the number of VirtualMachineInstance workloads that are not running within the most up-to-date version of the virt-launcher environment.",
+			Help: "Indication for the total number of VirtualMachineInstance workloads that are not running within the most up-to-date version of the virt-launcher environment.",
 		},
 	)
 )
