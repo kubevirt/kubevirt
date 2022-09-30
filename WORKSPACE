@@ -270,6 +270,14 @@ go_repository(
     importpath = "golang.org/x/crypto",
 )
 
+# Force v1.15.9 on github.com/klauspost/compress
+# v1.15.11 deprecates go 1.16, and v1.15.10 fails to compile
+go_repository(
+    name = "com_github_klauspost_compress",
+    commit = "4b4f3c94fdf8c3a6c725e2ff110d9b44f88823ed",
+    importpath = "github.com/klauspost/compress",
+)
+
 # override rules_docker issue with this dependency
 # rules_docker 0.16 uses 0.1.4, bit since there the checksum changed, which is very weird, going with 0.1.4.1 to
 go_repository(
