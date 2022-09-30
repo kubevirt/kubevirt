@@ -351,7 +351,7 @@ var _ = SIGDescribe("DataVolume Integration", func() {
 					return vm.Status.PrintableStatus
 				}, 180*time.Second, 2*time.Second).Should(Equal(v1.VirtualMachineStatusStopped))
 
-				dataVolume, err = virtClient.CdiClient().CdiV1beta1().DataVolumes(dataVolume.Namespace).Create(context.Background(), dataVolume, metav1.CreateOptions{})
+				dataVolume, err = virtClient.CdiClient().CdiV1beta1().DataVolumes(vmSpec.Namespace).Create(context.Background(), dataVolume, metav1.CreateOptions{})
 				Expect(err).ToNot(HaveOccurred())
 				defer libstorage.DeleteDataVolume(&dataVolume)
 
