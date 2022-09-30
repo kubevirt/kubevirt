@@ -31,7 +31,8 @@ Make a few passes over the code you want to review.
 
 ## Common Architecture Flaws to Avoid
 
-* Avoid using api GETs/LISTs to retrieve an object from the api-server when an informer is more appropriate. In general, informers should be used in cluster wide components such as virt-controller, virt-api, and virt-operator.
+* Avoid using api GETs/LISTs to retrieve an object from the api-server when an informer is more appropriate. In general, informers should be used in cluster wide components such as virt-controller and virt-operator. 
+* Note that informers should not however be used within virt-api. This is because unlike virt-controller and virt-operator the API can scale freely, does not use any leader election and pre-caching objects with informers can lead to an unexpected high amount of object transfers far beyond context information retrieval via GETs during actual webhook invocations. For this reason using api GETs etc for object retrieval are recommended from within the virt-api. See [this ML thread for more context](https://groups.google.com/g/kubevirt-dev/c/q_hR1tFH4Rk).
 * Use a PATCH instead of an UPDATE operation when a controller does not strictly own the object being modified. An example of this is when the live migration controller needs to modify a VMI. The VMI is owned by a different controller, so the migration controller should use a PATCH on the VMI.
 * Avoid adding informers to node level components such as virt-handler. This causes api-server pressure at scale.
 * Reconcile loops are multithreaded and we must pay attention to thread safety. For example, accessing an external golang map within the reconcile loop must be protected by locks.
