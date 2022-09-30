@@ -126,7 +126,7 @@ data:
               "unit": "short"
             },
             {
-              "alias": "Memory Usage",
+              "alias": "Avg Memory Usage",
               "align": "auto",
               "colorMode": null,
               "colors": [],
@@ -155,7 +155,7 @@ data:
           ],
           "targets": [
             {
-              "expr": "sort_desc(topk(5, sum (avg_over_time(kubevirt_vmi_memory_available_bytes[$period]) - avg_over_time(kubevirt_vmi_memory_usable_bytes[$period]))by(name, namespace)))>0",
+              "expr": "sort_desc(topk(5, sum (avg_over_time(kubevirt_vmi_memory_available_bytes[$__range]) - avg_over_time(kubevirt_vmi_memory_usable_bytes[$__range]))by(name, namespace)))>0",
               "format": "table",
               "instant": true,
               "interval": "",
@@ -320,7 +320,7 @@ data:
           ],
           "targets": [
             {
-              "expr": "sort_desc(topk(5, sum(rate(container_cpu_usage_seconds_total{container=\"compute\",pod=~\"virt-launcher-.*\"}[$period])) by (namespace,pod)))>0",
+              "expr": "sort_desc(topk(5, sum(rate(container_cpu_usage_seconds_total{container=\"compute\",pod=~\"virt-launcher-.*\"}[$__range])) by (namespace,pod)))>0",
               "format": "table",
               "hide": false,
               "instant": true,
@@ -486,7 +486,7 @@ data:
           ],
           "targets": [
             {
-              "expr": "sort_desc(topk(5, sum(rate(kubevirt_vmi_storage_read_traffic_bytes_total[$period]) + rate(kubevirt_vmi_storage_write_traffic_bytes_total[$period])) by (namespace, name)))>0",
+              "expr": "sort_desc(topk(5, sum(rate(kubevirt_vmi_storage_read_traffic_bytes_total[$__range]) + rate(kubevirt_vmi_storage_write_traffic_bytes_total[$__range])) by (namespace, name)))>0",
               "format": "table",
               "instant": true,
               "interval": "",
@@ -651,7 +651,7 @@ data:
           ],
           "targets": [
             {
-              "expr": "sort_desc(topk(5, sum(rate(kubevirt_vmi_storage_iops_read_total[$period]) + rate(kubevirt_vmi_storage_iops_write_total[$period])) by (namespace, name)))>0",
+              "expr": "sort_desc(topk(5, sum(rate(kubevirt_vmi_storage_iops_read_total[$__range]) + rate(kubevirt_vmi_storage_iops_write_total[$__range])) by (namespace, name)))>0",
               "format": "table",
               "instant": true,
               "interval": "",
@@ -816,7 +816,7 @@ data:
           ],
           "targets": [
             {
-              "expr": "sort_desc(topk(5, sum(rate(kubevirt_vmi_network_receive_bytes_total[$period]) + rate(kubevirt_vmi_network_transmit_bytes_total[$period])) by (namespace, name)))>0",
+              "expr": "sort_desc(topk(5, sum(rate(kubevirt_vmi_network_receive_bytes_total[$__range]) + rate(kubevirt_vmi_network_transmit_bytes_total[$__range])) by (namespace, name)))>0",
               "format": "table",
               "instant": true,
               "interval": "",
@@ -981,7 +981,7 @@ data:
           ],
           "targets": [
             {
-              "expr": "sort_desc(topk(5, sum(rate(kubevirt_vmi_vcpu_wait_seconds[$period])) by (namespace, name)))>0",
+              "expr": "sort_desc(topk(5, sum(rate(kubevirt_vmi_vcpu_wait_seconds[$__range])) by (namespace, name)))>0",
               "format": "table",
               "instant": true,
               "interval": "",
@@ -1117,7 +1117,7 @@ data:
               "unit": "short"
             },
             {
-              "alias": "Memory Swap Traffic",
+              "alias": "Avg Memory Swap Traffic",
               "align": "auto",
               "colorMode": null,
               "colors": [],
@@ -1146,7 +1146,7 @@ data:
           ],
           "targets": [
             {
-              "expr": "sort_desc(topk(5, sum(avg_over_time(kubevirt_vmi_memory_swap_in_traffic_bytes_total[$period]) + avg_over_time(kubevirt_vmi_memory_swap_out_traffic_bytes_total[$period])) by (namespace, name)))>0",
+              "expr": "sort_desc(topk(5, sum(avg_over_time(kubevirt_vmi_memory_swap_in_traffic_bytes_total[$__range]) + avg_over_time(kubevirt_vmi_memory_swap_out_traffic_bytes_total[$__range])) by (namespace, name)))>0",
               "format": "table",
               "instant": true,
               "interval": "",
@@ -1922,84 +1922,6 @@ data:
       "tags": [
         "kubevirt-mixin"
       ],
-      "templating": {
-        "list": [
-          {
-            "current": {
-              "text": "default",
-              "value": "default"
-            },
-            "error": null,
-            "hide": 0,
-            "includeAll": false,
-            "label": null,
-            "multi": false,
-            "name": "datasource",
-            "options": [],
-            "query": "prometheus",
-            "refresh": 1,
-            "regex": "",
-            "skipUrlSync": false,
-            "type": "datasource"
-          },
-          {
-            "auto": false,
-            "auto_count": 30,
-            "auto_min": "10s",
-            "current": {
-              "selected": false,
-              "text": "4h",
-              "value": "4h"
-            },
-            "error": null,
-            "hide": 0,
-            "label": "interval",
-            "name": "period",
-            "options": [
-              {
-                "selected": false,
-                "text": "5m",
-                "value": "5m"
-              },
-              {
-                "selected": false,
-                "text": "1h",
-                "value": "1h"
-              },
-              {
-                "selected": false,
-                "text": "2h",
-                "value": "2h"
-              },
-              {
-                "selected": true,
-                "text": "4h",
-                "value": "4h"
-              },
-              {
-                "selected": false,
-                "text": "6h",
-                "value": "6h"
-              },
-              {
-                "selected": false,
-                "text": "12h",
-                "value": "12h"
-              },
-              {
-                "selected": false,
-                "text": "1d",
-                "value": "1d"
-              }
-            ],
-            "query": "5m,1h,2h,4h,6h,12h,1d",
-            "queryValue": "",
-            "refresh": 2,
-            "skipUrlSync": false,
-            "type": "interval"
-          }
-        ]
-      },
       "time": {
         "from": "now-1h",
         "to": "now"
