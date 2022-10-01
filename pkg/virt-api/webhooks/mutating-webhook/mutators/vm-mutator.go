@@ -62,9 +62,9 @@ func (mutator *VMsMutator) Mutate(ar *admissionv1.AdmissionReview) *admissionv1.
 
 	// Set VM defaults
 	log.Log.Object(&vm).V(4).Info("Apply defaults")
-	mutator.setDefaultMachineType(&vm)
 	mutator.setDefaultInstancetypeKind(&vm)
 	mutator.setDefaultPreferenceKind(&vm)
+	mutator.setDefaultMachineType(&vm)
 
 	patchBytes, err := utiltypes.GeneratePatchPayload(
 		utiltypes.PatchOperation{

@@ -54,6 +54,7 @@ var _ = Describe("VirtualMachine Mutator", func() {
 	var virtClient *kubecli.MockKubevirtClient
 	var fakeInstancetypeClients instancetypeclientset.InstancetypeV1alpha2Interface
 	var fakePreferenceClient instancetypeclientset.VirtualMachinePreferenceInterface
+	var fakeClusterPreferenceClient instancetypeclientset.VirtualMachineClusterPreferenceInterface
 
 	machineTypeFromConfig := "pc-q35-3.0"
 
@@ -104,7 +105,9 @@ var _ = Describe("VirtualMachine Mutator", func() {
 
 		fakeInstancetypeClients = fakeclientset.NewSimpleClientset().InstancetypeV1alpha2()
 		fakePreferenceClient = fakeInstancetypeClients.VirtualMachinePreferences(vm.Namespace)
+		fakeClusterPreferenceClient = fakeInstancetypeClients.VirtualMachineClusterPreferences()
 		virtClient.EXPECT().VirtualMachinePreference(gomock.Any()).Return(fakePreferenceClient).AnyTimes()
+		virtClient.EXPECT().VirtualMachineClusterPreference().Return(fakeClusterPreferenceClient).AnyTimes()
 
 		mutator.InstancetypeMethods = instancetype.NewMethods(virtClient)
 	})
@@ -251,6 +254,32 @@ var _ = Describe("VirtualMachine Mutator", func() {
 		}
 		vmSpec, _ := getVMSpecMetaFromResponse()
 		Expect(vmSpec.Preference.Kind).To(Equal(apiinstancetype.ClusterSingularPreferenceResourceName))
+	})
+
+	It("should use PreferredMachineType from ClusterSingularPreferenceResourceName when no preference kind is provided", func() {
+		preference := &instancetypev1alpha2.VirtualMachineClusterPreference{
+			ObjectMeta: k8smetav1.ObjectMeta{
+				Name: "machineTypeClusterPreference",
+			},
+			TypeMeta: k8smetav1.TypeMeta{
+				Kind:       apiinstancetype.ClusterSingularPreferenceResourceName,
+				APIVersion: instancetypev1alpha2.SchemeGroupVersion.String(),
+			},
+			Spec: instancetypev1alpha2.VirtualMachinePreferenceSpec{
+				Machine: &instancetypev1alpha2.MachinePreferences{
+					PreferredMachineType: "pc-q35-5.0",
+				},
+			},
+		}
+		_, err := virtClient.VirtualMachineClusterPreference().Create(context.Background(), preference, k8smetav1.CreateOptions{})
+		Expect(err).ToNot(HaveOccurred())
+
+		vm.Spec.Preference = &v1.PreferenceMatcher{
+			Name: preference.Name,
+		}
+
+		vmSpec, _ := getVMSpecMetaFromResponse()
+		Expect(vmSpec.Template.Spec.Domain.Machine.Type).To(Equal(preference.Spec.Machine.PreferredMachineType))
 	})
 
 	Context("failure tests", func() {
