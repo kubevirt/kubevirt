@@ -2,6 +2,7 @@ package heartbeat
 
 import (
 	"context"
+	"fmt"
 	"sync"
 	"time"
 
@@ -159,6 +160,58 @@ var _ = Describe("Heartbeat", func() {
 			"true",
 		),
 	)
+
+	Context("when the node does not support virtualization", func() {
+
+		newHeartBeat := func(allowEmulation bool) *HeartBeat {
+			cfg := &virtv1.KubeVirtConfiguration{
+				DeveloperConfiguration: &virtv1.DeveloperConfiguration{
+					UseEmulation: allowEmulation,
+				},
+			}
+			clusterConfig, _, _ := testutils.NewFakeClusterConfigUsingKVConfig(cfg)
+
+			heartbeat := NewHeartBeat(fakeClient.CoreV1(), deviceController(true), clusterConfig, "mynode")
+			heartbeat.isVirtualizationSupportedOnNodeFunc = func() bool {
+				return false
+			}
+			return heartbeat
+		}
+
+		doHeartbeatAndGetNode := func(heartbeat *HeartBeat) *v1.Node {
+			heartbeat.do()
+
+			node, err := fakeClient.CoreV1().Nodes().Get(context.Background(), "mynode", metav1.GetOptions{})
+			ExpectWithOffset(1, err).ToNot(HaveOccurred())
+
+			return node
+		}
+
+		DescribeTable("the node should be marked as unschedulable", func(allowEmulation bool) {
+			heartbeat := newHeartBeat(allowEmulation)
+			node := doHeartbeatAndGetNode(heartbeat)
+
+			Expect(node.Labels).To(HaveKeyWithValue(virtv1.NodeSchedulable, fmt.Sprintf("%t", allowEmulation)))
+		},
+			Entry("with emulation allowed", true),
+			Entry("with emulation not allowed", false),
+		)
+
+		DescribeTable("node labeller should skip this node", func(allowEmulation bool) {
+			heartbeat := newHeartBeat(allowEmulation)
+			node := doHeartbeatAndGetNode(heartbeat)
+
+			if !allowEmulation {
+				Expect(node.Annotations).To(HaveKeyWithValue(virtv1.LabellerSkipNodeAnnotation, fmt.Sprintf("%t", true)))
+			} else {
+				Expect(node.Annotations).ToNot(HaveKey(virtv1.LabellerSkipNodeAnnotation))
+			}
+		},
+			Entry("with emulation allowed", true),
+			Entry("with emulation not allowed", false),
+		)
+
+	})
 })
 
 type fakeDeviceController struct {
