@@ -9,6 +9,8 @@ import (
 	"os"
 	"time"
 
+	"k8s.io/utils/pointer"
+
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/types"
 	"k8s.io/apimachinery/pkg/util/wait"
@@ -34,6 +36,7 @@ type HeartBeat struct {
 	devicePluginPollIntervall           time.Duration
 	devicePluginWaitTimeout             time.Duration
 	isVirtualizationSupportedOnNodeFunc func() bool
+	isVirtualizationSupportedOnNode     *bool
 }
 
 func NewHeartBeat(clientset k8scli.CoreV1Interface, deviceManager device_manager.DeviceControllerInterface, clusterConfig *virtconfig.ClusterConfig, host string) *HeartBeat {
@@ -248,7 +251,16 @@ func (h *HeartBeat) setSchedulable(labels labelType, annotations annotationType)
 	}
 
 	if isKubevirtSchedulable && !h.clusterConfig.AllowEmulation() {
-		if !h.isVirtualizationSupportedOnNodeFunc() {
+		// Host's virtualization capabilities are assumed to never change. Therefore use cached result if exists.
+		var isVirtualizationSupported bool
+		if h.isVirtualizationSupportedOnNode == nil {
+			isVirtualizationSupported = h.isVirtualizationSupportedOnNodeFunc()
+			h.isVirtualizationSupportedOnNode = pointer.Bool(isVirtualizationSupported)
+		} else {
+			isVirtualizationSupported = *h.isVirtualizationSupportedOnNode
+		}
+
+		if !isVirtualizationSupported {
 			isKubevirtSchedulable = false
 			annotations[v1.LabellerSkipNodeAnnotation] = fmt.Sprintf("%t", true)
 		}
