@@ -1,6 +1,8 @@
 package heartbeat
 
 import (
+	"bufio"
+	"bytes"
 	"context"
 	"encoding/json"
 	"fmt"
@@ -24,13 +26,14 @@ import (
 const failedSetCPUManagerLabelFmt = "failed to set a cpu manager label on host %s"
 
 type HeartBeat struct {
-	clientset                 k8scli.CoreV1Interface
-	deviceManagerController   device_manager.DeviceControllerInterface
-	clusterConfig             *virtconfig.ClusterConfig
-	host                      string
-	cpuManagerPaths           []string
-	devicePluginPollIntervall time.Duration
-	devicePluginWaitTimeout   time.Duration
+	clientset                           k8scli.CoreV1Interface
+	deviceManagerController             device_manager.DeviceControllerInterface
+	clusterConfig                       *virtconfig.ClusterConfig
+	host                                string
+	cpuManagerPaths                     []string
+	devicePluginPollIntervall           time.Duration
+	devicePluginWaitTimeout             time.Duration
+	isVirtualizationSupportedOnNodeFunc func() bool
 }
 
 func NewHeartBeat(clientset k8scli.CoreV1Interface, deviceManager device_manager.DeviceControllerInterface, clusterConfig *virtconfig.ClusterConfig, host string) *HeartBeat {
@@ -40,9 +43,10 @@ func NewHeartBeat(clientset k8scli.CoreV1Interface, deviceManager device_manager
 		clusterConfig:           clusterConfig,
 		host:                    host,
 		// This is a temporary workaround until k8s bug #66525 is resolved
-		cpuManagerPaths:           []string{virtutil.CPUManagerPath, virtutil.CPUManagerOS3Path},
-		devicePluginPollIntervall: 1 * time.Second,
-		devicePluginWaitTimeout:   10 * time.Second,
+		cpuManagerPaths:                     []string{virtutil.CPUManagerPath, virtutil.CPUManagerOS3Path},
+		devicePluginPollIntervall:           1 * time.Second,
+		devicePluginWaitTimeout:             10 * time.Second,
+		isVirtualizationSupportedOnNodeFunc: isVirtualizationSupportedOnNodeImpl,
 	}
 }
 
@@ -129,7 +133,7 @@ func (h *HeartBeat) do() {
 	var patchedLabels labelType = map[string]string{}
 	var patchedAnnotations annotationType = map[string]string{}
 
-	h.setSchedulable(patchedLabels)
+	h.setSchedulable(patchedLabels, patchedAnnotations)
 	h.setCpuManager(patchedLabels)
 	h.setHeartbeat(patchedAnnotations, string(now))
 
@@ -206,11 +210,48 @@ func detectCPUManagerFile(cpuManagerPaths []string) (string, error) {
 	return "", fmt.Errorf("no cpumanager policy file found")
 }
 
-func (h *HeartBeat) setSchedulable(labels labelType) {
+func isVirtualizationSupportedOnNodeImpl() bool {
+	// If an error occurs in this process (can't parse info file / any other unexpected failure) this function will
+	// return true just to stay on the safe side. false will be returned only if we are certain that virtualization
+	// is not supported.
+
+	const cpuInfoFilePath = "/proc/cpuinfo"
+
+	cpuInfoFile, err := os.Open(cpuInfoFilePath)
+	if err != nil {
+		log.Log.Reason(err).Errorf("cannot open %s", cpuInfoFilePath)
+		return true
+	}
+	defer cpuInfoFile.Close()
+
+	scanner := bufio.NewScanner(cpuInfoFile)
+	for scanner.Scan() {
+		line := scanner.Bytes()
+		if bytes.Contains(line, []byte("vmx")) || bytes.Contains(line, []byte("svm")) {
+			return true
+		}
+	}
+
+	if err := scanner.Err(); err != nil {
+		log.Log.Reason(err).Errorf("error while parsing %s", cpuInfoFilePath)
+		return true
+	}
+
+	return false
+}
+
+func (h *HeartBeat) setSchedulable(labels labelType, annotations annotationType) {
 	isKubevirtSchedulable := true
 
 	if !h.deviceManagerController.Initialized() {
 		isKubevirtSchedulable = false
+	}
+
+	if isKubevirtSchedulable && !h.clusterConfig.AllowEmulation() {
+		if !h.isVirtualizationSupportedOnNodeFunc() {
+			isKubevirtSchedulable = false
+			annotations[v1.LabellerSkipNodeAnnotation] = fmt.Sprintf("%t", true)
+		}
 	}
 
 	labels[v1.NodeSchedulable] = fmt.Sprintf("%t", isKubevirtSchedulable)
