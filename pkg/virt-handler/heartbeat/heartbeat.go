@@ -116,6 +116,9 @@ func (h *HeartBeat) waitForDevicePlugins(stopCh chan struct{}) {
 	})
 }
 
+type annotationType map[string]string
+type labelType map[string]string
+
 func (h *HeartBeat) do() {
 	now, err := json.Marshal(metav1.Now())
 	if err != nil {
@@ -123,22 +126,31 @@ func (h *HeartBeat) do() {
 		return
 	}
 
-	kubevirtSchedulable := "true"
-	if !h.deviceManagerController.Initialized() {
-		kubevirtSchedulable = "false"
+	var patchedLabels labelType = map[string]string{}
+	var patchedAnnotations annotationType = map[string]string{}
+
+	h.setSchedulable(patchedLabels)
+	h.setCpuManager(patchedLabels)
+	h.setHeartbeat(patchedAnnotations, string(now))
+
+	marshalledLabels, err := json.Marshal(patchedLabels)
+	if err != nil {
+		log.DefaultLogger().Reason(err).Errorf("cannot marshall labels")
+		return
+	}
+
+	marshalledAnnotations, err := json.Marshal(patchedAnnotations)
+	if err != nil {
+		log.DefaultLogger().Reason(err).Errorf("cannot marshall annotations")
+		return
 	}
 
 	var data []byte
 	// Label the node if cpu manager is running on it
 	// This is a temporary workaround until k8s bug #66525 is resolved
-	cpuManagerEnabled := false
-	if h.clusterConfig.CPUManagerEnabled() {
-		cpuManagerEnabled = h.isCPUManagerEnabled(h.cpuManagerPaths)
-	}
-	data = []byte(fmt.Sprintf(`{"metadata": { "labels": {"%s": "%s", "%s": "%t"}, "annotations": {"%s": %s}}}`,
-		v1.NodeSchedulable, kubevirtSchedulable,
-		v1.CPUManager, cpuManagerEnabled,
-		v1.VirtHandlerHeartbeat, string(now),
+	data = []byte(fmt.Sprintf(`{"metadata": { "labels": %s, "annotations": %s }}`,
+		string(marshalledLabels),
+		string(marshalledAnnotations),
 	))
 	_, err = h.clientset.Nodes().Patch(context.Background(), h.host, types.StrategicMergePatchType, data, metav1.PatchOptions{})
 	if err != nil {
@@ -192,4 +204,28 @@ func detectCPUManagerFile(cpuManagerPaths []string) (string, error) {
 		}
 	}
 	return "", fmt.Errorf("no cpumanager policy file found")
+}
+
+func (h *HeartBeat) setSchedulable(labels labelType) {
+	isKubevirtSchedulable := true
+
+	if !h.deviceManagerController.Initialized() {
+		isKubevirtSchedulable = false
+	}
+
+	labels[v1.NodeSchedulable] = fmt.Sprintf("%t", isKubevirtSchedulable)
+}
+
+func (h *HeartBeat) setCpuManager(labels labelType) {
+	cpuManagerEnabled := false
+
+	if h.clusterConfig.CPUManagerEnabled() {
+		cpuManagerEnabled = h.isCPUManagerEnabled(h.cpuManagerPaths)
+	}
+
+	labels[v1.CPUManager] = fmt.Sprintf("%t", cpuManagerEnabled)
+}
+
+func (h *HeartBeat) setHeartbeat(annotations annotationType, timestamp string) {
+	annotations[v1.VirtHandlerHeartbeat] = timestamp
 }
