@@ -113,6 +113,7 @@ go_test(
         "container_disk_test.go",
         "credentials_test.go",
         "dryrun_test.go",
+        "hyperv_test.go",
         "infra_test.go",
         "instancetype_test.go",
         "kubectl_test.go",
