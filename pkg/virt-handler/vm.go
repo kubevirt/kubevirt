@@ -33,6 +33,8 @@ import (
 	"strings"
 	"time"
 
+	"k8s.io/client-go/util/flowcontrol"
+
 	"kubevirt.io/kubevirt/pkg/virt-controller/watch/topology"
 
 	hotplugdisk "kubevirt.io/kubevirt/pkg/hotplug-disk"
@@ -107,6 +109,8 @@ const (
 	failedDetectIsolationFmt              = "failed to detect isolation for launcher pod: %v"
 	kubevirtPrivate                       = "kubevirt-private"
 	unableCreateVirtLauncherConnectionFmt = "unable to create virt-launcher client connection: %v"
+	initialBackoff                        = time.Second * 1
+	maxBackoff                            = time.Minute * 5
 )
 
 const (
@@ -211,6 +215,7 @@ func NewController(
 		hostCpuModel:                hostCpuModel,
 		vmiExpectations:             controller.NewUIDTrackingControllerExpectations(controller.NewControllerExpectations()),
 		sriovHotplugExecutorPool:    executor.NewRateLimitedExecutorPool(executor.NewExponentialLimitedBackoffCreator()),
+		backoffHandler:              flowcontrol.NewBackOff(initialBackoff, maxBackoff),
 	}
 
 	vmiSourceInformer.AddEventHandler(cache.ResourceEventHandlerFuncs{
@@ -300,6 +305,7 @@ type VirtualMachineController struct {
 	capabilities                *nodelabellerapi.Capabilities
 	hostCpuModel                string
 	vmiExpectations             *controller.UIDTrackingControllerExpectations
+	backoffHandler              *flowcontrol.Backoff
 }
 
 type virtLauncherCriticalSecurebootError struct {
@@ -1715,14 +1721,20 @@ func (d *VirtualMachineController) defaultExecute(key string,
 
 	// Determine if an active (or about to be active) VirtualMachineInstance should be updated.
 	if vmiExists && !vmi.IsFinal() {
-		// requiring the phase of the domain and VirtualMachineInstance to be in sync is an
-		// optimization that prevents unnecessary re-processing VMIs during the start flow.
-		phase, err := d.calculateVmPhaseForStatusReason(domain, vmi)
-		if err != nil {
-			return err
-		}
-		if vmi.Status.Phase == phase {
-			shouldUpdate = true
+		if domainExists && domain.Status.Status == api.Paused &&
+			domain.Status.Reason == api.ReasonPausedIOError &&
+			d.backoffHandler.IsInBackOffSinceUpdate(controller.VirtualMachineInstanceKey(vmi), time.Now()) {
+			log.Log.V(2).Warningf("VMI %s is in backoff due to I/O Error", vmi.Name)
+		} else {
+			// requiring the phase of the domain and VirtualMachineInstance to be in sync is an
+			// optimization that prevents unnecessary re-processing VMIs during the start flow.
+			phase, err := d.calculateVmPhaseForStatusReason(domain, vmi)
+			if err != nil {
+				return err
+			}
+			if vmi.Status.Phase == phase {
+				shouldUpdate = true
+			}
 		}
 	}
 
@@ -1815,6 +1827,8 @@ func (d *VirtualMachineController) execute(key string) error {
 	if err != nil {
 		return err
 	}
+
+	d.backoffHandler.GC()
 
 	if !vmiExists && string(domainCachedUID) != "" {
 		// it's possible to discover the UID from cache even if the domain
@@ -2909,15 +2923,24 @@ func (d *VirtualMachineController) deleteDomainFunc(obj interface{}) {
 func (d *VirtualMachineController) updateDomainFunc(old, new interface{}) {
 	newDomain := new.(*api.Domain)
 	oldDomain := old.(*api.Domain)
+	key, err := controller.KeyFunc(new)
 	if oldDomain.Status.Status != newDomain.Status.Status || oldDomain.Status.Reason != newDomain.Status.Reason {
 		log.Log.Object(newDomain).Infof("Domain is in state %s reason %s", newDomain.Status.Status, newDomain.Status.Reason)
+		if oldDomain.Status.Status == api.Running && newDomain.Status.Status == api.Paused && newDomain.Status.Reason == api.ReasonPausedIOError {
+			if !d.backoffHandler.IsInBackOffSinceUpdate(key, time.Now()) {
+				d.backoffHandler.Next(key, time.Now())
+				log.Log.Object(newDomain).Infof("Delaying re-enqueue due to I/O Error. Backoff time is %v", d.backoffHandler.Get(key))
+				d.Queue.AddAfter(key, d.backoffHandler.Get(key))
+				return
+			}
+		}
 	}
 
 	if newDomain.ObjectMeta.DeletionTimestamp != nil {
 		log.Log.Object(newDomain).Info("Domain is marked for deletion")
+		d.backoffHandler.DeleteEntry(key)
 	}
 
-	key, err := controller.KeyFunc(new)
 	if err == nil {
 		d.Queue.Add(key)
 	}

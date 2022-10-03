@@ -1086,6 +1086,91 @@ var _ = Describe("VirtualMachineInstance", func() {
 			controller.Execute()
 		})
 
+		It("should add an incremental backoff if paused due to IOError", func() {
+
+			pauseDomainAndExpectBackoff := func(domain *api.Domain, vmi *v1.VirtualMachineInstance, expectedBackoff time.Duration) (updatedDomain *api.Domain, updatedVMI *v1.VirtualMachineInstance) {
+				updatedDomain = domain.DeepCopy()
+				updatedDomain.Status.Status = api.Paused
+				updatedDomain.Status.Reason = api.ReasonPausedIOError
+
+				updatedVMI = vmi.DeepCopy()
+				updatedVMI.Status.Conditions = []v1.VirtualMachineInstanceCondition{
+					{
+						Type:   v1.VirtualMachineInstanceIsMigratable,
+						Status: k8sv1.ConditionTrue,
+					},
+					{
+						Type:   v1.VirtualMachineInstancePaused,
+						Status: k8sv1.ConditionTrue,
+					},
+				}
+
+				vmiFeeder.Modify(vmi)
+				domainFeeder.Modify(updatedDomain)
+
+				vmiInterface.EXPECT().Update(NewVMICondMatcher(*updatedVMI))
+				controller.Execute()
+				key := fmt.Sprintf("%s/%s", vmi.Namespace, vmi.Name)
+				backoff := controller.backoffHandler.Get(key)
+				Expect(backoff).To(BeEquivalentTo(expectedBackoff))
+
+				now := time.Now()
+				Expect(controller.backoffHandler.IsInBackOffSinceUpdate(key, now)).To(BeTrue(), "Should be in backoff")
+				Expect(controller.backoffHandler.IsInBackOffSinceUpdate(key, now.Add(backoff).Add(-100*time.Millisecond))).To(BeTrue(), "Should be in backoff")
+				Expect(controller.backoffHandler.IsInBackOffSinceUpdate(key, now.Add(backoff))).To(BeFalse(), "Backoff should be expired")
+				return
+			}
+
+			unpauseDomain := func(domain *api.Domain, vmi *v1.VirtualMachineInstance) (updatedDomain *api.Domain, updatedVMI *v1.VirtualMachineInstance) {
+				updatedDomain = domain.DeepCopy()
+				updatedDomain.Status.Status = api.Running
+				updatedDomain.Status.Reason = ""
+
+				updatedVMI = vmi.DeepCopy()
+				updatedVMI.Status.Conditions = []v1.VirtualMachineInstanceCondition{
+					{
+						Type:   v1.VirtualMachineInstanceIsMigratable,
+						Status: k8sv1.ConditionTrue,
+					},
+				}
+
+				vmiFeeder.Modify(vmi)
+				domainFeeder.Modify(updatedDomain)
+
+				client.EXPECT().SyncVirtualMachine(vmi, gomock.Any())
+				mockHotplugVolumeMounter.EXPECT().Unmount(gomock.Any()).Return(nil)
+				mockHotplugVolumeMounter.EXPECT().Mount(gomock.Any()).Return(nil)
+				vmiInterface.EXPECT().Update(NewVMICondMatcher(*updatedVMI))
+				controller.Execute()
+				return
+			}
+
+			vmi := api2.NewMinimalVMI("testvmi")
+			vmi.UID = vmiTestUUID
+			vmi.ObjectMeta.ResourceVersion = "1"
+			vmi.Status.Phase = v1.Running
+			vmi = addActivePods(vmi, podTestUUID, host)
+
+			mockWatchdog.CreateFile(vmi)
+
+			domain := api.NewMinimalDomainWithUUID("testvmi", vmiTestUUID)
+			domain.Status.Status = api.Running
+			domainFeeder.Add(domain)
+			vmiFeeder.Add(vmi)
+
+			By("pausing domain")
+			domain, vmi = pauseDomainAndExpectBackoff(domain, vmi, time.Second)
+
+			By("Sleeping")
+			time.Sleep(time.Second)
+
+			By("unpausing domain")
+			domain, vmi = unpauseDomain(domain, vmi)
+
+			By("pausing domain")
+			domain, vmi = pauseDomainAndExpectBackoff(domain, vmi, 2*time.Second)
+		})
+
 		It("should move VirtualMachineInstance from Scheduled to Failed if watchdog file is missing", func() {
 			cmdclient.MarkSocketUnresponsive(sockFile)
 			vmi := api2.NewMinimalVMI("testvmi")
