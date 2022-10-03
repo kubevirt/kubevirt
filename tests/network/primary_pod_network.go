@@ -183,10 +183,7 @@ func setupVMI(virtClient kubecli.KubevirtClient, vmi *v1.VirtualMachineInstance)
 }
 
 func newFedoraWithGuestAgentAndDefaultInterface(iface v1.Interface) (*v1.VirtualMachineInstance, error) {
-	networkData, err := libnet.CreateDefaultCloudInitNetworkData()
-	if err != nil {
-		return nil, err
-	}
+	networkData := libnet.CreateDefaultCloudInitNetworkData()
 
 	vmi := libvmi.NewFedora(
 		libvmi.WithInterface(iface),

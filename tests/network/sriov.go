@@ -639,8 +639,7 @@ func validatePodKubevirtResourceNameByVMI(virtClient kubecli.KubevirtClient, vmi
 }
 
 func defaultCloudInitNetworkData() string {
-	networkData, err := libnet.CreateDefaultCloudInitNetworkData()
-	ExpectWithOffset(1, err).ToNot(HaveOccurred(), "should successfully create default cloud init network data for SRIOV")
+	networkData := libnet.CreateDefaultCloudInitNetworkData()
 	return networkData
 }
 
