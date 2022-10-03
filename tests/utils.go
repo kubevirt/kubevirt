@@ -69,6 +69,7 @@ import (
 
 	"kubevirt.io/kubevirt/tests/exec"
 	"kubevirt.io/kubevirt/tests/framework/checks"
+	"kubevirt.io/kubevirt/tests/framework/matcher"
 
 	util2 "kubevirt.io/kubevirt/tests/util"
 
@@ -1329,11 +1330,9 @@ func CreateExecutorPodWithPVC(podName string, pvc *k8sv1.PersistentVolumeClaim) 
 	}
 	pod = RunPod(pod)
 
-	Eventually(func() bool {
-		pod, err = ThisPod(pod)()
-		Expect(err).ToNot(HaveOccurred())
-		return PodReady(pod) == k8sv1.ConditionTrue
-	}, 120).Should(BeTrue())
+	Eventually(ThisPod(pod), 120).Should(matcher.HaveConditionTrue(k8sv1.PodReady))
+	pod, err = ThisPod(pod)()
+	Expect(err).ToNot(HaveOccurred())
 	return pod
 }
 
@@ -2099,15 +2098,6 @@ func EncodePrivateKeyToPEM(privateKey *rsa.PrivateKey) []byte {
 	privatePEM := pem.EncodeToMemory(&privateBlock)
 
 	return privatePEM
-}
-
-func PodReady(pod *k8sv1.Pod) k8sv1.ConditionStatus {
-	for _, cond := range pod.Status.Conditions {
-		if cond.Type == k8sv1.PodReady {
-			return cond.Status
-		}
-	}
-	return k8sv1.ConditionFalse
 }
 
 func RetryWithMetadataIfModified(objectMeta metav1.ObjectMeta, do func(objectMeta metav1.ObjectMeta) error) (err error) {
