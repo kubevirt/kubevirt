@@ -51,6 +51,7 @@ import (
 
 	"kubevirt.io/kubevirt/tests/exec"
 	"kubevirt.io/kubevirt/tests/framework/checks"
+	"kubevirt.io/kubevirt/tests/framework/matcher"
 	. "kubevirt.io/kubevirt/tests/framework/matcher"
 
 	"kubevirt.io/kubevirt/tests/util"
@@ -1371,8 +1372,6 @@ var _ = Describe("[sig-compute]Configurations", func() {
 
 			It("[test_id:4625]should remove condition when agent is off", func() {
 				agentVMI := prepareAgentVM()
-				getOptions := metav1.GetOptions{}
-
 				By("Expecting the VirtualMachineInstance console")
 				Expect(console.LoginToFedora(agentVMI)).To(Succeed())
 
@@ -1383,16 +1382,7 @@ var _ = Describe("[sig-compute]Configurations", func() {
 				}, 400)).To(Succeed())
 
 				By("VMI has the guest agent connected condition")
-				Eventually(func() []v1.VirtualMachineInstanceCondition {
-					freshVMI, err := virtClient.VirtualMachineInstance(util.NamespaceTestDefault).Get(agentVMI.Name, &getOptions)
-					Expect(err).ToNot(HaveOccurred(), "Should get VMI ")
-					return freshVMI.Status.Conditions
-				}, 240*time.Second, 2).ShouldNot(
-					ContainElement(
-						MatchFields(
-							IgnoreExtras,
-							Fields{"Type": Equal(v1.VirtualMachineInstanceAgentConnected)})),
-					"Agent condition should be gone")
+				Eventually(matcher.ThisVMI(agentVMI), 240*time.Second, 2).Should(matcher.HaveConditionMissingOrFalse(v1.VirtualMachineInstanceAgentConnected))
 			})
 
 			Context("[Serial]with cluster config changes", Serial, func() {
@@ -1411,21 +1401,7 @@ var _ = Describe("[sig-compute]Configurations", func() {
 					Expect(err).ToNot(HaveOccurred(), "Should create VMI successfully")
 					tests.WaitForSuccessfulVMIStart(agentVMI)
 
-					getOptions := metav1.GetOptions{}
-					freshVMI, err := virtClient.VirtualMachineInstance(util.NamespaceTestDefault).Get(agentVMI.Name, &getOptions)
-					Expect(err).ToNot(HaveOccurred(), "Should get VMI")
-
-					Eventually(func() []v1.VirtualMachineInstanceCondition {
-						freshVMI, err = virtClient.VirtualMachineInstance(util.NamespaceTestDefault).Get(agentVMI.Name, &getOptions)
-						Expect(err).ToNot(HaveOccurred(), "Should get VMI")
-						return freshVMI.Status.Conditions
-					}, 240*time.Second, 2).Should(
-						ContainElement(
-							MatchFields(
-								IgnoreExtras,
-								Fields{"Type": Equal(v1.VirtualMachineInstanceUnsupportedAgent)})),
-						"Should have unsupported agent connected condition")
-
+					Eventually(matcher.ThisVMI(agentVMI), 240*time.Second, 2*time.Second).Should(matcher.HaveConditionTrue(v1.VirtualMachineInstanceUnsupportedAgent))
 				})
 
 				It("[test_id:6958]VMI condition should not signal unsupported agent presence for optional commands", func() {
@@ -1435,32 +1411,11 @@ var _ = Describe("[sig-compute]Configurations", func() {
 					Expect(err).ToNot(HaveOccurred(), "Should create VMI successfully")
 					tests.WaitForSuccessfulVMIStart(agentVMI)
 
-					getOptions := metav1.GetOptions{}
-					freshVMI, err := virtClient.VirtualMachineInstance(util.NamespaceTestDefault).Get(agentVMI.Name, &getOptions)
-					Expect(err).ToNot(HaveOccurred(), "Should get VMI ")
-
 					By("VMI has the guest agent connected condition")
-					Eventually(func() []v1.VirtualMachineInstanceCondition {
-						freshVMI, err = virtClient.VirtualMachineInstance(util.NamespaceTestDefault).Get(agentVMI.Name, &getOptions)
-						Expect(err).ToNot(HaveOccurred(), "Should get VMI")
-						return freshVMI.Status.Conditions
-					}, 240*time.Second, 2).Should(
-						ContainElement(
-							MatchFields(
-								IgnoreExtras,
-								Fields{"Type": Equal(v1.VirtualMachineInstanceAgentConnected)})),
-						"Should have agent connected condition")
+					Eventually(matcher.ThisVMI(agentVMI), 240*time.Second, 2*time.Second).Should(matcher.HaveConditionTrue(v1.VirtualMachineInstanceAgentConnected))
 
 					By("fetching the VMI after agent has connected")
-					freshVMI, err = virtClient.VirtualMachineInstance(util.NamespaceTestDefault).Get(agentVMI.Name, &getOptions)
-					Expect(err).ToNot(HaveOccurred(), "Should get VMI")
-					Expect(freshVMI.Status.Conditions).ToNot(
-						ContainElement(
-							MatchFields(
-								IgnoreExtras,
-								Fields{"Type": Equal(v1.VirtualMachineInstanceUnsupportedAgent)})),
-						"Should have unsupported agent connected condition")
-
+					Expect(matcher.ThisVMI(agentVMI)()).To(matcher.HaveConditionMissingOrFalse(v1.VirtualMachineInstanceUnsupportedAgent))
 				})
 			})
 
@@ -2337,6 +2292,7 @@ var _ = Describe("[sig-compute]Configurations", func() {
 			Expect(err).ToNot(HaveOccurred())
 
 			var vmiCondition v1.VirtualMachineInstanceCondition
+			// TODO
 			Eventually(func() bool {
 				vmi, err := virtClient.VirtualMachineInstance(util.NamespaceTestDefault).Get(vmi.Name, &metav1.GetOptions{})
 				Expect(err).ToNot(HaveOccurred())
@@ -2349,6 +2305,7 @@ var _ = Describe("[sig-compute]Configurations", func() {
 				}
 				return false
 			}, 120*time.Second, time.Second).Should(BeTrue())
+
 			Expect(vmiCondition.Message).To(ContainSubstring("Invalid PCI address " + wrongPciAddress))
 			Expect(vmiCondition.Reason).To(Equal("Synchronizing with the Domain failed."))
 		})

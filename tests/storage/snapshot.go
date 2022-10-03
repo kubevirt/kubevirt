@@ -20,6 +20,7 @@ import (
 	"k8s.io/utils/pointer"
 
 	"kubevirt.io/kubevirt/tests/exec"
+	"kubevirt.io/kubevirt/tests/framework/matcher"
 	. "kubevirt.io/kubevirt/tests/framework/matcher"
 
 	v1 "kubevirt.io/api/core/v1"
@@ -338,10 +339,8 @@ var _ = SIGDescribe("VirtualMachineSnapshot Tests", func() {
 
 				conditionsLength := 2
 				Expect(snapshot.Status.Conditions).To(HaveLen(conditionsLength))
-				Expect(snapshot.Status.Conditions[0].Type).To(Equal(snapshotv1.ConditionProgressing))
-				Expect(snapshot.Status.Conditions[0].Status).To(Equal(corev1.ConditionFalse))
-				Expect(snapshot.Status.Conditions[1].Type).To(Equal(snapshotv1.ConditionReady))
-				Expect(snapshot.Status.Conditions[1].Status).To(Equal(corev1.ConditionTrue))
+				Expect(snapshot).To(matcher.HaveConditionMissingOrFalse(snapshotv1.ConditionProgressing))
+				Expect(snapshot).To(matcher.HaveConditionTrue(snapshotv1.ConditionReady))
 
 				Expect(console.LoginToFedora(vmi)).To(Succeed())
 				journalctlCheck := "journalctl --file /var/log/journal/*/system.journal"

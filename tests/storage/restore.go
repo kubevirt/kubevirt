@@ -169,10 +169,8 @@ var _ = SIGDescribe("VirtualMachineRestore Tests", func() {
 		}
 		Expect(r.Status.RestoreTime).ToNot(BeNil())
 		Expect(r.Status.Conditions).To(HaveLen(2))
-		Expect(r.Status.Conditions[0].Type).To(Equal(snapshotv1.ConditionProgressing))
-		Expect(r.Status.Conditions[0].Status).To(Equal(corev1.ConditionFalse))
-		Expect(r.Status.Conditions[1].Type).To(Equal(snapshotv1.ConditionReady))
-		Expect(r.Status.Conditions[1].Status).To(Equal(corev1.ConditionTrue))
+		Expect(r).To(matcher.HaveConditionMissingOrFalse(snapshotv1.ConditionProgressing))
+		Expect(r).To(matcher.HaveConditionTrue(snapshotv1.ConditionReady))
 		return r
 	}
 

@@ -33,6 +33,7 @@ import (
 	"k8s.io/apimachinery/pkg/api/errors"
 
 	"kubevirt.io/kubevirt/tests/framework/checks"
+	"kubevirt.io/kubevirt/tests/framework/matcher"
 	storageframework "kubevirt.io/kubevirt/tests/framework/storage"
 
 	"kubevirt.io/kubevirt/tests/util"
@@ -182,18 +183,7 @@ var _ = SIGDescribe("Storage", func() {
 				tests.FixErrorDevice(nodeName)
 
 				By("Expecting VMI to NOT be paused")
-				Eventually(func() bool {
-					vmi, err := refresh()
-					Expect(err).ToNot(HaveOccurred())
-
-					for _, condition := range vmi.Status.Conditions {
-						if condition.Type == virtv1.VirtualMachineInstancePaused {
-							return condition.Status == k8sv1.ConditionFalse
-						}
-					}
-					return false
-
-				}, 100*time.Second, time.Second).Should(BeFalse())
+				Eventually(ThisVMI(vmi), 100*time.Second, time.Second).Should(HaveConditionMissingOrFalse(v1.VirtualMachineInstancePaused))
 
 				By("Cleaning up")
 				err = virtClient.VirtualMachineInstance(util.NamespaceTestDefault).Delete(vmi.ObjectMeta.Name, &metav1.DeleteOptions{})
@@ -1023,16 +1013,8 @@ var _ = SIGDescribe("Storage", func() {
 					Expect(err).NotTo(HaveOccurred())
 
 					By("Waiting for hostPath pod to prepare the mounted directory")
-					Eventually(func() k8sv1.ConditionStatus {
-						p, err := virtClient.CoreV1().Pods(util.NamespaceTestDefault).Get(context.Background(), pod.Name, metav1.GetOptions{})
-						Expect(err).ToNot(HaveOccurred())
-						for _, c := range p.Status.Conditions {
-							if c.Type == k8sv1.PodReady {
-								return c.Status
-							}
-						}
-						return k8sv1.ConditionFalse
-					}, 30, 1).Should(Equal(k8sv1.ConditionTrue))
+					Eventually(matcher.ThisPod(pod), 30*time.Second, time.Second).Should(matcher.HaveConditionTrue(k8sv1.PodReady))
+
 					pod, err = ThisPod(pod)()
 					Expect(err).ToNot(HaveOccurred())
 

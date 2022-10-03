@@ -28,6 +28,7 @@ import (
 
 	"kubevirt.io/kubevirt/tests/clientcmd"
 	"kubevirt.io/kubevirt/tests/framework/checks"
+	"kubevirt.io/kubevirt/tests/framework/matcher"
 
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
@@ -329,14 +330,11 @@ var _ = Describe("[rfe_id:588][crit:medium][vendor:cnv-qe@redhat.com][level:comp
 		_, err := virtClient.ReplicaSet(rs.Namespace).Patch(rs.Name, types.JSONPatchType, []byte("[{ \"op\": \"add\", \"path\": \"/spec/paused\", \"value\": true }]"))
 		Expect(err).ToNot(HaveOccurred())
 
-		Eventually(func() v1.VirtualMachineInstanceReplicaSetConditionType {
+		Eventually(func() *v1.VirtualMachineInstanceReplicaSet {
 			rs, err = virtClient.ReplicaSet(util.NamespaceTestDefault).Get(rs.ObjectMeta.Name, v12.GetOptions{})
 			Expect(err).ToNot(HaveOccurred())
-			if len(rs.Status.Conditions) > 0 {
-				return rs.Status.Conditions[0].Type
-			}
-			return ""
-		}, 10*time.Second, 1*time.Second).Should(Equal(v1.VirtualMachineInstanceReplicaSetReplicaPaused))
+			return rs
+		}, 10*time.Second, 1*time.Second).Should(matcher.HaveConditionTrue(v1.VirtualMachineInstanceReplicaSetReplicaPaused))
 
 		// set new replica count while still being paused
 		By("Updating the number of replicas")

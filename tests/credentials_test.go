@@ -26,8 +26,8 @@ import (
 
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
-	. "github.com/onsi/gomega/gstruct"
 
+	"kubevirt.io/kubevirt/tests/framework/matcher"
 	"kubevirt.io/kubevirt/tests/util"
 
 	expect "github.com/google/goexpect"
@@ -117,16 +117,7 @@ var _ = Describe("[sig-compute]Guest Access Credentials", func() {
 
 			By("Waiting on access credentials to sync")
 			// this ensures the keys have propagated before we attempt to read
-			Eventually(func() bool {
-				vmi, err := virtClient.VirtualMachineInstance(util.NamespaceTestDefault).Get(vmi.Name, &metav1.GetOptions{})
-				Expect(err).ToNot(HaveOccurred())
-				for _, cond := range vmi.Status.Conditions {
-					if cond.Type == v1.VirtualMachineInstanceAccessCredentialsSynchronized && cond.Status == kubev1.ConditionTrue {
-						return true
-					}
-				}
-				return false
-			}, 45*time.Second, time.Second).Should(BeTrue())
+			Eventually(matcher.ThisVMI(vmi), 45*time.Second, time.Second).Should(matcher.HaveConditionTrue(v1.VirtualMachineInstanceAccessCredentialsSynchronized))
 
 			By("Verifying all three pub ssh keys in secret are in VMI guest")
 			ExecutingBatchCmd(vmi, []expect.Batcher{
@@ -194,17 +185,7 @@ var _ = Describe("[sig-compute]Guest Access Credentials", func() {
 
 			By("Waiting on access credentials to sync")
 			// this ensures the keys have propagated before we attempt to read
-			Eventually(func() bool {
-				vmi, err := virtClient.VirtualMachineInstance(util.NamespaceTestDefault).Get(vmi.Name, &metav1.GetOptions{})
-				Expect(err).ToNot(HaveOccurred())
-				for _, cond := range vmi.Status.Conditions {
-					if cond.Type == v1.VirtualMachineInstanceAccessCredentialsSynchronized && cond.Status == kubev1.ConditionTrue {
-						return true
-					}
-				}
-				return false
-			}, 45*time.Second, time.Second).Should(BeTrue())
-
+			Eventually(matcher.ThisVMI(vmi), 45*time.Second, time.Second).Should(matcher.HaveConditionTrue(v1.VirtualMachineInstanceAccessCredentialsSynchronized))
 			ExecutingBatchCmd(vmi, []expect.Batcher{
 				&expect.BSnd{S: "\n"},
 				&expect.BSnd{S: "\n"},
@@ -262,20 +243,7 @@ var _ = Describe("[sig-compute]Guest Access Credentials", func() {
 			tests.WaitAgentConnected(virtClient, vmi)
 
 			By("Checking that denylisted commands triggered unsupported guest agent condition")
-			getOptions := metav1.GetOptions{}
-			freshVMI, err := virtClient.VirtualMachineInstance(util.NamespaceTestDefault).Get(vmi.Name, &getOptions)
-			Expect(err).ToNot(HaveOccurred(), "Should get VMI ")
-
-			Eventually(func() []v1.VirtualMachineInstanceCondition {
-				freshVMI, err = virtClient.VirtualMachineInstance(util.NamespaceTestDefault).Get(vmi.Name, &getOptions)
-				Expect(err).ToNot(HaveOccurred(), "Should get VMI ")
-				return freshVMI.Status.Conditions
-			}, 240*time.Second, 2).Should(
-				ContainElement(
-					MatchFields(
-						IgnoreExtras,
-						Fields{"Type": Equal(v1.VirtualMachineInstanceUnsupportedAgent)})),
-				"Should have unsupported agent connected condition")
+			Eventually(matcher.ThisVMI(vmi), 240*time.Second, 2*time.Second).Should(matcher.HaveConditionTrue(v1.VirtualMachineInstanceUnsupportedAgent))
 		})
 
 		It("[test_id:6223]should update guest agent for user password", func() {
@@ -323,21 +291,7 @@ var _ = Describe("[sig-compute]Guest Access Credentials", func() {
 			tests.WaitAgentConnected(virtClient, vmi)
 
 			By("Checking that denylisted commands triggered unsupported guest agent condition")
-			getOptions := metav1.GetOptions{}
-			freshVMI, err := virtClient.VirtualMachineInstance(util.NamespaceTestDefault).Get(vmi.Name, &getOptions)
-			Expect(err).ToNot(HaveOccurred(), "Should get VMI ")
-
-			Eventually(func() []v1.VirtualMachineInstanceCondition {
-				freshVMI, err = virtClient.VirtualMachineInstance(util.NamespaceTestDefault).Get(vmi.Name, &getOptions)
-				Expect(err).ToNot(HaveOccurred(), "Should get VMI ")
-				return freshVMI.Status.Conditions
-			}, 240*time.Second, 2).Should(
-				ContainElement(
-					MatchFields(
-						IgnoreExtras,
-						Fields{"Type": Equal(v1.VirtualMachineInstanceUnsupportedAgent)})),
-				"Should have unsupported agent connected condition")
-
+			Eventually(matcher.ThisVMI(vmi), 240*time.Second, 2*time.Second).Should(matcher.HaveConditionTrue(v1.VirtualMachineInstanceUnsupportedAgent))
 		})
 	})
 	Context("with secret and configDrive propagation", func() {

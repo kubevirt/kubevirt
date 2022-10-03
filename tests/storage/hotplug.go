@@ -48,6 +48,7 @@ import (
 	cd "kubevirt.io/kubevirt/tests/containerdisk"
 	"kubevirt.io/kubevirt/tests/flags"
 	"kubevirt.io/kubevirt/tests/framework/checks"
+	"kubevirt.io/kubevirt/tests/framework/matcher"
 	. "kubevirt.io/kubevirt/tests/framework/matcher"
 	"kubevirt.io/kubevirt/tests/libdv"
 	"kubevirt.io/kubevirt/tests/libnode"
@@ -906,21 +907,6 @@ var _ = SIGDescribe("Hotplug", func() {
 				hotplugLabelValue = "true"
 			)
 
-			verifyIsMigratable := func(vmi *v1.VirtualMachineInstance, expectedValue bool) {
-				Eventually(func() bool {
-					vmi, err := virtClient.VirtualMachineInstance(vmi.Namespace).Get(vmi.Name, &metav1.GetOptions{})
-					if err != nil {
-						return false
-					}
-					for _, condition := range vmi.Status.Conditions {
-						if condition.Type == v1.VirtualMachineInstanceIsMigratable {
-							return condition.Status == corev1.ConditionTrue
-						}
-					}
-					return vmi.Status.Phase == v1.Failed
-				}, 90*time.Second, 1*time.Second).Should(Equal(expectedValue))
-			}
-
 			BeforeEach(func() {
 				exists := false
 				sc, exists = libstorage.GetRWXBlockStorageClass()
@@ -980,7 +966,7 @@ var _ = SIGDescribe("Hotplug", func() {
 				Expect(err).ToNot(HaveOccurred())
 				tests.WaitForSuccessfulVMIStartWithTimeout(vmi, 240)
 				By("Verifying the VMI is migrateable")
-				verifyIsMigratable(vmi, true)
+				Eventually(matcher.ThisVMI(vmi), 90*time.Second, 1*time.Second).Should(matcher.HaveConditionTrue(v1.VirtualMachineInstanceIsMigratable))
 
 				By("Adding volume to running VMI")
 				addVolumeFunc(vmi.Name, vmi.Namespace, volumeName, dv.Name, v1.DiskBusSCSI, false, "")
@@ -991,7 +977,7 @@ var _ = SIGDescribe("Hotplug", func() {
 				verifyVolumeStatus(vmi, v1.VolumeReady, "", volumeName)
 
 				By("Verifying the VMI is still migrateable")
-				verifyIsMigratable(vmi, true)
+				Eventually(matcher.ThisVMI(vmi), 90*time.Second, 1*time.Second).Should(matcher.HaveConditionTrue(v1.VirtualMachineInstanceIsMigratable))
 
 				By("Verifying the volume is attached and usable")
 				getVmiConsoleAndLogin(vmi)

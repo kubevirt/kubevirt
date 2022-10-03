@@ -97,7 +97,7 @@ var _ = SIGDescribe("[ref_id:1182]Probes", func() {
 				By(specifyingVMReadinessProbe)
 				vmi = createReadyAlpineVMIWithReadinessProbe(readinessProbe)
 
-				Expect(getVMIConditions(virtClient, vmi)).NotTo(ContainElement(v1.VirtualMachineInstanceReady))
+				Expect(matcher.ThisVMI(vmi)()).To(matcher.HaveConditionMissingOrFalse(v1.VirtualMachineInstanceReady))
 
 				By("Starting the server inside the VMI")
 				serverStarter(vmi, readinessProbe, 1500)
@@ -159,9 +159,7 @@ var _ = SIGDescribe("[ref_id:1182]Probes", func() {
 			vmi = tests.VMILauncherIgnoreWarnings(virtClient)(vmi)
 
 			By("Checking that the VMI is consistently non-ready")
-			Consistently(func() []v1.VirtualMachineInstanceCondition {
-				return getVMIConditions(virtClient, vmi)
-			}).ShouldNot(ContainElement(v1.VirtualMachineInstanceReady))
+			Consistently(matcher.ThisVMI(vmi), 30*time.Second, 100*time.Millisecond).Should(matcher.HaveConditionMissingOrFalse(v1.VirtualMachineInstanceReady))
 		},
 			Entry("[test_id:1220][posneg:negative]with working TCP probe and no running server", tcpProbe, libvmi.NewAlpine),
 			Entry("[test_id:1219][posneg:negative]with working HTTP probe and no running server", httpProbe, libvmi.NewAlpine),
@@ -371,12 +369,6 @@ func pointIpv6ProbeToSupportPod(pod *corev1.Pod, probe *v1.Probe) (*v1.Probe, er
 	}
 
 	return patchProbeWithIPAddr(probe, supportPodIP), nil
-}
-
-func getVMIConditions(virtClient kubecli.KubevirtClient, vmi *v1.VirtualMachineInstance) []v1.VirtualMachineInstanceCondition {
-	readVmi, err := virtClient.VirtualMachineInstance(vmi.Namespace).Get(vmi.Name, &metav1.GetOptions{})
-	Expect(err).ToNot(HaveOccurred())
-	return readVmi.Status.Conditions
 }
 
 func withMasqueradeNetworkingAndFurtherUserConfig(opts ...libvmi.Option) []libvmi.Option {
