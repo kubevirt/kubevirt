@@ -97,7 +97,7 @@ var _ = Describe("[crit:medium][vendor:cnv-qe@redhat.com][level:component][sig-c
 				vmi = tests.RunVMIAndExpectLaunch(libvmi.NewCirros(), vmiLaunchTimeout)
 
 				Expect(console.LoginToCirros(vmi)).To(Succeed())
-				tests.WaitAgentDisconnected(virtClient, vmi)
+				Eventually(matcher.ThisVMI(vmi), 30*time.Second, 2*time.Second).Should(matcher.HaveConditionMissingOrFalse(v1.VirtualMachineInstanceAgentConnected))
 
 				err := virtClient.VirtualMachineInstance(util.NamespaceTestDefault).SoftReboot(vmi.Name)
 				Expect(err).ToNot(HaveOccurred())
@@ -124,7 +124,7 @@ var _ = Describe("[crit:medium][vendor:cnv-qe@redhat.com][level:component][sig-c
 				vmi = tests.RunVMIAndExpectLaunch(libvmi.NewCirros(), vmiLaunchTimeout)
 
 				Expect(console.LoginToCirros(vmi)).To(Succeed())
-				tests.WaitAgentDisconnected(virtClient, vmi)
+				Eventually(matcher.ThisVMI(vmi), 30*time.Second, 2*time.Second).Should(matcher.HaveConditionMissingOrFalse(v1.VirtualMachineInstanceAgentConnected))
 
 				command := clientcmd.NewRepeatableVirtctlCommand(virtctlsoftreboot.COMMAND_SOFT_REBOOT, "--namespace", util.NamespaceTestDefault, vmi.Name)
 				Expect(command()).To(Succeed())
@@ -138,7 +138,7 @@ var _ = Describe("[crit:medium][vendor:cnv-qe@redhat.com][level:component][sig-c
 				vmi = tests.RunVMIAndExpectLaunch(libvmi.NewCirros(withoutACPI()), vmiLaunchTimeout)
 
 				Expect(console.LoginToCirros(vmi)).To(Succeed())
-				tests.WaitAgentDisconnected(virtClient, vmi)
+				Eventually(matcher.ThisVMI(vmi), 30*time.Second, 2*time.Second).Should(matcher.HaveConditionMissingOrFalse(v1.VirtualMachineInstanceAgentConnected))
 
 				command := clientcmd.NewRepeatableVirtctlCommand(virtctlsoftreboot.COMMAND_SOFT_REBOOT, "--namespace", util.NamespaceTestDefault, vmi.Name)
 				err := command()
