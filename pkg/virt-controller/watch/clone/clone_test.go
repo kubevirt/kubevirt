@@ -63,6 +63,7 @@ var _ = Describe("Clone", func() {
 	var vmInformer cache.SharedIndexInformer
 	var snapshotInformer cache.SharedIndexInformer
 	var restoreInformer cache.SharedIndexInformer
+	var snapshotContentInformer cache.SharedIndexInformer
 
 	var cloneInformer cache.SharedIndexInformer
 	var cloneSource *framework.FakeControllerSource
@@ -188,6 +189,7 @@ var _ = Describe("Clone", func() {
 		snapshotInformer, _ = testutils.NewFakeInformerFor(&snapshotv1alpha1.VirtualMachineSnapshot{})
 		restoreInformer, _ = testutils.NewFakeInformerFor(&snapshotv1alpha1.VirtualMachineRestore{})
 		cloneInformer, cloneSource = testutils.NewFakeInformerFor(&clonev1alpha1.VirtualMachineClone{})
+		snapshotContentInformer, _ = testutils.NewFakeInformerFor(&snapshotv1alpha1.VirtualMachineSnapshotContent{})
 
 		recorder = record.NewFakeRecorder(100)
 		recorder.IncludeObject = true
@@ -198,6 +200,7 @@ var _ = Describe("Clone", func() {
 			snapshotInformer,
 			restoreInformer,
 			vmInformer,
+			snapshotContentInformer,
 			recorder)
 		mockQueue = testutils.NewMockWorkQueue(controller.vmCloneQueue)
 		controller.vmCloneQueue = mockQueue

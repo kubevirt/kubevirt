@@ -37,29 +37,31 @@ const (
 )
 
 type VMCloneController struct {
-	client           kubecli.KubevirtClient
-	vmCloneInformer  cache.SharedIndexInformer
-	snapshotInformer cache.SharedIndexInformer
-	restoreInformer  cache.SharedIndexInformer
-	vmInformer       cache.SharedIndexInformer
-	recorder         record.EventRecorder
+	client                  kubecli.KubevirtClient
+	vmCloneInformer         cache.SharedIndexInformer
+	snapshotInformer        cache.SharedIndexInformer
+	restoreInformer         cache.SharedIndexInformer
+	vmInformer              cache.SharedIndexInformer
+	snapshotContentInformer cache.SharedIndexInformer
+	recorder                record.EventRecorder
 
 	vmCloneQueue       workqueue.RateLimitingInterface
 	vmStatusUpdater    *status.VMStatusUpdater
 	cloneStatusUpdater *status.CloneStatusUpdater
 }
 
-func NewVmCloneController(client kubecli.KubevirtClient, vmCloneInformer, snapshotInformer, restoreInformer, vmInformer cache.SharedIndexInformer, recorder record.EventRecorder) *VMCloneController {
+func NewVmCloneController(client kubecli.KubevirtClient, vmCloneInformer, snapshotInformer, restoreInformer, vmInformer, snapshotContentInformer cache.SharedIndexInformer, recorder record.EventRecorder) *VMCloneController {
 	ctrl := VMCloneController{
-		client:             client,
-		vmCloneInformer:    vmCloneInformer,
-		snapshotInformer:   snapshotInformer,
-		restoreInformer:    restoreInformer,
-		vmInformer:         vmInformer,
-		recorder:           recorder,
-		vmCloneQueue:       workqueue.NewNamedRateLimitingQueue(workqueue.DefaultControllerRateLimiter(), "virt-controller-vmclone"),
-		vmStatusUpdater:    status.NewVMStatusUpdater(client),
-		cloneStatusUpdater: status.NewCloneStatusUpdater(client),
+		client:                  client,
+		vmCloneInformer:         vmCloneInformer,
+		snapshotInformer:        snapshotInformer,
+		restoreInformer:         restoreInformer,
+		vmInformer:              vmInformer,
+		snapshotContentInformer: snapshotContentInformer,
+		recorder:                recorder,
+		vmCloneQueue:            workqueue.NewNamedRateLimitingQueue(workqueue.DefaultControllerRateLimiter(), "virt-controller-vmclone"),
+		vmStatusUpdater:         status.NewVMStatusUpdater(client),
+		cloneStatusUpdater:      status.NewCloneStatusUpdater(client),
 	}
 
 	ctrl.vmCloneInformer.AddEventHandler(

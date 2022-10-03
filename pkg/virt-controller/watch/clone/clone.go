@@ -524,13 +524,16 @@ func (ctrl *VMCloneController) getSource(vmClone *clonev1alpha1.VirtualMachineCl
 
 func (ctrl *VMCloneController) getVmFromSnapshot(snapshot *snapshotv1alpha1.VirtualMachineSnapshot) (*k6tv1.VirtualMachine, error) {
 	contentName := virtsnapshot.GetVMSnapshotContentName(snapshot)
+	contentKey := getKey(contentName, snapshot.Namespace)
 
-	// TODO: replace with informer
-	content, err := ctrl.client.VirtualMachineSnapshotContent(snapshot.Namespace).Get(context.Background(), contentName, v1.GetOptions{})
-	if err != nil {
+	contentObj, exists, err := ctrl.snapshotContentInformer.GetStore().GetByKey(contentKey)
+	if !exists {
+		return nil, fmt.Errorf("snapshot content %s in namespace %s does not exist", contentName, snapshot.Namespace)
+	} else if err != nil {
 		return nil, err
 	}
 
+	content := contentObj.(*snapshotv1alpha1.VirtualMachineSnapshotContent)
 	contentVmSpec := content.Spec.Source.VirtualMachine
 
 	vm := &k6tv1.VirtualMachine{

@@ -212,6 +212,7 @@ var _ = Describe("Application", func() {
 			vmSnapshotInformer,
 			vmRestoreInformer,
 			vmInformer,
+			vmSnapshotContentInformer,
 			recorder,
 		)
 
