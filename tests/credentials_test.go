@@ -113,7 +113,7 @@ var _ = Describe("[sig-compute]Guest Access Credentials", func() {
 			LaunchVMI(vmi)
 
 			By("Waiting for agent to connect")
-			tests.WaitAgentConnected(virtClient, vmi)
+			Eventually(matcher.ThisVMI(vmi), 12*time.Minute, 2*time.Second).Should(matcher.HaveConditionTrue(v1.VirtualMachineInstanceAgentConnected))
 
 			By("Waiting on access credentials to sync")
 			// this ensures the keys have propagated before we attempt to read
@@ -179,7 +179,7 @@ var _ = Describe("[sig-compute]Guest Access Credentials", func() {
 			LaunchVMI(vmi)
 
 			By("Waiting for agent to connect")
-			tests.WaitAgentConnected(virtClient, vmi)
+			Eventually(matcher.ThisVMI(vmi), 12*time.Minute, 2*time.Second).Should(matcher.HaveConditionTrue(v1.VirtualMachineInstanceAgentConnected))
 
 			By("Verifying signin with custom password works")
 
@@ -240,7 +240,7 @@ var _ = Describe("[sig-compute]Guest Access Credentials", func() {
 			LaunchVMI(vmi)
 
 			By("Waiting for agent to connect")
-			tests.WaitAgentConnected(virtClient, vmi)
+			Eventually(matcher.ThisVMI(vmi), 12*time.Minute, 2*time.Second).Should(matcher.HaveConditionTrue(v1.VirtualMachineInstanceAgentConnected))
 
 			By("Checking that denylisted commands triggered unsupported guest agent condition")
 			Eventually(matcher.ThisVMI(vmi), 240*time.Second, 2*time.Second).Should(matcher.HaveConditionTrue(v1.VirtualMachineInstanceUnsupportedAgent))
@@ -288,7 +288,7 @@ var _ = Describe("[sig-compute]Guest Access Credentials", func() {
 			LaunchVMI(vmi)
 
 			By("Waiting for agent to connect")
-			tests.WaitAgentConnected(virtClient, vmi)
+			Eventually(matcher.ThisVMI(vmi), 12*time.Minute, 2*time.Second).Should(matcher.HaveConditionTrue(v1.VirtualMachineInstanceAgentConnected))
 
 			By("Checking that denylisted commands triggered unsupported guest agent condition")
 			Eventually(matcher.ThisVMI(vmi), 240*time.Second, 2*time.Second).Should(matcher.HaveConditionTrue(v1.VirtualMachineInstanceUnsupportedAgent))

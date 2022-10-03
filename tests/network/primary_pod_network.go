@@ -25,6 +25,7 @@ import (
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
 
+	"kubevirt.io/kubevirt/tests/framework/matcher"
 	"kubevirt.io/kubevirt/tests/util"
 
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
@@ -93,7 +94,7 @@ var _ = SIGDescribe("Primary Pod Network", func() {
 					vmi, err = virtClient.VirtualMachineInstance(util.NamespaceTestDefault).Create(vmi)
 					Expect(err).NotTo(HaveOccurred())
 					tests.WaitForSuccessfulVMIStart(vmi)
-					tests.WaitAgentConnected(virtClient, vmi)
+					Eventually(matcher.ThisVMI(vmi), 12*time.Minute, 2*time.Second).Should(matcher.HaveConditionTrue(v1.VirtualMachineInstanceAgentConnected))
 				})
 
 				It("should report PodIP/s IPv4 as its own on interface status", func() {
@@ -135,7 +136,7 @@ var _ = SIGDescribe("Primary Pod Network", func() {
 					Expect(err).NotTo(HaveOccurred())
 					vmi = tests.WaitUntilVMIReady(tmpVmi, console.LoginToFedora)
 
-					tests.WaitAgentConnected(virtClient, vmi)
+					Eventually(matcher.ThisVMI(vmi), 12*time.Minute, 2*time.Second).Should(matcher.HaveConditionTrue(v1.VirtualMachineInstanceAgentConnected))
 				})
 
 				It("[test_id:4153]should report PodIP/s as its own on interface status", func() {

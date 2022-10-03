@@ -108,7 +108,7 @@ var _ = SIGDescribe("[ref_id:1182]Probes", func() {
 				vmi = tests.VMILauncherIgnoreWarnings(virtClient)(vmi)
 
 				By("Waiting for agent to connect")
-				tests.WaitAgentConnected(virtClient, vmi)
+				Eventually(matcher.ThisVMI(vmi), 12*time.Minute, 2*time.Second).Should(matcher.HaveConditionTrue(v1.VirtualMachineInstanceAgentConnected))
 			}
 
 			tests.WaitForVMICondition(virtClient, vmi, v1.VirtualMachineInstanceReady, 120)
@@ -133,7 +133,7 @@ var _ = SIGDescribe("[ref_id:1182]Probes", func() {
 							createGuestAgentPingProbe(period, initialSeconds)))...)
 				vmi = tests.VMILauncherIgnoreWarnings(virtClient)(vmi)
 				By("Waiting for agent to connect")
-				tests.WaitAgentConnected(virtClient, vmi)
+				Eventually(matcher.ThisVMI(vmi), 12*time.Minute, 2*time.Second).Should(matcher.HaveConditionTrue(v1.VirtualMachineInstanceAgentConnected))
 				tests.WaitForVMICondition(virtClient, vmi, v1.VirtualMachineInstanceReady, guestAgentConnectTimeout)
 				By("Disabling the guest-agent")
 				Expect(console.LoginToFedora(vmi)).To(Succeed())
@@ -210,7 +210,7 @@ var _ = SIGDescribe("[ref_id:1182]Probes", func() {
 				vmi = tests.VMILauncherIgnoreWarnings(virtClient)(vmi)
 
 				By("Waiting for agent to connect")
-				tests.WaitAgentConnected(virtClient, vmi)
+				Eventually(matcher.ThisVMI(vmi), 12*time.Minute, 2*time.Second).Should(matcher.HaveConditionTrue(v1.VirtualMachineInstanceAgentConnected))
 			}
 
 			By("Checking that the VMI is still running after a while")
@@ -235,7 +235,7 @@ var _ = SIGDescribe("[ref_id:1182]Probes", func() {
 				vmi = tests.VMILauncherIgnoreWarnings(virtClient)(vmi)
 
 				By("Waiting for agent to connect")
-				tests.WaitAgentConnected(virtClient, vmi)
+				Eventually(matcher.ThisVMI(vmi), 12*time.Minute, 2*time.Second).Should(matcher.HaveConditionTrue(v1.VirtualMachineInstanceAgentConnected))
 				Expect(console.LoginToFedora(vmi)).To(Succeed())
 			})
 

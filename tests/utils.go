@@ -2057,10 +2057,6 @@ func WaitForConfigToBePropagatedToComponent(podLabel string, resourceVersion str
 	}, duration, 1*time.Second).ShouldNot(HaveOccurred())
 }
 
-func WaitAgentConnected(virtClient kubecli.KubevirtClient, vmi *v1.VirtualMachineInstance) {
-	WaitForVMICondition(virtClient, vmi, v1.VirtualMachineInstanceAgentConnected, 12*60)
-}
-
 func WaitAgentDisconnected(virtClient kubecli.KubevirtClient, vmi *v1.VirtualMachineInstance) {
 	WaitForVMIConditionRemovedOrFalse(virtClient, vmi, v1.VirtualMachineInstanceAgentConnected, 30)
 }

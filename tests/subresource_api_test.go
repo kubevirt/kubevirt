@@ -31,6 +31,9 @@ import (
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/utils/pointer"
 
+	"kubevirt.io/kubevirt/tests/framework/matcher"
+	"kubevirt.io/kubevirt/tests/util"
+
 	v1 "kubevirt.io/api/core/v1"
 	instancetypeapi "kubevirt.io/api/instancetype"
 	instancetypev1alpha2 "kubevirt.io/api/instancetype/v1alpha2"
@@ -40,7 +43,6 @@ import (
 	"kubevirt.io/kubevirt/tests/flags"
 	"kubevirt.io/kubevirt/tests/libvmi"
 	"kubevirt.io/kubevirt/tests/testsuite"
-	"kubevirt.io/kubevirt/tests/util"
 )
 
 var _ = Describe("[sig-compute]Subresource Api", func() {
@@ -317,7 +319,7 @@ var _ = Describe("[sig-compute]Subresource Api", func() {
 					return vmi.Status.Phase == v1.Running
 				}, 180*time.Second, time.Second).Should(BeTrue())
 				tests.WaitForSuccessfulVMIStartWithTimeout(vmi, 300)
-				tests.WaitAgentConnected(virtCli, vmi)
+				Eventually(matcher.ThisVMI(vmi), 12*time.Minute, 2*time.Second).Should(matcher.HaveConditionTrue(v1.VirtualMachineInstanceAgentConnected))
 			})
 
 			waitVMIFSFreezeStatus := func(expectedStatus string) {
