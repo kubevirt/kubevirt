@@ -23,6 +23,7 @@ import (
 	"context"
 	"crypto/x509"
 	"encoding/pem"
+	goerrors "errors"
 	"fmt"
 	"os"
 	"path/filepath"
@@ -1731,10 +1732,9 @@ var _ = SIGDescribe("Export", func() {
 			})
 
 			AfterEach(func() {
-				_, err := os.Stat(outputFile)
-				Expect(err).ToNot(HaveOccurred())
-				err = os.Remove(outputFile)
-				Expect(err).ToNot(HaveOccurred())
+				if err := os.Remove(outputFile); err != nil && !goerrors.Is(err, os.ErrNotExist) {
+					Fail(err.Error())
+				}
 			})
 
 			It("Download succeeds creating and downloading a vmexport using PVC source", func() {
@@ -1752,6 +1752,8 @@ var _ = SIGDescribe("Export", func() {
 					"--namespace", util.NamespaceTestDefault)
 
 				err = virtctlCmd()
+				Expect(err).ToNot(HaveOccurred())
+				_, err := os.Stat(outputFile)
 				Expect(err).ToNot(HaveOccurred())
 			})
 
@@ -1791,6 +1793,8 @@ var _ = SIGDescribe("Export", func() {
 
 				err = virtctlCmd()
 				Expect(err).ToNot(HaveOccurred())
+				_, err := os.Stat(outputFile)
+				Expect(err).ToNot(HaveOccurred())
 			})
 
 			It("Download succeeds creating and downloading a vmexport using VM source", func() {
@@ -1827,6 +1831,8 @@ var _ = SIGDescribe("Export", func() {
 
 				err = virtctlCmd()
 				Expect(err).ToNot(HaveOccurred())
+				_, err := os.Stat(outputFile)
+				Expect(err).ToNot(HaveOccurred())
 			})
 
 			It("Download succeeds with an already existing vmexport", func() {
@@ -1843,6 +1849,8 @@ var _ = SIGDescribe("Export", func() {
 					"--namespace", util.NamespaceTestDefault)
 
 				err = virtctlCmd()
+				Expect(err).ToNot(HaveOccurred())
+				_, err := os.Stat(outputFile)
 				Expect(err).ToNot(HaveOccurred())
 			})
 
@@ -1869,6 +1877,8 @@ var _ = SIGDescribe("Export", func() {
 
 				err = virtctlCmd()
 				Expect(err).ToNot(HaveOccurred())
+				_, err := os.Stat(outputFile)
+				Expect(err).ToNot(HaveOccurred())
 			})
 
 			It("Download succeeds and keeps the vmexport after finishing the download", func() {
@@ -1887,6 +1897,8 @@ var _ = SIGDescribe("Export", func() {
 				err = virtctlCmd()
 				Expect(err).ToNot(HaveOccurred())
 				checkForReadyExport(vmeName)
+				_, err := os.Stat(outputFile)
+				Expect(err).ToNot(HaveOccurred())
 			})
 		})
 	})
