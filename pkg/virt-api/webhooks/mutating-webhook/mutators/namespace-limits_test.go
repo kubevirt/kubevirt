@@ -77,7 +77,7 @@ var _ = Describe("Mutating Webhook Namespace Limits", func() {
 			}
 
 			By("Applying namespace range values on the VMI")
-			applyNamespaceLimitRangeValues(&vmi, namespaceLimitInformer)
+			applyNamespaceLimitRangeValues(&vmi, namespaceLimitInformer, vmi.Namespace)
 
 			Expect(vmi.Spec.Domain.Resources.Limits.Memory().String()).To(Equal("64M"))
 			Expect(vmi.Spec.Domain.Resources.Limits.Cpu().String()).To(Equal("2"))
@@ -89,7 +89,7 @@ var _ = Describe("Mutating Webhook Namespace Limits", func() {
 	When("VMI does not have limits under spec", func() {
 		It("should apply all namespace limits", func() {
 			By("Applying namespace range values on the VMI")
-			applyNamespaceLimitRangeValues(&vmi, namespaceLimitInformer)
+			applyNamespaceLimitRangeValues(&vmi, namespaceLimitInformer, vmi.Namespace)
 
 			Expect(vmi.Spec.Domain.Resources.Limits.Memory().String()).To(Equal("256M"))
 			Expect(vmi.Spec.Domain.Resources.Limits.Cpu().String()).To(Equal("4"))
@@ -109,7 +109,7 @@ var _ = Describe("Mutating Webhook Namespace Limits", func() {
 			}
 
 			By("Applying namespace range values on the VMI")
-			applyNamespaceLimitRangeValues(&vmi, namespaceLimitInformer)
+			applyNamespaceLimitRangeValues(&vmi, namespaceLimitInformer, vmi.Namespace)
 
 			Expect(vmi.Spec.Domain.Resources.Limits.Memory().String()).To(Equal("256M"))
 			Expect(vmi.Spec.Domain.Resources.Limits.Cpu().String()).To(Equal("2"))
@@ -127,7 +127,7 @@ var _ = Describe("Mutating Webhook Namespace Limits", func() {
 			}
 
 			By("Applying namespace range values on the VMI")
-			applyNamespaceLimitRangeValues(&vmi, namespaceLimitInformer)
+			applyNamespaceLimitRangeValues(&vmi, namespaceLimitInformer, vmi.Namespace)
 
 			Expect(vmi.Spec.Domain.Resources.Limits.Memory().String()).To(Equal("64M"))
 			Expect(vmi.Spec.Domain.Resources.Limits.Cpu().String()).To(Equal("2"))

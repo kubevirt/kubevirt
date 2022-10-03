@@ -71,6 +71,7 @@ var _ = Describe("VirtualMachineInstance Mutator", func() {
 		By("Creating the test admissions review from the VMI")
 		ar := &admissionv1.AdmissionReview{
 			Request: &admissionv1.AdmissionRequest{
+				Namespace: vmi.Namespace,
 				Operation: admissionv1.Create,
 				Resource:  k8smetav1.GroupVersionResource{Group: v1.VirtualMachineInstanceGroupVersionKind.Group, Version: v1.VirtualMachineInstanceGroupVersionKind.Version, Resource: "virtualmachineinstances"},
 				Object: runtime.RawExtension{
@@ -205,6 +206,28 @@ var _ = Describe("VirtualMachineInstance Mutator", func() {
 	It("should apply namespace limit ranges on VMI create", func() {
 		_, vmiSpec, _ := getMetaSpecStatusFromAdmit()
 		Expect(vmiSpec.Domain.Resources.Limits.Memory().String()).To(Equal(memoryLimit))
+	})
+
+	It("should apply namespace limit ranges when VMI has custom namespace", func() {
+		vmi.Namespace = "custom"
+		customNamespaceLimit := &k8sv1.LimitRange{
+			ObjectMeta: k8smetav1.ObjectMeta{
+				Namespace: "custom",
+			},
+			Spec: k8sv1.LimitRangeSpec{
+				Limits: []k8sv1.LimitRangeItem{
+					{
+						Type: k8sv1.LimitTypeContainer,
+						Default: k8sv1.ResourceList{
+							k8sv1.ResourceMemory: resource.MustParse("1G"),
+						},
+					},
+				},
+			},
+		}
+		namespaceLimitInformer.GetIndexer().Add(customNamespaceLimit)
+		_, vmiSpec, _ := getMetaSpecStatusFromAdmit()
+		Expect(vmiSpec.Domain.Resources.Limits.Memory().String()).To(Equal("1G"))
 	})
 
 	DescribeTable("should apply defaults on VMI create", func(arch string, cpuModel string) {

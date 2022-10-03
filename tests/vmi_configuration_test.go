@@ -953,8 +953,6 @@ var _ = Describe("[sig-compute]Configurations", func() {
 				// Retrying up to 5 sec, then if you still succeeds in VMI creation, things must be going wrong.
 				Eventually(func() error {
 					vmi = libvmi.NewAlpine()
-					// TODO: Namespace must be specified for the webhook, https://github.com/kubevirt/kubevirt/issues/7681
-					vmi.Namespace = util.NamespaceTestDefault
 					vmi.Spec.Domain.Resources = v1.ResourceRequirements{
 						Requests: kubev1.ResourceList{
 							kubev1.ResourceMemory: resource.MustParse("64M"),
@@ -992,8 +990,6 @@ var _ = Describe("[sig-compute]Configurations", func() {
 				// Retrying up to 5 sec, then if you still succeeds in VMI creation, things must be going wrong.
 				Eventually(func() error {
 					vmi = libvmi.NewAlpine()
-					// TODO: Namespace must be specified for the webhook, https://github.com/kubevirt/kubevirt/issues/7681
-					vmi.Namespace = util.NamespaceTestDefault
 					vmi.Spec.Domain.Resources = v1.ResourceRequirements{
 						Requests: kubev1.ResourceList{
 							kubev1.ResourceCPU:    resource.MustParse("800m"),
@@ -1033,8 +1029,6 @@ var _ = Describe("[sig-compute]Configurations", func() {
 				Expect(err).ToNot(HaveOccurred())
 
 				vmi = libvmi.NewAlpine()
-				// TODO: Namespace must be specified for the webhook, https://github.com/kubevirt/kubevirt/issues/7681
-				vmi.Namespace = util.NamespaceTestDefault
 				vmi.Spec.Domain.Resources = v1.ResourceRequirements{
 					Requests: kubev1.ResourceList{
 						kubev1.ResourceMemory: resource.MustParse("64M"),
@@ -1057,6 +1051,49 @@ var _ = Describe("[sig-compute]Configurations", func() {
 						reflect.DeepEqual(createdVMI.Spec.Domain.Resources.Requests.Cpu().MilliValue(), int64(500)) &&
 						reflect.DeepEqual(createdVMI.Spec.Domain.Resources.Limits.Cpu().MilliValue(), int64(1000))
 				}, 30*time.Second, time.Second).Should(BeTrue())
+			})
+		})
+
+		Context("with namespace different from provided", func() {
+			It("should fail admission", func() {
+				// create a namespace default limit
+				limitRangeObj := kubev1.LimitRange{
+
+					ObjectMeta: metav1.ObjectMeta{Name: "abc1", Namespace: util.NamespaceTestDefault},
+					Spec: kubev1.LimitRangeSpec{
+						Limits: []kubev1.LimitRangeItem{
+							{
+								Type: kubev1.LimitTypeContainer,
+								Default: kubev1.ResourceList{
+									kubev1.ResourceCPU:    resource.MustParse("2000m"),
+									kubev1.ResourceMemory: resource.MustParse("512M"),
+								},
+								DefaultRequest: kubev1.ResourceList{
+									kubev1.ResourceCPU: resource.MustParse("500m"),
+								},
+							},
+						},
+					},
+				}
+				_, err := virtClient.CoreV1().LimitRanges(util.NamespaceTestDefault).Create(context.Background(), &limitRangeObj, metav1.CreateOptions{})
+				Expect(err).ToNot(HaveOccurred())
+
+				vmi := libvmi.NewAlpine()
+				vmi.Namespace = testsuite.NamespaceTestAlternative
+				vmi.Spec.Domain.Resources = v1.ResourceRequirements{
+					Requests: kubev1.ResourceList{
+						kubev1.ResourceMemory: resource.MustParse("64M"),
+					},
+					Limits: kubev1.ResourceList{
+						kubev1.ResourceCPU: resource.MustParse("1000m"),
+					},
+				}
+
+				By("Creating a VMI")
+				Consistently(func() error {
+					_, err := virtClient.VirtualMachineInstance(util.NamespaceTestDefault).Create(vmi)
+					return err
+				}, 30*time.Second, time.Second).Should(And(HaveOccurred(), MatchError("the namespace of the provided object does not match the namespace sent on the request")))
 			})
 		})
 
