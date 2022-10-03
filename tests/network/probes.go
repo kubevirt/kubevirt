@@ -111,7 +111,7 @@ var _ = SIGDescribe("[ref_id:1182]Probes", func() {
 				Eventually(matcher.ThisVMI(vmi), 12*time.Minute, 2*time.Second).Should(matcher.HaveConditionTrue(v1.VirtualMachineInstanceAgentConnected))
 			}
 
-			tests.WaitForVMICondition(virtClient, vmi, v1.VirtualMachineInstanceReady, 120)
+			Eventually(matcher.ThisVMI(vmi), 2*time.Minute, 2*time.Second).Should(matcher.HaveConditionTrue(v1.VirtualMachineInstanceReady))
 		},
 			Entry("[test_id:1202][posneg:positive]with working TCP probe and tcp server on ipv4", tcpProbe, corev1.IPv4Protocol),
 			Entry("[test_id:1202][posneg:positive]with working TCP probe and tcp server on ipv6", tcpProbe, corev1.IPv6Protocol),
@@ -122,7 +122,6 @@ var _ = SIGDescribe("[ref_id:1182]Probes", func() {
 
 		Context("guest agent ping", func() {
 			const (
-				guestAgentConnectTimeout    = 120
 				guestAgentDisconnectTimeout = 300 // Marking the status to not ready can take a little more time
 			)
 
@@ -134,11 +133,12 @@ var _ = SIGDescribe("[ref_id:1182]Probes", func() {
 				vmi = tests.VMILauncherIgnoreWarnings(virtClient)(vmi)
 				By("Waiting for agent to connect")
 				Eventually(matcher.ThisVMI(vmi), 12*time.Minute, 2*time.Second).Should(matcher.HaveConditionTrue(v1.VirtualMachineInstanceAgentConnected))
-				tests.WaitForVMICondition(virtClient, vmi, v1.VirtualMachineInstanceReady, guestAgentConnectTimeout)
+
+				Eventually(matcher.ThisVMI(vmi), 2*time.Minute, 2*time.Second).Should(matcher.HaveConditionTrue(v1.VirtualMachineInstanceReady))
 				By("Disabling the guest-agent")
 				Expect(console.LoginToFedora(vmi)).To(Succeed())
 				Expect(stopGuestAgent(vmi)).To(Succeed())
-				tests.WaitForVMIConditionRemovedOrFalse(virtClient, vmi, v1.VirtualMachineInstanceReady, guestAgentDisconnectTimeout)
+				Eventually(matcher.ThisVMI(vmi), 5*time.Minute, 2*time.Second).Should(matcher.HaveConditionMissingOrFalse(v1.VirtualMachineInstanceReady))
 			})
 
 			When("the guest agent is enabled, after being disabled", func() {
@@ -148,7 +148,7 @@ var _ = SIGDescribe("[ref_id:1182]Probes", func() {
 				})
 
 				It("[test_id:6741] the VMI enters `Ready` state once again", func() {
-					tests.WaitForVMICondition(virtClient, vmi, v1.VirtualMachineInstanceReady, guestAgentConnectTimeout)
+					Eventually(matcher.ThisVMI(vmi), 2*time.Minute, 2*time.Second).Should(matcher.HaveConditionTrue(v1.VirtualMachineInstanceReady))
 				})
 			})
 		})
