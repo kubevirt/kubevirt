@@ -81,20 +81,35 @@ var _ = SIGDescribe("VirtualMachineSnapshot Tests", func() {
 		}, 180*time.Second, time.Second).Should(BeTrue())
 	}
 
-	waitSnapshotSucceeded := func(snapshotName string) (snapshot *snapshotv1.VirtualMachineSnapshot) {
-		Eventually(func() bool {
+	isSnapshotSucceeded := func(snapshotStatus *snapshotv1.VirtualMachineSnapshotStatus) bool {
+		return snapshotStatus != nil &&
+			len(snapshotStatus.Conditions) == 2 &&
+			snapshotStatus.Conditions[0].Status == corev1.ConditionFalse &&
+			strings.Contains(snapshotStatus.Conditions[0].Reason, operationComplete) &&
+			snapshotStatus.Conditions[1].Status == corev1.ConditionTrue &&
+			strings.Contains(snapshotStatus.Conditions[1].Reason, operationComplete) &&
+			snapshotStatus.Phase == snapshotv1.Succeeded
+	}
+
+	isSnapshotInProgress := func(snapshotStatus *snapshotv1.VirtualMachineSnapshotStatus) bool {
+		return snapshotStatus != nil &&
+			len(snapshotStatus.Conditions) == 2 &&
+			snapshotStatus.Conditions[0].Status == corev1.ConditionTrue &&
+			strings.Contains(snapshotStatus.Conditions[0].Reason, "Source locked and operation in progress") &&
+			snapshotStatus.Conditions[1].Status == corev1.ConditionFalse &&
+			strings.Contains(snapshotStatus.Conditions[1].Reason, notReady) &&
+			snapshotStatus.Phase == snapshotv1.InProgress
+	}
+
+	waitSnapshotSucceeded := func(snapshotName string) *snapshotv1.VirtualMachineSnapshot {
+		var snapshot *snapshotv1.VirtualMachineSnapshot
+		Eventually(func() *snapshotv1.VirtualMachineSnapshotStatus {
 			snapshot, err = virtClient.VirtualMachineSnapshot(vm.Namespace).Get(context.Background(), snapshotName, metav1.GetOptions{})
 			Expect(err).ToNot(HaveOccurred())
-			return snapshot.Status != nil &&
-				len(snapshot.Status.Conditions) == 2 &&
-				snapshot.Status.Conditions[0].Status == corev1.ConditionFalse &&
-				strings.Contains(snapshot.Status.Conditions[0].Reason, operationComplete) &&
-				snapshot.Status.Conditions[1].Status == corev1.ConditionTrue &&
-				strings.Contains(snapshot.Status.Conditions[1].Reason, operationComplete) &&
-				snapshot.Status.Phase == snapshotv1.Succeeded
-		}, 30*time.Second, 2*time.Second).Should(BeTrue())
+			return snapshot.Status
+		}, 30*time.Second, 2*time.Second).WithOffset(1).Should(Satisfy(isSnapshotSucceeded))
 
-		return
+		return snapshot
 	}
 
 	deleteSnapshot := func() {
@@ -1083,17 +1098,12 @@ var _ = SIGDescribe("VirtualMachineSnapshot Tests", func() {
 				_, err = virtClient.VirtualMachineSnapshot(snapshot.Namespace).Create(context.Background(), snapshot, metav1.CreateOptions{})
 				Expect(err).ToNot(HaveOccurred())
 
-				Eventually(func() bool {
+				Eventually(func() *snapshotv1.VirtualMachineSnapshotStatus {
 					snapshot, err = virtClient.VirtualMachineSnapshot(vm.Namespace).Get(context.Background(), snapshot.Name, metav1.GetOptions{})
 					Expect(err).ToNot(HaveOccurred())
-					return snapshot.Status != nil &&
-						len(snapshot.Status.Conditions) == 2 &&
-						snapshot.Status.Conditions[0].Status == corev1.ConditionTrue &&
-						strings.Contains(snapshot.Status.Conditions[0].Reason, "Source locked and operation in progress") &&
-						snapshot.Status.Conditions[1].Status == corev1.ConditionFalse &&
-						strings.Contains(snapshot.Status.Conditions[1].Reason, notReady) &&
-						snapshot.Status.Phase == snapshotv1.InProgress
-				}, 30*time.Second, 2*time.Second).Should(BeTrue())
+
+					return snapshot.Status
+				}, 30*time.Second, 2*time.Second).Should(Satisfy(isSnapshotInProgress))
 
 				updatedVM, err := virtClient.VirtualMachine(vm.Namespace).Get(vm.Name, &metav1.GetOptions{})
 				Expect(err).ToNot(HaveOccurred())

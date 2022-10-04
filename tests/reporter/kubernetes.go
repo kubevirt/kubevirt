@@ -164,6 +164,8 @@ func (r *KubernetesReporter) dumpNamespaces(duration time.Duration, vmiNamespace
 	r.logNodes(virtCli, nodes)
 	r.logPods(virtCli, pods)
 	r.logVMs(virtCli)
+	r.logVMSnapshot(virtCli)
+	r.logVMRestore(virtCli)
 	r.logDVs(virtCli)
 	r.logDeployments(virtCli)
 	r.logDaemonsets(virtCli)
@@ -237,6 +239,24 @@ func (r *KubernetesReporter) logVMIs(virtCli kubecli.KubevirtClient, vmis *v12.V
 
 func (r *KubernetesReporter) logVMIMs(virtCli kubecli.KubevirtClient, vmims *v12.VirtualMachineInstanceMigrationList) {
 	r.logObjects(virtCli, vmims, "vmims")
+}
+
+func (r *KubernetesReporter) logVMSnapshot(virtCli kubecli.KubevirtClient) {
+	snapshots, err := virtCli.VirtualMachineSnapshot(v1.NamespaceAll).List(context.Background(), metav1.ListOptions{})
+	if err != nil {
+		fmt.Fprintf(os.Stderr, "failed to fetch vmsnapshots: %v\n", err)
+		return
+	}
+	r.logObjects(virtCli, snapshots, "virtualmachinesnapshots")
+}
+
+func (r *KubernetesReporter) logVMRestore(virtCli kubecli.KubevirtClient) {
+	restores, err := virtCli.VirtualMachineRestore(v1.NamespaceAll).List(context.Background(), metav1.ListOptions{})
+	if err != nil {
+		fmt.Fprintf(os.Stderr, "failed to fetch vmrestores: %v\n", err)
+		return
+	}
+	r.logObjects(virtCli, restores, "virtualmachinerestores")
 }
 
 func (r *KubernetesReporter) logDMESG(virtCli kubecli.KubevirtClient, logsdir string, nodes []string, since time.Time) {
