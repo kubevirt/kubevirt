@@ -266,6 +266,12 @@ var _ = Describe("ImageUpload", func() {
 
 			return false, nil, nil
 		})
+
+		kubeClient.Fake.PrependReactor("get", "storageclasses", func(action testing.Action) (bool, runtime.Object, error) {
+			_, ok := action.(testing.GetAction)
+			Expect(ok).To(BeTrue())
+			return true, nil, nil
+		})
 	}
 
 	validateDvStorageSpec := func(spec cdiv1.DataVolumeSpec, mode v1.PersistentVolumeMode) {
@@ -657,6 +663,20 @@ var _ = Describe("ImageUpload", func() {
 			testInit(http.StatusInternalServerError)
 			cmd := clientcmd.NewRepeatableVirtctlCommand(commandName, "dv", targetName, "--size", pvcSize,
 				"--uploadproxy-url", server.URL, "--insecure", "--image-path", imagePath)
+			Expect(cmd()).NotTo(Succeed())
+		})
+
+		It("Upload fails when using a nonexistent storageClass", func() {
+			invalidStorageClass := "no-sc"
+			kubeClient.Fake.PrependReactor("get", "storageclasses", func(action testing.Action) (bool, runtime.Object, error) {
+				_, ok := action.(testing.GetAction)
+				Expect(ok).To(BeTrue())
+				return false, nil, nil
+			})
+
+			testInit(http.StatusInternalServerError)
+			cmd := clientcmd.NewRepeatableVirtctlCommand(commandName, "dv", targetName, "--size", pvcSize,
+				"--uploadproxy-url", server.URL, "--insecure", "--image-path", imagePath, "--storage-class", invalidStorageClass)
 			Expect(cmd()).NotTo(Succeed())
 		})
 

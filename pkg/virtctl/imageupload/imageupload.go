@@ -39,6 +39,7 @@ import (
 	k8serrors "k8s.io/apimachinery/pkg/api/errors"
 	"k8s.io/apimachinery/pkg/api/resource"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	"k8s.io/apimachinery/pkg/types"
 	"k8s.io/apimachinery/pkg/util/wait"
 	"k8s.io/client-go/kubernetes"
 	"k8s.io/client-go/tools/clientcmd"
@@ -76,6 +77,11 @@ const (
 	UploadProxyURI = "/v1alpha1/upload"
 
 	configName = "config"
+
+	// ProvisioningFailed stores the 'ProvisioningFailed' event condition used for PVC error handling
+	ProvisioningFailed = "ProvisioningFailed"
+	// ErrClaimNotValid stores the 'ErrClaimNotValid' event condition used for DV error handling
+	ErrClaimNotValid = "ErrClaimNotValid"
 )
 
 var (
@@ -469,12 +475,17 @@ func waitDvUploadScheduled(client kubecli.KubevirtClient, namespace, name string
 		if dv.Status.Phase == cdiv1.WaitForFirstConsumer && !forceBind {
 			return false, fmt.Errorf("cannot upload to DataVolume in WaitForFirstConsumer state, make sure the PVC is Bound")
 		}
-		// TODO: can check Condition/Event here to provide user with some error messages
 
 		done := dv.Status.Phase == cdiv1.UploadReady
-		if !done && !loggedStatus {
-			fmt.Printf("Waiting for PVC %s upload pod to be ready...\n", name)
-			loggedStatus = true
+		if !done {
+			// We check events to provide user with pertinent error messages
+			if err := handleEventErrors(client, dv.Status.ClaimName, name, namespace); err != nil {
+				return false, err
+			}
+			if !loggedStatus {
+				fmt.Printf("Waiting for PVC %s upload pod to be ready...\n", name)
+				loggedStatus = true
+			}
 		}
 
 		if done && loggedStatus {
@@ -487,7 +498,7 @@ func waitDvUploadScheduled(client kubecli.KubevirtClient, namespace, name string
 	return err
 }
 
-func waitUploadServerReady(client kubernetes.Interface, namespace, name string, interval, timeout time.Duration) error {
+func waitUploadServerReady(client kubecli.KubevirtClient, namespace, name string, interval, timeout time.Duration) error {
 	loggedStatus := false
 
 	err := wait.PollImmediate(interval, timeout, func() (bool, error) {
@@ -497,7 +508,6 @@ func waitUploadServerReady(client kubernetes.Interface, namespace, name string, 
 			if k8serrors.IsNotFound(err) {
 				return false, nil
 			}
-
 			return false, err
 		}
 
@@ -505,9 +515,15 @@ func waitUploadServerReady(client kubernetes.Interface, namespace, name string, 
 		podReady := pvc.Annotations[PodReadyAnnotation]
 		done, _ := strconv.ParseBool(podReady)
 
-		if !done && !loggedStatus {
-			fmt.Printf("Waiting for PVC %s upload pod to be ready...\n", name)
-			loggedStatus = true
+		if !done {
+			// We check events to provide user with pertinent error messages
+			if err := handleEventErrors(client, name, name, namespace); err != nil {
+				return false, err
+			}
+			if !loggedStatus {
+				fmt.Printf("Waiting for PVC %s upload pod to be ready...\n", name)
+				loggedStatus = true
+			}
 		}
 
 		if done && loggedStatus {
@@ -544,6 +560,14 @@ func createUploadDataVolume(client kubecli.KubevirtClient, namespace, name, size
 	pvcSpec, err := createStorageSpec(client, size, storageClass, accessMode, blockVolume)
 	if err != nil {
 		return nil, err
+	}
+
+	// We check if the user-defined storageClass exists before attempting to create the dataVolume
+	if storageClass != "" {
+		_, err = client.StorageV1().StorageClasses().Get(context.Background(), storageClass, metav1.GetOptions{})
+		if err != nil {
+			return nil, err
+		}
 	}
 
 	annotations := map[string]string{}
@@ -612,9 +636,17 @@ func createStorageSpec(client kubecli.KubevirtClient, size, storageClass, access
 	return spec, nil
 }
 
-func createUploadPVC(client kubernetes.Interface, namespace, name, size, storageClass, accessMode string, blockVolume, archiveUpload bool) (*v1.PersistentVolumeClaim, error) {
+func createUploadPVC(client kubecli.KubevirtClient, namespace, name, size, storageClass, accessMode string, blockVolume, archiveUpload bool) (*v1.PersistentVolumeClaim, error) {
 	if accessMode == string(v1.ReadOnlyMany) {
 		return nil, fmt.Errorf("cannot upload to a readonly volume, use either ReadWriteOnce or ReadWriteMany if supported")
+	}
+
+	// We check if the user-defined storageClass exists before attempting to create the PVC
+	if storageClass != "" {
+		_, err := client.StorageV1().StorageClasses().Get(context.Background(), storageClass, metav1.GetOptions{})
+		if err != nil {
+			return nil, err
+		}
 	}
 
 	quantity, err := resource.ParseQuantity(size)
@@ -722,4 +754,52 @@ func getUploadProxyURL(client cdiClientset.Interface) (string, error) {
 		return *cdiConfig.Status.UploadProxyURL, nil
 	}
 	return "", nil
+}
+
+// handleEventErrors checks PVC and DV-related events and, when encountered, returns appropriate errors
+func handleEventErrors(client kubecli.KubevirtClient, pvcName, dvName, namespace string) error {
+	var pvcUID types.UID
+	var dvUID types.UID
+
+	eventList, err := client.CoreV1().Events(namespace).List(context.Background(), metav1.ListOptions{})
+	if err != nil {
+		return err
+	}
+
+	if pvcName != "" {
+		pvc, err := client.CoreV1().PersistentVolumeClaims(namespace).Get(context.Background(), pvcName, metav1.GetOptions{})
+		if !k8serrors.IsNotFound(err) {
+			if err != nil {
+				return err
+			}
+			pvcUID = pvc.GetUID()
+		}
+	}
+
+	if dvName != "" {
+		dv, err := client.CdiClient().CdiV1beta1().DataVolumes(namespace).Get(context.Background(), dvName, metav1.GetOptions{})
+		if !k8serrors.IsNotFound(err) {
+			if err != nil {
+				return err
+			}
+			dvUID = dv.GetUID()
+		}
+	}
+
+	// TODO: Currently, we only check 'ProvisioningFailed' and 'ErrClaimNotValid' events.
+	// If necessary, support more relevant errors
+	for _, event := range eventList.Items {
+		if event.InvolvedObject.Kind == "PersistentVolumeClaim" && event.InvolvedObject.UID == pvcUID {
+			if event.Reason == ProvisioningFailed {
+				return fmt.Errorf("Provisioning failed: %s", event.Message)
+			}
+		}
+		if event.InvolvedObject.Kind == "DataVolume" && event.InvolvedObject.UID == dvUID {
+			if event.Reason == ErrClaimNotValid {
+				return fmt.Errorf("Claim not valid: %s", event.Message)
+			}
+		}
+	}
+
+	return nil
 }
