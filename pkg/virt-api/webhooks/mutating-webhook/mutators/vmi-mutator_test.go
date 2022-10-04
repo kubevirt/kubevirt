@@ -1026,24 +1026,28 @@ var _ = Describe("VirtualMachineInstance Mutator", func() {
 			}),
 	)
 
-	When("NonRoot feature gate is enabled", func() {
+	When("Root feature gate is enabled", func() {
 
 		BeforeEach(func() {
 			testutils.UpdateFakeKubeVirtClusterConfig(kvInformer, &v1.KubeVirt{
 				Spec: v1.KubeVirtSpec{
 					Configuration: v1.KubeVirtConfiguration{
 						DeveloperConfiguration: &v1.DeveloperConfiguration{
-							FeatureGates: []string{virtconfig.NonRoot},
+							FeatureGates: []string{virtconfig.Root},
 						},
 					},
 				},
 			})
 		})
 
-		It("Should tag vmi as non-root ", func() {
+		It("Should not tag vmi as non-root ", func() {
 			_, _, status := getMetaSpecStatusFromAdmit()
-			Expect(status.RuntimeUser).NotTo(BeZero())
+			Expect(status.RuntimeUser).To(BeZero())
 		})
+	})
+	It("Should tag vmi as non-root ", func() {
+		_, _, status := getMetaSpecStatusFromAdmit()
+		Expect(status.RuntimeUser).NotTo(BeZero())
 	})
 
 	It("should add realtime node label selector with realtime workload", func() {

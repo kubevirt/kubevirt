@@ -59,6 +59,7 @@ import (
 
 	"kubevirt.io/client-go/api"
 
+	v1 "kubevirt.io/api/core/v1"
 	virtv1 "kubevirt.io/api/core/v1"
 	fakenetworkclient "kubevirt.io/client-go/generated/network-attachment-definition-client/clientset/versioned/fake"
 	"kubevirt.io/client-go/kubecli"
@@ -505,6 +506,36 @@ var _ = Describe("Migration watcher", func() {
 	})
 
 	Context("Migration object in pending state", func() {
+
+		It("should patch VMI with nonroot user", func() {
+			vmi := newVirtualMachine("testvmi", virtv1.Running)
+			delete(vmi.Annotations, virtv1.DeprecatedNonRootVMIAnnotation)
+			vmi.Status.RuntimeUser = 0
+			migration := newMigration("testmigration", vmi.Name, virtv1.MigrationPending)
+
+			addMigration(migration)
+			addVirtualMachineInstance(vmi)
+
+			vmiInterface.EXPECT().Patch(gomock.Any(), gomock.Any(), gomock.Any(), gomock.Any()).
+				DoAndReturn(func(arg0, arg1, arg2, arg3 interface{}, arg4 ...interface{}) (result *v1.VirtualMachineInstance, err error) {
+					Expect(arg0).To(Equal(vmi.Name))
+					bytes := arg2.([]byte)
+					patch := string(bytes)
+					Expect(patch).To(ContainSubstring("/status/runtimeUser"))
+					vmiReturn := vmi.DeepCopy()
+					vmiReturn.Status.RuntimeUser = 107
+					if vmiReturn.Annotations == nil {
+						vmiReturn.Annotations = map[string]string{}
+					}
+					vmi.Annotations[virtv1.DeprecatedNonRootVMIAnnotation] = "true"
+					return vmiReturn, nil
+				})
+
+			shouldExpectPodCreation(vmi.UID, migration.UID, 1, 0, 0)
+			controller.Execute()
+			testutils.ExpectEvents(recorder, SuccessfulCreatePodReason)
+
+		})
 		It("should create target pod", func() {
 			vmi := newVirtualMachine("testvmi", virtv1.Running)
 			migration := newMigration("testmigration", vmi.Name, virtv1.MigrationPending)
@@ -1861,6 +1892,11 @@ func newVirtualMachine(name string, phase virtv1.VirtualMachineInstancePhase) *v
 	vmi.Status.Phase = phase
 	vmi.Status.NodeName = "tefwegwrerg"
 	vmi.ObjectMeta.Labels = make(map[string]string)
+	// This would be set by mutation webhook
+	vmi.Status.RuntimeUser = 107
+	vmi.ObjectMeta.Annotations = map[string]string{
+		virtv1.DeprecatedNonRootVMIAnnotation: "true",
+	}
 	return vmi
 }
 

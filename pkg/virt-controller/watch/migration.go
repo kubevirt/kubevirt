@@ -1128,7 +1128,7 @@ func (c *MigrationController) sync(key string, migration *virtv1.VirtualMachineI
 			}
 
 			var patches []string
-			if c.clusterConfig.NonRootEnabled() {
+			if !c.clusterConfig.RootEnabled() {
 				// The cluster is configured for non-root VMs, ensure the VMI is non-root.
 				// If the VMI is root, the migration will be a root -> non-root migration.
 				if vmi.Status.RuntimeUser != util.NonRootUID {

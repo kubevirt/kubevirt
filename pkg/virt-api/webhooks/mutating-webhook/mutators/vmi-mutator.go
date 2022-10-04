@@ -139,7 +139,7 @@ func (mutator *VMIsMutator) Mutate(ar *admissionv1.AdmissionReview) *admissionv1
 			PhaseTransitionTimestamp: now,
 		})
 
-		if mutator.ClusterConfig.NonRootEnabled() {
+		if !mutator.ClusterConfig.RootEnabled() {
 			util.MarkAsNonroot(newVMI)
 		}
 
