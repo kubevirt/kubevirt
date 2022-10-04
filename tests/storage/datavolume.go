@@ -404,16 +404,17 @@ var _ = SIGDescribe("DataVolume Integration", func() {
 					err := virtClient.StorageV1().StorageClasses().Delete(context.Background(), storageClass.Name, metav1.DeleteOptions{})
 					Expect(err).ToNot(HaveOccurred())
 				}
+				libstorage.DeleteDataVolume(&dv)
 			})
 
 			It("[test_id:4643]should NOT be rejected when VM template lists a DataVolume, but VM lists PVC VolumeSource", func() {
 				_, err = virtClient.CdiClient().CdiV1beta1().DataVolumes(util.NamespaceTestDefault).Create(context.Background(), dv, metav1.CreateOptions{})
 				Expect(err).ToNot(HaveOccurred())
-				defer libstorage.DeleteDataVolume(&dv)
 
-				Eventually(func() (*k8sv1.PersistentVolumeClaim, error) {
-					return virtClient.CoreV1().PersistentVolumeClaims(util.NamespaceTestDefault).Get(context.Background(), dv.Name, metav1.GetOptions{})
-				}, 30).Should(Not(BeNil()))
+				Eventually(func() error {
+					_, err := virtClient.CoreV1().PersistentVolumeClaims(util.NamespaceTestDefault).Get(context.Background(), dv.Name, metav1.GetOptions{})
+					return err
+				}, 30*time.Second, 1*time.Second).Should(Succeed())
 
 				vm := tests.NewRandomVirtualMachine(vmi, true)
 				dvt := &v1.DataVolumeTemplateSpec{
