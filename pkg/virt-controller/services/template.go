@@ -973,8 +973,10 @@ func (t *templateService) RenderExporterManifest(vmExport *exportv1.VirtualMachi
 							},
 						},
 					},
+					SecurityContext: &k8sv1.SecurityContext{SeccompProfile: &k8sv1.SeccompProfile{Type: k8sv1.SeccompProfileTypeRuntimeDefault}},
 				},
 			},
+			SecurityContext: &k8sv1.PodSecurityContext{SeccompProfile: &k8sv1.SeccompProfile{Type: k8sv1.SeccompProfileTypeRuntimeDefault}},
 		},
 	}
 	return exporterPod
