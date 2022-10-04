@@ -33,8 +33,6 @@ import (
 	"k8s.io/apimachinery/pkg/runtime/schema"
 	"k8s.io/client-go/tools/cache"
 
-	"kubevirt.io/kubevirt/pkg/virt-controller/watch/topology"
-
 	networkv1 "github.com/k8snetworkplumbingwg/network-attachment-definition-client/pkg/apis/k8s.cni.cncf.io/v1"
 
 	v1 "kubevirt.io/api/core/v1"
@@ -89,8 +87,8 @@ const (
 // Libvirt needs roughly 10 seconds to start.
 const LibvirtStartupDelay = 10
 
-//These perfixes for node feature discovery, are used in a NodeSelector on the pod
-//to match a VirtualMachineInstance CPU model(Family) and/or features to nodes that support them.
+// These perfixes for node feature discovery, are used in a NodeSelector on the pod
+// to match a VirtualMachineInstance CPU model(Family) and/or features to nodes that support them.
 const NFD_CPU_MODEL_PREFIX = "cpu-model.node.kubevirt.io/"
 const NFD_CPU_FEATURE_PREFIX = "cpu-feature.node.kubevirt.io/"
 const NFD_KVM_INFO_PREFIX = "hyperv.node.kubevirt.io/"
@@ -154,127 +152,8 @@ type templateService struct {
 	launcherSubGid             int64
 }
 
-type PvcNotFoundError struct {
-	Reason string
-}
-
-func (e PvcNotFoundError) Error() string {
-	return e.Reason
-}
-
 func isFeatureStateEnabled(fs *v1.FeatureState) bool {
 	return fs != nil && fs.Enabled != nil && *fs.Enabled
-}
-
-type hvFeatureLabel struct {
-	Feature *v1.FeatureState
-	Label   string
-}
-
-// makeHVFeatureLabelTable creates the mapping table between the VMI hyperv state and the label names.
-// The table needs pointers to v1.FeatureHyperv struct, so it has to be generated and can't be a
-// static var
-func makeHVFeatureLabelTable(vmi *v1.VirtualMachineInstance) []hvFeatureLabel {
-	// The following HyperV features don't require support from the host kernel, according to inspection
-	// of the QEMU sources (4.0 - adb3321bfd)
-	// VAPIC, Relaxed, Spinlocks, VendorID
-	// VPIndex, SyNIC: depend on both MSR and capability
-	// IPI, TLBFlush: depend on KVM Capabilities
-	// Runtime, Reset, SyNICTimer, Frequencies, Reenlightenment: depend on KVM MSRs availability
-	// EVMCS: depends on KVM capability, but the only way to know that is enable it, QEMU doesn't do
-	// any check before that, so we leave it out
-	//
-	// see also https://schd.ws/hosted_files/devconfcz2019/cf/vkuznets_enlightening_kvm_devconf2019.pdf
-	// to learn about dependencies between enlightenments
-
-	hyperv := vmi.Spec.Domain.Features.Hyperv // shortcut
-
-	syNICTimer := &v1.FeatureState{}
-	if hyperv.SyNICTimer != nil {
-		syNICTimer.Enabled = hyperv.SyNICTimer.Enabled
-	}
-
-	return []hvFeatureLabel{
-		{
-			Feature: hyperv.VPIndex,
-			Label:   "vpindex",
-		},
-		{
-			Feature: hyperv.Runtime,
-			Label:   "runtime",
-		},
-		{
-			Feature: hyperv.Reset,
-			Label:   "reset",
-		},
-		{
-			// TODO: SyNIC depends on vp-index on QEMU level. We should enforce this constraint.
-			Feature: hyperv.SyNIC,
-			Label:   "synic",
-		},
-		{
-			// TODO: SyNICTimer depends on SyNIC and Relaxed. We should enforce this constraint.
-			Feature: syNICTimer,
-			Label:   "synictimer",
-		},
-		{
-			Feature: hyperv.Frequencies,
-			Label:   "frequencies",
-		},
-		{
-			Feature: hyperv.Reenlightenment,
-			Label:   "reenlightenment",
-		},
-		{
-			Feature: hyperv.TLBFlush,
-			Label:   "tlbflush",
-		},
-		{
-			Feature: hyperv.IPI,
-			Label:   "ipi",
-		},
-	}
-}
-
-func getHypervNodeSelectors(vmi *v1.VirtualMachineInstance) map[string]string {
-	nodeSelectors := make(map[string]string)
-	if vmi.Spec.Domain.Features == nil || vmi.Spec.Domain.Features.Hyperv == nil {
-		return nodeSelectors
-	}
-
-	hvFeatureLabels := makeHVFeatureLabelTable(vmi)
-	for _, hv := range hvFeatureLabels {
-		if isFeatureStateEnabled(hv.Feature) {
-			nodeSelectors[NFD_KVM_INFO_PREFIX+hv.Label] = "true"
-		}
-	}
-
-	if vmi.Spec.Domain.Features.Hyperv.EVMCS != nil {
-		nodeSelectors[v1.CPUModelVendorLabel+IntelVendorName] = "true"
-	}
-
-	return nodeSelectors
-}
-
-func CPUModelLabelFromCPUModel(vmi *v1.VirtualMachineInstance) (label string, err error) {
-	if vmi.Spec.Domain.CPU == nil || vmi.Spec.Domain.CPU.Model == "" {
-		err = fmt.Errorf("Cannot create CPU Model label, vmi spec is mising CPU model")
-		return
-	}
-	label = NFD_CPU_MODEL_PREFIX + vmi.Spec.Domain.CPU.Model
-	return
-}
-
-func CPUFeatureLabelsFromCPUFeatures(vmi *v1.VirtualMachineInstance) []string {
-	var labels []string
-	if vmi.Spec.Domain.CPU != nil && vmi.Spec.Domain.CPU.Features != nil {
-		for _, feature := range vmi.Spec.Domain.CPU.Features {
-			if feature.Policy == "" || feature.Policy == "require" {
-				labels = append(labels, NFD_CPU_FEATURE_PREFIX+feature.Name)
-			}
-		}
-	}
-	return labels
 }
 
 func SetNodeAffinityForForbiddenFeaturePolicy(vmi *v1.VirtualMachineInstance, pod *k8sv1.Pod) {
@@ -386,7 +265,6 @@ func (t *templateService) renderLaunchManifest(vmi *v1.VirtualMachineInstance, i
 	precond.MustNotBeNil(vmi)
 	domain := precond.MustNotBeEmpty(vmi.GetObjectMeta().GetName())
 	namespace := precond.MustNotBeEmpty(vmi.GetObjectMeta().GetNamespace())
-	nodeSelector := map[string]string{}
 
 	var userId int64 = util.RootUser
 
@@ -420,11 +298,6 @@ func (t *templateService) renderLaunchManifest(vmi *v1.VirtualMachineInstance, i
 		return nil, err
 	}
 	resources := resourceRenderer.ResourceRequirements()
-
-	if vmi.IsCPUDedicated() {
-		// schedule only on nodes with a running cpu manager
-		nodeSelector[v1.CPUManager] = "true"
-	}
 
 	// Read requested hookSidecars from VMI meta
 	requestedHookSidecarList, err := hooks.UnmarshalHookSidecarList(vmi)
@@ -532,36 +405,9 @@ func (t *templateService) renderLaunchManifest(vmi *v1.VirtualMachineInstance, i
 		containers = append(containers, *kernelBootContainer)
 	}
 
-	for k, v := range vmi.Spec.NodeSelector {
-		nodeSelector[k] = v
-
-	}
-	if cpuModelLabel, err := CPUModelLabelFromCPUModel(vmi); err == nil {
-		if vmi.Spec.Domain.CPU.Model != v1.CPUModeHostModel && vmi.Spec.Domain.CPU.Model != v1.CPUModeHostPassthrough {
-			nodeSelector[cpuModelLabel] = "true"
-		}
-		for _, cpuFeatureLable := range CPUFeatureLabelsFromCPUFeatures(vmi) {
-			nodeSelector[cpuFeatureLable] = "true"
-		}
-	}
-
-	if t.clusterConfig.HypervStrictCheckEnabled() {
-		hvNodeSelectors := getHypervNodeSelectors(vmi)
-		for k, v := range hvNodeSelectors {
-			nodeSelector[k] = v
-		}
-	}
-
-	if vmi.Status.TopologyHints != nil {
-		if vmi.Status.TopologyHints.TSCFrequency != nil {
-			nodeSelector[topology.ToTSCSchedulableLabel(*vmi.Status.TopologyHints.TSCFrequency)] = "true"
-		}
-	}
-
-	nodeSelector[v1.NodeSchedulable] = "true"
-	nodeSelectors := t.clusterConfig.GetNodeSelectors()
-	for k, v := range nodeSelectors {
-		nodeSelector[k] = v
+	virtiofsContainers := generateVirtioFSContainers(vmi, t.launcherImage)
+	if virtiofsContainers != nil {
+		containers = append(containers, virtiofsContainers...)
 	}
 
 	for i, requestedHookSidecar := range requestedHookSidecarList {
@@ -625,7 +471,7 @@ func (t *templateService) renderLaunchManifest(vmi *v1.VirtualMachineInstance, i
 			RestartPolicy:                 k8sv1.RestartPolicyNever,
 			Containers:                    containers,
 			InitContainers:                initContainers,
-			NodeSelector:                  nodeSelector,
+			NodeSelector:                  t.newNodeSelectorRenderer(vmi).Render(),
 			Volumes:                       volumeRenderer.Volumes(),
 			ImagePullSecrets:              imagePullSecrets,
 			DNSConfig:                     vmi.Spec.DNSConfig,
@@ -649,7 +495,7 @@ func (t *templateService) renderLaunchManifest(vmi *v1.VirtualMachineInstance, i
 	// If an SELinux type was specified, use that--otherwise don't set an SELinux type
 	selinuxType := t.clusterConfig.GetSELinuxLauncherType()
 	if selinuxType != "" {
-		alignPodMultiCategorySecurity(&pod, selinuxType)
+		alignPodMultiCategorySecurity(&pod, selinuxType, t.clusterConfig.DockerSELinuxMCSWorkaroundEnabled())
 	}
 
 	// If we have a runtime class specified, use it, otherwise don't set a runtimeClassName
@@ -682,6 +528,33 @@ func (t *templateService) renderLaunchManifest(vmi *v1.VirtualMachineInstance, i
 	}
 
 	return &pod, nil
+}
+
+func (t *templateService) newNodeSelectorRenderer(vmi *v1.VirtualMachineInstance) *NodeSelectorRenderer {
+	var opts []NodeSelectorRendererOption
+	if vmi.IsCPUDedicated() {
+		opts = append(opts, WithDedicatedCPU())
+	}
+	if t.clusterConfig.HypervStrictCheckEnabled() {
+		opts = append(opts, WithHyperv(vmi.Spec.Domain.Features))
+	}
+
+	if modelLabel, err := CPUModelLabelFromCPUModel(vmi); err == nil {
+		opts = append(
+			opts,
+			WithModelAndFeatureLabels(modelLabel, CPUFeatureLabelsFromCPUFeatures(vmi)...),
+		)
+	}
+
+	if vmi.Status.TopologyHints != nil && vmi.Status.TopologyHints.TSCFrequency != nil {
+		opts = append(opts, WithTSCTimer(vmi.Status.TopologyHints.TSCFrequency))
+	}
+
+	return NewNodeSelectorRenderer(
+		vmi.Spec.NodeSelector,
+		t.clusterConfig.GetNodeSelectors(),
+		opts...,
+	)
 }
 
 func initContainerVolumeMount() k8sv1.VolumeMount {
@@ -774,6 +647,10 @@ func (t *templateService) newVolumeRenderer(vmi *v1.VirtualMachineInstance, name
 		volumeOpts = append(volumeOpts, withSRIOVPciMapAnnotation())
 	}
 
+	if util.IsVMIVirtiofsEnabled(vmi) {
+		volumeOpts = append(volumeOpts, withVirioFS())
+	}
+
 	volumeRenderer, err := NewVolumeRenderer(
 		namespace,
 		t.ephemeralDiskDir,
@@ -857,6 +734,15 @@ func (t *templateService) RenderHotplugAttachmentPodTemplate(volumes []*v1.Volum
 					},
 					SecurityContext: &k8sv1.SecurityContext{
 						SELinuxOptions: &k8sv1.SELinuxOptions{
+							// FIXME: Forcing an SELinux level without categories is a security risk
+							// This pod will contain a disk image shared with a virt-launcher pod.
+							// If we didn't force a level here, one would be auto-generated with a set of categories
+							// different from the one of its companion virt-launcher. Therefore, SELinux would prevent
+							// virt-launcher('s compute container) from accessing the disk image.
+							// The proper fix here is to force the level of this pod to match the one of virt-launcher.
+							// Unfortunately, pods MCS levels are not exposed by the API. Therefore, we'd have to
+							// enter the mount namespace of virt-launcher and check the level of any file/directory.
+							// We need a way to ask virt-handler to do that.
 							Level: "s0",
 							Type:  t.clusterConfig.GetSELinuxLauncherType(),
 						},
@@ -990,8 +876,8 @@ func (t *templateService) RenderHotplugAttachmentTriggerPodTemplate(volume *v1.V
 					},
 					SecurityContext: &k8sv1.SecurityContext{
 						SELinuxOptions: &k8sv1.SELinuxOptions{
-							Level: "s0",
 							Type:  t.clusterConfig.GetSELinuxLauncherType(),
+							Level: "s0",
 						},
 					},
 					VolumeMounts: []k8sv1.VolumeMount{
@@ -1088,19 +974,6 @@ func (t *templateService) RenderExporterManifest(vmExport *exportv1.VirtualMachi
 		},
 	}
 	return exporterPod
-}
-
-func getVirtiofsCapabilities() []k8sv1.Capability {
-	return []k8sv1.Capability{
-		"CHOWN",
-		"DAC_OVERRIDE",
-		"FOWNER",
-		"FSETID",
-		"SETGID",
-		"SETUID",
-		"MKNOD",
-		"SETFCAP",
-	}
 }
 
 func appendUniqueImagePullSecret(secrets []k8sv1.LocalObjectReference, newsecret k8sv1.LocalObjectReference) []k8sv1.LocalObjectReference {
@@ -1207,6 +1080,7 @@ func NewTemplateService(launcherImage string,
 		launcherSubGid:             launcherSubGid,
 		exporterImage:              exporterImage,
 	}
+
 	return &svc
 }
 
@@ -1241,21 +1115,23 @@ func wrapGuestAgentPingWithVirtProbe(vmi *v1.VirtualMachineInstance, probe *k8sv
 	return
 }
 
-func alignPodMultiCategorySecurity(pod *k8sv1.Pod, selinuxType string) {
+func alignPodMultiCategorySecurity(pod *k8sv1.Pod, selinuxType string, dockerSELinuxMCSWorkaround bool) {
 	pod.Spec.SecurityContext.SELinuxOptions = &k8sv1.SELinuxOptions{Type: selinuxType}
 	// more info on https://github.com/kubernetes/kubernetes/issues/90759
 	// Since the compute container needs to be able to communicate with the
 	// rest of the pod, we loop over all the containers and remove their SELinux
 	// categories.
+	// This currently only affects Docker + SELinux use-cases, and requires a
+	// feature gate to be set.
 	for i := range pod.Spec.Containers {
 		container := &pod.Spec.Containers[i]
 		if container.Name != "compute" {
-			generateContainerSecurityContext(selinuxType, container)
+			generateContainerSecurityContext(selinuxType, container, dockerSELinuxMCSWorkaround)
 		}
 	}
 }
 
-func generateContainerSecurityContext(selinuxType string, container *k8sv1.Container) {
+func generateContainerSecurityContext(selinuxType string, container *k8sv1.Container, forceLevel bool) {
 	if container.SecurityContext == nil {
 		container.SecurityContext = &k8sv1.SecurityContext{}
 	}
@@ -1263,7 +1139,9 @@ func generateContainerSecurityContext(selinuxType string, container *k8sv1.Conta
 		container.SecurityContext.SELinuxOptions = &k8sv1.SELinuxOptions{}
 	}
 	container.SecurityContext.SELinuxOptions.Type = selinuxType
-	container.SecurityContext.SELinuxOptions.Level = "s0"
+	if forceLevel {
+		container.SecurityContext.SELinuxOptions.Level = "s0"
+	}
 }
 
 func generatePodAnnotations(vmi *v1.VirtualMachineInstance) (map[string]string, error) {

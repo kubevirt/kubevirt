@@ -38,7 +38,7 @@ import (
 
 	"kubevirt.io/kubevirt/tests/flags"
 	. "kubevirt.io/kubevirt/tests/framework/matcher"
-	"kubevirt.io/kubevirt/tests/util"
+	"kubevirt.io/kubevirt/tests/testsuite"
 )
 
 const (
@@ -171,7 +171,7 @@ func executeDeviceMapperOnNode(nodeName string, cmd []string) {
 			},
 		},
 	}
-	pod, err = virtClient.CoreV1().Pods(util.NamespaceTestDefault).Create(context.Background(), pod, metav1.CreateOptions{})
+	pod, err = virtClient.CoreV1().Pods(testsuite.NamespacePrivileged).Create(context.Background(), pod, metav1.CreateOptions{})
 	Expect(err).ToNot(HaveOccurred())
 
 	Eventually(ThisPod(pod), 30).Should(HaveSucceeded())

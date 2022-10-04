@@ -648,6 +648,14 @@ var CRDsValidation map[string]string = map[string]string{
               description: DeveloperConfiguration holds developer options
               properties:
                 cpuAllocationRatio:
+                  description: 'For each requested virtual CPU, CPUAllocationRatio
+                    defines how much physical CPU to request per VMI from the hosting
+                    node. The value is in fraction of a CPU thread (or core on non-hyperthreaded
+                    nodes). For example, a value of 1 means 1 physical CPU thread
+                    per VMI CPU thread. A value of 100 would be 1% of a physical thread
+                    allocated for each requested VMI thread. This option has no effect
+                    on VMIs that request dedicated CPUs. More information at: https://kubevirt.io/user-guide/operations/node_overcommit/#node-cpu-allocation-ratio
+                    Defaults to 10'
                   type: integer
                 diskVerification:
                   description: DiskVerification holds container disks verification
@@ -663,6 +671,8 @@ var CRDsValidation map[string]string = map[string]string{
                   - memoryLimit
                   type: object
                 featureGates:
+                  description: FeatureGates is the list of experimental features to
+                    enable. Defaults to none
                   items:
                     type: string
                   type: array
@@ -687,6 +697,12 @@ var CRDsValidation map[string]string = map[string]string{
                       type: integer
                   type: object
                 memoryOvercommit:
+                  description: MemoryOvercommit is the percentage of memory we want
+                    to give VMIs compared to the amount given to its parent pod (virt-launcher).
+                    For example, a value of 102 means the VMI will "see" 2% more memory
+                    than its parent pod. Values under 100 are effectively "undercommits".
+                    Overcommits can lead to memory exhaustion, which in turn can lead
+                    to crashes. Use carefully. Defaults to 100
                   type: integer
                 minimumClusterTSCFrequency:
                   description: Allow overriding the automatically determined minimum
@@ -694,18 +710,25 @@ var CRDsValidation map[string]string = map[string]string{
                   format: int64
                   type: integer
                 minimumReservePVCBytes:
+                  description: MinimumReservePVCBytes is the amount of space, in bytes,
+                    to leave unused on disks. Defaults to 131072 (128KiB)
                   format: int64
                   type: integer
                 nodeSelectors:
                   additionalProperties:
                     type: string
+                  description: NodeSelectors allows restricting VMI creation to nodes
+                    that match a set of labels. Defaults to none
                   type: object
                 pvcTolerateLessSpaceUpToPercent:
+                  description: LessPVCSpaceToleration determines how much smaller,
+                    in percentage, disk PVCs are allowed to be compared to the requested
+                    size (to account for various overheads). Defaults to 10
                   type: integer
                 useEmulation:
                   description: UseEmulation can be set to true to allow fallback to
                     software emulation in case hardware-assisted emulation is not
-                    available.
+                    available. Defaults to false
                   type: boolean
               type: object
             emulatedMachines:
@@ -794,37 +817,78 @@ var CRDsValidation map[string]string = map[string]string{
               format: int32
               type: integer
             migrations:
-              description: MigrationConfiguration holds migration options
+              description: MigrationConfiguration holds migration options. Can be
+                overridden for specific groups of VMs though migration policies. Visit
+                https://kubevirt.io/user-guide/operations/migration_policies/ for
+                more information.
               properties:
                 allowAutoConverge:
+                  description: AllowAutoConverge allows the platform to compromise
+                    performance/availability of VMIs to guarantee successful VMI live
+                    migrations. Defaults to false
                   type: boolean
                 allowPostCopy:
+                  description: AllowPostCopy enables post-copy live migrations. Such
+                    migrations allow even the busiest VMIs to successfully live-migrate.
+                    However, events like a network failure can cause a VMI crash.
+                    If set to true, migrations will still start in pre-copy, but switch
+                    to post-copy when CompletionTimeoutPerGiB triggers. Defaults to
+                    false
                   type: boolean
                 bandwidthPerMigration:
                   anyOf:
                   - type: integer
                   - type: string
+                  description: BandwidthPerMigration limits the amount of network
+                    bandwith live migrations are allowed to use. The value is in quantity
+                    per second. Defaults to 0 (no limit)
                   pattern: ^(\+|-)?(([0-9]+(\.[0-9]*)?)|(\.[0-9]+))(([KMGTPE]i)|[numkMGTPE]|([eE](\+|-)?(([0-9]+(\.[0-9]*)?)|(\.[0-9]+))))?$
                   x-kubernetes-int-or-string: true
                 completionTimeoutPerGiB:
+                  description: CompletionTimeoutPerGiB is the maximum number of seconds
+                    per GiB a migration is allowed to take. If a live-migration takes
+                    longer to migrate than this value multiplied by the size of the
+                    VMI, the migration will be cancelled, unless AllowPostCopy is
+                    true. Defaults to 800
                   format: int64
                   type: integer
                 disableTLS:
+                  description: When set to true, DisableTLS will disable the additional
+                    layer of live migration encryption provided by KubeVirt. This
+                    is usually a bad idea. Defaults to false
                   type: boolean
                 network:
+                  description: Network is the name of the CNI network to use for live
+                    migrations. By default, migrations go through the pod network.
                   type: string
                 nodeDrainTaintKey:
+                  description: 'NodeDrainTaintKey defines the taint key that indicates
+                    a node should be drained. Note: this option relies on the deprecated
+                    node taint feature. Default: kubevirt.io/drain'
                   type: string
                 parallelMigrationsPerCluster:
+                  description: ParallelMigrationsPerCluster is the total number of
+                    concurrent live migrations allowed cluster-wide. Defaults to 5
                   format: int32
                   type: integer
                 parallelOutboundMigrationsPerNode:
+                  description: ParallelOutboundMigrationsPerNode is the maximum number
+                    of concurrent outgoing live migrations allowed per node. Defaults
+                    to 2
                   format: int32
                   type: integer
                 progressTimeout:
+                  description: ProgressTimeout is the maximum number of seconds a
+                    live migration is allowed to make no progress. Hitting this timeout
+                    means a migration transferred 0 data for that many seconds. The
+                    migration is then considered stuck and therefore cancelled. Defaults
+                    to 150
                   format: int64
                   type: integer
                 unsafeMigrationOverride:
+                  description: UnsafeMigrationOverride allows live migrations to occur
+                    even if the compatibility check indicates the migration will be
+                    unsafe to the guest. Defaults to false
                   type: boolean
               type: object
             minCPUModel:
@@ -913,6 +977,28 @@ var CRDsValidation map[string]string = map[string]string{
               items:
                 type: string
               type: array
+            tlsConfiguration:
+              description: TLSConfiguration holds TLS options
+              properties:
+                ciphers:
+                  items:
+                    type: string
+                  type: array
+                  x-kubernetes-list-type: set
+                minTLSVersion:
+                  description: "MinTLSVersion is a way to specify the minimum protocol
+                    version that is acceptable for TLS connections. Protocol versions
+                    are based on the following most common TLS configurations: \n
+                    \  https://ssl-config.mozilla.org/ \n Note that SSLv3.0 is not
+                    a supported protocol version due to well known vulnerabilities
+                    such as POODLE: https://en.wikipedia.org/wiki/POODLE"
+                  enum:
+                  - VersionTLS10
+                  - VersionTLS11
+                  - VersionTLS12
+                  - VersionTLS13
+                  type: string
+              type: object
             virtualMachineInstancesPerNode:
               type: integer
             webhookConfiguration:
@@ -7716,12 +7802,11 @@ var CRDsValidation map[string]string = map[string]string{
           - name
           type: object
         tokenSecretRef:
-          description: TokenSecretRef is the name of the secret that contains the
-            token used by the export server pod
+          description: TokenSecretRef is the name of the custom-defined secret that
+            contains the token used by the export server pod
           type: string
       required:
       - source
-      - tokenSecretRef
       type: object
     status:
       description: VirtualMachineExportStatus is the status for a VirtualMachineExport
@@ -7860,6 +7945,10 @@ var CRDsValidation map[string]string = map[string]string{
           description: ServiceName is the name of the service created associated with
             the Virtual Machine export. It will be used to create the internal URLs
             for downloading the images
+          type: string
+        tokenSecretRef:
+          description: TokenSecretRef is the name of the secret that contains the
+            token used by the export server pod
           type: string
       type: object
   required:
@@ -10741,34 +10830,72 @@ var CRDsValidation map[string]string = map[string]string{
               description: Migration configurations to apply
               properties:
                 allowAutoConverge:
+                  description: AllowAutoConverge allows the platform to compromise
+                    performance/availability of VMIs to guarantee successful VMI live
+                    migrations. Defaults to false
                   type: boolean
                 allowPostCopy:
+                  description: AllowPostCopy enables post-copy live migrations. Such
+                    migrations allow even the busiest VMIs to successfully live-migrate.
+                    However, events like a network failure can cause a VMI crash.
+                    If set to true, migrations will still start in pre-copy, but switch
+                    to post-copy when CompletionTimeoutPerGiB triggers. Defaults to
+                    false
                   type: boolean
                 bandwidthPerMigration:
                   anyOf:
                   - type: integer
                   - type: string
+                  description: BandwidthPerMigration limits the amount of network
+                    bandwith live migrations are allowed to use. The value is in quantity
+                    per second. Defaults to 0 (no limit)
                   pattern: ^(\+|-)?(([0-9]+(\.[0-9]*)?)|(\.[0-9]+))(([KMGTPE]i)|[numkMGTPE]|([eE](\+|-)?(([0-9]+(\.[0-9]*)?)|(\.[0-9]+))))?$
                   x-kubernetes-int-or-string: true
                 completionTimeoutPerGiB:
+                  description: CompletionTimeoutPerGiB is the maximum number of seconds
+                    per GiB a migration is allowed to take. If a live-migration takes
+                    longer to migrate than this value multiplied by the size of the
+                    VMI, the migration will be cancelled, unless AllowPostCopy is
+                    true. Defaults to 800
                   format: int64
                   type: integer
                 disableTLS:
+                  description: When set to true, DisableTLS will disable the additional
+                    layer of live migration encryption provided by KubeVirt. This
+                    is usually a bad idea. Defaults to false
                   type: boolean
                 network:
+                  description: Network is the name of the CNI network to use for live
+                    migrations. By default, migrations go through the pod network.
                   type: string
                 nodeDrainTaintKey:
+                  description: 'NodeDrainTaintKey defines the taint key that indicates
+                    a node should be drained. Note: this option relies on the deprecated
+                    node taint feature. Default: kubevirt.io/drain'
                   type: string
                 parallelMigrationsPerCluster:
+                  description: ParallelMigrationsPerCluster is the total number of
+                    concurrent live migrations allowed cluster-wide. Defaults to 5
                   format: int32
                   type: integer
                 parallelOutboundMigrationsPerNode:
+                  description: ParallelOutboundMigrationsPerNode is the maximum number
+                    of concurrent outgoing live migrations allowed per node. Defaults
+                    to 2
                   format: int32
                   type: integer
                 progressTimeout:
+                  description: ProgressTimeout is the maximum number of seconds a
+                    live migration is allowed to make no progress. Hitting this timeout
+                    means a migration transferred 0 data for that many seconds. The
+                    migration is then considered stuck and therefore cancelled. Defaults
+                    to 150
                   format: int64
                   type: integer
                 unsafeMigrationOverride:
+                  description: UnsafeMigrationOverride allows live migrations to occur
+                    even if the compatibility check indicates the migration will be
+                    unsafe to the guest. Defaults to false
                   type: boolean
               type: object
             migrationPolicyName:

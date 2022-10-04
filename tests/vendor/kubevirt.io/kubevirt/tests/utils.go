@@ -93,6 +93,7 @@ import (
 	cd "kubevirt.io/kubevirt/tests/containerdisk"
 	"kubevirt.io/kubevirt/tests/flags"
 	. "kubevirt.io/kubevirt/tests/framework/matcher"
+	"kubevirt.io/kubevirt/tests/libdv"
 	"kubevirt.io/kubevirt/tests/libnet"
 	"kubevirt.io/kubevirt/tests/libnode"
 	"kubevirt.io/kubevirt/tests/libstorage"
@@ -102,11 +103,10 @@ import (
 )
 
 const (
-	BinBash                      = "/bin/bash"
-	StartingVMInstance           = "Starting a VirtualMachineInstance"
-	WaitingVMInstanceStart       = "Waiting until the VirtualMachineInstance will start"
-	CouldNotFindComputeContainer = "could not find compute container for pod"
-	EchoLastReturnValue          = "echo $?\n"
+	BinBash                = "/bin/bash"
+	StartingVMInstance     = "Starting a VirtualMachineInstance"
+	WaitingVMInstanceStart = "Waiting until the VirtualMachineInstance will start"
+	EchoLastReturnValue    = "echo $?\n"
 )
 
 const (
@@ -454,8 +454,12 @@ func NewRandomVirtualMachineInstanceWithDisk(imageUrl, namespace, sc string, acc
 	virtCli, err := kubecli.GetKubevirtClient()
 	util2.PanicOnError(err)
 
-	dv := libstorage.NewDataVolumeWithRegistryImportInStorageClass(imageUrl, namespace, sc, accessMode, volMode)
-	_, err = virtCli.CdiClient().CdiV1beta1().DataVolumes(dv.Namespace).Create(context.Background(), dv, metav1.CreateOptions{})
+	dv := libdv.NewDataVolume(
+		libdv.WithRegistryURLSourceAndPullMethod(imageUrl, cdiv1.RegistryPullNode),
+		libdv.WithPVC(sc, dvSizeBySourceURL(imageUrl), accessMode, volMode),
+	)
+
+	dv, err = virtCli.CdiClient().CdiV1beta1().DataVolumes(namespace).Create(context.Background(), dv, metav1.CreateOptions{})
 	Expect(err).ToNot(HaveOccurred())
 	libstorage.EventuallyDV(dv, 240, Or(HaveSucceeded(), BeInPhase(cdiv1.WaitForFirstConsumer)))
 	return NewRandomVMIWithDataVolume(dv.Name), dv
@@ -465,11 +469,11 @@ func NewRandomVirtualMachineInstanceWithFileDisk(imageUrl, namespace string, acc
 	if !libstorage.HasCDI() {
 		Skip("Skip DataVolume tests when CDI is not present")
 	}
-	sc, exists := libstorage.GetRWOFileSystemStorageClass()
+	sc, foundSC := libstorage.GetRWOFileSystemStorageClass()
 	if accessMode == k8sv1.ReadWriteMany {
-		sc, exists = libstorage.GetRWXFileSystemStorageClass()
+		sc, foundSC = libstorage.GetRWXFileSystemStorageClass()
 	}
-	if !exists {
+	if !foundSC {
 		Skip("Skip test when Filesystem storage is not present")
 	}
 
@@ -531,8 +535,11 @@ func NewRandomVMWithEphemeralDisk(containerImage string) *v1.VirtualMachine {
 }
 
 func NewRandomVMWithDataVolumeWithRegistryImport(imageUrl, namespace, storageClass string, accessMode k8sv1.PersistentVolumeAccessMode) *v1.VirtualMachine {
-	dataVolume := libstorage.NewDataVolumeWithRegistryImportInStorageClass(imageUrl, namespace, storageClass, accessMode, k8sv1.PersistentVolumeFilesystem)
-	dataVolume.Spec.PVC.Resources.Requests[k8sv1.ResourceStorage] = resource.MustParse("6Gi")
+	dataVolume := libdv.NewDataVolume(
+		libdv.WithRegistryURLSourceAndPullMethod(imageUrl, cdiv1.RegistryPullNode),
+		libdv.WithPVC(storageClass, dvSizeBySourceURL(imageUrl), accessMode, k8sv1.PersistentVolumeFilesystem),
+	)
+
 	vmi := NewRandomVMIWithDataVolume(dataVolume.Name)
 	vm := NewRandomVirtualMachine(vmi, false)
 
@@ -540,13 +547,22 @@ func NewRandomVMWithDataVolumeWithRegistryImport(imageUrl, namespace, storageCla
 	return vm
 }
 
-func NewRandomVMWithDataVolume(imageUrl string, namespace string) *v1.VirtualMachine {
-	dataVolume := libstorage.NewDataVolumeWithRegistryImport(imageUrl, namespace, k8sv1.ReadWriteOnce)
+func NewRandomVMWithDataVolume(imageUrl string, namespace string) (*v1.VirtualMachine, bool) {
+	sc, exists := libstorage.GetRWOFileSystemStorageClass()
+	if !exists {
+		return nil, false
+	}
+
+	dataVolume := libdv.NewDataVolume(
+		libdv.WithRegistryURLSource(imageUrl),
+		libdv.WithPVC(sc, cd.CirrosVolumeSize, k8sv1.ReadWriteOnce, k8sv1.PersistentVolumeFilesystem),
+	)
+
 	vmi := NewRandomVMIWithDataVolume(dataVolume.Name)
 	vm := NewRandomVirtualMachine(vmi, false)
 
 	libstorage.AddDataVolumeTemplate(vm, dataVolume)
-	return vm
+	return vm, true
 }
 
 func NewRandomVMWithDataVolumeAndUserData(dataVolume *cdiv1.DataVolume, userData string) *v1.VirtualMachine {
@@ -559,18 +575,12 @@ func NewRandomVMWithDataVolumeAndUserData(dataVolume *cdiv1.DataVolume, userData
 }
 
 func NewRandomVMWithDataVolumeAndUserDataInStorageClass(imageUrl, namespace, userData, storageClass string) *v1.VirtualMachine {
-	dataVolume := libstorage.NewDataVolumeWithRegistryImportInStorageClass(imageUrl, namespace, storageClass, k8sv1.ReadWriteOnce, k8sv1.PersistentVolumeFilesystem)
+	dataVolume := libdv.NewDataVolume(
+		libdv.WithRegistryURLSourceAndPullMethod(imageUrl, cdiv1.RegistryPullNode),
+		libdv.WithPVC(storageClass, dvSizeBySourceURL(imageUrl), k8sv1.ReadWriteOnce, k8sv1.PersistentVolumeFilesystem),
+	)
+
 	return NewRandomVMWithDataVolumeAndUserData(dataVolume, userData)
-}
-
-func NewRandomVMWithCloneDataVolume(sourceNamespace, sourceName, targetNamespace string) *v1.VirtualMachine {
-	dataVolume := libstorage.NewDataVolumeWithPVCSource(sourceNamespace, sourceName, targetNamespace, k8sv1.ReadWriteOnce)
-	vmi := NewRandomVMIWithDataVolume(dataVolume.Name)
-	vmi.Namespace = targetNamespace
-	vm := NewRandomVirtualMachine(vmi, false)
-
-	libstorage.AddDataVolumeTemplate(vm, dataVolume)
-	return vm
 }
 
 func NewRandomVMIWithEphemeralDiskHighMemory(containerImage string) *v1.VirtualMachineInstance {
@@ -727,51 +737,6 @@ func NewRandomFedoraVMIWithBlacklistGuestAgent(commands string) *v1.VirtualMachi
 	)
 }
 
-func AddPVCFS(vmi *v1.VirtualMachineInstance, name string, claimName string) *v1.VirtualMachineInstance {
-	vmi.Spec.Domain.Devices.Filesystems = append(vmi.Spec.Domain.Devices.Filesystems, v1.Filesystem{
-		Name:     name,
-		Virtiofs: &v1.FilesystemVirtiofs{},
-	})
-	vmi.Spec.Volumes = append(vmi.Spec.Volumes, v1.Volume{
-		Name: name,
-		VolumeSource: v1.VolumeSource{
-			PersistentVolumeClaim: &v1.PersistentVolumeClaimVolumeSource{PersistentVolumeClaimVolumeSource: k8sv1.PersistentVolumeClaimVolumeSource{
-				ClaimName: claimName,
-			}},
-		},
-	})
-
-	return vmi
-}
-
-func NewRandomVMIWithFSFromDataVolume(dataVolumeName string) *v1.VirtualMachineInstance {
-	vmi := NewRandomVMI()
-	containerImage := cd.ContainerDiskFor(cd.ContainerDiskFedoraTestTooling)
-	AddEphemeralDisk(vmi, "disk0", v1.DiskBusVirtio, containerImage)
-	vmi.Spec.Domain.Devices.Filesystems = append(vmi.Spec.Domain.Devices.Filesystems, v1.Filesystem{
-		Name:     "disk1",
-		Virtiofs: &v1.FilesystemVirtiofs{},
-	})
-	vmi.Spec.Volumes = append(vmi.Spec.Volumes, v1.Volume{
-		Name: "disk1",
-		VolumeSource: v1.VolumeSource{
-			DataVolume: &v1.DataVolumeSource{
-				Name: dataVolumeName,
-			},
-		},
-	})
-	return vmi
-}
-
-func NewRandomVMIWithPVCFS(claimName string) *v1.VirtualMachineInstance {
-	vmi := NewRandomVMI()
-
-	containerImage := cd.ContainerDiskFor(cd.ContainerDiskFedoraTestTooling)
-	AddEphemeralDisk(vmi, "disk0", v1.DiskBusVirtio, containerImage)
-	vmi = AddPVCFS(vmi, "disk1", claimName)
-	return vmi
-}
-
 func NewRandomFedoraVMIWithDmidecode() *v1.VirtualMachineInstance {
 	vmi := NewRandomVMIWithEphemeralDiskHighMemory(cd.ContainerDiskFor(cd.ContainerDiskFedoraTestTooling))
 	return vmi
@@ -891,30 +856,6 @@ func DeletePvAndPvc(name string) {
 	if !errors.IsNotFound(err) {
 		util2.PanicOnError(err)
 	}
-}
-
-func NewRandomVMIWithCDRom(claimName string) *v1.VirtualMachineInstance {
-	vmi := NewRandomVMI()
-
-	vmi.Spec.Domain.Devices.Disks = append(vmi.Spec.Domain.Devices.Disks, v1.Disk{
-		Name: "disk0",
-		DiskDevice: v1.DiskDevice{
-			CDRom: &v1.CDRomTarget{
-				// Do not specify ReadOnly flag so that
-				// default behavior can be tested
-				Bus: v1.DiskBusSATA,
-			},
-		},
-	})
-	vmi.Spec.Volumes = append(vmi.Spec.Volumes, v1.Volume{
-		Name: "disk0",
-		VolumeSource: v1.VolumeSource{
-			PersistentVolumeClaim: &v1.PersistentVolumeClaimVolumeSource{PersistentVolumeClaimVolumeSource: k8sv1.PersistentVolumeClaimVolumeSource{
-				ClaimName: claimName,
-			}},
-		},
-	})
-	return vmi
 }
 
 func NewRandomVMIWithEphemeralPVC(claimName string) *v1.VirtualMachineInstance {
@@ -1295,7 +1236,6 @@ func RenderPod(name string, cmd []string, args []string) *k8sv1.Pod {
 	pod := k8sv1.Pod{
 		ObjectMeta: metav1.ObjectMeta{
 			GenerateName: name,
-			Namespace:    util2.NamespaceTestDefault,
 			Labels: map[string]string{
 				v1.AppLabel: "test",
 			},
@@ -1325,17 +1265,21 @@ func newExecutorPodWithPVC(podName string, pvc *k8sv1.PersistentVolumeClaim) *k8
 	return libstorage.RenderPodWithPVC(podName, []string{"/bin/bash", "-c", "while true; do echo hello; sleep 2;done"}, nil, pvc)
 }
 
-func RunPod(pod *k8sv1.Pod) *k8sv1.Pod {
+func RunPodInNamespace(pod *k8sv1.Pod, namespace string) *k8sv1.Pod {
 	virtClient, err := kubecli.GetKubevirtClient()
 	util2.PanicOnError(err)
 
-	pod, err = virtClient.CoreV1().Pods(util2.NamespaceTestDefault).Create(context.Background(), pod, metav1.CreateOptions{})
+	pod, err = virtClient.CoreV1().Pods(namespace).Create(context.Background(), pod, metav1.CreateOptions{})
 	Expect(err).ToNot(HaveOccurred())
 	Eventually(ThisPod(pod), 180).Should(BeInPhase(k8sv1.PodRunning))
 
 	pod, err = ThisPod(pod)()
 	Expect(err).ToNot(HaveOccurred())
 	return pod
+}
+
+func RunPod(pod *k8sv1.Pod) *k8sv1.Pod {
+	return RunPodInNamespace(pod, util2.NamespaceTestDefault)
 }
 
 func RunPodAndExpectCompletion(pod *k8sv1.Pod) *k8sv1.Pod {
@@ -1357,6 +1301,14 @@ func ChangeImgFilePermissionsToNonQEMU(pvc *k8sv1.PersistentVolumeClaim) {
 	By("changing disk.img permissions to non qemu")
 	pod := libstorage.RenderPodWithPVC("change-permissions-disk-img-pod", []string{"/bin/bash", "-c"}, args, pvc)
 
+	RunPodAndExpectCompletion(pod)
+}
+
+func RenameImgFile(pvc *k8sv1.PersistentVolumeClaim, newName string) {
+	args := []string{fmt.Sprintf("mv %s %s && ls -al %s", filepath.Join(libstorage.DefaultPvcMountPath, "disk.img"), filepath.Join(libstorage.DefaultPvcMountPath, newName), libstorage.DefaultPvcMountPath)}
+
+	By("renaming disk.img")
+	pod := libstorage.RenderPodWithPVC("rename-disk-img-pod", []string{"/bin/bash", "-c"}, args, pvc)
 	RunPodAndExpectCompletion(pod)
 }
 
@@ -1744,9 +1696,10 @@ func NewRandomVirtualMachine(vmi *v1.VirtualMachineInstance, running bool) *v1.V
 			Running: &running,
 			Template: &v1.VirtualMachineInstanceTemplateSpec{
 				ObjectMeta: metav1.ObjectMeta{
-					Labels:    vmLabels,
-					Name:      name + "makeitinteresting", // this name should have no effect
-					Namespace: namespace,
+					Labels:      vmLabels,
+					Name:        name + "makeitinteresting", // this name should have no effect
+					Namespace:   namespace,
+					Annotations: vmi.ObjectMeta.Annotations,
 				},
 				Spec: vmi.Spec,
 			},
@@ -1866,15 +1819,6 @@ func EnableFeatureGate(feature string) *v1.KubeVirt {
 	kv.Spec.Configuration.DeveloperConfiguration.FeatureGates = append(kv.Spec.Configuration.DeveloperConfiguration.FeatureGates, feature)
 
 	return UpdateKubeVirtConfigValueAndWait(kv.Spec.Configuration)
-}
-
-func SetDataVolumeForceBindAnnotation(dv *cdiv1.DataVolume) {
-	annotations := dv.GetAnnotations()
-	if annotations == nil {
-		annotations = make(map[string]string)
-	}
-	annotations["cdi.kubevirt.io/storage.bind.immediate.requested"] = "true"
-	dv.SetAnnotations(annotations)
 }
 
 func GetVmPodName(virtCli kubecli.KubevirtClient, vmi *v1.VirtualMachineInstance) string {
@@ -2719,4 +2663,13 @@ func AffinityToMigrateFromSourceToTargetAndBack(sourceNode *k8sv1.Node, targetNo
 			},
 		},
 	}, nil
+}
+
+func dvSizeBySourceURL(url string) string {
+	if url == cd.DataVolumeImportUrlForContainerDisk(cd.ContainerDiskFedoraTestTooling) ||
+		url == cd.DataVolumeImportUrlForContainerDisk(cd.ContainerDiskFedoraRealtime) {
+		return cd.FedoraVolumeSize
+	}
+
+	return cd.CirrosVolumeSize
 }

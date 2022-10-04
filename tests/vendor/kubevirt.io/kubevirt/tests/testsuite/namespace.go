@@ -22,6 +22,7 @@ package testsuite
 import (
 	"context"
 	"fmt"
+	"strings"
 	"time"
 
 	. "github.com/onsi/ginkgo/v2"
@@ -32,6 +33,7 @@ import (
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/runtime/schema"
 	"k8s.io/apimachinery/pkg/types"
+	"k8s.io/klog/v2"
 
 	v1 "kubevirt.io/api/core/v1"
 	"kubevirt.io/client-go/kubecli"
@@ -51,10 +53,27 @@ var NamespaceTestAlternative = "kubevirt-test-alternative"
 // NamespaceTestOperator is used to test if namespaces can still be deleted when kubevirt is uninstalled
 var NamespaceTestOperator = "kubevirt-test-operator"
 
-var TestNamespaces = []string{util.NamespaceTestDefault, NamespaceTestAlternative, NamespaceTestOperator}
+// NamespacePrivileged is used for helper pods that requires to be privileged
+var NamespacePrivileged = "kubevirt-test-privileged"
+
+var TestNamespaces = []string{util.NamespaceTestDefault, NamespaceTestAlternative, NamespaceTestOperator, NamespacePrivileged}
+
+type IgnoreDeprecationWarningsLogger struct{}
+
+func (IgnoreDeprecationWarningsLogger) HandleWarningHeader(code int, agent string, message string) {
+	if !strings.Contains(message, "VirtualMachineInstancePresets is now deprecated and will be removed in v2") {
+		klog.Warning(message)
+	}
+}
 
 func CleanNamespaces() {
-	virtCli, err := kubecli.GetKubevirtClient()
+	// Replace the warning handler with a custom one that ignores certain deprecation warnings from KubeVirt
+	restConfig, err := kubecli.GetKubevirtClientConfig()
+	util.PanicOnError(err)
+
+	restConfig.WarningHandler = IgnoreDeprecationWarningsLogger{}
+
+	virtCli, err := kubecli.GetKubevirtClientFromRESTConfig(restConfig)
 	util.PanicOnError(err)
 
 	for _, namespace := range TestNamespaces {
@@ -262,10 +281,15 @@ func createNamespaces() {
 			ObjectMeta: metav1.ObjectMeta{
 				Name: namespace,
 				Labels: map[string]string{
-					cleanup.TestLabelForNamespace(namespace): "",
+					cleanup.TestLabelForNamespace(namespace):         "",
+					"security.openshift.io/scc.podSecurityLabelSync": "false",
 				},
 			},
 		}
+		if namespace == NamespacePrivileged {
+			ns.Labels["pod-security.kubernetes.io/enforce"] = "privileged"
+		}
+
 		_, err = virtCli.CoreV1().Namespaces().Create(context.Background(), ns, metav1.CreateOptions{})
 		if err != nil {
 			util.PanicOnError(err)
@@ -278,8 +302,9 @@ func CalculateNamespaces() {
 	worker := GinkgoParallelProcess()
 	util.NamespaceTestDefault = fmt.Sprintf("%s%d", util.NamespaceTestDefault, worker)
 	NamespaceTestAlternative = fmt.Sprintf("%s%d", NamespaceTestAlternative, worker)
+	NamespacePrivileged = fmt.Sprintf("%s%d", NamespacePrivileged, worker)
 	// TODO, that is not needed, just a shortcut to not have to treat this namespace
 	// differently when running in parallel
 	NamespaceTestOperator = fmt.Sprintf("%s%d", NamespaceTestOperator, worker)
-	TestNamespaces = []string{util.NamespaceTestDefault, NamespaceTestAlternative, NamespaceTestOperator}
+	TestNamespaces = []string{util.NamespaceTestDefault, NamespaceTestAlternative, NamespaceTestOperator, NamespacePrivileged}
 }

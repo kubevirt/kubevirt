@@ -50,7 +50,7 @@ import (
 	k8ssnapshotclient "kubevirt.io/client-go/generated/external-snapshotter/clientset/versioned"
 	generatedclient "kubevirt.io/client-go/generated/kubevirt/clientset/versioned"
 	vmexportv1alpha1 "kubevirt.io/client-go/generated/kubevirt/clientset/versioned/typed/export/v1alpha1"
-	instancetypev1alpha1 "kubevirt.io/client-go/generated/kubevirt/clientset/versioned/typed/instancetype/v1alpha1"
+	instancetypev1alpha2 "kubevirt.io/client-go/generated/kubevirt/clientset/versioned/typed/instancetype/v1alpha2"
 	migrationsv1 "kubevirt.io/client-go/generated/kubevirt/clientset/versioned/typed/migrations/v1alpha1"
 	poolv1 "kubevirt.io/client-go/generated/kubevirt/clientset/versioned/typed/pool/v1alpha1"
 	vmsnapshotv1alpha1 "kubevirt.io/client-go/generated/kubevirt/clientset/versioned/typed/snapshot/v1alpha1"
@@ -71,10 +71,10 @@ type KubevirtClient interface {
 	VirtualMachineSnapshotContent(namespace string) vmsnapshotv1alpha1.VirtualMachineSnapshotContentInterface
 	VirtualMachineRestore(namespace string) vmsnapshotv1alpha1.VirtualMachineRestoreInterface
 	VirtualMachineExport(namespace string) vmexportv1alpha1.VirtualMachineExportInterface
-	VirtualMachineInstancetype(namespace string) instancetypev1alpha1.VirtualMachineInstancetypeInterface
-	VirtualMachineClusterInstancetype() instancetypev1alpha1.VirtualMachineClusterInstancetypeInterface
-	VirtualMachinePreference(namespace string) instancetypev1alpha1.VirtualMachinePreferenceInterface
-	VirtualMachineClusterPreference() instancetypev1alpha1.VirtualMachineClusterPreferenceInterface
+	VirtualMachineInstancetype(namespace string) instancetypev1alpha2.VirtualMachineInstancetypeInterface
+	VirtualMachineClusterInstancetype() instancetypev1alpha2.VirtualMachineClusterInstancetypeInterface
+	VirtualMachinePreference(namespace string) instancetypev1alpha2.VirtualMachinePreferenceInterface
+	VirtualMachineClusterPreference() instancetypev1alpha2.VirtualMachineClusterPreferenceInterface
 	MigrationPolicy() migrationsv1.MigrationPolicyInterface
 	ExpandSpec() *ExpandSpec
 	ServerVersion() ServerVersionInterface
@@ -177,20 +177,20 @@ func (k kubevirt) VirtualMachineExport(namespace string) vmexportv1alpha1.Virtua
 	return k.generatedKubeVirtClient.ExportV1alpha1().VirtualMachineExports(namespace)
 }
 
-func (k kubevirt) VirtualMachineInstancetype(namespace string) instancetypev1alpha1.VirtualMachineInstancetypeInterface {
-	return k.generatedKubeVirtClient.InstancetypeV1alpha1().VirtualMachineInstancetypes(namespace)
+func (k kubevirt) VirtualMachineInstancetype(namespace string) instancetypev1alpha2.VirtualMachineInstancetypeInterface {
+	return k.generatedKubeVirtClient.InstancetypeV1alpha2().VirtualMachineInstancetypes(namespace)
 }
 
-func (k kubevirt) VirtualMachineClusterInstancetype() instancetypev1alpha1.VirtualMachineClusterInstancetypeInterface {
-	return k.generatedKubeVirtClient.InstancetypeV1alpha1().VirtualMachineClusterInstancetypes()
+func (k kubevirt) VirtualMachineClusterInstancetype() instancetypev1alpha2.VirtualMachineClusterInstancetypeInterface {
+	return k.generatedKubeVirtClient.InstancetypeV1alpha2().VirtualMachineClusterInstancetypes()
 }
 
-func (k kubevirt) VirtualMachinePreference(namespace string) instancetypev1alpha1.VirtualMachinePreferenceInterface {
-	return k.generatedKubeVirtClient.InstancetypeV1alpha1().VirtualMachinePreferences(namespace)
+func (k kubevirt) VirtualMachinePreference(namespace string) instancetypev1alpha2.VirtualMachinePreferenceInterface {
+	return k.generatedKubeVirtClient.InstancetypeV1alpha2().VirtualMachinePreferences(namespace)
 }
 
-func (k kubevirt) VirtualMachineClusterPreference() instancetypev1alpha1.VirtualMachineClusterPreferenceInterface {
-	return k.generatedKubeVirtClient.InstancetypeV1alpha1().VirtualMachineClusterPreferences()
+func (k kubevirt) VirtualMachineClusterPreference() instancetypev1alpha2.VirtualMachineClusterPreferenceInterface {
+	return k.generatedKubeVirtClient.InstancetypeV1alpha2().VirtualMachineClusterPreferences()
 }
 
 func (k kubevirt) KubernetesSnapshotClient() k8ssnapshotclient.Interface {
@@ -238,6 +238,7 @@ type VirtualMachineInstanceInterface interface {
 	SerialConsole(name string, options *SerialConsoleOptions) (StreamInterface, error)
 	USBRedir(vmiName string) (StreamInterface, error)
 	VNC(name string) (StreamInterface, error)
+	Screenshot(name string, options *v1.ScreenshotOptions) ([]byte, error)
 	PortForward(name string, port int, protocol string) (StreamInterface, error)
 	Pause(name string, pauseOptions *v1.PauseOptions) error
 	Unpause(name string, unpauseOptions *v1.UnpauseOptions) error

@@ -20,6 +20,7 @@
 package ephemeraldisk
 
 import (
+	"errors"
 	"fmt"
 	"os"
 	"os/exec"
@@ -102,7 +103,7 @@ func (c *ephemeralDiskCreator) CreateBackedImageForVolume(volume v1.Volume, back
 
 	if _, err := os.Stat(imagePath); err == nil {
 		return nil
-	} else if !os.IsNotExist(err) {
+	} else if !errors.Is(err, os.ErrNotExist) {
 		return err
 	}
 

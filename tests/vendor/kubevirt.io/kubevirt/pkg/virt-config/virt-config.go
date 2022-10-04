@@ -26,6 +26,8 @@ package virtconfig
 import (
 	"fmt"
 
+	"kubevirt.io/client-go/log"
+
 	k8sv1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/api/resource"
 
@@ -66,7 +68,7 @@ const (
 	DefaultAARCH64OVMFPath                          = "/usr/share/AAVMF"
 	DefaultMemBalloonStatsPeriod             uint32 = 10
 	DefaultCPUAllocationRatio                       = 10
-	DefaultDiskVerificationMemoryLimitMBytes        = 1500
+	DefaultDiskVerificationMemoryLimitMBytes        = 1700
 	DefaultVirtAPILogVerbosity                      = 2
 	DefaultVirtControllerLogVerbosity               = 2
 	DefaultVirtHandlerLogVerbosity                  = 2
@@ -277,33 +279,61 @@ func (c *ClusterConfig) GetDesiredMDEVTypes(node *k8sv1.Node) []string {
 	return mdevTypesConf.MediatedDevicesTypes
 }
 
-func (c *ClusterConfig) GetVirtHandlerVerbosity(nodeName string) uint {
+type virtComponent int
+
+const (
+	virtHandler virtComponent = iota
+	virtApi
+	virtController
+	virtOperator
+	virtLauncher
+)
+
+// Gets the component verbosity. nodeName can be empty, then it's ignored.
+func (c *ClusterConfig) getComponentVerbosity(component virtComponent, nodeName string) uint {
 	logConf := c.GetConfig().DeveloperConfiguration.LogVerbosity
-	if level := logConf.NodeVerbosity[nodeName]; level != 0 {
-		return level
+
+	if nodeName != "" {
+		if level := logConf.NodeVerbosity[nodeName]; level != 0 {
+			return level
+		}
 	}
-	return logConf.VirtHandler
+
+	switch component {
+	case virtHandler:
+		return logConf.VirtHandler
+	case virtApi:
+		return logConf.VirtAPI
+	case virtController:
+		return logConf.VirtController
+	case virtOperator:
+		return logConf.VirtOperator
+	case virtLauncher:
+		return logConf.VirtLauncher
+	default:
+		log.Log.Errorf("getComponentVerbosity called with an unknown virtComponent: %v", component)
+		return 0
+	}
+}
+
+func (c *ClusterConfig) GetVirtHandlerVerbosity(nodeName string) uint {
+	return c.getComponentVerbosity(virtHandler, nodeName)
 }
 
 func (c *ClusterConfig) GetVirtAPIVerbosity(nodeName string) uint {
-	logConf := c.GetConfig().DeveloperConfiguration.LogVerbosity
-	if level := logConf.NodeVerbosity[nodeName]; level != 0 {
-		return level
-	}
-	return logConf.VirtAPI
+	return c.getComponentVerbosity(virtApi, nodeName)
 }
 
 func (c *ClusterConfig) GetVirtControllerVerbosity(nodeName string) uint {
-	logConf := c.GetConfig().DeveloperConfiguration.LogVerbosity
-	if level := logConf.NodeVerbosity[nodeName]; level != 0 {
-		return level
-	}
-	return logConf.VirtController
+	return c.getComponentVerbosity(virtController, nodeName)
+}
+
+func (c *ClusterConfig) GetVirtOperatorVerbosity(nodeName string) uint {
+	return c.getComponentVerbosity(virtOperator, nodeName)
 }
 
 func (c *ClusterConfig) GetVirtLauncherVerbosity() uint {
-	logConf := c.GetConfig().DeveloperConfiguration.LogVerbosity
-	return logConf.VirtLauncher
+	return c.getComponentVerbosity(virtLauncher, "")
 }
 
 //GetMinCPUModel return minimal cpu which is used in node-labeller

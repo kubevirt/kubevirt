@@ -636,6 +636,10 @@ func (AddVolumeOptions) SwaggerDoc() map[string]string {
 	}
 }
 
+func (ScreenshotOptions) SwaggerDoc() map[string]string {
+	return map[string]string{}
+}
+
 func (RemoveVolumeOptions) SwaggerDoc() map[string]string {
 	return map[string]string{
 		"":       "RemoveVolumeOptions is provided when dynamically hot unplugging volume and disk",
@@ -681,9 +685,28 @@ func (SMBiosConfiguration) SwaggerDoc() map[string]string {
 	return map[string]string{}
 }
 
+func (TLSConfiguration) SwaggerDoc() map[string]string {
+	return map[string]string{
+		"":              "TLSConfiguration holds TLS options",
+		"minTLSVersion": "MinTLSVersion is a way to specify the minimum protocol version that is acceptable for TLS connections.\nProtocol versions are based on the following most common TLS configurations:\n\n  https://ssl-config.mozilla.org/\n\nNote that SSLv3.0 is not a supported protocol version due to well known\nvulnerabilities such as POODLE: https://en.wikipedia.org/wiki/POODLE\n+kubebuilder:validation:Enum=VersionTLS10;VersionTLS11;VersionTLS12;VersionTLS13",
+		"ciphers":       "+listType=set",
+	}
+}
+
 func (MigrationConfiguration) SwaggerDoc() map[string]string {
 	return map[string]string{
-		"": "MigrationConfiguration holds migration options",
+		"":                                  "MigrationConfiguration holds migration options.\nCan be overridden for specific groups of VMs though migration policies.\nVisit https://kubevirt.io/user-guide/operations/migration_policies/ for more information.",
+		"nodeDrainTaintKey":                 "NodeDrainTaintKey defines the taint key that indicates a node should be drained.\nNote: this option relies on the deprecated node taint feature. Default: kubevirt.io/drain",
+		"parallelOutboundMigrationsPerNode": "ParallelOutboundMigrationsPerNode is the maximum number of concurrent outgoing live migrations\nallowed per node. Defaults to 2",
+		"parallelMigrationsPerCluster":      "ParallelMigrationsPerCluster is the total number of concurrent live migrations\nallowed cluster-wide. Defaults to 5",
+		"allowAutoConverge":                 "AllowAutoConverge allows the platform to compromise performance/availability of VMIs to\nguarantee successful VMI live migrations. Defaults to false",
+		"bandwidthPerMigration":             "BandwidthPerMigration limits the amount of network bandwith live migrations are allowed to use.\nThe value is in quantity per second. Defaults to 0 (no limit)",
+		"completionTimeoutPerGiB":           "CompletionTimeoutPerGiB is the maximum number of seconds per GiB a migration is allowed to take.\nIf a live-migration takes longer to migrate than this value multiplied by the size of the VMI,\nthe migration will be cancelled, unless AllowPostCopy is true. Defaults to 800",
+		"progressTimeout":                   "ProgressTimeout is the maximum number of seconds a live migration is allowed to make no progress.\nHitting this timeout means a migration transferred 0 data for that many seconds. The migration is\nthen considered stuck and therefore cancelled. Defaults to 150",
+		"unsafeMigrationOverride":           "UnsafeMigrationOverride allows live migrations to occur even if the compatibility check\nindicates the migration will be unsafe to the guest. Defaults to false",
+		"allowPostCopy":                     "AllowPostCopy enables post-copy live migrations. Such migrations allow even the busiest VMIs\nto successfully live-migrate. However, events like a network failure can cause a VMI crash.\nIf set to true, migrations will still start in pre-copy, but switch to post-copy when\nCompletionTimeoutPerGiB triggers. Defaults to false",
+		"disableTLS":                        "When set to true, DisableTLS will disable the additional layer of live migration encryption\nprovided by KubeVirt. This is usually a bad idea. Defaults to false",
+		"network":                           "Network is the name of the CNI network to use for live migrations. By default, migrations go\nthrough the pod network.",
 	}
 }
 
@@ -695,9 +718,15 @@ func (DiskVerification) SwaggerDoc() map[string]string {
 
 func (DeveloperConfiguration) SwaggerDoc() map[string]string {
 	return map[string]string{
-		"":                           "DeveloperConfiguration holds developer options",
-		"useEmulation":               "UseEmulation can be set to true to allow fallback to software emulation\nin case hardware-assisted emulation is not available.",
-		"minimumClusterTSCFrequency": "Allow overriding the automatically determined minimum TSC frequency of the cluster\nand fixate the minimum to this frequency.",
+		"":                                "DeveloperConfiguration holds developer options",
+		"featureGates":                    "FeatureGates is the list of experimental features to enable. Defaults to none",
+		"pvcTolerateLessSpaceUpToPercent": "LessPVCSpaceToleration determines how much smaller, in percentage, disk PVCs are\nallowed to be compared to the requested size (to account for various overheads).\nDefaults to 10",
+		"minimumReservePVCBytes":          "MinimumReservePVCBytes is the amount of space, in bytes, to leave unused on disks.\nDefaults to 131072 (128KiB)",
+		"memoryOvercommit":                "MemoryOvercommit is the percentage of memory we want to give VMIs compared to the amount\ngiven to its parent pod (virt-launcher). For example, a value of 102 means the VMI will\n\"see\" 2% more memory than its parent pod. Values under 100 are effectively \"undercommits\".\nOvercommits can lead to memory exhaustion, which in turn can lead to crashes. Use carefully.\nDefaults to 100",
+		"nodeSelectors":                   "NodeSelectors allows restricting VMI creation to nodes that match a set of labels.\nDefaults to none",
+		"useEmulation":                    "UseEmulation can be set to true to allow fallback to software emulation\nin case hardware-assisted emulation is not available. Defaults to false",
+		"cpuAllocationRatio":              "For each requested virtual CPU, CPUAllocationRatio defines how much physical CPU to request per VMI\nfrom the hosting node. The value is in fraction of a CPU thread (or core on non-hyperthreaded nodes).\nFor example, a value of 1 means 1 physical CPU thread per VMI CPU thread.\nA value of 100 would be 1% of a physical thread allocated for each requested VMI thread.\nThis option has no effect on VMIs that request dedicated CPUs. More information at:\nhttps://kubevirt.io/user-guide/operations/node_overcommit/#node-cpu-allocation-ratio\nDefaults to 10",
+		"minimumClusterTSCFrequency":      "Allow overriding the automatically determined minimum TSC frequency of the cluster\nand fixate the minimum to this frequency.",
 	}
 }
 

@@ -181,7 +181,7 @@ github.com/prometheus/common/model
 github.com/prometheus/procfs
 github.com/prometheus/procfs/internal/fs
 github.com/prometheus/procfs/internal/util
-# github.com/spf13/cobra v1.4.0
+# github.com/spf13/cobra v1.5.0
 ## explicit; go 1.15
 github.com/spf13/cobra
 # github.com/spf13/pflag v1.0.5
@@ -218,7 +218,7 @@ golang.org/x/net/trace
 golang.org/x/oauth2
 golang.org/x/oauth2/clientcredentials
 golang.org/x/oauth2/internal
-# golang.org/x/sys v0.0.0-20220412211240-33da011f77ad
+# golang.org/x/sys v0.0.0-20220503163025-988cb79eb6c6
 ## explicit; go 1.17
 golang.org/x/sys/cpu
 golang.org/x/sys/internal/unsafeheader
@@ -726,7 +726,7 @@ k8s.io/utils/internal/third_party/forked/golang/net
 k8s.io/utils/net
 k8s.io/utils/pointer
 k8s.io/utils/trace
-# kubevirt.io/api v0.57.1 => kubevirt.io/api v0.57.1
+# kubevirt.io/api v0.58.0-rc.0 => kubevirt.io/api v0.58.0-rc.0
 ## explicit; go 1.17
 kubevirt.io/api/clone
 kubevirt.io/api/clone/v1alpha1
@@ -736,13 +736,14 @@ kubevirt.io/api/export
 kubevirt.io/api/export/v1alpha1
 kubevirt.io/api/instancetype
 kubevirt.io/api/instancetype/v1alpha1
+kubevirt.io/api/instancetype/v1alpha2
 kubevirt.io/api/migrations
 kubevirt.io/api/migrations/v1alpha1
 kubevirt.io/api/pool
 kubevirt.io/api/pool/v1alpha1
 kubevirt.io/api/snapshot
 kubevirt.io/api/snapshot/v1alpha1
-# kubevirt.io/client-go v0.57.1 => kubevirt.io/client-go v0.57.1
+# kubevirt.io/client-go v0.58.0-rc.0 => kubevirt.io/client-go v0.58.0-rc.0
 ## explicit; go 1.17
 kubevirt.io/client-go/generated/containerized-data-importer/clientset/versioned
 kubevirt.io/client-go/generated/containerized-data-importer/clientset/versioned/scheme
@@ -756,6 +757,7 @@ kubevirt.io/client-go/generated/kubevirt/clientset/versioned/scheme
 kubevirt.io/client-go/generated/kubevirt/clientset/versioned/typed/clone/v1alpha1
 kubevirt.io/client-go/generated/kubevirt/clientset/versioned/typed/export/v1alpha1
 kubevirt.io/client-go/generated/kubevirt/clientset/versioned/typed/instancetype/v1alpha1
+kubevirt.io/client-go/generated/kubevirt/clientset/versioned/typed/instancetype/v1alpha2
 kubevirt.io/client-go/generated/kubevirt/clientset/versioned/typed/migrations/v1alpha1
 kubevirt.io/client-go/generated/kubevirt/clientset/versioned/typed/pool/v1alpha1
 kubevirt.io/client-go/generated/kubevirt/clientset/versioned/typed/snapshot/v1alpha1
@@ -780,7 +782,7 @@ kubevirt.io/containerized-data-importer-api/pkg/apis/upload/v1beta1
 # kubevirt.io/controller-lifecycle-operator-sdk/api v0.0.0-20220329064328-f3cc58c6ed90
 ## explicit; go 1.17
 kubevirt.io/controller-lifecycle-operator-sdk/api
-# kubevirt.io/kubevirt v0.57.1
+# kubevirt.io/kubevirt v0.58.0-rc.0
 ## explicit; go 1.17
 kubevirt.io/kubevirt/pkg/certificates/bootstrap
 kubevirt.io/kubevirt/pkg/certificates/triple
@@ -825,6 +827,7 @@ kubevirt.io/kubevirt/pkg/virt-operator/resource/generate/rbac
 kubevirt.io/kubevirt/pkg/virt-operator/util
 kubevirt.io/kubevirt/pkg/virtctl/expose
 kubevirt.io/kubevirt/pkg/virtctl/templates
+kubevirt.io/kubevirt/pkg/virtiofs
 kubevirt.io/kubevirt/tests
 kubevirt.io/kubevirt/tests/console
 kubevirt.io/kubevirt/tests/containerdisk
@@ -834,6 +837,7 @@ kubevirt.io/kubevirt/tests/framework/checks
 kubevirt.io/kubevirt/tests/framework/cleanup
 kubevirt.io/kubevirt/tests/framework/matcher
 kubevirt.io/kubevirt/tests/framework/matcher/helper
+kubevirt.io/kubevirt/tests/libdv
 kubevirt.io/kubevirt/tests/libnet
 kubevirt.io/kubevirt/tests/libnet/cluster
 kubevirt.io/kubevirt/tests/libnode
@@ -895,8 +899,8 @@ sigs.k8s.io/yaml
 # github.com/kubevirt/cluster-network-addons-operator/pkg/apis => github.com/kubevirt/cluster-network-addons-operator/pkg/apis v0.78.0
 # github.com/openshift/machine-api-operator => github.com/openshift/machine-api-operator v0.2.1-0.20191025120018-fb3724fc7bdf
 # go.mongodb.org/mongo-driver => go.mongodb.org/mongo-driver v1.5.1
-# kubevirt.io/api => kubevirt.io/api v0.57.1
-# kubevirt.io/client-go => kubevirt.io/client-go v0.57.1
+# kubevirt.io/api => kubevirt.io/api v0.58.0-rc.0
+# kubevirt.io/client-go => kubevirt.io/client-go v0.58.0-rc.0
 # kubevirt.io/containerized-data-importer-api => kubevirt.io/containerized-data-importer-api v1.54.0
 # github.com/openshift/api => github.com/openshift/api v0.0.0-20220315184754-d7c10d0b647e
 # github.com/openshift/client-go => github.com/openshift/client-go v0.0.0-20200521150516-05eb9880269c

@@ -25,6 +25,8 @@ import (
 	"path/filepath"
 	"time"
 
+	"k8s.io/apimachinery/pkg/api/errors"
+
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
 
@@ -217,6 +219,7 @@ func deployOrWipeTestingInfrastrucure(actionOnObject func(unstructured.Unstructu
 		}
 	}
 
+	waitForAllDaemonSetsReady(3 * time.Minute)
 	waitForAllPodsReady(3*time.Minute, metav1.ListOptions{})
 }
 
@@ -226,6 +229,25 @@ func DeployTestingInfrastructure() {
 
 func WipeTestingInfrastructure() {
 	deployOrWipeTestingInfrastrucure(DeleteRawManifest)
+}
+
+func waitForAllDaemonSetsReady(timeout time.Duration) {
+	checkForDaemonSetsReady := func() []string {
+		dsNotReady := make([]string, 0)
+		virtClient, err := kubecli.GetKubevirtClient()
+		util.PanicOnError(err)
+
+		dsList, err := virtClient.AppsV1().DaemonSets(k8sv1.NamespaceAll).List(context.Background(), metav1.ListOptions{})
+		util.PanicOnError(err)
+		for _, ds := range dsList.Items {
+			if ds.Status.DesiredNumberScheduled != ds.Status.NumberReady {
+				dsNotReady = append(dsNotReady, ds.Name)
+			}
+		}
+		return dsNotReady
+
+	}
+	Eventually(checkForDaemonSetsReady, timeout, 2*time.Second).Should(BeEmpty(), "There are daemonsets in system which are not ready.")
 }
 
 func waitForAllPodsReady(timeout time.Duration, listOptions metav1.ListOptions) {
@@ -255,4 +277,17 @@ func waitForAllPodsReady(timeout time.Duration, listOptions metav1.ListOptions) 
 		return podsNotReady
 	}
 	Eventually(checkForPodsToBeReady, timeout, 2*time.Second).Should(BeEmpty(), "There are pods in system which are not ready.")
+}
+
+func WaitExportProxyReady() {
+	Eventually(func() bool {
+		virtClient, err := kubecli.GetKubevirtClient()
+		util.PanicOnError(err)
+		d, err := virtClient.AppsV1().Deployments(flags.KubeVirtInstallNamespace).Get(context.TODO(), "virt-exportproxy", metav1.GetOptions{})
+		if errors.IsNotFound(err) {
+			return false
+		}
+		Expect(err).ToNot(HaveOccurred())
+		return d.Status.AvailableReplicas > 0
+	}, 90*time.Second, 1*time.Second).Should(BeTrue())
 }

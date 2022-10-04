@@ -19,17 +19,18 @@ func (VirtualMachineExportList) SwaggerDoc() map[string]string {
 func (VirtualMachineExportSpec) SwaggerDoc() map[string]string {
 	return map[string]string{
 		"":               "VirtualMachineExportSpec is the spec for a VirtualMachineExport resource",
-		"tokenSecretRef": "TokenSecretRef is the name of the secret that contains the token used by the export server pod",
+		"tokenSecretRef": "+optional\nTokenSecretRef is the name of the custom-defined secret that contains the token used by the export server pod",
 	}
 }
 
 func (VirtualMachineExportStatus) SwaggerDoc() map[string]string {
 	return map[string]string{
-		"":            "VirtualMachineExportStatus is the status for a VirtualMachineExport resource",
-		"phase":       "+optional",
-		"links":       "+optional",
-		"serviceName": "+optional\nServiceName is the name of the service created associated with the Virtual Machine export. It will be used to\ncreate the internal URLs for downloading the images",
-		"conditions":  "+optional\n+listType=atomic",
+		"":               "VirtualMachineExportStatus is the status for a VirtualMachineExport resource",
+		"phase":          "+optional",
+		"links":          "+optional",
+		"tokenSecretRef": "+optional\nTokenSecretRef is the name of the secret that contains the token used by the export server pod",
+		"serviceName":    "+optional\nServiceName is the name of the service created associated with the Virtual Machine export. It will be used to\ncreate the internal URLs for downloading the images",
+		"conditions":     "+optional\n+listType=atomic",
 	}
 }
 

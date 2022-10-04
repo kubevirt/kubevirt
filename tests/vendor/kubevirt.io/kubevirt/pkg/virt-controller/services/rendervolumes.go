@@ -17,6 +17,7 @@ import (
 	"kubevirt.io/kubevirt/pkg/network/sriov"
 	"kubevirt.io/kubevirt/pkg/storage/types"
 	"kubevirt.io/kubevirt/pkg/util"
+	"kubevirt.io/kubevirt/pkg/virtiofs"
 )
 
 type VolumeRendererOption func(renderer *VolumeRenderer) error
@@ -313,6 +314,14 @@ func withSidecarVolumes(hookSidecars hooks.HookSidecarList) VolumeRendererOption
 	}
 }
 
+func withVirioFS() VolumeRendererOption {
+	return func(renderer *VolumeRenderer) error {
+		renderer.podVolumeMounts = append(renderer.podVolumeMounts, mountPath(virtiofs.VirtioFSContainers, virtiofs.VirtioFSContainersMountBaseDir))
+		renderer.podVolumes = append(renderer.podVolumes, emptyDirVolume(virtiofs.VirtioFSContainers))
+		return nil
+	}
+}
+
 func withHugepages() VolumeRendererOption {
 	return func(renderer *VolumeRenderer) error {
 		renderer.podVolumes = append(renderer.podVolumes, k8sv1.Volume{
@@ -384,7 +393,7 @@ func (vr *VolumeRenderer) addPVCToLaunchManifest(pvcStore cache.Store, volume v1
 		return err
 	} else if !exists {
 		logger.Errorf("didn't find PVC %v", claimName)
-		return PvcNotFoundError{Reason: fmt.Sprintf("didn't find PVC %v", claimName)}
+		return types.PvcNotFoundError{Reason: fmt.Sprintf("didn't find PVC %v", claimName)}
 	} else if isBlock {
 		devicePath := filepath.Join(string(filepath.Separator), "dev", volume.Name)
 		device := k8sv1.VolumeDevice{

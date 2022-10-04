@@ -20,6 +20,8 @@
 package libvmi
 
 import (
+	"fmt"
+
 	k8sv1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/api/resource"
 
@@ -59,6 +61,30 @@ func WithEmptyDisk(diskName string, bus v1.DiskBus, capacity resource.Quantity) 
 	}
 }
 
+// WithCDRom specifies a CDRom drive backed by a PVC to be used.
+func WithCDRom(cdRomName string, bus v1.DiskBus, claimName string) Option {
+	return func(vmi *v1.VirtualMachineInstance) {
+		addDisk(vmi, newCDRom(cdRomName, bus))
+		addVolume(vmi, newPersistentVolumeClaimVolume(cdRomName, claimName))
+	}
+}
+
+// WithFilesystemPVC specifies a filesystem backed by a PVC to be used.
+func WithFilesystemPVC(claimName string) Option {
+	return func(vmi *v1.VirtualMachineInstance) {
+		addFilesystem(vmi, newFilesystem(claimName))
+		addVolume(vmi, newPersistentVolumeClaimVolume(claimName, claimName))
+	}
+}
+
+// WithFilesystemDV specifies a filesystem backed by a DV to be used.
+func WithFilesystemDV(dataVolumeName string) Option {
+	return func(vmi *v1.VirtualMachineInstance) {
+		addFilesystem(vmi, newFilesystem(dataVolumeName))
+		addVolume(vmi, newDataVolume(dataVolumeName, dataVolumeName))
+	}
+}
+
 func addDisk(vmi *v1.VirtualMachineInstance, disk v1.Disk) {
 	if !diskExists(vmi, disk) {
 		vmi.Spec.Domain.Devices.Disks = append(vmi.Spec.Domain.Devices.Disks, disk)
@@ -69,6 +95,14 @@ func addVolume(vmi *v1.VirtualMachineInstance, volume v1.Volume) {
 	if !volumeExists(vmi, volume) {
 		vmi.Spec.Volumes = append(vmi.Spec.Volumes, volume)
 	}
+}
+
+func addFilesystem(vmi *v1.VirtualMachineInstance, filesystem v1.Filesystem) {
+	if filesystemExists(vmi, filesystem) {
+		panic(fmt.Errorf("filesystem %s already exists", filesystem.Name))
+	}
+
+	vmi.Spec.Domain.Devices.Filesystems = append(vmi.Spec.Domain.Devices.Filesystems, filesystem)
 }
 
 func getVolume(vmi *v1.VirtualMachineInstance, name string) *v1.Volume {
@@ -98,6 +132,15 @@ func volumeExists(vmi *v1.VirtualMachineInstance, volume v1.Volume) bool {
 	return false
 }
 
+func filesystemExists(vmi *v1.VirtualMachineInstance, filesystem v1.Filesystem) bool {
+	for _, f := range vmi.Spec.Domain.Devices.Filesystems {
+		if f.Name == filesystem.Name {
+			return true
+		}
+	}
+	return false
+}
+
 func newDisk(name string, bus v1.DiskBus) v1.Disk {
 	return v1.Disk{
 		Name: name,
@@ -106,6 +149,24 @@ func newDisk(name string, bus v1.DiskBus) v1.Disk {
 				Bus: bus,
 			},
 		},
+	}
+}
+
+func newCDRom(name string, bus v1.DiskBus) v1.Disk {
+	return v1.Disk{
+		Name: name,
+		DiskDevice: v1.DiskDevice{
+			CDRom: &v1.CDRomTarget{
+				Bus: bus,
+			},
+		},
+	}
+}
+
+func newFilesystem(name string) v1.Filesystem {
+	return v1.Filesystem{
+		Name:     name,
+		Virtiofs: &v1.FilesystemVirtiofs{},
 	}
 }
 

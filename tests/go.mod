@@ -14,9 +14,9 @@ require (
 	k8s.io/api v0.24.2
 	k8s.io/apimachinery v0.24.2
 	k8s.io/client-go v12.0.0+incompatible
-	kubevirt.io/api v0.57.1
-	kubevirt.io/client-go v0.57.1
-	kubevirt.io/kubevirt v0.57.1
+	kubevirt.io/api v0.58.0-rc.0
+	kubevirt.io/client-go v0.58.0-rc.0
+	kubevirt.io/kubevirt v0.58.0-rc.0
 	kubevirt.io/qe-tools v0.1.8
 )
 
@@ -61,13 +61,13 @@ require (
 	github.com/pborman/uuid v1.2.0 // indirect
 	github.com/prometheus/client_model v0.2.0 // indirect
 	github.com/prometheus/procfs v0.7.3 // indirect
-	github.com/spf13/cobra v1.4.0 // indirect
+	github.com/spf13/cobra v1.5.0 // indirect
 	github.com/spf13/pflag v1.0.5 // indirect
 	github.com/vishvananda/netns v0.0.0-20210104183010-2eb08e3e575f // indirect
 	golang.org/x/crypto v0.0.0-20220525230936-793ad666bf5e // indirect
 	golang.org/x/net v0.0.0-20220225172249-27dd8689420f // indirect
 	golang.org/x/oauth2 v0.0.0-20220223155221-ee480838109b // indirect
-	golang.org/x/sys v0.0.0-20220412211240-33da011f77ad // indirect
+	golang.org/x/sys v0.0.0-20220503163025-988cb79eb6c6 // indirect
 	golang.org/x/term v0.0.0-20210927222741-03fcf44c2211 // indirect
 	golang.org/x/text v0.3.7 // indirect
 	golang.org/x/time v0.0.0-20220210224613-90d013bbcef8 // indirect
@@ -175,8 +175,8 @@ replace (
 	github.com/kubevirt/cluster-network-addons-operator/pkg/apis => github.com/kubevirt/cluster-network-addons-operator/pkg/apis v0.78.0
 	github.com/openshift/machine-api-operator => github.com/openshift/machine-api-operator v0.2.1-0.20191025120018-fb3724fc7bdf
 	go.mongodb.org/mongo-driver => go.mongodb.org/mongo-driver v1.5.1
-	kubevirt.io/api => kubevirt.io/api v0.57.1
-	kubevirt.io/client-go => kubevirt.io/client-go v0.57.1
+	kubevirt.io/api => kubevirt.io/api v0.58.0-rc.0
+	kubevirt.io/client-go => kubevirt.io/client-go v0.58.0-rc.0
 	kubevirt.io/containerized-data-importer-api => kubevirt.io/containerized-data-importer-api v1.54.0
 )
 

@@ -1,7 +1,10 @@
 package util
 
 import (
+	"crypto/rand"
+	"errors"
 	"fmt"
+	"math/big"
 	"os"
 	"strings"
 
@@ -22,6 +25,9 @@ const (
 	CPUManagerOS3Path                         = HostRootMount + "var/lib/origin/openshift.local.volumes/cpu_manager_state"
 	CPUManagerPath                            = HostRootMount + "var/lib/kubelet/cpu_manager_state"
 )
+
+// Alphanums is the list of alphanumeric characters used to create a securely generated random string
+const Alphanums = "0123456789ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz"
 
 const NonRootUID = 107
 const NonRootUserString = "qemu"
@@ -131,7 +137,7 @@ func UseSoftwareEmulationForDevice(devicePath string, allowEmulation bool) (bool
 	if err == nil {
 		return false, nil
 	}
-	if os.IsNotExist(err) {
+	if errors.Is(err, os.ErrNotExist) {
 		return true, nil
 	}
 	return false, err
@@ -188,13 +194,6 @@ func AlignImageSizeTo1MiB(size int64, logger *log.FilteredLogger) int64 {
 	}
 
 }
-func CanBeNonRoot(vmi *v1.VirtualMachineInstance) error {
-	// VirtioFS doesn't work with session mode
-	if IsVMIVirtiofsEnabled(vmi) {
-		return fmt.Errorf("VirtioFS doesn't work with session mode(used by nonroot)")
-	}
-	return nil
-}
 
 func MarkAsNonroot(vmi *v1.VirtualMachineInstance) {
 	vmi.Status.RuntimeUser = 107
@@ -230,4 +229,18 @@ func CalcExpectedMemoryDumpSize(vmi *v1.VirtualMachineInstance) *resource.Quanti
 	expectedPvcSize := resource.NewQuantity(int64(memoryDumpOverhead), vmiMemoryReq.Format)
 	expectedPvcSize.Add(*vmiMemoryReq)
 	return expectedPvcSize
+}
+
+// GenerateRandomString creates a securely generated random string using crypto/rand
+func GenerateSecureRandomString(n int) (string, error) {
+	ret := make([]byte, n)
+	for i := range ret {
+		num, err := rand.Int(rand.Reader, big.NewInt(int64(len(Alphanums))))
+		if err != nil {
+			return "", err
+		}
+		ret[i] = Alphanums[num.Int64()]
+	}
+
+	return string(ret), nil
 }
