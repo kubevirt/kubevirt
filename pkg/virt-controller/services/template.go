@@ -746,6 +746,7 @@ func (t *templateService) RenderHotplugAttachmentPodTemplate(volumes []*v1.Volum
 							Level: "s0",
 							Type:  t.clusterConfig.GetSELinuxLauncherType(),
 						},
+						SeccompProfile: &k8sv1.SeccompProfile{Type: k8sv1.SeccompProfileTypeRuntimeDefault},
 					},
 					VolumeMounts: []k8sv1.VolumeMount{
 						{
@@ -775,6 +776,7 @@ func (t *templateService) RenderHotplugAttachmentPodTemplate(volumes []*v1.Volum
 			},
 			Volumes:                       []k8sv1.Volume{emptyDirVolume(hotplugDisks)},
 			TerminationGracePeriodSeconds: &zero,
+			SecurityContext:               &k8sv1.PodSecurityContext{SeccompProfile: &k8sv1.SeccompProfile{Type: k8sv1.SeccompProfileTypeRuntimeDefault}},
 		},
 	}
 
@@ -879,6 +881,7 @@ func (t *templateService) RenderHotplugAttachmentTriggerPodTemplate(volume *v1.V
 							Type:  t.clusterConfig.GetSELinuxLauncherType(),
 							Level: "s0",
 						},
+						SeccompProfile: &k8sv1.SeccompProfile{Type: k8sv1.SeccompProfileTypeRuntimeDefault},
 					},
 					VolumeMounts: []k8sv1.VolumeMount{
 						{
@@ -914,6 +917,7 @@ func (t *templateService) RenderHotplugAttachmentTriggerPodTemplate(volume *v1.V
 				emptyDirVolume(hotplugDisks),
 			},
 			TerminationGracePeriodSeconds: &zero,
+			SecurityContext:               &k8sv1.PodSecurityContext{SeccompProfile: &k8sv1.SeccompProfile{Type: k8sv1.SeccompProfileTypeRuntimeDefault}},
 		},
 	}
 
