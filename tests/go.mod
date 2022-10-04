@@ -3,7 +3,7 @@ module github.com/kubevirt/hyperconverged-cluster-operator/tests
 go 1.18
 
 require (
-	github.com/kubevirt/cluster-network-addons-operator v0.78.0
+	github.com/kubevirt/cluster-network-addons-operator v0.79.0
 	github.com/onsi/ginkgo/v2 v2.1.3
 	github.com/onsi/gomega v1.19.0
 	github.com/openshift/api v3.9.1-0.20190924102528-32369d4db2ad+incompatible
@@ -171,8 +171,8 @@ replace (
 	github.com/coreos/prometheus-operator/pkg/apis/monitoring => github.com/prometheus-operator/prometheus-operator/pkg/apis/monitoring v0.52.1
 	github.com/go-kit/kit => github.com/go-kit/kit v0.9.0
 	github.com/googleapis/gnostic => github.com/googleapis/gnostic v0.5.1 // indirect
-	github.com/kubevirt/cluster-network-addons-operator => github.com/kubevirt/cluster-network-addons-operator v0.78.0
-	github.com/kubevirt/cluster-network-addons-operator/pkg/apis => github.com/kubevirt/cluster-network-addons-operator/pkg/apis v0.78.0
+	github.com/kubevirt/cluster-network-addons-operator => github.com/kubevirt/cluster-network-addons-operator v0.79.0
+	github.com/kubevirt/cluster-network-addons-operator/pkg/apis => github.com/kubevirt/cluster-network-addons-operator/pkg/apis v0.79.0
 	github.com/openshift/machine-api-operator => github.com/openshift/machine-api-operator v0.2.1-0.20191025120018-fb3724fc7bdf
 	go.mongodb.org/mongo-driver => go.mongodb.org/mongo-driver v1.5.1
 	kubevirt.io/api => kubevirt.io/api v0.58.0-rc.0
