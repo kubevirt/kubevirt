@@ -45,6 +45,7 @@ const (
 	NonRoot                    = "NonRootExperimental"
 	ClusterProfiler            = "ClusterProfiler"
 	WorkloadEncryptionSEV      = "WorkloadEncryptionSEV"
+	PSA                        = "PSA"
 )
 
 func (c *ClusterConfig) isFeatureGateEnabled(featureGate string) bool {
@@ -135,4 +136,8 @@ func (config *ClusterConfig) ClusterProfilerEnabled() bool {
 
 func (config *ClusterConfig) WorkloadEncryptionSEVEnabled() bool {
 	return config.isFeatureGateEnabled(WorkloadEncryptionSEV)
+}
+
+func (config *ClusterConfig) PSAEnabled() bool {
+	return config.isFeatureGateEnabled(PSA)
 }

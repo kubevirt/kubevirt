@@ -65,6 +65,7 @@ import (
 	vmiprom "kubevirt.io/kubevirt/pkg/monitoring/vmistats" // import for prometheus metrics
 	"kubevirt.io/kubevirt/pkg/service"
 	"kubevirt.io/kubevirt/pkg/util"
+	clusterutil "kubevirt.io/kubevirt/pkg/util/cluster"
 	"kubevirt.io/kubevirt/pkg/util/webhooks"
 	virtconfig "kubevirt.io/kubevirt/pkg/virt-config"
 	"kubevirt.io/kubevirt/pkg/virt-controller/leaderelectionconfig"
@@ -138,6 +139,8 @@ type VirtControllerApp struct {
 	vmiController *VMIController
 	vmiInformer   cache.SharedIndexInformer
 	vmiRecorder   record.EventRecorder
+
+	namespaceStore cache.Store
 
 	kubeVirtInformer cache.SharedIndexInformer
 
@@ -227,6 +230,8 @@ type VirtControllerApp struct {
 	nodeTopologyUpdatePeriod time.Duration
 	reloadableRateLimiter    *ratelimiter.ReloadableRateLimiter
 	leaderElector            *leaderelection.LeaderElector
+
+	onOpenshift bool
 }
 
 var _ service.Service = &VirtControllerApp{}
@@ -316,7 +321,7 @@ func Execute() {
 	app.vmiInformer = app.informerFactory.VMI()
 	app.kvPodInformer = app.informerFactory.KubeVirtPod()
 	app.nodeInformer = app.informerFactory.KubeVirtNode()
-
+	app.namespaceStore = app.informerFactory.Namespace().GetStore()
 	app.vmiCache = app.vmiInformer.GetStore()
 	app.vmiRecorder = app.newRecorder(k8sv1.NamespaceAll, "virtualmachine-controller")
 
@@ -359,6 +364,12 @@ func Execute() {
 	app.clusterFlavorInformer = app.informerFactory.VirtualMachineClusterFlavor()
 
 	app.migrationPolicyInformer = app.informerFactory.MigrationPolicy()
+
+	onOpenShift, err := clusterutil.IsOnOpenShift(app.clientSet)
+	if err != nil {
+		golog.Fatalf("Error determining cluster type: %v", err)
+	}
+	app.onOpenshift = onOpenShift
 
 	app.initCommon()
 	app.initReplicaSet()
@@ -512,6 +523,8 @@ func (vca *VirtControllerApp) initCommon() {
 		vca.cdiConfigInformer,
 		vca.clusterConfig,
 		topologyHinter,
+		vca.namespaceStore,
+		vca.onOpenshift,
 	)
 
 	recorder := vca.newRecorder(k8sv1.NamespaceAll, "node-controller")
@@ -528,6 +541,8 @@ func (vca *VirtControllerApp) initCommon() {
 		vca.vmiRecorder,
 		vca.clientSet,
 		vca.clusterConfig,
+		vca.namespaceStore,
+		vca.onOpenshift,
 	)
 
 	vca.nodeTopologyUpdater = topology.NewNodeTopologyUpdater(vca.clientSet, topologyHinter, vca.nodeInformer)
