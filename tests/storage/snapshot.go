@@ -792,6 +792,35 @@ var _ = SIGDescribe("VirtualMachineSnapshot Tests", func() {
 				Expect(stderr).Should(ContainSubstring(noGuestAgentString))
 			})
 
+			It("Calling Velero hooks should not error if VM Paused", func() {
+				By("Creating VM")
+				vmi := tests.NewRandomFedoraVMIWithGuestAgent()
+				vmi.Namespace = util.NamespaceTestDefault
+				vm = tests.NewRandomVirtualMachine(vmi, false)
+
+				vm, vmi = createAndStartVM(vm)
+				tests.WaitForSuccessfulVMIStartWithTimeout(vmi, 300)
+				tests.WaitAgentConnected(virtClient, vmi)
+
+				By("Logging into Fedora")
+				Expect(console.LoginToFedora(vmi)).To(Succeed())
+
+				By("Pausing the VirtualMachineInstance")
+				err := virtClient.VirtualMachineInstance(vmi.Namespace).Pause(vmi.Name, &v1.PauseOptions{})
+				Expect(err).ToNot(HaveOccurred())
+				tests.WaitForVMICondition(virtClient, vmi, v1.VirtualMachineInstancePaused, 30)
+
+				By("Calling Velero pre-backup hook")
+				_, stderr, err := callVeleroHook(vmi, VELERO_PREBACKUP_HOOK_CONTAINER_ANNOTATION, VELERO_PREBACKUP_HOOK_COMMAND_ANNOTATION)
+				Expect(err).ToNot(HaveOccurred())
+				Expect(stderr).Should(ContainSubstring("Paused"))
+
+				By("Calling Velero post-backup hook")
+				_, stderr, err = callVeleroHook(vmi, VELERO_POSTBACKUP_HOOK_CONTAINER_ANNOTATION, VELERO_POSTBACKUP_HOOK_COMMAND_ANNOTATION)
+				Expect(err).ToNot(HaveOccurred())
+				Expect(stderr).Should(ContainSubstring("Paused"))
+			})
+
 			Context("with memory dump", func() {
 				var memoryDumpPVC *corev1.PersistentVolumeClaim
 				const memoryDumpPVCName = "fs-pvc"
