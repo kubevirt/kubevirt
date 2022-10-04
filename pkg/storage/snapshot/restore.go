@@ -878,11 +878,16 @@ func CreateRestorePVCDef(restorePVCName string, volumeSnapshot *vsv1.VolumeSnaps
 	}
 
 	apiGroup := vsv1.GroupName
-	pvc.Spec.DataSource = &corev1.TypedLocalObjectReference{
+	dataSource := corev1.TypedLocalObjectReference{
 		APIGroup: &apiGroup,
 		Kind:     "VolumeSnapshot",
 		Name:     *volumeBackup.VolumeSnapshotName,
 	}
+
+	// We need to overwrite both dataSource and dataSourceRef to avoid incompatibilities between the two
+	pvc.Spec.DataSource = &dataSource
+	pvc.Spec.DataSourceRef = &dataSource
+
 	pvc.Spec.VolumeName = ""
 	return pvc
 }
