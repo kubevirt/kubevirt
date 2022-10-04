@@ -784,6 +784,12 @@ rules:
 - apiGroups:
   - subresources.kubevirt.io
   resources:
+  - virtualmachines/expand-spec
+  verbs:
+  - get
+- apiGroups:
+  - subresources.kubevirt.io
+  resources:
   - virtualmachines/start
   - virtualmachines/stop
   - virtualmachines/restart
@@ -791,6 +797,12 @@ rules:
   - virtualmachines/removevolume
   - virtualmachines/migrate
   - virtualmachines/memorydump
+  verbs:
+  - update
+- apiGroups:
+  - subresources.kubevirt.io
+  resources:
+  - expand-spec
   verbs:
   - update
 - apiGroups:
@@ -889,6 +901,12 @@ rules:
 - apiGroups:
   - subresources.kubevirt.io
   resources:
+  - virtualmachines/expand-spec
+  verbs:
+  - get
+- apiGroups:
+  - subresources.kubevirt.io
+  resources:
   - virtualmachines/start
   - virtualmachines/stop
   - virtualmachines/restart
@@ -896,6 +914,12 @@ rules:
   - virtualmachines/removevolume
   - virtualmachines/migrate
   - virtualmachines/memorydump
+  verbs:
+  - update
+- apiGroups:
+  - subresources.kubevirt.io
+  resources:
+  - expand-spec
   verbs:
   - update
 - apiGroups:
@@ -973,11 +997,18 @@ rules:
 - apiGroups:
   - subresources.kubevirt.io
   resources:
+  - virtualmachines/expand-spec
   - virtualmachineinstances/guestosinfo
   - virtualmachineinstances/filesystemlist
   - virtualmachineinstances/userlist
   verbs:
   - get
+- apiGroups:
+  - subresources.kubevirt.io
+  resources:
+  - expand-spec
+  verbs:
+  - update
 - apiGroups:
   - kubevirt.io
   resources:
