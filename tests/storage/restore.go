@@ -18,7 +18,9 @@ import (
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/types"
 	"k8s.io/apimachinery/pkg/util/rand"
+	"k8s.io/utils/pointer"
 
+	clonev1alpha1 "kubevirt.io/api/clone/v1alpha1"
 	"kubevirt.io/api/core"
 	v1 "kubevirt.io/api/core/v1"
 	snapshotv1 "kubevirt.io/api/snapshot/v1alpha1"
@@ -893,6 +895,32 @@ var _ = SIGDescribe("VirtualMachineRestore Tests", func() {
 				verifyOwnerRef(pvc, "cdi.kubevirt.io/v1beta1", "DataVolume", dv.Name, dv.UID)
 			}
 
+			cloneVM := func(sourceVMName, targetVMName string) {
+				By("Creating VM clone")
+				vmClone := kubecli.NewMinimalCloneWithNS("testclone", util.NamespaceTestDefault)
+				cloneSourceRef := &corev1.TypedLocalObjectReference{
+					APIGroup: pointer.String(groupName),
+					Kind:     "VirtualMachine",
+					Name:     sourceVMName,
+				}
+				cloneTargetRef := cloneSourceRef.DeepCopy()
+				cloneTargetRef.Name = targetVMName
+				vmClone.Spec.Source = cloneSourceRef
+				vmClone.Spec.Target = cloneTargetRef
+
+				By(fmt.Sprintf("Creating clone object %s", vmClone.Name))
+				vmClone, err = virtClient.VirtualMachineClone(vmClone.Namespace).Create(context.Background(), vmClone, metav1.CreateOptions{})
+				Expect(err).ShouldNot(HaveOccurred())
+
+				By(fmt.Sprintf("Waiting for the clone %s to finish", vmClone.Name))
+				Eventually(func() clonev1alpha1.VirtualMachineClonePhase {
+					vmClone, err = virtClient.VirtualMachineClone(vmClone.Namespace).Get(context.Background(), vmClone.Name, metav1.GetOptions{})
+					Expect(err).ShouldNot(HaveOccurred())
+
+					return vmClone.Status.Phase
+				}, 3*time.Minute, 3*time.Second).Should(Equal(clonev1alpha1.Succeeded), "clone should finish successfully")
+			}
+
 			It("[test_id:5259]should restore a vm multiple from the same snapshot", func() {
 				vm, vmi = createAndStartVM(tests.NewRandomVMWithDataVolumeAndUserDataInStorageClass(
 					cd.DataVolumeImportUrlForContainerDisk(cd.ContainerDiskCirros),
@@ -1403,6 +1431,32 @@ var _ = SIGDescribe("VirtualMachineRestore Tests", func() {
 				vmi, err = virtClient.VirtualMachineInstance(vm.Namespace).Get(vm.Name, &metav1.GetOptions{})
 				Expect(err).ToNot(HaveOccurred())
 				Expect(vmi.Spec.Domain.Resources.Requests[corev1.ResourceMemory]).To(Equal(initialMemory))
+			})
+
+			It("should restore an already cloned virtual machine", func() {
+				vm, vmi = createAndStartVM(tests.NewRandomVMWithDataVolumeWithRegistryImport(
+					cd.DataVolumeImportUrlForContainerDisk(cd.ContainerDiskFedoraTestTooling),
+					util.NamespaceTestDefault,
+					snapshotStorageClass,
+					corev1.ReadWriteOnce))
+
+				targetVMName := vm.Name + "-clone"
+				cloneVM(vm.Name, targetVMName)
+
+				By(fmt.Sprintf("Getting the cloned VM %s", targetVMName))
+				targetVM, err := virtClient.VirtualMachine(vm.Namespace).Get(targetVMName, &metav1.GetOptions{})
+				Expect(err).ShouldNot(HaveOccurred())
+
+				By(creatingSnapshot)
+				snapshot = createSnapshot(targetVM)
+				newVM = tests.StopVirtualMachine(targetVM)
+
+				By("Restoring cloned VM")
+				restore = createRestoreDef(newVM.Name, snapshot.Name)
+				restore, err = virtClient.VirtualMachineRestore(targetVM.Namespace).Create(context.Background(), restore, metav1.CreateOptions{})
+				Expect(err).ToNot(HaveOccurred())
+				restore = waitRestoreComplete(restore, newVM.Name, &newVM.UID)
+				Expect(restore.Status.Restores).To(HaveLen(1))
 			})
 
 			DescribeTable("should restore vm with hot plug disks", func(restoreToNewVM bool) {
