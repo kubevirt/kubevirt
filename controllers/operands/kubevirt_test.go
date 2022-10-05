@@ -6,6 +6,8 @@ import (
 	"os"
 	"time"
 
+	openshiftconfigv1 "github.com/openshift/api/config/v1"
+
 	"k8s.io/utils/pointer"
 
 	. "github.com/onsi/ginkgo/v2"
@@ -2997,5 +2999,158 @@ Version: 1.2.3`)
 				},
 			))
 		})
+	})
+
+	Context("TLSSecurityProfile", func() {
+
+		var hco *hcov1beta1.HyperConverged
+		var req *common.HcoRequest
+
+		BeforeEach(func() {
+			hco = commonTestUtils.NewHco()
+			req = commonTestUtils.NewReq(hco)
+		})
+
+		oldTLSSecurityProfile := &openshiftconfigv1.TLSSecurityProfile{
+			Type: openshiftconfigv1.TLSProfileOldType,
+			Old:  &openshiftconfigv1.OldTLSProfile{},
+		}
+		intermediateTLSSecurityProfile := &openshiftconfigv1.TLSSecurityProfile{
+			Type:         openshiftconfigv1.TLSProfileIntermediateType,
+			Intermediate: &openshiftconfigv1.IntermediateTLSProfile{},
+		}
+		modernTLSSecurityProfile := &openshiftconfigv1.TLSSecurityProfile{
+			Type:   openshiftconfigv1.TLSProfileModernType,
+			Modern: &openshiftconfigv1.ModernTLSProfile{},
+		}
+
+		kvOldCiphers := []string{
+			"TLS_ECDHE_ECDSA_WITH_AES_128_GCM_SHA256",
+			"TLS_ECDHE_RSA_WITH_AES_128_GCM_SHA256",
+			"TLS_ECDHE_ECDSA_WITH_AES_256_GCM_SHA384",
+			"TLS_ECDHE_RSA_WITH_AES_256_GCM_SHA384",
+			"TLS_ECDHE_ECDSA_WITH_CHACHA20_POLY1305_SHA256",
+			"TLS_ECDHE_RSA_WITH_CHACHA20_POLY1305_SHA256",
+			"TLS_ECDHE_ECDSA_WITH_AES_128_CBC_SHA256",
+			"TLS_ECDHE_RSA_WITH_AES_128_CBC_SHA256",
+			"TLS_ECDHE_ECDSA_WITH_AES_128_CBC_SHA",
+			"TLS_ECDHE_RSA_WITH_AES_128_CBC_SHA",
+			"TLS_ECDHE_ECDSA_WITH_AES_256_CBC_SHA",
+			"TLS_ECDHE_RSA_WITH_AES_256_CBC_SHA",
+			"TLS_RSA_WITH_AES_128_GCM_SHA256",
+			"TLS_RSA_WITH_AES_256_GCM_SHA384",
+			"TLS_RSA_WITH_AES_128_CBC_SHA256",
+			"TLS_RSA_WITH_AES_128_CBC_SHA",
+			"TLS_RSA_WITH_AES_256_CBC_SHA",
+			"TLS_RSA_WITH_3DES_EDE_CBC_SHA",
+		}
+
+		kvIntermediateCiphers := []string{
+			"TLS_ECDHE_ECDSA_WITH_AES_128_GCM_SHA256",
+			"TLS_ECDHE_RSA_WITH_AES_128_GCM_SHA256",
+			"TLS_ECDHE_ECDSA_WITH_AES_256_GCM_SHA384",
+			"TLS_ECDHE_RSA_WITH_AES_256_GCM_SHA384",
+			"TLS_ECDHE_ECDSA_WITH_CHACHA20_POLY1305_SHA256",
+			"TLS_ECDHE_RSA_WITH_CHACHA20_POLY1305_SHA256",
+		}
+
+		// it's not possible to specify ciphers when minTLSVersion is 1.3
+		var kvModernCiphers []string = nil
+
+		DescribeTable("should modify TLSSecurityProfile on Kubevirt CR according to ApiServer or HCO CR",
+			func(hcoTLSSecurityProfile *openshiftconfigv1.TLSSecurityProfile, expectedKubevirtTLSVersion kubevirtcorev1.TLSProtocolVersion, expectedKubevirtCiphers []string) {
+				existingResource, err := NewKubeVirt(hco)
+				Expect(err).ToNot(HaveOccurred())
+				Expect(existingResource.Spec.Configuration.TLSConfiguration.MinTLSVersion).To(Equal(kubevirtcorev1.VersionTLS12))
+				Expect(existingResource.Spec.Configuration.TLSConfiguration.Ciphers).To(Equal(kvIntermediateCiphers))
+
+				// now, modify HCO's TLSSecurityProfile
+				hco.Spec.TLSSecurityProfile = hcoTLSSecurityProfile
+
+				cl := commonTestUtils.InitClient([]runtime.Object{hco, existingResource})
+				handler := (*genericOperand)(newKubevirtHandler(cl, commonTestUtils.GetScheme()))
+				res := handler.ensure(req)
+				Expect(res.UpgradeDone).To(BeFalse())
+				Expect(res.Updated).To(BeTrue())
+				Expect(res.Err).ToNot(HaveOccurred())
+
+				foundResource := &kubevirtcorev1.KubeVirt{}
+				Expect(
+					cl.Get(context.TODO(),
+						types.NamespacedName{Name: existingResource.Name, Namespace: existingResource.Namespace},
+						foundResource),
+				).ToNot(HaveOccurred())
+
+				Expect(foundResource.Spec.Configuration.TLSConfiguration.MinTLSVersion).To(Equal(expectedKubevirtTLSVersion))
+				Expect(foundResource.Spec.Configuration.TLSConfiguration.Ciphers).To(Equal(expectedKubevirtCiphers))
+
+				Expect(req.Conditions).To(BeEmpty())
+			},
+			Entry("Setting Old TLSSecurityProfile on HCO",
+				oldTLSSecurityProfile,
+				kubevirtcorev1.VersionTLS10,
+				kvOldCiphers,
+			),
+			Entry("Setting Modern TLSSecurityProfile on HCO",
+				modernTLSSecurityProfile,
+				kubevirtcorev1.VersionTLS13,
+				kvModernCiphers,
+			),
+			Entry("Setting Custom TLSSecurityProfile on HCO",
+				&openshiftconfigv1.TLSSecurityProfile{
+					Type: openshiftconfigv1.TLSProfileCustomType,
+					Custom: &openshiftconfigv1.CustomTLSProfile{
+						TLSProfileSpec: openshiftconfigv1.TLSProfileSpec{
+							Ciphers: []string{
+								"ECDHE-ECDSA-AES256-GCM-SHA384",
+								"ECDHE-RSA-CHACHA20-POLY1305",
+								"ECDHE-RSA-AES128-SHA256",
+							},
+							MinTLSVersion: openshiftconfigv1.VersionTLS11,
+						},
+					},
+				},
+				kubevirtcorev1.VersionTLS11,
+				[]string{
+					"TLS_ECDHE_ECDSA_WITH_AES_256_GCM_SHA384",
+					"TLS_ECDHE_RSA_WITH_CHACHA20_POLY1305_SHA256",
+					"TLS_ECDHE_RSA_WITH_AES_128_CBC_SHA256",
+				},
+			),
+		)
+
+		It("should overwrite TLSSecurityProfile if directly set on Kubevirt CR", func() {
+			hco.Spec.TLSSecurityProfile = intermediateTLSSecurityProfile
+			existingResource, err := NewKubeVirt(hco)
+			Expect(err).ToNot(HaveOccurred())
+
+			// mock a reconciliation triggered by a change in Kubevirt CR
+			req.HCOTriggered = false
+
+			// now, modify Kubevirt TLSConfiguration
+			existingResource.Spec.Configuration.TLSConfiguration.MinTLSVersion = kubevirtcorev1.VersionTLS13
+			existingResource.Spec.Configuration.TLSConfiguration.Ciphers = kvModernCiphers
+
+			cl := commonTestUtils.InitClient([]runtime.Object{hco, existingResource})
+			handler := (*genericOperand)(newKubevirtHandler(cl, commonTestUtils.GetScheme()))
+			res := handler.ensure(req)
+			Expect(res.UpgradeDone).To(BeFalse())
+			Expect(res.Updated).To(BeTrue())
+			Expect(res.Overwritten).To(BeTrue())
+			Expect(res.Err).ToNot(HaveOccurred())
+
+			foundResource := &kubevirtcorev1.KubeVirt{}
+			Expect(
+				cl.Get(context.TODO(),
+					types.NamespacedName{Name: existingResource.Name, Namespace: existingResource.Namespace},
+					foundResource),
+			).ToNot(HaveOccurred())
+
+			Expect(foundResource.Spec.Configuration.TLSConfiguration.MinTLSVersion).To(Equal(kubevirtcorev1.VersionTLS12))
+			Expect(foundResource.Spec.Configuration.TLSConfiguration.Ciphers).To(Equal(kvIntermediateCiphers))
+
+			Expect(req.Conditions).To(BeEmpty())
+		})
+
 	})
 })

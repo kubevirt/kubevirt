@@ -8,6 +8,10 @@ import (
 	"strconv"
 	"strings"
 
+	"github.com/openshift/library-go/pkg/crypto"
+
+	openshiftconfigv1 "github.com/openshift/api/config/v1"
+
 	corev1 "k8s.io/api/core/v1"
 	schedulingv1 "k8s.io/api/scheduling/v1"
 	"k8s.io/apimachinery/pkg/api/resource"
@@ -318,6 +322,7 @@ func getKVConfig(hc *hcov1beta1.HyperConverged) (*kubevirtcorev1.KubeVirtConfigu
 		MediatedDevicesConfiguration: toKvMediatedDevicesConfiguration(hc.Spec.MediatedDevicesConfiguration),
 		ObsoleteCPUModels:            obsoleteCPUs,
 		MinCPUModel:                  minCPUModel,
+		TLSConfiguration:             hcTLSSecurityProfileToKv(hcoutil.GetClusterInfo().GetTLSSecurityProfile(hc.Spec.TLSSecurityProfile)),
 	}
 
 	if smbiosConfig, ok := os.LookupEnv(smbiosEnvName); ok {
@@ -452,6 +457,47 @@ func hcLiveMigrationToKv(lm hcov1beta1.LiveMigrationConfigurations) (*kubevirtco
 		ProgressTimeout:                   lm.ProgressTimeout,
 		Network:                           lm.Network,
 	}, nil
+}
+
+func hcTLSProtocolVersionToKv(profileMinVersion openshiftconfigv1.TLSProtocolVersion) kubevirtcorev1.TLSProtocolVersion {
+	switch profileMinVersion {
+	case openshiftconfigv1.VersionTLS10:
+		return kubevirtcorev1.VersionTLS10
+
+	case openshiftconfigv1.VersionTLS11:
+		return kubevirtcorev1.VersionTLS11
+
+	case openshiftconfigv1.VersionTLS12:
+		return kubevirtcorev1.VersionTLS12
+
+	case openshiftconfigv1.VersionTLS13:
+		return kubevirtcorev1.VersionTLS13
+
+	default:
+		return kubevirtcorev1.VersionTLS12
+	}
+}
+
+func hcTLSSecurityProfileToKv(profile *openshiftconfigv1.TLSSecurityProfile) *kubevirtcorev1.TLSConfiguration {
+	var profileCiphers []string
+	var profileMinVersion openshiftconfigv1.TLSProtocolVersion
+
+	if profile == nil {
+		return nil
+	}
+
+	if profile.Custom != nil {
+		profileCiphers = profile.Custom.TLSProfileSpec.Ciphers
+		profileMinVersion = profile.Custom.TLSProfileSpec.MinTLSVersion
+	} else {
+		profileCiphers = openshiftconfigv1.TLSProfiles[profile.Type].Ciphers
+		profileMinVersion = openshiftconfigv1.TLSProfiles[profile.Type].MinTLSVersion
+	}
+
+	return &kubevirtcorev1.TLSConfiguration{
+		MinTLSVersion: hcTLSProtocolVersionToKv(profileMinVersion),
+		Ciphers:       crypto.OpenSSLToIANACipherSuites(profileCiphers),
+	}
 }
 
 func getKVDevConfig(hc *hcov1beta1.HyperConverged) (*kubevirtcorev1.DeveloperConfiguration, error) {

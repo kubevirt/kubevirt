@@ -1036,7 +1036,24 @@ var _ = Describe("HyperconvergedController", func() {
 				checkAvailability(foundResource, metav1.ConditionTrue)
 				Expect(foundResource.Spec.TLSSecurityProfile).To(BeNil(), "TLSSecurityProfile on HCO CR should still be nil")
 
-				// TODO: check also Kubevirt once managed
+				By("Verify that Kubevirt was properly configured with initialTLSSecurityProfile", func() {
+					kv := operands.NewKubeVirtWithNameOnly(foundResource)
+					Expect(
+						cl.Get(context.TODO(),
+							types.NamespacedName{Name: kv.Name, Namespace: kv.Namespace},
+							kv),
+					).To(Succeed())
+
+					Expect(kv.Spec.Configuration.TLSConfiguration.MinTLSVersion).To(Equal(kubevirtcorev1.VersionTLS12))
+					Expect(kv.Spec.Configuration.TLSConfiguration.Ciphers).To(Equal([]string{
+						"TLS_ECDHE_ECDSA_WITH_AES_128_GCM_SHA256",
+						"TLS_ECDHE_RSA_WITH_AES_128_GCM_SHA256",
+						"TLS_ECDHE_ECDSA_WITH_AES_256_GCM_SHA384",
+						"TLS_ECDHE_RSA_WITH_AES_256_GCM_SHA384",
+						"TLS_ECDHE_ECDSA_WITH_CHACHA20_POLY1305_SHA256",
+						"TLS_ECDHE_RSA_WITH_CHACHA20_POLY1305_SHA256",
+					}))
+				})
 				By("Verify that CDI was properly configured with initialTLSSecurityProfile", func() {
 					cdi := operands.NewCDIWithNameOnly(foundResource)
 					Expect(
@@ -1097,7 +1114,19 @@ var _ = Describe("HyperconvergedController", func() {
 
 				Expect(hcoutil.GetClusterInfo().GetTLSSecurityProfile(expected.hco.Spec.TLSSecurityProfile)).To(Equal(customTLSSecurityProfile), "should return the up-to-date value")
 
-				// TODO: check also Kubevirt once managed
+				By("Verify that Kubevirt was properly updated with customTLSSecurityProfile", func() {
+					kv := operands.NewKubeVirtWithNameOnly(foundResource)
+					Expect(
+						cl.Get(context.TODO(),
+							types.NamespacedName{Name: kv.Name, Namespace: kv.Namespace},
+							kv),
+					).To(Succeed())
+
+					Expect(kv.Spec.Configuration.TLSConfiguration.MinTLSVersion).To(Equal(kubevirtcorev1.VersionTLS13))
+					// it's not possible to specify ciphers when minTLSVersion is 1.3
+					Expect(kv.Spec.Configuration.TLSConfiguration.Ciphers).To(BeNil())
+
+				})
 				By("Verify that CDI was properly updated with customTLSSecurityProfile", func() {
 					cdi := operands.NewCDIWithNameOnly(foundResource)
 					Expect(
