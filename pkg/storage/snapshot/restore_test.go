@@ -32,7 +32,7 @@ import (
 	"kubevirt.io/kubevirt/pkg/util/status"
 )
 
-var _ = Describe("Restore controlleer", func() {
+var _ = Describe("Restore controller", func() {
 	const (
 		testNamespace  = "default"
 		uid            = "uid"
@@ -173,6 +173,24 @@ var _ = Describe("Restore controlleer", func() {
 				RestoreSize: &restoreSize,
 			},
 		}
+	}
+
+	createPVCsForVMWithDataSourceRef := func(vm *v1.VirtualMachine) []corev1.PersistentVolumeClaim {
+		var pvcs []corev1.PersistentVolumeClaim
+		for i, dv := range vm.Spec.DataVolumeTemplates {
+			pvc := corev1.PersistentVolumeClaim{
+				ObjectMeta: metav1.ObjectMeta{
+					Namespace: vm.Namespace,
+					Name:      dv.Name,
+				},
+				Spec: *dv.Spec.PVC,
+			}
+			pvc.Spec.DataSourceRef = dv.Spec.PVC.DataSource
+			pvc.Spec.VolumeName = fmt.Sprintf("volume%d", i+1)
+			pvc.ResourceVersion = "1"
+			pvcs = append(pvcs, pvc)
+		}
+		return pvcs
 	}
 
 	Context("One valid Restore controller given", func() {
@@ -881,6 +899,43 @@ var _ = Describe("Restore controlleer", func() {
 
 			})
 		})
+
+		It("should create restore PVCs with populated dataSourceRef and dataSource", func() {
+			// Mock the restore environment from scratch, so we use source PVCs with dataSourceRef
+			vm := createSnapshotVM()
+			pvcs := createPVCsForVMWithDataSourceRef(vm)
+			s := createSnapshot()
+			sc := createVirtualMachineSnapshotContent(s, vm, pvcs)
+			storageClass := createStorageClass()
+			s.Status.VirtualMachineSnapshotContentName = &sc.Name
+			sc.Status = &snapshotv1.VirtualMachineSnapshotContentStatus{
+				CreationTime: timeFunc(),
+				ReadyToUse:   &t,
+			}
+			vmSnapshotSource.Add(s)
+			vmSnapshotContentSource.Add(sc)
+			storageClassSource.Add(storageClass)
+
+			// Actual test
+			r := createRestoreWithOwner()
+			vm = createModifiedVM()
+			r.Status = &snapshotv1.VirtualMachineRestoreStatus{
+				Complete: &f,
+				Conditions: []snapshotv1.Condition{
+					newProgressingCondition(corev1.ConditionTrue, "Creating new PVCs"),
+					newReadyCondition(corev1.ConditionFalse, "Waiting for new PVCs"),
+				},
+			}
+			vmSource.Add(vm)
+			addVolumeRestores(r)
+			pvcSize := resource.MustParse("2Gi")
+			vs := createVolumeSnapshot(r.Status.Restores[0].VolumeSnapshotName, pvcSize)
+			fakeVolumeSnapshotProvider.Add(vs)
+			expectUpdateVMRestoreInProgress(vm)
+			expectPVCCreateWithDataSourceRef(k8sClient, r, pvcSize)
+			addVirtualMachineRestore(r)
+			controller.processVMRestoreWorkItem()
+		})
 	})
 })
 
@@ -899,6 +954,30 @@ func expectPVCCreates(client *k8sfake.Clientset, vmRestore *snapshotv1.VirtualMa
 			}
 		}
 		Expect(found).To(BeTrue())
+
+		return true, create.GetObject(), nil
+	})
+}
+
+func expectPVCCreateWithDataSourceRef(client *k8sfake.Clientset, vmRestore *snapshotv1.VirtualMachineRestore, expectedSize resource.Quantity) {
+	client.Fake.PrependReactor("create", "persistentvolumeclaims", func(action testing.Action) (handled bool, obj runtime.Object, err error) {
+		create, ok := action.(testing.CreateAction)
+		Expect(ok).To(BeTrue())
+
+		createObj := create.GetObject().(*corev1.PersistentVolumeClaim)
+		found := false
+		for _, vr := range vmRestore.Status.Restores {
+			if vr.PersistentVolumeClaimName == createObj.Name {
+				Expect(createObj.Spec.Resources.Requests[corev1.ResourceStorage]).To(Equal(expectedSize))
+				found = true
+				break
+			}
+		}
+		Expect(found).To(BeTrue())
+
+		Expect(createObj.Spec.DataSource).ToNot(BeNil())
+		Expect(createObj.Spec.DataSourceRef).ToNot(BeNil())
+		Expect(createObj.Spec.DataSource).To(Equal(createObj.Spec.DataSourceRef))
 
 		return true, create.GetObject(), nil
 	})
