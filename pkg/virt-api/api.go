@@ -522,6 +522,10 @@ func (app *virtAPIApp) composeSubresources() {
 				list.APIVersion = version.Version
 				list.APIResources = []metav1.APIResource{
 					{
+						Name:       "expand-vm-spec",
+						Namespaced: true,
+					},
+					{
 						Name:       "virtualmachineinstances/vnc",
 						Namespaced: true,
 					},
