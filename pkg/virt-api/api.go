@@ -389,13 +389,6 @@ func (app *virtAPIApp) composeSubresources() {
 			Returns(http.StatusBadRequest, httpStatusBadRequestMessage, "").
 			Returns(http.StatusInternalServerError, httpStatusInternalServerError, ""))
 
-		// An empty handler function would respond with HTTP OK by default
-		subws.Route(subws.GET(definitions.NamespacedResourcePath(subresourcesvmiGVR) + definitions.SubResourcePath("test")).
-			To(func(request *restful.Request, response *restful.Response) {}).
-			Param(definitions.NamespaceParam(subws)).Param(definitions.NameParam(subws)).
-			Operation(version.Version + "Test").
-			Doc("Test endpoint verifying apiserver connectivity."))
-
 		subws.Route(subws.GET(definitions.SubResourcePath("version")).Produces(restful.MIME_JSON).
 			To(func(request *restful.Request, response *restful.Response) {
 				response.WriteAsJson(virtversion.Get())
@@ -616,8 +609,8 @@ func (app *virtAPIApp) composeSubresources() {
 	ws.Route(ws.GET("/").
 		Produces(restful.MIME_JSON).Writes(metav1.RootPaths{}).
 		To(func(request *restful.Request, response *restful.Response) {
-			paths := []string{"/apis",
-				"/apis/",
+			paths := []string{
+				"/apis",
 				"/openapi/v2",
 			}
 			for _, version := range v1.SubresourceGroupVersions {
@@ -640,18 +633,16 @@ func (app *virtAPIApp) composeSubresources() {
 	ws.Route(ws.GET("/stop-profiler").To(componentProfiler.HandleStopProfiler).Doc("stop profiler endpoint"))
 	ws.Route(ws.GET("/dump-profiler").To(componentProfiler.HandleDumpProfiler).Doc("dump profiler results endpoint"))
 
-	for _, version := range v1.SubresourceGroupVersions {
-		// K8s needs the ability to query info about a specific API group
-		ws.Route(ws.GET(definitions.GroupBasePath(version)).
-			Produces(restful.MIME_JSON).Writes(metav1.APIGroup{}).
-			To(func(request *restful.Request, response *restful.Response) {
-				response.WriteAsJson(subresourceAPIGroup())
-			}).
-			Operation(version.Version+"GetSubAPIGroup").
-			Doc("Get a KubeVirt API Group").
-			Returns(http.StatusOK, "OK", metav1.APIGroup{}).
-			Returns(http.StatusNotFound, httpStatusNotFoundMessage, ""))
-	}
+	// K8s needs the ability to query info about a specific API group
+	ws.Route(ws.GET(definitions.GroupBasePath(v1.SubresourceGroupVersions[0])).
+		Produces(restful.MIME_JSON).Writes(metav1.APIGroup{}).
+		To(func(request *restful.Request, response *restful.Response) {
+			response.WriteAsJson(subresourceAPIGroup())
+		}).
+		Operation(v1.SubresourceGroupVersions[0].Version+"GetSubAPIGroup").
+		Doc("Get a KubeVirt API Group").
+		Returns(http.StatusOK, "OK", metav1.APIGroup{}).
+		Returns(http.StatusNotFound, httpStatusNotFoundMessage, ""))
 
 	// K8s needs the ability to query the list of API groups this endpoint supports
 	ws.Route(ws.GET("apis").

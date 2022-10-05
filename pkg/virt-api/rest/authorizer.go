@@ -43,6 +43,33 @@ const (
 	userExtraHeaderPrefix = "X-Remote-Extra-"
 )
 
+var noAuthEndpoints = map[string]struct{}{
+	"/":           {},
+	"/healthz":    {},
+	"/openapi/v2": {},
+	// The endpoints with just the version are needed for api aggregation discovery
+	// Test with e.g. kubectl get --raw /apis/subresources.kubevirt.io/v1
+	"/apis/subresources.kubevirt.io/v1":               {},
+	"/apis/subresources.kubevirt.io/v1/version":       {},
+	"/apis/subresources.kubevirt.io/v1/guestfs":       {},
+	"/apis/subresources.kubevirt.io/v1/healthz":       {},
+	"/apis/subresources.kubevirt.io/v1alpha3":         {},
+	"/apis/subresources.kubevirt.io/v1alpha3/version": {},
+	"/apis/subresources.kubevirt.io/v1alpha3/guestfs": {},
+	"/apis/subresources.kubevirt.io/v1alpha3/healthz": {},
+	// the profiler endpoints are blocked by a feature gate
+	// to restrict the usage to development environments
+	"/start-profiler": {},
+	"/stop-profiler":  {},
+	"/dump-profiler":  {},
+	"/apis/subresources.kubevirt.io/v1/start-cluster-profiler":       {},
+	"/apis/subresources.kubevirt.io/v1/stop-cluster-profiler":        {},
+	"/apis/subresources.kubevirt.io/v1/dump-cluster-profiler":        {},
+	"/apis/subresources.kubevirt.io/v1alpha3/start-cluster-profiler": {},
+	"/apis/subresources.kubevirt.io/v1alpha3/stop-cluster-profiler":  {},
+	"/apis/subresources.kubevirt.io/v1alpha3/dump-cluster-profiler":  {},
+}
+
 type VirtApiAuthorizor interface {
 	Authorize(req *restful.Request) (bool, string, error)
 	AddUserHeaders(header []string)
@@ -263,38 +290,13 @@ func mapHttpVerbToRbacVerb(httpVerb string, name string) (string, error) {
 	}
 }
 
-func isInfoOrHealthEndpoint(req *restful.Request) bool {
-
-	httpRequest := req.Request
-	if httpRequest == nil || httpRequest.URL == nil {
+func isNoAuthEndpoint(req *restful.Request) bool {
+	if req.Request == nil || req.Request.URL == nil {
 		return false
 	}
-	// URL example
-	// /apis/subresources.kubevirt.io/v1alpha3/namespaces/default/virtualmachineinstances/testvmi/console
-	// The /apis/<group>/<version> part of the urls should be accessible without needing authorization
-	pathSplit := strings.Split(httpRequest.URL.Path, "/")
-	if len(pathSplit) <= 4 {
-		return true
-	}
 
-	noAuthEndpoints := []string{
-		"version",
-		"healthz",
-		"guestfs",
-		// the profiler endpoints are blocked by a feature gate
-		// to restrict the usage to development environments
-		"start-cluster-profiler",
-		"stop-cluster-profiler",
-		"dump-cluster-profiler",
-	}
-
-	for _, endpoint := range noAuthEndpoints {
-		if pathSplit[4] == endpoint {
-			return true
-		}
-	}
-
-	return false
+	_, noAuth := noAuthEndpoints[req.Request.URL.Path]
+	return noAuth
 }
 
 func isAuthenticated(req *restful.Request) bool {
@@ -312,7 +314,7 @@ func (a *authorizor) Authorize(req *restful.Request) (bool, string, error) {
 	// Endpoints related to getting information about
 	// what apis our server provides are authorized to
 	// all users.
-	if isInfoOrHealthEndpoint(req) {
+	if isNoAuthEndpoint(req) {
 		return true, "", nil
 	}
 
