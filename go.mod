@@ -8,7 +8,7 @@ require (
 	github.com/coreos/go-iptables v0.4.3
 	github.com/coreos/go-semver v0.3.0
 	github.com/coreos/prometheus-operator v0.35.0
-	github.com/emicklei/go-restful v2.10.0+incompatible
+	github.com/emicklei/go-restful v2.16.0+incompatible
 	github.com/emicklei/go-restful-openapi v1.2.0
 	github.com/evanphx/json-patch v4.9.0+incompatible
 	github.com/fsnotify/fsnotify v1.4.9

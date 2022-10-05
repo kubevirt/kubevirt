@@ -28,6 +28,7 @@ go_library(
         "response.go",
         "route.go",
         "route_builder.go",
+        "route_reader.go",
         "router.go",
         "service_error.go",
         "web_service.go",
