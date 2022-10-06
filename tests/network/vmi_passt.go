@@ -161,6 +161,7 @@ var _ = SIGDescribe("[Serial] Passt", func() {
 						}
 					},
 						Entry("with a specific port number [IPv4]", []v1.Port{{Name: "http", Port: 8080, Protocol: "TCP"}}, 8080, k8sv1.IPv4Protocol),
+						Entry("with a specific lower port number [IPv4]", []v1.Port{{Name: "http", Port: 80, Protocol: "TCP"}}, 80, k8sv1.IPv4Protocol),
 						Entry("without a specific port number [IPv4]", []v1.Port{}, 8080, k8sv1.IPv4Protocol),
 						Entry("with a specific port number [IPv6]", []v1.Port{{Name: "http", Port: 8080, Protocol: "TCP"}}, 8080, k8sv1.IPv6Protocol),
 						Entry("without a specific port number [IPv6]", []v1.Port{}, 8080, k8sv1.IPv6Protocol),
