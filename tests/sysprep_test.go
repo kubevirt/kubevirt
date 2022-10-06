@@ -35,6 +35,7 @@ import (
 	"k8s.io/apimachinery/pkg/api/resource"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/types"
+	"k8s.io/utils/pointer"
 
 	v1 "kubevirt.io/api/core/v1"
 	"kubevirt.io/client-go/kubecli"
@@ -314,19 +315,7 @@ var _ = Describe("[Serial][Sysprep][sig-compute]Syspreped VirtualMachineInstance
 
 		BeforeEach(func() {
 			By("Creating winrm-cli pod for the future use")
-			winrmcliPod = &k8sv1.Pod{
-				ObjectMeta: metav1.ObjectMeta{GenerateName: winrmCli},
-				Spec: k8sv1.PodSpec{
-					Containers: []k8sv1.Container{
-						{
-							Name:    winrmCli,
-							Image:   fmt.Sprintf("%s/%s:%s", flags.KubeVirtUtilityRepoPrefix, winrmCli, flags.KubeVirtUtilityVersionTag),
-							Command: []string{"sleep"},
-							Args:    []string{"3600"},
-						},
-					},
-				},
-			}
+			winrmcliPod = winRMCliPod()
 			winrmcliPod, err = virtClient.CoreV1().Pods(util.NamespaceTestDefault).Create(context.Background(), winrmcliPod, metav1.CreateOptions{})
 			Expect(err).ToNot(HaveOccurred())
 
@@ -367,3 +356,29 @@ var _ = Describe("[Serial][Sysprep][sig-compute]Syspreped VirtualMachineInstance
 		})
 	})
 })
+
+func winRMCliPod() *k8sv1.Pod {
+	user := int64(1001)
+	return &k8sv1.Pod{
+		ObjectMeta: metav1.ObjectMeta{GenerateName: winrmCli},
+		Spec: k8sv1.PodSpec{
+			Containers: []k8sv1.Container{
+				{
+					Name:    winrmCli,
+					Image:   fmt.Sprintf("%s/%s:%s", flags.KubeVirtUtilityRepoPrefix, winrmCli, flags.KubeVirtUtilityVersionTag),
+					Command: []string{"sleep"},
+					Args:    []string{"3600"},
+					SecurityContext: &k8sv1.SecurityContext{
+						AllowPrivilegeEscalation: pointer.Bool(false),
+						Capabilities:             &k8sv1.Capabilities{Drop: []k8sv1.Capability{"ALL"}},
+					},
+				},
+			},
+			SecurityContext: &k8sv1.PodSecurityContext{
+				RunAsNonRoot:   pointer.Bool(true),
+				RunAsUser:      &user,
+				SeccompProfile: &k8sv1.SeccompProfile{Type: k8sv1.SeccompProfileTypeRuntimeDefault},
+			},
+		},
+	}
+}

@@ -75,6 +75,7 @@ var _ = Describe("Migration watcher", func() {
 	var nodeInformer cache.SharedIndexInformer
 	var pdbInformer cache.SharedIndexInformer
 	var migrationPolicyInformer cache.SharedIndexInformer
+	var namespaceStore cache.Store
 	var stop chan struct{}
 	var controller *MigrationController
 	var recorder *record.FakeRecorder
@@ -252,6 +253,8 @@ var _ = Describe("Migration watcher", func() {
 			recorder,
 			virtClient,
 			config,
+			namespaceStore,
+			false,
 		)
 		// Wrap our workqueue to have a way to detect when we are done processing updates
 		mockQueue = testutils.NewMockWorkQueue(controller.Queue)
@@ -271,6 +274,7 @@ var _ = Describe("Migration watcher", func() {
 		podInformer, podSource = testutils.NewFakeInformerFor(&k8sv1.Pod{})
 		pdbInformer, _ = testutils.NewFakeInformerFor(&policyv1.PodDisruptionBudget{})
 		migrationPolicyInformer, _ = testutils.NewFakeInformerFor(&migrationsv1.MigrationPolicy{})
+		namespaceStore = cache.NewStore(cache.DeletionHandlingMetaNamespaceKeyFunc)
 		recorder = record.NewFakeRecorder(100)
 		recorder.IncludeObject = true
 		nodeInformer, _ = testutils.NewFakeInformerFor(&k8sv1.Node{})

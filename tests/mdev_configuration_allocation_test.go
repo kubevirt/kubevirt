@@ -6,6 +6,7 @@ import (
 	"strings"
 
 	"kubevirt.io/kubevirt/tests/framework/cleanup"
+	"kubevirt.io/kubevirt/tests/testsuite"
 
 	expect "github.com/google/goexpect"
 	. "github.com/onsi/ginkgo/v2"
@@ -34,6 +35,7 @@ var _ = Describe("[Serial][sig-compute]MediatedDevices", func() {
 		virtClient, err = kubecli.GetKubevirtClient()
 		util.PanicOnError(err)
 	})
+
 	checkAllMDEVCreated := func(mdevTypeName string, expectedInstancesCount int) {
 		By(fmt.Sprintf("Checking the number of created mdev types, should be %d of %s type ", expectedInstancesCount, mdevTypeName))
 		check := fmt.Sprintf(`set -x
@@ -50,24 +52,27 @@ var _ = Describe("[Serial][sig-compute]MediatedDevices", func() {
 		  fi
 		  exit 0
 		done`, expectedInstancesCount, mdevTypeName)
-		testPod := tests.RenderPod("test-pod", []string{"/bin/bash", "-c"}, []string{check})
-		testPod, err = virtClient.CoreV1().Pods(util.NamespaceTestDefault).Create(context.Background(), testPod, metav1.CreateOptions{})
-		Expect(err).ToNot(HaveOccurred())
-		Eventually(ThisPod(testPod), 120).Should(BeInPhase(k8sv1.PodSucceeded))
+		testPod := tests.RenderPod("test-all-mdev-created", []string{"/bin/bash", "-c"}, []string{check})
+		testPod, err = virtClient.CoreV1().Pods(testsuite.NamespacePrivileged).Create(context.Background(), testPod, metav1.CreateOptions{})
+		ExpectWithOffset(1, err).ToNot(HaveOccurred())
+		EventuallyWithOffset(1, ThisPod(testPod), 120).Should(BeInPhase(k8sv1.PodSucceeded))
+
 	}
+
 	checkAllMDEVRemoved := func() {
-		check := fmt.Sprintf(`set -x
+		check := `set -x
 		files_num=$(ls -A /sys/bus/mdev/devices/| wc -l)
 		if [[ $files_num != 0 ]] ; then
 		  echo "failed, not all mdevs removed"
 		  exit 1
 		fi
-	        exit 0`)
-		testPod := tests.RenderPod("test-pod", []string{"/bin/bash", "-c"}, []string{check})
-		testPod, err = virtClient.CoreV1().Pods(util.NamespaceTestDefault).Create(context.Background(), testPod, metav1.CreateOptions{})
-		Expect(err).ToNot(HaveOccurred())
-		Eventually(ThisPod(testPod), 120).Should(BeInPhase(k8sv1.PodSucceeded))
-		Eventually(func() bool {
+	        exit 0`
+		testPod := tests.RenderPod("test-all-mdev-removed", []string{"/bin/bash", "-c"}, []string{check})
+		testPod, err = virtClient.CoreV1().Pods(testsuite.NamespacePrivileged).Create(context.Background(), testPod, metav1.CreateOptions{})
+		ExpectWithOffset(1, err).ToNot(HaveOccurred())
+		EventuallyWithOffset(1, ThisPod(testPod), 120).Should(BeInPhase(k8sv1.PodSucceeded))
+
+		EventuallyWithOffset(2, func() bool {
 			nodes, err := virtClient.CoreV1().Nodes().List(context.Background(), metav1.ListOptions{})
 			Expect(err).ToNot(HaveOccurred())
 			for _, node := range nodes.Items {

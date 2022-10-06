@@ -29,6 +29,7 @@ import (
 	k8sv1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	"k8s.io/utils/pointer"
 
 	"kubevirt.io/kubevirt/tests/util"
 
@@ -366,6 +367,8 @@ var _ = Describe("[sig-compute]Subresource Api", func() {
 })
 
 func testClientJob(virtCli kubecli.KubevirtClient, withServiceAccount bool, resource string) {
+	const subresourceTestLabel = "subresource-access-test-pod"
+	user := int64(1001)
 	namespace := util.NamespaceTestDefault
 	expectedPhase := k8sv1.PodFailed
 	name := "subresource-access-tester"
@@ -383,7 +386,16 @@ func testClientJob(virtCli kubecli.KubevirtClient, withServiceAccount bool, reso
 					Name:    name,
 					Image:   fmt.Sprintf("%s/subresource-access-test:%s", flags.KubeVirtUtilityRepoPrefix, flags.KubeVirtUtilityVersionTag),
 					Command: []string{"/subresource-access-test", "-n", namespace, resource},
+					SecurityContext: &k8sv1.SecurityContext{
+						AllowPrivilegeEscalation: pointer.Bool(false),
+						Capabilities:             &k8sv1.Capabilities{Drop: []k8sv1.Capability{"ALL"}},
+					},
 				},
+			},
+			SecurityContext: &k8sv1.PodSecurityContext{
+				RunAsNonRoot:   pointer.Bool(true),
+				RunAsUser:      &user,
+				SeccompProfile: &k8sv1.SeccompProfile{Type: k8sv1.SeccompProfileTypeRuntimeDefault},
 			},
 		},
 	}
