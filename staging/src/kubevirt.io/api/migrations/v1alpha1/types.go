@@ -43,6 +43,8 @@ type MigrationPolicy struct {
 type MigrationPolicySpec struct {
 	Selectors *Selectors `json:"selectors"`
 
+	// See MigrationConfiguration struct's documentation for more info
+
 	//+optional
 	AllowAutoConverge *bool `json:"allowAutoConverge,omitempty"`
 	//+optional
@@ -51,6 +53,8 @@ type MigrationPolicySpec struct {
 	CompletionTimeoutPerGiB *int64 `json:"completionTimeoutPerGiB,omitempty"`
 	//+optional
 	AllowPostCopy *bool `json:"allowPostCopy,omitempty"`
+	//+optional
+	ParallelMigrationThreads *uint `json:"parallelMigrationThreads,omitempty"`
 }
 
 type LabelSelector map[string]string

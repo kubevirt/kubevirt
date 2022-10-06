@@ -20031,6 +20031,10 @@
       "type": "integer",
       "format": "int64"
      },
+     "parallelMigrationThreads": {
+      "type": "integer",
+      "format": "int32"
+     },
      "selectors": {
       "$ref": "#/definitions/v1alpha1.Selectors"
      }

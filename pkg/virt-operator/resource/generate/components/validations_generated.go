@@ -3146,6 +3146,8 @@ var CRDsValidation map[string]string = map[string]string{
         completionTimeoutPerGiB:
           format: int64
           type: integer
+        parallelMigrationThreads:
+          type: integer
         selectors:
           properties:
             namespaceSelector:

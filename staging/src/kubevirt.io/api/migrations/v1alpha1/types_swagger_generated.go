@@ -11,10 +11,11 @@ func (MigrationPolicy) SwaggerDoc() map[string]string {
 
 func (MigrationPolicySpec) SwaggerDoc() map[string]string {
 	return map[string]string{
-		"allowAutoConverge":       "+optional",
-		"bandwidthPerMigration":   "+optional",
-		"completionTimeoutPerGiB": "+optional",
-		"allowPostCopy":           "+optional",
+		"allowAutoConverge":        "+optional",
+		"bandwidthPerMigration":    "+optional",
+		"completionTimeoutPerGiB":  "+optional",
+		"allowPostCopy":            "+optional",
+		"parallelMigrationThreads": "+optional",
 	}
 }
 

@@ -25631,6 +25631,12 @@ func schema_kubevirtio_api_migrations_v1alpha1_MigrationPolicySpec(ref common.Re
 							Format: "",
 						},
 					},
+					"parallelMigrationThreads": {
+						SchemaProps: spec.SchemaProps{
+							Type:   []string{"integer"},
+							Format: "int32",
+						},
+					},
 				},
 				Required: []string{"selectors"},
 			},

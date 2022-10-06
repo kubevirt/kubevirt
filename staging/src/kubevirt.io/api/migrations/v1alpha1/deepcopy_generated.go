@@ -136,6 +136,11 @@ func (in *MigrationPolicySpec) DeepCopyInto(out *MigrationPolicySpec) {
 		*out = new(bool)
 		**out = **in
 	}
+	if in.ParallelMigrationThreads != nil {
+		in, out := &in.ParallelMigrationThreads, &out.ParallelMigrationThreads
+		*out = new(uint)
+		**out = **in
+	}
 	return
 }
 
