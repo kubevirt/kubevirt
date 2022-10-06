@@ -141,7 +141,7 @@ func shouldSkipVolumeSource(passthoughFSVolumes map[string]struct{}, hotplugVolu
 
 	volumeStatus, ok := pvcVolume[volumeName]
 	if !ok || types.IsPVCBlock(volumeStatus.PersistentVolumeClaimInfo.VolumeMode) {
-
+		log.Log.V(4).Infof("this volume %s is block, will not be replaced by HostDisk", volumeName)
 		// This is not a disk on a file system, so skip it.
 		return true
 	}
