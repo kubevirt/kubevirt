@@ -1517,12 +1517,15 @@ var _ = Describe("Manager", func() {
 	DescribeTable("check migration flags",
 		func(migrationType string) {
 			isBlockMigration := migrationType == "block"
-			isUnsafeMigration := migrationType == "unsafe"
-			allowAutoConverge := migrationType == "autoConverge"
-			migrationMode := migrationType == "postCopy"
 			isVmiPaused := migrationType == "paused"
 
-			flags := generateMigrationFlags(isBlockMigration, isUnsafeMigration, allowAutoConverge, migrationMode, isVmiPaused)
+			options := &cmdclient.MigrationOptions{
+				UnsafeMigration:   migrationType == "unsafe",
+				AllowAutoConverge: migrationType == "autoConverge",
+				AllowPostCopy:     migrationType == "postCopy",
+			}
+
+			flags := generateMigrationFlags(isBlockMigration, isVmiPaused, options)
 			expectedMigrateFlags := libvirt.MIGRATE_LIVE | libvirt.MIGRATE_PEER2PEER | libvirt.MIGRATE_PERSIST_DEST
 
 			if isBlockMigration {
@@ -1530,7 +1533,7 @@ var _ = Describe("Manager", func() {
 			} else if migrationType == "unsafe" {
 				expectedMigrateFlags |= libvirt.MIGRATE_UNSAFE
 			}
-			if allowAutoConverge {
+			if options.AllowAutoConverge {
 				expectedMigrateFlags |= libvirt.MIGRATE_AUTO_CONVERGE
 			}
 			if migrationType == "postCopy" {
