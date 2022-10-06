@@ -29,6 +29,8 @@ import (
 	"strings"
 	"sync"
 
+	cmdclient "kubevirt.io/kubevirt/pkg/virt-handler/cmd-client"
+
 	"kubevirt.io/kubevirt/pkg/apimachinery/patch"
 	"kubevirt.io/kubevirt/tests/decorators"
 	"kubevirt.io/kubevirt/tests/libnet/service"
@@ -3133,6 +3135,42 @@ var _ = Describe("[rfe_id:393][crit:high][vendor:cnv-qe@redhat.com][level:system
 
 			})
 
+		})
+
+		Context("parallel migration threads", func() {
+			const numberOfMigrationThreads uint = 4
+
+			newVmi := func() *v1.VirtualMachineInstance {
+				return libvmi.NewCirros(
+					libvmi.WithInterface(libvmi.InterfaceDeviceWithMasqueradeBinding()),
+					libvmi.WithNetwork(v1.DefaultPodNetwork()),
+				)
+			}
+
+			Context("should", func() {
+				setMigrationParallelismWithAnnotation := func(vmi *v1.VirtualMachineInstance) {
+					if vmi.Annotations == nil {
+						vmi.Annotations = map[string]string{}
+					}
+					vmi.Annotations[cmdclient.MultiThreadedQemuMigrationAnnotation] = fmt.Sprintf("%d", numberOfMigrationThreads)
+				}
+
+				DescribeTable("run successfully when configured through", func(setParallelMigration func(vmi *v1.VirtualMachineInstance)) {
+					vmi := newVmi()
+
+					By("Setting parallel migration")
+					setParallelMigration(vmi)
+
+					By("Running vmi %s" + vmi.Name)
+					vmi = tests.RunVMIAndExpectLaunch(vmi, 240)
+
+					By("Starting the Migration")
+					migration := tests.NewRandomMigration(vmi.Name, vmi.Namespace)
+					_ = tests.RunMigrationAndExpectCompletion(virtClient, migration, 180)
+				},
+					Entry("a VMI annotation", setMigrationParallelismWithAnnotation),
+				)
+			})
 		})
 
 		Context("[Serial] with migration policies", Serial, func() {

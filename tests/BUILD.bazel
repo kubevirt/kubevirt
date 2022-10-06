@@ -192,6 +192,7 @@ go_test(
         "//pkg/virt-controller/watch/topology:go_default_library",
         "//pkg/virt-handler:go_default_library",
         "//pkg/virt-handler/cgroup:go_default_library",
+        "//pkg/virt-handler/cmd-client:go_default_library",
         "//pkg/virt-handler/device-manager:go_default_library",
         "//pkg/virt-handler/node-labeller/util:go_default_library",
         "//pkg/virt-launcher/virtwrap/api:go_default_library",
