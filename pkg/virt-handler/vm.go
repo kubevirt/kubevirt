@@ -2552,12 +2552,13 @@ func (d *VirtualMachineController) vmUpdateHelperMigrationSource(origVMI *v1.Vir
 		}
 
 		options := &cmdclient.MigrationOptions{
-			Bandwidth:               *migrationConfiguration.BandwidthPerMigration,
-			ProgressTimeout:         *migrationConfiguration.ProgressTimeout,
-			CompletionTimeoutPerGiB: *migrationConfiguration.CompletionTimeoutPerGiB,
-			UnsafeMigration:         *migrationConfiguration.UnsafeMigrationOverride,
-			AllowAutoConverge:       *migrationConfiguration.AllowAutoConverge,
-			AllowPostCopy:           *migrationConfiguration.AllowPostCopy,
+			Bandwidth:                *migrationConfiguration.BandwidthPerMigration,
+			ProgressTimeout:          *migrationConfiguration.ProgressTimeout,
+			CompletionTimeoutPerGiB:  *migrationConfiguration.CompletionTimeoutPerGiB,
+			UnsafeMigration:          *migrationConfiguration.UnsafeMigrationOverride,
+			AllowAutoConverge:        *migrationConfiguration.AllowAutoConverge,
+			AllowPostCopy:            *migrationConfiguration.AllowPostCopy,
+			ParallelMigrationThreads: migrationConfiguration.ParallelMigrationThreads,
 		}
 
 		marshalledOptions, err := json.Marshal(options)
