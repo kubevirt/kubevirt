@@ -1475,6 +1475,7 @@ var _ = Describe("Migration watcher", func() {
 		var vmi *virtv1.VirtualMachineInstance
 		var stubNumber int64
 		var stubResourceQuantity resource.Quantity
+		var fakeParallelMigrationThreadCount uint
 		var pod *k8sv1.Pod
 
 		getExpectedVmiPatch := func(expectConfigUpdate bool, expectedConfigs *virtv1.MigrationConfiguration, migrationPolicy *migrationsv1.MigrationPolicy) string {
@@ -1499,6 +1500,7 @@ var _ = Describe("Migration watcher", func() {
 
 		BeforeEach(func() {
 			stubNumber = 33425
+			fakeParallelMigrationThreadCount = 111
 			stubResourceQuantity = resource.MustParse("25Mi")
 
 			By("Initialize VMI and migration")
@@ -1644,6 +1646,23 @@ var _ = Describe("Migration watcher", func() {
 					Expect(*c.AllowPostCopy).To(BeFalse())
 				},
 				true,
+			),
+			Entry("set parallel migration threads",
+				func(p *migrationsv1.MigrationPolicySpec) {
+					p.ParallelMigrationThreads = &fakeParallelMigrationThreadCount
+				},
+				func(c *virtv1.MigrationConfiguration) {
+					Expect(c.ParallelMigrationThreads).ToNot(BeNil())
+					Expect(*c.ParallelMigrationThreads).ToNot(BeZero())
+				},
+				true,
+			),
+			Entry("disable parallel migration threads",
+				func(p *migrationsv1.MigrationPolicySpec) { p.ParallelMigrationThreads = nil },
+				func(c *virtv1.MigrationConfiguration) {
+					Expect(c.ParallelMigrationThreads).To(BeNil())
+				},
+				false,
 			),
 			Entry("nothing is changed",
 				func(p *migrationsv1.MigrationPolicySpec) {},
