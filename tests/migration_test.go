@@ -100,6 +100,8 @@ import (
 	"kubevirt.io/kubevirt/tests/libnet"
 	"kubevirt.io/kubevirt/tests/libstorage"
 	"kubevirt.io/kubevirt/tests/watcher"
+
+	k6tpointer "kubevirt.io/kubevirt/pkg/pointer"
 )
 
 const (
@@ -3128,6 +3130,61 @@ var _ = Describe("[rfe_id:393][crit:high][vendor:cnv-qe@redhat.com][level:system
 
 			})
 
+		})
+
+		Context("parallel migration threads", func() {
+			const numberOfMigrationThreads uint = 4
+			var vmi *v1.VirtualMachineInstance
+
+			BeforeEach(func() {
+				vmi = libvmi.NewCirros(
+					libvmi.WithInterface(libvmi.InterfaceDeviceWithMasqueradeBinding()),
+					libvmi.WithNetwork(v1.DefaultPodNetwork()),
+				)
+			})
+
+			Context("different configurations", func() {
+				setMigrationParallelismWithKubevirtCr := func() {
+					By("Setting up parallel migrations globally")
+					config := getCurrentKv()
+					config.MigrationConfiguration.ParallelMigrationThreads = k6tpointer.P(numberOfMigrationThreads)
+					tests.UpdateKubeVirtConfigValueAndWait(config)
+				}
+
+				setMigrationParallelismWithMigrationPolicy := func() {
+					By("Setting up parallel migrations through migration policy")
+					policy := tests.PreparePolicyAndVMI(vmi)
+					policy.Spec.ParallelMigrationThreads = k6tpointer.P(numberOfMigrationThreads)
+
+					_, err := virtClient.MigrationPolicy().Create(context.Background(), policy, metav1.CreateOptions{})
+					Expect(err).ToNot(HaveOccurred())
+				}
+
+				DescribeTable("should run succesfully when configured through", func(setParallelMigration func()) {
+					By("Setting parallel migration")
+					setParallelMigration()
+
+					By("Running vmi %s" + vmi.Name)
+					vmi = tests.RunVMIAndExpectLaunch(vmi, 240)
+
+					By("Starting the Migration")
+					migration := tests.NewRandomMigration(vmi.Name, vmi.Namespace)
+					_ = tests.RunMigrationAndExpectCompletion(virtClient, migration, 180)
+
+					By("Retrieving the VMI post migration")
+					vmi, err = virtClient.VirtualMachineInstance(vmi.Namespace).Get(context.Background(), vmi.Name, &metav1.GetOptions{})
+					Expect(err).ToNot(HaveOccurred())
+
+					By("Ensuring parallel migration was used")
+					migrationConfig := vmi.Status.MigrationState.MigrationConfiguration
+					Expect(migrationConfig).ToNot(BeNil())
+					Expect(migrationConfig.ParallelMigrationThreads).ToNot(BeNil())
+					Expect(*migrationConfig.ParallelMigrationThreads).To(Equal(numberOfMigrationThreads), "number of migration threads is not as expected")
+				},
+					Entry("[Serial] Kubevirt CR's migrationConfiguration", setMigrationParallelismWithKubevirtCr, Serial),
+					Entry("a migration policy", setMigrationParallelismWithMigrationPolicy),
+				)
+			})
 		})
 
 		Context("[Serial] with migration policies", Serial, func() {
