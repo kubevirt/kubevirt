@@ -11,7 +11,7 @@ import (
 var containerTag = ""
 
 func done(files []string) {
-	err := ioutil.WriteFile("/tmp/results/done", []byte(strings.Join(files, "\n")), 0666)
+	err := ioutil.WriteFile("/tmp/sonobuoy/results/done", []byte(strings.Join(files, "\n")), 0666)
 	if err != nil {
 		fmt.Printf("Failed to notify sonobuoy that I am done: %v\n", err)
 	}
@@ -20,7 +20,7 @@ func done(files []string) {
 func main() {
 	err := execute()
 	done([]string{
-		"/tmp/results/junit.xml",
+		"/tmp/sonobuoy/results",
 	})
 	if err != nil {
 		os.Exit(1)
@@ -30,7 +30,7 @@ func main() {
 func execute() error {
 	args := []string{}
 	args = append(args, "--container-tag", containerTag)
-	args = append(args, "--junit-output", "/tmp/results/junit.xml")
+	args = append(args, "--junit-output", "/tmp/sonobuoy/results/junit.xml")
 	// additional conformance test overrides
 	if value, exists := os.LookupEnv("E2E_SKIP"); exists {
 		args = append(args, "--ginkgo.skip", value)
@@ -52,7 +52,7 @@ func execute() error {
 
 	cmd := exec.Command("/usr/bin/go_default_test", args...)
 	cmd.Env = os.Environ()
-	cmd.Env = append(cmd.Env, "ARTIFACTS=/tmp/results/")
+	cmd.Env = append(cmd.Env, "ARTIFACTS=/tmp/sonobuoy/results/")
 	cmd.Stderr = os.Stderr
 	cmd.Stdin = os.Stdin
 	cmd.Stdout = os.Stdout

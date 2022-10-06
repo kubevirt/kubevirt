@@ -56,6 +56,11 @@ Failed: 0
 Skipped: 579
 ```
 
+### Debugging failures
+
+In case of a failure the artifacts will be collected as well.  
+Find them at `plugins/kubevirt-conformance/results/global/k8s-reporter` of the tar file.
+
 ## Executing conformance tests in the development environment
 
 ```bash

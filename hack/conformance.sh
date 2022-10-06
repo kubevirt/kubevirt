@@ -38,15 +38,17 @@ echo 'Downloading report about the test execution'
 results_archive=${ARTIFACTS}/$(cd ${ARTIFACTS} && sonobuoy retrieve)
 
 echo 'Results:'
-sonobuoy results ${results_archive}
+RES=$(sonobuoy results ${results_archive})
+echo "$RES"
 
 echo "Extracting the full report and keep it under ${ARTIFACTS}"
 tar xf ${results_archive} -C ${ARTIFACTS}
 cp ${ARTIFACTS}/plugins/kubevirt-conformance/results/global/junit.xml ${ARTIFACTS}/junit.conformance.xml
 
 echo 'Evaluating success of the test run'
-sonobuoy results ${results_archive} | grep -q 'Status: passed' || {
+if ! echo "$RES" | grep -q 'Status: passed'; then
     echo 'Conformance suite has failed'
     exit 1
-}
+fi
+
 echo 'Conformance suite has successfully completed'
