@@ -103,6 +103,10 @@ func (m *MigrationPolicy) GetMigrationConfByPolicy(clusterMigrationConfiguration
 		changed = true
 		*clusterMigrationConfigurations.AllowPostCopy = *policySpec.AllowPostCopy
 	}
+	if policySpec.ParallelMigrationThreads != nil {
+		changed = true
+		clusterMigrationConfigurations.ParallelMigrationThreads = policySpec.ParallelMigrationThreads
+	}
 
 	return changed, nil
 }
