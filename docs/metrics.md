@@ -33,6 +33,21 @@ Indication for an operating virt-controller. Type: Gauge.
 ### kubevirt_virt_controller_ready
 Indication for a virt-controller that is ready to take the lead. Type: Gauge.
 
+### kubevirt_vm_error_status_last_transition_timestamp_seconds
+Virtual Machine last transition timestamp to error status. Type: Counter.
+
+### kubevirt_vm_migrating_status_last_transition_timestamp_seconds
+Virtual Machine last transition timestamp to migrating status. Type: Counter.
+
+### kubevirt_vm_non_running_status_last_transition_timestamp_seconds
+Virtual Machine last transition timestamp to paused/stopped status. Type: Counter.
+
+### kubevirt_vm_running_status_last_transition_timestamp_seconds
+Virtual Machine last transition timestamp to running status. Type: Counter.
+
+### kubevirt_vm_starting_status_last_transition_timestamp_seconds
+Virtual Machine last transition timestamp to starting status. Type: Counter.
+
 ### kubevirt_vmi_cpu_affinity
 Details the cpu pinning map via boolean labels in the form of vcpu_X_cpu_Y. Type: Counter.
 
