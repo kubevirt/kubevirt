@@ -2367,6 +2367,9 @@ type MigrationConfiguration struct {
 	// Network is the name of the CNI network to use for live migrations. By default, migrations go
 	// through the pod network.
 	Network *string `json:"network,omitempty"`
+	// ParallelMigrationThreads determines the number of threads that would be run in parallel in order
+	// to process the migration. Defaults to no parallelism.
+	ParallelMigrationThreads *uint `json:"parallelMigrationThreads,omitempty"`
 }
 
 // DiskVerification holds container disks verification limits

@@ -750,6 +750,7 @@ func (MigrationConfiguration) SwaggerDoc() map[string]string {
 		"allowPostCopy":                     "AllowPostCopy enables post-copy live migrations. Such migrations allow even the busiest VMIs\nto successfully live-migrate. However, events like a network failure can cause a VMI crash.\nIf set to true, migrations will still start in pre-copy, but switch to post-copy when\nCompletionTimeoutPerGiB triggers. Defaults to false",
 		"disableTLS":                        "When set to true, DisableTLS will disable the additional layer of live migration encryption\nprovided by KubeVirt. This is usually a bad idea. Defaults to false",
 		"network":                           "Network is the name of the CNI network to use for live migrations. By default, migrations go\nthrough the pod network.",
+		"parallelMigrationThreads":          "ParallelMigrationThreads determines the number of threads that would be run in parallel in order\nto process the migration. Defaults to no parallelism.",
 	}
 }
 

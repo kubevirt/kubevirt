@@ -17552,6 +17552,11 @@
       "description": "NodeDrainTaintKey defines the taint key that indicates a node should be drained. Note: this option relies on the deprecated node taint feature. Default: kubevirt.io/drain",
       "type": "string"
      },
+     "parallelMigrationThreads": {
+      "description": "ParallelMigrationThreads determines the number of threads that would be run in parallel in order to process the migration. Defaults to no parallelism.",
+      "type": "integer",
+      "format": "int32"
+     },
      "parallelMigrationsPerCluster": {
       "description": "ParallelMigrationsPerCluster is the total number of concurrent live migrations allowed cluster-wide. Defaults to 5",
       "type": "integer",

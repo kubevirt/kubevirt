@@ -887,6 +887,11 @@ var CRDsValidation map[string]string = map[string]string{
                     a node should be drained. Note: this option relies on the deprecated
                     node taint feature. Default: kubevirt.io/drain'
                   type: string
+                parallelMigrationThreads:
+                  description: ParallelMigrationThreads determines the number of threads
+                    that would be run in parallel in order to process the migration.
+                    Defaults to no parallelism.
+                  type: integer
                 parallelMigrationsPerCluster:
                   description: ParallelMigrationsPerCluster is the total number of
                     concurrent live migrations allowed cluster-wide. Defaults to 5
@@ -11072,6 +11077,11 @@ var CRDsValidation map[string]string = map[string]string{
                     a node should be drained. Note: this option relies on the deprecated
                     node taint feature. Default: kubevirt.io/drain'
                   type: string
+                parallelMigrationThreads:
+                  description: ParallelMigrationThreads determines the number of threads
+                    that would be run in parallel in order to process the migration.
+                    Defaults to no parallelism.
+                  type: integer
                 parallelMigrationsPerCluster:
                   description: ParallelMigrationsPerCluster is the total number of
                     concurrent live migrations allowed cluster-wide. Defaults to 5
@@ -11446,6 +11456,11 @@ var CRDsValidation map[string]string = map[string]string{
                     a node should be drained. Note: this option relies on the deprecated
                     node taint feature. Default: kubevirt.io/drain'
                   type: string
+                parallelMigrationThreads:
+                  description: ParallelMigrationThreads determines the number of threads
+                    that would be run in parallel in order to process the migration.
+                    Defaults to no parallelism.
+                  type: integer
                 parallelMigrationsPerCluster:
                   description: ParallelMigrationsPerCluster is the total number of
                     concurrent live migrations allowed cluster-wide. Defaults to 5

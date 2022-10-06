@@ -2695,6 +2695,11 @@ func (in *MigrationConfiguration) DeepCopyInto(out *MigrationConfiguration) {
 		*out = new(string)
 		**out = **in
 	}
+	if in.ParallelMigrationThreads != nil {
+		in, out := &in.ParallelMigrationThreads, &out.ParallelMigrationThreads
+		*out = new(uint)
+		**out = **in
+	}
 	return
 }
 

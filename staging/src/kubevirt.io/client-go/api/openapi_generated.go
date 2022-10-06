@@ -18623,6 +18623,13 @@ func schema_kubevirtio_api_core_v1_MigrationConfiguration(ref common.ReferenceCa
 							Format:      "",
 						},
 					},
+					"parallelMigrationThreads": {
+						SchemaProps: spec.SchemaProps{
+							Description: "ParallelMigrationThreads determines the number of threads that would be run in parallel in order to process the migration. Defaults to no parallelism.",
+							Type:        []string{"integer"},
+							Format:      "int32",
+						},
+					},
 				},
 			},
 		},
