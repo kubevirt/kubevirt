@@ -226,7 +226,7 @@ var _ = SIGDescribe("[ref_id:1182]Probes", func() {
 			Entry("[test_id:1199][posneg:positive]with working TCP probe and tcp server on ipv6", tcpProbe, corev1.IPv6Protocol),
 			Entry("[test_id:1201][posneg:positive]with working HTTP probe and http server on ipv4", httpProbe, corev1.IPv4Protocol),
 			Entry("[test_id:1201][posneg:positive]with working HTTP probe and http server on ipv6", httpProbe, corev1.IPv6Protocol),
-			Entry("[test_id:TODO]with working Exec probe", createExecProbe(period, initialSeconds, timeoutSeconds, "uname", "-a"), blankIPFamily),
+			Entry("[test_id:9298]with working Exec probe", createExecProbe(period, initialSeconds, timeoutSeconds, "uname", "-a"), blankIPFamily),
 		)
 
 		Context("guest agent ping", func() {
@@ -241,7 +241,7 @@ var _ = SIGDescribe("[ref_id:1182]Probes", func() {
 				Expect(console.LoginToFedora(vmi)).To(Succeed())
 			})
 
-			It("[test_id:TODO] VM stops when guest agent is disabled", func() {
+			It("[test_id:9299] VM stops when guest agent is disabled", func() {
 				Expect(stopGuestAgent(vmi)).To(Succeed())
 
 				Eventually(func() (*v1.VirtualMachineInstance, error) {
