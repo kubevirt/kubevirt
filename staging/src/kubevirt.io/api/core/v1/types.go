@@ -2125,6 +2125,10 @@ type ScreenshotOptions struct {
 	MoveCursor bool `json:"moveCursor"`
 }
 
+type VSOCKOptions struct {
+	TargetPort uint32 `json:"targetPort"`
+}
+
 // RemoveVolumeOptions is provided when dynamically hot unplugging volume and disk
 type RemoveVolumeOptions struct {
 	// Name represents the name that maps to both the disk and volume that

@@ -21,7 +21,6 @@ package kubecli
 
 import (
 	"context"
-
 	"encoding/json"
 	"fmt"
 	"io/ioutil"
@@ -132,7 +131,7 @@ func roundTripperFromConfig(config *rest.Config, callback RoundTripCallback) (ht
 	return rest.HTTPWrappersForConfig(config, rt)
 }
 
-func RequestFromConfig(config *rest.Config, resource, name, namespace, subresource string) (*http.Request, error) {
+func RequestFromConfig(config *rest.Config, resource, name, namespace, subresource string, queryParams url.Values) (*http.Request, error) {
 
 	u, err := url.Parse(config.Host)
 	if err != nil {
@@ -152,6 +151,9 @@ func RequestFromConfig(config *rest.Config, resource, name, namespace, subresour
 		u.Path,
 		fmt.Sprintf("/apis/subresources.kubevirt.io/%s/namespaces/%s/%s/%s/%s", v1.ApiStorageVersion, namespace, resource, name, subresource),
 	)
+	if len(queryParams) > 0 {
+		u.RawQuery = queryParams.Encode()
+	}
 	req := &http.Request{
 		Method: http.MethodGet,
 		URL:    u,
@@ -162,15 +164,15 @@ func RequestFromConfig(config *rest.Config, resource, name, namespace, subresour
 }
 
 func (v *vmis) USBRedir(name string) (StreamInterface, error) {
-	return asyncSubresourceHelper(v.config, v.resource, v.namespace, name, "usbredir")
+	return asyncSubresourceHelper(v.config, v.resource, v.namespace, name, "usbredir", url.Values{})
 }
 
 func (v *vmis) VNC(name string) (StreamInterface, error) {
-	return asyncSubresourceHelper(v.config, v.resource, v.namespace, name, "vnc")
+	return asyncSubresourceHelper(v.config, v.resource, v.namespace, name, "vnc", url.Values{})
 }
 
 func (v *vmis) PortForward(name string, port int, protocol string) (StreamInterface, error) {
-	return asyncSubresourceHelper(v.config, v.resource, v.namespace, name, buildPortForwardResourcePath(port, protocol))
+	return asyncSubresourceHelper(v.config, v.resource, v.namespace, name, buildPortForwardResourcePath(port, protocol), url.Values{})
 }
 
 func buildPortForwardResourcePath(port int, protocol string) string {
@@ -214,7 +216,7 @@ func (v *vmis) SerialConsole(name string, options *SerialConsoleOptions) (Stream
 				default:
 				}
 
-				con, err := asyncSubresourceHelper(v.config, v.resource, v.namespace, name, "console")
+				con, err := asyncSubresourceHelper(v.config, v.resource, v.namespace, name, "console", url.Values{})
 				if err != nil {
 					asyncSubresourceError, ok := err.(*AsyncSubresourceError)
 					// return if response status code does not equal to 400
@@ -234,7 +236,7 @@ func (v *vmis) SerialConsole(name string, options *SerialConsoleOptions) (Stream
 		conStruct := <-connectionChan
 		return conStruct.con, conStruct.err
 	} else {
-		return asyncSubresourceHelper(v.config, v.resource, v.namespace, name, "console")
+		return asyncSubresourceHelper(v.config, v.resource, v.namespace, name, "console", url.Values{})
 	}
 }
 
@@ -489,4 +491,13 @@ func (v *vmis) RemoveVolume(name string, removeVolumeOptions *v1.RemoveVolumeOpt
 	}
 
 	return v.restClient.Put().AbsPath(uri).Body([]byte(JSON)).Do(context.Background()).Error()
+}
+
+func (v *vmis) VSOCK(name string, options *v1.VSOCKOptions) (StreamInterface, error) {
+	if options == nil || options.TargetPort == 0 {
+		return nil, fmt.Errorf("target port is required but not provided")
+	}
+	queryParams := url.Values{}
+	queryParams.Add("port", strconv.FormatUint(uint64(options.TargetPort), 10))
+	return asyncSubresourceHelper(v.config, v.resource, v.namespace, name, "vsock", queryParams)
 }

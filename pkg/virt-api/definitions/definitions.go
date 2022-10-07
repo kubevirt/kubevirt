@@ -678,3 +678,7 @@ func PortForwardProtocolParameter(ws *restful.WebService) *restful.Parameter {
 }
 
 func noop(_ *restful.Request, _ *restful.Response) {}
+
+func VSOCKPortParameter(ws *restful.WebService) *restful.Parameter {
+	return ws.QueryParameter(PortParamName, "The port which the VSOCK application listens to.").DataType("integer").Required(true)
+}

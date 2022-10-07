@@ -31,6 +31,7 @@ import (
 	"sync"
 
 	"github.com/emicklei/go-restful"
+	"github.com/mdlayher/vsock"
 	"k8s.io/apimachinery/pkg/types"
 	"k8s.io/client-go/tools/cache"
 
@@ -38,6 +39,7 @@ import (
 	"kubevirt.io/client-go/kubecli"
 	"kubevirt.io/client-go/log"
 
+	"kubevirt.io/kubevirt/pkg/util"
 	"kubevirt.io/kubevirt/pkg/virt-handler/isolation"
 )
 
@@ -131,7 +133,7 @@ func (t *ConsoleHandler) USBRedirHandler(request *restful.Request, response *res
 		usbHandler := t.usbredir[uid]
 		delete(usbHandler.stopChans, slotId)
 	}()
-	t.stream(vmi, request, response, unixSocketPath, stopChan)
+	t.stream(vmi, request, response, unixSocketDialer(vmi, unixSocketPath), stopChan)
 }
 
 func (t *ConsoleHandler) VNCHandler(request *restful.Request, response *restful.Response) {
@@ -150,7 +152,7 @@ func (t *ConsoleHandler) VNCHandler(request *restful.Request, response *restful.
 	uid := vmi.GetUID()
 	stopChn := newStopChan(uid, t.vncLock, t.vncStopChans)
 	defer deleteStopChan(uid, stopChn, t.vncLock, t.vncStopChans)
-	t.stream(vmi, request, response, unixSocketPath, stopChn)
+	t.stream(vmi, request, response, unixSocketDialer(vmi, unixSocketPath), stopChn)
 }
 
 func (t *ConsoleHandler) SerialHandler(request *restful.Request, response *restful.Response) {
@@ -169,7 +171,46 @@ func (t *ConsoleHandler) SerialHandler(request *restful.Request, response *restf
 	uid := vmi.GetUID()
 	stopCh := newStopChan(uid, t.serialLock, t.serialStopChans)
 	defer deleteStopChan(uid, stopCh, t.serialLock, t.serialStopChans)
-	t.stream(vmi, request, response, unixSocketPath, stopCh)
+	t.stream(vmi, request, response, unixSocketDialer(vmi, unixSocketPath), stopCh)
+}
+
+func (t *ConsoleHandler) VSOCKHandler(request *restful.Request, response *restful.Response) {
+	vmi, code, err := getVMI(request, t.vmiInformer)
+	if err != nil {
+		log.Log.Object(vmi).Reason(err).Error(failedRetrieveVMI)
+		response.WriteError(code, err)
+		return
+	}
+	log.Log.Object(vmi).Info("In VSOCKHandler")
+	if !util.IsAutoAttachVSOCK(vmi) {
+		response.WriteError(http.StatusBadRequest, errors.New("VM doesn't have VSOCK enabled"))
+		return
+	}
+	if vmi.Status.VSOCKCID == nil {
+		// This should not happen.
+		err := errors.New("VSOCK CID is nil")
+		log.Log.Object(vmi).Error(err.Error())
+		response.WriteError(http.StatusInternalServerError, err)
+		return
+	}
+	portParam := request.QueryParameter("port")
+	port, err := strconv.ParseUint(portParam, 10, 32)
+	if err != nil {
+		log.Log.Object(vmi).Reason(err).Errorf("Failed parsing the path parameter port %s", portParam)
+		response.WriteError(http.StatusBadRequest, err)
+		return
+	}
+	cid := *vmi.Status.VSOCKCID
+	t.stream(vmi, request, response, func() (net.Conn, error) {
+		log.Log.Object(vmi).Infof("Connecting to %d:%d", cid, port)
+		conn, err := vsock.Dial(cid, uint32(port), &vsock.Config{})
+		if err != nil {
+			log.Log.Object(vmi).Reason(err).Errorf("failed to dial vsock %d:%d", cid, port)
+			return nil, err
+		}
+		log.Log.Object(vmi).Infof("Connected to %d:%d", cid, port)
+		return conn, nil
+	}, make(chan struct{})) // It is legitimate and up to the guest-application to accept multiple connections.
 }
 
 func newStopChan(uid types.UID, lock *sync.Mutex, stopChans map[types.UID](chan struct{})) chan struct{} {
@@ -209,7 +250,20 @@ func (t *ConsoleHandler) getUnixSocketPath(vmi *v1.VirtualMachineInstance, socke
 	return socketPath, nil
 }
 
-func (t *ConsoleHandler) stream(vmi *v1.VirtualMachineInstance, request *restful.Request, response *restful.Response, unixSocketPath string, stopCh chan struct{}) {
+func unixSocketDialer(vmi *v1.VirtualMachineInstance, unixSocketPath string) func() (net.Conn, error) {
+	return func() (net.Conn, error) {
+		log.Log.Object(vmi).Infof("Connecting to %s", unixSocketPath)
+		fd, err := net.Dial("unix", unixSocketPath)
+		if err != nil {
+			log.Log.Object(vmi).Reason(err).Errorf("failed to dial unix socket %s", unixSocketPath)
+			return nil, err
+		}
+		log.Log.Object(vmi).Infof("Connected to %s", unixSocketPath)
+		return fd, nil
+	}
+}
+
+func (t *ConsoleHandler) stream(vmi *v1.VirtualMachineInstance, request *restful.Request, response *restful.Response, dial func() (net.Conn, error), stopCh chan struct{}) {
 	var upgrader = kubecli.NewUpgrader()
 	clientSocket, err := upgrader.Upgrade(response.ResponseWriter, request.Request, nil)
 	if err != nil {
@@ -220,27 +274,23 @@ func (t *ConsoleHandler) stream(vmi *v1.VirtualMachineInstance, request *restful
 	defer clientSocket.Close()
 
 	log.Log.Object(vmi).Infof("Websocket connection upgraded")
-	log.Log.Object(vmi).Infof("Connecting to %s", unixSocketPath)
 
-	fd, err := net.Dial("unix", unixSocketPath)
+	conn, err := dial()
 	if err != nil {
-		log.Log.Object(vmi).Reason(err).Errorf("failed to dial unix socket %s", unixSocketPath)
 		response.WriteHeader(http.StatusInternalServerError)
 		return
 	}
-	defer fd.Close()
-
-	log.Log.Object(vmi).Infof("Connected to %s", unixSocketPath)
+	defer conn.Close()
 
 	errCh := make(chan error, 2)
 	go func() {
-		_, err := kubecli.CopyTo(clientSocket, fd)
+		_, err := kubecli.CopyTo(clientSocket, conn)
 		log.Log.Object(vmi).Reason(err).Error("error encountered reading from unix socket")
 		errCh <- err
 	}()
 
 	go func() {
-		_, err := kubecli.CopyFrom(fd, clientSocket)
+		_, err := kubecli.CopyFrom(conn, clientSocket)
 		log.Log.Object(vmi).Reason(err).Error("error encountered reading from client (virt-api) websocket")
 		errCh <- err
 	}()

@@ -1200,6 +1200,17 @@ func (_mr *_MockVirtualMachineInstanceInterfaceRecorder) RemoveVolume(arg0, arg1
 	return _mr.mock.ctrl.RecordCall(_mr.mock, "RemoveVolume", arg0, arg1)
 }
 
+func (_m *MockVirtualMachineInstanceInterface) VSOCK(name string, options *v120.VSOCKOptions) (StreamInterface, error) {
+	ret := _m.ctrl.Call(_m, "VSOCK", name, options)
+	ret0, _ := ret[0].(StreamInterface)
+	ret1, _ := ret[1].(error)
+	return ret0, ret1
+}
+
+func (_mr *_MockVirtualMachineInstanceInterfaceRecorder) VSOCK(arg0, arg1 interface{}) *gomock.Call {
+	return _mr.mock.ctrl.RecordCall(_mr.mock, "VSOCK", arg0, arg1)
+}
+
 // Mock of ReplicaSetInterface interface
 type MockReplicaSetInterface struct {
 	ctrl     *gomock.Controller
