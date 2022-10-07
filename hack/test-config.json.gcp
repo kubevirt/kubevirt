@@ -1,0 +1,8 @@
+{
+  "storageClassLocal": "hostpath-provisioner",
+  "storageClassHostPath": "hostpath-provisioner",
+  "storageClassRhel": "standard",
+  "storageClassWindows": "standard",
+  "storageRWOFileSystem": "hostpath-provisioner",
+  "manageStorageClasses": false
+}

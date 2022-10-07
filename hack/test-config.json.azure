@@ -1,0 +1,8 @@
+{
+  "storageClassLocal": "hostpath-provisioner",
+  "storageClassHostPath": "hostpath-provisioner",
+  "storageClassRhel": "managed-premium",
+  "storageClassWindows": "managed-premium",
+  "storageRWOFileSystem": "hostpath-provisioner",
+  "manageStorageClasses": false
+}

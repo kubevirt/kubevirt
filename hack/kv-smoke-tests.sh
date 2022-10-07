@@ -209,8 +209,20 @@ subjects:
     namespace: ${INSTALLED_NAMESPACE}
 EOF
 
+CLUSTER_KIND=$(${CMD} get infrastructure cluster -o jsonpath='{.status.platformStatus.type}' || true)
 
-${CMD} create configmap -n ${INSTALLED_NAMESPACE} kubevirt-test-config --from-file=hack/test-config.json --dry-run=client -o yaml | ${CMD} apply -f -
+if [ "${CLUSTER_KIND}" == "GCP" ]; then
+    echo "Configuring the test environment for a GCP cluster"
+    CLUSTER_KIND_SUFFIX=".gcp"
+elif [ "${CLUSTER_KIND}" == "Azure" ]; then
+    echo "Configuring the test environment for an Azure cluster"
+    CLUSTER_KIND_SUFFIX=".azure"
+else
+    echo "Unable to identify cluster kind, consuming a generic test configuration"
+    CLUSTER_KIND_SUFFIX=""
+fi
+
+${CMD} create configmap -n ${INSTALLED_NAMESPACE} kubevirt-test-config --from-file="hack/test-config.json${CLUSTER_KIND_SUFFIX}" --dry-run=client -o yaml | ${CMD} apply -f -
 
 echo "waiting for testing infrastructure to be ready"
 ${CMD} wait deployment cdi-http-import-server -n "${INSTALLED_NAMESPACE}" --for condition=Available --timeout=10m
@@ -219,7 +231,7 @@ ${CMD} wait pods -l "kubevirt.io=disks-images-provider" -n "${INSTALLED_NAMESPAC
 echo "starting tests"
 ${TESTS_BINARY} \
     -cdi-namespace="$INSTALLED_NAMESPACE" \
-    -config=hack/test-config.json \
+    -config="hack/test-config.json${CLUSTER_KIND_SUFFIX}" \
     -installed-namespace="$INSTALLED_NAMESPACE" \
     -junit-output="${OUTPUT_DIR}/junit_kv_smoke_tests.xml" \
     -kubeconfig="$KUBECONFIG" \
