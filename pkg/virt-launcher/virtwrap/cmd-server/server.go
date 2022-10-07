@@ -347,6 +347,22 @@ func (l *Launcher) FinalizeVirtualMachineMigration(_ context.Context, request *c
 	return response, nil
 }
 
+func (l *Launcher) HotplugHostDevices(_ context.Context, request *cmdv1.VMIRequest) (*cmdv1.Response, error) {
+	vmi, response := getVMIFromRequest(request.Vmi)
+	if !response.Success {
+		return response, nil
+	}
+
+	if err := l.domainManager.HotplugHostDevices(vmi); err != nil {
+		log.Log.Object(vmi).Errorf(err.Error())
+		response.Success = false
+		response.Message = getErrorMessage(err)
+		return response, nil
+	}
+
+	return response, nil
+}
+
 func (l *Launcher) GetDomain(_ context.Context, _ *cmdv1.EmptyRequest) (*cmdv1.DomainResponse, error) {
 
 	response := &cmdv1.DomainResponse{

@@ -38,10 +38,6 @@ import (
 )
 
 func (l *LibvirtDomainManager) finalizeMigrationTarget(vmi *v1.VirtualMachineInstance) error {
-	if err := l.hotPlugHostDevices(vmi); err != nil {
-		log.Log.Object(vmi).Reason(err).Error("failed to hot-plug host-devices")
-	}
-
 	if err := l.setGuestTime(vmi); err != nil {
 		return err
 	}

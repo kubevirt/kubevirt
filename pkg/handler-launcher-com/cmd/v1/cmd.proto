@@ -18,6 +18,7 @@ service Cmd {
   rpc CancelVirtualMachineMigration(VMIRequest) returns (Response) {}
   rpc SignalTargetPodCleanup(VMIRequest) returns (Response) {}
   rpc FinalizeVirtualMachineMigration(VMIRequest) returns (Response) {}
+  rpc HotplugHostDevices(VMIRequest) returns (Response) {}
   rpc GetDomain(EmptyRequest) returns (DomainResponse) {}
   rpc GetDomainStats(EmptyRequest) returns (DomainStatsResponse) {}
   rpc GetGuestInfo(EmptyRequest) returns (GuestInfoResponse) {}
