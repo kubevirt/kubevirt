@@ -62,7 +62,7 @@ spec:
         - name: SSP_VERSION
           value: v0.16.1
         - name: TTO_VERSION
-          value: v0.3.0
+          value: v0.4.1
         - name: HPPO_VERSION
           value: v0.14.0
         - name: KV_CONSOLE_PLUGIN_IMAGE
@@ -581,7 +581,6 @@ spec:
         app.kubernetes.io/version: 1.8.0
         control-plane: tekton-tasks-operator
         name: tekton-tasks-operator
-        prometheus.kubevirt.io: "true"
       namespace: kubevirt-hyperconverged
     spec:
       containers:
@@ -591,10 +590,10 @@ spec:
         - /manager
         env:
         - name: OPERATOR_VERSION
-          value: v0.3.0
+          value: v0.4.1
         - name: CLEANUP_VM_IMG
         - name: COPY_TEMPLATE_IMG
-        - name: CREATE_DATAVOLUME_IMG
+        - name: MODIFY_DATA_OBJECT_IMG
         - name: CREATE_VM_IMG
         - name: DISK_VIRT_CUSTOMIZE_IMG
         - name: DISK_VIRT_SYSPREP_IMG
@@ -605,7 +604,7 @@ spec:
           valueFrom:
             fieldRef:
               fieldPath: metadata.namespace
-        image: quay.io/kubevirt/tekton-tasks-operator@sha256:aa8ed6cd59dc235c02f8170e4b272e67801e87fe35767d2c6b31891e534a2295
+        image: quay.io/kubevirt/tekton-tasks-operator@sha256:a1693a2c6676095c00203a4a938b7d2730ec3080aa9c802c496c60de70626507
         livenessProbe:
           httpGet:
             path: /healthz
@@ -613,10 +612,6 @@ spec:
           initialDelaySeconds: 15
           periodSeconds: 20
         name: manager
-        ports:
-        - containerPort: 8443
-          name: metrics
-          protocol: TCP
         readinessProbe:
           httpGet:
             path: /readyz
@@ -629,7 +624,14 @@ spec:
             memory: 150Mi
         securityContext:
           allowPrivilegeEscalation: false
+          capabilities:
+            drop:
+            - ALL
       priorityClassName: system-cluster-critical
+      securityContext:
+        runAsNonRoot: true
+        seccompProfile:
+          type: RuntimeDefault
       serviceAccountName: tekton-tasks-operator
       terminationGracePeriodSeconds: 10
 ---
