@@ -33,23 +33,22 @@ import (
 )
 
 var _ = Describe("Kubevirt VirtualMachineInstancePreset Client", func() {
-
 	var server *ghttp.Server
-	var client KubevirtClient
 	basePath := "/apis/kubevirt.io/v1alpha3/namespaces/default/virtualmachineinstancepresets"
 	presetPath := path.Join(basePath, "testpreset")
+	proxyPath := "/proxy/path"
 
 	BeforeEach(func() {
-		var err error
 		server = ghttp.NewServer()
-		client, err = GetKubevirtClientFromFlags(server.URL(), "")
-		Expect(err).ToNot(HaveOccurred())
 	})
 
-	It("should fetch a VirtualMachineInstancePreset", func() {
+	DescribeTable("should fetch a VirtualMachineInstancePreset", func(proxyPath string) {
+		client, err := GetKubevirtClientFromFlags(server.URL()+proxyPath, "")
+		Expect(err).ToNot(HaveOccurred())
+
 		preset := NewMinimalVirtualMachineInstancePreset("testpreset")
 		server.AppendHandlers(ghttp.CombineHandlers(
-			ghttp.VerifyRequest("GET", presetPath),
+			ghttp.VerifyRequest("GET", path.Join(proxyPath, presetPath)),
 			ghttp.RespondWithJSONEncoded(http.StatusOK, preset),
 		))
 		fetchedVMIPreset, err := client.VirtualMachineInstancePreset(k8sv1.NamespaceDefault).Get("testpreset", k8smetav1.GetOptions{})
@@ -57,24 +56,36 @@ var _ = Describe("Kubevirt VirtualMachineInstancePreset Client", func() {
 		Expect(server.ReceivedRequests()).To(HaveLen(1))
 		Expect(err).ToNot(HaveOccurred())
 		Expect(fetchedVMIPreset).To(Equal(preset))
-	})
+	},
+		Entry("with regular server URL", ""),
+		Entry("with proxied server URL", proxyPath),
+	)
 
-	It("should detect non existent VMIPresets", func() {
+	DescribeTable("should detect non existent VMIPresets", func(proxyPath string) {
+		client, err := GetKubevirtClientFromFlags(server.URL()+proxyPath, "")
+		Expect(err).ToNot(HaveOccurred())
+
 		server.AppendHandlers(ghttp.CombineHandlers(
-			ghttp.VerifyRequest("GET", presetPath),
+			ghttp.VerifyRequest("GET", path.Join(proxyPath, presetPath)),
 			ghttp.RespondWithJSONEncoded(http.StatusNotFound, errors.NewNotFound(schema.GroupResource{}, "testpreset")),
 		))
-		_, err := client.VirtualMachineInstancePreset(k8sv1.NamespaceDefault).Get("testpreset", k8smetav1.GetOptions{})
+		_, err = client.VirtualMachineInstancePreset(k8sv1.NamespaceDefault).Get("testpreset", k8smetav1.GetOptions{})
 
 		Expect(server.ReceivedRequests()).To(HaveLen(1))
 		Expect(err).To(HaveOccurred())
 		Expect(errors.IsNotFound(err)).To(BeTrue(), "Expected an IsNotFound error to have occurred")
-	})
+	},
+		Entry("with regular server URL", ""),
+		Entry("with proxied server URL", proxyPath),
+	)
 
-	It("should fetch a VirtualMachineInstancePreset list", func() {
+	DescribeTable("should fetch a VirtualMachineInstancePreset list", func(proxyPath string) {
+		client, err := GetKubevirtClientFromFlags(server.URL()+proxyPath, "")
+		Expect(err).ToNot(HaveOccurred())
+
 		preset := NewMinimalVirtualMachineInstancePreset("testpreset")
 		server.AppendHandlers(ghttp.CombineHandlers(
-			ghttp.VerifyRequest("GET", basePath),
+			ghttp.VerifyRequest("GET", path.Join(proxyPath, basePath)),
 			ghttp.RespondWithJSONEncoded(http.StatusOK, NewVirtualMachineInstancePresetList(*preset)),
 		))
 		fetchedVMIPresetList, err := client.VirtualMachineInstancePreset(k8sv1.NamespaceDefault).List(k8smetav1.ListOptions{})
@@ -83,12 +94,18 @@ var _ = Describe("Kubevirt VirtualMachineInstancePreset Client", func() {
 		Expect(server.ReceivedRequests()).To(HaveLen(1))
 		Expect(fetchedVMIPresetList.Items).To(HaveLen(1))
 		Expect(fetchedVMIPresetList.Items[0]).To(Equal(*preset))
-	})
+	},
+		Entry("with regular server URL", ""),
+		Entry("with proxied server URL", proxyPath),
+	)
 
-	It("should create a VirtualMachineInstancePreset", func() {
+	DescribeTable("should create a VirtualMachineInstancePreset", func(proxyPath string) {
+		client, err := GetKubevirtClientFromFlags(server.URL()+proxyPath, "")
+		Expect(err).ToNot(HaveOccurred())
+
 		preset := NewMinimalVirtualMachineInstancePreset("testpreset")
 		server.AppendHandlers(ghttp.CombineHandlers(
-			ghttp.VerifyRequest("POST", basePath),
+			ghttp.VerifyRequest("POST", path.Join(proxyPath, basePath)),
 			ghttp.RespondWithJSONEncoded(http.StatusCreated, preset),
 		))
 		createdVMIPreset, err := client.VirtualMachineInstancePreset(k8sv1.NamespaceDefault).Create(preset)
@@ -96,12 +113,18 @@ var _ = Describe("Kubevirt VirtualMachineInstancePreset Client", func() {
 		Expect(server.ReceivedRequests()).To(HaveLen(1))
 		Expect(err).ToNot(HaveOccurred())
 		Expect(createdVMIPreset).To(Equal(preset))
-	})
+	},
+		Entry("with regular server URL", ""),
+		Entry("with proxied server URL", proxyPath),
+	)
 
-	It("should update a VirtualMachineInstancePreset", func() {
+	DescribeTable("should update a VirtualMachineInstancePreset", func(proxyPath string) {
+		client, err := GetKubevirtClientFromFlags(server.URL()+proxyPath, "")
+		Expect(err).ToNot(HaveOccurred())
+
 		preset := NewMinimalVirtualMachineInstancePreset("testpreset")
 		server.AppendHandlers(ghttp.CombineHandlers(
-			ghttp.VerifyRequest("PUT", presetPath),
+			ghttp.VerifyRequest("PUT", path.Join(proxyPath, presetPath)),
 			ghttp.RespondWithJSONEncoded(http.StatusOK, preset),
 		))
 		updatedVMIPreset, err := client.VirtualMachineInstancePreset(k8sv1.NamespaceDefault).Update(preset)
@@ -109,18 +132,27 @@ var _ = Describe("Kubevirt VirtualMachineInstancePreset Client", func() {
 		Expect(server.ReceivedRequests()).To(HaveLen(1))
 		Expect(err).ToNot(HaveOccurred())
 		Expect(updatedVMIPreset).To(Equal(preset))
-	})
+	},
+		Entry("with regular server URL", ""),
+		Entry("with proxied server URL", proxyPath),
+	)
 
-	It("should delete a VirtualMachineInstancePreset", func() {
+	DescribeTable("should delete a VirtualMachineInstancePreset", func(proxyPath string) {
+		client, err := GetKubevirtClientFromFlags(server.URL()+proxyPath, "")
+		Expect(err).ToNot(HaveOccurred())
+
 		server.AppendHandlers(ghttp.CombineHandlers(
-			ghttp.VerifyRequest("DELETE", presetPath),
+			ghttp.VerifyRequest("DELETE", path.Join(proxyPath, presetPath)),
 			ghttp.RespondWithJSONEncoded(http.StatusOK, nil),
 		))
-		err := client.VirtualMachineInstancePreset(k8sv1.NamespaceDefault).Delete("testpreset", &k8smetav1.DeleteOptions{})
+		err = client.VirtualMachineInstancePreset(k8sv1.NamespaceDefault).Delete("testpreset", &k8smetav1.DeleteOptions{})
 
 		Expect(server.ReceivedRequests()).To(HaveLen(1))
 		Expect(err).ToNot(HaveOccurred())
-	})
+	},
+		Entry("with regular server URL", ""),
+		Entry("with proxied server URL", proxyPath),
+	)
 
 	AfterEach(func() {
 		server.Close()

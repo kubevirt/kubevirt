@@ -34,23 +34,22 @@ import (
 )
 
 var _ = Describe("Kubevirt VirtualMachineInstanceReplicaSet Client", func() {
-
 	var server *ghttp.Server
-	var client KubevirtClient
 	basePath := "/apis/kubevirt.io/v1alpha3/namespaces/default/virtualmachineinstancereplicasets"
 	rsPath := path.Join(basePath, "testrs")
+	proxyPath := "/proxy/path"
 
 	BeforeEach(func() {
-		var err error
 		server = ghttp.NewServer()
-		client, err = GetKubevirtClientFromFlags(server.URL(), "")
-		Expect(err).ToNot(HaveOccurred())
 	})
 
-	It("should fetch a VirtualMachineInstanceReplicaSet", func() {
+	DescribeTable("should fetch a VirtualMachineInstanceReplicaSet", func(proxyPath string) {
+		client, err := GetKubevirtClientFromFlags(server.URL()+proxyPath, "")
+		Expect(err).ToNot(HaveOccurred())
+
 		rs := NewMinimalVirtualMachineInstanceReplicaSet("testrs")
 		server.AppendHandlers(ghttp.CombineHandlers(
-			ghttp.VerifyRequest("GET", rsPath),
+			ghttp.VerifyRequest("GET", path.Join(proxyPath, rsPath)),
 			ghttp.RespondWithJSONEncoded(http.StatusOK, rs),
 		))
 		fetchedVMIReplicaSet, err := client.ReplicaSet(k8sv1.NamespaceDefault).Get("testrs", k8smetav1.GetOptions{})
@@ -58,24 +57,36 @@ var _ = Describe("Kubevirt VirtualMachineInstanceReplicaSet Client", func() {
 		Expect(server.ReceivedRequests()).To(HaveLen(1))
 		Expect(err).ToNot(HaveOccurred())
 		Expect(fetchedVMIReplicaSet).To(Equal(rs))
-	})
+	},
+		Entry("with regular server URL", ""),
+		Entry("with proxied server URL", proxyPath),
+	)
 
-	It("should detect non existent VMIReplicaSets", func() {
+	DescribeTable("should detect non existent VMIReplicaSets", func(proxyPath string) {
+		client, err := GetKubevirtClientFromFlags(server.URL()+proxyPath, "")
+		Expect(err).ToNot(HaveOccurred())
+
 		server.AppendHandlers(ghttp.CombineHandlers(
-			ghttp.VerifyRequest("GET", rsPath),
+			ghttp.VerifyRequest("GET", path.Join(proxyPath, rsPath)),
 			ghttp.RespondWithJSONEncoded(http.StatusNotFound, errors.NewNotFound(schema.GroupResource{}, "testrs")),
 		))
-		_, err := client.ReplicaSet(k8sv1.NamespaceDefault).Get("testrs", k8smetav1.GetOptions{})
+		_, err = client.ReplicaSet(k8sv1.NamespaceDefault).Get("testrs", k8smetav1.GetOptions{})
 
 		Expect(server.ReceivedRequests()).To(HaveLen(1))
 		Expect(err).To(HaveOccurred())
 		Expect(errors.IsNotFound(err)).To(BeTrue())
-	})
+	},
+		Entry("with regular server URL", ""),
+		Entry("with proxied server URL", proxyPath),
+	)
 
-	It("should fetch a VirtualMachineInstanceReplicaSet list", func() {
+	DescribeTable("should fetch a VirtualMachineInstanceReplicaSet list", func(proxyPath string) {
+		client, err := GetKubevirtClientFromFlags(server.URL()+proxyPath, "")
+		Expect(err).ToNot(HaveOccurred())
+
 		rs := NewMinimalVirtualMachineInstanceReplicaSet("testrs")
 		server.AppendHandlers(ghttp.CombineHandlers(
-			ghttp.VerifyRequest("GET", basePath),
+			ghttp.VerifyRequest("GET", path.Join(proxyPath, basePath)),
 			ghttp.RespondWithJSONEncoded(http.StatusOK, NewVirtualMachineInstanceReplicaSetList(*rs)),
 		))
 		fetchedVMIReplicaSetList, err := client.ReplicaSet(k8sv1.NamespaceDefault).List(k8smetav1.ListOptions{})
@@ -84,12 +95,18 @@ var _ = Describe("Kubevirt VirtualMachineInstanceReplicaSet Client", func() {
 		Expect(server.ReceivedRequests()).To(HaveLen(1))
 		Expect(fetchedVMIReplicaSetList.Items).To(HaveLen(1))
 		Expect(fetchedVMIReplicaSetList.Items[0]).To(Equal(*rs))
-	})
+	},
+		Entry("with regular server URL", ""),
+		Entry("with proxied server URL", proxyPath),
+	)
 
-	It("should create a VirtualMachineInstanceReplicaSet", func() {
+	DescribeTable("should create a VirtualMachineInstanceReplicaSet", func(proxyPath string) {
+		client, err := GetKubevirtClientFromFlags(server.URL()+proxyPath, "")
+		Expect(err).ToNot(HaveOccurred())
+
 		rs := NewMinimalVirtualMachineInstanceReplicaSet("testrs")
 		server.AppendHandlers(ghttp.CombineHandlers(
-			ghttp.VerifyRequest("POST", basePath),
+			ghttp.VerifyRequest("POST", path.Join(proxyPath, basePath)),
 			ghttp.RespondWithJSONEncoded(http.StatusCreated, rs),
 		))
 		createdVMIReplicaSet, err := client.ReplicaSet(k8sv1.NamespaceDefault).Create(rs)
@@ -97,12 +114,18 @@ var _ = Describe("Kubevirt VirtualMachineInstanceReplicaSet Client", func() {
 		Expect(server.ReceivedRequests()).To(HaveLen(1))
 		Expect(err).ToNot(HaveOccurred())
 		Expect(createdVMIReplicaSet).To(Equal(rs))
-	})
+	},
+		Entry("with regular server URL", ""),
+		Entry("with proxied server URL", proxyPath),
+	)
 
-	It("should update a VirtualMachineInstanceReplicaSet", func() {
+	DescribeTable("should update a VirtualMachineInstanceReplicaSet", func(proxyPath string) {
+		client, err := GetKubevirtClientFromFlags(server.URL()+proxyPath, "")
+		Expect(err).ToNot(HaveOccurred())
+
 		rs := NewMinimalVirtualMachineInstanceReplicaSet("testrs")
 		server.AppendHandlers(ghttp.CombineHandlers(
-			ghttp.VerifyRequest("PUT", rsPath),
+			ghttp.VerifyRequest("PUT", path.Join(proxyPath, rsPath)),
 			ghttp.RespondWithJSONEncoded(http.StatusOK, rs),
 		))
 		updatedVMIReplicaSet, err := client.ReplicaSet(k8sv1.NamespaceDefault).Update(rs)
@@ -110,13 +133,19 @@ var _ = Describe("Kubevirt VirtualMachineInstanceReplicaSet Client", func() {
 		Expect(server.ReceivedRequests()).To(HaveLen(1))
 		Expect(err).ToNot(HaveOccurred())
 		Expect(updatedVMIReplicaSet).To(Equal(rs))
-	})
+	},
+		Entry("with regular server URL", ""),
+		Entry("with proxied server URL", proxyPath),
+	)
 
-	It("should update a VirtualMachineInstanceReplicaSet scale subresource", func() {
+	DescribeTable("should update a VirtualMachineInstanceReplicaSet scale subresource", func(proxyPath string) {
+		client, err := GetKubevirtClientFromFlags(server.URL()+proxyPath, "")
+		Expect(err).ToNot(HaveOccurred())
+
 		rs := NewMinimalVirtualMachineInstanceReplicaSet("testrs")
 		scale := &v1.Scale{Spec: v1.ScaleSpec{Replicas: 3}}
 		server.AppendHandlers(ghttp.CombineHandlers(
-			ghttp.VerifyRequest("PUT", path.Join(rsPath, "scale")),
+			ghttp.VerifyRequest("PUT", path.Join(proxyPath, rsPath, "scale")),
 			ghttp.RespondWithJSONEncoded(http.StatusOK, scale),
 		))
 		scaleResponse, err := client.ReplicaSet(k8sv1.NamespaceDefault).UpdateScale(rs.Name, scale)
@@ -124,13 +153,19 @@ var _ = Describe("Kubevirt VirtualMachineInstanceReplicaSet Client", func() {
 		Expect(server.ReceivedRequests()).To(HaveLen(1))
 		Expect(err).ToNot(HaveOccurred())
 		Expect(scaleResponse).To(Equal(scale))
-	})
+	},
+		Entry("with regular server URL", ""),
+		Entry("with proxied server URL", proxyPath),
+	)
 
-	It("should get a VirtualMachineInstanceReplicaSet scale subresource", func() {
+	DescribeTable("should get a VirtualMachineInstanceReplicaSet scale subresource", func(proxyPath string) {
+		client, err := GetKubevirtClientFromFlags(server.URL()+proxyPath, "")
+		Expect(err).ToNot(HaveOccurred())
+
 		rs := NewMinimalVirtualMachineInstanceReplicaSet("testrs")
 		scale := &v1.Scale{Spec: v1.ScaleSpec{Replicas: 3}}
 		server.AppendHandlers(ghttp.CombineHandlers(
-			ghttp.VerifyRequest("GET", path.Join(rsPath, "scale")),
+			ghttp.VerifyRequest("GET", path.Join(proxyPath, rsPath, "scale")),
 			ghttp.RespondWithJSONEncoded(http.StatusOK, scale),
 		))
 		scaleResponse, err := client.ReplicaSet(k8sv1.NamespaceDefault).GetScale(rs.Name, k8smetav1.GetOptions{})
@@ -138,18 +173,27 @@ var _ = Describe("Kubevirt VirtualMachineInstanceReplicaSet Client", func() {
 		Expect(server.ReceivedRequests()).To(HaveLen(1))
 		Expect(err).ToNot(HaveOccurred())
 		Expect(scaleResponse).To(Equal(scale))
-	})
+	},
+		Entry("with regular server URL", ""),
+		Entry("with proxied server URL", proxyPath),
+	)
 
-	It("should delete a VirtualMachineInstanceReplicaSet", func() {
+	DescribeTable("should delete a VirtualMachineInstanceReplicaSet", func(proxyPath string) {
+		client, err := GetKubevirtClientFromFlags(server.URL()+proxyPath, "")
+		Expect(err).ToNot(HaveOccurred())
+
 		server.AppendHandlers(ghttp.CombineHandlers(
-			ghttp.VerifyRequest("DELETE", rsPath),
+			ghttp.VerifyRequest("DELETE", path.Join(proxyPath, rsPath)),
 			ghttp.RespondWithJSONEncoded(http.StatusOK, nil),
 		))
-		err := client.ReplicaSet(k8sv1.NamespaceDefault).Delete("testrs", &k8smetav1.DeleteOptions{})
+		err = client.ReplicaSet(k8sv1.NamespaceDefault).Delete("testrs", &k8smetav1.DeleteOptions{})
 
 		Expect(server.ReceivedRequests()).To(HaveLen(1))
 		Expect(err).ToNot(HaveOccurred())
-	})
+	},
+		Entry("with regular server URL", ""),
+		Entry("with proxied server URL", proxyPath),
+	)
 
 	AfterEach(func() {
 		server.Close()

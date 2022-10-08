@@ -23,7 +23,7 @@ func (e *ExpandSpec) ForVirtualMachine(vm *v1.VirtualMachine) (*v1.VirtualMachin
 	uri := fmt.Sprintf("/apis/"+v1.SubresourceGroupName+"/%s/expand-spec", v1.ApiStorageVersion)
 	expandedVm := &v1.VirtualMachine{}
 	err := e.restClient.Put().
-		RequestURI(uri).
+		AbsPath(uri).
 		Body(vm).
 		Do(context.Background()).
 		Into(expandedVm)

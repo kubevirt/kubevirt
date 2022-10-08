@@ -47,7 +47,7 @@ func (v *ClusterProfiler) preferredVersion() (string, error) {
 	var group metav1.APIGroup
 	// First, find out which version to query
 	uri := ApiGroupName
-	result := v.restClient.Get().RequestURI(uri).Do(context.Background())
+	result := v.restClient.Get().AbsPath(uri).Do(context.Background())
 	if data, err := result.Raw(); err != nil {
 		connErr, isConnectionErr := err.(*url.Error)
 
@@ -73,7 +73,7 @@ func (v *ClusterProfiler) Start() error {
 	// Now, query the preferred version
 	uri := fmt.Sprintf("/apis/%s/start-cluster-profiler", preferredVersion)
 
-	return v.restClient.Get().RequestURI(uri).Do(context.Background()).Error()
+	return v.restClient.Get().AbsPath(uri).Do(context.Background()).Error()
 }
 
 func (v *ClusterProfiler) Stop() error {
@@ -86,7 +86,7 @@ func (v *ClusterProfiler) Stop() error {
 	// Now, query the preferred version
 	uri := fmt.Sprintf("/apis/%s/stop-cluster-profiler", preferredVersion)
 
-	return v.restClient.Get().RequestURI(uri).Do(context.Background()).Error()
+	return v.restClient.Get().AbsPath(uri).Do(context.Background()).Error()
 }
 
 // Dump returns at most cpRequest.PageSize profiler results. To fetch results from all kubevirt pods
@@ -112,7 +112,7 @@ func (v *ClusterProfiler) Dump(cpRequest *v1.ClusterProfilerRequest) (*v1.Cluste
 
 	var profileResults v1.ClusterProfilerResults
 
-	result := v.restClient.Get().RequestURI(uri).Body(bytes).Do(context.Background())
+	result := v.restClient.Get().AbsPath(uri).Body(bytes).Do(context.Background())
 	if data, err := result.Raw(); err != nil {
 		connErr, isConnectionErr := err.(*url.Error)
 
