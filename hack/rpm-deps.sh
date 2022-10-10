@@ -134,6 +134,10 @@ libguestfstools_main="
 libguestfstools_x86_64="
   edk2-ovmf-${EDK2_VERSION}
 "
+libguestfstools_extra="
+  selinux-policy
+  selinux-policy-targeted
+"
 
 exportserverbase_main="
   tar
@@ -219,6 +223,7 @@ if [ -z "${SINGLE_ARCH}" ] || [ "${SINGLE_ARCH}" == "x86_64" ]; then
         $centos_extra \
         $libguestfstools_main \
         $libguestfstools_x86_64 \
+        $libguestfstools_extra \
         ${bazeldnf_repos} \
         --force-ignore-with-dependencies '^(kernel-|linux-firmware)' \
         --force-ignore-with-dependencies '^(python[3]{0,1}-)' \
