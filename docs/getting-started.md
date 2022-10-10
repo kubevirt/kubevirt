@@ -46,6 +46,12 @@ login`. Your `$HOME/.docker/config.json` should look like:
 }
 ```
 
+## Requirements
+
+### SELinux support
+
+SELinux-enabled nodes need to have [Container-selinux](https://github.com/containers/container-selinux) version 2.170.0 or newer installed.
+
 ## Building
 
 The KubeVirt build system runs completely inside Docker. 
