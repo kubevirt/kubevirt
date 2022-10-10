@@ -2385,8 +2385,13 @@ type MediatedHostDevice struct {
 
 // MediatedDevicesConfiguration holds information about MDEV types to be defined, if available
 type MediatedDevicesConfiguration struct {
+	// Deprecated. Use mediatedDeviceTypes instead.
+	// +optional
 	// +listType=atomic
 	MediatedDevicesTypes []string `json:"mediatedDevicesTypes,omitempty"`
+	// +optional
+	// +listType=atomic
+	MediatedDeviceTypes []string `json:"mediatedDeviceTypes,omitempty"`
 	// +optional
 	// +listType=atomic
 	NodeMediatedDeviceTypes []NodeMediatedDeviceTypesConfig `json:"nodeMediatedDeviceTypes,omitempty"`
@@ -2399,8 +2404,13 @@ type NodeMediatedDeviceTypesConfig struct {
 	// Selector which must match a node's labels for the vmi to be scheduled on that node.
 	// More info: https://kubernetes.io/docs/concepts/configuration/assign-pod-node/
 	NodeSelector map[string]string `json:"nodeSelector"`
+	// Deprecated. Use mediatedDeviceTypes instead.
+	// +optional
 	// +listType=atomic
-	MediatedDevicesTypes []string `json:"mediatedDevicesTypes"`
+	MediatedDevicesTypes []string `json:"mediatedDevicesTypes,omitempty"`
+	// +optional
+	// +listType=atomic
+	MediatedDeviceTypes []string `json:"mediatedDeviceTypes"`
 }
 
 // NetworkConfiguration holds network options

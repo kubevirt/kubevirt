@@ -487,7 +487,7 @@ var _ = Describe("test configuration", func() {
 			Spec: v1.KubeVirtSpec{
 				Configuration: v1.KubeVirtConfiguration{
 					MediatedDevicesConfiguration: &v1.MediatedDevicesConfiguration{
-						MediatedDevicesTypes: []string{
+						MediatedDeviceTypes: []string{
 
 							"nvidia-222",
 							"nvidia-228",
@@ -498,7 +498,7 @@ var _ = Describe("test configuration", func() {
 								NodeSelector: map[string]string{
 									"testLabel1": "true",
 								},
-								MediatedDevicesTypes: []string{
+								MediatedDeviceTypes: []string{
 									"nvidia-223",
 								},
 							},
@@ -506,7 +506,7 @@ var _ = Describe("test configuration", func() {
 								NodeSelector: map[string]string{
 									"testLabel2": "true",
 								},
-								MediatedDevicesTypes: []string{
+								MediatedDeviceTypes: []string{
 									"nvidia-229",
 								},
 							},
@@ -515,7 +515,7 @@ var _ = Describe("test configuration", func() {
 									"testLabel3": "true",
 									"testLabel4": "true",
 								},
-								MediatedDevicesTypes: []string{
+								MediatedDeviceTypes: []string{
 									"nvidia-230",
 								},
 							},

@@ -117,7 +117,7 @@ func PermanentHostDevicePlugins(maxDevices int, permissions string) []Device {
 
 type DeviceControllerInterface interface {
 	Initialized() bool
-	RefreshMediatedDevicesTypes()
+	RefreshMediatedDeviceTypes()
 }
 
 type DeviceController struct {
@@ -267,15 +267,15 @@ func (c *DeviceController) splitPermittedDevices(devices []Device) (map[string]D
 	return devicePluginsToRun, devicePluginsToStop
 }
 
-func (c *DeviceController) RefreshMediatedDevicesTypes() {
+func (c *DeviceController) RefreshMediatedDeviceTypes() {
 	go func() {
-		if c.refreshMediatedDevicesTypes() {
+		if c.refreshMediatedDeviceTypes() {
 			c.refreshPermittedDevices()
 		}
 	}()
 }
 
-func (c *DeviceController) refreshMediatedDevicesTypes() bool {
+func (c *DeviceController) refreshMediatedDeviceTypes() bool {
 	requiresDevicePluginsUpdate := false
 	node, err := c.clientset.Nodes().Get(context.Background(), c.host, metav1.GetOptions{})
 	if err != nil {
@@ -353,10 +353,10 @@ func (c *DeviceController) Run(stop chan struct{}) error {
 		}
 	}()
 
-	refreshMediatedDevicesTypesFn := func() {
-		c.refreshMediatedDevicesTypes()
+	refreshMediatedDeviceTypesFn := func() {
+		c.refreshMediatedDeviceTypes()
 	}
-	c.virtConfig.SetConfigModifiedCallback(refreshMediatedDevicesTypesFn)
+	c.virtConfig.SetConfigModifiedCallback(refreshMediatedDeviceTypesFn)
 	c.virtConfig.SetConfigModifiedCallback(c.refreshPermittedDevices)
 	c.refreshPermittedDevices()
 

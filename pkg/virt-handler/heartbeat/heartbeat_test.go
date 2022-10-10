@@ -169,7 +169,7 @@ func (f *fakeDeviceController) Initialized() bool {
 	return f.initialized
 }
 
-func (f *fakeDeviceController) RefreshMediatedDevicesTypes() {
+func (f *fakeDeviceController) RefreshMediatedDeviceTypes() {
 	return
 }
 
@@ -200,7 +200,7 @@ func (f *probeCountingDeviceController) Initialized() bool {
 	return f.probes[f.probed-1]
 }
 
-func (f *probeCountingDeviceController) RefreshMediatedDevicesTypes() {
+func (f *probeCountingDeviceController) RefreshMediatedDeviceTypes() {
 	return
 }
 

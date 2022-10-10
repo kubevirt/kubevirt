@@ -150,7 +150,7 @@ func (h *HeartBeat) do() {
 	// and a MediatedDevicesConfiguration in KubeVirt CR.
 	// When labels change we should initialize a refresh to create/remove mdev types and start/stop
 	// relevant device plugins. This operation should be async.
-	h.deviceManagerController.RefreshMediatedDevicesTypes()
+	h.deviceManagerController.RefreshMediatedDeviceTypes()
 	log.DefaultLogger().V(4).Infof("Heartbeat sent")
 }
 
