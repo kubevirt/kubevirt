@@ -357,7 +357,7 @@ var _ = Describe("Mediated Devices Types configuration", func() {
 
 			kvConfig := kv.DeepCopy()
 			kvConfig.Spec.Configuration.MediatedDevicesConfiguration = &v1.MediatedDevicesConfiguration{
-				MediatedDevicesTypes: []string{
+				MediatedDeviceTypes: []string{
 
 					"nvidia-222",
 					"nvidia-228",
@@ -368,7 +368,7 @@ var _ = Describe("Mediated Devices Types configuration", func() {
 						NodeSelector: map[string]string{
 							"testLabel1": "true",
 						},
-						MediatedDevicesTypes: []string{
+						MediatedDeviceTypes: []string{
 							"nvidia-223",
 						},
 					},
@@ -376,7 +376,7 @@ var _ = Describe("Mediated Devices Types configuration", func() {
 						NodeSelector: map[string]string{
 							"testLabel2": "true",
 						},
-						MediatedDevicesTypes: []string{
+						MediatedDeviceTypes: []string{
 							"nvidia-229",
 						},
 					},
@@ -385,7 +385,7 @@ var _ = Describe("Mediated Devices Types configuration", func() {
 							"testLabel3": "true",
 							"testLabel4": "true",
 						},
-						MediatedDevicesTypes: []string{
+						MediatedDeviceTypes: []string{
 							"nvidia-224",
 						},
 					},
@@ -411,14 +411,14 @@ var _ = Describe("Mediated Devices Types configuration", func() {
 
 			if late {
 				By("refreshing the mediated devices types with no sysfs structure")
-				deviceController.refreshMediatedDevicesTypes()
+				deviceController.refreshMediatedDeviceTypes()
 
 				By("creating the sysfs structure late")
 				createTempMDEVSysfsStructure(sc.pciMDEVDevicesMap)
 			}
 
 			By("refreshing the mediated devices types")
-			shouldRefresh := deviceController.refreshMediatedDevicesTypes()
+			shouldRefresh := deviceController.refreshMediatedDeviceTypes()
 			Expect(shouldRefresh).To(BeTrue())
 			By("creating the desired mdev types")
 			desiredDevicesToConfigure := make(map[string]struct{})
@@ -450,7 +450,7 @@ var _ = Describe("Mediated Devices Types configuration", func() {
 			By("removing all created mdevs")
 			kvConfig.Spec.Configuration.MediatedDevicesConfiguration = &v1.MediatedDevicesConfiguration{}
 			testutils.UpdateFakeKubeVirtClusterConfig(kvInformer, kvConfig)
-			deviceController.refreshMediatedDevicesTypes()
+			deviceController.refreshMediatedDeviceTypes()
 			files, err := ioutil.ReadDir(fakeMdevDevicesPath)
 			Expect(err).ToNot(HaveOccurred())
 			Expect(files).To(BeEmpty())

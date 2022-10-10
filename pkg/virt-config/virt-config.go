@@ -263,7 +263,12 @@ func (c *ClusterConfig) GetDesiredMDEVTypes(node *k8sv1.Node) []string {
 		mdevTypesMap := make(map[string]struct{})
 		for _, nodeConfig := range nodeMdevConf {
 			if canSelectNode(nodeConfig.NodeSelector, node) {
-				for _, mdevType := range nodeConfig.MediatedDevicesTypes {
+				types := nodeConfig.MediatedDeviceTypes
+				// Handle deprecated spelling
+				if len(types) == 0 {
+					types = nodeConfig.MediatedDevicesTypes
+				}
+				for _, mdevType := range types {
 					mdevTypesMap[mdevType] = struct{}{}
 				}
 			}
@@ -276,7 +281,11 @@ func (c *ClusterConfig) GetDesiredMDEVTypes(node *k8sv1.Node) []string {
 			return mdevTypesList
 		}
 	}
-	return mdevTypesConf.MediatedDevicesTypes
+	// Handle deprecated spelling
+	if len(mdevTypesConf.MediatedDeviceTypes) == 0 {
+		return mdevTypesConf.MediatedDevicesTypes
+	}
+	return mdevTypesConf.MediatedDeviceTypes
 }
 
 type virtComponent int
