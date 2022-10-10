@@ -2474,6 +2474,11 @@ func (in *MediatedDevicesConfiguration) DeepCopyInto(out *MediatedDevicesConfigu
 		*out = make([]string, len(*in))
 		copy(*out, *in)
 	}
+	if in.MediatedDeviceTypes != nil {
+		in, out := &in.MediatedDeviceTypes, &out.MediatedDeviceTypes
+		*out = make([]string, len(*in))
+		copy(*out, *in)
+	}
 	if in.NodeMediatedDeviceTypes != nil {
 		in, out := &in.NodeMediatedDeviceTypes, &out.NodeMediatedDeviceTypes
 		*out = make([]NodeMediatedDeviceTypesConfig, len(*in))
@@ -2780,6 +2785,11 @@ func (in *NodeMediatedDeviceTypesConfig) DeepCopyInto(out *NodeMediatedDeviceTyp
 	}
 	if in.MediatedDevicesTypes != nil {
 		in, out := &in.MediatedDevicesTypes, &out.MediatedDevicesTypes
+		*out = make([]string, len(*in))
+		copy(*out, *in)
+	}
+	if in.MediatedDeviceTypes != nil {
+		in, out := &in.MediatedDeviceTypes, &out.MediatedDeviceTypes
 		*out = make([]string, len(*in))
 		copy(*out, *in)
 	}

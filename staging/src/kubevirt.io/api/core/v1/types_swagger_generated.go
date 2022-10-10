@@ -763,7 +763,8 @@ func (MediatedHostDevice) SwaggerDoc() map[string]string {
 func (MediatedDevicesConfiguration) SwaggerDoc() map[string]string {
 	return map[string]string{
 		"":                        "MediatedDevicesConfiguration holds information about MDEV types to be defined, if available",
-		"mediatedDevicesTypes":    "+listType=atomic",
+		"mediatedDevicesTypes":    "Deprecated. Use mediatedDeviceTypes instead.\n+optional\n+listType=atomic",
+		"mediatedDeviceTypes":     "+optional\n+listType=atomic",
 		"nodeMediatedDeviceTypes": "+optional\n+listType=atomic",
 	}
 }
@@ -772,7 +773,8 @@ func (NodeMediatedDeviceTypesConfig) SwaggerDoc() map[string]string {
 	return map[string]string{
 		"":                     "NodeMediatedDeviceTypesConfig holds information about MDEV types to be defined in a specifc node that matches the NodeSelector field.\n+k8s:openapi-gen=true",
 		"nodeSelector":         "NodeSelector is a selector which must be true for the vmi to fit on a node.\nSelector which must match a node's labels for the vmi to be scheduled on that node.\nMore info: https://kubernetes.io/docs/concepts/configuration/assign-pod-node/",
-		"mediatedDevicesTypes": "+listType=atomic",
+		"mediatedDevicesTypes": "Deprecated. Use mediatedDeviceTypes instead.\n+optional\n+listType=atomic",
+		"mediatedDeviceTypes":  "+optional\n+listType=atomic",
 	}
 }
 
