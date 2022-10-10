@@ -277,7 +277,7 @@ var _ = Describe("[sig-compute]Configurations", func() {
 				if computeContainer == nil {
 					util.PanicOnError(fmt.Errorf("could not find the compute container"))
 				}
-				Expect(computeContainer.Resources.Requests.Memory().ToDec().ScaledValue(resource.Mega)).To(Equal(int64(409)))
+				Expect(computeContainer.Resources.Requests.Memory().ToDec().ScaledValue(resource.Mega)).To(Equal(int64(410)))
 
 				Expect(err).ToNot(HaveOccurred())
 			})

@@ -121,7 +121,7 @@ const ephemeralStorageOverheadSize = "50M"
 
 const (
 	VirtLauncherOverhead = "200Mi" // The sum of the `ps` RSS for the 2 virt-launcher processes
-	VirtlogdOverhead     = "17Mi"  // The RSS for virtlogd
+	VirtlogdOverhead     = "18Mi"  // The RSS for virtlogd
 	LibvirtdOverhead     = "33Mi"  // The RSS for libvirtd
 	QemuOverhead         = "30Mi"  // The RSS for qemu, minus the RAM of its (stressed) guest, minus the virtual page table
 )
