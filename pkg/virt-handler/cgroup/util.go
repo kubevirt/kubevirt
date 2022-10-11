@@ -9,6 +9,7 @@ import (
 	"os/exec"
 	"path/filepath"
 	"strconv"
+	"strings"
 
 	"github.com/opencontainers/runc/libcontainer/cgroups"
 
@@ -219,4 +220,21 @@ func getCgroupThreadsHelper(manager Manager, fname string) ([]int, error) {
 		return nil, err
 	}
 	return tIds, nil
+}
+
+// set cpus "cpusList" on the allowed CPUs. Optionally on a subcgroup of
+// the pods control group (if subcgroup != nil).
+func setCpuSetHelper(manager Manager, subCgroup string, cpusList []int) error {
+	subSysPath, err := manager.GetBasePathToHostSubsystem("cpuset")
+	if err != nil {
+		return err
+	}
+
+	if subCgroup != "" {
+		subSysPath = filepath.Join(subSysPath, subCgroup)
+	}
+
+	wVal := strings.Trim(strings.Replace(fmt.Sprint(cpusList), " ", ",", -1), "[]")
+
+	return runc_cgroups.WriteFile(subSysPath, "cpuset.cpus", wVal)
 }

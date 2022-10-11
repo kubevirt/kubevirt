@@ -139,3 +139,7 @@ func (v *v2Manager) AttachTID(subSystem string, subCgroup string, tid int) error
 func (v *v2Manager) GetCgroupThreads() ([]int, error) {
 	return getCgroupThreadsHelper(v, "cgroup.threads")
 }
+
+func (v *v2Manager) SetCpuSet(subcgroup string, cpulist []int) error {
+	return setCpuSetHelper(v, subcgroup, cpulist)
+}

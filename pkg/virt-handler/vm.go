@@ -2614,7 +2614,7 @@ func (d *VirtualMachineController) configureHousekeepingCgroup(vmi *v1.VirtualMa
 
 	log.Log.V(3).Object(vmi).Infof("housekeeping cpu: %v", hkcpu)
 
-	err = cgroup.SetCpuSet(cgroupManager, "housekeeping", []int{hkcpu})
+	err = cgroupManager.SetCpuSet("housekeeping", []int{hkcpu})
 	if err != nil {
 		return err
 	}
