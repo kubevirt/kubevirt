@@ -20,7 +20,6 @@
 package cgroup
 
 import (
-	"bufio"
 	"fmt"
 	"os"
 	"path/filepath"
@@ -63,6 +62,9 @@ type Manager interface {
 
 	// Attach TID to cgroup
 	AttachTID(string, string, int) error
+
+	// Get list of threads attached to cgroup
+	GetCgroupThreads() ([]int, error)
 }
 
 // This is here so that mockgen would create a mock out of it. That way we would have a mocked runc manager.
@@ -195,39 +197,4 @@ func detectVMIsolation(vm *v1.VirtualMachineInstance, socket string) (isolationR
 	}
 
 	return isolationRes, nil
-}
-
-func GetCgroupThreads(manager Manager) (tIds []int, err error) {
-	tIds = make([]int, 0, 10)
-	fName := "tasks"
-	if runc_cgroups.IsCgroup2UnifiedMode() {
-		fName = "cgroup.threads"
-	}
-
-	subSysPath, err := manager.GetBasePathToHostSubsystem("cpuset")
-	if err != nil {
-		return nil, err
-	}
-
-	fh, err := os.Open(filepath.Join(subSysPath, fName))
-	if err != nil {
-		return nil, err
-	}
-	defer fh.Close()
-
-	scanner := bufio.NewScanner(fh)
-	for scanner.Scan() {
-		line := scanner.Text()
-		intVal, err := strconv.Atoi(line)
-		if err != nil {
-			log.Log.Errorf("error converting %s: %v", line, err)
-			return nil, err
-		}
-		tIds = append(tIds, intVal)
-	}
-	if err := scanner.Err(); err != nil {
-		log.Log.Errorf("error reading %s: %v", fName, err)
-		return nil, err
-	}
-	return tIds, nil
 }

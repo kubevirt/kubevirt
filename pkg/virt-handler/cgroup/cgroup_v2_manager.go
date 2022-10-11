@@ -135,3 +135,7 @@ func (v *v2Manager) AttachTID(subSystem string, subCgroup string, tid int) error
 
 	return nil
 }
+
+func (v *v2Manager) GetCgroupThreads() ([]int, error) {
+	return getCgroupThreadsHelper(v, "cgroup.threads")
+}

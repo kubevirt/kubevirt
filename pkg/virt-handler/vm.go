@@ -2619,7 +2619,7 @@ func (d *VirtualMachineController) configureHousekeepingCgroup(vmi *v1.VirtualMa
 		return err
 	}
 
-	tids, err := cgroup.GetCgroupThreads(cgroupManager)
+	tids, err := cgroupManager.GetCgroupThreads()
 	if err != nil {
 		return err
 	}
