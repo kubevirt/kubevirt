@@ -13,6 +13,7 @@ EDK2_VERSION=${EDK2_VERSION:-0:20220826gitba0e0e4c6a-1.el9}
 LIBGUESTFS_VERSION=${LIBGUESTFS_VERSION:-1:1.48.4-2.el9}
 GUESTFSTOOLS_VERSION=${GUESTFSTOOLS_VERSION:-0:1.48.2-7.el9}
 PASST_VERSION=${PASST_VERSION:-0:0^20221026.gf212044-1.el9}
+VIRTIOFSD_VERSION=${VIRTIOFSD_VERSION:-0:1.4.0-1.el9}
 SINGLE_ARCH=${SINGLE_ARCH:-""}
 
 bazeldnf_repos="--repofile rpm/repo.yaml"
@@ -105,6 +106,7 @@ launcherbase_extra="
   selinux-policy
   selinux-policy-targeted
   tar
+  virtiofsd-${VIRTIOFSD_VERSION}
   xorriso
 "
 
