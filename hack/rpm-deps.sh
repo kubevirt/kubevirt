@@ -38,12 +38,6 @@ centos_extra="
   libcurl-minimal
 "
 
-# get latest repo data from repo.yaml
-bazel run \
-    --config=${ARCHITECTURE} \
-    //:bazeldnf -- fetch \
-    ${bazeldnf_repos}
-
 # create a rpmtree for our test image with misc. tools.
 testimage_base="
   device-mapper
@@ -52,9 +46,9 @@ testimage_base="
   nmap-ncat
   procps-ng
   qemu-img-${QEMU_VERSION}
+  tar
   util-linux
   which
-  tar
 "
 
 # create a rpmtree for libvirt-devel. libvirt-devel is needed for compilation and unit-testing.
@@ -77,12 +71,13 @@ sandbox_base="
   python36
   sssd-client
 "
+
 # create a rpmtree for virt-launcher and virt-handler. This is the OS for our node-components.
 launcherbase_base="
   libvirt-client-${LIBVIRT_VERSION}
   libvirt-daemon-driver-qemu-${LIBVIRT_VERSION}
-  qemu-kvm-core-${QEMU_VERSION}
   passt-${PASST_VERSION}
+  qemu-kvm-core-${QEMU_VERSION}
 "
 launcherbase_x86_64="
   edk2-ovmf-${EDK2_VERSION}
@@ -108,7 +103,6 @@ launcherbase_extra="
 handler_base="
   qemu-img-${QEMU_VERSION}
 "
-
 handlerbase_extra="
   findutils
   iproute
@@ -137,6 +131,12 @@ libguestfstools_x86_64="
 exportserver_base="
   tar
 "
+
+# get latest repo data from repo.yaml
+bazel run \
+    --config=${ARCHITECTURE} \
+    //:bazeldnf -- fetch \
+    ${bazeldnf_repos}
 
 if [ -z "${SINGLE_ARCH}" ] || [ "${SINGLE_ARCH}" == "x86_64" ]; then
 
