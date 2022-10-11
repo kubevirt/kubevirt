@@ -493,28 +493,20 @@ var _ = Describe("[rfe_id:393][crit:high][vendor:cnv-qe@redhat.com][level:system
 	runMigrationAndCollectMigrationMetrics := func(vmi *v1.VirtualMachineInstance, migration *v1.VirtualMachineInstanceMigration, timeout int) string {
 		var pod *k8sv1.Pod
 		var metricsIPs []string
-		var family k8sv1.IPFamily = k8sv1.IPv4Protocol
+		const family = k8sv1.IPv4Protocol
 
-		if family == k8sv1.IPv6Protocol {
-			libnet.SkipWhenNotDualStackCluster(virtClient)
-		}
-
-		vmiNodeOrig := vmi.Status.NodeName
 		By("Finding the prometheus endpoint")
-		pod, err = kubecli.NewVirtHandlerClient(virtClient).Namespace(flags.KubeVirtInstallNamespace).ForNode(vmiNodeOrig).Pod()
+		pod, err = kubecli.NewVirtHandlerClient(virtClient).Namespace(flags.KubeVirtInstallNamespace).ForNode(vmi.Status.NodeName).Pod()
 		Expect(err).ToNot(HaveOccurred(), "Should find the virt-handler pod")
+		Expect(pod.Status.PodIPs).ToNot(BeEmpty(), "pod IPs must not be empty")
 		for _, ip := range pod.Status.PodIPs {
 			metricsIPs = append(metricsIPs, ip.IP)
 		}
 
-		By("Starting a Migration")
-		Eventually(func() error {
-			migration, err = virtClient.VirtualMachineInstanceMigration(migration.Namespace).Create(migration, &metav1.CreateOptions{})
-			return err
-		}, timeout, 1*time.Second).ShouldNot(HaveOccurred())
 		By("Waiting until the Migration Completes")
-
 		ip := getSupportedIP(metricsIPs, family)
+
+		migration = tests.RunMigration(virtClient, migration)
 
 		By("Scraping the Prometheus endpoint")
 		var metrics map[string]float64
@@ -527,35 +519,17 @@ var _ = Describe("[rfe_id:393][crit:high][vendor:cnv-qe@redhat.com][level:system
 			metrics, err = parseMetricsToMap(lines)
 			Expect(err).ToNot(HaveOccurred())
 			return metrics
-		}, 100*time.Second, 1*time.Second).ShouldNot(BeEmpty())
-
-		Expect(len(metrics)).To(BeNumerically(">=", 1.0))
+		}, 100*time.Second, 1*time.Second).ShouldNot(BeEmpty(), "no metrics with kubevirt_migrate_vmi prefix are found")
 		Expect(metrics).To(HaveLen(len(lines)))
 
 		By("Checking the collected metrics")
 		keys := getKeysFromMetrics(metrics)
 		for _, key := range keys {
 			value := metrics[key]
-			fmt.Fprintf(GinkgoWriter, "metric value was %f\n", value)
-			Expect(value).To(BeNumerically(">=", float64(0.0)))
+			Expect(value).ToNot(BeZero(), "metric value is not expected to be zero")
 		}
 
-		uid := ""
-		Eventually(func() error {
-			migration, err := virtClient.VirtualMachineInstanceMigration(migration.Namespace).Get(migration.Name, &metav1.GetOptions{})
-			if err != nil {
-				return err
-			}
-
-			Expect(migration.Status.Phase).ToNot(Equal(v1.MigrationFailed), "migration should not fail")
-
-			uid = string(migration.UID)
-			if migration.Status.Phase == v1.MigrationSucceeded {
-				return nil
-			}
-			return fmt.Errorf("migration is in the phase: %s", migration.Status.Phase)
-
-		}, timeout, 1*time.Second).ShouldNot(HaveOccurred(), fmt.Sprintf("migration should succeed after %d s", timeout))
+		uid := tests.ExpectMigrationSuccess(virtClient, migration, timeout)
 		return uid
 	}
 
@@ -3639,10 +3613,13 @@ var _ = Describe("[rfe_id:393][crit:high][vendor:cnv-qe@redhat.com][level:system
 
 	})
 
-	Context("[Serial][QUARANTINE][test_id:8482] Migration Metrics", Serial, func() {
+	Context("[QUARANTINE][test_id:8482] Migration Metrics", func() {
 		It("exposed to prometheus during VM migration", func() {
 			vmi := tests.NewRandomFedoraVMIWithGuestAgent()
 			vmi.Spec.Domain.Resources.Requests[k8sv1.ResourceMemory] = resource.MustParse(fedoraVMSize)
+
+			By("Limiting the bandwidth of migrations in the test namespace")
+			tests.CreateMigrationPolicy(virtClient, tests.PreparePolicyAndVMIWithBandwidthLimitation(vmi, migrationBandwidthLimit))
 
 			By("Starting the VirtualMachineInstance")
 			vmi = tests.RunVMIAndExpectLaunch(vmi, 240)
@@ -3662,10 +3639,6 @@ var _ = Describe("[rfe_id:393][crit:high][vendor:cnv-qe@redhat.com][level:system
 
 			// check VMI, confirm migration state
 			tests.ConfirmVMIPostMigration(virtClient, vmi, migrationUID)
-
-			// delete VMI
-			By("Deleting the VMI")
-			Expect(virtClient.VirtualMachineInstance(vmi.Namespace).Delete(vmi.Name, &metav1.DeleteOptions{})).To(Succeed())
 
 			By("Waiting for VMI to disappear")
 			tests.WaitForVirtualMachineToDisappearWithTimeout(vmi, 240)
