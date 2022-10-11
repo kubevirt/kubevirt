@@ -559,7 +559,7 @@ var _ = SIGDescribe("VirtualMachineRestore Tests", func() {
 			)
 
 			BeforeEach(func() {
-				sc, err := getSnapshotStorageClass(virtClient)
+				sc, err := libstorage.GetSnapshotStorageClass(virtClient)
 				Expect(err).ToNot(HaveOccurred())
 
 				if sc == "" {

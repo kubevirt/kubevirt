@@ -1302,8 +1302,8 @@ var _ = SIGDescribe("Export", func() {
 	}
 
 	It("should create export from VMSnapshot", func() {
-		sc, exists := libstorage.GetSnapshotStorageClass()
-		if !exists {
+		sc, err := libstorage.GetSnapshotStorageClass(virtClient)
+		if err != nil {
 			Skip("Skip test when Filesystem storage is not present")
 		}
 		vm := createVM(tests.NewRandomVMWithDataVolumeAndUserDataInStorageClass(
@@ -1367,8 +1367,8 @@ var _ = SIGDescribe("Export", func() {
 	}
 
 	It("should create export from VMSnapshot with multiple volumes", func() {
-		sc, exists := libstorage.GetSnapshotStorageClass()
-		if !exists {
+		sc, err := libstorage.GetSnapshotStorageClass(virtClient)
+		if err != nil {
 			Skip("Skip test when storage with snapshot is not present")
 		}
 
@@ -1679,8 +1679,8 @@ var _ = SIGDescribe("Export", func() {
 		})
 
 		It("Create succeeds using Snapshot source", func() {
-			sc, exists := libstorage.GetSnapshotStorageClass()
-			if !exists {
+			sc, err := libstorage.GetSnapshotStorageClass(virtClient)
+			if err != nil {
 				Skip("Skip test when storage with snapshot is not present")
 			}
 			// Create a populated Snapshot
@@ -1824,8 +1824,8 @@ var _ = SIGDescribe("Export", func() {
 			})
 
 			It("Download succeeds creating and downloading a vmexport using Snapshot source", func() {
-				sc, exists := libstorage.GetSnapshotStorageClass()
-				if !exists {
+				sc, err := libstorage.GetSnapshotStorageClass(virtClient)
+				if err != nil {
 					Skip("Skip test when storage with snapshot is not present")
 				}
 
