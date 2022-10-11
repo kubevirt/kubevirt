@@ -205,3 +205,7 @@ func (v *v1Manager) CreateChildCgroup(name string, subSystem string) error {
 func (v *v1Manager) GetCgroupThreads() ([]int, error) {
 	return getCgroupThreadsHelper(v, "tasks")
 }
+
+func (v *v1Manager) SetCpuSet(subcgroup string, cpulist []int) error {
+	return setCpuSetHelper(v, subcgroup, cpulist)
+}
