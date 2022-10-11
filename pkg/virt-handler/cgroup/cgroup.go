@@ -57,6 +57,9 @@ type Manager interface {
 	// GetCpuSet returns the cpu set
 	GetCpuSet() (string, error)
 
+	// SetCpuSet returns the cpu set
+	SetCpuSet(string, []int) error
+
 	// Create new child cgroup
 	CreateChildCgroup(string, string) error
 
@@ -161,23 +164,6 @@ func getCpuSetPath(manager Manager, cpusetFile string) (string, error) {
 
 	cpusetStr := strings.TrimSpace(string(cpuset))
 	return cpusetStr, nil
-}
-
-// set cpus "cpusList" on the allowed CPUs. Optionally on a subcgroup of
-// the pods control group (if subcgroup != nil).
-func SetCpuSet(manager Manager, subCgroup string, cpusList []int) error {
-	subSysPath, err := manager.GetBasePathToHostSubsystem("cpuset")
-	if err != nil {
-		return err
-	}
-
-	if subCgroup != "" {
-		subSysPath = filepath.Join(subSysPath, subCgroup)
-	}
-
-	wVal := strings.Trim(strings.Replace(fmt.Sprint(cpusList), " ", ",", -1), "[]")
-
-	return runc_cgroups.WriteFile(subSysPath, "cpuset.cpus", wVal)
 }
 
 // detectVMIsolation detects VM's IsolationResult, which can then be useful for receiving information such as PID.
