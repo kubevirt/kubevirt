@@ -57,7 +57,7 @@ jobs:
           echo "$DOCKER_PASSWORD" | docker login -u "$DOCKER_USERNAME" --password-stdin
           export DOCKER_TAG=$VERSION-arm64
           export DOCKER_PREFIX=$DOCKER_USERNAME
-          export BUILD_ARCH=aarch64
+          export BUILD_ARCH=crossbuild-aarch64
           make bazel-build
           make bazel-build-images
           make bazel-push-images
