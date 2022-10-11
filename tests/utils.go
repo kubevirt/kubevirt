@@ -2448,6 +2448,22 @@ func PreparePolicyAndVMI(vmi *v1.VirtualMachineInstance) *migrationsv1.Migration
 	return PreparePolicyAndVMIWithNsAndVmiLabels(vmi, nil, 1, 0)
 }
 
+func PreparePolicyAndVMIWithBandwidthLimitation(vmi *v1.VirtualMachineInstance, bandwidth resource.Quantity) *migrationsv1.MigrationPolicy {
+	policy := PreparePolicyAndVMI(vmi)
+	policy.Spec.BandwidthPerMigration = &bandwidth
+
+	return policy
+}
+
+func CreateMigrationPolicy(virtClient kubecli.KubevirtClient, policy *migrationsv1.MigrationPolicy) *migrationsv1.MigrationPolicy {
+	var err error
+
+	policy, err = virtClient.MigrationPolicy().Create(context.Background(), policy, metav1.CreateOptions{})
+	ExpectWithOffset(1, err).ToNot(HaveOccurred(), "migration policy creation failed")
+
+	return policy
+}
+
 func GetIdOfLauncher(vmi *v1.VirtualMachineInstance) string {
 	virtClient, err := kubecli.GetKubevirtClient()
 	util2.PanicOnError(err)
