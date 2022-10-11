@@ -2381,12 +2381,15 @@ func ArchiveToFile(tgtFile *os.File, sourceFilesNames ...string) {
 	}
 }
 
-func GetPolicyMatchedToVmi(name string, vmi *v1.VirtualMachineInstance, namespace *k8sv1.Namespace, matchingVmiLabels, matchingNSLabels int) *migrationsv1.MigrationPolicy {
+// If matchingNSLabels is zero, namespace parameter is being ignored and can be nil
+func PreparePolicyAndVMIWithNsAndVmiLabels(vmi *v1.VirtualMachineInstance, namespace *k8sv1.Namespace, matchingVmiLabels, matchingNSLabels int) *migrationsv1.MigrationPolicy {
 	Expect(vmi).ToNot(BeNil())
-	Expect(namespace).ToNot(BeNil())
-	Expect(name).ToNot(BeEmpty())
+	if matchingNSLabels > 0 {
+		Expect(namespace).ToNot(BeNil())
+	}
 
-	policy := kubecli.NewMinimalMigrationPolicy(name)
+	policyName := fmt.Sprintf("testpolicy-%s", rand.String(5))
+	policy := kubecli.NewMinimalMigrationPolicy(policyName)
 	if policy.Labels == nil {
 		policy.Labels = map[string]string{}
 	}
@@ -2395,13 +2398,19 @@ func GetPolicyMatchedToVmi(name string, vmi *v1.VirtualMachineInstance, namespac
 	if vmi.Labels == nil {
 		vmi.Labels = make(map[string]string)
 	}
-	if namespace.Labels == nil {
-		namespace.Labels = make(map[string]string)
+
+	var namespaceLabels map[string]string
+	if namespace != nil {
+		if namespace.Labels == nil {
+			namespace.Labels = make(map[string]string)
+		}
+
+		namespaceLabels = namespace.Labels
 	}
 
 	if policy.Spec.Selectors == nil {
 		policy.Spec.Selectors = &migrationsv1.Selectors{
-			VirtualMachineInstanceSelector: migrationsv1.LabelSelector{}, //&metav1.LabelSelector{MatchLabels: map[string]string{}},
+			VirtualMachineInstanceSelector: migrationsv1.LabelSelector{},
 			NamespaceSelector:              migrationsv1.LabelSelector{},
 		}
 	} else if policy.Spec.Selectors.VirtualMachineInstanceSelector == nil {
@@ -2410,8 +2419,8 @@ func GetPolicyMatchedToVmi(name string, vmi *v1.VirtualMachineInstance, namespac
 		policy.Spec.Selectors.NamespaceSelector = migrationsv1.LabelSelector{}
 	}
 
-	labelKeyPattern := "mp-key-%d"
-	labelValuePattern := "mp-value-%d"
+	labelKeyPattern := policyName + "-key-%d"
+	labelValuePattern := policyName + "-value-%d"
 
 	applyLabels := func(policyLabels, vmiOrNSLabels map[string]string, labelCount int) {
 		for i := 0; i < labelCount; i++ {
@@ -2424,9 +2433,19 @@ func GetPolicyMatchedToVmi(name string, vmi *v1.VirtualMachineInstance, namespac
 	}
 
 	applyLabels(policy.Spec.Selectors.VirtualMachineInstanceSelector, vmi.Labels, matchingVmiLabels)
-	applyLabels(policy.Spec.Selectors.NamespaceSelector, namespace.Labels, matchingNSLabels)
+	applyLabels(policy.Spec.Selectors.NamespaceSelector, namespaceLabels, matchingNSLabels)
+
+	if namespace != nil {
+		namespace.Labels = namespaceLabels
+	}
 
 	return policy
+}
+
+// PreparePolicyAndVMI mutates the given vmi parameter by adding labels to it. Therefore, it's recommended
+// to use this function before creating the vmi. Otherwise, its labels need to be updated.
+func PreparePolicyAndVMI(vmi *v1.VirtualMachineInstance) *migrationsv1.MigrationPolicy {
+	return PreparePolicyAndVMIWithNsAndVmiLabels(vmi, nil, 1, 0)
 }
 
 func GetIdOfLauncher(vmi *v1.VirtualMachineInstance) string {

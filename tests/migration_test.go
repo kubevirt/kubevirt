@@ -3104,13 +3104,6 @@ var _ = Describe("[rfe_id:393][crit:high][vendor:cnv-qe@redhat.com][level:system
 				}
 			}
 
-			getVmisNamespace := func(vmi *v1.VirtualMachineInstance) *k8sv1.Namespace {
-				namespace, err := virtClient.CoreV1().Namespaces().Get(context.Background(), vmi.Namespace, metav1.GetOptions{})
-				Expect(err).ShouldNot(HaveOccurred())
-				Expect(namespace).ShouldNot(BeNil())
-				return namespace
-			}
-
 			DescribeTable("migration policy", func(defineMigrationPolicy bool) {
 				By("Updating config to allow auto converge")
 				config := getCurrentKv()
@@ -3122,7 +3115,7 @@ var _ = Describe("[rfe_id:393][crit:high][vendor:cnv-qe@redhat.com][level:system
 				var expectedPolicyName *string
 				if defineMigrationPolicy {
 					By("Creating a migration policy that overrides cluster policy")
-					policy := tests.GetPolicyMatchedToVmi("testpolicy", vmi, getVmisNamespace(vmi), 1, 0)
+					policy := tests.PreparePolicyAndVMI(vmi)
 					policy.Spec.AllowPostCopy = pointer.BoolPtr(false)
 
 					_, err := virtClient.MigrationPolicy().Create(context.Background(), policy, metav1.CreateOptions{})
