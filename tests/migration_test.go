@@ -31,8 +31,6 @@ import (
 
 	"kubevirt.io/kubevirt/pkg/virt-controller/watch/topology"
 
-	"kubevirt.io/api/migrations/v1alpha1"
-
 	"kubevirt.io/kubevirt/tests/exec"
 	"kubevirt.io/kubevirt/tests/framework/cleanup"
 	"kubevirt.io/kubevirt/tests/framework/matcher"
@@ -107,6 +105,7 @@ const (
 
 var _ = Describe("[rfe_id:393][crit:high][vendor:cnv-qe@redhat.com][level:system][sig-compute] VM Live Migration", func() {
 	var virtClient kubecli.KubevirtClient
+	var migrationBandwidthLimit resource.Quantity
 	var err error
 
 	createConfigMap := func() string {
@@ -261,6 +260,7 @@ var _ = Describe("[rfe_id:393][crit:high][vendor:cnv-qe@redhat.com][level:system
 	BeforeEach(func() {
 		virtClient, err = kubecli.GetKubevirtClient()
 		Expect(err).ToNot(HaveOccurred())
+		migrationBandwidthLimit = resource.MustParse("1Ki")
 	})
 
 	setControlPlaneUnschedulable := func(mode bool) {
@@ -587,12 +587,6 @@ var _ = Describe("[rfe_id:393][crit:high][vendor:cnv-qe@redhat.com][level:system
 		Expect(err).ToNot(HaveOccurred(), fmt.Sprintf(errorMessageFormat, stdout, stderr, err))
 		pid := strings.TrimSuffix(stdout, "\n")
 		return pid
-	}
-
-	setMigrationBandwidthLimitation := func(migrationBandwidth resource.Quantity) {
-		cfg := getCurrentKv()
-		cfg.MigrationConfiguration.BandwidthPerMigration = &migrationBandwidth
-		tests.UpdateKubeVirtConfigValueAndWait(cfg)
 	}
 
 	expectSerialRun := func() {
@@ -2115,13 +2109,12 @@ var _ = Describe("[rfe_id:393][crit:high][vendor:cnv-qe@redhat.com][level:system
 					Skip("Skip test when Filesystem storage is not present")
 				}
 
-				By("Limit migration bandwidth")
-				setMigrationBandwidthLimitation(resource.MustParse("40Mi"))
-
-				By("Allowing post-copy")
+				By("Allowing post-copy and limit migration bandwidth")
 				config := getCurrentKv()
 				config.MigrationConfiguration.AllowPostCopy = pointer.BoolPtr(true)
 				config.MigrationConfiguration.CompletionTimeoutPerGiB = pointer.Int64Ptr(1)
+				bandwidth := resource.MustParse("40Mi")
+				config.MigrationConfiguration.BandwidthPerMigration = &bandwidth
 				tests.UpdateKubeVirtConfigValueAndWait(config)
 				memoryRequestSize = resource.MustParse("1Gi")
 
@@ -2638,32 +2631,12 @@ var _ = Describe("[rfe_id:393][crit:high][vendor:cnv-qe@redhat.com][level:system
 				return vmi
 			}
 
-			limitMigrationBadwidth := func(quantity resource.Quantity) error {
-				migrationPolicy := &v1alpha1.MigrationPolicy{
-					ObjectMeta: metav1.ObjectMeta{
-						Name: util.NamespaceTestDefault,
-						Labels: map[string]string{
-							cleanup.TestLabelForNamespace(util.NamespaceTestDefault): "",
-						},
-					},
-					Spec: v1alpha1.MigrationPolicySpec{
-						BandwidthPerMigration: &quantity,
-						Selectors: &v1alpha1.Selectors{
-							NamespaceSelector: v1alpha1.LabelSelector{cleanup.TestLabelForNamespace(util.NamespaceTestDefault): ""},
-						},
-					},
-				}
-
-				_, err := virtClient.MigrationPolicy().Create(context.Background(), migrationPolicy, metav1.CreateOptions{})
-				return err
-			}
-
 			DescribeTable("should be able to cancel a migration", func(createVMI vmiBuilder, with_virtctl bool) {
 				vmi := createVMI()
 				vmi.Spec.Domain.Resources.Requests[k8sv1.ResourceMemory] = resource.MustParse(fedoraVMSize)
 
 				By("Limiting the bandwidth of migrations in the test namespace")
-				Expect(limitMigrationBadwidth(resource.MustParse("1Mi"))).To(Succeed())
+				tests.CreateMigrationPolicy(virtClient, tests.PreparePolicyAndVMIWithBandwidthLimitation(vmi, migrationBandwidthLimit))
 
 				By("Starting the VirtualMachineInstance")
 				vmi = tests.RunVMIAndExpectLaunch(vmi, 240)
@@ -2694,7 +2667,7 @@ var _ = Describe("[rfe_id:393][crit:high][vendor:cnv-qe@redhat.com][level:system
 				vmi.Spec.Domain.Resources.Requests[k8sv1.ResourceMemory] = resource.MustParse(fedoraVMSize)
 
 				By("Limiting the bandwidth of migrations in the test namespace")
-				Expect(limitMigrationBadwidth(resource.MustParse("1Mi"))).To(Succeed())
+				tests.CreateMigrationPolicy(virtClient, tests.PreparePolicyAndVMIWithBandwidthLimitation(vmi, migrationBandwidthLimit))
 
 				By("Starting the VirtualMachineInstance")
 				vmi = tests.RunVMIAndExpectLaunch(vmi, 240)
@@ -2727,7 +2700,7 @@ var _ = Describe("[rfe_id:393][crit:high][vendor:cnv-qe@redhat.com][level:system
 				vmi.Spec.Domain.Resources.Requests[k8sv1.ResourceMemory] = resource.MustParse(fedoraVMSize)
 
 				By("Limiting the bandwidth of migrations in the test namespace")
-				Expect(limitMigrationBadwidth(resource.MustParse("1Ki"))).To(Succeed())
+				tests.CreateMigrationPolicy(virtClient, tests.PreparePolicyAndVMIWithBandwidthLimitation(vmi, migrationBandwidthLimit))
 
 				By("Starting the VirtualMachineInstance")
 				vmi = tests.RunVMIAndExpectLaunch(vmi, 240)
