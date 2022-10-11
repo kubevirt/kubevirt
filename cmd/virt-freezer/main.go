@@ -28,6 +28,8 @@ import (
 	v1 "kubevirt.io/api/core/v1"
 	"kubevirt.io/client-go/log"
 
+	"kubevirt.io/kubevirt/pkg/virt-launcher/virtwrap/api"
+
 	cmdclient "kubevirt.io/kubevirt/pkg/virt-handler/cmd-client"
 )
 
@@ -40,6 +42,17 @@ func getGrpcClient() (cmdclient.LauncherClient, error) {
 	}
 
 	return client, err
+}
+
+// hasPausedCondition checks if the VM to be freezed/unfreezed is paused
+func hasPausedCondition(client cmdclient.LauncherClient) bool {
+	domain, exists, err := client.GetDomain()
+	if err != nil {
+		log.Log.Reason(err).Error("Failed to get domain")
+		os.Exit(1)
+	}
+
+	return exists && domain.Status.Status == api.Paused
 }
 
 func main() {
@@ -90,12 +103,24 @@ func main() {
 	log.Log.Infof("Guest agent version is %s", info.GAVersion)
 
 	if *freeze {
+		// Freeze is not possible when VM is paused
+		if hasPausedCondition(client) {
+			log.Log.Info("VM Paused: Unreeze is not possible")
+			os.Exit(0)
+		}
+
 		err = client.FreezeVirtualMachine(vmi, *unfreezeTimeoutSeconds)
 		if err != nil {
 			log.Log.Reason(err).Error("Freezeing VMI failed")
 			os.Exit(1)
 		}
 	} else {
+		// Unfreeze is not possible when VM is paused
+		if hasPausedCondition(client) {
+			log.Log.Info("VM Paused: Unreeze is not possible")
+			os.Exit(0)
+		}
+
 		err = client.UnfreezeVirtualMachine(vmi)
 		if err != nil {
 			log.Log.Reason(err).Error("Unfreezeing VMI failed")
