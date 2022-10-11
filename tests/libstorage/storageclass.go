@@ -69,9 +69,68 @@ func DeleteStorageClass(name string) {
 	util.PanicOnError(err)
 }
 
-func GetSnapshotStorageClass() (string, bool) {
-	storageSnapshot := Config.StorageSnapshot
-	return storageSnapshot, storageSnapshot != ""
+func GetSnapshotStorageClass(client kubecli.KubevirtClient) (string, error) {
+	if Config != nil && Config.StorageSnapshot != "" {
+		return Config.StorageSnapshot, nil
+	}
+
+	crd, err := client.
+		ExtensionsClient().
+		ApiextensionsV1().
+		CustomResourceDefinitions().
+		Get(context.Background(), "volumesnapshotclasses.snapshot.storage.k8s.io", metav1.GetOptions{})
+	if err != nil {
+		if errors.IsNotFound(err) {
+			return "", nil
+		}
+
+		return "", err
+	}
+
+	hasV1 := false
+	for _, v := range crd.Spec.Versions {
+		if v.Name == "v1" && v.Served {
+			hasV1 = true
+		}
+	}
+
+	if !hasV1 {
+		return "", nil
+	}
+
+	volumeSnapshotClasses, err := client.KubernetesSnapshotClient().SnapshotV1().VolumeSnapshotClasses().List(context.Background(), metav1.ListOptions{})
+	if err != nil {
+		return "", err
+	}
+	if len(volumeSnapshotClasses.Items) == 0 {
+		return "", nil
+	}
+	defaultSnapClass := volumeSnapshotClasses.Items[0]
+	for _, snapClass := range volumeSnapshotClasses.Items {
+		if snapClass.Annotations["snapshot.storage.kubernetes.io/is-default-class"] == "true" {
+			defaultSnapClass = snapClass
+		}
+	}
+
+	storageClasses, err := client.StorageV1().StorageClasses().List(context.Background(), metav1.ListOptions{})
+	if err != nil {
+		return "", err
+	}
+
+	var storageClass string
+
+	for _, sc := range storageClasses.Items {
+		if sc.Provisioner == defaultSnapClass.Driver {
+			storageClass = sc.Name
+			break
+		}
+	}
+
+	if Config != nil {
+		Config.StorageSnapshot = storageClass
+	}
+
+	return storageClass, nil
 }
 
 func GetRWXFileSystemStorageClass() (string, bool) {

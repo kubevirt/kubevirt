@@ -1,4 +1,4 @@
-package storage
+package tests
 
 import (
 	"context"
@@ -23,7 +23,6 @@ import (
 	"kubevirt.io/client-go/kubecli"
 
 	virtconfig "kubevirt.io/kubevirt/pkg/virt-config"
-	"kubevirt.io/kubevirt/tests"
 	"kubevirt.io/kubevirt/tests/console"
 	cd "kubevirt.io/kubevirt/tests/containerdisk"
 	. "kubevirt.io/kubevirt/tests/framework/matcher"
@@ -38,7 +37,7 @@ const (
 
 type loginFunction func(*virtv1.VirtualMachineInstance) error
 
-var _ = SIGDescribe("[Serial]VirtualMachineClone Tests", func() {
+var _ = Describe("[Serial][sig-compute]VirtualMachineClone Tests", func() {
 	var err error
 	var virtClient kubecli.KubevirtClient
 
@@ -46,7 +45,7 @@ var _ = SIGDescribe("[Serial]VirtualMachineClone Tests", func() {
 		virtClient, err = kubecli.GetKubevirtClient()
 		util.PanicOnError(err)
 
-		tests.EnableFeatureGate(virtconfig.SnapshotGate)
+		EnableFeatureGate(virtconfig.SnapshotGate)
 
 		format.MaxLength = 0
 	})
@@ -54,7 +53,7 @@ var _ = SIGDescribe("[Serial]VirtualMachineClone Tests", func() {
 	createVM := func(options ...libvmi.Option) (vm *virtv1.VirtualMachine) {
 		vmi := libvmi.NewCirros(options...)
 		vmi.Namespace = util.NamespaceTestDefault
-		vm = tests.NewRandomVirtualMachine(vmi, false)
+		vm = NewRandomVirtualMachine(vmi, false)
 		vm.Annotations = vmi.Annotations
 		vm.Labels = vmi.Labels
 
@@ -181,14 +180,14 @@ var _ = SIGDescribe("[Serial]VirtualMachineClone Tests", func() {
 
 	expectVMRunnable := func(vm *virtv1.VirtualMachine, login loginFunction) *virtv1.VirtualMachine {
 		By(fmt.Sprintf("Starting VM %s", vm.Name))
-		vm = tests.StartVirtualMachine(vm)
+		vm = StartVirtualMachine(vm)
 		targetVMI, err := virtClient.VirtualMachineInstance(vm.Namespace).Get(vm.Name, &v1.GetOptions{})
 		Expect(err).ShouldNot(HaveOccurred())
 
 		err = login(targetVMI)
 		Expect(err).ShouldNot(HaveOccurred())
 
-		vm = tests.StopVirtualMachine(vm)
+		vm = StopVirtualMachine(vm)
 
 		return vm
 	}
@@ -473,7 +472,7 @@ var _ = SIGDescribe("[Serial]VirtualMachineClone Tests", func() {
 			}
 
 			createVMWithStorageClass := func(storageClass string, running bool) *virtv1.VirtualMachine {
-				vm := tests.NewRandomVMWithDataVolumeWithRegistryImport(
+				vm := NewRandomVMWithDataVolumeWithRegistryImport(
 					cd.DataVolumeImportUrlForContainerDisk(cd.ContainerDiskAlpine),
 					util.NamespaceTestDefault,
 					storageClass,
@@ -531,7 +530,7 @@ var _ = SIGDescribe("[Serial]VirtualMachineClone Tests", func() {
 			}
 
 			It("with a simple clone", func() {
-				snapshotStorageClass, err := getSnapshotStorageClass(virtClient)
+				snapshotStorageClass, err := libstorage.GetSnapshotStorageClass(virtClient)
 				Expect(err).ToNot(HaveOccurred())
 
 				if snapshotStorageClass == "" {
@@ -566,7 +565,7 @@ var _ = SIGDescribe("[Serial]VirtualMachineClone Tests", func() {
 					sourceVM = createVMWithStorageClass(sc, true)
 					sourceVM, err = virtClient.VirtualMachine(sourceVM.Namespace).Get(sourceVM.Name, &v1.GetOptions{})
 					Expect(err).ToNot(HaveOccurred())
-					sourceVM = tests.StopVirtualMachine(sourceVM)
+					sourceVM = StopVirtualMachine(sourceVM)
 				})
 
 				It("with VM source", func() {
