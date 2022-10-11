@@ -92,6 +92,17 @@ func (_mr *_MockManagerRecorder) AttachTID(arg0, arg1, arg2 interface{}) *gomock
 	return _mr.mock.ctrl.RecordCall(_mr.mock, "AttachTID", arg0, arg1, arg2)
 }
 
+func (_m *MockManager) GetCgroupThreads() ([]int, error) {
+	ret := _m.ctrl.Call(_m, "GetCgroupThreads")
+	ret0, _ := ret[0].([]int)
+	ret1, _ := ret[1].(error)
+	return ret0, ret1
+}
+
+func (_mr *_MockManagerRecorder) GetCgroupThreads() *gomock.Call {
+	return _mr.mock.ctrl.RecordCall(_mr.mock, "GetCgroupThreads")
+}
+
 // Mock of runcManager interface
 type MockruncManager struct {
 	ctrl     *gomock.Controller

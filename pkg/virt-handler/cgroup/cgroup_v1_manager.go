@@ -201,3 +201,7 @@ func (v *v1Manager) CreateChildCgroup(name string, subSystem string) error {
 
 	return nil
 }
+
+func (v *v1Manager) GetCgroupThreads() ([]int, error) {
+	return getCgroupThreadsHelper(v, "tasks")
+}
