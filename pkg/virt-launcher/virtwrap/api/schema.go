@@ -724,9 +724,11 @@ type Interface struct {
 }
 
 type InterfaceDriver struct {
-	Name   string `xml:"name,attr"`
-	Queues *uint  `xml:"queues,attr,omitempty"`
-	IOMMU  string `xml:"iommu,attr,omitempty"`
+	Name        string `xml:"name,attr"`
+	Queues      *uint  `xml:"queues,attr,omitempty"`
+	IOMMU       string `xml:"iommu,attr,omitempty"`
+	TxQueueSize *uint  `xml:"tx_queue_size,attr,omitempty"`
+	RxQueueSize *uint  `xml:"rx_queue_size,attr,omitempty"`
 }
 
 type LinkState struct {

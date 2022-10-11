@@ -1170,6 +1170,15 @@ type Interface struct {
 	// If specified, the virtual network interface address and its tag will be provided to the guest via config drive
 	// +optional
 	Tag string `json:"tag,omitempty"`
+	// network interface queue
+	// +optional
+	Queues *uint `json:"queues,omitempty"`
+	// The optional rx_queue_size attribute controls the size of virtio ring for each queue.
+	// +optional
+	TxQueueSize *uint `json:"txQueueSize,omitempty"`
+	// The optional rx_queue_size attribute controls the size of virtio ring for each queue.
+	// +optional
+	RxQueueSize *uint `json:"rxQueueSize,omitempty"`
 }
 
 // Extra DHCP options to use in the interface.

@@ -71,8 +71,27 @@ func createDomainInterfaces(vmi *v1.VirtualMachineInstance, domain *api.Domain, 
 		if ifaceType == "virtio" && virtioNetProhibited {
 			return nil, fmt.Errorf("In-kernel virtio-net device emulation '/dev/vhost-net' not present")
 		} else if ifaceType == "virtio" && virtioNetMQRequested {
-			queueCount := uint(CalculateNetworkQueues(vmi))
-			domainIface.Driver = &api.InterfaceDriver{Name: "vhost", Queues: &queueCount}
+			var queueCount uint
+			if iface.Queues != nil && *iface.Queues > 0 {
+				queueCount = *iface.Queues
+			} else {
+				queueCount = uint(CalculateNetworkQueues(vmi))
+			}
+
+			var txQueueSize, rxQueueSize uint
+			if iface.TxQueueSize != nil && *iface.TxQueueSize > 0 && validateQueueSize(iface.TxQueueSize) {
+				txQueueSize = *iface.TxQueueSize
+			} else {
+				txQueueSize = 1024
+			}
+			if iface.RxQueueSize != nil && *iface.RxQueueSize > 0 && validateQueueSize(iface.RxQueueSize) {
+				rxQueueSize = *iface.RxQueueSize
+			} else {
+				rxQueueSize = 1024
+			}
+
+			domainIface.Driver = &api.InterfaceDriver{Name: "vhost", Queues: &queueCount, TxQueueSize: &txQueueSize,
+				RxQueueSize: &rxQueueSize}
 		}
 
 		// Add a pciAddress if specified
@@ -136,6 +155,14 @@ func createDomainInterfaces(vmi *v1.VirtualMachineInstance, domain *api.Domain, 
 	}
 
 	return domainInterfaces, nil
+}
+
+// validateQueueSize value to be a power of two from [256, 1024] range.
+func validateQueueSize(queueSize *uint) bool {
+	if *queueSize == 256 || *queueSize == 512 || *queueSize == 1024 {
+		return true
+	}
+	return false
 }
 
 func getInterfaceType(iface *v1.Interface) string {
