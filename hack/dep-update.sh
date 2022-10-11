@@ -23,26 +23,31 @@ done
     echo $_sync_only
     cd staging/src/kubevirt.io/api
     if [ "${_sync_only}" == "false" ]; then go get $@ ./...; fi
-    go mod tidy
+    # remove compat=1.17 when we move to go 1.18
+    go mod tidy -compat=1.17
 )
 (
     echo $_sync_only
     cd staging/src/kubevirt.io/client-go
     if [ "${_sync_only}" == "false" ]; then go get $@ ./...; fi
-    go mod tidy
+    # remove compat=1.17 when we move to go 1.18
+    go mod tidy -compat=1.17
 )
 
 (
     cd staging/src/github.com/golang/glog
     if [ "${_sync_only}" == "false" ]; then go get $@ ./...; fi
-    go mod tidy
+    # remove compat=1.17 when we move to go 1.18
+    go mod tidy -compat=1.17
 )
 
 (
     cd staging/src/kubevirt.io/client-go/examples/listvms
     if [ "${_sync_only}" == "false" ]; then go get $@ ./...; fi
-    go mod tidy
+    # remove compat=1.17 when we move to go 1.18
+    go mod tidy -compat=1.17
 )
 
-go mod tidy
+# remove compat=1.17 when we move to go 1.18
+go mod tidy -compat=1.17
 go mod vendor

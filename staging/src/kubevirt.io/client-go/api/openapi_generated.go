@@ -26631,16 +26631,22 @@ func schema_pkg_apis_core_v1beta1_CDIConfigSpec(ref common.ReferenceCallback) co
 					},
 					"dataVolumeTTLSeconds": {
 						SchemaProps: spec.SchemaProps{
-							Description: "dataVolumeTTLSeconds is the time in seconds after DataVolume completion it can be garbage collected.",
+							Description: "DataVolumeTTLSeconds is the time in seconds after DataVolume completion it can be garbage collected. The default is 0 sec. To disable GC use -1.",
 							Type:        []string{"integer"},
 							Format:      "int32",
+						},
+					},
+					"tlsSecurityProfile": {
+						SchemaProps: spec.SchemaProps{
+							Description: "TLSSecurityProfile is used by operators to apply cluster-wide TLS security settings to operands.",
+							Ref:         ref("github.com/openshift/api/config/v1.TLSSecurityProfile"),
 						},
 					},
 				},
 			},
 		},
 		Dependencies: []string{
-			"k8s.io/api/core/v1.ResourceRequirements", "kubevirt.io/containerized-data-importer-api/pkg/apis/core/v1beta1.FilesystemOverhead", "kubevirt.io/containerized-data-importer-api/pkg/apis/core/v1beta1.ImportProxy"},
+			"github.com/openshift/api/config/v1.TLSSecurityProfile", "k8s.io/api/core/v1.ResourceRequirements", "kubevirt.io/containerized-data-importer-api/pkg/apis/core/v1beta1.FilesystemOverhead", "kubevirt.io/containerized-data-importer-api/pkg/apis/core/v1beta1.ImportProxy"},
 	}
 }
 
@@ -27423,6 +27429,12 @@ func schema_pkg_apis_core_v1beta1_DataSourceStatus(ref common.ReferenceCallback)
 				Description: "DataSourceStatus provides the most recently observed status of the DataSource",
 				Type:        []string{"object"},
 				Properties: map[string]spec.Schema{
+					"source": {
+						SchemaProps: spec.SchemaProps{
+							Description: "Source is the current source of the data referenced by the DataSource",
+							Ref:         ref("kubevirt.io/containerized-data-importer-api/pkg/apis/core/v1beta1.DataSourceSource"),
+						},
+					},
 					"conditions": {
 						SchemaProps: spec.SchemaProps{
 							Type: []string{"array"},
@@ -27439,7 +27451,7 @@ func schema_pkg_apis_core_v1beta1_DataSourceStatus(ref common.ReferenceCallback)
 			},
 		},
 		Dependencies: []string{
-			"kubevirt.io/containerized-data-importer-api/pkg/apis/core/v1beta1.DataSourceCondition"},
+			"kubevirt.io/containerized-data-importer-api/pkg/apis/core/v1beta1.DataSourceCondition", "kubevirt.io/containerized-data-importer-api/pkg/apis/core/v1beta1.DataSourceSource"},
 	}
 }
 
