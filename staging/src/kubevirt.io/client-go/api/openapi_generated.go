@@ -23094,12 +23094,18 @@ func schema_kubevirtio_api_export_v1alpha1_VirtualMachineExportSpec(ref common.R
 							Format:      "",
 						},
 					},
+					"ttlDuration": {
+						SchemaProps: spec.SchemaProps{
+							Description: "ttlDuration limits the lifetime of an export If this field is set, after this duration has passed from counting from CreationTimestamp, the export is eligible to be automatically deleted. If this field is omitted, a reasonable default is applied.",
+							Ref:         ref("k8s.io/apimachinery/pkg/apis/meta/v1.Duration"),
+						},
+					},
 				},
 				Required: []string{"source"},
 			},
 		},
 		Dependencies: []string{
-			"k8s.io/api/core/v1.TypedLocalObjectReference"},
+			"k8s.io/api/core/v1.TypedLocalObjectReference", "k8s.io/apimachinery/pkg/apis/meta/v1.Duration"},
 	}
 }
 
@@ -23126,6 +23132,12 @@ func schema_kubevirtio_api_export_v1alpha1_VirtualMachineExportStatus(ref common
 							Description: "TokenSecretRef is the name of the secret that contains the token used by the export server pod",
 							Type:        []string{"string"},
 							Format:      "",
+						},
+					},
+					"ttlExpirationTime": {
+						SchemaProps: spec.SchemaProps{
+							Description: "The time at which the VM Export will be completely removed according to specified TTL Formula is CreationTimestamp + TTL",
+							Ref:         ref("k8s.io/apimachinery/pkg/apis/meta/v1.Time"),
 						},
 					},
 					"serviceName": {
@@ -23156,7 +23168,7 @@ func schema_kubevirtio_api_export_v1alpha1_VirtualMachineExportStatus(ref common
 			},
 		},
 		Dependencies: []string{
-			"kubevirt.io/api/export/v1alpha1.Condition", "kubevirt.io/api/export/v1alpha1.VirtualMachineExportLinks"},
+			"k8s.io/apimachinery/pkg/apis/meta/v1.Time", "kubevirt.io/api/export/v1alpha1.Condition", "kubevirt.io/api/export/v1alpha1.VirtualMachineExportLinks"},
 	}
 }
 

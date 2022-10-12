@@ -914,6 +914,48 @@ var _ = SIGDescribe("Export", func() {
 		Expect(*export.Status.TokenSecretRef).ToNot(BeEmpty())
 	})
 
+	It("Should honor TTL by cleaning up the the VMExport altogether", func() {
+		sc, exists := libstorage.GetRWOFileSystemStorageClass()
+		if !exists {
+			Skip("Skip test when Filesystem storage is not present")
+		}
+
+		pvc, _ := populateKubeVirtContent(sc, k8sv1.PersistentVolumeFilesystem)
+		ttl := &metav1.Duration{Duration: 2 * time.Minute}
+		export := &exportv1.VirtualMachineExport{
+			ObjectMeta: metav1.ObjectMeta{
+				Name:      fmt.Sprintf("test-export-%s", rand.String(12)),
+				Namespace: pvc.Namespace,
+			},
+			Spec: exportv1.VirtualMachineExportSpec{
+				Source: k8sv1.TypedLocalObjectReference{
+					APIGroup: &k8sv1.SchemeGroupVersion.Group,
+					Kind:     "PersistentVolumeClaim",
+					Name:     pvc.Name,
+				},
+				TTLDuration: ttl,
+			},
+		}
+		export, err := virtClient.VirtualMachineExport(export.Namespace).Create(context.Background(), export, metav1.CreateOptions{})
+		Expect(err).ToNot(HaveOccurred())
+
+		// VMExport sticks around exactly until TTL expiration time is reached
+		// Take a couple of seconds off so we don't start flaking because of races
+		safeTimeout := ttl.Duration - 2*time.Second
+		Consistently(func() error {
+			_, err := virtClient.VirtualMachineExport(export.Namespace).Get(context.Background(), export.Name, metav1.GetOptions{})
+			return err
+		}, safeTimeout, time.Second).Should(Succeed())
+		// Now gets cleaned up
+		Eventually(func() error {
+			_, err := virtClient.VirtualMachineExport(export.Namespace).Get(context.Background(), export.Name, metav1.GetOptions{})
+			return err
+		}, 10*time.Second, 1*time.Second).Should(
+			SatisfyAll(HaveOccurred(), WithTransform(errors.IsNotFound, BeTrue())),
+			"The VM export should have been cleaned up according to TTL by now",
+		)
+	})
+
 	Context("Ingress", func() {
 		const (
 			tlsSecretName = "test-tls"
@@ -1718,6 +1760,19 @@ var _ = SIGDescribe("Export", func() {
 			virtctlCmd := clientcmd.NewRepeatableVirtctlCommand(commandName, "delete", vmeName, "--namespace", util.NamespaceTestDefault)
 			err = virtctlCmd()
 			Expect(err).ToNot(HaveOccurred())
+		})
+
+		It("Create with TTL", func() {
+			ttl := &metav1.Duration{Duration: 2 * time.Minute}
+			pvc, _ := populateKubeVirtContent(sc, k8sv1.PersistentVolumeFilesystem)
+			// Run vmexport
+			By("Running vmexport command")
+			virtctlCmd := clientcmd.NewRepeatableVirtctlCommand(commandName, "create", vmeName, "--pvc", pvc.Name, "--namespace", util.NamespaceTestDefault, "--ttl", ttl.Duration.String())
+			err = virtctlCmd()
+			Expect(err).ToNot(HaveOccurred())
+			export, err := virtClient.VirtualMachineExport(util.NamespaceTestDefault).Get(context.Background(), vmeName, metav1.GetOptions{})
+			Expect(err).ToNot(HaveOccurred())
+			Expect(export.Spec.TTLDuration).To(Equal(ttl))
 		})
 
 		Context("Download a volume with vmexport", func() {
