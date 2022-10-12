@@ -27,7 +27,7 @@ cp -r /usr/share/libvirt/cpu_map /var/lib/kubevirt-node-labeller
 
 if [[ "$CPU_MODEL" == "aarch64" ]]; then
     virsh domcapabilities --machine virt --arch aarch64 --virttype $VIRTTYPE > /var/lib/kubevirt-node-labeller/virsh_domcapabilities.xml
-    > /var/lib/kubevirt-node-labeller/supported_features.xml
+    echo "<cpu mode='custom' match='exact'/>" > /var/lib/kubevirt-node-labeller/supported_features.xml
     sed -i "s/<mode name='host-model' supported='no'\/>/<mode name='host-model' supported='yes'>\n<model fallback='forbid'>Kunpeng<\/model>\n<vendor>Kunpeng<\/vendor>\n<\/mode>/g" /var/lib/kubevirt-node-labeller/virsh_domcapabilities.xml
 else
     virsh domcapabilities --machine q35 --arch x86_64 --virttype $VIRTTYPE > /var/lib/kubevirt-node-labeller/virsh_domcapabilities.xml
