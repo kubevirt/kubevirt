@@ -79,6 +79,7 @@ type NetworkHandler interface {
 	ConfigureRouteLocalNet(string) error
 	ConfigureIpv4ArpIgnore() error
 	ConfigurePingGroupRange() error
+	ConfigureUnprivilegedPortStart(string) error
 	IptablesNewChain(proto iptables.Protocol, table, chain string) error
 	IptablesAppendRule(proto iptables.Protocol, table, chain string, rulespec ...string) error
 	NftablesNewChain(proto iptables.Protocol, table, chain string) error
@@ -176,6 +177,11 @@ func (h *NetworkUtilsHandler) ConfigurePingGroupRange() error {
 func (h *NetworkUtilsHandler) ConfigureRouteLocalNet(iface string) error {
 	routeLocalNetForIface := fmt.Sprintf(sysctl.IPv4RouteLocalNet, iface)
 	err := sysctl.New().SetSysctl(routeLocalNetForIface, allowRouteLocalNet)
+	return err
+}
+
+func (h *NetworkUtilsHandler) ConfigureUnprivilegedPortStart(port string) error {
+	err := sysctl.New().SetSysctl(sysctl.UnprivilegedPortStart, port)
 	return err
 }
 
