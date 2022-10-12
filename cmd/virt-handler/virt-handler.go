@@ -28,7 +28,6 @@ import (
 	"os"
 	"os/signal"
 	"path/filepath"
-	"runtime"
 	"syscall"
 	"time"
 
@@ -308,7 +307,8 @@ func (app *virtHandlerApp) Run() {
 	defer close(stop)
 	// Currently nodeLabeller only support x86_64
 	var capabilities *api.Capabilities
-	if virtconfig.IsAMD64(runtime.GOARCH) {
+	// TODO 临时注释兼容AARCH64，否则不支持cpu绑定等特性
+	//if virtconfig.IsAMD64(runtime.GOARCH) {
 		nodeLabellerController, err := nodelabeller.NewNodeLabeller(app.clusterConfig, app.virtCli, app.HostOverride, app.namespace)
 		if err != nil {
 			panic(err)
@@ -316,7 +316,7 @@ func (app *virtHandlerApp) Run() {
 		capabilities = nodeLabellerController.HostCapabilities()
 
 		go nodeLabellerController.Run(10, stop)
-	}
+	//}
 
 	migrationIpAddress := app.PodIpAddress
 	migrationIpAddress, err = virthandler.FindMigrationIP(defaultNetworkStatusFilePath, migrationIpAddress)
