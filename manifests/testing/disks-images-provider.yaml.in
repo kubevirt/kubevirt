@@ -27,7 +27,7 @@ spec:
           lifecycle:
             preStop:
               exec:
-                command: ["/bin/sh","-c","source /etc/bashrc && chroot /host losetup -d ${LOOP_DEVICE} && chroot /host umount ${LOOP_DEVICE_HP} && chroot /host losetup -d ${LOOP_DEVICE_HP}"]
+                command: ["/bin/sh","-c","source /etc/bashrc && chroot /host umount ${LOOP_DEVICE_HP} && chroot /host losetup -d ${LOOP_DEVICE_HP}"]
           volumeMounts:
           - name: images
             mountPath: /hostImages
