@@ -23,11 +23,14 @@ import (
 	clonev1alpha1 "kubevirt.io/api/clone/v1alpha1"
 	"kubevirt.io/api/core"
 	v1 "kubevirt.io/api/core/v1"
+	virtv1 "kubevirt.io/api/core/v1"
+	instancetypev1alpha2 "kubevirt.io/api/instancetype/v1alpha2"
 	snapshotv1 "kubevirt.io/api/snapshot/v1alpha1"
 	"kubevirt.io/client-go/kubecli"
 	cdiv1 "kubevirt.io/containerized-data-importer-api/pkg/apis/core/v1beta1"
 
 	. "kubevirt.io/kubevirt/tests/framework/matcher"
+	"kubevirt.io/kubevirt/tests/libinstancetype"
 
 	typesStorage "kubevirt.io/kubevirt/pkg/storage/types"
 	typesutil "kubevirt.io/kubevirt/pkg/util/types"
@@ -245,6 +248,14 @@ var _ = SIGDescribe("VirtualMachineRestore Tests", func() {
 
 	Context("With simple VM", func() {
 		var vm *v1.VirtualMachine
+
+		expectNewVMCreation := func(vmName string) (createdVM *v1.VirtualMachine) {
+			Eventually(func() error {
+				createdVM, err = virtClient.VirtualMachine(vm.Namespace).Get(vmName, &metav1.GetOptions{})
+				return err
+			}, 90*time.Second, 5*time.Second).ShouldNot(HaveOccurred(), fmt.Sprintf("new VM (%s) is not being created", vmName))
+			return createdVM
+		}
 
 		BeforeEach(func() {
 			vm = tests.NewRandomVirtualMachine(
@@ -481,15 +492,6 @@ var _ = SIGDescribe("VirtualMachineRestore Tests", func() {
 					restore = createRestoreDef(newVmName, snapshot.Name)
 				})
 
-				expectNewVMCreation := func(vmName string) (createdVM *v1.VirtualMachine) {
-					Eventually(func() error {
-						createdVM, err = virtClient.VirtualMachine(vm.Namespace).Get(vmName, &metav1.GetOptions{})
-						return err
-					}, 90*time.Second, 5*time.Second).ShouldNot(HaveOccurred(), fmt.Sprintf("new VM (%s) is not being created", newVmName))
-
-					return createdVM
-				}
-
 				waitRestoreComplete := func(r *snapshotv1.VirtualMachineRestore, vm *v1.VirtualMachine) *snapshotv1.VirtualMachineRestore {
 					r = waitRestoreComplete(r, vm.Name, &vm.UID)
 					Expect(r.Status.Restores).To(BeEmpty())
@@ -541,6 +543,129 @@ var _ = SIGDescribe("VirtualMachineRestore Tests", func() {
 					tests.StartVMAndExpectRunning(virtClient, newVM)
 				})
 
+			})
+		})
+		Context("with instancetype and preferences", func() {
+			var (
+				instancetype *instancetypev1alpha2.VirtualMachineInstancetype
+				preference   *instancetypev1alpha2.VirtualMachinePreference
+				snapshot     *snapshotv1.VirtualMachineSnapshot
+				restore      *snapshotv1.VirtualMachineRestore
+			)
+
+			BeforeEach(func() {
+				snapshotStorageClass, err := libstorage.GetSnapshotStorageClass(virtClient)
+				Expect(err).ToNot(HaveOccurred())
+
+				if snapshotStorageClass == "" {
+					Skip("Skiping test, no VolumeSnapshot support")
+				}
+
+				instancetype = &instancetypev1alpha2.VirtualMachineInstancetype{
+					ObjectMeta: metav1.ObjectMeta{
+						GenerateName: "vm-instancetype-",
+						Namespace:    util.NamespaceTestDefault,
+					},
+					Spec: instancetypev1alpha2.VirtualMachineInstancetypeSpec{
+						CPU: instancetypev1alpha2.CPUInstancetype{
+							Guest: 1,
+						},
+						Memory: instancetypev1alpha2.MemoryInstancetype{
+							Guest: resource.MustParse("128Mi"),
+						},
+					},
+				}
+				instancetype, err := virtClient.VirtualMachineInstancetype(util.NamespaceTestDefault).Create(context.Background(), instancetype, metav1.CreateOptions{})
+				Expect(err).ToNot(HaveOccurred())
+
+				preference = &instancetypev1alpha2.VirtualMachinePreference{
+					ObjectMeta: metav1.ObjectMeta{
+						GenerateName: "vm-preference-",
+						Namespace:    util.NamespaceTestDefault,
+					},
+					Spec: instancetypev1alpha2.VirtualMachinePreferenceSpec{
+						CPU: &instancetypev1alpha2.CPUPreferences{
+							PreferredCPUTopology: instancetypev1alpha2.PreferSockets,
+						},
+					},
+				}
+				preference, err := virtClient.VirtualMachinePreference(util.NamespaceTestDefault).Create(context.Background(), preference, metav1.CreateOptions{})
+				Expect(err).ToNot(HaveOccurred())
+
+				vm.Spec.Template.Spec.Domain.Resources = virtv1.ResourceRequirements{}
+				vm.Spec.Instancetype = &virtv1.InstancetypeMatcher{
+					Name: instancetype.Name,
+					Kind: "VirtualMachineInstanceType",
+				}
+				vm.Spec.Preference = &virtv1.PreferenceMatcher{
+					Name: preference.Name,
+					Kind: "VirtualMachinePreference",
+				}
+
+				vm, err = virtClient.VirtualMachine(util.NamespaceTestDefault).Create(vm)
+				Expect(err).ToNot(HaveOccurred())
+
+				By("Waiting until the VM has instancetype and preference RevisionNames")
+				libinstancetype.WaitForVMInstanceTypeRevisionNames(vm.Name, virtClient)
+
+				for _, dvt := range vm.Spec.DataVolumeTemplates {
+					libstorage.EventuallyDVWith(vm.Namespace, dvt.Name, 180, HaveSucceeded())
+				}
+			})
+
+			It("should use existing ControllerRevisions for an existing VM restore", Label("instancetype", "preference", "restore"), func() {
+				originalVM, err := virtClient.VirtualMachine(util.NamespaceTestDefault).Get(vm.Name, &metav1.GetOptions{})
+				Expect(err).ToNot(HaveOccurred())
+
+				By("Creating a VirtualMachineSnapshot")
+				snapshot = createSnapshot(vm)
+
+				By("Creating a VirtualMachineRestore")
+				restore = createRestoreDef(vm.Name, snapshot.Name)
+
+				restore, err = virtClient.VirtualMachineRestore(vm.Namespace).Create(context.Background(), restore, metav1.CreateOptions{})
+				Expect(err).ToNot(HaveOccurred())
+
+				By("Waiting until the restore completes")
+				restore = waitRestoreComplete(restore, vm.Name, &vm.UID)
+
+				By("Asserting that the restored VM has the same instancetype and preference controllerRevisions")
+				vm, err := virtClient.VirtualMachine(util.NamespaceTestDefault).Get(vm.Name, &metav1.GetOptions{})
+				Expect(err).ToNot(HaveOccurred())
+
+				Expect(vm.Spec.Instancetype.RevisionName).To(Equal(originalVM.Spec.Instancetype.RevisionName))
+				Expect(vm.Spec.Preference.RevisionName).To(Equal(originalVM.Spec.Preference.RevisionName))
+			})
+
+			It("should create new ControllerRevisions for newly restored VM", Label("instancetype", "preference", "restore"), func() {
+				By("Creating a VirtualMachineSnapshot")
+				snapshot = createSnapshot(vm)
+
+				By("Creating a VirtualMachineRestore")
+				restoreVMName := vm.Name + "-new"
+				restore = createRestoreDef(restoreVMName, snapshot.Name)
+
+				restore, err = virtClient.VirtualMachineRestore(vm.Namespace).Create(context.Background(), restore, metav1.CreateOptions{})
+				Expect(err).ToNot(HaveOccurred())
+
+				By("Waiting until the targetVM is finally created")
+				_ = expectNewVMCreation(restoreVMName)
+
+				By("Waiting until the restoreVM has instancetype and preference RevisionNames")
+				libinstancetype.WaitForVMInstanceTypeRevisionNames(restoreVMName, virtClient)
+
+				By("Asserting that the restoreVM has new instancetype and preference controllerRevisions")
+				sourceVM, err := virtClient.VirtualMachine(util.NamespaceTestDefault).Get(vm.Name, &metav1.GetOptions{})
+				Expect(err).ToNot(HaveOccurred())
+				restoreVM, err := virtClient.VirtualMachine(util.NamespaceTestDefault).Get(restoreVMName, &metav1.GetOptions{})
+				Expect(err).ToNot(HaveOccurred())
+
+				Expect(restoreVM.Spec.Instancetype.RevisionName).ToNot(Equal(sourceVM.Spec.Instancetype.RevisionName))
+				Expect(restoreVM.Spec.Preference.RevisionName).ToNot(Equal(sourceVM.Spec.Preference.RevisionName))
+
+				By("Asserting that the source and target ControllerRevisions contain the same Object")
+				Expect(libinstancetype.EnsureControllerRevisionObjectsEqual(sourceVM.Spec.Instancetype.RevisionName, restoreVM.Spec.Instancetype.RevisionName, virtClient)).To(BeTrue(), "source and target instance type controller revisions are expected to be equal")
+				Expect(libinstancetype.EnsureControllerRevisionObjectsEqual(sourceVM.Spec.Preference.RevisionName, restoreVM.Spec.Preference.RevisionName, virtClient)).To(BeTrue(), "source and target preference controller revisions are expected to be equal")
 			})
 		})
 	})
