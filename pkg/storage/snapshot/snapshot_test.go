@@ -15,9 +15,11 @@ import (
 	corev1 "k8s.io/api/core/v1"
 	storagev1 "k8s.io/api/storage/v1"
 	extv1 "k8s.io/apiextensions-apiserver/pkg/apis/apiextensions/v1"
+	"k8s.io/apimachinery/pkg/api/errors"
 	"k8s.io/apimachinery/pkg/api/resource"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/runtime"
+	"k8s.io/apimachinery/pkg/runtime/schema"
 	"k8s.io/apimachinery/pkg/types"
 	k8sfake "k8s.io/client-go/kubernetes/fake"
 	"k8s.io/client-go/testing"
@@ -2432,7 +2434,6 @@ func createInstancetypeVirtualMachineSnapshotCR(vm *v1.VirtualMachine, vmSnapsho
 
 	// Replace the VM name with the vmSnapshot name and clear the namespace as we don't expect to see this set during creation, only after.
 	cr.Name = strings.Replace(cr.Name, vm.Name, vmSnapshot.Name, 1)
-	cr.Namespace = ""
 
 	// TODO - share with pkg/instancetype somewhere
 	vmSnapshotCopy := vmSnapshot.DeepCopy()
@@ -2450,9 +2451,41 @@ func expectControllerRevisionCreate(client *k8sfake.Clientset, expectedCR *appsv
 		create, ok := action.(testing.CreateAction)
 		Expect(ok).To(BeTrue())
 
+		// We don't expect the namespace or resourceversion to be set during creation
+		expectedCR.Namespace = ""
+		expectedCR.ResourceVersion = ""
+
 		createObj := create.GetObject().(*appsv1.ControllerRevision)
 		Expect(*createObj).To(Equal(*expectedCR))
 
-		return true, create.GetObject(), nil
+		return true, createObj, nil
+	})
+}
+
+func expectCreateControllerRevisionAlreadyExists(client *k8sfake.Clientset, expectedCR *appsv1.ControllerRevision) {
+	client.Fake.PrependReactor("create", "controllerrevisions", func(action testing.Action) (handled bool, obj runtime.Object, err error) {
+		create, ok := action.(testing.CreateAction)
+		Expect(ok).To(BeTrue())
+
+		// We don't expect the namespace or resourceversion to be set during creation
+		expectedCR.Namespace = ""
+		expectedCR.ResourceVersion = ""
+
+		createObj := create.GetObject().(*appsv1.ControllerRevision)
+		Expect(*createObj).To(Equal(*expectedCR))
+
+		return true, create.GetObject(), errors.NewAlreadyExists(schema.GroupResource{}, expectedCR.Name)
+	})
+}
+
+func expectControllerRevisionUpdate(client *k8sfake.Clientset, expectedCR *appsv1.ControllerRevision) {
+	client.Fake.PrependReactor("update", "controllerrevisions", func(action testing.Action) (handled bool, obj runtime.Object, err error) {
+		update, ok := action.(testing.UpdateAction)
+		Expect(ok).To(BeTrue())
+
+		updateObj := update.GetObject().(*appsv1.ControllerRevision)
+		Expect(*updateObj).To(Equal(*expectedCR))
+
+		return true, update.GetObject(), nil
 	})
 }

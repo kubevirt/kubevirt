@@ -28,9 +28,11 @@ import (
 
 	jsonpatch "github.com/evanphx/json-patch"
 	vsv1 "github.com/kubernetes-csi/external-snapshotter/client/v4/apis/volumesnapshot/v1"
+	appsv1 "k8s.io/api/apps/v1"
 	corev1 "k8s.io/api/core/v1"
 	storagev1 "k8s.io/api/storage/v1"
 	"k8s.io/apimachinery/pkg/api/equality"
+	"k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	v1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/util/sets"
@@ -561,6 +563,10 @@ func (t *vmRestoreTarget) reconcileSpec() (bool, error) {
 		return false, fmt.Errorf("error patching VM %s: %v", newVM.Name, err)
 	}
 
+	if err = t.restoreInstancetypeControllerRevisions(newVM); err != nil {
+		return false, err
+	}
+
 	if !t.doesTargetVMExist() {
 		newVM, err = t.controller.Client.VirtualMachine(t.vmRestore.Namespace).Create(newVM)
 	} else {
@@ -570,6 +576,10 @@ func (t *vmRestoreTarget) reconcileSpec() (bool, error) {
 		return false, err
 	}
 	t.vm = newVM
+
+	if err = t.claimInstancetypeControllerRevisionsOwnership(t.vm); err != nil {
+		return false, err
+	}
 
 	return true, nil
 }
@@ -594,6 +604,117 @@ func (t *vmRestoreTarget) reconcileDataVolumes() (bool, error) {
 		}
 	}
 	return createdDV || waitingDV, nil
+}
+
+func (t *vmRestoreTarget) getControllerRevision(namespace, name string) (*appsv1.ControllerRevision, error) {
+	revisionKey := cacheKeyFunc(namespace, name)
+	obj, exists, err := t.controller.CRInformer.GetStore().GetByKey(revisionKey)
+	if err != nil {
+		return nil, err
+	}
+	if !exists {
+		return nil, fmt.Errorf("Unable to find ControllerRevision %s", revisionKey)
+	}
+	return obj.(*appsv1.ControllerRevision), nil
+}
+
+func (t *vmRestoreTarget) getVirtualMachineSnapshot(namespace, name string) (*snapshotv1.VirtualMachineSnapshot, error) {
+	vmSnapshotKey := cacheKeyFunc(namespace, name)
+	obj, exists, err := t.controller.VMSnapshotInformer.GetStore().GetByKey(vmSnapshotKey)
+	if err != nil {
+		return nil, err
+	}
+	if !exists {
+		return nil, fmt.Errorf("Unable to find VirtualMachineSnapshot %s", vmSnapshotKey)
+	}
+	return obj.(*snapshotv1.VirtualMachineSnapshot), nil
+}
+
+func (t *vmRestoreTarget) restoreInstancetypeControllerRevision(vmSnapshotRevisionName, vmSnapshotName string, vm *kubevirtv1.VirtualMachine) (*appsv1.ControllerRevision, error) {
+	// Switch the snapshot and vm names for the restored CR name
+	restoredCRName := strings.Replace(vmSnapshotRevisionName, vmSnapshotName, vm.Name, 1)
+
+	// If the target VirtualMachine already exists it's likely that the original ControllerRevision is already present.
+	// Check that here by attempting to lookup the CR using the generated restoredCRName.
+	// Ignore any NotFound errors raised allowing the CR to be restored below.
+	if t.doesTargetVMExist() {
+		existingCR, err := t.getControllerRevision(vm.Namespace, restoredCRName)
+		if err != nil && !errors.IsNotFound(err) {
+			return nil, err
+		}
+		if existingCR != nil {
+			// TODO - Check the contents of the existing CR here against that of the snapshot CR
+			return existingCR, nil
+		}
+	}
+
+	snapshotCR, err := t.getControllerRevision(vm.Namespace, vmSnapshotRevisionName)
+	if err != nil {
+		return nil, err
+	}
+
+	restoredCR := snapshotCR.DeepCopy()
+	restoredCR.ObjectMeta.Reset()
+	restoredCR.Name = restoredCRName
+
+	restoredCR, err = t.controller.Client.AppsV1().ControllerRevisions(vm.Namespace).Create(context.Background(), restoredCR, metav1.CreateOptions{})
+	if err != nil {
+		return nil, err
+	}
+
+	return restoredCR, nil
+}
+
+func (t *vmRestoreTarget) restoreInstancetypeControllerRevisions(vm *kubevirtv1.VirtualMachine) error {
+	if vm.Spec.Instancetype != nil && vm.Spec.Instancetype.RevisionName != "" {
+		restoredCR, err := t.restoreInstancetypeControllerRevision(vm.Spec.Instancetype.RevisionName, t.vmRestore.Spec.VirtualMachineSnapshotName, vm)
+		if err != nil {
+			return err
+		}
+		vm.Spec.Instancetype.RevisionName = restoredCR.Name
+	}
+
+	if vm.Spec.Preference != nil && vm.Spec.Preference.RevisionName != "" {
+		restoredCR, err := t.restoreInstancetypeControllerRevision(vm.Spec.Preference.RevisionName, t.vmRestore.Spec.VirtualMachineSnapshotName, vm)
+		if err != nil {
+			return err
+		}
+		vm.Spec.Preference.RevisionName = restoredCR.Name
+	}
+
+	return nil
+}
+
+func (t *vmRestoreTarget) claimInstancetypeControllerRevisionOwnership(revisionName string, vm *kubevirtv1.VirtualMachine) error {
+	cr, err := t.getControllerRevision(vm.Namespace, revisionName)
+	if err != nil {
+		return err
+	}
+
+	if !metav1.IsControlledBy(cr, vm) {
+		cr.OwnerReferences = []metav1.OwnerReference{*metav1.NewControllerRef(vm, kubevirtv1.VirtualMachineGroupVersionKind)}
+		_, err = t.controller.Client.AppsV1().ControllerRevisions(vm.Namespace).Update(context.Background(), cr, v1.UpdateOptions{})
+		if err != nil {
+			return err
+		}
+	}
+	return nil
+}
+
+func (t *vmRestoreTarget) claimInstancetypeControllerRevisionsOwnership(vm *kubevirtv1.VirtualMachine) error {
+	if vm.Spec.Instancetype != nil && vm.Spec.Instancetype.RevisionName != "" {
+		if err := t.claimInstancetypeControllerRevisionOwnership(vm.Spec.Instancetype.RevisionName, vm); err != nil {
+			return err
+		}
+	}
+
+	if vm.Spec.Preference != nil && vm.Spec.Preference.RevisionName != "" {
+		if err := t.claimInstancetypeControllerRevisionOwnership(vm.Spec.Preference.RevisionName, vm); err != nil {
+			return err
+		}
+	}
+
+	return nil
 }
 
 func (t *vmRestoreTarget) createDataVolume(dvt kubevirtv1.DataVolumeTemplateSpec) (bool, error) {
