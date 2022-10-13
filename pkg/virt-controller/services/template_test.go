@@ -425,7 +425,7 @@ var _ = Describe("Template", func() {
 			)
 		})
 		Context("with SELinux types", func() {
-			DescribeTable("should run under the SELinux type virt_launcher.process", func(hugePages, virtiofs bool) {
+			It("should run under the SELinux type virt_launcher.process if virtiofs is enabled", func() {
 				config, kvInformer, svc = configFactory(defaultArch)
 				vmi := v1.VirtualMachineInstance{
 					ObjectMeta: metav1.ObjectMeta{
@@ -434,17 +434,12 @@ var _ = Describe("Template", func() {
 					Spec: v1.VirtualMachineInstanceSpec{Volumes: []v1.Volume{}, Domain: v1.DomainSpec{
 						Devices: v1.Devices{
 							DisableHotplug: true,
+							Filesystems: []v1.Filesystem{{
+								Name:     "virtiofs",
+								Virtiofs: &v1.FilesystemVirtiofs{},
+							}},
 						},
 					}},
-				}
-				if hugePages {
-					vmi.Spec.Domain.Memory = &v1.Memory{Hugepages: &v1.Hugepages{PageSize: "2Mi"}}
-				}
-				if virtiofs {
-					vmi.Spec.Domain.Devices.Filesystems = []v1.Filesystem{{
-						Name:     "virtiofs",
-						Virtiofs: &v1.FilesystemVirtiofs{},
-					}}
 				}
 				pod, err := svc.RenderLaunchManifest(&vmi)
 				Expect(err).ToNot(HaveOccurred())
@@ -452,11 +447,7 @@ var _ = Describe("Template", func() {
 					Expect(pod.Spec.SecurityContext.SELinuxOptions).ToNot(BeNil())
 					Expect(pod.Spec.SecurityContext.SELinuxOptions.Type).To(Equal("virt_launcher.process"))
 				}
-			},
-				Entry("if hugepages are enabled", true, false),
-				Entry("if virtiofs is enabled", false, true),
-				Entry("if hugepages and virtiofs are enabled", true, true),
-			)
+			})
 			It("should be nil if no SELinux type is specified and none is needed", func() {
 				config, kvInformer, svc = configFactory(defaultArch)
 				vmi := v1.VirtualMachineInstance{
@@ -2053,22 +2044,31 @@ var _ = Describe("Template", func() {
 				Expect(hugepagesRequest.ToDec().ScaledValue(resource.Mega)).To(Equal(int64(64)))
 				Expect(hugepagesLimit.ToDec().ScaledValue(resource.Mega)).To(Equal(int64(64)))
 
-				Expect(pod.Spec.Volumes).To(HaveLen(8))
+				Expect(pod.Spec.Volumes).To(HaveLen(9))
 				Expect(pod.Spec.Volumes).To(
-					ContainElement(
+					ContainElements(
 						kubev1.Volume{
 							Name: "hugepages",
 							VolumeSource: kubev1.VolumeSource{
 								EmptyDir: &kubev1.EmptyDirVolumeSource{Medium: kubev1.StorageMediumHugePages},
 							},
-						}))
+						},
+						kubev1.Volume{
+							Name: "hugetblfs-dir",
+							VolumeSource: kubev1.VolumeSource{
+								EmptyDir: &kubev1.EmptyDirVolumeSource{},
+							}}))
 
-				Expect(pod.Spec.Containers[0].VolumeMounts).To(HaveLen(7))
+				Expect(pod.Spec.Containers[0].VolumeMounts).To(HaveLen(8))
 				Expect(pod.Spec.Containers[0].VolumeMounts).To(
-					ContainElement(
+					ContainElements(
 						kubev1.VolumeMount{
 							Name:      "hugepages",
 							MountPath: "/dev/hugepages"},
+						kubev1.VolumeMount{
+							Name:      "hugetblfs-dir",
+							MountPath: "/dev/hugepages/libvirt/qemu",
+						},
 					))
 			},
 				Entry("hugepages-2Mi on amd64", "amd64", "2Mi", 252),
@@ -2122,22 +2122,31 @@ var _ = Describe("Template", func() {
 				Expect(hugepagesRequest.ToDec().ScaledValue(resource.Mega)).To(Equal(int64(64)))
 				Expect(hugepagesLimit.ToDec().ScaledValue(resource.Mega)).To(Equal(int64(64)))
 
-				Expect(pod.Spec.Volumes).To(HaveLen(8))
+				Expect(pod.Spec.Volumes).To(HaveLen(9))
 				Expect(pod.Spec.Volumes).To(
-					ContainElement(
+					ContainElements(
 						kubev1.Volume{
 							Name: "hugepages",
 							VolumeSource: kubev1.VolumeSource{
 								EmptyDir: &kubev1.EmptyDirVolumeSource{Medium: kubev1.StorageMediumHugePages},
 							},
-						}))
+						},
+						kubev1.Volume{
+							Name: "hugetblfs-dir",
+							VolumeSource: kubev1.VolumeSource{
+								EmptyDir: &kubev1.EmptyDirVolumeSource{},
+							}}))
 
-				Expect(pod.Spec.Containers[0].VolumeMounts).To(HaveLen(7))
+				Expect(pod.Spec.Containers[0].VolumeMounts).To(HaveLen(8))
 				Expect(pod.Spec.Containers[0].VolumeMounts).To(
-					ContainElement(
+					ContainElements(
 						kubev1.VolumeMount{
 							Name:      "hugepages",
 							MountPath: "/dev/hugepages"},
+						kubev1.VolumeMount{
+							Name:      "hugetblfs-dir",
+							MountPath: "/dev/hugepages/libvirt/qemu",
+						},
 					))
 			},
 				Entry("on amd64", "amd64", 252),
