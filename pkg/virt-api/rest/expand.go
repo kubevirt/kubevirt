@@ -1,38 +1,46 @@
 package rest
 
 import (
+	"context"
 	"encoding/json"
+	"errors"
 	"fmt"
 	"io"
 
 	"github.com/emicklei/go-restful"
-	"k8s.io/apimachinery/pkg/api/errors"
+	k8serr "k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	"k8s.io/apimachinery/pkg/runtime/schema"
 	"k8s.io/apimachinery/pkg/util/validation/field"
 
 	v1 "kubevirt.io/api/core/v1"
 	"kubevirt.io/client-go/log"
 
 	"kubevirt.io/kubevirt/pkg/instancetype"
+
 	"kubevirt.io/kubevirt/pkg/virt-api/definitions"
+)
+
+const (
+	messageAccessNotAllowed = "Subject not allowed to access resource"
 )
 
 func (app *SubresourceAPIApp) ExpandSpecRequestHandler(request *restful.Request, response *restful.Response) {
 	if request.Request.Body == nil {
-		writeError(errors.NewBadRequest("empty request body"), response)
+		writeError(k8serr.NewBadRequest("empty request body"), response)
 		return
 	}
 
 	bodyBytes, err := io.ReadAll(request.Request.Body)
 	if err != nil {
-		writeError(errors.NewBadRequest(err.Error()), response)
+		writeError(k8serr.NewBadRequest(err.Error()), response)
 		return
 	}
 
 	rawObj := map[string]interface{}{}
 	err = json.Unmarshal(bodyBytes, &rawObj)
 	if err != nil {
-		writeError(errors.NewBadRequest(fmt.Sprintf(unmarshalRequestErrFmt, err)), response)
+		writeError(k8serr.NewBadRequest(fmt.Sprintf(unmarshalRequestErrFmt, err)), response)
 		return
 	}
 
@@ -45,13 +53,16 @@ func (app *SubresourceAPIApp) ExpandSpecRequestHandler(request *restful.Request,
 	vm := &v1.VirtualMachine{}
 	err = json.Unmarshal(bodyBytes, vm)
 	if err != nil {
-		writeError(errors.NewBadRequest(fmt.Sprintf(unmarshalRequestErrFmt, err)), response)
+		writeError(k8serr.NewBadRequest(fmt.Sprintf(unmarshalRequestErrFmt, err)), response)
 		return
 	}
 
-	expandSpecResponse(vm, app.instancetypeMethods, func(err error) *errors.StatusError {
-		return errors.NewBadRequest(err.Error())
-	}, response)
+	instancetype.SetDefaultInstancetypeKind(vm)
+	instancetype.SetDefaultPreferenceKind(vm)
+
+	app.expandSpecResponse(vm, request, response, func(err error) *k8serr.StatusError {
+		return k8serr.NewBadRequest(err.Error())
+	})
 }
 
 func (app *SubresourceAPIApp) ExpandSpecVMRequestHandler(request *restful.Request, response *restful.Response) {
@@ -64,16 +75,79 @@ func (app *SubresourceAPIApp) ExpandSpecVMRequestHandler(request *restful.Reques
 		return
 	}
 
-	expandSpecResponse(vm, app.instancetypeMethods, errors.NewInternalError, response)
+	app.expandSpecResponse(vm, request, response, k8serr.NewInternalError)
 }
 
-func expandSpecResponse(vm *v1.VirtualMachine, instancetypeMethods instancetype.Methods, errorFunc func(error) *errors.StatusError, response *restful.Response) {
-	instancetypeSpec, err := instancetypeMethods.FindInstancetypeSpec(vm)
+func (app *SubresourceAPIApp) expandSpecResponse(vm *v1.VirtualMachine, request *restful.Request, response *restful.Response, errorFunc func(error) *k8serr.StatusError) {
+	authclient := app.virtCli.AuthorizationV1().SubjectAccessReviews()
+	authorizer := NewAuthorizorFromClient(authclient)
+	sar, err := authorizer.NewSubjectAccessReview(request)
+	if err != nil {
+		writeError(k8serr.NewInternalError(err), response)
+		return
+	}
+
+	instancetypeResourceAttributes, err := instancetype.CreateInstancetypeResourceAttributes(vm, "get")
 	if err != nil {
 		writeError(errorFunc(err), response)
 		return
 	}
-	preferenceSpec, err := instancetypeMethods.FindPreferenceSpec(vm)
+	if instancetypeResourceAttributes != nil {
+		sar.Spec.ResourceAttributes = instancetypeResourceAttributes
+		result, err := authclient.Create(context.Background(), sar, metav1.CreateOptions{})
+		if err != nil {
+			writeError(k8serr.NewInternalError(err), response)
+			return
+		}
+		if !result.Status.Allowed {
+			writeError(
+				k8serr.NewForbidden(
+					schema.GroupResource{
+						Resource: instancetypeResourceAttributes.Resource,
+					},
+					instancetypeResourceAttributes.Name,
+					errors.New(messageAccessNotAllowed),
+				),
+				response,
+			)
+			return
+		}
+	}
+
+	instancetypeSpec, err := app.instancetypeMethods.FindInstancetypeSpec(vm)
+	if err != nil {
+		writeError(errorFunc(err), response)
+		return
+	}
+
+	preferenceResourceAttributes, err := instancetype.CreatePreferenceResourceAttributes(vm, "get")
+	if err != nil {
+		writeError(errorFunc(err), response)
+		return
+	}
+	if preferenceResourceAttributes != nil {
+		sar.Spec.ResourceAttributes = preferenceResourceAttributes
+		result, err := authclient.Create(context.Background(), sar, metav1.CreateOptions{})
+		if err != nil {
+			writeError(k8serr.NewInternalError(err), response)
+			return
+		}
+		if !result.Status.Allowed {
+			writeError(
+				k8serr.NewForbidden(
+					schema.GroupResource{
+						Resource: preferenceResourceAttributes.Resource,
+					},
+					preferenceResourceAttributes.Name,
+					errors.New(messageAccessNotAllowed),
+				),
+				response,
+			)
+			return
+		}
+	}
+
+	preferenceSpec, err := app.instancetypeMethods.FindPreferenceSpec(vm)
 	if err != nil {
 		writeError(errorFunc(err), response)
 		return
@@ -87,7 +161,7 @@ func expandSpecResponse(vm *v1.VirtualMachine, instancetypeMethods instancetype.
 		return
 	}
 
-	conflicts := instancetypeMethods.ApplyToVmi(field.NewPath("spec", "template", "spec"), instancetypeSpec, preferenceSpec, &vm.Spec.Template.Spec)
+	conflicts := app.instancetypeMethods.ApplyToVmi(field.NewPath("spec", "template", "spec"), instancetypeSpec, preferenceSpec, &vm.Spec.Template.Spec)
 	if len(conflicts) > 0 {
 		writeError(errorFunc(fmt.Errorf("cannot expand instancetype to VM")), response)
 		return
@@ -111,7 +185,7 @@ func writeValidationErrors(validationErrors []error, response *restful.Response)
 		})
 	}
 
-	statusError := errors.NewBadRequest("Object is not a valid VirtualMachine")
+	statusError := k8serr.NewBadRequest("Object is not a valid VirtualMachine")
 	statusError.ErrStatus.Details = &metav1.StatusDetails{Causes: causes}
 
 	writeError(statusError, response)

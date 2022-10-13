@@ -6,6 +6,7 @@ import (
 	"strings"
 
 	appsv1 "k8s.io/api/apps/v1"
+	authv1 "k8s.io/api/authorization/v1"
 	k8sv1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/api/equality"
 	"k8s.io/apimachinery/pkg/api/errors"
@@ -52,6 +53,26 @@ var _ Methods = &methods{}
 func NewMethods(clientset kubecli.KubevirtClient) Methods {
 	return &methods{
 		clientset: clientset,
+	}
+}
+
+func SetDefaultInstancetypeKind(vm *v1.VirtualMachine) {
+	if vm.Spec.Instancetype == nil {
+		return
+	}
+
+	if vm.Spec.Instancetype.Kind == "" {
+		vm.Spec.Instancetype.Kind = apiinstancetype.ClusterSingularResourceName
+	}
+}
+
+func SetDefaultPreferenceKind(vm *v1.VirtualMachine) {
+	if vm.Spec.Preference == nil {
+		return
+	}
+
+	if vm.Spec.Preference.Kind == "" {
+		vm.Spec.Preference.Kind = apiinstancetype.ClusterSingularPreferenceResourceName
 	}
 }
 
@@ -520,6 +541,58 @@ func (m *methods) findClusterInstancetype(vm *virtv1.VirtualMachine) (*instancet
 	}
 
 	return instancetype, nil
+}
+
+func CreateInstancetypeResourceAttributes(vm *v1.VirtualMachine, verb string) (*authv1.ResourceAttributes, error) {
+	if vm.Spec.Instancetype == nil {
+		return nil, nil
+	}
+
+	switch strings.ToLower(vm.Spec.Instancetype.Kind) {
+	case apiinstancetype.SingularResourceName, apiinstancetype.PluralResourceName:
+		return &authv1.ResourceAttributes{
+			Verb:      verb,
+			Resource:  apiinstancetype.SingularResourceName,
+			Namespace: vm.Namespace,
+			Name:      vm.Spec.Instancetype.Name,
+		}, nil
+
+	case apiinstancetype.ClusterSingularResourceName, apiinstancetype.ClusterPluralResourceName:
+		return &authv1.ResourceAttributes{
+			Verb:     verb,
+			Resource: apiinstancetype.ClusterSingularResourceName,
+			Name:     vm.Spec.Instancetype.Name,
+		}, nil
+
+	default:
+		return nil, fmt.Errorf("got unexpected kind in InstancetypeMatcher: %s", vm.Spec.Instancetype.Kind)
+	}
+}
+
+func CreatePreferenceResourceAttributes(vm *v1.VirtualMachine, verb string) (*authv1.ResourceAttributes, error) {
+	if vm.Spec.Preference == nil {
+		return nil, nil
+	}
+
+	switch strings.ToLower(vm.Spec.Preference.Kind) {
+	case apiinstancetype.SingularPreferenceResourceName, apiinstancetype.PluralPreferenceResourceName:
+		return &authv1.ResourceAttributes{
+			Verb:      verb,
+			Resource:  apiinstancetype.SingularPreferenceResourceName,
+			Namespace: vm.Namespace,
+			Name:      vm.Spec.Preference.Name,
+		}, nil
+
+	case apiinstancetype.ClusterSingularPreferenceResourceName, apiinstancetype.ClusterPluralPreferenceResourceName:
+		return &authv1.ResourceAttributes{
+			Verb:     verb,
+			Resource: apiinstancetype.ClusterSingularPreferenceResourceName,
+			Name:     vm.Spec.Preference.Name,
+		}, nil
+
+	default:
+		return nil, fmt.Errorf("got unexpected kind in PreferenceMatcher: %s", vm.Spec.Preference.Kind)
+	}
 }
 
 func applyCpu(field *k8sfield.Path, instancetypeSpec *instancetypev1alpha2.VirtualMachineInstancetypeSpec, preferenceSpec *instancetypev1alpha2.VirtualMachinePreferenceSpec, vmiSpec *virtv1.VirtualMachineInstanceSpec) Conflicts {

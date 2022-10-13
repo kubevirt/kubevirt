@@ -6,6 +6,7 @@ package rest
 import (
 	go_restful "github.com/emicklei/go-restful"
 	gomock "github.com/golang/mock/gomock"
+	v1 "k8s.io/api/authorization/v1"
 )
 
 // Mock of VirtApiAuthorizor interface
@@ -93,4 +94,15 @@ func (_m *MockVirtApiAuthorizor) GetExtraPrefixHeaders() []string {
 
 func (_mr *_MockVirtApiAuthorizorRecorder) GetExtraPrefixHeaders() *gomock.Call {
 	return _mr.mock.ctrl.RecordCall(_mr.mock, "GetExtraPrefixHeaders")
+}
+
+func (_m *MockVirtApiAuthorizor) NewSubjectAccessReview(_param0 *go_restful.Request) (*v1.SubjectAccessReview, error) {
+	ret := _m.ctrl.Call(_m, "NewSubjectAccessReview", _param0)
+	ret0, _ := ret[0].(*v1.SubjectAccessReview)
+	ret1, _ := ret[1].(error)
+	return ret0, ret1
+}
+
+func (_mr *_MockVirtApiAuthorizorRecorder) NewSubjectAccessReview(arg0 interface{}) *gomock.Call {
+	return _mr.mock.ctrl.RecordCall(_mr.mock, "NewSubjectAccessReview", arg0)
 }

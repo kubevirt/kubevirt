@@ -27,7 +27,6 @@ import (
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 
 	v1 "kubevirt.io/api/core/v1"
-	apiinstancetype "kubevirt.io/api/instancetype"
 	"kubevirt.io/client-go/log"
 
 	"kubevirt.io/kubevirt/pkg/instancetype"
@@ -62,8 +61,8 @@ func (mutator *VMsMutator) Mutate(ar *admissionv1.AdmissionReview) *admissionv1.
 
 	// Set VM defaults
 	log.Log.Object(&vm).V(4).Info("Apply defaults")
-	mutator.setDefaultInstancetypeKind(&vm)
-	mutator.setDefaultPreferenceKind(&vm)
+	instancetype.SetDefaultInstancetypeKind(&vm)
+	instancetype.SetDefaultPreferenceKind(&vm)
 	mutator.setDefaultMachineType(&vm)
 
 	patchBytes, err := utiltypes.GeneratePatchPayload(
@@ -130,24 +129,4 @@ func (mutator *VMsMutator) getPreferenceMachineType(vm *v1.VirtualMachine) strin
 		return preferenceSpec.Machine.PreferredMachineType
 	}
 	return ""
-}
-
-func (mutator *VMsMutator) setDefaultInstancetypeKind(vm *v1.VirtualMachine) {
-	if vm.Spec.Instancetype == nil {
-		return
-	}
-
-	if vm.Spec.Instancetype.Kind == "" {
-		vm.Spec.Instancetype.Kind = apiinstancetype.ClusterSingularResourceName
-	}
-}
-
-func (mutator *VMsMutator) setDefaultPreferenceKind(vm *v1.VirtualMachine) {
-	if vm.Spec.Preference == nil {
-		return
-	}
-
-	if vm.Spec.Preference.Kind == "" {
-		vm.Spec.Preference.Kind = apiinstancetype.ClusterSingularPreferenceResourceName
-	}
 }
