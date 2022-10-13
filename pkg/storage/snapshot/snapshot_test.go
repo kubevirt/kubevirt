@@ -33,11 +33,11 @@ import (
 	snapshotv1 "kubevirt.io/api/snapshot/v1alpha1"
 	k8ssnapshotfake "kubevirt.io/client-go/generated/external-snapshotter/clientset/versioned/fake"
 	kubevirtfake "kubevirt.io/client-go/generated/kubevirt/clientset/versioned/fake"
-	generatedscheme "kubevirt.io/client-go/generated/kubevirt/clientset/versioned/scheme"
 	"kubevirt.io/client-go/kubecli"
 	cdiv1 "kubevirt.io/containerized-data-importer-api/pkg/apis/core/v1beta1"
 
 	"kubevirt.io/kubevirt/pkg/instancetype"
+	"kubevirt.io/kubevirt/pkg/util"
 
 	virtcontroller "kubevirt.io/kubevirt/pkg/controller"
 	"kubevirt.io/kubevirt/pkg/testutils"
@@ -2435,11 +2435,10 @@ func createInstancetypeVirtualMachineSnapshotCR(vm *v1.VirtualMachine, vmSnapsho
 	// Replace the VM name with the vmSnapshot name and clear the namespace as we don't expect to see this set during creation, only after.
 	cr.Name = strings.Replace(cr.Name, vm.Name, vmSnapshot.Name, 1)
 
-	// TODO - share with pkg/instancetype somewhere
-	vmSnapshotCopy := vmSnapshot.DeepCopy()
-	gvks, _, err := generatedscheme.Scheme.ObjectKinds(vmSnapshotCopy)
+	vmSnapshotObj, err := util.GenerateKubeVirtGroupVersionKind(vmSnapshot)
 	Expect(err).ToNot(HaveOccurred())
-	vmSnapshotCopy.GetObjectKind().SetGroupVersionKind(gvks[0])
+	vmSnapshotCopy, ok := vmSnapshotObj.(*snapshotv1.VirtualMachineSnapshot)
+	Expect(ok).To(BeTrue())
 
 	// Set the vmSnapshot as the owner of the CR
 	cr.OwnerReferences = []metav1.OwnerReference{*metav1.NewControllerRef(vmSnapshotCopy, vmSnapshotCopy.GroupVersionKind())}

@@ -35,11 +35,11 @@ import (
 
 	kubevirtv1 "kubevirt.io/api/core/v1"
 	snapshotv1 "kubevirt.io/api/snapshot/v1alpha1"
-	generatedscheme "kubevirt.io/client-go/generated/kubevirt/clientset/versioned/scheme"
 	"kubevirt.io/client-go/log"
 
 	"kubevirt.io/kubevirt/pkg/controller"
 	storagetypes "kubevirt.io/kubevirt/pkg/storage/types"
+	utils "kubevirt.io/kubevirt/pkg/util"
 	watchutil "kubevirt.io/kubevirt/pkg/virt-controller/watch/util"
 	launcherapi "kubevirt.io/kubevirt/pkg/virt-launcher/virtwrap/api"
 )
@@ -212,14 +212,16 @@ func (s *vmSnapshotSource) captureInstancetypeControllerRevision(namespace, revi
 	// We strip out the source VM name from the CR name and replace it with the snapshot name
 	snapshotCR.Name = strings.Replace(existingCR.Name, s.snapshot.Spec.Source.Name, s.snapshot.Name, 1)
 
-	// TODO - share with pkg/instancetype somewhere
-	snapshotCopy := s.snapshot.DeepCopy()
-	gvks, _, err := generatedscheme.Scheme.ObjectKinds(snapshotCopy)
+	// Ensure GVK is set before we attempt to create the controller OwnerReference below
+	obj, err := utils.GenerateKubeVirtGroupVersionKind(s.snapshot)
 	if err != nil {
-		return "", fmt.Errorf("could not get GroupVersionKind for object: %w", err)
+		return "", err
 	}
-	snapshotCopy.GetObjectKind().SetGroupVersionKind(gvks[0])
-	snapshotCR.OwnerReferences = []metav1.OwnerReference{*metav1.NewControllerRef(snapshotCopy, snapshotCopy.GroupVersionKind())}
+	snapshot, ok := obj.(*snapshotv1.VirtualMachineSnapshot)
+	if !ok {
+		return "", fmt.Errorf("Unexpected object format returned from GenerateKubeVirtGroupVersionKind")
+	}
+	snapshotCR.OwnerReferences = []metav1.OwnerReference{*metav1.NewControllerRef(snapshot, snapshot.GroupVersionKind())}
 
 	snapshotCR, err = s.controller.Client.AppsV1().ControllerRevisions(s.snapshot.Namespace).Create(context.Background(), snapshotCR, metav1.CreateOptions{})
 	if err != nil && !errors.IsAlreadyExists(err) {
