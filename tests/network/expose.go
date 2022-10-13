@@ -247,14 +247,22 @@ var _ = SIGDescribe("[rfe_id:253][crit:medium][vendor:cnv-qe@redhat.com][level:c
 				Expect(endpoint.Ports).To(HaveLen(1))
 				Expect(endpoint.Ports[0].Port).To(Equal(int32(80)))
 
+				endpointSlices, err := virtClient.DiscoveryV1().EndpointSlices(util.NamespaceTestDefault).List(context.Background(), metav1.ListOptions{})
+				Expect(err).ToNot(HaveOccurred())
+
+				numOfExpectedAddresses := 1
+				addresses := []string{}
 				isDualStack := isDualStack(ipFamily)
-				numOfIps := 1
 				if isDualStack {
-					numOfIps = 2
+					numOfExpectedAddresses = 2
 				}
-				assert.XFail(xfailError, func() {
-					Expect(endpoints.Subsets[0].Addresses).To(HaveLen(numOfIps))
-				}, isDualStack)
+
+				for _, endpointSlice := range endpointSlices.Items {
+					for _, endpoint := range endpointSlice.Endpoints {
+						addresses = append(addresses, endpoint.Addresses...)
+					}
+				}
+				Expect(addresses).To(HaveLen(numOfExpectedAddresses))
 			},
 				Entry("[test_id:1532] over default IPv4 IP family", ipv4),
 				Entry(overIPv6Family, ipv6),
