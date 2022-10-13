@@ -7,7 +7,6 @@ import (
 	"os"
 	"path/filepath"
 
-	"github.com/opencontainers/selinux/go-selinux"
 	"github.com/spf13/cobra"
 	"golang.org/x/sys/unix"
 
@@ -67,16 +66,17 @@ func RelabelCommand() *cobra.Command {
 
 			defer fd.Close()
 			filePath := fd.SafePath()
-			currentFileLabel, err := selinux.FileLabel(filePath)
-			if err != nil {
-				return fmt.Errorf("could not retrieve label of file %s. Reason: %v", filePath, err)
-			}
 
 			writeableFD, err := os.OpenFile(filePath, os.O_APPEND|unix.S_IWRITE, os.ModePerm)
 			if err != nil {
 				return fmt.Errorf("error reopening file %s to write label %s. Reason: %v", filePath, label, err)
 			}
 			defer writeableFD.Close()
+
+			currentFileLabel, err := getLabel(writeableFD)
+			if err != nil {
+				return fmt.Errorf("faild to get selinux label for file %v: %v", filePath, err)
+			}
 
 			if currentFileLabel != label {
 				if err := unix.Fsetxattr(int(writeableFD.Fd()), xattrNameSelinux, []byte(label), 0); err != nil {
@@ -89,4 +89,23 @@ func RelabelCommand() *cobra.Command {
 	}
 	relabelCommad.Flags().StringVar(&root, "root", "/", "safe root path which will be prepended to passed in files")
 	return relabelCommad
+}
+
+func getLabel(file *os.File) (string, error) {
+	// let's first find out the actual buffer size
+	var buffer []byte
+	labelLength, err := unix.Fgetxattr(int(file.Fd()), xattrNameSelinux, buffer)
+	if err != nil {
+		return "", fmt.Errorf("error reading fgetxattr: %v", err)
+	}
+	// now ask with the needed size
+	buffer = make([]byte, labelLength)
+	labelLength, err = unix.Fgetxattr(int(file.Fd()), xattrNameSelinux, buffer)
+	if err != nil {
+		return "", fmt.Errorf("error reading fgetxattr: %v", err)
+	}
+	if labelLength > 0 && buffer[labelLength-1] == '\x00' {
+		labelLength = labelLength - 1
+	}
+	return string(buffer[:labelLength]), nil
 }
