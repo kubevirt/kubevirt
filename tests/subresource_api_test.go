@@ -110,6 +110,18 @@ var _ = Describe("[sig-compute]Subresource Api", func() {
 		})
 	})
 
+	Describe("[crit:medium][vendor:cnv-qe@redhat.com][level:component] Rbac Authorization For Expand-Spec Command", func() {
+		const resource = "expand-spec"
+
+		It("should be allowed to access expand-spec endpoint with authenticated user", func() {
+			testClientJob(virtCli, true, resource)
+		})
+
+		It("should not be able to access expand-spec endpoint without authenticated user", func() {
+			testClientJob(virtCli, false, resource)
+		})
+	})
+
 	Describe("[rfe_id:1177][crit:medium][vendor:cnv-qe@redhat.com][level:component] VirtualMachine subresource", func() {
 		Context("with a restart endpoint", func() {
 			It("[test_id:1304] should restart a VM", func() {

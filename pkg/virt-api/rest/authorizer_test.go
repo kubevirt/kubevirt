@@ -52,8 +52,6 @@ var _ = Describe("Authorizer", func() {
 			req.Request.Header[userHeader] = []string{"user"}
 			req.Request.Header[groupHeader] = []string{"userGroup"}
 			req.Request.Header[userExtraHeaderPrefix+"test"] = []string{"userExtraValue"}
-			req.Request.Method = http.MethodGet
-			req.Request.URL.Path = "/apis/subresources.kubevirt.io/v1alpha3/namespaces/default/virtualmachineinstances/testvmi/console"
 			req.Request.TLS = &tls.ConnectionState{}
 			req.Request.TLS.PeerCertificates = append(req.Request.TLS.PeerCertificates, &x509.Certificate{})
 
@@ -76,47 +74,117 @@ var _ = Describe("Authorizer", func() {
 		})
 
 		Context("Subresource api", func() {
-			It("should reject unauthenticated user", func() {
-				req.Request.TLS = nil
-
-				allowed, reason, err := app.Authorize(req)
-				Expect(err).ToNot(HaveOccurred())
-				Expect(allowed).To(BeFalse())
-				Expect(reason).To(Equal("request is not authenticated"))
-			})
-
-			It("should reject unauthorized user", func() {
-				sarHandler = func(sar *authv1.SubjectAccessReview) (*authv1.SubjectAccessReview, error) {
-					sar.Status.Allowed = false
-					sar.Status.Reason = "just because"
-					return sar, nil
+			Context("with namespaced resource", func() {
+				sarHandlerFn := func(allowed bool) func(review *authv1.SubjectAccessReview) (*authv1.SubjectAccessReview, error) {
+					return func(sar *authv1.SubjectAccessReview) (*authv1.SubjectAccessReview, error) {
+						Expect(sar.Spec.NonResourceAttributes).To(BeNil())
+						Expect(sar.Spec.ResourceAttributes).ToNot(BeNil())
+						Expect(sar.Spec.ResourceAttributes.Namespace).To(Equal("default"))
+						Expect(sar.Spec.ResourceAttributes.Verb).To(Equal("get"))
+						Expect(sar.Spec.ResourceAttributes.Group).To(Equal("subresources.kubevirt.io"))
+						Expect(sar.Spec.ResourceAttributes.Version).To(Equal("v1alpha3"))
+						Expect(sar.Spec.ResourceAttributes.Resource).To(Equal("virtualmachineinstances"))
+						Expect(sar.Spec.ResourceAttributes.Subresource).To(Equal("console"))
+						Expect(sar.Spec.ResourceAttributes.Name).To(Equal("testvmi"))
+						sar.Status.Allowed = allowed
+						sar.Status.Reason = "just because"
+						return sar, nil
+					}
 				}
 
-				allowed, reason, err := app.Authorize(req)
-				Expect(err).ToNot(HaveOccurred())
-				Expect(allowed).To(BeFalse())
-				Expect(reason).To(Equal("just because"))
+				BeforeEach(func() {
+					req.Request.Method = http.MethodGet
+					req.Request.URL.Path = "/apis/subresources.kubevirt.io/v1alpha3/namespaces/default/virtualmachineinstances/testvmi/console"
+				})
+
+				It("should reject unauthenticated user", func() {
+					req.Request.TLS = nil
+					allowed, reason, err := app.Authorize(req)
+					Expect(err).ToNot(HaveOccurred())
+					Expect(allowed).To(BeFalse())
+					Expect(reason).To(Equal("request is not authenticated"))
+				})
+
+				It("should reject if auth check fails", func() {
+					sarHandler = func(sar *authv1.SubjectAccessReview) (*authv1.SubjectAccessReview, error) {
+						return nil, errors.New("internal error")
+					}
+					allowed, reason, err := app.Authorize(req)
+					Expect(err).To(HaveOccurred())
+					Expect(allowed).To(BeFalse())
+					Expect(reason).To(Equal("internal server error"))
+				})
+
+				It("should reject unauthorized user", func() {
+					sarHandler = sarHandlerFn(false)
+					allowed, reason, err := app.Authorize(req)
+					Expect(err).ToNot(HaveOccurred())
+					Expect(allowed).To(BeFalse())
+					Expect(reason).To(Equal("just because"))
+				})
+
+				It("should allow authorized user", func() {
+					sarHandler = sarHandlerFn(true)
+					allowed, reason, err := app.Authorize(req)
+					Expect(err).ToNot(HaveOccurred())
+					Expect(allowed).To(BeTrue())
+					Expect(reason).To(BeEmpty())
+				})
 			})
 
-			It("should allow authorized user", func() {
-				sarHandler = func(sar *authv1.SubjectAccessReview) (*authv1.SubjectAccessReview, error) {
-					sar.Status.Allowed = true
-					return sar, nil
+			Context("with non-namespaced resource", func() {
+				sarHandlerFn := func(allowed bool) func(review *authv1.SubjectAccessReview) (*authv1.SubjectAccessReview, error) {
+					return func(sar *authv1.SubjectAccessReview) (*authv1.SubjectAccessReview, error) {
+						Expect(sar.Spec.NonResourceAttributes).To(BeNil())
+						Expect(sar.Spec.ResourceAttributes).ToNot(BeNil())
+						Expect(sar.Spec.ResourceAttributes.Verb).To(Equal("update"))
+						Expect(sar.Spec.ResourceAttributes.Group).To(Equal("subresources.kubevirt.io"))
+						Expect(sar.Spec.ResourceAttributes.Version).To(Equal("v1alpha3"))
+						Expect(sar.Spec.ResourceAttributes.Resource).To(Equal("expand-spec"))
+						sar.Status.Allowed = allowed
+						sar.Status.Reason = "because I said so"
+						return sar, nil
+					}
 				}
 
-				allowed, _, err := app.Authorize(req)
-				Expect(err).ToNot(HaveOccurred())
-				Expect(allowed).To(BeTrue())
-			})
+				BeforeEach(func() {
+					req.Request.Method = http.MethodPut
+					req.Request.URL.Path = "/apis/subresources.kubevirt.io/v1alpha3/expand-spec"
+				})
 
-			It("should not allow user if auth check fails", func() {
-				sarHandler = func(sar *authv1.SubjectAccessReview) (*authv1.SubjectAccessReview, error) {
-					return nil, errors.New("internal error")
-				}
+				It("should reject unauthenticated user", func() {
+					req.Request.TLS = nil
+					allowed, reason, err := app.Authorize(req)
+					Expect(err).ToNot(HaveOccurred())
+					Expect(allowed).To(BeFalse())
+					Expect(reason).To(Equal("request is not authenticated"))
+				})
 
-				allowed, _, err := app.Authorize(req)
-				Expect(err).To(HaveOccurred())
-				Expect(allowed).To(BeFalse())
+				It("should reject if auth check fails", func() {
+					sarHandler = func(sar *authv1.SubjectAccessReview) (*authv1.SubjectAccessReview, error) {
+						return nil, errors.New("internal error")
+					}
+					allowed, reason, err := app.Authorize(req)
+					Expect(err).To(HaveOccurred())
+					Expect(allowed).To(BeFalse())
+					Expect(reason).To(Equal("internal server error"))
+				})
+
+				It("should reject unauthorized user", func() {
+					sarHandler = sarHandlerFn(false)
+					allowed, reason, err := app.Authorize(req)
+					Expect(err).ToNot(HaveOccurred())
+					Expect(allowed).To(BeFalse())
+					Expect(reason).To(Equal("because I said so"))
+				})
+
+				It("should allow authorized user", func() {
+					sarHandler = sarHandlerFn(true)
+					allowed, reason, err := app.Authorize(req)
+					Expect(err).ToNot(HaveOccurred())
+					Expect(allowed).To(BeTrue())
+					Expect(reason).To(BeEmpty())
+				})
 			})
 
 			DescribeTable("should allow all users for info endpoints", func(path string) {
@@ -141,12 +209,11 @@ var _ = Describe("Authorizer", func() {
 				allowed, _, err := app.Authorize(req)
 				Expect(err).ToNot(HaveOccurred())
 				Expect(allowed).To(BeFalse())
-
 			},
-				Entry("random1", "/apis/subresources.kubevirt.io/v1alpha3/madethisup"),
-				Entry("random2", "/1/2/3/4/5/6/7/8/9/0/1/2/3/4/5/6/7/8/9"),
-				Entry("no subresource provided", "/apis/subresources.kubevirt.io/v1alpha3/namespaces/default/virtualmachineinstances/testvmi"),
-				Entry("invalid resource type", "/apis/subresources.kubevirt.io/v1alpha3/namespaces/default/madeupresource/testvmi/console"),
+				Entry("too short namespaced resource endpoint", "/apis/subresources.kubevirt.io/v1/namespaces/madethisup"),
+				Entry("unknown namespaced resource endpoint", "/apis/subresources.kubevirt.io/v1/namespaces/default/madethisup/testvmi/console"),
+				Entry("too long non-namespaced resource endpoint", "/apis/subresources.kubevirt.io/v1/expand-spec/madethisup"),
+				Entry("unknown non-namespaced resource endpoint", "/apis/subresources.kubevirt.io/v1/madethisup"),
 			)
 		})
 	})

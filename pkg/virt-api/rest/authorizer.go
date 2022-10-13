@@ -148,48 +148,84 @@ func (a *authorizor) generateAccessReview(req *restful.Request) (*authv1.Subject
 	// URL example
 	// /apis/subresources.kubevirt.io/v1alpha3/namespaces/default/virtualmachineinstances/testvmi/console
 	pathSplit := strings.Split(req.Request.URL.Path, "/")
-
-	resourceAttributes, err := getResourceAttributes(pathSplit, req.Request)
-	if err != nil {
-		return nil, err
+	if len(pathSplit) < 5 {
+		return nil, fmt.Errorf("unknown api endpoint: %s", req.Request.URL.Path)
 	}
 
-	r.Spec.ResourceAttributes = resourceAttributes
+	// "namespaces" after version means that the URL points to a namespaced subresource
+	if pathSplit[4] == "namespaces" {
+		if err := addNamespacedAttributes(req, r, pathSplit); err != nil {
+			return nil, err
+		}
+	} else {
+		if err := addNonNamespacedAttributes(req, r, pathSplit); err != nil {
+			return nil, err
+		}
+	}
+
 	return r, nil
 }
 
-func getResourceAttributes(pathSplit []string, httpRequest *http.Request) (*authv1.ResourceAttributes, error) {
+func addNamespacedAttributes(req *restful.Request, r *authv1.SubjectAccessReview, pathSplit []string) error {
 	// URL example
 	// /apis/subresources.kubevirt.io/v1alpha3/namespaces/default/virtualmachineinstances/testvmi/console
 	if len(pathSplit) < 9 {
-		return nil, fmt.Errorf("unknown api endpoint %s", httpRequest.URL.Path)
+		return fmt.Errorf("unknown api endpoint %s", req.Request.URL.Path)
 	}
 
-	group := pathSplit[2]
-	version := pathSplit[3]
-	namespace := pathSplit[5]
 	resource := pathSplit[6]
-	resourceName := pathSplit[7]
-	subresource := pathSplit[8]
-
 	if resource != "virtualmachineinstances" && resource != "virtualmachines" {
-		return nil, fmt.Errorf("unknown resource type %s", resource)
+		return fmt.Errorf("unknown resource type %s", resource)
 	}
 
-	verb, err := mapHttpVerbToRbacVerb(httpRequest.Method, resourceName)
+	resourceName := pathSplit[7]
+	verb, err := mapHttpVerbToRbacVerb(req.Request.Method, resourceName)
 	if err != nil {
-		return nil, err
+		return err
 	}
 
-	return &authv1.ResourceAttributes{
-		Namespace:   namespace,
+	r.Spec.ResourceAttributes = &authv1.ResourceAttributes{
+		Namespace:   pathSplit[5],
 		Verb:        verb,
-		Group:       group,
-		Version:     version,
+		Group:       pathSplit[2],
+		Version:     pathSplit[3],
 		Resource:    resource,
-		Subresource: subresource,
+		Subresource: pathSplit[8],
 		Name:        resourceName,
-	}, nil
+	}
+
+	return nil
+}
+
+func addNonNamespacedAttributes(req *restful.Request, r *authv1.SubjectAccessReview, pathSplit []string) error {
+	// URL example
+	// /apis/subresources.kubevirt.io/v1alpha3/expand-spec
+	if len(pathSplit) != 5 {
+		return fmt.Errorf("unknown api endpoint %s", req.Request.URL.Path)
+	}
+
+	resource := pathSplit[4]
+	if resource != "expand-spec" {
+		return fmt.Errorf("unknown resource type %s", resource)
+	}
+
+	verb, err := mapHttpVerbToRbacVerb(req.Request.Method, "")
+	if err != nil {
+		return err
+	}
+
+	// Even though there is no CRD for this endpoint, it is still considered a resource request by Kubernetes.
+	// Kubernetes only considers requests to endpoints other than /api/v1/... or /apis/<group>/<version>/...  as
+	// non-resource requests.
+	// See: https://kubernetes.io/docs/reference/access-authn-authz/authorization/#determine-the-request-verb
+	r.Spec.ResourceAttributes = &authv1.ResourceAttributes{
+		Verb:     verb,
+		Group:    pathSplit[2],
+		Version:  pathSplit[3],
+		Resource: resource,
+	}
+
+	return nil
 }
 
 func mapHttpVerbToRbacVerb(httpVerb string, name string) (string, error) {

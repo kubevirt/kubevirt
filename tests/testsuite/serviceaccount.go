@@ -21,6 +21,9 @@ package testsuite
 
 import (
 	"context"
+	"fmt"
+
+	. "github.com/onsi/ginkgo/v2"
 
 	k8sv1 "k8s.io/api/core/v1"
 	rbacv1 "k8s.io/api/rbac/v1"
@@ -70,6 +73,17 @@ func cleanupSubresourceServiceAccount() {
 	}
 
 	err = virtCli.RbacV1().RoleBindings(util.NamespaceTestDefault).Delete(context.Background(), SubresourceServiceAccountName, metav1.DeleteOptions{})
+	if !k8serrors.IsNotFound(err) {
+		util.PanicOnError(err)
+	}
+
+	subresourceServiceAccountNameWorker := fmt.Sprintf("%s%d", SubresourceServiceAccountName, GinkgoParallelProcess())
+	err = virtCli.RbacV1().ClusterRoles().Delete(context.Background(), subresourceServiceAccountNameWorker, metav1.DeleteOptions{})
+	if !k8serrors.IsNotFound(err) {
+		util.PanicOnError(err)
+	}
+
+	err = virtCli.RbacV1().ClusterRoleBindings().Delete(context.Background(), subresourceServiceAccountNameWorker, metav1.DeleteOptions{})
 	if !k8serrors.IsNotFound(err) {
 		util.PanicOnError(err)
 	}
@@ -155,7 +169,6 @@ func createSubresourceServiceAccount() {
 	}
 
 	role := rbacv1.Role{
-
 		ObjectMeta: metav1.ObjectMeta{
 			Name:      SubresourceServiceAccountName,
 			Namespace: util.NamespaceTestDefault,
@@ -196,6 +209,50 @@ func createSubresourceServiceAccount() {
 	})
 
 	_, err = virtCli.RbacV1().RoleBindings(util.NamespaceTestDefault).Create(context.Background(), &roleBinding, metav1.CreateOptions{})
+	if !k8serrors.IsAlreadyExists(err) {
+		util.PanicOnError(err)
+	}
+
+	subresourceServiceAccountNameWorker := fmt.Sprintf("%s%d", SubresourceServiceAccountName, GinkgoParallelProcess())
+	clusterRole := rbacv1.ClusterRole{
+		ObjectMeta: metav1.ObjectMeta{
+			Name: subresourceServiceAccountNameWorker,
+			Labels: map[string]string{
+				util.KubevirtIoTest: "sa",
+			},
+		},
+	}
+	clusterRole.Rules = append(clusterRole.Rules, rbacv1.PolicyRule{
+		APIGroups: []string{"subresources.kubevirt.io"},
+		Resources: []string{"expand-spec"},
+		Verbs:     []string{"update"},
+	})
+
+	_, err = virtCli.RbacV1().ClusterRoles().Create(context.Background(), &clusterRole, metav1.CreateOptions{})
+	if !k8serrors.IsAlreadyExists(err) {
+		util.PanicOnError(err)
+	}
+
+	clusterRoleBinding := rbacv1.ClusterRoleBinding{
+		ObjectMeta: metav1.ObjectMeta{
+			Name: subresourceServiceAccountNameWorker,
+			Labels: map[string]string{
+				util.KubevirtIoTest: "sa",
+			},
+		},
+		RoleRef: rbacv1.RoleRef{
+			Kind:     "ClusterRole",
+			Name:     subresourceServiceAccountNameWorker,
+			APIGroup: "rbac.authorization.k8s.io",
+		},
+	}
+	clusterRoleBinding.Subjects = append(clusterRoleBinding.Subjects, rbacv1.Subject{
+		Kind:      "ServiceAccount",
+		Name:      SubresourceServiceAccountName,
+		Namespace: util.NamespaceTestDefault,
+	})
+
+	_, err = virtCli.RbacV1().ClusterRoleBindings().Create(context.Background(), &clusterRoleBinding, metav1.CreateOptions{})
 	if !k8serrors.IsAlreadyExists(err) {
 		util.PanicOnError(err)
 	}
