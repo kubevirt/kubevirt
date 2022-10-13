@@ -490,6 +490,7 @@ rules:
   - create
   - delete
   - get
+  - update
 - apiGroups:
   - ""
   resources:
