@@ -4,6 +4,7 @@ import (
 	"bytes"
 	"errors"
 	"fmt"
+	"io"
 	"os"
 	"path/filepath"
 	"strconv"
@@ -128,15 +129,9 @@ func rw_filecontents(fReadPath string, fWritePath string) (err error) {
 	}
 	defer wFile.Close()
 
-	data := make([]byte, 20000)
-	count, err := rFile.Read(data)
+	count, err := io.Copy(wFile, rFile)
 	if err != nil {
-		return fmt.Errorf("Read failed: %s (%v)", fWritePath, err)
-	}
-
-	_, err = wFile.Write(data[:count])
-	if err != nil {
-		return fmt.Errorf("Write failed: %s (%v)", fWritePath, err)
+		return fmt.Errorf("Copy filed: %s -> %s (%v), count=%d", fReadPath, fWritePath, err, count)
 	}
 
 	return nil
