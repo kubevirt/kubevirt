@@ -1161,10 +1161,15 @@ var _ = SIGDescribe("VirtualMachineSnapshot Tests", func() {
 						errors.IsNotFound(contentErr)
 				}, time.Minute, 2*time.Second).Should(BeTrue())
 
-				updatedVM, err := virtClient.VirtualMachine(vm.Namespace).Get(vm.Name, &metav1.GetOptions{})
-				Expect(err).ToNot(HaveOccurred())
-				Expect(updatedVM.Status.SnapshotInProgress).To(BeNil())
-				Expect(updatedVM.Finalizers).To(BeEmpty())
+				Eventually(ThisVM(vm), 30*time.Second, 2*time.Second).Should(
+					And(
+						WithTransform(func(vm *v1.VirtualMachine) *string {
+							return vm.Status.SnapshotInProgress
+						}, BeNil()),
+						WithTransform(func(vm *v1.VirtualMachine) []string {
+							return vm.Finalizers
+						}, BeEmpty())),
+					"SnapshotInProgress should be empty")
 
 				Expect(snapshot.Status.CreationTime).To(BeNil())
 			})
