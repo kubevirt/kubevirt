@@ -51,9 +51,9 @@ type HotplugDiskManagerInterface interface {
 	GetFileSystemDirectoryTargetPathFromHostView(virtlauncherPodUID types.UID, volumeName string, create bool) (*safepath.Path, error)
 }
 
-func NewHotplugDiskManager() *hotplugDiskManager {
+func NewHotplugDiskManager(kubeletPodsDir string) *hotplugDiskManager {
 	return &hotplugDiskManager{
-		podsBaseDir:       filepath.Join(util.HostRootMount, util.KubeletPodsDir),
+		podsBaseDir:       filepath.Join(util.HostRootMount, kubeletPodsDir),
 		targetPodBasePath: TargetPodBasePath,
 	}
 }
