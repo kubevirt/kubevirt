@@ -58,13 +58,13 @@ type Manager interface {
 	GetCpuSet() (string, error)
 
 	// SetCpuSet returns the cpu set
-	SetCpuSet(string, []int) error
+	SetCpuSet(subcgroup string, cpulist []int) error
 
 	// Create new child cgroup
-	CreateChildCgroup(string, string) error
+	CreateChildCgroup(name string, subSystem string) error
 
 	// Attach TID to cgroup
-	AttachTID(string, string, int) error
+	AttachTID(subSystem string, subCgroup string, tid int) error
 
 	// Get list of threads attached to cgroup
 	GetCgroupThreads() ([]int, error)
