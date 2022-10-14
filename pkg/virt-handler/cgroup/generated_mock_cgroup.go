@@ -72,8 +72,8 @@ func (_mr *_MockManagerRecorder) GetCpuSet() *gomock.Call {
 	return _mr.mock.ctrl.RecordCall(_mr.mock, "GetCpuSet")
 }
 
-func (_m *MockManager) SetCpuSet(_param0 string, _param1 []int) error {
-	ret := _m.ctrl.Call(_m, "SetCpuSet", _param0, _param1)
+func (_m *MockManager) SetCpuSet(subcgroup string, cpulist []int) error {
+	ret := _m.ctrl.Call(_m, "SetCpuSet", subcgroup, cpulist)
 	ret0, _ := ret[0].(error)
 	return ret0
 }
@@ -82,8 +82,8 @@ func (_mr *_MockManagerRecorder) SetCpuSet(arg0, arg1 interface{}) *gomock.Call 
 	return _mr.mock.ctrl.RecordCall(_mr.mock, "SetCpuSet", arg0, arg1)
 }
 
-func (_m *MockManager) CreateChildCgroup(_param0 string, _param1 string) error {
-	ret := _m.ctrl.Call(_m, "CreateChildCgroup", _param0, _param1)
+func (_m *MockManager) CreateChildCgroup(name string, subSystem string) error {
+	ret := _m.ctrl.Call(_m, "CreateChildCgroup", name, subSystem)
 	ret0, _ := ret[0].(error)
 	return ret0
 }
@@ -92,8 +92,8 @@ func (_mr *_MockManagerRecorder) CreateChildCgroup(arg0, arg1 interface{}) *gomo
 	return _mr.mock.ctrl.RecordCall(_mr.mock, "CreateChildCgroup", arg0, arg1)
 }
 
-func (_m *MockManager) AttachTID(_param0 string, _param1 string, _param2 int) error {
-	ret := _m.ctrl.Call(_m, "AttachTID", _param0, _param1, _param2)
+func (_m *MockManager) AttachTID(subSystem string, subCgroup string, tid int) error {
+	ret := _m.ctrl.Call(_m, "AttachTID", subSystem, subCgroup, tid)
 	ret0, _ := ret[0].(error)
 	return ret0
 }
