@@ -8,7 +8,7 @@ JOB_TYPE="${JOB_TYPE:-}"
 if [ "${JOB_TYPE}" == "travis" ]; then
     go get -v -t ./...
     go install github.com/mattn/goveralls@latest
-    go install github.com/onsi/ginkgo/v2/ginkgo@latest
+    go install github.com/onsi/ginkgo/v2/ginkgo@$(grep github.com/onsi/ginkgo go.mod | cut -d " " -f2)
     go mod vendor
     PKG_PACKAGE_PATH="./pkg/"
     CONTROLLERS_PACKAGE_PATH="./controllers/"
@@ -18,7 +18,7 @@ if [ "${JOB_TYPE}" == "travis" ]; then
     ginkgo -cover -output-dir=./coverprofiles -coverprofile=cover.coverprofile -r ${PKG_PACKAGE_PATH} -r ${CONTROLLERS_PACKAGE_PATH}
 else
     test_path="tests/func-tests"
-    (cd $test_path; GOFLAGS='' go install github.com/onsi/ginkgo/v2/ginkgo@latest)
+    (cd $test_path; GOFLAGS='' go install github.com/onsi/ginkgo/v2/ginkgo@$(grep github.com/onsi/ginkgo ../go.mod | cut -d " " -f2))
     (cd $test_path; go mod tidy; go mod vendor)
     test_out_path=${test_path}/_out
     mkdir -p ${test_out_path}

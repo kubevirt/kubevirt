@@ -25,7 +25,7 @@ case "${CLUSTER_PLATFORM}" in
     HPP_VOLUME_SIZE=128Gi
     ;;
   AWS)
-    HPP_BACKEND_STORAGE_CLASS=gp2
+    HPP_BACKEND_STORAGE_CLASS=gp3-csi
     HPP_VOLUME_SIZE=128Gi
     ;;
   BareMetal|None)

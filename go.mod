@@ -11,8 +11,8 @@ require (
 	github.com/imdario/mergo v0.3.13
 	github.com/kubevirt/cluster-network-addons-operator v0.79.0
 	github.com/kubevirt/tekton-tasks-operator/api v0.4.1
-	github.com/onsi/ginkgo/v2 v2.2.0
-	github.com/onsi/gomega v1.20.2
+	github.com/onsi/ginkgo/v2 v2.3.0
+	github.com/onsi/gomega v1.21.1
 	github.com/openshift/api v3.9.1-0.20190924102528-32369d4db2ad+incompatible
 	github.com/openshift/custom-resource-status v1.1.2
 	github.com/openshift/library-go v0.0.0-20220922140741-7772048e4447

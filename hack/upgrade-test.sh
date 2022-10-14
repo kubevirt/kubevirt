@@ -307,6 +307,12 @@ Msg "Check that managed objects has correct labels"
 Msg "Check the defaulting mechanism"
 KUBECTL_BINARY=${CMD} INSTALLED_NAMESPACE=${HCO_NAMESPACE} ./hack/check_defaults.sh
 
+######
+# TODO: remove this, workaround for https://issues.redhat.com/browse/OCPBUGS-2219
+${CMD} patch ConsolePlugin kubevirt-plugin -o yaml --type=json -p '[{ "op": "replace", "path": "/spec/i18n/loadType", "value": "Preload" }]' || true
+sleep 3
+######
+
 Msg "Brutally delete HCO removing the namespace where it's running"
 source hack/test_delete_ns.sh
 test_delete_ns
