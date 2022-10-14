@@ -1065,6 +1065,11 @@ func waitForVMIPhase(ctx context.Context, phases []v1.VirtualMachineInstancePhas
 
 	objectEventWatcher := watcher.New(vmi).SinceWatchedObjectResourceVersion().Timeout(time.Duration(seconds+2) * time.Second)
 	if wp.FailOnWarnings == true {
+		// let's ignore PSA events as kubernetes internally uses a namespace informer
+		// that might not be up to date after virt-controller relabeled the namespace
+		// to use a 'privileged' policy
+		// TODO: remove this when KubeVirt will be able to run VMs under the 'restricted' level
+		wp.WarningsIgnoreList = append(wp.WarningsIgnoreList, "violates PodSecurity")
 		objectEventWatcher.SetWarningsPolicy(wp)
 	}
 
