@@ -44,15 +44,15 @@ func getGrpcClient() (cmdclient.LauncherClient, error) {
 	return client, err
 }
 
-// hasPausedCondition checks if the VM to be freezed/unfreezed is paused
-func hasPausedCondition(client cmdclient.LauncherClient) bool {
+// isVmRunning checks if the VM to be freezed/unfreezed is running
+func isVmRunning(client cmdclient.LauncherClient) bool {
 	domain, exists, err := client.GetDomain()
 	if err != nil {
 		log.Log.Reason(err).Error("Failed to get domain")
 		os.Exit(1)
 	}
 
-	return exists && domain.Status.Status == api.Paused
+	return exists && domain.Status.Status == api.Running
 }
 
 func main() {
@@ -102,29 +102,20 @@ func main() {
 
 	log.Log.Infof("Guest agent version is %s", info.GAVersion)
 
-	if *freeze {
-		// Freeze is not possible when VM is paused
-		if hasPausedCondition(client) {
-			log.Log.Info("VM Paused: Unreeze is not possible")
-			os.Exit(0)
-		}
-
-		err = client.FreezeVirtualMachine(vmi, *unfreezeTimeoutSeconds)
-		if err != nil {
-			log.Log.Reason(err).Error("Freezeing VMI failed")
-			os.Exit(1)
-		}
-	} else {
-		// Unfreeze is not possible when VM is paused
-		if hasPausedCondition(client) {
-			log.Log.Info("VM Paused: Unreeze is not possible")
-			os.Exit(0)
-		}
-
-		err = client.UnfreezeVirtualMachine(vmi)
-		if err != nil {
-			log.Log.Reason(err).Error("Unfreezeing VMI failed")
-			os.Exit(1)
+	// Freeze/Unfreeze is only possible when VM is running
+	if isVmRunning(client) {
+		if *freeze {
+			err = client.FreezeVirtualMachine(vmi, *unfreezeTimeoutSeconds)
+			if err != nil {
+				log.Log.Reason(err).Error("Freezeing VMI failed")
+				os.Exit(1)
+			}
+		} else {
+			err = client.UnfreezeVirtualMachine(vmi)
+			if err != nil {
+				log.Log.Reason(err).Error("Unfreezeing VMI failed")
+				os.Exit(1)
+			}
 		}
 	}
 

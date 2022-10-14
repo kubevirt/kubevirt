@@ -813,12 +813,12 @@ var _ = SIGDescribe("VirtualMachineSnapshot Tests", func() {
 				By("Calling Velero pre-backup hook")
 				_, stderr, err := callVeleroHook(vmi, VELERO_PREBACKUP_HOOK_CONTAINER_ANNOTATION, VELERO_PREBACKUP_HOOK_COMMAND_ANNOTATION)
 				Expect(err).ToNot(HaveOccurred())
-				Expect(stderr).Should(ContainSubstring("Paused"))
+				Expect(stderr).Should(ContainSubstring("Exiting"))
 
 				By("Calling Velero post-backup hook")
 				_, stderr, err = callVeleroHook(vmi, VELERO_POSTBACKUP_HOOK_CONTAINER_ANNOTATION, VELERO_POSTBACKUP_HOOK_COMMAND_ANNOTATION)
 				Expect(err).ToNot(HaveOccurred())
-				Expect(stderr).Should(ContainSubstring("Paused"))
+				Expect(stderr).Should(ContainSubstring("Exiting"))
 			})
 
 			Context("with memory dump", func() {
