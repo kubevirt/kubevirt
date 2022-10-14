@@ -324,6 +324,8 @@ func withVirioFS() VolumeRendererOption {
 
 func withHugepages() VolumeRendererOption {
 	return func(renderer *VolumeRenderer) error {
+		hugepagesBasePath := "/dev/hugepages"
+
 		renderer.podVolumes = append(renderer.podVolumes, k8sv1.Volume{
 			Name: "hugepages",
 			VolumeSource: k8sv1.VolumeSource{
@@ -334,7 +336,18 @@ func withHugepages() VolumeRendererOption {
 		})
 		renderer.podVolumeMounts = append(renderer.podVolumeMounts, k8sv1.VolumeMount{
 			Name:      "hugepages",
-			MountPath: filepath.Join("/dev/hugepages"),
+			MountPath: hugepagesBasePath,
+		})
+
+		renderer.podVolumes = append(renderer.podVolumes, k8sv1.Volume{
+			Name: "hugetblfs-dir",
+			VolumeSource: k8sv1.VolumeSource{
+				EmptyDir: &k8sv1.EmptyDirVolumeSource{},
+			},
+		})
+		renderer.podVolumeMounts = append(renderer.podVolumeMounts, k8sv1.VolumeMount{
+			Name:      "hugetblfs-dir",
+			MountPath: filepath.Join(hugepagesBasePath, "libvirt/qemu"),
 		})
 		return nil
 	}

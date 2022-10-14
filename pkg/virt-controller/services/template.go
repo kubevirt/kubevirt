@@ -487,9 +487,6 @@ func (t *templateService) renderLaunchManifest(vmi *v1.VirtualMachineInstance, i
 	}
 
 	if nonRoot {
-		if util.HasHugePages(vmi) {
-			pod.Spec.SecurityContext.FSGroup = &userId
-		}
 		pod.Spec.SecurityContext.RunAsGroup = &userId
 		pod.Spec.SecurityContext.RunAsNonRoot = &nonRoot
 	}
@@ -1113,7 +1110,7 @@ func wrapGuestAgentPingWithVirtProbe(vmi *v1.VirtualMachineInstance, probe *k8sv
 
 func alignPodMultiCategorySecurity(pod *k8sv1.Pod, vmi *v1.VirtualMachineInstance, selinuxType string, dockerSELinuxMCSWorkaround bool) {
 	if selinuxType == "" {
-		if util.HasHugePages(vmi) || util.IsVMIVirtiofsEnabled(vmi) || util.IsPasstVMI(vmi) {
+		if util.IsVMIVirtiofsEnabled(vmi) || util.IsPasstVMI(vmi) {
 			// If no SELinux type was specified, use our custom type for VMIs that need it
 			selinuxType = customSELinuxType
 		} else {

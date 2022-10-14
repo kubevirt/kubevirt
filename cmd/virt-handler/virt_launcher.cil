@@ -48,11 +48,6 @@
     ; This is therefore not blocking the switch to container_t
     (allow process self (tun_socket (relabelfrom relabelto attach_queue)))
     ;
-    ; Allowing libvirtd to access the hugetlbfs to setup huge tables.
-    ; Huge tables won't work without it, unless the memory backend is memfd.
-    ; The following rule could be removed if memfd was the only supported memoty backend.
-    (allow process hugetlbfs_t (dir (create rmdir setattr)))
-    ;
     ; This is needed to allow virtiofs to mount filesystem and access NFS
     (allow process nfs_t (dir (mounton)))
     (allow process proc_t (dir (mounton)))
@@ -60,7 +55,7 @@
     ;
     ; This is needed for passt when running with this policy.
     ; container_t is compatible with passt without needing any additional rule.
-    ; This rule is therefore only needed for VMs that use both virtiofs/hugetables and passt.
+    ; This rule is therefore only needed for VMs that use both virtiofs and passt.
     ; The policy will be removed from here once it will be installed via the passt package.
     (allow process tmpfs_t (filesystem (mount)))
 )
