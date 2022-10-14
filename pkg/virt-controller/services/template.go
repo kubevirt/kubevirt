@@ -1069,7 +1069,7 @@ func (t *templateService) renderLaunchManifest(vmi *v1.VirtualMachineInstance, i
 		if v, exists := vmi.Annotations[v1.EcxPciPortNumAnnotation]; exists {
 			if num, err := strconv.Atoi(v); err == nil {
 				pciPortNum = num
-			}else{
+			} else {
 				log.Log.Object(vmi).Warningf("Applying virtio pci-root-port num for vmi %s not a valid number", vmi.Name)
 			}
 		}

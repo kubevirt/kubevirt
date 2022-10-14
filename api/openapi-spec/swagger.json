@@ -13689,6 +13689,16 @@
        "$ref": "#/definitions/v1.Port"
       }
      },
+     "queues": {
+      "description": "network interface queue",
+      "type": "integer",
+      "format": "int32"
+     },
+     "rxQueueSize": {
+      "description": "The optional rx_queue_size attribute controls the size of virtio ring for each queue.",
+      "type": "integer",
+      "format": "int32"
+     },
      "slirp": {
       "$ref": "#/definitions/v1.InterfaceSlirp"
      },
@@ -13698,6 +13708,11 @@
      "tag": {
       "description": "If specified, the virtual network interface address and its tag will be provided to the guest via config drive",
       "type": "string"
+     },
+     "txQueueSize": {
+      "description": "The optional rx_queue_size attribute controls the size of virtio ring for each queue.",
+      "type": "integer",
+      "format": "int32"
      }
     }
    },

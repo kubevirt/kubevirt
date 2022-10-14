@@ -5274,6 +5274,13 @@ var CRDsValidation map[string]string = map[string]string{
                                   - port
                                   type: object
                                 type: array
+                              queues:
+                                description: network interface queue
+                                type: integer
+                              rxQueueSize:
+                                description: The optional rx_queue_size attribute
+                                  controls the size of virtio ring for each queue.
+                                type: integer
                               slirp:
                                 type: object
                               sriov:
@@ -5283,6 +5290,10 @@ var CRDsValidation map[string]string = map[string]string{
                                   address and its tag will be provided to the guest
                                   via config drive
                                 type: string
+                              txQueueSize:
+                                description: The optional rx_queue_size attribute
+                                  controls the size of virtio ring for each queue.
+                                type: integer
                             required:
                             - name
                             type: object
@@ -8605,6 +8616,13 @@ var CRDsValidation map[string]string = map[string]string{
                           - port
                           type: object
                         type: array
+                      queues:
+                        description: network interface queue
+                        type: integer
+                      rxQueueSize:
+                        description: The optional rx_queue_size attribute controls
+                          the size of virtio ring for each queue.
+                        type: integer
                       slirp:
                         type: object
                       sriov:
@@ -8613,6 +8631,10 @@ var CRDsValidation map[string]string = map[string]string{
                         description: If specified, the virtual network interface address
                           and its tag will be provided to the guest via config drive
                         type: string
+                      txQueueSize:
+                        description: The optional rx_queue_size attribute controls
+                          the size of virtio ring for each queue.
+                        type: integer
                     required:
                     - name
                     type: object
@@ -10758,6 +10780,13 @@ var CRDsValidation map[string]string = map[string]string{
                           - port
                           type: object
                         type: array
+                      queues:
+                        description: network interface queue
+                        type: integer
+                      rxQueueSize:
+                        description: The optional rx_queue_size attribute controls
+                          the size of virtio ring for each queue.
+                        type: integer
                       slirp:
                         type: object
                       sriov:
@@ -10766,6 +10795,10 @@ var CRDsValidation map[string]string = map[string]string{
                         description: If specified, the virtual network interface address
                           and its tag will be provided to the guest via config drive
                         type: string
+                      txQueueSize:
+                        description: The optional rx_queue_size attribute controls
+                          the size of virtio ring for each queue.
+                        type: integer
                     required:
                     - name
                     type: object
@@ -12875,6 +12908,13 @@ var CRDsValidation map[string]string = map[string]string{
                                   - port
                                   type: object
                                 type: array
+                              queues:
+                                description: network interface queue
+                                type: integer
+                              rxQueueSize:
+                                description: The optional rx_queue_size attribute
+                                  controls the size of virtio ring for each queue.
+                                type: integer
                               slirp:
                                 type: object
                               sriov:
@@ -12884,6 +12924,10 @@ var CRDsValidation map[string]string = map[string]string{
                                   address and its tag will be provided to the guest
                                   via config drive
                                 type: string
+                              txQueueSize:
+                                description: The optional rx_queue_size attribute
+                                  controls the size of virtio ring for each queue.
+                                type: integer
                             required:
                             - name
                             type: object
@@ -16538,6 +16582,14 @@ var CRDsValidation map[string]string = map[string]string{
                                           - port
                                           type: object
                                         type: array
+                                      queues:
+                                        description: network interface queue
+                                        type: integer
+                                      rxQueueSize:
+                                        description: The optional rx_queue_size attribute
+                                          controls the size of virtio ring for each
+                                          queue.
+                                        type: integer
                                       slirp:
                                         type: object
                                       sriov:
@@ -16547,6 +16599,11 @@ var CRDsValidation map[string]string = map[string]string{
                                           interface address and its tag will be provided
                                           to the guest via config drive
                                         type: string
+                                      txQueueSize:
+                                        description: The optional rx_queue_size attribute
+                                          controls the size of virtio ring for each
+                                          queue.
+                                        type: integer
                                     required:
                                     - name
                                     type: object
@@ -20574,6 +20631,14 @@ var CRDsValidation map[string]string = map[string]string{
                                               - port
                                               type: object
                                             type: array
+                                          queues:
+                                            description: network interface queue
+                                            type: integer
+                                          rxQueueSize:
+                                            description: The optional rx_queue_size
+                                              attribute controls the size of virtio
+                                              ring for each queue.
+                                            type: integer
                                           slirp:
                                             type: object
                                           sriov:
@@ -20584,6 +20649,11 @@ var CRDsValidation map[string]string = map[string]string{
                                               will be provided to the guest via config
                                               drive
                                             type: string
+                                          txQueueSize:
+                                            description: The optional rx_queue_size
+                                              attribute controls the size of virtio
+                                              ring for each queue.
+                                            type: integer
                                         required:
                                         - name
                                         type: object

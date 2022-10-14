@@ -16875,6 +16875,27 @@ func schema_kubevirtio_api_core_v1_Interface(ref common.ReferenceCallback) commo
 							Format:      "",
 						},
 					},
+					"queues": {
+						SchemaProps: spec.SchemaProps{
+							Description: "network interface queue",
+							Type:        []string{"integer"},
+							Format:      "int32",
+						},
+					},
+					"txQueueSize": {
+						SchemaProps: spec.SchemaProps{
+							Description: "The optional rx_queue_size attribute controls the size of virtio ring for each queue.",
+							Type:        []string{"integer"},
+							Format:      "int32",
+						},
+					},
+					"rxQueueSize": {
+						SchemaProps: spec.SchemaProps{
+							Description: "The optional rx_queue_size attribute controls the size of virtio ring for each queue.",
+							Type:        []string{"integer"},
+							Format:      "int32",
+						},
+					},
 				},
 				Required: []string{"name"},
 			},

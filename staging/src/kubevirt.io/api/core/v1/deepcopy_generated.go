@@ -1817,6 +1817,21 @@ func (in *Interface) DeepCopyInto(out *Interface) {
 		*out = new(DHCPOptions)
 		(*in).DeepCopyInto(*out)
 	}
+	if in.Queues != nil {
+		in, out := &in.Queues, &out.Queues
+		*out = new(uint)
+		**out = **in
+	}
+	if in.TxQueueSize != nil {
+		in, out := &in.TxQueueSize, &out.TxQueueSize
+		*out = new(uint)
+		**out = **in
+	}
+	if in.RxQueueSize != nil {
+		in, out := &in.RxQueueSize, &out.RxQueueSize
+		*out = new(uint)
+		**out = **in
+	}
 	return
 }
 
