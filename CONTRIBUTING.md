@@ -32,13 +32,15 @@ If you spot a bug or want to change something pretty simple, just go
 ahead and open an Issue and/or a Pull Request, including your changes
 at [kubevirt/kubevirt](https://github.com/kubevirt/kubevirt).
 
-For bigger changes, please create a tracker Issue, describing what you want to
-do. Then either as the first commit in a Pull Request, or as an independent
-Pull Request, provide an **informal** design proposal of your intended changes.
-The location for such proposals is
-[/docs](docs/) in the KubeVirt
-core repository. Make sure that all your Pull Requests link back to the
-relevant Issues.
+For larger changes that require more planning and discussion, using the KubeVirt
+[design proposal template](https://github.com/kubevirt/community/blob/main/design-proposals/proposal-template.md) is highly encouraged.
+The technical effort for these changes will impact a large section of the
+development community, so they should be communicated widely.  Examples of these types
+of changes:
+- New APIs
+- Architectural changes
+- Code refactors
+- API changes
 
 ### Getting started
 
