@@ -194,7 +194,7 @@ var _ = SIGDescribe("[ref_id:1182]Probes", func() {
 
 				By("Attaching the liveness probe to an external pod server")
 				livenessProbe, err = pointIpv6ProbeToSupportPod(probeBackendPod, livenessProbe)
-				Expect(err).ToNot(HaveOccurred(), "should attach the backend pod with livness probe")
+				Expect(err).ToNot(HaveOccurred(), "should attach the backend pod with liveness probe")
 
 				By(specifyingVMLivenessProbe)
 				vmi = createReadyAlpineVMIWithLivenessProbe(livenessProbe)
@@ -226,7 +226,7 @@ var _ = SIGDescribe("[ref_id:1182]Probes", func() {
 			Entry("[test_id:1199][posneg:positive]with working TCP probe and tcp server on ipv6", tcpProbe, corev1.IPv6Protocol),
 			Entry("[test_id:1201][posneg:positive]with working HTTP probe and http server on ipv4", httpProbe, corev1.IPv4Protocol),
 			Entry("[test_id:1201][posneg:positive]with working HTTP probe and http server on ipv6", httpProbe, corev1.IPv6Protocol),
-			Entry("[test_id:9298]with working Exec probe", createExecProbe(period, initialSeconds, timeoutSeconds, "uname", "-a"), blankIPFamily),
+			Entry("[test_id:5879]with working Exec probe", createExecProbe(period, initialSeconds, timeoutSeconds, "uname", "-a"), blankIPFamily),
 		)
 
 		Context("guest agent ping", func() {
@@ -264,7 +264,7 @@ var _ = SIGDescribe("[ref_id:1182]Probes", func() {
 		},
 			Entry("[test_id:1217][posneg:negative]with working TCP probe and no running server", tcpProbe, libvmi.NewCirros),
 			Entry("[test_id:1218][posneg:negative]with working HTTP probe and no running server", httpProbe, libvmi.NewCirros),
-			Entry("[test_id:TODO]with working Exec probe and invalid command", createExecProbe(period, initialSeconds, timeoutSeconds, "exit", "1"), libvmi.NewFedora),
+			Entry("[test_id:5880]with working Exec probe and invalid command", createExecProbe(period, initialSeconds, timeoutSeconds, "exit", "1"), libvmi.NewFedora),
 		)
 	})
 })
