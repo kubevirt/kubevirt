@@ -490,7 +490,7 @@ var _ = Describe("[rfe_id:393][crit:high][vendor:cnv-qe@redhat.com][level:system
 		return uid
 	}
 
-	runMigrationAndCollectMigrationMetrics := func(vmi *v1.VirtualMachineInstance, migration *v1.VirtualMachineInstanceMigration, timeout int) string {
+	runMigrationAndCollectMigrationMetrics := func(vmi *v1.VirtualMachineInstance, migration *v1.VirtualMachineInstanceMigration) {
 		var pod *k8sv1.Pod
 		var metricsIPs []string
 		const family = k8sv1.IPv4Protocol
@@ -506,31 +506,38 @@ var _ = Describe("[rfe_id:393][crit:high][vendor:cnv-qe@redhat.com][level:system
 		By("Waiting until the Migration Completes")
 		ip := getSupportedIP(metricsIPs, family)
 
-		migration = tests.RunMigration(virtClient, migration)
+		_ = tests.RunMigration(virtClient, migration)
 
 		By("Scraping the Prometheus endpoint")
-		var metrics map[string]float64
-		var lines []string
-
-		getKubevirtVMMetricsFunc := tests.GetKubevirtVMMetricsFunc(&virtClient, pod)
-		Eventually(func() map[string]float64 {
-			out := getKubevirtVMMetricsFunc(ip)
-			lines = takeMetricsWithPrefix(out, "kubevirt_migrate_vmi")
-			metrics, err = parseMetricsToMap(lines)
-			Expect(err).ToNot(HaveOccurred())
-			return metrics
-		}, 100*time.Second, 1*time.Second).ShouldNot(BeEmpty(), "no metrics with kubevirt_migrate_vmi prefix are found")
-		Expect(metrics).To(HaveLen(len(lines)))
-
-		By("Checking the collected metrics")
-		keys := getKeysFromMetrics(metrics)
-		for _, key := range keys {
-			value := metrics[key]
-			Expect(value).ToNot(BeZero(), "metric value is not expected to be zero")
+		validateNoZeroMetrics := func(metrics map[string]float64) error {
+			By("Checking the collected metrics")
+			keys := getKeysFromMetrics(metrics)
+			for _, key := range keys {
+				value := metrics[key]
+				if value == 0 {
+					return fmt.Errorf("metric value for %s is not expected to be zero", key)
+				}
+			}
+			return nil
 		}
 
-		uid := tests.ExpectMigrationSuccess(virtClient, migration, timeout)
-		return uid
+		getKubevirtVMMetricsFunc := tests.GetKubevirtVMMetricsFunc(&virtClient, pod)
+		Eventually(func() error {
+			out := getKubevirtVMMetricsFunc(ip)
+			lines := takeMetricsWithPrefix(out, "kubevirt_migrate_vmi")
+			metrics, err := parseMetricsToMap(lines)
+			Expect(err).ToNot(HaveOccurred())
+
+			if len(metrics) == 0 {
+				return fmt.Errorf("no metrics with kubevirt_migrate_vmi prefix are found")
+			}
+
+			if err := validateNoZeroMetrics(metrics); err != nil {
+				return err
+			}
+
+			return nil
+		}, 100*time.Second, 1*time.Second).ShouldNot(HaveOccurred())
 	}
 
 	runStressTest := func(vmi *v1.VirtualMachineInstance, vmsize string, stressTimeoutSeconds int) {
@@ -3630,18 +3637,10 @@ var _ = Describe("[rfe_id:393][crit:high][vendor:cnv-qe@redhat.com][level:system
 			// Need to wait for cloud init to finnish and start the agent inside the vmi.
 			Eventually(matcher.ThisVMI(vmi), 12*time.Minute, 2*time.Second).Should(matcher.HaveConditionTrue(v1.VirtualMachineInstanceAgentConnected))
 
-			runStressTest(vmi, stressDefaultVMSize, stressDefaultTimeout)
-
 			// execute a migration, wait for finalized state
 			By("Starting the Migration")
 			migration := tests.NewRandomMigration(vmi.Name, vmi.Namespace)
-			migrationUID := runMigrationAndCollectMigrationMetrics(vmi, migration, 180)
-
-			// check VMI, confirm migration state
-			tests.ConfirmVMIPostMigration(virtClient, vmi, migrationUID)
-
-			By("Waiting for VMI to disappear")
-			tests.WaitForVirtualMachineToDisappearWithTimeout(vmi, 240)
+			runMigrationAndCollectMigrationMetrics(vmi, migration)
 		})
 	})
 
