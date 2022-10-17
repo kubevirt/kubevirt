@@ -16,6 +16,7 @@
  * Copyright 2018 Red Hat, Inc.
  *
  */
+
 package components
 
 import (
@@ -367,7 +368,7 @@ func NewApiServerDeployment(namespace string, repository string, imagePrefix str
 	container.Resources = corev1.ResourceRequirements{
 		Requests: corev1.ResourceList{
 			corev1.ResourceCPU:    resource.MustParse("5m"),
-			corev1.ResourceMemory: resource.MustParse("250Mi"),
+			corev1.ResourceMemory: resource.MustParse("300Mi"),
 		},
 	}
 
@@ -580,7 +581,7 @@ func NewOperatorDeployment(namespace string, repository string, imagePrefix stri
 							Resources: corev1.ResourceRequirements{
 								Requests: corev1.ResourceList{
 									corev1.ResourceCPU:    resource.MustParse("10m"),
-									corev1.ResourceMemory: resource.MustParse("250Mi"),
+									corev1.ResourceMemory: resource.MustParse("400Mi"),
 								},
 							},
 							SecurityContext: &corev1.SecurityContext{
