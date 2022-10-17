@@ -77,7 +77,7 @@ var _ = SIGDescribe("[rfe_id:6364][[Serial]Guestfs", func() {
 		podName := libguestsTools + pvcClaim
 		o := append([]string{"guestfs", pvcClaim, "--namespace", util.NamespaceTestDefault}, options...)
 		if setGroup {
-			o = append(o, "--group", testGroup)
+			o = append(o, "--fsGroup", testGroup)
 		}
 		guestfsCmd := clientcmd.NewVirtctlCommand(o...)
 		go func() {
