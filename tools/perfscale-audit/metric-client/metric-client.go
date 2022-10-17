@@ -39,8 +39,10 @@ import (
 // This is because the `increase` and `rate` metrics rely on interpolation.
 // For more detail see: https://github.com/kubevirt/kubevirt/pull/7075#issuecomment-1020242919
 const (
-	vmiCreationTimePercentileQuery   = `histogram_quantile(0.%d, rate(kubevirt_vmi_phase_transition_time_from_creation_seconds_bucket{phase="Running"}[%ds] offset %ds))`
-	resourceRequestCountsByOperation = `increase(rest_client_requests_total{pod=~"virt-controller.*|virt-handler.*|virt-operator.*|virt-api.*"}[%ds] offset %ds)`
+	vmiCreationTimePercentileQuery            = `histogram_quantile(0.%d, rate(kubevirt_vmi_phase_transition_time_from_creation_seconds_bucket{phase="Running"}[%ds] offset %ds))`
+	vmiDeletionToSucceededTimePercentileQuery = `histogram_quantile(0.%d, rate(kubevirt_vmi_phase_transition_time_from_deletion_seconds_bucket{phase="Succeeded"}[%ds] offset %ds))`
+	vmiDeletionToFailedTimePercentileQuery    = `histogram_quantile(0.%d, rate(kubevirt_vmi_phase_transition_time_from_deletion_seconds_bucket{phase="Failed"}[%ds] offset %ds))`
+	resourceRequestCountsByOperation          = `increase(rest_client_requests_total{pod=~"virt-controller.*|virt-handler.*|virt-operator.*|virt-api.*"}[%ds] offset %ds)`
 )
 
 // Gauge - Using a Gauge doesn't require using an offset because it holds the accurate count
@@ -48,6 +50,11 @@ const (
 const (
 	vmiPhaseCount = `sum by (phase) (kubevirt_vmi_phase_count{})`
 )
+
+type percentile struct {
+	p int
+	t audit_api.ResultType
+}
 
 type transport struct {
 	transport http.RoundTripper
@@ -186,11 +193,6 @@ func parseVector(value model.Value) ([]metric, error) {
 }
 
 func (m *MetricClient) getCreationToRunningTimePercentiles(r *audit_api.Result, rangeVector time.Duration) error {
-
-	type percentile struct {
-		p int
-		t audit_api.ResultType
-	}
 	percentiles := []percentile{
 		{
 			p: 99,
@@ -205,10 +207,49 @@ func (m *MetricClient) getCreationToRunningTimePercentiles(r *audit_api.Result, 
 			t: audit_api.ResultTypeVMICreationToRunningP50,
 		},
 	}
+	return m.getTimePercentilesFromQuery(r, rangeVector, vmiCreationTimePercentileQuery, percentiles)
+}
 
+func (m *MetricClient) getDeletionToSucceededTimePercentiles(r *audit_api.Result, rangeVector time.Duration) error {
+	percentiles := []percentile{
+		{
+			p: 99,
+			t: audit_api.ResultTypeVMIDeletionToSucceededP99,
+		},
+		{
+			p: 95,
+			t: audit_api.ResultTypeVMIDeletionToSucceededP95,
+		},
+		{
+			p: 50,
+			t: audit_api.ResultTypeVMIDeletionToSucceededP50,
+		},
+	}
+	return m.getTimePercentilesFromQuery(r, rangeVector, vmiDeletionToSucceededTimePercentileQuery, percentiles)
+}
+
+func (m *MetricClient) getDeletionToFailedTimePercentiles(r *audit_api.Result, rangeVector time.Duration) error {
+	percentiles := []percentile{
+		{
+			p: 99,
+			t: audit_api.ResultTypeVMIDeletionToFailedP99,
+		},
+		{
+			p: 95,
+			t: audit_api.ResultTypeVMIDeletionToFailedP95,
+		},
+		{
+			p: 50,
+			t: audit_api.ResultTypeVMIDeletionToFailedP50,
+		},
+	}
+	return m.getTimePercentilesFromQuery(r, rangeVector, vmiDeletionToFailedTimePercentileQuery, percentiles)
+}
+
+func (m *MetricClient) getTimePercentilesFromQuery(r *audit_api.Result, rangeVector time.Duration, query string, percentiles []percentile) error {
 	for _, percentile := range percentiles {
 		lookBack := calculateOffset(*m.cfg.EndTime, rangeVector, m.cfg.PrometheusScrapeInterval)
-		query := fmt.Sprintf(vmiCreationTimePercentileQuery, percentile.p, int(rangeVector.Seconds()), lookBack)
+		query := fmt.Sprintf(query, percentile.p, int(rangeVector.Seconds()), lookBack)
 		log.Printf(query)
 
 		val, err := m.query(query)
@@ -322,6 +363,16 @@ func (m *MetricClient) gatherMetrics() (*audit_api.Result, error) {
 
 	rangeVector := calculateRangeVector(m.cfg.PrometheusScrapeInterval, m.cfg.GetDuration())
 	err := m.getCreationToRunningTimePercentiles(r, rangeVector)
+	if err != nil {
+		return nil, err
+	}
+
+	err = m.getDeletionToSucceededTimePercentiles(r, rangeVector)
+	if err != nil {
+		return nil, err
+	}
+
+	err = m.getDeletionToFailedTimePercentiles(r, rangeVector)
 	if err != nil {
 		return nil, err
 	}
