@@ -343,7 +343,7 @@ func (m *migrationProxyManager) StopSourceListener(key string) {
 	}
 }
 
-// SRC POD ENV(migration unix socket) <-> HOST ENV (tcp client) <-----> HOST ENV (tcp server) <-> TARGET POD ENV (libvirtd unix socket)
+// SRC POD ENV(migration unix socket) <-> HOST ENV (tcp client) <-----> HOST ENV (tcp server) <-> TARGET POD ENV (virtqemud unix socket)
 
 // Source proxy exposes a unix socket server and pipes to an outbound TCP connection.
 func NewSourceProxy(unixSocketPath string, tcpTargetAddress string, serverTLSConfig *tls.Config, clientTLSConfig *tls.Config, vmiUID string) *migrationProxy {
@@ -360,19 +360,19 @@ func NewSourceProxy(unixSocketPath string, tcpTargetAddress string, serverTLSCon
 	}
 }
 
-// Target proxy listens on a tcp socket and pipes to a libvirtd unix socket
-func NewTargetProxy(tcpBindAddress string, tcpBindPort int, serverTLSConfig *tls.Config, clientTLSConfig *tls.Config, libvirtdSocketPath string, vmiUID string) *migrationProxy {
+// Target proxy listens on a tcp socket and pipes to a virtqemud unix socket
+func NewTargetProxy(tcpBindAddress string, tcpBindPort int, serverTLSConfig *tls.Config, clientTLSConfig *tls.Config, virtqemudSocketPath string, vmiUID string) *migrationProxy {
 	return &migrationProxy{
 		tcpBindAddress:  tcpBindAddress,
 		tcpBindPort:     tcpBindPort,
-		targetAddress:   libvirtdSocketPath,
+		targetAddress:   virtqemudSocketPath,
 		targetProtocol:  "unix",
 		stopChan:        make(chan struct{}),
 		fdChan:          make(chan net.Conn, 1),
 		listenErrChan:   make(chan error, 1),
 		serverTLSConfig: serverTLSConfig,
 		clientTLSConfig: clientTLSConfig,
-		logger:          log.Log.With("uid", vmiUID).With("outbound", filepath.Base(libvirtdSocketPath)),
+		logger:          log.Log.With("uid", vmiUID).With("outbound", filepath.Base(virtqemudSocketPath)),
 	}
 
 }

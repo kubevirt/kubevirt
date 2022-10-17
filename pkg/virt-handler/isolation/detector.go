@@ -113,7 +113,7 @@ func (s *socketBasedIsolationDetector) AdjustResources(vm *v1.VirtualMachineInst
 		return nil
 	}
 
-	// bump memlock ulimit for libvirtd
+	// bump memlock ulimit for virtqemud
 	res, err := s.Detect(vm)
 	if err != nil {
 		return err
@@ -131,8 +131,8 @@ func (s *socketBasedIsolationDetector) AdjustResources(vm *v1.VirtualMachineInst
 			continue
 		}
 
-		// libvirtd process sets the memory lock limit before fork/exec-ing into qemu
-		if process.Executable() != "libvirtd" {
+		// virtqemud process sets the memory lock limit before fork/exec-ing into qemu
+		if process.Executable() != "virtqemud" {
 			continue
 		}
 

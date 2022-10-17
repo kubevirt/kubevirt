@@ -249,7 +249,7 @@ func NewController(
 	if cgroups.IsCgroup2UnifiedMode() {
 		// Need 'rwm' permissions otherwise ebpf filtering program attached by runc
 		// will deny probing the device file with 'access' syscall. That in turn
-		// will lead to libvirtd failure on VM startup.
+		// will lead to virtqemud failure on VM startup.
 		// This has been fixed upstream:
 		//   https://github.com/opencontainers/runc/pull/2796
 		// but the workaround is still needed to support previous versions without
@@ -2332,7 +2332,7 @@ func (d *VirtualMachineController) handleTargetMigrationProxy(vmi *v1.VirtualMac
 	}
 
 	// Get the libvirt connection socket file on the destination pod.
-	socketFile := fmt.Sprintf(filepath.Join(d.virtLauncherFSRunDirPattern, "libvirt/libvirt-sock"), res.Pid())
+	socketFile := fmt.Sprintf(filepath.Join(d.virtLauncherFSRunDirPattern, "libvirt/virtqemud-sock"), res.Pid())
 	// the migration-proxy is no longer shared via host mount, so we
 	// pass in the virt-launcher's baseDir to reach the unix sockets.
 	baseDir := fmt.Sprintf(filepath.Join(d.virtLauncherFSRunDirPattern, "kubevirt"), res.Pid())

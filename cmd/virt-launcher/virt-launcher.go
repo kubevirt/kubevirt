@@ -114,12 +114,12 @@ func createLibvirtConnection(runWithNonRoot bool) virtcli.Connection {
 	user := ""
 	if runWithNonRoot {
 		user = putil.NonRootUserString
-		libvirtUri = "qemu+unix:///session?socket=/var/run/libvirt/libvirt-sock"
+		libvirtUri = "qemu+unix:///session?socket=/var/run/libvirt/virtqemud-sock"
 	}
 
 	domainConn, err := virtcli.NewConnection(libvirtUri, user, "", 10*time.Second)
 	if err != nil {
-		panic(fmt.Sprintf("failed to connect to libvirtd: %v", err))
+		panic(fmt.Sprintf("failed to connect to virtqemud: %v", err))
 	}
 
 	return domainConn
@@ -334,7 +334,7 @@ func main() {
 	namespace := pflag.String("namespace", "", "Namespace of the VirtualMachineInstance")
 	gracePeriodSeconds := pflag.Int("grace-period-seconds", 30, "Grace period to observe before sending SIGTERM to vmi process")
 	allowEmulation := pflag.Bool("allow-emulation", false, "Allow use of software emulation as fallback")
-	runWithNonRoot := pflag.Bool("run-as-nonroot", false, "Run libvirtd with the 'virt' user")
+	runWithNonRoot := pflag.Bool("run-as-nonroot", false, "Run virtqemud with the 'virt' user")
 	hookSidecars := pflag.Uint("hook-sidecars", 0, "Number of requested hook sidecars, virt-launcher will wait for all of them to become available")
 	ovmfPath := pflag.String("ovmf-path", "/usr/share/OVMF", "The directory that contains the EFI roms (like OVMF_CODE.fd)")
 	qemuAgentSysInterval := pflag.Duration("qemu-agent-sys-interval", 120*time.Second, "Interval between consecutive qemu agent calls for sys commands")
@@ -383,7 +383,7 @@ func main() {
 		panic(err)
 	}
 
-	// Start libvirtd, virtlogd, and establish libvirt connection
+	// Start virtqemud, virtlogd, and establish libvirt connection
 	stopChan := make(chan struct{})
 
 	l := util.NewLibvirtWrapper(*runWithNonRoot)
@@ -392,7 +392,7 @@ func main() {
 		panic(err)
 	}
 
-	l.StartLibvirt(stopChan)
+	l.StartVirtquemud(stopChan)
 	// only single domain should be present
 	domainName := api.VMINamespaceKeyFunc(vmi)
 

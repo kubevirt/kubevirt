@@ -128,8 +128,8 @@ passwd_file(
 pkg_tar(
     name = "libvirt-config",
     srcs = [
-        ":libvirtd.conf",
         ":qemu.conf",
+        ":virtqemud.conf",
     ],
     package_dir = "/etc/libvirt",
 )

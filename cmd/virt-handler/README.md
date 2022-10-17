@@ -9,7 +9,7 @@ Virt-handler can be started through docker with
 ```
 docker run \
     --rm \
-    --volume=/var/run/libvirt/libvirt-sock:/var/run/libvirt/libvirt-sock:Z \
+    --volume=/var/run/libvirt/virtqemud-sock:/var/run/libvirt/virtqemud-sock:Z \
     --detach=false \
     kubevirt/virt-handler:latest
 ```

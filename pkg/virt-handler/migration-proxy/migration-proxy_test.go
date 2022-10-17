@@ -109,14 +109,14 @@ var _ = Describe("MigrationProxy", func() {
 
 			It("by creating both ends and sending a message", func() {
 				sourceSock := filepath.Join(tmpDir, "source-sock")
-				libvirtdSock := filepath.Join(tmpDir, "libvirtd-sock")
-				libvirtdListener, err := net.Listen("unix", libvirtdSock)
+				virtqemudSock := filepath.Join(tmpDir, "virtqemud-sock")
+				virtqemudListener, err := net.Listen("unix", virtqemudSock)
 
 				Expect(err).ShouldNot(HaveOccurred())
 
-				defer libvirtdListener.Close()
+				defer virtqemudListener.Close()
 
-				targetProxy := NewTargetProxy("0.0.0.0", 12345, tlsConfig, tlsConfig, libvirtdSock, "123")
+				targetProxy := NewTargetProxy("0.0.0.0", 12345, tlsConfig, tlsConfig, virtqemudSock, "123")
 				sourceProxy := NewSourceProxy(sourceSock, "127.0.0.1:12345", tlsConfig, tlsConfig, "123")
 				defer targetProxy.Stop()
 				defer sourceProxy.Stop()
@@ -128,7 +128,7 @@ var _ = Describe("MigrationProxy", func() {
 
 				numBytes := make(chan int)
 				go func() {
-					fd, err := libvirtdListener.Accept()
+					fd, err := virtqemudListener.Accept()
 					Expect(err).ShouldNot(HaveOccurred())
 
 					var bytes [1024]byte
@@ -153,8 +153,8 @@ var _ = Describe("MigrationProxy", func() {
 
 			DescribeTable("by creating both ends with a manager and sending a message", func(migrationConfig *v1.MigrationConfiguration) {
 				directMigrationPort := "49152"
-				libvirtdSock := filepath.Join(tmpDir, "libvirtd-sock")
-				libvirtdListener, err := net.Listen("unix", libvirtdSock)
+				virtqemudSock := filepath.Join(tmpDir, "virtqemud-sock")
+				virtqemudListener, err := net.Listen("unix", virtqemudSock)
 				Expect(err).ShouldNot(HaveOccurred())
 				directSock := filepath.Join(tmpDir, "mykey-"+directMigrationPort)
 				directListener, err := net.Listen("unix", directSock)
@@ -165,7 +165,7 @@ var _ = Describe("MigrationProxy", func() {
 					MigrationConfiguration: migrationConfig,
 				})
 				manager := NewMigrationProxyManager(tlsConfig, tlsConfig, config)
-				manager.StartTargetListener("mykey", []string{libvirtdSock, directSock})
+				manager.StartTargetListener("mykey", []string{virtqemudSock, directSock})
 				destSrcPortMap := manager.GetTargetListenerPorts("mykey")
 				manager.StartSourceListener("mykey", "127.0.0.1", destSrcPortMap, tmpDir)
 
@@ -199,7 +199,7 @@ var _ = Describe("MigrationProxy", func() {
 					Expect(num).To(Equal(sentLen))
 				}
 
-				go msgReader(libvirtdListener, libvirtChan)
+				go msgReader(virtqemudListener, libvirtChan)
 				go msgReader(directListener, directChan)
 
 				for _, sockFile := range manager.GetSourceListenerFiles("mykey") {
@@ -220,9 +220,9 @@ var _ = Describe("MigrationProxy", func() {
 				key2 := "key2"
 
 				directMigrationPort := "49152"
-				libvirtdSock := filepath.Join(tmpDir, "libvirtd-sock")
-				libvirtdListener, err := net.Listen("unix", libvirtdSock)
-				defer libvirtdListener.Close()
+				virtqemudSock := filepath.Join(tmpDir, "virtqemud-sock")
+				virtqemudListener, err := net.Listen("unix", virtqemudSock)
+				defer virtqemudListener.Close()
 				Expect(err).ShouldNot(HaveOccurred())
 				directSock := filepath.Join(tmpDir, key1+"-"+directMigrationPort)
 				directListener, err := net.Listen("unix", directSock)
@@ -233,7 +233,7 @@ var _ = Describe("MigrationProxy", func() {
 					MigrationConfiguration: migrationConfig,
 				})
 				manager := NewMigrationProxyManager(tlsConfig, tlsConfig, config)
-				err = manager.StartTargetListener(key1, []string{libvirtdSock, directSock})
+				err = manager.StartTargetListener(key1, []string{virtqemudSock, directSock})
 				Expect(err).ShouldNot(HaveOccurred())
 				destSrcPortMap := manager.GetTargetListenerPorts(key1)
 				err = manager.StartSourceListener(key1, "127.0.0.1", destSrcPortMap, tmpDir)
@@ -247,7 +247,7 @@ var _ = Describe("MigrationProxy", func() {
 				count := manager.OpenListenerCount()
 				Expect(count).To(Equal(2))
 
-				err = manager.StartTargetListener(key2, []string{libvirtdSock, directSock})
+				err = manager.StartTargetListener(key2, []string{virtqemudSock, directSock})
 				Expect(err).Should(HaveOccurred())
 				Expect(err.Error()).To(Equal("unable to process new migration connections during virt-handler shutdown"))
 

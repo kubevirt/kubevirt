@@ -3081,13 +3081,13 @@ var _ = Describe("[sig-compute]Configurations", func() {
 					command = "qemu"
 				}
 				switch command {
-				case "virt-launcher-monitor", "virt-launcher", "virtlogd", "libvirtd", "qemu":
+				case "virt-launcher-monitor", "virt-launcher", "virtlogd", "virtqemud", "qemu":
 					Expect(processRss).ToNot(HaveKey(command), "multiple %s processes found", command)
 					value := resource.MustParse(rss + "Ki")
 					processRss[command] = value
 				}
 			}
-			for _, process := range []string{"virt-launcher-monitor", "virt-launcher", "virtlogd", "libvirtd", "qemu"} {
+			for _, process := range []string{"virt-launcher-monitor", "virt-launcher", "virtlogd", "virtqemud", "qemu"} {
 				Expect(processRss).To(HaveKey(process), "no %s process found", process)
 			}
 
@@ -3095,7 +3095,7 @@ var _ = Describe("[sig-compute]Configurations", func() {
 			doesntExceedMemoryUsage(&processRss, "virt-launcher-monitor", resource.MustParse(services.VirtLauncherMonitorOverhead))
 			doesntExceedMemoryUsage(&processRss, "virt-launcher", resource.MustParse(services.VirtLauncherOverhead))
 			doesntExceedMemoryUsage(&processRss, "virtlogd", resource.MustParse(services.VirtlogdOverhead))
-			doesntExceedMemoryUsage(&processRss, "libvirtd", resource.MustParse(services.LibvirtdOverhead))
+			doesntExceedMemoryUsage(&processRss, "virtqemud", resource.MustParse(services.VirtqemudOverhead))
 			qemuExpected := resource.MustParse(services.QemuOverhead)
 			qemuExpected.Add(vmi.Spec.Domain.Resources.Requests[k8sv1.ResourceMemory])
 			doesntExceedMemoryUsage(&processRss, "qemu", qemuExpected)
