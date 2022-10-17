@@ -167,7 +167,6 @@
       "pkg/virt-launcher/": "KubeVirt virt-launcher pkg does not pass errcheck yet",
       "pkg/virt-operator/": "KubeVirt virt-operator pkg does not pass errcheck yet",
       "pkg/virtctl/": "KubeVirt virtctl pkg does not pass errcheck yet",
-      "pkg/watchdog/": "KubeVirt watchdog pkg does not pass errcheck yet",
       "cmd/": "KubeVirt binaries do not pass errcheck yet",
       "tools/": "KubeVirt tools do not pass errcheck yet",
       "tests/console": "tests/console does not pass errcheck yet",
