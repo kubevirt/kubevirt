@@ -77,9 +77,7 @@ func WatchdogFileUpdate(watchdogFile string, uid string) error {
 	if err != nil {
 		return err
 	}
-	f.Close()
-
-	return nil
+	return f.Close()
 }
 
 func WatchdogFileExists(baseDir string, vmi *v1.VirtualMachineInstance) (bool, error) {

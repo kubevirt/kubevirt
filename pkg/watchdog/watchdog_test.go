@@ -123,7 +123,7 @@ var _ = Describe("Watchdog", func() {
 			now := time.Now()
 
 			for i := 0; i < 4; i++ {
-				WatchdogFileUpdate(fileName, "somestring")
+				Expect(WatchdogFileUpdate(fileName, "somestring")).To(Succeed())
 				now = now.Add(time.Second * 1)
 				domains, err := getExpiredDomains(2, tmpVirtShareDir, now)
 				Expect(err).ToNot(HaveOccurred())
@@ -136,7 +136,7 @@ var _ = Describe("Watchdog", func() {
 			vmi.UID = types.UID("1234")
 
 			fileName := filepath.Join(tmpVirtShareDir, "watchdog-files", vmi.Namespace+"_"+vmi.Name)
-			WatchdogFileUpdate(fileName, string(vmi.UID))
+			Expect(WatchdogFileUpdate(fileName, string(vmi.UID))).To(Succeed())
 
 			uid := WatchdogFileGetUID(tmpVirtShareDir, vmi)
 			Expect(uid).To(Equal(string(vmi.UID)))
@@ -151,7 +151,7 @@ var _ = Describe("Watchdog", func() {
 		})
 
 		AfterEach(func() {
-			os.RemoveAll(tmpVirtShareDir)
+			Expect(os.RemoveAll(tmpVirtShareDir)).To(Succeed())
 		})
 
 	})
