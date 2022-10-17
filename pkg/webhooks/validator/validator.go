@@ -32,6 +32,8 @@ import (
 	"github.com/kubevirt/hyperconverged-cluster-operator/api/v1beta1"
 	"github.com/kubevirt/hyperconverged-cluster-operator/controllers/operands"
 	hcoutil "github.com/kubevirt/hyperconverged-cluster-operator/pkg/util"
+
+	"github.com/samber/lo"
 )
 
 const (
@@ -139,6 +141,10 @@ func (wh *WebhookHandler) ValidateCreate(ctx context.Context, dryrun bool, hc *v
 		return err
 	}
 
+	if err := wh.validateTlsSecurityProfiles(hc); err != nil {
+		return err
+	}
+
 	if _, err := operands.NewKubeVirt(hc); err != nil {
 		return err
 	}
@@ -189,6 +195,10 @@ func (wh *WebhookHandler) getOperands(requested *v1beta1.HyperConverged) (*kubev
 // upgrade.
 func (wh *WebhookHandler) ValidateUpdate(extCtx context.Context, dryrun bool, requested *v1beta1.HyperConverged, exists *v1beta1.HyperConverged) error {
 	if err := wh.validateDataImportCronTemplates(requested); err != nil {
+		return err
+	}
+
+	if err := wh.validateTlsSecurityProfiles(requested); err != nil {
 		return err
 	}
 
@@ -394,6 +404,30 @@ func (wh WebhookHandler) validateDataImportCronTemplates(hc *v1beta1.HyperConver
 	}
 
 	return nil
+}
+
+func (wh WebhookHandler) validateTlsSecurityProfiles(hc *v1beta1.HyperConverged) error {
+	tlsSP := hc.Spec.TLSSecurityProfile
+
+	if tlsSP == nil || tlsSP.Custom == nil {
+		return nil
+	}
+
+	if tlsSP.Custom.MinTLSVersion < openshiftconfigv1.VersionTLS13 && !hasRequiredHTTP2Ciphers(tlsSP.Custom.Ciphers) {
+		return fmt.Errorf("http2: TLSConfig.CipherSuites is missing an HTTP/2-required AES_128_GCM_SHA256 cipher (need at least one of ECDHE-RSA-AES128-GCM-SHA256 or ECDHE-ECDSA-AES128-GCM-SHA256)")
+	}
+
+	return nil
+}
+
+func hasRequiredHTTP2Ciphers(ciphers []string) bool {
+	var requiredHTTP2Ciphers = []string{
+		"ECDHE-RSA-AES128-GCM-SHA256",
+		"ECDHE-ECDSA-AES128-GCM-SHA256",
+	}
+
+	// lo.Some returns true if at least 1 element of a subset is contained into a collection
+	return lo.Some[string](requiredHTTP2Ciphers, ciphers)
 }
 
 func (wh WebhookHandler) MutateTLSConfig(cfg *tls.Config) {

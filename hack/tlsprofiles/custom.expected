@@ -3,13 +3,12 @@ PORT     STATE SERVICE
 | ssl-enum-ciphers: 
 |   TLSv1.2: 
 |     ciphers: 
+|       TLS_ECDHE_RSA_WITH_AES_128_GCM_SHA256 (secp256r1) - A
 |       TLS_RSA_WITH_AES_256_GCM_SHA384 (rsa 2048) - A
 |       TLS_RSA_WITH_AES_128_CBC_SHA256 (rsa 2048) - A
 |     compressors: 
 |       NULL
 |     cipher preference: server
-|     warnings: 
-|       Forward Secrecy not supported by any cipher
 |   TLSv1.3: 
 |     ciphers: 
 |       TLS_AKE_WITH_AES_128_GCM_SHA256 (ecdh_x25519) - A

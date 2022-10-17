@@ -417,6 +417,48 @@ var _ = Describe("webhooks validator", func() {
 				})
 			})
 		})
+
+		Context("validate tlsSecurityProfiles", func() {
+			var dryRun bool
+			var ctx context.Context
+
+			BeforeEach(func() {
+				dryRun = false
+				ctx = context.TODO()
+			})
+
+			updateTlsSecurityProfile := func(minTLSVersion openshiftconfigv1.TLSProtocolVersion, ciphers []string) error {
+				cr.Spec.TLSSecurityProfile = &openshiftconfigv1.TLSSecurityProfile{
+					Custom: &openshiftconfigv1.CustomTLSProfile{
+						TLSProfileSpec: openshiftconfigv1.TLSProfileSpec{
+							MinTLSVersion: minTLSVersion,
+							Ciphers:       ciphers,
+						},
+					},
+				}
+
+				return wh.ValidateCreate(ctx, dryRun, cr)
+			}
+
+			DescribeTable("should succeed if has any of the HTTP/2-required ciphers",
+				func(cipher string) {
+					err := updateTlsSecurityProfile(openshiftconfigv1.VersionTLS12, []string{"DHE-RSA-AES256-GCM-SHA384", cipher, "DHE-RSA-CHACHA20-POLY1305"})
+					Expect(err).ToNot(HaveOccurred())
+				},
+				Entry("ECDHE-RSA-AES128-GCM-SHA256", "ECDHE-RSA-AES128-GCM-SHA256"),
+				Entry("ECDHE-ECDSA-AES128-GCM-SHA256", "ECDHE-ECDSA-AES128-GCM-SHA256"),
+			)
+
+			It("should fail if does not have any of the HTTP/2-required ciphers", func() {
+				err := updateTlsSecurityProfile(openshiftconfigv1.VersionTLS12, []string{"DHE-RSA-AES256-GCM-SHA384", "DHE-RSA-CHACHA20-POLY1305"})
+				Expect(err).To(HaveOccurred())
+			})
+
+			It("should succeed if does not have any of the HTTP/2-required ciphers but TLS version >= 1.3", func() {
+				err := updateTlsSecurityProfile(openshiftconfigv1.VersionTLS13, []string{"DHE-RSA-AES256-GCM-SHA384", "DHE-RSA-CHACHA20-POLY1305"})
+				Expect(err).ToNot(HaveOccurred())
+			})
+		})
 	})
 
 	Context("validate update validation webhook", func() {
@@ -987,6 +1029,53 @@ var _ = Describe("webhooks validator", func() {
 					"spec.certConfig: ca.duration is smaller than server.duration"),
 			)
 
+		})
+
+		Context("validate tlsSecurityProfiles", func() {
+			var hco *v1beta1.HyperConverged
+
+			BeforeEach(func() {
+				hco = commonTestUtils.NewHco()
+			})
+
+			updateTlsSecurityProfile := func(minTLSVersion openshiftconfigv1.TLSProtocolVersion, ciphers []string) error {
+				cli := getFakeClient(hco)
+
+				wh := NewWebhookHandler(logger, cli, HcoValidNamespace, true, nil)
+
+				newHco := &v1beta1.HyperConverged{}
+				hco.DeepCopyInto(newHco)
+
+				newHco.Spec.TLSSecurityProfile = &openshiftconfigv1.TLSSecurityProfile{
+					Custom: &openshiftconfigv1.CustomTLSProfile{
+						TLSProfileSpec: openshiftconfigv1.TLSProfileSpec{
+							MinTLSVersion: minTLSVersion,
+							Ciphers:       ciphers,
+						},
+					},
+				}
+
+				return wh.ValidateUpdate(ctx, dryRun, newHco, hco)
+			}
+
+			DescribeTable("should succeed if has any of the HTTP/2-required ciphers",
+				func(cipher string) {
+					err := updateTlsSecurityProfile(openshiftconfigv1.VersionTLS12, []string{"DHE-RSA-AES256-GCM-SHA384", cipher, "DHE-RSA-CHACHA20-POLY1305"})
+					Expect(err).ToNot(HaveOccurred())
+				},
+				Entry("ECDHE-RSA-AES128-GCM-SHA256", "ECDHE-RSA-AES128-GCM-SHA256"),
+				Entry("ECDHE-ECDSA-AES128-GCM-SHA256", "ECDHE-ECDSA-AES128-GCM-SHA256"),
+			)
+
+			It("should fail if does not have any of the HTTP/2-required ciphers", func() {
+				err := updateTlsSecurityProfile(openshiftconfigv1.VersionTLS12, []string{"DHE-RSA-AES256-GCM-SHA384", "DHE-RSA-CHACHA20-POLY1305"})
+				Expect(err).To(HaveOccurred())
+			})
+
+			It("should succeed if does not have any of the HTTP/2-required ciphers but TLS version >= 1.3", func() {
+				err := updateTlsSecurityProfile(openshiftconfigv1.VersionTLS13, []string{"DHE-RSA-AES256-GCM-SHA384", "DHE-RSA-CHACHA20-POLY1305"})
+				Expect(err).ToNot(HaveOccurred())
+			})
 		})
 
 	})

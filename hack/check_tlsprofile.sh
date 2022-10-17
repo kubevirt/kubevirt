@@ -90,7 +90,9 @@ run_nmap modern.txt
 clean_nmap_output modern.txt
 diff modern.txt hack/tlsprofiles/modern.expected${FIPS}
 
-./hack/retry.sh 10 3 "${KUBECTL_BINARY} patch hco -n ${INSTALLED_NAMESPACE} --type=json kubevirt-hyperconverged -p '[{\"op\": \"replace\", \"path\": /spec/tlsSecurityProfile, \"value\": {custom: {minTLSVersion: \"VersionTLS12\", ciphers: [\"ECDHE-ECDSA-CHACHA20-POLY1305\", \"ECDHE-ECDSA-AES256-GCM-SHA384\", \"AES256-GCM-SHA384\", \"AES128-SHA256\"]}, type: \"Custom\"} }]'"
+./hack/retry.sh 10 3 "${KUBECTL_BINARY} patch hco -n ${INSTALLED_NAMESPACE} --type=json kubevirt-hyperconverged -p '[{\"op\": \"replace\", \"path\": /spec/tlsSecurityProfile, \"value\": {custom: {minTLSVersion: \"VersionTLS12\", ciphers: [\"ECDHE-ECDSA-CHACHA20-POLY1305\", \"ECDHE-ECDSA-AES256-GCM-SHA384\", \"AES256-GCM-SHA384\", \"AES128-SHA256\"]}, type: \"Custom\"} }]'  2>&1 | grep 'missing an HTTP/2-required'"
+
+./hack/retry.sh 10 3 "${KUBECTL_BINARY} patch hco -n ${INSTALLED_NAMESPACE} --type=json kubevirt-hyperconverged -p '[{\"op\": \"replace\", \"path\": /spec/tlsSecurityProfile, \"value\": {custom: {minTLSVersion: \"VersionTLS12\", ciphers: [\"ECDHE-RSA-AES128-GCM-SHA256\", \"ECDHE-ECDSA-CHACHA20-POLY1305\", \"ECDHE-ECDSA-AES256-GCM-SHA384\", \"AES256-GCM-SHA384\", \"AES128-SHA256\"]}, type: \"Custom\"} }]'"
 run_nmap custom.txt
 clean_nmap_output custom.txt
 diff custom.txt hack/tlsprofiles/custom.expected${FIPS}
