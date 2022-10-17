@@ -53,7 +53,7 @@ var (
 	kvm           bool
 	podName       string
 	root          bool
-	group         string
+	fsGroup       string
 )
 
 type guestfsCommand struct {
@@ -78,7 +78,7 @@ func NewGuestfsShellCommand(clientConfig clientcmd.ClientConfig) *cobra.Command 
 	cmd.PersistentFlags().BoolVar(&kvm, "kvm", true, "Use kvm for the libguestfs-tools container")
 	cmd.PersistentFlags().BoolVar(&root, "root", false, "Set uid 0 for the libguestfs-tool container")
 	cmd.SetUsageTemplate(templates.UsageTemplate())
-	cmd.PersistentFlags().StringVar(&group, "group", "", "Set the gid and fsgroup for the libguestfs-tool container")
+	cmd.PersistentFlags().StringVar(&fsGroup, "fsGroup", "", "Set the fsgroup for the libguestfs-tool container")
 
 	return cmd
 }
@@ -369,11 +369,11 @@ func (client *K8sClient) getPodsForPVC(pvcName, ns string) ([]corev1.Pod, error)
 }
 
 func setGroupLibguestfs() (*int64, error) {
-	if root && group != "" {
-		return nil, fmt.Errorf("cannot set group id with root")
+	if root && fsGroup != "" {
+		return nil, fmt.Errorf("cannot set fsGroup id with root")
 	}
-	if group != "" {
-		n, err := strconv.ParseInt(group, 10, 64)
+	if fsGroup != "" {
+		n, err := strconv.ParseInt(fsGroup, 10, 64)
 		if err != nil {
 			return nil, err
 		}
@@ -418,7 +418,6 @@ func createLibguestfsPod(pvc, image, cmd string, args []string, kvm, isBlock boo
 	securityContext := &corev1.PodSecurityContext{
 		RunAsNonRoot: &nonRoot,
 		RunAsUser:    uid,
-		RunAsGroup:   g,
 		FSGroup:      g,
 		SeccompProfile: &corev1.SeccompProfile{
 			Type: corev1.SeccompProfileTypeRuntimeDefault,
