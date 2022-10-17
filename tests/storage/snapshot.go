@@ -792,7 +792,7 @@ var _ = SIGDescribe("VirtualMachineSnapshot Tests", func() {
 				Expect(stderr).Should(ContainSubstring(noGuestAgentString))
 			})
 
-			It("Calling Velero hooks should not error if VM Paused", func() {
+			It("Calling Velero hooks should error if VM is Paused", func() {
 				By("Creating VM")
 				vmi := tests.NewRandomFedoraVMIWithGuestAgent()
 				vmi.Namespace = util.NamespaceTestDefault
@@ -812,13 +812,8 @@ var _ = SIGDescribe("VirtualMachineSnapshot Tests", func() {
 
 				By("Calling Velero pre-backup hook")
 				_, stderr, err := callVeleroHook(vmi, VELERO_PREBACKUP_HOOK_CONTAINER_ANNOTATION, VELERO_PREBACKUP_HOOK_COMMAND_ANNOTATION)
-				Expect(err).ToNot(HaveOccurred())
-				Expect(stderr).Should(ContainSubstring("Paused"))
-
-				By("Calling Velero post-backup hook")
-				_, stderr, err = callVeleroHook(vmi, VELERO_POSTBACKUP_HOOK_CONTAINER_ANNOTATION, VELERO_POSTBACKUP_HOOK_COMMAND_ANNOTATION)
-				Expect(err).ToNot(HaveOccurred())
-				Expect(stderr).Should(ContainSubstring("Paused"))
+				Expect(err).To(HaveOccurred())
+				Expect(stderr).Should(ContainSubstring("not running"))
 			})
 
 			Context("with memory dump", func() {
