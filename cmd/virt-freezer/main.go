@@ -28,6 +28,8 @@ import (
 	v1 "kubevirt.io/api/core/v1"
 	"kubevirt.io/client-go/log"
 
+	"kubevirt.io/kubevirt/pkg/virt-launcher/virtwrap/api"
+
 	cmdclient "kubevirt.io/kubevirt/pkg/virt-handler/cmd-client"
 )
 
@@ -40,6 +42,16 @@ func getGrpcClient() (cmdclient.LauncherClient, error) {
 	}
 
 	return client, err
+}
+
+func isVmRunning(client cmdclient.LauncherClient) bool {
+	domain, exists, err := client.GetDomain()
+	if err != nil {
+		log.Log.Reason(err).Error("Failed to get domain")
+		os.Exit(1)
+	}
+
+	return exists && domain.Status.Status == api.Running
 }
 
 func main() {
@@ -88,6 +100,11 @@ func main() {
 	}
 
 	log.Log.Infof("Guest agent version is %s", info.GAVersion)
+
+	if !isVmRunning(client) {
+		log.Log.Reason(err).Error("VM is not running")
+		os.Exit(1)
+	}
 
 	if *freeze {
 		err = client.FreezeVirtualMachine(vmi, *unfreezeTimeoutSeconds)
