@@ -23,9 +23,6 @@ import (
 
 const (
 	ipVerifyFailFmt            = "failed to verify whether ipv%s is configured on %s"
-	toDest                     = "--to-destination"
-	src                        = "--source"
-	dport                      = "--dport"
 	strFmt                     = "{ %s }"
 	LibvirtDirectMigrationPort = 49152
 	LibvirtBlockMigrationPort  = 49153
@@ -230,137 +227,8 @@ func (b *MasqueradePodNetworkConfigurator) createNatRules(protocol iptables.Prot
 
 	if b.handler.NftablesLoad(protocol) == nil {
 		return b.createNatRulesUsingNftables(protocol)
-	} else if b.handler.HasNatIptables(protocol) {
-		return b.createNatRulesUsingIptables(protocol)
 	}
 	return fmt.Errorf("Couldn't configure ip nat rules")
-}
-
-func (b *MasqueradePodNetworkConfigurator) createNatRulesUsingIptables(protocol iptables.Protocol) error {
-	err := b.handler.IptablesNewChain(protocol, "nat", "KUBEVIRT_PREINBOUND")
-	if err != nil {
-		return err
-	}
-
-	err = b.handler.IptablesNewChain(protocol, "nat", "KUBEVIRT_POSTINBOUND")
-	if err != nil {
-		return err
-	}
-
-	err = b.handler.IptablesAppendRule(protocol, "nat", "POSTROUTING", "-s", b.geVmIfaceIpByProtocol(protocol), "-j", "MASQUERADE")
-	if err != nil {
-		return err
-	}
-
-	err = b.handler.IptablesAppendRule(protocol, "nat", "PREROUTING", "-i", b.podNicLink.Attrs().Name, "-j", "KUBEVIRT_PREINBOUND")
-	if err != nil {
-		return err
-	}
-
-	err = b.handler.IptablesAppendRule(protocol, "nat", "POSTROUTING", "-o", b.bridgeInterfaceName, "-j", "KUBEVIRT_POSTINBOUND")
-	if err != nil {
-		return err
-	}
-
-	err = b.skipForwardingForPortsUsingIptables(protocol, b.portsUsedByLiveMigration())
-	if err != nil {
-		return err
-	}
-
-	if len(b.vmiSpecIface.Ports) == 0 {
-		err = b.handler.IptablesAppendRule(protocol, "nat", "KUBEVIRT_PREINBOUND",
-			"-j",
-			"DNAT",
-			toDest, b.geVmIfaceIpByProtocol(protocol))
-		if err != nil {
-			return err
-		}
-
-		err = b.handler.IptablesAppendRule(protocol, "nat", "KUBEVIRT_POSTINBOUND",
-			src, getLoopbackAdrress(protocol),
-			"-j",
-			"SNAT",
-			"--to-source", b.getGatewayByProtocol(protocol))
-		if err != nil {
-			return err
-		}
-
-		err = b.handler.IptablesAppendRule(protocol, "nat", "OUTPUT",
-			"--destination", getLoopbackAdrress(protocol),
-			"-j",
-			"DNAT",
-			toDest, b.geVmIfaceIpByProtocol(protocol))
-		if err != nil {
-			return err
-		}
-
-		return nil
-	}
-
-	for _, port := range b.vmiSpecIface.Ports {
-		if port.Protocol == "" {
-			port.Protocol = "tcp"
-		}
-
-		err = b.handler.IptablesAppendRule(protocol, "nat", "KUBEVIRT_POSTINBOUND",
-			"-p",
-			strings.ToLower(port.Protocol),
-			dport,
-			strconv.Itoa(int(port.Port)),
-			src, getLoopbackAdrress(protocol),
-			"-j",
-			"SNAT",
-			"--to-source", b.getGatewayByProtocol(protocol))
-		if err != nil {
-			return err
-		}
-
-		err = b.handler.IptablesAppendRule(protocol, "nat", "KUBEVIRT_PREINBOUND",
-			"-p",
-			strings.ToLower(port.Protocol),
-			dport,
-			strconv.Itoa(int(port.Port)),
-			"-j",
-			"DNAT",
-			toDest, b.geVmIfaceIpByProtocol(protocol))
-		if err != nil {
-			return err
-		}
-
-		err = b.handler.IptablesAppendRule(protocol, "nat", "OUTPUT",
-			"-p",
-			strings.ToLower(port.Protocol),
-			dport,
-			strconv.Itoa(int(port.Port)),
-			"--destination", getLoopbackAdrress(protocol),
-			"-j",
-			"DNAT",
-			toDest, b.geVmIfaceIpByProtocol(protocol))
-		if err != nil {
-			return err
-		}
-	}
-
-	return nil
-}
-
-func (b *MasqueradePodNetworkConfigurator) skipForwardingForPortsUsingIptables(protocol iptables.Protocol, ports []string) error {
-	if len(ports) == 0 {
-		return nil
-	}
-	chainWhereDnatIsPerformed := "OUTPUT"
-	chainWhereSnatIsPerformed := "KUBEVIRT_POSTINBOUND"
-	for _, chain := range []string{chainWhereDnatIsPerformed, chainWhereSnatIsPerformed} {
-		err := b.handler.IptablesAppendRule(protocol, "nat", chain,
-			"-p", "tcp", "--match", "multiport",
-			"--dports", fmt.Sprintf("%s", strings.Join(ports, ",")),
-			src, getLoopbackAdrress(protocol),
-			"-j", "RETURN")
-		if err != nil {
-			return err
-		}
-	}
-	return nil
 }
 
 func (b *MasqueradePodNetworkConfigurator) createNatRulesUsingNftables(proto iptables.Protocol) error {

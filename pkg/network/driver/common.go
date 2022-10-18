@@ -71,7 +71,6 @@ type NetworkHandler interface {
 	LinkSetHardwareAddr(link netlink.Link, hwaddr net.HardwareAddr) error
 	LinkSetMaster(link netlink.Link, master *netlink.Bridge) error
 	StartDHCP(nic *cache.DHCPConfig, bridgeInterfaceName string, dhcpOptions *v1.DHCPOptions) error
-	HasNatIptables(proto iptables.Protocol) bool
 	HasIPv4GlobalUnicastAddress(interfaceName string) (bool, error)
 	HasIPv6GlobalUnicastAddress(interfaceName string) (bool, error)
 	IsIpv4Primary() (bool, error)
@@ -80,8 +79,6 @@ type NetworkHandler interface {
 	ConfigureIpv4ArpIgnore() error
 	ConfigurePingGroupRange() error
 	ConfigureUnprivilegedPortStart(string) error
-	IptablesNewChain(proto iptables.Protocol, table, chain string) error
-	IptablesAppendRule(proto iptables.Protocol, table, chain string, rulespec ...string) error
 	NftablesNewChain(proto iptables.Protocol, table, chain string) error
 	NftablesAppendRule(proto iptables.Protocol, table, chain string, rulespec ...string) error
 	NftablesLoad(proto iptables.Protocol) error
@@ -135,21 +132,6 @@ func (h *NetworkUtilsHandler) AddrAdd(link netlink.Link, addr *netlink.Addr) err
 }
 func (h *NetworkUtilsHandler) LinkSetMaster(link netlink.Link, master *netlink.Bridge) error {
 	return netlink.LinkSetMaster(link, master)
-}
-func (h *NetworkUtilsHandler) HasNatIptables(proto iptables.Protocol) bool {
-	iptablesObject, err := iptables.NewWithProtocol(proto)
-	if err != nil {
-		log.Log.V(5).Reason(err).Infof("No iptables")
-		return false
-	}
-
-	_, err = iptablesObject.List("nat", "OUTPUT")
-	if err != nil {
-		log.Log.V(5).Reason(err).Infof("No nat iptables")
-		return false
-	}
-
-	return true
 }
 
 func (h *NetworkUtilsHandler) ConfigureIpv4ArpIgnore() error {
@@ -228,24 +210,6 @@ func (h *NetworkUtilsHandler) IsIpv4Primary() (bool, error) {
 	}
 
 	return !netutils.IsIPv6String(podIP), nil
-}
-
-func (h *NetworkUtilsHandler) IptablesNewChain(proto iptables.Protocol, table, chain string) error {
-	iptablesObject, err := iptables.NewWithProtocol(proto)
-	if err != nil {
-		return err
-	}
-
-	return iptablesObject.NewChain(table, chain)
-}
-
-func (h *NetworkUtilsHandler) IptablesAppendRule(proto iptables.Protocol, table, chain string, rulespec ...string) error {
-	iptablesObject, err := iptables.NewWithProtocol(proto)
-	if err != nil {
-		return err
-	}
-
-	return iptablesObject.Append(table, chain, rulespec...)
 }
 
 func (h *NetworkUtilsHandler) NftablesNewChain(proto iptables.Protocol, table, chain string) error {
