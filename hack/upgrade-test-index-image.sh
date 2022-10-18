@@ -121,14 +121,6 @@ KUBECTL_BINARY=${CMD} INSTALLED_NAMESPACE=${HCO_NAMESPACE} printOperatorConditio
 ### Create a VM ###
 Msg "Create a simple VM on the previous version cluster, before the upgrade"
 ${CMD} create namespace ${VMS_NAMESPACE}
-
-######
-# TODO remove this once https://bugzilla.redhat.com/show_bug.cgi?id=2128997 is properly fixed on Kubevirt side
-# excplitly label vm namespace as priviledged to let our VM start there
-# until Kubevirt can handle it
-${CMD} label namespace ${VMS_NAMESPACE} --overwrite pod-security.kubernetes.io/enforce=privileged security.openshift.io/scc.podSecurityLabelSync=false
-######
-
 ssh-keygen -f ./hack/test_ssh -q -N ""
 cat << END > ./hack/cloud-init.sh
 #!/bin/sh
