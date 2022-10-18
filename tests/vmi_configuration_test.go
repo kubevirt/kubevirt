@@ -39,7 +39,7 @@ import (
 	"github.com/pborman/uuid"
 	k8sv1 "k8s.io/api/core/v1"
 	kubev1 "k8s.io/api/core/v1"
-	nodev1 "k8s.io/api/node/v1beta1"
+	nodev1 "k8s.io/api/node/v1"
 	"k8s.io/apimachinery/pkg/api/resource"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/types"
@@ -3091,7 +3091,7 @@ func createRuntimeClass(name, handler string) (*nodev1.RuntimeClass, error) {
 		return nil, err
 	}
 
-	return virtCli.NodeV1beta1().RuntimeClasses().Create(
+	return virtCli.NodeV1().RuntimeClasses().Create(
 		context.Background(),
 		&nodev1.RuntimeClass{
 			ObjectMeta: metav1.ObjectMeta{Name: name},
@@ -3107,7 +3107,7 @@ func deleteRuntimeClass(name string) error {
 		return err
 	}
 
-	return virtCli.NodeV1beta1().RuntimeClasses().Delete(context.Background(), name, metav1.DeleteOptions{})
+	return virtCli.NodeV1().RuntimeClasses().Delete(context.Background(), name, metav1.DeleteOptions{})
 }
 
 func withNoRng() libvmi.Option {
