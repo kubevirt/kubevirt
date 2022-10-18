@@ -1687,8 +1687,9 @@ var _ = Describe("[sig-compute]Configurations", func() {
 
 				By("Creating a new VMI")
 				var vmi = tests.NewRandomVMI()
-				vmi = tests.RunVMIAndExpectScheduling(vmi, 30)
-				Expect(err).NotTo(HaveOccurred())
+				// Runtime class related warnings are expected since we created a fake runtime class that isn't supported
+				wp := watcher.WarningsPolicy{FailOnWarnings: true, WarningsIgnoreList: []string{"RuntimeClass"}}
+				vmi = tests.RunVMIAndExpectSchedulingWithWarningPolicy(vmi, 30, wp)
 
 				By("Checking for presence of runtimeClassName")
 				pod := tests.GetPodByVirtualMachineInstance(vmi)
