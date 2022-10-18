@@ -1,4 +1,4 @@
-package watch
+package psa
 
 import (
 	"encoding/json"
@@ -66,7 +66,7 @@ var _ = Describe("PSA", func() {
 			}
 			Expect(namespaceStore.Add(namespace)).NotTo(HaveOccurred())
 
-			Expect(escalateNamespace(namespaceStore, client, "test", onOpenshift)).To(Succeed())
+			Expect(EscalateNamespace(namespaceStore, client, "test", onOpenshift)).To(Succeed())
 		},
 			Entry("on plain Kubernetes", psaLabels, notOnOpenshift),
 			Entry("on Openshift", psaLabelsOnOpenshift, onOpenshift),
@@ -87,7 +87,7 @@ var _ = Describe("PSA", func() {
 			}
 			Expect(namespaceStore.Add(namespace)).NotTo(HaveOccurred())
 
-			Expect(escalateNamespace(namespaceStore, client, "test", onOpenshift)).To(Succeed())
+			Expect(EscalateNamespace(namespaceStore, client, "test", onOpenshift)).To(Succeed())
 		},
 			Entry("on plain Kubernetes", psaLabels, notOnOpenshift),
 			Entry("on Openshift", psaLabelsOnOpenshift, onOpenshift),
@@ -108,7 +108,7 @@ var _ = Describe("PSA", func() {
 				Expect("Patch namespaces is not expected").To(BeEmpty())
 				return true, nil, nil
 			})
-		Expect(escalateNamespace(namespaceStore, client, "test", notOnOpenshift)).To(Succeed())
+		Expect(EscalateNamespace(namespaceStore, client, "test", notOnOpenshift)).To(Succeed())
 	})
 
 })

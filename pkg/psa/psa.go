@@ -16,7 +16,7 @@
  *
  */
 
-package watch
+package psa
 
 import (
 	"context"
@@ -32,7 +32,7 @@ import (
 const PSALabel = "pod-security.kubernetes.io/enforce"
 const OpenshiftPSAsync = "security.openshift.io/scc.podSecurityLabelSync"
 
-func escalateNamespace(namespaceStore cache.Store, client kubecli.KubevirtClient, namespace string, onOpenshift bool) error {
+func EscalateNamespace(namespaceStore cache.Store, client kubecli.KubevirtClient, namespace string, onOpenshift bool) error {
 	obj, exists, err := namespaceStore.GetByKey(namespace)
 	if err != nil {
 		return fmt.Errorf("Failed to get namespace, %w", err)
@@ -52,7 +52,7 @@ func escalateNamespace(namespaceStore cache.Store, client kubecli.KubevirtClient
 		data := []byte(fmt.Sprintf(`{"metadata": { "labels": %s}}`, labels))
 		_, err := client.CoreV1().Namespaces().Patch(context.TODO(), namespace, types.StrategicMergePatchType, data, v1.PatchOptions{})
 		if err != nil {
-			return &syncErrorImpl{err, fmt.Sprintf("Failed to apply enforce label on namespace %s", namespace)}
+			return fmt.Errorf("Failed to apply enforce label on namespace %s: %w", namespace, err)
 		}
 	}
 	return nil

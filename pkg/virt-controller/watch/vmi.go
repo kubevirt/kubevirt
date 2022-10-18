@@ -48,6 +48,7 @@ import (
 	"kubevirt.io/kubevirt/pkg/controller"
 	"kubevirt.io/kubevirt/pkg/network/sriov"
 	"kubevirt.io/kubevirt/pkg/network/vmispec"
+	"kubevirt.io/kubevirt/pkg/psa"
 	storagetypes "kubevirt.io/kubevirt/pkg/storage/types"
 	"kubevirt.io/kubevirt/pkg/util"
 	traceUtils "kubevirt.io/kubevirt/pkg/util/trace"
@@ -1067,7 +1068,7 @@ func (c *VMIController) sync(vmi *virtv1.VirtualMachineInstance, pod *k8sv1.Pod,
 
 		if c.clusterConfig.PSAEnabled() {
 			namespace := vmi.GetNamespace()
-			if err := escalateNamespace(c.namespaceStore, c.clientset, namespace, c.onOpenshift); err != nil {
+			if err := psa.EscalateNamespace(c.namespaceStore, c.clientset, namespace, c.onOpenshift); err != nil {
 				return &syncErrorImpl{err, fmt.Sprintf("Failed to apply enforce label on namespace %s", namespace)}
 			}
 		}
@@ -1738,7 +1739,7 @@ func (c *VMIController) createAttachmentPod(vmi *virtv1.VirtualMachineInstance, 
 
 	if c.clusterConfig.PSAEnabled() {
 		namespace := vmi.GetNamespace()
-		if err := escalateNamespace(c.namespaceStore, c.clientset, namespace, c.onOpenshift); err != nil {
+		if err := psa.EscalateNamespace(c.namespaceStore, c.clientset, namespace, c.onOpenshift); err != nil {
 			return &syncErrorImpl{err, fmt.Sprintf("Failed to apply enforce label on namespace %s while creating attachment pod", namespace)}
 		}
 	}
@@ -1764,7 +1765,7 @@ func (c *VMIController) triggerHotplugPopulation(volume *virtv1.Volume, vmi *vir
 
 		if c.clusterConfig.PSAEnabled() {
 			namespace := vmi.GetNamespace()
-			if err := escalateNamespace(c.namespaceStore, c.clientset, namespace, c.onOpenshift); err != nil {
+			if err := psa.EscalateNamespace(c.namespaceStore, c.clientset, namespace, c.onOpenshift); err != nil {
 				return &syncErrorImpl{err, fmt.Sprintf("Failed to apply enforce label on namespace %s while creating hotplug population trigger pod", namespace)}
 			}
 		}

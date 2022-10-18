@@ -619,7 +619,7 @@ func (c *MigrationController) createTargetPod(migration *virtv1.VirtualMachineIn
 
 	if c.clusterConfig.PSAEnabled() {
 		// Check my impact
-		if err := escalateNamespace(c.namespaceStore, c.clientset, vmi.GetNamespace(), c.onOpenshift); err != nil {
+		if err := psa.EscalateNamespace(c.namespaceStore, c.clientset, vmi.GetNamespace(), c.onOpenshift); err != nil {
 			return err
 		}
 	}
@@ -977,7 +977,7 @@ func (c *MigrationController) createAttachmentPod(migration *virtv1.VirtualMachi
 
 	if c.clusterConfig.PSAEnabled() {
 		// Check my impact
-		if err := escalateNamespace(c.namespaceStore, c.clientset, vmi.GetNamespace(), c.onOpenshift); err != nil {
+		if err := psa.EscalateNamespace(c.namespaceStore, c.clientset, vmi.GetNamespace(), c.onOpenshift); err != nil {
 			return err
 		}
 	}
