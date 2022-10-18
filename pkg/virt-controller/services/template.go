@@ -25,6 +25,8 @@ import (
 	"strconv"
 	"strings"
 
+	"kubevirt.io/kubevirt/pkg/util/hardware"
+
 	"k8s.io/kubectl/pkg/cmd/util/podcmd"
 	"k8s.io/utils/pointer"
 
@@ -68,6 +70,8 @@ const TunDevice = "devices.kubevirt.io/tun"
 const VhostNetDevice = "devices.kubevirt.io/vhost-net"
 const SevDevice = "devices.kubevirt.io/sev"
 const VhostVsockDevice = "devices.kubevirt.io/vhost-vsock"
+
+const SleepMagicNumber = "47738563821" // This specific number would help virt-hander identify the dedicated cgroup's path
 
 const debugLogs = "debugLogs"
 const logVerbosity = "logVerbosity"
@@ -303,6 +307,14 @@ func (t *templateService) renderLaunchManifest(vmi *v1.VirtualMachineInstance, i
 	}
 	resources := resourceRenderer.ResourceRequirements()
 
+	// Making sure compute container stays with guaranteed QOS
+	overridenCpuResource := resource.MustParse("100m")
+	resources.Requests[k8sv1.ResourceCPU] = overridenCpuResource
+
+	resources.Limits[k8sv1.ResourceCPU] = resources.Requests[k8sv1.ResourceCPU]
+	resources.Limits[k8sv1.ResourceEphemeralStorage] = resources.Requests[k8sv1.ResourceEphemeralStorage]
+	resources.Limits[k8sv1.ResourceMemory] = resources.Requests[k8sv1.ResourceMemory]
+
 	// Read requested hookSidecars from VMI meta
 	requestedHookSidecarList, err := hooks.UnmarshalHookSidecarList(vmi)
 	if err != nil {
@@ -420,6 +432,38 @@ func (t *templateService) renderLaunchManifest(vmi *v1.VirtualMachineInstance, i
 			newSidecarContainerRenderer(
 				sidecarContainerName(i), vmi, sidecarResources(vmi), requestedHookSidecar, userId).Render(requestedHookSidecar.Command))
 	}
+
+	// Defining new dedicated container so that a fresh cgroup would be created
+	if vmi.IsCPUDedicated() {
+		vcpus := int(hardware.GetNumberOfVCPUs(vmi.Spec.Domain.CPU))
+		log.Log.Infof("ihol3 vcpus for vmi %s: %d", vmi.Name, vcpus)
+
+		vcpuQuantity := resource.MustParse(strconv.Itoa(vcpus))
+		memQuantity := resource.MustParse("50Mi")
+
+		resourceList := k8sv1.ResourceList{
+			k8sv1.ResourceCPU:    vcpuQuantity,
+			k8sv1.ResourceMemory: memQuantity,
+		}
+
+		resources := k8sv1.ResourceRequirements{
+			Requests: resourceList,
+			Limits:   resourceList,
+		}
+
+		containers = append(containers,
+			k8sv1.Container{
+				Name:            "dedicated-cpus",
+				Image:           "fedora:36",
+				ImagePullPolicy: k8sv1.PullIfNotPresent,
+				Command:         []string{"sleep"},
+				Args:            []string{SleepMagicNumber},
+				Resources:       resources,
+			},
+		)
+	}
+
+	log.Log.Infof("ihol3 containers: %+v", containers)
 
 	podAnnotations, err := generatePodAnnotations(vmi)
 	if err != nil {
@@ -1238,8 +1282,8 @@ func (t *templateService) VMIResourcePredicates(vmi *v1.VirtualMachineInstance, 
 	return VMIResourcePredicates{
 		vmi: vmi,
 		resourceRules: []VMIResourceRule{
-			NewVMIResourceRule(doesVMIRequireDedicatedCPU, WithCPUPinning(vmi.Spec.Domain.CPU)),
-			NewVMIResourceRule(not(doesVMIRequireDedicatedCPU), WithoutDedicatedCPU(vmi.Spec.Domain.CPU, t.clusterConfig.GetCPUAllocationRatio())),
+			//NewVMIResourceRule(doesVMIRequireDedicatedCPU, WithCPUPinning(vmi.Spec.Domain.CPU)),
+			//NewVMIResourceRule(not(doesVMIRequireDedicatedCPU), WithoutDedicatedCPU(vmi.Spec.Domain.CPU, t.clusterConfig.GetCPUAllocationRatio())),
 			NewVMIResourceRule(util.HasHugePages, WithHugePages(vmi.Spec.Domain.Memory, memoryOverhead)),
 			NewVMIResourceRule(not(util.HasHugePages), WithMemoryOverhead(vmi.Spec.Domain.Resources, memoryOverhead)),
 			NewVMIResourceRule(func(*v1.VirtualMachineInstance) bool {
