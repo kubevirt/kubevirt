@@ -500,6 +500,8 @@ func (t *templateService) renderLaunchManifest(vmi *v1.VirtualMachineInstance, i
 
 	hostName := dns.SanitizeHostname(vmi)
 	enableServiceLinks := false
+	shareProcessNamespace := vmi.IsCPUDedicated() && vmi.Spec.Domain.CPU.IsolateEmulatorThread
+
 	pod := k8sv1.Pod{
 		ObjectMeta: metav1.ObjectMeta{
 			GenerateName: "virt-launcher-" + domain + "-",
@@ -529,6 +531,7 @@ func (t *templateService) renderLaunchManifest(vmi *v1.VirtualMachineInstance, i
 			SchedulerName:                 vmi.Spec.SchedulerName,
 			Tolerations:                   vmi.Spec.Tolerations,
 			TopologySpreadConstraints:     vmi.Spec.TopologySpreadConstraints,
+			ShareProcessNamespace:         pointer.Bool(shareProcessNamespace),
 		},
 	}
 
