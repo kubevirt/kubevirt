@@ -1669,13 +1669,14 @@ var _ = Describe("[sig-compute]Configurations", func() {
 
 			BeforeEach(func() {
 				By("Creating a runtime class")
-				createRuntimeClass(runtimeClassName, "custom-handler")
+				_, err := createRuntimeClass(runtimeClassName, "custom-handler")
+				Expect(err).NotTo(HaveOccurred(), "cannot create runtime-class "+runtimeClassName)
 			})
 
 			AfterEach(func() {
 				By("Cleaning up runtime class")
-				err = deleteRuntimeClass(runtimeClassName)
-				Expect(err).NotTo(HaveOccurred())
+				err := deleteRuntimeClass(runtimeClassName)
+				Expect(err).NotTo(HaveOccurred(), "cannot delete runtime-class "+runtimeClassName)
 			})
 
 			It("should apply runtimeClassName to pod when set", func() {
