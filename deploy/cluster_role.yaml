@@ -2517,6 +2517,12 @@ rules:
   - list
   - watch
 - apiGroups:
+  - kubevirt.io
+  resources:
+  - virtualmachines/finalizers
+  verbs:
+  - update
+- apiGroups:
   - ""
   resources:
   - persistentvolumeclaims

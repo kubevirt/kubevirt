@@ -261,7 +261,7 @@ type DataVolumeStatus struct {
 	Conditions   []DataVolumeCondition `json:"conditions,omitempty" optional:"true"`
 }
 
-//DataVolumeList provides the needed parameters to do request a list of Data Volumes from the system
+// DataVolumeList provides the needed parameters to do request a list of Data Volumes from the system
 // +k8s:deepcopy-gen:interfaces=k8s.io/apimachinery/pkg/runtime.Object
 type DataVolumeList struct {
 	metav1.TypeMeta `json:",inline"`
@@ -359,7 +359,7 @@ const DataVolumeCloneSourceSubresource = "source"
 // see https://github.com/kubernetes/code-generator/issues/59
 // +genclient:nonNamespaced
 
-//StorageProfile provides a CDI specific recommendation for storage parameters
+// StorageProfile provides a CDI specific recommendation for storage parameters
 // +genclient
 // +k8s:deepcopy-gen:interfaces=k8s.io/apimachinery/pkg/runtime.Object
 // +kubebuilder:object:root=true
@@ -373,7 +373,7 @@ type StorageProfile struct {
 	Status StorageProfileStatus `json:"status,omitempty"`
 }
 
-//StorageProfileSpec defines specification for StorageProfile
+// StorageProfileSpec defines specification for StorageProfile
 type StorageProfileSpec struct {
 	// CloneStrategy defines the preferred method for performing a CDI clone
 	CloneStrategy *CDICloneStrategy `json:"cloneStrategy,omitempty"`
@@ -381,7 +381,7 @@ type StorageProfileSpec struct {
 	ClaimPropertySets []ClaimPropertySet `json:"claimPropertySets,omitempty"`
 }
 
-//StorageProfileStatus provides the most recently observed status of the StorageProfile
+// StorageProfileStatus provides the most recently observed status of the StorageProfile
 type StorageProfileStatus struct {
 	// The StorageClass name for which capabilities are defined
 	StorageClass *string `json:"storageClass,omitempty"`
@@ -405,7 +405,7 @@ type ClaimPropertySet struct {
 	VolumeMode *corev1.PersistentVolumeMode `json:"volumeMode,omitempty" protobuf:"bytes,6,opt,name=volumeMode,casttype=PersistentVolumeMode"`
 }
 
-//StorageProfileList provides the needed parameters to request a list of StorageProfile from the system
+// StorageProfileList provides the needed parameters to request a list of StorageProfile from the system
 // +k8s:deepcopy-gen:interfaces=k8s.io/apimachinery/pkg/runtime.Object
 type StorageProfileList struct {
 	metav1.TypeMeta `json:",inline"`
@@ -685,7 +685,7 @@ type CDIStatus struct {
 	sdkapi.Status `json:",inline"`
 }
 
-//CDIList provides the needed parameters to do request a list of CDIs from the system
+// CDIList provides the needed parameters to do request a list of CDIs from the system
 // +k8s:deepcopy-gen:interfaces=k8s.io/apimachinery/pkg/runtime.Object
 type CDIList struct {
 	metav1.TypeMeta `json:",inline"`
@@ -713,12 +713,12 @@ type CDIConfig struct {
 	Status CDIConfigStatus `json:"status,omitempty"`
 }
 
-//Percent is a string that can only be a value between [0,1)
+// Percent is a string that can only be a value between [0,1)
 // (Note: we actually rely on reconcile to reject invalid values)
 // +kubebuilder:validation:Pattern=`^(0(?:\.\d{1,3})?|1)$`
 type Percent string
 
-//FilesystemOverhead defines the reserved size for PVCs with VolumeMode: Filesystem
+// FilesystemOverhead defines the reserved size for PVCs with VolumeMode: Filesystem
 type FilesystemOverhead struct {
 	// Global is how much space of a Filesystem volume should be reserved for overhead. This value is used unless overridden by a more specific value (per storageClass)
 	Global Percent `json:"global,omitempty"`
@@ -726,7 +726,7 @@ type FilesystemOverhead struct {
 	StorageClass map[string]Percent `json:"storageClass,omitempty"`
 }
 
-//CDIConfigSpec defines specification for user configuration
+// CDIConfigSpec defines specification for user configuration
 type CDIConfigSpec struct {
 	// Override the URL used when uploading to a DataVolume
 	UploadProxyURLOverride *string `json:"uploadProxyURLOverride,omitempty"`
@@ -745,14 +745,14 @@ type CDIConfigSpec struct {
 	Preallocation *bool `json:"preallocation,omitempty"`
 	// InsecureRegistries is a list of TLS disabled registries
 	InsecureRegistries []string `json:"insecureRegistries,omitempty"`
-	// DataVolumeTTLSeconds is the time in seconds after DataVolume completion it can be garbage collected.
+	// DataVolumeTTLSeconds is the time in seconds after DataVolume completion it can be garbage collected. The default is 0 sec. To disable GC use -1.
 	// +optional
 	DataVolumeTTLSeconds *int32 `json:"dataVolumeTTLSeconds,omitempty"`
 	// TLSSecurityProfile is used by operators to apply cluster-wide TLS security settings to operands.
 	TLSSecurityProfile *ocpconfigv1.TLSSecurityProfile `json:"tlsSecurityProfile,omitempty"`
 }
 
-//CDIConfigStatus provides the most recently observed status of the CDI Config resource
+// CDIConfigStatus provides the most recently observed status of the CDI Config resource
 type CDIConfigStatus struct {
 	// The calculated upload proxy URL
 	UploadProxyURL *string `json:"uploadProxyURL,omitempty"`
@@ -769,7 +769,7 @@ type CDIConfigStatus struct {
 	Preallocation bool `json:"preallocation,omitempty"`
 }
 
-//CDIConfigList provides the needed parameters to do request a list of CDIConfigs from the system
+// CDIConfigList provides the needed parameters to do request a list of CDIConfigs from the system
 // +k8s:deepcopy-gen:interfaces=k8s.io/apimachinery/pkg/runtime.Object
 type CDIConfigList struct {
 	metav1.TypeMeta `json:",inline"`
@@ -779,7 +779,7 @@ type CDIConfigList struct {
 	Items []CDIConfig `json:"items"`
 }
 
-//ImportProxy provides the information on how to configure the importer pod proxy.
+// ImportProxy provides the information on how to configure the importer pod proxy.
 type ImportProxy struct {
 	// HTTPProxy is the URL http://<username>:<pswd>@<ip>:<port> of the import proxy for HTTP requests.  Empty means unset and will not result in the import pod env var.
 	// +optional
