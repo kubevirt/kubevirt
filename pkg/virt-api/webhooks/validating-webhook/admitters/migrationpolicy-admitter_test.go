@@ -23,9 +23,13 @@ import (
 	"encoding/json"
 
 	"k8s.io/apimachinery/pkg/api/resource"
+	"k8s.io/client-go/kubernetes/fake"
+	"k8s.io/client-go/testing"
 	"k8s.io/utils/pointer"
 
 	"kubevirt.io/api/migrations"
+
+	"kubevirt.io/kubevirt/pkg/psa"
 
 	migrationsv1 "kubevirt.io/api/migrations/v1alpha1"
 
@@ -33,6 +37,7 @@ import (
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
 	admissionv1 "k8s.io/api/admission/v1"
+	k8sv1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/runtime"
 
@@ -44,12 +49,16 @@ var _ = Describe("Validating MigrationPolicy Admitter", func() {
 	var virtClient *kubecli.MockKubevirtClient
 	var admitter *MigrationPolicyAdmitter
 	var policyName string
+	var kubeClient *fake.Clientset
 
 	BeforeEach(func() {
 		ctrl = gomock.NewController(GinkgoT())
+		kubeClient = fake.NewSimpleClientset()
 		virtClient = kubecli.NewMockKubevirtClient(ctrl)
 		admitter = &MigrationPolicyAdmitter{Client: virtClient}
 		policyName = "test-policy"
+
+		virtClient.EXPECT().CoreV1().Return(kubeClient.CoreV1()).AnyTimes()
 	})
 
 	DescribeTable("should reject migration policy with", func(policySpec migrationsv1.MigrationPolicySpec) {
@@ -96,6 +105,36 @@ var _ = Describe("Validating MigrationPolicy Admitter", func() {
 		Entry("empty spec",
 			migrationsv1.MigrationPolicySpec{},
 		),
+	)
+
+	DescribeTable("migration policy with postcopy enabled should be", func(privilegedNamespace bool) {
+		kubeClient.Fake.PrependReactor("get", "namespaces", func(action testing.Action) (handled bool, obj runtime.Object, err error) {
+			_, ok := action.(testing.GetAction)
+			Expect(ok).To(BeTrue())
+
+			labels := map[string]string{}
+			if privilegedNamespace {
+				labels[psa.PSALabel] = "privileged"
+			}
+
+			return true, &k8sv1.Namespace{
+				TypeMeta: metav1.TypeMeta{Kind: "Namespace"},
+				ObjectMeta: metav1.ObjectMeta{
+					Name:   "default",
+					Labels: labels,
+				},
+			}, nil
+		})
+
+		By("Setting up a new policy")
+		policy := kubecli.NewMinimalMigrationPolicy(policyName)
+		policy.Spec = migrationsv1.MigrationPolicySpec{AllowPostCopy: pointer.BoolPtr(true)}
+
+		By("Expecting admitter would allow it")
+		admitter.admitAndExpect(policy, privilegedNamespace)
+	},
+		Entry("allowed in a privileged namespace", true),
+		Entry("denied in a non-privileged namespace", false),
 	)
 
 })
