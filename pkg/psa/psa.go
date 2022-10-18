@@ -33,16 +33,12 @@ const PSALabel = "pod-security.kubernetes.io/enforce"
 const OpenshiftPSAsync = "security.openshift.io/scc.podSecurityLabelSync"
 
 func EscalateNamespace(namespaceStore cache.Store, client kubecli.KubevirtClient, namespace string, onOpenshift bool) error {
-	obj, exists, err := namespaceStore.GetByKey(namespace)
+	isPrivileged, err := IsNamespacePrivilegedWithStore(namespaceStore, client, namespace)
 	if err != nil {
-		return fmt.Errorf("Failed to get namespace, %w", err)
+		return err
 	}
-	if !exists {
-		return fmt.Errorf("Namespace %s not observed, %w", namespace, err)
-	}
-	namespaceObj := obj.(*k8sv1.Namespace)
-	enforceLevel, labelExist := namespaceObj.Labels[PSALabel]
-	if !labelExist || enforceLevel != "privileged" {
+
+	if !isPrivileged {
 		labels := ""
 		if !onOpenshift {
 			labels = fmt.Sprintf(`{"%s": "privileged"}`, PSALabel)
@@ -56,4 +52,20 @@ func EscalateNamespace(namespaceStore cache.Store, client kubecli.KubevirtClient
 		}
 	}
 	return nil
+}
+
+func IsNamespacePrivilegedWithStore(namespaceStore cache.Store, client kubecli.KubevirtClient, namespace string) (bool, error) {
+	obj, exists, err := namespaceStore.GetByKey(namespace)
+	if err != nil {
+		return false, fmt.Errorf("Failed to get namespace, %w", err)
+	}
+	if !exists {
+		return false, fmt.Errorf("Namespace %s not observed, %w", namespace, err)
+	}
+	return IsNamespacePrivileged(obj.(*k8sv1.Namespace)), nil
+}
+
+func IsNamespacePrivileged(namespace *k8sv1.Namespace) bool {
+	enforceLevel, labelExist := namespace.Labels[PSALabel]
+	return labelExist && enforceLevel == "privileged"
 }
