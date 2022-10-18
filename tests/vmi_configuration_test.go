@@ -1665,11 +1665,11 @@ var _ = Describe("[sig-compute]Configurations", func() {
 		})
 
 		Context("[Serial]using defaultRuntimeClass configuration", func() {
-			runtimeClassName := "custom-runtime-class"
+			const runtimeClassName = "fake-runtime-class"
 
 			BeforeEach(func() {
 				By("Creating a runtime class")
-				_, err := createRuntimeClass(runtimeClassName, "custom-handler")
+				_, err := createRuntimeClass(runtimeClassName, "fake-handler")
 				Expect(err).NotTo(HaveOccurred(), "cannot create runtime-class "+runtimeClassName)
 			})
 
@@ -1686,24 +1686,20 @@ var _ = Describe("[sig-compute]Configurations", func() {
 				tests.UpdateKubeVirtConfigValueAndWait(*config)
 
 				By("Creating a new VMI")
-				var vmi = tests.NewRandomVMI()
+				vmi := tests.NewRandomVMI()
 				// Runtime class related warnings are expected since we created a fake runtime class that isn't supported
 				wp := watcher.WarningsPolicy{FailOnWarnings: true, WarningsIgnoreList: []string{"RuntimeClass"}}
 				vmi = tests.RunVMIAndExpectSchedulingWithWarningPolicy(vmi, 30, wp)
 
 				By("Checking for presence of runtimeClassName")
 				pod := tests.GetPodByVirtualMachineInstance(vmi)
+				Expect(pod.Spec.RuntimeClassName).ToNot(BeNil())
 				Expect(*pod.Spec.RuntimeClassName).To(BeEquivalentTo(runtimeClassName))
 			})
 
 			It("should not apply runtimeClassName to pod when not set", func() {
 				By("Creating a VMI")
-				var vmi = tests.NewRandomVMI()
-				vmi, err = virtClient.VirtualMachineInstance(util.NamespaceTestDefault).Create(vmi)
-				Expect(err).NotTo(HaveOccurred())
-
-				By("Waiting for successful start of VMI")
-				tests.WaitForSuccessfulVMIStart(vmi)
+				vmi := tests.RunVMIAndExpectLaunch(tests.NewRandomVMI(), 60)
 
 				By("Checking for absence of runtimeClassName")
 				pod := tests.GetRunningPodByVirtualMachineInstance(vmi, util.NamespaceTestDefault)
