@@ -4,7 +4,7 @@ ARG SONOBUOY_ARCH
 ARG BAZEL_ARCH
 
 ENV BAZEL_VERSION=4.2.1
-ENV GIMME_GO_VERSION=1.17.8
+ENV GIMME_GO_VERSION=1.19.2
 ENV GRADLE_VERSION=6.6
 ENV OPERATOR_COURIER_VERSION=2.1.11
 ENV SONOBUOY_VERSION=0.56.9
@@ -76,23 +76,22 @@ ENV GOPATH="/go" GOBIN="/usr/bin" GO111MODULE="on"
 RUN set -x && \
     mkdir -p /go && \
     source /etc/profile.d/gimme.sh && \
-    go get -v golang.org/x/tools/cmd/goimports@d5fe738 && \
-    go get -v mvdan.cc/sh/v3/cmd/shfmt@v3.1.1 && \
-    go get -v k8s.io/code-generator/cmd/deepcopy-gen@v0.20.2 && \
-    go get -v k8s.io/code-generator/cmd/defaulter-gen@v0.20.2  && \
-    go get -v k8s.io/kube-openapi/cmd/openapi-gen@30be4d1 && \
-    go get -v github.com/golang/protobuf/protoc-gen-go@1643683 && \
-    go get -v k8s.io/code-generator/cmd/client-gen@v0.20.2 && \
-    go get -v github.com/securego/gosec/v2/cmd/gosec@0ce48a5 && \
-    go get -v sigs.k8s.io/controller-tools/cmd/controller-gen@v0.4.0 && \
+    go install -v golang.org/x/tools/cmd/goimports@d5fe738 && \
+    go install -v mvdan.cc/sh/v3/cmd/shfmt@v3.1.1 && \
+    go install -v k8s.io/code-generator/cmd/deepcopy-gen@v0.20.2 && \
+    go install -v k8s.io/code-generator/cmd/defaulter-gen@v0.20.2  && \
+    go install -v k8s.io/kube-openapi/cmd/openapi-gen@30be4d1 && \
+    go install -v github.com/golang/protobuf/protoc-gen-go@1643683 && \
+    go install -v k8s.io/code-generator/cmd/client-gen@v0.20.2 && \
+    go install -v github.com/securego/gosec/v2/cmd/gosec@0ce48a5 && \
+    go install -v sigs.k8s.io/controller-tools/cmd/controller-gen@v0.4.0 && \
     go clean -cache -modcache
 
 RUN set -x && \
     source /etc/profile.d/gimme.sh && \
-    go get -v -u github.com/mattn/goveralls@21feffdfd && \
-    go get -v -u github.com/golang/mock/gomock@v1.4.3 && \
-    go get -v -u github.com/rmohr/mock/mockgen@v0.0.0-20170327080805-5980f5d9a70d && \
-    go get -v -u github.com/rmohr/go-swagger-utils/swagger-doc@v0.0.0-20181110145135-878f7deb1d17 && \
+    go install -v github.com/mattn/goveralls@21feffdfd && \
+    go install -v github.com/rmohr/mock/mockgen@v0.0.0-20170327080805-5980f5d9a70d && \
+    go install -v github.com/rmohr/go-swagger-utils/swagger-doc@v0.0.0-20181110145135-878f7deb1d17 && \
     go clean -cache -modcache
 
 RUN set -x && \

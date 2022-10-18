@@ -5,9 +5,11 @@
 Package v1 is a generated protocol buffer package.
 
 It is generated from these files:
+
 	pkg/handler-launcher-com/notify/v1/notify.proto
 
 It has these top-level messages:
+
 	DomainEventRequest
 	K8SEventRequest
 	Response
