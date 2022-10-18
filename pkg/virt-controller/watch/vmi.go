@@ -1397,6 +1397,7 @@ func (c *VMIController) enqueueVirtualMachine(obj interface{}) {
 	key, err := controller.KeyFunc(vmi)
 	if err != nil {
 		logger.Object(vmi).Reason(err).Error("Failed to extract key from virtualmachine.")
+		return
 	}
 	c.Queue.Add(key)
 }

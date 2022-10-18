@@ -87,6 +87,7 @@ func (c *NodeController) enqueueNode(obj interface{}) {
 	key, err := controller.KeyFunc(node)
 	if err != nil {
 		logger.Object(node).Reason(err).Error("Failed to extract key from node.")
+		return
 	}
 	c.Queue.Add(key)
 }

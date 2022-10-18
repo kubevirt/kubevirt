@@ -1264,6 +1264,7 @@ func (c *MigrationController) enqueueMigration(obj interface{}) {
 	key, err := controller.KeyFunc(migration)
 	if err != nil {
 		logger.Object(migration).Reason(err).Error("Failed to extract key from migration.")
+		return
 	}
 	c.Queue.Add(key)
 }

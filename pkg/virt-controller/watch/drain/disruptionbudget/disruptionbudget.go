@@ -286,6 +286,7 @@ func (c *DisruptionBudgetController) enqueueVirtualMachine(obj interface{}) {
 	key, err := controller.KeyFunc(vmi)
 	if err != nil {
 		logger.Object(vmi).Reason(err).Error("Failed to extract key from virtualmachineinstance.")
+		return
 	}
 	c.Queue.Add(key)
 }

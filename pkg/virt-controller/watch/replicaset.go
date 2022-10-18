@@ -578,6 +578,7 @@ func (c *VMIReplicaSet) enqueueReplicaSet(obj interface{}) {
 	key, err := controller.KeyFunc(rs)
 	if err != nil {
 		logger.Object(rs).Reason(err).Error(failedRsKeyExtraction)
+		return
 	}
 	c.Queue.Add(key)
 }
@@ -603,7 +604,7 @@ func max(x int, y int) int {
 	return y
 }
 
-//limit
+// limit
 func limit(x int, burstReplicas uint) int {
 	replicas := int(burstReplicas)
 	if x <= 0 {
