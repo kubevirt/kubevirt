@@ -3,7 +3,6 @@ package hyperconverged
 import (
 	"encoding/json"
 	"errors"
-	"io"
 	"os"
 	"strings"
 
@@ -70,14 +69,12 @@ func readUpgradePatchesFromFile(req *common.HcoRequest) error {
 		return err
 	}
 
-	jsonBytes, err := io.ReadAll(file)
+	jDec := json.NewDecoder(file)
+	err = jDec.Decode(&hcoUpgradeChanges)
 	if err != nil {
 		return err
 	}
-	err = json.Unmarshal(jsonBytes, &hcoUpgradeChanges)
-	if err != nil {
-		return err
-	}
+
 	hcoUpgradeChangesRead = true
 	return nil
 }
