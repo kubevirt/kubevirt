@@ -52,7 +52,7 @@ var _ = Describe("Pod Network", func() {
 	BeforeEach(func() {
 		dutils.MockDefaultOwnershipManager()
 		var err error
-		tmpDir, err = ioutil.TempDir("/tmp", "interface-cache")
+		tmpDir, err = os.MkdirTemp("/tmp", "interface-cache")
 		Expect(err).ToNot(HaveOccurred())
 
 		ctrl = gomock.NewController(GinkgoT())

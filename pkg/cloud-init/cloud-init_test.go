@@ -24,7 +24,6 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
-	"io/ioutil"
 	"os"
 	"os/exec"
 	"path/filepath"
@@ -59,7 +58,7 @@ var _ = Describe("CloudInit", func() {
 		err := os.Mkdir(volumeDir, 0700)
 		Expect(err).To(Not(HaveOccurred()), "could not create volume dir: ", volumeDir)
 		for fileName, content := range files {
-			err = ioutil.WriteFile(
+			err = os.WriteFile(
 				filepath.Join(volumeDir, fileName),
 				[]byte(content),
 				0644)
@@ -70,7 +69,7 @@ var _ = Describe("CloudInit", func() {
 
 	BeforeEach(func() {
 		var err error
-		tmpDir, err = ioutil.TempDir("", "cloudinittest")
+		tmpDir, err = os.MkdirTemp("", "cloudinittest")
 		Expect(err).ToNot(HaveOccurred())
 		err = SetLocalDirectory(tmpDir)
 		if err != nil {

@@ -21,7 +21,6 @@ package profiler
 
 import (
 	"bytes"
-	"io/ioutil"
 	"os"
 	"path/filepath"
 	"runtime"
@@ -99,7 +98,7 @@ func (p *pprofData) dumpProcessProfilerResults() (map[string][]byte, error) {
 			if !p.hasResults {
 				continue
 			}
-			b, err = ioutil.ReadFile(cpuProfileFilePath)
+			b, err = os.ReadFile(cpuProfileFilePath)
 			if err != nil {
 				return res, err
 			}

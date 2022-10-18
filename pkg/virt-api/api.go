@@ -24,7 +24,6 @@ import (
 	"crypto/tls"
 	"encoding/json"
 	"fmt"
-	"io/ioutil"
 	"net/http"
 	"os"
 	"os/signal"
@@ -170,7 +169,7 @@ func (app *virtAPIApp) Execute() {
 
 	app.authorizor = authorizor
 
-	app.certsDirectory, err = ioutil.TempDir("", "certsdir")
+	app.certsDirectory, err = os.MkdirTemp("", "certsdir")
 	if err != nil {
 		panic(err)
 	}

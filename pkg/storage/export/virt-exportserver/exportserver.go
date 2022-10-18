@@ -25,7 +25,6 @@ import (
 	"context"
 	goflag "flag"
 	"io"
-	"io/ioutil"
 	"net/http"
 	"os"
 	"os/exec"
@@ -87,7 +86,7 @@ func (er *execReader) Read(p []byte) (int, error) {
 	n, err := er.stdout.Read(p)
 	if err == io.EOF {
 		if err2 := er.cmd.Wait(); err2 != nil {
-			errBytes, _ := ioutil.ReadAll(er.stderr)
+			errBytes, _ := io.ReadAll(er.stderr)
 			log.Log.Reason(err2).Errorf("Subprocess did not execute successfully, result is: %q\n%s", er.cmd.ProcessState.ExitCode(), string(errBytes))
 			return n, err2
 		}
@@ -222,7 +221,7 @@ func newTarReader(mountPoint string) (io.ReadCloser, error) {
 		return nil, err
 	}
 
-	return &execReader{cmd: cmd, stdout: stdout, stderr: ioutil.NopCloser(&stderr)}, nil
+	return &execReader{cmd: cmd, stdout: stdout, stderr: io.NopCloser(&stderr)}, nil
 }
 
 func pipeToGzip(reader io.ReadCloser) io.ReadCloser {
@@ -344,7 +343,7 @@ func fileHandler(file string) http.Handler {
 }
 
 func getToken(tokenFile string) (string, error) {
-	content, err := ioutil.ReadFile(tokenFile)
+	content, err := os.ReadFile(tokenFile)
 	if err != nil {
 		return "", err
 	}

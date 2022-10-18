@@ -3,7 +3,6 @@ package virthandler
 import (
 	"errors"
 	"fmt"
-	"io/ioutil"
 	"os"
 	"path/filepath"
 	"strconv"
@@ -137,7 +136,7 @@ func (d *VirtualMachineController) prepareTap(vmi *v1.VirtualMachineInstance, re
 				return 0, err
 			}
 			defer df.Close()
-			b, err := ioutil.ReadFile(df.SafePath())
+			b, err := os.ReadFile(df.SafePath())
 			if err != nil {
 				return 0, fmt.Errorf("Failed to read if index, %v", err)
 			}

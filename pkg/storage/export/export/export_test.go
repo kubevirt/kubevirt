@@ -23,7 +23,6 @@ import (
 	"crypto/x509"
 	"encoding/pem"
 	"fmt"
-	"io/ioutil"
 	"os"
 	"path/filepath"
 	"strings"
@@ -140,7 +139,7 @@ var _ = Describe("Export controller", func() {
 		stop = make(chan struct{})
 		ctrl = gomock.NewController(GinkgoT())
 		var err error
-		certDir, err = ioutil.TempDir("", "certs")
+		certDir, err = os.MkdirTemp("", "certs")
 		Expect(err).ToNot(HaveOccurred())
 		certFilePath = filepath.Join(certDir, "tls.crt")
 		keyFilePath = filepath.Join(certDir, "tls.key")
@@ -1084,8 +1083,8 @@ func writeCertsToDir(dir string) {
 	caKeyPair, _ := triple.NewCA("kubevirt.io", time.Hour*24*7)
 	crt := certutil.EncodeCertPEM(caKeyPair.Cert)
 	key := certutil.EncodePrivateKeyPEM(caKeyPair.Key)
-	Expect(ioutil.WriteFile(filepath.Join(dir, bootstrap.CertBytesValue), crt, 0777)).To(Succeed())
-	Expect(ioutil.WriteFile(filepath.Join(dir, bootstrap.KeyBytesValue), key, 0777)).To(Succeed())
+	Expect(os.WriteFile(filepath.Join(dir, bootstrap.CertBytesValue), crt, 0777)).To(Succeed())
+	Expect(os.WriteFile(filepath.Join(dir, bootstrap.KeyBytesValue), key, 0777)).To(Succeed())
 }
 
 func createPVCVMExport() *exportv1.VirtualMachineExport {

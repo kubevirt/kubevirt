@@ -24,7 +24,6 @@ import (
 	"encoding/json"
 	"encoding/xml"
 	"fmt"
-	"io/ioutil"
 	"os"
 	"path/filepath"
 	"runtime"
@@ -67,7 +66,7 @@ var (
 )
 
 var _ = BeforeSuite(func() {
-	tmpDir, err := ioutil.TempDir("", "cloudinittest")
+	tmpDir, err := os.MkdirTemp("", "cloudinittest")
 	Expect(err).ToNot(HaveOccurred())
 	DeferCleanup(os.RemoveAll, tmpDir)
 
@@ -2521,14 +2520,14 @@ var _ = Describe("Manager helper functions", func() {
 
 		It("successful run with non-zero size", func() {
 			By("Creating a file with non-zero size")
-			Expect(ioutil.WriteFile(filepath.Join(tmpDir, "testfile"), []byte("file contents"), 0666)).To(Succeed())
+			Expect(os.WriteFile(filepath.Join(tmpDir, "testfile"), []byte("file contents"), 0666)).To(Succeed())
 
 			expectNonZeroQuantity(tmpDir)
 		})
 
 		It("successful run with zero size", func() {
 			By("Creating a file with non-zero size")
-			Expect(ioutil.WriteFile(filepath.Join(tmpDir, "testfile"), []byte("file contents"), 0666)).To(Succeed())
+			Expect(os.WriteFile(filepath.Join(tmpDir, "testfile"), []byte("file contents"), 0666)).To(Succeed())
 
 			expectNonZeroQuantity(tmpDir)
 		})

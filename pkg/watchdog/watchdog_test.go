@@ -20,7 +20,6 @@
 package watchdog
 
 import (
-	"io/ioutil"
 	"os"
 	"path/filepath"
 	"time"
@@ -45,7 +44,7 @@ var _ = Describe("Watchdog", func() {
 
 		BeforeEach(func() {
 
-			tmpVirtShareDir, err = ioutil.TempDir("", "kubevirt")
+			tmpVirtShareDir, err = os.MkdirTemp("", "kubevirt")
 			Expect(err).ToNot(HaveOccurred())
 
 			tmpWatchdogDir = WatchdogFileDirectory(tmpVirtShareDir)

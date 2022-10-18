@@ -22,8 +22,8 @@ package api
 import (
 	"encoding/json"
 	"fmt"
-	"io/ioutil"
 	"log"
+	"os"
 	"time"
 )
 
@@ -147,7 +147,7 @@ func (r *Result) DumpToFile(filePath string) error {
 
 	log.Printf("Writing results to file at path %s", filePath)
 
-	return ioutil.WriteFile(filePath, []byte(str), 0644)
+	return os.WriteFile(filePath, []byte(str), 0644)
 }
 
 func (r *Result) DumpToStdout() error {
@@ -164,7 +164,7 @@ func ReadInputFile(filePath string) (*InputConfig, error) {
 
 	log.Printf("Reading config at path %s", filePath)
 
-	b, err := ioutil.ReadFile(filePath)
+	b, err := os.ReadFile(filePath)
 	if err != nil {
 		return nil, fmt.Errorf("Unable to read file [%s]: %v", filePath, err)
 	}

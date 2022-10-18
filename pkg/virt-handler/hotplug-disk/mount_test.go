@@ -24,7 +24,6 @@ import (
 	"errors"
 	"fmt"
 	"io/fs"
-	"io/ioutil"
 	"os"
 	"path/filepath"
 	"strings"
@@ -165,7 +164,7 @@ var _ = Describe("HotplugVolume", func() {
 		)
 
 		BeforeEach(func() {
-			tempDir, err = ioutil.TempDir("", "hotplug-volume-test")
+			tempDir, err = os.MkdirTemp("", "hotplug-volume-test")
 			Expect(err).ToNot(HaveOccurred())
 			tmpDirSafe, err = safepath.JoinAndResolveWithRelativeRoot(tempDir)
 			Expect(err).ToNot(HaveOccurred())
@@ -188,7 +187,7 @@ var _ = Describe("HotplugVolume", func() {
 			Expect(err).ToNot(HaveOccurred())
 			expectedBytes, err := json.Marshal(record)
 			Expect(err).ToNot(HaveOccurred())
-			bytes, err := ioutil.ReadFile(filepath.Join(tempDir, string(vmi.UID)))
+			bytes, err := os.ReadFile(filepath.Join(tempDir, string(vmi.UID)))
 			Expect(err).ToNot(HaveOccurred())
 			Expect(bytes).To(Equal(expectedBytes))
 		})
@@ -245,7 +244,7 @@ var _ = Describe("HotplugVolume", func() {
 		})
 
 		It("deleteMountTargetRecord should remove both record file and entry file", func() {
-			err := ioutil.WriteFile(filepath.Join(tempDir, "test"), []byte("test"), 0644)
+			err := os.WriteFile(filepath.Join(tempDir, "test"), []byte("test"), 0644)
 			Expect(err).ToNot(HaveOccurred())
 			err = m.deleteMountTargetRecord(vmi)
 			Expect(err).ToNot(HaveOccurred())
@@ -267,7 +266,7 @@ var _ = Describe("HotplugVolume", func() {
 		)
 
 		BeforeEach(func() {
-			tempDir, err = ioutil.TempDir("", "hotplug-volume-test")
+			tempDir, err = os.MkdirTemp("", "hotplug-volume-test")
 			Expect(err).ToNot(HaveOccurred())
 			tmpDirSafe, err = safepath.JoinAndResolveWithRelativeRoot(tempDir)
 			Expect(err).ToNot(HaveOccurred())
@@ -362,7 +361,7 @@ var _ = Describe("HotplugVolume", func() {
 			Expect(err).ToNot(HaveOccurred())
 			deviceFile, err := newFile(tempDir, string(blockSourcePodUID), "volumes", "testvolume", "file")
 			Expect(err).ToNot(HaveOccurred())
-			Expect(ioutil.WriteFile(unsafepath.UnsafeAbsolute(deviceFile.Raw()), []byte("test"), 0644))
+			Expect(os.WriteFile(unsafepath.UnsafeAbsolute(deviceFile.Raw()), []byte("test"), 0644))
 
 			vmi.Status.VolumeStatus = []v1.VolumeStatus{{Name: "testvolume", HotplugVolume: &v1.HotplugVolumeStatus{}}}
 			targetDevicePath, err := newFile(targetPodPath, "testvolume")
@@ -400,7 +399,7 @@ var _ = Describe("HotplugVolume", func() {
 			deviceFile := filepath.Join(tempDir, "fghij", "volumes", "test-volume", "file")
 			err = os.MkdirAll(filepath.Dir(deviceFile), 0755)
 			Expect(err).ToNot(HaveOccurred())
-			err = ioutil.WriteFile(deviceFile, []byte("test"), 0644)
+			err = os.WriteFile(deviceFile, []byte("test"), 0644)
 			Expect(err).ToNot(HaveOccurred())
 			numbers, perm, err := m.getSourceMajorMinor("fghij", "test-volume")
 			Expect(err).ToNot(HaveOccurred())
@@ -531,7 +530,7 @@ var _ = Describe("HotplugVolume", func() {
 		)
 
 		BeforeEach(func() {
-			tempDir, err = ioutil.TempDir("", "hotplug-volume-test")
+			tempDir, err = os.MkdirTemp("", "hotplug-volume-test")
 			Expect(err).ToNot(HaveOccurred())
 			tmpDirSafe, err = safepath.JoinAndResolveWithRelativeRoot(tempDir)
 			Expect(err).ToNot(HaveOccurred())
@@ -745,7 +744,7 @@ var _ = Describe("HotplugVolume", func() {
 		)
 
 		BeforeEach(func() {
-			tempDir, err = ioutil.TempDir("", "hotplug-volume-test")
+			tempDir, err = os.MkdirTemp("", "hotplug-volume-test")
 			Expect(err).ToNot(HaveOccurred())
 			tmpDirSafe, err = safepath.JoinAndResolveWithRelativeRoot(tempDir)
 			Expect(err).ToNot(HaveOccurred())
@@ -838,7 +837,7 @@ var _ = Describe("HotplugVolume", func() {
 
 			deviceFile, err := newFile(unsafepath.UnsafeAbsolute(blockDevicePath.Raw()), "blockvolumefile")
 			Expect(err).ToNot(HaveOccurred())
-			err = ioutil.WriteFile(unsafepath.UnsafeAbsolute(deviceFile.Raw()), []byte("test"), 0644)
+			err = os.WriteFile(unsafepath.UnsafeAbsolute(deviceFile.Raw()), []byte("test"), 0644)
 			Expect(err).ToNot(HaveOccurred())
 
 			sourcePodBasePath = func(podUID types.UID) (*safepath.Path, error) {
@@ -894,7 +893,7 @@ var _ = Describe("HotplugVolume", func() {
 			}
 			expectedBytes, err := json.Marshal(record)
 			Expect(err).ToNot(HaveOccurred())
-			bytes, err := ioutil.ReadFile(filepath.Join(tempDir, string(vmi.UID)))
+			bytes, err := os.ReadFile(filepath.Join(tempDir, string(vmi.UID)))
 			Expect(err).ToNot(HaveOccurred())
 			Expect(bytes).To(Equal(expectedBytes))
 			_, err = os.Stat(targetFilePath)
@@ -910,7 +909,7 @@ var _ = Describe("HotplugVolume", func() {
 			vmi.Status.VolumeStatus = volumeStatuses
 			err = m.Unmount(vmi)
 			Expect(err).ToNot(HaveOccurred())
-			_, err = ioutil.ReadFile(filepath.Join(tempDir, string(vmi.UID)))
+			_, err = os.ReadFile(filepath.Join(tempDir, string(vmi.UID)))
 			Expect(err).To(HaveOccurred(), "record file still exists %s", filepath.Join(tempDir, string(vmi.UID)))
 			_, err = os.Stat(targetFilePath)
 			Expect(err).To(HaveOccurred(), "filesystem volume file still exists %s", targetFilePath)
@@ -968,7 +967,7 @@ var _ = Describe("HotplugVolume", func() {
 
 			deviceFile, err := newFile(unsafepath.UnsafeAbsolute(blockDevicePath.Raw()), "blockvolumefile")
 			Expect(err).ToNot(HaveOccurred())
-			err = ioutil.WriteFile(unsafepath.UnsafeAbsolute(deviceFile.Raw()), []byte("test"), 0644)
+			err = os.WriteFile(unsafepath.UnsafeAbsolute(deviceFile.Raw()), []byte("test"), 0644)
 			Expect(err).ToNot(HaveOccurred())
 
 			sourcePodBasePath = func(podUID types.UID) (*safepath.Path, error) {
@@ -1025,7 +1024,7 @@ var _ = Describe("HotplugVolume", func() {
 			}
 			expectedBytes, err := json.Marshal(record)
 			Expect(err).ToNot(HaveOccurred())
-			bytes, err := ioutil.ReadFile(filepath.Join(tempDir, string(vmi.UID)))
+			bytes, err := os.ReadFile(filepath.Join(tempDir, string(vmi.UID)))
 			Expect(err).ToNot(HaveOccurred())
 			Expect(bytes).To(Equal(expectedBytes))
 			_, err = os.Stat(targetFilePath)
@@ -1034,7 +1033,7 @@ var _ = Describe("HotplugVolume", func() {
 
 			err = m.UnmountAll(vmi)
 			Expect(err).ToNot(HaveOccurred())
-			_, err = ioutil.ReadFile(filepath.Join(tempDir, string(vmi.UID)))
+			_, err = os.ReadFile(filepath.Join(tempDir, string(vmi.UID)))
 			Expect(err).To(HaveOccurred(), "record file still exists %s", filepath.Join(tempDir, string(vmi.UID)))
 			_, err = os.Stat(targetFilePath)
 			Expect(err).To(HaveOccurred(), "filesystem volume file still exists %s", targetFilePath)

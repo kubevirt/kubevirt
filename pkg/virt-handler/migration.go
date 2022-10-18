@@ -21,7 +21,7 @@ package virthandler
 
 import (
 	"fmt"
-	"io/ioutil"
+	"os"
 
 	"gopkg.in/yaml.v2"
 )
@@ -30,7 +30,7 @@ import (
 func FindMigrationIP(networkStatusPath string, migrationIp string) (string, error) {
 	var networkStatus []NetworkStatus
 
-	dat, err := ioutil.ReadFile(networkStatusPath)
+	dat, err := os.ReadFile(networkStatusPath)
 	if err != nil {
 		return "", fmt.Errorf("failed to read network status from downwards API")
 	}

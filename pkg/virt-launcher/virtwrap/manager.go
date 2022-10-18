@@ -30,7 +30,6 @@ import (
 	"encoding/xml"
 	"errors"
 	"fmt"
-	"io/ioutil"
 	"os"
 	"os/exec"
 	"path/filepath"
@@ -1142,7 +1141,7 @@ func (l *LibvirtDomainManager) getDomainSpec(dom cli.VirDomain) (*api.DomainSpec
 }
 
 func removePreviousMemoryDump(dir string) {
-	files, err := ioutil.ReadDir(dir)
+	files, err := os.ReadDir(dir)
 	if err != nil {
 		log.Log.Reason(err).Errorf("failed to remove older memory dumps")
 		return

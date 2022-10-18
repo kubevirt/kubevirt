@@ -1,7 +1,6 @@
 package vhostmd
 
 import (
-	"io/ioutil"
 	"os"
 	"path/filepath"
 
@@ -41,7 +40,7 @@ var _ = Describe("vhostmd", func() {
 		var err error
 
 		BeforeEach(func() {
-			targetDir, err = ioutil.TempDir("", "vhostmd")
+			targetDir, err = os.MkdirTemp("", "vhostmd")
 			Expect(err).ToNot(HaveOccurred())
 		})
 

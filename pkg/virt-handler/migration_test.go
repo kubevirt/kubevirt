@@ -20,7 +20,6 @@
 package virthandler
 
 import (
-	"io/ioutil"
 	"os"
 
 	. "github.com/onsi/ginkgo/v2"
@@ -59,7 +58,7 @@ var _ = Describe("virt-handler", func() {
 			Expect(err.Error()).To(ContainSubstring("failed to read network status from downwards API"))
 		})
 		It("Should handle the empty file case", func() {
-			file, err := ioutil.TempFile("", "test")
+			file, err := os.CreateTemp("", "test")
 			Expect(err).ToNot(HaveOccurred())
 			defer os.Remove(file.Name())
 			newIP, err := FindMigrationIP(file.Name(), originalIP)
@@ -67,7 +66,7 @@ var _ = Describe("virt-handler", func() {
 			Expect(newIP).To(Equal(originalIP))
 		})
 		It("Should return the original IP if migration0 doesn't exist", func() {
-			file, err := ioutil.TempFile("", "test")
+			file, err := os.CreateTemp("", "test")
 			Expect(err).ToNot(HaveOccurred())
 			defer os.Remove(file.Name())
 			err = os.WriteFile(file.Name(), []byte(`[`+mainNetwork+`]`), 0644)
@@ -77,7 +76,7 @@ var _ = Describe("virt-handler", func() {
 			Expect(newIP).To(Equal(originalIP))
 		})
 		It("Should return the migration IP if migration0 exists", func() {
-			file, err := ioutil.TempFile("", "test")
+			file, err := os.CreateTemp("", "test")
 			Expect(err).ToNot(HaveOccurred())
 			defer os.Remove(file.Name())
 			err = os.WriteFile(file.Name(), []byte(`[`+mainNetwork+`,`+migrationNetwork+`]`), 0644)

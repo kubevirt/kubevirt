@@ -2,7 +2,6 @@ package selinux
 
 import (
 	"fmt"
-	"io/ioutil"
 	"os"
 	"path/filepath"
 
@@ -17,7 +16,7 @@ var _ = Describe("selinux", func() {
 
 	BeforeEach(func() {
 		var err error
-		tempDir, err = ioutil.TempDir("", "kubevirt")
+		tempDir, err = os.MkdirTemp("", "kubevirt")
 		Expect(err).ToNot(HaveOccurred())
 		Expect(os.MkdirAll(filepath.Join(tempDir, "/usr/sbin"), 0777)).ToNot(HaveOccurred())
 		Expect(os.MkdirAll(filepath.Join(tempDir, "/usr/bin"), 0777)).ToNot(HaveOccurred())

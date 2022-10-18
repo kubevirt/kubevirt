@@ -4,7 +4,6 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
-	"io/ioutil"
 	"os"
 	"time"
 
@@ -163,7 +162,7 @@ func (h *HeartBeat) isCPUManagerEnabled(cpuManagerPaths []string) bool {
 		return false
 	}
 	// #nosec No risk for path injection. cpuManagerPath is composed of static values from pkg/util
-	content, err := ioutil.ReadFile(cpuManagerPath)
+	content, err := os.ReadFile(cpuManagerPath)
 	if err != nil {
 		log.DefaultLogger().Reason(err).Errorf(failedSetCPUManagerLabelFmt, h.host)
 		return false

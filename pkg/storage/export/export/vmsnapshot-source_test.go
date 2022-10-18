@@ -22,7 +22,6 @@ import (
 	"context"
 	"crypto/tls"
 	"fmt"
-	"io/ioutil"
 	"os"
 	"path/filepath"
 	"time"
@@ -96,7 +95,7 @@ var _ = Describe("VMSnapshot source", func() {
 	BeforeEach(func() {
 		ctrl = gomock.NewController(GinkgoT())
 		var err error
-		certDir, err = ioutil.TempDir("", "certs")
+		certDir, err = os.MkdirTemp("", "certs")
 		Expect(err).ToNot(HaveOccurred())
 		certFilePath = filepath.Join(certDir, "tls.crt")
 		keyFilePath = filepath.Join(certDir, "tls.key")

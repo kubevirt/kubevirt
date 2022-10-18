@@ -21,7 +21,7 @@ package config
 
 import (
 	"fmt"
-	"io/ioutil"
+	"io"
 	"os"
 	"time"
 
@@ -46,7 +46,7 @@ const (
 
 //NewWorkload reads the test configuration file
 func NewWorkload(testConfigPath string) *Workload {
-	data, err := ioutil.ReadFile(testConfigPath)
+	data, err := os.ReadFile(testConfigPath)
 	if err != nil {
 		fmt.Println(err)
 		panic(err)
@@ -70,7 +70,7 @@ func (w *Workload) LoadObjTemplate() {
 		if err != nil {
 			panic(fmt.Errorf("unexpected error opening file %s: %v", templateFilePath, err))
 		}
-		objectTemplate, err := ioutil.ReadAll(f)
+		objectTemplate, err := io.ReadAll(f)
 		if err != nil {
 			panic(fmt.Errorf("unexpected error reading file %s: %v", templateFilePath, err))
 		}

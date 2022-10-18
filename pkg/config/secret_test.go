@@ -20,7 +20,6 @@
 package config
 
 import (
-	"io/ioutil"
 	"os"
 	"path/filepath"
 
@@ -37,13 +36,13 @@ var _ = Describe("Secret", func() {
 	BeforeEach(func() {
 		var err error
 
-		SecretSourceDir, err = ioutil.TempDir("", "secret")
+		SecretSourceDir, err = os.MkdirTemp("", "secret")
 		Expect(err).NotTo(HaveOccurred())
 		os.MkdirAll(filepath.Join(SecretSourceDir, "secret-volume", "test-dir"), 0755)
 		os.OpenFile(filepath.Join(SecretSourceDir, "secret-volume", "test-dir", "test-file1"), os.O_RDONLY|os.O_CREATE, 0666)
 		os.OpenFile(filepath.Join(SecretSourceDir, "secret-volume", "test-file2"), os.O_RDONLY|os.O_CREATE, 0666)
 
-		SecretDisksDir, err = ioutil.TempDir("", "secret-disks")
+		SecretDisksDir, err = os.MkdirTemp("", "secret-disks")
 		Expect(err).NotTo(HaveOccurred())
 	})
 

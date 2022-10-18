@@ -23,7 +23,6 @@ import (
 	"bytes"
 	"container/ring"
 	"errors"
-	"io/ioutil"
 	"os"
 	"path/filepath"
 	"strings"
@@ -94,7 +93,7 @@ func (m *MDEVTypesManager) discoverConfigurableMDEVTypes(desiredTypesMap map[str
 		parentID := filePathParts[len(filePathParts)-3]
 
 		//find the type's name
-		rawName, err := ioutil.ReadFile(filepath.Join(file, "name"))
+		rawName, err := os.ReadFile(filepath.Join(file, "name"))
 		if err != nil {
 			if !errors.Is(err, os.ErrNotExist) {
 				return err
@@ -203,7 +202,7 @@ func createMdevTypes(mdevType string, parentID string) error {
 
 func shouldRemoveMDEV(mdevUUID string, desiredTypesMap map[string]struct{}) bool {
 
-	if rawName, err := ioutil.ReadFile(filepath.Join(mdevBasePath, mdevUUID, "mdev_type/name")); err == nil {
+	if rawName, err := os.ReadFile(filepath.Join(mdevBasePath, mdevUUID, "mdev_type/name")); err == nil {
 		typeNameStr := strings.Replace(string(rawName), " ", "_", -1)
 		if _, exist := desiredTypesMap[typeNameStr]; exist {
 			return false
@@ -225,7 +224,7 @@ func shouldRemoveMDEV(mdevUUID string, desiredTypesMap map[string]struct{}) bool
 }
 
 func removeUndesiredMDEVs(desiredTypesMap map[string]struct{}) {
-	files, err := ioutil.ReadDir(mdevBasePath)
+	files, err := os.ReadDir(mdevBasePath)
 	if err != nil {
 		log.Log.Reason(err).Errorf("failed to remove mdev types: failed to read the content of %s directory", mdevBasePath)
 	}

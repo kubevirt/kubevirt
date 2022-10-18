@@ -4,7 +4,7 @@ import (
 	"bytes"
 	"encoding/json"
 	"fmt"
-	"io/ioutil"
+	"io"
 	"net/http"
 	"net/http/httptest"
 	"strings"
@@ -218,7 +218,7 @@ var _ = Describe("Instancetype expansion subresources", func() {
 		callExpandSpecApi := func(vm *v1.VirtualMachine) *httptest.ResponseRecorder {
 			vmJson, err := json.Marshal(vm)
 			Expect(err).ToNot(HaveOccurred())
-			request.Request.Body = ioutil.NopCloser(bytes.NewBuffer(vmJson))
+			request.Request.Body = io.NopCloser(bytes.NewBuffer(vmJson))
 
 			app.ExpandSpecRequestHandler(request, response)
 			return recorder
@@ -228,7 +228,7 @@ var _ = Describe("Instancetype expansion subresources", func() {
 
 		It("should fail if received invalid JSON", func() {
 			invalidJson := "this is invalid JSON {{{{"
-			request.Request.Body = ioutil.NopCloser(strings.NewReader(invalidJson))
+			request.Request.Body = io.NopCloser(strings.NewReader(invalidJson))
 
 			app.ExpandSpecRequestHandler(request, response)
 			_ = ExpectStatusErrorWithCode(recorder, http.StatusBadRequest)
@@ -245,7 +245,7 @@ var _ = Describe("Instancetype expansion subresources", func() {
 
 			jsonBytes, err := json.Marshal(notVm)
 			Expect(err).ToNot(HaveOccurred())
-			request.Request.Body = ioutil.NopCloser(bytes.NewBuffer(jsonBytes))
+			request.Request.Body = io.NopCloser(bytes.NewBuffer(jsonBytes))
 
 			app.ExpandSpecRequestHandler(request, response)
 			_ = ExpectStatusErrorWithCode(recorder, http.StatusBadRequest)

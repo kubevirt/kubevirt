@@ -23,7 +23,7 @@ import (
 	"context"
 	"crypto/tls"
 	"fmt"
-	"io/ioutil"
+	"io"
 	"net/http"
 	"net/url"
 	"os"
@@ -409,7 +409,7 @@ func uploadData(uploadProxyURL, token string, file *os.File, insecure bool) erro
 	reader := bar.NewProxyReader(file)
 
 	client := httpClientCreatorFunc(insecure)
-	req, _ := http.NewRequest("POST", url, ioutil.NopCloser(reader))
+	req, _ := http.NewRequest("POST", url, io.NopCloser(reader))
 
 	req.Header.Add("Authorization", "Bearer "+token)
 	req.Header.Add("Content-Type", "application/octet-stream")
@@ -428,7 +428,7 @@ func uploadData(uploadProxyURL, token string, file *os.File, insecure bool) erro
 	}
 	defer resp.Body.Close()
 	if resp.StatusCode != http.StatusOK {
-		body, err := ioutil.ReadAll(resp.Body)
+		body, err := io.ReadAll(resp.Body)
 		if err != nil {
 			return err
 		}

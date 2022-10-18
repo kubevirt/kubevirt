@@ -3,7 +3,6 @@ package main
 import (
 	"bytes"
 	"fmt"
-	"io/ioutil"
 	"os"
 	"path/filepath"
 
@@ -24,7 +23,7 @@ func NewGetEnforceCommand() *cobra.Command {
 		Short: "determine if selinux is present",
 		Args:  cobra.ExactArgs(0),
 		RunE: func(cmd *cobra.Command, args []string) error {
-			enforcing, err := ioutil.ReadFile("/sys/fs/selinux/enforce")
+			enforcing, err := os.ReadFile("/sys/fs/selinux/enforce")
 			if err != nil {
 				fmt.Println("disabled")
 			} else if bytes.Compare(enforcing, []byte("1")) == 0 {

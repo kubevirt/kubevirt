@@ -22,7 +22,6 @@ package cmdserver
 import (
 	"context"
 	"errors"
-	"io/ioutil"
 	"os"
 	"path/filepath"
 	"time"
@@ -58,7 +57,7 @@ var _ = Describe("Virt remote commands", func() {
 	BeforeEach(func() {
 		stop = make(chan struct{})
 		stopped = false
-		shareDir, err = ioutil.TempDir("", "kubevirt-share")
+		shareDir, err = os.MkdirTemp("", "kubevirt-share")
 		Expect(err).ToNot(HaveOccurred())
 
 		ctrl = gomock.NewController(GinkgoT())

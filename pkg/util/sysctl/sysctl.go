@@ -17,7 +17,7 @@ Originally copied from https://github.com/kubernetes/kubernetes/blob/d8695d06b71
 package sysctl
 
 import (
-	"io/ioutil"
+	"os"
 	"path"
 	"strings"
 
@@ -53,7 +53,7 @@ type procSysctl struct {
 
 // GetSysctl returns the value for the specified sysctl setting
 func (*procSysctl) GetSysctl(sysctl string) (string, error) {
-	data, err := ioutil.ReadFile(path.Join(sysctlBase, sysctl))
+	data, err := os.ReadFile(path.Join(sysctlBase, sysctl))
 	if err != nil {
 		return "-1", err
 	}

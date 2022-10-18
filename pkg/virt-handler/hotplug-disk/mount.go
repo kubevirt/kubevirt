@@ -4,7 +4,6 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
-	"io/ioutil"
 	"os"
 	"path/filepath"
 	"sync"
@@ -235,7 +234,7 @@ func (m *volumeMounter) getMountTargetRecord(vmi *v1.VirtualMachineInstance) (*v
 
 	if exists {
 		record := vmiMountTargetRecord{}
-		bytes, err := ioutil.ReadFile(recordFile)
+		bytes, err := os.ReadFile(recordFile)
 		if err != nil {
 			return nil, err
 		}
@@ -289,7 +288,7 @@ func (m *volumeMounter) setMountTargetRecord(vmi *v1.VirtualMachineInstance, rec
 		return err
 	}
 
-	err = ioutil.WriteFile(recordFile, bytes, 0600)
+	err = os.WriteFile(recordFile, bytes, 0600)
 	if err != nil {
 		return err
 	}

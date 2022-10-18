@@ -4,7 +4,7 @@ import (
 	"crypto/tls"
 	"crypto/x509"
 	"fmt"
-	"io/ioutil"
+	"io"
 	"net/http"
 	"net/http/httptest"
 	"strings"
@@ -126,7 +126,7 @@ var _ = Describe("TLS", func() {
 			Expect(err.Error()).To(ContainSubstring(errStr))
 			return
 		}
-		body, err := ioutil.ReadAll(resp.Body)
+		body, err := io.ReadAll(resp.Body)
 		Expect(err).ToNot(HaveOccurred())
 		Expect(strings.TrimSpace(string(body))).To(Equal("hello"))
 	},
@@ -169,7 +169,7 @@ var _ = Describe("TLS", func() {
 			Expect(err.Error()).To(ContainSubstring(errStr))
 			return
 		}
-		body, err := ioutil.ReadAll(resp.Body)
+		body, err := io.ReadAll(resp.Body)
 		Expect(err).ToNot(HaveOccurred())
 		Expect(strings.TrimSpace(string(body))).To(Equal("hello"))
 	},
@@ -204,7 +204,7 @@ var _ = Describe("TLS", func() {
 		client := &http.Client{Transport: &http.Transport{TLSClientConfig: &tls.Config{InsecureSkipVerify: true}}}
 		resp, err := client.Get(srv.URL)
 		Expect(err).ToNot(HaveOccurred())
-		body, err := ioutil.ReadAll(resp.Body)
+		body, err := io.ReadAll(resp.Body)
 		Expect(err).ToNot(HaveOccurred())
 		Expect(strings.TrimSpace(string(body))).To(Equal("hello"))
 	},
@@ -235,7 +235,7 @@ var _ = Describe("TLS", func() {
 			Expect(err.Error()).To(ContainSubstring(errStr))
 			return
 		}
-		body, err := ioutil.ReadAll(resp.Body)
+		body, err := io.ReadAll(resp.Body)
 		Expect(err).ToNot(HaveOccurred())
 		Expect(strings.TrimSpace(string(body))).To(Equal("hello"))
 	},
@@ -278,7 +278,7 @@ var _ = Describe("TLS", func() {
 			Expect(err.Error()).To(ContainSubstring(errStr))
 			return
 		}
-		body, err := ioutil.ReadAll(resp.Body)
+		body, err := io.ReadAll(resp.Body)
 		Expect(err).ToNot(HaveOccurred())
 		Expect(strings.TrimSpace(string(body))).To(Equal("hello"))
 	},
@@ -318,7 +318,7 @@ var _ = Describe("TLS", func() {
 		client := &http.Client{Transport: &http.Transport{TLSClientConfig: clientTLSConfig}}
 		resp, err := client.Get(srv.URL)
 		Expect(err).ToNot(HaveOccurred())
-		body, err := ioutil.ReadAll(resp.Body)
+		body, err := io.ReadAll(resp.Body)
 		Expect(err).ToNot(HaveOccurred())
 		Expect(strings.TrimSpace(string(body))).To(Equal("hello"))
 

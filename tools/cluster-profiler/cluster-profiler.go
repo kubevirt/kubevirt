@@ -22,7 +22,6 @@ package main
 import (
 	"errors"
 	"fmt"
-	"io/ioutil"
 	"log"
 	"os"
 	"path/filepath"
@@ -76,7 +75,7 @@ func writeResultsToDisk(dir string, results *v1.ClusterProfilerResults) error {
 
 		for pprofKey, pprofBytes := range val.PprofData {
 			filePath := filepath.Join(componentDir, pprofKey)
-			err = ioutil.WriteFile(filePath, pprofBytes, 0644)
+			err = os.WriteFile(filePath, pprofBytes, 0644)
 			if err != nil {
 				return err
 			}

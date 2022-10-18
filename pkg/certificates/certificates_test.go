@@ -1,7 +1,6 @@
 package certificates_test
 
 import (
-	"io/ioutil"
 	"os"
 
 	. "github.com/onsi/ginkgo/v2"
@@ -16,7 +15,7 @@ var _ = Describe("Certificates", func() {
 
 	BeforeEach(func() {
 		var err error
-		certDir, err = ioutil.TempDir("", "certsdir")
+		certDir, err = os.MkdirTemp("", "certsdir")
 		Expect(err).ToNot(HaveOccurred())
 	})
 

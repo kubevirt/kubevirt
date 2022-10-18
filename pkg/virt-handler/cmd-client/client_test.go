@@ -21,7 +21,6 @@ package cmdclient
 
 import (
 	"errors"
-	"io/ioutil"
 	"os"
 	"path/filepath"
 
@@ -60,10 +59,10 @@ var _ = Describe("Virt remote commands", func() {
 			},
 		}
 
-		shareDir, err = ioutil.TempDir("", "kubevirt-share")
+		shareDir, err = os.MkdirTemp("", "kubevirt-share")
 		Expect(err).ToNot(HaveOccurred())
 
-		podsDir, err = ioutil.TempDir("", "pods")
+		podsDir, err = os.MkdirTemp("", "pods")
 		Expect(err).ToNot(HaveOccurred())
 
 		socketsDir = filepath.Join(shareDir, "sockets")

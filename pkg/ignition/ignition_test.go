@@ -21,7 +21,6 @@ package ignition
 
 import (
 	"fmt"
-	"io/ioutil"
 	"os"
 
 	. "github.com/onsi/ginkgo/v2"
@@ -36,7 +35,7 @@ var tmpDir string
 
 var _ = BeforeSuite(func() {
 	var err error
-	tmpDir, err = ioutil.TempDir("", "ignitiontest")
+	tmpDir, err = os.MkdirTemp("", "ignitiontest")
 	Expect(err).ToNot(HaveOccurred())
 	DeferCleanup(os.RemoveAll, tmpDir)
 

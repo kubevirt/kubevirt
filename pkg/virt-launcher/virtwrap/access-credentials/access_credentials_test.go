@@ -23,7 +23,6 @@ import (
 	"encoding/base64"
 	"encoding/xml"
 	"fmt"
-	"io/ioutil"
 	"os"
 	"path/filepath"
 	"runtime"
@@ -64,7 +63,7 @@ var _ = Describe("AccessCredentials", func() {
 
 		manager = NewManager(mockConn, &lock)
 		manager.resyncCheckIntervalSeconds = 1
-		tmpDir, err = ioutil.TempDir("", "credential-test")
+		tmpDir, err = os.MkdirTemp("", "credential-test")
 		Expect(err).ToNot(HaveOccurred())
 		unitTestSecretDir = tmpDir
 	})
@@ -246,7 +245,7 @@ var _ = Describe("AccessCredentials", func() {
 		}
 
 		// Write the file
-		Expect(ioutil.WriteFile(filepath.Join(secretDirs[0], user), []byte(password), 0644)).To(Succeed())
+		Expect(os.WriteFile(filepath.Join(secretDirs[0], user), []byte(password), 0644)).To(Succeed())
 
 		// set the expected command
 		base64Str := base64.StdEncoding.EncodeToString([]byte(password))
@@ -297,7 +296,7 @@ var _ = Describe("AccessCredentials", func() {
 		matched = false
 		manager.stopCh = make(chan struct{})
 		password = password + "morefake"
-		Expect(ioutil.WriteFile(filepath.Join(secretDirs[0], user), []byte(password), 0644)).To(Succeed())
+		Expect(os.WriteFile(filepath.Join(secretDirs[0], user), []byte(password), 0644)).To(Succeed())
 		base64Str = base64.StdEncoding.EncodeToString([]byte(password))
 		cmdSetPassword = fmt.Sprintf(`{"execute":"guest-set-user-password", "arguments": {"username":"%s", "password": "%s", "crypted": false }}`, user, base64Str)
 		mockConn.EXPECT().QemuAgentCommand(cmdSetPassword, domName).MinTimes(1).Return("", nil)

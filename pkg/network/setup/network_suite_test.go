@@ -1,7 +1,7 @@
 package network
 
 import (
-	"io/ioutil"
+	"os"
 	"sync"
 	"testing"
 
@@ -61,7 +61,7 @@ type tempCacheCreator struct {
 
 func (c *tempCacheCreator) New(filePath string) *cache.Cache {
 	c.once.Do(func() {
-		tmpDir, err := ioutil.TempDir("", "temp-cache")
+		tmpDir, err := os.MkdirTemp("", "temp-cache")
 		if err != nil {
 			panic("Unable to create temp cache directory")
 		}
