@@ -6,7 +6,6 @@ import (
 	"github.com/kubevirt/hyperconverged-cluster-operator/controllers/alerts"
 
 	"fmt"
-	"io/ioutil"
 	"os"
 )
 
@@ -32,7 +31,7 @@ func main() {
 		panic(err)
 	}
 
-	err = ioutil.WriteFile(targetFile, b, 0644)
+	err = os.WriteFile(targetFile, b, 0644)
 	if err != nil {
 		panic(err)
 	}

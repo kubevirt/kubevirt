@@ -51,7 +51,7 @@ if ! which nmap ; then
 fi
 
 if [ -n "${OPENSHIFT_BUILD_NAMESPACE:-}" ]; then
-  # on openshift-ci we are building with rhel-8-release-golang-1.18-openshift-4.11
+  # on openshift-ci we are building with rhel-8-release-golang-1.19-openshift-4.12
   # which is FIPS compliant so only a subset of the allowed ciphers are available
   FIPS=".fips"
   IPADDR=$(${KUBECTL_BINARY} get pods -n "${INSTALLED_NAMESPACE}" -l name=hyperconverged-cluster-webhook -o jsonpath='{.items[0].status.podIP}')

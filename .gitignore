@@ -8,3 +8,5 @@ _kubevirtci/
 .vscode/
 hack/cloud-init.sh
 hack/test_ssh*
+tools/release-notes/vendor/
+tools/release-notes/git/vendor/

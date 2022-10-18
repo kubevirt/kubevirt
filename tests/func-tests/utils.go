@@ -23,7 +23,7 @@ func init() {
 	flag.StringVar(&KubeVirtStorageClassLocal, "storage-class-local", "local", "Storage provider to use for tests which want local storage")
 }
 
-//GetJobTypeEnvVar returns "JOB_TYPE" enviroment varibale
+// GetJobTypeEnvVar returns "JOB_TYPE" enviroment varibale
 func GetJobTypeEnvVar() string {
 	return (os.Getenv("JOB_TYPE"))
 }

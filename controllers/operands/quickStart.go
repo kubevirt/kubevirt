@@ -87,10 +87,11 @@ func (h qsHooks) updateCr(req *common.HcoRequest, Client client.Client, exists r
 func (qsHooks) justBeforeComplete(_ *common.HcoRequest) { /* no implementation */ }
 
 // This function returns 3-state error:
-//   err := checkCrdExists(...)
-//   err == nil - OK, CRD exists
-//   err != nil && errors.Unwrap(err) == nil - CRD does not exist, but that ok
-//   err != nil && errors.Unwrap(err) != nil - actual error
+//
+//	err := checkCrdExists(...)
+//	err == nil - OK, CRD exists
+//	err != nil && errors.Unwrap(err) == nil - CRD does not exist, but that ok
+//	err != nil && errors.Unwrap(err) != nil - actual error
 func checkCrdExists(ctx context.Context, Client client.Client, logger log.Logger) error {
 	qsCrd := &extv1.CustomResourceDefinition{
 		TypeMeta: metav1.TypeMeta{

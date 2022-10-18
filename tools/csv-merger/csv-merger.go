@@ -24,7 +24,7 @@ import (
 	"errors"
 	"flag"
 	"fmt"
-	"io/ioutil"
+	"io"
 	"log"
 	"os"
 	"path/filepath"
@@ -137,7 +137,7 @@ func genHcoCrds() error {
 
 func IOReadDir(root string) ([]string, error) {
 	var files []string
-	fileInfo, err := ioutil.ReadDir(root)
+	fileInfo, err := os.ReadDir(root)
 	if err != nil {
 		return files, err
 	}
@@ -222,7 +222,7 @@ func getCrdMap(crdFiles []string) map[string][]string {
 		file, err := os.Open(crdFilePath)
 		panicOnError(err)
 
-		content, err := ioutil.ReadAll(file)
+		content, err := io.ReadAll(file)
 		panicOnError(err)
 
 		err = file.Close()

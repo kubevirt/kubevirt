@@ -3,14 +3,13 @@ package util
 import (
 	"fmt"
 	"io"
-	"io/ioutil"
 	"os"
 
 	"github.com/ghodss/yaml"
 )
 
 func UnmarshalYamlFileToObject(file io.Reader, o interface{}) error {
-	yamlBytes, err := ioutil.ReadAll(file)
+	yamlBytes, err := io.ReadAll(file)
 	if err != nil {
 		return err
 	}
@@ -24,10 +23,11 @@ func UnmarshalYamlFileToObject(file io.Reader, o interface{}) error {
 
 // ValidateManifestDir checks a directory contains manifests file in YAML format
 // This function returns 3-state error:
-//   err := ValidateManifestDir(...)
-//   err == nil - OK: directory exists
-//   err != nil && errors.Unwrap(err) == nil - directory does not exist, but that ok
-//   err != nil && errors.Unwrap(err) != nil - actual error
+//
+//	err := ValidateManifestDir(...)
+//	err == nil - OK: directory exists
+//	err != nil && errors.Unwrap(err) == nil - directory does not exist, but that ok
+//	err != nil && errors.Unwrap(err) != nil - actual error
 func ValidateManifestDir(dir string) error {
 	info, err := os.Stat(dir)
 	if err != nil {

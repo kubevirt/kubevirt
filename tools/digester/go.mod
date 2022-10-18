@@ -1,6 +1,6 @@
 module github.com/kubevirt/hyperconverged-cluster-operator/tools/digester
 
-go 1.18
+go 1.19
 
 require (
 	github.com/containers/image/v5 v5.19.2
