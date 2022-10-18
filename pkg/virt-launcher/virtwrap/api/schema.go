@@ -470,6 +470,7 @@ type Devices struct {
 	Redirs      []RedirectedDevice `xml:"redirdev,omitempty"`
 	SoundCards  []SoundCard        `xml:"sound,omitempty"`
 	TPMs        []TPM              `xml:"tpm,omitempty"`
+	VSOCK       *VSOCK             `xml:"vsock,omitempty"`
 }
 
 type TPM struct {
@@ -1014,6 +1015,20 @@ type Address struct {
 }
 
 //END Video -------------------
+
+//BEGIN VSOCK -------------------
+
+type VSOCK struct {
+	Model string `xml:"model,attr,omitempty"`
+	CID   CID    `xml:"cid"`
+}
+
+type CID struct {
+	Auto    string `xml:"auto,attr"`
+	Address uint32 `xml:"address,attr,omitempty"`
+}
+
+//END VSOCK -------------------
 
 type Stats struct {
 	Period uint `xml:"period,attr"`

@@ -66,6 +66,7 @@ const KvmDevice = "devices.kubevirt.io/kvm"
 const TunDevice = "devices.kubevirt.io/tun"
 const VhostNetDevice = "devices.kubevirt.io/vhost-net"
 const SevDevice = "devices.kubevirt.io/sev"
+const VhostVsockDevice = "devices.kubevirt.io/vhost-vsock"
 
 const debugLogs = "debugLogs"
 const logVerbosity = "logVerbosity"

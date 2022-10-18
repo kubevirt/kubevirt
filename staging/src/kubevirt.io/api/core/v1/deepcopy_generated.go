@@ -813,6 +813,11 @@ func (in *Devices) DeepCopyInto(out *Devices) {
 		*out = new(bool)
 		**out = **in
 	}
+	if in.AutoattachVSOCK != nil {
+		in, out := &in.AutoattachVSOCK, &out.AutoattachVSOCK
+		*out = new(bool)
+		**out = **in
+	}
 	if in.Rng != nil {
 		in, out := &in.Rng, &out.Rng
 		*out = new(Rng)
@@ -4713,6 +4718,11 @@ func (in *VirtualMachineInstanceStatus) DeepCopyInto(out *VirtualMachineInstance
 		in, out := &in.TopologyHints, &out.TopologyHints
 		*out = new(TopologyHints)
 		(*in).DeepCopyInto(*out)
+	}
+	if in.VSOCKCID != nil {
+		in, out := &in.VSOCKCID, &out.VSOCKCID
+		*out = new(uint32)
+		**out = **in
 	}
 	return
 }

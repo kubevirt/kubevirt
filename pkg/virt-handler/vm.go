@@ -2543,6 +2543,11 @@ func (d *VirtualMachineController) vmUpdateHelperMigrationTarget(origVMI *v1.Vir
 	if err != nil {
 		return fmt.Errorf("failed to set up file ownership for /dev/kvm: %v", err)
 	}
+	if virtutil.IsAutoAttachVSOCK(vmi) {
+		if err := d.claimDeviceOwnership(virtLauncherRootMount, "vhost-vsock"); err != nil {
+			return fmt.Errorf("failed to set up file ownership for /dev/vhost-vsock: %v", err)
+		}
+	}
 
 	lessPVCSpaceToleration := d.clusterConfig.GetLessPVCSpaceToleration()
 	minimumPVCReserveBytes := d.clusterConfig.GetMinimumReservePVCBytes()
@@ -2630,6 +2635,11 @@ func (d *VirtualMachineController) vmUpdateHelperDefault(origVMI *v1.VirtualMach
 		err = d.claimDeviceOwnership(virtLauncherRootMount, "kvm")
 		if err != nil {
 			return fmt.Errorf("failed to set up file ownership for /dev/kvm: %v", err)
+		}
+		if virtutil.IsAutoAttachVSOCK(vmi) {
+			if err := d.claimDeviceOwnership(virtLauncherRootMount, "vhost-vsock"); err != nil {
+				return fmt.Errorf("failed to set up file ownership for /dev/vhost-vsock: %v", err)
+			}
 		}
 
 		lessPVCSpaceToleration := d.clusterConfig.GetLessPVCSpaceToleration()

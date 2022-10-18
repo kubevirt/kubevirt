@@ -15733,6 +15733,13 @@ func schema_kubevirtio_api_core_v1_Devices(ref common.ReferenceCallback) common.
 							Format:      "",
 						},
 					},
+					"autoattachVSOCK": {
+						SchemaProps: spec.SchemaProps{
+							Description: "Whether to attach the VSOCK CID to the VM or not. VSOCK access will be available if set to true. Defaults to false.",
+							Type:        []string{"boolean"},
+							Format:      "",
+						},
+					},
 					"rng": {
 						SchemaProps: spec.SchemaProps{
 							Description: "Whether to have random number generator from host",
@@ -22054,6 +22061,13 @@ func schema_kubevirtio_api_core_v1_VirtualMachineInstanceStatus(ref common.Refer
 					"runtimeUser": {
 						SchemaProps: spec.SchemaProps{
 							Description: "RuntimeUser is used to determine what user will be used in launcher",
+							Type:        []string{"integer"},
+							Format:      "int64",
+						},
+					},
+					"VSOCKCID": {
+						SchemaProps: spec.SchemaProps{
+							Description: "VSOCKCID is used to track the allocated VSOCK CID in the VM.",
 							Type:        []string{"integer"},
 							Format:      "int64",
 						},

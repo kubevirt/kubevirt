@@ -178,6 +178,7 @@ func (c *DeviceController) updatePermittedHostDevicePlugins() []Device {
 		IsAllowed func() bool
 	}{
 		{"sev", "/dev/sev", c.virtConfig.WorkloadEncryptionSEVEnabled},
+		{"vhost-vsock", "/dev/vhost-vsock", c.virtConfig.VSOCKEnabled},
 	}
 	for _, dev := range featureGatedDevices {
 		if dev.IsAllowed() {

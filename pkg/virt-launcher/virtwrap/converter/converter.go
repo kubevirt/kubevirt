@@ -1831,6 +1831,17 @@ func Convert_v1_VirtualMachineInstance_To_api_Domain(vmi *v1.VirtualMachineInsta
 		}
 	}
 
+	// Handle VSOCK CID
+	if vmi.Status.VSOCKCID != nil {
+		domain.Spec.Devices.VSOCK = &api.VSOCK{
+			Model: translateModel(c, "virtio"),
+			CID: api.CID{
+				Auto:    "no",
+				Address: *vmi.Status.VSOCKCID,
+			},
+		}
+	}
+
 	return nil
 }
 

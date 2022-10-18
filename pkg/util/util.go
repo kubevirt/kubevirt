@@ -136,6 +136,10 @@ func NeedTunDevice(vmi *v1.VirtualMachineInstance) bool {
 		(*vmi.Spec.Domain.Devices.AutoattachPodInterface == true)
 }
 
+func IsAutoAttachVSOCK(vmi *v1.VirtualMachineInstance) bool {
+	return vmi.Spec.Domain.Devices.AutoattachVSOCK != nil && *vmi.Spec.Domain.Devices.AutoattachVSOCK
+}
+
 // UseSoftwareEmulationForDevice determines whether to fallback to software emulation for the given device.
 // This happens when the given device doesn't exist, and software emulation is enabled.
 func UseSoftwareEmulationForDevice(devicePath string, allowEmulation bool) (bool, error) {

@@ -2940,6 +2940,41 @@ var _ = Describe("VirtualMachineInstance watcher", func() {
 
 		})
 	})
+
+	Context("auto attach VSOCK", func() {
+		It("should allocate CID when VirtualMachineInstance is scheduled", func() {
+			vmi := NewPendingVirtualMachine("testvmi")
+			setReadyCondition(vmi, k8sv1.ConditionFalse, virtv1.GuestNotRunningReason)
+			vmi.Status.Phase = virtv1.Scheduling
+			vmi.Spec.Domain.Devices.AutoattachVSOCK = pointer.Bool(true)
+			pod := NewPodForVirtualMachine(vmi, k8sv1.PodRunning)
+
+			addVirtualMachine(vmi)
+			podFeeder.Add(pod)
+
+			vmiInterface.EXPECT().Update(gomock.Any()).Do(func(arg *virtv1.VirtualMachineInstance) {
+				Expect(arg.Status.Phase).To(Equal(virtv1.Scheduled))
+				Expect(arg.Status.PhaseTransitionTimestamps).ToNot(BeEmpty())
+				Expect(arg.Status.PhaseTransitionTimestamps).ToNot(HaveLen(len(vmi.Status.PhaseTransitionTimestamps)))
+				Expect(arg.Status.VSOCKCID).NotTo(BeNil())
+			}).Return(vmi, nil)
+			controller.Execute()
+		})
+
+		It("should recycle the CID when the pods are deleted", func() {
+			vmi := NewPendingVirtualMachine("testvmi")
+			vmi.Spec.Domain.Devices.AutoattachVSOCK = pointer.Bool(true)
+			Expect(controller.cidsMap.Allocate(vmi)).To(Succeed())
+			vmi.Status.Phase = virtv1.Succeeded
+			addVirtualMachine(vmi)
+
+			Expect(vmiInformer.GetIndexer().Delete(vmi)).To(Succeed())
+			controller.Execute()
+
+			Expect(controller.cidsMap.cids).To(BeEmpty())
+			Expect(controller.cidsMap.reverse).To(BeEmpty())
+		})
+	})
 })
 
 func NewDv(namespace string, name string, phase cdiv1.DataVolumePhase) *cdiv1.DataVolume {

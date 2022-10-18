@@ -48,6 +48,7 @@ import (
 	"kubevirt.io/kubevirt/pkg/network/sriov"
 	"kubevirt.io/kubevirt/pkg/network/vmispec"
 	storagetypes "kubevirt.io/kubevirt/pkg/storage/types"
+	"kubevirt.io/kubevirt/pkg/util"
 	traceUtils "kubevirt.io/kubevirt/pkg/util/trace"
 	patchtypes "kubevirt.io/kubevirt/pkg/util/types"
 	virtconfig "kubevirt.io/kubevirt/pkg/virt-config"
@@ -155,6 +156,7 @@ func NewVMIController(templateService services.TemplateService,
 		topologyHinter:     topologyHinter,
 		namespaceStore:     namespaceStore,
 		onOpenshift:        onOpenshift,
+		cidsMap:            newCIDsMap(),
 	}
 
 	c.vmiInformer.AddEventHandler(cache.ResourceEventHandlerFuncs{
@@ -218,6 +220,7 @@ type VMIController struct {
 	clusterConfig      *virtconfig.ClusterConfig
 	namespaceStore     cache.Store
 	onOpenshift        bool
+	cidsMap            *cidsMap
 }
 
 func (c *VMIController) Run(threadiness int, stopCh <-chan struct{}) {
@@ -227,6 +230,13 @@ func (c *VMIController) Run(threadiness int, stopCh <-chan struct{}) {
 
 	// Wait for cache sync before we start the pod controller
 	cache.WaitForCacheSync(stopCh, c.vmInformer.HasSynced, c.vmiInformer.HasSynced, c.podInformer.HasSynced, c.dataVolumeInformer.HasSynced, c.cdiConfigInformer.HasSynced, c.cdiInformer.HasSynced)
+	// Sync the CIDs from exist VMIs
+	var vmis []*virtv1.VirtualMachineInstance
+	for _, obj := range c.vmiInformer.GetStore().List() {
+		vmi := obj.(*virtv1.VirtualMachineInstance)
+		vmis = append(vmis, vmi)
+	}
+	c.cidsMap.Sync(vmis)
 
 	// Start the actual work
 	for i := 0; i < threadiness; i++ {
@@ -279,6 +289,7 @@ func (c *VMIController) execute(key string) error {
 	if !exists {
 		c.podExpectations.DeleteExpectations(key)
 		c.vmiExpectations.DeleteExpectations(key)
+		c.cidsMap.Remove(key)
 		return nil
 	}
 	vmi := obj.(*virtv1.VirtualMachineInstance)
@@ -549,6 +560,13 @@ func (c *VMIController) updateStatus(vmi *virtv1.VirtualMachineInstance, pod *k8
 				// will set up a TCP proxy, as expected by a legacy virt-launcher.
 				if shouldSetMigrationTransport(pod) {
 					vmiCopy.Status.MigrationTransport = virtv1.MigrationTransportUnix
+				}
+
+				// Allocate the CID if VSOCK is enabled.
+				if util.IsAutoAttachVSOCK(vmiCopy) {
+					if err := c.cidsMap.Allocate(vmiCopy); err != nil {
+						return err
+					}
 				}
 			} else if isPodDownOrGoingDown(pod) {
 				vmiCopy.Status.Phase = virtv1.Failed
