@@ -201,16 +201,6 @@ func (_mr *_MockNetworkHandlerRecorder) StartDHCP(arg0, arg1, arg2 interface{}) 
 	return _mr.mock.ctrl.RecordCall(_mr.mock, "StartDHCP", arg0, arg1, arg2)
 }
 
-func (_m *MockNetworkHandler) HasNatIptables(proto iptables.Protocol) bool {
-	ret := _m.ctrl.Call(_m, "HasNatIptables", proto)
-	ret0, _ := ret[0].(bool)
-	return ret0
-}
-
-func (_mr *_MockNetworkHandlerRecorder) HasNatIptables(arg0 interface{}) *gomock.Call {
-	return _mr.mock.ctrl.RecordCall(_mr.mock, "HasNatIptables", arg0)
-}
-
 func (_m *MockNetworkHandler) HasIPv4GlobalUnicastAddress(interfaceName string) (bool, error) {
 	ret := _m.ctrl.Call(_m, "HasIPv4GlobalUnicastAddress", interfaceName)
 	ret0, _ := ret[0].(bool)
@@ -292,31 +282,6 @@ func (_m *MockNetworkHandler) ConfigureUnprivilegedPortStart(_param0 string) err
 
 func (_mr *_MockNetworkHandlerRecorder) ConfigureUnprivilegedPortStart(arg0 interface{}) *gomock.Call {
 	return _mr.mock.ctrl.RecordCall(_mr.mock, "ConfigureUnprivilegedPortStart", arg0)
-}
-
-func (_m *MockNetworkHandler) IptablesNewChain(proto iptables.Protocol, table string, chain string) error {
-	ret := _m.ctrl.Call(_m, "IptablesNewChain", proto, table, chain)
-	ret0, _ := ret[0].(error)
-	return ret0
-}
-
-func (_mr *_MockNetworkHandlerRecorder) IptablesNewChain(arg0, arg1, arg2 interface{}) *gomock.Call {
-	return _mr.mock.ctrl.RecordCall(_mr.mock, "IptablesNewChain", arg0, arg1, arg2)
-}
-
-func (_m *MockNetworkHandler) IptablesAppendRule(proto iptables.Protocol, table string, chain string, rulespec ...string) error {
-	_s := []interface{}{proto, table, chain}
-	for _, _x := range rulespec {
-		_s = append(_s, _x)
-	}
-	ret := _m.ctrl.Call(_m, "IptablesAppendRule", _s...)
-	ret0, _ := ret[0].(error)
-	return ret0
-}
-
-func (_mr *_MockNetworkHandlerRecorder) IptablesAppendRule(arg0, arg1, arg2 interface{}, arg3 ...interface{}) *gomock.Call {
-	_s := append([]interface{}{arg0, arg1, arg2}, arg3...)
-	return _mr.mock.ctrl.RecordCall(_mr.mock, "IptablesAppendRule", _s...)
 }
 
 func (_m *MockNetworkHandler) NftablesNewChain(proto iptables.Protocol, table string, chain string) error {
