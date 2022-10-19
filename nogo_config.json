@@ -159,7 +159,6 @@
       "pkg/handler-launcher-com/": "KubeVirt handler-launcher-com pkg does not pass errcheck yet",
       "pkg/healthz/": "KubeVirt healthz pkg does not pass errcheck yet",
       "pkg/hooks/": "KubeVirt hooks pkg does not pass errcheck yet",
-      "pkg/hotplug-disk/": "KubeVirt hotplug-disk pkg does not pass errcheck yet",
       "pkg/ignition/": "KubeVirt ignition pkg does not pass errcheck yet",
       "pkg/inotify-informer/": "KubeVirt inotify-informer pkg does not pass errcheck yet",
       "pkg/monitoring/": "KubeVirt monitoring pkg does not pass errcheck yet",
