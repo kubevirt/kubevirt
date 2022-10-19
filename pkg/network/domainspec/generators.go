@@ -230,11 +230,12 @@ func (b *SlirpLibvirtSpecGenerator) Generate() error {
 		return fmt.Errorf("failed to find interface %s in vmi spec", b.vmiSpecIface.Name)
 	}
 
-	qemuArg := fmt.Sprintf("%s,netdev=%s,id=%s", foundIfaceModelType, b.vmiSpecIface.Name, b.vmiSpecIface.Name)
+	qemuArg := fmt.Sprintf(`{"driver":%q,"netdev":%q,"id":%q`, foundIfaceModelType, b.vmiSpecIface.Name, b.vmiSpecIface.Name)
 	if b.vmiSpecIface.MacAddress != "" {
 		// We assume address was already validated in API layer so just pass it to libvirt as-is.
-		qemuArg += fmt.Sprintf(",mac=%s", b.vmiSpecIface.MacAddress)
+		qemuArg += fmt.Sprintf(`,"mac":%q`, b.vmiSpecIface.MacAddress)
 	}
+	qemuArg += "}"
 	// Add interface configuration to qemuArgs
 	b.domain.Spec.QEMUCmd.QEMUArg = append(
 		b.domain.Spec.QEMUCmd.QEMUArg,
