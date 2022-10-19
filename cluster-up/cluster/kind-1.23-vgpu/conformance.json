@@ -1,58 +1,16 @@
 {
   "Description": "DEFAULT",
-  "UUID": "c3bc7d76-6ce8-4c8a-8bcb-5c7ae5fb22a3",
-  "Version": "v0.50.0",
-  "ResultsDir": "/tmp/sonobuoy",
-  "Resources": [
-    "apiservices",
-    "certificatesigningrequests",
-    "clusterrolebindings",
-    "clusterroles",
-    "componentstatuses",
-    "configmaps",
-    "controllerrevisions",
-    "cronjobs",
-    "customresourcedefinitions",
-    "daemonsets",
-    "deployments",
-    "endpoints",
-    "ingresses",
-    "jobs",
-    "leases",
-    "limitranges",
-    "mutatingwebhookconfigurations",
-    "namespaces",
-    "networkpolicies",
-    "nodes",
-    "persistentvolumeclaims",
-    "persistentvolumes",
-    "poddisruptionbudgets",
-    "pods",
-    "podlogs",
-    "podsecuritypolicies",
-    "podtemplates",
-    "priorityclasses",
-    "replicasets",
-    "replicationcontrollers",
-    "resourcequotas",
-    "rolebindings",
-    "roles",
-    "servergroups",
-    "serverversion",
-    "serviceaccounts",
-    "services",
-    "statefulsets",
-    "storageclasses",
-    "validatingwebhookconfigurations",
-    "volumeattachments"
-  ],
+  "UUID": "",
+  "Version": "v0.56.9",
+  "ResultsDir": "/tmp/sonobuoy/results",
+  "Resources": null,
   "Filters": {
     "Namespaces": ".*",
     "LabelSelector": ""
   },
   "Limits": {
     "PodLogs": {
-      "Namespaces": "",
+      "Namespaces": "kube-system",
       "SonobuoyNamespace": true,
       "FieldSelectors": [],
       "LabelSelector": "",
@@ -61,9 +19,7 @@
       "SinceTime": null,
       "Timestamps": false,
       "TailLines": null,
-      "LimitBytes": null,
-      "LimitSize": "",
-      "LimitTime": ""
+      "LimitBytes": null
     }
   },
   "QPS": 30,
@@ -72,7 +28,7 @@
     "bindaddress": "0.0.0.0",
     "bindport": 8080,
     "advertiseaddress": "",
-    "timeoutseconds": 10800
+    "timeoutseconds": 21600
   },
   "Plugins": null,
   "PluginSearchPath": [
@@ -81,8 +37,11 @@
     "~/sonobuoy/plugins.d"
   ],
   "Namespace": "sonobuoy",
-  "WorkerImage": "projects.registry.vmware.com/sonobuoy/sonobuoy:v0.50.0",
+  "WorkerImage": "sonobuoy/sonobuoy:v0.56.9",
   "ImagePullPolicy": "IfNotPresent",
   "ImagePullSecrets": "",
-  "ProgressUpdatesPort": "8099"
+  "AggregatorPermissions": "clusterAdmin",
+  "ServiceAccountName": "sonobuoy-serviceaccount",
+  "ProgressUpdatesPort": "8099",
+  "SecurityContextMode": "nonroot"
 }

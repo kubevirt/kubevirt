@@ -58,7 +58,9 @@ function _ensure_cdi_deployment() {
     _kubectl patch cdi ${cdi_namespace} --type merge -p '{"spec": {"config": {"uploadProxyURLOverride": "'"$override"'"}}}'
 
     # Enable succeeded DataVolume garbage collection
-    _kubectl patch cdi ${cdi_namespace} --type merge -p '{"spec": {"config": {"dataVolumeTTLSeconds": '"$CDI_DV_GC"'}}}'
+    if [[ $CDI_DV_GC != "0" ]]; then
+        _kubectl patch cdi ${cdi_namespace} --type merge -p '{"spec": {"config": {"dataVolumeTTLSeconds": '"$CDI_DV_GC"'}}}'
+    fi
 }
 
 function configure_prometheus() {
