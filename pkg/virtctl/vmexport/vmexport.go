@@ -225,8 +225,8 @@ func (c *command) run(args []string) error {
 }
 
 // parseExportArguments parses and validates vmexport arguments and flags. These arguments should always be:
-// 	1. The vmexport function (create|delete|download)
-// 	2. The VirtualMachineExport name
+//  1. The vmexport function (create|delete|download)
+//  2. The VirtualMachineExport name
 func parseExportArguments(args []string, vmeInfo *VMExportInfo) error {
 	funcName := strings.ToLower(args[0])
 

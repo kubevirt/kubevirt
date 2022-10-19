@@ -268,9 +268,9 @@ func NewExpecter(
 // It is done to make sure the match was found in the result of the expect.BSnd
 // command and not in a leftover that wasn't removed from the buffer.
 // NOTE: the method contains the following limitations:
-//       - Use of `BatchSwitchCase`
-//       - Multiline commands
-//       - No more than one sequential send or receive
+//   - Use of `BatchSwitchCase`
+//   - Multiline commands
+//   - No more than one sequential send or receive
 func ExpectBatchWithValidatedSend(expecter expect.Expecter, batch []expect.Batcher, timeout time.Duration) ([]expect.BatchRes, error) {
 	sendFlag := false
 	expectFlag := false

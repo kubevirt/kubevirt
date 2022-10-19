@@ -81,7 +81,7 @@ func (n *NodeLabeller) GetHostCpuModel() hostCPUModel {
 	return n.hostCPUModel
 }
 
-//loadDomCapabilities loads info about cpu models, which can host emulate
+// loadDomCapabilities loads info about cpu models, which can host emulate
 func (n *NodeLabeller) loadDomCapabilities() error {
 	hostDomCapabilities, err := n.getDomCapabilities()
 	if err != nil {
@@ -122,7 +122,7 @@ func (n *NodeLabeller) loadDomCapabilities() error {
 	return nil
 }
 
-//loadHostSupportedFeatures loads supported features
+// loadHostSupportedFeatures loads supported features
 func (n *NodeLabeller) loadHostSupportedFeatures() error {
 	featuresFile := filepath.Join(n.volumePath, supportedFeaturesXml)
 
@@ -155,7 +155,7 @@ func (n *NodeLabeller) loadHostCapabilities() error {
 	return nil
 }
 
-//loadCPUInfo load info about all cpu models
+// loadCPUInfo load info about all cpu models
 func (n *NodeLabeller) loadCPUInfo() error {
 	files, err := os.ReadDir(filepath.Join(n.volumePath, "cpu_map"))
 	if err != nil {
@@ -188,7 +188,7 @@ func (n *NodeLabeller) getDomCapabilities() (HostDomCapabilities, error) {
 	return hostDomCapabilities, err
 }
 
-//LoadFeatures loads features for given cpu name
+// LoadFeatures loads features for given cpu name
 func (n *NodeLabeller) loadFeatures(fileName string) (cpuFeatures, error) {
 	if fileName == "" {
 		return nil, fmt.Errorf("file name can't be empty")
@@ -208,13 +208,13 @@ func (n *NodeLabeller) loadFeatures(fileName string) (cpuFeatures, error) {
 	return modelFeatures, nil
 }
 
-//getPathCPUFeatures creates path where folder with cpu models is
+// getPathCPUFeatures creates path where folder with cpu models is
 func getPathCPUFeatures(volumePath string, name string) string {
 	return filepath.Join(volumePath, "cpu_map", name)
 }
 
-//GetStructureFromXMLFile load data from xml file and unmarshals them into given structure
-//Given structure has to be pointer
+// GetStructureFromXMLFile load data from xml file and unmarshals them into given structure
+// Given structure has to be pointer
 func (n *NodeLabeller) getStructureFromXMLFile(path string, structure interface{}) error {
 	rawFile, err := os.ReadFile(path)
 	if err != nil {

@@ -159,7 +159,7 @@ func (v *virtHandlerConn) formatURI(template string, vmi *virtv1.VirtualMachineI
 	return fmt.Sprintf(template, formatIpForUri(ip), port, vmi.ObjectMeta.Namespace, vmi.ObjectMeta.Name), nil
 }
 
-//TODO move the actual ws handling in here, and work with channels
+// TODO move the actual ws handling in here, and work with channels
 func (v *virtHandlerConn) ConsoleURI(vmi *virtv1.VirtualMachineInstance) (string, error) {
 	return v.formatURI(consoleTemplateURI, vmi)
 }

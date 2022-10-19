@@ -19,7 +19,7 @@ type fakeDomainCollector struct {
 func (fc fakeDomainCollector) Describe(_ chan<- *prometheus.Desc) {
 }
 
-//Collect needs to report all metrics to see it in docs
+// Collect needs to report all metrics to see it in docs
 func (fc fakeDomainCollector) Collect(ch chan<- prometheus.Metric) {
 	ps := domainstats.NewPrometheusScraper(ch)
 

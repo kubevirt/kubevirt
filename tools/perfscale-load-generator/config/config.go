@@ -44,7 +44,7 @@ const (
 	QPS   = 0
 )
 
-//NewWorkload reads the test configuration file
+// NewWorkload reads the test configuration file
 func NewWorkload(testConfigPath string) *Workload {
 	data, err := os.ReadFile(testConfigPath)
 	if err != nil {

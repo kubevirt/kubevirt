@@ -30,24 +30,24 @@ type hostCPUModel struct {
 	requiredFeatures cpuFeatures
 }
 
-//hostCapabilities holds informations which provides libvirt,
-//so we don't have to call libvirt at every request
+// hostCapabilities holds informations which provides libvirt,
+// so we don't have to call libvirt at every request
 type cpuInfo struct {
 	models map[string]cpuFeatures
 }
 
-//HostDomCapabilities represents structure for parsing output of virsh capabilities
+// HostDomCapabilities represents structure for parsing output of virsh capabilities
 type HostDomCapabilities struct {
 	CPU CPU              `xml:"cpu"`
 	SEV SEVConfiguration `xml:"features>sev"`
 }
 
-//CPU represents slice of cpu modes
+// CPU represents slice of cpu modes
 type CPU struct {
 	Mode []Mode `xml:"mode"`
 }
 
-//Mode represents slice of cpu models
+// Mode represents slice of cpu models
 type Mode struct {
 	Name      string        `xml:"name,attr"`
 	Supported string        `xml:"supported,attr"`
@@ -65,19 +65,19 @@ type HostFeature struct {
 	Name   string `xml:"name,attr"`
 }
 
-//Vendor represents vendor of host CPU
+// Vendor represents vendor of host CPU
 type Vendor struct {
 	Name string `xml:",chardata"`
 }
 
-//Model represents cpu model
+// Model represents cpu model
 type Model struct {
 	Name     string `xml:",chardata"`
 	Usable   string `xml:"usable,attr"`
 	Fallback string `xml:"fallback,attr"`
 }
 
-//Structures needed to parse cpu features
+// Structures needed to parse cpu features
 type FeatureModel struct {
 	Model Features `xml:"model"`
 }

@@ -106,9 +106,9 @@ func (s *AsyncAgentStore) Store(key AgentCommand, value interface{}) {
 
 // GetSysInfo returns the sysInfo information packed together.
 // Sysinfo comprises of:
-//  * Guest Hostname
-//  * Guest OS version and architecture
-//  * Guest Timezone
+//   - Guest Hostname
+//   - Guest OS version and architecture
+//   - Guest Timezone
 func (s *AsyncAgentStore) GetSysInfo() api.DomainSysInfo {
 	data, ok := s.store.Load(GET_OSINFO)
 	osinfo := api.GuestOSInfo{}

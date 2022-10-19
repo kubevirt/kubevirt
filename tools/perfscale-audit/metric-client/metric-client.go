@@ -46,7 +46,8 @@ const (
 )
 
 // Gauge - Using a Gauge doesn't require using an offset because it holds the accurate count
-//         at all times.
+//
+//	at all times.
 const (
 	vmiPhaseCount = `sum by (phase) (kubevirt_vmi_phase_count{})`
 )

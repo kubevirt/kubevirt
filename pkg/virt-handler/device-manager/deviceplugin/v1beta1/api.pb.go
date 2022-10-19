@@ -237,13 +237,15 @@ func (m *ListAndWatchResponse) GetDevices() []*Device {
 }
 
 // E.g:
-// struct Device {
-//    ID: "GPU-fef8089b-4820-abfc-e83e-94318197576e",
-//    State: "Healthy",
-//    Topology:
-//      Node:
-//ID: 1
-//}
+//
+//	struct Device {
+//	   ID: "GPU-fef8089b-4820-abfc-e83e-94318197576e",
+//	   State: "Healthy",
+//	   Topology:
+//	     Node:
+//
+// ID: 1
+// }
 type Device struct {
 	// A unique ID assigned by the device plugin used
 	// to identify devices during the communication
@@ -310,10 +312,10 @@ func (m *Device) GetTopology() *TopologyInfo {
 	return nil
 }
 
-// - PreStartContainer is expected to be called before each container start if indicated by plugin during registration phase.
-// - PreStartContainer allows kubelet to pass reinitialized devices to containers.
-// - PreStartContainer allows Device Plugin to run device specific operations on
-//   the Devices requested
+//   - PreStartContainer is expected to be called before each container start if indicated by plugin during registration phase.
+//   - PreStartContainer allows kubelet to pass reinitialized devices to containers.
+//   - PreStartContainer allows Device Plugin to run device specific operations on
+//     the Devices requested
 type PreStartContainerRequest struct {
 	DevicesIDs           []string `protobuf:"bytes,1,rep,name=devicesIDs,proto3" json:"devicesIDs,omitempty"`
 	XXX_NoUnkeyedLiteral struct{} `json:"-"`
@@ -487,12 +489,12 @@ func (m *PreStartContainerResponse) XXX_DiscardUnknown() {
 
 var xxx_messageInfo_PreStartContainerResponse proto.InternalMessageInfo
 
-// - Allocate is expected to be called during pod creation since allocation
-//   failures for any container would result in pod startup failure.
-// - Allocate allows kubelet to exposes additional artifacts in a pod's
-//   environment as directed by the plugin.
-// - Allocate allows Device Plugin to run device specific operations on
-//   the Devices requested
+//   - Allocate is expected to be called during pod creation since allocation
+//     failures for any container would result in pod startup failure.
+//   - Allocate allows kubelet to exposes additional artifacts in a pod's
+//     environment as directed by the plugin.
+//   - Allocate allows Device Plugin to run device specific operations on
+//     the Devices requested
 type AllocateRequest struct {
 	ContainerRequests    []*ContainerAllocateRequest `protobuf:"bytes,1,rep,name=container_requests,json=containerRequests,proto3" json:"container_requests,omitempty"`
 	XXX_NoUnkeyedLiteral struct{}                    `json:"-"`

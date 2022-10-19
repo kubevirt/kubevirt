@@ -59,7 +59,7 @@ var nodeLabellerLabels = []string{
 	kubevirtv1.HostModelRequiredFeaturesLabel,
 }
 
-//NodeLabeller struct holds informations needed to run node-labeller
+// NodeLabeller struct holds informations needed to run node-labeller
 type NodeLabeller struct {
 	clientset               kubecli.KubevirtClient
 	host                    string
@@ -103,7 +103,7 @@ func newNodeLabeller(clusterConfig *virtconfig.ClusterConfig, clientset kubecli.
 	return n, nil
 }
 
-//Run runs node-labeller
+// Run runs node-labeller
 func (n *NodeLabeller) Run(threadiness int, stop chan struct{}) {
 	defer n.queue.ShutDown()
 

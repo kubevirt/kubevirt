@@ -355,7 +355,7 @@ func getHTTPClient(insecure bool) *http.Client {
 	return client
 }
 
-//ConstructUploadProxyPath - receives uploadproxy address and concatenates to it URI
+// ConstructUploadProxyPath - receives uploadproxy address and concatenates to it URI
 func ConstructUploadProxyPath(uploadProxyURL string) (string, error) {
 	u, err := url.Parse(uploadProxyURL)
 
@@ -369,7 +369,7 @@ func ConstructUploadProxyPath(uploadProxyURL string) (string, error) {
 	return u.String(), nil
 }
 
-//ConstructUploadProxyPathAsync - receives uploadproxy address and concatenates to it URI
+// ConstructUploadProxyPathAsync - receives uploadproxy address and concatenates to it URI
 func ConstructUploadProxyPathAsync(uploadProxyURL, token string, insecure bool) (string, error) {
 	u, err := url.Parse(uploadProxyURL)
 
