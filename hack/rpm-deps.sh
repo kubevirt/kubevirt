@@ -99,7 +99,6 @@ launcherbase_aarch64="
 launcherbase_extra="
   ethtool
   findutils
-  iptables-nft
   nftables
   nmap-ncat
   procps-ng
@@ -116,7 +115,6 @@ handlerbase_main="
 handlerbase_extra="
   findutils
   iproute
-  iptables-nft
   nftables
   procps-ng
   selinux-policy
