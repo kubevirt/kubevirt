@@ -34,6 +34,8 @@ import (
 	"kubevirt.io/kubevirt/tests/util"
 )
 
+const enoughMemForSafeBiosEmulation = "32Mi"
+
 var _ = Describe("[Serial][sig-compute]VMIDefaults", func() {
 	var err error
 	var virtClient kubecli.KubevirtClient
@@ -89,7 +91,6 @@ var _ = Describe("[Serial][sig-compute]VMIDefaults", func() {
 
 	Context("MemBalloon defaults", func() {
 		var kvConfiguration v1.KubeVirtConfiguration
-		const enoughMemForSafeBiosEmulation = "32Mi"
 		BeforeEach(func() {
 			// create VMI with missing disk target
 			vmi = libvmi.New(libvmi.WithResourceMemory(enoughMemForSafeBiosEmulation))

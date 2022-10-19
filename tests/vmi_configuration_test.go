@@ -78,9 +78,8 @@ var _ = Describe("[sig-compute]Configurations", func() {
 	var virtClient kubecli.KubevirtClient
 
 	const (
-		cgroupV1MemoryUsagePath       = "/sys/fs/cgroup/memory/memory.usage_in_bytes"
-		cgroupV2MemoryUsagePath       = "/sys/fs/cgroup/memory.current"
-		enoughMemForSafeBiosEmulation = "32Mi"
+		cgroupV1MemoryUsagePath = "/sys/fs/cgroup/memory/memory.usage_in_bytes"
+		cgroupV2MemoryUsagePath = "/sys/fs/cgroup/memory.current"
 	)
 
 	getPodMemoryUsage := func(pod *kubev1.Pod) (output string, err error) {

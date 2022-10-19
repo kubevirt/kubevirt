@@ -56,7 +56,6 @@ var _ = Describe("[crit:medium][vendor:cnv-qe@redhat.com][level:component][sig-c
 
 	var err error
 	var virtClient kubecli.KubevirtClient
-	const enoughMemForSafeBiosEmulation = "32Mi"
 	BeforeEach(func() {
 		virtClient, err = kubecli.GetKubevirtClient()
 		util.PanicOnError(err)
