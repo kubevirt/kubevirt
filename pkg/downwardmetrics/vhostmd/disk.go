@@ -9,6 +9,7 @@ import (
 	"strings"
 
 	"kubevirt.io/kubevirt/pkg/downwardmetrics/vhostmd/api"
+	"kubevirt.io/kubevirt/pkg/util"
 )
 
 const fileSize = 262144
@@ -102,7 +103,10 @@ func readDisk(filePath string) (*Disk, error) {
 	if err != nil {
 		return nil, err
 	}
-	defer f.Close()
+	// If the read operation succeeds, but close fails, we have already read the data,
+	// so it is ok to not return the error.
+	defer util.CloseIOAndCheckErr(f, nil)
+
 	d := &Disk{
 		Header: &Header{},
 	}

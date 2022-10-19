@@ -151,7 +151,6 @@
       "pkg/certificates/": "KubeVirt certificate pkg does not pass errcheck yet",
       "pkg/cloud-init/": "KubeVirt cloud-init pkg does not pass errcheck yet",
       "pkg/config/": "KubeVirt config pkg does not pass errcheck yet",
-      "pkg/downwardmetrics/": "KubeVirt downwardmetrics pkg does not pass errcheck yet",
       "pkg/ephemeral-disk-utils/": "KubeVirt ephemeral-disk-utils pkg does not pass errcheck yet",
       "pkg/executor/": "KubeVirt executor pkg does not pass errcheck yet",
       "pkg/handler-launcher-com/": "KubeVirt handler-launcher-com pkg does not pass errcheck yet",
