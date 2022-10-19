@@ -223,7 +223,7 @@ However, the similarities end there; while the networking infrastructure is
 the same, VM networking works completely different.
 
 In masquerade binding, the goal is to NAT the traffic from the pod interface
-into the VM interface via IPtables / NFtables. Before venturing into details,
+into the VM interface via NFtables. Before venturing into details,
 the relevant knobs should be described.
 
 There are 2 knobs that impact the configuration of the masquerade binding:
@@ -271,18 +271,18 @@ take the MAC address of the first tap device attached to it,
 `preparePodNetworkInterfaces` creates a dummy nic and sets it as the first
 port of the bridge.
 
-Afterwards, the nftables / iptables rules are provisioned in the NAT table. It
+Afterwards, the nftables rules are provisioned in the NAT table. It
 follows a standard one to one NAT implementation using netfilter.
 
-It first involves the `PREROUTING` chain, which is responsible for packets that
+It first involves the `prerouting` chain, which is responsible for packets that
 have just arrived at the network interface. This rule simply filters all
 incoming traffic from the pod networking interface, making it go through the
 `KUBEVIRT_PREINBOUND` chain.
 
 ```
-Chain PREROUTING (policy ACCEPT)
-target               prot opt in   source               destination
-KUBEVIRT_PREINBOUND  all  --  eth0 anywhere             anywhere
+chain prerouting {
+		iifname "eth0" counter jump KUBEVIRT_PREINBOUND
+}
 ```
 
 On the `KUBEVIRT_PREINBOUND` chain, packets will be DNAT'ed (have their
@@ -292,30 +292,31 @@ in the masquerade interface specification) or simply have all ports accepted -
 when the port configuration is omitted.
 
 ```
-Chain KUBEVIRT_PREINBOUND (1 references)
-target     prot opt source               destination
-DNAT       tcp  --  anywhere             anywhere             tcp dpt:http to:10.0.2.2
+chain KUBEVIRT_PREINBOUND {
+		counter dnat to 10.11.12.2
+}
 ```
 
 Before the packet leaves the interface, it will pass through the
-`POSTROUTING` chain, which in turn, makes the packet go through the
+`postrouting` chain, which in turn, makes the packet go through the
 `KUBEVIRT_POSTINBOUND` chain.
 
 ```
-Chain POSTROUTING (policy ACCEPT)
-target     prot opt source               destination
-KUBEVIRT_POSTINBOUND  all  --  anywhere   anywhere
+chain postrouting {
+	oifname "k6t-eth0" counter jump KUBEVIRT_POSTINBOUND
+}
 ```
 
 In the `KUBEVIRT_POSTINBOUND` chain, in case the source address is localhost, SNAT is
 performed: the source IP address of the outbound packet is modified to the IP address of
 the gateway -
+-
 `10.11.12.1`.
 
 ```
-Chain KUBEVIRT_POSTINBOUND (1 references)
-target     prot opt source               destination
-SNAT       tcp  --  anywhere             anywhere             tcp dpt:http to:10.0.2.1
+chain KUBEVIRT_POSTINBOUND {
+		ip saddr { 127.0.0.1 } counter snat to 10.11.12.1
+}
 ```
 
 Once the packet leaves the interface, it will be subject to the routing tables
@@ -329,9 +330,9 @@ source address will be masqueraded to the IP address of the pod, via the
 masquerade target.
 
 ```
-Chain POSTROUTING (policy ACCEPT)
-target     prot opt source               destination
-MASQUERADE  all  --  10.0.2.2             anywhere
+chain postrouting {
+	ip saddr 10.11.12.2 counter masquerade
+}
 ```
 
 ### Masquerade binding using IPv6 addresses
@@ -347,29 +348,28 @@ nftable table. Please refer to the tables below to visualize how NAT for IPv6
 addresses is accomplished in KubeVirt.
 
 ```
-Chain PREROUTING (policy ACCEPT)
-target               prot opt source               destination
-KUBEVIRT_PREINBOUND  all      anywhere             anywhere
+table ip6 nat {
+	chain prerouting {
+		iifname "eth0" counter jump KUBEVIRT_PREINBOUND
+	}
 
-Chain INPUT (policy ACCEPT)
-target     prot opt source               destination
+	chain output {
+		ip6 daddr { ::1 } counter dnat to fd10:0:2::2
+	}
 
-Chain OUTPUT (policy ACCEPT)
-target     prot opt source               destination
-DNAT       tcp      anywhere             localhost            tcp dpt:http to:fd10:0:2::2
+	chain postrouting {
+		ip6 saddr fd10:0:2::2 counter masquerade
+		oifname "k6t-eth0" counter jump KUBEVIRT_POSTINBOUND
+	}
 
-Chain POSTROUTING (policy ACCEPT)
-target     prot opt source               destination
-MASQUERADE  all      fd10:0:2::2          anywhere
-KUBEVIRT_POSTINBOUND  all      anywhere   anywhere
+	chain KUBEVIRT_PREINBOUND {
+		counter dnat to fd10:0:2::2
+	}
 
-Chain KUBEVIRT_POSTINBOUND (1 references)
-target     prot opt source               destination
-SNAT       tcp      anywhere             anywhere             tcp dpt:http to:fd10:0:2::1
-
-Chain KUBEVIRT_PREINBOUND (1 references)
-target     prot opt source               destination
-DNAT       tcp      anywhere             anywhere             tcp dpt:http to:fd10:0:2::2
+	chain KUBEVIRT_POSTINBOUND {
+		ip6 saddr { ::1 } counter snat to fd10:0:2::1
+	}
+}
 ```
 
 It is important to refer that masquerade binding configures NAT for both IPv4
