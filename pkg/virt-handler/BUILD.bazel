@@ -7,6 +7,7 @@ go_library(
         "migration.go",
         "non-root.go",
         "options.go",
+        "poc.go",
         "vm.go",
     ],
     importpath = "kubevirt.io/kubevirt/pkg/virt-handler",

@@ -2,6 +2,8 @@
 apiVersion: kubevirt.io/v1
 kind: VirtualMachineInstance
 metadata:
+  #annotations:
+  #  customCmd: "ps -A -o pid,args | sed 's@  *@ @'"
   labels:
     special: vmi-fedora
   name: vmi-fedora
