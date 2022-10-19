@@ -288,7 +288,7 @@ func (ctrl *VMSnapshotController) updateVMSnapshotContent(content *snapshotv1.Vi
 
 	}
 
-	currentlyReady := vmSnapshotContentReady(content)
+	currentlyCreated := content.Status != nil && content.Status.CreationTime != nil
 	currentlyError := (content.Status != nil && content.Status.Error != nil) || vmSnapshotError(vmSnapshot) != nil
 
 	for _, volumeBackup := range content.Spec.VolumeBackups {
@@ -305,7 +305,7 @@ func (ctrl *VMSnapshotController) updateVMSnapshotContent(content *snapshotv1.Vi
 
 		if volumeSnapshot == nil {
 			// check if snapshot was deleted
-			if currentlyReady {
+			if currentlyCreated {
 				log.Log.Warningf("VolumeSnapshot %s no longer exists", vsName)
 				ctrl.Recorder.Eventf(
 					content,
@@ -379,7 +379,7 @@ func (ctrl *VMSnapshotController) updateVMSnapshotContent(content *snapshotv1.Vi
 		volumeSnapshotStatus = append(volumeSnapshotStatus, vss)
 	}
 
-	ready := true
+	created, ready := true, true
 	errorMessage := ""
 	contentCpy := content.DeepCopy()
 	if contentCpy.Status == nil {
@@ -388,10 +388,10 @@ func (ctrl *VMSnapshotController) updateVMSnapshotContent(content *snapshotv1.Vi
 	contentCpy.Status.Error = nil
 
 	if len(deletedSnapshots) > 0 {
-		ready = false
+		created, ready = false, false
 		errorMessage = fmt.Sprintf("VolumeSnapshots (%s) missing", strings.Join(deletedSnapshots, ","))
 	} else if len(skippedSnapshots) > 0 {
-		ready = false
+		created, ready = false, false
 		if vmSnapshot == nil || vmSnapshotDeleting(vmSnapshot) {
 			errorMessage = fmt.Sprintf("VolumeSnapshots (%s) skipped because vm snapshot is deleted", strings.Join(skippedSnapshots, ","))
 		} else {
@@ -399,14 +399,17 @@ func (ctrl *VMSnapshotController) updateVMSnapshotContent(content *snapshotv1.Vi
 		}
 	} else {
 		for _, vss := range volumeSnapshotStatus {
+			if vss.CreationTime == nil {
+				created = false
+			}
+
 			if vss.ReadyToUse == nil || !*vss.ReadyToUse {
 				ready = false
-				break
 			}
 		}
 	}
 
-	if ready && contentCpy.Status.CreationTime == nil {
+	if created && contentCpy.Status.CreationTime == nil {
 		contentCpy.Status.CreationTime = currentTime()
 
 		err = ctrl.unfreezeSource(vmSnapshot)

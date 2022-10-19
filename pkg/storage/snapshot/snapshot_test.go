@@ -1209,13 +1209,13 @@ var _ = Describe("Snapshot controlleer", func() {
 				testutils.ExpectEvent(recorder, "SuccessfulVolumeSnapshotCreate")
 			})
 
-			It("should update VirtualMachineSnapshotContent", func() {
+			DescribeTable("should update VirtualMachineSnapshotContent", func(readyToUse bool) {
 				vmSnapshot := createVMSnapshotInProgress()
 				vmSnapshotContent := createVMSnapshotContent()
 				updatedContent := vmSnapshotContent.DeepCopy()
 				updatedContent.ResourceVersion = "1"
 				updatedContent.Status = &snapshotv1.VirtualMachineSnapshotContentStatus{
-					ReadyToUse:   &t,
+					ReadyToUse:   &readyToUse,
 					CreationTime: timeFunc(),
 				}
 
@@ -1225,7 +1225,7 @@ var _ = Describe("Snapshot controlleer", func() {
 
 				volumeSnapshots := createVolumeSnapshots(vmSnapshotContent)
 				for i := range volumeSnapshots {
-					volumeSnapshots[i].Status.ReadyToUse = &t
+					volumeSnapshots[i].Status.ReadyToUse = &readyToUse
 					volumeSnapshots[i].Status.CreationTime = timeFunc()
 					addVolumeSnapshot(&volumeSnapshots[i])
 
@@ -1239,7 +1239,10 @@ var _ = Describe("Snapshot controlleer", func() {
 				}
 
 				controller.processVMSnapshotContentWorkItem()
-			})
+			},
+				Entry("not ready", false),
+				Entry("ready", true),
+			)
 
 			It("should update VirtualMachineSnapshotContent no snapshots", func() {
 				vmSnapshot := createVMSnapshotInProgress()
