@@ -153,7 +153,6 @@
       "pkg/config/": "KubeVirt config pkg does not pass errcheck yet",
       "pkg/container-disk/": "KubeVirt container-disk pkg does not pass errcheck yet",
       "pkg/controller/": "KubeVirt controller pkg does not pass errcheck yet",
-      "pkg/downwardmetrics/": "KubeVirt downwardmetrics pkg does not pass errcheck yet",
       "pkg/emptydisk/": "KubeVirt emptydisk pkg does not pass errcheck yet",
       "pkg/ephemeral-disk/": "KubeVirt ephemeral-disk pkg does not pass errcheck yet",
       "pkg/ephemeral-disk-utils/": "KubeVirt ephemeral-disk-utils pkg does not pass errcheck yet",
