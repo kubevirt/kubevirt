@@ -4,6 +4,6 @@ filters:
   # examples:
   #   pkg/api/types.go
   #   pkg/api/*/register.go
-  "*.go$":
+  "\\.go$":
     labels:
       - kind/api-change
