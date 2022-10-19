@@ -70,7 +70,7 @@ var _ = Describe("ContainerDisk", func() {
 		var err error
 		tmpDir, err = ioutil.TempDir("", "containerdisktest")
 		Expect(err).ToNot(HaveOccurred())
-		os.MkdirAll(tmpDir, 0755)
+		Expect(os.MkdirAll(tmpDir, 0755)).To(Succeed())
 		err = SetLocalDirectory(tmpDir)
 		Expect(err).ToNot(HaveOccurred())
 		setLocalDataOwner(owner.Username)
@@ -79,7 +79,7 @@ var _ = Describe("ContainerDisk", func() {
 	})
 
 	AfterEach(func() {
-		os.RemoveAll(tmpDir)
+		Expect(os.RemoveAll(tmpDir)).To(Succeed())
 	})
 
 	Describe("container-disk", func() {
@@ -111,7 +111,7 @@ var _ = Describe("ContainerDisk", func() {
 
 				// should be found if dir does exist
 				expectedPath := fmt.Sprintf("%s/1234/volumes/kubernetes.io~empty-dir/container-disks", tmpDir)
-				os.MkdirAll(expectedPath, 0755)
+				Expect(os.MkdirAll(expectedPath, 0755)).To(Succeed())
 				path, err = GetVolumeMountDirOnHost(vmi)
 				Expect(err).ToNot(HaveOccurred())
 				Expect(unsafepath.UnsafeAbsolute(path.Raw())).To(Equal(expectedPath))
@@ -138,14 +138,14 @@ var _ = Describe("ContainerDisk", func() {
 
 				// should not return error if only one dir exists
 				expectedPath := fmt.Sprintf("%s/1234/volumes/kubernetes.io~empty-dir/container-disks", tmpDir)
-				os.MkdirAll(expectedPath, 0755)
+				Expect(os.MkdirAll(expectedPath, 0755)).To(Succeed())
 				path, err := GetVolumeMountDirOnHost(vmi)
 				Expect(err).ToNot(HaveOccurred())
 				Expect(unsafepath.UnsafeAbsolute(path.Raw())).To(Equal(expectedPath))
 
 				// return error if two dirs exist
 				secondPath := fmt.Sprintf("%s/5678/volumes/kubernetes.io~empty-dir/container-disks", tmpDir)
-				os.MkdirAll(secondPath, 0755)
+				Expect(os.MkdirAll(secondPath, 0755)).To(Succeed())
 				path, err = GetVolumeMountDirOnHost(vmi)
 				Expect(err).To(HaveOccurred())
 			})
@@ -232,10 +232,10 @@ var _ = Describe("ContainerDisk", func() {
 					Expect(err).ToNot(HaveOccurred())
 					f, err := os.Create(fmt.Sprintf("%s/pods/%s/volumes/kubernetes.io~empty-dir/container-disks/disk_0.sock", tmpDir, "poduid"))
 					Expect(err).ToNot(HaveOccurred())
-					f.Close()
+					Expect(f.Close()).To(Succeed())
 					f, err = os.Create(fmt.Sprintf("%s/pods/%s/volumes/kubernetes.io~empty-dir/container-disks/disk_1.sock", tmpDir, "poduid"))
 					Expect(err).ToNot(HaveOccurred())
-					f.Close()
+					Expect(f.Close()).To(Succeed())
 					vmi = api.NewMinimalVMI("fake-vmi")
 					vmi.Status.ActivePods = map[types.UID]string{"poduid": ""}
 					appendContainerDisk(vmi, "r0")
@@ -244,7 +244,7 @@ var _ = Describe("ContainerDisk", func() {
 				})
 
 				AfterEach(func() {
-					os.RemoveAll(tmpDir)
+					Expect(os.RemoveAll(tmpDir)).To(Succeed())
 				})
 
 				It("should fail if the base directory only exists", func() {

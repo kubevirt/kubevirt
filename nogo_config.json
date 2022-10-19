@@ -151,7 +151,6 @@
       "pkg/certificates/": "KubeVirt certificate pkg does not pass errcheck yet",
       "pkg/cloud-init/": "KubeVirt cloud-init pkg does not pass errcheck yet",
       "pkg/config/": "KubeVirt config pkg does not pass errcheck yet",
-      "pkg/container-disk/": "KubeVirt container-disk pkg does not pass errcheck yet",
       "pkg/controller/": "KubeVirt controller pkg does not pass errcheck yet",
       "pkg/downwardmetrics/": "KubeVirt downwardmetrics pkg does not pass errcheck yet",
       "pkg/emptydisk/": "KubeVirt emptydisk pkg does not pass errcheck yet",
