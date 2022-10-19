@@ -113,6 +113,7 @@ def _impl(ctx):
             "/proc/self/cwd/external/aarch64-none-linux-gnu/aarch64-none-linux-gnu/libc/usr/include/",
             "/proc/self/cwd/external/aarch64-none-linux-gnu/lib/gcc/aarch64-none-linux-gnu/10.2.1/include/",
             "/proc/self/cwd/external/aarch64-none-linux-gnu/aarch64-none-linux-gnu/libc/lib/",
+            "/usr/lib/gcc/aarch64-redhat-linux/8/include",
         ],
         features = features,
         toolchain_identifier = "aarch64-toolchain",
