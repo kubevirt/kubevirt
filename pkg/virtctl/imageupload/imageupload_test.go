@@ -667,6 +667,7 @@ var _ = Describe("ImageUpload", func() {
 		})
 
 		It("Upload fails when using a nonexistent storageClass", func() {
+			testInit(http.StatusInternalServerError)
 			invalidStorageClass := "no-sc"
 			kubeClient.Fake.PrependReactor("get", "storageclasses", func(action testing.Action) (bool, runtime.Object, error) {
 				_, ok := action.(testing.GetAction)
@@ -674,7 +675,6 @@ var _ = Describe("ImageUpload", func() {
 				return false, nil, nil
 			})
 
-			testInit(http.StatusInternalServerError)
 			cmd := clientcmd.NewRepeatableVirtctlCommand(commandName, "dv", targetName, "--size", pvcSize,
 				"--uploadproxy-url", server.URL, "--insecure", "--image-path", imagePath, "--storage-class", invalidStorageClass)
 			Expect(cmd()).NotTo(Succeed())
