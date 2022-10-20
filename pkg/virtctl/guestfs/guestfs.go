@@ -57,6 +57,7 @@ var (
 	root          bool
 	fsGroup       string
 	uid           string
+	gid           string
 )
 
 type guestfsCommand struct {
@@ -81,6 +82,7 @@ func NewGuestfsShellCommand(clientConfig clientcmd.ClientConfig) *cobra.Command 
 	cmd.PersistentFlags().BoolVar(&kvm, "kvm", true, "Use kvm for the libguestfs-tools container")
 	cmd.PersistentFlags().BoolVar(&root, "root", false, "Set uid 0 for the libguestfs-tool container")
 	cmd.PersistentFlags().StringVar(&uid, "uid", "", "Set uid for the libguestfs-tool container. It doesn't work with root")
+	cmd.PersistentFlags().StringVar(&gid, "gid", "", "Set gid for the libguestfs-tool container. This works only combined when the uid is manually set")
 	cmd.SetUsageTemplate(templates.UsageTemplate())
 	cmd.PersistentFlags().StringVar(&fsGroup, "fsGroup", "", "Set the fsgroup for the libguestfs-tool container")
 
@@ -410,6 +412,29 @@ func setUIDLibugestfs() (*int64, error) {
 	}
 }
 
+func setGIDLibguestfs() (*int64, error) {
+	// The GID can only be specified together with the uid. See comment at: https://github.com/kubernetes/cri-api/blob/2b5244cefaeace624cb160d6b3d85dd3fd14baea/pkg/apis/runtime/v1/api.proto#L307-L309
+	if gid != "" && uid == "" {
+		return nil, fmt.Errorf("gid requires the uid to be set")
+	}
+
+	if root && gid != "" {
+		return nil, fmt.Errorf("cannot set gid id with root")
+	}
+	if gid != "" {
+		n, err := strconv.ParseInt(gid, 10, 64)
+		if err != nil {
+			return nil, err
+		}
+		return &n, nil
+	}
+	if root {
+		var rootGID int64 = 0
+		return &rootGID, nil
+	}
+	return nil, nil
+}
+
 func createLibguestfsPod(pvc, image, cmd string, args []string, kvm, isBlock bool) (*corev1.Pod, error) {
 	var resources corev1.ResourceRequirements
 	podName = fmt.Sprintf("%s-%s", podNamePrefix, pvc)
@@ -421,6 +446,10 @@ func createLibguestfsPod(pvc, image, cmd string, args []string, kvm, isBlock boo
 		}
 	}
 	u, err := setUIDLibugestfs()
+	if err != nil {
+		return nil, err
+	}
+	g, err := setGIDLibguestfs()
 	if err != nil {
 		return nil, err
 	}
@@ -438,6 +467,7 @@ func createLibguestfsPod(pvc, image, cmd string, args []string, kvm, isBlock boo
 	securityContext := &corev1.PodSecurityContext{
 		RunAsNonRoot: pointer.Bool(!root),
 		RunAsUser:    u,
+		RunAsGroup:   g,
 		FSGroup:      f,
 		SeccompProfile: &corev1.SeccompProfile{
 			Type: corev1.SeccompProfileTypeRuntimeDefault,
