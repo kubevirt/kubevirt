@@ -92,6 +92,27 @@ fi
 if [[ $TARGET =~ sriov.* ]]; then
   export KUBEVIRT_NUM_NODES=3
   export KUBEVIRT_DEPLOY_CDI="false"
+
+  ip link show
+
+  retry_counter=0
+  max=180
+  sriov_pfs=( $(find /sys/class/net/*/device/sriov_numvfs) )
+  while [[ $retry_counter -lt $max && "${#sriov_pfs[@]}" -ne 2 ]]; do
+      sriov_pfs=( $(find /sys/class/net/*/device/sriov_numvfs) )
+      retry_counter=$((retry_counter + 1))
+      sleep 1
+  done
+  
+  if [[ $retry_counter -ne 0 ]]; then 
+     echo "retry_counter=$retry_counter"
+  fi
+
+  if [[ $max -eq $retry_counter ]]; then 
+     echo "FATAL: debug cant find PFs"
+     exit 1
+  fi
+
 elif [[ $TARGET =~ vgpu.* ]]; then
   export KUBEVIRT_NUM_NODES=1
 else
@@ -266,6 +287,9 @@ build_images
 trap '{ collect_debug_logs; echo "Dump kubevirt state:"; make dump; }' ERR
 make cluster-up
 trap - ERR
+
+# short circuit the job
+exit 0
 
 # Wait for nodes to become ready
 set +e
