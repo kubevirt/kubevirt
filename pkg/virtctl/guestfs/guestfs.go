@@ -372,7 +372,7 @@ func (client *K8sClient) getPodsForPVC(pvcName, ns string) ([]corev1.Pod, error)
 	return pods, nil
 }
 
-func setGroupLibguestfs() (*int64, error) {
+func setFSGroupLibguestfs() (*int64, error) {
 	if root && fsGroup != "" {
 		return nil, fmt.Errorf("cannot set fsGroup id with root")
 	}
@@ -384,8 +384,8 @@ func setGroupLibguestfs() (*int64, error) {
 		return &n, nil
 	}
 	if root {
-		var rootGID int64 = 0
-		return &rootGID, nil
+		var rootFsID int64 = 0
+		return &rootFsID, nil
 	}
 	return nil, nil
 }
@@ -424,7 +424,7 @@ func createLibguestfsPod(pvc, image, cmd string, args []string, kvm, isBlock boo
 	if err != nil {
 		return nil, err
 	}
-	g, err := setGroupLibguestfs()
+	f, err := setFSGroupLibguestfs()
 	if err != nil {
 		return nil, err
 	}
@@ -438,7 +438,7 @@ func createLibguestfsPod(pvc, image, cmd string, args []string, kvm, isBlock boo
 	securityContext := &corev1.PodSecurityContext{
 		RunAsNonRoot: pointer.Bool(!root),
 		RunAsUser:    u,
-		FSGroup:      g,
+		FSGroup:      f,
 		SeccompProfile: &corev1.SeccompProfile{
 			Type: corev1.SeccompProfileTypeRuntimeDefault,
 		},
