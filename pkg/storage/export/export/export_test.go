@@ -20,6 +20,7 @@ package export
 
 import (
 	"crypto/tls"
+	"crypto/x509"
 	"encoding/pem"
 	"fmt"
 	"io/ioutil"
@@ -255,22 +256,66 @@ var _ = Describe("Export controller", func() {
 		Expect(os.RemoveAll(certDir)).To(Succeed())
 	})
 
-	generateExpectedCert := func() string {
+	generateCertFromTime := func(cn string, before, after *time.Time) string {
+		defer GinkgoRecover()
+		config := certutil.Config{
+			CommonName: cn,
+			NotBefore:  before,
+			NotAfter:   after,
+		}
+		defer GinkgoRecover()
+		caKeyPair, _ := triple.NewCA("kubevirt.io", time.Hour*24*7)
+
+		intermediateKey, err := certutil.NewPrivateKey()
+		Expect(err).ToNot(HaveOccurred())
+		intermediateConfig := certutil.Config{
+			CommonName: fmt.Sprintf("%s@%d", "intermediate", time.Now().Unix()),
+			NotBefore:  before,
+			NotAfter:   after,
+		}
+		intermediateConfig.Usages = []x509.ExtKeyUsage{x509.ExtKeyUsageServerAuth}
+		intermediateCert, err := certutil.NewSignedCert(intermediateConfig, intermediateKey, caKeyPair.Cert, caKeyPair.Key, time.Hour)
+		Expect(err).ToNot(HaveOccurred())
+
 		key, err := certutil.NewPrivateKey()
 		Expect(err).ToNot(HaveOccurred())
 
-		config := certutil.Config{
-			CommonName: "blah blah",
-		}
-
-		cert, err := certutil.NewSelfSignedCACertWithAltNames(config, key, time.Hour, "hahaha.wwoo", "*.apps-crc.testing", "fgdgd.dfsgdf")
+		config.AltNames.DNSNames = []string{"hahaha.wwoo", "*.apps-crc.testing", "fgdgd.dfsgdf"}
+		config.Usages = []x509.ExtKeyUsage{x509.ExtKeyUsageServerAuth}
+		cert, err := certutil.NewSignedCert(config, key, intermediateCert, intermediateKey, time.Hour)
 		Expect(err).ToNot(HaveOccurred())
 		pemOut := strings.Builder{}
-		Expect(pem.Encode(&pemOut, &pem.Block{Type: "CERTIFICATE", Bytes: cert.Raw})).To(Succeed())
+		pem.Encode(&pemOut, &pem.Block{Type: "CERTIFICATE", Bytes: cert.Raw})
+		pem.Encode(&pemOut, &pem.Block{Type: "CERTIFICATE", Bytes: intermediateCert.Raw})
+		pem.Encode(&pemOut, &pem.Block{Type: "CERTIFICATE", Bytes: caKeyPair.Cert.Raw})
 		return strings.TrimSpace(pemOut.String())
 	}
 
+	generateFutureCert := func() string {
+		before := time.Now().AddDate(0, 1, 0)
+		after := before.AddDate(0, 0, 7)
+		return generateCertFromTime("future cert", &before, &after)
+	}
+
+	generateExpiredCert := func() string {
+		before := time.Now().AddDate(0, -1, 0)
+		after := before.AddDate(0, 0, 7)
+		return generateCertFromTime("expired cert", &before, &after)
+	}
+
+	generateExpectedCert := func() string {
+		before := time.Now()
+		after := before.AddDate(0, 0, 7)
+		return generateCertFromTime("working cert", &before, &after)
+	}
+
 	var expectedPem = generateExpectedCert()
+
+	generateOverlappingCert := func() string {
+		before := time.Now().AddDate(0, 0, -3)
+		after := before.AddDate(0, 0, 7)
+		return generateCertFromTime("overlapping cert", &before, &after) + "\n" + expectedPem
+	}
 
 	generateRouteCert := func() string {
 		key, err := certutil.NewPrivateKey()
@@ -287,16 +332,32 @@ var _ = Describe("Export controller", func() {
 		return strings.TrimSpace(pemOut.String()) + "\n" + expectedPem
 	}
 
-	createRouteConfigMap := func() *k8sv1.ConfigMap {
+	createRouteConfigMapFromFunc := func(certFunc func() string) *k8sv1.ConfigMap {
 		return &k8sv1.ConfigMap{
 			ObjectMeta: metav1.ObjectMeta{
 				Name:      routeCAConfigMapName,
 				Namespace: controller.KubevirtNamespace,
 			},
 			Data: map[string]string{
-				routeCaKey: generateRouteCert(),
+				routeCaKey: certFunc(),
 			},
 		}
+	}
+
+	createFutureRouteConfigMap := func() *k8sv1.ConfigMap {
+		return createRouteConfigMapFromFunc(generateFutureCert)
+	}
+
+	createExpiredRouteConfigMap := func() *k8sv1.ConfigMap {
+		return createRouteConfigMapFromFunc(generateExpiredCert)
+	}
+
+	createOverlappingRouteConfigMap := func() *k8sv1.ConfigMap {
+		return createRouteConfigMapFromFunc(generateOverlappingCert)
+	}
+
+	createRouteConfigMap := func() *k8sv1.ConfigMap {
+		return createRouteConfigMapFromFunc(generateRouteCert)
 	}
 
 	validIngressDefaultBackend := func(serviceName string) *networkingv1.Ingress {
@@ -866,16 +927,19 @@ var _ = Describe("Export controller", func() {
 		Entry("ingress with rules no backend service", ingressRulesNoBackend(), ""),
 	)
 
-	DescribeTable("should find host when route is defined", func(route *routev1.Route, hostname, expectedCert string) {
-		Expect(controller.RouteCache.Add(route)).To(Succeed())
-		Expect(controller.RouteConfigMapInformer.GetStore().Add(createRouteConfigMap())).To(Succeed())
+	DescribeTable("should find host when route is defined", func(createCMFunc func() *k8sv1.ConfigMap, route *routev1.Route, hostname, expectedCert string) {
+		controller.RouteCache.Add(route)
+		controller.RouteConfigMapInformer.GetStore().Add(createCMFunc())
 		host, cert := controller.getExternalLinkHostAndCert()
-		Expect(hostname).To(Equal(host))
-		Expect(expectedCert).To(Equal(cert))
+		Expect(host).To(Equal(hostname))
+		Expect(cert).To(Equal(expectedCert))
 	},
-		Entry("route with service and host", routeToHostAndService(components.VirtExportProxyServiceName), "virt-exportproxy-kubevirt.apps-crc.testing", expectedPem),
-		Entry("route with different service and host", routeToHostAndService("other-service"), "", ""),
-		Entry("route with service and no ingress", routeToHostAndNoIngress(), "", ""),
+		Entry("route with service and host", createRouteConfigMap, routeToHostAndService(components.VirtExportProxyServiceName), "virt-exportproxy-kubevirt.apps-crc.testing", expectedPem),
+		Entry("route with different service and host", createRouteConfigMap, routeToHostAndService("other-service"), "", ""),
+		Entry("route with service and no ingress", createRouteConfigMap, routeToHostAndNoIngress(), "", ""),
+		Entry("should not find route cert if in future", createFutureRouteConfigMap, routeToHostAndService(components.VirtExportProxyServiceName), "virt-exportproxy-kubevirt.apps-crc.testing", ""),
+		Entry("should not find route cert if expired", createExpiredRouteConfigMap, routeToHostAndService(components.VirtExportProxyServiceName), "virt-exportproxy-kubevirt.apps-crc.testing", ""),
+		Entry("should find correct route cert if overlapping exists", createOverlappingRouteConfigMap, routeToHostAndService(components.VirtExportProxyServiceName), "virt-exportproxy-kubevirt.apps-crc.testing", expectedPem),
 	)
 
 	It("should pick ingress over route if both exist", func() {
