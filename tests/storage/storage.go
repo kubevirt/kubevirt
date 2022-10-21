@@ -544,7 +544,7 @@ var _ = SIGDescribe("Storage", func() {
 
 				dataVolume = libdv.NewDataVolume(
 					libdv.WithRegistryURLSource(cd.DataVolumeImportUrlForContainerDisk(cd.ContainerDiskAlpine)),
-					libdv.WithPVC(sc, cd.CirrosVolumeSize, k8sv1.ReadWriteOnce, k8sv1.PersistentVolumeFilesystem),
+					libdv.WithPVC(libdv.PVCWithStorageClass(sc)),
 				)
 			})
 
@@ -1308,7 +1308,7 @@ var _ = SIGDescribe("Storage", func() {
 
 				dv = libdv.NewDataVolume(
 					libdv.WithRegistryURLSource(cd.DataVolumeImportUrlForContainerDisk(cd.ContainerDiskCirros)),
-					libdv.WithPVC(sc, cd.CirrosVolumeSize, k8sv1.ReadWriteOnce, k8sv1.PersistentVolumeFilesystem),
+					libdv.WithPVC(libdv.PVCWithStorageClass(sc)),
 				)
 
 				dv, err = virtClient.CdiClient().CdiV1beta1().DataVolumes(util.NamespaceTestDefault).Create(context.Background(), dv, metav1.CreateOptions{})
@@ -1501,7 +1501,7 @@ func createBlockDataVolume(virtClient kubecli.KubevirtClient) (*cdiv1.DataVolume
 
 	dataVolume := libdv.NewDataVolume(
 		libdv.WithRegistryURLSource(cd.DataVolumeImportUrlForContainerDisk(cd.ContainerDiskCirros)),
-		libdv.WithPVC(sc, cd.CirrosVolumeSize, k8sv1.ReadWriteOnce, k8sv1.PersistentVolumeBlock),
+		libdv.WithPVC(libdv.PVCWithStorageClass(sc), libdv.PVCWithBlockVolumeMode()),
 	)
 
 	return virtClient.CdiClient().CdiV1beta1().DataVolumes(util.NamespaceTestDefault).Create(context.Background(), dataVolume, metav1.CreateOptions{})

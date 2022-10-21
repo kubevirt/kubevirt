@@ -172,7 +172,11 @@ var _ = SIGDescribe("DataVolume Integration", func() {
 
 				dv := libdv.NewDataVolume(
 					libdv.WithRegistryURLSource(cd.DataVolumeImportUrlForContainerDisk(cd.ContainerDiskAlpine)),
-					libdv.WithPVC(sc, size, k8sv1.ReadWriteMany, k8sv1.PersistentVolumeFilesystem),
+					libdv.WithPVC(
+						libdv.PVCWithStorageClass(sc),
+						libdv.PVCWithVolumeSize(size),
+						libdv.PVCWithReadWriteManyAccessMode(),
+					),
 					libdv.WithForceBindAnnotation(),
 				)
 
@@ -225,7 +229,7 @@ var _ = SIGDescribe("DataVolume Integration", func() {
 
 				dataVolume := libdv.NewDataVolume(
 					libdv.WithRegistryURLSource(cd.DataVolumeImportUrlForContainerDisk(cd.ContainerDiskAlpine)),
-					libdv.WithPVC(sc, cd.CirrosVolumeSize, k8sv1.ReadWriteOnce, k8sv1.PersistentVolumeFilesystem),
+					libdv.WithPVC(libdv.PVCWithStorageClass(sc)),
 				)
 
 				vmi := tests.NewRandomVMIWithDataVolume(dataVolume.Name)
@@ -271,7 +275,7 @@ var _ = SIGDescribe("DataVolume Integration", func() {
 				for idx := 0; idx < numVmis; idx++ {
 					dataVolume := libdv.NewDataVolume(
 						libdv.WithRegistryURLSource(imageUrl),
-						libdv.WithPVC(sc, cd.CirrosVolumeSize, k8sv1.ReadWriteOnce, k8sv1.PersistentVolumeFilesystem),
+						libdv.WithPVC(libdv.PVCWithStorageClass(sc)),
 					)
 
 					vmi := tests.NewRandomVMIWithDataVolume(dataVolume.Name)
@@ -304,7 +308,7 @@ var _ = SIGDescribe("DataVolume Integration", func() {
 
 				dataVolume := libdv.NewDataVolume(
 					libdv.WithRegistryURLSource(cd.DataVolumeImportUrlForContainerDisk(cd.ContainerDiskAlpine)),
-					libdv.WithPVC(sc, cd.CirrosVolumeSize, k8sv1.ReadWriteOnce, k8sv1.PersistentVolumeFilesystem),
+					libdv.WithPVC(libdv.PVCWithStorageClass(sc)),
 				)
 
 				vmi := tests.NewRandomVMIWithPVC(dataVolume.Name)
@@ -336,7 +340,7 @@ var _ = SIGDescribe("DataVolume Integration", func() {
 
 				dataVolume := libdv.NewDataVolume(
 					libdv.WithRegistryURLSourceAndPullMethod(cd.DataVolumeImportUrlForContainerDisk(cd.ContainerDiskAlpine), cdiv1.RegistryPullNode),
-					libdv.WithPVC(sc, cd.CirrosVolumeSize, k8sv1.ReadWriteOnce, k8sv1.PersistentVolumeFilesystem),
+					libdv.WithPVC(libdv.PVCWithStorageClass(sc)),
 				)
 
 				vmi := tests.NewRandomVMIWithDataVolume(dataVolume.Name)
@@ -390,7 +394,7 @@ var _ = SIGDescribe("DataVolume Integration", func() {
 				dv = libdv.NewDataVolume(
 					libdv.WithNamespace(util.NamespaceTestDefault), // need it for deletion. Reading it from Create() does not work here
 					libdv.WithRegistryURLSourceAndPullMethod(cd.DataVolumeImportUrlForContainerDisk(cd.ContainerDiskAlpine), cdiv1.RegistryPullNode),
-					libdv.WithPVC(storageClass.Name, cd.CirrosVolumeSize, k8sv1.ReadWriteOnce, k8sv1.PersistentVolumeFilesystem),
+					libdv.WithPVC(libdv.PVCWithStorageClass(storageClass.Name)),
 				)
 				vmi = libvmi.New(
 					libvmi.WithInterface(libvmi.InterfaceDeviceWithMasqueradeBinding()),
@@ -438,7 +442,7 @@ var _ = SIGDescribe("DataVolume Integration", func() {
 
 				dataVolume := libdv.NewDataVolume(
 					libdv.WithRegistryURLSourceAndPullMethod(InvalidDataVolumeUrl, cdiv1.RegistryPullPod),
-					libdv.WithPVC(sc, cd.CirrosVolumeSize, k8sv1.ReadWriteOnce, k8sv1.PersistentVolumeFilesystem),
+					libdv.WithPVC(libdv.PVCWithStorageClass(sc)),
 				)
 
 				vm := tests.NewRandomVirtualMachine(tests.NewRandomVMIWithDataVolume(dataVolume.Name), true)
@@ -464,7 +468,7 @@ var _ = SIGDescribe("DataVolume Integration", func() {
 				// Don't actually create the DataVolume since it's invalid.
 				dataVolume := libdv.NewDataVolume(
 					libdv.WithRegistryURLSource(InvalidDataVolumeUrl),
-					libdv.WithPVC("fakeStorageClass", cd.CirrosVolumeSize, k8sv1.ReadWriteOnce, k8sv1.PersistentVolumeFilesystem),
+					libdv.WithPVC(libdv.PVCWithStorageClass("fakeStorageClass")),
 				)
 
 				//  Add the invalid DataVolume to a VMI
@@ -505,7 +509,7 @@ var _ = SIGDescribe("DataVolume Integration", func() {
 
 				dataVolume := libdv.NewDataVolume(
 					libdv.WithRegistryURLSourceAndPullMethod(imageUrl, cdiv1.RegistryPullPod),
-					libdv.WithPVC(sc, cd.CirrosVolumeSize, k8sv1.ReadWriteOnce, k8sv1.PersistentVolumeFilesystem),
+					libdv.WithPVC(libdv.PVCWithStorageClass(sc)),
 				)
 
 				defer libstorage.DeleteDataVolume(&dataVolume)
@@ -752,7 +756,7 @@ var _ = SIGDescribe("DataVolume Integration", func() {
 
 				dataVolume = libdv.NewDataVolume(
 					libdv.WithRegistryURLSourceAndPullMethod(cd.DataVolumeImportUrlForContainerDisk(cd.ContainerDiskAlpine), cdiv1.RegistryPullNode),
-					libdv.WithPVC(storageClass, cd.CirrosVolumeSize, k8sv1.ReadWriteOnce, k8sv1.PersistentVolumeFilesystem),
+					libdv.WithPVC(libdv.PVCWithStorageClass(storageClass)),
 					libdv.WithForceBindAnnotation(),
 				)
 
@@ -1000,7 +1004,7 @@ var _ = SIGDescribe("DataVolume Integration", func() {
 
 			dataVolume := libdv.NewDataVolume(
 				libdv.WithRegistryURLSource(cd.DataVolumeImportUrlForContainerDisk(cd.ContainerDiskFedoraTestTooling)),
-				libdv.WithPVC(sc, cd.FedoraVolumeSize, k8sv1.ReadWriteOnce, k8sv1.PersistentVolumeFilesystem),
+				libdv.WithPVC(libdv.PVCWithStorageClass(sc), libdv.PVCWithVolumeSize(cd.FedoraVolumeSize)),
 			)
 
 			dataVolume = dvChange(dataVolume)
@@ -1184,7 +1188,7 @@ func volumeExpansionAllowed(sc string) bool {
 func newRandomVMWithCloneDataVolume(sourceNamespace, sourceName, targetNamespace, sc string) *v1.VirtualMachine {
 	dataVolume := libdv.NewDataVolume(
 		libdv.WithPVCSource(sourceNamespace, sourceName),
-		libdv.WithPVC(sc, "1Gi", k8sv1.ReadWriteOnce, k8sv1.PersistentVolumeFilesystem),
+		libdv.WithPVC(libdv.PVCWithStorageClass(sc), libdv.PVCWithVolumeSize("1Gi")),
 	)
 
 	vmi := tests.NewRandomVMIWithDataVolume(dataVolume.Name)

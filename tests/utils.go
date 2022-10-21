@@ -456,7 +456,12 @@ func NewRandomVirtualMachineInstanceWithDisk(imageUrl, namespace, sc string, acc
 
 	dv := libdv.NewDataVolume(
 		libdv.WithRegistryURLSourceAndPullMethod(imageUrl, cdiv1.RegistryPullNode),
-		libdv.WithPVC(sc, dvSizeBySourceURL(imageUrl), accessMode, volMode),
+		libdv.WithPVC(
+			libdv.PVCWithStorageClass(sc),
+			libdv.PVCWithVolumeSize(dvSizeBySourceURL(imageUrl)),
+			libdv.PVCWithAccessMode(accessMode),
+			libdv.PVCWithVolumeMode(volMode),
+		),
 	)
 
 	dv, err = virtCli.CdiClient().CdiV1beta1().DataVolumes(namespace).Create(context.Background(), dv, metav1.CreateOptions{})
@@ -537,7 +542,11 @@ func NewRandomVMWithEphemeralDisk(containerImage string) *v1.VirtualMachine {
 func NewRandomVMWithDataVolumeWithRegistryImport(imageUrl, namespace, storageClass string, accessMode k8sv1.PersistentVolumeAccessMode) *v1.VirtualMachine {
 	dataVolume := libdv.NewDataVolume(
 		libdv.WithRegistryURLSourceAndPullMethod(imageUrl, cdiv1.RegistryPullNode),
-		libdv.WithPVC(storageClass, dvSizeBySourceURL(imageUrl), accessMode, k8sv1.PersistentVolumeFilesystem),
+		libdv.WithPVC(
+			libdv.PVCWithStorageClass(storageClass),
+			libdv.PVCWithVolumeSize(dvSizeBySourceURL(imageUrl)),
+			libdv.PVCWithAccessMode(accessMode),
+		),
 	)
 
 	vmi := NewRandomVMIWithDataVolume(dataVolume.Name)
@@ -555,7 +564,7 @@ func NewRandomVMWithDataVolume(imageUrl string, namespace string) (*v1.VirtualMa
 
 	dataVolume := libdv.NewDataVolume(
 		libdv.WithRegistryURLSource(imageUrl),
-		libdv.WithPVC(sc, cd.CirrosVolumeSize, k8sv1.ReadWriteOnce, k8sv1.PersistentVolumeFilesystem),
+		libdv.WithPVC(libdv.PVCWithStorageClass(sc)),
 	)
 
 	vmi := NewRandomVMIWithDataVolume(dataVolume.Name)
@@ -577,7 +586,7 @@ func NewRandomVMWithDataVolumeAndUserData(dataVolume *cdiv1.DataVolume, userData
 func NewRandomVMWithDataVolumeAndUserDataInStorageClass(imageUrl, namespace, userData, storageClass string) *v1.VirtualMachine {
 	dataVolume := libdv.NewDataVolume(
 		libdv.WithRegistryURLSourceAndPullMethod(imageUrl, cdiv1.RegistryPullNode),
-		libdv.WithPVC(storageClass, dvSizeBySourceURL(imageUrl), k8sv1.ReadWriteOnce, k8sv1.PersistentVolumeFilesystem),
+		libdv.WithPVC(libdv.PVCWithStorageClass(storageClass), libdv.PVCWithVolumeSize(dvSizeBySourceURL(imageUrl))),
 	)
 
 	return NewRandomVMWithDataVolumeAndUserData(dataVolume, userData)
