@@ -37,20 +37,17 @@ import (
 
 	"kubevirt.io/kubevirt/pkg/psa"
 	webhookutils "kubevirt.io/kubevirt/pkg/util/webhooks"
-	virtconfig "kubevirt.io/kubevirt/pkg/virt-config"
 )
 
 // MigrationPolicyAdmitter validates VirtualMachineSnapshots
 type MigrationPolicyAdmitter struct {
-	Client        kubecli.KubevirtClient
-	clusterConfig *virtconfig.ClusterConfig
+	Client kubecli.KubevirtClient
 }
 
 // NewMigrationPolicyAdmitter creates a MigrationPolicyAdmitter
-func NewMigrationPolicyAdmitter(clusterConfig *virtconfig.ClusterConfig, client kubecli.KubevirtClient) *MigrationPolicyAdmitter {
+func NewMigrationPolicyAdmitter(client kubecli.KubevirtClient) *MigrationPolicyAdmitter {
 	return &MigrationPolicyAdmitter{
-		Client:        client,
-		clusterConfig: clusterConfig,
+		Client: client,
 	}
 }
 
@@ -96,7 +93,7 @@ func (admitter *MigrationPolicyAdmitter) Admit(ar *admissionv1.AdmissionReview) 
 		}
 	}
 
-	if admitter.clusterConfig.PSAEnabled() && spec.AllowPostCopy != nil && *spec.AllowPostCopy {
+	if spec.AllowPostCopy != nil && *spec.AllowPostCopy {
 		namespace, err := admitter.Client.CoreV1().Namespaces().Get(context.Background(), policy.Namespace, metav1.GetOptions{})
 		if err != nil {
 			return webhookutils.ToAdmissionResponseError(err)

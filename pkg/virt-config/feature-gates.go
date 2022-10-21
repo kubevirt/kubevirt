@@ -60,6 +60,7 @@ var deprecatedFeatureGates = [...]string{
 	SRIOVLiveMigrationGate,
 	NonRoot,
 	NonRootDeprecated,
+	PSA,
 }
 
 func (c *ClusterConfig) isFeatureGateEnabled(featureGate string) bool {
