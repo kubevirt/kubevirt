@@ -617,6 +617,8 @@ rpmtree(
         "@zlib-0__1.2.11-20.el8.aarch64//rpm",
     ],
     symlinks = {
+        "/etc/crypto-policies/back-ends/openssl.config": "/usr/share/crypto-policies/DEFAULT/openssl.txt",
+        "/etc/crypto-policies/back-ends/opensslcnf.config": "/usr/share/crypto-policies/DEFAULT/opensslcnf.txt",
         "/var/run": "../run",
         "/usr/sbin/iptables": "/usr/sbin/iptables-legacy",
         "/usr/bin/nc": "/usr/bin/ncat",
@@ -833,6 +835,8 @@ rpmtree(
         "@zlib-0__1.2.11-20.el8.x86_64//rpm",
     ],
     symlinks = {
+        "/etc/crypto-policies/back-ends/openssl.config": "/usr/share/crypto-policies/DEFAULT/openssl.txt",
+        "/etc/crypto-policies/back-ends/opensslcnf.config": "/usr/share/crypto-policies/DEFAULT/opensslcnf.txt",
         "/var/run": "../run",
         "/usr/sbin/iptables": "/usr/sbin/iptables-legacy",
         "/usr/bin/nc": "/usr/bin/ncat",
@@ -1658,6 +1662,8 @@ rpmtree(
         "@zlib-0__1.2.11-20.el8.aarch64//rpm",
     ],
     symlinks = {
+        "/etc/crypto-policies/back-ends/openssl.config": "/usr/share/crypto-policies/DEFAULT/openssl.txt",
+        "/etc/crypto-policies/back-ends/opensslcnf.config": "/usr/share/crypto-policies/DEFAULT/opensslcnf.txt",
         "/var/run": "../run",
         "/usr/bin/nc": "/usr/bin/ncat",
     },
@@ -1781,6 +1787,8 @@ rpmtree(
         "@zlib-0__1.2.11-20.el8.x86_64//rpm",
     ],
     symlinks = {
+        "/etc/crypto-policies/back-ends/openssl.config": "/usr/share/crypto-policies/DEFAULT/openssl.txt",
+        "/etc/crypto-policies/back-ends/opensslcnf.config": "/usr/share/crypto-policies/DEFAULT/opensslcnf.txt",
         "/var/run": "../run",
         "/usr/bin/nc": "/usr/bin/ncat",
     },
