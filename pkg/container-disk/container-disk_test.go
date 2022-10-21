@@ -346,7 +346,7 @@ var _ = Describe("ContainerDisk", func() {
 		})
 
 		Context("when generating the container", func() {
-			It("AllowPrivilegeEscalation should be false", func() {
+			DescribeTable("when generating the container", func(testFunc func(*k8sv1.Container)) {
 				vmi := api.NewMinimalVMI("myvmi")
 				appendContainerDisk(vmi, "disk1")
 
@@ -355,8 +355,15 @@ var _ = Describe("ContainerDisk", func() {
 				Expect(err).ToNot(HaveOccurred())
 
 				newContainers := GenerateContainers(vmi, imageIDs, "a-name", "something")
-				Expect(*newContainers[0].SecurityContext.AllowPrivilegeEscalation).To(BeFalse())
-			})
+				testFunc(&newContainers[0])
+			},
+				Entry("AllowPrivilegeEscalation should be false", func(c *k8sv1.Container) {
+					Expect(*c.SecurityContext.AllowPrivilegeEscalation).To(BeFalse())
+				}),
+				Entry("all capabilities should be dropped", func(c *k8sv1.Container) {
+					Expect(c.SecurityContext.Capabilities.Drop).To(Equal([]k8sv1.Capability{"ALL"}))
+				}),
+			)
 		})
 	})
 })

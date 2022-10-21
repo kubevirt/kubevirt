@@ -341,6 +341,9 @@ func generateContainerFromVolume(vmi *v1.VirtualMachineInstance, imageIDs map[st
 			RunAsUser:                &userId,
 			RunAsNonRoot:             &nonRoot,
 			AllowPrivilegeEscalation: &noPrivilegeEscalation,
+			Capabilities: &kubev1.Capabilities{
+				Drop: []kubev1.Capability{"ALL"},
+			},
 		},
 	}
 
