@@ -81,8 +81,6 @@ const qemuTimeoutJitterRange = 120
 
 const (
 	CAP_NET_BIND_SERVICE = "NET_BIND_SERVICE"
-	CAP_NET_RAW          = "NET_RAW"
-	CAP_SYS_ADMIN        = "SYS_ADMIN"
 	CAP_SYS_NICE         = "SYS_NICE"
 )
 
@@ -620,6 +618,7 @@ func (t *templateService) newContainerSpecRenderer(vmi *v1.VirtualMachineInstanc
 	}
 	if util.IsNonRootVMI(vmi) {
 		computeContainerOpts = append(computeContainerOpts, WithNonRoot(userId))
+		computeContainerOpts = append(computeContainerOpts, WithDropALLCapabilities())
 	}
 	if t.IsPPC64() {
 		computeContainerOpts = append(computeContainerOpts, WithPrivileged())

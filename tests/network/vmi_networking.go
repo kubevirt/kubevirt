@@ -465,7 +465,10 @@ var _ = SIGDescribe("[rfe_id:694][crit:medium][vendor:cnv-qe@redhat.com][level:c
 					caps := container.SecurityContext.Capabilities
 
 					Expect(caps.Add).To(Not(ContainElement(k8sv1.Capability("NET_ADMIN"))), "Compute container should not have NET_ADMIN capability")
-					Expect(caps.Drop).To(ContainElement(k8sv1.Capability("NET_RAW")), "Compute container should drop NET_RAW capability")
+					Expect(caps.Drop).To(SatisfyAny(
+						ContainElement(k8sv1.Capability("NET_RAW")),
+						ContainElement(k8sv1.Capability("ALL"))),
+						"Compute container should drop NET_RAW capability")
 				}
 			}
 

@@ -87,9 +87,24 @@ func WithPrivileged() Option {
 
 func WithCapabilities(vmi *v1.VirtualMachineInstance) Option {
 	return func(renderer *ContainerSpecRenderer) {
-		renderer.capabilities = &k8sv1.Capabilities{
-			Add:  requiredCapabilities(vmi),
-			Drop: []k8sv1.Capability{CAP_NET_RAW},
+		if renderer.capabilities == nil {
+			renderer.capabilities = &k8sv1.Capabilities{
+				Add: requiredCapabilities(vmi),
+			}
+		} else {
+			renderer.capabilities.Add = requiredCapabilities(vmi)
+		}
+	}
+}
+
+func WithDropALLCapabilities() Option {
+	return func(renderer *ContainerSpecRenderer) {
+		if renderer.capabilities == nil {
+			renderer.capabilities = &k8sv1.Capabilities{
+				Drop: []k8sv1.Capability{"ALL"},
+			}
+		} else {
+			renderer.capabilities.Drop = []k8sv1.Capability{"ALL"}
 		}
 	}
 }

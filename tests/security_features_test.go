@@ -43,7 +43,6 @@ import (
 )
 
 const (
-	capNetRaw         k8sv1.Capability = "NET_RAW"
 	capSysNice        k8sv1.Capability = "SYS_NICE"
 	capNetBindService k8sv1.Capability = "NET_BIND_SERVICE"
 )
@@ -250,7 +249,7 @@ var _ = Describe("[Serial][sig-compute]SecurityFeatures", Serial, func() {
 			caps := *container.SecurityContext.Capabilities
 			if !checks.HasFeature(virtconfig.Root) {
 				Expect(caps.Add).To(HaveLen(1), fmt.Sprintf("Found capabilities %s, expected NET_BIND_SERVICE", caps.Add))
-				Expect(caps.Add).To(ContainElements(k8sv1.Capability("NET_BIND_SERVICE")))
+				Expect(caps.Add).To(ContainElement(k8sv1.Capability("NET_BIND_SERVICE")))
 			} else {
 				Expect(caps.Add).To(HaveLen(2), fmt.Sprintf("Found capabilities %s, expected NET_BIND_SERVICE and SYS_NICE", caps.Add))
 				Expect(caps.Add).To(ContainElements(k8sv1.Capability("NET_BIND_SERVICE"), k8sv1.Capability("SYS_NICE")))
@@ -262,9 +261,7 @@ var _ = Describe("[Serial][sig-compute]SecurityFeatures", Serial, func() {
 			}
 			By("Checking virt-launcher Pod's compute container has precisely the documented dropped capabilities")
 			Expect(caps.Drop).To(HaveLen(1))
-			for _, capa := range caps.Drop {
-				Expect(isLauncherCapabilityDropped(capa)).To(BeTrue(), "Expected compute container of virt_launcher to drop only specific capabilities")
-			}
+			Expect(caps.Drop[0]).To(Equal(k8sv1.Capability("ALL")), "Expected compute container of virt_launcher to drop all caps")
 		})
 	})
 })
@@ -272,17 +269,7 @@ var _ = Describe("[Serial][sig-compute]SecurityFeatures", Serial, func() {
 func isLauncherCapabilityValid(capability k8sv1.Capability) bool {
 	switch capability {
 	case
-		capNetBindService,
-		capSysNice:
-		return true
-	}
-	return false
-}
-
-func isLauncherCapabilityDropped(capability k8sv1.Capability) bool {
-	switch capability {
-	case
-		capNetRaw:
+		capNetBindService, capSysNice:
 		return true
 	}
 	return false
