@@ -48,7 +48,6 @@ import (
 	"kubevirt.io/kubevirt/pkg/controller"
 	"kubevirt.io/kubevirt/pkg/network/sriov"
 	"kubevirt.io/kubevirt/pkg/network/vmispec"
-	"kubevirt.io/kubevirt/pkg/psa"
 	storagetypes "kubevirt.io/kubevirt/pkg/storage/types"
 	"kubevirt.io/kubevirt/pkg/util"
 	traceUtils "kubevirt.io/kubevirt/pkg/util/trace"
@@ -1069,13 +1068,6 @@ func (c *VMIController) sync(vmi *virtv1.VirtualMachineInstance, pod *k8sv1.Pod,
 			return &syncErrorImpl{fmt.Errorf(failedToRenderLaunchManifestErrFormat, err), FailedCreatePodReason}
 		}
 
-		if c.clusterConfig.PSAEnabled() {
-			namespace := vmi.GetNamespace()
-			if err := psa.EscalateNamespace(c.namespaceStore, c.clientset, namespace, c.onOpenshift); err != nil {
-				return &syncErrorImpl{err, fmt.Sprintf("Failed to apply enforce label on namespace %s", namespace)}
-			}
-		}
-
 		vmiKey := controller.VirtualMachineInstanceKey(vmi)
 		c.podExpectations.ExpectCreations(vmiKey, 1)
 		pod, err := c.clientset.CoreV1().Pods(vmi.GetNamespace()).Create(context.Background(), templatePod, v1.CreateOptions{})
@@ -1740,13 +1732,6 @@ func (c *VMIController) createAttachmentPod(vmi *virtv1.VirtualMachineInstance, 
 	vmiKey := controller.VirtualMachineInstanceKey(vmi)
 	c.podExpectations.ExpectCreations(vmiKey, 1)
 
-	if c.clusterConfig.PSAEnabled() {
-		namespace := vmi.GetNamespace()
-		if err := psa.EscalateNamespace(c.namespaceStore, c.clientset, namespace, c.onOpenshift); err != nil {
-			return &syncErrorImpl{err, fmt.Sprintf("Failed to apply enforce label on namespace %s while creating attachment pod", namespace)}
-		}
-	}
-
 	pod, err := c.clientset.CoreV1().Pods(vmi.GetNamespace()).Create(context.Background(), attachmentPodTemplate, v1.CreateOptions{})
 	if err != nil {
 		c.podExpectations.CreationObserved(vmiKey)
@@ -1766,14 +1751,7 @@ func (c *VMIController) triggerHotplugPopulation(volume *virtv1.Volume, vmi *vir
 		vmiKey := controller.VirtualMachineInstanceKey(vmi)
 		c.podExpectations.ExpectCreations(vmiKey, 1)
 
-		if c.clusterConfig.PSAEnabled() {
-			namespace := vmi.GetNamespace()
-			if err := psa.EscalateNamespace(c.namespaceStore, c.clientset, namespace, c.onOpenshift); err != nil {
-				return &syncErrorImpl{err, fmt.Sprintf("Failed to apply enforce label on namespace %s while creating hotplug population trigger pod", namespace)}
-			}
-		}
-
-		_, err := c.clientset.CoreV1().Pods(vmi.GetNamespace()).Create(context.Background(), populateHotplugPodTemplate, v1.CreateOptions{})
+		_, err = c.clientset.CoreV1().Pods(vmi.GetNamespace()).Create(context.Background(), populateHotplugPodTemplate, v1.CreateOptions{})
 		if err != nil {
 			c.podExpectations.CreationObserved(vmiKey)
 			c.recorder.Eventf(vmi, k8sv1.EventTypeWarning, FailedCreatePodReason, "Error creating hotplug population trigger pod for volume %s: %v", volume.Name, err)

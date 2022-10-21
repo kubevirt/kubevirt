@@ -19,40 +19,14 @@
 package psa
 
 import (
-	"context"
 	"fmt"
 
 	k8sv1 "k8s.io/api/core/v1"
-	v1 "k8s.io/apimachinery/pkg/apis/meta/v1"
-	"k8s.io/apimachinery/pkg/types"
 	"k8s.io/client-go/tools/cache"
 	"kubevirt.io/client-go/kubecli"
 )
 
 const PSALabel = "pod-security.kubernetes.io/enforce"
-const OpenshiftPSAsync = "security.openshift.io/scc.podSecurityLabelSync"
-
-func EscalateNamespace(namespaceStore cache.Store, client kubecli.KubevirtClient, namespace string, onOpenshift bool) error {
-	isPrivileged, err := IsNamespacePrivilegedWithStore(namespaceStore, client, namespace)
-	if err != nil {
-		return err
-	}
-
-	if !isPrivileged {
-		labels := ""
-		if !onOpenshift {
-			labels = fmt.Sprintf(`{"%s": "privileged"}`, PSALabel)
-		} else {
-			labels = fmt.Sprintf(`{"%s": "privileged", "%s": "false"}`, PSALabel, OpenshiftPSAsync)
-		}
-		data := []byte(fmt.Sprintf(`{"metadata": { "labels": %s}}`, labels))
-		_, err := client.CoreV1().Namespaces().Patch(context.TODO(), namespace, types.StrategicMergePatchType, data, v1.PatchOptions{})
-		if err != nil {
-			return fmt.Errorf("Failed to apply enforce label on namespace %s: %w", namespace, err)
-		}
-	}
-	return nil
-}
 
 func IsNamespacePrivilegedWithStore(namespaceStore cache.Store, client kubecli.KubevirtClient, namespace string) (bool, error) {
 	obj, exists, err := namespaceStore.GetByKey(namespace)

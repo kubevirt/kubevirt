@@ -651,13 +651,6 @@ func (c *MigrationController) createTargetPod(migration *virtv1.VirtualMachineIn
 		}
 	}
 
-	if c.clusterConfig.PSAEnabled() {
-		// Check my impact
-		if err := psa.EscalateNamespace(c.namespaceStore, c.clientset, vmi.GetNamespace(), c.onOpenshift); err != nil {
-			return err
-		}
-	}
-
 	key := controller.MigrationKey(migration)
 	c.podExpectations.ExpectCreations(key, 1)
 	pod, err := c.clientset.CoreV1().Pods(vmi.GetNamespace()).Create(context.Background(), templatePod, v1.CreateOptions{})
@@ -846,7 +839,8 @@ func (c *MigrationController) handleTargetPodHandoff(migration *virtv1.VirtualMa
 		vmiCopy.Status.MigrationState.MigrationConfiguration = clusterMigrationConfigs
 	}
 
-	if c.clusterConfig.PSAEnabled() && *vmiCopy.Status.MigrationState.MigrationConfiguration.AllowPostCopy {
+	if vmiCopy.Status.MigrationState.MigrationConfiguration.AllowPostCopy != nil &&
+		*vmiCopy.Status.MigrationState.MigrationConfiguration.AllowPostCopy {
 		isPrivileged, err := psa.IsNamespacePrivilegedWithStore(c.namespaceStore, c.clientset, vmiCopy.Namespace)
 		if err != nil {
 			return err
@@ -1026,12 +1020,6 @@ func (c *MigrationController) createAttachmentPod(migration *virtv1.VirtualMachi
 	attachmentPodTemplate.ObjectMeta.Labels[virtv1.MigrationJobLabel] = string(migration.UID)
 	attachmentPodTemplate.ObjectMeta.Annotations[virtv1.MigrationJobNameAnnotation] = string(migration.Name)
 
-	if c.clusterConfig.PSAEnabled() {
-		// Check my impact
-		if err := psa.EscalateNamespace(c.namespaceStore, c.clientset, vmi.GetNamespace(), c.onOpenshift); err != nil {
-			return err
-		}
-	}
 	key := controller.MigrationKey(migration)
 	c.podExpectations.ExpectCreations(key, 1)
 
