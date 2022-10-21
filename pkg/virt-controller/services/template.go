@@ -277,6 +277,33 @@ func generateQemuTimeoutWithJitter(qemuTimeoutBaseSeconds int) string {
 	return fmt.Sprintf("%ds", timeout)
 }
 
+func computeSecurityContext(vmi *v1.VirtualMachineInstance) *k8sv1.PodSecurityContext {
+	psc := &k8sv1.PodSecurityContext{}
+
+	if util.IsNonRootVMI(vmi) {
+		nonRootUser := int64(util.NonRootUID)
+		psc.RunAsUser = &nonRootUser
+		psc.RunAsGroup = &nonRootUser
+		psc.RunAsNonRoot = pointer.Bool(true)
+		psc.SeccompProfile = &k8sv1.SeccompProfile{
+			Type: k8sv1.SeccompProfileTypeRuntimeDefault,
+		}
+	} else {
+		rootUser := int64(util.RootUser)
+		psc.RunAsUser = &rootUser
+		psc.SeccompProfile = &k8sv1.SeccompProfile{
+			Type: k8sv1.SeccompProfileTypeUnconfined,
+		}
+	}
+
+	if util.IsPasstVMI(vmi) || util.IsVMIVirtiofsEnabled(vmi) {
+		psc.SeccompProfile = &k8sv1.SeccompProfile{
+			Type: k8sv1.SeccompProfileTypeUnconfined,
+		}
+	}
+	return psc
+}
+
 func (t *templateService) renderLaunchManifest(vmi *v1.VirtualMachineInstance, imageIDs map[string]string, tempPod bool) (*k8sv1.Pod, error) {
 	precond.MustNotBeNil(vmi)
 	domain := precond.MustNotBeEmpty(vmi.GetObjectMeta().GetName())
@@ -478,11 +505,9 @@ func (t *templateService) renderLaunchManifest(vmi *v1.VirtualMachineInstance, i
 			},
 		},
 		Spec: k8sv1.PodSpec{
-			Hostname:  hostName,
-			Subdomain: vmi.Spec.Subdomain,
-			SecurityContext: &k8sv1.PodSecurityContext{
-				RunAsUser: &userId,
-			},
+			Hostname:                      hostName,
+			Subdomain:                     vmi.Spec.Subdomain,
+			SecurityContext:               computeSecurityContext(vmi),
 			TerminationGracePeriodSeconds: &gracePeriodKillAfter,
 			RestartPolicy:                 k8sv1.RestartPolicyNever,
 			Containers:                    containers,
@@ -498,11 +523,6 @@ func (t *templateService) renderLaunchManifest(vmi *v1.VirtualMachineInstance, i
 			Tolerations:                   vmi.Spec.Tolerations,
 			TopologySpreadConstraints:     vmi.Spec.TopologySpreadConstraints,
 		},
-	}
-
-	if nonRoot {
-		pod.Spec.SecurityContext.RunAsGroup = &userId
-		pod.Spec.SecurityContext.RunAsNonRoot = &nonRoot
 	}
 
 	alignPodMultiCategorySecurity(&pod, vmi, t.clusterConfig.GetSELinuxLauncherType(), t.clusterConfig.DockerSELinuxMCSWorkaroundEnabled())

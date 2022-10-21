@@ -71,6 +71,7 @@ var _ = Describe("Template", func() {
 	var virtClient *kubecli.MockKubevirtClient
 	var config *virtconfig.ClusterConfig
 	var kvInformer cache.SharedIndexInformer
+	var nonRootUser int64
 
 	kv := &v1.KubeVirt{
 		ObjectMeta: metav1.ObjectMeta{
@@ -154,6 +155,7 @@ var _ = Describe("Template", func() {
 			Expect(err).To(Not(HaveOccurred()))
 			return config, kvInformer, svc
 		}
+		nonRootUser = util.NonRootUID
 	})
 
 	AfterEach(func() {
@@ -3418,13 +3420,11 @@ var _ = Describe("Template", func() {
 				return api.NewMinimalVMI("fake-vmi")
 			}, "compute", []kubev1.Capability{CAP_NET_BIND_SERVICE, CAP_SYS_NICE}, nil),
 			Entry("on a non-root virt-launcher", func() *v1.VirtualMachineInstance {
-				nonRootUser := util.NonRootUID
 				vmi := api.NewMinimalVMI("fake-vmi")
 				vmi.Status.RuntimeUser = uint64(nonRootUser)
 				return vmi
 			}, "compute", []kubev1.Capability{CAP_NET_BIND_SERVICE}, []kubev1.Capability{"ALL"}),
 			Entry("on a sidecar container", func() *v1.VirtualMachineInstance {
-				nonRootUser := util.NonRootUID
 				vmi := api.NewMinimalVMI("fake-vmi")
 				vmi.Status.RuntimeUser = uint64(nonRootUser)
 				vmi.Annotations = map[string]string{
@@ -3432,6 +3432,75 @@ var _ = Describe("Template", func() {
 				}
 				return vmi
 			}, "hook-sidecar-0", nil, []kubev1.Capability{"ALL"}),
+		)
+
+		DescribeTable("should compute the correct security context", func(
+			getVMI func() *v1.VirtualMachineInstance,
+			securityContext *kubev1.PodSecurityContext) {
+			vmi := getVMI()
+
+			pod, err := svc.RenderLaunchManifest(vmi)
+			Expect(err).ToNot(HaveOccurred())
+
+			Expect(pod.Spec.SecurityContext).To(Equal(securityContext))
+		},
+			Entry("on a root virt-launcher", func() *v1.VirtualMachineInstance {
+				return api.NewMinimalVMI("fake-vmi")
+			}, &kubev1.PodSecurityContext{
+				RunAsUser: new(int64),
+				SeccompProfile: &kubev1.SeccompProfile{
+					Type: kubev1.SeccompProfileTypeUnconfined,
+				},
+			}),
+			Entry("on a non-root virt-launcher", func() *v1.VirtualMachineInstance {
+				vmi := api.NewMinimalVMI("fake-vmi")
+				vmi.Status.RuntimeUser = uint64(nonRootUser)
+				return vmi
+			}, &kubev1.PodSecurityContext{
+				RunAsUser:    &nonRootUser,
+				RunAsGroup:   &nonRootUser,
+				RunAsNonRoot: pointer.Bool(true),
+				SeccompProfile: &kubev1.SeccompProfile{
+					Type: kubev1.SeccompProfileTypeRuntimeDefault,
+				},
+			}),
+			Entry("on a passt vmi", func() *v1.VirtualMachineInstance {
+				nonRootUser := util.NonRootUID
+				vmi := api.NewMinimalVMI("fake-vmi")
+				vmi.Status.RuntimeUser = uint64(nonRootUser)
+				vmi.Spec.Domain.Devices.Interfaces = []v1.Interface{{
+					InterfaceBindingMethod: v1.InterfaceBindingMethod{
+						Passt: &v1.InterfacePasst{},
+					},
+				}}
+				return vmi
+			}, &kubev1.PodSecurityContext{
+				RunAsUser:    &nonRootUser,
+				RunAsGroup:   &nonRootUser,
+				RunAsNonRoot: pointer.Bool(true),
+				SeccompProfile: &kubev1.SeccompProfile{
+					Type: kubev1.SeccompProfileTypeUnconfined,
+				},
+				SELinuxOptions: &kubev1.SELinuxOptions{
+					Type: "virt_launcher.process",
+				},
+			}),
+			Entry("on a virtiofs vmi", func() *v1.VirtualMachineInstance {
+				nonRootUser := util.NonRootUID
+				vmi := api.NewMinimalVMI("fake-vmi")
+				vmi.Status.RuntimeUser = uint64(nonRootUser)
+				vmi.Spec.Domain.Devices.Filesystems = []v1.Filesystem{{
+					Virtiofs: &v1.FilesystemVirtiofs{},
+				}}
+				return vmi
+			}, &kubev1.PodSecurityContext{
+				RunAsUser:    &nonRootUser,
+				RunAsGroup:   &nonRootUser,
+				RunAsNonRoot: pointer.Bool(true),
+				SeccompProfile: &kubev1.SeccompProfile{
+					Type: kubev1.SeccompProfileTypeUnconfined,
+				},
+			}),
 		)
 
 		It("Should run as non-root except compute", func() {
