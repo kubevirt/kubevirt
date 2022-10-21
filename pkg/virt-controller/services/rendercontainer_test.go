@@ -180,6 +180,13 @@ var _ = Describe("Container spec renderer", func() {
 		})
 	})
 
+	Context("with no capabilities option", func() {
+		It("all capabilities should be dropped", func() {
+			specRenderer = NewContainerSpecRenderer(containerName, img, pullPolicy, WithNoCapabilities())
+			Expect(specRenderer.Render(exampleCommand).SecurityContext.Capabilities.Drop).To(Equal([]k8sv1.Capability{"ALL"}))
+		})
+	})
+
 	Context("vmi with ports allowed in its spec", func() {
 		var ports []v1.Port
 

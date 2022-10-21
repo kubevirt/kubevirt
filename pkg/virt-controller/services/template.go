@@ -597,6 +597,7 @@ func (t *templateService) newInitContainerRenderer(vmiSpec *v1.VirtualMachineIns
 	cpInitContainerOpts := []Option{
 		WithVolumeMounts(initContainerVolumeMount),
 		WithResourceRequirements(initContainerResources),
+		WithNoCapabilities(),
 	}
 
 	if util.IsNonRootVMI(vmiSpec) {

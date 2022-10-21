@@ -94,6 +94,14 @@ func WithCapabilities(vmi *v1.VirtualMachineInstance) Option {
 	}
 }
 
+func WithNoCapabilities() Option {
+	return func(renderer *ContainerSpecRenderer) {
+		renderer.capabilities = &k8sv1.Capabilities{
+			Drop: []k8sv1.Capability{"ALL"},
+		}
+	}
+}
+
 func WithVolumeDevices(devices ...k8sv1.VolumeDevice) Option {
 	return func(renderer *ContainerSpecRenderer) {
 		renderer.volumeDevices = devices
