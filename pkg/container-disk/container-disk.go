@@ -316,6 +316,7 @@ func generateContainerFromVolume(vmi *v1.VirtualMachineInstance, imageIDs map[st
 		log.Log.Object(vmi).Infof("arguments for container-disk \"%s\": --copy-path %s", name, copyPathArg)
 	}
 
+	noPrivilegeEscalation := false
 	nonRoot := true
 	var userId int64 = util.NonRootUID
 
@@ -337,8 +338,9 @@ func generateContainerFromVolume(vmi *v1.VirtualMachineInstance, imageIDs map[st
 		},
 		Resources: resources,
 		SecurityContext: &kubev1.SecurityContext{
-			RunAsUser:    &userId,
-			RunAsNonRoot: &nonRoot,
+			RunAsUser:                &userId,
+			RunAsNonRoot:             &nonRoot,
+			AllowPrivilegeEscalation: &noPrivilegeEscalation,
 		},
 	}
 

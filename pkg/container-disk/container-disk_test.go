@@ -344,6 +344,20 @@ var _ = Describe("ContainerDisk", func() {
 				Entry("image with registry and shasum and custom port and group", "myregistry.io:5000/mygroup/myimage@sha256:123534", "myregistry.io:5000/mygroup/myimage"),
 			)
 		})
+
+		Context("when generating the container", func() {
+			It("AllowPrivilegeEscalation should be false", func() {
+				vmi := api.NewMinimalVMI("myvmi")
+				appendContainerDisk(vmi, "disk1")
+
+				pod := createMigrationSourcePod(vmi)
+				imageIDs, err := ExtractImageIDsFromSourcePod(vmi, pod)
+				Expect(err).ToNot(HaveOccurred())
+
+				newContainers := GenerateContainers(vmi, imageIDs, "a-name", "something")
+				Expect(*newContainers[0].SecurityContext.AllowPrivilegeEscalation).To(BeFalse())
+			})
+		})
 	})
 })
 

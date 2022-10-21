@@ -64,6 +64,10 @@ var _ = Describe("Container spec renderer", func() {
 					},
 				))
 		})
+
+		It("AllowPrivilegeEscalation should be set to false", func() {
+			Expect(*specRenderer.Render(exampleCommand).SecurityContext.AllowPrivilegeEscalation).Should(BeFalse())
+		})
 	})
 
 	Context("with privileged option", func() {
