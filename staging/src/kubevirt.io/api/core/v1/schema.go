@@ -631,7 +631,7 @@ type DiskBus string
 const (
 	DiskBusSCSI   DiskBus = "scsi"
 	DiskBusSATA   DiskBus = "sata"
-	DiskBusVirtio DiskBus = "virtio"
+	DiskBusVirtio DiskBus = VirtIO
 	DiskBusUSB    DiskBus = "usb"
 )
 

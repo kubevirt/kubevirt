@@ -55,23 +55,25 @@ var _ = Describe("[sig-compute]MultiQueue", func() {
 
 	Context("MultiQueue Behavior", func() {
 		var availableCPUs int
+		const numCpus int32 = 3
 
 		BeforeEach(func() {
 			availableCPUs = libnode.GetHighestCPUNumberAmongNodes(virtClient)
 		})
-		It("[test_id:4599]should be able to successfully boot fedora to the login prompt with networking mutiqueues enabled without being blocked by selinux", func() {
+
+		DescribeTable("should be able to successfully boot fedora to the login prompt with multi-queue without being blocked by selinux", func(interfaceModel string, expectedQueueCount int32) {
 			vmi := tests.NewRandomFedoraVMIWithGuestAgent()
-			var numCpus int32 = 3
 			Expect(numCpus).To(BeNumerically("<=", availableCPUs),
 				fmt.Sprintf("Testing environment only has nodes with %d CPUs available, but required are %d CPUs", availableCPUs, numCpus),
 			)
 			cpuReq := resource.MustParse(fmt.Sprintf("%d", numCpus))
 			vmi.Spec.Domain.Resources.Requests[k8sv1.ResourceCPU] = cpuReq
 			vmi.Spec.Domain.Devices.NetworkInterfaceMultiQueue = pointer.Bool(true)
-			vmi.Spec.Domain.Devices.Rng = &v1.Rng{}
+
+			vmi.Spec.Domain.Devices.Interfaces[0].Model = interfaceModel
 
 			By("Creating and starting the VMI")
-			vmi, err := virtClient.VirtualMachineInstance(util.NamespaceTestDefault).Create(vmi)
+			vmi, err = virtClient.VirtualMachineInstance(util.NamespaceTestDefault).Create(vmi)
 			Expect(err).ToNot(HaveOccurred())
 			vmi = tests.WaitForSuccessfulVMIStartWithTimeout(vmi, 360)
 
@@ -79,12 +81,14 @@ var _ = Describe("[sig-compute]MultiQueue", func() {
 			Expect(console.LoginToFedora(vmi)).To(Succeed())
 
 			By("Checking QueueCount has the expected value")
-			Expect(vmi.Status.Interfaces[0].QueueCount).To(Equal(numCpus))
-		})
+			Expect(vmi.Status.Interfaces[0].QueueCount).To(Equal(expectedQueueCount))
+		},
+			Entry("[test_id:4599] with default virtio interface", v1.VirtIO, numCpus),
+			Entry("with e1000 interface", "e1000", int32(1)),
+		)
 
 		It("[test_id:959][rfe_id:2065] Should honor multiQueue requests", func() {
 			vmi := tests.NewRandomVMIWithEphemeralDisk(cd.ContainerDiskFor(cd.ContainerDiskAlpine))
-			numCpus := 3
 			Expect(numCpus).To(BeNumerically("<=", availableCPUs),
 				fmt.Sprintf("Testing environment only has nodes with %d CPUs available, but required are %d CPUs", availableCPUs, numCpus),
 			)
@@ -111,7 +115,7 @@ var _ = Describe("[sig-compute]MultiQueue", func() {
 
 			By("Verifying VMI")
 			newCpuReq := newVMI.Spec.Domain.Resources.Requests[k8sv1.ResourceCPU]
-			Expect(int(newCpuReq.Value())).To(Equal(numCpus))
+			Expect(int32(newCpuReq.Value())).To(Equal(numCpus))
 			Expect(*newVMI.Spec.Domain.Devices.BlockMultiQueue).To(BeTrue())
 
 			By("Fetching Domain XML from running pod")
@@ -122,7 +126,7 @@ var _ = Describe("[sig-compute]MultiQueue", func() {
 
 			By("Ensuring each disk has three queues assigned")
 			for _, disk := range domSpec.Devices.Disks {
-				Expect(int(*disk.Driver.Queues)).To(Equal(numCpus))
+				Expect(int32(*disk.Driver.Queues)).To(Equal(numCpus))
 			}
 		})
 

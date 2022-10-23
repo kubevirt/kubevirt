@@ -26,6 +26,8 @@ import (
 
 	ginkgo "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
+
+	v1 "kubevirt.io/api/core/v1"
 )
 
 var exampleXMLwithNoneMemballoon string
@@ -333,7 +335,7 @@ var _ = ginkgo.Describe("Schema", func() {
 		exampleDomain.Spec.Devices.Inputs = []Input{
 			{
 				Type:  "tablet",
-				Bus:   "virtio",
+				Bus:   v1.VirtIO,
 				Alias: NewUserDefinedAlias("tablet0"),
 			},
 		}
@@ -352,7 +354,7 @@ var _ = ginkgo.Describe("Schema", func() {
 			Alias:  NewUserDefinedAlias("mywatchdog"),
 		}
 		exampleDomain.Spec.Devices.Rng = &Rng{
-			Model:   "virtio",
+			Model:   v1.VirtIO,
 			Backend: &RngBackend{Source: "/dev/urandom", Model: "random"},
 		}
 		exampleDomain.Spec.Devices.Controllers = []Controller{
@@ -403,7 +405,7 @@ var _ = ginkgo.Describe("Schema", func() {
 		exampleDomain.Spec.Metadata.KubeVirt.GracePeriod = &GracePeriodMetadata{}
 		exampleDomain.Spec.Metadata.KubeVirt.GracePeriod.DeletionGracePeriodSeconds = 5
 		exampleDomain.Spec.IOThreads = &IOThreads{IOThreads: 2}
-		exampleDomain.Spec.Devices.Ballooning = &MemBalloon{Model: "virtio", Stats: &Stats{Period: 10}}
+		exampleDomain.Spec.Devices.Ballooning = &MemBalloon{Model: v1.VirtIO, Stats: &Stats{Period: 10}}
 		exampleDomainWithMemballonDevice = exampleDomain.DeepCopy()
 		exampleDomainWithMemballonDevice.Spec.Devices.Ballooning = &MemBalloon{Model: "none"}
 	})

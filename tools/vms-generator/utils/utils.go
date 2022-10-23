@@ -86,7 +86,7 @@ const (
 	VirtualMachineInstancetypeComputeSmall              = "csmall"
 	VirtualMachineClusterInstancetypeComputeSmall       = "cluster-csmall"
 	VirtualMachineInstancetypeComputeLarge              = "clarge"
-	VirtualMachinePreferenceVirtio                      = "virtio"
+	VirtualMachinePreferenceVirtio                      = v1.VirtIO
 	VirtualMachinePreferenceWindows                     = "windows"
 	VmCirrosInstancetypeComputeSmall                    = "vm-cirros-csmall"
 	VmCirrosClusterInstancetypeComputeSmall             = "vm-cirros-cluster-csmall"
@@ -121,7 +121,7 @@ const (
 const windowsFirmware = "5d307ca9-b3ef-428c-8861-06e72d69f223"
 const defaultInterfaceName = "default"
 const enableNetworkInterfaceMultiqueueForTemplate = true
-const EthernetAdaptorModelToEnableMultiqueue = "virtio"
+const EthernetAdaptorModelToEnableMultiqueue = v1.VirtIO
 
 const (
 	cloudConfigHeader = "#cloud-config"
@@ -1298,8 +1298,8 @@ func GetVirtualMachinePreferenceVirtio() *instancetypev1alpha2.VirtualMachinePre
 		},
 		Spec: instancetypev1alpha2.VirtualMachinePreferenceSpec{
 			Devices: &instancetypev1alpha2.DevicePreferences{
-				PreferredDiskBus:        "virtio",
-				PreferredInterfaceModel: "virtio",
+				PreferredDiskBus:        v1.VirtIO,
+				PreferredInterfaceModel: v1.VirtIO,
 			},
 		},
 	}

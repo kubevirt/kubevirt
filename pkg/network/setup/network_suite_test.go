@@ -42,7 +42,7 @@ func NewDomainWithBridgeInterface() *api.Domain {
 	domain := &api.Domain{}
 	domain.Spec.Devices.Interfaces = []api.Interface{{
 		Model: &api.Model{
-			Type: "virtio",
+			Type: v1.VirtIO,
 		},
 		Type: "bridge",
 		Source: api.InterfaceSource{

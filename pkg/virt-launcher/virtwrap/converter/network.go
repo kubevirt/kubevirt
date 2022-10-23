@@ -55,7 +55,7 @@ func createDomainInterfaces(vmi *v1.VirtualMachineInstance, domain *api.Domain, 
 			continue
 		}
 
-		ifaceType := getInterfaceType(&vmi.Spec.Domain.Devices.Interfaces[i])
+		ifaceType := GetInterfaceType(&vmi.Spec.Domain.Devices.Interfaces[i])
 		domainIface := api.Interface{
 			Model: &api.Model{
 				Type: translateModel(c, ifaceType),
@@ -65,14 +65,11 @@ func createDomainInterfaces(vmi *v1.VirtualMachineInstance, domain *api.Domain, 
 
 		// if AllowEmulation unset and at least one NIC model is virtio,
 		// /dev/vhost-net must be present as we should have asked for it.
-		var virtioNetMQRequested bool
-		if mq := vmi.Spec.Domain.Devices.NetworkInterfaceMultiQueue; mq != nil {
-			virtioNetMQRequested = *mq
-		}
-		if ifaceType == "virtio" && virtioNetProhibited {
+		if ifaceType == v1.VirtIO && virtioNetProhibited {
 			return nil, fmt.Errorf("In-kernel virtio-net device emulation '/dev/vhost-net' not present")
-		} else if ifaceType == "virtio" && virtioNetMQRequested {
-			queueCount := uint(CalculateNetworkQueues(vmi))
+		}
+
+		if queueCount := uint(CalculateNetworkQueues(vmi, ifaceType)); queueCount != 0 {
 			domainIface.Driver = &api.InterfaceDriver{Name: "vhost", Queues: &queueCount}
 		}
 
@@ -127,7 +124,7 @@ func createDomainInterfaces(vmi *v1.VirtualMachineInstance, domain *api.Domain, 
 		if c.UseLaunchSecurity {
 			// It's necessary to disable the iPXE option ROM as iPXE is not aware of SEV
 			domainIface.Rom = &api.Rom{Enabled: "no"}
-			if ifaceType == "virtio" {
+			if ifaceType == v1.VirtIO {
 				if domainIface.Driver != nil {
 					domainIface.Driver.IOMMU = "on"
 				} else {
@@ -141,7 +138,7 @@ func createDomainInterfaces(vmi *v1.VirtualMachineInstance, domain *api.Domain, 
 	return domainInterfaces, nil
 }
 
-func getInterfaceType(iface *v1.Interface) string {
+func GetInterfaceType(iface *v1.Interface) string {
 	if iface.Slirp != nil {
 		// Slirp configuration works only with e1000 or rtl8139
 		if iface.Model != "e1000" && iface.Model != "rtl8139" {
@@ -153,7 +150,7 @@ func getInterfaceType(iface *v1.Interface) string {
 	if iface.Model != "" {
 		return iface.Model
 	}
-	return "virtio"
+	return v1.VirtIO
 }
 
 func validateNetworksTypes(networks []v1.Network) error {
@@ -200,7 +197,11 @@ func createSlirpNetwork(iface v1.Interface, network v1.Network, domain *api.Doma
 	return nil
 }
 
-func CalculateNetworkQueues(vmi *v1.VirtualMachineInstance) uint32 {
+func CalculateNetworkQueues(vmi *v1.VirtualMachineInstance, ifaceType string) uint32 {
+	if !isTrue(vmi.Spec.Domain.Devices.NetworkInterfaceMultiQueue) || ifaceType != v1.VirtIO {
+		return 0
+	}
+
 	cpuTopology := vcpu.GetCPUTopology(vmi)
 	queueNumber := vcpu.CalculateRequestedVCPUs(cpuTopology)
 
@@ -209,6 +210,10 @@ func CalculateNetworkQueues(vmi *v1.VirtualMachineInstance) uint32 {
 		queueNumber = multiQueueMaxQueues
 	}
 	return queueNumber
+}
+
+func isTrue(networkInterfaceMultiQueue *bool) bool {
+	return (networkInterfaceMultiQueue != nil) && (*networkInterfaceMultiQueue)
 }
 
 func configPortForward(qemuArg *api.Arg, iface v1.Interface) error {

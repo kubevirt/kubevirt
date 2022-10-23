@@ -24,7 +24,7 @@ func ExpectVirtioTransitionalOnly(dom *api.DomainSpec) {
 
 	hit = false
 	for _, ifc := range dom.Devices.Interfaces {
-		if strings.HasPrefix(ifc.Model.Type, "virtio") {
+		if strings.HasPrefix(ifc.Model.Type, v1.VirtIO) {
 			ExpectWithOffset(1, ifc.Model.Type).To(Equal(virtioTrans))
 			hit = true
 		}
@@ -33,9 +33,9 @@ func ExpectVirtioTransitionalOnly(dom *api.DomainSpec) {
 
 	hit = false
 	for _, input := range dom.Devices.Inputs {
-		if strings.HasPrefix(input.Model, "virtio") {
+		if strings.HasPrefix(input.Model, v1.VirtIO) {
 			// All our input types only exist only as virtio 1.0 and only accept virtio
-			ExpectWithOffset(1, input.Model).To(Equal("virtio"))
+			ExpectWithOffset(1, input.Model).To(Equal(v1.VirtIO))
 			hit = true
 		}
 	}

@@ -25,10 +25,7 @@ import (
 	"kubevirt.io/kubevirt/pkg/network/cache"
 	"kubevirt.io/kubevirt/pkg/virt-launcher/virtwrap/api"
 
-	v1 "kubevirt.io/api/core/v1"
-
 	netdriver "kubevirt.io/kubevirt/pkg/network/driver"
-	"kubevirt.io/kubevirt/pkg/virt-launcher/virtwrap/converter"
 )
 
 type PodNetworkInfraConfigurator interface {
@@ -39,22 +36,10 @@ type PodNetworkInfraConfigurator interface {
 	GenerateNonRecoverableDHCPConfig() *cache.DHCPConfig
 }
 
-func createAndBindTapToBridge(handler netdriver.NetworkHandler, deviceName string, bridgeIfaceName string, launcherPID int, mtu int, tapOwner string, vmi *v1.VirtualMachineInstance) error {
-	err := handler.CreateTapDevice(deviceName, calculateNetworkQueues(vmi), launcherPID, mtu, tapOwner)
+func createAndBindTapToBridge(handler netdriver.NetworkHandler, deviceName string, bridgeIfaceName string, launcherPID int, mtu int, tapOwner string, queues uint32) error {
+	err := handler.CreateTapDevice(deviceName, queues, launcherPID, mtu, tapOwner)
 	if err != nil {
 		return err
 	}
 	return handler.BindTapDeviceToBridge(deviceName, bridgeIfaceName)
-}
-
-func calculateNetworkQueues(vmi *v1.VirtualMachineInstance) uint32 {
-	if isMultiqueue(vmi) {
-		return converter.CalculateNetworkQueues(vmi)
-	}
-	return 0
-}
-
-func isMultiqueue(vmi *v1.VirtualMachineInstance) bool {
-	return (vmi.Spec.Domain.Devices.NetworkInterfaceMultiQueue != nil) &&
-		(*vmi.Spec.Domain.Devices.NetworkInterfaceMultiQueue)
 }

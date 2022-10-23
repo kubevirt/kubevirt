@@ -19,6 +19,7 @@ import (
 	virtnetlink "kubevirt.io/kubevirt/pkg/network/link"
 	"kubevirt.io/kubevirt/pkg/util"
 	"kubevirt.io/kubevirt/pkg/virt-launcher/virtwrap/api"
+	"kubevirt.io/kubevirt/pkg/virt-launcher/virtwrap/converter"
 )
 
 const (
@@ -124,7 +125,9 @@ func (b *MasqueradePodNetworkConfigurator) PreparePodNetworkInterface() error {
 		tapOwner = strconv.Itoa(util.NonRootUID)
 	}
 	tapDeviceName := virtnetlink.GenerateTapDeviceName(b.podNicLink.Attrs().Name)
-	err := createAndBindTapToBridge(b.handler, tapDeviceName, b.bridgeInterfaceName, b.launcherPID, b.podNicLink.Attrs().MTU, tapOwner, b.vmi)
+
+	queues := converter.CalculateNetworkQueues(b.vmi, converter.GetInterfaceType(b.vmiSpecIface))
+	err := createAndBindTapToBridge(b.handler, tapDeviceName, b.bridgeInterfaceName, b.launcherPID, b.podNicLink.Attrs().MTU, tapOwner, queues)
 	if err != nil {
 		log.Log.Reason(err).Errorf("failed to create tap device named %s", tapDeviceName)
 		return err
