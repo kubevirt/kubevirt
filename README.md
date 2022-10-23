@@ -38,11 +38,11 @@ For more explanation and advanced options for HCO deployment using kustomize, re
 
 Hyperconverged Cluster Operator is publishing the latest bundle to [quay.io/kubevirt](https://quay.io/repository/kubevirt) 
 before publishing tagged, stable releases to [OperatorHub.io](https://operatorhub.io).  
-The latest bundle is `quay.io/kubevirt/hyperconverged-cluster-bundle:1.8.0-unstable`. It is built and pushed on every merge to
+The latest bundle is `quay.io/kubevirt/hyperconverged-cluster-bundle:1.9.0-unstable`. It is built and pushed on every merge to
 main branch, and contains the most up-to-date manifests, which are pointing to the most recent application images: `hyperconverged-cluster-operator` 
 and `hyperconverged-cluster-webhook`, which are built together with the bundle from the current code at the main branch.  
 The unreleased bundle can be consumed on a cluster by creating a CatalogSource pointing to the index image that contains 
-that bundle: `quay.io/kubevirt/hyperconverged-cluster-index:1.8.0-unstable`.
+that bundle: `quay.io/kubevirt/hyperconverged-cluster-index:1.9.0-unstable`.
 
 Make the bundle available in the cluster's packagemanifest by adding the following CatalogSource:
 ```bash
@@ -54,7 +54,7 @@ metadata:
   namespace: openshift-marketplace
 spec:
   sourceType: grpc
-  image: quay.io/kubevirt/hyperconverged-cluster-index:1.8.0-unstable
+  image: quay.io/kubevirt/hyperconverged-cluster-index:1.9.0-unstable
   displayName: Kubevirt Hyperconverged Cluster Operator
   publisher: Kubevirt Project
 EOF
@@ -82,7 +82,7 @@ spec:
     source: hco-unstable-catalog-source
     sourceNamespace: openshift-marketplace
     name: community-kubevirt-hyperconverged
-    channel: "1.8.0"
+    channel: "1.9.0"
 EOF
 ```
 Then, create the HyperConverged custom resource to complete the installation.  
@@ -161,7 +161,7 @@ metadata:
   name: hco-subscription
   namespace: kubevirt-hyperconverged
 spec:
-  channel: "1.8.0"
+  channel: "1.9.0"
   name: community-kubevirt-hyperconverged
   source: hco-catalogsource
   sourceNamespace: openshift-marketplace

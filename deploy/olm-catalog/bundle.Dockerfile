@@ -1,6 +1,6 @@
 FROM scratch
 
-ARG VERSION=1.8.0
+ARG VERSION=1.9.0
 
 LABEL operators.operatorframework.io.bundle.mediatype.v1=registry+v1
 LABEL operators.operatorframework.io.bundle.manifests.v1=manifests/
