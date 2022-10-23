@@ -760,13 +760,14 @@ By default, on OCP/OKD, HCO will read the global configuration for TLS security 
 The value on the HCO CR can be used to override the cluster wide setting.
 
 The TLS security profiles are based on [Mozilla Recommended Configurations](https://wiki.mozilla.org/Security/Server_Side_TLS):
-* Old - intended for use with legacy clients of libraries; requires a minimum TLS version of 1.0
-* Intermediate - the default profile for all components; requires a minimum TLS version of 1.2
-* Modern - intended for use with clients that don’t need backward compatibility; requires a minimum TLS version of 1.3. Unsupported in OCP/OKD 4.8 and below.
+* `Old` - intended for use with legacy clients of libraries; requires a minimum TLS version of 1.0
+* `Intermediate` - the default profile for all components; requires a minimum TLS version of 1.2
+* `Modern` - intended for use with clients that don’t need backward compatibility; requires a minimum TLS version of 1.3. Unsupported in OCP/OKD 4.8 and below.
+
+`Custom` profile allows you to define the TLS version and ciphers to use. Use caution when using a `Custom` profile, because invalid configurations can cause problems or make the control plane unreachable.
+With the `Custom` profile, the cipher list should be expressed according to OpenSSL names.
 
 On plain k8s, where APIServer CR is not available, the default value will be `Intermediate`.
-
-> Currently, this is going to be propagated only to the Cluster Network Addons Operator, other Kubevirt Hyperconverged components are going to follow.
 
 ## Configurations via Annotations
 
