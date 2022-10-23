@@ -3604,21 +3604,15 @@ rpm(
 )
 
 rpm(
-    name = "passt-0__0.git.2022_08_29.60ffc5b-1.el8.aarch64",
-    sha256 = "909bb0b287fb9e29cee43e8703302bf118763b5cee85a4c21085a34efbd48e37",
-    urls = [
-        "https://download.copr.fedorainfracloud.org/results/sbrivio/passt/centos-stream-8-aarch64/04776284-passt/passt-0.git.2022_08_29.60ffc5b-1.el8.aarch64.rpm",
-        "https://storage.googleapis.com/builddeps/909bb0b287fb9e29cee43e8703302bf118763b5cee85a4c21085a34efbd48e37",
-    ],
+    name = "passt-0__0__caret__20221022.gb68da10-1.el8.aarch64",
+    sha256 = "f061e4d720d50930a0dfc01ecaefc82ccd35a424cf94ff4f0c7801f5c38de614",
+    urls = ["https://passt.top/builds/copr/centos-stream-8-aarch64/04973930-passt/passt-0^20221022.gb68da10-1.el8.aarch64.rpm"],
 )
 
 rpm(
-    name = "passt-0__0.git.2022_08_29.60ffc5b-1.el8.x86_64",
-    sha256 = "e87c53d771dfa8c46a034c895706d4db09c40e594e0fc363005e652be2201bbd",
-    urls = [
-        "https://download.copr.fedorainfracloud.org/results/sbrivio/passt/centos-stream-8-x86_64/04776284-passt/passt-0.git.2022_08_29.60ffc5b-1.el8.x86_64.rpm",
-        "https://storage.googleapis.com/builddeps/e87c53d771dfa8c46a034c895706d4db09c40e594e0fc363005e652be2201bbd",
-    ],
+    name = "passt-0__0__caret__20221022.gb68da10-1.el8.x86_64",
+    sha256 = "88925a7dee93ff41579cda10ae4c763296f7a5de5939faf7205ee5a7ca94c615",
+    urls = ["https://passt.top/builds/copr/centos-stream-8-x86_64/04973930-passt/passt-0^20221022.gb68da10-1.el8.x86_64.rpm"],
 )
 
 rpm(
