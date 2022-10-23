@@ -26,6 +26,7 @@ import (
 	"strings"
 
 	"k8s.io/kubectl/pkg/cmd/util/podcmd"
+	"k8s.io/utils/pointer"
 
 	k8sv1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/api/resource"
@@ -962,6 +963,10 @@ func (t *templateService) RenderExporterManifest(vmExport *exportv1.VirtualMachi
 								},
 							},
 						},
+					},
+					SecurityContext: &k8sv1.SecurityContext{
+						AllowPrivilegeEscalation: pointer.Bool(false),
+						Capabilities:             &k8sv1.Capabilities{Drop: []k8sv1.Capability{"ALL"}},
 					},
 				},
 			},
