@@ -12,9 +12,9 @@ repositories:
   name: centos/stream8-powertools-x86_64
   gpgkey: https://www.centos.org/keys/RPM-GPG-KEY-CentOS-Official
 - arch: x86_64
-  baseurl: https://download.copr.fedorainfracloud.org/results/sbrivio/passt/centos-stream-8-x86_64
+  baseurl: https://passt.top/builds/copr/centos-stream-8-x86_64
   name: centos/stream8-passt-x86_64
-  gpgkey: https://download.copr.fedorainfracloud.org/results/sbrivio/passt/pubkey.gpg
+  gpgkey: https://passt.top/builds/copr/pubkey.gpg
 - arch: aarch64
   baseurl: http://mirror.centos.org/centos/8-stream/BaseOS/aarch64/os/
   name: centos/stream8-baseos-aarch64
@@ -28,6 +28,6 @@ repositories:
   name: centos/stream8-powertools-aarch64
   gpgkey: https://www.centos.org/keys/RPM-GPG-KEY-CentOS-Official
 - arch: aarch64
-  baseurl: https://download.copr.fedorainfracloud.org/results/sbrivio/passt/centos-stream-8-aarch64
+  baseurl: https://passt.top/builds/copr/centos-stream-8-aarch64
   name: centos/stream8-passt-aarch64
-  gpgkey: https://download.copr.fedorainfracloud.org/results/sbrivio/passt/pubkey.gpg
+  gpgkey: https://passt.top/builds/copr/pubkey.gpg
