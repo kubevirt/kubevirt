@@ -8,6 +8,7 @@ go_library(
         "non-root.go",
         "options.go",
         "realtime.go",
+        "retry_manager.go",
         "setsched.go",
         "vm.go",
     ],
@@ -72,6 +73,7 @@ go_test(
     srcs = [
         "migration_test.go",
         "realtime_test.go",
+        "retry_manager_test.go",
         "virt_handler_suite_test.go",
         "vm_test.go",
     ],
