@@ -1,6 +1,7 @@
 package virthandler
 
 import (
+	"errors"
 	"fmt"
 	"io/ioutil"
 	"os"
@@ -8,6 +9,8 @@ import (
 	"path/filepath"
 	"strconv"
 	"strings"
+
+	"kubevirt.io/kubevirt/pkg/util"
 
 	"github.com/opencontainers/runc/libcontainer/cgroups"
 	v1 "kubevirt.io/api/core/v1"
@@ -151,6 +154,43 @@ func getVcpuThreads(computeSlicePath string) (vCpuTids []int) {
 	log.Log.Infof("ihol3 VCPU Tids: %+v", vCpuTids)
 
 	return
+}
+
+func createThreadedChildCgroupForV2(slicePath string) error {
+	newGroupPath := filepath.Join(slicePath, "vcpu-threaded")
+	if _, err := os.Stat(newGroupPath); !errors.Is(err, os.ErrNotExist) {
+		return nil
+	}
+
+	// Write "+subsystem" to cgroup.subtree_control
+	const childCgroupSubSystem = "cpuset"
+	wVal := "+" + childCgroupSubSystem
+	err := cgroups.WriteFile(slicePath, "cgroup.subtree_control", wVal)
+	if err != nil {
+		logErr(err, "edit cgroup.subtree_control")
+		return err
+	}
+
+	// Create new cgroup directory
+	err = util.MkdirAllWithNosec(newGroupPath)
+	if err != nil {
+		log.Log.Infof("mkdir %s failed", newGroupPath)
+		return err
+	}
+
+	// Enable threaded cgroup controller
+	err = cgroups.WriteFile(newGroupPath, "cgroup.type", "threaded")
+	if err != nil {
+		return err
+	}
+
+	// Write "+subsystem" to newcgroup/cgroup.subtree_control
+	wVal = "+" + childCgroupSubSystem
+	err = cgroups.WriteFile(newGroupPath, "cgroup.subtree_control", wVal)
+	if err != nil {
+		return err
+	}
+	return nil
 }
 
 func attachVcpusToCgroup(dedicatedCpuSlicePath string, vCpuTids []int) {
