@@ -135,18 +135,12 @@ ${CMD} create secret -n ${VMS_NAMESPACE} generic testvm-secret --from-file=userd
 ${CMD} apply -n ${VMS_NAMESPACE} -f ./hack/vm.yaml
 ${CMD} get vm -n ${VMS_NAMESPACE} -o yaml testvm
 ~/virtctl start testvm -n ${VMS_NAMESPACE}
+./hack/retry.sh 30 10 "${CMD} get vmi -n ${VMS_NAMESPACE} testvm -o jsonpath='{ .status.phase }' | grep 'Running'"
+${CMD} get vmi -n ${VMS_NAMESPACE} -o yaml testvm
 
-#######
-# TODO: remove this workaround once https://github.com/kubevirt/kubevirt/pull/8498 is merged and
-# Kubevirt v0.53.3 can successfully run on K8s 1.25 (and so OCP 4.12)
-#
-# ./hack/retry.sh 30 10 "${CMD} get vmi -n ${VMS_NAMESPACE} testvm -o jsonpath='{ .status.phase }' | grep 'Running'"
-# ${CMD} get vmi -n ${VMS_NAMESPACE} -o yaml testvm
-#
-# source ./hack/check-uptime.sh
-# sleep 5
-# INITIAL_BOOTTIME=$(check_uptime 10 60)
-#######
+source ./hack/check-uptime.sh
+sleep 5
+INITIAL_BOOTTIME=$(check_uptime 10 60)
 
 echo "----- HCO deployOVS annotation and OVS state in CNAO CR before the upgrade"
 PREVIOUS_OVS_ANNOTATION=$(${CMD} get ${HCO_KIND} ${HCO_RESOURCE_NAME} -n ${HCO_NAMESPACE} -o jsonpath='{.metadata.annotations.deployOVS}')
@@ -263,23 +257,18 @@ ${CMD} get pod $HCO_CATALOGSOURCE_POD -n ${HCO_CATALOG_NAMESPACE} -o yaml | grep
 
 dump_sccs_after
 
-#######
-# TODO: remove this workaround once https://github.com/kubevirt/kubevirt/pull/8498 is merged and
-# Kubevirt v0.53.3 can successfully run on K8s 1.25 (and so OCP 4.12)
-#
-# Msg "make sure that the VM is still running, after the upgrade"
-# ${CMD} get vm -n ${VMS_NAMESPACE} -o yaml testvm
-# ${CMD} get vmi -n ${VMS_NAMESPACE} -o yaml testvm
-# ${CMD} get vmi -n ${VMS_NAMESPACE} testvm -o jsonpath='{ .status.phase }' | grep 'Running'
-# CURRENT_BOOTTIME=$(check_uptime 10 60)
-#
-# if ((INITIAL_BOOTTIME - CURRENT_BOOTTIME > 3)) || ((CURRENT_BOOTTIME - INITIAL_BOOTTIME > 3)); then
-#    echo "ERROR: The test VM got restarted during the upgrade process."
-#    exit 1
-# else
-#    echo "The test VM survived the upgrade process."
-# fi
-#######
+Msg "make sure that the VM is still running, after the upgrade"
+${CMD} get vm -n ${VMS_NAMESPACE} -o yaml testvm
+${CMD} get vmi -n ${VMS_NAMESPACE} -o yaml testvm
+${CMD} get vmi -n ${VMS_NAMESPACE} testvm -o jsonpath='{ .status.phase }' | grep 'Running'
+CURRENT_BOOTTIME=$(check_uptime 10 60)
+
+if ((INITIAL_BOOTTIME - CURRENT_BOOTTIME > 3)) || ((CURRENT_BOOTTIME - INITIAL_BOOTTIME > 3)); then
+    echo "ERROR: The test VM got restarted during the upgrade process."
+    exit 1
+else
+    echo "The test VM survived the upgrade process."
+fi
 
 Msg "make sure that we don't have outdated VMs"
 
