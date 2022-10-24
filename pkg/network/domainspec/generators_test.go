@@ -21,7 +21,6 @@ package domainspec
 
 import (
 	"fmt"
-	"io/ioutil"
 	"net"
 	"os"
 	"runtime"

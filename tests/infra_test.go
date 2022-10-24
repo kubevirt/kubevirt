@@ -433,7 +433,11 @@ var _ = Describe("[Serial][sig-compute]Infrastructure", func() {
 					conn, err = tls.Dial("tcp", fmt.Sprintf("localhost:844%d", i), rejectedTLSConfig)
 					Expect(err).To(HaveOccurred())
 					Expect(conn).To(BeNil())
-					Expect(err.Error()).To(BeEquivalentTo("remote error: tls: protocol version not supported"))
+					Expect(err.Error()).To(SatisfyAny(
+						BeEquivalentTo("remote error: tls: protocol version not supported"),
+						// The error message changed with the golang 1.19 update
+						BeEquivalentTo("tls: no supported versions satisfy MinVersion and MaxVersion"),
+					))
 				}(i, pod)
 			}
 		})

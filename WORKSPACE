@@ -4,8 +4,6 @@ load("//third_party:deps.bzl", "deps")
 
 deps()
 
-load("@bazel_tools//tools/build_defs/repo:http.bzl", "http_archive")
-
 # register crosscompiler toolchains
 load("//bazel/toolchain:toolchain.bzl", "register_all_toolchains")
 
