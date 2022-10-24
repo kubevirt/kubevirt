@@ -22,12 +22,12 @@ const (
 	kubeletPodsPath = "/var/lib/kubelet/pods"
 )
 
-func NewHandlerDaemonSet(namespace string, repository string, imagePrefix string, version string, launcherVersion string, productName string, productVersion string, productComponent string, pullPolicy corev1.PullPolicy, migrationNetwork *string, verbosity string, extraEnv map[string]string) (*appsv1.DaemonSet, error) {
+func NewHandlerDaemonSet(namespace, repository, imagePrefix, version, launcherVersion, productName, productVersion, productComponent, image, launcherImage string, pullPolicy corev1.PullPolicy, migrationNetwork *string, verbosity string, extraEnv map[string]string) (*appsv1.DaemonSet, error) {
 
 	deploymentName := VirtHandlerName
 	imageName := fmt.Sprintf("%s%s", imagePrefix, deploymentName)
 	env := operatorutil.NewEnvVarMap(extraEnv)
-	podTemplateSpec, err := newPodTemplateSpec(deploymentName, imageName, repository, version, productName, productVersion, productComponent, pullPolicy, nil, env)
+	podTemplateSpec, err := newPodTemplateSpec(deploymentName, imageName, repository, version, productName, productVersion, productComponent, image, pullPolicy, nil, env)
 	if err != nil {
 		return nil, err
 	}
@@ -83,13 +83,16 @@ func NewHandlerDaemonSet(namespace string, repository string, imagePrefix string
 	// nodelabeller currently only support x86
 	if virtconfig.IsAMD64(runtime.GOARCH) {
 		launcherVersion = AddVersionSeparatorPrefix(launcherVersion)
+		if launcherImage == "" {
+			launcherImage = fmt.Sprintf("%s/%s%s%s", repository, imagePrefix, "virt-launcher", launcherVersion)
+		}
 		pod.InitContainers = []corev1.Container{
 			{
 				Command: []string{
 					"/bin/sh",
 					"-c",
 				},
-				Image: fmt.Sprintf("%s/%s%s%s", repository, imagePrefix, "virt-launcher", launcherVersion),
+				Image: launcherImage,
 				Name:  "virt-launcher",
 				Args: []string{
 					"node-labeller.sh",
