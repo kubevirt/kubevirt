@@ -706,7 +706,7 @@ var _ = SIGDescribe("[rfe_id:253][crit:medium][vendor:cnv-qe@redhat.com][level:c
 				Expect(err).ToNot(HaveOccurred())
 
 				By(iteratingClusterIPs)
-				runJobsAgainstService(svc, vm.Namespace, tests.NewHelloWorldJobTCP, tests.NewHelloWorldJobHTTP)
+				runJobsAgainstService(svc, vm.Namespace, tests.NewHelloWorldJobTCP)
 			},
 				Entry("[test_id:1538] over default IPv4 IP family", ipv4),
 				Entry(overIPv6Family, ipv6),
