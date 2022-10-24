@@ -228,36 +228,14 @@ func (o *VNC) Run(cmd *cobra.Command, args []string) error {
 func checkAndRunVNCViewer(doneChan chan struct{}, viewResChan chan error, port int) {
 	defer close(doneChan)
 	var err error
-	args := []string{}
+	var args []string
 
 	vncBin := ""
 	osType := runtime.GOOS
 	switch osType {
 	case "darwin":
-		if matches, err := filepath.Glob(MACOS_TIGER_VNC_PATTERN); err == nil && len(matches) > 0 {
-			// Always use the latest version
-			vncBin = matches[len(matches)-1]
-			args = tigerVncArgs(port)
-		} else if err == filepath.ErrBadPattern {
-			viewResChan <- err
-			return
-		} else if _, err := os.Stat(MACOS_CHICKEN_VNC); err == nil {
-			vncBin = MACOS_CHICKEN_VNC
-			args = chickenVncArgs(port)
-		} else if !errors.Is(err, os.ErrNotExist) {
-			viewResChan <- err
-			return
-		} else if _, err := os.Stat(MACOS_REAL_VNC); err == nil {
-			vncBin = MACOS_REAL_VNC
-			args = realVncArgs(port)
-		} else if !errors.Is(err, os.ErrNotExist) {
-			viewResChan <- err
-			return
-		} else if _, err := exec.LookPath(REMOTE_VIEWER); err == nil {
-			// fall back to user supplied script/binary in path
-			vncBin = REMOTE_VIEWER
-			args = remoteViewerArgs(port)
-		} else if !errors.Is(err, os.ErrNotExist) {
+		vncBin, args, err = darwinVNCBinWithArgs(port)
+		if err != nil {
 			viewResChan <- err
 			return
 		}
@@ -296,6 +274,48 @@ func checkAndRunVNCViewer(doneChan chan struct{}, viewResChan chan error, port i
 		}
 	}
 	viewResChan <- err
+}
+
+func darwinVNCBinWithArgs(port int) (string, []string, error) {
+	// try tiger vnc
+	matches, err := filepath.Glob(MACOS_TIGER_VNC_PATTERN)
+	if err == filepath.ErrBadPattern {
+		return "", nil, err
+	}
+	if err == nil && len(matches) > 0 {
+		// Always use the latest version
+		return matches[len(matches)-1], tigerVncArgs(port), nil
+	}
+
+	// try chicken vnc
+	_, err = os.Stat(MACOS_CHICKEN_VNC)
+	if err == nil {
+		return MACOS_CHICKEN_VNC, chickenVncArgs(port), nil
+	}
+	if !errors.Is(err, os.ErrNotExist) {
+		return "", nil, err
+	}
+
+	// try real vnc
+	_, err = os.Stat(MACOS_REAL_VNC)
+	if err == nil {
+		return MACOS_REAL_VNC, realVncArgs(port), nil
+	}
+	if !errors.Is(err, os.ErrNotExist) {
+		return "", nil, err
+	}
+
+	// try remote viewer
+	_, err = exec.LookPath(REMOTE_VIEWER)
+	if err == nil {
+		// fall back to user supplied script/binary in path
+		return REMOTE_VIEWER, remoteViewerArgs(port), err
+	}
+	if !errors.Is(err, os.ErrNotExist) {
+		return "", nil, err
+	}
+
+	return "", nil, nil
 }
 
 func tigerVncArgs(port int) (args []string) {
