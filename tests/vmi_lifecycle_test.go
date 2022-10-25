@@ -28,6 +28,7 @@ import (
 	"strings"
 	"time"
 
+	"kubevirt.io/kubevirt/tests/exec"
 	"kubevirt.io/kubevirt/tests/framework/checks"
 
 	expect "github.com/google/goexpect"
@@ -668,7 +669,7 @@ var _ = Describe("[rfe_id:273][crit:high][arm64][vendor:cnv-qe@redhat.com][level
 				pod, err := kubecli.NewVirtHandlerClient(virtClient).Namespace(flags.KubeVirtInstallNamespace).ForNode(nodeName).Pod()
 				Expect(err).ToNot(HaveOccurred())
 
-				_, _, err = tests.ExecuteCommandOnPodV2(virtClient, pod,
+				_, _, err = exec.ExecuteCommandOnPodWithResults(virtClient, pod,
 					"virt-handler",
 					[]string{
 						"rm",

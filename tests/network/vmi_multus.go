@@ -35,6 +35,7 @@ import (
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	v13 "k8s.io/apimachinery/pkg/apis/meta/v1"
 
+	"kubevirt.io/kubevirt/tests/exec"
 	"kubevirt.io/kubevirt/tests/framework/checks"
 
 	"kubevirt.io/kubevirt/tests/util"
@@ -361,7 +362,7 @@ var _ = SIGDescribe("[Serial]Multus", func() {
 
 				By("Verifying the desired custom MAC is not configured inside the pod namespace.")
 				vmiPod := tests.GetRunningPodByVirtualMachineInstance(vmiOne, util.NamespaceTestDefault)
-				out, err := tests.ExecuteCommandOnPod(
+				out, err := exec.ExecuteCommandOnPod(
 					virtClient,
 					vmiPod,
 					"compute",
@@ -463,7 +464,7 @@ var _ = SIGDescribe("[Serial]Multus", func() {
 
 				By("Verifying the desired custom MAC is not configured inside the pod namespace.")
 				vmiPod := tests.GetRunningPodByVirtualMachineInstance(vmiOne, vmiOne.Namespace)
-				out, err := tests.ExecuteCommandOnPod(
+				out, err := exec.ExecuteCommandOnPod(
 					virtClient,
 					vmiPod,
 					"compute",
@@ -515,7 +516,7 @@ var _ = SIGDescribe("[Serial]Multus", func() {
 			It("should have the correct MTU on the secondary interface with no dhcp server", func() {
 				getPodInterfaceMtu := func(vmi *v1.VirtualMachineInstance) string {
 					vmiPod := tests.GetRunningPodByVirtualMachineInstance(vmi, vmi.Namespace)
-					output, err := tests.ExecuteCommandOnPod(
+					output, err := exec.ExecuteCommandOnPod(
 						virtClient,
 						vmiPod,
 						"compute",

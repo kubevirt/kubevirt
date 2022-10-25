@@ -33,6 +33,7 @@ import (
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
 
+	"kubevirt.io/kubevirt/tests/exec"
 	"kubevirt.io/kubevirt/tests/framework/checks"
 	"kubevirt.io/kubevirt/tests/libstorage"
 	"kubevirt.io/kubevirt/tests/util"
@@ -246,7 +247,7 @@ var _ = SIGDescribe("Memory dump", func() {
 
 	verifyMemoryDumpOutput := func(memoryDumpPVC *k8sv1.PersistentVolumeClaim, previousOutput string, shouldEqual bool) string {
 		executorPod := tests.CreateExecutorPodWithPVC(verifierPodName, memoryDumpPVC)
-		lsOutput, err := tests.ExecuteCommandOnPod(
+		lsOutput, err := exec.ExecuteCommandOnPod(
 			virtClient,
 			executorPod,
 			executorPod.Spec.Containers[0].Name,
@@ -255,7 +256,7 @@ var _ = SIGDescribe("Memory dump", func() {
 		lsOutput = strings.TrimSpace(lsOutput)
 		log.Log.Infof("%s", lsOutput)
 		Expect(err).ToNot(HaveOccurred())
-		wcOutput, err := tests.ExecuteCommandOnPod(
+		wcOutput, err := exec.ExecuteCommandOnPod(
 			virtClient,
 			executorPod,
 			executorPod.Spec.Containers[0].Name,

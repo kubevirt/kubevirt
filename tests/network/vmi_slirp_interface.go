@@ -30,6 +30,7 @@ import (
 	"k8s.io/apimachinery/pkg/api/resource"
 	"k8s.io/utils/pointer"
 
+	"kubevirt.io/kubevirt/tests/exec"
 	"kubevirt.io/kubevirt/tests/util"
 
 	v1 "kubevirt.io/api/core/v1"
@@ -123,7 +124,7 @@ var _ = SIGDescribe("Slirp Networking", func() {
 			Expect(container.Ports[0].ContainerPort).To(Equal(int32(80)))
 
 			By("start the virtual machine with slirp interface")
-			output, err := tests.ExecuteCommandOnPod(
+			output, err := exec.ExecuteCommandOnPod(
 				virtClient,
 				vmiPod,
 				vmiPod.Spec.Containers[0].Name,
@@ -134,7 +135,7 @@ var _ = SIGDescribe("Slirp Networking", func() {
 			// :0050 is port 80, 0A is listening
 			Expect(strings.Contains(output, "0: 00000000:0050 00000000:0000 0A")).To(BeTrue())
 			By("return \"Hello World!\" when connecting to localhost on port 80")
-			output, err = tests.ExecuteCommandOnPod(
+			output, err = exec.ExecuteCommandOnPod(
 				virtClient,
 				vmiPod,
 				vmiPod.Spec.Containers[0].Name,
@@ -145,7 +146,7 @@ var _ = SIGDescribe("Slirp Networking", func() {
 			Expect(strings.Contains(output, "Hello World!")).To(BeTrue())
 
 			By("reject connecting to localhost and port different than 80")
-			output, err = tests.ExecuteCommandOnPod(
+			output, err = exec.ExecuteCommandOnPod(
 				virtClient,
 				vmiPod,
 				vmiPod.Spec.Containers[1].Name,

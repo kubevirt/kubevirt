@@ -46,6 +46,7 @@ import (
 
 	"kubevirt.io/kubevirt/tests"
 	"kubevirt.io/kubevirt/tests/console"
+	"kubevirt.io/kubevirt/tests/exec"
 	"kubevirt.io/kubevirt/tests/framework/checks"
 	"kubevirt.io/kubevirt/tests/libnet"
 	"kubevirt.io/kubevirt/tests/libnode"
@@ -620,7 +621,7 @@ func getNodesWithAllocatedResource(virtClient kubecli.KubevirtClient, resourceNa
 }
 
 func validatePodKubevirtResourceNameByVMI(virtClient kubecli.KubevirtClient, vmi *v1.VirtualMachineInstance, networkName, sriovResourceName string) error {
-	out, err := tests.ExecuteCommandOnPod(
+	out, err := exec.ExecuteCommandOnPod(
 		virtClient,
 		tests.GetRunningPodByVirtualMachineInstance(vmi, vmi.Namespace),
 		"compute",
@@ -757,7 +758,7 @@ func checkDefaultInterfaceInPod(vmi *v1.VirtualMachineInstance) error {
 	}
 
 	By("checking default interface is present")
-	_, err = tests.ExecuteCommandOnPod(
+	_, err = exec.ExecuteCommandOnPod(
 		virtClient,
 		vmiPod,
 		"compute",
@@ -768,7 +769,7 @@ func checkDefaultInterfaceInPod(vmi *v1.VirtualMachineInstance) error {
 	}
 
 	By("checking default interface is attached to VMI")
-	_, err = tests.ExecuteCommandOnPod(
+	_, err = exec.ExecuteCommandOnPod(
 		virtClient,
 		vmiPod,
 		"compute",

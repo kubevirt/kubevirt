@@ -51,6 +51,7 @@ import (
 	"kubevirt.io/kubevirt/tests/clientcmd"
 	"kubevirt.io/kubevirt/tests/console"
 	cd "kubevirt.io/kubevirt/tests/containerdisk"
+	"kubevirt.io/kubevirt/tests/exec"
 	"kubevirt.io/kubevirt/tests/flags"
 	"kubevirt.io/kubevirt/tests/framework/checks"
 	. "kubevirt.io/kubevirt/tests/framework/matcher"
@@ -962,7 +963,7 @@ var _ = SIGDescribe("DataVolume Integration", func() {
 			var imageSize int64
 			var unused string
 			pod := tests.GetRunningPodByVirtualMachineInstance(vmi, util.NamespaceTestDefault)
-			lsOutput, err := tests.ExecuteCommandOnPod(
+			lsOutput, err := exec.ExecuteCommandOnPod(
 				virtClient,
 				pod,
 				"compute",
