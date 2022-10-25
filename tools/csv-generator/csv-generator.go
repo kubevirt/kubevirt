@@ -48,6 +48,7 @@ func main() {
 	replacesCsvVersion := flag.String("replacesCsvVersion", "", "the CSV version being replaced by this generated CSV")
 	csvCreatedAtTimestamp := flag.String("csvCreatedAtTimestamp", "", "creation timestamp set in the 'createdAt' annotation on the CSV")
 	dumpCRDs := flag.Bool("dumpCRDs", false, "dump CRDs along with CSV manifests to stdout")
+	virtOperatorImage := flag.String("virt-operator-image", "", "custom image for virt-operator")
 
 	flag.Parse()
 
@@ -71,6 +72,7 @@ func main() {
 		IconBase64:           *kubeVirtLogo,
 		Replicas:             2,
 		CreatedAtTimestamp:   *csvCreatedAtTimestamp,
+		VirtOperatorImage:    *virtOperatorImage,
 	}
 
 	operatorCsv, err := csv.NewClusterServiceVersion(&csvData)

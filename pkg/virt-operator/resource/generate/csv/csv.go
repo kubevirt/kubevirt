@@ -59,6 +59,7 @@ type NewClusterServiceVersionData struct {
 	IconBase64           string
 	ReplacesCsvVersion   string
 	CreatedAtTimestamp   string
+	VirtOperatorImage    string
 }
 
 type csvClusterPermissions struct {
@@ -152,7 +153,6 @@ func NewClusterServiceVersion(data *NewClusterServiceVersionData) (*csvv1.Cluste
 		data.DockerPrefix,
 		data.ImagePrefix,
 		data.OperatorImageVersion,
-		v1.PullPolicy(data.ImagePullPolicy),
 		data.Verbosity,
 		data.KubeVirtVersion,
 		data.VirtApiSha,
@@ -161,7 +161,9 @@ func NewClusterServiceVersion(data *NewClusterServiceVersionData) (*csvv1.Cluste
 		data.VirtLauncherSha,
 		data.VirtExportProxySha,
 		data.VirtExportServerSha,
-		data.GsSha)
+		data.GsSha,
+		data.VirtOperatorImage,
+		v1.PullPolicy(data.ImagePullPolicy))
 	if err != nil {
 		return nil, err
 	}

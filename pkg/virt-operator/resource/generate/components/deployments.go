@@ -392,13 +392,12 @@ func NewControllerDeployment(namespace, repository, imagePrefix, controllerVersi
 	if err != nil {
 		return nil, err
 	}
-	exportServerVersion = AddVersionSeparatorPrefix(exportServerVersion)
-	launcherVersion = AddVersionSeparatorPrefix(launcherVersion)
+
 	if launcherImage == "" {
-		launcherImage = fmt.Sprintf("%s/%s%s%s", repository, imagePrefix, "virt-launcher", launcherVersion)
+		launcherImage = fmt.Sprintf("%s/%s%s%s", repository, imagePrefix, "virt-launcher", AddVersionSeparatorPrefix(launcherVersion))
 	}
 	if exporterImage == "" {
-		exporterImage = fmt.Sprintf("%s/%s%s%s", repository, imagePrefix, "virt-exportserver", exportServerVersion)
+		exporterImage = fmt.Sprintf("%s/%s%s%s", repository, imagePrefix, "virt-exportserver", AddVersionSeparatorPrefix(exportServerVersion))
 	}
 
 	pod := &deployment.Spec.Template.Spec
@@ -481,15 +480,15 @@ func NewControllerDeployment(namespace, repository, imagePrefix, controllerVersi
 }
 
 // Used for manifest generation only
-func NewOperatorDeployment(namespace string, repository string, imagePrefix string, version string,
-	pullPolicy corev1.PullPolicy, verbosity string,
-	kubeVirtVersionEnv string, virtApiShaEnv string, virtControllerShaEnv string,
-	virtHandlerShaEnv string, virtLauncherShaEnv string, virtExportProxyShaEnv string, virtExportServerShaEnv string, gsShaEnv string) (*appsv1.Deployment, error) {
+func NewOperatorDeployment(namespace, repository, imagePrefix, version, verbosity, kubeVirtVersionEnv, virtApiShaEnv, virtControllerShaEnv, virtHandlerShaEnv, virtLauncherShaEnv, virtExportProxyShaEnv,
+	virtExportServerShaEnv, gsShaEnv, image string, pullPolicy corev1.PullPolicy) (*appsv1.Deployment, error) {
 
 	const kubernetesOSLinux = "linux"
 	podAntiAffinity := newPodAntiAffinity(kubevirtLabelKey, kubernetesHostnameTopologyKey, metav1.LabelSelectorOpIn, []string{VirtOperatorName})
 	version = AddVersionSeparatorPrefix(version)
-	image := fmt.Sprintf("%s/%s%s%s", repository, imagePrefix, VirtOperatorName, version)
+	if image == "" {
+		image = fmt.Sprintf("%s/%s%s%s", repository, imagePrefix, VirtOperatorName, version)
+	}
 
 	deployment := &appsv1.Deployment{
 		TypeMeta: metav1.TypeMeta{
@@ -572,7 +571,7 @@ func NewOperatorDeployment(namespace string, repository string, imagePrefix stri
 							},
 							Env: []corev1.EnvVar{
 								{
-									Name:  operatorutil.OperatorImageEnvName,
+									Name:  operatorutil.OldOperatorImageEnvName,
 									Value: image,
 								},
 								{

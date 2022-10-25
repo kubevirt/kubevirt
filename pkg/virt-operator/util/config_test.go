@@ -40,7 +40,7 @@ var _ = Describe("Operator Config", func() {
 	}
 
 	DescribeTable("Parse image", func(image string, config *KubeVirtDeploymentConfig, valid bool) {
-		os.Setenv(OperatorImageEnvName, image)
+		os.Setenv(OldOperatorImageEnvName, image)
 
 		err := VerifyEnv()
 		if valid {
@@ -86,7 +86,7 @@ var _ = Describe("Operator Config", func() {
 	}
 
 	DescribeTable("Read shasums", func(image string, envVersions *KubeVirtDeploymentConfig, expectedConfig *KubeVirtDeploymentConfig, useShasums, valid bool) {
-		os.Setenv(OperatorImageEnvName, image)
+		os.Setenv(OldOperatorImageEnvName, image)
 
 		os.Setenv(VirtApiShasumEnvName, envVersions.VirtApiSha)
 		os.Setenv(VirtControllerShasumEnvName, envVersions.VirtControllerSha)
