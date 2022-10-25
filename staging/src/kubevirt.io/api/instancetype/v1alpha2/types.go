@@ -354,7 +354,7 @@ type DevicePreferences struct {
 	// PreferredInterfaceModel optionally defines the preferred model to be used by Interface devices.
 	//
 	// +optional
-	PreferredInterfaceModel string `json:"preferredInterfaceModel,omitempty"`
+	PreferredInterfaceModel v1.InterfaceModel `json:"preferredInterfaceModel,omitempty"`
 
 	// PreferredRng optionally defines the preferred rng device to be used.
 	//

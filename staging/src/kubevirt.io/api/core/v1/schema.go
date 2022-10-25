@@ -1145,6 +1145,17 @@ type I6300ESBWatchdog struct {
 	Action WatchdogAction `json:"action,omitempty"`
 }
 
+type InterfaceModel string
+
+const (
+	InterfaceModelVirtio   InterfaceModel = "virtio"
+	InterfaceModelE1000    InterfaceModel = "e1000"
+	InterfaceModelE1000e   InterfaceModel = "e1000e"
+	InterfaceModelNe2k_pci InterfaceModel = "ne2k_pci"
+	InterfaceModelpcnet    InterfaceModel = "pcnet"
+	InterfaceModelrtl8139  InterfaceModel = "rtl8139"
+)
+
 type Interface struct {
 	// Logical name of the interface as well as a reference to the associated networks.
 	// Must match the Name of a Network.
@@ -1152,8 +1163,7 @@ type Interface struct {
 	// Interface model.
 	// One of: e1000, e1000e, ne2k_pci, pcnet, rtl8139, virtio.
 	// Defaults to virtio.
-	// TODO:(ihar) switch to enums once opengen-api supports them. See: https://github.com/kubernetes/kube-openapi/issues/51
-	Model string `json:"model,omitempty"`
+	Model InterfaceModel `json:"model,omitempty"`
 	// BindingMethod specifies the method which will be used to connect the interface to the guest.
 	// Defaults to Bridge.
 	InterfaceBindingMethod `json:",inline"`

@@ -1161,7 +1161,7 @@ var _ = Describe("Instancetype and Preferences", func() {
 				}
 				vmi.Spec.Domain.Devices.Interfaces = []v1.Interface{
 					v1.Interface{
-						Model: "e1000",
+						Model: v1.InterfaceModelE1000,
 					},
 					v1.Interface{},
 				}
@@ -1192,7 +1192,7 @@ var _ = Describe("Instancetype and Preferences", func() {
 						PreferredLunBus:         v1.DiskBusSATA,
 						PreferredInputBus:       v1.InputBusVirtio,
 						PreferredInputType:      v1.InputTypeTablet,
-						PreferredInterfaceModel: "virtio",
+						PreferredInterfaceModel: v1.InterfaceModelVirtio,
 						PreferredSoundModel:     "ac97",
 						PreferredRng:            &v1.Rng{},
 						PreferredTPM:            &v1.TPMDevice{},
@@ -1218,7 +1218,7 @@ var _ = Describe("Instancetype and Preferences", func() {
 				Expect(vmi.Spec.Domain.Devices.Disks[4].DiskDevice.LUN.Bus).To(Equal(v1.DiskBusSATA))
 				Expect(vmi.Spec.Domain.Devices.Inputs[0].Bus).To(Equal(v1.InputBusUSB))
 				Expect(vmi.Spec.Domain.Devices.Inputs[0].Type).To(Equal(v1.InputTypeTablet))
-				Expect(vmi.Spec.Domain.Devices.Interfaces[0].Model).To(Equal("e1000"))
+				Expect(vmi.Spec.Domain.Devices.Interfaces[0].Model).To(Equal(v1.InterfaceModelE1000))
 
 				// Assert that everything that isn't defined in the VM/VMI should use Preferences
 				Expect(*vmi.Spec.Domain.Devices.AutoattachPodInterface).To(Equal(*preferenceSpec.Devices.PreferredAutoattachPodInterface))

@@ -136,7 +136,7 @@ func (b *BridgePodNetworkConfigurator) PreparePodNetworkInterface() error {
 		tapOwner = strconv.Itoa(util.NonRootUID)
 	}
 
-	queues := converter.CalculateNetworkQueues(b.vmi, converter.GetInterfaceType(b.vmiSpecIface))
+	queues := converter.CalculateNetworkQueues(b.vmi, string(converter.GetInterfaceType(b.vmiSpecIface)))
 	err := createAndBindTapToBridge(b.handler, b.tapDeviceName, b.bridgeInterfaceName, b.launcherPID, b.podNicLink.Attrs().MTU, tapOwner, queues)
 	if err != nil {
 		log.Log.Reason(err).Errorf("failed to create tap device named %s", b.tapDeviceName)

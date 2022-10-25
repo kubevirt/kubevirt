@@ -58,18 +58,18 @@ func createDomainInterfaces(vmi *v1.VirtualMachineInstance, domain *api.Domain, 
 		ifaceType := GetInterfaceType(&vmi.Spec.Domain.Devices.Interfaces[i])
 		domainIface := api.Interface{
 			Model: &api.Model{
-				Type: translateModel(c, ifaceType),
+				Type: translateModel(c, string(ifaceType)),
 			},
 			Alias: api.NewUserDefinedAlias(iface.Name),
 		}
 
 		// if AllowEmulation unset and at least one NIC model is virtio,
 		// /dev/vhost-net must be present as we should have asked for it.
-		if ifaceType == "virtio" && virtioNetProhibited {
+		if ifaceType == v1.InterfaceModelVirtio && virtioNetProhibited {
 			return nil, fmt.Errorf("In-kernel virtio-net device emulation '/dev/vhost-net' not present")
 		}
 
-		if queueCount := uint(CalculateNetworkQueues(vmi, ifaceType)); queueCount != 0 {
+		if queueCount := uint(CalculateNetworkQueues(vmi, string(ifaceType))); queueCount != 0 {
 			domainIface.Driver = &api.InterfaceDriver{Name: "vhost", Queues: &queueCount}
 		}
 
@@ -138,10 +138,10 @@ func createDomainInterfaces(vmi *v1.VirtualMachineInstance, domain *api.Domain, 
 	return domainInterfaces, nil
 }
 
-func GetInterfaceType(iface *v1.Interface) string {
+func GetInterfaceType(iface *v1.Interface) v1.InterfaceModel {
 	if iface.Slirp != nil {
 		// Slirp configuration works only with e1000 or rtl8139
-		if iface.Model != "e1000" && iface.Model != "rtl8139" {
+		if iface.Model != v1.InterfaceModelE1000 && iface.Model != v1.InterfaceModelrtl8139 {
 			log.Log.Infof("The network interface type of %s was changed to e1000 due to unsupported interface type by qemu slirp network", iface.Name)
 			return "e1000"
 		}
@@ -150,7 +150,7 @@ func GetInterfaceType(iface *v1.Interface) string {
 	if iface.Model != "" {
 		return iface.Model
 	}
-	return "virtio"
+	return v1.InterfaceModelVirtio
 }
 
 func validateNetworksTypes(networks []v1.Network) error {

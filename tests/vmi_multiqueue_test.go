@@ -61,7 +61,7 @@ var _ = Describe("[sig-compute]MultiQueue", func() {
 			availableCPUs = libnode.GetHighestCPUNumberAmongNodes(virtClient)
 		})
 
-		DescribeTable("should be able to successfully boot fedora to the login prompt with multi-queue without being blocked by selinux", func(interfaceModel string, expectedQueueCount int32) {
+		DescribeTable("should be able to successfully boot fedora to the login prompt with multi-queue without being blocked by selinux", func(interfaceModel v1.InterfaceModel, expectedQueueCount int32) {
 			vmi := tests.NewRandomFedoraVMIWithGuestAgent()
 			Expect(numCpus).To(BeNumerically("<=", availableCPUs),
 				fmt.Sprintf("Testing environment only has nodes with %d CPUs available, but required are %d CPUs", availableCPUs, numCpus),
@@ -83,8 +83,8 @@ var _ = Describe("[sig-compute]MultiQueue", func() {
 			By("Checking QueueCount has the expected value")
 			Expect(vmi.Status.Interfaces[0].QueueCount).To(Equal(expectedQueueCount))
 		},
-			Entry("[test_id:4599] with default virtio interface", "virtio", numCpus),
-			Entry("with e1000 interface", "e1000", int32(1)),
+			Entry("[test_id:4599] with default virtio interface", v1.InterfaceModelVirtio, numCpus),
+			Entry("with e1000 interface", v1.InterfaceModelE1000, int32(1)),
 		)
 
 		It("[test_id:959][rfe_id:2065] Should honor multiQueue requests", func() {

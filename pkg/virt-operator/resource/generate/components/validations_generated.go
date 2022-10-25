@@ -5245,9 +5245,7 @@ var CRDsValidation map[string]string = map[string]string{
                                 type: object
                               model:
                                 description: 'Interface model. One of: e1000, e1000e,
-                                  ne2k_pci, pcnet, rtl8139, virtio. Defaults to virtio.
-                                  TODO:(ihar) switch to enums once opengen-api supports
-                                  them. See: https://github.com/kubernetes/kube-openapi/issues/51'
+                                  ne2k_pci, pcnet, rtl8139, virtio. Defaults to virtio.'
                                 type: string
                               name:
                                 description: Logical name of the interface as well
@@ -9412,8 +9410,7 @@ var CRDsValidation map[string]string = map[string]string{
                         type: object
                       model:
                         description: 'Interface model. One of: e1000, e1000e, ne2k_pci,
-                          pcnet, rtl8139, virtio. Defaults to virtio. TODO:(ihar)
-                          switch to enums once opengen-api supports them. See: https://github.com/kubernetes/kube-openapi/issues/51'
+                          pcnet, rtl8139, virtio. Defaults to virtio.'
                         type: string
                       name:
                         description: Logical name of the interface as well as a reference
@@ -11758,8 +11755,7 @@ var CRDsValidation map[string]string = map[string]string{
                         type: object
                       model:
                         description: 'Interface model. One of: e1000, e1000e, ne2k_pci,
-                          pcnet, rtl8139, virtio. Defaults to virtio. TODO:(ihar)
-                          switch to enums once opengen-api supports them. See: https://github.com/kubernetes/kube-openapi/issues/51'
+                          pcnet, rtl8139, virtio. Defaults to virtio.'
                         type: string
                       name:
                         description: Logical name of the interface as well as a reference
@@ -13851,9 +13847,7 @@ var CRDsValidation map[string]string = map[string]string{
                                 type: object
                               model:
                                 description: 'Interface model. One of: e1000, e1000e,
-                                  ne2k_pci, pcnet, rtl8139, virtio. Defaults to virtio.
-                                  TODO:(ihar) switch to enums once opengen-api supports
-                                  them. See: https://github.com/kubernetes/kube-openapi/issues/51'
+                                  ne2k_pci, pcnet, rtl8139, virtio. Defaults to virtio.'
                                 type: string
                               name:
                                 description: Logical name of the interface as well
@@ -17813,9 +17807,7 @@ var CRDsValidation map[string]string = map[string]string{
                                       model:
                                         description: 'Interface model. One of: e1000,
                                           e1000e, ne2k_pci, pcnet, rtl8139, virtio.
-                                          Defaults to virtio. TODO:(ihar) switch to
-                                          enums once opengen-api supports them. See:
-                                          https://github.com/kubernetes/kube-openapi/issues/51'
+                                          Defaults to virtio.'
                                         type: string
                                       name:
                                         description: Logical name of the interface
@@ -22474,9 +22466,7 @@ var CRDsValidation map[string]string = map[string]string{
                                           model:
                                             description: 'Interface model. One of:
                                               e1000, e1000e, ne2k_pci, pcnet, rtl8139,
-                                              virtio. Defaults to virtio. TODO:(ihar)
-                                              switch to enums once opengen-api supports
-                                              them. See: https://github.com/kubernetes/kube-openapi/issues/51'
+                                              virtio. Defaults to virtio.'
                                             type: string
                                           name:
                                             description: Logical name of the interface

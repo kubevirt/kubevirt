@@ -1325,7 +1325,7 @@ func GetVirtualMachinePreferenceVirtio() *instancetypev1alpha2.VirtualMachinePre
 		Spec: instancetypev1alpha2.VirtualMachinePreferenceSpec{
 			Devices: &instancetypev1alpha2.DevicePreferences{
 				PreferredDiskBus:        "virtio",
-				PreferredInterfaceModel: "virtio",
+				PreferredInterfaceModel: v1.InterfaceModelVirtio,
 			},
 		},
 	}
