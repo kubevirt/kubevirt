@@ -287,7 +287,7 @@ func Execute() {
 	app.kubeVirtRecorder = app.getNewRecorder(k8sv1.NamespaceAll, VirtOperator)
 	app.kubeVirtController = *NewKubeVirtController(app.clientSet, app.aggregatorClient.ApiregistrationV1().APIServices(), app.kubeVirtInformer, app.kubeVirtRecorder, app.stores, app.informers, app.operatorNamespace)
 
-	image := os.Getenv(util.OperatorImageEnvName)
+	image := util.GetOperatorImage()
 	if image == "" {
 		golog.Fatalf("Error getting operator's image: %v", err)
 	}

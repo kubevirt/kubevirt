@@ -39,7 +39,9 @@ import (
 
 const (
 	// Name of env var containing the operator's image name
-	OperatorImageEnvName         = "OPERATOR_IMAGE"
+	// Deprecated. Use VirtOperatorImageEnvName instead
+	OldOperatorImageEnvName      = "OPERATOR_IMAGE"
+	VirtOperatorImageEnvName     = "VIRT_OPERATOR_IMAGE"
 	VirtApiImageEnvName          = "VIRT_API_IMAGE"
 	VirtControllerImageEnvName   = "VIRT_CONTROLLER_IMAGE"
 	VirtHandlerImageEnvName      = "VIRT_HANDLER_IMAGE"
@@ -225,10 +227,19 @@ func getKVMapFromSpec(spec v1.KubeVirtSpec) map[string]string {
 	return kvMap
 }
 
+func GetOperatorImage() string {
+	image := os.Getenv(VirtOperatorImageEnvName)
+	if image != "" {
+		return image
+	}
+
+	return os.Getenv(OldOperatorImageEnvName)
+}
+
 func getConfig(registry, tag, namespace string, additionalProperties map[string]string) *KubeVirtDeploymentConfig {
 
 	// get registry and tag/shasum from operator image
-	imageString := os.Getenv(OperatorImageEnvName)
+	imageString := GetOperatorImage()
 	imageRegEx := regexp.MustCompile(operatorImageRegex)
 	matches := imageRegEx.FindAllStringSubmatch(imageString, 1)
 
@@ -269,7 +280,7 @@ func getConfig(registry, tag, namespace string, additionalProperties map[string]
 
 	passthroughEnv := GetPassthroughEnv()
 
-	operatorImage := os.Getenv(OperatorImageEnvName)
+	operatorImage := GetOperatorImage()
 	apiImage := os.Getenv(VirtApiImageEnvName)
 	controllerImage := os.Getenv(VirtControllerImageEnvName)
 	handlerImage := os.Getenv(VirtHandlerImageEnvName)
@@ -300,9 +311,9 @@ func getConfig(registry, tag, namespace string, additionalProperties map[string]
 
 func VerifyEnv() error {
 	// ensure the operator image is valid
-	imageString := os.Getenv(OperatorImageEnvName)
+	imageString := GetOperatorImage()
 	if imageString == "" {
-		return fmt.Errorf("empty env var %s for operator image", OperatorImageEnvName)
+		return fmt.Errorf("empty env var %s for operator image", OldOperatorImageEnvName)
 	}
 	imageRegEx := regexp.MustCompile(operatorImageRegex)
 	matches := imageRegEx.FindAllStringSubmatch(imageString, 1)

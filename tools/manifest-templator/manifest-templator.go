@@ -71,6 +71,7 @@ type templateData struct {
 	FeatureGates           []string
 	InfraReplicas          uint8
 	GeneratedManifests     map[string]string
+	VirtOperatorImage      string
 }
 
 func main() {
@@ -101,6 +102,7 @@ func main() {
 	gsSha := flag.String("gs-sha", "", "")
 	featureGates := flag.String("feature-gates", "", "")
 	infraReplicas := flag.Uint("infra-replicas", 0, "")
+	virtOperatorImage := flag.String("virt-operator-image", "", "custom image for virt-operator")
 
 	pflag.CommandLine.AddGoFlagSet(flag.CommandLine)
 	pflag.CommandLine.ParseErrorsWhitelist.UnknownFlags = true
@@ -151,6 +153,7 @@ func main() {
 		data.ReplacesCsvVersion = ""
 		data.OperatorDeploymentSpec = getOperatorDeploymentSpec(data, 2)
 		data.PriorityClassSpec = getPriorityClassSpec(2)
+		data.VirtOperatorImage = *virtOperatorImage
 		if *featureGates != "" {
 			data.FeatureGates = strings.Split(*featureGates, ",")
 		}
@@ -264,7 +267,6 @@ func getOperatorDeploymentSpec(data templateData, indentation int) string {
 		data.DockerPrefix,
 		data.ImagePrefix,
 		version,
-		v1.PullPolicy(data.ImagePullPolicy),
 		data.Verbosity,
 		data.DockerTag,
 		data.VirtApiSha,
@@ -273,7 +275,9 @@ func getOperatorDeploymentSpec(data templateData, indentation int) string {
 		data.VirtLauncherSha,
 		data.VirtExportProxySha,
 		data.VirtExportServerSha,
-		data.GsSha)
+		data.GsSha,
+		data.VirtOperatorImage,
+		v1.PullPolicy(data.ImagePullPolicy))
 	if err != nil {
 		panic(err)
 	}

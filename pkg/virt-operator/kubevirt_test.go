@@ -28,6 +28,8 @@ import (
 	"strings"
 	"time"
 
+	"kubevirt.io/kubevirt/tests"
+
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
 
@@ -1230,16 +1232,16 @@ func (k *KubeVirtTestData) addAllWithExclusionMap(config *util.KubeVirtDeploymen
 	all = append(all, components.NewApiServerService(NAMESPACE))
 	all = append(all, components.NewExportProxyService(NAMESPACE))
 
-	apiDeployment, _ := components.NewApiServerDeployment(NAMESPACE, config.GetImageRegistry(), config.GetImagePrefix(), config.GetApiVersion(), "", "", "", config.GetImagePullPolicy(), config.GetVerbosity(), config.GetExtraEnv())
+	apiDeployment, _ := tests.GetDefaultVirtApiDeployment(NAMESPACE, config)
 	apiDeploymentPdb := components.NewPodDisruptionBudgetForDeployment(apiDeployment)
-	controller, _ := components.NewControllerDeployment(NAMESPACE, config.GetImageRegistry(), config.GetImagePrefix(), config.GetControllerVersion(), config.GetLauncherVersion(), config.GetExportServerVersion(), "", "", "", config.GetImagePullPolicy(), config.GetVerbosity(), config.GetExtraEnv())
+	controller, _ := tests.GetDefaultVirtControllerDeployment(NAMESPACE, config)
 	controllerPdb := components.NewPodDisruptionBudgetForDeployment(controller)
 
-	handler, _ := components.NewHandlerDaemonSet(NAMESPACE, config.GetImageRegistry(), config.GetImagePrefix(), config.GetHandlerVersion(), "", "", "", config.GetLauncherVersion(), config.GetImagePullPolicy(), nil, config.GetVerbosity(), config.GetExtraEnv())
+	handler, _ := tests.GetDefaultVirtHandlerDaemonSet(NAMESPACE, config)
 	all = append(all, apiDeployment, apiDeploymentPdb, controller, controllerPdb, handler)
 
 	if exportProxyEnabled(kv) {
-		exportProxy, _ := components.NewExportProxyDeployment(NAMESPACE, config.GetImageRegistry(), config.GetImagePrefix(), config.GetExportProxyVersion(), "", "", "", config.GetImagePullPolicy(), config.GetVerbosity(), config.GetExtraEnv())
+		exportProxy, _ := tests.GetDefaultExportProxyDeployment(NAMESPACE, config)
 		exportProxyPdb := components.NewPodDisruptionBudgetForDeployment(exportProxy)
 		route := components.NewExportProxyRoute(NAMESPACE)
 		all = append(all, exportProxy, exportProxyPdb, route)
@@ -1347,19 +1349,8 @@ func (k *KubeVirtTestData) addAllButHandler(config *util.KubeVirtDeploymentConfi
 }
 
 func (k *KubeVirtTestData) addVirtHandler(config *util.KubeVirtDeploymentConfig, kv *v1.KubeVirt) {
-	handler, _ := components.NewHandlerDaemonSet(
-		NAMESPACE,
-		config.GetImageRegistry(),
-		config.GetImagePrefix(),
-		config.GetHandlerVersion(),
-		"",
-		"",
-		"",
-		config.GetLauncherVersion(),
-		config.GetImagePullPolicy(),
-		nil,
-		config.GetVerbosity(),
-		config.GetExtraEnv())
+	handler, err := tests.GetDefaultVirtHandlerDaemonSet(NAMESPACE, config)
+	Expect(err).ToNot(HaveOccurred())
 
 	c, _ := apply.NewCustomizer(kv.Spec.CustomizeComponents)
 
@@ -1576,7 +1567,7 @@ func (k *KubeVirtTestData) addPodsWithIndividualConfigs(config *util.KubeVirtDep
 	// virt-controller
 	// virt-handler
 	var deployments []*appsv1.Deployment
-	apiDeployment, _ := components.NewApiServerDeployment(NAMESPACE, config.GetImageRegistry(), config.GetImagePrefix(), config.GetApiVersion(), "", "", "", config.GetImagePullPolicy(), config.GetVerbosity(), config.GetExtraEnv())
+	apiDeployment, _ := tests.GetDefaultVirtApiDeployment(NAMESPACE, config)
 
 	pod := &k8sv1.Pod{
 		ObjectMeta: apiDeployment.Spec.Template.ObjectMeta,
@@ -1593,7 +1584,7 @@ func (k *KubeVirtTestData) addPodsWithIndividualConfigs(config *util.KubeVirtDep
 	k.addPod(pod)
 	deployments = append(deployments, apiDeployment)
 
-	controller, _ := components.NewControllerDeployment(NAMESPACE, configController.GetImageRegistry(), configController.GetImagePrefix(), configController.GetControllerVersion(), configController.GetLauncherVersion(), config.GetExportServerVersion(), "", "", "", configController.GetImagePullPolicy(), configController.GetVerbosity(), configController.GetExtraEnv())
+	controller, _ := tests.GetDefaultVirtControllerDeployment(NAMESPACE, config)
 	pod = &k8sv1.Pod{
 		ObjectMeta: controller.Spec.Template.ObjectMeta,
 		Spec:       controller.Spec.Template.Spec,
@@ -1609,7 +1600,7 @@ func (k *KubeVirtTestData) addPodsWithIndividualConfigs(config *util.KubeVirtDep
 	k.addPod(pod)
 	deployments = append(deployments, controller)
 
-	handler, _ := components.NewHandlerDaemonSet(NAMESPACE, configHandler.GetImageRegistry(), configHandler.GetImagePrefix(), configHandler.GetHandlerVersion(), "", "", "", configController.GetLauncherVersion(), configHandler.GetImagePullPolicy(), nil, configHandler.GetVerbosity(), configHandler.GetExtraEnv())
+	handler, _ := tests.GetDefaultVirtHandlerDaemonSet(NAMESPACE, config)
 	pod = &k8sv1.Pod{
 		ObjectMeta: handler.Spec.Template.ObjectMeta,
 		Spec:       handler.Spec.Template.Spec,
@@ -1627,7 +1618,7 @@ func (k *KubeVirtTestData) addPodsWithIndividualConfigs(config *util.KubeVirtDep
 	k.addPod(pod)
 
 	if exportProxyEnabled(kv) {
-		exportProxy, _ := components.NewExportProxyDeployment(NAMESPACE, config.GetImageRegistry(), config.GetImagePrefix(), config.GetExportProxyVersion(), "", "", "", config.GetImagePullPolicy(), config.GetVerbosity(), config.GetExtraEnv())
+		exportProxy, _ := tests.GetDefaultExportProxyDeployment(NAMESPACE, config)
 		pod = &k8sv1.Pod{
 			ObjectMeta: exportProxy.Spec.Template.ObjectMeta,
 			Spec:       exportProxy.Spec.Template.Spec,
@@ -1660,7 +1651,7 @@ func (k *KubeVirtTestData) addPodsAndPodDisruptionBudgets(config *util.KubeVirtD
 var _ = Describe("KubeVirt Operator", func() {
 
 	BeforeEach(func() {
-		err := os.Setenv(util.OperatorImageEnvName, fmt.Sprintf("%s/virt-operator:%s", "someregistry", "v9.9.9"))
+		err := os.Setenv(util.OldOperatorImageEnvName, fmt.Sprintf("%s/virt-operator:%s", "someregistry", "v9.9.9"))
 		Expect(err).NotTo(HaveOccurred())
 	})
 
@@ -2156,7 +2147,7 @@ var _ = Describe("KubeVirt Operator", func() {
 			envVal := rand.String(10)
 			config.PassthroughEnvVars = map[string]string{envKey: envVal}
 
-			apiDeployment, err := components.NewApiServerDeployment(NAMESPACE, config.GetImageRegistry(), config.GetImagePrefix(), config.GetApiVersion(), "", "", "", config.GetImagePullPolicy(), config.GetVerbosity(), config.GetExtraEnv())
+			apiDeployment, err := tests.GetDefaultVirtApiDeployment(NAMESPACE, config)
 
 			Expect(err).ToNot(HaveOccurred())
 			Expect(apiDeployment.Spec.Template.Spec.Containers[0].Env).To(ContainElement(k8sv1.EnvVar{Name: envKey, Value: envVal}))
@@ -2168,7 +2159,7 @@ var _ = Describe("KubeVirt Operator", func() {
 			envVal := rand.String(10)
 			config.PassthroughEnvVars = map[string]string{envKey: envVal}
 
-			controllerDeployment, err := components.NewControllerDeployment(NAMESPACE, config.GetImageRegistry(), config.GetImagePrefix(), config.GetControllerVersion(), config.GetLauncherVersion(), config.GetExportServerVersion(), "", "", "", config.GetImagePullPolicy(), config.GetVerbosity(), config.GetExtraEnv())
+			controllerDeployment, err := tests.GetDefaultVirtControllerDeployment(NAMESPACE, config)
 
 			Expect(err).ToNot(HaveOccurred())
 			Expect(controllerDeployment.Spec.Template.Spec.Containers[0].Env).To(ContainElement(k8sv1.EnvVar{Name: envKey, Value: envVal}))
@@ -2180,7 +2171,7 @@ var _ = Describe("KubeVirt Operator", func() {
 			envVal := rand.String(10)
 			config.PassthroughEnvVars = map[string]string{envKey: envVal}
 
-			handlerDaemonset, err := components.NewHandlerDaemonSet(NAMESPACE, config.GetImageRegistry(), config.GetImagePrefix(), config.GetHandlerVersion(), "", "", "", config.GetLauncherVersion(), config.GetImagePullPolicy(), nil, config.GetVerbosity(), config.GetExtraEnv())
+			handlerDaemonset, err := tests.GetDefaultVirtHandlerDaemonSet(NAMESPACE, config)
 
 			Expect(err).ToNot(HaveOccurred())
 			Expect(handlerDaemonset.Spec.Template.Spec.Containers[0].Env).To(ContainElement(k8sv1.EnvVar{Name: envKey, Value: envVal}))
@@ -2571,7 +2562,7 @@ var _ = Describe("KubeVirt Operator", func() {
 		})
 
 		DescribeTable("should update kubevirt resources when Operator version changes if no imageTag and imageRegistry is explicitly set.", func(withExport bool, patchCount, resourceCount, numPDBs int) {
-			os.Setenv(util.OperatorImageEnvName, fmt.Sprintf("%s/virt-operator:%s", "otherregistry", "1.1.1"))
+			os.Setenv(util.OldOperatorImageEnvName, fmt.Sprintf("%s/virt-operator:%s", "otherregistry", "1.1.1"))
 			updatedConfig := getConfig("", "")
 
 			kvTestData := KubeVirtTestData{}
