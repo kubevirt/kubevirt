@@ -271,7 +271,7 @@ func (m *methods) StoreControllerRevisions(vm *virtv1.VirtualMachine) error {
 	return nil
 }
 
-func compareRevisions(revisionA *appsv1.ControllerRevision, revisionB *appsv1.ControllerRevision, isPreference bool) (bool, error) {
+func CompareRevisions(revisionA *appsv1.ControllerRevision, revisionB *appsv1.ControllerRevision, isPreference bool) (bool, error) {
 	if err := decodeRevisionObject(revisionA, isPreference); err != nil {
 		return false, err
 	}
@@ -306,7 +306,7 @@ func storeRevision(revision *appsv1.ControllerRevision, clientset kubecli.Kubevi
 			return nil, fmt.Errorf("failed to get ControllerRevision: %w", err)
 		}
 
-		equal, err := compareRevisions(revision, existingRevision, isPreference)
+		equal, err := CompareRevisions(revision, existingRevision, isPreference)
 		if err != nil {
 			return nil, err
 		}
