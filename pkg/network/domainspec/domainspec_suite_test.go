@@ -62,7 +62,7 @@ func NewDomainWithMacvtapInterface(macvtapName string) *api.Domain {
 	domain.Spec.Devices.Interfaces = []api.Interface{{
 		Alias: api.NewUserDefinedAlias(macvtapName),
 		Model: &api.Model{
-			Type: v1.VirtIO,
+			Type: "virtio",
 		},
 		Type: "ethernet",
 	}}

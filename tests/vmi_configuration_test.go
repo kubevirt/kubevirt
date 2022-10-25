@@ -119,7 +119,7 @@ var _ = Describe("[sig-compute]Configurations", func() {
 				libvmi.WithAnnotation(v1.PlacePCIDevicesOnRootComplex, "true"),
 				libvmi.WithRng(),
 			)
-			vmi.Spec.Domain.Devices.Inputs = []v1.Input{{Name: "tablet", Bus: v1.VirtIO, Type: "tablet"}, {Name: "tablet1", Bus: "usb", Type: "tablet"}}
+			vmi.Spec.Domain.Devices.Inputs = []v1.Input{{Name: "tablet", Bus: "virtio", Type: "tablet"}, {Name: "tablet1", Bus: "usb", Type: "tablet"}}
 			vmi.Spec.Domain.Devices.Watchdog = &v1.Watchdog{Name: "watchdog", WatchdogDevice: v1.WatchdogDevice{I6300ESB: &v1.I6300ESBWatchdog{Action: v1.WatchdogActionPoweroff}}}
 			vmi = tests.RunVMIAndExpectLaunch(vmi, 60)
 			Expect(console.LoginToCirros(vmi)).To(Succeed())
@@ -138,7 +138,7 @@ var _ = Describe("[sig-compute]Configurations", func() {
 	Context("when requesting virtio-transitional models", func() {
 		It("[test_id:6957]should start and run the guest", func() {
 			vmi := libvmi.NewCirros(libvmi.WithRng())
-			vmi.Spec.Domain.Devices.Inputs = []v1.Input{{Name: "tablet", Bus: v1.VirtIO, Type: "tablet"}, {Name: "tablet1", Bus: "usb", Type: "tablet"}}
+			vmi.Spec.Domain.Devices.Inputs = []v1.Input{{Name: "tablet", Bus: "virtio", Type: "tablet"}, {Name: "tablet1", Bus: "usb", Type: "tablet"}}
 			vmi.Spec.Domain.Devices.Watchdog = &v1.Watchdog{Name: "watchdog", WatchdogDevice: v1.WatchdogDevice{I6300ESB: &v1.I6300ESBWatchdog{Action: v1.WatchdogActionPoweroff}}}
 			vmi.Spec.Domain.Devices.UseVirtioTransitional = pointer.BoolPtr(true)
 			vmi = tests.RunVMIAndExpectLaunch(vmi, 60)
@@ -860,7 +860,7 @@ var _ = Describe("[sig-compute]Configurations", func() {
 					{
 						Name: "tablet0",
 						Type: "keyboard",
-						Bus:  v1.VirtIO,
+						Bus:  "virtio",
 					},
 				}
 				By("Starting a VirtualMachineInstance")
@@ -888,7 +888,7 @@ var _ = Describe("[sig-compute]Configurations", func() {
 					{
 						Name: "tablet0",
 						Type: "tablet",
-						Bus:  v1.VirtIO,
+						Bus:  "virtio",
 					},
 				}
 				By("Starting a VirtualMachineInstance")

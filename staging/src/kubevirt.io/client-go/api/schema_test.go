@@ -251,7 +251,7 @@ var _ = Describe("Schema", func() {
 				Name: "disk0",
 				DiskDevice: v12.DiskDevice{
 					Disk: &v12.DiskTarget{
-						Bus:      v12.VirtIO,
+						Bus:      "virtio",
 						ReadOnly: false,
 					},
 				},
@@ -261,7 +261,7 @@ var _ = Describe("Schema", func() {
 				Name: "cdrom0",
 				DiskDevice: v12.DiskDevice{
 					CDRom: &v12.CDRomTarget{
-						Bus:      v12.VirtIO,
+						Bus:      "virtio",
 						ReadOnly: pointer.BoolPtr(true),
 						Tray:     "open",
 					},
@@ -271,7 +271,7 @@ var _ = Describe("Schema", func() {
 				Name: "lun0",
 				DiskDevice: v12.DiskDevice{
 					LUN: &v12.LunTarget{
-						Bus:      v12.VirtIO,
+						Bus:      "virtio",
 						ReadOnly: true,
 					},
 				},
@@ -281,7 +281,7 @@ var _ = Describe("Schema", func() {
 				Serial: "sn-11223344",
 				DiskDevice: v12.DiskDevice{
 					Disk: &v12.DiskTarget{
-						Bus:      v12.VirtIO,
+						Bus:      "virtio",
 						ReadOnly: false,
 					},
 				},
@@ -291,7 +291,7 @@ var _ = Describe("Schema", func() {
 		exampleVMI.Spec.Domain.Devices.Rng = &v12.Rng{}
 		exampleVMI.Spec.Domain.Devices.Inputs = []v12.Input{
 			{
-				Bus:  v12.VirtIO,
+				Bus:  "virtio",
 				Type: "tablet",
 				Name: "tablet0",
 			},

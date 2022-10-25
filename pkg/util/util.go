@@ -117,7 +117,7 @@ func IsVmiUsingHyperVReenlightenment(vmi *v1.VirtualMachineInstance) bool {
 // Note that the reference can be explicit or implicit (unspecified nic models defaults to "virtio").
 func WantVirtioNetDevice(vmi *v1.VirtualMachineInstance) bool {
 	for _, iface := range vmi.Spec.Domain.Devices.Interfaces {
-		if iface.Model == "" || iface.Model == v1.VirtIO {
+		if iface.Model == "" || iface.Model == "virtio" {
 			return true
 		}
 	}

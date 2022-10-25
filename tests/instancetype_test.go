@@ -386,7 +386,7 @@ var _ = Describe("[crit:medium][vendor:cnv-qe@redhat.com][level:component][sig-c
 
 			clusterPreference := newVirtualMachineClusterPreference()
 			clusterPreference.Spec.Devices = &instancetypev1alpha2.DevicePreferences{
-				PreferredInterfaceModel: v1.VirtIO,
+				PreferredInterfaceModel: "virtio",
 			}
 
 			clusterPreference, err := virtClient.VirtualMachineClusterPreference().

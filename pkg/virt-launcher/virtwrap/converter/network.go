@@ -65,7 +65,7 @@ func createDomainInterfaces(vmi *v1.VirtualMachineInstance, domain *api.Domain, 
 
 		// if AllowEmulation unset and at least one NIC model is virtio,
 		// /dev/vhost-net must be present as we should have asked for it.
-		if ifaceType == v1.VirtIO && virtioNetProhibited {
+		if ifaceType == "virtio" && virtioNetProhibited {
 			return nil, fmt.Errorf("In-kernel virtio-net device emulation '/dev/vhost-net' not present")
 		}
 
@@ -124,7 +124,7 @@ func createDomainInterfaces(vmi *v1.VirtualMachineInstance, domain *api.Domain, 
 		if c.UseLaunchSecurity {
 			// It's necessary to disable the iPXE option ROM as iPXE is not aware of SEV
 			domainIface.Rom = &api.Rom{Enabled: "no"}
-			if ifaceType == v1.VirtIO {
+			if ifaceType == "virtio" {
 				if domainIface.Driver != nil {
 					domainIface.Driver.IOMMU = "on"
 				} else {
@@ -150,7 +150,7 @@ func GetInterfaceType(iface *v1.Interface) string {
 	if iface.Model != "" {
 		return iface.Model
 	}
-	return v1.VirtIO
+	return "virtio"
 }
 
 func validateNetworksTypes(networks []v1.Network) error {
@@ -198,7 +198,7 @@ func createSlirpNetwork(iface v1.Interface, network v1.Network, domain *api.Doma
 }
 
 func CalculateNetworkQueues(vmi *v1.VirtualMachineInstance, ifaceType string) uint32 {
-	if !isTrue(vmi.Spec.Domain.Devices.NetworkInterfaceMultiQueue) || ifaceType != v1.VirtIO {
+	if !isTrue(vmi.Spec.Domain.Devices.NetworkInterfaceMultiQueue) || ifaceType != "virtio" {
 		return 0
 	}
 

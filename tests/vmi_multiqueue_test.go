@@ -83,7 +83,7 @@ var _ = Describe("[sig-compute]MultiQueue", func() {
 			By("Checking QueueCount has the expected value")
 			Expect(vmi.Status.Interfaces[0].QueueCount).To(Equal(expectedQueueCount))
 		},
-			Entry("[test_id:4599] with default virtio interface", v1.VirtIO, numCpus),
+			Entry("[test_id:4599] with default virtio interface", "virtio", numCpus),
 			Entry("with e1000 interface", "e1000", int32(1)),
 		)
 

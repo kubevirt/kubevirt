@@ -112,7 +112,7 @@ var _ = Describe("Converter", func() {
 			v1Disk := v1.Disk{
 				Name: "myvolume",
 				DiskDevice: v1.DiskDevice{
-					Disk: &v1.DiskTarget{Bus: v1.VirtIO},
+					Disk: &v1.DiskTarget{Bus: "virtio"},
 				},
 			}
 			apiDisk := api.Disk{}
@@ -144,7 +144,7 @@ var _ = Describe("Converter", func() {
 				BootOrder: &order,
 				DiskDevice: v1.DiskDevice{
 					Disk: &v1.DiskTarget{
-						Bus: v1.VirtIO,
+						Bus: "virtio",
 					},
 				},
 			}
@@ -190,7 +190,7 @@ var _ = Describe("Converter", func() {
 				Name: "mydisk",
 				DiskDevice: v1.DiskDevice{
 					Disk: &v1.DiskTarget{
-						Bus: v1.VirtIO,
+						Bus: "virtio",
 					},
 				},
 			}
@@ -230,7 +230,7 @@ var _ = Describe("Converter", func() {
 				Name: "mydisk",
 				DiskDevice: v1.DiskDevice{
 					Disk: &v1.DiskTarget{
-						Bus: v1.VirtIO,
+						Bus: "virtio",
 					},
 				},
 				Shareable: True(),
@@ -325,7 +325,7 @@ var _ = Describe("Converter", func() {
 			vmi.Spec.Domain.Devices.DisableHotplug = true
 			vmi.Spec.Domain.Devices.Inputs = []v1.Input{
 				{
-					Bus:  v1.VirtIO,
+					Bus:  "virtio",
 					Type: "tablet",
 					Name: "tablet0",
 				},
@@ -335,7 +335,7 @@ var _ = Describe("Converter", func() {
 					Name: "myvolume",
 					DiskDevice: v1.DiskDevice{
 						Disk: &v1.DiskTarget{
-							Bus: v1.VirtIO,
+							Bus: "virtio",
 						},
 					},
 					DedicatedIOThread: True(),
@@ -344,7 +344,7 @@ var _ = Describe("Converter", func() {
 					Name: "nocloud",
 					DiskDevice: v1.DiskDevice{
 						Disk: &v1.DiskTarget{
-							Bus: v1.VirtIO,
+							Bus: "virtio",
 						},
 					},
 					DedicatedIOThread: True(),
@@ -2361,7 +2361,7 @@ var _ = Describe("Converter", func() {
 			Expect(domain.Spec.Devices.Graphics).To(HaveLen(devices))
 
 			if isARM64(arch) && (autoAttach == nil || *autoAttach) {
-				Expect(domain.Spec.Devices.Video[0].Model.Type).To(Equal(v1.VirtIO))
+				Expect(domain.Spec.Devices.Video[0].Model.Type).To(Equal("virtio"))
 				Expect(domain.Spec.Devices.Inputs[0].Type).To(Equal(v1.InputTypeTablet))
 				Expect(domain.Spec.Devices.Inputs[1].Type).To(Equal(v1.InputTypeKeyboard))
 			}
@@ -2491,7 +2491,7 @@ var _ = Describe("Converter", func() {
 									Name: "dedicated",
 									DiskDevice: v1.DiskDevice{
 										Disk: &v1.DiskTarget{
-											Bus: v1.VirtIO,
+											Bus: "virtio",
 										},
 									},
 									DedicatedIOThread: True(),
@@ -2500,7 +2500,7 @@ var _ = Describe("Converter", func() {
 									Name: "shared",
 									DiskDevice: v1.DiskDevice{
 										Disk: &v1.DiskTarget{
-											Bus: v1.VirtIO,
+											Bus: "virtio",
 										},
 									},
 									DedicatedIOThread: False(),
@@ -2509,7 +2509,7 @@ var _ = Describe("Converter", func() {
 									Name: "omitted1",
 									DiskDevice: v1.DiskDevice{
 										Disk: &v1.DiskTarget{
-											Bus: v1.VirtIO,
+											Bus: "virtio",
 										},
 									},
 								},
@@ -2517,7 +2517,7 @@ var _ = Describe("Converter", func() {
 									Name: "omitted2",
 									DiskDevice: v1.DiskDevice{
 										Disk: &v1.DiskTarget{
-											Bus: v1.VirtIO,
+											Bus: "virtio",
 										},
 									},
 								},
@@ -2525,7 +2525,7 @@ var _ = Describe("Converter", func() {
 									Name: "omitted3",
 									DiskDevice: v1.DiskDevice{
 										Disk: &v1.DiskTarget{
-											Bus: v1.VirtIO,
+											Bus: "virtio",
 										},
 									},
 								},
@@ -2533,7 +2533,7 @@ var _ = Describe("Converter", func() {
 									Name: "omitted4",
 									DiskDevice: v1.DiskDevice{
 										Disk: &v1.DiskTarget{
-											Bus: v1.VirtIO,
+											Bus: "virtio",
 										},
 									},
 								},
@@ -2541,7 +2541,7 @@ var _ = Describe("Converter", func() {
 									Name: "omitted5",
 									DiskDevice: v1.DiskDevice{
 										Disk: &v1.DiskTarget{
-											Bus: v1.VirtIO,
+											Bus: "virtio",
 										},
 									},
 								},
@@ -2661,7 +2661,7 @@ var _ = Describe("Converter", func() {
 					Name: "mydisk",
 					DiskDevice: v1.DiskDevice{
 						Disk: &v1.DiskTarget{
-							Bus: v1.VirtIO,
+							Bus: "virtio",
 						},
 					},
 				},
@@ -2691,7 +2691,7 @@ var _ = Describe("Converter", func() {
 
 			v1Disk := v1.Disk{
 				DiskDevice: v1.DiskDevice{
-					Disk: &v1.DiskTarget{Bus: v1.VirtIO},
+					Disk: &v1.DiskTarget{Bus: "virtio"},
 				},
 			}
 			apiDisk := api.Disk{}
@@ -3345,23 +3345,23 @@ var _ = Describe("disk device naming", func() {
 
 	It("makeDeviceName should generate proper name", func() {
 		prefixMap := make(map[string]deviceNamer)
-		res, index := makeDeviceName("test1", v1.VirtIO, prefixMap)
+		res, index := makeDeviceName("test1", "virtio", prefixMap)
 		Expect(res).To(Equal("vda"))
 		Expect(index).To(Equal(0))
 		for i := 2; i < 10; i++ {
-			makeDeviceName(fmt.Sprintf("test%d", i), v1.VirtIO, prefixMap)
+			makeDeviceName(fmt.Sprintf("test%d", i), "virtio", prefixMap)
 		}
-		prefix := getPrefixFromBus(v1.VirtIO)
+		prefix := getPrefixFromBus("virtio")
 		delete(prefixMap[prefix].usedDeviceMap, "vdd")
 		By("Verifying next value is vdd")
-		res, index = makeDeviceName("something", v1.VirtIO, prefixMap)
+		res, index = makeDeviceName("something", "virtio", prefixMap)
 		Expect(index).To(Equal(3))
 		Expect(res).To(Equal("vdd"))
-		res, index = makeDeviceName("something_else", v1.VirtIO, prefixMap)
+		res, index = makeDeviceName("something_else", "virtio", prefixMap)
 		Expect(res).To(Equal("vdj"))
 		Expect(index).To(Equal(9))
 		By("verifying existing returns correct value")
-		res, index = makeDeviceName("something", v1.VirtIO, prefixMap)
+		res, index = makeDeviceName("something", "virtio", prefixMap)
 		Expect(res).To(Equal("vdd"))
 		Expect(index).To(Equal(3))
 		By("Verifying a new bus returns from start")
