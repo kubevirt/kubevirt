@@ -26,6 +26,13 @@ readonly ARTIFACTS_PATH="${ARTIFACTS-$WORKSPACE/exported-artifacts}"
 readonly TEMPLATES_SERVER="https://templates.ovirt.org/kubevirt/"
 readonly BAZEL_CACHE="${BAZEL_CACHE:-http://bazel-cache.kubevirt-prow.svc.cluster.local:8080/kubevirt.io/kubevirt}"
 
+
+if [ ${CI} == "true" ]; then
+  _delay="$(( ( RANDOM % 180 )))"
+  echo "INFO: Sleeping for ${_delay}s to randomize job startup slighty"
+  sleep ${_delay}
+fi
+
 if [ -z $TARGET ]; then
   echo "FATAL: TARGET must be non empty"
   exit 1
