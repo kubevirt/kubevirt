@@ -426,6 +426,10 @@ func (ctrl *VMExportController) updateVMExport(vmExport *exportv1.VirtualMachine
 		return 0, err
 	}
 
+	if vmExport.Status == nil {
+		populateInitialVMExportStatus(vmExport)
+	}
+
 	if err := ctrl.handleVMExportToken(vmExport); err != nil {
 		return 0, err
 	}
@@ -507,6 +511,13 @@ func (ctrl *VMExportController) deleteExporterPod(vmExport *exportv1.VirtualMach
 
 func (ctrl *VMExportController) checkPod(vmExport *exportv1.VirtualMachineExport, pod *corev1.Pod) error {
 	if pod.DeletionTimestamp != nil {
+		return nil
+	}
+
+	if ttlExpiration := getExpirationTime(vmExport); !time.Now().Before(ttlExpiration) {
+		if err := ctrl.Client.VirtualMachineExport(vmExport.Namespace).Delete(context.Background(), vmExport.Name, metav1.DeleteOptions{}); err != nil {
+			return err
+		}
 		return nil
 	}
 
@@ -611,16 +622,6 @@ func (ctrl *VMExportController) createCertSecretManifest(vmExport *exportv1.Virt
 
 // handleVMExportToken checks if a secret has been specified for the current export object and, if not, creates one specific to it
 func (ctrl *VMExportController) handleVMExportToken(vmExport *exportv1.VirtualMachineExport) error {
-	if vmExport.Status == nil {
-		vmExport.Status = &exportv1.VirtualMachineExportStatus{
-			Phase: exportv1.Pending,
-			Conditions: []exportv1.Condition{
-				newReadyCondition(corev1.ConditionFalse, initializingReason, ""),
-				newPvcCondition(corev1.ConditionFalse, unknownReason, ""),
-			},
-		}
-	}
-
 	// If a tokenSecretRef has been specified, we assume that the corresponding
 	// secret has already been created and managed appropiately by the user
 	if vmExport.Spec.TokenSecretRef != nil {
@@ -839,7 +840,7 @@ func (ctrl *VMExportController) createExporterPodManifest(vmExport *exportv1.Vir
 		Value: "/token/token",
 	}, corev1.EnvVar{
 		Name:  "DEADLINE",
-		Value: currentTime().Add(deadline).Format(time.RFC3339),
+		Value: getDeadlineValue(deadline, vmExport).Format(time.RFC3339),
 	})
 
 	tokenSecretRef := ""
@@ -971,7 +972,7 @@ func (ctrl *VMExportController) updateCommonVMExportStatusFields(vmExport, vmExp
 }
 
 func (ctrl *VMExportController) updateVMExportStatus(vmExport, vmExportCopy *exportv1.VirtualMachineExport) error {
-	if !equality.Semantic.DeepEqual(vmExport, vmExportCopy) {
+	if !equality.Semantic.DeepEqual(vmExport.Status, vmExportCopy.Status) {
 		if _, err := ctrl.Client.VirtualMachineExport(vmExportCopy.Namespace).Update(context.Background(), vmExportCopy, metav1.UpdateOptions{}); err != nil {
 			return err
 		}
@@ -990,6 +991,38 @@ func (ctrl *VMExportController) getCertParams() (*CertParams, error) {
 		Duration:    duration.Duration,
 		RenewBefore: renewBefore.Duration,
 	}, nil
+}
+
+func populateInitialVMExportStatus(vmExport *exportv1.VirtualMachineExport) {
+	expireAt := metav1.NewTime(getExpirationTime(vmExport))
+	vmExport.Status = &exportv1.VirtualMachineExportStatus{
+		Phase: exportv1.Pending,
+		Conditions: []exportv1.Condition{
+			newReadyCondition(corev1.ConditionFalse, initializingReason, ""),
+			newPvcCondition(corev1.ConditionFalse, unknownReason, ""),
+		},
+		TTLExpirationTime: &expireAt,
+	}
+}
+
+func getDeadlineValue(deadline time.Duration, vmExport *exportv1.VirtualMachineExport) time.Time {
+	// Pod needs to shutdown to either cert rotate or because export TTL expired altogether
+	rotate := currentTime().Add(deadline)
+	ttlExpiration := getExpirationTime(vmExport)
+
+	if ttlExpiration.After(rotate) {
+		return rotate
+	}
+	return ttlExpiration
+}
+
+func getExpirationTime(vmExport *exportv1.VirtualMachineExport) time.Time {
+	ttl := exportv1.DefaultDurationTTL
+	if vmExport.Spec.TTLDuration != nil {
+		ttl = vmExport.Spec.TTLDuration.Duration
+	}
+
+	return vmExport.GetCreationTimestamp().Time.Add(ttl)
 }
 
 func newReadyCondition(status corev1.ConditionStatus, reason, message string) exportv1.Condition {

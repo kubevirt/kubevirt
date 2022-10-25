@@ -64,6 +64,7 @@ const (
 	INSECURE_FLAG = "--insecure"
 	KEEP_FLAG     = "--keep-vme"
 	PVC_FLAG      = "--pvc"
+	TTL_FLAG      = "--ttl"
 
 	// processingWaitInterval is the time interval used to wait for a virtualMachineExport to be ready
 	processingWaitInterval = 2 * time.Second
@@ -100,6 +101,7 @@ var (
 	keepVme      bool
 	shouldCreate bool
 	volumeName   string
+	ttl          string
 )
 
 type exportFunc func(client kubecli.KubevirtClient, vmeInfo *VMExportInfo) error
@@ -121,6 +123,7 @@ type VMExportInfo struct {
 	Namespace    string
 	Name         string
 	ExportSource k8sv1.TypedLocalObjectReference
+	TTL          metav1.Duration
 }
 
 type command struct {
@@ -189,6 +192,7 @@ func NewVirtualMachineExportCommand(clientConfig clientcmd.ClientConfig) *cobra.
 	cmd.Flags().StringVar(&volumeName, "volume", "", "Specifies the volume to be downloaded.")
 	cmd.Flags().BoolVar(&insecure, "insecure", false, "When used with the 'download' option, specifies that the http request should be insecure.")
 	cmd.Flags().BoolVar(&keepVme, "keep-vme", false, "When used with the 'download' option, specifies that the vmexport object should not be deleted after the download finishes.")
+	cmd.Flags().StringVar(&ttl, "ttl", "", "The time after the export was created that it is eligible to be automatically deleted, defaults to 2 hours by the server side if not specified")
 	cmd.SetUsageTemplate(templates.UsageTemplate())
 
 	return cmd
@@ -257,6 +261,14 @@ func parseExportArguments(args []string, vmeInfo *VMExportInfo) error {
 	vmeInfo.Insecure = insecure
 	vmeInfo.KeepVme = keepVme
 	vmeInfo.VolumeName = volumeName
+	vmeInfo.TTL = metav1.Duration{}
+	if ttl != "" {
+		duration, err := time.ParseDuration(ttl)
+		if err != nil {
+			return err
+		}
+		vmeInfo.TTL = metav1.Duration{Duration: duration}
+	}
 
 	return nil
 }
@@ -294,6 +306,9 @@ func CreateVirtualMachineExport(client kubecli.KubevirtClient, vmeInfo *VMExport
 			TokenSecretRef: &secretRef,
 			Source:         vmeInfo.ExportSource,
 		},
+	}
+	if vmeInfo.TTL.Duration > 0 {
+		vmexport.Spec.TTLDuration = &vmeInfo.TTL
 	}
 
 	vmexport, err = client.VirtualMachineExport(vmeInfo.Namespace).Create(context.TODO(), vmexport, metav1.CreateOptions{})

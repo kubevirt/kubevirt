@@ -656,19 +656,7 @@ var _ = Describe("Export controller", func() {
 
 	It("Should create a service based on the name of the VMExport", func() {
 		var service *k8sv1.Service
-		testVMExport := &exportv1.VirtualMachineExport{
-			ObjectMeta: metav1.ObjectMeta{
-				Name:      "test",
-				Namespace: testNamespace,
-			},
-			Spec: exportv1.VirtualMachineExportSpec{
-				Source: k8sv1.TypedLocalObjectReference{
-					APIGroup: &k8sv1.SchemeGroupVersion.Group,
-					Kind:     "PersistentVolumeClaim",
-					Name:     testPVCName,
-				},
-			},
-		}
+		testVMExport := createPVCVMExport()
 		k8sClient.Fake.PrependReactor("create", "services", func(action testing.Action) (handled bool, obj runtime.Object, err error) {
 			create, ok := action.(testing.CreateAction)
 			Expect(ok).To(BeTrue())
@@ -716,7 +704,7 @@ var _ = Describe("Export controller", func() {
 			},
 		}
 		testVMExport := createPVCVMExport()
-		// We call handleVMExportToken to populate the Status field appropiately
+		populateInitialVMExportStatus(testVMExport)
 		err := controller.handleVMExportToken(testVMExport)
 		Expect(testVMExport.Status.TokenSecretRef).ToNot(BeNil())
 		Expect(err).ToNot(HaveOccurred())
@@ -787,7 +775,7 @@ var _ = Describe("Export controller", func() {
 		scp, err := serializeCertParams(cp)
 		Expect(err).ToNot(HaveOccurred())
 		testVMExport := createPVCVMExport()
-		// We call handleVMExportToken to populate the Status field appropiately
+		populateInitialVMExportStatus(testVMExport)
 		err = controller.handleVMExportToken(testVMExport)
 		Expect(err).ToNot(HaveOccurred())
 		testExportPod := &k8sv1.Pod{
@@ -859,6 +847,7 @@ var _ = Describe("Export controller", func() {
 			Expect(secret.GetNamespace()).To(Equal(testNamespace))
 			return true, secret, nil
 		})
+		populateInitialVMExportStatus(testVMExport)
 		err := controller.handleVMExportToken(testVMExport)
 		Expect(err).ToNot(HaveOccurred())
 		Expect(testVMExport.Status.TokenSecretRef).ToNot(BeNil())
@@ -894,10 +883,44 @@ var _ = Describe("Export controller", func() {
 		testVMExport := createPVCVMExport()
 		Expect(testVMExport.Spec.TokenSecretRef).ToNot(BeNil())
 		expectedName := *testVMExport.Spec.TokenSecretRef
+		populateInitialVMExportStatus(testVMExport)
 		err := controller.handleVMExportToken(testVMExport)
 		Expect(err).ToNot(HaveOccurred())
 		Expect(testVMExport.Status.TokenSecretRef).ToNot(BeNil())
 		Expect(*testVMExport.Status.TokenSecretRef).To(Equal(expectedName))
+	})
+
+	It("Should completely clean up VM export, when TTL is reached", func() {
+		var deleted bool
+		testVMExport := createPVCVMExport()
+		ttl := &metav1.Duration{Duration: time.Minute}
+		testVMExport.Spec.TTLDuration = ttl
+		// Artificially reach TTL expiration time
+		testVMExport.SetCreationTimestamp(metav1.NewTime(time.Now().Add(-1 * ttl.Duration)))
+		pvc := &k8sv1.PersistentVolumeClaim{
+			ObjectMeta: metav1.ObjectMeta{
+				Name:      testPVCName,
+				Namespace: testNamespace,
+			},
+			Status: k8sv1.PersistentVolumeClaimStatus{
+				Phase: k8sv1.ClaimBound,
+			},
+		}
+		Expect(controller.PVCInformer.GetStore().Add(pvc)).To(Succeed())
+
+		vmExportClient.Fake.PrependReactor("delete", "virtualmachineexports", func(action testing.Action) (handled bool, obj runtime.Object, err error) {
+			delete, ok := action.(testing.DeleteAction)
+			Expect(ok).To(BeTrue())
+			Expect(delete.GetName()).To(Equal(testVMExport.GetName()))
+			deleted = true
+			return true, nil, nil
+		})
+		retry, err := controller.updateVMExport(testVMExport)
+		Expect(deleted).To(BeTrue())
+		// Status update fails (call UPDATE on deleted VMExport), but its fine in real world
+		// since requeue will back out of the reconcile loop if a deletion timestamp is set
+		Expect(err).To(HaveOccurred())
+		Expect(retry).To(BeEquivalentTo(0))
 	})
 
 	DescribeTable("Should ignore invalid VMExports kind/api combinations", func(kind, apigroup string) {
@@ -1068,8 +1091,9 @@ func writeCertsToDir(dir string) {
 func createPVCVMExport() *exportv1.VirtualMachineExport {
 	return &exportv1.VirtualMachineExport{
 		ObjectMeta: metav1.ObjectMeta{
-			Name:      "test",
-			Namespace: testNamespace,
+			Name:              "test",
+			Namespace:         testNamespace,
+			CreationTimestamp: metav1.Now(),
 		},
 		Spec: exportv1.VirtualMachineExportSpec{
 			Source: k8sv1.TypedLocalObjectReference{
@@ -1101,9 +1125,10 @@ func createPVCVMExportWithoutSecret() *exportv1.VirtualMachineExport {
 func createSnapshotVMExport() *exportv1.VirtualMachineExport {
 	return &exportv1.VirtualMachineExport{
 		ObjectMeta: metav1.ObjectMeta{
-			Name:      "test",
-			Namespace: testNamespace,
-			UID:       "11111-22222-33333",
+			Name:              "test",
+			Namespace:         testNamespace,
+			UID:               "11111-22222-33333",
+			CreationTimestamp: metav1.Now(),
 		},
 		Spec: exportv1.VirtualMachineExportSpec{
 			Source: k8sv1.TypedLocalObjectReference{
@@ -1119,9 +1144,10 @@ func createSnapshotVMExport() *exportv1.VirtualMachineExport {
 func createVMVMExport() *exportv1.VirtualMachineExport {
 	return &exportv1.VirtualMachineExport{
 		ObjectMeta: metav1.ObjectMeta{
-			Name:      "test",
-			Namespace: testNamespace,
-			UID:       "44444-555555-666666",
+			Name:              "test",
+			Namespace:         testNamespace,
+			UID:               "44444-555555-666666",
+			CreationTimestamp: metav1.Now(),
 		},
 		Spec: exportv1.VirtualMachineExportSpec{
 			Source: k8sv1.TypedLocalObjectReference{
