@@ -375,20 +375,20 @@ func (c *EvacuationController) sync(node *k8sv1.Node, vmisOnNode []*virtv1.Virtu
 	}
 
 	migrationCandidates, nonMigrateable := c.filterRunningNonMigratingVMIs(vmisToMigrate, activeMigrations)
-
-	// Don't create hundreds of pending migration objects.
-	// This is just best-effort and is *not* intended to not overload the cluster.
-	// It is possible that more migrations than the limit are created because of evacuations on other nodes.
-	// The migration controller needs to limit itself to a reasonable number of running migrations
+	activeMigrationsFromThisSourceNode := c.numOfVMIMForThisSourceNode(vmisOnNode, activeMigrations)
+	maxParallelMigrationsPerOutboundNode :=
+		int(*c.clusterConfig.GetMigrationConfiguration().ParallelOutboundMigrationsPerNode)
 	maxParallelMigrations := int(*c.clusterConfig.GetMigrationConfiguration().ParallelMigrationsPerCluster)
-	if len(activeMigrations) >= maxParallelMigrations {
-		// We have to re-enqueue if some work is left, since migrations from other controllers or workers` don't wake us up again
+	freeSpotsPerCluster := maxParallelMigrations - len(activeMigrations)
+	freeSpotsPerThisSourceNode := maxParallelMigrationsPerOutboundNode - activeMigrationsFromThisSourceNode
+	freeSpots := int(math.Min(float64(freeSpotsPerCluster), float64(freeSpotsPerThisSourceNode)))
+	if freeSpots <= 0 {
 		if len(migrationCandidates) > 0 || len(nonMigrateable) > 0 {
 			c.Queue.AddAfter(node.Name, 5*time.Second)
+			return nil
 		}
-		return nil
 	}
-	freeSpots := maxParallelMigrations - len(activeMigrations)
+
 	diff := int(math.Min(float64(freeSpots), float64(len(migrationCandidates))))
 	remaining := freeSpots - diff
 	remainingForNonMigrateableDiff := int(math.Min(float64(remaining), float64(len(nonMigrateable))))
@@ -526,4 +526,22 @@ func nodeHasTaint(taint *k8sv1.Taint, node *k8sv1.Node) bool {
 		}
 	}
 	return false
+}
+
+func (c *EvacuationController) numOfVMIMForThisSourceNode(
+	vmisOnNode []*virtv1.VirtualMachineInstance,
+	activeMigrations []*virtv1.VirtualMachineInstanceMigration) (activeMigrationsFromThisSourceNode int) {
+
+	vmiMap := make(map[string]bool)
+	for _, vmi := range vmisOnNode {
+		vmiMap[vmi.Name] = true
+	}
+
+	for _, vmim := range activeMigrations {
+		if _, ok := vmiMap[vmim.Spec.VMIName]; ok {
+			activeMigrationsFromThisSourceNode++
+		}
+	}
+
+	return
 }
