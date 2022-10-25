@@ -82,6 +82,7 @@ type NetworkHandler interface {
 	ConfigureIpForwarding(ipVersion IPVersion) error
 	ConfigureRouteLocalNet(string) error
 	ConfigureIpv4ArpIgnore() error
+	ConfigureIpv6FlushAddrOnDown() error
 	ConfigurePingGroupRange() error
 	ConfigureUnprivilegedPortStart(string) error
 	NftablesNewChain(ipVersion IPVersion, table, chain string) error
@@ -142,6 +143,11 @@ func (h *NetworkUtilsHandler) LinkSetMaster(link netlink.Link, master *netlink.B
 
 func (h *NetworkUtilsHandler) ConfigureIpv4ArpIgnore() error {
 	err := sysctl.New().SetSysctl(sysctl.Ipv4ArpIgnoreAll, "1")
+	return err
+}
+
+func (h *NetworkUtilsHandler) ConfigureIpv6FlushAddrOnDown() error {
+	err := sysctl.New().SetSysctl(sysctl.Ipv6KeepAddrOnDown, "-1")
 	return err
 }
 

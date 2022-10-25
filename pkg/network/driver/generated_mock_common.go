@@ -263,6 +263,16 @@ func (_mr *_MockNetworkHandlerRecorder) ConfigureIpv4ArpIgnore() *gomock.Call {
 	return _mr.mock.ctrl.RecordCall(_mr.mock, "ConfigureIpv4ArpIgnore")
 }
 
+func (_m *MockNetworkHandler) ConfigureIpv6FlushAddrOnDown() error {
+	ret := _m.ctrl.Call(_m, "ConfigureIpv6FlushAddrOnDown")
+	ret0, _ := ret[0].(error)
+	return ret0
+}
+
+func (_mr *_MockNetworkHandlerRecorder) ConfigureIpv6FlushAddrOnDown() *gomock.Call {
+	return _mr.mock.ctrl.RecordCall(_mr.mock, "ConfigureIpv6FlushAddrOnDown")
+}
+
 func (_m *MockNetworkHandler) ConfigurePingGroupRange() error {
 	ret := _m.ctrl.Call(_m, "ConfigurePingGroupRange")
 	ret0, _ := ret[0].(error)

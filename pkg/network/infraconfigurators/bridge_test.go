@@ -80,18 +80,22 @@ var _ = Describe("Bridge infrastructure configurator", func() {
 		)
 
 		var (
-			defaultGwRoute netlink.Route
-			iface          *v1.Interface
-			podLink        *netlink.GenericLink
-			podIP          netlink.Addr
-			vmi            *v1.VirtualMachineInstance
+			defaultGwRoute   netlink.Route
+			iface            *v1.Interface
+			podLink          *netlink.GenericLink
+			podIPv4          netlink.Addr
+			podIPv6          netlink.Addr
+			podIPv6LinkLocal netlink.Addr
+			vmi              *v1.VirtualMachineInstance
 		)
 
 		BeforeEach(func() {
 			iface = v1.DefaultBridgeNetworkInterface()
 			vmi = newVMIWithBridgeInterface("default", "vm1")
 			podLink = &netlink.GenericLink{LinkAttrs: netlink.LinkAttrs{Name: ifaceName, MTU: 1000}}
-			podIP = netlink.Addr{IPNet: &net.IPNet{IP: net.IPv4(10, 35, 0, 6), Mask: net.CIDRMask(24, 32)}}
+			podIPv4 = netlink.Addr{IPNet: &net.IPNet{IP: net.IPv4(10, 35, 0, 6), Mask: net.CIDRMask(24, 32)}}
+			podIPv6 = netlink.Addr{IPNet: &net.IPNet{IP: net.IP{0xfd, 0x23, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0x6}, Mask: net.CIDRMask(64, 128)}}
+			podIPv6LinkLocal = netlink.Addr{IPNet: &net.IPNet{IP: net.IP{0xfe, 0x80, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0x6}, Mask: net.CIDRMask(64, 128)}}
 			defaultGwRoute = netlink.Route{Dst: nil, Gw: net.IPv4(10, 35, 0, 1)}
 		})
 
@@ -117,11 +121,13 @@ var _ = Describe("Bridge infrastructure configurator", func() {
 				handler,
 				launcherPID,
 				withLink(podLink),
-				withIPOnLink(podLink, podIP),
+				withIPv4OnLink(podLink, podIPv4),
+				withIPv6OnLink(podLink, podIPv6),
 				withRoutesOnLink(podLink, defaultGwRoute))
 			Expect(bridgeConfigurator.DiscoverPodNetworkInterface(ifaceName)).To(Succeed())
 			Expect(bridgeConfigurator.podNicLink).To(Equal(podLink))
-			Expect(bridgeConfigurator.podIfaceIP).To(Equal(podIP))
+			Expect(*bridgeConfigurator.podIfaceIP).To(Equal(podIPv4))
+			Expect(*bridgeConfigurator.podIfaceIPv6).To(Equal(podIPv6))
 			Expect(bridgeConfigurator.podIfaceRoutes).To(ConsistOf(defaultGwRoute))
 		})
 
@@ -132,7 +138,7 @@ var _ = Describe("Bridge infrastructure configurator", func() {
 				handler,
 				launcherPID,
 				withLink(podLink),
-				withIPOnLink(podLink, podIP),
+				withIPv4OnLink(podLink, podIPv4),
 				withRoutesOnLink(podLink))
 			Expect(bridgeConfigurator.DiscoverPodNetworkInterface(ifaceName)).To(
 				MatchError(fmt.Sprintf("no gateway address found in routes for %s", ifaceName)))
@@ -171,12 +177,14 @@ var _ = Describe("Bridge infrastructure configurator", func() {
 					handler,
 					launcherPID,
 					withLink(podLink),
-					withIPOnLink(podLink))
+					withIPv4OnLink(podLink),
+					withIPv6OnLink(podLink))
 			})
 
 			It("should report disabled IPAM and miss the IP address field", func() {
 				Expect(bridgeConfigurator.DiscoverPodNetworkInterface(ifaceName)).To(Succeed())
-				Expect(bridgeConfigurator.podIfaceIP).To(Equal(netlink.Addr{}))
+				Expect(bridgeConfigurator.podIfaceIP).To(BeNil())
+				Expect(bridgeConfigurator.podIfaceIPv6).To(BeNil())
 				Expect(bridgeConfigurator.ipamEnabled).To(BeFalse())
 			})
 
@@ -184,6 +192,104 @@ var _ = Describe("Bridge infrastructure configurator", func() {
 				handler.EXPECT().RouteList(podLink, netlink.FAMILY_V4).Return([]netlink.Route{}, nil).Times(0)
 				Expect(bridgeConfigurator.DiscoverPodNetworkInterface(ifaceName)).To(Succeed())
 			})
+		})
+
+		When("the pod only reports an IPv6 address", func() {
+			var bridgeConfigurator *BridgePodNetworkConfigurator
+
+			BeforeEach(func() {
+				bridgeConfigurator = newMockedBridgeConfigurator(
+					vmi,
+					iface,
+					handler,
+					bridgeIfaceName,
+					launcherPID,
+					withLink(podLink),
+					withIPv4OnLink(podLink),
+					withIPv6OnLink(podLink, podIPv6))
+			})
+
+			It("succeeds reading the IPv6 address and enables IPAM", func() {
+				Expect(bridgeConfigurator.DiscoverPodNetworkInterface(ifaceName)).To(Succeed())
+				Expect(bridgeConfigurator.podIfaceIP).To(BeNil())
+				Expect(*bridgeConfigurator.podIfaceIPv6).To(Equal(podIPv6))
+				Expect(bridgeConfigurator.ipamEnabled).To(BeTrue())
+			})
+
+			It("should not care about missing routes when an IPv4 was not found", func() {
+				handler.EXPECT().RouteList(podLink, netlink.FAMILY_V4).Return([]netlink.Route{}, nil).Times(0)
+				Expect(bridgeConfigurator.DiscoverPodNetworkInterface(ifaceName)).To(Succeed())
+			})
+		})
+
+		When("link-local IPv6 addresses are configured", func() {
+			It("ignores them", func() {
+				bridgeConfigurator := newMockedBridgeConfigurator(
+					vmi,
+					iface,
+					handler,
+					bridgeIfaceName,
+					launcherPID,
+					withLink(podLink),
+					withIPv4OnLink(podLink),
+					withIPv6OnLink(podLink, podIPv6LinkLocal))
+				Expect(bridgeConfigurator.DiscoverPodNetworkInterface(ifaceName)).To(Succeed())
+				Expect(bridgeConfigurator.podIfaceIP).To(BeNil())
+				Expect(bridgeConfigurator.podIfaceIPv6).To(BeNil())
+				Expect(bridgeConfigurator.ipamEnabled).To(BeFalse())
+			})
+
+			It("still uses IPv4", func() {
+				bridgeConfigurator := newMockedBridgeConfigurator(
+					vmi,
+					iface,
+					handler,
+					bridgeIfaceName,
+					launcherPID,
+					withLink(podLink),
+					withIPv4OnLink(podLink, podIPv4),
+					withIPv6OnLink(podLink, podIPv6LinkLocal),
+					withRoutesOnLink(podLink, defaultGwRoute))
+				Expect(bridgeConfigurator.DiscoverPodNetworkInterface(ifaceName)).To(Succeed())
+				Expect(*bridgeConfigurator.podIfaceIP).To(Equal(podIPv4))
+				Expect(bridgeConfigurator.podIfaceIPv6).To(BeNil())
+				Expect(bridgeConfigurator.ipamEnabled).To(BeTrue())
+				Expect(bridgeConfigurator.podIfaceRoutes).To(ConsistOf(defaultGwRoute))
+			})
+
+			It("uses global unicast addresses instead", func() {
+				bridgeConfigurator := newMockedBridgeConfigurator(
+					vmi,
+					iface,
+					handler,
+					bridgeIfaceName,
+					launcherPID,
+					withLink(podLink),
+					withIPv4OnLink(podLink),
+					withIPv6OnLink(podLink, podIPv6LinkLocal, podIPv6))
+				Expect(bridgeConfigurator.DiscoverPodNetworkInterface(ifaceName)).To(Succeed())
+				Expect(bridgeConfigurator.podIfaceIP).To(BeNil())
+				Expect(*bridgeConfigurator.podIfaceIPv6).To(Equal(podIPv6))
+				Expect(bridgeConfigurator.ipamEnabled).To(BeTrue())
+			})
+		})
+
+		It("succeeds reading the IPv4 address and routes and enables IPAM when the pod only reports an IPv4 address", func() {
+			bridgeConfigurator := newMockedBridgeConfigurator(
+				vmi,
+				iface,
+				handler,
+				bridgeIfaceName,
+				launcherPID,
+				withLink(podLink),
+				withIPv4OnLink(podLink, podIPv4),
+				withIPv6OnLink(podLink),
+				withRoutesOnLink(podLink, defaultGwRoute))
+			Expect(bridgeConfigurator.DiscoverPodNetworkInterface(ifaceName)).To(Succeed())
+			Expect(*bridgeConfigurator.podIfaceIP).To(Equal(podIPv4))
+			Expect(bridgeConfigurator.podIfaceIPv6).To(BeNil())
+			Expect(bridgeConfigurator.ipamEnabled).To(BeTrue())
+			Expect(bridgeConfigurator.podIfaceRoutes).To(ConsistOf(defaultGwRoute))
 		})
 	})
 
@@ -237,7 +343,7 @@ var _ = Describe("Bridge infrastructure configurator", func() {
 				configurator.podNicLink = link
 				configurator.tapDeviceName = tapDeviceName
 				configurator.ipamEnabled = true
-				configurator.podIfaceIP = podIP
+				configurator.podIfaceIP = &podIP
 				configurator.bridgeInterfaceName = bridgeIfaceName
 				return configurator
 			}
@@ -251,6 +357,7 @@ var _ = Describe("Bridge infrastructure configurator", func() {
 					launcherPID,
 					podLink,
 					podIP,
+					withFlushAddrOnDown(),
 					withOriginalPodLinkDown(podLink),
 					withPodPrimaryLinkSwapped(podLink, podLinkAfterNameChange, dummySwap, podIP),
 					withARPIgnore(),
@@ -274,6 +381,7 @@ var _ = Describe("Bridge infrastructure configurator", func() {
 					launcherPID,
 					podLink,
 					podIP,
+					withFlushAddrOnDown(),
 					withErrorSettingDownPodLink(podLink, errorString))
 				Expect(bridgeConfigurator.PreparePodNetworkInterface()).To(MatchError(errorString))
 			})
@@ -288,6 +396,7 @@ var _ = Describe("Bridge infrastructure configurator", func() {
 					launcherPID,
 					podLink,
 					podIP,
+					withFlushAddrOnDown(),
 					withErrorSwitchingIfaceName(podLink, podIP, errorString))
 				Expect(bridgeConfigurator.PreparePodNetworkInterface()).To(MatchError(errorString))
 			})
@@ -302,6 +411,7 @@ var _ = Describe("Bridge infrastructure configurator", func() {
 					launcherPID,
 					podLink,
 					podIP,
+					withFlushAddrOnDown(),
 					withOriginalPodLinkDown(podLink),
 					withPodPrimaryLinkSwapped(podLink, podLinkAfterNameChange, dummySwap, podIP),
 					withARPIgnore(),
@@ -319,6 +429,7 @@ var _ = Describe("Bridge infrastructure configurator", func() {
 					launcherPID,
 					podLink,
 					podIP,
+					withFlushAddrOnDown(),
 					withOriginalPodLinkDown(podLink),
 					withErrorAddingDummyDevice(podLink, podLinkAfterNameChange, dummySwap, podIP, errorString))
 				Expect(bridgeConfigurator.PreparePodNetworkInterface()).To(MatchError(errorString))
@@ -334,6 +445,7 @@ var _ = Describe("Bridge infrastructure configurator", func() {
 					launcherPID,
 					podLink,
 					podIP,
+					withFlushAddrOnDown(),
 					withOriginalPodLinkDown(podLink),
 					withErrorMovingPodIPAddressToDummy(podLink, podLinkAfterNameChange, dummySwap, podIP, errorString))
 				Expect(bridgeConfigurator.PreparePodNetworkInterface()).To(MatchError(errorString))
@@ -349,6 +461,7 @@ var _ = Describe("Bridge infrastructure configurator", func() {
 					launcherPID,
 					podLink,
 					podIP,
+					withFlushAddrOnDown(),
 					withOriginalPodLinkDown(podLink),
 					withErrorDeletingIPAddressFromPod(podLink, podIP, errorString))
 				Expect(bridgeConfigurator.PreparePodNetworkInterface()).To(MatchError(errorString))
@@ -364,6 +477,7 @@ var _ = Describe("Bridge infrastructure configurator", func() {
 					launcherPID,
 					podLink,
 					podIP,
+					withFlushAddrOnDown(),
 					withOriginalPodLinkDown(podLink),
 					withPodPrimaryLinkSwapped(podLink, podLinkAfterNameChange, dummySwap, podIP),
 					withARPIgnore(),
@@ -382,6 +496,7 @@ var _ = Describe("Bridge infrastructure configurator", func() {
 					launcherPID,
 					podLink,
 					podIP,
+					withFlushAddrOnDown(),
 					withOriginalPodLinkDown(podLink),
 					withPodPrimaryLinkSwapped(podLink, podLinkAfterNameChange, dummySwap, podIP),
 					withARPIgnore(),
@@ -390,6 +505,20 @@ var _ = Describe("Bridge infrastructure configurator", func() {
 					withLinkAsBridgePort(inPodBridge, podLinkAfterNameChange),
 					withDisabledTxOffloadChecksum(bridgeIfaceName),
 					withErrorCreatingTapDevice(tapDeviceName, mtu, launcherPID, queueCount, errorString))
+				Expect(bridgeConfigurator.PreparePodNetworkInterface()).To(MatchError(errorString))
+			})
+
+			It("network preparation fails when configuring IPv6 flush address on down errors", func() {
+				const errorString = "failed to set IPv6 flush address on down"
+				bridgeConfigurator := newMockedBridgeConfiguratorForPreparePhase(
+					vmi,
+					iface,
+					handler,
+					bridgeIfaceName,
+					launcherPID,
+					podLink,
+					podIP,
+					withErrorFlushAddrOnDown(errorString))
 				Expect(bridgeConfigurator.PreparePodNetworkInterface()).To(MatchError(errorString))
 			})
 
@@ -403,6 +532,7 @@ var _ = Describe("Bridge infrastructure configurator", func() {
 					launcherPID,
 					podLink,
 					podIP,
+					withFlushAddrOnDown(),
 					withOriginalPodLinkDown(podLink),
 					withPodPrimaryLinkSwapped(podLink, podLinkAfterNameChange, dummySwap, podIP),
 					withErrorARPIgnore(errorString))
@@ -419,6 +549,7 @@ var _ = Describe("Bridge infrastructure configurator", func() {
 					launcherPID,
 					podLink,
 					podIP,
+					withFlushAddrOnDown(),
 					withOriginalPodLinkDown(podLink),
 					withPodPrimaryLinkSwapped(podLink, podLinkAfterNameChange, dummySwap, podIP),
 					withARPIgnore(),
@@ -441,6 +572,7 @@ var _ = Describe("Bridge infrastructure configurator", func() {
 					launcherPID,
 					podLink,
 					podIP,
+					withFlushAddrOnDown(),
 					withOriginalPodLinkDown(podLink),
 					withPodPrimaryLinkSwapped(podLink, podLinkAfterNameChange, dummySwap, podIP),
 					withARPIgnore(),
@@ -483,6 +615,7 @@ var _ = Describe("Bridge infrastructure configurator", func() {
 					handler,
 					bridgeIfaceName,
 					launcherPID,
+					withFlushAddrOnDown(),
 					withOriginalPodLinkDown(podLink),
 					withCreatedInPodBridge(inPodBridge, bridgeIPAddr),
 					withSwitchedPodLinkMac(podLink, inPodBridge),
@@ -502,6 +635,7 @@ var _ = Describe("Bridge infrastructure configurator", func() {
 					handler,
 					bridgeIfaceName,
 					launcherPID,
+					withFlushAddrOnDown(),
 					withErrorSettingDownPodLink(podLink, errorString))
 				Expect(bridgeConfigurator.PreparePodNetworkInterface()).To(MatchError(errorString))
 			})
@@ -514,6 +648,7 @@ var _ = Describe("Bridge infrastructure configurator", func() {
 					handler,
 					bridgeIfaceName,
 					launcherPID,
+					withFlushAddrOnDown(),
 					withOriginalPodLinkDown(podLink),
 					withErrorCreatingBridge(*inPodBridge, errorString))
 				Expect(bridgeConfigurator.PreparePodNetworkInterface()).To(MatchError(errorString))
@@ -527,6 +662,7 @@ var _ = Describe("Bridge infrastructure configurator", func() {
 					handler,
 					bridgeIfaceName,
 					launcherPID,
+					withFlushAddrOnDown(),
 					withOriginalPodLinkDown(podLink),
 					withSwitchedPodLinkMac(podLink, inPodBridge),
 					withErrorAddingPodLinkToBridge(inPodBridge, podLink, errorString))
@@ -541,6 +677,7 @@ var _ = Describe("Bridge infrastructure configurator", func() {
 					handler,
 					bridgeIfaceName,
 					launcherPID,
+					withFlushAddrOnDown(),
 					withOriginalPodLinkDown(podLink),
 					withSwitchedPodLinkMac(podLink, inPodBridge),
 					withErrorSettingBridgeUp(inPodBridge, podLink, errorString))
@@ -555,6 +692,7 @@ var _ = Describe("Bridge infrastructure configurator", func() {
 					handler,
 					bridgeIfaceName,
 					launcherPID,
+					withFlushAddrOnDown(),
 					withOriginalPodLinkDown(podLink),
 					withSwitchedPodLinkMac(podLink, inPodBridge),
 					withErrorSettingBridgeIPAddress(inPodBridge, podLink, bridgeIPAddr, errorString))
@@ -569,6 +707,7 @@ var _ = Describe("Bridge infrastructure configurator", func() {
 					handler,
 					bridgeIfaceName,
 					launcherPID,
+					withFlushAddrOnDown(),
 					withOriginalPodLinkDown(podLink),
 					withSwitchedPodLinkMac(podLink, inPodBridge),
 					withCreatedInPodBridge(inPodBridge, bridgeIPAddr),
@@ -585,6 +724,7 @@ var _ = Describe("Bridge infrastructure configurator", func() {
 					handler,
 					bridgeIfaceName,
 					launcherPID,
+					withFlushAddrOnDown(),
 					withOriginalPodLinkDown(podLink),
 					withSwitchedPodLinkMac(podLink, inPodBridge),
 					withCreatedInPodBridge(inPodBridge, bridgeIPAddr),
@@ -602,6 +742,7 @@ var _ = Describe("Bridge infrastructure configurator", func() {
 					handler,
 					bridgeIfaceName,
 					launcherPID,
+					withFlushAddrOnDown(),
 					withOriginalPodLinkDown(podLink),
 					withSwitchedPodLinkMac(podLink, inPodBridge),
 					withCreatedInPodBridge(inPodBridge, bridgeIPAddr),
@@ -620,6 +761,7 @@ var _ = Describe("Bridge infrastructure configurator", func() {
 					handler,
 					bridgeIfaceName,
 					launcherPID,
+					withFlushAddrOnDown(),
 					withOriginalPodLinkDown(podLink),
 					withSwitchedPodLinkMac(podLink, inPodBridge),
 					withCreatedInPodBridge(inPodBridge, bridgeIPAddr),
@@ -662,7 +804,7 @@ var _ = Describe("Bridge infrastructure configurator", func() {
 			})
 		})
 
-		When("IPAM is enabled", func() {
+		When("IPAM is enabled with an IPv4 address", func() {
 			var (
 				mac   net.HardwareAddr
 				podIP netlink.Addr
@@ -673,7 +815,7 @@ var _ = Describe("Bridge infrastructure configurator", func() {
 				bc.podNicLink = &netlink.GenericLink{LinkAttrs: netlink.LinkAttrs{Name: ifaceName}}
 				bc.vmMac = &mac
 				bc.ipamEnabled = true
-				bc.podIfaceIP = podIP
+				bc.podIfaceIP = &podIP
 				bc.podIfaceRoutes = routes
 				return bc
 			}
@@ -714,6 +856,38 @@ var _ = Describe("Bridge infrastructure configurator", func() {
 					mac, podIP).GenerateNonRecoverableDHCPConfig()).To(Equal(&expectedDhcpConfig))
 			})
 		})
+
+		When("IPAM is enabled with an IPv6 address", func() {
+			var (
+				mac   net.HardwareAddr
+				podIP netlink.Addr
+			)
+
+			createBridgeConfiguratorWithIPAM := func(mac net.HardwareAddr, podIP netlink.Addr, routes ...netlink.Route) *BridgePodNetworkConfigurator {
+				bc := NewBridgePodNetworkConfigurator(vmi, iface, bridgeIfaceName, launcherPID, handler)
+				bc.podNicLink = &netlink.GenericLink{LinkAttrs: netlink.LinkAttrs{Name: ifaceName}}
+				bc.vmMac = &mac
+				bc.ipamEnabled = true
+				bc.podIfaceIPv6 = &podIP
+				bc.podIfaceRoutes = routes
+				return bc
+			}
+
+			BeforeEach(func() {
+				podIP = netlink.Addr{IPNet: &net.IPNet{IP: net.IP{0xfd, 0x23, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0x6}, Mask: net.CIDRMask(64, 128)}}
+				mac, _ = net.ParseMAC("AF:B3:1F:78:2A:CA")
+			})
+
+			It("generates a DHCP config with MAC / IP address information", func() {
+				expectedDhcpConfig := cache.DHCPConfig{
+					IPAMDisabled: false,
+					MAC:          mac,
+					IPv6:         podIP,
+				}
+				Expect(createBridgeConfiguratorWithIPAM(
+					mac, podIP).GenerateNonRecoverableDHCPConfig()).To(Equal(&expectedDhcpConfig))
+			})
+		})
 	})
 })
 
@@ -731,7 +905,7 @@ func withLink(link netlink.Link) Option {
 	}
 }
 
-func withIPOnLink(link netlink.Link, ips ...netlink.Addr) Option {
+func withIPv4OnLink(link netlink.Link, ips ...netlink.Addr) Option {
 	return func(handler *netdriver.MockNetworkHandler) {
 		handler.EXPECT().AddrList(link, netlink.FAMILY_V4).Return(ips, nil)
 	}
@@ -740,6 +914,12 @@ func withIPOnLink(link netlink.Link, ips ...netlink.Addr) Option {
 func withRoutesOnLink(link netlink.Link, routes ...netlink.Route) Option {
 	return func(handler *netdriver.MockNetworkHandler) {
 		handler.EXPECT().RouteList(link, netlink.FAMILY_V4).Return(routes, nil)
+	}
+}
+
+func withIPv6OnLink(link netlink.Link, ips ...netlink.Addr) Option {
+	return func(handler *netdriver.MockNetworkHandler) {
+		handler.EXPECT().AddrList(link, netlink.FAMILY_V6).Return(ips, nil)
 	}
 }
 
@@ -903,6 +1083,18 @@ func withARPIgnore() Option {
 func withErrorARPIgnore(errorString string) Option {
 	return func(handler *netdriver.MockNetworkHandler) {
 		handler.EXPECT().ConfigureIpv4ArpIgnore().Return(fmt.Errorf(errorString))
+	}
+}
+
+func withFlushAddrOnDown() Option {
+	return func(handler *netdriver.MockNetworkHandler) {
+		handler.EXPECT().ConfigureIpv6FlushAddrOnDown()
+	}
+}
+
+func withErrorFlushAddrOnDown(errorString string) Option {
+	return func(handler *netdriver.MockNetworkHandler) {
+		handler.EXPECT().ConfigureIpv6FlushAddrOnDown().Return(fmt.Errorf(errorString))
 	}
 }
 

@@ -25,7 +25,8 @@ type BridgePodNetworkConfigurator struct {
 	handler             netdriver.NetworkHandler
 	launcherPID         int
 	vmMac               *net.HardwareAddr
-	podIfaceIP          netlink.Addr
+	podIfaceIP          *netlink.Addr
+	podIfaceIPv6        *netlink.Addr
 	podNicLink          netlink.Link
 	podIfaceRoutes      []netlink.Route
 	tapDeviceName       string
@@ -49,18 +50,31 @@ func (b *BridgePodNetworkConfigurator) DiscoverPodNetworkInterface(podIfaceName 
 	}
 	b.podNicLink = link
 
+	b.ipamEnabled = false
+
 	addrList, err := b.handler.AddrList(b.podNicLink, netlink.FAMILY_V4)
 	if err != nil {
 		log.Log.Reason(err).Errorf("failed to get an ip address for %s", podIfaceName)
 		return err
 	}
-	if len(addrList) == 0 {
-		b.ipamEnabled = false
-	} else {
-		b.podIfaceIP = addrList[0]
+	if len(addrList) > 0 {
+		b.podIfaceIP = &addrList[0]
 		b.ipamEnabled = true
 		if err := b.learnInterfaceRoutes(); err != nil {
 			return err
+		}
+	}
+
+	addrV6List, err := b.handler.AddrList(b.podNicLink, netlink.FAMILY_V6)
+	if err != nil {
+		log.Log.Reason(err).Errorf("failed to get an ipv6 address for %s", podIfaceName)
+		return err
+	}
+	for _, addr := range addrV6List {
+		if addr.IP.IsGlobalUnicast() {
+			b.podIfaceIPv6 = &addr
+			b.ipamEnabled = true
+			break
 		}
 	}
 
@@ -85,18 +99,30 @@ func (b *BridgePodNetworkConfigurator) GenerateNonRecoverableDHCPConfig() *cache
 
 	dhcpConfig := &cache.DHCPConfig{
 		MAC:          *b.vmMac,
-		IPAMDisabled: !b.ipamEnabled,
-		IP:           b.podIfaceIP,
+		IPAMDisabled: false,
 	}
 
-	if b.ipamEnabled && len(b.podIfaceRoutes) > 0 {
-		log.Log.V(4).Infof("got to add %d routes to the DhcpConfig", len(b.podIfaceRoutes))
-		b.decorateDhcpConfigRoutes(dhcpConfig)
+	if b.podIfaceIP != nil {
+		dhcpConfig.IP = *b.podIfaceIP
+		if len(b.podIfaceRoutes) > 0 {
+			log.Log.V(4).Infof("got to add %d routes to the DhcpConfig", len(b.podIfaceRoutes))
+			b.decorateDhcpConfigRoutes(dhcpConfig)
+		}
 	}
+	if b.podIfaceIPv6 != nil {
+		dhcpConfig.IPv6 = *b.podIfaceIPv6
+	}
+
 	return dhcpConfig
 }
 
 func (b *BridgePodNetworkConfigurator) PreparePodNetworkInterface() error {
+	// Ensure that any IPv6 address will be removed by setting the link down
+	if err := b.handler.ConfigureIpv6FlushAddrOnDown(); err != nil {
+		log.Log.Reason(err).Error("failed to set keep_addr_on_down=-1")
+		return err
+	}
+
 	// Set interface link to down to change its MAC address
 	if err := b.handler.LinkSetDown(b.podNicLink); err != nil {
 		log.Log.Reason(err).Errorf("failed to bring link down for interface: %s", b.podNicLink.Attrs().Name)
@@ -105,11 +131,12 @@ func (b *BridgePodNetworkConfigurator) PreparePodNetworkInterface() error {
 
 	if b.ipamEnabled {
 		// Remove IP from POD interface
-		err := b.handler.AddrDel(b.podNicLink, &b.podIfaceIP)
-
-		if err != nil {
-			log.Log.Reason(err).Errorf("failed to delete address for interface: %s", b.podNicLink.Attrs().Name)
-			return err
+		if b.podIfaceIP != nil {
+			err := b.handler.AddrDel(b.podNicLink, b.podIfaceIP)
+			if err != nil {
+				log.Log.Reason(err).Errorf("failed to delete v4 address for interface: %s", b.podNicLink.Attrs().Name)
+				return err
+			}
 		}
 
 		if err := b.switchPodInterfaceWithDummy(); err != nil {
@@ -265,10 +292,19 @@ func (b *BridgePodNetworkConfigurator) switchPodInterfaceWithDummy() error {
 	// Replace original pod interface IP address to the dummy
 	// Since the dummy is not connected to anything, it should not affect networking
 	// Replace will add if ip doesn't exist or modify the ip
-	err = b.handler.AddrReplace(dummy, &b.podIfaceIP)
-	if err != nil {
-		log.Log.Reason(err).Errorf("failed to replace original IP address to dummy interface: %s", originalPodInterfaceName)
-		return err
+	if b.podIfaceIP != nil {
+		err = b.handler.AddrReplace(dummy, b.podIfaceIP)
+		if err != nil {
+			log.Log.Reason(err).Errorf("failed to replace original IP address to dummy interface: %s", originalPodInterfaceName)
+			return err
+		}
+	}
+	if b.podIfaceIPv6 != nil {
+		err = b.handler.AddrReplace(dummy, b.podIfaceIPv6)
+		if err != nil {
+			log.Log.Reason(err).Errorf("failed to replace original IPv6 address to dummy interface: %s", originalPodInterfaceName)
+			return err
+		}
 	}
 
 	return nil
