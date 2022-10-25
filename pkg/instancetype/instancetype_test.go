@@ -1154,8 +1154,8 @@ var _ = Describe("Instancetype and Preferences", func() {
 				}
 				vmi.Spec.Domain.Devices.Inputs = []v1.Input{
 					v1.Input{
-						Bus:  "usb",
-						Type: "tablet",
+						Bus:  v1.InputBusUSB,
+						Type: v1.InputTypeTablet,
 					},
 					v1.Input{},
 				}

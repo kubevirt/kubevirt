@@ -731,7 +731,7 @@ var _ = Describe("[Serial][sig-compute]Infrastructure", func() {
 			// TODO: introspect the VMI and get the device name of this
 			// block device?
 			vmi := tests.NewRandomVMIWithEphemeralDisk(cd.ContainerDiskFor(cd.ContainerDiskAlpine))
-			tests.AppendEmptyDisk(vmi, "testdisk", "virtio", "1Gi")
+			tests.AppendEmptyDisk(vmi, "testdisk", v1.DiskBusVirtio, "1Gi")
 
 			if preferredNodeName != "" {
 				pinVMIOnNode(vmi, preferredNodeName)

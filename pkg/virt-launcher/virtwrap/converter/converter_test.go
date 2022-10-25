@@ -112,7 +112,7 @@ var _ = Describe("Converter", func() {
 			v1Disk := v1.Disk{
 				Name: "myvolume",
 				DiskDevice: v1.DiskDevice{
-					Disk: &v1.DiskTarget{Bus: "virtio"},
+					Disk: &v1.DiskTarget{Bus: v1.DiskBusVirtio},
 				},
 			}
 			apiDisk := api.Disk{}
@@ -144,7 +144,7 @@ var _ = Describe("Converter", func() {
 				BootOrder: &order,
 				DiskDevice: v1.DiskDevice{
 					Disk: &v1.DiskTarget{
-						Bus: "virtio",
+						Bus: v1.DiskBusVirtio,
 					},
 				},
 			}
@@ -190,7 +190,7 @@ var _ = Describe("Converter", func() {
 				Name: "mydisk",
 				DiskDevice: v1.DiskDevice{
 					Disk: &v1.DiskTarget{
-						Bus: "virtio",
+						Bus: v1.DiskBusVirtio,
 					},
 				},
 			}
@@ -230,7 +230,7 @@ var _ = Describe("Converter", func() {
 				Name: "mydisk",
 				DiskDevice: v1.DiskDevice{
 					Disk: &v1.DiskTarget{
-						Bus: "virtio",
+						Bus: v1.DiskBusVirtio,
 					},
 				},
 				Shareable: True(),
@@ -325,8 +325,8 @@ var _ = Describe("Converter", func() {
 			vmi.Spec.Domain.Devices.DisableHotplug = true
 			vmi.Spec.Domain.Devices.Inputs = []v1.Input{
 				{
-					Bus:  "virtio",
-					Type: "tablet",
+					Bus:  v1.InputBusVirtio,
+					Type: v1.InputTypeTablet,
 					Name: "tablet0",
 				},
 			}
@@ -335,7 +335,7 @@ var _ = Describe("Converter", func() {
 					Name: "myvolume",
 					DiskDevice: v1.DiskDevice{
 						Disk: &v1.DiskTarget{
-							Bus: "virtio",
+							Bus: v1.DiskBusVirtio,
 						},
 					},
 					DedicatedIOThread: True(),
@@ -344,7 +344,7 @@ var _ = Describe("Converter", func() {
 					Name: "nocloud",
 					DiskDevice: v1.DiskDevice{
 						Disk: &v1.DiskTarget{
-							Bus: "virtio",
+							Bus: v1.DiskBusVirtio,
 						},
 					},
 					DedicatedIOThread: True(),
@@ -2491,7 +2491,7 @@ var _ = Describe("Converter", func() {
 									Name: "dedicated",
 									DiskDevice: v1.DiskDevice{
 										Disk: &v1.DiskTarget{
-											Bus: "virtio",
+											Bus: v1.DiskBusVirtio,
 										},
 									},
 									DedicatedIOThread: True(),
@@ -2500,7 +2500,7 @@ var _ = Describe("Converter", func() {
 									Name: "shared",
 									DiskDevice: v1.DiskDevice{
 										Disk: &v1.DiskTarget{
-											Bus: "virtio",
+											Bus: v1.DiskBusVirtio,
 										},
 									},
 									DedicatedIOThread: False(),
@@ -2509,7 +2509,7 @@ var _ = Describe("Converter", func() {
 									Name: "omitted1",
 									DiskDevice: v1.DiskDevice{
 										Disk: &v1.DiskTarget{
-											Bus: "virtio",
+											Bus: v1.DiskBusVirtio,
 										},
 									},
 								},
@@ -2517,7 +2517,7 @@ var _ = Describe("Converter", func() {
 									Name: "omitted2",
 									DiskDevice: v1.DiskDevice{
 										Disk: &v1.DiskTarget{
-											Bus: "virtio",
+											Bus: v1.DiskBusVirtio,
 										},
 									},
 								},
@@ -2525,7 +2525,7 @@ var _ = Describe("Converter", func() {
 									Name: "omitted3",
 									DiskDevice: v1.DiskDevice{
 										Disk: &v1.DiskTarget{
-											Bus: "virtio",
+											Bus: v1.DiskBusVirtio,
 										},
 									},
 								},
@@ -2533,7 +2533,7 @@ var _ = Describe("Converter", func() {
 									Name: "omitted4",
 									DiskDevice: v1.DiskDevice{
 										Disk: &v1.DiskTarget{
-											Bus: "virtio",
+											Bus: v1.DiskBusVirtio,
 										},
 									},
 								},
@@ -2541,7 +2541,7 @@ var _ = Describe("Converter", func() {
 									Name: "omitted5",
 									DiskDevice: v1.DiskDevice{
 										Disk: &v1.DiskTarget{
-											Bus: "virtio",
+											Bus: v1.DiskBusVirtio,
 										},
 									},
 								},
@@ -2661,7 +2661,7 @@ var _ = Describe("Converter", func() {
 					Name: "mydisk",
 					DiskDevice: v1.DiskDevice{
 						Disk: &v1.DiskTarget{
-							Bus: "virtio",
+							Bus: v1.DiskBusVirtio,
 						},
 					},
 				},
@@ -2691,7 +2691,7 @@ var _ = Describe("Converter", func() {
 
 			v1Disk := v1.Disk{
 				DiskDevice: v1.DiskDevice{
-					Disk: &v1.DiskTarget{Bus: "virtio"},
+					Disk: &v1.DiskTarget{Bus: v1.DiskBusVirtio},
 				},
 			}
 			apiDisk := api.Disk{}
@@ -2873,7 +2873,7 @@ var _ = Describe("Converter", func() {
 		})
 
 		It("should not assign queues to a non-virtio devices", func() {
-			vmi.Spec.Domain.Devices.Interfaces[0].Model = "e1000"
+			vmi.Spec.Domain.Devices.Interfaces[0].Model = v1.InterfaceModelE1000
 			domain := vmiToDomain(vmi, &ConverterContext{AllowEmulation: true})
 			Expect(domain.Spec.Devices.Interfaces[0].Driver).To(BeNil(),
 				"queues should not be set for models other than virtio")

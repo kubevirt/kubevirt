@@ -26,6 +26,7 @@ import (
 
 	ginkgo "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
+	v1 "kubevirt.io/api/core/v1"
 )
 
 var exampleXMLwithNoneMemballoon string
@@ -332,8 +333,8 @@ var _ = ginkgo.Describe("Schema", func() {
 
 		exampleDomain.Spec.Devices.Inputs = []Input{
 			{
-				Type:  "tablet",
-				Bus:   "virtio",
+				Type:  v1.InputTypeTablet,
+				Bus:   v1.InputBusVirtio,
 				Alias: NewUserDefinedAlias("tablet0"),
 			},
 		}
