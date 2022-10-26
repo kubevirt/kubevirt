@@ -138,10 +138,8 @@ var _ = Describe("[rfe_id:588][crit:medium][vendor:cnv-qe@redhat.com][level:comp
 			It("[test_id:7182]disk verification should fail when the memory limit is too low", func() {
 				By("Reducing the diskVerificaton memory usage limit")
 				kv := util.GetCurrentKv(virtClient)
-				kv.Spec.Configuration.DeveloperConfiguration = &v1.DeveloperConfiguration{
-					DiskVerification: &v1.DiskVerification{
-						MemoryLimit: resource.NewScaledQuantity(42, resource.Kilo),
-					},
+				kv.Spec.Configuration.DeveloperConfiguration.DiskVerification = &v1.DiskVerification{
+					MemoryLimit: resource.NewScaledQuantity(42, resource.Kilo),
 				}
 				tests.UpdateKubeVirtConfigValueAndWait(kv.Spec.Configuration)
 				Expect(err).ToNot(HaveOccurred())
