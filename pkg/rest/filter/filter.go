@@ -20,8 +20,9 @@
 package filter
 
 import (
-	restful "github.com/emicklei/go-restful"
 	"net"
+
+	restful "github.com/emicklei/go-restful"
 
 	"kubevirt.io/client-go/log"
 )
