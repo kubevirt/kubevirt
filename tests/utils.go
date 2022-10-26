@@ -1268,11 +1268,24 @@ func RenderPod(name string, cmd []string, args []string) *k8sv1.Pod {
 // CreateExecutorPodWithPVC creates a Pod with the passed in PVC mounted under /pvc. You can then use the executor utilities to
 // run commands against the PVC through this Pod.
 func CreateExecutorPodWithPVC(podName string, pvc *k8sv1.PersistentVolumeClaim) *k8sv1.Pod {
-	return RunPod(newExecutorPodWithPVC(podName, pvc))
-}
+	var err error
 
-func newExecutorPodWithPVC(podName string, pvc *k8sv1.PersistentVolumeClaim) *k8sv1.Pod {
-	return libstorage.RenderPodWithPVC(podName, []string{"/bin/bash", "-c", "while true; do echo hello; sleep 2;done"}, nil, pvc)
+	pod := libstorage.RenderPodWithPVC(podName, []string{"/bin/bash", "-c", "touch /tmp/startup; while true; do echo hello; sleep 2; done"}, nil, pvc)
+	pod.Spec.Containers[0].ReadinessProbe = &k8sv1.Probe{
+		ProbeHandler: k8sv1.ProbeHandler{
+			Exec: &k8sv1.ExecAction{
+				Command: []string{"/bin/cat", "/tmp/startup"},
+			},
+		},
+	}
+	pod = RunPod(pod)
+
+	Eventually(func() bool {
+		pod, err = ThisPod(pod)()
+		Expect(err).ToNot(HaveOccurred())
+		return PodReady(pod) == k8sv1.ConditionTrue
+	}).Should(BeTrue())
+	return pod
 }
 
 func RunPodInNamespace(pod *k8sv1.Pod, namespace string) *k8sv1.Pod {
