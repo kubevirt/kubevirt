@@ -200,7 +200,7 @@ func (t *ConsoleHandler) getUnixSocketPath(vmi *v1.VirtualMachineInstance, socke
 	if err != nil {
 		return "", err
 	}
-	socketDir := path.Join("proc", strconv.Itoa(result.Pid()), "root", "var", "run", "kubevirt-private", string(vmi.GetUID()))
+	socketDir := path.Join("/proc", strconv.Itoa(result.Pid()), "root", "var", "run", "kubevirt-private", string(vmi.GetUID()))
 	socketPath := path.Join(socketDir, socketName)
 	if _, err = os.Stat(socketPath); errors.Is(err, os.ErrNotExist) {
 		return "", err
