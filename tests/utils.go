@@ -300,9 +300,13 @@ func RunVMIAndExpectLaunchIgnoreWarnings(vmi *v1.VirtualMachineInstance, timeout
 }
 
 func RunVMIAndExpectScheduling(vmi *v1.VirtualMachineInstance, timeout int) *v1.VirtualMachineInstance {
+	wp := watcher.WarningsPolicy{FailOnWarnings: true}
+	return RunVMIAndExpectSchedulingWithWarningPolicy(vmi, timeout, wp)
+}
+
+func RunVMIAndExpectSchedulingWithWarningPolicy(vmi *v1.VirtualMachineInstance, timeout int, wp watcher.WarningsPolicy) *v1.VirtualMachineInstance {
 	obj := RunVMI(vmi, timeout)
 	By("Waiting until the VirtualMachineInstance will be scheduled")
-	wp := watcher.WarningsPolicy{FailOnWarnings: true}
 	return waitForVMIScheduling(obj, timeout, wp)
 }
 
