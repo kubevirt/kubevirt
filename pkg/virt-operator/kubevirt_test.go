@@ -23,7 +23,6 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
-	"os"
 	"strconv"
 	"strings"
 	"time"
@@ -148,12 +147,20 @@ type KubeVirtTestData struct {
 	deleteFromCache bool
 	addToCache      bool
 
-	defaultConfig *util.KubeVirtDeploymentConfig
+	defaultConfig     *util.KubeVirtDeploymentConfig
+	mockEnvVarManager util.EnvVarManager
 }
+
+var mockEnvVarManager = &util.EnvVarManagerMock{}
 
 func (k *KubeVirtTestData) BeforeTest() {
 
-	k.defaultConfig = getConfig("", "")
+	k.mockEnvVarManager = mockEnvVarManager
+
+	err := k.mockEnvVarManager.Setenv(util.OldOperatorImageEnvName, fmt.Sprintf("%s/virt-operator:%s", "someregistry", "v9.9.9"))
+	Expect(err).NotTo(HaveOccurred())
+
+	k.defaultConfig = k.getConfig("", "")
 
 	k.totalAdds = 0
 	k.totalUpdates = 0
@@ -1072,7 +1079,7 @@ func (k *KubeVirtTestData) addPrometheusRule(prometheusRule *promv1.PrometheusRu
 func (k *KubeVirtTestData) generateRandomResources() int {
 	version := fmt.Sprintf("rand-%s", rand.String(10))
 	registry := fmt.Sprintf("rand-%s", rand.String(10))
-	config := getConfig(registry, version)
+	config := k.getConfig(registry, version)
 
 	all := make([]runtime.Object, 0)
 	all = append(all, &k8sv1.ServiceAccount{
@@ -1487,7 +1494,7 @@ func (k *KubeVirtTestData) makeHandlerReady() {
 func (k *KubeVirtTestData) addDummyValidationWebhook() {
 	version := fmt.Sprintf("rand-%s", rand.String(10))
 	registry := fmt.Sprintf("rand-%s", rand.String(10))
-	config := getConfig(registry, version)
+	config := k.getConfig(registry, version)
 
 	validationWebhook := &admissionregistrationv1.ValidatingWebhookConfiguration{
 		ObjectMeta: metav1.ObjectMeta{
@@ -1648,11 +1655,23 @@ func (k *KubeVirtTestData) addPodsAndPodDisruptionBudgets(config *util.KubeVirtD
 	k.addPodsWithOptionalPodDisruptionBudgets(config, true, kv)
 }
 
+func (k *KubeVirtTestData) getConfig(registry, version string) *util.KubeVirtDeploymentConfig {
+	return util.GetTargetConfigFromKVWithEnvVarManager(&v1.KubeVirt{
+		ObjectMeta: metav1.ObjectMeta{
+			Namespace: NAMESPACE,
+		},
+		Spec: v1.KubeVirtSpec{
+			ImageRegistry: registry,
+			ImageTag:      version,
+		},
+	},
+		k.mockEnvVarManager)
+}
+
 var _ = Describe("KubeVirt Operator", func() {
 
 	BeforeEach(func() {
-		err := os.Setenv(util.OldOperatorImageEnvName, fmt.Sprintf("%s/virt-operator:%s", "someregistry", "v9.9.9"))
-		Expect(err).NotTo(HaveOccurred())
+		util.DefaultEnvVarManager = mockEnvVarManager
 	})
 
 	Context("On valid KubeVirt object", func() {
@@ -1761,7 +1780,7 @@ var _ = Describe("KubeVirt Operator", func() {
 			// create all resources which should already exist
 			kubecontroller.SetLatestApiVersionAnnotation(kv)
 			kvTestData.addKubeVirt(kv)
-			customConfig := getConfig(kvTestData.defaultConfig.GetImageRegistry(), "custom.tag")
+			customConfig := kvTestData.getConfig(kvTestData.defaultConfig.GetImageRegistry(), "custom.tag")
 
 			kvTestData.fakeNamespaceModificationEvent()
 			kvTestData.shouldExpectNamespacePatch()
@@ -2131,7 +2150,7 @@ var _ = Describe("KubeVirt Operator", func() {
 			kvTestData.BeforeTest()
 			defer kvTestData.AfterTest()
 
-			config := getConfig("registry", "v1.1.1")
+			config := kvTestData.getConfig("registry", "v1.1.1")
 			envKey := rand.String(10)
 			envVal := rand.String(10)
 			config.PassthroughEnvVars = map[string]string{envKey: envVal}
@@ -2142,7 +2161,11 @@ var _ = Describe("KubeVirt Operator", func() {
 		})
 
 		It("should create an api server deployment with passthrough env vars, if provided in config", func() {
-			config := getConfig("registry", "v1.1.1")
+			kvTestData := KubeVirtTestData{}
+			kvTestData.BeforeTest()
+			defer kvTestData.AfterTest()
+
+			config := kvTestData.getConfig("registry", "v1.1.1")
 			envKey := rand.String(10)
 			envVal := rand.String(10)
 			config.PassthroughEnvVars = map[string]string{envKey: envVal}
@@ -2154,7 +2177,11 @@ var _ = Describe("KubeVirt Operator", func() {
 		})
 
 		It("should create a controller deployment with passthrough env vars, if provided in config", func() {
-			config := getConfig("registry", "v1.1.1")
+			kvTestData := KubeVirtTestData{}
+			kvTestData.BeforeTest()
+			defer kvTestData.AfterTest()
+
+			config := kvTestData.getConfig("registry", "v1.1.1")
 			envKey := rand.String(10)
 			envVal := rand.String(10)
 			config.PassthroughEnvVars = map[string]string{envKey: envVal}
@@ -2166,7 +2193,11 @@ var _ = Describe("KubeVirt Operator", func() {
 		})
 
 		It("should create a handler daemonset with passthrough env vars, if provided in config", func() {
-			config := getConfig("registry", "v1.1.1")
+			kvTestData := KubeVirtTestData{}
+			kvTestData.BeforeTest()
+			defer kvTestData.AfterTest()
+
+			config := kvTestData.getConfig("registry", "v1.1.1")
 			envKey := rand.String(10)
 			envVal := rand.String(10)
 			config.PassthroughEnvVars = map[string]string{envKey: envVal}
@@ -2361,7 +2392,7 @@ var _ = Describe("KubeVirt Operator", func() {
 			kvTestData.BeforeTest()
 			defer kvTestData.AfterTest()
 
-			rollbackConfig := getConfig("otherregistry", "9.9.7")
+			rollbackConfig := kvTestData.getConfig("otherregistry", "9.9.7")
 
 			kv := &v1.KubeVirt{
 				ObjectMeta: metav1.ObjectMeta{
@@ -2427,7 +2458,9 @@ var _ = Describe("KubeVirt Operator", func() {
 			kvTestData.BeforeTest()
 			defer kvTestData.AfterTest()
 
-			updatedConfig := getConfig("otherregistry", "9.9.10")
+			err := kvTestData.mockEnvVarManager.Unsetenv(util.OldOperatorImageEnvName)
+			Expect(err).NotTo(HaveOccurred())
+			updatedConfig := kvTestData.getConfig("otherregistry", "9.9.10")
 
 			kv := &v1.KubeVirt{
 				ObjectMeta: metav1.ObjectMeta{
@@ -2494,7 +2527,7 @@ var _ = Describe("KubeVirt Operator", func() {
 			kvTestData.BeforeTest()
 			defer kvTestData.AfterTest()
 
-			updatedConfig := getConfig("otherregistry", "9.9.10")
+			updatedConfig := kvTestData.getConfig("otherregistry", "9.9.10")
 
 			kv := &v1.KubeVirt{
 				ObjectMeta: metav1.ObjectMeta{
@@ -2562,12 +2595,12 @@ var _ = Describe("KubeVirt Operator", func() {
 		})
 
 		DescribeTable("should update kubevirt resources when Operator version changes if no imageTag and imageRegistry is explicitly set.", func(withExport bool, patchCount, resourceCount, numPDBs int) {
-			os.Setenv(util.OldOperatorImageEnvName, fmt.Sprintf("%s/virt-operator:%s", "otherregistry", "1.1.1"))
-			updatedConfig := getConfig("", "")
-
 			kvTestData := KubeVirtTestData{}
 			kvTestData.BeforeTest()
 			defer kvTestData.AfterTest()
+
+			kvTestData.mockEnvVarManager.Setenv(util.OldOperatorImageEnvName, fmt.Sprintf("%s/virt-operator:%s", "otherregistry", "1.1.1"))
+			updatedConfig := kvTestData.getConfig("", "")
 
 			kv := &v1.KubeVirt{
 				ObjectMeta: metav1.ObjectMeta{
@@ -2639,11 +2672,11 @@ var _ = Describe("KubeVirt Operator", func() {
 		)
 
 		DescribeTable("should update resources when changing KubeVirt version.", func(withExport bool, patchCount, resourceCount int) {
-			updatedConfig := getConfig("otherregistry", "1.1.1")
-
 			kvTestData := KubeVirtTestData{}
 			kvTestData.BeforeTest()
 			defer kvTestData.AfterTest()
+
+			updatedConfig := kvTestData.getConfig("otherregistry", "1.1.1")
 
 			kv := &v1.KubeVirt{
 				ObjectMeta: metav1.ObjectMeta{
@@ -2713,11 +2746,11 @@ var _ = Describe("KubeVirt Operator", func() {
 		)
 
 		DescribeTable("should patch poddisruptionbudgets when changing KubeVirt version.", func(withExport bool, numPDBs int) {
-			updatedConfig := getConfig("otherregistry", "1.1.1")
-
 			kvTestData := KubeVirtTestData{}
 			kvTestData.BeforeTest()
 			defer kvTestData.AfterTest()
+
+			updatedConfig := kvTestData.getConfig("otherregistry", "1.1.1")
 
 			kv := &v1.KubeVirt{
 				ObjectMeta: metav1.ObjectMeta{
@@ -3031,18 +3064,6 @@ func getSCC() secv1.SecurityContextConstraints {
 			"someUser",
 		},
 	}
-}
-
-func getConfig(registry, version string) *util.KubeVirtDeploymentConfig {
-	return util.GetTargetConfigFromKV(&v1.KubeVirt{
-		ObjectMeta: metav1.ObjectMeta{
-			Namespace: NAMESPACE,
-		},
-		Spec: v1.KubeVirtSpec{
-			ImageRegistry: registry,
-			ImageTag:      version,
-		},
-	})
 }
 
 func syncCaches(stop chan struct{}, kvInformer cache.SharedIndexInformer, informers util.Informers) {
