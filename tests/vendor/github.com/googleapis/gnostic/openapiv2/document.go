@@ -14,7 +14,11 @@
 
 package openapi_v2
 
-import "github.com/googleapis/gnostic/compiler"
+import (
+	"gopkg.in/yaml.v3"
+
+	"github.com/google/gnostic/compiler"
+)
 
 // ParseDocument reads an OpenAPI v2 description from a YAML/JSON representation.
 func ParseDocument(b []byte) (*Document, error) {
@@ -22,5 +26,17 @@ func ParseDocument(b []byte) (*Document, error) {
 	if err != nil {
 		return nil, err
 	}
-	return NewDocument(info.Content[0], compiler.NewContextWithExtensions("$root", nil, nil))
+	root := info.Content[0]
+	return NewDocument(root, compiler.NewContextWithExtensions("$root", root, nil, nil))
+}
+
+// YAMLValue produces a serialized YAML representation of the document.
+func (d *Document) YAMLValue(comment string) ([]byte, error) {
+	rawInfo := d.ToRawInfo()
+	rawInfo = &yaml.Node{
+		Kind:        yaml.DocumentNode,
+		Content:     []*yaml.Node{rawInfo},
+		HeadComment: comment,
+	}
+	return yaml.Marshal(rawInfo)
 }
