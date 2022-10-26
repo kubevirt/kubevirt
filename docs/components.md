@@ -28,7 +28,7 @@ choreography, where all components act by themselves to realize the state
 provided by the `VMI` objects.
 
 ```
-Client                     K8s API     VMI CRD  Virt Controller         VMI Handler
+Client                     K8s API     VMI CR  Virt Controller         VMI Handler
 -------------------------- ----------- ------- ----------------------- ----------
 
                            listen <----------- WATCH /virtualmachines
@@ -60,8 +60,7 @@ there are _temporary workarounds_ in place to avoid bugs and address some
 other stuff.
 
 1. A client posts a new VMI definition to the K8s API Server.
-2. The K8s API Server validates the input and creates a `VMI` custom resource
-   definition (CRD) object.
+2. The K8s API Server validates the input and creates a `VMI` custom resource.
 3. The `virt-controller` observes the creation of the new `VMI` object
    and creates a corresponding pod.
 4. Kubernetes is scheduling the pod on a host.
@@ -88,7 +87,7 @@ As the main entrypoint to KubeVirt it is responsible for defaulting and validati
 
 ## `VMI` (CRD)
 
-VMI definitions are kept as custom resource definitions inside the Kubernetes API
+VMI definitions are kept as custom resources inside the Kubernetes API
 server.
 
 The VMI definition is defining all properties of the Virtual machine itself,
@@ -105,7 +104,7 @@ for example
 From a high-level perspective the virt-controller has all the _cluster wide_
 virtualization functionality.
 
-This controller is responsible for monitoring the VMI (CRDs) and managing the
+This controller is responsible for monitoring the VMI (CRs) and managing the
 associated pods. Currently the controller will make sure to create and manage
 the life-cycle of the pods associated to the VMI objects.
 
