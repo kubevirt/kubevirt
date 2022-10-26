@@ -29,9 +29,6 @@ import (
 	"kubevirt.io/kubevirt/tests/framework/checks"
 	"kubevirt.io/kubevirt/tests/libstorage"
 
-	"k8s.io/utils/pointer"
-
-	"kubevirt.io/kubevirt/pkg/controller"
 	"kubevirt.io/kubevirt/tests/libnode"
 
 	"kubevirt.io/kubevirt/pkg/virt-controller/watch/topology"
@@ -81,102 +78,6 @@ var _ = Describe("[Serial][sig-compute]Windows VirtualMachineInstance", func() {
 		windowsVMI.Spec = getWindowsVMISpec()
 		tests.AddExplicitPodNetworkInterface(windowsVMI)
 		windowsVMI.Spec.Domain.Devices.Interfaces[0].Model = "e1000"
-	})
-
-	Context("VMI with HyperV reenlightenment enabled", func() {
-		BeforeEach(func() {
-			windowsVMI.Spec.Domain.Features.Hyperv.Reenlightenment = &v1.FeatureState{Enabled: pointer.Bool(true)}
-		})
-
-		When("TSC frequency is exposed on the cluster", func() {
-			It("should be able to migrate", func() {
-				if !isTSCFrequencyExposed(virtClient) {
-					Skip("TSC frequency is not exposed on the cluster")
-				}
-
-				var err error
-				By("Creating a windows VM")
-				windowsVMI, err = virtClient.VirtualMachineInstance(util.NamespaceTestDefault).Create(windowsVMI)
-				Expect(err).ToNot(HaveOccurred())
-				tests.WaitForSuccessfulVMIStartWithTimeout(windowsVMI, 360)
-
-				By("Migrating the VM")
-				migration := tests.NewRandomMigration(windowsVMI.Name, windowsVMI.Namespace)
-				migrationUID := tests.RunMigrationAndExpectCompletion(virtClient, migration, tests.MigrationWaitTime)
-
-				By("Checking VMI, confirm migration state")
-				tests.ConfirmVMIPostMigration(virtClient, windowsVMI, migrationUID)
-			})
-		})
-
-		When("TSC frequency is not exposed on the cluster", func() {
-
-			BeforeEach(func() {
-				if isTSCFrequencyExposed(virtClient) {
-					nodeList, err := virtClient.CoreV1().Nodes().List(context.Background(), metav1.ListOptions{})
-					Expect(err).ToNot(HaveOccurred())
-
-					for _, node := range nodeList.Items {
-						stopNodeLabeller(node.Name, virtClient)
-						removeTSCFrequencyFromNode(node)
-					}
-				}
-			})
-
-			AfterEach(func() {
-				nodeList, err := virtClient.CoreV1().Nodes().List(context.Background(), metav1.ListOptions{})
-				Expect(err).ToNot(HaveOccurred())
-
-				for _, node := range nodeList.Items {
-					_, isNodeLabellerStopped := node.Annotations[v1.LabellerSkipNodeAnnotation]
-					Expect(isNodeLabellerStopped).To(BeTrue())
-
-					updatedNode := resumeNodeLabeller(node.Name, virtClient)
-					_, isNodeLabellerStopped = updatedNode.Annotations[v1.LabellerSkipNodeAnnotation]
-					Expect(isNodeLabellerStopped).To(BeFalse(), "after node labeller is resumed, %s annotation is expected to disappear from node", v1.LabellerSkipNodeAnnotation)
-				}
-			})
-
-			It("should be able to start successfully", func() {
-				var err error
-				By("Creating a windows VM")
-				windowsVMI, err = virtClient.VirtualMachineInstance(util.NamespaceTestDefault).Create(windowsVMI)
-				Expect(err).ToNot(HaveOccurred())
-				tests.WaitForSuccessfulVMIStartWithTimeout(windowsVMI, 360)
-				winrnLoginCommand(virtClient, windowsVMI)
-			})
-
-			It("should be marked as non-migratable", func() {
-				var err error
-				By("Creating a windows VM")
-				windowsVMI, err = virtClient.VirtualMachineInstance(util.NamespaceTestDefault).Create(windowsVMI)
-				Expect(err).ToNot(HaveOccurred())
-				tests.WaitForSuccessfulVMIStartWithTimeout(windowsVMI, 360)
-
-				conditionManager := controller.NewVirtualMachineInstanceConditionManager()
-				isNonMigratable := func() error {
-					windowsVMI, err = virtClient.VirtualMachineInstance(util.NamespaceTestDefault).Get(windowsVMI.Name, &metav1.GetOptions{})
-					Expect(err).ToNot(HaveOccurred())
-
-					cond := conditionManager.GetCondition(windowsVMI, v1.VirtualMachineInstanceIsMigratable)
-					const errFmt = "condition " + string(v1.VirtualMachineInstanceIsMigratable) + " is expected to be %s %s"
-
-					if statusFalse := k8sv1.ConditionFalse; cond.Status != statusFalse {
-						return fmt.Errorf(errFmt, "of status", string(statusFalse))
-					}
-					if notMigratableNoTscReason := v1.VirtualMachineInstanceReasonNoTSCFrequencyMigratable; cond.Reason != notMigratableNoTscReason {
-						return fmt.Errorf(errFmt, "of reason", notMigratableNoTscReason)
-					}
-					if !strings.Contains(cond.Message, "HyperV Reenlightenment") {
-						return fmt.Errorf(errFmt, "with message that contains", "HyperV Reenlightenment")
-					}
-					return nil
-				}
-
-				Eventually(isNonMigratable, 30*time.Second, time.Second).ShouldNot(HaveOccurred())
-				Consistently(isNonMigratable, 15*time.Second, 3*time.Second).ShouldNot(HaveOccurred())
-			})
-		})
 	})
 
 	Context("with winrm connection", func() {
