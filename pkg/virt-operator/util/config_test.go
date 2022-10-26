@@ -289,4 +289,69 @@ var _ = Describe("Operator Config", func() {
 		)
 	})
 
+	Context("custom component images", func() {
+
+		var definedEnvVars []string
+
+		setCustomImageForComponent := func(component string) string {
+			customImage := "a/kubevirt:" + component
+
+			// defining a different SHA so we make sure the custom image has precedence
+			customSha := "sha256:" + component + "fake-suffix"
+
+			envVarNameBase := strings.ToUpper(component)
+			envVarNameBase = strings.ReplaceAll(envVarNameBase, "-", "_") + "_"
+			imageEnvVarName := envVarNameBase + "IMAGE"
+			shaEnvVarName := envVarNameBase + "SHASUM"
+
+			ExpectWithOffset(1, os.Setenv(imageEnvVarName, customImage)).To(Succeed())
+			definedEnvVars = append(definedEnvVars, imageEnvVarName)
+
+			ExpectWithOffset(1, os.Setenv(shaEnvVarName, customSha)).To(Succeed())
+			definedEnvVars = append(definedEnvVars, shaEnvVarName)
+
+			return customImage
+		}
+
+		BeforeEach(func() {
+			definedEnvVars = nil
+
+			config := getConfig("kubevirt", "v123")
+
+			ExpectWithOffset(1, os.Setenv(KubeVirtVersionEnvName, config.KubeVirtVersion)).To(Succeed())
+		})
+
+		AfterEach(func() {
+			for _, envVar := range definedEnvVars {
+				_ = os.Unsetenv(envVar)
+			}
+
+			_ = os.Unsetenv(KubeVirtVersionEnvName)
+		})
+
+		It("should pull the right image", func() {
+			operatorImage := setCustomImageForComponent("virt-operator")
+			apiImage := setCustomImageForComponent("virt-api")
+			controllerImage := setCustomImageForComponent("virt-controller")
+			handlerImage := setCustomImageForComponent("virt-handler")
+			launcherImage := setCustomImageForComponent("virt-launcher")
+			exportProxyImage := setCustomImageForComponent("virt-exportproxy")
+			exportServerImage := setCustomImageForComponent("virt-exportserver")
+
+			err := VerifyEnv()
+			Expect(err).ToNot(HaveOccurred())
+
+			parsedConfig, err := GetConfigFromEnv()
+			Expect(err).ToNot(HaveOccurred())
+
+			const errMsg = "image is not set as expected"
+			Expect(parsedConfig.VirtOperatorImage).To(Equal(operatorImage), errMsg)
+			Expect(parsedConfig.VirtApiImage).To(Equal(apiImage), errMsg)
+			Expect(parsedConfig.VirtControllerImage).To(Equal(controllerImage), errMsg)
+			Expect(parsedConfig.VirtHandlerImage).To(Equal(handlerImage), errMsg)
+			Expect(parsedConfig.VirtLauncherImage).To(Equal(launcherImage), errMsg)
+			Expect(parsedConfig.VirtExportProxyImage).To(Equal(exportProxyImage), errMsg)
+			Expect(parsedConfig.VirtExportServerImage).To(Equal(exportServerImage), errMsg)
+		})
+	})
 })
