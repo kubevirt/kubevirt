@@ -39,7 +39,7 @@ import (
 	"github.com/pborman/uuid"
 	k8sv1 "k8s.io/api/core/v1"
 	kubev1 "k8s.io/api/core/v1"
-	nodev1 "k8s.io/api/node/v1beta1"
+	nodev1 "k8s.io/api/node/v1"
 	"k8s.io/apimachinery/pkg/api/resource"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/types"
@@ -1665,17 +1665,18 @@ var _ = Describe("[sig-compute]Configurations", func() {
 		})
 
 		Context("[Serial]using defaultRuntimeClass configuration", func() {
-			runtimeClassName := "custom-runtime-class"
+			const runtimeClassName = "fake-runtime-class"
 
 			BeforeEach(func() {
 				By("Creating a runtime class")
-				createRuntimeClass(runtimeClassName, "custom-handler")
+				_, err := createRuntimeClass(runtimeClassName, "fake-handler")
+				Expect(err).NotTo(HaveOccurred(), "cannot create runtime-class "+runtimeClassName)
 			})
 
 			AfterEach(func() {
 				By("Cleaning up runtime class")
-				err = deleteRuntimeClass(runtimeClassName)
-				Expect(err).NotTo(HaveOccurred())
+				err := deleteRuntimeClass(runtimeClassName)
+				Expect(err).NotTo(HaveOccurred(), "cannot delete runtime-class "+runtimeClassName)
 			})
 
 			It("should apply runtimeClassName to pod when set", func() {
@@ -1685,23 +1686,20 @@ var _ = Describe("[sig-compute]Configurations", func() {
 				tests.UpdateKubeVirtConfigValueAndWait(*config)
 
 				By("Creating a new VMI")
-				var vmi = tests.NewRandomVMI()
-				vmi = tests.RunVMIAndExpectScheduling(vmi, 30)
-				Expect(err).NotTo(HaveOccurred())
+				vmi := tests.NewRandomVMI()
+				// Runtime class related warnings are expected since we created a fake runtime class that isn't supported
+				wp := watcher.WarningsPolicy{FailOnWarnings: true, WarningsIgnoreList: []string{"RuntimeClass"}}
+				vmi = tests.RunVMIAndExpectSchedulingWithWarningPolicy(vmi, 30, wp)
 
 				By("Checking for presence of runtimeClassName")
 				pod := tests.GetPodByVirtualMachineInstance(vmi)
+				Expect(pod.Spec.RuntimeClassName).ToNot(BeNil())
 				Expect(*pod.Spec.RuntimeClassName).To(BeEquivalentTo(runtimeClassName))
 			})
 
 			It("should not apply runtimeClassName to pod when not set", func() {
 				By("Creating a VMI")
-				var vmi = tests.NewRandomVMI()
-				vmi, err = virtClient.VirtualMachineInstance(util.NamespaceTestDefault).Create(vmi)
-				Expect(err).NotTo(HaveOccurred())
-
-				By("Waiting for successful start of VMI")
-				tests.WaitForSuccessfulVMIStart(vmi)
+				vmi := tests.RunVMIAndExpectLaunch(tests.NewRandomVMI(), 60)
 
 				By("Checking for absence of runtimeClassName")
 				pod := tests.GetRunningPodByVirtualMachineInstance(vmi, util.NamespaceTestDefault)
@@ -3089,7 +3087,7 @@ func createRuntimeClass(name, handler string) (*nodev1.RuntimeClass, error) {
 		return nil, err
 	}
 
-	return virtCli.NodeV1beta1().RuntimeClasses().Create(
+	return virtCli.NodeV1().RuntimeClasses().Create(
 		context.Background(),
 		&nodev1.RuntimeClass{
 			ObjectMeta: metav1.ObjectMeta{Name: name},
@@ -3105,7 +3103,7 @@ func deleteRuntimeClass(name string) error {
 		return err
 	}
 
-	return virtCli.NodeV1beta1().RuntimeClasses().Delete(context.Background(), name, metav1.DeleteOptions{})
+	return virtCli.NodeV1().RuntimeClasses().Delete(context.Background(), name, metav1.DeleteOptions{})
 }
 
 func withNoRng() libvmi.Option {
