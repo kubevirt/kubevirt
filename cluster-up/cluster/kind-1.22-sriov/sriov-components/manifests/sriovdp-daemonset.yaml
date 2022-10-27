@@ -27,7 +27,7 @@ spec:
     spec:
       hostNetwork: true
       nodeSelector:
-        beta.kubernetes.io/arch: amd64
+        kubernetes.io/arch: amd64
       tolerations:
       - key: node-role.kubernetes.io/control-plane
         operator: Exists
@@ -99,7 +99,7 @@ spec:
     spec:
       hostNetwork: true
       nodeSelector:
-        beta.kubernetes.io/arch: ppc64le
+        kubernetes.io/arch: ppc64le
       tolerations:
       - key: node-role.kubernetes.io/control-plane
         operator: Exists
@@ -170,7 +170,7 @@ spec:
     spec:
       hostNetwork: true
       nodeSelector:
-        beta.kubernetes.io/arch: arm64
+        kubernetes.io/arch: arm64
       tolerations:
       - key: node-role.kubernetes.io/control-plane
         operator: Exists
