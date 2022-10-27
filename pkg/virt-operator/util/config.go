@@ -47,11 +47,18 @@ const (
 	VirtExportProxyImageEnvName  = "VIRT_EXPORTPROXY_IMAGE"
 	VirtExportServerImageEnvName = "VIRT_EXPORTSERVER_IMAGE"
 
-	VirtApiShasumEnvName          = "VIRT_API_SHASUM"
-	VirtControllerShasumEnvName   = "VIRT_CONTROLLER_SHASUM"
-	VirtHandlerShasumEnvName      = "VIRT_HANDLER_SHASUM"
-	VirtLauncherShasumEnvName     = "VIRT_LAUNCHER_SHASUM"
-	VirtExportProxyShasumEnvName  = "VIRT_EXPORTPROXY_SHASUM"
+	// The below Shasum variables would be ignored if Image env vars are being used.
+	// Deprecated, use VirtApiImageEnvName instead
+	VirtApiShasumEnvName = "VIRT_API_SHASUM"
+	// Deprecated, use VirtControllerImageEnvName instead
+	VirtControllerShasumEnvName = "VIRT_CONTROLLER_SHASUM"
+	// Deprecated, use VirtHandlerImageEnvName instead
+	VirtHandlerShasumEnvName = "VIRT_HANDLER_SHASUM"
+	// Deprecated, use VirtLauncherImageEnvName instead
+	VirtLauncherShasumEnvName = "VIRT_LAUNCHER_SHASUM"
+	// Deprecated, use VirtExportProxyImageEnvName instead
+	VirtExportProxyShasumEnvName = "VIRT_EXPORTPROXY_SHASUM"
+	// Deprecated, use VirtExportServerImageEnvName instead
 	VirtExportServerShasumEnvName = "VIRT_EXPORTSERVER_SHASUM"
 	GsEnvShasumName               = "GS_SHASUM"
 	KubeVirtVersionEnvName        = "KUBEVIRT_VERSION"
