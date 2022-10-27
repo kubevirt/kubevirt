@@ -1749,8 +1749,8 @@ var _ = Describe("Template", func() {
 				Expect(pod.Spec.Containers[0].Resources.Requests.Memory().String()).To(Equal(requestMemory))
 				Expect(pod.Spec.Containers[0].Resources.Limits.Memory().String()).To(Equal(limitMemory))
 			},
-				Entry("on amd64", "amd64", "1253611365", "2253611365"),
-				Entry("on arm64", "arm64", "1387829093", "2387829093"),
+				Entry("on amd64", "amd64", "1255708517", "2255708517"),
+				Entry("on arm64", "arm64", "1389926245", "2389926245"),
 			)
 			DescribeTable("should overcommit guest overhead if selected, by only adding the overhead to memory limits", func(arch string, limitMemory string) {
 				config, kvInformer, svc = configFactory(arch)
@@ -1785,8 +1785,8 @@ var _ = Describe("Template", func() {
 				Expect(pod.Spec.Containers[0].Resources.Requests.Memory().String()).To(Equal("1G"))
 				Expect(pod.Spec.Containers[0].Resources.Limits.Memory().String()).To(Equal(limitMemory))
 			},
-				Entry("on amd64", "amd64", "2253611365"),
-				Entry("on arm64", "arm64", "2387829093"),
+				Entry("on amd64", "amd64", "2255708517"),
+				Entry("on arm64", "arm64", "2389926245"),
 			)
 			DescribeTable("should not add unset resources", func(arch string, requestMemory int) {
 				config, kvInformer, svc = configFactory(arch)
@@ -1823,8 +1823,8 @@ var _ = Describe("Template", func() {
 				// Limits for KVM and TUN devices should be requested.
 				Expect(pod.Spec.Containers[0].Resources.Limits).ToNot(BeNil())
 			},
-				Entry("on amd64", "amd64", 333),
-				Entry("on arm64", "arm64", 467),
+				Entry("on amd64", "amd64", 335),
+				Entry("on arm64", "arm64", 469),
 			)
 
 			DescribeTable("should check autoattachGraphicsDevicse", func(arch string, autoAttach *bool, memory int) {
@@ -1859,12 +1859,12 @@ var _ = Describe("Template", func() {
 				Expect(err).ToNot(HaveOccurred())
 				Expect(pod.Spec.Containers[0].Resources.Requests.Memory().ToDec().ScaledValue(resource.Mega)).To(Equal(int64(memory)))
 			},
-				Entry("and consider graphics overhead if it is not set on amd64", "amd64", nil, 333),
-				Entry("and consider graphics overhead if it is set to true on amd64", "amd64", True(), 333),
-				Entry("and not consider graphics overhead if it is set to false on amd64", "amd64", False(), 316),
-				Entry("and consider graphics overhead if it is not set on arm64", "arm64", nil, 467),
-				Entry("and consider graphics overhead if it is set to true on arm64", "arm64", True(), 467),
-				Entry("and not consider graphics overhead if it is set to false on arm64", "arm64", False(), 451),
+				Entry("and consider graphics overhead if it is not set on amd64", "amd64", nil, 335),
+				Entry("and consider graphics overhead if it is set to true on amd64", "amd64", True(), 335),
+				Entry("and not consider graphics overhead if it is set to false on amd64", "amd64", False(), 318),
+				Entry("and consider graphics overhead if it is not set on arm64", "arm64", nil, 469),
+				Entry("and consider graphics overhead if it is set to true on arm64", "arm64", True(), 469),
+				Entry("and not consider graphics overhead if it is set to false on arm64", "arm64", False(), 453),
 			)
 			It("should calculate vcpus overhead based on guest toplogy", func() {
 				config, kvInformer, svc = configFactory(defaultArch)
@@ -2072,10 +2072,10 @@ var _ = Describe("Template", func() {
 						},
 					))
 			},
-				Entry("hugepages-2Mi on amd64", "amd64", "2Mi", 252),
-				Entry("hugepages-1Gi on amd64", "amd64", "1Gi", 252),
-				Entry("hugepages-2Mi on arm64", "arm64", "2Mi", 387),
-				Entry("hugepages-1Gi on arm64", "arm64", "1Gi", 387),
+				Entry("hugepages-2Mi on amd64", "amd64", "2Mi", 254),
+				Entry("hugepages-1Gi on amd64", "amd64", "1Gi", 254),
+				Entry("hugepages-2Mi on arm64", "arm64", "2Mi", 389),
+				Entry("hugepages-1Gi on arm64", "arm64", "1Gi", 389),
 			)
 			DescribeTable("should account for difference between guest and container requested memory ", func(arch string, memorySize int) {
 				config, kvInformer, svc = configFactory(arch)
@@ -2150,8 +2150,8 @@ var _ = Describe("Template", func() {
 						},
 					))
 			},
-				Entry("on amd64", "amd64", 252),
-				Entry("on arm64", "arm64", 387),
+				Entry("on amd64", "amd64", 254),
+				Entry("on arm64", "arm64", 389),
 			)
 		})
 
