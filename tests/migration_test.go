@@ -271,6 +271,10 @@ var _ = Describe("[rfe_id:393][crit:high][vendor:cnv-qe@redhat.com][level:system
 			"There are no control-plane nodes in the cluster")
 
 		for _, node := range controlPlaneNodes.Items {
+			if node.Spec.Unschedulable == mode {
+				continue
+			}
+
 			nodeCopy := node.DeepCopy()
 			nodeCopy.Spec.Unschedulable = mode
 
@@ -3368,6 +3372,10 @@ var _ = Describe("[rfe_id:393][crit:high][vendor:cnv-qe@redhat.com][level:system
 						tests.UpdateKubeVirtConfigValueAndWait(cfg)
 					}
 					setControlPlaneUnschedulable(true)
+				})
+
+				AfterEach(func() {
+					setControlPlaneUnschedulable(false)
 				})
 
 				It("[test_id:6982]should migrate a VMI only one time", func() {
