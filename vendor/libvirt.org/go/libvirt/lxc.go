@@ -1,4 +1,4 @@
-// +build !without_lxc
+// +build !libvirt_without_lxc
 
 /*
  * This file is part of the libvirt-go-module project
