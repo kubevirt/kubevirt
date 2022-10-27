@@ -246,7 +246,7 @@ var _ = Describe("[Serial][sig-compute]SecurityFeatures", func() {
 				}
 			}
 			caps := *container.SecurityContext.Capabilities
-			if checks.HasFeature(virtconfig.NonRoot) {
+			if !checks.HasFeature(virtconfig.Root) {
 				Expect(caps.Add).To(HaveLen(2), fmt.Sprintf("Found capabilities %s, expected NET_BIND_SERVICE and SYS_PTRACE", caps.Add))
 				Expect(caps.Add).To(ContainElements(k8sv1.Capability("NET_BIND_SERVICE"), k8sv1.Capability("SYS_PTRACE")))
 			} else {

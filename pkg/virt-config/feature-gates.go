@@ -46,6 +46,7 @@ const (
 	DownwardMetricsFeatureGate = "DownwardMetrics"
 	NonRootDeprecated          = "NonRootExperimental"
 	NonRoot                    = "NonRoot"
+	Root                       = "Root"
 	ClusterProfiler            = "ClusterProfiler"
 	WorkloadEncryptionSEV      = "WorkloadEncryptionSEV"
 	// DockerSELinuxMCSWorkaround sets the SELinux level of all the non-compute virt-launcher containers to "s0".
@@ -57,6 +58,8 @@ const (
 var deprecatedFeatureGates = [...]string{
 	LiveMigrationGate,
 	SRIOVLiveMigrationGate,
+	NonRoot,
+	NonRootDeprecated,
 }
 
 func (c *ClusterConfig) isFeatureGateEnabled(featureGate string) bool {
@@ -160,8 +163,8 @@ func (config *ClusterConfig) HostDevicesPassthroughEnabled() bool {
 	return config.isFeatureGateEnabled(HostDevicesGate)
 }
 
-func (config *ClusterConfig) NonRootEnabled() bool {
-	return config.isFeatureGateEnabled(NonRoot) || config.isFeatureGateEnabled(NonRootDeprecated)
+func (config *ClusterConfig) RootEnabled() bool {
+	return config.isFeatureGateEnabled(Root)
 }
 
 func (config *ClusterConfig) ClusterProfilerEnabled() bool {

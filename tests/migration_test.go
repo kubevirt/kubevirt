@@ -1753,15 +1753,20 @@ var _ = Describe("[rfe_id:393][crit:high][vendor:cnv-qe@redhat.com][level:system
 		Context("[Serial] migration to nonroot", func() {
 			var dv *cdiv1.DataVolume
 			size := "256Mi"
+			var clusterIsRoot bool
 
 			BeforeEach(func() {
-				if !checks.HasFeature(virtconfig.NonRoot) {
-					Skip("Test specific to NonRoot featureGate that is not enabled")
+				clusterIsRoot = checks.HasFeature(virtconfig.Root)
+				if !clusterIsRoot {
+					tests.EnableFeatureGate(virtconfig.Root)
 				}
-				tests.DisableFeatureGate(virtconfig.NonRoot)
 			})
 			AfterEach(func() {
-				tests.EnableFeatureGate(virtconfig.NonRoot)
+				if !clusterIsRoot {
+					tests.DisableFeatureGate(virtconfig.Root)
+				} else {
+					tests.EnableFeatureGate(virtconfig.Root)
+				}
 				libstorage.DeleteDataVolume(&dv)
 			})
 
@@ -1779,7 +1784,7 @@ var _ = Describe("[rfe_id:393][crit:high][vendor:cnv-qe@redhat.com][level:system
 				By("Checking that the launcher is running as root")
 				Expect(tests.GetIdOfLauncher(vmi)).To(Equal("0"))
 
-				tests.EnableFeatureGate(virtconfig.NonRoot)
+				tests.DisableFeatureGate(virtconfig.Root)
 
 				By("Starting new migration and waiting for it to succeed")
 				migration := tests.NewRandomMigration(vmi.Name, vmi.Namespace)
@@ -1833,16 +1838,16 @@ var _ = Describe("[rfe_id:393][crit:high][vendor:cnv-qe@redhat.com][level:system
 			size := "256Mi"
 
 			BeforeEach(func() {
-				clusterIsRoot = !checks.HasFeature(virtconfig.NonRoot)
+				clusterIsRoot = checks.HasFeature(virtconfig.Root)
 				if clusterIsRoot {
-					tests.EnableFeatureGate(virtconfig.NonRoot)
+					tests.DisableFeatureGate(virtconfig.Root)
 				}
 			})
 			AfterEach(func() {
 				if clusterIsRoot {
-					tests.DisableFeatureGate(virtconfig.NonRoot)
+					tests.EnableFeatureGate(virtconfig.Root)
 				} else {
-					tests.EnableFeatureGate(virtconfig.NonRoot)
+					tests.DisableFeatureGate(virtconfig.Root)
 				}
 				if dv != nil {
 					libstorage.DeleteDataVolume(&dv)
@@ -1864,7 +1869,7 @@ var _ = Describe("[rfe_id:393][crit:high][vendor:cnv-qe@redhat.com][level:system
 				By("Checking that the launcher is running as root")
 				Expect(tests.GetIdOfLauncher(vmi)).To(Equal("107"))
 
-				tests.DisableFeatureGate(virtconfig.NonRoot)
+				tests.EnableFeatureGate(virtconfig.Root)
 
 				By("Starting new migration and waiting for it to succeed")
 				migration := tests.NewRandomMigration(vmi.Name, vmi.Namespace)

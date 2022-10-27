@@ -132,7 +132,7 @@ func ValidateVirtualMachineInstanceSpec(field *k8sfield.Path, spec *v1.VirtualMa
 	if maxNumberOfVolumesExceeded {
 		return appendNewStatusCauseForMaxNumberOfVolumesExceeded(field, causes)
 	}
-
+	root := config.RootEnabled()
 	causes = append(causes, validateHostNameNotConformingToDNSLabelRules(field, spec)...)
 	causes = append(causes, validateSubdomainDNSSubdomainRules(field, spec)...)
 	causes = append(causes, validateMemoryRequestsNegativeOrNull(field, spec)...)
@@ -149,7 +149,7 @@ func ValidateVirtualMachineInstanceSpec(field *k8sfield.Path, spec *v1.VirtualMa
 	causes = append(causes, validateCPUIsolatorThread(field, spec)...)
 	causes = append(causes, validateCPUFeaturePolicies(field, spec)...)
 	causes = append(causes, validateStartStrategy(field, spec)...)
-	causes = append(causes, validateRealtime(field, spec)...)
+	causes = append(causes, validateRealtime(field, spec, !root)...)
 	causes = append(causes, validateSpecAffinity(field, spec)...)
 	causes = append(causes, validateSpecTopologySpreadConstraints(field, spec)...)
 
@@ -1469,8 +1469,18 @@ func validateHostNameNotConformingToDNSLabelRules(field *k8sfield.Path, spec *v1
 	return causes
 }
 
-func validateRealtime(field *k8sfield.Path, spec *v1.VirtualMachineInstanceSpec) (causes []metav1.StatusCause) {
+func validateRealtime(field *k8sfield.Path, spec *v1.VirtualMachineInstanceSpec, nonroot bool) (causes []metav1.StatusCause) {
 	if spec.Domain.CPU != nil && spec.Domain.CPU.Realtime != nil {
+		if nonroot {
+			causes = append(causes, metav1.StatusCause{
+				Type: metav1.CauseTypeFieldValueRequired,
+				Message: fmt.Sprintf("%s must be set to false when Root feature gate is not used",
+
+					field.Child("domain", "cpu", "realtime").String(),
+				),
+				Field: field.Child("domain", "cpu", "dedicatedCpuPlacement").String(),
+			})
+		}
 		causes = append(causes, validateCPURealtime(field, spec)...)
 		causes = append(causes, validateMemoryRealtime(field, spec)...)
 	}
