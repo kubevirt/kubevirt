@@ -1,6 +1,6 @@
 #!/bin/bash
 
-set -e
+set -ex
 
 KVM_MINOR=$(grep -w 'kvm' /proc/misc | cut -f 1 -d' ')
 VIRTTYPE=qemu
