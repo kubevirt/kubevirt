@@ -21,6 +21,13 @@ fi
 
 libvirtd -d
 
+# If the below command fails, then probably we run under AppArmor restrictions
+# and the active profile denies exec of /usr/libexec/qemu-kvm for libvirtd. In
+# such case, move the binary to a more common location and try again.
+if ! virsh domcapabilities --machine q35 --arch x86_64 --virttype $VIRTTYPE > /dev/null; then
+    [ -f /usr/libexec/qemu-kvm ] && mv /usr/libexec/qemu-kvm /usr/bin/qemu-system-x86_64
+fi
+
 virsh domcapabilities --machine q35 --arch x86_64 --virttype $VIRTTYPE > /var/lib/kubevirt-node-labeller/virsh_domcapabilities.xml
 
 cp -r /usr/share/libvirt/cpu_map /var/lib/kubevirt-node-labeller
