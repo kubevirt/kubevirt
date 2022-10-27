@@ -64,7 +64,7 @@ libvirtdevel_extra="
 
 # TODO: Remove the sssd-client and use a better sssd config
 # This requires a way to inject files into the sandbox via bazeldnf
-sandbox_base="
+sandboxroot_base="
   findutils
   gcc
   glibc-static
@@ -100,7 +100,7 @@ launcherbase_extra="
   xorriso
 "
 
-handler_base="
+handlerbase_base="
   qemu-img-${QEMU_VERSION}
 "
 handlerbase_extra="
@@ -128,7 +128,7 @@ libguestfstools_x86_64="
   edk2-ovmf-${EDK2_VERSION}
 "
 
-exportserver_base="
+exportserverbase_base="
   tar
 "
 
@@ -172,7 +172,7 @@ if [ -z "${SINGLE_ARCH}" ] || [ "${SINGLE_ARCH}" == "x86_64" ]; then
         ${bazeldnf_repos} \
         $centos_base \
         $centos_extra \
-        $sandbox_base
+        $sandboxroot_base
 
     bazel run \
         --config=${ARCHITECTURE} \
@@ -200,7 +200,7 @@ if [ -z "${SINGLE_ARCH}" ] || [ "${SINGLE_ARCH}" == "x86_64" ]; then
         ${bazeldnf_repos} \
         $centos_base \
         $centos_extra \
-        $handler_base \
+        $handlerbase_base \
         $handlerbase_extra
 
     bazel run \
@@ -229,7 +229,7 @@ if [ -z "${SINGLE_ARCH}" ] || [ "${SINGLE_ARCH}" == "x86_64" ]; then
         ${bazeldnf_repos} \
         $centos_base \
         $centos_extra \
-        $exportserver_base
+        $exportserverbase_base
 
     # remove all RPMs which are no longer referenced by a rpmtree
     bazel run \
@@ -281,7 +281,7 @@ if [ -z "${SINGLE_ARCH}" ] || [ "${SINGLE_ARCH}" == "aarch64" ]; then
         ${bazeldnf_repos} \
         $centos_base \
         $centos_extra \
-        $sandbox_base
+        $sandboxroot_base
 
     bazel run \
         --config=${ARCHITECTURE} \
@@ -309,7 +309,7 @@ if [ -z "${SINGLE_ARCH}" ] || [ "${SINGLE_ARCH}" == "aarch64" ]; then
         ${bazeldnf_repos} \
         $centos_base \
         $centos_extra \
-        $handler_base \
+        $handlerbase_base \
         $handlerbase_extra
 
     bazel run \
@@ -321,7 +321,7 @@ if [ -z "${SINGLE_ARCH}" ] || [ "${SINGLE_ARCH}" == "aarch64" ]; then
         ${bazeldnf_repos} \
         $centos_base \
         $centos_extra \
-        $exportserver_base
+        $exportserverbase_base
 
     # remove all RPMs which are no longer referenced by a rpmtree
     bazel run \
