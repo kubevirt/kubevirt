@@ -607,7 +607,7 @@ var _ = SIGDescribe("VirtualMachineRestore Tests", func() {
 					var batch []expect.Batcher
 					if device != "" {
 						batch = append(batch, []expect.Batcher{
-							&expect.BSnd{S: fmt.Sprintf("sudo mkfs.ext4 %s\n", device)},
+							&expect.BSnd{S: fmt.Sprintf("sudo mkfs.ext4 -F %s\n", device)},
 							&expect.BExp{R: console.PromptExpression},
 							&expect.BSnd{S: tests.EchoLastReturnValue},
 							&expect.BExp{R: console.RetValue("0")},
