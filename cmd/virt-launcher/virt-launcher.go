@@ -452,16 +452,15 @@ func main() {
 		}
 		return ovmPath
 	}
-	log.Log.Infof("env cpuarch %s ,set ovmPath  %s.", runtime.GOARCH, ovmfPath)
+
+	*ovmfPath = fnSetovmfPath()
+	log.Log.Infof("env cpuarch %s ,set ovmPath  %s.", runtime.GOARCH, *ovmfPath)
+
 	// htl修改点 设置ovmpath之前先判断 cpu架构
-	domainManager, err := virtwrap.NewLibvirtDomainManager(domainConn, *virtShareDir, &agentStore, fnSetovmfPath(), ephemeralDiskCreator)
+	domainManager, err := virtwrap.NewLibvirtDomainManager(domainConn, *virtShareDir, &agentStore, *ovmfPath, ephemeralDiskCreator)
 	if err != nil {
 		panic(err)
 	}
-	//domainManager, err := virtwrap.NewLibvirtDomainManager(domainConn, *virtShareDir, &agentStore, *ovmfPath, ephemeralDiskCreator)
-	//if err != nil {
-	//	panic(err)
-	//}
 
 	// Start the virt-launcher command service.
 	// Clients can use this service to tell virt-launcher
