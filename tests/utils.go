@@ -1284,7 +1284,7 @@ func CreateExecutorPodWithPVC(podName string, pvc *k8sv1.PersistentVolumeClaim) 
 		pod, err = ThisPod(pod)()
 		Expect(err).ToNot(HaveOccurred())
 		return PodReady(pod) == k8sv1.ConditionTrue
-	}).Should(BeTrue())
+	}, 120).Should(BeTrue())
 	return pod
 }
 
