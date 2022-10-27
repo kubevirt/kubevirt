@@ -22,11 +22,13 @@ package main
 import (
 	goflag "flag"
 	"fmt"
+	virtconfig "kubevirt.io/kubevirt/pkg/virt-config"
 	"net/http"
 	"os"
 	"os/exec"
 	"os/signal"
 	"path/filepath"
+	"runtime"
 	"strconv"
 	"syscall"
 	"time"
@@ -437,10 +439,29 @@ func main() {
 	notifier := notifyclient.NewNotifier(*virtShareDir)
 	defer notifier.Close()
 
-	domainManager, err := virtwrap.NewLibvirtDomainManager(domainConn, *virtShareDir, &agentStore, *ovmfPath, ephemeralDiskCreator)
+	//htl 修改点
+	fnSetovmfPath := func() string {
+		ovmPath := ""
+		switch runtime.GOARCH {
+		case "arm64":
+			ovmPath = virtconfig.DefaultAARCH64OVMFPath
+		case "ppc64le":
+			ovmPath = virtconfig.DefaultARCHOVMFPath
+		default:
+			ovmPath = virtconfig.DefaultARCHOVMFPath
+		}
+		return ovmPath
+	}
+	log.Log.Infof("env cpuarch %s ,set ovmPath  %s.", runtime.GOARCH, ovmfPath)
+	// htl修改点 设置ovmpath之前先判断 cpu架构
+	domainManager, err := virtwrap.NewLibvirtDomainManager(domainConn, *virtShareDir, &agentStore, fnSetovmfPath(), ephemeralDiskCreator)
 	if err != nil {
 		panic(err)
 	}
+	//domainManager, err := virtwrap.NewLibvirtDomainManager(domainConn, *virtShareDir, &agentStore, *ovmfPath, ephemeralDiskCreator)
+	//if err != nil {
+	//	panic(err)
+	//}
 
 	// Start the virt-launcher command service.
 	// Clients can use this service to tell virt-launcher
