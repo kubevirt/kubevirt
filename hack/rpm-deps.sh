@@ -21,13 +21,20 @@ fi
 
 # Packages that we want to be included in all container images.
 #
-# Further down we define per-image package lists, which are just like
-# this one are split into two: one for the packages that we actually
-# want to have in the image, and one for (indirect) dependencies that
-# have more than one way of being resolved. Listing the latter
-# explicitly ensures that bazeldnf always reaches the same solution
-# and thus keeps things reproducible
-centos_base="
+# Further down we define per-image package lists, which just like
+# this one are split across multiple variables:
+#
+#   * $foo_main  => packages that we want to have in the image;
+#
+#   * $foo_ARCH  => same as above, but specific to one architecture;
+#
+#   * $foo_extra => (indirect) dependencies that can be satisfied by
+#                   more than one package.
+#
+# Listing the "extra" packages explicitly ensures that bazeldnf will
+# always reach the same solution, and thus keeps things reproducible
+
+centos_main="
   acl
   curl
   vim-minimal
@@ -39,7 +46,7 @@ centos_extra="
 "
 
 # create a rpmtree for our test image with misc. tools.
-testimage_base="
+testimage_main="
   device-mapper
   e2fsprogs
   iputils
@@ -52,7 +59,7 @@ testimage_base="
 "
 
 # create a rpmtree for libvirt-devel. libvirt-devel is needed for compilation and unit-testing.
-libvirtdevel_base="
+libvirtdevel_main="
   libvirt-devel-${LIBVIRT_VERSION}
 "
 libvirtdevel_extra="
@@ -64,7 +71,7 @@ libvirtdevel_extra="
 
 # TODO: Remove the sssd-client and use a better sssd config
 # This requires a way to inject files into the sandbox via bazeldnf
-sandboxroot_base="
+sandboxroot_main="
   findutils
   gcc
   glibc-static
@@ -73,7 +80,7 @@ sandboxroot_base="
 "
 
 # create a rpmtree for virt-launcher and virt-handler. This is the OS for our node-components.
-launcherbase_base="
+launcherbase_main="
   libvirt-client-${LIBVIRT_VERSION}
   libvirt-daemon-driver-qemu-${LIBVIRT_VERSION}
   passt-${PASST_VERSION}
@@ -100,7 +107,7 @@ launcherbase_extra="
   xorriso
 "
 
-handlerbase_base="
+handlerbase_main="
   qemu-img-${QEMU_VERSION}
 "
 handlerbase_extra="
@@ -116,7 +123,7 @@ handlerbase_extra="
   xorriso
 "
 
-libguestfstools_base="
+libguestfstools_main="
   file
   libguestfs-tools-${LIBGUESTFS_VERSION}
   libvirt-daemon-driver-qemu-${LIBVIRT_VERSION}
@@ -128,7 +135,7 @@ libguestfstools_x86_64="
   edk2-ovmf-${EDK2_VERSION}
 "
 
-exportserverbase_base="
+exportserverbase_main="
   tar
 "
 
@@ -147,9 +154,9 @@ if [ -z "${SINGLE_ARCH}" ] || [ "${SINGLE_ARCH}" == "x86_64" ]; then
         --name testimage_x86_64 \
         --basesystem centos-stream-release \
         ${bazeldnf_repos} \
-        $centos_base \
+        $centos_main \
         $centos_extra \
-        $testimage_base
+        $testimage_main
 
     bazel run \
         --config=${ARCHITECTURE} \
@@ -158,9 +165,9 @@ if [ -z "${SINGLE_ARCH}" ] || [ "${SINGLE_ARCH}" == "x86_64" ]; then
         --name libvirt-devel_x86_64 \
         --basesystem centos-stream-release \
         ${bazeldnf_repos} \
-        $centos_base \
+        $centos_main \
         $centos_extra \
-        $libvirtdevel_base \
+        $libvirtdevel_main \
         $libvirtdevel_extra
 
     bazel run \
@@ -170,9 +177,9 @@ if [ -z "${SINGLE_ARCH}" ] || [ "${SINGLE_ARCH}" == "x86_64" ]; then
         --name sandboxroot_x86_64 \
         --basesystem centos-stream-release \
         ${bazeldnf_repos} \
-        $centos_base \
+        $centos_main \
         $centos_extra \
-        $sandboxroot_base
+        $sandboxroot_main
 
     bazel run \
         --config=${ARCHITECTURE} \
@@ -183,9 +190,9 @@ if [ -z "${SINGLE_ARCH}" ] || [ "${SINGLE_ARCH}" == "x86_64" ]; then
         --force-ignore-with-dependencies '^mozjs60' \
         --force-ignore-with-dependencies 'python' \
         ${bazeldnf_repos} \
-        $centos_base \
+        $centos_main \
         $centos_extra \
-        $launcherbase_base \
+        $launcherbase_main \
         $launcherbase_x86_64 \
         $launcherbase_extra
 
@@ -198,9 +205,9 @@ if [ -z "${SINGLE_ARCH}" ] || [ "${SINGLE_ARCH}" == "x86_64" ]; then
         --basesystem centos-stream-release \
         --force-ignore-with-dependencies 'python' \
         ${bazeldnf_repos} \
-        $centos_base \
+        $centos_main \
         $centos_extra \
-        $handlerbase_base \
+        $handlerbase_main \
         $handlerbase_extra
 
     bazel run \
@@ -208,9 +215,9 @@ if [ -z "${SINGLE_ARCH}" ] || [ "${SINGLE_ARCH}" == "x86_64" ]; then
         --public --nobest \
         --name libguestfs-tools \
         --basesystem centos-stream-release \
-        $centos_base \
+        $centos_main \
         $centos_extra \
-        $libguestfstools_base \
+        $libguestfstools_main \
         $libguestfstools_x86_64 \
         ${bazeldnf_repos} \
         --force-ignore-with-dependencies '^(kernel-|linux-firmware)' \
@@ -227,9 +234,9 @@ if [ -z "${SINGLE_ARCH}" ] || [ "${SINGLE_ARCH}" == "x86_64" ]; then
         --name exportserverbase_x86_64 \
         --basesystem centos-stream-release \
         ${bazeldnf_repos} \
-        $centos_base \
+        $centos_main \
         $centos_extra \
-        $exportserverbase_base
+        $exportserverbase_main
 
     # remove all RPMs which are no longer referenced by a rpmtree
     bazel run \
@@ -256,9 +263,9 @@ if [ -z "${SINGLE_ARCH}" ] || [ "${SINGLE_ARCH}" == "aarch64" ]; then
         --name testimage_aarch64 --arch aarch64 \
         --basesystem centos-stream-release \
         ${bazeldnf_repos} \
-        $centos_base \
+        $centos_main \
         $centos_extra \
-        $testimage_base
+        $testimage_main
 
     bazel run \
         --config=${ARCHITECTURE} \
@@ -267,9 +274,9 @@ if [ -z "${SINGLE_ARCH}" ] || [ "${SINGLE_ARCH}" == "aarch64" ]; then
         --name libvirt-devel_aarch64 --arch aarch64 \
         --basesystem centos-stream-release \
         ${bazeldnf_repos} \
-        $centos_base \
+        $centos_main \
         $centos_extra \
-        $libvirtdevel_base \
+        $libvirtdevel_main \
         $libvirtdevel_extra
 
     bazel run \
@@ -279,9 +286,9 @@ if [ -z "${SINGLE_ARCH}" ] || [ "${SINGLE_ARCH}" == "aarch64" ]; then
         --name sandboxroot_aarch64 --arch aarch64 \
         --basesystem centos-stream-release \
         ${bazeldnf_repos} \
-        $centos_base \
+        $centos_main \
         $centos_extra \
-        $sandboxroot_base
+        $sandboxroot_main
 
     bazel run \
         --config=${ARCHITECTURE} \
@@ -292,9 +299,9 @@ if [ -z "${SINGLE_ARCH}" ] || [ "${SINGLE_ARCH}" == "aarch64" ]; then
         --force-ignore-with-dependencies '^mozjs60' \
         --force-ignore-with-dependencies 'python' \
         ${bazeldnf_repos} \
-        $centos_base \
+        $centos_main \
         $centos_extra \
-        $launcherbase_base \
+        $launcherbase_main \
         $launcherbase_aarch64 \
         $launcherbase_extra
 
@@ -307,9 +314,9 @@ if [ -z "${SINGLE_ARCH}" ] || [ "${SINGLE_ARCH}" == "aarch64" ]; then
         --basesystem centos-stream-release \
         --force-ignore-with-dependencies 'python' \
         ${bazeldnf_repos} \
-        $centos_base \
+        $centos_main \
         $centos_extra \
-        $handlerbase_base \
+        $handlerbase_main \
         $handlerbase_extra
 
     bazel run \
@@ -319,9 +326,9 @@ if [ -z "${SINGLE_ARCH}" ] || [ "${SINGLE_ARCH}" == "aarch64" ]; then
         --name exportserverbase_aarch64 --arch aarch64 \
         --basesystem centos-stream-release \
         ${bazeldnf_repos} \
-        $centos_base \
+        $centos_main \
         $centos_extra \
-        $exportserverbase_base
+        $exportserverbase_main
 
     # remove all RPMs which are no longer referenced by a rpmtree
     bazel run \
