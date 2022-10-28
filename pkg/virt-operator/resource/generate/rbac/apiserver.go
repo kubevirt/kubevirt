@@ -212,6 +212,7 @@ func newApiServerClusterRole() *rbacv1.ClusterRole {
 				},
 				Resources: []string{
 					"datasources",
+					"datavolumes",
 				},
 				Verbs: []string{
 					"get", "list", "watch",
