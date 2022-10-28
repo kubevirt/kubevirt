@@ -32,7 +32,9 @@ stages:
 .native_build_job:
   extends: .gitlab_native_build_job
   script:
-    - go build
+    - go build -x
+    - go test
+    - go build -x -tags libvirt_without_qemu -tags libvirt_without_lxc
     - go test
 
 include: '/ci/gitlab.yml'

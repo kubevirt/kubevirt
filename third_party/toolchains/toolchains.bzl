@@ -8,9 +8,8 @@ def toolchains():
             name = "aarch64-none-linux-gnu",
             build_file = Label("//third_party/toolchains:aarch64-none-linux-gnu.BUILD"),
             urls = [
-                "https://developer.arm.com/-/media/Files/downloads/gnu-a/10.2-2020.11/binrel/gcc-arm-10.2-2020.11-x86_64-aarch64-none-linux-gnu.tar.xz",
-                "https://storage.googleapis.com/builddeps/fe7f72330216612de44891ebe5e228eed7c0c051ac090c395b2b33115c6f5408",
+                "https://developer.arm.com/-/media/Files/downloads/gnu/11.3.rel1/binrel/arm-gnu-toolchain-11.3.rel1-x86_64-aarch64-none-linux-gnu.tar.xz",
             ],
-            sha256 = "fe7f72330216612de44891ebe5e228eed7c0c051ac090c395b2b33115c6f5408",
-            strip_prefix = "gcc-arm-10.2-2020.11-x86_64-aarch64-none-linux-gnu",
+            sha256 = "50cdef6c5baddaa00f60502cc8b59cc11065306ae575ad2f51e412a9b2a90364",
+            strip_prefix = "arm-gnu-toolchain-11.3.rel1-x86_64-aarch64-none-linux-gnu",
         )

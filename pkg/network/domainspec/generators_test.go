@@ -20,6 +20,7 @@
 package domainspec
 
 import (
+	"fmt"
 	"io/ioutil"
 	"net"
 	"os"
@@ -84,18 +85,21 @@ var _ = Describe("Pod Network", func() {
 				Expect(domain.Spec.Devices.Interfaces).To(BeEmpty())
 				Expect(domain.Spec.QEMUCmd.QEMUArg).To(HaveLen(2))
 				Expect(domain.Spec.QEMUCmd.QEMUArg[0]).To(Equal(api.Arg{Value: "-device"}))
-				Expect(domain.Spec.QEMUCmd.QEMUArg[1]).To(Equal(api.Arg{Value: "e1000,netdev=default,id=default"}))
+				Expect(domain.Spec.QEMUCmd.QEMUArg[1]).To(Equal(api.Arg{Value: `{"driver":"e1000","netdev":"default","id":"default"}`}))
 			})
 
 			It("Should append MAC address to qemu arguments if set", func() {
-				vmi.Spec.Domain.Devices.Interfaces[0].MacAddress = "de-ad-00-00-be-af"
+				mac := "de-ad-00-00-be-af"
+				device := fmt.Sprintf(`{"driver":"e1000","netdev":"default","id":"default","mac":%q}`, mac)
+
+				vmi.Spec.Domain.Devices.Interfaces[0].MacAddress = mac
 				specGenerator := NewSlirpLibvirtSpecGenerator(&vmi.Spec.Domain.Devices.Interfaces[0], domain)
 				Expect(specGenerator.Generate()).To(Succeed())
 
 				Expect(domain.Spec.Devices.Interfaces).To(BeEmpty())
 				Expect(domain.Spec.QEMUCmd.QEMUArg).To(HaveLen(2))
 				Expect(domain.Spec.QEMUCmd.QEMUArg[0]).To(Equal(api.Arg{Value: "-device"}))
-				Expect(domain.Spec.QEMUCmd.QEMUArg[1]).To(Equal(api.Arg{Value: "e1000,netdev=default,id=default,mac=de-ad-00-00-be-af"}))
+				Expect(domain.Spec.QEMUCmd.QEMUArg[1]).To(Equal(api.Arg{Value: device}))
 			})
 			It("Should create an interface in the qemu command line, remove it from the interfaces and leave the other interfaces inplace", func() {
 				domain.Spec.Devices.Interfaces = append(domain.Spec.Devices.Interfaces, api.Interface{
@@ -114,7 +118,7 @@ var _ = Describe("Pod Network", func() {
 				Expect(domain.Spec.Devices.Interfaces).To(HaveLen(1))
 				Expect(domain.Spec.QEMUCmd.QEMUArg).To(HaveLen(2))
 				Expect(domain.Spec.QEMUCmd.QEMUArg[0]).To(Equal(api.Arg{Value: "-device"}))
-				Expect(domain.Spec.QEMUCmd.QEMUArg[1]).To(Equal(api.Arg{Value: "e1000,netdev=default,id=default"}))
+				Expect(domain.Spec.QEMUCmd.QEMUArg[1]).To(Equal(api.Arg{Value: `{"driver":"e1000","netdev":"default","id":"default"}`}))
 			})
 		})
 		Context("Macvtap plug", func() {

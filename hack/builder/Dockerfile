@@ -1,4 +1,4 @@
-FROM quay.io/centos/centos:stream8
+FROM quay.io/centos/centos:stream9
 
 ARG SONOBUOY_ARCH
 ARG BAZEL_ARCH
@@ -14,7 +14,7 @@ ENV KUBEVIRT_CREATE_BAZELRCS=false
 
 # Install packages
 RUN dnf install -y dnf-plugins-core && \
-    dnf config-manager --enable powertools && \
+    dnf config-manager --enable crb && \
     dnf install -y --setopt=install_weak_deps=False \
         java-11-openjdk-devel \
         libvirt-devel \
@@ -33,9 +33,10 @@ RUN dnf install -y dnf-plugins-core && \
         rsync \
         qemu-img \
         protobuf-compiler \
-        python38 \
-        python38-devel \
-        python38-pip \
+        python3 \
+        python3-devel \
+        python3-pip \
+        python3-setuptools \
         redhat-rpm-config \
         jq \
         wget \

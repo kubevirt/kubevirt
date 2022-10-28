@@ -224,9 +224,6 @@ var istioTests = func(vmType VmType) {
 			}
 
 			BeforeEach(func() {
-				if vmType == Passt {
-					Skip("Due to a bug, passt doesn't support binding to low ports. Tracking issue - https://bugs.passt.top/show_bug.cgi?id=15")
-				}
 				bastionVMI = libvmi.NewCirros(
 					libvmi.WithNetwork(v1.DefaultPodNetwork()),
 					libvmi.WithInterface(libvmi.InterfaceDeviceWithMasqueradeBinding([]v1.Port{}...)),

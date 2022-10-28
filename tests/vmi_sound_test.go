@@ -73,19 +73,6 @@ var _ = Describe("[crit:medium][vendor:cnv-qe@redhat.com][level:component][sig-c
 		})
 	})
 
-	Describe("[crit:medium][vendor:cnv-qe@redhat.com][level:component] A VirtualMachineInstance with ac97 sound support", func() {
-		BeforeEach(func() {
-			vmi, err = createSoundVMI(virtClient, "ac97")
-			Expect(err).ToNot(HaveOccurred())
-			vmi = tests.WaitUntilVMIReady(vmi, console.LoginToCirros)
-		})
-
-		It("should create ac97 sound device on ac97 model", func() {
-			checkXMLSoundCard(virtClient, vmi, "ac97")
-			checkAudioDevice(vmi, "ac97")
-		})
-	})
-
 	Describe("[crit:medium][vendor:cnv-qe@redhat.com][level:component] A VirtualMachineInstance with unsupported sound support", func() {
 		It("should fail to create VMI with unsupported sound device", func() {
 			vmi, err = createSoundVMI(virtClient, "ich7")
@@ -124,10 +111,6 @@ func checkXMLSoundCard(virtClient kubecli.KubevirtClient, vmi *v1.VirtualMachine
 func checkAudioDevice(vmi *v1.VirtualMachineInstance, name string) {
 	// Audio device: Intel Corporation 82801I (ICH9 Family) HD Audio Controller
 	deviceId := "8086:293e"
-	if name == "ac97" {
-		// Multimedia audio controller: Intel Corporation 82801AA AC'97 Audio Controller
-		deviceId = "8086:2415"
-	}
 	cmdCheck := fmt.Sprintf("lspci | grep %s\n", deviceId)
 
 	err := console.SafeExpectBatch(vmi, []expect.Batcher{

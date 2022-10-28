@@ -1,4 +1,4 @@
-// +build !without_qemu
+// +build !libvirt_without_qemu
 
 /*
  * This file is part of the libvirt-go-module project

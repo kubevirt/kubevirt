@@ -62,6 +62,13 @@ def _impl(ctx):
         ),
     ]
 
+    # Update the value of __TOOLCHAIN_SYSROOT__ every time the list
+    # of cxx_builtin_include_directories has been modified.
+    #
+    # This is needed to make bazel realize that the updated toolchain
+    # is different from the previous one and handle caching correctly.
+    #
+    # https://github.com/kubevirt/kubevirt/pull/8404#issuecomment-1275096374
     default_compiler_flags = feature(
         name = "default_compiler_flags",
         enabled = True,
@@ -77,6 +84,7 @@ def _impl(ctx):
                             "-D__DATE__=\"redacted\"",
                             "-D__TIMESTAMP__=\"redacted\"",
                             "-D__TIME__=\"redacted\"",
+                            "-D__TOOLCHAIN_SYSROOT__=\"centos-stream-9\"",
                         ],
                     ),
                 ],
@@ -109,7 +117,7 @@ def _impl(ctx):
     return cc_common.create_cc_toolchain_config_info(
         ctx = ctx,
         cxx_builtin_include_directories = [
-            "/usr/lib/gcc/x86_64-redhat-linux/8/include",
+            "/usr/lib/gcc/x86_64-redhat-linux/11/include",
             "/usr/include",
         ],
         features = features,
