@@ -44,10 +44,10 @@ func isResourceRequirementMissing(resourceRequirements kubev1.ResourceRequiremen
 	return memoryOrCpuIsMissing(resourceRequirements.Limits) || memoryOrCpuIsMissing(resourceRequirements.Requests)
 }
 
-func applyNamespaceLimitRangeValues(vmi *kubev1.VirtualMachineInstance, limitrangeInformer cache.SharedIndexInformer) {
+func applyNamespaceLimitRangeValues(vmi *kubev1.VirtualMachineInstance, limitrangeInformer cache.SharedIndexInformer, namespace string) {
 	// Copy namespace limits (if exist) to the VM spec
 	if isResourceRequirementMissing(vmi.Spec.Domain.Resources) {
-		limits, err := limitrangeInformer.GetIndexer().ByIndex(cache.NamespaceIndex, vmi.Namespace)
+		limits, err := limitrangeInformer.GetIndexer().ByIndex(cache.NamespaceIndex, namespace)
 		if err != nil {
 			return
 		}
