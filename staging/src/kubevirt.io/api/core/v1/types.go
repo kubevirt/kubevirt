@@ -2466,6 +2466,13 @@ type InstancetypeMatcher struct {
 	//
 	// +optional
 	RevisionName string `json:"revisionName,omitempty"`
+
+	// InferFromVolume lists the name of a volume that should be used to infer or discover the instancetype
+	// to be used through known annotations on the underlying resource. Once applied to the InstancetypeMatcher
+	// this field is removed.
+	//
+	// +optional
+	InferFromVolume string `json:"inferFromVolume,omitempty"`
 }
 
 // PreferenceMatcher references a set of preference that is used to fill fields in the VMI template.
@@ -2486,4 +2493,11 @@ type PreferenceMatcher struct {
 	//
 	// +optional
 	RevisionName string `json:"revisionName,omitempty"`
+
+	// InferFromVolume lists the name of a volume that should be used to infer or discover the preference
+	// to be used through known annotations on the underlying resource. Once applied to the PreferenceMatcher
+	// this field is removed.
+	//
+	// +optional
+	InferFromVolume string `json:"inferFromVolume,omitempty"`
 }
