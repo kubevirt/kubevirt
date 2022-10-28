@@ -28,9 +28,14 @@ import (
 	"strings"
 	"time"
 
+	"kubevirt.io/kubevirt/tests/framework/matcher"
+
+	k8sv1 "k8s.io/api/core/v1"
 	rbacv1 "k8s.io/api/rbac/v1"
 	"k8s.io/apimachinery/pkg/api/errors"
 	"k8s.io/apimachinery/pkg/util/rand"
+
+	"kubevirt.io/kubevirt/tests/libnode"
 
 	"kubevirt.io/kubevirt/tests/clientcmd"
 
@@ -56,7 +61,7 @@ import (
 )
 
 type alerts struct {
-	deploymentDame       string
+	deploymentName       string
 	downAlert            string
 	noReadyAlert         string
 	restErrorsBurtsAlert string
@@ -64,22 +69,22 @@ type alerts struct {
 
 var (
 	virtApi = alerts{
-		deploymentDame:       "virt-api",
+		deploymentName:       "virt-api",
 		downAlert:            "VirtAPIDown",
 		restErrorsBurtsAlert: "VirtApiRESTErrorsBurst",
 	}
 	virtController = alerts{
-		deploymentDame:       "virt-controller",
+		deploymentName:       "virt-controller",
 		downAlert:            "VirtControllerDown",
 		noReadyAlert:         "NoReadyVirtController",
 		restErrorsBurtsAlert: "VirtControllerRESTErrorsBurst",
 	}
 	virtHandler = alerts{
-		deploymentDame:       "virt-handler",
+		deploymentName:       "virt-handler",
 		restErrorsBurtsAlert: "VirtHandlerRESTErrorsBurst",
 	}
 	virtOperator = alerts{
-		deploymentDame:       "virt-operator",
+		deploymentName:       "virt-operator",
 		downAlert:            "VirtOperatorDown",
 		noReadyAlert:         "NoReadyVirtOperator",
 		restErrorsBurtsAlert: "VirtOperatorRESTErrorsBurst",
@@ -178,9 +183,9 @@ var _ = Describe("[Serial][sig-monitoring]Prometheus Alerts", func() {
 		tests.UpdateKubeVirtConfigValueAndWait(originalKubeVirt.Spec.Configuration)
 	}
 
-	waitForMetricValue := func(client kubecli.KubevirtClient, metric string, expectedValue int64) {
+	waitForMetricValueWithLabels := func(client kubecli.KubevirtClient, metric string, expectedValue int64, labels map[string]string) {
 		Eventually(func() int {
-			v, err := getMetricValue(client, metric)
+			v, err := getMetricValueWithLabels(client, metric, labels)
 			if err != nil {
 				return -1
 			}
@@ -188,6 +193,10 @@ var _ = Describe("[Serial][sig-monitoring]Prometheus Alerts", func() {
 			Expect(err).ToNot(HaveOccurred())
 			return i
 		}, 3*time.Minute, 1*time.Second).Should(BeNumerically("==", expectedValue))
+	}
+
+	waitForMetricValue := func(client kubecli.KubevirtClient, metric string, expectedValue int64) {
+		waitForMetricValueWithLabels(client, metric, expectedValue, nil)
 	}
 
 	updatePromRules := func(newRules *promv1.PrometheusRule) {
@@ -288,6 +297,71 @@ var _ = Describe("[Serial][sig-monitoring]Prometheus Alerts", func() {
 		})
 	})
 
+	Context("VM migration metrics", func() {
+		var nodes *k8sv1.NodeList
+
+		BeforeEach(func() {
+			checks.SkipIfMigrationIsNotPossible()
+
+			Eventually(func() []k8sv1.Node {
+				nodes = libnode.GetAllSchedulableNodes(virtClient)
+				return nodes.Items
+			}, 60*time.Second, 1*time.Second).ShouldNot(BeEmpty(), "There should be some compute node")
+		})
+
+		It("Should correctly update metrics on successful VMIM", func() {
+			By("Creating VMIs")
+			vmi := tests.NewRandomFedoraVMIWithGuestAgent()
+			vmi = tests.RunVMIAndExpectLaunch(vmi, 240)
+
+			By("Migrating VMIs")
+			migration := tests.NewRandomMigration(vmi.Name, vmi.Namespace)
+			tests.RunMigrationAndExpectCompletion(virtClient, migration, tests.MigrationWaitTime)
+
+			waitForMetricValue(virtClient, "kubevirt_migrate_vmi_pending_count", 0)
+			waitForMetricValue(virtClient, "kubevirt_migrate_vmi_scheduling_count", 0)
+			waitForMetricValue(virtClient, "kubevirt_migrate_vmi_running_count", 0)
+
+			labels := map[string]string{
+				"vmi": vmi.Name,
+			}
+			waitForMetricValueWithLabels(virtClient, "kubevirt_migrate_vmi_succeeded_total", 1, labels)
+
+			By("Delete VMIs")
+			Expect(virtClient.VirtualMachineInstance(vmi.Namespace).Delete(vmi.Name, &metav1.DeleteOptions{})).To(Succeed())
+			tests.WaitForVirtualMachineToDisappearWithTimeout(vmi, 240)
+		})
+
+		It("Should correctly update metrics on failing VMIM", func() {
+			By("Creating VMIs")
+			vmi := libvmi.NewFedora(
+				libvmi.WithInterface(libvmi.InterfaceDeviceWithMasqueradeBinding()),
+				libvmi.WithNetwork(v1.DefaultPodNetwork()),
+				libvmi.WithNodeAffinityFor(&nodes.Items[0]),
+			)
+			vmi = tests.RunVMIAndExpectLaunch(vmi, 240)
+			labels := map[string]string{
+				"vmi": vmi.Name,
+			}
+
+			By("Starting the Migration")
+			migration := tests.NewRandomMigration(vmi.Name, vmi.Namespace)
+			migration.Annotations = map[string]string{v1.MigrationUnschedulablePodTimeoutSecondsAnnotation: "60"}
+			migration = tests.RunMigration(virtClient, migration)
+
+			waitForMetricValue(virtClient, "kubevirt_migrate_vmi_scheduling_count", 1)
+
+			Eventually(matcher.ThisMigration(migration), 2*time.Minute, 5*time.Second).Should(matcher.BeInPhase(v1.MigrationFailed), "migration creation should fail")
+
+			waitForMetricValue(virtClient, "kubevirt_migrate_vmi_scheduling_count", 0)
+			waitForMetricValueWithLabels(virtClient, "kubevirt_migrate_vmi_failed_total", 1, labels)
+
+			By("Deleting the VMI")
+			Expect(virtClient.VirtualMachineInstance(vmi.Namespace).Delete(vmi.Name, &metav1.DeleteOptions{})).To(Succeed())
+			tests.WaitForVirtualMachineToDisappearWithTimeout(vmi, 240)
+		})
+	})
+
 	Context("VM snapshot metrics", func() {
 		quantity, _ := resource.ParseQuantity("500Mi")
 
@@ -341,14 +415,14 @@ var _ = Describe("[Serial][sig-monitoring]Prometheus Alerts", func() {
 
 		BeforeEach(func() {
 			scales = make(map[string]*autoscalingv1.Scale, 1)
-			backupScale(virtOperator.deploymentDame)
-			updateScale(virtOperator.deploymentDame, 0)
+			backupScale(virtOperator.deploymentName)
+			updateScale(virtOperator.deploymentName, 0)
 
 			reduceAlertPendingTime()
 		})
 
 		AfterEach(func() {
-			revertScale(virtOperator.deploymentDame)
+			revertScale(virtOperator.deploymentName)
 
 			waitUntilAlertDoesNotExist("KubeVirtVMStuckInStartingState")
 			waitUntilAlertDoesNotExist("KubeVirtVMStuckInErrorState")
@@ -377,23 +451,25 @@ var _ = Describe("[Serial][sig-monitoring]Prometheus Alerts", func() {
 	Context("Up metrics", func() {
 		BeforeEach(func() {
 			scales = make(map[string]*autoscalingv1.Scale, 3)
-			backupScale(virtOperator.deploymentDame)
-			backupScale(virtController.deploymentDame)
-			backupScale(virtApi.deploymentDame)
+			backupScale(virtOperator.deploymentName)
+			backupScale(virtController.deploymentName)
+			backupScale(virtApi.deploymentName)
 		})
 
 		AfterEach(func() {
-			revertScale(virtApi.deploymentDame)
-			revertScale(virtController.deploymentDame)
-			revertScale(virtOperator.deploymentDame)
+			revertScale(virtApi.deploymentName)
+			revertScale(virtController.deploymentName)
+			revertScale(virtOperator.deploymentName)
 
 			time.Sleep(10 * time.Second)
-			waitUntilAlertDoesNotExist("VirtOperatorDown")
-			waitUntilAlertDoesNotExist("NoReadyVirtOperator")
+			waitUntilAlertDoesNotExist(virtOperator.downAlert)
+			waitUntilAlertDoesNotExist(virtApi.downAlert)
+			waitUntilAlertDoesNotExist(virtController.downAlert)
+			waitUntilAlertDoesNotExist(virtHandler.downAlert)
 		})
 
 		It("VirtOperatorDown and NoReadyVirtOperator should be triggered when virt-operator is down", func() {
-			updateScale(virtOperator.deploymentDame, int32(0))
+			updateScale(virtOperator.deploymentName, int32(0))
 			reduceAlertPendingTime()
 
 			By("By scaling virt-operator to zero")
@@ -402,21 +478,21 @@ var _ = Describe("[Serial][sig-monitoring]Prometheus Alerts", func() {
 		})
 
 		It("VirtControllerDown and NoReadyVirtController should be triggered when virt-controller is down", func() {
-			updateScale(virtOperator.deploymentDame, int32(0))
+			updateScale(virtOperator.deploymentName, int32(0))
 			reduceAlertPendingTime()
 
 			By("By scaling virt-controller to zero")
-			updateScale(virtController.deploymentDame, int32(0))
+			updateScale(virtController.deploymentName, int32(0))
 			verifyAlertExist(virtController.downAlert)
 			verifyAlertExist(virtController.noReadyAlert)
 		})
 
 		It("VirtApiDown should be triggered when virt-api is down", func() {
-			updateScale(virtOperator.deploymentDame, int32(0))
+			updateScale(virtOperator.deploymentName, int32(0))
 			reduceAlertPendingTime()
 
 			By("By scaling virt-controller to zero")
-			updateScale(virtApi.deploymentDame, int32(0))
+			updateScale(virtApi.deploymentName, int32(0))
 			verifyAlertExist(virtApi.downAlert)
 		})
 	})
@@ -429,7 +505,7 @@ var _ = Describe("[Serial][sig-monitoring]Prometheus Alerts", func() {
 			util.PanicOnError(err)
 
 			scales = make(map[string]*autoscalingv1.Scale, 1)
-			backupScale(virtOperator.deploymentDame)
+			backupScale(virtOperator.deploymentName)
 
 			crb, err = virtClient.RbacV1().ClusterRoleBindings().Get(context.Background(), "kubevirt-operator", metav1.GetOptions{})
 			util.PanicOnError(err)
@@ -446,11 +522,13 @@ var _ = Describe("[Serial][sig-monitoring]Prometheus Alerts", func() {
 			if !errors.IsAlreadyExists(err) {
 				util.PanicOnError(err)
 			}
-			revertScale(virtOperator.deploymentDame)
+			revertScale(virtOperator.deploymentName)
 
 			time.Sleep(10 * time.Second)
-			waitUntilAlertDoesNotExist("VirtOperatorDown")
-			waitUntilAlertDoesNotExist("NoReadyVirtOperator")
+			waitUntilAlertDoesNotExist(virtOperator.downAlert)
+			waitUntilAlertDoesNotExist(virtApi.downAlert)
+			waitUntilAlertDoesNotExist(virtController.downAlert)
+			waitUntilAlertDoesNotExist(virtHandler.downAlert)
 		})
 
 		It("VirtApiRESTErrorsBurst should be triggered when requests to virt-api are failing", func() {
@@ -487,7 +565,7 @@ var _ = Describe("[Serial][sig-monitoring]Prometheus Alerts", func() {
 		})
 
 		It("VirtControllerRESTErrorsBurst should be triggered when requests to virt-controller are failing", func() {
-			updateScale(virtOperator.deploymentDame, 0)
+			updateScale(virtOperator.deploymentName, 0)
 
 			err = virtClient.RbacV1().ClusterRoleBindings().Delete(context.Background(), "kubevirt-controller", metav1.DeleteOptions{})
 			Expect(err).ToNot(HaveOccurred())
@@ -510,7 +588,7 @@ var _ = Describe("[Serial][sig-monitoring]Prometheus Alerts", func() {
 		})
 
 		It("VirtHandlerRESTErrorsBurst should be triggered when requests to virt-handler are failing", func() {
-			updateScale(virtOperator.deploymentDame, 0)
+			updateScale(virtOperator.deploymentName, 0)
 
 			err = virtClient.RbacV1().ClusterRoleBindings().Delete(context.Background(), "kubevirt-handler", metav1.DeleteOptions{})
 			Expect(err).ToNot(HaveOccurred())
@@ -538,7 +616,7 @@ var _ = Describe("[Serial][sig-monitoring]Prometheus Alerts", func() {
 			By("Starting the VirtualMachineInstance")
 			opts := append(libvmi.WithMasqueradeNetworking(), libvmi.WithResourceMemory("2Mi"))
 			vmi := libvmi.New(opts...)
-			vmi = tests.RunVMIAndExpectLaunch(vmi, 90)
+			vmi = tests.RunVMIAndExpectLaunch(vmi, 240)
 
 			By("Migrating the VMI 13 times")
 			for i := 0; i < 13; i++ {
@@ -549,15 +627,15 @@ var _ = Describe("[Serial][sig-monitoring]Prometheus Alerts", func() {
 				tests.ConfirmVMIPostMigration(virtClient, vmi, migrationUID)
 			}
 
+			By("Verifying KubeVirtVMIExcessiveMigration alert exists")
+			verifyAlertExist("KubeVirtVMIExcessiveMigrations")
+
 			// delete VMI
 			By("Deleting the VMI")
 			Expect(virtClient.VirtualMachineInstance(vmi.Namespace).Delete(vmi.Name, &metav1.DeleteOptions{})).To(Succeed())
 
 			By("Waiting for VMI to disappear")
 			tests.WaitForVirtualMachineToDisappearWithTimeout(vmi, 240)
-
-			By("Verifying KubeVirtVMIExcessiveMigration alert exists")
-			verifyAlertExist("KubeVirtVMIExcessiveMigrations")
 		})
 	})
 })
