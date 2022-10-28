@@ -17133,7 +17133,6 @@ func schema_kubevirtio_api_core_v1_InstancetypeMatcher(ref common.ReferenceCallb
 						},
 					},
 				},
-				Required: []string{"name"},
 			},
 		},
 	}
@@ -19190,7 +19189,6 @@ func schema_kubevirtio_api_core_v1_PreferenceMatcher(ref common.ReferenceCallbac
 						},
 					},
 				},
-				Required: []string{"name"},
 			},
 		},
 	}

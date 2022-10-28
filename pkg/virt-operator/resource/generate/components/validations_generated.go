@@ -3715,8 +3715,6 @@ var CRDsValidation map[string]string = map[string]string{
                 to be used. This is initially captured the first time the instancetype
                 is applied to the VirtualMachineInstance.
               type: string
-          required:
-          - name
           type: object
         preference:
           description: PreferenceMatcher references a set of preference that is used
@@ -3742,8 +3740,6 @@ var CRDsValidation map[string]string = map[string]string{
                 to be used. This is initially captured the first time the instancetype
                 is applied to the VirtualMachineInstance.
               type: string
-          required:
-          - name
           type: object
         runStrategy:
           description: Running state indicates the requested running state of the
@@ -16174,8 +16170,6 @@ var CRDsValidation map[string]string = map[string]string{
                         to be used. This is initially captured the first time the
                         instancetype is applied to the VirtualMachineInstance.
                       type: string
-                  required:
-                  - name
                   type: object
                 preference:
                   description: PreferenceMatcher references a set of preference that
@@ -16203,8 +16197,6 @@ var CRDsValidation map[string]string = map[string]string{
                         to be used. This is initially captured the first time the
                         instancetype is applied to the VirtualMachineInstance.
                       type: string
-                  required:
-                  - name
                   type: object
                 runStrategy:
                   description: Running state indicates the requested running state
@@ -20784,8 +20776,6 @@ var CRDsValidation map[string]string = map[string]string{
                             is initially captured the first time the instancetype
                             is applied to the VirtualMachineInstance.
                           type: string
-                      required:
-                      - name
                       type: object
                     preference:
                       description: PreferenceMatcher references a set of preference
@@ -20815,8 +20805,6 @@ var CRDsValidation map[string]string = map[string]string{
                             initially captured the first time the instancetype is
                             applied to the VirtualMachineInstance.
                           type: string
-                      required:
-                      - name
                       type: object
                     runStrategy:
                       description: Running state indicates the requested running state
