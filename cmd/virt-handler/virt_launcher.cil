@@ -48,11 +48,6 @@
     ; This is therefore not blocking the switch to container_t
     (allow process self (tun_socket (relabelfrom relabelto attach_queue)))
     ;
-    ; This is needed to allow virtiofs to mount filesystem and access NFS
-    (allow process nfs_t (dir (mounton)))
-    (allow process proc_t (dir (mounton)))
-    (allow process proc_t (filesystem (mount unmount)))
-    ;
     ; This is needed for passt when running with this policy.
     ; container_t is compatible with passt without needing any additional rule.
     ; This rule is therefore only needed for VMs that use both virtiofs and passt.
