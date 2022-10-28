@@ -1643,6 +1643,7 @@ func (c *VMController) enqueueVm(obj interface{}) {
 	key, err := controller.KeyFunc(vm)
 	if err != nil {
 		logger.Object(vm).Reason(err).Error(failedExtractVmkeyFromVmErrMsg)
+		return
 	}
 	c.Queue.Add(key)
 }

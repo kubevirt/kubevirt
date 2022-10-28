@@ -210,6 +210,7 @@ func (c *WorkloadUpdateController) enqueueKubeVirt(obj interface{}) {
 	key, err := controller.KeyFunc(kv)
 	if err != nil {
 		logger.Object(kv).Reason(err).Error("Failed to extract key from KubeVirt.")
+		return
 	}
 	c.queue.AddAfter(key, defaultThrottleIntervalSeconds)
 }

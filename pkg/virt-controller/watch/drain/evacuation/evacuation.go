@@ -110,6 +110,7 @@ func (c *EvacuationController) enqueueNode(obj interface{}) {
 	key, err := controller.KeyFunc(node)
 	if err != nil {
 		logger.Object(node).Reason(err).Error("Failed to extract key from node.")
+		return
 	}
 	c.Queue.Add(key)
 }
@@ -240,6 +241,7 @@ func (c *EvacuationController) enqueueVirtualMachine(obj interface{}) {
 	key, err := controller.KeyFunc(vmi)
 	if err != nil {
 		logger.Object(vmi).Reason(err).Error("Failed to extract key from virtualmachineinstance.")
+		return
 	}
 	c.Queue.Add(key)
 }
