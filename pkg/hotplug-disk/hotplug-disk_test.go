@@ -56,7 +56,7 @@ var _ = Describe("HotplugDisk", func() {
 
 	AfterEach(func() {
 		if tempDir != "" {
-			os.RemoveAll(tempDir)
+			Expect(os.RemoveAll(tempDir)).To(Succeed())
 		}
 	})
 

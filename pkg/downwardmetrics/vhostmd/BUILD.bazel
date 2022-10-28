@@ -8,7 +8,10 @@ go_library(
     ],
     importpath = "kubevirt.io/kubevirt/pkg/downwardmetrics/vhostmd",
     visibility = ["//visibility:public"],
-    deps = ["//pkg/downwardmetrics/vhostmd/api:go_default_library"],
+    deps = [
+        "//pkg/downwardmetrics/vhostmd/api:go_default_library",
+        "//pkg/util:go_default_library",
+    ],
 )
 
 go_test(

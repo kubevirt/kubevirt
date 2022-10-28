@@ -47,7 +47,7 @@ var _ = Describe("EmptyDisk", func() {
 		}
 	})
 	AfterEach(func() {
-		os.RemoveAll(emptyDiskBaseDir)
+		Expect(os.RemoveAll(emptyDiskBaseDir)).To(Succeed())
 	})
 
 	Describe("a vmi with emptyDisks attached", func() {
@@ -77,8 +77,9 @@ var _ = Describe("EmptyDisk", func() {
 		It("should leave pre-existing disks alone", func() {
 			vmi := api.NewMinimalVMI("testvmi")
 			AppendEmptyDisk(vmi, "testdisk")
-			ioutil.WriteFile(filePathForVolumeName(emptyDiskBaseDir, "testdisk"), []byte("test"), 0777)
-			err := creator.CreateTemporaryDisks(vmi)
+			err := ioutil.WriteFile(filePathForVolumeName(emptyDiskBaseDir, "testdisk"), []byte("test"), 0777)
+			Expect(err).ToNot(HaveOccurred())
+			err = creator.CreateTemporaryDisks(vmi)
 			Expect(err).ToNot(HaveOccurred())
 			data, err := ioutil.ReadFile(filePathForVolumeName(emptyDiskBaseDir, "testdisk"))
 			Expect(err).ToNot(HaveOccurred())
@@ -91,8 +92,8 @@ var _ = Describe("EmptyDisk", func() {
 func fakeCreatorFunc(filePath string, _ string) error {
 	fmt.Println(filePath)
 	f, err := os.Create(filePath)
-	if err == nil {
-		f.Close()
+	if err != nil {
+		return err
 	}
-	return err
+	return f.Close()
 }

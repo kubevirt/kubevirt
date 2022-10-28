@@ -96,7 +96,7 @@ var _ = Describe("HostDisk", func() {
 	BeforeEach(func() {
 		var err error
 		tempDir, err = ioutil.TempDir("", "host-disk-images")
-		setDiskDirectory(tempDir)
+		Expect(setDiskDirectory(tempDir)).To(Succeed())
 		Expect(err).NotTo(HaveOccurred())
 
 		recorder = record.NewFakeRecorder(100)
@@ -111,7 +111,7 @@ var _ = Describe("HostDisk", func() {
 	})
 
 	AfterEach(func() {
-		os.RemoveAll(tempDir)
+		Expect(os.RemoveAll(tempDir)).To(Succeed())
 	})
 
 	Describe("HostDisk with 'Disk' type", func() {
@@ -425,7 +425,7 @@ var _ = Describe("HostDisk", func() {
 			}
 
 			By("Replacing PVCs with hostdisks")
-			ReplacePVCByHostDisk(vmi)
+			Expect(ReplacePVCByHostDisk(vmi)).To(Succeed())
 
 			Expect(vmi.Spec.Volumes).To(HaveLen(1), "There should still be 1 volume")
 

@@ -99,21 +99,17 @@ func newReplicationController(replicas int) *v1.ReplicationController {
 }
 
 // create count pods with the given phase for the given rc (same selectors and kubevirtNamespace), and add them to the store.
-func newPodList(store cache.Store, count int, status v1.PodPhase, rc *v1.ReplicationController) *v1.PodList {
-	pods := []v1.Pod{}
+func newPodList(count int, status v1.PodPhase, rc *v1.ReplicationController) *v1.PodList {
+	pods := make([]v1.Pod, 0, count)
 	for i := 0; i < count; i++ {
-		newPod := v1.Pod{
+		pods = append(pods, v1.Pod{
 			ObjectMeta: metav1.ObjectMeta{
 				Name:      fmt.Sprintf("pod%d", i),
 				Labels:    rc.Spec.Selector,
 				Namespace: rc.Namespace,
 			},
 			Status: v1.PodStatus{Phase: status},
-		}
-		if store != nil {
-			store.Add(&newPod)
-		}
-		pods = append(pods, newPod)
+		})
 	}
 	return &v1.PodList{
 		Items: pods,
@@ -206,7 +202,7 @@ func TestUIDExpectations(t *testing.T) {
 		rcName := fmt.Sprintf("rc-%v", i)
 		rc.Name = rcName
 		rc.Spec.Selector[rcName] = rcName
-		podList := newPodList(nil, 5, v1.PodRunning, rc)
+		podList := newPodList(5, v1.PodRunning, rc)
 		rcKey, err := KeyFunc(rc)
 		if err != nil {
 			t.Fatalf("Couldn't get key for object %#v: %v", rc, err)
