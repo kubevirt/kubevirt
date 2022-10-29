@@ -75,7 +75,7 @@ var _ = Describe("[Serial][sig-compute]SecurityFeatures", func() {
 				config.SELinuxLauncherType = "container_t"
 				tests.UpdateKubeVirtConfigValueAndWait(*config)
 
-				vmi = tests.NewRandomVMIWithEphemeralDiskAndUserdata(cd.ContainerDiskFor(cd.ContainerDiskCirros), "#!/bin/bash\necho 'hello'\n")
+				vmi = libvmi.NewCirros()
 
 				// VMIs with selinuxLauncherType container_t cannot have network interfaces, since that requires
 				// the `virt_launcher.process` selinux context
