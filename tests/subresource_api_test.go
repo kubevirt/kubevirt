@@ -33,8 +33,6 @@ import (
 
 	"kubevirt.io/kubevirt/tests/util"
 
-	cd "kubevirt.io/kubevirt/tests/containerdisk"
-
 	v1 "kubevirt.io/api/core/v1"
 	instancetypeapi "kubevirt.io/api/instancetype"
 	instancetypev1alpha2 "kubevirt.io/api/instancetype/v1alpha2"
@@ -62,7 +60,7 @@ var _ = Describe("[sig-compute]Subresource Api", func() {
 	Describe("[rfe_id:1195][crit:medium][vendor:cnv-qe@redhat.com][level:component] Rbac Authorization", func() {
 		var resource string
 		BeforeEach(func() {
-			vm := tests.NewRandomVMWithEphemeralDisk(cd.ContainerDiskFor(cd.ContainerDiskCirros))
+			vm := tests.NewRandomVirtualMachine(libvmi.NewCirros(), false)
 			resource = vm.Name
 			vm, err := virtCli.VirtualMachine(util.NamespaceTestDefault).Create(vm)
 			Expect(err).ToNot(HaveOccurred())
@@ -419,8 +417,7 @@ var _ = Describe("[sig-compute]Subresource Api", func() {
 
 			BeforeEach(func() {
 				var err error
-				vmiImage := cd.ContainerDiskFor(cd.ContainerDiskCirros)
-				vmi := tests.NewRandomVMIWithEphemeralDiskAndUserdata(vmiImage, "#!/bin/bash\necho 'hello'\n")
+				vmi := libvmi.NewCirros()
 				vm = tests.NewRandomVirtualMachine(vmi, true)
 				vm, err = virtCli.VirtualMachine(util.NamespaceTestDefault).Create(vm)
 				Expect(err).ToNot(HaveOccurred())
