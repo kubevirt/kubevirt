@@ -67,10 +67,6 @@ import (
 	"kubevirt.io/kubevirt/tests/watcher"
 )
 
-func newCirrosVMI() *v1.VirtualMachineInstance {
-	return tests.NewRandomVMIWithEphemeralDiskAndUserdata(cd.ContainerDiskFor(cd.ContainerDiskCirros), "#!/bin/bash\necho 'hello'\n")
-}
-
 func addNodeAffinityToVMI(vmi *v1.VirtualMachineInstance, nodeName string) {
 	vmi.Spec.Affinity = &k8sv1.Affinity{
 		NodeAffinity: &k8sv1.NodeAffinity{
@@ -618,7 +614,7 @@ var _ = Describe("[rfe_id:273][crit:high][arm64][vendor:cnv-qe@redhat.com][level
 				watcher.New(vmi).Timeout(60*time.Second).SinceWatchedObjectResourceVersion().WaitFor(ctx, watcher.WarningEvent, v1.Stopped)
 
 				By("checking that it can still start VMIs")
-				newVMI := newCirrosVMI()
+				newVMI := libvmi.NewCirros()
 				newVMI.Spec.NodeSelector = map[string]string{"kubernetes.io/hostname": nodeName}
 				newVMI, err = virtClient.VirtualMachineInstance(util.NamespaceTestDefault).Create(newVMI)
 				Expect(err).ToNot(HaveOccurred())
@@ -704,7 +700,7 @@ var _ = Describe("[rfe_id:273][crit:high][arm64][vendor:cnv-qe@redhat.com][level
 				time.Sleep(10 * time.Second)
 
 				By("starting another VMI on the same node, to verify devices still work")
-				newVMI := newCirrosVMI()
+				newVMI := libvmi.NewCirros()
 				newVMI.Spec.NodeSelector = map[string]string{"kubernetes.io/hostname": nodeName}
 				newVMI, err = virtClient.VirtualMachineInstance(util.NamespaceTestDefault).Create(newVMI)
 				Expect(err).ToNot(HaveOccurred())
@@ -1024,7 +1020,7 @@ var _ = Describe("[rfe_id:273][crit:high][arm64][vendor:cnv-qe@redhat.com][level
 				config.CPUModel = defaultCPUModel
 				tests.UpdateKubeVirtConfigValueAndWait(*config)
 
-				newVMI := newCirrosVMI()
+				newVMI := libvmi.NewCirros()
 				newVMI = tests.RunVMIAndExpectLaunch(newVMI, 90)
 				By("Fetching virt-launcher pod")
 				virtLauncherPod := tests.GetRunningPodByVirtualMachineInstance(newVMI, newVMI.Namespace)
@@ -1042,7 +1038,7 @@ var _ = Describe("[rfe_id:273][crit:high][arm64][vendor:cnv-qe@redhat.com][level
 				config.CPUModel = defaultCPUModel
 				tests.UpdateKubeVirtConfigValueAndWait(*config)
 
-				newVMI := newCirrosVMI()
+				newVMI := libvmi.NewCirros()
 				newVMI.Spec.Domain.CPU = &v1.CPU{
 					Model: vmiCPUModel,
 				}
@@ -1703,7 +1699,7 @@ var _ = Describe("[rfe_id:273][crit:high][arm64][vendor:cnv-qe@redhat.com][level
 		})
 		Context("with ACPI and some grace period seconds", func() {
 			DescribeTable("[rfe_id:273][crit:medium][vendor:cnv-qe@redhat.com][level:component]should result in vmi status succeeded", func(gracePeriod int64) {
-				vmi = newCirrosVMI()
+				vmi := libvmi.NewCirros()
 
 				if gracePeriod >= 0 {
 					vmi.Spec.TerminationGracePeriodSeconds = &gracePeriod
