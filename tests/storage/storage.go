@@ -357,7 +357,7 @@ var _ = SIGDescribe("Storage", func() {
 
 				By("Checking if we can write to /dev/vdc")
 				Expect(console.SafeExpectBatch(vmi, []expect.Batcher{
-					&expect.BSnd{S: "sudo mkfs.ext4 /dev/vdc\n"},
+					&expect.BSnd{S: "sudo mkfs.ext4 -F /dev/vdc\n"},
 					&expect.BExp{R: console.PromptExpression},
 					&expect.BSnd{S: tests.EchoLastReturnValue},
 					&expect.BExp{R: console.RetValue("0")},
