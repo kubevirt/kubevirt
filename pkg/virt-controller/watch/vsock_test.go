@@ -19,6 +19,8 @@ var _ = Describe("VSOCK", func() {
 		var vmis []*virtv1.VirtualMachineInstance
 		for i := 0; i < totalVMINum; i++ {
 			vmi := tests.NewRandomVMI()
+			// NewRandomVMI isn't guaranteed to have a unique name.
+			vmi.Name = fmt.Sprintf("%s-%d", vmi.Name, i)
 			if i < vsockVMINum {
 				cid := uint32(i + 3)
 				vmi.Status.VSOCKCID = &cid
@@ -35,9 +37,6 @@ var _ = Describe("VSOCK", func() {
 	DescribeTable("Syncing CIDs from exsisting VMIs",
 		func(totalVMINum, vsockVMINum int) {
 			vmis := newRandomVMIsWithORWithoutVSOCK(totalVMINum, vsockVMINum)
-			for _, vmi := range vmis {
-				fmt.Println(vmi.Status.VSOCKCID)
-			}
 			m.Sync(vmis)
 			Expect(m.cids).To(HaveLen(vsockVMINum))
 			Expect(m.reverse).To(HaveLen(vsockVMINum))
