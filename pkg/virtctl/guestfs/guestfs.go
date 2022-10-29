@@ -22,6 +22,8 @@ import (
 
 	"kubevirt.io/client-go/kubecli"
 
+	"k8s.io/utils/pointer"
+
 	"kubevirt.io/kubevirt/pkg/virtctl/templates"
 	"kubevirt.io/kubevirt/pkg/virtctl/utils"
 )
@@ -53,7 +55,9 @@ var (
 	kvm           bool
 	podName       string
 	root          bool
-	group         string
+	fsGroup       string
+	uid           string
+	gid           string
 )
 
 type guestfsCommand struct {
@@ -77,8 +81,10 @@ func NewGuestfsShellCommand(clientConfig clientcmd.ClientConfig) *cobra.Command 
 	cmd.PersistentFlags().StringVar(&pullPolicy, "pull-policy", string(pullPolicyDefault), "pull policy for the libguestfs image")
 	cmd.PersistentFlags().BoolVar(&kvm, "kvm", true, "Use kvm for the libguestfs-tools container")
 	cmd.PersistentFlags().BoolVar(&root, "root", false, "Set uid 0 for the libguestfs-tool container")
+	cmd.PersistentFlags().StringVar(&uid, "uid", "", "Set uid for the libguestfs-tool container. It doesn't work with root")
+	cmd.PersistentFlags().StringVar(&gid, "gid", "", "Set gid for the libguestfs-tool container. This works only combined when the uid is manually set")
 	cmd.SetUsageTemplate(templates.UsageTemplate())
-	cmd.PersistentFlags().StringVar(&group, "group", "", "Set the gid and fsgroup for the libguestfs-tool container")
+	cmd.PersistentFlags().StringVar(&fsGroup, "fsGroup", "", "Set the fsgroup for the libguestfs-tool container")
 
 	return cmd
 }
@@ -368,12 +374,55 @@ func (client *K8sClient) getPodsForPVC(pvcName, ns string) ([]corev1.Pod, error)
 	return pods, nil
 }
 
-func setGroupLibguestfs() (*int64, error) {
-	if root && group != "" {
-		return nil, fmt.Errorf("cannot set group id with root")
+func setFSGroupLibguestfs() (*int64, error) {
+	if root && fsGroup != "" {
+		return nil, fmt.Errorf("cannot set fsGroup id with root")
 	}
-	if group != "" {
-		n, err := strconv.ParseInt(group, 10, 64)
+	if fsGroup != "" {
+		n, err := strconv.ParseInt(fsGroup, 10, 64)
+		if err != nil {
+			return nil, err
+		}
+		return &n, nil
+	}
+	if root {
+		var rootFsID int64 = 0
+		return &rootFsID, nil
+	}
+	return nil, nil
+}
+
+// setUIDLibugestfs returns the guestfs uid
+func setUIDLibugestfs() (*int64, error) {
+	switch {
+	case root:
+		var zero int64
+		if uid != "" {
+			return nil, fmt.Errorf("cannot set uid if root is true")
+		}
+		return &zero, nil
+	case uid != "":
+		n, err := strconv.ParseInt(uid, 10, 64)
+		if err != nil {
+			return nil, err
+		}
+		return &n, nil
+	default:
+		return nil, nil
+	}
+}
+
+func setGIDLibguestfs() (*int64, error) {
+	// The GID can only be specified together with the uid. See comment at: https://github.com/kubernetes/cri-api/blob/2b5244cefaeace624cb160d6b3d85dd3fd14baea/pkg/apis/runtime/v1/api.proto#L307-L309
+	if gid != "" && uid == "" {
+		return nil, fmt.Errorf("gid requires the uid to be set")
+	}
+
+	if root && gid != "" {
+		return nil, fmt.Errorf("cannot set gid id with root")
+	}
+	if gid != "" {
+		n, err := strconv.ParseInt(gid, 10, 64)
 		if err != nil {
 			return nil, err
 		}
@@ -396,14 +445,15 @@ func createLibguestfsPod(pvc, image, cmd string, args []string, kvm, isBlock boo
 			},
 		}
 	}
-	nonRoot := true
-	var uidRoot int64 = 0
-	var uid *int64
-	if root {
-		nonRoot = false
-		uid = &uidRoot
+	u, err := setUIDLibugestfs()
+	if err != nil {
+		return nil, err
 	}
-	g, err := setGroupLibguestfs()
+	g, err := setGIDLibguestfs()
+	if err != nil {
+		return nil, err
+	}
+	f, err := setFSGroupLibguestfs()
 	if err != nil {
 		return nil, err
 	}
@@ -414,12 +464,11 @@ func createLibguestfsPod(pvc, image, cmd string, args []string, kvm, isBlock boo
 			Drop: []corev1.Capability{"ALL"},
 		},
 	}
-
 	securityContext := &corev1.PodSecurityContext{
-		RunAsNonRoot: &nonRoot,
-		RunAsUser:    uid,
+		RunAsNonRoot: pointer.Bool(!root),
+		RunAsUser:    u,
 		RunAsGroup:   g,
-		FSGroup:      g,
+		FSGroup:      f,
 		SeccompProfile: &corev1.SeccompProfile{
 			Type: corev1.SeccompProfileTypeRuntimeDefault,
 		},

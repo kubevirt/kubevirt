@@ -27,6 +27,7 @@ container_image(
         "//:get-version",
     ],
     tars = [
+        "//:passwd-tar",
         "//rpm:libguestfs-tools",
         ":appliance_layer",
         ":entrypoint",
