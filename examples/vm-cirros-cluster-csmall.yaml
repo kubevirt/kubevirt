@@ -3,17 +3,17 @@ apiVersion: kubevirt.io/v1
 kind: VirtualMachine
 metadata:
   labels:
-    kubevirt.io/vm: vm-cirros-csmall
-  name: vm-cirros-csmall
+    kubevirt.io/vm: vm-cirros-cluster-csmall
+  name: vm-cirros-cluster-csmall
 spec:
   instancetype:
     kind: VirtualMachineClusterInstancetype
-    name: csmall
+    name: cluster-csmall
   running: false
   template:
     metadata:
       labels:
-        kubevirt.io/vm: vm-cirros-csmall
+        kubevirt.io/vm: vm-cirros-cluster-csmall
     spec:
       domain:
         devices:

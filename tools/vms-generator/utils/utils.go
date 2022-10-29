@@ -1254,12 +1254,12 @@ func GetVmCirrosInstancetypeComputeSmall() *v1.VirtualMachine {
 }
 
 func GetVmCirrosClusterInstancetypeComputeSmall() *v1.VirtualMachine {
-	vm := getBaseVM(VmCirrosInstancetypeComputeSmall, map[string]string{
-		kubevirtIoVM: VmCirrosInstancetypeComputeSmall,
+	vm := getBaseVM(VmCirrosClusterInstancetypeComputeSmall, map[string]string{
+		kubevirtIoVM: VmCirrosClusterInstancetypeComputeSmall,
 	})
 
 	vm.Spec.Instancetype = &v1.InstancetypeMatcher{
-		Name: VirtualMachineInstancetypeComputeSmall,
+		Name: VirtualMachineClusterInstancetypeComputeSmall,
 		Kind: "VirtualMachineClusterInstancetype",
 	}
 
