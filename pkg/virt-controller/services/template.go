@@ -126,8 +126,6 @@ const (
 	QemuOverhead                = "30Mi"  // The `ps` RSS for qemu, minus the RAM of its (stressed) guest, minus the virtual page table
 )
 
-const customSELinuxType = "virt_launcher.process"
-
 type TemplateService interface {
 	RenderMigrationManifest(vmi *v1.VirtualMachineInstance, sourcePod *k8sv1.Pod, migrationConfiguration *v1.MigrationConfiguration) (*k8sv1.Pod, error)
 	RenderLaunchManifest(vmi *v1.VirtualMachineInstance) (*k8sv1.Pod, error)
@@ -1185,18 +1183,6 @@ func wrapGuestAgentPingWithVirtProbe(vmi *v1.VirtualMachineInstance, probe *k8sv
 }
 
 func alignPodMultiCategorySecurity(pod *k8sv1.Pod, vmi *v1.VirtualMachineInstance, selinuxType string, dockerSELinuxMCSWorkaround bool) {
-	if selinuxType == "" {
-		if util.IsPasstVMI(vmi) {
-			// If no SELinux type was specified, use our custom type for VMIs that need it
-			selinuxType = customSELinuxType
-		}
-	}
-
-	if selinuxType == "" && !dockerSELinuxMCSWorkaround {
-		// No SELinux type and no docker workaround, nothing to do
-		return
-	}
-
 	if selinuxType != "" {
 		if pod.Spec.SecurityContext == nil {
 			pod.Spec.SecurityContext = &k8sv1.PodSecurityContext{}
@@ -1204,16 +1190,18 @@ func alignPodMultiCategorySecurity(pod *k8sv1.Pod, vmi *v1.VirtualMachineInstanc
 		pod.Spec.SecurityContext.SELinuxOptions = &k8sv1.SELinuxOptions{Type: selinuxType}
 	}
 
-	// more info on https://github.com/kubernetes/kubernetes/issues/90759
-	// Since the compute container needs to be able to communicate with the
-	// rest of the pod, we loop over all the containers and remove their SELinux
-	// categories.
-	// This currently only affects Docker + SELinux use-cases, and requires a
-	// feature gate to be set.
-	for i := range pod.Spec.Containers {
-		container := &pod.Spec.Containers[i]
-		if container.Name != "compute" {
-			generateContainerSecurityContext(selinuxType, container, dockerSELinuxMCSWorkaround)
+	if dockerSELinuxMCSWorkaround {
+		// more info on https://github.com/kubernetes/kubernetes/issues/90759
+		// Since the compute container needs to be able to communicate with the
+		// rest of the pod, we loop over all the containers and remove their SELinux
+		// categories.
+		// This currently only affects Docker + SELinux use-cases, and requires a
+		// feature gate to be set.
+		for i := range pod.Spec.Containers {
+			container := &pod.Spec.Containers[i]
+			if container.Name != "compute" {
+				generateContainerSecurityContext(selinuxType, container)
+			}
 		}
 	}
 }
@@ -1232,7 +1220,7 @@ func matchSELinuxLevelOfVMI(pod *k8sv1.Pod, vmi *v1.VirtualMachineInstance) erro
 	return nil
 }
 
-func generateContainerSecurityContext(selinuxType string, container *k8sv1.Container, forceLevel bool) {
+func generateContainerSecurityContext(selinuxType string, container *k8sv1.Container) {
 	if container.SecurityContext == nil {
 		container.SecurityContext = &k8sv1.SecurityContext{}
 	}
@@ -1240,9 +1228,7 @@ func generateContainerSecurityContext(selinuxType string, container *k8sv1.Conta
 		container.SecurityContext.SELinuxOptions = &k8sv1.SELinuxOptions{}
 	}
 	container.SecurityContext.SELinuxOptions.Type = selinuxType
-	if forceLevel {
-		container.SecurityContext.SELinuxOptions.Level = "s0"
-	}
+	container.SecurityContext.SELinuxOptions.Level = "s0"
 }
 
 func generatePodAnnotations(vmi *v1.VirtualMachineInstance) (map[string]string, error) {

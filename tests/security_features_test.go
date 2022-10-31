@@ -76,14 +76,7 @@ var _ = Describe("[Serial][sig-compute]SecurityFeatures", Serial, func() {
 				config.SELinuxLauncherType = "container_t"
 				tests.UpdateKubeVirtConfigValueAndWait(*config)
 
-				vmi = libvmi.NewCirros()
-
-				// VMIs with selinuxLauncherType container_t cannot have network interfaces, since that requires
-				// the `virt_launcher.process` selinux context
-				autoattachPodInterface := false
-				vmi.Spec.Domain.Devices.AutoattachPodInterface = &autoattachPodInterface
-				vmi.Spec.Domain.Devices.Interfaces = []v1.Interface{}
-				vmi.Spec.Networks = []v1.Network{}
+				vmi = tests.NewRandomVMIWithEphemeralDiskAndUserdata(cd.ContainerDiskFor(cd.ContainerDiskCirros), "#!/bin/bash\necho 'hello'\n")
 			})
 
 			It("[test_id:2953]Ensure virt-launcher pod securityContext type is correctly set", func() {
@@ -179,51 +172,6 @@ var _ = Describe("[Serial][sig-compute]SecurityFeatures", Serial, func() {
 			})
 		})
 
-		Context("With selinuxLauncherType defined as virt_launcher.process", func() {
-
-			It("[test_id:4298]qemu process type is virt_launcher.process, when selinuxLauncherType is virt_launcher.process", func() {
-				config := kubevirtConfiguration.DeepCopy()
-				launcherType := "virt_launcher.process"
-				config.SELinuxLauncherType = launcherType
-				tests.UpdateKubeVirtConfigValueAndWait(*config)
-
-				vmi = tests.NewRandomVMIWithEphemeralDisk(cd.ContainerDiskFor(cd.ContainerDiskAlpine))
-				vmi.Namespace = testsuite.NamespacePrivileged
-
-				By("Starting a New VMI")
-				vmi, err = virtClient.VirtualMachineInstance(testsuite.NamespacePrivileged).Create(context.Background(), vmi)
-				Expect(err).ToNot(HaveOccurred())
-				libwait.WaitForSuccessfulVMIStart(vmi)
-
-				By("Ensuring VMI is running by logging in")
-				libwait.WaitUntilVMIReady(vmi, console.LoginToAlpine)
-
-				By("Fetching virt-launcher Pod")
-				domSpec, err := tests.GetRunningVMIDomainSpec(vmi)
-				Expect(err).ToNot(HaveOccurred())
-				emulator := "[/]" + strings.TrimPrefix(domSpec.Devices.Emulator, "/")
-
-				pod, err := libvmi.GetPodByVirtualMachineInstance(vmi, testsuite.NamespacePrivileged)
-				Expect(err).ToNot(HaveOccurred())
-				qemuProcessSelinuxContext, err := exec.ExecuteCommandOnPod(
-					virtClient,
-					pod,
-					"compute",
-					[]string{"/usr/bin/bash", "-c", fmt.Sprintf("ps -efZ | grep %s | awk '{print $1}'", emulator)},
-				)
-				Expect(err).ToNot(HaveOccurred())
-
-				By("Checking that qemu-kvm process is of the SELinux type virt_launcher.process")
-				Expect(strings.Split(qemuProcessSelinuxContext, ":")[2]).To(Equal(launcherType))
-
-				By("Verifying SELinux context contains custom type in pod")
-				Expect(pod.Spec.SecurityContext.SELinuxOptions.Type).To(Equal(launcherType))
-
-				By("Deleting the VMI")
-				err = virtClient.VirtualMachineInstance(testsuite.NamespacePrivileged).Delete(context.Background(), vmi.Name, &metav1.DeleteOptions{})
-				Expect(err).ToNot(HaveOccurred())
-			})
-		})
 	})
 
 	Context("Check virt-launcher capabilities", func() {

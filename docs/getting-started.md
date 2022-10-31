@@ -50,7 +50,15 @@ login`. Your `$HOME/.docker/config.json` should look like:
 
 ### SELinux support
 
-SELinux-enabled nodes need to have [Container-selinux](https://github.com/containers/container-selinux) version 2.170.0 or newer installed.
+SELinux-enabled nodes need to have [Container-selinux](https://github.com/containers/container-selinux) version 2.193.0 or newer installed.
+
+For nodes running an operating system that does not offer container-selinux v2.193.0 or newer, it is possible to use v2.170.0 or newer and either:
+- Not use passt-based networking
+- Manually add the missing SELinux rule for passt by running the following commands on each node:
+```bash
+echo '(allow container_t tmpfs_t (filesystem (mount)))' >/tmp/passt.cil
+semodule -i /tmp/passt.cil
+```
 
 ## Building
 

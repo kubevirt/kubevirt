@@ -3500,9 +3500,6 @@ var _ = Describe("Template", func() {
 				SeccompProfile: &kubev1.SeccompProfile{
 					Type: kubev1.SeccompProfileTypeUnconfined,
 				},
-				SELinuxOptions: &kubev1.SELinuxOptions{
-					Type: "virt_launcher.process",
-				},
 			}),
 			Entry("on a virtiofs vmi", func() *v1.VirtualMachineInstance {
 				nonRootUser := util.NonRootUID

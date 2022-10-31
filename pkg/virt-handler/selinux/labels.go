@@ -30,8 +30,6 @@ func defaultExecFunc(binary string, args ...string) ([]byte, error) {
 	return exec.Command(binary, args...).CombinedOutput()
 }
 
-var POLICY_FILES = []string{"virt_launcher"}
-
 type SELinuxImpl struct {
 	Paths          []string
 	execFunc       execFunc
@@ -146,27 +144,7 @@ func defaultCopyPolicyFunc(policyName string, dir string) (err error) {
 	return nil
 }
 
-func (se *SELinuxImpl) InstallPolicy(dir string) (err error) {
-	for _, policyName := range POLICY_FILES {
-		fileDest := filepath.Join(dir, policyName+".cil")
-		err := se.copyPolicyFunc(policyName, dir)
-		if err != nil {
-			return fmt.Errorf("failed to copy policy %v - err: %v", fileDest, err)
-		}
-		out, err := se.semodule("-i", fileDest)
-		if err != nil {
-			if len(out) > 0 {
-				return fmt.Errorf("failed to install policy %v - out: %q, error: %v", fileDest, string(out), err)
-			} else {
-				return fmt.Errorf("failed to install policy %v - err: %v", fileDest, err)
-			}
-		}
-	}
-	return nil
-}
-
 type SELinux interface {
-	InstallPolicy(dir string) (err error)
 	Mode() string
 	IsPermissive() bool
 }
