@@ -156,7 +156,7 @@ var _ = SIGDescribe("Export", func() {
 	createDownloadPodForPvc := func(pvc *k8sv1.PersistentVolumeClaim, caConfigMap *k8sv1.ConfigMap) *k8sv1.Pod {
 		volumeName := pvc.GetName()
 		podName := "download-pod"
-		pod := tests.RenderPrivilegedPod(podName, []string{"/bin/sh", "-c", "sleep 360"}, []string{})
+		pod := tests.RenderPod(podName, []string{"/bin/sh", "-c", "sleep 360"}, []string{})
 		pod.Spec.Volumes = append(pod.Spec.Volumes, k8sv1.Volume{
 			Name: volumeName,
 			VolumeSource: k8sv1.VolumeSource{
@@ -186,9 +186,10 @@ var _ = SIGDescribe("Export", func() {
 	}
 
 	createSourcePodChecker := func(pvc *k8sv1.PersistentVolumeClaim) *k8sv1.Pod {
+		nonRootUser := int64(107)
 		volumeName := pvc.GetName()
 		podName := "download-pod"
-		pod := tests.RenderPrivilegedPod(podName, []string{"/bin/sh", "-c", "sleep 360"}, []string{})
+		pod := tests.RenderPod(podName, []string{"/bin/sh", "-c", "sleep 360"}, []string{})
 		pod.Spec.Volumes = append(pod.Spec.Volumes, k8sv1.Volume{
 			Name: volumeName,
 			VolumeSource: k8sv1.VolumeSource{
@@ -197,6 +198,10 @@ var _ = SIGDescribe("Export", func() {
 				},
 			},
 		})
+		if pod.Spec.SecurityContext == nil {
+			pod.Spec.SecurityContext = &k8sv1.PodSecurityContext{}
+		}
+		pod.Spec.SecurityContext.FSGroup = &nonRootUser
 
 		volumeMode := pvc.Spec.VolumeMode
 		if volumeMode != nil && *volumeMode == k8sv1.PersistentVolumeBlock {
@@ -210,7 +215,7 @@ var _ = SIGDescribe("Export", func() {
 	createTriggerPodForPvc := func(pvc *k8sv1.PersistentVolumeClaim) *k8sv1.Pod {
 		volumeName := pvc.GetName()
 		podName := fmt.Sprintf("bind-%s", volumeName)
-		pod := tests.RenderPrivilegedPod(podName, []string{"/bin/sh", "-c", "sleep 1"}, []string{})
+		pod := tests.RenderPod(podName, []string{"/bin/sh", "-c", "sleep 1"}, []string{})
 		pod.Spec.Volumes = append(pod.Spec.Volumes, k8sv1.Volume{
 			Name: volumeName,
 			VolumeSource: k8sv1.VolumeSource{
@@ -351,6 +356,7 @@ var _ = SIGDescribe("Export", func() {
 		out, stderr, err := exec.ExecuteCommandOnPodWithResults(virtClient, pod, pod.Spec.Containers[0].Name, md5Command(fileName))
 		Expect(err).ToNot(HaveOccurred(), out, stderr)
 		md5sum := strings.Split(out, " ")[0]
+		Expect(md5sum).To(HaveLen(32))
 
 		err = virtClient.CoreV1().Pods(pod.Namespace).Delete(context.Background(), pod.Name, metav1.DeleteOptions{
 			GracePeriodSeconds: pointer.Int64(0),
@@ -390,6 +396,7 @@ var _ = SIGDescribe("Export", func() {
 		out, stderr, err := exec.ExecuteCommandOnPodWithResults(virtClient, downloadPod, downloadPod.Spec.Containers[0].Name, md5Command(fileAndPathName))
 		Expect(err).ToNot(HaveOccurred(), out, stderr)
 		md5sum := strings.Split(out, " ")[0]
+		Expect(md5sum).To(HaveLen(32))
 		Expect(md5sum).To(Equal(expectedMD5))
 	}
 
@@ -410,12 +417,15 @@ var _ = SIGDescribe("Export", func() {
 		out, stderr, err = exec.ExecuteCommandOnPodWithResults(virtClient, downloadPod, downloadPod.Spec.Containers[0].Name, md5Command(fileAndPathName))
 		Expect(err).ToNot(HaveOccurred(), out, stderr)
 		md5sum := strings.Split(out, " ")[0]
+		Expect(md5sum).To(HaveLen(32))
 		Expect(md5sum).To(Equal(expectedMD5))
 	}
 
 	verifyArchiveGzContent := func(fileName, expectedMD5 string, downloadPod *k8sv1.Pod, volumeMode k8sv1.PersistentVolumeMode) {
 		command := []string{
 			"/usr/bin/tar",
+			"--strip-components",
+			"1",
 			"-xzvf",
 			filepath.Join(dataPath, fileName),
 			"-C",
@@ -432,6 +442,7 @@ var _ = SIGDescribe("Export", func() {
 		out, stderr, err = exec.ExecuteCommandOnPodWithResults(virtClient, downloadPod, downloadPod.Spec.Containers[0].Name, md5Command(fileAndPathName))
 		Expect(err).ToNot(HaveOccurred(), out, stderr)
 		md5sum := strings.Split(out, " ")[0]
+		Expect(md5sum).To(HaveLen(32))
 		Expect(md5sum).To(Equal(expectedMD5))
 	}
 
