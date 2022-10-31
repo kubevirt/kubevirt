@@ -156,7 +156,7 @@ var _ = SIGDescribe("Export", func() {
 	createDownloadPodForPvc := func(pvc *k8sv1.PersistentVolumeClaim, caConfigMap *k8sv1.ConfigMap) *k8sv1.Pod {
 		volumeName := pvc.GetName()
 		podName := "download-pod"
-		pod := tests.RenderPod(podName, []string{"/bin/sh", "-c", "sleep 360"}, []string{})
+		pod := tests.RenderPrivilegedPod(podName, []string{"/bin/sh", "-c", "sleep 360"}, []string{})
 		pod.Spec.Volumes = append(pod.Spec.Volumes, k8sv1.Volume{
 			Name: volumeName,
 			VolumeSource: k8sv1.VolumeSource{
@@ -188,7 +188,7 @@ var _ = SIGDescribe("Export", func() {
 	createSourcePodChecker := func(pvc *k8sv1.PersistentVolumeClaim) *k8sv1.Pod {
 		volumeName := pvc.GetName()
 		podName := "download-pod"
-		pod := tests.RenderPod(podName, []string{"/bin/sh", "-c", "sleep 360"}, []string{})
+		pod := tests.RenderPrivilegedPod(podName, []string{"/bin/sh", "-c", "sleep 360"}, []string{})
 		pod.Spec.Volumes = append(pod.Spec.Volumes, k8sv1.Volume{
 			Name: volumeName,
 			VolumeSource: k8sv1.VolumeSource{
@@ -210,7 +210,7 @@ var _ = SIGDescribe("Export", func() {
 	createTriggerPodForPvc := func(pvc *k8sv1.PersistentVolumeClaim) *k8sv1.Pod {
 		volumeName := pvc.GetName()
 		podName := fmt.Sprintf("bind-%s", volumeName)
-		pod := tests.RenderPod(podName, []string{"/bin/sh", "-c", "sleep 1"}, []string{})
+		pod := tests.RenderPrivilegedPod(podName, []string{"/bin/sh", "-c", "sleep 1"}, []string{})
 		pod.Spec.Volumes = append(pod.Spec.Volumes, k8sv1.Volume{
 			Name: volumeName,
 			VolumeSource: k8sv1.VolumeSource{

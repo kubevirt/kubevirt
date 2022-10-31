@@ -1315,6 +1315,17 @@ func ChangeImgFilePermissionsToNonQEMU(pvc *k8sv1.PersistentVolumeClaim) {
 	By("changing disk.img permissions to non qemu")
 	pod := libstorage.RenderPodWithPVC("change-permissions-disk-img-pod", []string{"/bin/bash", "-c"}, args, pvc)
 
+	// overwrite securityContext
+	rootUser := int64(0)
+	pod.Spec.Containers[0].SecurityContext = &k8sv1.SecurityContext{
+		Capabilities: &k8sv1.Capabilities{
+			Drop: []k8sv1.Capability{"ALL"},
+		},
+		Privileged:   NewBool(true),
+		RunAsUser:    &rootUser,
+		RunAsNonRoot: NewBool(false),
+	}
+
 	RunPodAndExpectCompletion(pod)
 }
 
@@ -1347,11 +1358,25 @@ func DeleteAlpineWithNonQEMUPermissions() {
 }
 
 func renderContainerSpec(imgPath string, name string, cmd []string, args []string) k8sv1.Container {
+	nonRootUser := int64(1042)
+
 	return k8sv1.Container{
 		Name:    name,
 		Image:   imgPath,
 		Command: cmd,
 		Args:    args,
+		SecurityContext: &k8sv1.SecurityContext{
+			Privileged:               NewBool(false),
+			AllowPrivilegeEscalation: NewBool(false),
+			RunAsNonRoot:             NewBool(true),
+			RunAsUser:                &nonRootUser,
+			SeccompProfile: &k8sv1.SeccompProfile{
+				Type: k8sv1.SeccompProfileTypeRuntimeDefault,
+			},
+			Capabilities: &k8sv1.Capabilities{
+				Drop: []k8sv1.Capability{"ALL"},
+			},
+		},
 	}
 }
 
