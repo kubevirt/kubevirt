@@ -385,12 +385,6 @@ func (app *virtHandlerApp) Run() {
 	se, exists, err := selinux.NewSELinux()
 	if err == nil && exists {
 		log.DefaultLogger().Infof("SELinux is reported as '%s'", se.Mode())
-		// Install KubeVirt's virt-launcher policy
-		err = se.InstallPolicy("/var/run/kubevirt")
-		if err != nil {
-			panic(fmt.Errorf("failed to install virt-launcher selinux policy: %v", err))
-		}
-
 		// relabel tun device
 		unprivilegedContainerSELinuxLabel := "system_u:object_r:container_file_t:s0"
 
