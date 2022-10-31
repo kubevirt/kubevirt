@@ -229,11 +229,7 @@ var _ = SIGDescribe("Storage", func() {
 
 			It("[QUARANTINE] should pause VMI on IO error", func() {
 				By("Creating VMI with faulty disk")
-				vmi := libvmi.New(
-					libvmi.WithPersistentVolumeClaim("disk0", pvc.Name),
-					libvmi.WithResourceMemory("256Mi"),
-					libvmi.WithNetwork(v1.DefaultPodNetwork()),
-					libvmi.WithInterface(libvmi.InterfaceDeviceWithMasqueradeBinding()))
+				vmi := libvmi.NewAlpine(libvmi.WithPersistentVolumeClaim("faulty-disk", pvc.Name))
 
 				vmi, err := virtClient.VirtualMachineInstance(util.NamespaceTestDefault).Create(vmi)
 				Expect(err).ToNot(HaveOccurred(), failedCreateVMI)
