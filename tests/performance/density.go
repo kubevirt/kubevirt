@@ -20,18 +20,23 @@
 package performance
 
 import (
+	"context"
 	"fmt"
 	"time"
 
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
 
+	"k8s.io/apimachinery/pkg/api/resource"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 
+	"kubevirt.io/kubevirt/tests"
 	audit_api "kubevirt.io/kubevirt/tools/perfscale-audit/api"
 	metric_client "kubevirt.io/kubevirt/tools/perfscale-audit/metric-client"
 
 	kvv1 "kubevirt.io/api/core/v1"
+	instancetypeapi "kubevirt.io/api/instancetype"
+	instancetypev1alpha2 "kubevirt.io/api/instancetype/v1alpha2"
 
 	"kubevirt.io/client-go/kubecli"
 
@@ -100,6 +105,30 @@ var _ = SIGDescribe("Control Plane Performance Density Testing", func() {
 				waitRunningVMI(virtClient, vmCount+1, vmBatchStartupLimit)
 			})
 		})
+
+		Context(fmt.Sprintf("[small] create a batch of %d running VMs", vmCount), func() {
+			It("should sucessfully create all VMS", func() {
+				By("Creating a batch of VMs")
+				createBatchRunningVMWithResourcesWithRateControl(virtClient, vmCount)
+
+				By("Waiting a batch of VMs")
+				waitRunningVMI(virtClient, vmCount, vmBatchStartupLimit)
+			})
+		})
+
+		Context(fmt.Sprintf("[small] create a batch of %d running VMs using a single instancetype and preference", vmCount), func() {
+			It("should sucessfully create all VMS with instancetype and preference", func() {
+				By("Creating an instancetype and preference for the test")
+				instancetype := createInstancetype(virtClient)
+				preference := createPreference(virtClient)
+
+				By("Creating a batch of VMs")
+				createBatchRunningVMWithInstancetypeWithRateControl(virtClient, vmCount, instancetype.Name, preference.Name)
+
+				By("Waiting a batch of VMs")
+				waitRunningVMI(virtClient, vmCount, vmBatchStartupLimit)
+			})
+		})
 	})
 })
 
@@ -161,6 +190,76 @@ func createBatchVMIWithRateControl(virtClient kubecli.KubevirtClient, vmCount in
 		// interval for throughput control
 		time.Sleep(100 * time.Millisecond)
 	}
+}
+
+func createBatchRunningVMWithInstancetypeWithRateControl(virtClient kubecli.KubevirtClient, vmCount int, instancetypeName, preferenceName string) {
+	createBatchRunningVMWithRateControl(virtClient, vmCount, func() *kvv1.VirtualMachine {
+		vm := tests.NewRandomVirtualMachine(libvmi.NewCirros(), true)
+		vm.Spec.Template.Spec.Domain.Resources = kvv1.ResourceRequirements{}
+		vm.Spec.Instancetype = &kvv1.InstancetypeMatcher{
+			Name: instancetypeName,
+			Kind: instancetypeapi.SingularResourceName,
+		}
+		vm.Spec.Preference = &kvv1.PreferenceMatcher{
+			Name: preferenceName,
+			Kind: instancetypeapi.SingularPreferenceResourceName,
+		}
+		return vm
+	})
+}
+
+func createBatchRunningVMWithResourcesWithRateControl(virtClient kubecli.KubevirtClient, vmCount int) {
+	createBatchRunningVMWithRateControl(virtClient, vmCount, func() *kvv1.VirtualMachine {
+		return tests.NewRandomVirtualMachine(createVMISpecWithResources(), true)
+	})
+}
+
+func createBatchRunningVMWithRateControl(virtClient kubecli.KubevirtClient, vmCount int, vmCreateFunc func() *kvv1.VirtualMachine) {
+	for i := 1; i <= vmCount; i++ {
+		vm := vmCreateFunc()
+		By(fmt.Sprintf("Creating VM %s", vm.ObjectMeta.Name))
+		_, err := virtClient.VirtualMachine(util.NamespaceTestDefault).Create(vm)
+		Expect(err).ToNot(HaveOccurred())
+
+		// interval for throughput control
+		time.Sleep(100 * time.Millisecond)
+	}
+}
+
+func createInstancetype(virtClient kubecli.KubevirtClient) *instancetypev1alpha2.VirtualMachineInstancetype {
+	instancetype := &instancetypev1alpha2.VirtualMachineInstancetype{
+		ObjectMeta: metav1.ObjectMeta{
+			GenerateName: "instancetype",
+		},
+		Spec: instancetypev1alpha2.VirtualMachineInstancetypeSpec{
+			// FIXME - We don't have a way of expressing resources via instancetypes yet, replace this when we do.
+			CPU: instancetypev1alpha2.CPUInstancetype{
+				Guest: 1,
+			},
+			Memory: instancetypev1alpha2.MemoryInstancetype{
+				Guest: resource.MustParse("90Mi"),
+			},
+		},
+	}
+	instancetype, err := virtClient.VirtualMachineInstancetype(util.NamespaceTestDefault).Create(context.Background(), instancetype, metav1.CreateOptions{})
+	Expect(err).ToNot(HaveOccurred())
+	return instancetype
+}
+
+func createPreference(virtClient kubecli.KubevirtClient) *instancetypev1alpha2.VirtualMachinePreference {
+	preference := &instancetypev1alpha2.VirtualMachinePreference{
+		ObjectMeta: metav1.ObjectMeta{
+			GenerateName: "preference",
+		},
+		Spec: instancetypev1alpha2.VirtualMachinePreferenceSpec{
+			Devices: &instancetypev1alpha2.DevicePreferences{
+				PreferredDiskBus: kvv1.DiskBusVirtio,
+			},
+		},
+	}
+	preference, err := virtClient.VirtualMachinePreference(util.NamespaceTestDefault).Create(context.Background(), preference, metav1.CreateOptions{})
+	Expect(err).ToNot(HaveOccurred())
+	return preference
 }
 
 func createVMISpecWithResources() *kvv1.VirtualMachineInstance {
