@@ -426,29 +426,6 @@ var _ = Describe("Template", func() {
 			)
 		})
 		Context("with SELinux types", func() {
-			It("should run under the SELinux type virt_launcher.process if virtiofs is enabled", func() {
-				config, kvInformer, svc = configFactory(defaultArch)
-				vmi := v1.VirtualMachineInstance{
-					ObjectMeta: metav1.ObjectMeta{
-						Name: "testvmi", Namespace: "default", UID: "1234",
-					},
-					Spec: v1.VirtualMachineInstanceSpec{Volumes: []v1.Volume{}, Domain: v1.DomainSpec{
-						Devices: v1.Devices{
-							DisableHotplug: true,
-							Filesystems: []v1.Filesystem{{
-								Name:     "virtiofs",
-								Virtiofs: &v1.FilesystemVirtiofs{},
-							}},
-						},
-					}},
-				}
-				pod, err := svc.RenderLaunchManifest(&vmi)
-				Expect(err).ToNot(HaveOccurred())
-				if pod.Spec.SecurityContext != nil {
-					Expect(pod.Spec.SecurityContext.SELinuxOptions).ToNot(BeNil())
-					Expect(pod.Spec.SecurityContext.SELinuxOptions.Type).To(Equal("virt_launcher.process"))
-				}
-			})
 			It("should be nil if no SELinux type is specified and none is needed", func() {
 				config, kvInformer, svc = configFactory(defaultArch)
 				vmi := v1.VirtualMachineInstance{
@@ -545,12 +522,14 @@ var _ = Describe("Template", func() {
 						if enableWorkaround {
 							Expect(c.SecurityContext.SELinuxOptions.Level).To(Equal("s0"), "failed on "+c.Name)
 						} else {
-							Expect(c.SecurityContext.SELinuxOptions.Level).To(BeEmpty(), "failed on "+c.Name)
+							if c.SecurityContext != nil && c.SecurityContext.SELinuxOptions != nil {
+								Expect(c.SecurityContext.SELinuxOptions.Level).To(BeEmpty(), "failed on "+c.Name)
+							}
 						}
 					}
 				}
 			},
-				Entry(`"" on all virt-launcher containers`, false),
+				Entry(`nothing on all virt-launcher containers`, false),
 				Entry(`"s0" on all but compute if the docker workaround is enabled`, true),
 			)
 		})
