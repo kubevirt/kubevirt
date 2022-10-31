@@ -19,7 +19,6 @@
 package config
 
 import (
-	"io/ioutil"
 	"os"
 	"path/filepath"
 
@@ -48,9 +47,9 @@ var _ = Describe("Creating config images", func() {
 
 		BeforeEach(func() {
 			var err error
-			tempConfDir, err = ioutil.TempDir("", "config-dir")
+			tempConfDir, err = os.MkdirTemp("", "config-dir")
 			Expect(err).NotTo(HaveOccurred())
-			tempISODir, err = ioutil.TempDir("", "iso-dir")
+			tempISODir, err = os.MkdirTemp("", "iso-dir")
 			Expect(err).NotTo(HaveOccurred())
 			expectedLayout = []string{"test-dir=" + filepath.Join(tempConfDir, "test-dir"), "test-file2=" + filepath.Join(tempConfDir, "test-file2")}
 

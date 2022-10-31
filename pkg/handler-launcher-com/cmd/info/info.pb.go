@@ -5,9 +5,11 @@
 Package info is a generated protocol buffer package.
 
 It is generated from these files:
+
 	pkg/handler-launcher-com/cmd/info/info.proto
 
 It has these top-level messages:
+
 	CmdInfoRequest
 	CmdInfoResponse
 */

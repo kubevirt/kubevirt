@@ -3,7 +3,6 @@ package selinux
 import (
 	"errors"
 	"fmt"
-	"io/ioutil"
 	"os"
 	"os/exec"
 	"path/filepath"
@@ -129,13 +128,13 @@ func (se *SELinuxImpl) selinux(args ...string) (out []byte, err error) {
 func defaultCopyPolicyFunc(policyName string, dir string) (err error) {
 	sourceFile := filepath.Join("/", policyName+".cil")
 	// #nosec No risk for path injection. Using static string path
-	input, err := ioutil.ReadFile(sourceFile)
+	input, err := os.ReadFile(sourceFile)
 	if err != nil {
 		return fmt.Errorf("failed to read a policy file %v: %v ", sourceFile, err)
 	}
 
 	destinationFile := filepath.Join(dir, sourceFile)
-	err = ioutil.WriteFile(destinationFile, input, 0600)
+	err = os.WriteFile(destinationFile, input, 0600)
 	if err != nil {
 		return fmt.Errorf("failed to create a policy file %v: %v ", destinationFile, err)
 	}

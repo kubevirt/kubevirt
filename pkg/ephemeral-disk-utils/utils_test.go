@@ -20,7 +20,7 @@
 package ephemeraldiskutils
 
 import (
-	"io/ioutil"
+	"os"
 
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
@@ -39,7 +39,7 @@ var _ = Describe("RemoveFilesIfExist", func() {
 		Expect(RemoveFilesIfExist("no one would ever have this file")).To(Succeed())
 	})
 	It("removes a file", func() {
-		tmpfile, err := ioutil.TempFile("", "file_to_remove")
+		tmpfile, err := os.CreateTemp("", "file_to_remove")
 		Expect(err).ToNot(HaveOccurred())
 		defer tmpfile.Close()
 		Expect(FileExists(tmpfile.Name())).To(BeTrue())
@@ -47,10 +47,10 @@ var _ = Describe("RemoveFilesIfExist", func() {
 		Expect(FileExists(tmpfile.Name())).To(BeFalse())
 	})
 	It("removes multiple files", func() {
-		tmpfile1, err := ioutil.TempFile("", "file_to_remove1")
+		tmpfile1, err := os.CreateTemp("", "file_to_remove1")
 		Expect(err).ToNot(HaveOccurred())
 		defer tmpfile1.Close()
-		tmpfile2, err := ioutil.TempFile("", "file_to_remove2")
+		tmpfile2, err := os.CreateTemp("", "file_to_remove2")
 		Expect(err).ToNot(HaveOccurred())
 		defer tmpfile2.Close()
 		Expect(RemoveFilesIfExist(tmpfile1.Name(), tmpfile2.Name())).To(Succeed())

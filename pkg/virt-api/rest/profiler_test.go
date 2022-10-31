@@ -25,7 +25,7 @@ import (
 	"encoding/json"
 	"flag"
 	"fmt"
-	"io/ioutil"
+	"io"
 	"net/http"
 	"net/http/httptest"
 	"strconv"
@@ -173,7 +173,7 @@ var _ = Describe("Cluster Profiler Subresources", func() {
 
 			b, err := json.Marshal(&v1.ClusterProfilerRequest{})
 			Expect(err).ToNot(HaveOccurred())
-			request.Request.Body = ioutil.NopCloser(bytes.NewBuffer(b))
+			request.Request.Body = io.NopCloser(bytes.NewBuffer(b))
 
 			backend.AppendHandlers(
 				ghttp.CombineHandlers(

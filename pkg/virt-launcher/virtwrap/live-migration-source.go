@@ -226,7 +226,9 @@ func injectNewSection(encoder *xml.Encoder, domain *api.Domain, section []string
 }
 
 // This function returns true for every section that should be adjusted with target data when migrating a VMI
-//   that includes dedicated CPUs
+//
+//	that includes dedicated CPUs
+//
 // Strict mode only returns true if we just entered the block
 func shouldOverrideForDedicatedCPUTarget(section []string, strict bool) bool {
 	if (!strict || len(section) == 2) &&

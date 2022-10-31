@@ -21,7 +21,6 @@ package container_disk
 
 import (
 	"fmt"
-	"io/ioutil"
 	"os"
 	"path/filepath"
 	"time"
@@ -49,7 +48,7 @@ var _ = Describe("ContainerDisk", func() {
 	var vmi *v1.VirtualMachineInstance
 
 	BeforeEach(func() {
-		tmpDir, err = ioutil.TempDir("", "containerdisktest")
+		tmpDir, err = os.MkdirTemp("", "containerdisktest")
 		Expect(err).ToNot(HaveOccurred())
 		vmi = api.NewMinimalVMI("fake-vmi")
 		vmi.UID = "1234"

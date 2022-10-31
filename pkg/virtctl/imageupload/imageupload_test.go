@@ -3,7 +3,6 @@ package imageupload_test
 import (
 	"context"
 	"fmt"
-	"io/ioutil"
 	"net/http"
 	"net/http/httptest"
 	"os"
@@ -70,7 +69,7 @@ var _ = Describe("ImageUpload", func() {
 		kubecli.GetKubevirtClientFromClientConfig = kubecli.GetMockKubevirtClientFromClientConfig
 		kubecli.MockKubevirtClientInstance = kubecli.NewMockKubevirtClient(ctrl)
 
-		imageFile, err := ioutil.TempFile("", "test_image")
+		imageFile, err := os.CreateTemp("", "test_image")
 		Expect(err).ToNot(HaveOccurred())
 
 		_, err = imageFile.Write([]byte("hello world"))
@@ -79,7 +78,7 @@ var _ = Describe("ImageUpload", func() {
 
 		imagePath = imageFile.Name()
 
-		archiveFile, err := ioutil.TempFile("", "archive")
+		archiveFile, err := os.CreateTemp("", "archive")
 		Expect(err).ToNot(HaveOccurred())
 		defer archiveFile.Close()
 		archiveFilePath = archiveFile.Name()

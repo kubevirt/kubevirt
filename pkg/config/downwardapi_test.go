@@ -20,7 +20,6 @@
 package config
 
 import (
-	"io/ioutil"
 	"os"
 	"path/filepath"
 
@@ -39,13 +38,13 @@ var _ = Describe("DownwardAPI", func() {
 	BeforeEach(func() {
 		var err error
 
-		DownwardAPISourceDir, err = ioutil.TempDir("", "downwardapi")
+		DownwardAPISourceDir, err = os.MkdirTemp("", "downwardapi")
 		Expect(err).NotTo(HaveOccurred())
 		os.MkdirAll(filepath.Join(DownwardAPISourceDir, "downwardapi-volume", "test-dir"), 0755)
 		os.OpenFile(filepath.Join(DownwardAPISourceDir, "downwardapi-volume", "test-dir", "test-file1"), os.O_RDONLY|os.O_CREATE, 0666)
 		os.OpenFile(filepath.Join(DownwardAPISourceDir, "downwardapi-volume", "test-file2"), os.O_RDONLY|os.O_CREATE, 0666)
 
-		DownwardAPIDisksDir, err = ioutil.TempDir("", "downwardapi-disks")
+		DownwardAPIDisksDir, err = os.MkdirTemp("", "downwardapi-disks")
 		Expect(err).NotTo(HaveOccurred())
 	})
 

@@ -2,7 +2,6 @@ package device_manager
 
 import (
 	"fmt"
-	"io/ioutil"
 	"os"
 	"path"
 	"sync/atomic"
@@ -87,7 +86,7 @@ var _ = Describe("Device Controller", func() {
 		})
 
 		Expect(fakeConfigMap.GetPermittedHostDevices()).ToNot(BeNil())
-		workDir, err = ioutil.TempDir("", "kubevirt-test")
+		workDir, err = os.MkdirTemp("", "kubevirt-test")
 		Expect(err).ToNot(HaveOccurred())
 
 		host = "master"

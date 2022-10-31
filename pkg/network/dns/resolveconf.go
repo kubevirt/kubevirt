@@ -73,13 +73,13 @@ func ParseSearchDomains(content string) ([]string, error) {
 	return searchDomains, nil
 }
 
-//GetLongestServiceDomainName returns the longest service search domain entry
+// GetLongestServiceDomainName returns the longest service search domain entry
 func GetLongestServiceDomainName(searchDomains []string) string {
 	serviceDomains := GetServiceDomainList(searchDomains)
 	return GetDomainName(serviceDomains)
 }
 
-//GetDomainName returns the longest search domain entry, which is the most exact equivalent to a domain
+// GetDomainName returns the longest search domain entry, which is the most exact equivalent to a domain
 func GetDomainName(searchDomains []string) string {
 	selected := ""
 	for _, d := range searchDomains {
@@ -90,7 +90,7 @@ func GetDomainName(searchDomains []string) string {
 	return selected
 }
 
-//GetServiceDomainList returns a list of search domains which are a service entry
+// GetServiceDomainList returns a list of search domains which are a service entry
 func GetServiceDomainList(searchDomains []string) []string {
 	const k8sServiceInfix = ".svc."
 
@@ -103,13 +103,13 @@ func GetServiceDomainList(searchDomains []string) []string {
 	return serviceDomains
 }
 
-//DomainNameWithSubdomain returns the DNS domain according subdomain.
-//In case subdomain already exists in the domain, returns empty string, as nothing should be added.
-//In case subdomain is empty, returns empty string, as nothing should be added.
-//The motivation is that glibc prior to 2.26 had 6 domain / 256 bytes limit,
-//Due to this limitation subdomain.namespace.svc.cluster.local DNS was not added by k8s to the pod /etc/resolv.conf.
-//This function calculates the missing domain, which will be added by kubevirt.
-//see https://github.com/kubernetes/kubernetes/issues/48019 for more details.
+// DomainNameWithSubdomain returns the DNS domain according subdomain.
+// In case subdomain already exists in the domain, returns empty string, as nothing should be added.
+// In case subdomain is empty, returns empty string, as nothing should be added.
+// The motivation is that glibc prior to 2.26 had 6 domain / 256 bytes limit,
+// Due to this limitation subdomain.namespace.svc.cluster.local DNS was not added by k8s to the pod /etc/resolv.conf.
+// This function calculates the missing domain, which will be added by kubevirt.
+// see https://github.com/kubernetes/kubernetes/issues/48019 for more details.
 func DomainNameWithSubdomain(searchDomains []string, subdomain string) string {
 	if subdomain == "" {
 		return ""

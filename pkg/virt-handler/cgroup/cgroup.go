@@ -21,7 +21,7 @@ package cgroup
 
 import (
 	"fmt"
-	"io/ioutil"
+	"os"
 	"path/filepath"
 	"strconv"
 	"strings"
@@ -129,7 +129,7 @@ func getCpuSetPath(manager Manager, cpusetFile string) (string, error) {
 		return "", err
 	}
 
-	cpuset, err := ioutil.ReadFile(filepath.Join(cpuSubsystemPath, cpusetFile))
+	cpuset, err := os.ReadFile(filepath.Join(cpuSubsystemPath, cpusetFile))
 	if err != nil {
 		return "", err
 	}

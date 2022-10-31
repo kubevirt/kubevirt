@@ -19,8 +19,8 @@
 package ip
 
 import (
-	"io/ioutil"
 	"net"
+	"os"
 	"path/filepath"
 
 	netutils "k8s.io/utils/net"
@@ -76,7 +76,7 @@ func NormalizeIPAddress(ipAddress string) string {
 }
 
 func isIPv6Disabled(filename string) bool {
-	data, err := ioutil.ReadFile(filepath.Clean(filename))
+	data, err := os.ReadFile(filepath.Clean(filename))
 	if err != nil {
 		return true
 	}

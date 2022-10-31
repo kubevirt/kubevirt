@@ -24,7 +24,7 @@ import (
 	"crypto/tls"
 	"encoding/json"
 	"fmt"
-	"io/ioutil"
+	"io"
 	"net/http"
 	"strings"
 	"sync"
@@ -302,7 +302,7 @@ func (app *SubresourceAPIApp) DumpClusterProfilerHandler(request *restful.Reques
 
 			}
 
-			data, err := ioutil.ReadAll(resp.Body)
+			data, err := io.ReadAll(resp.Body)
 			if err != nil {
 				errorChan <- err
 				return

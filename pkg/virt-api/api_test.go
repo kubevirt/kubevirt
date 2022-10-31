@@ -21,7 +21,6 @@ package virt_api
 
 import (
 	"errors"
-	"io/ioutil"
 	"net/http"
 	"net/http/httptest"
 	"os"
@@ -57,7 +56,7 @@ var _ = Describe("Virt-api", func() {
 		server = ghttp.NewServer()
 
 		backend = httptest.NewServer(nil)
-		tmpDir, err := ioutil.TempDir("", "api_tmp_dir")
+		tmpDir, err := os.MkdirTemp("", "api_tmp_dir")
 		Expect(err).ToNot(HaveOccurred())
 		app.virtCli, _ = kubecli.GetKubevirtClientFromFlags(server.URL(), "")
 		app.certsDirectory = tmpDir

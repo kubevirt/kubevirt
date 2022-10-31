@@ -240,10 +240,10 @@ func ifacesStatusFromGuestAgent(vmiIfacesStatus []v1.VirtualMachineInstanceNetwo
 }
 
 // For backward compatability with older virt-launchers, apply this logic:
-// - When the domain status `InterfaceName` field is set, the data originates from the guest-agent.
-//   This is true for old virt-launchers and new ones alike.
-// - When the domain status `InterfaceName` field is not set (empty), the data originates from a merge
-//   at an old virt-launcher and comes from the domain spec. In such cases, no action is to be taken.
+//   - When the domain status `InterfaceName` field is set, the data originates from the guest-agent.
+//     This is true for old virt-launchers and new ones alike.
+//   - When the domain status `InterfaceName` field is not set (empty), the data originates from a merge
+//     at an old virt-launcher and comes from the domain spec. In such cases, no action is to be taken.
 func isGuestAgentIfaceOriginatedFromOldVirtLauncher(guestAgentInterface api.InterfaceStatus) bool {
 	return guestAgentInterface.InterfaceName == ""
 }

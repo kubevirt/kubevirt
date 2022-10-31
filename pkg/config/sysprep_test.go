@@ -20,7 +20,6 @@
 package config
 
 import (
-	"io/ioutil"
 	"os"
 	"path/filepath"
 
@@ -48,11 +47,11 @@ var _ = Describe("SysprepConfigMap", func() {
 	BeforeEach(func() {
 		var err error
 
-		SysprepSourceDir, err = ioutil.TempDir("", "sysprep")
+		SysprepSourceDir, err = os.MkdirTemp("", "sysprep")
 		Expect(err).NotTo(HaveOccurred())
 		os.MkdirAll(filepath.Join(SysprepSourceDir, "sysprep-volume"), 0755)
 
-		SysprepDisksDir, err = ioutil.TempDir("", "sysprep-disks")
+		SysprepDisksDir, err = os.MkdirTemp("", "sysprep-disks")
 		Expect(err).NotTo(HaveOccurred())
 	})
 

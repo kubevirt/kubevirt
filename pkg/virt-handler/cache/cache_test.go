@@ -21,7 +21,6 @@ package cache
 
 import (
 	"encoding/xml"
-	"io/ioutil"
 	"net"
 	"os"
 	"path/filepath"
@@ -66,13 +65,13 @@ var _ = Describe("Domain informer", func() {
 		stopChan = make(chan struct{})
 		wg = &sync.WaitGroup{}
 
-		shareDir, err = ioutil.TempDir("", "kubevirt-share")
+		shareDir, err = os.MkdirTemp("", "kubevirt-share")
 		Expect(err).ToNot(HaveOccurred())
 
-		podsDir, err = ioutil.TempDir("", "")
+		podsDir, err = os.MkdirTemp("", "")
 		Expect(err).ToNot(HaveOccurred())
 
-		ghostCacheDir, err = ioutil.TempDir("", "")
+		ghostCacheDir, err = os.MkdirTemp("", "")
 		Expect(err).ToNot(HaveOccurred())
 
 		InitializeGhostRecordCache(ghostCacheDir)

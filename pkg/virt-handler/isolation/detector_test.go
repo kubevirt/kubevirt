@@ -21,7 +21,6 @@ package isolation
 
 import (
 	"fmt"
-	"io/ioutil"
 	"net"
 	"os"
 	"path/filepath"
@@ -61,7 +60,7 @@ var _ = Describe("Isolation Detector", func() {
 
 		BeforeEach(func() {
 			var err error
-			tmpDir, err = ioutil.TempDir("", "kubevirt")
+			tmpDir, err = os.MkdirTemp("", "kubevirt")
 			Expect(err).ToNot(HaveOccurred())
 
 			cmdclient.SetLegacyBaseDir(tmpDir)

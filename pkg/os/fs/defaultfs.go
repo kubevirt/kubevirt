@@ -6,7 +6,7 @@ Licensed under the Apache License, Version 2.0 (the "License");
 you may not use this file except in compliance with the License.
 You may obtain a copy of the License at
 
-    http://www.apache.org/licenses/LICENSE-2.0
+	http://www.apache.org/licenses/LICENSE-2.0
 
 Unless required by applicable law or agreed to in writing, software
 distributed under the License is distributed on an "AS IS" BASIS,
@@ -16,18 +16,18 @@ limitations under the License.
 
 This file was originally copied from https://github.com/kubernetes/kubernetes/blob/e0a22acaa0c62f3e6f9dd37ab2a4e7d960528edc/pkg/util/filesystem/defaultfs.go
 */
+
 package fs
 
 import (
 	"io/fs"
-	"io/ioutil"
 	"os"
 	"path/filepath"
 	"strings"
 	"time"
 )
 
-// DefaultFs implements Filesystem using same-named functions from "os" and "io/ioutil"
+// DefaultFs implements Filesystem using same-named functions from "os" and "path/filepath"
 type DefaultFs struct {
 	root string
 }
@@ -98,32 +98,14 @@ func (fs *DefaultFs) Remove(name string) error {
 	return os.Remove(fs.prefix(name))
 }
 
-// ReadFile via ioutil.ReadFile
+// ReadFile via os.ReadFile
 func (fs *DefaultFs) ReadFile(filename string) ([]byte, error) {
-	return ioutil.ReadFile(fs.prefix(filename))
+	return os.ReadFile(fs.prefix(filename))
 }
 
+// WriteFile via os.WriteFile
 func (fs *DefaultFs) WriteFile(filename string, data []byte, perm fs.FileMode) error {
-	return ioutil.WriteFile(fs.prefix(filename), data, perm)
-}
-
-// TempDir via ioutil.TempDir
-func (fs *DefaultFs) TempDir(dir, prefix string) (string, error) {
-	return ioutil.TempDir(fs.prefix(dir), prefix)
-}
-
-// TempFile via ioutil.TempFile
-func (fs *DefaultFs) TempFile(dir, prefix string) (File, error) {
-	file, err := ioutil.TempFile(fs.prefix(dir), prefix)
-	if err != nil {
-		return nil, err
-	}
-	return &defaultFile{file}, nil
-}
-
-// ReadDir via ioutil.ReadDir
-func (fs *DefaultFs) ReadDir(dirname string) ([]os.FileInfo, error) {
-	return ioutil.ReadDir(fs.prefix(dirname))
+	return os.WriteFile(fs.prefix(filename), data, perm)
 }
 
 // Walk via filepath.Walk

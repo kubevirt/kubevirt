@@ -3,7 +3,6 @@ package device_manager
 import (
 	"bufio"
 	"fmt"
-	"io/ioutil"
 	"os"
 	"path/filepath"
 	"strconv"
@@ -74,11 +73,11 @@ var _ = Describe("Mediated Devices Types configuration", func() {
 	createTempMDEVSysfsStructure := func(pciMdevTypesMap map[string][]string) {
 		// create an alternative mdev_supported_types dir instead of /sys/bus/mdev/devices/
 		var err error
-		fakeMdevDevicesPath, err = ioutil.TempDir("/tmp", "mdev")
+		fakeMdevDevicesPath, err = os.MkdirTemp("/tmp", "mdev")
 		Expect(err).ToNot(HaveOccurred())
 		mdevBasePath = fakeMdevDevicesPath
 		// create an alternative mdev_supported_types dir instead of /sys/class/mdev_bus/[pciAddress]/
-		fakeMdevBasePath, err = ioutil.TempDir("/tmp", "mdev_bus")
+		fakeMdevBasePath, err = os.MkdirTemp("/tmp", "mdev_bus")
 		Expect(err).ToNot(HaveOccurred())
 		mdevClassBusPath = fakeMdevBasePath
 		for pciAddr, mdevTypesForPciDevices := range pciMdevTypesMap {
@@ -118,7 +117,7 @@ var _ = Describe("Mediated Devices Types configuration", func() {
 
 	countCreatedMdevs := func(mdevType string) int {
 		i := 0
-		files, err := ioutil.ReadDir(fakeMdevDevicesPath)
+		files, err := os.ReadDir(fakeMdevDevicesPath)
 		Expect(err).ToNot(HaveOccurred())
 		for _, file := range files {
 			if file.IsDir() {
@@ -321,7 +320,7 @@ var _ = Describe("Mediated Devices Types configuration", func() {
 
 			By("removing all created mdevs")
 			mdevManager.updateMDEVTypesConfiguration([]string{})
-			files, err := ioutil.ReadDir(fakeMdevDevicesPath)
+			files, err := os.ReadDir(fakeMdevDevicesPath)
 			Expect(err).ToNot(HaveOccurred())
 			Expect(files).To(BeEmpty())
 		},
@@ -433,7 +432,7 @@ var _ = Describe("Mediated Devices Types configuration", func() {
 			kvConfig.Spec.Configuration.MediatedDevicesConfiguration = &v1.MediatedDevicesConfiguration{}
 			testutils.UpdateFakeKubeVirtClusterConfig(kvInformer, kvConfig)
 			deviceController.refreshMediatedDevicesTypes()
-			files, err := ioutil.ReadDir(fakeMdevDevicesPath)
+			files, err := os.ReadDir(fakeMdevDevicesPath)
 			Expect(err).ToNot(HaveOccurred())
 			Expect(files).To(BeEmpty())
 		},

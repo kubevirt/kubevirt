@@ -88,7 +88,9 @@ const (
 // In addition, the following arguments control the job behavior:
 // retry: The number of times the job should try and run the pod.
 // ttlAfterFinished: The period of time between the job finishing and its auto-deletion.
-//                   Make sure to leave enough time for the reporter to collect the logs.
+//
+//	Make sure to leave enough time for the reporter to collect the logs.
+//
 // timeout: The overall time at which the job is terminated, regardless of it finishing or not.
 func NewJob(name string, cmd, args []string, retry, ttlAfterFinished int32, timeout int64) *batchv1.Job {
 	pod := RenderPod(name, cmd, args)

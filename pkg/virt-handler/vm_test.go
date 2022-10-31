@@ -23,7 +23,6 @@ import (
 	"crypto/tls"
 	"errors"
 	"fmt"
-	"io/ioutil"
 	"net"
 	"os"
 	"path/filepath"
@@ -132,17 +131,17 @@ var _ = Describe("VirtualMachineInstance", func() {
 		wg = &sync.WaitGroup{}
 		stop = make(chan struct{})
 		eventChan = make(chan watch.Event, 100)
-		shareDir, err = ioutil.TempDir("", "")
+		shareDir, err = os.MkdirTemp("", "")
 		Expect(err).ToNot(HaveOccurred())
-		privateDir, err = ioutil.TempDir("", "")
+		privateDir, err = os.MkdirTemp("", "")
 		Expect(err).ToNot(HaveOccurred())
-		podsDir, err = ioutil.TempDir("", "")
+		podsDir, err = os.MkdirTemp("", "")
 		Expect(err).ToNot(HaveOccurred())
-		certDir, err = ioutil.TempDir("", "migrationproxytest")
+		certDir, err = os.MkdirTemp("", "migrationproxytest")
 		Expect(err).ToNot(HaveOccurred())
-		vmiShareDir, err = ioutil.TempDir("", "")
+		vmiShareDir, err = os.MkdirTemp("", "")
 		Expect(err).ToNot(HaveOccurred())
-		ghostCacheDir, err = ioutil.TempDir("", "")
+		ghostCacheDir, err = os.MkdirTemp("", "")
 		Expect(err).ToNot(HaveOccurred())
 
 		err = virtcache.InitializeGhostRecordCache(ghostCacheDir)
@@ -2950,7 +2949,7 @@ var _ = Describe("DomainNotifyServerRestarts", func() {
 			eventChan = make(chan watch.Event, 100)
 			stoppedServer = false
 			stoppedPipe = false
-			shareDir, err = ioutil.TempDir("", "kubevirt-share")
+			shareDir, err = os.MkdirTemp("", "kubevirt-share")
 			Expect(err).ToNot(HaveOccurred())
 
 			recorder = record.NewFakeRecorder(10)

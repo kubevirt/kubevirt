@@ -18,7 +18,7 @@ import (
 	"kubevirt.io/client-go/log"
 )
 
-//NewCapturedOutputEnricher captures additional interesting cluster info and adds it to the captured output
+// NewCapturedOutputEnricher captures additional interesting cluster info and adds it to the captured output
 // to enrich existing reporters, like the junit reporter, with additional data.
 func NewCapturedOutputEnricher(reporters ...ginkgo.Reporter) *capturedOutputEnricher {
 	return &capturedOutputEnricher{

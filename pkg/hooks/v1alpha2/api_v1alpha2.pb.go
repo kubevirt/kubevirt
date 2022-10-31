@@ -5,9 +5,11 @@
 Package v1alpha2 is a generated protocol buffer package.
 
 It is generated from these files:
+
 	api_v1alpha2.proto
 
 It has these top-level messages:
+
 	OnDefineDomainParams
 	OnDefineDomainResult
 	PreCloudInitIsoParams

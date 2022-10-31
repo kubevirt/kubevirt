@@ -6,7 +6,7 @@ Licensed under the Apache License, Version 2.0 (the "License");
 you may not use this file except in compliance with the License.
 You may obtain a copy of the License at
 
-    http://www.apache.org/licenses/LICENSE-2.0
+	http://www.apache.org/licenses/LICENSE-2.0
 
 Unless required by applicable law or agreed to in writing, software
 distributed under the License is distributed on an "AS IS" BASIS,
@@ -16,6 +16,7 @@ limitations under the License.
 
 This file was originally copied from https://github.com/kubernetes/kubernetes/blob/e0a22acaa0c62f3e6f9dd37ab2a4e7d960528edc/pkg/util/filesystem/filesystem.go
 */
+
 package fs
 
 import (
@@ -35,13 +36,10 @@ type Fs interface {
 	Chtimes(name string, atime time.Time, mtime time.Time) error
 	RemoveAll(path string) error
 	Remove(name string) error
-
-	// from "io/ioutil"
 	ReadFile(filename string) ([]byte, error)
 	WriteFile(filename string, data []byte, perm fs.FileMode) error
-	TempDir(dir, prefix string) (string, error)
-	TempFile(dir, prefix string) (File, error)
-	ReadDir(dirname string) ([]os.FileInfo, error)
+
+	// from "path/filepath"
 	Walk(root string, walkFn filepath.WalkFunc) error
 }
 

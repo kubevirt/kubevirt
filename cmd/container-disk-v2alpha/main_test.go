@@ -2,7 +2,6 @@ package container_disk_v2alpha_test
 
 import (
 	"flag"
-	"io/ioutil"
 	"net"
 	"os"
 	"os/exec"
@@ -29,7 +28,7 @@ var _ = Describe("the containerDisk binary", func() {
 	})
 
 	It("should be able to handle 200 connections in 5 seconds without rejecting one of them", func() {
-		dir, err := ioutil.TempDir("", "container-disk")
+		dir, err := os.MkdirTemp("", "container-disk")
 		Expect(err).ToNot(HaveOccurred())
 		defer os.RemoveAll(dir)
 		cmd := exec.Command(containerDiskBinary, "-c", filepath.Join(dir, "testsocket"))

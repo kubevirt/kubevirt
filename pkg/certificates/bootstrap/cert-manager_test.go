@@ -2,7 +2,6 @@ package bootstrap
 
 import (
 	"crypto/tls"
-	"io/ioutil"
 	"os"
 	"path/filepath"
 	"time"
@@ -28,7 +27,7 @@ var _ = Describe("cert-manager", func() {
 
 		BeforeEach(func() {
 			var err error
-			certDir, err = ioutil.TempDir("", "certs")
+			certDir, err = os.MkdirTemp("", "certs")
 			certFilePath = filepath.Join(certDir, "tls.crt")
 			keyFilePath = filepath.Join(certDir, "tls.key")
 			Expect(err).ToNot(HaveOccurred())
@@ -57,19 +56,19 @@ var _ = Describe("cert-manager", func() {
 			writeCertsToDir(certDir)
 
 			var err error
-			newCertDir, err := ioutil.TempDir("", "certs")
+			newCertDir, err := os.MkdirTemp("", "certs")
 			Expect(err).ToNot(HaveOccurred())
-			newKeyDir, err := ioutil.TempDir("", "keys")
+			newKeyDir, err := os.MkdirTemp("", "keys")
 			Expect(err).ToNot(HaveOccurred())
-			crt, err := ioutil.ReadFile(certFilePath)
+			crt, err := os.ReadFile(certFilePath)
 			Expect(err).ToNot(HaveOccurred())
-			key, err := ioutil.ReadFile(keyFilePath)
+			key, err := os.ReadFile(keyFilePath)
 			Expect(err).ToNot(HaveOccurred())
 
 			newCertFilePath := filepath.Join(newCertDir, "tls.crt")
 			newKeyFilePath := filepath.Join(newKeyDir, "tls.key")
-			Expect(ioutil.WriteFile(newCertFilePath, crt, 0777)).To(Succeed())
-			Expect(ioutil.WriteFile(newKeyFilePath, key, 0777)).To(Succeed())
+			Expect(os.WriteFile(newCertFilePath, crt, 0777)).To(Succeed())
+			Expect(os.WriteFile(newKeyFilePath, key, 0777)).To(Succeed())
 
 			certManager := NewFileCertificateManager(newCertFilePath, newKeyFilePath)
 			go certManager.Start()
@@ -100,7 +99,7 @@ var _ = Describe("cert-manager", func() {
 			Eventually(func() *tls.Certificate {
 				return certManager.Current()
 			}, time.Second).Should(Not(BeNil()))
-			Expect(ioutil.WriteFile(filepath.Join(certDir, CertBytesValue), []byte{}, 0777)).To(Succeed())
+			Expect(os.WriteFile(filepath.Join(certDir, CertBytesValue), []byte{}, 0777)).To(Succeed())
 			Consistently(func() *tls.Certificate {
 				return certManager.Current()
 			}, 2*time.Second).ShouldNot(BeNil())
@@ -181,8 +180,8 @@ func writeCertsToDir(dir string) {
 	)
 	crt := cert.EncodeCertPEM(keyPair.Cert)
 	key := cert.EncodePrivateKeyPEM(keyPair.Key)
-	Expect(ioutil.WriteFile(filepath.Join(dir, CertBytesValue), crt, 0777)).To(Succeed())
-	Expect(ioutil.WriteFile(filepath.Join(dir, KeyBytesValue), key, 0777)).To(Succeed())
+	Expect(os.WriteFile(filepath.Join(dir, CertBytesValue), crt, 0777)).To(Succeed())
+	Expect(os.WriteFile(filepath.Join(dir, KeyBytesValue), key, 0777)).To(Succeed())
 }
 
 func writeCertsToSecret(name string, namespace string, revision string) *k8sv1.Secret {

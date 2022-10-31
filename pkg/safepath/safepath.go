@@ -317,9 +317,10 @@ func newPath(rootBase, relativePath string) *Path {
 
 // NewFileNoFollow assumes that a real path to a file is given. It will validate that
 // the file is indeed absolute by doing the following checks:
-//   * ensure that the path is absolute
-//   * ensure that the path does not container relative path elements
-//   * ensure that no symlinks are provided
+//   - ensure that the path is absolute
+//   - ensure that the path does not container relative path elements
+//   - ensure that no symlinks are provided
+//
 // It will return the opened file which contains a link to a safe-to-use path
 // to the file, which can't be tampered with. To operate on the file just use os.Open and related calls.
 func NewFileNoFollow(path string) (*File, error) {

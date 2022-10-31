@@ -24,7 +24,6 @@ import (
 	"errors"
 	"fmt"
 	"io/fs"
-	"io/ioutil"
 	"os"
 	"path"
 	"path/filepath"
@@ -3384,7 +3383,7 @@ var _ = Describe("direct IO checker", func() {
 		tmpDir, err = os.MkdirTemp("", "direct-io-checker")
 		Expect(err).ToNot(HaveOccurred())
 		existingFile = filepath.Join(tmpDir, "disk.img")
-		Expect(ioutil.WriteFile(existingFile, []byte("test"), 0644)).To(Succeed())
+		Expect(os.WriteFile(existingFile, []byte("test"), 0644)).To(Succeed())
 		nonExistingFile = filepath.Join(tmpDir, "non-existing-file")
 	})
 

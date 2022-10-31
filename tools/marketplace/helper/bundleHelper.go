@@ -20,7 +20,7 @@ package helper
 
 import (
 	"fmt"
-	"io/ioutil"
+	"os"
 
 	ext "k8s.io/apiextensions-apiserver/pkg/apis/apiextensions"
 	extv1 "k8s.io/apiextensions-apiserver/pkg/apis/apiextensions/v1"
@@ -187,7 +187,7 @@ func (bh *BundleHelper) addOldCRDs(outDir string) error {
 				return err
 			}
 			filename := fmt.Sprintf("%v/%v-%v.crd.yaml", outDir, crd.Name, version)
-			err = ioutil.WriteFile(filename, bytes, 0644)
+			err = os.WriteFile(filename, bytes, 0644)
 			if err != nil {
 				return err
 			}
@@ -212,7 +212,7 @@ func (bh *BundleHelper) addOldCSVs(outDir string, currentCSVVersion string) erro
 			return err
 		}
 		filename := fmt.Sprintf("%v/%v.csv.yaml", outDir, GetCSVName(csv))
-		err = ioutil.WriteFile(filename, bytes, 0644)
+		err = os.WriteFile(filename, bytes, 0644)
 		if err != nil {
 			return err
 		}

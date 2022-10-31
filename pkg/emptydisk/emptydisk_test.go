@@ -2,7 +2,6 @@ package emptydisk
 
 import (
 	"fmt"
-	"io/ioutil"
 	"os"
 	"path"
 
@@ -39,7 +38,7 @@ var _ = Describe("EmptyDisk", func() {
 
 	BeforeEach(func() {
 		var err error
-		emptyDiskBaseDir, err = ioutil.TempDir("", "emptydisk-dir")
+		emptyDiskBaseDir, err = os.MkdirTemp("", "emptydisk-dir")
 		Expect(err).ToNot(HaveOccurred())
 		creator = &emptyDiskCreator{
 			emptyDiskBaseDir: emptyDiskBaseDir,
@@ -77,11 +76,11 @@ var _ = Describe("EmptyDisk", func() {
 		It("should leave pre-existing disks alone", func() {
 			vmi := api.NewMinimalVMI("testvmi")
 			AppendEmptyDisk(vmi, "testdisk")
-			err := ioutil.WriteFile(filePathForVolumeName(emptyDiskBaseDir, "testdisk"), []byte("test"), 0777)
+			err := os.WriteFile(filePathForVolumeName(emptyDiskBaseDir, "testdisk"), []byte("test"), 0777)
 			Expect(err).ToNot(HaveOccurred())
 			err = creator.CreateTemporaryDisks(vmi)
 			Expect(err).ToNot(HaveOccurred())
-			data, err := ioutil.ReadFile(filePathForVolumeName(emptyDiskBaseDir, "testdisk"))
+			data, err := os.ReadFile(filePathForVolumeName(emptyDiskBaseDir, "testdisk"))
 			Expect(err).ToNot(HaveOccurred())
 			Expect(string(data)).To(Equal("test"))
 		})

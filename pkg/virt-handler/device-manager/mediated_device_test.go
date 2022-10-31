@@ -2,7 +2,6 @@ package device_manager
 
 import (
 	"bufio"
-	"io/ioutil"
 	"os"
 	"path/filepath"
 	"strings"
@@ -45,10 +44,10 @@ var _ = Describe("Mediated Device", func() {
 		clientTest = fake.NewSimpleClientset()
 		By("creating a temporary fake mdev directory tree")
 		// create base mdev dir instead of /sys/bus/mdev/devices
-		fakeMdevBasePath, err := ioutil.TempDir("/tmp", "mdevs")
+		fakeMdevBasePath, err := os.MkdirTemp("/tmp", "mdevs")
 		Expect(err).ToNot(HaveOccurred())
 		// create an alternative mdev_supported_types dir instead of /sys/class/mdev_bus/[pciAddress]/
-		fakeSupportedTypesPath, err = ioutil.TempDir("/tmp", "mdev_supported_types")
+		fakeSupportedTypesPath, err = os.MkdirTemp("/tmp", "mdev_supported_types")
 		Expect(err).ToNot(HaveOccurred())
 		// create a fake path to nvidia mdev type
 		fakeNvidiaTypePath := filepath.Join(fakeSupportedTypesPath, "nvidia-222")

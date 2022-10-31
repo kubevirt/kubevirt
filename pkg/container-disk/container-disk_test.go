@@ -22,7 +22,6 @@ package containerdisk
 import (
 	"errors"
 	"fmt"
-	"io/ioutil"
 	"os"
 	"os/user"
 	"path/filepath"
@@ -68,7 +67,7 @@ var _ = Describe("ContainerDisk", func() {
 
 	BeforeEach(func() {
 		var err error
-		tmpDir, err = ioutil.TempDir("", "containerdisktest")
+		tmpDir, err = os.MkdirTemp("", "containerdisktest")
 		Expect(err).ToNot(HaveOccurred())
 		Expect(os.MkdirAll(tmpDir, 0755)).To(Succeed())
 		err = SetLocalDirectory(tmpDir)
@@ -226,7 +225,7 @@ var _ = Describe("ContainerDisk", func() {
 				var tmpDir string
 				BeforeEach(func() {
 
-					tmpDir, err = ioutil.TempDir("", "something")
+					tmpDir, err = os.MkdirTemp("", "something")
 					Expect(err).ToNot(HaveOccurred())
 					err := os.MkdirAll(fmt.Sprintf("%s/pods/%s/volumes/kubernetes.io~empty-dir/container-disks", tmpDir, "poduid"), 0777)
 					Expect(err).ToNot(HaveOccurred())

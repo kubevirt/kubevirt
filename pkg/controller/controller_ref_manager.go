@@ -89,7 +89,7 @@ func (m *BaseControllerRefManager) isOwnedByOther(obj metav1.Object) bool {
 // ReleaseDetachedObject tries to take release ownership of an object for this controller.
 //
 // It will reconcile the following:
-//   * Release owned objects if the match function returns false.
+//   - Release owned objects if the match function returns false.
 //
 // A non-nil error is returned if some form of reconciliation was attempted and
 // failed. Usually, controllers should try again later in case reconciliation
@@ -133,8 +133,8 @@ func (m *BaseControllerRefManager) ReleaseDetachedObject(obj metav1.Object, matc
 // ClaimObject tries to take ownership of an object for this controller.
 //
 // It will reconcile the following:
-//   * Adopt orphans if the match function returns true.
-//   * Release owned objects if the match function returns false.
+//   - Adopt orphans if the match function returns true.
+//   - Release owned objects if the match function returns false.
 //
 // A non-nil error is returned if some form of reconciliation was attempted and
 // failed. Usually, controllers should try again later in case reconciliation
@@ -206,8 +206,9 @@ type VirtualMachineControllerRefManager struct {
 // If CanAdopt() returns a non-nil error, all adoptions will fail.
 //
 // NOTE: Once CanAdopt() is called, it will not be called again by the same
-//       VirtualMachineControllerRefManager instance. Create a new instance if it makes
-//       sense to check CanAdopt() again (e.g. in a different sync pass).
+//
+//	VirtualMachineControllerRefManager instance. Create a new instance if it makes
+//	sense to check CanAdopt() again (e.g. in a different sync pass).
 func NewVirtualMachineControllerRefManager(
 	virtualMachineControl VirtualMachineControlInterface,
 	controller metav1.Object,
@@ -229,8 +230,8 @@ func NewVirtualMachineControllerRefManager(
 // ClaimVirtualMachineInstances tries to take ownership of a list of VirtualMachineInstances.
 //
 // It will reconcile the following:
-//   * Adopt orphans if the selector matches.
-//   * Release owned objects if the selector no longer matches.
+//   - Adopt orphans if the selector matches.
+//   - Release owned objects if the selector no longer matches.
 //
 // Optional: If one or more filters are specified, a VirtualMachineInstance will only be claimed if
 // all filters return true.
@@ -281,7 +282,7 @@ func (m *VirtualMachineControllerRefManager) ClaimVirtualMachineInstances(vmis [
 // ReleaseDetachVirtualMachines removes ownership of detached VMs.
 //
 // It will reconcile the following:
-//   * Release owned objects if the selector no longer matches.
+//   - Release owned objects if the selector no longer matches.
 //
 // List of Owned VMs is returned.
 func (m *VirtualMachineControllerRefManager) ReleaseDetachedVirtualMachines(vms []*virtv1.VirtualMachine, filters ...func(machine *virtv1.VirtualMachine) bool) ([]*virtv1.VirtualMachine, error) {
@@ -321,8 +322,8 @@ func (m *VirtualMachineControllerRefManager) ReleaseDetachedVirtualMachines(vms 
 // ClaimMatchedDataVolumes tries to take ownership of a list of DataVolumes.
 //
 // It will reconcile the following:
-//   * Adopt orphans if the selector matches.
-//   * Release owned objects if the selector no longer matches.
+//   - Adopt orphans if the selector matches.
+//   - Release owned objects if the selector no longer matches.
 //
 // Optional: If one or more filters are specified, a DataVolume will only be claimed if
 // all filters return true.
@@ -364,8 +365,8 @@ func (m *VirtualMachineControllerRefManager) ClaimMatchedDataVolumes(dataVolumes
 // ClaimVirtualMachineInstanceByName tries to take ownership of a VirtualMachineInstance.
 //
 // It will reconcile the following:
-//   * Adopt orphans if the selector matches.
-//   * Release owned objects if the selector no longer matches.
+//   - Adopt orphans if the selector matches.
+//   - Release owned objects if the selector no longer matches.
 //
 // Optional: If one or more filters are specified, a VirtualMachineInstance will only be claimed if
 // all filters return true.

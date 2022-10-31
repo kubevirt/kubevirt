@@ -22,8 +22,8 @@ package converter
 import (
 	"bytes"
 	"fmt"
-	"io/ioutil"
 	"net"
+	"os"
 	"strings"
 
 	v1 "kubevirt.io/api/core/v1"
@@ -276,7 +276,7 @@ func configDNSSearchName(qemuArg *api.Arg) error {
 // returns nameservers [][]byte, searchdomains []string, error
 func GetResolvConfDetailsFromPod() ([][]byte, []string, error) {
 	// #nosec No risk for path injection. resolvConf is static "/etc/resolve.conf"
-	b, err := ioutil.ReadFile(resolvConf)
+	b, err := os.ReadFile(resolvConf)
 	if err != nil {
 		return nil, nil, err
 	}

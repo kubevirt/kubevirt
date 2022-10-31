@@ -70,7 +70,7 @@ type V1JUnitReporter struct {
 	ReporterConfig config.DefaultReporterConfigType
 }
 
-//NewV1JUnitReporter creates a new V1 JUnit XML reporter.  The XML will be stored in the passed in filename.
+// NewV1JUnitReporter creates a new V1 JUnit XML reporter.  The XML will be stored in the passed in filename.
 func NewV1JUnitReporter(filename string) *V1JUnitReporter {
 	return &V1JUnitReporter{
 		filename: filename,

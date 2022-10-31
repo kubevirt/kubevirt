@@ -5,9 +5,11 @@
 Package v1 is a generated protocol buffer package.
 
 It is generated from these files:
+
 	pkg/handler-launcher-com/cmd/v1/cmd.proto
 
 It has these top-level messages:
+
 	VMI
 	CPU
 	Sibling

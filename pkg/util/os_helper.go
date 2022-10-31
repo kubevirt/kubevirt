@@ -22,7 +22,6 @@ package util
 import (
 	"fmt"
 	"io"
-	"io/ioutil"
 	"os"
 
 	"kubevirt.io/client-go/log"
@@ -59,7 +58,7 @@ func OpenFileWithNosec(pathName string, flag int) (*os.File, error) {
 
 func WriteFileWithNosec(pathName string, data []byte) error {
 	// #nosec G306, Expect WriteFile permissions to be 0600 or less
-	return ioutil.WriteFile(pathName, data, 0644)
+	return os.WriteFile(pathName, data, 0644)
 }
 
 func WriteBytes(f *os.File, c byte, n int64) error {

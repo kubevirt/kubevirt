@@ -20,7 +20,7 @@
 package virtexportserver
 
 import (
-	"io/ioutil"
+	"io"
 	"net/http"
 	"net/http/httptest"
 
@@ -72,7 +72,7 @@ var _ = Describe("exportserver", func() {
 		Expect(err).ToNot(HaveOccurred())
 		Expect(res.StatusCode).To(Equal(http.StatusOK))
 		defer res.Body.Close()
-		out, err := ioutil.ReadAll(res.Body)
+		out, err := io.ReadAll(res.Body)
 		Expect(err).ToNot(HaveOccurred())
 		Expect(string(out)).To(Equal("OK"))
 	},
@@ -110,7 +110,7 @@ var _ = Describe("exportserver", func() {
 		Expect(err).ToNot(HaveOccurred())
 		Expect(res.StatusCode).To(Equal(http.StatusOK))
 		defer res.Body.Close()
-		out, err := ioutil.ReadAll(res.Body)
+		out, err := io.ReadAll(res.Body)
 		Expect(err).ToNot(HaveOccurred())
 		Expect(string(out)).To(Equal("OK"))
 	},

@@ -22,7 +22,6 @@ package hostdisk
 import (
 	"errors"
 	"fmt"
-	"io/ioutil"
 	"os"
 	"path"
 	"strings"
@@ -95,7 +94,7 @@ var _ = Describe("HostDisk", func() {
 
 	BeforeEach(func() {
 		var err error
-		tempDir, err = ioutil.TempDir("", "host-disk-images")
+		tempDir, err = os.MkdirTemp("", "host-disk-images")
 		Expect(setDiskDirectory(tempDir)).To(Succeed())
 		Expect(err).NotTo(HaveOccurred())
 

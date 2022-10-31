@@ -546,11 +546,11 @@ func (l LibvirtWrapper) SetupLibvirt(customLogFilters *string) (err error) {
 
 // getLibvirtLogFilters returns libvirt debug log filters that should be enabled if enableDebugLogs is true.
 // The decision is based on the following logic:
-// - If custom log filters are defined - they should be enabled and used.
-// - If verbosity is defined and beyond threshold then debug logs would be enabled and determined by verbosity level
-// - If verbosity level is below threshold but debug logs environment variable is defined, debug logs would be enabled
-// 	 and set to the highest verbosity level.
-// - If verbosity level is below threshold and debug logs environment variable is not defined - debug logs are disabled.
+//   - If custom log filters are defined - they should be enabled and used.
+//   - If verbosity is defined and beyond threshold then debug logs would be enabled and determined by verbosity level
+//   - If verbosity level is below threshold but debug logs environment variable is defined, debug logs would be enabled
+//     and set to the highest verbosity level.
+//   - If verbosity level is below threshold and debug logs environment variable is not defined - debug logs are disabled.
 func getLibvirtLogFilters(customLogFilters, libvirtLogVerbosityEnvVar *string, libvirtDebugLogsEnvVarDefined bool) (logFilters string, enableDebugLogs bool) {
 
 	if customLogFilters != nil && *customLogFilters != "" {

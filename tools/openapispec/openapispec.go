@@ -22,8 +22,8 @@ package main
 import (
 	"encoding/json"
 	"flag"
-	"io/ioutil"
 	"log"
+	"os"
 
 	restful "github.com/emicklei/go-restful"
 	"github.com/spf13/pflag"
@@ -41,7 +41,7 @@ func dumpOpenApiSpec(dumppath *string, apiws []*restful.WebService) {
 	if err != nil {
 		log.Fatal(err)
 	}
-	err = ioutil.WriteFile(*dumppath, data, 0644)
+	err = os.WriteFile(*dumppath, data, 0644)
 	if err != nil {
 		log.Fatal(err)
 	}
