@@ -22,6 +22,7 @@ package network
 import (
 	"fmt"
 	"strings"
+	"time"
 
 	expect "github.com/google/goexpect"
 	. "github.com/onsi/ginkgo/v2"
@@ -171,12 +172,14 @@ var _ = SIGDescribe("Slirp Networking", func() {
 				dns = flags.ConnectivityCheckDNS
 			}
 
-			Expect(console.SafeExpectBatch(vmi, []expect.Batcher{
-				&expect.BSnd{S: "\n"},
-				&expect.BExp{R: console.PromptExpression},
-				&expect.BSnd{S: fmt.Sprintf("curl -o /dev/null -s -w \"%%{http_code}\\n\" -k https://%s\n", dns)},
-				&expect.BExp{R: "301"},
-			}, 180)).To(Succeed())
+			Eventually(func() error {
+				return console.SafeExpectBatch(vmi, []expect.Batcher{
+					&expect.BSnd{S: "\n"},
+					&expect.BExp{R: console.PromptExpression},
+					&expect.BSnd{S: fmt.Sprintf("curl -o /dev/null -s -w \"%%{http_code}\\n\" -k https://%s\n", dns)},
+					&expect.BExp{R: "301"},
+				}, 60)
+			}, 180*time.Second, time.Second).Should(Succeed(), "Failed to establish a successful connection to the outside network")
 		},
 			Entry("VirtualMachineInstance with slirp interface", &genericVmi),
 			Entry("VirtualMachineInstance with slirp interface with custom MAC address", &deadbeafVmi),
