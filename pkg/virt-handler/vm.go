@@ -1269,6 +1269,18 @@ func (d *VirtualMachineController) updateVMIStatus(origVMI *v1.VirtualMachineIns
 
 	controller.SetVMIPhaseTransitionTimestamp(origVMI, vmi)
 
+	newStatuses := d.hotplugInterfaceController.DynamicIfaceAttachmentStatus()
+	for _, status := range newStatuses {
+		log.Log.V(4).Infof("Dynamic interface status: %v. HotPlug status: %v", status, status.HotplugInterface)
+		if syncError == nil {
+			status.HotplugInterface.Phase = v1.InterfaceHotplugPhaseReady
+		} else {
+			status.HotplugInterface.Phase = v1.InterfaceHotplugPhaseFailed
+			status.HotplugInterface.DetailedMessage = fmt.Errorf("failed to update domain: %w", syncError).Error()
+		}
+		vmi.Status.Interfaces = append(vmi.Status.Interfaces, status)
+	}
+
 	// Only issue vmi update if status has changed
 	if !equality.Semantic.DeepEqual(oldStatus, vmi.Status) {
 		key := controller.VirtualMachineInstanceKey(vmi)

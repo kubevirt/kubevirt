@@ -26,9 +26,11 @@ package converter
 */
 
 import (
+	"crypto/md5"
 	"encoding/json"
 	"errors"
 	"fmt"
+	"io"
 	"os"
 	"os/exec"
 	"path/filepath"
@@ -1989,6 +1991,25 @@ func hasTabletDevice(vmi *v1.VirtualMachineInstance) bool {
 	return false
 }
 
+func CalcDomDevice(ctx *ConverterContext, iface v1.VirtualMachineInstanceNetworkInterface) api.Interface {
+	return api.Interface{
+		Type: "ethernet",
+		Target: &api.InterfaceTarget{
+			Device:  generateTapDeviceName(iface.Name),
+			Managed: "no",
+		},
+		Model: &api.Model{Type: translateModel(ctx, "virtio")},
+		Alias: api.NewUserDefinedAlias("hotplug-" + iface.Name),
+	}
+}
+
+func generateTapDeviceName(networkName string) string {
+	const maxIfaceNameLen = 15
+	hash := md5.New()
+	_, _ = io.WriteString(hash, networkName)
+	return fmt.Sprintf("%s%x", "tap", hash.Sum(nil))[:maxIfaceNameLen]
+}
+
 func needsMorePCIEControlers(vmi *v1.VirtualMachineInstance) bool {
 	const pciSlotHungryMachineType = "q35"
 	if vmi.Spec.Domain.Machine != nil {
@@ -1997,4 +2018,16 @@ func needsMorePCIEControlers(vmi *v1.VirtualMachineInstance) bool {
 		}
 	}
 	return false
+}
+
+func CalcDomDeviceWithMac(iface v1.VirtualMachineInstanceNetworkInterface) api.Interface {
+	return api.Interface{
+		Type: "ethernet",
+		Target: &api.InterfaceTarget{
+			Device:  generateTapDeviceName(iface.Name),
+			Managed: "no",
+		},
+		Alias: api.NewUserDefinedAlias("hotplug-" + iface.Name),
+		MAC:   &api.MAC{MAC: iface.MAC},
+	}
 }

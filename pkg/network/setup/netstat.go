@@ -36,6 +36,7 @@ import (
 
 const (
 	DefaultInterfaceQueueCount = 1
+	HotplugDomainAliasPrefix   = "hotplug-"
 	UnknownInterfaceQueueCount = 0
 )
 
@@ -123,7 +124,6 @@ func (c *NetStat) UpdateStatus(vmi *v1.VirtualMachineInstance, domain *api.Domai
 	}
 
 	vmi.Status.Interfaces = interfacesStatus
-
 	return nil
 }
 
@@ -173,14 +173,28 @@ func ifacesStatusFromDomainInterfaces(domainSpecIfaces []api.Interface) []v1.Vir
 	var vmiStatusIfaces []v1.VirtualMachineInstanceNetworkInterface
 
 	for _, domainSpecIface := range domainSpecIfaces {
-		vmiStatusIfaces = append(vmiStatusIfaces, v1.VirtualMachineInstanceNetworkInterface{
-			Name:       domainSpecIface.Alias.GetName(),
-			MAC:        domainSpecIface.MAC.MAC,
-			InfoSource: netvmispec.InfoSourceDomain,
-			QueueCount: domainInterfaceQueues(domainSpecIface.Driver),
-		})
+		vmiStatusIfaces = append(vmiStatusIfaces, ifaceStatusFromDomainIface(domainSpecIface))
 	}
+
 	return vmiStatusIfaces
+}
+
+func ifaceStatusFromDomainIface(domainSpecIface api.Interface) v1.VirtualMachineInstanceNetworkInterface {
+	ifaceName := strings.TrimPrefix(domainSpecIface.Alias.GetName(), HotplugDomainAliasPrefix)
+	ifaceStatus := v1.VirtualMachineInstanceNetworkInterface{
+		Name:       ifaceName,
+		MAC:        domainSpecIface.MAC.MAC,
+		InfoSource: netvmispec.InfoSourceDomain,
+		QueueCount: domainInterfaceQueues(domainSpecIface.Driver),
+	}
+	if IsDomainIfaceAnHotpluggedIface(domainSpecIface) {
+		ifaceStatus.HotplugInterface = &v1.HotplugInterfaceStatus{Type: v1.Plug, Phase: v1.InterfaceHotplugPhaseReady}
+	}
+	return ifaceStatus
+}
+
+func IsDomainIfaceAnHotpluggedIface(domainSpecIface api.Interface) bool {
+	return strings.HasPrefix(domainSpecIface.Alias.GetName(), HotplugDomainAliasPrefix)
 }
 
 func domainInterfaceQueues(driver *api.InterfaceDriver) int32 {
@@ -221,6 +235,17 @@ func passtIfacesStatusFromVmiSpec(interfaces []v1.Interface) []v1.VirtualMachine
 
 	}
 	return vmiStatusIfaces
+}
+
+func HotpluggedIfacesFromStatus(vmi *v1.VirtualMachineInstance) map[string]v1.VirtualMachineInstanceNetworkInterface {
+	hotpluggedIfaces := map[string]v1.VirtualMachineInstanceNetworkInterface{}
+
+	for _, ifaceStatus := range vmi.Status.Interfaces {
+		if ifaceStatus.HotplugInterface != nil {
+			hotpluggedIfaces[ifaceStatus.Name] = ifaceStatus
+		}
+	}
+	return hotpluggedIfaces
 }
 
 func ifacesStatusFromGuestAgent(vmiIfacesStatus []v1.VirtualMachineInstanceNetworkInterface, guestAgentInterfaces []api.InterfaceStatus) []v1.VirtualMachineInstanceNetworkInterface {
