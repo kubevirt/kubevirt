@@ -2605,6 +2605,38 @@ var _ = Describe("Manager helper functions", func() {
 
 })
 
+var _ = Describe("ifacesMissingInDomain", func() {
+	const (
+		existingIfaceName   = "iface1"
+		interfaceToPlugName = "newIface"
+		networkName         = "net1"
+	)
+
+	DescribeTable(
+		"should return the correct values",
+		func(networks []v1.Network, domain api.DomainSpec, expectedIfacesToHotplug ...string) {
+			Expect(ifacesMissingInDomain(networks, domain)).To(Equal(expectedIfacesToHotplug))
+		},
+		Entry(
+			"nothing to plug when the interface is featured in the domain",
+			[]v1.Network{{
+				Name:          existingIfaceName,
+				NetworkSource: v1.NetworkSource{Multus: &v1.MultusNetwork{NetworkName: networkName}},
+			}},
+			api.DomainSpec{Devices: api.Devices{Interfaces: []api.Interface{{Alias: api.NewUserDefinedAlias(existingIfaceName)}}}},
+		),
+		Entry(
+			"a new interface must be plugged when it isn't available in the domain",
+			[]v1.Network{{
+				Name:          interfaceToPlugName,
+				NetworkSource: v1.NetworkSource{Multus: &v1.MultusNetwork{NetworkName: networkName}},
+			}},
+			api.DomainSpec{Devices: api.Devices{Interfaces: []api.Interface{{Alias: api.NewUserDefinedAlias(existingIfaceName)}}}},
+			interfaceToPlugName,
+		),
+	)
+})
+
 func newVMI(namespace, name string) *v1.VirtualMachineInstance {
 	vmi := api2.NewMinimalVMIWithNS(namespace, name)
 	v1.SetObjectDefaults_VirtualMachineInstance(vmi)

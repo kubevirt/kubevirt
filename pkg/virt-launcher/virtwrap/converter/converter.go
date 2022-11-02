@@ -26,9 +26,11 @@ package converter
 */
 
 import (
+	"crypto/md5"
 	"encoding/json"
 	"errors"
 	"fmt"
+	"io"
 	"os"
 	"os/exec"
 	"path/filepath"
@@ -62,6 +64,7 @@ import (
 	cmdv1 "kubevirt.io/kubevirt/pkg/handler-launcher-com/cmd/v1"
 	hostdisk "kubevirt.io/kubevirt/pkg/host-disk"
 	"kubevirt.io/kubevirt/pkg/ignition"
+	"kubevirt.io/kubevirt/pkg/network/namescheme"
 	"kubevirt.io/kubevirt/pkg/util"
 )
 
@@ -75,8 +78,9 @@ const (
 )
 
 const (
-	multiQueueMaxQueues  = uint32(256)
-	QEMUSeaBiosDebugPipe = "/var/run/kubevirt-private/QEMUSeaBiosDebugPipe"
+	HotplugIfaceNamePrefix = "hotplug-"
+	multiQueueMaxQueues    = uint32(256)
+	QEMUSeaBiosDebugPipe   = "/var/run/kubevirt-private/QEMUSeaBiosDebugPipe"
 )
 
 type deviceNamer struct {
@@ -1988,6 +1992,24 @@ func hasTabletDevice(vmi *v1.VirtualMachineInstance) bool {
 	return false
 }
 
+func CalcDomDevice(ctx *ConverterContext, ifaceName string) api.Interface {
+	return api.Interface{
+		Type: "ethernet",
+		Target: &api.InterfaceTarget{
+			Device:  generateTapDeviceName(ifaceName),
+			Managed: "no",
+		},
+		Model: &api.Model{Type: translateModel(ctx, "virtio")},
+		Alias: api.NewUserDefinedAlias(HotplugIfaceNamePrefix + ifaceName),
+	}
+}
+
+func generateTapDeviceName(networkName string) string {
+	hash := md5.New()
+	_, _ = io.WriteString(hash, networkName)
+	return fmt.Sprintf("%s%x", "tap", hash.Sum(nil))[:namescheme.MaxIfaceNameLen]
+}
+
 func needsMorePCIEControlers(vmi *v1.VirtualMachineInstance) bool {
 	const pciSlotHungryMachineType = "q35"
 	if vmi.Spec.Domain.Machine != nil {
@@ -1996,4 +2018,16 @@ func needsMorePCIEControlers(vmi *v1.VirtualMachineInstance) bool {
 		}
 	}
 	return false
+}
+
+func CalcDomDeviceWithMac(iface v1.VirtualMachineInstanceNetworkInterface) api.Interface {
+	return api.Interface{
+		Type: "ethernet",
+		Target: &api.InterfaceTarget{
+			Device:  generateTapDeviceName(iface.Name),
+			Managed: "no",
+		},
+		Alias: api.NewUserDefinedAlias(HotplugIfaceNamePrefix + iface.Name),
+		MAC:   &api.MAC{MAC: iface.MAC},
+	}
 }

@@ -973,6 +973,31 @@ func (l *LibvirtDomainManager) SyncVMI(vmi *v1.VirtualMachineInstance, allowEmul
 		}
 	}
 
+	for _, networkName := range ifacesMissingInDomain(netsetup.InterfacesToHotplug(vmi), oldSpec) {
+		log.Log.Infof("will hot plug %s", networkName)
+		ifaceXML, err := xml.Marshal(converter.CalcDomDevice(c, networkName))
+		if err != nil {
+			continue
+		}
+
+		if err := dom.AttachDevice(strings.ToLower(string(ifaceXML))); err != nil {
+			logger.Reason(err).Errorf("libvirt failed to attach interface: %s", networkName)
+			return nil, err
+		}
+	}
+
+	for _, iface := range netsetup.InterfacesToHotUnplug(vmi) {
+		log.Log.Infof("will hot unplug %+v having status: %+v", iface, iface.HotplugInterface)
+		ifaceXML, err := xml.Marshal(converter.CalcDomDeviceWithMac(iface))
+		if err != nil {
+			continue
+		}
+		if err := dom.DetachDevice(strings.ToLower(string(ifaceXML))); err != nil {
+			logger.Reason(err).Errorf("libvirt failed to detach interface: %+v", iface)
+			return nil, err
+		}
+	}
+
 	// TODO: check if VirtualMachineInstance Spec and Domain Spec are equal or if we have to sync
 	return &oldSpec, nil
 }
@@ -1955,4 +1980,20 @@ func getDomainCreateFlags(vmi *v1.VirtualMachineInstance) libvirt.DomainCreateFl
 		flags |= libvirt.DOMAIN_START_PAUSED
 	}
 	return flags
+}
+
+func ifacesMissingInDomain(networksToAdd []v1.Network, domain api.DomainSpec) []string {
+	currentDomainIfaces := map[string]api.Interface{}
+	for _, iface := range domain.Devices.Interfaces {
+		key := strings.TrimPrefix(iface.Alias.GetName(), converter.HotplugIfaceNamePrefix)
+		currentDomainIfaces[key] = iface
+	}
+
+	ifacesToHotplug := make([]string, 0)
+	for _, iface := range networksToAdd {
+		if _, wasFound := currentDomainIfaces[iface.Name]; !wasFound {
+			ifacesToHotplug = append(ifacesToHotplug, iface.Name)
+		}
+	}
+	return ifacesToHotplug
 }
