@@ -36,6 +36,7 @@ import (
 
 const (
 	DefaultInterfaceQueueCount = 1
+	HotplugDomainAliasPrefix   = "hotplug-"
 	UnknownInterfaceQueueCount = 0
 )
 
@@ -123,7 +124,6 @@ func (c *NetStat) UpdateStatus(vmi *v1.VirtualMachineInstance, domain *api.Domai
 	}
 
 	vmi.Status.Interfaces = interfacesStatus
-
 	return nil
 }
 
@@ -173,14 +173,21 @@ func ifacesStatusFromDomainInterfaces(domainSpecIfaces []api.Interface) []v1.Vir
 	var vmiStatusIfaces []v1.VirtualMachineInstanceNetworkInterface
 
 	for _, domainSpecIface := range domainSpecIfaces {
-		vmiStatusIfaces = append(vmiStatusIfaces, v1.VirtualMachineInstanceNetworkInterface{
-			Name:       domainSpecIface.Alias.GetName(),
-			MAC:        domainSpecIface.MAC.MAC,
-			InfoSource: netvmispec.InfoSourceDomain,
-			QueueCount: domainInterfaceQueues(domainSpecIface.Driver),
-		})
+		vmiStatusIfaces = append(vmiStatusIfaces, ifaceStatusFromDomainIface(domainSpecIface))
 	}
+
 	return vmiStatusIfaces
+}
+
+func ifaceStatusFromDomainIface(domainSpecIface api.Interface) v1.VirtualMachineInstanceNetworkInterface {
+	ifaceName := strings.TrimPrefix(domainSpecIface.Alias.GetName(), HotplugDomainAliasPrefix)
+	ifaceStatus := v1.VirtualMachineInstanceNetworkInterface{
+		Name:       ifaceName,
+		MAC:        domainSpecIface.MAC.MAC,
+		InfoSource: netvmispec.InfoSourceDomain,
+		QueueCount: domainInterfaceQueues(domainSpecIface.Driver),
+	}
+	return ifaceStatus
 }
 
 func domainInterfaceQueues(driver *api.InterfaceDriver) int32 {

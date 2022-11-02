@@ -60,6 +60,10 @@ func GeneratePodIfaceName(networkName string) string {
 	return hashNetworkName(networkName, "net")
 }
 
+func GenerateTapDeviceName(networkName string) string {
+	return hashNetworkName(networkName, "tap")
+}
+
 func hashNetworkName(networkName string, prefix string) string {
 	hash := sha256.New()
 	_, _ = io.WriteString(hash, networkName)

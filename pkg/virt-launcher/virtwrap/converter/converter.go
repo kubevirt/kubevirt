@@ -62,6 +62,7 @@ import (
 	cmdv1 "kubevirt.io/kubevirt/pkg/handler-launcher-com/cmd/v1"
 	hostdisk "kubevirt.io/kubevirt/pkg/host-disk"
 	"kubevirt.io/kubevirt/pkg/ignition"
+	"kubevirt.io/kubevirt/pkg/network/namescheme"
 	"kubevirt.io/kubevirt/pkg/util"
 )
 
@@ -75,8 +76,9 @@ const (
 )
 
 const (
-	multiQueueMaxQueues  = uint32(256)
-	QEMUSeaBiosDebugPipe = "/var/run/kubevirt-private/QEMUSeaBiosDebugPipe"
+	HotplugIfaceNamePrefix = "hotplug-"
+	multiQueueMaxQueues    = uint32(256)
+	QEMUSeaBiosDebugPipe   = "/var/run/kubevirt-private/QEMUSeaBiosDebugPipe"
 )
 
 type deviceNamer struct {
@@ -1986,6 +1988,18 @@ func hasTabletDevice(vmi *v1.VirtualMachineInstance) bool {
 		}
 	}
 	return false
+}
+
+func CalcDomDevice(ctx *ConverterContext, ifaceName string) api.Interface {
+	return api.Interface{
+		Type: "ethernet",
+		Target: &api.InterfaceTarget{
+			Device:  namescheme.GenerateTapDeviceName(ifaceName),
+			Managed: "no",
+		},
+		Model: &api.Model{Type: translateModel(ctx, "virtio")},
+		Alias: api.NewUserDefinedAlias(HotplugIfaceNamePrefix + ifaceName),
+	}
 }
 
 func needsMorePCIEControlers(vmi *v1.VirtualMachineInstance) bool {
