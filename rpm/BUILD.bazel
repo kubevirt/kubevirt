@@ -577,6 +577,7 @@ rpmtree(
         "@qemu-img-17__7.1.0-3.el9.aarch64//rpm",
         "@qemu-kvm-common-17__7.1.0-3.el9.aarch64//rpm",
         "@qemu-kvm-core-17__7.1.0-3.el9.aarch64//rpm",
+        "@qemu-kvm-device-display-virtio-gpu-pci-17__7.1.0-3.el9.aarch64//rpm",
         "@readline-0__8.1-4.el9.aarch64//rpm",
         "@rpm-0__4.16.1.3-17.el9.aarch64//rpm",
         "@rpm-libs-0__4.16.1.3-17.el9.aarch64//rpm",

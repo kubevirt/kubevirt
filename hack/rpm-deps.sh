@@ -95,6 +95,7 @@ launcherbase_x86_64="
 "
 launcherbase_aarch64="
   edk2-aarch64-${EDK2_VERSION}
+  qemu-kvm-device-display-virtio-gpu-pci-${QEMU_VERSION}
 "
 launcherbase_extra="
   ethtool
