@@ -87,7 +87,7 @@ func CleanNamespaces() {
 		}
 
 		// Clean namespace labels
-		err = libnet.RemoveAllLabelsFromNamespace(virtCli, namespace)
+		err = resetNamespaceLabelsToDefault(virtCli, namespace)
 		util.PanicOnError(err)
 
 		//Remove all Jobs
@@ -271,6 +271,27 @@ func detectInstallNamespace() {
 	flags.KubeVirtInstallNamespace = kvs.Items[0].Namespace
 }
 
+func GetLabelsForNamespace(namespace string) map[string]string {
+	labels := map[string]string{
+		cleanup.TestLabelForNamespace(namespace):         "",
+		"security.openshift.io/scc.podSecurityLabelSync": "false",
+	}
+	if namespace == NamespacePrivileged {
+		labels["pod-security.kubernetes.io/enforce"] = "privileged"
+	}
+
+	return labels
+}
+
+func resetNamespaceLabelsToDefault(client kubecli.KubevirtClient, namespace string) error {
+	return libnet.PatchNamespace(client, namespace, func(ns *k8sv1.Namespace) {
+		if ns.Labels == nil {
+			return
+		}
+		ns.Labels = GetLabelsForNamespace(namespace)
+	})
+}
+
 func createNamespaces() {
 	virtCli, err := kubecli.GetKubevirtClient()
 	util.PanicOnError(err)
@@ -279,15 +300,9 @@ func createNamespaces() {
 	for _, namespace := range TestNamespaces {
 		ns := &k8sv1.Namespace{
 			ObjectMeta: metav1.ObjectMeta{
-				Name: namespace,
-				Labels: map[string]string{
-					cleanup.TestLabelForNamespace(namespace):         "",
-					"security.openshift.io/scc.podSecurityLabelSync": "false",
-				},
+				Name:   namespace,
+				Labels: GetLabelsForNamespace(namespace),
 			},
-		}
-		if namespace == NamespacePrivileged {
-			ns.Labels["pod-security.kubernetes.io/enforce"] = "privileged"
 		}
 
 		_, err = virtCli.CoreV1().Namespaces().Create(context.Background(), ns, metav1.CreateOptions{})
