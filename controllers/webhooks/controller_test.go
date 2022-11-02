@@ -2,6 +2,7 @@ package webhooks
 
 import (
 	"context"
+	"time"
 
 	"k8s.io/client-go/rest"
 
@@ -154,7 +155,7 @@ var _ = Describe("HyperconvergedController", func() {
 				res, err := r.Reconcile(context.TODO(), request)
 				Expect(err).ToNot(HaveOccurred())
 				Expect(res.Requeue).To(BeFalse())
-				Expect(res).Should(Equal(reconcile.Result{}))
+				Expect(res.RequeueAfter).To(Equal(1 * time.Minute))
 
 				// Update ApiServer CR
 				apiServer.Spec.TLSSecurityProfile = customTLSSecurityProfile
@@ -166,7 +167,7 @@ var _ = Describe("HyperconvergedController", func() {
 				res, err = r.Reconcile(context.TODO(), request)
 				Expect(err).ToNot(HaveOccurred())
 				Expect(res.Requeue).To(BeFalse())
-				Expect(res).Should(Equal(reconcile.Result{}))
+				Expect(res.RequeueAfter).To(Equal(1 * time.Minute))
 
 				Expect(hcoutil.GetClusterInfo().GetTLSSecurityProfile(nil)).To(Equal(customTLSSecurityProfile), "should return the up-to-date value")
 

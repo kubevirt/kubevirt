@@ -2,6 +2,7 @@ package webhooks
 
 import (
 	"context"
+	"time"
 
 	logf "sigs.k8s.io/controller-runtime/pkg/log"
 
@@ -31,7 +32,12 @@ var _ reconcile.Reconciler = &ReconcileAPIServer{}
 
 func (r *ReconcileAPIServer) Reconcile(ctx context.Context, request reconcile.Request) (reconcile.Result, error) {
 	err := r.ci.RefreshAPIServerCR(ctx, r.client)
-	return reconcile.Result{}, err
+	// TODO: once https://github.com/kubernetes-sigs/controller-runtime/issues/2032
+	// is properly addressed, avoid polling on the APIServer CR
+	if err != nil {
+		return reconcile.Result{Requeue: true}, err
+	}
+	return reconcile.Result{RequeueAfter: 1 * time.Minute}, nil
 }
 
 // RegisterReconciler creates a new HyperConverged Reconciler and registers it into manager.
