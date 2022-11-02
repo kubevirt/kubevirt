@@ -300,3 +300,15 @@ func GetResolvConfDetailsFromPod() ([][]byte, []string, error) {
 
 	return nameservers, searchDomains, err
 }
+
+func VirtIODomainInterfaceSpec(ctx *ConverterContext, attachmentName string, tapDeviceName string) api.Interface {
+	return api.Interface{
+		Type: "ethernet",
+		Target: &api.InterfaceTarget{
+			Device:  tapDeviceName,
+			Managed: "no",
+		},
+		Model: &api.Model{Type: translateModel(ctx, "virtio")},
+		Alias: api.NewUserDefinedAlias(attachmentName),
+	}
+}

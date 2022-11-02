@@ -174,10 +174,11 @@ func ifacesStatusFromDomainInterfaces(domainSpecIfaces []api.Interface) []v1.Vir
 
 	for _, domainSpecIface := range domainSpecIfaces {
 		vmiStatusIfaces = append(vmiStatusIfaces, v1.VirtualMachineInstanceNetworkInterface{
-			Name:       domainSpecIface.Alias.GetName(),
-			MAC:        domainSpecIface.MAC.MAC,
-			InfoSource: netvmispec.InfoSourceDomain,
-			QueueCount: domainInterfaceQueues(domainSpecIface.Driver),
+			Name:          domainSpecIface.Alias.GetName(),
+			MAC:           domainSpecIface.MAC.MAC,
+			InfoSource:    netvmispec.InfoSourceDomain,
+			QueueCount:    domainInterfaceQueues(domainSpecIface.Driver),
+			PodConfigDone: true,
 		})
 	}
 	return vmiStatusIfaces
@@ -196,8 +197,9 @@ func sriovIfacesStatusFromDomainHostDevices(hostDevices []api.HostDevice, vmiIfa
 
 	for _, hostDevice := range filterHostDevicesByAlias(hostDevices, sriov.AliasPrefix) {
 		vmiStatusIface := v1.VirtualMachineInstanceNetworkInterface{
-			Name:       hostDevice.Alias.GetName()[len(sriov.AliasPrefix):],
-			InfoSource: netvmispec.InfoSourceDomain,
+			Name:          hostDevice.Alias.GetName()[len(sriov.AliasPrefix):],
+			InfoSource:    netvmispec.InfoSourceDomain,
+			PodConfigDone: true,
 		}
 		if iface, exists := vmiIfacesSpecByName[vmiStatusIface.Name]; exists {
 			vmiStatusIface.MAC = iface.MacAddress
