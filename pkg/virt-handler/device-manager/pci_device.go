@@ -131,10 +131,6 @@ func (dpi *PCIDevicePlugin) Start(stop <-chan struct{}) (err error) {
 	defer dpi.stopDevicePlugin()
 
 	pluginapi.RegisterDevicePluginServer(dpi.server, dpi)
-	err = dpi.register()
-	if err != nil {
-		return fmt.Errorf("error registering with device plugin manager: %v", err)
-	}
 
 	errChan := make(chan error, 2)
 
@@ -145,6 +141,11 @@ func (dpi *PCIDevicePlugin) Start(stop <-chan struct{}) (err error) {
 	err = waitForGRPCServer(dpi.socketPath, connectionTimeout)
 	if err != nil {
 		return fmt.Errorf("error starting the GRPC server: %v", err)
+	}
+
+	err = dpi.register()
+	if err != nil {
+		return fmt.Errorf("error registering with device plugin manager: %v", err)
 	}
 
 	go func() {
