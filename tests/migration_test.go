@@ -1460,7 +1460,7 @@ var _ = Describe("[rfe_id:393][crit:high][vendor:cnv-qe@redhat.com][level:system
 				}
 
 				dataVolume := libdv.NewDataVolume(
-					libdv.WithRegistryURLSource(cd.DataVolumeImportUrlForContainerDisk(cd.ContainerDiskAlpine)),
+					libdv.WithRegistryURLSourceAndPullMethod(cd.DataVolumeImportUrlForContainerDisk(cd.ContainerDiskAlpine), cdiv1.RegistryPullNode),
 					libdv.WithPVC(libdv.PVCWithStorageClass(sc)),
 				)
 
@@ -1669,7 +1669,7 @@ var _ = Describe("[rfe_id:393][crit:high][vendor:cnv-qe@redhat.com][level:system
 
 				url := "docker://" + cd.ContainerDiskFor(cd.ContainerDiskFedoraTestTooling)
 				dv = libdv.NewDataVolume(
-					libdv.WithRegistryURLSource(url),
+					libdv.WithRegistryURLSourceAndPullMethod(url, cdiv1.RegistryPullNode),
 					libdv.WithPVC(
 						libdv.PVCWithStorageClass(sc),
 						libdv.PVCWithVolumeSize(cd.FedoraVolumeSize),
@@ -1728,7 +1728,7 @@ var _ = Describe("[rfe_id:393][crit:high][vendor:cnv-qe@redhat.com][level:system
 			}
 
 			dv := libdv.NewDataVolume(
-				libdv.WithRegistryURLSource(cd.DataVolumeImportUrlForContainerDisk(cd.ContainerDiskAlpine)),
+				libdv.WithRegistryURLSourceAndPullMethod(cd.DataVolumeImportUrlForContainerDisk(cd.ContainerDiskAlpine), cdiv1.RegistryPullNode),
 				libdv.WithPVC(
 					libdv.PVCWithStorageClass(sc),
 					libdv.PVCWithVolumeSize(size),
@@ -2136,7 +2136,7 @@ var _ = Describe("[rfe_id:393][crit:high][vendor:cnv-qe@redhat.com][level:system
 				memoryRequestSize = resource.MustParse("1Gi")
 
 				dv = libdv.NewDataVolume(
-					libdv.WithRegistryURLSource(cd.DataVolumeImportUrlForContainerDisk(cd.ContainerDiskFedoraTestTooling)),
+					libdv.WithRegistryURLSourceAndPullMethod(cd.DataVolumeImportUrlForContainerDisk(cd.ContainerDiskFedoraTestTooling), cdiv1.RegistryPullNode),
 					libdv.WithPVC(
 						libdv.PVCWithStorageClass(sc),
 						libdv.PVCWithVolumeSize(cd.FedoraVolumeSize),
@@ -2638,7 +2638,7 @@ var _ = Describe("[rfe_id:393][crit:high][vendor:cnv-qe@redhat.com][level:system
 				}
 
 				dv := libdv.NewDataVolume(
-					libdv.WithRegistryURLSource(cd.DataVolumeImportUrlForContainerDisk(cd.ContainerDiskFedoraTestTooling)),
+					libdv.WithRegistryURLSourceAndPullMethod(cd.DataVolumeImportUrlForContainerDisk(cd.ContainerDiskFedoraTestTooling), cdiv1.RegistryPullNode),
 					libdv.WithPVC(
 						libdv.PVCWithStorageClass(sc),
 						libdv.PVCWithVolumeSize(cd.FedoraVolumeSize),
