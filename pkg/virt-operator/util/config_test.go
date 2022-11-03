@@ -32,6 +32,13 @@ import (
 
 var _ = Describe("Operator Config", func() {
 
+	var envVarManager EnvVarManager
+
+	BeforeEach(func() {
+		envVarManager = &EnvVarManagerMock{}
+		DefaultEnvVarManager = envVarManager
+	})
+
 	getConfig := func(registry, version string) *KubeVirtDeploymentConfig {
 		return &KubeVirtDeploymentConfig{
 			Registry:        registry,
@@ -40,7 +47,7 @@ var _ = Describe("Operator Config", func() {
 	}
 
 	DescribeTable("Parse image", func(image string, config *KubeVirtDeploymentConfig, valid bool) {
-		os.Setenv(OperatorImageEnvName, image)
+		envVarManager.Setenv(OldOperatorImageEnvName, image)
 
 		err := VerifyEnv()
 		if valid {
@@ -86,13 +93,13 @@ var _ = Describe("Operator Config", func() {
 	}
 
 	DescribeTable("Read shasums", func(image string, envVersions *KubeVirtDeploymentConfig, expectedConfig *KubeVirtDeploymentConfig, useShasums, valid bool) {
-		os.Setenv(OperatorImageEnvName, image)
+		envVarManager.Setenv(OldOperatorImageEnvName, image)
 
-		os.Setenv(VirtApiShasumEnvName, envVersions.VirtApiSha)
-		os.Setenv(VirtControllerShasumEnvName, envVersions.VirtControllerSha)
-		os.Setenv(VirtHandlerShasumEnvName, envVersions.VirtHandlerSha)
-		os.Setenv(VirtLauncherShasumEnvName, envVersions.VirtLauncherSha)
-		os.Setenv(KubeVirtVersionEnvName, envVersions.KubeVirtVersion)
+		envVarManager.Setenv(VirtApiShasumEnvName, envVersions.VirtApiSha)
+		envVarManager.Setenv(VirtControllerShasumEnvName, envVersions.VirtControllerSha)
+		envVarManager.Setenv(VirtHandlerShasumEnvName, envVersions.VirtHandlerSha)
+		envVarManager.Setenv(VirtLauncherShasumEnvName, envVersions.VirtLauncherSha)
+		envVarManager.Setenv(KubeVirtVersionEnvName, envVersions.KubeVirtVersion)
 
 		err := VerifyEnv()
 		if valid {
@@ -141,10 +148,10 @@ var _ = Describe("Operator Config", func() {
 			otherKey := rand.String(10)
 			val := rand.String(10)
 
-			err := os.Setenv(passthroughKey, val)
+			err := envVarManager.Setenv(passthroughKey, val)
 			Expect(err).ToNot(HaveOccurred())
 
-			err = os.Setenv(otherKey, val)
+			err = envVarManager.Setenv(otherKey, val)
 			Expect(err).ToNot(HaveOccurred())
 
 			envMap := GetPassthroughEnv()
@@ -182,7 +189,7 @@ var _ = Describe("Operator Config", func() {
 	Describe("Config json from env var", func() {
 		It("should be parsed", func() {
 			json := `{"id":"9ca7273e4d5f1bee842f64a8baabc15cbbf1ce59","namespace":"kubevirt","registry":"registry:5000/kubevirt","imagePrefix":"somePrefix","kubeVirtVersion":"devel","additionalProperties":{"ImagePullPolicy":"IfNotPresent", "MonitorNamespace":"non-default-monitor-namespace", "MonitorAccount":"non-default-prometheus-k8s"}}`
-			os.Setenv(TargetDeploymentConfig, json)
+			envVarManager.Setenv(TargetDeploymentConfig, json)
 			parsedConfig, err := GetConfigFromEnv()
 			Expect(err).ToNot(HaveOccurred())
 			Expect(parsedConfig.GetDeploymentID()).To(Equal("9ca7273e4d5f1bee842f64a8baabc15cbbf1ce59"))
@@ -199,7 +206,7 @@ var _ = Describe("Operator Config", func() {
 	Describe("Config json with default value", func() {
 		It("should be parsed", func() {
 			json := `{"id":"9ca7273e4d5f1bee842f64a8baabc15cbbf1ce59","additionalProperties":{"ImagePullPolicy":"IfNotPresent"}}`
-			os.Setenv(TargetDeploymentConfig, json)
+			envVarManager.Setenv(TargetDeploymentConfig, json)
 			parsedConfig, err := GetConfigFromEnv()
 			Expect(err).ToNot(HaveOccurred())
 			Expect(parsedConfig.GetPotentialMonitorNamespaces()).To(ConsistOf("openshift-monitoring", "monitoring"))
@@ -289,4 +296,69 @@ var _ = Describe("Operator Config", func() {
 		)
 	})
 
+	Context("custom component images", func() {
+
+		var definedEnvVars []string
+
+		setCustomImageForComponent := func(component string) string {
+			customImage := "a/kubevirt:" + component
+
+			// defining a different SHA so we make sure the custom image has precedence
+			customSha := "sha256:" + component + "fake-suffix"
+
+			envVarNameBase := strings.ToUpper(component)
+			envVarNameBase = strings.ReplaceAll(envVarNameBase, "-", "_") + "_"
+			imageEnvVarName := envVarNameBase + "IMAGE"
+			shaEnvVarName := envVarNameBase + "SHASUM"
+
+			ExpectWithOffset(1, envVarManager.Setenv(imageEnvVarName, customImage)).To(Succeed())
+			definedEnvVars = append(definedEnvVars, imageEnvVarName)
+
+			ExpectWithOffset(1, envVarManager.Setenv(shaEnvVarName, customSha)).To(Succeed())
+			definedEnvVars = append(definedEnvVars, shaEnvVarName)
+
+			return customImage
+		}
+
+		BeforeEach(func() {
+			definedEnvVars = nil
+
+			config := getConfig("kubevirt", "v123")
+
+			ExpectWithOffset(1, envVarManager.Setenv(KubeVirtVersionEnvName, config.KubeVirtVersion)).To(Succeed())
+		})
+
+		AfterEach(func() {
+			for _, envVar := range definedEnvVars {
+				_ = os.Unsetenv(envVar)
+			}
+
+			_ = os.Unsetenv(KubeVirtVersionEnvName)
+		})
+
+		It("should pull the right image", func() {
+			operatorImage := setCustomImageForComponent("virt-operator")
+			apiImage := setCustomImageForComponent("virt-api")
+			controllerImage := setCustomImageForComponent("virt-controller")
+			handlerImage := setCustomImageForComponent("virt-handler")
+			launcherImage := setCustomImageForComponent("virt-launcher")
+			exportProxyImage := setCustomImageForComponent("virt-exportproxy")
+			exportServerImage := setCustomImageForComponent("virt-exportserver")
+
+			err := VerifyEnv()
+			Expect(err).ToNot(HaveOccurred())
+
+			parsedConfig, err := GetConfigFromEnv()
+			Expect(err).ToNot(HaveOccurred())
+
+			const errMsg = "image is not set as expected"
+			Expect(parsedConfig.VirtOperatorImage).To(Equal(operatorImage), errMsg)
+			Expect(parsedConfig.VirtApiImage).To(Equal(apiImage), errMsg)
+			Expect(parsedConfig.VirtControllerImage).To(Equal(controllerImage), errMsg)
+			Expect(parsedConfig.VirtHandlerImage).To(Equal(handlerImage), errMsg)
+			Expect(parsedConfig.VirtLauncherImage).To(Equal(launcherImage), errMsg)
+			Expect(parsedConfig.VirtExportProxyImage).To(Equal(exportProxyImage), errMsg)
+			Expect(parsedConfig.VirtExportServerImage).To(Equal(exportServerImage), errMsg)
+		})
+	})
 })

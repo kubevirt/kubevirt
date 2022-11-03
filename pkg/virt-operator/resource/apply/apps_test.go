@@ -24,6 +24,8 @@ import (
 	"fmt"
 	"strings"
 
+	"kubevirt.io/kubevirt/tests"
+
 	"kubevirt.io/kubevirt/pkg/testutils"
 	"kubevirt.io/kubevirt/pkg/virt-operator/resource/generate/rbac"
 
@@ -117,7 +119,11 @@ var _ = Describe("Apply Apps", func() {
 			clientset.EXPECT().PolicyV1().Return(pdbClient.PolicyV1()).AnyTimes()
 			kv = &v1.KubeVirt{}
 
-			deployment, err = components.NewApiServerDeployment(Namespace, Registry, "", Version, "", "", "", corev1.PullIfNotPresent, "verbosity", map[string]string{})
+			virtApiConfig := &util.KubeVirtDeploymentConfig{
+				Registry:        Registry,
+				KubeVirtVersion: Version,
+			}
+			deployment, err = tests.GetDefaultVirtApiDeployment(Namespace, virtApiConfig)
 			Expect(err).ToNot(HaveOccurred())
 
 			cachedPodDisruptionBudget = components.NewPodDisruptionBudgetForDeployment(deployment)
@@ -307,7 +313,11 @@ var _ = Describe("Apply Apps", func() {
 				},
 			}
 
-			daemonSet, err = components.NewHandlerDaemonSet(Namespace, Registry, "", Version, "", "", "", "", corev1.PullIfNotPresent, nil, "verbosity", map[string]string{})
+			virtHandlerConfig := &util.KubeVirtDeploymentConfig{
+				Registry:        Registry,
+				KubeVirtVersion: Version,
+			}
+			daemonSet, err = tests.GetDefaultVirtHandlerDaemonSet(Namespace, virtHandlerConfig)
 			Expect(err).ToNot(HaveOccurred())
 			markHandlerReady(daemonSet)
 			daemonSet.UID = "random-id"

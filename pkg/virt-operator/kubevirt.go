@@ -756,7 +756,7 @@ func (c *KubeVirtController) generateInstallStrategyJob(config *operatorutil.Kub
 							Env: []k8sv1.EnvVar{
 								{
 									// Deprecated, keep it for backwards compatibility
-									Name:  util.OperatorImageEnvName,
+									Name:  util.OldOperatorImageEnvName,
 									Value: operatorImage,
 								},
 								{
