@@ -49,6 +49,7 @@ func (app *SubresourceAPIApp) ExpandSpecRequestHandler(request *restful.Request,
 		return
 	}
 
+	vm.Namespace = request.PathParameter("namespace")
 	expandSpecResponse(vm, app.instancetypeMethods, func(err error) *errors.StatusError {
 		return errors.NewBadRequest(err.Error())
 	}, response)
