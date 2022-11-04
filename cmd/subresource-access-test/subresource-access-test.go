@@ -24,47 +24,82 @@ import (
 	"flag"
 	"fmt"
 
-	"k8s.io/client-go/rest"
-
+	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	v1 "kubevirt.io/api/core/v1"
 	"kubevirt.io/client-go/kubecli"
 )
 
-func main() {
+func genericRequest(resource string) {
+	client, err := kubecli.GetKubevirtSubresourceClient()
+	if err != nil {
+		panic(err)
+	}
+
+	result := client.RestClient().Get().Resource(resource).Do(context.Background())
+	err = result.Error()
+	if err != nil {
+		panic(err)
+	}
+
 	var statusCode int
+	result.StatusCode(&statusCode)
+	if statusCode != 200 {
+		panic(fmt.Errorf("http status code is %d", statusCode))
+	}
+	fmt.Println("Subresource Test Endpoint returned 200 OK")
+}
+
+func expandSpecRequest(namespace string) {
+	vm := &v1.VirtualMachine{
+		ObjectMeta: metav1.ObjectMeta{
+			Name:      "vm-test",
+			Namespace: namespace,
+		},
+		Spec: v1.VirtualMachineSpec{
+			Template: &v1.VirtualMachineInstanceTemplateSpec{
+				Spec: v1.VirtualMachineInstanceSpec{
+					Domain: v1.DomainSpec{
+						Devices: v1.Devices{},
+					},
+				},
+			},
+		},
+	}
+	vm.SetGroupVersionKind(v1.VirtualMachineGroupVersionKind)
+
+	client, err := kubecli.GetKubevirtClient()
+	if err != nil {
+		panic(err)
+	}
+	_, err = client.ExpandSpec(namespace).ForVirtualMachine(vm)
+	if err != nil {
+		panic(err)
+	}
+}
+
+func startVM(namespace string, resource string) {
+	client, err := kubecli.GetKubevirtClient()
+	if err != nil {
+		panic(err)
+	}
+	err = client.VirtualMachine(namespace).Start(resource, &v1.StartOptions{})
+	if err != nil {
+		panic(err)
+	}
+}
+
+func main() {
 	var namespace string
 	var resource string
 	flag.StringVar(&namespace, "n", "", "namespace to use")
 	flag.Parse()
 
 	resource = flag.Arg(0)
-
 	if resource == "version" || resource == "guestfs" {
-		client, err := kubecli.GetKubevirtSubresourceClient()
-		if err != nil {
-			panic(err)
-		}
-		restClient := client.RestClient()
-		var result rest.Result
-		result = restClient.Get().Resource(resource).Do(context.Background())
-		err = result.Error()
-		if err != nil {
-			panic(err)
-		}
-
-		result.StatusCode(&statusCode)
-		if statusCode != 200 {
-			panic(fmt.Errorf("http status code is %d", statusCode))
-		}
-		fmt.Println("Subresource Test Endpoint returned 200 OK")
+		genericRequest(resource)
+	} else if resource == "expand-vm-spec" {
+		expandSpecRequest(namespace)
 	} else {
-		client, err := kubecli.GetKubevirtClient()
-		if err != nil {
-			panic(err)
-		}
-		err = client.VirtualMachine(namespace).Start(resource, &v1.StartOptions{})
-		if err != nil {
-			panic(err)
-		}
+		startVM(namespace, resource)
 	}
 }
