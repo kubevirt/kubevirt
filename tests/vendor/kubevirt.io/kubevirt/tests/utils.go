@@ -21,7 +21,6 @@ package tests
 
 import (
 	"archive/tar"
-	"bytes"
 	"context"
 	cryptorand "crypto/rand"
 	"crypto/rsa"
@@ -63,10 +62,10 @@ import (
 	"k8s.io/client-go/kubernetes/scheme"
 	"k8s.io/client-go/rest"
 	"k8s.io/client-go/tools/portforward"
-	"k8s.io/client-go/tools/remotecommand"
 	"k8s.io/client-go/transport/spdy"
 	netutils "k8s.io/utils/net"
 
+	"kubevirt.io/kubevirt/tests/exec"
 	"kubevirt.io/kubevirt/tests/framework/checks"
 
 	util2 "kubevirt.io/kubevirt/tests/util"
@@ -301,9 +300,13 @@ func RunVMIAndExpectLaunchIgnoreWarnings(vmi *v1.VirtualMachineInstance, timeout
 }
 
 func RunVMIAndExpectScheduling(vmi *v1.VirtualMachineInstance, timeout int) *v1.VirtualMachineInstance {
+	wp := watcher.WarningsPolicy{FailOnWarnings: true}
+	return RunVMIAndExpectSchedulingWithWarningPolicy(vmi, timeout, wp)
+}
+
+func RunVMIAndExpectSchedulingWithWarningPolicy(vmi *v1.VirtualMachineInstance, timeout int, wp watcher.WarningsPolicy) *v1.VirtualMachineInstance {
 	obj := RunVMI(vmi, timeout)
 	By("Waiting until the VirtualMachineInstance will be scheduled")
-	wp := watcher.WarningsPolicy{FailOnWarnings: true}
 	return waitForVMIScheduling(obj, timeout, wp)
 }
 
@@ -366,7 +369,7 @@ func GetPodCPUSet(pod *k8sv1.Pod) (output string, err error) {
 	if err != nil {
 		return
 	}
-	output, err = ExecuteCommandOnPod(
+	output, err = exec.ExecuteCommandOnPod(
 		virtClient,
 		pod,
 		"compute",
@@ -377,7 +380,7 @@ func GetPodCPUSet(pod *k8sv1.Pod) (output string, err error) {
 		return
 	}
 
-	output, err = ExecuteCommandOnPod(
+	output, err = exec.ExecuteCommandOnPod(
 		virtClient,
 		pod,
 		"compute",
@@ -456,7 +459,12 @@ func NewRandomVirtualMachineInstanceWithDisk(imageUrl, namespace, sc string, acc
 
 	dv := libdv.NewDataVolume(
 		libdv.WithRegistryURLSourceAndPullMethod(imageUrl, cdiv1.RegistryPullNode),
-		libdv.WithPVC(sc, dvSizeBySourceURL(imageUrl), accessMode, volMode),
+		libdv.WithPVC(
+			libdv.PVCWithStorageClass(sc),
+			libdv.PVCWithVolumeSize(dvSizeBySourceURL(imageUrl)),
+			libdv.PVCWithAccessMode(accessMode),
+			libdv.PVCWithVolumeMode(volMode),
+		),
 	)
 
 	dv, err = virtCli.CdiClient().CdiV1beta1().DataVolumes(namespace).Create(context.Background(), dv, metav1.CreateOptions{})
@@ -537,7 +545,11 @@ func NewRandomVMWithEphemeralDisk(containerImage string) *v1.VirtualMachine {
 func NewRandomVMWithDataVolumeWithRegistryImport(imageUrl, namespace, storageClass string, accessMode k8sv1.PersistentVolumeAccessMode) *v1.VirtualMachine {
 	dataVolume := libdv.NewDataVolume(
 		libdv.WithRegistryURLSourceAndPullMethod(imageUrl, cdiv1.RegistryPullNode),
-		libdv.WithPVC(storageClass, dvSizeBySourceURL(imageUrl), accessMode, k8sv1.PersistentVolumeFilesystem),
+		libdv.WithPVC(
+			libdv.PVCWithStorageClass(storageClass),
+			libdv.PVCWithVolumeSize(dvSizeBySourceURL(imageUrl)),
+			libdv.PVCWithAccessMode(accessMode),
+		),
 	)
 
 	vmi := NewRandomVMIWithDataVolume(dataVolume.Name)
@@ -555,7 +567,7 @@ func NewRandomVMWithDataVolume(imageUrl string, namespace string) (*v1.VirtualMa
 
 	dataVolume := libdv.NewDataVolume(
 		libdv.WithRegistryURLSource(imageUrl),
-		libdv.WithPVC(sc, cd.CirrosVolumeSize, k8sv1.ReadWriteOnce, k8sv1.PersistentVolumeFilesystem),
+		libdv.WithPVC(libdv.PVCWithStorageClass(sc)),
 	)
 
 	vmi := NewRandomVMIWithDataVolume(dataVolume.Name)
@@ -577,7 +589,7 @@ func NewRandomVMWithDataVolumeAndUserData(dataVolume *cdiv1.DataVolume, userData
 func NewRandomVMWithDataVolumeAndUserDataInStorageClass(imageUrl, namespace, userData, storageClass string) *v1.VirtualMachine {
 	dataVolume := libdv.NewDataVolume(
 		libdv.WithRegistryURLSourceAndPullMethod(imageUrl, cdiv1.RegistryPullNode),
-		libdv.WithPVC(storageClass, dvSizeBySourceURL(imageUrl), k8sv1.ReadWriteOnce, k8sv1.PersistentVolumeFilesystem),
+		libdv.WithPVC(libdv.PVCWithStorageClass(storageClass), libdv.PVCWithVolumeSize(dvSizeBySourceURL(imageUrl))),
 	)
 
 	return NewRandomVMWithDataVolumeAndUserData(dataVolume, userData)
@@ -704,8 +716,7 @@ func AddEphemeralCdrom(vmi *v1.VirtualMachineInstance, name string, bus v1.DiskB
 }
 
 func NewRandomFedoraVMI() *v1.VirtualMachineInstance {
-	networkData, err := libnet.CreateDefaultCloudInitNetworkData()
-	Expect(err).NotTo(HaveOccurred())
+	networkData := libnet.CreateDefaultCloudInitNetworkData()
 
 	return libvmi.NewFedora(
 		libvmi.WithInterface(libvmi.InterfaceDeviceWithMasqueradeBinding()),
@@ -715,8 +726,7 @@ func NewRandomFedoraVMI() *v1.VirtualMachineInstance {
 }
 
 func NewRandomFedoraVMIWithGuestAgent() *v1.VirtualMachineInstance {
-	networkData, err := libnet.CreateDefaultCloudInitNetworkData()
-	Expect(err).NotTo(HaveOccurred())
+	networkData := libnet.CreateDefaultCloudInitNetworkData()
 
 	return libvmi.NewFedora(
 		libvmi.WithInterface(libvmi.InterfaceDeviceWithMasqueradeBinding()),
@@ -726,8 +736,7 @@ func NewRandomFedoraVMIWithGuestAgent() *v1.VirtualMachineInstance {
 }
 
 func NewRandomFedoraVMIWithBlacklistGuestAgent(commands string) *v1.VirtualMachineInstance {
-	networkData, err := libnet.CreateDefaultCloudInitNetworkData()
-	Expect(err).NotTo(HaveOccurred())
+	networkData := libnet.CreateDefaultCloudInitNetworkData()
 
 	return libvmi.NewFedora(
 		libvmi.WithInterface(libvmi.InterfaceDeviceWithMasqueradeBinding()),
@@ -1068,6 +1077,11 @@ func waitForVMIPhase(ctx context.Context, phases []v1.VirtualMachineInstancePhas
 
 	objectEventWatcher := watcher.New(vmi).SinceWatchedObjectResourceVersion().Timeout(time.Duration(seconds+2) * time.Second)
 	if wp.FailOnWarnings == true {
+		// let's ignore PSA events as kubernetes internally uses a namespace informer
+		// that might not be up to date after virt-controller relabeled the namespace
+		// to use a 'privileged' policy
+		// TODO: remove this when KubeVirt will be able to run VMs under the 'restricted' level
+		wp.WarningsIgnoreList = append(wp.WarningsIgnoreList, "violates PodSecurity")
 		objectEventWatcher.SetWarningsPolicy(wp)
 	}
 
@@ -1301,6 +1315,17 @@ func ChangeImgFilePermissionsToNonQEMU(pvc *k8sv1.PersistentVolumeClaim) {
 	By("changing disk.img permissions to non qemu")
 	pod := libstorage.RenderPodWithPVC("change-permissions-disk-img-pod", []string{"/bin/bash", "-c"}, args, pvc)
 
+	// overwrite securityContext
+	rootUser := int64(0)
+	pod.Spec.Containers[0].SecurityContext = &k8sv1.SecurityContext{
+		Capabilities: &k8sv1.Capabilities{
+			Drop: []k8sv1.Capability{"ALL"},
+		},
+		Privileged:   NewBool(true),
+		RunAsUser:    &rootUser,
+		RunAsNonRoot: NewBool(false),
+	}
+
 	RunPodAndExpectCompletion(pod)
 }
 
@@ -1333,11 +1358,25 @@ func DeleteAlpineWithNonQEMUPermissions() {
 }
 
 func renderContainerSpec(imgPath string, name string, cmd []string, args []string) k8sv1.Container {
+	nonRootUser := int64(1042)
+
 	return k8sv1.Container{
 		Name:    name,
 		Image:   imgPath,
 		Command: cmd,
 		Args:    args,
+		SecurityContext: &k8sv1.SecurityContext{
+			Privileged:               NewBool(false),
+			AllowPrivilegeEscalation: NewBool(false),
+			RunAsNonRoot:             NewBool(true),
+			RunAsUser:                &nonRootUser,
+			SeccompProfile: &k8sv1.SeccompProfile{
+				Type: k8sv1.SeccompProfileTypeRuntimeDefault,
+			},
+			Capabilities: &k8sv1.Capabilities{
+				Drop: []k8sv1.Capability{"ALL"},
+			},
+		},
 	}
 }
 
@@ -1352,82 +1391,6 @@ func renderPrivilegedContainerSpec(imgPath string, name string, cmd []string, ar
 			RunAsUser:  new(int64),
 		},
 	}
-}
-
-func ExecuteCommandOnPod(virtCli kubecli.KubevirtClient, pod *k8sv1.Pod, containerName string, command []string) (string, error) {
-	stdout, stderr, err := ExecuteCommandOnPodV2(virtCli, pod, containerName, command)
-
-	if err != nil {
-		return "", fmt.Errorf("failed executing command on pod: %v: stderr %v: stdout: %v", err, stderr, stdout)
-	}
-
-	if len(stderr) > 0 {
-		return "", fmt.Errorf("stderr: %v", stderr)
-	}
-
-	return stdout, nil
-}
-
-func CopyFromPod(virtCli kubecli.KubevirtClient, pod *k8sv1.Pod, containerName, sourceFile, targetFile string) (stderr string, err error) {
-	var (
-		stderrBuf bytes.Buffer
-	)
-	file, err := os.Create(targetFile)
-	Expect(err).ToNot(HaveOccurred())
-	defer file.Close()
-
-	options := remotecommand.StreamOptions{
-		Stdout: file,
-		Stderr: &stderrBuf,
-		Tty:    false,
-	}
-	err = execCommandOnPod(virtCli, pod, containerName, []string{"cat", sourceFile}, options)
-	return stderrBuf.String(), err
-}
-
-func ExecuteCommandOnPodV2(virtCli kubecli.KubevirtClient, pod *k8sv1.Pod, containerName string, command []string) (stdout, stderr string, err error) {
-	var (
-		stdoutBuf bytes.Buffer
-		stderrBuf bytes.Buffer
-	)
-	options := remotecommand.StreamOptions{
-		Stdout: &stdoutBuf,
-		Stderr: &stderrBuf,
-		Tty:    false,
-	}
-	err = execCommandOnPod(virtCli, pod, containerName, command, options)
-	return stdoutBuf.String(), stderrBuf.String(), err
-}
-
-func execCommandOnPod(virtCli kubecli.KubevirtClient, pod *k8sv1.Pod, containerName string, command []string, options remotecommand.StreamOptions) error {
-
-	req := virtCli.CoreV1().RESTClient().Post().
-		Resource("pods").
-		Name(pod.Name).
-		Namespace(pod.Namespace).
-		SubResource("exec").
-		Param("container", containerName)
-
-	req.VersionedParams(&k8sv1.PodExecOptions{
-		Container: containerName,
-		Command:   command,
-		Stdin:     false,
-		Stdout:    true,
-		Stderr:    true,
-		TTY:       false,
-	}, scheme.ParameterCodec)
-
-	virtConfig, err := kubecli.GetKubevirtClientConfig()
-	if err != nil {
-		return err
-	}
-
-	executor, err := remotecommand.NewSPDYExecutor(virtConfig, "POST", req.URL())
-	if err != nil {
-		return err
-	}
-
-	return executor.Stream(options)
 }
 
 func GetRunningVirtualMachineInstanceDomainXML(virtClient kubecli.KubevirtClient, vmi *v1.VirtualMachineInstance) (string, error) {
@@ -1449,7 +1412,7 @@ func GetRunningVirtualMachineInstanceDomainXML(virtClient kubecli.KubevirtClient
 	}
 	command = append(command, []string{"dumpxml", vmi.Namespace + "_" + vmi.Name}...)
 
-	stdout, stderr, err := ExecuteCommandOnPodV2(
+	stdout, stderr, err := exec.ExecuteCommandOnPodWithResults(
 		virtClient,
 		vmiPod,
 		GetComputeContainerOfPod(vmiPod).Name,
@@ -1467,7 +1430,7 @@ func LibvirtDomainIsPaused(virtClient kubecli.KubevirtClient, vmi *v1.VirtualMac
 		return false, err
 	}
 
-	stdout, stderr, err := ExecuteCommandOnPodV2(
+	stdout, stderr, err := exec.ExecuteCommandOnPodWithResults(
 		virtClient,
 		vmiPod,
 		GetComputeContainerOfPod(vmiPod).Name,
@@ -1561,7 +1524,7 @@ func RemoveHostDiskImage(diskPath string, nodeName string) {
 	procPath := filepath.Join("/proc/1/root", diskPath)
 	virtHandlerPod, err := kubecli.NewVirtHandlerClient(virtClient).Namespace(flags.KubeVirtInstallNamespace).ForNode(nodeName).Pod()
 	Expect(err).ToNot(HaveOccurred())
-	_, _, err = ExecuteCommandOnPodV2(virtClient, virtHandlerPod, "virt-handler", []string{"rm", "-rf", procPath})
+	_, _, err = exec.ExecuteCommandOnPodWithResults(virtClient, virtHandlerPod, "virt-handler", []string{"rm", "-rf", procPath})
 	Expect(err).ToNot(HaveOccurred())
 }
 
@@ -1570,7 +1533,7 @@ func CreateHostDiskImage(diskPath string) *k8sv1.Pod {
 	dir := filepath.Dir(diskPath)
 
 	command := fmt.Sprintf(`dd if=/dev/zero of=%s bs=1 count=0 seek=1G && ls -l %s`, diskPath, dir)
-	if checks.HasFeature(virtconfig.NonRoot) {
+	if !checks.HasFeature(virtconfig.Root) {
 		command = command + fmt.Sprintf(" && chown 107:107 %s", diskPath)
 	}
 
@@ -1639,7 +1602,7 @@ func RunCommandOnVmiPod(vmi *v1.VirtualMachineInstance, command []string) string
 	ExpectWithOffset(1, pods.Items).NotTo(BeEmpty())
 	vmiPod := pods.Items[0]
 
-	output, err := ExecuteCommandOnPod(
+	output, err := exec.ExecuteCommandOnPod(
 		virtClient,
 		&vmiPod,
 		"compute",
@@ -1669,7 +1632,7 @@ func RunCommandOnVmiTargetPod(vmi *v1.VirtualMachineInstance, command []string) 
 		return "", fmt.Errorf("failed to find migration target pod")
 	}
 
-	output, err := ExecuteCommandOnPod(
+	output, err := exec.ExecuteCommandOnPod(
 		virtClient,
 		vmiPod,
 		"compute",
@@ -2488,7 +2451,7 @@ func GetIdOfLauncher(vmi *v1.VirtualMachineInstance) string {
 	util2.PanicOnError(err)
 
 	vmiPod := GetRunningPodByVirtualMachineInstance(vmi, util2.NamespaceTestDefault)
-	podOutput, err := ExecuteCommandOnPod(
+	podOutput, err := exec.ExecuteCommandOnPod(
 		virtClient,
 		vmiPod,
 		vmiPod.Spec.Containers[0].Name,
@@ -2504,13 +2467,13 @@ func ExecuteCommandOnNodeThroughVirtHandler(virtCli kubecli.KubevirtClient, node
 	if err != nil {
 		return "", "", err
 	}
-	return ExecuteCommandOnPodV2(virtCli, virtHandlerPod, components.VirtHandlerName, command)
+	return exec.ExecuteCommandOnPodWithResults(virtCli, virtHandlerPod, components.VirtHandlerName, command)
 }
 
 func GetKubevirtVMMetricsFunc(virtClient *kubecli.KubevirtClient, pod *k8sv1.Pod) func(string) string {
 	return func(ip string) string {
 		metricsURL := PrepareMetricsURL(ip, 8443)
-		stdout, _, err := ExecuteCommandOnPodV2(*virtClient,
+		stdout, _, err := exec.ExecuteCommandOnPodWithResults(*virtClient,
 			pod,
 			"virt-handler",
 			[]string{

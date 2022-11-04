@@ -62,7 +62,7 @@ const (
 	SmbiosConfigDefaultManufacturer                 = "KubeVirt"
 	SmbiosConfigDefaultProduct                      = "None"
 	DefaultPermitBridgeInterfaceOnPodNetwork        = true
-	DefaultSELinuxLauncherType                      = "virt_launcher.process"
+	DefaultSELinuxLauncherType                      = ""
 	SupportedGuestAgentVersions                     = "2.*,3.*,4.*,5.*"
 	DefaultARCHOVMFPath                             = "/usr/share/OVMF"
 	DefaultAARCH64OVMFPath                          = "/usr/share/AAVMF"
@@ -336,17 +336,17 @@ func (c *ClusterConfig) GetVirtLauncherVerbosity() uint {
 	return c.getComponentVerbosity(virtLauncher, "")
 }
 
-//GetMinCPUModel return minimal cpu which is used in node-labeller
+// GetMinCPUModel return minimal cpu which is used in node-labeller
 func (c *ClusterConfig) GetMinCPUModel() string {
 	return c.GetConfig().MinCPUModel
 }
 
-//GetObsoleteCPUModels return slice of obsolete cpus which are used in node-labeller
+// GetObsoleteCPUModels return slice of obsolete cpus which are used in node-labeller
 func (c *ClusterConfig) GetObsoleteCPUModels() map[string]bool {
 	return c.GetConfig().ObsoleteCPUModels
 }
 
-//GetClusterCPUArch return the CPU architecture in ClusterConfig
+// GetClusterCPUArch return the CPU architecture in ClusterConfig
 func (c *ClusterConfig) GetClusterCPUArch() string {
 	return c.cpuArch
 }

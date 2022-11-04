@@ -15,9 +15,9 @@ require (
 	k8s.io/api v0.25.2
 	k8s.io/apimachinery v0.25.2
 	k8s.io/client-go v12.0.0+incompatible
-	kubevirt.io/api v0.58.0
-	kubevirt.io/client-go v0.58.0
-	kubevirt.io/kubevirt v0.58.0
+	kubevirt.io/api v0.59.0-alpha.0
+	kubevirt.io/client-go v0.59.0-alpha.0
+	kubevirt.io/kubevirt v0.59.0-alpha.0
 	kubevirt.io/qe-tools v0.1.8
 )
 
@@ -193,8 +193,8 @@ replace (
 	github.com/kubevirt/cluster-network-addons-operator/pkg/apis => github.com/kubevirt/cluster-network-addons-operator/pkg/apis v0.80.0
 	github.com/openshift/machine-api-operator => github.com/openshift/machine-api-operator v0.2.1-0.20191025120018-fb3724fc7bdf
 	go.mongodb.org/mongo-driver => go.mongodb.org/mongo-driver v1.5.1
-	kubevirt.io/api => kubevirt.io/api v0.58.0
-	kubevirt.io/client-go => kubevirt.io/client-go v0.58.0
+	kubevirt.io/api => kubevirt.io/api v0.59.0-alpha.0
+	kubevirt.io/client-go => kubevirt.io/client-go v0.59.0-alpha.0
 	kubevirt.io/containerized-data-importer-api => kubevirt.io/containerized-data-importer-api v1.55.0
 )
 

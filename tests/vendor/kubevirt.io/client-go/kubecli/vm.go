@@ -24,8 +24,6 @@ import (
 
 	"encoding/json"
 	"fmt"
-	"net/url"
-	"path"
 
 	k8smetav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/types"
@@ -71,15 +69,6 @@ func (v *vm) Create(vm *v1.VirtualMachine) (*v1.VirtualMachine, error) {
 	return newVm, err
 }
 
-// Compute URI based on host path
-func (v *vm) adaptUriForHostPath(uri string) string {
-	u, err := url.Parse(v.config.Host)
-	if err != nil {
-		return uri
-	}
-	return path.Join(u.Path, uri)
-}
-
 // Get the Virtual machine from the cluster by its name and namespace
 func (v *vm) Get(name string, options *k8smetav1.GetOptions) (*v1.VirtualMachine, error) {
 	newVm := &v1.VirtualMachine{}
@@ -100,7 +89,7 @@ func (v *vm) GetWithExpandedSpec(name string) (*v1.VirtualMachine, error) {
 	uri := fmt.Sprintf(vmSubresourceURLFmt, v1.ApiStorageVersion, v.namespace, name, "expand-spec")
 	newVm := &v1.VirtualMachine{}
 	err := v.restClient.Get().
-		RequestURI(uri).
+		AbsPath(uri).
 		Do(context.Background()).
 		Into(newVm)
 
@@ -203,7 +192,7 @@ func (v *vm) Restart(name string, restartOptions *v1.RestartOptions) error {
 		return fmt.Errorf(cannotMarshalJSONErrFmt, err)
 	}
 	uri := fmt.Sprintf(vmSubresourceURLFmt, v1.ApiStorageVersion, v.namespace, name, "restart")
-	return v.restClient.Put().RequestURI(v.adaptUriForHostPath(uri)).Body(body).Do(context.Background()).Error()
+	return v.restClient.Put().AbsPath(uri).Body(body).Do(context.Background()).Error()
 }
 
 func (v *vm) ForceRestart(name string, restartOptions *v1.RestartOptions) error {
@@ -212,7 +201,7 @@ func (v *vm) ForceRestart(name string, restartOptions *v1.RestartOptions) error 
 		return fmt.Errorf(cannotMarshalJSONErrFmt, err)
 	}
 	uri := fmt.Sprintf(vmSubresourceURLFmt, v1.ApiStorageVersion, v.namespace, name, "restart")
-	return v.restClient.Put().RequestURI(v.adaptUriForHostPath(uri)).Body(body).Do(context.Background()).Error()
+	return v.restClient.Put().AbsPath(uri).Body(body).Do(context.Background()).Error()
 }
 
 func (v *vm) Start(name string, startOptions *v1.StartOptions) error {
@@ -222,7 +211,7 @@ func (v *vm) Start(name string, startOptions *v1.StartOptions) error {
 	if err != nil {
 		return err
 	}
-	return v.restClient.Put().RequestURI(v.adaptUriForHostPath(uri)).Body(optsJson).Do(context.Background()).Error()
+	return v.restClient.Put().AbsPath(uri).Body(optsJson).Do(context.Background()).Error()
 }
 
 func (v *vm) Stop(name string, stopOptions *v1.StopOptions) error {
@@ -231,7 +220,7 @@ func (v *vm) Stop(name string, stopOptions *v1.StopOptions) error {
 	if err != nil {
 		return err
 	}
-	return v.restClient.Put().RequestURI(v.adaptUriForHostPath(uri)).Body(optsJson).Do(context.Background()).Error()
+	return v.restClient.Put().AbsPath(uri).Body(optsJson).Do(context.Background()).Error()
 }
 
 func (v *vm) ForceStop(name string, stopOptions *v1.StopOptions) error {
@@ -240,7 +229,7 @@ func (v *vm) ForceStop(name string, stopOptions *v1.StopOptions) error {
 		return fmt.Errorf(cannotMarshalJSONErrFmt, err)
 	}
 	uri := fmt.Sprintf(vmSubresourceURLFmt, v1.ApiStorageVersion, v.namespace, name, "stop")
-	return v.restClient.Put().RequestURI(v.adaptUriForHostPath(uri)).Body(body).Do(context.Background()).Error()
+	return v.restClient.Put().AbsPath(uri).Body(body).Do(context.Background()).Error()
 }
 
 func (v *vm) Migrate(name string, migrateOptions *v1.MigrateOptions) error {
@@ -249,7 +238,7 @@ func (v *vm) Migrate(name string, migrateOptions *v1.MigrateOptions) error {
 	if err != nil {
 		return err
 	}
-	return v.restClient.Put().RequestURI(v.adaptUriForHostPath(uri)).Body(optsJson).Do(context.Background()).Error()
+	return v.restClient.Put().AbsPath(uri).Body(optsJson).Do(context.Background()).Error()
 }
 
 func (v *vm) MemoryDump(name string, memoryDumpRequest *v1.VirtualMachineMemoryDumpRequest) error {
@@ -260,13 +249,13 @@ func (v *vm) MemoryDump(name string, memoryDumpRequest *v1.VirtualMachineMemoryD
 		return err
 	}
 
-	return v.restClient.Put().RequestURI(v.adaptUriForHostPath(uri)).Body([]byte(JSON)).Do(context.Background()).Error()
+	return v.restClient.Put().AbsPath(uri).Body([]byte(JSON)).Do(context.Background()).Error()
 }
 
 func (v *vm) RemoveMemoryDump(name string) error {
 	uri := fmt.Sprintf(vmSubresourceURLFmt, v1.ApiStorageVersion, v.namespace, name, "removememorydump")
 
-	return v.restClient.Put().RequestURI(v.adaptUriForHostPath(uri)).Do(context.Background()).Error()
+	return v.restClient.Put().AbsPath(uri).Do(context.Background()).Error()
 }
 
 func (v *vm) AddVolume(name string, addVolumeOptions *v1.AddVolumeOptions) error {
@@ -278,7 +267,7 @@ func (v *vm) AddVolume(name string, addVolumeOptions *v1.AddVolumeOptions) error
 		return err
 	}
 
-	return v.restClient.Put().RequestURI(v.adaptUriForHostPath(uri)).Body([]byte(JSON)).Do(context.Background()).Error()
+	return v.restClient.Put().AbsPath(uri).Body([]byte(JSON)).Do(context.Background()).Error()
 }
 
 func (v *vm) RemoveVolume(name string, removeVolumeOptions *v1.RemoveVolumeOptions) error {
@@ -290,7 +279,7 @@ func (v *vm) RemoveVolume(name string, removeVolumeOptions *v1.RemoveVolumeOptio
 		return err
 	}
 
-	return v.restClient.Put().RequestURI(v.adaptUriForHostPath(uri)).Body([]byte(JSON)).Do(context.Background()).Error()
+	return v.restClient.Put().AbsPath(uri).Body([]byte(JSON)).Do(context.Background()).Error()
 }
 
 func (v *vm) PortForward(name string, port int, protocol string) (StreamInterface, error) {

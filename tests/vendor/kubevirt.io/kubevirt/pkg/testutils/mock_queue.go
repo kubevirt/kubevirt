@@ -23,11 +23,11 @@ MockWorkQueue is a helper workqueue which can be wrapped around
 any RateLimitingInterface implementing queue. This allows synchronous
 testing of the controller. The typical pattern is:
 
-    MockQueue.ExpectAdd(3)
-    vmiSource.Add(vmi)
-    vmiSource.Add(vmi1)
-    vmiSource.Add(vmi2)
-    MockQueue.Wait()
+	MockQueue.ExpectAdd(3)
+	vmiSource.Add(vmi)
+	vmiSource.Add(vmi1)
+	vmiSource.Add(vmi2)
+	MockQueue.Wait()
 
 This ensures that Source callbacks which are listening on vmiSource
 enqueued three times an object. Since enqueing is typically the last

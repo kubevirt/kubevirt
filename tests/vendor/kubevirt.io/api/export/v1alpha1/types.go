@@ -20,12 +20,15 @@
 package v1alpha1
 
 import (
+	"time"
+
 	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 )
 
 const (
-	App = "virt-exporter"
+	App                = "virt-exporter"
+	DefaultDurationTTL = 2 * time.Hour
 )
 
 // VirtualMachineExport defines the operation of exporting a VM source
@@ -57,6 +60,13 @@ type VirtualMachineExportSpec struct {
 	// +optional
 	// TokenSecretRef is the name of the custom-defined secret that contains the token used by the export server pod
 	TokenSecretRef *string `json:"tokenSecretRef,omitempty"`
+
+	// ttlDuration limits the lifetime of an export
+	// If this field is set, after this duration has passed from counting from CreationTimestamp,
+	// the export is eligible to be automatically deleted.
+	// If this field is omitted, a reasonable default is applied.
+	// +optional
+	TTLDuration *metav1.Duration `json:"ttlDuration,omitempty"`
 }
 
 // VirtualMachineExportPhase is the current phase of the VirtualMachineExport
@@ -84,6 +94,10 @@ type VirtualMachineExportStatus struct {
 	// +optional
 	// TokenSecretRef is the name of the secret that contains the token used by the export server pod
 	TokenSecretRef *string `json:"tokenSecretRef,omitempty"`
+
+	// The time at which the VM Export will be completely removed according to specified TTL
+	// Formula is CreationTimestamp + TTL
+	TTLExpirationTime *metav1.Time `json:"ttlExpirationTime,omitempty"`
 
 	// +optional
 	// ServiceName is the name of the service created associated with the Virtual Machine export. It will be used to

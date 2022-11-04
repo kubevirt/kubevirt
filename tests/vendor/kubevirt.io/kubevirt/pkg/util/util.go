@@ -87,6 +87,16 @@ func IsVFIOVMI(vmi *v1.VirtualMachineInstance) bool {
 	return false
 }
 
+// Check if the VMI includes passt network interface(s)
+func IsPasstVMI(vmi *v1.VirtualMachineInstance) bool {
+	for _, net := range vmi.Spec.Domain.Devices.Interfaces {
+		if net.Passt != nil {
+			return true
+		}
+	}
+	return false
+}
+
 // Check if a VMI spec requests AMD SEV
 func IsSEVVMI(vmi *v1.VirtualMachineInstance) bool {
 	return vmi.Spec.Domain.LaunchSecurity != nil && vmi.Spec.Domain.LaunchSecurity.SEV != nil
@@ -107,7 +117,7 @@ func IsVmiUsingHyperVReenlightenment(vmi *v1.VirtualMachineInstance) bool {
 // Note that the reference can be explicit or implicit (unspecified nic models defaults to "virtio").
 func WantVirtioNetDevice(vmi *v1.VirtualMachineInstance) bool {
 	for _, iface := range vmi.Spec.Domain.Devices.Interfaces {
-		if iface.Model == "" || iface.Model == "virtio" {
+		if iface.Model == "" || iface.Model == v1.VirtIO {
 			return true
 		}
 	}
@@ -124,6 +134,10 @@ func NeedTunDevice(vmi *v1.VirtualMachineInstance) bool {
 	return (len(vmi.Spec.Domain.Devices.Interfaces) > 0) ||
 		(vmi.Spec.Domain.Devices.AutoattachPodInterface == nil) ||
 		(*vmi.Spec.Domain.Devices.AutoattachPodInterface == true)
+}
+
+func IsAutoAttachVSOCK(vmi *v1.VirtualMachineInstance) bool {
+	return vmi.Spec.Domain.Devices.AutoattachVSOCK != nil && *vmi.Spec.Domain.Devices.AutoattachVSOCK
 }
 
 // UseSoftwareEmulationForDevice determines whether to fallback to software emulation for the given device.

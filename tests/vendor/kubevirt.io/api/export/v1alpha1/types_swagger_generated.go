@@ -20,17 +20,19 @@ func (VirtualMachineExportSpec) SwaggerDoc() map[string]string {
 	return map[string]string{
 		"":               "VirtualMachineExportSpec is the spec for a VirtualMachineExport resource",
 		"tokenSecretRef": "+optional\nTokenSecretRef is the name of the custom-defined secret that contains the token used by the export server pod",
+		"ttlDuration":    "ttlDuration limits the lifetime of an export\nIf this field is set, after this duration has passed from counting from CreationTimestamp,\nthe export is eligible to be automatically deleted.\nIf this field is omitted, a reasonable default is applied.\n+optional",
 	}
 }
 
 func (VirtualMachineExportStatus) SwaggerDoc() map[string]string {
 	return map[string]string{
-		"":               "VirtualMachineExportStatus is the status for a VirtualMachineExport resource",
-		"phase":          "+optional",
-		"links":          "+optional",
-		"tokenSecretRef": "+optional\nTokenSecretRef is the name of the secret that contains the token used by the export server pod",
-		"serviceName":    "+optional\nServiceName is the name of the service created associated with the Virtual Machine export. It will be used to\ncreate the internal URLs for downloading the images",
-		"conditions":     "+optional\n+listType=atomic",
+		"":                  "VirtualMachineExportStatus is the status for a VirtualMachineExport resource",
+		"phase":             "+optional",
+		"links":             "+optional",
+		"tokenSecretRef":    "+optional\nTokenSecretRef is the name of the secret that contains the token used by the export server pod",
+		"ttlExpirationTime": "The time at which the VM Export will be completely removed according to specified TTL\nFormula is CreationTimestamp + TTL",
+		"serviceName":       "+optional\nServiceName is the name of the service created associated with the Virtual Machine export. It will be used to\ncreate the internal URLs for downloading the images",
+		"conditions":        "+optional\n+listType=atomic",
 	}
 }
 

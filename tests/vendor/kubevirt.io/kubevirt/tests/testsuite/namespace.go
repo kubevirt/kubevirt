@@ -87,7 +87,7 @@ func CleanNamespaces() {
 		}
 
 		// Clean namespace labels
-		err = libnet.RemoveAllLabelsFromNamespace(virtCli, namespace)
+		err = resetNamespaceLabelsToDefault(virtCli, namespace)
 		util.PanicOnError(err)
 
 		//Remove all Jobs
@@ -209,6 +209,35 @@ func CleanNamespaces() {
 		for _, clone := range clonesList.Items {
 			util.PanicOnError(virtCli.VirtualMachineClone(namespace).Delete(context.Background(), clone.Name, metav1.DeleteOptions{}))
 		}
+
+		// Remove vm snapshots
+		util.PanicOnError(virtCli.VirtualMachineSnapshot(namespace).DeleteCollection(context.Background(), metav1.DeleteOptions{}, metav1.ListOptions{}))
+		snapshots, err := virtCli.VirtualMachineSnapshot(namespace).List(context.Background(), metav1.ListOptions{})
+		util.PanicOnError(err)
+		vmSnapshotFinalizer := "snapshot.kubevirt.io/vmsnapshot-protection"
+		for _, snapshot := range snapshots.Items {
+			if controller.HasFinalizer(&snapshot, vmSnapshotFinalizer) {
+				_, err := virtCli.VirtualMachineSnapshot(snapshot.Namespace).Patch(context.Background(), snapshot.Name, types.JSONPatchType, []byte("[{ \"op\": \"remove\", \"path\": \"/metadata/finalizers\" }]"), metav1.PatchOptions{})
+				if !errors.IsNotFound(err) {
+					util.PanicOnError(err)
+				}
+			}
+		}
+
+		util.PanicOnError(virtCli.VirtualMachineSnapshotContent(namespace).DeleteCollection(context.Background(), metav1.DeleteOptions{}, metav1.ListOptions{}))
+		snapshotContentList, err := virtCli.VirtualMachineSnapshotContent(namespace).List(context.Background(), metav1.ListOptions{})
+		util.PanicOnError(err)
+		vmSnapshotContentFinalizer := "snapshot.kubevirt.io/vmsnapshotcontent-protection"
+		for _, snapshotContent := range snapshotContentList.Items {
+			if controller.HasFinalizer(&snapshotContent, vmSnapshotContentFinalizer) {
+				_, err := virtCli.VirtualMachineSnapshot(snapshotContent.Namespace).Patch(context.Background(), snapshotContent.Name, types.JSONPatchType, []byte("[{ \"op\": \"remove\", \"path\": \"/metadata/finalizers\" }]"), metav1.PatchOptions{})
+				if !errors.IsNotFound(err) {
+					util.PanicOnError(err)
+				}
+			}
+		}
+
+		util.PanicOnError(virtCli.VirtualMachineRestore(namespace).DeleteCollection(context.Background(), metav1.DeleteOptions{}, metav1.ListOptions{}))
 	}
 }
 
@@ -271,6 +300,27 @@ func detectInstallNamespace() {
 	flags.KubeVirtInstallNamespace = kvs.Items[0].Namespace
 }
 
+func GetLabelsForNamespace(namespace string) map[string]string {
+	labels := map[string]string{
+		cleanup.TestLabelForNamespace(namespace):         "",
+		"security.openshift.io/scc.podSecurityLabelSync": "false",
+	}
+	if namespace == NamespacePrivileged {
+		labels["pod-security.kubernetes.io/enforce"] = "privileged"
+	}
+
+	return labels
+}
+
+func resetNamespaceLabelsToDefault(client kubecli.KubevirtClient, namespace string) error {
+	return libnet.PatchNamespace(client, namespace, func(ns *k8sv1.Namespace) {
+		if ns.Labels == nil {
+			return
+		}
+		ns.Labels = GetLabelsForNamespace(namespace)
+	})
+}
+
 func createNamespaces() {
 	virtCli, err := kubecli.GetKubevirtClient()
 	util.PanicOnError(err)
@@ -279,15 +329,9 @@ func createNamespaces() {
 	for _, namespace := range TestNamespaces {
 		ns := &k8sv1.Namespace{
 			ObjectMeta: metav1.ObjectMeta{
-				Name: namespace,
-				Labels: map[string]string{
-					cleanup.TestLabelForNamespace(namespace):         "",
-					"security.openshift.io/scc.podSecurityLabelSync": "false",
-				},
+				Name:   namespace,
+				Labels: GetLabelsForNamespace(namespace),
 			},
-		}
-		if namespace == NamespacePrivileged {
-			ns.Labels["pod-security.kubernetes.io/enforce"] = "privileged"
 		}
 
 		_, err = virtCli.CoreV1().Namespaces().Create(context.Background(), ns, metav1.CreateOptions{})
