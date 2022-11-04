@@ -76,7 +76,7 @@ type KubevirtClient interface {
 	VirtualMachinePreference(namespace string) instancetypev1alpha2.VirtualMachinePreferenceInterface
 	VirtualMachineClusterPreference() instancetypev1alpha2.VirtualMachineClusterPreferenceInterface
 	MigrationPolicy() migrationsv1.MigrationPolicyInterface
-	ExpandSpec() *ExpandSpec
+	ExpandSpec(namespace string) ExpandSpecInterface
 	ServerVersion() ServerVersionInterface
 	VirtualMachineClone(namespace string) clonev1alpha1.VirtualMachineCloneInterface
 	ClusterProfiler() *ClusterProfiler
@@ -323,4 +323,8 @@ type KubeVirtInterface interface {
 
 type ServerVersionInterface interface {
 	Get() (*version.Info, error)
+}
+
+type ExpandSpecInterface interface {
+	ForVirtualMachine(vm *v1.VirtualMachine) (*v1.VirtualMachine, error)
 }
