@@ -214,7 +214,7 @@ var _ = Describe("Instancetype expansion subresources", func() {
 		})
 	})
 
-	Context("expand-spec endpoint", func() {
+	Context("expand-vm-spec endpoint", func() {
 		callExpandSpecApi := func(vm *v1.VirtualMachine) *httptest.ResponseRecorder {
 			vmJson, err := json.Marshal(vm)
 			Expect(err).ToNot(HaveOccurred())

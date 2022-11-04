@@ -145,51 +145,74 @@ func (a *authorizor) generateAccessReview(req *restful.Request) (*authv1.Subject
 		Extra:  a.getUserExtras(req.Request.Header),
 	}
 
-	// URL example
+	// URL examples
+	// /apis/subresources.kubevirt.io/v1alpha3/namespaces/default/expand-vm-spec
 	// /apis/subresources.kubevirt.io/v1alpha3/namespaces/default/virtualmachineinstances/testvmi/console
 	pathSplit := strings.Split(req.Request.URL.Path, "/")
-
-	resourceAttributes, err := getResourceAttributes(pathSplit, req.Request)
-	if err != nil {
-		return nil, err
+	if len(pathSplit) >= 9 {
+		if err := addNamespacedResourceAttributes(req, r, pathSplit); err != nil {
+			return nil, err
+		}
+	} else if len(pathSplit) == 7 {
+		if err := addNamespacedResourceBaseAttributes(req, r, pathSplit); err != nil {
+			return nil, err
+		}
+	} else {
+		return nil, fmt.Errorf("unknown api endpoint: %s", req.Request.URL.Path)
 	}
 
-	r.Spec.ResourceAttributes = resourceAttributes
 	return r, nil
 }
 
-func getResourceAttributes(pathSplit []string, httpRequest *http.Request) (*authv1.ResourceAttributes, error) {
+func addNamespacedResourceAttributes(req *restful.Request, r *authv1.SubjectAccessReview, pathSplit []string) error {
 	// URL example
 	// /apis/subresources.kubevirt.io/v1alpha3/namespaces/default/virtualmachineinstances/testvmi/console
-	if len(pathSplit) < 9 {
-		return nil, fmt.Errorf("unknown api endpoint %s", httpRequest.URL.Path)
-	}
-
-	group := pathSplit[2]
-	version := pathSplit[3]
-	namespace := pathSplit[5]
 	resource := pathSplit[6]
-	resourceName := pathSplit[7]
-	subresource := pathSplit[8]
-
 	if resource != "virtualmachineinstances" && resource != "virtualmachines" {
-		return nil, fmt.Errorf("unknown resource type %s", resource)
+		return fmt.Errorf("unknown resource type %s", resource)
 	}
 
-	verb, err := mapHttpVerbToRbacVerb(httpRequest.Method, resourceName)
+	resourceName := pathSplit[7]
+	verb, err := mapHttpVerbToRbacVerb(req.Request.Method, resourceName)
 	if err != nil {
-		return nil, err
+		return err
 	}
 
-	return &authv1.ResourceAttributes{
-		Namespace:   namespace,
+	r.Spec.ResourceAttributes = &authv1.ResourceAttributes{
+		Namespace:   pathSplit[5],
 		Verb:        verb,
-		Group:       group,
-		Version:     version,
+		Group:       pathSplit[2],
+		Version:     pathSplit[3],
 		Resource:    resource,
-		Subresource: subresource,
+		Subresource: pathSplit[8],
 		Name:        resourceName,
-	}, nil
+	}
+
+	return nil
+}
+
+func addNamespacedResourceBaseAttributes(req *restful.Request, r *authv1.SubjectAccessReview, pathSplit []string) error {
+	// URL example
+	// /apis/subresources.kubevirt.io/v1alpha3/namespaces/default/expand-vm-spec
+	resource := pathSplit[6]
+	if resource != "expand-vm-spec" {
+		return fmt.Errorf("unknown resource type %s", resource)
+	}
+
+	verb, err := mapHttpVerbToRbacVerb(req.Request.Method, "")
+	if err != nil {
+		return err
+	}
+
+	r.Spec.ResourceAttributes = &authv1.ResourceAttributes{
+		Namespace: pathSplit[5],
+		Verb:      verb,
+		Group:     pathSplit[2],
+		Version:   pathSplit[3],
+		Resource:  resource,
+	}
+
+	return nil
 }
 
 func mapHttpVerbToRbacVerb(httpVerb string, name string) (string, error) {
