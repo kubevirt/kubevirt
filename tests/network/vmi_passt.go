@@ -80,7 +80,6 @@ var _ = SIGDescribe("[Serial] Passt", func() {
 					serverVMI = libvmi.NewAlpineWithTestTooling(
 						libvmi.WithInterface(libvmi.InterfaceDeviceWithPasstBinding(ports...)),
 						libvmi.WithNetwork(v1.DefaultPodNetwork()),
-						withPasstExtendedResourceMemory(ports...),
 					)
 
 					serverVMI, err = virtClient.VirtualMachineInstance(util.NamespaceTestDefault).Create(serverVMI)
@@ -214,7 +213,6 @@ EOL`, inetSuffix, serverIP, serverPort)
 						clientVMI = libvmi.NewAlpineWithTestTooling(
 							libvmi.WithInterface(libvmi.InterfaceDeviceWithPasstBinding()),
 							libvmi.WithNetwork(v1.DefaultPodNetwork()),
-							withPasstExtendedResourceMemory(),
 						)
 						clientVMI, err = virtClient.VirtualMachineInstance(util.NamespaceTestDefault).Create(clientVMI)
 						Expect(err).ToNot(HaveOccurred())
@@ -288,11 +286,3 @@ EOL`, inetSuffix, serverIP, serverPort)
 		})
 	})
 })
-
-func withPasstExtendedResourceMemory(ports ...v1.Port) libvmi.Option {
-	if len(ports) == 0 {
-		return libvmi.WithResourceMemory("2048M")
-	}
-	return func(vmi *v1.VirtualMachineInstance) {
-	}
-}
