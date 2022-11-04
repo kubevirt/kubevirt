@@ -262,5 +262,15 @@ var _ = Describe("Instancetype expansion subresources", func() {
 			statusErr := ExpectStatusErrorWithCode(recorder, http.StatusBadRequest)
 			Expect(statusErr.Status().Message).To(Equal("Object is not a valid VirtualMachine"))
 		})
+
+		It("should fail, if VM and endpoint namespace are different", func() {
+			request.PathParameters()["namespace"] = vmNamespace
+			vm.Namespace = "madethisup"
+
+			recorder = callExpandSpecApi(vm)
+			statusErr := ExpectStatusErrorWithCode(recorder, http.StatusBadRequest)
+			errMsg := fmt.Sprintf("VM namespace must be empty or %s", vmNamespace)
+			Expect(statusErr.Status().Message).To(Equal(errMsg))
+		})
 	})
 })
