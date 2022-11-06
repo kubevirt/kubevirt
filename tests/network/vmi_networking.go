@@ -820,26 +820,6 @@ var _ = SIGDescribe("[rfe_id:694][crit:medium][vendor:cnv-qe@redhat.com][level:c
 				return pod, nil
 			}
 
-			runMigrationAndExpectCompletion := func(migration *v1.VirtualMachineInstanceMigration, timeout int) {
-				migration, err = virtClient.VirtualMachineInstanceMigration(migration.Namespace).Create(migration, &metav1.CreateOptions{})
-				Expect(err).NotTo(HaveOccurred())
-
-				Eventually(func() error {
-					migration, err := virtClient.VirtualMachineInstanceMigration(migration.Namespace).Get(migration.Name, &metav1.GetOptions{})
-					if err != nil {
-						return err
-					}
-
-					Expect(migration.Status.Phase).ToNot(Equal(v1.MigrationFailed))
-
-					if migration.Status.Phase == v1.MigrationSucceeded {
-						return nil
-					}
-					return fmt.Errorf("Migration is in phase %s", migration.Status.Phase)
-
-				}, timeout, time.Second).Should(Succeed(), fmt.Sprintf("migration should succeed after %d s", timeout))
-			}
-
 			BeforeEach(func() {
 				checks.SkipIfMigrationIsNotPossible()
 			})
@@ -877,9 +857,9 @@ var _ = SIGDescribe("[rfe_id:694][crit:medium][vendor:cnv-qe@redhat.com][level:c
 				podIP := libnet.GetPodIPByFamily(virtHandlerPod, k8sv1.IPv4Protocol)
 				Expect(ping(podIP)).To(Succeed())
 
-				By("Execute migration")
+				By("starting the migration")
 				migration := tests.NewRandomMigration(vmi.Name, vmi.Namespace)
-				runMigrationAndExpectCompletion(migration, tests.MigrationWaitTime)
+				tests.RunMigrationAndExpectCompletion(virtClient, migration, tests.MigrationWaitTime)
 
 				vmi, err = virtClient.VirtualMachineInstance(vmi.Namespace).Get(vmi.Name, &metav1.GetOptions{})
 				Expect(err).ToNot(HaveOccurred())
@@ -919,9 +899,9 @@ var _ = SIGDescribe("[rfe_id:694][crit:medium][vendor:cnv-qe@redhat.com][level:c
 				podIP := libnet.GetPodIPByFamily(virtHandlerPod, k8sv1.IPv6Protocol)
 				Expect(ping(podIP)).To(Succeed())
 
-				By("Execute migration")
+				By("starting the migration")
 				migration := tests.NewRandomMigration(vmi.Name, vmi.Namespace)
-				runMigrationAndExpectCompletion(migration, tests.MigrationWaitTime)
+				tests.RunMigrationAndExpectCompletion(virtClient, migration, tests.MigrationWaitTime)
 
 				vmi, err = virtClient.VirtualMachineInstance(vmi.Namespace).Get(vmi.Name, &metav1.GetOptions{})
 				Expect(err).ToNot(HaveOccurred())
