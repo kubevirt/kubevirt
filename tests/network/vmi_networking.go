@@ -38,7 +38,6 @@ import (
 	"k8s.io/apimachinery/pkg/api/errors"
 	"k8s.io/apimachinery/pkg/api/resource"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
-	v13 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	netutils "k8s.io/utils/net"
 	"k8s.io/utils/pointer"
 
@@ -221,7 +220,7 @@ var _ = SIGDescribe("[rfe_id:694][crit:medium][vendor:cnv-qe@redhat.com][level:c
 				ip := inboundVMI.Status.Interfaces[0].IP
 
 				//TODO if node count 1, skip the nv12.NodeSelectorOpOut
-				nodes, err := virtClient.CoreV1().Nodes().List(context.Background(), v13.ListOptions{})
+				nodes, err := virtClient.CoreV1().Nodes().List(context.Background(), metav1.ListOptions{})
 				Expect(err).ToNot(HaveOccurred())
 				Expect(nodes.Items).ToNot(BeEmpty())
 				if len(nodes.Items) == 1 && op == v12.NodeSelectorOpNotIn {
@@ -827,7 +826,7 @@ var _ = SIGDescribe("[rfe_id:694][crit:medium][vendor:cnv-qe@redhat.com][level:c
 				Expect(err).NotTo(HaveOccurred())
 
 				Eventually(func() error {
-					migration, err := virtClient.VirtualMachineInstanceMigration(migration.Namespace).Get(migration.Name, &v13.GetOptions{})
+					migration, err := virtClient.VirtualMachineInstanceMigration(migration.Namespace).Get(migration.Name, &metav1.GetOptions{})
 					if err != nil {
 						return err
 					}
@@ -849,10 +848,10 @@ var _ = SIGDescribe("[rfe_id:694][crit:medium][vendor:cnv-qe@redhat.com][level:c
 			AfterEach(func() {
 				if vmi != nil {
 					By("Delete VMI")
-					Expect(virtClient.VirtualMachineInstance(vmi.Namespace).Delete(vmi.Name, &v13.DeleteOptions{})).To(Succeed())
+					Expect(virtClient.VirtualMachineInstance(vmi.Namespace).Delete(vmi.Name, &metav1.DeleteOptions{})).To(Succeed())
 
 					Eventually(func() error {
-						_, err := virtClient.VirtualMachineInstance(vmi.Namespace).Get(vmi.Name, &v13.GetOptions{})
+						_, err := virtClient.VirtualMachineInstance(vmi.Namespace).Get(vmi.Name, &metav1.GetOptions{})
 						return err
 					}, time.Minute, time.Second).Should(
 						SatisfyAll(HaveOccurred(), WithTransform(errors.IsNotFound, BeTrue())),
@@ -883,7 +882,7 @@ var _ = SIGDescribe("[rfe_id:694][crit:medium][vendor:cnv-qe@redhat.com][level:c
 				migration := tests.NewRandomMigration(vmi.Name, vmi.Namespace)
 				runMigrationAndExpectCompletion(migration, tests.MigrationWaitTime)
 
-				vmi, err = virtClient.VirtualMachineInstance(vmi.Namespace).Get(vmi.Name, &v13.GetOptions{})
+				vmi, err = virtClient.VirtualMachineInstance(vmi.Namespace).Get(vmi.Name, &metav1.GetOptions{})
 				Expect(err).ToNot(HaveOccurred())
 				Expect(vmi.Status.Phase).To(Equal(v1.Running))
 
@@ -925,7 +924,7 @@ var _ = SIGDescribe("[rfe_id:694][crit:medium][vendor:cnv-qe@redhat.com][level:c
 				migration := tests.NewRandomMigration(vmi.Name, vmi.Namespace)
 				runMigrationAndExpectCompletion(migration, tests.MigrationWaitTime)
 
-				vmi, err = virtClient.VirtualMachineInstance(vmi.Namespace).Get(vmi.Name, &v13.GetOptions{})
+				vmi, err = virtClient.VirtualMachineInstance(vmi.Namespace).Get(vmi.Name, &metav1.GetOptions{})
 				Expect(err).ToNot(HaveOccurred())
 				Expect(vmi.Status.Phase).To(Equal(v1.Running))
 
