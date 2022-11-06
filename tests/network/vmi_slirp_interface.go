@@ -22,6 +22,7 @@ package network
 import (
 	"fmt"
 	"strings"
+	"time"
 
 	expect "github.com/google/goexpect"
 	. "github.com/onsi/ginkgo/v2"
@@ -163,20 +164,22 @@ var _ = SIGDescribe("Slirp Networking", func() {
 			vmi := *vmiRef
 			vmi, err = virtClient.VirtualMachineInstance(util.NamespaceTestDefault).Create(vmi)
 			Expect(err).ToNot(HaveOccurred())
-			tests.WaitForSuccessfulVMIStartIgnoreWarnings(vmi)
-			tests.GenerateHelloWorldServer(vmi, 80, "tcp", console.LoginToCirros, true)
+			vmi = tests.WaitForSuccessfulVMIStartIgnoreWarnings(vmi)
+			vmi = tests.LoginToVM(vmi, console.LoginToCirros)
 
 			dns := "google.com"
 			if flags.ConnectivityCheckDNS != "" {
 				dns = flags.ConnectivityCheckDNS
 			}
 
-			Expect(console.SafeExpectBatch(vmi, []expect.Batcher{
-				&expect.BSnd{S: "\n"},
-				&expect.BExp{R: console.PromptExpression},
-				&expect.BSnd{S: fmt.Sprintf("curl -o /dev/null -s -w \"%%{http_code}\\n\" -k https://%s\n", dns)},
-				&expect.BExp{R: "301"},
-			}, 180)).To(Succeed())
+			Eventually(func() error {
+				return console.SafeExpectBatch(vmi, []expect.Batcher{
+					&expect.BSnd{S: "\n"},
+					&expect.BExp{R: console.PromptExpression},
+					&expect.BSnd{S: fmt.Sprintf("curl -o /dev/null -s -w \"%%{http_code}\\n\" -k https://%s\n", dns)},
+					&expect.BExp{R: "301"},
+				}, 60)
+			}, 180*time.Second, time.Second).Should(Succeed(), "Failed to establish a successful connection to the outside network")
 		},
 			Entry("VirtualMachineInstance with slirp interface", &genericVmi),
 			Entry("VirtualMachineInstance with slirp interface with custom MAC address", &deadbeafVmi),
