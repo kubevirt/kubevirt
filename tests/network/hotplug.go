@@ -94,8 +94,82 @@ var _ = SIGDescribe("Network interface hotplug", func() {
 					})))
 			Expect(assertHotpluggedIfaceExists(vmi, "eth1")).To(Succeed())
 		})
+
+		It("cannot hotplug multiple network interfaces for a q35 machine type by default", func() {
+			const ifaceName = "iface1"
+
+			Expect(
+				virtClient.VirtualMachineInstance(vmi.GetNamespace()).AddInterface(
+					vmi.GetName(),
+					addIfaceOptions(networkName, ifaceName),
+				),
+			).To(Succeed())
+
+			Eventually(func() []v1.VirtualMachineInstanceNetworkInterface {
+				var err error
+
+				vmi, err = virtClient.VirtualMachineInstance(vmi.GetNamespace()).Get(vmi.GetName(), &metav1.GetOptions{})
+				Expect(err).NotTo(HaveOccurred())
+				return filterHotpluggedNetworkInterfaces(vmi)
+			}, 30*time.Second).Should(
+				WithTransform(
+					CleanMACAddressesFromStatus,
+					ConsistOf(
+						v1.VirtualMachineInstanceNetworkInterface{
+							Name:          hotpluggedNetworkInterfaceName(networkName, ifaceName),
+							InterfaceName: "eth1",
+							InfoSource:    "domain, guest-agent",
+							QueueCount:    1,
+							HotplugInterface: &v1.HotplugInterfaceStatus{
+								Phase: v1.InterfaceHotplugPhaseReady,
+								Type:  v1.Plug,
+							},
+						})))
+
+			By("hotplugging the second interface")
+			const secondHotpluggedIfaceName = "iface2"
+			Expect(
+				virtClient.VirtualMachineInstance(vmi.GetNamespace()).AddInterface(
+					vmi.GetName(),
+					addIfaceOptions(networkName, secondHotpluggedIfaceName),
+				),
+			).To(Succeed())
+			Eventually(func() []v1.VirtualMachineInstanceNetworkInterface {
+				var err error
+
+				vmi, err = virtClient.VirtualMachineInstance(vmi.GetNamespace()).Get(vmi.GetName(), &metav1.GetOptions{})
+				Expect(err).NotTo(HaveOccurred())
+				return filterHotpluggedNetworkInterfaces(vmi)
+			}, 30*time.Second).Should(
+				WithTransform(
+					CleanMACAddressesFromStatus,
+					ConsistOf(
+						v1.VirtualMachineInstanceNetworkInterface{
+							Name:          hotpluggedNetworkInterfaceName(networkName, ifaceName),
+							InterfaceName: "eth1",
+							InfoSource:    "domain, guest-agent",
+							QueueCount:    1,
+							HotplugInterface: &v1.HotplugInterfaceStatus{
+								Phase: v1.InterfaceHotplugPhaseReady,
+								Type:  v1.Plug,
+							},
+						},
+						v1.VirtualMachineInstanceNetworkInterface{
+							Name:          hotpluggedNetworkInterfaceName(networkName, secondHotpluggedIfaceName),
+							InterfaceName: secondHotpluggedIfaceName,
+							HotplugInterface: &v1.HotplugInterfaceStatus{
+								Phase:           v1.InterfaceHotplugPhaseFailed,
+								Type:            v1.Plug,
+								DetailedMessage: noAvailablePCISlotsError(),
+							},
+						})))
+		})
 	})
 })
+
+func noAvailablePCISlotsError() string {
+	return "failed to update domain: server error. command SyncVMI failed: \"LibvirtError(Code=1, Domain=20, Message='internal error: No more available PCI slots')\""
+}
 
 func assertHotpluggedIfaceExists(vmi *v1.VirtualMachineInstance, ifaceName string) error {
 	return runSafeCommand(vmi, fmt.Sprintf("ip addr show %s\n", ifaceName))
