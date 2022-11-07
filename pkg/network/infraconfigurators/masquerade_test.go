@@ -428,12 +428,17 @@ func getVMPrimaryInterfacePortList(vmi v1.VirtualMachineInstance) []int {
 }
 
 func mockNetfilterNFTables(handler *netdriver.MockNetworkHandler, proto iptables.Protocol, nftIPString string, vmIP string, gwIP string, portList []int, vmiAnnotations map[string]string, isMigrationOverSockets bool) {
-	handler.EXPECT().NftablesLoad(proto).Return(nil)
+	handler.EXPECT().CheckNftables().Return(nil)
 	mockNFTablesFrontend(handler, proto, nftIPString, vmIP, gwIP, portList, vmiAnnotations, isMigrationOverSockets)
 }
 
 func mockNFTablesFrontend(handler *netdriver.MockNetworkHandler, proto iptables.Protocol, nftIPString string, vmIP string, gwIP string, portList []int, vmiAnnotations map[string]string, isMigrationOverSockets bool) {
 	handler.EXPECT().GetNFTIPString(proto).Return(nftIPString).AnyTimes()
+	handler.EXPECT().NftablesNewTable(proto, "nat").Return(nil)
+	handler.EXPECT().NftablesNewChain(proto, "nat", "prerouting { type nat hook prerouting priority -100; }").Return(nil)
+	handler.EXPECT().NftablesNewChain(proto, "nat", "input { type nat hook input priority 100; }").Return(nil)
+	handler.EXPECT().NftablesNewChain(proto, "nat", "output { type nat hook output priority -100; }").Return(nil)
+	handler.EXPECT().NftablesNewChain(proto, "nat", "postrouting { type nat hook postrouting priority 100; }").Return(nil)
 	handler.EXPECT().NftablesNewChain(proto, "nat", "KUBEVIRT_PREINBOUND").Return(nil)
 	handler.EXPECT().NftablesNewChain(proto, "nat", "KUBEVIRT_POSTINBOUND").Return(nil)
 
