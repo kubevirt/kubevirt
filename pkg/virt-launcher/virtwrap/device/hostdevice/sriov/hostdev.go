@@ -40,6 +40,9 @@ import (
 
 func CreateHostDevices(vmi *v1.VirtualMachineInstance) ([]api.HostDevice, error) {
 	SRIOVInterfaces := vmispec.FilterSRIOVInterfaces(vmi.Spec.Domain.Devices.Interfaces)
+	if len(SRIOVInterfaces) == 0 {
+		return []api.HostDevice{}, nil
+	}
 	netStatusPath := path.Join(sriov.MountPath, sriov.VolumePath)
 	pciAddressPoolWithNetworkStatus, err := newPCIAddressPoolWithNetworkStatusFromFile(netStatusPath)
 	if err != nil {
