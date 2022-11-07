@@ -27,6 +27,7 @@ import (
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
 
+	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 
 	v1 "kubevirt.io/api/core/v1"
@@ -75,6 +76,26 @@ var _ = SIGDescribe("nic-hotplug", func() {
 
 		It("can be hotplugged a network interface", func() {
 			Expect(libnet.InterfaceExists(vmi, vmIfaceName)).To(Succeed())
+		})
+
+		It("cannot hotplug multiple network interfaces for a q35 machine type by default", func() {
+			By("hotplugging the second interface")
+			const secondHotpluggedIfaceName = "iface2"
+			Expect(
+				kubevirt.Client().VirtualMachineInstance(vmi.GetNamespace()).AddInterface(
+					context.Background(),
+					vmi.GetName(),
+					addIfaceOptions(networkName, secondHotpluggedIfaceName),
+				),
+			).To(Succeed())
+			Eventually(func() []corev1.Event {
+				events, err := kubevirt.Client().CoreV1().Events(vmi.GetNamespace()).List(context.Background(), metav1.ListOptions{})
+				ExpectWithOffset(1, err).NotTo(HaveOccurred())
+				return events.Items
+			}, 30*time.Second).Should(
+				WithTransform(
+					filterVMISyncErrorEvents,
+					ContainElement(noPCISlotsAvailableError())))
 		})
 	})
 })
@@ -143,4 +164,25 @@ func interfaceStatusFromInterfaceNames(ifaceNames ...string) []v1.VirtualMachine
 		})
 	}
 	return ifaceStatus
+}
+
+func filterVMISyncErrorEvents(events []corev1.Event) []string {
+	const desiredEvent = "SyncFailed"
+	return filterEvents(events, func(event corev1.Event) bool {
+		return event.Reason == desiredEvent
+	})
+}
+
+func filterEvents(events []corev1.Event, p func(event corev1.Event) bool) []string {
+	var eventMsgs []string
+	for _, event := range events {
+		if p(event) {
+			eventMsgs = append(eventMsgs, event.Message)
+		}
+	}
+	return eventMsgs
+}
+
+func noPCISlotsAvailableError() string {
+	return "server error. command SyncVMI failed: \"LibvirtError(Code=1, Domain=20, Message='internal error: No more available PCI slots')\""
 }
