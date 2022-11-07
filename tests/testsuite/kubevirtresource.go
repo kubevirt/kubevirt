@@ -96,6 +96,7 @@ func AdjustKubeVirtResource() {
 		virtconfig.WorkloadEncryptionSEV,
 		virtconfig.VMExportGate,
 		virtconfig.VSOCKGate,
+		virtconfig.HotplugNetworkIfacesGate,
 	)
 
 	if kv.Spec.Configuration.NetworkConfiguration == nil {
