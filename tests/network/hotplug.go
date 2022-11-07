@@ -41,6 +41,13 @@ import (
 )
 
 var _ = SIGDescribe("nic-hotplug", func() {
+	const (
+		bridgeName  = "supadupabr"
+		ifaceName   = "iface1"
+		networkName = "skynet"
+		vmIfaceName = "eth1"
+	)
+
 	var virtClient kubecli.KubevirtClient
 
 	BeforeEach(func() {
@@ -50,14 +57,7 @@ var _ = SIGDescribe("nic-hotplug", func() {
 		util.PanicOnError(err)
 	})
 
-	Context("a running VMI", func() {
-		const (
-			bridgeName  = "supadupabr"
-			ifaceName   = "iface1"
-			networkName = "skynet"
-			vmIfaceName = "eth1"
-		)
-
+	Context("a running VMI with the default number of PCI slots", func() {
 		var vmi *v1.VirtualMachineInstance
 
 		BeforeEach(func() {
@@ -103,6 +103,48 @@ var _ = SIGDescribe("nic-hotplug", func() {
 				WithTransform(
 					filterVMISyncErrorEvents,
 					ContainElement(noPCISlotsAvailableError())))
+		})
+	})
+
+	Context("a running VMI with a user specified number of PCI slots", func() {
+		var vmi *v1.VirtualMachineInstance
+
+		BeforeEach(func() {
+			vmi = setupVMI(virtClient, libvmi.NewAlpineWithTestTooling(withPCISlots(10)))
+			Expect(
+				createBridgeNetworkAttachmentDefinition(virtClient, util.NamespaceTestDefault, networkName, bridgeName),
+			).To(Succeed())
+			Expect(assertHotpluggedIfaceDoesNotExist(vmi, "eth1")).To(Succeed())
+
+			Expect(
+				virtClient.VirtualMachineInstance(vmi.GetNamespace()).AddInterface(
+					vmi.GetName(),
+					addIfaceOptions(networkName, ifaceName),
+				),
+			).To(Succeed())
+			Eventually(func() []v1.VirtualMachineInstanceNetworkInterface {
+				return vmiCurrentInterfaces(virtClient, vmi.GetNamespace(), vmi.GetName())
+			}, 30*time.Second).Should(
+				WithTransform(
+					CleanMACAddressesFromStatus,
+					ConsistOf(interfaceStatusFromInterfaceNames(ifaceName))))
+		})
+
+		It("can be hotplugged a network interface", func() {
+			By("hotplugging the second interface")
+			const secondHotpluggedIfaceName = "iface2"
+			Expect(
+				virtClient.VirtualMachineInstance(vmi.GetNamespace()).AddInterface(
+					vmi.GetName(),
+					addIfaceOptions(networkName, secondHotpluggedIfaceName),
+				),
+			).To(Succeed())
+			Eventually(func() []v1.VirtualMachineInstanceNetworkInterface {
+				return vmiCurrentInterfaces(virtClient, vmi.GetNamespace(), vmi.GetName())
+			}, 30*time.Second).Should(
+				WithTransform(
+					CleanMACAddressesFromStatus,
+					ConsistOf(interfaceStatusFromInterfaceNames(ifaceName, secondHotpluggedIfaceName))))
 		})
 	})
 })
@@ -205,4 +247,10 @@ func filterEvents(events []corev1.Event, p func(event corev1.Event) bool) []stri
 
 func noPCISlotsAvailableError() string {
 	return "server error. command SyncVMI failed: \"LibvirtError(Code=1, Domain=20, Message='internal error: No more available PCI slots')\""
+}
+
+func withPCISlots(numberOfPCISlots int) libvmi.Option {
+	return func(vmi *v1.VirtualMachineInstance) {
+		vmi.Spec.Domain.Devices.NumberPciPorts = uint8(numberOfPCISlots)
+	}
 }
