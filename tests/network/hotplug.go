@@ -38,6 +38,11 @@ import (
 )
 
 var _ = SIGDescribe("Network interface hotplug", func() {
+	const (
+		bridgeName  = "supadupabr"
+		networkName = "skynet"
+	)
+
 	var virtClient kubecli.KubevirtClient
 
 	BeforeEach(func() {
@@ -47,12 +52,7 @@ var _ = SIGDescribe("Network interface hotplug", func() {
 		util.PanicOnError(err)
 	})
 
-	Context("a running VMI", func() {
-		const (
-			bridgeName  = "supadupabr"
-			networkName = "skynet"
-		)
-
+	Context("a running VMI with the default number of PCI slots", func() {
 		var vmi *v1.VirtualMachineInstance
 
 		BeforeEach(func() {
@@ -165,6 +165,88 @@ var _ = SIGDescribe("Network interface hotplug", func() {
 						})))
 		})
 	})
+
+	Context("a running VMI with a user specified number of PCI slots", func() {
+		var vmi *v1.VirtualMachineInstance
+
+		BeforeEach(func() {
+			vmi = setupVMI(virtClient, libvmi.NewAlpineWithTestTooling(withPCISlots(10)))
+			Expect(
+				createBridgeNetworkAttachmentDefinition(virtClient, util.NamespaceTestDefault, networkName, bridgeName),
+			).To(Succeed())
+			Expect(assertHotpluggedIfaceDoesNotExist(vmi, "eth1")).To(Succeed())
+		})
+
+		It("can be hotplugged a network interface", func() {
+			const ifaceName = "iface1"
+
+			Expect(
+				virtClient.VirtualMachineInstance(vmi.GetNamespace()).AddInterface(
+					vmi.GetName(),
+					addIfaceOptions(networkName, ifaceName),
+				),
+			).To(Succeed())
+			Eventually(func() []v1.VirtualMachineInstanceNetworkInterface {
+				var err error
+
+				vmi, err = virtClient.VirtualMachineInstance(vmi.GetNamespace()).Get(vmi.GetName(), &metav1.GetOptions{})
+				Expect(err).NotTo(HaveOccurred())
+				return filterHotpluggedNetworkInterfaces(vmi)
+			}, 30*time.Second).Should(
+				WithTransform(
+					CleanMACAddressesFromStatus,
+					ConsistOf(
+						v1.VirtualMachineInstanceNetworkInterface{
+							Name:          hotpluggedNetworkInterfaceName(networkName, ifaceName),
+							InterfaceName: "eth1",
+							InfoSource:    "domain, guest-agent",
+							QueueCount:    1,
+							HotplugInterface: &v1.HotplugInterfaceStatus{
+								Phase: v1.InterfaceHotplugPhaseReady,
+								Type:  v1.Plug,
+							},
+						})))
+
+			By("hotplugging the second interface")
+			const secondHotpluggedIfaceName = "iface2"
+			Expect(
+				virtClient.VirtualMachineInstance(vmi.GetNamespace()).AddInterface(
+					vmi.GetName(),
+					addIfaceOptions(networkName, secondHotpluggedIfaceName),
+				),
+			).To(Succeed())
+			Eventually(func() []v1.VirtualMachineInstanceNetworkInterface {
+				var err error
+
+				vmi, err = virtClient.VirtualMachineInstance(vmi.GetNamespace()).Get(vmi.GetName(), &metav1.GetOptions{})
+				Expect(err).NotTo(HaveOccurred())
+				return filterHotpluggedNetworkInterfaces(vmi)
+			}, 30*time.Second).Should(
+				WithTransform(
+					CleanMACAddressesFromStatus,
+					ConsistOf(
+						v1.VirtualMachineInstanceNetworkInterface{
+							Name:          hotpluggedNetworkInterfaceName(networkName, ifaceName),
+							InterfaceName: "eth1",
+							InfoSource:    "domain, guest-agent",
+							QueueCount:    1,
+							HotplugInterface: &v1.HotplugInterfaceStatus{
+								Phase: v1.InterfaceHotplugPhaseReady,
+								Type:  v1.Plug,
+							},
+						},
+						v1.VirtualMachineInstanceNetworkInterface{
+							Name:          hotpluggedNetworkInterfaceName(networkName, secondHotpluggedIfaceName),
+							InterfaceName: "eth2",
+							InfoSource:    "domain, guest-agent",
+							QueueCount:    1,
+							HotplugInterface: &v1.HotplugInterfaceStatus{
+								Phase: v1.InterfaceHotplugPhaseReady,
+								Type:  v1.Plug,
+							},
+						})))
+		})
+	})
 })
 
 func noAvailablePCISlotsError() string {
@@ -219,4 +301,10 @@ func CleanMACAddressesFromStatus(status []v1.VirtualMachineInstanceNetworkInterf
 
 func hotpluggedNetworkInterfaceName(networkName, ifaceName string) string {
 	return fmt.Sprintf("%s_%s", networkName, ifaceName)
+}
+
+func withPCISlots(numberOfPCISlots int) libvmi.Option {
+	return func(vmi *v1.VirtualMachineInstance) {
+		vmi.Spec.Domain.Devices.NumberPciPorts = uint8(numberOfPCISlots)
+	}
 }
