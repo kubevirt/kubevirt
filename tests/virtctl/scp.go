@@ -29,7 +29,7 @@ var _ = Describe("[sig-compute][virtctl]SCP", func() {
 		args := []string{
 			"scp",
 			"--namespace", util.NamespaceTestDefault,
-			"--username", "cirros",
+			"--username", "root",
 			"--identity-file", keyFile,
 			"--known-hosts=",
 		}
@@ -46,7 +46,7 @@ var _ = Describe("[sig-compute][virtctl]SCP", func() {
 			"scp",
 			"--local-ssh=true",
 			"--namespace", util.NamespaceTestDefault,
-			"--username", "cirros",
+			"--username", "root",
 			"--identity-file", keyFile,
 			"-t", "-o StrictHostKeyChecking=no",
 			"-t", "-o UserKnownHostsFile=/dev/null",
@@ -79,12 +79,12 @@ var _ = Describe("[sig-compute][virtctl]SCP", func() {
 
 	DescribeTable("should copy a local file back and forth", func(copyFn func(string, string, bool)) {
 		By("injecting a SSH public key into a VMI")
-		vmi := libvmi.NewCirros(
+		vmi := libvmi.NewAlpineWithTestTooling(
 			libvmi.WithCloudInitNoCloudUserData(renderUserDataWithKey(pub), false))
 		vmi, err := virtClient.VirtualMachineInstance(util.NamespaceTestDefault).Create(vmi)
 		Expect(err).ToNot(HaveOccurred())
 
-		vmi = tests.WaitUntilVMIReady(vmi, console.LoginToCirros)
+		vmi = tests.WaitUntilVMIReady(vmi, console.LoginToAlpine)
 
 		By("copying a file to the VMI")
 		copyFn(keyFile, vmi.Name+":"+"./keyfile", false)
@@ -102,12 +102,12 @@ var _ = Describe("[sig-compute][virtctl]SCP", func() {
 
 	DescribeTable("should copy a local directory back and forth", func(copyFn func(string, string, bool)) {
 		By("injecting a SSH public key into a VMI")
-		vmi := libvmi.NewCirros(
+		vmi := libvmi.NewAlpineWithTestTooling(
 			libvmi.WithCloudInitNoCloudUserData(renderUserDataWithKey(pub), false))
 		vmi, err := virtClient.VirtualMachineInstance(util.NamespaceTestDefault).Create(vmi)
 		Expect(err).ToNot(HaveOccurred())
 
-		vmi = tests.WaitUntilVMIReady(vmi, console.LoginToCirros)
+		vmi = tests.WaitUntilVMIReady(vmi, console.LoginToAlpine)
 
 		By("creating a few random files")
 		copyFromDir := filepath.Join(GinkgoT().TempDir(), "sourcedir")
@@ -134,9 +134,9 @@ var _ = Describe("[sig-compute][virtctl]SCP", func() {
 
 func renderUserDataWithKey(key ssh.PublicKey) string {
 	return fmt.Sprintf(`#!/bin/sh
-mkdir -p /home/cirros/.ssh/
-echo "%s" > /home/cirros/.ssh/authorized_keys
-chown -R cirros:cirros /home/cirros/.ssh
+mkdir -p /root/.ssh/
+echo "%s" > /root/.ssh/authorized_keys
+chown -R root:root /root/.ssh
 `, string(ssh.MarshalAuthorizedKey(key)))
 }
 
