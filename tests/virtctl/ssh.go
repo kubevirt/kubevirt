@@ -69,7 +69,7 @@ var _ = Describe("[sig-compute][virtctl]SSH", func() {
 	DescribeTable("should succeed to execute a command on the VM", func(cmdFn func(string)) {
 		By("injecting a SSH public key into a VMI")
 		vmi := libvmi.NewCirros(
-			libvmi.WithCloudInitNoCloudUserData(renderUserDataWithKey("cirros", pub), false))
+			libvmi.WithCloudInitNoCloudUserData(renderUserDataWithKey(pub), false))
 		vmi, err := virtClient.VirtualMachineInstance(util.NamespaceTestDefault).Create(vmi)
 		Expect(err).ToNot(HaveOccurred())
 
