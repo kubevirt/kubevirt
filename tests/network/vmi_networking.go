@@ -34,11 +34,9 @@ import (
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
 	k8sv1 "k8s.io/api/core/v1"
-	v12 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/api/errors"
 	"k8s.io/apimachinery/pkg/api/resource"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
-	v13 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	netutils "k8s.io/utils/net"
 	"k8s.io/utils/pointer"
 
@@ -216,25 +214,25 @@ var _ = SIGDescribe("[rfe_id:694][crit:medium][vendor:cnv-qe@redhat.com][level:c
 				tests.StartTCPServer(inboundVMI, testPort, console.LoginToCirros)
 			})
 
-			DescribeTable("should be able to reach", func(op v12.NodeSelectorOperator, hostNetwork bool) {
+			DescribeTable("should be able to reach", func(op k8sv1.NodeSelectorOperator, hostNetwork bool) {
 
 				ip := inboundVMI.Status.Interfaces[0].IP
 
 				//TODO if node count 1, skip the nv12.NodeSelectorOpOut
-				nodes, err := virtClient.CoreV1().Nodes().List(context.Background(), v13.ListOptions{})
+				nodes, err := virtClient.CoreV1().Nodes().List(context.Background(), metav1.ListOptions{})
 				Expect(err).ToNot(HaveOccurred())
 				Expect(nodes.Items).ToNot(BeEmpty())
-				if len(nodes.Items) == 1 && op == v12.NodeSelectorOpNotIn {
+				if len(nodes.Items) == 1 && op == k8sv1.NodeSelectorOpNotIn {
 					Skip("Skip network test that requires multiple nodes when only one node is present.")
 				}
 
 				job := tests.NewHelloWorldJobTCP(ip, strconv.Itoa(testPort))
-				job.Spec.Template.Spec.Affinity = &v12.Affinity{
-					NodeAffinity: &v12.NodeAffinity{
-						RequiredDuringSchedulingIgnoredDuringExecution: &v12.NodeSelector{
-							NodeSelectorTerms: []v12.NodeSelectorTerm{
+				job.Spec.Template.Spec.Affinity = &k8sv1.Affinity{
+					NodeAffinity: &k8sv1.NodeAffinity{
+						RequiredDuringSchedulingIgnoredDuringExecution: &k8sv1.NodeSelector{
+							NodeSelectorTerms: []k8sv1.NodeSelectorTerm{
 								{
-									MatchExpressions: []v12.NodeSelectorRequirement{
+									MatchExpressions: []k8sv1.NodeSelectorRequirement{
 										{Key: "kubernetes.io/hostname", Operator: op, Values: []string{inboundVMI.Status.NodeName}},
 									},
 								},
@@ -248,10 +246,10 @@ var _ = SIGDescribe("[rfe_id:694][crit:medium][vendor:cnv-qe@redhat.com][level:c
 				Expect(err).ToNot(HaveOccurred())
 				Expect(tests.WaitForJobToSucceed(job, 90*time.Second)).To(Succeed())
 			},
-				Entry("[test_id:1543]on the same node from Pod", v12.NodeSelectorOpIn, false),
-				Entry("[test_id:1544]on a different node from Pod", v12.NodeSelectorOpNotIn, false),
-				Entry("[test_id:1545]on the same node from Node", v12.NodeSelectorOpIn, true),
-				Entry("[test_id:1546]on a different node from Node", v12.NodeSelectorOpNotIn, true),
+				Entry("[test_id:1543]on the same node from Pod", k8sv1.NodeSelectorOpIn, false),
+				Entry("[test_id:1544]on a different node from Pod", k8sv1.NodeSelectorOpNotIn, false),
+				Entry("[test_id:1545]on the same node from Node", k8sv1.NodeSelectorOpIn, true),
+				Entry("[test_id:1546]on a different node from Node", k8sv1.NodeSelectorOpNotIn, true),
 			)
 		})
 
@@ -827,7 +825,7 @@ var _ = SIGDescribe("[rfe_id:694][crit:medium][vendor:cnv-qe@redhat.com][level:c
 				Expect(err).NotTo(HaveOccurred())
 
 				Eventually(func() error {
-					migration, err := virtClient.VirtualMachineInstanceMigration(migration.Namespace).Get(migration.Name, &v13.GetOptions{})
+					migration, err := virtClient.VirtualMachineInstanceMigration(migration.Namespace).Get(migration.Name, &metav1.GetOptions{})
 					if err != nil {
 						return err
 					}
@@ -849,10 +847,10 @@ var _ = SIGDescribe("[rfe_id:694][crit:medium][vendor:cnv-qe@redhat.com][level:c
 			AfterEach(func() {
 				if vmi != nil {
 					By("Delete VMI")
-					Expect(virtClient.VirtualMachineInstance(vmi.Namespace).Delete(vmi.Name, &v13.DeleteOptions{})).To(Succeed())
+					Expect(virtClient.VirtualMachineInstance(vmi.Namespace).Delete(vmi.Name, &metav1.DeleteOptions{})).To(Succeed())
 
 					Eventually(func() error {
-						_, err := virtClient.VirtualMachineInstance(vmi.Namespace).Get(vmi.Name, &v13.GetOptions{})
+						_, err := virtClient.VirtualMachineInstance(vmi.Namespace).Get(vmi.Name, &metav1.GetOptions{})
 						return err
 					}, time.Minute, time.Second).Should(
 						SatisfyAll(HaveOccurred(), WithTransform(errors.IsNotFound, BeTrue())),
@@ -883,7 +881,7 @@ var _ = SIGDescribe("[rfe_id:694][crit:medium][vendor:cnv-qe@redhat.com][level:c
 				migration := tests.NewRandomMigration(vmi.Name, vmi.Namespace)
 				runMigrationAndExpectCompletion(migration, tests.MigrationWaitTime)
 
-				vmi, err = virtClient.VirtualMachineInstance(vmi.Namespace).Get(vmi.Name, &v13.GetOptions{})
+				vmi, err = virtClient.VirtualMachineInstance(vmi.Namespace).Get(vmi.Name, &metav1.GetOptions{})
 				Expect(err).ToNot(HaveOccurred())
 				Expect(vmi.Status.Phase).To(Equal(v1.Running))
 
@@ -925,7 +923,7 @@ var _ = SIGDescribe("[rfe_id:694][crit:medium][vendor:cnv-qe@redhat.com][level:c
 				migration := tests.NewRandomMigration(vmi.Name, vmi.Namespace)
 				runMigrationAndExpectCompletion(migration, tests.MigrationWaitTime)
 
-				vmi, err = virtClient.VirtualMachineInstance(vmi.Namespace).Get(vmi.Name, &v13.GetOptions{})
+				vmi, err = virtClient.VirtualMachineInstance(vmi.Namespace).Get(vmi.Name, &metav1.GetOptions{})
 				Expect(err).ToNot(HaveOccurred())
 				Expect(vmi.Status.Phase).To(Equal(v1.Running))
 
