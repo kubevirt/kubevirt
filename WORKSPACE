@@ -341,10 +341,10 @@ container_pull(
 
 container_pull(
     name = "alpine_with_test_tooling",
-    digest = "sha256:d1dab23ed46af711acb33e54b1dd2a7c6dfaab24227346a487748057e2c81d11",
+    digest = "sha256:abd71660edffc355520239e8910debfa7491516ee35240f23bba378d9095410c",
     registry = "quay.io",
     repository = "kubevirtci/alpine-with-test-tooling-container-disk",
-    tag = "2206291207-35b9c64",
+    tag = "2211021552-8cca8c0",
 )
 
 container_pull(
