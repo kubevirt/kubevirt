@@ -82,6 +82,45 @@ var _ = SIGDescribe("Network interface hotplug", func() {
 		It("can be hotplugged a network interface", func() {
 			Expect(assertHotpluggedIfaceExists(vmi, vmIfaceName)).To(Succeed())
 		})
+
+		It("cannot hotplug multiple network interfaces for a q35 machine type by default", func() {
+			const ifaceName = "iface1"
+
+			Expect(
+				virtClient.VirtualMachineInstance(vmi.GetNamespace()).AddInterface(
+					vmi.GetName(),
+					addIfaceOptions(networkName, ifaceName),
+				),
+			).To(Succeed())
+
+			Eventually(func() []v1.VirtualMachineInstanceNetworkInterface {
+				var err error
+
+				vmi, err = virtClient.VirtualMachineInstance(vmi.GetNamespace()).Get(vmi.GetName(), &metav1.GetOptions{})
+				Expect(err).NotTo(HaveOccurred())
+				return filterHotpluggedNetworkInterfaces(vmi)
+			}, 30*time.Second).Should(
+				WithTransform(
+					CleanMACAddressesFromStatus,
+					ConsistOf(interfaceStatusFromInterfaceNames(ifaceName))))
+
+			By("hotplugging the second interface")
+			const secondHotpluggedIfaceName = "iface2"
+			Expect(
+				virtClient.VirtualMachineInstance(vmi.GetNamespace()).AddInterface(
+					vmi.GetName(),
+					addIfaceOptions(networkName, secondHotpluggedIfaceName),
+				),
+			).To(Succeed())
+			Consistently(func() []v1.VirtualMachineInstanceNetworkInterface {
+				vmi, err := virtClient.VirtualMachineInstance(vmi.GetNamespace()).Get(vmi.GetName(), &metav1.GetOptions{})
+				Expect(err).NotTo(HaveOccurred())
+				return filterHotpluggedNetworkInterfaces(vmi)
+			}, 30*time.Second).Should(
+				WithTransform(
+					CleanMACAddressesFromStatus,
+					ConsistOf(interfaceStatusFromInterfaceNames(ifaceName))))
+		})
 	})
 })
 
