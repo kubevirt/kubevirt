@@ -272,8 +272,8 @@ var _ = SIGDescribe("[Serial]Multus", Serial, decorators.Multus, func() {
 				Expect(err).ToNot(HaveOccurred())
 
 				By("checking virtual machine instance has two interfaces")
-				Expect(checkInterface(detachedVMI, "eth0")).To(Succeed())
-				Expect(checkInterface(detachedVMI, "eth1")).To(Succeed())
+				Expect(libnet.InterfaceExists(detachedVMI, "eth0")).To(Succeed())
+				Expect(libnet.InterfaceExists(detachedVMI, "eth1")).To(Succeed())
 
 				Expect(libnet.PingFromVMConsole(detachedVMI, ptpGateway)).To(Succeed())
 			})
@@ -410,11 +410,11 @@ var _ = SIGDescribe("[Serial]Multus", Serial, decorators.Multus, func() {
 
 				Expect(configureAlpineInterfaceIP(vmiOne, ifaceName, staticIPVm1)).To(Succeed())
 				By(fmt.Sprintf("checking virtual machine interface %s state", ifaceName))
-				Expect(checkInterface(vmiOne, ifaceName)).To(Succeed())
+				Expect(libnet.InterfaceExists(vmiOne, ifaceName)).To(Succeed())
 
 				Expect(configureAlpineInterfaceIP(vmiTwo, ifaceName, staticIPVm2)).To(Succeed())
 				By(fmt.Sprintf("checking virtual machine interface %s state", ifaceName))
-				Expect(checkInterface(vmiTwo, ifaceName)).To(Succeed())
+				Expect(libnet.InterfaceExists(vmiTwo, ifaceName)).To(Succeed())
 				ipAddr := ""
 				if staticIPVm2 != "" {
 					ipAddr, err = libnet.CidrToIP(staticIPVm2)
@@ -768,17 +768,6 @@ func configInterface(vmi *v1.VirtualMachineInstance, interfaceName, interfaceAdd
 	}
 
 	return setInterfaceUp(vmi, interfaceName)
-}
-
-func checkInterface(vmi *v1.VirtualMachineInstance, interfaceName string) error {
-	cmdCheck := fmt.Sprintf("ip link show %s\n", interfaceName)
-	err := runSafeCommand(vmi, cmdCheck)
-
-	if err != nil {
-		return fmt.Errorf("could not check interface: interface %s was not found in the VMI %s: %w", interfaceName, vmi.Name, err)
-	}
-
-	return nil
 }
 
 func checkMacAddress(vmi *v1.VirtualMachineInstance, interfaceName, macAddress string) error {

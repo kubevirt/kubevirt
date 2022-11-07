@@ -689,7 +689,7 @@ func newSRIOVVmi(networks []string, cloudInitNetworkData string) *v1.VirtualMach
 
 func checkInterfacesInGuest(vmi *v1.VirtualMachineInstance, interfaces []string) {
 	for _, iface := range interfaces {
-		Expect(checkInterface(vmi, iface)).To(Succeed())
+		Expect(libnet.InterfaceExists(vmi, iface)).To(Succeed())
 	}
 }
 
