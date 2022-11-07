@@ -774,7 +774,8 @@ type HotplugVolumeSource struct {
 }
 
 type DataVolumeSource struct {
-	// Name represents the name of the DataVolume in the same namespace
+	// Name of both the DataVolume and the PVC in the same namespace.
+	// After PVC population the DataVolume is garbage collected by default.
 	Name string `json:"name"`
 	// Hotpluggable indicates whether the volume can be hotplugged and hotunplugged.
 	// +optional
