@@ -1682,7 +1682,7 @@ func Convert_v1_VirtualMachineInstance_To_api_Domain(vmi *v1.VirtualMachineInsta
 	}
 
 	// Make use of the tsc frequency topology hint
-	if topology.IsManualTSCFrequencyRequired(vmi) && topology.AreTSCFrequencyTopologyHintsDefined(vmi) {
+	if topology.IsManualTSCFrequencyRequired(vmi) {
 		freq := *vmi.Status.TopologyHints.TSCFrequency
 		clock := domain.Spec.Clock
 		if clock == nil {

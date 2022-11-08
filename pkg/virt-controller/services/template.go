@@ -25,6 +25,8 @@ import (
 	"strconv"
 	"strings"
 
+	"kubevirt.io/kubevirt/pkg/virt-controller/watch/topology"
+
 	"k8s.io/kubectl/pkg/cmd/util/podcmd"
 	"k8s.io/utils/pointer"
 
@@ -543,7 +545,7 @@ func (t *templateService) newNodeSelectorRenderer(vmi *v1.VirtualMachineInstance
 		)
 	}
 
-	if vmi.Status.TopologyHints != nil && vmi.Status.TopologyHints.TSCFrequency != nil {
+	if topology.IsManualTSCFrequencyRequired(vmi) {
 		opts = append(opts, WithTSCTimer(vmi.Status.TopologyHints.TSCFrequency))
 	}
 

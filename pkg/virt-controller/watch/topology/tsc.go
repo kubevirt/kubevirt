@@ -127,7 +127,9 @@ func AreTSCFrequencyTopologyHintsDefined(vmi *k6tv1.VirtualMachineInstance) bool
 }
 
 func IsManualTSCFrequencyRequired(vmi *k6tv1.VirtualMachineInstance) bool {
-	return GetTscFrequencyRequirement(vmi).Type != NotRequired
+	return vmi != nil &&
+		GetTscFrequencyRequirement(vmi).Type != NotRequired &&
+		AreTSCFrequencyTopologyHintsDefined(vmi)
 }
 
 func GetTscFrequencyRequirement(vmi *k6tv1.VirtualMachineInstance) TscFrequencyRequirement {
