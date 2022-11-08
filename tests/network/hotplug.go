@@ -37,18 +37,19 @@ import (
 	"kubevirt.io/kubevirt/tests/framework/kubevirt"
 	"kubevirt.io/kubevirt/tests/libnet"
 	"kubevirt.io/kubevirt/tests/libvmi"
+	"kubevirt.io/kubevirt/tests/libwait"
 	"kubevirt.io/kubevirt/tests/util"
 )
 
 var _ = SIGDescribe("nic-hotplug", func() {
-	Context("a running VMI", func() {
-		const (
-			bridgeName  = "supadupabr"
-			ifaceName   = "iface1"
-			networkName = "skynet"
-			vmIfaceName = "eth1"
-		)
+	const (
+		bridgeName  = "supadupabr"
+		ifaceName   = "iface1"
+		networkName = "skynet"
+		vmIfaceName = "eth1"
+	)
 
+	Context("a running VMI", func() {
 		var vmi *v1.VirtualMachineInstance
 
 		BeforeEach(func() {
@@ -96,6 +97,148 @@ var _ = SIGDescribe("nic-hotplug", func() {
 				WithTransform(
 					filterVMISyncErrorEvents,
 					ContainElement(noPCISlotsAvailableError())))
+		})
+	})
+
+	Context("a running VM", func() {
+		var vm *v1.VirtualMachine
+
+		BeforeEach(func() {
+			Expect(
+				createBridgeNetworkAttachmentDefinition(util.NamespaceTestDefault, networkName, bridgeName),
+			).To(Succeed())
+			vm = newVMWithOneInterface()
+
+			var err error
+			vm, err = kubevirt.Client().VirtualMachine(util.NamespaceTestDefault).Create(context.Background(), vm)
+			Expect(err).NotTo(HaveOccurred())
+			var vmi *v1.VirtualMachineInstance
+			Eventually(func() error {
+				var err error
+				vmi, err = kubevirt.Client().VirtualMachineInstance(util.NamespaceTestDefault).Get(context.Background(), vm.GetName(), &metav1.GetOptions{})
+				return err
+			}, 120*time.Second, 1*time.Second).ShouldNot(HaveOccurred())
+			libwait.WaitUntilVMIReady(vmi, console.LoginToAlpine)
+		})
+
+		It("can be hotplugged a network interface", func() {
+			Expect(
+				kubevirt.Client().VirtualMachine(vm.GetNamespace()).AddInterface(
+					context.Background(),
+					vm.GetName(),
+					addIfaceOptions(networkName, ifaceName),
+				),
+			).To(Succeed())
+
+			vmi, err := kubevirt.Client().VirtualMachineInstance(vm.GetNamespace()).Get(context.Background(), vm.GetName(), &metav1.GetOptions{})
+			Expect(err).NotTo(HaveOccurred())
+
+			Eventually(func() []v1.VirtualMachineInstanceNetworkInterface {
+				return cleanMACAddressesFromStatus(vmiCurrentInterfaces(vmi.GetNamespace(), vmi.GetName()))
+			}, 30*time.Second).Should(
+				ConsistOf(interfaceStatusFromInterfaceNames(ifaceName)))
+			Expect(libnet.InterfaceExists(vmi, vmIfaceName)).To(Succeed())
+		})
+
+		When("an interface is hotplugged into the VM", func() {
+			BeforeEach(func() {
+				By("hot-plugging an interface to the VM")
+				Expect(
+					kubevirt.Client().VirtualMachine(vm.GetNamespace()).AddInterface(
+						context.Background(),
+						vm.GetName(),
+						addIfaceOptions(networkName, ifaceName),
+					),
+				).To(Succeed())
+
+				vmi, err := kubevirt.Client().VirtualMachineInstance(vm.GetNamespace()).Get(context.Background(), vm.GetName(), &metav1.GetOptions{})
+				Expect(err).NotTo(HaveOccurred())
+
+				By("asserting the corresponding VMI reports the interface in the status")
+				Eventually(func() []v1.VirtualMachineInstanceNetworkInterface {
+					var err error
+
+					vmi, err = kubevirt.Client().VirtualMachineInstance(vmi.GetNamespace()).Get(context.Background(), vmi.GetName(), &metav1.GetOptions{})
+					Expect(err).NotTo(HaveOccurred())
+					return cleanMACAddressesFromStatus(vmiCurrentInterfaces(vmi.GetNamespace(), vmi.GetName()))
+				}, 30*time.Second).Should(
+					ConsistOf(interfaceStatusFromInterfaceNames(ifaceName)))
+
+				By("asserting the guest (via console) features the hot-plugged interface")
+				Expect(libnet.InterfaceExists(vmi, vmIfaceName)).To(Succeed())
+
+				By("restarting the VM")
+				Expect(kubevirt.Client().VirtualMachine(vm.GetNamespace()).Restart(
+					context.Background(),
+					vm.GetName(),
+					&v1.RestartOptions{},
+				)).To(Succeed())
+
+				By("asserting a new VMI is created, and running")
+				Eventually(func() v1.VirtualMachineInstancePhase {
+					newVMI, err := kubevirt.Client().VirtualMachineInstance(vm.GetNamespace()).Get(context.Background(), vm.Name, &metav1.GetOptions{})
+					if err != nil || vmi.UID == newVMI.UID {
+						return v1.VmPhaseUnset
+					}
+					return newVMI.Status.Phase
+				}, 90*time.Second, 1*time.Second).Should(Equal(v1.Running))
+				vmi, err = kubevirt.Client().VirtualMachineInstance(vm.GetNamespace()).Get(context.Background(), vm.GetName(), &metav1.GetOptions{})
+				Expect(err).NotTo(HaveOccurred())
+				libwait.WaitUntilVMIReady(vmi, console.LoginToAlpine)
+			})
+
+			It("hotplugged interfaces are available after the VM is restarted", func() {
+				vmi, err := kubevirt.Client().VirtualMachineInstance(vm.GetNamespace()).Get(context.Background(), vm.GetName(), &metav1.GetOptions{})
+				Expect(err).NotTo(HaveOccurred())
+				Expect(libnet.InterfaceExists(vmi, vmIfaceName)).To(Succeed())
+			})
+		})
+	})
+
+	Context("a stopped VM", func() {
+		var vm *v1.VirtualMachine
+
+		BeforeEach(func() {
+			var err error
+
+			vm = newStoppedVMWithOneInterface()
+			vm, err = kubevirt.Client().VirtualMachine(util.NamespaceTestDefault).Create(context.Background(), vm)
+			Expect(err).NotTo(HaveOccurred())
+		})
+
+		It("cannot be subject to **hot** plug, but will mutate the template.Spec on behalf of the user", func() {
+			Expect(
+				kubevirt.Client().VirtualMachine(vm.GetNamespace()).AddInterface(
+					context.Background(),
+					vm.GetName(),
+					addIfaceOptions(networkName, ifaceName),
+				),
+			).To(Succeed())
+
+			var err error
+			vm, err = kubevirt.Client().VirtualMachine(vm.GetNamespace()).Get(context.Background(), vm.GetName(), &metav1.GetOptions{})
+			Expect(err).NotTo(HaveOccurred())
+			Expect(vm.Spec.Template.Spec.Networks).To(
+				ConsistOf(
+					*v1.DefaultPodNetwork(),
+					v1.Network{
+						Name: ifaceName,
+						NetworkSource: v1.NetworkSource{Multus: &v1.MultusNetwork{
+							NetworkName: networkName,
+						}},
+					},
+				))
+			// we need to clean up the MACs because KubeMacPool sets MACs for VM interfaces ...
+			Expect(cleanMACAddressesFromSpec(vm.Spec.Template.Spec.Domain.Devices.Interfaces)).To(
+				ConsistOf(
+					*v1.DefaultMasqueradeNetworkInterface(),
+					v1.Interface{
+						Name: ifaceName,
+						InterfaceBindingMethod: v1.InterfaceBindingMethod{
+							Bridge: &v1.InterfaceBridge{},
+						},
+					},
+				))
 		})
 	})
 })
@@ -185,4 +328,25 @@ func filterEvents(events []corev1.Event, p func(event corev1.Event) bool) []stri
 
 func noPCISlotsAvailableError() string {
 	return "server error. command SyncVMI failed: \"LibvirtError(Code=1, Domain=20, Message='internal error: No more available PCI slots')\""
+}
+
+func newVMWithOneInterface() *v1.VirtualMachine {
+	vm := tests.NewRandomVirtualMachine(libvmi.NewAlpineWithTestTooling(), true)
+	vm.Spec.Template.Spec.Networks = []v1.Network{*v1.DefaultPodNetwork()}
+	vm.Spec.Template.Spec.Domain.Devices.Interfaces = []v1.Interface{*v1.DefaultMasqueradeNetworkInterface()}
+	return vm
+}
+
+func newStoppedVMWithOneInterface() *v1.VirtualMachine {
+	vm := newVMWithOneInterface()
+	stopped := false
+	vm.Spec.Running = &stopped
+	return vm
+}
+
+func cleanMACAddressesFromSpec(status []v1.Interface) []v1.Interface {
+	for i := range status {
+		status[i].MacAddress = ""
+	}
+	return status
 }
