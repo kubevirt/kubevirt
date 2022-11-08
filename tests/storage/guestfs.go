@@ -15,6 +15,7 @@ import (
 	"kubevirt.io/client-go/kubecli"
 
 	"kubevirt.io/kubevirt/pkg/virtctl/guestfs"
+	"kubevirt.io/kubevirt/tests"
 	"kubevirt.io/kubevirt/tests/clientcmd"
 	"kubevirt.io/kubevirt/tests/exec"
 	"kubevirt.io/kubevirt/tests/libstorage"
@@ -104,26 +105,11 @@ var _ = SIGDescribe("[rfe_id:6364][[Serial]Guestfs", func() {
 		}
 		guestfsCmd := clientcmd.NewVirtctlCommand(o...)
 		go guestfsWithSync(f, guestfsCmd)
-		// Waiting until the libguestfs pod is running
+		// Waiting until the libguestfs pod is ready
 		Eventually(func() bool {
 			pod, _ := virtClient.CoreV1().Pods(util.NamespaceTestDefault).Get(context.Background(), podName, metav1.GetOptions{})
-			ready := false
-			for _, status := range pod.Status.ContainerStatuses {
-				if status.State.Running != nil {
-					return true
-				}
-			}
-			return ready
-
+			return tests.PodReady(pod) == corev1.ConditionTrue
 		}, 90*time.Second, 2*time.Second).Should(BeTrue())
-		// Verify that the appliance has been extracted before running any tests by checking the done file
-		Eventually(func() bool {
-			_, _, err := execCommandLibguestfsPod(podName, []string{"ls", "/usr/local/lib/guestfs/appliance/done"})
-			if err != nil {
-				return false
-			}
-			return true
-		}, 30*time.Second, 2*time.Second).Should(BeTrue())
 
 	}
 

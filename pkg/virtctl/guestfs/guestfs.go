@@ -548,6 +548,13 @@ func createLibguestfsPod(pvc, image, cmd string, args []string, kvm, isBlock boo
 					Stdin:           true,
 					TTY:             true,
 					Resources:       resources,
+					ReadinessProbe: &corev1.Probe{
+						ProbeHandler: corev1.ProbeHandler{
+							Exec: &corev1.ExecAction{
+								Command: []string{"/bin/cat", appliancePath + "/done"},
+							},
+						},
+					},
 				},
 			},
 			RestartPolicy: corev1.RestartPolicyNever,
