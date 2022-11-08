@@ -329,10 +329,8 @@ func (t *templateService) renderLaunchManifest(vmi *v1.VirtualMachineInstance, i
 		userId,
 	).Render(commandRenderer.Render())
 
-	for networkName, resourceName := range networkToResourceMap {
-		varName := fmt.Sprintf("KUBEVIRT_RESOURCE_NAME_%s", networkName)
-		compute.Env = append(compute.Env, k8sv1.EnvVar{Name: varName, Value: resourceName})
-	}
+	envVarRenderer := NewEnvVariablesRenderer(networkToResourceMap)
+	compute.Env = envVarRenderer.Render()
 
 	virtLauncherLogVerbosity := t.clusterConfig.GetVirtLauncherVerbosity()
 
