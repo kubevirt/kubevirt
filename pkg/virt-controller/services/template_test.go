@@ -27,6 +27,7 @@ import (
 	"kubevirt.io/kubevirt/pkg/virt-controller/watch/topology"
 
 	"k8s.io/apimachinery/pkg/util/validation"
+	"k8s.io/utils/pointer"
 
 	"kubevirt.io/client-go/api"
 
