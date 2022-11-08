@@ -329,20 +329,13 @@ func (t *templateService) renderLaunchManifest(vmi *v1.VirtualMachineInstance, i
 		userId,
 	).Render(commandRenderer.Render())
 
-	envVarRenderer := NewEnvVariablesRenderer(networkToResourceMap, vmi.Labels, t.clusterConfig.GetVirtLauncherVerbosity())
-	compute.Env, err = envVarRenderer.Render()
+	computeContainerEnvVariables, err := NewEnvVariablesRenderer(
+		networkToResourceMap, vmi.Labels, t.clusterConfig.GetVirtLauncherVerbosity(),
+	).Render()
 	if err != nil {
 		return nil, err
 	}
-
-	virtLauncherLogVerbosity := t.clusterConfig.GetVirtLauncherVerbosity()
-
-	if labelValue, ok := vmi.Labels[debugLogs]; (ok && strings.EqualFold(labelValue, "true")) || virtLauncherLogVerbosity > EXT_LOG_VERBOSITY_THRESHOLD {
-		compute.Env = append(compute.Env, k8sv1.EnvVar{Name: ENV_VAR_LIBVIRT_DEBUG_LOGS, Value: "1"})
-	}
-	if labelValue, ok := vmi.Labels[virtiofsDebugLogs]; (ok && strings.EqualFold(labelValue, "true")) || virtLauncherLogVerbosity > EXT_LOG_VERBOSITY_THRESHOLD {
-		compute.Env = append(compute.Env, k8sv1.EnvVar{Name: ENV_VAR_VIRTIOFSD_DEBUG_LOGS, Value: "1"})
-	}
+	compute.Env = computeContainerEnvVariables
 
 	// Make sure the compute container is always the first since the mutating webhook shipped with the sriov operator
 	// for adding the requested resources to the pod will add them to the first container of the list

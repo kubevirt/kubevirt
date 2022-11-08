@@ -13,7 +13,10 @@ import (
 )
 
 var _ = Describe("Environment Variable renderer", func() {
-	const beLessVerbose = 1
+	const (
+		beLessVerbose     = 1
+		beALotMoreVerbose = 9
+	)
 
 	DescribeTable(
 		"computes the environment variables for the launcher container",
@@ -54,6 +57,28 @@ var _ = Describe("Environment Variable renderer", func() {
 			uint(beLessVerbose),
 			ConsistOf(
 				k8sv1.EnvVar{Name: "VIRT_LAUNCHER_LOG_VERBOSITY", Value: envVarLogVerbosity(beLessVerbose)},
+				podNameEnvVar(),
+			),
+		),
+		Entry(
+			"override default cluster wide log verbosity via VMI labels",
+			map[string]string{},
+			map[string]string{debugLogs: "true"},
+			uint(virtconfig.DefaultVirtLauncherLogVerbosity),
+			ConsistOf(
+				k8sv1.EnvVar{Name: ENV_VAR_LIBVIRT_DEBUG_LOGS, Value: envVarLogVerbosity(beLessVerbose)},
+				podNameEnvVar(),
+			),
+		),
+		Entry(
+			"enable libvirt / virtioFS logs when the cluster-wide config is very verbose",
+			map[string]string{},
+			map[string]string{},
+			uint(beALotMoreVerbose),
+			ConsistOf(
+				k8sv1.EnvVar{Name: "VIRT_LAUNCHER_LOG_VERBOSITY", Value: envVarLogVerbosity(beALotMoreVerbose)},
+				k8sv1.EnvVar{Name: ENV_VAR_LIBVIRT_DEBUG_LOGS, Value: "1"},
+				k8sv1.EnvVar{Name: ENV_VAR_VIRTIOFSD_DEBUG_LOGS, Value: "1"},
 				podNameEnvVar(),
 			),
 		),

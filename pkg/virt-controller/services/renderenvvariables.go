@@ -3,6 +3,7 @@ package services
 import (
 	"fmt"
 	"strconv"
+	"strings"
 
 	k8sv1 "k8s.io/api/core/v1"
 
@@ -40,6 +41,16 @@ func (evr *EnvVariablesRenderer) Render() ([]k8sv1.EnvVar, error) {
 		environmentVariables = append(environmentVariables, *clusterWideLoggingLevelForVMI)
 	}
 
+	if libvirtLoggingConfig := evr.configureSpecificLauncherPodLogging(
+		debugLogs, ENV_VAR_LIBVIRT_DEBUG_LOGS, EXT_LOG_VERBOSITY_THRESHOLD); libvirtLoggingConfig != nil {
+		environmentVariables = append(environmentVariables, *libvirtLoggingConfig)
+	}
+
+	if virtioFSDebugLogConfig := evr.configureSpecificLauncherPodLogging(
+		virtiofsDebugLogs, ENV_VAR_VIRTIOFSD_DEBUG_LOGS, EXT_LOG_VERBOSITY_THRESHOLD); virtioFSDebugLogConfig != nil {
+		environmentVariables = append(environmentVariables, *virtioFSDebugLogConfig)
+	}
+
 	environmentVariables = append(environmentVariables, k8sv1.EnvVar{
 		Name: ENV_VAR_POD_NAME,
 		ValueFrom: &k8sv1.EnvVarSource{
@@ -72,4 +83,11 @@ func (evr *EnvVariablesRenderer) overrideClusterWideLoggingLevelForVMI() (*k8sv1
 
 func kubevirtNetworkResourceName(networkName string) string {
 	return fmt.Sprintf("KUBEVIRT_RESOURCE_NAME_%s", networkName)
+}
+
+func (evr *EnvVariablesRenderer) configureSpecificLauncherPodLogging(labelName string, envVarName string, verbosityThreshold uint) *k8sv1.EnvVar {
+	if labelValue, ok := evr.labels[labelName]; (ok && strings.EqualFold(labelValue, "true")) || evr.logVerbosity > verbosityThreshold {
+		return &k8sv1.EnvVar{Name: envVarName, Value: "1"}
+	}
+	return nil
 }
