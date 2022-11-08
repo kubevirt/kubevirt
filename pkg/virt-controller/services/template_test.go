@@ -1410,31 +1410,13 @@ var _ = Describe("Template", func() {
 				DescribeTable("should", func(topologyHints *v1.TopologyHints, tscRequirementType topology.TscFrequencyRequirementType, isLabelExpected bool) {
 					config, kvInformer, svc = configFactory(defaultArch)
 
-					var someHertzios int64 = 123123
-					vmi := v1.VirtualMachineInstance{
-						ObjectMeta: metav1.ObjectMeta{
-							Name:      "testvmi",
-							Namespace: "default",
-							UID:       "1234",
-						},
-						Spec: v1.VirtualMachineInstanceSpec{
-							Domain: v1.DomainSpec{
-								Devices: v1.Devices{
-									DisableHotplug: true,
-								},
-							},
-						},
-						Status: v1.VirtualMachineInstanceStatus{
-							TopologyHints: &v1.TopologyHints{
-								TSCFrequency: &someHertzios,
-							},
-						},
-					}
-
+					By("Setting up the vm")
+					vmi := api.NewMinimalVMIWithNS("testvmi", "default")
 					vmi.Status.TopologyHints = topologyHints
-					setVmWithTscRequirementType(&vmi, tscRequirementType)
+					setVmWithTscRequirementType(vmi, tscRequirementType)
 
-					pod, err := svc.RenderLaunchManifest(&vmi)
+					By("Rendering the vm into a pod")
+					pod, err := svc.RenderLaunchManifest(vmi)
 					Expect(err).ToNot(HaveOccurred())
 
 					if isLabelExpected {
@@ -1881,11 +1863,11 @@ var _ = Describe("Template", func() {
 				Expect(pod.Spec.Containers[0].Resources.Requests.Memory().ToDec().ScaledValue(resource.Mega)).To(Equal(int64(memory)))
 			},
 				Entry("and consider graphics overhead if it is not set on amd64", "amd64", nil, 335),
-				Entry("and consider graphics overhead if it is set to true on amd64", "amd64", True(), 335),
-				Entry("and not consider graphics overhead if it is set to false on amd64", "amd64", False(), 318),
+				Entry("and consider graphics overhead if it is set to true on amd64", "amd64", pointer.Bool(true), 335),
+				Entry("and not consider graphics overhead if it is set to false on amd64", "amd64", pointer.Bool(false), 318),
 				Entry("and consider graphics overhead if it is not set on arm64", "arm64", nil, 469),
-				Entry("and consider graphics overhead if it is set to true on arm64", "arm64", True(), 469),
-				Entry("and not consider graphics overhead if it is set to false on arm64", "arm64", False(), 453),
+				Entry("and consider graphics overhead if it is set to true on arm64", "arm64", pointer.Bool(true), 469),
+				Entry("and not consider graphics overhead if it is set to false on arm64", "arm64", pointer.Bool(false), 453),
 			)
 			It("should calculate vcpus overhead based on guest toplogy", func() {
 				config, kvInformer, svc = configFactory(defaultArch)
@@ -3640,16 +3622,6 @@ func newVMIWithSriovInterface(name, uid string) *v1.VirtualMachineInstance {
 	vmi.Spec.Domain.Devices.Interfaces = []v1.Interface{sriovInterface}
 
 	return vmi
-}
-
-func True() *bool {
-	b := true
-	return &b
-}
-
-func False() *bool {
-	b := false
-	return &b
 }
 
 func validateAndExtractQemuTimeoutArg(args []string) string {
