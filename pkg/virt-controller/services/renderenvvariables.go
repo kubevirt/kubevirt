@@ -2,27 +2,42 @@ package services
 
 import (
 	"fmt"
+	"strconv"
 
 	k8sv1 "k8s.io/api/core/v1"
+
+	virtconfig "kubevirt.io/kubevirt/pkg/virt-config"
 )
 
 type EnvVariablesRenderer struct {
+	logVerbosity             uint
 	requiredNetworkResources map[string]string
+	labels                   map[string]string
 }
 
-func NewEnvVariablesRenderer(requiredNetworkResources map[string]string) *EnvVariablesRenderer {
+func NewEnvVariablesRenderer(requiredNetworkResources map[string]string, labels map[string]string, logVerbosity uint) *EnvVariablesRenderer {
 	return &EnvVariablesRenderer{
+		logVerbosity:             logVerbosity,
 		requiredNetworkResources: requiredNetworkResources,
+		labels:                   labels,
 	}
 }
 
-func (evr *EnvVariablesRenderer) Render() []k8sv1.EnvVar {
+func (evr *EnvVariablesRenderer) Render() ([]k8sv1.EnvVar, error) {
 	var environmentVariables []k8sv1.EnvVar
 	for networkName, networkResource := range evr.requiredNetworkResources {
 		environmentVariables = append(environmentVariables, k8sv1.EnvVar{
 			Name:  kubevirtNetworkResourceName(networkName),
 			Value: networkResource,
 		})
+	}
+
+	clusterWideLoggingLevelForVMI, err := evr.overrideClusterWideLoggingLevelForVMI()
+	if err != nil {
+		return nil, err
+	}
+	if clusterWideLoggingLevelForVMI != nil {
+		environmentVariables = append(environmentVariables, *clusterWideLoggingLevelForVMI)
 	}
 
 	environmentVariables = append(environmentVariables, k8sv1.EnvVar{
@@ -33,7 +48,26 @@ func (evr *EnvVariablesRenderer) Render() []k8sv1.EnvVar {
 			},
 		},
 	})
-	return environmentVariables
+	return environmentVariables, nil
+}
+
+func (evr *EnvVariablesRenderer) overrideClusterWideLoggingLevelForVMI() (*k8sv1.EnvVar, error) {
+	if verbosity, isSet := evr.labels[logVerbosity]; isSet || evr.logVerbosity != virtconfig.DefaultVirtLauncherLogVerbosity {
+		// Override the cluster wide verbosity level if a specific value has been provided for this VMI
+		verbosityStr := fmt.Sprint(evr.logVerbosity)
+		if isSet {
+			verbosityStr = verbosity
+
+			verbosityInt, err := strconv.Atoi(verbosity)
+			if err != nil {
+				return nil, fmt.Errorf("verbosity %s cannot cast to int: %v", verbosity, err)
+			}
+
+			evr.logVerbosity = uint(verbosityInt)
+		}
+		return &k8sv1.EnvVar{Name: ENV_VAR_VIRT_LAUNCHER_LOG_VERBOSITY, Value: verbosityStr}, nil
+	}
+	return nil, nil
 }
 
 func kubevirtNetworkResourceName(networkName string) string {

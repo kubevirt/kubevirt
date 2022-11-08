@@ -329,26 +329,13 @@ func (t *templateService) renderLaunchManifest(vmi *v1.VirtualMachineInstance, i
 		userId,
 	).Render(commandRenderer.Render())
 
-	envVarRenderer := NewEnvVariablesRenderer(networkToResourceMap)
-	compute.Env = envVarRenderer.Render()
+	envVarRenderer := NewEnvVariablesRenderer(networkToResourceMap, vmi.Labels, t.clusterConfig.GetVirtLauncherVerbosity())
+	compute.Env, err = envVarRenderer.Render()
+	if err != nil {
+		return nil, err
+	}
 
 	virtLauncherLogVerbosity := t.clusterConfig.GetVirtLauncherVerbosity()
-
-	if verbosity, isSet := vmi.Labels[logVerbosity]; isSet || virtLauncherLogVerbosity != virtconfig.DefaultVirtLauncherLogVerbosity {
-		// Override the cluster wide verbosity level if a specific value has been provided for this VMI
-		verbosityStr := fmt.Sprint(virtLauncherLogVerbosity)
-		if isSet {
-			verbosityStr = verbosity
-
-			verbosityInt, err := strconv.Atoi(verbosity)
-			if err != nil {
-				return nil, fmt.Errorf("verbosity %s cannot cast to int: %v", verbosity, err)
-			}
-
-			virtLauncherLogVerbosity = uint(verbosityInt)
-		}
-		compute.Env = append(compute.Env, k8sv1.EnvVar{Name: ENV_VAR_VIRT_LAUNCHER_LOG_VERBOSITY, Value: verbosityStr})
-	}
 
 	if labelValue, ok := vmi.Labels[debugLogs]; (ok && strings.EqualFold(labelValue, "true")) || virtLauncherLogVerbosity > EXT_LOG_VERBOSITY_THRESHOLD {
 		compute.Env = append(compute.Env, k8sv1.EnvVar{Name: ENV_VAR_LIBVIRT_DEBUG_LOGS, Value: "1"})
