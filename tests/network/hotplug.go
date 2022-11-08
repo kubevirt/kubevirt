@@ -35,6 +35,7 @@ import (
 	v1 "kubevirt.io/api/core/v1"
 	"kubevirt.io/client-go/kubecli"
 
+	"kubevirt.io/kubevirt/tests"
 	"kubevirt.io/kubevirt/tests/console"
 	"kubevirt.io/kubevirt/tests/libvmi"
 	"kubevirt.io/kubevirt/tests/util"
@@ -145,6 +146,54 @@ var _ = SIGDescribe("nic-hotplug", func() {
 				WithTransform(
 					CleanMACAddressesFromStatus,
 					ConsistOf(interfaceStatusFromInterfaceNames(ifaceName, secondHotpluggedIfaceName))))
+		})
+	})
+
+	Context("a running VM", func() {
+		var vm *v1.VirtualMachine
+
+		BeforeEach(func() {
+			Expect(
+				createBridgeNetworkAttachmentDefinition(virtClient, util.NamespaceTestDefault, networkName, bridgeName),
+			).To(Succeed())
+			vm = tests.NewRandomVirtualMachine(libvmi.NewAlpineWithTestTooling(), true)
+
+			var err error
+			vm, err = virtClient.VirtualMachine(util.NamespaceTestDefault).Create(vm)
+			Expect(err).NotTo(HaveOccurred())
+			var vmi *v1.VirtualMachineInstance
+			Eventually(func() error {
+				var err error
+				vmi, err = virtClient.VirtualMachineInstance(util.NamespaceTestDefault).Get(vm.GetName(), &metav1.GetOptions{})
+				return err
+			}, 120*time.Second, 1*time.Second).ShouldNot(HaveOccurred())
+			tests.WaitUntilVMIReady(vmi, console.LoginToAlpine)
+		})
+
+		It("can be hotplugged a network interface", func() {
+			const ifaceName = "iface1"
+
+			Expect(
+				virtClient.VirtualMachine(vm.GetNamespace()).AddInterface(
+					vm.GetName(),
+					addIfaceOptions(networkName, ifaceName),
+				),
+			).To(Succeed())
+
+			vmi, err := virtClient.VirtualMachineInstance(vm.GetNamespace()).Get(vm.GetName(), &metav1.GetOptions{})
+			Expect(err).NotTo(HaveOccurred())
+
+			Eventually(func() []v1.VirtualMachineInstanceNetworkInterface {
+				var err error
+
+				vmi, err = virtClient.VirtualMachineInstance(vmi.GetNamespace()).Get(vmi.GetName(), &metav1.GetOptions{})
+				Expect(err).NotTo(HaveOccurred())
+				return filterHotpluggedNetworkInterfaces(vmi)
+			}, 30*time.Second).Should(
+				WithTransform(
+					CleanMACAddressesFromStatus,
+					ConsistOf(interfaceStatusFromInterfaceNames(ifaceName))))
+			Expect(assertHotpluggedIfaceExists(vmi, vmIfaceName)).To(Succeed())
 		})
 	})
 })
