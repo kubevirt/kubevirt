@@ -7,6 +7,7 @@ import (
 	"time"
 
 	"kubevirt.io/kubevirt/pkg/virt-controller/services"
+	"kubevirt.io/kubevirt/pkg/virt-controller/watch/topology"
 	nodelabellerutil "kubevirt.io/kubevirt/pkg/virt-handler/node-labeller/util"
 	"kubevirt.io/kubevirt/tests/framework/checks"
 	"kubevirt.io/kubevirt/tests/libnode"
@@ -65,16 +66,18 @@ var _ = Describe("[Serial][sig-compute] Hyper-V enlightenments", func() {
 		})
 
 		When("TSC frequency is exposed on the cluster", func() {
-			It("should be able to migrate", func() {
+			BeforeEach(func() {
 				if !isTSCFrequencyExposed(virtClient) {
 					Skip("TSC frequency is not exposed on the cluster")
 				}
+			})
 
+			It("should be able to migrate", func() {
 				var err error
 				By("Creating a windows VM")
 				reEnlightenmentVMI, err = virtClient.VirtualMachineInstance(util.NamespaceTestDefault).Create(reEnlightenmentVMI)
 				Expect(err).ToNot(HaveOccurred())
-				tests.WaitForSuccessfulVMIStartWithTimeout(reEnlightenmentVMI, 360)
+				reEnlightenmentVMI = tests.WaitForSuccessfulVMIStartWithTimeout(reEnlightenmentVMI, 360)
 
 				By("Migrating the VM")
 				migration := tests.NewRandomMigration(reEnlightenmentVMI.Name, reEnlightenmentVMI.Namespace)
@@ -82,6 +85,37 @@ var _ = Describe("[Serial][sig-compute] Hyper-V enlightenments", func() {
 
 				By("Checking VMI, confirm migration state")
 				tests.ConfirmVMIPostMigration(virtClient, reEnlightenmentVMI, migrationUID)
+			})
+
+			It("should have TSC frequency set up in label and domain", func() {
+				var err error
+				By("Creating a windows VM")
+				reEnlightenmentVMI, err = virtClient.VirtualMachineInstance(util.NamespaceTestDefault).Create(reEnlightenmentVMI)
+				Expect(err).ToNot(HaveOccurred())
+				reEnlightenmentVMI = tests.WaitForSuccessfulVMIStartWithTimeout(reEnlightenmentVMI, 360)
+
+				virtLauncherPod := tests.GetPodByVirtualMachineInstance(reEnlightenmentVMI)
+
+				foundNodeSelector := false
+				for key, _ := range virtLauncherPod.Spec.NodeSelector {
+					if strings.HasPrefix(key, topology.TSCFrequencySchedulingLabel+"-") {
+						foundNodeSelector = true
+						break
+					}
+				}
+				Expect(foundNodeSelector).To(BeTrue(), "wasn't able to find a node selector key with prefix ", topology.TSCFrequencySchedulingLabel)
+
+				domainSpec, err := tests.GetRunningVMIDomainSpec(reEnlightenmentVMI)
+				Expect(err).ToNot(HaveOccurred())
+
+				foundTscTimer := false
+				for _, timer := range domainSpec.Clock.Timer {
+					if timer.Name == "tsc" {
+						foundTscTimer = true
+						break
+					}
+				}
+				Expect(foundTscTimer).To(BeTrue(), "wasn't able to find tsc timer in domain spec")
 			})
 		})
 
