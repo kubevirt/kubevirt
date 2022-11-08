@@ -13,14 +13,7 @@ BIN_DIR="$(pwd)/_out" && mkdir -p "${BIN_DIR}"
 export BIN_DIR
 
 TESTS_BINARY="$BIN_DIR/kv_smoke_tests.test"
-######
-# workaround for DataVolume GC on CDI v1.55.0:
-# https://github.com/kubevirt/kubevirt/pull/8584 didn't landed in Kubevirt v0.58.0,
-# TODO: remove this once https://github.com/kubevirt/kubevirt/pull/8584 will land in
-# Kubevirt v0.58.1
-#curl -Lo "$TESTS_BINARY" "https://github.com/kubevirt/kubevirt/releases/download/${KUBEVIRT_VERSION}/tests.test"
-curl -Lo "$TESTS_BINARY" "https://storage.googleapis.com/kubevirt-prow/devel/nightly/release/kubevirt/kubevirt/20221018/testing/tests.test"
-######
+curl -Lo "$TESTS_BINARY" "https://github.com/kubevirt/kubevirt/releases/download/${KUBEVIRT_VERSION}/tests.test"
 chmod +x "$TESTS_BINARY"
 
 echo "create testing infrastructure"
