@@ -214,7 +214,8 @@ var istioTests = func(vmType VmType) {
 			sshCommand := func(user, ipAddress string) string {
 				return fmt.Sprintf("ssh -y %s@%s\n", user, ipAddress)
 			}
-			checkSSHConnection := func(vmi *v1.VirtualMachineInstance, user, vmiAddress string) error {
+			checkSSHConnection := func(vmi *v1.VirtualMachineInstance, vmiAddress string) error {
+				user := "doesntmatter"
 				return console.SafeExpectBatch(vmi, []expect.Batcher{
 					&expect.BSnd{S: "\n"},
 					&expect.BExp{R: console.PromptExpression},
@@ -244,7 +245,7 @@ var istioTests = func(vmType VmType) {
 					vmiIP := libnet.GetVmiPrimaryIPByFamily(vmi, k8sv1.IPv4Protocol)
 
 					Expect(
-						checkSSHConnection(bastionVMI, "fedora", vmiIP),
+						checkSSHConnection(bastionVMI, vmiIP),
 					).Should(Succeed())
 				})
 			})
@@ -259,7 +260,7 @@ var istioTests = func(vmType VmType) {
 					vmiIP := libnet.GetVmiPrimaryIPByFamily(vmi, k8sv1.IPv4Protocol)
 
 					Expect(
-						checkSSHConnection(bastionVMI, "fedora", vmiIP),
+						checkSSHConnection(bastionVMI, vmiIP),
 					).Should(Succeed())
 				})
 			})
@@ -501,6 +502,7 @@ func createMasqueradeVm(ports []v1.Port) *v1.VirtualMachineInstance {
 		libvmi.WithLabel(vmiAppSelectorKey, vmiAppSelectorValue),
 		libvmi.WithAnnotation(istio.ISTIO_INJECT_ANNOTATION, "true"),
 		libvmi.WithCloudInitNoCloudNetworkData(networkData),
+		libvmi.WithCloudInitNoCloudUserData(enablePasswordAuth(), true),
 	)
 	return vmi
 }
@@ -511,8 +513,15 @@ func createPasstVm(ports []v1.Port) *v1.VirtualMachineInstance {
 		libvmi.WithInterface(libvmi.InterfaceDeviceWithPasstBinding(ports...)),
 		libvmi.WithLabel(vmiAppSelectorKey, vmiAppSelectorValue),
 		libvmi.WithAnnotation(istio.ISTIO_INJECT_ANNOTATION, "true"),
+		libvmi.WithCloudInitNoCloudUserData(enablePasswordAuth(), true),
 	)
 	return vmi
+}
+
+func enablePasswordAuth() string {
+	sedCmd := "sed -ri 's/PasswordAuthentication no/PasswordAuthentication yes/' /etc/ssh/sshd_config"
+
+	return "#!/bin/sh\n" + sedCmd + "\n"
 }
 
 func generateIstioCNINetworkAttachmentDefinition() *k8snetworkplumbingwgv1.NetworkAttachmentDefinition {
