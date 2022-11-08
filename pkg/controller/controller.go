@@ -379,3 +379,36 @@ func AttachmentPods(ownerPod *k8sv1.Pod, podInformer cache.SharedIndexInformer) 
 	}
 	return attachmentPods, nil
 }
+
+func ApplyNetworkInterfaceRequestOnVMISpec(vmiSpec *v1.VirtualMachineInstanceSpec, request *v1.VirtualMachineInterfaceRequest) v1.VirtualMachineInstanceSpec {
+	if request.AddInterfaceOptions != nil {
+		alreadyAdded := false
+		for _, network := range vmiSpec.Networks {
+			if network.Name == request.AddInterfaceOptions.NetworkName {
+				alreadyAdded = true
+				break
+			}
+		}
+
+		if !alreadyAdded {
+			newNetwork := v1.Network{
+				Name: request.AddInterfaceOptions.NetworkName,
+				NetworkSource: v1.NetworkSource{
+					Multus: &v1.MultusNetwork{
+						NetworkName: request.AddInterfaceOptions.NetworkName,
+					},
+				},
+			}
+
+			newIface := v1.Interface{
+				Name: request.AddInterfaceOptions.NetworkName,
+			}
+
+			vmiSpec.Networks = append(vmiSpec.Networks, newNetwork)
+			vmiSpec.Domain.Devices.Interfaces = append(vmiSpec.Domain.Devices.Interfaces, newIface)
+
+		}
+	}
+
+	return *vmiSpec
+}
