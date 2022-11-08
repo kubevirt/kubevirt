@@ -24,6 +24,8 @@ import (
 	"strconv"
 	"strings"
 
+	"kubevirt.io/kubevirt/pkg/virt-controller/watch/topology"
+
 	"k8s.io/apimachinery/pkg/util/validation"
 	"k8s.io/utils/pointer"
 
@@ -1380,34 +1382,76 @@ var _ = Describe("Template", func() {
 				Expect(pod.Spec.NodeSelector).To(Not(HaveKey(ContainSubstring(NFD_KVM_INFO_PREFIX))))
 			})
 
-			It("should add node selector for particular TSC frequency nodes when it is available in the VMI status", func() {
-				config, kvInformer, svc = configFactory(defaultArch)
+			Context("TSC frequency label", func() {
+				var noHints, validHints *v1.TopologyHints
+				validHints = &v1.TopologyHints{TSCFrequency: pointer.Int64(123123)}
 
-				var someHertzios int64 = 123123
-				vmi := v1.VirtualMachineInstance{
-					ObjectMeta: metav1.ObjectMeta{
-						Name:      "testvmi",
-						Namespace: "default",
-						UID:       "1234",
-					},
-					Spec: v1.VirtualMachineInstanceSpec{
-						Domain: v1.DomainSpec{
-							Devices: v1.Devices{
-								DisableHotplug: true,
+				setVmWithTscRequirementType := func(vmi *v1.VirtualMachineInstance, tscRequirementType topology.TscFrequencyRequirementType) {
+					switch tscRequirementType {
+					case topology.RequiredForBoot:
+						vmi.Spec.Domain.CPU = &v1.CPU{
+							Features: []v1.CPUFeature{
+								{
+									Name:   "invtsc",
+									Policy: "require",
+								},
 							},
-						},
-					},
-					Status: v1.VirtualMachineInstanceStatus{
-						TopologyHints: &v1.TopologyHints{
-							TSCFrequency: &someHertzios,
-						},
-					},
+						}
+
+					case topology.RequiredForMigration:
+						vmi.Spec.Domain.Features = &v1.Features{
+							Hyperv: &v1.FeatureHyperv{
+								Reenlightenment: &v1.FeatureState{
+									Enabled: pointer.Bool(true),
+								},
+							},
+						}
+					}
 				}
 
-				pod, err := svc.RenderLaunchManifest(&vmi)
-				Expect(err).ToNot(HaveOccurred())
+				DescribeTable("should", func(topologyHints *v1.TopologyHints, tscRequirementType topology.TscFrequencyRequirementType, isLabelExpected bool) {
+					config, kvInformer, svc = configFactory(defaultArch)
 
-				Expect(pod.Spec.NodeSelector).To(HaveKeyWithValue("scheduling.node.kubevirt.io/tsc-frequency-123123", "true"))
+					var someHertzios int64 = 123123
+					vmi := v1.VirtualMachineInstance{
+						ObjectMeta: metav1.ObjectMeta{
+							Name:      "testvmi",
+							Namespace: "default",
+							UID:       "1234",
+						},
+						Spec: v1.VirtualMachineInstanceSpec{
+							Domain: v1.DomainSpec{
+								Devices: v1.Devices{
+									DisableHotplug: true,
+								},
+							},
+						},
+						Status: v1.VirtualMachineInstanceStatus{
+							TopologyHints: &v1.TopologyHints{
+								TSCFrequency: &someHertzios,
+							},
+						},
+					}
+
+					vmi.Status.TopologyHints = topologyHints
+					setVmWithTscRequirementType(&vmi, tscRequirementType)
+
+					pod, err := svc.RenderLaunchManifest(&vmi)
+					Expect(err).ToNot(HaveOccurred())
+
+					if isLabelExpected {
+						Expect(pod.Spec.NodeSelector).To(HaveKeyWithValue("scheduling.node.kubevirt.io/tsc-frequency-123123", "true"))
+					} else {
+						Expect(pod.Spec.NodeSelector).ToNot(HaveKey("scheduling.node.kubevirt.io/tsc-frequency-123123"))
+					}
+				},
+					Entry("not be added if only topology hints are not defined and tsc is not requirement", noHints, topology.NotRequired, false),
+					Entry("not be added if only topology hints are not defined and tsc is required for boot", noHints, topology.RequiredForBoot, false),
+					Entry("not be added if only topology hints are not defined and tsc is required for migration", noHints, topology.RequiredForMigration, false),
+					Entry("not be added if only topology hints are defined and tsc is not required", validHints, topology.NotRequired, false),
+					Entry("be added if only topology hints are defined and tsc is required for boot", validHints, topology.RequiredForBoot, true),
+					Entry("be added if only topology hints are defined and tsc is required for migration", validHints, topology.RequiredForMigration, true),
+				)
 			})
 
 			It("should add default cpu/memory resources to the sidecar container if cpu pinning was requested", func() {
