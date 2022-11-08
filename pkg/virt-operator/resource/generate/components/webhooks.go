@@ -31,7 +31,7 @@ var sideEffectNoneOnDryRun = admissionregistrationv1.SideEffectClassNoneOnDryRun
 
 const certificatesSecretAnnotationKey = "certificates.kubevirt.io/secret"
 
-var defaultTimeoutSeconds = int32(10)
+var defaultTimeoutSeconds = int32(20)
 
 func NewOperatorWebhookService(operatorNamespace string) *corev1.Service {
 	return &corev1.Service{
