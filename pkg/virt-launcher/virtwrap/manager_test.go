@@ -136,12 +136,17 @@ var _ = Describe("Manager", func() {
 
 			domainSpec := expectedDomainFor(vmi)
 
-			xml, err := xml.MarshalIndent(domainSpec, "", "\t")
+			inputXML, err := xml.MarshalIndent(domainSpec, "", "\t")
 			Expect(err).ToNot(HaveOccurred())
-			mockConn.EXPECT().DomainDefineXML(string(xml)).Return(mockDomain, nil)
+			mockConn.EXPECT().DomainDefineXML(string(inputXML)).Return(mockDomain, nil)
 			mockDomain.EXPECT().GetState().Return(libvirt.DOMAIN_SHUTDOWN, 1, nil)
 			mockDomain.EXPECT().CreateWithFlags(libvirt.DOMAIN_NONE).Return(nil)
-			mockDomain.EXPECT().GetXMLDesc(libvirt.DomainXMLFlags(0)).MaxTimes(2).Return(string(xml), nil)
+
+			domainSpec.UUID = domainSpec.SysInfo.System[0].Value
+			outputXML, err := xml.MarshalIndent(domainSpec, "", "\t")
+			Expect(err).ToNot(HaveOccurred())
+			mockDomain.EXPECT().GetXMLDesc(libvirt.DomainXMLFlags(0)).MaxTimes(2).Return(string(outputXML), nil)
+
 			manager, _ := NewLibvirtDomainManager(mockConn, vmi.UID, testVirtShareDir, testEphemeralDiskDir, nil, "/usr/share/OVMF", ephemeralDiskCreatorMock)
 			newspec, err := manager.SyncVMI(vmi, true, &cmdv1.VirtualMachineOptions{VirtualMachineSMBios: &cmdv1.SMBios{}})
 			Expect(err).ToNot(HaveOccurred())
@@ -157,12 +162,17 @@ var _ = Describe("Manager", func() {
 
 			domainSpec := expectedDomainFor(vmi)
 
-			xml, err := xml.MarshalIndent(domainSpec, "", "\t")
+			inputXML, err := xml.MarshalIndent(domainSpec, "", "\t")
 			Expect(err).ToNot(HaveOccurred())
-			mockConn.EXPECT().DomainDefineXML(string(xml)).Return(mockDomain, nil)
+			mockConn.EXPECT().DomainDefineXML(string(inputXML)).Return(mockDomain, nil)
 			mockDomain.EXPECT().GetState().Return(libvirt.DOMAIN_SHUTDOWN, 1, nil)
 			mockDomain.EXPECT().CreateWithFlags(libvirt.DOMAIN_START_PAUSED).Return(nil)
-			mockDomain.EXPECT().GetXMLDesc(libvirt.DomainXMLFlags(0)).MaxTimes(2).Return(string(xml), nil)
+
+			domainSpec.UUID = domainSpec.SysInfo.System[0].Value
+			outputXML, err := xml.MarshalIndent(domainSpec, "", "\t")
+			Expect(err).ToNot(HaveOccurred())
+			mockDomain.EXPECT().GetXMLDesc(libvirt.DomainXMLFlags(0)).MaxTimes(2).Return(string(outputXML), nil)
+
 			manager, _ := NewLibvirtDomainManager(mockConn, vmi.UID, testVirtShareDir, testEphemeralDiskDir, nil, "/usr/share/OVMF", ephemeralDiskCreatorMock)
 			newspec, err := manager.SyncVMI(vmi, true, &cmdv1.VirtualMachineOptions{VirtualMachineSMBios: &cmdv1.SMBios{}})
 			Expect(err).ToNot(HaveOccurred())
@@ -178,12 +188,17 @@ var _ = Describe("Manager", func() {
 			networkData := ""
 			addCloudInitDisk(vmi, userData, networkData)
 			domainSpec := expectedDomainFor(vmi)
-			xml, err := xml.MarshalIndent(domainSpec, "", "\t")
+			inputXML, err := xml.MarshalIndent(domainSpec, "", "\t")
 			Expect(err).ToNot(HaveOccurred())
-			mockConn.EXPECT().DomainDefineXML(string(xml)).Return(mockDomain, nil)
+			mockConn.EXPECT().DomainDefineXML(string(inputXML)).Return(mockDomain, nil)
 			mockDomain.EXPECT().GetState().Return(libvirt.DOMAIN_SHUTDOWN, 1, nil)
 			mockDomain.EXPECT().CreateWithFlags(libvirt.DOMAIN_NONE).Return(nil)
-			mockDomain.EXPECT().GetXMLDesc(libvirt.DomainXMLFlags(0)).MaxTimes(2).Return(string(xml), nil)
+
+			domainSpec.UUID = domainSpec.SysInfo.System[0].Value
+			outputXML, err := xml.MarshalIndent(domainSpec, "", "\t")
+			Expect(err).ToNot(HaveOccurred())
+			mockDomain.EXPECT().GetXMLDesc(libvirt.DomainXMLFlags(0)).MaxTimes(2).Return(string(outputXML), nil)
+
 			manager, _ := NewLibvirtDomainManager(mockConn, vmi.UID, testVirtShareDir, testEphemeralDiskDir, nil, "/usr/share/OVMF", ephemeralDiskCreatorMock)
 			newspec, err := manager.SyncVMI(vmi, true, &cmdv1.VirtualMachineOptions{VirtualMachineSMBios: &cmdv1.SMBios{}})
 			Expect(err).ToNot(HaveOccurred())
@@ -198,12 +213,17 @@ var _ = Describe("Manager", func() {
 			networkData := "FakeNetwork"
 			addCloudInitDisk(vmi, userData, networkData)
 			domainSpec := expectedDomainFor(vmi)
-			xml, err := xml.MarshalIndent(domainSpec, "", "\t")
+			inputXML, err := xml.MarshalIndent(domainSpec, "", "\t")
 			Expect(err).ToNot(HaveOccurred())
-			mockConn.EXPECT().DomainDefineXML(string(xml)).Return(mockDomain, nil)
+			mockConn.EXPECT().DomainDefineXML(string(inputXML)).Return(mockDomain, nil)
 			mockDomain.EXPECT().GetState().Return(libvirt.DOMAIN_SHUTDOWN, 1, nil)
 			mockDomain.EXPECT().CreateWithFlags(libvirt.DOMAIN_NONE).Return(nil)
-			mockDomain.EXPECT().GetXMLDesc(libvirt.DomainXMLFlags(0)).MaxTimes(2).Return(string(xml), nil)
+
+			domainSpec.UUID = domainSpec.SysInfo.System[0].Value
+			outputXML, err := xml.MarshalIndent(domainSpec, "", "\t")
+			Expect(err).ToNot(HaveOccurred())
+			mockDomain.EXPECT().GetXMLDesc(libvirt.DomainXMLFlags(0)).MaxTimes(2).Return(string(outputXML), nil)
+
 			manager, _ := NewLibvirtDomainManager(mockConn, vmi.UID, testVirtShareDir, testEphemeralDiskDir, nil, "/usr/share/OVMF", ephemeralDiskCreatorMock)
 			newspec, err := manager.SyncVMI(vmi, true, &cmdv1.VirtualMachineOptions{VirtualMachineSMBios: &cmdv1.SMBios{}})
 			Expect(err).ToNot(HaveOccurred())
@@ -214,6 +234,7 @@ var _ = Describe("Manager", func() {
 			mockDomain.EXPECT().Free()
 			vmi := newVMI(testNamespace, testVmName)
 			domainSpec := expectedDomainFor(vmi)
+			domainSpec.UUID = domainSpec.SysInfo.System[0].Value
 			xml, err := xml.MarshalIndent(domainSpec, "", "\t")
 			Expect(err).NotTo(HaveOccurred())
 
@@ -231,6 +252,7 @@ var _ = Describe("Manager", func() {
 				mockDomain.EXPECT().Free()
 				vmi := newVMI(testNamespace, testVmName)
 				domainSpec := expectedDomainFor(vmi)
+				domainSpec.UUID = domainSpec.SysInfo.System[0].Value
 				xml, err := xml.MarshalIndent(domainSpec, "", "\t")
 				Expect(err).NotTo(HaveOccurred())
 
@@ -253,6 +275,7 @@ var _ = Describe("Manager", func() {
 			mockDomain.EXPECT().Free()
 			vmi := newVMI(testNamespace, testVmName)
 			domainSpec := expectedDomainFor(vmi)
+			domainSpec.UUID = domainSpec.SysInfo.System[0].Value
 			xml, err := xml.MarshalIndent(domainSpec, "", "\t")
 			Expect(err).NotTo(HaveOccurred())
 
@@ -270,6 +293,7 @@ var _ = Describe("Manager", func() {
 			mockDomain.EXPECT().Free()
 			vmi := newVMI(testNamespace, testVmName)
 			domainSpec := expectedDomainFor(vmi)
+			domainSpec.UUID = domainSpec.SysInfo.System[0].Value
 			xml, err := xml.MarshalIndent(domainSpec, "", "\t")
 			Expect(err).NotTo(HaveOccurred())
 
@@ -571,6 +595,7 @@ var _ = Describe("Manager", func() {
 			}
 			mockConn.EXPECT().LookupDomainByName(testDomainName).Return(mockDomain, libvirt.Error{Code: libvirt.ERR_NO_DOMAIN})
 			domainSpec := expectedDomainFor(vmi)
+			domainSpec.UUID = domainSpec.SysInfo.System[0].Value
 			domainSpec.Devices.Disks = []api.Disk{
 				{
 					Device: "disk",
@@ -679,6 +704,7 @@ var _ = Describe("Manager", func() {
 				Expect(filename).To(Equal(filepath.Join(v1.HotplugDiskDir, "/hpvolume1.img")))
 				return true, nil
 			}
+			domainSpec.UUID = domainSpec.SysInfo.System[0].Value
 			domainSpec.Devices.Disks = []api.Disk{
 				{
 					Device: "disk",
@@ -802,6 +828,7 @@ var _ = Describe("Manager", func() {
 			}
 			mockConn.EXPECT().LookupDomainByName(testDomainName).Return(mockDomain, libvirt.Error{Code: libvirt.ERR_NO_DOMAIN})
 			domainSpec := expectedDomainFor(vmi)
+			domainSpec.UUID = domainSpec.SysInfo.System[0].Value
 			xmlDomain, err := xml.MarshalIndent(domainSpec, "", "\t")
 			Expect(err).ToNot(HaveOccurred())
 			detachDisk := api.Disk{
@@ -912,16 +939,21 @@ var _ = Describe("Manager", func() {
 			}
 			mockConn.EXPECT().LookupDomainByName(testDomainName).Return(mockDomain, libvirt.Error{Code: libvirt.ERR_NO_DOMAIN})
 			domainSpec := expectedDomainFor(vmi)
-			xmlDomain, err := xml.MarshalIndent(domainSpec, "", "\t")
+			inputXMLDomain, err := xml.MarshalIndent(domainSpec, "", "\t")
 			Expect(err).ToNot(HaveOccurred())
 			checkIfDiskReadyToUse = func(filename string) (bool, error) {
 				Expect(filename).To(Equal(filepath.Join(v1.HotplugDiskDir, "hpvolume1.img")))
 				return true, nil
 			}
-			mockConn.EXPECT().DomainDefineXML(string(xmlDomain)).Return(mockDomain, nil)
+			mockConn.EXPECT().DomainDefineXML(string(inputXMLDomain)).Return(mockDomain, nil)
 			mockDomain.EXPECT().GetState().Return(libvirt.DOMAIN_SHUTDOWN, 1, nil)
 			mockDomain.EXPECT().CreateWithFlags(libvirt.DOMAIN_NONE).Return(nil)
-			mockDomain.EXPECT().GetXMLDesc(libvirt.DomainXMLFlags(0)).MaxTimes(2).Return(string(xmlDomain), nil)
+
+			domainSpec.UUID = domainSpec.SysInfo.System[0].Value
+			outputXML, err := xml.MarshalIndent(domainSpec, "", "\t")
+			Expect(err).ToNot(HaveOccurred())
+			mockDomain.EXPECT().GetXMLDesc(libvirt.DomainXMLFlags(0)).MaxTimes(2).Return(string(outputXML), nil)
+
 			manager, _ := newLibvirtDomainManager(mockConn, vmi.UID, testVirtShareDir, testEphemeralDiskDir, nil, "/usr/share/OVMF", ephemeralDiskCreatorMock, mockDirectIOChecker)
 			newspec, err := manager.SyncVMI(vmi, true, &cmdv1.VirtualMachineOptions{VirtualMachineSMBios: &cmdv1.SMBios{}})
 			Expect(err).ToNot(HaveOccurred())
@@ -997,6 +1029,7 @@ var _ = Describe("Manager", func() {
 				Expect(filename).To(Equal(filepath.Join(v1.HotplugDiskDir, "hpvolume1.img")))
 				return false, nil
 			}
+			domainSpec.UUID = domainSpec.SysInfo.System[0].Value
 			domainSpec.Devices.Disks = []api.Disk{
 				{
 					Device: "disk",

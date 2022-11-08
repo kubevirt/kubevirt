@@ -916,6 +916,12 @@ func (l *LibvirtDomainManager) SyncVMI(vmi *v1.VirtualMachineInstance, allowEmul
 		return nil, err
 	}
 
+	if oldSpec.UUID != string(vmi.Spec.Domain.Firmware.UUID) {
+		err := fmt.Errorf("UID mistmatch between domain (%q) and VMI (%q)", oldSpec.UUID, vmi.UID)
+		logger.Reason(err).Error("UID validation failure, the domain has been created by a different VMI")
+		return nil, err
+	}
+
 	// Look up all the disks to detach
 	for _, detachDisk := range getDetachedDisks(oldSpec.Devices.Disks, domain.Spec.Devices.Disks) {
 		logger.V(1).Infof("Detaching disk %s, target %s", detachDisk.Alias.GetName(), detachDisk.Target.Device)
