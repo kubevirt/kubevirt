@@ -24,6 +24,15 @@ func (evr *EnvVariablesRenderer) Render() []k8sv1.EnvVar {
 			Value: networkResource,
 		})
 	}
+
+	environmentVariables = append(environmentVariables, k8sv1.EnvVar{
+		Name: ENV_VAR_POD_NAME,
+		ValueFrom: &k8sv1.EnvVarSource{
+			FieldRef: &k8sv1.ObjectFieldSelector{
+				FieldPath: "metadata.name",
+			},
+		},
+	})
 	return environmentVariables
 }
 
