@@ -92,11 +92,12 @@ const (
 )
 
 const (
-	HotPlugVolumeErrorReason = "HotPlugVolumeError"
-	MemoryDumpErrorReason    = "MemoryDumpError"
-	FailedUpdateErrorReason  = "FailedUpdateError"
-	FailedCreateReason       = "FailedCreate"
-	VMIFailedDeleteReason    = "FailedDelete"
+	HotPlugVolumeErrorReason           = "HotPlugVolumeError"
+	MemoryDumpErrorReason              = "MemoryDumpError"
+	FailedUpdateErrorReason            = "FailedUpdateError"
+	FailedCreateReason                 = "FailedCreate"
+	VMIFailedDeleteReason              = "FailedDelete"
+	HotPlugNetworkInterfaceErrorReason = "HotPlugNetworkInterfaceError"
 )
 
 const defaultMaxCrashLoopBackoffDelaySeconds = 300
@@ -2233,6 +2234,12 @@ func (c *VMController) sync(vm *virtv1.VirtualMachine, vmi *virtv1.VirtualMachin
 			}
 		}
 
+		if err := c.handleInterfaceRequests(vmCopy, vmi); err != nil {
+			syncErr = &syncErrorImpl{
+				err:    fmt.Errorf("error encountered while handling network interface hotplug request: %v", err),
+				reason: HotPlugNetworkInterfaceErrorReason,
+			}
+		}
 	}
 	virtControllerVMWorkQueueTracer.StepTrace(key, "sync", trace.Field{Key: "VM Name", Value: vm.Name})
 
@@ -2291,4 +2298,54 @@ func (c *VMController) applyDevicePreferences(vm *virtv1.VirtualMachine, vmi *vi
 		return preferenceSpec, nil
 	}
 	return nil, nil
+}
+
+func (c *VMController) handleInterfaceRequests(vm *virtv1.VirtualMachine, vmi *virtv1.VirtualMachineInstance) error {
+	if len(vm.Status.InterfaceRequests) == 0 {
+		return nil
+	}
+
+	interfaceMap := map[string]virtv1.Interface{}
+	if vmi != nil {
+		for _, iface := range vmi.Spec.Domain.Devices.Interfaces {
+			interfaceMap[iface.Name] = iface
+		}
+	}
+
+	for i, ifaceRequest := range vm.Status.InterfaceRequests {
+		vm.Spec.Template.Spec = controller.ApplyNetworkInterfaceRequestOnVMISpec(
+			&vm.Spec.Template.Spec, &vm.Status.InterfaceRequests[i])
+
+		if vmi == nil || vmi.DeletionTimestamp != nil {
+			continue
+		}
+
+		if ifaceRequest.AddInterfaceOptions != nil {
+			canonicalIfaceName := canonicalHotpluggedInterfaceName(
+				ifaceRequest.AddInterfaceOptions.NetworkName,
+				ifaceRequest.AddInterfaceOptions.InterfaceName,
+			)
+			if _, exists := interfaceMap[canonicalIfaceName]; exists {
+				continue
+			}
+
+			if err := c.clientset.VirtualMachineInstance(vmi.Namespace).AddInterface(vmi.Name, ifaceRequest.AddInterfaceOptions); err != nil {
+				return err
+			}
+		} else if ifaceRequest.RemoveInterfaceOptions != nil {
+			if _, exists := interfaceMap[ifaceRequest.RemoveInterfaceOptions.NetworkName]; !exists {
+				continue
+			}
+
+			if err := c.clientset.VirtualMachineInstance(vmi.Namespace).RemoveInterface(vmi.Name, ifaceRequest.RemoveInterfaceOptions); err != nil {
+				return err
+			}
+		}
+	}
+
+	return nil
+}
+
+func canonicalHotpluggedInterfaceName(netName string, ifaceName string) string {
+	return fmt.Sprintf("%s_%s", netName, ifaceName)
 }

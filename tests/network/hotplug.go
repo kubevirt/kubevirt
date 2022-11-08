@@ -23,6 +23,8 @@ import (
 	"fmt"
 	"time"
 
+	"kubevirt.io/kubevirt/tests"
+
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
 
@@ -245,6 +247,64 @@ var _ = SIGDescribe("Network interface hotplug", func() {
 								Type:  v1.Plug,
 							},
 						})))
+		})
+	})
+
+	Context("a running VM", func() {
+		var vm *v1.VirtualMachine
+
+		BeforeEach(func() {
+			Expect(
+				createBridgeNetworkAttachmentDefinition(virtClient, util.NamespaceTestDefault, networkName, bridgeName),
+			).To(Succeed())
+			vm = tests.NewRandomVirtualMachine(libvmi.NewAlpineWithTestTooling(), true)
+
+			var err error
+			vm, err = virtClient.VirtualMachine(util.NamespaceTestDefault).Create(vm)
+			Expect(err).NotTo(HaveOccurred())
+			var vmi *v1.VirtualMachineInstance
+			Eventually(func() error {
+				var err error
+				vmi, err = virtClient.VirtualMachineInstance(util.NamespaceTestDefault).Get(vm.GetName(), &metav1.GetOptions{})
+				return err
+			}, 120*time.Second, 1*time.Second).ShouldNot(HaveOccurred())
+			tests.WaitUntilVMIReady(vmi, console.LoginToAlpine)
+		})
+
+		It("can be hotplugged a network interface", func() {
+			const ifaceName = "iface1"
+
+			Expect(
+				virtClient.VirtualMachine(vm.GetNamespace()).AddInterface(
+					vm.GetName(),
+					addIfaceOptions(networkName, ifaceName),
+				),
+			).To(Succeed())
+
+			vmi, err := virtClient.VirtualMachineInstance(vm.GetNamespace()).Get(vm.GetName(), &metav1.GetOptions{})
+			Expect(err).NotTo(HaveOccurred())
+
+			Eventually(func() []v1.VirtualMachineInstanceNetworkInterface {
+				var err error
+
+				vmi, err = virtClient.VirtualMachineInstance(vmi.GetNamespace()).Get(vmi.GetName(), &metav1.GetOptions{})
+				Expect(err).NotTo(HaveOccurred())
+				return filterHotpluggedNetworkInterfaces(vmi)
+			}, 30*time.Second).Should(
+				WithTransform(
+					CleanMACAddressesFromStatus,
+					ConsistOf(
+						v1.VirtualMachineInstanceNetworkInterface{
+							Name:          hotpluggedNetworkInterfaceName(networkName, ifaceName),
+							InterfaceName: "eth1",
+							InfoSource:    "domain, guest-agent",
+							QueueCount:    1,
+							HotplugInterface: &v1.HotplugInterfaceStatus{
+								Phase: v1.InterfaceHotplugPhaseReady,
+								Type:  v1.Plug,
+							},
+						})))
+			Expect(assertHotpluggedIfaceExists(vmi, "eth1")).To(Succeed())
 		})
 	})
 })
