@@ -60,11 +60,5 @@ sleep 10
 
 ./hack/check_update_priority_class.sh
 
-######
-# TODO: remove this, workaround for https://issues.redhat.com/browse/OCPBUGS-2219
-${KUBECTL_BINARY} patch ConsolePlugin kubevirt-plugin -o yaml --type=json -p '[{ "op": "replace", "path": "/spec/i18n/loadType", "value": "Preload" }]' || true
-sleep 3
-######
-
 # Check the webhook, to see if it allow deleting of the HyperConverged CR
 ./hack/retry.sh 10 30 "${KUBECTL_BINARY} delete hco -n ${INSTALLED_NAMESPACE} kubevirt-hyperconverged"

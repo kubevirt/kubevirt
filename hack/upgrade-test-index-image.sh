@@ -339,12 +339,6 @@ Msg "Read the HCO webhook log before it been deleted"
 WH_POD=$( ${CMD} get -n ${HCO_NAMESPACE} pods -l "name=hyperconverged-cluster-webhook" -o name)
 ${CMD} logs -n ${HCO_NAMESPACE} "${WH_POD}"
 
-######
-# TODO: remove this, workaround for https://issues.redhat.com/browse/OCPBUGS-2219
-${CMD} patch ConsolePlugin kubevirt-plugin -o yaml --type=json -p '[{ "op": "replace", "path": "/spec/i18n/loadType", "value": "Preload" }]' || true
-sleep 3
-######
-
 Msg "Brutally delete HCO removing the namespace where it's running"
 source hack/test_delete_ns.sh
 test_delete_ns
