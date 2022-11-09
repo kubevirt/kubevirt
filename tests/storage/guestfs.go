@@ -208,7 +208,7 @@ var _ = SIGDescribe("[rfe_id:6364][[Serial]Guestfs", func() {
 		It("Should successfully run guestfs command on a filesystem-based PVC with root", func() {
 			f := createFakeAttacher()
 			defer f.closeChannel()
-			pvcClaim = "pvc-fs-with-different-uid"
+			pvcClaim = "pvc-fs-with-root"
 			podName := libguestsTools + pvcClaim
 			createPVCFilesystem(pvcClaim)
 			runGuestfsOnPVC(pvcClaim, "--root")
