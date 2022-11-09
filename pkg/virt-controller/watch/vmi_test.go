@@ -2923,7 +2923,7 @@ var _ = Describe("VirtualMachineInstance watcher", func() {
 					unexposeTscFrequency := func(requirement topology.TscFrequencyRequirementType) {
 						mockHinter := topology.NewMockHinter(ctrl)
 						mockHinter.EXPECT().TopologyHintsForVMI(gomock.Any()).Return(nil, requirement, fmt.Errorf("tsc frequency is not exposed on the cluster")).AnyTimes()
-						mockHinter.EXPECT().IsTscFrequencyRequiredForBoot(gomock.Any()).Return(requirement == topology.RequiredForBoot)
+						mockHinter.EXPECT().IsTscFrequencyRequired(gomock.Any()).Return(requirement == topology.RequiredForBoot)
 						controller.topologyHinter = mockHinter
 					}
 
