@@ -74,6 +74,9 @@ func NewKubeVirtControllerSCC(namespace string) *secv1.SecurityContextConstraint
 	scc.SELinuxContext = secv1.SELinuxContextStrategyOptions{
 		Type: secv1.SELinuxStrategyRunAsAny,
 	}
+	scc.SeccompProfiles = []string{
+		"runtime/default",
+	}
 	scc.AllowedCapabilities = []corev1.Capability{
 		// add CAP_SYS_NICE capability to allow setting cpu affinity
 		"SYS_NICE",
