@@ -15,7 +15,7 @@ import (
 
 type Hinter interface {
 	TopologyHintsForVMI(vmi *k6tv1.VirtualMachineInstance) (hints *k6tv1.TopologyHints, requirement TscFrequencyRequirementType, err error)
-	IsTscFrequencyRequiredForBoot(vmi *k6tv1.VirtualMachineInstance) bool
+	IsTscFrequencyRequired(vmi *k6tv1.VirtualMachineInstance) bool
 	TSCFrequenciesInUse() []int64
 	LowestTSCFrequencyOnCluster() (int64, error)
 }
@@ -27,8 +27,8 @@ type topologyHinter struct {
 	arch          string
 }
 
-func (t *topologyHinter) IsTscFrequencyRequiredForBoot(vmi *k6tv1.VirtualMachineInstance) bool {
-	return t.arch == "amd64" && GetTscFrequencyRequirement(vmi).Type == RequiredForBoot
+func (t *topologyHinter) IsTscFrequencyRequired(vmi *k6tv1.VirtualMachineInstance) bool {
+	return t.arch == "amd64" && GetTscFrequencyRequirement(vmi).Type != NotRequired
 }
 
 func (t *topologyHinter) TopologyHintsForVMI(vmi *k6tv1.VirtualMachineInstance) (hints *k6tv1.TopologyHints, requirement TscFrequencyRequirementType, err error) {
