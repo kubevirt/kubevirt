@@ -306,11 +306,11 @@ func detectInstallNamespace() {
 
 func GetLabelsForNamespace(namespace string) map[string]string {
 	labels := map[string]string{
-		cleanup.TestLabelForNamespace(namespace):         "",
-		"security.openshift.io/scc.podSecurityLabelSync": "false",
+		cleanup.TestLabelForNamespace(namespace): "",
 	}
 	if namespace == NamespacePrivileged {
 		labels["pod-security.kubernetes.io/enforce"] = "privileged"
+		labels["pod-security.kubernetes.io/warn"] = "privileged"
 	}
 
 	return labels
