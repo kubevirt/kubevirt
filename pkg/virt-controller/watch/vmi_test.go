@@ -2747,15 +2747,40 @@ var _ = Describe("VirtualMachineInstance watcher", func() {
 
 	Context("topology hints", func() {
 
-		Context("needs to be set when", func() {
-
-			expectTopologyHintsUpdate := func() {
-				var vmi *virtv1.VirtualMachineInstance
-				vmiInterface.EXPECT().Update(gomock.Any()).Do(func(arg interface{}) {
-					vmi = arg.(*virtv1.VirtualMachineInstance)
-					Expect(topology.AreTSCFrequencyTopologyHintsDefined(vmi)).To(BeTrue())
-				}).Return(vmi, nil)
+		getVmiWithInvTsc := func() *virtv1.VirtualMachineInstance {
+			vmi := NewPendingVirtualMachine("testvmi")
+			vmi.Spec.Domain.CPU = &v1.CPU{
+				Features: []virtv1.CPUFeature{
+					{
+						Name:   "invtsc",
+						Policy: "require",
+					},
+				},
 			}
+
+			return vmi
+		}
+
+		getVmiWithReenlightenment := func() *virtv1.VirtualMachineInstance {
+			vmi := NewPendingVirtualMachine("testvmi")
+			vmi.Spec.Domain.Features = &v1.Features{
+				Hyperv: &v1.FeatureHyperv{
+					Reenlightenment: &v1.FeatureState{Enabled: pointer.Bool(true)},
+				},
+			}
+
+			return vmi
+		}
+
+		expectTopologyHintsUpdate := func() {
+			var vmi *virtv1.VirtualMachineInstance
+			vmiInterface.EXPECT().Update(gomock.Any()).Do(func(arg interface{}) {
+				vmi = arg.(*virtv1.VirtualMachineInstance)
+				Expect(topology.AreTSCFrequencyTopologyHintsDefined(vmi)).To(BeTrue())
+			}).Return(vmi, nil)
+		}
+
+		Context("needs to be set when", func() {
 
 			runController := func(vmi *virtv1.VirtualMachineInstance) {
 				addVirtualMachine(vmi)
@@ -2764,15 +2789,7 @@ var _ = Describe("VirtualMachineInstance watcher", func() {
 			}
 
 			It("invtsc feature exists", func() {
-				vmi := NewPendingVirtualMachine("testvmi")
-				vmi.Spec.Domain.CPU = &v1.CPU{
-					Features: []virtv1.CPUFeature{
-						{
-							Name:   "invtsc",
-							Policy: "require",
-						},
-					},
-				}
+				vmi := getVmiWithInvTsc()
 
 				expectTopologyHintsUpdate()
 				runController(vmi)
@@ -2782,20 +2799,13 @@ var _ = Describe("VirtualMachineInstance watcher", func() {
 				var vmi *v1.VirtualMachineInstance
 
 				BeforeEach(func() {
-					vmi = NewPendingVirtualMachine("testvmi")
-					vmi.Spec.Domain.Features = &v1.Features{
-						Hyperv: &v1.FeatureHyperv{
-							Reenlightenment: &v1.FeatureState{Enabled: pointer.Bool(true)},
-						},
-					}
+					vmi = getVmiWithReenlightenment()
 				})
 
 				When("TSC frequency is exposed", func() {
 					It("topology hints need to be set", func() {
 						expectTopologyHintsUpdate()
 						runController(vmi)
-
-						testutils.ExpectEvent(recorder, SuccessfulCreatePodReason)
 					})
 				})
 
@@ -2818,6 +2828,39 @@ var _ = Describe("VirtualMachineInstance watcher", func() {
 
 			})
 
+		})
+
+		Context("pod creation", func() {
+
+			runController := func(vmi *virtv1.VirtualMachineInstance) {
+				addVirtualMachine(vmi)
+				controller.Execute()
+			}
+
+			It("does not need to happen if tsc requiredment is of type RequiredForBoot", func() {
+				vmi := getVmiWithInvTsc()
+				Expect(topology.GetTscFrequencyRequirement(vmi).Type).To(Equal(topology.RequiredForBoot))
+
+				expectTopologyHintsUpdate()
+				runController(vmi)
+			})
+
+			It("does not need to happen if tsc requiredment is of type RequiredForMigration", func() {
+				vmi := getVmiWithReenlightenment()
+				Expect(topology.GetTscFrequencyRequirement(vmi).Type).To(Equal(topology.RequiredForMigration))
+
+				expectTopologyHintsUpdate()
+				runController(vmi)
+			})
+
+			It("does not need to happen if tsc requiredment is of type NotRequired", func() {
+				vmi := NewPendingVirtualMachine("testvmi")
+				Expect(topology.GetTscFrequencyRequirement(vmi).Type).To(Equal(topology.NotRequired))
+
+				shouldExpectPodCreation(vmi.UID)
+				runController(vmi)
+				testutils.ExpectEvent(recorder, SuccessfulCreatePodReason)
+			})
 		})
 	})
 })
