@@ -110,6 +110,7 @@ var _ = SIGDescribe("Export", func() {
 	var err error
 	var token *k8sv1.Secret
 	var virtClient kubecli.KubevirtClient
+	var qemuGid = int64(107)
 
 	BeforeEach(func() {
 		virtClient, err = kubecli.GetKubevirtClient()
@@ -172,6 +173,10 @@ var _ = SIGDescribe("Export", func() {
 				},
 			},
 		})
+		if pod.Spec.SecurityContext == nil {
+			pod.Spec.SecurityContext = &k8sv1.PodSecurityContext{}
+		}
+		pod.Spec.SecurityContext.FSGroup = &qemuGid
 
 		volumeMode := pvc.Spec.VolumeMode
 		if volumeMode != nil && *volumeMode == k8sv1.PersistentVolumeBlock {
@@ -184,7 +189,6 @@ var _ = SIGDescribe("Export", func() {
 	}
 
 	createSourcePodChecker := func(pvc *k8sv1.PersistentVolumeClaim) *k8sv1.Pod {
-		nonRootUser := int64(107)
 		volumeName := pvc.GetName()
 		podName := "download-pod"
 		pod := tests.RenderPod(podName, []string{"/bin/sh", "-c", "sleep 360"}, []string{})
@@ -199,7 +203,7 @@ var _ = SIGDescribe("Export", func() {
 		if pod.Spec.SecurityContext == nil {
 			pod.Spec.SecurityContext = &k8sv1.PodSecurityContext{}
 		}
-		pod.Spec.SecurityContext.FSGroup = &nonRootUser
+		pod.Spec.SecurityContext.FSGroup = &qemuGid
 
 		volumeMode := pvc.Spec.VolumeMode
 		if volumeMode != nil && *volumeMode == k8sv1.PersistentVolumeBlock {
