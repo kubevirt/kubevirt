@@ -6,6 +6,7 @@ import (
 
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
+	"github.com/spf13/cobra"
 
 	corev1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/api/resource"
@@ -21,17 +22,20 @@ import (
 )
 
 type fakeAttacher struct {
-	done chan bool
+	// Channel to unblock the fake attacher for the console
+	doneAttacher chan bool
+	// Channel to unblock the goroutine for the guestfs command
+	doneGuestfs chan bool
 }
 
 // fakeCreateAttacher simulates the attacher to the pod console. It has to block until the test terminates.
 func (f *fakeAttacher) fakeCreateAttacher(client *guestfs.K8sClient, p *corev1.Pod, command string) error {
-	<-f.done
+	<-f.doneAttacher
 	return nil
 }
 
 func (f *fakeAttacher) closeChannel() {
-	f.done <- true
+	f.doneGuestfs <- true
 }
 
 var _ = SIGDescribe("[rfe_id:6364][[Serial]Guestfs", func() {
@@ -71,22 +75,35 @@ var _ = SIGDescribe("[rfe_id:6364][[Serial]Guestfs", func() {
 
 	createFakeAttacher := func() *fakeAttacher {
 		f := &fakeAttacher{}
-		f.done = make(chan bool, 1)
+		f.doneAttacher = make(chan bool, 1)
+		f.doneGuestfs = make(chan bool, 1)
 		guestfs.SetAttacher(f.fakeCreateAttacher)
 		return f
 	}
 
-	runGuestfsOnPVC := func(pvcClaim string, options ...string) {
+	guestfsWithSync := func(f *fakeAttacher, guestfsCmd *cobra.Command) {
+		defer GinkgoRecover()
+		errChan := make(chan error)
+		go func() {
+			errChan <- guestfsCmd.Execute()
+		}()
+		select {
+		case <-f.doneGuestfs:
+		case err := <-errChan:
+			Expect(err).ToNot(HaveOccurred())
+		}
+		// Unblock the fake attacher
+		f.doneAttacher <- true
+	}
+
+	runGuestfsOnPVC := func(f *fakeAttacher, pvcClaim string, options ...string) {
 		podName := getGuestfsPodName(pvcClaim)
 		o := append([]string{"guestfs", pvcClaim, "--namespace", util.NamespaceTestDefault}, options...)
 		if setGroup {
 			o = append(o, "--fsGroup", testGroup)
 		}
 		guestfsCmd := clientcmd.NewVirtctlCommand(o...)
-		go func() {
-			defer GinkgoRecover()
-			Expect(guestfsCmd.Execute()).ToNot(HaveOccurred())
-		}()
+		go guestfsWithSync(f, guestfsCmd)
 		// Waiting until the libguestfs pod is running
 		Eventually(func() bool {
 			pod, _ := virtClient.CoreV1().Pods(util.NamespaceTestDefault).Get(context.Background(), podName, metav1.GetOptions{})
@@ -123,6 +140,7 @@ var _ = SIGDescribe("[rfe_id:6364][[Serial]Guestfs", func() {
 	}
 
 	Context("Run libguestfs on PVCs", func() {
+		var f *fakeAttacher
 		BeforeEach(func() {
 			var err error
 			virtClient, err = kubecli.GetKubevirtClient()
@@ -130,41 +148,34 @@ var _ = SIGDescribe("[rfe_id:6364][[Serial]Guestfs", func() {
 			// TODO: Always setGroup to true until we have the ability to control how virtctl guestfs is run
 			setGroup = true
 			testGroup = "2000"
+			f = createFakeAttacher()
 		})
 
 		AfterEach(func() {
-			err := virtClient.CoreV1().PersistentVolumeClaims(util.NamespaceTestDefault).Delete(context.Background(), pvcClaim, metav1.DeleteOptions{})
-			Expect(err).ToNot(HaveOccurred())
+			f.closeChannel()
 		})
 
 		// libguestfs-test-tool verifies the setup to run libguestfs-tools
 		It("Should successfully run libguestfs-test-tool", func() {
-			f := createFakeAttacher()
-			defer f.closeChannel()
 			pvcClaim = "pvc-verify"
 			createPVCFilesystem(pvcClaim)
-			runGuestfsOnPVC(pvcClaim)
+			runGuestfsOnPVC(f, pvcClaim)
 			output, _, err := execCommandLibguestfsPod(getGuestfsPodName(pvcClaim), []string{"libguestfs-test-tool"})
 			Expect(err).ToNot(HaveOccurred())
 			Expect(output).To(ContainSubstring("===== TEST FINISHED OK ====="))
-
 		})
 
 		It("[posneg:positive][test_id:6480]Should successfully run guestfs command on a filesystem-based PVC", func() {
-			f := createFakeAttacher()
-			defer f.closeChannel()
 			pvcClaim = "pvc-fs"
 			createPVCFilesystem(pvcClaim)
-			runGuestfsOnPVC(pvcClaim)
+			runGuestfsOnPVC(f, pvcClaim)
 			verifyCanRunOnFSPVC(getGuestfsPodName(pvcClaim))
 		})
 
 		It("[posneg:negative][test_id:6480]Should fail to run the guestfs command on a PVC in use", func() {
-			f := createFakeAttacher()
-			defer f.closeChannel()
 			pvcClaim = "pvc-fail-to-run-twice"
 			createPVCFilesystem(pvcClaim)
-			runGuestfsOnPVC(pvcClaim)
+			runGuestfsOnPVC(f, pvcClaim)
 			options := []string{"guestfs",
 				pvcClaim,
 				"--namespace", util.NamespaceTestDefault}
@@ -176,12 +187,9 @@ var _ = SIGDescribe("[rfe_id:6364][[Serial]Guestfs", func() {
 		})
 
 		It("[posneg:positive][test_id:6479]Should successfully run guestfs command on a block-based PVC", func() {
-			f := createFakeAttacher()
-			defer f.closeChannel()
-
 			pvcClaim = "pvc-block"
 			libstorage.CreateBlockPVC(pvcClaim, "500Mi")
-			runGuestfsOnPVC(pvcClaim)
+			runGuestfsOnPVC(f, pvcClaim)
 			stdout, stderr, err := execCommandLibguestfsPod(getGuestfsPodName(pvcClaim), []string{"guestfish", "-a", "/dev/vda", "run"})
 			Expect(stderr).To(Equal(""))
 			Expect(stdout).To(Equal(""))
@@ -189,32 +197,31 @@ var _ = SIGDescribe("[rfe_id:6364][[Serial]Guestfs", func() {
 
 		})
 		It("Should successfully run guestfs command on a filesystem-based PVC setting the uid", func() {
-			f := createFakeAttacher()
-			defer f.closeChannel()
 			pvcClaim = "pvc-fs-with-different-uid"
 			createPVCFilesystem(pvcClaim)
-			runGuestfsOnPVC(pvcClaim, "--uid", "1002")
+			runGuestfsOnPVC(f, pvcClaim, "--uid", "1002")
 			verifyCanRunOnFSPVC(getGuestfsPodName(pvcClaim))
 		})
 	})
 	Context("Run libguestfs on PVCs with root", func() {
+		var f *fakeAttacher
 		BeforeEach(func() {
 			var err error
 			virtClient, err = kubecli.GetKubevirtClient()
 			Expect(err).ToNot(HaveOccurred())
 			setGroup = false
+			f = createFakeAttacher()
 		})
 
 		AfterEach(func() {
-			err := virtClient.CoreV1().PersistentVolumeClaims(util.NamespaceTestDefault).Delete(context.Background(), pvcClaim, metav1.DeleteOptions{})
-			Expect(err).ToNot(HaveOccurred())
+			f.closeChannel()
 		})
 		It("Should successfully run guestfs command on a filesystem-based PVC with root", func() {
 			f := createFakeAttacher()
 			defer f.closeChannel()
 			pvcClaim = "pvc-fs-with-root"
 			createPVCFilesystem(pvcClaim)
-			runGuestfsOnPVC(pvcClaim, "--root")
+			runGuestfsOnPVC(f, pvcClaim, "--root")
 			verifyCanRunOnFSPVC(getGuestfsPodName(pvcClaim))
 		})
 	})
