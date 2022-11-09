@@ -20031,6 +20031,21 @@ var CRDsValidation map[string]string = map[string]string{
           type: string
         readyToUse:
           type: boolean
+        snapshotVolumes:
+          description: SnapshotVolumesLists includes the list of volumes which were
+            included in the snapshot and volumes which were excluded from the snapshot
+          properties:
+            excludedVolumes:
+              items:
+                type: string
+              type: array
+              x-kubernetes-list-type: set
+            includedVolumes:
+              items:
+                type: string
+              type: array
+              x-kubernetes-list-type: set
+          type: object
         sourceUID:
           description: UID is a type that holds unique ID values, including UUIDs.  Because
             we don't ONLY use UUIDs, this is an alias to string.  Being a type captures
