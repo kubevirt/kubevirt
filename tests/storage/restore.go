@@ -1296,6 +1296,35 @@ var _ = SIGDescribe("[Serial]VirtualMachineRestore Tests", func() {
 				Expect(vmi.Spec.Domain.Resources.Requests[corev1.ResourceMemory]).To(Equal(initialMemory))
 			})
 
+			It("should restore a virtual machine using a restore PVC with populated dataSourceRef", func() {
+				vm, vmi = createAndStartVM(tests.NewRandomVMWithDataVolumeWithRegistryImport(
+					cd.DataVolumeImportUrlForContainerDisk(cd.ContainerDiskFedoraTestTooling),
+					util.NamespaceTestDefault,
+					snapshotStorageClass,
+					corev1.ReadWriteOnce))
+
+				By(creatingSnapshot)
+				snapshot = createSnapshot(vm)
+				newVM = tests.StopVirtualMachine(vm)
+
+				// We add an invalid dataSourceRef into the virtualMachineSnapshotContent so it's inherited by the restore PVC
+				content, err := virtClient.VirtualMachineSnapshotContent(vm.Namespace).Get(context.Background(), *snapshot.Status.VirtualMachineSnapshotContentName, metav1.GetOptions{})
+				Expect(err).ToNot(HaveOccurred())
+				content.Spec.VolumeBackups[0].PersistentVolumeClaim.Spec.DataSourceRef = &corev1.TypedLocalObjectReference{
+					Kind: "test",
+					Name: "test",
+				}
+				_, err = virtClient.VirtualMachineSnapshotContent(vm.Namespace).Update(context.Background(), content, metav1.UpdateOptions{})
+				Expect(err).ToNot(HaveOccurred())
+
+				By("Restoring VM")
+				restore = createRestoreDef(newVM.Name, snapshot.Name)
+				restore, err = virtClient.VirtualMachineRestore(vm.Namespace).Create(context.Background(), restore, metav1.CreateOptions{})
+				Expect(err).ToNot(HaveOccurred())
+				restore = waitRestoreComplete(restore, newVM.Name, &newVM.UID)
+				Expect(restore.Status.Restores).To(HaveLen(1))
+			})
+
 			DescribeTable("should restore vm with hot plug disks", func(restoreToNewVM bool) {
 				vm, vmi = createAndStartVM(tests.NewRandomVMWithDataVolumeWithRegistryImport(
 					cd.DataVolumeImportUrlForContainerDisk(cd.ContainerDiskFedoraTestTooling),
