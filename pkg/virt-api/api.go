@@ -357,6 +357,11 @@ func (app *virtAPIApp) composeSubresources() {
 			Param(definitions.PortForwardProtocolParameter(subws)).
 			Operation(version.Version + "vmi-PortForwardWithProtocol").
 			Doc("Open a websocket connection forwarding traffic of the specified protocol (either tcp or udp) to the specified VirtualMachineInstance and port."))
+		subws.Route(subws.GET(definitions.NamespacedResourcePath(subresourcesvmiGVR) + definitions.SubResourcePath("vsock")).
+			To(subresourceApp.VSOCKRequestHandler).
+			Param(definitions.NamespaceParam(subws)).Param(definitions.NameParam(subws)).Param(definitions.VSOCKPortParameter(subws)).
+			Operation(version.Version + "VSOCK").
+			Doc("Open a websocket connection forwarding traffic to the specified VirtualMachineInstance and port via VSOCK."))
 
 		// VM endpoint
 		subws.Route(subws.GET(definitions.NamespacedResourcePath(subresourcesvmGVR) + definitions.SubResourcePath("portforward") + definitions.PortPath).

@@ -346,6 +346,9 @@ var _ = Describe("[rfe_id:500][crit:high][arm64][vendor:cnv-qe@redhat.com][level
 				"virtualmachineinstances", "portforward",
 				allowUpdateFor("admin", "edit"),
 				denyAllFor("view", "default")),
+			Entry("on vmi vsock",
+				"virtualmachineinstances", "vsock",
+				denyAllFor("admin", "edit", "view", "default")),
 		)
 	})
 

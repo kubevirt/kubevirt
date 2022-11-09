@@ -641,6 +641,10 @@ func (ScreenshotOptions) SwaggerDoc() map[string]string {
 	return map[string]string{}
 }
 
+func (VSOCKOptions) SwaggerDoc() map[string]string {
+	return map[string]string{}
+}
+
 func (RemoveVolumeOptions) SwaggerDoc() map[string]string {
 	return map[string]string{
 		"":       "RemoveVolumeOptions is provided when dynamically hot unplugging volume and disk",

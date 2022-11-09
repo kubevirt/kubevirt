@@ -28,6 +28,7 @@ import (
 	"io"
 	"net"
 	"net/http"
+	"net/url"
 	"os"
 	"path/filepath"
 	"time"
@@ -139,7 +140,7 @@ var _ = Describe("[rfe_id:127][crit:medium][arm64][vendor:cnv-qe@redhat.com][lev
 			Expect(err).ToNot(HaveOccurred())
 			wrappedRoundTripper, err := rest.HTTPWrappersForConfig(config, rt)
 			Expect(err).ToNot(HaveOccurred())
-			req, err := kubecli.RequestFromConfig(config, "virtualmachineinstances", vmi.Name, vmi.Namespace, subresource)
+			req, err := kubecli.RequestFromConfig(config, "virtualmachineinstances", vmi.Name, vmi.Namespace, subresource, url.Values{})
 			Expect(err).ToNot(HaveOccurred())
 
 			// Add an Origin header to look more like an arbitrary browser
@@ -163,7 +164,7 @@ var _ = Describe("[rfe_id:127][crit:medium][arm64][vendor:cnv-qe@redhat.com][lev
 			Expect(err).ToNot(HaveOccurred())
 			wrappedRoundTripper, err := rest.HTTPWrappersForConfig(config, rt)
 			Expect(err).ToNot(HaveOccurred())
-			req, err := kubecli.RequestFromConfig(config, "virtualmachineinstances", vmi.Name, vmi.Namespace, "vnc")
+			req, err := kubecli.RequestFromConfig(config, "virtualmachineinstances", vmi.Name, vmi.Namespace, "vnc", url.Values{})
 			Expect(err).ToNot(HaveOccurred())
 			_, err = wrappedRoundTripper.RoundTrip(req)
 			Expect(err).ToNot(HaveOccurred())

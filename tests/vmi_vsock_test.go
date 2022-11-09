@@ -21,12 +21,16 @@ package tests_test
 
 import (
 	"encoding/xml"
+	"net"
+	"time"
 
 	expect "github.com/google/goexpect"
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
 	k8sv1 "k8s.io/api/core/v1"
 	"k8s.io/utils/pointer"
+
+	v1 "kubevirt.io/api/core/v1"
 
 	virtconfig "kubevirt.io/kubevirt/pkg/virt-config"
 	"kubevirt.io/kubevirt/pkg/virt-launcher/virtwrap/api"
@@ -145,6 +149,114 @@ var _ = Describe("[Serial][sig-compute]VSOCK", func() {
 			Expect(xml.Unmarshal([]byte(domain2), domSpec2)).To(Succeed())
 			Expect(domSpec2.Devices.VSOCK.CID.Auto).To(Equal("no"))
 			Expect(domSpec2.Devices.VSOCK.CID.Address).To(Equal(*vmi2.Status.VSOCKCID))
+		})
+	})
+
+	Context("API access", func() {
+		It("should communicate with VMI via VSOCK", func() {
+			virtClient, err := kubecli.GetKubevirtClient()
+			Expect(err).NotTo(HaveOccurred())
+
+			By("Creating a VMI with VSOCK enabled")
+			vmi := tests.NewRandomFedoraVMI()
+			vmi.Spec.Domain.Devices.AutoattachVSOCK = pointer.Bool(true)
+			vmi = tests.RunVMIAndExpectLaunch(vmi, 60)
+
+			By("Logging in as root")
+			err = console.LoginToFedora(vmi)
+			Expect(err).ToNot(HaveOccurred())
+
+			By("Starting a server on guest via VSOCK")
+			port := 8888
+			tests.StartPythonVsockServer(vmi, *vmi.Status.VSOCKCID, port)
+			defer func() {
+				// Dump the server output for debugging
+				Expect(console.RunCommand(vmi, "cat server_out", 5*time.Second)).To(Succeed())
+			}()
+			// Give the server some time to finish binding.
+			time.Sleep(2 * time.Second)
+
+			By("Connect to the guest via API")
+			cliConn, svrConn := net.Pipe()
+			defer func() {
+				_ = cliConn.Close()
+				_ = svrConn.Close()
+			}()
+			stopChan := make(chan error)
+			respChan := make(chan string)
+			go func() {
+				defer GinkgoRecover()
+				vsock, err := virtClient.VirtualMachineInstance(vmi.Namespace).VSOCK(vmi.Name, &v1.VSOCKOptions{TargetPort: uint32(port)})
+				if err != nil {
+					stopChan <- err
+				}
+				stopChan <- vsock.Stream(kubecli.StreamOptions{
+					In:  svrConn,
+					Out: svrConn,
+				})
+			}()
+			By("Writing to the Guest")
+			message := "Hello World!"
+			go func() {
+				defer GinkgoRecover()
+				_, err = cliConn.Write([]byte(message))
+				Expect(err).NotTo(HaveOccurred())
+			}()
+
+			By("Reading from the Guest")
+			go func() {
+				defer GinkgoRecover()
+				buf := make([]byte, 1024, 1024)
+				n, err := cliConn.Read(buf)
+				Expect(err).NotTo(HaveOccurred())
+				respChan <- string(buf[0:n])
+			}()
+
+			select {
+			case resp := <-respChan:
+				Expect(resp).To(Equal(message))
+			case err := <-stopChan:
+				Expect(err).NotTo(HaveOccurred())
+			case <-time.After(1 * time.Minute):
+				Fail("Timeout communicate with the Vsock server in Guest.")
+			}
+		})
+
+		It("should return err if the port is invalid", func() {
+			virtClient, err := kubecli.GetKubevirtClient()
+			Expect(err).NotTo(HaveOccurred())
+
+			By("Creating a VMI with VSOCK enabled")
+			vmi := tests.NewRandomFedoraVMI()
+			vmi.Spec.Domain.Devices.AutoattachVSOCK = pointer.Bool(true)
+			vmi = tests.RunVMIAndExpectLaunch(vmi, 60)
+
+			By("Connect to the guest on invalide port")
+			_, err = virtClient.VirtualMachineInstance(vmi.Namespace).VSOCK(vmi.Name, &v1.VSOCKOptions{TargetPort: uint32(0)})
+			Expect(err).To(HaveOccurred())
+		})
+
+		It("should return err if no app listerns on the port", func() {
+			virtClient, err := kubecli.GetKubevirtClient()
+			Expect(err).NotTo(HaveOccurred())
+
+			By("Creating a VMI with VSOCK enabled")
+			vmi := tests.NewRandomFedoraVMI()
+			vmi.Spec.Domain.Devices.AutoattachVSOCK = pointer.Bool(true)
+			vmi = tests.RunVMIAndExpectLaunch(vmi, 60)
+
+			By("Connect to the guest on the unused port")
+			cliConn, svrConn := net.Pipe()
+			defer func() {
+				_ = cliConn.Close()
+				_ = svrConn.Close()
+			}()
+			vsock, err := virtClient.VirtualMachineInstance(vmi.Namespace).VSOCK(vmi.Name, &v1.VSOCKOptions{TargetPort: uint32(9999)})
+			Expect(err).NotTo(HaveOccurred())
+			Expect(vsock.Stream(kubecli.StreamOptions{
+				In:  svrConn,
+				Out: svrConn,
+			})).NotTo(Succeed())
 		})
 	})
 })
