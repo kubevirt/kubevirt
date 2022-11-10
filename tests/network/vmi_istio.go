@@ -475,9 +475,9 @@ var istioTestsWithPasstBinding = func() {
 	istioTests(Passt)
 }
 
-var _ = SIGDescribe("[Serial] Istio with masquerade binding", istioTestsWithMasqueradeBinding)
+var _ = SIGDescribe("[Serial] Istio with masquerade binding", Serial, istioTestsWithMasqueradeBinding)
 
-var _ = SIGDescribe("[Serial] Istio with passt binding", istioTestsWithPasstBinding)
+var _ = SIGDescribe("[Serial] Istio with passt binding", Serial, istioTestsWithPasstBinding)
 
 func istioServiceMeshDeployed() bool {
 	return strings.ToLower(os.Getenv(istioDeployedEnvVariable)) == "true"

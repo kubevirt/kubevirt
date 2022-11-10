@@ -23,7 +23,7 @@ import (
 	"kubevirt.io/kubevirt/tests/util"
 )
 
-var _ = Describe("[Serial][sig-compute] Hyper-V enlightenments", func() {
+var _ = Describe("[Serial][sig-compute] Hyper-V enlightenments", Serial, func() {
 
 	var (
 		virtClient kubecli.KubevirtClient

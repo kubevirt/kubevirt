@@ -56,7 +56,7 @@ func checkGPUDevice(vmi *v1.VirtualMachineInstance, gpuName string) {
 	Expect(err).ToNot(HaveOccurred(), "GPU device %q was not found in the VMI %s within the given timeout", gpuName, vmi.Name)
 }
 
-var _ = Describe("[Serial][sig-compute]GPU", func() {
+var _ = Describe("[Serial][sig-compute]GPU", Serial, func() {
 	var err error
 	var virtClient kubecli.KubevirtClient
 

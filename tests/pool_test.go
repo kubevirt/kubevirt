@@ -140,7 +140,7 @@ var _ = Describe("[sig-compute]VirtualMachinePool", func() {
 		return createVirtualMachinePool(newPoolFromVMI(libvmi.NewCirros()))
 	}
 
-	DescribeTable("[Serial]pool should scale", func(startScale int, stopScale int) {
+	DescribeTable("[Serial]pool should scale", Serial, func(startScale int, stopScale int) {
 		newPool := newVirtualMachinePool()
 		doScale(newPool.ObjectMeta.Name, int32(startScale))
 		doScale(newPool.ObjectMeta.Name, int32(stopScale))

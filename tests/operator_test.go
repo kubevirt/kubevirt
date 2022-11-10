@@ -98,7 +98,7 @@ type vmYamlDefinition struct {
 	vmSnapshots   []vmSnapshotDef
 }
 
-var _ = Describe("[Serial][sig-operator]Operator", func() {
+var _ = Describe("[Serial][sig-operator]Operator", Serial, func() {
 	var originalKv *v1.KubeVirt
 	var originalCDI *cdiv1.CDI
 	var originalOperatorVersion string
@@ -1113,7 +1113,7 @@ spec:
 		waitForKv(kv)
 	})
 
-	Describe("[Serial]should reconcile components", func() {
+	Describe("[Serial]should reconcile components", Serial, func() {
 
 		deploymentName := "virt-controller"
 		daemonSetName := "virt-handler"
@@ -1397,7 +1397,7 @@ spec:
 		})
 	})
 
-	Describe("[test_id:4744][Serial]should apply component customization", func() {
+	Describe("[test_id:4744][Serial]should apply component customization", Serial, func() {
 
 		It("test applying and removing a patch", func() {
 			annotationPatchValue := "new-annotation-value"

@@ -107,7 +107,7 @@ var _ = Describe("[rfe_id:273][crit:high][arm64][vendor:cnv-qe@redhat.com][level
 		testsuite.EnsureKVMPresent()
 	})
 
-	Context("when virt-handler is deleted", func() {
+	Context("when virt-handler is deleted", Serial, func() {
 		It("[Serial][test_id:4716]should label the node with kubevirt.io/schedulable=false", func() {
 			pods, err := virtClient.CoreV1().Pods("").List(context.Background(), metav1.ListOptions{
 				LabelSelector: fmt.Sprintf("%s=%s", v1.AppLabel, "virt-handler"),
@@ -549,7 +549,7 @@ var _ = Describe("[rfe_id:273][crit:high][arm64][vendor:cnv-qe@redhat.com][level
 		})
 
 		Context("when virt-launcher crashes", func() {
-			It("[Serial][test_id:1631]should be stopped and have Failed phase", func() {
+			It("[Serial][test_id:1631]should be stopped and have Failed phase", Serial, func() {
 				vmi, err := virtClient.VirtualMachineInstance(util.NamespaceTestDefault).Create(vmi)
 				Expect(err).ToNot(HaveOccurred(), "Should create VMI successfully")
 
@@ -575,7 +575,7 @@ var _ = Describe("[rfe_id:273][crit:high][arm64][vendor:cnv-qe@redhat.com][level
 			})
 		})
 
-		Context("[Serial]when virt-handler crashes", func() {
+		Context("[Serial]when virt-handler crashes", Serial, func() {
 			// FIXME: This test has the issues that it tests a lot of different timing scenarios in an intransparent way:
 			// e.g. virt-handler can die before or after virt-launcher. If we wait until virt-handler is dead before we
 			// kill virt-launcher then we don't know if virt-handler already restarted.
@@ -622,7 +622,7 @@ var _ = Describe("[rfe_id:273][crit:high][arm64][vendor:cnv-qe@redhat.com][level
 			})
 		})
 
-		Context("[Serial]when virt-handler is responsive", func() {
+		Context("[Serial]when virt-handler is responsive", Serial, func() {
 			It("[test_id:1633]should indicate that a node is ready for vmis", func() {
 
 				By("adding a heartbeat annotation and a schedulable label to the node")
@@ -708,7 +708,7 @@ var _ = Describe("[rfe_id:273][crit:high][arm64][vendor:cnv-qe@redhat.com][level
 			})
 		})
 
-		Context("[Serial]when virt-handler is not responsive", func() {
+		Context("[Serial]when virt-handler is not responsive", Serial, func() {
 
 			var vmi *v1.VirtualMachineInstance
 			var nodeName string
@@ -818,7 +818,7 @@ var _ = Describe("[rfe_id:273][crit:high][arm64][vendor:cnv-qe@redhat.com][level
 			})
 		})
 
-		Context("[Serial]with node tainted", func() {
+		Context("[Serial]with node tainted", Serial, func() {
 			var nodes *k8sv1.NodeList
 			var err error
 			BeforeEach(func() {
@@ -935,7 +935,7 @@ var _ = Describe("[rfe_id:273][crit:high][arm64][vendor:cnv-qe@redhat.com][level
 
 		})
 
-		Context("[Serial]with default cpu model", func() {
+		Context("[Serial]with default cpu model", Serial, func() {
 			var originalConfig v1.KubeVirtConfiguration
 			var supportedCpuModels []string
 			//store old kubevirt-config
@@ -1049,7 +1049,7 @@ var _ = Describe("[rfe_id:273][crit:high][arm64][vendor:cnv-qe@redhat.com][level
 			})
 		})
 
-		Context("[Serial]with node feature discovery", func() {
+		Context("[Serial]with node feature discovery", Serial, func() {
 			var node *k8sv1.Node
 			var supportedCPU string
 			var supportedCPUs []string
@@ -1782,7 +1782,7 @@ var _ = Describe("[rfe_id:273][crit:high][arm64][vendor:cnv-qe@redhat.com][level
 		})
 	})
 
-	Describe("[Serial][rfe_id:273][crit:high][vendor:cnv-qe@redhat.com][level:component]Killed VirtualMachineInstance", func() {
+	Describe("[Serial][rfe_id:273][crit:high][vendor:cnv-qe@redhat.com][level:component]Killed VirtualMachineInstance", Serial, func() {
 		It("[test_id:1656]should be in Failed phase", func() {
 			By("Starting a VirtualMachineInstance")
 			obj, err := virtClient.VirtualMachineInstance(util.NamespaceTestDefault).Create(vmi)

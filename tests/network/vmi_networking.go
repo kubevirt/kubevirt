@@ -1023,7 +1023,7 @@ var _ = SIGDescribe("[rfe_id:694][crit:medium][vendor:cnv-qe@redhat.com][level:c
 		})
 	})
 
-	Context("[Serial]vmi with default bridge interface on pod network", func() {
+	Context("[Serial]vmi with default bridge interface on pod network", Serial, func() {
 		BeforeEach(func() {
 			setBridgeEnabled(false)
 		})

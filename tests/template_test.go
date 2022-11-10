@@ -55,7 +55,7 @@ const (
 	defaultMemory     = "2Gi"
 )
 
-var _ = Describe("[Serial][sig-compute]Templates", func() {
+var _ = Describe("[Serial][sig-compute]Templates", Serial, func() {
 	var err error
 	var virtClient kubecli.KubevirtClient
 

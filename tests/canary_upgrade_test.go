@@ -43,7 +43,7 @@ import (
 	. "github.com/onsi/gomega"
 )
 
-var _ = Describe("[Serial][sig-operator]virt-handler canary upgrade", func() {
+var _ = Describe("[Serial][sig-operator]virt-handler canary upgrade", Serial, func() {
 
 	var err error
 	var originalKV *v1.KubeVirt

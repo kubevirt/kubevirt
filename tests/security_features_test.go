@@ -49,7 +49,7 @@ const (
 	capNetBindService k8sv1.Capability = "NET_BIND_SERVICE"
 )
 
-var _ = Describe("[Serial][sig-compute]SecurityFeatures", func() {
+var _ = Describe("[Serial][sig-compute]SecurityFeatures", Serial, func() {
 	var err error
 	var virtClient kubecli.KubevirtClient
 

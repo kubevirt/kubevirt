@@ -161,7 +161,7 @@ var _ = SIGDescribe("DataVolume Integration", func() {
 
 	Describe("[rfe_id:3188][crit:high][vendor:cnv-qe@redhat.com][level:system] Starting a VirtualMachineInstance with a DataVolume as a volume source", func() {
 
-		Context("[Serial]without fsgroup support", func() {
+		Context("[Serial]without fsgroup support", Serial, func() {
 			size := "1Gi"
 
 			It("should succesfully start", func() {
@@ -896,7 +896,7 @@ var _ = SIGDescribe("DataVolume Integration", func() {
 		})
 	})
 
-	Describe("[Serial][rfe_id:8400][crit:high][vendor:cnv-qe@redhat.com][level:system] Garbage collection of succeeded DV", func() {
+	Describe("[Serial][rfe_id:8400][crit:high][vendor:cnv-qe@redhat.com][level:system] Garbage collection of succeeded DV", Serial, func() {
 		var originalTTL *int32
 
 		BeforeEach(func() {

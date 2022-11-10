@@ -41,7 +41,7 @@ import (
 	"kubevirt.io/kubevirt/tests/util"
 )
 
-var _ = SIGDescribe("[Serial] Passt", func() {
+var _ = SIGDescribe("[Serial] Passt", Serial, func() {
 	var err error
 	var virtClient kubecli.KubevirtClient
 
