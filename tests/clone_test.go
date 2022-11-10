@@ -14,7 +14,6 @@ import (
 	"github.com/onsi/gomega/format"
 
 	k8sv1 "k8s.io/api/core/v1"
-	"k8s.io/apimachinery/pkg/api/errors"
 	"k8s.io/apimachinery/pkg/api/resource"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	v1 "k8s.io/apimachinery/pkg/apis/meta/v1"
@@ -494,45 +493,6 @@ var _ = Describe("[Serial][sig-compute]VirtualMachineClone Tests", func() {
 				return vm
 			}
 
-			getDumbStorageClass := func(preference string) string {
-				scs, err := virtClient.StorageV1().StorageClasses().List(context.Background(), v1.ListOptions{})
-				Expect(err).ToNot(HaveOccurred())
-
-				vscs, err := virtClient.KubernetesSnapshotClient().SnapshotV1().VolumeSnapshotClasses().List(context.Background(), v1.ListOptions{})
-				if errors.IsNotFound(err) {
-					return ""
-				}
-				Expect(err).ToNot(HaveOccurred())
-
-				var candidates []string
-				for _, sc := range scs.Items {
-					found := false
-					for _, vsc := range vscs.Items {
-						if sc.Provisioner == vsc.Driver {
-							found = true
-							break
-						}
-					}
-					if !found {
-						candidates = append(candidates, sc.Name)
-					}
-				}
-
-				if len(candidates) == 0 {
-					return ""
-				}
-
-				if len(candidates) > 1 {
-					for _, c := range candidates {
-						if c == preference {
-							return c
-						}
-					}
-				}
-
-				return candidates[0]
-			}
-
 			It("with a simple clone", func() {
 				snapshotStorageClass, err := libstorage.GetSnapshotStorageClass(virtClient)
 				Expect(err).ToNot(HaveOccurred())
@@ -559,7 +519,7 @@ var _ = Describe("[Serial][sig-compute]VirtualMachineClone Tests", func() {
 
 			Context("should reject source with non snapshotable volume", func() {
 				BeforeEach(func() {
-					sc := getDumbStorageClass("local")
+					sc := libstorage.GetNoVolumeSnapshotStorageClass("local")
 					if sc == "" {
 						Skip("Skipping test, no storage class without snapshot support")
 					}
