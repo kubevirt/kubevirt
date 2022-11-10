@@ -52,10 +52,4 @@
     (allow process nfs_t (dir (mounton)))
     (allow process proc_t (dir (mounton)))
     (allow process proc_t (filesystem (mount unmount)))
-    ;
-    ; This is needed for passt when running with this policy.
-    ; container_t is compatible with passt without needing any additional rule.
-    ; This rule is therefore only needed for VMs that use both virtiofs and passt.
-    ; The policy will be removed from here once it will be installed via the passt package.
-    (allow process tmpfs_t (filesystem (mount)))
 )
