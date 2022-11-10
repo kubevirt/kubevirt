@@ -106,10 +106,10 @@ var _ = SIGDescribe("[rfe_id:6364][[Serial]Guestfs", func() {
 		guestfsCmd := clientcmd.NewVirtctlCommand(o...)
 		go guestfsWithSync(f, guestfsCmd)
 		// Waiting until the libguestfs pod is ready
-		Eventually(func() bool {
+		Eventually(func() corev1.ConditionStatus {
 			pod, _ := virtClient.CoreV1().Pods(util.NamespaceTestDefault).Get(context.Background(), podName, metav1.GetOptions{})
-			return tests.PodReady(pod) == corev1.ConditionTrue
-		}, 90*time.Second, 2*time.Second).Should(BeTrue())
+			return tests.PodReady(pod)
+		}, 90*time.Second, 2*time.Second).Should(BeEquivalentTo(corev1.ConditionTrue))
 
 	}
 
