@@ -4049,6 +4049,12 @@ rpm(
 )
 
 rpm(
+    name = "qemu-kvm-device-display-virtio-gpu-pci-17__7.1.0-3.el9.aarch64",
+    sha256 = "9406a23af79a2f43fd8facb2e74af8f4802eb9052f7651c29fd75392bbfd64c7",
+    urls = ["http://mirror.stream.centos.org/9-stream/AppStream/aarch64/os/Packages/qemu-kvm-device-display-virtio-gpu-pci-7.1.0-3.el9.aarch64.rpm"],
+)
+
+rpm(
     name = "qemu-kvm-device-usb-redirect-17__7.1.0-3.el9.x86_64",
     sha256 = "3daebfa32f5e15a5b36b3fc8886a34346a9b487a4971aaa6180394026c403198",
     urls = [
