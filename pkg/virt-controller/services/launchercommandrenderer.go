@@ -2,6 +2,9 @@ package services
 
 import (
 	"strconv"
+
+	"github.com/google/go-cmp/cmp"
+	"kubevirt.io/client-go/log"
 )
 
 type VirtLauncherCommandRenderer struct {
@@ -71,6 +74,9 @@ func NewDoppelgangerPodRender(opts ...VirtLauncherCommandRendererOption) *VirtLa
 
 func (vlcr *VirtLauncherCommandRenderer) Render() []string {
 	if vlcr.isDoppelgangerPod {
+		if vlcr.doesDoppelgangerPodHaveOptions() {
+			log.Log.Warning("doppelganger pod does not allow options")
+		}
 		return []string{"/bin/bash",
 			"-c",
 			"echo", "bound PVCs"}
@@ -108,6 +114,14 @@ func (vlcr *VirtLauncherCommandRenderer) Render() []string {
 		command = append(command, "--simulate-crash")
 	}
 	return command
+}
+
+func (vlcr *VirtLauncherCommandRenderer) doesDoppelgangerPodHaveOptions() bool {
+	return cmp.Equal(
+		vlcr,
+		&VirtLauncherCommandRenderer{isDoppelgangerPod: true},
+		cmp.AllowUnexported(VirtLauncherCommandRenderer{}, VirtLauncherStaticConfig{}),
+	)
 }
 
 func WithNonRootUser() VirtLauncherCommandRendererOption {
