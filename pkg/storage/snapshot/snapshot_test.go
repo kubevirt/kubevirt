@@ -48,6 +48,7 @@ const (
 	testNamespace = "default"
 	vmSnapshotUID = "snapshot-uid"
 	contentUID    = "content-uid"
+	diskName      = "disk1"
 )
 
 var (
@@ -161,10 +162,7 @@ var _ = Describe("Snapshot controlleer", func() {
 	}
 
 	createReadyVMSnapshotContent := func() *snapshotv1.VirtualMachineSnapshotContent {
-		vmSnapshot := createVMSnapshotInProgress()
-		vm := createLockedVM()
-		pvcs := createPersistentVolumeClaims()
-		content := createVirtualMachineSnapshotContent(vmSnapshot, vm, pvcs)
+		content := createVMSnapshotContent()
 		content.Status = &snapshotv1.VirtualMachineSnapshotContentStatus{
 			ReadyToUse:   &t,
 			CreationTime: timeFunc(),
@@ -556,6 +554,9 @@ var _ = Describe("Snapshot controlleer", func() {
 				updatedSnapshot := vmSnapshot.DeepCopy()
 				updatedSnapshot.ResourceVersion = "1"
 				updatedSnapshot.Finalizers = []string{}
+				updatedSnapshot.Status.SnapshotVolumes = &snapshotv1.SnapshotVolumesLists{
+					IncludedVolumes: []string{diskName},
+				}
 
 				content := createVMSnapshotContent()
 				updatedContent := content.DeepCopy()
@@ -577,6 +578,9 @@ var _ = Describe("Snapshot controlleer", func() {
 				updatedSnapshot := vmSnapshot.DeepCopy()
 				updatedSnapshot.ResourceVersion = "1"
 				updatedSnapshot.Finalizers = []string{}
+				updatedSnapshot.Status.SnapshotVolumes = &snapshotv1.SnapshotVolumesLists{
+					IncludedVolumes: []string{diskName},
+				}
 
 				content := createReadyVMSnapshotContent()
 				updatedContent := content.DeepCopy()
@@ -597,6 +601,9 @@ var _ = Describe("Snapshot controlleer", func() {
 				updatedSnapshot := vmSnapshot.DeepCopy()
 				updatedSnapshot.ResourceVersion = "1"
 				updatedSnapshot.Finalizers = []string{}
+				updatedSnapshot.Status.SnapshotVolumes = &snapshotv1.SnapshotVolumesLists{
+					IncludedVolumes: []string{diskName},
+				}
 
 				content := createVMSnapshotContent()
 				updatedContent := content.DeepCopy()
@@ -1005,11 +1012,7 @@ var _ = Describe("Snapshot controlleer", func() {
 			})
 
 			It("should update VirtualMachineSnapshotStatus", func() {
-				vmSnapshotContent := createVMSnapshotContent()
-				vmSnapshotContent.Status = &snapshotv1.VirtualMachineSnapshotContentStatus{
-					CreationTime: timeFunc(),
-					ReadyToUse:   &t,
-				}
+				vmSnapshotContent := createReadyVMSnapshotContent()
 
 				vmSnapshot := createVMSnapshotInProgress()
 				updatedSnapshot := vmSnapshot.DeepCopy()
@@ -1024,8 +1027,51 @@ var _ = Describe("Snapshot controlleer", func() {
 					newProgressingCondition(corev1.ConditionFalse, "Operation complete"),
 					newReadyCondition(corev1.ConditionTrue, "Operation complete"),
 				}
+				updatedSnapshot.Status.SnapshotVolumes = &snapshotv1.SnapshotVolumesLists{
+					IncludedVolumes: []string{diskName},
+				}
 
 				vm := createLockedVM()
+
+				vmSource.Add(vm)
+				vmSnapshotContentSource.Add(vmSnapshotContent)
+				expectVMSnapshotUpdate(vmSnapshotClient, updatedSnapshot)
+				addVirtualMachineSnapshot(vmSnapshot)
+				controller.processVMSnapshotWorkItem()
+			})
+
+			It("should update included and excluded volume in VirtualMachineSnapshotStatus", func() {
+				vmSnapshotContent := createReadyVMSnapshotContent()
+				vm := createLockedVM()
+				vm.Spec.Template.Spec.Volumes = append(vm.Spec.Template.Spec.Volumes, v1.Volume{
+					Name: "disk2",
+					VolumeSource: v1.VolumeSource{
+						PersistentVolumeClaim: &v1.PersistentVolumeClaimVolumeSource{PersistentVolumeClaimVolumeSource: corev1.PersistentVolumeClaimVolumeSource{
+							ClaimName: "test-pvc",
+						}},
+					},
+				})
+				// Add volume to vm in content that is not in the volumebackup list
+				//this is a simulation for a volume that is not included in the snapshot
+				vmSnapshotContent.Spec.Source.VirtualMachine.Spec = *vm.Spec.DeepCopy()
+
+				vmSnapshot := createVMSnapshotInProgress()
+				updatedSnapshot := vmSnapshot.DeepCopy()
+				updatedSnapshot.ResourceVersion = "1"
+				updatedSnapshot.Status.SourceUID = &vmUID
+				updatedSnapshot.Status.VirtualMachineSnapshotContentName = &vmSnapshotContent.Name
+				updatedSnapshot.Status.CreationTime = timeFunc()
+				updatedSnapshot.Status.ReadyToUse = &t
+				updatedSnapshot.Status.Phase = snapshotv1.Succeeded
+				updatedSnapshot.Status.Indications = nil
+				updatedSnapshot.Status.Conditions = []snapshotv1.Condition{
+					newProgressingCondition(corev1.ConditionFalse, "Operation complete"),
+					newReadyCondition(corev1.ConditionTrue, "Operation complete"),
+				}
+				updatedSnapshot.Status.SnapshotVolumes = &snapshotv1.SnapshotVolumesLists{
+					IncludedVolumes: []string{diskName},
+					ExcludedVolumes: []string{"disk2"},
+				}
 
 				vmSource.Add(vm)
 				vmSnapshotContentSource.Add(vmSnapshotContent)
@@ -1303,11 +1349,7 @@ var _ = Describe("Snapshot controlleer", func() {
 
 			It("should update VirtualMachineSnapshotContent when VolumeSnapshot deleted", func() {
 				vmSnapshot := createVMSnapshotInProgress()
-				vmSnapshotContent := createVMSnapshotContent()
-				vmSnapshotContent.Status = &snapshotv1.VirtualMachineSnapshotContentStatus{
-					ReadyToUse:   &t,
-					CreationTime: timeFunc(),
-				}
+				vmSnapshotContent := createReadyVMSnapshotContent()
 				updatedContent := vmSnapshotContent.DeepCopy()
 				updatedContent.ResourceVersion = "1"
 				updatedContent.Status.ReadyToUse = &f
@@ -2187,7 +2229,7 @@ func createVirtualMachine(namespace, name string) *v1.VirtualMachine {
 						Devices: v1.Devices{
 							Disks: []v1.Disk{
 								{
-									Name: "disk1",
+									Name: diskName,
 									DiskDevice: v1.DiskDevice{
 										Disk: &v1.DiskTarget{
 											Bus: v1.DiskBusVirtio,
@@ -2205,7 +2247,7 @@ func createVirtualMachine(namespace, name string) *v1.VirtualMachine {
 					},
 					Volumes: []v1.Volume{
 						{
-							Name: "disk1",
+							Name: diskName,
 							VolumeSource: v1.VolumeSource{
 								DataVolume: &v1.DataVolumeSource{
 									Name: "alpine-dv",
