@@ -460,6 +460,36 @@ func (metrics *vmiMetrics) updateNetwork(netStats []stats.DomainStatsNet) {
 	}
 }
 
+func (metrics *vmiMetrics) updateFilesystem(vmFSStats k6tv1.VirtualMachineInstanceFileSystemList) {
+	if len(vmFSStats.Items) == 0 {
+		return
+	}
+
+	fsLabels := []string{"disk_name", "mount_point", "file_system_type"}
+
+	for _, fsStat := range vmFSStats.Items {
+		fsLabelValues := []string{fsStat.DiskName, fsStat.MountPoint, fsStat.FileSystemType}
+
+		metrics.pushCustomMetric(
+			"kubevirt_vmi_filesystem_total_bytes",
+			"Total VM filesystem capacity in bytes.",
+			prometheus.GaugeValue,
+			float64(fsStat.TotalBytes),
+			fsLabels,
+			fsLabelValues,
+		)
+
+		metrics.pushCustomMetric(
+			"kubevirt_vmi_filesystem_used_bytes",
+			"Used VM filesystem capacity in bytes.",
+			prometheus.GaugeValue,
+			float64(fsStat.UsedBytes),
+			fsLabels,
+			fsLabelValues,
+		)
+	}
+}
+
 func updateVersion(ch chan<- prometheus.Metric) {
 	verinfo := version.Get()
 	ch <- prometheus.MustNewConstMetric(
@@ -523,6 +553,11 @@ type prometheusScraper struct {
 	ch chan<- prometheus.Metric
 }
 
+type VirtualMachineInstanceStats struct {
+	DomainStats *stats.DomainStats
+	FsStats     k6tv1.VirtualMachineInstanceFileSystemList
+}
+
 func (ps *prometheusScraper) Scrape(socketFile string, vmi *k6tv1.VirtualMachineInstance) {
 	ts := time.Now()
 	cli, err := cmdclient.NewClient(socketFile)
@@ -536,13 +571,22 @@ func (ps *prometheusScraper) Scrape(socketFile string, vmi *k6tv1.VirtualMachine
 	}
 	defer cli.Close()
 
-	vmStats, exists, err := cli.GetDomainStats()
+	vmStats := &VirtualMachineInstanceStats{}
+	var exists bool
+
+	vmStats.DomainStats, exists, err = cli.GetDomainStats()
 	if err != nil {
-		log.Log.Reason(err).Errorf("failed to update stats from socket %s", socketFile)
+		log.Log.Reason(err).Errorf("failed to update domain stats from socket %s", socketFile)
 		return
 	}
-	if !exists || vmStats.Name == "" {
+	if !exists || vmStats.DomainStats.Name == "" {
 		log.Log.V(2).Infof("disappearing VM on %s, ignored", socketFile) // VM may be shutting down
+		return
+	}
+
+	vmStats.FsStats, err = cli.GetFilesystems()
+	if err != nil {
+		log.Log.Reason(err).Errorf("failed to update filesystem stats from socket %s", socketFile)
 		return
 	}
 
@@ -559,8 +603,8 @@ func (ps *prometheusScraper) Scrape(socketFile string, vmi *k6tv1.VirtualMachine
 	ps.Report(socketFile, vmi, vmStats)
 }
 
-func (ps *prometheusScraper) Report(socketFile string, vmi *k6tv1.VirtualMachineInstance, vmStats *stats.DomainStats) {
-	// statsMaxAge is an estimation - and there is not better way to do that. So it is possible that
+func (ps *prometheusScraper) Report(socketFile string, vmi *k6tv1.VirtualMachineInstance, vmStats *VirtualMachineInstanceStats) {
+	// statsMaxAge is an estimation - and there is no better way to do that. So it is possible that
 	// GetDomainStats() takes enough time to lag behind, but not enough to trigger the statsMaxAge check.
 	// In this case the next functions will end up writing on a closed channel. This will panic.
 	// It is actually OK in this case to abort the goroutine that panicked -that's what we want anyway,
@@ -594,18 +638,19 @@ type vmiMetrics struct {
 	ch             chan<- prometheus.Metric
 }
 
-func (metrics *vmiMetrics) updateMetrics(vmStats *stats.DomainStats) {
+func (metrics *vmiMetrics) updateMetrics(vmStats *VirtualMachineInstanceStats) {
 	metrics.updateKubernetesLabels()
 
-	metrics.updateMemory(vmStats.Memory)
-	metrics.updateVcpu(vmStats.Vcpu)
-	metrics.updateBlock(vmStats.Block)
-	metrics.updateNetwork(vmStats.Net)
+	metrics.updateMemory(vmStats.DomainStats.Memory)
+	metrics.updateVcpu(vmStats.DomainStats.Vcpu)
+	metrics.updateBlock(vmStats.DomainStats.Block)
+	metrics.updateNetwork(vmStats.DomainStats.Net)
 
-	if vmStats.CPUMapSet {
-		metrics.updateCPUAffinity(vmStats.CPUMap)
+	if vmStats.DomainStats.CPUMapSet {
+		metrics.updateCPUAffinity(vmStats.DomainStats.CPUMap)
 	}
-	metrics.updateMigrateInfo(vmStats.MigrateDomainJobInfo)
+	metrics.updateMigrateInfo(vmStats.DomainStats.MigrateDomainJobInfo)
+	metrics.updateFilesystem(vmStats.FsStats)
 }
 
 func (metrics *vmiMetrics) newPrometheusDesc(name string, help string, customLabels []string) *prometheus.Desc {
