@@ -575,13 +575,13 @@ var _ = Describe("[rfe_id:393][crit:high][vendor:cnv-qe@redhat.com][level:system
 		}
 	}
 
-	getLibvirtdPid := func(pod *k8sv1.Pod) string {
+	getVirtqemudPid := func(pod *k8sv1.Pod) string {
 		stdout, stderr, err := exec.ExecuteCommandOnPodWithResults(virtClient, pod, "compute",
 			[]string{
 				"pidof",
-				"libvirtd",
+				"virtqemud",
 			})
-		errorMessageFormat := "faild after running `pidof libvirtd` with stdout:\n %v \n stderr:\n %v \n err: \n %v \n"
+		errorMessageFormat := "faild after running `pidof virtqemud` with stdout:\n %v \n stderr:\n %v \n err: \n %v \n"
 		Expect(err).ToNot(HaveOccurred(), fmt.Sprintf(errorMessageFormat, stdout, stderr, err))
 		pid := strings.TrimSuffix(stdout, "\n")
 		return pid
@@ -1083,11 +1083,11 @@ var _ = Describe("[rfe_id:393][crit:high][vendor:cnv-qe@redhat.com][level:system
 
 			// We had a bug that prevent migrations and graceful shutdown when the libvirt connection
 			// is reset. This can occur for many reasons, one easy way to trigger it is to
-			// force libvirtd down, which will result in virt-launcher respawning it.
+			// force virtqemud down, which will result in virt-launcher respawning it.
 			// Previously, we'd stop getting events after libvirt reconnect, which
 			// prevented things like migration. This test verifies we can migrate after
-			// resetting libvirt
-			It("[test_id:4746]should migrate even if libvirt has restarted at some point.", func() {
+			// resetting virtqemud
+			It("[test_id:4746]should migrate even if virtqemud has restarted at some point.", func() {
 				vmi := libvmi.NewAlpineWithTestTooling(
 					libvmi.WithMasqueradeNetworking()...,
 				)
@@ -1104,11 +1104,11 @@ var _ = Describe("[rfe_id:393][crit:high][vendor:cnv-qe@redhat.com][level:system
 				Expect(err).ToNot(HaveOccurred(), "Should list pods successfully")
 				Expect(pods.Items).To(HaveLen(1), "There should be only one VMI pod")
 
-				// find libvirtd pid
-				pid := getLibvirtdPid(&pods.Items[0])
+				// find virtqemud pid
+				pid := getVirtqemudPid(&pods.Items[0])
 
-				// kill libvirtd
-				By(fmt.Sprintf("Killing libvirtd with pid %s", pid))
+				// kill virtqemud
+				By(fmt.Sprintf("Killing virtqemud with pid %s", pid))
 				stdout, stderr, err := exec.ExecuteCommandOnPodWithResults(virtClient, &pods.Items[0], "compute",
 					[]string{
 						"kill",
@@ -1118,12 +1118,12 @@ var _ = Describe("[rfe_id:393][crit:high][vendor:cnv-qe@redhat.com][level:system
 				errorMessageFormat := "failed after running `kill -9 %v` with stdout:\n %v \n stderr:\n %v \n err: \n %v \n"
 				Expect(err).ToNot(HaveOccurred(), fmt.Sprintf(errorMessageFormat, pid, stdout, stderr, err))
 
-				// wait for both libvirt to respawn and all connections to re-establish
+				// wait for both virtqemud to respawn and all connections to re-establish
 				time.Sleep(30 * time.Second)
 
 				// ensure new pid comes online
-				newPid := getLibvirtdPid(&pods.Items[0])
-				Expect(pid).ToNot(Equal(newPid), fmt.Sprintf("expected libvirtd to be cycled. original pid %s new pid %s", pid, newPid))
+				newPid := getVirtqemudPid(&pods.Items[0])
+				Expect(pid).ToNot(Equal(newPid), fmt.Sprintf("expected virtqemud to be cycled. original pid %s new pid %s", pid, newPid))
 
 				// execute a migration, wait for finalized state
 				By(fmt.Sprintf("Starting the Migration"))

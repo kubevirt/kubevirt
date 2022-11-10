@@ -286,7 +286,7 @@ func GetMemoryOverhead(vmi *v1.VirtualMachineInstance, cpuArch string) *resource
 	overhead.Add(resource.MustParse(VirtLauncherMonitorOverhead))
 	overhead.Add(resource.MustParse(VirtLauncherOverhead))
 	overhead.Add(resource.MustParse(VirtlogdOverhead))
-	overhead.Add(resource.MustParse(LibvirtdOverhead))
+	overhead.Add(resource.MustParse(VirtqemudOverhead))
 	overhead.Add(resource.MustParse(QemuOverhead))
 
 	// Add CPU table overhead (8 MiB per vCPU and 8 MiB per IO thread)

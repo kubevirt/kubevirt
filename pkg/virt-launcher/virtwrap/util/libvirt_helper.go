@@ -38,7 +38,7 @@ import (
 const QEMUSeaBiosDebugPipe = converter.QEMUSeaBiosDebugPipe
 const (
 	qemuConfPath        = "/etc/libvirt/qemu.conf"
-	libvirdConfPath     = "/etc/libvirt/libvirtd.conf"
+	virtqemudConfPath   = "/etc/libvirt/virtqemud.conf"
 	libvirtRuntimePath  = "/var/run/libvirt"
 	libvirtHomePath     = "/var/run/kubevirt-private/libvirt"
 	qemuNonRootConfPath = libvirtHomePath + "/qemu.conf"
@@ -236,8 +236,8 @@ func GetDomainSpecWithFlags(dom cli.VirDomain, flags libvirt.DomainXMLFlags) (*a
 	return domain, nil
 }
 
-func (l LibvirtWrapper) StartLibvirt(stopChan chan struct{}) {
-	// we spawn libvirt from virt-launcher in order to ensure the libvirtd+qemu process
+func (l LibvirtWrapper) StartVirtquemud(stopChan chan struct{}) {
+	// we spawn libvirt from virt-launcher in order to ensure the virtqemud+qemu process
 	// doesn't exit until virt-launcher is ready for it to. Virt-launcher traps signals
 	// to perform special shutdown logic. These processes need to live in the same
 	// container.
@@ -245,8 +245,8 @@ func (l LibvirtWrapper) StartLibvirt(stopChan chan struct{}) {
 	go func() {
 		for {
 			exitChan := make(chan struct{})
-			args := []string{"-f", "/var/run/libvirt/libvirtd.conf"}
-			cmd := exec.Command("/usr/sbin/libvirtd", args...)
+			args := []string{"-f", "/var/run/libvirt/virtqemud.conf"}
+			cmd := exec.Command("/usr/sbin/virtqemud", args...)
 			if l.user != 0 {
 				cmd.SysProcAttr = &syscall.SysProcAttr{
 					AmbientCaps: []uintptr{unix.CAP_NET_BIND_SERVICE, unix.CAP_SYS_PTRACE},
@@ -256,7 +256,7 @@ func (l LibvirtWrapper) StartLibvirt(stopChan chan struct{}) {
 			// connect libvirt's stderr to our own stdout in order to see the logs in the container logs
 			reader, err := cmd.StderrPipe()
 			if err != nil {
-				log.Log.Reason(err).Error("failed to start libvirtd")
+				log.Log.Reason(err).Error("failed to start virtqemud")
 				panic(err)
 			}
 
@@ -274,7 +274,7 @@ func (l LibvirtWrapper) StartLibvirt(stopChan chan struct{}) {
 
 			err = cmd.Start()
 			if err != nil {
-				log.Log.Reason(err).Error("failed to start libvirtd")
+				log.Log.Reason(err).Error("failed to start virtqemud")
 				panic(err)
 			}
 
@@ -288,11 +288,11 @@ func (l LibvirtWrapper) StartLibvirt(stopChan chan struct{}) {
 				cmd.Process.Kill()
 				return
 			case <-exitChan:
-				log.Log.Errorf("libvirtd exited, restarting")
+				log.Log.Errorf("virtqemud exited, restarting")
 			}
 
-			// this sleep is to avoid consumming all resources in the
-			// event of a libvirtd crash loop.
+			// this sleep is to avoid consuming all resources in the
+			// event of a virtqemud crash loop.
 			time.Sleep(time.Second)
 		}
 	}()
@@ -516,8 +516,8 @@ func (l LibvirtWrapper) SetupLibvirt(customLogFilters *string) (err error) {
 		return err
 	}
 
-	runtimeLibvirtdConfPath := path.Join(libvirtRuntimePath, "libvirtd.conf")
-	if err := copyFile(libvirdConfPath, runtimeLibvirtdConfPath); err != nil {
+	runtimeVirtqemudConfPath := path.Join(libvirtRuntimePath, "virtqemud.conf")
+	if err := copyFile(virtqemudConfPath, runtimeVirtqemudConfPath); err != nil {
 		return err
 	}
 
@@ -528,14 +528,14 @@ func (l LibvirtWrapper) SetupLibvirt(customLogFilters *string) (err error) {
 	_, libvirtDebugLogsEnvVarDefined := os.LookupEnv(services.ENV_VAR_LIBVIRT_DEBUG_LOGS)
 
 	if logFilters, enableDebugLogs := getLibvirtLogFilters(customLogFilters, libvirtLogVerbosityEnvVar, libvirtDebugLogsEnvVarDefined); enableDebugLogs {
-		libvirdDConf, err := os.OpenFile(runtimeLibvirtdConfPath, os.O_APPEND|os.O_WRONLY, 0644)
+		virtqemudConf, err := os.OpenFile(runtimeVirtqemudConfPath, os.O_APPEND|os.O_WRONLY, 0644)
 		if err != nil {
 			return err
 		}
-		defer util.CloseIOAndCheckErr(libvirdDConf, &err)
+		defer util.CloseIOAndCheckErr(virtqemudConf, &err)
 
 		log.Log.Infof("Enabling libvirt log filters: %s", logFilters)
-		_, err = libvirdDConf.WriteString(fmt.Sprintf("log_filters=\"%s\"\n", logFilters))
+		_, err = virtqemudConf.WriteString(fmt.Sprintf("log_filters=\"%s\"\n", logFilters))
 		if err != nil {
 			return err
 		}

@@ -19,7 +19,7 @@ if [ -e /dev/sev ]; then
   chmod o+rw /dev/sev
 fi
 
-libvirtd -d
+virtqemud -d
 
 virsh domcapabilities --machine q35 --arch x86_64 --virttype $VIRTTYPE > /var/lib/kubevirt-node-labeller/virsh_domcapabilities.xml
 
