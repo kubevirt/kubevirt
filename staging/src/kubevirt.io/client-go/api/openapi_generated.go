@@ -15463,7 +15463,7 @@ func schema_kubevirtio_api_core_v1_DataVolumeSource(ref common.ReferenceCallback
 				Properties: map[string]spec.Schema{
 					"name": {
 						SchemaProps: spec.SchemaProps{
-							Description: "Name represents the name of the DataVolume in the same namespace",
+							Description: "Name of both the DataVolume and the PVC in the same namespace. After PVC population the DataVolume is garbage collected by default.",
 							Type:        []string{"string"},
 							Format:      "",
 						},
