@@ -1242,11 +1242,14 @@ var _ = Describe("[rfe_id:393][crit:high][vendor:cnv-qe@redhat.com][level:system
 			})
 
 			It("should automatically cancel unschedulable migration after a timeout period", func() {
-				vmi := tests.NewRandomFedoraVMIWithGuestAgent()
+				networkData := libnet.CreateDefaultCloudInitNetworkData()
+				vmi := libvmi.NewFedora(
+					libvmi.WithInterface(libvmi.InterfaceDeviceWithMasqueradeBinding()),
+					libvmi.WithNetwork(v1.DefaultPodNetwork()),
+					libvmi.WithCloudInitNoCloudNetworkData(networkData),
+					libvmi.WithNodeSelectorFor(&nodes.Items[0]),
+				)
 				vmi.Spec.Domain.Resources.Requests[k8sv1.ResourceMemory] = resource.MustParse(fedoraVMSize)
-
-				// Add node affinity to ensure VMI affinity rules block target pod from being created
-				addNodeAffinityToVMI(vmi, nodes.Items[0].Name)
 
 				By("Starting the VirtualMachineInstance")
 				vmi = tests.RunVMIAndExpectLaunch(vmi, 240)
