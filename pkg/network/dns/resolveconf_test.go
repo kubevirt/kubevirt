@@ -3,6 +3,7 @@ package dns
 import (
 	"fmt"
 	"net"
+	"strings"
 
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
@@ -16,6 +17,23 @@ var _ = Describe("Resolveconf", func() {
 			nameservers, err := ParseNameservers(resolvConf)
 			Expect(nameservers).To(Equal([][]uint8{ns1, ns2}))
 			Expect(err).ToNot(HaveOccurred())
+		})
+
+		It("should support ipv6 nameservers", func() {
+			ipCases := []string{
+				"2001:4860:4860::8888",
+				"240C::6666",
+				"2001:da8:ff:305:20c:29ff:fe1f:a92a",
+			}
+			resolvConf := ""
+			for _, ip := range ipCases {
+				resolvConf = fmt.Sprintf("%snameserver %s\n", resolvConf, ip)
+			}
+			nameservers, err := ParseNameservers(resolvConf)
+			Expect(err).To(BeNil())
+			for i, ns := range nameservers {
+				Expect(net.IP(ns).String()).To(Equal(strings.ToLower(ipCases[i])))
+			}
 		})
 
 		It("should ignore non-nameserver lines and malformed nameserver lines", func() {

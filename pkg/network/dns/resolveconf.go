@@ -9,7 +9,6 @@ import (
 
 const (
 	domainSearchPrefix  = "search"
-	nameserverPrefix    = "nameserver"
 	defaultDNS          = "8.8.8.8"
 	defaultSearchDomain = "cluster.local"
 )
@@ -17,7 +16,7 @@ const (
 func ParseNameservers(content string) ([][]byte, error) {
 	var nameservers [][]byte
 
-	re, err := regexp.Compile("([0-9]{1,3}.?){4}")
+	re, err := regexp.Compile(`^nameserver\s+([0-9A-Fa-f\.:]+)`)
 	if err != nil {
 		return nameservers, err
 	}
@@ -26,11 +25,26 @@ func ParseNameservers(content string) ([][]byte, error) {
 
 	for scanner.Scan() {
 		line := scanner.Text()
-		if strings.HasPrefix(line, nameserverPrefix) {
-			nameserver := re.FindString(line)
-			if nameserver != "" {
-				nameservers = append(nameservers, net.ParseIP(nameserver).To4())
-			}
+		m := re.FindStringSubmatch(line)
+		if m == nil {
+			continue
+		}
+
+		ipStr := m[1]
+		ip := net.ParseIP(ipStr)
+		if ip == nil {
+			continue
+		}
+		// try to convert as v4 address at first
+		v4 := ip.To4()
+		if v4 != nil {
+			nameservers = append(nameservers, v4)
+			continue
+		}
+		// if ip can't be converted to ipv4, then try ipv6
+		v6 := ip.To16()
+		if v6 != nil {
+			nameservers = append(nameservers, v6)
 		}
 	}
 
