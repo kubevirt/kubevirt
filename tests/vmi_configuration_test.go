@@ -30,6 +30,8 @@ import (
 	"time"
 	"unicode"
 
+	"k8s.io/apimachinery/pkg/util/rand"
+
 	"kubevirt.io/kubevirt/pkg/virt-controller/services"
 
 	expect "github.com/google/goexpect"
@@ -1665,18 +1667,20 @@ var _ = Describe("[sig-compute]Configurations", func() {
 		})
 
 		Context("[Serial]using defaultRuntimeClass configuration", func() {
-			const runtimeClassName = "fake-runtime-class"
+			var runtimeClassName string
 
 			BeforeEach(func() {
+				// use random runtime class to avoid collisions with cleanup where a
+				// runtime class is still in the process of being deleted because pod
+				// cleanup is still in progress
+				runtimeClassName = "fake-runtime-class" + "-" + rand.String(5)
 				By("Creating a runtime class")
-				_, err := createRuntimeClass(runtimeClassName, "fake-handler")
-				Expect(err).NotTo(HaveOccurred(), "cannot create runtime-class "+runtimeClassName)
+				Expect(createRuntimeClass(runtimeClassName, "fake-handler")).To(Succeed())
 			})
 
 			AfterEach(func() {
 				By("Cleaning up runtime class")
-				err := deleteRuntimeClass(runtimeClassName)
-				Expect(err).NotTo(HaveOccurred(), "cannot delete runtime-class "+runtimeClassName)
+				Expect(deleteRuntimeClass(runtimeClassName)).To(Succeed())
 			})
 
 			It("should apply runtimeClassName to pod when set", func() {
@@ -1696,15 +1700,17 @@ var _ = Describe("[sig-compute]Configurations", func() {
 				Expect(pod.Spec.RuntimeClassName).ToNot(BeNil())
 				Expect(*pod.Spec.RuntimeClassName).To(BeEquivalentTo(runtimeClassName))
 			})
+		})
+		It("should not apply runtimeClassName to pod when not set", func() {
+			By("verifying no default runtime class name is set")
+			config := util.GetCurrentKv(virtClient).Spec.Configuration
+			Expect(config.DefaultRuntimeClass).To(BeEmpty())
+			By("Creating a VMI")
+			vmi := tests.RunVMIAndExpectLaunch(tests.NewRandomVMI(), 60)
 
-			It("should not apply runtimeClassName to pod when not set", func() {
-				By("Creating a VMI")
-				vmi := tests.RunVMIAndExpectLaunch(tests.NewRandomVMI(), 60)
-
-				By("Checking for absence of runtimeClassName")
-				pod := tests.GetRunningPodByVirtualMachineInstance(vmi, util.NamespaceTestDefault)
-				Expect(pod.Spec.RuntimeClassName).To(BeNil())
-			})
+			By("Checking for absence of runtimeClassName")
+			pod := tests.GetRunningPodByVirtualMachineInstance(vmi, util.NamespaceTestDefault)
+			Expect(pod.Spec.RuntimeClassName).To(BeNil())
 		})
 	})
 
@@ -3081,13 +3087,13 @@ var _ = Describe("[sig-compute]Configurations", func() {
 	})
 })
 
-func createRuntimeClass(name, handler string) (*nodev1.RuntimeClass, error) {
+func createRuntimeClass(name, handler string) error {
 	virtCli, err := kubecli.GetKubevirtClient()
 	if err != nil {
-		return nil, err
+		return err
 	}
 
-	return virtCli.NodeV1().RuntimeClasses().Create(
+	_, err = virtCli.NodeV1().RuntimeClasses().Create(
 		context.Background(),
 		&nodev1.RuntimeClass{
 			ObjectMeta: metav1.ObjectMeta{Name: name},
@@ -3095,6 +3101,7 @@ func createRuntimeClass(name, handler string) (*nodev1.RuntimeClass, error) {
 		},
 		metav1.CreateOptions{},
 	)
+	return err
 }
 
 func deleteRuntimeClass(name string) error {
