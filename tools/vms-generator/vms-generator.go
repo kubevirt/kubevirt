@@ -106,6 +106,7 @@ func main() {
 		utils.VmiMigratable:        utils.GetVMIMigratable(),
 		utils.VmiSata:              utils.GetVMISata(),
 		utils.VmiFedora:            utils.GetVMIEphemeralFedora(),
+		utils.VmiFedoraIsolated:    utils.GetVMIEphemeralFedoraIsolated(),
 		utils.VmiSecureBoot:        utils.GetVMISecureBoot(),
 		utils.VmiAlpineEFI:         utils.GetVMIAlpineEFI(),
 		utils.VmiNoCloud:           utils.GetVMINoCloud(),

@@ -1,10 +1,15 @@
 package cgroup
 
 import (
+	"bufio"
 	"encoding/base64"
 	"encoding/json"
 	"fmt"
+	"os"
 	"os/exec"
+	"path/filepath"
+	"strconv"
+	"strings"
 
 	"github.com/opencontainers/runc/libcontainer/cgroups"
 
@@ -184,4 +189,52 @@ func execVirtChrootCgroups(r *runc_configs.Resources, subsystemPaths map[string]
 		return fmt.Errorf("failed running command %s, err: %v, output: %s", cmd.String(), err, output)
 	}
 	return nil
+}
+
+func getCgroupThreadsHelper(manager Manager, fname string) ([]int, error) {
+	tIds := make([]int, 0, 10)
+
+	subSysPath, err := manager.GetBasePathToHostSubsystem("cpuset")
+	if err != nil {
+		return nil, err
+	}
+
+	fh, err := os.Open(filepath.Join(subSysPath, fname))
+	if err != nil {
+		return nil, err
+	}
+	defer fh.Close()
+
+	scanner := bufio.NewScanner(fh)
+	for scanner.Scan() {
+		line := scanner.Text()
+		intVal, err := strconv.Atoi(line)
+		if err != nil {
+			log.Log.Errorf("error converting %s: %v", line, err)
+			return nil, err
+		}
+		tIds = append(tIds, intVal)
+	}
+	if err := scanner.Err(); err != nil {
+		log.Log.Errorf("error reading %s: %v", fname, err)
+		return nil, err
+	}
+	return tIds, nil
+}
+
+// set cpus "cpusList" on the allowed CPUs. Optionally on a subcgroup of
+// the pods control group (if subcgroup != nil).
+func setCpuSetHelper(manager Manager, subCgroup string, cpusList []int) error {
+	subSysPath, err := manager.GetBasePathToHostSubsystem("cpuset")
+	if err != nil {
+		return err
+	}
+
+	if subCgroup != "" {
+		subSysPath = filepath.Join(subSysPath, subCgroup)
+	}
+
+	wVal := strings.Trim(strings.Replace(fmt.Sprint(cpusList), " ", ",", -1), "[]")
+
+	return runc_cgroups.WriteFile(subSysPath, "cpuset.cpus", wVal)
 }
