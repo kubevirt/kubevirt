@@ -142,7 +142,7 @@ func (r *KubernetesReporter) dumpNamespaces(duration time.Duration, vmiNamespace
 	since := time.Now().Add(-duration)
 
 	nodes := getNodeList(virtCli)
-	nodesWithVirtLauncher := getNodesWithVirtLauncher(virtCli)
+	nodesWithTestPods := getNodesRunningTests(virtCli)
 	pods := getPodList(virtCli)
 	virtHandlerPods := getVirtHandlerList(virtCli)
 	vmis := getVMIList(virtCli)
@@ -171,10 +171,10 @@ func (r *KubernetesReporter) dumpNamespaces(duration time.Duration, vmiNamespace
 	r.logDeployments(virtCli)
 	r.logDaemonsets(virtCli)
 
-	r.logAuditLogs(virtCli, nodesDir, nodesWithVirtLauncher, since)
-	r.logDMESG(virtCli, nodesDir, nodesWithVirtLauncher, since)
-	r.logJournal(virtCli, nodesDir, nodesWithVirtLauncher, duration, "")
-	r.logJournal(virtCli, nodesDir, nodesWithVirtLauncher, duration, "kubelet")
+	r.logAuditLogs(virtCli, nodesDir, nodesWithTestPods, since)
+	r.logDMESG(virtCli, nodesDir, nodesWithTestPods, since)
+	r.logJournal(virtCli, nodesDir, nodesWithTestPods, duration, "")
+	r.logJournal(virtCli, nodesDir, nodesWithTestPods, duration, "kubelet")
 
 	r.logLogs(virtCli, podsDir, pods, since)
 
@@ -183,7 +183,7 @@ func (r *KubernetesReporter) dumpNamespaces(duration time.Duration, vmiNamespace
 
 	r.logVMIMs(virtCli, vmims)
 
-	r.logNodeCommands(virtCli, nodesWithVirtLauncher)
+	r.logNodeCommands(virtCli, nodesWithTestPods)
 	r.logVirtLauncherCommands(virtCli, networkPodsDir)
 	r.logVirtLauncherPrivilegedCommands(virtCli, networkPodsDir, virtHandlerPods)
 	r.logVMICommands(virtCli, vmiNamespaces)
@@ -1040,18 +1040,20 @@ func (r *KubernetesReporter) logClusterOverview() {
 	}
 }
 
-// getNodesWithVirtLauncher returns all node where a virt-launcher pod ran (finished) or still runs
-func getNodesWithVirtLauncher(virtCli kubecli.KubevirtClient) []string {
-	pods, err := virtCli.CoreV1().Pods(v1.NamespaceAll).List(context.Background(), metav1.ListOptions{LabelSelector: fmt.Sprintf(virtLauncherNameFmt, v12.AppLabel)})
-	if err != nil {
-		fmt.Fprintf(os.Stderr, "failed to fetch pods: %v\n", err)
-		return nil
-	}
-
+// getNodesRunningTests returns all node used by pods on test namespaces
+func getNodesRunningTests(virtCli kubecli.KubevirtClient) []string {
 	nodeMap := map[string]struct{}{}
-	for _, pod := range pods.Items {
-		if pod.Spec.NodeName != "" {
-			nodeMap[pod.Spec.NodeName] = struct{}{}
+	for _, testNamespace := range testsuite.TestNamespaces {
+		pods, err := virtCli.CoreV1().Pods(testNamespace).List(context.Background(), metav1.ListOptions{})
+		if err != nil {
+			fmt.Fprintf(os.Stderr, "failed to fetch pods: %v\n", err)
+			return nil
+		}
+
+		for _, pod := range pods.Items {
+			if pod.Spec.NodeName != "" {
+				nodeMap[pod.Spec.NodeName] = struct{}{}
+			}
 		}
 	}
 
