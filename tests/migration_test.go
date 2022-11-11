@@ -595,8 +595,7 @@ var _ = Describe("[rfe_id:393][crit:high][vendor:cnv-qe@redhat.com][level:system
 	}
 
 	expectSerialRun := func() {
-		suiteConfig, _ := GinkgoConfiguration()
-		Expect(suiteConfig.ParallelTotal).To(Equal(1), "this test is supported for serial tests only")
+		Expect(CurrentSpecReport().IsSerial).To(BeTrue(), "this test is supported for serial tests only")
 	}
 
 	expectEvents := func(eventListOpts metav1.ListOptions, expectedEventsAmount int) {
@@ -4575,8 +4574,7 @@ func stopNodeLabeller(nodeName string, virtClient kubecli.KubevirtClient) *k8sv1
 	var err error
 	var node *k8sv1.Node
 
-	suiteConfig, _ := GinkgoConfiguration()
-	Expect(suiteConfig.ParallelTotal).To(Equal(1), "stopping / resuming node-labeller is supported for serial tests only")
+	Expect(CurrentSpecReport().IsSerial).To(BeTrue(), "stopping / resuming node-labeller is supported for serial tests only")
 
 	By(fmt.Sprintf("Patching node to %s include %s label", nodeName, v1.LabellerSkipNodeAnnotation))
 	key, value := v1.LabellerSkipNodeAnnotation, "true"
