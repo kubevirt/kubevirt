@@ -98,12 +98,12 @@ var _ = SIGDescribe("Primary Pod Network", func() {
 
 				It("should report PodIP/s IPv4 as its own on interface status", func() {
 					vmiPod := tests.GetRunningPodByVirtualMachineInstance(vmi, vmi.Namespace)
-					Eventually(vmiIP).Should(Equal(vmiPod.Status.PodIP), "should contain VMI Status IP as Pod status ip")
-					Eventually(vmiIPs).Should(ContainElement(vmiPod.Status.PodIP), "should contain IPv4 reported by guest agent")
+					Eventually(vmiIP, 2*time.Minute, 5*time.Second).Should(Equal(vmiPod.Status.PodIP), "should contain VMI Status IP as Pod status ip")
+					Eventually(vmiIPs, 2*time.Minute, 5*time.Second).Should(ContainElement(vmiPod.Status.PodIP), "should contain IPv4 reported by guest agent")
 				})
 
 				It("should report VMIs static IPv6 at interface status", func() {
-					Eventually(vmiIPs).Should(ContainElement(libnet.DefaultIPv6Address), "should contain IPv6 address set by cloud-init and reported by guest agent")
+					Eventually(vmiIPs, 2*time.Minute, 5*time.Second).Should(ContainElement(libnet.DefaultIPv6Address), "should contain IPv6 address set by cloud-init and reported by guest agent")
 				})
 			})
 			When("no Guest Agent exists", func() {
