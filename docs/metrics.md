@@ -42,7 +42,7 @@ Current balloon bytes. Type: Gauge.
 ### kubevirt_vmi_memory_available_bytes
 Amount of `usable` memory as seen by the domain. Type: Gauge.
 
-### kubevirt_vmi_memory_domain_total_bytes
+### kubevirt_vmi_memory_domain_bytes_total
 The amount of memory in bytes allocated to the domain. The `memory` value in domain xml file. Type: Gauge.
 
 ### kubevirt_vmi_memory_pgmajfault

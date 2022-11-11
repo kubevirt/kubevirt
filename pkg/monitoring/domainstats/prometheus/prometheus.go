@@ -186,7 +186,7 @@ func (metrics *vmiMetrics) updateMemory(mem *stats.DomainStatsMemory) {
 
 	if mem.TotalSet {
 		metrics.pushCommonMetric(
-			"kubevirt_vmi_memory_domain_total_bytes",
+			"kubevirt_vmi_memory_domain_bytes_total",
 			"The amount of memory in bytes allocated to the domain. The `memory` value in domain xml file.",
 			prometheus.GaugeValue,
 			float64(mem.Total)*1024,

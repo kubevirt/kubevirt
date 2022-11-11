@@ -319,7 +319,7 @@ var _ = Describe("Prometheus", func() {
 			result.Write(dto)
 
 			Expect(result).ToNot(BeNil())
-			Expect(result.Desc().String()).To(ContainSubstring("kubevirt_vmi_memory_domain_total_bytes"))
+			Expect(result.Desc().String()).To(ContainSubstring("kubevirt_vmi_memory_domain_bytes_total"))
 			Expect(dto.Gauge.GetValue()).To(BeEquivalentTo(float64(1024)))
 		})
 
