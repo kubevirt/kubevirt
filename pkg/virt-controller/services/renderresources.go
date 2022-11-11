@@ -357,6 +357,14 @@ func GetMemoryOverhead(vmi *v1.VirtualMachineInstance, cpuArch string) *resource
 		overhead.Add(resource.MustParse("53Mi"))
 	}
 
+	// Additional overhead for each interface with Passt binding, that forwards all ports.
+	// More information can be found here: https://bugs.passt.top/show_bug.cgi?id=20
+	for _, net := range vmi.Spec.Domain.Devices.Interfaces {
+		if net.Passt != nil && len(net.Ports) == 0 {
+			overhead.Add(resource.MustParse("800Mi"))
+		}
+	}
+
 	return overhead
 }
 
