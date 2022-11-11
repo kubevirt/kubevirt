@@ -17287,6 +17287,15 @@ func schema_kubevirtio_api_core_v1_InterfaceBridge(ref common.ReferenceCallback)
 			SchemaProps: spec.SchemaProps{
 				Description: "InterfaceBridge connects to a given network via a linux bridge.",
 				Type:        []string{"object"},
+				Properties: map[string]spec.Schema{
+					"ipv4Address": {
+						SchemaProps: spec.SchemaProps{
+							Description: "IPv4Address",
+							Type:        []string{"string"},
+							Format:      "",
+						},
+					},
+				},
 			},
 		},
 	}

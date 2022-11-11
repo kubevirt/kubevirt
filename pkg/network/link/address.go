@@ -112,6 +112,17 @@ func RetrieveMacAddressFromVMISpecIface(vmiSpecIface *v1.Interface) (*net.Hardwa
 	return nil, nil
 }
 
+func RetrieveIPv4AddresFromVMISpecIface(vmiSpecIface *v1.Interface) (*netlink.Addr, error) {
+	if vmiSpecIface.Bridge.IPv4Address == "" {
+		return nil, nil
+	}
+	ipv4Address, err := netlink.ParseAddr(vmiSpecIface.Bridge.IPv4Address)
+	if err != nil {
+		return nil, err
+	}
+	return ipv4Address, nil
+}
+
 func GetFakeBridgeIP(vmiSpecIfaces []v1.Interface, vmiSpecIface *v1.Interface) string {
 	for i, iface := range vmiSpecIfaces {
 		if iface.Name == vmiSpecIface.Name {

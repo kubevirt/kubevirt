@@ -18,7 +18,8 @@ spec:
       interfaces:
       - masquerade: {}
         name: default
-      - bridge: {}
+      - bridge:
+          ipv4Address: ""
         name: ptp
       rng: {}
     resources:

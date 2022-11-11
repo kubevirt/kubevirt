@@ -654,7 +654,8 @@ func (InterfaceBindingMethod) SwaggerDoc() map[string]string {
 
 func (InterfaceBridge) SwaggerDoc() map[string]string {
 	return map[string]string{
-		"": "InterfaceBridge connects to a given network via a linux bridge.",
+		"":            "InterfaceBridge connects to a given network via a linux bridge.",
+		"ipv4Address": "IPv4Address\n+optional",
 	}
 }
 

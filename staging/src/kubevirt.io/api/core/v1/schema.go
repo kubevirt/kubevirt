@@ -1234,7 +1234,11 @@ type InterfaceBindingMethod struct {
 }
 
 // InterfaceBridge connects to a given network via a linux bridge.
-type InterfaceBridge struct{}
+type InterfaceBridge struct {
+	// IPv4Address
+	// +optional
+	IPv4Address string `json:"ipv4Address"`
+}
 
 // InterfaceSlirp connects to a given network using QEMU user networking mode.
 type InterfaceSlirp struct{}

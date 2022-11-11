@@ -16,7 +16,8 @@ spec:
           bus: virtio
         name: cloudinitdisk
       interfaces:
-      - bridge: {}
+      - bridge:
+          ipv4Address: ""
         name: ptp
       rng: {}
     resources:

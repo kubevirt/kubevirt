@@ -25,6 +25,7 @@ type BridgePodNetworkConfigurator struct {
 	handler             netdriver.NetworkHandler
 	launcherPID         int
 	vmMac               *net.HardwareAddr
+	vmIPv4Address       *netlink.Addr
 	podIfaceIP          netlink.Addr
 	podNicLink          netlink.Link
 	podIfaceRoutes      []netlink.Route
@@ -75,6 +76,16 @@ func (b *BridgePodNetworkConfigurator) DiscoverPodNetworkInterface(podIfaceName 
 		b.vmMac = &b.podNicLink.Attrs().HardwareAddr
 	}
 
+	b.vmIPv4Address, err = virtnetlink.RetrieveIPv4AddresFromVMISpecIface(b.vmiSpecIface)
+	if err != nil {
+		return err
+	}
+	if b.vmIPv4Address == nil {
+		b.vmIPv4Address = &b.podIfaceIP
+	} else {
+		log.Log.Warningf("Overriding pod ip address with stable ip: %s", b.vmIPv4Address.String())
+	}
+
 	return nil
 }
 
@@ -86,7 +97,7 @@ func (b *BridgePodNetworkConfigurator) GenerateNonRecoverableDHCPConfig() *cache
 	dhcpConfig := &cache.DHCPConfig{
 		MAC:          *b.vmMac,
 		IPAMDisabled: !b.ipamEnabled,
-		IP:           b.podIfaceIP,
+		IP:           *b.vmIPv4Address,
 	}
 
 	if b.ipamEnabled && len(b.podIfaceRoutes) > 0 {

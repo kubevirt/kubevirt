@@ -5190,6 +5190,10 @@ var CRDsValidation map[string]string = map[string]string{
                               bridge:
                                 description: InterfaceBridge connects to a given network
                                   via a linux bridge.
+                                properties:
+                                  ipv4Address:
+                                    description: IPv4Address
+                                    type: string
                                 type: object
                               dhcpOptions:
                                 description: If specified the network interface will
@@ -9357,6 +9361,10 @@ var CRDsValidation map[string]string = map[string]string{
                       bridge:
                         description: InterfaceBridge connects to a given network via
                           a linux bridge.
+                        properties:
+                          ipv4Address:
+                            description: IPv4Address
+                            type: string
                         type: object
                       dhcpOptions:
                         description: If specified the network interface will pass
@@ -11703,6 +11711,10 @@ var CRDsValidation map[string]string = map[string]string{
                       bridge:
                         description: InterfaceBridge connects to a given network via
                           a linux bridge.
+                        properties:
+                          ipv4Address:
+                            description: IPv4Address
+                            type: string
                         type: object
                       dhcpOptions:
                         description: If specified the network interface will pass
@@ -13796,6 +13808,10 @@ var CRDsValidation map[string]string = map[string]string{
                               bridge:
                                 description: InterfaceBridge connects to a given network
                                   via a linux bridge.
+                                properties:
+                                  ipv4Address:
+                                    description: IPv4Address
+                                    type: string
                                 type: object
                               dhcpOptions:
                                 description: If specified the network interface will
@@ -17753,6 +17769,10 @@ var CRDsValidation map[string]string = map[string]string{
                                       bridge:
                                         description: InterfaceBridge connects to a
                                           given network via a linux bridge.
+                                        properties:
+                                          ipv4Address:
+                                            description: IPv4Address
+                                            type: string
                                         type: object
                                       dhcpOptions:
                                         description: If specified the network interface
@@ -22412,6 +22432,10 @@ var CRDsValidation map[string]string = map[string]string{
                                           bridge:
                                             description: InterfaceBridge connects
                                               to a given network via a linux bridge.
+                                            properties:
+                                              ipv4Address:
+                                                description: IPv4Address
+                                                type: string
                                             type: object
                                           dhcpOptions:
                                             description: If specified the network

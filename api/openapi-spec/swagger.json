@@ -16648,7 +16648,13 @@
    },
    "v1.InterfaceBridge": {
     "description": "InterfaceBridge connects to a given network via a linux bridge.",
-    "type": "object"
+    "type": "object",
+    "properties": {
+     "ipv4Address": {
+      "description": "IPv4Address",
+      "type": "string"
+     }
+    }
    },
    "v1.InterfaceMacvtap": {
     "description": "InterfaceMacvtap connects to a given network by extending the Kubernetes node's L2 networks via a macvtap interface.",
