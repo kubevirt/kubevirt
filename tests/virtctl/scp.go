@@ -25,13 +25,11 @@ var _ = Describe("[sig-compute][virtctl]SCP", func() {
 	var keyFile string
 	var virtClient kubecli.KubevirtClient
 
-	type copyFunction func(string, string, string, bool)
-
-	copyNative := func(user, src, dst string, recursive bool) {
+	copyNative := func(src, dst string, recursive bool) {
 		args := []string{
 			"scp",
 			"--namespace", util.NamespaceTestDefault,
-			"--username", user,
+			"--username", "root",
 			"--identity-file", keyFile,
 			"--known-hosts=",
 		}
@@ -43,12 +41,12 @@ var _ = Describe("[sig-compute][virtctl]SCP", func() {
 		Expect(clientcmd.NewRepeatableVirtctlCommand(args...)()).To(Succeed())
 	}
 
-	copyLocal := func(user, src, dst string, recursive bool) {
+	copyLocal := func(src, dst string, recursive bool) {
 		args := []string{
 			"scp",
 			"--local-ssh=true",
 			"--namespace", util.NamespaceTestDefault,
-			"--username", user,
+			"--username", "root",
 			"--identity-file", keyFile,
 			"-t", "-o StrictHostKeyChecking=no",
 			"-t", "-o UserKnownHostsFile=/dev/null",
@@ -79,21 +77,21 @@ var _ = Describe("[sig-compute][virtctl]SCP", func() {
 		Expect(DumpPrivateKey(priv, keyFile)).To(Succeed())
 	})
 
-	DescribeTable("should copy a local file back and forth", func(copyFn copyFunction) {
+	DescribeTable("should copy a local file back and forth", func(copyFn func(string, string, bool)) {
 		By("injecting a SSH public key into a VMI")
-		vmi := libvmi.NewFedora(
-			libvmi.WithCloudInitNoCloudUserData(renderUserDataWithKey("fedora", pub), false))
+		vmi := libvmi.NewAlpineWithTestTooling(
+			libvmi.WithCloudInitNoCloudUserData(renderUserDataWithKey(pub), false))
 		vmi, err := virtClient.VirtualMachineInstance(util.NamespaceTestDefault).Create(vmi)
 		Expect(err).ToNot(HaveOccurred())
 
-		vmi = tests.WaitUntilVMIReady(vmi, console.LoginToFedora)
+		vmi = tests.WaitUntilVMIReady(vmi, console.LoginToAlpine)
 
 		By("copying a file to the VMI")
-		copyFn("fedora", keyFile, vmi.Name+":"+"./keyfile", false)
+		copyFn(keyFile, vmi.Name+":"+"./keyfile", false)
 
 		By("copying the file back")
 		copyBackFile := filepath.Join(GinkgoT().TempDir(), "remote_id_rsa")
-		copyFn("fedora", vmi.Name+":"+"./keyfile", copyBackFile, false)
+		copyFn(vmi.Name+":"+"./keyfile", copyBackFile, false)
 
 		By("comparing the two files")
 		compareFile(keyFile, copyBackFile)
@@ -102,14 +100,14 @@ var _ = Describe("[sig-compute][virtctl]SCP", func() {
 		Entry("using the local scp method", copyLocal),
 	)
 
-	DescribeTable("should copy a local directory back and forth", func(copyFn copyFunction) {
+	DescribeTable("should copy a local directory back and forth", func(copyFn func(string, string, bool)) {
 		By("injecting a SSH public key into a VMI")
-		vmi := libvmi.NewFedora(
-			libvmi.WithCloudInitNoCloudUserData(renderUserDataWithKey("fedora", pub), false))
+		vmi := libvmi.NewAlpineWithTestTooling(
+			libvmi.WithCloudInitNoCloudUserData(renderUserDataWithKey(pub), false))
 		vmi, err := virtClient.VirtualMachineInstance(util.NamespaceTestDefault).Create(vmi)
 		Expect(err).ToNot(HaveOccurred())
 
-		vmi = tests.WaitUntilVMIReady(vmi, console.LoginToFedora)
+		vmi = tests.WaitUntilVMIReady(vmi, console.LoginToAlpine)
 
 		By("creating a few random files")
 		copyFromDir := filepath.Join(GinkgoT().TempDir(), "sourcedir")
@@ -120,10 +118,10 @@ var _ = Describe("[sig-compute][virtctl]SCP", func() {
 		Expect(os.WriteFile(filepath.Join(copyFromDir, "file2"), []byte("test1"), 0777)).To(Succeed())
 
 		By("copying a file to the VMI")
-		copyFn("fedora", copyFromDir, vmi.Name+":"+"./sourcedir", true)
+		copyFn(copyFromDir, vmi.Name+":"+"./sourcedir", true)
 
 		By("copying the file back")
-		copyFn("fedora", vmi.Name+":"+"./sourcedir", copyToDir, true)
+		copyFn(vmi.Name+":"+"./sourcedir", copyToDir, true)
 
 		By("comparing the two directories")
 		compareFile(filepath.Join(copyFromDir, "file1"), filepath.Join(copyToDir, "file1"))
@@ -134,12 +132,12 @@ var _ = Describe("[sig-compute][virtctl]SCP", func() {
 	)
 })
 
-func renderUserDataWithKey(user string, key ssh.PublicKey) string {
+func renderUserDataWithKey(key ssh.PublicKey) string {
 	return fmt.Sprintf(`#!/bin/sh
-mkdir -p /home/%s/.ssh/
-echo "%s" > /home/%s/.ssh/authorized_keys
-chown -R %s:%s /home/%s/.ssh
-`, user, string(ssh.MarshalAuthorizedKey(key)), user, user, user, user)
+mkdir -p /root/.ssh/
+echo "%s" > /root/.ssh/authorized_keys
+chown -R root:root /root/.ssh
+`, string(ssh.MarshalAuthorizedKey(key)))
 }
 
 func compareFile(file1 string, file2 string) {

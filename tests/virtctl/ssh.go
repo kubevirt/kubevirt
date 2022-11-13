@@ -28,7 +28,7 @@ var _ = Describe("[sig-compute][virtctl]SSH", func() {
 			"ssh",
 			"--local-ssh=false",
 			"--namespace", util.NamespaceTestDefault,
-			"--username", "cirros",
+			"--username", "root",
 			"--identity-file", keyFile,
 			"--known-hosts=",
 			`--command='true'`,
@@ -40,7 +40,7 @@ var _ = Describe("[sig-compute][virtctl]SSH", func() {
 			"ssh",
 			"--local-ssh=true",
 			"--namespace", util.NamespaceTestDefault,
-			"--username", "cirros",
+			"--username", "root",
 			"--identity-file", keyFile,
 			"-t", "-o StrictHostKeyChecking=no",
 			"-t", "-o UserKnownHostsFile=/dev/null",
@@ -68,12 +68,12 @@ var _ = Describe("[sig-compute][virtctl]SSH", func() {
 
 	DescribeTable("should succeed to execute a command on the VM", func(cmdFn func(string)) {
 		By("injecting a SSH public key into a VMI")
-		vmi := libvmi.NewCirros(
-			libvmi.WithCloudInitNoCloudUserData(renderUserDataWithKey("cirros", pub), false))
+		vmi := libvmi.NewAlpineWithTestTooling(
+			libvmi.WithCloudInitNoCloudUserData(renderUserDataWithKey(pub), false))
 		vmi, err := virtClient.VirtualMachineInstance(util.NamespaceTestDefault).Create(vmi)
 		Expect(err).ToNot(HaveOccurred())
 
-		vmi = tests.WaitUntilVMIReady(vmi, console.LoginToCirros)
+		vmi = tests.WaitUntilVMIReady(vmi, console.LoginToAlpine)
 
 		By("ssh into the VM")
 		cmdFn(vmi.Name)
