@@ -6,6 +6,12 @@ import (
 	"strings"
 	"time"
 
+	"kubevirt.io/kubevirt/pkg/virt-controller/services"
+	nodelabellerutil "kubevirt.io/kubevirt/pkg/virt-handler/node-labeller/util"
+	"kubevirt.io/kubevirt/tests/framework/checks"
+	"kubevirt.io/kubevirt/tests/libnode"
+	"kubevirt.io/kubevirt/tests/testsuite"
+
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
 
@@ -147,6 +153,101 @@ var _ = Describe("[Serial][sig-compute] Hyper-V enlightenments", func() {
 				Consistently(isNonMigratable, 15*time.Second, 3*time.Second).ShouldNot(HaveOccurred())
 			})
 		})
-	})
 
+		It("the vmi with HyperV feature matching a nfd label on a node should be scheduled", func() {
+			enableHyperVInVMI := func(label string) v1.FeatureHyperv {
+				features := v1.FeatureHyperv{}
+				trueV := true
+				switch label {
+				case "vpindex":
+					features.VPIndex = &v1.FeatureState{
+						Enabled: &trueV,
+					}
+				case "runtime":
+					features.Runtime = &v1.FeatureState{
+						Enabled: &trueV,
+					}
+				case "reset":
+					features.Reset = &v1.FeatureState{
+						Enabled: &trueV,
+					}
+				case "synic":
+					features.SyNIC = &v1.FeatureState{
+						Enabled: &trueV,
+					}
+				case "frequencies":
+					features.Frequencies = &v1.FeatureState{
+						Enabled: &trueV,
+					}
+				case "reenlightenment":
+					features.Reenlightenment = &v1.FeatureState{
+						Enabled: &trueV,
+					}
+				}
+
+				return features
+			}
+			var supportedKVMInfoFeature []string
+			checks.SkipIfARM64(testsuite.Arch, "arm64 does not support cpu model")
+			nodes := libnode.GetAllSchedulableNodes(virtClient)
+			Expect(nodes.Items).ToNot(BeEmpty(), "There should be some compute node")
+			node := &nodes.Items[0]
+			supportedCPUs := tests.GetSupportedCPUModels(*nodes)
+			Expect(supportedCPUs).ToNot(BeEmpty(), "There should be some supported cpu models")
+
+			for key := range node.Labels {
+				if strings.Contains(key, services.NFD_KVM_INFO_PREFIX) &&
+					!strings.Contains(key, "tlbflush") &&
+					!strings.Contains(key, "ipi") &&
+					!strings.Contains(key, "synictimer") {
+					supportedKVMInfoFeature = append(supportedKVMInfoFeature, strings.TrimPrefix(key, services.NFD_KVM_INFO_PREFIX))
+				}
+			}
+
+			for _, label := range supportedKVMInfoFeature {
+				vmi := libvmi.NewCirros()
+				features := enableHyperVInVMI(label)
+				vmi.Spec.Domain.Features = &v1.Features{
+					Hyperv: &features,
+				}
+
+				vmi, err := virtClient.VirtualMachineInstance(util.NamespaceTestDefault).Create(vmi)
+				Expect(err).ToNot(HaveOccurred(), "Should create VMI when using %v", label)
+				tests.WaitForSuccessfulVMIStart(vmi)
+
+				_, err = virtClient.VirtualMachineInstance(vmi.Namespace).Get(vmi.Name, &metav1.GetOptions{})
+				Expect(err).ToNot(HaveOccurred(), "Should get VMI when using %v", label)
+			}
+		})
+
+		DescribeTable("the vmi with EVMCS HyperV feature should have correct HyperV and cpu features auto filled", func(featureState *v1.FeatureState) {
+			vmi := libvmi.NewCirros()
+			vmi.Spec.Domain.Features = &v1.Features{
+				Hyperv: &v1.FeatureHyperv{
+					EVMCS: featureState,
+				},
+			}
+
+			vmi, err := virtClient.VirtualMachineInstance(util.NamespaceTestDefault).Create(vmi)
+			Expect(err).ToNot(HaveOccurred(), "Should create VMI")
+
+			vmi, err = virtClient.VirtualMachineInstance(vmi.Namespace).Get(vmi.Name, &metav1.GetOptions{})
+			Expect(err).ToNot(HaveOccurred(), "Should get VMI")
+			Expect(vmi.Spec.Domain.Features.Hyperv.EVMCS).ToNot(BeNil(), "evmcs should not be nil")
+			Expect(vmi.Spec.Domain.CPU).ToNot(BeNil(), "cpu topology can't be nil")
+			if featureState.Enabled == nil || *featureState.Enabled == true {
+				Expect(vmi.Spec.Domain.Features.Hyperv.VAPIC).ToNot(BeNil(), "vapic should not be nil")
+				Expect(vmi.Spec.Domain.CPU.Features).To(HaveLen(1), "cpu topology has to contain 1 feature")
+				Expect(vmi.Spec.Domain.CPU.Features[0].Name).To(Equal(nodelabellerutil.VmxFeature), "vmx cpu feature should be requested")
+			} else {
+				Expect(vmi.Spec.Domain.Features.Hyperv.VAPIC).To(BeNil(), "vapic should be nil")
+				Expect(vmi.Spec.Domain.CPU.Features).To(BeEmpty())
+			}
+
+		},
+			Entry("hyperv and cpu features should be auto filled when EVMCS is enabled", &v1.FeatureState{Enabled: pointer.BoolPtr(true)}),
+			Entry("EVMCS should be enabled when vmi.Spec.Domain.Features.Hyperv.EVMCS is set but the EVMCS.Enabled field is nil ", &v1.FeatureState{Enabled: nil}),
+			Entry("Verify that features aren't applied when enabled is false", &v1.FeatureState{Enabled: pointer.BoolPtr(false)}),
+		)
+	})
 })

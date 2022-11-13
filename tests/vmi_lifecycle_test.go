@@ -28,8 +28,6 @@ import (
 	"strings"
 	"time"
 
-	"k8s.io/utils/pointer"
-
 	"kubevirt.io/kubevirt/tests/exec"
 	"kubevirt.io/kubevirt/tests/framework/checks"
 
@@ -54,7 +52,6 @@ import (
 	"kubevirt.io/kubevirt/pkg/virt-controller/services"
 	"kubevirt.io/kubevirt/pkg/virt-controller/watch"
 	device_manager "kubevirt.io/kubevirt/pkg/virt-handler/device-manager"
-	nodelabellerutil "kubevirt.io/kubevirt/pkg/virt-handler/node-labeller/util"
 	"kubevirt.io/kubevirt/pkg/virt-launcher/virtwrap/api"
 	"kubevirt.io/kubevirt/pkg/virt-launcher/virtwrap/converter"
 	"kubevirt.io/kubevirt/tests"
@@ -1059,39 +1056,6 @@ var _ = Describe("[rfe_id:273][crit:high][arm64][vendor:cnv-qe@redhat.com][level
 			var nodes *k8sv1.NodeList
 			var supportedKVMInfoFeature []string
 
-			enableHyperVInVMI := func(label string) v1.FeatureHyperv {
-				features := v1.FeatureHyperv{}
-				trueV := true
-				switch label {
-				case "vpindex":
-					features.VPIndex = &v1.FeatureState{
-						Enabled: &trueV,
-					}
-				case "runtime":
-					features.Runtime = &v1.FeatureState{
-						Enabled: &trueV,
-					}
-				case "reset":
-					features.Reset = &v1.FeatureState{
-						Enabled: &trueV,
-					}
-				case "synic":
-					features.SyNIC = &v1.FeatureState{
-						Enabled: &trueV,
-					}
-				case "frequencies":
-					features.Frequencies = &v1.FeatureState{
-						Enabled: &trueV,
-					}
-				case "reenlightenment":
-					features.Reenlightenment = &v1.FeatureState{
-						Enabled: &trueV,
-					}
-				}
-
-				return features
-			}
-
 			BeforeEach(func() {
 				// arm64 does not support cpu model
 				checks.SkipIfARM64(testsuite.Arch, "arm64 does not support cpu model")
@@ -1138,56 +1102,6 @@ var _ = Describe("[rfe_id:273][crit:high][arm64][vendor:cnv-qe@redhat.com][level
 					return currVMI.Status.Phase
 				}, 120, 0.5).Should(Equal(v1.Running), "VMI should be succeeded")
 			})
-
-			It("the vmi with HyperV feature matching a nfd label on a node should be scheduled", func() {
-
-				for _, label := range supportedKVMInfoFeature {
-					fmt.Println("Using " + label)
-					vmi := libvmi.NewCirros()
-					features := enableHyperVInVMI(label)
-					vmi.Spec.Domain.Features = &v1.Features{
-						Hyperv: &features,
-					}
-
-					vmi, err := virtClient.VirtualMachineInstance(util.NamespaceTestDefault).Create(vmi)
-					Expect(err).ToNot(HaveOccurred(), "Should create VMI")
-					tests.WaitForSuccessfulVMIStart(vmi)
-
-					_, err = virtClient.VirtualMachineInstance(vmi.Namespace).Get(vmi.Name, &metav1.GetOptions{})
-					Expect(err).ToNot(HaveOccurred(), "Should get VMI")
-				}
-
-			})
-
-			DescribeTable("the vmi with EVMCS HyperV feature should have correct hyperv and cpu features auto filled", func(enabled bool) {
-				vmi := libvmi.NewCirros()
-				vmi.Spec.Domain.Features = &v1.Features{
-					Hyperv: &v1.FeatureHyperv{
-						EVMCS: &v1.FeatureState{
-							Enabled: pointer.BoolPtr(enabled),
-						},
-					},
-				}
-
-				vmi, err := virtClient.VirtualMachineInstance(util.NamespaceTestDefault).Create(vmi)
-				Expect(err).ToNot(HaveOccurred(), "Should create VMI")
-
-				vmi, err = virtClient.VirtualMachineInstance(vmi.Namespace).Get(vmi.Name, &metav1.GetOptions{})
-				Expect(err).ToNot(HaveOccurred(), "Should get VMI")
-				Expect(vmi.Spec.Domain.Features.Hyperv.EVMCS).ToNot(BeNil(), "evmcs should not be nil")
-				Expect(vmi.Spec.Domain.CPU).ToNot(BeNil(), "cpu topology can't be nil")
-				if enabled {
-					Expect(vmi.Spec.Domain.Features.Hyperv.VAPIC).ToNot(BeNil(), "vapic should not be nil")
-					Expect(vmi.Spec.Domain.CPU.Features).To(HaveLen(1), "cpu topology has to contain 1 feature")
-					Expect(vmi.Spec.Domain.CPU.Features[0].Name).To(Equal(nodelabellerutil.VmxFeature), "vmx cpu feature should be requested")
-				} else {
-					Expect(vmi.Spec.Domain.CPU.Features).To(BeEmpty())
-				}
-
-			},
-				Entry("hyperv and cpu features should be auto filled when EVMCS is enabled", true),
-				Entry("Verify that features aren't applied when enabled is false", false),
-			)
 
 			It("[test_id:1640]the vmi with cpu.model that cannot match an nfd label on node should not be scheduled", func() {
 				vmi := libvmi.NewCirros()
