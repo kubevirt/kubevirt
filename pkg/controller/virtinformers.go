@@ -26,6 +26,8 @@ import (
 	"sync"
 	"time"
 
+	"kubevirt.io/api/snapshot"
+
 	"kubevirt.io/api/clone"
 	clonev1alpha1 "kubevirt.io/api/clone/v1alpha1"
 
@@ -683,10 +685,29 @@ func (f *kubeInformerFactory) MigrationPolicy() cache.SharedIndexInformer {
 	})
 }
 
+func GetVirtualMachineCloneInformerIndexers() cache.Indexers {
+	return cache.Indexers{
+		"snapshotSource": func(obj interface{}) ([]string, error) {
+			vmClone, ok := obj.(*clonev1alpha1.VirtualMachineClone)
+			if !ok {
+				return nil, unexpectedObjectError
+			}
+
+			source := vmClone.Spec.Source
+			if source != nil && *source.APIGroup == snapshot.GroupName && source.Kind == "VirtualMachineSnapshot" {
+				snapshotSourceKey := fmt.Sprintf("%s/%s", vmClone.Namespace, source.Name)
+				return []string{snapshotSourceKey}, nil
+			}
+
+			return nil, nil
+		},
+	}
+}
+
 func (f *kubeInformerFactory) VirtualMachineClone() cache.SharedIndexInformer {
 	return f.getInformer("virtualMachineCloneInformer", func() cache.SharedIndexInformer {
 		lw := cache.NewListWatchFromClient(f.clientSet.GeneratedKubeVirtClient().CloneV1alpha1().RESTClient(), clone.ResourceVMClonePlural, k8sv1.NamespaceAll, fields.Everything())
-		return cache.NewSharedIndexInformer(lw, &clonev1alpha1.VirtualMachineClone{}, f.defaultResync, cache.Indexers{})
+		return cache.NewSharedIndexInformer(lw, &clonev1alpha1.VirtualMachineClone{}, f.defaultResync, GetVirtualMachineCloneInformerIndexers())
 	})
 }
 

@@ -133,7 +133,7 @@ func vmSnapshotDeadlineExceeded(vmSnapshot *snapshotv1.VirtualMachineSnapshot) b
 	return timeUntilDeadline(vmSnapshot) < 0
 }
 
-func getVMSnapshotContentName(vmSnapshot *snapshotv1.VirtualMachineSnapshot) string {
+func GetVMSnapshotContentName(vmSnapshot *snapshotv1.VirtualMachineSnapshot) string {
 	if vmSnapshot.Status != nil && vmSnapshot.Status.VirtualMachineSnapshotContentName != nil {
 		return *vmSnapshot.Status.VirtualMachineSnapshotContentName
 	}
@@ -560,7 +560,7 @@ func (ctrl *VMSnapshotController) createContent(vmSnapshot *snapshotv1.VirtualMa
 	}
 	content := &snapshotv1.VirtualMachineSnapshotContent{
 		ObjectMeta: metav1.ObjectMeta{
-			Name:       getVMSnapshotContentName(vmSnapshot),
+			Name:       GetVMSnapshotContentName(vmSnapshot),
 			Namespace:  vmSnapshot.Namespace,
 			Finalizers: []string{vmSnapshotContentFinalizer},
 		},
@@ -936,7 +936,7 @@ func (ctrl *VMSnapshotController) getVM(vmSnapshot *snapshotv1.VirtualMachineSna
 }
 
 func (ctrl *VMSnapshotController) getContent(vmSnapshot *snapshotv1.VirtualMachineSnapshot) (*snapshotv1.VirtualMachineSnapshotContent, error) {
-	contentName := getVMSnapshotContentName(vmSnapshot)
+	contentName := GetVMSnapshotContentName(vmSnapshot)
 	obj, exists, err := ctrl.VMSnapshotContentInformer.GetStore().GetByKey(cacheKeyFunc(vmSnapshot.Namespace, contentName))
 	if err != nil {
 		return nil, err
