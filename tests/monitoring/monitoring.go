@@ -446,6 +446,33 @@ var _ = Describe("[Serial][sig-monitoring]Prometheus Alerts", Serial, decorators
 
 			verifyAlertExist("KubeVirtVMStuckInErrorState")
 		})
+
+		It("should expose VM CPU metrics", func() {
+			vm := newVirtualMachine()
+			createVirtualMachine(vm)
+
+			metrics := []string{
+				"kubevirt_vmi_cpu_system_usage_seconds",
+				"kubevirt_vmi_cpu_usage_seconds",
+				"kubevirt_vmi_cpu_user_usage_seconds",
+			}
+
+			for _, metric := range metrics {
+				Eventually(func() int {
+					v, err := getMetricValueWithLabels(virtClient, metric, nil)
+					if err != nil {
+						return -1
+					}
+
+					i, err := strconv.Atoi(v)
+					if err != nil {
+						return -1
+					}
+
+					return i
+				}, 3*time.Minute, 1*time.Second).Should(BeNumerically(">=", 0))
+			}
+		})
 	})
 
 	Context("Up metrics", func() {

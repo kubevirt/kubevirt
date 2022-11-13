@@ -51,6 +51,9 @@ func (fc fakeDomainCollector) Collect(ch chan<- prometheus.Metric) {
 	out.Memory.MinorFaultSet = true
 	out.Memory.MajorFaultSet = true
 	out.CPUMapSet = true
+	out.Cpu.SystemSet = true
+	out.Cpu.UserSet = true
+	out.Cpu.TimeSet = true
 
 	fs.Items = []k6tv1.VirtualMachineInstanceFileSystem{
 		{

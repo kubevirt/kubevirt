@@ -66,6 +66,15 @@ Virtual Machine last transition timestamp to starting status. Type: Counter.
 ### kubevirt_vmi_cpu_affinity
 Details the cpu pinning map via boolean labels in the form of vcpu_X_cpu_Y. Type: Counter.
 
+### kubevirt_vmi_cpu_system_usage_seconds
+Total CPU time spent in system mode. Type: Gauge.
+
+### kubevirt_vmi_cpu_usage_seconds
+Total CPU time spent in all modes (sum of both vcpu and hypervisor usage). Type: Gauge.
+
+### kubevirt_vmi_cpu_user_usage_seconds
+Total CPU time spent in user mode. Type: Gauge.
+
 ### kubevirt_vmi_filesystem_capacity_bytes_total
 Total VM filesystem capacity in bytes. Type: Gauge.
 
@@ -168,7 +177,7 @@ Total time (ms) spent on write operations. Type: Counter.
 Total number of written bytes. Type: Counter.
 
 ### kubevirt_vmi_vcpu_seconds
-Total amount of time spent in each state by each vcpu. Where `id` is the vcpu identifier and `state` can be one of the following: [`OFFLINE`, `RUNNING`, `BLOCKED`]. Type: Counter.
+Total amount of time spent in each state by each vcpu (cpu_time excluding hypervisor time). Where `id` is the vcpu identifier and `state` can be one of the following: [`OFFLINE`, `RUNNING`, `BLOCKED`]. Type: Counter.
 
 ### kubevirt_vmi_vcpu_wait_seconds
 Amount of time spent by each vcpu while waiting on I/O. Type: Counter.
