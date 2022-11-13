@@ -178,7 +178,8 @@ func ValidateVirtualMachineInstanceHypervFeatureDependencies(field *k8sfield.Pat
 		}
 	}
 
-	if spec.Domain.Features == nil || spec.Domain.Features.Hyperv == nil || spec.Domain.Features.Hyperv.EVMCS == nil {
+	if spec.Domain.Features == nil || spec.Domain.Features.Hyperv == nil || spec.Domain.Features.Hyperv.EVMCS == nil ||
+		(spec.Domain.Features.Hyperv.EVMCS.Enabled != nil && (*spec.Domain.Features.Hyperv.EVMCS.Enabled) == false) {
 		return causes
 	}
 
@@ -210,7 +211,8 @@ func SetVirtualMachineInstanceHypervFeatureDependencies(vmi *v1.VirtualMachineIn
 	}
 
 	//Check if vmi has EVMCS feature enabled. If yes, we have to add vmx cpu feature
-	if vmi.Spec.Domain.Features != nil && vmi.Spec.Domain.Features.Hyperv != nil && vmi.Spec.Domain.Features.Hyperv.EVMCS != nil {
+	if vmi.Spec.Domain.Features != nil && vmi.Spec.Domain.Features.Hyperv != nil && vmi.Spec.Domain.Features.Hyperv.EVMCS != nil &&
+		(vmi.Spec.Domain.Features.Hyperv.EVMCS.Enabled == nil || (*vmi.Spec.Domain.Features.Hyperv.EVMCS.Enabled) == true) {
 		setEVMCSDependency(vmi)
 	}
 
