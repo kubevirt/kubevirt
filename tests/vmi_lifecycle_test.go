@@ -23,12 +23,12 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"k8s.io/utils/pointer"
+	"kubevirt.io/kubevirt/tests/framework/checks"
 	"net/http"
 	"os"
 	"strings"
 	"time"
-
-	"kubevirt.io/kubevirt/tests/framework/checks"
 
 	expect "github.com/google/goexpect"
 	. "github.com/onsi/ginkgo/v2"
@@ -1161,11 +1161,13 @@ var _ = Describe("[rfe_id:273][crit:high][arm64][vendor:cnv-qe@redhat.com][level
 
 			})
 
-			It("the vmi with EVMCS HyperV feature should have correct hyperv and cpu features auto filled", func() {
-				vmi := tests.NewRandomVMIWithEphemeralDiskAndUserdata(cd.ContainerDiskFor(cd.ContainerDiskCirros), "#!/bin/bash\necho 'hello'\n")
+			DescribeTable("the vmi with EVMCS HyperV feature should have correct hyperv and cpu features auto filled", func(enabled bool) {
+				vmi := libvmi.NewCirros()
 				vmi.Spec.Domain.Features = &v1.Features{
 					Hyperv: &v1.FeatureHyperv{
-						EVMCS: &v1.FeatureState{},
+						EVMCS: &v1.FeatureState{
+							Enabled: pointer.BoolPtr(enabled),
+						},
 					},
 				}
 
@@ -1174,14 +1176,20 @@ var _ = Describe("[rfe_id:273][crit:high][arm64][vendor:cnv-qe@redhat.com][level
 
 				vmi, err = virtClient.VirtualMachineInstance(vmi.Namespace).Get(vmi.Name, &metav1.GetOptions{})
 				Expect(err).ToNot(HaveOccurred(), "Should get VMI")
-
 				Expect(vmi.Spec.Domain.Features.Hyperv.EVMCS).ToNot(BeNil(), "evmcs should not be nil")
-				Expect(vmi.Spec.Domain.Features.Hyperv.VAPIC).ToNot(BeNil(), "vapic should not be nil")
 				Expect(vmi.Spec.Domain.CPU).ToNot(BeNil(), "cpu topology can't be nil")
-				Expect(vmi.Spec.Domain.CPU.Features).To(HaveLen(1), "cpu topology has to contain 1 feature")
-				Expect(vmi.Spec.Domain.CPU.Features[0].Name).To(Equal(nodelabellerutil.VmxFeature), "vmx cpu feature should be requested")
+				if enabled {
+					Expect(vmi.Spec.Domain.Features.Hyperv.VAPIC).ToNot(BeNil(), "vapic should not be nil")
+					Expect(vmi.Spec.Domain.CPU.Features).To(HaveLen(1), "cpu topology has to contain 1 feature")
+					Expect(vmi.Spec.Domain.CPU.Features[0].Name).To(Equal(nodelabellerutil.VmxFeature), "vmx cpu feature should be requested")
+				} else {
+					Expect(vmi.Spec.Domain.CPU.Features).To(BeEmpty())
+				}
 
-			})
+			},
+				Entry("hyperv and cpu features should be auto filled when EVMCS is enabled", true),
+				Entry("Verify that features aren't applied when enabled is false", false),
+			)
 
 			It("[test_id:1640]the vmi with cpu.model that cannot match an nfd label on node should not be scheduled", func() {
 				vmi := tests.NewRandomVMIWithEphemeralDiskAndUserdata(cd.ContainerDiskFor(cd.ContainerDiskCirros), "#!/bin/bash\necho 'hello'\n")
