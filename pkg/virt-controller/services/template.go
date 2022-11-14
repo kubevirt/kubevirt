@@ -1116,19 +1116,24 @@ func wrapGuestAgentPingWithVirtProbe(vmi *v1.VirtualMachineInstance, probe *k8sv
 
 func alignPodMultiCategorySecurity(pod *k8sv1.Pod, vmi *v1.VirtualMachineInstance, selinuxType string, dockerSELinuxMCSWorkaround bool) {
 	if selinuxType == "" {
-		if util.IsVMIVirtiofsEnabled(vmi) || util.IsPasstVMI(vmi) {
+		if util.IsPasstVMI(vmi) {
 			// If no SELinux type was specified, use our custom type for VMIs that need it
 			selinuxType = customSELinuxType
-		} else {
-			// If no SELinux type was specified and the VMI can run as container_t, do nothing
-			return
 		}
 	}
 
-	if pod.Spec.SecurityContext == nil {
-		pod.Spec.SecurityContext = &k8sv1.PodSecurityContext{}
+	if selinuxType == "" && !dockerSELinuxMCSWorkaround {
+		// No SELinux type and no docker workaround, nothing to do
+		return
 	}
-	pod.Spec.SecurityContext.SELinuxOptions = &k8sv1.SELinuxOptions{Type: selinuxType}
+
+	if selinuxType != "" {
+		if pod.Spec.SecurityContext == nil {
+			pod.Spec.SecurityContext = &k8sv1.PodSecurityContext{}
+		}
+		pod.Spec.SecurityContext.SELinuxOptions = &k8sv1.SELinuxOptions{Type: selinuxType}
+	}
+
 	// more info on https://github.com/kubernetes/kubernetes/issues/90759
 	// Since the compute container needs to be able to communicate with the
 	// rest of the pod, we loop over all the containers and remove their SELinux

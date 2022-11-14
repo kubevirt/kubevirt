@@ -97,7 +97,6 @@ func AdjustKubeVirtResource() {
 		virtconfig.VMExportGate,
 		virtconfig.VSOCKGate,
 	)
-	kv.Spec.Configuration.SELinuxLauncherType = "virt_launcher.process"
 
 	if kv.Spec.Configuration.NetworkConfiguration == nil {
 		testDefaultPermitSlirpInterface := true
