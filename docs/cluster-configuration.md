@@ -908,6 +908,16 @@ metadata:
       ]
 ```
 
+##### Alter the tlsSecurityProfile of a single component
+You can potentially alter tlsSecurityProfile of a single component, please be aware that a bad configuration could potentially break the cluster.
+Please notice that the old/intermediate/modern/custom stanza that you don't need should be explicitly set to `null` as part of the json-patch.
+Please notice that Kubevirt uses a different structure.
+```bash
+kubectl annotate --overwrite -n kubevirt-hyperconverged hco kubevirt-hyperconverged 'containerizeddataimporter.kubevirt.io/jsonpatch=[{"op": "replace", "path": "/spec/config/tlsSecurityProfile", "value": {"old":{}, "type": "Old", "intermediate": null, "modern": null, "custom": null  }}]'
+kubectl annotate --overwrite -n kubevirt-hyperconverged hco kubevirt-hyperconverged 'networkaddonsconfigs.kubevirt.io/jsonpatch=[{"op": "replace","path": "/spec/tlsSecurityProfile", "value": {"old":{}, "type": "Old", "intermediate": null, "modern": null, "custom": null  }}]'
+kubectl annotate --overwrite -n kubevirt-hyperconverged hco kubevirt-hyperconverged 'kubevirt.kubevirt.io/jsonpatch=[{"op": "replace","path": "/spec/configuration/tlsConfiguration", "value": {"ciphers": ["TLS_ECDHE_ECDSA_WITH_AES_128_GCM_SHA256", "TLS_ECDHE_RSA_WITH_AES_128_GCM_SHA256", "TLS_ECDHE_ECDSA_WITH_AES_256_GCM_SHA384", "TLS_ECDHE_RSA_WITH_AES_256_GCM_SHA384", "TLS_ECDHE_ECDSA_WITH_CHACHA20_POLY1305_SHA256", "TLS_ECDHE_RSA_WITH_CHACHA20_POLY1305_SHA256", "TLS_ECDHE_ECDSA_WITH_AES_128_CBC_SHA256", "TLS_ECDHE_RSA_WITH_AES_128_CBC_SHA256", "TLS_ECDHE_ECDSA_WITH_AES_128_CBC_SHA", "TLS_ECDHE_RSA_WITH_AES_128_CBC_SHA", "TLS_ECDHE_ECDSA_WITH_AES_256_CBC_SHA", "TLS_ECDHE_RSA_WITH_AES_256_CBC_SHA", "TLS_RSA_WITH_AES_128_GCM_SHA256", "TLS_RSA_WITH_AES_256_GCM_SHA384", "TLS_RSA_WITH_AES_128_CBC_SHA256", "TLS_RSA_WITH_AES_128_CBC_SHA", "TLS_RSA_WITH_AES_256_CBC_SHA", "TLS_RSA_WITH_3DES_EDE_CBC_SHA"], "minTLSVersion": "VersionTLS10" }}]'
+```
+
 ##### Disable KubeMacPool
 If KubeMacPool is buggy on your cluster and you do not immediately need it you can ask CNAO not to deploy it
 ```bash
