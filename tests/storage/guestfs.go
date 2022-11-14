@@ -165,9 +165,13 @@ var _ = SIGDescribe("[rfe_id:6364][[Serial]Guestfs", func() {
 			pvcClaim = "pvc-fail-to-run-twice"
 			createPVCFilesystem(pvcClaim)
 			runGuestfsOnPVC(pvcClaim)
-			guestfsCmd := clientcmd.NewVirtctlCommand("guestfs",
+			options := []string{"guestfs",
 				pvcClaim,
-				"--namespace", util.NamespaceTestDefault)
+				"--namespace", util.NamespaceTestDefault}
+			if setGroup {
+				options = append(options, "--fsGroup", testGroup)
+			}
+			guestfsCmd := clientcmd.NewVirtctlCommand(options...)
 			Expect(guestfsCmd.Execute()).To(HaveOccurred())
 		})
 
