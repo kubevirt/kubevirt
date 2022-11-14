@@ -5,7 +5,9 @@ WORKDIR /opt/app-root/src
 COPY hack/config /tmp/config
 
 USER 0
-RUN dnf -y install zip
+RUN dnf -y install zip && \
+    sed '/^\s*listen\s*\[::\]:8080/d' /etc/nginx/nginx.conf > /etc/nginx/nginx.conf.ipv4 && \
+    sed '/^\s*listen\s*8080/d' /etc/nginx/nginx.conf > /etc/nginx/nginx.conf.ipv6
 USER 1001
 
 ARG download_url=https://github.com/kubevirt/kubevirt/releases/download
@@ -26,4 +28,16 @@ ARG git_sha=NONE
 LABEL multi.GIT_URL=${git_url} \
       multi.GIT_SHA=${git_sha}
 
-CMD nginx -g "daemon off;"
+CMD if [[ -d "/proc/sys/net/ipv4" && -d "/proc/sys/net/ipv6" ]]; \
+    then \
+      nginx -g "daemon off;"; \
+    elif [[ -d "/proc/sys/net/ipv4" ]]; \
+    then \
+      nginx -c /etc/nginx/nginx.conf.ipv4 -g "daemon off;"; \
+    elif [[ -d "/proc/sys/net/ipv6" ]]; \
+    then \
+      nginx -c /etc/nginx/nginx.conf.ipv6 -g "daemon off;"; \
+    else \
+      echo "unable to identify IP configuration"; \
+      exit -1; \
+    fi
