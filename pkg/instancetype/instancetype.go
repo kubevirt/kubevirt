@@ -28,6 +28,14 @@ import (
 	utils "kubevirt.io/kubevirt/pkg/util"
 )
 
+const (
+	InsufficientInstanceTypeCPUResourcesErrorFmt    = "insufficient CPU resources of %d vCPU provided by instance type, preference requires %d vCPU"
+	InsufficientVMCPUResourcesErrorFmt              = "insufficient CPU resources of %d vCPU provided by VirtualMachine, preference requires %d vCPU provided as %s"
+	InsufficientInstanceTypeMemoryResourcesErrorFmt = "insufficient Memory resources of %s provided by instance type, preference requires %s"
+	InsufficientVMMemoryResourcesErrorFmt           = "insufficient Memory resources of %s provided by VirtualMachine, preference requires %s"
+	NoVMCPUResourcesDefinedErrorFmt                 = "no CPU resources provided by VirtualMachine, preference requires %d vCPU"
+)
+
 type Methods interface {
 	FindInstancetypeSpec(vm *virtv1.VirtualMachine) (*instancetypev1beta1.VirtualMachineInstancetypeSpec, error)
 	ApplyToVmi(field *k8sfield.Path, instancetypespec *instancetypev1beta1.VirtualMachineInstancetypeSpec, prefernceSpec *instancetypev1beta1.VirtualMachinePreferenceSpec, vmiSpec *virtv1.VirtualMachineInstanceSpec) Conflicts
@@ -35,6 +43,7 @@ type Methods interface {
 	StoreControllerRevisions(vm *virtv1.VirtualMachine) error
 	InferDefaultInstancetype(vm *virtv1.VirtualMachine) (*virtv1.InstancetypeMatcher, error)
 	InferDefaultPreference(vm *virtv1.VirtualMachine) (*virtv1.PreferenceMatcher, error)
+	CheckPreferenceRequirements(instancetypeSpec *instancetypev1beta1.VirtualMachineInstancetypeSpec, preferenceSpec *instancetypev1beta1.VirtualMachinePreferenceSpec, vmiSpec *virtv1.VirtualMachineInstanceSpec) (*k8sfield.Path, error)
 }
 
 type Conflicts []*k8sfield.Path
@@ -340,6 +349,68 @@ func getInstancetypeAPISpec(obj runtime.Object) (interface{}, error) {
 	default:
 		return nil, fmt.Errorf("unexpected type: %T", obj)
 	}
+}
+
+func checkCPUPreferenceRequirements(instancetypeSpec *instancetypev1beta1.VirtualMachineInstancetypeSpec, preferenceSpec *instancetypev1beta1.VirtualMachinePreferenceSpec, vmiSpec *virtv1.VirtualMachineInstanceSpec) (*k8sfield.Path, error) {
+	if instancetypeSpec != nil {
+		if instancetypeSpec.CPU.Guest < preferenceSpec.Requirements.CPU.Guest {
+			return k8sfield.NewPath("spec", "instancetype"), fmt.Errorf(InsufficientInstanceTypeCPUResourcesErrorFmt, instancetypeSpec.CPU.Guest, preferenceSpec.Requirements.CPU.Guest)
+		}
+		return nil, nil
+	}
+
+	cpuField := k8sfield.NewPath("spec", "template", "spec", "domain", "cpu")
+	if vmiSpec.Domain.CPU == nil {
+		return cpuField, fmt.Errorf(NoVMCPUResourcesDefinedErrorFmt, preferenceSpec.Requirements.CPU.Guest)
+	}
+
+	switch getPreferredTopology(preferenceSpec) {
+	case instancetypev1beta1.PreferThreads:
+		if vmiSpec.Domain.CPU.Threads < preferenceSpec.Requirements.CPU.Guest {
+			return cpuField.Child("threads"), fmt.Errorf(InsufficientVMCPUResourcesErrorFmt, vmiSpec.Domain.CPU.Threads, preferenceSpec.Requirements.CPU.Guest, "threads")
+		}
+	case instancetypev1beta1.PreferCores:
+		if vmiSpec.Domain.CPU.Cores < preferenceSpec.Requirements.CPU.Guest {
+			return cpuField.Child("cores"), fmt.Errorf(InsufficientVMCPUResourcesErrorFmt, vmiSpec.Domain.CPU.Cores, preferenceSpec.Requirements.CPU.Guest, "cores")
+		}
+	case instancetypev1beta1.PreferSockets:
+		if vmiSpec.Domain.CPU.Sockets < preferenceSpec.Requirements.CPU.Guest {
+			return cpuField.Child("sockets"), fmt.Errorf(InsufficientVMCPUResourcesErrorFmt, vmiSpec.Domain.CPU.Sockets, preferenceSpec.Requirements.CPU.Guest, "sockets")
+		}
+	}
+
+	return nil, nil
+}
+
+func checkMemoryPreferenceRequirements(instancetypeSpec *instancetypev1beta1.VirtualMachineInstancetypeSpec, preferenceSpec *instancetypev1beta1.VirtualMachinePreferenceSpec, vmiSpec *virtv1.VirtualMachineInstanceSpec) (*k8sfield.Path, error) {
+	if instancetypeSpec != nil && instancetypeSpec.Memory.Guest.Cmp(preferenceSpec.Requirements.Memory.Guest) < 0 {
+		return k8sfield.NewPath("spec", "instancetype"), fmt.Errorf(InsufficientInstanceTypeMemoryResourcesErrorFmt, instancetypeSpec.Memory.Guest.String(), preferenceSpec.Requirements.Memory.Guest.String())
+	}
+
+	if instancetypeSpec == nil && vmiSpec.Domain.Memory != nil && vmiSpec.Domain.Memory.Guest.Cmp(preferenceSpec.Requirements.Memory.Guest) < 0 {
+		return k8sfield.NewPath("spec", "template", "spec", "domain", "memory"), fmt.Errorf(InsufficientVMMemoryResourcesErrorFmt, vmiSpec.Domain.Memory.Guest.String(), preferenceSpec.Requirements.Memory.Guest.String())
+	}
+	return nil, nil
+}
+
+func (m *InstancetypeMethods) CheckPreferenceRequirements(instancetypeSpec *instancetypev1beta1.VirtualMachineInstancetypeSpec, preferenceSpec *instancetypev1beta1.VirtualMachinePreferenceSpec, vmiSpec *virtv1.VirtualMachineInstanceSpec) (*k8sfield.Path, error) {
+	if preferenceSpec == nil || preferenceSpec.Requirements == nil {
+		return nil, nil
+	}
+
+	if preferenceSpec.Requirements.CPU != nil {
+		if path, err := checkCPUPreferenceRequirements(instancetypeSpec, preferenceSpec, vmiSpec); err != nil {
+			return path, err
+		}
+	}
+
+	if preferenceSpec.Requirements.Memory != nil {
+		if path, err := checkMemoryPreferenceRequirements(instancetypeSpec, preferenceSpec, vmiSpec); err != nil {
+			return path, err
+		}
+	}
+
+	return nil, nil
 }
 
 func (m *InstancetypeMethods) ApplyToVmi(field *k8sfield.Path, instancetypeSpec *instancetypev1beta1.VirtualMachineInstancetypeSpec, preferenceSpec *instancetypev1beta1.VirtualMachinePreferenceSpec, vmiSpec *virtv1.VirtualMachineInstanceSpec) Conflicts {

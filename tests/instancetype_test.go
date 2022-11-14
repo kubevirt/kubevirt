@@ -1800,6 +1800,529 @@ var _ = Describe("[crit:medium][vendor:cnv-qe@redhat.com][level:component][sig-c
 			),
 		)
 	})
+
+	Context("VirtualMachine using preference resource requirements", func() {
+		var (
+			preferCores   = instancetypev1beta1.PreferCores
+			preferThreads = instancetypev1beta1.PreferThreads
+		)
+
+		DescribeTable("should be accepted when", func(instancetype *instancetypev1beta1.VirtualMachineInstancetype, preference *instancetypev1beta1.VirtualMachinePreference, vm *v1.VirtualMachine) {
+			if instancetype != nil {
+				instancetype, err := virtClient.VirtualMachineInstancetype(testsuite.GetTestNamespace(instancetype)).Create(context.Background(), instancetype, metav1.CreateOptions{})
+				Expect(err).ToNot(HaveOccurred())
+				vm.Spec.Instancetype.Name = instancetype.Name
+			}
+
+			preference, err := virtClient.VirtualMachinePreference(testsuite.GetTestNamespace(preference)).Create(context.Background(), preference, metav1.CreateOptions{})
+			Expect(err).ToNot(HaveOccurred())
+
+			vm.Spec.Preference.Name = preference.Name
+			_, err = virtClient.VirtualMachine(testsuite.GetTestNamespace(vm)).Create(context.Background(), vm)
+			Expect(err).ToNot(HaveOccurred())
+		},
+			Entry("VirtualMachineInstancetype meets CPU requirements",
+				&instancetypev1beta1.VirtualMachineInstancetype{
+					ObjectMeta: metav1.ObjectMeta{
+						GenerateName: "instancetype-",
+					},
+					Spec: instancetypev1beta1.VirtualMachineInstancetypeSpec{
+						CPU: instancetypev1beta1.CPUInstancetype{
+							Guest: uint32(2),
+						},
+					},
+				},
+				&instancetypev1beta1.VirtualMachinePreference{
+					ObjectMeta: metav1.ObjectMeta{
+						GenerateName: "preference-",
+					},
+					Spec: instancetypev1beta1.VirtualMachinePreferenceSpec{
+						Requirements: &instancetypev1beta1.PreferenceRequirements{
+							CPU: &instancetypev1beta1.CPUPreferenceRequirement{
+								Guest: uint32(2),
+							},
+						},
+					},
+				},
+				&v1.VirtualMachine{
+					ObjectMeta: metav1.ObjectMeta{
+						GenerateName: "vm-",
+					},
+					Spec: v1.VirtualMachineSpec{
+						Running: pointer.Bool(false),
+						Instancetype: &v1.InstancetypeMatcher{
+							Kind: "VirtualMachineInstancetype",
+						},
+						Preference: &v1.PreferenceMatcher{
+							Kind: "VirtualMachinePreference",
+						},
+						Template: &v1.VirtualMachineInstanceTemplateSpec{
+							Spec: v1.VirtualMachineInstanceSpec{
+								Domain: v1.DomainSpec{},
+							},
+						},
+					},
+				},
+			),
+			Entry("VirtualMachineInstancetype meets Memory requirements",
+				&instancetypev1beta1.VirtualMachineInstancetype{
+					ObjectMeta: metav1.ObjectMeta{
+						GenerateName: "instancetype-",
+					},
+					Spec: instancetypev1beta1.VirtualMachineInstancetypeSpec{
+						Memory: instancetypev1beta1.MemoryInstancetype{
+							Guest: resource.MustParse("2Gi"),
+						},
+					},
+				},
+				&instancetypev1beta1.VirtualMachinePreference{
+					ObjectMeta: metav1.ObjectMeta{
+						GenerateName: "preference-",
+					},
+					Spec: instancetypev1beta1.VirtualMachinePreferenceSpec{
+						Requirements: &instancetypev1beta1.PreferenceRequirements{
+							Memory: &instancetypev1beta1.MemoryPreferenceRequirement{
+								Guest: resource.MustParse("2Gi"),
+							},
+						},
+					},
+				},
+				&v1.VirtualMachine{
+					ObjectMeta: metav1.ObjectMeta{
+						GenerateName: "vm-",
+					},
+					Spec: v1.VirtualMachineSpec{
+						Running: pointer.Bool(false),
+						Instancetype: &v1.InstancetypeMatcher{
+							Kind: "VirtualMachineInstancetype",
+						},
+						Preference: &v1.PreferenceMatcher{
+							Kind: "VirtualMachinePreference",
+						},
+						Template: &v1.VirtualMachineInstanceTemplateSpec{
+							Spec: v1.VirtualMachineInstanceSpec{
+								Domain: v1.DomainSpec{},
+							},
+						},
+					},
+				},
+			),
+			Entry("VirtualMachine meets CPU (preferSockets default) requirements",
+				nil,
+				&instancetypev1beta1.VirtualMachinePreference{
+					ObjectMeta: metav1.ObjectMeta{
+						GenerateName: "preference-",
+					},
+					Spec: instancetypev1beta1.VirtualMachinePreferenceSpec{
+						Requirements: &instancetypev1beta1.PreferenceRequirements{
+							CPU: &instancetypev1beta1.CPUPreferenceRequirement{
+								Guest: uint32(2),
+							},
+						},
+					},
+				},
+				&v1.VirtualMachine{
+					ObjectMeta: metav1.ObjectMeta{
+						GenerateName: "vm-",
+					},
+					Spec: v1.VirtualMachineSpec{
+						Running: pointer.Bool(false),
+						Preference: &v1.PreferenceMatcher{
+							Kind: "VirtualMachinePreference",
+						},
+						Template: &v1.VirtualMachineInstanceTemplateSpec{
+							Spec: v1.VirtualMachineInstanceSpec{
+								Domain: v1.DomainSpec{
+									CPU: &v1.CPU{
+										Cores:   uint32(1),
+										Threads: uint32(1),
+										Sockets: uint32(2),
+									},
+								},
+							},
+						},
+					},
+				},
+			),
+			Entry("VirtualMachine meets CPU (preferCores) requirements",
+				nil,
+				&instancetypev1beta1.VirtualMachinePreference{
+					ObjectMeta: metav1.ObjectMeta{
+						GenerateName: "preference-",
+					},
+					Spec: instancetypev1beta1.VirtualMachinePreferenceSpec{
+						CPU: &instancetypev1beta1.CPUPreferences{
+							PreferredCPUTopology: &preferCores,
+						},
+						Requirements: &instancetypev1beta1.PreferenceRequirements{
+							CPU: &instancetypev1beta1.CPUPreferenceRequirement{
+								Guest: uint32(2),
+							},
+						},
+					},
+				},
+				&v1.VirtualMachine{
+					ObjectMeta: metav1.ObjectMeta{
+						GenerateName: "vm-",
+					},
+					Spec: v1.VirtualMachineSpec{
+						Running: pointer.Bool(false),
+						Preference: &v1.PreferenceMatcher{
+							Kind: "VirtualMachinePreference",
+						},
+						Template: &v1.VirtualMachineInstanceTemplateSpec{
+							Spec: v1.VirtualMachineInstanceSpec{
+								Domain: v1.DomainSpec{
+									CPU: &v1.CPU{
+										Cores:   uint32(2),
+										Threads: uint32(1),
+										Sockets: uint32(1),
+									},
+								},
+							},
+						},
+					},
+				},
+			),
+			Entry("VirtualMachine meets CPU (preferThreads) requirements",
+				nil,
+				&instancetypev1beta1.VirtualMachinePreference{
+					ObjectMeta: metav1.ObjectMeta{
+						GenerateName: "preference-",
+					},
+					Spec: instancetypev1beta1.VirtualMachinePreferenceSpec{
+						CPU: &instancetypev1beta1.CPUPreferences{
+							PreferredCPUTopology: &preferThreads,
+						},
+						Requirements: &instancetypev1beta1.PreferenceRequirements{
+							CPU: &instancetypev1beta1.CPUPreferenceRequirement{
+								Guest: uint32(2),
+							},
+						},
+					},
+				},
+				&v1.VirtualMachine{
+					ObjectMeta: metav1.ObjectMeta{
+						GenerateName: "vm-",
+					},
+					Spec: v1.VirtualMachineSpec{
+						Running: pointer.Bool(false),
+						Preference: &v1.PreferenceMatcher{
+							Kind: "VirtualMachinePreference",
+						},
+						Template: &v1.VirtualMachineInstanceTemplateSpec{
+							Spec: v1.VirtualMachineInstanceSpec{
+								Domain: v1.DomainSpec{
+									CPU: &v1.CPU{
+										Cores:   uint32(1),
+										Threads: uint32(2),
+										Sockets: uint32(1),
+									},
+								},
+							},
+						},
+					},
+				},
+			),
+			Entry("VirtualMachine meets Memory requirements",
+				nil,
+				&instancetypev1beta1.VirtualMachinePreference{
+					ObjectMeta: metav1.ObjectMeta{
+						GenerateName: "preference-",
+					},
+					Spec: instancetypev1beta1.VirtualMachinePreferenceSpec{
+						Requirements: &instancetypev1beta1.PreferenceRequirements{
+							Memory: &instancetypev1beta1.MemoryPreferenceRequirement{
+								Guest: resource.MustParse("2Gi"),
+							},
+						},
+					},
+				},
+				&v1.VirtualMachine{
+					ObjectMeta: metav1.ObjectMeta{
+						GenerateName: "vm-",
+					},
+					Spec: v1.VirtualMachineSpec{
+						Running: pointer.Bool(false),
+						Preference: &v1.PreferenceMatcher{
+							Kind: "VirtualMachinePreference",
+						},
+						Template: &v1.VirtualMachineInstanceTemplateSpec{
+							Spec: v1.VirtualMachineInstanceSpec{
+								Domain: v1.DomainSpec{
+									Memory: &v1.Memory{
+										Guest: resource.NewQuantity(2*1024*1024*1024, resource.BinarySI),
+									},
+								},
+							},
+						},
+					},
+				},
+			),
+		)
+
+		DescribeTable("should be rejected when", func(instancetype *instancetypev1beta1.VirtualMachineInstancetype, preference *instancetypev1beta1.VirtualMachinePreference, vm *v1.VirtualMachine, errorSubString string) {
+			if instancetype != nil {
+				instancetype, err := virtClient.VirtualMachineInstancetype(testsuite.GetTestNamespace(instancetype)).Create(context.Background(), instancetype, metav1.CreateOptions{})
+				Expect(err).ToNot(HaveOccurred())
+				vm.Spec.Instancetype.Name = instancetype.Name
+			}
+
+			preference, err := virtClient.VirtualMachinePreference(testsuite.GetTestNamespace(preference)).Create(context.Background(), preference, metav1.CreateOptions{})
+			Expect(err).ToNot(HaveOccurred())
+
+			vm.Spec.Preference.Name = preference.Name
+			_, err = virtClient.VirtualMachine(testsuite.GetTestNamespace(vm)).Create(context.Background(), vm)
+			Expect(err).To(HaveOccurred())
+			Expect(err.Error()).To(ContainSubstring("failure checking preference requirements"))
+			Expect(err.Error()).To(ContainSubstring(errorSubString))
+		},
+			Entry("VirtualMachineInstancetype does not meet CPU requirements",
+				&instancetypev1beta1.VirtualMachineInstancetype{
+					ObjectMeta: metav1.ObjectMeta{
+						GenerateName: "instancetype-",
+					},
+					Spec: instancetypev1beta1.VirtualMachineInstancetypeSpec{
+						CPU: instancetypev1beta1.CPUInstancetype{
+							Guest: uint32(1),
+						},
+					},
+				},
+				&instancetypev1beta1.VirtualMachinePreference{
+					ObjectMeta: metav1.ObjectMeta{
+						GenerateName: "preference-",
+					},
+					Spec: instancetypev1beta1.VirtualMachinePreferenceSpec{
+						Requirements: &instancetypev1beta1.PreferenceRequirements{
+							CPU: &instancetypev1beta1.CPUPreferenceRequirement{
+								Guest: uint32(2),
+							},
+						},
+					},
+				},
+				&v1.VirtualMachine{
+					ObjectMeta: metav1.ObjectMeta{
+						GenerateName: "vm-",
+					},
+					Spec: v1.VirtualMachineSpec{
+						Running: pointer.Bool(false),
+						Instancetype: &v1.InstancetypeMatcher{
+							Kind: "VirtualMachineInstancetype",
+						},
+						Preference: &v1.PreferenceMatcher{
+							Kind: "VirtualMachinePreference",
+						},
+						Template: &v1.VirtualMachineInstanceTemplateSpec{
+							Spec: v1.VirtualMachineInstanceSpec{
+								Domain: v1.DomainSpec{},
+							},
+						},
+					},
+				},
+				"insufficient CPU resources",
+			),
+			Entry("VirtualMachineInstancetype does not meet Memory requirements",
+				&instancetypev1beta1.VirtualMachineInstancetype{
+					ObjectMeta: metav1.ObjectMeta{
+						GenerateName: "instancetype-",
+					},
+					Spec: instancetypev1beta1.VirtualMachineInstancetypeSpec{
+						Memory: instancetypev1beta1.MemoryInstancetype{
+							Guest: resource.MustParse("1Gi"),
+						},
+					},
+				},
+				&instancetypev1beta1.VirtualMachinePreference{
+					ObjectMeta: metav1.ObjectMeta{
+						GenerateName: "preference-",
+					},
+					Spec: instancetypev1beta1.VirtualMachinePreferenceSpec{
+						Requirements: &instancetypev1beta1.PreferenceRequirements{
+							Memory: &instancetypev1beta1.MemoryPreferenceRequirement{
+								Guest: resource.MustParse("2Gi"),
+							},
+						},
+					},
+				},
+				&v1.VirtualMachine{
+					ObjectMeta: metav1.ObjectMeta{
+						GenerateName: "vm-",
+					},
+					Spec: v1.VirtualMachineSpec{
+						Running: pointer.Bool(false),
+						Instancetype: &v1.InstancetypeMatcher{
+							Kind: "VirtualMachineInstancetype",
+						},
+						Preference: &v1.PreferenceMatcher{
+							Kind: "VirtualMachinePreference",
+						},
+						Template: &v1.VirtualMachineInstanceTemplateSpec{
+							Spec: v1.VirtualMachineInstanceSpec{
+								Domain: v1.DomainSpec{},
+							},
+						},
+					},
+				},
+				"insufficient Memory resources",
+			),
+			Entry("VirtualMachine does not meet CPU (preferSockets default) requirements",
+				nil,
+				&instancetypev1beta1.VirtualMachinePreference{
+					ObjectMeta: metav1.ObjectMeta{
+						GenerateName: "preference-",
+					},
+					Spec: instancetypev1beta1.VirtualMachinePreferenceSpec{
+						Requirements: &instancetypev1beta1.PreferenceRequirements{
+							CPU: &instancetypev1beta1.CPUPreferenceRequirement{
+								Guest: uint32(2),
+							},
+						},
+					},
+				},
+				&v1.VirtualMachine{
+					ObjectMeta: metav1.ObjectMeta{
+						GenerateName: "vm-",
+					},
+					Spec: v1.VirtualMachineSpec{
+						Running: pointer.Bool(false),
+						Preference: &v1.PreferenceMatcher{
+							Kind: "VirtualMachinePreference",
+						},
+						Template: &v1.VirtualMachineInstanceTemplateSpec{
+							Spec: v1.VirtualMachineInstanceSpec{
+								Domain: v1.DomainSpec{
+									CPU: &v1.CPU{
+										Cores:   uint32(1),
+										Threads: uint32(1),
+										Sockets: uint32(1),
+									},
+								},
+							},
+						},
+					},
+				},
+				"insufficient CPU resources",
+			),
+			Entry("VirtualMachine does not meet CPU (preferCores) requirements",
+				nil,
+				&instancetypev1beta1.VirtualMachinePreference{
+					ObjectMeta: metav1.ObjectMeta{
+						GenerateName: "preference-",
+					},
+					Spec: instancetypev1beta1.VirtualMachinePreferenceSpec{
+						CPU: &instancetypev1beta1.CPUPreferences{
+							PreferredCPUTopology: &preferCores,
+						},
+						Requirements: &instancetypev1beta1.PreferenceRequirements{
+							CPU: &instancetypev1beta1.CPUPreferenceRequirement{
+								Guest: uint32(2),
+							},
+						},
+					},
+				},
+				&v1.VirtualMachine{
+					ObjectMeta: metav1.ObjectMeta{
+						GenerateName: "vm-",
+					},
+					Spec: v1.VirtualMachineSpec{
+						Running: pointer.Bool(false),
+						Preference: &v1.PreferenceMatcher{
+							Kind: "VirtualMachinePreference",
+						},
+						Template: &v1.VirtualMachineInstanceTemplateSpec{
+							Spec: v1.VirtualMachineInstanceSpec{
+								Domain: v1.DomainSpec{
+									CPU: &v1.CPU{
+										Cores:   uint32(1),
+										Threads: uint32(1),
+										Sockets: uint32(1),
+									},
+								},
+							},
+						},
+					},
+				},
+				"insufficient CPU resources",
+			),
+			Entry("VirtualMachine does not meet CPU (preferThreads) requirements",
+				nil,
+				&instancetypev1beta1.VirtualMachinePreference{
+					ObjectMeta: metav1.ObjectMeta{
+						GenerateName: "preference-",
+					},
+					Spec: instancetypev1beta1.VirtualMachinePreferenceSpec{
+						CPU: &instancetypev1beta1.CPUPreferences{
+							PreferredCPUTopology: &preferThreads,
+						},
+						Requirements: &instancetypev1beta1.PreferenceRequirements{
+							CPU: &instancetypev1beta1.CPUPreferenceRequirement{
+								Guest: uint32(2),
+							},
+						},
+					},
+				},
+				&v1.VirtualMachine{
+					ObjectMeta: metav1.ObjectMeta{
+						GenerateName: "vm-",
+					},
+					Spec: v1.VirtualMachineSpec{
+						Running: pointer.Bool(false),
+						Preference: &v1.PreferenceMatcher{
+							Kind: "VirtualMachinePreference",
+						},
+						Template: &v1.VirtualMachineInstanceTemplateSpec{
+							Spec: v1.VirtualMachineInstanceSpec{
+								Domain: v1.DomainSpec{
+									CPU: &v1.CPU{
+										Cores:   uint32(1),
+										Threads: uint32(1),
+										Sockets: uint32(1),
+									},
+								},
+							},
+						},
+					},
+				},
+				"insufficient CPU resources",
+			),
+			Entry("VirtualMachine meets Memory requirements",
+				nil,
+				&instancetypev1beta1.VirtualMachinePreference{
+					ObjectMeta: metav1.ObjectMeta{
+						GenerateName: "preference-",
+					},
+					Spec: instancetypev1beta1.VirtualMachinePreferenceSpec{
+						Requirements: &instancetypev1beta1.PreferenceRequirements{
+							Memory: &instancetypev1beta1.MemoryPreferenceRequirement{
+								Guest: resource.MustParse("2Gi"),
+							},
+						},
+					},
+				},
+				&v1.VirtualMachine{
+					ObjectMeta: metav1.ObjectMeta{
+						GenerateName: "vm-",
+					},
+					Spec: v1.VirtualMachineSpec{
+						Running: pointer.Bool(false),
+						Preference: &v1.PreferenceMatcher{
+							Kind: "VirtualMachinePreference",
+						},
+						Template: &v1.VirtualMachineInstanceTemplateSpec{
+							Spec: v1.VirtualMachineInstanceSpec{
+								Domain: v1.DomainSpec{
+									Memory: &v1.Memory{
+										Guest: resource.NewQuantity(1*1024*1024*1024, resource.BinarySI),
+									},
+								},
+							},
+						},
+					},
+				},
+				"insufficient Memory resources",
+			),
+		)
+	})
 })
 
 func newVirtualMachineInstancetype(vmi *v1.VirtualMachineInstance) *instancetypev1beta1.VirtualMachineInstancetype {

@@ -3,6 +3,7 @@ package instancetype_test
 
 import (
 	"context"
+	"fmt"
 
 	"github.com/golang/mock/gomock"
 	. "github.com/onsi/ginkgo/v2"
@@ -1628,5 +1629,254 @@ var _ = Describe("Instancetype and Preferences", func() {
 				Expect(*vmi.Spec.TerminationGracePeriodSeconds).To(Equal(userDefinedValue))
 			})
 		})
+	})
+
+	Context("preference requirements check", func() {
+		var (
+			preferCores   = instancetypev1beta1.PreferCores
+			preferSockets = instancetypev1beta1.PreferSockets
+			preferThreads = instancetypev1beta1.PreferThreads
+		)
+
+		DescribeTable("should pass when sufficient resources are provided", func(instancetypeSpec *instancetypev1beta1.VirtualMachineInstancetypeSpec, preferenceSpec *instancetypev1beta1.VirtualMachinePreferenceSpec, vmiSpec *v1.VirtualMachineInstanceSpec) {
+			path, err := instancetypeMethods.CheckPreferenceRequirements(instancetypeSpec, preferenceSpec, vmiSpec)
+			Expect(path).To(BeNil())
+			Expect(err).ToNot(HaveOccurred())
+		},
+			Entry("by an instance type for vCPUs",
+				&instancetypev1beta1.VirtualMachineInstancetypeSpec{
+					CPU: instancetypev1beta1.CPUInstancetype{
+						Guest: uint32(2),
+					},
+				},
+				&instancetypev1beta1.VirtualMachinePreferenceSpec{
+					Requirements: &instancetypev1beta1.PreferenceRequirements{
+						CPU: &instancetypev1beta1.CPUPreferenceRequirement{
+							Guest: uint32(2),
+						},
+					},
+				},
+				nil,
+			),
+			Entry("by an instance type for Memory",
+				&instancetypev1beta1.VirtualMachineInstancetypeSpec{
+					Memory: instancetypev1beta1.MemoryInstancetype{
+						Guest: resource.MustParse("1Gi"),
+					},
+				},
+				&instancetypev1beta1.VirtualMachinePreferenceSpec{
+					Requirements: &instancetypev1beta1.PreferenceRequirements{
+						Memory: &instancetypev1beta1.MemoryPreferenceRequirement{
+							Guest: resource.MustParse("1Gi"),
+						},
+					},
+				},
+				nil,
+			),
+			Entry("by a VM for vCPUs using PreferSockets (default)",
+				nil,
+				&instancetypev1beta1.VirtualMachinePreferenceSpec{
+					CPU: &instancetypev1beta1.CPUPreferences{
+						PreferredCPUTopology: &preferSockets,
+					},
+					Requirements: &instancetypev1beta1.PreferenceRequirements{
+						CPU: &instancetypev1beta1.CPUPreferenceRequirement{
+							Guest: uint32(2),
+						},
+					},
+				},
+				&v1.VirtualMachineInstanceSpec{
+					Domain: v1.DomainSpec{
+						CPU: &v1.CPU{
+							Sockets: uint32(2),
+						},
+					},
+				},
+			),
+			Entry("by a VM for vCPUs using PreferCores",
+				nil,
+				&instancetypev1beta1.VirtualMachinePreferenceSpec{
+					CPU: &instancetypev1beta1.CPUPreferences{
+						PreferredCPUTopology: &preferCores,
+					},
+					Requirements: &instancetypev1beta1.PreferenceRequirements{
+						CPU: &instancetypev1beta1.CPUPreferenceRequirement{
+							Guest: uint32(2),
+						},
+					},
+				},
+				&v1.VirtualMachineInstanceSpec{
+					Domain: v1.DomainSpec{
+						CPU: &v1.CPU{
+							Cores: uint32(2),
+						},
+					},
+				},
+			),
+			Entry("by a VM for vCPUs using PreferThreads",
+				nil,
+				&instancetypev1beta1.VirtualMachinePreferenceSpec{
+					CPU: &instancetypev1beta1.CPUPreferences{
+						PreferredCPUTopology: &preferThreads,
+					},
+					Requirements: &instancetypev1beta1.PreferenceRequirements{
+						CPU: &instancetypev1beta1.CPUPreferenceRequirement{
+							Guest: uint32(2),
+						},
+					},
+				},
+				&v1.VirtualMachineInstanceSpec{
+					Domain: v1.DomainSpec{
+						CPU: &v1.CPU{
+							Threads: uint32(2),
+						},
+					},
+				},
+			),
+			Entry("by a VM for Memory",
+				nil,
+				&instancetypev1beta1.VirtualMachinePreferenceSpec{
+					Requirements: &instancetypev1beta1.PreferenceRequirements{
+						Memory: &instancetypev1beta1.MemoryPreferenceRequirement{
+							Guest: resource.MustParse("1Gi"),
+						},
+					},
+				},
+				&v1.VirtualMachineInstanceSpec{
+					Domain: v1.DomainSpec{
+						Memory: &v1.Memory{
+							Guest: resource.NewQuantity(1024*1024*1024, resource.BinarySI),
+						},
+					},
+				},
+			),
+		)
+
+		DescribeTable("should be rejected when insufficient resources are provided", func(instancetypeSpec *instancetypev1beta1.VirtualMachineInstancetypeSpec, preferenceSpec *instancetypev1beta1.VirtualMachinePreferenceSpec, vmiSpec *v1.VirtualMachineInstanceSpec, expectedPath *k8sfield.Path, errSubString string) {
+			path, err := instancetypeMethods.CheckPreferenceRequirements(instancetypeSpec, preferenceSpec, vmiSpec)
+			Expect(path).To(Equal(expectedPath))
+			Expect(err).To(HaveOccurred())
+			Expect(err.Error()).To(ContainSubstring(errSubString))
+		},
+			Entry("by an instance type for vCPUs",
+				&instancetypev1beta1.VirtualMachineInstancetypeSpec{
+					CPU: instancetypev1beta1.CPUInstancetype{
+						Guest: uint32(1),
+					},
+				},
+				&instancetypev1beta1.VirtualMachinePreferenceSpec{
+					Requirements: &instancetypev1beta1.PreferenceRequirements{
+						CPU: &instancetypev1beta1.CPUPreferenceRequirement{
+							Guest: uint32(2),
+						},
+					},
+				},
+				nil,
+				k8sfield.NewPath("spec", "instancetype"),
+				fmt.Sprintf(instancetype.InsufficientInstanceTypeCPUResourcesErrorFmt, uint32(1), uint32(2)),
+			),
+			Entry("by an instance type for Memory",
+				&instancetypev1beta1.VirtualMachineInstancetypeSpec{
+					Memory: instancetypev1beta1.MemoryInstancetype{
+						Guest: resource.MustParse("1Gi"),
+					},
+				},
+				&instancetypev1beta1.VirtualMachinePreferenceSpec{
+					Requirements: &instancetypev1beta1.PreferenceRequirements{
+						Memory: &instancetypev1beta1.MemoryPreferenceRequirement{
+							Guest: resource.MustParse("2Gi"),
+						},
+					},
+				},
+				nil,
+				k8sfield.NewPath("spec", "instancetype"),
+				fmt.Sprintf(instancetype.InsufficientInstanceTypeMemoryResourcesErrorFmt, "1Gi", "2Gi"),
+			),
+			Entry("by a VM for vCPUs using PreferSockets (default)",
+				nil,
+				&instancetypev1beta1.VirtualMachinePreferenceSpec{
+					CPU: &instancetypev1beta1.CPUPreferences{
+						PreferredCPUTopology: &preferSockets,
+					},
+					Requirements: &instancetypev1beta1.PreferenceRequirements{
+						CPU: &instancetypev1beta1.CPUPreferenceRequirement{
+							Guest: uint32(2),
+						},
+					},
+				},
+				&v1.VirtualMachineInstanceSpec{
+					Domain: v1.DomainSpec{
+						CPU: &v1.CPU{
+							Sockets: uint32(1),
+						},
+					},
+				},
+				k8sfield.NewPath("spec", "template", "spec", "domain", "cpu", "sockets"),
+				fmt.Sprintf(instancetype.InsufficientVMCPUResourcesErrorFmt, uint32(1), uint32(2), "sockets"),
+			),
+			Entry("by a VM for vCPUs using PreferCores",
+				nil,
+				&instancetypev1beta1.VirtualMachinePreferenceSpec{
+					CPU: &instancetypev1beta1.CPUPreferences{
+						PreferredCPUTopology: &preferCores,
+					},
+					Requirements: &instancetypev1beta1.PreferenceRequirements{
+						CPU: &instancetypev1beta1.CPUPreferenceRequirement{
+							Guest: uint32(2),
+						},
+					},
+				},
+				&v1.VirtualMachineInstanceSpec{
+					Domain: v1.DomainSpec{
+						CPU: &v1.CPU{
+							Cores: uint32(1),
+						},
+					},
+				},
+				k8sfield.NewPath("spec", "template", "spec", "domain", "cpu", "cores"),
+				fmt.Sprintf(instancetype.InsufficientVMCPUResourcesErrorFmt, uint32(1), uint32(2), "cores"),
+			),
+			Entry("by a VM for vCPUs using PreferThreads",
+				nil,
+				&instancetypev1beta1.VirtualMachinePreferenceSpec{
+					CPU: &instancetypev1beta1.CPUPreferences{
+						PreferredCPUTopology: &preferThreads,
+					},
+					Requirements: &instancetypev1beta1.PreferenceRequirements{
+						CPU: &instancetypev1beta1.CPUPreferenceRequirement{
+							Guest: uint32(2),
+						},
+					},
+				},
+				&v1.VirtualMachineInstanceSpec{
+					Domain: v1.DomainSpec{
+						CPU: &v1.CPU{
+							Threads: uint32(1),
+						},
+					},
+				},
+				k8sfield.NewPath("spec", "template", "spec", "domain", "cpu", "threads"),
+				fmt.Sprintf(instancetype.InsufficientVMCPUResourcesErrorFmt, uint32(1), uint32(2), "threads"),
+			),
+			Entry("by a VM for Memory",
+				nil,
+				&instancetypev1beta1.VirtualMachinePreferenceSpec{
+					Requirements: &instancetypev1beta1.PreferenceRequirements{
+						Memory: &instancetypev1beta1.MemoryPreferenceRequirement{
+							Guest: resource.MustParse("2Gi"),
+						},
+					},
+				},
+				&v1.VirtualMachineInstanceSpec{
+					Domain: v1.DomainSpec{
+						Memory: &v1.Memory{
+							Guest: resource.NewQuantity(1024*1024*1024, resource.BinarySI),
+						},
+					},
+				},
+				k8sfield.NewPath("spec", "template", "spec", "domain", "memory"),
+				fmt.Sprintf(instancetype.InsufficientVMMemoryResourcesErrorFmt, "1Gi", "2Gi"),
+			))
+
 	})
 })

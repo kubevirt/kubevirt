@@ -206,6 +206,14 @@ func (admitter *VMsAdmitter) applyInstancetypeToVm(vm *v1.VirtualMachine) []meta
 		return nil
 	}
 
+	if path, err := admitter.InstancetypeMethods.CheckPreferenceRequirements(instancetypeSpec, preferenceSpec, &vm.Spec.Template.Spec); err != nil {
+		return []metav1.StatusCause{{
+			Type:    metav1.CauseTypeFieldValueNotFound,
+			Message: fmt.Sprintf("failure checking preference requirements: %v", err),
+			Field:   path.String(),
+		}}
+	}
+
 	conflicts := admitter.InstancetypeMethods.ApplyToVmi(k8sfield.NewPath("spec", "template", "spec"), instancetypeSpec, preferenceSpec, &vm.Spec.Template.Spec)
 
 	if len(conflicts) == 0 {
