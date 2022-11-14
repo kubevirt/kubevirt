@@ -115,9 +115,9 @@ type DomainManager interface {
 	PrepareMigrationTarget(*v1.VirtualMachineInstance, bool, *cmdv1.VirtualMachineOptions) error
 	GetDomainStats() ([]*stats.DomainStats, error)
 	CancelVMIMigration(*v1.VirtualMachineInstance) error
-	GetGuestInfo() (v1.VirtualMachineInstanceGuestAgentInfo, error)
-	GetUsers() ([]v1.VirtualMachineInstanceGuestOSUser, error)
-	GetFilesystems() ([]v1.VirtualMachineInstanceFileSystem, error)
+	GetGuestInfo() v1.VirtualMachineInstanceGuestAgentInfo
+	GetUsers() []v1.VirtualMachineInstanceGuestOSUser
+	GetFilesystems() []v1.VirtualMachineInstanceFileSystem
 	FinalizeVirtualMachineMigration(*v1.VirtualMachineInstance) error
 	HotplugHostDevices(vmi *v1.VirtualMachineInstance) error
 	InterfacesStatus() []api.InterfaceStatus
@@ -1831,7 +1831,7 @@ func (l *LibvirtDomainManager) buildDevicesMetadata(vmi *v1.VirtualMachineInstan
 }
 
 // GetGuestInfo queries the agent store and return the aggregated data from Guest agent
-func (l *LibvirtDomainManager) GetGuestInfo() (v1.VirtualMachineInstanceGuestAgentInfo, error) {
+func (l *LibvirtDomainManager) GetGuestInfo() v1.VirtualMachineInstanceGuestAgentInfo {
 	sysInfo := l.agentData.GetSysInfo()
 	fsInfo := l.agentData.GetFS(10)
 	userInfo := l.agentData.GetUsers(10)
@@ -1875,7 +1875,7 @@ func (l *LibvirtDomainManager) GetGuestInfo() (v1.VirtualMachineInstanceGuestAge
 		})
 	}
 
-	return guestInfo, nil
+	return guestInfo
 }
 
 // InterfacesStatus returns the interfaces Guest Agent reported
@@ -1889,7 +1889,7 @@ func (l *LibvirtDomainManager) GetGuestOSInfo() *api.GuestOSInfo {
 }
 
 // GetUsers return the full list of users on the guest machine
-func (l *LibvirtDomainManager) GetUsers() ([]v1.VirtualMachineInstanceGuestOSUser, error) {
+func (l *LibvirtDomainManager) GetUsers() []v1.VirtualMachineInstanceGuestOSUser {
 	userInfo := l.agentData.GetUsers(-1)
 	userList := []v1.VirtualMachineInstanceGuestOSUser{}
 
@@ -1901,11 +1901,11 @@ func (l *LibvirtDomainManager) GetUsers() ([]v1.VirtualMachineInstanceGuestOSUse
 		})
 	}
 
-	return userList, nil
+	return userList
 }
 
 // GetFilesystems return the full list of filesystems on the guest machine
-func (l *LibvirtDomainManager) GetFilesystems() ([]v1.VirtualMachineInstanceFileSystem, error) {
+func (l *LibvirtDomainManager) GetFilesystems() []v1.VirtualMachineInstanceFileSystem {
 	fsInfo := l.agentData.GetFS(-1)
 	fsList := []v1.VirtualMachineInstanceFileSystem{}
 
@@ -1919,7 +1919,7 @@ func (l *LibvirtDomainManager) GetFilesystems() ([]v1.VirtualMachineInstanceFile
 		})
 	}
 
-	return fsList, nil
+	return fsList
 }
 
 // check whether VMI has a certain condition

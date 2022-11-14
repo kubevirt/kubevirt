@@ -187,33 +187,30 @@ func (_mr *_MockDomainManagerRecorder) CancelVMIMigration(arg0 interface{}) *gom
 	return _mr.mock.ctrl.RecordCall(_mr.mock, "CancelVMIMigration", arg0)
 }
 
-func (_m *MockDomainManager) GetGuestInfo() (v1.VirtualMachineInstanceGuestAgentInfo, error) {
+func (_m *MockDomainManager) GetGuestInfo() v1.VirtualMachineInstanceGuestAgentInfo {
 	ret := _m.ctrl.Call(_m, "GetGuestInfo")
 	ret0, _ := ret[0].(v1.VirtualMachineInstanceGuestAgentInfo)
-	ret1, _ := ret[1].(error)
-	return ret0, ret1
+	return ret0
 }
 
 func (_mr *_MockDomainManagerRecorder) GetGuestInfo() *gomock.Call {
 	return _mr.mock.ctrl.RecordCall(_mr.mock, "GetGuestInfo")
 }
 
-func (_m *MockDomainManager) GetUsers() ([]v1.VirtualMachineInstanceGuestOSUser, error) {
+func (_m *MockDomainManager) GetUsers() []v1.VirtualMachineInstanceGuestOSUser {
 	ret := _m.ctrl.Call(_m, "GetUsers")
 	ret0, _ := ret[0].([]v1.VirtualMachineInstanceGuestOSUser)
-	ret1, _ := ret[1].(error)
-	return ret0, ret1
+	return ret0
 }
 
 func (_mr *_MockDomainManagerRecorder) GetUsers() *gomock.Call {
 	return _mr.mock.ctrl.RecordCall(_mr.mock, "GetUsers")
 }
 
-func (_m *MockDomainManager) GetFilesystems() ([]v1.VirtualMachineInstanceFileSystem, error) {
+func (_m *MockDomainManager) GetFilesystems() []v1.VirtualMachineInstanceFileSystem {
 	ret := _m.ctrl.Call(_m, "GetFilesystems")
 	ret0, _ := ret[0].([]v1.VirtualMachineInstanceFileSystem)
-	ret1, _ := ret[1].(error)
-	return ret0, ret1
+	return ret0
 }
 
 func (_mr *_MockDomainManagerRecorder) GetFilesystems() *gomock.Call {

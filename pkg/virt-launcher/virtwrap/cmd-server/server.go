@@ -453,13 +453,7 @@ func (l *Launcher) GetGuestInfo(_ context.Context, _ *cmdv1.EmptyRequest) (*cmdv
 		},
 	}
 
-	guestInfo, err := l.domainManager.GetGuestInfo()
-	if err != nil {
-		response.Response.Success = false
-		response.Response.Message = getErrorMessage(err)
-		return response, nil
-	}
-
+	guestInfo := l.domainManager.GetGuestInfo()
 	if jGuestInfo, err := json.Marshal(guestInfo); err != nil {
 		log.Log.Reason(err).Errorf("Failed to marshal agent info")
 		response.Response.Success = false
@@ -480,13 +474,7 @@ func (l *Launcher) GetUsers(_ context.Context, _ *cmdv1.EmptyRequest) (*cmdv1.Gu
 		},
 	}
 
-	users, err := l.domainManager.GetUsers()
-	if err != nil {
-		response.Response.Success = false
-		response.Response.Message = getErrorMessage(err)
-		return response, nil
-	}
-
+	users := l.domainManager.GetUsers()
 	if jUsers, err := json.Marshal(users); err != nil {
 		log.Log.Reason(err).Errorf("Failed to marshal guest user list")
 		response.Response.Success = false
@@ -507,13 +495,7 @@ func (l *Launcher) GetFilesystems(_ context.Context, _ *cmdv1.EmptyRequest) (*cm
 		},
 	}
 
-	fs, err := l.domainManager.GetFilesystems()
-	if err != nil {
-		response.Response.Success = false
-		response.Response.Message = getErrorMessage(err)
-		return response, nil
-	}
-
+	fs := l.domainManager.GetFilesystems()
 	if jFS, err := json.Marshal(fs); err != nil {
 		log.Log.Reason(err).Errorf("Failed to marshal guest user list")
 		response.Response.Success = false
