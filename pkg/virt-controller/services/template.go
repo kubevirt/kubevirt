@@ -452,7 +452,10 @@ func (t *templateService) renderLaunchManifest(vmi *v1.VirtualMachineInstance, i
 		containers = append(
 			containers,
 			newSidecarContainerRenderer(
-				sidecarContainerName(i), vmi, sidecarResources(vmi), requestedHookSidecar, userId).Render(requestedHookSidecar.Command))
+				sidecarContainerName(i), requestedHookSidecar.Image, requestedHookSidecar.ImagePullPolicy, vmi, sidecarResources(vmi), userId,
+				WithVolumeMounts(sidecarHookVolumeMount()),
+				WithArgs(requestedHookSidecar.Args),
+			).Render(requestedHookSidecar.Command))
 	}
 
 	podAnnotations, err := generatePodAnnotations(vmi)
@@ -606,21 +609,22 @@ func initContainerVolumeMount() k8sv1.VolumeMount {
 	}
 }
 
-func newSidecarContainerRenderer(sidecarName string, vmiSpec *v1.VirtualMachineInstance, resources k8sv1.ResourceRequirements, requestedHookSidecar hooks.HookSidecar, userId int64) *ContainerSpecRenderer {
+func newSidecarContainerRenderer(sidecarName, image string, pullPolocy k8sv1.PullPolicy, vmiSpec *v1.VirtualMachineInstance, resources k8sv1.ResourceRequirements, userId int64, options ...Option) *ContainerSpecRenderer {
 	sidecarOpts := []Option{
 		WithResourceRequirements(resources),
-		WithVolumeMounts(sidecarVolumeMount()),
-		WithArgs(requestedHookSidecar.Args),
 	}
 
 	if util.IsNonRootVMI(vmiSpec) {
 		sidecarOpts = append(sidecarOpts, WithNonRoot(userId))
 		sidecarOpts = append(sidecarOpts, WithDropALLCapabilities())
 	}
+
+	sidecarOpts = append(sidecarOpts, options...)
+
 	return NewContainerSpecRenderer(
 		sidecarName,
-		requestedHookSidecar.Image,
-		requestedHookSidecar.ImagePullPolicy,
+		image,
+		pullPolocy,
 		sidecarOpts...)
 }
 
@@ -724,7 +728,7 @@ func (t *templateService) newResourceRenderer(vmi *v1.VirtualMachineInstance, ne
 	return NewResourceRenderer(vmiResources.Limits, vmiResources.Requests, options...), nil
 }
 
-func sidecarVolumeMount() k8sv1.VolumeMount {
+func sidecarHookVolumeMount() k8sv1.VolumeMount {
 	return k8sv1.VolumeMount{
 		Name:      hookSidecarSocks,
 		MountPath: hooks.HookSocketsSharedDirectory,
