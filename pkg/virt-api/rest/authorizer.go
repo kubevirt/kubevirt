@@ -40,6 +40,9 @@ const (
 	userHeader            = "X-Remote-User"
 	groupHeader           = "X-Remote-Group"
 	userExtraHeaderPrefix = "X-Remote-Extra-"
+
+	namespacedResourceAttributesMinParts  = 9
+	namespacedResourceBaseAttributesParts = 7
 )
 
 var noAuthEndpoints = map[string]struct{}{
@@ -180,11 +183,11 @@ func (a *authorizor) generateAccessReview(req *restful.Request) (*authv1.Subject
 	// /apis/subresources.kubevirt.io/v1alpha3/namespaces/default/virtualmachineinstances/testvmi/console
 	// /apis/subresources.kubevirt.io/v1alpha3/namespaces/default/expand-vm-spec
 	pathSplit := strings.Split(req.Request.URL.Path, "/")
-	if len(pathSplit) >= 9 {
+	if len(pathSplit) >= namespacedResourceAttributesMinParts {
 		if err := addNamespacedResourceAttributes(pathSplit, req.Request.Method, r); err != nil {
 			return nil, err
 		}
-	} else if len(pathSplit) == 7 {
+	} else if len(pathSplit) == namespacedResourceBaseAttributesParts {
 		if err := addNamespacedResourceBaseAttributes(pathSplit, req.Request.Method, r); err != nil {
 			return nil, err
 		}
