@@ -58,7 +58,7 @@ var _ = Describe("Authorizer", func() {
 			client, err := authorizationclient.NewForConfig(config)
 			Expect(err).ToNot(HaveOccurred())
 
-			app.subjectAccessReview = client.SubjectAccessReviews()
+			app.client = client.SubjectAccessReviews()
 			app.userHeaders = append(app.userHeaders, userHeader)
 			app.groupHeaders = append(app.groupHeaders, groupHeader)
 			app.userExtraHeaderPrefixes = append(app.userExtraHeaderPrefixes, userExtraHeaderPrefix)

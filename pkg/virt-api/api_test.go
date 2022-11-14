@@ -31,6 +31,7 @@ import (
 	. "github.com/onsi/gomega"
 	"github.com/onsi/gomega/ghttp"
 	k8sv1 "k8s.io/api/core/v1"
+	authclientv1 "k8s.io/client-go/kubernetes/typed/authorization/v1"
 	"k8s.io/client-go/tools/clientcmd"
 	aggregatorclient "k8s.io/kube-aggregator/pkg/client/clientset_generated/clientset"
 
@@ -63,9 +64,12 @@ var _ = Describe("Virt-api", func() {
 
 		config, err := clientcmd.BuildConfigFromFlags(server.URL(), "")
 		Expect(err).ToNot(HaveOccurred())
-		app.authorizor, err = rest.NewAuthorizorFromConfig(config)
 		app.aggregatorClient = aggregatorclient.NewForConfigOrDie(config)
+
+		authClient, err := authclientv1.NewForConfig(config)
 		Expect(err).ToNot(HaveOccurred())
+		app.authorizor = rest.NewAuthorizorFromClient(authClient.SubjectAccessReviews())
+
 		ctrl = gomock.NewController(GinkgoT())
 		authorizorMock = rest.NewMockVirtApiAuthorizor(ctrl)
 

@@ -28,10 +28,9 @@ import (
 	"strings"
 
 	"github.com/emicklei/go-restful/v3"
-	authorization "k8s.io/api/authorization/v1"
+	authv1 "k8s.io/api/authorization/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
-	authorizationclient "k8s.io/client-go/kubernetes/typed/authorization/v1"
-	restclient "k8s.io/client-go/rest"
+	authclientv1 "k8s.io/client-go/kubernetes/typed/authorization/v1"
 	"k8s.io/client-go/util/flowcontrol"
 
 	"kubevirt.io/client-go/kubecli"
@@ -88,12 +87,10 @@ type authorizor struct {
 	userHeaders             []string
 	groupHeaders            []string
 	userExtraHeaderPrefixes []string
-
-	subjectAccessReview authorizationclient.SubjectAccessReviewInterface
+	client                  authclientv1.SubjectAccessReviewInterface
 }
 
 func (a *authorizor) getUserGroups(header http.Header) ([]string, error) {
-
 	for _, key := range a.groupHeaders {
 		groups, ok := header[key]
 		if ok {
@@ -115,9 +112,8 @@ func (a *authorizor) getUserName(header http.Header) (string, error) {
 	return "", fmt.Errorf("a valid user header is required for authorization")
 }
 
-func (a *authorizor) getUserExtras(header http.Header) map[string]authorization.ExtraValue {
-
-	extras := map[string]authorization.ExtraValue{}
+func (a *authorizor) getUserExtras(header http.Header) map[string]authv1.ExtraValue {
+	extras := map[string]authv1.ExtraValue{}
 
 	for _, prefix := range a.userExtraHeaderPrefixes {
 		for k, v := range header {
@@ -155,59 +151,51 @@ func (a *authorizor) GetExtraPrefixHeaders() []string {
 	return a.userExtraHeaderPrefixes
 }
 
-func (a *authorizor) generateAccessReview(req *restful.Request) (*authorization.SubjectAccessReview, error) {
-
-	httpRequest := req.Request
-
-	if httpRequest == nil {
+func (a *authorizor) generateAccessReview(req *restful.Request) (*authv1.SubjectAccessReview, error) {
+	if req.Request == nil {
 		return nil, fmt.Errorf("empty http request")
 	}
-	headers := httpRequest.Header
-	url := httpRequest.URL
-
-	if url == nil {
+	if req.Request.URL == nil {
 		return nil, fmt.Errorf("no URL in http request")
 	}
 
-	userName, err := a.getUserName(headers)
+	userName, err := a.getUserName(req.Request.Header)
 	if err != nil {
 		return nil, err
 	}
 
-	userGroups, err := a.getUserGroups(headers)
+	userGroups, err := a.getUserGroups(req.Request.Header)
 	if err != nil {
 		return nil, err
 	}
 
-	userExtras := a.getUserExtras(headers)
-
-	r := &authorization.SubjectAccessReview{}
-	r.Spec = authorization.SubjectAccessReviewSpec{
+	r := &authv1.SubjectAccessReview{}
+	r.Spec = authv1.SubjectAccessReviewSpec{
 		User:   userName,
 		Groups: userGroups,
-		Extra:  userExtras,
+		Extra:  a.getUserExtras(req.Request.Header),
 	}
 
 	// URL examples
 	// /apis/subresources.kubevirt.io/v1alpha3/namespaces/default/virtualmachineinstances/testvmi/console
 	// /apis/subresources.kubevirt.io/v1alpha3/namespaces/default/expand-vm-spec
-	pathSplit := strings.Split(url.Path, "/")
+	pathSplit := strings.Split(req.Request.URL.Path, "/")
 	if len(pathSplit) >= 9 {
-		if err := addNamespacedResourceAttributes(pathSplit, httpRequest, r); err != nil {
+		if err := addNamespacedResourceAttributes(pathSplit, req.Request.Method, r); err != nil {
 			return nil, err
 		}
 	} else if len(pathSplit) == 7 {
-		if err := addNamespacedResourceBaseAttributes(pathSplit, httpRequest, r); err != nil {
+		if err := addNamespacedResourceBaseAttributes(pathSplit, req.Request.Method, r); err != nil {
 			return nil, err
 		}
 	} else {
-		return nil, fmt.Errorf("unknown api endpoint: %s", url.Path)
+		return nil, fmt.Errorf("unknown api endpoint: %s", req.Request.URL.Path)
 	}
 
 	return r, nil
 }
 
-func addNamespacedResourceAttributes(pathSplit []string, httpRequest *http.Request, r *authorization.SubjectAccessReview) error {
+func addNamespacedResourceAttributes(pathSplit []string, requestMethod string, r *authv1.SubjectAccessReview) error {
 	// URL example
 	// /apis/subresources.kubevirt.io/v1alpha3/namespaces/default/virtualmachineinstances/testvmi/console
 	group := pathSplit[2]
@@ -221,12 +209,12 @@ func addNamespacedResourceAttributes(pathSplit []string, httpRequest *http.Reque
 		return fmt.Errorf("unknown resource type %s", resource)
 	}
 
-	verb, err := mapHttpVerbToRbacVerb(httpRequest.Method, resourceName)
+	verb, err := mapHttpVerbToRbacVerb(requestMethod, resourceName)
 	if err != nil {
 		return err
 	}
 
-	r.Spec.ResourceAttributes = &authorization.ResourceAttributes{
+	r.Spec.ResourceAttributes = &authv1.ResourceAttributes{
 		Namespace:   namespace,
 		Verb:        verb,
 		Group:       group,
@@ -239,7 +227,7 @@ func addNamespacedResourceAttributes(pathSplit []string, httpRequest *http.Reque
 	return nil
 }
 
-func addNamespacedResourceBaseAttributes(pathSplit []string, httpRequest *http.Request, r *authorization.SubjectAccessReview) error {
+func addNamespacedResourceBaseAttributes(pathSplit []string, requestMethod string, r *authv1.SubjectAccessReview) error {
 	// URL example
 	// /apis/subresources.kubevirt.io/v1alpha3/namespaces/default/expand-vm-spec
 	group := pathSplit[2]
@@ -251,12 +239,12 @@ func addNamespacedResourceBaseAttributes(pathSplit []string, httpRequest *http.R
 		return fmt.Errorf("unknown resource type %s", resource)
 	}
 
-	verb, err := mapHttpVerbToRbacVerb(httpRequest.Method, "")
+	verb, err := mapHttpVerbToRbacVerb(requestMethod, "")
 	if err != nil {
 		return err
 	}
 
-	r.Spec.ResourceAttributes = &authorization.ResourceAttributes{
+	r.Spec.ResourceAttributes = &authv1.ResourceAttributes{
 		Namespace: namespace,
 		Verb:      verb,
 		Group:     group,
@@ -314,7 +302,6 @@ func isAuthenticated(req *restful.Request) bool {
 }
 
 func (a *authorizor) Authorize(req *restful.Request) (bool, string, error) {
-
 	// Endpoints related to getting information about
 	// what apis our server provides are authorized to
 	// all users.
@@ -336,7 +323,7 @@ func (a *authorizor) Authorize(req *restful.Request) (bool, string, error) {
 		return false, fmt.Sprintf("%v", err), nil
 	}
 
-	result, err := a.subjectAccessReview.Create(context.Background(), r, metav1.CreateOptions{})
+	result, err := a.client.Create(context.Background(), r, metav1.CreateOptions{})
 	if err != nil {
 		return false, "internal server error", err
 	}
@@ -348,24 +335,13 @@ func (a *authorizor) Authorize(req *restful.Request) (bool, string, error) {
 	return false, result.Status.Reason, nil
 }
 
-func NewAuthorizorFromConfig(config *restclient.Config) (VirtApiAuthorizor, error) {
-	client, err := authorizationclient.NewForConfig(config)
-	if err != nil {
-		return nil, err
+func NewAuthorizorFromClient(client authclientv1.SubjectAccessReviewInterface) VirtApiAuthorizor {
+	return &authorizor{
+		userHeaders:             []string{userHeader},
+		groupHeaders:            []string{groupHeader},
+		userExtraHeaderPrefixes: []string{userExtraHeaderPrefix},
+		client:                  client,
 	}
-
-	subjectAccessReview := client.SubjectAccessReviews()
-
-	a := &authorizor{
-		subjectAccessReview: subjectAccessReview,
-	}
-
-	// add default headers
-	a.userHeaders = append(a.userHeaders, userHeader)
-	a.groupHeaders = append(a.groupHeaders, groupHeader)
-	a.userExtraHeaderPrefixes = append(a.userExtraHeaderPrefixes, userExtraHeaderPrefix)
-
-	return a, nil
 }
 
 func NewAuthorizor(rateLimiter flowcontrol.RateLimiter) (VirtApiAuthorizor, error) {
@@ -375,5 +351,10 @@ func NewAuthorizor(rateLimiter flowcontrol.RateLimiter) (VirtApiAuthorizor, erro
 	}
 	config.RateLimiter = rateLimiter
 
-	return NewAuthorizorFromConfig(config)
+	client, err := authclientv1.NewForConfig(config)
+	if err != nil {
+		return nil, err
+	}
+
+	return NewAuthorizorFromClient(client.SubjectAccessReviews()), nil
 }
