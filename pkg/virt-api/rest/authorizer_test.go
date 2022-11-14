@@ -50,8 +50,6 @@ var _ = Describe("Authorizer", func() {
 			req.Request.Header[userHeader] = []string{"user"}
 			req.Request.Header[groupHeader] = []string{"userGroup"}
 			req.Request.Header[userExtraHeaderPrefix+"test"] = []string{"userExtraValue"}
-			req.Request.Method = http.MethodGet
-			req.Request.URL.Path = "/apis/subresources.kubevirt.io/v1alpha3/namespaces/default/virtualmachineinstances/testvmi/console"
 
 			server = ghttp.NewServer()
 			config, err := clientcmd.BuildConfigFromFlags(server.URL(), "")
@@ -66,73 +64,155 @@ var _ = Describe("Authorizer", func() {
 			app.userExtraHeaderPrefixes = append(app.userExtraHeaderPrefixes, userExtraHeaderPrefix)
 		})
 
-		Context("Subresource api", func() {
-			It("should reject unauthenticated user", func() {
-				allowed, reason, err := app.Authorize(req)
-				Expect(err).ToNot(HaveOccurred())
-				Expect(allowed).To(BeFalse())
-				Expect(reason).To(Equal("request is not authenticated"))
+		Context("Subresource api with namespaced resource", func() {
+			Context("with namespaced resource", func() {
+				BeforeEach(func() {
+					req.Request.Method = http.MethodGet
+					req.Request.URL.Path = "/apis/subresources.kubevirt.io/v1alpha3/namespaces/default/virtualmachineinstances/testvmi/console"
+				})
+
+				It("should reject unauthenticated user", func() {
+					allowed, reason, err := app.Authorize(req)
+					Expect(err).ToNot(HaveOccurred())
+					Expect(allowed).To(BeFalse())
+					Expect(reason).To(Equal("request is not authenticated"))
+				})
+
+				It("should reject unauthorized user", func() {
+
+					req.Request.TLS = &tls.ConnectionState{}
+					req.Request.TLS.PeerCertificates = append(req.Request.TLS.PeerCertificates, fakecert)
+
+					result, err := app.generateAccessReview(req)
+					Expect(err).ToNot(HaveOccurred())
+					result.Status.Allowed = false
+					result.Status.Reason = "just because"
+
+					server.AppendHandlers(
+						ghttp.CombineHandlers(
+							ghttp.VerifyRequest("POST", "/apis/authorization.k8s.io/v1/subjectaccessreviews"),
+							ghttp.RespondWithJSONEncoded(http.StatusOK, result),
+						),
+					)
+
+					allowed, reason, err := app.Authorize(req)
+					Expect(err).ToNot(HaveOccurred())
+					Expect(allowed).To(BeFalse())
+					Expect(reason).To(Equal("just because"))
+				})
+
+				It("should allow authorized user", func() {
+
+					req.Request.TLS = &tls.ConnectionState{}
+					req.Request.TLS.PeerCertificates = append(req.Request.TLS.PeerCertificates, fakecert)
+
+					result, err := app.generateAccessReview(req)
+					Expect(err).ToNot(HaveOccurred())
+					result.Status.Allowed = true
+
+					server.AppendHandlers(
+						ghttp.CombineHandlers(
+							ghttp.VerifyRequest("POST", "/apis/authorization.k8s.io/v1/subjectaccessreviews"),
+							ghttp.RespondWithJSONEncoded(http.StatusOK, result),
+						),
+					)
+
+					allowed, _, err := app.Authorize(req)
+					Expect(err).ToNot(HaveOccurred())
+					Expect(allowed).To(BeTrue())
+				})
+
+				It("should not allow user if auth check fails", func() {
+
+					req.Request.TLS = &tls.ConnectionState{}
+					req.Request.TLS.PeerCertificates = append(req.Request.TLS.PeerCertificates, fakecert)
+
+					server.AppendHandlers(
+						ghttp.CombineHandlers(
+							ghttp.VerifyRequest("POST", "/apis/authorization.k8s.io/v1/subjectaccessreviews"),
+							ghttp.RespondWithJSONEncoded(http.StatusInternalServerError, nil),
+						),
+					)
+
+					allowed, _, err := app.Authorize(req)
+					Expect(err).To(HaveOccurred())
+					Expect(allowed).To(BeFalse())
+				})
 			})
 
-			It("should reject unauthorized user", func() {
+			Context("with namespaced base resource", func() {
+				BeforeEach(func() {
+					req.Request.Method = http.MethodPut
+					req.Request.URL.Path = "/apis/subresources.kubevirt.io/v1alpha3/namespaces/default/expand-vm-spec"
+				})
 
-				req.Request.TLS = &tls.ConnectionState{}
-				req.Request.TLS.PeerCertificates = append(req.Request.TLS.PeerCertificates, fakecert)
+				It("should reject unauthenticated user", func() {
+					allowed, reason, err := app.Authorize(req)
+					Expect(err).ToNot(HaveOccurred())
+					Expect(allowed).To(BeFalse())
+					Expect(reason).To(Equal("request is not authenticated"))
+				})
 
-				result, err := app.generateAccessReview(req)
-				Expect(err).ToNot(HaveOccurred())
-				result.Status.Allowed = false
-				result.Status.Reason = "just because"
+				It("should reject unauthorized user", func() {
 
-				server.AppendHandlers(
-					ghttp.CombineHandlers(
-						ghttp.VerifyRequest("POST", "/apis/authorization.k8s.io/v1/subjectaccessreviews"),
-						ghttp.RespondWithJSONEncoded(http.StatusOK, result),
-					),
-				)
+					req.Request.TLS = &tls.ConnectionState{}
+					req.Request.TLS.PeerCertificates = append(req.Request.TLS.PeerCertificates, fakecert)
 
-				allowed, reason, err := app.Authorize(req)
-				Expect(err).ToNot(HaveOccurred())
-				Expect(allowed).To(BeFalse())
-				Expect(reason).To(Equal("just because"))
-			})
+					result, err := app.generateAccessReview(req)
+					Expect(err).ToNot(HaveOccurred())
+					result.Status.Allowed = false
+					result.Status.Reason = "just because"
 
-			It("should allow authorized user", func() {
+					server.AppendHandlers(
+						ghttp.CombineHandlers(
+							ghttp.VerifyRequest("POST", "/apis/authorization.k8s.io/v1/subjectaccessreviews"),
+							ghttp.RespondWithJSONEncoded(http.StatusOK, result),
+						),
+					)
 
-				req.Request.TLS = &tls.ConnectionState{}
-				req.Request.TLS.PeerCertificates = append(req.Request.TLS.PeerCertificates, fakecert)
+					allowed, reason, err := app.Authorize(req)
+					Expect(err).ToNot(HaveOccurred())
+					Expect(allowed).To(BeFalse())
+					Expect(reason).To(Equal("just because"))
+				})
 
-				result, err := app.generateAccessReview(req)
-				Expect(err).ToNot(HaveOccurred())
-				result.Status.Allowed = true
+				It("should allow authorized user", func() {
 
-				server.AppendHandlers(
-					ghttp.CombineHandlers(
-						ghttp.VerifyRequest("POST", "/apis/authorization.k8s.io/v1/subjectaccessreviews"),
-						ghttp.RespondWithJSONEncoded(http.StatusOK, result),
-					),
-				)
+					req.Request.TLS = &tls.ConnectionState{}
+					req.Request.TLS.PeerCertificates = append(req.Request.TLS.PeerCertificates, fakecert)
 
-				allowed, _, err := app.Authorize(req)
-				Expect(err).ToNot(HaveOccurred())
-				Expect(allowed).To(BeTrue())
-			})
+					result, err := app.generateAccessReview(req)
+					Expect(err).ToNot(HaveOccurred())
+					result.Status.Allowed = true
 
-			It("should not allow user if auth check fails", func() {
+					server.AppendHandlers(
+						ghttp.CombineHandlers(
+							ghttp.VerifyRequest("POST", "/apis/authorization.k8s.io/v1/subjectaccessreviews"),
+							ghttp.RespondWithJSONEncoded(http.StatusOK, result),
+						),
+					)
 
-				req.Request.TLS = &tls.ConnectionState{}
-				req.Request.TLS.PeerCertificates = append(req.Request.TLS.PeerCertificates, fakecert)
+					allowed, _, err := app.Authorize(req)
+					Expect(err).ToNot(HaveOccurred())
+					Expect(allowed).To(BeTrue())
+				})
 
-				server.AppendHandlers(
-					ghttp.CombineHandlers(
-						ghttp.VerifyRequest("POST", "/apis/authorization.k8s.io/v1/subjectaccessreviews"),
-						ghttp.RespondWithJSONEncoded(http.StatusInternalServerError, nil),
-					),
-				)
+				It("should not allow user if auth check fails", func() {
 
-				allowed, _, err := app.Authorize(req)
-				Expect(err).To(HaveOccurred())
-				Expect(allowed).To(BeFalse())
+					req.Request.TLS = &tls.ConnectionState{}
+					req.Request.TLS.PeerCertificates = append(req.Request.TLS.PeerCertificates, fakecert)
+
+					server.AppendHandlers(
+						ghttp.CombineHandlers(
+							ghttp.VerifyRequest("POST", "/apis/authorization.k8s.io/v1/subjectaccessreviews"),
+							ghttp.RespondWithJSONEncoded(http.StatusInternalServerError, nil),
+						),
+					)
+
+					allowed, _, err := app.Authorize(req)
+					Expect(err).To(HaveOccurred())
+					Expect(allowed).To(BeFalse())
+				})
 			})
 
 			DescribeTable("should allow all users for info endpoints", func(path string) {
@@ -164,6 +244,8 @@ var _ = Describe("Authorizer", func() {
 				Entry("random2", "/1/2/3/4/5/6/7/8/9/0/1/2/3/4/5/6/7/8/9"),
 				Entry("no subresource provided", "/apis/subresources.kubevirt.io/v1alpha3/namespaces/default/virtualmachineinstances/testvmi"),
 				Entry("invalid resource type", "/apis/subresources.kubevirt.io/v1alpha3/namespaces/default/madeupresource/testvmi/console"),
+				Entry("unknown namespaced resource endpoint", "/apis/subresources.kubevirt.io/v1/namespaces/default/madethisup/testvmi/console"),
+				Entry("unknown namespaced base resource endpoint", "/apis/subresources.kubevirt.io/v1/namespaces/default/madethisup"),
 			)
 		})
 
