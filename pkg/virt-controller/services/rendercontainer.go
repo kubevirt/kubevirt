@@ -37,15 +37,15 @@ type ContainerSpecRenderer struct {
 type Option func(*ContainerSpecRenderer)
 
 func NewContainerSpecRenderer(containerName string, launcherImg string, imgPullPolicy k8sv1.PullPolicy, opts ...Option) *ContainerSpecRenderer {
-	computeContainerSpec := &ContainerSpecRenderer{
+	containerSpec := &ContainerSpecRenderer{
 		imgPullPolicy: imgPullPolicy,
 		launcherImg:   launcherImg,
 		name:          containerName,
 	}
 	for _, opt := range opts {
-		opt(computeContainerSpec)
+		opt(containerSpec)
 	}
-	return computeContainerSpec
+	return containerSpec
 }
 
 func (csr *ContainerSpecRenderer) Render(cmd []string) k8sv1.Container {
