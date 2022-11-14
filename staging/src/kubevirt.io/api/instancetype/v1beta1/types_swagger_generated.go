@@ -100,6 +100,7 @@ func (VirtualMachinePreferenceSpec) SwaggerDoc() map[string]string {
 		"volumes":                                "Volumes optionally defines preferences associated with the Volumes attribute of a VirtualMachineInstace DomainSpec\n\n+optional",
 		"preferredSubdomain":                     "Subdomain of the VirtualMachineInstance\n\n+optional",
 		"preferredTerminationGracePeriodSeconds": "Grace period observed after signalling a VirtualMachineInstance to stop after which the VirtualMachineInstance is force terminated.\n\n+optional",
+		"requirements":                           "Requirements defines the minium amount of instance type defined resources required by a set of preferences\n\n+optional",
 	}
 }
 
@@ -181,5 +182,24 @@ func (ClockPreferences) SwaggerDoc() map[string]string {
 		"":                     "ClockPreferences contains various optional defaults for Clock.",
 		"preferredClockOffset": "ClockOffset allows specifying the UTC offset or the timezone of the guest clock.\n\n+optional",
 		"preferredTimer":       "Timer specifies whih timers are attached to the vmi.\n\n+optional",
+	}
+}
+
+func (PreferenceRequirements) SwaggerDoc() map[string]string {
+	return map[string]string{
+		"cpu":    "Required CPU related attributes of the instancetype.\n\n+optional",
+		"memory": "Required Memory related attributes of the instancetype.\n\n+optional",
+	}
+}
+
+func (CPUPreferenceRequirement) SwaggerDoc() map[string]string {
+	return map[string]string{
+		"guest": "Minimal number of vCPUs required by the preference.",
+	}
+}
+
+func (MemoryPreferenceRequirement) SwaggerDoc() map[string]string {
+	return map[string]string{
+		"guest": "Minimal amount of memory required by the preference.",
 	}
 }

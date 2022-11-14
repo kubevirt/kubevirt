@@ -571,6 +571,7 @@ func GetOpenAPIDefinitions(ref common.ReferenceCallback) map[string]common.OpenA
 		"kubevirt.io/api/instancetype/v1alpha2.VirtualMachinePreferenceSpec":                         schema_kubevirtio_api_instancetype_v1alpha2_VirtualMachinePreferenceSpec(ref),
 		"kubevirt.io/api/instancetype/v1alpha2.VolumePreferences":                                    schema_kubevirtio_api_instancetype_v1alpha2_VolumePreferences(ref),
 		"kubevirt.io/api/instancetype/v1beta1.CPUInstancetype":                                       schema_kubevirtio_api_instancetype_v1beta1_CPUInstancetype(ref),
+		"kubevirt.io/api/instancetype/v1beta1.CPUPreferenceRequirement":                              schema_kubevirtio_api_instancetype_v1beta1_CPUPreferenceRequirement(ref),
 		"kubevirt.io/api/instancetype/v1beta1.CPUPreferences":                                        schema_kubevirtio_api_instancetype_v1beta1_CPUPreferences(ref),
 		"kubevirt.io/api/instancetype/v1beta1.ClockPreferences":                                      schema_kubevirtio_api_instancetype_v1beta1_ClockPreferences(ref),
 		"kubevirt.io/api/instancetype/v1beta1.DevicePreferences":                                     schema_kubevirtio_api_instancetype_v1beta1_DevicePreferences(ref),
@@ -578,6 +579,8 @@ func GetOpenAPIDefinitions(ref common.ReferenceCallback) map[string]common.OpenA
 		"kubevirt.io/api/instancetype/v1beta1.FirmwarePreferences":                                   schema_kubevirtio_api_instancetype_v1beta1_FirmwarePreferences(ref),
 		"kubevirt.io/api/instancetype/v1beta1.MachinePreferences":                                    schema_kubevirtio_api_instancetype_v1beta1_MachinePreferences(ref),
 		"kubevirt.io/api/instancetype/v1beta1.MemoryInstancetype":                                    schema_kubevirtio_api_instancetype_v1beta1_MemoryInstancetype(ref),
+		"kubevirt.io/api/instancetype/v1beta1.MemoryPreferenceRequirement":                           schema_kubevirtio_api_instancetype_v1beta1_MemoryPreferenceRequirement(ref),
+		"kubevirt.io/api/instancetype/v1beta1.PreferenceRequirements":                                schema_kubevirtio_api_instancetype_v1beta1_PreferenceRequirements(ref),
 		"kubevirt.io/api/instancetype/v1beta1.VirtualMachineClusterInstancetype":                     schema_kubevirtio_api_instancetype_v1beta1_VirtualMachineClusterInstancetype(ref),
 		"kubevirt.io/api/instancetype/v1beta1.VirtualMachineClusterInstancetypeList":                 schema_kubevirtio_api_instancetype_v1beta1_VirtualMachineClusterInstancetypeList(ref),
 		"kubevirt.io/api/instancetype/v1beta1.VirtualMachineClusterPreference":                       schema_kubevirtio_api_instancetype_v1beta1_VirtualMachineClusterPreference(ref),
@@ -27075,6 +27078,27 @@ func schema_kubevirtio_api_instancetype_v1beta1_CPUInstancetype(ref common.Refer
 	}
 }
 
+func schema_kubevirtio_api_instancetype_v1beta1_CPUPreferenceRequirement(ref common.ReferenceCallback) common.OpenAPIDefinition {
+	return common.OpenAPIDefinition{
+		Schema: spec.Schema{
+			SchemaProps: spec.SchemaProps{
+				Type: []string{"object"},
+				Properties: map[string]spec.Schema{
+					"guest": {
+						SchemaProps: spec.SchemaProps{
+							Description: "Minimal number of vCPUs required by the preference.",
+							Default:     0,
+							Type:        []string{"integer"},
+							Format:      "int64",
+						},
+					},
+				},
+				Required: []string{"guest"},
+			},
+		},
+	}
+}
+
 func schema_kubevirtio_api_instancetype_v1beta1_CPUPreferences(ref common.ReferenceCallback) common.OpenAPIDefinition {
 	return common.OpenAPIDefinition{
 		Schema: spec.Schema{
@@ -27454,6 +27478,54 @@ func schema_kubevirtio_api_instancetype_v1beta1_MemoryInstancetype(ref common.Re
 		},
 		Dependencies: []string{
 			"k8s.io/apimachinery/pkg/api/resource.Quantity", "kubevirt.io/api/core/v1.Hugepages"},
+	}
+}
+
+func schema_kubevirtio_api_instancetype_v1beta1_MemoryPreferenceRequirement(ref common.ReferenceCallback) common.OpenAPIDefinition {
+	return common.OpenAPIDefinition{
+		Schema: spec.Schema{
+			SchemaProps: spec.SchemaProps{
+				Type: []string{"object"},
+				Properties: map[string]spec.Schema{
+					"guest": {
+						SchemaProps: spec.SchemaProps{
+							Description: "Minimal amount of memory required by the preference.",
+							Default:     map[string]interface{}{},
+							Ref:         ref("k8s.io/apimachinery/pkg/api/resource.Quantity"),
+						},
+					},
+				},
+				Required: []string{"guest"},
+			},
+		},
+		Dependencies: []string{
+			"k8s.io/apimachinery/pkg/api/resource.Quantity"},
+	}
+}
+
+func schema_kubevirtio_api_instancetype_v1beta1_PreferenceRequirements(ref common.ReferenceCallback) common.OpenAPIDefinition {
+	return common.OpenAPIDefinition{
+		Schema: spec.Schema{
+			SchemaProps: spec.SchemaProps{
+				Type: []string{"object"},
+				Properties: map[string]spec.Schema{
+					"cpu": {
+						SchemaProps: spec.SchemaProps{
+							Description: "Required CPU related attributes of the instancetype.",
+							Ref:         ref("kubevirt.io/api/instancetype/v1beta1.CPUPreferenceRequirement"),
+						},
+					},
+					"memory": {
+						SchemaProps: spec.SchemaProps{
+							Description: "Required Memory related attributes of the instancetype.",
+							Ref:         ref("kubevirt.io/api/instancetype/v1beta1.MemoryPreferenceRequirement"),
+						},
+					},
+				},
+			},
+		},
+		Dependencies: []string{
+			"kubevirt.io/api/instancetype/v1beta1.CPUPreferenceRequirement", "kubevirt.io/api/instancetype/v1beta1.MemoryPreferenceRequirement"},
 	}
 }
 
@@ -27979,11 +28051,17 @@ func schema_kubevirtio_api_instancetype_v1beta1_VirtualMachinePreferenceSpec(ref
 							Format:      "int64",
 						},
 					},
+					"requirements": {
+						SchemaProps: spec.SchemaProps{
+							Description: "Requirements defines the minium amount of instance type defined resources required by a set of preferences",
+							Ref:         ref("kubevirt.io/api/instancetype/v1beta1.PreferenceRequirements"),
+						},
+					},
 				},
 			},
 		},
 		Dependencies: []string{
-			"kubevirt.io/api/instancetype/v1beta1.CPUPreferences", "kubevirt.io/api/instancetype/v1beta1.ClockPreferences", "kubevirt.io/api/instancetype/v1beta1.DevicePreferences", "kubevirt.io/api/instancetype/v1beta1.FeaturePreferences", "kubevirt.io/api/instancetype/v1beta1.FirmwarePreferences", "kubevirt.io/api/instancetype/v1beta1.MachinePreferences", "kubevirt.io/api/instancetype/v1beta1.VolumePreferences"},
+			"kubevirt.io/api/instancetype/v1beta1.CPUPreferences", "kubevirt.io/api/instancetype/v1beta1.ClockPreferences", "kubevirt.io/api/instancetype/v1beta1.DevicePreferences", "kubevirt.io/api/instancetype/v1beta1.FeaturePreferences", "kubevirt.io/api/instancetype/v1beta1.FirmwarePreferences", "kubevirt.io/api/instancetype/v1beta1.MachinePreferences", "kubevirt.io/api/instancetype/v1beta1.PreferenceRequirements", "kubevirt.io/api/instancetype/v1beta1.VolumePreferences"},
 	}
 }
 
