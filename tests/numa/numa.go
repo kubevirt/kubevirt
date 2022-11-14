@@ -63,7 +63,7 @@ var _ = Describe("[sig-compute][Serial]NUMA", func() {
 
 		By("Checking if the pinned numa memory chunks match the VMI memory size")
 		scanner := bufio.NewScanner(strings.NewReader(getNUMAMapping(virtClient, handler, pid)))
-		rex := regexp.MustCompile(`bind:([0-9]+) .+memfd:.+N([0-9]+)=([0-9]+).+kernelpagesize_kB=([0-9]+)`)
+		rex := regexp.MustCompile(`bind:(\d+) .+memfd:.+N(\d+)=(\d+).+kernelpagesize_kB=(\d+)`)
 		mappings := map[int]mapping{}
 		for scanner.Scan() {
 			if findings := rex.FindStringSubmatch(scanner.Text()); findings != nil {
@@ -107,35 +107,24 @@ var _ = Describe("[sig-compute][Serial]NUMA", func() {
 
 func getQEMUPID(virtClient kubecli.KubevirtClient, handlerPod *k8sv1.Pod, vmi *v1.VirtualMachineInstance) string {
 	var stdout, stderr string
-	// The retry is a desperate try to cope with URG in case that URG is not catches by the script
-	// since URG keep ps failing
+	// Using `ps` here doesn't work reliably. Grepping /proc instead.
+	// The "[g]" prevents grep from finding its own process
 	Eventually(func() (err error) {
 		stdout, stderr, err = exec.ExecuteCommandOnPodWithResults(virtClient, handlerPod, "virt-handler",
 			[]string{
 				"/bin/bash",
 				"-c",
-				"trap '' URG && ps ax",
+				fmt.Sprintf("grep -l '[g]uest=%s_%s' /proc/*/cmdline", vmi.Namespace, vmi.Name),
 			})
 		return err
 	}, 3*time.Second, 500*time.Millisecond).Should(Succeed(), stderr)
 
-	pid := ""
-	for _, str := range strings.Split(stdout, "\n") {
-		if !strings.Contains(str, fmt.Sprintf("-name guest=%s_%s", vmi.Namespace, vmi.Name)) {
-			continue
-		}
-		words := strings.Fields(str)
+	strs := strings.Split(stdout, "\n")
+	Expect(strs).To(HaveLen(2), "more (or less?) than one matching process was found")
+	path := strings.Split(strs[0], "/")
+	Expect(path).To(HaveLen(4), "the cmdline path is invalid")
 
-		// verify it is numeric
-		_, err := strconv.Atoi(words[0])
-		Expect(err).ToNot(HaveOccurred(), "should have found pid for qemu that is numeric")
-
-		pid = words[0]
-		break
-	}
-
-	Expect(pid).ToNot(Equal(""), "qemu pid not found")
-	return pid
+	return path[2]
 }
 
 func getNUMAMapping(virtClient kubecli.KubevirtClient, pod *k8sv1.Pod, pid string) string {
