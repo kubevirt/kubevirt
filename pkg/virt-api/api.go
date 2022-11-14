@@ -214,6 +214,7 @@ func (app *virtAPIApp) composeSubresources() {
 	for _, version := range v1.SubresourceGroupVersions {
 		subresourcesvmGVR := schema.GroupVersionResource{Group: version.Group, Version: version.Version, Resource: "virtualmachines"}
 		subresourcesvmiGVR := schema.GroupVersionResource{Group: version.Group, Version: version.Version, Resource: "virtualmachineinstances"}
+		expandvmspecGVR := schema.GroupVersionResource{Group: version.Group, Version: version.Version, Resource: "expand-vm-spec"}
 
 		subws := new(restful.WebService)
 		subws.Doc(fmt.Sprintf("KubeVirt \"%s\" Subresource API.", version.Version))
@@ -378,7 +379,7 @@ func (app *virtAPIApp) composeSubresources() {
 			Operation(version.Version + "vm-PortForwardWithProtocol").
 			Doc("Open a websocket connection forwarding traffic of the specified protocol (either tcp or udp) to the specified VirtualMachine and port."))
 
-		subws.Route(subws.PUT(definitions.SubResourcePath("expand-spec")).
+		subws.Route(subws.PUT(definitions.NamespacedResourceBasePath(expandvmspecGVR)).
 			To(subresourceApp.ExpandSpecRequestHandler).
 			Operation(version.Version+"ExpandSpec").
 			Consumes(restful.MIME_JSON).

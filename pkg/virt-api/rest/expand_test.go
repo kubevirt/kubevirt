@@ -214,8 +214,10 @@ var _ = Describe("Instancetype expansion subresources", func() {
 		})
 	})
 
-	Context("expand-spec endpoint", func() {
+	Context("expand-vm-spec endpoint", func() {
 		callExpandSpecApi := func(vm *v1.VirtualMachine) *httptest.ResponseRecorder {
+			request.PathParameters()["namespace"] = vmNamespace
+
 			vmJson, err := json.Marshal(vm)
 			Expect(err).ToNot(HaveOccurred())
 			request.Request.Body = io.NopCloser(bytes.NewBuffer(vmJson))
@@ -227,6 +229,8 @@ var _ = Describe("Instancetype expansion subresources", func() {
 		testCommonFunctionality(callExpandSpecApi, http.StatusBadRequest)
 
 		It("should fail if received invalid JSON", func() {
+			request.PathParameters()["namespace"] = vmNamespace
+
 			invalidJson := "this is invalid JSON {{{{"
 			request.Request.Body = io.NopCloser(strings.NewReader(invalidJson))
 
@@ -235,6 +239,8 @@ var _ = Describe("Instancetype expansion subresources", func() {
 		})
 
 		It("should fail if received object is not a VirtualMachine", func() {
+			request.PathParameters()["namespace"] = vmNamespace
+
 			notVm := struct {
 				StringField string `json:"stringField"`
 				IntField    int    `json:"intField"`
