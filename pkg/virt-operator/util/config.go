@@ -329,26 +329,7 @@ func VerifyEnvWithEnvVarManager(envVarManager EnvVarManager) error {
 	// ensure the operator image is valid
 	imageString := GetOperatorImageWithEnvVarManager(envVarManager)
 	if imageString == "" {
-		return fmt.Errorf("empty env var %s for operator image", OldOperatorImageEnvName)
-	}
-	imageRegEx := regexp.MustCompile(operatorImageRegex)
-	matches := imageRegEx.FindAllStringSubmatch(imageString, 1)
-	if len(matches) != 1 || len(matches[0]) != 4 {
-		return fmt.Errorf("can not parse operator image env var %s", imageString)
-	}
-
-	// ensure that all or no shasums are given
-	missingShas := make([]string, 0)
-	count := 0
-	for _, name := range []string{VirtApiShasumEnvName, VirtControllerShasumEnvName, VirtHandlerShasumEnvName, VirtLauncherShasumEnvName, KubeVirtVersionEnvName} {
-		count++
-		sha := envVarManager.Getenv(name)
-		if sha == "" {
-			missingShas = append(missingShas, name)
-		}
-	}
-	if len(missingShas) > 0 && len(missingShas) < count {
-		return fmt.Errorf("incomplete configuration, missing env vars %v", missingShas)
+		return fmt.Errorf("cannot find virt-operator's image")
 	}
 
 	return nil
