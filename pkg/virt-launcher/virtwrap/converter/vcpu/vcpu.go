@@ -14,6 +14,7 @@ import (
 	v12 "kubevirt.io/api/core/v1"
 
 	v1 "kubevirt.io/kubevirt/pkg/handler-launcher-com/cmd/v1"
+	"kubevirt.io/kubevirt/pkg/util"
 	"kubevirt.io/kubevirt/pkg/virt-launcher/virtwrap/api"
 )
 
@@ -472,7 +473,9 @@ func AdjustDomainForTopologyAndCPUSet(domain *api.Domain, vmi *v12.VirtualMachin
 		// - VCPU Pin (DedicatedCPUPlacement)
 		// - USB controller should be disabled if no input type usb is found
 		// - Memballoning can be disabled when setting 'autoattachMemBalloon' to false
-		formatVCPUScheduler(domain, vmi)
+		if !util.IsNonRootVMI(vmi) {
+			formatVCPUScheduler(domain, vmi)
+		}
 		domain.Spec.Features.PMU = &api.FeatureState{State: "off"}
 	}
 
