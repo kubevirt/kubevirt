@@ -17,6 +17,9 @@ fi
 
 if [ -n "${OPENSHIFT_BUILD_NAMESPACE:-}" ]; then
     KUBECTL_BINARY="oc"
+    # TODO: brutal workaround to bypass SCC -> PSA on OCP >= 4.12, remove ASAP!!!
+    ${KUBECTL_BINARY} adm policy add-scc-to-group privileged system:authenticated
+    ######
 fi
 
 # when the tests are run in a pod, in-cluster config will be used

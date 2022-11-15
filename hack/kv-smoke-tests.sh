@@ -13,8 +13,18 @@ BIN_DIR="$(pwd)/_out" && mkdir -p "${BIN_DIR}"
 export BIN_DIR
 
 TESTS_BINARY="$BIN_DIR/kv_smoke_tests.test"
-curl -Lo "$TESTS_BINARY" "https://github.com/kubevirt/kubevirt/releases/download/${KUBEVIRT_VERSION}/tests.test"
+######
+# workaround for PSA on OCP 4.12:
+# TODO: remove this once https://github.com/kubevirt/kubevirt/pull/8748 will land in
+# Kubevirt v0.59.0
+#curl -Lo "$TESTS_BINARY" "https://github.com/kubevirt/kubevirt/releases/download/${KUBEVIRT_VERSION}/tests.test"
+curl -Lo "$TESTS_BINARY" "https://storage.googleapis.com/kubevirt-prow/devel/nightly/release/kubevirt/kubevirt/20221115/testing/tests.test"
+######
 chmod +x "$TESTS_BINARY"
+
+# TODO: brutal workaround to bypass SCC -> PSA on OCP >= 4.12, remove ASAP!!!
+${CMD} adm policy add-scc-to-group privileged system:authenticated
+######
 
 echo "create testing infrastructure"
 
