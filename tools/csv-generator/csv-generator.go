@@ -29,7 +29,8 @@ import (
 )
 
 const (
-	customImageExample = "Examples: some.registry.com@sha256:abcdefghijklmnop, other.registry.com:tag1"
+	customImageExample   = "Examples: some.registry.com@sha256:abcdefghijklmnop, other.registry.com:tag1"
+	shaEnvDeprecationMsg = "This argument is deprecated. Please use virt-*-image instead"
 )
 
 func main() {
@@ -40,12 +41,12 @@ func main() {
 	kubeVirtVersion := flag.String("kubeVirtVersion", "", "represents the KubeVirt releaseassociated with this CSV. Required when image SHAs are used.")
 	pullPolicy := flag.String("pullPolicy", "IfNotPresent", "ImagePullPolicy to use.")
 	verbosity := flag.String("verbosity", "2", "Verbosity level to use.")
-	apiSha := flag.String("apiSha", "", "virt-api image sha")
-	controllerSha := flag.String("controllerSha", "", "virt-controller image sha")
-	handlerSha := flag.String("handlerSha", "", "virt-handler image sha")
-	launcherSha := flag.String("launcherSha", "", "virt-launcher image sha")
-	exportProxySha := flag.String("exportProxySha", "", "virt-exportproxy image sha")
-	exportServerSha := flag.String("exportServerSha", "", "virt-exportserver image sha")
+	apiSha := flag.String("apiSha", "", "virt-api image sha. "+shaEnvDeprecationMsg)
+	controllerSha := flag.String("controllerSha", "", "virt-controller image sha. "+shaEnvDeprecationMsg)
+	handlerSha := flag.String("handlerSha", "", "virt-handler image sha. "+shaEnvDeprecationMsg)
+	launcherSha := flag.String("launcherSha", "", "virt-launcher image sha. "+shaEnvDeprecationMsg)
+	exportProxySha := flag.String("exportProxySha", "", "virt-exportproxy image sha. "+shaEnvDeprecationMsg)
+	exportServerSha := flag.String("exportServerSha", "", "virt-exportserver image sha. "+shaEnvDeprecationMsg)
 	gsSha := flag.String("gsSha", "", "libguestfs-tools image sha")
 	kubeVirtLogo := flag.String("kubevirtLogo", "", "kubevirt logo data in base64")
 	csvVersion := flag.String("csvVersion", "", "the CSV version being generated")
