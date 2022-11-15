@@ -46,15 +46,11 @@ var _ = Describe("Operator Config", func() {
 		}
 	}
 
-	DescribeTable("Parse image", func(image string, config *KubeVirtDeploymentConfig, valid bool) {
+	DescribeTable("Parse image", func(image string, config *KubeVirtDeploymentConfig) {
 		envVarManager.Setenv(OldOperatorImageEnvName, image)
 
 		err := VerifyEnv()
-		if valid {
-			Expect(err).ToNot(HaveOccurred())
-		} else {
-			Expect(err).To(HaveOccurred())
-		}
+		Expect(err).ToNot(HaveOccurred())
 
 		parsedConfig, err := GetConfigFromEnv()
 		Expect(err).ToNot(HaveOccurred())
@@ -62,12 +58,11 @@ var _ = Describe("Operator Config", func() {
 		Expect(parsedConfig.GetImageRegistry()).To(Equal(config.GetImageRegistry()), "registry should match")
 		Expect(parsedConfig.GetKubeVirtVersion()).To(Equal(config.GetKubeVirtVersion()), "tag should match")
 	},
-		Entry("without registry", "kubevirt/virt-operator:v123", getConfig("kubevirt", "v123"), true),
-		Entry("with registry", "reg/kubevirt/virt-operator:v123", getConfig("reg/kubevirt", "v123"), true),
-		Entry("with registry with port", "reg:1234/kubevirt/virt-operator:latest", getConfig("reg:1234/kubevirt", "latest"), true),
-		Entry("without tag", "kubevirt/virt-operator", getConfig("kubevirt", "latest"), true),
-		Entry("with shasum", "kubevirt/virt-operator@sha256:abcdef", getConfig("kubevirt", "latest"), true),
-		Entry("without shasum, with invalid image", "kubevirt/virt-xxx@sha256:abcdef", getConfig("", ""), false),
+		Entry("without registry", "kubevirt/virt-operator:v123", getConfig("kubevirt", "v123")),
+		Entry("with registry", "reg/kubevirt/virt-operator:v123", getConfig("reg/kubevirt", "v123")),
+		Entry("with registry with port", "reg:1234/kubevirt/virt-operator:latest", getConfig("reg:1234/kubevirt", "latest")),
+		Entry("without tag", "kubevirt/virt-operator", getConfig("kubevirt", "latest")),
+		Entry("with shasum", "kubevirt/virt-operator@sha256:abcdef", getConfig("kubevirt", "latest")),
 	)
 
 	getConfigWithShas := func(apiSha, controllerSha, handlerSha, launcherSha, version string) *KubeVirtDeploymentConfig {
@@ -92,7 +87,7 @@ var _ = Describe("Operator Config", func() {
 		}
 	}
 
-	DescribeTable("Read shasums", func(image string, envVersions *KubeVirtDeploymentConfig, expectedConfig *KubeVirtDeploymentConfig, useShasums, valid bool) {
+	DescribeTable("Read shasums", func(image string, envVersions *KubeVirtDeploymentConfig, expectedConfig *KubeVirtDeploymentConfig, useShasums bool) {
 		envVarManager.Setenv(OldOperatorImageEnvName, image)
 
 		envVarManager.Setenv(VirtApiShasumEnvName, envVersions.VirtApiSha)
@@ -102,11 +97,7 @@ var _ = Describe("Operator Config", func() {
 		envVarManager.Setenv(KubeVirtVersionEnvName, envVersions.KubeVirtVersion)
 
 		err := VerifyEnv()
-		if valid {
-			Expect(err).ToNot(HaveOccurred())
-		} else {
-			Expect(err).To(HaveOccurred())
-		}
+		Expect(err).ToNot(HaveOccurred())
 
 		parsedConfig, err := GetConfigFromEnv()
 		Expect(err).ToNot(HaveOccurred())
@@ -130,15 +121,11 @@ var _ = Describe("Operator Config", func() {
 		Entry("with no shasum given", "kubevirt/virt-operator:v123",
 			&KubeVirtDeploymentConfig{},
 			getConfig("kubevirt", "v123"),
-			false, true),
+			false),
 		Entry("with all shasums given", "kubevirt/virt-operator@sha256:operator",
 			getConfigWithShas("sha256:api", "sha256:controller", "sha256:handler", "sha256:launcher", "v234"),
 			getFullConfig("kubevirt", "sha256:operator", "sha256:api", "sha256:controller", "sha256:handler", "sha256:launcher", "v234"),
-			true, true),
-		Entry("with shasums given should fail if not all are provided", "kubevirt/virt-operator:v123",
-			getConfigWithShas("sha256:api", "sha256:controller", "", "", ""),
-			getConfig("kubevirt", "v123"),
-			false, false),
+			true),
 	)
 
 	Describe("GetPassthroughEnv()", func() {
@@ -360,5 +347,25 @@ var _ = Describe("Operator Config", func() {
 			Expect(parsedConfig.VirtExportProxyImage).To(Equal(exportProxyImage), errMsg)
 			Expect(parsedConfig.VirtExportServerImage).To(Equal(exportServerImage), errMsg)
 		})
+
+		DescribeTable("when virt-operator image is", func(envVarName string, isValid bool) {
+			const image = "some.registry.io/virt-operator@sha256:abcdefg"
+
+			if envVarName != "" {
+				err := envVarManager.Setenv(envVarName, image)
+				Expect(err).ToNot(HaveOccurred())
+			}
+
+			err := VerifyEnv()
+			if isValid {
+				Expect(err).ToNot(HaveOccurred())
+			} else {
+				Expect(err).To(HaveOccurred())
+			}
+		},
+			Entry(fmt.Sprintf("provided via new %s env variable - expected to pass", VirtOperatorImageEnvName), VirtOperatorImageEnvName, true),
+			Entry(fmt.Sprintf("provided via old %s env variable - expected to pass", OldOperatorImageEnvName), OldOperatorImageEnvName, true),
+			Entry("not provided at all - expected to fail", "", false),
+		)
 	})
 })
