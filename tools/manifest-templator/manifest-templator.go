@@ -42,7 +42,8 @@ import (
 )
 
 const (
-	customImageExample = "Examples: some.registry.com@sha256:abcdefghijklmnop, other.registry.com:tag1"
+	customImageExample   = "Examples: some.registry.com@sha256:abcdefghijklmnop, other.registry.com:tag1"
+	shaEnvDeprecationMsg = "This argument is deprecated. Please use virt-*-image instead"
 )
 
 type templateData struct {
@@ -102,13 +103,13 @@ func main() {
 	packageName := flag.String("package-name", "", "")
 	bundleOutDir := flag.String("bundle-out-dir", "", "")
 	quayRepository := flag.String("quay-repository", "", "")
-	virtOperatorSha := flag.String("virt-operator-sha", "", "")
-	virtApiSha := flag.String("virt-api-sha", "", "")
-	virtControllerSha := flag.String("virt-controller-sha", "", "")
-	virtHandlerSha := flag.String("virt-handler-sha", "", "")
-	virtLauncherSha := flag.String("virt-launcher-sha", "", "")
-	virtExportProxySha := flag.String("virt-exportproxy-sha", "", "")
-	virtExportServerSha := flag.String("virt-exportserver-sha", "", "")
+	virtOperatorSha := flag.String("virt-operator-sha", "", shaEnvDeprecationMsg)
+	virtApiSha := flag.String("virt-api-sha", "", shaEnvDeprecationMsg)
+	virtControllerSha := flag.String("virt-controller-sha", "", shaEnvDeprecationMsg)
+	virtHandlerSha := flag.String("virt-handler-sha", "", shaEnvDeprecationMsg)
+	virtLauncherSha := flag.String("virt-launcher-sha", "", shaEnvDeprecationMsg)
+	virtExportProxySha := flag.String("virt-exportproxy-sha", "", shaEnvDeprecationMsg)
+	virtExportServerSha := flag.String("virt-exportserver-sha", "", shaEnvDeprecationMsg)
 	gsSha := flag.String("gs-sha", "", "")
 	featureGates := flag.String("feature-gates", "", "")
 	infraReplicas := flag.Uint("infra-replicas", 0, "")
