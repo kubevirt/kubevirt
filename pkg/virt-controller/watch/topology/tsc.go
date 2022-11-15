@@ -123,11 +123,18 @@ func ToTSCSchedulableLabel(frequency int64) string {
 }
 
 func AreTSCFrequencyTopologyHintsDefined(vmi *k6tv1.VirtualMachineInstance) bool {
-	return vmi != nil && vmi.Status.TopologyHints != nil && vmi.Status.TopologyHints.TSCFrequency != nil
+	if vmi == nil {
+		return false
+	}
+
+	topologyHints := vmi.Status.TopologyHints
+	return topologyHints != nil && topologyHints.TSCFrequency != nil && *topologyHints.TSCFrequency > 0
 }
 
 func IsManualTSCFrequencyRequired(vmi *k6tv1.VirtualMachineInstance) bool {
-	return GetTscFrequencyRequirement(vmi).Type != NotRequired
+	return vmi != nil &&
+		GetTscFrequencyRequirement(vmi).Type != NotRequired &&
+		AreTSCFrequencyTopologyHintsDefined(vmi)
 }
 
 func GetTscFrequencyRequirement(vmi *k6tv1.VirtualMachineInstance) TscFrequencyRequirement {

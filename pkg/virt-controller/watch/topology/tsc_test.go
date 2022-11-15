@@ -76,8 +76,15 @@ var _ = Describe("TSC", func() {
 
 	Context("needs to be set when", func() {
 
+		newVmi := func(options ...libvmi.Option) *v1.VirtualMachineInstance {
+			vmi := libvmi.New(options...)
+			vmi.Status.TopologyHints = &v1.TopologyHints{TSCFrequency: pointer.Int64(12345)}
+
+			return vmi
+		}
+
 		It("invtsc feature exists", func() {
-			vmi := libvmi.New(
+			vmi := newVmi(
 				libvmi.WithCPUFeature("invtsc", "require"),
 			)
 
@@ -85,7 +92,7 @@ var _ = Describe("TSC", func() {
 		})
 
 		It("HyperV reenlightenment is enabled", func() {
-			vmi := libvmi.New()
+			vmi := newVmi()
 			vmi.Spec.Domain.Features = &v1.Features{
 				Hyperv: &v1.FeatureHyperv{
 					Reenlightenment: &v1.FeatureState{Enabled: pointer.Bool(true)},

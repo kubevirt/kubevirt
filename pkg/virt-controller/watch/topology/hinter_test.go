@@ -78,7 +78,7 @@ var _ = Describe("Hinter", func() {
 		)
 		hinter.arch = arch
 		vmi := vmiWithoutTSCFrequency("myvmi")
-		g.Expect(hinter.IsTscFrequencyRequiredForBoot(vmi)).To(g.BeFalse())
+		g.Expect(hinter.IsTscFrequencyRequired(vmi)).To(g.BeFalse())
 
 		hints, _, err := hinter.TopologyHintsForVMI(vmi)
 		g.Expect(hints).To(g.BeNil())
