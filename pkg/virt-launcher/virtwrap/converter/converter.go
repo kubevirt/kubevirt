@@ -1991,7 +1991,7 @@ func hasTabletDevice(vmi *v1.VirtualMachineInstance) bool {
 	return false
 }
 
-func CalcDomDevice(ctx *ConverterContext, iface v1.VirtualMachineInstanceNetworkInterface) api.Interface {
+func CalcDomDevice(ctx *ConverterContext, iface v1.Network) api.Interface {
 	return api.Interface{
 		Type: "ethernet",
 		Target: &api.InterfaceTarget{

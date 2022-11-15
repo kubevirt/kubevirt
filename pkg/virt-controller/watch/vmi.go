@@ -608,10 +608,6 @@ func (c *VMIController) updateStatus(vmi *virtv1.VirtualMachineInstance, pod *k8
 		}
 		vmiCopy = c.setLauncherContainerInfo(vmiCopy, foundImage)
 
-		if err := c.updateInterfaceStatus(vmiCopy, pod); err != nil {
-			log.Log.Errorf("failed to update the interface status: %v", err)
-		}
-
 	case vmi.IsScheduled():
 		// Nothing here
 		break
@@ -2214,68 +2210,6 @@ func nonDefaultPodMultusNetworksIndexedByIfaceName(pod *k8sv1.Pod) map[string]ne
 	return indexedNetworkStatus
 }
 
-func (c *VMIController) updateInterfaceStatus(vmi *virtv1.VirtualMachineInstance, pod *k8sv1.Pod) error {
-	originalVMIStatus := vmi.Status.DeepCopy().Interfaces
-	indexedVMIStatus := indexIfaceStatus(originalVMIStatus)
-
-	vmiSpecNetworks := vmi.Spec.Networks
-	indexedVMINetworks := map[string]virtv1.Network{}
-	for _, network := range vmiSpecNetworks {
-		indexedVMINetworks[network.Name] = network
-	}
-
-	indexedHotpluggedIfaces := map[string]virtv1.Interface{}
-	for _, iface := range hotpluggedInterfaces(vmi) {
-		indexedHotpluggedIfaces[iface.Name] = iface
-	}
-
-	var newStatus []virtv1.VirtualMachineInstanceNetworkInterface
-	for _, network := range vmi.Spec.Networks {
-		status := virtv1.VirtualMachineInstanceNetworkInterface{Name: network.Name}
-		if _, ok := indexedVMIStatus[network.Name]; ok {
-			// Already have the status, modify if needed
-			status = indexedVMIStatus[network.Name]
-			if status.HotplugInterface != nil && status.HotplugInterface.Phase == virtv1.InterfaceHotplugPhasePending {
-				if _, found := nonDefaultMultusNetworksIndexedByIfaceName(pod)[namescheme.HashNetworkName(network.Name)]; found {
-					status.HotplugInterface.Phase = virtv1.InterfaceHotplugPhaseAttachedToPod
-				}
-			}
-		}
-		// Remove from map so I can detect existing interfaces that have been removed from spec.
-		delete(indexedVMIStatus, network.Name)
-		if _, ok := indexedHotpluggedIfaces[network.Name]; ok {
-			if status.HotplugInterface == nil {
-				hotplugPhase := virtv1.InterfaceHotplugPhasePending
-				if _, found := nonDefaultMultusNetworksIndexedByIfaceName(pod)[namescheme.HashNetworkName(network.Name)]; found {
-					hotplugPhase = virtv1.InterfaceHotplugPhaseAttachedToPod
-				}
-				status.HotplugInterface = &virtv1.HotplugInterfaceStatus{
-					Phase: hotplugPhase,
-					Type:  virtv1.Plug,
-				}
-			}
-
-			status.InterfaceName = extractIfaceNameFromNetworkName(network)
-		}
-		newStatus = append(newStatus, status)
-	}
-
-	for _, ifaceStatus := range indexedVMIStatus {
-		unplugIfaceStatus := &virtv1.HotplugInterfaceStatus{
-			Phase: virtv1.InterfaceHotplugPhasePending,
-			Type:  virtv1.Unplug,
-		}
-		if ifaceStatus.HotplugInterface != nil && ifaceStatus.HotplugInterface.Type == virtv1.Unplug {
-			unplugIfaceStatus = ifaceStatus.HotplugInterface
-		}
-		ifaceStatus.HotplugInterface = unplugIfaceStatus
-		newStatus = append(newStatus, ifaceStatus)
-	}
-	vmi.Status.Interfaces = newStatus
-
-	return nil
-}
-
 func indexIfaceStatus(oldIfaceStatus []virtv1.VirtualMachineInstanceNetworkInterface) map[string]virtv1.VirtualMachineInstanceNetworkInterface {
 	indexedIfaceStatus := make(map[string]virtv1.VirtualMachineInstanceNetworkInterface)
 	for _, ifaceStatus := range oldIfaceStatus {
@@ -2297,33 +2231,4 @@ func hotpluggedInterfaces(vmi *virtv1.VirtualMachineInstance) []virtv1.Interface
 		}
 	}
 	return hotpluggedIfaces
-}
-
-func extractIfaceNameFromNetworkName(network virtv1.Network) string {
-	if network.NetworkSource.Multus != nil {
-		multusNetworkName := network.NetworkSource.Multus.NetworkName
-		return strings.Replace(network.Name, fmt.Sprintf("%s_", multusNetworkName), "", 1)
-	}
-	return ""
-}
-
-func nonDefaultMultusNetworksIndexedByIfaceName(pod *k8sv1.Pod) map[string]networkv1.NetworkStatus {
-	indexedNetworkStatus := map[string]networkv1.NetworkStatus{}
-	podNetworkStatus, found := pod.Annotations[networkv1.NetworkStatusAnnot]
-	if !found {
-		return indexedNetworkStatus
-	}
-	var networkStatus []networkv1.NetworkStatus
-	if err := json.Unmarshal([]byte(podNetworkStatus), &networkStatus); err != nil {
-		log.Log.Errorf("failed to unmarshall pod network status: %v", err)
-		return indexedNetworkStatus
-	}
-
-	for _, ns := range networkStatus {
-		if ns.Default {
-			continue
-		}
-		indexedNetworkStatus[ns.Interface] = ns
-	}
-	return indexedNetworkStatus
 }

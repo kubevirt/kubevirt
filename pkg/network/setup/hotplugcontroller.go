@@ -10,12 +10,9 @@ import (
 )
 
 type ConcreteController struct {
-	indexedIfaceStatus map[string]v1.VirtualMachineInstanceNetworkInterface
-	ifaceCacheFactory  cache.CacheCreator
-	hotpluggedIfaces   []v1.VirtualMachineInstanceNetworkInterface
-	removedIfaces      []v1.VirtualMachineInstanceNetworkInterface
-	vmi                *v1.VirtualMachineInstance
-	nsFactory          nsFactory
+	ifaceCacheFactory cache.CacheCreator
+	vmi               *v1.VirtualMachineInstance
+	nsFactory         nsFactory
 }
 
 func NewInterfaceController(cacheFactory cache.CacheCreator, ns nsFactory) *ConcreteController {
@@ -25,8 +22,8 @@ func NewInterfaceController(cacheFactory cache.CacheCreator, ns nsFactory) *Conc
 	}
 }
 
-func (c *ConcreteController) HotplugIface(iface *v1.VirtualMachineInstanceNetworkInterface, launcherPID int) error {
-	log.Log.V(4).Infof("creating networking infra for network: %s, iface %s", iface.Name, iface.InterfaceName)
+func (c *ConcreteController) HotplugIface(iface *v1.Network, launcherPID int) error {
+	log.Log.V(4).Infof("creating networking infra for network: %s", iface.Name)
 	if err := c.nsFactory(launcherPID).Do(func() error {
 		return NewVMNetworkConfigurator(
 			c.vmi,
@@ -40,95 +37,58 @@ func (c *ConcreteController) HotplugIface(iface *v1.VirtualMachineInstanceNetwor
 }
 
 func (c *ConcreteController) HotplugIfaces(vmi *v1.VirtualMachineInstance, launcherPID int) error {
-	c.init(vmi)
-	for ifaceName, ifaceStatus := range c.indexedIfaceStatus {
-		log.Log.V(4).Infof("checking hot-plug status for iface: %s", ifaceName)
-		if IsHotplugOperationPending(ifaceStatus) {
-			log.Log.Errorf("pod iface %s does not exist yet", ifaceName)
-		} else if IsPodNetworkingInfraToBeCreated(ifaceStatus) {
-			log.Log.V(4).Infof("creating networking infra for iface %s", ifaceName)
-			if err := c.HotplugIface(&ifaceStatus, launcherPID); err != nil {
-				c.hotpluggedIfaces = append(c.hotpluggedIfaces, *failedHotplugStatus(ifaceStatus, "failed to create tap + bridge on pod"))
-				return fmt.Errorf("error plugging interface [%s]: %w", ifaceName, err)
-			}
-			c.hotpluggedIfaces = append(c.hotpluggedIfaces, *infraReadyHotplugStatus(ifaceStatus))
-			log.Log.V(4).Infof("successfully created networking infra for iface: %s", ifaceName)
-			c.indexedIfaceStatus[ifaceName] = *infraReadyHotplugStatus(ifaceStatus)
-		} else if ifaceStatus.HotplugInterface != nil && ifaceStatus.HotplugInterface.Type == v1.Unplug {
-			log.Log.V(4).Infof("unplug iface: %s", ifaceName)
-			c.removedIfaces = append(c.removedIfaces, *unplugStatus(ifaceStatus))
-		} else {
-			log.Log.V(4).Info("pod networking infra already created, nothing to do here ...")
+	c.vmi = vmi
+
+	ifacesToHotplug := InterfacesToHotplug(vmi)
+	for i, ifaceToPlug := range ifacesToHotplug {
+		log.Log.V(4).Infof("creating networking infra for iface %s", ifaceToPlug.Name)
+		if err := c.HotplugIface(&ifacesToHotplug[i], launcherPID); err != nil {
+			return fmt.Errorf("error plugging interface [%s]: %w", ifaceToPlug.Name, err)
 		}
+		log.Log.V(4).Infof("successfully created networking infra for iface: %s", ifaceToPlug.Name)
 	}
 
-	c.mergeInterfaceStatus()
+	// TODO - cleanup binding mechanism resources for unplugged ifaces
+
 	return nil
 }
 
-func (c *ConcreteController) init(vmi *v1.VirtualMachineInstance) {
-	c.hotpluggedIfaces = nil
-	c.removedIfaces = nil
-
-	indexedVMIStatus := map[string]v1.VirtualMachineInstanceNetworkInterface{}
-	for i, vmiStatus := range vmi.Status.Interfaces {
-		if IsPodNetworkingInfraToBeCreated(vmi.Status.Interfaces[i]) {
-			indexedVMIStatus[vmiStatus.Name] = vmiStatus
+func InterfacesToHotplug(vmi *v1.VirtualMachineInstance) []v1.Network {
+	var ifacesToHotplug []v1.Network
+	indexedIfacesFromStatus := indexedInterfacesFromStatus(vmi.Status.Interfaces)
+	indexedNetsFromSpec := indexedNetworksFromSpec(vmi.Spec.Networks)
+	for ifaceName, iface := range indexedNetsFromSpec {
+		if _, wasFound := indexedIfacesFromStatus[ifaceName]; !wasFound {
+			ifacesToHotplug = append(ifacesToHotplug, iface)
 		}
 	}
-	c.indexedIfaceStatus = indexedVMIStatus
-	c.vmi = vmi
+	return ifacesToHotplug
 }
 
-func (c *ConcreteController) DynamicIfaceAttachmentStatus() []v1.VirtualMachineInstanceNetworkInterface {
-	return append(c.hotpluggedIfaces, c.removedIfaces...)
-}
-
-func (c *ConcreteController) mergeInterfaceStatus() {
-	for i := range c.vmi.Status.Interfaces {
-		iface := c.vmi.Status.Interfaces[i]
-
-		if updatedIface, wasFound := c.indexedIfaceStatus[iface.Name]; wasFound {
-			c.vmi.Status.Interfaces[i] = updatedIface
+func InterfacesToHotUnplug(vmi *v1.VirtualMachineInstance) []v1.VirtualMachineInstanceNetworkInterface {
+	var ifacesToUnplug []v1.VirtualMachineInstanceNetworkInterface
+	indexedIfacesFromStatus := indexedInterfacesFromStatus(vmi.Status.Interfaces)
+	indexedNetsFromSpec := indexedNetworksFromSpec(vmi.Spec.Networks)
+	for ifaceName, iface := range indexedIfacesFromStatus {
+		if _, wasFound := indexedNetsFromSpec[ifaceName]; !wasFound {
+			ifacesToUnplug = append(ifacesToUnplug, iface)
 		}
 	}
+	return ifacesToUnplug
 }
 
-func failedHotplugStatus(ifaceStatus v1.VirtualMachineInstanceNetworkInterface, extraMsg string) *v1.VirtualMachineInstanceNetworkInterface {
-	newStatus := ifaceStatus.DeepCopy()
-	newStatus.HotplugInterface.Phase = v1.InterfaceHotplugPhaseFailed
-	newStatus.HotplugInterface.DetailedMessage = extraMsg
-	return newStatus
+func indexedInterfacesFromStatus(interfaces []v1.VirtualMachineInstanceNetworkInterface) map[string]v1.VirtualMachineInstanceNetworkInterface {
+	indexedInterfaceStatus := map[string]v1.VirtualMachineInstanceNetworkInterface{}
+	for _, iface := range interfaces {
+		indexedInterfaceStatus[iface.Name] = iface
+	}
+	return indexedInterfaceStatus
 }
 
-func infraReadyHotplugStatus(ifaceStatus v1.VirtualMachineInstanceNetworkInterface) *v1.VirtualMachineInstanceNetworkInterface {
-	newStatus := ifaceStatus.DeepCopy()
-	newStatus.HotplugInterface.Phase = v1.InterfaceHotplugPhaseInfraReady
-	newStatus.HotplugInterface.DetailedMessage = ""
-	return newStatus
-}
-
-func IsHotplugOperationPending(dynamicIface v1.VirtualMachineInstanceNetworkInterface) bool {
-	return dynamicIface.HotplugInterface != nil &&
-		dynamicIface.HotplugInterface.Type == v1.Plug &&
-		dynamicIface.HotplugInterface.Phase == v1.InterfaceHotplugPhasePending
-}
-
-func IsPodNetworkingInfraToBeCreated(dynamicIface v1.VirtualMachineInstanceNetworkInterface) bool {
-	return dynamicIface.HotplugInterface != nil &&
-		dynamicIface.HotplugInterface.Type == v1.Plug &&
-		dynamicIface.HotplugInterface.Phase == v1.InterfaceHotplugPhaseAttachedToPod
-}
-
-func IsPodInfraReady(dynamicIface v1.VirtualMachineInstanceNetworkInterface) bool {
-	return dynamicIface.HotplugInterface != nil &&
-		dynamicIface.HotplugInterface.Type == v1.Plug &&
-		(dynamicIface.HotplugInterface.Phase == v1.InterfaceHotplugPhaseInfraReady)
-}
-
-func unplugStatus(ifaceStatus v1.VirtualMachineInstanceNetworkInterface) *v1.VirtualMachineInstanceNetworkInterface {
-	newStatus := ifaceStatus.DeepCopy()
-	newStatus.HotplugInterface.Phase = v1.InterfaceHotplugPhaseInfraReady
-	newStatus.HotplugInterface.DetailedMessage = ""
-	return newStatus
+func indexedNetworksFromSpec(networks []v1.Network) map[string]v1.Network {
+	indexedNetworks := map[string]v1.Network{}
+	for _, network := range networks {
+		indexedNetworks[network.Name] = network
+	}
+	return indexedNetworks
 }

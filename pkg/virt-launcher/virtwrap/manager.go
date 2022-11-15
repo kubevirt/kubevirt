@@ -973,8 +973,8 @@ func (l *LibvirtDomainManager) SyncVMI(vmi *v1.VirtualMachineInstance, allowEmul
 		}
 	}
 
-	for _, iface := range networkIfacesToHotplug(vmi) {
-		log.Log.Infof("will hot plug %+v with hot-plugged status: %+v", iface, iface.HotplugInterface)
+	for _, iface := range netsetup.InterfacesToHotplug(vmi) {
+		log.Log.Infof("will hot plug %+v", iface)
 		ifaceXML, err := xml.Marshal(converter.CalcDomDevice(c, iface))
 		if err != nil {
 			continue
@@ -986,7 +986,7 @@ func (l *LibvirtDomainManager) SyncVMI(vmi *v1.VirtualMachineInstance, allowEmul
 		}
 	}
 
-	for _, iface := range networkIfacesToHotUnplug(vmi) {
+	for _, iface := range netsetup.InterfacesToHotUnplug(vmi) {
 		log.Log.Infof("will hot unplug %+v having status: %+v", iface, iface.HotplugInterface)
 		ifaceXML, err := xml.Marshal(converter.CalcDomDeviceWithMac(iface))
 		if err != nil {
@@ -1980,26 +1980,4 @@ func getDomainCreateFlags(vmi *v1.VirtualMachineInstance) libvirt.DomainCreateFl
 		flags |= libvirt.DOMAIN_START_PAUSED
 	}
 	return flags
-}
-
-func networkIfacesToHotplug(vmi *v1.VirtualMachineInstance) []v1.VirtualMachineInstanceNetworkInterface {
-	var hotpluggedIfaces []v1.VirtualMachineInstanceNetworkInterface
-	for i, iface := range vmi.Status.Interfaces {
-		if netsetup.IsPodInfraReady(iface) {
-			hotpluggedIfaces = append(hotpluggedIfaces, vmi.Status.Interfaces[i])
-		}
-	}
-	return hotpluggedIfaces
-}
-
-func networkIfacesToHotUnplug(vmi *v1.VirtualMachineInstance) []v1.VirtualMachineInstanceNetworkInterface {
-	var hotpluggedIfaces []v1.VirtualMachineInstanceNetworkInterface
-	for i, iface := range vmi.Status.Interfaces {
-		if iface.HotplugInterface != nil &&
-			iface.HotplugInterface.Type == v1.Unplug &&
-			iface.HotplugInterface.Phase == v1.InterfaceHotplugPhasePending {
-			hotpluggedIfaces = append(hotpluggedIfaces, vmi.Status.Interfaces[i])
-		}
-	}
-	return hotpluggedIfaces
 }
