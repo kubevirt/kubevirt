@@ -119,6 +119,7 @@ go_library(
 go_test(
     name = "go_default_test",
     srcs = [
+        "instancetype_test.go",
         "kubecli_suite_test.go",
         "kv_test.go",
         "migration_test.go",

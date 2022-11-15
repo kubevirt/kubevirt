@@ -309,6 +309,10 @@ var _ = Describe("[rfe_id:500][crit:high][arm64][vendor:cnv-qe@redhat.com][level
 				"virtualmachines", "restart",
 				allowUpdateFor("admin", "edit"),
 				denyAllFor("view", "default")),
+			Entry("on vm expand-spec",
+				"virtualmachines", "expand-spec",
+				allowGetFor("admin", "edit", "view"),
+				denyAllFor("default")),
 			Entry("on vmi guestosinfo",
 				"virtualmachineinstances", "guestosinfo",
 				allowGetFor("admin", "edit", "view"),
@@ -317,7 +321,6 @@ var _ = Describe("[rfe_id:500][crit:high][arm64][vendor:cnv-qe@redhat.com][level
 				"virtualmachineinstances", "userlist",
 				allowGetFor("admin", "edit", "view"),
 				denyAllFor("default")),
-
 			Entry("on vmi filesystemlist",
 				"virtualmachineinstances", "filesystemlist",
 				allowGetFor("admin", "edit", "view"),
@@ -349,6 +352,10 @@ var _ = Describe("[rfe_id:500][crit:high][arm64][vendor:cnv-qe@redhat.com][level
 			Entry("on vmi vsock",
 				"virtualmachineinstances", "vsock",
 				denyAllFor("admin", "edit", "view", "default")),
+			Entry("on expand-vm-spec",
+				"expand-vm-spec", "",
+				allowUpdateFor("admin", "edit", "view"),
+				denyAllFor("default")),
 		)
 	})
 
