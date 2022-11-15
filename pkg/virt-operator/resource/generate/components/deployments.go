@@ -609,46 +609,14 @@ func NewOperatorDeployment(namespace, repository, imagePrefix, version, verbosit
 		},
 	}
 
-	if virtApiShaEnv != "" && virtControllerShaEnv != "" && virtHandlerShaEnv != "" && virtLauncherShaEnv != "" && kubeVirtVersionEnv != "" {
-		shaSums := []corev1.EnvVar{
-			{
-				Name:  operatorutil.KubeVirtVersionEnvName,
-				Value: kubeVirtVersionEnv,
-			},
-			{
-				Name:  operatorutil.VirtApiShasumEnvName,
-				Value: virtApiShaEnv,
-			},
-			{
-				Name:  operatorutil.VirtControllerShasumEnvName,
-				Value: virtControllerShaEnv,
-			},
-			{
-				Name:  operatorutil.VirtHandlerShasumEnvName,
-				Value: virtHandlerShaEnv,
-			},
-			{
-				Name:  operatorutil.VirtLauncherShasumEnvName,
-				Value: virtLauncherShaEnv,
-			},
-			{
-				Name:  operatorutil.VirtExportProxyShasumEnvName,
-				Value: virtExportProxyShaEnv,
-			},
-			{
-				Name:  operatorutil.VirtExportServerShasumEnvName,
-				Value: virtExportServerShaEnv,
-			},
-		}
-		if gsShaEnv != "" {
-			shaSums = append(shaSums, corev1.EnvVar{
-				Name:  operatorutil.GsEnvShasumName,
-				Value: gsShaEnv,
-			})
-		}
-		env := deployment.Spec.Template.Spec.Containers[0].Env
-		env = append(env, shaSums...)
-		deployment.Spec.Template.Spec.Containers[0].Env = env
+	envVars := generateVirtOperatorEnvVars(
+		virtApiShaEnv, virtControllerShaEnv, virtHandlerShaEnv, virtLauncherShaEnv, virtExportProxyShaEnv, virtExportServerShaEnv,
+		gsShaEnv, virtApiImageEnv, virtControllerImageEnv, virtHandlerImageEnv, virtLauncherImageEnv, virtExportProxyImageEnv,
+		virtExportServerImageEnv, kubeVirtVersionEnv,
+	)
+
+	if envVars != nil {
+		deployment.Spec.Template.Spec.Containers[0].Env = append(deployment.Spec.Template.Spec.Containers[0].Env, envVars...)
 	}
 
 	attachCertificateSecret(&deployment.Spec.Template.Spec, VirtOperatorCertSecretName, "/etc/virt-operator/certificates")
@@ -775,4 +743,65 @@ func NewPodDisruptionBudgetForDeployment(deployment *appsv1.Deployment) *policyv
 		},
 	}
 	return podDisruptionBudget
+}
+
+func generateVirtOperatorEnvVars(virtApiShaEnv, virtControllerShaEnv, virtHandlerShaEnv, virtLauncherShaEnv, virtExportProxyShaEnv,
+	virtExportServerShaEnv, gsShaEnv, virtApiImageEnv, virtControllerImageEnv, virtHandlerImageEnv, virtLauncherImageEnv, virtExportProxyImageEnv,
+	virtExportServerImageEnv, kubeVirtVersionEnv string) (envVars []corev1.EnvVar) {
+
+	addEnvVar := func(envVarName, envVarValue string) {
+		envVars = append(envVars, corev1.EnvVar{
+			Name:  envVarName,
+			Value: envVarValue,
+		})
+	}
+
+	// Since sha environment variables are being deprecated in favor of the new full-image variables, they are being ignored
+	// if full-image variables exist. This can be simplified once the deprecated environment variables would be removed.
+
+	if virtApiImageEnv != "" {
+		addEnvVar(operatorutil.VirtApiImageEnvName, virtApiImageEnv)
+	} else if virtApiShaEnv != "" {
+		addEnvVar(operatorutil.VirtApiShasumEnvName, virtApiShaEnv)
+	}
+
+	if virtControllerImageEnv != "" {
+		addEnvVar(operatorutil.VirtControllerImageEnvName, virtControllerImageEnv)
+	} else if virtControllerShaEnv != "" {
+		addEnvVar(operatorutil.VirtControllerShasumEnvName, virtControllerShaEnv)
+	}
+
+	if virtHandlerImageEnv != "" {
+		addEnvVar(operatorutil.VirtHandlerImageEnvName, virtHandlerImageEnv)
+	} else if virtHandlerShaEnv != "" {
+		addEnvVar(operatorutil.VirtHandlerShasumEnvName, virtHandlerShaEnv)
+	}
+
+	if virtLauncherImageEnv != "" {
+		addEnvVar(operatorutil.VirtLauncherImageEnvName, virtLauncherImageEnv)
+	} else if virtLauncherShaEnv != "" {
+		addEnvVar(operatorutil.VirtLauncherShasumEnvName, virtLauncherShaEnv)
+	}
+
+	if virtExportProxyImageEnv != "" {
+		addEnvVar(operatorutil.VirtExportProxyImageEnvName, virtExportProxyImageEnv)
+	} else if virtExportProxyShaEnv != "" {
+		addEnvVar(operatorutil.VirtExportProxyShasumEnvName, virtExportProxyShaEnv)
+	}
+
+	if virtExportServerImageEnv != "" {
+		addEnvVar(operatorutil.VirtExportServerImageEnvName, virtExportServerImageEnv)
+	} else if virtExportServerShaEnv != "" {
+		addEnvVar(operatorutil.VirtExportServerShasumEnvName, virtExportServerShaEnv)
+	}
+
+	if kubeVirtVersionEnv != "" {
+		addEnvVar(operatorutil.KubeVirtVersionEnvName, kubeVirtVersionEnv)
+	}
+
+	if gsShaEnv != "" {
+		addEnvVar(operatorutil.GsEnvShasumName, gsShaEnv)
+	}
+
+	return envVars
 }
