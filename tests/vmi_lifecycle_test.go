@@ -23,11 +23,12 @@ import (
 	"context"
 	"errors"
 	"fmt"
-	"kubevirt.io/kubevirt/tests/framework/checks"
 	"net/http"
 	"os"
 	"strings"
 	"time"
+
+	"kubevirt.io/kubevirt/tests/framework/checks"
 
 	expect "github.com/google/goexpect"
 	. "github.com/onsi/ginkgo/v2"
