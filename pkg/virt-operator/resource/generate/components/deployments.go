@@ -482,7 +482,8 @@ func NewControllerDeployment(namespace, repository, imagePrefix, controllerVersi
 
 // Used for manifest generation only
 func NewOperatorDeployment(namespace, repository, imagePrefix, version, verbosity, kubeVirtVersionEnv, virtApiShaEnv, virtControllerShaEnv, virtHandlerShaEnv, virtLauncherShaEnv, virtExportProxyShaEnv,
-	virtExportServerShaEnv, gsShaEnv, image string, pullPolicy corev1.PullPolicy) (*appsv1.Deployment, error) {
+	virtExportServerShaEnv, gsShaEnv, virtApiImageEnv, virtControllerImageEnv, virtHandlerImageEnv, virtLauncherImageEnv, virtExportProxyImageEnv, virtExportServerImageEnv,
+	image string, pullPolicy corev1.PullPolicy) (*appsv1.Deployment, error) {
 
 	const kubernetesOSLinux = "linux"
 	podAntiAffinity := newPodAntiAffinity(kubevirtLabelKey, kubernetesHostnameTopologyKey, metav1.LabelSelectorOpIn, []string{VirtOperatorName})
