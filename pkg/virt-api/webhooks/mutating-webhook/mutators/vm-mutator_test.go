@@ -23,6 +23,8 @@ import (
 	"encoding/json"
 	"net/http"
 
+	"k8s.io/utils/pointer"
+
 	"github.com/golang/mock/gomock"
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
@@ -285,6 +287,13 @@ var _ = Describe("VirtualMachine Mutator", func() {
 
 		vmSpec, _ := getVMSpecMetaFromResponse()
 		Expect(vmSpec.Template.Spec.Domain.Machine.Type).To(Equal(preference.Spec.Machine.PreferredMachineType))
+	})
+
+	It("should set termination grace period to zero on deletion", func() {
+		vm.Spec.Template.Spec.TerminationGracePeriodSeconds = pointer.Int64(123456)
+		vmSpec, _ := getVMSpecMetaFromResponseWithOperation(admissionv1.Delete)
+		Expect(vmSpec.Template.Spec.TerminationGracePeriodSeconds).ToNot(BeNil())
+		Expect(*vmSpec.Template.Spec.TerminationGracePeriodSeconds).To(BeZero())
 	})
 
 	Context("failure tests", func() {
