@@ -731,6 +731,7 @@ func sidecarContainerName(i int) string {
 
 func (t *templateService) RenderHotplugAttachmentPodTemplate(volumes []*v1.Volume, ownerPod *k8sv1.Pod, vmi *v1.VirtualMachineInstance, claimMap map[string]*k8sv1.PersistentVolumeClaim, tempPod bool) (*k8sv1.Pod, error) {
 	zero := int64(0)
+	runUser := int64(util.NonRootUID)
 	sharedMount := k8sv1.MountPropagationHostToContainer
 	command := []string{"/bin/sh", "-c", "/usr/bin/container-disk --copy-path /path/hp"}
 
@@ -765,6 +766,15 @@ func (t *templateService) RenderHotplugAttachmentPodTemplate(volumes []*v1.Volum
 						},
 					},
 					SecurityContext: &k8sv1.SecurityContext{
+						AllowPrivilegeEscalation: pointer.Bool(false),
+						RunAsNonRoot:             pointer.Bool(true),
+						RunAsUser:                &runUser,
+						SeccompProfile: &k8sv1.SeccompProfile{
+							Type: k8sv1.SeccompProfileTypeRuntimeDefault,
+						},
+						Capabilities: &k8sv1.Capabilities{
+							Drop: []k8sv1.Capability{"ALL"},
+						},
 						SELinuxOptions: &k8sv1.SELinuxOptions{
 							// If SELinux is enabled on the host, this level will be adjusted below to match the level
 							// of its companion virt-launcher pod to allow it to consume our disk images.
@@ -857,6 +867,7 @@ func (t *templateService) RenderHotplugAttachmentPodTemplate(volumes []*v1.Volum
 
 func (t *templateService) RenderHotplugAttachmentTriggerPodTemplate(volume *v1.Volume, ownerPod *k8sv1.Pod, vmi *v1.VirtualMachineInstance, pvcName string, isBlock bool, tempPod bool) (*k8sv1.Pod, error) {
 	zero := int64(0)
+	runUser := int64(util.NonRootUID)
 	sharedMount := k8sv1.MountPropagationHostToContainer
 	var command []string
 	if tempPod {
@@ -905,6 +916,15 @@ func (t *templateService) RenderHotplugAttachmentTriggerPodTemplate(volume *v1.V
 						},
 					},
 					SecurityContext: &k8sv1.SecurityContext{
+						AllowPrivilegeEscalation: pointer.Bool(false),
+						RunAsNonRoot:             pointer.Bool(true),
+						RunAsUser:                &runUser,
+						SeccompProfile: &k8sv1.SeccompProfile{
+							Type: k8sv1.SeccompProfileTypeRuntimeDefault,
+						},
+						Capabilities: &k8sv1.Capabilities{
+							Drop: []k8sv1.Capability{"ALL"},
+						},
 						SELinuxOptions: &k8sv1.SELinuxOptions{
 							Level: "s0",
 						},
