@@ -1,0 +1,202 @@
+//go:build linux && amd64
+
+package virthandler
+
+import (
+	"fmt"
+	"os"
+	"path/filepath"
+	"regexp"
+	"strconv"
+	"strings"
+	"syscall"
+	"unsafe"
+
+	"golang.org/x/sys/unix"
+
+	// #include <linux/sched.h>
+	// #include <linux/sched/types.h>
+	// typedef struct sched_param sched_param;
+	"C"
+
+	v1 "kubevirt.io/api/core/v1"
+
+	"kubevirt.io/kubevirt/pkg/virt-handler/isolation"
+)
+
+type SchedParam C.sched_param
+type Policy uint32
+type maskType bool
+
+const (
+	SCHED_FIFO Policy   = C.SCHED_FIFO
+	enabled    maskType = true
+	disabled   maskType = false
+)
+
+var (
+	// parse CPU Mask expressions
+	cpuRangeRegex  = regexp.MustCompile(`^(\d+)-(\d+)$`)
+	negateCPURegex = regexp.MustCompile(`^\^(\d+)$`)
+	singleCPURegex = regexp.MustCompile(`^(\d+)$`)
+
+	// parse thread comm value expression
+	vcpuRegex = regexp.MustCompile(`^CPU (\d+)/KVM\n$`) // These threads follow this naming pattern as their command value (/proc/{pid}/task/{taskid}/comm)
+// QEMU uses threads to represent vCPUs.
+
+)
+
+// configureRealTimeVCPUs parses the realtime mask value and configured the selected vcpus
+// for real time workloads by setting the scheduler to FIFO and process priority equal to 1.
+func (d *VirtualMachineController) configureVCPUScheduler(vmi *v1.VirtualMachineInstance) error {
+	res, err := d.podIsolationDetector.Detect(vmi)
+	if err != nil {
+		return err
+	}
+	qemuProcess, err := isolation.GetQEMUProcess(res.PPid())
+	if err != nil {
+		return err
+	}
+
+	vcpus, err := getVCPUThreadIDs(qemuProcess.Pid())
+	if err != nil {
+		return err
+	}
+	mask, err := parseCPUMask(vmi.Spec.Domain.CPU.Realtime.Mask)
+	if err != nil {
+		return err
+	}
+	for vcpuID, threadID := range vcpus {
+
+		if isRealtimeVCPU(mask, vcpuID) {
+			param := SchedParam{sched_priority: 1}
+			tid, err := strconv.Atoi(threadID)
+			if err != nil {
+				return err
+			}
+			err = schedSetScheduler(tid, SCHED_FIFO, param)
+			if err != nil {
+				return fmt.Errorf("failed to set FIFO scheduling and priority 1 for thread %d: %w", tid, err)
+			}
+		}
+	}
+	return nil
+}
+
+func isRealtimeVCPU(parsedMask map[string]maskType, vcpuID string) bool {
+	if len(parsedMask) == 0 {
+		return true
+	}
+	if t, ok := parsedMask[vcpuID]; ok {
+		return t == enabled
+	}
+	return false
+}
+
+func isVCPU(comm []byte) (string, bool) {
+	if !vcpuRegex.MatchString(string(comm)) {
+		return "", false
+	}
+	v := vcpuRegex.FindSubmatch(comm)
+	return string(v[1]), true
+}
+func getVCPUThreadIDs(pid int) (map[string]string, error) {
+
+	p := filepath.Join(string(os.PathSeparator), "proc", strconv.Itoa(pid), "task")
+	d, err := os.ReadDir(p)
+	if err != nil {
+		return nil, err
+	}
+	ret := map[string]string{}
+	for _, f := range d {
+		if f.IsDir() {
+			c, err := os.ReadFile(filepath.Join(p, f.Name(), "comm"))
+			if err != nil {
+				return nil, err
+			}
+			if v, ok := isVCPU(c); ok {
+				ret[v] = f.Name()
+			}
+		}
+	}
+	return ret, nil
+}
+
+// parseCPUMask parses the mask and maps the results into a structure that contains which
+// CPUs are enabled or disabled for the scheduling and priority changes.
+// This implementation duplicates the libvirt parsing logic defined here:
+// https://github.com/libvirt/libvirt/blob/56de80cb793aa7aedc45572f8b6ec3fc32c99309/src/util/virbitmap.c#L382
+// except that in this case it uses a map[string]maskType instead of a bit array.
+func parseCPUMask(mask string) (map[string]maskType, error) {
+
+	if len(strings.TrimSpace(mask)) == 0 {
+		return nil, fmt.Errorf("emtpy mask `%s`", mask)
+	}
+
+	vcpus := make(map[string]maskType)
+
+	masks := strings.Split(mask, ",")
+	for _, m := range masks {
+		m = strings.TrimSpace(m)
+		switch {
+		case cpuRangeRegex.MatchString(m):
+			match := cpuRangeRegex.FindSubmatch([]byte(m))
+			startID, err := strconv.Atoi(string(match[1]))
+			if err != nil {
+				return nil, err
+			}
+			endID, err := strconv.Atoi(string(match[2]))
+			if err != nil {
+				return nil, err
+			}
+			if startID < 0 {
+				return nil, fmt.Errorf("invalid vcpu mask start index `%d`", startID)
+			}
+			if endID < 0 {
+				return nil, fmt.Errorf("invalid vcpu mask end index `%d`", endID)
+			}
+			if startID > endID {
+				return nil, fmt.Errorf("invalid mask range `%d-%d`", startID, endID)
+			}
+			for id := startID; id <= endID; id++ {
+				vid := strconv.Itoa(id)
+				if _, ok := vcpus[vid]; !ok {
+					vcpus[vid] = enabled
+				}
+			}
+		case singleCPURegex.MatchString(m):
+			match := singleCPURegex.FindSubmatch([]byte(m))
+			vid, err := strconv.Atoi(string(match[1]))
+			if err != nil {
+				return nil, err
+			}
+			if vid < 0 {
+				return nil, fmt.Errorf("invalid vcpu index `%d`", vid)
+			}
+			if _, ok := vcpus[string(match[1])]; !ok {
+				vcpus[string(match[1])] = enabled
+			}
+		case negateCPURegex.MatchString(m):
+			match := negateCPURegex.FindSubmatch([]byte(m))
+			vid, err := strconv.Atoi(string(match[1]))
+			if err != nil {
+				return nil, err
+			}
+			if vid < 0 {
+				return nil, fmt.Errorf("invalid vcpu index `%d`", vid)
+			}
+			vcpus[string(match[1])] = disabled
+		default:
+			return nil, fmt.Errorf("invalid mask value '%s' in '%s'", m, mask)
+		}
+	}
+	return vcpus, nil
+}
+
+func schedSetScheduler(pid int, policy Policy, param SchedParam) error {
+	_, _, e1 := unix.Syscall(unix.SYS_SCHED_SETSCHEDULER, uintptr(pid), uintptr(policy), uintptr(unsafe.Pointer(&param)))
+	if e1 != 0 {
+		return syscall.Errno(e1)
+	}
+	return nil
+}
