@@ -7763,6 +7763,15 @@ var CRDsValidation map[string]string = map[string]string{
                 type to use.
               type: string
           type: object
+        volumes:
+          description: Volumes optionally defines preferences associated with the
+            Volumes attribute of a VirtualMachineInstace DomainSpec
+          properties:
+            preferredStorageClassName:
+              description: PreffereedStorageClassName optionally defines the preferred
+                storageClass
+              type: string
+          type: object
       type: object
   required:
   - spec
@@ -19801,6 +19810,15 @@ var CRDsValidation map[string]string = map[string]string{
             preferredMachineType:
               description: PreferredMachineType optionally defines the preferred machine
                 type to use.
+              type: string
+          type: object
+        volumes:
+          description: Volumes optionally defines preferences associated with the
+            Volumes attribute of a VirtualMachineInstace DomainSpec
+          properties:
+            preferredStorageClassName:
+              description: PreffereedStorageClassName optionally defines the preferred
+                storageClass
               type: string
           type: object
       type: object

@@ -44,6 +44,9 @@ import (
 	"kubevirt.io/client-go/kubecli"
 	cdiv1 "kubevirt.io/containerized-data-importer-api/pkg/apis/core/v1beta1"
 
+	instancetypeapi "kubevirt.io/api/instancetype"
+	instanceType "kubevirt.io/api/instancetype/v1alpha2"
+
 	k6ttypes "kubevirt.io/kubevirt/pkg/util/types"
 	virtconfig "kubevirt.io/kubevirt/pkg/virt-config"
 
@@ -1093,6 +1096,66 @@ var _ = SIGDescribe("DataVolume Integration", func() {
 			Entry("[test_id:5899]with thick provision true, fstrim has no effect", addThickProvisionedTrueAnnotation, false),
 			Entry("[test_id:5896]with thick provision false, fstrim will make the image smaller", addThickProvisionedFalseAnnotation, true),
 		)
+	})
+
+	Context("With VirtualMachinePreference and PreferredStorageClassName", func() {
+		var vm *v1.VirtualMachine
+		var storageClass *storagev1.StorageClass
+		var virtualMachinePreference *instanceType.VirtualMachinePreference
+
+		BeforeEach(func() {
+			vm, _ = tests.NewRandomVMWithDataVolume(cd.DataVolumeImportUrlForContainerDisk(cd.ContainerDiskAlpine), util.NamespaceTestDefault)
+
+			storageClass = &storagev1.StorageClass{
+				ObjectMeta: metav1.ObjectMeta{
+					GenerateName: "storageclass-",
+				},
+				Provisioner: "default",
+			}
+			storageClass, err = virtClient.StorageV1().StorageClasses().Create(context.Background(), storageClass, metav1.CreateOptions{})
+			Expect(err).ToNot(HaveOccurred())
+
+			virtualMachinePreference = &instanceType.VirtualMachinePreference{
+				ObjectMeta: metav1.ObjectMeta{
+					Name:      "virtualmachinepreference-test",
+					Namespace: vm.Namespace,
+				},
+				Spec: instanceType.VirtualMachinePreferenceSpec{
+					Volumes: &instanceType.VolumePreferences{
+						PreferredStorageClassName: storageClass.Name,
+					},
+				},
+			}
+			_, err := virtClient.VirtualMachinePreference(util.NamespaceTestDefault).Create(context.Background(), virtualMachinePreference, metav1.CreateOptions{})
+			Expect(err).ToNot(HaveOccurred())
+
+			// Bind VirtualMachinePreference to VirtualMachine
+			vm.Spec.Preference = &v1.PreferenceMatcher{
+				Name: virtualMachinePreference.Name,
+				Kind: instancetypeapi.SingularPreferenceResourceName,
+			}
+		})
+
+		AfterEach(func() {
+			Expect(virtClient.VirtualMachinePreference(virtualMachinePreference.Namespace).Delete(context.Background(), virtualMachinePreference.Name, metav1.DeleteOptions{})).To(Succeed())
+		})
+
+		It("should use PreferredStorageClassName when storage class not provided by VM", func() {
+			// Remove storage class name from VM definition
+			vm.Spec.DataVolumeTemplates[0].Spec.PVC.StorageClassName = nil
+
+			vm, err = virtClient.VirtualMachine(util.NamespaceTestDefault).Create(vm)
+			Expect(err).ToNot(HaveOccurred())
+
+			Expect(*vm.Spec.DataVolumeTemplates[0].Spec.PVC.StorageClassName).To(Equal(virtualMachinePreference.Spec.Volumes.PreferredStorageClassName))
+		})
+
+		It("should always use VM defined storage class over PreferredStorageClassName", func() {
+			vm, err = virtClient.VirtualMachine(util.NamespaceTestDefault).Create(vm)
+			Expect(err).ToNot(HaveOccurred())
+
+			Expect(*vm.Spec.DataVolumeTemplates[0].Spec.PVC.StorageClassName).NotTo(Equal(virtualMachinePreference.Spec.Volumes.PreferredStorageClassName))
+		})
 	})
 })
 

@@ -28,6 +28,7 @@ import (
 
 	v1 "kubevirt.io/api/core/v1"
 	apiinstancetype "kubevirt.io/api/instancetype"
+	"kubevirt.io/api/instancetype/v1alpha2"
 	"kubevirt.io/client-go/log"
 
 	"kubevirt.io/kubevirt/pkg/instancetype"
@@ -64,7 +65,9 @@ func (mutator *VMsMutator) Mutate(ar *admissionv1.AdmissionReview) *admissionv1.
 	log.Log.Object(&vm).V(4).Info("Apply defaults")
 	mutator.setDefaultInstancetypeKind(&vm)
 	mutator.setDefaultPreferenceKind(&vm)
-	mutator.setDefaultMachineType(&vm)
+	preferenceSpec := mutator.getPreferenceSpec(&vm)
+	mutator.setDefaultMachineType(&vm, preferenceSpec)
+	mutator.setPreferenceStorageClassName(&vm, preferenceSpec)
 
 	patchBytes, err := utiltypes.GeneratePatchPayload(
 		utiltypes.PatchOperation{
@@ -97,7 +100,18 @@ func (mutator *VMsMutator) Mutate(ar *admissionv1.AdmissionReview) *admissionv1.
 	}
 }
 
-func (mutator *VMsMutator) setDefaultMachineType(vm *v1.VirtualMachine) {
+func (mutator *VMsMutator) getPreferenceSpec(vm *v1.VirtualMachine) *v1alpha2.VirtualMachinePreferenceSpec {
+	preferenceSpec, err := mutator.InstancetypeMethods.FindPreferenceSpec(vm)
+	if err != nil {
+		// Log but ultimately swallow any preference lookup errors here and let the validating webhook handle them
+		log.Log.Reason(err).Error("Ignoring error attempting to lookup PreferredMachineType.")
+		return nil
+	}
+
+	return preferenceSpec
+}
+
+func (mutator *VMsMutator) setDefaultMachineType(vm *v1.VirtualMachine, preferenceSpec *v1alpha2.VirtualMachinePreferenceSpec) {
 	// Nothing to do, let's the validating webhook fail later
 	if vm.Spec.Template == nil {
 		return
@@ -111,7 +125,9 @@ func (mutator *VMsMutator) setDefaultMachineType(vm *v1.VirtualMachine) {
 		vm.Spec.Template.Spec.Domain.Machine = &v1.Machine{}
 	}
 
-	vm.Spec.Template.Spec.Domain.Machine.Type = mutator.getPreferenceMachineType(vm)
+	if preferenceSpec != nil && preferenceSpec.Machine != nil {
+		vm.Spec.Template.Spec.Domain.Machine.Type = preferenceSpec.Machine.PreferredMachineType
+	}
 
 	// Only use the cluster default if the user hasn't provided a machine type or referenced a preference with PreferredMachineType
 	if vm.Spec.Template.Spec.Domain.Machine.Type == "" {
@@ -119,17 +135,20 @@ func (mutator *VMsMutator) setDefaultMachineType(vm *v1.VirtualMachine) {
 	}
 }
 
-func (mutator *VMsMutator) getPreferenceMachineType(vm *v1.VirtualMachine) string {
-	preferenceSpec, err := mutator.InstancetypeMethods.FindPreferenceSpec(vm)
-	if err != nil {
-		// Log but ultimately swallow any preference lookup errors here and let the validating webhook handle them
-		log.Log.Reason(err).Error("Ignoring error attempting to lookup PreferredMachineType.")
-		return ""
+func (mutator *VMsMutator) setPreferenceStorageClassName(vm *v1.VirtualMachine, preferenceSpec *v1alpha2.VirtualMachinePreferenceSpec) {
+	// Nothing to do, let's the validating webhook fail later
+	if vm.Spec.Template == nil {
+		return
 	}
-	if preferenceSpec != nil && preferenceSpec.Machine != nil {
-		return preferenceSpec.Machine.PreferredMachineType
+
+	if preferenceSpec != nil && preferenceSpec.Volumes != nil {
+		datavolumes := vm.Spec.DataVolumeTemplates
+		for _, dv := range datavolumes {
+			if dv.Spec.PVC.StorageClassName == nil {
+				dv.Spec.PVC.StorageClassName = &preferenceSpec.Volumes.PreferredStorageClassName
+			}
+		}
 	}
-	return ""
 }
 
 func (mutator *VMsMutator) setDefaultInstancetypeKind(vm *v1.VirtualMachine) {

@@ -97,6 +97,13 @@ func (VirtualMachinePreferenceSpec) SwaggerDoc() map[string]string {
 		"features": "Features optionally defines preferences associated with the Features attribute of a VirtualMachineInstance DomainSpec\n\n+optional",
 		"firmware": "Firmware optionally defines preferences associated with the Firmware attribute of a VirtualMachineInstance DomainSpec\n\n+optional",
 		"machine":  "Machine optionally defines preferences associated with the Machine attribute of a VirtualMachineInstance DomainSpec\n\n+optional",
+		"volumes":  "Volumes optionally defines preferences associated with the Volumes attribute of a VirtualMachineInstace DomainSpec\n\n+optional",
+	}
+}
+
+func (VolumePreferences) SwaggerDoc() map[string]string {
+	return map[string]string{
+		"preferredStorageClassName": "PreffereedStorageClassName optionally defines the preferred storageClass\n\n+optional",
 	}
 }
 
