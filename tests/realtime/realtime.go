@@ -155,21 +155,6 @@ var _ = Describe("[sig-compute-realtime][Serial]Realtime", func() {
 			Expect(console.LoginToFedora(vmi)).To(Succeed())
 		})
 	})
-	Context("with NonRoot", func() {
-		BeforeEach(func() {
-			if checks.HasFeature(virtconfig.Root) {
-				Skip("Root feature gate is enabled")
-			}
-		})
-
-		It("should deny the realtime VM", func() {
-			vmi := newFedoraRealtime("0-1,^1")
-			_, err := virtClient.VirtualMachineInstance(util.NamespaceTestDefault).Create(vmi)
-			Expect(err).To(HaveOccurred())
-			Expect(err.Error()).To(ContainSubstring("Root feature gate is not used"))
-		})
-	})
-
 })
 
 func parsePriority(psLine string) int64 {
