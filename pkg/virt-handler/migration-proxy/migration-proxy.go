@@ -416,7 +416,7 @@ func (m *migrationProxy) createUnixListener() error {
 		m.logger.Reason(err).Error("failed to create unix socket for proxy service")
 		return err
 	}
-	if err := diskutils.DefaultOwnershipManager.SetFileOwnership(m.unixSocketPath); err != nil {
+	if err := diskutils.DefaultOwnershipManager.UnsafeSetFileOwnership(m.unixSocketPath); err != nil {
 		log.Log.Reason(err).Error("failed to change ownership on migration unix socket")
 		return err
 	}

@@ -45,6 +45,8 @@ import (
 	"k8s.io/client-go/util/certificate"
 	"k8s.io/client-go/util/flowcontrol"
 
+	"kubevirt.io/kubevirt/pkg/safepath"
+
 	"kubevirt.io/kubevirt/pkg/util/ratelimiter"
 
 	"kubevirt.io/kubevirt/pkg/virt-handler/node-labeller/api"
@@ -383,7 +385,17 @@ func (app *virtHandlerApp) Run() {
 
 		// relabel tun device
 		unprivilegedContainerSELinuxLabel := "system_u:object_r:container_file_t:s0"
-		err = selinux.RelabelFiles(unprivilegedContainerSELinuxLabel, se.IsPermissive(), "/dev/net/tun", "/dev/null")
+
+		devTun, err := safepath.JoinAndResolveWithRelativeRoot("/", "/dev/net/tun")
+		if err != nil {
+			panic(err)
+		}
+		devNull, err := safepath.JoinAndResolveWithRelativeRoot("/", "/dev/null")
+		if err != nil {
+			panic(err)
+		}
+
+		err = selinux.RelabelFiles(unprivilegedContainerSELinuxLabel, se.IsPermissive(), devTun, devNull)
 		if err != nil {
 			panic(fmt.Errorf("error relabeling required files: %v", err))
 		}

@@ -13,11 +13,11 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  *
- * Copyright 2020 Red Hat, Inc.
+ * Copyright 2018 Red Hat, Inc.
  *
  */
 
-package hotplug_volume
+package safepath
 
 import (
 	"testing"
@@ -25,6 +25,6 @@ import (
 	"kubevirt.io/client-go/testutils"
 )
 
-func TestHotplugDisk(t *testing.T) {
+func TestSafePath(t *testing.T) {
 	testutils.KubeVirtTestSuiteSetup(t)
 }

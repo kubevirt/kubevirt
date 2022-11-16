@@ -57,7 +57,7 @@ func InitializePrivateDirectories(baseDir string) error {
 	if err := util.MkdirAllWithNosec(baseDir); err != nil {
 		return err
 	}
-	if err := diskutils.DefaultOwnershipManager.SetFileOwnership(baseDir); err != nil {
+	if err := diskutils.DefaultOwnershipManager.UnsafeSetFileOwnership(baseDir); err != nil {
 		return err
 	}
 	return nil
@@ -74,7 +74,7 @@ func InitializeDisksDirectories(baseDir string) error {
 	if err != nil {
 		return err
 	}
-	err = diskutils.DefaultOwnershipManager.SetFileOwnership(baseDir)
+	err = diskutils.DefaultOwnershipManager.UnsafeSetFileOwnership(baseDir)
 	if err != nil {
 		return err
 	}

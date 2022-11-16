@@ -32,6 +32,8 @@ import (
 
 	"k8s.io/utils/pointer"
 
+	"kubevirt.io/kubevirt/pkg/safepath"
+
 	k8sruntime "k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/client-go/testing"
 
@@ -181,9 +183,16 @@ var _ = Describe("VirtualMachineInstance", func() {
 		mockGracefulShutdown = &MockGracefulShutdown{shareDir}
 		config, _, _ := testutils.NewFakeClusterConfigUsingKVConfig(&v1.KubeVirtConfiguration{})
 
+		Expect(os.MkdirAll(filepath.Join(vmiShareDir, "dev"), 0755)).To(Succeed())
+		f, err := os.OpenFile(filepath.Join(vmiShareDir, "dev", "kvm"), os.O_CREATE, 0755)
+		Expect(err).ToNot(HaveOccurred())
+		f.Close()
+
 		mockIsolationResult = isolation.NewMockIsolationResult(ctrl)
 		mockIsolationResult.EXPECT().Pid().Return(1).AnyTimes()
-		mockIsolationResult.EXPECT().MountRoot().Return(vmiShareDir).AnyTimes()
+		rootDir, err := safepath.JoinAndResolveWithRelativeRoot(vmiShareDir)
+		Expect(err).ToNot(HaveOccurred())
+		mockIsolationResult.EXPECT().MountRoot().Return(rootDir, nil).AnyTimes()
 
 		mockIsolationDetector = isolation.NewMockPodIsolationDetector(ctrl)
 		mockIsolationDetector.EXPECT().Detect(gomock.Any()).Return(mockIsolationResult, nil).AnyTimes()
@@ -220,7 +229,7 @@ var _ = Describe("VirtualMachineInstance", func() {
 		podTestUUID = uuid.NewUUID()
 		sockFile = cmdclient.SocketFilePathOnHost(string(podTestUUID))
 		Expect(os.MkdirAll(filepath.Dir(sockFile), 0755)).To(Succeed())
-		f, err := os.Create(sockFile)
+		f, err = os.Create(sockFile)
 		Expect(err).ToNot(HaveOccurred())
 		f.Close()
 

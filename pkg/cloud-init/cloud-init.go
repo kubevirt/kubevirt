@@ -524,7 +524,7 @@ func GenerateEmptyIso(vmiName string, namespace string, data *CloudInitData, siz
 		return err
 	}
 
-	if err := diskutils.DefaultOwnershipManager.SetFileOwnership(isoStaging); err != nil {
+	if err := diskutils.DefaultOwnershipManager.UnsafeSetFileOwnership(isoStaging); err != nil {
 		return err
 	}
 	err = os.Rename(isoStaging, iso)
@@ -642,7 +642,7 @@ func GenerateLocalData(vmiName string, namespace string, instanceType string, da
 		return err
 	}
 
-	if err := diskutils.DefaultOwnershipManager.SetFileOwnership(isoStaging); err != nil {
+	if err := diskutils.DefaultOwnershipManager.UnsafeSetFileOwnership(isoStaging); err != nil {
 		return err
 	}
 

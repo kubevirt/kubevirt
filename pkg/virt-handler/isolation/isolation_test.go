@@ -2,7 +2,6 @@ package isolation
 
 import (
 	"fmt"
-	"io/ioutil"
 	"os"
 	"path/filepath"
 
@@ -10,6 +9,9 @@ import (
 	mount "github.com/moby/sys/mountinfo"
 	. "github.com/onsi/ginkgo"
 	. "github.com/onsi/gomega"
+
+	"kubevirt.io/kubevirt/pkg/safepath"
+	"kubevirt.io/kubevirt/pkg/unsafepath"
 
 	"kubevirt.io/kubevirt/pkg/util"
 )
@@ -28,40 +30,11 @@ var _ = Describe("IsolationResult", func() {
 		})
 
 		It("Should have root mounted", func() {
-			mounted, err := isolationResult.IsMounted("/")
+			root, err := safepath.NewPathNoFollow("/")
+			Expect(err).ToNot(HaveOccurred())
+			mounted, err := IsMounted(root)
 			Expect(err).ToNot(HaveOccurred())
 			Expect(mounted).To(BeTrue())
-		})
-
-		It("Should resolve absolute paths with relative navigation", func() {
-			mounted, err := isolationResult.IsMounted("/var/..")
-			Expect(err).ToNot(HaveOccurred())
-			Expect(mounted).To(BeTrue())
-		})
-
-		It("Should resolve relative paths", func() {
-			_, err := isolationResult.IsMounted(".")
-			Expect(err).ToNot(HaveOccurred())
-		})
-
-		It("Should resolve symlinks", func() {
-			tmpDir, err := ioutil.TempDir("", "kubevirt")
-			Expect(err).ToNot(HaveOccurred())
-			defer os.RemoveAll(tmpDir)
-
-			symlinkPath := filepath.Join(tmpDir, "mysymlink")
-			err = os.Symlink("/", symlinkPath)
-			Expect(err).ToNot(HaveOccurred())
-
-			mounted, err := isolationResult.IsMounted(symlinkPath)
-			Expect(err).ToNot(HaveOccurred())
-			Expect(mounted).To(BeTrue())
-		})
-
-		It("Should regard a non-existent path as not mounted, not as an error", func() {
-			mounted, err := isolationResult.IsMounted("/aasdfjhk")
-			Expect(err).ToNot(HaveOccurred())
-			Expect(mounted).To(BeFalse())
 		})
 	})
 
@@ -82,9 +55,15 @@ var _ = Describe("IsolationResult", func() {
 		var ctrl *gomock.Controller
 		var mockIsolationResultNode *MockIsolationResult
 		var mockIsolationResultContainer *MockIsolationResult
+		var tmpDir string
 
 		BeforeEach(func() {
+			var err error
 			ctrl = gomock.NewController(GinkgoT())
+			tmpDir, err = os.MkdirTemp("", "ginkgo")
+			Expect(err).ToNot(HaveOccurred())
+			root, err := safepath.JoinAndResolveWithRelativeRoot(filepath.Join("/proc/self/root", tmpDir))
+			Expect(err).ToNot(HaveOccurred())
 
 			mockIsolationResultNode = NewMockIsolationResult(ctrl)
 			mockIsolationResultNode.EXPECT().
@@ -93,7 +72,7 @@ var _ = Describe("IsolationResult", func() {
 				AnyTimes()
 			mockIsolationResultNode.EXPECT().
 				MountRoot().
-				Return("/proc/1/root").
+				Return(root, nil).
 				AnyTimes()
 
 			mockIsolationResultContainer = NewMockIsolationResult(ctrl)
@@ -121,17 +100,17 @@ var _ = Describe("IsolationResult", func() {
 					mountDriver:              "overlay",
 					hostMountInfoFile:        "overlay_host",
 					launcherMountInfoFile:    "overlay_launcher",
-					expectedPathToRootOnNode: "/proc/1/root/var/lib/docker/overlay2/f15d9ce07df72e80d809aa99ab4a171f2f3636f65f0653e75db8ca0befd8ae02/merged",
+					expectedPathToRootOnNode: "/var/lib/docker/overlay2/f15d9ce07df72e80d809aa99ab4a171f2f3636f65f0653e75db8ca0befd8ae02/merged",
 				}, {
 					mountDriver:              "devicemapper",
 					hostMountInfoFile:        "devicemapper_host",
 					launcherMountInfoFile:    "devicemapper_launcher",
-					expectedPathToRootOnNode: "/proc/1/root/var/lib/docker/devicemapper/mnt/d0990551ba8254871a449b2ff0d9063061ae96a2c195d7a850b62f030eae1710/rootfs",
+					expectedPathToRootOnNode: "/var/lib/docker/devicemapper/mnt/d0990551ba8254871a449b2ff0d9063061ae96a2c195d7a850b62f030eae1710/rootfs",
 				}, {
 					mountDriver:              "btrfs",
 					hostMountInfoFile:        "btrfs_host",
 					launcherMountInfoFile:    "btrfs_launcher",
-					expectedPathToRootOnNode: "/proc/1/root/var/lib/containers/storage/btrfs/subvolumes/e9a94e2cde75c54834378d4835d4eda6bebb56b02068b9254780de6f9344ad0e",
+					expectedPathToRootOnNode: "/var/lib/containers/storage/btrfs/subvolumes/e9a94e2cde75c54834378d4835d4eda6bebb56b02068b9254780de6f9344ad0e",
 				},
 			}
 
@@ -150,6 +129,7 @@ var _ = Describe("IsolationResult", func() {
 				Context(fmt.Sprintf("Using storage driver %v", dataset.mountDriver), func() {
 
 					BeforeEach(func() {
+						Expect(os.MkdirAll(filepath.Join(tmpDir, dataset.expectedPathToRootOnNode), os.ModePerm)).To(Succeed())
 						mockIsolationResultNode.EXPECT().
 							Mounts(gomock.Any()).
 							DoAndReturn(func(f mount.FilterFunc) ([]*mount.Info, error) {
@@ -174,7 +154,7 @@ var _ = Describe("IsolationResult", func() {
 					It("Should detect the full path to the root mount point of a container on the node", func() {
 						path, err := ParentPathForRootMount(mockIsolationResultNode, mockIsolationResultContainer)
 						Expect(err).ToNot(HaveOccurred())
-						Expect(path).To(Equal(dataset.expectedPathToRootOnNode))
+						Expect(unsafepath.UnsafeAbsolute(path.Raw())).To(Equal(filepath.Join("/proc/self/root", tmpDir, dataset.expectedPathToRootOnNode)))
 					})
 				})
 			}
@@ -225,6 +205,9 @@ var _ = Describe("IsolationResult", func() {
 			})
 
 			It("Should match the correct device", func() {
+				Expect(os.MkdirAll(filepath.Join(tmpDir, "/12"), os.ModePerm)).To(Succeed())
+				Expect(os.MkdirAll(filepath.Join(tmpDir, "/21"), os.ModePerm)).To(Succeed())
+				Expect(os.MkdirAll(filepath.Join(tmpDir, "/11"), os.ModePerm)).To(Succeed())
 				initMountsMock(mockIsolationResultContainer, []*mount.Info{rootMountPoint})
 				initMountsMock(mockIsolationResultNode, []*mount.Info{
 					{
@@ -247,10 +230,12 @@ var _ = Describe("IsolationResult", func() {
 
 				path, err := ParentPathForRootMount(mockIsolationResultNode, mockIsolationResultContainer)
 				Expect(err).ToNot(HaveOccurred())
-				Expect(path).To(Equal("/proc/1/root/11"))
+				Expect(unsafepath.UnsafeAbsolute(path.Raw())).To(Equal(filepath.Join("/proc/self/root", tmpDir, "/11")))
 			})
 
 			It("Should construct a valid path when the node mountpoint does not match the filesystem path", func() {
+				Expect(os.MkdirAll(filepath.Join(tmpDir, "/some/path"), os.ModePerm)).To(Succeed())
+				Expect(os.MkdirAll(filepath.Join(tmpDir, "/other/location"), os.ModePerm)).To(Succeed())
 				initMountsMock(mockIsolationResultContainer, []*mount.Info{
 					{
 						Major:      1,
@@ -270,10 +255,12 @@ var _ = Describe("IsolationResult", func() {
 
 				path, err := ParentPathForRootMount(mockIsolationResultNode, mockIsolationResultContainer)
 				Expect(err).ToNot(HaveOccurred())
-				Expect(path).To(Equal("/proc/1/root/other/location"))
+				Expect(unsafepath.UnsafeAbsolute(path.Raw())).To(Equal(filepath.Join("/proc/self/root", tmpDir, "/other/location")))
 			})
 
 			It("Should find the longest match for a filesystem path", func() {
+				Expect(os.MkdirAll(filepath.Join(tmpDir, "/some/path/quite/deeply/located/on/the/filesystem"), os.ModePerm)).To(Succeed())
+				Expect(os.MkdirAll(filepath.Join(tmpDir, "/long/filesystem"), os.ModePerm)).To(Succeed())
 				initMountsMock(mockIsolationResultContainer, []*mount.Info{
 					{
 						Major:      1,
@@ -303,7 +290,7 @@ var _ = Describe("IsolationResult", func() {
 
 				path, err := ParentPathForRootMount(mockIsolationResultNode, mockIsolationResultContainer)
 				Expect(err).ToNot(HaveOccurred())
-				Expect(path).To(Equal("/proc/1/root/long/filesystem"))
+				Expect(unsafepath.UnsafeAbsolute(path.Raw())).To(Equal(filepath.Join("/proc/self/root/", tmpDir, "long/filesystem")))
 			})
 
 			It("Should fail when the device does not exist", func() {
@@ -322,6 +309,7 @@ var _ = Describe("IsolationResult", func() {
 			})
 
 			It("Should fail if the target filesystem path is not mounted", func() {
+				Expect(os.MkdirAll(filepath.Join(tmpDir, "/other/path"), os.ModePerm)).To(Succeed())
 				initMountsMock(mockIsolationResultContainer, []*mount.Info{rootMountPoint})
 				initMountsMock(mockIsolationResultNode, []*mount.Info{
 					{
@@ -337,6 +325,8 @@ var _ = Describe("IsolationResult", func() {
 			})
 
 			It("Should not fail for duplicate mountpoints", func() {
+				Expect(os.MkdirAll(filepath.Join(tmpDir, "/mymounts/first"), os.ModePerm)).To(Succeed())
+				Expect(os.MkdirAll(filepath.Join(tmpDir, "/mymounts/second"), os.ModePerm)).To(Succeed())
 				initMountsMock(mockIsolationResultContainer, []*mount.Info{rootMountPoint})
 
 				initMountsMock(mockIsolationResultNode, []*mount.Info{
@@ -355,7 +345,7 @@ var _ = Describe("IsolationResult", func() {
 
 				path, err := ParentPathForRootMount(mockIsolationResultNode, mockIsolationResultContainer)
 				Expect(err).ToNot(HaveOccurred())
-				Expect(path).To(HavePrefix("/proc/1/root/mymounts/"))
+				Expect(unsafepath.UnsafeAbsolute(path.Raw())).To(HavePrefix(filepath.Join("/proc/self/root", tmpDir, "/mymounts/")))
 			})
 		})
 	})
