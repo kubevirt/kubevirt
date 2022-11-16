@@ -31,6 +31,7 @@ import (
 	kvtls "kubevirt.io/kubevirt/pkg/util/tls"
 
 	"kubevirt.io/kubevirt/pkg/monitoring/migration"
+	"kubevirt.io/kubevirt/pkg/monitoring/migrationstats"
 
 	clonev1alpha1 "kubevirt.io/api/clone/v1alpha1"
 
@@ -511,6 +512,7 @@ func (vca *VirtControllerApp) onStartedLeading() func(ctx context.Context) {
 		}
 		golog.Printf("\nvca.migrationInformer :%v\n", vca.migrationInformer)
 		migration.RegisterMigrationMetrics(vca.migrationInformer)
+		migrationstats.SetupMigrationsCollector(vca.migrationInformer)
 
 		go vca.evacuationController.Run(vca.evacuationControllerThreads, stop)
 		go vca.disruptionBudgetController.Run(vca.disruptionBudgetControllerThreads, stop)
