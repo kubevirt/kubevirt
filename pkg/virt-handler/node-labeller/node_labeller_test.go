@@ -33,6 +33,7 @@ import (
 	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/client-go/kubernetes/fake"
 	"k8s.io/client-go/testing"
+	"k8s.io/client-go/tools/record"
 
 	kubevirtv1 "kubevirt.io/api/core/v1"
 
@@ -52,6 +53,7 @@ var _ = Describe("Node-labeller ", func() {
 	var mockQueue *testutils.MockWorkQueue
 	var config *virtconfig.ClusterConfig
 	var addedNode *v1.Node
+	var recorder *record.FakeRecorder
 
 	addNode := func(node *v1.Node) {
 		mockQueue.ExpectAdds(1)
@@ -99,8 +101,10 @@ var _ = Describe("Node-labeller ", func() {
 		}
 
 		config, _, _ = testutils.NewFakeClusterConfigUsingKV(kv)
+		recorder = record.NewFakeRecorder(100)
+		recorder.IncludeObject = true
 
-		nlController, err = newNodeLabeller(config, virtClient, "testNode", k8sv1.NamespaceDefault, "testdata")
+		nlController, err = newNodeLabeller(config, virtClient, "testNode", k8sv1.NamespaceDefault, "testdata", recorder)
 		Expect(err).ToNot(HaveOccurred())
 
 		mockQueue = testutils.NewMockWorkQueue(nlController.queue)

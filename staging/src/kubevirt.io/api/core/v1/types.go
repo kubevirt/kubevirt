@@ -835,6 +835,7 @@ const (
 	HostModelCPULabel = "host-model-cpu.node.kubevirt.io/"
 	// This label represents the host model required features
 	HostModelRequiredFeaturesLabel = "host-model-required-features.node.kubevirt.io/"
+	NodeHostModelIsObsoleteLabel   = "node-labeller.kubevirt.io/obsolete-host-model"
 
 	LabellerSkipNodeAnnotation        = "node-labeller.kubevirt.io/skip-node"
 	VirtualMachineLabel               = AppLabel + "/vm"

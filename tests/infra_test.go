@@ -1445,6 +1445,147 @@ var _ = Describe("[Serial][sig-compute]Infrastructure", func() {
 			})
 		})
 
+		Context("[Serial]node with obsolete host-model cpuModel", func() {
+
+			expectSerialRun := func() {
+				suiteConfig, _ := GinkgoConfiguration()
+				Expect(suiteConfig.ParallelTotal).To(Equal(1), "this test is supported for serial tests only")
+			}
+			expectAtLeastOneEvent := func(eventListOpts metav1.ListOptions, namespace string) *k8sv1.EventList {
+				// This function is dangerous to use from parallel tests as events might override each other.
+				// This can be removed in the future if these functions are used with great caution.
+				expectSerialRun()
+				var events *k8sv1.EventList
+
+				Eventually(func() []k8sv1.Event {
+					events, err = virtClient.CoreV1().Events(namespace).List(context.Background(), eventListOpts)
+					Expect(err).ToNot(HaveOccurred())
+
+					return events.Items
+				}, 30*time.Second, 1*time.Second).ShouldNot(BeEmpty())
+
+				return events
+			}
+			deleteEvents := func(eventListOpts metav1.ListOptions, eventList *k8sv1.EventList) {
+				// See comment in expectAtLeastOneEvent() for more info on why that's needed.
+				if len(eventList.Items) == 0 {
+					return
+				}
+				namespace := eventList.Items[0].Namespace
+				expectSerialRun()
+				for _, event := range eventList.Items {
+					err = virtClient.CoreV1().Events(event.Namespace).Delete(context.Background(), event.Name, metav1.DeleteOptions{})
+					Expect(err).ToNot(HaveOccurred())
+				}
+
+				By("Expecting alert to be removed")
+				Eventually(func() []k8sv1.Event {
+					events, err := virtClient.CoreV1().Events(namespace).List(context.Background(), eventListOpts)
+					Expect(err).ToNot(HaveOccurred())
+
+					return events.Items
+				}, 30*time.Second, 1*time.Second).Should(BeEmpty())
+			}
+
+			var node *k8sv1.Node
+			var obsoleteModel string
+			var kvConfig *v1.KubeVirtConfiguration
+			var events *k8sv1.EventList
+			var eventListOpts metav1.ListOptions
+
+			BeforeEach(func() {
+				node = &(libnode.GetAllSchedulableNodes(virtClient).Items[0])
+				obsoleteModel = tests.GetNodeHostModel(node)
+
+				By("Updating Kubevirt CR , this should wake node-labeller ")
+				kvConfig = util.GetCurrentKv(virtClient).Spec.Configuration.DeepCopy()
+				if kvConfig.ObsoleteCPUModels == nil {
+					kvConfig.ObsoleteCPUModels = make(map[string]bool)
+				}
+				kvConfig.ObsoleteCPUModels[obsoleteModel] = true
+				tests.UpdateKubeVirtConfigValueAndWait(*kvConfig)
+
+				Eventually(func() error {
+					node, err = virtClient.CoreV1().Nodes().Get(context.Background(), node.Name, metav1.GetOptions{})
+					Expect(err).ShouldNot(HaveOccurred())
+
+					_, exists := node.Annotations[v1.LabellerSkipNodeAnnotation]
+					if exists {
+						return fmt.Errorf("node %s is expected to not have annotation %s", node.Name, v1.LabellerSkipNodeAnnotation)
+					}
+
+					obsoleteModelLabelFound := false
+					for labelKey, _ := range node.Labels {
+						if strings.Contains(labelKey, v1.NodeHostModelIsObsoleteLabel) {
+							obsoleteModelLabelFound = true
+							break
+						}
+					}
+					if !obsoleteModelLabelFound {
+						return fmt.Errorf("node %s is expected to have a label with %s substring. this means node-labeller is not enabled for the node", node.Name, v1.NodeHostModelIsObsoleteLabel)
+					}
+
+					return nil
+				}, 30*time.Second, time.Second).ShouldNot(HaveOccurred())
+			})
+
+			AfterEach(func() {
+				delete(kvConfig.ObsoleteCPUModels, obsoleteModel)
+				tests.UpdateKubeVirtConfigValueAndWait(*kvConfig)
+				deleteEvents(eventListOpts, events)
+
+				Eventually(func() error {
+					node, err = virtClient.CoreV1().Nodes().Get(context.Background(), node.Name, metav1.GetOptions{})
+					Expect(err).ShouldNot(HaveOccurred())
+
+					obsoleteHostModelLabel := false
+					for labelKey, _ := range node.Labels {
+						if strings.HasPrefix(labelKey, v1.NodeHostModelIsObsoleteLabel) {
+							obsoleteHostModelLabel = true
+							break
+						}
+					}
+					if obsoleteHostModelLabel {
+						return fmt.Errorf("node %s is expected to have a label with %s prefix. this means node-labeller is not enabled for the node", node.Name, v1.HostModelCPULabel)
+					}
+
+					return nil
+				}, 30*time.Second, time.Second).ShouldNot(HaveOccurred())
+			})
+
+			It("[Serial]should not schedule vmi with host-model cpuModel to node with obsolete host-model cpuModel", func() {
+				vmi := libvmi.NewFedora(
+					libvmi.WithInterface(libvmi.InterfaceDeviceWithMasqueradeBinding()),
+					libvmi.WithNetwork(v1.DefaultPodNetwork()),
+				)
+				By("Making sure the vmi start running on the source node and will be able to run only in source/target nodes")
+				vmi.Spec.NodeSelector = map[string]string{"kubernetes.io/hostname": node.Name}
+
+				By("Starting the VirtualMachineInstance")
+				_, err := virtClient.VirtualMachineInstance(util.NamespaceTestDefault).Create(vmi)
+				Expect(err).ToNot(HaveOccurred())
+
+				By("Checking that the VMI failed")
+				Eventually(func() bool {
+					vmi, err := virtClient.VirtualMachineInstance(util.NamespaceTestDefault).Get(vmi.Name, &metav1.GetOptions{})
+					Expect(err).ToNot(HaveOccurred())
+					for _, condition := range vmi.Status.Conditions {
+						if condition.Type == v1.VirtualMachineInstanceConditionType(k8sv1.PodScheduled) && condition.Status == k8sv1.ConditionFalse {
+							return strings.Contains(condition.Message, "didn't match Pod's node affinity/selector")
+						}
+					}
+					return false
+				}, 3*time.Minute, 2*time.Second).Should(BeTrue())
+
+				By("Expecting for an alert to be triggered")
+				eventListOpts = metav1.ListOptions{
+					FieldSelector: fmt.Sprintf("type=%s,reason=%s", k8sv1.EventTypeWarning, "HostModelIsObsolete"),
+				}
+				events = expectAtLeastOneEvent(eventListOpts, node.Namespace)
+			})
+
+		})
+
 		Context("Clean up after old labeller", func() {
 			nfdLabel := "feature.node.kubernetes.io/some-fancy-feature-which-should-not-be-deleted"
 			var originalKubeVirt *v1.KubeVirt

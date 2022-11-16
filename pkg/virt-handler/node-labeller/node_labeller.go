@@ -27,6 +27,8 @@ import (
 	"strings"
 	"time"
 
+	"k8s.io/client-go/tools/record"
+
 	v1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/api/equality"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
@@ -57,10 +59,12 @@ var nodeLabellerLabels = []string{
 	kubevirtv1.SEVLabel,
 	kubevirtv1.HostModelCPULabel,
 	kubevirtv1.HostModelRequiredFeaturesLabel,
+	kubevirtv1.NodeHostModelIsObsoleteLabel,
 }
 
 // NodeLabeller struct holds informations needed to run node-labeller
 type NodeLabeller struct {
+	recorder                record.EventRecorder
 	clientset               kubecli.KubevirtClient
 	host                    string
 	namespace               string
@@ -79,12 +83,13 @@ type NodeLabeller struct {
 	SEV                     SEVConfiguration
 }
 
-func NewNodeLabeller(clusterConfig *virtconfig.ClusterConfig, clientset kubecli.KubevirtClient, host, namespace string) (*NodeLabeller, error) {
-	return newNodeLabeller(clusterConfig, clientset, host, namespace, nodeLabellerVolumePath)
+func NewNodeLabeller(clusterConfig *virtconfig.ClusterConfig, clientset kubecli.KubevirtClient, host, namespace string, recorder record.EventRecorder) (*NodeLabeller, error) {
+	return newNodeLabeller(clusterConfig, clientset, host, namespace, nodeLabellerVolumePath, recorder)
 
 }
-func newNodeLabeller(clusterConfig *virtconfig.ClusterConfig, clientset kubecli.KubevirtClient, host, namespace string, volumePath string) (*NodeLabeller, error) {
+func newNodeLabeller(clusterConfig *virtconfig.ClusterConfig, clientset kubecli.KubevirtClient, host, namespace string, volumePath string, recorder record.EventRecorder) (*NodeLabeller, error) {
 	n := &NodeLabeller{
+		recorder:                recorder,
 		clientset:               clientset,
 		host:                    host,
 		namespace:               namespace,
@@ -193,7 +198,7 @@ func (n *NodeLabeller) run() error {
 	}
 
 	//prepare new labels
-	newLabels := n.prepareLabels(cpuModels, cpuFeatures, hostCPUModel, obsoleteCPUsx86)
+	newLabels := n.prepareLabels(node, cpuModels, cpuFeatures, hostCPUModel, obsoleteCPUsx86)
 	//remove old labeller labels
 	n.removeLabellerLabels(node)
 	//add new labels
@@ -257,7 +262,7 @@ func (n *NodeLabeller) loadHypervFeatures() {
 
 // prepareLabels converts cpu models, features, hyperv features to map[string]string format
 // e.g. "cpu-feature.node.kubevirt.io/Penryn": "true"
-func (n *NodeLabeller) prepareLabels(cpuModels []string, cpuFeatures cpuFeatures, hostCpuModel hostCPUModel, obsoleteCPUsx86 map[string]bool) map[string]string {
+func (n *NodeLabeller) prepareLabels(node *v1.Node, cpuModels []string, cpuFeatures cpuFeatures, hostCpuModel hostCPUModel, obsoleteCPUsx86 map[string]bool) map[string]string {
 	newLabels := make(map[string]string)
 	for key := range cpuFeatures {
 		newLabels[kubevirtv1.CPUFeatureLabel+key] = "true"
@@ -285,6 +290,13 @@ func (n *NodeLabeller) prepareLabels(cpuModels []string, cpuFeatures cpuFeatures
 
 	for feature, _ := range hostCpuModel.requiredFeatures {
 		newLabels[kubevirtv1.HostModelRequiredFeaturesLabel+feature] = "true"
+	}
+	if _, obsolete := obsoleteCPUsx86[hostCpuModel.Name]; obsolete {
+		newLabels[kubevirtv1.NodeHostModelIsObsoleteLabel] = "true"
+		err := n.alertIfHostModelIsObsolete(node, hostCpuModel.Name, obsoleteCPUsx86)
+		if err != nil {
+			n.logger.Reason(err).Error(err.Error())
+		}
 	}
 
 	newLabels[kubevirtv1.CPUModelVendorLabel+n.cpuModelVendor] = "true"
@@ -356,4 +368,10 @@ func isNodeLabellerLabel(label string) bool {
 	}
 
 	return false
+}
+
+func (n *NodeLabeller) alertIfHostModelIsObsolete(originalNode *v1.Node, hostModel string, ObsoleteCPUModels map[string]bool) error {
+	warningMsg := fmt.Sprintf("This node has %v host-model cpu that is included in ObsoleteCPUModels: %v", hostModel, ObsoleteCPUModels)
+	n.recorder.Eventf(originalNode, v1.EventTypeWarning, "HostModelIsObsolete", warningMsg)
+	return nil
 }
