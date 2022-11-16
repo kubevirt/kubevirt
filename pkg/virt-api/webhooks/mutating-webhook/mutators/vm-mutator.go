@@ -23,6 +23,8 @@ import (
 	"fmt"
 	"net/http"
 
+	"k8s.io/utils/pointer"
+
 	admissionv1 "k8s.io/api/admission/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 
@@ -73,10 +75,9 @@ func (mutator *VMsMutator) Mutate(ar *admissionv1.AdmissionReview) *admissionv1.
 }
 
 func (mutator *VMsMutator) mutateDeletion(vm *v1.VirtualMachine) *admissionv1.AdmissionResponse {
-	// TODO: Implement
-	return &admissionv1.AdmissionResponse{
-		Allowed: true,
-	}
+	vm.Spec.Template.Spec.TerminationGracePeriodSeconds = pointer.Int64(0)
+
+	return convertVmToAdmissionResponse(vm)
 }
 
 func (mutator *VMsMutator) mutateCreation(vm *v1.VirtualMachine) *admissionv1.AdmissionResponse {
