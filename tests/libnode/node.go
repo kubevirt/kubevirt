@@ -91,6 +91,7 @@ func CleanNodes() {
 
 		if node.Spec.Unschedulable {
 			new.Spec.Unschedulable = false
+			found = true
 		}
 
 		if !found {
