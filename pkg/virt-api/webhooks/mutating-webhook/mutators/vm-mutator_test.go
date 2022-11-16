@@ -58,7 +58,7 @@ var _ = Describe("VirtualMachine Mutator", func() {
 
 	machineTypeFromConfig := "pc-q35-3.0"
 
-	getVMSpecMetaFromResponse := func() (*v1.VirtualMachineSpec, *k8smetav1.ObjectMeta) {
+	getVMSpecMetaFromResponseWithOperation := func(operation admissionv1.Operation) (*v1.VirtualMachineSpec, *k8smetav1.ObjectMeta) {
 		vmBytes, err := json.Marshal(vm)
 		Expect(err).ToNot(HaveOccurred())
 		By("Creating the test admissions review from the VM")
@@ -68,6 +68,7 @@ var _ = Describe("VirtualMachine Mutator", func() {
 				Object: runtime.RawExtension{
 					Raw: vmBytes,
 				},
+				Operation: operation,
 			},
 		}
 		By("Mutating the VM")
@@ -86,6 +87,10 @@ var _ = Describe("VirtualMachine Mutator", func() {
 		Expect(patch).NotTo(BeEmpty())
 
 		return vmSpec, vmMeta
+	}
+
+	getVMSpecMetaFromResponse := func() (*v1.VirtualMachineSpec, *k8smetav1.ObjectMeta) {
+		return getVMSpecMetaFromResponseWithOperation(admissionv1.Create)
 	}
 
 	BeforeEach(func() {
