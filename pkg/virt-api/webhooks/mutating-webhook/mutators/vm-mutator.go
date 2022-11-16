@@ -60,41 +60,33 @@ func (mutator *VMsMutator) Mutate(ar *admissionv1.AdmissionReview) *admissionv1.
 		return webhookutils.ToAdmissionResponseError(err)
 	}
 
-	// Set VM defaults
-	log.Log.Object(&vm).V(4).Info("Apply defaults")
-	mutator.setDefaultInstancetypeKind(&vm)
-	mutator.setDefaultPreferenceKind(&vm)
-	mutator.setDefaultMachineType(&vm)
-
-	patchBytes, err := utiltypes.GeneratePatchPayload(
-		utiltypes.PatchOperation{
-			Op:    utiltypes.PatchReplaceOp,
-			Path:  "/spec",
-			Value: vm.Spec,
-		},
-		utiltypes.PatchOperation{
-			Op:    utiltypes.PatchReplaceOp,
-			Path:  "/metadata",
-			Value: vm.ObjectMeta,
-		},
-	)
-
-	if err != nil {
-		log.Log.Reason(err).Error("admission failed to marshall patch to JSON")
-		return &admissionv1.AdmissionResponse{
-			Result: &metav1.Status{
-				Message: err.Error(),
-				Code:    http.StatusInternalServerError,
-			},
-		}
+	switch ar.Request.Operation {
+	case admissionv1.Create:
+		return mutator.mutateCreation(&vm)
+	case admissionv1.Delete:
+		return mutator.mutateDeletion(&vm)
 	}
 
-	jsonPatchType := admissionv1.PatchTypeJSONPatch
 	return &admissionv1.AdmissionResponse{
-		Allowed:   true,
-		Patch:     patchBytes,
-		PatchType: &jsonPatchType,
+		Allowed: true,
 	}
+}
+
+func (mutator *VMsMutator) mutateDeletion(vm *v1.VirtualMachine) *admissionv1.AdmissionResponse {
+	// TODO: Implement
+	return &admissionv1.AdmissionResponse{
+		Allowed: true,
+	}
+}
+
+func (mutator *VMsMutator) mutateCreation(vm *v1.VirtualMachine) *admissionv1.AdmissionResponse {
+	// Set VM defaults
+	log.Log.Object(vm).V(4).Info("Apply defaults")
+	mutator.setDefaultInstancetypeKind(vm)
+	mutator.setDefaultPreferenceKind(vm)
+	mutator.setDefaultMachineType(vm)
+
+	return convertVmToAdmissionResponse(vm)
 }
 
 func (mutator *VMsMutator) setDefaultMachineType(vm *v1.VirtualMachine) {
@@ -149,5 +141,37 @@ func (mutator *VMsMutator) setDefaultPreferenceKind(vm *v1.VirtualMachine) {
 
 	if vm.Spec.Preference.Kind == "" {
 		vm.Spec.Preference.Kind = apiinstancetype.ClusterSingularPreferenceResourceName
+	}
+}
+
+func convertVmToAdmissionResponse(vm *v1.VirtualMachine) *admissionv1.AdmissionResponse {
+	patchBytes, err := utiltypes.GeneratePatchPayload(
+		utiltypes.PatchOperation{
+			Op:    utiltypes.PatchReplaceOp,
+			Path:  "/spec",
+			Value: vm.Spec,
+		},
+		utiltypes.PatchOperation{
+			Op:    utiltypes.PatchReplaceOp,
+			Path:  "/metadata",
+			Value: vm.ObjectMeta,
+		},
+	)
+
+	if err != nil {
+		log.Log.Reason(err).Error("admission failed to marshall patch to JSON")
+		return &admissionv1.AdmissionResponse{
+			Result: &metav1.Status{
+				Message: err.Error(),
+				Code:    http.StatusInternalServerError,
+			},
+		}
+	}
+
+	jsonPatchType := admissionv1.PatchTypeJSONPatch
+	return &admissionv1.AdmissionResponse{
+		Allowed:   true,
+		Patch:     patchBytes,
+		PatchType: &jsonPatchType,
 	}
 }
