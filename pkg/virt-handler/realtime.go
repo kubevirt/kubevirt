@@ -9,7 +9,6 @@ import (
 	"regexp"
 	"strconv"
 	"strings"
-	"syscall"
 	"unsafe"
 
 	"golang.org/x/sys/unix"
@@ -20,16 +19,14 @@ import (
 	"C"
 
 	v1 "kubevirt.io/api/core/v1"
-
-	"kubevirt.io/kubevirt/pkg/virt-handler/isolation"
 )
 
-type SchedParam C.sched_param
-type Policy uint32
+type schedParam C.sched_param
+type policy uint32
 type maskType bool
 
 const (
-	SCHED_FIFO Policy   = C.SCHED_FIFO
+	SCHED_FIFO policy   = C.SCHED_FIFO
 	enabled    maskType = true
 	disabled   maskType = false
 )
@@ -53,11 +50,10 @@ func (d *VirtualMachineController) configureVCPUScheduler(vmi *v1.VirtualMachine
 	if err != nil {
 		return err
 	}
-	qemuProcess, err := isolation.GetQEMUProcess(res.PPid())
+	qemuProcess, err := res.GetQEMUProcess()
 	if err != nil {
 		return err
 	}
-
 	vcpus, err := getVCPUThreadIDs(qemuProcess.Pid())
 	if err != nil {
 		return err
@@ -67,9 +63,8 @@ func (d *VirtualMachineController) configureVCPUScheduler(vmi *v1.VirtualMachine
 		return err
 	}
 	for vcpuID, threadID := range vcpus {
-
 		if isRealtimeVCPU(mask, vcpuID) {
-			param := SchedParam{sched_priority: 1}
+			param := schedParam{sched_priority: 1}
 			tid, err := strconv.Atoi(threadID)
 			if err != nil {
 				return err
@@ -124,20 +119,19 @@ func getVCPUThreadIDs(pid int) (map[string]string, error) {
 
 // parseCPUMask parses the mask and maps the results into a structure that contains which
 // CPUs are enabled or disabled for the scheduling and priority changes.
-// This implementation duplicates the libvirt parsing logic defined here:
+// This implementation reimplements the libvirt parsing logic defined here:
 // https://github.com/libvirt/libvirt/blob/56de80cb793aa7aedc45572f8b6ec3fc32c99309/src/util/virbitmap.c#L382
 // except that in this case it uses a map[string]maskType instead of a bit array.
 func parseCPUMask(mask string) (map[string]maskType, error) {
 
-	if len(strings.TrimSpace(mask)) == 0 {
-		return nil, fmt.Errorf("emtpy mask `%s`", mask)
+	if len(mask) == 0 {
+		return nil, nil
 	}
-
 	vcpus := make(map[string]maskType)
 
 	masks := strings.Split(mask, ",")
-	for _, m := range masks {
-		m = strings.TrimSpace(m)
+	for _, i := range masks {
+		m := strings.TrimSpace(i)
 		switch {
 		case cpuRangeRegex.MatchString(m):
 			match := cpuRangeRegex.FindSubmatch([]byte(m))
@@ -187,16 +181,16 @@ func parseCPUMask(mask string) (map[string]maskType, error) {
 			}
 			vcpus[string(match[1])] = disabled
 		default:
-			return nil, fmt.Errorf("invalid mask value '%s' in '%s'", m, mask)
+			return nil, fmt.Errorf("invalid mask value '%s' in '%s'", i, mask)
 		}
 	}
 	return vcpus, nil
 }
 
-func schedSetScheduler(pid int, policy Policy, param SchedParam) error {
+func schedSetScheduler(pid int, policy policy, param schedParam) error {
 	_, _, e1 := unix.Syscall(unix.SYS_SCHED_SETSCHEDULER, uintptr(pid), uintptr(policy), uintptr(unsafe.Pointer(&param)))
 	if e1 != 0 {
-		return syscall.Errno(e1)
+		return e1
 	}
 	return nil
 }

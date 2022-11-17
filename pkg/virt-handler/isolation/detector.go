@@ -165,7 +165,7 @@ func AdjustQemuProcessMemoryLimits(podIsoDetector PodIsolationDetector, vmi *v1.
 		return err
 	}
 
-	qemuProcess, err := GetQEMUProcess(isolationResult.PPid())
+	qemuProcess, err := isolationResult.GetQEMUProcess()
 	if err != nil {
 		return err
 	}
@@ -183,19 +183,6 @@ func AdjustQemuProcessMemoryLimits(podIsoDetector PodIsolationDetector, vmi *v1.
 		qemuProcess, memlockSize.Value())
 
 	return nil
-}
-
-// GetQEMUProcess encapsulates and exposes the logic to retrieve the QEMU process ID
-func GetQEMUProcess(parentPID int) (ps.Process, error) {
-	processes, err := ps.Processes()
-	if err != nil {
-		return nil, fmt.Errorf("failed to get all processes: %v", err)
-	}
-	qemuProcess, err := findIsolatedQemuProcess(processes, parentPID)
-	if err != nil {
-		return nil, err
-	}
-	return qemuProcess, nil
 }
 
 var qemuProcessExecutables = []string{"qemu-system", "qemu-kvm"}
