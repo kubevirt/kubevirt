@@ -2793,7 +2793,7 @@ func (d *VirtualMachineController) vmUpdateHelperDefault(origVMI *v1.VirtualMach
 			return err
 		}
 	}
-	if virtutil.IsNonRootVMI(vmi) && origVMI.IsRealtimeEnabled() {
+	if origVMI.IsRealtimeEnabled() {
 		if err := d.configureVCPUScheduler(origVMI); err != nil {
 			return err
 		}
