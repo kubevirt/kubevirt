@@ -102,6 +102,7 @@ func NewHandlerDaemonSet(namespace string, repository string, imagePrefix string
 			},
 		},
 	}
+	fmt.Println("patch daemonset initcontainters.")
 	//}
 
 	// give the handler grace period some padding
