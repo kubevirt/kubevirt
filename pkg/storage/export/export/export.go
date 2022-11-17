@@ -798,7 +798,6 @@ func (ctrl *VMExportController) createExporterPodManifest(vmExport *exportv1.Vir
 	podManifest.Labels = map[string]string{exportServiceLabel: vmExport.Name}
 	podManifest.Annotations = map[string]string{annCertParams: scp}
 	podManifest.Spec.SecurityContext = &corev1.PodSecurityContext{
-		RunAsNonRoot:   pointer.Bool(true),
 		FSGroup:        pointer.Int64Ptr(kvm),
 		SeccompProfile: &corev1.SeccompProfile{Type: corev1.SeccompProfileTypeRuntimeDefault},
 	}

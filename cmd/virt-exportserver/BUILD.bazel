@@ -26,32 +26,7 @@ load(
     "@io_bazel_rules_docker//container:container.bzl",
     "container_image",
 )
-load("@io_bazel_rules_docker//contrib:passwd.bzl", "passwd_entry", "passwd_file")
-load("@bazel_tools//tools/build_defs/pkg:pkg.bzl", "pkg_tar")
 
-passwd_entry(
-    name = "nonroot-user",
-    gid = 1001,
-    home = "/home/nonroot-user",
-    shell = "/bin/bash",
-    uid = 1001,
-    username = "nonroot-user",
-)
-
-passwd_file(
-    name = "passwd",
-    entries = [
-        ":nonroot-user",
-    ],
-)
-
-pkg_tar(
-    name = "passwd-tar",
-    srcs = [":passwd"],
-    mode = "0644",
-    package_dir = "etc",
-    visibility = ["//visibility:public"],
-)
 
 container_image(
     name = "version-container",
@@ -61,11 +36,9 @@ container_image(
     ],
     tars = select({
         "@io_bazel_rules_go//go/platform:linux_arm64": [
-            ":passwd-tar",
             "//rpm:exportserverbase_aarch64",
         ],
         "//conditions:default": [
-            ":passwd-tar",
             "//rpm:exportserverbase_x86_64",
         ],
     }),
@@ -81,6 +54,5 @@ container_image(
     directory = "/usr/bin/",
     entrypoint = ["/usr/bin/virt-exportserver"],
     files = [":virt-exportserver"],
-    user = "1001",
     visibility = ["//visibility:public"],
 )
