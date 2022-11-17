@@ -1198,8 +1198,6 @@ spec:
                   valueFrom:
                     fieldRef:
                       fieldPath: metadata.annotations['olm.targetNamespaces']
-                - name: KUBEVIRT_VERSION
-                  value: {{.DockerTag}}
                 - name: VIRT_API_SHASUM
                   value: {{if .VirtApiSha}}{{.VirtApiSha}}{{end}}
                 - name: VIRT_CONTROLLER_SHASUM
@@ -1212,6 +1210,8 @@ spec:
                   value: {{if .VirtExportProxySha}}{{.VirtExportProxySha}}{{end}}
                 - name: VIRT_EXPORTSERVER_SHASUM
                   value: {{if .VirtExportServerSha}}{{.VirtExportServerSha}}{{end}}
+                - name: KUBEVIRT_VERSION
+                  value: {{.DockerTag}}
                 - name: GS_SHASUM
                   value: {{if .GsSha}}{{.GsSha}}{{end}}
                 image: {{.DockerPrefix}}/virt-operator{{if .VirtOperatorSha}}@{{.VirtOperatorSha}}{{else}}:{{.DockerTag}}{{end}}
