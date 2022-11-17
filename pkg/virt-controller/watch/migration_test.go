@@ -1668,10 +1668,23 @@ var _ = Describe("Migration watcher", func() {
 	Context("Migration backoff", func() {
 		var vmi *virtv1.VirtualMachineInstance
 
-		It("should be applied after a migration fails", func() {
+		setEvacuationAnnotation := func(migrations ...*virtv1.VirtualMachineInstanceMigration) {
+			for _, m := range migrations {
+				if m.Annotations == nil {
+					m.Annotations = map[string]string{
+						virtv1.EvacuationMigrationAnnotation: m.Name,
+					}
+				} else {
+					m.Annotations[virtv1.EvacuationMigrationAnnotation] = m.Name
+				}
+			}
+		}
+
+		It("should be applied after an evacuation migration fails", func() {
 			vmi = newVirtualMachine("testvmi", virtv1.Running)
 			failedMigration := newMigration("testmigration", vmi.Name, virtv1.MigrationFailed)
 			pendingMigration := newMigration("testmigration2", vmi.Name, virtv1.MigrationPending)
+			setEvacuationAnnotation(failedMigration, pendingMigration)
 
 			failedMigration.Status.PhaseTransitionTimestamps = []virtv1.VirtualMachineInstanceMigrationPhaseTransitionTimestamp{
 				{
@@ -1690,11 +1703,34 @@ var _ = Describe("Migration watcher", func() {
 			testutils.ExpectEvent(recorder, "MigrationBackoff")
 		})
 
+		It("should not be applied if it is not an evacuation", func() {
+			vmi = newVirtualMachine("testvmi", virtv1.Running)
+			failedMigration := newMigration("testmigration", vmi.Name, virtv1.MigrationFailed)
+			pendingMigration := newMigration("testmigration2", vmi.Name, virtv1.MigrationPending)
+			setEvacuationAnnotation(failedMigration)
+
+			failedMigration.Status.PhaseTransitionTimestamps = []virtv1.VirtualMachineInstanceMigrationPhaseTransitionTimestamp{
+				{
+					Phase:                    virtv1.MigrationFailed,
+					PhaseTransitionTimestamp: failedMigration.CreationTimestamp,
+				},
+			}
+			pendingMigration.CreationTimestamp = metav1.NewTime(failedMigration.CreationTimestamp.Add(time.Second * 1))
+
+			_ = migrationInformer.GetStore().Add(failedMigration)
+			_ = vmiInformer.GetStore().Add(vmi)
+			addMigration(pendingMigration)
+
+			controller.Execute()
+			shouldExpectPodCreation(vmi.UID, pendingMigration.UID, 1, 0, 0)
+		})
+
 		It("should be cleared when a migration succeeds", func() {
 			vmi = newVirtualMachine("testvmi", virtv1.Running)
 			failedMigration := newMigration("testmigration", vmi.Name, virtv1.MigrationFailed)
 			successfulMigration := newMigration("testmigration2", vmi.Name, virtv1.MigrationSucceeded)
 			pendingMigration := newMigration("testmigration3", vmi.Name, virtv1.MigrationPending)
+			setEvacuationAnnotation(failedMigration, pendingMigration, successfulMigration)
 
 			failedMigration.Status.PhaseTransitionTimestamps = []virtv1.VirtualMachineInstanceMigrationPhaseTransitionTimestamp{
 				{
