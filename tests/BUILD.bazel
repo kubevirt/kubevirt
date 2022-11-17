@@ -6,6 +6,7 @@ go_library(
         "io_utils.go",
         "job.go",
         "migration.go",
+        "migration_policy.go",
         "pod_servers.go",
         "utils.go",
         "vmi_servers.go",
