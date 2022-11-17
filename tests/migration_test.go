@@ -2930,71 +2930,47 @@ var _ = Describe("[rfe_id:393][crit:high][vendor:cnv-qe@redhat.com][level:system
 				}
 				return false
 			}
-			expectFeatureToBeSupportedOnNode := func(node *k8sv1.Node, features []string) {
-				isFeatureSupported := func(feature string) bool {
-					for key := range node.Labels {
-						if strings.HasPrefix(key, v1.CPUFeatureLabel) && strings.Contains(key, feature) {
-							return true
-						}
+			isFeatureSupported := func(node *k8sv1.Node, feature string) bool {
+				for key := range node.Labels {
+					if strings.HasPrefix(key, v1.CPUFeatureLabel) && strings.Contains(key, feature) {
+						return true
 					}
-					return false
 				}
-
+				return false
+			}
+			expectFeatureToBeSupportedOnNode := func(node *k8sv1.Node, features []string) {
 				supportedFeatures := make(map[string]bool)
 				for _, feature := range features {
-					supportedFeatures[feature] = isFeatureSupported(feature)
+					supportedFeatures[feature] = isFeatureSupported(node, feature)
 				}
 
 				Expect(supportedFeatures).Should(Not(ContainElement(false)),
 					"copy features must be supported on node")
 			}
-			getOtherNodes := func(nodeList *k8sv1.NodeList, node *k8sv1.Node) (others []*k8sv1.Node) {
-				for _, curNode := range nodeList.Items {
-					if curNode.Name != node.Name {
-						others = append(others, &curNode)
-					}
-				}
-				return others
-			}
-			isHeterogeneousCluster := func() bool {
-				nodes := libnode.GetAllSchedulableNodes(virtClient)
-				for _, node := range nodes.Items {
-					hostModel := getNodeHostModel(&node)
-					otherNodes := getOtherNodes(nodes, &node)
-
-					foundSupportedNode := false
-					foundUnsupportedNode := false
-					for _, otherNode := range otherNodes {
-						if isModelSupportedOnNode(otherNode, hostModel) {
-							foundSupportedNode = true
-						} else {
-							foundUnsupportedNode = true
-						}
-
-						if foundSupportedNode && foundUnsupportedNode {
-							return true
-						}
-					}
-				}
-
-				return false
-			}
 
 			It("[test_id:6981]should migrate only to nodes supporting right cpu model", func() {
-				if !isHeterogeneousCluster() {
-					log.Log.Warning("all nodes have the same CPU model. Therefore the test is a happy-path since " +
-						"VMIs with default CPU can be migrated to every other node")
+				sourceNode, targetNode, err := getValidSourceNodeAndTargetNodeForHostModelMigration(virtClient)
+				if err != nil {
+					Skip(err.Error())
 				}
 
-				By("Creating a VMI with default CPU mode")
-				vmi := alpineVMIWithEvictionStrategy()
-
-				if cpu := vmi.Spec.Domain.CPU; cpu != nil && cpu.Model != v1.CPUModeHostModel {
-					log.Log.Warning("test is not expected to pass with CPU model other than host-model")
+				vmi := libvmi.NewAlpine(
+					libvmi.WithInterface(libvmi.InterfaceDeviceWithMasqueradeBinding()),
+					libvmi.WithNetwork(v1.DefaultPodNetwork()),
+					withEvictionStrategy(v1.EvictionStrategyLiveMigrate),
+				)
+				By("Creating a VMI with default CPU mode to land in source node")
+				vmi.Spec.Domain.CPU = &v1.CPU{Model: v1.CPUModeHostModel}
+				By("Making sure the vmi start running on the source node and will be able to run only in source/target nodes")
+				nodeAffinityRule, err := affinityToMigrateFromSourceToTargetAndBack(sourceNode, targetNode)
+				Expect(err).ToNot(HaveOccurred())
+				vmi.Spec.Affinity = &k8sv1.Affinity{
+					NodeAffinity: nodeAffinityRule,
 				}
 
 				By("Starting the VirtualMachineInstance")
 				vmi = tests.RunVMIAndExpectLaunch(vmi, 240)
+				Expect(vmi.Spec.Domain.CPU.Model).To(Equal(v1.CPUModeHostModel))
 
 				By("Fetching original host CPU model & supported CPU features")
 				originalNode, err := virtClient.CoreV1().Nodes().Get(context.Background(), vmi.Status.NodeName, metav1.GetOptions{})
@@ -4003,7 +3979,7 @@ var _ = Describe("[rfe_id:393][crit:high][vendor:cnv-qe@redhat.com][level:system
 		const fakeHostModel = v1.HostModelCPULabel + "fakeHostModel"
 
 		BeforeEach(func() {
-			sourceNode, targetNode, err = tests.GetValidSourceNodeAndTargetNodeForHostModelMigration(virtClient)
+			sourceNode, targetNode, err = getValidSourceNodeAndTargetNodeForHostModelMigration(virtClient)
 			if err != nil {
 				Skip(err.Error())
 			}
@@ -4031,7 +4007,7 @@ var _ = Describe("[rfe_id:393][crit:high][vendor:cnv-qe@redhat.com][level:system
 			By("Creating a VMI with default CPU mode to land in source node")
 			vmiToMigrate.Spec.Domain.CPU = &v1.CPU{Model: v1.CPUModeHostModel}
 			By("Making sure the vmi start running on the source node and will be able to run only in source/target nodes")
-			nodeAffinityRule, err := tests.AffinityToMigrateFromSourceToTargetAndBack(sourceNode, targetNode)
+			nodeAffinityRule, err := affinityToMigrateFromSourceToTargetAndBack(sourceNode, targetNode)
 			Expect(err).ToNot(HaveOccurred())
 			vmiToMigrate.Spec.Affinity = &k8sv1.Affinity{
 				NodeAffinity: nodeAffinityRule,
@@ -4092,7 +4068,7 @@ var _ = Describe("[rfe_id:393][crit:high][vendor:cnv-qe@redhat.com][level:system
 			By("Creating a VMI with default CPU mode to land in source node")
 			vmiToMigrate.Spec.Domain.CPU = &v1.CPU{Model: v1.CPUModeHostModel}
 			By("Making sure the vmi start running on the source node and will be able to run only in source/target nodes")
-			nodeAffinityRule, err := tests.AffinityToMigrateFromSourceToTargetAndBack(sourceNode, targetNode)
+			nodeAffinityRule, err := affinityToMigrateFromSourceToTargetAndBack(sourceNode, targetNode)
 			Expect(err).ToNot(HaveOccurred())
 			vmiToMigrate.Spec.Affinity = &k8sv1.Affinity{
 				NodeAffinity: nodeAffinityRule,
@@ -4700,4 +4676,107 @@ func getPodsCgroupVersion(pod *k8sv1.Pod, virtClient kubecli.KubevirtClient) cgr
 	} else {
 		return cgroup.V1
 	}
+}
+
+func withEvictionStrategy(evictionStrategy v1.EvictionStrategy) libvmi.Option {
+	return func(vmi *v1.VirtualMachineInstance) {
+		vmi.Spec.EvictionStrategy = &evictionStrategy
+	}
+}
+
+func getValidSourceNodeAndTargetNodeForHostModelMigration(virtCli kubecli.KubevirtClient) (sourceNode *k8sv1.Node, targetNode *k8sv1.Node, err error) {
+	getNodeHostRequiredFeatures := func(node *k8sv1.Node) (features []string) {
+		for key, _ := range node.Labels {
+			if strings.HasPrefix(key, v1.HostModelRequiredFeaturesLabel) {
+				features = append(features, strings.TrimPrefix(key, v1.HostModelRequiredFeaturesLabel))
+			}
+		}
+		return features
+	}
+	areFeaturesSupportedOnNode := func(node *k8sv1.Node, features []string) bool {
+		isFeatureSupported := func(feature string) bool {
+			for key, _ := range node.Labels {
+				if strings.HasPrefix(key, v1.CPUFeatureLabel) && strings.Contains(key, feature) {
+					return true
+				}
+			}
+			return false
+		}
+		for _, feature := range features {
+			if !isFeatureSupported(feature) {
+				return false
+			}
+		}
+
+		return true
+	}
+
+	var sourceHostCpuModel string
+
+	nodes := libnode.GetAllSchedulableNodes(virtCli)
+	Expect(err).ToNot(HaveOccurred(), "Should list compute nodes")
+	for _, potentialSourceNode := range nodes.Items {
+		for _, potentialTargetNode := range nodes.Items {
+			if potentialSourceNode.Name == potentialTargetNode.Name {
+				continue
+			}
+
+			sourceHostCpuModel = tests.GetNodeHostModel(&potentialSourceNode)
+			if sourceHostCpuModel == "" {
+				continue
+			}
+			supportedInTarget := false
+			for key, _ := range potentialTargetNode.Labels {
+				if strings.HasPrefix(key, v1.SupportedHostModelMigrationCPU) && strings.Contains(key, sourceHostCpuModel) {
+					supportedInTarget = true
+					break
+				}
+			}
+
+			if supportedInTarget == false {
+				continue
+			}
+			sourceNodeHostModelRequiredFeatures := getNodeHostRequiredFeatures(&potentialSourceNode)
+			if areFeaturesSupportedOnNode(&potentialTargetNode, sourceNodeHostModelRequiredFeatures) == false {
+				continue
+			}
+			return &potentialSourceNode, &potentialTargetNode, nil
+		}
+	}
+	return nil, nil, fmt.Errorf("couldn't find valid nodes for host-model migration")
+}
+
+func affinityToMigrateFromSourceToTargetAndBack(sourceNode *k8sv1.Node, targetNode *k8sv1.Node) (nodefiinity *k8sv1.NodeAffinity, err error) {
+	if sourceNode == nil || targetNode == nil {
+		return nil, fmt.Errorf("couldn't find valid nodes for host-model migration")
+	}
+	return &k8sv1.NodeAffinity{
+		RequiredDuringSchedulingIgnoredDuringExecution: &k8sv1.NodeSelector{
+			NodeSelectorTerms: []k8sv1.NodeSelectorTerm{
+				{
+					MatchExpressions: []k8sv1.NodeSelectorRequirement{
+						{
+							Key:      "kubernetes.io/hostname",
+							Operator: k8sv1.NodeSelectorOpIn,
+							Values:   []string{sourceNode.Name, targetNode.Name},
+						},
+					},
+				},
+			},
+		},
+		PreferredDuringSchedulingIgnoredDuringExecution: []k8sv1.PreferredSchedulingTerm{
+			{
+				Preference: k8sv1.NodeSelectorTerm{
+					MatchExpressions: []k8sv1.NodeSelectorRequirement{
+						{
+							Key:      "kubernetes.io/hostname",
+							Operator: k8sv1.NodeSelectorOpIn,
+							Values:   []string{sourceNode.Name},
+						},
+					},
+				},
+				Weight: 1,
+			},
+		},
+	}, nil
 }

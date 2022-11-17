@@ -937,12 +937,21 @@ var _ = Describe("[rfe_id:273][crit:high][arm64][vendor:cnv-qe@redhat.com][level
 		Context("[Serial]with default cpu model", func() {
 			var originalConfig v1.KubeVirtConfiguration
 			var supportedCpuModels []string
+			var defaultCPUModel string
+			var vmiCPUModel string
+
 			//store old kubevirt-config
 			BeforeEach(func() {
 				// arm64 does not support cpu model
 				checks.SkipIfARM64(testsuite.Arch, "arm64 does not support cpu model")
 				nodes := libnode.GetAllSchedulableNodes(virtClient)
+				Expect(nodes.Items).ToNot(BeEmpty(), "There should be some compute node")
 				supportedCpuModels = tests.GetSupportedCPUModels(*nodes)
+				if len(supportedCpuModels) < 2 {
+					Skip("need at least 2 supported cpuModels for this test")
+				}
+				defaultCPUModel = supportedCpuModels[0]
+				vmiCPUModel = supportedCpuModels[1]
 				kv := util.GetCurrentKv(virtClient)
 				originalConfig = kv.Spec.Configuration
 			})
@@ -953,11 +962,7 @@ var _ = Describe("[rfe_id:273][crit:high][arm64][vendor:cnv-qe@redhat.com][level
 			})
 
 			It("[test_id:3199]should set default cpu model when vmi doesn't have it set", func() {
-				if len(supportedCpuModels) < 1 {
-					Skip("Must have at least one supported cpuModel for this test")
-				}
 				config := originalConfig.DeepCopy()
-				defaultCPUModel := supportedCpuModels[0]
 				config.CPUModel = defaultCPUModel
 				tests.UpdateKubeVirtConfigValueAndWait(*config)
 
@@ -973,11 +978,6 @@ var _ = Describe("[rfe_id:273][crit:high][arm64][vendor:cnv-qe@redhat.com][level
 			})
 
 			It("[test_id:3200]should not set default cpu model when vmi has it set", func() {
-				if len(supportedCpuModels) < 2 {
-					Skip("Must have at least two supported cpuModels for this test")
-				}
-				defaultCPUModel := supportedCpuModels[0]
-				vmiCPUModel := supportedCpuModels[1]
 				config := originalConfig.DeepCopy()
 				config.CPUModel = defaultCPUModel
 				tests.UpdateKubeVirtConfigValueAndWait(*config)
