@@ -1335,6 +1335,7 @@ var _ = SIGDescribe("VirtualMachineSnapshot Tests", func() {
 				)
 				dv, err = virtClient.CdiClient().CdiV1beta1().DataVolumes(util.NamespaceTestDefault).Create(context.Background(), includedDataVolume, metav1.CreateOptions{})
 				Expect(err).ToNot(HaveOccurred())
+				libstorage.EventuallyDVWith(dv.Namespace, dv.Name, 180, HaveSucceeded())
 
 				By("Creating DV with no snapshot supported storage class")
 				excludedDataVolume := libdv.NewDataVolume(
@@ -1345,7 +1346,7 @@ var _ = SIGDescribe("VirtualMachineSnapshot Tests", func() {
 				Expect(err).ToNot(HaveOccurred())
 
 				vmi := tests.NewRandomVMI()
-				vmi = libstorage.AddDataVolumeDisk(vmi, "snapshotablevolume", includedDataVolume.Name)
+				vmi = tests.AddPVCDisk(vmi, "snapshotablevolume", v1.DiskBusVirtio, includedDataVolume.Name)
 				vmi = tests.AddPVCDisk(vmi, "notsnapshotablevolume", v1.DiskBusVirtio, excludedDataVolume.Name)
 				vm = tests.NewRandomVirtualMachine(vmi, false)
 
