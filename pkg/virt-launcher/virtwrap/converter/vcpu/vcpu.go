@@ -14,7 +14,6 @@ import (
 	v12 "kubevirt.io/api/core/v1"
 
 	v1 "kubevirt.io/kubevirt/pkg/handler-launcher-com/cmd/v1"
-	"kubevirt.io/kubevirt/pkg/util"
 	"kubevirt.io/kubevirt/pkg/virt-launcher/virtwrap/api"
 )
 
@@ -327,20 +326,6 @@ func GetCPUTopology(vmi *v12.VirtualMachineInstance) *api.CPUTopology {
 	}
 }
 
-func formatVCPUScheduler(domain *api.Domain, vmi *v12.VirtualMachineInstance) {
-
-	var mask string
-	if len(strings.TrimSpace(vmi.Spec.Domain.CPU.Realtime.Mask)) > 0 {
-		mask = vmi.Spec.Domain.CPU.Realtime.Mask
-	} else {
-		mask = "0"
-		if len(domain.Spec.CPUTune.VCPUPin) > 1 {
-			mask = fmt.Sprintf("0-%d", len(domain.Spec.CPUTune.VCPUPin)-1)
-		}
-	}
-	domain.Spec.CPUTune.VCPUScheduler = &api.VCPUScheduler{Scheduler: api.SchedulerFIFO, Priority: uint(1), VCPUs: mask}
-}
-
 func QuantityToByte(quantity resource.Quantity) (api.Memory, error) {
 	memorySize, isInt := quantity.AsInt64()
 	if !isInt {
@@ -473,9 +458,9 @@ func AdjustDomainForTopologyAndCPUSet(domain *api.Domain, vmi *v12.VirtualMachin
 		// - VCPU Pin (DedicatedCPUPlacement)
 		// - USB controller should be disabled if no input type usb is found
 		// - Memballoning can be disabled when setting 'autoattachMemBalloon' to false
-		if !util.IsNonRootVMI(vmi) {
-			formatVCPUScheduler(domain, vmi)
-		}
+
+		// Changes to the vcpu scheduling and priorities are performed by the virt-handler to allow
+		// workloads that run without CAP_SYS_NICE to work as well as with CAP_SYS_NICE.
 		domain.Spec.Features.PMU = &api.FeatureState{State: "off"}
 	}
 
