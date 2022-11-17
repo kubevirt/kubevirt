@@ -1071,6 +1071,11 @@ func (c *VMIController) sync(vmi *virtv1.VirtualMachineInstance, pod *k8sv1.Pod,
 		vmiKey := controller.VirtualMachineInstanceKey(vmi)
 		c.podExpectations.ExpectCreations(vmiKey, 1)
 		pod, err := c.clientset.CoreV1().Pods(vmi.GetNamespace()).Create(context.Background(), templatePod, v1.CreateOptions{})
+		if k8serrors.IsForbidden(err) && strings.Contains(err.Error(), "violates PodSecurity") {
+			psaErr := fmt.Errorf("failed to create pod for vmi %s/%s, it needs a privileged namespace to run: %w", vmi.GetNamespace(), vmi.GetName(), err)
+			c.recorder.Eventf(vmi, k8sv1.EventTypeWarning, FailedCreatePodReason, failedToRenderLaunchManifestErrFormat, psaErr)
+			return &syncErrorImpl{psaErr, FailedCreatePodReason}
+		}
 		if err != nil {
 			c.recorder.Eventf(vmi, k8sv1.EventTypeWarning, FailedCreatePodReason, "Error creating pod: %v", err)
 			c.podExpectations.CreationObserved(vmiKey)
