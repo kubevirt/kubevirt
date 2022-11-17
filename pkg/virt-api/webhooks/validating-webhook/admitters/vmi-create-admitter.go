@@ -1471,16 +1471,6 @@ func validateHostNameNotConformingToDNSLabelRules(field *k8sfield.Path, spec *v1
 
 func validateRealtime(field *k8sfield.Path, spec *v1.VirtualMachineInstanceSpec, nonroot bool) (causes []metav1.StatusCause) {
 	if spec.Domain.CPU != nil && spec.Domain.CPU.Realtime != nil {
-		// if nonroot {
-		// 	causes = append(causes, metav1.StatusCause{
-		// 		Type: metav1.CauseTypeFieldValueRequired,
-		// 		Message: fmt.Sprintf("%s must be set to false when Root feature gate is not used",
-
-		// 			field.Child("domain", "cpu", "realtime").String(),
-		// 		),
-		// 		Field: field.Child("domain", "cpu", "dedicatedCpuPlacement").String(),
-		// 	})
-		// }
 		causes = append(causes, validateCPURealtime(field, spec)...)
 		causes = append(causes, validateMemoryRealtime(field, spec)...)
 	}
