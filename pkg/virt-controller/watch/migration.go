@@ -657,12 +657,17 @@ func (c *MigrationController) expandPDB(pdb *policyv1.PodDisruptionBudget, vmi *
 	return nil
 }
 
+// handleMigrationBackoff introduce a backoff (when needed) only for migrations
+// created by the evacuation controller.
 func (c *MigrationController) handleMigrationBackoff(key string, vmi *virtv1.VirtualMachineInstance, migration *virtv1.VirtualMachineInstanceMigration) error {
 	if _, exists := migration.Annotations[virtv1.FuncTestForceIgnoreMigrationBackoffAnnotation]; exists {
 		return nil
 	}
+	if _, exists := migration.Annotations[virtv1.EvacuationMigrationAnnotation]; !exists {
+		return nil
+	}
 
-	migrations, err := c.listMigrationsMatchingVMI(vmi.Namespace, vmi.Name)
+	migrations, err := c.listEvacuationMigrations(vmi.Namespace, vmi.Name)
 	if err != nil {
 		return err
 	}
@@ -1526,21 +1531,35 @@ func (c *MigrationController) garbageCollectFinalizedMigrations(vmi *virtv1.Virt
 	return nil
 }
 
-// takes a namespace and returns all migrations listening for this vmi
-func (c *MigrationController) listMigrationsMatchingVMI(namespace string, name string) ([]*virtv1.VirtualMachineInstanceMigration, error) {
+func (c *MigrationController) filterMigrations(namespace, name string, filter func(*virtv1.VirtualMachineInstanceMigration) bool) ([]*virtv1.VirtualMachineInstanceMigration, error) {
 	objs, err := c.migrationInformer.GetIndexer().ByIndex(cache.NamespaceIndex, namespace)
 	if err != nil {
 		return nil, err
 	}
+
 	migrations := []*virtv1.VirtualMachineInstanceMigration{}
 	for _, obj := range objs {
 		migration := obj.(*virtv1.VirtualMachineInstanceMigration)
 
-		if migration.Spec.VMIName == name {
+		if filter(migration) {
 			migrations = append(migrations, migration)
 		}
 	}
 	return migrations, nil
+}
+
+// takes a namespace and returns all migrations listening for this vmi
+func (c *MigrationController) listMigrationsMatchingVMI(namespace, name string) ([]*virtv1.VirtualMachineInstanceMigration, error) {
+	return c.filterMigrations(namespace, name, func(migration *virtv1.VirtualMachineInstanceMigration) bool {
+		return migration.Spec.VMIName == name
+	})
+}
+
+func (c *MigrationController) listEvacuationMigrations(namespace string, name string) ([]*virtv1.VirtualMachineInstanceMigration, error) {
+	return c.filterMigrations(namespace, name, func(migration *virtv1.VirtualMachineInstanceMigration) bool {
+		_, isEvacuation := migration.Annotations[virtv1.EvacuationMigrationAnnotation]
+		return migration.Spec.VMIName == name && isEvacuation
+	})
 }
 
 func (c *MigrationController) addVMI(obj interface{}) {
