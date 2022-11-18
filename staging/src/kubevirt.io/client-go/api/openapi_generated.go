@@ -18243,6 +18243,25 @@ func schema_kubevirtio_api_core_v1_MediatedDevicesConfiguration(ref common.Refer
 							},
 						},
 						SchemaProps: spec.SchemaProps{
+							Description: "Deprecated. Use mediatedDeviceTypes instead.",
+							Type:        []string{"array"},
+							Items: &spec.SchemaOrArray{
+								Schema: &spec.Schema{
+									SchemaProps: spec.SchemaProps{
+										Type:   []string{"string"},
+										Format: "",
+									},
+								},
+							},
+						},
+					},
+					"mediatedDeviceTypes": {
+						VendorExtensible: spec.VendorExtensible{
+							Extensions: spec.Extensions{
+								"x-kubernetes-list-type": "atomic",
+							},
+						},
+						SchemaProps: spec.SchemaProps{
 							Type: []string{"array"},
 							Items: &spec.SchemaOrArray{
 								Schema: &spec.Schema{
@@ -18686,6 +18705,25 @@ func schema_kubevirtio_api_core_v1_NodeMediatedDeviceTypesConfig(ref common.Refe
 							},
 						},
 						SchemaProps: spec.SchemaProps{
+							Description: "Deprecated. Use mediatedDeviceTypes instead.",
+							Type:        []string{"array"},
+							Items: &spec.SchemaOrArray{
+								Schema: &spec.Schema{
+									SchemaProps: spec.SchemaProps{
+										Type:   []string{"string"},
+										Format: "",
+									},
+								},
+							},
+						},
+					},
+					"mediatedDeviceTypes": {
+						VendorExtensible: spec.VendorExtensible{
+							Extensions: spec.Extensions{
+								"x-kubernetes-list-type": "atomic",
+							},
+						},
+						SchemaProps: spec.SchemaProps{
 							Type: []string{"array"},
 							Items: &spec.SchemaOrArray{
 								Schema: &spec.Schema{
@@ -18698,7 +18736,7 @@ func schema_kubevirtio_api_core_v1_NodeMediatedDeviceTypesConfig(ref common.Refe
 						},
 					},
 				},
-				Required: []string{"nodeSelector", "mediatedDevicesTypes"},
+				Required: []string{"nodeSelector"},
 			},
 		},
 	}
