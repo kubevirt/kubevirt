@@ -265,6 +265,10 @@ type VirtualMachineInstanceStatus struct {
 	// VSOCKCID is used to track the allocated VSOCK CID in the VM.
 	// +optional
 	VSOCKCID *uint32 `json:"VSOCKCID,omitempty"`
+
+	// SELinuxContext is the actual SELinux context of the virt-launcher pod
+	// +optional
+	SelinuxContext string `json:"selinuxContext,omitempty"`
 }
 
 // PersistentVolumeClaimInfo contains the relavant information virt-handler needs cached about a PVC

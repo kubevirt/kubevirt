@@ -22130,6 +22130,13 @@ func schema_kubevirtio_api_core_v1_VirtualMachineInstanceStatus(ref common.Refer
 							Format:      "int64",
 						},
 					},
+					"selinuxContext": {
+						SchemaProps: spec.SchemaProps{
+							Description: "SELinuxContext is the actual SELinux context of the virt-launcher pod",
+							Type:        []string{"string"},
+							Format:      "",
+						},
+					},
 				},
 			},
 		},

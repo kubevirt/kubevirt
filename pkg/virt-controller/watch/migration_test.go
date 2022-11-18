@@ -411,6 +411,7 @@ var _ = Describe("Migration watcher", func() {
 
 		It("should create target attachment pod", func() {
 			addMigration(migration)
+			vmi.Status.SelinuxContext = "system_u:system_r:container_file_t:s0:c1,c2"
 			addVirtualMachineInstance(vmi)
 			podFeeder.Add(targetPod)
 			shouldExpectAttachmentPodCreation(vmi.UID, migration.UID)

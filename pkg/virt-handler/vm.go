@@ -35,6 +35,7 @@ import (
 	"time"
 
 	"kubevirt.io/kubevirt/pkg/virt-controller/watch/topology"
+	"kubevirt.io/kubevirt/pkg/virt-handler/selinux"
 
 	hotplugdisk "kubevirt.io/kubevirt/pkg/hotplug-disk"
 	"kubevirt.io/kubevirt/pkg/safepath"
@@ -1171,6 +1172,24 @@ func (d *VirtualMachineController) updateIsoSizeStatus(vmi *v1.VirtualMachineIns
 	}
 }
 
+func (d *VirtualMachineController) updateSELinuxContext(vmi *v1.VirtualMachineInstance) error {
+	_, present, err := selinux.NewSELinux()
+	if err != nil {
+		return err
+	}
+	if present {
+		context, err := selinux.GetVirtLauncherContext(vmi)
+		if err != nil {
+			return err
+		}
+		vmi.Status.SelinuxContext = context
+	} else {
+		vmi.Status.SelinuxContext = "none"
+	}
+
+	return nil
+}
+
 func (d *VirtualMachineController) updateVMIStatus(origVMI *v1.VirtualMachineInstance, domain *api.Domain, syncError error) (err error) {
 	condManager := controller.NewVirtualMachineInstanceConditionManager()
 
@@ -1190,6 +1209,10 @@ func (d *VirtualMachineController) updateVMIStatus(origVMI *v1.VirtualMachineIns
 
 	// Update VMI status fields based on what is reported on the domain
 	d.updateIsoSizeStatus(vmi)
+	err = d.updateSELinuxContext(vmi)
+	if err != nil {
+		log.Log.Reason(err).Errorf("couldn't find the SELinux context for %s", vmi.Name)
+	}
 	d.setMigrationProgressStatus(vmi, domain)
 	d.updateGuestInfoFromDomain(vmi, domain)
 	d.updateVolumeStatusesFromDomain(vmi, domain)
