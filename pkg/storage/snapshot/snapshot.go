@@ -68,6 +68,10 @@ func VmSnapshotReady(vmSnapshot *snapshotv1.VirtualMachineSnapshot) bool {
 	return vmSnapshot.Status != nil && vmSnapshot.Status.ReadyToUse != nil && *vmSnapshot.Status.ReadyToUse
 }
 
+func vmSnapshotContentCreated(vmSnapshotContent *snapshotv1.VirtualMachineSnapshotContent) bool {
+	return vmSnapshotContent.Status != nil && vmSnapshotContent.Status.CreationTime != nil
+}
+
 func vmSnapshotContentReady(vmSnapshotContent *snapshotv1.VirtualMachineSnapshotContent) bool {
 	return vmSnapshotContent.Status != nil && vmSnapshotContent.Status.ReadyToUse != nil && *vmSnapshotContent.Status.ReadyToUse
 }
@@ -288,7 +292,7 @@ func (ctrl *VMSnapshotController) updateVMSnapshotContent(content *snapshotv1.Vi
 
 	}
 
-	currentlyCreated := content.Status != nil && content.Status.CreationTime != nil
+	currentlyCreated := vmSnapshotContentCreated(content)
 	currentlyError := (content.Status != nil && content.Status.Error != nil) || vmSnapshotError(vmSnapshot) != nil
 
 	for _, volumeBackup := range content.Spec.VolumeBackups {
