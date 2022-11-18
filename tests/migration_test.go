@@ -2369,7 +2369,6 @@ var _ = Describe("[rfe_id:393][crit:high][vendor:cnv-qe@redhat.com][level:system
 					By("Starting the Migration")
 					migration := tests.NewRandomMigration(vmi.Name, vmi.Namespace)
 					migration.Name = fmt.Sprintf("%s-iter-%d", vmi.Name, i)
-					migration.Annotations = map[string]string{v1.FuncTestForceIgnoreMigrationBackoffAnnotation: ""}
 					migrationUID := runMigrationAndExpectFailure(migration, 180)
 
 					// check VMI, confirm migration state
@@ -4443,8 +4442,16 @@ var _ = Describe("[rfe_id:393][crit:high][vendor:cnv-qe@redhat.com][level:system
 
 	})
 
-	Context("when migrating fails", func() {
+	Context("when evacuating fails", func() {
 		var vmi *v1.VirtualMachineInstance
+
+		setEvacuationAnnotation := func(migrations ...*v1.VirtualMachineInstanceMigration) {
+			for _, m := range migrations {
+				m.Annotations = map[string]string{
+					v1.EvacuationMigrationAnnotation: m.Name,
+				}
+			}
+		}
 
 		BeforeEach(func() {
 			vmi = libvmi.NewCirros(
@@ -4460,10 +4467,12 @@ var _ = Describe("[rfe_id:393][crit:high][vendor:cnv-qe@redhat.com][level:system
 
 			By("Waiting for the migration to fail")
 			migration := tests.NewRandomMigration(vmi.Name, vmi.Namespace)
+			setEvacuationAnnotation(migration)
 			_ = runMigrationAndExpectFailure(migration, tests.MigrationWaitTime)
 
 			By("Try again")
 			migration = tests.NewRandomMigration(vmi.Name, vmi.Namespace)
+			setEvacuationAnnotation(migration)
 			_ = runMigrationAndExpectFailure(migration, tests.MigrationWaitTime)
 
 			By("Expecting for a MigrationBackoff event to be sent")
@@ -4480,6 +4489,7 @@ var _ = Describe("[rfe_id:393][crit:high][vendor:cnv-qe@redhat.com][level:system
 
 			By("Waiting for the migration to fail")
 			migration := tests.NewRandomMigration(vmi.Name, vmi.Namespace)
+			setEvacuationAnnotation(migration)
 			_ = runMigrationAndExpectFailure(migration, tests.MigrationWaitTime)
 
 			By("Patch VMI")
@@ -4489,6 +4499,7 @@ var _ = Describe("[rfe_id:393][crit:high][vendor:cnv-qe@redhat.com][level:system
 
 			By("Try again with backoff")
 			migration = tests.NewRandomMigration(vmi.Name, vmi.Namespace)
+			setEvacuationAnnotation(migration)
 			_ = tests.RunMigrationAndExpectCompletion(virtClient, migration, tests.MigrationWaitTime)
 
 			eventListOpts := metav1.ListOptions{
@@ -4498,6 +4509,7 @@ var _ = Describe("[rfe_id:393][crit:high][vendor:cnv-qe@redhat.com][level:system
 
 			By("There should be no backoff now")
 			migration = tests.NewRandomMigration(vmi.Name, vmi.Namespace)
+			setEvacuationAnnotation(migration)
 			_ = tests.RunMigrationAndExpectCompletion(virtClient, migration, tests.MigrationWaitTime)
 
 			By("Checking that no backoff event occurred")
