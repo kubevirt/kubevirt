@@ -60,6 +60,7 @@ func main() {
 	virtLauncherImage := flag.String("virt-launcher-image", "", "custom image for virt-launcher. "+customImageExample)
 	virtExportProxyImage := flag.String("virt-export-proxy-image", "", "custom image for virt-export-proxy. "+customImageExample)
 	virtExportServerImage := flag.String("virt-export-server-image", "", "custom image for virt-export-server. "+customImageExample)
+	gsImage := flag.String("gs-image", "", "custom image for gs. "+customImageExample)
 
 	flag.Parse()
 
@@ -90,6 +91,7 @@ func main() {
 		VirtLauncherImage:     *virtLauncherImage,
 		VirtExportProxyImage:  *virtExportProxyImage,
 		VirtExportServerImage: *virtExportServerImage,
+		GsImage:               *gsImage,
 	}
 
 	operatorCsv, err := csv.NewClusterServiceVersion(&csvData)
