@@ -83,6 +83,7 @@ type templateData struct {
 	VirtLauncherImage      string
 	VirtExportProxyImage   string
 	VirtExportServerImage  string
+	GsImage                string
 }
 
 func main() {
@@ -120,6 +121,7 @@ func main() {
 	virtLauncherImage := flag.String("virt-launcher-image", "", "custom image for virt-launcher. "+customImageExample)
 	virtExportProxyImage := flag.String("virt-export-proxy-image", "", "custom image for virt-export-proxy. "+customImageExample)
 	virtExportServerImage := flag.String("virt-export-server-image", "", "custom image for virt-export-server. "+customImageExample)
+	gsImage := flag.String("gs-image", "", "custom image for gs. "+customImageExample)
 
 	pflag.CommandLine.AddGoFlagSet(flag.CommandLine)
 	pflag.CommandLine.ParseErrorsWhitelist.UnknownFlags = true
@@ -177,6 +179,7 @@ func main() {
 		data.VirtLauncherImage = *virtLauncherImage
 		data.VirtExportProxyImage = *virtExportProxyImage
 		data.VirtExportServerImage = *virtExportServerImage
+		data.GsImage = *gsImage
 		if *featureGates != "" {
 			data.FeatureGates = strings.Split(*featureGates, ",")
 		}
@@ -236,6 +239,7 @@ func main() {
 		data.VirtLauncherImage = "{{.VirtLauncherImage}}"
 		data.VirtExportProxyImage = "{{.VirtExportProxyImage}}"
 		data.VirtExportServerImage = "{{.VirtExportServerImage}}"
+		data.GsImage = "{{.GsImage}}"
 	}
 
 	if *processFiles {
@@ -311,6 +315,7 @@ func getOperatorDeploymentSpec(data templateData, indentation int) string {
 		data.VirtLauncherImage,
 		data.VirtExportProxyImage,
 		data.VirtExportServerImage,
+		data.GsImage,
 		data.VirtOperatorImage,
 		v1.PullPolicy(data.ImagePullPolicy))
 	if err != nil {

@@ -331,6 +331,7 @@ var _ = Describe("Operator Config", func() {
 			launcherImage := setCustomImageForComponent("virt-launcher")
 			exportProxyImage := setCustomImageForComponent("virt-exportproxy")
 			exportServerImage := setCustomImageForComponent("virt-exportserver")
+			gsImage := setCustomImageForComponent("gs")
 
 			err := VerifyEnv()
 			Expect(err).ToNot(HaveOccurred())
@@ -346,6 +347,7 @@ var _ = Describe("Operator Config", func() {
 			Expect(parsedConfig.VirtLauncherImage).To(Equal(launcherImage), errMsg)
 			Expect(parsedConfig.VirtExportProxyImage).To(Equal(exportProxyImage), errMsg)
 			Expect(parsedConfig.VirtExportServerImage).To(Equal(exportServerImage), errMsg)
+			Expect(parsedConfig.GsImage).To(Equal(gsImage), errMsg)
 		})
 
 		DescribeTable("when virt-operator image is", func(envVarName string, isValid bool) {
