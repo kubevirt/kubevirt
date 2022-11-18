@@ -62,7 +62,7 @@ const (
 	bytesInKib          = 1024
 )
 
-var _ = Describe("[Serial][sig-compute]SwapTest", func() {
+var _ = Describe("[Serial][sig-compute]SwapTest", Serial, func() {
 	var err error
 	var virtClient kubecli.KubevirtClient
 

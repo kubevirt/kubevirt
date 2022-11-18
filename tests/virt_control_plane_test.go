@@ -56,7 +56,7 @@ const (
 	singleReplica = false
 )
 
-var _ = Describe("[Serial][ref_id:2717][sig-compute]KubeVirt control plane resilience", func() {
+var _ = Describe("[Serial][ref_id:2717][sig-compute]KubeVirt control plane resilience", Serial, func() {
 
 	var err error
 	var virtCli kubecli.KubevirtClient

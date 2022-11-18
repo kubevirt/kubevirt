@@ -37,7 +37,7 @@ import (
 	"kubevirt.io/kubevirt/tests"
 )
 
-var _ = Describe("[Serial][sig-compute]VMIDefaults", func() {
+var _ = Describe("[Serial][sig-compute]VMIDefaults", Serial, func() {
 	var err error
 	var virtClient kubecli.KubevirtClient
 

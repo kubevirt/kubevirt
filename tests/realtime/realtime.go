@@ -59,7 +59,7 @@ func byStartingTheVMI(vmi *v1.VirtualMachineInstance, virtClient kubecli.Kubevir
 	tests.WaitForSuccessfulVMIStart(vmi)
 }
 
-var _ = Describe("[sig-compute-realtime][Serial]Realtime", func() {
+var _ = Describe("[sig-compute-realtime][Serial]Realtime", Serial, func() {
 
 	var virtClient kubecli.KubevirtClient
 

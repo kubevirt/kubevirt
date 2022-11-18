@@ -27,7 +27,7 @@ import (
 	"kubevirt.io/kubevirt/tests/util"
 )
 
-var _ = Describe("[sig-compute][Serial]NUMA", func() {
+var _ = Describe("[sig-compute][Serial]NUMA", Serial, func() {
 
 	var virtClient kubecli.KubevirtClient
 	BeforeEach(func() {

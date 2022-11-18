@@ -42,7 +42,7 @@ import (
 	"kubevirt.io/kubevirt/tests/console"
 )
 
-var _ = Describe("[Serial][sig-compute]VSOCK", func() {
+var _ = Describe("[Serial][sig-compute]VSOCK", Serial, func() {
 	var virtClient kubecli.KubevirtClient
 	var err error
 

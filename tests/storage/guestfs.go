@@ -38,7 +38,7 @@ func (f *fakeAttacher) closeChannel() {
 	f.doneGuestfs <- true
 }
 
-var _ = SIGDescribe("[rfe_id:6364][[Serial]Guestfs", func() {
+var _ = SIGDescribe("[rfe_id:6364][[Serial]Guestfs", Serial, func() {
 	var (
 		virtClient kubecli.KubevirtClient
 		pvcClaim   string

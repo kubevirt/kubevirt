@@ -1569,7 +1569,7 @@ var _ = SIGDescribe("Export", func() {
 		}
 	})
 
-	Context("[Serial] with potential KubeVirt CR update", func() {
+	Context("[Serial] with potential KubeVirt CR update", Serial, func() {
 		var beforeCertParams *virtv1.KubeVirtCertificateRotateStrategy
 
 		BeforeEach(func() {

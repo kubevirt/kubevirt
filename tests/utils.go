@@ -1981,8 +1981,7 @@ func UpdateKubeVirtConfigValueAndWait(kvConfig v1.KubeVirtConfiguration) *v1.Kub
 // be propagated to all components before it returns. It will only update the configuration and wait for it to be
 // propagated if the current config in use does not match the original one.
 func resetToDefaultConfig() {
-	suiteConfig, _ := GinkgoConfiguration()
-	if suiteConfig.ParallelTotal > 1 {
+	if !CurrentSpecReport().IsSerial {
 		// Tests which alter the global kubevirt config must be run serial, therefor, if we run in parallel
 		// we can just skip the restore step.
 		return

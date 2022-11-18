@@ -91,7 +91,7 @@ const (
 	remoteCmdErrPattern = "failed running `%s` with stdout:\n %v \n stderr:\n %v \n err: \n %v \n"
 )
 
-var _ = Describe("[Serial][sig-compute]Infrastructure", func() {
+var _ = Describe("[Serial][sig-compute]Infrastructure", Serial, func() {
 	var (
 		virtClient       kubecli.KubevirtClient
 		aggregatorClient *aggregatorclient.Clientset

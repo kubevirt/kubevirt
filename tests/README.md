@@ -3,13 +3,13 @@
 ## Writing e2e tests
 
 We aim to run e2e tests in parallel by default. As such the following rules should be followed:
- * Use cirros and alpine VMs for testing wherever possible. If you have to use
+ * Use cirros and alpine VMs for testing wherever possible. If you have to
    use another OS, discuss on the PR why it is needed.
  * Stay within the boundary of the Testnamespaces which we prove. If you have
-   to create resources outside of the test namespaces, discuss potential
+   to create resources outside the test namespaces, discuss potential
    solutions on such a PR.
  * If you really have to run tests serial (destructive tests, infra-tests,
-  ...), mark the test with a `[Serial]` tag.
+  ...), mark the test with a `[Serial]` tag and add the [Serial decorator](https://onsi.github.io/ginkgo/#serial-specs) to the test.
  * If tests are not using the default cleanup code, additional custom
    preparations may be necessary.
 

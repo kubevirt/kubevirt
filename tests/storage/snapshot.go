@@ -1199,7 +1199,7 @@ var _ = SIGDescribe("VirtualMachineSnapshot Tests", func() {
 			})
 		})
 
-		Context("[Serial]With more complicated VM with/out GC of succeeded DV", func() {
+		Context("[Serial]With more complicated VM with/out GC of succeeded DV", Serial, func() {
 			var originalTTL *int32
 
 			BeforeEach(func() {

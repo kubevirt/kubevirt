@@ -24,7 +24,7 @@ var _ = Describe("[sig-compute]AMD Secure Encrypted Virtualization (SEV)", func(
 		checks.SkipTestIfNoFeatureGate(virtconfig.WorkloadEncryptionSEV)
 	})
 
-	Context("[Serial]device management", func() {
+	Context("[Serial]device management", Serial, func() {
 		var (
 			virtClient      kubecli.KubevirtClient
 			nodeName        string

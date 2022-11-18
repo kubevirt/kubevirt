@@ -186,7 +186,7 @@ var _ = SIGDescribe("Slirp Networking", func() {
 		)
 	})
 
-	Context("[Serial]slirp is the default interface", func() {
+	Context("[Serial]slirp is the default interface", Serial, func() {
 		BeforeEach(func() {
 			setSlirpEnabled(false)
 			setDefaultNetworkInterface("slirp")

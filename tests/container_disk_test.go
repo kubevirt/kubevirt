@@ -135,7 +135,7 @@ var _ = Describe("[rfe_id:588][crit:medium][vendor:cnv-qe@redhat.com][level:comp
 				Expect(startedVMI.Spec).To(Equal(vmi.Spec))
 			})
 		})
-		Context("[Serial]should obey the disk verification limits in the KubeVirt CR", func() {
+		Context("[Serial]should obey the disk verification limits in the KubeVirt CR", Serial, func() {
 			It("[test_id:7182]disk verification should fail when the memory limit is too low", func() {
 				By("Reducing the diskVerificaton memory usage limit")
 				kv := util.GetCurrentKv(virtClient)
