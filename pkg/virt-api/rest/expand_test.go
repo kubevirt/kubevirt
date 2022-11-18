@@ -102,7 +102,8 @@ var _ = Describe("Instancetype expansion subresources", func() {
 			}
 
 			recorder := callExpandSpecApi(vm)
-			_ = ExpectStatusErrorWithCode(recorder, expectedStatusError)
+			statusErr := ExpectStatusErrorWithCode(recorder, expectedStatusError)
+			Expect(statusErr.Status().Message).To(ContainSubstring("instancetype does not exist"))
 		})
 
 		It("should fail if VM points to nonexistent preference", func() {
@@ -115,7 +116,8 @@ var _ = Describe("Instancetype expansion subresources", func() {
 			}
 
 			recorder := callExpandSpecApi(vm)
-			_ = ExpectStatusErrorWithCode(recorder, expectedStatusError)
+			statusErr := ExpectStatusErrorWithCode(recorder, expectedStatusError)
+			Expect(statusErr.Status().Message).To(ContainSubstring("preference does not exist"))
 		})
 
 		It("should apply instancetype to VM", func() {
@@ -180,7 +182,8 @@ var _ = Describe("Instancetype expansion subresources", func() {
 
 			recorder := callExpandSpecApi(vm)
 
-			_ = ExpectStatusErrorWithCode(recorder, expectedStatusError)
+			statusErr := ExpectStatusErrorWithCode(recorder, expectedStatusError)
+			Expect(statusErr.Status().Message).To(ContainSubstring("cannot expand instancetype to VM"))
 		})
 	}
 
@@ -210,12 +213,15 @@ var _ = Describe("Instancetype expansion subresources", func() {
 			)).AnyTimes()
 
 			app.ExpandSpecVMRequestHandler(request, response)
-			_ = ExpectStatusErrorWithCode(recorder, http.StatusNotFound)
+			statusErr := ExpectStatusErrorWithCode(recorder, http.StatusNotFound)
+			Expect(statusErr.Status().Message).To(Equal("virtualmachine.kubevirt.io \"nonexistent-vm\" not found"))
 		})
 	})
 
-	Context("expand-spec endpoint", func() {
+	Context("expand-vm-spec endpoint", func() {
 		callExpandSpecApi := func(vm *v1.VirtualMachine) *httptest.ResponseRecorder {
+			request.PathParameters()["namespace"] = vmNamespace
+
 			vmJson, err := json.Marshal(vm)
 			Expect(err).ToNot(HaveOccurred())
 			request.Request.Body = ioutil.NopCloser(bytes.NewBuffer(vmJson))
@@ -227,14 +233,19 @@ var _ = Describe("Instancetype expansion subresources", func() {
 		testCommonFunctionality(callExpandSpecApi, http.StatusBadRequest)
 
 		It("should fail if received invalid JSON", func() {
+			request.PathParameters()["namespace"] = vmNamespace
+
 			invalidJson := "this is invalid JSON {{{{"
 			request.Request.Body = ioutil.NopCloser(strings.NewReader(invalidJson))
 
 			app.ExpandSpecRequestHandler(request, response)
-			_ = ExpectStatusErrorWithCode(recorder, http.StatusBadRequest)
+			statusErr := ExpectStatusErrorWithCode(recorder, http.StatusBadRequest)
+			Expect(statusErr.Status().Message).To(ContainSubstring("Can not unmarshal Request body to struct"))
 		})
 
 		It("should fail if received object is not a VirtualMachine", func() {
+			request.PathParameters()["namespace"] = vmNamespace
+
 			notVm := struct {
 				StringField string `json:"stringField"`
 				IntField    int    `json:"intField"`
@@ -248,7 +259,18 @@ var _ = Describe("Instancetype expansion subresources", func() {
 			request.Request.Body = ioutil.NopCloser(bytes.NewBuffer(jsonBytes))
 
 			app.ExpandSpecRequestHandler(request, response)
-			_ = ExpectStatusErrorWithCode(recorder, http.StatusBadRequest)
+			statusErr := ExpectStatusErrorWithCode(recorder, http.StatusBadRequest)
+			Expect(statusErr.Status().Message).To(Equal("Object is not a valid VirtualMachine"))
+		})
+
+		It("should fail, if VM and endpoint namespace are different", func() {
+			request.PathParameters()["namespace"] = vmNamespace
+			vm.Namespace = "madethisup"
+
+			recorder = callExpandSpecApi(vm)
+			statusErr := ExpectStatusErrorWithCode(recorder, http.StatusBadRequest)
+			errMsg := fmt.Sprintf("VM namespace must be empty or %s", vmNamespace)
+			Expect(statusErr.Status().Message).To(Equal(errMsg))
 		})
 	})
 })

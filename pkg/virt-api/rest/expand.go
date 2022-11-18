@@ -49,6 +49,20 @@ func (app *SubresourceAPIApp) ExpandSpecRequestHandler(request *restful.Request,
 		return
 	}
 
+	requestNamespace := request.PathParameter("namespace")
+	if requestNamespace == "" {
+		writeError(errors.NewBadRequest("The request namespace must not be empty"), response)
+		return
+	}
+	if vm.Namespace != "" && vm.Namespace != requestNamespace {
+		writeError(errors.NewBadRequest(
+			fmt.Sprintf("VM namespace must be empty or %s", requestNamespace)),
+			response,
+		)
+		return
+	}
+	vm.Namespace = request.PathParameter("namespace")
+
 	expandSpecResponse(vm, app.instancetypeMethods, func(err error) *errors.StatusError {
 		return errors.NewBadRequest(err.Error())
 	}, response)
