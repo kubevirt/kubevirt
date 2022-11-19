@@ -3,12 +3,13 @@ package apply
 import (
 	"encoding/json"
 
+	"kubevirt.io/kubevirt/tests"
+
 	jsonpatch "github.com/evanphx/json-patch"
 	"github.com/golang/mock/gomock"
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
 	v12 "k8s.io/api/apps/v1"
-	corev1 "k8s.io/api/core/v1"
 	policyv1 "k8s.io/api/policy/v1"
 	_ "k8s.io/apiextensions-apiserver/pkg/apis/apiextensions/v1beta1"
 	"k8s.io/apimachinery/pkg/runtime"
@@ -73,7 +74,11 @@ var _ = Describe("Apply PDBs", func() {
 			expectations:   expectations,
 		}
 
-		deployment, err = components.NewApiServerDeployment(Namespace, Registry, "", Version, "", "", "", corev1.PullIfNotPresent, "verbosity", map[string]string{})
+		virtApiConfig := &util.KubeVirtDeploymentConfig{
+			Registry:        Registry,
+			KubeVirtVersion: Version,
+		}
+		deployment, err = tests.GetDefaultVirtApiDeployment(Namespace, virtApiConfig)
 		Expect(err).ToNot(HaveOccurred())
 
 		kv.Status.TargetKubeVirtRegistry = Registry
