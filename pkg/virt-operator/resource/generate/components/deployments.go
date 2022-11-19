@@ -482,7 +482,7 @@ func NewControllerDeployment(namespace, repository, imagePrefix, controllerVersi
 
 // Used for manifest generation only
 func NewOperatorDeployment(namespace, repository, imagePrefix, version, verbosity, kubeVirtVersionEnv, virtApiShaEnv, virtControllerShaEnv, virtHandlerShaEnv, virtLauncherShaEnv, virtExportProxyShaEnv,
-	virtExportServerShaEnv, gsShaEnv, virtApiImageEnv, virtControllerImageEnv, virtHandlerImageEnv, virtLauncherImageEnv, virtExportProxyImageEnv, virtExportServerImageEnv,
+	virtExportServerShaEnv, gsShaEnv, virtApiImageEnv, virtControllerImageEnv, virtHandlerImageEnv, virtLauncherImageEnv, virtExportProxyImageEnv, virtExportServerImageEnv, gsImage,
 	image string, pullPolicy corev1.PullPolicy) (*appsv1.Deployment, error) {
 
 	const kubernetesOSLinux = "linux"
@@ -612,7 +612,7 @@ func NewOperatorDeployment(namespace, repository, imagePrefix, version, verbosit
 	envVars := generateVirtOperatorEnvVars(
 		virtApiShaEnv, virtControllerShaEnv, virtHandlerShaEnv, virtLauncherShaEnv, virtExportProxyShaEnv, virtExportServerShaEnv,
 		gsShaEnv, virtApiImageEnv, virtControllerImageEnv, virtHandlerImageEnv, virtLauncherImageEnv, virtExportProxyImageEnv,
-		virtExportServerImageEnv, kubeVirtVersionEnv,
+		virtExportServerImageEnv, gsImage, kubeVirtVersionEnv,
 	)
 
 	if envVars != nil {
@@ -747,7 +747,7 @@ func NewPodDisruptionBudgetForDeployment(deployment *appsv1.Deployment) *policyv
 
 func generateVirtOperatorEnvVars(virtApiShaEnv, virtControllerShaEnv, virtHandlerShaEnv, virtLauncherShaEnv, virtExportProxyShaEnv,
 	virtExportServerShaEnv, gsShaEnv, virtApiImageEnv, virtControllerImageEnv, virtHandlerImageEnv, virtLauncherImageEnv, virtExportProxyImageEnv,
-	virtExportServerImageEnv, kubeVirtVersionEnv string) (envVars []corev1.EnvVar) {
+	virtExportServerImageEnv, gsImage, kubeVirtVersionEnv string) (envVars []corev1.EnvVar) {
 
 	addEnvVar := func(envVarName, envVarValue string) {
 		envVars = append(envVars, corev1.EnvVar{
@@ -795,12 +795,14 @@ func generateVirtOperatorEnvVars(virtApiShaEnv, virtControllerShaEnv, virtHandle
 		addEnvVar(operatorutil.VirtExportServerShasumEnvName, virtExportServerShaEnv)
 	}
 
-	if kubeVirtVersionEnv != "" {
-		addEnvVar(operatorutil.KubeVirtVersionEnvName, kubeVirtVersionEnv)
+	if gsImage != "" {
+		addEnvVar(operatorutil.GsImageEnvName, gsImage)
+	} else if gsShaEnv != "" {
+		addEnvVar(operatorutil.GsEnvShasumName, gsShaEnv)
 	}
 
-	if gsShaEnv != "" {
-		addEnvVar(operatorutil.GsEnvShasumName, gsShaEnv)
+	if kubeVirtVersionEnv != "" {
+		addEnvVar(operatorutil.KubeVirtVersionEnvName, kubeVirtVersionEnv)
 	}
 
 	return envVars
