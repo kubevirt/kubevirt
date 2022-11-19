@@ -24,7 +24,10 @@ import (
 	"strconv"
 	"strings"
 
+	"kubevirt.io/kubevirt/pkg/virt-controller/watch/topology"
+
 	"k8s.io/apimachinery/pkg/util/validation"
+	"k8s.io/utils/pointer"
 
 	"kubevirt.io/client-go/api"
 
@@ -1378,34 +1381,58 @@ var _ = Describe("Template", func() {
 				Expect(pod.Spec.NodeSelector).To(Not(HaveKey(ContainSubstring(NFD_KVM_INFO_PREFIX))))
 			})
 
-			It("should add node selector for particular TSC frequency nodes when it is available in the VMI status", func() {
-				config, kvInformer, svc = configFactory(defaultArch)
+			Context("TSC frequency label", func() {
+				var noHints, validHints *v1.TopologyHints
+				validHints = &v1.TopologyHints{TSCFrequency: pointer.Int64(123123)}
 
-				var someHertzios int64 = 123123
-				vmi := v1.VirtualMachineInstance{
-					ObjectMeta: metav1.ObjectMeta{
-						Name:      "testvmi",
-						Namespace: "default",
-						UID:       "1234",
-					},
-					Spec: v1.VirtualMachineInstanceSpec{
-						Domain: v1.DomainSpec{
-							Devices: v1.Devices{
-								DisableHotplug: true,
+				setVmWithTscRequirementType := func(vmi *v1.VirtualMachineInstance, tscRequirementType topology.TscFrequencyRequirementType) {
+					switch tscRequirementType {
+					case topology.RequiredForBoot:
+						vmi.Spec.Domain.CPU = &v1.CPU{
+							Features: []v1.CPUFeature{
+								{
+									Name:   "invtsc",
+									Policy: "require",
+								},
 							},
-						},
-					},
-					Status: v1.VirtualMachineInstanceStatus{
-						TopologyHints: &v1.TopologyHints{
-							TSCFrequency: &someHertzios,
-						},
-					},
+						}
+
+					case topology.RequiredForMigration:
+						vmi.Spec.Domain.Features = &v1.Features{
+							Hyperv: &v1.FeatureHyperv{
+								Reenlightenment: &v1.FeatureState{
+									Enabled: pointer.Bool(true),
+								},
+							},
+						}
+					}
 				}
 
-				pod, err := svc.RenderLaunchManifest(&vmi)
-				Expect(err).ToNot(HaveOccurred())
+				DescribeTable("should", func(topologyHints *v1.TopologyHints, tscRequirementType topology.TscFrequencyRequirementType, isLabelExpected bool) {
+					config, kvInformer, svc = configFactory(defaultArch)
 
-				Expect(pod.Spec.NodeSelector).To(HaveKeyWithValue("scheduling.node.kubevirt.io/tsc-frequency-123123", "true"))
+					By("Setting up the vm")
+					vmi := api.NewMinimalVMIWithNS("testvmi", "default")
+					vmi.Status.TopologyHints = topologyHints
+					setVmWithTscRequirementType(vmi, tscRequirementType)
+
+					By("Rendering the vm into a pod")
+					pod, err := svc.RenderLaunchManifest(vmi)
+					Expect(err).ToNot(HaveOccurred())
+
+					if isLabelExpected {
+						Expect(pod.Spec.NodeSelector).To(HaveKeyWithValue("scheduling.node.kubevirt.io/tsc-frequency-123123", "true"))
+					} else {
+						Expect(pod.Spec.NodeSelector).ToNot(HaveKey("scheduling.node.kubevirt.io/tsc-frequency-123123"))
+					}
+				},
+					Entry("not be added if only topology hints are not defined and tsc is not requirement", noHints, topology.NotRequired, false),
+					Entry("not be added if only topology hints are not defined and tsc is required for boot", noHints, topology.RequiredForBoot, false),
+					Entry("not be added if only topology hints are not defined and tsc is required for migration", noHints, topology.RequiredForMigration, false),
+					Entry("not be added if only topology hints are defined and tsc is not required", validHints, topology.NotRequired, false),
+					Entry("be added if only topology hints are defined and tsc is required for boot", validHints, topology.RequiredForBoot, true),
+					Entry("be added if only topology hints are defined and tsc is required for migration", validHints, topology.RequiredForMigration, true),
+				)
 			})
 
 			It("should add default cpu/memory resources to the sidecar container if cpu pinning was requested", func() {
@@ -1837,11 +1864,11 @@ var _ = Describe("Template", func() {
 				Expect(pod.Spec.Containers[0].Resources.Requests.Memory().ToDec().ScaledValue(resource.Mega)).To(Equal(int64(memory)))
 			},
 				Entry("and consider graphics overhead if it is not set on amd64", "amd64", nil, 335),
-				Entry("and consider graphics overhead if it is set to true on amd64", "amd64", True(), 335),
-				Entry("and not consider graphics overhead if it is set to false on amd64", "amd64", False(), 318),
+				Entry("and consider graphics overhead if it is set to true on amd64", "amd64", pointer.Bool(true), 335),
+				Entry("and not consider graphics overhead if it is set to false on amd64", "amd64", pointer.Bool(false), 318),
 				Entry("and consider graphics overhead if it is not set on arm64", "arm64", nil, 469),
-				Entry("and consider graphics overhead if it is set to true on arm64", "arm64", True(), 469),
-				Entry("and not consider graphics overhead if it is set to false on arm64", "arm64", False(), 453),
+				Entry("and consider graphics overhead if it is set to true on arm64", "arm64", pointer.Bool(true), 469),
+				Entry("and not consider graphics overhead if it is set to false on arm64", "arm64", pointer.Bool(false), 453),
 			)
 			It("should calculate vcpus overhead based on guest toplogy", func() {
 				config, kvInformer, svc = configFactory(defaultArch)
@@ -3596,16 +3623,6 @@ func newVMIWithSriovInterface(name, uid string) *v1.VirtualMachineInstance {
 	vmi.Spec.Domain.Devices.Interfaces = []v1.Interface{sriovInterface}
 
 	return vmi
-}
-
-func True() *bool {
-	b := true
-	return &b
-}
-
-func False() *bool {
-	b := false
-	return &b
 }
 
 func validateAndExtractQemuTimeoutArg(args []string) string {
