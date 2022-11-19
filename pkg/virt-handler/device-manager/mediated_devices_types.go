@@ -20,9 +20,9 @@
 package device_manager
 
 import (
-	"bytes"
 	"container/ring"
 	"errors"
+	"fmt"
 	"io/ioutil"
 	"os"
 	"path/filepath"
@@ -33,13 +33,12 @@ import (
 )
 
 // Not a const for static test purposes
-var mdevClassBusPath string = "/sys/class/mdev_bus"
+var mdevClassBusPath = "/sys/class/mdev_bus"
 
 type MDEVTypesManager struct {
 	availableMdevTypesMap   map[string][]string
 	unconfiguredParentsMap  map[string]struct{}
 	mdevsConfigurationMutex sync.Mutex
-	configuredMdevTypes     []byte
 }
 
 func NewMDEVTypesManager() *MDEVTypesManager {
@@ -49,39 +48,68 @@ func NewMDEVTypesManager() *MDEVTypesManager {
 	}
 }
 
+func (m *MDEVTypesManager) getAlreadyConfiguredMdevParents() (map[string]struct{}, error) {
+	configuredPCICards := make(map[string]struct{})
+	files, err := filepath.Glob("/sys/bus/mdev/devices/*")
+	if err != nil {
+		return nil, err
+	}
+
+	for _, file := range files {
+		originFile, err := os.Readlink(file)
+		if err != nil {
+			return nil, err
+		}
+
+		filePathParts := strings.Split(originFile, string(os.PathSeparator))
+		// originFile is the path to the UUID directory under the device path. Example:
+		// /sys/devices/pci0000:e0/0000:e0:03.1/0000:e2:01.2/09f7ea8a-b325-4945-8a15-1892bfd22dd2
+		// In that example, parentID would be 0000:e2:01.2
+		// The smallest split imaginable would have a length of 5:
+		// [ "", "sys", "devices", <parentID>, <UUID> ]
+		if len(filePathParts) < 5 {
+			return nil, fmt.Errorf("invalid device path: %s", originFile)
+		}
+		parentID := filePathParts[len(filePathParts)-2]
+		configuredPCICards[parentID] = struct{}{}
+	}
+	return configuredPCICards, nil
+}
+
 func (m *MDEVTypesManager) updateMDEVTypesConfiguration(desiredTypesList []string) (bool, error) {
-	isConfigUpdated := false
 	m.mdevsConfigurationMutex.Lock()
 	defer m.mdevsConfigurationMutex.Unlock()
 
-	desiredTypesBytes := []byte(strings.Join(desiredTypesList, ","))
-	if bytes.Compare(m.configuredMdevTypes, desiredTypesBytes) != 0 {
-
-		// construct a map of desired types for lookup
-		desiredTypesMap := make(map[string]struct{})
-		for _, mdevType := range desiredTypesList {
-			desiredTypesMap[mdevType] = struct{}{}
-		}
-		removeUndesiredMDEVs(desiredTypesMap)
-		err := m.discoverConfigurableMDEVTypes(desiredTypesMap)
-		if err != nil {
-			log.Log.Reason(err).Error("failed to discover which mdev types are available for configuration")
-			return isConfigUpdated, err
-		}
-		if len(desiredTypesMap) > 0 {
-			m.configureDesiredMDEVTypes()
-		}
-		// store the configured list of types
-		m.configuredMdevTypes = desiredTypesBytes
-		isConfigUpdated = true
+	// construct a map of desired types for lookup
+	desiredTypesMap := make(map[string]struct{})
+	for _, mdevType := range desiredTypesList {
+		desiredTypesMap[mdevType] = struct{}{}
 	}
-	return isConfigUpdated, nil
+	removeUndesiredMDEVs(desiredTypesMap)
+
+	err := m.discoverConfigurableMDEVTypes(desiredTypesMap)
+	if err != nil {
+		log.Log.Reason(err).Error("failed to discover which mdev types are available for configuration")
+		return false, err
+	}
+
+	if len(desiredTypesMap) > 0 {
+		m.configureDesiredMDEVTypes()
+	}
+
+	return true, nil
 }
 
 // discoverConfigurableMDEVTypes will create an intersection of desired and configurable available mdev types
 func (m *MDEVTypesManager) discoverConfigurableMDEVTypes(desiredTypesMap map[string]struct{}) error {
 	// initialize unconfigured parents map
 	m.unconfiguredParentsMap = make(map[string]struct{})
+
+	// a map of mdev providers that already have configured mdevs
+	existingMdevProviders, err := m.getAlreadyConfiguredMdevParents()
+	if err != nil {
+		return err
+	}
 
 	files, err := filepath.Glob(mdevClassBusPath + "/**/mdev_supported_types/*")
 	if err != nil {
@@ -91,6 +119,9 @@ func (m *MDEVTypesManager) discoverConfigurableMDEVTypes(desiredTypesMap map[str
 	for _, file := range files {
 
 		filePathParts := strings.Split(file, string(os.PathSeparator))
+		if len(filePathParts) < 5 {
+			return fmt.Errorf("invalid device path: %s", file)
+		}
 		parentID := filePathParts[len(filePathParts)-3]
 
 		//find the type's name
@@ -116,9 +147,12 @@ func (m *MDEVTypesManager) discoverConfigurableMDEVTypes(desiredTypesMap map[str
 			if !exist {
 				ar = []string{}
 			}
-			ar = append(ar, parentID)
-			m.availableMdevTypesMap[typeID] = ar
-			m.unconfiguredParentsMap[parentID] = struct{}{}
+
+			if _, exist := existingMdevProviders[parentID]; !exist {
+				ar = append(ar, parentID)
+				m.availableMdevTypesMap[typeID] = ar
+				m.unconfiguredParentsMap[parentID] = struct{}{}
+			}
 		}
 	}
 	return nil
@@ -129,7 +163,7 @@ func (m *MDEVTypesManager) initMDEVTypesRing() *ring.Ring {
 	r := ring.New(len(m.availableMdevTypesMap))
 
 	// Initialize the ring with some integer values
-	for desiredType, _ := range m.availableMdevTypesMap {
+	for desiredType := range m.availableMdevTypesMap {
 		r.Value = desiredType
 		r = r.Next()
 	}
@@ -228,10 +262,12 @@ func removeUndesiredMDEVs(desiredTypesMap map[string]struct{}) {
 	files, err := ioutil.ReadDir(mdevBasePath)
 	if err != nil {
 		log.Log.Reason(err).Errorf("failed to remove mdev types: failed to read the content of %s directory", mdevBasePath)
+		return
 	}
 	for _, file := range files {
 		if shouldRemoveMDEV(file.Name(), desiredTypesMap) {
-			Handler.RemoveMDEVType(file.Name())
+			err = Handler.RemoveMDEVType(file.Name())
+			log.Log.Reason(err).Warningf("failed to remove mdev type: %s", file.Name())
 		}
 	}
 }
