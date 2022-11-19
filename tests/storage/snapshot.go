@@ -278,7 +278,7 @@ var _ = SIGDescribe("VirtualMachineSnapshot Tests", func() {
 		)
 
 		BeforeEach(func() {
-			sc, err := getSnapshotStorageClass(virtClient)
+			sc, err := libstorage.GetSnapshotStorageClass(virtClient)
 			Expect(err).ToNot(HaveOccurred())
 
 			if sc == "" {
@@ -1333,64 +1333,6 @@ var _ = SIGDescribe("VirtualMachineSnapshot Tests", func() {
 		})
 	})
 })
-
-func getSnapshotStorageClass(client kubecli.KubevirtClient) (string, error) {
-	crd, err := client.
-		ExtensionsClient().
-		ApiextensionsV1().
-		CustomResourceDefinitions().
-		Get(context.Background(), "volumesnapshotclasses.snapshot.storage.k8s.io", metav1.GetOptions{})
-	if err != nil {
-		if errors.IsNotFound(err) {
-			return "", nil
-		}
-
-		return "", err
-	}
-
-	hasV1 := false
-	for _, v := range crd.Spec.Versions {
-		if v.Name == "v1" && v.Served {
-			hasV1 = true
-		}
-	}
-
-	if !hasV1 {
-		return "", nil
-	}
-
-	configuredStorageClass, exists := libstorage.GetSnapshotStorageClass()
-	if exists {
-		return configuredStorageClass, nil
-	}
-
-	volumeSnapshotClasses, err := client.KubernetesSnapshotClient().SnapshotV1().VolumeSnapshotClasses().List(context.Background(), metav1.ListOptions{})
-	if err != nil {
-		return "", err
-	}
-	if len(volumeSnapshotClasses.Items) == 0 {
-		return "", nil
-	}
-	defaultSnapClass := volumeSnapshotClasses.Items[0]
-	for _, snapClass := range volumeSnapshotClasses.Items {
-		if snapClass.Annotations["snapshot.storage.kubernetes.io/is-default-class"] == "true" {
-			defaultSnapClass = snapClass
-		}
-	}
-
-	storageClasses, err := client.StorageV1().StorageClasses().List(context.Background(), metav1.ListOptions{})
-	if err != nil {
-		return "", err
-	}
-
-	for _, sc := range storageClasses.Items {
-		if sc.Provisioner == defaultSnapClass.Driver {
-			return sc.Name, nil
-		}
-	}
-
-	return "", nil
-}
 
 func AddVolumeAndVerify(virtClient kubecli.KubevirtClient, storageClass string, vm *v1.VirtualMachine, addVMIOnly bool) string {
 	dv := libdv.NewDataVolume(
