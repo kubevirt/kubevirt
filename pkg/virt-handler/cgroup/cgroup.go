@@ -72,6 +72,10 @@ type Manager interface {
 
 	// Get list of threads attached to cgroup
 	GetCgroupThreads() ([]int, error)
+
+	// TODO: This is now being implemented at the runc level here: https://github.com/opencontainers/runc/pull/3691
+	// Once the PR merges we should switch to its implementation
+	MakeThreaded() error
 }
 
 // This is here so that mockgen would create a mock out of it. That way we would have a mocked runc manager.

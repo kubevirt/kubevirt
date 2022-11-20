@@ -169,3 +169,8 @@ func (v *v1Manager) GetCgroupThreads() ([]int, error) {
 func (v *v1Manager) SetCpuSet(subcgroup string, cpulist []int) error {
 	return setCpuSetHelper(v, subcgroup, cpulist)
 }
+
+func (v *v1Manager) MakeThreaded() error {
+	// cgroup v1 does not have the notion of a "threaded" cgroup.
+	return nil
+}
