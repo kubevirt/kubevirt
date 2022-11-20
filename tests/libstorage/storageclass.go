@@ -162,6 +162,41 @@ func GetBlockStorageClass(accessMode k8sv1.PersistentVolumeAccessMode) (string, 
 	return sc, foundSC
 }
 
+// GetNoVolumeSnapshotStorageClass goes over all the existing storage classes
+// and returns one which doesnt have volume snapshot ability
+// if the preference storage class exists and is without snapshot
+// ability it will be returned
+func GetNoVolumeSnapshotStorageClass(preference string) string {
+	virtClient, err := kubecli.GetKubevirtClient()
+	Expect(err).ToNot(HaveOccurred())
+	scs, err := virtClient.StorageV1().StorageClasses().List(context.Background(), metav1.ListOptions{})
+	Expect(err).ToNot(HaveOccurred())
+
+	vscs, err := virtClient.KubernetesSnapshotClient().SnapshotV1().VolumeSnapshotClasses().List(context.Background(), metav1.ListOptions{})
+	if errors.IsNotFound(err) {
+		return ""
+	}
+	Expect(err).ToNot(HaveOccurred())
+	vscsDrivers := make(map[string]bool)
+	for _, vsc := range vscs.Items {
+		vscsDrivers[vsc.Driver] = true
+	}
+
+	candidate := ""
+	for _, sc := range scs.Items {
+		if _, ok := vscsDrivers[sc.Provisioner]; !ok {
+			if sc.Name == preference {
+				return sc.Name
+			}
+			if candidate == "" {
+				candidate = sc.Name
+			}
+		}
+	}
+
+	return candidate
+}
+
 func IsStorageClassBindingModeWaitForFirstConsumer(sc string) bool {
 	virtClient, err := kubecli.GetKubevirtClient()
 	Expect(err).ToNot(HaveOccurred())

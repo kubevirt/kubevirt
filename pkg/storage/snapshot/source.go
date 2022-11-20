@@ -369,29 +369,14 @@ func (s *vmSnapshotSource) Unfreeze() error {
 }
 
 func (s *vmSnapshotSource) PersistentVolumeClaims() (map[string]string, error) {
-	return getPVCsFromVolumes(s.vm.Spec.Template.Spec.Volumes), nil
+	return storagetypes.GetPVCsFromVolumes(s.vm.Spec.Template.Spec.Volumes), nil
 }
 
 func (s *vmSnapshotSource) pvcNames() sets.String {
-	pvcs := getPVCsFromVolumes(s.vm.Spec.Template.Spec.Volumes)
+	pvcs := storagetypes.GetPVCsFromVolumes(s.vm.Spec.Template.Spec.Volumes)
 	ss := sets.NewString()
 	for _, pvc := range pvcs {
 		ss.Insert(pvc)
 	}
 	return ss
-}
-
-func getPVCsFromVolumes(volumes []kubevirtv1.Volume) map[string]string {
-	pvcs := map[string]string{}
-
-	for _, volume := range volumes {
-		pvcName := storagetypes.PVCNameFromVirtVolume(&volume)
-		if pvcName == "" {
-			continue
-		}
-
-		pvcs[volume.Name] = pvcName
-	}
-
-	return pvcs
 }

@@ -19746,6 +19746,26 @@
      }
     }
    },
+   "v1alpha1.SnapshotVolumesLists": {
+    "description": "SnapshotVolumesLists includes the list of volumes which were included in the snapshot and volumes which were excluded from the snapshot",
+    "type": "object",
+    "properties": {
+     "excludedVolumes": {
+      "type": "array",
+      "items": {
+       "type": "string"
+      },
+      "x-kubernetes-list-type": "set"
+     },
+     "includedVolumes": {
+      "type": "array",
+      "items": {
+       "type": "string"
+      },
+      "x-kubernetes-list-type": "set"
+     }
+    }
+   },
    "v1alpha1.SourceSpec": {
     "description": "SourceSpec contains the appropriate spec for the resource being snapshotted",
     "type": "object",
@@ -20513,6 +20533,9 @@
      },
      "readyToUse": {
       "type": "boolean"
+     },
+     "snapshotVolumes": {
+      "$ref": "#/definitions/v1alpha1.SnapshotVolumesLists"
      },
      "sourceUID": {
       "type": "string"

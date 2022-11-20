@@ -685,6 +685,8 @@ var _ = SIGDescribe("VirtualMachineSnapshot Tests", func() {
 				Expect(foundTempHotPlug).To(BeFalse())
 
 				Expect(content.Spec.VolumeBackups).Should(HaveLen(len(updatedVM.Spec.Template.Spec.Volumes)))
+				Expect(snapshot.Status.SnapshotVolumes.IncludedVolumes).Should(HaveLen(len(content.Spec.VolumeBackups)))
+				Expect(snapshot.Status.SnapshotVolumes.ExcludedVolumes).Should(BeEmpty())
 				for _, vol := range updatedVM.Spec.Template.Spec.Volumes {
 					if vol.DataVolume == nil {
 						continue
@@ -1320,6 +1322,59 @@ var _ = SIGDescribe("VirtualMachineSnapshot Tests", func() {
 				Entry("with DataVolume volume", tests.NewRandomVMIWithDataVolume),
 				Entry("with PVC volume", tests.NewRandomVMIWithPVC),
 			)
+
+			It("Should show included and excluded volumes in the snapshot", func() {
+				noSnapshotSC := libstorage.GetNoVolumeSnapshotStorageClass("local")
+				if noSnapshotSC == "" {
+					Skip("Skipping test, no storage class without snapshot support")
+				}
+				By("Creating DV with snapshot supported storage class")
+				includedDataVolume := libdv.NewDataVolume(
+					libdv.WithRegistryURLSourceAndPullMethod(cd.DataVolumeImportUrlForContainerDisk(cd.ContainerDiskAlpine), cdiv1.RegistryPullNode),
+					libdv.WithPVC(libdv.PVCWithStorageClass(snapshotStorageClass)),
+				)
+				dv, err = virtClient.CdiClient().CdiV1beta1().DataVolumes(util.NamespaceTestDefault).Create(context.Background(), includedDataVolume, metav1.CreateOptions{})
+				Expect(err).ToNot(HaveOccurred())
+				libstorage.EventuallyDVWith(dv.Namespace, dv.Name, 180, HaveSucceeded())
+
+				By("Creating DV with no snapshot supported storage class")
+				excludedDataVolume := libdv.NewDataVolume(
+					libdv.WithRegistryURLSourceAndPullMethod(cd.DataVolumeImportUrlForContainerDisk(cd.ContainerDiskAlpine), cdiv1.RegistryPullNode),
+					libdv.WithPVC(libdv.PVCWithStorageClass(noSnapshotSC)),
+				)
+				dv, err = virtClient.CdiClient().CdiV1beta1().DataVolumes(util.NamespaceTestDefault).Create(context.Background(), excludedDataVolume, metav1.CreateOptions{})
+				Expect(err).ToNot(HaveOccurred())
+
+				vmi := tests.NewRandomVMI()
+				vmi = tests.AddPVCDisk(vmi, "snapshotablevolume", v1.DiskBusVirtio, includedDataVolume.Name)
+				vmi = tests.AddPVCDisk(vmi, "notsnapshotablevolume", v1.DiskBusVirtio, excludedDataVolume.Name)
+				vm = tests.NewRandomVirtualMachine(vmi, false)
+
+				_, err := virtClient.VirtualMachine(vm.Namespace).Create(vm)
+				Expect(err).ToNot(HaveOccurred())
+
+				volumeSnapshotStatusAsExpected := func(volumeSnapshotStatuses []v1.VolumeSnapshotStatus) bool {
+					return len(volumeSnapshotStatuses) == 2 &&
+						volumeSnapshotStatuses[0].Enabled &&
+						!volumeSnapshotStatuses[1].Enabled
+				}
+				Eventually(func() []v1.VolumeSnapshotStatus {
+					vm, err := virtClient.VirtualMachine(vm.Namespace).Get(vm.Name, &metav1.GetOptions{})
+					Expect(err).ToNot(HaveOccurred())
+					return vm.Status.VolumeSnapshotStatuses
+				}, 180*time.Second, 3*time.Second).WithOffset(1).Should(Satisfy(volumeSnapshotStatusAsExpected))
+
+				By("Create Snapshot")
+				snapshot = newSnapshot()
+				_, err = virtClient.VirtualMachineSnapshot(snapshot.Namespace).Create(context.Background(), snapshot, metav1.CreateOptions{})
+				Expect(err).ToNot(HaveOccurred())
+
+				snapshot = waitSnapshotSucceeded(snapshot.Name)
+				Expect(snapshot.Status.SnapshotVolumes.IncludedVolumes).Should(HaveLen(1))
+				Expect(snapshot.Status.SnapshotVolumes.IncludedVolumes[0]).Should(Equal("snapshotablevolume"))
+				Expect(snapshot.Status.SnapshotVolumes.ExcludedVolumes).Should(HaveLen(1))
+				Expect(snapshot.Status.SnapshotVolumes.ExcludedVolumes[0]).Should(Equal("notsnapshotablevolume"))
+			})
 		})
 
 		Context("With VM using instancetype and preferences", func() {

@@ -28,6 +28,15 @@ func (VirtualMachineSnapshotStatus) SwaggerDoc() map[string]string {
 		"error":                             "+optional",
 		"conditions":                        "+optional",
 		"indications":                       "+optional\n+listType=set",
+		"snapshotVolumes":                   "+optional",
+	}
+}
+
+func (SnapshotVolumesLists) SwaggerDoc() map[string]string {
+	return map[string]string{
+		"":                "SnapshotVolumesLists includes the list of volumes which were included in the snapshot and volumes which were excluded from the snapshot",
+		"includedVolumes": "+optional\n+listType=set",
+		"excludedVolumes": "+optional\n+listType=set",
 	}
 }
 

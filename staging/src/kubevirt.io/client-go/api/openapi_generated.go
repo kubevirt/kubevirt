@@ -565,6 +565,7 @@ func GetOpenAPIDefinitions(ref common.ReferenceCallback) map[string]common.OpenA
 		"kubevirt.io/api/snapshot/v1alpha1.Condition":                                                schema_kubevirtio_api_snapshot_v1alpha1_Condition(ref),
 		"kubevirt.io/api/snapshot/v1alpha1.Error":                                                    schema_kubevirtio_api_snapshot_v1alpha1_Error(ref),
 		"kubevirt.io/api/snapshot/v1alpha1.PersistentVolumeClaim":                                    schema_kubevirtio_api_snapshot_v1alpha1_PersistentVolumeClaim(ref),
+		"kubevirt.io/api/snapshot/v1alpha1.SnapshotVolumesLists":                                     schema_kubevirtio_api_snapshot_v1alpha1_SnapshotVolumesLists(ref),
 		"kubevirt.io/api/snapshot/v1alpha1.SourceSpec":                                               schema_kubevirtio_api_snapshot_v1alpha1_SourceSpec(ref),
 		"kubevirt.io/api/snapshot/v1alpha1.VirtualMachine":                                           schema_kubevirtio_api_snapshot_v1alpha1_VirtualMachine(ref),
 		"kubevirt.io/api/snapshot/v1alpha1.VirtualMachineRestore":                                    schema_kubevirtio_api_snapshot_v1alpha1_VirtualMachineRestore(ref),
@@ -25741,6 +25742,55 @@ func schema_kubevirtio_api_snapshot_v1alpha1_PersistentVolumeClaim(ref common.Re
 	}
 }
 
+func schema_kubevirtio_api_snapshot_v1alpha1_SnapshotVolumesLists(ref common.ReferenceCallback) common.OpenAPIDefinition {
+	return common.OpenAPIDefinition{
+		Schema: spec.Schema{
+			SchemaProps: spec.SchemaProps{
+				Description: "SnapshotVolumesLists includes the list of volumes which were included in the snapshot and volumes which were excluded from the snapshot",
+				Type:        []string{"object"},
+				Properties: map[string]spec.Schema{
+					"includedVolumes": {
+						VendorExtensible: spec.VendorExtensible{
+							Extensions: spec.Extensions{
+								"x-kubernetes-list-type": "set",
+							},
+						},
+						SchemaProps: spec.SchemaProps{
+							Type: []string{"array"},
+							Items: &spec.SchemaOrArray{
+								Schema: &spec.Schema{
+									SchemaProps: spec.SchemaProps{
+										Type:   []string{"string"},
+										Format: "",
+									},
+								},
+							},
+						},
+					},
+					"excludedVolumes": {
+						VendorExtensible: spec.VendorExtensible{
+							Extensions: spec.Extensions{
+								"x-kubernetes-list-type": "set",
+							},
+						},
+						SchemaProps: spec.SchemaProps{
+							Type: []string{"array"},
+							Items: &spec.SchemaOrArray{
+								Schema: &spec.Schema{
+									SchemaProps: spec.SchemaProps{
+										Type:   []string{"string"},
+										Format: "",
+									},
+								},
+							},
+						},
+					},
+				},
+			},
+		},
+	}
+}
+
 func schema_kubevirtio_api_snapshot_v1alpha1_SourceSpec(ref common.ReferenceCallback) common.OpenAPIDefinition {
 	return common.OpenAPIDefinition{
 		Schema: spec.Schema{
@@ -26364,11 +26414,16 @@ func schema_kubevirtio_api_snapshot_v1alpha1_VirtualMachineSnapshotStatus(ref co
 							},
 						},
 					},
+					"snapshotVolumes": {
+						SchemaProps: spec.SchemaProps{
+							Ref: ref("kubevirt.io/api/snapshot/v1alpha1.SnapshotVolumesLists"),
+						},
+					},
 				},
 			},
 		},
 		Dependencies: []string{
-			"k8s.io/apimachinery/pkg/apis/meta/v1.Time", "kubevirt.io/api/snapshot/v1alpha1.Condition", "kubevirt.io/api/snapshot/v1alpha1.Error"},
+			"k8s.io/apimachinery/pkg/apis/meta/v1.Time", "kubevirt.io/api/snapshot/v1alpha1.Condition", "kubevirt.io/api/snapshot/v1alpha1.Error", "kubevirt.io/api/snapshot/v1alpha1.SnapshotVolumesLists"},
 	}
 }
 

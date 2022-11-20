@@ -746,6 +746,7 @@ func (ctrl *VMSnapshotController) updateSnapshotStatus(vmSnapshot *snapshotv1.Vi
 		vmSnapshotCpy.Status.Phase = snapshotv1.Succeeded
 		updateSnapshotCondition(vmSnapshotCpy, newProgressingCondition(corev1.ConditionFalse, "Operation complete"))
 		updateSnapshotCondition(vmSnapshotCpy, newReadyCondition(corev1.ConditionTrue, "Operation complete"))
+		updateSnapshotSnapshotableVolumes(vmSnapshotCpy, content)
 	} else {
 		vmSnapshotCpy.Status.Phase = snapshotv1.Unknown
 		updateSnapshotCondition(vmSnapshotCpy, newProgressingCondition(corev1.ConditionUnknown, "Unknown state"))
@@ -759,6 +760,36 @@ func (ctrl *VMSnapshotController) updateSnapshotStatus(vmSnapshot *snapshotv1.Vi
 	}
 
 	return nil
+}
+
+func updateSnapshotSnapshotableVolumes(snapshot *snapshotv1.VirtualMachineSnapshot, content *snapshotv1.VirtualMachineSnapshotContent) {
+	if content == nil {
+		return
+	}
+	vm := content.Spec.Source.VirtualMachine
+	if vm == nil || vm.Spec.Template == nil {
+		return
+	}
+	volumes := vm.Spec.Template.Spec.Volumes
+
+	volumeBackups := make(map[string]bool)
+	for _, volumeBackup := range content.Spec.VolumeBackups {
+		volumeBackups[volumeBackup.VolumeName] = true
+	}
+
+	var excludedVolumes []string
+	var includedVolumes []string
+	for _, volume := range volumes {
+		if _, ok := volumeBackups[volume.Name]; ok {
+			includedVolumes = append(includedVolumes, volume.Name)
+		} else {
+			excludedVolumes = append(excludedVolumes, volume.Name)
+		}
+	}
+	snapshot.Status.SnapshotVolumes = &snapshotv1.SnapshotVolumesLists{
+		IncludedVolumes: includedVolumes,
+		ExcludedVolumes: excludedVolumes,
+	}
 }
 
 func (ctrl *VMSnapshotController) updateVolumeSnapshotStatuses(vm *kubevirtv1.VirtualMachine) error {
