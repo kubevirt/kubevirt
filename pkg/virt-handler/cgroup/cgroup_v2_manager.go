@@ -180,3 +180,41 @@ func (v *v2Manager) GetCgroupThreads() ([]int, error) {
 func (v *v2Manager) SetCpuSet(subcgroup string, cpulist []int) error {
 	return setCpuSetHelper(v, subcgroup, cpulist)
 }
+
+func (v *v2Manager) MakeThreaded() error {
+	// Ideally, this implementation needs to reside in runc's repository.
+	// An issue is opened to track that: https://github.com/opencontainers/runc/issues/3690.
+
+	const (
+		cgTypeFile   = "cgroup.type"
+		typeThreaded = "threaded"
+	)
+
+	cgroupType, err := runc_cgroups.ReadFile(v.dirPath, cgTypeFile)
+	if err != nil {
+		return err
+	}
+	cgroupType = strings.TrimSpace(cgroupType)
+
+	if cgroupType == typeThreaded {
+		log.Log.V(detailedLogVerbosity).Infof("cgroup %s already threaded", v.dirPath)
+		return nil
+	}
+
+	err = runc_cgroups.WriteFile(v.dirPath, cgTypeFile, typeThreaded)
+	if err != nil {
+		return err
+	}
+
+	cgroupType, err = runc_cgroups.ReadFile(v.dirPath, cgTypeFile)
+	if err != nil {
+		return err
+	}
+	cgroupType = strings.TrimSpace(cgroupType)
+
+	if cgroupType != typeThreaded {
+		return fmt.Errorf("could not change cgroup type (%s) to %s", cgroupType, typeThreaded)
+	}
+
+	return nil
+}

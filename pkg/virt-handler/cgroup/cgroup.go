@@ -72,6 +72,8 @@ type Manager interface {
 
 	// Get list of threads attached to cgroup
 	GetCgroupThreads() ([]int, error)
+
+	MakeThreaded() error
 }
 
 // This is here so that mockgen would create a mock out of it. That way we would have a mocked runc manager.
