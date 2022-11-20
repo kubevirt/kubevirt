@@ -29,6 +29,8 @@ import (
 	"syscall"
 	"time"
 
+	"kubevirt.io/kubevirt/pkg/virt-launcher/metadata"
+
 	"github.com/spf13/pflag"
 	"k8s.io/apimachinery/pkg/types"
 	"libvirt.org/go/libvirt"
@@ -138,6 +140,7 @@ func startDomainEventMonitoring(
 	qemuAgentUserInterval time.Duration,
 	qemuAgentVersionInterval time.Duration,
 	qemuAgentFSFreezeStatusInterval time.Duration,
+	metadataCache *metadata.Cache,
 ) {
 	go func() {
 		for {
@@ -148,7 +151,7 @@ func startDomainEventMonitoring(
 		}
 	}()
 
-	err := notifier.StartDomainNotifier(domainConn, deleteNotificationSent, vmi, domainName, agentStore, qemuAgentSysInterval, qemuAgentFileInterval, qemuAgentUserInterval, qemuAgentVersionInterval, qemuAgentFSFreezeStatusInterval)
+	err := notifier.StartDomainNotifier(domainConn, deleteNotificationSent, vmi, domainName, agentStore, qemuAgentSysInterval, qemuAgentFileInterval, qemuAgentUserInterval, qemuAgentVersionInterval, qemuAgentFSFreezeStatusInterval, metadataCache)
 	if err != nil {
 		panic(err)
 	}
@@ -406,7 +409,9 @@ func main() {
 	notifier := notifyclient.NewNotifier(*virtShareDir)
 	defer notifier.Close()
 
-	domainManager, err := virtwrap.NewLibvirtDomainManager(domainConn, *virtShareDir, *ephemeralDiskDir, &agentStore, *ovmfPath, ephemeralDiskCreator)
+	metadataCache := metadata.NewCache()
+
+	domainManager, err := virtwrap.NewLibvirtDomainManager(domainConn, *virtShareDir, *ephemeralDiskDir, &agentStore, *ovmfPath, ephemeralDiskCreator, metadataCache)
 	if err != nil {
 		panic(err)
 	}
@@ -450,7 +455,7 @@ func main() {
 
 	events := make(chan watch.Event, 2)
 	// Send domain notifications to virt-handler
-	startDomainEventMonitoring(notifier, *virtShareDir, domainConn, events, vmi, domainName, &agentStore, *qemuAgentSysInterval, *qemuAgentFileInterval, *qemuAgentUserInterval, *qemuAgentVersionInterval, *qemuAgentFSFreezeStatusInterval)
+	startDomainEventMonitoring(notifier, *virtShareDir, domainConn, events, vmi, domainName, &agentStore, *qemuAgentSysInterval, *qemuAgentFileInterval, *qemuAgentUserInterval, *qemuAgentVersionInterval, *qemuAgentFSFreezeStatusInterval, metadataCache)
 
 	c := make(chan os.Signal, 1)
 	signal.Notify(c, os.Interrupt,

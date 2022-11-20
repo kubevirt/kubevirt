@@ -81,6 +81,8 @@ import (
 	domainerrors "kubevirt.io/kubevirt/pkg/virt-launcher/virtwrap/errors"
 	"kubevirt.io/kubevirt/pkg/virt-launcher/virtwrap/stats"
 	"kubevirt.io/kubevirt/pkg/virt-launcher/virtwrap/util"
+
+	"kubevirt.io/kubevirt/pkg/virt-launcher/metadata"
 )
 
 const (
@@ -153,6 +155,8 @@ type LibvirtDomainManager struct {
 	disksInfo                map[string]*cmdv1.DiskInfo
 	cancelSafetyUnfreezeChan chan struct{}
 	migrateInfoStats         *stats.DomainJobInfo
+
+	metadataCache *metadata.Cache
 }
 
 type pausedVMIs struct {
@@ -178,12 +182,12 @@ func (s pausedVMIs) contains(uid types.UID) bool {
 	return ok
 }
 
-func NewLibvirtDomainManager(connection cli.Connection, virtShareDir, ephemeralDiskDir string, agentStore *agentpoller.AsyncAgentStore, ovmfPath string, ephemeralDiskCreator ephemeraldisk.EphemeralDiskCreatorInterface) (DomainManager, error) {
+func NewLibvirtDomainManager(connection cli.Connection, virtShareDir, ephemeralDiskDir string, agentStore *agentpoller.AsyncAgentStore, ovmfPath string, ephemeralDiskCreator ephemeraldisk.EphemeralDiskCreatorInterface, metadataCache *metadata.Cache) (DomainManager, error) {
 	directIOChecker := converter.NewDirectIOChecker()
-	return newLibvirtDomainManager(connection, virtShareDir, ephemeralDiskDir, agentStore, ovmfPath, ephemeralDiskCreator, directIOChecker)
+	return newLibvirtDomainManager(connection, virtShareDir, ephemeralDiskDir, agentStore, ovmfPath, ephemeralDiskCreator, directIOChecker, metadataCache)
 }
 
-func newLibvirtDomainManager(connection cli.Connection, virtShareDir, ephemeralDiskDir string, agentStore *agentpoller.AsyncAgentStore, ovmfPath string, ephemeralDiskCreator ephemeraldisk.EphemeralDiskCreatorInterface, directIOChecker converter.DirectIOChecker) (DomainManager, error) {
+func newLibvirtDomainManager(connection cli.Connection, virtShareDir, ephemeralDiskDir string, agentStore *agentpoller.AsyncAgentStore, ovmfPath string, ephemeralDiskCreator ephemeraldisk.EphemeralDiskCreatorInterface, directIOChecker converter.DirectIOChecker, metadataCache *metadata.Cache) (DomainManager, error) {
 	manager := LibvirtDomainManager{
 		virConn:          connection,
 		virtShareDir:     virtShareDir,
@@ -198,6 +202,7 @@ func newLibvirtDomainManager(connection cli.Connection, virtShareDir, ephemeralD
 		disksInfo:                map[string]*cmdv1.DiskInfo{},
 		cancelSafetyUnfreezeChan: make(chan struct{}),
 		migrateInfoStats:         &stats.DomainJobInfo{},
+		metadataCache:            metadataCache,
 	}
 
 	manager.hotplugHostDevicesInProgress = make(chan struct{}, maxConcurrentHotplugHostDevices)
@@ -1669,6 +1674,7 @@ func (l *LibvirtDomainManager) ListAllDomains() ([]*api.Domain, error) {
 			}
 			return list, err
 		}
+		spec.Metadata.KubeVirt = metadata.LoadKubevirtMetadata(l.metadataCache)
 		domain.Spec = *spec
 		status, reason, err := dom.GetState()
 		if err != nil {
