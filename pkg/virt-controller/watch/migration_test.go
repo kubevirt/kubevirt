@@ -1664,6 +1664,56 @@ var _ = Describe("Migration watcher", func() {
 			shouldExpectMigrationFailedState(migration)
 		})
 	})
+
+	Context("Migration backoff", func() {
+		var vmi *virtv1.VirtualMachineInstance
+
+		It("should be applied after a migration fails", func() {
+			vmi = newVirtualMachine("testvmi", virtv1.Running)
+			failedMigration := newMigration("testmigration", vmi.Name, virtv1.MigrationFailed)
+			pendingMigration := newMigration("testmigration2", vmi.Name, virtv1.MigrationPending)
+
+			failedMigration.Status.PhaseTransitionTimestamps = []virtv1.VirtualMachineInstanceMigrationPhaseTransitionTimestamp{
+				{
+					Phase:                    virtv1.MigrationFailed,
+					PhaseTransitionTimestamp: failedMigration.CreationTimestamp,
+				},
+			}
+			pendingMigration.CreationTimestamp = metav1.NewTime(failedMigration.CreationTimestamp.Add(time.Second * 1))
+
+			_ = migrationInformer.GetStore().Add(failedMigration)
+			_ = vmiInformer.GetStore().Add(vmi)
+			addMigration(pendingMigration)
+
+			controller.Execute()
+			Expect(pendingMigration.Status.Phase).To(Equal(virtv1.MigrationPending))
+			testutils.ExpectEvent(recorder, "MigrationBackoff")
+		})
+
+		It("should be cleared when a migration succeeds", func() {
+			vmi = newVirtualMachine("testvmi", virtv1.Running)
+			failedMigration := newMigration("testmigration", vmi.Name, virtv1.MigrationFailed)
+			successfulMigration := newMigration("testmigration2", vmi.Name, virtv1.MigrationSucceeded)
+			pendingMigration := newMigration("testmigration3", vmi.Name, virtv1.MigrationPending)
+
+			failedMigration.Status.PhaseTransitionTimestamps = []virtv1.VirtualMachineInstanceMigrationPhaseTransitionTimestamp{
+				{
+					Phase:                    virtv1.MigrationFailed,
+					PhaseTransitionTimestamp: failedMigration.CreationTimestamp,
+				},
+			}
+			successfulMigration.CreationTimestamp = metav1.NewTime(failedMigration.CreationTimestamp.Add(time.Second * 1))
+			pendingMigration.CreationTimestamp = metav1.NewTime(successfulMigration.CreationTimestamp.Add(time.Second * 1))
+
+			_ = migrationInformer.GetStore().Add(failedMigration)
+			_ = migrationInformer.GetStore().Add(successfulMigration)
+			_ = vmiInformer.GetStore().Add(vmi)
+			addMigration(pendingMigration)
+
+			controller.Execute()
+			shouldExpectPodCreation(vmi.UID, pendingMigration.UID, 1, 0, 0)
+		})
+	})
 })
 
 func newPDB(name string, vmi *virtv1.VirtualMachineInstance, pods int) *policyv1.PodDisruptionBudget {
@@ -1698,6 +1748,7 @@ func newMigration(name string, vmiName string, phase virtv1.VirtualMachineInstan
 				virtv1.ControllerAPILatestVersionObservedAnnotation:  virtv1.ApiLatestVersion,
 				virtv1.ControllerAPIStorageVersionObservedAnnotation: virtv1.ApiStorageVersion,
 			},
+			CreationTimestamp: metav1.Now(),
 		},
 		Spec: virtv1.VirtualMachineInstanceMigrationSpec{
 			VMIName: vmiName,

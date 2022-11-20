@@ -22,6 +22,7 @@ package watch
 import (
 	"context"
 	"encoding/json"
+	"errors"
 	"fmt"
 	"sort"
 	"strconv"
@@ -34,7 +35,7 @@ import (
 	k8sv1 "k8s.io/api/core/v1"
 	policyv1 "k8s.io/api/policy/v1"
 	"k8s.io/apimachinery/pkg/api/equality"
-	"k8s.io/apimachinery/pkg/api/errors"
+	k8serrors "k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	v1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/labels"
@@ -85,6 +86,8 @@ const defaultFinalizedMigrationGarbageCollectionBuffer = 5
 // period of time, so we want to make this timeout long enough that it doesn't
 // cause the migration to fail when it could have reasonably succeeded.
 const defaultCatchAllPendingTimeoutSeconds = int64(60 * 15)
+
+var migrationBackoffError = errors.New(MigrationBackoffReason)
 
 type MigrationController struct {
 	templateService         services.TemplateService
@@ -654,6 +657,66 @@ func (c *MigrationController) expandPDB(pdb *policyv1.PodDisruptionBudget, vmi *
 	return nil
 }
 
+func (c *MigrationController) handleMigrationBackoff(key string, vmi *virtv1.VirtualMachineInstance, migration *virtv1.VirtualMachineInstanceMigration) error {
+	if _, exists := migration.Annotations[virtv1.FuncTestForceIgnoreMigrationBackoffAnnotation]; exists {
+		return nil
+	}
+
+	migrations, err := c.listMigrationsMatchingVMI(vmi.Namespace, vmi.Name)
+	if err != nil {
+		return err
+	}
+	if len(migrations) < 2 {
+		return nil
+	}
+
+	// Newest first
+	sort.Sort(sort.Reverse(vmimCollection(migrations)))
+	if migrations[0].UID != migration.UID {
+		return nil
+	}
+
+	backoff := time.Second * 0
+	for _, m := range migrations[1:] {
+		if m.Status.Phase == virtv1.MigrationSucceeded {
+			break
+		}
+		if m.DeletionTimestamp != nil {
+			continue
+		}
+
+		if m.Status.Phase == virtv1.MigrationFailed {
+			if backoff == 0 {
+				backoff = time.Second * 20
+			} else {
+				backoff = backoff * 2
+			}
+		}
+	}
+	if backoff == 0 {
+		return nil
+	}
+
+	getFailedTS := func(migration *virtv1.VirtualMachineInstanceMigration) metav1.Time {
+		for _, ts := range migration.Status.PhaseTransitionTimestamps {
+			if ts.Phase == virtv1.MigrationFailed {
+				return ts.PhaseTransitionTimestamp
+			}
+		}
+		return metav1.Time{}
+	}
+
+	outOffBackoffTS := getFailedTS(migrations[1]).Add(backoff)
+	backoff = outOffBackoffTS.Sub(time.Now())
+
+	if backoff > 0 {
+		log.Log.Object(vmi).V(2).Errorf("vmi in migration backoff, re-enqueueing after %v", backoff)
+		c.Queue.AddAfter(key, backoff)
+		return migrationBackoffError
+	}
+	return nil
+}
+
 func (c *MigrationController) handleMarkMigrationFailedOnVMI(migration *virtv1.VirtualMachineInstanceMigration, vmi *virtv1.VirtualMachineInstance) error {
 
 	// Mark Migration Done on VMI if virt handler never started it.
@@ -1079,6 +1142,11 @@ func (c *MigrationController) sync(key string, migration *virtv1.VirtualMachineI
 		if migration.DeletionTimestamp != nil {
 			return c.handlePreHandoffMigrationCancel(migration, vmi, pod)
 		}
+		if err = c.handleMigrationBackoff(key, vmi, migration); errors.Is(err, migrationBackoffError) {
+			warningMsg := fmt.Sprintf("backoff migrating vmi %s/%s", vmi.Namespace, vmi.Name)
+			c.recorder.Eventf(vmi, k8sv1.EventTypeWarning, err.Error(), warningMsg)
+			return nil
+		}
 
 		if !targetPodExists {
 			sourcePod, err := controller.CurrentVMIPod(vmi, c.podInformer)
@@ -1443,7 +1511,7 @@ func (c *MigrationController) garbageCollectFinalizedMigrations(vmi *virtv1.Virt
 
 	for i := 0; i < garbageCollectionCount; i++ {
 		err = c.clientset.VirtualMachineInstanceMigration(vmi.Namespace).Delete(finalizedMigrations[i], &v1.DeleteOptions{})
-		if err != nil && errors.IsNotFound(err) {
+		if err != nil && k8serrors.IsNotFound(err) {
 			// This is safe to ignore. It's possible in some
 			// scenarios that the migration we're trying to garbage
 			// collect has already disappeared. Let's log it as debug
