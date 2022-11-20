@@ -47,6 +47,7 @@ const (
 	VirtLauncherImageEnvName     = "VIRT_LAUNCHER_IMAGE"
 	VirtExportProxyImageEnvName  = "VIRT_EXPORTPROXY_IMAGE"
 	VirtExportServerImageEnvName = "VIRT_EXPORTSERVER_IMAGE"
+	GsImageEnvName               = "GS_IMAGE"
 
 	// The below Shasum variables would be ignored if Image env vars are being used.
 	// Deprecated, use VirtApiImageEnvName instead
@@ -61,8 +62,9 @@ const (
 	VirtExportProxyShasumEnvName = "VIRT_EXPORTPROXY_SHASUM"
 	// Deprecated, use VirtExportServerImageEnvName instead
 	VirtExportServerShasumEnvName = "VIRT_EXPORTSERVER_SHASUM"
-	GsEnvShasumName               = "GS_SHASUM"
-	KubeVirtVersionEnvName        = "KUBEVIRT_VERSION"
+	// Deprecated, use GsImageEnvName instead
+	GsEnvShasumName        = "GS_SHASUM"
+	KubeVirtVersionEnvName = "KUBEVIRT_VERSION"
 	// Deprecated, use TargetDeploymentConfig instead
 	TargetInstallNamespace = "TARGET_INSTALL_NAMESPACE"
 	// Deprecated, use TargetDeploymentConfig instead
@@ -131,6 +133,7 @@ type KubeVirtDeploymentConfig struct {
 	VirtLauncherImage     string `json:"virtLauncherImage,omitempty" optional:"true"`
 	VirtExportProxyImage  string `json:"virtExportProxyImage,omitempty" optional:"true"`
 	VirtExportServerImage string `json:"virtExportServerImage,omitempty" optional:"true"`
+	GsImage               string `json:"GsImage,omitempty" optional:"true"`
 
 	// the shasums of every image we use
 	VirtOperatorSha     string `json:"virtOperatorSha,omitempty" optional:"true"`
@@ -299,8 +302,9 @@ func getConfig(registry, tag, namespace string, additionalProperties map[string]
 	launcherImage := envVarManager.Getenv(VirtLauncherImageEnvName)
 	exportProxyImage := envVarManager.Getenv(VirtExportProxyImageEnvName)
 	exportServerImage := envVarManager.Getenv(VirtExportServerImageEnvName)
+	GsImage := envVarManager.Getenv(GsImageEnvName)
 
-	config := newDeploymentConfigWithTag(registry, imagePrefix, tag, namespace, operatorImage, apiImage, controllerImage, handlerImage, launcherImage, exportProxyImage, exportServerImage, additionalProperties, passthroughEnv)
+	config := newDeploymentConfigWithTag(registry, imagePrefix, tag, namespace, operatorImage, apiImage, controllerImage, handlerImage, launcherImage, exportProxyImage, exportServerImage, GsImage, additionalProperties, passthroughEnv)
 	if skipShasums {
 		return config
 	}
@@ -329,26 +333,7 @@ func VerifyEnvWithEnvVarManager(envVarManager EnvVarManager) error {
 	// ensure the operator image is valid
 	imageString := GetOperatorImageWithEnvVarManager(envVarManager)
 	if imageString == "" {
-		return fmt.Errorf("empty env var %s for operator image", OldOperatorImageEnvName)
-	}
-	imageRegEx := regexp.MustCompile(operatorImageRegex)
-	matches := imageRegEx.FindAllStringSubmatch(imageString, 1)
-	if len(matches) != 1 || len(matches[0]) != 4 {
-		return fmt.Errorf("can not parse operator image env var %s", imageString)
-	}
-
-	// ensure that all or no shasums are given
-	missingShas := make([]string, 0)
-	count := 0
-	for _, name := range []string{VirtApiShasumEnvName, VirtControllerShasumEnvName, VirtHandlerShasumEnvName, VirtLauncherShasumEnvName, KubeVirtVersionEnvName} {
-		count++
-		sha := envVarManager.Getenv(name)
-		if sha == "" {
-			missingShas = append(missingShas, name)
-		}
-	}
-	if len(missingShas) > 0 && len(missingShas) < count {
-		return fmt.Errorf("incomplete configuration, missing env vars %v", missingShas)
+		return fmt.Errorf("cannot find virt-operator's image")
 	}
 
 	return nil
@@ -371,7 +356,7 @@ func GetPassthroughEnvWithEnvVarManager(envVarManager EnvVarManager) map[string]
 	return passthroughEnv
 }
 
-func newDeploymentConfigWithTag(registry, imagePrefix, tag, namespace, operatorImage, apiImage, controllerImage, handlerImage, launcherImage, exportProxyImage, exportServerImage string, kvSpec, passthroughEnv map[string]string) *KubeVirtDeploymentConfig {
+func newDeploymentConfigWithTag(registry, imagePrefix, tag, namespace, operatorImage, apiImage, controllerImage, handlerImage, launcherImage, exportProxyImage, exportServerImage, gsImage string, kvSpec, passthroughEnv map[string]string) *KubeVirtDeploymentConfig {
 	c := &KubeVirtDeploymentConfig{
 		Registry:              registry,
 		ImagePrefix:           imagePrefix,
@@ -383,6 +368,7 @@ func newDeploymentConfigWithTag(registry, imagePrefix, tag, namespace, operatorI
 		VirtLauncherImage:     launcherImage,
 		VirtExportProxyImage:  exportProxyImage,
 		VirtExportServerImage: exportServerImage,
+		GsImage:               gsImage,
 		Namespace:             namespace,
 		AdditionalProperties:  kvSpec,
 		PassthroughEnvVars:    passthroughEnv,

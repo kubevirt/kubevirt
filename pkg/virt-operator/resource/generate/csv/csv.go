@@ -40,26 +40,33 @@ import (
 const xDescriptorText = "urn:alm:descriptor:text"
 
 type NewClusterServiceVersionData struct {
-	Namespace            string
-	KubeVirtVersion      string
-	OperatorImageVersion string
-	DockerPrefix         string
-	ImagePrefix          string
-	ImagePullPolicy      string
-	Verbosity            string
-	CsvVersion           string
-	VirtApiSha           string
-	VirtControllerSha    string
-	VirtHandlerSha       string
-	VirtLauncherSha      string
-	VirtExportProxySha   string
-	VirtExportServerSha  string
-	GsSha                string
-	Replicas             int
-	IconBase64           string
-	ReplacesCsvVersion   string
-	CreatedAtTimestamp   string
-	VirtOperatorImage    string
+	Namespace             string
+	KubeVirtVersion       string
+	OperatorImageVersion  string
+	DockerPrefix          string
+	ImagePrefix           string
+	ImagePullPolicy       string
+	Verbosity             string
+	CsvVersion            string
+	VirtApiSha            string
+	VirtControllerSha     string
+	VirtHandlerSha        string
+	VirtLauncherSha       string
+	VirtExportProxySha    string
+	VirtExportServerSha   string
+	GsSha                 string
+	Replicas              int
+	IconBase64            string
+	ReplacesCsvVersion    string
+	CreatedAtTimestamp    string
+	VirtOperatorImage     string
+	VirtApiImage          string
+	VirtControllerImage   string
+	VirtHandlerImage      string
+	VirtLauncherImage     string
+	VirtExportProxyImage  string
+	VirtExportServerImage string
+	GsImage               string
 }
 
 type csvClusterPermissions struct {
@@ -162,6 +169,13 @@ func NewClusterServiceVersion(data *NewClusterServiceVersionData) (*csvv1.Cluste
 		data.VirtExportProxySha,
 		data.VirtExportServerSha,
 		data.GsSha,
+		data.VirtApiImage,
+		data.VirtControllerImage,
+		data.VirtHandlerImage,
+		data.VirtLauncherImage,
+		data.VirtExportProxyImage,
+		data.VirtExportServerImage,
+		data.GsImage,
 		data.VirtOperatorImage,
 		v1.PullPolicy(data.ImagePullPolicy))
 	if err != nil {

@@ -41,6 +41,11 @@ import (
 	"kubevirt.io/kubevirt/tools/util"
 )
 
+const (
+	customImageExample   = "Examples: some.registry.com@sha256:abcdefghijklmnop, other.registry.com:tag1"
+	shaEnvDeprecationMsg = "This argument is deprecated. Please use virt-*-image instead"
+)
+
 type templateData struct {
 	Namespace              string
 	CDINamespace           string
@@ -72,6 +77,13 @@ type templateData struct {
 	InfraReplicas          uint8
 	GeneratedManifests     map[string]string
 	VirtOperatorImage      string
+	VirtApiImage           string
+	VirtControllerImage    string
+	VirtHandlerImage       string
+	VirtLauncherImage      string
+	VirtExportProxyImage   string
+	VirtExportServerImage  string
+	GsImage                string
 }
 
 func main() {
@@ -92,17 +104,24 @@ func main() {
 	packageName := flag.String("package-name", "", "")
 	bundleOutDir := flag.String("bundle-out-dir", "", "")
 	quayRepository := flag.String("quay-repository", "", "")
-	virtOperatorSha := flag.String("virt-operator-sha", "", "")
-	virtApiSha := flag.String("virt-api-sha", "", "")
-	virtControllerSha := flag.String("virt-controller-sha", "", "")
-	virtHandlerSha := flag.String("virt-handler-sha", "", "")
-	virtLauncherSha := flag.String("virt-launcher-sha", "", "")
-	virtExportProxySha := flag.String("virt-exportproxy-sha", "", "")
-	virtExportServerSha := flag.String("virt-exportserver-sha", "", "")
+	virtOperatorSha := flag.String("virt-operator-sha", "", shaEnvDeprecationMsg)
+	virtApiSha := flag.String("virt-api-sha", "", shaEnvDeprecationMsg)
+	virtControllerSha := flag.String("virt-controller-sha", "", shaEnvDeprecationMsg)
+	virtHandlerSha := flag.String("virt-handler-sha", "", shaEnvDeprecationMsg)
+	virtLauncherSha := flag.String("virt-launcher-sha", "", shaEnvDeprecationMsg)
+	virtExportProxySha := flag.String("virt-exportproxy-sha", "", shaEnvDeprecationMsg)
+	virtExportServerSha := flag.String("virt-exportserver-sha", "", shaEnvDeprecationMsg)
 	gsSha := flag.String("gs-sha", "", "")
 	featureGates := flag.String("feature-gates", "", "")
 	infraReplicas := flag.Uint("infra-replicas", 0, "")
 	virtOperatorImage := flag.String("virt-operator-image", "", "custom image for virt-operator")
+	virtApiImage := flag.String("virt-api-image", "", "custom image for virt-api. "+customImageExample)
+	virtControllerImage := flag.String("virt-controller-image", "", "custom image for virt-controller. "+customImageExample)
+	virtHandlerImage := flag.String("virt-handler-image", "", "custom image for virt-handler. "+customImageExample)
+	virtLauncherImage := flag.String("virt-launcher-image", "", "custom image for virt-launcher. "+customImageExample)
+	virtExportProxyImage := flag.String("virt-export-proxy-image", "", "custom image for virt-export-proxy. "+customImageExample)
+	virtExportServerImage := flag.String("virt-export-server-image", "", "custom image for virt-export-server. "+customImageExample)
+	gsImage := flag.String("gs-image", "", "custom image for gs. "+customImageExample)
 
 	pflag.CommandLine.AddGoFlagSet(flag.CommandLine)
 	pflag.CommandLine.ParseErrorsWhitelist.UnknownFlags = true
@@ -154,6 +173,13 @@ func main() {
 		data.OperatorDeploymentSpec = getOperatorDeploymentSpec(data, 2)
 		data.PriorityClassSpec = getPriorityClassSpec(2)
 		data.VirtOperatorImage = *virtOperatorImage
+		data.VirtApiImage = *virtApiImage
+		data.VirtControllerImage = *virtControllerImage
+		data.VirtHandlerImage = *virtHandlerImage
+		data.VirtLauncherImage = *virtLauncherImage
+		data.VirtExportProxyImage = *virtExportProxyImage
+		data.VirtExportServerImage = *virtExportServerImage
+		data.GsImage = *gsImage
 		if *featureGates != "" {
 			data.FeatureGates = strings.Split(*featureGates, ",")
 		}
@@ -207,6 +233,13 @@ func main() {
 		data.KubeVirtLogo = "{{.KubeVirtLogo}}"
 		data.PackageName = "{{.PackageName}}"
 		data.CreatedAt = "{{.CreatedAt}}"
+		data.VirtApiImage = "{{.VirtApiImage}}"
+		data.VirtControllerImage = "{{.VirtControllerImage}}"
+		data.VirtHandlerImage = "{{.VirtHandlerImage}}"
+		data.VirtLauncherImage = "{{.VirtLauncherImage}}"
+		data.VirtExportProxyImage = "{{.VirtExportProxyImage}}"
+		data.VirtExportServerImage = "{{.VirtExportServerImage}}"
+		data.GsImage = "{{.GsImage}}"
 	}
 
 	if *processFiles {
@@ -276,6 +309,13 @@ func getOperatorDeploymentSpec(data templateData, indentation int) string {
 		data.VirtExportProxySha,
 		data.VirtExportServerSha,
 		data.GsSha,
+		data.VirtApiImage,
+		data.VirtControllerImage,
+		data.VirtHandlerImage,
+		data.VirtLauncherImage,
+		data.VirtExportProxyImage,
+		data.VirtExportServerImage,
+		data.GsImage,
 		data.VirtOperatorImage,
 		v1.PullPolicy(data.ImagePullPolicy))
 	if err != nil {
