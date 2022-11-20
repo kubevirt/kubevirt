@@ -35,7 +35,6 @@ import (
 	"k8s.io/apimachinery/pkg/types"
 	"libvirt.org/go/libvirt"
 
-	"k8s.io/apimachinery/pkg/util/wait"
 	utilwait "k8s.io/apimachinery/pkg/util/wait"
 	"k8s.io/apimachinery/pkg/watch"
 
@@ -424,21 +423,8 @@ func main() {
 	cmdServerDone := startCmdServer(cmdclient.UninitializedSocketOnGuest(), domainManager, stopChan, options)
 
 	gracefulShutdownCallback := func() {
-		err := wait.PollImmediate(time.Second, 15*time.Second, func() (bool, error) {
-			err := domainManager.MarkGracefulShutdownVMI(vmi)
-			if err != nil {
-				log.Log.Reason(err).Errorf("Unable to signal graceful shutdown")
-				return false, err
-			}
-
-			return true, nil
-		})
-
-		if err != nil {
-			log.Log.Reason(err).Errorf("Gave up attempting to signal graceful shutdown")
-		} else {
-			log.Log.Object(vmi).Info("Successfully signaled graceful shutdown")
-		}
+		domainManager.MarkGracefulShutdownVMI()
+		log.Log.Object(vmi).Info("Signaled graceful shutdown")
 	}
 
 	finalShutdownCallback := func(pid int) {

@@ -39,6 +39,8 @@ import (
 	"sync"
 	"time"
 
+	"k8s.io/utils/pointer"
+
 	"kubevirt.io/kubevirt/pkg/virt-launcher/virtwrap/device/hostdevice/generic"
 	"kubevirt.io/kubevirt/pkg/virt-launcher/virtwrap/device/hostdevice/gpu"
 
@@ -111,7 +113,7 @@ type DomainManager interface {
 	KillVMI(*v1.VirtualMachineInstance) error
 	DeleteVMI(*v1.VirtualMachineInstance) error
 	SignalShutdownVMI(*v1.VirtualMachineInstance) error
-	MarkGracefulShutdownVMI(*v1.VirtualMachineInstance) error
+	MarkGracefulShutdownVMI()
 	ListAllDomains() ([]*api.Domain, error)
 	MigrateVMI(*v1.VirtualMachineInstance, *cmdclient.MigrationOptions) error
 	PrepareMigrationTarget(*v1.VirtualMachineInstance, bool, *cmdv1.VirtualMachineOptions) error
@@ -861,6 +863,9 @@ func (l *LibvirtDomainManager) SyncVMI(vmi *v1.VirtualMachineInstance, allowEmul
 			if err != nil {
 				return nil, err
 			}
+			// Cache the metadata which has been updated by the converter.
+			// TODO: Perform this directly and not through the converter.
+			l.metadataCache.GracePeriod.Store(*domain.Spec.Metadata.KubeVirt.GracePeriod)
 			logger.Info("Domain defined.")
 		} else {
 			logger.Reason(err).Error(failedGetDomain)
@@ -1487,44 +1492,10 @@ func (l *LibvirtDomainManager) SoftRebootVMI(vmi *v1.VirtualMachineInstance) err
 	return nil
 }
 
-func (l *LibvirtDomainManager) MarkGracefulShutdownVMI(vmi *v1.VirtualMachineInstance) error {
-	l.domainModifyLock.Lock()
-	defer l.domainModifyLock.Unlock()
-
-	domName := api.VMINamespaceKeyFunc(vmi)
-	dom, err := l.virConn.LookupDomainByName(domName)
-	if err != nil {
-		log.Log.Object(vmi).Reason(err).Error("Getting the domain for shutdown failed.")
-		return err
-	}
-
-	defer dom.Free()
-	domainSpec, err := l.getDomainSpec(dom)
-	if err != nil {
-		return err
-	}
-
-	t := true
-
-	if domainSpec.Metadata.KubeVirt.GracePeriod == nil {
-		domainSpec.Metadata.KubeVirt.GracePeriod = &api.GracePeriodMetadata{
-			MarkedForGracefulShutdown: &t,
-		}
-	} else if domainSpec.Metadata.KubeVirt.GracePeriod.MarkedForGracefulShutdown != nil &&
-		*domainSpec.Metadata.KubeVirt.GracePeriod.MarkedForGracefulShutdown == true {
-		// already marked, nothing to do
-		return nil
-	} else {
-		domainSpec.Metadata.KubeVirt.GracePeriod.MarkedForGracefulShutdown = &t
-	}
-
-	d, err := l.setDomainSpecWithHooks(vmi, domainSpec)
-	if err != nil {
-		return err
-	}
-	defer d.Free()
-	return nil
-
+func (l *LibvirtDomainManager) MarkGracefulShutdownVMI() {
+	l.metadataCache.GracePeriod.WithSafeBlock(func(gracePeriodMetadata *api.GracePeriodMetadata, _ bool) {
+		gracePeriodMetadata.MarkedForGracefulShutdown = pointer.Bool(true)
+	})
 }
 
 func (l *LibvirtDomainManager) SignalShutdownVMI(vmi *v1.VirtualMachineInstance) error {
@@ -1551,12 +1522,6 @@ func (l *LibvirtDomainManager) SignalShutdownVMI(vmi *v1.VirtualMachineInstance)
 	}
 
 	if domState == libvirt.DOMAIN_RUNNING || domState == libvirt.DOMAIN_PAUSED {
-		domSpec, err := l.getDomainSpec(dom)
-		if err != nil {
-			log.Log.Object(vmi).Reason(err).Error("Unable to retrieve domain xml")
-			return err
-		}
-
 		err = dom.ShutdownFlags(libvirt.DOMAIN_SHUTDOWN_ACPI_POWER_BTN)
 		if err != nil {
 			log.Log.Object(vmi).Reason(err).Error("Signalling graceful shutdown failed.")
@@ -1564,16 +1529,12 @@ func (l *LibvirtDomainManager) SignalShutdownVMI(vmi *v1.VirtualMachineInstance)
 		}
 		log.Log.Object(vmi).Infof("Signaled graceful shutdown for %s", vmi.GetObjectMeta().GetName())
 
-		if domSpec.Metadata.KubeVirt.GracePeriod.DeletionTimestamp == nil {
-			now := metav1.Now()
-			domSpec.Metadata.KubeVirt.GracePeriod.DeletionTimestamp = &now
-			d, err := l.setDomainSpecWithHooks(vmi, domSpec)
-			if err != nil {
-				log.Log.Object(vmi).Reason(err).Error("Unable to update grace period start time on domain xml")
-				return err
+		l.metadataCache.GracePeriod.WithSafeBlock(func(gracePeriodMetadata *api.GracePeriodMetadata, _ bool) {
+			if gracePeriodMetadata.DeletionTimestamp == nil {
+				now := metav1.Now()
+				gracePeriodMetadata.DeletionTimestamp = &now
 			}
-			defer d.Free()
-		}
+		})
 	}
 
 	return nil
