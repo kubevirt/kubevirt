@@ -56,7 +56,6 @@ import (
 	"k8s.io/apimachinery/pkg/api/resource"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/types"
-	utilwait "k8s.io/apimachinery/pkg/util/wait"
 	"libvirt.org/go/libvirt"
 
 	v1 "kubevirt.io/api/core/v1"
@@ -1187,7 +1186,10 @@ func (l *LibvirtDomainManager) MemoryDump(vmi *v1.VirtualMachineInstance, dumpPa
 func (l *LibvirtDomainManager) memoryDump(vmi *v1.VirtualMachineInstance, dumpPath string) error {
 	logger := log.Log.Object(vmi)
 
-	dom, err := l.initializeMemoryDumpMetadata(vmi, dumpPath)
+	l.initializeMemoryDumpMetadata(dumpPath)
+
+	domName := api.VMINamespaceKeyFunc(vmi)
+	dom, err := l.virConn.LookupDomainByName(domName)
 	if dom == nil || err != nil {
 		return err
 	}
@@ -1206,96 +1208,39 @@ func (l *LibvirtDomainManager) memoryDump(vmi *v1.VirtualMachineInstance, dumpPa
 		logger.Infof("Completed memory dump successfully")
 	}
 
-	l.setMemoryDumpResult(vmi, failed, reason)
+	l.setMemoryDumpResult(failed, reason)
 	return err
 }
 
-func (l *LibvirtDomainManager) initializeMemoryDumpMetadata(vmi *v1.VirtualMachineInstance, dumpPath string) (cli.VirDomain, error) {
-	l.domainModifyLock.Lock()
-	defer l.domainModifyLock.Unlock()
-
-	domName := api.VMINamespaceKeyFunc(vmi)
-	dom, err := l.virConn.LookupDomainByName(domName)
-	if err != nil {
-		return nil, err
-	}
-
-	defer dom.Free()
-	domainSpec, err := l.getDomainSpec(dom)
-	if err != nil {
-		return nil, err
-	}
-
-	memoryDumpMetadata := domainSpec.Metadata.KubeVirt.MemoryDump
-	if memoryDumpMetadata != nil && memoryDumpMetadata.FileName == filepath.Base(dumpPath) {
-		// memory dump still in progress or have just completed
-		return nil, nil
-	}
-
-	now := metav1.Now()
-	domainSpec.Metadata.KubeVirt.MemoryDump = &api.MemoryDumpMetadata{
-		FileName:       filepath.Base(dumpPath),
-		StartTimestamp: &now,
-	}
-	d, err := l.setDomainSpecWithHooks(vmi, domainSpec)
-	if err != nil {
-		return nil, err
-	}
-	return d, nil
-}
-
-func (l *LibvirtDomainManager) setMemoryDumpResultHelper(vmi *v1.VirtualMachineInstance, failed bool, reason string) error {
-	l.domainModifyLock.Lock()
-	defer l.domainModifyLock.Unlock()
-
-	domName := api.VMINamespaceKeyFunc(vmi)
-	dom, err := l.virConn.LookupDomainByName(domName)
-	if err != nil {
-		log.Log.Object(vmi).Reason(err).Error("Getting the domain for completed memory dump failed.")
-		return err
-	}
-	defer dom.Free()
-	domainSpec, err := l.getDomainSpec(dom)
-	if err != nil {
-		return err
-	}
-
-	memoryDumpMetadata := domainSpec.Metadata.KubeVirt.MemoryDump
-	if memoryDumpMetadata == nil {
-		// nothing to report if memory dump metadata is empty
-		return nil
-	}
-
-	now := metav1.Now()
-	domainSpec.Metadata.KubeVirt.MemoryDump.Completed = true
-	domainSpec.Metadata.KubeVirt.MemoryDump.EndTimestamp = &now
-	if failed {
-		domainSpec.Metadata.KubeVirt.MemoryDump.Failed = true
-		domainSpec.Metadata.KubeVirt.MemoryDump.FailureReason = reason
-	}
-	d, err := l.setDomainSpecWithHooks(vmi, domainSpec)
-	if err != nil {
-		return err
-	}
-	defer d.Free()
-	return nil
-}
-
-func (l *LibvirtDomainManager) setMemoryDumpResult(vmi *v1.VirtualMachineInstance, failed bool, reason string) {
-	connectionInterval := 10 * time.Second
-	connectionTimeout := 60 * time.Second
-
-	err := utilwait.PollImmediate(connectionInterval, connectionTimeout, func() (done bool, err error) {
-		err = l.setMemoryDumpResultHelper(vmi, failed, reason)
-		if err != nil {
-			return false, nil
+func (l *LibvirtDomainManager) initializeMemoryDumpMetadata(dumpPath string) {
+	l.metadataCache.MemoryDump.WithSafeBlock(func(memoryDumpMetadata *api.MemoryDumpMetadata, initialized bool) {
+		if memoryDumpMetadata.FileName == filepath.Base(dumpPath) {
+			// memory dump still in progress or have just completed
+			return
 		}
-		return true, nil
-	})
 
-	if err != nil {
-		log.Log.Object(vmi).Reason(err).Error("Unable to post memory dump results to libvirt after multiple tries")
-	}
+		now := metav1.Now()
+		*memoryDumpMetadata = api.MemoryDumpMetadata{
+			FileName:       filepath.Base(dumpPath),
+			StartTimestamp: &now,
+		}
+	})
+}
+
+func (l *LibvirtDomainManager) setMemoryDumpResult(failed bool, reason string) {
+	l.metadataCache.MemoryDump.WithSafeBlock(func(memoryDumpMetadata *api.MemoryDumpMetadata, initialized bool) {
+		if !initialized {
+			// nothing to report if memory dump metadata is empty
+			return
+		}
+
+		now := metav1.Now()
+		memoryDumpMetadata.Completed = true
+		memoryDumpMetadata.EndTimestamp = &now
+		memoryDumpMetadata.Failed = failed
+		memoryDumpMetadata.FailureReason = reason
+	})
+	return
 }
 
 func (l *LibvirtDomainManager) PauseVMI(vmi *v1.VirtualMachineInstance) error {
