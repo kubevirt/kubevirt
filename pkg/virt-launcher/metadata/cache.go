@@ -31,8 +31,32 @@ type Cache struct {
 	GracePeriod      SafeData[api.GracePeriodMetadata]
 	AccessCredential SafeData[api.AccessCredentialMetadata]
 	MemoryDump       SafeData[api.MemoryDumpMetadata]
+
+	notificationSignal chan struct{}
 }
 
 func NewCache() *Cache {
-	return &Cache{}
+	cache := &Cache{
+		notificationSignal: make(chan struct{}, 1),
+	}
+	cache.UID.dirtyChanel = cache.notificationSignal
+	cache.Migration.dirtyChanel = cache.notificationSignal
+	cache.GracePeriod.dirtyChanel = cache.notificationSignal
+	cache.AccessCredential.dirtyChanel = cache.notificationSignal
+	cache.MemoryDump.dirtyChanel = cache.notificationSignal
+	return cache
+}
+
+// Listen to a notification signal about the cache content changes.
+// Notifications are sent implicitly when the cache data is being changed.
+func (c *Cache) Listen() <-chan struct{} {
+	return c.notificationSignal
+}
+
+// ResetNotification clears the notification signal.
+func (c *Cache) ResetNotification() {
+	select {
+	case <-c.notificationSignal:
+	default:
+	}
 }

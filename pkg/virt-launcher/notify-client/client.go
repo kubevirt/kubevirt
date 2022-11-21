@@ -416,6 +416,7 @@ func (n *Notifier) StartDomainNotifier(
 		for {
 			select {
 			case event := <-eventChan:
+				metadataCache.ResetNotification()
 				domainCache = util.NewDomainFromName(event.Domain, vmi.UID)
 				eventCallback(domainConn, domainCache, event, n, deleteNotificationSent, interfaceStatuses, guestOsInfo, vmi, fsFreezeStatus, metadataCache)
 				log.Log.Infof("Domain name event: %v", domainCache.Spec.Name)
@@ -427,6 +428,7 @@ func (n *Notifier) StartDomainNotifier(
 					}
 				}
 			case agentUpdate := <-agentStore.AgentUpdated:
+				metadataCache.ResetNotification()
 				interfaceStatuses = agentUpdate.DomainInfo.Interfaces
 				guestOsInfo = agentUpdate.DomainInfo.OSInfo
 				fsFreezeStatus = agentUpdate.DomainInfo.FSFreezeStatus
@@ -435,6 +437,24 @@ func (n *Notifier) StartDomainNotifier(
 					interfaceStatuses, guestOsInfo, vmi, fsFreezeStatus, metadataCache)
 			case <-reconnectChan:
 				n.SendDomainEvent(newWatchEventError(fmt.Errorf("Libvirt reconnect, domain %s", domainName)))
+
+			case <-metadataCache.Listen():
+				domainCache = util.NewDomainFromName(
+					util.DomainFromNamespaceName(domainCache.ObjectMeta.Namespace, domainCache.ObjectMeta.Name),
+					vmi.UID,
+				)
+				eventCallback(
+					domainConn,
+					domainCache,
+					libvirtEvent{},
+					n,
+					deleteNotificationSent,
+					interfaceStatuses,
+					guestOsInfo,
+					vmi,
+					fsFreezeStatus,
+					metadataCache,
+				)
 			}
 		}
 	}()

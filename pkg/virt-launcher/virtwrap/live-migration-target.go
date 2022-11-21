@@ -83,8 +83,8 @@ func (l *LibvirtDomainManager) prepareMigrationTarget(
 
 	// Cache the metadata which has been updated by the converter.
 	// TODO: Perform this directly and not through the converter.
-	l.metadataCache.UID.Store(domain.Spec.Metadata.KubeVirt.UID)
-	l.metadataCache.GracePeriod.Store(*domain.Spec.Metadata.KubeVirt.GracePeriod)
+	l.metadataCache.UID.Set(domain.Spec.Metadata.KubeVirt.UID)
+	l.metadataCache.GracePeriod.Set(*domain.Spec.Metadata.KubeVirt.GracePeriod)
 
 	err = l.generateCloudInitEmptyISO(vmi, nil)
 	if err != nil {

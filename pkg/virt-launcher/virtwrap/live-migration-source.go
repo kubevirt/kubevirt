@@ -949,8 +949,6 @@ func (l *LibvirtDomainManager) migrate(vmi *v1.VirtualMachineInstance, options *
 
 func (l *LibvirtDomainManager) updateVMIMigrationMode(mode v1.MigrationMode) {
 	l.metadataCache.Migration.WithSafeBlock(func(migrationMetadata *api.MigrationMetadata, _ bool) {
-		if migrationMetadata.Mode != mode {
-			migrationMetadata.Mode = mode
-		}
+		migrationMetadata.Mode = mode
 	})
 }

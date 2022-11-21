@@ -82,4 +82,54 @@ var _ = Describe("Metadata", func() {
 		Expect(exists).To(BeTrue())
 		Expect(newData).To(Equal(api.MigrationMetadata{FailureReason: test123}))
 	})
+
+	It("Notify and listen when cache data store", func() {
+		const test123 = "test123"
+		metadataCache.Migration.Store(api.MigrationMetadata{FailureReason: test123})
+
+		Expect(metadataCache.Listen()).Should(Receive())
+	})
+
+	It("Do not notify when cache data set", func() {
+		const test123 = "test123"
+		metadataCache.Migration.Set(api.MigrationMetadata{FailureReason: test123})
+
+		Expect(metadataCache.Listen()).ShouldNot(Receive())
+	})
+
+	It("Reset notification signal", func() {
+		metadataCache.Migration.Store(api.MigrationMetadata{FailureReason: "test123"})
+
+		metadataCache.ResetNotification()
+
+		Expect(metadataCache.Listen()).ShouldNot(Receive())
+	})
+
+	It("Notify multiple times and listen to a single cache data change", func() {
+		metadataCache.Migration.Store(api.MigrationMetadata{FailureReason: "test123"})
+		metadataCache.Migration.Store(api.MigrationMetadata{FailureReason: "test456"})
+		metadataCache.Migration.Store(api.MigrationMetadata{FailureReason: "test789"})
+
+		Expect(metadataCache.Listen()).Should(Receive())
+		Expect(metadataCache.Listen()).ShouldNot(Receive())
+	})
+
+	It("Notify when the data is mutated in a safe block", func() {
+		metadataCache.Migration.WithSafeBlock(func(m *api.MigrationMetadata, initialized bool) {
+			m.FailureReason = "test123"
+		})
+		Expect(metadataCache.Listen()).Should(Receive())
+	})
+
+	It("Do not notify when the data is not mutated in a safe block", func() {
+		const test123 = "test123"
+		metadataCache.Migration.Store(api.MigrationMetadata{FailureReason: test123})
+		Expect(metadataCache.Listen()).Should(Receive())
+
+		metadataCache.Migration.WithSafeBlock(func(m *api.MigrationMetadata, initialized bool) {
+			m.FailureReason = test123
+		})
+
+		Expect(metadataCache.Listen()).ShouldNot(Receive())
+	})
 })
