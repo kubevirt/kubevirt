@@ -173,8 +173,12 @@ func (v *v2Manager) attachTask(id int, taskType TaskType) error {
 	return attachTask(id, v.dirPath, targetFile)
 }
 
+func (v *v2Manager) GetCgroupThreadsWithFilter(filter func(string) bool) ([]int, error) {
+	return getCgroupThreadsHelper(v, v2ThreadsFilename, filter)
+}
+
 func (v *v2Manager) GetCgroupThreads() ([]int, error) {
-	return getCgroupThreadsHelper(v, v2ThreadsFilename)
+	return v.GetCgroupThreadsWithFilter(nil)
 }
 
 func (v *v2Manager) SetCpuSet(subcgroup string, cpulist []int) error {
