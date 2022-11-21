@@ -44,16 +44,27 @@ aliases:
       - alicefr
       - 0xFelix
       - lyarwood
+
   test-reviewers:
       - jerry7z
       - kbidarkar
+
   test-approvers:
       - kbidarkar
       - phoracek
       - enp0s3
       - xpivarc
       - acardace
-  network-reviewers:
+
+  sig-architecture-approvers:
+      - davidvossel
+      - vladikr
+      - rmohr
+      - xpivarc
+      - vasiliy-ul
+      - fabiand
+
+  sig-network-reviewers:
       - AlonaKaplan
       - EdDev
       - RamLavi
@@ -63,9 +74,18 @@ aliases:
       - phoracek
       - qinqon
       - rhrazdil
-  network-approvers:
+
+  sig-network-approvers:
       - AlonaKaplan
-  scale-approvers:
+
+  sig-storage-approvers:
+      - mhenriks
+
+  sig-storage-reviewers:
+      - awels
+
+  sig-scale-reviewers:
       - rthallisey
-  scale-reviewers:
+
+  sig-scale-approvers:
       - rthallisey

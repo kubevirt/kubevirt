@@ -1,6 +1,6 @@
 reviewers:
-  - scale-reviewers
+  - sig-scale-reviewers
 approvers:
-  - scale-approvers
+  - sig-scale-approvers
 labels:
   - sig/scale

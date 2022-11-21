@@ -1,6 +1,8 @@
+# See the OWNERS docs at https://go.k8s.io/owners
+
 reviewers:
-  - scale-reviewers
+  - sig-scale-reviewers
 approvers:
-  - scale-approvers
+  - sig-scale-approvers
 labels:
   - sig/scale

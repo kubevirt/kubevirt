@@ -6,5 +6,6 @@ filters:
       - code-reviewers
     approvers:
       - approvers
+      - sig-architecture-approvers
     emeritus_approvers:
       - emeritus_approvers
