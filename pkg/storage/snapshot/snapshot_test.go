@@ -1255,13 +1255,13 @@ var _ = Describe("Snapshot controlleer", func() {
 				testutils.ExpectEvent(recorder, "SuccessfulVolumeSnapshotCreate")
 			})
 
-			It("should update VirtualMachineSnapshotContent", func() {
+			DescribeTable("should update VirtualMachineSnapshotContent", func(readyToUse bool) {
 				vmSnapshot := createVMSnapshotInProgress()
 				vmSnapshotContent := createVMSnapshotContent()
 				updatedContent := vmSnapshotContent.DeepCopy()
 				updatedContent.ResourceVersion = "1"
 				updatedContent.Status = &snapshotv1.VirtualMachineSnapshotContentStatus{
-					ReadyToUse:   &t,
+					ReadyToUse:   &readyToUse,
 					CreationTime: timeFunc(),
 				}
 
@@ -1271,7 +1271,7 @@ var _ = Describe("Snapshot controlleer", func() {
 
 				volumeSnapshots := createVolumeSnapshots(vmSnapshotContent)
 				for i := range volumeSnapshots {
-					volumeSnapshots[i].Status.ReadyToUse = &t
+					volumeSnapshots[i].Status.ReadyToUse = &readyToUse
 					volumeSnapshots[i].Status.CreationTime = timeFunc()
 					addVolumeSnapshot(&volumeSnapshots[i])
 
@@ -1285,7 +1285,10 @@ var _ = Describe("Snapshot controlleer", func() {
 				}
 
 				controller.processVMSnapshotContentWorkItem()
-			})
+			},
+				Entry("not ready", false),
+				Entry("ready", true),
+			)
 
 			It("should update VirtualMachineSnapshotContent no snapshots", func() {
 				vmSnapshot := createVMSnapshotInProgress()
@@ -1377,7 +1380,7 @@ var _ = Describe("Snapshot controlleer", func() {
 				testutils.ExpectEvent(recorder, "VolumeSnapshotMissing")
 			})
 
-			It("should unfreeze vm with online snapshot and guest agent", func() {
+			DescribeTable("should unfreeze vm with online snapshot and guest agent", func(ct *metav1.Time, r bool) {
 				storageClass := createStorageClass()
 				storageClassSource.Add(storageClass)
 				volumeSnapshotClass := createVolumeSnapshotClasses()[0]
@@ -1405,8 +1408,8 @@ var _ = Describe("Snapshot controlleer", func() {
 				}
 				volumeSnapshots := createVolumeSnapshots(vmSnapshotContent)
 				for i := range volumeSnapshots {
-					volumeSnapshots[i].Status.ReadyToUse = &t
-					volumeSnapshots[i].Status.CreationTime = timeFunc()
+					volumeSnapshots[i].Status.ReadyToUse = &r
+					volumeSnapshots[i].Status.CreationTime = ct
 					volumeSnapshotSource.Add(&volumeSnapshots[i])
 					vss := snapshotv1.VolumeSnapshotStatus{
 						VolumeSnapshotName: volumeSnapshots[i].Name,
@@ -1426,8 +1429,8 @@ var _ = Describe("Snapshot controlleer", func() {
 				updatedContent.UID = contentUID
 				updatedContent.ResourceVersion = "1"
 				updatedContent.Status = &snapshotv1.VirtualMachineSnapshotContentStatus{
-					CreationTime: timeFunc(),
-					ReadyToUse:   &t,
+					CreationTime: ct,
+					ReadyToUse:   &r,
 				}
 				for i := range volumeSnapshots {
 					vss := snapshotv1.VolumeSnapshotStatus{
@@ -1439,13 +1442,19 @@ var _ = Describe("Snapshot controlleer", func() {
 					updatedContent.Status.VolumeSnapshotStatus = append(updatedContent.Status.VolumeSnapshotStatus, vss)
 				}
 
-				vmiInterface.EXPECT().Unfreeze(vm.Name).Return(nil)
+				if ct != nil {
+					vmiInterface.EXPECT().Unfreeze(vm.Name).Return(nil)
+				}
 				expectVMSnapshotUpdate(vmSnapshotClient, updatedVMSnapshot)
 				expectVMSnapshotContentUpdate(vmSnapshotClient, updatedContent)
 				vmSnapshotSource.Add(vmSnapshot)
 				addVolumeSnapshotClass(volumeSnapshotClass)
 				controller.processVMSnapshotContentWorkItem()
-			})
+			},
+				Entry("not created and not ready", nil, false),
+				Entry("created and not ready", timeFunc(), false),
+				Entry("created and ready", timeFunc(), true),
+			)
 
 			It("should unfreeze vm with and remove content finalizer if vmsnapshot deleting", func() {
 				vm := createLockedVM()
