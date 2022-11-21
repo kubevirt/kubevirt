@@ -5471,6 +5471,16 @@ var CRDsValidation map[string]string = map[string]string{
                                 memory and CPUs on the virtual numa nodes never cross
                                 boundaries of host numa nodes.
                               type: object
+                            memoryMode:
+                              description: 'MemoryMode defines how memory is allocated
+                                from the nodes in a system. Only works with DedicatedCPUPlacement.
+                                The nodeset attribute will be set to NUMA nodes where
+                                CPU is pinned. Possible modes: strict - means that
+                                the allocation will fail if the memory cannot be allocated
+                                on the target node. interleave - memory pages are
+                                allocated across nodes specified by a nodeset, but
+                                are allocated in a round-robin fashion.'
+                              type: string
                           type: object
                         realtime:
                           description: Realtime instructs the virt-launcher to tune
@@ -7893,6 +7903,15 @@ var CRDsValidation map[string]string = map[string]string{
                     created topology ensures that memory and CPUs on the virtual numa
                     nodes never cross boundaries of host numa nodes.
                   type: object
+                memoryMode:
+                  description: 'MemoryMode defines how memory is allocated from the
+                    nodes in a system. Only works with DedicatedCPUPlacement. The
+                    nodeset attribute will be set to NUMA nodes where CPU is pinned.
+                    Possible modes: strict - means that the allocation will fail if
+                    the memory cannot be allocated on the target node. interleave
+                    - memory pages are allocated across nodes specified by a nodeset,
+                    but are allocated in a round-robin fashion.'
+                  type: string
               type: object
             realtime:
               description: Realtime instructs the virt-launcher to tune the VMI for
@@ -9967,6 +9986,16 @@ var CRDsValidation map[string]string = map[string]string{
                         the virtual numa nodes never cross boundaries of host numa
                         nodes.
                       type: object
+                    memoryMode:
+                      description: 'MemoryMode defines how memory is allocated from
+                        the nodes in a system. Only works with DedicatedCPUPlacement.
+                        The nodeset attribute will be set to NUMA nodes where CPU
+                        is pinned. Possible modes: strict - means that the allocation
+                        will fail if the memory cannot be allocated on the target
+                        node. interleave - memory pages are allocated across nodes
+                        specified by a nodeset, but are allocated in a round-robin
+                        fashion.'
+                      type: string
                   type: object
                 realtime:
                   description: Realtime instructs the virt-launcher to tune the VMI
@@ -12632,6 +12661,16 @@ var CRDsValidation map[string]string = map[string]string{
                         the virtual numa nodes never cross boundaries of host numa
                         nodes.
                       type: object
+                    memoryMode:
+                      description: 'MemoryMode defines how memory is allocated from
+                        the nodes in a system. Only works with DedicatedCPUPlacement.
+                        The nodeset attribute will be set to NUMA nodes where CPU
+                        is pinned. Possible modes: strict - means that the allocation
+                        will fail if the memory cannot be allocated on the target
+                        node. interleave - memory pages are allocated across nodes
+                        specified by a nodeset, but are allocated in a round-robin
+                        fashion.'
+                      type: string
                   type: object
                 realtime:
                   description: Realtime instructs the virt-launcher to tune the VMI
@@ -14755,6 +14794,16 @@ var CRDsValidation map[string]string = map[string]string{
                                 memory and CPUs on the virtual numa nodes never cross
                                 boundaries of host numa nodes.
                               type: object
+                            memoryMode:
+                              description: 'MemoryMode defines how memory is allocated
+                                from the nodes in a system. Only works with DedicatedCPUPlacement.
+                                The nodeset attribute will be set to NUMA nodes where
+                                CPU is pinned. Possible modes: strict - means that
+                                the allocation will fail if the memory cannot be allocated
+                                on the target node. interleave - memory pages are
+                                allocated across nodes specified by a nodeset, but
+                                are allocated in a round-robin fashion.'
+                              type: string
                           type: object
                         realtime:
                           description: Realtime instructs the virt-launcher to tune
@@ -16720,6 +16769,15 @@ var CRDsValidation map[string]string = map[string]string{
                     created topology ensures that memory and CPUs on the virtual numa
                     nodes never cross boundaries of host numa nodes.
                   type: object
+                memoryMode:
+                  description: 'MemoryMode defines how memory is allocated from the
+                    nodes in a system. Only works with DedicatedCPUPlacement. The
+                    nodeset attribute will be set to NUMA nodes where CPU is pinned.
+                    Possible modes: strict - means that the allocation will fail if
+                    the memory cannot be allocated on the target node. interleave
+                    - memory pages are allocated across nodes specified by a nodeset,
+                    but are allocated in a round-robin fashion.'
+                  type: string
               type: object
             realtime:
               description: Realtime instructs the virt-launcher to tune the VMI for
@@ -19032,6 +19090,18 @@ var CRDsValidation map[string]string = map[string]string{
                                         virtual numa nodes never cross boundaries
                                         of host numa nodes.
                                       type: object
+                                    memoryMode:
+                                      description: 'MemoryMode defines how memory
+                                        is allocated from the nodes in a system. Only
+                                        works with DedicatedCPUPlacement. The nodeset
+                                        attribute will be set to NUMA nodes where
+                                        CPU is pinned. Possible modes: strict - means
+                                        that the allocation will fail if the memory
+                                        cannot be allocated on the target node. interleave
+                                        - memory pages are allocated across nodes
+                                        specified by a nodeset, but are allocated
+                                        in a round-robin fashion.'
+                                      type: string
                                   type: object
                                 realtime:
                                   description: Realtime instructs the virt-launcher
@@ -24098,6 +24168,19 @@ var CRDsValidation map[string]string = map[string]string{
                                             memory and CPUs on the virtual numa nodes
                                             never cross boundaries of host numa nodes.
                                           type: object
+                                        memoryMode:
+                                          description: 'MemoryMode defines how memory
+                                            is allocated from the nodes in a system.
+                                            Only works with DedicatedCPUPlacement.
+                                            The nodeset attribute will be set to NUMA
+                                            nodes where CPU is pinned. Possible modes:
+                                            strict - means that the allocation will
+                                            fail if the memory cannot be allocated
+                                            on the target node. interleave - memory
+                                            pages are allocated across nodes specified
+                                            by a nodeset, but are allocated in a round-robin
+                                            fashion.'
+                                          type: string
                                       type: object
                                     realtime:
                                       description: Realtime instructs the virt-launcher

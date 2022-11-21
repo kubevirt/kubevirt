@@ -2459,7 +2459,7 @@ var _ = Describe("Validating VMICreate Admitter", func() {
 			vmi.Spec.Domain.CPU.NUMA = &v1.NUMA{GuestMappingPassthrough: &v1.NUMAGuestMappingPassthrough{}}
 			causes := ValidateVirtualMachineInstanceSpec(k8sfield.NewPath("fake"), &vmi.Spec, config)
 			Expect(causes).To(HaveLen(1))
-			Expect(causes[0].Field).To(Equal("fake.domain.cpu.numa.guestMappingPassthrough"))
+			Expect(causes[0].Field).To(Equal("fake.domain.cpu.numa"))
 			Expect(causes[0].Message).To(ContainSubstring("NUMA feature gate"))
 		})
 		It("should reject NUMA passthrough without DedicatedCPUPlacement", func() {
@@ -2468,7 +2468,7 @@ var _ = Describe("Validating VMICreate Admitter", func() {
 			vmi.Spec.Domain.Memory = &v1.Memory{Hugepages: &v1.Hugepages{PageSize: "2Mi"}}
 			causes := ValidateVirtualMachineInstanceSpec(k8sfield.NewPath("fake"), &vmi.Spec, config)
 			Expect(causes).To(HaveLen(1))
-			Expect(causes[0].Field).To(Equal("fake.domain.cpu.numa.guestMappingPassthrough"))
+			Expect(causes[0].Field).To(Equal("fake.domain.cpu.numa"))
 		})
 		DescribeTable("should reject NUMA passthrough without hugepages", func(memory *v1.Memory) {
 			vmi.Spec.Domain.CPU.NUMA = &v1.NUMA{GuestMappingPassthrough: &v1.NUMAGuestMappingPassthrough{}}
@@ -2616,6 +2616,51 @@ var _ = Describe("Validating VMICreate Admitter", func() {
 			causes := ValidateVirtualMachineInstanceSpec(k8sfield.NewPath("fake"), &vmi.Spec, config)
 			Expect(causes).To(HaveLen(1))
 			Expect(causes[0].Field).To(Equal("fake.domain.resources.requests.memory"))
+		})
+	})
+
+	Context("with memoryMode", func() {
+		var vmi *v1.VirtualMachineInstance
+		BeforeEach(func() {
+			vmi = api.NewMinimalVMI("testvmi")
+			memMode := v1.MemoryModeInterleave
+			vmi.Spec.Domain.CPU = &v1.CPU{
+				DedicatedCPUPlacement: true,
+				NUMA: &v1.NUMA{
+					MemoryMode: &memMode,
+				},
+			}
+			enableFeatureGate(virtconfig.NUMAFeatureGate)
+		})
+
+		It("should fail when NUMA feature gate is disabled", func() {
+			disableFeatureGates()
+			causes := validateNUMA(k8sfield.NewPath("fake"), &vmi.Spec, config)
+			Expect(causes).To(HaveLen(1))
+			Expect(causes[0].Field).To(Equal("fake.domain.cpu.numa"))
+		})
+		It("should fail when DedicatedCPUPlacement is disabled", func() {
+			vmi.Spec.Domain.CPU.DedicatedCPUPlacement = false
+			causes := validateNUMA(k8sfield.NewPath("fake"), &vmi.Spec, config)
+			Expect(causes).To(HaveLen(1))
+			Expect(causes[0].Field).To(Equal("fake.domain.cpu.numa"))
+		})
+		It("should fail when guestMappingPassthrough is also specified", func() {
+			vmi.Spec.Domain.CPU.NUMA.GuestMappingPassthrough = &v1.NUMAGuestMappingPassthrough{}
+			vmi.Spec.Domain.Memory = &v1.Memory{
+				Hugepages: &v1.Hugepages{},
+			}
+
+			causes := validateNUMA(k8sfield.NewPath("fake"), &vmi.Spec, config)
+			Expect(causes).To(HaveLen(1))
+			Expect(causes[0].Field).To(Equal("fake.domain.cpu.numa.guestMappingPassthrough"))
+		})
+		It("should fail when memoryMode is unknown", func() {
+			var memMode v1.MemoryMode = "unknown"
+			vmi.Spec.Domain.CPU.NUMA.MemoryMode = &memMode
+			causes := validateNUMA(k8sfield.NewPath("fake"), &vmi.Spec, config)
+			Expect(causes).To(HaveLen(1))
+			Expect(causes[0].Field).To(Equal("fake.domain.cpu.numa.memory_mode"))
 		})
 	})
 

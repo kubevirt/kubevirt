@@ -19995,6 +19995,13 @@ func schema_kubevirtio_api_core_v1_NUMA(ref common.ReferenceCallback) common.Ope
 							Ref:         ref("kubevirt.io/api/core/v1.NUMAGuestMappingPassthrough"),
 						},
 					},
+					"memoryMode": {
+						SchemaProps: spec.SchemaProps{
+							Description: "MemoryMode defines how memory is allocated from the nodes in a system. Only works with DedicatedCPUPlacement. The nodeset attribute will be set to NUMA nodes where CPU is pinned. Possible modes: strict - means that the allocation will fail if the memory cannot be allocated on the target node. interleave - memory pages are allocated across nodes specified by a nodeset, but are allocated in a round-robin fashion.",
+							Type:        []string{"string"},
+							Format:      "",
+						},
+					},
 				},
 			},
 		},

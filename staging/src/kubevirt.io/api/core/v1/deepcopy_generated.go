@@ -2926,6 +2926,11 @@ func (in *NUMA) DeepCopyInto(out *NUMA) {
 		*out = new(NUMAGuestMappingPassthrough)
 		**out = **in
 	}
+	if in.MemoryMode != nil {
+		in, out := &in.MemoryMode, &out.MemoryMode
+		*out = new(MemoryMode)
+		**out = **in
+	}
 	return
 }
 

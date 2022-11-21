@@ -344,17 +344,30 @@ type Realtime struct {
 	Mask string `json:"mask,omitempty"`
 }
 
+type MemoryMode string
+
+const (
+	MemoryModeStrict     MemoryMode = "strict"
+	MemoryModeInterleave MemoryMode = "interleave"
+)
+
 // NUMAGuestMappingPassthrough instructs kubevirt to model numa topology which is compatible with the CPU pinning on the guest.
 // This will result in a subset of the node numa topology being passed through, ensuring that virtual numa nodes and their memory
 // never cross boundaries coming from the node numa mapping.
-type NUMAGuestMappingPassthrough struct {
-}
+type NUMAGuestMappingPassthrough struct{}
 
 type NUMA struct {
 	// GuestMappingPassthrough will create an efficient guest topology based on host CPUs exclusively assigned to a pod.
 	// The created topology ensures that memory and CPUs on the virtual numa nodes never cross boundaries of host numa nodes.
 	// +opitonal
 	GuestMappingPassthrough *NUMAGuestMappingPassthrough `json:"guestMappingPassthrough,omitempty"`
+	// MemoryMode defines how memory is allocated from the nodes in a system. Only works with DedicatedCPUPlacement.
+	// The nodeset attribute will be set to NUMA nodes where CPU is pinned.
+	// Possible modes:
+	// strict - means that the allocation will fail if the memory cannot be allocated on the target node.
+	// interleave - memory pages are allocated across nodes specified by a nodeset, but are allocated in a round-robin fashion.
+	// +optional
+	MemoryMode *MemoryMode `json:"memoryMode,omitempty"`
 }
 
 // CPUFeature allows specifying a CPU feature.

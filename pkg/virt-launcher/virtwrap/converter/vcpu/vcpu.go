@@ -489,6 +489,11 @@ func AdjustDomainForTopologyAndCPUSet(domain *api.Domain, vmi *v12.VirtualMachin
 			log.Log.Reason(err).Error("failed to calculate passed through NUMA topology.")
 			return err
 		}
+	} else if isNumaMemoryMode(vmi) {
+		if err := numaTune(vmi.Spec.Domain.CPU.NUMA.MemoryMode, &domain.Spec, topology); err != nil {
+			log.Log.Reason(err).Error("failed to set numatune for VMI")
+			return err
+		}
 	}
 
 	return nil
@@ -646,4 +651,42 @@ func hugePagesInfo(vmi *v12.VirtualMachineInstance, domain *api.DomainSpec) (siz
 		}
 	}
 	return 0, "b", false, nil
+}
+
+func numaTune(memoryMode *v12.MemoryMode, domain *api.DomainSpec, topology *v1.Topology) error {
+	if memoryMode == nil {
+		// if no memoryMode specified, we don't do anything
+		return nil
+	}
+
+	if topology == nil || len(topology.NumaCells) == 0 {
+		// If there is no numa topology reported, we don't do anything.
+		return nil
+	}
+
+	cpumap := cpuToCell(topology)
+	numamap, err := involvedCells(cpumap, domain.CPUTune)
+	if err != nil {
+		return fmt.Errorf("failed to generate numa pinning information: %v", err)
+	}
+
+	var involvedCellIDs []string
+	for _, cell := range topology.NumaCells {
+		if _, exists := numamap[cell.Id]; exists {
+			involvedCellIDs = append(involvedCellIDs, strconv.Itoa(int(cell.Id)))
+		}
+	}
+
+	domain.NUMATune = &api.NUMATune{
+		Memory: api.NumaTuneMemory{
+			Mode:    string(*memoryMode),
+			NodeSet: strings.Join(involvedCellIDs, ","),
+		},
+	}
+
+	return nil
+}
+
+func isNumaMemoryMode(vmi *v12.VirtualMachineInstance) bool {
+	return vmi.Spec.Domain.CPU != nil && vmi.Spec.Domain.CPU.NUMA != nil && vmi.Spec.Domain.CPU.NUMA.MemoryMode != nil
 }

@@ -189,4 +189,83 @@ var _ = Describe("NumaPlacement", func() {
 			})
 		})
 	})
+	Context("numaTune", func() {
+		var (
+			memoryMode    v1.MemoryMode
+			givenSpec     *api.DomainSpec
+			givenTopology *cmdv1.Topology
+			expectedSpec  *api.DomainSpec
+		)
+
+		BeforeEach(func() {
+			memoryMode = v1.MemoryModeStrict
+
+			givenSpec = &api.DomainSpec{
+				CPUTune: &api.CPUTune{
+					VCPUPin: []api.CPUTuneVCPUPin{
+						{VCPU: 0, CPUSet: "10"},
+						{VCPU: 1, CPUSet: "20"},
+						{VCPU: 3, CPUSet: "30"},
+					},
+				},
+			}
+			givenTopology = &cmdv1.Topology{
+				NumaCells: []*cmdv1.Cell{
+					{
+						Id: 0,
+						Cpus: []*cmdv1.CPU{
+							{Id: 10},
+							{Id: 20},
+						},
+					},
+					{
+						Id: 4,
+						Cpus: []*cmdv1.CPU{
+							{Id: 30},
+							{Id: 50},
+						},
+					},
+				},
+			}
+			expectedSpec = &api.DomainSpec{
+				CPUTune: &api.CPUTune{VCPUPin: []api.CPUTuneVCPUPin{
+					{VCPU: 0, CPUSet: "10"},
+					{VCPU: 1, CPUSet: "20"},
+					{VCPU: 3, CPUSet: "30"},
+				}},
+				NUMATune: &api.NUMATune{
+					Memory: api.NumaTuneMemory{Mode: "strict", NodeSet: "0,4"},
+				},
+			}
+		})
+		DescribeTable("it should do nothing", func(givenTopology *cmdv1.Topology, memoryMode v1.MemoryMode) {
+			expectedSpec := givenSpec.DeepCopy()
+			Expect(numaTune(&memoryMode, givenSpec, givenTopology)).To(Succeed())
+			Expect(givenSpec.NUMATune).To(Equal(expectedSpec.NUMATune))
+		},
+			Entry("if no memoryMode specified", nil, nil),
+			Entry("if no topology is provided", nil, v1.MemoryModeInterleave),
+			Entry("if no numa cells are reported", &cmdv1.Topology{NumaCells: nil}, v1.MemoryModeInterleave),
+		)
+		Describe("with proper topology", func() {
+			It("generates proper numaTune", func() {
+				Expect(numaTune(&memoryMode, givenSpec, givenTopology)).To(Succeed())
+				Expect(givenSpec.NUMATune).To(Equal(expectedSpec.NUMATune))
+			})
+		})
+		Describe("with improper topology", func() {
+			It("should fail", func() {
+				givenSpec.CPUTune.VCPUPin = append(givenSpec.CPUTune.VCPUPin, api.CPUTuneVCPUPin{
+					VCPU:   4,
+					CPUSet: "40",
+				})
+				// patch correct Spec to make it fail
+				givenSpec.CPUTune.VCPUPin = append(givenSpec.CPUTune.VCPUPin, api.CPUTuneVCPUPin{
+					VCPU:   4,
+					CPUSet: "40",
+				})
+				Expect(numaTune(&memoryMode, givenSpec, givenTopology)).ToNot(Succeed())
+			})
+		})
+	})
 })

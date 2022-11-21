@@ -185,6 +185,7 @@ func (NUMAGuestMappingPassthrough) SwaggerDoc() map[string]string {
 func (NUMA) SwaggerDoc() map[string]string {
 	return map[string]string{
 		"guestMappingPassthrough": "GuestMappingPassthrough will create an efficient guest topology based on host CPUs exclusively assigned to a pod.\nThe created topology ensures that memory and CPUs on the virtual numa nodes never cross boundaries of host numa nodes.\n+opitonal",
+		"memoryMode":              "MemoryMode defines how memory is allocated from the nodes in a system. Only works with DedicatedCPUPlacement.\nThe nodeset attribute will be set to NUMA nodes where CPU is pinned.\nPossible modes:\nstrict - means that the allocation will fail if the memory cannot be allocated on the target node.\ninterleave - memory pages are allocated across nodes specified by a nodeset, but are allocated in a round-robin fashion.\n+optional",
 	}
 }
 

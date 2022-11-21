@@ -85,6 +85,11 @@ var restrictedVmiLabels = map[string]bool{
 	v1.InstallStrategyLabel:         true,
 }
 
+var memoryModes = map[v1.MemoryMode]bool{
+	v1.MemoryModeStrict:     true,
+	v1.MemoryModeInterleave: true,
+}
+
 const (
 	nameOfTypeNotFoundMessagePattern  = "%s '%s' not found."
 	listExceedsLimitMessagePattern    = "%s list exceeds the %d element limit in length"
@@ -1134,13 +1139,13 @@ func validateCpuPinning(field *k8sfield.Path, spec *v1.VirtualMachineInstanceSpe
 }
 
 func validateNUMA(field *k8sfield.Path, spec *v1.VirtualMachineInstanceSpec, config *virtconfig.ClusterConfig) (causes []metav1.StatusCause) {
-	if spec.Domain.CPU != nil && spec.Domain.CPU.NUMA != nil && spec.Domain.CPU.NUMA.GuestMappingPassthrough != nil {
+	if spec.Domain.CPU != nil && spec.Domain.CPU.NUMA != nil {
 		if !config.NUMAEnabled() {
 			causes = append(causes, metav1.StatusCause{
 				Type: metav1.CauseTypeFieldValueInvalid,
 				Message: fmt.Sprintf("NUMA feature gate is not enabled in kubevirt-config, invalid entry %s",
-					field.Child("domain", "cpu", "numa", "guestMappingPassthrough").String()),
-				Field: field.Child("domain", "cpu", "numa", "guestMappingPassthrough").String(),
+					field.Child("domain", "cpu", "numa").String()),
+				Field: field.Child("domain", "cpu", "numa").String(),
 			})
 		}
 		if !spec.Domain.CPU.DedicatedCPUPlacement {
@@ -1150,18 +1155,45 @@ func validateNUMA(field *k8sfield.Path, spec *v1.VirtualMachineInstanceSpec, con
 					field.Child("domain", "cpu", "dedicatedCpuPlacement").String(),
 					field.Child("domain", "cpu", "numa", "guestMappingPassthrough").String(),
 				),
-				Field: field.Child("domain", "cpu", "numa", "guestMappingPassthrough").String(),
+				Field: field.Child("domain", "cpu", "numa").String(),
 			})
 		}
-		if spec.Domain.Memory == nil || spec.Domain.Memory.Hugepages == nil {
-			causes = append(causes, metav1.StatusCause{
-				Type: metav1.CauseTypeFieldValueInvalid,
-				Message: fmt.Sprintf("%s must be requested when NUMA topology strategy is set in %s",
-					field.Child("domain", "memory", "hugepages").String(),
-					field.Child("domain", "cpu", "numa", "guestMappingPassthrough").String(),
-				),
-				Field: field.Child("domain", "cpu", "numa", "guestMappingPassthrough").String(),
-			})
+
+		if spec.Domain.CPU.NUMA.GuestMappingPassthrough != nil {
+			if spec.Domain.CPU.NUMA.MemoryMode != nil {
+				causes = append(causes, metav1.StatusCause{
+					Type: metav1.CauseTypeFieldValueInvalid,
+					Message: fmt.Sprintf("%s can't be set alongside %s",
+						field.Child("domain", "cpu", "numa", "guestMappingPassthrough").String(),
+						field.Child("domain", "cpu", "numa", "memory_mode").String(),
+					),
+					Field: field.Child("domain", "cpu", "numa", "guestMappingPassthrough").String(),
+				})
+			}
+			if spec.Domain.Memory == nil || spec.Domain.Memory.Hugepages == nil {
+				causes = append(causes, metav1.StatusCause{
+					Type: metav1.CauseTypeFieldValueInvalid,
+					Message: fmt.Sprintf("%s must be requested when NUMA topology strategy is set in %s",
+						field.Child("domain", "memory", "hugepages").String(),
+						field.Child("domain", "cpu", "numa", "guestMappingPassthrough").String(),
+					),
+					Field: field.Child("domain", "cpu", "numa", "guestMappingPassthrough").String(),
+				})
+			}
+		}
+
+		if spec.Domain.CPU.NUMA.MemoryMode != nil {
+			memMode := *spec.Domain.CPU.NUMA.MemoryMode
+			if valid := memoryModes[memMode]; !valid {
+				causes = append(causes, metav1.StatusCause{
+					Type: metav1.CauseTypeFieldValueInvalid,
+					Message: fmt.Sprintf("%s not a valid memory_mode needs to be one of %v",
+						field.Child("domain", "cpu", "numa", "memory_mode").String(),
+						memoryModes,
+					),
+					Field: field.Child("domain", "cpu", "numa", "memory_mode").String(),
+				})
+			}
 		}
 	}
 	return causes
