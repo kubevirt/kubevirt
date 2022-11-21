@@ -990,9 +990,6 @@ var _ = Describe("Manager", func() {
 				MigrationUID: "111222333",
 			}
 
-			domainSpec := expectedDomainFor(vmi)
-			xml, err := xml.MarshalIndent(domainSpec, "", "\t")
-			Expect(err).ToNot(HaveOccurred())
 			manager := &LibvirtDomainManager{
 				virConn:       mockConn,
 				virtShareDir:  testVirtShareDir,
@@ -1000,14 +997,8 @@ var _ = Describe("Manager", func() {
 			}
 			mockDomain.EXPECT().GetState().AnyTimes().Return(libvirt.DOMAIN_RUNNING, 1, nil)
 			mockConn.EXPECT().LookupDomainByName(testDomainName).Return(mockDomain, nil)
-			mockConn.EXPECT().LookupDomainByName(testDomainName).Return(mockDomain, nil)
 			mockDomain.EXPECT().GetJobStats(libvirt.DomainGetJobStatsFlags(0)).AnyTimes().Return(fake_jobinfo, nil)
 			mockDomain.EXPECT().AbortJob()
-			mockDomain.EXPECT().GetXMLDesc(gomock.Eq(libvirt.DomainXMLFlags(0))).AnyTimes().Return(string(xml), nil)
-			mockDomain.EXPECT().
-				GetMetadata(libvirt.DOMAIN_METADATA_ELEMENT, "http://kubevirt.io", libvirt.DOMAIN_AFFECT_CONFIG).
-				AnyTimes().
-				Return("<kubevirt></kubevirt>", nil)
 
 			monitor := newMigrationMonitor(vmi, manager, options, migrationErrorChan)
 			monitor.startMonitor()
@@ -1037,9 +1028,6 @@ var _ = Describe("Manager", func() {
 				MigrationUID: "111222333",
 			}
 
-			domainSpec := expectedDomainFor(vmi)
-			xml, err := xml.MarshalIndent(domainSpec, "", "\t")
-			Expect(err).ToNot(HaveOccurred())
 			manager := &LibvirtDomainManager{
 				virConn:       mockConn,
 				virtShareDir:  testVirtShareDir,
@@ -1047,14 +1035,8 @@ var _ = Describe("Manager", func() {
 			}
 			mockDomain.EXPECT().GetState().AnyTimes().Return(libvirt.DOMAIN_RUNNING, 1, nil)
 			mockConn.EXPECT().LookupDomainByName(testDomainName).Return(mockDomain, nil)
-			mockConn.EXPECT().LookupDomainByName(testDomainName).Return(mockDomain, nil)
 			mockDomain.EXPECT().GetJobStats(libvirt.DomainGetJobStatsFlags(0)).AnyTimes().Return(fake_jobinfo, nil)
 			mockDomain.EXPECT().AbortJob()
-			mockDomain.EXPECT().GetXMLDesc(gomock.Eq(libvirt.DomainXMLFlags(0))).AnyTimes().Return(string(xml), nil)
-			mockDomain.EXPECT().
-				GetMetadata(libvirt.DOMAIN_METADATA_ELEMENT, "http://kubevirt.io", libvirt.DOMAIN_AFFECT_CONFIG).
-				AnyTimes().
-				Return("<kubevirt></kubevirt>", nil)
 
 			monitor := newMigrationMonitor(vmi, manager, options, migrationErrorChan)
 			monitor.startMonitor()
@@ -1093,7 +1075,6 @@ var _ = Describe("Manager", func() {
 				MigrationUID: "111222333",
 			}
 
-			domainSpec := expectedDomainFor(vmi)
 			manager := &LibvirtDomainManager{
 				virConn:       mockConn,
 				virtShareDir:  testVirtShareDir,
@@ -1101,32 +1082,10 @@ var _ = Describe("Manager", func() {
 			}
 			mockDomain.EXPECT().GetState().AnyTimes().Return(libvirt.DOMAIN_RUNNING, 1, nil)
 			mockConn.EXPECT().LookupDomainByName(testDomainName).Return(mockDomain, nil)
-			mockConn.EXPECT().LookupDomainByName(testDomainName).Return(mockDomain, nil)
 			mockDomain.EXPECT().GetJobStats(libvirt.DomainGetJobStatsFlags(0)).AnyTimes().DoAndReturn(func(flag libvirt.DomainGetJobStatsFlags) (*libvirt.DomainJobInfo, error) {
 				return fake_jobinfo(), nil
 			})
-			mockDomain.EXPECT().GetXMLDesc(gomock.Eq(libvirt.DomainXMLFlags(0))).AnyTimes().DoAndReturn(func(_ libvirt.DomainXMLFlags) (string, error) {
-				xmlOriginal, err := xml.MarshalIndent(domainSpec, "", "\t")
-				Expect(err).ToNot(HaveOccurred())
-				return string(xmlOriginal), nil
-			})
 			mockDomain.EXPECT().MigrateStartPostCopy(gomock.Eq(uint32(0))).Times(1).Return(nil)
-			mockDomain.EXPECT().GetMetadata(libvirt.DOMAIN_METADATA_ELEMENT, "http://kubevirt.io", libvirt.DOMAIN_AFFECT_CONFIG).
-				DoAndReturn(func(_ libvirt.DomainMetadataType, _ string, _ libvirt.DomainModificationImpact) (string, error) {
-					metadata, err := xml.MarshalIndent(domainSpec.Metadata.KubeVirt, "", "\t")
-					Expect(err).ShouldNot(HaveOccurred())
-					return string(metadata), nil
-				}).AnyTimes()
-			mockConn.EXPECT().DomainDefineXML(gomock.Any()).AnyTimes().DoAndReturn(func(xml string) (cli.VirDomain, error) {
-				Expect(strings.Contains(xml, "<mode>PostCopy</mode>")).To(BeTrue())
-
-				if domainSpec.Metadata.KubeVirt.Migration == nil {
-					domainSpec.Metadata.KubeVirt.Migration = &api.MigrationMetadata{}
-				}
-				domainSpec.Metadata.KubeVirt.Migration.Mode = v1.MigrationPostCopy
-
-				return mockDomain, nil
-			})
 
 			monitor := newMigrationMonitor(vmi, manager, options, migrationErrorChan)
 			monitor.startMonitor()
@@ -1166,22 +1125,16 @@ var _ = Describe("Manager", func() {
 				MigrationUID: "111222333",
 			}
 
-			domainSpec := expectedDomainFor(vmi)
 			manager := &LibvirtDomainManager{
 				virConn:       mockConn,
 				virtShareDir:  testVirtShareDir,
 				metadataCache: metadataCache,
 			}
 			mockDomain.EXPECT().GetState().AnyTimes().Return(libvirt.DOMAIN_RUNNING, 1, nil)
-			mockConn.EXPECT().LookupDomainByName(testDomainName).Times(2).Return(mockDomain, nil)
+			mockConn.EXPECT().LookupDomainByName(testDomainName).Return(mockDomain, nil)
 
 			mockDomain.EXPECT().GetJobStats(libvirt.DomainGetJobStatsFlags(0)).AnyTimes().DoAndReturn(func(flag libvirt.DomainGetJobStatsFlags) (*libvirt.DomainJobInfo, error) {
 				return fake_jobinfo(), nil
-			})
-			mockDomain.EXPECT().GetXMLDesc(gomock.Eq(libvirt.DomainXMLFlags(0))).AnyTimes().DoAndReturn(func(_ libvirt.DomainXMLFlags) (string, error) {
-				xmlOriginal, err := xml.MarshalIndent(domainSpec, "", "\t")
-				Expect(err).ToNot(HaveOccurred())
-				return string(xmlOriginal), nil
 			})
 
 			counter := 0
@@ -1197,23 +1150,6 @@ var _ = Describe("Manager", func() {
 					}
 				}
 				return nil
-			})
-			mockDomain.EXPECT().GetMetadata(libvirt.DOMAIN_METADATA_ELEMENT, "http://kubevirt.io", libvirt.DOMAIN_AFFECT_CONFIG).
-				DoAndReturn(func(_ libvirt.DomainMetadataType, _ string, _ libvirt.DomainModificationImpact) (string, error) {
-					metadata, err := xml.MarshalIndent(domainSpec.Metadata.KubeVirt, "", "\t")
-					Expect(err).ShouldNot(HaveOccurred())
-
-					return string(metadata), nil
-				}).AnyTimes()
-			mockConn.EXPECT().DomainDefineXML(gomock.Any()).AnyTimes().DoAndReturn(func(xml string) (cli.VirDomain, error) {
-				Expect(strings.Contains(xml, "<mode>PostCopy</mode>")).To(BeTrue())
-
-				if domainSpec.Metadata.KubeVirt.Migration == nil {
-					domainSpec.Metadata.KubeVirt.Migration = &api.MigrationMetadata{}
-				}
-				domainSpec.Metadata.KubeVirt.Migration.Mode = v1.MigrationPostCopy
-
-				return mockDomain, nil
 			})
 
 			monitor := newMigrationMonitor(vmi, manager, options, migrationErrorChan)
@@ -1233,30 +1169,10 @@ var _ = Describe("Manager", func() {
 				StartTimestamp: &now,
 			}
 
-			domainSpec := expectedDomainFor(vmi)
-			domainSpec.Metadata.KubeVirt.Migration = &api.MigrationMetadata{
-				StartTimestamp: &now,
-				UID:            migrationUid,
-			}
-
 			mockDomain.EXPECT().GetState().AnyTimes().Return(libvirt.DOMAIN_RUNNING, 1, nil)
 
 			// expect domainspecwithruntimeinfo todo this can be useful for other tests
-			mockConn.EXPECT().LookupDomainByName(testDomainName).AnyTimes().Return(mockDomain, nil)
-			mockDomain.EXPECT().GetXMLDesc(gomock.Eq(libvirt.DomainXMLFlags(0))).AnyTimes().DoAndReturn(
-				func(_ libvirt.DomainXMLFlags) (string, error) {
-					return domainToXml(domainSpec), nil
-				})
-			mockDomain.EXPECT().GetMetadata(libvirt.DOMAIN_METADATA_ELEMENT, "http://kubevirt.io", libvirt.DOMAIN_AFFECT_CONFIG).
-				AnyTimes().
-				DoAndReturn(func(_, _, _ interface{}) (string, error) {
-					return domainToMetadataXml(domainSpec), nil
-				})
-
-			mockConn.EXPECT().DomainDefineXML(gomock.Any()).Times(1).DoAndReturn(func(domainXml string) (cli.VirDomain, error) {
-				Expect(domainXml).To(ContainSubstring(string(v1.MigrationAbortInProgress)))
-				return mockDomain, nil
-			})
+			mockConn.EXPECT().LookupDomainByName(testDomainName).Return(mockDomain, nil)
 
 			// These lines do not test anything but needs to be here because otherwise test will panic
 			mockDomain.EXPECT().AbortJob().MaxTimes(1)
@@ -1270,8 +1186,20 @@ var _ = Describe("Manager", func() {
 			mockDomain.EXPECT().GetJobInfo().MaxTimes(1).Return(migrationInProgress, nil)
 
 			manager, _ := NewLibvirtDomainManager(mockConn, testVirtShareDir, testEphemeralDiskDir, nil, "/usr/share/OVMF", ephemeralDiskCreatorMock, metadataCache)
+
+			migrationMetadata, _ := metadataCache.Migration.Load()
+			migrationMetadata.StartTimestamp = &now
+			migrationMetadata.UID = migrationUid
+			metadataCache.Migration.Store(migrationMetadata)
+
 			Expect(manager.CancelVMIMigration(vmi)).To(Succeed())
 
+			// Allow the aync-abort (goroutine) to be processed before finishing.
+			// This is required in order to allow the expected calls to occur.
+			time.Sleep(2 * time.Second)
+
+			migration, _ := metadataCache.Migration.Load()
+			Expect(migration.AbortStatus).To(Equal(string(v1.MigrationAbortInProgress)))
 		})
 
 		It("shouldn't be able to call cancel migration more than once", func() {
@@ -1286,33 +1214,18 @@ var _ = Describe("Manager", func() {
 				StartTimestamp: &now,
 			}
 
-			domainSpec := expectedDomainFor(vmi)
-			domainSpec.Metadata.KubeVirt.Migration = &api.MigrationMetadata{
-				UID:            vmi.Status.MigrationState.MigrationUID,
-				AbortStatus:    string(v1.MigrationAbortInProgress),
-				StartTimestamp: &secondBefore,
-			}
+			migrationMetadata, _ := metadataCache.Migration.Load()
+			migrationMetadata.UID = vmi.Status.MigrationState.MigrationUID
+			migrationMetadata.AbortStatus = string(v1.MigrationAbortInProgress)
+			migrationMetadata.StartTimestamp = &secondBefore
+			metadataCache.Migration.Store(migrationMetadata)
 
-			domainXml, err := xml.MarshalIndent(domainSpec, "", "\t")
-			Expect(err).ToNot(HaveOccurred())
 			mockDomain.EXPECT().GetState().AnyTimes().Return(libvirt.DOMAIN_RUNNING, 1, nil)
-			mockConn.EXPECT().LookupDomainByName(testDomainName).AnyTimes().Return(mockDomain, nil)
-			mockDomain.EXPECT().GetXMLDesc(libvirt.DomainXMLFlags(0)).AnyTimes().Return(string(domainXml), nil)
-
-			metadataXml, err := xml.MarshalIndent(domainSpec.Metadata.KubeVirt, "", "\t")
-			Expect(err).NotTo(HaveOccurred())
-			mockDomain.EXPECT().
-				GetMetadata(libvirt.DOMAIN_METADATA_ELEMENT, "http://kubevirt.io", libvirt.DOMAIN_AFFECT_CONFIG).
-				AnyTimes().
-				Return(string(metadataXml), nil)
 
 			manager, _ := NewLibvirtDomainManager(mockConn, testVirtShareDir, testEphemeralDiskDir, nil, "/usr/share/OVMF", ephemeralDiskCreatorMock, metadataCache)
 			Expect(manager.CancelVMIMigration(vmi)).To(Succeed())
 		})
 		It("migration cancellation should be finilized even if we missed status update", func() {
-			isMigrationAbortSet := make(chan bool, 1)
-			defer close(isMigrationAbortSet)
-
 			migrationErrorChan := make(chan error)
 			defer close(migrationErrorChan)
 			// Make sure that we always free the domain after use
@@ -1341,22 +1254,11 @@ var _ = Describe("Manager", func() {
 				MigrationUID: "111222333",
 			}
 
-			domainSpec := expectedDomainFor(vmi)
-			domainSpec.Metadata.KubeVirt.Migration = &api.MigrationMetadata{
+			migrationMetadata, _ := metadataCache.Migration.Load()
+			migrationMetadata.UID = vmi.Status.MigrationState.MigrationUID
+			migrationMetadata.AbortStatus = string(v1.MigrationAbortInProgress)
+			metadataCache.Migration.Store(migrationMetadata)
 
-				UID:         vmi.Status.MigrationState.MigrationUID,
-				AbortStatus: string(v1.MigrationAbortInProgress),
-			}
-
-			domainXml, err := xml.MarshalIndent(domainSpec, "", "\t")
-			Expect(err).ToNot(HaveOccurred())
-			metadataXml, err := xml.MarshalIndent(domainSpec.Metadata.KubeVirt, "", "\t")
-			Expect(err).NotTo(HaveOccurred())
-			mockDomain.EXPECT().GetXMLDesc(gomock.Any()).AnyTimes().Return(string(domainXml), nil)
-			mockDomain.EXPECT().
-				GetMetadata(libvirt.DOMAIN_METADATA_ELEMENT, "http://kubevirt.io", libvirt.DOMAIN_AFFECT_CONFIG).
-				AnyTimes().
-				Return(string(metadataXml), nil)
 			manager := &LibvirtDomainManager{
 				virConn:       mockConn,
 				virtShareDir:  testVirtShareDir,
@@ -1364,32 +1266,19 @@ var _ = Describe("Manager", func() {
 			}
 			mockDomain.EXPECT().GetState().AnyTimes().Return(libvirt.DOMAIN_RUNNING, 1, nil)
 			mockConn.EXPECT().LookupDomainByName(testDomainName).Return(mockDomain, nil)
-			mockConn.EXPECT().LookupDomainByName(testDomainName).Return(mockDomain, nil)
 			gomock.InOrder(
 				mockDomain.EXPECT().GetJobStats(libvirt.DomainGetJobStatsFlags(0)).Return(fake_jobinfo_running, nil),
 				mockDomain.EXPECT().GetJobStats(libvirt.DomainGetJobStatsFlags(0)).Return(fake_jobinfo, nil),
 			)
-			mockConn.EXPECT().DomainDefineXML(gomock.Any()).DoAndReturn(func(domainXml string) (cli.VirDomain, error) {
-				Expect(strings.Contains(domainXml, string(v1.MigrationAbortSucceeded))).To(BeTrue())
-				isMigrationAbortSet <- true
-				return mockDomain, nil
-			})
 
 			monitor := newMigrationMonitor(vmi, manager, options, migrationErrorChan)
 			monitor.startMonitor()
-			Eventually(func() bool {
-				select {
-				case isSet := <-isMigrationAbortSet:
-					return isSet
-				default:
-				}
-				return false
-			}, 20*time.Second, 2).Should(BeTrue(), "migration cancelled result wasn't set")
+			Eventually(func() string {
+				migration, _ := metadataCache.Migration.Load()
+				return migration.AbortStatus
+			}, 5*time.Second, 2).Should(Equal(string(v1.MigrationAbortSucceeded)))
 		})
 		It("migration failure should be finalized even if we missed status update", func() {
-			isMigrationFailedSet := make(chan bool, 1)
-			defer close(isMigrationFailedSet)
-
 			migrationErrorChan := make(chan error)
 			defer close(migrationErrorChan)
 			// Make sure that we always free the domain after use
@@ -1418,20 +1307,10 @@ var _ = Describe("Manager", func() {
 				MigrationUID: "111222333",
 			}
 
-			domainSpec := expectedDomainFor(vmi)
-			domainSpec.Metadata.KubeVirt.Migration = &api.MigrationMetadata{
-				UID: vmi.Status.MigrationState.MigrationUID,
-			}
+			migrationMetadata, _ := metadataCache.Migration.Load()
+			migrationMetadata.UID = vmi.Status.MigrationState.MigrationUID
+			metadataCache.Migration.Store(migrationMetadata)
 
-			domainXml, err := xml.MarshalIndent(domainSpec, "", "\t")
-			Expect(err).ToNot(HaveOccurred())
-			metadataXml, err := xml.MarshalIndent(domainSpec.Metadata.KubeVirt, "", "\t")
-			Expect(err).NotTo(HaveOccurred())
-			mockDomain.EXPECT().GetXMLDesc(gomock.Any()).AnyTimes().Return(string(domainXml), nil)
-			mockDomain.EXPECT().
-				GetMetadata(libvirt.DOMAIN_METADATA_ELEMENT, "http://kubevirt.io", libvirt.DOMAIN_AFFECT_CONFIG).
-				AnyTimes().
-				Return(string(metadataXml), nil)
 			manager := &LibvirtDomainManager{
 				virConn:       mockConn,
 				virtShareDir:  testVirtShareDir,
@@ -1439,27 +1318,17 @@ var _ = Describe("Manager", func() {
 			}
 			mockDomain.EXPECT().GetState().AnyTimes().Return(libvirt.DOMAIN_RUNNING, 1, nil)
 			mockConn.EXPECT().LookupDomainByName(testDomainName).Return(mockDomain, nil)
-			mockConn.EXPECT().LookupDomainByName(testDomainName).Return(mockDomain, nil)
 			gomock.InOrder(
 				mockDomain.EXPECT().GetJobStats(libvirt.DomainGetJobStatsFlags(0)).Return(fake_jobinfo_running, nil),
 				mockDomain.EXPECT().GetJobStats(libvirt.DomainGetJobStatsFlags(0)).Return(fake_jobinfo, nil),
 			)
-			mockConn.EXPECT().DomainDefineXML(gomock.Any()).DoAndReturn(func(domainXml string) (cli.VirDomain, error) {
-				Expect(strings.Contains(domainXml, "<failed>true</failed>")).To(BeTrue())
-				isMigrationFailedSet <- true
-				return mockDomain, nil
-			})
 
 			monitor := newMigrationMonitor(vmi, manager, options, migrationErrorChan)
 			monitor.startMonitor()
 			Eventually(func() bool {
-				select {
-				case isSet := <-isMigrationFailedSet:
-					return isSet
-				default:
-				}
-				return false
-			}, 20*time.Second, 2).Should(BeTrue(), "migration failed result wasn't set")
+				migration, _ := metadataCache.Migration.Load()
+				return migration.Failed
+			}, 5*time.Second, 2).Should(BeTrue())
 		})
 
 	})
@@ -1484,10 +1353,6 @@ var _ = Describe("Manager", func() {
 			Expect(manager.PrepareMigrationTarget(vmi, true, &cmdv1.VirtualMachineOptions{})).To(Succeed())
 		})
 		It("should verify that migration failure is set in the monitor thread", func() {
-			isMigrationFailedSet := make(chan bool, 1)
-
-			defer close(isMigrationFailedSet)
-
 			// Make sure that we always free the domain after use
 			mockDomain.EXPECT().Free().AnyTimes()
 			fake_jobinfo := func() *libvirt.DomainJobInfo {
@@ -1517,14 +1382,6 @@ var _ = Describe("Manager", func() {
 			domainXml, err := xml.MarshalIndent(domainSpec, "", "\t")
 			Expect(err).ToNot(HaveOccurred())
 			mockDomain.EXPECT().GetJobStats(libvirt.DomainGetJobStatsFlags(0)).AnyTimes().Return(fake_jobinfo, nil)
-			gomock.InOrder(
-				mockConn.EXPECT().DomainDefineXML(gomock.Any()).Return(mockDomain, nil),
-				mockConn.EXPECT().DomainDefineXML(gomock.Any()).DoAndReturn(func(domainXml string) (cli.VirDomain, error) {
-					Expect(strings.Contains(domainXml, "MigrationFailed")).To(BeTrue())
-					isMigrationFailedSet <- true
-					return mockDomain, nil
-				}),
-			)
 			mockDomain.EXPECT().GetXMLDesc(gomock.Any()).AnyTimes().Return(string(domainXml), nil)
 
 			metadataXml, err := xml.MarshalIndent(domainSpec.Metadata.KubeVirt, "", "\t")
@@ -1541,44 +1398,26 @@ var _ = Describe("Manager", func() {
 				CompletionTimeoutPerGiB: 300,
 			}
 			Expect(manager.MigrateVMI(vmi, options)).To(Succeed())
+
+			migration, _ := metadataCache.Migration.Load()
 			Eventually(func() bool {
-				select {
-				case isSet := <-isMigrationFailedSet:
-					return isSet
-				default:
-				}
-				return false
-			}, 20*time.Second, 2).Should(BeTrue(), "failed migration result wasn't set")
+				migration, _ = metadataCache.Migration.Load()
+				return migration.Failed
+			}, 5*time.Second, 2).Should(BeTrue(), fmt.Sprintf("failed migration result wasn't set [%+v]", migration))
 		})
 
 		It("should detect inprogress migration job", func() {
-			// Make sure that we always free the domain after use
-			mockDomain.EXPECT().Free()
-
 			vmi := newVMI(testNamespace, testVmName)
 			vmi.Status.MigrationState = &v1.VirtualMachineInstanceMigrationState{
 				MigrationUID: "111222333",
 			}
 
-			domainSpec := expectedDomainFor(vmi)
-			domainSpec.Metadata.KubeVirt.Migration = &api.MigrationMetadata{
+			startupMigrationMetadata, _ := metadataCache.Migration.Load()
+			startupMigrationMetadata.UID = vmi.Status.MigrationState.MigrationUID
+			t := metav1.Now()
+			startupMigrationMetadata.StartTimestamp = &t
+			metadataCache.Migration.Store(startupMigrationMetadata)
 
-				UID: vmi.Status.MigrationState.MigrationUID,
-			}
-
-			mockConn.EXPECT().LookupDomainByName(testDomainName).Return(mockDomain, nil)
-
-			domainXml, err := xml.MarshalIndent(domainSpec, "", "\t")
-			Expect(err).ToNot(HaveOccurred())
-
-			mockDomain.EXPECT().GetXMLDesc(gomock.Eq(libvirt.DomainXMLFlags(0))).Return(string(domainXml), nil)
-
-			metadataXml, err := xml.MarshalIndent(domainSpec.Metadata.KubeVirt, "", "\t")
-			Expect(err).NotTo(HaveOccurred())
-			mockDomain.EXPECT().
-				GetMetadata(libvirt.DOMAIN_METADATA_ELEMENT, "http://kubevirt.io", libvirt.DOMAIN_AFFECT_CONFIG).
-				AnyTimes().
-				Return(string(metadataXml), nil)
 			manager, _ := NewLibvirtDomainManager(mockConn, testVirtShareDir, testEphemeralDiskDir, nil, "/usr/share/OVMF", ephemeralDiskCreatorMock, metadataCache)
 
 			options := &cmdclient.MigrationOptions{
@@ -1587,6 +1426,8 @@ var _ = Describe("Manager", func() {
 				CompletionTimeoutPerGiB: 300,
 			}
 			Expect(manager.MigrateVMI(vmi, options)).To(Succeed())
+			migration, _ := metadataCache.Migration.Load()
+			Expect(migration).To(Equal(startupMigrationMetadata))
 		})
 		It("should correctly collect a list of disks for migration", func() {
 			_true := true
@@ -2527,16 +2368,4 @@ func addCloudInitDisk(vmi *v1.VirtualMachineInstance, userData string, networkDa
 func isoCreationFunc(isoOutFile, volumeID string, inDir string) error {
 	_, err := os.Create(isoOutFile)
 	return err
-}
-
-func domainToXml(domain *api.DomainSpec) string {
-	xml, err := xml.MarshalIndent(domain, "", "\t")
-	Expect(err).ToNot(HaveOccurred())
-	return string(xml)
-}
-
-func domainToMetadataXml(domain *api.DomainSpec) string {
-	xml, err := xml.MarshalIndent(domain.Metadata.KubeVirt, "", "\t")
-	Expect(err).ToNot(HaveOccurred())
-	return string(xml)
 }

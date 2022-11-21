@@ -37,7 +37,6 @@ import (
 	"kubevirt.io/kubevirt/pkg/virt-launcher/virtwrap/converter/vcpu"
 
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
-	utilwait "k8s.io/apimachinery/pkg/util/wait"
 	"libvirt.org/go/libvirt"
 
 	v1 "kubevirt.io/api/core/v1"
@@ -426,28 +425,11 @@ func (l *LibvirtDomainManager) startMigration(vmi *v1.VirtualMachineInstance, op
 }
 
 func (l *LibvirtDomainManager) initializeMigrationMetadata(vmi *v1.VirtualMachineInstance, migrationMode v1.MigrationMode) (bool, error) {
-	l.domainModifyLock.Lock()
-	defer l.domainModifyLock.Unlock()
-
-	domName := api.VMINamespaceKeyFunc(vmi)
-	dom, err := l.virConn.LookupDomainByName(domName)
-	if err != nil {
-		log.Log.Object(vmi).Reason(err).Error("Getting the domain for migration failed.")
-		return false, err
-	}
-
-	defer dom.Free()
-	domainSpec, err := l.getDomainSpec(dom)
-	if err != nil {
-		return false, err
-	}
-
-	migrationMetadata := domainSpec.Metadata.KubeVirt.Migration
-	if migrationMetadata != nil && migrationMetadata.UID == vmi.Status.MigrationState.MigrationUID {
+	migrationMetadata, exists := l.metadataCache.Migration.Load()
+	if exists && migrationMetadata.UID == vmi.Status.MigrationState.MigrationUID {
 		if migrationMetadata.EndTimestamp == nil {
-			// don't stomp on currently executing migrations
+			// don't stop on currently executing migrations
 			return true, nil
-
 		} else {
 			// Don't allow the same migration UID to be executed twice.
 			// Migration attempts are like pods. One shot.
@@ -457,40 +439,22 @@ func (l *LibvirtDomainManager) initializeMigrationMetadata(vmi *v1.VirtualMachin
 	}
 
 	now := metav1.Now()
-	domainSpec.Metadata.KubeVirt.Migration = &api.MigrationMetadata{
-		UID:            vmi.Status.MigrationState.MigrationUID,
-		StartTimestamp: &now,
-		Mode:           migrationMode,
-	}
-	d, err := l.setDomainSpecWithHooks(vmi, domainSpec)
-	if err != nil {
-		return false, err
-	}
-	defer d.Free()
+	l.metadataCache.Migration.Store(
+		api.MigrationMetadata{
+			UID:            vmi.Status.MigrationState.MigrationUID,
+			StartTimestamp: &now,
+			Mode:           migrationMode,
+		})
 	return false, nil
 }
 
 func (l *LibvirtDomainManager) cancelMigration(vmi *v1.VirtualMachineInstance) error {
-	domName := api.VMINamespaceKeyFunc(vmi)
-	dom, err := l.virConn.LookupDomainByName(domName)
-	if err != nil {
-		return err
-	}
-	defer dom.Free()
-
-	domain, err := util.GetDomainSpecWithRuntimeInfo(dom)
-	if err != nil {
-		return err
-	}
-
-	migration := domain.Metadata.KubeVirt.Migration
-	if migration == nil || migration.Completed ||
-		migration.Failed || migration.StartTimestamp == nil {
+	migration, _ := l.metadataCache.Migration.Load()
+	if migration.Completed || migration.Failed || migration.StartTimestamp == nil {
 		return fmt.Errorf(migrations.CancelMigrationFailedVmiNotMigratingErr)
 	}
 
-	err = l.setMigrationAbortStatus(vmi, v1.MigrationAbortInProgress)
-	if err != nil {
+	if err := l.setMigrationAbortStatus(v1.MigrationAbortInProgress); err != nil {
 		if err == domainerrors.MigrationAbortInProgressError {
 			return nil
 		}
@@ -501,101 +465,44 @@ func (l *LibvirtDomainManager) cancelMigration(vmi *v1.VirtualMachineInstance) e
 	return nil
 }
 
-func (l *LibvirtDomainManager) setMigrationResultHelper(vmi *v1.VirtualMachineInstance, failed bool, completed bool, reason string, abortStatus v1.MigrationAbortStatus) error {
-
-	l.domainModifyLock.Lock()
-	defer l.domainModifyLock.Unlock()
-
-	domName := api.VMINamespaceKeyFunc(vmi)
-	dom, err := l.virConn.LookupDomainByName(domName)
-	if err != nil {
-		if domainerrors.IsNotFound(err) {
-			return nil
-
-		} else {
-			log.Log.Object(vmi).Reason(err).Error("Getting the domain for completed migration failed.")
-		}
-		return err
-	}
-
-	defer dom.Free()
-	domainSpec, err := l.getDomainSpec(dom)
-	if err != nil {
-		return err
-	}
-	migrationMetadata := domainSpec.Metadata.KubeVirt.Migration
-	if migrationMetadata == nil {
+func (l *LibvirtDomainManager) setMigrationResultHelper(failed bool, completed bool, reason string, abortStatus v1.MigrationAbortStatus) error {
+	migrationMetadata, exists := l.metadataCache.Migration.Load()
+	if !exists {
 		// nothing to report if migration metadata is empty
 		return nil
 	}
 
-	now := metav1.Now()
 	if abortStatus != "" {
-		metaAbortStatus := domainSpec.Metadata.KubeVirt.Migration.AbortStatus
+		metaAbortStatus := migrationMetadata.AbortStatus
 		if metaAbortStatus == string(abortStatus) && metaAbortStatus == string(v1.MigrationAbortInProgress) {
 			return domainerrors.MigrationAbortInProgressError
 		}
-		domainSpec.Metadata.KubeVirt.Migration.AbortStatus = string(abortStatus)
 	}
 
-	if failed {
-		domainSpec.Metadata.KubeVirt.Migration.Failed = true
-		domainSpec.Metadata.KubeVirt.Migration.FailureReason = reason
-	}
-	if completed {
-		domainSpec.Metadata.KubeVirt.Migration.Completed = true
-		domainSpec.Metadata.KubeVirt.Migration.EndTimestamp = &now
-	}
-	d, err := l.setDomainSpecWithHooks(vmi, domainSpec)
-	if err != nil {
-		return err
-	}
-	defer d.Free()
+	l.metadataCache.Migration.WithSafeBlock(func(migrationMetadata *api.MigrationMetadata, _ bool) {
+		if abortStatus != "" {
+			migrationMetadata.AbortStatus = string(abortStatus)
+		}
+
+		if failed {
+			migrationMetadata.Failed = true
+			migrationMetadata.FailureReason = reason
+		}
+		if completed {
+			migrationMetadata.Completed = true
+			now := metav1.Now()
+			migrationMetadata.EndTimestamp = &now
+		}
+	})
 	return nil
-
 }
 
-func (l *LibvirtDomainManager) setMigrationResult(vmi *v1.VirtualMachineInstance, failed bool, reason string, abortStatus v1.MigrationAbortStatus) error {
-	connectionInterval := 10 * time.Second
-	connectionTimeout := 60 * time.Second
-
-	err := utilwait.PollImmediate(connectionInterval, connectionTimeout, func() (done bool, err error) {
-		err = l.setMigrationResultHelper(vmi, failed, true, reason, abortStatus)
-		if err != nil {
-			return false, nil
-		}
-		return true, nil
-	})
-
-	if err != nil {
-		log.Log.Object(vmi).Reason(err).Error("Unable to post migration results to libvirt after multiple tries")
-		return err
-	}
-	return nil
-
+func (l *LibvirtDomainManager) setMigrationResult(failed bool, reason string, abortStatus v1.MigrationAbortStatus) error {
+	return l.setMigrationResultHelper(failed, true, reason, abortStatus)
 }
 
-func (l *LibvirtDomainManager) setMigrationAbortStatus(vmi *v1.VirtualMachineInstance, abortStatus v1.MigrationAbortStatus) error {
-	connectionInterval := 10 * time.Second
-	connectionTimeout := 60 * time.Second
-
-	err := utilwait.PollImmediate(connectionInterval, connectionTimeout, func() (done bool, err error) {
-		err = l.setMigrationResultHelper(vmi, false, false, "", abortStatus)
-		if err != nil {
-			if err == domainerrors.MigrationAbortInProgressError {
-				return false, err
-			}
-			return false, nil
-		}
-		return true, nil
-	})
-
-	if err != nil {
-		log.Log.Object(vmi).Reason(err).Error("Unable to post migration results to libvirt after multiple tries")
-		return err
-	}
-	return nil
-
+func (l *LibvirtDomainManager) setMigrationAbortStatus(abortStatus v1.MigrationAbortStatus) error {
+	return l.setMigrationResultHelper(false, false, "", abortStatus)
 }
 
 func newMigrationMonitor(vmi *v1.VirtualMachineInstance, l *LibvirtDomainManager, options *cmdclient.MigrationOptions, migrationErr chan error) *migrationMonitor {
@@ -613,8 +520,9 @@ func newMigrationMonitor(vmi *v1.VirtualMachineInstance, l *LibvirtDomainManager
 	return monitor
 }
 
-func (m *migrationMonitor) isMigrationPostCopy(domSpec *api.DomainSpec) bool {
-	return domSpec.Metadata.KubeVirt.Migration != nil && domSpec.Metadata.KubeVirt.Migration.Mode == v1.MigrationPostCopy
+func (m *migrationMonitor) isMigrationPostCopy() bool {
+	migration, _ := m.l.metadataCache.Migration.Load()
+	return migration.Mode == v1.MigrationPostCopy
 }
 
 func (m *migrationMonitor) shouldTriggerTimeout(elapsed int64) bool {
@@ -644,11 +552,6 @@ func (m *migrationMonitor) isMigrationProgressing() bool {
 	return true
 }
 
-func isMigrationAbortInProgress(domSpec *api.DomainSpec) bool {
-	return domSpec.Metadata.KubeVirt.Migration != nil &&
-		domSpec.Metadata.KubeVirt.Migration.AbortStatus == string(v1.MigrationAbortInProgress)
-}
-
 func (m *migrationMonitor) determineNonRunningMigrationStatus(dom cli.VirDomain) *libvirt.DomainJobInfo {
 	logger := log.Log.Object(m.vmi)
 	// check if an ongoing migration has been completed before we could capture the outcome
@@ -656,12 +559,8 @@ func (m *migrationMonitor) determineNonRunningMigrationStatus(dom cli.VirDomain)
 		logger.Info("Migration job has probably completed before we could capture the status. Getting latest status.")
 		// at this point the migration is over, but we don't know the result.
 		// check if we were trying to cancel this job. In this case, finalize the migration.
-		domainSpec, err := m.l.getDomainSpec(dom)
-		if err != nil {
-			logger.Reason(err).Error("failed to get domain spec info")
-			return nil
-		}
-		if isMigrationAbortInProgress(domainSpec) {
+		migration, _ := m.l.metadataCache.Migration.Load()
+		if migration.AbortStatus == string(v1.MigrationAbortInProgress) {
 			logger.Info("Migration job was canceled")
 			return &libvirt.DomainJobInfo{
 				Type:             libvirt.DOMAIN_JOB_CANCELLED,
@@ -707,14 +606,8 @@ func (m *migrationMonitor) processInflightMigration(dom cli.VirDomain, stats *li
 	}
 	m.progressWatermark = m.remainingData
 
-	domainSpec, err := m.l.getDomainSpec(dom)
-	if err != nil {
-		logger.Reason(err).Error("failed to get domain spec info")
-		return nil
-	}
-
 	switch {
-	case m.isMigrationPostCopy(domainSpec):
+	case m.isMigrationPostCopy():
 		// Currently, there is nothing for us to track when in Post Copy mode.
 		// The reasoning here is that post copy migrations transfer the state
 		// directly to the target pod in a way that results in the target pod
@@ -727,17 +620,13 @@ func (m *migrationMonitor) processInflightMigration(dom cli.VirDomain, stats *li
 		logger.Info("Starting post copy mode for migration")
 		// if a migration has stalled too long, post copy will be
 		// triggered when allowPostCopy is enabled
-		err = dom.MigrateStartPostCopy(uint32(0))
+		err := dom.MigrateStartPostCopy(uint32(0))
 		if err != nil {
 			logger.Reason(err).Error("failed to start post migration")
 			return nil
 		}
 
-		err = m.l.updateVMIMigrationMode(dom, m.vmi, v1.MigrationPostCopy)
-		if err != nil {
-			logger.Reason(err).Error("Unable to update migration mode on domain xml")
-			return nil
-		}
+		m.l.updateVMIMigrationMode(v1.MigrationPostCopy)
 
 	case !m.isMigrationProgressing():
 		// check if the migration is still progressing
@@ -800,7 +689,7 @@ func (m *migrationMonitor) startMonitor() {
 	dom, err := m.l.virConn.LookupDomainByName(domName)
 	if err != nil {
 		logger.Reason(err).Error(liveMigrationFailed)
-		m.l.setMigrationResult(vmi, true, fmt.Sprintf("%v", err), "")
+		m.l.setMigrationResult(true, fmt.Sprintf("%v", err), "")
 		return
 	}
 	defer dom.Free()
@@ -821,7 +710,7 @@ func (m *migrationMonitor) startMonitor() {
 			if strings.Contains(m.migrationFailedWithError.Error(), "canceled by client") {
 				abortStatus = v1.MigrationAbortSucceeded
 			}
-			m.l.setMigrationResult(vmi, true, fmt.Sprintf("Live migration failed %v", m.migrationFailedWithError), abortStatus)
+			m.l.setMigrationResult(true, fmt.Sprintf("Live migration failed %v", m.migrationFailedWithError), abortStatus)
 			return
 		}
 
@@ -843,7 +732,7 @@ func (m *migrationMonitor) startMonitor() {
 			aborted := m.processInflightMigration(dom, stats)
 			if aborted != nil {
 				logger.Errorf("Live migration abort detected with reason: %s", aborted.message)
-				m.l.setMigrationResult(vmi, true, aborted.message, aborted.abortStatus)
+				m.l.setMigrationResult(true, aborted.message, aborted.abortStatus)
 				return
 			}
 			logInterval++
@@ -854,15 +743,15 @@ func (m *migrationMonitor) startMonitor() {
 			completedJobInfo = m.determineNonRunningMigrationStatus(dom)
 		case libvirt.DOMAIN_JOB_COMPLETED:
 			logger.Info("Migration has been completed")
-			m.l.setMigrationResult(vmi, false, "", "")
+			m.l.setMigrationResult(false, "", "")
 			return
 		case libvirt.DOMAIN_JOB_FAILED:
 			logger.Info("Migration job failed")
-			m.l.setMigrationResult(vmi, true, fmt.Sprintf("%v", m.migrationFailedWithError), "")
+			m.l.setMigrationResult(true, fmt.Sprintf("%v", m.migrationFailedWithError), "")
 			return
 		case libvirt.DOMAIN_JOB_CANCELLED:
 			logger.Info("Migration was canceled")
-			m.l.setMigrationResult(vmi, true, "Live migration aborted ", v1.MigrationAbortSucceeded)
+			m.l.setMigrationResult(true, "Live migration aborted ", v1.MigrationAbortSucceeded)
 			return
 		}
 	}
@@ -900,7 +789,7 @@ func (l *LibvirtDomainManager) asyncMigrationAbort(vmi *v1.VirtualMachineInstanc
 			err := dom.AbortJob()
 			if err != nil {
 				log.Log.Object(vmi).Reason(err).Error("failed to cancel migration")
-				l.setMigrationAbortStatus(vmi, v1.MigrationAbortFailed)
+				l.setMigrationAbortStatus(v1.MigrationAbortFailed)
 				return
 			}
 			log.Log.Object(vmi).Info("Live migration abort succeeded")
@@ -1030,7 +919,7 @@ func shouldImmediatelyFailMigration(vmi *v1.VirtualMachineInstance) bool {
 func (l *LibvirtDomainManager) migrate(vmi *v1.VirtualMachineInstance, options *cmdclient.MigrationOptions) {
 	if shouldImmediatelyFailMigration(vmi) {
 		log.Log.Object(vmi).Error("Live migration failed. Failure is forced by functional tests suite.")
-		l.setMigrationResult(vmi, true, "Failed migration to satisfy functional test condition", "")
+		l.setMigrationResult(true, "Failed migration to satisfy functional test condition", "")
 		return
 	}
 
@@ -1058,23 +947,10 @@ func (l *LibvirtDomainManager) migrate(vmi *v1.VirtualMachineInstance, options *
 	log.Log.Object(vmi).Infof("Live migration succeeded.")
 }
 
-func (l *LibvirtDomainManager) updateVMIMigrationMode(dom cli.VirDomain, vmi *v1.VirtualMachineInstance, mode v1.MigrationMode) error {
-	domainSpec, err := l.getDomainSpec(dom)
-	if err != nil {
-		return err
-	}
-
-	if domainSpec.Metadata.KubeVirt.Migration == nil {
-		domainSpec.Metadata.KubeVirt.Migration = &api.MigrationMetadata{}
-	}
-
-	domainSpec.Metadata.KubeVirt.Migration.Mode = mode
-
-	d, err := l.setDomainSpecWithHooks(vmi, domainSpec)
-	if err != nil {
-		return err
-	}
-	defer d.Free()
-
-	return nil
+func (l *LibvirtDomainManager) updateVMIMigrationMode(mode v1.MigrationMode) {
+	l.metadataCache.Migration.WithSafeBlock(func(migrationMetadata *api.MigrationMetadata, _ bool) {
+		if migrationMetadata.Mode != mode {
+			migrationMetadata.Mode = mode
+		}
+	})
 }
