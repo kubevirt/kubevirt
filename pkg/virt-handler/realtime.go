@@ -30,9 +30,9 @@ type cpuMask struct {
 }
 
 const (
-	SCHED_FIFO policy   = C.SCHED_FIFO
-	enabled    maskType = true
-	disabled   maskType = false
+	schedFIFO policy   = C.SCHED_FIFO
+	enabled   maskType = true
+	disabled  maskType = false
 )
 
 var (
@@ -73,7 +73,7 @@ func (d *VirtualMachineController) configureVCPUScheduler(vmi *v1.VirtualMachine
 			if err != nil {
 				return err
 			}
-			err = schedSetScheduler(tid, SCHED_FIFO, param)
+			err = schedSetScheduler(tid, schedFIFO, param)
 			if err != nil {
 				return fmt.Errorf("failed to set FIFO scheduling and priority 1 for thread %d: %w", tid, err)
 			}
