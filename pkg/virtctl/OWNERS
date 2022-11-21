@@ -1,0 +1,8 @@
+# See the OWNERS docs at https://go.k8s.io/owners
+
+reviewers:
+  - sme-api-n-controllers
+approvers:
+  - sme-api-n-controllers
+labels:
+  - area/virtctl

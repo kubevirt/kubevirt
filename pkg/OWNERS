@@ -1,0 +1,19 @@
+# See the OWNERS docs at https://go.k8s.io/owners
+
+filters:
+  "pkg/.*migration.*|staging/.*/api/migrations/.*":
+    reviewers:
+      - sme-live-migration
+
+  "pkg/.*virt-api.*|staging/.*/api/.*":
+    reviewers:
+      - sme-api-n-controllers
+
+  "pkg/.*controller.*|pkg/.*handler.*":
+    reviewers:
+      - sme-scheduling-n-node-plumbing
+
+  "pkg/controller/.*|pkg/.*monitoring.*":
+    reviewers:
+      - sme-scale-n-observability
+

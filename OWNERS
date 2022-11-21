@@ -5,7 +5,20 @@ filters:
     reviewers:
       - code-reviewers
     approvers:
-      - approvers
       - sig-architecture-approvers
+      - sme-live-migration
+      - sme-api-n-controllers
+      - sme-scheduling-n-node-plumbing
+      - sme-scale-n-observability
+      - sme-ci-n-test-framework
+      - sme-release-n-buildsystem
     emeritus_approvers:
       - emeritus_approvers
+
+  "hack/.*|tests/.*|.*_test.go":
+    reviewers:
+      - sme-ci-n-test-framework
+
+  "automation/.*|.*bazel.*|go\\.(mod|sum)$":
+    reviewers:
+      - sme-release-n-buildsystem

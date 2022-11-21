@@ -1,20 +1,59 @@
 # See the OWNERS docs at https://go.k8s.io/owners
 
 aliases:
-  approvers:
-      - davidvossel
+
+  #
+  # SMEs
+  #
+
+  # Experts on live migration
+  sme-live-migration:
       - vladikr
-      - rmohr
-      - stu-gott
-      - fabiand
-      - AlonaKaplan
-      - dhiller
+      - acardace
       - jean-edouard
-      - mhenriks
-      - enp0s3
+      - xpivarc
+      - AlonaKaplan
+      - vasiliy-ul
+      - iholder101
+
+  # Experts on API and Controller mechanics
+  sme-api-n-controllers:
+      - rmohr
+      - davidvossel
+      - acardace
+      - jean-edouard
+      - AlonaKaplan
       - xpivarc
       - vasiliy-ul
-      - acardace
+
+  # Experts on Scheduling and Node plumbing
+  sme-scheduling-n-node-plumbing:
+      - vladikr
+      - jean-edouard
+      - xpivarc
+      - vasiliy-ul
+      - AlonaKaplan
+
+  # Experts on Scale and Observability
+  sme-scale-n-observability:
+      - rthallisey
+      - sradco
+      - davidvossel
+
+  # Experts on CI and our test-framework
+  sme-ci-n-test-framework:
+      - enp0s3
+      - jean-edouard
+      - dhiller
+      - stu-gott
+
+  # Experts on the build-system
+  sme-release-n-buildsystem:
+      - enp0s3
+      - dhiller
+      - davidvossel
+      - rthallisey
+
   emeritus_approvers:
       - danielBelenky
       - mazzystr
@@ -25,6 +64,7 @@ aliases:
       - codificat
       - ashleyschuett
       - zcahana
+
   code-reviewers:
       - rmohr
       - stu-gott
@@ -36,7 +76,6 @@ aliases:
       - mhenriks
       - maiqueb
       - EdDev
-      - acardace
       - xpivarc
       - marceloamaral
       - vasiliy-ul
@@ -63,6 +102,7 @@ aliases:
       - xpivarc
       - vasiliy-ul
       - fabiand
+      - mhenriks
 
   sig-network-reviewers:
       - AlonaKaplan
