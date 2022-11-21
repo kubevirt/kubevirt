@@ -109,6 +109,49 @@ func (_mr *_MockManagerRecorder) GetCgroupThreads() *gomock.Call {
 	return _mr.mock.ctrl.RecordCall(_mr.mock, "GetCgroupThreads")
 }
 
+func (_m *MockManager) GetCgroupThreadsWithFilter(_param0 func(string) bool) ([]int, error) {
+	ret := _m.ctrl.Call(_m, "GetCgroupThreadsWithFilter", _param0)
+	ret0, _ := ret[0].([]int)
+	ret1, _ := ret[1].(error)
+	return ret0, ret1
+}
+
+func (_mr *_MockManagerRecorder) GetCgroupThreadsWithFilter(arg0 interface{}) *gomock.Call {
+	return _mr.mock.ctrl.RecordCall(_mr.mock, "GetCgroupThreadsWithFilter", arg0)
+}
+
+func (_m *MockManager) GetCgroupProcs() ([]int, error) {
+	ret := _m.ctrl.Call(_m, "GetCgroupProcs")
+	ret0, _ := ret[0].([]int)
+	ret1, _ := ret[1].(error)
+	return ret0, ret1
+}
+
+func (_mr *_MockManagerRecorder) GetCgroupProcs() *gomock.Call {
+	return _mr.mock.ctrl.RecordCall(_mr.mock, "GetCgroupProcs")
+}
+
+func (_m *MockManager) GetCgroupProcsWithFilter(_param0 func(string) bool) ([]int, error) {
+	ret := _m.ctrl.Call(_m, "GetCgroupProcsWithFilter", _param0)
+	ret0, _ := ret[0].([]int)
+	ret1, _ := ret[1].(error)
+	return ret0, ret1
+}
+
+func (_mr *_MockManagerRecorder) GetCgroupProcsWithFilter(arg0 interface{}) *gomock.Call {
+	return _mr.mock.ctrl.RecordCall(_mr.mock, "GetCgroupProcsWithFilter", arg0)
+}
+
+func (_m *MockManager) MakeThreaded() error {
+	ret := _m.ctrl.Call(_m, "MakeThreaded")
+	ret0, _ := ret[0].(error)
+	return ret0
+}
+
+func (_mr *_MockManagerRecorder) MakeThreaded() *gomock.Call {
+	return _mr.mock.ctrl.RecordCall(_mr.mock, "MakeThreaded")
+}
+
 // Mock of runcManager interface
 type MockruncManager struct {
 	ctrl     *gomock.Controller

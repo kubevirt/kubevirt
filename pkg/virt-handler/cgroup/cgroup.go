@@ -70,8 +70,16 @@ type Manager interface {
 	// Create new child cgroup
 	CreateChildCgroup(name string, subSystems ...string) (Manager, error)
 
-	// Get list of threads attached to cgroup
+	// GetCgroupThreads returns a list TIDs of the treads that are attached to that cgroup.
+	// Ideally, this implementation needs to reside in runc's repository.
+	// An issue is opened to track that: https://github.com/opencontainers/runc/issues/3616.
 	GetCgroupThreads() ([]int, error)
+
+	GetCgroupThreadsWithFilter(func(string) bool) ([]int, error)
+
+	GetCgroupProcs() ([]int, error)
+
+	GetCgroupProcsWithFilter(func(string) bool) ([]int, error)
 
 	// TODO: This is now being implemented at the runc level here: https://github.com/opencontainers/runc/pull/3691
 	// Once the PR merges we should switch to its implementation

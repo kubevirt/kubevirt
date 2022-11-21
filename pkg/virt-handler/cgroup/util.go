@@ -11,6 +11,8 @@ import (
 	"strconv"
 	"strings"
 
+	"github.com/mitchellh/go-ps"
+
 	"github.com/opencontainers/runc/libcontainer/cgroups"
 	"github.com/opencontainers/runc/libcontainer/configs"
 
@@ -174,7 +176,11 @@ func execVirtChrootCgroups(r *runc_configs.Resources, subsystemPaths map[string]
 	return nil
 }
 
-func getCgroupThreadsHelper(manager Manager, fname string) ([]int, error) {
+func getCgroupThreadsHelper(manager Manager, targetFilePath string, filter func(string) bool) ([]int, error) {
+	if filter == nil {
+		filter = func(s string) bool { return true }
+	}
+
 	tIds := make([]int, 0, 10)
 
 	subSysPath, err := manager.GetBasePathToHostSubsystem("cpuset")
@@ -182,26 +188,38 @@ func getCgroupThreadsHelper(manager Manager, fname string) ([]int, error) {
 		return nil, err
 	}
 
-	fh, err := os.Open(filepath.Join(subSysPath, fname))
+	targetFile, err := os.Open(filepath.Join(subSysPath, targetFilePath))
 	if err != nil {
 		return nil, err
 	}
-	defer fh.Close()
+	defer targetFile.Close()
 
-	scanner := bufio.NewScanner(fh)
+	scanner := bufio.NewScanner(targetFile)
 	for scanner.Scan() {
 		line := scanner.Text()
-		intVal, err := strconv.Atoi(line)
+		tid, err := strconv.Atoi(line)
 		if err != nil {
 			log.Log.Errorf("error converting %s: %v", line, err)
 			return nil, err
 		}
-		tIds = append(tIds, intVal)
+
+		process, err := ps.FindProcess(tid)
+		if err != nil {
+			log.Log.Errorf("error finding process for pid %d: %v", tid, err)
+			return nil, err
+		}
+
+		if filter(process.Executable()) {
+			tIds = append(tIds, tid)
+		}
+
 	}
+
 	if err := scanner.Err(); err != nil {
-		log.Log.Errorf("error reading %s: %v", fname, err)
+		log.Log.Errorf("error reading %s: %v", targetFilePath, err)
 		return nil, err
 	}
+
 	return tIds, nil
 }
 

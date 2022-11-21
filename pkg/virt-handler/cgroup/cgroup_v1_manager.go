@@ -162,8 +162,20 @@ func (v *v1Manager) CreateChildCgroup(name string, subSystems ...string) (Manage
 	return NewManagerFromPath(newControllerPaths)
 }
 
+func (v *v1Manager) GetCgroupThreadsWithFilter(filter func(string) bool) ([]int, error) {
+	return getCgroupThreadsHelper(v, v1ThreadsFilename, filter)
+}
+
 func (v *v1Manager) GetCgroupThreads() ([]int, error) {
-	return getCgroupThreadsHelper(v, v1ThreadsFilename)
+	return v.GetCgroupThreadsWithFilter(nil)
+}
+
+func (v *v1Manager) GetCgroupProcsWithFilter(filter func(string) bool) ([]int, error) {
+	return getCgroupThreadsHelper(v, procsFilename, filter)
+}
+
+func (v *v1Manager) GetCgroupProcs() ([]int, error) {
+	return v.GetCgroupProcsWithFilter(nil)
 }
 
 func (v *v1Manager) SetCpuSet(subcgroup string, cpulist []int) error {
