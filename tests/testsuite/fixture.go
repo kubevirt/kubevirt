@@ -25,6 +25,8 @@ import (
 	"path/filepath"
 	"time"
 
+	"kubevirt.io/kubevirt/tests/exec"
+
 	"k8s.io/apimachinery/pkg/api/errors"
 
 	. "github.com/onsi/ginkgo/v2"
@@ -93,6 +95,7 @@ func SynchronizedBeforeTestSetup() []byte {
 
 	EnsureKVMPresent()
 	AdjustKubeVirtResource()
+	UpdateSELinuxPolicy()
 
 	return nil
 }
@@ -205,6 +208,55 @@ func EnsureKVMPresent() {
 			return ready
 		}, 120*time.Second, 1*time.Second).Should(BeTrue(),
 			"Both KVM devices and vhost-net devices are required for testing, but are not present on cluster nodes")
+	}
+}
+
+func UpdateSELinuxPolicy() {
+	virtClient, err := kubecli.GetKubevirtClient()
+	util.PanicOnError(err)
+
+	listOptions := metav1.ListOptions{LabelSelector: v1.AppLabel + "=virt-handler"}
+	virtHandlerPods, err := virtClient.CoreV1().Pods(flags.KubeVirtInstallNamespace).List(context.Background(), listOptions)
+	ExpectWithOffset(1, err).ToNot(HaveOccurred())
+
+	for _, pod := range virtHandlerPods.Items {
+		script := []string{
+			"set -ex",
+			"[ -e /root/policy_done ] && exit 0",
+			"setenforce 0 || exit 0",
+			"semodule -X200 -r container",
+			"dnf -y install wget make selinux-policy-devel || dnf -y install wget make selinux-policy-devel",
+			"cd /root",
+			"wget -O policy.tar.gz https://github.com/containers/container-selinux/tarball/main",
+			"tar xzf policy.tar.gz",
+			"cd containers-container-selinux-*",
+			"sed -i s/.*systemd_chat_resolved.*// container.te",
+			"make install-policy",
+			"setenforce 1",
+			"touch /root/policy_done",
+		}
+		command := ""
+		for _, s := range script {
+			command = command + "echo '" + s + "' >> /proc/1/root/root/selinux.sh; "
+		}
+
+		stdout, err := exec.ExecuteCommandOnPod(virtClient, &pod, "virt-handler", []string{
+			"bash", "-c", command,
+		})
+		Expect(err).ToNot(HaveOccurred(), stdout)
+		util.PanicOnError(err)
+
+		stdout, err = exec.ExecuteCommandOnPod(virtClient, &pod, "virt-handler", []string{
+			"chmod", "777", "/proc/1/root/root/selinux.sh",
+		})
+		Expect(err).ToNot(HaveOccurred(), stdout)
+		util.PanicOnError(err)
+
+		_, stderr, err := exec.ExecuteCommandOnPodWithResults(virtClient, &pod, "virt-handler", []string{
+			"chroot", "/proc/1/root", "/usr/bin/bash", "-c", "/root/selinux.sh",
+		})
+		Expect(err).ToNot(HaveOccurred(), stderr)
+		util.PanicOnError(err)
 	}
 }
 
