@@ -15,6 +15,7 @@ type MockInstancetypeMethods struct {
 	FindPreferenceSpecFunc       func(vm *v1.VirtualMachine) (*instancetypev1alpha2.VirtualMachinePreferenceSpec, error)
 	StoreControllerRevisionsFunc func(vm *v1.VirtualMachine) error
 	InferDefaultInstancetypeFunc func(vm *v1.VirtualMachine) (*v1.InstancetypeMatcher, error)
+	InferDefaultPreferenceFunc   func(vm *v1.VirtualMachine) (*v1.PreferenceMatcher, error)
 }
 
 var _ instancetype.Methods = &MockInstancetypeMethods{}
@@ -39,6 +40,10 @@ func (m *MockInstancetypeMethods) InferDefaultInstancetype(vm *v1.VirtualMachine
 	return m.InferDefaultInstancetypeFunc(vm)
 }
 
+func (m *MockInstancetypeMethods) InferDefaultPreference(vm *v1.VirtualMachine) (*v1.PreferenceMatcher, error) {
+	return m.InferDefaultPreferenceFunc(vm)
+}
+
 func NewMockInstancetypeMethods() *MockInstancetypeMethods {
 	return &MockInstancetypeMethods{
 		FindInstancetypeSpecFunc: func(_ *v1.VirtualMachine) (*instancetypev1alpha2.VirtualMachineInstancetypeSpec, error) {
@@ -54,6 +59,9 @@ func NewMockInstancetypeMethods() *MockInstancetypeMethods {
 			return nil
 		},
 		InferDefaultInstancetypeFunc: func(_ *v1.VirtualMachine) (*v1.InstancetypeMatcher, error) {
+			return nil, nil
+		},
+		InferDefaultPreferenceFunc: func(_ *v1.VirtualMachine) (*v1.PreferenceMatcher, error) {
 			return nil, nil
 		},
 	}

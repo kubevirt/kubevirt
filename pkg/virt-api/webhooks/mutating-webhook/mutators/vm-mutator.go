@@ -74,6 +74,16 @@ func (mutator *VMsMutator) Mutate(ar *admissionv1.AdmissionReview) *admissionv1.
 		}
 	}
 
+	if err = mutator.inferDefaultPreference(&vm); err != nil {
+		log.Log.Reason(err).Error("admission failed, unable to set default preference")
+		return &admissionv1.AdmissionResponse{
+			Result: &metav1.Status{
+				Message: err.Error(),
+				Code:    http.StatusBadRequest,
+			},
+		}
+	}
+
 	mutator.setDefaultInstancetypeKind(&vm)
 	mutator.setDefaultPreferenceKind(&vm)
 	preferenceSpec := mutator.getPreferenceSpec(&vm)
@@ -168,6 +178,15 @@ func (mutator *VMsMutator) inferDefaultInstancetype(vm *v1.VirtualMachine) error
 		return err
 	}
 	vm.Spec.Instancetype = instancetypeMatcher
+	return nil
+}
+
+func (mutator *VMsMutator) inferDefaultPreference(vm *v1.VirtualMachine) error {
+	preferenceMatcher, err := mutator.InstancetypeMethods.InferDefaultPreference(vm)
+	if err != nil {
+		return err
+	}
+	vm.Spec.Preference = preferenceMatcher
 	return nil
 }
 

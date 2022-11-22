@@ -393,6 +393,8 @@ var _ = Describe("VirtualMachine Mutator", func() {
 					Annotations: map[string]string{
 						apiinstancetype.DefaultInstancetypeAnnotation:     defaultInferedName,
 						apiinstancetype.DefaultInstancetypeKindAnnotation: defaultInferedKind,
+						apiinstancetype.DefaultPreferenceAnnotation:       defaultInferedName,
+						apiinstancetype.DefaultPreferenceKindAnnotation:   defaultInferedKind,
 					},
 				},
 			}
@@ -434,8 +436,9 @@ var _ = Describe("VirtualMachine Mutator", func() {
 			Expect(err).ToNot(HaveOccurred())
 		})
 
-		DescribeTable("should infer defaults from VolumeSource and PersistentVolumeClaim", func(instancetypeMatcher, expectedInstancetypeMatcher *v1.InstancetypeMatcher) {
+		DescribeTable("should infer defaults from VolumeSource and PersistentVolumeClaim", func(instancetypeMatcher, expectedInstancetypeMatcher *v1.InstancetypeMatcher, preferenceMatcher, expectedPreferenceMatcher *v1.PreferenceMatcher) {
 			vm.Spec.Instancetype = instancetypeMatcher
+			vm.Spec.Preference = preferenceMatcher
 			vm.Spec.Template.Spec.Volumes = []v1.Volume{{
 				Name: inferVolumeName,
 				VolumeSource: v1.VolumeSource{
@@ -447,7 +450,16 @@ var _ = Describe("VirtualMachine Mutator", func() {
 				},
 			}}
 			vmSpec, _ := getVMSpecMetaFromResponse()
-			Expect(*vmSpec.Instancetype).To(Equal(*expectedInstancetypeMatcher))
+			if expectedInstancetypeMatcher != nil {
+				Expect(*vmSpec.Instancetype).To(Equal(*expectedInstancetypeMatcher))
+			} else {
+				Expect(vmSpec.Instancetype).To(BeNil())
+			}
+			if expectedPreferenceMatcher != nil {
+				Expect(*vmSpec.Preference).To(Equal(*expectedPreferenceMatcher))
+			} else {
+				Expect(vmSpec.Preference).To(BeNil())
+			}
 		},
 			Entry("for InstancetypeMatcher",
 				&v1.InstancetypeMatcher{
@@ -456,12 +468,23 @@ var _ = Describe("VirtualMachine Mutator", func() {
 				&v1.InstancetypeMatcher{
 					Name: defaultInferedName,
 					Kind: defaultInferedKind,
+				}, nil, nil,
+			),
+			Entry("for PreferenceMatcher",
+				nil, nil,
+				&v1.PreferenceMatcher{
+					InferFromVolume: inferVolumeName,
+				},
+				&v1.PreferenceMatcher{
+					Name: defaultInferedName,
+					Kind: defaultInferedKind,
 				},
 			),
 		)
 
-		DescribeTable("should infer defaults from DataVolumeSource and PersistentVolumeClaim", func(instancetypeMatcher, expectedInstancetypeMatcher *v1.InstancetypeMatcher) {
+		DescribeTable("should infer defaults from DataVolumeSource and PersistentVolumeClaim", func(instancetypeMatcher, expectedInstancetypeMatcher *v1.InstancetypeMatcher, preferenceMatcher, expectedPreferenceMatcher *v1.PreferenceMatcher) {
 			vm.Spec.Instancetype = instancetypeMatcher
+			vm.Spec.Preference = preferenceMatcher
 			vm.Spec.Template.Spec.Volumes = []v1.Volume{{
 				Name: inferVolumeName,
 				VolumeSource: v1.VolumeSource{
@@ -472,7 +495,16 @@ var _ = Describe("VirtualMachine Mutator", func() {
 			}}
 
 			vmSpec, _ := getVMSpecMetaFromResponse()
-			Expect(*vmSpec.Instancetype).To(Equal(*expectedInstancetypeMatcher))
+			if expectedInstancetypeMatcher != nil {
+				Expect(*vmSpec.Instancetype).To(Equal(*expectedInstancetypeMatcher))
+			} else {
+				Expect(vmSpec.Instancetype).To(BeNil())
+			}
+			if expectedPreferenceMatcher != nil {
+				Expect(*vmSpec.Preference).To(Equal(*expectedPreferenceMatcher))
+			} else {
+				Expect(vmSpec.Preference).To(BeNil())
+			}
 		},
 			Entry("for InstancetypeMatcher",
 				&v1.InstancetypeMatcher{
@@ -481,12 +513,23 @@ var _ = Describe("VirtualMachine Mutator", func() {
 				&v1.InstancetypeMatcher{
 					Name: defaultInferedName,
 					Kind: defaultInferedKind,
+				}, nil, nil,
+			),
+			Entry("for PreferenceMatcher",
+				nil, nil,
+				&v1.PreferenceMatcher{
+					InferFromVolume: inferVolumeName,
+				},
+				&v1.PreferenceMatcher{
+					Name: defaultInferedName,
+					Kind: defaultInferedKind,
 				},
 			),
 		)
 
-		DescribeTable("should infer defaults from DataVolumeTemplate, DataVolumeSourcePVC and PersistentVolumeClaim", func(instancetypeMatcher, expectedInstancetypeMatcher *v1.InstancetypeMatcher) {
+		DescribeTable("should infer defaults from DataVolumeTemplate, DataVolumeSourcePVC and PersistentVolumeClaim", func(instancetypeMatcher, expectedInstancetypeMatcher *v1.InstancetypeMatcher, preferenceMatcher, expectedPreferenceMatcher *v1.PreferenceMatcher) {
 			vm.Spec.Instancetype = instancetypeMatcher
+			vm.Spec.Preference = preferenceMatcher
 			vm.Spec.Template.Spec.Volumes = []v1.Volume{{
 				Name: inferVolumeName,
 				VolumeSource: v1.VolumeSource{
@@ -510,7 +553,16 @@ var _ = Describe("VirtualMachine Mutator", func() {
 			}}
 
 			vmSpec, _ := getVMSpecMetaFromResponse()
-			Expect(*vmSpec.Instancetype).To(Equal(*expectedInstancetypeMatcher))
+			if expectedInstancetypeMatcher != nil {
+				Expect(*vmSpec.Instancetype).To(Equal(*expectedInstancetypeMatcher))
+			} else {
+				Expect(vmSpec.Instancetype).To(BeNil())
+			}
+			if expectedPreferenceMatcher != nil {
+				Expect(*vmSpec.Preference).To(Equal(*expectedPreferenceMatcher))
+			} else {
+				Expect(vmSpec.Preference).To(BeNil())
+			}
 		},
 			Entry("for InstancetypeMatcher",
 				&v1.InstancetypeMatcher{
@@ -519,11 +571,23 @@ var _ = Describe("VirtualMachine Mutator", func() {
 				&v1.InstancetypeMatcher{
 					Name: defaultInferedName,
 					Kind: defaultInferedKind,
-				}),
+				}, nil, nil,
+			),
+			Entry("for PreferenceMatcher",
+				nil, nil,
+				&v1.PreferenceMatcher{
+					InferFromVolume: inferVolumeName,
+				},
+				&v1.PreferenceMatcher{
+					Name: defaultInferedName,
+					Kind: defaultInferedKind,
+				},
+			),
 		)
 
-		DescribeTable("should infer defaults from DataVolume, DataVolumeSourceRef ", func(sourceRefName, sourceRefKind, sourceRefNamespace string, instancetypeMatcher, expectedInstancetypeMatcher *v1.InstancetypeMatcher) {
+		DescribeTable("should infer defaults from DataVolume, DataVolumeSourceRef ", func(sourceRefName, sourceRefKind, sourceRefNamespace string, instancetypeMatcher, expectedInstancetypeMatcher *v1.InstancetypeMatcher, preferenceMatcher, expectedPreferenceMatcher *v1.PreferenceMatcher) {
 			vm.Spec.Instancetype = instancetypeMatcher
+			vm.Spec.Preference = preferenceMatcher
 			dvWithSourceRef := &v1beta1.DataVolume{
 				ObjectMeta: k8smetav1.ObjectMeta{
 					Name:      "dvWithSourceRef",
@@ -550,7 +614,16 @@ var _ = Describe("VirtualMachine Mutator", func() {
 			}}
 
 			vmSpec, _ := getVMSpecMetaFromResponse()
-			Expect(*vmSpec.Instancetype).To(Equal(*expectedInstancetypeMatcher))
+			if expectedInstancetypeMatcher != nil {
+				Expect(*vmSpec.Instancetype).To(Equal(*expectedInstancetypeMatcher))
+			} else {
+				Expect(vmSpec.Instancetype).To(BeNil())
+			}
+			if expectedPreferenceMatcher != nil {
+				Expect(*vmSpec.Preference).To(Equal(*expectedPreferenceMatcher))
+			} else {
+				Expect(vmSpec.Preference).To(BeNil())
+			}
 		},
 			Entry(",DataSource and PersistentVolumeClaim for InstancetypeMatcher",
 				dsWithSourcePVCName, "DataSource", k8sv1.NamespaceDefault,
@@ -560,12 +633,24 @@ var _ = Describe("VirtualMachine Mutator", func() {
 				&v1.InstancetypeMatcher{
 					Name: defaultInferedName,
 					Kind: defaultInferedKind,
+				}, nil, nil,
+			),
+			Entry(",DataSource and PersistentVolumeClaim for PreferenceMatcher",
+				dsWithSourcePVCName, "DataSource", k8sv1.NamespaceDefault,
+				nil, nil,
+				&v1.PreferenceMatcher{
+					InferFromVolume: inferVolumeName,
+				},
+				&v1.PreferenceMatcher{
+					Name: defaultInferedName,
+					Kind: defaultInferedKind,
 				},
 			),
 		)
 
-		DescribeTable("should infer defaults from DataVolumeTemplate, DataVolumeSourceRef, DataSource and PersistentVolumeClaim", func(sourceRefName, sourceRefNamespace string, instancetypeMatcher, expectedInstancetypeMatcher *v1.InstancetypeMatcher) {
+		DescribeTable("should infer defaults from DataVolumeTemplate, DataVolumeSourceRef, DataSource and PersistentVolumeClaim", func(sourceRefName, sourceRefNamespace string, instancetypeMatcher, expectedInstancetypeMatcher *v1.InstancetypeMatcher, preferenceMatcher, expectedPreferenceMatcher *v1.PreferenceMatcher) {
 			vm.Spec.Instancetype = instancetypeMatcher
+			vm.Spec.Preference = preferenceMatcher
 			vm.Spec.DataVolumeTemplates = []v1.DataVolumeTemplateSpec{{
 				ObjectMeta: k8smetav1.ObjectMeta{
 					Name: "dataVolume",
@@ -588,7 +673,16 @@ var _ = Describe("VirtualMachine Mutator", func() {
 			}}
 
 			vmSpec, _ := getVMSpecMetaFromResponse()
-			Expect(*vmSpec.Instancetype).To(Equal(*expectedInstancetypeMatcher))
+			if expectedInstancetypeMatcher != nil {
+				Expect(*vmSpec.Instancetype).To(Equal(*expectedInstancetypeMatcher))
+			} else {
+				Expect(vmSpec.Instancetype).To(BeNil())
+			}
+			if expectedPreferenceMatcher != nil {
+				Expect(*vmSpec.Preference).To(Equal(*expectedPreferenceMatcher))
+			} else {
+				Expect(vmSpec.Preference).To(BeNil())
+			}
 		},
 			Entry("for InstancetypeMatcher",
 				dsWithSourcePVCName, k8sv1.NamespaceDefault,
@@ -598,13 +692,28 @@ var _ = Describe("VirtualMachine Mutator", func() {
 				&v1.InstancetypeMatcher{
 					Name: defaultInferedName,
 					Kind: defaultInferedKind,
+				}, nil, nil,
+			),
+			Entry("for PreferenceMatcher",
+				dsWithSourcePVCName, k8sv1.NamespaceDefault,
+				nil, nil,
+				&v1.PreferenceMatcher{
+					InferFromVolume: inferVolumeName,
+				},
+				&v1.PreferenceMatcher{
+					Name: defaultInferedName,
+					Kind: defaultInferedKind,
 				},
 			),
 		)
 
 		DescribeTable("should fail to infer defaults from unknown Volume ", func(instancetypeMatcher *v1.InstancetypeMatcher, preferenceMatcher *v1.PreferenceMatcher) {
 			vm.Spec.Instancetype = instancetypeMatcher
+			vm.Spec.Preference = preferenceMatcher
+
+			// Remove all volumes to cause the failure
 			vm.Spec.Template.Spec.Volumes = []v1.Volume{}
+
 			resp := admitVM()
 			Expect(resp.Allowed).To(BeFalse())
 			Expect(resp.Result.Message).To(ContainSubstring("unable to find volume %s to infer defaults", inferVolumeName))
@@ -612,12 +721,19 @@ var _ = Describe("VirtualMachine Mutator", func() {
 			Entry("for InstancetypeMatcher",
 				&v1.InstancetypeMatcher{
 					InferFromVolume: inferVolumeName,
+				}, nil,
+			),
+			Entry("for PreferenceMatcher",
+				nil,
+				&v1.PreferenceMatcher{
+					InferFromVolume: inferVolumeName,
 				},
 			),
 		)
 
-		DescribeTable("should fail to infer defaults from Volume ", func(volumeSource v1.VolumeSource, messageSubstring string, instancetypeMatcher *v1.InstancetypeMatcher) {
+		DescribeTable("should fail to infer defaults from Volume ", func(volumeSource v1.VolumeSource, messageSubstring string, instancetypeMatcher *v1.InstancetypeMatcher, preferenceMatcher *v1.PreferenceMatcher) {
 			vm.Spec.Instancetype = instancetypeMatcher
+			vm.Spec.Preference = preferenceMatcher
 			vm.Spec.Template.Spec.Volumes = []v1.Volume{{
 				Name:         inferVolumeName,
 				VolumeSource: volumeSource,
@@ -637,6 +753,20 @@ var _ = Describe("VirtualMachine Mutator", func() {
 				fmt.Sprintf("persistentvolumeclaims \"%s\" not found", unknownPVCName),
 				&v1.InstancetypeMatcher{
 					InferFromVolume: inferVolumeName,
+				}, nil,
+			),
+			Entry("with unknown PersistentVolumeClaim for PreferenceMatcher",
+				v1.VolumeSource{
+					PersistentVolumeClaim: &v1.PersistentVolumeClaimVolumeSource{
+						PersistentVolumeClaimVolumeSource: k8sv1.PersistentVolumeClaimVolumeSource{
+							ClaimName: unknownPVCName,
+						},
+					},
+				},
+				fmt.Sprintf("persistentvolumeclaims \"%s\" not found", unknownPVCName),
+				nil,
+				&v1.PreferenceMatcher{
+					InferFromVolume: inferVolumeName,
 				},
 			),
 			Entry("with unknown DataVolume and PersistentVolumeClaim for InstancetypeMatcher",
@@ -647,6 +777,17 @@ var _ = Describe("VirtualMachine Mutator", func() {
 				}, fmt.Sprintf("persistentvolumeclaims \"%s\" not found", unknownDVName),
 				&v1.InstancetypeMatcher{
 					InferFromVolume: inferVolumeName,
+				}, nil,
+			),
+			Entry("with unknown DataVolume and PersistentVolumeClaim for PreferenceMatcher",
+				v1.VolumeSource{
+					DataVolume: &v1.DataVolumeSource{
+						Name: unknownDVName,
+					},
+				}, fmt.Sprintf("persistentvolumeclaims \"%s\" not found", unknownDVName),
+				nil,
+				&v1.PreferenceMatcher{
+					InferFromVolume: inferVolumeName,
 				},
 			),
 			Entry("with unsupported VolumeSource type for InstancetypeMatcher",
@@ -656,12 +797,23 @@ var _ = Describe("VirtualMachine Mutator", func() {
 				fmt.Sprintf("unable to infer defaults from volume %s as type is not supported", inferVolumeName),
 				&v1.InstancetypeMatcher{
 					InferFromVolume: inferVolumeName,
+				}, nil,
+			),
+			Entry("with unsupported VolumeSource type for PreferenceMatcher",
+				v1.VolumeSource{
+					Secret: &v1.SecretVolumeSource{},
+				},
+				fmt.Sprintf("unable to infer defaults from volume %s as type is not supported", inferVolumeName),
+				nil,
+				&v1.PreferenceMatcher{
+					InferFromVolume: inferVolumeName,
 				},
 			),
 		)
 
-		DescribeTable("should fail to infer defaults from DataVolume with an unsupported DataVolumeSource", func(instancetypeMatcher *v1.InstancetypeMatcher) {
+		DescribeTable("should fail to infer defaults from DataVolume with an unsupported DataVolumeSource", func(instancetypeMatcher *v1.InstancetypeMatcher, preferenceMatcher *v1.PreferenceMatcher) {
 			vm.Spec.Instancetype = instancetypeMatcher
+			vm.Spec.Preference = preferenceMatcher
 			dvWithUnsupportedSource := &v1beta1.DataVolume{
 				ObjectMeta: k8smetav1.ObjectMeta{
 					Name:      "dvWithSourceRef",
@@ -691,12 +843,19 @@ var _ = Describe("VirtualMachine Mutator", func() {
 			Entry("for InstancetypeMatcher",
 				&v1.InstancetypeMatcher{
 					InferFromVolume: inferVolumeName,
+				}, nil,
+			),
+			Entry("for PreferenceMatcher",
+				nil,
+				&v1.PreferenceMatcher{
+					InferFromVolume: inferVolumeName,
 				},
 			),
 		)
 
-		DescribeTable("should fail to infer defaults from DataVolume with an unknown DataVolumeSourceRef Kind", func(instancetypeMatcher *v1.InstancetypeMatcher) {
+		DescribeTable("should fail to infer defaults from DataVolume with an unknown DataVolumeSourceRef Kind", func(instancetypeMatcher *v1.InstancetypeMatcher, preferenceMatcher *v1.PreferenceMatcher) {
 			vm.Spec.Instancetype = instancetypeMatcher
+			vm.Spec.Preference = preferenceMatcher
 			dvWithUnknownSourceRefKind := &v1beta1.DataVolume{
 				ObjectMeta: k8smetav1.ObjectMeta{
 					Name:      "dvWithSourceRef",
@@ -726,12 +885,19 @@ var _ = Describe("VirtualMachine Mutator", func() {
 			Entry("for InstancetypeMatcher",
 				&v1.InstancetypeMatcher{
 					InferFromVolume: inferVolumeName,
+				}, nil,
+			),
+			Entry("for PreferenceMatcher",
+				nil,
+				&v1.PreferenceMatcher{
+					InferFromVolume: inferVolumeName,
 				},
 			),
 		)
 
-		DescribeTable("should fail to infer defaults from DataSource missing DataVolumeSourcePVC", func(instancetypeMatcher *v1.InstancetypeMatcher) {
+		DescribeTable("should fail to infer defaults from DataSource missing DataVolumeSourcePVC", func(instancetypeMatcher *v1.InstancetypeMatcher, preferenceMatcher *v1.PreferenceMatcher) {
 			vm.Spec.Instancetype = instancetypeMatcher
+			vm.Spec.Preference = preferenceMatcher
 			dsWithoutSourcePVC := &v1beta1.DataSource{
 				ObjectMeta: k8smetav1.ObjectMeta{
 					Name:      "dsWithoutSourcePVC",
@@ -771,12 +937,19 @@ var _ = Describe("VirtualMachine Mutator", func() {
 			Entry("for InstancetypeMatcher",
 				&v1.InstancetypeMatcher{
 					InferFromVolume: inferVolumeName,
+				}, nil,
+			),
+			Entry("for PreferenceMatcher",
+				nil,
+				&v1.PreferenceMatcher{
+					InferFromVolume: inferVolumeName,
 				},
 			),
 		)
 
-		DescribeTable("should fail to infer defaults from PersistentVolumeClaim without default instance type annotation", func(instancetypeMatcher *v1.InstancetypeMatcher) {
+		DescribeTable("should fail to infer defaults from PersistentVolumeClaim without default instance type annotation", func(instancetypeMatcher *v1.InstancetypeMatcher, preferenceMatcher *v1.PreferenceMatcher, requiredAnnotation string) {
 			vm.Spec.Instancetype = instancetypeMatcher
+			vm.Spec.Preference = preferenceMatcher
 			pvcWithoutAnnotations := &k8sv1.PersistentVolumeClaim{
 				ObjectMeta: k8smetav1.ObjectMeta{
 					Name:      "pvcWithoutAnnotations",
@@ -797,12 +970,18 @@ var _ = Describe("VirtualMachine Mutator", func() {
 			}}
 			resp := admitVM()
 			Expect(resp.Allowed).To(BeFalse())
-			Expect(resp.Result.Message).To(ContainSubstring("unable to find required %s annotation on the volume", apiinstancetype.DefaultInstancetypeAnnotation))
+			Expect(resp.Result.Message).To(ContainSubstring("unable to find required %s annotation on the volume", requiredAnnotation))
 		},
 			Entry("for InstancetypeMatcher",
 				&v1.InstancetypeMatcher{
 					InferFromVolume: inferVolumeName,
-				},
+				}, nil, apiinstancetype.DefaultInstancetypeAnnotation,
+			),
+			Entry("for PreferenceMatcher",
+				nil,
+				&v1.PreferenceMatcher{
+					InferFromVolume: inferVolumeName,
+				}, apiinstancetype.DefaultPreferenceAnnotation,
 			),
 		)
 	})

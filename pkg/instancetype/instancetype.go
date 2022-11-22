@@ -34,6 +34,7 @@ type Methods interface {
 	FindPreferenceSpec(vm *virtv1.VirtualMachine) (*instancetypev1alpha2.VirtualMachinePreferenceSpec, error)
 	StoreControllerRevisions(vm *virtv1.VirtualMachine) error
 	InferDefaultInstancetype(vm *virtv1.VirtualMachine) (*virtv1.InstancetypeMatcher, error)
+	InferDefaultPreference(vm *virtv1.VirtualMachine) (*virtv1.PreferenceMatcher, error)
 }
 
 type Conflicts []*k8sfield.Path
@@ -532,6 +533,20 @@ func (m *methods) InferDefaultInstancetype(vm *virtv1.VirtualMachine) (*virtv1.I
 		return nil, err
 	}
 	return &v1.InstancetypeMatcher{
+		Name: defaultName,
+		Kind: defaultKind,
+	}, nil
+}
+
+func (m *methods) InferDefaultPreference(vm *virtv1.VirtualMachine) (*virtv1.PreferenceMatcher, error) {
+	if vm.Spec.Preference == nil || vm.Spec.Preference.InferFromVolume == "" {
+		return nil, nil
+	}
+	defaultName, defaultKind, err := m.inferDefaultsFromVolumes(vm, vm.Spec.Preference.InferFromVolume, apiinstancetype.DefaultPreferenceAnnotation, apiinstancetype.DefaultPreferenceKindAnnotation)
+	if err != nil {
+		return nil, err
+	}
+	return &v1.PreferenceMatcher{
 		Name: defaultName,
 		Kind: defaultKind,
 	}, nil
