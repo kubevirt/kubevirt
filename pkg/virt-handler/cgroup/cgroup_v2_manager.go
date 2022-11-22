@@ -22,6 +22,7 @@ type v2Manager struct {
 	runc_cgroups.Manager
 	dirPath        string
 	isRootless     bool
+	deviceRules    []*devices.Rule
 	execVirtChroot execVirtChrootFunc
 }
 
@@ -31,14 +32,20 @@ func newV2Manager(config *runc_configs.Cgroup, dirPath string) (Manager, error) 
 		return nil, err
 	}
 
-	return newCustomizedV2Manager(runcManager, config.Rootless, execVirtChrootCgroups)
+	return newCustomizedV2Manager(runcManager, config.Rootless, config.Resources.Devices, execVirtChrootCgroups)
 }
 
-func newCustomizedV2Manager(runcManager runc_cgroups.Manager, isRootless bool, execVirtChroot execVirtChrootFunc) (Manager, error) {
+func newCustomizedV2Manager(
+	runcManager runc_cgroups.Manager,
+	isRootless bool,
+	deviceRules []*devices.Rule,
+	execVirtChroot execVirtChrootFunc,
+) (Manager, error) {
 	manager := v2Manager{
 		runcManager,
 		runcManager.GetPaths()[""],
 		isRootless,
+		deviceRules,
 		execVirtChroot,
 	}
 
@@ -55,6 +62,7 @@ func (v *v2Manager) Set(r *runc_configs.Resources) error {
 
 	//Add default rules
 	resourcesToSet.Devices = append(resourcesToSet.Devices, GenerateDefaultDeviceRules()...)
+	resourcesToSet.Devices = append(resourcesToSet.Devices, v.deviceRules...)
 
 	rulesToSet, err := addCurrentRules(rulesPerPid[v.dirPath], resourcesToSet.Devices)
 	if err != nil {
