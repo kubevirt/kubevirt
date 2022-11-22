@@ -727,15 +727,7 @@ var _ = Describe("[rfe_id:393][crit:high][vendor:cnv-qe@redhat.com][level:system
 				By("Checking that the VirtualMachineInstance console has expected output")
 				Expect(console.LoginToAlpine(vmi)).To(Succeed())
 
-				gotExpectedCondition := false
-				for _, c := range vmi.Status.Conditions {
-					if c.Type == v1.VirtualMachineInstanceIsMigratable {
-						Expect(c.Status).To(Equal(k8sv1.ConditionFalse))
-						gotExpectedCondition = true
-					}
-				}
-
-				Expect(gotExpectedCondition).Should(BeTrue())
+				Expect(vmi).To(HaveConditionFalse(v1.VirtualMachineInstanceIsMigratable))
 
 				// execute a migration, wait for finalized state
 				migration := tests.NewRandomMigration(vmi.Name, vmi.Namespace)
@@ -1492,15 +1484,7 @@ var _ = Describe("[rfe_id:393][crit:high][vendor:cnv-qe@redhat.com][level:system
 				By("Checking that the VirtualMachineInstance console has expected output")
 				Expect(console.LoginToAlpine(vmi)).To(Succeed())
 
-				gotExpectedCondition := false
-				for _, c := range vmi.Status.Conditions {
-					if c.Type == v1.VirtualMachineInstanceIsMigratable {
-						Expect(c.Status).To(Equal(k8sv1.ConditionFalse))
-						gotExpectedCondition = true
-					}
-				}
-
-				Expect(gotExpectedCondition).Should(BeTrue())
+				Expect(vmi).Should(matcher.HaveConditionFalse(v1.VirtualMachineInstanceIsMigratable))
 
 				// execute a migration, wait for finalized state
 				migration := tests.NewRandomMigration(vmi.Name, vmi.Namespace)
@@ -2600,15 +2584,7 @@ var _ = Describe("[rfe_id:393][crit:high][vendor:cnv-qe@redhat.com][level:system
 				By("Checking that the VirtualMachineInstance console has expected output")
 				Expect(console.LoginToAlpine(vmi)).To(Succeed())
 
-				gotExpectedCondition := false
-				for _, c := range vmi.Status.Conditions {
-					if c.Type == v1.VirtualMachineInstanceIsMigratable {
-						Expect(c.Status).To(Equal(k8sv1.ConditionFalse))
-						gotExpectedCondition = true
-					}
-				}
-
-				Expect(gotExpectedCondition).Should(BeTrue())
+				Expect(vmi).Should(HaveConditionFalse(v1.VirtualMachineInstanceIsMigratable))
 
 				// execute a migration, wait for finalized state
 				migration := tests.NewRandomMigration(vmi.Name, vmi.Namespace)

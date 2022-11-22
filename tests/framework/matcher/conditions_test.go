@@ -97,4 +97,26 @@ var _ = Describe("Condition matcher", func() {
 		)
 	})
 
+	Context("False", func() {
+		DescribeTable("should work with", func(matcher types.GomegaMatcher, obj interface{}, shouldMatch bool) {
+			match, err := matcher.Match(obj)
+			Expect(err).ToNot(HaveOccurred())
+			Expect(match).To(Equal(shouldMatch))
+		},
+			Entry("pod that has positive condition", HaveConditionFalse(k8sv1.PodReady), readyPod, false),
+			Entry("pod that has negative condition", HaveConditionFalse(k8sv1.PodReady), notReadyPod, true),
+			Entry("pod that is missing condition", HaveConditionFalse(k8sv1.PodReady), missingReadyPod, false),
+
+			Entry("vmi that has positive condition", HaveConditionFalse(v1.VirtualMachineInstancePaused), pausedVMI, false),
+			Entry("vmi that has negative condition", HaveConditionFalse(v1.VirtualMachineInstancePaused), notPausedVMI, true),
+			Entry("vmi that is missing condition", HaveConditionFalse(v1.VirtualMachineInstancePaused), missingPausedVMI, false),
+			Entry("vmi that is missing conditions", HaveConditionFalse(v1.VirtualMachineInstancePaused), missingConditionsVMI, false),
+
+			Entry("condition type as string", HaveConditionFalse("Paused"), notPausedVMI, true),
+			Entry("with nil object", HaveConditionFalse(v1.VirtualMachineInstancePaused), nilVMI, false),
+			Entry("with nil", HaveConditionFalse(v1.VirtualMachineInstancePaused), nil, false),
+			Entry("with nil as condition type", HaveConditionFalse(nil), nil, false),
+		)
+	})
+
 })

@@ -28,6 +28,14 @@ func HaveConditionTrue(conditionType interface{}) types.GomegaMatcher {
 	}
 }
 
+func HaveConditionFalse(conditionType interface{}) types.GomegaMatcher {
+	return conditionMatcher{
+		expectedType:          conditionType,
+		expectedStatus:        k8sv1.ConditionFalse,
+		conditionCanBeMissing: false,
+	}
+}
+
 type conditionMatcher struct {
 	expectedType          interface{}
 	expectedStatus        k8sv1.ConditionStatus
