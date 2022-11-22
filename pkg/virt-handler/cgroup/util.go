@@ -4,21 +4,28 @@ import (
 	"bufio"
 	"encoding/base64"
 	"encoding/json"
+	"errors"
 	"fmt"
 	"os"
 	"os/exec"
 	"path/filepath"
 	"strconv"
 	"strings"
+	"syscall"
 
 	"github.com/opencontainers/runc/libcontainer/cgroups"
+	"golang.org/x/sys/unix"
 
 	"github.com/opencontainers/runc/libcontainer/devices"
 
 	runc_cgroups "github.com/opencontainers/runc/libcontainer/cgroups"
 	runc_configs "github.com/opencontainers/runc/libcontainer/configs"
 
+	v1 "kubevirt.io/api/core/v1"
 	"kubevirt.io/client-go/log"
+
+	"kubevirt.io/kubevirt/pkg/safepath"
+	"kubevirt.io/kubevirt/pkg/virt-handler/isolation"
 )
 
 type CgroupVersion string
@@ -82,6 +89,56 @@ func addCurrentRules(currentRules, newRules []*devices.Rule) ([]*devices.Rule, e
 	}
 
 	return newRules, nil
+}
+
+func generateDeviceRulesForVMI(vmi *v1.VirtualMachineInstance, isolationRes isolation.IsolationResult) ([]*devices.Rule, error) {
+	mountRoot, err := isolationRes.MountRoot()
+	if err != nil {
+		return nil, err
+	}
+
+	var vmiDeviceRules []*devices.Rule
+	for _, volume := range vmi.Spec.Volumes {
+		if volume.VolumeSource.PersistentVolumeClaim != nil {
+			if volume.VolumeSource.PersistentVolumeClaim.Hotpluggable {
+				continue
+			}
+		} else if volume.VolumeSource.DataVolume != nil {
+			if volume.VolumeSource.DataVolume.Hotpluggable {
+				continue
+			}
+		} else if volume.VolumeSource.Ephemeral != nil {
+		} else {
+			continue
+		}
+		path, err := safepath.JoinNoFollow(mountRoot, filepath.Join("dev", volume.Name))
+		if err != nil {
+			if errors.Is(err, os.ErrNotExist) {
+				continue
+			}
+			return nil, fmt.Errorf("failed to resolve path for volume %s: %v", volume.Name, err)
+		}
+		fileInfo, err := safepath.StatAtNoFollow(path)
+		if err != nil {
+			if errors.Is(err, os.ErrNotExist) {
+				continue
+			}
+			return nil, fmt.Errorf("failed to stat path %s: %v", path, err)
+		}
+		if (fileInfo.Mode() & os.ModeDevice) != 0 {
+			info := fileInfo.Sys().(*syscall.Stat_t)
+			deviceRule := &devices.Rule{
+				Type:        devices.BlockDevice,
+				Major:       int64(unix.Major(info.Rdev)),
+				Minor:       int64(unix.Minor(info.Rdev)),
+				Permissions: "rwm",
+				Allow:       true,
+			}
+			log.Log.V(loggingVerbosity).Infof("device rule for volume %s: %v", volume.Name, deviceRule)
+			vmiDeviceRules = append(vmiDeviceRules, deviceRule)
+		}
+	}
+	return vmiDeviceRules, nil
 }
 
 func GenerateDefaultDeviceRules() []*devices.Rule {
