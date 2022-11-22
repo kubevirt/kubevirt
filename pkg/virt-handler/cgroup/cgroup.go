@@ -30,6 +30,7 @@ import (
 
 	runc_cgroups "github.com/opencontainers/runc/libcontainer/cgroups"
 	"github.com/opencontainers/runc/libcontainer/configs"
+	"github.com/opencontainers/runc/libcontainer/devices"
 
 	v1 "kubevirt.io/api/core/v1"
 
@@ -89,9 +90,9 @@ func managerPath(taskPath string) string {
 	return retPath
 }
 
-// NewManagerFromPid initializes a new cgroup manager from VMI's pid.
+// newManagerFromPid initializes a new cgroup manager from VMI's pid.
 // The pid is expected to VMI's pid from the host's viewpoint.
-func NewManagerFromPid(pid int) (manager Manager, err error) {
+func newManagerFromPid(pid int, deviceRules []*devices.Rule) (manager Manager, err error) {
 	const isRootless = false
 	var version CgroupVersion
 
@@ -102,9 +103,11 @@ func NewManagerFromPid(pid int) (manager Manager, err error) {
 	}
 
 	config := &configs.Cgroup{
-		Path:      HostCgroupBasePath,
-		Resources: &configs.Resources{},
-		Rootless:  isRootless,
+		Path: HostCgroupBasePath,
+		Resources: &configs.Resources{
+			Devices: deviceRules,
+		},
+		Rootless: isRootless,
 	}
 
 	if runc_cgroups.IsCgroup2UnifiedMode() {
@@ -140,7 +143,12 @@ func NewManagerFromVM(vmi *v1.VirtualMachineInstance) (Manager, error) {
 		return nil, err
 	}
 
-	return NewManagerFromPid(isolationRes.Pid())
+	vmiDeviceRules, err := generateDeviceRulesForVMI(vmi, isolationRes)
+	if err != nil {
+		return nil, err
+	}
+
+	return newManagerFromPid(isolationRes.Pid(), vmiDeviceRules)
 }
 
 // GetGlobalCpuSetPath returns the CPU set of the main cgroup slice
