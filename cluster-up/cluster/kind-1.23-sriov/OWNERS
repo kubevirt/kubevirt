@@ -1,0 +1,10 @@
+filters:
+  ".*":
+    reviewers:
+      - qinqon
+      - oshoval
+      - phoracek
+      - ormergi
+    approvers:
+      - qinqon
+      - phoracek

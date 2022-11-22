@@ -4,6 +4,7 @@ set -e
 
 KUBEVIRT_WITH_ETC_IN_MEMORY=${KUBEVIRT_WITH_ETC_IN_MEMORY:-false}
 KUBEVIRT_WITH_ETC_CAPACITY=${KUBEVIRT_WITH_ETC_CAPACITY:-none}
+KUBEVIRT_DNS_HOST_PORT=${KUBEVIRT_DNS_HOST_PORT:-31111}
 
 export KUBEVIRTCI_PODMAN_SOCKET=${KUBEVIRTCI_PODMAN_SOCKET:-"/run/podman/podman.sock"}
 
@@ -87,6 +88,9 @@ function _registry_volume() {
 function _add_common_params() {
     # shellcheck disable=SC2155
     local params="--nodes ${KUBEVIRT_NUM_NODES} --memory ${KUBEVIRT_MEMORY_SIZE} --cpu 6 --secondary-nics ${KUBEVIRT_NUM_SECONDARY_NICS} --random-ports --background --prefix $provider_prefix ${KUBEVIRT_PROVIDER} ${KUBEVIRT_PROVIDER_EXTRA_ARGS}"
+
+    params=" --dns-port $KUBEVIRT_DNS_HOST_PORT $params"
+
     if [[ $TARGET =~ windows_sysprep.* ]] && [ -n "$WINDOWS_SYSPREP_NFS_DIR" ]; then
         params=" --nfs-data $WINDOWS_SYSPREP_NFS_DIR $params"
     elif [[ $TARGET =~ windows.* ]] && [ -n "$WINDOWS_NFS_DIR" ]; then
