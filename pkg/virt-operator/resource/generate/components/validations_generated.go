@@ -10862,18 +10862,6 @@ var CRDsValidation map[string]string = map[string]string{
               hotplugInterface:
                 description: If the interface is hot plugged, this will contain the
                   hotplug status.
-                properties:
-                  detailedMessage:
-                    description: DetailedMessage has more information in case of failed
-                      operations.
-                    type: string
-                  phase:
-                    description: Phase are specific phases for the hotplug volume.
-                    type: string
-                  type:
-                    description: Type differentiates between add / remove interface
-                      scenarios.
-                    type: string
                 type: object
               infoSource:
                 description: 'Specifies the origin of the interface data collected.

@@ -154,10 +154,7 @@ func (VirtualMachineInstanceNetworkInterface) SwaggerDoc() map[string]string {
 
 func (HotplugInterfaceStatus) SwaggerDoc() map[string]string {
 	return map[string]string{
-		"":                "HotplugInterfaceStatus represents the hotplug status of the interface",
-		"phase":           "Phase are specific phases for the hotplug volume.",
-		"type":            "Type differentiates between add / remove interface scenarios.",
-		"detailedMessage": "DetailedMessage has more information in case of failed operations.",
+		"": "HotplugInterfaceStatus represents the hotplug status of the interface",
 	}
 }
 

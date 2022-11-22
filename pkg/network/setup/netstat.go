@@ -188,7 +188,7 @@ func ifaceStatusFromDomainIface(domainSpecIface api.Interface) v1.VirtualMachine
 		QueueCount: domainInterfaceQueues(domainSpecIface.Driver),
 	}
 	if IsDomainIfaceAnHotpluggedIface(domainSpecIface) {
-		ifaceStatus.HotplugInterface = &v1.HotplugInterfaceStatus{Type: v1.Plug, Phase: v1.InterfaceHotplugPhaseReady}
+		ifaceStatus.HotplugInterface = &v1.HotplugInterfaceStatus{}
 	}
 	return ifaceStatus
 }

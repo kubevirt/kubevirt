@@ -580,32 +580,7 @@ type VirtualMachineInstanceNetworkInterface struct {
 
 // HotplugInterfaceStatus represents the hotplug status of the interface
 type HotplugInterfaceStatus struct {
-	// Phase are specific phases for the hotplug volume.
-	Phase InterfaceHotplugPhase `json:"phase,omitempty"`
-
-	// Type differentiates between add / remove interface scenarios.
-	Type OperationType `json:"type,omitempty"`
-
-	// DetailedMessage has more information in case of failed operations.
-	DetailedMessage string `json:"detailedMessage,omitempty"`
 }
-
-type OperationType string
-
-const (
-	Plug   OperationType = "PlugIface"
-	Unplug OperationType = "UnplugIface"
-)
-
-type InterfaceHotplugPhase string
-
-const (
-	InterfaceHotplugPhasePending       InterfaceHotplugPhase = "Pending"
-	InterfaceHotplugPhaseAttachedToPod InterfaceHotplugPhase = "PodIfaceReady"
-	InterfaceHotplugPhaseInfraReady    InterfaceHotplugPhase = "PodInfraReady"
-	InterfaceHotplugPhaseReady         InterfaceHotplugPhase = "Ready"
-	InterfaceHotplugPhaseFailed        InterfaceHotplugPhase = "Failed"
-)
 
 type VirtualMachineInstanceGuestOSInfo struct {
 	// Name of the Guest OS

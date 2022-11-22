@@ -16994,29 +16994,6 @@ func schema_kubevirtio_api_core_v1_HotplugInterfaceStatus(ref common.ReferenceCa
 			SchemaProps: spec.SchemaProps{
 				Description: "HotplugInterfaceStatus represents the hotplug status of the interface",
 				Type:        []string{"object"},
-				Properties: map[string]spec.Schema{
-					"phase": {
-						SchemaProps: spec.SchemaProps{
-							Description: "Phase are specific phases for the hotplug volume.",
-							Type:        []string{"string"},
-							Format:      "",
-						},
-					},
-					"type": {
-						SchemaProps: spec.SchemaProps{
-							Description: "Type differentiates between add / remove interface scenarios.",
-							Type:        []string{"string"},
-							Format:      "",
-						},
-					},
-					"detailedMessage": {
-						SchemaProps: spec.SchemaProps{
-							Description: "DetailedMessage has more information in case of failed operations.",
-							Type:        []string{"string"},
-							Format:      "",
-						},
-					},
-				},
 			},
 		},
 	}

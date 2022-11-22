@@ -3204,67 +3204,6 @@ var _ = Describe("VirtualMachineInstance watcher", func() {
 						Name: hotpluggedNetworkName(networkName, ifaceName),
 					}),
 			)
-
-			DescribeTable("updateInterfaceStatus", func(vmi *virtv1.VirtualMachineInstance, ifaceStatus ...PodVmIfaceStatus) {
-				var (
-					podIfaceStatus []networkv1.NetworkStatus
-					vmIfaceStatus  []virtv1.VirtualMachineInstanceNetworkInterface
-				)
-				for i, ifaceState := range ifaceStatus {
-					if ifaceState.podIfaceStatus != nil {
-						podIfaceStatus = append(podIfaceStatus, *ifaceStatus[i].podIfaceStatus)
-					}
-					if ifaceState.vmIfaceStatus != nil {
-						vmIfaceStatus = append(vmIfaceStatus, *ifaceStatus[i].vmIfaceStatus)
-					}
-				}
-
-				Expect(controller.updateInterfaceStatus(vmi, NewPodForVirtualMachine(vmi, k8sv1.PodRunning, podIfaceStatus...))).To(Succeed())
-				Expect(vmi.Status.Interfaces).To(ConsistOf(vmIfaceStatus))
-			},
-				Entry("VMI without interfaces on spec does not generate new interface status", api.NewMinimalVMI(vmName)),
-				Entry("VMI with an interface on spec (not matched on status) generates new interface status",
-					newVMIWithOneIface(api.NewMinimalVMI(vmName), networkName, ifaceName),
-					PodVmIfaceStatus{
-						vmIfaceStatus: hotpluggedIfaceStatus(networkName, ifaceName, virtv1.InterfaceHotplugPhasePending, virtv1.Plug),
-					}),
-				Entry("VMI with an interface on spec (matched on status) does not generate new interface status",
-					newVMIWithOneIfaceStatus(newVMIWithOneIface(api.NewMinimalVMI(vmName), networkName, ifaceName), networkName, ifaceName),
-					PodVmIfaceStatus{
-						vmIfaceStatus: simpleIfaceStatus(networkName, ifaceName),
-					}),
-				Entry("VMI with a request on status but missing on spec is a hot-unplug request",
-					newVMIWithOneIfaceStatus(api.NewMinimalVMI(vmName), networkName, ifaceName),
-					PodVmIfaceStatus{
-						vmIfaceStatus: hotpluggedIfaceStatus(networkName, ifaceName, virtv1.InterfaceHotplugPhasePending, virtv1.Unplug),
-					}),
-				Entry("preserve hot plug status",
-					newVMIWithOneHotpluggedIfaceStatus(
-						newVMIWithOneIface(api.NewMinimalVMI(vmName), networkName, ifaceName),
-						networkName,
-						ifaceName,
-						virtv1.InterfaceHotplugPhaseInfraReady,
-						virtv1.Plug,
-					),
-					PodVmIfaceStatus{
-						vmIfaceStatus: hotpluggedIfaceStatus(networkName, ifaceName, virtv1.InterfaceHotplugPhaseInfraReady, virtv1.Plug),
-					}),
-				Entry("preserve hot plug status",
-					newVMIWithOneHotpluggedIfaceStatus(
-						newVMIWithOneIface(api.NewMinimalVMI(vmName), networkName, ifaceName),
-						networkName,
-						ifaceName,
-						virtv1.InterfaceHotplugPhasePending,
-						virtv1.Plug,
-					),
-					PodVmIfaceStatus{
-						vmIfaceStatus: hotpluggedIfaceStatus(networkName, ifaceName, virtv1.InterfaceHotplugPhaseAttachedToPod, virtv1.Plug),
-						podIfaceStatus: &networkv1.NetworkStatus{
-							Name:      "meganet_iface1",
-							Interface: "net53add56f43e6",
-						},
-					}),
-			)
 		})
 	})
 })
@@ -3562,12 +3501,13 @@ func newVMIWithOneHotpluggedIfaceStatus(
 	vmi *virtv1.VirtualMachineInstance,
 	networkName string,
 	ifaceName string,
-	phase virtv1.InterfaceHotplugPhase,
-	plugType virtv1.OperationType,
+	//phase virtv1.InterfaceHotplugPhase,
+	//plugType virtv1.OperationType,
 ) *virtv1.VirtualMachineInstance {
 	vmi.Status.Interfaces = append(
 		vmi.Status.Interfaces,
-		*hotpluggedIfaceStatus(networkName, ifaceName, phase, plugType),
+		*hotpluggedIfaceStatus(networkName, ifaceName),
+		//*hotpluggedIfaceStatus(networkName, ifaceName, phase, plugType),
 	)
 	return vmi
 }
@@ -3587,12 +3527,13 @@ func simpleIfaceStatus(networkName string, ifaceName string) *virtv1.VirtualMach
 func hotpluggedIfaceStatus(
 	networkName string,
 	ifaceName string,
-	phase virtv1.InterfaceHotplugPhase,
-	plugType virtv1.OperationType,
+	//phase virtv1.InterfaceHotplugPhase,
+	//plugType virtv1.OperationType,
 ) *virtv1.VirtualMachineInstanceNetworkInterface {
 	return &virtv1.VirtualMachineInstanceNetworkInterface{
 		Name:             hotpluggedNetworkName(networkName, ifaceName),
 		InterfaceName:    ifaceName,
-		HotplugInterface: &virtv1.HotplugInterfaceStatus{Phase: phase, Type: plugType},
+		HotplugInterface: &virtv1.HotplugInterfaceStatus{},
+		//HotplugInterface: &virtv1.HotplugInterfaceStatus{Phase: phase, Type: plugType},
 	}
 }

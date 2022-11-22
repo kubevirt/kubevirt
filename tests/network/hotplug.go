@@ -85,14 +85,11 @@ var _ = SIGDescribe("Network interface hotplug", func() {
 				WithTransform(
 					CleanMACAddressesFromStatus,
 					ConsistOf(v1.VirtualMachineInstanceNetworkInterface{
-						Name:          hotpluggedNetworkInterfaceName(networkName, ifaceName),
-						InterfaceName: "eth1",
-						InfoSource:    "domain, guest-agent",
-						QueueCount:    1,
-						HotplugInterface: &v1.HotplugInterfaceStatus{
-							Phase: v1.InterfaceHotplugPhaseReady,
-							Type:  v1.Plug,
-						},
+						Name:             hotpluggedNetworkInterfaceName(networkName, ifaceName),
+						InterfaceName:    "eth1",
+						InfoSource:       "domain, guest-agent",
+						QueueCount:       1,
+						HotplugInterface: &v1.HotplugInterfaceStatus{},
 					})))
 			Expect(assertHotpluggedIfaceExists(vmi, "eth1")).To(Succeed())
 		})
@@ -118,14 +115,11 @@ var _ = SIGDescribe("Network interface hotplug", func() {
 					CleanMACAddressesFromStatus,
 					ConsistOf(
 						v1.VirtualMachineInstanceNetworkInterface{
-							Name:          hotpluggedNetworkInterfaceName(networkName, ifaceName),
-							InterfaceName: "eth1",
-							InfoSource:    "domain, guest-agent",
-							QueueCount:    1,
-							HotplugInterface: &v1.HotplugInterfaceStatus{
-								Phase: v1.InterfaceHotplugPhaseReady,
-								Type:  v1.Plug,
-							},
+							Name:             hotpluggedNetworkInterfaceName(networkName, ifaceName),
+							InterfaceName:    "eth1",
+							InfoSource:       "domain, guest-agent",
+							QueueCount:       1,
+							HotplugInterface: &v1.HotplugInterfaceStatus{},
 						})))
 
 			By("hotplugging the second interface")
@@ -147,22 +141,22 @@ var _ = SIGDescribe("Network interface hotplug", func() {
 					CleanMACAddressesFromStatus,
 					ConsistOf(
 						v1.VirtualMachineInstanceNetworkInterface{
-							Name:          hotpluggedNetworkInterfaceName(networkName, ifaceName),
-							InterfaceName: "eth1",
-							InfoSource:    "domain, guest-agent",
-							QueueCount:    1,
+							Name:             hotpluggedNetworkInterfaceName(networkName, ifaceName),
+							InterfaceName:    "eth1",
+							InfoSource:       "domain, guest-agent",
+							QueueCount:       1,
 							HotplugInterface: &v1.HotplugInterfaceStatus{
-								Phase: v1.InterfaceHotplugPhaseReady,
-								Type:  v1.Plug,
+								//Phase: v1.InterfaceHotplugPhaseReady,
+								//Type:  v1.Plug,
 							},
 						},
 						v1.VirtualMachineInstanceNetworkInterface{
-							Name:          hotpluggedNetworkInterfaceName(networkName, secondHotpluggedIfaceName),
-							InterfaceName: secondHotpluggedIfaceName,
+							Name:             hotpluggedNetworkInterfaceName(networkName, secondHotpluggedIfaceName),
+							InterfaceName:    secondHotpluggedIfaceName,
 							HotplugInterface: &v1.HotplugInterfaceStatus{
-								Phase:           v1.InterfaceHotplugPhaseFailed,
-								Type:            v1.Plug,
-								DetailedMessage: noAvailablePCISlotsError(),
+								//Phase:           v1.InterfaceHotplugPhaseFailed,
+								//Type:            v1.Plug,
+								//DetailedMessage: noAvailablePCISlotsError(),
 							},
 						})))
 		})
@@ -199,13 +193,13 @@ var _ = SIGDescribe("Network interface hotplug", func() {
 					CleanMACAddressesFromStatus,
 					ConsistOf(
 						v1.VirtualMachineInstanceNetworkInterface{
-							Name:          hotpluggedNetworkInterfaceName(networkName, ifaceName),
-							InterfaceName: "eth1",
-							InfoSource:    "domain, guest-agent",
-							QueueCount:    1,
+							Name:             hotpluggedNetworkInterfaceName(networkName, ifaceName),
+							InterfaceName:    "eth1",
+							InfoSource:       "domain, guest-agent",
+							QueueCount:       1,
 							HotplugInterface: &v1.HotplugInterfaceStatus{
-								Phase: v1.InterfaceHotplugPhaseReady,
-								Type:  v1.Plug,
+								//Phase: v1.InterfaceHotplugPhaseReady,
+								//Type:  v1.Plug,
 							},
 						})))
 
@@ -228,23 +222,23 @@ var _ = SIGDescribe("Network interface hotplug", func() {
 					CleanMACAddressesFromStatus,
 					ConsistOf(
 						v1.VirtualMachineInstanceNetworkInterface{
-							Name:          hotpluggedNetworkInterfaceName(networkName, ifaceName),
-							InterfaceName: "eth1",
-							InfoSource:    "domain, guest-agent",
-							QueueCount:    1,
+							Name:             hotpluggedNetworkInterfaceName(networkName, ifaceName),
+							InterfaceName:    "eth1",
+							InfoSource:       "domain, guest-agent",
+							QueueCount:       1,
 							HotplugInterface: &v1.HotplugInterfaceStatus{
-								Phase: v1.InterfaceHotplugPhaseReady,
-								Type:  v1.Plug,
+								//Phase: v1.InterfaceHotplugPhaseReady,
+								//Type:  v1.Plug,
 							},
 						},
 						v1.VirtualMachineInstanceNetworkInterface{
-							Name:          hotpluggedNetworkInterfaceName(networkName, secondHotpluggedIfaceName),
-							InterfaceName: "eth2",
-							InfoSource:    "domain, guest-agent",
-							QueueCount:    1,
+							Name:             hotpluggedNetworkInterfaceName(networkName, secondHotpluggedIfaceName),
+							InterfaceName:    "eth2",
+							InfoSource:       "domain, guest-agent",
+							QueueCount:       1,
 							HotplugInterface: &v1.HotplugInterfaceStatus{
-								Phase: v1.InterfaceHotplugPhaseReady,
-								Type:  v1.Plug,
+								//Phase: v1.InterfaceHotplugPhaseReady,
+								//Type:  v1.Plug,
 							},
 						})))
 		})
@@ -295,23 +289,16 @@ var _ = SIGDescribe("Network interface hotplug", func() {
 					CleanMACAddressesFromStatus,
 					ConsistOf(
 						v1.VirtualMachineInstanceNetworkInterface{
-							Name:          hotpluggedNetworkInterfaceName(networkName, ifaceName),
-							InterfaceName: "eth1",
-							InfoSource:    "domain, guest-agent",
-							QueueCount:    1,
-							HotplugInterface: &v1.HotplugInterfaceStatus{
-								Phase: v1.InterfaceHotplugPhaseReady,
-								Type:  v1.Plug,
-							},
+							Name:             hotpluggedNetworkInterfaceName(networkName, ifaceName),
+							InterfaceName:    "eth1",
+							InfoSource:       "domain, guest-agent",
+							QueueCount:       1,
+							HotplugInterface: &v1.HotplugInterfaceStatus{},
 						})))
 			Expect(assertHotpluggedIfaceExists(vmi, "eth1")).To(Succeed())
 		})
 	})
 })
-
-func noAvailablePCISlotsError() string {
-	return "failed to update domain: server error. command SyncVMI failed: \"LibvirtError(Code=1, Domain=20, Message='internal error: No more available PCI slots')\""
-}
 
 func assertHotpluggedIfaceExists(vmi *v1.VirtualMachineInstance, ifaceName string) error {
 	return runSafeCommand(vmi, fmt.Sprintf("ip addr show %s\n", ifaceName))
