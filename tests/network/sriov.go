@@ -90,6 +90,16 @@ var _ = Describe("[Serial]SRIOV", Serial, func() {
 		}
 	})
 
+	AfterEach(func() {
+		// Place a delay between tests to assure resources (VF/s) are fully released before reused again on a new VMI.
+		// (results show that waiting for VMI/s to disappear is not enough)
+		// Ref: https://github.com/k8snetworkplumbingwg/sriov-cni/issues/219
+		//
+		// TODO: This workaround should be temporary until the fix [1] can be consumed.
+		// [1] https://github.com/k8snetworkplumbingwg/sriov-cni/pull/220
+		time.Sleep(20 * time.Second)
+	})
+
 	Context("VMI connected to single SRIOV network", func() {
 		BeforeEach(func() {
 			Expect(createSriovNetworkAttachmentDefinition(sriovnet1, util.NamespaceTestDefault, sriovConfNAD)).
