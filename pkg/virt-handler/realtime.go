@@ -1,5 +1,3 @@
-//go:build linux && amd64
-
 package virthandler
 
 import (
@@ -9,20 +7,10 @@ import (
 	"regexp"
 	"strconv"
 	"strings"
-	"unsafe"
-
-	"golang.org/x/sys/unix"
-
-	// #include <linux/sched.h>
-	// #include <linux/sched/types.h>
-	// typedef struct sched_param sched_param;
-	"C"
 
 	v1 "kubevirt.io/api/core/v1"
 )
 
-type schedParam C.sched_param
-type policy uint32
 type maskType bool
 
 type cpuMask struct {
@@ -30,9 +18,8 @@ type cpuMask struct {
 }
 
 const (
-	schedFIFO policy   = C.SCHED_FIFO
-	enabled   maskType = true
-	disabled  maskType = false
+	enabled  maskType = true
+	disabled maskType = false
 )
 
 var (
@@ -180,14 +167,6 @@ func parseCPUMask(mask string) (*cpuMask, error) {
 		}
 	}
 	return &vcpus, nil
-}
-
-func schedSetScheduler(pid int, policy policy, param schedParam) error {
-	_, _, e1 := unix.Syscall(unix.SYS_SCHED_SETSCHEDULER, uintptr(pid), uintptr(policy), uintptr(unsafe.Pointer(&param)))
-	if e1 != 0 {
-		return e1
-	}
-	return nil
 }
 
 func (c cpuMask) isEnabled(vcpuID string) bool {
