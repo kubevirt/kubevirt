@@ -2044,8 +2044,19 @@ var _ = Describe("Manager", func() {
 		// we need the non-typecast object to make the function we want to test available
 		libvirtmanager := manager.(*LibvirtDomainManager)
 
-		_, err := libvirtmanager.GetGuestInfo()
-		Expect(err).ToNot(HaveOccurred())
+		guestInfo := libvirtmanager.GetGuestInfo()
+		Expect(guestInfo.UserList).To(ConsistOf(v1.VirtualMachineInstanceGuestOSUser{
+			UserName:  "test",
+			Domain:    "test",
+			LoginTime: 0,
+		}))
+		Expect(guestInfo.FSInfo.Filesystems).To(ConsistOf(v1.VirtualMachineInstanceFileSystem{
+			DiskName:       "test",
+			MountPoint:     "/mnt/whatever",
+			FileSystemType: "fs",
+			UsedBytes:      0,
+			TotalBytes:     0,
+		}))
 	})
 
 	It("executes GetUsers", func() {
@@ -2063,8 +2074,7 @@ var _ = Describe("Manager", func() {
 		// we need the non-typecast object to make the function we want to test available
 		libvirtmanager := manager.(*LibvirtDomainManager)
 
-		virtualMachineInstanceGuestAgentInfo, err := libvirtmanager.GetUsers()
-		Expect(err).ToNot(HaveOccurred())
+		virtualMachineInstanceGuestAgentInfo := libvirtmanager.GetUsers()
 		Expect(virtualMachineInstanceGuestAgentInfo).ToNot(BeEmpty())
 	})
 
@@ -2085,8 +2095,7 @@ var _ = Describe("Manager", func() {
 		// we need the non-typecast object to make the function we want to test available
 		libvirtmanager := manager.(*LibvirtDomainManager)
 
-		virtualMachineInstanceGuestAgentInfo, err := libvirtmanager.GetFilesystems()
-		Expect(err).ToNot(HaveOccurred())
+		virtualMachineInstanceGuestAgentInfo := libvirtmanager.GetFilesystems()
 		Expect(virtualMachineInstanceGuestAgentInfo).ToNot(BeEmpty())
 	})
 

@@ -234,7 +234,7 @@ var _ = Describe("Virt remote commands", func() {
 				},
 			}
 
-			domainManager.EXPECT().GetUsers().Return(userList, nil)
+			domainManager.EXPECT().GetUsers().Return(userList)
 
 			fetchedList, err := client.GetUsers()
 			Expect(err).ToNot(HaveOccurred(), "should fetch users without any issue")
@@ -252,7 +252,7 @@ var _ = Describe("Virt remote commands", func() {
 				},
 			}
 
-			domainManager.EXPECT().GetFilesystems().Return(fsList, nil)
+			domainManager.EXPECT().GetFilesystems().Return(fsList)
 
 			fetchedList, err := client.GetFilesystems()
 			Expect(err).ToNot(HaveOccurred(), "should fetch filesystems without any issue")
