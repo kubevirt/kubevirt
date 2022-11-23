@@ -553,6 +553,58 @@ var _ = SIGDescribe("Hotplug", func() {
 		)
 	})
 
+	Context("Offline VM with a block volume", func() {
+		var (
+			vm *v1.VirtualMachine
+			sc string
+		)
+
+		BeforeEach(func() {
+			var exists bool
+
+			sc, exists = libstorage.GetRWXBlockStorageClass()
+			if !exists {
+				Skip("Skip test when RWXBlock storage class is not present")
+			}
+
+			vmi, _ := tests.NewRandomVirtualMachineInstanceWithBlockDisk(
+				cd.DataVolumeImportUrlForContainerDisk(cd.ContainerDiskCirros),
+				testsuite.GetTestNamespace(nil),
+				corev1.ReadWriteMany,
+			)
+			tests.AddUserData(vmi, "cloud-init", "#!/bin/bash\necho 'hello'\n")
+
+			By("Creating VirtualMachine")
+			vm, err = virtClient.VirtualMachine(vmi.Namespace).Create(tests.NewRandomVirtualMachine(vmi, false))
+			Expect(err).ToNot(HaveOccurred())
+		})
+
+		DescribeTable("Should start with a hotplug block", func(addVolumeFunc addVolumeFunction, removeVolumeFunc removeVolumeFunction) {
+			dv := createDataVolumeAndWaitForImport(sc, corev1.PersistentVolumeBlock)
+
+			By("Adding a hotplug block volume")
+			addVolumeFunc(vm.Name, vm.Namespace, dv.Name, dv.Name, v1.DiskBusSCSI, false, "")
+
+			By("Verifying the volume has been added to the template spec")
+			verifyVolumeAndDiskVMAdded(virtClient, vm, dv.Name)
+
+			By("Starting the VM")
+			vm = tests.StartVirtualMachine(vm)
+			vmi, err := virtClient.VirtualMachineInstance(vm.Namespace).Get(vm.Name, &metav1.GetOptions{})
+			Expect(err).ToNot(HaveOccurred())
+
+			By("Verifying the volume is attached and usable")
+			verifyVolumeAndDiskVMIAdded(virtClient, vmi, dv.Name)
+			verifyVolumeStatus(vmi, v1.VolumeReady, "", dv.Name)
+			getVmiConsoleAndLogin(vmi)
+			targets := verifyHotplugAttachedAndUseable(vmi, []string{dv.Name})
+			Expect(targets).To(HaveLen(1))
+		},
+			Entry("DataVolume", addDVVolumeVM, removeVolumeVM),
+			Entry("PersistentVolume", addPVCVolumeVM, removeVolumeVM),
+		)
+	})
+
 	Context("WFFC storage", func() {
 		var (
 			vm *v1.VirtualMachine
