@@ -48,6 +48,8 @@ import (
 	"kubevirt.io/client-go/log"
 	"kubevirt.io/client-go/subresources"
 
+	launcherApi "kubevirt.io/kubevirt/pkg/virt-launcher/virtwrap/api"
+
 	"kubevirt.io/kubevirt/tests"
 )
 
@@ -247,7 +249,11 @@ var _ = Describe("[rfe_id:127][crit:medium][arm64][vendor:cnv-qe@redhat.com][lev
 
 		It("should allow creating a VNC screenshot in PNG format", func() {
 			filePath := filepath.Join(GinkgoT().TempDir(), "screenshot.png")
-
+			domain, err := tests.GetRunningVMIDomainSpec(vmi)
+			Expect(err).ToNot(HaveOccurred())
+			// According to the video device type to set the expected resolution
+			// The default resolution is 720x400 for vga device while it is 1280x800 for virtio-gpu device
+			xres, yres := getResolution(domain)
 			// Sometimes we can see initially a 640x480 resolution if we connect very early
 			By("gathering screenshots until we are past the first boot screen and see the expected 720x400 resolution")
 			Eventually(func() image.Image {
@@ -261,7 +267,7 @@ var _ = Describe("[rfe_id:127][crit:medium][arm64][vendor:cnv-qe@redhat.com][lev
 				img, err := png.Decode(f)
 				Expect(err).ToNot(HaveOccurred())
 				return img
-			}, 10*time.Second).Should(HaveResolution(720, 400))
+			}, 10*time.Second).Should(HaveResolution(xres, yres))
 		})
 	})
 })
@@ -331,6 +337,18 @@ func (h ResolutionMatcher) NegatedFailureMessage(actual interface{}) (message st
 		return err.Error()
 	}
 	return fmt.Sprintf("Expected (X: %d, Y: %d) to not match (X: %d, Y: %d)", x, y, h.X, h.Y)
+}
+
+func getResolution(domain *launcherApi.DomainSpec) (X, Y int) {
+	videoType := domain.Devices.Video[0].Model.Type
+	if videoType == "virtio" {
+		X = 1280
+		Y = 800
+	} else {
+		X = 720
+		Y = 400
+	}
+	return X, Y
 }
 
 func HaveResolution(X, Y int) ResolutionMatcher {
