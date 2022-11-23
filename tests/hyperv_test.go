@@ -138,12 +138,7 @@ var _ = Describe("[Serial][sig-compute] Hyper-V enlightenments", func() {
 				Expect(err).ToNot(HaveOccurred())
 
 				for _, node := range nodeList.Items {
-					_, isNodeLabellerStopped := node.Annotations[v1.LabellerSkipNodeAnnotation]
-					Expect(isNodeLabellerStopped).To(BeTrue())
-
-					updatedNode := resumeNodeLabeller(node.Name, virtClient)
-					_, isNodeLabellerStopped = updatedNode.Annotations[v1.LabellerSkipNodeAnnotation]
-					Expect(isNodeLabellerStopped).To(BeFalse(), "after node labeller is resumed, %s annotation is expected to disappear from node", v1.LabellerSkipNodeAnnotation)
+					_ = resumeNodeLabeller(node.Name, virtClient)
 				}
 			})
 
