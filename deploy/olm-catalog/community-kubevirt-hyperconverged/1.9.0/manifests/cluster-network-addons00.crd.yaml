@@ -60,6 +60,10 @@ spec:
                 description: Multus plugin enables attaching multiple network interfaces
                   to Pods in Kubernetes
                 type: object
+              multusDynamicNetworks:
+                description: A multus extension enabling hot-plug and hot-unplug of
+                  Pod interfaces
+                type: object
               ovs:
                 description: Ovs plugin allows users to define Kubernetes networks
                   on top of Open vSwitch bridges available on nodes
@@ -1685,6 +1689,10 @@ spec:
               multus:
                 description: Multus plugin enables attaching multiple network interfaces
                   to Pods in Kubernetes
+                type: object
+              multusDynamicNetworks:
+                description: A multus extension enabling hot-plug and hot-unplug of
+                  Pod interfaces
                 type: object
               ovs:
                 description: Ovs plugin allows users to define Kubernetes networks
