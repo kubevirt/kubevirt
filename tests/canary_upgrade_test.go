@@ -173,7 +173,7 @@ var _ = Describe("[Serial][sig-operator]virt-handler canary upgrade", Serial, fu
 		return eventsQueue
 	}
 
-	It("should successfully upgrade virt-handler", func() {
+	It("[QUARANTINE]should successfully upgrade virt-handler", func() {
 		var expectedEventsLock sync.Mutex
 		expectedEvents := []string{
 			"maxUnavailable=1",
