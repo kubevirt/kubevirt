@@ -556,9 +556,12 @@ func (m *methods) InferDefaultPreference(vm *virtv1.VirtualMachine) (*virtv1.Pre
 Defaults will be inferred from the following combinations of DataVolumeSources, DataVolumeTemplates, DataSources and PVCs:
 
 Volume -> PersistentVolumeClaimVolumeSource -> PersistentVolumeClaim
+Volume -> DataVolumeSource -> DataVolume
 Volume -> DataVolumeSource -> DataVolumeSourcePVC -> PersistentVolumeClaim
+Volume -> DataVolumeSource -> DataVolumeSourceRef -> DataSource
 Volume -> DataVolumeSource -> DataVolumeSourceRef -> DataSource -> PersistentVolumeClaim
 Volume -> DataVolumeSource -> DataVolumeTemplate -> DataVolumeSourcePVC -> PersistentVolumeClaim
+Volume -> DataVolumeSource -> DataVolumeTemplate -> DataVolumeSourceRef -> DataSource
 Volume -> DataVolumeSource -> DataVolumeTemplate -> DataVolumeSourceRef -> DataSource -> PersistentVolumeClaim
 */
 func (m *methods) inferDefaultsFromVolumes(vm *virtv1.VirtualMachine, inferFromVolumeName, defaultNameAnnotation, defaultKindAnnotation string) (string, string, error) {
@@ -610,6 +613,11 @@ func (m *methods) inferDefaultsFromDataVolume(vm *virtv1.VirtualMachine, dvName,
 		}
 		return "", "", err
 	}
+	// Check the DataVolume for any annotations before checking the underlying PVC
+	defaultName, defaultKind, err := inferDefaultsFromAnnotations(dv.Annotations, defaultNameAnnotation, defaultKindAnnotation)
+	if err == nil {
+		return defaultName, defaultKind, nil
+	}
 	return m.inferDefaultsFromDataVolumeSpec(&dv.Spec, defaultNameAnnotation, defaultKindAnnotation)
 }
 
@@ -623,17 +631,26 @@ func (m *methods) inferDefaultsFromDataVolumeSpec(dataVolumeSpec *v1beta1.DataVo
 	return "", "", fmt.Errorf("unable to infer defaults from DataVolumeSpec as DataVolumeSource is not supported")
 }
 
+func (m *methods) inferDefaultsFromDataSource(dataSourceName, dataSourceNamespace, defaultNameAnnotation, defaultKindAnnotation string) (string, string, error) {
+	ds, err := m.clientset.CdiClient().CdiV1beta1().DataSources(dataSourceNamespace).Get(context.Background(), dataSourceName, metav1.GetOptions{})
+	if err != nil {
+		return "", "", err
+	}
+	// Check the DataSource for any annotations before checking the underlying PVC
+	defaultName, defaultKind, err := inferDefaultsFromAnnotations(ds.Annotations, defaultNameAnnotation, defaultKindAnnotation)
+	if err == nil {
+		return defaultName, defaultKind, nil
+	}
+	if ds.Spec.Source.PVC != nil {
+		return m.inferDefaultsFromPVC(ds.Spec.Source.PVC.Name, ds.Spec.Source.PVC.Namespace, defaultNameAnnotation, defaultKindAnnotation)
+	}
+	return "", "", fmt.Errorf("unable to infer defaults from DataSource that doesn't provide DataVolumeSourcePVC")
+}
+
 func (m *methods) inferDefaultsFromDataVolumeSourceRef(sourceRef *v1beta1.DataVolumeSourceRef, defaultNameAnnotation, defaultKindAnnotation string) (string, string, error) {
 	switch sourceRef.Kind {
 	case "DataSource":
-		dataSource, err := m.clientset.CdiClient().CdiV1beta1().DataSources(*sourceRef.Namespace).Get(context.Background(), sourceRef.Name, metav1.GetOptions{})
-		if err != nil {
-			return "", "", err
-		}
-		if dataSource.Spec.Source.PVC != nil {
-			return m.inferDefaultsFromPVC(dataSource.Spec.Source.PVC.Name, dataSource.Spec.Source.PVC.Namespace, defaultNameAnnotation, defaultKindAnnotation)
-		}
-		return "", "", fmt.Errorf("unable to infer defaults from DataSource that doesn't provide DataVolumeSourcePVC")
+		return m.inferDefaultsFromDataSource(sourceRef.Name, *sourceRef.Namespace, defaultNameAnnotation, defaultKindAnnotation)
 	}
 	return "", "", fmt.Errorf("unable to infer defaults from DataVolumeSourceRef as Kind %s is not supported", sourceRef.Kind)
 }

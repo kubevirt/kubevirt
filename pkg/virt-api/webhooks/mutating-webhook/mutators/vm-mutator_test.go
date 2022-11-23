@@ -369,20 +369,27 @@ var _ = Describe("VirtualMachine Mutator", func() {
 	Context("with InferFromVolume enabled", func() {
 
 		var (
-			pvc             *k8sv1.PersistentVolumeClaim
-			dvWithSourcePVC *v1beta1.DataVolume
-			dsWithSourcePVC *v1beta1.DataSource
+			pvc               *k8sv1.PersistentVolumeClaim
+			dvWithSourcePVC   *v1beta1.DataVolume
+			dvWithAnnotations *v1beta1.DataVolume
+			dsWithSourcePVC   *v1beta1.DataSource
+			dsWithAnnotations *v1beta1.DataSource
 		)
 
 		const (
-			inferVolumeName     = "inferVolumeName"
-			defaultInferedName  = "defaultInferedName"
-			defaultInferedKind  = "defaultInferedKind"
-			pvcName             = "pvcName"
-			dvWithSourcePVCName = "dvWithSourcePVCName"
-			dsWithSourcePVCName = "dsWithSourcePVCName"
-			unknownPVCName      = "unknownPVCName"
-			unknownDVName       = "unknownDVName"
+			inferVolumeName           = "inferVolumeName"
+			defaultInferedNameFromPVC = "defaultInferedNameFromPVC"
+			defaultInferedKindFromPVC = "defaultInferedKindFromPVC"
+			defaultInferedNameFromDV  = "defaultInferedNameFromDV"
+			defaultInferedKindFromDV  = "defaultInferedKindFromDV"
+			defaultInferedNameFromDS  = "defaultInferedNameFromDS"
+			defaultInferedKindFromDS  = "defaultInferedKindFromDS"
+			pvcName                   = "pvcName"
+			dvWithSourcePVCName       = "dvWithSourcePVCName"
+			dsWithSourcePVCName       = "dsWithSourcePVCName"
+			dsWithAnnotationsName     = "dsWithAnnotationsName"
+			unknownPVCName            = "unknownPVCName"
+			unknownDVName             = "unknownDVName"
 		)
 
 		BeforeEach(func() {
@@ -391,10 +398,10 @@ var _ = Describe("VirtualMachine Mutator", func() {
 					Name:      pvcName,
 					Namespace: vm.Namespace,
 					Annotations: map[string]string{
-						apiinstancetype.DefaultInstancetypeAnnotation:     defaultInferedName,
-						apiinstancetype.DefaultInstancetypeKindAnnotation: defaultInferedKind,
-						apiinstancetype.DefaultPreferenceAnnotation:       defaultInferedName,
-						apiinstancetype.DefaultPreferenceKindAnnotation:   defaultInferedKind,
+						apiinstancetype.DefaultInstancetypeAnnotation:     defaultInferedNameFromPVC,
+						apiinstancetype.DefaultInstancetypeKindAnnotation: defaultInferedKindFromPVC,
+						apiinstancetype.DefaultPreferenceAnnotation:       defaultInferedNameFromPVC,
+						apiinstancetype.DefaultPreferenceKindAnnotation:   defaultInferedKindFromPVC,
 					},
 				},
 			}
@@ -434,6 +441,29 @@ var _ = Describe("VirtualMachine Mutator", func() {
 			}
 			dsWithSourcePVC, err = virtClient.CdiClient().CdiV1beta1().DataSources(vm.Namespace).Create(context.Background(), dsWithSourcePVC, k8smetav1.CreateOptions{})
 			Expect(err).ToNot(HaveOccurred())
+
+			dsWithAnnotations = &v1beta1.DataSource{
+				ObjectMeta: k8smetav1.ObjectMeta{
+					Name:      dsWithAnnotationsName,
+					Namespace: vm.Namespace,
+					Annotations: map[string]string{
+						apiinstancetype.DefaultInstancetypeAnnotation:     defaultInferedNameFromDS,
+						apiinstancetype.DefaultInstancetypeKindAnnotation: defaultInferedKindFromDS,
+						apiinstancetype.DefaultPreferenceAnnotation:       defaultInferedNameFromDS,
+						apiinstancetype.DefaultPreferenceKindAnnotation:   defaultInferedKindFromDS,
+					},
+				},
+				Spec: v1beta1.DataSourceSpec{
+					Source: v1beta1.DataSourceSource{
+						PVC: &v1beta1.DataVolumeSourcePVC{
+							Name:      pvc.Name,
+							Namespace: pvc.Namespace,
+						},
+					},
+				},
+			}
+			_, err = virtClient.CdiClient().CdiV1beta1().DataSources(vm.Namespace).Create(context.Background(), dsWithAnnotations, k8smetav1.CreateOptions{})
+			Expect(err).ToNot(HaveOccurred())
 		})
 
 		DescribeTable("should infer defaults from VolumeSource and PersistentVolumeClaim", func(instancetypeMatcher, expectedInstancetypeMatcher *v1.InstancetypeMatcher, preferenceMatcher, expectedPreferenceMatcher *v1.PreferenceMatcher) {
@@ -466,8 +496,8 @@ var _ = Describe("VirtualMachine Mutator", func() {
 					InferFromVolume: inferVolumeName,
 				},
 				&v1.InstancetypeMatcher{
-					Name: defaultInferedName,
-					Kind: defaultInferedKind,
+					Name: defaultInferedNameFromPVC,
+					Kind: defaultInferedKindFromPVC,
 				}, nil, nil,
 			),
 			Entry("for PreferenceMatcher",
@@ -476,8 +506,8 @@ var _ = Describe("VirtualMachine Mutator", func() {
 					InferFromVolume: inferVolumeName,
 				},
 				&v1.PreferenceMatcher{
-					Name: defaultInferedName,
-					Kind: defaultInferedKind,
+					Name: defaultInferedNameFromPVC,
+					Kind: defaultInferedKindFromPVC,
 				},
 			),
 		)
@@ -511,8 +541,8 @@ var _ = Describe("VirtualMachine Mutator", func() {
 					InferFromVolume: inferVolumeName,
 				},
 				&v1.InstancetypeMatcher{
-					Name: defaultInferedName,
-					Kind: defaultInferedKind,
+					Name: defaultInferedNameFromPVC,
+					Kind: defaultInferedKindFromPVC,
 				}, nil, nil,
 			),
 			Entry("for PreferenceMatcher",
@@ -521,8 +551,8 @@ var _ = Describe("VirtualMachine Mutator", func() {
 					InferFromVolume: inferVolumeName,
 				},
 				&v1.PreferenceMatcher{
-					Name: defaultInferedName,
-					Kind: defaultInferedKind,
+					Name: defaultInferedNameFromPVC,
+					Kind: defaultInferedKindFromPVC,
 				},
 			),
 		)
@@ -569,8 +599,8 @@ var _ = Describe("VirtualMachine Mutator", func() {
 					InferFromVolume: inferVolumeName,
 				},
 				&v1.InstancetypeMatcher{
-					Name: defaultInferedName,
-					Kind: defaultInferedKind,
+					Name: defaultInferedNameFromPVC,
+					Kind: defaultInferedKindFromPVC,
 				}, nil, nil,
 			),
 			Entry("for PreferenceMatcher",
@@ -579,13 +609,80 @@ var _ = Describe("VirtualMachine Mutator", func() {
 					InferFromVolume: inferVolumeName,
 				},
 				&v1.PreferenceMatcher{
-					Name: defaultInferedName,
-					Kind: defaultInferedKind,
+					Name: defaultInferedNameFromPVC,
+					Kind: defaultInferedKindFromPVC,
+				},
+			),
+		)
+		DescribeTable("should infer defaults from DataVolume with annotations", func(instancetypeMatcher, expectedInstancetypeMatcher *v1.InstancetypeMatcher, preferenceMatcher, expectedPreferenceMatcher *v1.PreferenceMatcher) {
+			vm.Spec.Instancetype = instancetypeMatcher
+			vm.Spec.Preference = preferenceMatcher
+			dvWithAnnotations = &v1beta1.DataVolume{
+				ObjectMeta: k8smetav1.ObjectMeta{
+					Name:      "dvWithAnnotations",
+					Namespace: vm.Namespace,
+					Annotations: map[string]string{
+						apiinstancetype.DefaultInstancetypeAnnotation:     defaultInferedNameFromDV,
+						apiinstancetype.DefaultInstancetypeKindAnnotation: defaultInferedKindFromDV,
+						apiinstancetype.DefaultPreferenceAnnotation:       defaultInferedNameFromDV,
+						apiinstancetype.DefaultPreferenceKindAnnotation:   defaultInferedKindFromDV,
+					},
+				},
+				Spec: v1beta1.DataVolumeSpec{
+					Source: &v1beta1.DataVolumeSource{
+						PVC: &v1beta1.DataVolumeSourcePVC{
+							Name:      pvc.Name,
+							Namespace: pvc.Namespace,
+						},
+					},
+				},
+			}
+			_, err := virtClient.CdiClient().CdiV1beta1().DataVolumes(vm.Namespace).Create(context.Background(), dvWithAnnotations, k8smetav1.CreateOptions{})
+			Expect(err).ToNot(HaveOccurred())
+
+			vm.Spec.Template.Spec.Volumes = append(vm.Spec.Template.Spec.Volumes, v1.Volume{
+				Name: inferVolumeName,
+				VolumeSource: v1.VolumeSource{
+					DataVolume: &v1.DataVolumeSource{
+						Name: dvWithAnnotations.Name,
+					},
+				},
+			})
+
+			vmSpec, _ := getVMSpecMetaFromResponse()
+			if expectedInstancetypeMatcher != nil {
+				Expect(*vmSpec.Instancetype).To(Equal(*expectedInstancetypeMatcher))
+			} else {
+				Expect(vmSpec.Instancetype).To(BeNil())
+			}
+			if expectedPreferenceMatcher != nil {
+				Expect(*vmSpec.Preference).To(Equal(*expectedPreferenceMatcher))
+			} else {
+				Expect(vmSpec.Preference).To(BeNil())
+			}
+		},
+			Entry("for InstancetypeMatcher",
+				&v1.InstancetypeMatcher{
+					InferFromVolume: inferVolumeName,
+				},
+				&v1.InstancetypeMatcher{
+					Name: defaultInferedNameFromDV,
+					Kind: defaultInferedKindFromDV,
+				}, nil, nil,
+			),
+			Entry("for PreferenceMatcher",
+				nil, nil,
+				&v1.PreferenceMatcher{
+					InferFromVolume: inferVolumeName,
+				},
+				&v1.PreferenceMatcher{
+					Name: defaultInferedNameFromDV,
+					Kind: defaultInferedKindFromDV,
 				},
 			),
 		)
 
-		DescribeTable("should infer defaults from DataVolume, DataVolumeSourceRef ", func(sourceRefName, sourceRefKind, sourceRefNamespace string, instancetypeMatcher, expectedInstancetypeMatcher *v1.InstancetypeMatcher, preferenceMatcher, expectedPreferenceMatcher *v1.PreferenceMatcher) {
+		DescribeTable("should infer defaults from DataVolume, DataVolumeSourceRef", func(sourceRefName, sourceRefKind, sourceRefNamespace string, instancetypeMatcher, expectedInstancetypeMatcher *v1.InstancetypeMatcher, preferenceMatcher, expectedPreferenceMatcher *v1.PreferenceMatcher) {
 			vm.Spec.Instancetype = instancetypeMatcher
 			vm.Spec.Preference = preferenceMatcher
 			dvWithSourceRef := &v1beta1.DataVolume{
@@ -631,8 +728,8 @@ var _ = Describe("VirtualMachine Mutator", func() {
 					InferFromVolume: inferVolumeName,
 				},
 				&v1.InstancetypeMatcher{
-					Name: defaultInferedName,
-					Kind: defaultInferedKind,
+					Name: defaultInferedNameFromPVC,
+					Kind: defaultInferedKindFromPVC,
 				}, nil, nil,
 			),
 			Entry(",DataSource and PersistentVolumeClaim for PreferenceMatcher",
@@ -642,8 +739,29 @@ var _ = Describe("VirtualMachine Mutator", func() {
 					InferFromVolume: inferVolumeName,
 				},
 				&v1.PreferenceMatcher{
-					Name: defaultInferedName,
-					Kind: defaultInferedKind,
+					Name: defaultInferedNameFromPVC,
+					Kind: defaultInferedKindFromPVC,
+				},
+			),
+			Entry("and DataSource with annotations for InstancetypeMatcher",
+				dsWithAnnotationsName, "DataSource", k8sv1.NamespaceDefault,
+				&v1.InstancetypeMatcher{
+					InferFromVolume: inferVolumeName,
+				},
+				&v1.InstancetypeMatcher{
+					Name: defaultInferedNameFromDS,
+					Kind: defaultInferedKindFromDS,
+				}, nil, nil,
+			),
+			Entry("and DataSource with annotations for PreferenceMatcher",
+				dsWithAnnotationsName, "DataSource", k8sv1.NamespaceDefault,
+				nil, nil,
+				&v1.PreferenceMatcher{
+					InferFromVolume: inferVolumeName,
+				},
+				&v1.PreferenceMatcher{
+					Name: defaultInferedNameFromDS,
+					Kind: defaultInferedKindFromDS,
 				},
 			),
 		)
@@ -690,8 +808,8 @@ var _ = Describe("VirtualMachine Mutator", func() {
 					InferFromVolume: inferVolumeName,
 				},
 				&v1.InstancetypeMatcher{
-					Name: defaultInferedName,
-					Kind: defaultInferedKind,
+					Name: defaultInferedNameFromPVC,
+					Kind: defaultInferedKindFromPVC,
 				}, nil, nil,
 			),
 			Entry("for PreferenceMatcher",
@@ -701,8 +819,29 @@ var _ = Describe("VirtualMachine Mutator", func() {
 					InferFromVolume: inferVolumeName,
 				},
 				&v1.PreferenceMatcher{
-					Name: defaultInferedName,
-					Kind: defaultInferedKind,
+					Name: defaultInferedNameFromPVC,
+					Kind: defaultInferedKindFromPVC,
+				},
+			),
+			Entry("and DataSource with annotations for InstancetypeMatcher",
+				dsWithAnnotationsName, k8sv1.NamespaceDefault,
+				&v1.InstancetypeMatcher{
+					InferFromVolume: inferVolumeName,
+				},
+				&v1.InstancetypeMatcher{
+					Name: defaultInferedNameFromDS,
+					Kind: defaultInferedKindFromDS,
+				}, nil, nil,
+			),
+			Entry("and DataSource with annotations for PreferenceMatcher",
+				dsWithAnnotationsName, k8sv1.NamespaceDefault,
+				nil, nil,
+				&v1.PreferenceMatcher{
+					InferFromVolume: inferVolumeName,
+				},
+				&v1.PreferenceMatcher{
+					Name: defaultInferedNameFromDS,
+					Kind: defaultInferedKindFromDS,
 				},
 			),
 		)
