@@ -481,16 +481,8 @@ var _ = Describe("VirtualMachine Mutator", func() {
 				},
 			}}
 			vmSpec, _ := getVMSpecMetaFromResponse()
-			if expectedInstancetypeMatcher != nil {
-				Expect(*vmSpec.Instancetype).To(Equal(*expectedInstancetypeMatcher))
-			} else {
-				Expect(vmSpec.Instancetype).To(BeNil())
-			}
-			if expectedPreferenceMatcher != nil {
-				Expect(*vmSpec.Preference).To(Equal(*expectedPreferenceMatcher))
-			} else {
-				Expect(vmSpec.Preference).To(BeNil())
-			}
+			Expect(vmSpec.Instancetype).To(Equal(expectedInstancetypeMatcher))
+			Expect(vmSpec.Preference).To(Equal(expectedPreferenceMatcher))
 		},
 			Entry("for InstancetypeMatcher",
 				&v1.InstancetypeMatcher{
@@ -526,16 +518,8 @@ var _ = Describe("VirtualMachine Mutator", func() {
 			}}
 
 			vmSpec, _ := getVMSpecMetaFromResponse()
-			if expectedInstancetypeMatcher != nil {
-				Expect(*vmSpec.Instancetype).To(Equal(*expectedInstancetypeMatcher))
-			} else {
-				Expect(vmSpec.Instancetype).To(BeNil())
-			}
-			if expectedPreferenceMatcher != nil {
-				Expect(*vmSpec.Preference).To(Equal(*expectedPreferenceMatcher))
-			} else {
-				Expect(vmSpec.Preference).To(BeNil())
-			}
+			Expect(vmSpec.Instancetype).To(Equal(expectedInstancetypeMatcher))
+			Expect(vmSpec.Preference).To(Equal(expectedPreferenceMatcher))
 		},
 			Entry("for InstancetypeMatcher",
 				&v1.InstancetypeMatcher{
@@ -584,16 +568,8 @@ var _ = Describe("VirtualMachine Mutator", func() {
 			}}
 
 			vmSpec, _ := getVMSpecMetaFromResponse()
-			if expectedInstancetypeMatcher != nil {
-				Expect(*vmSpec.Instancetype).To(Equal(*expectedInstancetypeMatcher))
-			} else {
-				Expect(vmSpec.Instancetype).To(BeNil())
-			}
-			if expectedPreferenceMatcher != nil {
-				Expect(*vmSpec.Preference).To(Equal(*expectedPreferenceMatcher))
-			} else {
-				Expect(vmSpec.Preference).To(BeNil())
-			}
+			Expect(vmSpec.Instancetype).To(Equal(expectedInstancetypeMatcher))
+			Expect(vmSpec.Preference).To(Equal(expectedPreferenceMatcher))
 		},
 			Entry("for InstancetypeMatcher",
 				&v1.InstancetypeMatcher{
@@ -651,16 +627,8 @@ var _ = Describe("VirtualMachine Mutator", func() {
 			})
 
 			vmSpec, _ := getVMSpecMetaFromResponse()
-			if expectedInstancetypeMatcher != nil {
-				Expect(*vmSpec.Instancetype).To(Equal(*expectedInstancetypeMatcher))
-			} else {
-				Expect(vmSpec.Instancetype).To(BeNil())
-			}
-			if expectedPreferenceMatcher != nil {
-				Expect(*vmSpec.Preference).To(Equal(*expectedPreferenceMatcher))
-			} else {
-				Expect(vmSpec.Preference).To(BeNil())
-			}
+			Expect(vmSpec.Instancetype).To(Equal(expectedInstancetypeMatcher))
+			Expect(vmSpec.Preference).To(Equal(expectedPreferenceMatcher))
 		},
 			Entry("for InstancetypeMatcher",
 				&v1.InstancetypeMatcher{
@@ -712,16 +680,8 @@ var _ = Describe("VirtualMachine Mutator", func() {
 			}}
 
 			vmSpec, _ := getVMSpecMetaFromResponse()
-			if expectedInstancetypeMatcher != nil {
-				Expect(*vmSpec.Instancetype).To(Equal(*expectedInstancetypeMatcher))
-			} else {
-				Expect(vmSpec.Instancetype).To(BeNil())
-			}
-			if expectedPreferenceMatcher != nil {
-				Expect(*vmSpec.Preference).To(Equal(*expectedPreferenceMatcher))
-			} else {
-				Expect(vmSpec.Preference).To(BeNil())
-			}
+			Expect(vmSpec.Instancetype).To(Equal(expectedInstancetypeMatcher))
+			Expect(vmSpec.Preference).To(Equal(expectedPreferenceMatcher))
 		},
 			Entry(",DataSource and PersistentVolumeClaim for InstancetypeMatcher",
 				dsWithSourcePVCName, "DataSource", k8sv1.NamespaceDefault,
@@ -792,16 +752,8 @@ var _ = Describe("VirtualMachine Mutator", func() {
 			}}
 
 			vmSpec, _ := getVMSpecMetaFromResponse()
-			if expectedInstancetypeMatcher != nil {
-				Expect(*vmSpec.Instancetype).To(Equal(*expectedInstancetypeMatcher))
-			} else {
-				Expect(vmSpec.Instancetype).To(BeNil())
-			}
-			if expectedPreferenceMatcher != nil {
-				Expect(*vmSpec.Preference).To(Equal(*expectedPreferenceMatcher))
-			} else {
-				Expect(vmSpec.Preference).To(BeNil())
-			}
+			Expect(vmSpec.Instancetype).To(Equal(expectedInstancetypeMatcher))
+			Expect(vmSpec.Preference).To(Equal(expectedPreferenceMatcher))
 		},
 			Entry("for InstancetypeMatcher",
 				dsWithSourcePVCName, k8sv1.NamespaceDefault,
