@@ -1230,19 +1230,8 @@ func Convert_v1_VirtualMachineInstance_To_api_Domain(vmi *v1.VirtualMachineInsta
 		return err
 	}
 
-	// Spec metadata
-
 	newChannel := Add_Agent_To_api_Channel()
 	domain.Spec.Devices.Channels = append(domain.Spec.Devices.Channels, newChannel)
-
-	domain.Spec.Metadata.KubeVirt.UID = vmi.UID
-	gracePeriodSeconds := v1.DefaultGracePeriodSeconds
-	if vmi.Spec.TerminationGracePeriodSeconds != nil {
-		gracePeriodSeconds = *vmi.Spec.TerminationGracePeriodSeconds
-	}
-	domain.Spec.Metadata.KubeVirt.GracePeriod = &api.GracePeriodMetadata{
-		DeletionGracePeriodSeconds: gracePeriodSeconds,
-	}
 
 	domain.Spec.SysInfo = &api.SysInfo{}
 	if vmi.Spec.Domain.Firmware != nil {
@@ -1971,4 +1960,12 @@ func hasTabletDevice(vmi *v1.VirtualMachineInstance) bool {
 		}
 	}
 	return false
+}
+
+func GracePeriod(vmi *v1.VirtualMachineInstance) int64 {
+	gracePeriodSeconds := v1.DefaultGracePeriodSeconds
+	if vmi.Spec.TerminationGracePeriodSeconds != nil {
+		gracePeriodSeconds = *vmi.Spec.TerminationGracePeriodSeconds
+	}
+	return gracePeriodSeconds
 }

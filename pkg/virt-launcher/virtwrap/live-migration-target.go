@@ -81,10 +81,10 @@ func (l *LibvirtDomainManager) prepareMigrationTarget(
 		return fmt.Errorf("pre-start pod-setup failed: %v", err)
 	}
 
-	// Cache the metadata which has been updated by the converter.
-	// TODO: Perform this directly and not through the converter.
-	l.metadataCache.UID.Set(domain.Spec.Metadata.KubeVirt.UID)
-	l.metadataCache.GracePeriod.Set(*domain.Spec.Metadata.KubeVirt.GracePeriod)
+	l.metadataCache.UID.Set(vmi.UID)
+	l.metadataCache.GracePeriod.Set(
+		api.GracePeriodMetadata{DeletionGracePeriodSeconds: converter.GracePeriod(vmi)},
+	)
 
 	err = l.generateCloudInitEmptyISO(vmi, nil)
 	if err != nil {

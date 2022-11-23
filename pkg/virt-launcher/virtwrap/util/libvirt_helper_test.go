@@ -20,8 +20,6 @@ import (
 	"github.com/golang/mock/gomock"
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
-	"libvirt.org/go/libvirt"
-
 	api2 "kubevirt.io/client-go/api"
 	kubevirtlog "kubevirt.io/client-go/log"
 
@@ -208,27 +206,6 @@ var _ = Describe("LibvirtHelper", func() {
 		Expect(scanner.Err()).ToNot(HaveOccurred())
 
 		Expect(loggedLines).To(Equal(expectedLines))
-	})
-
-	It("should return metadata even with transient domain", func() {
-		ctrl := gomock.NewController(GinkgoT())
-		domain := cli.NewMockVirDomain(ctrl)
-		persistent := false
-		domain.EXPECT().IsPersistent().Return(persistent, nil)
-
-		domainSpec := &api.DomainSpec{}
-		b, err := xml.Marshal(domainSpec)
-		Expect(err).NotTo(HaveOccurred())
-		domain.EXPECT().GetXMLDesc(libvirt.DomainXMLFlags(0)).Return(string(b), nil)
-
-		metadata := &api.KubeVirtMetadata{}
-		b, err = xml.Marshal(metadata)
-		Expect(err).NotTo(HaveOccurred())
-		domain.EXPECT().GetMetadata(libvirt.DOMAIN_METADATA_ELEMENT, "http://kubevirt.io", libvirt.DOMAIN_AFFECT_LIVE).Return(string(b), nil)
-
-		domainSpec, err = GetDomainSpecWithRuntimeInfo(domain)
-		Expect(err).NotTo(HaveOccurred())
-		Expect(domainSpec.Metadata.KubeVirt).NotTo(BeNil())
 	})
 
 	It("should update the wantedSpec to reflect changes made by hooks", func() {

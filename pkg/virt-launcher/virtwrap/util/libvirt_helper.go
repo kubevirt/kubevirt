@@ -19,7 +19,6 @@ import (
 	"kubevirt.io/kubevirt/pkg/virt-controller/services"
 
 	"golang.org/x/sys/unix"
-	"k8s.io/apimachinery/pkg/api/equality"
 	k8sv1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/types"
 	"libvirt.org/go/libvirt"
@@ -167,26 +166,6 @@ func GetDomainSpecWithRuntimeInfo(dom cli.VirDomain) (*api.DomainSpec, error) {
 		return nil, err
 	}
 
-	// use different flag with GetMetadata for transient domains
-	domainModificationImpactFlag, err := getDomainModificationImpactFlag(dom)
-	if err != nil {
-		return activeSpec, err
-	}
-
-	metadataXML, err := dom.GetMetadata(libvirt.DOMAIN_METADATA_ELEMENT, "http://kubevirt.io", domainModificationImpactFlag)
-	if err != nil {
-		log.Log.Reason(err).Error("failed to get domain metadata")
-		return activeSpec, err
-	}
-
-	metadata := &api.KubeVirtMetadata{}
-	err = xml.Unmarshal([]byte(metadataXML), metadata)
-	if err != nil {
-		log.Log.Reason(err).Error("failed to unmarshal domain metadata")
-		return activeSpec, err
-	}
-
-	activeSpec.Metadata.KubeVirt = *metadata
 	return activeSpec, nil
 }
 
@@ -213,12 +192,6 @@ func GetDomainSpec(status libvirt.DomainState, dom cli.VirDomain) (*api.DomainSp
 		}
 	}
 
-	if !equality.Semantic.DeepEqual(spec.Metadata, inactiveSpec.Metadata) {
-		// Metadata is updated on offline config only. As a result,
-		// We have to merge updates to metadata into the domain spec.
-		metadata := &inactiveSpec.Metadata
-		metadata.DeepCopyInto(&spec.Metadata)
-	}
 	return spec, nil
 }
 
@@ -601,20 +574,6 @@ func getLibvirtLogFilters(customLogFilters, libvirtLogVerbosityEnvVar *string, l
 	}
 
 	return logFilters + allowAllOtherCategories, true
-}
-
-func getDomainModificationImpactFlag(dom cli.VirDomain) (libvirt.DomainModificationImpact, error) {
-	isDomainPersistent, err := dom.IsPersistent()
-	if err != nil {
-		log.Log.Reason(err).Error("failed to query a domain")
-		return libvirt.DOMAIN_AFFECT_CONFIG, err
-	}
-	if !isDomainPersistent {
-		log.Log.V(3).Info("domain is transient")
-		return libvirt.DOMAIN_AFFECT_LIVE, nil
-	}
-	log.Log.V(3).Info("domain is persistent")
-	return libvirt.DOMAIN_AFFECT_CONFIG, nil
 }
 
 func (l LibvirtWrapper) root() bool {

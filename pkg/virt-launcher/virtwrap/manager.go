@@ -862,10 +862,10 @@ func (l *LibvirtDomainManager) SyncVMI(vmi *v1.VirtualMachineInstance, allowEmul
 			if err != nil {
 				return nil, err
 			}
-			// Cache the metadata which has been updated by the converter.
-			// TODO: Perform this directly and not through the converter.
-			l.metadataCache.UID.Set(domain.Spec.Metadata.KubeVirt.UID)
-			l.metadataCache.GracePeriod.Set(*domain.Spec.Metadata.KubeVirt.GracePeriod)
+			l.metadataCache.UID.Set(vmi.UID)
+			l.metadataCache.GracePeriod.Set(
+				api.GracePeriodMetadata{DeletionGracePeriodSeconds: converter.GracePeriod(vmi)},
+			)
 			logger.Info("Domain defined.")
 		} else {
 			logger.Reason(err).Error(failedGetDomain)

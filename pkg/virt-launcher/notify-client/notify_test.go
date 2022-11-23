@@ -106,8 +106,6 @@ var _ = Describe("Notify", func() {
 				mockDomain.EXPECT().Free()
 				mockDomain.EXPECT().GetName().Return("test", nil).AnyTimes()
 				mockDomain.EXPECT().GetXMLDesc(gomock.Eq(libvirt.DomainXMLFlags(0))).Return(string(x), nil)
-				mockDomain.EXPECT().IsPersistent().Return(true, nil)
-				mockDomain.EXPECT().GetMetadata(libvirt.DOMAIN_METADATA_ELEMENT, "http://kubevirt.io", libvirt.DOMAIN_AFFECT_CONFIG).Return(`<kubevirt></kubevirt>`, nil)
 
 				eventCallback(mockCon, util.NewDomainFromName("test", "1234"), libvirtEvent{Event: &libvirt.DomainEventLifecycle{Event: event}}, client, deleteNotificationSent, nil, nil, nil, nil, metadataCache)
 
@@ -173,8 +171,6 @@ var _ = Describe("Notify", func() {
 				mockDomain.EXPECT().GetState().Return(libvirt.DOMAIN_RUNNING, -1, nil)
 				mockDomain.EXPECT().GetName().Return("test", nil).AnyTimes()
 				mockDomain.EXPECT().GetXMLDesc(gomock.Eq(libvirt.DomainXMLFlags(0))).Return(string(x), nil)
-				mockDomain.EXPECT().IsPersistent().Return(true, nil)
-				mockDomain.EXPECT().GetMetadata(libvirt.DOMAIN_METADATA_ELEMENT, "http://kubevirt.io", libvirt.DOMAIN_AFFECT_CONFIG).Return(`<kubevirt></kubevirt>`, nil)
 
 				interfaceStatus := []api.InterfaceStatus{
 					{
@@ -207,8 +203,6 @@ var _ = Describe("Notify", func() {
 				mockDomain.EXPECT().GetState().Return(libvirt.DOMAIN_RUNNING, -1, nil)
 				mockDomain.EXPECT().GetName().Return("test", nil).AnyTimes()
 				mockDomain.EXPECT().GetXMLDesc(gomock.Eq(libvirt.DomainXMLFlags(0))).Return(string(x), nil)
-				mockDomain.EXPECT().IsPersistent().Return(true, nil)
-				mockDomain.EXPECT().GetMetadata(libvirt.DOMAIN_METADATA_ELEMENT, "http://kubevirt.io", libvirt.DOMAIN_AFFECT_CONFIG).Return(`<kubevirt></kubevirt>`, nil)
 
 				guestOsName := "TestGuestOS"
 				osInfoStatus := api.GuestOSInfo{
@@ -239,8 +233,6 @@ var _ = Describe("Notify", func() {
 				mockDomain.EXPECT().GetState().Return(libvirt.DOMAIN_RUNNING, -1, nil)
 				mockDomain.EXPECT().GetName().Return("test", nil).AnyTimes()
 				mockDomain.EXPECT().GetXMLDesc(gomock.Eq(libvirt.DomainXMLFlags(0))).Return(string(x), nil)
-				mockDomain.EXPECT().IsPersistent().Return(true, nil)
-				mockDomain.EXPECT().GetMetadata(libvirt.DOMAIN_METADATA_ELEMENT, "http://kubevirt.io", libvirt.DOMAIN_AFFECT_CONFIG).Return(`<kubevirt></kubevirt>`, nil)
 
 				fsFrozenStatus := "frozen"
 				fsFreezeStatus := api.FSFreeze{
@@ -340,8 +332,6 @@ var _ = Describe("Notify", func() {
 			mockDomain.EXPECT().GetState().Return(libvirt.DOMAIN_PAUSED, int(libvirt.DOMAIN_PAUSED_IOERROR), nil)
 			mockDomain.EXPECT().Free()
 			mockDomain.EXPECT().GetXMLDesc(gomock.Eq(libvirt.DomainXMLFlags(0))).Return(string(x), nil)
-			mockDomain.EXPECT().IsPersistent().Return(true, nil)
-			mockDomain.EXPECT().GetMetadata(libvirt.DOMAIN_METADATA_ELEMENT, "http://kubevirt.io", libvirt.DOMAIN_AFFECT_CONFIG).Return(`<kubevirt></kubevirt>`, nil)
 			mockDomain.EXPECT().GetDiskErrors(uint32(0)).Return(faultDisk, nil)
 
 			vmi := api2.NewMinimalVMI("fake-vmi")

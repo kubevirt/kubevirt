@@ -253,7 +253,7 @@ func shouldOverrideForDedicatedCPUTarget(section []string, strict bool) bool {
 	return false
 }
 
-// This returns domain xml without the migration metadata section, as it is only relevant to the source domain
+// This returns domain xml without the metadata section, as it is only relevant to the source domain
 // Note: Unfortunately we can't just use UnMarshall + Marshall here, as that leads to unwanted XML alterations
 func migratableDomXML(dom cli.VirDomain, vmi *v1.VirtualMachineInstance, domSpec *api.DomainSpec) (string, error) {
 	const (
@@ -318,13 +318,6 @@ func migratableDomXML(dom cli.VirDomain, vmi *v1.VirtualMachineInstance, domSpec
 			}
 		case xml.EndElement:
 			newLocation = location[:len(location)-1]
-		}
-		if len(location) >= 4 &&
-			location[0] == "domain" &&
-			location[1] == "metadata" &&
-			location[2] == "kubevirt" &&
-			location[3] == "migration" {
-			continue // We're inside domain/metadata/kubevirt/migration, continue will skip elements
 		}
 		if vmi.IsCPUDedicated() && shouldOverrideForDedicatedCPUTarget(location, insideBlock) {
 			continue

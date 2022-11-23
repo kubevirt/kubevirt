@@ -98,7 +98,6 @@ var _ = Describe("Manager", func() {
 		mockConn = cli.NewMockConnection(ctrl)
 		mockDomain = cli.NewMockVirDomain(ctrl)
 		metadataCache = metadata.NewCache()
-		mockDomain.EXPECT().IsPersistent().AnyTimes().Return(true, nil)
 		mockDomain.EXPECT().GetBlockInfo(gomock.Any(), gomock.Any()).AnyTimes().Return(&libvirt.DomainBlockInfo{Capacity: 0}, nil)
 		mockDirectIOChecker = converter.NewMockDirectIOChecker(ctrl)
 		mockDirectIOChecker.EXPECT().CheckBlockDevice(gomock.Any()).AnyTimes().Return(true, nil)
@@ -2077,55 +2076,14 @@ var _ = Describe("migratableDomXML", func() {
 		ctrl = gomock.NewController(GinkgoT())
 		mockDomain = cli.NewMockVirDomain(ctrl)
 	})
-	It("should remove only the kubevirt migration metadata", func() {
+	It("should remove metadata", func() {
 		domXML := `<domain type="kvm" id="1">
   <name>kubevirt</name>
-  <metadata>
-    <kubevirt xmlns="http://kubevirt.io">
-      <metadata>
-         <kubevirt>
-            <migration>nested</migration>
-         </kubevirt>
-      </metadata>
-      <uid>d38cac9c-435b-42d5-960e-06e8d41146e8</uid>
-      <migration>
-         <uid>d38cac9c-435b-42d5-960e-06e8d41146e8</uid>
-         <failed>false</failed>
-      </migration>
-      <graceperiod>
-        <deletionGracePeriodSeconds>0</deletionGracePeriodSeconds>
-      </graceperiod>
-    </kubevirt>
-    <othermetadata>
-      <kubevirt>
-         <migration>42</migration>
-      </kubevirt>
-    </othermetadata>
-  </metadata>
   <kubevirt><migration>this should stay</migration></kubevirt>
 </domain>`
 		// migratableDomXML() removes the migration block but not its ident, which is its own token, hence the blank line below
 		expectedXML := `<domain type="kvm" id="1">
   <name>kubevirt</name>
-  <metadata>
-    <kubevirt xmlns="http://kubevirt.io">
-      <metadata>
-         <kubevirt>
-            <migration>nested</migration>
-         </kubevirt>
-      </metadata>
-      <uid>d38cac9c-435b-42d5-960e-06e8d41146e8</uid>
-      
-      <graceperiod>
-        <deletionGracePeriodSeconds>0</deletionGracePeriodSeconds>
-      </graceperiod>
-    </kubevirt>
-    <othermetadata>
-      <kubevirt>
-         <migration>42</migration>
-      </kubevirt>
-    </othermetadata>
-  </metadata>
   <kubevirt><migration>this should stay</migration></kubevirt>
 </domain>`
 		vmi := newVMI("testns", "kubevirt")
@@ -2139,18 +2097,6 @@ var _ = Describe("migratableDomXML", func() {
 	It("should change CPU pinning according to migration metadata", func() {
 		domXML := `<domain type="kvm" id="1">
   <name>kubevirt</name>
-  <metadata>
-    <kubevirt xmlns="http://kubevirt.io">
-      <uid>d38cac9c-435b-42d5-960e-06e8d41146e8</uid>
-      <migration>
-         <uid>d38cac9c-435b-42d5-960e-06e8d41146e8</uid>
-         <failed>false</failed>
-      </migration>
-      <graceperiod>
-        <deletionGracePeriodSeconds>0</deletionGracePeriodSeconds>
-      </graceperiod>
-    </kubevirt>
-  </metadata>
   <vcpu placement="static">2</vcpu>
   <cputune>
     <vcpupin vcpu="0" cpuset="4"></vcpupin>
@@ -2160,15 +2106,6 @@ var _ = Describe("migratableDomXML", func() {
 		// migratableDomXML() removes the migration block but not its ident, which is its own token, hence the blank line below
 		expectedXML := `<domain type="kvm" id="1">
   <name>kubevirt</name>
-  <metadata>
-    <kubevirt xmlns="http://kubevirt.io">
-      <uid>d38cac9c-435b-42d5-960e-06e8d41146e8</uid>
-      
-      <graceperiod>
-        <deletionGracePeriodSeconds>0</deletionGracePeriodSeconds>
-      </graceperiod>
-    </kubevirt>
-  </metadata>
   <vcpu placement="static">2</vcpu>
   <cputune>
     <vcpupin vcpu="0" cpuset="6"></vcpupin>
