@@ -158,10 +158,7 @@ var _ = Describe("Validating VMICreate Admitter", func() {
 			},
 		}
 		resp := vmiCreateAdmitter.Admit(ar)
-
-		// FIXME - This is bug #8844, the request should be allowed.
-		Expect(resp.Allowed).To(BeFalse())
-		Expect(resp.Result.Message).To(ContainSubstring("spec.domain.clock.timer in body must be of type object"))
+		Expect(resp.Allowed).To(BeTrue())
 	})
 
 	DescribeTable("path validation should fail", func(path string) {
