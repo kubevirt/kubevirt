@@ -249,7 +249,7 @@ func (l LibvirtWrapper) StartVirtquemud(stopChan chan struct{}) {
 			cmd := exec.Command("/usr/sbin/virtqemud", args...)
 			if l.user != 0 {
 				cmd.SysProcAttr = &syscall.SysProcAttr{
-					AmbientCaps: []uintptr{unix.CAP_NET_BIND_SERVICE, unix.CAP_SYS_PTRACE},
+					AmbientCaps: []uintptr{unix.CAP_NET_BIND_SERVICE},
 				}
 			}
 

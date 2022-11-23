@@ -84,7 +84,6 @@ const (
 	CAP_NET_RAW          = "NET_RAW"
 	CAP_SYS_ADMIN        = "SYS_ADMIN"
 	CAP_SYS_NICE         = "SYS_NICE"
-	CAP_SYS_PTRACE       = "SYS_PTRACE"
 )
 
 // LibvirtStartupDelay is added to custom liveness and readiness probes initial delay value.

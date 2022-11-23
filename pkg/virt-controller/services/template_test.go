@@ -3391,7 +3391,7 @@ var _ = Describe("Template", func() {
 			for _, container := range pod.Spec.Containers {
 				if container.Name == "compute" {
 					Expect(container.SecurityContext.Capabilities.Add).To(
-						ContainElements(kubev1.Capability("NET_BIND_SERVICE"), kubev1.Capability("SYS_PTRACE")))
+						ContainElements(kubev1.Capability("NET_BIND_SERVICE")))
 					return
 				}
 			}
