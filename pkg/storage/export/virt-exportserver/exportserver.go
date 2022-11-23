@@ -23,23 +23,43 @@ import (
 	"bytes"
 	"compress/gzip"
 	"context"
+	"encoding/json"
+	"errors"
 	goflag "flag"
+	"fmt"
 	"io"
 	"net/http"
 	"os"
 	"os/exec"
 	"path"
+	"path/filepath"
 	"time"
 
 	flag "github.com/spf13/pflag"
+	"sigs.k8s.io/yaml"
 
 	"kubevirt.io/client-go/log"
+
+	corev1 "k8s.io/api/core/v1"
+	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	"k8s.io/apimachinery/pkg/runtime/schema"
+	virtv1 "kubevirt.io/api/core/v1"
+	cdiv1 "kubevirt.io/containerized-data-importer-api/pkg/apis/core/v1beta1"
 
 	"kubevirt.io/kubevirt/pkg/service"
 )
 
 const (
-	authHeader = "x-kubevirt-export-token"
+	authHeader              = "x-kubevirt-export-token"
+	manifestCmBasePath      = "/manifest_data/"
+	vmManifestPath          = manifestCmBasePath + "virtualmachine-manifest"
+	internalLinkPath        = manifestCmBasePath + "internal_host"
+	internalCaConfigMapPath = manifestCmBasePath + "internal_ca_cm"
+	externalLinkPath        = manifestCmBasePath + "external_host"
+	externalCaConfigMapPath = manifestCmBasePath + "external_ca_cm"
+	exportNamePath          = manifestCmBasePath + "export-name"
+
+	externalParam = "externalURI"
 )
 
 type TokenGetterFunc func() (string, error)
@@ -50,6 +70,7 @@ type VolumeInfo struct {
 	DirURI     string
 	RawURI     string
 	RawGzURI   string
+	VMURI      string
 }
 type ExportServerConfig struct {
 	Deadline time.Time
@@ -63,10 +84,12 @@ type ExportServerConfig struct {
 	Volumes []VolumeInfo
 
 	// unit testing helpers
-	ArchiveHandler func(string) http.Handler
-	DirHandler     func(string, string) http.Handler
-	FileHandler    func(string) http.Handler
-	GzipHandler    func(string) http.Handler
+	ArchiveHandler     func(string) http.Handler
+	DirHandler         func(string, string) http.Handler
+	FileHandler        func(string) http.Handler
+	GzipHandler        func(string) http.Handler
+	VmHandler          func(string, []VolumeInfo) http.Handler
+	TokenSecretHandler func(TokenGetterFunc) http.Handler
 
 	TokenGetter TokenGetterFunc
 }
@@ -140,6 +163,11 @@ func (s *exportServer) getHandlerMap(vi VolumeInfo) map[string]http.Handler {
 		result[vi.RawGzURI] = s.GzipHandler(p)
 	}
 
+	if vi.VMURI != "" {
+		result[vi.VMURI] = s.VmHandler(p, s.Volumes)
+		result[filepath.Join(vi.VMURI, "secret")] = s.TokenSecretHandler(s.TokenGetter)
+	}
+
 	return result
 }
 
@@ -196,6 +224,14 @@ func NewExportServer(config ExportServerConfig) service.Service {
 		es.GzipHandler = gzipHandler
 	}
 
+	if es.VmHandler == nil {
+		es.VmHandler = vmHandler
+	}
+
+	if es.TokenSecretHandler == nil {
+		es.TokenSecretHandler = secretHandler
+	}
+
 	if es.TokenGetter == nil {
 		es.TokenGetter = func() (string, error) {
 			return getToken(es.TokenFile)
@@ -203,6 +239,138 @@ func NewExportServer(config ExportServerConfig) service.Service {
 	}
 
 	return es
+}
+
+var getExpandedVM = func() *virtv1.VirtualMachine {
+	f, err := os.Open(vmManifestPath)
+	if err != nil {
+		log.Log.Reason(err).Info("Unable to load VM manifest data")
+		return nil
+	}
+	defer f.Close()
+	fileinfo, err := f.Stat()
+	if err != nil {
+		log.Log.Reason(err).Info("Unable to load VM manifest data")
+		return nil
+	}
+	buf := make([]byte, fileinfo.Size())
+	_, err = f.Read(buf)
+	if err != nil {
+		log.Log.Reason(err).Info("Unable to load VM manifest data")
+		return nil
+	}
+
+	vm := &virtv1.VirtualMachine{}
+	if err := json.Unmarshal(buf, vm); err != nil {
+		log.Log.Reason(err).Info("Unable to load VM manifest data")
+		return nil
+	}
+	// Blank out the status
+	vm.Status = virtv1.VirtualMachineStatus{}
+	return vm
+}
+
+var getInternalBasePath = func() (string, error) {
+	data, err := os.ReadFile(internalLinkPath)
+	if err != nil {
+		return "", err
+	}
+	return string(data), nil
+}
+
+var getExportName = func() (string, error) {
+	data, err := os.ReadFile(exportNamePath)
+	if err != nil {
+		return "", err
+	}
+	return string(data), nil
+}
+
+var getExternalBasePath = func() (string, error) {
+	data, err := os.ReadFile(externalLinkPath)
+	if err != nil {
+		return "", err
+	}
+	return string(data), nil
+}
+
+func GetTypeMetaString(gvk schema.GroupVersionKind) string {
+	return fmt.Sprintf("apiVersion: %s\nkind: %s\n", gvk.GroupVersion().String(), gvk.Kind)
+}
+
+var getCAConfigMap = func(name string) (*corev1.ConfigMap, error) {
+	f, err := os.Open(name)
+	if err != nil {
+		return nil, err
+	}
+	defer f.Close()
+	fileinfo, err := f.Stat()
+	if err != nil {
+		return nil, err
+	}
+	buf := make([]byte, fileinfo.Size())
+	_, err = f.Read(buf)
+	if err != nil {
+		return nil, err
+	}
+
+	cm := &corev1.ConfigMap{}
+	if err := json.Unmarshal(buf, cm); err != nil {
+		return nil, err
+	}
+	return cm, nil
+}
+
+var getCdiHeaderSecret = func(token, name string) *corev1.Secret {
+	data := make(map[string]string)
+
+	data["token"] = fmt.Sprintf("x-kubevirt-export-token:%s", token)
+	return &corev1.Secret{
+		ObjectMeta: metav1.ObjectMeta{
+			Name: name,
+		},
+		StringData: data,
+	}
+}
+
+var getDataVolumes = func(vm *virtv1.VirtualMachine) ([]*cdiv1.DataVolume, error) {
+	res := make([]*cdiv1.DataVolume, 0)
+	for _, volume := range vm.Spec.Template.Spec.Volumes {
+		name := ""
+		if volume.DataVolume != nil {
+			name = volume.DataVolume.Name
+		} else if volume.PersistentVolumeClaim != nil {
+			name = volume.PersistentVolumeClaim.ClaimName
+		}
+		if name == "" {
+			continue
+		}
+		log.Log.V(1).Infof("Opening DV %s", filepath.Join(manifestCmBasePath, fmt.Sprintf("dv-%s", name)))
+		f, err := os.Open(filepath.Join(manifestCmBasePath, fmt.Sprintf("dv-%s", name)))
+		if err != nil {
+			if errors.Is(err, os.ErrNotExist) {
+				log.Log.V(1).Info("DV not found skipping")
+				continue
+			}
+			return nil, err
+		}
+		defer f.Close()
+		fileinfo, err := f.Stat()
+		if err != nil {
+			return nil, err
+		}
+		buf := make([]byte, fileinfo.Size())
+		_, err = f.Read(buf)
+		if err != nil {
+			return nil, err
+		}
+		dv := &cdiv1.DataVolume{}
+		if err := json.Unmarshal(buf, dv); err != nil {
+			return nil, err
+		}
+		res = append(res, dv)
+	}
+	return res, nil
 }
 
 func newTarReader(mountPoint string) (io.ReadCloser, error) {
@@ -326,6 +494,118 @@ func gzipHandler(filePath string) http.Handler {
 	})
 }
 
+func vmHandler(filePath string, vi []VolumeInfo) http.Handler {
+	return http.HandlerFunc(func(w http.ResponseWriter, req *http.Request) {
+		data := make([]byte, 0)
+		if req.Method != http.MethodGet {
+			w.WriteHeader(http.StatusBadRequest)
+			return
+		}
+		exportName, err := getExportName()
+		if err != nil {
+			log.Log.Reason(err).Error("error reading export name")
+			w.WriteHeader(http.StatusInternalServerError)
+			return
+		}
+		headerSecretName := getSecretTokenName(exportName)
+		path, err := getInternalBasePath()
+		if err != nil {
+			log.Log.Reason(err).Error("error reading internal path")
+			w.WriteHeader(http.StatusInternalServerError)
+			return
+		}
+		certCm, err := getCAConfigMap(internalCaConfigMapPath)
+		if err != nil {
+			log.Log.Reason(err).Error("error reading internal ca configmap information")
+			w.WriteHeader(http.StatusInternalServerError)
+			return
+		}
+		hasExternal := req.URL.Query().Get(externalParam)
+		if hasExternal != "" {
+			path, err = getExternalBasePath()
+			if err != nil {
+				if errors.Is(err, os.ErrNotExist) {
+					log.Log.Reason(err).Info("external path information not found")
+					w.WriteHeader(http.StatusInternalServerError)
+				} else {
+					log.Log.Reason(err).Error("error reading external path")
+					w.WriteHeader(http.StatusInternalServerError)
+				}
+				return
+			}
+			certCm, err = getCAConfigMap(externalCaConfigMapPath)
+			if err != nil {
+				log.Log.Reason(err).Error("error reading external ca configmap information")
+				w.WriteHeader(http.StatusInternalServerError)
+				return
+			}
+		}
+		caBytes, err := resourceToBytes(certCm, schema.GroupVersionKind{Version: "v1", Kind: "ConfigMap", Group: ""})
+		if err != nil {
+			log.Log.Reason(err).Error("error generating external ca configmap yaml")
+			w.WriteHeader(http.StatusInternalServerError)
+			return
+		}
+		data = append(data, caBytes...)
+		expandedVm := getExpandedVM()
+		if expandedVm == nil {
+			log.Log.Reason(err).Error("error getting VM definition")
+			w.WriteHeader(http.StatusInternalServerError)
+			return
+		}
+		for i, dvTemplate := range expandedVm.Spec.DataVolumeTemplates {
+			dvTemplate.Spec.Source.HTTP.URL = fmt.Sprintf("https://%s", filepath.Join(path, vi[i].RawGzURI))
+			dvTemplate.Spec.Source.HTTP.CertConfigMap = certCm.Name
+			dvTemplate.Spec.Source.HTTP.SecretExtraHeaders = []string{headerSecretName}
+		}
+		vmBytes, err := resourceToBytes(expandedVm, virtv1.VirtualMachineGroupVersionKind)
+		if err != nil {
+			log.Log.Reason(err).Error("error generating VM yaml")
+			w.WriteHeader(http.StatusInternalServerError)
+			return
+		}
+		data = append(data, vmBytes...)
+		datavolumes, err := getDataVolumes(expandedVm)
+		if err != nil {
+			log.Log.Reason(err).Error("error reading datavolumes information")
+			w.WriteHeader(http.StatusInternalServerError)
+			return
+		}
+		for i, dv := range datavolumes {
+			dv.Spec.Source.HTTP.URL = fmt.Sprintf("https://%s", filepath.Join(path, vi[i].RawGzURI))
+			dv.Spec.Source.HTTP.CertConfigMap = certCm.Name
+			dv.Spec.Source.HTTP.SecretExtraHeaders = []string{headerSecretName}
+			dvBytes, err := resourceToBytes(dv, schema.GroupVersionKind{Version: "v1beta1", Kind: "DataVolume", Group: "cdi.kubevirt.io"})
+			if err != nil {
+				log.Log.Reason(err).Errorf("error generating DV %s yaml", dv.Name)
+				w.WriteHeader(http.StatusInternalServerError)
+				return
+			}
+			data = append(data, dvBytes...)
+		}
+
+		n, err := w.Write(data)
+		if err != nil {
+			log.Log.Reason(err).Error("error writing manifests")
+			w.WriteHeader(http.StatusInternalServerError)
+			return
+		}
+		log.Log.Infof("Wrote %d bytes\n", n)
+	})
+}
+
+func resourceToBytes(resource metav1.Object, gvk schema.GroupVersionKind) ([]byte, error) {
+	log.DefaultLogger().Infof("Writing %s, of GVK %v", resource.GetName(), gvk)
+	data := []byte(GetTypeMetaString(gvk))
+	resourceBytes, err := yaml.Marshal(resource)
+	if err != nil {
+		return nil, err
+	}
+	data = append(data, resourceBytes...)
+	data = append(data, []byte("---\n")...)
+	return data, nil
+}
+
 func dirHandler(uri, mountPoint string) http.Handler {
 	return http.StripPrefix(uri, http.FileServer(http.Dir(mountPoint)))
 }
@@ -350,4 +630,44 @@ func getToken(tokenFile string) (string, error) {
 	}
 
 	return string(content), nil
+}
+
+var getSecretTokenName = func(exportName string) string {
+	return fmt.Sprintf("header-secret-%s", exportName)
+}
+
+func secretHandler(tokenGetter TokenGetterFunc) http.Handler {
+	return http.HandlerFunc(func(w http.ResponseWriter, req *http.Request) {
+		if req.Method != http.MethodGet {
+			w.WriteHeader(http.StatusBadRequest)
+			return
+		}
+		token, err := tokenGetter()
+		if err != nil {
+			log.Log.Reason(err).Error("error getting token")
+			w.WriteHeader(http.StatusInternalServerError)
+			return
+		}
+		exportName, err := getExportName()
+		if err != nil {
+			log.Log.Reason(err).Error("error reading export name")
+			w.WriteHeader(http.StatusInternalServerError)
+			return
+		}
+		headerSecretName := getSecretTokenName(exportName)
+		secret := getCdiHeaderSecret(token, headerSecretName)
+		data, err := resourceToBytes(secret, schema.GroupVersionKind{Version: "v1", Kind: "Secret", Group: ""})
+		if err != nil {
+			log.Log.Reason(err).Errorf("error generating secret yaml")
+			w.WriteHeader(http.StatusInternalServerError)
+			return
+		}
+		n, err := w.Write(data)
+		if err != nil {
+			log.Log.Reason(err).Error("error writing secret manifest")
+			w.WriteHeader(http.StatusInternalServerError)
+			return
+		}
+		log.Log.Infof("Wrote %d bytes\n", n)
+	})
 }

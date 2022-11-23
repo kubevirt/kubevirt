@@ -19,6 +19,7 @@
 package export
 
 import (
+	"context"
 	"crypto/tls"
 	"crypto/x509"
 	"encoding/pem"
@@ -55,6 +56,10 @@ import (
 	"kubevirt.io/client-go/kubecli"
 	cdiv1 "kubevirt.io/containerized-data-importer-api/pkg/apis/core/v1beta1"
 
+	apiinstancetype "kubevirt.io/api/instancetype"
+	instancetypev1alpha2 "kubevirt.io/api/instancetype/v1alpha2"
+	fakeclientset "kubevirt.io/client-go/generated/kubevirt/clientset/versioned/fake"
+
 	"kubevirt.io/kubevirt/pkg/certificates/bootstrap"
 	"kubevirt.io/kubevirt/pkg/certificates/triple"
 	certutil "kubevirt.io/kubevirt/pkg/certificates/triple/cert"
@@ -66,10 +71,25 @@ import (
 
 const (
 	testNamespace = "default"
+	ingressSecret = "ingress-secret"
 )
 
 var (
-	qemuGid int64 = 107
+	qemuGid            int64 = 107
+	expectedPodEnvVars       = []k8sv1.EnvVar{
+		{
+			Name:  "EXPORT_VM_DEF_URI",
+			Value: exportDefPath,
+		}, {
+			Name:  "CERT_FILE",
+			Value: "/cert/tls.crt",
+		}, {
+			Name:  "KEY_FILE",
+			Value: "/cert/tls.key",
+		}, {
+			Name:  "TOKEN_FILE",
+			Value: "/token/token",
+		}}
 )
 
 var _ = Describe("Export controller", func() {
@@ -92,6 +112,7 @@ var _ = Describe("Export controller", func() {
 		kvInformer                 cache.SharedIndexInformer
 		crdInformer                cache.SharedIndexInformer
 		k8sClient                  *k8sfake.Clientset
+		virtClient                 *kubecli.MockKubevirtClient
 		vmExportClient             *kubevirtfake.Clientset
 		fakeVolumeSnapshotProvider *MockVolumeSnapshotProvider
 		mockVMExportQueue          *testutils.MockWorkQueue
@@ -144,7 +165,7 @@ var _ = Describe("Export controller", func() {
 		certFilePath = filepath.Join(certDir, "tls.crt")
 		keyFilePath = filepath.Join(certDir, "tls.key")
 		writeCertsToDir(certDir)
-		virtClient := kubecli.NewMockKubevirtClient(ctrl)
+		virtClient = kubecli.NewMockKubevirtClient(ctrl)
 		pvcInformer, _ = testutils.NewFakeInformerFor(&k8sv1.PersistentVolumeClaim{})
 		podInformer, _ = testutils.NewFakeInformerFor(&k8sv1.Pod{})
 		cmInformer, _ = testutils.NewFakeInformerFor(&k8sv1.ConfigMap{})
@@ -695,14 +716,69 @@ var _ = Describe("Export controller", func() {
 		Expect(service.Status.Conditions[0].Type).To(Equal("test2"))
 	})
 
-	It("Should create a pod based on the name of the VMExport", func() {
+	populateVmExportVM := func() *exportv1.VirtualMachineExport {
+		testVMExport := createVMVMExport()
+		vm := &virtv1.VirtualMachine{
+			ObjectMeta: metav1.ObjectMeta{
+				Name:      testVmName,
+				Namespace: testNamespace,
+			},
+			Spec: virtv1.VirtualMachineSpec{
+				Template: &virtv1.VirtualMachineInstanceTemplateSpec{
+					Spec: virtv1.VirtualMachineInstanceSpec{
+						Volumes: []virtv1.Volume{},
+					},
+				},
+			},
+		}
+		vmInformer.GetStore().Add(vm)
+		return testVMExport
+	}
+
+	populateVmExportVMSnapshot := func() *exportv1.VirtualMachineExport {
+		testVMExport := createSnapshotVMExport()
+		vm := &virtv1.VirtualMachine{
+			ObjectMeta: metav1.ObjectMeta{
+				Name:      testVmName,
+				Namespace: testNamespace,
+			},
+			Spec: virtv1.VirtualMachineSpec{
+				Template: &virtv1.VirtualMachineInstanceTemplateSpec{
+					Spec: virtv1.VirtualMachineInstanceSpec{
+						Volumes: []virtv1.Volume{},
+					},
+				},
+			},
+		}
+		vmInformer.GetStore().Add(vm)
+		snapshot := &snapshotv1.VirtualMachineSnapshot{
+			ObjectMeta: metav1.ObjectMeta{
+				Name:      testVmsnapshotName,
+				Namespace: testNamespace,
+			},
+			Spec: snapshotv1.VirtualMachineSnapshotSpec{
+				Source: k8sv1.TypedLocalObjectReference{
+					APIGroup: &virtv1.SchemeGroupVersion.Group,
+					Kind:     "VirtualMachine",
+					Name:     testVmName,
+				},
+			},
+		}
+		vmSnapshotInformer.GetStore().Add(snapshot)
+		return testVMExport
+	}
+
+	DescribeTable("Should create a pod based on the name of the VMExport", func(populateExportFunc func() *exportv1.VirtualMachineExport, numberOfVolumes int) {
 		testPVC := &k8sv1.PersistentVolumeClaim{
 			ObjectMeta: metav1.ObjectMeta{
 				Name:      testPVCName,
 				Namespace: testNamespace,
 			},
+			Spec: k8sv1.PersistentVolumeClaimSpec{
+				VolumeMode: (*k8sv1.PersistentVolumeMode)(pointer.StringPtr(string(k8sv1.PersistentVolumeBlock))),
+			},
 		}
-		testVMExport := createPVCVMExport()
+		testVMExport := populateExportFunc()
 		populateInitialVMExportStatus(testVMExport)
 		err := controller.handleVMExportToken(testVMExport)
 		Expect(testVMExport.Status.TokenSecretRef).ToNot(BeNil())
@@ -716,11 +792,25 @@ var _ = Describe("Export controller", func() {
 			Expect(pod.GetNamespace()).To(Equal(testNamespace))
 			return true, pod, nil
 		})
-		pod, err := controller.createExporterPod(testVMExport, []*k8sv1.PersistentVolumeClaim{testPVC})
+		var service *k8sv1.Service
+		k8sClient.Fake.PrependReactor("create", "services", func(action testing.Action) (handled bool, obj runtime.Object, err error) {
+			create, ok := action.(testing.CreateAction)
+			Expect(ok).To(BeTrue())
+			service, ok = create.GetObject().(*k8sv1.Service)
+			Expect(ok).To(BeTrue())
+			service.Status.Conditions = make([]metav1.Condition, 1)
+			service.Status.Conditions[0].Type = "test"
+			Expect(service.GetName()).To(Equal(controller.getExportServiceName(testVMExport)))
+			Expect(service.GetNamespace()).To(Equal(testNamespace))
+			return true, service, nil
+		})
+		service, err = controller.getOrCreateExportService(testVMExport)
+		Expect(err).ToNot(HaveOccurred())
+		pod, err := controller.createExporterPod(testVMExport, service, []*k8sv1.PersistentVolumeClaim{testPVC})
 		Expect(err).ToNot(HaveOccurred())
 		Expect(pod).ToNot(BeNil())
 		Expect(pod.Name).To(Equal(fmt.Sprintf("%s-%s", exportPrefix, testVMExport.Name)))
-		Expect(pod.Spec.Volumes).To(HaveLen(3), "There should be 3 volumes, one pvc, and two secrets (token and certs)")
+		Expect(pod.Spec.Volumes).To(HaveLen(numberOfVolumes), "There should be 3/4 volumes, one pvc, and two secrets (token and certs) (and vm def manifest if VM)")
 		certSecretName := ""
 		for _, volume := range pod.Spec.Volumes {
 			if volume.Name == certificates {
@@ -752,12 +842,7 @@ var _ = Describe("Export controller", func() {
 			},
 		}))
 		Expect(pod.Spec.Containers).To(HaveLen(1))
-		Expect(pod.Spec.Containers[0].VolumeMounts).To(HaveLen(3))
-		Expect(pod.Spec.Containers[0].VolumeMounts).To(ContainElement(k8sv1.VolumeMount{
-			Name:      testPVCName,
-			ReadOnly:  true,
-			MountPath: fmt.Sprintf("%s/%s", fileSystemMountPath, testPVC.Name),
-		}))
+		Expect(pod.Spec.Containers[0].VolumeMounts).To(HaveLen(numberOfVolumes - 1)) // The other is a block Volume
 		Expect(pod.Spec.Containers[0].VolumeMounts).To(ContainElement(k8sv1.VolumeMount{
 			Name:      certificates,
 			MountPath: "/cert",
@@ -766,8 +851,18 @@ var _ = Describe("Export controller", func() {
 			Name:      *testVMExport.Status.TokenSecretRef,
 			MountPath: "/token",
 		}))
+		Expect(pod.Spec.Containers[0].VolumeDevices).To(HaveLen(1))
+		Expect(pod.Spec.Containers[0].VolumeDevices).To(ContainElement(k8sv1.VolumeDevice{
+			Name:       testPVC.Name,
+			DevicePath: fmt.Sprintf("%s/%s", blockVolumeMountPath, testPVC.Name),
+		}))
 		Expect(pod.Annotations[annCertParams]).To(Equal("{\"Duration\":7200000000000,\"RenewBefore\":3600000000000}"))
-	})
+		Expect(pod.Spec.Containers[0].Env).To(ContainElements(expectedPodEnvVars))
+	},
+		Entry("PVC", createPVCVMExport, 3),
+		Entry("VM", populateVmExportVM, 4),
+		Entry("Snapshot", populateVmExportVMSnapshot, 4),
+	)
 
 	It("Should create a secret based on the vm export", func() {
 		cp := &CertParams{Duration: 24 * time.Hour, RenewBefore: 2 * time.Hour}
@@ -972,6 +1067,215 @@ var _ = Describe("Export controller", func() {
 		host, _ := controller.getExternalLinkHostAndCert()
 		Expect("backend-host").To(Equal(host))
 	})
+
+	populateIngressSecret := func() {
+		ingressCache.Add(ingressToHost())
+		secretInformer.GetStore().Add(&k8sv1.Secret{
+			ObjectMeta: metav1.ObjectMeta{
+				Name:      ingressSecret,
+				Namespace: testNamespace,
+			},
+			Data: map[string][]byte{
+				"tls.crt": []byte(expectedPem),
+			},
+		})
+	}
+
+	It("should create datamanifest and add it to the pod spec", func() {
+		populateIngressSecret()
+		testVMExport := createVMVMExportExternal()
+		vm := &virtv1.VirtualMachine{
+			ObjectMeta: metav1.ObjectMeta{
+				Name:      testVmName,
+				Namespace: testNamespace,
+			},
+			Spec: virtv1.VirtualMachineSpec{
+				Template: &virtv1.VirtualMachineInstanceTemplateSpec{
+					Spec: virtv1.VirtualMachineInstanceSpec{
+						Volumes: []virtv1.Volume{},
+					},
+				},
+			},
+		}
+		service := &k8sv1.Service{
+			ObjectMeta: metav1.ObjectMeta{
+				Name:      controller.getExportServiceName(testVMExport),
+				Namespace: testVMExport.Namespace,
+			},
+			Spec: k8sv1.ServiceSpec{},
+			Status: k8sv1.ServiceStatus{
+				Conditions: []metav1.Condition{
+					{
+						Type: "test2",
+					},
+				},
+			},
+		}
+		testPod := &k8sv1.Pod{
+			Spec: k8sv1.PodSpec{
+				Containers: []k8sv1.Container{
+					{
+						VolumeMounts: []k8sv1.VolumeMount{},
+					},
+				},
+				Volumes: []k8sv1.Volume{},
+			},
+		}
+		cmName := controller.getVmManifestConfigMapName(testVMExport)
+		vmBytes, err := controller.generateVMDefinitionFromVm(vm)
+		Expect(err).ToNot(HaveOccurred())
+		k8sClient.Fake.PrependReactor("create", "configmaps", func(action testing.Action) (handled bool, obj runtime.Object, err error) {
+			create, ok := action.(testing.CreateAction)
+			Expect(ok).To(BeTrue())
+			cm, ok := create.GetObject().(*k8sv1.ConfigMap)
+			Expect(ok).To(BeTrue())
+			Expect(cm.GetName()).To(Equal(cmName))
+			Expect(cm.GetNamespace()).To(Equal(testNamespace))
+			Expect(cm.BinaryData).ToNot(BeEmpty())
+			Expect(string(cm.BinaryData[internalHostKey])).To(Equal(fmt.Sprintf("%s.%s.svc", controller.getExportServiceName(testVMExport), service.Namespace)))
+			Expect(cm.BinaryData[vmManifest]).To(Equal(vmBytes))
+			return true, cm, nil
+		})
+		err = controller.createDataManifestAndAddToPod(testVMExport, vm, testPod, service)
+		Expect(err).ToNot(HaveOccurred())
+		Expect(testVMExport.Status).ToNot(BeNil())
+	})
+
+	createVM := func() *virtv1.VirtualMachine {
+		return &virtv1.VirtualMachine{
+			ObjectMeta: metav1.ObjectMeta{
+				Name:      testVmName,
+				Namespace: testNamespace,
+			},
+			Spec: virtv1.VirtualMachineSpec{
+				Template: &virtv1.VirtualMachineInstanceTemplateSpec{
+					Spec: virtv1.VirtualMachineInstanceSpec{
+						Volumes: []virtv1.Volume{},
+					},
+				},
+				Instancetype: &virtv1.InstancetypeMatcher{
+					Name: "test-instance-type",
+					Kind: apiinstancetype.SingularResourceName,
+				},
+			},
+		}
+	}
+	It("Should properly expand instance types of VMs", func() {
+		vm := createVM()
+		testInstanceType := &instancetypev1alpha2.VirtualMachineInstancetype{
+			TypeMeta: metav1.TypeMeta{
+				Kind:       "VirtualMachineInstancetype",
+				APIVersion: instancetypev1alpha2.SchemeGroupVersion.String(),
+			},
+			ObjectMeta: metav1.ObjectMeta{
+				Name:      "test-instance-type",
+				Namespace: vm.Namespace,
+			},
+			Spec: instancetypev1alpha2.VirtualMachineInstancetypeSpec{
+				CPU: instancetypev1alpha2.CPUInstancetype{
+					Guest: uint32(2),
+				},
+			},
+		}
+		fakeInstancetypeClient := fakeclientset.NewSimpleClientset().InstancetypeV1alpha2().VirtualMachineInstancetypes(vm.Namespace)
+		virtClient.EXPECT().VirtualMachineInstancetype(gomock.Any()).Return(fakeInstancetypeClient).AnyTimes()
+		_, err := virtClient.VirtualMachineInstancetype(vm.Namespace).Create(context.Background(), testInstanceType, metav1.CreateOptions{})
+		Expect(err).ToNot(HaveOccurred())
+
+		res, err := controller.expandVirtualMachine(vm)
+		Expect(err).ToNot(HaveOccurred())
+		Expect(res).ToNot(BeNil())
+		Expect(res.Spec.Template.Spec.Domain.CPU.Sockets).To(Equal(uint32(2)))
+	})
+
+	It("Should return error on conflict with instance types of VMs", func() {
+		vm := createVM()
+		vm.Spec.Template.Spec.Domain = virtv1.DomainSpec{
+			CPU: &virtv1.CPU{
+				Cores: uint32(1),
+			},
+		}
+		testInstanceType := &instancetypev1alpha2.VirtualMachineInstancetype{
+			TypeMeta: metav1.TypeMeta{
+				Kind:       "VirtualMachineInstancetype",
+				APIVersion: instancetypev1alpha2.SchemeGroupVersion.String(),
+			},
+			ObjectMeta: metav1.ObjectMeta{
+				Name:      "test-instance-type",
+				Namespace: vm.Namespace,
+			},
+			Spec: instancetypev1alpha2.VirtualMachineInstancetypeSpec{
+				CPU: instancetypev1alpha2.CPUInstancetype{
+					Guest: uint32(2),
+				},
+			},
+		}
+		fakeInstancetypeClient := fakeclientset.NewSimpleClientset().InstancetypeV1alpha2().VirtualMachineInstancetypes(vm.Namespace)
+		virtClient.EXPECT().VirtualMachineInstancetype(gomock.Any()).Return(fakeInstancetypeClient).AnyTimes()
+		_, err := virtClient.VirtualMachineInstancetype(vm.Namespace).Create(context.Background(), testInstanceType, metav1.CreateOptions{})
+		Expect(err).ToNot(HaveOccurred())
+
+		_, err = controller.expandVirtualMachine(vm)
+		Expect(err).To(HaveOccurred())
+		Expect(err.Error()).To(ContainSubstring("cannot expand instancetype to VM, due to 1 conflicts"))
+	})
+
+	createVMWithDVTemplateAndPVC := func() *virtv1.VirtualMachine {
+		vm := createVM()
+		vm.Spec.DataVolumeTemplates = []virtv1.DataVolumeTemplateSpec{
+			{
+				ObjectMeta: metav1.ObjectMeta{
+					Name:      "dv-template",
+					Namespace: vm.Namespace,
+				},
+				Spec: cdiv1.DataVolumeSpec{
+					Source: &cdiv1.DataVolumeSource{
+						Blank: &cdiv1.DataVolumeBlankImage{},
+					},
+				},
+			},
+		}
+		vm.Spec.Template.Spec.Volumes = append(vm.Spec.Template.Spec.Volumes, virtv1.Volume{
+			Name: "template-for-dv",
+			VolumeSource: virtv1.VolumeSource{
+				DataVolume: &virtv1.DataVolumeSource{
+					Name: "dv-template",
+				},
+			},
+		})
+		vm.Spec.Template.Spec.Volumes = append(vm.Spec.Template.Spec.Volumes, virtv1.Volume{
+			Name: "non-dv-pvc",
+			VolumeSource: virtv1.VolumeSource{
+				PersistentVolumeClaim: &virtv1.PersistentVolumeClaimVolumeSource{
+					PersistentVolumeClaimVolumeSource: k8sv1.PersistentVolumeClaimVolumeSource{
+						ClaimName: "pvc",
+					},
+				},
+			},
+		})
+		return vm
+	}
+
+	It("Should properly replace DVTemplates", func() {
+		vm := createVMWithDVTemplateAndPVC()
+		res := controller.updateHttpSourceDataVolumeTemplate(vm)
+		Expect(res).ToNot(BeNil())
+		Expect(res.Spec.DataVolumeTemplates).To(HaveLen(1))
+		Expect(res.Spec.DataVolumeTemplates[0].Spec.Source).ToNot(BeNil())
+		Expect(res.Spec.DataVolumeTemplates[0].Spec.Source.HTTP).ToNot(BeNil())
+		Expect(res.Spec.DataVolumeTemplates[0].Spec.Source.HTTP.URL).To(BeEmpty())
+		Expect(res.Spec.DataVolumeTemplates[0].Spec.Source.Blank).To(BeNil())
+	})
+
+	It("Should generate DataVolumes from VM", func() {
+		pvc := createPVC("pvc", string(cdiv1.DataVolumeKubeVirt))
+		pvcInformer.GetStore().Add(pvc)
+		vm := createVMWithDVTemplateAndPVC()
+		dvs := controller.generateDataVolumesFromVm(vm)
+		Expect(dvs).To(HaveLen(1))
+		Expect(dvs[0]).ToNot(BeNil())
+		Expect(dvs[0].Name).To((Equal("pvc")))
+	})
 })
 
 func verifyLinksEmpty(vmExport *exportv1.VirtualMachineExport) {
@@ -1071,6 +1375,36 @@ func routeToHostAndNoIngress() *routev1.Route {
 	}
 }
 
+func ingressToHost() *networkingv1.Ingress {
+	return &networkingv1.Ingress{
+		Spec: networkingv1.IngressSpec{
+			TLS: []networkingv1.IngressTLS{
+				{
+					SecretName: ingressSecret,
+				},
+			},
+			Rules: []networkingv1.IngressRule{
+				{
+					Host: "test-host",
+					IngressRuleValue: networkingv1.IngressRuleValue{
+						HTTP: &networkingv1.HTTPIngressRuleValue{
+							Paths: []networkingv1.HTTPIngressPath{
+								{
+									Backend: networkingv1.IngressBackend{
+										Service: &networkingv1.IngressServiceBackend{
+											Name: components.VirtExportProxyServiceName,
+										},
+									},
+								},
+							},
+						},
+					},
+				},
+			},
+		},
+	}
+}
+
 func verifyArchiveExternal(vmExport *exportv1.VirtualMachineExport, exportName, namespace, volumeName string) {
 	verifyLinksExternal(vmExport,
 		exportv1.Dir,
@@ -1157,6 +1491,19 @@ func createVMVMExport() *exportv1.VirtualMachineExport {
 			TokenSecretRef: pointer.StringPtr("token"),
 		},
 	}
+}
+
+func createVMVMExportExternal() *exportv1.VirtualMachineExport {
+	res := createVMVMExport()
+	res.Status = &exportv1.VirtualMachineExportStatus{
+		Links: &exportv1.VirtualMachineExportLinks{
+			External: &exportv1.VirtualMachineExportLink{
+				Cert:    "test-cert",
+				Volumes: []exportv1.VirtualMachineExportVolume{},
+			},
+		},
+	}
+	return res
 }
 
 func createPVC(name, contentType string) *k8sv1.PersistentVolumeClaim {

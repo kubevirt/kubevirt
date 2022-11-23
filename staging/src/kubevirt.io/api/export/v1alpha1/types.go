@@ -127,6 +127,10 @@ type VirtualMachineExportLink struct {
 	// +listMapKey=name
 	// +optional
 	Volumes []VirtualMachineExportVolume `json:"volumes"`
+
+	// DefinitionUrl is the url that contains the VM definition in either JSON or YAML format
+	// +optional
+	DefinitionUrl string `json:"definitionUrl,omitempty"`
 }
 
 // VirtualMachineExportVolume contains the name and available formats for the exported volume

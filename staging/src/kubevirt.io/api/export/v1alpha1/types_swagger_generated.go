@@ -46,9 +46,10 @@ func (VirtualMachineExportLinks) SwaggerDoc() map[string]string {
 
 func (VirtualMachineExportLink) SwaggerDoc() map[string]string {
 	return map[string]string{
-		"":        "VirtualMachineExportLink contains a list of volumes available for export, as well as the URLs to obtain these volumes",
-		"cert":    "Cert is the public CA certificate base64 encoded",
-		"volumes": "Volumes is a list of available volumes to export\n+listType=map\n+listMapKey=name\n+optional",
+		"":              "VirtualMachineExportLink contains a list of volumes available for export, as well as the URLs to obtain these volumes",
+		"cert":          "Cert is the public CA certificate base64 encoded",
+		"volumes":       "Volumes is a list of available volumes to export\n+listType=map\n+listMapKey=name\n+optional",
+		"definitionUrl": "DefinitionUrl is the url that contains the VM definition in either JSON or YAML format\n+optional",
 	}
 }
 

@@ -72,13 +72,14 @@ func (ctrl *VMExportController) getExternalLinks(pvcs []*corev1.PersistentVolume
 }
 
 func (ctrl *VMExportController) getLinks(pvcs []*corev1.PersistentVolumeClaim, exporterPod *corev1.Pod, hostAndBase, cert string) (*exportv1.VirtualMachineExportLink, error) {
+	const scheme = "https://"
 	exportLink := &exportv1.VirtualMachineExportLink{
-		Volumes: []exportv1.VirtualMachineExportVolume{},
-		Cert:    cert,
+		Volumes:       []exportv1.VirtualMachineExportVolume{},
+		Cert:          cert,
+		DefinitionUrl: scheme + path.Join(hostAndBase, exportDefPath),
 	}
 	for _, pvc := range pvcs {
 		if pvc != nil && exporterPod != nil && exporterPod.Status.Phase == corev1.PodRunning {
-			const scheme = "https://"
 
 			if ctrl.isKubevirtContentType(pvc) {
 				exportLink.Volumes = append(exportLink.Volumes, exportv1.VirtualMachineExportVolume{

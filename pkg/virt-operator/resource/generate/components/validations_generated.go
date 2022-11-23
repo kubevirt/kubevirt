@@ -7905,6 +7905,10 @@ var CRDsValidation map[string]string = map[string]string{
                 cert:
                   description: Cert is the public CA certificate base64 encoded
                   type: string
+                definitionUrl:
+                  description: DefinitionUrl is the url that contains the VM definition
+                    in either JSON or YAML format
+                  type: string
                 volumes:
                   description: Volumes is a list of available volumes to export
                   items:
@@ -7951,6 +7955,10 @@ var CRDsValidation map[string]string = map[string]string{
               properties:
                 cert:
                   description: Cert is the public CA certificate base64 encoded
+                  type: string
+                definitionUrl:
+                  description: DefinitionUrl is the url that contains the VM definition
+                    in either JSON or YAML format
                   type: string
                 volumes:
                   description: Volumes is a list of available volumes to export
