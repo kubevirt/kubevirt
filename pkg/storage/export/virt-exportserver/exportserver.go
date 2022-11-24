@@ -334,6 +334,7 @@ func fileHandler(file string) http.Handler {
 	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		f, err := os.Open(file)
 		if err != nil {
+			log.Log.Reason(err).Errorf("error opening %s", file)
 			w.WriteHeader(http.StatusInternalServerError)
 			return
 		}
