@@ -188,7 +188,9 @@ func (mutator *VMsMutator) inferDefaultInstancetype(vm *v1.VirtualMachine) error
 	if err != nil {
 		return err
 	}
-	vm.Spec.Instancetype = instancetypeMatcher
+	if instancetypeMatcher != nil {
+		vm.Spec.Instancetype = instancetypeMatcher
+	}
 	return nil
 }
 
@@ -197,7 +199,9 @@ func (mutator *VMsMutator) inferDefaultPreference(vm *v1.VirtualMachine) error {
 	if err != nil {
 		return err
 	}
-	vm.Spec.Preference = preferenceMatcher
+	if preferenceMatcher != nil {
+		vm.Spec.Preference = preferenceMatcher
+	}
 	return nil
 }
 
