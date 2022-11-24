@@ -386,16 +386,6 @@ var _ = Describe("[rfe_id:609][crit:medium][vendor:cnv-qe@redhat.com][level:comp
 			Expect(ok).To(BeTrue())
 			Expect(label).To(Equal(overrideFlavor))
 			Expect(newVmi.Spec.Domain.Resources.Requests["memory"]).To(Equal(vmiMemory))
-
-			By("Checking event list")
-			evList, err := virtClient.CoreV1().Events(testsuite.GetTestNamespace(newVmi)).List(context.Background(), k8smetav1.ListOptions{})
-			Expect(err).ToNot(HaveOccurred())
-			for _, event := range evList.Items {
-				if event.InvolvedObject.GetObjectKind() == newVmi.GetObjectKind() &&
-					event.InvolvedObject.Name == newVmi.GetName() {
-					Expect(event.Message).ToNot(ContainSubstring("Unable to apply VirtualMachineInstancePreset"))
-				}
-			}
 		})
 	})
 
