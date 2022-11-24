@@ -4521,7 +4521,7 @@ var _ = Describe("[rfe_id:393][crit:high][vendor:cnv-qe@redhat.com][level:system
 			)
 		})
 
-		It("[Serial] retrying immediately should be blocked by the migration backoff", Serial, func() {
+		It("retrying immediately should be blocked by the migration backoff", func() {
 			By("Starting the VirtualMachineInstance")
 			vmi = tests.RunVMIAndExpectLaunch(vmi, 240)
 
@@ -4538,7 +4538,7 @@ var _ = Describe("[rfe_id:393][crit:high][vendor:cnv-qe@redhat.com][level:system
 			events.ExpectEvent(vmi, k8sv1.EventTypeWarning, watch.MigrationBackoffReason)
 		})
 
-		It("[Serial] after a successful migration backoff should be cleared", Serial, func() {
+		It("after a successful migration backoff should be cleared", func() {
 			By("Starting the VirtualMachineInstance")
 			vmi = tests.RunVMIAndExpectLaunch(vmi, 240)
 
