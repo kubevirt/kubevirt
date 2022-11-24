@@ -41,6 +41,7 @@ const (
 	applianceDir      = "/usr/local/lib/guestfs"
 	guestfsVolume     = "guestfs"
 	appliancePath     = applianceDir + "/appliance"
+	guestfsHome       = "/home/guestfs"
 	tmpDirVolumeName  = "libguestfs-tmp-dir"
 	tmpDirPath        = "/tmp/guestfs"
 	pullPolicyDefault = corev1.PullIfNotPresent
@@ -528,7 +529,7 @@ func createLibguestfsPod(pvc, image, cmd string, args []string, kvm, isBlock boo
 						},
 						{
 							Name:  "HOME",
-							Value: appliancePath,
+							Value: guestfsHome,
 						},
 					},
 					SecurityContext: containerSecurityContext,
@@ -541,7 +542,7 @@ func createLibguestfsPod(pvc, image, cmd string, args []string, kvm, isBlock boo
 						{
 							Name:      guestfsVolume,
 							ReadOnly:  false,
-							MountPath: appliancePath,
+							MountPath: guestfsHome,
 						},
 					},
 					ImagePullPolicy: corev1.PullPolicy(pullPolicy),

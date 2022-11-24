@@ -386,11 +386,11 @@ http_archive(
     ],
 )
 
-http_file(
+http_archive(
     name = "libguestfs-appliance",
-    sha256 = "59fe17973fdaf4d969203b66b1446d855d406aea0736d06ee1cd624100942c8f",
+    sha256 = "124d6325a799e958843be4818ef2c32661755be1c56e519665779948861b04f6",
     urls = [
-        "https://storage.googleapis.com/kubevirt-prow/devel/release/kubevirt/libguestfs-appliance/appliance-1.48.4-linux-5.14.0-176-centos9.tar.xz",
+        "https://storage.googleapis.com/kubevirt-prow/devel/release/kubevirt/libguestfs-appliance/libguestfs-appliance-1.48.4-qcow2-linux-5.14.0-183-centos9.tar.xz",
     ],
 )
 

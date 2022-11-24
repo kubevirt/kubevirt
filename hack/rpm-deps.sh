@@ -133,7 +133,6 @@ libguestfstools_main="
   libvirt-daemon-driver-qemu-${LIBVIRT_VERSION}
   qemu-kvm-core-${QEMU_VERSION}
   seabios-${SEABIOS_VERSION}
-  tar
 "
 libguestfstools_x86_64="
   edk2-ovmf-${EDK2_VERSION}
