@@ -271,8 +271,30 @@ func (m *methods) StoreControllerRevisions(vm *virtv1.VirtualMachine) error {
 	return nil
 }
 
+func compareRevisions(revisionA *appsv1.ControllerRevision, revisionB *appsv1.ControllerRevision, isPreference bool) (bool, error) {
+	if err := decodeRevisionObject(revisionA, isPreference); err != nil {
+		return false, err
+	}
+
+	if err := decodeRevisionObject(revisionB, isPreference); err != nil {
+		return false, err
+	}
+
+	revisionASpec, err := getInstancetypeApiSpec(revisionA.Data.Object)
+	if err != nil {
+		return false, err
+	}
+
+	revisionBSpec, err := getInstancetypeApiSpec(revisionB.Data.Object)
+	if err != nil {
+		return false, err
+	}
+
+	return equality.Semantic.DeepEqual(revisionASpec, revisionBSpec), nil
+}
+
 func storeRevision(revision *appsv1.ControllerRevision, clientset kubecli.KubevirtClient, isPreference bool) (*appsv1.ControllerRevision, error) {
-	foundRevision, err := clientset.AppsV1().ControllerRevisions(revision.Namespace).Create(context.Background(), revision, metav1.CreateOptions{})
+	createdRevision, err := clientset.AppsV1().ControllerRevisions(revision.Namespace).Create(context.Background(), revision, metav1.CreateOptions{})
 	if err != nil {
 		if !errors.IsAlreadyExists(err) {
 			return nil, fmt.Errorf("failed to create ControllerRevision: %w", err)
@@ -284,27 +306,16 @@ func storeRevision(revision *appsv1.ControllerRevision, clientset kubecli.Kubevi
 			return nil, fmt.Errorf("failed to get ControllerRevision: %w", err)
 		}
 
-		if err := decodeRevisionObject(existingRevision, isPreference); err != nil {
-			return nil, err
-		}
-
-		revisionSpec, err := getInstancetypeApiSpec(revision.Data.Object)
+		equal, err := compareRevisions(revision, existingRevision, isPreference)
 		if err != nil {
 			return nil, err
 		}
-
-		existingSpec, err := getInstancetypeApiSpec(existingRevision.Data.Object)
-		if err != nil {
-			return nil, err
-		}
-
-		// If the data between the two differs, return an error
-		if !equality.Semantic.DeepEqual(existingSpec, revisionSpec) {
+		if !equal {
 			return nil, fmt.Errorf("found existing ControllerRevision with unexpected data: %s", revision.Name)
 		}
 		return existingRevision, nil
 	}
-	return foundRevision, nil
+	return createdRevision, nil
 }
 
 func decodeRevisionObject(revision *appsv1.ControllerRevision, isPreference bool) error {
