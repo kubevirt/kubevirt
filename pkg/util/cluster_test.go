@@ -249,8 +249,6 @@ var _ = Describe("test clusterInfo", func() {
 		),
 	)
 
-	// TODO: cover GetTLSSecurityProfile and RefreshAPIServerCR
-
 	Context("TLSSecurityProfile", func() {
 
 		DescribeTable(
@@ -295,6 +293,91 @@ var _ = Describe("test clusterInfo", func() {
 				&openshiftconfigv1.TLSSecurityProfile{
 					Type:   openshiftconfigv1.TLSProfileModernType,
 					Modern: &openshiftconfigv1.ModernTLSProfile{},
+				},
+			),
+			Entry(
+				"on Openshift with wrong values, TLSSecurityProfile unset on HCO, should return sanitized cluster wide TLSSecurityProfile - 1",
+				true,
+				&openshiftconfigv1.TLSSecurityProfile{
+					Type:   openshiftconfigv1.TLSProfileCustomType,
+					Modern: &openshiftconfigv1.ModernTLSProfile{},
+				},
+				nil,
+				&openshiftconfigv1.TLSSecurityProfile{
+					Type: openshiftconfigv1.TLSProfileCustomType,
+					Custom: &openshiftconfigv1.CustomTLSProfile{
+						TLSProfileSpec: openshiftconfigv1.TLSProfileSpec{
+							Ciphers:       openshiftconfigv1.TLSProfiles[openshiftconfigv1.TLSProfileIntermediateType].Ciphers,
+							MinTLSVersion: openshiftconfigv1.TLSProfiles[openshiftconfigv1.TLSProfileIntermediateType].MinTLSVersion,
+						},
+					},
+				},
+			),
+			Entry(
+				"on Openshift with wrong values, TLSSecurityProfile unset on HCO, should return sanitized cluster wide TLSSecurityProfile - 2",
+				true,
+				&openshiftconfigv1.TLSSecurityProfile{
+					Type: openshiftconfigv1.TLSProfileCustomType,
+				},
+				nil,
+				&openshiftconfigv1.TLSSecurityProfile{
+					Type: openshiftconfigv1.TLSProfileCustomType,
+					Custom: &openshiftconfigv1.CustomTLSProfile{
+						TLSProfileSpec: openshiftconfigv1.TLSProfileSpec{
+							Ciphers:       openshiftconfigv1.TLSProfiles[openshiftconfigv1.TLSProfileIntermediateType].Ciphers,
+							MinTLSVersion: openshiftconfigv1.TLSProfiles[openshiftconfigv1.TLSProfileIntermediateType].MinTLSVersion,
+						},
+					},
+				},
+			),
+			Entry(
+				"on Openshift with wrong values, TLSSecurityProfile unset on HCO, should return sanitized cluster wide TLSSecurityProfile - 3",
+				true,
+				&openshiftconfigv1.TLSSecurityProfile{
+					Type: openshiftconfigv1.TLSProfileCustomType,
+					Custom: &openshiftconfigv1.CustomTLSProfile{
+						TLSProfileSpec: openshiftconfigv1.TLSProfileSpec{
+							Ciphers: []string{
+								"wrongname1",
+								"TLS_AES_128_GCM_SHA256",
+								"TLS_AES_256_GCM_SHA384",
+								"TLS_CHACHA20_POLY1305_SHA256",
+								"ECDHE-ECDSA-AES128-GCM-SHA256",
+								"ECDHE-RSA-AES128-GCM-SHA256",
+								"ECDHE-ECDSA-AES256-GCM-SHA384",
+								"ECDHE-RSA-AES256-GCM-SHA384",
+								"ECDHE-ECDSA-CHACHA20-POLY1305",
+								"ECDHE-RSA-CHACHA20-POLY1305",
+								"wrongname2",
+								"DHE-RSA-AES128-GCM-SHA256",
+								"DHE-RSA-AES256-GCM-SHA384",
+								"wrongname3",
+							},
+							MinTLSVersion: openshiftconfigv1.TLSProfiles[openshiftconfigv1.TLSProfileIntermediateType].MinTLSVersion,
+						},
+					},
+				},
+				nil,
+				&openshiftconfigv1.TLSSecurityProfile{
+					Type: openshiftconfigv1.TLSProfileCustomType,
+					Custom: &openshiftconfigv1.CustomTLSProfile{
+						TLSProfileSpec: openshiftconfigv1.TLSProfileSpec{
+							Ciphers: []string{
+								"TLS_AES_128_GCM_SHA256",
+								"TLS_AES_256_GCM_SHA384",
+								"TLS_CHACHA20_POLY1305_SHA256",
+								"ECDHE-ECDSA-AES128-GCM-SHA256",
+								"ECDHE-RSA-AES128-GCM-SHA256",
+								"ECDHE-ECDSA-AES256-GCM-SHA384",
+								"ECDHE-RSA-AES256-GCM-SHA384",
+								"ECDHE-ECDSA-CHACHA20-POLY1305",
+								"ECDHE-RSA-CHACHA20-POLY1305",
+								"DHE-RSA-AES128-GCM-SHA256",
+								"DHE-RSA-AES256-GCM-SHA384",
+							},
+							MinTLSVersion: openshiftconfigv1.TLSProfiles[openshiftconfigv1.TLSProfileIntermediateType].MinTLSVersion,
+						},
+					},
 				},
 			),
 			Entry(
