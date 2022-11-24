@@ -706,7 +706,7 @@ var _ = Describe("ImageUpload", func() {
 				[]string{"foo", "--pvc-name", targetName, "--size", pvcSize, "--uploadproxy-url", "https://doesnotexist", "--insecure", "--image-path", "/dev/null"}),
 			Entry("Unexpected resource type", "invalid resource type foo",
 				[]string{"foo", targetName, "--size", pvcSize, "--uploadproxy-url", "https://doesnotexist", "--insecure", "--image-path", "/dev/null"}),
-			Entry("Size twice", "--pvc-size deprecated, use --size",
+			Entry("Size twice", "--pvc-size and --size can not be specified at the same time",
 				[]string{"dv", targetName, "--size", "500G", "--pvc-size", "50G", "--uploadproxy-url", "https://doesnotexist", "--insecure", "--image-path", "/dev/null"}),
 		)
 

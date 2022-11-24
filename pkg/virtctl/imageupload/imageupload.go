@@ -142,8 +142,8 @@ func NewImageUploadCommand(clientConfig clientcmd.ClientConfig) *cobra.Command {
 	}
 	cmd.Flags().BoolVar(&insecure, "insecure", false, "Allow insecure server connections when using HTTPS.")
 	cmd.Flags().StringVar(&uploadProxyURL, "uploadproxy-url", "", "The URL of the cdi-upload proxy service.")
-	cmd.Flags().StringVar(&name, "pvc-name", "", "DEPRECATED - The destination DataVolume/PVC name.")
-	cmd.Flags().StringVar(&pvcSize, "pvc-size", "", "DEPRECATED - The size of the PVC to create (ex. 10Gi, 500Mi).")
+	cmd.Flags().StringVar(&name, "pvc-name", "", "The destination DataVolume/PVC name.")
+	cmd.Flags().StringVar(&pvcSize, "pvc-size", "", "The size of the PVC to create (ex. 10Gi, 500Mi).")
 	cmd.Flags().StringVar(&size, "size", "", "The size of the DataVolume to create (ex. 10Gi, 500Mi).")
 	cmd.Flags().StringVar(&storageClass, "storage-class", "", "The storage class for the PVC.")
 	cmd.Flags().StringVar(&accessMode, "access-mode", "", "The access mode for the PVC.")
@@ -154,6 +154,8 @@ func NewImageUploadCommand(clientConfig clientcmd.ClientConfig) *cobra.Command {
 	cmd.Flags().UintVar(&uploadPodWaitSecs, "wait-secs", 300, "Seconds to wait for upload pod to start.")
 	cmd.Flags().BoolVar(&forceBind, "force-bind", false, "Force bind the PVC, ignoring the WaitForFirstConsumer logic.")
 	cmd.SetUsageTemplate(templates.UsageTemplate())
+	cmd.Flags().MarkDeprecated("pvc-name", "specify the name as the second argument instead.")
+	cmd.Flags().MarkDeprecated("pvc-size", "use --size instead.")
 	return cmd
 }
 
@@ -184,7 +186,7 @@ type command struct {
 
 func parseArgs(args []string) error {
 	if len(size) > 0 && len(pvcSize) > 0 && size != pvcSize {
-		return fmt.Errorf("--pvc-size deprecated, use --size")
+		return fmt.Errorf("--pvc-size and --size can not be specified at the same time")
 	}
 
 	if len(pvcSize) > 0 {
