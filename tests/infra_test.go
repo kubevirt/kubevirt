@@ -41,6 +41,7 @@ import (
 
 	kvtls "kubevirt.io/kubevirt/pkg/util/tls"
 
+	"kubevirt.io/kubevirt/tests/events"
 	"kubevirt.io/kubevirt/tests/exec"
 	"kubevirt.io/kubevirt/tests/framework/checks"
 	"kubevirt.io/kubevirt/tests/testsuite"
@@ -1464,51 +1465,9 @@ var _ = Describe("[Serial][sig-compute]Infrastructure", Serial, decorators.SigCo
 
 		Context("[Serial]node with obsolete host-model cpuModel", Serial, func() {
 
-			expectSerialRun := func() {
-				Expect(CurrentSpecReport().IsSerial).To(BeTrue(), "this test is supported for serial tests only")
-			}
-
-			expectAtLeastOneEvent := func(eventListOpts metav1.ListOptions, namespace string) *k8sv1.EventList {
-				// This function is dangerous to use from parallel tests as events might override each other.
-				// This can be removed in the future if these functions are used with great caution.
-				expectSerialRun()
-				var events *k8sv1.EventList
-
-				Eventually(func() []k8sv1.Event {
-					events, err = virtClient.CoreV1().Events(namespace).List(context.Background(), eventListOpts)
-					Expect(err).ToNot(HaveOccurred())
-
-					return events.Items
-				}, 30*time.Second, 1*time.Second).ShouldNot(BeEmpty())
-
-				return events
-			}
-			deleteEvents := func(eventListOpts metav1.ListOptions, eventList *k8sv1.EventList) {
-				// See comment in expectAtLeastOneEvent() for more info on why that's needed.
-				if len(eventList.Items) == 0 {
-					return
-				}
-				namespace := eventList.Items[0].Namespace
-				expectSerialRun()
-				for _, event := range eventList.Items {
-					err = virtClient.CoreV1().Events(event.Namespace).Delete(context.Background(), event.Name, metav1.DeleteOptions{})
-					Expect(err).ToNot(HaveOccurred())
-				}
-
-				By("Expecting alert to be removed")
-				Eventually(func() []k8sv1.Event {
-					events, err := virtClient.CoreV1().Events(namespace).List(context.Background(), eventListOpts)
-					Expect(err).ToNot(HaveOccurred())
-
-					return events.Items
-				}, 30*time.Second, 1*time.Second).Should(BeEmpty())
-			}
-
 			var node *k8sv1.Node
 			var obsoleteModel string
 			var kvConfig *v1.KubeVirtConfiguration
-			var events *k8sv1.EventList
-			var eventListOpts metav1.ListOptions
 
 			BeforeEach(func() {
 				node = &(libnode.GetAllSchedulableNodes(virtClient).Items[0])
@@ -1549,7 +1508,6 @@ var _ = Describe("[Serial][sig-compute]Infrastructure", Serial, decorators.SigCo
 			AfterEach(func() {
 				delete(kvConfig.ObsoleteCPUModels, obsoleteModel)
 				tests.UpdateKubeVirtConfigValueAndWait(*kvConfig)
-				deleteEvents(eventListOpts, events)
 
 				Eventually(func() error {
 					node, err = virtClient.CoreV1().Nodes().Get(context.Background(), node.Name, metav1.GetOptions{})
@@ -1594,11 +1552,9 @@ var _ = Describe("[Serial][sig-compute]Infrastructure", Serial, decorators.SigCo
 					return false
 				}, 3*time.Minute, 2*time.Second).Should(BeTrue())
 
-				By("Expecting for an alert to be triggered")
-				eventListOpts = metav1.ListOptions{
-					FieldSelector: fmt.Sprintf("type=%s,reason=%s", k8sv1.EventTypeWarning, "HostModelIsObsolete"),
-				}
-				events = expectAtLeastOneEvent(eventListOpts, node.Namespace)
+				events.ExpectEvent(node, k8sv1.EventTypeWarning, "HostModelIsObsolete")
+				// Remove as Node is persistent
+				events.DeleteEvents(node, k8sv1.EventTypeWarning, "HostModelIsObsolete")
 			})
 
 		})
