@@ -64,11 +64,6 @@ import (
 	"kubevirt.io/kubevirt/pkg/virt-controller/watch/topology"
 )
 
-type PodVmIfaceStatus struct {
-	podIfaceStatus *networkv1.NetworkStatus
-	vmIfaceStatus  *virtv1.VirtualMachineInstanceNetworkInterface
-}
-
 var _ = Describe("VirtualMachineInstance watcher", func() {
 
 	var ctrl *gomock.Controller
@@ -771,7 +766,9 @@ var _ = Describe("VirtualMachineInstance watcher", func() {
 			vmi := NewPendingVirtualMachine("testvmi")
 			vmi.Status.Phase = virtv1.Running
 			vmi = addDefaultNetwork(vmi, defaultNetworkName)
+			vmi = addDefaultNetworkStatus(vmi, defaultNetworkName)
 			vmi = addSRIOVNetwork(vmi, sriovNetworkName, netAttachDefName)
+			vmi = addSRIOVNetworkStatus(vmi, sriovNetworkName)
 			pod := NewPodForVirtualMachine(vmi, k8sv1.PodRunning)
 			addVirtualMachine(vmi)
 			podFeeder.Add(pod)
@@ -3097,7 +3094,7 @@ var _ = Describe("VirtualMachineInstance watcher", func() {
 
 			DescribeTable("cannot handle dynamic network attachment", func(addOpts []virtv1.AddInterfaceOptions, removeOpts []virtv1.RemoveInterfaceOptions) {
 				fakeHotPlugRequest(vmi, addOpts, nil)
-				Expect(controller.handleInterfaceHotplug(vmi, pod)).To(HaveOccurred())
+				Expect(controller.handleDynamicInterfaceRequests(vmi, pod)).To(HaveOccurred())
 			}, Entry("when adding an interface", []virtv1.AddInterfaceOptions{{
 				NetworkName:   "net1",
 				InterfaceName: "iface1",
@@ -3120,7 +3117,7 @@ var _ = Describe("VirtualMachineInstance watcher", func() {
 
 			DescribeTable("the pods network annotation must be updated", func(addOpts []virtv1.AddInterfaceOptions, matchers ...gomegaTypes.GomegaMatcher) {
 				fakeHotPlugRequest(vmi, addOpts, nil)
-				Expect(controller.handleInterfaceHotplug(vmi, pod)).To(Succeed())
+				Expect(controller.handleDynamicInterfaceRequests(vmi, pod)).To(Succeed())
 				for _, matcher := range matchers {
 					Expect(pod.Annotations).To(matcher)
 				}
@@ -3162,7 +3159,7 @@ var _ = Describe("VirtualMachineInstance watcher", func() {
 
 			DescribeTable("the pods network annotation must be updated", func(removeOpts []virtv1.RemoveInterfaceOptions, matchers ...gomegaTypes.GomegaMatcher) {
 				fakeHotPlugRequest(vmi, nil, removeOpts)
-				Expect(controller.handleInterfaceHotplug(vmi, pod)).To(Succeed())
+				Expect(controller.handleDynamicInterfaceRequests(vmi, pod)).To(Succeed())
 				for _, matcher := range matchers {
 					Expect(pod.Annotations).To(matcher)
 				}
@@ -3192,16 +3189,19 @@ var _ = Describe("VirtualMachineInstance watcher", func() {
 				networkName = "meganet"
 			)
 
-			DescribeTable("hotplugged interface", func(vmi *virtv1.VirtualMachineInstance, expectedIfaces ...virtv1.Interface) {
-				Expect(hotpluggedInterfaces(vmi)).To(ConsistOf(expectedIfaces))
+			DescribeTable("hotplugged interface", func(vmi *virtv1.VirtualMachineInstance, expectedNetworks ...virtv1.Network) {
+				Expect(vmInterfacesToCreateInPod(vmi)).To(ConsistOf(expectedNetworks))
 			},
 				Entry("VMI without interfaces on vmi.Spec has no interfaces to hot-plug", api.NewMinimalVMI(vmName)),
 				Entry("VMI with interface on vmi.Spec, also reflected on vmi.Status.Interfaces does not have ifaces to hot-plug",
 					newVMIWithOneIfaceStatus(newVMIWithOneIface(api.NewMinimalVMI(vmName), networkName, ifaceName), networkName, ifaceName)),
 				Entry("VMI with interface on vmi.Spec not found on vmi.Status.Interfaces does not have ifaces to hot-plug",
 					newVMIWithOneIface(api.NewMinimalVMI(vmName), networkName, ifaceName),
-					virtv1.Interface{
+					virtv1.Network{
 						Name: hotpluggedNetworkName(networkName, ifaceName),
+						NetworkSource: virtv1.NetworkSource{
+							Multus: &virtv1.MultusNetwork{NetworkName: networkName, Default: false},
+						},
 					}),
 			)
 		})
@@ -3420,9 +3420,19 @@ func addDefaultNetwork(vmi *virtv1.VirtualMachineInstance, networkName string) *
 	return vmi
 }
 
+func addDefaultNetworkStatus(vmi *virtv1.VirtualMachineInstance, networkName string) *virtv1.VirtualMachineInstance {
+	vmi.Status.Interfaces = append(vmi.Status.Interfaces, virtv1.VirtualMachineInstanceNetworkInterface{Name: networkName})
+	return vmi
+}
+
 func addSRIOVNetwork(vmi *virtv1.VirtualMachineInstance, networkName, nadName string) *virtv1.VirtualMachineInstance {
 	vmi.Spec.Domain.Devices.Interfaces = append(vmi.Spec.Domain.Devices.Interfaces, newSRIOVInterface(networkName))
 	vmi.Spec.Networks = append(vmi.Spec.Networks, newMultusNetwork(networkName, nadName))
+	return vmi
+}
+
+func addSRIOVNetworkStatus(vmi *virtv1.VirtualMachineInstance, networkName string) *virtv1.VirtualMachineInstance {
+	vmi.Status.Interfaces = append(vmi.Status.Interfaces, virtv1.VirtualMachineInstanceNetworkInterface{Name: networkName})
 	return vmi
 }
 

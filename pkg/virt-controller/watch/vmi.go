@@ -1145,8 +1145,8 @@ func (c *VMIController) sync(vmi *virtv1.VirtualMachineInstance, pod *k8sv1.Pod,
 				}
 			}
 		}
-		if c.doesPodNeedIfaceHotplug(vmi, pod) {
-			if err := c.handleInterfaceHotplug(vmi, pod); err != nil {
+		if c.doesPodRequireInterfaceChangeRequests(vmi, pod) {
+			if err := c.handleDynamicInterfaceRequests(vmi, pod); err != nil {
 				return &syncErrorImpl{
 					err:    fmt.Errorf("failed to hotplug network interfaces for vmi [%s/%s]: %w", vmi.GetNamespace(), vmi.GetName(), err),
 					reason: FailedHotplugSyncReason,
@@ -2143,7 +2143,7 @@ func (c *VMIController) getVolumePhaseMessageReason(volume *virtv1.Volume, names
 	return virtv1.VolumePending, PVCNotReadyReason, "PVC is in phase Lost"
 }
 
-func (c *VMIController) handleInterfaceHotplug(vmi *virtv1.VirtualMachineInstance, pod *k8sv1.Pod) error {
+func (c *VMIController) handleDynamicInterfaceRequests(vmi *virtv1.VirtualMachineInstance, pod *k8sv1.Pod) error {
 	log.Log.Object(pod).V(4).Info("network iface hotplug for pod")
 	multusAnnotation, err := services.GenerateMultusCNIAnnotationWithInterfaceNamingScheme(
 		vmi,
@@ -2176,38 +2176,10 @@ func (c *VMIController) handleInterfaceHotplug(vmi *virtv1.VirtualMachineInstanc
 	return nil
 }
 
-func (c *VMIController) doesPodNeedIfaceHotplug(vmi *virtv1.VirtualMachineInstance, pod *k8sv1.Pod) bool {
-	indexedNetworkStatus := nonDefaultPodMultusNetworksIndexedByIfaceName(pod)
-	for i, iface := range vmispec.FilterMultusNonDefaultNetworks(vmi.Spec.Networks) {
-		if _, found := indexedNetworkStatus[namescheme.SecondaryInterfaceName(i+1)]; found {
-			continue
-		}
-		if _, found := indexedNetworkStatus[namescheme.HashNetworkName(iface.Name)]; !found {
-			return true
-		}
-	}
-	return false
-}
-
-func nonDefaultPodMultusNetworksIndexedByIfaceName(pod *k8sv1.Pod) map[string]networkv1.NetworkStatus {
-	indexedNetworkStatus := map[string]networkv1.NetworkStatus{}
-	podNetworkStatus, found := pod.Annotations[networkv1.NetworkStatusAnnot]
-	if !found {
-		return indexedNetworkStatus
-	}
-	var networkStatus []networkv1.NetworkStatus
-	if err := json.Unmarshal([]byte(podNetworkStatus), &networkStatus); err != nil {
-		log.Log.Errorf("failed to unmarshall pod network status: %v", err)
-		return indexedNetworkStatus
-	}
-
-	for _, ns := range networkStatus {
-		if ns.Default {
-			continue
-		}
-		indexedNetworkStatus[ns.Interface] = ns
-	}
-	return indexedNetworkStatus
+func (c *VMIController) doesPodRequireInterfaceChangeRequests(vmi *virtv1.VirtualMachineInstance, pod *k8sv1.Pod) bool {
+	ifacestoHotplug := vmInterfacesToCreateInPod(vmi)
+	ifacesToUnplug := vmInterfacesToRemoveFromPod(vmi)
+	return len(ifacestoHotplug) > 0 || len(ifacesToUnplug) > 0
 }
 
 func indexIfaceStatus(oldIfaceStatus []virtv1.VirtualMachineInstanceNetworkInterface) map[string]virtv1.VirtualMachineInstanceNetworkInterface {
@@ -2220,15 +2192,36 @@ func indexIfaceStatus(oldIfaceStatus []virtv1.VirtualMachineInstanceNetworkInter
 	return indexedIfaceStatus
 }
 
-func hotpluggedInterfaces(vmi *virtv1.VirtualMachineInstance) []virtv1.Interface {
-	hotpluggedIfaces := make([]virtv1.Interface, 0)
-	vmiSpecIfaces := vmi.Spec.Domain.Devices.Interfaces
+func indexVMINetworks(networks []virtv1.Network) map[string]virtv1.Network {
+	indexedIfaceStatus := make(map[string]virtv1.Network)
+	for _, network := range networks {
+		if network.Name != "" {
+			indexedIfaceStatus[network.Name] = network
+		}
+	}
+	return indexedIfaceStatus
+}
+
+func vmInterfacesToCreateInPod(vmi *virtv1.VirtualMachineInstance) []virtv1.Network {
+	hotpluggedIfaces := make([]virtv1.Network, 0)
 	indexedVmiIfaceStatus := indexIfaceStatus(vmi.Status.Interfaces)
 
-	for _, iface := range vmiSpecIfaces {
-		if _, found := indexedVmiIfaceStatus[iface.Name]; !found {
-			hotpluggedIfaces = append(hotpluggedIfaces, iface)
+	for _, network := range vmi.Spec.Networks {
+		if _, found := indexedVmiIfaceStatus[network.Name]; !found {
+			hotpluggedIfaces = append(hotpluggedIfaces, network)
 		}
 	}
 	return hotpluggedIfaces
+}
+
+func vmInterfacesToRemoveFromPod(vmi *virtv1.VirtualMachineInstance) []virtv1.Network {
+	indexedVmiNetworks := indexVMINetworks(vmi.Spec.Networks)
+	indexedVmiIfaceStatus := indexIfaceStatus(vmi.Status.Interfaces)
+	var ifacesToRemoveFromPod []virtv1.Network
+	for ifaceStatusKey := range indexedVmiIfaceStatus {
+		if vmiNetwork, found := indexedVmiNetworks[ifaceStatusKey]; !found {
+			ifacesToRemoveFromPod = append(ifacesToRemoveFromPod, vmiNetwork)
+		}
+	}
+	return ifacesToRemoveFromPod
 }
