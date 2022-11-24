@@ -471,7 +471,7 @@ func (metrics *vmiMetrics) updateFilesystem(vmFSStats k6tv1.VirtualMachineInstan
 		fsLabelValues := []string{fsStat.DiskName, fsStat.MountPoint, fsStat.FileSystemType}
 
 		metrics.pushCustomMetric(
-			"kubevirt_vmi_filesystem_total_bytes",
+			"kubevirt_vmi_filesystem_capacity_bytes_total",
 			"Total VM filesystem capacity in bytes.",
 			prometheus.GaugeValue,
 			float64(fsStat.TotalBytes),
