@@ -139,9 +139,7 @@ Indication for a VirtualMachine that its eviction strategy is set to Live Migrat
 Indication for the total number of VirtualMachineInstance workloads that are not running within the most up-to-date version of the virt-launcher environment. Type: Gauge.
 
 ### kubevirt_vmi_phase_count
-Sum of VMIs per phase and node.
-
-`phase` can be one of the following: [`Pending`, `Scheduling`, `Scheduled`, `Running`, `Succeeded`, `Failed`, `Unknown`]. Type: Gauge.
+Sum of VMIs per phase and node. `phase` can be one of the following: [`Pending`, `Scheduling`, `Scheduled`, `Running`, `Succeeded`, `Failed`, `Unknown`]. Type: Gauge.
 
 ### kubevirt_vmi_storage_flush_requests_total
 Total storage flush requests. Type: Counter.

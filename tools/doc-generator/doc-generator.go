@@ -45,14 +45,6 @@ const (
 // These are the recording rules, and so they are not included in the response to /metric; we'll need to add them
 // manually
 const (
-	vmiPhaseCountName = "kubevirt_vmi_phase_count"
-	vmiPhaseCountDesc = "Sum of VMIs per phase and node.\n\n`phase` can be one of the following: [`Pending`, `Scheduling`, `Scheduled`, `Running`, `Succeeded`, `Failed`, `Unknown`]."
-	vmiPhaseCountType = "Gauge"
-
-	vmiEvictionBlockerName = "kubevirt_vmi_non_evictable"
-	vmiEvictionBlockerDesc = "Indication for a VirtualMachine that its eviction strategy is set to Live Migration but is not migratable."
-	vmiEvictionBlockerType = "Gauge"
-
 	vmiMemoryUsedBytes     = "kubevirt_vmi_memory_used_bytes"
 	vmiMemoryUsedBytesDesc = "Amount of `used` memory as seen by the domain."
 	vmiMemoryUsedBytesType = "Gauge"
@@ -63,6 +55,7 @@ func main() {
 	RegisterFakeDomainCollector()
 	RegisterFakeVMCollector()
 	RegisterFakeMigrationsCollector()
+	RegisterFakeVMICollector()
 
 	req, err := http.NewRequest(http.MethodGet, "/metrics", nil)
 	checkError(err)
@@ -130,16 +123,6 @@ func (m metricList) writeToFile(newFile io.WriteCloser) {
 
 var (
 	metrics = metricList{
-		{
-			name:        vmiPhaseCountName,
-			description: vmiPhaseCountDesc,
-			mType:       vmiPhaseCountType,
-		},
-		{
-			name:        vmiEvictionBlockerName,
-			description: vmiEvictionBlockerDesc,
-			mType:       vmiEvictionBlockerType,
-		},
 		{
 			name:        vmiMemoryUsedBytes,
 			description: vmiMemoryUsedBytesDesc,

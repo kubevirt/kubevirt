@@ -52,7 +52,7 @@ var (
 	// higher-level, telemetry-friendly metrics
 	vmiCountDesc = prometheus.NewDesc(
 		vmiPhaseCount,
-		"VMI phase.",
+		"Sum of VMIs per phase and node. `phase` can be one of the following: [`Pending`, `Scheduling`, `Scheduled`, `Running`, `Succeeded`, `Failed`, `Unknown`].",
 		[]string{
 			"node", "phase", "os", "workload", "flavor",
 		},
