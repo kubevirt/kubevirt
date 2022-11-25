@@ -26,9 +26,9 @@ import (
 
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
-	k8sv1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	"k8s.io/client-go/rest"
 	"k8s.io/utils/pointer"
 
 	v1 "kubevirt.io/api/core/v1"
@@ -37,7 +37,6 @@ import (
 	"kubevirt.io/client-go/kubecli"
 
 	"kubevirt.io/kubevirt/tests"
-	"kubevirt.io/kubevirt/tests/flags"
 	"kubevirt.io/kubevirt/tests/libvmi"
 	"kubevirt.io/kubevirt/tests/testsuite"
 	"kubevirt.io/kubevirt/tests/util"
@@ -56,65 +55,98 @@ var _ = Describe("[sig-compute]Subresource Api", func() {
 	})
 
 	Describe("[rfe_id:1195][crit:medium][vendor:cnv-qe@redhat.com][level:component] Rbac Authorization", func() {
-		var resource string
+		var vm *v1.VirtualMachine
+
 		BeforeEach(func() {
-			vm := tests.NewRandomVirtualMachine(libvmi.NewCirros(), false)
-			resource = vm.Name
-			vm, err := virtCli.VirtualMachine(util.NamespaceTestDefault).Create(vm)
+			vm = tests.NewRandomVirtualMachine(libvmi.NewCirros(), false)
+			vm, err = virtCli.VirtualMachine(util.NamespaceTestDefault).Create(vm)
 			Expect(err).ToNot(HaveOccurred())
 		})
 
 		Context("with correct permissions", func() {
 			It("[test_id:3170]should be allowed to access subresource endpoint", func() {
-				testClientJob(virtCli, true, resource)
+				saClient := getClientForSA(virtCli, testsuite.SubresourceServiceAccountName)
+				err := saClient.VirtualMachine(util.NamespaceTestDefault).Start(vm.Name, &v1.StartOptions{})
+				Expect(err).ToNot(HaveOccurred())
 			})
 		})
 		Context("Without permissions", func() {
 			It("[test_id:3171]should not be able to access subresource endpoint", func() {
-				testClientJob(virtCli, false, resource)
+				saClient := getClientForSA(virtCli, testsuite.SubresourceUnprivilegedServiceAccountName)
+				err := saClient.VirtualMachine(util.NamespaceTestDefault).Start(vm.Name, &v1.StartOptions{})
+				Expect(err).To(HaveOccurred())
+				Expect(errors.ReasonForError(err)).To(Equal(metav1.StatusReasonForbidden))
 			})
 		})
 	})
 
 	Describe("[rfe_id:1195][crit:medium][vendor:cnv-qe@redhat.com][level:component] Rbac Authorization For Version Command", func() {
-		resource := "version"
-
 		Context("with authenticated user", func() {
 			It("[test_id:3172]should be allowed to access subresource version endpoint", func() {
-				testClientJob(virtCli, true, resource)
+				saClient := getClientForSA(virtCli, testsuite.SubresourceServiceAccountName)
+				_, err := saClient.ServerVersion().Get()
+				Expect(err).ToNot(HaveOccurred())
 			})
 		})
 		Context("Without permissions", func() {
 			It("[test_id:3173]should be able to access subresource version endpoint", func() {
-				testClientJob(virtCli, false, resource)
+				saClient := getClientForSA(virtCli, testsuite.SubresourceUnprivilegedServiceAccountName)
+				_, err := saClient.ServerVersion().Get()
+				Expect(err).ToNot(HaveOccurred())
 			})
 		})
 	})
 
 	Describe("[crit:medium][vendor:cnv-qe@redhat.com][level:component] Rbac Authorization For Guestfs Command", func() {
-		resource := "guestfs"
-
 		Context("with authenticated user", func() {
 			It("should be allowed to access subresource guestfs endpoint", func() {
-				testClientJob(virtCli, true, resource)
+				saClient := getClientForSA(virtCli, testsuite.SubresourceServiceAccountName)
+				_, err := saClient.GuestfsVersion().Get()
+				Expect(err).ToNot(HaveOccurred())
 			})
 		})
 		Context("Without permissions", func() {
 			It("should be able to access subresource guestfs endpoint", func() {
-				testClientJob(virtCli, false, resource)
+				saClient := getClientForSA(virtCli, testsuite.SubresourceUnprivilegedServiceAccountName)
+				_, err := saClient.GuestfsVersion().Get()
+				Expect(err).ToNot(HaveOccurred())
 			})
 		})
 	})
 
 	Describe("[crit:medium][vendor:cnv-qe@redhat.com][level:component] Rbac Authorization For Expand-Spec Command", func() {
-		const resource = "expand-vm-spec"
+		var vm *v1.VirtualMachine
+
+		BeforeEach(func() {
+			vm = &v1.VirtualMachine{
+				ObjectMeta: metav1.ObjectMeta{
+					Name:      "vm-test",
+					Namespace: util.NamespaceTestDefault,
+				},
+				Spec: v1.VirtualMachineSpec{
+					Template: &v1.VirtualMachineInstanceTemplateSpec{
+						Spec: v1.VirtualMachineInstanceSpec{
+							Domain: v1.DomainSpec{
+								Devices: v1.Devices{},
+							},
+						},
+					},
+				},
+			}
+			vm.SetGroupVersionKind(v1.VirtualMachineGroupVersionKind)
+		})
 
 		It("should be allowed to access expand-vm-spec endpoint with authenticated user", func() {
-			testClientJob(virtCli, true, resource)
+			saClient := getClientForSA(virtCli, testsuite.SubresourceServiceAccountName)
+			_, err = saClient.ExpandSpec(util.NamespaceTestDefault).ForVirtualMachine(vm)
+			Expect(err).ToNot(HaveOccurred())
 		})
 
 		It("should not be able to access expand-vm-spec endpoint without authenticated user", func() {
-			testClientJob(virtCli, false, resource)
+			saClient := getClientForSA(virtCli, testsuite.SubresourceUnprivilegedServiceAccountName)
+			_, err = saClient.ExpandSpec(util.NamespaceTestDefault).ForVirtualMachine(vm)
+			Expect(err).To(HaveOccurred())
+			Expect(errors.ReasonForError(err)).To(Equal(metav1.StatusReasonForbidden))
 		})
 	})
 
@@ -645,55 +677,21 @@ var _ = Describe("[sig-compute]Subresource Api", func() {
 	})
 })
 
-func testClientJob(virtCli kubecli.KubevirtClient, withServiceAccount bool, resource string) {
-	const subresourceTestLabel = "subresource-access-test-pod"
-	user := int64(1001)
-	namespace := util.NamespaceTestDefault
-	expectedPhase := k8sv1.PodFailed
-	name := "subresource-access-tester"
-	job := &k8sv1.Pod{
-		ObjectMeta: metav1.ObjectMeta{
-			GenerateName: name,
-			Labels: map[string]string{
-				v1.AppLabel: subresourceTestLabel,
-			},
-		},
-		Spec: k8sv1.PodSpec{
-			RestartPolicy: k8sv1.RestartPolicyNever,
-			Containers: []k8sv1.Container{
-				{
-					Name:    name,
-					Image:   fmt.Sprintf("%s/subresource-access-test:%s", flags.KubeVirtUtilityRepoPrefix, flags.KubeVirtUtilityVersionTag),
-					Command: []string{"/subresource-access-test", "-n", namespace, resource},
-					SecurityContext: &k8sv1.SecurityContext{
-						AllowPrivilegeEscalation: pointer.Bool(false),
-						Capabilities:             &k8sv1.Capabilities{Drop: []k8sv1.Capability{"ALL"}},
-					},
-				},
-			},
-			SecurityContext: &k8sv1.PodSecurityContext{
-				RunAsNonRoot:   pointer.Bool(true),
-				RunAsUser:      &user,
-				SeccompProfile: &k8sv1.SeccompProfile{Type: k8sv1.SeccompProfileTypeRuntimeDefault},
-			},
-		},
-	}
-
-	if withServiceAccount {
-		job.Spec.ServiceAccountName = testsuite.SubresourceServiceAccountName
-		expectedPhase = k8sv1.PodSucceeded
-	} else if resource == "version" || resource == "guestfs" {
-		expectedPhase = k8sv1.PodSucceeded
-	}
-
-	pod, err := virtCli.CoreV1().Pods(namespace).Create(context.Background(), job, metav1.CreateOptions{})
+func getClientForSA(virtCli kubecli.KubevirtClient, saName string) kubecli.KubevirtClient {
+	secret, err := virtCli.CoreV1().Secrets(util.NamespaceTestDefault).Get(context.Background(), saName, metav1.GetOptions{})
 	Expect(err).ToNot(HaveOccurred())
 
-	getStatus := func() k8sv1.PodPhase {
-		pod, err := virtCli.CoreV1().Pods(namespace).Get(context.Background(), pod.Name, metav1.GetOptions{})
-		Expect(err).ToNot(HaveOccurred())
-		return pod.Status.Phase
-	}
+	token, ok := secret.Data["token"]
+	Expect(ok).To(BeTrue())
 
-	Eventually(getStatus, 60, 0.5).Should(Equal(expectedPhase))
+	saClient, err := kubecli.GetKubevirtClientFromRESTConfig(&rest.Config{
+		Host: virtCli.Config().Host,
+		TLSClientConfig: rest.TLSClientConfig{
+			Insecure: true,
+		},
+		BearerToken: string(token),
+	})
+	Expect(err).ToNot(HaveOccurred())
+
+	return saClient
 }
