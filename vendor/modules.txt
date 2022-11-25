@@ -96,7 +96,7 @@ github.com/josharian/intern
 github.com/json-iterator/go
 # github.com/kr/pretty v0.3.0
 ## explicit; go 1.12
-# github.com/kubevirt/cluster-network-addons-operator v0.81.0
+# github.com/kubevirt/cluster-network-addons-operator v0.82.0
 ## explicit; go 1.17
 github.com/kubevirt/cluster-network-addons-operator/pkg/apis/networkaddonsoperator/shared
 github.com/kubevirt/cluster-network-addons-operator/pkg/apis/networkaddonsoperator/v1

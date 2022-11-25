@@ -44,11 +44,12 @@ type ClusterInfoImp struct {
 	consolePluginImageProvided    bool
 	domain                        string
 	ownResources                  *OwnResources
+	logger                        logr.Logger
 }
 
 var clusterInfo ClusterInfo
 
-var apiServerTLSSecurityProfile *openshiftconfigv1.TLSSecurityProfile
+var validatedApiServerTLSSecurityProfile *openshiftconfigv1.TLSSecurityProfile
 
 var GetClusterInfo = func() ClusterInfo {
 	return clusterInfo
@@ -58,7 +59,8 @@ var GetClusterInfo = func() ClusterInfo {
 const OperatorConditionNameEnvVar = "OPERATOR_CONDITION_NAME"
 
 func (c *ClusterInfoImp) Init(ctx context.Context, cl client.Client, logger logr.Logger) error {
-	err := c.queryCluster(ctx, cl, logger)
+	c.logger = logger
+	err := c.queryCluster(ctx, cl)
 	if err != nil {
 		return err
 	}
@@ -67,7 +69,7 @@ func (c *ClusterInfoImp) Init(ctx context.Context, cl client.Client, logger logr
 	_, c.managedByOLM = os.LookupEnv(OperatorConditionNameEnvVar)
 
 	if c.runningInOpenshift {
-		err = c.initOpenshift(ctx, cl, logger)
+		err = c.initOpenshift(ctx, cl)
 	} else {
 		err = c.initKubernetes(cl)
 	}
@@ -83,7 +85,7 @@ func (c *ClusterInfoImp) Init(ctx context.Context, cl client.Client, logger logr
 		return err
 	}
 
-	c.ownResources = findOwnResources(ctx, cl, logger)
+	c.ownResources = findOwnResources(ctx, cl, c.logger)
 	return nil
 }
 
@@ -117,7 +119,7 @@ func (c *ClusterInfoImp) initKubernetes(cl client.Client) error {
 	return nil
 }
 
-func (c *ClusterInfoImp) initOpenshift(ctx context.Context, cl client.Client, logger logr.Logger) error {
+func (c *ClusterInfoImp) initOpenshift(ctx context.Context, cl client.Client) error {
 	clusterInfrastructure := &openshiftconfigv1.Infrastructure{
 		ObjectMeta: metav1.ObjectMeta{
 			Name: "cluster",
@@ -128,7 +130,7 @@ func (c *ClusterInfoImp) initOpenshift(ctx context.Context, cl client.Client, lo
 		return err
 	}
 
-	logger.Info("Cluster Infrastructure",
+	c.logger.Info("Cluster Infrastructure",
 		"platform", clusterInfrastructure.Status.PlatformStatus.Type,
 		"controlPlaneTopology", clusterInfrastructure.Status.ControlPlaneTopology,
 		"infrastructureTopology", clusterInfrastructure.Status.InfrastructureTopology,
@@ -199,7 +201,7 @@ func init() {
 	}
 }
 
-func (c *ClusterInfoImp) queryCluster(ctx context.Context, cl client.Client, logger logr.Logger) error {
+func (c *ClusterInfoImp) queryCluster(ctx context.Context, cl client.Client) error {
 	clusterVersion := &openshiftconfigv1.ClusterVersion{
 		ObjectMeta: metav1.ObjectMeta{
 			Name: "version",
@@ -210,14 +212,14 @@ func (c *ClusterInfoImp) queryCluster(ctx context.Context, cl client.Client, log
 		if meta.IsNoMatchError(err) || apierrors.IsNotFound(err) {
 			// Not on OpenShift
 			c.runningInOpenshift = false
-			logger.Info("Cluster type = kubernetes")
+			c.logger.Info("Cluster type = kubernetes")
 		} else {
-			logger.Error(err, "Failed to get ClusterVersion")
+			c.logger.Error(err, "Failed to get ClusterVersion")
 			return err
 		}
 	} else {
 		c.runningInOpenshift = true
-		logger.Info("Cluster type = openshift", "version", clusterVersion.Status.Desired.Version)
+		c.logger.Info("Cluster type = openshift", "version", clusterVersion.Status.Desired.Version)
 		c.domain, err = getClusterDomain(ctx, cl)
 		if err != nil {
 			return err
@@ -229,8 +231,8 @@ func (c *ClusterInfoImp) queryCluster(ctx context.Context, cl client.Client, log
 func (c *ClusterInfoImp) GetTLSSecurityProfile(hcoTLSSecurityProfile *openshiftconfigv1.TLSSecurityProfile) *openshiftconfigv1.TLSSecurityProfile {
 	if hcoTLSSecurityProfile != nil {
 		return hcoTLSSecurityProfile
-	} else if apiServerTLSSecurityProfile != nil {
-		return apiServerTLSSecurityProfile
+	} else if validatedApiServerTLSSecurityProfile != nil {
+		return validatedApiServerTLSSecurityProfile
 	}
 	return &openshiftconfigv1.TLSSecurityProfile{
 		Type:         openshiftconfigv1.TLSProfileIntermediateType,
@@ -247,10 +249,59 @@ func (c *ClusterInfoImp) RefreshAPIServerCR(ctx context.Context, cl client.Clien
 		if err != nil {
 			return err
 		}
-		apiServerTLSSecurityProfile = instance.Spec.TLSSecurityProfile
+		validatedApiServerTLSSecurityProfile = c.validateAPIServerTLSSecurityProfile(instance.Spec.TLSSecurityProfile)
 		return nil
 	} else {
-		apiServerTLSSecurityProfile = nil
+		validatedApiServerTLSSecurityProfile = nil
 	}
 	return nil
+}
+
+func (c *ClusterInfoImp) validateAPIServerTLSSecurityProfile(apiServerTLSSecurityProfile *openshiftconfigv1.TLSSecurityProfile) *openshiftconfigv1.TLSSecurityProfile {
+	if apiServerTLSSecurityProfile == nil || apiServerTLSSecurityProfile.Type != openshiftconfigv1.TLSProfileCustomType {
+		return apiServerTLSSecurityProfile
+	}
+	validatedApiServerTLSSecurityProfile := &openshiftconfigv1.TLSSecurityProfile{
+		Type: openshiftconfigv1.TLSProfileCustomType,
+		Custom: &openshiftconfigv1.CustomTLSProfile{
+			TLSProfileSpec: openshiftconfigv1.TLSProfileSpec{
+				Ciphers:       openshiftconfigv1.TLSProfiles[openshiftconfigv1.TLSProfileIntermediateType].Ciphers,
+				MinTLSVersion: openshiftconfigv1.TLSProfiles[openshiftconfigv1.TLSProfileIntermediateType].MinTLSVersion,
+			},
+		},
+	}
+	if apiServerTLSSecurityProfile.Custom != nil {
+		validatedApiServerTLSSecurityProfile.Custom.TLSProfileSpec.MinTLSVersion = apiServerTLSSecurityProfile.Custom.TLSProfileSpec.MinTLSVersion
+		validatedApiServerTLSSecurityProfile.Custom.TLSProfileSpec.Ciphers = nil
+		for _, cipher := range apiServerTLSSecurityProfile.Custom.TLSProfileSpec.Ciphers {
+			if isValidCipherName(cipher) {
+				validatedApiServerTLSSecurityProfile.Custom.TLSProfileSpec.Ciphers = append(validatedApiServerTLSSecurityProfile.Custom.TLSProfileSpec.Ciphers, cipher)
+			} else {
+				c.logger.Error(nil, "invalid cipher name on the APIServer CR, ignoring it", "cipher", cipher)
+			}
+		}
+	} else {
+		c.logger.Error(nil, "invalid custom configuration for TLSSecurityProfile on the APIServer CR, taking default values", "apiServerTLSSecurityProfile", apiServerTLSSecurityProfile)
+	}
+	return validatedApiServerTLSSecurityProfile
+}
+
+func isValidCipherName(str string) bool {
+	for _, v := range openshiftconfigv1.TLSProfiles[openshiftconfigv1.TLSProfileOldType].Ciphers {
+		if v == str {
+			return true
+		}
+	}
+	for _, v := range openshiftconfigv1.TLSProfiles[openshiftconfigv1.TLSProfileIntermediateType].Ciphers {
+		if v == str {
+			return true
+		}
+	}
+	for _, v := range openshiftconfigv1.TLSProfiles[openshiftconfigv1.TLSProfileModernType].Ciphers {
+		if v == str {
+			return true
+		}
+	}
+
+	return false
 }

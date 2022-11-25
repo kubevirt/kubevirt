@@ -9,7 +9,7 @@ metadata:
     certified: "false"
     console.openshift.io/disable-operand-delete: "true"
     containerImage: quay.io/kubevirt/hyperconverged-cluster-operator:1.9.0-unstable
-    createdAt: "2022-11-23 05:13:58"
+    createdAt: "2022-11-25 05:14:00"
     description: A unified operator deploying and controlling KubeVirt and its supporting
       operators with opinionated defaults
     operatorframework.io/initialization-resource: '{"apiVersion":"hco.kubevirt.io/v1beta1","kind":"HyperConverged","metadata":{"annotations":{"deployOVS":"false"},"name":"kubevirt-hyperconverged","namespace":"kubevirt-hyperconverged"},"spec":{}}'
@@ -511,6 +511,7 @@ spec:
           - get
           - list
           - watch
+          - use
         - apiGroups:
           - operator.openshift.io
           resources:
@@ -2548,7 +2549,7 @@ spec:
                 - name: CDI_VERSION
                   value: v1.55.0
                 - name: NETWORK_ADDONS_VERSION
-                  value: v0.81.0
+                  value: v0.82.0
                 - name: SSP_VERSION
                   value: v0.16.1
                 - name: TTO_VERSION
@@ -2751,17 +2752,17 @@ spec:
                 - name: OVS_CNI_IMAGE
                   value: quay.io/kubevirt/ovs-cni-plugin@sha256:3654b80dd5e459c3e73dd027d732620ed8b488b8a15dfe7922457d16c7e834c3
                 - name: KUBEMACPOOL_IMAGE
-                  value: quay.io/kubevirt/kubemacpool@sha256:fb07b1be9e0990e3846ef628e993694bf0765602af5907abf98f7e218db0cb4a
+                  value: quay.io/kubevirt/kubemacpool@sha256:0cc5ad824fc163d6dea5e9bd872467c691eaa9a88944008b5d746495b2a72214
                 - name: MACVTAP_CNI_IMAGE
                   value: quay.io/kubevirt/macvtap-cni@sha256:5a288f1f9956c2ea8127fa736b598326852d2aa58a8469fa663a1150c2313b02
                 - name: KUBE_RBAC_PROXY_IMAGE
                   value: quay.io/openshift/origin-kube-rbac-proxy@sha256:baedb268ac66456018fb30af395bb3d69af5fff3252ff5d549f0231b1ebb6901
                 - name: OPERATOR_IMAGE
-                  value: quay.io/kubevirt/cluster-network-addons-operator@sha256:169c030b608f5e4a219d9539b935bf8469f453fc7c40d9bf5f44c6a4d2eb56f7
+                  value: quay.io/kubevirt/cluster-network-addons-operator@sha256:abb33815bac39760aeec893eb85368c42367de395c1961130525c445b29669aa
                 - name: OPERATOR_NAME
                   value: cluster-network-addons-operator
                 - name: OPERATOR_VERSION
-                  value: v0.81.0
+                  value: v0.82.0
                 - name: OPERATOR_NAMESPACE
                   valueFrom:
                     fieldRef:
@@ -2779,7 +2780,7 @@ spec:
                   value: openshift-monitoring
                 - name: MONITORING_SERVICE_ACCOUNT
                   value: prometheus-k8s
-                image: quay.io/kubevirt/cluster-network-addons-operator@sha256:169c030b608f5e4a219d9539b935bf8469f453fc7c40d9bf5f44c6a4d2eb56f7
+                image: quay.io/kubevirt/cluster-network-addons-operator@sha256:abb33815bac39760aeec893eb85368c42367de395c1961130525c445b29669aa
                 imagePullPolicy: IfNotPresent
                 name: cluster-network-addons-operator
                 resources:
@@ -3677,7 +3678,7 @@ spec:
     name: cdi-uploadproxy
   - image: quay.io/kubevirt/cdi-uploadserver@sha256:c36f4d7b345a393bff95e02d28aec667c923a688d878dfda99cec4b76d8ad12f
     name: cdi-uploadserver
-  - image: quay.io/kubevirt/cluster-network-addons-operator@sha256:169c030b608f5e4a219d9539b935bf8469f453fc7c40d9bf5f44c6a4d2eb56f7
+  - image: quay.io/kubevirt/cluster-network-addons-operator@sha256:abb33815bac39760aeec893eb85368c42367de395c1961130525c445b29669aa
     name: cluster-network-addons-operator
   - image: quay.io/kubevirt/cni-default-plugins@sha256:c0d14ab010f44bf733aff02b77eb4b5a0ce38fd0c4918a7ecf6941a7bebd72df
     name: cni-default-plugins
@@ -3697,7 +3698,7 @@ spec:
     name: hyperconverged-cluster-operator
   - image: quay.io/kubevirt/hyperconverged-cluster-webhook:1.9.0-unstable
     name: hyperconverged-cluster-webhook
-  - image: quay.io/kubevirt/kubemacpool@sha256:fb07b1be9e0990e3846ef628e993694bf0765602af5907abf98f7e218db0cb4a
+  - image: quay.io/kubevirt/kubemacpool@sha256:0cc5ad824fc163d6dea5e9bd872467c691eaa9a88944008b5d746495b2a72214
     name: kubemacpool
   - image: quay.io/kubevirt-ui/kubevirt-plugin@sha256:cbadf29a77612a3cf57751d11d13c365eabed82e588203ac6ab0a4ddc45dc37c
     name: kubevirt-plugin
