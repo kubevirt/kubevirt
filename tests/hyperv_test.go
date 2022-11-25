@@ -6,6 +6,8 @@ import (
 	"strings"
 	"time"
 
+	virtconfig "kubevirt.io/kubevirt/pkg/virt-config"
+
 	"kubevirt.io/kubevirt/pkg/virt-controller/services"
 	"kubevirt.io/kubevirt/pkg/virt-controller/watch/topology"
 	nodelabellerutil "kubevirt.io/kubevirt/pkg/virt-handler/node-labeller/util"
@@ -250,6 +252,7 @@ var _ = Describe("[Serial][sig-compute] Hyper-V enlightenments", Serial, func() 
 		})
 
 		DescribeTable("the vmi with EVMCS HyperV feature should have correct HyperV and cpu features auto filled", func(featureState *v1.FeatureState) {
+			tests.EnableFeatureGate(virtconfig.HypervStrictCheckGate)
 			vmi := libvmi.NewCirros()
 			vmi.Spec.Domain.Features = &v1.Features{
 				Hyperv: &v1.FeatureHyperv{
@@ -264,11 +267,14 @@ var _ = Describe("[Serial][sig-compute] Hyper-V enlightenments", Serial, func() 
 			Expect(err).ToNot(HaveOccurred(), "Should get VMI")
 			Expect(vmi.Spec.Domain.Features.Hyperv.EVMCS).ToNot(BeNil(), "evmcs should not be nil")
 			Expect(vmi.Spec.Domain.CPU).ToNot(BeNil(), "cpu topology can't be nil")
+			pod := libvmi.GetPodByVirtualMachineInstance(vmi, vmi.Namespace)
 			if featureState.Enabled == nil || *featureState.Enabled == true {
 				Expect(vmi.Spec.Domain.Features.Hyperv.VAPIC).ToNot(BeNil(), "vapic should not be nil")
 				Expect(vmi.Spec.Domain.CPU.Features).To(HaveLen(1), "cpu topology has to contain 1 feature")
 				Expect(vmi.Spec.Domain.CPU.Features[0].Name).To(Equal(nodelabellerutil.VmxFeature), "vmx cpu feature should be requested")
+				Expect(pod.Spec.NodeSelector).Should(HaveKeyWithValue(v1.CPUModelVendorLabel+"Intel", "true"))
 			} else {
+				Expect(pod.Spec.NodeSelector).ShouldNot(HaveKeyWithValue(v1.CPUModelVendorLabel+"Intel", "true"))
 				Expect(vmi.Spec.Domain.Features.Hyperv.VAPIC).To(BeNil(), "vapic should be nil")
 				Expect(vmi.Spec.Domain.CPU.Features).To(BeEmpty())
 			}
