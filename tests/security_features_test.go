@@ -45,7 +45,6 @@ import (
 const (
 	capNetRaw         k8sv1.Capability = "NET_RAW"
 	capSysNice        k8sv1.Capability = "SYS_NICE"
-	capSysPTrace      k8sv1.Capability = "SYS_PTRACE"
 	capNetBindService k8sv1.Capability = "NET_BIND_SERVICE"
 )
 
@@ -247,11 +246,11 @@ var _ = Describe("[Serial][sig-compute]SecurityFeatures", Serial, func() {
 			}
 			caps := *container.SecurityContext.Capabilities
 			if !checks.HasFeature(virtconfig.Root) {
-				Expect(caps.Add).To(HaveLen(2), fmt.Sprintf("Found capabilities %s, expected NET_BIND_SERVICE and SYS_PTRACE", caps.Add))
-				Expect(caps.Add).To(ContainElements(k8sv1.Capability("NET_BIND_SERVICE"), k8sv1.Capability("SYS_PTRACE")))
+				Expect(caps.Add).To(HaveLen(1), fmt.Sprintf("Found capabilities %s, expected NET_BIND_SERVICE", caps.Add))
+				Expect(caps.Add).To(ContainElements(k8sv1.Capability("NET_BIND_SERVICE")))
 			} else {
-				Expect(caps.Add).To(HaveLen(3), fmt.Sprintf("Found capabilities %s, expected NET_BIND_SERVICE, SYS_NICE and SYS_PTRACE", caps.Add))
-				Expect(caps.Add).To(ContainElements(k8sv1.Capability("NET_BIND_SERVICE"), k8sv1.Capability("SYS_NICE"), k8sv1.Capability("SYS_PTRACE")))
+				Expect(caps.Add).To(HaveLen(2), fmt.Sprintf("Found capabilities %s, expected NET_BIND_SERVICE and SYS_NICE", caps.Add))
+				Expect(caps.Add).To(ContainElements(k8sv1.Capability("NET_BIND_SERVICE"), k8sv1.Capability("SYS_NICE")))
 			}
 
 			By("Checking virt-launcher Pod's compute container has precisely the documented extra capabilities")
@@ -271,8 +270,7 @@ func isLauncherCapabilityValid(capability k8sv1.Capability) bool {
 	switch capability {
 	case
 		capNetBindService,
-		capSysNice,
-		capSysPTrace:
+		capSysNice:
 		return true
 	}
 	return false

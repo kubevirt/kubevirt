@@ -82,7 +82,6 @@ var _ = Describe("Container spec renderer", func() {
 		allowedCapabilities := []k8sv1.Capability{
 			CAP_NET_BIND_SERVICE,
 			CAP_SYS_NICE,
-			CAP_SYS_PTRACE,
 		}
 		Context("a VMI running as root", func() {
 			BeforeEach(func() {
@@ -94,7 +93,7 @@ var _ = Describe("Container spec renderer", func() {
 					Equal([]k8sv1.Capability{CAP_NET_RAW}))
 			})
 
-			It("must request to add the NET_BIND_SERVICE, SYS_NICE and SYS_PTRACE capabilities", func() {
+			It("must request to add the NET_BIND_SERVICE and SYS_NICE capabilities", func() {
 				Expect(specRenderer.Render(exampleCommand).SecurityContext.Capabilities.Add).To(
 					ConsistOf(allowedCapabilities))
 			})
@@ -126,9 +125,9 @@ var _ = Describe("Container spec renderer", func() {
 					WithCapabilities(nonRootVMI(nonRootUser)))
 			})
 
-			It("must request the NET_BIND_SERVICE and SYS_PTRACE capabilities", func() {
+			It("must request the NET_BIND_SERVICE capability", func() {
 				Expect(specRenderer.Render(exampleCommand).SecurityContext.Capabilities.Add).Should(
-					ConsistOf(k8sv1.Capability(CAP_NET_BIND_SERVICE), k8sv1.Capability(CAP_SYS_PTRACE)))
+					ConsistOf(k8sv1.Capability(CAP_NET_BIND_SERVICE)))
 			})
 		})
 	})
