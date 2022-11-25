@@ -207,12 +207,6 @@ func (dpi *GenericDevicePlugin) register() error {
 }
 
 func (dpi *GenericDevicePlugin) ListAndWatch(e *pluginapi.Empty, s pluginapi.DevicePlugin_ListAndWatchServer) error {
-	// FIXME: sending an empty list up front should not be needed. This is a workaround for:
-	// https://github.com/kubevirt/kubevirt/issues/1196
-	// This can safely be removed once supported upstream Kubernetes is 1.10.3 or higher.
-	emptyList := []*pluginapi.Device{}
-	s.Send(&pluginapi.ListAndWatchResponse{Devices: emptyList})
-
 	s.Send(&pluginapi.ListAndWatchResponse{Devices: dpi.devs})
 
 	done := false
@@ -236,6 +230,7 @@ func (dpi *GenericDevicePlugin) ListAndWatch(e *pluginapi.Empty, s pluginapi.Dev
 	}
 	// Send empty list to increase the chance that the kubelet acts fast on stopped device plugins
 	// There exists no explicit way to deregister devices
+	emptyList := []*pluginapi.Device{}
 	if err := s.Send(&pluginapi.ListAndWatchResponse{Devices: emptyList}); err != nil {
 		log.DefaultLogger().Reason(err).Infof("%s device plugin failed to deregister", dpi.deviceName)
 	}
