@@ -46,10 +46,6 @@ var (
 		return safepath.JoinAndResolveWithRelativeRoot("/proc/1/root", fmt.Sprintf("/var/lib/kubelet/pods/%s/volumes/kubernetes.io~empty-dir/hotplug-disks", string(podUID)))
 	}
 
-	sourcePodBasePath = func(podUID types.UID) (*safepath.Path, error) {
-		return safepath.JoinAndResolveWithRelativeRoot("/proc/1/root", fmt.Sprintf("root/var/lib/kubelet/pods/%s/volumes", string(podUID)))
-	}
-
 	socketPath = func(podUID types.UID) string {
 		return fmt.Sprintf("pods/%s/volumes/kubernetes.io~empty-dir/hotplug-disks/hp.sock", string(podUID))
 	}
