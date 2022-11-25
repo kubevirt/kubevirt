@@ -66,6 +66,9 @@ Virtual Machine last transition timestamp to starting status. Type: Counter.
 ### kubevirt_vmi_cpu_affinity
 Details the cpu pinning map via boolean labels in the form of vcpu_X_cpu_Y. Type: Counter.
 
+### kubevirt_vmi_creation_timestamp_seconds
+VirtualMachineInstance creation timestamp in seconds. Type: Counter.
+
 ### kubevirt_vmi_filesystem_capacity_bytes_total
 Total VM filesystem capacity in bytes. Type: Gauge.
 

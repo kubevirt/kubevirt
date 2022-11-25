@@ -95,6 +95,20 @@ var _ = Describe("VMI Stats Collector", func() {
 			Entry("VMI Eviction policy is not set and vm is migratable", nil, k8sv1.ConditionTrue, 0.0),
 			Entry("VMI Eviction policy is not set and vm migratable status is not known", nil, k8sv1.ConditionUnknown, 0.0),
 		)
+
+		It("regarding creation timestamp metric", func() {
+			defer close(ch)
+			scraper.updateVMIMetrics()
+
+			<-ch
+			result := <-ch
+			dto := &io_prometheus_client.Metric{}
+			result.Write(dto)
+
+			Expect(result).ToNot(BeNil())
+			Expect(result.Desc().String()).To(ContainSubstring(vmiCreationTimestamp))
+			Expect(dto.Counter.GetValue()).To(BeEquivalentTo(now.Unix()))
+		})
 	})
 })
 

@@ -40,8 +40,9 @@ import (
 const none = "<none>"
 
 const (
-	vmiPhaseCount   = "kubevirt_vmi_phase_count"
-	vmiNonEvictable = "kubevirt_vmi_non_evictable"
+	vmiPhaseCount        = "kubevirt_vmi_phase_count"
+	vmiNonEvictable      = "kubevirt_vmi_non_evictable"
+	vmiCreationTimestamp = "kubevirt_vmi_creation_timestamp_seconds"
 )
 
 var (
@@ -64,6 +65,15 @@ var (
 		"Indication for a VirtualMachine that its eviction strategy is set to Live Migration but is not migratable.",
 		[]string{
 			"node", "namespace", "name",
+		},
+		nil,
+	)
+
+	vmiCreationTimestampDesc = prometheus.NewDesc(
+		vmiCreationTimestamp,
+		"VirtualMachineInstance creation timestamp in seconds.",
+		[]string{
+			"namespace", "name",
 		},
 		nil,
 	)
@@ -154,6 +164,7 @@ func (ps *vmiPrometheusScraper) updateVMIMetrics() {
 	for _, vmi := range ps.vmis {
 		labels := []string{vmi.Namespace, vmi.Name}
 		ps.PushConstMetric(vmiEvictionBlockerDesc, prometheus.GaugeValue, checkNonEvictableVMAndSetMetric(ps.ClusterConfig, vmi), append(labels, vmi.Status.NodeName)...)
+		ps.PushConstMetric(vmiCreationTimestampDesc, prometheus.CounterValue, float64(vmi.CreationTimestamp.Unix()), labels...)
 	}
 }
 
