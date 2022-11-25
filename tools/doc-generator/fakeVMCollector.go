@@ -16,13 +16,13 @@ func (fc fakeVMCollector) Describe(_ chan<- *prometheus.Desc) {
 
 // Collect needs to report all metrics to see it in docs
 func (fc fakeVMCollector) Collect(ch chan<- prometheus.Metric) {
-	ps := vmstats.NewPrometheusScraper(ch)
 
 	vms := []*k6tv1.VirtualMachine{
 		createVM(k6tv1.VirtualMachineStatusRunning),
 	}
+	ps := vmstats.VmPrometheusScraper(ch, vms)
 
-	ps.Report(vms)
+	ps.Scrape()
 }
 
 func RegisterFakeVMCollector() {

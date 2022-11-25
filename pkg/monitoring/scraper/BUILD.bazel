@@ -1,0 +1,13 @@
+load("@io_bazel_rules_go//go:def.bzl", "go_library")
+
+go_library(
+    name = "go_default_library",
+    srcs = ["scraper.go"],
+    importpath = "kubevirt.io/kubevirt/pkg/monitoring/scraper",
+    visibility = ["//visibility:public"],
+    deps = [
+        "//pkg/virt-config:go_default_library",
+        "//staging/src/kubevirt.io/client-go/log:go_default_library",
+        "//vendor/github.com/prometheus/client_golang/prometheus:go_default_library",
+    ],
+)

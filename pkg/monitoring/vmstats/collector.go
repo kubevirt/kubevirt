@@ -22,6 +22,8 @@ package vmstats
 import (
 	"k8s.io/client-go/tools/cache"
 
+	"kubevirt.io/kubevirt/pkg/monitoring/scraper"
+
 	k6tv1 "kubevirt.io/api/core/v1"
 
 	"github.com/prometheus/client_golang/prometheus"
@@ -134,25 +136,31 @@ func (co *VMCollector) Collect(ch chan<- prometheus.Metric) {
 		vms[i] = obj.(*k6tv1.VirtualMachine)
 	}
 
-	scraper := NewPrometheusScraper(ch)
-	scraper.Report(vms)
+	scraper := VmPrometheusScraper(ch, vms)
+	scraper.Scrape()
 }
 
-func NewPrometheusScraper(ch chan<- prometheus.Metric) *prometheusScraper {
-	return &prometheusScraper{ch: ch}
+func VmPrometheusScraper(ch chan<- prometheus.Metric, vms []*k6tv1.VirtualMachine) *vmPrometheusScraper {
+	return &vmPrometheusScraper{
+		PrometheusScraper: &scraper.PrometheusScraper{
+			Ch: ch,
+		},
+		vms: vms,
+	}
 }
 
-type prometheusScraper struct {
-	ch chan<- prometheus.Metric
+type vmPrometheusScraper struct {
+	*scraper.PrometheusScraper
+	vms []*k6tv1.VirtualMachine
 }
 
-func (ps *prometheusScraper) Report(vms []*k6tv1.VirtualMachine) {
-	for _, vm := range vms {
+func (ps *vmPrometheusScraper) Scrape() {
+	for _, vm := range ps.vms {
 		ps.updateVMMetrics(vm)
 	}
 }
 
-func (ps *prometheusScraper) updateVMMetrics(vm *k6tv1.VirtualMachine) {
+func (ps *vmPrometheusScraper) updateVMMetrics(vm *k6tv1.VirtualMachine) {
 	status := vm.Status.PrintableStatus
 	currentStateMetric := getMetricDesc(status)
 
@@ -160,25 +168,11 @@ func (ps *prometheusScraper) updateVMMetrics(vm *k6tv1.VirtualMachine) {
 
 	for _, metric := range metrics {
 		if metric == currentStateMetric {
-			ps.pushMetric(currentStateMetric, float64(lastTransitionTime), vm.Name, vm.Namespace)
+			ps.PushConstMetric(currentStateMetric, prometheus.CounterValue, float64(lastTransitionTime), vm.Name, vm.Namespace)
 		} else {
-			ps.pushMetric(metric, 0, vm.Name, vm.Namespace)
+			ps.PushConstMetric(metric, prometheus.CounterValue, 0, vm.Name, vm.Namespace)
 		}
 	}
-}
-
-func (ps *prometheusScraper) pushMetric(desc *prometheus.Desc, value float64, labelValues ...string) {
-	mv, err := prometheus.NewConstMetric(
-		desc,
-		prometheus.CounterValue,
-		value,
-		labelValues...,
-	)
-	if err != nil {
-		log.Log.V(4).Warningf("Error creating the new const metric for %s: %s", desc, err)
-		return
-	}
-	ps.ch <- mv
 }
 
 func getLastConditionDetails(vm *k6tv1.VirtualMachine) int64 {

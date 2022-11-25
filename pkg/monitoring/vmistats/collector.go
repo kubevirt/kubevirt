@@ -22,6 +22,8 @@ package vmistats
 import (
 	"strings"
 
+	"kubevirt.io/kubevirt/pkg/monitoring/scraper"
+
 	k8sv1 "k8s.io/api/core/v1"
 	"k8s.io/client-go/tools/cache"
 
@@ -37,6 +39,11 @@ import (
 
 const none = "<none>"
 
+const (
+	vmiPhaseCount   = "kubevirt_vmi_phase_count"
+	vmiNonEvictable = "kubevirt_vmi_non_evictable"
+)
+
 var (
 
 	// Prefixes used when transforming K8s metadata into metric labels
@@ -44,7 +51,7 @@ var (
 
 	// higher-level, telemetry-friendly metrics
 	vmiCountDesc = prometheus.NewDesc(
-		"kubevirt_vmi_phase_count",
+		vmiPhaseCount,
 		"VMI phase.",
 		[]string{
 			"node", "phase", "os", "workload", "flavor",
@@ -53,7 +60,7 @@ var (
 	)
 
 	vmiEvictionBlockerDesc = prometheus.NewDesc(
-		"kubevirt_vmi_non_evictable",
+		vmiNonEvictable,
 		"Indication for a VirtualMachine that its eviction strategy is set to Live Migration but is not migratable.",
 		[]string{
 			"node", "namespace", "name",
@@ -103,24 +110,60 @@ func (co *VMICollector) Collect(ch chan<- prometheus.Metric) {
 	for i, obj := range cachedObjs {
 		vmis[i] = obj.(*k6tv1.VirtualMachineInstance)
 	}
-
-	updateVMIsPhase(vmis, ch)
-	co.updateVMIMetrics(vmis, ch)
+	scraper := VmiPrometheusScraper(ch, co.clusterConfig, vmis)
+	scraper.Scrape()
 	return
 }
 
-func (vmc *vmiCountMetric) UpdateFromAnnotations(annotations map[string]string) {
-	if val, ok := annotations[annotationPrefix+"os"]; ok {
-		vmc.OS = val
-	}
+func VmiPrometheusScraper(ch chan<- prometheus.Metric, co *virtconfig.ClusterConfig, vmis []*k6tv1.VirtualMachineInstance) *vmiPrometheusScraper {
+	return &vmiPrometheusScraper{
+		PrometheusScraper: &scraper.PrometheusScraper{
+			Ch:            ch,
+			ClusterConfig: co,
+		},
+		vmis: vmis}
+}
 
-	if val, ok := annotations[annotationPrefix+"workload"]; ok {
-		vmc.Workload = val
-	}
+type vmiPrometheusScraper struct {
+	*scraper.PrometheusScraper
+	vmis []*k6tv1.VirtualMachineInstance
+}
 
-	if val, ok := annotations[annotationPrefix+"flavor"]; ok {
-		vmc.Flavor = val
+func (ps *vmiPrometheusScraper) Scrape() {
+	ps.updateVMIsPhase()
+	ps.updateVMIMetrics()
+}
+
+func (ps *vmiPrometheusScraper) updateVMIsPhase() {
+	countMap := makeVMICountMetricMap(ps.vmis)
+
+	for vmc, count := range countMap {
+		mv, err := prometheus.NewConstMetric(
+			vmiCountDesc, prometheus.GaugeValue,
+			float64(count),
+			vmc.NodeName, vmc.Phase, vmc.OS, vmc.Workload, vmc.Flavor,
+		)
+		if err != nil {
+			continue
+		}
+		ps.Ch <- mv
 	}
+}
+
+func (ps *vmiPrometheusScraper) updateVMIMetrics() {
+	for _, vmi := range ps.vmis {
+		labels := []string{vmi.Namespace, vmi.Name}
+		ps.PushConstMetric(vmiEvictionBlockerDesc, prometheus.GaugeValue, checkNonEvictableVMAndSetMetric(ps.ClusterConfig, vmi), append(labels, vmi.Status.NodeName)...)
+	}
+}
+
+func makeVMICountMetricMap(vmis []*k6tv1.VirtualMachineInstance) map[vmiCountMetric]uint64 {
+	countMap := make(map[vmiCountMetric]uint64)
+	for _, vmi := range vmis {
+		vmc := newVMICountMetric(vmi)
+		countMap[vmc]++
+	}
+	return countMap
 }
 
 func newVMICountMetric(vmi *k6tv1.VirtualMachineInstance) vmiCountMetric {
@@ -135,29 +178,17 @@ func newVMICountMetric(vmi *k6tv1.VirtualMachineInstance) vmiCountMetric {
 	return vmc
 }
 
-func makeVMICountMetricMap(vmis []*k6tv1.VirtualMachineInstance) map[vmiCountMetric]uint64 {
-	countMap := make(map[vmiCountMetric]uint64)
-
-	for _, vmi := range vmis {
-		vmc := newVMICountMetric(vmi)
-		countMap[vmc]++
+func (vmc *vmiCountMetric) UpdateFromAnnotations(annotations map[string]string) {
+	if val, ok := annotations[annotationPrefix+"os"]; ok {
+		vmc.OS = val
 	}
-	return countMap
-}
 
-func updateVMIsPhase(vmis []*k6tv1.VirtualMachineInstance, ch chan<- prometheus.Metric) {
-	countMap := makeVMICountMetricMap(vmis)
+	if val, ok := annotations[annotationPrefix+"workload"]; ok {
+		vmc.Workload = val
+	}
 
-	for vmc, count := range countMap {
-		mv, err := prometheus.NewConstMetric(
-			vmiCountDesc, prometheus.GaugeValue,
-			float64(count),
-			vmc.NodeName, vmc.Phase, vmc.OS, vmc.Workload, vmc.Flavor,
-		)
-		if err != nil {
-			continue
-		}
-		ch <- mv
+	if val, ok := annotations[annotationPrefix+"flavor"]; ok {
+		vmc.Flavor = val
 	}
 }
 
@@ -175,18 +206,4 @@ func checkNonEvictableVMAndSetMetric(clusterConfig *virtconfig.ClusterConfig, vm
 
 	}
 	return setVal
-}
-
-func (co *VMICollector) updateVMIMetrics(vmis []*k6tv1.VirtualMachineInstance, ch chan<- prometheus.Metric) {
-	for _, vmi := range vmis {
-		mv, err := prometheus.NewConstMetric(
-			vmiEvictionBlockerDesc, prometheus.GaugeValue,
-			checkNonEvictableVMAndSetMetric(co.clusterConfig, vmi),
-			vmi.Status.NodeName, vmi.Namespace, vmi.Name,
-		)
-		if err != nil {
-			continue
-		}
-		ch <- mv
-	}
 }

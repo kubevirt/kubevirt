@@ -38,22 +38,47 @@ var _ = BeforeSuite(func() {
 
 var _ = Describe("VMI Stats Collector", func() {
 
-	Context("VMI Eviction blocker", func() {
+	Context("should push metrics", func() {
 
-		liveMigrateEvictPolicy := k6tv1.EvictionStrategyLiveMigrate
-		DescribeTable("Add eviction alert metrics", func(evictionPolicy *k6tv1.EvictionStrategy, migrateCondStatus k8sv1.ConditionStatus, expectedVal float64) {
+		var (
+			vmis    []*k6tv1.VirtualMachineInstance
+			now     metav1.Time
+			ch      chan prometheus.Metric
+			scraper *vmiPrometheusScraper
+		)
+
+		BeforeEach(func() {
+			now = metav1.Now()
+			vmis = []*k6tv1.VirtualMachineInstance{
+				{
+					ObjectMeta: metav1.ObjectMeta{
+						Namespace:         "test-ns",
+						Name:              "testvmi",
+						CreationTimestamp: now,
+					},
+					Status: k6tv1.VirtualMachineInstanceStatus{
+						NodeName: "testNode",
+					},
+				},
+			}
 			vmiInformer, _ := testutils.NewFakeInformerFor(&k6tv1.VirtualMachineInstance{})
 			clusterConfig, _, _ := testutils.NewFakeClusterConfigUsingKV(&k6tv1.KubeVirt{})
 			collector := &VMICollector{
 				vmiInformer:   vmiInformer,
 				clusterConfig: clusterConfig,
 			}
+			ch = make(chan prometheus.Metric, 2)
+			scraper = VmiPrometheusScraper(
+				ch, collector.clusterConfig, vmis)
+		})
 
-			ch := make(chan prometheus.Metric, 1)
+		liveMigrateEvictPolicy := k6tv1.EvictionStrategyLiveMigrate
+
+		DescribeTable("regarding eviction alert when", func(evictionPolicy *k6tv1.EvictionStrategy, migrateCondStatus k8sv1.ConditionStatus, expectedVal float64) {
 			defer close(ch)
 
-			vmis := createVMISForEviction(evictionPolicy, migrateCondStatus)
-			collector.updateVMIMetrics(vmis, ch)
+			addEvictionStrategyAndConditions(vmis, evictionPolicy, migrateCondStatus)
+			scraper.updateVMIMetrics()
 
 			result := <-ch
 			dto := &io_prometheus_client.Metric{}
@@ -73,19 +98,7 @@ var _ = Describe("VMI Stats Collector", func() {
 	})
 })
 
-func createVMISForEviction(evictionStrategy *k6tv1.EvictionStrategy, migratableCondStatus k8sv1.ConditionStatus) []*k6tv1.VirtualMachineInstance {
-
-	vmis := []*k6tv1.VirtualMachineInstance{
-		{
-			ObjectMeta: metav1.ObjectMeta{
-				Namespace: "test-ns",
-				Name:      "testvmi",
-			},
-			Status: k6tv1.VirtualMachineInstanceStatus{
-				NodeName: "testNode",
-			},
-		},
-	}
+func addEvictionStrategyAndConditions(vmis []*k6tv1.VirtualMachineInstance, evictionStrategy *k6tv1.EvictionStrategy, migratableCondStatus k8sv1.ConditionStatus) {
 
 	if migratableCondStatus != k8sv1.ConditionUnknown {
 		vmis[0].Status.Conditions = []k6tv1.VirtualMachineInstanceCondition{
@@ -97,8 +110,6 @@ func createVMISForEviction(evictionStrategy *k6tv1.EvictionStrategy, migratableC
 	}
 
 	vmis[0].Spec.EvictionStrategy = evictionStrategy
-
-	return vmis
 }
 
 var _ = Describe("Utility functions", func() {

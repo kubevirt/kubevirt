@@ -23,6 +23,8 @@ import (
 	"strings"
 	"time"
 
+	"kubevirt.io/kubevirt/pkg/monitoring/scraper"
+
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
 
@@ -40,7 +42,7 @@ var _ = BeforeSuite(func() {
 var _ = Describe("VM Stats Collector", func() {
 	Context("VM status collector", func() {
 		var ch chan prometheus.Metric
-		var scrapper *prometheusScraper
+		var scrapper *vmPrometheusScraper
 
 		createVM := func(status k6tv1.VirtualMachinePrintableStatus, vmLastTransitionsTime time.Time) *k6tv1.VirtualMachine {
 			return &k6tv1.VirtualMachine{
@@ -73,7 +75,12 @@ var _ = Describe("VM Stats Collector", func() {
 
 		BeforeEach(func() {
 			ch = make(chan prometheus.Metric, 5)
-			scrapper = &prometheusScraper{ch: ch}
+			scrapper = &vmPrometheusScraper{
+				&scraper.PrometheusScraper{
+					Ch: ch,
+				},
+				nil,
+			}
 		})
 
 		DescribeTable("Add VM status metrics", func(status k6tv1.VirtualMachinePrintableStatus, metric string) {
@@ -81,8 +88,8 @@ var _ = Describe("VM Stats Collector", func() {
 			vms := []*k6tv1.VirtualMachine{
 				createVM(status, t),
 			}
-
-			scrapper.Report(vms)
+			scrapper.vms = vms
+			scrapper.Scrape()
 			close(ch)
 
 			containsStateMetric := false

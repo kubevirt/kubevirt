@@ -22,6 +22,8 @@ package migrationstats
 import (
 	"strings"
 
+	"kubevirt.io/kubevirt/pkg/monitoring/scraper"
+
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
 
@@ -33,11 +35,16 @@ import (
 
 var _ = Describe("Migration Stats Collector", func() {
 	var ch chan prometheus.Metric
-	var scrapper *prometheusScraper
+	var scrapper *vmimPrometheusScraper
 
 	BeforeEach(func() {
 		ch = make(chan prometheus.Metric, 5)
-		scrapper = &prometheusScraper{ch: ch}
+		scrapper = &vmimPrometheusScraper{
+			&scraper.PrometheusScraper{
+				Ch: ch,
+			},
+			nil,
+		}
 	})
 
 	getVMIM := func(phase k6tv1.VirtualMachineInstanceMigrationPhase) *k6tv1.VirtualMachineInstanceMigration {
@@ -50,7 +57,8 @@ var _ = Describe("Migration Stats Collector", func() {
 
 	It("should set all metrics to 0 when no migrations", func() {
 		var vmims []*k6tv1.VirtualMachineInstanceMigration
-		scrapper.Report(vmims)
+		scrapper.vmims = vmims
+		scrapper.Scrape()
 		close(ch)
 
 		for m := range ch {
@@ -65,7 +73,8 @@ var _ = Describe("Migration Stats Collector", func() {
 			getVMIM(phase),
 		}
 
-		scrapper.Report(vmims)
+		scrapper.vmims = vmims
+		scrapper.Scrape()
 		close(ch)
 
 		containsMetric := false
@@ -97,7 +106,8 @@ var _ = Describe("Migration Stats Collector", func() {
 			getVMIM(k6tv1.MigrationPending),
 		}
 
-		scrapper.Report(vmims)
+		scrapper.vmims = vmims
+		scrapper.Scrape()
 		close(ch)
 
 		for m := range ch {

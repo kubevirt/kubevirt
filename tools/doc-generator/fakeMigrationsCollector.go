@@ -35,7 +35,6 @@ func (fc fakeMigrationsCollector) Describe(_ chan<- *prometheus.Desc) {
 
 // Collect needs to report all metrics to see it in docs
 func (fc fakeMigrationsCollector) Collect(ch chan<- prometheus.Metric) {
-	ps := migrationstats.NewPrometheusScraper(ch)
 
 	vmims := []*k6tv1.VirtualMachineInstanceMigration{
 		{
@@ -49,8 +48,9 @@ func (fc fakeMigrationsCollector) Collect(ch chan<- prometheus.Metric) {
 			},
 		},
 	}
+	ps := migrationstats.VmimPrometheusScraper(ch, vmims)
 
-	ps.Report(vmims)
+	ps.Scrape()
 }
 
 func RegisterFakeMigrationsCollector() {

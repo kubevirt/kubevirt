@@ -23,6 +23,8 @@ import (
 	"github.com/prometheus/client_golang/prometheus"
 	"k8s.io/client-go/tools/cache"
 
+	"kubevirt.io/kubevirt/pkg/monitoring/scraper"
+
 	k6tv1 "kubevirt.io/api/core/v1"
 	"kubevirt.io/client-go/log"
 )
@@ -99,24 +101,30 @@ func (co *MigrationCollector) Collect(ch chan<- prometheus.Metric) {
 		vmims[i] = obj.(*k6tv1.VirtualMachineInstanceMigration)
 	}
 
-	scraper := NewPrometheusScraper(ch)
-	scraper.Report(vmims)
+	scraper := VmimPrometheusScraper(ch, vmims)
+	scraper.Scrape()
 }
 
-func NewPrometheusScraper(ch chan<- prometheus.Metric) *prometheusScraper {
-	return &prometheusScraper{ch: ch}
+func VmimPrometheusScraper(ch chan<- prometheus.Metric, vmims []*k6tv1.VirtualMachineInstanceMigration) *vmimPrometheusScraper {
+	return &vmimPrometheusScraper{
+		PrometheusScraper: &scraper.PrometheusScraper{
+			Ch: ch,
+		},
+		vmims: vmims,
+	}
 }
 
-type prometheusScraper struct {
-	ch chan<- prometheus.Metric
+type vmimPrometheusScraper struct {
+	*scraper.PrometheusScraper
+	vmims []*k6tv1.VirtualMachineInstanceMigration
 }
 
-func (ps *prometheusScraper) Report(vmims []*k6tv1.VirtualMachineInstanceMigration) {
+func (ps *vmimPrometheusScraper) Scrape() {
 	pendingCount := 0
 	schedulingCount := 0
 	runningCount := 0
 
-	for _, vmim := range vmims {
+	for _, vmim := range ps.vmims {
 		switch vmim.Status.Phase {
 		case k6tv1.MigrationPending:
 			pendingCount++
@@ -125,28 +133,13 @@ func (ps *prometheusScraper) Report(vmims []*k6tv1.VirtualMachineInstanceMigrati
 		case k6tv1.MigrationRunning, k6tv1.MigrationScheduled, k6tv1.MigrationPreparingTarget, k6tv1.MigrationTargetReady:
 			runningCount++
 		case k6tv1.MigrationSucceeded:
-			ps.pushMetric(migrationMetrics[SucceededMigrations], 1, vmim.Spec.VMIName, vmim.Name)
+			ps.PushConstMetric(migrationMetrics[SucceededMigrations], prometheus.GaugeValue, 1, vmim.Spec.VMIName, vmim.Name)
 		default:
-			ps.pushMetric(migrationMetrics[FailedMigrations], 1, vmim.Spec.VMIName, vmim.Name)
+			ps.PushConstMetric(migrationMetrics[FailedMigrations], prometheus.GaugeValue, 1, vmim.Spec.VMIName, vmim.Name)
 		}
 	}
 
-	ps.pushMetric(migrationMetrics[PendingMigrations], float64(pendingCount))
-	ps.pushMetric(migrationMetrics[SchedulingMigrations], float64(schedulingCount))
-	ps.pushMetric(migrationMetrics[RunningMigrations], float64(runningCount))
-}
-
-func (ps *prometheusScraper) pushMetric(desc *prometheus.Desc, value float64, labelValues ...string) {
-	mv, err := prometheus.NewConstMetric(
-		desc,
-		prometheus.GaugeValue,
-		value,
-		labelValues...,
-	)
-	if err != nil {
-		log.Log.V(4).Warningf("Error creating the new const metric for %s: %s", desc, err)
-		return
-	}
-
-	ps.ch <- mv
+	ps.PushConstMetric(migrationMetrics[PendingMigrations], prometheus.GaugeValue, float64(pendingCount))
+	ps.PushConstMetric(migrationMetrics[SchedulingMigrations], prometheus.GaugeValue, float64(schedulingCount))
+	ps.PushConstMetric(migrationMetrics[RunningMigrations], prometheus.GaugeValue, float64(runningCount))
 }
