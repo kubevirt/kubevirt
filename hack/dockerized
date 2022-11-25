@@ -41,12 +41,19 @@ if [ -z "$($KUBEVIRT_CRI volume list | grep ${BUILDER})" ]; then
     $KUBEVIRT_CRI volume create ${BUILDER}
 fi
 
+selinux_bind_options=",z"
+# Using Podman and MacOS and 'z' bind option may not work correctly.
+# See: https://github.com/containers/podman/issues/13631
+if [[ $KUBEVIRT_CRI = podman* ]] && [[ "$(uname -s)" == "Darwin" ]]; then
+    selinux_bind_options=""
+fi
+
 # Make sure that the output directory exists on both sides
-$KUBEVIRT_CRI run ${CONTAINER_ENV} -v "${BUILDER}:/root:rw,z" --security-opt "label=disable" --rm ${KUBEVIRT_BUILDER_IMAGE} mkdir -p /root/go/src/kubevirt.io/kubevirt/_out
+$KUBEVIRT_CRI run ${CONTAINER_ENV} -v "${BUILDER}:/root:rw${selinux_bind_options}" --security-opt "label=disable" --rm ${KUBEVIRT_BUILDER_IMAGE} mkdir -p /root/go/src/kubevirt.io/kubevirt/_out
 mkdir -p ${OUT_DIR}
 
 # Start an rsyncd instance and make sure it gets stopped after the script exits
-RSYNC_CID=$($KUBEVIRT_CRI run ${CONTAINER_ENV} -d -v "${BUILDER}:/root:rw,z" --security-opt "label=disable" --expose 873 -P ${KUBEVIRT_BUILDER_IMAGE} /usr/bin/rsync --no-detach --daemon --verbose)
+RSYNC_CID=$($KUBEVIRT_CRI run ${CONTAINER_ENV} -d -v "${BUILDER}:/root:rw${selinux_bind_options}" --security-opt "label=disable" --expose 873 -P ${KUBEVIRT_BUILDER_IMAGE} /usr/bin/rsync --no-detach --daemon --verbose)
 
 function finish() {
     $KUBEVIRT_CRI stop --time 1 ${RSYNC_CID} >/dev/null 2>&1
@@ -97,11 +104,11 @@ _rsync \
     ${KUBEVIRT_DIR}/ \
     "rsync://root@127.0.0.1:${RSYNCD_PORT}/build"
 
-volumes="-v ${BUILDER}:/root:rw,z"
+volumes="-v ${BUILDER}:/root:rw${selinux_bind_options}"
 
 # append .docker secrets directory as volume
 mkdir -p "${HOME}/.docker/secrets"
-volumes="$volumes -v ${HOME}/.docker/secrets:/root/.docker/secrets:ro,z"
+volumes="$volumes -v ${HOME}/.docker/secrets:/root/.docker/secrets:ro${selinux_bind_options}"
 
 # Use a bind-mount to expose docker/podman auth file to the container
 if [[ $KUBEVIRT_CRI = podman* ]] && [[ -f "${XDG_RUNTIME_DIR}/containers/auth.json" ]]; then
@@ -112,14 +119,14 @@ fi
 
 # add custom docker certs, if needed
 if [ -n "$DOCKER_CA_CERT_FILE" ] && [ -f "$DOCKER_CA_CERT_FILE" ]; then
-    volumes="$volumes -v ${DOCKER_CA_CERT_FILE}:${DOCKERIZED_CUSTOM_CA_PATH}:ro,z"
+    volumes="$volumes -v ${DOCKER_CA_CERT_FILE}:${DOCKERIZED_CUSTOM_CA_PATH}:ro${selinux_bind_options}"
 fi
 
 # if defined, append the ARTIFACTS directory
 if [ -n "$ARTIFACTS" ]; then
     mkdir -p "$ARTIFACTS"
     if [[ "$ARTIFACTS" = /* ]]; then
-        volumes="$volumes -v ${ARTIFACTS}:${ARTIFACTS}:rw,z"
+        volumes="$volumes -v ${ARTIFACTS}:${ARTIFACTS}:rw${selinux_bind_options}"
     else
         echo "ARTIFACTS directory is specified, but it is not an absolute directory"
         exit 1
