@@ -263,8 +263,19 @@ var _ = Describe("Instancetype expansion subresources", func() {
 			Expect(statusErr.Status().Message).To(Equal("Object is not a valid VirtualMachine"))
 		})
 
+		It("should fail if endpoint namespace is empty", func() {
+			request.PathParameters()["namespace"] = ""
+
+			vmJson, err := json.Marshal(vm)
+			Expect(err).ToNot(HaveOccurred())
+			request.Request.Body = io.NopCloser(bytes.NewBuffer(vmJson))
+
+			app.ExpandSpecRequestHandler(request, response)
+			statusErr := ExpectStatusErrorWithCode(recorder, http.StatusBadRequest)
+			Expect(statusErr.Status().Message).To(Equal("The request namespace must not be empty"))
+		})
+
 		It("should fail, if VM and endpoint namespace are different", func() {
-			request.PathParameters()["namespace"] = vmNamespace
 			vm.Namespace = "madethisup"
 
 			recorder = callExpandSpecApi(vm)
