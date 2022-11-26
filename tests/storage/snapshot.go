@@ -20,6 +20,7 @@ import (
 	"k8s.io/utils/pointer"
 
 	"kubevirt.io/kubevirt/tests/exec"
+	"kubevirt.io/kubevirt/tests/framework/matcher"
 	. "kubevirt.io/kubevirt/tests/framework/matcher"
 
 	v1 "kubevirt.io/api/core/v1"
@@ -338,10 +339,8 @@ var _ = SIGDescribe("VirtualMachineSnapshot Tests", func() {
 
 				conditionsLength := 2
 				Expect(snapshot.Status.Conditions).To(HaveLen(conditionsLength))
-				Expect(snapshot.Status.Conditions[0].Type).To(Equal(snapshotv1.ConditionProgressing))
-				Expect(snapshot.Status.Conditions[0].Status).To(Equal(corev1.ConditionFalse))
-				Expect(snapshot.Status.Conditions[1].Type).To(Equal(snapshotv1.ConditionReady))
-				Expect(snapshot.Status.Conditions[1].Status).To(Equal(corev1.ConditionTrue))
+				Expect(snapshot).To(matcher.HaveConditionMissingOrFalse(snapshotv1.ConditionProgressing))
+				Expect(snapshot).To(matcher.HaveConditionTrue(snapshotv1.ConditionReady))
 
 				Expect(console.LoginToFedora(vmi)).To(Succeed())
 				journalctlCheck := "journalctl --file /var/log/journal/*/system.journal"
@@ -446,7 +445,7 @@ var _ = SIGDescribe("VirtualMachineSnapshot Tests", func() {
 
 				vm, vmi = createAndStartVM(vm)
 				tests.WaitForSuccessfulVMIStartWithTimeout(vmi, 300)
-				tests.WaitAgentConnected(virtClient, vmi)
+				Eventually(matcher.ThisVMI(vmi), 12*time.Minute, 2*time.Second).Should(matcher.HaveConditionTrue(v1.VirtualMachineInstanceAgentConnected))
 
 				initialMemory := vmi.Spec.Domain.Resources.Requests[corev1.ResourceMemory]
 				newMemory := resource.MustParse("1Gi")
@@ -547,7 +546,7 @@ var _ = SIGDescribe("VirtualMachineSnapshot Tests", func() {
 
 				vm, vmi = createAndStartVM(vm)
 				tests.WaitForSuccessfulVMIStartWithTimeout(vmi, 300)
-				tests.WaitAgentConnected(virtClient, vmi)
+				Eventually(matcher.ThisVMI(vmi), 12*time.Minute, 2*time.Second).Should(matcher.HaveConditionTrue(v1.VirtualMachineInstanceAgentConnected))
 
 				snapshot = newSnapshot()
 
@@ -570,7 +569,7 @@ var _ = SIGDescribe("VirtualMachineSnapshot Tests", func() {
 					util.NamespaceTestDefault,
 					snapshotStorageClass,
 					corev1.ReadWriteOnce))
-				tests.WaitAgentConnected(virtClient, vmi)
+				Eventually(matcher.ThisVMI(vmi), 12*time.Minute, 2*time.Second).Should(matcher.HaveConditionTrue(v1.VirtualMachineInstanceAgentConnected))
 				Expect(console.LoginToFedora(vmi)).To(Succeed())
 
 				createDenyVolumeSnapshotCreateWebhook()
@@ -600,7 +599,7 @@ var _ = SIGDescribe("VirtualMachineSnapshot Tests", func() {
 					util.NamespaceTestDefault,
 					snapshotStorageClass,
 					corev1.ReadWriteOnce))
-				tests.WaitAgentConnected(virtClient, vmi)
+				Eventually(matcher.ThisVMI(vmi), 12*time.Minute, 2*time.Second).Should(matcher.HaveConditionTrue(v1.VirtualMachineInstanceAgentConnected))
 				Expect(console.LoginToFedora(vmi)).To(Succeed())
 
 				createDenyVolumeSnapshotCreateWebhook()
@@ -649,7 +648,7 @@ var _ = SIGDescribe("VirtualMachineSnapshot Tests", func() {
 					util.NamespaceTestDefault,
 					snapshotStorageClass,
 					corev1.ReadWriteOnce))
-				tests.WaitAgentConnected(virtClient, vmi)
+				Eventually(matcher.ThisVMI(vmi), 12*time.Minute, 2*time.Second).Should(matcher.HaveConditionTrue(v1.VirtualMachineInstanceAgentConnected))
 				Expect(console.LoginToFedora(vmi)).To(Succeed())
 
 				By("Add persistent hotplug disk")
@@ -725,7 +724,7 @@ var _ = SIGDescribe("VirtualMachineSnapshot Tests", func() {
 
 				vm, vmi = createAndStartVM(vm)
 				tests.WaitForSuccessfulVMIStartWithTimeout(vmi, 300)
-				tests.WaitAgentConnected(virtClient, vmi)
+				Eventually(matcher.ThisVMI(vmi), 12*time.Minute, 2*time.Second).Should(matcher.HaveConditionTrue(v1.VirtualMachineInstanceAgentConnected))
 
 				By("Logging into Fedora")
 				Expect(console.LoginToFedora(vmi)).To(Succeed())
@@ -803,7 +802,7 @@ var _ = SIGDescribe("VirtualMachineSnapshot Tests", func() {
 
 				vm, vmi = createAndStartVM(vm)
 				tests.WaitForSuccessfulVMIStartWithTimeout(vmi, 300)
-				tests.WaitAgentConnected(virtClient, vmi)
+				Eventually(matcher.ThisVMI(vmi), 12*time.Minute, 2*time.Second).Should(matcher.HaveConditionTrue(v1.VirtualMachineInstanceAgentConnected))
 
 				By("Logging into Fedora")
 				Expect(console.LoginToFedora(vmi)).To(Succeed())
@@ -811,7 +810,7 @@ var _ = SIGDescribe("VirtualMachineSnapshot Tests", func() {
 				By("Pausing the VirtualMachineInstance")
 				err := virtClient.VirtualMachineInstance(vmi.Namespace).Pause(vmi.Name, &v1.PauseOptions{})
 				Expect(err).ToNot(HaveOccurred())
-				tests.WaitForVMICondition(virtClient, vmi, v1.VirtualMachineInstancePaused, 30)
+				Eventually(matcher.ThisVMI(vmi), 30*time.Second, 2*time.Second).Should(matcher.HaveConditionTrue(v1.VirtualMachineInstancePaused))
 
 				By("Calling Velero pre-backup hook")
 				_, stderr, err := callVeleroHook(vmi, VELERO_PREBACKUP_HOOK_CONTAINER_ANNOTATION, VELERO_PREBACKUP_HOOK_COMMAND_ANNOTATION)
@@ -870,7 +869,7 @@ var _ = SIGDescribe("VirtualMachineSnapshot Tests", func() {
 						util.NamespaceTestDefault,
 						snapshotStorageClass,
 						corev1.ReadWriteOnce))
-					tests.WaitAgentConnected(virtClient, vmi)
+					Eventually(matcher.ThisVMI(vmi), 12*time.Minute, 2*time.Second).Should(matcher.HaveConditionTrue(v1.VirtualMachineInstanceAgentConnected))
 					Expect(console.LoginToFedora(vmi)).To(Succeed())
 
 					By("Get VM memory dump")

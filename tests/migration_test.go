@@ -35,6 +35,7 @@ import (
 
 	"kubevirt.io/kubevirt/tests/exec"
 	"kubevirt.io/kubevirt/tests/framework/cleanup"
+	"kubevirt.io/kubevirt/tests/framework/matcher"
 
 	"kubevirt.io/kubevirt/pkg/virt-handler/cgroup"
 
@@ -670,7 +671,7 @@ var _ = Describe("[rfe_id:393][crit:high][vendor:cnv-qe@redhat.com][level:system
 			vmi = tests.RunVMIAndExpectLaunchIgnoreWarnings(vmi, 180)
 
 			// Wait for cloud init to finish and start the agent inside the vmi.
-			tests.WaitAgentConnected(virtClient, vmi)
+			Eventually(matcher.ThisVMI(vmi), 12*time.Minute, 2*time.Second).Should(matcher.HaveConditionTrue(v1.VirtualMachineInstanceAgentConnected))
 
 			By("Checking that the VirtualMachineInstance console has expected output")
 			Expect(console.LoginToFedora(vmi)).To(Succeed(), "Should be able to login to the Fedora VM")
@@ -690,7 +691,7 @@ var _ = Describe("[rfe_id:393][crit:high][vendor:cnv-qe@redhat.com][level:system
 			confirmMigrationMode(vmi, mode)
 
 			By("Is agent connected after migration")
-			tests.WaitAgentConnected(virtClient, vmi)
+			Eventually(matcher.ThisVMI(vmi), 12*time.Minute, 2*time.Second).Should(matcher.HaveConditionTrue(v1.VirtualMachineInstanceAgentConnected))
 
 			By("Checking that the migrated VirtualMachineInstance console has expected output")
 			Expect(console.OnPrivilegedPrompt(vmi, 60)).To(BeTrue(), "Should stay logged in to the migrated VM")
@@ -726,15 +727,7 @@ var _ = Describe("[rfe_id:393][crit:high][vendor:cnv-qe@redhat.com][level:system
 				By("Checking that the VirtualMachineInstance console has expected output")
 				Expect(console.LoginToAlpine(vmi)).To(Succeed())
 
-				gotExpectedCondition := false
-				for _, c := range vmi.Status.Conditions {
-					if c.Type == v1.VirtualMachineInstanceIsMigratable {
-						Expect(c.Status).To(Equal(k8sv1.ConditionFalse))
-						gotExpectedCondition = true
-					}
-				}
-
-				Expect(gotExpectedCondition).Should(BeTrue())
+				Expect(vmi).To(HaveConditionFalse(v1.VirtualMachineInstanceIsMigratable))
 
 				// execute a migration, wait for finalized state
 				migration := tests.NewRandomMigration(vmi.Name, vmi.Namespace)
@@ -1201,7 +1194,7 @@ var _ = Describe("[rfe_id:393][crit:high][vendor:cnv-qe@redhat.com][level:system
 
 				By("Pausing the VirtualMachineInstance")
 				virtClient.VirtualMachineInstance(vmi.Namespace).Pause(vmi.Name, &v1.PauseOptions{})
-				tests.WaitForVMICondition(virtClient, vmi, v1.VirtualMachineInstancePaused, 30)
+				Eventually(matcher.ThisVMI(vmi), 30*time.Second, 2*time.Second).Should(matcher.HaveConditionTrue(v1.VirtualMachineInstancePaused))
 
 				By("verifying that the vmi is still paused before migration")
 				isPausedb, err := tests.LibvirtDomainIsPaused(virtClient, vmi)
@@ -1223,7 +1216,7 @@ var _ = Describe("[rfe_id:393][crit:high][vendor:cnv-qe@redhat.com][level:system
 				By("verify that VMI can be unpaused after migration")
 				command := clientcmd.NewRepeatableVirtctlCommand("unpause", "vmi", "--namespace", util.NamespaceTestDefault, vmi.Name)
 				Expect(command()).To(Succeed(), "should successfully unpause tthe vmi")
-				tests.WaitForVMIConditionRemovedOrFalse(virtClient, vmi, v1.VirtualMachineInstancePaused, 30)
+				Eventually(matcher.ThisVMI(vmi), 30*time.Second, 2*time.Second).Should(matcher.HaveConditionMissingOrFalse(v1.VirtualMachineInstancePaused))
 
 				By("verifying that the vmi is running")
 				isPaused, err = tests.LibvirtDomainIsPaused(virtClient, vmi)
@@ -1385,7 +1378,7 @@ var _ = Describe("[rfe_id:393][crit:high][vendor:cnv-qe@redhat.com][level:system
 				vmi = tests.RunVMIAndExpectLaunch(vmi, 240)
 
 				// Need to wait for cloud init to finnish and start the agent inside the vmi.
-				tests.WaitAgentConnected(virtClient, vmi)
+				Eventually(matcher.ThisVMI(vmi), 12*time.Minute, 2*time.Second).Should(matcher.HaveConditionTrue(v1.VirtualMachineInstanceAgentConnected))
 
 				By("Checking that the VirtualMachineInstance console has expected output")
 				Expect(console.LoginToFedora(vmi)).To(Succeed())
@@ -1421,7 +1414,7 @@ var _ = Describe("[rfe_id:393][crit:high][vendor:cnv-qe@redhat.com][level:system
 				Expect(console.LoginToFedora(vmi)).To(Succeed())
 
 				// Need to wait for cloud init to finnish and start the agent inside the vmi.
-				tests.WaitAgentConnected(virtClient, vmi)
+				Eventually(matcher.ThisVMI(vmi), 12*time.Minute, 2*time.Second).Should(matcher.HaveConditionTrue(v1.VirtualMachineInstanceAgentConnected))
 
 				By("Set wrong time on the guest")
 				Expect(console.SafeExpectBatch(vmi, []expect.Batcher{
@@ -1436,7 +1429,7 @@ var _ = Describe("[rfe_id:393][crit:high][vendor:cnv-qe@redhat.com][level:system
 
 				// check VMI, confirm migration state
 				tests.ConfirmVMIPostMigration(virtClient, vmi, migrationUID)
-				tests.WaitAgentConnected(virtClient, vmi)
+				Eventually(matcher.ThisVMI(vmi), 12*time.Minute, 2*time.Second).Should(matcher.HaveConditionTrue(v1.VirtualMachineInstanceAgentConnected))
 
 				By("Checking that the migrated VirtualMachineInstance has an updated time")
 				if !console.OnPrivilegedPrompt(vmi, 60) {
@@ -1491,14 +1484,7 @@ var _ = Describe("[rfe_id:393][crit:high][vendor:cnv-qe@redhat.com][level:system
 				By("Checking that the VirtualMachineInstance console has expected output")
 				Expect(console.LoginToAlpine(vmi)).To(Succeed())
 
-				gotExpectedCondition := false
-				for _, c := range vmi.Status.Conditions {
-					if c.Type == v1.VirtualMachineInstanceIsMigratable {
-						Expect(c.Status).To(Equal(k8sv1.ConditionFalse))
-						gotExpectedCondition = true
-					}
-				}
-				Expect(gotExpectedCondition).Should(BeTrue())
+				Expect(vmi).Should(matcher.HaveConditionFalse(v1.VirtualMachineInstanceIsMigratable))
 
 				// execute a migration, wait for finalized state
 				migration := tests.NewRandomMigration(vmi.Name, vmi.Namespace)
@@ -1547,7 +1533,7 @@ var _ = Describe("[rfe_id:393][crit:high][vendor:cnv-qe@redhat.com][level:system
 				vmi = tests.RunVMIAndExpectLaunch(vmi, 240)
 
 				// Need to wait for cloud init to finish and start the agent inside the vmi.
-				tests.WaitAgentConnected(virtClient, vmi)
+				Eventually(matcher.ThisVMI(vmi), 12*time.Minute, 2*time.Second).Should(matcher.HaveConditionTrue(v1.VirtualMachineInstanceAgentConnected))
 
 				By("Checking that the VirtualMachineInstance console has expected output")
 				Expect(console.LoginToFedora(vmi)).To(Succeed())
@@ -1713,23 +1699,14 @@ var _ = Describe("[rfe_id:393][crit:high][vendor:cnv-qe@redhat.com][level:system
 				vmi = tests.RunVMIAndExpectLaunchIgnoreWarnings(vmi, 180)
 
 				By("Checking guest agent")
-				tests.WaitAgentConnected(virtClient, vmi)
+				Eventually(matcher.ThisVMI(vmi), 12*time.Minute, 2*time.Second).Should(matcher.HaveConditionTrue(v1.VirtualMachineInstanceAgentConnected))
 
 				By("Starting the Migration for iteration")
 				migration := tests.NewRandomMigration(vmi.Name, vmi.Namespace)
 				_ = tests.RunMigrationAndExpectCompletion(virtClient, migration, tests.MigrationWaitTime)
 
 				By("Agent stays connected")
-				Consistently(func() error {
-					updatedVmi, err := virtClient.VirtualMachineInstance(util.NamespaceTestDefault).Get(vmi.Name, &metav1.GetOptions{})
-					Expect(err).ToNot(HaveOccurred())
-					for _, condition := range updatedVmi.Status.Conditions {
-						if condition.Type == v1.VirtualMachineInstanceAgentConnected && condition.Status == k8sv1.ConditionTrue {
-							return nil
-						}
-					}
-					return fmt.Errorf("Guest Agent Disconnected")
-				}, 5*time.Minute, 10*time.Second).Should(Succeed())
+				Consistently(matcher.ThisVMI(vmi), 5*time.Minute, 10*time.Second).Should(matcher.HaveConditionTrue(v1.VirtualMachineInstanceAgentConnected))
 			})
 		})
 
@@ -1978,7 +1955,7 @@ var _ = Describe("[rfe_id:393][crit:high][vendor:cnv-qe@redhat.com][level:system
 					vmi = tests.RunVMIAndExpectLaunch(vmi, 240)
 
 					// Need to wait for cloud init to finish and start the agent inside the vmi.
-					tests.WaitAgentConnected(virtClient, vmi)
+					Eventually(matcher.ThisVMI(vmi), 12*time.Minute, 2*time.Second).Should(matcher.HaveConditionTrue(v1.VirtualMachineInstanceAgentConnected))
 
 					// Run
 					Expect(console.LoginToFedora(vmi)).To(Succeed())
@@ -2056,7 +2033,7 @@ var _ = Describe("[rfe_id:393][crit:high][vendor:cnv-qe@redhat.com][level:system
 					vmi = tests.RunVMIAndExpectLaunch(vmi, 240)
 
 					// Need to wait for cloud init to finish and start the agent inside the vmi.
-					tests.WaitAgentConnected(virtClient, vmi)
+					Eventually(matcher.ThisVMI(vmi), 12*time.Minute, 2*time.Second).Should(matcher.HaveConditionTrue(v1.VirtualMachineInstanceAgentConnected))
 
 					// Run
 					Expect(console.LoginToFedora(vmi)).To(Succeed())
@@ -2182,7 +2159,7 @@ var _ = Describe("[rfe_id:393][crit:high][vendor:cnv-qe@redhat.com][level:system
 				Expect(console.LoginToFedora(vmi)).To(Succeed())
 
 				// Need to wait for cloud init to finish and start the agent inside the vmi.
-				tests.WaitAgentConnected(virtClient, vmi)
+				Eventually(matcher.ThisVMI(vmi), 12*time.Minute, 2*time.Second).Should(matcher.HaveConditionTrue(v1.VirtualMachineInstanceAgentConnected))
 
 				runStressTest(vmi, stressLargeVMSize, stressDefaultTimeout)
 
@@ -2240,7 +2217,7 @@ var _ = Describe("[rfe_id:393][crit:high][vendor:cnv-qe@redhat.com][level:system
 				Expect(console.LoginToFedora(vmi)).To(Succeed())
 
 				// Need to wait for cloud init to finish and start the agent inside the vmi.
-				tests.WaitAgentConnected(virtClient, vmi)
+				Eventually(matcher.ThisVMI(vmi), 12*time.Minute, 2*time.Second).Should(matcher.HaveConditionTrue(v1.VirtualMachineInstanceAgentConnected))
 
 				runStressTest(vmi, stressLargeVMSize, stressDefaultTimeout)
 
@@ -2607,14 +2584,7 @@ var _ = Describe("[rfe_id:393][crit:high][vendor:cnv-qe@redhat.com][level:system
 				By("Checking that the VirtualMachineInstance console has expected output")
 				Expect(console.LoginToAlpine(vmi)).To(Succeed())
 
-				gotExpectedCondition := false
-				for _, c := range vmi.Status.Conditions {
-					if c.Type == v1.VirtualMachineInstanceIsMigratable {
-						Expect(c.Status).To(Equal(k8sv1.ConditionFalse))
-						gotExpectedCondition = true
-					}
-				}
-				Expect(gotExpectedCondition).Should(BeTrue())
+				Expect(vmi).Should(HaveConditionFalse(v1.VirtualMachineInstanceIsMigratable))
 
 				// execute a migration, wait for finalized state
 				migration := tests.NewRandomMigration(vmi.Name, vmi.Namespace)
@@ -3327,7 +3297,7 @@ var _ = Describe("[rfe_id:393][crit:high][vendor:cnv-qe@redhat.com][level:system
 				By("Checking that the VirtualMachineInstance console has expected output")
 				Expect(console.LoginToFedora(vmi)).To(Succeed())
 
-				tests.WaitAgentConnected(virtClient, vmi)
+				Eventually(matcher.ThisVMI(vmi), 12*time.Minute, 2*time.Second).Should(matcher.HaveConditionTrue(v1.VirtualMachineInstanceAgentConnected))
 
 				runStressTest(vmi, stressDefaultVMSize, stressDefaultTimeout)
 
@@ -3398,7 +3368,7 @@ var _ = Describe("[rfe_id:393][crit:high][vendor:cnv-qe@redhat.com][level:system
 					By("Starting the VirtualMachineInstance")
 					vmi = tests.RunVMIAndExpectLaunch(vmi, 180)
 
-					tests.WaitAgentConnected(virtClient, vmi)
+					Eventually(matcher.ThisVMI(vmi), 12*time.Minute, 2*time.Second).Should(matcher.HaveConditionTrue(v1.VirtualMachineInstanceAgentConnected))
 
 					// Mark the masters as schedulable so we can migrate there
 					setControlPlaneUnschedulable(false)
@@ -3450,7 +3420,7 @@ var _ = Describe("[rfe_id:393][crit:high][vendor:cnv-qe@redhat.com][level:system
 					By("Checking that the VirtualMachineInstance console has expected output")
 					Expect(console.LoginToFedora(vmi)).To(Succeed())
 
-					tests.WaitAgentConnected(virtClient, vmi)
+					Eventually(matcher.ThisVMI(vmi), 12*time.Minute, 2*time.Second).Should(matcher.HaveConditionTrue(v1.VirtualMachineInstanceAgentConnected))
 
 					// Put VMI under load
 					runStressTest(vmi, stressDefaultVMSize, stressDefaultTimeout)
@@ -3715,7 +3685,7 @@ var _ = Describe("[rfe_id:393][crit:high][vendor:cnv-qe@redhat.com][level:system
 			Expect(console.LoginToFedora(vmi)).To(Succeed())
 
 			// Need to wait for cloud init to finnish and start the agent inside the vmi.
-			tests.WaitAgentConnected(virtClient, vmi)
+			Eventually(matcher.ThisVMI(vmi), 12*time.Minute, 2*time.Second).Should(matcher.HaveConditionTrue(v1.VirtualMachineInstanceAgentConnected))
 
 			runStressTest(vmi, stressDefaultVMSize, stressDefaultTimeout)
 

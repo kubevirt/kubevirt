@@ -169,10 +169,8 @@ var _ = SIGDescribe("VirtualMachineRestore Tests", func() {
 		}
 		Expect(r.Status.RestoreTime).ToNot(BeNil())
 		Expect(r.Status.Conditions).To(HaveLen(2))
-		Expect(r.Status.Conditions[0].Type).To(Equal(snapshotv1.ConditionProgressing))
-		Expect(r.Status.Conditions[0].Status).To(Equal(corev1.ConditionFalse))
-		Expect(r.Status.Conditions[1].Type).To(Equal(snapshotv1.ConditionReady))
-		Expect(r.Status.Conditions[1].Status).To(Equal(corev1.ConditionTrue))
+		Expect(r).To(matcher.HaveConditionMissingOrFalse(snapshotv1.ConditionProgressing))
+		Expect(r).To(matcher.HaveConditionTrue(snapshotv1.ConditionReady))
 		return r
 	}
 
@@ -1480,7 +1478,7 @@ var _ = SIGDescribe("VirtualMachineRestore Tests", func() {
 
 				vm, vmi = createAndStartVM(vm)
 				tests.WaitForSuccessfulVMIStartWithTimeout(vmi, 300)
-				tests.WaitAgentConnected(virtClient, vmi)
+				Eventually(matcher.ThisVMI(vmi), 12*time.Minute, 2*time.Second).Should(matcher.HaveConditionTrue(v1.VirtualMachineInstanceAgentConnected))
 
 				doRestore("/dev/vdc", console.LoginToFedora, onlineSnapshot, getTargetVMName(restoreToNewVM, newVmName))
 				Expect(restore.Status.Restores).To(HaveLen(1))
@@ -1499,7 +1497,7 @@ var _ = SIGDescribe("VirtualMachineRestore Tests", func() {
 					util.NamespaceTestDefault,
 					snapshotStorageClass,
 					corev1.ReadWriteOnce))
-				tests.WaitAgentConnected(virtClient, vmi)
+				Eventually(matcher.ThisVMI(vmi), 12*time.Minute, 2*time.Second).Should(matcher.HaveConditionTrue(v1.VirtualMachineInstanceAgentConnected))
 				Expect(console.LoginToFedora(vmi)).To(Succeed())
 
 				originalDVName := vm.Spec.DataVolumeTemplates[0].Name
@@ -1516,7 +1514,7 @@ var _ = SIGDescribe("VirtualMachineRestore Tests", func() {
 					util.NamespaceTestDefault,
 					snapshotStorageClass,
 					corev1.ReadWriteOnce))
-				tests.WaitAgentConnected(virtClient, vmi)
+				Eventually(matcher.ThisVMI(vmi), 12*time.Minute, 2*time.Second).Should(matcher.HaveConditionTrue(v1.VirtualMachineInstanceAgentConnected))
 				Expect(console.LoginToFedora(vmi)).To(Succeed())
 
 				By("Updating the VM template spec")
@@ -1591,7 +1589,7 @@ var _ = SIGDescribe("VirtualMachineRestore Tests", func() {
 					util.NamespaceTestDefault,
 					snapshotStorageClass,
 					corev1.ReadWriteOnce))
-				tests.WaitAgentConnected(virtClient, vmi)
+				Eventually(matcher.ThisVMI(vmi), 12*time.Minute, 2*time.Second).Should(matcher.HaveConditionTrue(v1.VirtualMachineInstanceAgentConnected))
 				Expect(console.LoginToFedora(vmi)).To(Succeed())
 
 				By("Add persistent hotplug disk")
@@ -1676,7 +1674,7 @@ var _ = SIGDescribe("VirtualMachineRestore Tests", func() {
 						util.NamespaceTestDefault,
 						snapshotStorageClass,
 						corev1.ReadWriteOnce))
-					tests.WaitAgentConnected(virtClient, vmi)
+					Eventually(matcher.ThisVMI(vmi), 12*time.Minute, 2*time.Second).Should(matcher.HaveConditionTrue(v1.VirtualMachineInstanceAgentConnected))
 					Expect(console.LoginToFedora(vmi)).To(Succeed())
 
 					By("Get VM memory dump")

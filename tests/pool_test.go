@@ -38,6 +38,7 @@ import (
 
 	cdiv1 "kubevirt.io/containerized-data-importer-api/pkg/apis/core/v1beta1"
 
+	"kubevirt.io/kubevirt/tests/framework/matcher"
 	"kubevirt.io/kubevirt/tests/libstorage"
 	"kubevirt.io/kubevirt/tests/libvmi"
 	"kubevirt.io/kubevirt/tests/util"
@@ -526,14 +527,11 @@ var _ = Describe("[sig-compute]VirtualMachinePool", func() {
 		_, err := virtClient.VirtualMachinePool(pool.Namespace).Patch(context.Background(), pool.Name, types.JSONPatchType, []byte("[{ \"op\": \"add\", \"path\": \"/spec/paused\", \"value\": true }]"), metav1.PatchOptions{})
 		Expect(err).ToNot(HaveOccurred())
 
-		Eventually(func() poolv1.VirtualMachinePoolConditionType {
+		Eventually(func() *poolv1.VirtualMachinePool {
 			pool, err = virtClient.VirtualMachinePool(util.NamespaceTestDefault).Get(context.Background(), pool.ObjectMeta.Name, v12.GetOptions{})
 			Expect(err).ToNot(HaveOccurred())
-			if len(pool.Status.Conditions) > 0 {
-				return pool.Status.Conditions[0].Type
-			}
-			return ""
-		}, 10*time.Second, 1*time.Second).Should(Equal(poolv1.VirtualMachinePoolReplicaPaused))
+			return pool
+		}, 10*time.Second, 1*time.Second).Should(matcher.HaveConditionTrue(poolv1.VirtualMachinePoolReplicaPaused))
 
 		// set new replica count while still being paused
 		By("Updating the number of replicas")

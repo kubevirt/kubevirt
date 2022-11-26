@@ -41,6 +41,7 @@ import (
 	"kubevirt.io/kubevirt/tests/exec"
 	"kubevirt.io/kubevirt/tests/flags"
 	"kubevirt.io/kubevirt/tests/framework/checks"
+	"kubevirt.io/kubevirt/tests/framework/matcher"
 	"kubevirt.io/kubevirt/tests/libnode"
 	"kubevirt.io/kubevirt/tests/testsuite"
 	"kubevirt.io/kubevirt/tests/util"
@@ -79,10 +80,12 @@ var _ = Describe("[Serial][ref_id:2717][sig-compute]KubeVirt control plane resil
 				if pod.Status.Phase != k8sv1.PodRunning {
 					continue
 				}
-				podReady := tests.PodReady(&pod)
-				if podReady != k8sv1.ConditionTrue {
+
+				if success, err := matcher.HaveConditionTrue(k8sv1.PodReady).Match(pod); !success {
+					Expect(err).ToNot(HaveOccurred())
 					continue
 				}
+
 				for _, podName := range podNames {
 					if strings.HasPrefix(pod.Name, podName) {
 						if len(nodeNames) > 0 {

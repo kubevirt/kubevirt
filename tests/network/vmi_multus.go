@@ -37,6 +37,7 @@ import (
 
 	"kubevirt.io/kubevirt/tests/exec"
 	"kubevirt.io/kubevirt/tests/framework/checks"
+	"kubevirt.io/kubevirt/tests/framework/matcher"
 
 	"kubevirt.io/kubevirt/tests/util"
 
@@ -455,7 +456,7 @@ var _ = SIGDescribe("[Serial]Multus", Serial, func() {
 				vmiOne = tests.CreateVmiOnNode(vmiOne, nodes.Items[0].Name)
 
 				vmiOne = tests.WaitUntilVMIReady(vmiOne, console.LoginToFedora)
-				tests.WaitAgentConnected(virtClient, vmiOne)
+				Eventually(matcher.ThisVMI(vmiOne), 12*time.Minute, 2*time.Second).Should(matcher.HaveConditionTrue(v1.VirtualMachineInstanceAgentConnected))
 
 				By("Verifying the desired custom MAC is the one that were actually configured on the interface.")
 				vmiIfaceStatusByName := libvmi.IndexInterfaceStatusByName(vmiOne)
@@ -687,7 +688,7 @@ var _ = SIGDescribe("[Serial]Multus", Serial, func() {
 				tests.WaitForSuccessfulVMIStart(agentVMI)
 
 				// Need to wait for cloud init to finish and start the agent inside the vmi.
-				tests.WaitAgentConnected(virtClient, agentVMI)
+				Eventually(matcher.ThisVMI(agentVMI), 12*time.Minute, 2*time.Second).Should(matcher.HaveConditionTrue(v1.VirtualMachineInstanceAgentConnected))
 
 				getOptions := &metav1.GetOptions{}
 				Eventually(func() []v1.VirtualMachineInstanceNetworkInterface {

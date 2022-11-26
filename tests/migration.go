@@ -11,6 +11,7 @@ import (
 	k8sv1 "k8s.io/api/core/v1"
 
 	"kubevirt.io/kubevirt/tests/flags"
+	"kubevirt.io/kubevirt/tests/framework/matcher"
 	"kubevirt.io/kubevirt/tests/util"
 
 	. "github.com/onsi/ginkgo/v2"
@@ -130,8 +131,9 @@ func setOrClearDedicatedMigrationNetwork(nad string, set bool) *v1.KubeVirt {
 		}
 		Expect(err).ToNot(HaveOccurred(), "Failed to list the virt-handler pods")
 		for _, pod := range newVirtHandlerPods.Items {
-			podReady := PodReady(&pod)
-			if podReady != k8sv1.ConditionTrue {
+			// TODO implement list option to condition matcher
+			if success, err := matcher.HaveConditionTrue(k8sv1.PodReady).Match(pod); !success {
+				Expect(err).ToNot(HaveOccurred())
 				return false
 			}
 		}

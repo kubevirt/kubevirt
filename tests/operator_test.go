@@ -77,6 +77,7 @@ import (
 	cd "kubevirt.io/kubevirt/tests/containerdisk"
 	"kubevirt.io/kubevirt/tests/flags"
 	"kubevirt.io/kubevirt/tests/framework/checks"
+	"kubevirt.io/kubevirt/tests/framework/matcher"
 	. "kubevirt.io/kubevirt/tests/framework/matcher"
 	"kubevirt.io/kubevirt/tests/libstorage"
 	"kubevirt.io/kubevirt/tests/testsuite"
@@ -317,30 +318,17 @@ var _ = Describe("[Serial][sig-operator]Operator", Serial, func() {
 		}
 
 		waitForUpdateCondition = func(kv *v1.KubeVirt) {
-			Eventually(func() error {
+			Eventually(func() *v1.KubeVirt {
 				kv, err := virtClient.KubeVirt(kv.Namespace).Get(kv.Name, &metav1.GetOptions{})
-				if err != nil {
-					return err
-				}
+				Expect(err).ToNot(HaveOccurred())
 
-				available := false
-				progressing := false
-				degraded := false
-				for _, condition := range kv.Status.Conditions {
-					if condition.Type == v1.KubeVirtConditionAvailable && condition.Status == k8sv1.ConditionTrue {
-						available = true
-					} else if condition.Type == v1.KubeVirtConditionProgressing && condition.Status == k8sv1.ConditionTrue {
-						progressing = true
-					} else if condition.Type == v1.KubeVirtConditionDegraded && condition.Status == k8sv1.ConditionTrue {
-						degraded = true
-					}
-				}
-
-				if !available || !progressing || !degraded {
-					return fmt.Errorf("Waiting for conditions to indicate update (conditions: %+v)", kv.Status.Conditions)
-				}
-				return nil
-			}, 120*time.Second, 1*time.Second).ShouldNot(HaveOccurred())
+				return kv
+			}, 120*time.Second, 1*time.Second).Should(
+				SatisfyAll(
+					matcher.HaveConditionTrue(v1.KubeVirtConditionAvailable),
+					matcher.HaveConditionTrue(v1.KubeVirtConditionProgressing),
+					matcher.HaveConditionTrue(v1.KubeVirtConditionDegraded),
+				))
 
 		}
 

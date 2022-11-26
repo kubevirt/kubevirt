@@ -239,11 +239,7 @@ var _ = Describe("[Serial][sig-compute]Infrastructure", Serial, func() {
 				crd, err := ext.ApiextensionsV1().CustomResourceDefinitions().Get(context.Background(), name, metav1.GetOptions{})
 				Expect(err).ToNot(HaveOccurred())
 
-				for _, condition := range crd.Status.Conditions {
-					if condition.Type == v1ext.NonStructuralSchema {
-						Expect(condition.Status).NotTo(BeTrue())
-					}
-				}
+				Expect(crd).To(matcher.HaveConditionMissingOrFalse(v1ext.NonStructuralSchema))
 			}
 		})
 	})
@@ -1176,17 +1172,7 @@ var _ = Describe("[Serial][sig-compute]Infrastructure", Serial, func() {
 					return leaderPod.Name
 				}, 90*time.Second, 5*time.Second).Should(Equal(newLeaderPod.Name))
 
-				Expect(func() k8sv1.ConditionStatus {
-					leaderPod, err := virtClient.CoreV1().Pods(flags.KubeVirtInstallNamespace).Get(context.Background(), newLeaderPod.Name, metav1.GetOptions{})
-					Expect(err).ToNot(HaveOccurred())
-
-					for _, condition := range leaderPod.Status.Conditions {
-						if condition.Type == k8sv1.PodReady {
-							return condition.Status
-						}
-					}
-					return k8sv1.ConditionUnknown
-				}()).To(Equal(k8sv1.ConditionTrue))
+				Expect(matcher.ThisPod(newLeaderPod)()).To(matcher.HaveConditionTrue(k8sv1.PodReady))
 
 				vmi := tests.NewRandomVMI()
 

@@ -43,6 +43,7 @@ import (
 	"k8s.io/apimachinery/pkg/watch"
 	"k8s.io/utils/pointer"
 
+	"kubevirt.io/kubevirt/tests/framework/matcher"
 	"kubevirt.io/kubevirt/tests/util"
 
 	v1 "kubevirt.io/api/core/v1"
@@ -960,7 +961,7 @@ var _ = Describe("[rfe_id:1177][crit:medium][vendor:cnv-qe@redhat.com][level:com
 					vmi, err := virtClient.VirtualMachineInstance(newVM.Namespace).Get(newVM.Name, &k8smetav1.GetOptions{})
 					Expect(err).ToNot(HaveOccurred())
 					Expect(*vmi.Spec.StartStrategy).To(Equal(v1.StartStrategyPaused))
-					tests.WaitForVMICondition(virtClient, vmi, v1.VirtualMachineInstancePaused, 30)
+					Eventually(matcher.ThisVMI(vmi), 30*time.Second, 2*time.Second).Should(matcher.HaveConditionTrue(v1.VirtualMachineInstancePaused))
 					return vmi.Status.Phase == v1.Running
 				}, 240*time.Second, 1*time.Second).Should(BeTrue())
 			})
@@ -1569,7 +1570,7 @@ var _ = Describe("[rfe_id:1177][crit:medium][vendor:cnv-qe@redhat.com][level:com
 						vmi, err := virtClient.VirtualMachineInstance(virtualMachine.Namespace).Get(virtualMachine.Name, &k8smetav1.GetOptions{})
 						Expect(err).ToNot(HaveOccurred())
 						Expect(*vmi.Spec.StartStrategy).To(Equal(v1.StartStrategyPaused))
-						tests.WaitForVMICondition(virtClient, vmi, v1.VirtualMachineInstancePaused, 30)
+						Eventually(matcher.ThisVMI(vmi), 30*time.Second, 2*time.Second).Should(matcher.HaveConditionTrue(v1.VirtualMachineInstancePaused))
 						return vmi.Status.Phase == v1.Running
 					}, 240*time.Second, 1*time.Second).Should(BeTrue())
 				})

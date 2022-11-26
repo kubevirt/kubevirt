@@ -31,12 +31,14 @@ import (
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 
 	kvirtv1 "kubevirt.io/api/core/v1"
+	v1 "kubevirt.io/api/core/v1"
 
 	"kubevirt.io/client-go/kubecli"
 
 	network "kubevirt.io/kubevirt/pkg/network/setup"
 	netvmispec "kubevirt.io/kubevirt/pkg/network/vmispec"
 	"kubevirt.io/kubevirt/tests"
+	"kubevirt.io/kubevirt/tests/framework/matcher"
 	"kubevirt.io/kubevirt/tests/libvmi"
 	"kubevirt.io/kubevirt/tests/util"
 )
@@ -90,7 +92,7 @@ var _ = SIGDescribe("Infosource", func() {
 			vmi, err = virtClient.VirtualMachineInstance(util.NamespaceTestDefault).Create(vmiSpec)
 			Expect(err).NotTo(HaveOccurred())
 			tests.WaitForSuccessfulVMIStart(vmi)
-			tests.WaitAgentConnected(virtClient, vmi)
+			Eventually(matcher.ThisVMI(vmi), 12*time.Minute, 2*time.Second).Should(matcher.HaveConditionTrue(v1.VirtualMachineInstanceAgentConnected))
 		})
 
 		It("should have the expected entries in vmi status", func() {
