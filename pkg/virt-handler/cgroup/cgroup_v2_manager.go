@@ -7,6 +7,7 @@ import (
 	"path/filepath"
 	"strings"
 
+	v1 "kubevirt.io/api/core/v1"
 	"kubevirt.io/client-go/log"
 
 	runc_cgroups "github.com/opencontainers/runc/libcontainer/cgroups"
@@ -69,6 +70,14 @@ func newCustomizedV2Manager(runcManager runc_cgroups.Manager, isRootless bool, e
 	}
 
 	return &manager, nil
+}
+
+func getConcreteManagerStructV2(m Manager) (*v2Manager, error) {
+	v2Struct, ok := m.(*v2Manager)
+	if !ok {
+		return nil, fmt.Errorf(castingToConcreteTypeFailedErrFmt, V2)
+	}
+	return v2Struct, nil
 }
 
 func (v *v2Manager) GetBasePathToHostSubsystem(_ string) (string, error) {
@@ -219,6 +228,87 @@ func (v *v2Manager) MakeThreaded() error {
 	if cgroupType != typeThreaded {
 		return fmt.Errorf("could not change cgroup type (%s) to %s", cgroupType, typeThreaded)
 	}
+
+	return nil
+}
+
+func (v *v2Manager) HandleDedicatedCpus(vmi *v1.VirtualMachineInstance) error {
+	if !vmi.IsCPUDedicated() {
+		return fmt.Errorf(vmiNotDedicatedErrFmt, vmi.Name)
+	}
+
+	dedicatedCpusCgroupManager, err := GetDedicatedCpuCgroupManager(vmi)
+	if err != nil {
+		return err
+	}
+
+	qemuKvmPid, err := getQemuKvmPid(v)
+	if err != nil {
+		return err
+	}
+
+	if dedicatedCpusCgroupManagerConcrete, err := getConcreteManagerStructV2(dedicatedCpusCgroupManager); err == nil {
+		err = dedicatedCpusCgroupManagerConcrete.attachTask(qemuKvmPid, Process)
+		if err != nil {
+			return err
+		}
+	} else {
+		return err
+	}
+
+	housekeepingCgroupManager, err := dedicatedCpusCgroupManager.CreateChildCgroup(V2housekeepingContainerName, CgroupSubsystemCpuset)
+	if err != nil {
+		return err
+	}
+
+	err = housekeepingCgroupManager.MakeThreaded()
+	if err != nil {
+		return err
+	}
+
+	vcpuTids, err := getVcpuTids(v)
+	if err != nil {
+		return err
+	}
+
+	for _, vcpuTid := range vcpuTids {
+		if housekeepingCgroupManagerConcrete, err := getConcreteManagerStructV2(housekeepingCgroupManager); err == nil {
+			err = housekeepingCgroupManagerConcrete.attachTask(vcpuTid, Thread)
+			if err != nil {
+				return err
+			}
+		} else {
+			return err
+		}
+	}
+
+	housekeepingCpuset, err := housekeepingCgroupManager.GetCpuSet()
+	if err != nil {
+		return err
+	}
+
+	dedicatedCpuset, err := dedicatedCpusCgroupManager.GetCpuSet()
+	if err != nil {
+		return err
+	}
+
+	if len(dedicatedCpuset) < 2 {
+		return fmt.Errorf("cpuset is expected to be at least of length 2 (for 1 vCPU and 1 extra code): %v", err)
+	}
+
+	if len(housekeepingCpuset) == 1 {
+		log.Log.V(detailedLogVerbosity).Infof("housekeeping cpuset already configured")
+		return nil
+	}
+
+	housekeepingCore := dedicatedCpuset[len(dedicatedCpuset)-1:]
+	log.Log.V(detailedLogVerbosity).Infof("housekeeping core: %d", housekeepingCore[0])
+	err = housekeepingCgroupManager.SetCpuSet(housekeepingCore)
+	if err != nil {
+		return err
+	}
+
+	log.Log.V(detailedLogVerbosity).Infof(handledDedicatedCpusSuccessfully, vmi.Name)
 
 	return nil
 }

@@ -2748,12 +2748,25 @@ func (d *VirtualMachineController) vmUpdateHelperDefault(origVMI *v1.VirtualMach
 		return err
 	}
 
+	if vmi.IsCPUDedicated() {
+		cgroupManager, err := cgroup.NewManagerFromVM(vmi)
+		if err != nil {
+			return err
+		}
+
+		err = cgroupManager.HandleDedicatedCpus(vmi)
+		if err != nil {
+			return err
+		}
+	}
+
 	if vmi.IsRealtimeEnabled() && !vmi.IsRunning() && !vmi.IsFinal() {
 		log.Log.Object(vmi).Info("Configuring vcpus for real time workloads")
 		if err := d.configureVCPUScheduler(vmi); err != nil {
 			return err
 		}
 	}
+
 	if !domainExists {
 		d.recorder.Event(vmi, k8sv1.EventTypeNormal, v1.Created.String(), VMIDefined)
 	}

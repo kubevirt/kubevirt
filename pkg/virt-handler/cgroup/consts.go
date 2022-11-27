@@ -34,6 +34,14 @@ const (
 )
 
 const (
+	// common error messages / formats
+	vmiNotDedicatedErrFmt             = "vmi %s is expected to be defined with dedicated CPUs"
+	cgroupAlreadyExistsErrFmt         = "creating child cgroup: child cgroup in path %s already exists"
+	handledDedicatedCpusSuccessfully  = "handled dedicated cpus for vmi %s successfully"
+	castingToConcreteTypeFailedErrFmt = "casting of cgroup manager to %s concrete manager failed - this shouldn't happen"
+)
+
+const (
 	// others consts
 	V1 CgroupVersion = "v1"
 	V2 CgroupVersion = "v2"
@@ -43,5 +51,5 @@ const (
 
 	cgroupStr = "cgroup"
 
-	cgroupAlreadyExistsErrFmt = "creating child cgroup: child cgroup in path %s already exists"
+	V2housekeepingContainerName = "housekeeping"
 )

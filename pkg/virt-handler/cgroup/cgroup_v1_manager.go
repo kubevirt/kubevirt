@@ -7,6 +7,7 @@ import (
 	"os"
 	"path/filepath"
 
+	v1 "kubevirt.io/api/core/v1"
 	"kubevirt.io/client-go/log"
 
 	cgroup_devices "github.com/opencontainers/runc/libcontainer/cgroups/devices"
@@ -48,6 +49,14 @@ func newCustomizedV1Manager(runcManager runc_cgroups.Manager, isRootless bool,
 	}
 
 	return &manager, nil
+}
+
+func getConcreteManagerStructV1(m Manager) (*v1Manager, error) {
+	v1Struct, ok := m.(*v1Manager)
+	if !ok {
+		return nil, fmt.Errorf(castingToConcreteTypeFailedErrFmt, V1)
+	}
+	return v1Struct, nil
 }
 
 func (v *v1Manager) GetBasePathToHostSubsystem(subsystem string) (string, error) {
@@ -166,5 +175,36 @@ func (v *v1Manager) SetCpuSet(cpulist []int) error {
 
 func (v *v1Manager) MakeThreaded() error {
 	// cgroup v1 does not have the notion of a "threaded" cgroup.
+	return nil
+}
+
+func (v *v1Manager) HandleDedicatedCpus(vmi *v1.VirtualMachineInstance) error {
+	if !vmi.IsCPUDedicated() {
+		return fmt.Errorf(vmiNotDedicatedErrFmt, vmi.Name)
+	}
+
+	dedicatedCpuManager, err := GetDedicatedCpuCgroupManager(vmi)
+	if err != nil {
+		return err
+	}
+
+	vcpuTids, err := getVcpuTids(v)
+	if err != nil {
+		return err
+	}
+
+	for _, vcpuTid := range vcpuTids {
+		if dedicatedCpuManagerConcrete, err := getConcreteManagerStructV1(dedicatedCpuManager); err == nil {
+			err = dedicatedCpuManagerConcrete.attachTask(vcpuTid, CgroupSubsystemCpuset)
+			if err != nil {
+				return err
+			}
+		} else {
+			return err
+		}
+	}
+
+	log.Log.V(detailedLogVerbosity).Infof(handledDedicatedCpusSuccessfully, vmi.Name)
+
 	return nil
 }

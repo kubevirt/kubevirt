@@ -73,6 +73,10 @@ type Manager interface {
 	GetCgroupThreadsWithFilter(func(string) bool) ([]int, error)
 
 	MakeThreaded() error
+
+	// HandleDedicatedCpus is expected to be called from the VMI's compute container manager, for example,
+	// a manager initizlied by NewManagerFromVM()
+	HandleDedicatedCpus(vmi *v1.VirtualMachineInstance) error
 }
 
 // This is here so that mockgen would create a mock out of it. That way we would have a mocked runc manager.
