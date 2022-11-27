@@ -243,7 +243,7 @@ func NewKubeVirt(hc *hcov1beta1.HyperConverged, opts ...string) (*kubevirtcorev1
 	infrastructureHighlyAvailable := hcoutil.GetClusterInfo().IsInfrastructureHighlyAvailable()
 
 	uninstallStrategy := kubevirtcorev1.KubeVirtUninstallStrategyBlockUninstallIfWorkloadsExist
-	if hc.Spec.UninstallStrategy != nil && *hc.Spec.UninstallStrategy == hcov1beta1.HyperConvergedUninstallStrategyRemoveWorkloads {
+	if hc.Spec.UninstallStrategy == hcov1beta1.HyperConvergedUninstallStrategyRemoveWorkloads {
 		uninstallStrategy = kubevirtcorev1.KubeVirtUninstallStrategyRemoveWorkloads
 	}
 
@@ -253,7 +253,7 @@ func NewKubeVirt(hc *hcov1beta1.HyperConverged, opts ...string) (*kubevirtcorev1
 		Workloads:                   hcoConfig2KvConfig(hc.Spec.Workloads, true),
 		Configuration:               *config,
 		CertificateRotationStrategy: *kvCertConfig,
-		WorkloadUpdateStrategy:      hcWorkloadUpdateStrategyToKv(hc.Spec.WorkloadUpdateStrategy),
+		WorkloadUpdateStrategy:      hcWorkloadUpdateStrategyToKv(&hc.Spec.WorkloadUpdateStrategy),
 		ProductName:                 hcoutil.HyperConvergedCluster,
 		ProductVersion:              os.Getenv(hcoutil.HcoKvIoVersionName),
 		ProductComponent:            string(hcoutil.AppComponentCompute),
@@ -565,11 +565,11 @@ func hcoConfig2KvConfig(hcoConfig hcov1beta1.HyperConvergedConfig, infrastructur
 func getFeatureGateChecks(featureGates *hcov1beta1.HyperConvergedFeatureGates) []string {
 	fgs := make([]string, 0, 2)
 
-	if featureGates.WithHostPassthroughCPU {
+	if featureGates.WithHostPassthroughCPU != nil && *featureGates.WithHostPassthroughCPU {
 		fgs = append(fgs, kvWithHostPassthroughCPU)
 	}
 
-	if featureGates.NonRoot {
+	if featureGates.NonRoot != nil && *featureGates.NonRoot {
 		fgs = append(fgs, kvNonRoot)
 	}
 

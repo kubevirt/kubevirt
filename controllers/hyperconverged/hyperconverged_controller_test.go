@@ -8,6 +8,8 @@ import (
 	"os"
 	"time"
 
+	"k8s.io/utils/pointer"
+
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
 	openshiftconfigv1 "github.com/openshift/api/config/v1"
@@ -138,7 +140,7 @@ var _ = Describe("HyperconvergedController", func() {
 
 				hco := commonTestUtils.NewHco()
 				hco.Spec.FeatureGates = hcov1beta1.HyperConvergedFeatureGates{
-					WithHostPassthroughCPU: true,
+					WithHostPassthroughCPU: pointer.Bool(true),
 				}
 
 				cl := commonTestUtils.InitClient([]runtime.Object{hcoNamespace, hco})

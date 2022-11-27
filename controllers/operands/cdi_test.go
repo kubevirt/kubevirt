@@ -692,7 +692,7 @@ var _ = Describe("CDI Operand", func() {
 			It("should set BlockUninstallIfWorkloadsExist if missing HCO CR", func() {
 				existingResource, err := NewCDI(hco)
 				Expect(err).ToNot(HaveOccurred())
-				hco.Spec.UninstallStrategy = nil
+				hco.Spec.UninstallStrategy = ""
 
 				cl := commonTestUtils.InitClient([]runtime.Object{hco, existingResource})
 				handler := (*genericOperand)(newCdiHandler(cl, commonTestUtils.GetScheme()))
@@ -714,7 +714,7 @@ var _ = Describe("CDI Operand", func() {
 				existingResource, err := NewCDI(hco)
 				Expect(err).ToNot(HaveOccurred())
 				uninstallStrategy := hcov1beta1.HyperConvergedUninstallStrategyBlockUninstallIfWorkloadsExist
-				hco.Spec.UninstallStrategy = &uninstallStrategy
+				hco.Spec.UninstallStrategy = uninstallStrategy
 
 				cl := commonTestUtils.InitClient([]runtime.Object{hco, existingResource})
 				handler := (*genericOperand)(newCdiHandler(cl, commonTestUtils.GetScheme()))
@@ -736,7 +736,7 @@ var _ = Describe("CDI Operand", func() {
 				existingResource, err := NewCDI(hco)
 				Expect(err).ToNot(HaveOccurred())
 				uninstallStrategy := hcov1beta1.HyperConvergedUninstallStrategyRemoveWorkloads
-				hco.Spec.UninstallStrategy = &uninstallStrategy
+				hco.Spec.UninstallStrategy = uninstallStrategy
 
 				cl := commonTestUtils.InitClient([]runtime.Object{hco, existingResource})
 				handler := (*genericOperand)(newCdiHandler(cl, commonTestUtils.GetScheme()))
@@ -891,12 +891,12 @@ var _ = Describe("CDI Operand", func() {
 
 			hco.Spec.CertConfig = hcov1beta1.HyperConvergedCertConfig{
 				CA: hcov1beta1.CertRotateConfigCA{
-					Duration:    metav1.Duration{Duration: 5 * time.Hour},
-					RenewBefore: metav1.Duration{Duration: 6 * time.Hour},
+					Duration:    &metav1.Duration{Duration: 5 * time.Hour},
+					RenewBefore: &metav1.Duration{Duration: 6 * time.Hour},
 				},
 				Server: hcov1beta1.CertRotateConfigServer{
-					Duration:    metav1.Duration{Duration: 7 * time.Hour},
-					RenewBefore: metav1.Duration{Duration: 8 * time.Hour},
+					Duration:    &metav1.Duration{Duration: 7 * time.Hour},
+					RenewBefore: &metav1.Duration{Duration: 8 * time.Hour},
 				},
 			}
 

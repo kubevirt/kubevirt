@@ -497,6 +497,7 @@ var _ = Describe("SSP Operands", func() {
 
 				It("should not return the hard coded list dataImportCron FeatureGate is false", func() {
 					hco := commonTestUtils.NewHco()
+					hco.Spec.FeatureGates.EnableCommonBootImageImport = pointer.Bool(false)
 					dataImportCronTemplateHardCodedMap = map[string]hcov1beta1.DataImportCronTemplate{
 						image1.Name: image1,
 						image2.Name: image2,
@@ -515,10 +516,10 @@ var _ = Describe("SSP Operands", func() {
 
 				It("should return an empty list if both the hard-coded list and the list from HC are empty", func() {
 					hcoWithEmptyList := commonTestUtils.NewHco()
-					hcoWithEmptyList.Spec.FeatureGates.EnableCommonBootImageImport = true
+					hcoWithEmptyList.Spec.FeatureGates.EnableCommonBootImageImport = pointer.Bool(true)
 					hcoWithEmptyList.Spec.DataImportCronTemplates = []hcov1beta1.DataImportCronTemplate{}
 					hcoWithNilList := commonTestUtils.NewHco()
-					hcoWithNilList.Spec.FeatureGates.EnableCommonBootImageImport = true
+					hcoWithNilList.Spec.FeatureGates.EnableCommonBootImageImport = pointer.Bool(true)
 					hcoWithNilList.Spec.DataImportCronTemplates = nil
 
 					dataImportCronTemplateHardCodedMap = nil
@@ -535,7 +536,7 @@ var _ = Describe("SSP Operands", func() {
 						image2.Name: image2,
 					}
 					hco := commonTestUtils.NewHco()
-					hco.Spec.FeatureGates.EnableCommonBootImageImport = true
+					hco.Spec.FeatureGates.EnableCommonBootImageImport = pointer.Bool(true)
 					hco.Spec.DataImportCronTemplates = []hcov1beta1.DataImportCronTemplate{image3, image4}
 					goldenImageList, err := getDataImportCronTemplates(hco)
 					Expect(err).ToNot(HaveOccurred())
@@ -550,7 +551,7 @@ var _ = Describe("SSP Operands", func() {
 						image2.Name: image2,
 					}
 					hco := commonTestUtils.NewHco()
-					hco.Spec.FeatureGates.EnableCommonBootImageImport = true
+					hco.Spec.FeatureGates.EnableCommonBootImageImport = pointer.Bool(true)
 
 					disabledImage1 := image1.DeepCopy()
 					disableDict(disabledImage1)
@@ -575,7 +576,7 @@ var _ = Describe("SSP Operands", func() {
 						image2.Name: image2,
 					}
 					hco := commonTestUtils.NewHco()
-					hco.Spec.FeatureGates.EnableCommonBootImageImport = true
+					hco.Spec.FeatureGates.EnableCommonBootImageImport = pointer.Bool(true)
 
 					image3Modified := image3.DeepCopy()
 					image3Modified.Name = image4.Name
@@ -587,7 +588,7 @@ var _ = Describe("SSP Operands", func() {
 
 				It("Should reject if the CR list contain DIC templates with the same name", func() {
 					hco := commonTestUtils.NewHco()
-					hco.Spec.FeatureGates.EnableCommonBootImageImport = true
+					hco.Spec.FeatureGates.EnableCommonBootImageImport = pointer.Bool(true)
 
 					image3Modified := image3.DeepCopy()
 					image3Modified.Name = image4.Name
@@ -605,7 +606,7 @@ var _ = Describe("SSP Operands", func() {
 					}
 
 					hco := commonTestUtils.NewHco()
-					hco.Spec.FeatureGates.EnableCommonBootImageImport = true
+					hco.Spec.FeatureGates.EnableCommonBootImageImport = pointer.Bool(true)
 					hco.Spec.DataImportCronTemplates = nil
 					goldenImageList, err := getDataImportCronTemplates(hco)
 					Expect(err).ToNot(HaveOccurred())
@@ -623,7 +624,7 @@ var _ = Describe("SSP Operands", func() {
 
 				It("Should return only the CR list, if the hard-coded list is empty", func() {
 					hco := commonTestUtils.NewHco()
-					hco.Spec.FeatureGates.EnableCommonBootImageImport = true
+					hco.Spec.FeatureGates.EnableCommonBootImageImport = pointer.Bool(true)
 					hco.Spec.DataImportCronTemplates = []hcov1beta1.DataImportCronTemplate{image3, image4}
 
 					By("when dataImportCronTemplateHardCodedList is nil")
@@ -659,7 +660,7 @@ var _ = Describe("SSP Operands", func() {
 					}
 
 					hco := commonTestUtils.NewHco()
-					hco.Spec.FeatureGates.EnableCommonBootImageImport = true
+					hco.Spec.FeatureGates.EnableCommonBootImageImport = pointer.Bool(true)
 
 					modifiedImage1 := image1.DeepCopy()
 					modifiedImage1.Spec.Template.Spec.Source = &cdiv1beta1.DataVolumeSource{
@@ -705,7 +706,7 @@ var _ = Describe("SSP Operands", func() {
 					}
 
 					hco := commonTestUtils.NewHco()
-					hco.Spec.FeatureGates.EnableCommonBootImageImport = true
+					hco.Spec.FeatureGates.EnableCommonBootImageImport = pointer.Bool(true)
 
 					modifiedImage1 := image1.DeepCopy()
 					storageFromCr := &cdiv1beta1.StorageSpec{
@@ -745,7 +746,7 @@ var _ = Describe("SSP Operands", func() {
 
 				It("should return an empty list if there is no file and no list in the HyperConverged CR", func() {
 					hco := commonTestUtils.NewHco()
-					hco.Spec.FeatureGates.EnableCommonBootImageImport = true
+					hco.Spec.FeatureGates.EnableCommonBootImageImport = pointer.Bool(true)
 					ssp, _, err := NewSSP(hco)
 					Expect(err).ToNot(HaveOccurred())
 
@@ -764,7 +765,7 @@ var _ = Describe("SSP Operands", func() {
 					Expect(readDataImportCronTemplatesFromFile()).ToNot(HaveOccurred())
 
 					hco := commonTestUtils.NewHco()
-					hco.Spec.FeatureGates.EnableCommonBootImageImport = true
+					hco.Spec.FeatureGates.EnableCommonBootImageImport = pointer.Bool(true)
 					ssp, _, err := NewSSP(hco)
 					Expect(err).ToNot(HaveOccurred())
 
@@ -784,7 +785,7 @@ var _ = Describe("SSP Operands", func() {
 					Expect(readDataImportCronTemplatesFromFile()).ToNot(HaveOccurred())
 
 					hco := commonTestUtils.NewHco()
-					hco.Spec.FeatureGates.EnableCommonBootImageImport = true
+					hco.Spec.FeatureGates.EnableCommonBootImageImport = pointer.Bool(true)
 					hco.Spec.DataImportCronTemplates = []hcov1beta1.DataImportCronTemplate{image3, image4}
 					ssp, _, err := NewSSP(hco)
 					Expect(err).ToNot(HaveOccurred())
@@ -814,7 +815,7 @@ var _ = Describe("SSP Operands", func() {
 					Expect(readDataImportCronTemplatesFromFile()).ToNot(HaveOccurred())
 
 					hco := commonTestUtils.NewHco()
-					hco.Spec.FeatureGates.EnableCommonBootImageImport = true
+					hco.Spec.FeatureGates.EnableCommonBootImageImport = pointer.Bool(true)
 
 					Expect(dataImportCronTemplateHardCodedMap).To(HaveLen(2))
 					commonFedora := dataImportCronTemplateHardCodedMap["fedora-image-cron"]
@@ -844,7 +845,7 @@ var _ = Describe("SSP Operands", func() {
 					Expect(readDataImportCronTemplatesFromFile()).ToNot(HaveOccurred())
 
 					hco := commonTestUtils.NewHco()
-					hco.Spec.FeatureGates.EnableCommonBootImageImport = true
+					hco.Spec.FeatureGates.EnableCommonBootImageImport = pointer.Bool(true)
 
 					Expect(dataImportCronTemplateHardCodedMap).ToNot(BeEmpty())
 					image3Modified := image3.DeepCopy()
@@ -860,7 +861,7 @@ var _ = Describe("SSP Operands", func() {
 					Expect(readDataImportCronTemplatesFromFile()).ToNot(HaveOccurred())
 
 					hco := commonTestUtils.NewHco()
-					hco.Spec.FeatureGates.EnableCommonBootImageImport = false
+					hco.Spec.FeatureGates.EnableCommonBootImageImport = pointer.Bool(false)
 
 					Expect(dataImportCronTemplateHardCodedMap).To(BeEmpty())
 					image3Modified := image3.DeepCopy()
@@ -877,7 +878,7 @@ var _ = Describe("SSP Operands", func() {
 					Expect(dataImportCronTemplateHardCodedMap).Should(BeEmpty())
 
 					hco := commonTestUtils.NewHco()
-					hco.Spec.FeatureGates.EnableCommonBootImageImport = true
+					hco.Spec.FeatureGates.EnableCommonBootImageImport = pointer.Bool(true)
 					hco.Spec.DataImportCronTemplates = []hcov1beta1.DataImportCronTemplate{image3, image4}
 					ssp, _, err := NewSSP(hco)
 					Expect(err).ToNot(HaveOccurred())
@@ -900,7 +901,7 @@ var _ = Describe("SSP Operands", func() {
 					Expect(readDataImportCronTemplatesFromFile()).ToNot(HaveOccurred())
 
 					hco := commonTestUtils.NewHco()
-					hco.Spec.FeatureGates.EnableCommonBootImageImport = false
+					hco.Spec.FeatureGates.EnableCommonBootImageImport = pointer.Bool(false)
 					hco.Spec.DataImportCronTemplates = []hcov1beta1.DataImportCronTemplate{image3, image4}
 					ssp, _, err := NewSSP(hco)
 					Expect(err).ToNot(HaveOccurred())
@@ -922,7 +923,7 @@ var _ = Describe("SSP Operands", func() {
 					Expect(readDataImportCronTemplatesFromFile()).ToNot(HaveOccurred())
 
 					hco := commonTestUtils.NewHco()
-					hco.Spec.FeatureGates.EnableCommonBootImageImport = true
+					hco.Spec.FeatureGates.EnableCommonBootImageImport = pointer.Bool(true)
 
 					Expect(dataImportCronTemplateHardCodedMap).To(HaveLen(2))
 					commonFedora := dataImportCronTemplateHardCodedMap["fedora-image-cron"]
@@ -999,7 +1000,7 @@ var _ = Describe("SSP Operands", func() {
 
 				Context("on SSP create", func() {
 					It("should create ssp with 2 common DICTs", func() {
-						hco.Spec.FeatureGates.EnableCommonBootImageImport = true
+						hco.Spec.FeatureGates.EnableCommonBootImageImport = pointer.Bool(true)
 						expectedResource, _, err := NewSSP(hco)
 						Expect(err).ToNot(HaveOccurred())
 						cl := commonTestUtils.InitClient([]runtime.Object{})
@@ -1027,7 +1028,7 @@ var _ = Describe("SSP Operands", func() {
 					})
 
 					It("should create ssp with 2 custom DICTs", func() {
-						hco.Spec.FeatureGates.EnableCommonBootImageImport = false
+						hco.Spec.FeatureGates.EnableCommonBootImageImport = pointer.Bool(false)
 						hco.Spec.DataImportCronTemplates = []hcov1beta1.DataImportCronTemplate{image3, image4}
 						expectedResource, _, err := NewSSP(hco)
 						Expect(err).ToNot(HaveOccurred())
@@ -1056,7 +1057,7 @@ var _ = Describe("SSP Operands", func() {
 					})
 
 					It("should create ssp with 2 common and 2 custom DICTs", func() {
-						hco.Spec.FeatureGates.EnableCommonBootImageImport = true
+						hco.Spec.FeatureGates.EnableCommonBootImageImport = pointer.Bool(true)
 						hco.Spec.DataImportCronTemplates = []hcov1beta1.DataImportCronTemplate{image3, image4}
 						expectedResource, _, err := NewSSP(hco)
 						Expect(err).ToNot(HaveOccurred())
@@ -1089,7 +1090,7 @@ var _ = Describe("SSP Operands", func() {
 					})
 
 					It("should create ssp with 1 common and 2 custom DICTs, when one of the common is disabled", func() {
-						hco.Spec.FeatureGates.EnableCommonBootImageImport = true
+						hco.Spec.FeatureGates.EnableCommonBootImageImport = pointer.Bool(true)
 						sspCentos8 := dataImportCronTemplateHardCodedMap["centos8-image-cron"]
 
 						disabledCentos8 := sspCentos8.DeepCopy()
@@ -1128,7 +1129,7 @@ var _ = Describe("SSP Operands", func() {
 					})
 
 					It("should create ssp with 1 modified common DICT and 2 custom DICTs, when one of the common is modified", func() {
-						hco.Spec.FeatureGates.EnableCommonBootImageImport = true
+						hco.Spec.FeatureGates.EnableCommonBootImageImport = pointer.Bool(true)
 						sspCentos8 := dataImportCronTemplateHardCodedMap["centos8-image-cron"]
 
 						modifiedCentos8 := sspCentos8.DeepCopy()
@@ -1184,7 +1185,7 @@ var _ = Describe("SSP Operands", func() {
 
 				Context("on SSP update", func() {
 					It("should create ssp with 2 common DICTs", func() {
-						hco.Spec.FeatureGates.EnableCommonBootImageImport = true
+						hco.Spec.FeatureGates.EnableCommonBootImageImport = pointer.Bool(true)
 						expectedResource, _, err := NewSSP(hco)
 						Expect(err).ToNot(HaveOccurred())
 						cl := commonTestUtils.InitClient([]runtime.Object{expectedResource})
@@ -1212,7 +1213,7 @@ var _ = Describe("SSP Operands", func() {
 					})
 
 					It("should create ssp with 2 custom DICTs", func() {
-						hco.Spec.FeatureGates.EnableCommonBootImageImport = false
+						hco.Spec.FeatureGates.EnableCommonBootImageImport = pointer.Bool(false)
 
 						expectedResource, _, err := NewSSP(hco)
 						Expect(err).ToNot(HaveOccurred())
@@ -1244,7 +1245,7 @@ var _ = Describe("SSP Operands", func() {
 					})
 
 					It("should create ssp with 2 common and 2 custom DICTs", func() {
-						hco.Spec.FeatureGates.EnableCommonBootImageImport = true
+						hco.Spec.FeatureGates.EnableCommonBootImageImport = pointer.Bool(true)
 
 						expectedResource, _, err := NewSSP(hco)
 						Expect(err).ToNot(HaveOccurred())
@@ -1280,7 +1281,7 @@ var _ = Describe("SSP Operands", func() {
 					})
 
 					It("should create ssp with 1 common and 2 custom DICTs, when one of the common is disabled", func() {
-						hco.Spec.FeatureGates.EnableCommonBootImageImport = true
+						hco.Spec.FeatureGates.EnableCommonBootImageImport = pointer.Bool(true)
 
 						expectedResource, _, err := NewSSP(hco)
 						Expect(err).ToNot(HaveOccurred())
@@ -1321,7 +1322,7 @@ var _ = Describe("SSP Operands", func() {
 					})
 
 					It("should create ssp with 1 modified common DICT and 2 custom DICTs, when one of the common is modified", func() {
-						hco.Spec.FeatureGates.EnableCommonBootImageImport = true
+						hco.Spec.FeatureGates.EnableCommonBootImageImport = pointer.Bool(true)
 
 						expectedResource, _, err := NewSSP(hco)
 						Expect(err).ToNot(HaveOccurred())

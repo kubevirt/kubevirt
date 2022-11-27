@@ -40,7 +40,7 @@ type imageStreamOperand struct {
 }
 
 func (iso imageStreamOperand) ensure(req *common.HcoRequest) *EnsureResult {
-	if req.Instance.Spec.FeatureGates.EnableCommonBootImageImport {
+	if req.Instance.Spec.FeatureGates.EnableCommonBootImageImport != nil && *req.Instance.Spec.FeatureGates.EnableCommonBootImageImport {
 		// if the FG is set, make sure the imageStream is in place and up-to-date
 		return iso.operand.ensure(req)
 	}

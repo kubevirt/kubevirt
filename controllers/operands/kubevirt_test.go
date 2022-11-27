@@ -194,7 +194,7 @@ Version: 1.2.3`)
 		It("should create if not present", func() {
 			mandatoryKvFeatureGates = getMandatoryKvFeatureGates(false)
 			hco.Spec.FeatureGates = hcov1beta1.HyperConvergedFeatureGates{
-				WithHostPassthroughCPU: true,
+				WithHostPassthroughCPU: pointer.Bool(true),
 			}
 
 			expectedResource, err := NewKubeVirt(hco, commonTestUtils.Namespace)
@@ -293,7 +293,7 @@ Version: 1.2.3`)
 		It("should force mandatory configurations", func() {
 			mandatoryKvFeatureGates = getMandatoryKvFeatureGates(false)
 			hco.Spec.FeatureGates = hcov1beta1.HyperConvergedFeatureGates{
-				WithHostPassthroughCPU: true,
+				WithHostPassthroughCPU: pointer.Bool(true),
 			}
 
 			os.Setenv(smbiosEnvName,
@@ -392,7 +392,7 @@ Version: 1.2.3`)
 
 		It("should fail if the SMBIOS is wrongly formatted mandatory configurations", func() {
 			hco.Spec.FeatureGates = hcov1beta1.HyperConvergedFeatureGates{
-				WithHostPassthroughCPU: true,
+				WithHostPassthroughCPU: pointer.Bool(true),
 			}
 
 			_ = os.Setenv(smbiosEnvName, "WRONG YAML")
@@ -438,7 +438,7 @@ Version: 1.2.3`)
 			It("should set BlockUninstallIfWorkloadsExist if missing HCO CR", func() {
 				expectedResource, err := NewKubeVirt(hco, commonTestUtils.Namespace)
 				Expect(err).ToNot(HaveOccurred())
-				hco.Spec.UninstallStrategy = nil
+				hco.Spec.UninstallStrategy = ""
 
 				cl := commonTestUtils.InitClient([]runtime.Object{hco, expectedResource})
 				handler := (*genericOperand)(newKubevirtHandler(cl, commonTestUtils.GetScheme()))
@@ -460,7 +460,7 @@ Version: 1.2.3`)
 				expectedResource, err := NewKubeVirt(hco, commonTestUtils.Namespace)
 				Expect(err).ToNot(HaveOccurred())
 				uninstallStrategy := hcov1beta1.HyperConvergedUninstallStrategyBlockUninstallIfWorkloadsExist
-				hco.Spec.UninstallStrategy = &uninstallStrategy
+				hco.Spec.UninstallStrategy = uninstallStrategy
 
 				cl := commonTestUtils.InitClient([]runtime.Object{hco, expectedResource})
 				handler := (*genericOperand)(newKubevirtHandler(cl, commonTestUtils.GetScheme()))
@@ -482,7 +482,7 @@ Version: 1.2.3`)
 				expectedResource, err := NewKubeVirt(hco, commonTestUtils.Namespace)
 				Expect(err).ToNot(HaveOccurred())
 				uninstallStrategy := hcov1beta1.HyperConvergedUninstallStrategyRemoveWorkloads
-				hco.Spec.UninstallStrategy = &uninstallStrategy
+				hco.Spec.UninstallStrategy = uninstallStrategy
 
 				cl := commonTestUtils.InitClient([]runtime.Object{hco, expectedResource})
 				handler := (*genericOperand)(newKubevirtHandler(cl, commonTestUtils.GetScheme()))
@@ -1341,7 +1341,7 @@ Version: 1.2.3`)
 				It("should add the WithHostPassthroughCPU feature gate if it's set in HyperConverged CR", func() {
 					// one enabled, one disabled and one missing
 					hco.Spec.FeatureGates = hcov1beta1.HyperConvergedFeatureGates{
-						WithHostPassthroughCPU: true,
+						WithHostPassthroughCPU: pointer.Bool(true),
 					}
 
 					existingResource, err := NewKubeVirt(hco)
@@ -1355,7 +1355,7 @@ Version: 1.2.3`)
 				It("should not add the WithHostPassthroughCPU feature gate if it's disabled in HyperConverged CR", func() {
 					// one enabled, one disabled and one missing
 					hco.Spec.FeatureGates = hcov1beta1.HyperConvergedFeatureGates{
-						WithHostPassthroughCPU: false,
+						WithHostPassthroughCPU: pointer.Bool(false),
 					}
 
 					existingResource, err := NewKubeVirt(hco)
@@ -1368,7 +1368,7 @@ Version: 1.2.3`)
 
 				It("should add the NonRoot feature gate if it's set in HyperConverged CR", func() {
 					hco.Spec.FeatureGates = hcov1beta1.HyperConvergedFeatureGates{
-						NonRoot: true,
+						NonRoot: pointer.Bool(true),
 					}
 
 					existingResource, err := NewKubeVirt(hco)
@@ -1381,7 +1381,7 @@ Version: 1.2.3`)
 
 				It("should not add the NonRoot feature gate if it's disabled in HyperConverged CR", func() {
 					hco.Spec.FeatureGates = hcov1beta1.HyperConvergedFeatureGates{
-						NonRoot: false,
+						NonRoot: pointer.Bool(false),
 					}
 
 					existingResource, err := NewKubeVirt(hco)
@@ -1426,7 +1426,7 @@ Version: 1.2.3`)
 					Expect(err).ToNot(HaveOccurred())
 
 					hco.Spec.FeatureGates = hcov1beta1.HyperConvergedFeatureGates{
-						WithHostPassthroughCPU: true,
+						WithHostPassthroughCPU: pointer.Bool(true),
 					}
 
 					cl := commonTestUtils.InitClient([]runtime.Object{hco, existingResource})
@@ -1456,7 +1456,7 @@ Version: 1.2.3`)
 					Expect(err).ToNot(HaveOccurred())
 
 					hco.Spec.FeatureGates = hcov1beta1.HyperConvergedFeatureGates{
-						WithHostPassthroughCPU: false,
+						WithHostPassthroughCPU: pointer.Bool(false),
 					}
 
 					cl := commonTestUtils.InitClient([]runtime.Object{hco, existingResource})
@@ -1523,7 +1523,7 @@ Version: 1.2.3`)
 					existingResource.Spec.Configuration.DeveloperConfiguration.FeatureGates = fgs
 
 					hco.Spec.FeatureGates = hcov1beta1.HyperConvergedFeatureGates{
-						WithHostPassthroughCPU: true,
+						WithHostPassthroughCPU: pointer.Bool(true),
 					}
 
 					By("Make sure the existing KV is with the the expected FGs", func() {
@@ -1568,7 +1568,7 @@ Version: 1.2.3`)
 					})
 
 					hco.Spec.FeatureGates = hcov1beta1.HyperConvergedFeatureGates{
-						WithHostPassthroughCPU: false,
+						WithHostPassthroughCPU: pointer.Bool(false),
 					}
 
 					cl := commonTestUtils.InitClient([]runtime.Object{hco, existingResource})
@@ -1703,25 +1703,25 @@ Version: 1.2.3`)
 					),
 					Entry("When not using kvm-emulation and all FGs are disabled",
 						false,
-						&hcov1beta1.HyperConvergedFeatureGates{WithHostPassthroughCPU: false},
+						&hcov1beta1.HyperConvergedFeatureGates{WithHostPassthroughCPU: pointer.Bool(false)},
 						basicNumFgOnOpenshift,
 						[][]string{hardCodeKvFgs, sspConditionKvFgs},
 					),
 					Entry("When using kvm-emulation all FGs are disabled",
 						true,
-						&hcov1beta1.HyperConvergedFeatureGates{WithHostPassthroughCPU: false},
+						&hcov1beta1.HyperConvergedFeatureGates{WithHostPassthroughCPU: pointer.Bool(false)},
 						len(hardCodeKvFgs),
 						[][]string{hardCodeKvFgs},
 					),
 					Entry("When not using kvm-emulation and all FGs are enabled",
 						false,
-						&hcov1beta1.HyperConvergedFeatureGates{WithHostPassthroughCPU: true},
+						&hcov1beta1.HyperConvergedFeatureGates{WithHostPassthroughCPU: pointer.Bool(true)},
 						basicNumFgOnOpenshift+1,
 						[][]string{hardCodeKvFgs, sspConditionKvFgs, {kvWithHostPassthroughCPU}},
 					),
 					Entry("When using kvm-emulation all FGs are enabled",
 						true,
-						&hcov1beta1.HyperConvergedFeatureGates{WithHostPassthroughCPU: true},
+						&hcov1beta1.HyperConvergedFeatureGates{WithHostPassthroughCPU: pointer.Bool(true)},
 						len(hardCodeKvFgs)+1,
 						[][]string{hardCodeKvFgs, {kvWithHostPassthroughCPU}},
 					))
@@ -1935,12 +1935,12 @@ Version: 1.2.3`)
 
 				hco.Spec.CertConfig = hcov1beta1.HyperConvergedCertConfig{
 					CA: hcov1beta1.CertRotateConfigCA{
-						Duration:    metav1.Duration{Duration: 24 * time.Hour},
-						RenewBefore: metav1.Duration{Duration: 1 * time.Hour},
+						Duration:    &metav1.Duration{Duration: 24 * time.Hour},
+						RenewBefore: &metav1.Duration{Duration: 1 * time.Hour},
 					},
 					Server: hcov1beta1.CertRotateConfigServer{
-						Duration:    metav1.Duration{Duration: 12 * time.Hour},
-						RenewBefore: metav1.Duration{Duration: 30 * time.Minute},
+						Duration:    &metav1.Duration{Duration: 12 * time.Hour},
+						RenewBefore: &metav1.Duration{Duration: 30 * time.Minute},
 					},
 				}
 
@@ -2001,12 +2001,12 @@ Version: 1.2.3`)
 
 				hco.Spec.CertConfig = hcov1beta1.HyperConvergedCertConfig{
 					CA: hcov1beta1.CertRotateConfigCA{
-						Duration:    metav1.Duration{Duration: 24 * time.Hour},
-						RenewBefore: metav1.Duration{Duration: 1 * time.Hour},
+						Duration:    &metav1.Duration{Duration: 24 * time.Hour},
+						RenewBefore: &metav1.Duration{Duration: 1 * time.Hour},
 					},
 					Server: hcov1beta1.CertRotateConfigServer{
-						Duration:    metav1.Duration{Duration: 12 * time.Hour},
-						RenewBefore: metav1.Duration{Duration: 30 * time.Minute},
+						Duration:    &metav1.Duration{Duration: 12 * time.Hour},
+						RenewBefore: &metav1.Duration{Duration: 30 * time.Minute},
 					},
 				}
 				existingResource, err := NewKubeVirt(hco)
@@ -2053,12 +2053,12 @@ Version: 1.2.3`)
 
 				hco.Spec.CertConfig = hcov1beta1.HyperConvergedCertConfig{
 					CA: hcov1beta1.CertRotateConfigCA{
-						Duration:    metav1.Duration{Duration: 24 * time.Hour},
-						RenewBefore: metav1.Duration{Duration: 1 * time.Hour},
+						Duration:    &metav1.Duration{Duration: 24 * time.Hour},
+						RenewBefore: &metav1.Duration{Duration: 1 * time.Hour},
 					},
 					Server: hcov1beta1.CertRotateConfigServer{
-						Duration:    metav1.Duration{Duration: 12 * time.Hour},
-						RenewBefore: metav1.Duration{Duration: 30 * time.Minute},
+						Duration:    &metav1.Duration{Duration: 12 * time.Hour},
+						RenewBefore: &metav1.Duration{Duration: 30 * time.Minute},
 					},
 				}
 				existingResource, err := NewKubeVirt(hco)
@@ -2124,7 +2124,7 @@ Version: 1.2.3`)
 				existingResource, err := NewKubeVirt(hco)
 				Expect(err).ToNot(HaveOccurred())
 
-				hco.Spec.WorkloadUpdateStrategy = &hcov1beta1.HyperConvergedWorkloadUpdateStrategy{
+				hco.Spec.WorkloadUpdateStrategy = hcov1beta1.HyperConvergedWorkloadUpdateStrategy{
 					WorkloadUpdateMethods: []string{"aaa", "bbb"},
 					BatchEvictionInterval: &metav1.Duration{Duration: time.Minute * 1},
 					BatchEvictionSize:     &defaultBatchEvictionSize,
@@ -2227,7 +2227,7 @@ Version: 1.2.3`)
 				hcoModifiedBatchEvictionSize := 5
 				kvModifiedBatchEvictionSize := 7
 
-				hco.Spec.WorkloadUpdateStrategy = &hcov1beta1.HyperConvergedWorkloadUpdateStrategy{
+				hco.Spec.WorkloadUpdateStrategy = hcov1beta1.HyperConvergedWorkloadUpdateStrategy{
 					WorkloadUpdateMethods: []string{"LiveMigrate"},
 					BatchEvictionInterval: &metav1.Duration{Duration: time.Minute * 5},
 					BatchEvictionSize:     &hcoModifiedBatchEvictionSize,

@@ -3,6 +3,10 @@ package operands
 import (
 	"context"
 
+	hcov1beta1 "github.com/kubevirt/hyperconverged-cluster-operator/api/v1beta1"
+
+	"k8s.io/utils/pointer"
+
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
 	imagev1 "github.com/openshift/api/image/v1"
@@ -25,9 +29,13 @@ var _ = Describe("imageStream tests", func() {
 	var (
 		logger            = zap.New(zap.WriteTo(GinkgoWriter), zap.UseDevMode(true)).WithName("imageStream_test")
 		testFilesLocation = getTestFilesLocation() + "/imageStreams"
-		hco               = commonTestUtils.NewHco()
 		storeOrigFunc     = getImageStreamFileLocation
+		hco               *hcov1beta1.HyperConverged
 	)
+
+	BeforeEach(func() {
+		hco = commonTestUtils.NewHco()
+	})
 
 	AfterEach(func() {
 		getImageStreamFileLocation = storeOrigFunc
@@ -35,6 +43,8 @@ var _ = Describe("imageStream tests", func() {
 
 	Context("test imageStreamHandler", func() {
 		It("should not create the ImageStream resource if the FG is not set", func() {
+			hco.Spec.FeatureGates.EnableCommonBootImageImport = pointer.Bool(false)
+
 			getImageStreamFileLocation = func() string {
 				return testFilesLocation
 			}
@@ -49,7 +59,6 @@ var _ = Describe("imageStream tests", func() {
 			Expect(handlers).To(HaveLen(1))
 			Expect(imageStreamNames).To(ContainElement("test-image-stream"))
 
-			hco := commonTestUtils.NewHco()
 			req := commonTestUtils.NewReq(hco)
 			res := handlers[0].ensure(req)
 			Expect(res.Err).ToNot(HaveOccurred())
@@ -62,6 +71,8 @@ var _ = Describe("imageStream tests", func() {
 		})
 
 		It("should delete the ImageStream resource if the FG is not set", func() {
+			hco.Spec.FeatureGates.EnableCommonBootImageImport = pointer.Bool(false)
+
 			getImageStreamFileLocation = func() string {
 				return testFilesLocation
 			}
@@ -98,7 +109,6 @@ var _ = Describe("imageStream tests", func() {
 			Expect(handlers).To(HaveLen(1))
 			Expect(imageStreamNames).To(ContainElement("test-image-stream"))
 
-			hco := commonTestUtils.NewHco()
 			req := commonTestUtils.NewReq(hco)
 			res := handlers[0].ensure(req)
 			Expect(res.Err).ToNot(HaveOccurred())
@@ -121,7 +131,7 @@ var _ = Describe("imageStream tests", func() {
 
 			hcoNamespace := commonTestUtils.NewHcoNamespace()
 			hco := commonTestUtils.NewHco()
-			hco.Spec.FeatureGates.EnableCommonBootImageImport = true
+			hco.Spec.FeatureGates.EnableCommonBootImageImport = pointer.Bool(true)
 			eventEmitter := commonTestUtils.NewEventEmitterMock()
 			ci := commonTestUtils.ClusterInfoMock{}
 			cli := commonTestUtils.InitClient([]runtime.Object{hcoNamespace, hco})
@@ -149,7 +159,7 @@ var _ = Describe("imageStream tests", func() {
 
 			By("Run again, this time when the FG is false")
 			eventEmitter.Reset()
-			hco.Spec.FeatureGates.EnableCommonBootImageImport = false
+			hco.Spec.FeatureGates.EnableCommonBootImageImport = pointer.Bool(false)
 			req = commonTestUtils.NewReq(hco)
 			err = handler.Ensure(req)
 			Expect(err).ToNot(HaveOccurred())
@@ -218,7 +228,7 @@ var _ = Describe("imageStream tests", func() {
 			}
 
 			hco := commonTestUtils.NewHco()
-			hco.Spec.FeatureGates.EnableCommonBootImageImport = true
+			hco.Spec.FeatureGates.EnableCommonBootImageImport = pointer.Bool(true)
 			cli := commonTestUtils.InitClient([]runtime.Object{hco})
 			handlers, err := getImageStreamHandlers(logger, cli, schemeForTest, hco)
 			Expect(err).ToNot(HaveOccurred())
@@ -273,7 +283,7 @@ var _ = Describe("imageStream tests", func() {
 			Expect(imageStreamNames).To(ContainElement("test-image-stream"))
 
 			hco := commonTestUtils.NewHco()
-			hco.Spec.FeatureGates.EnableCommonBootImageImport = true
+			hco.Spec.FeatureGates.EnableCommonBootImageImport = pointer.Bool(true)
 			By("apply the ImageStream CRs", func() {
 				req := commonTestUtils.NewReq(hco)
 				res := handlers[0].ensure(req)
@@ -338,7 +348,7 @@ var _ = Describe("imageStream tests", func() {
 			Expect(imageStreamNames).To(ContainElement("test-image-stream"))
 
 			hco := commonTestUtils.NewHco()
-			hco.Spec.FeatureGates.EnableCommonBootImageImport = true
+			hco.Spec.FeatureGates.EnableCommonBootImageImport = pointer.Bool(true)
 
 			By("apply the ImageStream CRs", func() {
 				req := commonTestUtils.NewReq(hco)
@@ -412,7 +422,7 @@ var _ = Describe("imageStream tests", func() {
 			Expect(imageStreamNames).To(ContainElement("test-image-stream"))
 
 			hco := commonTestUtils.NewHco()
-			hco.Spec.FeatureGates.EnableCommonBootImageImport = true
+			hco.Spec.FeatureGates.EnableCommonBootImageImport = pointer.Bool(true)
 
 			By("apply the ImageStream CRs", func() {
 				req := commonTestUtils.NewReq(hco)
@@ -482,7 +492,7 @@ var _ = Describe("imageStream tests", func() {
 			Expect(imageStreamNames).To(ContainElement("test-image-stream"))
 
 			hco := commonTestUtils.NewHco()
-			hco.Spec.FeatureGates.EnableCommonBootImageImport = true
+			hco.Spec.FeatureGates.EnableCommonBootImageImport = pointer.Bool(true)
 
 			By("apply the ImageStream CRs", func() {
 				req := commonTestUtils.NewReq(hco)
@@ -552,7 +562,7 @@ var _ = Describe("imageStream tests", func() {
 			Expect(imageStreamNames).To(ContainElement("test-image-stream"))
 
 			hco := commonTestUtils.NewHco()
-			hco.Spec.FeatureGates.EnableCommonBootImageImport = true
+			hco.Spec.FeatureGates.EnableCommonBootImageImport = pointer.Bool(true)
 
 			By("apply the ImageStream CRs", func() {
 				req := commonTestUtils.NewReq(hco)
@@ -623,7 +633,7 @@ var _ = Describe("imageStream tests", func() {
 			Expect(imageStreamNames).To(ContainElement("test-image-stream"))
 
 			hco := commonTestUtils.NewHco()
-			hco.Spec.FeatureGates.EnableCommonBootImageImport = true
+			hco.Spec.FeatureGates.EnableCommonBootImageImport = pointer.Bool(true)
 
 			By("apply the ImageStream CRs", func() {
 				req := commonTestUtils.NewReq(hco)
@@ -693,7 +703,7 @@ var _ = Describe("imageStream tests", func() {
 			Expect(imageStreamNames).To(ContainElement("test-image-stream"))
 
 			hco := commonTestUtils.NewHco()
-			hco.Spec.FeatureGates.EnableCommonBootImageImport = true
+			hco.Spec.FeatureGates.EnableCommonBootImageImport = pointer.Bool(true)
 
 			By("apply the ImageStream CRs", func() {
 				req := commonTestUtils.NewReq(hco)

@@ -13,7 +13,7 @@ spec:
       renewBefore: 12h0m0s
   featureGates:
     deployTektonTaskResources: false
-    enableCommonBootImageImport: false
+    enableCommonBootImageImport: true
     nonRoot: true
     withHostPassthroughCPU: false
   infra: {}
@@ -22,6 +22,7 @@ spec:
     parallelMigrationsPerCluster: 5
     parallelOutboundMigrationsPerNode: 2
     progressTimeout: 150
+  uninstallStrategy: BlockUninstallIfWorkloadsExist
   workloadUpdateStrategy:
     batchEvictionInterval: 1m0s
     batchEvictionSize: 10

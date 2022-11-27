@@ -87,7 +87,7 @@ func NewTTO(hc *hcov1beta1.HyperConverged, opts ...string) *ttov1alpha1.TektonTa
 
 	spec := ttov1alpha1.TektonTasksSpec{
 		FeatureGates: ttov1alpha1.FeatureGates{
-			DeployTektonTaskResources: hc.Spec.FeatureGates.DeployTektonTaskResources,
+			DeployTektonTaskResources: hc.Spec.FeatureGates.DeployTektonTaskResources != nil && *hc.Spec.FeatureGates.DeployTektonTaskResources,
 		},
 		Pipelines: ttov1alpha1.Pipelines{
 			Namespace: pipelinesNamespace,

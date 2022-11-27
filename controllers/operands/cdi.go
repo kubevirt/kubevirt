@@ -94,7 +94,7 @@ func getDefaultFeatureGates() []string {
 
 func NewCDI(hc *hcov1beta1.HyperConverged, opts ...string) (*cdiv1beta1.CDI, error) {
 	uninstallStrategy := cdiv1beta1.CDIUninstallStrategyBlockUninstallIfWorkloadsExist
-	if hc.Spec.UninstallStrategy != nil && *hc.Spec.UninstallStrategy == hcov1beta1.HyperConvergedUninstallStrategyRemoveWorkloads {
+	if hc.Spec.UninstallStrategy == hcov1beta1.HyperConvergedUninstallStrategyRemoveWorkloads {
 		uninstallStrategy = cdiv1beta1.CDIUninstallStrategyRemoveWorkloads
 	}
 
@@ -106,12 +106,12 @@ func NewCDI(hc *hcov1beta1.HyperConverged, opts ...string) (*cdiv1beta1.CDI, err
 		},
 		CertConfig: &cdiv1beta1.CDICertConfig{
 			CA: &cdiv1beta1.CertConfig{
-				Duration:    &hc.Spec.CertConfig.CA.Duration,
-				RenewBefore: &hc.Spec.CertConfig.CA.RenewBefore,
+				Duration:    hc.Spec.CertConfig.CA.Duration,
+				RenewBefore: hc.Spec.CertConfig.CA.RenewBefore,
 			},
 			Server: &cdiv1beta1.CertConfig{
-				Duration:    &hc.Spec.CertConfig.Server.Duration,
-				RenewBefore: &hc.Spec.CertConfig.Server.RenewBefore,
+				Duration:    hc.Spec.CertConfig.Server.Duration,
+				RenewBefore: hc.Spec.CertConfig.Server.RenewBefore,
 			},
 		},
 	}

@@ -29,6 +29,8 @@ import (
 	hcov1beta1 "github.com/kubevirt/hyperconverged-cluster-operator/api/v1beta1"
 	"github.com/kubevirt/hyperconverged-cluster-operator/pkg/util"
 	hcoutil "github.com/kubevirt/hyperconverged-cluster-operator/pkg/util"
+
+	"k8s.io/apimachinery/pkg/runtime"
 )
 
 const (
@@ -664,51 +666,19 @@ func GetOperatorCRD(relPath string) *extv1.CustomResourceDefinition {
 }
 
 func GetOperatorCR() *hcov1beta1.HyperConverged {
-	completionTimeoutPerGiB := int64(800)
-	parallelMigrationsPerCluster := uint32(5)
-	parallelOutboundMigrationsPerNode := uint32(2)
-	progressTimeout := int64(150)
-
-	batchEvictionSize := 10
-	batchEvictionInterval := metav1.Duration{Duration: 1 * time.Minute}
-
-	return &hcov1beta1.HyperConverged{
+	defaultScheme := runtime.NewScheme()
+	_ = hcov1beta1.AddToScheme(defaultScheme)
+	_ = hcov1beta1.RegisterDefaults(defaultScheme)
+	defaultHco := &hcov1beta1.HyperConverged{
 		TypeMeta: metav1.TypeMeta{
 			APIVersion: util.APIVersion,
 			Kind:       util.HyperConvergedKind,
 		},
 		ObjectMeta: metav1.ObjectMeta{
 			Name: crName,
-		},
-		Spec: hcov1beta1.HyperConvergedSpec{
-			CertConfig: hcov1beta1.HyperConvergedCertConfig{
-				CA: hcov1beta1.CertRotateConfigCA{
-					Duration:    metav1.Duration{Duration: 48 * time.Hour},
-					RenewBefore: metav1.Duration{Duration: 24 * time.Hour},
-				},
-				Server: hcov1beta1.CertRotateConfigServer{
-					Duration:    metav1.Duration{Duration: 24 * time.Hour},
-					RenewBefore: metav1.Duration{Duration: 12 * time.Hour},
-				},
-			},
-			FeatureGates: hcov1beta1.HyperConvergedFeatureGates{
-				WithHostPassthroughCPU: false,
-				NonRoot:                true,
-			},
-			LiveMigrationConfig: hcov1beta1.LiveMigrationConfigurations{
-				CompletionTimeoutPerGiB:           &completionTimeoutPerGiB,
-				ParallelMigrationsPerCluster:      &parallelMigrationsPerCluster,
-				ParallelOutboundMigrationsPerNode: &parallelOutboundMigrationsPerNode,
-				ProgressTimeout:                   &progressTimeout,
-			},
-			WorkloadUpdateStrategy: &hcov1beta1.HyperConvergedWorkloadUpdateStrategy{
-				WorkloadUpdateMethods: stringListToSlice("LiveMigrate"),
-				BatchEvictionSize:     &batchEvictionSize,
-				BatchEvictionInterval: &batchEvictionInterval,
-			},
-			LocalStorageClassName: "",
-		},
-	}
+		}}
+	defaultScheme.Default(defaultHco)
+	return defaultHco
 }
 
 // GetInstallStrategyBase returns the basics of an HCO InstallStrategy

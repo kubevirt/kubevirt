@@ -896,12 +896,12 @@ var _ = Describe("webhooks validator", func() {
 						Spec: v1beta1.HyperConvergedSpec{
 							CertConfig: v1beta1.HyperConvergedCertConfig{
 								CA: v1beta1.CertRotateConfigCA{
-									Duration:    metav1.Duration{Duration: 8 * time.Minute},
-									RenewBefore: metav1.Duration{Duration: 24 * time.Hour},
+									Duration:    &metav1.Duration{Duration: 8 * time.Minute},
+									RenewBefore: &metav1.Duration{Duration: 24 * time.Hour},
 								},
 								Server: v1beta1.CertRotateConfigServer{
-									Duration:    metav1.Duration{Duration: 24 * time.Hour},
-									RenewBefore: metav1.Duration{Duration: 12 * time.Hour},
+									Duration:    &metav1.Duration{Duration: 24 * time.Hour},
+									RenewBefore: &metav1.Duration{Duration: 12 * time.Hour},
 								},
 							},
 						},
@@ -916,12 +916,12 @@ var _ = Describe("webhooks validator", func() {
 						Spec: v1beta1.HyperConvergedSpec{
 							CertConfig: v1beta1.HyperConvergedCertConfig{
 								CA: v1beta1.CertRotateConfigCA{
-									Duration:    metav1.Duration{Duration: 48 * time.Hour},
-									RenewBefore: metav1.Duration{Duration: 8 * time.Minute},
+									Duration:    &metav1.Duration{Duration: 48 * time.Hour},
+									RenewBefore: &metav1.Duration{Duration: 8 * time.Minute},
 								},
 								Server: v1beta1.CertRotateConfigServer{
-									Duration:    metav1.Duration{Duration: 24 * time.Hour},
-									RenewBefore: metav1.Duration{Duration: 12 * time.Hour},
+									Duration:    &metav1.Duration{Duration: 24 * time.Hour},
+									RenewBefore: &metav1.Duration{Duration: 12 * time.Hour},
 								},
 							},
 						},
@@ -936,12 +936,12 @@ var _ = Describe("webhooks validator", func() {
 						Spec: v1beta1.HyperConvergedSpec{
 							CertConfig: v1beta1.HyperConvergedCertConfig{
 								CA: v1beta1.CertRotateConfigCA{
-									Duration:    metav1.Duration{Duration: 48 * time.Hour},
-									RenewBefore: metav1.Duration{Duration: 24 * time.Hour},
+									Duration:    &metav1.Duration{Duration: 48 * time.Hour},
+									RenewBefore: &metav1.Duration{Duration: 24 * time.Hour},
 								},
 								Server: v1beta1.CertRotateConfigServer{
-									Duration:    metav1.Duration{Duration: 8 * time.Minute},
-									RenewBefore: metav1.Duration{Duration: 12 * time.Hour},
+									Duration:    &metav1.Duration{Duration: 8 * time.Minute},
+									RenewBefore: &metav1.Duration{Duration: 12 * time.Hour},
 								},
 							},
 						},
@@ -956,12 +956,12 @@ var _ = Describe("webhooks validator", func() {
 						Spec: v1beta1.HyperConvergedSpec{
 							CertConfig: v1beta1.HyperConvergedCertConfig{
 								CA: v1beta1.CertRotateConfigCA{
-									Duration:    metav1.Duration{Duration: 48 * time.Hour},
-									RenewBefore: metav1.Duration{Duration: 24 * time.Hour},
+									Duration:    &metav1.Duration{Duration: 48 * time.Hour},
+									RenewBefore: &metav1.Duration{Duration: 24 * time.Hour},
 								},
 								Server: v1beta1.CertRotateConfigServer{
-									Duration:    metav1.Duration{Duration: 24 * time.Hour},
-									RenewBefore: metav1.Duration{Duration: 8 * time.Minute},
+									Duration:    &metav1.Duration{Duration: 24 * time.Hour},
+									RenewBefore: &metav1.Duration{Duration: 8 * time.Minute},
 								},
 							},
 						},
@@ -976,12 +976,12 @@ var _ = Describe("webhooks validator", func() {
 						Spec: v1beta1.HyperConvergedSpec{
 							CertConfig: v1beta1.HyperConvergedCertConfig{
 								CA: v1beta1.CertRotateConfigCA{
-									Duration:    metav1.Duration{Duration: 23 * time.Hour},
-									RenewBefore: metav1.Duration{Duration: 24 * time.Hour},
+									Duration:    &metav1.Duration{Duration: 23 * time.Hour},
+									RenewBefore: &metav1.Duration{Duration: 24 * time.Hour},
 								},
 								Server: v1beta1.CertRotateConfigServer{
-									Duration:    metav1.Duration{Duration: 24 * time.Hour},
-									RenewBefore: metav1.Duration{Duration: 12 * time.Hour},
+									Duration:    &metav1.Duration{Duration: 24 * time.Hour},
+									RenewBefore: &metav1.Duration{Duration: 12 * time.Hour},
 								},
 							},
 						},
@@ -996,12 +996,12 @@ var _ = Describe("webhooks validator", func() {
 						Spec: v1beta1.HyperConvergedSpec{
 							CertConfig: v1beta1.HyperConvergedCertConfig{
 								CA: v1beta1.CertRotateConfigCA{
-									Duration:    metav1.Duration{Duration: 48 * time.Hour},
-									RenewBefore: metav1.Duration{Duration: 24 * time.Hour},
+									Duration:    &metav1.Duration{Duration: 48 * time.Hour},
+									RenewBefore: &metav1.Duration{Duration: 24 * time.Hour},
 								},
 								Server: v1beta1.CertRotateConfigServer{
-									Duration:    metav1.Duration{Duration: 11 * time.Hour},
-									RenewBefore: metav1.Duration{Duration: 12 * time.Hour},
+									Duration:    &metav1.Duration{Duration: 11 * time.Hour},
+									RenewBefore: &metav1.Duration{Duration: 12 * time.Hour},
 								},
 							},
 						},
@@ -1016,12 +1016,12 @@ var _ = Describe("webhooks validator", func() {
 						Spec: v1beta1.HyperConvergedSpec{
 							CertConfig: v1beta1.HyperConvergedCertConfig{
 								CA: v1beta1.CertRotateConfigCA{
-									Duration:    metav1.Duration{Duration: 48 * time.Hour},
-									RenewBefore: metav1.Duration{Duration: 24 * time.Hour},
+									Duration:    &metav1.Duration{Duration: 48 * time.Hour},
+									RenewBefore: &metav1.Duration{Duration: 24 * time.Hour},
 								},
 								Server: v1beta1.CertRotateConfigServer{
-									Duration:    metav1.Duration{Duration: 96 * time.Hour},
-									RenewBefore: metav1.Duration{Duration: 12 * time.Hour},
+									Duration:    &metav1.Duration{Duration: 96 * time.Hour},
+									RenewBefore: &metav1.Duration{Duration: 12 * time.Hour},
 								},
 							},
 						},

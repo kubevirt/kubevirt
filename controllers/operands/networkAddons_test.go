@@ -285,12 +285,12 @@ var _ = Describe("CNA Operand", func() {
 
 			hco.Spec.CertConfig = hcov1beta1.HyperConvergedCertConfig{
 				CA: hcov1beta1.CertRotateConfigCA{
-					Duration:    metav1.Duration{Duration: 24 * time.Hour},
-					RenewBefore: metav1.Duration{Duration: 1 * time.Hour},
+					Duration:    &metav1.Duration{Duration: 24 * time.Hour},
+					RenewBefore: &metav1.Duration{Duration: 1 * time.Hour},
 				},
 				Server: hcov1beta1.CertRotateConfigServer{
-					Duration:    metav1.Duration{Duration: 12 * time.Hour},
-					RenewBefore: metav1.Duration{Duration: 30 * time.Minute},
+					Duration:    &metav1.Duration{Duration: 12 * time.Hour},
+					RenewBefore: &metav1.Duration{Duration: 30 * time.Minute},
 				},
 			}
 
@@ -351,12 +351,12 @@ var _ = Describe("CNA Operand", func() {
 
 			hco.Spec.CertConfig = hcov1beta1.HyperConvergedCertConfig{
 				CA: hcov1beta1.CertRotateConfigCA{
-					Duration:    metav1.Duration{Duration: 24 * time.Hour},
-					RenewBefore: metav1.Duration{Duration: 1 * time.Hour},
+					Duration:    &metav1.Duration{Duration: 24 * time.Hour},
+					RenewBefore: &metav1.Duration{Duration: 1 * time.Hour},
 				},
 				Server: hcov1beta1.CertRotateConfigServer{
-					Duration:    metav1.Duration{Duration: 12 * time.Hour},
-					RenewBefore: metav1.Duration{Duration: 30 * time.Minute},
+					Duration:    &metav1.Duration{Duration: 12 * time.Hour},
+					RenewBefore: &metav1.Duration{Duration: 30 * time.Minute},
 				},
 			}
 			existingResource, err := NewNetworkAddons(hco)
@@ -403,12 +403,12 @@ var _ = Describe("CNA Operand", func() {
 
 			hco.Spec.CertConfig = hcov1beta1.HyperConvergedCertConfig{
 				CA: hcov1beta1.CertRotateConfigCA{
-					Duration:    metav1.Duration{Duration: 24 * time.Hour},
-					RenewBefore: metav1.Duration{Duration: 1 * time.Hour},
+					Duration:    &metav1.Duration{Duration: 24 * time.Hour},
+					RenewBefore: &metav1.Duration{Duration: 1 * time.Hour},
 				},
 				Server: hcov1beta1.CertRotateConfigServer{
-					Duration:    metav1.Duration{Duration: 12 * time.Hour},
-					RenewBefore: metav1.Duration{Duration: 30 * time.Minute},
+					Duration:    &metav1.Duration{Duration: 12 * time.Hour},
+					RenewBefore: &metav1.Duration{Duration: 30 * time.Minute},
 				},
 			}
 			existingResource, err := NewNetworkAddons(hco)

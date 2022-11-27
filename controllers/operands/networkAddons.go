@@ -4,6 +4,8 @@ import (
 	"errors"
 	"reflect"
 
+	"github.com/kubevirt/hyperconverged-cluster-operator/pkg/components"
+
 	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/runtime"
@@ -21,6 +23,8 @@ import (
 )
 
 type cnaHandler genericOperand
+
+var defaultHco = components.GetOperatorCR()
 
 func newCnaHandler(Client client.Client, Scheme *runtime.Scheme) *cnaHandler {
 	return &cnaHandler{
@@ -213,10 +217,27 @@ func hcoAnnotation2CnaoSpec(hcoAnnotations map[string]string) *networkaddonsshar
 }
 
 func hcoCertConfig2CnaoSelfSignedConfig(hcoCertConfig *hcov1beta1.HyperConvergedCertConfig) *networkaddonsshared.SelfSignConfiguration {
+	caRotateInterval := defaultHco.Spec.CertConfig.CA.Duration.Duration.String()
+	caOverlapInterval := defaultHco.Spec.CertConfig.CA.RenewBefore.Duration.String()
+	certRotateInterval := defaultHco.Spec.CertConfig.Server.Duration.Duration.String()
+	certOverlapInterval := defaultHco.Spec.CertConfig.Server.RenewBefore.Duration.String()
+	if hcoCertConfig.CA.Duration != nil {
+		caRotateInterval = hcoCertConfig.CA.Duration.Duration.String()
+	}
+	if hcoCertConfig.CA.RenewBefore != nil {
+		caOverlapInterval = hcoCertConfig.CA.RenewBefore.Duration.String()
+	}
+	if hcoCertConfig.Server.Duration != nil {
+		certRotateInterval = hcoCertConfig.Server.Duration.Duration.String()
+	}
+	if hcoCertConfig.Server.RenewBefore != nil {
+		certOverlapInterval = hcoCertConfig.Server.RenewBefore.Duration.String()
+	}
+
 	return &networkaddonsshared.SelfSignConfiguration{
-		CARotateInterval:    hcoCertConfig.CA.Duration.Duration.String(),
-		CAOverlapInterval:   hcoCertConfig.CA.RenewBefore.Duration.String(),
-		CertRotateInterval:  hcoCertConfig.Server.Duration.Duration.String(),
-		CertOverlapInterval: hcoCertConfig.Server.RenewBefore.Duration.String(),
+		CARotateInterval:    caRotateInterval,
+		CAOverlapInterval:   caOverlapInterval,
+		CertRotateInterval:  certRotateInterval,
+		CertOverlapInterval: certOverlapInterval,
 	}
 }
