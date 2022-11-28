@@ -1166,6 +1166,7 @@ var _ = Describe("[sig-compute]Configurations", func() {
 
 			DescribeTable("should consume hugepages ", func(hugepageSize string, memory string, guestMemory string, option1, option2 libvmi.Option) {
 				if option1 != nil && option2 != nil {
+					tests.EnableFeatureGate(virtconfig.PasstGate)
 					hugepagesVmi = libvmi.NewCirros(option1, option2)
 				}
 				hugepageType := kubev1.ResourceName(kubev1.ResourceHugePagesPrefix + hugepageSize)
