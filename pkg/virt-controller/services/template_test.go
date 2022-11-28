@@ -1291,11 +1291,9 @@ var _ = Describe("Template", func() {
 				Expect(pod.Spec.NodeSelector).To(Not(HaveKey(ContainSubstring(v1.CPUModelVendorLabel))))
 			})
 
-			It("should add node selector for hyperv nodes if VMI requests hyperv features which depend on host kernel", func() {
+			DescribeTable("should add node selector for hyperv nodes if VMI requests hyperv features which depend on host kernel", func(EVMCSEnabled bool) {
 				config, kvInformer, svc = configFactory(defaultArch)
 				enableFeatureGate(virtconfig.HypervStrictCheckGate)
-
-				enabled := true
 				vmi := v1.VirtualMachineInstance{
 					ObjectMeta: metav1.ObjectMeta{
 						Name:      "testvmi",
@@ -1310,19 +1308,19 @@ var _ = Describe("Template", func() {
 							Features: &v1.Features{
 								Hyperv: &v1.FeatureHyperv{
 									SyNIC: &v1.FeatureState{
-										Enabled: &enabled,
+										Enabled: pointer.BoolPtr(true),
 									},
 									SyNICTimer: &v1.SyNICTimer{
-										Enabled: &enabled,
+										Enabled: pointer.BoolPtr(true),
 									},
 									Frequencies: &v1.FeatureState{
-										Enabled: &enabled,
+										Enabled: pointer.BoolPtr(true),
 									},
 									IPI: &v1.FeatureState{
-										Enabled: &enabled,
+										Enabled: pointer.BoolPtr(true),
 									},
 									EVMCS: &v1.FeatureState{
-										Enabled: &enabled,
+										Enabled: pointer.BoolPtr(EVMCSEnabled),
 									},
 								},
 							},
@@ -1337,8 +1335,16 @@ var _ = Describe("Template", func() {
 				Expect(pod.Spec.NodeSelector).Should(HaveKeyWithValue(NFD_KVM_INFO_PREFIX+"synictimer", "true"))
 				Expect(pod.Spec.NodeSelector).Should(HaveKeyWithValue(NFD_KVM_INFO_PREFIX+"frequencies", "true"))
 				Expect(pod.Spec.NodeSelector).Should(HaveKeyWithValue(NFD_KVM_INFO_PREFIX+"ipi", "true"))
-				Expect(pod.Spec.NodeSelector).Should(HaveKeyWithValue(v1.CPUModelVendorLabel+IntelVendorName, "true"))
-			})
+				if EVMCSEnabled {
+					Expect(pod.Spec.NodeSelector).Should(HaveKeyWithValue(v1.CPUModelVendorLabel+IntelVendorName, "true"))
+				} else {
+					Expect(pod.Spec.NodeSelector).ShouldNot(HaveKeyWithValue(v1.CPUModelVendorLabel+IntelVendorName, "true"))
+				}
+
+			},
+				Entry("intel vendor and vmx are required when EVMCS is enabled", true),
+				Entry("should not require intel vendor and vmx when EVMCS isn't enabled", false),
+			)
 
 			It("should not add node selector for hyperv nodes if VMI requests hyperv features which do not depend on host kernel", func() {
 				config, kvInformer, svc = configFactory(defaultArch)

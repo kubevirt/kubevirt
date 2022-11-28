@@ -134,7 +134,7 @@ func hypervNodeSelectors(vmiFeatures *v1.Features) map[string]string {
 		}
 	}
 
-	if vmiFeatures.Hyperv.EVMCS != nil {
+	if vmiFeatures.Hyperv.EVMCS != nil && (vmiFeatures.Hyperv.EVMCS.Enabled == nil || (*vmiFeatures.Hyperv.EVMCS.Enabled) == true) {
 		nodeSelectors[v1.CPUModelVendorLabel+IntelVendorName] = "true"
 	}
 
