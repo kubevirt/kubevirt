@@ -1,15 +1,13 @@
 #!/bin/bash -ex
 
 source ./hack/common.sh
+source ./_kubevirtci/cluster-up/cluster/ephemeral-provider-common.sh
 
-container_command=podman
-
-registry_port=$(${container_command} ps | grep -Po '(?<=0.0.0.0:)\d+(?=->5000\/tcp)' || echo "")
-
+registry_port=$(${_cri_bin} ps | grep -Po '(?<=0.0.0.0:)\d+(?=->5000\/tcp)' | head -n 1)
 if [ -z "$registry_port" ]
 then
-      container_command=docker
-      registry_port=$(${container_command} ps | grep -Po '(?<=0.0.0.0:)\d+(?=->5000\/tcp)')
+      >&2 echo "unable to get the registry port"
+      exit 1
 fi
 
 registry=localhost:$registry_port
@@ -42,7 +40,7 @@ else
     pull_command="docker"
 fi
 
-${container_command} ps -a
+${_cri_bin} ps -a
 
 for node in ${nodes[@]}; do
     ./cluster/ssh.sh ${node} "echo registry:5000/kubevirt/hyperconverged-cluster-operator | xargs \-\-max-args=1 sudo ${pull_command} pull"
