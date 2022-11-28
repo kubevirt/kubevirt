@@ -2501,6 +2501,9 @@ spec:
 			}, 60*time.Second, 1*time.Second).Should(BeTrue())
 
 			patchKvInfra(nil, false, "")
+
+			By("Verifying that all pods are ready to avoid flackiness in the next test")
+			allPodsAreReady(originalKv)
 		})
 
 		It("[test_id:4928]should dynamically update workloads config", func() {
@@ -2523,6 +2526,9 @@ spec:
 			}, 60*time.Second, 1*time.Second).Should(BeTrue())
 
 			patchKvWorkloads(nil, false, "")
+
+			By("Verifying that all pods are ready to avoid flackiness in the next test")
+			allPodsAreReady(originalKv)
 		})
 
 		It("should reject infra placement configuration with incorrect toleration operator", func() {
