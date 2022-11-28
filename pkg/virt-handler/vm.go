@@ -170,6 +170,10 @@ var PasswordRelatedGuestAgentCommands = []string{
 	"guest-set-user-password",
 }
 
+var getCgroupManager = func(vmi *v1.VirtualMachineInstance) (cgroup.Manager, error) {
+	return cgroup.NewManagerFromVM(vmi)
+}
+
 func NewController(
 	recorder record.EventRecorder,
 	clientset kubecli.KubevirtClient,
@@ -1959,7 +1963,11 @@ func (d *VirtualMachineController) processVmCleanup(vmi *v1.VirtualMachineInstan
 	if err := d.containerDiskMounter.Unmount(vmi); err != nil {
 		return err
 	}
-	if err := d.hotplugVolumeMounter.UnmountAll(vmi); err != nil {
+
+	// UnmountAll does the cleanup on the "best effort" basis: it is
+	// safe to pass a nil cgroupManager.
+	cgroupManager, _ := getCgroupManager(vmi)
+	if err := d.hotplugVolumeMounter.UnmountAll(vmi, cgroupManager); err != nil {
 		return err
 	}
 
@@ -2562,7 +2570,11 @@ func (d *VirtualMachineController) vmUpdateHelperMigrationTarget(origVMI *v1.Vir
 
 	// Mount hotplug disks
 	if attachmentPodUID := vmi.Status.MigrationState.TargetAttachmentPodUID; attachmentPodUID != types.UID("") {
-		if err := d.hotplugVolumeMounter.MountFromPod(vmi, attachmentPodUID); err != nil {
+		cgroupManager, err := getCgroupManager(vmi)
+		if err != nil {
+			return err
+		}
+		if err := d.hotplugVolumeMounter.MountFromPod(vmi, attachmentPodUID, cgroupManager); err != nil {
 			return fmt.Errorf("failed to mount hotplug volumes: %v", err)
 		}
 	}
@@ -2620,14 +2632,8 @@ func (d *VirtualMachineController) vmUpdateHelperMigrationTarget(origVMI *v1.Vir
 	return nil
 }
 
-func (d *VirtualMachineController) configureHousekeepingCgroup(vmi *v1.VirtualMachineInstance) error {
-	cgroupManager, err := cgroup.NewManagerFromVM(vmi)
-	if err != nil {
-		return err
-	}
-
-	err = cgroupManager.CreateChildCgroup("housekeeping", "cpuset")
-	if err != nil {
+func (d *VirtualMachineController) configureHousekeepingCgroup(vmi *v1.VirtualMachineInstance, cgroupManager cgroup.Manager) error {
+	if err := cgroupManager.CreateChildCgroup("housekeeping", "cpuset"); err != nil {
 		log.Log.Reason(err).Error("CreateChildCgroup ")
 		return err
 	}
@@ -2709,6 +2715,11 @@ func (d *VirtualMachineController) vmUpdateHelperDefault(origVMI *v1.VirtualMach
 		return err
 	}
 
+	cgroupManager, err := getCgroupManager(vmi)
+	if err != nil {
+		return err
+	}
+
 	disksInfo := map[string]*containerdisk.DiskInfo{}
 	if !vmi.IsRunning() && !vmi.IsFinal() {
 		// give containerDisks some time to become ready before throwing errors on retries
@@ -2727,7 +2738,7 @@ func (d *VirtualMachineController) vmUpdateHelperDefault(origVMI *v1.VirtualMach
 		}
 
 		// Try to mount hotplug volume if there is any during startup.
-		if err := d.hotplugVolumeMounter.Mount(vmi); err != nil {
+		if err := d.hotplugVolumeMounter.Mount(vmi, cgroupManager); err != nil {
 			return err
 		}
 
@@ -2799,7 +2810,7 @@ func (d *VirtualMachineController) vmUpdateHelperDefault(origVMI *v1.VirtualMach
 			log.Log.Object(vmi).Error(err.Error())
 		}
 
-		if err := d.hotplugVolumeMounter.Mount(vmi); err != nil {
+		if err := d.hotplugVolumeMounter.Mount(vmi, cgroupManager); err != nil {
 			return err
 		}
 
@@ -2823,7 +2834,7 @@ func (d *VirtualMachineController) vmUpdateHelperDefault(origVMI *v1.VirtualMach
 	}
 
 	if vmi.IsCPUDedicated() && vmi.Spec.Domain.CPU.IsolateEmulatorThread {
-		err = d.configureHousekeepingCgroup(vmi)
+		err = d.configureHousekeepingCgroup(vmi, cgroupManager)
 		if err != nil {
 			return err
 		}
@@ -2840,7 +2851,7 @@ func (d *VirtualMachineController) vmUpdateHelperDefault(origVMI *v1.VirtualMach
 
 	if vmi.IsRunning() {
 		// Umount any disks no longer mounted
-		if err := d.hotplugVolumeMounter.Unmount(vmi); err != nil {
+		if err := d.hotplugVolumeMounter.Unmount(vmi, cgroupManager); err != nil {
 			return err
 		}
 	}
@@ -3129,7 +3140,7 @@ func (d *VirtualMachineController) claimDeviceOwnership(virtLauncherRootMount *s
 }
 
 func (d *VirtualMachineController) reportDedicatedCPUSetForMigratingVMI(vmi *v1.VirtualMachineInstance) error {
-	cgroupManager, err := cgroup.NewManagerFromVM(vmi)
+	cgroupManager, err := getCgroupManager(vmi)
 	if err != nil {
 		return err
 	}

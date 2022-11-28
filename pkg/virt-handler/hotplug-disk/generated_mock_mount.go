@@ -7,6 +7,8 @@ import (
 	gomock "github.com/golang/mock/gomock"
 	types "k8s.io/apimachinery/pkg/types"
 	v1 "kubevirt.io/api/core/v1"
+
+	cgroup "kubevirt.io/kubevirt/pkg/virt-handler/cgroup"
 )
 
 // Mock of VolumeMounter interface
@@ -30,44 +32,44 @@ func (_m *MockVolumeMounter) EXPECT() *_MockVolumeMounterRecorder {
 	return _m.recorder
 }
 
-func (_m *MockVolumeMounter) Mount(vmi *v1.VirtualMachineInstance) error {
-	ret := _m.ctrl.Call(_m, "Mount", vmi)
+func (_m *MockVolumeMounter) Mount(vmi *v1.VirtualMachineInstance, cgroupManager cgroup.Manager) error {
+	ret := _m.ctrl.Call(_m, "Mount", vmi, cgroupManager)
 	ret0, _ := ret[0].(error)
 	return ret0
 }
 
-func (_mr *_MockVolumeMounterRecorder) Mount(arg0 interface{}) *gomock.Call {
-	return _mr.mock.ctrl.RecordCall(_mr.mock, "Mount", arg0)
+func (_mr *_MockVolumeMounterRecorder) Mount(arg0, arg1 interface{}) *gomock.Call {
+	return _mr.mock.ctrl.RecordCall(_mr.mock, "Mount", arg0, arg1)
 }
 
-func (_m *MockVolumeMounter) MountFromPod(vmi *v1.VirtualMachineInstance, sourceUID types.UID) error {
-	ret := _m.ctrl.Call(_m, "MountFromPod", vmi, sourceUID)
+func (_m *MockVolumeMounter) MountFromPod(vmi *v1.VirtualMachineInstance, sourceUID types.UID, cgroupManager cgroup.Manager) error {
+	ret := _m.ctrl.Call(_m, "MountFromPod", vmi, sourceUID, cgroupManager)
 	ret0, _ := ret[0].(error)
 	return ret0
 }
 
-func (_mr *_MockVolumeMounterRecorder) MountFromPod(arg0, arg1 interface{}) *gomock.Call {
-	return _mr.mock.ctrl.RecordCall(_mr.mock, "MountFromPod", arg0, arg1)
+func (_mr *_MockVolumeMounterRecorder) MountFromPod(arg0, arg1, arg2 interface{}) *gomock.Call {
+	return _mr.mock.ctrl.RecordCall(_mr.mock, "MountFromPod", arg0, arg1, arg2)
 }
 
-func (_m *MockVolumeMounter) Unmount(vmi *v1.VirtualMachineInstance) error {
-	ret := _m.ctrl.Call(_m, "Unmount", vmi)
+func (_m *MockVolumeMounter) Unmount(vmi *v1.VirtualMachineInstance, cgroupManager cgroup.Manager) error {
+	ret := _m.ctrl.Call(_m, "Unmount", vmi, cgroupManager)
 	ret0, _ := ret[0].(error)
 	return ret0
 }
 
-func (_mr *_MockVolumeMounterRecorder) Unmount(arg0 interface{}) *gomock.Call {
-	return _mr.mock.ctrl.RecordCall(_mr.mock, "Unmount", arg0)
+func (_mr *_MockVolumeMounterRecorder) Unmount(arg0, arg1 interface{}) *gomock.Call {
+	return _mr.mock.ctrl.RecordCall(_mr.mock, "Unmount", arg0, arg1)
 }
 
-func (_m *MockVolumeMounter) UnmountAll(vmi *v1.VirtualMachineInstance) error {
-	ret := _m.ctrl.Call(_m, "UnmountAll", vmi)
+func (_m *MockVolumeMounter) UnmountAll(vmi *v1.VirtualMachineInstance, cgroupManager cgroup.Manager) error {
+	ret := _m.ctrl.Call(_m, "UnmountAll", vmi, cgroupManager)
 	ret0, _ := ret[0].(error)
 	return ret0
 }
 
-func (_mr *_MockVolumeMounterRecorder) UnmountAll(arg0 interface{}) *gomock.Call {
-	return _mr.mock.ctrl.RecordCall(_mr.mock, "UnmountAll", arg0)
+func (_mr *_MockVolumeMounterRecorder) UnmountAll(arg0, arg1 interface{}) *gomock.Call {
+	return _mr.mock.ctrl.RecordCall(_mr.mock, "UnmountAll", arg0, arg1)
 }
 
 func (_m *MockVolumeMounter) IsMounted(vmi *v1.VirtualMachineInstance, volume string, sourceUID types.UID) (bool, error) {
