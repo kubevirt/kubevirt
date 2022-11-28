@@ -106,10 +106,6 @@ var _ = Describe("HotplugVolume", func() {
 			rule1.Allow == rule2.Allow
 	}
 
-	getCgroupManager = func(_ *v1.VirtualMachineInstance) (cgroup.Manager, error) {
-		return cgroupManagerMock, nil
-	}
-
 	cgroupMockSet := func(r *runc_configs.Resources) {
 		if expectedCgroupRule == nil {
 			return
@@ -372,12 +368,12 @@ var _ = Describe("HotplugVolume", func() {
 			By("Mounting and validating expected rule is set")
 			setExpectedCgroupRuns(2)
 			expectCgroupRule(devices.BlockDevice, 482, 64, true)
-			err = m.mountBlockHotplugVolume(vmi, "testvolume", blockSourcePodUID, record)
+			err = m.mountBlockHotplugVolume(vmi, "testvolume", blockSourcePodUID, record, cgroupManagerMock)
 			Expect(err).ToNot(HaveOccurred())
 
 			By("Unmounting, we verify the reverse process happens")
 			expectCgroupRule(devices.BlockDevice, 482, 64, false)
-			err = m.unmountBlockHotplugVolumes(deviceFile, vmi)
+			err = m.unmountBlockHotplugVolumes(deviceFile, cgroupManagerMock)
 			Expect(err).ToNot(HaveOccurred())
 		})
 
@@ -453,7 +449,7 @@ var _ = Describe("HotplugVolume", func() {
 			By("Mounting and validating expected rule is set")
 			setExpectedCgroupRuns(1)
 			expectCgroupRule(devices.BlockDevice, 482, 64, false)
-			err = m.unmountBlockHotplugVolumes(deviceFileName, vmi)
+			err = m.unmountBlockHotplugVolumes(deviceFileName, cgroupManagerMock)
 			Expect(err).ToNot(HaveOccurred())
 		})
 
@@ -464,7 +460,7 @@ var _ = Describe("HotplugVolume", func() {
 			deviceFileName, err := newFile(tempDir, "devicefile")
 			Expect(err).ToNot(HaveOccurred())
 			os.Remove(unsafepath.UnsafeAbsolute(deviceFileName.Raw()))
-			err = m.unmountBlockHotplugVolumes(deviceFileName, vmi)
+			err = m.unmountBlockHotplugVolumes(deviceFileName, cgroupManagerMock)
 			Expect(err).To(HaveOccurred())
 			Expect(err.Error()).To(ContainSubstring("no such file or directory"))
 		})
@@ -837,7 +833,7 @@ var _ = Describe("HotplugVolume", func() {
 				return nil
 			})
 
-			err = m.Mount(vmi)
+			err = m.Mount(vmi, cgroupManagerMock)
 			Expect(err).ToNot(HaveOccurred())
 			By("Verifying there are 2 records in tempDir/1234")
 			record := &vmiMountTargetRecord{
@@ -867,7 +863,7 @@ var _ = Describe("HotplugVolume", func() {
 				Name: "permanent",
 			})
 			vmi.Status.VolumeStatus = volumeStatuses
-			err = m.Unmount(vmi)
+			err = m.Unmount(vmi, cgroupManagerMock)
 			Expect(err).ToNot(HaveOccurred())
 			_, err = os.ReadFile(filepath.Join(tempDir, string(vmi.UID)))
 			Expect(err).To(HaveOccurred(), "record file still exists %s", filepath.Join(tempDir, string(vmi.UID)))
@@ -883,7 +879,7 @@ var _ = Describe("HotplugVolume", func() {
 				Name: "permanent",
 			})
 			vmi.Status.VolumeStatus = volumeStatuses
-			Expect(m.Mount(vmi)).To(Succeed())
+			Expect(m.Mount(vmi, cgroupManagerMock)).To(Succeed())
 		})
 
 		It("unmountAll should cleanup regardless of vmi volumestatuses", func() {
@@ -961,7 +957,7 @@ var _ = Describe("HotplugVolume", func() {
 				return nil
 			})
 
-			err = m.Mount(vmi)
+			err = m.Mount(vmi, cgroupManagerMock)
 			Expect(err).ToNot(HaveOccurred())
 
 			By("Verifying there are 2 records in tempDir/1234")
@@ -985,7 +981,7 @@ var _ = Describe("HotplugVolume", func() {
 			Expect(err).ToNot(HaveOccurred())
 			Expect(capturedPaths).To(ContainElements(expectedPaths))
 
-			err = m.UnmountAll(vmi)
+			err = m.UnmountAll(vmi, cgroupManagerMock)
 			Expect(err).ToNot(HaveOccurred())
 			_, err = os.ReadFile(filepath.Join(tempDir, string(vmi.UID)))
 			Expect(err).To(HaveOccurred(), "record file still exists %s", filepath.Join(tempDir, string(vmi.UID)))
