@@ -31,8 +31,6 @@ import (
 
 	"kubevirt.io/kubevirt/pkg/virt-controller/watch/topology"
 
-	"kubevirt.io/api/migrations/v1alpha1"
-
 	"kubevirt.io/kubevirt/tests/exec"
 	"kubevirt.io/kubevirt/tests/framework/cleanup"
 	"kubevirt.io/kubevirt/tests/framework/matcher"
@@ -107,6 +105,7 @@ const (
 
 var _ = Describe("[rfe_id:393][crit:high][vendor:cnv-qe@redhat.com][level:system][sig-compute] VM Live Migration", func() {
 	var virtClient kubecli.KubevirtClient
+	var migrationBandwidthLimit resource.Quantity
 	var err error
 
 	createConfigMap := func() string {
@@ -261,6 +260,7 @@ var _ = Describe("[rfe_id:393][crit:high][vendor:cnv-qe@redhat.com][level:system
 	BeforeEach(func() {
 		virtClient, err = kubecli.GetKubevirtClient()
 		Expect(err).ToNot(HaveOccurred())
+		migrationBandwidthLimit = resource.MustParse("1Ki")
 	})
 
 	setControlPlaneUnschedulable := func(mode bool) {
@@ -490,73 +490,54 @@ var _ = Describe("[rfe_id:393][crit:high][vendor:cnv-qe@redhat.com][level:system
 		return uid
 	}
 
-	runMigrationAndCollectMigrationMetrics := func(vmi *v1.VirtualMachineInstance, migration *v1.VirtualMachineInstanceMigration, timeout int) string {
+	runMigrationAndCollectMigrationMetrics := func(vmi *v1.VirtualMachineInstance, migration *v1.VirtualMachineInstanceMigration) {
 		var pod *k8sv1.Pod
 		var metricsIPs []string
-		var family k8sv1.IPFamily = k8sv1.IPv4Protocol
+		const family = k8sv1.IPv4Protocol
 
-		if family == k8sv1.IPv6Protocol {
-			libnet.SkipWhenNotDualStackCluster(virtClient)
-		}
-
-		vmiNodeOrig := vmi.Status.NodeName
 		By("Finding the prometheus endpoint")
-		pod, err = kubecli.NewVirtHandlerClient(virtClient).Namespace(flags.KubeVirtInstallNamespace).ForNode(vmiNodeOrig).Pod()
+		pod, err = kubecli.NewVirtHandlerClient(virtClient).Namespace(flags.KubeVirtInstallNamespace).ForNode(vmi.Status.NodeName).Pod()
 		Expect(err).ToNot(HaveOccurred(), "Should find the virt-handler pod")
+		Expect(pod.Status.PodIPs).ToNot(BeEmpty(), "pod IPs must not be empty")
 		for _, ip := range pod.Status.PodIPs {
 			metricsIPs = append(metricsIPs, ip.IP)
 		}
 
-		By("Starting a Migration")
-		Eventually(func() error {
-			migration, err = virtClient.VirtualMachineInstanceMigration(migration.Namespace).Create(migration, &metav1.CreateOptions{})
-			return err
-		}, timeout, 1*time.Second).ShouldNot(HaveOccurred())
 		By("Waiting until the Migration Completes")
-
 		ip := getSupportedIP(metricsIPs, family)
 
+		_ = tests.RunMigration(virtClient, migration)
+
 		By("Scraping the Prometheus endpoint")
-		var metrics map[string]float64
-		var lines []string
-
-		getKubevirtVMMetricsFunc := tests.GetKubevirtVMMetricsFunc(&virtClient, pod)
-		Eventually(func() map[string]float64 {
-			out := getKubevirtVMMetricsFunc(ip)
-			lines = takeMetricsWithPrefix(out, "kubevirt_migrate_vmi")
-			metrics, err = parseMetricsToMap(lines)
-			Expect(err).ToNot(HaveOccurred())
-			return metrics
-		}, 100*time.Second, 1*time.Second).ShouldNot(BeEmpty())
-
-		Expect(len(metrics)).To(BeNumerically(">=", 1.0))
-		Expect(metrics).To(HaveLen(len(lines)))
-
-		By("Checking the collected metrics")
-		keys := getKeysFromMetrics(metrics)
-		for _, key := range keys {
-			value := metrics[key]
-			fmt.Fprintf(GinkgoWriter, "metric value was %f\n", value)
-			Expect(value).To(BeNumerically(">=", float64(0.0)))
+		validateNoZeroMetrics := func(metrics map[string]float64) error {
+			By("Checking the collected metrics")
+			keys := getKeysFromMetrics(metrics)
+			for _, key := range keys {
+				value := metrics[key]
+				if value == 0 {
+					return fmt.Errorf("metric value for %s is not expected to be zero", key)
+				}
+			}
+			return nil
 		}
 
-		uid := ""
+		getKubevirtVMMetricsFunc := tests.GetKubevirtVMMetricsFunc(&virtClient, pod)
 		Eventually(func() error {
-			migration, err := virtClient.VirtualMachineInstanceMigration(migration.Namespace).Get(migration.Name, &metav1.GetOptions{})
-			if err != nil {
+			out := getKubevirtVMMetricsFunc(ip)
+			lines := takeMetricsWithPrefix(out, "kubevirt_migrate_vmi")
+			metrics, err := parseMetricsToMap(lines)
+			Expect(err).ToNot(HaveOccurred())
+
+			if len(metrics) == 0 {
+				return fmt.Errorf("no metrics with kubevirt_migrate_vmi prefix are found")
+			}
+
+			if err := validateNoZeroMetrics(metrics); err != nil {
 				return err
 			}
 
-			Expect(migration.Status.Phase).ToNot(Equal(v1.MigrationFailed), "migration should not fail")
-
-			uid = string(migration.UID)
-			if migration.Status.Phase == v1.MigrationSucceeded {
-				return nil
-			}
-			return fmt.Errorf("migration is in the phase: %s", migration.Status.Phase)
-
-		}, timeout, 1*time.Second).ShouldNot(HaveOccurred(), fmt.Sprintf("migration should succeed after %d s", timeout))
-		return uid
+			return nil
+		}, 100*time.Second, 1*time.Second).ShouldNot(HaveOccurred())
 	}
 
 	runStressTest := func(vmi *v1.VirtualMachineInstance, vmsize string, stressTimeoutSeconds int) {
@@ -587,12 +568,6 @@ var _ = Describe("[rfe_id:393][crit:high][vendor:cnv-qe@redhat.com][level:system
 		Expect(err).ToNot(HaveOccurred(), fmt.Sprintf(errorMessageFormat, stdout, stderr, err))
 		pid := strings.TrimSuffix(stdout, "\n")
 		return pid
-	}
-
-	setMigrationBandwidthLimitation := func(migrationBandwidth resource.Quantity) {
-		cfg := getCurrentKv()
-		cfg.MigrationConfiguration.BandwidthPerMigration = &migrationBandwidth
-		tests.UpdateKubeVirtConfigValueAndWait(cfg)
 	}
 
 	expectSerialRun := func() {
@@ -2115,13 +2090,12 @@ var _ = Describe("[rfe_id:393][crit:high][vendor:cnv-qe@redhat.com][level:system
 					Skip("Skip test when Filesystem storage is not present")
 				}
 
-				By("Limit migration bandwidth")
-				setMigrationBandwidthLimitation(resource.MustParse("40Mi"))
-
-				By("Allowing post-copy")
+				By("Allowing post-copy and limit migration bandwidth")
 				config := getCurrentKv()
 				config.MigrationConfiguration.AllowPostCopy = pointer.BoolPtr(true)
 				config.MigrationConfiguration.CompletionTimeoutPerGiB = pointer.Int64Ptr(1)
+				bandwidth := resource.MustParse("40Mi")
+				config.MigrationConfiguration.BandwidthPerMigration = &bandwidth
 				tests.UpdateKubeVirtConfigValueAndWait(config)
 				memoryRequestSize = resource.MustParse("1Gi")
 
@@ -2638,32 +2612,12 @@ var _ = Describe("[rfe_id:393][crit:high][vendor:cnv-qe@redhat.com][level:system
 				return vmi
 			}
 
-			limitMigrationBadwidth := func(quantity resource.Quantity) error {
-				migrationPolicy := &v1alpha1.MigrationPolicy{
-					ObjectMeta: metav1.ObjectMeta{
-						Name: util.NamespaceTestDefault,
-						Labels: map[string]string{
-							cleanup.TestLabelForNamespace(util.NamespaceTestDefault): "",
-						},
-					},
-					Spec: v1alpha1.MigrationPolicySpec{
-						BandwidthPerMigration: &quantity,
-						Selectors: &v1alpha1.Selectors{
-							NamespaceSelector: v1alpha1.LabelSelector{cleanup.TestLabelForNamespace(util.NamespaceTestDefault): ""},
-						},
-					},
-				}
-
-				_, err := virtClient.MigrationPolicy().Create(context.Background(), migrationPolicy, metav1.CreateOptions{})
-				return err
-			}
-
 			DescribeTable("should be able to cancel a migration", func(createVMI vmiBuilder, with_virtctl bool) {
 				vmi := createVMI()
 				vmi.Spec.Domain.Resources.Requests[k8sv1.ResourceMemory] = resource.MustParse(fedoraVMSize)
 
 				By("Limiting the bandwidth of migrations in the test namespace")
-				Expect(limitMigrationBadwidth(resource.MustParse("1Mi"))).To(Succeed())
+				tests.CreateMigrationPolicy(virtClient, tests.PreparePolicyAndVMIWithBandwidthLimitation(vmi, migrationBandwidthLimit))
 
 				By("Starting the VirtualMachineInstance")
 				vmi = tests.RunVMIAndExpectLaunch(vmi, 240)
@@ -2694,7 +2648,7 @@ var _ = Describe("[rfe_id:393][crit:high][vendor:cnv-qe@redhat.com][level:system
 				vmi.Spec.Domain.Resources.Requests[k8sv1.ResourceMemory] = resource.MustParse(fedoraVMSize)
 
 				By("Limiting the bandwidth of migrations in the test namespace")
-				Expect(limitMigrationBadwidth(resource.MustParse("1Mi"))).To(Succeed())
+				tests.CreateMigrationPolicy(virtClient, tests.PreparePolicyAndVMIWithBandwidthLimitation(vmi, migrationBandwidthLimit))
 
 				By("Starting the VirtualMachineInstance")
 				vmi = tests.RunVMIAndExpectLaunch(vmi, 240)
@@ -2727,7 +2681,7 @@ var _ = Describe("[rfe_id:393][crit:high][vendor:cnv-qe@redhat.com][level:system
 				vmi.Spec.Domain.Resources.Requests[k8sv1.ResourceMemory] = resource.MustParse(fedoraVMSize)
 
 				By("Limiting the bandwidth of migrations in the test namespace")
-				Expect(limitMigrationBadwidth(resource.MustParse("1Ki"))).To(Succeed())
+				tests.CreateMigrationPolicy(virtClient, tests.PreparePolicyAndVMIWithBandwidthLimitation(vmi, migrationBandwidthLimit))
 
 				By("Starting the VirtualMachineInstance")
 				vmi = tests.RunVMIAndExpectLaunch(vmi, 240)
@@ -3104,13 +3058,6 @@ var _ = Describe("[rfe_id:393][crit:high][vendor:cnv-qe@redhat.com][level:system
 				}
 			}
 
-			getVmisNamespace := func(vmi *v1.VirtualMachineInstance) *k8sv1.Namespace {
-				namespace, err := virtClient.CoreV1().Namespaces().Get(context.Background(), vmi.Namespace, metav1.GetOptions{})
-				Expect(err).ShouldNot(HaveOccurred())
-				Expect(namespace).ShouldNot(BeNil())
-				return namespace
-			}
-
 			DescribeTable("migration policy", func(defineMigrationPolicy bool) {
 				By("Updating config to allow auto converge")
 				config := getCurrentKv()
@@ -3122,7 +3069,7 @@ var _ = Describe("[rfe_id:393][crit:high][vendor:cnv-qe@redhat.com][level:system
 				var expectedPolicyName *string
 				if defineMigrationPolicy {
 					By("Creating a migration policy that overrides cluster policy")
-					policy := tests.GetPolicyMatchedToVmi("testpolicy", vmi, getVmisNamespace(vmi), 1, 0)
+					policy := tests.PreparePolicyAndVMI(vmi)
 					policy.Spec.AllowPostCopy = pointer.BoolPtr(false)
 
 					_, err := virtClient.MigrationPolicy().Create(context.Background(), policy, metav1.CreateOptions{})
@@ -3673,10 +3620,13 @@ var _ = Describe("[rfe_id:393][crit:high][vendor:cnv-qe@redhat.com][level:system
 
 	})
 
-	Context("[Serial][QUARANTINE][test_id:8482] Migration Metrics", Serial, func() {
+	Context("[QUARANTINE][test_id:8482] Migration Metrics", func() {
 		It("exposed to prometheus during VM migration", func() {
 			vmi := tests.NewRandomFedoraVMIWithGuestAgent()
 			vmi.Spec.Domain.Resources.Requests[k8sv1.ResourceMemory] = resource.MustParse(fedoraVMSize)
+
+			By("Limiting the bandwidth of migrations in the test namespace")
+			tests.CreateMigrationPolicy(virtClient, tests.PreparePolicyAndVMIWithBandwidthLimitation(vmi, migrationBandwidthLimit))
 
 			By("Starting the VirtualMachineInstance")
 			vmi = tests.RunVMIAndExpectLaunch(vmi, 240)
@@ -3687,22 +3637,10 @@ var _ = Describe("[rfe_id:393][crit:high][vendor:cnv-qe@redhat.com][level:system
 			// Need to wait for cloud init to finnish and start the agent inside the vmi.
 			Eventually(matcher.ThisVMI(vmi), 12*time.Minute, 2*time.Second).Should(matcher.HaveConditionTrue(v1.VirtualMachineInstanceAgentConnected))
 
-			runStressTest(vmi, stressDefaultVMSize, stressDefaultTimeout)
-
 			// execute a migration, wait for finalized state
 			By("Starting the Migration")
 			migration := tests.NewRandomMigration(vmi.Name, vmi.Namespace)
-			migrationUID := runMigrationAndCollectMigrationMetrics(vmi, migration, 180)
-
-			// check VMI, confirm migration state
-			tests.ConfirmVMIPostMigration(virtClient, vmi, migrationUID)
-
-			// delete VMI
-			By("Deleting the VMI")
-			Expect(virtClient.VirtualMachineInstance(vmi.Namespace).Delete(vmi.Name, &metav1.DeleteOptions{})).To(Succeed())
-
-			By("Waiting for VMI to disappear")
-			tests.WaitForVirtualMachineToDisappearWithTimeout(vmi, 240)
+			runMigrationAndCollectMigrationMetrics(vmi, migration)
 		})
 	})
 

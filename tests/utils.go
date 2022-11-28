@@ -45,8 +45,6 @@ import (
 
 	v12 "k8s.io/api/apps/v1"
 
-	migrationsv1 "kubevirt.io/api/migrations/v1alpha1"
-
 	expect "github.com/google/goexpect"
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
@@ -72,8 +70,6 @@ import (
 	"kubevirt.io/kubevirt/tests/framework/matcher"
 
 	util2 "kubevirt.io/kubevirt/tests/util"
-
-	"kubevirt.io/kubevirt/tests/framework/cleanup"
 
 	"kubevirt.io/kubevirt/pkg/certificates/triple/cert"
 	"kubevirt.io/kubevirt/pkg/virt-operator/resource/generate/components"
@@ -2379,54 +2375,6 @@ func ArchiveToFile(tgtFile *os.File, sourceFilesNames ...string) {
 		_, err = io.Copy(w, srcFile)
 		Expect(err).ToNot(HaveOccurred())
 	}
-}
-
-func GetPolicyMatchedToVmi(name string, vmi *v1.VirtualMachineInstance, namespace *k8sv1.Namespace, matchingVmiLabels, matchingNSLabels int) *migrationsv1.MigrationPolicy {
-	Expect(vmi).ToNot(BeNil())
-	Expect(namespace).ToNot(BeNil())
-	Expect(name).ToNot(BeEmpty())
-
-	policy := kubecli.NewMinimalMigrationPolicy(name)
-	if policy.Labels == nil {
-		policy.Labels = map[string]string{}
-	}
-	policy.Labels[cleanup.TestLabelForNamespace(util2.NamespaceTestDefault)] = ""
-
-	if vmi.Labels == nil {
-		vmi.Labels = make(map[string]string)
-	}
-	if namespace.Labels == nil {
-		namespace.Labels = make(map[string]string)
-	}
-
-	if policy.Spec.Selectors == nil {
-		policy.Spec.Selectors = &migrationsv1.Selectors{
-			VirtualMachineInstanceSelector: migrationsv1.LabelSelector{}, //&metav1.LabelSelector{MatchLabels: map[string]string{}},
-			NamespaceSelector:              migrationsv1.LabelSelector{},
-		}
-	} else if policy.Spec.Selectors.VirtualMachineInstanceSelector == nil {
-		policy.Spec.Selectors.VirtualMachineInstanceSelector = migrationsv1.LabelSelector{}
-	} else if policy.Spec.Selectors.NamespaceSelector == nil {
-		policy.Spec.Selectors.NamespaceSelector = migrationsv1.LabelSelector{}
-	}
-
-	labelKeyPattern := "mp-key-%d"
-	labelValuePattern := "mp-value-%d"
-
-	applyLabels := func(policyLabels, vmiOrNSLabels map[string]string, labelCount int) {
-		for i := 0; i < labelCount; i++ {
-			labelKey := fmt.Sprintf(labelKeyPattern, i)
-			labelValue := fmt.Sprintf(labelValuePattern, i)
-
-			vmiOrNSLabels[labelKey] = labelValue
-			policyLabels[labelKey] = labelValue
-		}
-	}
-
-	applyLabels(policy.Spec.Selectors.VirtualMachineInstanceSelector, vmi.Labels, matchingVmiLabels)
-	applyLabels(policy.Spec.Selectors.NamespaceSelector, namespace.Labels, matchingNSLabels)
-
-	return policy
 }
 
 func GetIdOfLauncher(vmi *v1.VirtualMachineInstance) string {
