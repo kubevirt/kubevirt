@@ -11,6 +11,12 @@ import (
 	"strconv"
 	"strings"
 
+	v1 "kubevirt.io/api/core/v1"
+
+	virtutil "kubevirt.io/kubevirt/pkg/util"
+	"kubevirt.io/kubevirt/pkg/util/hardware"
+	"kubevirt.io/kubevirt/pkg/virt-handler/isolation"
+
 	"github.com/mitchellh/go-ps"
 
 	"github.com/opencontainers/runc/libcontainer/cgroups"
@@ -225,19 +231,18 @@ func getCgroupThreadsHelper(manager Manager, targetFilePath string, filter func(
 
 // set cpus "cpusList" on the allowed CPUs. Optionally on a subcgroup of
 // the pods control group (if subcgroup != nil).
-func setCpuSetHelper(manager Manager, subCgroup string, cpusList []int) error {
+func setCpuSetHelper(manager Manager, cpusList []int) error {
 	subSysPath, err := manager.GetBasePathToHostSubsystem("cpuset")
 	if err != nil {
 		return err
 	}
 
-	if subCgroup != "" {
-		subSysPath = filepath.Join(subSysPath, subCgroup)
+	cpusetStr, err := hardware.ParseCPUSetInts(cpusList)
+	if err != nil {
+		return err
 	}
 
-	wVal := strings.Trim(strings.Replace(fmt.Sprint(cpusList), " ", ",", -1), "[]")
-
-	return runc_cgroups.WriteFile(subSysPath, "cpuset.cpus", wVal)
+	return runc_cgroups.WriteFile(subSysPath, "cpuset.cpus", cpusetStr)
 }
 
 func getDeafulCgroupConfig() *configs.Cgroup {
@@ -324,4 +329,51 @@ func doesStrSliceContainsElement(element string, s []string) bool {
 		}
 	}
 	return false
+}
+
+// GetGlobalCpuSetPath returns the CPU set of the main cgroup slice
+func GetGlobalCpuSetPath() string {
+	if runc_cgroups.IsCgroup2UnifiedMode() {
+		return filepath.Join(cgroupBasePath, "cpuset.cpus.effective")
+	}
+	return filepath.Join(cgroupBasePath, "cpuset", "cpuset.cpus")
+}
+
+func getCpuSetPath(manager Manager, cpusetFile string) (cpusetList []int, err error) {
+	cpuSubsystemPath, err := manager.GetBasePathToHostSubsystem("cpuset")
+	if err != nil {
+		return
+	}
+
+	cpuset, err := runc_cgroups.ReadFile(cpuSubsystemPath, cpusetFile)
+	if err != nil {
+		return
+	}
+
+	cpusetStr := strings.TrimSpace(cpuset)
+	cpusetList, err = hardware.ParseCPUSetLine(cpusetStr, 5000)
+	if err != nil {
+		return
+	}
+
+	return
+}
+
+// detectVMIsolation detects VM's IsolationResult, which can then be useful for receiving information such as PID.
+// Socket is optional and makes the execution faster
+func detectVMIsolation(vm *v1.VirtualMachineInstance, socket string) (isolationRes isolation.IsolationResult, err error) {
+	const detectionErrFormat = "cannot detect vm \"%s\", err: %v"
+	detector := isolation.NewSocketBasedIsolationDetector(virtutil.VirtShareDir)
+
+	if socket == "" {
+		isolationRes, err = detector.Detect(vm)
+	} else {
+		isolationRes, err = detector.DetectForSocket(vm, socket)
+	}
+
+	if err != nil {
+		return nil, fmt.Errorf(detectionErrFormat, vm.Name, err)
+	}
+
+	return isolationRes, nil
 }

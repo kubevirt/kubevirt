@@ -97,7 +97,7 @@ func (v *v2Manager) GetCgroupVersion() CgroupVersion {
 	return V2
 }
 
-func (v *v2Manager) GetCpuSet() (string, error) {
+func (v *v2Manager) GetCpuSet() ([]int, error) {
 	return getCpuSetPath(v, "cpuset.cpus.effective")
 }
 
@@ -190,8 +190,8 @@ func (v *v2Manager) GetCgroupProcs() ([]int, error) {
 	return v.GetCgroupProcsWithFilter(nil)
 }
 
-func (v *v2Manager) SetCpuSet(subcgroup string, cpulist []int) error {
-	return setCpuSetHelper(v, subcgroup, cpulist)
+func (v *v2Manager) SetCpuSet(cpulist []int) error {
+	return setCpuSetHelper(v, cpulist)
 }
 
 func (v *v2Manager) setSubtreeControl(subSystems ...string) error {
