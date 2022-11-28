@@ -22,9 +22,11 @@ package hardware
 import (
 	"bytes"
 	"fmt"
+	"math"
 	"os"
 	"path/filepath"
 	"regexp"
+	"sort"
 	"strconv"
 	"strings"
 
@@ -77,6 +79,58 @@ func safeAppend(cpusList []int, cpu int, limit int) ([]int, error) {
 		return nil, fmt.Errorf("rejecting expanding CPU array for safety reasons, limit is %v", limit)
 	}
 	return append(cpusList, cpu), nil
+}
+
+func ParseCPUSetInts(cpus []int) (cpuset string, err error) {
+	if len(cpus) == 0 {
+		return "", fmt.Errorf("cpu list is empty")
+	} else if len(cpus) == 1 {
+		return strconv.Itoa(cpus[0]), nil
+	}
+
+	firstAppend := true
+	appendToCpuset := func(s string) {
+		if !firstAppend {
+			s = "," + s
+		}
+
+		cpuset += s
+		firstAppend = false
+	}
+
+	cpusCopy := cpus[:]
+	sort.Ints(cpusCopy)
+	cpusCopy = append(cpusCopy, math.MaxInt)
+
+	rangeSmall := -1
+	rangeBig := -1
+	for i, cpu := range cpusCopy {
+		if cpu < 0 {
+			return "", fmt.Errorf("a negative cpu is not valid: %d", cpu)
+		}
+
+		if i == 0 {
+			rangeSmall = cpu
+			rangeBig = cpu
+			continue
+		}
+
+		if cpu == rangeBig+1 {
+			rangeBig = cpu
+			continue
+		}
+
+		if rangeSmall != rangeBig {
+			appendToCpuset(fmt.Sprintf("%d-%d", rangeSmall, rangeBig))
+		} else {
+			appendToCpuset(fmt.Sprintf("%d", rangeSmall))
+		}
+
+		rangeSmall = cpu
+		rangeBig = cpu
+	}
+
+	return
 }
 
 // GetNumberOfVCPUs returns number of vCPUs

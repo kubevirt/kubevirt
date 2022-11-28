@@ -21,10 +21,8 @@ package cgroup
 
 import (
 	"fmt"
-	"os"
 	"path/filepath"
 	"strconv"
-	"strings"
 
 	"kubevirt.io/client-go/log"
 
@@ -32,9 +30,6 @@ import (
 	"github.com/opencontainers/runc/libcontainer/configs"
 
 	v1 "kubevirt.io/api/core/v1"
-
-	virtutil "kubevirt.io/kubevirt/pkg/util"
-	"kubevirt.io/kubevirt/pkg/virt-handler/isolation"
 )
 
 //go:generate mockgen -source $GOFILE -package=$GOPACKAGE -destination=generated_mock_$GOFILE
@@ -62,10 +57,10 @@ type Manager interface {
 	GetCgroupVersion() CgroupVersion
 
 	// GetCpuSet returns the cpu set
-	GetCpuSet() (string, error)
+	GetCpuSet() ([]int, error)
 
 	// SetCpuSet returns the cpu set
-	SetCpuSet(subcgroup string, cpulist []int) error
+	SetCpuSet(cpulist []int) error
 
 	// Create new child cgroup
 	CreateChildCgroup(name string, subSystems ...string) (Manager, error)
@@ -135,46 +130,4 @@ func NewManagerFromVM(vmi *v1.VirtualMachineInstance) (Manager, error) {
 	log.Log.Infof("creating new cgroup for vmi %s, virt-launcher's pid: %d", vmi.Name, virtLauncherPid)
 
 	return NewManagerFromPid(virtLauncherPid)
-}
-
-// GetGlobalCpuSetPath returns the CPU set of the main cgroup slice
-func GetGlobalCpuSetPath() string {
-	if runc_cgroups.IsCgroup2UnifiedMode() {
-		return filepath.Join(cgroupBasePath, "cpuset.cpus.effective")
-	}
-	return filepath.Join(cgroupBasePath, "cpuset", "cpuset.cpus")
-}
-
-func getCpuSetPath(manager Manager, cpusetFile string) (string, error) {
-	cpuSubsystemPath, err := manager.GetBasePathToHostSubsystem("cpuset")
-	if err != nil {
-		return "", err
-	}
-
-	cpuset, err := os.ReadFile(filepath.Join(cpuSubsystemPath, cpusetFile))
-	if err != nil {
-		return "", err
-	}
-
-	cpusetStr := strings.TrimSpace(string(cpuset))
-	return cpusetStr, nil
-}
-
-// detectVMIsolation detects VM's IsolationResult, which can then be useful for receiving information such as PID.
-// Socket is optional and makes the execution faster
-func detectVMIsolation(vm *v1.VirtualMachineInstance, socket string) (isolationRes isolation.IsolationResult, err error) {
-	const detectionErrFormat = "cannot detect vm \"%s\", err: %v"
-	detector := isolation.NewSocketBasedIsolationDetector(virtutil.VirtShareDir)
-
-	if socket == "" {
-		isolationRes, err = detector.Detect(vm)
-	} else {
-		isolationRes, err = detector.DetectForSocket(vm, socket)
-	}
-
-	if err != nil {
-		return nil, fmt.Errorf(detectionErrFormat, vm.Name, err)
-	}
-
-	return isolationRes, nil
 }

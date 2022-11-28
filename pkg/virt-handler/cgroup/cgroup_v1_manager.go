@@ -112,7 +112,7 @@ func getCurrentlyDefinedRules(runcManager runc_cgroups.Manager) ([]*devices.Rule
 	return currentRules, nil
 }
 
-func (v *v1Manager) GetCpuSet() (string, error) {
+func (v *v1Manager) GetCpuSet() ([]int, error) {
 	return getCpuSetPath(v, "cpuset.cpus")
 }
 
@@ -160,8 +160,8 @@ func (v *v1Manager) GetCgroupThreads() ([]int, error) {
 	return v.GetCgroupThreadsWithFilter(nil)
 }
 
-func (v *v1Manager) SetCpuSet(subcgroup string, cpulist []int) error {
-	return setCpuSetHelper(v, subcgroup, cpulist)
+func (v *v1Manager) SetCpuSet(cpulist []int) error {
+	return setCpuSetHelper(v, cpulist)
 }
 
 func (v *v1Manager) MakeThreaded() error {

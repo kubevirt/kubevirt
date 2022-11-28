@@ -44,6 +44,25 @@ var _ = Describe("Hardware utils test", func() {
 			Expect(err).To(HaveOccurred())
 			Expect(err.Error()).To(ContainSubstring("safety"))
 		})
+
+		DescribeTable("should parse ints cpuset correctly", func(input []int, expectedOutput string) {
+			cpusetLine, err := ParseCPUSetInts(input)
+			Expect(err).ToNot(HaveOccurred())
+			Expect(cpusetLine).To(Equal(expectedOutput))
+		},
+			Entry("with ranges at the beginning and end", []int{1, 2, 5, 8, 9, 11, 12}, "1-2,5,8-9,11-12"),
+			Entry("without ranges at the beginning and end", []int{0, 2, 3, 5, 8, 9, 11, 13, 14, 15, 200}, "0,2-3,5,8-9,11,13-15,200"),
+			Entry("unordered", []int{0, 3, 2, 200, 6, 7}, "0,2-3,6-7,200"),
+		)
+
+		DescribeTable("should reject invalid ints cpuset", func(input []int) {
+			_, err := ParseCPUSetInts(input)
+			Expect(err).To(HaveOccurred())
+		},
+			Entry("empty slice", []int{}),
+			Entry("nil slice", []int{}),
+			Entry("slice with negative numbers", []int{0, 2, 3, -5, 8, 200}),
+		)
 	})
 
 	Context("count vCPUs", func() {

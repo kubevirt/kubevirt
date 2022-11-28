@@ -64,7 +64,6 @@ import (
 
 	"kubevirt.io/kubevirt/pkg/virt-handler/heartbeat"
 
-	"kubevirt.io/kubevirt/pkg/util/hardware"
 	"kubevirt.io/kubevirt/pkg/util/migrations"
 
 	container_disk "kubevirt.io/kubevirt/pkg/virt-handler/container-disk"
@@ -3055,14 +3054,9 @@ func (d *VirtualMachineController) reportDedicatedCPUSetForMigratingVMI(vmi *v1.
 		return err
 	}
 
-	cpusetStr, err := cgroupManager.GetCpuSet()
+	cpuSet, err := cgroupManager.GetCpuSet()
 	if err != nil {
 		return err
-	}
-
-	cpuSet, err := hardware.ParseCPUSetLine(cpusetStr, 50000)
-	if err != nil {
-		return fmt.Errorf("failed to parse target VMI cpuset: %v", err)
 	}
 
 	vmi.Status.MigrationState.TargetCPUSet = cpuSet
