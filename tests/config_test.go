@@ -32,6 +32,7 @@ import (
 	"github.com/pborman/uuid"
 
 	"kubevirt.io/kubevirt/tests/exec"
+	"kubevirt.io/kubevirt/tests/testsuite"
 	"kubevirt.io/kubevirt/tests/util"
 
 	v1 "kubevirt.io/api/core/v1"
@@ -96,11 +97,11 @@ var _ = Describe("[rfe_id:899][crit:medium][vendor:cnv-qe@redhat.com][level:comp
 					"option2": "value2",
 					"option3": "value3",
 				}
-				tests.CreateConfigMap(configMapName, data)
+				tests.CreateConfigMap(configMapName, testsuite.GetTestNamespace(nil), data)
 			})
 
 			AfterEach(func() {
-				tests.DeleteConfigMap(configMapName)
+				tests.DeleteConfigMap(configMapName, testsuite.GetTestNamespace(nil))
 			})
 
 			It("[test_id:782]Should be the fs layout the same for a pod and vmi", func() {
@@ -114,7 +115,7 @@ var _ = Describe("[rfe_id:899][crit:medium][vendor:cnv-qe@redhat.com][level:comp
 				CheckIsoVolumeSizes(vmi)
 
 				By("Checking if ConfigMap has been attached to the pod")
-				vmiPod := tests.GetRunningPodByVirtualMachineInstance(vmi, util.NamespaceTestDefault)
+				vmiPod := tests.GetRunningPodByVirtualMachineInstance(vmi, testsuite.GetTestNamespace(vmi))
 				podOutput, err := exec.ExecuteCommandOnPod(
 					virtClient,
 					vmiPod,
@@ -150,14 +151,14 @@ var _ = Describe("[rfe_id:899][crit:medium][vendor:cnv-qe@redhat.com][level:comp
 			BeforeEach(func() {
 				for i := 0; i < configMapsCnt; i++ {
 					name := "configmap-" + uuid.NewRandom().String()
-					tests.CreateConfigMap(name, map[string]string{"option": "value"})
+					tests.CreateConfigMap(name, testsuite.GetTestNamespace(nil), map[string]string{"option": "value"})
 					configMaps = append(configMaps, name)
 				}
 			})
 
 			AfterEach(func() {
 				for _, configMap := range configMaps {
-					tests.DeleteConfigMap(configMap)
+					tests.DeleteConfigMap(configMap, testsuite.GetTestNamespace(nil))
 				}
 				configMaps = nil
 			})
@@ -190,11 +191,11 @@ var _ = Describe("[rfe_id:899][crit:medium][vendor:cnv-qe@redhat.com][level:comp
 					"user":     "admin",
 					"password": "redhat",
 				}
-				tests.CreateSecret(secretName, data)
+				tests.CreateSecret(secretName, testsuite.GetTestNamespace(nil), data)
 			})
 
 			AfterEach(func() {
-				tests.DeleteSecret(secretName)
+				tests.DeleteSecret(secretName, testsuite.GetTestNamespace(nil))
 			})
 
 			It("[test_id:779]Should be the fs layout the same for a pod and vmi", func() {
@@ -208,7 +209,7 @@ var _ = Describe("[rfe_id:899][crit:medium][vendor:cnv-qe@redhat.com][level:comp
 				CheckIsoVolumeSizes(vmi)
 
 				By("Checking if Secret has been attached to the pod")
-				vmiPod := tests.GetRunningPodByVirtualMachineInstance(vmi, util.NamespaceTestDefault)
+				vmiPod := tests.GetRunningPodByVirtualMachineInstance(vmi, testsuite.GetTestNamespace(nil))
 				podOutput, err := exec.ExecuteCommandOnPod(
 					virtClient,
 					vmiPod,
@@ -243,14 +244,14 @@ var _ = Describe("[rfe_id:899][crit:medium][vendor:cnv-qe@redhat.com][level:comp
 			BeforeEach(func() {
 				for i := 0; i < secretsCnt; i++ {
 					name := "secret-" + uuid.NewRandom().String()
-					tests.CreateSecret(name, map[string]string{"option": "value"})
+					tests.CreateSecret(name, testsuite.GetTestNamespace(nil), map[string]string{"option": "value"})
 					secrets = append(secrets, name)
 				}
 			})
 
 			AfterEach(func() {
 				for _, secret := range secrets {
-					tests.DeleteSecret(secret)
+					tests.DeleteSecret(secret, testsuite.GetTestNamespace(nil))
 				}
 				secrets = nil
 			})
@@ -281,7 +282,7 @@ var _ = Describe("[rfe_id:899][crit:medium][vendor:cnv-qe@redhat.com][level:comp
 			CheckIsoVolumeSizes(vmi)
 
 			By("Checking if ServiceAccount has been attached to the pod")
-			vmiPod := tests.GetRunningPodByVirtualMachineInstance(vmi, util.NamespaceTestDefault)
+			vmiPod := tests.GetRunningPodByVirtualMachineInstance(vmi, testsuite.GetTestNamespace(vmi))
 			namespace, err := exec.ExecuteCommandOnPod(
 				virtClient,
 				vmiPod,
@@ -292,7 +293,7 @@ var _ = Describe("[rfe_id:899][crit:medium][vendor:cnv-qe@redhat.com][level:comp
 			)
 
 			Expect(err).ToNot(HaveOccurred())
-			Expect(namespace).To(Equal(util.NamespaceTestDefault))
+			Expect(namespace).To(Equal(testsuite.GetTestNamespace(vmi)))
 
 			token, err := exec.ExecuteCommandOnPod(
 				virtClient,
@@ -313,7 +314,7 @@ var _ = Describe("[rfe_id:899][crit:medium][vendor:cnv-qe@redhat.com][level:comp
 				&expect.BSnd{S: "echo $?\n"},
 				&expect.BExp{R: console.RetValue("0")},
 				&expect.BSnd{S: "cat /mnt/namespace\n"},
-				&expect.BExp{R: util.NamespaceTestDefault},
+				&expect.BExp{R: testsuite.GetTestNamespace(vmi)},
 				&expect.BSnd{S: "tail -c 20 /mnt/token\n"},
 				&expect.BExp{R: token},
 			}, 200)).To(Succeed())
@@ -348,14 +349,14 @@ var _ = Describe("[rfe_id:899][crit:medium][vendor:cnv-qe@redhat.com][level:comp
 					"password": "redhat",
 				}
 
-				tests.CreateConfigMap(configMapName, configData)
+				tests.CreateConfigMap(configMapName, testsuite.GetTestNamespace(nil), configData)
 
-				tests.CreateSecret(secretName, secretData)
+				tests.CreateSecret(secretName, testsuite.GetTestNamespace(nil), secretData)
 			})
 
 			AfterEach(func() {
-				tests.DeleteConfigMap(configMapName)
-				tests.DeleteSecret(secretName)
+				tests.DeleteConfigMap(configMapName, testsuite.GetTestNamespace(nil))
+				tests.DeleteSecret(secretName, testsuite.GetTestNamespace(nil))
 			})
 
 			It("[test_id:786]Should be that cfgMap and secret fs layout same for the pod and vmi", func() {
@@ -383,7 +384,7 @@ var _ = Describe("[rfe_id:899][crit:medium][vendor:cnv-qe@redhat.com][level:comp
 				CheckIsoVolumeSizes(vmi)
 
 				By("Checking if ConfigMap has been attached to the pod")
-				vmiPod := tests.GetRunningPodByVirtualMachineInstance(vmi, util.NamespaceTestDefault)
+				vmiPod := tests.GetRunningPodByVirtualMachineInstance(vmi, testsuite.GetTestNamespace(vmi))
 				podOutputCfgMap, err := exec.ExecuteCommandOnPod(
 					virtClient,
 					vmiPod,
@@ -471,11 +472,11 @@ var _ = Describe("[rfe_id:899][crit:medium][vendor:cnv-qe@redhat.com][level:comp
 					"ssh-privatekey": string(privateKeyBytes),
 					"ssh-publickey":  string(publicKeyBytes),
 				}
-				tests.CreateSecret(secretName, data)
+				tests.CreateSecret(secretName, testsuite.GetTestNamespace(nil), data)
 			})
 
 			AfterEach(func() {
-				tests.DeleteSecret(secretName)
+				tests.DeleteSecret(secretName, testsuite.GetTestNamespace(nil))
 			})
 
 			It("[test_id:778]Should be the fs layout the same for a pod and vmi", func() {
@@ -490,7 +491,7 @@ var _ = Describe("[rfe_id:899][crit:medium][vendor:cnv-qe@redhat.com][level:comp
 				CheckIsoVolumeSizes(vmi)
 
 				By("Checking if Secret has been attached to the pod")
-				vmiPod := tests.GetRunningPodByVirtualMachineInstance(vmi, util.NamespaceTestDefault)
+				vmiPod := tests.GetRunningPodByVirtualMachineInstance(vmi, testsuite.GetTestNamespace(nil))
 				podOutput1, err := exec.ExecuteCommandOnPod(
 					virtClient,
 					vmiPod,
@@ -551,7 +552,7 @@ var _ = Describe("[rfe_id:899][crit:medium][vendor:cnv-qe@redhat.com][level:comp
 			CheckIsoVolumeSizes(vmi)
 
 			By("Checking if DownwardAPI has been attached to the pod")
-			vmiPod := tests.GetRunningPodByVirtualMachineInstance(vmi, util.NamespaceTestDefault)
+			vmiPod := tests.GetRunningPodByVirtualMachineInstance(vmi, testsuite.GetTestNamespace(nil))
 			podOutput, err := exec.ExecuteCommandOnPod(
 				virtClient,
 				vmiPod,

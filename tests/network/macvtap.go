@@ -40,6 +40,7 @@ import (
 	"kubevirt.io/kubevirt/tests/libnet"
 	"kubevirt.io/kubevirt/tests/libnode"
 	"kubevirt.io/kubevirt/tests/libvmi"
+	"kubevirt.io/kubevirt/tests/testsuite"
 	"kubevirt.io/kubevirt/tests/util"
 )
 
@@ -67,7 +68,7 @@ var _ = SIGDescribe("Macvtap", func() {
 	})
 
 	BeforeEach(func() {
-		Expect(createMacvtapNetworkAttachmentDefinition(util.NamespaceTestDefault, macvtapNetworkName, macvtapLowerDevice)).
+		Expect(createMacvtapNetworkAttachmentDefinition(testsuite.GetTestNamespace(nil), macvtapNetworkName, macvtapLowerDevice)).
 			To(Succeed(), "A macvtap network named %s should be provisioned", macvtapNetworkName)
 	})
 

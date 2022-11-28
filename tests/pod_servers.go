@@ -7,6 +7,7 @@ import (
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
 
+	"kubevirt.io/kubevirt/tests/testsuite"
 	"kubevirt.io/kubevirt/tests/util"
 
 	corev1 "k8s.io/api/core/v1"
@@ -29,11 +30,11 @@ func CreatePodAndWaitUntil(pod *corev1.Pod, phaseToWait corev1.PodPhase) *corev1
 	virtClient, err := kubecli.GetKubevirtClient()
 	util.PanicOnError(err)
 
-	pod, err = virtClient.CoreV1().Pods(util.NamespaceTestDefault).Create(context.Background(), pod, metav1.CreateOptions{})
+	pod, err = virtClient.CoreV1().Pods(testsuite.GetTestNamespace(pod)).Create(context.Background(), pod, metav1.CreateOptions{})
 	Expect(err).ToNot(HaveOccurred(), "should succeed creating pod")
 
 	getStatus := func() corev1.PodPhase {
-		pod, err = virtClient.CoreV1().Pods(util.NamespaceTestDefault).Get(context.Background(), pod.Name, metav1.GetOptions{})
+		pod, err = virtClient.CoreV1().Pods(testsuite.GetTestNamespace(pod)).Get(context.Background(), pod.Name, metav1.GetOptions{})
 		Expect(err).ToNot(HaveOccurred())
 		return pod.Status.Phase
 	}

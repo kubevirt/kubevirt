@@ -27,6 +27,7 @@ import (
 	. "github.com/onsi/gomega"
 
 	"kubevirt.io/kubevirt/tests/framework/checks"
+	"kubevirt.io/kubevirt/tests/testsuite"
 
 	"kubevirt.io/kubevirt/tests/util"
 
@@ -68,7 +69,7 @@ var _ = Describe("[sig-compute]IOThreads", func() {
 			policy := v1.IOThreadsPolicyShared
 			vmi.Spec.Domain.IOThreadsPolicy = &policy
 
-			vmi, err := virtClient.VirtualMachineInstance(util.NamespaceTestDefault).Create(vmi)
+			vmi, err := virtClient.VirtualMachineInstance(testsuite.GetTestNamespace(vmi)).Create(vmi)
 			Expect(err).ToNot(HaveOccurred())
 
 			tests.WaitForSuccessfulVMIStart(vmi)
@@ -76,7 +77,7 @@ var _ = Describe("[sig-compute]IOThreads", func() {
 			getOptions := metav1.GetOptions{}
 			var newVMI *v1.VirtualMachineInstance
 
-			newVMI, err = virtClient.VirtualMachineInstance(util.NamespaceTestDefault).Get(vmi.Name, &getOptions)
+			newVMI, err = virtClient.VirtualMachineInstance(testsuite.GetTestNamespace(vmi)).Get(vmi.Name, &getOptions)
 			Expect(err).ToNot(HaveOccurred())
 
 			domain, err := tests.GetRunningVirtualMachineInstanceDomainXML(virtClient, vmi)
@@ -101,7 +102,7 @@ var _ = Describe("[sig-compute]IOThreads", func() {
 			tests.AddEphemeralDisk(vmi, "shr2", v1.DiskBusVirtio, cd.ContainerDiskFor(cd.ContainerDiskCirros))
 
 			By("Creating VMI with 1 dedicated and 2 shared ioThreadPolicies")
-			vmi, err := virtClient.VirtualMachineInstance(util.NamespaceTestDefault).Create(vmi)
+			vmi, err := virtClient.VirtualMachineInstance(testsuite.GetTestNamespace(vmi)).Create(vmi)
 			Expect(err).ToNot(HaveOccurred())
 
 			tests.WaitForSuccessfulVMIStart(vmi)
@@ -110,7 +111,7 @@ var _ = Describe("[sig-compute]IOThreads", func() {
 			var newVMI *v1.VirtualMachineInstance
 
 			By("Fetching the VMI from the cluster")
-			newVMI, err = virtClient.VirtualMachineInstance(util.NamespaceTestDefault).Get(vmi.Name, &getOptions)
+			newVMI, err = virtClient.VirtualMachineInstance(testsuite.GetTestNamespace(vmi)).Get(vmi.Name, &getOptions)
 			Expect(err).ToNot(HaveOccurred())
 
 			By("Fetching the domain XML from the running pod")
@@ -162,7 +163,7 @@ var _ = Describe("[sig-compute]IOThreads", func() {
 			vmi.Spec.Domain.Resources.Requests[k8sv1.ResourceCPU] = cpuReq
 
 			By("Creating VMI with 2 dedicated and 4 shared ioThreadPolicies")
-			vmi, err := virtClient.VirtualMachineInstance(util.NamespaceTestDefault).Create(vmi)
+			vmi, err := virtClient.VirtualMachineInstance(testsuite.GetTestNamespace(vmi)).Create(vmi)
 			Expect(err).ToNot(HaveOccurred())
 
 			tests.WaitForSuccessfulVMIStart(vmi)
@@ -171,7 +172,7 @@ var _ = Describe("[sig-compute]IOThreads", func() {
 			var newVMI *v1.VirtualMachineInstance
 
 			By("Fetching the VMI from the cluster")
-			newVMI, err = virtClient.VirtualMachineInstance(util.NamespaceTestDefault).Get(vmi.Name, &getOptions)
+			newVMI, err = virtClient.VirtualMachineInstance(testsuite.GetTestNamespace(vmi)).Get(vmi.Name, &getOptions)
 			Expect(err).ToNot(HaveOccurred())
 
 			By("Fetching the domain XML from the running pod")
@@ -245,7 +246,7 @@ var _ = Describe("[sig-compute]IOThreads", func() {
 			vmi.Spec.Domain.Devices.Disks[2].DedicatedIOThread = &dedicated
 
 			By("Starting a VirtualMachineInstance")
-			vmi, err := virtClient.VirtualMachineInstance(util.NamespaceTestDefault).Create(vmi)
+			vmi, err := virtClient.VirtualMachineInstance(testsuite.GetTestNamespace(vmi)).Create(vmi)
 			Expect(err).ToNot(HaveOccurred())
 			tests.WaitForSuccessfulVMIStart(vmi)
 
@@ -253,7 +254,7 @@ var _ = Describe("[sig-compute]IOThreads", func() {
 			var newVMI *v1.VirtualMachineInstance
 
 			By("Fetching the VMI from the cluster")
-			newVMI, err = virtClient.VirtualMachineInstance(util.NamespaceTestDefault).Get(vmi.Name, &getOptions)
+			newVMI, err = virtClient.VirtualMachineInstance(testsuite.GetTestNamespace(vmi)).Get(vmi.Name, &getOptions)
 			Expect(err).ToNot(HaveOccurred())
 
 			By("Fetching the domain XML from the running pod")

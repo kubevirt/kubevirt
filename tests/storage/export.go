@@ -340,10 +340,10 @@ var _ = SIGDescribe("Export", func() {
 			libdv.WithPVC(libdv.PVCWithStorageClass(sc), libdv.PVCWithVolumeMode(volumeMode)),
 		)
 
-		dv, err = virtClient.CdiClient().CdiV1beta1().DataVolumes(util.NamespaceTestDefault).Create(context.Background(), dv, metav1.CreateOptions{})
+		dv, err = virtClient.CdiClient().CdiV1beta1().DataVolumes(testsuite.GetTestNamespace(nil)).Create(context.Background(), dv, metav1.CreateOptions{})
 		var pvc *k8sv1.PersistentVolumeClaim
 		Eventually(func() error {
-			pvc, err = virtClient.CoreV1().PersistentVolumeClaims(util.NamespaceTestDefault).Get(context.Background(), dv.Name, metav1.GetOptions{})
+			pvc, err = virtClient.CoreV1().PersistentVolumeClaims(testsuite.GetTestNamespace(dv)).Get(context.Background(), dv.Name, metav1.GetOptions{})
 			return err
 		}, 60*time.Second, 1*time.Second).Should(BeNil(), "persistent volume associated with DV should be created")
 		ensurePVCBound(pvc)
@@ -836,17 +836,17 @@ var _ = SIGDescribe("Export", func() {
 		)
 
 		name := dv.Name
-		token := createExportTokenSecret(name, util.NamespaceTestDefault)
-		export := createPVCExportObject(name, util.NamespaceTestDefault, token)
+		token := createExportTokenSecret(name, testsuite.GetTestNamespace(nil))
+		export := createPVCExportObject(name, testsuite.GetTestNamespace(nil), token)
 		expectedCond := MatchConditionIgnoreTimeStamp(exportv1.Condition{
 			Type:    exportv1.ConditionPVC,
 			Status:  k8sv1.ConditionFalse,
 			Reason:  pvcNotFoundReason,
-			Message: fmt.Sprintf("pvc %s/%s not found", util.NamespaceTestDefault, name),
+			Message: fmt.Sprintf("pvc %s/%s not found", testsuite.GetTestNamespace(nil), name),
 		})
 
 		Eventually(func() []exportv1.Condition {
-			export, err = virtClient.VirtualMachineExport(util.NamespaceTestDefault).Get(context.Background(), export.Name, metav1.GetOptions{})
+			export, err = virtClient.VirtualMachineExport(testsuite.GetTestNamespace(export)).Get(context.Background(), export.Name, metav1.GetOptions{})
 			Expect(err).ToNot(HaveOccurred())
 			if export.Status == nil {
 				return nil
@@ -854,10 +854,10 @@ var _ = SIGDescribe("Export", func() {
 			return export.Status.Conditions
 		}, 60*time.Second, 1*time.Second).Should(ContainElement(expectedCond), "export should report missing pvc")
 
-		dv, err = virtClient.CdiClient().CdiV1beta1().DataVolumes(util.NamespaceTestDefault).Create(context.Background(), dv, metav1.CreateOptions{})
+		dv, err = virtClient.CdiClient().CdiV1beta1().DataVolumes(testsuite.GetTestNamespace(nil)).Create(context.Background(), dv, metav1.CreateOptions{})
 		var pvc *k8sv1.PersistentVolumeClaim
 		Eventually(func() error {
-			pvc, err = virtClient.CoreV1().PersistentVolumeClaims(util.NamespaceTestDefault).Get(context.Background(), dv.Name, metav1.GetOptions{})
+			pvc, err = virtClient.CoreV1().PersistentVolumeClaims(testsuite.GetTestNamespace(dv)).Get(context.Background(), dv.Name, metav1.GetOptions{})
 			return err
 		}, 60*time.Second, 1*time.Second).Should(BeNil(), "persistent volume associated with DV should be created")
 		ensurePVCBound(pvc)
@@ -1312,7 +1312,7 @@ var _ = SIGDescribe("Export", func() {
 		}
 		vm := createVM(tests.NewRandomVMWithDataVolumeAndUserDataInStorageClass(
 			cd.DataVolumeImportUrlForContainerDisk(cd.ContainerDiskCirros),
-			util.NamespaceTestDefault,
+			testsuite.GetTestNamespace(nil),
 			bashHelloScript,
 			sc))
 		snapshot := createAndVerifyVMSnapshot(vm)
@@ -1383,7 +1383,7 @@ var _ = SIGDescribe("Export", func() {
 
 		vm := tests.NewRandomVMWithDataVolumeAndUserDataInStorageClass(
 			cd.DataVolumeImportUrlForContainerDisk(cd.ContainerDiskCirros),
-			util.NamespaceTestDefault,
+			testsuite.GetTestNamespace(nil),
 			bashHelloScript,
 			sc)
 		libstorage.AddDataVolumeTemplate(vm, blankDv)
@@ -1448,7 +1448,7 @@ var _ = SIGDescribe("Export", func() {
 		}
 		vm := tests.NewRandomVMWithDataVolumeWithRegistryImport(
 			cd.DataVolumeImportUrlForContainerDisk(cd.ContainerDiskAlpine),
-			util.NamespaceTestDefault,
+			testsuite.GetTestNamespace(nil),
 			sc,
 			k8sv1.ReadWriteOnce)
 		vm.Spec.Running = pointer.BoolPtr(true)
@@ -1487,7 +1487,7 @@ var _ = SIGDescribe("Export", func() {
 			Skip("Skip test when Filesystem storage is not present")
 		}
 		dataVolume := libdv.NewDataVolume(
-			libdv.WithNamespace(util.NamespaceTestDefault),
+			libdv.WithNamespace(testsuite.GetTestNamespace(nil)),
 			libdv.WithRegistryURLSourceAndPullMethod(cd.DataVolumeImportUrlForContainerDisk(cd.ContainerDiskAlpine), cdiv1.RegistryPullNode),
 			libdv.WithPVC(libdv.PVCWithStorageClass(sc)),
 		)
@@ -1648,7 +1648,7 @@ var _ = SIGDescribe("Export", func() {
 		)
 
 		checkForReadyExport := func(name string) {
-			vmexport, err := virtClient.VirtualMachineExport(util.NamespaceTestDefault).Get(context.Background(), name, metav1.GetOptions{})
+			vmexport, err := virtClient.VirtualMachineExport(testsuite.GetTestNamespace(nil)).Get(context.Background(), name, metav1.GetOptions{})
 			Expect(err).ToNot(HaveOccurred())
 			waitForReadyExport(vmexport)
 		}
@@ -1664,10 +1664,10 @@ var _ = SIGDescribe("Export", func() {
 
 		AfterEach(func() {
 			By("Deleting VirtualMachineExport")
-			vmexport, err := virtClient.VirtualMachineExport(util.NamespaceTestDefault).Get(context.Background(), vmeName, metav1.GetOptions{})
+			vmexport, err := virtClient.VirtualMachineExport(testsuite.GetTestNamespace(nil)).Get(context.Background(), vmeName, metav1.GetOptions{})
 			if !errors.IsNotFound(err) {
 				Expect(err).ToNot(HaveOccurred())
-				err = virtClient.VirtualMachineExport(util.NamespaceTestDefault).Delete(context.Background(), vmexport.Name, metav1.DeleteOptions{})
+				err = virtClient.VirtualMachineExport(testsuite.GetTestNamespace(vmexport)).Delete(context.Background(), vmexport.Name, metav1.DeleteOptions{})
 				Expect(err).ToNot(HaveOccurred())
 			}
 		})
@@ -1676,7 +1676,7 @@ var _ = SIGDescribe("Export", func() {
 			pvc, _ := populateKubeVirtContent(sc, k8sv1.PersistentVolumeFilesystem)
 			// Run vmexport
 			By("Running vmexport command")
-			virtctlCmd := clientcmd.NewRepeatableVirtctlCommand(commandName, "create", vmeName, "--pvc", pvc.Name, "--namespace", util.NamespaceTestDefault)
+			virtctlCmd := clientcmd.NewRepeatableVirtctlCommand(commandName, "create", vmeName, "--pvc", pvc.Name, "--namespace", testsuite.GetTestNamespace(nil))
 			err = virtctlCmd()
 			Expect(err).ToNot(HaveOccurred())
 			checkForReadyExport(vmeName)
@@ -1695,7 +1695,7 @@ var _ = SIGDescribe("Export", func() {
 
 			vm := tests.NewRandomVMWithDataVolumeAndUserDataInStorageClass(
 				cd.DataVolumeImportUrlForContainerDisk(cd.ContainerDiskCirros),
-				util.NamespaceTestDefault,
+				testsuite.GetTestNamespace(nil),
 				bashHelloScript,
 				sc)
 			libstorage.AddDataVolumeTemplate(vm, blankDv)
@@ -1707,7 +1707,7 @@ var _ = SIGDescribe("Export", func() {
 
 			// Run vmexport
 			By("Running vmexport command")
-			virtctlCmd := clientcmd.NewRepeatableVirtctlCommand(commandName, "create", vmeName, "--snapshot", snapshot.Name, "--namespace", util.NamespaceTestDefault)
+			virtctlCmd := clientcmd.NewRepeatableVirtctlCommand(commandName, "create", vmeName, "--snapshot", snapshot.Name, "--namespace", testsuite.GetTestNamespace(nil))
 			err = virtctlCmd()
 			Expect(err).ToNot(HaveOccurred())
 			checkForReadyExport(vmeName)
@@ -1717,7 +1717,7 @@ var _ = SIGDescribe("Export", func() {
 			// Create a populated VM
 			vm := tests.NewRandomVMWithDataVolumeWithRegistryImport(
 				cd.DataVolumeImportUrlForContainerDisk(cd.ContainerDiskAlpine),
-				util.NamespaceTestDefault,
+				testsuite.GetTestNamespace(nil),
 				sc,
 				k8sv1.ReadWriteOnce)
 			vm.Spec.Running = pointer.BoolPtr(true)
@@ -1736,7 +1736,7 @@ var _ = SIGDescribe("Export", func() {
 
 			// Run vmexport
 			By("Running vmexport command")
-			virtctlCmd := clientcmd.NewRepeatableVirtctlCommand(commandName, "create", vmeName, "--vm", vm.Name, "--namespace", util.NamespaceTestDefault)
+			virtctlCmd := clientcmd.NewRepeatableVirtctlCommand(commandName, "create", vmeName, "--vm", vm.Name, "--namespace", testsuite.GetTestNamespace(nil))
 			err = virtctlCmd()
 			Expect(err).ToNot(HaveOccurred())
 			checkForReadyExport(vmeName)
@@ -1747,7 +1747,7 @@ var _ = SIGDescribe("Export", func() {
 			vmeName = vmExport.Name
 			// Run vmexport
 			By("Running vmexport command")
-			virtctlCmd := clientcmd.NewRepeatableVirtctlCommand(commandName, "create", vmeName, "--pvc", vmExport.Spec.Source.Name, "--namespace", util.NamespaceTestDefault)
+			virtctlCmd := clientcmd.NewRepeatableVirtctlCommand(commandName, "create", vmeName, "--pvc", vmExport.Spec.Source.Name, "--namespace", testsuite.GetTestNamespace(nil))
 			err = virtctlCmd()
 			Expect(err).To(HaveOccurred())
 			errString := fmt.Sprintf("VirtualMachineExport '%s/%s' already exists", vmExport.Namespace, vmeName)
@@ -1759,12 +1759,12 @@ var _ = SIGDescribe("Export", func() {
 			vmeName = vmExport.Name
 			// Run vmexport
 			By("Running vmexport command")
-			virtctlCmd := clientcmd.NewRepeatableVirtctlCommand(commandName, "delete", vmeName, "--namespace", util.NamespaceTestDefault)
+			virtctlCmd := clientcmd.NewRepeatableVirtctlCommand(commandName, "delete", vmeName, "--namespace", testsuite.GetTestNamespace(nil))
 			err = virtctlCmd()
 			Expect(err).ToNot(HaveOccurred())
 			By("Verifying the vmexport was deleted")
 			Eventually(func() bool {
-				_, err := virtClient.VirtualMachineExport(util.NamespaceTestDefault).Get(context.Background(), vmExport.Name, metav1.GetOptions{})
+				_, err := virtClient.VirtualMachineExport(testsuite.GetTestNamespace(vmExport)).Get(context.Background(), vmExport.Name, metav1.GetOptions{})
 				if err == nil {
 					return false
 				}
@@ -1775,7 +1775,7 @@ var _ = SIGDescribe("Export", func() {
 		It("Delete succeeds when vmexport doesn't exist", func() {
 			// Run vmexport
 			By("Running vmexport command")
-			virtctlCmd := clientcmd.NewRepeatableVirtctlCommand(commandName, "delete", vmeName, "--namespace", util.NamespaceTestDefault)
+			virtctlCmd := clientcmd.NewRepeatableVirtctlCommand(commandName, "delete", vmeName, "--namespace", testsuite.GetTestNamespace(nil))
 			err = virtctlCmd()
 			Expect(err).ToNot(HaveOccurred())
 		})
@@ -1785,10 +1785,10 @@ var _ = SIGDescribe("Export", func() {
 			pvc, _ := populateKubeVirtContent(sc, k8sv1.PersistentVolumeFilesystem)
 			// Run vmexport
 			By("Running vmexport command")
-			virtctlCmd := clientcmd.NewRepeatableVirtctlCommand(commandName, "create", vmeName, "--pvc", pvc.Name, "--namespace", util.NamespaceTestDefault, "--ttl", ttl.Duration.String())
+			virtctlCmd := clientcmd.NewRepeatableVirtctlCommand(commandName, "create", vmeName, "--pvc", pvc.Name, "--namespace", testsuite.GetTestNamespace(pvc), "--ttl", ttl.Duration.String())
 			err = virtctlCmd()
 			Expect(err).ToNot(HaveOccurred())
-			export, err := virtClient.VirtualMachineExport(util.NamespaceTestDefault).Get(context.Background(), vmeName, metav1.GetOptions{})
+			export, err := virtClient.VirtualMachineExport(testsuite.GetTestNamespace(pvc)).Get(context.Background(), vmeName, metav1.GetOptions{})
 			Expect(err).ToNot(HaveOccurred())
 			Expect(export.Spec.TTLDuration).To(Equal(ttl))
 		})
@@ -1820,7 +1820,7 @@ var _ = SIGDescribe("Export", func() {
 					"--output", outputFile,
 					"--volume", pvc.Name,
 					"--insecure",
-					"--namespace", util.NamespaceTestDefault)
+					"--namespace", testsuite.GetTestNamespace(pvc))
 
 				err = virtctlCmd()
 				Expect(err).ToNot(HaveOccurred())
@@ -1841,7 +1841,7 @@ var _ = SIGDescribe("Export", func() {
 				)
 				vm := tests.NewRandomVMWithDataVolumeAndUserDataInStorageClass(
 					cd.DataVolumeImportUrlForContainerDisk(cd.ContainerDiskCirros),
-					util.NamespaceTestDefault,
+					testsuite.GetTestNamespace(nil),
 					bashHelloScript,
 					sc)
 				libstorage.AddDataVolumeTemplate(vm, blankDv)
@@ -1866,7 +1866,7 @@ var _ = SIGDescribe("Export", func() {
 					"--output", outputFile,
 					"--volume", export.Status.Links.External.Volumes[0].Name,
 					"--insecure",
-					"--namespace", util.NamespaceTestDefault)
+					"--namespace", testsuite.GetTestNamespace(export))
 
 				err = virtctlCmd()
 				Expect(err).ToNot(HaveOccurred())
@@ -1878,7 +1878,7 @@ var _ = SIGDescribe("Export", func() {
 				// Create a populated VM
 				vm := tests.NewRandomVMWithDataVolumeWithRegistryImport(
 					cd.DataVolumeImportUrlForContainerDisk(cd.ContainerDiskAlpine),
-					util.NamespaceTestDefault,
+					testsuite.GetTestNamespace(nil),
 					sc,
 					k8sv1.ReadWriteOnce)
 				vm.Spec.Running = pointer.BoolPtr(true)
@@ -1904,7 +1904,7 @@ var _ = SIGDescribe("Export", func() {
 					"--output", outputFile,
 					"--volume", vm.Spec.Template.Spec.Volumes[0].DataVolume.Name,
 					"--insecure",
-					"--namespace", util.NamespaceTestDefault)
+					"--namespace", testsuite.GetTestNamespace(vm))
 
 				err = virtctlCmd()
 				Expect(err).ToNot(HaveOccurred())
@@ -1923,7 +1923,7 @@ var _ = SIGDescribe("Export", func() {
 					"--output", outputFile,
 					"--volume", vmExport.Status.Links.External.Volumes[0].Name,
 					"--insecure",
-					"--namespace", util.NamespaceTestDefault)
+					"--namespace", testsuite.GetTestNamespace(vmExport))
 
 				err = virtctlCmd()
 				Expect(err).ToNot(HaveOccurred())
@@ -1950,7 +1950,7 @@ var _ = SIGDescribe("Export", func() {
 					vmeName,
 					"--output", outputFile,
 					"--insecure",
-					"--namespace", util.NamespaceTestDefault)
+					"--namespace", testsuite.GetTestNamespace(export))
 
 				err = virtctlCmd()
 				Expect(err).ToNot(HaveOccurred())
@@ -1970,7 +1970,7 @@ var _ = SIGDescribe("Export", func() {
 					"--volume", vmExport.Status.Links.External.Volumes[0].Name,
 					"--insecure",
 					"--keep-vme",
-					"--namespace", util.NamespaceTestDefault)
+					"--namespace", testsuite.GetTestNamespace(vmExport))
 				err = virtctlCmd()
 				Expect(err).ToNot(HaveOccurred())
 				checkForReadyExport(vmeName)

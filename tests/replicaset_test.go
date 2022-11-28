@@ -29,6 +29,7 @@ import (
 	"kubevirt.io/kubevirt/tests/clientcmd"
 	"kubevirt.io/kubevirt/tests/framework/checks"
 	"kubevirt.io/kubevirt/tests/framework/matcher"
+	"kubevirt.io/kubevirt/tests/testsuite"
 
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
@@ -64,17 +65,17 @@ var _ = Describe("[rfe_id:588][crit:medium][vendor:cnv-qe@redhat.com][level:comp
 	doScale := func(name string, scale int32) {
 
 		By(fmt.Sprintf("Scaling to %d", scale))
-		rs, err := virtClient.ReplicaSet(util.NamespaceTestDefault).Patch(name, types.JSONPatchType, []byte(fmt.Sprintf("[{ \"op\": \"replace\", \"path\": \"/spec/replicas\", \"value\": %v }]", scale)))
+		rs, err := virtClient.ReplicaSet(testsuite.GetTestNamespace(nil)).Patch(name, types.JSONPatchType, []byte(fmt.Sprintf("[{ \"op\": \"replace\", \"path\": \"/spec/replicas\", \"value\": %v }]", scale)))
 		Expect(err).ToNot(HaveOccurred())
 
 		By("Checking the number of replicas")
 		Eventually(func() int32 {
-			rs, err = virtClient.ReplicaSet(util.NamespaceTestDefault).Get(name, v12.GetOptions{})
+			rs, err = virtClient.ReplicaSet(testsuite.GetTestNamespace(rs)).Get(name, v12.GetOptions{})
 			Expect(err).ToNot(HaveOccurred())
 			return rs.Status.Replicas
 		}, 90*time.Second, time.Second).Should(Equal(int32(scale)))
 
-		vmis, err := virtClient.VirtualMachineInstance(util.NamespaceTestDefault).List(&v12.ListOptions{})
+		vmis, err := virtClient.VirtualMachineInstance(testsuite.GetTestNamespace(rs)).List(&v12.ListOptions{})
 		Expect(err).ToNot(HaveOccurred())
 		Expect(tests.NotDeleted(vmis)).To(HaveLen(int(scale)))
 	}
@@ -97,27 +98,27 @@ var _ = Describe("[rfe_id:588][crit:medium][vendor:cnv-qe@redhat.com][level:comp
 				MaxReplicas: max,
 			},
 		}
-		_, err := virtClient.AutoscalingV1().HorizontalPodAutoscalers(util.NamespaceTestDefault).Create(context.Background(), hpa, v12.CreateOptions{})
+		_, err := virtClient.AutoscalingV1().HorizontalPodAutoscalers(testsuite.GetTestNamespace(nil)).Create(context.Background(), hpa, v12.CreateOptions{})
 		ExpectWithOffset(1, err).ToNot(HaveOccurred())
 
 		var s *autov1.Scale
 		By("Checking the number of replicas")
 		EventuallyWithOffset(1, func() int32 {
-			s, err = virtClient.ReplicaSet(util.NamespaceTestDefault).GetScale(name, v12.GetOptions{})
+			s, err = virtClient.ReplicaSet(testsuite.GetTestNamespace(nil)).GetScale(name, v12.GetOptions{})
 			Expect(err).ToNot(HaveOccurred())
 			return s.Status.Replicas
 		}, 90*time.Second, time.Second).Should(Equal(int32(expected)))
 
-		vmis, err := virtClient.VirtualMachineInstance(util.NamespaceTestDefault).List(&v12.ListOptions{})
+		vmis, err := virtClient.VirtualMachineInstance(testsuite.GetTestNamespace(nil)).List(&v12.ListOptions{})
 		ExpectWithOffset(1, err).ToNot(HaveOccurred())
 		ExpectWithOffset(1, tests.NotDeleted(vmis)).To(HaveLen(int(min)))
-		err = virtClient.AutoscalingV1().HorizontalPodAutoscalers(util.NamespaceTestDefault).Delete(context.Background(), name, v12.DeleteOptions{})
+		err = virtClient.AutoscalingV1().HorizontalPodAutoscalers(testsuite.GetTestNamespace(nil)).Delete(context.Background(), name, v12.DeleteOptions{})
 		ExpectWithOffset(1, err).ToNot(HaveOccurred())
 	}
 
 	newReplicaSetWithTemplate := func(template *v1.VirtualMachineInstance) *v1.VirtualMachineInstanceReplicaSet {
 		newRS := tests.NewRandomReplicaSetFromVMI(template, int32(0))
-		newRS, err = virtClient.ReplicaSet(util.NamespaceTestDefault).Create(newRS)
+		newRS, err = virtClient.ReplicaSet(testsuite.GetTestNamespace(template)).Create(newRS)
 		Expect(err).ToNot(HaveOccurred())
 		return newRS
 	}
@@ -159,7 +160,7 @@ var _ = Describe("[rfe_id:588][crit:medium][vendor:cnv-qe@redhat.com][level:comp
 			libvmi.WithNetwork(v1.DefaultPodNetwork()),
 		)
 		newRS := tests.NewRandomReplicaSetFromVMI(template, int32(1))
-		newRS, err = virtClient.ReplicaSet(util.NamespaceTestDefault).Create(newRS)
+		newRS, err = virtClient.ReplicaSet(testsuite.GetTestNamespace(newRS)).Create(newRS)
 		Expect(err).ToNot(HaveOccurred())
 		doScaleWithHPA(newRS.ObjectMeta.Name, int32(startScale), int32(startScale), int32(startScale))
 		doScaleWithHPA(newRS.ObjectMeta.Name, int32(stopScale), int32(stopScale), int32(stopScale))
@@ -183,7 +184,7 @@ var _ = Describe("[rfe_id:588][crit:medium][vendor:cnv-qe@redhat.com][level:comp
 		// change the name of a required field (like domain) so validation will fail
 		jsonString := strings.Replace(string(jsonBytes), "domain", "not-a-domain", -1)
 
-		result := virtClient.RestClient().Post().Resource("virtualmachineinstancereplicasets").Namespace(util.NamespaceTestDefault).Body([]byte(jsonString)).SetHeader("Content-Type", "application/json").Do(context.Background())
+		result := virtClient.RestClient().Post().Resource("virtualmachineinstancereplicasets").Namespace(testsuite.GetTestNamespace(newRS)).Body([]byte(jsonString)).SetHeader("Content-Type", "application/json").Do(context.Background())
 
 		// Verify validation failed.
 		statusCode := 0
@@ -204,7 +205,7 @@ var _ = Describe("[rfe_id:588][crit:medium][vendor:cnv-qe@redhat.com][level:comp
 			Name: "testdisk",
 		})
 
-		result := virtClient.RestClient().Post().Resource("virtualmachineinstancereplicasets").Namespace(util.NamespaceTestDefault).Body(newRS).Do(context.Background())
+		result := virtClient.RestClient().Post().Resource("virtualmachineinstancereplicasets").Namespace(testsuite.GetTestNamespace(newRS)).Body(newRS).Do(context.Background())
 
 		// Verify validation failed.
 		statusCode := 0
@@ -225,7 +226,7 @@ var _ = Describe("[rfe_id:588][crit:medium][vendor:cnv-qe@redhat.com][level:comp
 
 		By("checking the number of ready replicas in the returned yaml")
 		Eventually(func() int {
-			rs, err := virtClient.ReplicaSet(util.NamespaceTestDefault).Get(newRS.ObjectMeta.Name, v12.GetOptions{})
+			rs, err := virtClient.ReplicaSet(testsuite.GetTestNamespace(newRS)).Get(newRS.ObjectMeta.Name, v12.GetOptions{})
 			Expect(err).ToNot(HaveOccurred())
 			return int(rs.Status.ReadyReplicas)
 		}, 120*time.Second, 1*time.Second).Should(Equal(2))
@@ -238,14 +239,14 @@ var _ = Describe("[rfe_id:588][crit:medium][vendor:cnv-qe@redhat.com][level:comp
 
 		By("waiting until all VMIs are ready")
 		Eventually(func() int {
-			rs, err := virtClient.ReplicaSet(util.NamespaceTestDefault).Get(newRS.ObjectMeta.Name, v12.GetOptions{})
+			rs, err := virtClient.ReplicaSet(testsuite.GetTestNamespace(newRS)).Get(newRS.ObjectMeta.Name, v12.GetOptions{})
 			Expect(err).ToNot(HaveOccurred())
 			return int(rs.Status.ReadyReplicas)
 		}, 120*time.Second, 1*time.Second).Should(Equal(2))
 
 		By("checking the output of server-side table printing")
 		rawTable, err := virtClient.RestClient().Get().
-			RequestURI(fmt.Sprintf("/apis/kubevirt.io/%s/namespaces/%s/virtualmachineinstancereplicasets/%s", v1.ApiLatestVersion, util.NamespaceTestDefault, newRS.ObjectMeta.Name)).
+			RequestURI(fmt.Sprintf("/apis/kubevirt.io/%s/namespaces/%s/virtualmachineinstancereplicasets/%s", v1.ApiLatestVersion, testsuite.GetTestNamespace(newRS), newRS.ObjectMeta.Name)).
 			SetHeader("Accept", "application/json;as=Table;v=v1beta1;g=meta.k8s.io, application/json").
 			DoRaw(context.Background())
 
@@ -331,7 +332,7 @@ var _ = Describe("[rfe_id:588][crit:medium][vendor:cnv-qe@redhat.com][level:comp
 		Expect(err).ToNot(HaveOccurred())
 
 		Eventually(func() *v1.VirtualMachineInstanceReplicaSet {
-			rs, err = virtClient.ReplicaSet(util.NamespaceTestDefault).Get(rs.ObjectMeta.Name, v12.GetOptions{})
+			rs, err = virtClient.ReplicaSet(testsuite.GetTestNamespace(rs)).Get(rs.ObjectMeta.Name, v12.GetOptions{})
 			Expect(err).ToNot(HaveOccurred())
 			return rs
 		}, 10*time.Second, 1*time.Second).Should(matcher.HaveConditionTrue(v1.VirtualMachineInstanceReplicaSetReplicaPaused))
@@ -346,7 +347,7 @@ var _ = Describe("[rfe_id:588][crit:medium][vendor:cnv-qe@redhat.com][level:comp
 		// make sure that we don't scale up
 		By("Checking that the replicaset do not scale while it is paused")
 		Consistently(func() int32 {
-			rs, err = virtClient.ReplicaSet(util.NamespaceTestDefault).Get(rs.ObjectMeta.Name, v12.GetOptions{})
+			rs, err = virtClient.ReplicaSet(testsuite.GetTestNamespace(rs)).Get(rs.ObjectMeta.Name, v12.GetOptions{})
 			Expect(err).ToNot(HaveOccurred())
 			// Make sure that no failure happened, so that ensure that we don't scale because we are paused
 			Expect(rs.Status.Conditions).To(HaveLen(1))
@@ -361,7 +362,7 @@ var _ = Describe("[rfe_id:588][crit:medium][vendor:cnv-qe@redhat.com][level:comp
 		// Paused condition should disappear
 		By("Checking that the pause condition disappeared from the replicaset")
 		Eventually(func() int {
-			rs, err = virtClient.ReplicaSet(util.NamespaceTestDefault).Get(rs.ObjectMeta.Name, v12.GetOptions{})
+			rs, err = virtClient.ReplicaSet(testsuite.GetTestNamespace(rs)).Get(rs.ObjectMeta.Name, v12.GetOptions{})
 			Expect(err).ToNot(HaveOccurred())
 			return len(rs.Status.Conditions)
 		}, 10*time.Second, 1*time.Second).Should(Equal(0))
@@ -369,7 +370,7 @@ var _ = Describe("[rfe_id:588][crit:medium][vendor:cnv-qe@redhat.com][level:comp
 		// Replicas should be created
 		By("Checking that the missing replicas are now created")
 		Eventually(func() int32 {
-			rs, err = virtClient.ReplicaSet(util.NamespaceTestDefault).Get(rs.ObjectMeta.Name, v12.GetOptions{})
+			rs, err = virtClient.ReplicaSet(testsuite.GetTestNamespace(rs)).Get(rs.ObjectMeta.Name, v12.GetOptions{})
 			Expect(err).ToNot(HaveOccurred())
 			return rs.Status.Replicas
 		}, 10*time.Second, 1*time.Second).Should(Equal(int32(2)))
@@ -380,23 +381,23 @@ var _ = Describe("[rfe_id:588][crit:medium][vendor:cnv-qe@redhat.com][level:comp
 		rs := newReplicaSet()
 		doScale(rs.ObjectMeta.Name, int32(2))
 
-		vmis, err := virtClient.VirtualMachineInstance(util.NamespaceTestDefault).List(&v12.ListOptions{})
+		vmis, err := virtClient.VirtualMachineInstance(testsuite.GetTestNamespace(rs)).List(&v12.ListOptions{})
 		Expect(err).ToNot(HaveOccurred())
 		Expect(vmis.Items).ToNot(BeEmpty())
 
 		vmi := vmis.Items[0]
-		pods, err := virtClient.CoreV1().Pods(util.NamespaceTestDefault).List(context.Background(), tests.UnfinishedVMIPodSelector(&vmi))
+		pods, err := virtClient.CoreV1().Pods(testsuite.GetTestNamespace(rs)).List(context.Background(), tests.UnfinishedVMIPodSelector(&vmi))
 		Expect(err).ToNot(HaveOccurred())
 		Expect(pods.Items).To(HaveLen(1))
 		pod := pods.Items[0]
 
 		By("Deleting one of the RS VMS pods")
-		err = virtClient.CoreV1().Pods(util.NamespaceTestDefault).Delete(context.Background(), pod.Name, v12.DeleteOptions{})
+		err = virtClient.CoreV1().Pods(testsuite.GetTestNamespace(rs)).Delete(context.Background(), pod.Name, v12.DeleteOptions{})
 		Expect(err).ToNot(HaveOccurred())
 
 		By("Checking that the VM disappeared")
 		Eventually(func() bool {
-			_, err := virtClient.VirtualMachineInstance(util.NamespaceTestDefault).Get(vmi.Name, &v12.GetOptions{})
+			_, err := virtClient.VirtualMachineInstance(testsuite.GetTestNamespace(rs)).Get(vmi.Name, &v12.GetOptions{})
 			if errors.IsNotFound(err) {
 				return true
 			}
@@ -404,7 +405,7 @@ var _ = Describe("[rfe_id:588][crit:medium][vendor:cnv-qe@redhat.com][level:comp
 		}, 120*time.Second, time.Second).Should(BeTrue())
 
 		By("Checking number of RS VM's to see that we got a replacement")
-		vmis, err = virtClient.VirtualMachineInstance(util.NamespaceTestDefault).List(&v12.ListOptions{})
+		vmis, err = virtClient.VirtualMachineInstance(testsuite.GetTestNamespace(rs)).List(&v12.ListOptions{})
 		Expect(err).ToNot(HaveOccurred())
 		Expect(vmis.Items).Should(HaveLen(2))
 	})
@@ -423,37 +424,37 @@ var _ = Describe("[rfe_id:588][crit:medium][vendor:cnv-qe@redhat.com][level:comp
 
 		doScale(rs.ObjectMeta.Name, int32(2))
 
-		vmis, err := virtClient.VirtualMachineInstance(util.NamespaceTestDefault).List(&v12.ListOptions{})
+		vmis, err := virtClient.VirtualMachineInstance(testsuite.GetTestNamespace(rs)).List(&v12.ListOptions{})
 		Expect(err).ToNot(HaveOccurred())
 		Expect(vmis.Items).ToNot(BeEmpty())
 
 		By("Waiting until the VMIs are running")
 		Eventually(func() int {
-			vmis, err := virtClient.VirtualMachineInstance(util.NamespaceTestDefault).List(&v12.ListOptions{})
+			vmis, err := virtClient.VirtualMachineInstance(testsuite.GetTestNamespace(rs)).List(&v12.ListOptions{})
 			Expect(err).ToNot(HaveOccurred())
 			return len(tests.Running(vmis))
 		}, 40*time.Second, time.Second).Should(Equal(2))
 
 		vmi := &vmis.Items[0]
-		pods, err := virtClient.CoreV1().Pods(util.NamespaceTestDefault).List(context.Background(), tests.UnfinishedVMIPodSelector(vmi))
+		pods, err := virtClient.CoreV1().Pods(testsuite.GetTestNamespace(rs)).List(context.Background(), tests.UnfinishedVMIPodSelector(vmi))
 		Expect(err).ToNot(HaveOccurred())
 		Expect(pods.Items).To(HaveLen(1))
 		pod := pods.Items[0]
 
 		By("Deleting one of the RS VMS pods, which will take some time to really stop the VMI")
-		err = virtClient.CoreV1().Pods(util.NamespaceTestDefault).Delete(context.Background(), pod.Name, v12.DeleteOptions{})
+		err = virtClient.CoreV1().Pods(testsuite.GetTestNamespace(rs)).Delete(context.Background(), pod.Name, v12.DeleteOptions{})
 		Expect(err).ToNot(HaveOccurred())
 
 		By("Checking that then number of VMIs increases to three")
 		Expect(err).ToNot(HaveOccurred())
 		Eventually(func() int {
-			vmis, err = virtClient.VirtualMachineInstance(util.NamespaceTestDefault).List(&v12.ListOptions{})
+			vmis, err = virtClient.VirtualMachineInstance(testsuite.GetTestNamespace(rs)).List(&v12.ListOptions{})
 			Expect(err).ToNot(HaveOccurred())
 			return len(vmis.Items)
 		}, 20*time.Second, time.Second).Should(Equal(3))
 
 		By("Checking that the shutting donw VMI is still running, reporting the pod deletion and being marked for deletion")
-		vmi, err = virtClient.VirtualMachineInstance(util.NamespaceTestDefault).Get(vmi.Name, &v12.GetOptions{})
+		vmi, err = virtClient.VirtualMachineInstance(testsuite.GetTestNamespace(rs)).Get(vmi.Name, &v12.GetOptions{})
 		Expect(err).ToNot(HaveOccurred())
 		Expect(vmi.Status.Phase).To(Equal(v1.Running))
 		Expect(controller.NewVirtualMachineInstanceConditionManager().

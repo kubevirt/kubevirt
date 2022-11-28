@@ -42,6 +42,7 @@ import (
 	virtconfig "kubevirt.io/kubevirt/pkg/virt-config"
 	"kubevirt.io/kubevirt/tests"
 	cd "kubevirt.io/kubevirt/tests/containerdisk"
+	"kubevirt.io/kubevirt/tests/testsuite"
 	"kubevirt.io/kubevirt/tests/util"
 )
 
@@ -732,7 +733,7 @@ func newVMIPreset(name, labelKey, labelValue string) *v1.VirtualMachineInstanceP
 	return &v1.VirtualMachineInstancePreset{
 		ObjectMeta: metav1.ObjectMeta{
 			Name:      name,
-			Namespace: util.NamespaceTestDefault,
+			Namespace: testsuite.GetTestNamespace(nil),
 		},
 		Spec: v1.VirtualMachineInstancePresetSpec{
 			Domain: &v1.DomainSpec{
@@ -757,7 +758,7 @@ func newVMIReplicaSet(name string) *v1.VirtualMachineInstanceReplicaSet {
 	return &v1.VirtualMachineInstanceReplicaSet{
 		ObjectMeta: metav1.ObjectMeta{
 			Name:      name,
-			Namespace: util.NamespaceTestDefault,
+			Namespace: testsuite.GetTestNamespace(nil),
 		},
 		Spec: v1.VirtualMachineInstanceReplicaSetSpec{
 			Selector: &metav1.LabelSelector{
@@ -783,7 +784,7 @@ func newVMSnapshot(vm *v1.VirtualMachine) *v1alpha1.VirtualMachineSnapshot {
 	return &v1alpha1.VirtualMachineSnapshot{
 		ObjectMeta: metav1.ObjectMeta{
 			Name:      vm.Name + "-snapshot",
-			Namespace: util.NamespaceTestDefault,
+			Namespace: testsuite.GetTestNamespace(vm),
 		},
 		Spec: v1alpha1.VirtualMachineSnapshotSpec{
 			Source: corev1.TypedLocalObjectReference{
@@ -801,7 +802,7 @@ func newVMRestore(vm *v1.VirtualMachine, snapshot *v1alpha1.VirtualMachineSnapsh
 	return &v1alpha1.VirtualMachineRestore{
 		ObjectMeta: metav1.ObjectMeta{
 			Name:      vm.Name + "-restore",
-			Namespace: util.NamespaceTestDefault,
+			Namespace: testsuite.GetTestNamespace(vm),
 		},
 		Spec: v1alpha1.VirtualMachineRestoreSpec{
 			Target: corev1.TypedLocalObjectReference{

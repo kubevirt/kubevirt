@@ -12,7 +12,7 @@ import (
 	"kubevirt.io/client-go/kubecli"
 
 	"kubevirt.io/kubevirt/tests"
-	"kubevirt.io/kubevirt/tests/util"
+	"kubevirt.io/kubevirt/tests/testsuite"
 )
 
 func DoScaleWithScaleSubresource(virtClient kubecli.KubevirtClient, name string, scale int32) {
@@ -20,10 +20,10 @@ func DoScaleWithScaleSubresource(virtClient kubecli.KubevirtClient, name string,
 	By(fmt.Sprintf("Scaling to %d", scale))
 	var s *autov1.Scale
 	err := tests.RetryIfModified(func() error {
-		s, err := virtClient.ReplicaSet(util.NamespaceTestDefault).GetScale(name, v12.GetOptions{})
+		s, err := virtClient.ReplicaSet(testsuite.GetTestNamespace(nil)).GetScale(name, v12.GetOptions{})
 		ExpectWithOffset(1, err).ToNot(HaveOccurred())
 		s.Spec.Replicas = scale
-		s, err = virtClient.ReplicaSet(util.NamespaceTestDefault).UpdateScale(name, s)
+		s, err = virtClient.ReplicaSet(testsuite.GetTestNamespace(nil)).UpdateScale(name, s)
 		return err
 	})
 
@@ -31,12 +31,12 @@ func DoScaleWithScaleSubresource(virtClient kubecli.KubevirtClient, name string,
 
 	By("Checking the number of replicas")
 	EventuallyWithOffset(1, func() int32 {
-		s, err = virtClient.ReplicaSet(util.NamespaceTestDefault).GetScale(name, v12.GetOptions{})
+		s, err = virtClient.ReplicaSet(testsuite.GetTestNamespace(nil)).GetScale(name, v12.GetOptions{})
 		Expect(err).ToNot(HaveOccurred())
 		return s.Status.Replicas
 	}, 90*time.Second, time.Second).Should(Equal(scale))
 
-	vmis, err := virtClient.VirtualMachineInstance(util.NamespaceTestDefault).List(&v12.ListOptions{})
+	vmis, err := virtClient.VirtualMachineInstance(testsuite.GetTestNamespace(nil)).List(&v12.ListOptions{})
 	ExpectWithOffset(1, err).ToNot(HaveOccurred())
 	ExpectWithOffset(1, tests.NotDeleted(vmis)).To(HaveLen(int(scale)))
 }

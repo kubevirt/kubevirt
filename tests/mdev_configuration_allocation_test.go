@@ -157,7 +157,7 @@ var _ = Describe("[Serial][sig-compute]MediatedDevices", Serial, func() {
 
 		cleanupConfiguredMdevs := func() {
 			By("Deleting the VMI")
-			ExpectWithOffset(1, virtClient.VirtualMachineInstance(vmi.Namespace).Delete(vmi.Name, &metav1.DeleteOptions{})).To(Succeed(), "Should delete VMI")
+			ExpectWithOffset(1, virtClient.VirtualMachineInstance(testsuite.GetTestNamespace(vmi)).Delete(vmi.Name, &metav1.DeleteOptions{})).To(Succeed(), "Should delete VMI")
 			By("Creating a configuration for mediated devices")
 			config.MediatedDevicesConfiguration = &v1.MediatedDevicesConfiguration{}
 			tests.UpdateKubeVirtConfigValueAndWait(config)
@@ -181,7 +181,7 @@ var _ = Describe("[Serial][sig-compute]MediatedDevices", Serial, func() {
 				},
 			}
 			vmi.Spec.Domain.Devices.GPUs = vGPUs
-			createdVmi, err := virtClient.VirtualMachineInstance(util.NamespaceTestDefault).Create(vmi)
+			createdVmi, err := virtClient.VirtualMachineInstance(testsuite.GetTestNamespace(vmi)).Create(vmi)
 			Expect(err).ToNot(HaveOccurred())
 			vmi = createdVmi
 			tests.WaitForSuccessfulVMIStart(vmi)
@@ -217,7 +217,7 @@ var _ = Describe("[Serial][sig-compute]MediatedDevices", Serial, func() {
 				},
 			}
 			vmi.Spec.Domain.Devices.GPUs = vGPUs
-			createdVmi, err := virtClient.VirtualMachineInstance(util.NamespaceTestDefault).Create(vmi)
+			createdVmi, err := virtClient.VirtualMachineInstance(testsuite.GetTestNamespace(vmi)).Create(vmi)
 			Expect(err).ToNot(HaveOccurred())
 			vmi = createdVmi
 			tests.WaitForSuccessfulVMIStart(vmi)
@@ -236,7 +236,7 @@ var _ = Describe("[Serial][sig-compute]MediatedDevices", Serial, func() {
 			config.MediatedDevicesConfiguration.NodeMediatedDeviceTypes = []v1.NodeMediatedDeviceTypesConfig{
 				{
 					NodeSelector: map[string]string{
-						cleanup.TestLabelForNamespace(util.NamespaceTestDefault): mdevTestLabel,
+						cleanup.TestLabelForNamespace(testsuite.GetTestNamespace(vmi)): mdevTestLabel,
 					},
 					MediatedDeviceTypes: []string{
 						"nvidia-223",
@@ -250,7 +250,7 @@ var _ = Describe("[Serial][sig-compute]MediatedDevices", Serial, func() {
 			By("Adding a mdevTestLabel1 that should trigger mdev config change")
 			// There should be only one node in this lane
 			singleNode := libnode.GetAllSchedulableNodes(virtClient).Items[0]
-			libnode.AddLabelToNode(singleNode.Name, cleanup.TestLabelForNamespace(util.NamespaceTestDefault), mdevTestLabel)
+			libnode.AddLabelToNode(singleNode.Name, cleanup.TestLabelForNamespace(testsuite.GetTestNamespace(vmi)), mdevTestLabel)
 
 			By("Creating a Fedora VMI")
 			vmi = tests.NewRandomFedoraVMIWithGuestAgent()
@@ -262,7 +262,7 @@ var _ = Describe("[Serial][sig-compute]MediatedDevices", Serial, func() {
 				},
 			}
 			vmi.Spec.Domain.Devices.GPUs = vGPUs
-			createdVmi, err := virtClient.VirtualMachineInstance(util.NamespaceTestDefault).Create(vmi)
+			createdVmi, err := virtClient.VirtualMachineInstance(testsuite.GetTestNamespace(vmi)).Create(vmi)
 			Expect(err).ToNot(HaveOccurred())
 			vmi = createdVmi
 			tests.WaitForSuccessfulVMIStart(vmi)

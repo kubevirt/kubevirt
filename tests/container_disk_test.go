@@ -34,6 +34,7 @@ import (
 	"k8s.io/apimachinery/pkg/runtime"
 
 	"kubevirt.io/kubevirt/tests/exec"
+	"kubevirt.io/kubevirt/tests/testsuite"
 	"kubevirt.io/kubevirt/tests/util"
 
 	v1 "kubevirt.io/api/core/v1"
@@ -61,7 +62,7 @@ var _ = Describe("[rfe_id:588][crit:medium][vendor:cnv-qe@redhat.com][level:comp
 		tests.WaitForSuccessfulVMIStart(obj)
 
 		// Verify Registry Disks are Online
-		pods, err := virtClient.CoreV1().Pods(util.NamespaceTestDefault).List(context.Background(), tests.UnfinishedVMIPodSelector(vmi))
+		pods, err := virtClient.CoreV1().Pods(testsuite.GetTestNamespace(vmi)).List(context.Background(), tests.UnfinishedVMIPodSelector(vmi))
 		Expect(err).ToNot(HaveOccurred())
 
 		By("Checking the number of VirtualMachineInstance disks")
@@ -106,7 +107,7 @@ var _ = Describe("[rfe_id:588][crit:medium][vendor:cnv-qe@redhat.com][level:comp
 				num := 2
 				for i := 0; i < num; i++ {
 					By("Starting the VirtualMachineInstance")
-					obj, err := virtClient.RestClient().Post().Resource("virtualmachineinstances").Namespace(util.NamespaceTestDefault).Body(vmi).Do(context.Background()).Get()
+					obj, err := virtClient.RestClient().Post().Resource("virtualmachineinstances").Namespace(testsuite.GetTestNamespace(vmi)).Body(vmi).Do(context.Background()).Get()
 					Expect(err).ToNot(HaveOccurred())
 					tests.WaitForSuccessfulVMIStart(obj)
 
@@ -127,10 +128,10 @@ var _ = Describe("[rfe_id:588][crit:medium][vendor:cnv-qe@redhat.com][level:comp
 				v1.SetObjectDefaults_VirtualMachineInstance(vmi)
 
 				By("Starting the VirtualMachineInstance")
-				vmi, err := virtClient.VirtualMachineInstance(util.NamespaceTestDefault).Create(vmi)
+				vmi, err := virtClient.VirtualMachineInstance(testsuite.GetTestNamespace(vmi)).Create(vmi)
 				Expect(err).ToNot(HaveOccurred())
 				tests.WaitForSuccessfulVMIStart(vmi)
-				startedVMI, err := virtClient.VirtualMachineInstance(util.NamespaceTestDefault).Get(vmi.ObjectMeta.Name, &metav1.GetOptions{})
+				startedVMI, err := virtClient.VirtualMachineInstance(testsuite.GetTestNamespace(vmi)).Get(vmi.ObjectMeta.Name, &metav1.GetOptions{})
 				Expect(err).ToNot(HaveOccurred())
 				By("Checking that the VirtualMachineInstance spec did not change")
 				Expect(startedVMI.Spec).To(Equal(vmi.Spec))
@@ -148,11 +149,11 @@ var _ = Describe("[rfe_id:588][crit:medium][vendor:cnv-qe@redhat.com][level:comp
 
 				By("Starting the VirtualMachineInstance")
 				vmi := libvmi.NewCirros()
-				_, err = virtClient.VirtualMachineInstance(util.NamespaceTestDefault).Create(vmi)
+				_, err = virtClient.VirtualMachineInstance(testsuite.GetTestNamespace(vmi)).Create(vmi)
 				Expect(err).ToNot(HaveOccurred())
 				By("Checking that the VMI failed")
 				Eventually(func() bool {
-					vmi, err := virtClient.VirtualMachineInstance(util.NamespaceTestDefault).Get(vmi.Name, &metav1.GetOptions{})
+					vmi, err := virtClient.VirtualMachineInstance(testsuite.GetTestNamespace(vmi)).Get(vmi.Name, &metav1.GetOptions{})
 					Expect(err).ToNot(HaveOccurred())
 					for _, condition := range vmi.Status.Conditions {
 						if condition.Type == v1.VirtualMachineInstanceSynchronized && condition.Status == k8sv1.ConditionFalse {
@@ -240,7 +241,7 @@ var _ = Describe("[rfe_id:588][crit:medium][vendor:cnv-qe@redhat.com][level:comp
 				tests.WaitUntilVMIReady(vmi, console.LoginToAlpine)
 
 				By("Fetching virt-launcher Pod")
-				pod, err := libvmi.GetPodByVirtualMachineInstance(vmi, util.NamespaceTestDefault)
+				pod, err := libvmi.GetPodByVirtualMachineInstance(vmi, testsuite.GetTestNamespace(vmi))
 				Expect(err).ToNot(HaveOccurred())
 
 				writableImagePath := fmt.Sprintf("/var/run/kubevirt-ephemeral-disks/disk-data/%v/disk.qcow2", vmi.Spec.Domain.Devices.Disks[0].Name)
@@ -276,7 +277,7 @@ var _ = Describe("[rfe_id:588][crit:medium][vendor:cnv-qe@redhat.com][level:comp
 				vmi := libvmi.NewAlpine()
 				vmi.Spec.Volumes[0].ContainerDisk.Path = "../test"
 				By("Starting the VirtualMachineInstance")
-				_, err := virtClient.RestClient().Post().Resource("virtualmachineinstances").Namespace(util.NamespaceTestDefault).Body(vmi).Do(context.Background()).Get()
+				_, err := virtClient.RestClient().Post().Resource("virtualmachineinstances").Namespace(testsuite.GetTestNamespace(vmi)).Body(vmi).Do(context.Background()).Get()
 				Expect(err).To(HaveOccurred())
 				Expect(err.Error()).To(ContainSubstring("admission webhook"))
 				Expect(err.Error()).To(ContainSubstring("denied the request"))

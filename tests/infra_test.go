@@ -40,6 +40,7 @@ import (
 
 	"kubevirt.io/kubevirt/tests/exec"
 	"kubevirt.io/kubevirt/tests/framework/checks"
+	"kubevirt.io/kubevirt/tests/testsuite"
 
 	expect "github.com/google/goexpect"
 	. "github.com/onsi/ginkgo/v2"
@@ -132,7 +133,7 @@ var _ = Describe("[Serial][sig-compute]Infrastructure", Serial, func() {
 		It("on the controller rate limiter should lead to delayed VMI starts", func() {
 			By("first getting the basetime for a replicaset")
 			replicaset := tests.NewRandomReplicaSetFromVMI(libvmi.NewCirros(libvmi.WithResourceMemory("1Mi")), int32(0))
-			replicaset, err = virtClient.ReplicaSet(util.NamespaceTestDefault).Create(replicaset)
+			replicaset, err = virtClient.ReplicaSet(testsuite.GetTestNamespace(nil)).Create(replicaset)
 			Expect(err).ToNot(HaveOccurred())
 			start := time.Now()
 			libreplicaset.DoScaleWithScaleSubresource(virtClient, replicaset.Name, 10)
@@ -168,7 +169,7 @@ var _ = Describe("[Serial][sig-compute]Infrastructure", Serial, func() {
 			)
 
 			replicaset := tests.NewRandomReplicaSetFromVMI(vmi, 0)
-			replicaset, err = virtClient.ReplicaSet(util.NamespaceTestDefault).Create(replicaset)
+			replicaset, err = virtClient.ReplicaSet(testsuite.GetTestNamespace(nil)).Create(replicaset)
 			Expect(err).ToNot(HaveOccurred())
 			libreplicaset.DoScaleWithScaleSubresource(virtClient, replicaset.Name, 10)
 			Eventually(matcher.AllVMIs(replicaset.Namespace), 90*time.Second, 1*time.Second).Should(matcher.BeInPhase(v1.Running))
@@ -446,7 +447,7 @@ var _ = Describe("[Serial][sig-compute]Infrastructure", Serial, func() {
 			RestClient().
 			Post().
 			Resource("virtualmachineinstances").
-			Namespace(util.NamespaceTestDefault).
+			Namespace(testsuite.GetTestNamespace(vmi)).
 			Body(vmi).
 			Do(context.Background()).Get()
 		Expect(err).ToNot(HaveOccurred(), "Should create VMI")
@@ -1177,7 +1178,7 @@ var _ = Describe("[Serial][sig-compute]Infrastructure", Serial, func() {
 				vmi := tests.NewRandomVMI()
 
 				By("Starting a new VirtualMachineInstance")
-				obj, err := virtClient.RestClient().Post().Resource("virtualmachineinstances").Namespace(util.NamespaceTestDefault).Body(vmi).Do(context.Background()).Get()
+				obj, err := virtClient.RestClient().Post().Resource("virtualmachineinstances").Namespace(testsuite.GetTestNamespace(vmi)).Body(vmi).Do(context.Background()).Get()
 				Expect(err).ToNot(HaveOccurred())
 				tests.WaitForSuccessfulVMIStart(obj)
 			})
@@ -1548,12 +1549,12 @@ var _ = Describe("[Serial][sig-compute]Infrastructure", Serial, func() {
 				vmi.Spec.NodeSelector = map[string]string{"kubernetes.io/hostname": node.Name}
 
 				By("Starting the VirtualMachineInstance")
-				_, err := virtClient.VirtualMachineInstance(util.NamespaceTestDefault).Create(vmi)
+				_, err := virtClient.VirtualMachineInstance(testsuite.GetTestNamespace(nil)).Create(vmi)
 				Expect(err).ToNot(HaveOccurred())
 
 				By("Checking that the VMI failed")
 				Eventually(func() bool {
-					vmi, err := virtClient.VirtualMachineInstance(util.NamespaceTestDefault).Get(vmi.Name, &metav1.GetOptions{})
+					vmi, err := virtClient.VirtualMachineInstance(testsuite.GetTestNamespace(vmi)).Get(vmi.Name, &metav1.GetOptions{})
 					Expect(err).ToNot(HaveOccurred())
 					for _, condition := range vmi.Status.Conditions {
 						if condition.Type == v1.VirtualMachineInstanceConditionType(k8sv1.PodScheduled) && condition.Status == k8sv1.ConditionFalse {

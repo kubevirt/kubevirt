@@ -31,12 +31,12 @@ import (
 
 	"kubevirt.io/client-go/kubecli"
 
-	"kubevirt.io/kubevirt/tests/util"
+	"kubevirt.io/kubevirt/tests/testsuite"
 )
 
 func CheckForVMInstancetypeRevisionNames(vmName string, virtClient kubecli.KubevirtClient) func() error {
 	return func() error {
-		vm, err := virtClient.VirtualMachine(util.NamespaceTestDefault).Get(vmName, &metav1.GetOptions{})
+		vm, err := virtClient.VirtualMachine(testsuite.GetTestNamespace(nil)).Get(vmName, &metav1.GetOptions{})
 		if err != nil {
 			return err
 		}
@@ -56,9 +56,9 @@ func WaitForVMInstanceTypeRevisionNames(vmName string, virtClient kubecli.Kubevi
 }
 
 func EnsureControllerRevisionObjectsEqual(crNameA, crNameB string, virtClient kubecli.KubevirtClient) bool {
-	crA, err := virtClient.AppsV1().ControllerRevisions(util.NamespaceTestDefault).Get(context.Background(), crNameA, metav1.GetOptions{})
+	crA, err := virtClient.AppsV1().ControllerRevisions(testsuite.GetTestNamespace(nil)).Get(context.Background(), crNameA, metav1.GetOptions{})
 	Expect(err).ToNot(HaveOccurred())
-	crB, err := virtClient.AppsV1().ControllerRevisions(util.NamespaceTestDefault).Get(context.Background(), crNameB, metav1.GetOptions{})
+	crB, err := virtClient.AppsV1().ControllerRevisions(testsuite.GetTestNamespace(nil)).Get(context.Background(), crNameB, metav1.GetOptions{})
 	Expect(err).ToNot(HaveOccurred())
 	return equality.Semantic.DeepEqual(crA.Data.Object, crB.Data.Object)
 }

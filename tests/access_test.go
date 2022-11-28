@@ -35,8 +35,6 @@ import (
 
 	"kubevirt.io/api/core"
 
-	"kubevirt.io/kubevirt/tests/util"
-
 	v1 "kubevirt.io/api/core/v1"
 	pool "kubevirt.io/api/pool"
 	"kubevirt.io/api/snapshot/v1alpha1"
@@ -208,7 +206,7 @@ var _ = Describe("[rfe_id:500][crit:high][arm64][vendor:cnv-qe@redhat.com][level
 
 	Describe("With default kubevirt service accounts", func() {
 		DescribeTable("should verify permissions on resources are correct for view, edit, and admin", func(group string, resource string, accessRights ...rights) {
-			namespace := util.NamespaceTestDefault
+			namespace := testsuite.GetTestNamespace(nil)
 			for _, accessRight := range accessRights {
 				for _, entry := range accessRight.list() {
 					By(fmt.Sprintf("verifying sa %s for verb %s on resource %s", entry.role, entry.verb, resource))
@@ -289,7 +287,7 @@ var _ = Describe("[rfe_id:500][crit:high][arm64][vendor:cnv-qe@redhat.com][level
 		)
 
 		DescribeTable("should verify permissions on subresources are correct for view, edit, admin and default", func(resource string, subresource string, accessRights ...rights) {
-			namespace := util.NamespaceTestDefault
+			namespace := testsuite.GetTestNamespace(nil)
 			for _, accessRight := range accessRights {
 				for _, entry := range accessRight.list() {
 					By(fmt.Sprintf("verifying sa %s for verb %s on resource %s on subresource %s", entry.role, entry.verb, resource, subresource))
@@ -365,7 +363,7 @@ var _ = Describe("[rfe_id:500][crit:high][arm64][vendor:cnv-qe@redhat.com][level
 
 		BeforeEach(func() {
 			// Generate unique usernames based on the test namespace which is unique per ginkgo node
-			testUser = "testuser-" + util.NamespaceTestDefault
+			testUser = "testuser-" + testsuite.GetTestNamespace(nil)
 			clientcmd.SkipIfNoCmd("oc")
 			if !checks.IsOpenShift() {
 				Skip("Skip tests which require an openshift managed test user if not running on openshift")
@@ -392,7 +390,7 @@ var _ = Describe("[rfe_id:500][crit:high][arm64][vendor:cnv-qe@redhat.com][level
 
 		Context("should fail without admin rights for the project", func() {
 			BeforeEach(func() {
-				stdOut, stdErr, err := clientcmd.RunCommandWithNS("", k8sClient, "project", util.NamespaceTestDefault)
+				stdOut, stdErr, err := clientcmd.RunCommandWithNS("", k8sClient, "project", testsuite.GetTestNamespace(nil))
 				Expect(err).ToNot(HaveOccurred(), "ERR: %s", stdOut+stdErr)
 			})
 
@@ -431,10 +429,10 @@ var _ = Describe("[rfe_id:500][crit:high][arm64][vendor:cnv-qe@redhat.com][level
 			BeforeEach(func() {
 				By("Ensuring user has the admin rights for the test namespace project")
 				// This is ussually done in backgroung when creating new user with login and by creating new project by that user
-				stdOut, stdErr, err := clientcmd.RunCommandWithNS("", k8sClient, "adm", "policy", "add-role-to-user", "-n", util.NamespaceTestDefault, "admin", testUser)
+				stdOut, stdErr, err := clientcmd.RunCommandWithNS("", k8sClient, "adm", "policy", "add-role-to-user", "-n", testsuite.GetTestNamespace(nil), "admin", testUser)
 				Expect(err).ToNot(HaveOccurred(), "ERR: %s", stdOut+stdErr)
 
-				stdOut, stdErr, err = clientcmd.RunCommandWithNS("", k8sClient, "project", util.NamespaceTestDefault)
+				stdOut, stdErr, err = clientcmd.RunCommandWithNS("", k8sClient, "project", testsuite.GetTestNamespace(nil))
 				Expect(err).ToNot(HaveOccurred(), "ERR: %s", stdOut+stdErr)
 			})
 

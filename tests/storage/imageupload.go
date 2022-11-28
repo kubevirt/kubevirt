@@ -14,6 +14,7 @@ import (
 
 	"kubevirt.io/client-go/log"
 
+	"kubevirt.io/kubevirt/tests/testsuite"
 	"kubevirt.io/kubevirt/tests/util"
 
 	k8sv1 "k8s.io/api/core/v1"
@@ -85,24 +86,24 @@ var _ = SIGDescribe("[Serial]ImageUpload", Serial, func() {
 
 	validateDataVolume := func(targetName string, _ string) {
 		if libstorage.IsDataVolumeGC(virtClient) {
-			_, err := virtClient.CoreV1().PersistentVolumeClaims(util.NamespaceTestDefault).Get(context.Background(), targetName, metav1.GetOptions{})
+			_, err := virtClient.CoreV1().PersistentVolumeClaims(testsuite.GetTestNamespace(nil)).Get(context.Background(), targetName, metav1.GetOptions{})
 			Expect(err).ToNot(HaveOccurred())
 			return
 		}
 		By(getDataVolume)
-		_, err := virtClient.CdiClient().CdiV1beta1().DataVolumes(util.NamespaceTestDefault).Get(context.Background(), targetName, metav1.GetOptions{})
+		_, err := virtClient.CdiClient().CdiV1beta1().DataVolumes(testsuite.GetTestNamespace(nil)).Get(context.Background(), targetName, metav1.GetOptions{})
 		Expect(err).ToNot(HaveOccurred())
 	}
 
 	deletePVC := func(targetName string) {
-		err := virtClient.CoreV1().PersistentVolumeClaims((util.NamespaceTestDefault)).Delete(context.Background(), targetName, metav1.DeleteOptions{})
+		err := virtClient.CoreV1().PersistentVolumeClaims((testsuite.GetTestNamespace(nil))).Delete(context.Background(), targetName, metav1.DeleteOptions{})
 		if errors.IsNotFound(err) {
 			return
 		}
 		Expect(err).ToNot(HaveOccurred())
 
 		Eventually(func() bool {
-			_, err = virtClient.CoreV1().PersistentVolumeClaims(util.NamespaceTestDefault).Get(context.Background(), targetName, metav1.GetOptions{})
+			_, err = virtClient.CoreV1().PersistentVolumeClaims(testsuite.GetTestNamespace(nil)).Get(context.Background(), targetName, metav1.GetOptions{})
 			if errors.IsNotFound(err) {
 				return true
 			}
@@ -125,7 +126,7 @@ var _ = SIGDescribe("[Serial]ImageUpload", Serial, func() {
 	}
 
 	deleteDataVolume := func(targetName string) {
-		err := virtClient.CdiClient().CdiV1beta1().DataVolumes(util.NamespaceTestDefault).Delete(context.Background(), targetName, metav1.DeleteOptions{})
+		err := virtClient.CdiClient().CdiV1beta1().DataVolumes(testsuite.GetTestNamespace(nil)).Delete(context.Background(), targetName, metav1.DeleteOptions{})
 		if errors.IsNotFound(err) {
 			deletePVC(targetName)
 			return
@@ -133,7 +134,7 @@ var _ = SIGDescribe("[Serial]ImageUpload", Serial, func() {
 		Expect(err).ToNot(HaveOccurred())
 
 		Eventually(func() bool {
-			_, err = virtClient.CdiClient().CdiV1beta1().DataVolumes(util.NamespaceTestDefault).Get(context.Background(), targetName, metav1.GetOptions{})
+			_, err = virtClient.CdiClient().CdiV1beta1().DataVolumes(testsuite.GetTestNamespace(nil)).Get(context.Background(), targetName, metav1.GetOptions{})
 			if errors.IsNotFound(err) {
 				return true
 			}
@@ -146,11 +147,11 @@ var _ = SIGDescribe("[Serial]ImageUpload", Serial, func() {
 
 	validatePVC := func(targetName string, storageClass string) {
 		By("Validate no DataVolume")
-		_, err := virtClient.CdiClient().CdiV1beta1().DataVolumes(util.NamespaceTestDefault).Get(context.Background(), targetName, metav1.GetOptions{})
+		_, err := virtClient.CdiClient().CdiV1beta1().DataVolumes(testsuite.GetTestNamespace(nil)).Get(context.Background(), targetName, metav1.GetOptions{})
 		Expect(errors.IsNotFound(err)).To(BeTrue())
 
 		By(getPVC)
-		pvc, err := virtClient.CoreV1().PersistentVolumeClaims(util.NamespaceTestDefault).Get(context.Background(), targetName, metav1.GetOptions{})
+		pvc, err := virtClient.CoreV1().PersistentVolumeClaims(testsuite.GetTestNamespace(nil)).Get(context.Background(), targetName, metav1.GetOptions{})
 		Expect(err).ToNot(HaveOccurred())
 		Expect(*pvc.Spec.StorageClassName).To(Equal(storageClass))
 	}
@@ -166,7 +167,7 @@ var _ = SIGDescribe("[Serial]ImageUpload", Serial, func() {
 			By("Upload image")
 			virtctlCmd := clientcmd.NewRepeatableVirtctlCommand(imageUpload,
 				resource, targetName,
-				namespace, util.NamespaceTestDefault,
+				namespace, testsuite.GetTestNamespace(nil),
 				"--image-path", imagePath,
 				size, pvcSize,
 				"--storage-class", sc,
@@ -183,14 +184,14 @@ var _ = SIGDescribe("[Serial]ImageUpload", Serial, func() {
 			if startVM {
 				By("Start VM")
 				vmi := tests.NewRandomVMIWithDataVolume(targetName)
-				vmi, err = virtClient.VirtualMachineInstance(util.NamespaceTestDefault).Create(vmi)
+				vmi, err = virtClient.VirtualMachineInstance(testsuite.GetTestNamespace(vmi)).Create(vmi)
 				Expect(err).ToNot(HaveOccurred())
 				defer func() {
-					err = virtClient.VirtualMachineInstance(util.NamespaceTestDefault).Delete(vmi.Name, &metav1.DeleteOptions{})
+					err = virtClient.VirtualMachineInstance(testsuite.GetTestNamespace(vmi)).Delete(vmi.Name, &metav1.DeleteOptions{})
 					Expect(err).ToNot(HaveOccurred())
 				}()
 				tests.WaitForSuccessfulVMIStartIgnoreWarnings(vmi)
-				vmi, err = virtClient.VirtualMachineInstance(util.NamespaceTestDefault).Get(vmi.Name, &metav1.GetOptions{})
+				vmi, err = virtClient.VirtualMachineInstance(testsuite.GetTestNamespace(vmi)).Get(vmi.Name, &metav1.GetOptions{})
 				Expect(err).ToNot(HaveOccurred())
 			}
 		},
@@ -204,7 +205,7 @@ var _ = SIGDescribe("[Serial]ImageUpload", Serial, func() {
 			return
 		}
 		By(getDataVolume)
-		dv, err := virtClient.CdiClient().CdiV1beta1().DataVolumes(util.NamespaceTestDefault).Get(context.Background(), targetName, metav1.GetOptions{})
+		dv, err := virtClient.CdiClient().CdiV1beta1().DataVolumes(testsuite.GetTestNamespace(nil)).Get(context.Background(), targetName, metav1.GetOptions{})
 		Expect(err).ToNot(HaveOccurred())
 
 		_, found := dv.Annotations["cdi.kubevirt.io/storage.bind.immediate.requested"]
@@ -213,11 +214,11 @@ var _ = SIGDescribe("[Serial]ImageUpload", Serial, func() {
 
 	validatePVCForceBind := func(targetName string) {
 		By("Validate no DataVolume")
-		_, err := virtClient.CdiClient().CdiV1beta1().DataVolumes(util.NamespaceTestDefault).Get(context.Background(), targetName, metav1.GetOptions{})
+		_, err := virtClient.CdiClient().CdiV1beta1().DataVolumes(testsuite.GetTestNamespace(nil)).Get(context.Background(), targetName, metav1.GetOptions{})
 		Expect(errors.IsNotFound(err)).To(BeTrue())
 
 		By(getPVC)
-		pvc, err := virtClient.CoreV1().PersistentVolumeClaims(util.NamespaceTestDefault).Get(context.Background(), targetName, metav1.GetOptions{})
+		pvc, err := virtClient.CoreV1().PersistentVolumeClaims(testsuite.GetTestNamespace(nil)).Get(context.Background(), targetName, metav1.GetOptions{})
 		Expect(err).ToNot(HaveOccurred())
 		_, found := pvc.Annotations["cdi.kubevirt.io/storage.bind.immediate.requested"]
 		Expect(found).To(BeTrue())
@@ -234,7 +235,7 @@ var _ = SIGDescribe("[Serial]ImageUpload", Serial, func() {
 			By("Upload image")
 			virtctlCmd := clientcmd.NewRepeatableVirtctlCommand(imageUpload,
 				resource, targetName,
-				namespace, util.NamespaceTestDefault,
+				namespace, testsuite.GetTestNamespace(nil),
 				"--image-path", imagePath,
 				size, pvcSize,
 				"--storage-class", storageClass,
@@ -266,18 +267,18 @@ var _ = SIGDescribe("[Serial]ImageUpload", Serial, func() {
 			if uploadDV {
 				if !libstorage.IsDataVolumeGC(virtClient) {
 					By(getDataVolume)
-					dv, err := virtClient.CdiClient().CdiV1beta1().DataVolumes(util.NamespaceTestDefault).Get(context.Background(), targetName, metav1.GetOptions{})
+					dv, err := virtClient.CdiClient().CdiV1beta1().DataVolumes(testsuite.GetTestNamespace(nil)).Get(context.Background(), targetName, metav1.GetOptions{})
 					Expect(err).ToNot(HaveOccurred())
 					Expect(dv.Spec.ContentType).To(Equal(cdiv1.DataVolumeArchive))
 				}
 			} else {
 				By("Validate no DataVolume")
-				_, err := virtClient.CdiClient().CdiV1beta1().DataVolumes(util.NamespaceTestDefault).Get(context.Background(), targetName, metav1.GetOptions{})
+				_, err := virtClient.CdiClient().CdiV1beta1().DataVolumes(testsuite.GetTestNamespace(nil)).Get(context.Background(), targetName, metav1.GetOptions{})
 				Expect(errors.IsNotFound(err)).To(BeTrue())
 			}
 
 			By(getPVC)
-			pvc, err := virtClient.CoreV1().PersistentVolumeClaims(util.NamespaceTestDefault).Get(context.Background(), targetName, metav1.GetOptions{})
+			pvc, err := virtClient.CoreV1().PersistentVolumeClaims(testsuite.GetTestNamespace(nil)).Get(context.Background(), targetName, metav1.GetOptions{})
 			Expect(err).ToNot(HaveOccurred())
 			contentType, found := pvc.Annotations["cdi.kubevirt.io/storage.contentType"]
 			Expect(found).To(BeTrue())
@@ -290,7 +291,7 @@ var _ = SIGDescribe("[Serial]ImageUpload", Serial, func() {
 			By("Upload archive content")
 			virtctlCmd := clientcmd.NewRepeatableVirtctlCommand(imageUpload,
 				resource, targetName,
-				namespace, util.NamespaceTestDefault,
+				namespace, testsuite.GetTestNamespace(nil),
 				"--archive-path", archivePath,
 				size, pvcSize,
 				"--force-bind",
@@ -320,7 +321,7 @@ var _ = SIGDescribe("[Serial]ImageUpload", Serial, func() {
 		It("Upload fails creating a DV when using a non-existent storageClass", func() {
 			virtctlCmd := clientcmd.NewRepeatableVirtctlCommand(imageUpload,
 				"dv", "alpine-archive-dv-"+rand.String(12),
-				namespace, util.NamespaceTestDefault,
+				namespace, testsuite.GetTestNamespace(nil),
 				"--archive-path", archivePath,
 				"--storage-class", invalidStorageClass,
 				size, pvcSize,
@@ -335,7 +336,7 @@ var _ = SIGDescribe("[Serial]ImageUpload", Serial, func() {
 		It("Upload fails creating a PVC when using a non-existent storageClass", func() {
 			virtctlCmd := clientcmd.NewRepeatableVirtctlCommand(imageUpload,
 				"pvc", "alpine-archive-"+rand.String(12),
-				namespace, util.NamespaceTestDefault,
+				namespace, testsuite.GetTestNamespace(nil),
 				"--archive-path", archivePath,
 				"--storage-class", invalidStorageClass,
 				size, pvcSize,
@@ -351,7 +352,7 @@ var _ = SIGDescribe("[Serial]ImageUpload", Serial, func() {
 			libstorage.CreateStorageClass(invalidStorageClass, nil)
 			virtctlCmd := clientcmd.NewRepeatableVirtctlCommand(imageUpload,
 				"dv", "alpine-archive-dv-"+rand.String(12),
-				namespace, util.NamespaceTestDefault,
+				namespace, testsuite.GetTestNamespace(nil),
 				"--archive-path", archivePath,
 				"--storage-class", invalidStorageClass,
 				size, pvcSize,
@@ -368,7 +369,7 @@ var _ = SIGDescribe("[Serial]ImageUpload", Serial, func() {
 			libstorage.CreateStorageClass(invalidStorageClass, nil)
 			virtctlCmd := clientcmd.NewRepeatableVirtctlCommand(imageUpload,
 				"pvc", "alpine-archive-pvc-"+rand.String(12),
-				namespace, util.NamespaceTestDefault,
+				namespace, testsuite.GetTestNamespace(nil),
 				"--archive-path", archivePath,
 				"--storage-class", invalidStorageClass,
 				size, pvcSize,

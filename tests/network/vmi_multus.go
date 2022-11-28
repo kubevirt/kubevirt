@@ -160,15 +160,15 @@ var _ = SIGDescribe("[Serial]Multus", Serial, func() {
 		Expect(nodes.Items).NotTo(BeEmpty())
 
 		const vlanID100 = 100
-		Expect(createBridgeNetworkAttachmentDefinition(util.NamespaceTestDefault, linuxBridgeVlan100Network, bridge10CNIType, bridge10Name, vlanID100, "", bridge10MacSpoofCheck)).To(Succeed())
+		Expect(createBridgeNetworkAttachmentDefinition(testsuite.GetTestNamespace(nil), linuxBridgeVlan100Network, bridge10CNIType, bridge10Name, vlanID100, "", bridge10MacSpoofCheck)).To(Succeed())
 
 		// Create ptp crds with tuning plugin enabled in two different namespaces
-		Expect(createPtpNetworkAttachmentDefinition(util.NamespaceTestDefault, ptpConf1, ptpSubnet)).To(Succeed())
+		Expect(createPtpNetworkAttachmentDefinition(testsuite.GetTestNamespace(nil), ptpConf1, ptpSubnet)).To(Succeed())
 		Expect(createPtpNetworkAttachmentDefinition(testsuite.NamespaceTestAlternative, ptpConf2, ptpSubnet)).To(Succeed())
 
 		// Multus tests need to ensure that old VMIs are gone
 		Eventually(func() []v1.VirtualMachineInstance {
-			list1, err := virtClient.VirtualMachineInstance(util.NamespaceTestDefault).List(&v13.ListOptions{})
+			list1, err := virtClient.VirtualMachineInstance(testsuite.GetTestNamespace(nil)).List(&v13.ListOptions{})
 			Expect(err).ToNot(HaveOccurred())
 			list2, err := virtClient.VirtualMachineInstance(testsuite.NamespaceTestAlternative).List(&v13.ListOptions{})
 			Expect(err).ToNot(HaveOccurred())
@@ -213,7 +213,7 @@ var _ = SIGDescribe("[Serial]Multus", Serial, func() {
 					}},
 				}
 
-				detachedVMI, err = virtClient.VirtualMachineInstance(util.NamespaceTestDefault).Create(detachedVMI)
+				detachedVMI, err = virtClient.VirtualMachineInstance(testsuite.GetTestNamespace(nil)).Create(detachedVMI)
 				Expect(err).ToNot(HaveOccurred())
 				tests.WaitUntilVMIReady(detachedVMI, console.LoginToAlpine)
 
@@ -233,7 +233,7 @@ var _ = SIGDescribe("[Serial]Multus", Serial, func() {
 					}},
 				}
 
-				detachedVMI, err = virtClient.VirtualMachineInstance(util.NamespaceTestDefault).Create(detachedVMI)
+				detachedVMI, err = virtClient.VirtualMachineInstance(testsuite.GetTestNamespace(nil)).Create(detachedVMI)
 				Expect(err).ToNot(HaveOccurred())
 				tests.WaitUntilVMIReady(detachedVMI, console.LoginToAlpine)
 
@@ -254,7 +254,7 @@ var _ = SIGDescribe("[Serial]Multus", Serial, func() {
 					}},
 				}
 
-				detachedVMI, err = virtClient.VirtualMachineInstance(util.NamespaceTestDefault).Create(detachedVMI)
+				detachedVMI, err = virtClient.VirtualMachineInstance(testsuite.GetTestNamespace(nil)).Create(detachedVMI)
 				Expect(err).ToNot(HaveOccurred())
 				tests.WaitUntilVMIReady(detachedVMI, console.LoginToCirros)
 
@@ -294,12 +294,12 @@ var _ = SIGDescribe("[Serial]Multus", Serial, func() {
 				detachedVMI.Spec.Networks = []v1.Network{
 					{Name: "ptp", NetworkSource: v1.NetworkSource{
 						Multus: &v1.MultusNetwork{
-							NetworkName: fmt.Sprintf("%s/%s", util.NamespaceTestDefault, ptpConf1),
+							NetworkName: fmt.Sprintf("%s/%s", testsuite.GetTestNamespace(nil), ptpConf1),
 							Default:     true,
 						}}},
 				}
 
-				detachedVMI, err = virtClient.VirtualMachineInstance(util.NamespaceTestDefault).Create(detachedVMI)
+				detachedVMI, err = virtClient.VirtualMachineInstance(testsuite.GetTestNamespace(nil)).Create(detachedVMI)
 				Expect(err).ToNot(HaveOccurred())
 				tests.WaitUntilVMIReady(detachedVMI, console.LoginToAlpine)
 
@@ -362,7 +362,7 @@ var _ = SIGDescribe("[Serial]Multus", Serial, func() {
 				Expect(err).ToNot(HaveOccurred())
 
 				By("Verifying the desired custom MAC is not configured inside the pod namespace.")
-				vmiPod := tests.GetRunningPodByVirtualMachineInstance(vmiOne, util.NamespaceTestDefault)
+				vmiPod := tests.GetRunningPodByVirtualMachineInstance(vmiOne, testsuite.GetTestNamespace(vmiOne))
 				out, err := exec.ExecuteCommandOnPod(
 					virtClient,
 					vmiPod,
@@ -376,7 +376,7 @@ var _ = SIGDescribe("[Serial]Multus", Serial, func() {
 
 		Context("VirtualMachineInstance with Linux bridge plugin interface", func() {
 			getIfaceIPByNetworkName := func(vmiName, networkName string) (string, error) {
-				vmi, err := virtClient.VirtualMachineInstance(util.NamespaceTestDefault).Get(vmiName, &metav1.GetOptions{})
+				vmi, err := virtClient.VirtualMachineInstance(testsuite.GetTestNamespace(nil)).Get(vmiName, &metav1.GetOptions{})
 				if err != nil {
 					return "", err
 				}
@@ -397,7 +397,7 @@ var _ = SIGDescribe("[Serial]Multus", Serial, func() {
 			DescribeTable("should be able to ping between two vms", func(interfaces []v1.Interface, networks []v1.Network, ifaceName, staticIPVm1, staticIPVm2 string) {
 				if staticIPVm2 == "" || staticIPVm1 == "" {
 					ipam := generateIPAMConfig("host-local", ptpSubnet)
-					Expect(createBridgeNetworkAttachmentDefinition(util.NamespaceTestDefault, linuxBridgeVlan100WithIPAMNetwork, bridge10CNIType, bridge10Name, 0, ipam, bridge10MacSpoofCheck)).To(Succeed())
+					Expect(createBridgeNetworkAttachmentDefinition(testsuite.GetTestNamespace(nil), linuxBridgeVlan100WithIPAMNetwork, bridge10CNIType, bridge10Name, 0, ipam, bridge10MacSpoofCheck)).To(Succeed())
 				}
 
 				vmiOne := createVMIOnNode(interfaces, networks)
@@ -495,7 +495,7 @@ var _ = SIGDescribe("[Serial]Multus", Serial, func() {
 
 				tests.WaitUntilVMIReady(vmiOne, console.LoginToAlpine)
 
-				updatedVmi, err := virtClient.VirtualMachineInstance(util.NamespaceTestDefault).Get(vmiOne.Name, &metav1.GetOptions{})
+				updatedVmi, err := virtClient.VirtualMachineInstance(testsuite.GetTestNamespace(vmiOne)).Get(vmiOne.Name, &metav1.GetOptions{})
 				Expect(err).ToNot(HaveOccurred())
 
 				Expect(updatedVmi.Status.Interfaces).To(HaveLen(2))
@@ -546,7 +546,7 @@ var _ = SIGDescribe("[Serial]Multus", Serial, func() {
 					libvmi.WithNetwork(&linuxBridgeNetwork),
 				)
 
-				vmi, err = virtClient.VirtualMachineInstance(util.NamespaceTestDefault).Create(vmi)
+				vmi, err = virtClient.VirtualMachineInstance(testsuite.GetTestNamespace(nil)).Create(vmi)
 				Expect(err).ToNot(HaveOccurred())
 
 				vmi = tests.WaitUntilVMIReady(vmi, console.LoginToFedora)
@@ -572,7 +572,7 @@ var _ = SIGDescribe("[Serial]Multus", Serial, func() {
 					linuxBridgeNetwork,
 				}
 
-				vmi, err = virtClient.VirtualMachineInstance(util.NamespaceTestDefault).Create(vmi)
+				vmi, err = virtClient.VirtualMachineInstance(testsuite.GetTestNamespace(nil)).Create(vmi)
 				Expect(err).To(HaveOccurred())
 				testErr := err.(*errors.StatusError)
 				Expect(testErr.ErrStatus.Reason).To(BeEquivalentTo("Invalid"))
@@ -587,7 +587,7 @@ var _ = SIGDescribe("[Serial]Multus", Serial, func() {
 					bridge11MACSpoofCheck = true
 				)
 
-				Expect(createBridgeNetworkAttachmentDefinition(util.NamespaceTestDefault,
+				Expect(createBridgeNetworkAttachmentDefinition(testsuite.GetTestNamespace(nil),
 					linuxBridgeWithMACSpoofCheckNetwork,
 					bridge11CNIType,
 					bridge11Name,
@@ -683,7 +683,7 @@ var _ = SIGDescribe("[Serial]Multus", Serial, func() {
 				agentVMI.Spec.Domain.Resources.Requests[k8sv1.ResourceMemory] = resource.MustParse("1024M")
 
 				By("Starting a VirtualMachineInstance")
-				agentVMI, err = virtClient.VirtualMachineInstance(util.NamespaceTestDefault).Create(agentVMI)
+				agentVMI, err = virtClient.VirtualMachineInstance(testsuite.GetTestNamespace(nil)).Create(agentVMI)
 				Expect(err).ToNot(HaveOccurred(), "Should create VMI successfully")
 				tests.WaitForSuccessfulVMIStart(agentVMI)
 
@@ -692,14 +692,14 @@ var _ = SIGDescribe("[Serial]Multus", Serial, func() {
 
 				getOptions := &metav1.GetOptions{}
 				Eventually(func() []v1.VirtualMachineInstanceNetworkInterface {
-					updatedVmi, err := virtClient.VirtualMachineInstance(util.NamespaceTestDefault).Get(agentVMI.Name, getOptions)
+					updatedVmi, err := virtClient.VirtualMachineInstance(testsuite.GetTestNamespace(agentVMI)).Get(agentVMI.Name, getOptions)
 					if err != nil {
 						return nil
 					}
 					return updatedVmi.Status.Interfaces
 				}, 420*time.Second, 4).Should(HaveLen(4), "Should have interfaces in vmi status")
 
-				updatedVmi, err := virtClient.VirtualMachineInstance(util.NamespaceTestDefault).Get(agentVMI.Name, getOptions)
+				updatedVmi, err := virtClient.VirtualMachineInstance(testsuite.GetTestNamespace(agentVMI)).Get(agentVMI.Name, getOptions)
 				Expect(err).ToNot(HaveOccurred())
 
 				Expect(updatedVmi.Status.Interfaces).To(HaveLen(4))

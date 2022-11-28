@@ -9,7 +9,7 @@ import (
 	virtv1 "kubevirt.io/api/core/v1"
 
 	"kubevirt.io/kubevirt/pkg/controller"
-	"kubevirt.io/kubevirt/tests"
+	"kubevirt.io/kubevirt/tests/libvmi"
 )
 
 var _ = Describe("VSOCK", func() {
@@ -18,9 +18,10 @@ var _ = Describe("VSOCK", func() {
 	newRandomVMIsWithORWithoutVSOCK := func(totalVMINum, vsockVMINum int) []*virtv1.VirtualMachineInstance {
 		var vmis []*virtv1.VirtualMachineInstance
 		for i := 0; i < totalVMINum; i++ {
-			vmi := tests.NewRandomVMI()
-			// NewRandomVMI isn't guaranteed to have a unique name.
+			vmi := libvmi.NewCirros()
+			// NewCirros isn't guaranteed to have a unique name.
 			vmi.Name = fmt.Sprintf("%s-%d", vmi.Name, i)
+			vmi.Namespace = "vsock"
 			if i < vsockVMINum {
 				cid := uint32(i + 3)
 				vmi.Status.VSOCKCID = &cid
@@ -90,12 +91,12 @@ var _ = Describe("VSOCK", func() {
 	Context("CIDs iteration", func() {
 		It("should wrap arround if reaches the maximum", func() {
 			m.randCID = func() uint32 { return math.MaxUint32 }
-			vmi := tests.NewRandomVMI()
+			vmi := libvmi.NewCirros()
 			Expect(m.Allocate(vmi)).To(Succeed())
 			Expect(vmi.Status.VSOCKCID).NotTo(BeNil())
 			Expect(*vmi.Status.VSOCKCID).To(BeNumerically("==", math.MaxUint32))
 
-			vmi2 := tests.NewRandomVMI()
+			vmi2 := libvmi.NewCirros()
 			Expect(m.Allocate(vmi2)).To(Succeed())
 			Expect(vmi2.Status.VSOCKCID).NotTo(BeNil())
 			Expect(*vmi2.Status.VSOCKCID).To(BeNumerically("==", 3))
@@ -117,7 +118,7 @@ var _ = Describe("VSOCK", func() {
 			Expect(m.reverse).To(HaveLen(len(vmis)))
 
 			// The next one will fail
-			vmi := tests.NewRandomVMI()
+			vmi := libvmi.NewCirros()
 			Expect(m.Allocate(vmi)).NotTo(Succeed())
 		})
 	})

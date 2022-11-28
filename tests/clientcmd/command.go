@@ -34,6 +34,7 @@ import (
 	"kubevirt.io/client-go/log"
 
 	"kubevirt.io/kubevirt/tests/flags"
+	"kubevirt.io/kubevirt/tests/testsuite"
 	"kubevirt.io/kubevirt/tests/util"
 )
 
@@ -71,7 +72,7 @@ func SkipIfNoCmd(cmdName string) {
 }
 
 func RunCommand(cmdName string, args ...string) (string, string, error) {
-	return RunCommandWithNS(util.NamespaceTestDefault, cmdName, args...)
+	return RunCommandWithNS(testsuite.GetTestNamespace(nil), cmdName, args...)
 }
 
 func RunCommandWithNS(namespace string, cmdName string, args ...string) (string, string, error) {

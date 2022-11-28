@@ -32,6 +32,7 @@ import (
 	"k8s.io/utils/pointer"
 
 	"kubevirt.io/kubevirt/tests/exec"
+	"kubevirt.io/kubevirt/tests/testsuite"
 	"kubevirt.io/kubevirt/tests/util"
 
 	v1 "kubevirt.io/api/core/v1"
@@ -105,13 +106,13 @@ var _ = SIGDescribe("Slirp Networking", func() {
 
 		DescribeTable("should be able to", func(vmiRef **v1.VirtualMachineInstance) {
 			vmi := *vmiRef
-			vmi, err = virtClient.VirtualMachineInstance(util.NamespaceTestDefault).Create(vmi)
+			vmi, err = virtClient.VirtualMachineInstance(testsuite.GetTestNamespace(nil)).Create(vmi)
 			Expect(err).ToNot(HaveOccurred())
 			tests.WaitForSuccessfulVMIStartIgnoreWarnings(vmi)
 			tests.GenerateHelloWorldServer(vmi, 80, "tcp", console.LoginToCirros, true)
 
 			By("have containerPort in the pod manifest")
-			vmiPod := tests.GetRunningPodByVirtualMachineInstance(vmi, util.NamespaceTestDefault)
+			vmiPod := tests.GetRunningPodByVirtualMachineInstance(vmi, testsuite.GetTestNamespace(vmi))
 			for _, containerSpec := range vmiPod.Spec.Containers {
 				if containerSpec.Name == "compute" {
 					container = containerSpec
@@ -162,7 +163,7 @@ var _ = SIGDescribe("Slirp Networking", func() {
 
 		DescribeTable("[outside_connectivity]should be able to communicate with the outside world", func(vmiRef **v1.VirtualMachineInstance) {
 			vmi := *vmiRef
-			vmi, err = virtClient.VirtualMachineInstance(util.NamespaceTestDefault).Create(vmi)
+			vmi, err = virtClient.VirtualMachineInstance(testsuite.GetTestNamespace(nil)).Create(vmi)
 			Expect(err).ToNot(HaveOccurred())
 			vmi = tests.WaitForSuccessfulVMIStartIgnoreWarnings(vmi)
 			vmi = tests.LoginToVM(vmi, console.LoginToCirros)
@@ -205,7 +206,7 @@ var _ = SIGDescribe("Slirp Networking", func() {
 			vmi.Spec.Networks = nil
 			tests.AddEphemeralDisk(vmi, "disk0", v1.DiskBusVirtio, cd.ContainerDiskFor(cd.ContainerDiskCirros))
 
-			vmi, err = virtClient.VirtualMachineInstance(util.NamespaceTestDefault).Create(vmi)
+			vmi, err = virtClient.VirtualMachineInstance(testsuite.GetTestNamespace(nil)).Create(vmi)
 			Expect(err).To(HaveOccurred())
 		})
 	})

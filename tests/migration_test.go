@@ -35,6 +35,7 @@ import (
 	"kubevirt.io/kubevirt/tests/exec"
 	"kubevirt.io/kubevirt/tests/framework/cleanup"
 	"kubevirt.io/kubevirt/tests/framework/matcher"
+	"kubevirt.io/kubevirt/tests/testsuite"
 
 	"kubevirt.io/kubevirt/pkg/virt-handler/cgroup"
 
@@ -108,23 +109,23 @@ var _ = Describe("[rfe_id:393][crit:high][vendor:cnv-qe@redhat.com][level:system
 	var migrationBandwidthLimit resource.Quantity
 	var err error
 
-	createConfigMap := func() string {
+	createConfigMap := func(namespace string) string {
 		name := "configmap-" + rand.String(5)
 		data := map[string]string{
 			"config1": "value1",
 			"config2": "value2",
 		}
-		tests.CreateConfigMap(name, data)
+		tests.CreateConfigMap(name, namespace, data)
 		return name
 	}
 
-	createSecret := func() string {
+	createSecret := func(namespace string) string {
 		name := "secret-" + rand.String(5)
 		data := map[string]string{
 			"user":     "admin",
 			"password": "redhat",
 		}
-		tests.CreateSecret(name, data)
+		tests.CreateSecret(name, namespace, data)
 		return name
 	}
 
@@ -239,9 +240,9 @@ var _ = Describe("[rfe_id:393][crit:high][vendor:cnv-qe@redhat.com][level:system
 		}
 	}
 
-	prepareVMIWithAllVolumeSources := func() *v1.VirtualMachineInstance {
-		secretName := createSecret()
-		configMapName := createConfigMap()
+	prepareVMIWithAllVolumeSources := func(namespace string) *v1.VirtualMachineInstance {
+		secretName := createSecret(namespace)
+		configMapName := createConfigMap(namespace)
 
 		return libvmi.NewFedora(
 			libvmi.WithNetwork(v1.DefaultPodNetwork()),
@@ -632,6 +633,11 @@ var _ = Describe("[rfe_id:393][crit:high][vendor:cnv-qe@redhat.com][level:system
 			vmi.Spec.Domain.Resources.Requests[k8sv1.ResourceMemory] = memoryRequestSize
 			vmi.Spec.Domain.Devices.Rng = &v1.Rng{}
 
+			// postcopy needs a privileged namespace
+			if mode == v1.MigrationPostCopy {
+				vmi.Namespace = testsuite.NamespacePrivileged
+			}
+
 			// add userdata for guest agent and service account mount
 			mountSvcAccCommands := fmt.Sprintf(`#!/bin/bash
 					mkdir /mnt/servacc
@@ -674,7 +680,7 @@ var _ = Describe("[rfe_id:393][crit:high][vendor:cnv-qe@redhat.com][level:system
 			By("Checking that the service account is mounted")
 			Expect(console.SafeExpectBatch(vmi, []expect.Batcher{
 				&expect.BSnd{S: "cat /mnt/servacc/namespace\n"},
-				&expect.BExp{R: util.NamespaceTestDefault},
+				&expect.BExp{R: vmi.Namespace},
 			}, 30)).To(Succeed(), "Should be able to access the mounted service account file")
 
 			By("Deleting the VMI")
@@ -1634,18 +1640,14 @@ var _ = Describe("[rfe_id:393][crit:high][vendor:cnv-qe@redhat.com][level:system
 		Context("with a Fedora shared NFS PVC (using nfs ipv4 address), cloud init and service account", func() {
 			var vmi *v1.VirtualMachineInstance
 			var dv *cdiv1.DataVolume
+			var storageClass string
 
-			BeforeEach(func() {
-				sc, foundSC := libstorage.GetRWXFileSystemStorageClass()
-				if !foundSC {
-					Skip("Skip test when Filesystem storage is not present")
-				}
-
+			createDV := func(namespace string) {
 				url := "docker://" + cd.ContainerDiskFor(cd.ContainerDiskFedoraTestTooling)
 				dv = libdv.NewDataVolume(
 					libdv.WithRegistryURLSourceAndPullMethod(url, cdiv1.RegistryPullNode),
 					libdv.WithPVC(
-						libdv.PVCWithStorageClass(sc),
+						libdv.PVCWithStorageClass(storageClass),
 						libdv.PVCWithVolumeSize(cd.FedoraVolumeSize),
 						libdv.PVCWithReadWriteManyAccessMode(),
 					),
@@ -1654,6 +1656,14 @@ var _ = Describe("[rfe_id:393][crit:high][vendor:cnv-qe@redhat.com][level:system
 				dv, err = virtClient.CdiClient().CdiV1beta1().DataVolumes(util.NamespaceTestDefault).Create(context.Background(), dv, metav1.CreateOptions{})
 				Expect(err).ToNot(HaveOccurred())
 				pvName = dv.Name
+			}
+
+			BeforeEach(func() {
+				var foundSC bool
+				storageClass, foundSC = libstorage.GetRWXFileSystemStorageClass()
+				if !foundSC {
+					Skip("Skip test when Filesystem storage is not present")
+				}
 			})
 
 			AfterEach(func() {
@@ -1661,10 +1671,14 @@ var _ = Describe("[rfe_id:393][crit:high][vendor:cnv-qe@redhat.com][level:system
 			})
 
 			It("[test_id:2653] should be migrated successfully, using guest agent on VM with default migration configuration", func() {
+				By("Creating the DV")
+				createDV(testsuite.NamespacePrivileged)
 				guestAgentMigrationTestFunc(v1.MigrationPreCopy)
 			})
 
 			It("[test_id:6975] should have guest agent functional after migration", func() {
+				By("Creating the DV")
+				createDV(testsuite.GetTestNamespace(nil))
 				By("Creating the VMI")
 				vmi = tests.NewRandomVMIWithPVC(pvName)
 				vmi.Spec.Domain.Resources.Requests[k8sv1.ResourceMemory] = resource.MustParse(fedoraVMSize)
@@ -1685,7 +1699,7 @@ var _ = Describe("[rfe_id:393][crit:high][vendor:cnv-qe@redhat.com][level:system
 			})
 		})
 
-		createDataVolumePVCAndChangeDiskImgPermissions := func(size string) *cdiv1.DataVolume {
+		createDataVolumePVCAndChangeDiskImgPermissions := func(namespace, size string) *cdiv1.DataVolume {
 			// Create DV and alter permission of disk.img
 			sc, foundSC := libstorage.GetRWXFileSystemStorageClass()
 			if !foundSC {
@@ -1702,11 +1716,11 @@ var _ = Describe("[rfe_id:393][crit:high][vendor:cnv-qe@redhat.com][level:system
 				libdv.WithForceBindAnnotation(),
 			)
 
-			dv, err = virtClient.CdiClient().CdiV1beta1().DataVolumes(util.NamespaceTestDefault).Create(context.Background(), dv, metav1.CreateOptions{})
+			dv, err = virtClient.CdiClient().CdiV1beta1().DataVolumes(namespace).Create(context.Background(), dv, metav1.CreateOptions{})
 			Expect(err).ToNot(HaveOccurred())
 			var pvc *k8sv1.PersistentVolumeClaim
 			Eventually(func() *k8sv1.PersistentVolumeClaim {
-				pvc, err = virtClient.CoreV1().PersistentVolumeClaims(util.NamespaceTestDefault).Get(context.Background(), dv.Name, metav1.GetOptions{})
+				pvc, err = virtClient.CoreV1().PersistentVolumeClaims(dv.Namespace).Get(context.Background(), dv.Name, metav1.GetOptions{})
 				if err != nil {
 					return nil
 				}
@@ -1785,17 +1799,17 @@ var _ = Describe("[rfe_id:393][crit:high][vendor:cnv-qe@redhat.com][level:system
 				}, console.LoginToAlpine),
 
 				Entry("[test_id:8610] with DataVolume", func() *v1.VirtualMachineInstance {
-					dv = createDataVolumePVCAndChangeDiskImgPermissions(size)
+					dv = createDataVolumePVCAndChangeDiskImgPermissions(testsuite.NamespacePrivileged, size)
 					// Use the DataVolume
 					return tests.NewRandomVMIWithDataVolume(pvName)
 				}, console.LoginToAlpine),
 
 				Entry("[test_id:8611] with CD + CloudInit + SA + ConfigMap + Secret + DownwardAPI + Kernel Boot", func() *v1.VirtualMachineInstance {
-					return prepareVMIWithAllVolumeSources()
+					return prepareVMIWithAllVolumeSources(testsuite.NamespacePrivileged)
 				}, console.LoginToFedora),
 
 				Entry("[test_id:8612] with PVC", func() *v1.VirtualMachineInstance {
-					dv = createDataVolumePVCAndChangeDiskImgPermissions(size)
+					dv = createDataVolumePVCAndChangeDiskImgPermissions(testsuite.NamespacePrivileged, size)
 					// Use the Underlying PVC
 					return tests.NewRandomVMIWithPVC(pvName)
 				}, console.LoginToAlpine),
@@ -1827,6 +1841,8 @@ var _ = Describe("[rfe_id:393][crit:high][vendor:cnv-qe@redhat.com][level:system
 			DescribeTable("should migrate nonroot implementation to root", func(createVMI func() *v1.VirtualMachineInstance, loginFunc func(*v1.VirtualMachineInstance) error) {
 				By("Create a VMI that will run root(default)")
 				vmi := createVMI()
+				// force VMI on privileged namespace since we will be migrating to a root VMI
+				vmi.Namespace = testsuite.NamespacePrivileged
 
 				By("Starting the VirtualMachineInstance")
 				// Resizing takes too long and therefor a warning is thrown
@@ -1870,17 +1886,17 @@ var _ = Describe("[rfe_id:393][crit:high][vendor:cnv-qe@redhat.com][level:system
 				}, console.LoginToAlpine),
 
 				Entry("with DataVolume", func() *v1.VirtualMachineInstance {
-					dv = createDataVolumePVCAndChangeDiskImgPermissions(size)
+					dv = createDataVolumePVCAndChangeDiskImgPermissions(testsuite.NamespacePrivileged, size)
 					// Use the DataVolume
 					return tests.NewRandomVMIWithDataVolume(pvName)
 				}, console.LoginToAlpine),
 
 				Entry("with CD + CloudInit + SA + ConfigMap + Secret + DownwardAPI + Kernel Boot", func() *v1.VirtualMachineInstance {
-					return prepareVMIWithAllVolumeSources()
+					return prepareVMIWithAllVolumeSources(testsuite.NamespacePrivileged)
 				}, console.LoginToFedora),
 
 				Entry("with PVC", func() *v1.VirtualMachineInstance {
-					dv = createDataVolumePVCAndChangeDiskImgPermissions(size)
+					dv = createDataVolumePVCAndChangeDiskImgPermissions(testsuite.NamespacePrivileged, size)
 					// Use the underlying PVC
 					return tests.NewRandomVMIWithPVC(pvName)
 				}, console.LoginToAlpine),
@@ -2108,7 +2124,7 @@ var _ = Describe("[rfe_id:393][crit:high][vendor:cnv-qe@redhat.com][level:system
 					),
 				)
 
-				dv, err = virtClient.CdiClient().CdiV1beta1().DataVolumes(util.NamespaceTestDefault).Create(context.Background(), dv, metav1.CreateOptions{})
+				dv, err = virtClient.CdiClient().CdiV1beta1().DataVolumes(testsuite.NamespacePrivileged).Create(context.Background(), dv, metav1.CreateOptions{})
 				Expect(err).ToNot(HaveOccurred())
 				pvName = dv.Name
 			})
@@ -2125,6 +2141,7 @@ var _ = Describe("[rfe_id:393][crit:high][vendor:cnv-qe@redhat.com][level:system
 				vmi := tests.NewRandomFedoraVMIWithGuestAgent()
 				vmi.Spec.Domain.Resources.Requests[k8sv1.ResourceMemory] = memoryRequestSize
 				vmi.Spec.Domain.Devices.Rng = &v1.Rng{}
+				vmi.Namespace = testsuite.NamespacePrivileged
 
 				By("Starting the VirtualMachineInstance")
 				vmi = tests.RunVMIAndExpectLaunch(vmi, 240)
@@ -2467,8 +2484,8 @@ var _ = Describe("[rfe_id:393][crit:high][vendor:cnv-qe@redhat.com][level:system
 					"user":     "admin",
 					"password": "community",
 				}
-				tests.CreateConfigMap(configMapName, config_data)
-				tests.CreateSecret(secretName, secret_data)
+				tests.CreateConfigMap(configMapName, vmi.Namespace, config_data)
+				tests.CreateSecret(secretName, vmi.Namespace, secret_data)
 				tests.AddConfigMapDisk(vmi, configMapName, configMapName)
 				tests.AddSecretDisk(vmi, secretName, secretName)
 				tests.AddServiceAccountDisk(vmi, "default")
@@ -3105,7 +3122,7 @@ var _ = Describe("[rfe_id:393][crit:high][vendor:cnv-qe@redhat.com][level:system
 	Context("with sata disks", func() {
 
 		It("[test_id:1853]VM with containerDisk + CloudInit + ServiceAccount + ConfigMap + Secret + DownwardAPI + External Kernel Boot + USB Disk", func() {
-			vmi := prepareVMIWithAllVolumeSources()
+			vmi := prepareVMIWithAllVolumeSources(util.NamespaceTestDefault)
 
 			Expect(vmi.Spec.Domain.Devices.Disks).To(HaveLen(7))
 			Expect(vmi.Spec.Domain.Devices.Interfaces).To(HaveLen(1))

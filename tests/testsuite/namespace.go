@@ -39,8 +39,10 @@ import (
 	"kubevirt.io/client-go/kubecli"
 
 	"kubevirt.io/kubevirt/pkg/controller"
+	virtconfig "kubevirt.io/kubevirt/pkg/virt-config"
 
 	"kubevirt.io/kubevirt/tests/flags"
+	"kubevirt.io/kubevirt/tests/framework/checks"
 	"kubevirt.io/kubevirt/tests/framework/cleanup"
 	"kubevirt.io/kubevirt/tests/libnet"
 	"kubevirt.io/kubevirt/tests/libstorage"
@@ -355,4 +357,16 @@ func CalculateNamespaces() {
 	// differently when running in parallel
 	NamespaceTestOperator = fmt.Sprintf("%s%d", NamespaceTestOperator, worker)
 	TestNamespaces = []string{util.NamespaceTestDefault, NamespaceTestAlternative, NamespaceTestOperator, NamespacePrivileged}
+}
+
+func GetTestNamespace(object metav1.Object) string {
+	if object != nil && object.GetNamespace() != "" {
+		return object.GetNamespace()
+	}
+
+	if checks.HasFeature(virtconfig.Root) {
+		return NamespacePrivileged
+	}
+
+	return util.NamespaceTestDefault
 }
