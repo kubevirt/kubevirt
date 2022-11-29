@@ -24,7 +24,7 @@ The rate of memory being dirty in the Guest OS. Type: Gauge.
 ### kubevirt_migrate_vmi_disk_transfer_rate_bytes
 The rate at which the disk is being transferred. Type: Gauge.
 
-### kubevirt_migrate_vmi_failed_total
+### kubevirt_migrate_vmi_failed
 Number of failed migrations. Type: Gauge.
 
 ### kubevirt_migrate_vmi_memory_transfer_rate_bytes
@@ -39,7 +39,7 @@ Number of current running migrations. Type: Gauge.
 ### kubevirt_migrate_vmi_scheduling_count
 Number of current scheduling migrations. Type: Gauge.
 
-### kubevirt_migrate_vmi_succeeded_total
+### kubevirt_migrate_vmi_succeeded
 Number of migrations successfully executed. Type: Gauge.
 
 ### kubevirt_virt_controller_leading
