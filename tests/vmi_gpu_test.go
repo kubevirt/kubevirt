@@ -6,6 +6,8 @@ import (
 	"fmt"
 	"strings"
 
+	"kubevirt.io/kubevirt/tests/decorators"
+
 	expect "github.com/google/goexpect"
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
@@ -58,7 +60,7 @@ func checkGPUDevice(vmi *v1.VirtualMachineInstance, gpuName string) {
 	Expect(err).ToNot(HaveOccurred(), "GPU device %q was not found in the VMI %s within the given timeout", gpuName, vmi.Name)
 }
 
-var _ = Describe("[Serial][sig-compute]GPU", Serial, func() {
+var _ = Describe("[Serial][sig-compute]GPU", Serial, decorators.GPU, func() {
 	var err error
 	var virtClient kubecli.KubevirtClient
 
