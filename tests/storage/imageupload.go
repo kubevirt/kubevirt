@@ -9,6 +9,8 @@ import (
 	"path/filepath"
 	"time"
 
+	"kubevirt.io/kubevirt/tests/decorators"
+
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
 
@@ -157,7 +159,7 @@ var _ = SIGDescribe("[Serial]ImageUpload", Serial, func() {
 		Expect(*pvc.Spec.StorageClassName).To(Equal(storageClass))
 	}
 
-	Context("[storage-req] Upload an image and start a VMI with PVC", func() {
+	Context("[storage-req] Upload an image and start a VMI with PVC", decorators.StorageReq, func() {
 		DescribeTable("[test_id:4621] Should succeed", func(resource, targetName string, validateFunc func(string, string), deleteFunc func(string), startVM bool) {
 			sc, exists := libstorage.GetRWOBlockStorageClass()
 			if !exists {

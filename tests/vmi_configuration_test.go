@@ -30,6 +30,8 @@ import (
 	"time"
 	"unicode"
 
+	"kubevirt.io/kubevirt/tests/decorators"
+
 	"k8s.io/apimachinery/pkg/util/rand"
 
 	"kubevirt.io/kubevirt/pkg/virt-controller/services"
@@ -1983,7 +1985,7 @@ var _ = Describe("[sig-compute]Configurations", func() {
 		})
 	})
 
-	Context("[Serial][rfe_id:904][crit:medium][vendor:cnv-qe@redhat.com][level:component][storage-req]with driver cache and io settings and PVC", Serial, func() {
+	Context("[Serial][rfe_id:904][crit:medium][vendor:cnv-qe@redhat.com][level:component][storage-req]with driver cache and io settings and PVC", Serial, decorators.StorageReq, func() {
 		var dataVolume *cdiv1.DataVolume
 
 		BeforeEach(func() {
@@ -2121,7 +2123,7 @@ var _ = Describe("[sig-compute]Configurations", func() {
 
 	Context("Block size configuration set", func() {
 
-		It("[test_id:6965][storage-req]Should set BlockIO when using custom block sizes", func() {
+		It("[test_id:6965][storage-req]Should set BlockIO when using custom block sizes", decorators.StorageReq, func() {
 			By("creating a block volume")
 			dataVolume, err := createBlockDataVolume(virtClient)
 			Expect(err).ToNot(HaveOccurred())
@@ -2159,7 +2161,7 @@ var _ = Describe("[sig-compute]Configurations", func() {
 			Expect(disks[0].BlockIO.PhysicalBlockSize).To(Equal(physicalSize))
 		})
 
-		It("[test_id:6966][storage-req]Should set BlockIO when set to match volume block sizes on block devices", func() {
+		It("[test_id:6966][storage-req]Should set BlockIO when set to match volume block sizes on block devices", decorators.StorageReq, func() {
 			By("creating a block volume")
 			dataVolume, err := createBlockDataVolume(virtClient)
 			Expect(err).ToNot(HaveOccurred())

@@ -1486,7 +1486,7 @@ var _ = Describe("[rfe_id:393][crit:high][vendor:cnv-qe@redhat.com][level:system
 				libwait.WaitForVirtualMachineToDisappearWithTimeout(vmi, 120)
 				libstorage.DeleteDataVolume(&dataVolume)
 			})
-			It("[test_id:1479][storage-req] should migrate a vmi with a shared block disk", func() {
+			It("[test_id:1479][storage-req] should migrate a vmi with a shared block disk", decorators.StorageReq, func() {
 				vmi, _ := tests.NewRandomVirtualMachineInstanceWithBlockDisk(cd.DataVolumeImportUrlForContainerDisk(cd.ContainerDiskAlpine), testsuite.GetTestNamespace(nil), k8sv1.ReadWriteMany)
 
 				By("Starting the VirtualMachineInstance")
@@ -1557,7 +1557,7 @@ var _ = Describe("[rfe_id:393][crit:high][vendor:cnv-qe@redhat.com][level:system
 				libwait.WaitForVirtualMachineToDisappearWithTimeout(vmi, 120)
 			})
 		})
-		Context("[storage-req]with an Alpine shared block volume PVC", func() {
+		Context("[storage-req]with an Alpine shared block volume PVC", decorators.StorageReq, func() {
 
 			It("[test_id:1854]should migrate a VMI with shared and non-shared disks", func() {
 				// Start the VirtualMachineInstance with PVC and Ephemeral Disks
@@ -1608,7 +1608,7 @@ var _ = Describe("[rfe_id:393][crit:high][vendor:cnv-qe@redhat.com][level:system
 				libwait.WaitForVirtualMachineToDisappearWithTimeout(vmi, 120)
 			})
 		})
-		Context("[storage-req]with an Alpine shared block volume PVC", func() {
+		Context("[storage-req]with an Alpine shared block volume PVC", decorators.StorageReq, func() {
 
 			It("[test_id:3240]should be successfully with a cloud init", func() {
 				// Start the VirtualMachineInstance with the PVC attached
@@ -2566,7 +2566,7 @@ var _ = Describe("[rfe_id:393][crit:high][vendor:cnv-qe@redhat.com][level:system
 				libwait.WaitForVirtualMachineToDisappearWithTimeout(vmi, 240)
 			})
 		})
-		Context("[storage-req]with an Alpine non-shared block volume PVC", func() {
+		Context("[storage-req]with an Alpine non-shared block volume PVC", decorators.StorageReq, func() {
 
 			It("[test_id:1862][posneg:negative]should reject migrations for a non-migratable vmi", func() {
 				// Start the VirtualMachineInstance with the PVC attached
@@ -2659,9 +2659,9 @@ var _ = Describe("[rfe_id:393][crit:high][vendor:cnv-qe@redhat.com][level:system
 				Expect(virtClient.VirtualMachineInstance(vmi.Namespace).Delete(context.Background(), vmi.Name, &metav1.DeleteOptions{})).To(Succeed())
 			},
 				Entry("[sig-storage][test_id:2226] with ContainerDisk", newVirtualMachineInstanceWithFedoraContainerDisk, false),
-				Entry("[sig-storage][storage-req][test_id:2731] with RWX block disk from block volume PVC", newVirtualMachineInstanceWithFedoraRWXBlockDisk, false),
+				Entry("[sig-storage][storage-req][test_id:2731] with RWX block disk from block volume PVC", decorators.StorageReq, newVirtualMachineInstanceWithFedoraRWXBlockDisk, false),
 				Entry("[sig-storage][test_id:2228] with ContainerDisk and virtctl", newVirtualMachineInstanceWithFedoraContainerDisk, true),
-				Entry("[sig-storage][storage-req][test_id:2732] with RWX block disk and virtctl", newVirtualMachineInstanceWithFedoraRWXBlockDisk, true))
+				Entry("[sig-storage][storage-req][test_id:2732] with RWX block disk and virtctl", decorators.StorageReq, newVirtualMachineInstanceWithFedoraRWXBlockDisk, true))
 
 			DescribeTable("Immediate migration cancellation after migration starts running", func(with_virtctl bool) {
 				vmi := tests.NewRandomFedoraVMIWithGuestAgent()

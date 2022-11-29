@@ -23,6 +23,8 @@ import (
 	"context"
 	"time"
 
+	"kubevirt.io/kubevirt/tests/decorators"
+
 	expect "github.com/google/goexpect"
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
@@ -120,8 +122,8 @@ var _ = Describe("[rfe_id:127][posneg:negative][crit:medium][vendor:cnv-qe@redha
 					vmi = tests.RunVMIAndExpectLaunch(vmi, 120)
 					expectConsoleOutput(vmi, "login")
 				},
-					Entry("[test_id:4637][storage-req]with Filesystem Disk", newVirtualMachineInstanceWithAlpineFileDisk),
-					Entry("[test_id:4638][storage-req]with Block Disk", newVirtualMachineInstanceWithAlpineBlockDisk),
+					Entry("[test_id:4637][storage-req]with Filesystem Disk", decorators.StorageReq, newVirtualMachineInstanceWithAlpineFileDisk),
+					Entry("[test_id:4638][storage-req]with Block Disk", decorators.StorageReq, newVirtualMachineInstanceWithAlpineBlockDisk),
 				)
 			})
 

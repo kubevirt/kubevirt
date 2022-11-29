@@ -26,6 +26,8 @@ import (
 	"strconv"
 	"time"
 
+	"kubevirt.io/kubevirt/tests/decorators"
+
 	"kubevirt.io/client-go/log"
 
 	expect "github.com/google/goexpect"
@@ -616,7 +618,7 @@ var _ = SIGDescribe("Hotplug", func() {
 		)
 	})
 
-	Context("[storage-req]", func() {
+	Context("[storage-req]", decorators.StorageReq, func() {
 		Context("Online VM", func() {
 			var (
 				vm *v1.VirtualMachine
