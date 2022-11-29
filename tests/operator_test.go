@@ -49,6 +49,7 @@ import (
 	"k8s.io/apimachinery/pkg/api/equality"
 	"k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	"k8s.io/apimachinery/pkg/fields"
 	"k8s.io/apimachinery/pkg/labels"
 	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/apimachinery/pkg/runtime/schema"
@@ -2480,26 +2481,29 @@ spec:
 			// This label shouldn't exist, but this isn't harmful
 			// existing/running deployments will not be torn down until
 			// new ones are stood up (and the new ones will get stuck in scheduling)
-			labelKey := "kubevirt-test"
-			labelValue := "test-label"
+			fakeLabelKey := "kubevirt-test"
+			fakeLabelValue := "test-label"
 			infra := v1.ComponentConfig{
 				NodePlacement: &v1.NodePlacement{
-					NodeSelector: map[string]string{labelKey: labelValue},
+					NodeSelector: map[string]string{fakeLabelKey: fakeLabelValue},
 				},
 			}
+			By("Adding fake label to Virt components")
 			patchKvInfra(&infra, false, "")
-
-			Eventually(func() bool {
-				for _, name := range []string{"virt-controller", "virt-api"} {
-					deployment, err := virtClient.AppsV1().Deployments(flags.KubeVirtInstallNamespace).Get(context.Background(), name, metav1.GetOptions{})
-					Expect(err).ToNot(HaveOccurred())
-					if deployment.Spec.Template.Spec.NodeSelector == nil || deployment.Spec.Template.Spec.NodeSelector[labelKey] != labelValue {
-						return false
-					}
-				}
-				return true
-			}, 60*time.Second, 1*time.Second).Should(BeTrue())
-
+			for _, deploymentName := range []string{"virt-controller", "virt-api"} {
+				errMsg := "NodeSelector should be propegated to the deployment eventually"
+				Eventually(func() bool {
+					return nodeSelectorExistInDeployment(virtClient, deploymentName, fakeLabelKey, fakeLabelValue)
+				}, 60*time.Second, 1*time.Second).Should(BeTrue(), errMsg)
+				//The reason we check this is that sometime it takes a while until the pod is created and
+				//if the pod is created after the call to allPodsAreReady in the AfterEach scope
+				//than we will run the next test with side effect of pending pods of virt-api and virt-controller
+				//and increase flakiness
+				errMsg = "the deployment should try to rollup the pods with the new selector and fail to schedule pods because the nodes don't have the fake label"
+				Eventually(func() bool {
+					return atLeastOnePendingPodExistInDeployment(virtClient, deploymentName)
+				}, 60*time.Second, 1*time.Second).Should(BeTrue(), errMsg)
+			}
 			patchKvInfra(nil, false, "")
 		})
 
@@ -2957,4 +2961,26 @@ func getTagHint() string {
 	}
 
 	return strings.TrimSpace(strings.Split(string(cmdOutput), "-rc")[0])
+}
+
+func atLeastOnePendingPodExistInDeployment(virtClient kubecli.KubevirtClient, deploymentName string) bool {
+	pods, err := virtClient.CoreV1().Pods(flags.KubeVirtInstallNamespace).List(context.Background(),
+		metav1.ListOptions{
+			LabelSelector: fmt.Sprintf("kubevirt.io=%s", deploymentName),
+			FieldSelector: fields.ParseSelectorOrDie("status.phase=Pending").String(),
+		})
+	Expect(err).ShouldNot(HaveOccurred())
+	if len(pods.Items) == 0 {
+		return false
+	}
+	return true
+}
+
+func nodeSelectorExistInDeployment(virtClient kubecli.KubevirtClient, deploymentName string, labelKey string, labelValue string) bool {
+	deployment, err := virtClient.AppsV1().Deployments(flags.KubeVirtInstallNamespace).Get(context.Background(), deploymentName, metav1.GetOptions{})
+	Expect(err).ToNot(HaveOccurred())
+	if deployment.Spec.Template.Spec.NodeSelector == nil || deployment.Spec.Template.Spec.NodeSelector[labelKey] != labelValue {
+		return false
+	}
+	return true
 }
