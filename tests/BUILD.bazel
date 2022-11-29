@@ -218,6 +218,7 @@ go_test(
         "//tests/clientcmd:go_default_library",
         "//tests/console:go_default_library",
         "//tests/containerdisk:go_default_library",
+        "//tests/decorators:go_default_library",
         "//tests/exec:go_default_library",
         "//tests/flags:go_default_library",
         "//tests/framework/checks:go_default_library",

@@ -30,6 +30,8 @@ import (
 	"sync"
 
 	"kubevirt.io/kubevirt/pkg/apimachinery/patch"
+	"kubevirt.io/kubevirt/tests/decorators"
+
 	"kubevirt.io/kubevirt/pkg/virt-controller/watch/topology"
 
 	"kubevirt.io/kubevirt/tests/exec"
@@ -2630,7 +2632,7 @@ var _ = Describe("[rfe_id:393][crit:high][vendor:cnv-qe@redhat.com][level:system
 				return vmi
 			}
 
-			DescribeTable("should be able to cancel a migration", func(createVMI vmiBuilder, with_virtctl bool) {
+			DescribeTable("should be able to cancel a migration", decorators.SigStorage, func(createVMI vmiBuilder, with_virtctl bool) {
 				vmi := createVMI()
 				vmi.Spec.Domain.Resources.Requests[k8sv1.ResourceMemory] = resource.MustParse(fedoraVMSize)
 

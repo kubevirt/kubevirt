@@ -25,6 +25,8 @@ import (
 	"strings"
 	"time"
 
+	"kubevirt.io/kubevirt/tests/decorators"
+
 	"kubevirt.io/kubevirt/tests/exec"
 	"kubevirt.io/kubevirt/tests/framework/checks"
 	"kubevirt.io/kubevirt/tests/libstorage"
@@ -64,7 +66,7 @@ const (
 	winrmCliCmd = "winrm-cli"
 )
 
-var _ = Describe("[Serial][sig-compute]Windows VirtualMachineInstance", Serial, func() {
+var _ = Describe("[Serial][sig-compute]Windows VirtualMachineInstance", Serial, decorators.Windows, func() {
 	var virtClient kubecli.KubevirtClient
 	var windowsVMI *v1.VirtualMachineInstance
 
