@@ -141,9 +141,12 @@ func LoginToFedora(vmi *v1.VirtualMachineInstance) error {
 	}
 
 	// Do not login, if we already logged in
+	loggedInPromptRegex := fmt.Sprintf(
+		`(\[fedora@(localhost|fedora|%s) ~\]\$ |\[root@(localhost|fedora|%s) fedora\]\# )`, vmi.Name, vmi.Name,
+	)
 	b := []expect.Batcher{
 		&expect.BSnd{S: "\n"},
-		&expect.BExp{R: fmt.Sprintf(`(\[fedora@(localhost|fedora|%s) ~\]\$ |\[root@(localhost|fedora|%s) fedora\]\# )`, vmi.Name, vmi.Name)},
+		&expect.BExp{R: loggedInPromptRegex},
 	}
 	_, err = expecter.ExpectBatch(b, promptTimeout)
 	if err == nil {
@@ -174,7 +177,7 @@ func LoginToFedora(vmi *v1.VirtualMachineInstance) error {
 				Rt: 10,
 			},
 			&expect.Case{
-				R: regexp.MustCompile(fmt.Sprintf(`\[fedora@(localhost|fedora|%s) ~\]\$ `, vmi.Name)),
+				R: regexp.MustCompile(loggedInPromptRegex),
 				T: expect.OK(),
 			},
 		}},
