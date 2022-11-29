@@ -1675,7 +1675,6 @@ var _ = SIGDescribe("VirtualMachineRestore Tests", func() {
 						snapshotStorageClass,
 						corev1.ReadWriteOnce))
 					Eventually(matcher.ThisVMI(vmi), 12*time.Minute, 2*time.Second).Should(matcher.HaveConditionTrue(v1.VirtualMachineInstanceAgentConnected))
-					Expect(console.LoginToFedora(vmi)).To(Succeed())
 
 					By("Get VM memory dump")
 					getMemoryDump(vm.Name, vm.Namespace, memoryDumpPVCName)
