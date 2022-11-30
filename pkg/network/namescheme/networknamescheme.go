@@ -50,9 +50,13 @@ func CreateNetworkNameScheme(vmiNetworks []v1.Network) map[string]string {
 
 // CreateHashedNetworkNamingScheme iterates over the VMI's Networks, and creates for each a pod interface name.
 // The returned map associates between the network name and the generated pod interface name.
-// The generated interface names will be named "net<id>" where id is the network name md5.
+// Primary network will use "eth0" and the secondary ones will be named "net<id>" where id is the network name md5.
 func CreateHashedNetworkNamingScheme(vmiNetworks []v1.Network) map[string]string {
-	return mapMultusNonDefaultNetworksToHashPodInterfaceName(vmiNetworks)
+	networkNameSchemeMap := mapMultusNonDefaultNetworksToHashPodInterfaceName(vmiNetworks)
+	if multusDefaultNetwork := vmispec.LookUpDefaultNetwork(vmiNetworks); multusDefaultNetwork != nil {
+		networkNameSchemeMap[multusDefaultNetwork.Name] = PrimaryPodInterfaceName
+	}
+	return networkNameSchemeMap
 }
 
 func mapMultusNonDefaultNetworksToPodInterfaceName(networks []v1.Network) map[string]string {

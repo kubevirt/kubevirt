@@ -148,7 +148,7 @@ func newPhase2PodNIC(vmi *v1.VirtualMachineInstance, network *v1.Network, handle
 }
 
 func newPodNIC(vmi *v1.VirtualMachineInstance, network *v1.Network, handler netdriver.NetworkHandler, cacheCreator cacheCreator, launcherPID *int) (*podNIC, error) {
-	return newPodNICWithNamingScheme(vmi, network, handler, cacheCreator, launcherPID, namescheme.CreateNetworkNameScheme)
+	return newPodNICWithNamingScheme(vmi, network, handler, cacheCreator, launcherPID, namescheme.CreateHashedNetworkNamingScheme)
 }
 
 func newPodNICWithHashedNamingScheme(vmi *v1.VirtualMachineInstance, network *v1.Network, handler netdriver.NetworkHandler, cacheCreator cacheCreator, launcherPID *int) (*podNIC, error) {

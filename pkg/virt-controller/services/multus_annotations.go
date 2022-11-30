@@ -57,7 +57,7 @@ func (mnap multusNetworkAnnotationPool) toString() (string, error) {
 }
 
 func generateMultusCNIAnnotation(vmi *v1.VirtualMachineInstance) (string, error) {
-	return GenerateMultusCNIAnnotationWithInterfaceNamingScheme(vmi, namescheme.CreateNetworkNameScheme)
+	return GenerateMultusCNIAnnotationWithInterfaceNamingScheme(vmi, namescheme.CreateHashedNetworkNamingScheme)
 }
 
 func GenerateMultusCNIAnnotationWithInterfaceNamingScheme(vmi *v1.VirtualMachineInstance, networkToIfaceNameNamingFunc func(vmiNetworks []v1.Network) map[string]string) (string, error) {

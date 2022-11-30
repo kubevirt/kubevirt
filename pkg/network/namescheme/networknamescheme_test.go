@@ -70,12 +70,12 @@ var _ = Describe("Network Name Scheme", func() {
 				[]virtv1.Network{
 					newPodNetwork("default"),
 				},
-				map[string]string{},
+				map[string]string{"default": namescheme.PrimaryPodInterfaceName},
 			),
 			Entry(
 				"when the multus default network is present",
 				[]virtv1.Network{createMultusDefaultNetwork("woopwoop", "pow-wow")},
-				map[string]string{},
+				map[string]string{"woopwoop": namescheme.PrimaryPodInterfaceName},
 			),
 			Entry(
 				"when a secondary multus network exists",
