@@ -861,7 +861,7 @@ type Clock struct {
 	ClockOffset `json:",inline"`
 	// Timer specifies whih timers are attached to the vmi.
 	// +optional
-	Timer *Timer `json:"timer"`
+	Timer *Timer `json:"timer,omitempty"`
 }
 
 // Represents all available timers in a vmi.

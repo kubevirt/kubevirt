@@ -138,6 +138,29 @@ var _ = Describe("Validating VMICreate Admitter", func() {
 		Expect(resp.Result.Message).To(ContainSubstring("no memory requested"))
 	})
 
+	It("should allow Clock without Timer", func() {
+		vmi := api.NewMinimalVMI("testvmi")
+		vmi.Spec.Domain.Clock = &v1.Clock{
+			ClockOffset: v1.ClockOffset{
+				UTC: &v1.ClockOffsetUTC{
+					OffsetSeconds: pointer.Int(5),
+				},
+			},
+		}
+		vmiBytes, _ := json.Marshal(&vmi)
+
+		ar := &admissionv1.AdmissionReview{
+			Request: &admissionv1.AdmissionRequest{
+				Resource: webhooks.VirtualMachineInstanceGroupVersionResource,
+				Object: runtime.RawExtension{
+					Raw: vmiBytes,
+				},
+			},
+		}
+		resp := vmiCreateAdmitter.Admit(ar)
+		Expect(resp.Allowed).To(BeTrue())
+	})
+
 	DescribeTable("path validation should fail", func(path string) {
 		Expect(validatePath(k8sfield.NewPath("fake"), path)).To(HaveLen(1))
 	},
