@@ -81,7 +81,7 @@ import (
 	"kubevirt.io/kubevirt/tests/watcher"
 )
 
-var _ = Describe("[sig-compute]Configurations", func() {
+var _ = Describe("[sig-compute]Configurations", decorators.SigCompute, func() {
 	const enoughMemForSafeBiosEmulation = "32Mi"
 	var err error
 	var virtClient kubecli.KubevirtClient

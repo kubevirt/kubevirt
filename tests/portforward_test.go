@@ -25,6 +25,8 @@ import (
 	"io"
 	"time"
 
+	"kubevirt.io/kubevirt/tests/decorators"
+
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
 
@@ -35,7 +37,7 @@ import (
 	"kubevirt.io/kubevirt/tests/util"
 )
 
-var _ = Describe("[sig-compute]PortForward", func() {
+var _ = Describe("[sig-compute]PortForward", decorators.SigCompute, func() {
 
 	var err error
 	var virtClient kubecli.KubevirtClient

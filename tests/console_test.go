@@ -60,7 +60,7 @@ func withNodeAffinityTo(label string, value string) libvmi.Option {
 	}
 }
 
-var _ = Describe("[rfe_id:127][posneg:negative][crit:medium][vendor:cnv-qe@redhat.com][level:component][sig-compute]Console", func() {
+var _ = Describe("[rfe_id:127][posneg:negative][crit:medium][vendor:cnv-qe@redhat.com][level:component][sig-compute]Console", decorators.SigCompute, func() {
 
 	var virtClient kubecli.KubevirtClient
 

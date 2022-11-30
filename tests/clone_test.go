@@ -6,6 +6,8 @@ import (
 	"strings"
 	"time"
 
+	"kubevirt.io/kubevirt/tests/decorators"
+
 	virtsnapshot "kubevirt.io/api/snapshot"
 	"kubevirt.io/api/snapshot/v1alpha1"
 
@@ -40,7 +42,7 @@ const (
 
 type loginFunction func(*virtv1.VirtualMachineInstance) error
 
-var _ = Describe("[Serial][sig-compute]VirtualMachineClone Tests", Serial, func() {
+var _ = Describe("[Serial][sig-compute]VirtualMachineClone Tests", Serial, decorators.SigCompute, func() {
 	var err error
 	var virtClient kubecli.KubevirtClient
 

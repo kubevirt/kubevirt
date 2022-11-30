@@ -24,6 +24,8 @@ import (
 	"encoding/xml"
 	"fmt"
 
+	"kubevirt.io/kubevirt/tests/decorators"
+
 	expect "github.com/google/goexpect"
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
@@ -39,7 +41,7 @@ import (
 	"kubevirt.io/kubevirt/tests/util"
 )
 
-var _ = Describe("[crit:medium][vendor:cnv-qe@redhat.com][level:component][sig-compute] Sound", func() {
+var _ = Describe("[crit:medium][vendor:cnv-qe@redhat.com][level:component][sig-compute] Sound", decorators.SigCompute, func() {
 
 	var err error
 	var virtClient kubecli.KubevirtClient

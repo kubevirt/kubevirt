@@ -25,6 +25,8 @@ import (
 	"os"
 	"time"
 
+	"kubevirt.io/kubevirt/tests/decorators"
+
 	expect "github.com/google/goexpect"
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
@@ -46,7 +48,7 @@ import (
 	"kubevirt.io/kubevirt/tests/console"
 )
 
-var _ = Describe("[sig-compute]VSOCK", Serial, func() {
+var _ = Describe("[sig-compute]VSOCK", Serial, decorators.SigCompute, func() {
 	var virtClient kubecli.KubevirtClient
 	var err error
 

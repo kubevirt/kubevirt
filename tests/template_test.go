@@ -31,6 +31,8 @@ import (
 	"strings"
 	"time"
 
+	"kubevirt.io/kubevirt/tests/decorators"
+
 	"kubevirt.io/kubevirt/tests/clientcmd"
 	"kubevirt.io/kubevirt/tests/framework/checks"
 	"kubevirt.io/kubevirt/tests/testsuite"
@@ -57,7 +59,7 @@ const (
 	defaultMemory     = "2Gi"
 )
 
-var _ = Describe("[Serial][sig-compute]Templates", Serial, func() {
+var _ = Describe("[Serial][sig-compute]Templates", Serial, decorators.SigCompute, func() {
 	var err error
 	var virtClient kubecli.KubevirtClient
 

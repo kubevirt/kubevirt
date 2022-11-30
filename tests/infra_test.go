@@ -34,6 +34,8 @@ import (
 	"strings"
 	"time"
 
+	"kubevirt.io/kubevirt/tests/decorators"
+
 	virtconfig "kubevirt.io/kubevirt/pkg/virt-config"
 
 	kvtls "kubevirt.io/kubevirt/pkg/util/tls"
@@ -93,7 +95,7 @@ const (
 	remoteCmdErrPattern = "failed running `%s` with stdout:\n %v \n stderr:\n %v \n err: \n %v \n"
 )
 
-var _ = Describe("[Serial][sig-compute]Infrastructure", Serial, func() {
+var _ = Describe("[Serial][sig-compute]Infrastructure", Serial, decorators.SigCompute, func() {
 	var (
 		virtClient       kubecli.KubevirtClient
 		aggregatorClient *aggregatorclient.Clientset

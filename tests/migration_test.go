@@ -107,7 +107,7 @@ const (
 	stressDefaultTimeout = 1600
 )
 
-var _ = Describe("[rfe_id:393][crit:high][vendor:cnv-qe@redhat.com][level:system][sig-compute] VM Live Migration", decorators.SigComputeMigrations, func() {
+var _ = Describe("[rfe_id:393][crit:high][vendor:cnv-qe@redhat.com][level:system][sig-compute] VM Live Migration", decorators.SigComputeMigrations, decorators.SigCompute, func() {
 	var virtClient kubecli.KubevirtClient
 	var migrationBandwidthLimit resource.Quantity
 	var err error

@@ -6,6 +6,8 @@ import (
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
 
+	"kubevirt.io/kubevirt/tests/decorators"
+
 	"kubevirt.io/client-go/kubecli"
 
 	virtconfig "kubevirt.io/kubevirt/pkg/virt-config"
@@ -15,7 +17,7 @@ import (
 	"kubevirt.io/kubevirt/tests/util"
 )
 
-var _ = Describe("[sig-compute]NonRoot feature", func() {
+var _ = Describe("[sig-compute]NonRoot feature", decorators.SigCompute, func() {
 
 	var virtClient kubecli.KubevirtClient
 	var err error

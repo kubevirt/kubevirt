@@ -6,6 +6,8 @@ import (
 	"os"
 	"path/filepath"
 
+	"kubevirt.io/kubevirt/tests/decorators"
+
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
 	"golang.org/x/crypto/ssh"
@@ -21,7 +23,7 @@ import (
 	"kubevirt.io/kubevirt/tests/util"
 )
 
-var _ = Describe("[sig-compute][virtctl]SSH", func() {
+var _ = Describe("[sig-compute][virtctl]SSH", decorators.SigCompute, func() {
 	var pub ssh.PublicKey
 	var keyFile string
 	var virtClient kubecli.KubevirtClient

@@ -24,6 +24,8 @@ import (
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
 
+	"kubevirt.io/kubevirt/tests/decorators"
+
 	"kubevirt.io/kubevirt/tests/framework/checks"
 
 	v1 "kubevirt.io/api/core/v1"
@@ -34,7 +36,7 @@ import (
 	"kubevirt.io/kubevirt/tests/console"
 )
 
-var _ = Describe("[sig-compute]vTPM", func() {
+var _ = Describe("[sig-compute]vTPM", decorators.SigCompute, func() {
 	var virtClient kubecli.KubevirtClient
 	var err error
 

@@ -26,6 +26,8 @@ import (
 	"strings"
 	"time"
 
+	"kubevirt.io/kubevirt/tests/decorators"
+
 	"k8s.io/apimachinery/pkg/util/intstr"
 
 	"kubevirt.io/kubevirt/tests/framework/matcher"
@@ -51,7 +53,7 @@ import (
 	cd "kubevirt.io/kubevirt/tests/containerdisk"
 )
 
-var _ = Describe("[rfe_id:3064][crit:medium][vendor:cnv-qe@redhat.com][level:component][sig-compute]Pausing", func() {
+var _ = Describe("[rfe_id:3064][crit:medium][vendor:cnv-qe@redhat.com][level:component][sig-compute]Pausing", decorators.SigCompute, func() {
 
 	var err error
 	var virtClient kubecli.KubevirtClient

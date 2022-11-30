@@ -34,7 +34,7 @@ import (
 	"kubevirt.io/kubevirt/tests/libwait"
 )
 
-var _ = Describe("[Serial][sig-compute]MediatedDevices", Serial, decorators.VGPU, func() {
+var _ = Describe("[Serial][sig-compute]MediatedDevices", Serial, decorators.VGPU, decorators.SigCompute, func() {
 	var err error
 	var virtClient kubecli.KubevirtClient
 

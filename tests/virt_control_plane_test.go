@@ -25,6 +25,8 @@ import (
 	"strings"
 	"time"
 
+	"kubevirt.io/kubevirt/tests/decorators"
+
 	v1 "k8s.io/api/apps/v1"
 	k8sv1 "k8s.io/api/core/v1"
 	"k8s.io/api/policy/v1beta1"
@@ -57,7 +59,7 @@ const (
 	singleReplica = false
 )
 
-var _ = Describe("[Serial][ref_id:2717][sig-compute]KubeVirt control plane resilience", Serial, func() {
+var _ = Describe("[Serial][ref_id:2717][sig-compute]KubeVirt control plane resilience", Serial, decorators.SigCompute, func() {
 
 	var err error
 	var virtCli kubecli.KubevirtClient
