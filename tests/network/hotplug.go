@@ -37,6 +37,7 @@ import (
 
 	"kubevirt.io/kubevirt/tests"
 	"kubevirt.io/kubevirt/tests/console"
+	"kubevirt.io/kubevirt/tests/framework/checks"
 	"kubevirt.io/kubevirt/tests/libvmi"
 	"kubevirt.io/kubevirt/tests/util"
 )
@@ -104,6 +105,14 @@ var _ = SIGDescribe("nic-hotplug", func() {
 				WithTransform(
 					filterVMISyncErrorEvents,
 					ContainElement(noPCISlotsAvailableError())))
+		})
+
+		It("can migrate a VMI with hotplugged interfaces", func() {
+			checks.SkipIfMigrationIsNotPossible()
+
+			migration := tests.NewRandomMigration(vmi.Name, vmi.Namespace)
+			migrationUID := tests.RunMigrationAndExpectCompletion(virtClient, migration, tests.MigrationWaitTime)
+			tests.ConfirmVMIPostMigration(virtClient, vmi, migrationUID)
 		})
 	})
 
@@ -184,11 +193,7 @@ var _ = SIGDescribe("nic-hotplug", func() {
 			Expect(err).NotTo(HaveOccurred())
 
 			Eventually(func() []v1.VirtualMachineInstanceNetworkInterface {
-				var err error
-
-				vmi, err = virtClient.VirtualMachineInstance(vmi.GetNamespace()).Get(vmi.GetName(), &metav1.GetOptions{})
-				Expect(err).NotTo(HaveOccurred())
-				return filterHotpluggedNetworkInterfaces(vmi)
+				return vmiCurrentInterfaces(virtClient, vmi.GetNamespace(), vmi.GetName())
 			}, 30*time.Second).Should(
 				WithTransform(
 					CleanMACAddressesFromStatus,
