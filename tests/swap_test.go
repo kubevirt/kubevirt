@@ -26,6 +26,8 @@ import (
 	"strings"
 	"time"
 
+	"kubevirt.io/kubevirt/tests/decorators"
+
 	"kubevirt.io/kubevirt/tests/framework/checks"
 
 	expect "github.com/google/goexpect"
@@ -144,7 +146,7 @@ var _ = Describe("[Serial][sig-compute]SwapTest", Serial, func() {
 
 	})
 
-	Context("Migration to/from memory overcommitted nodes", func() {
+	Context("Migration to/from memory overcommitted nodes", decorators.SigComputeMigrations, func() {
 		It("Postcopy Migration of vmi that is dirtying(stress-ng) more memory than the source node's memory", func() {
 			nodes := libnode.GetAllSchedulableNodes(virtClient).Items
 			sourceNode := nodes[0]

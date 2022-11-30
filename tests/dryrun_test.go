@@ -24,6 +24,8 @@ import (
 	"fmt"
 	"time"
 
+	"kubevirt.io/kubevirt/tests/decorators"
+
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
 
@@ -220,7 +222,7 @@ var _ = Describe("[sig-compute]Dry-Run requests", func() {
 		})
 	})
 
-	Context("Migrations", func() {
+	Context("Migrations", decorators.SigComputeMigrations, func() {
 		var vmim *v1.VirtualMachineInstanceMigration
 		resource := "virtualmachineinstancemigrations"
 
