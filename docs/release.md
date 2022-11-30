@@ -1,23 +1,5 @@
 **TL;DR**- If you simply need to learn how to make a release, read [this](#creating-releases) section.
 
-<!--ts-->
-   * [Overview](#overview)
-   * [Cadence and Timeline](#cadence-and-timeline)
-   * [Versioning](#versioning)
-   * [Announcement](#announcement)
-   * [Handling Release Blockers](#handling-release-blockers)
-      * [Release Blocker Criteria](#release-blocker-criteria)
-      * [Setting a Release Blocker](#setting-a-release-blocker)
-   * [Creating Releases](#creating-releases)
-      * [Release Tool Credentials](#release-tool-credentials)
-      * [Release Tool Usage Examples](#release-tool-usage-examples)
-      * [Minor Releases](#creating-new-minor-releases)
-      * [Patch Releases](#creating-new-patch-releases)
-   * [Merging to Release Branches](#merging-to-release-branches)
-   * [Understanding Release Notes](#understanding-release-notes)
-<!--te-->
-
-
 # Overview
 - Release process is automated by [hack/release.sh](https://github.com/kubevirt/kubevirt/blob/main/hack/release.sh) script
 - KubeVirt uses [semantic versioning](http://semver.org)
@@ -39,79 +21,61 @@ These artifacts are provided in their respective channels and their natural way
 of distribution.
 
 # Cadence and Timeline
-New release branches are cut 3 times a year, or about every 15 weeks beginning
-on the first Monday in January.  This is the same [release cycle](https://kubernetes.io/releases/release/) as Kubernetes, but KubeVirt will trail Kubernetes releases
-by 1 to 4 weeks.
 
-Here's an example release cycle using the 2022 calendar:
-| Week Number in Year | K8s Release Number | K8s Release Week | KubeVirt Release Number | KubeVirt Release Week |                     Note                    |
-|:-------------------:|:------------------:|:----------------:|-------------------------|-----------------------|:-------------------------------------------:|
-| 1                   | 1.24               | 1 (January 03)   | 0.55                    | 2 (January 10)        |                                             |
-| 15                  | 1.24               | 15 (April 12)    | 0.55                    | 16 (April 19)         |                                             |
-| 17                  | 1.25               | 1 (May 23)       | 0.56                    | 2 (May 30)            | KubeCon + CloudNativeCon EU likely to occur |
-| 32                  | 1.25               | 15 (August 22)   | 0.56                    | 16 (August 29) - 19 (September 26)        |                                             |
-| 34                  | 1.26               | 1 (September 5)  | 0.57                    | 2 (September 12)      | KubeCon + CloudNativeCon NA likely to occur |
-| 49                  | 1.26               | 14 (December 05) | 0.57                    | 15 (December 12) - 18 (January 9)    |                                             |
+# Minor releases
 
-Initial release candidates are cut **every 4 weeks.**
-With a 15 week cadence, there will be at least 3 release candidates:
-- v*-rc.0
-- v*-rc.1
-- v*-rc.2
+KubeVirt aligns to the [Kubernetes release cycle](https://www.kubernetes.dev/resources/release/).
+But because KubeVirt builds upon Kubernetes, it will trail Kubernetes' release schedule by roughly 2 months, in order to have time to consume and stabilize on top of new releases.
 
-The stable branch will be created when the -rc.2 is tagged, 12 weeks into
-the release cycle.  Once the branch is created, only backports will be
+Thus new release branches are cut 3 times a year, or about every 15 weeks.
+
+## Guiding principles
+
+The release schedule is build around a few guiding principles:
+
+- Alpha and Beta tags are applied on main
+- Release branches must only be cut after a Kubernetes minor releases
+- RCs must only be tagged on the release branch
+
+## CI Provider
+
+A pre-condition for the GA of a KubeVirt release is the presence of a KubeVirt CI provider for the correspoding Kubernetes release.
+Around the beta release of the corresponding Kubernetes release, the KubeVirt team will start to work on a KubeVirt CI provider.
+The assumption is, that the KubeVirt CI provider will be available by KubeVirt's enhcanement freeze.
+
+## Release schedule schema  
+
+This can then be translated into the following KubeVirt release schedule schema:
+
+| Week Number in Kubernetes Release Cycle | KubeVirt Milestone | Note                            |
+|:---------------------------------------:|--------------------|---------------------------------|
+| 14 - 8                                  | Alpha              | KubeVirt alpha.0 on main        |
+| 14 - 4                                  | Beta               | KubeVirt beta.0 on main         |
+| 14 - 4                                  |                    | Start the KubeVirt CI provider  |
+| 14                                      |                    | Kubernetes release              |
+| 14 + 8                                  | Enhancement Freeze | KubeVirt stable branch is cut   |
+| 14 + 9                                  | RC                 | KubeVirt rc.0 on release branch |
+| 14 + 10                                 | RC                 | KubeVirt rc.1 on release branch |
+| 14 + 11                                 | GA                 | KubeVirt GA                     |
+
+## Release branch and backports
+
+Once the branch is created, only backports will be
 allowed into the stable branch, following KubeVirt's backport policy.
 
-| Week | Tag | Branch |
-|:----:|-----|--------|
-| 0 | - |  - |
-| 4 | v0.56.0-rc.0 | - |
-| 8 | v0.56.0-rc.1 | - |
-| 12 | v0.56.0-rc.2 | release-v0.56 |
-| 15 | v0.56 | - |
 
-After a new Kubernetes version is released, the KubeVirt community needs to create a Kubernetes
-provider and CI lanes.  This can take **between 1 to 4 weeks**.  If no blocker issues are discovered
-in KubeVirt's release candidate, then it's **promoted to a full release after 5 business days.**
+## Blockers
 
 If blockers are detected, a new release candidate is generated and will be
 promoted after giving the impacted parties enough time to validate the blocker is
 addressed.
 
+## Holidays
+
 Just like in Kubernetes, there will be slowdowns during common holidays which will
 cause delays.  So releases that overlap with holidays may be delayed.
 
-**Timeline Example: Final release of the year (14 weeks), no blockers detected, release is cut from the third rc on the 14th week of the release cycle**
-|           Event          | Date           | Week |
-|:------------------------:|----------------|------|
-| Start Release Cycle      | September 12th |    1 |
-| v0.57.0-rc.0 Released    |  October 10th  |    5 |
-| Enhancement Freeze       |  October 24th  |    8 |
-| v0.57.0-rc.1 Released    |  October 31st  |    9 |
-| Exceptions Accepted      |  November 7th  |   10 |
-| v0.57.0-rc.2 Released    |  November 21st |   13 |
-| v0.57.0 Branch Created   |  November 21st |   13 |
-| Kubernetes 1.26 Released |  December 5th  |   14 |
-| K8s 1.26 Provider Available |  December 12th  |   15 |
-| v0.57.0 Released         |  December 17th |   16 |
 
-**Example: blocker is detected for release branch on the second release of the year (15 week cycle)**
-|            Event            | Date          | Week |
-|:---------------------------:|---------------|------|
-| Start Release Cycle         |    May 30th   |    1 |
-| v0.56.0-rc.0 Released       |   June 27th   |    5 |
-| Enhancement Freeze          |    July 4th   |    8 |
-| v0.56.0-rc.1 Released       |   July 11th   |    9 |
-| Exceptions Accepted         |   July 18th   |   10 |
-| v0.56.0-rc.2 Released       |   August 8th  |   13 |
-| v0.56.0 Branch Created      |   August 8th  |   13 |
-| Kubernetes 1.25 Released    |  August 23rd  |   15 |
-| K8s 1.25 Provider Available |  August 29th  |   16 |
-| v0.56.0-rc.2 Bug Found      |  August 29th  |   16 |
-| v0.56.0-rc.2 Bug Fixed      |  August 30th  |   16 |
-| v0.56.0-rc.3 Released       |  August 31th  |   16 |
-| v0.56.0 Released            | September 5th |   17 |
 
 # Versioning
 **Branches are created for every minor release and take the form of** `release-<major>.<minor>`
