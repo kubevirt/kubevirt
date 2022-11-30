@@ -232,6 +232,19 @@ type VirtualMachinePreferenceSpec struct {
 	//
 	//+optional
 	Machine *MachinePreferences `json:"machine,omitempty"`
+
+	// Volumes optionally defines preferences associated with the Volumes attribute of a VirtualMachineInstace DomainSpec
+	//
+	//+optional
+	Volumes *VolumePreferences `json:"volumes,omitempty"`
+}
+
+type VolumePreferences struct {
+
+	// PreffereedStorageClassName optionally defines the preferred storageClass
+	//
+	//+optional
+	PreferredStorageClassName string `json:"preferredStorageClassName,omitempty"`
 }
 
 // PreferredCPUTopology defines a preferred CPU topology to be exposed to the guest

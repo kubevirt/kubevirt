@@ -551,6 +551,7 @@ func GetOpenAPIDefinitions(ref common.ReferenceCallback) map[string]common.OpenA
 		"kubevirt.io/api/instancetype/v1alpha2.VirtualMachinePreference":                             schema_kubevirtio_api_instancetype_v1alpha2_VirtualMachinePreference(ref),
 		"kubevirt.io/api/instancetype/v1alpha2.VirtualMachinePreferenceList":                         schema_kubevirtio_api_instancetype_v1alpha2_VirtualMachinePreferenceList(ref),
 		"kubevirt.io/api/instancetype/v1alpha2.VirtualMachinePreferenceSpec":                         schema_kubevirtio_api_instancetype_v1alpha2_VirtualMachinePreferenceSpec(ref),
+		"kubevirt.io/api/instancetype/v1alpha2.VolumePreferences":                                    schema_kubevirtio_api_instancetype_v1alpha2_VolumePreferences(ref),
 		"kubevirt.io/api/migrations/v1alpha1.MigrationPolicy":                                        schema_kubevirtio_api_migrations_v1alpha1_MigrationPolicy(ref),
 		"kubevirt.io/api/migrations/v1alpha1.MigrationPolicyList":                                    schema_kubevirtio_api_migrations_v1alpha1_MigrationPolicyList(ref),
 		"kubevirt.io/api/migrations/v1alpha1.MigrationPolicySpec":                                    schema_kubevirtio_api_migrations_v1alpha1_MigrationPolicySpec(ref),
@@ -25191,11 +25192,36 @@ func schema_kubevirtio_api_instancetype_v1alpha2_VirtualMachinePreferenceSpec(re
 							Ref:         ref("kubevirt.io/api/instancetype/v1alpha2.MachinePreferences"),
 						},
 					},
+					"volumes": {
+						SchemaProps: spec.SchemaProps{
+							Description: "Volumes optionally defines preferences associated with the Volumes attribute of a VirtualMachineInstace DomainSpec",
+							Ref:         ref("kubevirt.io/api/instancetype/v1alpha2.VolumePreferences"),
+						},
+					},
 				},
 			},
 		},
 		Dependencies: []string{
-			"kubevirt.io/api/instancetype/v1alpha2.CPUPreferences", "kubevirt.io/api/instancetype/v1alpha2.ClockPreferences", "kubevirt.io/api/instancetype/v1alpha2.DevicePreferences", "kubevirt.io/api/instancetype/v1alpha2.FeaturePreferences", "kubevirt.io/api/instancetype/v1alpha2.FirmwarePreferences", "kubevirt.io/api/instancetype/v1alpha2.MachinePreferences"},
+			"kubevirt.io/api/instancetype/v1alpha2.CPUPreferences", "kubevirt.io/api/instancetype/v1alpha2.ClockPreferences", "kubevirt.io/api/instancetype/v1alpha2.DevicePreferences", "kubevirt.io/api/instancetype/v1alpha2.FeaturePreferences", "kubevirt.io/api/instancetype/v1alpha2.FirmwarePreferences", "kubevirt.io/api/instancetype/v1alpha2.MachinePreferences", "kubevirt.io/api/instancetype/v1alpha2.VolumePreferences"},
+	}
+}
+
+func schema_kubevirtio_api_instancetype_v1alpha2_VolumePreferences(ref common.ReferenceCallback) common.OpenAPIDefinition {
+	return common.OpenAPIDefinition{
+		Schema: spec.Schema{
+			SchemaProps: spec.SchemaProps{
+				Type: []string{"object"},
+				Properties: map[string]spec.Schema{
+					"preferredStorageClassName": {
+						SchemaProps: spec.SchemaProps{
+							Description: "PreffereedStorageClassName optionally defines the preferred storageClass",
+							Type:        []string{"string"},
+							Format:      "",
+						},
+					},
+				},
+			},
+		},
 	}
 }
 

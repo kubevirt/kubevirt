@@ -21126,6 +21126,19 @@
      "machine": {
       "description": "Machine optionally defines preferences associated with the Machine attribute of a VirtualMachineInstance DomainSpec",
       "$ref": "#/definitions/v1alpha2.MachinePreferences"
+     },
+     "volumes": {
+      "description": "Volumes optionally defines preferences associated with the Volumes attribute of a VirtualMachineInstace DomainSpec",
+      "$ref": "#/definitions/v1alpha2.VolumePreferences"
+     }
+    }
+   },
+   "v1alpha2.VolumePreferences": {
+    "type": "object",
+    "properties": {
+     "preferredStorageClassName": {
+      "description": "PreffereedStorageClassName optionally defines the preferred storageClass",
+      "type": "string"
      }
     }
    },

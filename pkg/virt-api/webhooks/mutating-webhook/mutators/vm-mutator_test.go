@@ -32,6 +32,8 @@ import (
 	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/client-go/tools/cache"
 
+	cdiv1 "kubevirt.io/containerized-data-importer-api/pkg/apis/core/v1beta1"
+
 	v1 "kubevirt.io/api/core/v1"
 	apiinstancetype "kubevirt.io/api/instancetype"
 	instancetypev1alpha2 "kubevirt.io/api/instancetype/v1alpha2"
@@ -280,6 +282,72 @@ var _ = Describe("VirtualMachine Mutator", func() {
 
 		vmSpec, _ := getVMSpecMetaFromResponse()
 		Expect(vmSpec.Template.Spec.Domain.Machine.Type).To(Equal(preference.Spec.Machine.PreferredMachineType))
+	})
+
+	It("should use storage class from VirtualMachinePreference", func() {
+		preference := &instancetypev1alpha2.VirtualMachineClusterPreference{
+			ObjectMeta: k8smetav1.ObjectMeta{
+				Name: "machineTypeClusterPreference",
+			},
+			TypeMeta: k8smetav1.TypeMeta{
+				Kind:       apiinstancetype.ClusterSingularPreferenceResourceName,
+				APIVersion: instancetypev1alpha2.SchemeGroupVersion.String(),
+			},
+			Spec: instancetypev1alpha2.VirtualMachinePreferenceSpec{
+				Volumes: &instancetypev1alpha2.VolumePreferences{
+					PreferredStorageClassName: "ceph",
+				},
+			},
+		}
+		vm.Spec.Preference = &v1.PreferenceMatcher{
+			Name: preference.Name,
+		}
+
+		_, err := virtClient.VirtualMachineClusterPreference().Create(context.Background(), preference, k8smetav1.CreateOptions{})
+		Expect(err).ToNot(HaveOccurred())
+
+		vmSpec, _ := getVMSpecMetaFromResponse()
+		for _, dv := range vmSpec.DataVolumeTemplates {
+			Expect(*dv.Spec.PVC.StorageClassName).To(Equal(preference.Spec.Volumes.PreferredStorageClassName))
+		}
+	})
+
+	It("storage class name already defined in VM, value from VirtualMachinePreference should not be used", func() {
+		storageClass := "local"
+		storageSpec := v1.DataVolumeTemplateSpec{
+			Spec: cdiv1.DataVolumeSpec{
+				PVC: &k8sv1.PersistentVolumeClaimSpec{
+					StorageClassName: &storageClass,
+				},
+			},
+		}
+		vm.Spec.DataVolumeTemplates = append(vm.Spec.DataVolumeTemplates, storageSpec)
+
+		preference := &instancetypev1alpha2.VirtualMachineClusterPreference{
+			ObjectMeta: k8smetav1.ObjectMeta{
+				Name: "machineTypeClusterPreference",
+			},
+			TypeMeta: k8smetav1.TypeMeta{
+				Kind:       apiinstancetype.ClusterSingularPreferenceResourceName,
+				APIVersion: instancetypev1alpha2.SchemeGroupVersion.String(),
+			},
+			Spec: instancetypev1alpha2.VirtualMachinePreferenceSpec{
+				Volumes: &instancetypev1alpha2.VolumePreferences{
+					PreferredStorageClassName: "ceph",
+				},
+			},
+		}
+
+		vm.Spec.Preference = &v1.PreferenceMatcher{
+			Name: preference.Name,
+		}
+		_, err := virtClient.VirtualMachineClusterPreference().Create(context.Background(), preference, k8smetav1.CreateOptions{})
+		Expect(err).ToNot(HaveOccurred())
+
+		vmSpec, _ := getVMSpecMetaFromResponse()
+		for _, dv := range vmSpec.DataVolumeTemplates {
+			Expect(*dv.Spec.PVC.StorageClassName).To(Equal(storageClass))
+		}
 	})
 
 	Context("failure tests", func() {
