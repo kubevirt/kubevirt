@@ -27,7 +27,7 @@ var _ = Describe("[sig-compute]NonRoot feature", decorators.SigCompute, func() {
 		util.PanicOnError(err)
 	})
 
-	Context("[verify-nonroot] NonRoot feature", func() {
+	Context("[verify-nonroot] NonRoot feature", decorators.NonRoot, func() {
 		It("Fails if can't be tested", func() {
 			Expect(checks.HasFeature(virtconfig.NonRoot)).To(BeTrue())
 

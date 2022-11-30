@@ -24,6 +24,8 @@ import (
 	"fmt"
 	"strings"
 
+	"kubevirt.io/kubevirt/tests/decorators"
+
 	expect "github.com/google/goexpect"
 
 	"kubevirt.io/kubevirt/tests/testsuite"
@@ -58,7 +60,7 @@ var _ = SIGDescribe("[crit:high][arm64][vendor:cnv-qe@redhat.com][level:componen
 
 	Describe("[crit:high][vendor:cnv-qe@redhat.com][level:component]Creating a VirtualMachineInstance", func() {
 		Context("when virt-handler is responsive", func() {
-			It("[Serial]VMIs with Bridge Networking shouldn't fail after the kubelet restarts", Serial, func() {
+			It("[Serial]VMIs with Bridge Networking shouldn't fail after the kubelet restarts", Serial, decorators.Networking, func() {
 				libnet.SkipWhenClusterNotSupportIpv4()
 				bridgeVMI := vmi
 				// Remove the masquerade interface to use the default bridge one
@@ -100,7 +102,7 @@ var _ = SIGDescribe("[crit:high][arm64][vendor:cnv-qe@redhat.com][level:componen
 				bridgeVMI = libwait.WaitForSuccessfulVMIStart(bridgeVMI)
 			})
 
-			It("VMIs with Bridge Networking should work with Duplicate Address Detection (DAD)", func() {
+			It("VMIs with Bridge Networking should work with Duplicate Address Detection (DAD)", decorators.Networking, func() {
 				libnet.SkipWhenClusterNotSupportIpv4()
 				bridgeVMI := libvmi.NewCirros()
 				// Remove the masquerade interface to use the default bridge one

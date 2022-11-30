@@ -26,6 +26,8 @@ import (
 	"strings"
 	"time"
 
+	"kubevirt.io/kubevirt/tests/decorators"
+
 	expect "github.com/google/goexpect"
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
@@ -91,7 +93,7 @@ const (
 	bridge10MacSpoofCheck = false
 )
 
-var _ = SIGDescribe("[Serial]Multus", Serial, func() {
+var _ = SIGDescribe("[Serial]Multus", Serial, decorators.Multus, func() {
 
 	var err error
 	var virtClient kubecli.KubevirtClient
