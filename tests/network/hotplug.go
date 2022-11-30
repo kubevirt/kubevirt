@@ -34,6 +34,7 @@ import (
 
 	"kubevirt.io/kubevirt/tests"
 	"kubevirt.io/kubevirt/tests/console"
+	"kubevirt.io/kubevirt/tests/framework/checks"
 	"kubevirt.io/kubevirt/tests/framework/kubevirt"
 	"kubevirt.io/kubevirt/tests/libnet"
 	"kubevirt.io/kubevirt/tests/libvmi"
@@ -97,6 +98,15 @@ var _ = SIGDescribe("nic-hotplug", func() {
 				WithTransform(
 					filterVMISyncErrorEvents,
 					ContainElement(noPCISlotsAvailableError())))
+		})
+
+		It("can migrate a VMI with hotplugged interfaces", func() {
+			checks.SkipIfMigrationIsNotPossible()
+
+			migration := tests.NewRandomMigration(vmi.Name, vmi.Namespace)
+			migrationUID := tests.RunMigrationAndExpectCompletion(kubevirt.Client(), migration, tests.MigrationWaitTime)
+			tests.ConfirmVMIPostMigration(kubevirt.Client(), vmi, migrationUID)
+			Expect(libnet.InterfaceExists(vmi, vmIfaceName)).To(Succeed())
 		})
 	})
 
