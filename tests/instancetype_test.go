@@ -22,10 +22,12 @@ import (
 	instancetypeapi "kubevirt.io/api/instancetype"
 	instancetypev1alpha2 "kubevirt.io/api/instancetype/v1alpha2"
 	"kubevirt.io/client-go/kubecli"
+	cdiv1beta1 "kubevirt.io/containerized-data-importer-api/pkg/apis/core/v1beta1"
 
 	"kubevirt.io/kubevirt/pkg/controller"
 	k6ttypes "kubevirt.io/kubevirt/pkg/util/types"
 	"kubevirt.io/kubevirt/tests"
+	"kubevirt.io/kubevirt/tests/libstorage"
 	"kubevirt.io/kubevirt/tests/libvmi"
 	"kubevirt.io/kubevirt/tests/util"
 )
@@ -654,6 +656,387 @@ var _ = Describe("[crit:medium][vendor:cnv-qe@redhat.com][level:component][sig-c
 				g.Expect(cond.Message).To(ContainSubstring("found existing ControllerRevision with unexpected data"))
 			}, 5*time.Minute, time.Second).Should(Succeed())
 		})
+	})
+
+	Context("with inferFromVolume enabled", Ordered, func() {
+
+		var (
+			err                     error
+			vm                      *v1.VirtualMachine
+			instancetype            *instancetypev1alpha2.VirtualMachineInstancetype
+			preference              *instancetypev1alpha2.VirtualMachinePreference
+			sourcePVC               *k8sv1.PersistentVolumeClaim
+			blockStorageClass       string
+			blockStorageClassExists bool
+		)
+
+		const (
+			inferFromVolumeName    = "volume"
+			instancetypeName       = "instancetype"
+			preferenceName         = "preference"
+			pvcSourceName          = "pvc"
+			dataSourceName         = "datasource"
+			dataVolumeTemplateName = "datatemplate"
+		)
+
+		checkVMhasInferredInstancetypeAndPreference := func() {
+			By("Creating and starting the VirtualMachine")
+			vm, err = virtClient.VirtualMachine(util.NamespaceTestDefault).Create(vm)
+			Expect(err).ToNot(HaveOccurred())
+			vm = tests.StartVMAndExpectRunning(virtClient, vm)
+
+			By("Checking that a VirtualMachine has been created with the inferred VirtualMachineInstancetype and VirtualMachinePreference applied")
+			Expect(vm.Spec.Instancetype.Name).To(Equal(instancetype.Name))
+			Expect(vm.Spec.Instancetype.Kind).To(Equal(instancetypeapi.SingularResourceName))
+			Expect(vm.Spec.Instancetype.InferFromVolume).To(BeEmpty())
+			Expect(vm.Spec.Preference.Name).To(Equal(preference.Name))
+			Expect(vm.Spec.Preference.Kind).To(Equal(instancetypeapi.SingularPreferenceResourceName))
+			Expect(vm.Spec.Preference.InferFromVolume).To(BeEmpty())
+
+			By("Checking that a VirtualMachineInstance has been created with the inferred VirtualMachineInstancetype and VirtualMachinePreference applied")
+			vmi, err := virtClient.VirtualMachineInstance(util.NamespaceTestDefault).Get(vm.Name, &metav1.GetOptions{})
+			Expect(err).ToNot(HaveOccurred())
+			Expect(vmi.Spec.Domain.CPU.Cores).To(Equal(instancetype.Spec.CPU.Guest))
+		}
+
+		waitPVCBound := func(pvc *k8sv1.PersistentVolumeClaim) *k8sv1.PersistentVolumeClaim {
+			Eventually(func() bool {
+				var err error
+				pvc, err = virtClient.CoreV1().PersistentVolumeClaims(pvc.Namespace).Get(context.Background(), pvc.Name, metav1.GetOptions{})
+				Expect(err).ToNot(HaveOccurred())
+				return pvc.Status.Phase == k8sv1.ClaimBound
+			}, 180*time.Second, time.Second).Should(BeTrue())
+			return pvc
+		}
+
+		BeforeAll(func() {
+			if !libstorage.HasCDI() {
+				Skip("instance type and preference inferFromVolume tests require CDI to be installed providing the DataVolume and DataSource CRDs")
+			}
+
+			blockStorageClass, blockStorageClassExists = libstorage.GetRWOBlockStorageClass()
+			if !blockStorageClassExists {
+				Skip("Skip test when RWOBlock storage class is not present")
+			}
+
+			By("Creating a VirtualMachineInstancetype")
+			instancetype = newVirtualMachineInstancetype(nil)
+			instancetype.Name = instancetypeName
+			instancetype, err = virtClient.VirtualMachineInstancetype(util.NamespaceTestDefault).
+				Create(context.Background(), instancetype, metav1.CreateOptions{})
+			Expect(err).ToNot(HaveOccurred())
+
+			By("Creating a VirtualMachinePreference")
+			preference = newVirtualMachinePreference()
+			preference.Name = preferenceName
+			preference.Spec = instancetypev1alpha2.VirtualMachinePreferenceSpec{
+				CPU: &instancetypev1alpha2.CPUPreferences{
+					PreferredCPUTopology: instancetypev1alpha2.PreferCores,
+				},
+			}
+			preference, err = virtClient.VirtualMachinePreference(util.NamespaceTestDefault).
+				Create(context.Background(), preference, metav1.CreateOptions{})
+			Expect(err).ToNot(HaveOccurred())
+		})
+
+		BeforeEach(func() {
+			By("Creating an annotated source PVC")
+			sourcePVC = libstorage.NewPVC(pvcSourceName, "1Gi", blockStorageClass)
+			sourcePVCVolumeBlockMode := k8sv1.PersistentVolumeBlock
+			sourcePVC.Spec.VolumeMode = &sourcePVCVolumeBlockMode
+			sourcePVC.Annotations = map[string]string{
+				instancetypeapi.DefaultInstancetypeAnnotation:     instancetype.Name,
+				instancetypeapi.DefaultInstancetypeKindAnnotation: instancetypeapi.SingularResourceName,
+				instancetypeapi.DefaultPreferenceAnnotation:       preference.Name,
+				instancetypeapi.DefaultPreferenceKindAnnotation:   instancetypeapi.SingularPreferenceResourceName,
+			}
+			sourcePVC, err = virtClient.CoreV1().PersistentVolumeClaims(util.NamespaceTestDefault).Create(context.Background(), sourcePVC, metav1.CreateOptions{})
+			Expect(err).ToNot(HaveOccurred())
+			waitPVCBound(sourcePVC)
+
+			vm = &v1.VirtualMachine{
+				ObjectMeta: metav1.ObjectMeta{
+					GenerateName: "vm-",
+					Namespace:    util.NamespaceTestDefault,
+				},
+				Spec: v1.VirtualMachineSpec{
+					Instancetype: &v1.InstancetypeMatcher{
+						InferFromVolume: inferFromVolumeName,
+					},
+					Preference: &v1.PreferenceMatcher{
+						InferFromVolume: inferFromVolumeName,
+					},
+					Template: &v1.VirtualMachineInstanceTemplateSpec{
+						Spec: v1.VirtualMachineInstanceSpec{
+							Domain: v1.DomainSpec{},
+						},
+					},
+					Running: pointer.Bool(false),
+				},
+			}
+		})
+
+		It("should infer defaults from PersistentVolumeClaimVolumeSource", func() {
+			vm.Spec.Template.Spec.Volumes = []v1.Volume{{
+				Name: inferFromVolumeName,
+				VolumeSource: v1.VolumeSource{
+					PersistentVolumeClaim: &v1.PersistentVolumeClaimVolumeSource{
+						PersistentVolumeClaimVolumeSource: k8sv1.PersistentVolumeClaimVolumeSource{
+							ClaimName: sourcePVC.Name,
+						},
+					},
+				},
+			}}
+			checkVMhasInferredInstancetypeAndPreference()
+		})
+
+		DescribeTable("should infer defaults from DataVolume", func(dataVolume *cdiv1beta1.DataVolume, dataSource *cdiv1beta1.DataSource) {
+			// Optional DataSource referenced by a DataVolumeSourceRef
+			if dataSource != nil {
+				dataSource, err = virtClient.CdiClient().CdiV1beta1().DataSources(util.NamespaceTestDefault).Create(context.Background(), dataSource, metav1.CreateOptions{})
+				Expect(err).ToNot(HaveOccurred())
+
+				// Add the now generated DataSource name to the DataVolume
+				dataVolume.Spec.SourceRef.Name = dataSource.Name
+			}
+
+			dataVolume, err = virtClient.CdiClient().CdiV1beta1().DataVolumes(util.NamespaceTestDefault).Create(context.Background(), dataVolume, metav1.CreateOptions{})
+			Expect(err).ToNot(HaveOccurred())
+
+			vm.Spec.Template.Spec.Volumes = []v1.Volume{{
+				Name: inferFromVolumeName,
+				VolumeSource: v1.VolumeSource{
+					DataVolume: &v1.DataVolumeSource{
+						Name: dataVolume.Name,
+					},
+				},
+			}}
+			checkVMhasInferredInstancetypeAndPreference()
+		},
+			Entry("with annotations",
+				&cdiv1beta1.DataVolume{
+					ObjectMeta: metav1.ObjectMeta{
+						GenerateName: "datavolume-",
+						Namespace:    util.NamespaceTestDefault,
+						Annotations: map[string]string{
+							instancetypeapi.DefaultInstancetypeAnnotation:     instancetypeName,
+							instancetypeapi.DefaultInstancetypeKindAnnotation: instancetypeapi.SingularResourceName,
+							instancetypeapi.DefaultPreferenceAnnotation:       preferenceName,
+							instancetypeapi.DefaultPreferenceKindAnnotation:   instancetypeapi.SingularPreferenceResourceName,
+						},
+					},
+					Spec: cdiv1beta1.DataVolumeSpec{
+						Source: &cdiv1beta1.DataVolumeSource{
+							PVC: &cdiv1beta1.DataVolumeSourcePVC{
+								Namespace: util.NamespaceTestDefault,
+								Name:      pvcSourceName,
+							},
+						},
+						Storage: &cdiv1beta1.StorageSpec{},
+					},
+				}, nil),
+			Entry("and DataVolumeSourcePVC",
+				&cdiv1beta1.DataVolume{
+					ObjectMeta: metav1.ObjectMeta{
+						GenerateName: "datavolume-",
+						Namespace:    util.NamespaceTestDefault,
+					},
+					Spec: cdiv1beta1.DataVolumeSpec{
+						Source: &cdiv1beta1.DataVolumeSource{
+							PVC: &cdiv1beta1.DataVolumeSourcePVC{
+								Namespace: util.NamespaceTestDefault,
+								Name:      pvcSourceName,
+							},
+						},
+						Storage: &cdiv1beta1.StorageSpec{},
+					},
+				}, nil),
+			Entry(", DataVolumeSourceRef and DataSource",
+				&cdiv1beta1.DataVolume{
+					ObjectMeta: metav1.ObjectMeta{
+						GenerateName: "datavolume-",
+						Namespace:    util.NamespaceTestDefault,
+					},
+					Spec: cdiv1beta1.DataVolumeSpec{
+						SourceRef: &cdiv1beta1.DataVolumeSourceRef{
+							Name:      dataSourceName,
+							Kind:      "DataSource",
+							Namespace: &util.NamespaceTestDefault,
+						},
+						// CDI bug #2502, revert to &cdiv1beta1.StorageSpec{} once that is fixed.
+						Storage: &cdiv1beta1.StorageSpec{
+							AccessModes: []k8sv1.PersistentVolumeAccessMode{k8sv1.ReadWriteOnce},
+							Resources: k8sv1.ResourceRequirements{
+								Requests: k8sv1.ResourceList{
+									"storage": resource.MustParse("1Gi"),
+								},
+							},
+						},
+					},
+				},
+				&cdiv1beta1.DataSource{
+					ObjectMeta: metav1.ObjectMeta{
+						GenerateName: "datasource-",
+						Namespace:    util.NamespaceTestDefault,
+					},
+					Spec: cdiv1beta1.DataSourceSpec{
+						Source: cdiv1beta1.DataSourceSource{
+							PVC: &cdiv1beta1.DataVolumeSourcePVC{
+								Name:      pvcSourceName,
+								Namespace: util.NamespaceTestDefault,
+							},
+						},
+					},
+				},
+			),
+			Entry(", DataVolumeSourceRef and DataSource with annotations",
+				&cdiv1beta1.DataVolume{
+					ObjectMeta: metav1.ObjectMeta{
+						GenerateName: "datavolume-",
+						Namespace:    util.NamespaceTestDefault,
+					},
+					Spec: cdiv1beta1.DataVolumeSpec{
+						SourceRef: &cdiv1beta1.DataVolumeSourceRef{
+							Name:      dataSourceName,
+							Kind:      "DataSource",
+							Namespace: &util.NamespaceTestDefault,
+						},
+						// CDI bug #2502, revert to &cdiv1beta1.StorageSpec{} once that is fixed.
+						Storage: &cdiv1beta1.StorageSpec{
+							AccessModes: []k8sv1.PersistentVolumeAccessMode{k8sv1.ReadWriteOnce},
+							Resources: k8sv1.ResourceRequirements{
+								Requests: k8sv1.ResourceList{
+									"storage": resource.MustParse("1Gi"),
+								},
+							},
+						},
+					},
+				},
+				&cdiv1beta1.DataSource{
+					ObjectMeta: metav1.ObjectMeta{
+						GenerateName: "datasource-",
+						Namespace:    util.NamespaceTestDefault,
+						Annotations: map[string]string{
+							instancetypeapi.DefaultInstancetypeAnnotation:     instancetypeName,
+							instancetypeapi.DefaultInstancetypeKindAnnotation: instancetypeapi.SingularResourceName,
+							instancetypeapi.DefaultPreferenceAnnotation:       preferenceName,
+							instancetypeapi.DefaultPreferenceKindAnnotation:   instancetypeapi.SingularPreferenceResourceName,
+						},
+					},
+					Spec: cdiv1beta1.DataSourceSpec{
+						Source: cdiv1beta1.DataSourceSource{
+							PVC: &cdiv1beta1.DataVolumeSourcePVC{
+								Name:      pvcSourceName,
+								Namespace: util.NamespaceTestDefault,
+							},
+						},
+					},
+				},
+			),
+		)
+
+		DescribeTable("should infer defaults from DataVolumeTemplates", func(dataVolumeTemplates []v1.DataVolumeTemplateSpec, dataSource *cdiv1beta1.DataSource) {
+			// Optional DataSource referenced by a DataVolumeSourceRef
+			if dataSource != nil {
+				dataSource, err = virtClient.CdiClient().CdiV1beta1().DataSources(util.NamespaceTestDefault).Create(context.Background(), dataSource, metav1.CreateOptions{})
+				Expect(err).ToNot(HaveOccurred())
+
+				// Add the now generated DataSource name to the DataVolumeTemplate
+				dataVolumeTemplates[0].Spec.SourceRef.Name = dataSource.Name
+			}
+
+			vm.Spec.DataVolumeTemplates = dataVolumeTemplates
+			vm.Spec.Template.Spec.Volumes = []v1.Volume{{
+				Name: inferFromVolumeName,
+				VolumeSource: v1.VolumeSource{
+					DataVolume: &v1.DataVolumeSource{
+						Name: dataVolumeTemplateName,
+					},
+				},
+			}}
+			checkVMhasInferredInstancetypeAndPreference()
+		},
+			Entry("and DataVolumeSourcePVC",
+				[]v1.DataVolumeTemplateSpec{{
+					ObjectMeta: metav1.ObjectMeta{
+						Name: dataVolumeTemplateName,
+					},
+					Spec: cdiv1beta1.DataVolumeSpec{
+						Source: &cdiv1beta1.DataVolumeSource{
+							PVC: &cdiv1beta1.DataVolumeSourcePVC{
+								Namespace: util.NamespaceTestDefault,
+								Name:      pvcSourceName,
+							},
+						},
+						Storage: &cdiv1beta1.StorageSpec{},
+					},
+				}}, nil,
+			),
+			Entry(", DataVolumeSourceRef and DataSource",
+				[]v1.DataVolumeTemplateSpec{{
+					ObjectMeta: metav1.ObjectMeta{
+						Name: dataVolumeTemplateName,
+					},
+					Spec: cdiv1beta1.DataVolumeSpec{
+						SourceRef: &cdiv1beta1.DataVolumeSourceRef{
+							Name:      dataSourceName,
+							Kind:      "DataSource",
+							Namespace: &util.NamespaceTestDefault,
+						},
+						Storage: &cdiv1beta1.StorageSpec{},
+					},
+				}},
+				&cdiv1beta1.DataSource{
+					ObjectMeta: metav1.ObjectMeta{
+						GenerateName: "datasource-",
+						Namespace:    util.NamespaceTestDefault,
+					},
+					Spec: cdiv1beta1.DataSourceSpec{
+						Source: cdiv1beta1.DataSourceSource{
+							PVC: &cdiv1beta1.DataVolumeSourcePVC{
+								Name:      pvcSourceName,
+								Namespace: util.NamespaceTestDefault,
+							},
+						},
+					},
+				},
+			),
+			Entry(", DataVolumeSourceRef and DataSource with annotations",
+				[]v1.DataVolumeTemplateSpec{{
+					ObjectMeta: metav1.ObjectMeta{
+						Name: dataVolumeTemplateName,
+					},
+					Spec: cdiv1beta1.DataVolumeSpec{
+						SourceRef: &cdiv1beta1.DataVolumeSourceRef{
+							Name:      dataSourceName,
+							Kind:      "DataSource",
+							Namespace: &util.NamespaceTestDefault,
+						},
+						Storage: &cdiv1beta1.StorageSpec{},
+					},
+				}},
+				&cdiv1beta1.DataSource{
+					ObjectMeta: metav1.ObjectMeta{
+						GenerateName: "datasource-",
+						Namespace:    util.NamespaceTestDefault,
+						Annotations: map[string]string{
+							instancetypeapi.DefaultInstancetypeAnnotation:     instancetypeName,
+							instancetypeapi.DefaultInstancetypeKindAnnotation: instancetypeapi.SingularResourceName,
+							instancetypeapi.DefaultPreferenceAnnotation:       preferenceName,
+							instancetypeapi.DefaultPreferenceKindAnnotation:   instancetypeapi.SingularPreferenceResourceName,
+						},
+					},
+					Spec: cdiv1beta1.DataSourceSpec{
+						Source: cdiv1beta1.DataSourceSource{
+							PVC: &cdiv1beta1.DataVolumeSourcePVC{
+								Name:      pvcSourceName,
+								Namespace: util.NamespaceTestDefault,
+							},
+						},
+					},
+				},
+			),
+		)
 	})
 })
 
