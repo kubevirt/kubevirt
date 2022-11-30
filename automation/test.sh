@@ -352,67 +352,64 @@ spec:
 EOF
 fi
 
-# Set KUBEVIRT_E2E_FOCUS and KUBEVIRT_E2E_SKIP only if both of them are not
-# already set.
+# Set label_filter only if KUBEVIRT_E2E_FOCUS and KUBEVIRT_E2E_SKIP are not set.
 if [[ -z ${KUBEVIRT_E2E_FOCUS} && -z ${KUBEVIRT_E2E_SKIP} ]]; then
+  echo "WARN: Ongoing deprecation of the keyword matchers and updating them with ginkgo Label decorators"
   if [[ $TARGET =~ windows_sysprep.* ]]; then
-    export KUBEVIRT_E2E_FOCUS="\\[Sysprep\\]"
+    label_filter='(Sysprep)'
   elif [[ $TARGET =~ windows.* ]]; then
     # Run only Windows tests
-    export KUBEVIRT_E2E_FOCUS=Windows
+    label_filter='(Windows)'
   elif [[ $TARGET =~ (cnao|multus) ]]; then
-    export KUBEVIRT_E2E_FOCUS="Multus|Networking|VMIlifecycle|Expose|Macvtap"
+    label_filter='(Multus,Networking,VMIlifecycle,Expose,Macvtap)'
   elif [[ $TARGET =~ sig-network ]]; then
-    export KUBEVIRT_E2E_FOCUS="\\[sig-network\\]"
+    label_filter='(sig-network)'
   elif [[ $TARGET =~ sig-storage ]]; then
-    export KUBEVIRT_E2E_FOCUS="\\[sig-storage\\]|\\[storage-req\\]"
-    export KUBEVIRT_E2E_SKIP="Migration"
+    label_filter='((sig-storage,storage-req) && !sig-compute-migrations)'
   elif [[ $TARGET =~ vgpu.* ]]; then
-    export KUBEVIRT_E2E_FOCUS=MediatedDevices
+    label_filter='(VGPU)'
   elif [[ $TARGET =~ sig-compute-realtime ]]; then
-    export KUBEVIRT_E2E_FOCUS="\\[sig-compute-realtime\\]"
+    label_filter='(sig-compute-realtime)'
   elif [[ $TARGET =~ sig-compute-migrations ]]; then
-    export KUBEVIRT_E2E_FOCUS="Migration"
-    export KUBEVIRT_E2E_SKIP="GPU|MediatedDevices"
+    label_filter='(sig-compute-migrations && !(GPU,VGPU))'
   elif [[ $TARGET =~ sig-compute ]]; then
-    export KUBEVIRT_E2E_FOCUS="\\[sig-compute\\]"
-    export KUBEVIRT_E2E_SKIP="GPU|MediatedDevices|Migration"
+    label_filter='(sig-compute && !(GPU,VGPU,sig-compute-migrations))'
   elif [[ $TARGET =~ sig-monitoring ]]; then
-      export KUBEVIRT_E2E_FOCUS="\\[sig-monitoring\\]"
+    label_filter='(sig-monitoring)'
   elif [[ $TARGET =~ sig-operator ]]; then
-    export KUBEVIRT_E2E_FOCUS="\\[sig-operator\\]"
+    label_filter='(sig-operator)'
   elif [[ $TARGET =~ sriov.* ]]; then
-    export KUBEVIRT_E2E_FOCUS=SRIOV
+    label_filter='(SRIOV)'
   elif [[ $TARGET =~ gpu.* ]]; then
-    export KUBEVIRT_E2E_FOCUS=GPU
+    label_filter='(GPU)'
   elif [[ $TARGET =~ (okd|ocp).* ]]; then
-    export KUBEVIRT_E2E_SKIP="SRIOV|GPU|MediatedDevices"
+    label_filter='(!(SRIOV,GPU,VGPU))'
   else
-    export KUBEVIRT_E2E_SKIP="Multus|SRIOV|GPU|Macvtap|MediatedDevices"
+    label_filter='(!(Multus,SRIOV,Macvtap,GPU,VGPU))'
   fi
 fi
 
 if [[ $KUBEVIRT_NONROOT =~ true ]]; then
-  if [[ -z $KUBEVIRT_E2E_FOCUS ]]; then
-    export KUBEVIRT_E2E_FOCUS="\\[verify-nonroot\\]"
+  if [[ -z $label_filter ]]; then
+    label_filter='(verify-non-root)'
   else
-    export KUBEVIRT_E2E_FOCUS="$KUBEVIRT_E2E_FOCUS|\\[verify-nonroot\\]"
+    label_filter=$label_filter',(verify-non-root)'
   fi
 else
-  if [[ -z $KUBEVIRT_E2E_SKIP ]]; then
-    export KUBEVIRT_E2E_SKIP="\\[verify-nonroot\\]"
+  if [[ -z $label_filter ]]; then
+    label_filter='(!verify-non-root)'
   else
-    export KUBEVIRT_E2E_SKIP="$KUBEVIRT_E2E_SKIP|\\[verify-nonroot\\]"
+    label_filter=$label_filter'&&(!verify-non-root)'
   fi
 fi
 
 # Single-node single-replica test lanes obviously can't run live migrations,
 # but also currently lack the requirements for SRIOV, GPU, Macvtap and MDEVs.
 if [[ $KUBEVIRT_NUM_NODES = "1" && $KUBEVIRT_INFRA_REPLICAS = "1" ]]; then
-  if [ -n "$KUBEVIRT_E2E_SKIP" ]; then
-    export KUBEVIRT_E2E_SKIP="${KUBEVIRT_E2E_SKIP}|SRIOV|GPU|Macvtap|MediatedDevices|Migration"
+  if [[ -z $label_filter ]]; then
+    label_filter='(!(SRIOV,GPU,Macvtap,VGPU,sig-compute-migrations))'
   else
-    export KUBEVIRT_E2E_SKIP="SRIOV|GPU|Macvtap|MediatedDevices|Migration"
+    label_filter=$label_filter'&&(!(SRIOV,GPU,Macvtap,VGPU,sig-compute-migrations))'
   fi
 fi
 
@@ -452,7 +449,7 @@ fi
 
 
 # Run functional tests
-FUNC_TEST_ARGS=$ginko_params make functest
+FUNC_TEST_ARGS=$ginko_params FUNC_TEST_LABEL_FILTER='--label-filter='${label_filter} make functest
 
 # Run REST API coverage based on k8s audit log and openapi spec
 if [ -n "$RUN_REST_COVERAGE" ]; then
