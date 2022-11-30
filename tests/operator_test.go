@@ -32,6 +32,8 @@ import (
 	"path/filepath"
 	"strconv"
 
+	"kubevirt.io/kubevirt/tests/decorators"
+
 	"regexp"
 	"sort"
 	"strings"
@@ -101,7 +103,7 @@ type vmYamlDefinition struct {
 	vmSnapshots   []vmSnapshotDef
 }
 
-var _ = Describe("[Serial][sig-operator]Operator", Serial, func() {
+var _ = Describe("[Serial][sig-operator]Operator", Serial, decorators.SigOperator, func() {
 	var originalKv *v1.KubeVirt
 	var originalCDI *cdiv1.CDI
 	var originalOperatorVersion string
