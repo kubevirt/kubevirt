@@ -20,6 +20,7 @@
 package clientcmd
 
 import (
+	"bytes"
 	"flag"
 
 	"github.com/spf13/cobra"
@@ -46,5 +47,15 @@ func NewRepeatableVirtctlCommand(args ...string) func() error {
 	return func() error {
 		cmd := NewVirtctlCommand(args...)
 		return cmd.Execute()
+	}
+}
+
+func NewRepeatableVirtctlCommandWithOut(args ...string) func() ([]byte, error) {
+	return func() ([]byte, error) {
+		out := &bytes.Buffer{}
+		cmd := NewVirtctlCommand(args...)
+		cmd.SetOut(out)
+		err := cmd.Execute()
+		return out.Bytes(), err
 	}
 }
