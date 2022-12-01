@@ -1411,8 +1411,6 @@ func DeleteAlpineWithNonQEMUPermissions() {
 }
 
 func renderContainerSpec(imgPath string, name string, cmd []string, args []string) k8sv1.Container {
-	nonRootUser := int64(1042)
-
 	return k8sv1.Container{
 		Name:    name,
 		Image:   imgPath,
@@ -1422,7 +1420,6 @@ func renderContainerSpec(imgPath string, name string, cmd []string, args []strin
 			Privileged:               NewBool(false),
 			AllowPrivilegeEscalation: NewBool(false),
 			RunAsNonRoot:             NewBool(true),
-			RunAsUser:                &nonRootUser,
 			SeccompProfile: &k8sv1.SeccompProfile{
 				Type: k8sv1.SeccompProfileTypeRuntimeDefault,
 			},
