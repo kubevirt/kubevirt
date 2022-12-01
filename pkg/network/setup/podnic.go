@@ -311,6 +311,14 @@ func (l *podNIC) PlugPhase2(domain *api.Domain) error {
 		log.Log.Reason(err).Critical("failed to create libvirt configuration")
 	}
 
+	if err := l.StartDHCP(); err != nil {
+		return err
+	}
+
+	return nil
+}
+
+func (l *podNIC) StartDHCP() error {
 	if l.dhcpConfigurator != nil {
 		dhcpConfig, err := l.dhcpConfigurator.Generate()
 		if err != nil {
@@ -323,7 +331,6 @@ func (l *podNIC) PlugPhase2(domain *api.Domain) error {
 			panic(err)
 		}
 	}
-
 	return nil
 }
 

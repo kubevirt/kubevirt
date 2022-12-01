@@ -2814,6 +2814,13 @@ func (d *VirtualMachineController) vmUpdateHelperDefault(origVMI *v1.VirtualMach
 
 		if err := d.hotplugVirtioInterfaces(vmi); err != nil {
 			log.Log.Object(vmi).Error(err.Error())
+			var criticalNetErr *neterrors.CriticalNetworkError
+			if !goerror.As(err, &criticalNetErr) {
+				log.Log.Object(vmi).Infof("pod interface not ready yet; re-queuing VMI reconcile operation to give it more time")
+				d.Queue.AddAfter(controller.VirtualMachineInstanceKey(vmi), 200*time.Millisecond)
+				return nil
+			}
+			return err
 		}
 	}
 
