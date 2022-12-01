@@ -79,6 +79,10 @@ const (
 	QEMUSeaBiosDebugPipe = "/var/run/kubevirt-private/QEMUSeaBiosDebugPipe"
 )
 
+const (
+	vhostNetPath = "/dev/vhost-net"
+)
+
 type deviceNamer struct {
 	existingNameMap map[string]string
 	usedDeviceMap   map[string]string
@@ -1218,13 +1222,12 @@ func Convert_v1_VirtualMachineInstance_To_api_Domain(vmi *v1.VirtualMachineInsta
 	}
 
 	virtioNetProhibited := false
-	vhostNetPath := "/dev/vhost-net"
 	if softwareEmulation, err := util.UseSoftwareEmulationForDevice(vhostNetPath, c.AllowEmulation); err != nil {
 		return err
 	} else if softwareEmulation {
 		logger := log.DefaultLogger()
 		logger.Infof("In-kernel virtio-net device emulation '%s' not present. Falling back to QEMU userland emulation.", vhostNetPath)
-	} else if _, err := os.Stat(vhostNetPath); errors.Is(err, os.ErrNotExist) {
+	} else if IsVirtioNetProhibited() {
 		virtioNetProhibited = true
 	} else if err != nil {
 		return err
@@ -1774,7 +1777,7 @@ func Convert_v1_VirtualMachineInstance_To_api_Domain(vmi *v1.VirtualMachineInsta
 		}
 	}
 
-	domainInterfaces, err := createDomainInterfaces(vmi, domain, c, virtioNetProhibited)
+	domainInterfaces, err := CreateDomainInterfaces(vmi, domain, c, virtioNetProhibited)
 	if err != nil {
 		return err
 	}
@@ -1970,4 +1973,9 @@ func GracePeriod(vmi *v1.VirtualMachineInstance) int64 {
 		gracePeriodSeconds = *vmi.Spec.TerminationGracePeriodSeconds
 	}
 	return gracePeriodSeconds
+}
+
+func IsVirtioNetProhibited() bool {
+	_, err := os.Stat(vhostNetPath)
+	return errors.Is(err, os.ErrNotExist)
 }

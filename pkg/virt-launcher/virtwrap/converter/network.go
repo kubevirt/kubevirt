@@ -36,7 +36,7 @@ import (
 	"kubevirt.io/kubevirt/pkg/virt-launcher/virtwrap/device"
 )
 
-func createDomainInterfaces(vmi *v1.VirtualMachineInstance, domain *api.Domain, c *ConverterContext, virtioNetProhibited bool) ([]api.Interface, error) {
+func CreateDomainInterfaces(vmi *v1.VirtualMachineInstance, domain *api.Domain, c *ConverterContext, virtioNetProhibited bool, ifacesToPlug ...v1.Interface) ([]api.Interface, error) {
 	if err := validateNetworksTypes(vmi.Spec.Networks); err != nil {
 		return nil, err
 	}
@@ -45,7 +45,10 @@ func createDomainInterfaces(vmi *v1.VirtualMachineInstance, domain *api.Domain, 
 
 	networks := indexNetworksByName(vmi.Spec.Networks)
 
-	for i, iface := range vmi.Spec.Domain.Devices.Interfaces {
+	if len(ifacesToPlug) == 0 {
+		ifacesToPlug = vmi.Spec.Domain.Devices.Interfaces
+	}
+	for i, iface := range ifacesToPlug {
 		net, isExist := networks[iface.Name]
 		if !isExist {
 			return nil, fmt.Errorf("failed to find network %s", iface.Name)
@@ -299,16 +302,4 @@ func GetResolvConfDetailsFromPod() ([][]byte, []string, error) {
 	log.Log.Reason(err).Infof("Found search domains in %s: %s", resolvConf, strings.Join(searchDomains, " "))
 
 	return nameservers, searchDomains, err
-}
-
-func VirtIODomainInterfaceSpec(ctx *ConverterContext, attachmentName string, tapDeviceName string) api.Interface {
-	return api.Interface{
-		Type: "ethernet",
-		Target: &api.InterfaceTarget{
-			Device:  tapDeviceName,
-			Managed: "no",
-		},
-		Model: &api.Model{Type: translateModel(ctx, "virtio")},
-		Alias: api.NewUserDefinedAlias(attachmentName),
-	}
 }
