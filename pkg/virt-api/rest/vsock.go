@@ -18,7 +18,11 @@ func (app *SubresourceAPIApp) VSOCKRequestHandler(request *restful.Request, resp
 		app.FetchVirtualMachineInstance,
 		validateVMIForVSOCK,
 		app.virtHandlerDialer(func(vmi *v1.VirtualMachineInstance, conn kubecli.VirtHandlerConn) (string, error) {
-			return conn.VSOCKURI(vmi, request.QueryParameter("port"))
+			tls := "true"
+			if request.QueryParameter("tls") != "" {
+				tls = request.QueryParameter("tls")
+			}
+			return conn.VSOCKURI(vmi, request.QueryParameter("port"), tls)
 		}),
 	)
 

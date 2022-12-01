@@ -11945,6 +11945,13 @@
       "name": "port",
       "in": "query",
       "required": true
+     },
+     {
+      "uniqueItems": true,
+      "type": "boolean",
+      "description": "Weather to request a TLS encrypted session from the VSOCK application.",
+      "name": "tls",
+      "in": "query"
      }
     ]
    },
@@ -13371,6 +13378,13 @@
       "name": "port",
       "in": "query",
       "required": true
+     },
+     {
+      "uniqueItems": true,
+      "type": "boolean",
+      "description": "Weather to request a TLS encrypted session from the VSOCK application.",
+      "name": "tls",
+      "in": "query"
      }
     ]
    },

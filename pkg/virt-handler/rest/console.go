@@ -20,6 +20,7 @@
 package rest
 
 import (
+	"crypto/tls"
 	"errors"
 	"fmt"
 	"io"
@@ -34,6 +35,7 @@ import (
 	"github.com/mdlayher/vsock"
 	"k8s.io/apimachinery/pkg/types"
 	"k8s.io/client-go/tools/cache"
+	"k8s.io/client-go/util/certificate"
 
 	v1 "kubevirt.io/api/core/v1"
 	"kubevirt.io/client-go/kubecli"
@@ -54,13 +56,14 @@ type ConsoleHandler struct {
 	vmiInformer          cache.SharedIndexInformer
 	usbredir             map[types.UID]UsbredirHandlerVMI
 	usbredirLock         *sync.Mutex
+	certManager          certificate.Manager
 }
 
 type UsbredirHandlerVMI struct {
 	stopChans map[int](chan struct{})
 }
 
-func NewConsoleHandler(podIsolationDetector isolation.PodIsolationDetector, vmiInformer cache.SharedIndexInformer) *ConsoleHandler {
+func NewConsoleHandler(podIsolationDetector isolation.PodIsolationDetector, vmiInformer cache.SharedIndexInformer, certManager certificate.Manager) *ConsoleHandler {
 	return &ConsoleHandler{
 		podIsolationDetector: podIsolationDetector,
 		serialStopChans:      make(map[types.UID](chan struct{})),
@@ -70,6 +73,7 @@ func NewConsoleHandler(podIsolationDetector isolation.PodIsolationDetector, vmiI
 		usbredirLock:         &sync.Mutex{},
 		vmiInformer:          vmiInformer,
 		usbredir:             make(map[types.UID]UsbredirHandlerVMI),
+		certManager:          certManager,
 	}
 }
 
@@ -194,9 +198,19 @@ func (t *ConsoleHandler) VSOCKHandler(request *restful.Request, response *restfu
 		return
 	}
 	portParam := request.QueryParameter("port")
+	tlsParam := request.QueryParameter("tls")
+	if tlsParam == "" {
+		tlsParam = "false"
+	}
 	port, err := strconv.ParseUint(portParam, 10, 32)
 	if err != nil {
 		log.Log.Object(vmi).Reason(err).Errorf("Failed parsing the path parameter port %s", portParam)
+		response.WriteError(http.StatusBadRequest, err)
+		return
+	}
+	useTLS, err := strconv.ParseBool(tlsParam)
+	if err != nil {
+		log.Log.Object(vmi).Reason(err).Errorf("Failed parsing the path parameter useTLS %s", tlsParam)
 		response.WriteError(http.StatusBadRequest, err)
 		return
 	}
@@ -208,8 +222,23 @@ func (t *ConsoleHandler) VSOCKHandler(request *restful.Request, response *restfu
 			log.Log.Object(vmi).Reason(err).Errorf("failed to dial vsock %d:%d", cid, port)
 			return nil, err
 		}
-		log.Log.Object(vmi).Infof("Connected to %d:%d", cid, port)
-		return conn, nil
+		if !useTLS {
+			log.Log.Object(vmi).Infof("Connected to %d:%d", cid, port)
+			return conn, nil
+		}
+		tlsConn := tls.Client(conn, &tls.Config{
+			InsecureSkipVerify: true,
+			MinVersion:         tls.VersionTLS13,
+			GetClientCertificate: func(info *tls.CertificateRequestInfo) (*tls.Certificate, error) {
+				return t.certManager.Current(), nil
+			},
+		})
+		if err := tlsConn.Handshake(); err != nil {
+			log.Log.Object(vmi).Reason(err).Errorf("Failed to connect to %d:%d over TLS", cid, port)
+			return nil, err
+		}
+		log.Log.Object(vmi).Infof("Connected to %d:%d over TLS", cid, port)
+		return tlsConn, nil
 	}, make(chan struct{})) // It is legitimate and up to the guest-application to accept multiple connections.
 }
 

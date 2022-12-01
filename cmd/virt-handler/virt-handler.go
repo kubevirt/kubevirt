@@ -33,6 +33,7 @@ import (
 	"time"
 
 	kvtls "kubevirt.io/kubevirt/pkg/util/tls"
+	"kubevirt.io/kubevirt/pkg/virt-handler/vsock"
 
 	"github.com/emicklei/go-restful"
 	"github.com/golang/glog"
@@ -159,6 +160,7 @@ type virtHandlerApp struct {
 	promTLSConfig         *tls.Config
 	clusterConfig         *virtconfig.ClusterConfig
 	reloadableRateLimiter *ratelimiter.ReloadableRateLimiter
+	caManager             kvtls.ClientCAManager
 }
 
 var (
@@ -305,6 +307,17 @@ func (app *virtHandlerApp) Run() {
 	if err := app.setupTLS(factory); err != nil {
 		glog.Fatalf("Error constructing migration tls config: %v", err)
 	}
+	vsockMgr := vsock.NewVSOCKHypervisorService(1, app.caManager)
+
+	vsockConfigCallback := func() {
+		if app.clusterConfig.VSOCKEnabled() {
+			vsockMgr.Start()
+		} else {
+			vsockMgr.Stop()
+		}
+	}
+
+	app.clusterConfig.SetConfigModifiedCallback(vsockConfigCallback)
 
 	migrationProxy := migrationproxy.NewMigrationProxyManager(app.serverTLSConfig, app.clientTLSConfig, app.clusterConfig)
 
@@ -356,11 +369,6 @@ func (app *virtHandlerApp) Run() {
 
 	promErrCh := make(chan error)
 	go app.runPrometheusServer(promErrCh)
-
-	consoleHandler := rest.NewConsoleHandler(
-		podIsolationDetector,
-		vmiSourceInformer,
-	)
 
 	lifecycleHandler := rest.NewLifecycleHandler(
 		recorder,
@@ -418,6 +426,12 @@ func (app *virtHandlerApp) Run() {
 
 	doneCh := make(chan string)
 	defer close(doneCh)
+
+	consoleHandler := rest.NewConsoleHandler(
+		podIsolationDetector,
+		vmiSourceInformer,
+		app.clientcertmanager,
+	)
 
 	errCh := make(chan error)
 	go app.runServer(errCh, consoleHandler, lifecycleHandler)
@@ -600,11 +614,11 @@ func (app *virtHandlerApp) setupTLS(factory controller.KubeInformerFactory) erro
 		apiHealthVersion.Clear()
 		cache.DefaultWatchErrorHandler(r, err)
 	})
-	caManager := kvtls.NewCAManager(kubevirtCAConfigInformer.GetStore(), app.namespace, app.caConfigMapName)
+	app.caManager = kvtls.NewCAManager(kubevirtCAConfigInformer.GetStore(), app.namespace, app.caConfigMapName)
 
 	app.promTLSConfig = kvtls.SetupPromTLS(app.servercertmanager, app.clusterConfig)
-	app.serverTLSConfig = kvtls.SetupTLSForVirtHandlerServer(caManager, app.servercertmanager, app.externallyManaged, app.clusterConfig)
-	app.clientTLSConfig = kvtls.SetupTLSForVirtHandlerClients(caManager, app.clientcertmanager, app.externallyManaged)
+	app.serverTLSConfig = kvtls.SetupTLSForVirtHandlerServer(app.caManager, app.servercertmanager, app.externallyManaged, app.clusterConfig)
+	app.clientTLSConfig = kvtls.SetupTLSForVirtHandlerClients(app.caManager, app.clientcertmanager, app.externallyManaged)
 
 	return nil
 }
