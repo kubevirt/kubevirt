@@ -10,5 +10,6 @@ container_image(
         "//conditions:default": "amd64",
     }),
     base = "//images:kubevirt-testing-base",
+    user = "1001",
     visibility = ["//visibility:public"],
 )
