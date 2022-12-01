@@ -159,6 +159,7 @@ func (b *BridgePodNetworkConfigurator) PreparePodNetworkInterface() error {
 func (b *BridgePodNetworkConfigurator) GenerateNonRecoverableDomainIfaceSpec() *api.Interface {
 	return &api.Interface{
 		MAC: &api.MAC{MAC: b.vmMac.String()},
+		MTU: &api.MTU{Size: fmt.Sprintf("%d", b.podNicLink.Attrs().MTU)},
 	}
 }
 

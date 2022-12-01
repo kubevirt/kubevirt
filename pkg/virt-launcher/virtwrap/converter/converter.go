@@ -1990,7 +1990,7 @@ func hasTabletDevice(vmi *v1.VirtualMachineInstance) bool {
 	return false
 }
 
-func CalcDomDevice(ctx *ConverterContext, ifaceName string) api.Interface {
+func DomainInterfaceSpec(ctx *ConverterContext, ifaceName string, cachedIfaceState api.Interface) api.Interface {
 	return api.Interface{
 		Type: "ethernet",
 		Target: &api.InterfaceTarget{
@@ -1999,6 +1999,8 @@ func CalcDomDevice(ctx *ConverterContext, ifaceName string) api.Interface {
 		},
 		Model: &api.Model{Type: translateModel(ctx, "virtio")},
 		Alias: api.NewUserDefinedAlias(HotplugIfaceNamePrefix + ifaceName),
+		MTU:   cachedIfaceState.MTU,
+		MAC:   cachedIfaceState.MAC,
 	}
 }
 

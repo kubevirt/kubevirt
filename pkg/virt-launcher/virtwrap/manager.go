@@ -973,11 +973,30 @@ func (l *LibvirtDomainManager) SyncVMI(vmi *v1.VirtualMachineInstance, allowEmul
 		}
 	}
 
+	cacheClient := cache.CacheCreator{}
+	vmConfigurator := netsetup.NewVMNetworkConfigurator(
+		vmi,
+		cacheClient,
+	)
 	for _, networkName := range ifacesMissingInDomain(netsetup.ReadyInterfacesToHotplug(vmi), oldSpec) {
 		log.Log.Infof("will hot plug %s", networkName)
-		ifaceXML, err := xml.Marshal(converter.CalcDomDevice(c, networkName))
+
+		if err := vmConfigurator.StartDHCP(domain, networkName); err != nil {
+			return nil, err
+		}
+
+		domainIfaceFromCache, err := cache.ReadDomainInterfaceCache(cacheClient, "self", networkName)
 		if err != nil {
-			continue
+			return nil, err
+		}
+		newIfaceDomainIface := converter.DomainInterfaceSpec(c, networkName, *domainIfaceFromCache)
+		if err != nil {
+			return nil, err
+		}
+		log.Log.Infof("will hot plug %s with MAC %s", networkName, *newIfaceDomainIface.MAC)
+		ifaceXML, err := xml.Marshal(newIfaceDomainIface)
+		if err != nil {
+			return nil, err
 		}
 
 		if err := dom.AttachDevice(strings.ToLower(string(ifaceXML))); err != nil {

@@ -69,10 +69,15 @@ func (v VMNetworkConfigurator) getPhase1NicsWithGenerator(launcherPID *int, podN
 }
 
 func (v VMNetworkConfigurator) getPhase2NICs(domain *api.Domain) ([]podNIC, error) {
+	return v.getPhase2NICsWithGenerator(domain, standardPodNicGenerator{})
+}
+
+func (v VMNetworkConfigurator) getPhase2NICsWithGenerator(domain *api.Domain, podNicGenerator podNicGenerator) ([]podNIC, error) {
 	var nics []podNIC
 
-	for i := range v.vmi.Spec.Networks {
-		nic, err := newPhase2PodNIC(v.vmi, &v.vmi.Spec.Networks[i], v.handler, v.cacheCreator, domain)
+	relevantNetworks := podNicGenerator.relevantNetworks(v.vmi)
+	for i := range relevantNetworks {
+		nic, err := newPhase2PodNIC(v.vmi, &relevantNetworks[i], v.handler, v.cacheCreator, domain)
 		if err != nil {
 			return nil, err
 		}
@@ -116,6 +121,18 @@ func (n *VMNetworkConfigurator) SetupPodNetworkPhase2(domain *api.Domain) error 
 	for _, nic := range nics {
 		if err := nic.PlugPhase2(domain); err != nil {
 			return fmt.Errorf("failed plugging phase2 at nic '%s': %w", nic.podInterfaceName, err)
+		}
+	}
+	return nil
+}
+func (n *VMNetworkConfigurator) StartDHCP(domain *api.Domain, ifaceName string) error {
+	nics, err := n.getPhase2NICsWithGenerator(domain, newHotplugPodNicGenerator(ifaceName))
+	if err != nil {
+		return err
+	}
+	for _, nic := range nics {
+		if err := nic.StartDHCP(); err != nil {
+			return err
 		}
 	}
 	return nil
