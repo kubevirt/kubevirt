@@ -2356,6 +2356,23 @@ var _ = Describe("[sig-compute]Configurations", decorators.SigCompute, func() {
 
 		Context("[Serial]with cpu pinning enabled", Serial, func() {
 
+			expectGuaranteedQos := func(vmi *v1.VirtualMachineInstance) (*v1.VirtualMachineInstance, *k8sv1.Pod) {
+				By("Checking that the VMI QOS is guaranteed")
+				vmi, err := virtClient.VirtualMachineInstance(testsuite.GetTestNamespace(vmi)).Get(context.Background(), vmi.Name, &metav1.GetOptions{})
+				Expect(err).ToNot(HaveOccurred())
+				Expect(vmi.Status.QOSClass).ToNot(BeNil())
+				Expect(*vmi.Status.QOSClass).To(Equal(kubev1.PodQOSGuaranteed))
+
+				Expect(isNodeHasCPUManagerLabel(vmi.Status.NodeName)).To(BeTrue())
+
+				By("Checking that the pod QOS is guaranteed")
+				pod := tests.GetRunningPodByVirtualMachineInstance(vmi, testsuite.GetTestNamespace(vmi))
+				podQos := pod.Status.QOSClass
+				Expect(podQos).To(Equal(kubev1.PodQOSGuaranteed))
+
+				return vmi, pod
+			}
+
 			It("[test_id:1684]should set the cpumanager label to false when it's not running", func() {
 
 				By("adding a cpumanger=true label to a node")
@@ -2388,7 +2405,7 @@ var _ = Describe("[sig-compute]Configurations", decorators.SigCompute, func() {
 				}
 				Expect(cpuManagerEnabled).To(BeTrue())
 			})
-			It("[test_id:991]should be scheduled on a node with running cpu manager", func() {
+			It("[test_id:991]should be scheduled on a node with running cpu manager with vmi and pod in guaranteed QoS", func() {
 				cpuVmi := libvmi.NewCirros()
 				cpuVmi.Spec.Domain.CPU = &v1.CPU{
 					Cores:                 2,
@@ -2398,30 +2415,9 @@ var _ = Describe("[sig-compute]Configurations", decorators.SigCompute, func() {
 				By("Starting a VirtualMachineInstance")
 				cpuVmi, err = virtClient.VirtualMachineInstance(testsuite.GetTestNamespace(cpuVmi)).Create(context.Background(), cpuVmi)
 				Expect(err).ToNot(HaveOccurred())
-				node := libwait.WaitForSuccessfulVMIStart(cpuVmi).Status.NodeName
+				cpuVmi = libwait.WaitForSuccessfulVMIStart(cpuVmi)
 
-				By("Checking that the VMI QOS is guaranteed")
-				vmi, err := virtClient.VirtualMachineInstance(testsuite.GetTestNamespace(cpuVmi)).Get(context.Background(), cpuVmi.Name, &metav1.GetOptions{})
-				Expect(err).ToNot(HaveOccurred())
-				Expect(vmi.Status.QOSClass).ToNot(BeNil())
-				Expect(*vmi.Status.QOSClass).To(Equal(kubev1.PodQOSGuaranteed))
-
-				Expect(isNodeHasCPUManagerLabel(node)).To(BeTrue())
-
-				By("Checking that the pod QOS is guaranteed")
-				readyPod := tests.GetRunningPodByVirtualMachineInstance(cpuVmi, testsuite.GetTestNamespace(cpuVmi))
-				podQos := readyPod.Status.QOSClass
-				Expect(podQos).To(Equal(kubev1.PodQOSGuaranteed))
-
-				var computeContainer *kubev1.Container
-				for _, container := range readyPod.Spec.Containers {
-					if container.Name == "compute" {
-						computeContainer = &container
-					}
-				}
-				if computeContainer == nil {
-					util.PanicOnError(fmt.Errorf("could not find the compute container"))
-				}
+				cpuVmi, _ = expectGuaranteedQos(cpuVmi)
 
 				By("Expecting the VirtualMachineInstance console")
 				Expect(console.LoginToCirros(cpuVmi)).To(Succeed())
@@ -2456,25 +2452,14 @@ var _ = Describe("[sig-compute]Configurations", decorators.SigCompute, func() {
 				By("Starting a VirtualMachineInstance")
 				cpuVmi, err = virtClient.VirtualMachineInstance(testsuite.GetTestNamespace(cpuVmi)).Create(context.Background(), cpuVmi)
 				Expect(err).ToNot(HaveOccurred())
-				node := libwait.WaitForSuccessfulVMIStart(cpuVmi).Status.NodeName
+				cpuVmi = libwait.WaitForSuccessfulVMIStart(cpuVmi)
 
-				By("Checking that the VMI QOS is guaranteed")
-				vmi, err := virtClient.VirtualMachineInstance(testsuite.GetTestNamespace(cpuVmi)).Get(context.Background(), cpuVmi.Name, &metav1.GetOptions{})
-				Expect(err).ToNot(HaveOccurred())
-				Expect(vmi.Status.QOSClass).ToNot(BeNil())
-				Expect(*vmi.Status.QOSClass).To(Equal(kubev1.PodQOSGuaranteed))
-
-				Expect(isNodeHasCPUManagerLabel(node)).To(BeTrue())
-
-				By("Checking that the pod QOS is guaranteed")
-				readyPod := tests.GetRunningPodByVirtualMachineInstance(cpuVmi, testsuite.GetTestNamespace(vmi))
-				podQos := readyPod.Status.QOSClass
-				Expect(podQos).To(Equal(kubev1.PodQOSGuaranteed))
+				cpuVmi, pod := expectGuaranteedQos(cpuVmi)
 
 				//-------------------------------------------------------------------
-				Expect(console.LoginToCirros(vmi)).To(Succeed())
+				Expect(console.LoginToCirros(cpuVmi)).To(Succeed())
 
-				Expect(console.SafeExpectBatch(vmi, []expect.Batcher{
+				Expect(console.SafeExpectBatch(cpuVmi, []expect.Batcher{
 					&expect.BSnd{S: "[ $(free -m | grep Mem: | tr -s ' ' | cut -d' ' -f2) -lt 80 ] && echo 'pass'\n"},
 					&expect.BExp{R: console.RetValue("pass")},
 					&expect.BSnd{S: "swapoff -a && dd if=/dev/zero of=/dev/shm/test bs=1k count=118k\n"},
@@ -2483,7 +2468,6 @@ var _ = Describe("[sig-compute]Configurations", decorators.SigCompute, func() {
 					&expect.BExp{R: console.RetValue("0")},
 				}, 15)).To(Succeed())
 
-				pod := tests.GetRunningPodByVirtualMachineInstance(vmi, testsuite.GetTestNamespace(vmi))
 				podMemoryUsage, err := getPodMemoryUsage(pod)
 				Expect(err).ToNot(HaveOccurred())
 				By("Converting pod memory usage")
@@ -2503,15 +2487,14 @@ var _ = Describe("[sig-compute]Configurations", decorators.SigCompute, func() {
 				By("Starting a VirtualMachineInstance")
 				cpuVmi, err = virtClient.VirtualMachineInstance(testsuite.GetTestNamespace(cpuVmi)).Create(context.Background(), cpuVmi)
 				Expect(err).ToNot(HaveOccurred())
-				node := libwait.WaitForSuccessfulVMIStart(cpuVmi).Status.NodeName
+				cpuVmi = libwait.WaitForSuccessfulVMIStart(cpuVmi)
 
 				By("Checking that the VMI QOS is guaranteed")
-				vmi, err := virtClient.VirtualMachineInstance(testsuite.GetTestNamespace(cpuVmi)).Get(context.Background(), cpuVmi.Name, &metav1.GetOptions{})
+				vmi, _ := expectGuaranteedQos(cpuVmi)
 				Expect(err).ToNot(HaveOccurred())
 				Expect(vmi.Status.QOSClass).ToNot(BeNil())
 				Expect(*vmi.Status.QOSClass).To(Equal(kubev1.PodQOSGuaranteed))
-
-				Expect(isNodeHasCPUManagerLabel(node)).To(BeTrue())
+				Expect(isNodeHasCPUManagerLabel(vmi.Status.NodeName)).To(BeTrue())
 
 				By("Checking that the pod QOS is guaranteed")
 				readyPod := tests.GetRunningPodByVirtualMachineInstance(cpuVmi, testsuite.GetTestNamespace(vmi))
@@ -2557,25 +2540,11 @@ var _ = Describe("[sig-compute]Configurations", decorators.SigCompute, func() {
 					}
 
 					By("Starting a VirtualMachineInstance")
-					vmi, err = virtClient.VirtualMachineInstance(util.NamespaceTestDefault).Create(vmi)
+					vmi, err = virtClient.VirtualMachineInstance(util.NamespaceTestDefault).Create(context.Background(), vmi)
 					Expect(err).ToNot(HaveOccurred())
-					vmi = tests.WaitForSuccessfulVMIStart(vmi)
+					vmi = libwait.WaitForSuccessfulVMIStart(vmi)
 
 					pod = tests.GetRunningPodByVirtualMachineInstance(vmi, vmi.Namespace)
-				})
-
-				It("[test_id:TODO]should make sure pod and vmi are of QoS guaranteed", func() {
-					By("Checking that the VMI QOS is guaranteed")
-					vmi, err := virtClient.VirtualMachineInstance(util.NamespaceTestDefault).Get(vmi.Name, &metav1.GetOptions{})
-					Expect(err).ToNot(HaveOccurred())
-					Expect(vmi.Status.QOSClass).ToNot(BeNil())
-					Expect(*vmi.Status.QOSClass).To(Equal(kubev1.PodQOSGuaranteed))
-
-					Expect(isNodeHasCPUManagerLabel(vmi.Status.NodeName)).To(BeTrue())
-
-					By("Checking that the pod QOS is guaranteed")
-					podQos := pod.Status.QOSClass
-					Expect(podQos).To(Equal(kubev1.PodQOSGuaranteed))
 				})
 
 				It("[test_id:TODO]should pin dedicated CPUs to dedicated CPUs cgroup", func() {
