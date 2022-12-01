@@ -37,6 +37,7 @@ import (
 
 type ClientCAManager interface {
 	GetCurrent() (*x509.CertPool, error)
+	GetCurrentRaw() ([]byte, error)
 }
 
 type manager struct {
@@ -48,6 +49,7 @@ type manager struct {
 	secretKey    string
 
 	lastPool *x509.CertPool
+	lastRaw  []byte
 }
 
 func NewKubernetesClientCAManager(configMapCache cache.Store) ClientCAManager {
@@ -70,6 +72,14 @@ func NewCAManager(configMapCache cache.Store, namespace string, configMapName st
 		secretKey:    components.CABundleKey,
 		lastRevision: "-1",
 	}
+}
+
+func (m *manager) GetCurrentRaw() ([]byte, error) {
+	_, err := m.GetCurrent()
+	if err != nil {
+		return nil, err
+	}
+	return m.lastRaw, nil
 }
 
 func (m *manager) GetCurrent() (*x509.CertPool, error) {
@@ -112,6 +122,7 @@ func (m *manager) GetCurrent() (*x509.CertPool, error) {
 
 	m.lastRevision = configMap.ResourceVersion
 	m.lastPool = pool
+	m.lastRaw = []byte(requestHeaderClientCA)
 
 	return pool, nil
 }

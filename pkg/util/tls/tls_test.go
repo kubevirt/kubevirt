@@ -62,6 +62,10 @@ func (m *mockCAManager) GetCurrent() (*x509.CertPool, error) {
 	return pool, nil
 }
 
+func (m *mockCAManager) GetCurrentRaw() ([]byte, error) {
+	return nil, fmt.Errorf("not implemented")
+}
+
 var _ = Describe("TLS", func() {
 
 	var caManager kvtls.ClientCAManager
