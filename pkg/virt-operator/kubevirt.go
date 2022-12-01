@@ -706,7 +706,10 @@ func (c *KubeVirtController) execute(key string) error {
 
 func (c *KubeVirtController) generateInstallStrategyJob(config *operatorutil.KubeVirtDeploymentConfig) (*batchv1.Job, error) {
 
-	operatorImage := fmt.Sprintf("%s/%s%s%s", config.GetImageRegistry(), config.GetImagePrefix(), VirtOperator, components.AddVersionSeparatorPrefix(config.GetOperatorVersion()))
+	operatorImage := config.VirtOperatorImage
+	if operatorImage == "" {
+		operatorImage = fmt.Sprintf("%s/%s%s%s", config.GetImageRegistry(), config.GetImagePrefix(), VirtOperator, components.AddVersionSeparatorPrefix(config.GetOperatorVersion()))
+	}
 	deploymentConfigJson, err := config.GetJson()
 	if err != nil {
 		return nil, err
