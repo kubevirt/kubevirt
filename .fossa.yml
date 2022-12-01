@@ -22,13 +22,6 @@ analyze:
     options:
       modules-vendor: true
       strategy: gomodules
-  - name: subresource-access-test
-    type: go
-    target: 'kubevirt.io/kubevirt/cmd/subresource-access-test'
-    path: cmd/subresource-access-test
-    options:
-      modules-vendor: true
-      strategy: gomodules
   - name: fake-qemu-process
     type: go
     target: 'kubevirt.io/kubevirt/cmd/fake-qemu-process'
