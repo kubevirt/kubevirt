@@ -990,9 +990,9 @@ var _ = Describe("Restore controller", func() {
 					}).Return(expectedUpdatedVM, nil)
 			}
 
-			expectUpdateVMRestoreUpdatingTargetSpec := func(vmRestore *snapshotv1.VirtualMachineRestore) {
+			expectUpdateVMRestoreUpdatingTargetSpec := func(vmRestore *snapshotv1.VirtualMachineRestore, resourceVersion string) {
 				expectedUpdatedRestore := vmRestore.DeepCopy()
-				expectedUpdatedRestore.ResourceVersion = "1"
+				expectedUpdatedRestore.ResourceVersion = resourceVersion
 				expectedUpdatedRestore.Status.Conditions = []snapshotv1.Condition{
 					newProgressingCondition(corev1.ConditionTrue, "Updating target spec"),
 					newReadyCondition(corev1.ConditionFalse, "Waiting for target update"),
@@ -1074,7 +1074,7 @@ var _ = Describe("Restore controller", func() {
 					expectCreateControllerRevisionAlreadyExists(k8sClient, getExpectedCR())
 					expectUpdateVMRestoreInProgress(originalVM)
 					expectUpdateVMRestored(originalVM)
-					expectUpdateVMRestoreUpdatingTargetSpec(restore)
+					expectUpdateVMRestoreUpdatingTargetSpec(restore, "1")
 
 					addVirtualMachineRestore(restore)
 					controller.processVMRestoreWorkItem()
@@ -1150,7 +1150,7 @@ var _ = Describe("Restore controller", func() {
 						newVM.Spec.Preference.RevisionName = expectedCreatedCR.Name
 					}
 					expectCreateVM(newVM)
-					expectUpdateVMRestoreUpdatingTargetSpec(restore)
+					expectUpdateVMRestoreUpdatingTargetSpec(restore, "1")
 
 					addVirtualMachineRestore(restore)
 					controller.processVMRestoreWorkItem()
@@ -1231,9 +1231,10 @@ var _ = Describe("Restore controller", func() {
 					addVirtualMachineRestore(restore)
 					controller.processVMRestoreWorkItem()
 
-					// This is bug #8890, the fact that the CR already exists shouldn't cause the reconcile to fail
+					// We have already created the ControllerRevision but that shouldn't stop the reconcile from progressing
 					expectCreateControllerRevisionAlreadyExists(k8sClient, expectedCreatedCR)
-					expectUpdateVMRestoreFailure(restore, "2", fmt.Sprintf(" \"%s\" already exists", expectedCreatedCR.Name))
+					expectCreateVM(newVM)
+					expectUpdateVMRestoreUpdatingTargetSpec(restore, "2")
 
 					addVirtualMachineRestore(restore)
 					controller.processVMRestoreWorkItem()
