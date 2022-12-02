@@ -522,7 +522,7 @@ var _ = SIGDescribe("[Serial]Multus", Serial, decorators.Multus, func() {
 						virtClient,
 						vmiPod,
 						"compute",
-						[]string{"cat", "/sys/class/net/net1/mtu"},
+						[]string{"cat", "/sys/class/net/72ad293a5c9/mtu"},
 					)
 					ExpectWithOffset(1, err).ToNot(HaveOccurred())
 
