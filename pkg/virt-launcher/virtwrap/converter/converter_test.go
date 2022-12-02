@@ -2925,17 +2925,7 @@ var _ = Describe("Converter", func() {
 		})
 		It("should configure the VCPU scheduler information utilizing all pinned vcpus when realtime is enabled", func() {
 			domain := vmiToDomain(vmi, rtContext)
-			Expect(domain.Spec.CPUTune.VCPUScheduler).NotTo(BeNil())
-			Expect(domain.Spec.CPUTune.VCPUScheduler).To(BeEquivalentTo(&api.VCPUScheduler{VCPUs: "0-1", Scheduler: api.SchedulerFIFO, Priority: uint(1)}))
-		})
-
-		It("should configure the VCPU scheduler information with specific vcpu mask when realtime is enabled and mask is defined", func() {
-			vmi.Spec.Domain.CPU.Cores = 3
-			vmi.Spec.Domain.CPU.Realtime.Mask = "0-2,^1"
-
-			domain := vmiToDomain(vmi, rtContext)
-			Expect(domain.Spec.CPUTune.VCPUScheduler).NotTo(BeNil())
-			Expect(domain.Spec.CPUTune.VCPUScheduler).To(BeEquivalentTo(&api.VCPUScheduler{VCPUs: "0-2,^1", Scheduler: api.SchedulerFIFO, Priority: uint(1)}))
+			Expect(domain.Spec.Features.PMU).To(Equal(&api.FeatureState{State: "off"}))
 		})
 	})
 
