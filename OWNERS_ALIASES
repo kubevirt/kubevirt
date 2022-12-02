@@ -54,6 +54,63 @@ aliases:
       - davidvossel
       - rthallisey
 
+  #
+  # SIGs
+  #
+
+  # Care about tests
+  sig-testing-reviewers:
+      - kbidarkar
+
+  sig-testing-approvers:
+      - kbidarkar
+      - phoracek
+      - enp0s3
+      - xpivarc
+      - acardace
+
+  # Care about the architecture
+  sig-architecture-approvers:
+      - davidvossel
+      - vladikr
+      - rmohr
+      - xpivarc
+      - vasiliy-ul
+      - fabiand
+      - mhenriks
+
+  # Care about network
+  sig-network-reviewers:
+      - AlonaKaplan
+      - EdDev
+      - RamLavi
+      - maiqueb
+      - ormergi
+      - oshoval
+      - phoracek
+      - qinqon
+      - rhrazdil
+
+  sig-network-approvers:
+      - AlonaKaplan
+
+  # Care about storage
+  sig-storage-approvers:
+      - mhenriks
+
+  sig-storage-reviewers:
+      - awels
+
+  # Care about scale
+  sig-scale-reviewers:
+      - rthallisey
+
+  sig-scale-approvers:
+      - rthallisey
+
+  #
+  # Other
+  #
   emeritus_approvers:
       - danielBelenky
       - mazzystr
@@ -83,49 +140,3 @@ aliases:
       - alicefr
       - 0xFelix
       - lyarwood
-
-  test-reviewers:
-      - jerry7z
-      - kbidarkar
-
-  test-approvers:
-      - kbidarkar
-      - phoracek
-      - enp0s3
-      - xpivarc
-      - acardace
-
-  sig-architecture-approvers:
-      - davidvossel
-      - vladikr
-      - rmohr
-      - xpivarc
-      - vasiliy-ul
-      - fabiand
-      - mhenriks
-
-  sig-network-reviewers:
-      - AlonaKaplan
-      - EdDev
-      - RamLavi
-      - maiqueb
-      - ormergi
-      - oshoval
-      - phoracek
-      - qinqon
-      - rhrazdil
-
-  sig-network-approvers:
-      - AlonaKaplan
-
-  sig-storage-approvers:
-      - mhenriks
-
-  sig-storage-reviewers:
-      - awels
-
-  sig-scale-reviewers:
-      - rthallisey
-
-  sig-scale-approvers:
-      - rthallisey
