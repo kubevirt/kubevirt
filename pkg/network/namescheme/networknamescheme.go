@@ -20,19 +20,26 @@
 package namescheme
 
 import (
+	"crypto/sha256"
 	"fmt"
+	"io"
 
 	v1 "kubevirt.io/api/core/v1"
 
 	"kubevirt.io/kubevirt/pkg/network/vmispec"
 )
 
-const PrimaryPodInterfaceName = "eth0"
+const (
+	// maxIfaceNameLen equals max kernel interface name len (15) - length("-nic")
+	// which is the suffix used for the bridge binding interface with IPAM.
+	// (the interface created to hold the pod's IP address - and thus appease CNI).
+	maxIfaceNameLen         = 11
+	PrimaryPodInterfaceName = "eth0"
+)
 
 // CreateNetworkNameScheme iterates over the VMI's Networks, and creates for each a pod interface name.
 // The returned map associates between the network name and the generated pod interface name.
-// Primary network will use "eth0" and the secondary ones will use "net<id>" format, where id is an enumeration
-// from 1 to n.
+// Primary network will use "eth0" and the secondary ones will be named with the hashed network name.
 func CreateNetworkNameScheme(vmiNetworks []v1.Network) map[string]string {
 	networkNameSchemeMap := mapMultusNonDefaultNetworksToPodInterfaceName(vmiNetworks)
 
@@ -45,12 +52,19 @@ func CreateNetworkNameScheme(vmiNetworks []v1.Network) map[string]string {
 
 func mapMultusNonDefaultNetworksToPodInterfaceName(networks []v1.Network) map[string]string {
 	networkNameSchemeMap := map[string]string{}
-	for i, network := range vmispec.FilterMultusNonDefaultNetworks(networks) {
-		networkNameSchemeMap[network.Name] = secondaryInterfaceName(i + 1)
+	for _, network := range vmispec.FilterMultusNonDefaultNetworks(networks) {
+		networkNameSchemeMap[network.Name] = hashNetworkName(network.Name)
 	}
 	return networkNameSchemeMap
 }
 
-func secondaryInterfaceName(idx int) string {
-	return fmt.Sprintf("net%d", idx)
+func hashNetworkName(networkName string) string {
+	hash := sha256.New()
+	_, _ = io.WriteString(hash, networkName)
+	return fmt.Sprintf("%x", hash.Sum(nil))[:maxIfaceNameLen]
+}
+
+func secondaryInterfaceIndexedName(idx int) string {
+	const interfaceNamePrefix = "net"
+	return fmt.Sprintf("%s%d", interfaceNamePrefix, idx)
 }

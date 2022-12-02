@@ -112,7 +112,7 @@ var _ = Describe("VMNetworkConfigurator", func() {
 				Expect(nics).To(BeEmpty())
 			})
 			It("should configure networking with multus", func() {
-				const multusInterfaceName = "net1"
+				const multusInterfaceName = "37a8eec1ce1"
 				vmi := newVMIBridgeInterface("testnamespace", "testVmName")
 				iface := v1.DefaultBridgeNetworkInterface()
 				cniNet := vmiPrimaryNetwork()
@@ -193,14 +193,14 @@ var _ = Describe("VMNetworkConfigurator", func() {
 						vmi:              vm,
 						vmiSpecIface:     &vm.Spec.Domain.Devices.Interfaces[0],
 						vmiSpecNetwork:   additionalCNINet1,
-						podInterfaceName: "net1",
+						podInterfaceName: "e56ef68384a",
 						handler:          vmNetworkConfigurator.handler,
 						cacheCreator:     vmNetworkConfigurator.cacheCreator,
 						launcherPID:      &launcherPID,
 						infraConfigurator: infraconfigurators.NewBridgePodNetworkConfigurator(
 							vm,
 							&vm.Spec.Domain.Devices.Interfaces[0],
-							generateInPodBridgeInterfaceName("net1"),
+							generateInPodBridgeInterfaceName("e56ef68384a"),
 							launcherPID,
 							vmNetworkConfigurator.handler),
 					},
@@ -223,14 +223,14 @@ var _ = Describe("VMNetworkConfigurator", func() {
 						vmi:              vm,
 						vmiSpecIface:     &vm.Spec.Domain.Devices.Interfaces[2],
 						vmiSpecNetwork:   additionalCNINet2,
-						podInterfaceName: "net2",
+						podInterfaceName: "9f531ef99d2",
 						handler:          vmNetworkConfigurator.handler,
 						cacheCreator:     vmNetworkConfigurator.cacheCreator,
 						launcherPID:      &launcherPID,
 						infraConfigurator: infraconfigurators.NewBridgePodNetworkConfigurator(
 							vm,
 							&vm.Spec.Domain.Devices.Interfaces[2],
-							generateInPodBridgeInterfaceName("net2"),
+							generateInPodBridgeInterfaceName("9f531ef99d2"),
 							launcherPID,
 							vmNetworkConfigurator.handler),
 					},
@@ -254,7 +254,7 @@ var _ = Describe("VMNetworkConfigurator", func() {
 				vmNetworkConfigurator := NewVMNetworkConfigurator(vmi, &baseCacheCreator)
 				launcherPID := 0
 
-				const expectedPodIfaceName = "net1"
+				const expectedPodIfaceName = "45b3499a170"
 				Expect(vmNetworkConfigurator.getPhase1NICs(
 					&launcherPID,
 					[]v1.Network{networkToHotplug(ifaceToHotplug)},

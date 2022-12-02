@@ -45,5 +45,8 @@ var _ = Describe("Common Methods", func() {
 		It("Should return another new bridge interface name", func() {
 			Expect(virtnetlink.GenerateNewBridgedVmiInterfaceName("net12")).To(Equal("net12-nic"))
 		})
+		It("Should return hash network name bridge interface name", func() {
+			Expect(virtnetlink.GenerateNewBridgedVmiInterfaceName("16477688c0e")).To(Equal("16477688c0e-nic"))
+		})
 	})
 })
