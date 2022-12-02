@@ -159,6 +159,7 @@ func (b *BridgePodNetworkConfigurator) PreparePodNetworkInterface() error {
 func (b *BridgePodNetworkConfigurator) GenerateNonRecoverableDomainIfaceSpec() *api.Interface {
 	return &api.Interface{
 		MAC: &api.MAC{MAC: b.vmMac.String()},
+		MTU: &api.MTU{Size: fmt.Sprintf("%d", b.podNicLink.Attrs().MTU)},
 	}
 }
 
@@ -193,7 +194,7 @@ func (b *BridgePodNetworkConfigurator) createBridge() error {
 	}
 	err := b.handler.LinkAdd(bridge)
 	if err != nil {
-		log.Log.Reason(err).Errorf("failed to create a bridge")
+		log.Log.Reason(err).Errorf("failed to create a bridge named: %s", b.bridgeInterfaceName)
 		return err
 	}
 

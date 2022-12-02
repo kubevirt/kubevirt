@@ -29,7 +29,6 @@ import (
 	"strings"
 	"syscall"
 
-	"github.com/vishvananda/netlink"
 	"golang.org/x/sys/unix"
 
 	v1 "kubevirt.io/api/core/v1"
@@ -134,23 +133,6 @@ func (b *BridgeLibvirtSpecGenerator) Generate() error {
 }
 
 func (b *BridgeLibvirtSpecGenerator) discoverDomainIfaceSpec() (*api.Interface, error) {
-	podNicLink, err := b.handler.LinkByName(b.podInterfaceName)
-	if err != nil {
-		log.Log.Reason(err).Errorf(linkIfaceFailFmt, b.podInterfaceName)
-		return nil, err
-	}
-	_, dummy := podNicLink.(*netlink.Dummy)
-	if dummy {
-		newPodNicName := virtnetlink.GenerateNewBridgedVmiInterfaceName(b.podInterfaceName)
-		podNicLink, err = b.handler.LinkByName(newPodNicName)
-		if err != nil {
-			log.Log.Reason(err).Errorf(linkIfaceFailFmt, newPodNicName)
-			return nil, err
-		}
-	}
-
-	b.cachedDomainInterface.MTU = &api.MTU{Size: strconv.Itoa(podNicLink.Attrs().MTU)}
-
 	b.cachedDomainInterface.Target = &api.InterfaceTarget{
 		Device:  virtnetlink.GenerateTapDeviceName(b.podInterfaceName),
 		Managed: "no"}
