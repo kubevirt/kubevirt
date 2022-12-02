@@ -792,7 +792,7 @@ var _ = Describe("VirtualMachineInstance watcher", func() {
 			},
 			{
 			"name": "` + netAttachDefName + `",
-			"interface": "net1",
+			"interface": "poda7662f44d65",
 			"dns": {},
 			"device-info": {
 			  "type": "pci",
@@ -3206,7 +3206,7 @@ var _ = Describe("VirtualMachineInstance watcher", func() {
 					}},
 					HaveKeyWithValue(
 						networkv1.NetworkAttachmentAnnot,
-						`[{"interface":"net1","name":"net1","namespace":"default"}]`)),
+						`[{"interface":"pod7e0055a6880","name":"net1","namespace":"default"}]`)),
 				Entry("hotplug multiple interfaces",
 					[]virtv1.AddInterfaceOptions{{
 						NetworkAttachmentDefinitionName: "net1",
@@ -3217,7 +3217,7 @@ var _ = Describe("VirtualMachineInstance watcher", func() {
 					}},
 					HaveKeyWithValue(
 						networkv1.NetworkAttachmentAnnot,
-						`[{"interface":"net1","name":"net1","namespace":"default"},{"interface":"net2","name":"net1","namespace":"default"}]`)),
+						`[{"interface":"pod7e0055a6880","name":"net1","namespace":"default"},{"interface":"pod48802102d24","name":"net1","namespace":"default"}]`)),
 			)
 		})
 
@@ -3258,8 +3258,8 @@ var _ = Describe("VirtualMachineInstance watcher", func() {
 					PodVmIfaceStatus{
 						vmIfaceStatus: readyHotpluggedIfaceStatus(ifaceName),
 						podIfaceStatus: &networkv1.NetworkStatus{
-							Name:      "meganet",
-							Interface: "net1",
+							Name:      networkName,
+							Interface: "pod7e0055a6880",
 						},
 					}),
 				Entry("VMI with a guest agent interface",

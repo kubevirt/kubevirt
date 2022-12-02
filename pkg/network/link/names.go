@@ -21,6 +21,9 @@ package link
 
 import (
 	"fmt"
+	"strings"
+
+	"kubevirt.io/kubevirt/pkg/network/namescheme"
 )
 
 func GenerateTapDeviceName(podInterfaceName string) string {
@@ -28,6 +31,6 @@ func GenerateTapDeviceName(podInterfaceName string) string {
 }
 
 func GenerateNewBridgedVmiInterfaceName(originalPodInterfaceName string) string {
-	return fmt.Sprintf("%s-nic", originalPodInterfaceName)
-
+	trimmedName := strings.TrimPrefix(originalPodInterfaceName, namescheme.HashedIfacePrefix)
+	return fmt.Sprintf("%s-nic", trimmedName)
 }

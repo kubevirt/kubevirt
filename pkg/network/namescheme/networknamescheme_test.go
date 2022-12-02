@@ -29,10 +29,10 @@ import (
 )
 
 var _ = Describe("Network Name Scheme", func() {
-	Context("CreateNetworkNameScheme", func() {
-		DescribeTable("should return the expected NetworkNameSchemeMap",
+	Context("CreateHashedNetworkNameScheme", func() {
+		DescribeTable("create hashed pod interfaces name scheme",
 			func(networkList []virtv1.Network, expectedNetworkNameSchemeMap map[string]string) {
-				podIfacesNameScheme := namescheme.CreateNetworkNameScheme(networkList)
+				podIfacesNameScheme := namescheme.CreateHashedNetworkNameScheme(networkList)
 
 				Expect(podIfacesNameScheme).To(Equal(expectedNetworkNameSchemeMap))
 			},
@@ -52,8 +52,19 @@ var _ = Describe("Network Name Scheme", func() {
 				},
 				map[string]string{
 					"network0": namescheme.PrimaryPodInterfaceName,
-					"network1": "net1",
-					"network2": "net2",
+					"network1": "poda7662f44d65",
+					"network2": "pod27f4a77f94e",
+				}),
+			Entry("when default pod networks exist",
+				[]virtv1.Network{
+					newPodNetwork("default"),
+					createMultusSecondaryNetwork("network1", "default/nad1"),
+					createMultusSecondaryNetwork("network2", "default/nad2"),
+				},
+				map[string]string{
+					"default":  namescheme.PrimaryPodInterfaceName,
+					"network1": "poda7662f44d65",
+					"network2": "pod27f4a77f94e",
 				}),
 		)
 	})

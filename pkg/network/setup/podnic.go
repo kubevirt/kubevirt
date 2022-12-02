@@ -22,6 +22,7 @@ package network
 import (
 	"fmt"
 	"os"
+	"strings"
 
 	"github.com/pkg/errors"
 
@@ -110,7 +111,7 @@ func newPodNIC(vmi *v1.VirtualMachineInstance, network *v1.Network, handler netd
 		return nil, fmt.Errorf("no iface matching with network %s", network.Name)
 	}
 
-	networkNameScheme := namescheme.CreateNetworkNameScheme(vmi.Spec.Networks)
+	networkNameScheme := namescheme.CreateHashedNetworkNameScheme(vmi.Spec.Networks)
 	podInterfaceName, exists := networkNameScheme[network.Name]
 	if !exists {
 		return nil, fmt.Errorf("pod interface name not found for network %s", network.Name)
@@ -304,7 +305,8 @@ func (l *podNIC) storeCachedDomainIface(domainIface api.Interface) error {
 }
 
 func generateInPodBridgeInterfaceName(podInterfaceName string) string {
-	return fmt.Sprintf("k6t-%s", podInterfaceName)
+	trimmedName := strings.TrimPrefix(podInterfaceName, namescheme.HashedIfacePrefix)
+	return fmt.Sprintf("k6t-%s", trimmedName)
 }
 
 func getPIDString(pid *int) string {

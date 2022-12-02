@@ -20,6 +20,8 @@
 package sriov_test
 
 import (
+	"fmt"
+
 	"kubevirt.io/kubevirt/pkg/network/sriov"
 
 	. "github.com/onsi/ginkgo/v2"
@@ -29,7 +31,12 @@ import (
 )
 
 var _ = Describe("SRIOV", func() {
-	networkStatusWithOneSRIOVNetwork := `
+
+	const (
+		booHashedIfaceName = "pod6446d58d6df"
+		fooHashedIfaceName = "pod2c26b46b68f"
+	)
+	networkStatusWithOneSRIOVNetwork := fmt.Sprintf(`
 [
 {
   "name": "kindnet",
@@ -43,7 +50,7 @@ var _ = Describe("SRIOV", func() {
 },
 {
   "name": "default/nad1",
-  "interface": "net1",
+  "interface": "%s",
   "dns": {},
   "device-info": {
     "type": "pci",
@@ -53,8 +60,8 @@ var _ = Describe("SRIOV", func() {
     }
   }
 }
-]`
-	networkStatusWithTwoSRIOVNetworks := `
+]`, fooHashedIfaceName)
+	networkStatusWithTwoSRIOVNetworks := fmt.Sprintf(`
 [
 {
   "name": "kindnet",
@@ -68,7 +75,7 @@ var _ = Describe("SRIOV", func() {
 },
 {
   "name": "default/nad1",
-  "interface": "net1",
+  "interface": "%s",
   "dns": {},
   "device-info": {
     "type": "pci",
@@ -80,7 +87,7 @@ var _ = Describe("SRIOV", func() {
 },
 {
   "name": "default/nad2",
-  "interface": "net2",
+  "interface": "%s",
   "dns": {},
   "device-info": {
     "type": "pci",
@@ -90,8 +97,8 @@ var _ = Describe("SRIOV", func() {
     }
   }
 }
-]`
-	networkStatusWithOneBridgeOneSRIOVNetworks := `
+]`, fooHashedIfaceName, booHashedIfaceName)
+	networkStatusWithOneBridgeOneSRIOVNetworks := fmt.Sprintf(`
 [
 {
   "name": "kindnet",
@@ -105,13 +112,13 @@ var _ = Describe("SRIOV", func() {
 },
 {
   "name": "default/bridge-network",
-  "interface": "net1",
+  "interface": "%s",
   "mac": "8a:37:d9:e7:0f:18",
   "dns": {}
 },
 {
   "name": "default/sriov-network-vlan100",
-  "interface": "net2",
+  "interface": "%s",
   "dns": {},
   "device-info": {
     "type": "pci",
@@ -121,7 +128,7 @@ var _ = Describe("SRIOV", func() {
     }
   }
 }
-]`
+]`, booHashedIfaceName, fooHashedIfaceName)
 	networkStatusWithTwoSRIOVNetworksButOneWithNoPCIData := `
 [
 {
