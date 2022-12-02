@@ -52,8 +52,8 @@ var _ = Describe("Network Name Scheme", func() {
 				},
 				map[string]string{
 					"network0": namescheme.PrimaryPodInterfaceName,
-					"network1": "net1",
-					"network2": "net2",
+					"network1": "a7662f44d65",
+					"network2": "27f4a77f94e",
 				}),
 		)
 	})
