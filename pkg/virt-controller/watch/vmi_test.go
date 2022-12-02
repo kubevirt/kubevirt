@@ -783,7 +783,7 @@ var _ = Describe("VirtualMachineInstance watcher", func() {
 			},
 			{
 			"name": "` + netAttachDefName + `",
-			"interface": "net1",
+			"interface": "neta7662f44",
 			"dns": {},
 			"device-info": {
 			  "type": "pci",
