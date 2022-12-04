@@ -2160,6 +2160,32 @@ var _ = Describe("KubeVirt Operator", func() {
 			Expect(job.Spec.Template.Spec.Containers[0].Env).To(ContainElement(k8sv1.EnvVar{Name: envKey, Value: envVal}))
 		})
 
+		It("should use custom virt-operator image if provided", func() {
+			kvTestData := KubeVirtTestData{}
+			kvTestData.BeforeTest()
+			defer kvTestData.AfterTest()
+
+			const expectedImage = "myimage123:mytag456"
+			err := kvTestData.mockEnvVarManager.Setenv(util.VirtOperatorImageEnvName, expectedImage)
+			Expect(err).ToNot(HaveOccurred())
+			config := kvTestData.getConfig("registry", "v1.1.1")
+
+			job, err := kvTestData.controller.generateInstallStrategyJob(config)
+			Expect(err).ToNot(HaveOccurred())
+
+			Expect(job.Spec.Template.Spec.Containers).ToNot(BeEmpty())
+			container := job.Spec.Template.Spec.Containers[0]
+
+			actualImage := ""
+			for _, envVar := range container.Env {
+				if envVar.Name == util.VirtOperatorImageEnvName {
+					actualImage = envVar.Value
+				}
+			}
+
+			Expect(actualImage).To(Equal(expectedImage))
+		})
+
 		It("should create an api server deployment with passthrough env vars, if provided in config", func() {
 			kvTestData := KubeVirtTestData{}
 			kvTestData.BeforeTest()
