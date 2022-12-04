@@ -30,7 +30,7 @@ var (
 
 	// parse thread comm value expression
 	vcpuRegex = regexp.MustCompile(`^CPU (\d+)/KVM\n$`) // These threads follow this naming pattern as their command value (/proc/{pid}/task/{taskid}/comm)
-// QEMU uses threads to represent vCPUs.
+	// QEMU uses threads to represent vCPUs.
 
 )
 
@@ -55,7 +55,7 @@ func (d *VirtualMachineController) configureVCPUScheduler(vmi *v1.VirtualMachine
 	}
 	for vcpuID, threadID := range vcpus {
 		if mask.isEnabled(vcpuID) {
-			param := schedParam{sched_priority: 1}
+			param := schedParam{priority: 1}
 			tid, err := strconv.Atoi(threadID)
 			if err != nil {
 				return err
