@@ -1763,7 +1763,8 @@ var _ = Describe("[rfe_id:1177][crit:medium][vendor:cnv-qe@redhat.com][level:com
 					// If the annotation v1.KeepLauncherAfterFailureAnnotation is set to false or not set, the virt-launcher pod will become failed.
 					By("Verify that the virt-launcher pod or its container is in the expected state")
 					newVMI, _ := virtClient.VirtualMachineInstance(newVM.Namespace).Get(newVM.Name, &k8smetav1.GetOptions{})
-					launcherPod := libvmi.GetPodByVirtualMachineInstance(newVMI, newVM.Namespace)
+					launcherPod, err := libvmi.GetPodByVirtualMachineInstance(newVMI, newVM.Namespace)
+					Expect(err).ToNot(HaveOccurred())
 
 					if toKeep, _ := strconv.ParseBool(keepLauncher); toKeep {
 						Consistently(func() bool {

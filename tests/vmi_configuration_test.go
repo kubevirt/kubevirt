@@ -1924,7 +1924,8 @@ var _ = Describe("[sig-compute]Configurations", func() {
 				WithSchedulerName("my-custom-scheduler"),
 			)
 			runningVMI := tests.RunVMIAndExpectScheduling(vmi, 30)
-			launcherPod := libvmi.GetPodByVirtualMachineInstance(runningVMI, util.NamespaceTestDefault)
+			launcherPod, err := libvmi.GetPodByVirtualMachineInstance(runningVMI, util.NamespaceTestDefault)
+			Expect(err).ToNot(HaveOccurred())
 			Expect(launcherPod.Spec.SchedulerName).To(Equal("my-custom-scheduler"))
 		})
 	})
@@ -1938,7 +1939,8 @@ var _ = Describe("[sig-compute]Configurations", func() {
 			)
 			runningVMI := tests.RunVMIAndExpectScheduling(vmi, 30)
 
-			readyPod := libvmi.GetPodByVirtualMachineInstance(runningVMI, util.NamespaceTestDefault)
+			readyPod, err := libvmi.GetPodByVirtualMachineInstance(runningVMI, util.NamespaceTestDefault)
+			Expect(err).ToNot(HaveOccurred())
 			computeContainer := tests.GetComputeContainerOfPod(readyPod)
 			cpuRequest := computeContainer.Resources.Requests[kubev1.ResourceCPU]
 			Expect(cpuRequest.String()).To(Equal("500m"))
@@ -1948,7 +1950,8 @@ var _ = Describe("[sig-compute]Configurations", func() {
 			vmi := tests.NewRandomVMI()
 			runningVMI := tests.RunVMIAndExpectScheduling(vmi, 30)
 
-			readyPod := libvmi.GetPodByVirtualMachineInstance(runningVMI, util.NamespaceTestDefault)
+			readyPod, err := libvmi.GetPodByVirtualMachineInstance(runningVMI, util.NamespaceTestDefault)
+			Expect(err).ToNot(HaveOccurred())
 			computeContainer := tests.GetComputeContainerOfPod(readyPod)
 			cpuRequest := computeContainer.Resources.Requests[kubev1.ResourceCPU]
 			Expect(cpuRequest.String()).To(Equal("100m"))
@@ -1965,7 +1968,8 @@ var _ = Describe("[sig-compute]Configurations", func() {
 			vmi := tests.NewRandomVMI()
 			runningVMI := tests.RunVMIAndExpectScheduling(vmi, 30)
 
-			readyPod := libvmi.GetPodByVirtualMachineInstance(runningVMI, util.NamespaceTestDefault)
+			readyPod, err := libvmi.GetPodByVirtualMachineInstance(runningVMI, util.NamespaceTestDefault)
+			Expect(err).ToNot(HaveOccurred())
 			computeContainer := tests.GetComputeContainerOfPod(readyPod)
 			cpuRequest := computeContainer.Resources.Requests[kubev1.ResourceCPU]
 			Expect(cpuRequest.String()).To(Equal("800m"))
