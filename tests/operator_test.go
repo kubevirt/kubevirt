@@ -588,7 +588,7 @@ var _ = Describe("[Serial][sig-operator]Operator", func() {
 
 				operator.Spec.Template.Spec.Containers[0].Image = newImage
 				for idx, env := range operator.Spec.Template.Spec.Containers[0].Env {
-					if env.Name == util.OldOperatorImageEnvName {
+					if env.Name == util.VirtOperatorImageEnvName {
 						env.Value = newImage
 						operator.Spec.Template.Spec.Containers[0].Env[idx] = env
 						break
