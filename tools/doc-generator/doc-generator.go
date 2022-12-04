@@ -56,6 +56,14 @@ const (
 	vmiMemoryUsedBytes     = "kubevirt_vmi_memory_used_bytes"
 	vmiMemoryUsedBytesDesc = "Amount of `used` memory as seen by the domain."
 	vmiMemoryUsedBytesType = "Gauge"
+
+	vmSnapshotDisksRestoredFromSourceTotal     = "kubevirt_vmsnapshot_disks_restored_from_source_total"
+	vmSnapshotDisksRestoredFromSourceTotalDesc = "Returns the total number of virtual machine disks restored from the source virtual machine."
+	vmSnapshotDisksRestoredFromSourceTotalType = "Gauge"
+
+	vmSnapshotDisksRestoredFromSourceBytes     = "kubevirt_vmsnapshot_disks_restored_from_source_bytes"
+	vmSnapshotDisksRestoredFromSourceBytesDesc = "Returns the amount of space in bytes restored from the source virtual machine."
+	vmSnapshotDisksRestoredFromSourceBytesType = "Gauge"
 )
 
 func main() {
@@ -144,6 +152,16 @@ var (
 			name:        vmiMemoryUsedBytes,
 			description: vmiMemoryUsedBytesDesc,
 			mType:       vmiMemoryUsedBytesType,
+		},
+		{
+			name:        vmSnapshotDisksRestoredFromSourceTotal,
+			description: vmSnapshotDisksRestoredFromSourceTotalDesc,
+			mType:       vmSnapshotDisksRestoredFromSourceTotalType,
+		},
+		{
+			name:        vmSnapshotDisksRestoredFromSourceBytes,
+			description: vmSnapshotDisksRestoredFromSourceBytesDesc,
+			mType:       vmSnapshotDisksRestoredFromSourceBytesType,
 		},
 		{
 			name:        domainstats.MigrateVmiDataProcessedMetricName,

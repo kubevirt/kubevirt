@@ -173,6 +173,12 @@ Total amount of time spent in each state by each vcpu. Where `id` is the vcpu id
 ### kubevirt_vmi_vcpu_wait_seconds
 Amount of time spent by each vcpu while waiting on I/O. Type: Counter.
 
+### kubevirt_vmsnapshot_disks_restored_from_source_bytes
+Returns the amount of space in bytes restored from the source virtual machine. Type: Gauge.
+
+### kubevirt_vmsnapshot_disks_restored_from_source_total
+Returns the total number of virtual machine disks restored from the source virtual machine. Type: Gauge.
+
 ## Developing new metrics
 After developing new metrics or changing old ones, please run `make generate` to regenerate this document.
 
