@@ -577,10 +577,6 @@ func NewOperatorDeployment(namespace, repository, imagePrefix, version, verbosit
 									Value: image,
 								},
 								{
-									Name:  operatorutil.OldOperatorImageEnvName,
-									Value: image,
-								},
-								{
 									Name: "WATCH_NAMESPACE", // not used yet
 									ValueFrom: &corev1.EnvVarSource{
 										FieldRef: &corev1.ObjectFieldSelector{

@@ -763,11 +763,6 @@ func (c *KubeVirtController) generateInstallStrategyJob(config *operatorutil.Kub
 								},
 								{
 									// Deprecated, keep it for backwards compatibility
-									Name:  util.OldOperatorImageEnvName,
-									Value: operatorImage,
-								},
-								{
-									// Deprecated, keep it for backwards compatibility
 									Name:  util.TargetInstallNamespace,
 									Value: config.GetNamespace(),
 								},
