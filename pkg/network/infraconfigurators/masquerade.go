@@ -228,14 +228,39 @@ func (b *MasqueradePodNetworkConfigurator) createNatRules(protocol iptables.Prot
 		return err
 	}
 
-	if b.handler.NftablesLoad(protocol) == nil {
+	if b.handler.CheckNftables() == nil {
 		return b.createNatRulesUsingNftables(protocol)
 	}
 	return fmt.Errorf("Couldn't configure ip nat rules")
 }
 
 func (b *MasqueradePodNetworkConfigurator) createNatRulesUsingNftables(proto iptables.Protocol) error {
-	err := b.handler.NftablesNewChain(proto, "nat", "KUBEVIRT_PREINBOUND")
+	err := b.handler.NftablesNewTable(proto, "nat")
+	if err != nil {
+		return err
+	}
+
+	err = b.handler.NftablesNewChain(proto, "nat", "prerouting { type nat hook prerouting priority -100; }")
+	if err != nil {
+		return err
+	}
+
+	err = b.handler.NftablesNewChain(proto, "nat", "input { type nat hook input priority 100; }")
+	if err != nil {
+		return err
+	}
+
+	err = b.handler.NftablesNewChain(proto, "nat", "output { type nat hook output priority -100; }")
+	if err != nil {
+		return err
+	}
+
+	err = b.handler.NftablesNewChain(proto, "nat", "postrouting { type nat hook postrouting priority 100; }")
+	if err != nil {
+		return err
+	}
+
+	err = b.handler.NftablesNewChain(proto, "nat", "KUBEVIRT_PREINBOUND")
 	if err != nil {
 		return err
 	}

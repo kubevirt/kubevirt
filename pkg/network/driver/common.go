@@ -80,8 +80,9 @@ type NetworkHandler interface {
 	ConfigurePingGroupRange() error
 	ConfigureUnprivilegedPortStart(string) error
 	NftablesNewChain(proto iptables.Protocol, table, chain string) error
+	NftablesNewTable(proto iptables.Protocol, name string) error
 	NftablesAppendRule(proto iptables.Protocol, table, chain string, rulespec ...string) error
-	NftablesLoad(proto iptables.Protocol) error
+	CheckNftables() error
 	GetNFTIPString(proto iptables.Protocol) string
 	CreateTapDevice(tapName string, queueNumber uint32, launcherPID int, mtu int, tapOwner string) error
 	BindTapDeviceToBridge(tapName string, bridgeName string) error
@@ -212,11 +213,21 @@ func (h *NetworkUtilsHandler) IsIpv4Primary() (bool, error) {
 	return !netutils.IsIPv6String(podIP), nil
 }
 
+func (h *NetworkUtilsHandler) NftablesNewTable(proto iptables.Protocol, name string) error {
+	// #nosec g204 no risk to use GetNFTIPString as  argument as it returns either "ipv6" or "ip" strings
+	output, err := exec.Command("nft", "add", "table", h.GetNFTIPString(proto), name).CombinedOutput()
+	if err != nil {
+		return fmt.Errorf("%s, error: %s", string(output), err.Error())
+	}
+
+	return nil
+}
+
 func (h *NetworkUtilsHandler) NftablesNewChain(proto iptables.Protocol, table, chain string) error {
 	// #nosec g204 no risk to use GetNFTIPString as  argument as it returns either "ipv6" or "ip" strings
 	output, err := exec.Command("nft", "add", "chain", h.GetNFTIPString(proto), table, chain).CombinedOutput()
 	if err != nil {
-		return fmt.Errorf("%s", string(output))
+		return fmt.Errorf("%s, error: %s", string(output), err.Error())
 	}
 
 	return nil
@@ -240,29 +251,14 @@ func (h *NetworkUtilsHandler) GetNFTIPString(proto iptables.Protocol) string {
 	return "ip"
 }
 
-func (h *NetworkUtilsHandler) NftablesLoad(proto iptables.Protocol) error {
-	ipVersion := "4"
-	if proto == iptables.ProtocolIPv6 {
-		ipVersion = "6"
-	}
-	fnName := fmt.Sprintf("ipv%s-nat", ipVersion)
-	output, err := composeNftablesLoad(proto).CombinedOutput()
+func (h *NetworkUtilsHandler) CheckNftables() error {
+	output, err := exec.Command("nft", "list", "ruleset").CombinedOutput()
 	if err != nil {
-		log.Log.V(5).Reason(err).Infof("failed to load nftable %s", fnName)
-		return fmt.Errorf("failed to load nftable %s error %s", fnName, string(output))
+		log.Log.V(5).Reason(err).Infof("failed to list nftable ruleset")
+		return fmt.Errorf("failed to list nftable ruleset, error: %s", string(output))
 	}
 
 	return nil
-}
-
-func composeNftablesLoad(proto iptables.Protocol) *exec.Cmd {
-	ipVersion := "4"
-	if proto == iptables.ProtocolIPv6 {
-		ipVersion = "6"
-	}
-	fnName := fmt.Sprintf("ipv%s-nat", ipVersion)
-	// #nosec g204 no risk to use Sprintf as  argument as it uses two static strings (fname limited to ipv4-nat or ipv6-nat)
-	return exec.Command("nft", "-f", fmt.Sprintf("/etc/nftables/%s.nft", fnName))
 }
 
 func (h *NetworkUtilsHandler) ReadIPAddressesFromLink(interfaceName string) (string, string, error) {
