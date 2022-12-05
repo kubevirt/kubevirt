@@ -267,7 +267,8 @@ func NewVirtAPIMutatingWebhookConfiguration(installNamespace string) *admissionr
 func NewVirtAPIValidatingWebhookConfiguration(installNamespace string) *admissionregistrationv1.ValidatingWebhookConfiguration {
 	vmiPathCreate := VMICreateValidatePath
 	vmiPathUpdate := VMIUpdateValidatePath
-	vmPath := VMValidatePath
+	vmPathCreate := VMCreateValidatePath
+	vmPathUpdate := VMUpdateValidatePath
 	vmirsPath := VMIRSValidatePath
 	vmpoolPath := VMPoolValidatePath
 	vmipresetPath := VMIPresetValidatePath
@@ -378,7 +379,7 @@ func NewVirtAPIValidatingWebhookConfiguration(installNamespace string) *admissio
 				},
 			},
 			{
-				Name:                    "virtualmachine-validator.kubevirt.io",
+				Name:                    "virtualmachine-create-validator.kubevirt.io",
 				AdmissionReviewVersions: []string{"v1", "v1beta1"},
 				FailurePolicy:           &failurePolicy,
 				TimeoutSeconds:          &defaultTimeoutSeconds,
@@ -386,6 +387,29 @@ func NewVirtAPIValidatingWebhookConfiguration(installNamespace string) *admissio
 				Rules: []admissionregistrationv1.RuleWithOperations{{
 					Operations: []admissionregistrationv1.OperationType{
 						admissionregistrationv1.Create,
+					},
+					Rule: admissionregistrationv1.Rule{
+						APIGroups:   []string{core.GroupName},
+						APIVersions: virtv1.ApiSupportedWebhookVersions,
+						Resources:   []string{"virtualmachines"},
+					},
+				}},
+				ClientConfig: admissionregistrationv1.WebhookClientConfig{
+					Service: &admissionregistrationv1.ServiceReference{
+						Namespace: installNamespace,
+						Name:      VirtApiServiceName,
+						Path:      &vmPathCreate,
+					},
+				},
+			},
+			{
+				Name:                    "virtualmachine-update-validator.kubevirt.io",
+				AdmissionReviewVersions: []string{"v1", "v1beta1"},
+				FailurePolicy:           &failurePolicy,
+				TimeoutSeconds:          &defaultTimeoutSeconds,
+				SideEffects:             &sideEffectNone,
+				Rules: []admissionregistrationv1.RuleWithOperations{{
+					Operations: []admissionregistrationv1.OperationType{
 						admissionregistrationv1.Update,
 					},
 					Rule: admissionregistrationv1.Rule{
@@ -398,7 +422,7 @@ func NewVirtAPIValidatingWebhookConfiguration(installNamespace string) *admissio
 					Service: &admissionregistrationv1.ServiceReference{
 						Namespace: installNamespace,
 						Name:      VirtApiServiceName,
-						Path:      &vmPath,
+						Path:      &vmPathUpdate,
 					},
 				},
 			},
@@ -789,7 +813,9 @@ const VMICreateValidatePath = "/virtualmachineinstances-validate-create"
 
 const VMIUpdateValidatePath = "/virtualmachineinstances-validate-update"
 
-const VMValidatePath = "/virtualmachines-validate"
+const VMCreateValidatePath = "/virtualmachines-validate-create"
+
+const VMUpdateValidatePath = "/virtualmachines-validate-update"
 
 const VMIRSValidatePath = "/virtualmachinereplicaset-validate"
 

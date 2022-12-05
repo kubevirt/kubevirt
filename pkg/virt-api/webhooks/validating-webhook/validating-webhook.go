@@ -22,6 +22,8 @@ package validating_webhook
 import (
 	"net/http"
 
+	admissionregistrationv1 "k8s.io/api/admissionregistration/v1"
+
 	"kubevirt.io/client-go/kubecli"
 
 	validating_webhooks "kubevirt.io/kubevirt/pkg/util/webhooks/validating-webhooks"
@@ -38,9 +40,13 @@ func ServeVMIUpdate(resp http.ResponseWriter, req *http.Request, clusterConfig *
 	validating_webhooks.Serve(resp, req, &admitters.VMIUpdateAdmitter{ClusterConfig: clusterConfig})
 }
 
-func ServeVMs(resp http.ResponseWriter, req *http.Request, clusterConfig *virtconfig.ClusterConfig, virtCli kubecli.KubevirtClient, informers *webhooks.Informers) {
+func ServeVMCreate(resp http.ResponseWriter, req *http.Request, clusterConfig *virtconfig.ClusterConfig, virtCli kubecli.KubevirtClient, informers *webhooks.Informers) {
+	validating_webhooks.Serve(resp, req, admitters.NewVMsAdmitter(clusterConfig, virtCli, informers, admissionregistrationv1.Create))
+}
 
-	validating_webhooks.Serve(resp, req, admitters.NewVMsAdmitter(clusterConfig, virtCli, informers))
+func ServeVMUpdate(resp http.ResponseWriter, req *http.Request, clusterConfig *virtconfig.ClusterConfig, virtCli kubecli.KubevirtClient, informers *webhooks.Informers) {
+
+	validating_webhooks.Serve(resp, req, admitters.NewVMsAdmitter(clusterConfig, virtCli, informers, admissionregistrationv1.Update))
 }
 
 func ServeVMIRS(resp http.ResponseWriter, req *http.Request, clusterConfig *virtconfig.ClusterConfig) {
@@ -97,7 +103,7 @@ func ServeStatusValidation(resp http.ResponseWriter,
 	virtCli kubecli.KubevirtClient,
 	informers *webhooks.Informers) {
 	validating_webhooks.Serve(resp, req, &admitters.StatusAdmitter{
-		VmsAdmitter: admitters.NewVMsAdmitter(clusterConfig, virtCli, informers),
+		VmsAdmitter: admitters.NewVMsAdmitter(clusterConfig, virtCli, informers, admissionregistrationv1.OperationAll),
 	})
 }
 
