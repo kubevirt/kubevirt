@@ -71,7 +71,7 @@ var _ = Describe("[sig-compute]Dry-Run requests", func() {
 			Expect(err).ToNot(HaveOccurred())
 
 			By("Check that no Virtual Machine was actually created")
-			_, err = virtClient.VirtualMachineInstance(vmi.Namespace).Get(vmi.Name, &metav1.GetOptions{})
+			_, err = virtClient.VirtualMachineInstance(vmi.Namespace).Get(context.Background(), vmi.Name, &metav1.GetOptions{})
 			Expect(errors.IsNotFound(err)).To(BeTrue())
 		})
 
@@ -90,7 +90,7 @@ var _ = Describe("[sig-compute]Dry-Run requests", func() {
 			Expect(err).ToNot(HaveOccurred())
 
 			By("Check that no Virtual Machine was actually deleted")
-			_, err = virtClient.VirtualMachineInstance(vmi.Namespace).Get(vmi.Name, &metav1.GetOptions{})
+			_, err = virtClient.VirtualMachineInstance(vmi.Namespace).Get(context.Background(), vmi.Name, &metav1.GetOptions{})
 			Expect(err).ToNot(HaveOccurred())
 		})
 
@@ -101,7 +101,7 @@ var _ = Describe("[sig-compute]Dry-Run requests", func() {
 
 			By("Make a Dry-Run request to update a Virtual Machine")
 			err = retry.RetryOnConflict(retry.DefaultRetry, func() error {
-				vmi, err = virtClient.VirtualMachineInstance(vmi.Namespace).Get(vmi.Name, &metav1.GetOptions{})
+				vmi, err = virtClient.VirtualMachineInstance(vmi.Namespace).Get(context.Background(), vmi.Name, &metav1.GetOptions{})
 				if err != nil {
 					return err
 				}
@@ -112,7 +112,7 @@ var _ = Describe("[sig-compute]Dry-Run requests", func() {
 			})
 
 			By("Check that no update actually took place")
-			vmi, err = virtClient.VirtualMachineInstance(vmi.Namespace).Get(vmi.Name, &metav1.GetOptions{})
+			vmi, err = virtClient.VirtualMachineInstance(vmi.Namespace).Get(context.Background(), vmi.Name, &metav1.GetOptions{})
 			Expect(err).ToNot(HaveOccurred())
 			Expect(vmi.Labels["key"]).ToNot(Equal("42"))
 		})
@@ -128,7 +128,7 @@ var _ = Describe("[sig-compute]Dry-Run requests", func() {
 			Expect(err).ToNot(HaveOccurred())
 
 			By("Check that no update actually took place")
-			vmi, err = virtClient.VirtualMachineInstance(vmi.Namespace).Get(vmi.Name, &metav1.GetOptions{})
+			vmi, err = virtClient.VirtualMachineInstance(vmi.Namespace).Get(context.Background(), vmi.Name, &metav1.GetOptions{})
 			Expect(err).ToNot(HaveOccurred())
 			Expect(vmi.Labels["key"]).ToNot(Equal("42"))
 		})

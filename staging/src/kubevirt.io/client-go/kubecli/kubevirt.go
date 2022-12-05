@@ -26,6 +26,7 @@ package kubecli
 */
 
 import (
+	"context"
 	"io"
 	"net"
 	"time"
@@ -228,7 +229,7 @@ type StreamInterface interface {
 }
 
 type VirtualMachineInstanceInterface interface {
-	Get(name string, options *metav1.GetOptions) (*v1.VirtualMachineInstance, error)
+	Get(ctx context.Context, name string, options *metav1.GetOptions) (*v1.VirtualMachineInstance, error)
 	List(opts *metav1.ListOptions) (*v1.VirtualMachineInstanceList, error)
 	Create(instance *v1.VirtualMachineInstance) (*v1.VirtualMachineInstance, error)
 	Update(*v1.VirtualMachineInstance) (*v1.VirtualMachineInstance, error)

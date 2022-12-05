@@ -162,7 +162,7 @@ var _ = Describe("[Serial][sig-compute] Hyper-V enlightenments", Serial, func() 
 
 				conditionManager := controller.NewVirtualMachineInstanceConditionManager()
 				isNonMigratable := func() error {
-					reEnlightenmentVMI, err = virtClient.VirtualMachineInstance(util.NamespaceTestDefault).Get(reEnlightenmentVMI.Name, &metav1.GetOptions{})
+					reEnlightenmentVMI, err = virtClient.VirtualMachineInstance(util.NamespaceTestDefault).Get(context.Background(), reEnlightenmentVMI.Name, &metav1.GetOptions{})
 					Expect(err).ToNot(HaveOccurred())
 
 					cond := conditionManager.GetCondition(reEnlightenmentVMI, v1.VirtualMachineInstanceIsMigratable)
@@ -246,7 +246,7 @@ var _ = Describe("[Serial][sig-compute] Hyper-V enlightenments", Serial, func() 
 				Expect(err).ToNot(HaveOccurred(), "Should create VMI when using %v", label)
 				tests.WaitForSuccessfulVMIStart(vmi)
 
-				_, err = virtClient.VirtualMachineInstance(vmi.Namespace).Get(vmi.Name, &metav1.GetOptions{})
+				_, err = virtClient.VirtualMachineInstance(vmi.Namespace).Get(context.Background(), vmi.Name, &metav1.GetOptions{})
 				Expect(err).ToNot(HaveOccurred(), "Should get VMI when using %v", label)
 			}
 		})
@@ -262,7 +262,7 @@ var _ = Describe("[Serial][sig-compute] Hyper-V enlightenments", Serial, func() 
 			vmi = tests.RunVMIAndExpectScheduling(vmi, 60)
 			Expect(err).ToNot(HaveOccurred(), "Should create VMI")
 
-			vmi, err = virtClient.VirtualMachineInstance(vmi.Namespace).Get(vmi.Name, &metav1.GetOptions{})
+			vmi, err = virtClient.VirtualMachineInstance(vmi.Namespace).Get(context.Background(), vmi.Name, &metav1.GetOptions{})
 			Expect(err).ToNot(HaveOccurred(), "Should get VMI")
 			Expect(vmi.Spec.Domain.Features.Hyperv.EVMCS).ToNot(BeNil(), "evmcs should not be nil")
 			Expect(vmi.Spec.Domain.CPU).ToNot(BeNil(), "cpu topology can't be nil")

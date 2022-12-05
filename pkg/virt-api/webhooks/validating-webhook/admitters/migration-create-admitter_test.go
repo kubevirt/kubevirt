@@ -20,6 +20,7 @@
 package admitters
 
 import (
+	"context"
 	"encoding/json"
 
 	"github.com/golang/mock/gomock"
@@ -93,7 +94,7 @@ var _ = Describe("Validating MigrationCreate Admitter", func() {
 				VMIName: vmi.Name,
 			},
 		}
-		mockVMIClient.EXPECT().Get(inFlightMigration.Spec.VMIName, gomock.Any()).Return(vmi, nil)
+		mockVMIClient.EXPECT().Get(context.Background(), inFlightMigration.Spec.VMIName, gomock.Any()).Return(vmi, nil)
 		migrationInterface.EXPECT().List(gomock.Any()).Return(kubecli.NewMigrationList(inFlightMigration), nil).AnyTimes()
 
 		migration := v1.VirtualMachineInstanceMigration{
@@ -163,7 +164,7 @@ var _ = Describe("Validating MigrationCreate Admitter", func() {
 		It("should accept valid Migration spec on create", func() {
 			vmi := api.NewMinimalVMI("testvmimigrate1")
 
-			mockVMIClient.EXPECT().Get(vmi.Name, gomock.Any()).Return(vmi, nil)
+			mockVMIClient.EXPECT().Get(context.Background(), vmi.Name, gomock.Any()).Return(vmi, nil)
 
 			migration := v1.VirtualMachineInstanceMigration{
 				ObjectMeta: metav1.ObjectMeta{
@@ -198,7 +199,7 @@ var _ = Describe("Validating MigrationCreate Admitter", func() {
 				Failed:       false,
 			}
 
-			mockVMIClient.EXPECT().Get(vmi.Name, gomock.Any()).Return(vmi, nil)
+			mockVMIClient.EXPECT().Get(context.Background(), vmi.Name, gomock.Any()).Return(vmi, nil)
 
 			migration := v1.VirtualMachineInstanceMigration{
 				ObjectMeta: metav1.ObjectMeta{
@@ -229,7 +230,7 @@ var _ = Describe("Validating MigrationCreate Admitter", func() {
 			vmi := api.NewMinimalVMI("testmigratevmi3")
 			vmi.Status.Phase = v1.Succeeded
 
-			mockVMIClient.EXPECT().Get(vmi.Name, gomock.Any()).Return(vmi, nil)
+			mockVMIClient.EXPECT().Get(context.Background(), vmi.Name, gomock.Any()).Return(vmi, nil)
 
 			migration := v1.VirtualMachineInstanceMigration{
 				ObjectMeta: metav1.ObjectMeta{
@@ -272,7 +273,7 @@ var _ = Describe("Validating MigrationCreate Admitter", func() {
 				},
 			}
 
-			mockVMIClient.EXPECT().Get(vmi.Name, gomock.Any()).Return(vmi, nil)
+			mockVMIClient.EXPECT().Get(context.Background(), vmi.Name, gomock.Any()).Return(vmi, nil)
 
 			migration := v1.VirtualMachineInstanceMigration{
 				ObjectMeta: metav1.ObjectMeta{

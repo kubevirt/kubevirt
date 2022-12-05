@@ -166,7 +166,7 @@ func (o *Command) RunE(args []string) error {
 	switch vmType {
 	case "vmi", "vmis", "virtualmachineinstance", "virtualmachineinstances":
 		// get the VM
-		vmi, err := virtClient.VirtualMachineInstance(namespace).Get(vmName, &options)
+		vmi, err := virtClient.VirtualMachineInstance(namespace).Get(context.Background(), vmName, &options)
 		if err != nil {
 			return fmt.Errorf("error fetching VirtualMachineInstance: %v", err)
 		}

@@ -82,7 +82,7 @@ var _ = Describe("[sig-compute]VMI with external kernel boot", func() {
 			err = virtClient.VirtualMachineInstance(testsuite.GetTestNamespace(vmi)).Delete(vmi.Name, &v1.DeleteOptions{})
 			Expect(err).ToNot(HaveOccurred())
 			Eventually(func() (isVmiDeleted bool) {
-				vmi, err = virtClient.VirtualMachineInstance(testsuite.GetTestNamespace(vmi)).Get(vmi.Name, &v1.GetOptions{})
+				vmi, err = virtClient.VirtualMachineInstance(testsuite.GetTestNamespace(vmi)).Get(context.Background(), vmi.Name, &v1.GetOptions{})
 				if errors.IsNotFound(err) {
 					return true
 				}
@@ -165,7 +165,7 @@ var _ = Describe("[sig-compute]VMI with external kernel boot", func() {
 			err = virtClient.VirtualMachineInstance(testsuite.GetTestNamespace(vmi)).Delete(vmi.Name, &v1.DeleteOptions{})
 			Expect(err).ToNot(HaveOccurred())
 			Eventually(func() (isVmiDeleted bool) {
-				vmi, err = virtClient.VirtualMachineInstance(testsuite.GetTestNamespace(vmi)).Get(vmi.Name, &v1.GetOptions{})
+				vmi, err = virtClient.VirtualMachineInstance(testsuite.GetTestNamespace(vmi)).Get(context.Background(), vmi.Name, &v1.GetOptions{})
 				if errors.IsNotFound(err) {
 					return true
 				}

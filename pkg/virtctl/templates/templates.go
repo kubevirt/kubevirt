@@ -1,6 +1,7 @@
 package templates
 
 import (
+	"context"
 	"errors"
 	"fmt"
 	"os"
@@ -68,7 +69,7 @@ func ExactArgs(nameOfCommand string, n int) cobra.PositionalArgs {
 
 // PrintWarningForPausedVMI prints warning message if VMI is paused
 func PrintWarningForPausedVMI(virtCli kubecli.KubevirtClient, vmiName string, namespace string) {
-	vmi, err := virtCli.VirtualMachineInstance(namespace).Get(vmiName, &k8smetav1.GetOptions{})
+	vmi, err := virtCli.VirtualMachineInstance(namespace).Get(context.Background(), vmiName, &k8smetav1.GetOptions{})
 	if err != nil {
 		return
 	}

@@ -202,7 +202,7 @@ var _ = SIGDescribe("Macvtap", func() {
 			waitVMMacvtapIfaceIPReport := func(vmi *v1.VirtualMachineInstance, macAddress string, timeout time.Duration) (string, error) {
 				var vmiIP string
 				err := wait.PollImmediate(time.Second, timeout, func() (done bool, err error) {
-					vmi, err := virtClient.VirtualMachineInstance(vmi.Namespace).Get(vmi.Name, &k8smetav1.GetOptions{})
+					vmi, err := virtClient.VirtualMachineInstance(vmi.Namespace).Get(context.Background(), vmi.Name, &k8smetav1.GetOptions{})
 					if err != nil {
 						return false, err
 					}

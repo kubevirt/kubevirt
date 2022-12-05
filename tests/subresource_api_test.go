@@ -160,7 +160,7 @@ var _ = Describe("[sig-compute]Subresource Api", func() {
 				Expect(err).NotTo(HaveOccurred())
 
 				tests.StartVirtualMachine(vm)
-				vmi, err := virtCli.VirtualMachineInstance(testsuite.GetTestNamespace(vm)).Get(vm.Name, &metav1.GetOptions{})
+				vmi, err := virtCli.VirtualMachineInstance(testsuite.GetTestNamespace(vm)).Get(context.Background(), vm.Name, &metav1.GetOptions{})
 				Expect(err).NotTo(HaveOccurred())
 				Expect(vmi.Status.Phase).To(Equal(v1.Running))
 
@@ -168,7 +168,7 @@ var _ = Describe("[sig-compute]Subresource Api", func() {
 				Expect(err).NotTo(HaveOccurred())
 
 				Eventually(func() v1.VirtualMachineInstancePhase {
-					newVMI, err := virtCli.VirtualMachineInstance(testsuite.GetTestNamespace(vm)).Get(vm.Name, &metav1.GetOptions{})
+					newVMI, err := virtCli.VirtualMachineInstance(testsuite.GetTestNamespace(vm)).Get(context.Background(), vm.Name, &metav1.GetOptions{})
 					if err != nil || vmi.UID == newVMI.UID {
 						return v1.VmPhaseUnset
 					}
@@ -224,14 +224,14 @@ var _ = Describe("[sig-compute]Subresource Api", func() {
 
 				By("Waiting for VMI to start")
 				Eventually(func() v1.VirtualMachineInstancePhase {
-					newVMI, err := virtCli.VirtualMachineInstance(testsuite.GetTestNamespace(vm)).Get(vm.Name, &metav1.GetOptions{})
+					newVMI, err := virtCli.VirtualMachineInstance(testsuite.GetTestNamespace(vm)).Get(context.Background(), vm.Name, &metav1.GetOptions{})
 					if err != nil {
 						return v1.VmPhaseUnset
 					}
 					return newVMI.Status.Phase
 				}, 90*time.Second, 1*time.Second).Should(Equal(v1.Running))
 
-				vmi, err := virtCli.VirtualMachineInstance(testsuite.GetTestNamespace(vm)).Get(vm.Name, &metav1.GetOptions{})
+				vmi, err := virtCli.VirtualMachineInstance(testsuite.GetTestNamespace(vm)).Get(context.Background(), vm.Name, &metav1.GetOptions{})
 				Expect(err).NotTo(HaveOccurred())
 
 				By("Restarting VM")
@@ -239,7 +239,7 @@ var _ = Describe("[sig-compute]Subresource Api", func() {
 				Expect(err).ToNot(HaveOccurred())
 
 				Eventually(func() v1.VirtualMachineInstancePhase {
-					newVMI, err := virtCli.VirtualMachineInstance(testsuite.GetTestNamespace(vm)).Get(vm.Name, &metav1.GetOptions{})
+					newVMI, err := virtCli.VirtualMachineInstance(testsuite.GetTestNamespace(vm)).Get(context.Background(), vm.Name, &metav1.GetOptions{})
 					if err != nil || vmi.UID == newVMI.UID {
 						return v1.VmPhaseUnset
 					}
@@ -260,14 +260,14 @@ var _ = Describe("[sig-compute]Subresource Api", func() {
 
 				By("Waiting for VMI to start")
 				Eventually(func() v1.VirtualMachineInstancePhase {
-					newVMI, err := virtCli.VirtualMachineInstance(testsuite.GetTestNamespace(vm)).Get(vm.Name, &metav1.GetOptions{})
+					newVMI, err := virtCli.VirtualMachineInstance(testsuite.GetTestNamespace(vm)).Get(context.Background(), vm.Name, &metav1.GetOptions{})
 					if err != nil {
 						return v1.VmPhaseUnset
 					}
 					return newVMI.Status.Phase
 				}, 90*time.Second, 1*time.Second).Should(Equal(v1.Running))
 
-				vmi, err := virtCli.VirtualMachineInstance(testsuite.GetTestNamespace(vm)).Get(vm.Name, &metav1.GetOptions{})
+				vmi, err := virtCli.VirtualMachineInstance(testsuite.GetTestNamespace(vm)).Get(context.Background(), vm.Name, &metav1.GetOptions{})
 				Expect(err).NotTo(HaveOccurred())
 
 				By("Restarting VM")
@@ -275,7 +275,7 @@ var _ = Describe("[sig-compute]Subresource Api", func() {
 				Expect(err).ToNot(HaveOccurred())
 
 				Eventually(func() v1.VirtualMachineInstancePhase {
-					newVMI, err := virtCli.VirtualMachineInstance(testsuite.GetTestNamespace(vm)).Get(vm.Name, &metav1.GetOptions{})
+					newVMI, err := virtCli.VirtualMachineInstance(testsuite.GetTestNamespace(vm)).Get(context.Background(), vm.Name, &metav1.GetOptions{})
 					if err != nil || vmi.UID == newVMI.UID {
 						return v1.VmPhaseUnset
 					}
@@ -307,7 +307,7 @@ var _ = Describe("[sig-compute]Subresource Api", func() {
 				vm, err = virtCli.VirtualMachine(testsuite.GetTestNamespace(vmi)).Create(vm)
 				Expect(err).ToNot(HaveOccurred())
 				Eventually(func() bool {
-					vmi, err = virtCli.VirtualMachineInstance(vm.Namespace).Get(vm.Name, &metav1.GetOptions{})
+					vmi, err = virtCli.VirtualMachineInstance(vm.Namespace).Get(context.Background(), vm.Name, &metav1.GetOptions{})
 					if errors.IsNotFound(err) {
 						return false
 					}
@@ -343,7 +343,7 @@ var _ = Describe("[sig-compute]Subresource Api", func() {
 				vm, err = virtCli.VirtualMachine(testsuite.GetTestNamespace(vmi)).Create(vm)
 				Expect(err).ToNot(HaveOccurred())
 				Eventually(func() bool {
-					vmi, err = virtCli.VirtualMachineInstance(vm.Namespace).Get(vm.Name, &metav1.GetOptions{})
+					vmi, err = virtCli.VirtualMachineInstance(vm.Namespace).Get(context.Background(), vm.Name, &metav1.GetOptions{})
 					if errors.IsNotFound(err) {
 						return false
 					}
@@ -356,7 +356,7 @@ var _ = Describe("[sig-compute]Subresource Api", func() {
 
 			waitVMIFSFreezeStatus := func(expectedStatus string) {
 				Eventually(func() bool {
-					updatedVMI, err := virtCli.VirtualMachineInstance(vm.Namespace).Get(vm.Name, &metav1.GetOptions{})
+					updatedVMI, err := virtCli.VirtualMachineInstance(vm.Namespace).Get(context.Background(), vm.Name, &metav1.GetOptions{})
 					Expect(err).ToNot(HaveOccurred())
 					return updatedVMI.Status.FSFreezeStatus == expectedStatus
 				}, 30*time.Second, 2*time.Second).Should(BeTrue())

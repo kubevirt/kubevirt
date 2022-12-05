@@ -191,7 +191,7 @@ var _ = SIGDescribe("[Serial]ImageUpload", Serial, func() {
 					Expect(err).ToNot(HaveOccurred())
 				}()
 				tests.WaitForSuccessfulVMIStartIgnoreWarnings(vmi)
-				vmi, err = virtClient.VirtualMachineInstance(testsuite.GetTestNamespace(vmi)).Get(vmi.Name, &metav1.GetOptions{})
+				vmi, err = virtClient.VirtualMachineInstance(testsuite.GetTestNamespace(vmi)).Get(context.Background(), vmi.Name, &metav1.GetOptions{})
 				Expect(err).ToNot(HaveOccurred())
 			}
 		},

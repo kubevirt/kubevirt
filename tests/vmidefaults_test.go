@@ -20,6 +20,8 @@
 package tests_test
 
 import (
+	"context"
+
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
 	k8sv1 "k8s.io/api/core/v1"
@@ -84,7 +86,7 @@ var _ = Describe("[Serial][sig-compute]VMIDefaults", Serial, func() {
 			_, err = virtClient.VirtualMachineInstance(testsuite.GetTestNamespace(nil)).Create(vmi)
 			Expect(err).ToNot(HaveOccurred())
 
-			newVMI, err := virtClient.VirtualMachineInstance(testsuite.GetTestNamespace(nil)).Get(vmi.Name, &metav1.GetOptions{})
+			newVMI, err := virtClient.VirtualMachineInstance(testsuite.GetTestNamespace(nil)).Get(context.Background(), vmi.Name, &metav1.GetOptions{})
 			Expect(err).ToNot(HaveOccurred())
 
 			// check defaults
@@ -101,7 +103,7 @@ var _ = Describe("[Serial][sig-compute]VMIDefaults", Serial, func() {
 			_, err = virtClient.VirtualMachineInstance(testsuite.GetTestNamespace(nil)).Create(vmi)
 			Expect(err).ToNot(HaveOccurred())
 
-			newVMI, err := virtClient.VirtualMachineInstance(testsuite.GetTestNamespace(nil)).Get(vmi.Name, &metav1.GetOptions{})
+			newVMI, err := virtClient.VirtualMachineInstance(testsuite.GetTestNamespace(nil)).Get(context.Background(), vmi.Name, &metav1.GetOptions{})
 			Expect(err).ToNot(HaveOccurred())
 
 			Expect(newVMI.Spec.Domain.Devices.Disks).To(HaveLen(1))
@@ -255,7 +257,7 @@ var _ = Describe("[Serial][sig-compute]VMIDefaults", Serial, func() {
 			vm = tests.StartVMAndExpectRunning(virtClient, vm)
 
 			By("Getting VirtualMachineInstance")
-			vmi, err = virtClient.VirtualMachineInstance(testsuite.GetTestNamespace(vm)).Get(vm.Name, &metav1.GetOptions{})
+			vmi, err = virtClient.VirtualMachineInstance(testsuite.GetTestNamespace(vm)).Get(context.Background(), vm.Name, &metav1.GetOptions{})
 			Expect(err).ToNot(HaveOccurred())
 
 			Expect(vmi.Spec.Domain.Devices.Inputs).ToNot(BeEmpty(), "There should be input devices")

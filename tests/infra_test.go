@@ -215,7 +215,7 @@ var _ = Describe("[Serial][sig-compute]Infrastructure", Serial, func() {
 			Expect(err).ToNot(HaveOccurred())
 			timestamp := getTimeFromMetrics(metrics)
 
-			vmi, err = virtClient.VirtualMachineInstance(vmi.Namespace).Get(vmi.Name, &metav1.GetOptions{})
+			vmi, err = virtClient.VirtualMachineInstance(vmi.Namespace).Get(context.Background(), vmi.Name, &metav1.GetOptions{})
 			Expect(err).ToNot(HaveOccurred())
 			Eventually(func() int {
 				metrics, err = getDownwardMetrics(vmi)
@@ -1554,7 +1554,7 @@ var _ = Describe("[Serial][sig-compute]Infrastructure", Serial, func() {
 
 				By("Checking that the VMI failed")
 				Eventually(func() bool {
-					vmi, err := virtClient.VirtualMachineInstance(testsuite.GetTestNamespace(vmi)).Get(vmi.Name, &metav1.GetOptions{})
+					vmi, err := virtClient.VirtualMachineInstance(testsuite.GetTestNamespace(vmi)).Get(context.Background(), vmi.Name, &metav1.GetOptions{})
 					Expect(err).ToNot(HaveOccurred())
 					for _, condition := range vmi.Status.Conditions {
 						if condition.Type == v1.VirtualMachineInstanceConditionType(k8sv1.PodScheduled) && condition.Status == k8sv1.ConditionFalse {

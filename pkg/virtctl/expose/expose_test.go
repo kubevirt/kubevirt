@@ -1,6 +1,7 @@
 package expose_test
 
 import (
+	"context"
 	"errors"
 	"strings"
 
@@ -77,9 +78,9 @@ var _ = Describe("Expose", func() {
 		vm.Spec = v1.VirtualMachineSpec{Template: &v1.VirtualMachineInstanceTemplateSpec{ObjectMeta: vmi.ObjectMeta}}
 		vmrs.Spec = v1.VirtualMachineInstanceReplicaSetSpec{Selector: &k8smetav1.LabelSelector{MatchLabels: vmi.ObjectMeta.Labels}, Template: &v1.VirtualMachineInstanceTemplateSpec{}}
 		// set up mock interface behavior
-		vmiInterface.EXPECT().Get(vmi.Name, gomock.Any()).Return(vmi, nil).AnyTimes()
-		vmiInterface.EXPECT().Get(vmNoLabel.Name, gomock.Any()).Return(vmNoLabel, nil).AnyTimes()
-		vmiInterface.EXPECT().Get(unknownVM, gomock.Any()).Return(nil, errors.New("unknown VM")).AnyTimes()
+		vmiInterface.EXPECT().Get(context.Background(), vmi.Name, gomock.Any()).Return(vmi, nil).AnyTimes()
+		vmiInterface.EXPECT().Get(context.Background(), vmNoLabel.Name, gomock.Any()).Return(vmNoLabel, nil).AnyTimes()
+		vmiInterface.EXPECT().Get(context.Background(), unknownVM, gomock.Any()).Return(nil, errors.New("unknown VM")).AnyTimes()
 		vmInterface.EXPECT().Get(vmi.Name, gomock.Any()).Return(vm, nil).AnyTimes()
 		vmInterface.EXPECT().Get(unknownVM, gomock.Any()).Return(nil, errors.New("unknown VM")).AnyTimes()
 		vmrsInterface.EXPECT().Get(vmi.Name, gomock.Any()).Return(vmrs, nil).AnyTimes()

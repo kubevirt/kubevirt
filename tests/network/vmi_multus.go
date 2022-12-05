@@ -376,7 +376,7 @@ var _ = SIGDescribe("[Serial]Multus", Serial, func() {
 
 		Context("VirtualMachineInstance with Linux bridge plugin interface", func() {
 			getIfaceIPByNetworkName := func(vmiName, networkName string) (string, error) {
-				vmi, err := virtClient.VirtualMachineInstance(testsuite.GetTestNamespace(nil)).Get(vmiName, &metav1.GetOptions{})
+				vmi, err := virtClient.VirtualMachineInstance(testsuite.GetTestNamespace(nil)).Get(context.Background(), vmiName, &metav1.GetOptions{})
 				if err != nil {
 					return "", err
 				}
@@ -495,7 +495,7 @@ var _ = SIGDescribe("[Serial]Multus", Serial, func() {
 
 				tests.WaitUntilVMIReady(vmiOne, console.LoginToAlpine)
 
-				updatedVmi, err := virtClient.VirtualMachineInstance(testsuite.GetTestNamespace(vmiOne)).Get(vmiOne.Name, &metav1.GetOptions{})
+				updatedVmi, err := virtClient.VirtualMachineInstance(testsuite.GetTestNamespace(vmiOne)).Get(context.Background(), vmiOne.Name, &metav1.GetOptions{})
 				Expect(err).ToNot(HaveOccurred())
 
 				Expect(updatedVmi.Status.Interfaces).To(HaveLen(2))
@@ -692,14 +692,14 @@ var _ = SIGDescribe("[Serial]Multus", Serial, func() {
 
 				getOptions := &metav1.GetOptions{}
 				Eventually(func() []v1.VirtualMachineInstanceNetworkInterface {
-					updatedVmi, err := virtClient.VirtualMachineInstance(testsuite.GetTestNamespace(agentVMI)).Get(agentVMI.Name, getOptions)
+					updatedVmi, err := virtClient.VirtualMachineInstance(testsuite.GetTestNamespace(agentVMI)).Get(context.Background(), agentVMI.Name, getOptions)
 					if err != nil {
 						return nil
 					}
 					return updatedVmi.Status.Interfaces
 				}, 420*time.Second, 4).Should(HaveLen(4), "Should have interfaces in vmi status")
 
-				updatedVmi, err := virtClient.VirtualMachineInstance(testsuite.GetTestNamespace(agentVMI)).Get(agentVMI.Name, getOptions)
+				updatedVmi, err := virtClient.VirtualMachineInstance(testsuite.GetTestNamespace(agentVMI)).Get(context.Background(), agentVMI.Name, getOptions)
 				Expect(err).ToNot(HaveOccurred())
 
 				Expect(updatedVmi.Status.Interfaces).To(HaveLen(4))

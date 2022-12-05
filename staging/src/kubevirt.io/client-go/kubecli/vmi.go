@@ -288,14 +288,14 @@ func (v *vmis) Unpause(name string, unpauseOptions *v1.UnpauseOptions) error {
 	return v.restClient.Put().AbsPath(uri).Body(body).Do(context.Background()).Error()
 }
 
-func (v *vmis) Get(name string, options *k8smetav1.GetOptions) (vmi *v1.VirtualMachineInstance, err error) {
+func (v *vmis) Get(ctx context.Context, name string, options *k8smetav1.GetOptions) (vmi *v1.VirtualMachineInstance, err error) {
 	vmi = &v1.VirtualMachineInstance{}
 	err = v.restClient.Get().
 		Resource(v.resource).
 		Namespace(v.namespace).
 		Name(name).
 		VersionedParams(options, scheme.ParameterCodec).
-		Do(context.Background()).
+		Do(ctx).
 		Into(vmi)
 	vmi.SetGroupVersionKind(v1.VirtualMachineInstanceGroupVersionKind)
 	return

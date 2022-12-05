@@ -103,7 +103,7 @@ var _ = SIGDescribe("Memory dump", func() {
 		template := libvmi.NewCirros()
 		vm := createVirtualMachine(true, template)
 		Eventually(func() bool {
-			vmi, err := virtClient.VirtualMachineInstance(vm.Namespace).Get(vm.Name, &metav1.GetOptions{})
+			vmi, err := virtClient.VirtualMachineInstance(vm.Namespace).Get(context.Background(), vm.Name, &metav1.GetOptions{})
 			if errors.IsNotFound(err) {
 				return false
 			}
@@ -150,7 +150,7 @@ var _ = SIGDescribe("Memory dump", func() {
 
 	verifyMemoryDumpNotOnVMI := func(vm *v1.VirtualMachine, memoryDumpPVC string) {
 		Eventually(func() error {
-			updatedVMI, err := virtClient.VirtualMachineInstance(vm.Namespace).Get(vm.Name, &metav1.GetOptions{})
+			updatedVMI, err := virtClient.VirtualMachineInstance(vm.Namespace).Get(context.Background(), vm.Name, &metav1.GetOptions{})
 			if err != nil {
 				return err
 			}
