@@ -3503,6 +3503,23 @@ var _ = Describe("Template", func() {
 			}),
 		)
 
+		DescribeTable("should compute the correct security context when migrating and postcopy is", func(postCopyEnabled bool, expectedSeccompProfile kubev1.SeccompProfileType) {
+			vmi := api.NewMinimalVMI("fake-vmi")
+			vmi.Status.RuntimeUser = uint64(nonRootUser)
+			pod, err := svc.RenderLaunchManifest(vmi)
+			Expect(err).ToNot(HaveOccurred())
+
+			migrationConfig := &v1.MigrationConfiguration{
+				AllowPostCopy: pointer.Bool(postCopyEnabled),
+			}
+			pod, err = svc.RenderMigrationManifest(vmi, pod, migrationConfig)
+			Expect(err).ToNot(HaveOccurred())
+			Expect(pod.Spec.SecurityContext.SeccompProfile.Type).To(Equal(expectedSeccompProfile))
+		},
+			Entry("enabled", true, kubev1.SeccompProfileTypeUnconfined),
+			Entry("disabled", false, kubev1.SeccompProfileTypeRuntimeDefault),
+		)
+
 		It("Should run as non-root except compute", func() {
 			vmi := newMinimalWithContainerDisk("ranom")
 

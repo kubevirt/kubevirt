@@ -558,9 +558,41 @@ func (c *MigrationController) updateStatus(migration *virtv1.VirtualMachineInsta
 	return nil
 }
 
+func (c *MigrationController) getMigrationConfiguration(vmi *virtv1.VirtualMachineInstance) (*virtv1.MigrationConfiguration, error) {
+	migrationConfig := c.clusterConfig.GetMigrationConfiguration().DeepCopy()
+	vmiNamespace, err := c.clientset.CoreV1().Namespaces().Get(context.Background(), vmi.Namespace, v1.GetOptions{})
+	if err != nil {
+		return nil, err
+	}
+
+	var policies []v1alpha1.MigrationPolicy
+	migrationInterfaceList := c.migrationPolicyInformer.GetStore().List()
+	for _, obj := range migrationInterfaceList {
+		policy := obj.(*v1alpha1.MigrationPolicy)
+		policies = append(policies, *policy)
+	}
+	policiesListObj := v1alpha1.MigrationPolicyList{Items: policies}
+
+	matchedPolicy := MatchPolicy(&policiesListObj, vmi, vmiNamespace)
+	if matchedPolicy == nil {
+		return migrationConfig, nil
+	}
+
+	_, err = matchedPolicy.GetMigrationConfByPolicy(migrationConfig)
+	if err != nil {
+		return nil, err
+	}
+	return migrationConfig, nil
+}
+
 func (c *MigrationController) createTargetPod(migration *virtv1.VirtualMachineInstanceMigration, vmi *virtv1.VirtualMachineInstance, sourcePod *k8sv1.Pod) error {
 
-	templatePod, err := c.templateService.RenderMigrationManifest(vmi, sourcePod)
+	migrationConf, err := c.getMigrationConfiguration(vmi)
+	if err != nil {
+		return fmt.Errorf("failed to get migration configuration: %v", err)
+	}
+
+	templatePod, err := c.templateService.RenderMigrationManifest(vmi, sourcePod, migrationConf)
 	if err != nil {
 		return fmt.Errorf("failed to render launch manifest: %v", err)
 	}
@@ -629,7 +661,11 @@ func (c *MigrationController) createTargetPod(migration *virtv1.VirtualMachineIn
 	key := controller.MigrationKey(migration)
 	c.podExpectations.ExpectCreations(key, 1)
 	pod, err := c.clientset.CoreV1().Pods(vmi.GetNamespace()).Create(context.Background(), templatePod, v1.CreateOptions{})
-	if err != nil {
+	if k8serrors.IsForbidden(err) && strings.Contains(err.Error(), "violates PodSecurity") {
+		psaErr := fmt.Errorf("failed to create target pod for vmi %s/%s, it needs a privileged namespace to run: %w", vmi.GetNamespace(), vmi.GetName(), err)
+		c.recorder.Eventf(vmi, k8sv1.EventTypeWarning, FailedCreatePodReason, failedToRenderLaunchManifestErrFormat, psaErr)
+		return psaErr
+	} else if err != nil {
 		c.recorder.Eventf(vmi, k8sv1.EventTypeWarning, FailedCreatePodReason, "Error creating pod: %v", err)
 		c.podExpectations.CreationObserved(key)
 		return fmt.Errorf("failed to create vmi migration target pod: %v", err)

@@ -128,7 +128,7 @@ const (
 const customSELinuxType = "virt_launcher.process"
 
 type TemplateService interface {
-	RenderMigrationManifest(vmi *v1.VirtualMachineInstance, sourcePod *k8sv1.Pod) (*k8sv1.Pod, error)
+	RenderMigrationManifest(vmi *v1.VirtualMachineInstance, sourcePod *k8sv1.Pod, migrationConfiguration *v1.MigrationConfiguration) (*k8sv1.Pod, error)
 	RenderLaunchManifest(vmi *v1.VirtualMachineInstance) (*k8sv1.Pod, error)
 	RenderHotplugAttachmentPodTemplate(volume []*v1.Volume, ownerPod *k8sv1.Pod, vmi *v1.VirtualMachineInstance, claimMap map[string]*k8sv1.PersistentVolumeClaim, tempPod bool) (*k8sv1.Pod, error)
 	RenderHotplugAttachmentTriggerPodTemplate(volume *v1.Volume, ownerPod *k8sv1.Pod, vmi *v1.VirtualMachineInstance, pvcName string, isBlock bool, tempPod bool) (*k8sv1.Pod, error)
@@ -251,12 +251,21 @@ func (t *templateService) RenderLaunchManifestNoVm(vmi *v1.VirtualMachineInstanc
 	return t.renderLaunchManifest(vmi, nil, true)
 }
 
-func (t *templateService) RenderMigrationManifest(vmi *v1.VirtualMachineInstance, pod *k8sv1.Pod) (*k8sv1.Pod, error) {
+func (t *templateService) RenderMigrationManifest(vmi *v1.VirtualMachineInstance, pod *k8sv1.Pod, migrationConfiguration *v1.MigrationConfiguration) (*k8sv1.Pod, error) {
 	reproducibleImageIDs, err := containerdisk.ExtractImageIDsFromSourcePod(vmi, pod)
 	if err != nil {
 		return nil, fmt.Errorf("can not proceed with the migration when no reproducible image digest can be detected: %v", err)
 	}
-	return t.renderLaunchManifest(vmi, reproducibleImageIDs, false)
+	podManifest, err := t.renderLaunchManifest(vmi, reproducibleImageIDs, false)
+	if err != nil {
+		return nil, err
+	}
+
+	// PostCopy needs the userfaultfd syscall which is restricted in the RuntimeDefault seccomp profile
+	if migrationConfiguration.AllowPostCopy != nil && *migrationConfiguration.AllowPostCopy {
+		podManifest.Spec.SecurityContext.SeccompProfile.Type = k8sv1.SeccompProfileTypeUnconfined
+	}
+	return podManifest, err
 }
 
 func (t *templateService) RenderLaunchManifest(vmi *v1.VirtualMachineInstance) (*k8sv1.Pod, error) {
