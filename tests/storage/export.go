@@ -1194,13 +1194,15 @@ var _ = SIGDescribe("Export", func() {
 	}
 
 	startVM := func(vm *virtv1.VirtualMachine) *virtv1.VirtualMachine {
+		vmName := vm.Name
+		vmNamespace := vm.Namespace
 		Eventually(func() error {
-			vm, err = virtClient.VirtualMachine(vm.Namespace).Get(vm.Name, &metav1.GetOptions{})
+			vm, err = virtClient.VirtualMachine(vmNamespace).Get(vmName, &metav1.GetOptions{})
 			Expect(err).ToNot(HaveOccurred())
 			vm.Spec.Running = pointer.BoolPtr(true)
-			vm, err = virtClient.VirtualMachine(vm.Namespace).Update(vm)
+			vm, err = virtClient.VirtualMachine(vmNamespace).Update(vm)
 			return err
-		}, 15*time.Second, time.Second).Should(BeNil())
+		}, 15*time.Second, time.Second).Should(Succeed())
 		return vm
 	}
 
