@@ -1192,7 +1192,7 @@ spec:
                 command:
                 - virt-operator
                 env:
-                - name: OPERATOR_IMAGE
+                - name: VIRT_OPERATOR_IMAGE
                   value: {{.DockerPrefix}}/virt-operator{{if .VirtOperatorSha}}@{{.VirtOperatorSha}}{{else}}:{{.DockerTag}}{{end}}
                 - name: WATCH_NAMESPACE
                   valueFrom:
