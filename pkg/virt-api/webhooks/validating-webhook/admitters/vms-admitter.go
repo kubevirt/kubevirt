@@ -55,6 +55,7 @@ type CloneAuthFunc func(pvcNamespace, pvcName, saNamespace, saName string) (bool
 type VMsAdmitter struct {
 	VirtClient          kubecli.KubevirtClient
 	DataSourceInformer  cache.SharedIndexInformer
+	VMIInformer         cache.SharedIndexInformer
 	InstancetypeMethods instancetype.Methods
 	ClusterConfig       *virtconfig.ClusterConfig
 	cloneAuthFunc       CloneAuthFunc
@@ -75,6 +76,7 @@ func NewVMsAdmitter(clusterConfig *virtconfig.ClusterConfig, client kubecli.Kube
 	return &VMsAdmitter{
 		VirtClient:          client,
 		DataSourceInformer:  informers.DataSourceInformer,
+		VMIInformer:         informers.VMIInformer,
 		InstancetypeMethods: instancetype.NewMethods(client),
 		ClusterConfig:       clusterConfig,
 		cloneAuthFunc: func(pvcNamespace, pvcName, saNamespace, saName string) (bool, string, error) {
@@ -107,6 +109,13 @@ func (admitter *VMsAdmitter) Admit(ar *admissionv1.AdmissionReview) *admissionv1
 	// validate the resulting VirtualMachineInstanceSpec below. As we don't want to persist these changes
 	// we pass a copy of the original VirtualMachine here and to the validation call below.
 	vmCopy := vm.DeepCopy()
+	if admitter.operationType == admissionregistration.Create {
+		causes := admitter.validateName(vmCopy)
+		if len(causes) > 0 {
+			return webhookutils.ToAdmissionResponse(causes)
+		}
+	}
+
 	causes := admitter.applyInstancetypeToVm(vmCopy)
 	if len(causes) > 0 {
 		return webhookutils.ToAdmissionResponse(causes)
@@ -145,6 +154,29 @@ func (admitter *VMsAdmitter) Admit(ar *admissionv1.AdmissionReview) *admissionv1
 	reviewResponse := admissionv1.AdmissionResponse{}
 	reviewResponse.Allowed = true
 	return &reviewResponse
+}
+
+func (admitter *VMsAdmitter) validateName(vm *v1.VirtualMachine) []metav1.StatusCause {
+	var causes []metav1.StatusCause
+	key := controller.NamespacedKey(vm.Namespace, vm.Name)
+	_, exists, err := admitter.VMIInformer.GetStore().GetByKey(key)
+	if err != nil {
+		return []metav1.StatusCause{{
+			Type:    metav1.CauseTypeFieldValueDuplicate,
+			Message: fmt.Sprintf("Failed to retrieve virtual machine instance %v: %v", vm.Name, err),
+			Field:   k8sfield.NewPath("metadata", "name").String(),
+		}}
+	}
+
+	if exists {
+		return []metav1.StatusCause{{
+			Type:    metav1.CauseTypeFieldValueDuplicate,
+			Message: fmt.Sprintf("VMI %s already exists", vm.Name),
+			Field:   k8sfield.NewPath("metadata", "name").String(),
+		}}
+	}
+
+	return causes
 }
 
 func (admitter *VMsAdmitter) AdmitStatus(ar *admissionv1.AdmissionReview) *admissionv1.AdmissionResponse {

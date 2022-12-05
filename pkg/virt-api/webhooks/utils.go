@@ -78,6 +78,7 @@ type Informers struct {
 	NamespaceLimitsInformer cache.SharedIndexInformer
 	VMRestoreInformer       cache.SharedIndexInformer
 	DataSourceInformer      cache.SharedIndexInformer
+	VMIInformer             cache.SharedIndexInformer
 }
 
 func IsKubeVirtServiceAccount(serviceAccount string) bool {

@@ -988,6 +988,7 @@ func (app *virtAPIApp) Run() {
 	vmiPresetInformer := kubeInformerFactory.VirtualMachinePreset()
 	namespaceLimitsInformer := kubeInformerFactory.LimitRanges()
 	vmRestoreInformer := kubeInformerFactory.VirtualMachineRestore()
+	vmiInformer := kubeInformerFactory.VMI()
 
 	stopChan := make(chan struct{}, 1)
 	defer close(stopChan)
@@ -1023,6 +1024,7 @@ func (app *virtAPIApp) Run() {
 		NamespaceLimitsInformer: namespaceLimitsInformer,
 		VMRestoreInformer:       vmRestoreInformer,
 		DataSourceInformer:      dataSourceInformer,
+		VMIInformer:             vmiInformer,
 	}
 
 	// Build webhook subresources

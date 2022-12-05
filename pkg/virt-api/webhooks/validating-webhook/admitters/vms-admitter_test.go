@@ -27,6 +27,7 @@ import (
 	"github.com/golang/mock/gomock"
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
+	admissionregistration "k8s.io/api/admissionregistration/v1"
 
 	"kubevirt.io/client-go/kubecli"
 
@@ -56,9 +57,11 @@ var _ = Describe("Validating VM Admitter", func() {
 	config, crdInformer, kvInformer := testutils.NewFakeClusterConfigUsingKVConfig(&v1.KubeVirtConfiguration{})
 	var vmsAdmitter *VMsAdmitter
 	var dataSourceInformer cache.SharedIndexInformer
+	var vmiInformer cache.SharedIndexInformer
 	var instancetypeMethods *testutils.MockInstancetypeMethods
 	var mockVMIClient *kubecli.MockVirtualMachineInstanceInterface
 	var virtClient *kubecli.MockKubevirtClient
+	var stop chan struct{}
 
 	enableFeatureGate := func(featureGate string) {
 		testutils.UpdateFakeKubeVirtClusterConfig(kvInformer, &v1.KubeVirt{
@@ -87,8 +90,16 @@ var _ = Describe("Validating VM Admitter", func() {
 	runStrategyManual := v1.RunStrategyManual
 	runStrategyHalted := v1.RunStrategyHalted
 
+	syncCache := func(stop chan struct{}) {
+		go vmiInformer.Run(stop)
+		Expect(cache.WaitForCacheSync(stop,
+			vmiInformer.HasSynced)).To(BeTrue())
+	}
+
 	BeforeEach(func() {
+		stop = make(chan struct{})
 		dataSourceInformer, _ = testutils.NewFakeInformerFor(&cdiv1.DataSource{})
+		vmiInformer, _ = testutils.NewFakeInformerFor(&v1.VirtualMachineInstance{})
 		instancetypeMethods = testutils.NewMockInstancetypeMethods()
 
 		ctrl := gomock.NewController(GinkgoT())
@@ -97,12 +108,18 @@ var _ = Describe("Validating VM Admitter", func() {
 		vmsAdmitter = &VMsAdmitter{
 			VirtClient:          virtClient,
 			DataSourceInformer:  dataSourceInformer,
+			VMIInformer:         vmiInformer,
 			ClusterConfig:       config,
 			InstancetypeMethods: instancetypeMethods,
 			cloneAuthFunc: func(pvcNamespace, pvcName, saNamespace, saName string) (bool, string, error) {
 				return true, "", nil
 			},
 		}
+		syncCache(stop)
+	})
+
+	AfterEach(func() {
+		close(stop)
 	})
 
 	It("reject invalid VirtualMachineInstance spec", func() {
@@ -123,6 +140,31 @@ var _ = Describe("Validating VM Admitter", func() {
 		Expect(resp.Allowed).To(BeFalse())
 		Expect(resp.Result.Details.Causes).To(HaveLen(1))
 		Expect(resp.Result.Details.Causes[0].Field).To(Equal("spec.template.spec.domain.devices.disks[0].name"))
+	})
+
+	It("should reject when there is already a VMI with the same name of the VM", func() {
+		vmsAdmitter.operationType = admissionregistration.Create
+		vmi := api.NewMinimalVMI("testvmi")
+		vmiInformer.GetStore().Add(vmi)
+
+		vm := &v1.VirtualMachine{
+			ObjectMeta: metav1.ObjectMeta{
+				Name:      vmi.Name,
+				Namespace: k8sv1.NamespaceDefault,
+			},
+			Spec: v1.VirtualMachineSpec{
+				Running: &notRunning,
+				Template: &v1.VirtualMachineInstanceTemplateSpec{
+					Spec: vmi.Spec,
+				},
+			},
+		}
+
+		resp := admitVm(vmsAdmitter, vm)
+		Expect(resp.Allowed).To(BeFalse())
+		Expect(resp.Result.Details.Causes).To(HaveLen(1))
+		Expect(resp.Result.Details.Causes[0].Message).To(Equal(fmt.Sprintf("VMI %s already exists", vm.Name)))
+		Expect(resp.Result.Details.Causes[0].Field).To(Equal("metadata.name"))
 	})
 
 	It("should allow VM with missing volume disk or filesystem", func() {
