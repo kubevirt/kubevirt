@@ -97,7 +97,6 @@ func AdjustKubeVirtResource() {
 		virtconfig.VMExportGate,
 		virtconfig.VSOCKGate,
 	)
-	kv.Spec.Configuration.SELinuxLauncherType = "virt_launcher.process"
 
 	if kv.Spec.Configuration.NetworkConfiguration == nil {
 		testDefaultPermitSlirpInterface := true
@@ -171,10 +170,7 @@ func UpdateKubeVirtConfigValue(kvConfig v1.KubeVirtConfiguration) *v1.KubeVirt {
 		return kv
 	}
 
-	suiteConfig, _ := GinkgoConfiguration()
-	if suiteConfig.ParallelTotal > 1 {
-		Fail("Tests which alter the global kubevirt configuration must not be executed in parallel")
-	}
+	Expect(CurrentSpecReport().IsSerial).To(BeTrue(), "Tests which alter the global kubevirt configuration must not be executed in parallel, see https://onsi.github.io/ginkgo/#serial-specs")
 
 	updatedKV := kv.DeepCopy()
 	updatedKV.Spec.Configuration = kvConfig

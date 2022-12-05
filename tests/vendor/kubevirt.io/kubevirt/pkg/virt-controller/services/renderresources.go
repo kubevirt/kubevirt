@@ -286,7 +286,7 @@ func GetMemoryOverhead(vmi *v1.VirtualMachineInstance, cpuArch string) *resource
 	overhead.Add(resource.MustParse(VirtLauncherMonitorOverhead))
 	overhead.Add(resource.MustParse(VirtLauncherOverhead))
 	overhead.Add(resource.MustParse(VirtlogdOverhead))
-	overhead.Add(resource.MustParse(LibvirtdOverhead))
+	overhead.Add(resource.MustParse(VirtqemudOverhead))
 	overhead.Add(resource.MustParse(QemuOverhead))
 
 	// Add CPU table overhead (8 MiB per vCPU and 8 MiB per IO thread)
@@ -355,6 +355,14 @@ func GetMemoryOverhead(vmi *v1.VirtualMachineInstance, cpuArch string) *resource
 	// In `ps`, swtpm has VSZ of 53808 and RSS of 3496, so 53Mi should do
 	if vmi.Spec.Domain.Devices.TPM != nil {
 		overhead.Add(resource.MustParse("53Mi"))
+	}
+
+	// Additional overhead for each interface with Passt binding, that forwards all ports.
+	// More information can be found here: https://bugs.passt.top/show_bug.cgi?id=20
+	for _, net := range vmi.Spec.Domain.Devices.Interfaces {
+		if net.Passt != nil && len(net.Ports) == 0 {
+			overhead.Add(resource.MustParse("800Mi"))
+		}
 	}
 
 	return overhead

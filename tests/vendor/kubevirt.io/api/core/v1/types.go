@@ -265,6 +265,10 @@ type VirtualMachineInstanceStatus struct {
 	// VSOCKCID is used to track the allocated VSOCK CID in the VM.
 	// +optional
 	VSOCKCID *uint32 `json:"VSOCKCID,omitempty"`
+
+	// SELinuxContext is the actual SELinux context of the virt-launcher pod
+	// +optional
+	SelinuxContext string `json:"selinuxContext,omitempty"`
 }
 
 // PersistentVolumeClaimInfo contains the relavant information virt-handler needs cached about a PVC
@@ -479,6 +483,8 @@ const (
 	VirtualMachineInstanceReasonSEVNotMigratable = "SEVNotLiveMigratable"
 	// Reason means that VMI is not live migratable because it uses HyperV Reenlightenment while TSC Frequency is not available
 	VirtualMachineInstanceReasonNoTSCFrequencyMigratable = "NoTSCFrequencyNotLiveMigratable"
+	// Reason means that VMI is not live migratable because it uses dedicated CPU and emulator thread isolation
+	VirtualMachineInstanceReasonDedicatedCPU = "DedicatedCPUNotLiveMigratable"
 )
 
 const (
@@ -727,6 +733,10 @@ const (
 
 	// Used by functional tests to simulate virt-launcher crash looping
 	FuncTestLauncherFailFastAnnotation string = "kubevirt.io/func-test-virt-launcher-fail-fast"
+
+	// Used by functional tests to ignore backoff applied to migrations
+	FuncTestForceIgnoreMigrationBackoffAnnotation string = "kubevirt.io/func-test-ignore-migration-backoff"
+
 	// This label is used to match virtual machine instance IDs with pods.
 	// Similar to kubevirt.io/domain. Used on Pod.
 	// Internal use only.
@@ -829,6 +839,7 @@ const (
 	HostModelCPULabel = "host-model-cpu.node.kubevirt.io/"
 	// This label represents the host model required features
 	HostModelRequiredFeaturesLabel = "host-model-required-features.node.kubevirt.io/"
+	NodeHostModelIsObsoleteLabel   = "node-labeller.kubevirt.io/obsolete-host-model"
 
 	LabellerSkipNodeAnnotation        = "node-labeller.kubevirt.io/skip-node"
 	VirtualMachineLabel               = AppLabel + "/vm"
@@ -2127,6 +2138,10 @@ type ScreenshotOptions struct {
 	MoveCursor bool `json:"moveCursor"`
 }
 
+type VSOCKOptions struct {
+	TargetPort uint32 `json:"targetPort"`
+}
+
 // RemoveVolumeOptions is provided when dynamically hot unplugging volume and disk
 type RemoveVolumeOptions struct {
 	// Name represents the name that maps to both the disk and volume that
@@ -2374,8 +2389,13 @@ type MediatedHostDevice struct {
 
 // MediatedDevicesConfiguration holds information about MDEV types to be defined, if available
 type MediatedDevicesConfiguration struct {
+	// Deprecated. Use mediatedDeviceTypes instead.
+	// +optional
 	// +listType=atomic
 	MediatedDevicesTypes []string `json:"mediatedDevicesTypes,omitempty"`
+	// +optional
+	// +listType=atomic
+	MediatedDeviceTypes []string `json:"mediatedDeviceTypes,omitempty"`
 	// +optional
 	// +listType=atomic
 	NodeMediatedDeviceTypes []NodeMediatedDeviceTypesConfig `json:"nodeMediatedDeviceTypes,omitempty"`
@@ -2388,8 +2408,13 @@ type NodeMediatedDeviceTypesConfig struct {
 	// Selector which must match a node's labels for the vmi to be scheduled on that node.
 	// More info: https://kubernetes.io/docs/concepts/configuration/assign-pod-node/
 	NodeSelector map[string]string `json:"nodeSelector"`
+	// Deprecated. Use mediatedDeviceTypes instead.
+	// +optional
 	// +listType=atomic
-	MediatedDevicesTypes []string `json:"mediatedDevicesTypes"`
+	MediatedDevicesTypes []string `json:"mediatedDevicesTypes,omitempty"`
+	// +optional
+	// +listType=atomic
+	MediatedDeviceTypes []string `json:"mediatedDeviceTypes"`
 }
 
 // NetworkConfiguration holds network options

@@ -72,6 +72,32 @@ EOL`, inetSuffix, port)
 	Expect(console.RunCommand(vmi, serverCommand, 60*time.Second)).To(Succeed())
 }
 
+func StartPythonVsockServer(vmi *v1.VirtualMachineInstance, cid uint32, port int) {
+	serverCommand := fmt.Sprintf(`cat >vsock_server.py <<EOL
+import socket
+s = socket.socket(socket.AF_VSOCK, socket.SOCK_STREAM)
+s.bind((%d, %d))
+s.listen()
+(conn, (remote_cid, remote_port)) = s.accept()
+print("Accept connectionf from %%d:%%d" %% (remote_cid, remote_port))
+while(True):
+    buf = conn.recv(64)
+    if not buf:
+        break
+    print("Received: " + str(buf))
+    conn.send(buf)
+EOL`, cid, port)
+	Expect(console.ExpectBatch(vmi, []expect.Batcher{
+		&expect.BSnd{S: fmt.Sprintf("%s\n", serverCommand)},
+		&expect.BExp{R: console.PromptExpression},
+		&expect.BSnd{S: EchoLastReturnValue},
+		&expect.BExp{R: console.ShellSuccess},
+	}, 60*time.Second)).To(Succeed())
+
+	serverCommand = "python3 vsock_server.py > server_out 2>&1 &"
+	Expect(console.RunCommand(vmi, serverCommand, 60*time.Second)).To(Succeed())
+}
+
 func (s server) Start(vmi *v1.VirtualMachineInstance, port int, extraArgs ...string) {
 	Expect(console.RunCommand(vmi, s.composeNetcatServerCommand(port, extraArgs...), 60*time.Second)).To(Succeed())
 }

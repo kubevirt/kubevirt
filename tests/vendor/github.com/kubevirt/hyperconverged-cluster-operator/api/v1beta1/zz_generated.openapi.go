@@ -64,12 +64,14 @@ func schema_kubevirt_hyperconverged_cluster_operator_api_v1beta1_CertRotateConfi
 					"duration": {
 						SchemaProps: spec.SchemaProps{
 							Description: "The requested 'duration' (i.e. lifetime) of the Certificate. This should comply with golang's ParseDuration format (https://golang.org/pkg/time/#ParseDuration)",
+							Default:     "48h0m0s",
 							Ref:         ref("k8s.io/apimachinery/pkg/apis/meta/v1.Duration"),
 						},
 					},
 					"renewBefore": {
 						SchemaProps: spec.SchemaProps{
 							Description: "The amount of time before the currently issued certificate's `notAfter` time that we will begin to attempt to renew the certificate. This should comply with golang's ParseDuration format (https://golang.org/pkg/time/#ParseDuration)",
+							Default:     "24h0m0s",
 							Ref:         ref("k8s.io/apimachinery/pkg/apis/meta/v1.Duration"),
 						},
 					},
@@ -91,12 +93,14 @@ func schema_kubevirt_hyperconverged_cluster_operator_api_v1beta1_CertRotateConfi
 					"duration": {
 						SchemaProps: spec.SchemaProps{
 							Description: "The requested 'duration' (i.e. lifetime) of the Certificate. This should comply with golang's ParseDuration format (https://golang.org/pkg/time/#ParseDuration)",
+							Default:     "24h0m0s",
 							Ref:         ref("k8s.io/apimachinery/pkg/apis/meta/v1.Duration"),
 						},
 					},
 					"renewBefore": {
 						SchemaProps: spec.SchemaProps{
 							Description: "The amount of time before the currently issued certificate's `notAfter` time that we will begin to attempt to renew the certificate. This should comply with golang's ParseDuration format (https://golang.org/pkg/time/#ParseDuration)",
+							Default:     "12h0m0s",
 							Ref:         ref("k8s.io/apimachinery/pkg/apis/meta/v1.Duration"),
 						},
 					},
@@ -202,7 +206,7 @@ func schema_kubevirt_hyperconverged_cluster_operator_api_v1beta1_HyperConvergedF
 					"enableCommonBootImageImport": {
 						SchemaProps: spec.SchemaProps{
 							Description: "Opt-in to automatic delivery/updates of the common data import cron templates. There are two sources for the data import cron templates: hard coded list of common templates, and custom templates that can be added to the dataImportCronTemplates field. This feature gates only control the common templates. It is possible to use custom templates by adding them to the dataImportCronTemplates field.",
-							Default:     false,
+							Default:     true,
 							Type:        []string{"boolean"},
 							Format:      "",
 						},
@@ -218,7 +222,7 @@ func schema_kubevirt_hyperconverged_cluster_operator_api_v1beta1_HyperConvergedF
 					"nonRoot": {
 						SchemaProps: spec.SchemaProps{
 							Description: "Enables rootless virt-launcher.",
-							Default:     false,
+							Default:     true,
 							Type:        []string{"boolean"},
 							Format:      "",
 						},
@@ -379,6 +383,7 @@ func schema_kubevirt_hyperconverged_cluster_operator_api_v1beta1_HyperConvergedS
 					"workloadUpdateStrategy": {
 						SchemaProps: spec.SchemaProps{
 							Description: "WorkloadUpdateStrategy defines at the cluster level how to handle automated workload updates",
+							Default:     map[string]interface{}{},
 							Ref:         ref("github.com/kubevirt/hyperconverged-cluster-operator/api/v1beta1.HyperConvergedWorkloadUpdateStrategy"),
 						},
 					},
@@ -410,6 +415,7 @@ func schema_kubevirt_hyperconverged_cluster_operator_api_v1beta1_HyperConvergedS
 					"uninstallStrategy": {
 						SchemaProps: spec.SchemaProps{
 							Description: "UninstallStrategy defines how to proceed on uninstall when workloads (VirtualMachines, DataVolumes) still exist. BlockUninstallIfWorkloadsExist will prevent the CR from being removed when workloads still exist. BlockUninstallIfWorkloadsExist is the safest choice to protect your workloads from accidental data loss, so it's strongly advised. RemoveWorkloads will cause all the workloads to be cascading deleted on uninstallation. WARNING: please notice that RemoveWorkloads will cause your workloads to be deleted as soon as this CR will be, even accidentally, deleted. Please correctly consider the implications of this option before setting it. BlockUninstallIfWorkloadsExist is the default behaviour.",
+							Default:     "BlockUninstallIfWorkloadsExist",
 							Type:        []string{"string"},
 							Format:      "",
 						},
@@ -558,6 +564,7 @@ func schema_kubevirt_hyperconverged_cluster_operator_api_v1beta1_HyperConvergedW
 						},
 						SchemaProps: spec.SchemaProps{
 							Description: "WorkloadUpdateMethods defines the methods that can be used to disrupt workloads during automated workload updates. When multiple methods are present, the least disruptive method takes precedence over more disruptive methods. For example if both LiveMigrate and Evict methods are listed, only VMs which are not live migratable will be restarted/shutdown. An empty list defaults to no automated workload updating.",
+							Default:     []interface{}{"LiveMigrate"},
 							Type:        []string{"array"},
 							Items: &spec.SchemaOrArray{
 								Schema: &spec.Schema{
@@ -573,6 +580,7 @@ func schema_kubevirt_hyperconverged_cluster_operator_api_v1beta1_HyperConvergedW
 					"batchEvictionSize": {
 						SchemaProps: spec.SchemaProps{
 							Description: "BatchEvictionSize Represents the number of VMIs that can be forced updated per the BatchShutdownInterval interval",
+							Default:     10,
 							Type:        []string{"integer"},
 							Format:      "int32",
 						},
@@ -580,6 +588,7 @@ func schema_kubevirt_hyperconverged_cluster_operator_api_v1beta1_HyperConvergedW
 					"batchEvictionInterval": {
 						SchemaProps: spec.SchemaProps{
 							Description: "BatchEvictionInterval Represents the interval to wait before issuing the next batch of shutdowns",
+							Default:     "1m0s",
 							Ref:         ref("k8s.io/apimachinery/pkg/apis/meta/v1.Duration"),
 						},
 					},
@@ -601,6 +610,7 @@ func schema_kubevirt_hyperconverged_cluster_operator_api_v1beta1_LiveMigrationCo
 					"parallelMigrationsPerCluster": {
 						SchemaProps: spec.SchemaProps{
 							Description: "Number of migrations running in parallel in the cluster.",
+							Default:     5,
 							Type:        []string{"integer"},
 							Format:      "int64",
 						},
@@ -608,6 +618,7 @@ func schema_kubevirt_hyperconverged_cluster_operator_api_v1beta1_LiveMigrationCo
 					"parallelOutboundMigrationsPerNode": {
 						SchemaProps: spec.SchemaProps{
 							Description: "Maximum number of outbound migrations per node.",
+							Default:     2,
 							Type:        []string{"integer"},
 							Format:      "int64",
 						},
@@ -622,6 +633,7 @@ func schema_kubevirt_hyperconverged_cluster_operator_api_v1beta1_LiveMigrationCo
 					"completionTimeoutPerGiB": {
 						SchemaProps: spec.SchemaProps{
 							Description: "The migration will be canceled if it has not completed in this time, in seconds per GiB of memory. For example, a virtual machine instance with 6GiB memory will timeout if it has not completed migration in 4800 seconds. If the Migration Method is BlockMigration, the size of the migrating disks is included in the calculation.",
+							Default:     800,
 							Type:        []string{"integer"},
 							Format:      "int64",
 						},
@@ -629,6 +641,7 @@ func schema_kubevirt_hyperconverged_cluster_operator_api_v1beta1_LiveMigrationCo
 					"progressTimeout": {
 						SchemaProps: spec.SchemaProps{
 							Description: "The migration will be canceled if memory copy fails to make progress in this time, in seconds.",
+							Default:     150,
 							Type:        []string{"integer"},
 							Format:      "int64",
 						},

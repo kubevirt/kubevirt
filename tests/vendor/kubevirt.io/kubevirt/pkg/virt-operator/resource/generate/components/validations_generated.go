@@ -782,7 +782,13 @@ var CRDsValidation map[string]string = map[string]string{
               description: MediatedDevicesConfiguration holds information about MDEV
                 types to be defined, if available
               properties:
+                mediatedDeviceTypes:
+                  items:
+                    type: string
+                  type: array
+                  x-kubernetes-list-type: atomic
                 mediatedDevicesTypes:
+                  description: Deprecated. Use mediatedDeviceTypes instead.
                   items:
                     type: string
                   type: array
@@ -793,7 +799,13 @@ var CRDsValidation map[string]string = map[string]string{
                       MDEV types to be defined in a specifc node that matches the
                       NodeSelector field.
                     properties:
+                      mediatedDeviceTypes:
+                        items:
+                          type: string
+                        type: array
+                        x-kubernetes-list-type: atomic
                       mediatedDevicesTypes:
+                        description: Deprecated. Use mediatedDeviceTypes instead.
                         items:
                           type: string
                         type: array
@@ -807,7 +819,6 @@ var CRDsValidation map[string]string = map[string]string{
                           More info: https://kubernetes.io/docs/concepts/configuration/assign-pod-node/'
                         type: object
                     required:
-                    - mediatedDevicesTypes
                     - nodeSelector
                     type: object
                   type: array
@@ -6364,8 +6375,9 @@ var CRDsValidation map[string]string = map[string]string{
                               can be hotplugged and hotunplugged.
                             type: boolean
                           name:
-                            description: Name represents the name of the DataVolume
-                              in the same namespace
+                            description: Name of both the DataVolume and the PVC in
+                              the same namespace. After PVC population the DataVolume
+                              is garbage collected by default.
                             type: string
                         required:
                         - name
@@ -6903,8 +6915,9 @@ var CRDsValidation map[string]string = map[string]string{
                               can be hotplugged and hotunplugged.
                             type: boolean
                           name:
-                            description: Name represents the name of the DataVolume
-                              in the same namespace
+                            description: Name of both the DataVolume and the PVC in
+                              the same namespace. After PVC population the DataVolume
+                              is garbage collected by default.
                             type: string
                         required:
                         - name
@@ -7761,6 +7774,15 @@ var CRDsValidation map[string]string = map[string]string{
             preferredMachineType:
               description: PreferredMachineType optionally defines the preferred machine
                 type to use.
+              type: string
+          type: object
+        volumes:
+          description: Volumes optionally defines preferences associated with the
+            Volumes attribute of a VirtualMachineInstace DomainSpec
+          properties:
+            preferredStorageClassName:
+              description: PreffereedStorageClassName optionally defines the preferred
+                storageClass
               type: string
           type: object
       type: object
@@ -10458,8 +10480,9 @@ var CRDsValidation map[string]string = map[string]string{
                       hotplugged and hotunplugged.
                     type: boolean
                   name:
-                    description: Name represents the name of the DataVolume in the
-                      same namespace
+                    description: Name of both the DataVolume and the PVC in the same
+                      namespace. After PVC population the DataVolume is garbage collected
+                      by default.
                     type: string
                 required:
                 - name
@@ -11021,6 +11044,10 @@ var CRDsValidation map[string]string = map[string]string{
             launcher
           format: int64
           type: integer
+        selinuxContext:
+          description: SELinuxContext is the actual SELinux context of the virt-launcher
+            pod
+          type: string
         topologyHints:
           properties:
             tscFrequency:
@@ -14967,8 +14994,9 @@ var CRDsValidation map[string]string = map[string]string{
                               can be hotplugged and hotunplugged.
                             type: boolean
                           name:
-                            description: Name represents the name of the DataVolume
-                              in the same namespace
+                            description: Name of both the DataVolume and the PVC in
+                              the same namespace. After PVC population the DataVolume
+                              is garbage collected by default.
                             type: string
                         required:
                         - name
@@ -18994,8 +19022,9 @@ var CRDsValidation map[string]string = map[string]string{
                                       volume can be hotplugged and hotunplugged.
                                     type: boolean
                                   name:
-                                    description: Name represents the name of the DataVolume
-                                      in the same namespace
+                                    description: Name of both the DataVolume and the
+                                      PVC in the same namespace. After PVC population
+                                      the DataVolume is garbage collected by default.
                                     type: string
                                 required:
                                 - name
@@ -19803,6 +19832,15 @@ var CRDsValidation map[string]string = map[string]string{
                 type to use.
               type: string
           type: object
+        volumes:
+          description: Volumes optionally defines preferences associated with the
+            Volumes attribute of a VirtualMachineInstace DomainSpec
+          properties:
+            preferredStorageClassName:
+              description: PreffereedStorageClassName optionally defines the preferred
+                storageClass
+              type: string
+          type: object
       type: object
   required:
   - spec
@@ -20026,6 +20064,21 @@ var CRDsValidation map[string]string = map[string]string{
           type: string
         readyToUse:
           type: boolean
+        snapshotVolumes:
+          description: SnapshotVolumesLists includes the list of volumes which were
+            included in the snapshot and volumes which were excluded from the snapshot
+          properties:
+            excludedVolumes:
+              items:
+                type: string
+              type: array
+              x-kubernetes-list-type: set
+            includedVolumes:
+              items:
+                type: string
+              type: array
+              x-kubernetes-list-type: set
+          type: object
         sourceUID:
           description: UID is a type that holds unique ID values, including UUIDs.  Because
             we don't ONLY use UUIDs, this is an alias to string.  Being a type captures
@@ -23697,8 +23750,10 @@ var CRDsValidation map[string]string = map[string]string{
                                           the volume can be hotplugged and hotunplugged.
                                         type: boolean
                                       name:
-                                        description: Name represents the name of the
-                                          DataVolume in the same namespace
+                                        description: Name of both the DataVolume and
+                                          the PVC in the same namespace. After PVC
+                                          population the DataVolume is garbage collected
+                                          by default.
                                         type: string
                                     required:
                                     - name
@@ -24288,8 +24343,10 @@ var CRDsValidation map[string]string = map[string]string{
                                           the volume can be hotplugged and hotunplugged.
                                         type: boolean
                                       name:
-                                        description: Name represents the name of the
-                                          DataVolume in the same namespace
+                                        description: Name of both the DataVolume and
+                                          the PVC in the same namespace. After PVC
+                                          population the DataVolume is garbage collected
+                                          by default.
                                         type: string
                                     required:
                                     - name

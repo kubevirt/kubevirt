@@ -777,7 +777,8 @@ type HotplugVolumeSource struct {
 }
 
 type DataVolumeSource struct {
-	// Name represents the name of the DataVolume in the same namespace
+	// Name of both the DataVolume and the PVC in the same namespace.
+	// After PVC population the DataVolume is garbage collected by default.
 	Name string `json:"name"`
 	// Hotpluggable indicates whether the volume can be hotplugged and hotunplugged.
 	// +optional
@@ -860,7 +861,7 @@ type Clock struct {
 	ClockOffset `json:",inline"`
 	// Timer specifies whih timers are attached to the vmi.
 	// +optional
-	Timer *Timer `json:"timer"`
+	Timer *Timer `json:"timer,omitempty"`
 }
 
 // Represents all available timers in a vmi.

@@ -41,14 +41,14 @@ func (_mr *_MockHinterRecorder) TopologyHintsForVMI(arg0 interface{}) *gomock.Ca
 	return _mr.mock.ctrl.RecordCall(_mr.mock, "TopologyHintsForVMI", arg0)
 }
 
-func (_m *MockHinter) IsTscFrequencyRequiredForBoot(vmi *v1.VirtualMachineInstance) bool {
-	ret := _m.ctrl.Call(_m, "IsTscFrequencyRequiredForBoot", vmi)
+func (_m *MockHinter) IsTscFrequencyRequired(vmi *v1.VirtualMachineInstance) bool {
+	ret := _m.ctrl.Call(_m, "IsTscFrequencyRequired", vmi)
 	ret0, _ := ret[0].(bool)
 	return ret0
 }
 
-func (_mr *_MockHinterRecorder) IsTscFrequencyRequiredForBoot(arg0 interface{}) *gomock.Call {
-	return _mr.mock.ctrl.RecordCall(_mr.mock, "IsTscFrequencyRequiredForBoot", arg0)
+func (_mr *_MockHinterRecorder) IsTscFrequencyRequired(arg0 interface{}) *gomock.Call {
+	return _mr.mock.ctrl.RecordCall(_mr.mock, "IsTscFrequencyRequired", arg0)
 }
 
 func (_m *MockHinter) TSCFrequenciesInUse() []int64 {

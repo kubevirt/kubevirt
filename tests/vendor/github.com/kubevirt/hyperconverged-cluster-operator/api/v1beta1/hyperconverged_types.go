@@ -110,8 +110,7 @@ type HyperConvergedSpec struct {
 
 	// WorkloadUpdateStrategy defines at the cluster level how to handle automated workload updates
 	// +kubebuilder:default={"workloadUpdateMethods": {"LiveMigrate"}, "batchEvictionSize": 10, "batchEvictionInterval": "1m0s"}
-	// +optional
-	WorkloadUpdateStrategy *HyperConvergedWorkloadUpdateStrategy `json:"workloadUpdateStrategy,omitempty"`
+	WorkloadUpdateStrategy HyperConvergedWorkloadUpdateStrategy `json:"workloadUpdateStrategy,omitempty"`
 
 	// DataImportCronTemplates holds list of data import cron templates (golden images)
 	// +optional
@@ -131,9 +130,10 @@ type HyperConvergedSpec struct {
 	// Please correctly consider the implications of this option before setting it.
 	// BlockUninstallIfWorkloadsExist is the default behaviour.
 	// +kubebuilder:default=BlockUninstallIfWorkloadsExist
+	// +default="BlockUninstallIfWorkloadsExist"
 	// +kubebuilder:validation:Enum=RemoveWorkloads;BlockUninstallIfWorkloadsExist
 	// +optional
-	UninstallStrategy *HyperConvergedUninstallStrategy `json:"uninstallStrategy,omitempty"`
+	UninstallStrategy HyperConvergedUninstallStrategy `json:"uninstallStrategy,omitempty"`
 
 	// LogVerbosityConfig configures the verbosity level of Kubevirt's different components. The higher
 	// the value - the higher the log verbosity.
@@ -159,15 +159,17 @@ type CertRotateConfigCA struct {
 	// The requested 'duration' (i.e. lifetime) of the Certificate.
 	// This should comply with golang's ParseDuration format (https://golang.org/pkg/time/#ParseDuration)
 	// +kubebuilder:default="48h0m0s"
+	// +default="48h0m0s"
 	// +optional
-	Duration metav1.Duration `json:"duration,omitempty"`
+	Duration *metav1.Duration `json:"duration,omitempty"`
 
 	// The amount of time before the currently issued certificate's `notAfter`
 	// time that we will begin to attempt to renew the certificate.
 	// This should comply with golang's ParseDuration format (https://golang.org/pkg/time/#ParseDuration)
 	// +kubebuilder:default="24h0m0s"
+	// +default="24h0m0s"
 	// +optional
-	RenewBefore metav1.Duration `json:"renewBefore,omitempty"`
+	RenewBefore *metav1.Duration `json:"renewBefore,omitempty"`
 }
 
 // CertRotateConfigServer contains the tunables for TLS certificates.
@@ -176,15 +178,17 @@ type CertRotateConfigServer struct {
 	// The requested 'duration' (i.e. lifetime) of the Certificate.
 	// This should comply with golang's ParseDuration format (https://golang.org/pkg/time/#ParseDuration)
 	// +kubebuilder:default="24h0m0s"
+	// +default="24h0m0s"
 	// +optional
-	Duration metav1.Duration `json:"duration,omitempty"`
+	Duration *metav1.Duration `json:"duration,omitempty"`
 
 	// The amount of time before the currently issued certificate's `notAfter`
 	// time that we will begin to attempt to renew the certificate.
 	// This should comply with golang's ParseDuration format (https://golang.org/pkg/time/#ParseDuration)
 	// +kubebuilder:default="12h0m0s"
+	// +default="12h0m0s"
 	// +optional
-	RenewBefore metav1.Duration `json:"renewBefore,omitempty"`
+	RenewBefore *metav1.Duration `json:"renewBefore,omitempty"`
 }
 
 // HyperConvergedCertConfig holds the CertConfig entries for the HCO operands
@@ -217,11 +221,13 @@ type LiveMigrationConfigurations struct {
 	// Number of migrations running in parallel in the cluster.
 	// +optional
 	// +kubebuilder:default=5
+	// +default=5
 	ParallelMigrationsPerCluster *uint32 `json:"parallelMigrationsPerCluster,omitempty"`
 
 	// Maximum number of outbound migrations per node.
 	// +optional
 	// +kubebuilder:default=2
+	// +default=2
 	ParallelOutboundMigrationsPerNode *uint32 `json:"parallelOutboundMigrationsPerNode,omitempty"`
 
 	// Bandwidth limit of each migration, in MiB/s.
@@ -234,11 +240,13 @@ type LiveMigrationConfigurations struct {
 	// migration in 4800 seconds. If the Migration Method is BlockMigration, the size of the migrating disks is included
 	// in the calculation.
 	// +kubebuilder:default=800
+	// +default=800
 	// +optional
 	CompletionTimeoutPerGiB *int64 `json:"completionTimeoutPerGiB,omitempty"`
 
 	// The migration will be canceled if memory copy fails to make progress in this time, in seconds.
 	// +kubebuilder:default=150
+	// +default=150
 	// +optional
 	ProgressTimeout *int64 `json:"progressTimeout,omitempty"`
 
@@ -255,7 +263,8 @@ type HyperConvergedFeatureGates struct {
 	// enabled only when the Cluster is homogeneous from CPU HW perspective doc here
 	// +optional
 	// +kubebuilder:default=false
-	WithHostPassthroughCPU bool `json:"withHostPassthroughCPU"`
+	// +default=false
+	WithHostPassthroughCPU *bool `json:"withHostPassthroughCPU,omitempty"`
 
 	// Opt-in to automatic delivery/updates of the common data import cron templates.
 	// There are two sources for the data import cron templates: hard coded list of common templates, and custom
@@ -263,17 +272,20 @@ type HyperConvergedFeatureGates struct {
 	// templates. It is possible to use custom templates by adding them to the dataImportCronTemplates field.
 	// +optional
 	// +kubebuilder:default=true
-	EnableCommonBootImageImport bool `json:"enableCommonBootImageImport"`
+	// +default=true
+	EnableCommonBootImageImport *bool `json:"enableCommonBootImageImport,omitempty"`
 
 	// deploy resources (kubevirt tekton tasks and example pipelines) in Tekton tasks operator
 	// +optional
 	// +kubebuilder:default=false
-	DeployTektonTaskResources bool `json:"deployTektonTaskResources"`
+	// +default=false
+	DeployTektonTaskResources *bool `json:"deployTektonTaskResources,omitempty"`
 
 	// Enables rootless virt-launcher.
 	// +optional
 	// +kubebuilder:default=true
-	NonRoot bool `json:"nonRoot"`
+	// +default=true
+	NonRoot *bool `json:"nonRoot,omitempty"`
 }
 
 // PermittedHostDevices holds information about devices allowed for passthrough
@@ -389,6 +401,7 @@ type HyperConvergedWorkloadUpdateStrategy struct {
 	//
 	// +listType=atomic
 	// +kubebuilder:default={"LiveMigrate"}
+	// +default=["LiveMigrate"]
 	// +optional
 	WorkloadUpdateMethods []string `json:"workloadUpdateMethods,omitempty"`
 
@@ -396,6 +409,7 @@ type HyperConvergedWorkloadUpdateStrategy struct {
 	// the BatchShutdownInterval interval
 	//
 	// +kubebuilder:default=10
+	// +default=10
 	// +optional
 	BatchEvictionSize *int `json:"batchEvictionSize,omitempty"`
 
@@ -403,6 +417,7 @@ type HyperConvergedWorkloadUpdateStrategy struct {
 	// batch of shutdowns
 	//
 	// +kubebuilder:default="1m0s"
+	// +default="1m0s"
 	// +optional
 	BatchEvictionInterval *metav1.Duration `json:"batchEvictionInterval,omitempty"`
 }

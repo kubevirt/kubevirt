@@ -259,14 +259,14 @@ func (_mr *_MockKubevirtClientRecorder) MigrationPolicy() *gomock.Call {
 	return _mr.mock.ctrl.RecordCall(_mr.mock, "MigrationPolicy")
 }
 
-func (_m *MockKubevirtClient) ExpandSpec() *ExpandSpec {
-	ret := _m.ctrl.Call(_m, "ExpandSpec")
-	ret0, _ := ret[0].(*ExpandSpec)
+func (_m *MockKubevirtClient) ExpandSpec(namespace string) ExpandSpecInterface {
+	ret := _m.ctrl.Call(_m, "ExpandSpec", namespace)
+	ret0, _ := ret[0].(ExpandSpecInterface)
 	return ret0
 }
 
-func (_mr *_MockKubevirtClientRecorder) ExpandSpec() *gomock.Call {
-	return _mr.mock.ctrl.RecordCall(_mr.mock, "ExpandSpec")
+func (_mr *_MockKubevirtClientRecorder) ExpandSpec(arg0 interface{}) *gomock.Call {
+	return _mr.mock.ctrl.RecordCall(_mr.mock, "ExpandSpec", arg0)
 }
 
 func (_m *MockKubevirtClient) ServerVersion() ServerVersionInterface {
@@ -1200,6 +1200,17 @@ func (_mr *_MockVirtualMachineInstanceInterfaceRecorder) RemoveVolume(arg0, arg1
 	return _mr.mock.ctrl.RecordCall(_mr.mock, "RemoveVolume", arg0, arg1)
 }
 
+func (_m *MockVirtualMachineInstanceInterface) VSOCK(name string, options *v120.VSOCKOptions) (StreamInterface, error) {
+	ret := _m.ctrl.Call(_m, "VSOCK", name, options)
+	ret0, _ := ret[0].(StreamInterface)
+	ret1, _ := ret[1].(error)
+	return ret0, ret1
+}
+
+func (_mr *_MockVirtualMachineInstanceInterfaceRecorder) VSOCK(arg0, arg1 interface{}) *gomock.Call {
+	return _mr.mock.ctrl.RecordCall(_mr.mock, "VSOCK", arg0, arg1)
+}
+
 // Mock of ReplicaSetInterface interface
 type MockReplicaSetInterface struct {
 	ctrl     *gomock.Controller
@@ -1917,4 +1928,36 @@ func (_m *MockServerVersionInterface) Get() (*version.Info, error) {
 
 func (_mr *_MockServerVersionInterfaceRecorder) Get() *gomock.Call {
 	return _mr.mock.ctrl.RecordCall(_mr.mock, "Get")
+}
+
+// Mock of ExpandSpecInterface interface
+type MockExpandSpecInterface struct {
+	ctrl     *gomock.Controller
+	recorder *_MockExpandSpecInterfaceRecorder
+}
+
+// Recorder for MockExpandSpecInterface (not exported)
+type _MockExpandSpecInterfaceRecorder struct {
+	mock *MockExpandSpecInterface
+}
+
+func NewMockExpandSpecInterface(ctrl *gomock.Controller) *MockExpandSpecInterface {
+	mock := &MockExpandSpecInterface{ctrl: ctrl}
+	mock.recorder = &_MockExpandSpecInterfaceRecorder{mock}
+	return mock
+}
+
+func (_m *MockExpandSpecInterface) EXPECT() *_MockExpandSpecInterfaceRecorder {
+	return _m.recorder
+}
+
+func (_m *MockExpandSpecInterface) ForVirtualMachine(vm *v120.VirtualMachine) (*v120.VirtualMachine, error) {
+	ret := _m.ctrl.Call(_m, "ForVirtualMachine", vm)
+	ret0, _ := ret[0].(*v120.VirtualMachine)
+	ret1, _ := ret[1].(error)
+	return ret0, ret1
+}
+
+func (_mr *_MockExpandSpecInterfaceRecorder) ForVirtualMachine(arg0 interface{}) *gomock.Call {
+	return _mr.mock.ctrl.RecordCall(_mr.mock, "ForVirtualMachine", arg0)
 }

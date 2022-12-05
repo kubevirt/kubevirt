@@ -15,7 +15,7 @@ import (
 
 type Hinter interface {
 	TopologyHintsForVMI(vmi *k6tv1.VirtualMachineInstance) (hints *k6tv1.TopologyHints, requirement TscFrequencyRequirementType, err error)
-	IsTscFrequencyRequiredForBoot(vmi *k6tv1.VirtualMachineInstance) bool
+	IsTscFrequencyRequired(vmi *k6tv1.VirtualMachineInstance) bool
 	TSCFrequenciesInUse() []int64
 	LowestTSCFrequencyOnCluster() (int64, error)
 }
@@ -27,8 +27,8 @@ type topologyHinter struct {
 	arch          string
 }
 
-func (t *topologyHinter) IsTscFrequencyRequiredForBoot(vmi *k6tv1.VirtualMachineInstance) bool {
-	return t.arch == "amd64" && GetTscFrequencyRequirement(vmi).Type == RequiredForBoot
+func (t *topologyHinter) IsTscFrequencyRequired(vmi *k6tv1.VirtualMachineInstance) bool {
+	return t.arch == "amd64" && GetTscFrequencyRequirement(vmi).Type != NotRequired
 }
 
 func (t *topologyHinter) TopologyHintsForVMI(vmi *k6tv1.VirtualMachineInstance) (hints *k6tv1.TopologyHints, requirement TscFrequencyRequirementType, err error) {
@@ -59,9 +59,6 @@ func (t *topologyHinter) LowestTSCFrequencyOnCluster() (int64, error) {
 		HasInvTSCFrequency,
 	)
 	freq := LowestTSCFrequency(nodes)
-	if freq == 0 {
-		return 0, fmt.Errorf("no schedulable node exposes a tsc-frequency")
-	}
 	return freq, nil
 }
 
@@ -69,7 +66,7 @@ func (t *topologyHinter) TSCFrequenciesInUse() []int64 {
 	frequencyMap := map[int64]struct{}{}
 	for _, obj := range t.vmiStore.List() {
 		vmi := obj.(*k6tv1.VirtualMachineInstance)
-		if vmi.Status.TopologyHints != nil && vmi.Status.TopologyHints.TSCFrequency != nil {
+		if AreTSCFrequencyTopologyHintsDefined(vmi) {
 			frequencyMap[*vmi.Status.TopologyHints.TSCFrequency] = struct{}{}
 		}
 	}

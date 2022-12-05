@@ -305,7 +305,13 @@ spec:
                     description: MediatedDevicesConfiguration holds information about
                       MDEV types to be defined, if available
                     properties:
+                      mediatedDeviceTypes:
+                        items:
+                          type: string
+                        type: array
+                        x-kubernetes-list-type: atomic
                       mediatedDevicesTypes:
+                        description: Deprecated. Use mediatedDeviceTypes instead.
                         items:
                           type: string
                         type: array
@@ -316,7 +322,13 @@ spec:
                             about MDEV types to be defined in a specifc node that
                             matches the NodeSelector field.
                           properties:
+                            mediatedDeviceTypes:
+                              items:
+                                type: string
+                              type: array
+                              x-kubernetes-list-type: atomic
                             mediatedDevicesTypes:
+                              description: Deprecated. Use mediatedDeviceTypes instead.
                               items:
                                 type: string
                               type: array
@@ -330,7 +342,6 @@ spec:
                                 on that node. More info: https://kubernetes.io/docs/concepts/configuration/assign-pod-node/'
                               type: object
                           required:
-                          - mediatedDevicesTypes
                           - nodeSelector
                           type: object
                         type: array
@@ -3013,7 +3024,13 @@ spec:
                     description: MediatedDevicesConfiguration holds information about
                       MDEV types to be defined, if available
                     properties:
+                      mediatedDeviceTypes:
+                        items:
+                          type: string
+                        type: array
+                        x-kubernetes-list-type: atomic
                       mediatedDevicesTypes:
+                        description: Deprecated. Use mediatedDeviceTypes instead.
                         items:
                           type: string
                         type: array
@@ -3024,7 +3041,13 @@ spec:
                             about MDEV types to be defined in a specifc node that
                             matches the NodeSelector field.
                           properties:
+                            mediatedDeviceTypes:
+                              items:
+                                type: string
+                              type: array
+                              x-kubernetes-list-type: atomic
                             mediatedDevicesTypes:
+                              description: Deprecated. Use mediatedDeviceTypes instead.
                               items:
                                 type: string
                               type: array
@@ -3038,7 +3061,6 @@ spec:
                                 on that node. More info: https://kubernetes.io/docs/concepts/configuration/assign-pod-node/'
                               type: object
                           required:
-                          - mediatedDevicesTypes
                           - nodeSelector
                           type: object
                         type: array

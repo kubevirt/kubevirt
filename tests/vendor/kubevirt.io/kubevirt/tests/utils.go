@@ -43,7 +43,7 @@ import (
 	"sync"
 	"time"
 
-	migrationsv1 "kubevirt.io/api/migrations/v1alpha1"
+	v12 "k8s.io/api/apps/v1"
 
 	expect "github.com/google/goexpect"
 	. "github.com/onsi/ginkgo/v2"
@@ -67,10 +67,9 @@ import (
 
 	"kubevirt.io/kubevirt/tests/exec"
 	"kubevirt.io/kubevirt/tests/framework/checks"
+	"kubevirt.io/kubevirt/tests/framework/matcher"
 
 	util2 "kubevirt.io/kubevirt/tests/util"
-
-	"kubevirt.io/kubevirt/tests/framework/cleanup"
 
 	"kubevirt.io/kubevirt/pkg/certificates/triple/cert"
 	"kubevirt.io/kubevirt/pkg/virt-operator/resource/generate/components"
@@ -357,6 +356,49 @@ func getPodsByLabel(label, labelType, namespace string) (*k8sv1.PodList, error) 
 	}
 
 	return pods, nil
+}
+
+func GetProcessName(pod *k8sv1.Pod, pid string) (output string, err error) {
+	virtClient, err := kubecli.GetKubevirtClient()
+	if err != nil {
+		return
+	}
+
+	fPath := "/proc/" + pid + "/comm"
+	output, err = exec.ExecuteCommandOnPod(
+		virtClient,
+		pod,
+		"compute",
+		[]string{"cat", fPath},
+	)
+
+	return
+}
+
+func ListCgroupThreads(pod *k8sv1.Pod) (output string, err error) {
+	virtClient, err := kubecli.GetKubevirtClient()
+	if err != nil {
+		return
+	}
+
+	output, err = exec.ExecuteCommandOnPod(
+		virtClient,
+		pod,
+		"compute",
+		[]string{"cat", "/sys/fs/cgroup/cpuset/tasks"},
+	)
+
+	if err == nil {
+		// Cgroup V1
+		return
+	}
+	output, err = exec.ExecuteCommandOnPod(
+		virtClient,
+		pod,
+		"compute",
+		[]string{"cat", "/sys/fs/cgroup/cgroup.threads"},
+	)
+	return
 }
 
 func GetPodCPUSet(pod *k8sv1.Pod) (output string, err error) {
@@ -1272,11 +1314,22 @@ func RenderPod(name string, cmd []string, args []string) *k8sv1.Pod {
 // CreateExecutorPodWithPVC creates a Pod with the passed in PVC mounted under /pvc. You can then use the executor utilities to
 // run commands against the PVC through this Pod.
 func CreateExecutorPodWithPVC(podName string, pvc *k8sv1.PersistentVolumeClaim) *k8sv1.Pod {
-	return RunPod(newExecutorPodWithPVC(podName, pvc))
-}
+	var err error
 
-func newExecutorPodWithPVC(podName string, pvc *k8sv1.PersistentVolumeClaim) *k8sv1.Pod {
-	return libstorage.RenderPodWithPVC(podName, []string{"/bin/bash", "-c", "while true; do echo hello; sleep 2;done"}, nil, pvc)
+	pod := libstorage.RenderPodWithPVC(podName, []string{"/bin/bash", "-c", "touch /tmp/startup; while true; do echo hello; sleep 2; done"}, nil, pvc)
+	pod.Spec.Containers[0].ReadinessProbe = &k8sv1.Probe{
+		ProbeHandler: k8sv1.ProbeHandler{
+			Exec: &k8sv1.ExecAction{
+				Command: []string{"/bin/cat", "/tmp/startup"},
+			},
+		},
+	}
+	pod = RunPod(pod)
+
+	Eventually(ThisPod(pod), 120).Should(matcher.HaveConditionTrue(k8sv1.PodReady))
+	pod, err = ThisPod(pod)()
+	Expect(err).ToNot(HaveOccurred())
+	return pod
 }
 
 func RunPodInNamespace(pod *k8sv1.Pod, namespace string) *k8sv1.Pod {
@@ -1408,7 +1461,7 @@ func GetRunningVirtualMachineInstanceDomainXML(virtClient kubecli.KubevirtClient
 	command := []string{"virsh"}
 	if kutil.IsNonRootVMI(freshVMI) {
 		command = append(command, "-c")
-		command = append(command, "qemu+unix:///session?socket=/var/run/libvirt/libvirt-sock")
+		command = append(command, "qemu+unix:///session?socket=/var/run/libvirt/virtqemud-sock")
 	}
 	command = append(command, []string{"dumpxml", vmi.Namespace + "_" + vmi.Name}...)
 
@@ -1923,8 +1976,7 @@ func UpdateKubeVirtConfigValueAndWait(kvConfig v1.KubeVirtConfiguration) *v1.Kub
 // be propagated to all components before it returns. It will only update the configuration and wait for it to be
 // propagated if the current config in use does not match the original one.
 func resetToDefaultConfig() {
-	suiteConfig, _ := GinkgoConfiguration()
-	if suiteConfig.ParallelTotal > 1 {
+	if !CurrentSpecReport().IsSerial {
 		// Tests which alter the global kubevirt config must be run serial, therefor, if we run in parallel
 		// we can just skip the restore step.
 		return
@@ -2000,70 +2052,6 @@ func WaitForConfigToBePropagatedToComponent(podLabel string, resourceVersion str
 	}, duration, 1*time.Second).ShouldNot(HaveOccurred())
 }
 
-func WaitAgentConnected(virtClient kubecli.KubevirtClient, vmi *v1.VirtualMachineInstance) {
-	WaitForVMICondition(virtClient, vmi, v1.VirtualMachineInstanceAgentConnected, 12*60)
-}
-
-func WaitAgentDisconnected(virtClient kubecli.KubevirtClient, vmi *v1.VirtualMachineInstance) {
-	WaitForVMIConditionRemovedOrFalse(virtClient, vmi, v1.VirtualMachineInstanceAgentConnected, 30)
-}
-
-func WaitForVMICondition(virtClient kubecli.KubevirtClient, vmi *v1.VirtualMachineInstance, conditionType v1.VirtualMachineInstanceConditionType, timeoutSec int) {
-	By(fmt.Sprintf("Waiting for %s condition", conditionType))
-	EventuallyWithOffset(1, func() bool {
-		updatedVmi, err := virtClient.VirtualMachineInstance(util2.NamespaceTestDefault).Get(vmi.Name, &metav1.GetOptions{})
-		Expect(err).ToNot(HaveOccurred())
-		for _, condition := range updatedVmi.Status.Conditions {
-			if condition.Type == conditionType && condition.Status == k8sv1.ConditionTrue {
-				return true
-			}
-		}
-		return false
-	}, time.Duration(timeoutSec)*time.Second, 2).Should(BeTrue(), fmt.Sprintf("Should have %s condition", conditionType))
-}
-
-func WaitForVMIConditionRemovedOrFalse(virtClient kubecli.KubevirtClient, vmi *v1.VirtualMachineInstance, conditionType v1.VirtualMachineInstanceConditionType, timeoutSec int) {
-	By(fmt.Sprintf("Waiting for %s condition removed or false", conditionType))
-	EventuallyWithOffset(1, func() bool {
-		updatedVmi, err := virtClient.VirtualMachineInstance(util2.NamespaceTestDefault).Get(vmi.Name, &metav1.GetOptions{})
-		Expect(err).ToNot(HaveOccurred())
-		for _, condition := range updatedVmi.Status.Conditions {
-			if condition.Type == conditionType && condition.Status == k8sv1.ConditionTrue {
-				return true
-			}
-		}
-		return false
-	}, time.Duration(timeoutSec)*time.Second, 2).Should(BeFalse(), fmt.Sprintf("Should have no or false %s condition", conditionType))
-}
-
-func WaitForVMCondition(virtClient kubecli.KubevirtClient, vm *v1.VirtualMachine, conditionType v1.VirtualMachineConditionType, timeoutSec int) {
-	By(fmt.Sprintf("Waiting for %s condition", conditionType))
-	EventuallyWithOffset(1, func() bool {
-		updatedVm, err := virtClient.VirtualMachine(util2.NamespaceTestDefault).Get(vm.Name, &metav1.GetOptions{})
-		Expect(err).ToNot(HaveOccurred())
-		for _, condition := range updatedVm.Status.Conditions {
-			if condition.Type == conditionType && condition.Status == k8sv1.ConditionTrue {
-				return true
-			}
-		}
-		return false
-	}, time.Duration(timeoutSec)*time.Second, 2).Should(BeTrue(), fmt.Sprintf("Should have %s condition", conditionType))
-}
-
-func WaitForVMConditionRemovedOrFalse(virtClient kubecli.KubevirtClient, vm *v1.VirtualMachine, conditionType v1.VirtualMachineConditionType, timeoutSec int) {
-	By(fmt.Sprintf("Waiting for %s condition removed or false", conditionType))
-	EventuallyWithOffset(1, func() bool {
-		updatedVm, err := virtClient.VirtualMachine(util2.NamespaceTestDefault).Get(vm.Name, &metav1.GetOptions{})
-		Expect(err).ToNot(HaveOccurred())
-		for _, condition := range updatedVm.Status.Conditions {
-			if condition.Type == conditionType && condition.Status == k8sv1.ConditionTrue {
-				return true
-			}
-		}
-		return false
-	}, time.Duration(timeoutSec)*time.Second, 2).Should(BeFalse(), fmt.Sprintf("Should have no or false %s condition", conditionType))
-}
-
 // GeneratePrivateKey creates a RSA Private Key of specified byte size
 func GeneratePrivateKey(bitSize int) (*rsa.PrivateKey, error) {
 	privateKey, err := rsa.GenerateKey(cryptorand.Reader, bitSize)
@@ -2106,15 +2094,6 @@ func EncodePrivateKeyToPEM(privateKey *rsa.PrivateKey) []byte {
 	privatePEM := pem.EncodeToMemory(&privateBlock)
 
 	return privatePEM
-}
-
-func PodReady(pod *k8sv1.Pod) k8sv1.ConditionStatus {
-	for _, cond := range pod.Status.Conditions {
-		if cond.Type == k8sv1.PodReady {
-			return cond.Status
-		}
-	}
-	return k8sv1.ConditionFalse
 }
 
 func RetryWithMetadataIfModified(objectMeta metav1.ObjectMeta, do func(objectMeta metav1.ObjectMeta) error) (err error) {
@@ -2398,54 +2377,6 @@ func ArchiveToFile(tgtFile *os.File, sourceFilesNames ...string) {
 	}
 }
 
-func GetPolicyMatchedToVmi(name string, vmi *v1.VirtualMachineInstance, namespace *k8sv1.Namespace, matchingVmiLabels, matchingNSLabels int) *migrationsv1.MigrationPolicy {
-	Expect(vmi).ToNot(BeNil())
-	Expect(namespace).ToNot(BeNil())
-	Expect(name).ToNot(BeEmpty())
-
-	policy := kubecli.NewMinimalMigrationPolicy(name)
-	if policy.Labels == nil {
-		policy.Labels = map[string]string{}
-	}
-	policy.Labels[cleanup.TestLabelForNamespace(util2.NamespaceTestDefault)] = ""
-
-	if vmi.Labels == nil {
-		vmi.Labels = make(map[string]string)
-	}
-	if namespace.Labels == nil {
-		namespace.Labels = make(map[string]string)
-	}
-
-	if policy.Spec.Selectors == nil {
-		policy.Spec.Selectors = &migrationsv1.Selectors{
-			VirtualMachineInstanceSelector: migrationsv1.LabelSelector{}, //&metav1.LabelSelector{MatchLabels: map[string]string{}},
-			NamespaceSelector:              migrationsv1.LabelSelector{},
-		}
-	} else if policy.Spec.Selectors.VirtualMachineInstanceSelector == nil {
-		policy.Spec.Selectors.VirtualMachineInstanceSelector = migrationsv1.LabelSelector{}
-	} else if policy.Spec.Selectors.NamespaceSelector == nil {
-		policy.Spec.Selectors.NamespaceSelector = migrationsv1.LabelSelector{}
-	}
-
-	labelKeyPattern := "mp-key-%d"
-	labelValuePattern := "mp-value-%d"
-
-	applyLabels := func(policyLabels, vmiOrNSLabels map[string]string, labelCount int) {
-		for i := 0; i < labelCount; i++ {
-			labelKey := fmt.Sprintf(labelKeyPattern, i)
-			labelValue := fmt.Sprintf(labelValuePattern, i)
-
-			vmiOrNSLabels[labelKey] = labelValue
-			policyLabels[labelKey] = labelValue
-		}
-	}
-
-	applyLabels(policy.Spec.Selectors.VirtualMachineInstanceSelector, vmi.Labels, matchingVmiLabels)
-	applyLabels(policy.Spec.Selectors.NamespaceSelector, namespace.Labels, matchingNSLabels)
-
-	return policy
-}
-
 func GetIdOfLauncher(vmi *v1.VirtualMachineInstance) string {
 	virtClient, err := kubecli.GetKubevirtClient()
 	util2.PanicOnError(err)
@@ -2531,102 +2462,6 @@ func GetNodeHostModel(node *k8sv1.Node) (hostModel string) {
 	}
 	return hostModel
 }
-func GetValidSourceNodeAndTargetNodeForHostModelMigration(virtCli kubecli.KubevirtClient) (sourceNode *k8sv1.Node, targetNode *k8sv1.Node, err error) {
-	getNodeHostRequiredFeatures := func(node *k8sv1.Node) (features []string) {
-		for key, _ := range node.Labels {
-			if strings.HasPrefix(key, v1.HostModelRequiredFeaturesLabel) {
-				features = append(features, strings.TrimPrefix(key, v1.HostModelRequiredFeaturesLabel))
-			}
-		}
-		return features
-	}
-	doesFeaturesSupportedOnNode := func(node *k8sv1.Node, features []string) bool {
-		isFeatureSupported := func(feature string) bool {
-			for key, _ := range node.Labels {
-				if strings.HasPrefix(key, v1.CPUFeatureLabel) && strings.Contains(key, feature) {
-					return true
-				}
-			}
-			return false
-		}
-		for _, feature := range features {
-			if !isFeatureSupported(feature) {
-				return false
-			}
-		}
-
-		return true
-	}
-
-	var sourceHostCpuModel string
-
-	nodes := libnode.GetAllSchedulableNodes(virtCli)
-	Expect(err).ToNot(HaveOccurred(), "Should list compute nodes")
-	for _, potentialSourceNode := range nodes.Items {
-		for _, potentialTargetNode := range nodes.Items {
-			if potentialSourceNode.Name == potentialTargetNode.Name {
-				continue
-			}
-
-			sourceHostCpuModel = GetNodeHostModel(&potentialSourceNode)
-			if sourceHostCpuModel == "" {
-				continue
-			}
-			supportedInTarget := false
-			for key, _ := range potentialTargetNode.Labels {
-				if strings.HasPrefix(key, v1.SupportedHostModelMigrationCPU) && strings.Contains(key, sourceHostCpuModel) {
-					supportedInTarget = true
-					break
-				}
-			}
-
-			if supportedInTarget == false {
-				continue
-			}
-			sourceNodeHostModelRequiredFeatures := getNodeHostRequiredFeatures(&potentialSourceNode)
-			if doesFeaturesSupportedOnNode(&potentialTargetNode, sourceNodeHostModelRequiredFeatures) == false {
-				continue
-			}
-			return &potentialSourceNode, &potentialTargetNode, nil
-		}
-	}
-	return nil, nil, fmt.Errorf("couldn't find valid nodes for host-model migration")
-}
-
-func AffinityToMigrateFromSourceToTargetAndBack(sourceNode *k8sv1.Node, targetNode *k8sv1.Node) (nodefiinity *k8sv1.NodeAffinity, err error) {
-	if sourceNode == nil || targetNode == nil {
-		return nil, fmt.Errorf("couldn't find valid nodes for host-model migration")
-	}
-	return &k8sv1.NodeAffinity{
-		RequiredDuringSchedulingIgnoredDuringExecution: &k8sv1.NodeSelector{
-			NodeSelectorTerms: []k8sv1.NodeSelectorTerm{
-				{
-					MatchExpressions: []k8sv1.NodeSelectorRequirement{
-						{
-							Key:      "kubernetes.io/hostname",
-							Operator: k8sv1.NodeSelectorOpIn,
-							Values:   []string{sourceNode.Name, targetNode.Name},
-						},
-					},
-				},
-			},
-		},
-		PreferredDuringSchedulingIgnoredDuringExecution: []k8sv1.PreferredSchedulingTerm{
-			{
-				Preference: k8sv1.NodeSelectorTerm{
-					MatchExpressions: []k8sv1.NodeSelectorRequirement{
-						{
-							Key:      "kubernetes.io/hostname",
-							Operator: k8sv1.NodeSelectorOpIn,
-							Values:   []string{sourceNode.Name},
-						},
-					},
-				},
-				Weight: 1,
-			},
-		},
-	}, nil
-}
 
 func dvSizeBySourceURL(url string) string {
 	if url == cd.DataVolumeImportUrlForContainerDisk(cd.ContainerDiskFedoraTestTooling) ||
@@ -2635,4 +2470,20 @@ func dvSizeBySourceURL(url string) string {
 	}
 
 	return cd.CirrosVolumeSize
+}
+
+func GetDefaultVirtApiDeployment(namespace string, config *util.KubeVirtDeploymentConfig) (*v12.Deployment, error) {
+	return components.NewApiServerDeployment(namespace, config.GetImageRegistry(), config.GetImagePrefix(), config.GetApiVersion(), "", "", "", config.VirtApiImage, config.GetImagePullPolicy(), config.GetVerbosity(), config.GetExtraEnv())
+}
+
+func GetDefaultVirtControllerDeployment(namespace string, config *util.KubeVirtDeploymentConfig) (*v12.Deployment, error) {
+	return components.NewControllerDeployment(namespace, config.GetImageRegistry(), config.GetImagePrefix(), config.GetControllerVersion(), config.GetLauncherVersion(), config.GetExportServerVersion(), "", "", "", config.VirtControllerImage, config.VirtLauncherImage, config.VirtExportServerImage, config.GetImagePullPolicy(), config.GetVerbosity(), config.GetExtraEnv())
+}
+
+func GetDefaultVirtHandlerDaemonSet(namespace string, config *util.KubeVirtDeploymentConfig) (*v12.DaemonSet, error) {
+	return components.NewHandlerDaemonSet(namespace, config.GetImageRegistry(), config.GetImagePrefix(), config.GetHandlerVersion(), "", "", "", config.GetLauncherVersion(), config.VirtHandlerImage, config.VirtLauncherImage, config.GetImagePullPolicy(), nil, config.GetVerbosity(), config.GetExtraEnv())
+}
+
+func GetDefaultExportProxyDeployment(namespace string, config *util.KubeVirtDeploymentConfig) (*v12.Deployment, error) {
+	return components.NewExportProxyDeployment(namespace, config.GetImageRegistry(), config.GetImagePrefix(), config.GetExportProxyVersion(), "", "", "", config.VirtExportProxyImage, config.GetImagePullPolicy(), config.GetVerbosity(), config.GetExtraEnv())
 }

@@ -23,6 +23,7 @@ import (
 	"kubevirt.io/client-go/kubecli"
 	"kubevirt.io/client-go/log"
 
+	utils "kubevirt.io/kubevirt/pkg/util"
 	utiltypes "kubevirt.io/kubevirt/pkg/util/types"
 )
 
@@ -60,17 +61,15 @@ func GetRevisionName(vmName, resourceName string, resourceUID types.UID, resourc
 }
 
 func CreateControllerRevision(vm *virtv1.VirtualMachine, object runtime.Object) (*appsv1.ControllerRevision, error) {
-	objCopy := object.DeepCopyObject()
-
-	// TypeMeta may be missing, so set it here.
-	gvks, _, err := generatedscheme.Scheme.ObjectKinds(objCopy)
+	obj, err := utils.GenerateKubeVirtGroupVersionKind(object)
 	if err != nil {
-		// This is a programmer's error and should not happen.
-		return nil, fmt.Errorf("could not get GroupVersionKind for object: %w", err)
+		return nil, err
 	}
-	objCopy.GetObjectKind().SetGroupVersionKind(gvks[0])
+	metaObj, ok := obj.(metav1.Object)
+	if !ok {
+		return nil, fmt.Errorf("Unexpected object format returned from GenerateKubeVirtGroupVersionKind")
+	}
 
-	metaObj := objCopy.(metav1.Object)
 	revisionName := GetRevisionName(vm.Name, metaObj.GetName(), metaObj.GetUID(), metaObj.GetGeneration())
 
 	// Removing unnecessary metadata
@@ -87,7 +86,7 @@ func CreateControllerRevision(vm *virtv1.VirtualMachine, object runtime.Object) 
 			OwnerReferences: []metav1.OwnerReference{*metav1.NewControllerRef(vm, virtv1.VirtualMachineGroupVersionKind)},
 		},
 		Data: runtime.RawExtension{
-			Object: objCopy,
+			Object: obj,
 		},
 	}, nil
 }

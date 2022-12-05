@@ -25,6 +25,8 @@ import (
 	"strconv"
 	"strings"
 
+	"kubevirt.io/kubevirt/pkg/virt-controller/watch/topology"
+
 	"k8s.io/kubectl/pkg/cmd/util/podcmd"
 	"k8s.io/utils/pointer"
 
@@ -82,7 +84,6 @@ const (
 	CAP_NET_RAW          = "NET_RAW"
 	CAP_SYS_ADMIN        = "SYS_ADMIN"
 	CAP_SYS_NICE         = "SYS_NICE"
-	CAP_SYS_PTRACE       = "SYS_PTRACE"
 )
 
 // LibvirtStartupDelay is added to custom liveness and readiness probes initial delay value.
@@ -122,7 +123,7 @@ const (
 	VirtLauncherMonitorOverhead = "25Mi"  // The `ps` RSS for virt-launcher-monitor
 	VirtLauncherOverhead        = "100Mi" // The `ps` RSS for the virt-launcher process
 	VirtlogdOverhead            = "20Mi"  // The `ps` RSS for virtlogd
-	LibvirtdOverhead            = "35Mi"  // The `ps` RSS for libvirtd
+	VirtqemudOverhead           = "35Mi"  // The `ps` RSS for virtqemud
 	QemuOverhead                = "30Mi"  // The `ps` RSS for qemu, minus the RAM of its (stressed) guest, minus the virtual page table
 )
 
@@ -160,53 +161,66 @@ func isFeatureStateEnabled(fs *v1.FeatureState) bool {
 	return fs != nil && fs.Enabled != nil && *fs.Enabled
 }
 
-func SetNodeAffinityForForbiddenFeaturePolicy(vmi *v1.VirtualMachineInstance, pod *k8sv1.Pod) {
+func setNodeAffinityForPod(vmi *v1.VirtualMachineInstance, pod *k8sv1.Pod) {
+	setNodeAffinityForHostModelCpuModel(vmi, pod)
+	setNodeAffinityForbiddenFeaturePolicy(vmi, pod)
+}
 
+func setNodeAffinityForHostModelCpuModel(vmi *v1.VirtualMachineInstance, pod *k8sv1.Pod) {
+	if vmi.Spec.Domain.CPU == nil || vmi.Spec.Domain.CPU.Model == "" || vmi.Spec.Domain.CPU.Model == v1.CPUModeHostModel {
+		pod.Spec.Affinity = modifyNodeAffintyToRejectLabel(pod.Spec.Affinity, v1.NodeHostModelIsObsoleteLabel)
+	}
+}
+
+func setNodeAffinityForbiddenFeaturePolicy(vmi *v1.VirtualMachineInstance, pod *k8sv1.Pod) {
 	if vmi.Spec.Domain.CPU == nil || vmi.Spec.Domain.CPU.Features == nil {
 		return
 	}
 
 	for _, feature := range vmi.Spec.Domain.CPU.Features {
 		if feature.Policy == "forbid" {
-
-			requirement := k8sv1.NodeSelectorRequirement{
-				Key:      NFD_CPU_FEATURE_PREFIX + feature.Name,
-				Operator: k8sv1.NodeSelectorOpDoesNotExist,
-			}
-			term := k8sv1.NodeSelectorTerm{
-				MatchExpressions: []k8sv1.NodeSelectorRequirement{requirement}}
-
-			nodeAffinity := &k8sv1.NodeAffinity{
-				RequiredDuringSchedulingIgnoredDuringExecution: &k8sv1.NodeSelector{
-					NodeSelectorTerms: []k8sv1.NodeSelectorTerm{term},
-				},
-			}
-
-			if pod.Spec.Affinity != nil && pod.Spec.Affinity.NodeAffinity != nil {
-				if pod.Spec.Affinity.NodeAffinity.RequiredDuringSchedulingIgnoredDuringExecution != nil {
-					terms := pod.Spec.Affinity.NodeAffinity.RequiredDuringSchedulingIgnoredDuringExecution.NodeSelectorTerms
-					// Since NodeSelectorTerms are ORed , the anti affinity requirement will be added to each term.
-					for i, selectorTerm := range terms {
-						pod.Spec.Affinity.NodeAffinity.
-							RequiredDuringSchedulingIgnoredDuringExecution.
-							NodeSelectorTerms[i].MatchExpressions = append(selectorTerm.MatchExpressions, requirement)
-					}
-				} else {
-					pod.Spec.Affinity.NodeAffinity.RequiredDuringSchedulingIgnoredDuringExecution = &k8sv1.NodeSelector{
-						NodeSelectorTerms: []k8sv1.NodeSelectorTerm{term},
-					}
-				}
-
-			} else if pod.Spec.Affinity != nil {
-				pod.Spec.Affinity.NodeAffinity = nodeAffinity
-			} else {
-				pod.Spec.Affinity = &k8sv1.Affinity{
-					NodeAffinity: nodeAffinity,
-				}
-
-			}
+			pod.Spec.Affinity = modifyNodeAffintyToRejectLabel(pod.Spec.Affinity, NFD_CPU_FEATURE_PREFIX+feature.Name)
 		}
 	}
+}
+
+func modifyNodeAffintyToRejectLabel(origAffinity *k8sv1.Affinity, labelToReject string) *k8sv1.Affinity {
+	affinity := origAffinity.DeepCopy()
+	requirement := k8sv1.NodeSelectorRequirement{
+		Key:      labelToReject,
+		Operator: k8sv1.NodeSelectorOpDoesNotExist,
+	}
+	term := k8sv1.NodeSelectorTerm{
+		MatchExpressions: []k8sv1.NodeSelectorRequirement{requirement}}
+
+	nodeAffinity := &k8sv1.NodeAffinity{
+		RequiredDuringSchedulingIgnoredDuringExecution: &k8sv1.NodeSelector{
+			NodeSelectorTerms: []k8sv1.NodeSelectorTerm{term},
+		},
+	}
+	if affinity != nil && affinity.NodeAffinity != nil {
+		if affinity.NodeAffinity.RequiredDuringSchedulingIgnoredDuringExecution != nil {
+			terms := affinity.NodeAffinity.RequiredDuringSchedulingIgnoredDuringExecution.NodeSelectorTerms
+			// Since NodeSelectorTerms are ORed , the anti affinity requirement will be added to each term.
+			for i, selectorTerm := range terms {
+				affinity.NodeAffinity.
+					RequiredDuringSchedulingIgnoredDuringExecution.
+					NodeSelectorTerms[i].MatchExpressions = append(selectorTerm.MatchExpressions, requirement)
+			}
+		} else {
+			affinity.NodeAffinity.RequiredDuringSchedulingIgnoredDuringExecution = &k8sv1.NodeSelector{
+				NodeSelectorTerms: []k8sv1.NodeSelectorTerm{term},
+			}
+		}
+
+	} else if affinity != nil {
+		affinity.NodeAffinity = nodeAffinity
+	} else {
+		affinity = &k8sv1.Affinity{
+			NodeAffinity: nodeAffinity,
+		}
+	}
+	return affinity
 }
 
 func sysprepVolumeSource(sysprepVolume v1.SysprepSource) (k8sv1.VolumeSource, error) {
@@ -509,7 +523,7 @@ func (t *templateService) renderLaunchManifest(vmi *v1.VirtualMachineInstance, i
 		pod.Spec.Affinity = vmi.Spec.Affinity.DeepCopy()
 	}
 
-	SetNodeAffinityForForbiddenFeaturePolicy(vmi, &pod)
+	setNodeAffinityForPod(vmi, &pod)
 
 	serviceAccountName := serviceAccount(vmi.Spec.Volumes...)
 	if len(serviceAccountName) > 0 {
@@ -543,7 +557,7 @@ func (t *templateService) newNodeSelectorRenderer(vmi *v1.VirtualMachineInstance
 		)
 	}
 
-	if vmi.Status.TopologyHints != nil && vmi.Status.TopologyHints.TSCFrequency != nil {
+	if topology.IsManualTSCFrequencyRequired(vmi) {
 		opts = append(opts, WithTSCTimer(vmi.Status.TopologyHints.TSCFrequency))
 	}
 
@@ -731,15 +745,9 @@ func (t *templateService) RenderHotplugAttachmentPodTemplate(volumes []*v1.Volum
 					},
 					SecurityContext: &k8sv1.SecurityContext{
 						SELinuxOptions: &k8sv1.SELinuxOptions{
-							// FIXME: Forcing an SELinux level without categories is a security risk
-							// This pod will contain a disk image shared with a virt-launcher pod.
-							// If we didn't force a level here, one would be auto-generated with a set of categories
-							// different from the one of its companion virt-launcher. Therefore, SELinux would prevent
-							// virt-launcher('s compute container) from accessing the disk image.
-							// The proper fix here is to force the level of this pod to match the one of virt-launcher.
-							// Unfortunately, pods MCS levels are not exposed by the API. Therefore, we'd have to
-							// enter the mount namespace of virt-launcher and check the level of any file/directory.
-							// We need a way to ask virt-handler to do that.
+							// If SELinux is enabled on the host, this level will be adjusted below to match the level
+							// of its companion virt-launcher pod to allow it to consume our disk images.
+							Type:  t.clusterConfig.GetSELinuxLauncherType(),
 							Level: "s0",
 						},
 					},
@@ -772,6 +780,11 @@ func (t *templateService) RenderHotplugAttachmentPodTemplate(volumes []*v1.Volum
 			Volumes:                       []k8sv1.Volume{emptyDirVolume(hotplugDisks)},
 			TerminationGracePeriodSeconds: &zero,
 		},
+	}
+
+	err := matchSELinuxLevelOfVMI(pod, vmi)
+	if err != nil {
+		return nil, err
 	}
 
 	hotplugVolumeStatusMap := make(map[string]v1.VolumePhase)
@@ -910,6 +923,11 @@ func (t *templateService) RenderHotplugAttachmentTriggerPodTemplate(volume *v1.V
 			},
 			TerminationGracePeriodSeconds: &zero,
 		},
+	}
+
+	err := matchSELinuxLevelOfVMI(pod, vmi)
+	if err != nil {
+		return nil, err
 	}
 
 	if isBlock {
@@ -1116,19 +1134,24 @@ func wrapGuestAgentPingWithVirtProbe(vmi *v1.VirtualMachineInstance, probe *k8sv
 
 func alignPodMultiCategorySecurity(pod *k8sv1.Pod, vmi *v1.VirtualMachineInstance, selinuxType string, dockerSELinuxMCSWorkaround bool) {
 	if selinuxType == "" {
-		if util.IsVMIVirtiofsEnabled(vmi) || util.IsPasstVMI(vmi) {
+		if util.IsPasstVMI(vmi) {
 			// If no SELinux type was specified, use our custom type for VMIs that need it
 			selinuxType = customSELinuxType
-		} else {
-			// If no SELinux type was specified and the VMI can run as container_t, do nothing
-			return
 		}
 	}
 
-	if pod.Spec.SecurityContext == nil {
-		pod.Spec.SecurityContext = &k8sv1.PodSecurityContext{}
+	if selinuxType == "" && !dockerSELinuxMCSWorkaround {
+		// No SELinux type and no docker workaround, nothing to do
+		return
 	}
-	pod.Spec.SecurityContext.SELinuxOptions = &k8sv1.SELinuxOptions{Type: selinuxType}
+
+	if selinuxType != "" {
+		if pod.Spec.SecurityContext == nil {
+			pod.Spec.SecurityContext = &k8sv1.PodSecurityContext{}
+		}
+		pod.Spec.SecurityContext.SELinuxOptions = &k8sv1.SELinuxOptions{Type: selinuxType}
+	}
+
 	// more info on https://github.com/kubernetes/kubernetes/issues/90759
 	// Since the compute container needs to be able to communicate with the
 	// rest of the pod, we loop over all the containers and remove their SELinux
@@ -1141,6 +1164,20 @@ func alignPodMultiCategorySecurity(pod *k8sv1.Pod, vmi *v1.VirtualMachineInstanc
 			generateContainerSecurityContext(selinuxType, container, dockerSELinuxMCSWorkaround)
 		}
 	}
+}
+
+func matchSELinuxLevelOfVMI(pod *k8sv1.Pod, vmi *v1.VirtualMachineInstance) error {
+	if vmi.Status.SelinuxContext == "" {
+		return fmt.Errorf("VMI is missing SELinux context")
+	} else if vmi.Status.SelinuxContext != "none" {
+		ctx := strings.Split(vmi.Status.SelinuxContext, ":")
+		if len(ctx) < 4 {
+			return fmt.Errorf("VMI has invalid SELinux context: %s", vmi.Status.SelinuxContext)
+		}
+		pod.Spec.Containers[0].SecurityContext.SELinuxOptions.Level = strings.Join(ctx[3:], ":")
+	}
+
+	return nil
 }
 
 func generateContainerSecurityContext(selinuxType string, container *k8sv1.Container, forceLevel bool) {

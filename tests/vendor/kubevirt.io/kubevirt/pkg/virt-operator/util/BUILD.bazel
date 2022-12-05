@@ -5,6 +5,7 @@ go_library(
     srcs = [
         "client.go",
         "config.go",
+        "env_var_manager.go",
         "readycheck.go",
         "types.go",
     ],

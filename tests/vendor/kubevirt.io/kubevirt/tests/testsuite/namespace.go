@@ -135,7 +135,11 @@ func CleanNamespaces() {
 		svcList, err := virtCli.CoreV1().Services(namespace).List(context.Background(), metav1.ListOptions{})
 		util.PanicOnError(err)
 		for _, svc := range svcList.Items {
-			util.PanicOnError(virtCli.CoreV1().Services(namespace).Delete(context.Background(), svc.Name, metav1.DeleteOptions{}))
+			err := virtCli.CoreV1().Services(namespace).Delete(context.Background(), svc.Name, metav1.DeleteOptions{})
+			if errors.IsNotFound(err) {
+				continue
+			}
+			Expect(err).ToNot(HaveOccurred())
 		}
 
 		// Remove PVCs
@@ -302,11 +306,11 @@ func detectInstallNamespace() {
 
 func GetLabelsForNamespace(namespace string) map[string]string {
 	labels := map[string]string{
-		cleanup.TestLabelForNamespace(namespace):         "",
-		"security.openshift.io/scc.podSecurityLabelSync": "false",
+		cleanup.TestLabelForNamespace(namespace): "",
 	}
 	if namespace == NamespacePrivileged {
 		labels["pod-security.kubernetes.io/enforce"] = "privileged"
+		labels["pod-security.kubernetes.io/warn"] = "privileged"
 	}
 
 	return labels

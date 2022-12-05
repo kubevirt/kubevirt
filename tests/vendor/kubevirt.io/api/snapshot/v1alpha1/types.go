@@ -121,6 +121,20 @@ type VirtualMachineSnapshotStatus struct {
 	// +optional
 	// +listType=set
 	Indications []Indication `json:"indications,omitempty"`
+
+	// +optional
+	SnapshotVolumes *SnapshotVolumesLists `json:"snapshotVolumes,omitempty"`
+}
+
+// SnapshotVolumesLists includes the list of volumes which were included in the snapshot and volumes which were excluded from the snapshot
+type SnapshotVolumesLists struct {
+	// +optional
+	// +listType=set
+	IncludedVolumes []string `json:"includedVolumes,omitempty"`
+
+	// +optional
+	// +listType=set
+	ExcludedVolumes []string `json:"excludedVolumes,omitempty"`
 }
 
 // Error is the last error encountered during the snapshot/restore
