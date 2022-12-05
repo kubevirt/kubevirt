@@ -26,6 +26,9 @@ import (
 	"strings"
 
 	authv1 "k8s.io/api/authentication/v1"
+
+	"k8s.io/client-go/tools/cache"
+
 	"kubevirt.io/client-go/api"
 
 	"kubevirt.io/kubevirt/pkg/virt-operator/resource/generate/rbac"
@@ -67,7 +70,9 @@ var _ = Describe("Validating VMICreate Admitter", func() {
 		},
 	}
 	config, _, kvInformer := testutils.NewFakeClusterConfigUsingKV(kv)
-	vmiCreateAdmitter := &VMICreateAdmitter{ClusterConfig: config}
+	var vmiCreateAdmitter *VMICreateAdmitter
+	var vmInformer cache.SharedIndexInformer
+	var stop chan struct{}
 
 	dnsConfigTestOption := "test"
 	enableFeatureGate := func(featureGate string) {
@@ -94,7 +99,21 @@ var _ = Describe("Validating VMICreate Admitter", func() {
 		testutils.UpdateFakeKubeVirtClusterConfig(kvInformer, kvConfig)
 	}
 
+	syncCache := func(stop chan struct{}) {
+		go vmInformer.Run(stop)
+		Expect(cache.WaitForCacheSync(stop,
+			vmInformer.HasSynced)).To(BeTrue())
+	}
+
+	BeforeEach(func() {
+		stop = make(chan struct{})
+		vmInformer, _ = testutils.NewFakeInformerFor(&v1.VirtualMachine{})
+		vmiCreateAdmitter = &VMICreateAdmitter{ClusterConfig: config, VMInformer: vmInformer}
+		syncCache(stop)
+	})
+
 	AfterEach(func() {
+		defer close(stop)
 		disableFeatureGates()
 	})
 
@@ -119,6 +138,29 @@ var _ = Describe("Validating VMICreate Admitter", func() {
 		Expect(resp.Result.Details.Causes).To(HaveLen(1))
 		Expect(resp.Result.Details.Causes[0].Field).To(Equal("spec.domain.devices.disks[0].name"))
 	})
+
+	It("should reject when there is already a VM with the same name of the VMI", func() {
+		vmi := api.NewMinimalVMI("testvmi")
+		vm := &v1.VirtualMachine{
+			ObjectMeta: metav1.ObjectMeta{
+				Name:      vmi.Name,
+				Namespace: k8sv1.NamespaceDefault,
+			},
+			Spec: v1.VirtualMachineSpec{
+				Running: pointer.Bool(false),
+				Template: &v1.VirtualMachineInstanceTemplateSpec{
+					Spec: vmi.Spec,
+				},
+			},
+		}
+		vmInformer.GetStore().Add(vm)
+		resp := admitVmi(vmiCreateAdmitter, vmi)
+		Expect(resp.Allowed).To(BeFalse())
+		Expect(resp.Result.Details.Causes).To(HaveLen(1))
+		Expect(resp.Result.Details.Causes[0].Message).To(Equal(fmt.Sprintf("VM %s already exists", vmi.Name)))
+		Expect(resp.Result.Details.Causes[0].Field).To(Equal("metadata.name"))
+	})
+
 	It("should reject VMIs without memory after presets were applied", func() {
 		vmi := api.NewMinimalVMI("testvmi")
 		vmi.Spec.Domain.Resources = v1.ResourceRequirements{}

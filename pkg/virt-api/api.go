@@ -784,7 +784,7 @@ func (app *virtAPIApp) prepareCertManager() {
 func (app *virtAPIApp) registerValidatingWebhooks(informers *webhooks.Informers) {
 
 	http.HandleFunc(components.VMICreateValidatePath, func(w http.ResponseWriter, r *http.Request) {
-		validating_webhook.ServeVMICreate(w, r, app.clusterConfig)
+		validating_webhook.ServeVMICreate(w, r, app.clusterConfig, informers)
 	})
 	http.HandleFunc(components.VMIUpdateValidatePath, func(w http.ResponseWriter, r *http.Request) {
 		validating_webhook.ServeVMIUpdate(w, r, app.clusterConfig)
@@ -989,6 +989,7 @@ func (app *virtAPIApp) Run() {
 	namespaceLimitsInformer := kubeInformerFactory.LimitRanges()
 	vmRestoreInformer := kubeInformerFactory.VirtualMachineRestore()
 	vmiInformer := kubeInformerFactory.VMI()
+	vmInformer := kubeInformerFactory.VirtualMachine()
 
 	stopChan := make(chan struct{}, 1)
 	defer close(stopChan)
@@ -1025,6 +1026,7 @@ func (app *virtAPIApp) Run() {
 		VMRestoreInformer:       vmRestoreInformer,
 		DataSourceInformer:      dataSourceInformer,
 		VMIInformer:             vmiInformer,
+		VMInformer:              vmInformer,
 	}
 
 	// Build webhook subresources

@@ -28,6 +28,10 @@ import (
 	"regexp"
 	"strings"
 
+	"k8s.io/client-go/tools/cache"
+
+	"kubevirt.io/kubevirt/pkg/controller"
+
 	admissionv1 "k8s.io/api/admission/v1"
 	k8sv1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/api/resource"
@@ -85,6 +89,7 @@ const (
 
 type VMICreateAdmitter struct {
 	ClusterConfig *virtconfig.ClusterConfig
+	VMInformer    cache.SharedIndexInformer
 }
 
 func (admitter *VMICreateAdmitter) Admit(ar *admissionv1.AdmissionReview) *admissionv1.AdmissionResponse {
@@ -98,7 +103,12 @@ func (admitter *VMICreateAdmitter) Admit(ar *admissionv1.AdmissionReview) *admis
 		return webhookutils.ToAdmissionResponseError(err)
 	}
 
-	causes := ValidateVirtualMachineInstanceSpec(k8sfield.NewPath("spec"), &vmi.Spec, admitter.ClusterConfig)
+	causes := admitter.validateName(vmi)
+	if len(causes) > 0 {
+		return webhookutils.ToAdmissionResponse(causes)
+	}
+
+	causes = ValidateVirtualMachineInstanceSpec(k8sfield.NewPath("spec"), &vmi.Spec, admitter.ClusterConfig)
 	// We only want to validate that volumes are mapped to disks or filesystems during VMI admittance, thus this logic is seperated from the above call that is shared with the VM admitter.
 	causes = append(causes, validateVirtualMachineInstanceSpecVolumeDisks(k8sfield.NewPath("spec"), &vmi.Spec)...)
 	causes = append(causes, ValidateVirtualMachineInstanceMandatoryFields(k8sfield.NewPath("spec"), &vmi.Spec)...)
@@ -116,6 +126,32 @@ func (admitter *VMICreateAdmitter) Admit(ar *admissionv1.AdmissionReview) *admis
 	reviewResponse := admissionv1.AdmissionResponse{}
 	reviewResponse.Allowed = true
 	return &reviewResponse
+}
+
+func (admitter *VMICreateAdmitter) validateName(vmi *v1.VirtualMachineInstance) []metav1.StatusCause {
+	var causes []metav1.StatusCause
+	key := controller.NamespacedKey(vmi.Namespace, vmi.Name)
+	vmObj, exists, err := admitter.VMInformer.GetStore().GetByKey(key)
+	if err != nil {
+		return []metav1.StatusCause{{
+			Type:    metav1.CauseTypeFieldValueDuplicate,
+			Message: fmt.Sprintf("Failed to retrieve virtual machine %v: %v", vmi.Name, err),
+			Field:   k8sfield.NewPath("metadata", "name").String(),
+		}}
+	}
+
+	if exists {
+		vm := vmObj.(*v1.VirtualMachine)
+		if !metav1.IsControlledBy(vmi, vm) {
+			return []metav1.StatusCause{{
+				Type:    metav1.CauseTypeFieldValueDuplicate,
+				Message: fmt.Sprintf("VM %s already exists", vmi.Name),
+				Field:   k8sfield.NewPath("metadata", "name").String(),
+			}}
+		}
+	}
+
+	return causes
 }
 
 func ValidateVirtualMachineInstanceSpec(field *k8sfield.Path, spec *v1.VirtualMachineInstanceSpec, config *virtconfig.ClusterConfig) []metav1.StatusCause {
