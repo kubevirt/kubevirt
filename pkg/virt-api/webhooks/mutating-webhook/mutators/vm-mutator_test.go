@@ -1170,6 +1170,33 @@ var _ = Describe("VirtualMachine Mutator", func() {
 				},
 			),
 		)
+
+		It("should infer defaults from garbage collected DataVolume using PVC with the same name", func() {
+			vm.Spec.Instancetype = &v1.InstancetypeMatcher{
+				InferFromVolume: inferVolumeName,
+			}
+			vm.Spec.Preference = &v1.PreferenceMatcher{
+				InferFromVolume: inferVolumeName,
+			}
+			// No DataVolume with the name of pvcName exists but a PVC does
+			vm.Spec.Template.Spec.Volumes = []v1.Volume{{
+				Name: inferVolumeName,
+				VolumeSource: v1.VolumeSource{
+					DataVolume: &v1.DataVolumeSource{
+						Name: pvcName,
+					},
+				},
+			}}
+			vmSpec, _ := getVMSpecMetaFromResponse()
+			Expect(vmSpec.Instancetype).To(Equal(&v1.InstancetypeMatcher{
+				Name: defaultInferedNameFromPVC,
+				Kind: defaultInferedKindFromPVC,
+			}))
+			Expect(vmSpec.Preference).To(Equal(&v1.PreferenceMatcher{
+				Name: defaultInferedNameFromPVC,
+				Kind: defaultInferedKindFromPVC,
+			}))
+		})
 	})
 
 	Context("failure tests", func() {
