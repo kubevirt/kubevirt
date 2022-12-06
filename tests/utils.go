@@ -1273,6 +1273,7 @@ func NewBool(x bool) *bool {
 
 func RenderPrivilegedPod(name string, cmd []string, args []string) *k8sv1.Pod {
 	pod := RenderPod(name, cmd, args)
+	pod.Namespace = testsuite.NamespacePrivileged
 	pod.Spec.HostPID = true
 	pod.Spec.SecurityContext = &k8sv1.PodSecurityContext{
 		RunAsUser: new(int64),
