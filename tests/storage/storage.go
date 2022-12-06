@@ -217,7 +217,7 @@ var _ = SIGDescribe("Storage", func() {
 				Expect(err).ToNot(HaveOccurred())
 			})
 
-			It("[QUARANTINE] should pause VMI on IO error", func() {
+			It("should pause VMI on IO error", func() {
 				By("Creating VMI with faulty disk")
 				vmi := libvmi.NewAlpine(libvmi.WithPersistentVolumeClaim("faulty-disk", pvc.Name))
 
