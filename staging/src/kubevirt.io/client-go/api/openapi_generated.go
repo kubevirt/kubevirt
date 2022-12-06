@@ -17854,6 +17854,24 @@ func schema_kubevirtio_api_core_v1_KubeVirtSpec(ref common.ReferenceCallback) co
 							Format:      "",
 						},
 					},
+					"imagePullSecrets": {
+						VendorExtensible: spec.VendorExtensible{
+							Extensions: spec.Extensions{
+								"x-kubernetes-list-type": "atomic",
+							},
+						},
+						SchemaProps: spec.SchemaProps{
+							Description: "The imagePullSecrets to pull the container images from Defaults to none",
+							Type:        []string{"array"},
+							Items: &spec.SchemaOrArray{
+								Schema: &spec.Schema{
+									SchemaProps: spec.SchemaProps{
+										Ref: ref("k8s.io/api/core/v1.LocalObjectReference"),
+									},
+								},
+							},
+						},
+					},
 					"monitorNamespace": {
 						SchemaProps: spec.SchemaProps{
 							Description: "The namespace Prometheus is deployed in Defaults to openshift-monitor",
@@ -17941,7 +17959,7 @@ func schema_kubevirtio_api_core_v1_KubeVirtSpec(ref common.ReferenceCallback) co
 			},
 		},
 		Dependencies: []string{
-			"kubevirt.io/api/core/v1.ComponentConfig", "kubevirt.io/api/core/v1.CustomizeComponents", "kubevirt.io/api/core/v1.KubeVirtCertificateRotateStrategy", "kubevirt.io/api/core/v1.KubeVirtConfiguration", "kubevirt.io/api/core/v1.KubeVirtWorkloadUpdateStrategy"},
+			"k8s.io/api/core/v1.LocalObjectReference", "kubevirt.io/api/core/v1.ComponentConfig", "kubevirt.io/api/core/v1.CustomizeComponents", "kubevirt.io/api/core/v1.KubeVirtCertificateRotateStrategy", "kubevirt.io/api/core/v1.KubeVirtConfiguration", "kubevirt.io/api/core/v1.KubeVirtWorkloadUpdateStrategy"},
 	}
 }
 

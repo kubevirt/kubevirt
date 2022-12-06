@@ -1087,6 +1087,20 @@ var CRDsValidation map[string]string = map[string]string{
         imagePullPolicy:
           description: The ImagePullPolicy to use.
           type: string
+        imagePullSecrets:
+          description: The imagePullSecrets to pull the container images from Defaults
+            to none
+          items:
+            description: LocalObjectReference contains enough information to let you
+              locate the referenced object inside the same namespace.
+            properties:
+              name:
+                description: 'Name of the referent. More info: https://kubernetes.io/docs/concepts/overview/working-with-objects/names/#names
+                  TODO: Add other useful fields. apiVersion, kind, uid?'
+                type: string
+            type: object
+          type: array
+          x-kubernetes-list-type: atomic
         imageRegistry:
           description: The image registry to pull the container images from Defaults
             to the same registry the operator's container image is pulled from.

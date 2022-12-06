@@ -74,6 +74,7 @@ const (
 
 	// these names need to match field names from KubeVirt Spec if they are set from there
 	AdditionalPropertiesNamePullPolicy = "ImagePullPolicy"
+	AdditionalPropertiesPullSecrets    = "ImagePullSecrets"
 
 	// lookup key in AdditionalProperties
 	AdditionalPropertiesMonitorNamespace = "MonitorNamespace"
@@ -230,6 +231,15 @@ func getKVMapFromSpec(spec v1.KubeVirtSpec) map[string]string {
 		name := v.Type().Field(i).Name
 		if name == "ImageTag" || name == "ImageRegistry" {
 			// these are handled in the root deployment config already
+			continue
+		}
+		if name == "ImagePullSecrets" {
+			value, err := json.Marshal(v.Field(i).Interface())
+			if err != nil {
+				fmt.Printf("Cannot encode ImagePullsecrets to JSON %v", err)
+			} else {
+				kvMap[name] = string(value)
+			}
 			continue
 		}
 		value := v.Field(i).String()
@@ -491,6 +501,22 @@ func (c *KubeVirtDeploymentConfig) GetImagePullPolicy() k8sv1.PullPolicy {
 		return k8sv1.PullPolicy(p)
 	}
 	return k8sv1.PullIfNotPresent
+}
+
+func (c *KubeVirtDeploymentConfig) GetImagePullSecrets() []k8sv1.LocalObjectReference {
+	var data []k8sv1.LocalObjectReference
+	s, ok := c.AdditionalProperties[AdditionalPropertiesPullSecrets]
+	if !ok {
+		return data
+	}
+	if err := json.Unmarshal([]byte(s), &data); err != nil {
+		fmt.Printf("Unable to parse imagePullSecrets: %v\n", err)
+		if e, ok := err.(*json.SyntaxError); ok {
+			fmt.Printf("syntax error at byte offset %d\n", e.Offset)
+		}
+		return data
+	}
+	return data
 }
 
 func (c *KubeVirtDeploymentConfig) WorkloadUpdatesEnabled() bool {

@@ -22,14 +22,18 @@ const (
 	kubeletPodsPath = "/var/lib/kubelet/pods"
 )
 
-func NewHandlerDaemonSet(namespace, repository, imagePrefix, version, launcherVersion, productName, productVersion, productComponent, image, launcherImage string, pullPolicy corev1.PullPolicy, migrationNetwork *string, verbosity string, extraEnv map[string]string) (*appsv1.DaemonSet, error) {
+func NewHandlerDaemonSet(namespace, repository, imagePrefix, version, launcherVersion, productName, productVersion, productComponent, image, launcherImage string, pullPolicy corev1.PullPolicy, imagePullSecrets []corev1.LocalObjectReference, migrationNetwork *string, verbosity string, extraEnv map[string]string) (*appsv1.DaemonSet, error) {
 
 	deploymentName := VirtHandlerName
 	imageName := fmt.Sprintf("%s%s", imagePrefix, deploymentName)
 	env := operatorutil.NewEnvVarMap(extraEnv)
-	podTemplateSpec, err := newPodTemplateSpec(deploymentName, imageName, repository, version, productName, productVersion, productComponent, image, pullPolicy, nil, env)
+	podTemplateSpec, err := newPodTemplateSpec(deploymentName, imageName, repository, version, productName, productVersion, productComponent, image, pullPolicy, imagePullSecrets, nil, env)
 	if err != nil {
 		return nil, err
+	}
+
+	if launcherImage == "" {
+		launcherImage = fmt.Sprintf("%s/%s%s%s", repository, imagePrefix, "virt-launcher", AddVersionSeparatorPrefix(launcherVersion))
 	}
 
 	if migrationNetwork != nil {
@@ -82,10 +86,6 @@ func NewHandlerDaemonSet(namespace, repository, imagePrefix, version, launcherVe
 
 	// nodelabeller currently only support x86
 	if virtconfig.IsAMD64(runtime.GOARCH) {
-		launcherVersion = AddVersionSeparatorPrefix(launcherVersion)
-		if launcherImage == "" {
-			launcherImage = fmt.Sprintf("%s/%s%s%s", repository, imagePrefix, "virt-launcher", launcherVersion)
-		}
 		pod.InitContainers = []corev1.Container{
 			{
 				Command: []string{
@@ -108,6 +108,30 @@ func NewHandlerDaemonSet(namespace, repository, imagePrefix, version, launcherVe
 				},
 			},
 		}
+	}
+
+	// If there is any image pull secret added to the `virt-handler` deployment
+	// it can mean that `virt-handler` is using private image. Therefore, we must
+	// add `virt-launcher` container that will pre-pull and keep the (probably)
+	// custom image of `virt-launcher`.
+	// Note that we cannot make it an init container because the `virt-launcher`
+	// image could be garbage collected by the kubelet.
+	// Note that we cannot add `imagePullSecrets` to `virt-launcher` as this could
+	// be a security risk - user could use this secret and abuse it.
+	if len(imagePullSecrets) > 0 {
+		pod.Containers = append(pod.Containers, corev1.Container{
+			Name:            "virt-launcher-image-holder",
+			Image:           launcherImage,
+			ImagePullPolicy: corev1.PullIfNotPresent,
+			Command:         []string{"/bin/sh", "-c"},
+			Args:            []string{"sleep infinity"},
+			Resources: corev1.ResourceRequirements{
+				Limits: map[corev1.ResourceName]resource.Quantity{
+					corev1.ResourceCPU:    resource.MustParse("100m"),
+					corev1.ResourceMemory: resource.MustParse("20Mi"),
+				},
+			},
+		})
 	}
 
 	// give the handler grace period some padding

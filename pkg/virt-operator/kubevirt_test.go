@@ -2213,7 +2213,6 @@ var _ = Describe("KubeVirt Operator", func() {
 			config.PassthroughEnvVars = map[string]string{envKey: envVal}
 
 			controllerDeployment, err := tests.GetDefaultVirtControllerDeployment(NAMESPACE, config)
-
 			Expect(err).ToNot(HaveOccurred())
 			Expect(controllerDeployment.Spec.Template.Spec.Containers[0].Env).To(ContainElement(k8sv1.EnvVar{Name: envKey, Value: envVal}))
 		})

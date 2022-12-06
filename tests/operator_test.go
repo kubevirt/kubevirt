@@ -1455,6 +1455,123 @@ spec:
 		})
 	})
 
+	Describe("imagePullSecrets", func() {
+		checkVirtComponents := func(imagePullSecrets []k8sv1.LocalObjectReference) {
+			vc, err := virtClient.AppsV1().Deployments(originalKv.Namespace).Get(context.Background(), "virt-controller", metav1.GetOptions{})
+			Expect(err).ToNot(HaveOccurred())
+			Expect(vc.Spec.Template.Spec.ImagePullSecrets).To(Equal(imagePullSecrets))
+
+			va, err := virtClient.AppsV1().Deployments(originalKv.Namespace).Get(context.Background(), "virt-api", metav1.GetOptions{})
+			Expect(err).ToNot(HaveOccurred())
+			Expect(va.Spec.Template.Spec.ImagePullSecrets).To(Equal(imagePullSecrets))
+
+			vh, err := virtClient.AppsV1().DaemonSets(originalKv.Namespace).Get(context.Background(), "virt-handler", metav1.GetOptions{})
+			Expect(err).ToNot(HaveOccurred())
+			Expect(vh.Spec.Template.Spec.ImagePullSecrets).To(Equal(imagePullSecrets))
+
+			if len(imagePullSecrets) == 0 {
+				Expect(vh.Spec.Template.Spec.Containers).To(HaveLen(1))
+			} else {
+				Expect(vh.Spec.Template.Spec.Containers).To(HaveLen(2))
+				Expect(vh.Spec.Template.Spec.Containers[1].Name).To(Equal("virt-launcher-image-holder"))
+			}
+		}
+
+		It("should not be present if not specified on the KubeVirt CR", func() {
+
+			By("Check that KubeVirt CR has empty imagePullSecrets")
+			kv, err := virtClient.KubeVirt(originalKv.Namespace).Get(originalKv.Name, &metav1.GetOptions{})
+			Expect(err).NotTo(HaveOccurred())
+			Expect(kv.Spec.ImagePullSecrets).To(HaveLen(0))
+
+			By("Ensuring that all virt components have empty image pull secrets")
+			checkVirtComponents(nil)
+
+			By("Starting a VMI")
+			vmi := tests.NewRandomVMI()
+			vmi, err = virtClient.VirtualMachineInstance(util2.NamespaceTestDefault).Create(vmi)
+			Expect(err).NotTo(HaveOccurred())
+			tests.WaitForSuccessfulVMIStart(vmi)
+
+			By("Getting virt-launcher")
+			uid := vmi.GetObjectMeta().GetUID()
+			labelSelector := fmt.Sprintf(v1.CreatedByLabel + "=" + string(uid))
+			pods, err := virtClient.CoreV1().Pods(util2.NamespaceTestDefault).List(context.Background(), metav1.ListOptions{LabelSelector: labelSelector})
+			Expect(err).NotTo(HaveOccurred(), "Should list pods")
+			Expect(pods.Items).To(HaveLen(1))
+			Expect(pods.Items[0].Spec.ImagePullSecrets).To(HaveLen(0))
+
+		})
+
+		It("should be propagated if applied on the KubeVirt CR", func() {
+
+			const imagePullSecretName = "testmyregistrykey"
+			var imagePullSecrets = []k8sv1.LocalObjectReference{{Name: imagePullSecretName}}
+
+			By("Delete existing image pull secret")
+			_ = virtClient.CoreV1().Secrets(originalKv.Namespace).Delete(context.Background(), imagePullSecretName, metav1.DeleteOptions{})
+			By("Create image pull secret")
+			_, err := virtClient.CoreV1().Secrets(originalKv.Namespace).Create(context.Background(), &k8sv1.Secret{
+				ObjectMeta: metav1.ObjectMeta{
+					Name:      imagePullSecretName,
+					Namespace: originalKv.Namespace,
+				},
+				Type: k8sv1.SecretTypeDockerConfigJson,
+				Data: map[string][]byte{
+					".dockerconfigjson": []byte(`{"auths":{"http://foo.example.com":{"username":"foo","password":"bar","email":"foo@example.com"}}}`),
+				},
+			}, metav1.CreateOptions{})
+			Expect(err).NotTo(HaveOccurred())
+			DeferCleanup(func() {
+				By("Cleaning up image pull secret")
+				err = virtClient.CoreV1().Secrets(originalKv.Namespace).Delete(context.Background(), imagePullSecretName, metav1.DeleteOptions{})
+				Expect(err).NotTo(HaveOccurred())
+			})
+
+			By("Updating KubeVirt Object")
+			kv, err := virtClient.KubeVirt(originalKv.Namespace).Get(originalKv.Name, &metav1.GetOptions{})
+			Expect(err).NotTo(HaveOccurred())
+			kv.Spec.ImagePullSecrets = imagePullSecrets
+			kv, err = virtClient.KubeVirt(originalKv.Namespace).Update(kv)
+			Expect(err).NotTo(HaveOccurred())
+
+			By("Waiting for virt-operator to apply changes to component")
+			waitForKv(kv)
+
+			By("Ensuring that all virt components have expected image pull secrets")
+			checkVirtComponents(imagePullSecrets)
+
+			By("Starting a VMI")
+			vmi := tests.NewRandomVMI()
+			vmi, err = virtClient.VirtualMachineInstance(util2.NamespaceTestDefault).Create(vmi)
+			Expect(err).NotTo(HaveOccurred())
+			tests.WaitForSuccessfulVMIStart(vmi)
+
+			By("Getting virt-launcher")
+			uid := vmi.GetObjectMeta().GetUID()
+			labelSelector := fmt.Sprintf(v1.CreatedByLabel + "=" + string(uid))
+			pods, err := virtClient.CoreV1().Pods(util2.NamespaceTestDefault).List(context.Background(), metav1.ListOptions{LabelSelector: labelSelector})
+			Expect(err).NotTo(HaveOccurred(), "Should list pods")
+			Expect(pods.Items).To(HaveLen(1))
+			Expect(pods.Items[0].Spec.ImagePullSecrets).To(HaveLen(0))
+
+			By("Deleting imagePullSecrets from KubeVirt object")
+			kv, err = virtClient.KubeVirt(originalKv.Namespace).Get(originalKv.Name, &metav1.GetOptions{})
+			Expect(err).NotTo(HaveOccurred())
+			kv.Spec.ImagePullSecrets = []k8sv1.LocalObjectReference{}
+			kv, err = virtClient.KubeVirt(originalKv.Namespace).Update(kv)
+			Expect(err).NotTo(HaveOccurred())
+
+			By("Waiting for virt-operator to apply changes to component")
+			waitForKv(kv)
+
+			By("Ensuring that all virt components have empty image pull secrets")
+			checkVirtComponents(nil)
+
+		})
+
+	})
+
 	Describe("[rfe_id:2291][crit:high][vendor:cnv-qe@redhat.com][level:component]should update kubevirt", func() {
 		runStrategyHalted := v1.RunStrategyHalted
 
