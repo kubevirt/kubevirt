@@ -48,15 +48,10 @@ type WebhookHandler struct {
 	decoder     *admission.Decoder
 }
 
-var tlsConfigCache = openshiftconfigv1.TLSSecurityProfile{
-	Type:         openshiftconfigv1.TLSProfileIntermediateType,
-	Intermediate: &openshiftconfigv1.IntermediateTLSProfile{},
-}
+var hcoTlsConfigCache *openshiftconfigv1.TLSSecurityProfile
 
-func NewWebhookHandler(logger logr.Logger, cli client.Client, namespace string, isOpenshift bool, tlsSecurityProfile *openshiftconfigv1.TLSSecurityProfile) *WebhookHandler {
-	if tlsSecurityProfile != nil {
-		tlsConfigCache = *tlsSecurityProfile
-	}
+func NewWebhookHandler(logger logr.Logger, cli client.Client, namespace string, isOpenshift bool, hcoTlsSecurityProfile *openshiftconfigv1.TLSSecurityProfile) *WebhookHandler {
+	hcoTlsConfigCache = hcoTlsSecurityProfile
 	return &WebhookHandler{
 		logger:      logger,
 		cli:         cli,
@@ -158,11 +153,7 @@ func (wh *WebhookHandler) ValidateCreate(ctx context.Context, dryrun bool, hc *v
 	}
 
 	if !dryrun {
-		ci := hcoutil.GetClusterInfo()
-		tlsSP := ci.GetTLSSecurityProfile(hc.Spec.TLSSecurityProfile)
-		if tlsSP != nil {
-			tlsConfigCache = *tlsSP
-		}
+		hcoTlsConfigCache = hc.Spec.TLSSecurityProfile
 	}
 
 	return nil
@@ -267,11 +258,7 @@ func (wh *WebhookHandler) ValidateUpdate(extCtx context.Context, dryrun bool, re
 		}
 
 		if !dryrun {
-			ci := hcoutil.GetClusterInfo()
-			tlsSP := ci.GetTLSSecurityProfile(requested.Spec.TLSSecurityProfile)
-			if tlsSP != nil {
-				tlsConfigCache = *tlsSP
-			}
+			hcoTlsConfigCache = requested.Spec.TLSSecurityProfile
 		}
 		return nil
 	}
@@ -348,11 +335,7 @@ func (wh WebhookHandler) ValidateDelete(ctx context.Context, dryrun bool, hc *v1
 		}
 	}
 	if !dryrun {
-		ci := hcoutil.GetClusterInfo()
-		tlsSP := ci.GetTLSSecurityProfile(nil)
-		if tlsSP != nil {
-			tlsConfigCache = *tlsSP
-		}
+		hcoTlsConfigCache = nil
 	}
 	return nil
 }
@@ -443,7 +426,8 @@ func (wh WebhookHandler) MutateTLSConfig(cfg *tls.Config) {
 }
 
 func (wh WebhookHandler) selectCipherSuitesAndMinTLSVersion() ([]string, openshiftconfigv1.TLSProtocolVersion) {
-	profile := tlsConfigCache
+	ci := hcoutil.GetClusterInfo()
+	profile := ci.GetTLSSecurityProfile(hcoTlsConfigCache)
 
 	if profile.Custom != nil {
 		return profile.Custom.TLSProfileSpec.Ciphers, profile.Custom.TLSProfileSpec.MinTLSVersion

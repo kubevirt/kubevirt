@@ -38,14 +38,14 @@ func GetWebhookCertDir() string {
 	return hcoutil.DefaultWebhookCertDir
 }
 
-func SetupWebhookWithManager(ctx context.Context, mgr ctrl.Manager, isOpenshift bool, tlsSecurityProfile *openshiftconfigv1.TLSSecurityProfile) error {
+func SetupWebhookWithManager(ctx context.Context, mgr ctrl.Manager, isOpenshift bool, hcoTlsSecurityProfile *openshiftconfigv1.TLSSecurityProfile) error {
 	operatorNsEnv, nserr := hcoutil.GetOperatorNamespaceFromEnv()
 	if nserr != nil {
 		logger.Error(nserr, "failed to get operator namespace from the environment")
 		return nserr
 	}
 
-	whHandler := validator.NewWebhookHandler(logger, mgr.GetClient(), operatorNsEnv, isOpenshift, tlsSecurityProfile)
+	whHandler := validator.NewWebhookHandler(logger, mgr.GetClient(), operatorNsEnv, isOpenshift, hcoTlsSecurityProfile)
 
 	nsMutator := mutator.NewNsMutator(mgr.GetClient(), operatorNsEnv)
 

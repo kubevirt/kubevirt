@@ -142,7 +142,7 @@ func main() {
 	err = webhookscontrollers.RegisterReconciler(mgr, ci)
 	cmdHelper.ExitOnError(err, "Cannot register APIServer reconciler")
 
-	if err = webhooks.SetupWebhookWithManager(ctx, mgr, ci.IsOpenshift(), ci.GetTLSSecurityProfile(hcoTLSSecurityProfile)); err != nil {
+	if err = webhooks.SetupWebhookWithManager(ctx, mgr, ci.IsOpenshift(), hcoTLSSecurityProfile); err != nil {
 		logger.Error(err, "unable to create webhook", "webhook", "HyperConverged")
 		eventEmitter.EmitEvent(nil, corev1.EventTypeWarning, "InitError", "Unable to create webhook")
 		os.Exit(1)

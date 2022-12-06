@@ -1076,6 +1076,7 @@ var _ = Describe("webhooks validator", func() {
 				err := updateTlsSecurityProfile(openshiftconfigv1.VersionTLS13, []string{"DHE-RSA-AES256-GCM-SHA384", "DHE-RSA-CHACHA20-POLY1305"})
 				Expect(err).ToNot(HaveOccurred())
 			})
+
 		})
 
 	})
@@ -1296,14 +1297,15 @@ var _ = Describe("webhooks validator", func() {
 		)
 	})
 
-	Context("tlsConfigCache", func() {
+	Context("hcoTlsConfigCache", func() {
 		var cr *v1beta1.HyperConverged
 		var ctx context.Context
 
-		intitialTLSSecurityProfile := openshiftconfigv1.TLSSecurityProfile{
+		intermediateTLSSecurityProfile := openshiftconfigv1.TLSSecurityProfile{
 			Type:         openshiftconfigv1.TLSProfileIntermediateType,
 			Intermediate: &openshiftconfigv1.IntermediateTLSProfile{},
 		}
+		initialTLSSecurityProfile := intermediateTLSSecurityProfile
 		oldTLSSecurityProfile := openshiftconfigv1.TLSSecurityProfile{
 			Type: openshiftconfigv1.TLSProfileOldType,
 			Old:  &openshiftconfigv1.OldTLSProfile{},
@@ -1317,41 +1319,41 @@ var _ = Describe("webhooks validator", func() {
 			Expect(os.Setenv("OPERATOR_NAMESPACE", HcoValidNamespace)).ToNot(HaveOccurred())
 			cr = commonTestUtils.NewHco()
 			ctx = context.TODO()
-			tlsConfigCache = intitialTLSSecurityProfile
+			hcoTlsConfigCache = &initialTLSSecurityProfile
 		})
 
 		Context("create", func() {
 
-			It("should update tlsConfigCache creating a resource not in dry run mode", func() {
-				Expect(tlsConfigCache).To(Equal(intitialTLSSecurityProfile))
+			It("should update hcoTlsConfigCache creating a resource not in dry run mode", func() {
+				Expect(hcoTlsConfigCache).To(Equal(&initialTLSSecurityProfile))
 				cr.Spec.TLSSecurityProfile = &modernTLSSecurityProfile
 				err := wh.ValidateCreate(ctx, false, cr)
 				Expect(err).ToNot(HaveOccurred())
-				Expect(tlsConfigCache).To(Equal(modernTLSSecurityProfile))
+				Expect(hcoTlsConfigCache).To(Equal(&modernTLSSecurityProfile))
 			})
 
-			It("should not update tlsConfigCache creating a resource in dry run mode", func() {
-				Expect(tlsConfigCache).To(Equal(intitialTLSSecurityProfile))
+			It("should not update hcoTlsConfigCache creating a resource in dry run mode", func() {
+				Expect(hcoTlsConfigCache).To(Equal(&initialTLSSecurityProfile))
 				cr.Spec.TLSSecurityProfile = &modernTLSSecurityProfile
 				err := wh.ValidateCreate(ctx, true, cr)
 				Expect(err).ToNot(HaveOccurred())
-				Expect(tlsConfigCache).ToNot(Equal(modernTLSSecurityProfile))
+				Expect(hcoTlsConfigCache).ToNot(Equal(&modernTLSSecurityProfile))
 			})
 
-			It("should not update tlsConfigCache if the create request is refused", func() {
-				Expect(tlsConfigCache).To(Equal(intitialTLSSecurityProfile))
+			It("should not update hcoTlsConfigCache if the create request is refused", func() {
+				Expect(hcoTlsConfigCache).To(Equal(&initialTLSSecurityProfile))
 				cr.Spec.TLSSecurityProfile = &modernTLSSecurityProfile
 				cr.Namespace = ResourceInvalidNamespace
 				err := wh.ValidateCreate(ctx, false, cr)
 				Expect(err).To(HaveOccurred())
-				Expect(tlsConfigCache).To(Equal(intitialTLSSecurityProfile))
+				Expect(hcoTlsConfigCache).To(Equal(&initialTLSSecurityProfile))
 			})
 
 		})
 
 		Context("update", func() {
 
-			It("should update tlsConfigCache updating a resource not in dry run mode", func() {
+			It("should update hcoTlsConfigCache updating a resource not in dry run mode", func() {
 				cli := getFakeClient(cr)
 				cli.InitiateUpdateErrors(getUpdateError(noFailure))
 
@@ -1363,14 +1365,14 @@ var _ = Describe("webhooks validator", func() {
 
 				err = wh.ValidateUpdate(ctx, false, newCr, cr)
 				Expect(err).ToNot(HaveOccurred())
-				Expect(tlsConfigCache).To(Equal(oldTLSSecurityProfile))
+				Expect(hcoTlsConfigCache).To(Equal(&oldTLSSecurityProfile))
 			})
 
-			It("should not update tlsConfigCache updating a resource in dry run mode", func() {
+			It("should not update hcoTlsConfigCache updating a resource in dry run mode", func() {
 				cli := getFakeClient(cr)
 				cli.InitiateUpdateErrors(getUpdateError(noFailure))
 
-				wh := NewWebhookHandler(logger, cli, HcoValidNamespace, true, nil)
+				wh := NewWebhookHandler(logger, cli, HcoValidNamespace, true, &initialTLSSecurityProfile)
 
 				newCr := &v1beta1.HyperConverged{}
 				cr.DeepCopyInto(newCr)
@@ -1378,14 +1380,14 @@ var _ = Describe("webhooks validator", func() {
 
 				err = wh.ValidateUpdate(ctx, true, newCr, cr)
 				Expect(err).ToNot(HaveOccurred())
-				Expect(tlsConfigCache).To(Equal(intitialTLSSecurityProfile))
+				Expect(hcoTlsConfigCache).To(Equal(&initialTLSSecurityProfile))
 			})
 
-			It("should not update tlsConfigCache if the update request is refused", func() {
+			It("should not update hcoTlsConfigCache if the update request is refused", func() {
 				cli := getFakeClient(cr)
 				cli.InitiateUpdateErrors(getUpdateError(cdiUpdateFailure))
 
-				wh := NewWebhookHandler(logger, cli, HcoValidNamespace, true, nil)
+				wh := NewWebhookHandler(logger, cli, HcoValidNamespace, true, &initialTLSSecurityProfile)
 
 				newCr := &v1beta1.HyperConverged{}
 				cr.DeepCopyInto(newCr)
@@ -1394,40 +1396,40 @@ var _ = Describe("webhooks validator", func() {
 				err = wh.ValidateUpdate(ctx, false, newCr, cr)
 				Expect(err).To(HaveOccurred())
 				Expect(err).Should(Equal(ErrFakeCdiError))
-				Expect(tlsConfigCache).To(Equal(intitialTLSSecurityProfile))
+				Expect(hcoTlsConfigCache).To(Equal(&initialTLSSecurityProfile))
 			})
 
 		})
 
 		Context("delete", func() {
 
-			It("should reset tlsConfigCache deleting a resource not in dry run mode", func() {
+			It("should reset hcoTlsConfigCache deleting a resource not in dry run mode", func() {
 				cli := getFakeClient(cr)
 				wh := NewWebhookHandler(logger, cli, HcoValidNamespace, true, nil)
 
-				tlsConfigCache = modernTLSSecurityProfile
+				hcoTlsConfigCache = &modernTLSSecurityProfile
 
 				err = wh.ValidateDelete(ctx, false, cr)
 				Expect(err).ToNot(HaveOccurred())
-				Expect(tlsConfigCache).To(Equal(intitialTLSSecurityProfile))
+				Expect(hcoTlsConfigCache).To(BeNil())
 			})
 
-			It("should not update tlsConfigCache deleting a resource in dry run mode", func() {
+			It("should not update hcoTlsConfigCache deleting a resource in dry run mode", func() {
 				cli := getFakeClient(cr)
 				wh := NewWebhookHandler(logger, cli, HcoValidNamespace, true, nil)
 
-				tlsConfigCache = modernTLSSecurityProfile
+				hcoTlsConfigCache = &modernTLSSecurityProfile
 
 				err = wh.ValidateDelete(ctx, true, cr)
 				Expect(err).ToNot(HaveOccurred())
-				Expect(tlsConfigCache).To(Equal(modernTLSSecurityProfile))
+				Expect(hcoTlsConfigCache).To(Equal(&modernTLSSecurityProfile))
 			})
 
-			It("should not update tlsConfigCache if the delete request is refused", func() {
+			It("should not update hcoTlsConfigCache if the delete request is refused", func() {
 				cli := getFakeClient(cr)
 				wh := NewWebhookHandler(logger, cli, HcoValidNamespace, true, nil)
 
-				tlsConfigCache = modernTLSSecurityProfile
+				hcoTlsConfigCache = &modernTLSSecurityProfile
 				cli.InitiateDeleteErrors(func(obj client.Object) error {
 					if unstructed, ok := obj.(runtime.Unstructured); ok {
 						kind := unstructed.GetObjectKind()
@@ -1441,8 +1443,140 @@ var _ = Describe("webhooks validator", func() {
 				err = wh.ValidateDelete(ctx, false, cr)
 				Expect(err).To(HaveOccurred())
 				Expect(err).Should(Equal(ErrFakeKvError))
-				Expect(tlsConfigCache).To(Equal(modernTLSSecurityProfile))
+				Expect(hcoTlsConfigCache).To(Equal(&modernTLSSecurityProfile))
 			})
+
+		})
+
+		Context("selectCipherSuitesAndMinTLSVersion", func() {
+			const namespace = "kubevirt-hyperconverged"
+
+			var apiServer *openshiftconfigv1.APIServer
+			var cl *commonTestUtils.HcoTestClient
+
+			BeforeEach(func() {
+				_ = os.Setenv("OPERATOR_NAMESPACE", namespace)
+
+				clusterVersion := &openshiftconfigv1.ClusterVersion{
+					ObjectMeta: metav1.ObjectMeta{
+						Name: "version",
+					},
+					Spec: openshiftconfigv1.ClusterVersionSpec{
+						ClusterID: "clusterId",
+					},
+				}
+				infrastructure := &openshiftconfigv1.Infrastructure{
+					ObjectMeta: metav1.ObjectMeta{
+						Name: "cluster",
+					},
+					Status: openshiftconfigv1.InfrastructureStatus{
+						ControlPlaneTopology:   openshiftconfigv1.HighlyAvailableTopologyMode,
+						InfrastructureTopology: openshiftconfigv1.HighlyAvailableTopologyMode,
+						PlatformStatus: &openshiftconfigv1.PlatformStatus{
+							Type: "mocked",
+						},
+					},
+				}
+				ingress := &openshiftconfigv1.Ingress{
+					ObjectMeta: metav1.ObjectMeta{
+						Name: "cluster",
+					},
+					Spec: openshiftconfigv1.IngressSpec{
+						Domain: "domain",
+					},
+				}
+				apiServer = &openshiftconfigv1.APIServer{
+					ObjectMeta: metav1.ObjectMeta{
+						Name: "cluster",
+					},
+					Spec: openshiftconfigv1.APIServerSpec{},
+				}
+				namespace := &corev1.Namespace{
+					ObjectMeta: metav1.ObjectMeta{
+						Name: namespace,
+					},
+				}
+
+				resources := []runtime.Object{clusterVersion, infrastructure, ingress, apiServer, namespace}
+				cl = commonTestUtils.InitClient(resources)
+			})
+
+			DescribeTable("should consume ApiServer config if HCO one is not explicitly set",
+				func(initApiTlsSecurityProfile, initHCOTlsSecurityProfile, midApiTlsSecurityProfile, midHCOTlsSecurityProfile, finApiTlsSecurityProfile, finHCOTlsSecurityProfile *openshiftconfigv1.TLSSecurityProfile, initExpected, midExpected, finExpected openshiftconfigv1.TLSProtocolVersion) {
+					apiServer.Spec.TLSSecurityProfile = initApiTlsSecurityProfile
+					err = cl.Update(context.TODO(), apiServer)
+					Expect(err).ToNot(HaveOccurred())
+					err = util.GetClusterInfo().Init(context.TODO(), cl, logger)
+					Expect(err).ToNot(HaveOccurred())
+					ci := util.GetClusterInfo()
+					Expect(ci.IsOpenshift()).To(BeTrue())
+
+					wh := NewWebhookHandler(logger, cli, HcoValidNamespace, true, initHCOTlsSecurityProfile)
+
+					_, minTypedTLSVersion := wh.selectCipherSuitesAndMinTLSVersion()
+					Expect(minTypedTLSVersion).Should(Equal(initExpected))
+
+					apiServer.Spec.TLSSecurityProfile = midApiTlsSecurityProfile
+					err = cl.Update(context.TODO(), apiServer)
+					hcoTlsConfigCache = midHCOTlsSecurityProfile
+					err = util.GetClusterInfo().RefreshAPIServerCR(context.TODO(), cl)
+
+					_, minTypedTLSVersion = wh.selectCipherSuitesAndMinTLSVersion()
+					Expect(minTypedTLSVersion).Should(Equal(midExpected))
+
+					apiServer.Spec.TLSSecurityProfile = finApiTlsSecurityProfile
+					err = cl.Update(context.TODO(), apiServer)
+					hcoTlsConfigCache = finHCOTlsSecurityProfile
+					err = util.GetClusterInfo().RefreshAPIServerCR(context.TODO(), cl)
+					Expect(err).ToNot(HaveOccurred())
+					_, minTypedTLSVersion = wh.selectCipherSuitesAndMinTLSVersion()
+					Expect(minTypedTLSVersion).Should(Equal(finExpected))
+				},
+				Entry("nil on APIServer, nil on HCO -> old on API server -> nil on API server",
+					nil,
+					nil,
+					&oldTLSSecurityProfile,
+					nil,
+					nil,
+					nil,
+					openshiftconfigv1.TLSProfiles[openshiftconfigv1.TLSProfileIntermediateType].MinTLSVersion,
+					openshiftconfigv1.TLSProfiles[openshiftconfigv1.TLSProfileOldType].MinTLSVersion,
+					openshiftconfigv1.TLSProfiles[openshiftconfigv1.TLSProfileIntermediateType].MinTLSVersion,
+				),
+				Entry("nil on APIServer, nil on HCO -> modern on HCO -> nil on HCO",
+					nil,
+					nil,
+					nil,
+					&modernTLSSecurityProfile,
+					nil,
+					nil,
+					openshiftconfigv1.TLSProfiles[openshiftconfigv1.TLSProfileIntermediateType].MinTLSVersion,
+					openshiftconfigv1.TLSProfiles[openshiftconfigv1.TLSProfileModernType].MinTLSVersion,
+					openshiftconfigv1.TLSProfiles[openshiftconfigv1.TLSProfileIntermediateType].MinTLSVersion,
+				),
+				Entry("old on APIServer, nil on HCO -> intermediate on HCO -> old on API server",
+					&oldTLSSecurityProfile,
+					nil,
+					&oldTLSSecurityProfile,
+					&intermediateTLSSecurityProfile,
+					&oldTLSSecurityProfile,
+					nil,
+					openshiftconfigv1.TLSProfiles[openshiftconfigv1.TLSProfileOldType].MinTLSVersion,
+					openshiftconfigv1.TLSProfiles[openshiftconfigv1.TLSProfileIntermediateType].MinTLSVersion,
+					openshiftconfigv1.TLSProfiles[openshiftconfigv1.TLSProfileOldType].MinTLSVersion,
+				),
+				Entry("old on APIServer, modern on HCO -> intermediate on HCO -> modern on API server, intermediate on HCO",
+					&oldTLSSecurityProfile,
+					&modernTLSSecurityProfile,
+					&oldTLSSecurityProfile,
+					&intermediateTLSSecurityProfile,
+					&modernTLSSecurityProfile,
+					&intermediateTLSSecurityProfile,
+					openshiftconfigv1.TLSProfiles[openshiftconfigv1.TLSProfileModernType].MinTLSVersion,
+					openshiftconfigv1.TLSProfiles[openshiftconfigv1.TLSProfileIntermediateType].MinTLSVersion,
+					openshiftconfigv1.TLSProfiles[openshiftconfigv1.TLSProfileIntermediateType].MinTLSVersion,
+				),
+			)
 
 		})
 
