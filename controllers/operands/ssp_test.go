@@ -696,7 +696,7 @@ var _ = Describe("SSP Operands", func() {
 
 					storageFromFile := &cdiv1beta1.StorageSpec{
 						VolumeName:       "volume-name",
-						StorageClassName: pointer.StringPtr("testName"),
+						StorageClassName: pointer.String("testName"),
 					}
 					image1FromFile.Spec.Template.Spec.Storage = storageFromFile
 
@@ -938,9 +938,9 @@ var _ = Describe("SSP Operands", func() {
 					fedoraDic.Spec.GarbageCollect = &garbageCollect
 					fedoraDic.Spec.ImportsToKeep = pointer.Int32(5)
 					fedoraDic.Spec.Template.Spec.Source.Registry = &cdiv1beta1.DataVolumeSourceRegistry{
-						URL: pointer.StringPtr("docker://not-the-same-image"),
+						URL: pointer.String("docker://not-the-same-image"),
 					}
-					fedoraDic.Spec.Template.Spec.Storage = &cdiv1beta1.StorageSpec{StorageClassName: pointer.StringPtr("someOtherStorageClass")}
+					fedoraDic.Spec.Template.Spec.Storage = &cdiv1beta1.StorageSpec{StorageClassName: pointer.String("someOtherStorageClass")}
 
 					hco.Spec.DataImportCronTemplates = []hcov1beta1.DataImportCronTemplate{*fedoraDic, image3, image4}
 					ssp, _, err := NewSSP(hco)
@@ -1135,7 +1135,7 @@ var _ = Describe("SSP Operands", func() {
 						modifiedCentos8 := sspCentos8.DeepCopy()
 
 						modifiedStorage := &cdiv1beta1.StorageSpec{
-							StorageClassName: pointer.StringPtr("anotherStorageClassName"),
+							StorageClassName: pointer.String("anotherStorageClassName"),
 							VolumeName:       "volumeName",
 						}
 

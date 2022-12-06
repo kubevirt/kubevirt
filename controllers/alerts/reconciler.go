@@ -159,8 +159,8 @@ func getDeploymentReference(deployment *appsv1.Deployment) metav1.OwnerReference
 		Kind:               "Deployment",
 		Name:               deployment.GetName(),
 		UID:                deployment.GetUID(),
-		BlockOwnerDeletion: pointer.BoolPtr(false),
-		Controller:         pointer.BoolPtr(false),
+		BlockOwnerDeletion: pointer.Bool(false),
+		Controller:         pointer.Bool(false),
 	}
 }
 

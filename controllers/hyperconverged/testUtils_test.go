@@ -212,8 +212,8 @@ func getBasicDeployment() *BasicExpected {
 		Kind:               "Deployment",
 		Name:               "hco-operator",
 		UID:                "1234567890",
-		BlockOwnerDeletion: pointer.BoolPtr(false),
-		Controller:         pointer.BoolPtr(false),
+		BlockOwnerDeletion: pointer.Bool(false),
+		Controller:         pointer.Bool(false),
 	}
 	res.mService = alerts.NewMetricsService(namespace, deploymentRef)
 	res.serviceMonitor = alerts.NewServiceMonitor(namespace, deploymentRef)

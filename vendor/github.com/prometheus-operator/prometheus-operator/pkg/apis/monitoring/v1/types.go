@@ -178,11 +178,13 @@ type CommonPrometheusFields struct {
 	ServiceAccountName string `json:"serviceAccountName,omitempty"`
 	// Secrets is a list of Secrets in the same namespace as the Prometheus
 	// object, which shall be mounted into the Prometheus Pods.
-	// The Secrets are mounted into /etc/prometheus/secrets/<secret-name>.
+	// Each Secret is added to the StatefulSet definition as a volume named `secret-<secret-name>`.
+	// The Secrets are mounted into /etc/prometheus/secrets/<secret-name> in the 'prometheus' container.
 	Secrets []string `json:"secrets,omitempty"`
 	// ConfigMaps is a list of ConfigMaps in the same namespace as the Prometheus
 	// object, which shall be mounted into the Prometheus Pods.
-	// The ConfigMaps are mounted into /etc/prometheus/configmaps/<configmap-name>.
+	// Each ConfigMap is added to the StatefulSet definition as a volume named `configmap-<configmap-name>`.
+	// The ConfigMaps are mounted into /etc/prometheus/configmaps/<configmap-name> in the 'prometheus' container.
 	ConfigMaps []string `json:"configMaps,omitempty"`
 	// If specified, the pod's scheduling constraints.
 	Affinity *v1.Affinity `json:"affinity,omitempty"`
@@ -321,7 +323,7 @@ type CommonPrometheusFields struct {
 	// AdditionalArgs allows setting additional arguments for the Prometheus container.
 	// It is intended for e.g. activating hidden flags which are not supported by
 	// the dedicated configuration options yet. The arguments are passed as-is to the
-	// Prometheus container which may cause issues if they are invalid or not supporeted
+	// Prometheus container which may cause issues if they are invalid or not supported
 	// by the given Prometheus version.
 	// In case of an argument conflict (e.g. an argument which is already set by the
 	// operator itself) or when providing an invalid argument the reconciliation will
@@ -334,14 +336,22 @@ type CommonPrometheusFields struct {
 	// to be excluded from enforcing a namespace label of origin.
 	// Applies only if enforcedNamespaceLabel set to true.
 	ExcludedFromEnforcement []ObjectReference `json:"excludedFromEnforcement,omitempty"`
+	// Use the host's network namespace if true.
+	// Make sure to understand the security implications if you want to enable it.
+	// When hostNetwork is enabled, this will set dnsPolicy to ClusterFirstWithHostNet automatically.
+	HostNetwork bool `json:"hostNetwork,omitempty"`
 }
 
 // +genclient
 // +k8s:openapi-gen=true
 // +kubebuilder:resource:categories="prometheus-operator",shortName="prom"
 // +kubebuilder:printcolumn:name="Version",type="string",JSONPath=".spec.version",description="The version of Prometheus"
-// +kubebuilder:printcolumn:name="Replicas",type="integer",JSONPath=".spec.replicas",description="The desired replicas number of Prometheuses"
+// +kubebuilder:printcolumn:name="Desired",type="integer",JSONPath=".spec.replicas",description="The number of desired replicas"
+// +kubebuilder:printcolumn:name="Ready",type="integer",JSONPath=".status.availableReplicas",description="The number of ready replicas"
+// +kubebuilder:printcolumn:name="Reconciled",type="string",JSONPath=".status.conditions[?(@.type == 'Reconciled')].status"
+// +kubebuilder:printcolumn:name="Available",type="string",JSONPath=".status.conditions[?(@.type == 'Available')].status"
 // +kubebuilder:printcolumn:name="Age",type="date",JSONPath=".metadata.creationTimestamp"
+// +kubebuilder:printcolumn:name="Paused",type="boolean",JSONPath=".status.paused",description="Whether the resource reconciliation is paused or not",priority=1
 // +kubebuilder:subresource:status
 
 // Prometheus defines a Prometheus deployment.
@@ -503,6 +513,19 @@ type PrometheusSpec struct {
 	// ensure only clients authorized to perform these actions can do so.
 	// For more information see https://prometheus.io/docs/prometheus/latest/querying/api/#tsdb-admin-apis
 	EnableAdminAPI bool `json:"enableAdminAPI,omitempty"`
+	// Defines the runtime reloadable configuration of the timeseries database
+	// (TSDB).
+	TSDB TSDBSpec `json:"tsdb,omitempty"`
+}
+
+type TSDBSpec struct {
+	// Configures how old an out-of-order/out-of-bounds sample can be w.r.t.
+	// the TSDB max time.
+	// An out-of-order/out-of-bounds sample is ingested into the TSDB as long as
+	// the timestamp of the sample is >= (TSDB.MaxTime - outOfOrderTimeWindow).
+	// Out of order ingestion is an experimental feature and requires
+	// Prometheus >= v2.39.0.
+	OutOfOrderTimeWindow Duration `json:"outOfOrderTimeWindow,omitempty"`
 }
 
 type Exemplars struct {
@@ -630,14 +653,29 @@ type PrometheusCondition struct {
 	// Human-readable message indicating details for the condition's last transition.
 	// +optional
 	Message string `json:"message,omitempty"`
+	// ObservedGeneration represents the .metadata.generation that the condition was set based upon.
+	// For instance, if .metadata.generation is currently 12, but the .status.conditions[x].observedGeneration is 9, the condition is out of date
+	// with respect to the current state of the instance.
+	ObservedGeneration int64 `json:"observedGeneration,omitempty"`
 }
 
 type PrometheusConditionType string
 
 const (
-	// Available indicates whether enough Prometheus pods are ready to provide the service.
+	// Available indicates whether enough Prometheus pods are ready to provide
+	// the service.
+	// The possible status values for this condition type are:
+	// - True: all pods are running and ready, the service is fully available.
+	// - Degraded: some pods aren't ready, the service is partially available.
+	// - False: no pods are running, the service is totally unavailable.
+	// - Unknown: the operator couldn't determine the condition status.
 	PrometheusAvailable PrometheusConditionType = "Available"
-	// Reconciled indicates that the operator has reconciled the state of the underlying resources with the Prometheus object spec.
+	// Reconciled indicates whether the operator has reconciled the state of
+	// the underlying resources with the Prometheus object spec.
+	// The possible status values for this condition type are:
+	// - True: the reconciliation was successful.
+	// - False: the reconciliation failed.
+	// - Unknown: the operator couldn't determine the condition status.
 	PrometheusReconciled PrometheusConditionType = "Reconciled"
 )
 
@@ -917,16 +955,26 @@ type ThanosSpec struct {
 	// ObjectStorageConfigFile specifies the path of the object storage configuration file.
 	// When used alongside with ObjectStorageConfig, ObjectStorageConfigFile takes precedence.
 	ObjectStorageConfigFile *string `json:"objectStorageConfigFile,omitempty"`
-	// ListenLocal makes the Thanos sidecar listen on loopback, so that it
-	// does not bind against the Pod IP.
+	// If true, the Thanos sidecar listens on the loopback interface
+	// for the HTTP and gRPC endpoints.
+	// It takes precedence over `grpcListenLocal` and `httpListenLocal`.
+	// Deprecated: use `grpcListenLocal` and `httpListenLocal` instead.
 	ListenLocal bool `json:"listenLocal,omitempty"`
+	// If true, the Thanos sidecar listens on the loopback interface
+	// for the gRPC endpoints.
+	// It has no effect if `listenLocal` is true.
+	GRPCListenLocal bool `json:"grpcListenLocal,omitempty"`
+	// If true, the Thanos sidecar listens on the loopback interface
+	// for the HTTP endpoints.
+	// It has no effect if `listenLocal` is true.
+	HTTPListenLocal bool `json:"httpListenLocal,omitempty"`
 	// TracingConfig configures tracing in Thanos. This is an experimental feature, it may change in any upcoming release in a breaking way.
 	TracingConfig *v1.SecretKeySelector `json:"tracingConfig,omitempty"`
 	// TracingConfig specifies the path of the tracing configuration file.
 	// When used alongside with TracingConfig, TracingConfigFile takes precedence.
 	TracingConfigFile string `json:"tracingConfigFile,omitempty"`
-	// GRPCServerTLSConfig configures the gRPC server from which Thanos Querier reads
-	// recorded rule data.
+	// GRPCServerTLSConfig configures the TLS parameters for the gRPC server
+	// providing the StoreAPI.
 	// Note: Currently only the CAFile, CertFile, and KeyFile fields are supported.
 	// Maps to the '--grpc-server-tls-*' CLI args.
 	GRPCServerTLSConfig *TLSConfig `json:"grpcServerTlsConfig,omitempty"`
@@ -945,7 +993,7 @@ type ThanosSpec struct {
 	VolumeMounts []v1.VolumeMount `json:"volumeMounts,omitempty"`
 	// AdditionalArgs allows setting additional arguments for the Thanos container.
 	// The arguments are passed as-is to the Thanos container which may cause issues
-	// if they are invalid or not supporeted the given Thanos version.
+	// if they are invalid or not supported the given Thanos version.
 	// In case of an argument conflict (e.g. an argument which is already set by the
 	// operator itself) or when providing an invalid argument the reconciliation will
 	// fail and an error will be logged.
@@ -1074,6 +1122,9 @@ type RemoteReadSpec struct {
 	TLSConfig *TLSConfig `json:"tlsConfig,omitempty"`
 	// Optional ProxyURL.
 	ProxyURL string `json:"proxyUrl,omitempty"`
+	// Whether to use the external labels as selectors for the remote read endpoint.
+	// Requires Prometheus v2.34.0 and above.
+	FilterExternalLabels *bool `json:"filterExternalLabels,omitempty"`
 }
 
 // LabelName is a valid Prometheus label name which may only contain ASCII letters, numbers, as well as underscores.
@@ -1153,6 +1204,8 @@ type AlertmanagerEndpoints struct {
 	APIVersion string `json:"apiVersion,omitempty"`
 	// Timeout is a per-target Alertmanager timeout when pushing alerts.
 	Timeout *Duration `json:"timeout,omitempty"`
+	// Whether to enable HTTP2.
+	EnableHttp2 *bool `json:"enableHttp2,omitempty"`
 }
 
 // +genclient
@@ -1202,6 +1255,9 @@ type ServiceMonitorSpec struct {
 	// Per-scrape limit on length of labels value that will be accepted for a sample.
 	// Only valid in Prometheus versions 2.27.0 and newer.
 	LabelValueLengthLimit uint64 `json:"labelValueLengthLimit,omitempty"`
+	// Attaches node metadata to discovered targets.
+	// Requires Prometheus v2.37.0 and above.
+	AttachMetadata *AttachMetadata `json:"attachMetadata,omitempty"`
 }
 
 // Endpoint defines a scrapeable endpoint serving Prometheus metrics.
@@ -1256,6 +1312,9 @@ type Endpoint struct {
 	FollowRedirects *bool `json:"followRedirects,omitempty"`
 	// Whether to enable HTTP2.
 	EnableHttp2 *bool `json:"enableHttp2,omitempty"`
+	// Drop pods that are not running. (Failed, Succeeded). Enabled by default.
+	// More info: https://kubernetes.io/docs/concepts/workloads/pods/pod-lifecycle/#pod-phase
+	FilterRunning *bool `json:"filterRunning,omitempty"`
 }
 
 // +genclient
@@ -1296,8 +1355,8 @@ type PodMonitorSpec struct {
 	// Per-scrape limit on length of labels value that will be accepted for a sample.
 	// Only valid in Prometheus versions 2.27.0 and newer.
 	LabelValueLengthLimit uint64 `json:"labelValueLengthLimit,omitempty"`
-	// Attaches node metadata to discovered targets. Only valid for role: pod.
-	// Only valid in Prometheus versions 2.35.0 and newer.
+	// Attaches node metadata to discovered targets.
+	// Requires Prometheus v2.35.0 and above.
 	AttachMetadata *AttachMetadata `json:"attachMetadata,omitempty"`
 }
 
@@ -1356,6 +1415,9 @@ type PodMetricsEndpoint struct {
 	FollowRedirects *bool `json:"followRedirects,omitempty"`
 	// Whether to enable HTTP2.
 	EnableHttp2 *bool `json:"enableHttp2,omitempty"`
+	// Drop pods that are not running. (Failed, Succeeded). Enabled by default.
+	// More info: https://kubernetes.io/docs/concepts/workloads/pods/pod-lifecycle/#pod-phase
+	FilterRunning *bool `json:"filterRunning,omitempty"`
 }
 
 // PodMetricsEndpointTLSConfig specifies TLS configuration parameters.
@@ -1595,9 +1657,9 @@ func (c *SecretOrConfigMap) Validate() error {
 // SafeTLSConfig specifies safe TLS configuration parameters.
 // +k8s:openapi-gen=true
 type SafeTLSConfig struct {
-	// Struct containing the CA cert to use for the targets.
+	// Certificate authority used when verifying server certificates.
 	CA SecretOrConfigMap `json:"ca,omitempty"`
-	// Struct containing the client cert file for the targets.
+	// Client certificate to present when doing client-authentication.
 	Cert SecretOrConfigMap `json:"cert,omitempty"`
 	// Secret containing the client key file for the targets.
 	KeySecret *v1.SecretKeySelector `json:"keySecret,omitempty"`
@@ -1753,6 +1815,8 @@ type PrometheusRule struct {
 // +k8s:openapi-gen=true
 type PrometheusRuleSpec struct {
 	// Content of Prometheus rule file
+	// +listType=map
+	// +listMapKey=name
 	Groups []RuleGroup `json:"groups,omitempty"`
 }
 
@@ -1760,14 +1824,20 @@ type PrometheusRuleSpec struct {
 // upstream Prometheus struct definitions don't have json struct tags.
 
 // RuleGroup is a list of sequentially evaluated recording and alerting rules.
-// Note: PartialResponseStrategy is only used by ThanosRuler and will
-// be ignored by Prometheus instances.  Valid values for this field are 'warn'
-// or 'abort'.  More info: https://github.com/thanos-io/thanos/blob/main/docs/components/rule.md#partial-response
 // +k8s:openapi-gen=true
 type RuleGroup struct {
-	Name                    string `json:"name"`
-	Interval                string `json:"interval,omitempty"`
-	Rules                   []Rule `json:"rules"`
+	// Name of the rule group.
+	// +kubebuilder:validation:MinLength=1
+	Name string `json:"name"`
+	// Interval determines how often rules in the group are evaluated.
+	Interval Duration `json:"interval,omitempty"`
+	// List of alerting and recording rules.
+	Rules []Rule `json:"rules"`
+	// PartialResponseStrategy is only used by ThanosRuler and will
+	// be ignored by Prometheus instances.
+	// More info: https://github.com/thanos-io/thanos/blob/main/docs/components/rule.md#partial-response
+	// +kubebuilder:validation:Pattern="^(?i)(abort|warn)?$"
+	// +kubebuilder:default:=""
 	PartialResponseStrategy string `json:"partial_response_strategy,omitempty"`
 }
 
@@ -1775,20 +1845,30 @@ type RuleGroup struct {
 // See Prometheus documentation: [alerting](https://www.prometheus.io/docs/prometheus/latest/configuration/alerting_rules/) or [recording](https://www.prometheus.io/docs/prometheus/latest/configuration/recording_rules/#recording-rules) rule
 // +k8s:openapi-gen=true
 type Rule struct {
-	Record      string             `json:"record,omitempty"`
-	Alert       string             `json:"alert,omitempty"`
-	Expr        intstr.IntOrString `json:"expr"`
-	For         string             `json:"for,omitempty"`
-	Labels      map[string]string  `json:"labels,omitempty"`
-	Annotations map[string]string  `json:"annotations,omitempty"`
+	// Name of the time series to output to. Must be a valid metric name.
+	// Only one of `record` and `alert` must be set.
+	Record string `json:"record,omitempty"`
+	// Name of the alert. Must be a valid label value.
+	// Only one of `record` and `alert` must be set.
+	Alert string `json:"alert,omitempty"`
+	// PromQL expression to evaluate.
+	Expr intstr.IntOrString `json:"expr"`
+	// Alerts are considered firing once they have been returned for this long.
+	For Duration `json:"for,omitempty"`
+	// Labels to add or overwrite.
+	Labels map[string]string `json:"labels,omitempty"`
+	// Annotations to add to each alert.
+	// Only valid for alerting rules.
+	Annotations map[string]string `json:"annotations,omitempty"`
 }
 
 // +genclient
 // +k8s:openapi-gen=true
 // +kubebuilder:resource:categories="prometheus-operator",shortName="am"
 // +kubebuilder:printcolumn:name="Version",type="string",JSONPath=".spec.version",description="The version of Alertmanager"
-// +kubebuilder:printcolumn:name="Replicas",type="integer",JSONPath=".spec.replicas",description="The desired replicas number of Alertmanagers"
+// +kubebuilder:printcolumn:name="Replicas",type="integer",JSONPath=".spec.replicas",description="The number of desired replicas"
 // +kubebuilder:printcolumn:name="Age",type="date",JSONPath=".metadata.creationTimestamp"
+// +kubebuilder:printcolumn:name="Paused",type="boolean",JSONPath=".status.paused",description="Whether the resource reconciliation is paused or not",priority=1
 
 // Alertmanager describes an Alertmanager cluster.
 type Alertmanager struct {
@@ -1837,22 +1917,25 @@ type AlertmanagerSpec struct {
 	ImagePullSecrets []v1.LocalObjectReference `json:"imagePullSecrets,omitempty"`
 	// Secrets is a list of Secrets in the same namespace as the Alertmanager
 	// object, which shall be mounted into the Alertmanager Pods.
-	// The Secrets are mounted into /etc/alertmanager/secrets/<secret-name>.
+	// Each Secret is added to the StatefulSet definition as a volume named `secret-<secret-name>`.
+	// The Secrets are mounted into `/etc/alertmanager/secrets/<secret-name>` in the 'alertmanager' container.
 	Secrets []string `json:"secrets,omitempty"`
 	// ConfigMaps is a list of ConfigMaps in the same namespace as the Alertmanager
 	// object, which shall be mounted into the Alertmanager Pods.
-	// The ConfigMaps are mounted into /etc/alertmanager/configmaps/<configmap-name>.
+	// Each ConfigMap is added to the StatefulSet definition as a volume named `configmap-<configmap-name>`.
+	// The ConfigMaps are mounted into `/etc/alertmanager/configmaps/<configmap-name>` in the 'alertmanager' container.
 	ConfigMaps []string `json:"configMaps,omitempty"`
 	// ConfigSecret is the name of a Kubernetes Secret in the same namespace as the
 	// Alertmanager object, which contains the configuration for this Alertmanager
-	// instance. If empty, it defaults to 'alertmanager-<alertmanager-name>'.
+	// instance. If empty, it defaults to `alertmanager-<alertmanager-name>`.
 	//
 	// The Alertmanager configuration should be available under the
 	// `alertmanager.yaml` key. Additional keys from the original secret are
-	// copied to the generated secret.
+	// copied to the generated secret and mounted into the
+	// `/etc/alertmanager/config` directory in the `alertmanager` container.
 	//
 	// If either the secret or the `alertmanager.yaml` key is missing, the
-	// operator provisions an Alertmanager configuration with one empty
+	// operator provisions a minimal Alertmanager configuration with one empty
 	// receiver (effectively dropping alert notifications).
 	ConfigSecret string `json:"configSecret,omitempty"`
 	// Log level for Alertmanager to be configured with.
@@ -1950,6 +2033,9 @@ type AlertmanagerSpec struct {
 	ForceEnableClusterMode bool `json:"forceEnableClusterMode,omitempty"`
 	// AlertmanagerConfigs to be selected for to merge and configure Alertmanager with.
 	AlertmanagerConfigSelector *metav1.LabelSelector `json:"alertmanagerConfigSelector,omitempty"`
+	// The AlertmanagerConfigMatcherStrategy defines how AlertmanagerConfig objects match the alerts.
+	// In the future more options may be added.
+	AlertmanagerConfigMatcherStrategy AlertmanagerConfigMatcherStrategy `json:"alertmanagerConfigMatcherStrategy,omitempty"`
 	// Namespaces to be selected for AlertmanagerConfig discovery. If nil, only
 	// check own namespace.
 	AlertmanagerConfigNamespaceSelector *metav1.LabelSelector `json:"alertmanagerConfigNamespaceSelector,omitempty"`
@@ -1971,6 +2057,16 @@ type AlertmanagerSpec struct {
 	AlertmanagerConfiguration *AlertmanagerConfiguration `json:"alertmanagerConfiguration,omitempty"`
 }
 
+// AlertmanagerConfigMatcherStrategy defines the strategy used by AlertmanagerConfig objects to match alerts.
+type AlertmanagerConfigMatcherStrategy struct {
+	// If set to `OnNamespace`, the operator injects a label matcher matching the namespace of the AlertmanagerConfig object for all its routes and inhibition rules.
+	// `None` will not add any additional matchers other than the ones specified in the AlertmanagerConfig.
+	// Default is `OnNamespace`.
+	// +kubebuilder:validation:Enum="OnNamespace";"None"
+	// +kubebuilder:default:="OnNamespace"
+	Type string `json:"type,omitempty"`
+}
+
 // AlertmanagerConfiguration defines the Alertmanager configuration.
 // +k8s:openapi-gen=true
 type AlertmanagerConfiguration struct {
@@ -1982,6 +2078,9 @@ type AlertmanagerConfiguration struct {
 	// Defines the global parameters of the Alertmanager configuration.
 	// +optional
 	Global *AlertmanagerGlobalConfig `json:"global,omitempty"`
+	// Custom notification templates.
+	// +optional
+	Templates []SecretOrConfigMap `json:"templates,omitempty"`
 }
 
 // AlertmanagerGlobalConfig configures parameters that are valid in all other configuration contexts.
@@ -2165,7 +2264,7 @@ func (l *PrometheusRuleList) DeepCopyObject() runtime.Object {
 	return l.DeepCopy()
 }
 
-// ProbeTLSConfig specifies TLS configuration parameters.
+// ProbeTLSConfig specifies TLS configuration parameters for the prober.
 // +k8s:openapi-gen=true
 type ProbeTLSConfig struct {
 	SafeTLSConfig `json:",inline"`

@@ -67,7 +67,7 @@ func NewKvUiPluginDeplymnt(hc *hcov1beta1.HyperConverged) (*appsv1.Deployment, e
 			Namespace: hc.Namespace,
 		},
 		Spec: appsv1.DeploymentSpec{
-			Replicas: pointer.Int32Ptr(1),
+			Replicas: pointer.Int32(1),
 			Selector: &metav1.LabelSelector{
 				MatchLabels: map[string]string{
 					"app": kvUIPluginName,
@@ -125,7 +125,7 @@ func NewKvUiPluginDeplymnt(hc *hcov1beta1.HyperConverged) (*appsv1.Deployment, e
 							VolumeSource: corev1.VolumeSource{
 								Secret: &corev1.SecretVolumeSource{
 									SecretName:  kvServingCertName,
-									DefaultMode: pointer.Int32Ptr(420),
+									DefaultMode: pointer.Int32(420),
 								},
 							},
 						},
