@@ -582,6 +582,7 @@ func newSidecarContainerRenderer(sidecarName string, vmiSpec *v1.VirtualMachineI
 
 	if util.IsNonRootVMI(vmiSpec) {
 		sidecarOpts = append(sidecarOpts, WithNonRoot(userId))
+		sidecarOpts = append(sidecarOpts, WithDropALLCapabilities())
 	}
 	return NewContainerSpecRenderer(
 		sidecarName,

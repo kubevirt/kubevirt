@@ -3395,15 +3395,18 @@ var _ = Describe("Template", func() {
 			Expect(false).To(BeTrue())
 		})
 
-		DescribeTable("should require the correct set of capabilites", func(runtimeUser int, addedCaps []kubev1.Capability, droppedCaps []kubev1.Capability) {
-			vmi := api.NewMinimalVMI("fake-vmi")
-			vmi.Status.RuntimeUser = uint64(runtimeUser)
+		DescribeTable("should require the correct set of capabilites", func(
+			getVMI func() *v1.VirtualMachineInstance,
+			containerName string,
+			addedCaps []kubev1.Capability,
+			droppedCaps []kubev1.Capability) {
+			vmi := getVMI()
 
 			pod, err := svc.RenderLaunchManifest(vmi)
 			Expect(err).ToNot(HaveOccurred())
 
 			for _, container := range pod.Spec.Containers {
-				if container.Name == "compute" {
+				if container.Name == containerName {
 					Expect(container.SecurityContext.Capabilities.Add).To(Equal(addedCaps))
 					Expect(container.SecurityContext.Capabilities.Drop).To(Equal(droppedCaps))
 					return
@@ -3411,8 +3414,24 @@ var _ = Describe("Template", func() {
 			}
 			Expect(false).To(BeTrue())
 		},
-			Entry("on a root virt-launcher", util.RootUser, []kubev1.Capability{CAP_NET_BIND_SERVICE, CAP_SYS_NICE}, nil),
-			Entry("on a non-root virt-launcher", util.NonRootUID, []kubev1.Capability{CAP_NET_BIND_SERVICE}, []kubev1.Capability{"ALL"}),
+			Entry("on a root virt-launcher", func() *v1.VirtualMachineInstance {
+				return api.NewMinimalVMI("fake-vmi")
+			}, "compute", []kubev1.Capability{CAP_NET_BIND_SERVICE, CAP_SYS_NICE}, nil),
+			Entry("on a non-root virt-launcher", func() *v1.VirtualMachineInstance {
+				nonRootUser := util.NonRootUID
+				vmi := api.NewMinimalVMI("fake-vmi")
+				vmi.Status.RuntimeUser = uint64(nonRootUser)
+				return vmi
+			}, "compute", []kubev1.Capability{CAP_NET_BIND_SERVICE}, []kubev1.Capability{"ALL"}),
+			Entry("on a sidecar container", func() *v1.VirtualMachineInstance {
+				nonRootUser := util.NonRootUID
+				vmi := api.NewMinimalVMI("fake-vmi")
+				vmi.Status.RuntimeUser = uint64(nonRootUser)
+				vmi.Annotations = map[string]string{
+					"hooks.kubevirt.io/hookSidecars": `[{"args": ["--version", "v1alpha2"],"image": "test/test:test", "imagePullPolicy": "IfNotPresent"}]`,
+				}
+				return vmi
+			}, "hook-sidecar-0", nil, []kubev1.Capability{"ALL"}),
 		)
 
 		It("Should run as non-root except compute", func() {
