@@ -85,6 +85,7 @@ import (
 	. "kubevirt.io/kubevirt/tests/framework/matcher"
 	"kubevirt.io/kubevirt/tests/libnode"
 	"kubevirt.io/kubevirt/tests/libstorage"
+	"kubevirt.io/kubevirt/tests/libvmi"
 	"kubevirt.io/kubevirt/tests/libwait"
 	"kubevirt.io/kubevirt/tests/testsuite"
 	util2 "kubevirt.io/kubevirt/tests/util"
@@ -2964,7 +2965,7 @@ spec:
 
 	Context("[Serial] Seccomp configuration", Serial, func() {
 
-		Context("Kubevirt policy", func() {
+		Context("Kubevirt profile", func() {
 			var nodeName string
 
 			const expectedSeccompProfilePath = "/proc/1/root/var/lib/kubelet/seccomp/kubevirt/kubevirt.json"
@@ -3023,6 +3024,37 @@ spec:
 			})
 		})
 
+		Context("VirtualMachineInstance Profile", func() {
+			DescribeTable("with VirtualMachineInstance Profile set to", func(virtualMachineProfile *v1.VirtualMachineInstanceProfile, expectedProfile *k8sv1.SeccompProfile) {
+				By("Configuring VirtualMachineInstance Profile")
+				kv := util2.GetCurrentKv(virtClient)
+				if kv.Spec.Configuration.SeccompConfiguration == nil {
+					kv.Spec.Configuration.SeccompConfiguration = &v1.SeccompConfiguration{}
+				}
+				kv.Spec.Configuration.SeccompConfiguration.VirtualMachineInstanceProfile = virtualMachineProfile
+				tests.UpdateKubeVirtConfigValueAndWait(kv.Spec.Configuration)
+
+				By("Checking launcher seccomp policy")
+				vmi := libvmi.NewCirros()
+				vmi = tests.RunVMIAndExpectScheduling(vmi, 60)
+				pod, err := libvmi.GetPodByVirtualMachineInstance(vmi, vmi.Namespace)
+				Expect(err).NotTo(HaveOccurred())
+				var podProfile *k8sv1.SeccompProfile
+				if pod.Spec.SecurityContext != nil {
+					podProfile = pod.Spec.SecurityContext.SeccompProfile
+				}
+
+				Expect(podProfile).To(Equal(expectedProfile))
+			},
+				Entry("default should not set profile", nil, nil),
+				Entry("custom should use localhost", &v1.VirtualMachineInstanceProfile{
+					CustomProfile: &v1.CustomProfile{
+						LocalhostProfile: pointer.String("kubevirt/kubevirt.json"),
+					},
+				},
+					&k8sv1.SeccompProfile{Type: k8sv1.SeccompProfileTypeLocalhost, LocalhostProfile: pointer.String("kubevirt/kubevirt.json")}),
+			)
+		})
 	})
 })
 

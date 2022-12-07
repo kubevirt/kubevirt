@@ -193,6 +193,36 @@ var _ = Describe("Template", func() {
 
 			return vmi
 		}
+		It("should not set seccomp profile by default", func() {
+			_, kvInformer, svc = configFactory(defaultArch)
+			pod, err := svc.RenderLaunchManifest(newMinimalWithContainerDisk("random"))
+			Expect(err).NotTo(HaveOccurred())
+
+			Expect(pod.Spec.SecurityContext.SeccompProfile).To(BeNil())
+		})
+
+		It("should set seccomp profile when configured", func() {
+			expectedProfile := &kubev1.SeccompProfile{
+				Type:             kubev1.SeccompProfileTypeLocalhost,
+				LocalhostProfile: pointer.String("kubevirt/kubevirt.json"),
+			}
+			_, kvInformer, svc = configFactory(defaultArch)
+			kvConfig := kv.DeepCopy()
+			kvConfig.Spec.Configuration.SeccompConfiguration = &v1.SeccompConfiguration{
+				VirtualMachineInstanceProfile: &v1.VirtualMachineInstanceProfile{
+					CustomProfile: &v1.CustomProfile{
+						LocalhostProfile: pointer.String("kubevirt/kubevirt.json"),
+					},
+				},
+			}
+			testutils.UpdateFakeKubeVirtClusterConfig(kvInformer, kvConfig)
+
+			pod, err := svc.RenderLaunchManifest(newMinimalWithContainerDisk("random"))
+			Expect(err).NotTo(HaveOccurred())
+
+			Expect(pod.Spec.SecurityContext.SeccompProfile).To(BeEquivalentTo(expectedProfile))
+
+		})
 
 		Context("with NonRoot feature-gate", func() {
 			var vmi *v1.VirtualMachineInstance
@@ -3467,9 +3497,6 @@ var _ = Describe("Template", func() {
 				return api.NewMinimalVMI("fake-vmi")
 			}, &kubev1.PodSecurityContext{
 				RunAsUser: new(int64),
-				SeccompProfile: &kubev1.SeccompProfile{
-					Type: kubev1.SeccompProfileTypeUnconfined,
-				},
 			}),
 			Entry("on a non-root virt-launcher", func() *v1.VirtualMachineInstance {
 				vmi := api.NewMinimalVMI("fake-vmi")
@@ -3479,9 +3506,6 @@ var _ = Describe("Template", func() {
 				RunAsUser:    &nonRootUser,
 				RunAsGroup:   &nonRootUser,
 				RunAsNonRoot: pointer.Bool(true),
-				SeccompProfile: &kubev1.SeccompProfile{
-					Type: kubev1.SeccompProfileTypeRuntimeDefault,
-				},
 			}),
 			Entry("on a passt vmi", func() *v1.VirtualMachineInstance {
 				nonRootUser := util.NonRootUID
@@ -3497,9 +3521,6 @@ var _ = Describe("Template", func() {
 				RunAsUser:    &nonRootUser,
 				RunAsGroup:   &nonRootUser,
 				RunAsNonRoot: pointer.Bool(true),
-				SeccompProfile: &kubev1.SeccompProfile{
-					Type: kubev1.SeccompProfileTypeUnconfined,
-				},
 				SELinuxOptions: &kubev1.SELinuxOptions{
 					Type: "virt_launcher.process",
 				},
@@ -3516,28 +3537,22 @@ var _ = Describe("Template", func() {
 				RunAsUser:    &nonRootUser,
 				RunAsGroup:   &nonRootUser,
 				RunAsNonRoot: pointer.Bool(true),
-				SeccompProfile: &kubev1.SeccompProfile{
-					Type: kubev1.SeccompProfileTypeUnconfined,
-				},
 			}),
 		)
 
-		DescribeTable("should compute the correct security context when migrating and postcopy is", func(postCopyEnabled bool, expectedSeccompProfile kubev1.SeccompProfileType) {
+		It("should compute the correct security context when migrating and postcopy is enabled and PSASeccompAllowsUserfaultfd is disabled", func() {
 			vmi := api.NewMinimalVMI("fake-vmi")
 			vmi.Status.RuntimeUser = uint64(nonRootUser)
 			pod, err := svc.RenderLaunchManifest(vmi)
 			Expect(err).ToNot(HaveOccurred())
 
 			migrationConfig := &v1.MigrationConfiguration{
-				AllowPostCopy: pointer.Bool(postCopyEnabled),
+				AllowPostCopy: pointer.Bool(true),
 			}
 			pod, err = svc.RenderMigrationManifest(vmi, pod, migrationConfig)
 			Expect(err).ToNot(HaveOccurred())
-			Expect(pod.Spec.SecurityContext.SeccompProfile.Type).To(Equal(expectedSeccompProfile))
-		},
-			Entry("enabled", true, kubev1.SeccompProfileTypeUnconfined),
-			Entry("disabled", false, kubev1.SeccompProfileTypeRuntimeDefault),
-		)
+			Expect(pod.Spec.SecurityContext.SeccompProfile.Type).To(Equal(kubev1.SeccompProfileTypeUnconfined))
+		})
 
 		It("should compute the correct security context when rendering hotplug attachment pods", func() {
 			vmi := api.NewMinimalVMI("fake-vmi")
