@@ -82,7 +82,8 @@ func NewPrometheusService(namespace string) *corev1.Service {
 					Protocol: corev1.ProtocolTCP,
 				},
 			},
-			Type: corev1.ServiceTypeClusterIP,
+			Type:      corev1.ServiceTypeClusterIP,
+			ClusterIP: corev1.ClusterIPNone,
 		},
 	}
 }
