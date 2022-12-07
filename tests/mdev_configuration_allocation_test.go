@@ -157,7 +157,7 @@ var _ = Describe("[Serial][sig-compute]MediatedDevices", Serial, func() {
 
 		cleanupConfiguredMdevs := func() {
 			By("Deleting the VMI")
-			ExpectWithOffset(1, virtClient.VirtualMachineInstance(testsuite.GetTestNamespace(vmi)).Delete(vmi.Name, &metav1.DeleteOptions{})).To(Succeed(), "Should delete VMI")
+			ExpectWithOffset(1, virtClient.VirtualMachineInstance(testsuite.GetTestNamespace(vmi)).Delete(context.Background(), vmi.Name, &metav1.DeleteOptions{})).To(Succeed(), "Should delete VMI")
 			By("Creating a configuration for mediated devices")
 			config.MediatedDevicesConfiguration = &v1.MediatedDevicesConfiguration{}
 			tests.UpdateKubeVirtConfigValueAndWait(config)

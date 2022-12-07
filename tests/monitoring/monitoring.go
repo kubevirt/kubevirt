@@ -328,7 +328,7 @@ var _ = Describe("[Serial][sig-monitoring]Prometheus Alerts", Serial, func() {
 			waitForMetricValueWithLabels(virtClient, "kubevirt_migrate_vmi_succeeded_total", 1, labels)
 
 			By("Delete VMIs")
-			Expect(virtClient.VirtualMachineInstance(vmi.Namespace).Delete(vmi.Name, &metav1.DeleteOptions{})).To(Succeed())
+			Expect(virtClient.VirtualMachineInstance(vmi.Namespace).Delete(context.Background(), vmi.Name, &metav1.DeleteOptions{})).To(Succeed())
 			tests.WaitForVirtualMachineToDisappearWithTimeout(vmi, 240)
 		})
 
@@ -357,7 +357,7 @@ var _ = Describe("[Serial][sig-monitoring]Prometheus Alerts", Serial, func() {
 			waitForMetricValueWithLabels(virtClient, "kubevirt_migrate_vmi_failed_total", 1, labels)
 
 			By("Deleting the VMI")
-			Expect(virtClient.VirtualMachineInstance(vmi.Namespace).Delete(vmi.Name, &metav1.DeleteOptions{})).To(Succeed())
+			Expect(virtClient.VirtualMachineInstance(vmi.Namespace).Delete(context.Background(), vmi.Name, &metav1.DeleteOptions{})).To(Succeed())
 			tests.WaitForVirtualMachineToDisappearWithTimeout(vmi, 240)
 		})
 	})
@@ -574,7 +574,7 @@ var _ = Describe("[Serial][sig-monitoring]Prometheus Alerts", Serial, func() {
 
 			for i := 0; i < 60; i++ {
 				_, _ = virtClient.VirtualMachineInstance(util.NamespaceTestDefault).Create(context.Background(), vmi)
-				_ = virtClient.VirtualMachineInstance(util.NamespaceTestDefault).Delete(vmi.Name, &metav1.DeleteOptions{})
+				_ = virtClient.VirtualMachineInstance(util.NamespaceTestDefault).Delete(context.Background(), vmi.Name, &metav1.DeleteOptions{})
 
 				time.Sleep(500 * time.Millisecond)
 
@@ -597,7 +597,7 @@ var _ = Describe("[Serial][sig-monitoring]Prometheus Alerts", Serial, func() {
 
 			for i := 0; i < 60; i++ {
 				_, _ = virtClient.VirtualMachineInstance(util.NamespaceTestDefault).Create(context.Background(), vmi)
-				_ = virtClient.VirtualMachineInstance(util.NamespaceTestDefault).Delete(vmi.Name, &metav1.DeleteOptions{})
+				_ = virtClient.VirtualMachineInstance(util.NamespaceTestDefault).Delete(context.Background(), vmi.Name, &metav1.DeleteOptions{})
 
 				time.Sleep(500 * time.Millisecond)
 
@@ -632,7 +632,7 @@ var _ = Describe("[Serial][sig-monitoring]Prometheus Alerts", Serial, func() {
 
 			// delete VMI
 			By("Deleting the VMI")
-			Expect(virtClient.VirtualMachineInstance(vmi.Namespace).Delete(vmi.Name, &metav1.DeleteOptions{})).To(Succeed())
+			Expect(virtClient.VirtualMachineInstance(vmi.Namespace).Delete(context.Background(), vmi.Name, &metav1.DeleteOptions{})).To(Succeed())
 
 			By("Waiting for VMI to disappear")
 			tests.WaitForVirtualMachineToDisappearWithTimeout(vmi, 240)

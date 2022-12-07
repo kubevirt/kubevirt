@@ -1189,7 +1189,7 @@ var _ = SIGDescribe("Export", func() {
 	}
 
 	deleteVMI := func(vmi *virtv1.VirtualMachineInstance) {
-		err := virtClient.VirtualMachineInstance(vmi.Namespace).Delete(vmi.Name, &metav1.DeleteOptions{})
+		err := virtClient.VirtualMachineInstance(vmi.Namespace).Delete(context.Background(), vmi.Name, &metav1.DeleteOptions{})
 		Expect(err).ToNot(HaveOccurred())
 	}
 

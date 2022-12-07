@@ -328,7 +328,7 @@ var _ = Describe("[Serial][sig-compute]Infrastructure", Serial, func() {
 				vmi := tests.NewRandomVMIWithEphemeralDisk(cd.ContainerDiskFor(cd.ContainerDiskAlpine))
 				vmi = tests.RunVMIAndExpectLaunch(vmi, 60)
 				Expect(console.LoginToAlpine(vmi)).To(Succeed())
-				err = virtClient.VirtualMachineInstance(vmi.Namespace).Delete(vmi.Name, &metav1.DeleteOptions{})
+				err = virtClient.VirtualMachineInstance(vmi.Namespace).Delete(context.Background(), vmi.Name, &metav1.DeleteOptions{})
 				Expect(err).ToNot(HaveOccurred())
 				newAPICert, _, err := tests.GetPodsCertIfSynced(fmt.Sprintf("%s=%s", v1.AppLabel, "virt-api"), flags.KubeVirtInstallNamespace, "8443")
 				Expect(err).ToNot(HaveOccurred())

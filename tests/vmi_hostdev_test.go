@@ -90,7 +90,7 @@ var _ = Describe("[Serial][sig-compute]HostDevices", Serial, func() {
 				}, 15)).To(Succeed(), "Device not found")
 			}
 			// Make sure to delete the VMI before ending the test otherwise a device could still be taken
-			err = virtClient.VirtualMachineInstance(util.NamespaceTestDefault).Delete(vmi.ObjectMeta.Name, &metav1.DeleteOptions{})
+			err = virtClient.VirtualMachineInstance(util.NamespaceTestDefault).Delete(context.Background(), vmi.ObjectMeta.Name, &metav1.DeleteOptions{})
 			Expect(err).ToNot(HaveOccurred(), failedDeleteVMI)
 			tests.WaitForVirtualMachineToDisappearWithTimeout(vmi, 180)
 		},

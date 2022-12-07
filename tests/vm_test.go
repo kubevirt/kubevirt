@@ -475,7 +475,7 @@ var _ = Describe("[rfe_id:1177][crit:medium][vendor:cnv-qe@redhat.com][level:com
 			currentVMI, err := virtClient.VirtualMachineInstance(newVM.Namespace).Get(context.Background(), newVM.Name, &k8smetav1.GetOptions{})
 			Expect(err).ToNot(HaveOccurred())
 
-			Expect(virtClient.VirtualMachineInstance(newVM.Namespace).Delete(newVM.Name, &k8smetav1.DeleteOptions{})).To(Succeed())
+			Expect(virtClient.VirtualMachineInstance(newVM.Namespace).Delete(context.Background(), newVM.Name, &k8smetav1.DeleteOptions{})).To(Succeed())
 
 			Eventually(func() bool {
 				vmi, err := virtClient.VirtualMachineInstance(newVM.Namespace).Get(context.Background(), newVM.Name, &k8smetav1.GetOptions{})

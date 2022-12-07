@@ -964,7 +964,7 @@ var _ = Describe("[sig-compute]Configurations", func() {
 						},
 					}
 					vmi, err = virtClient.VirtualMachineInstance(testsuite.GetTestNamespace(nil)).Create(context.Background(), vmi)
-					virtClient.VirtualMachineInstance(testsuite.GetTestNamespace(vmi)).Delete(vmi.Name, &metav1.DeleteOptions{})
+					virtClient.VirtualMachineInstance(testsuite.GetTestNamespace(vmi)).Delete(context.Background(), vmi.Name, &metav1.DeleteOptions{})
 					return err
 				}, 5*time.Second, 1*time.Second).Should(MatchError("admission webhook \"virtualmachineinstances-create-validator.kubevirt.io\" denied the request: spec.domain.resources.requests.memory '64M' is greater than spec.domain.resources.limits.memory '32Mi'"))
 			})
@@ -1002,7 +1002,7 @@ var _ = Describe("[sig-compute]Configurations", func() {
 						},
 					}
 					vmi, err = virtClient.VirtualMachineInstance(testsuite.GetTestNamespace(nil)).Create(context.Background(), vmi)
-					virtClient.VirtualMachineInstance(testsuite.GetTestNamespace(vmi)).Delete(vmi.Name, &metav1.DeleteOptions{})
+					virtClient.VirtualMachineInstance(testsuite.GetTestNamespace(vmi)).Delete(context.Background(), vmi.Name, &metav1.DeleteOptions{})
 					return err
 				}, 5*time.Second, 1*time.Second).Should(MatchError("admission webhook \"virtualmachineinstances-create-validator.kubevirt.io\" denied the request: spec.domain.resources.requests.cpu '800m' is greater than spec.domain.resources.limits.cpu '500m'"))
 			})
@@ -1048,7 +1048,7 @@ var _ = Describe("[sig-compute]Configurations", func() {
 					createdVMI, err := virtClient.VirtualMachineInstance(testsuite.GetTestNamespace(nil)).Create(context.Background(), vmi)
 					Expect(err).ToNot(HaveOccurred(), "should create vmi")
 
-					err = virtClient.VirtualMachineInstance(testsuite.GetTestNamespace(createdVMI)).Delete(createdVMI.Name, &metav1.DeleteOptions{})
+					err = virtClient.VirtualMachineInstance(testsuite.GetTestNamespace(createdVMI)).Delete(context.Background(), createdVMI.Name, &metav1.DeleteOptions{})
 					Expect(err).ToNot(HaveOccurred(), "should delete vmi")
 
 					return reflect.DeepEqual(createdVMI.Spec.Domain.Resources.Requests.Memory().ToDec().ScaledValue(resource.Mega), int64(64)) &&
@@ -2970,7 +2970,7 @@ var _ = Describe("[sig-compute]Configurations", func() {
 			tests.WaitUntilVMIReady(vmi, console.LoginToFedora)
 			Expect(vmi.Spec.Domain.Devices.Disks).Should(HaveLen(numOfDevices))
 
-			err = virtClient.VirtualMachineInstance(testsuite.GetTestNamespace(vmi)).Delete(vmi.Name, &metav1.DeleteOptions{})
+			err = virtClient.VirtualMachineInstance(testsuite.GetTestNamespace(vmi)).Delete(context.Background(), vmi.Name, &metav1.DeleteOptions{})
 			Expect(err).ToNot(HaveOccurred())
 		},
 			Entry("[test_id:5269]across all available PCI root bus slots", 2, numOfSlotsToTest, false),

@@ -19,6 +19,7 @@
 package watch
 
 import (
+	"context"
 	"encoding/json"
 	"fmt"
 	"time"
@@ -295,7 +296,7 @@ var _ = Describe("Pool", func() {
 
 			expectControllerRevisionCreation(newPoolRevision)
 
-			vmiInterface.EXPECT().Delete(gomock.Any(), gomock.Any()).Times(0)
+			vmiInterface.EXPECT().Delete(context.Background(), gomock.Any(), gomock.Any()).Times(0)
 			vmInterface.EXPECT().Update(gomock.Any()).MaxTimes(1).Do(func(arg interface{}) {
 				newVM := arg.(*v1.VirtualMachine)
 				revisionName := newVM.Labels[virtv1.VirtualMachinePoolRevisionName]
@@ -358,7 +359,7 @@ var _ = Describe("Pool", func() {
 
 			expectControllerRevisionCreation(newPoolRevision)
 
-			vmiInterface.EXPECT().Delete(gomock.Any(), gomock.Any()).Times(1).Return(nil)
+			vmiInterface.EXPECT().Delete(context.Background(), gomock.Any(), gomock.Any()).Times(1).Return(nil)
 
 			controller.Execute()
 

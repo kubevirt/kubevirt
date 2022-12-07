@@ -762,7 +762,7 @@ var _ = Describe("[Serial][sig-operator]Operator", Serial, func() {
 
 		deleteAllVMIs = func(vmis []*v1.VirtualMachineInstance) {
 			for _, vmi := range vmis {
-				err := virtClient.VirtualMachineInstance(vmi.Namespace).Delete(vmi.Name, &metav1.DeleteOptions{})
+				err := virtClient.VirtualMachineInstance(vmi.Namespace).Delete(context.Background(), vmi.Name, &metav1.DeleteOptions{})
 				Expect(err).ToNot(HaveOccurred(), "Delete VMI successfully")
 			}
 		}
@@ -2067,7 +2067,7 @@ spec:
 			}
 
 			By("Deleting VM")
-			err = virtClient.VirtualMachineInstance(testsuite.GetTestNamespace(vmi)).Delete(vmi.Name, &metav1.DeleteOptions{})
+			err = virtClient.VirtualMachineInstance(testsuite.GetTestNamespace(vmi)).Delete(context.Background(), vmi.Name, &metav1.DeleteOptions{})
 			Expect(err).ShouldNot(HaveOccurred(), "Delete VMI successfully")
 
 			By("Restore Operator using original imagePrefix ")

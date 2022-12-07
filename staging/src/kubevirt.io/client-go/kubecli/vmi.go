@@ -341,13 +341,13 @@ func (v *vmis) Update(ctx context.Context, vmi *v1.VirtualMachineInstance) (resu
 	return
 }
 
-func (v *vmis) Delete(name string, options *k8smetav1.DeleteOptions) error {
+func (v *vmis) Delete(ctx context.Context, name string, options *k8smetav1.DeleteOptions) error {
 	return v.restClient.Delete().
 		Namespace(v.namespace).
 		Resource(v.resource).
 		Name(name).
 		Body(options).
-		Do(context.Background()).
+		Do(ctx).
 		Error()
 }
 

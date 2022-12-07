@@ -233,7 +233,7 @@ type VirtualMachineInstanceInterface interface {
 	List(ctx context.Context, opts *metav1.ListOptions) (*v1.VirtualMachineInstanceList, error)
 	Create(ctx context.Context, instance *v1.VirtualMachineInstance) (*v1.VirtualMachineInstance, error)
 	Update(ctx context.Context, instance *v1.VirtualMachineInstance) (*v1.VirtualMachineInstance, error)
-	Delete(name string, options *metav1.DeleteOptions) error
+	Delete(ctx context.Context, name string, options *metav1.DeleteOptions) error
 	Patch(name string, pt types.PatchType, data []byte, patchOptions *metav1.PatchOptions, subresources ...string) (result *v1.VirtualMachineInstance, err error)
 	Watch(opts metav1.ListOptions) (watch.Interface, error)
 	SerialConsole(name string, options *SerialConsoleOptions) (StreamInterface, error)

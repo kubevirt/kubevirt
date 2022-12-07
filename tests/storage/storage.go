@@ -186,7 +186,7 @@ var _ = SIGDescribe("Storage", func() {
 				Eventually(ThisVMI(vmi), 100*time.Second, time.Second).Should(HaveConditionMissingOrFalse(v1.VirtualMachineInstancePaused))
 
 				By("Cleaning up")
-				err = virtClient.VirtualMachineInstance(testsuite.GetTestNamespace(vmi)).Delete(vmi.ObjectMeta.Name, &metav1.DeleteOptions{})
+				err = virtClient.VirtualMachineInstance(testsuite.GetTestNamespace(vmi)).Delete(context.Background(), vmi.ObjectMeta.Name, &metav1.DeleteOptions{})
 				Expect(err).ToNot(HaveOccurred(), failedDeleteVMI)
 				tests.WaitForVirtualMachineToDisappearWithTimeout(vmi, 180)
 			})
@@ -235,7 +235,7 @@ var _ = SIGDescribe("Storage", func() {
 				}, 100*time.Second, time.Second).Should(Satisfy(isPausedOnIOError))
 
 				By("Cleaning up")
-				err = virtClient.VirtualMachineInstance(testsuite.GetTestNamespace(vmi)).Delete(vmi.ObjectMeta.Name, &metav1.DeleteOptions{})
+				err = virtClient.VirtualMachineInstance(testsuite.GetTestNamespace(vmi)).Delete(context.Background(), vmi.ObjectMeta.Name, &metav1.DeleteOptions{})
 				Expect(err).ToNot(HaveOccurred(), failedDeleteVMI)
 				tests.WaitForVirtualMachineToDisappearWithTimeout(vmi, 180)
 			})
@@ -312,7 +312,7 @@ var _ = SIGDescribe("Storage", func() {
 						Expect(console.LoginToAlpine(vmi)).To(Succeed())
 					}
 
-					err = virtClient.VirtualMachineInstance(vmi.Namespace).Delete(vmi.Name, &metav1.DeleteOptions{})
+					err = virtClient.VirtualMachineInstance(vmi.Namespace).Delete(context.Background(), vmi.Name, &metav1.DeleteOptions{})
 					Expect(err).ToNot(HaveOccurred())
 					tests.WaitForVirtualMachineToDisappearWithTimeout(vmi, 120)
 				}
@@ -589,7 +589,7 @@ var _ = SIGDescribe("Storage", func() {
 				)
 				Expect(err).ToNot(HaveOccurred())
 				Expect(strings.Trim(podVirtioFsFileExist, "\n")).To(Equal("exist"))
-				err = virtClient.VirtualMachineInstance(vmi.Namespace).Delete(vmi.Name, &metav1.DeleteOptions{})
+				err = virtClient.VirtualMachineInstance(vmi.Namespace).Delete(context.Background(), vmi.Name, &metav1.DeleteOptions{})
 				Expect(err).ToNot(HaveOccurred())
 				tests.WaitForVirtualMachineToDisappearWithTimeout(vmi, 120)
 
@@ -613,7 +613,7 @@ var _ = SIGDescribe("Storage", func() {
 				AfterEach(func() {
 					if vmi != nil {
 						By("Deleting the VMI")
-						Expect(virtClient.VirtualMachineInstance(vmi.Namespace).Delete(vmi.Name, &metav1.DeleteOptions{})).To(Succeed())
+						Expect(virtClient.VirtualMachineInstance(vmi.Namespace).Delete(context.Background(), vmi.Name, &metav1.DeleteOptions{})).To(Succeed())
 
 						By("Waiting for VMI to disappear")
 						tests.WaitForVirtualMachineToDisappearWithTimeout(vmi, 120)
@@ -685,7 +685,7 @@ var _ = SIGDescribe("Storage", func() {
 				}, 200)).To(Succeed())
 
 				By("Killing a VirtualMachineInstance")
-				err = virtClient.VirtualMachineInstance(vmi.Namespace).Delete(vmi.Name, &metav1.DeleteOptions{})
+				err = virtClient.VirtualMachineInstance(vmi.Namespace).Delete(context.Background(), vmi.Name, &metav1.DeleteOptions{})
 				Expect(err).ToNot(HaveOccurred())
 				tests.WaitForVirtualMachineToDisappearWithTimeout(createdVMI, 120)
 
@@ -745,7 +745,7 @@ var _ = SIGDescribe("Storage", func() {
 						}, 200)).To(Succeed())
 					}
 
-					err = virtClient.VirtualMachineInstance(obj.Namespace).Delete(obj.Name, &metav1.DeleteOptions{})
+					err = virtClient.VirtualMachineInstance(obj.Namespace).Delete(context.Background(), obj.Name, &metav1.DeleteOptions{})
 					Expect(err).ToNot(HaveOccurred())
 					Eventually(ThisVMI(obj), 120).Should(BeGone())
 				}
@@ -793,7 +793,7 @@ var _ = SIGDescribe("Storage", func() {
 
 				AfterEach(func() {
 					if vmi != nil {
-						err = virtClient.VirtualMachineInstance(vmi.Namespace).Delete(vmi.Name, &metav1.DeleteOptions{})
+						err = virtClient.VirtualMachineInstance(vmi.Namespace).Delete(context.Background(), vmi.Name, &metav1.DeleteOptions{})
 						if err != nil && !errors.IsNotFound(err) {
 							Expect(err).ToNot(HaveOccurred())
 						}
@@ -1031,7 +1031,7 @@ var _ = SIGDescribe("Storage", func() {
 
 				AfterEach(func() {
 					if vmi != nil {
-						Expect(virtClient.VirtualMachineInstance(vmi.Namespace).Delete(vmi.Name, &metav1.DeleteOptions{})).To(Succeed())
+						Expect(virtClient.VirtualMachineInstance(vmi.Namespace).Delete(context.Background(), vmi.Name, &metav1.DeleteOptions{})).To(Succeed())
 						tests.WaitForVirtualMachineToDisappearWithTimeout(vmi, 120)
 					}
 					Expect(virtClient.CoreV1().Pods(pod.Namespace).Delete(context.Background(), pod.Name, metav1.DeleteOptions{})).To(Succeed())
@@ -1457,7 +1457,7 @@ var _ = SIGDescribe("Storage", func() {
 				tests.WaitForSuccessfulVMIStartWithTimeoutIgnoreWarnings(vmi, 180)
 				Expect(console.LoginToAlpine(vmi)).To(Succeed())
 
-				err = virtClient.VirtualMachineInstance(testsuite.GetTestNamespace(vmi)).Delete(vmi.ObjectMeta.Name, &metav1.DeleteOptions{})
+				err = virtClient.VirtualMachineInstance(testsuite.GetTestNamespace(vmi)).Delete(context.Background(), vmi.ObjectMeta.Name, &metav1.DeleteOptions{})
 				Expect(err).ToNot(HaveOccurred(), failedDeleteVMI)
 				tests.WaitForVirtualMachineToDisappearWithTimeout(vmi, 180)
 			})

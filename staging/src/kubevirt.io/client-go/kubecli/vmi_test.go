@@ -156,7 +156,7 @@ var _ = Describe("Kubevirt VirtualMachineInstance Client", func() {
 			ghttp.VerifyRequest("DELETE", path.Join(proxyPath, vmiPath)),
 			ghttp.RespondWithJSONEncoded(http.StatusOK, nil),
 		))
-		err = client.VirtualMachineInstance(k8sv1.NamespaceDefault).Delete("testvm", &k8smetav1.DeleteOptions{})
+		err = client.VirtualMachineInstance(k8sv1.NamespaceDefault).Delete(context.Background(), "testvm", &k8smetav1.DeleteOptions{})
 
 		Expect(server.ReceivedRequests()).To(HaveLen(1))
 		Expect(err).ToNot(HaveOccurred())

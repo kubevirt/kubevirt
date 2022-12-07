@@ -798,7 +798,7 @@ var _ = Describe("[rfe_id:273][crit:high][arm64][vendor:cnv-qe@redhat.com][level
 					return failedVMI.Status.Reason
 				}, 180*time.Second, 1*time.Second).Should(Equal(watch.NodeUnresponsiveReason))
 
-				err = virtClient.VirtualMachineInstance(vmi.Namespace).Delete(vmi.Name, &metav1.DeleteOptions{})
+				err = virtClient.VirtualMachineInstance(vmi.Namespace).Delete(context.Background(), vmi.Name, &metav1.DeleteOptions{})
 				Expect(err).ToNot(HaveOccurred())
 			})
 
@@ -1615,7 +1615,7 @@ var _ = Describe("[rfe_id:273][crit:high][arm64][vendor:cnv-qe@redhat.com][level
 				Expect(pods.Items).To(HaveLen(1), "There should be only one pod")
 
 				By("Deleting the VirtualMachineInstance")
-				Expect(virtClient.VirtualMachineInstance(vmi.Namespace).Delete(obj.Name, &metav1.DeleteOptions{})).To(Succeed(), "Should delete VMI")
+				Expect(virtClient.VirtualMachineInstance(vmi.Namespace).Delete(context.Background(), obj.Name, &metav1.DeleteOptions{})).To(Succeed(), "Should delete VMI")
 
 				By("Verifying VirtualMachineInstance's pod terminates")
 				Eventually(func() int {
@@ -1645,7 +1645,7 @@ var _ = Describe("[rfe_id:273][crit:high][arm64][vendor:cnv-qe@redhat.com][level
 				vmi = tests.WaitUntilVMIReady(vmi, console.LoginToCirros)
 
 				By("Deleting the VirtualMachineInstance")
-				Expect(virtClient.VirtualMachineInstance(vmi.Namespace).Delete(vmi.Name, &metav1.DeleteOptions{})).To(Succeed(), "Should delete VMI")
+				Expect(virtClient.VirtualMachineInstance(vmi.Namespace).Delete(context.Background(), vmi.Name, &metav1.DeleteOptions{})).To(Succeed(), "Should delete VMI")
 
 				By("Verifying VirtualMachineInstance's status is Succeeded")
 				Eventually(func() v1.VirtualMachineInstancePhase {
@@ -1687,7 +1687,7 @@ var _ = Describe("[rfe_id:273][crit:high][arm64][vendor:cnv-qe@redhat.com][level
 
 				// Delete the VirtualMachineInstance and wait for the confirmation of the delete
 				By("Deleting the VirtualMachineInstance")
-				Expect(virtClient.VirtualMachineInstance(vmi.Namespace).Delete(obj.Name, &metav1.DeleteOptions{})).To(Succeed(), "Should delete VMI gracefully")
+				Expect(virtClient.VirtualMachineInstance(vmi.Namespace).Delete(context.Background(), obj.Name, &metav1.DeleteOptions{})).To(Succeed(), "Should delete VMI gracefully")
 				ctx, cancel := context.WithCancel(context.Background())
 				defer cancel()
 				event := watcher.New(obj).SinceWatchedObjectResourceVersion().Timeout(75*time.Second).WaitFor(ctx, watcher.NormalEvent, v1.Deleted)

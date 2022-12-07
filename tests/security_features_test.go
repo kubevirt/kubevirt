@@ -141,7 +141,7 @@ var _ = Describe("[Serial][sig-compute]SecurityFeatures", Serial, func() {
 				By("Checking that qemu-kvm process has SELinux category_set")
 				Expect(strings.Split(qemuProcessSelinuxContext, ":")).To(HaveLen(5))
 
-				err = virtClient.VirtualMachineInstance(testsuite.GetTestNamespace(vmi)).Delete(vmi.Name, &metav1.DeleteOptions{})
+				err = virtClient.VirtualMachineInstance(testsuite.GetTestNamespace(vmi)).Delete(context.Background(), vmi.Name, &metav1.DeleteOptions{})
 				Expect(err).ToNot(HaveOccurred())
 			})
 		})
@@ -173,7 +173,7 @@ var _ = Describe("[Serial][sig-compute]SecurityFeatures", Serial, func() {
 				Expect(pod.Spec.SecurityContext.SELinuxOptions.Type).To(Equal(superPrivilegedType))
 
 				By("Deleting the VMI")
-				err = virtClient.VirtualMachineInstance(testsuite.NamespacePrivileged).Delete(vmi.Name, &metav1.DeleteOptions{})
+				err = virtClient.VirtualMachineInstance(testsuite.NamespacePrivileged).Delete(context.Background(), vmi.Name, &metav1.DeleteOptions{})
 				Expect(err).ToNot(HaveOccurred())
 			})
 		})
@@ -219,7 +219,7 @@ var _ = Describe("[Serial][sig-compute]SecurityFeatures", Serial, func() {
 				Expect(pod.Spec.SecurityContext.SELinuxOptions.Type).To(Equal(launcherType))
 
 				By("Deleting the VMI")
-				err = virtClient.VirtualMachineInstance(testsuite.NamespacePrivileged).Delete(vmi.Name, &metav1.DeleteOptions{})
+				err = virtClient.VirtualMachineInstance(testsuite.NamespacePrivileged).Delete(context.Background(), vmi.Name, &metav1.DeleteOptions{})
 				Expect(err).ToNot(HaveOccurred())
 			})
 		})

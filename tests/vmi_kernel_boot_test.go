@@ -79,7 +79,7 @@ var _ = Describe("[sig-compute]VMI with external kernel boot", func() {
 			virtLauncherPod := tests.GetRunningPodByVirtualMachineInstance(vmi, vmi.Namespace)
 
 			By("Ensuring VMI is deleted")
-			err = virtClient.VirtualMachineInstance(testsuite.GetTestNamespace(vmi)).Delete(vmi.Name, &v1.DeleteOptions{})
+			err = virtClient.VirtualMachineInstance(testsuite.GetTestNamespace(vmi)).Delete(context.Background(), vmi.Name, &v1.DeleteOptions{})
 			Expect(err).ToNot(HaveOccurred())
 			Eventually(func() (isVmiDeleted bool) {
 				vmi, err = virtClient.VirtualMachineInstance(testsuite.GetTestNamespace(vmi)).Get(context.Background(), vmi.Name, &v1.GetOptions{})
@@ -162,7 +162,7 @@ var _ = Describe("[sig-compute]VMI with external kernel boot", func() {
 			virtLauncherPod := tests.GetRunningPodByVirtualMachineInstance(vmi, vmi.Namespace)
 
 			By("Ensuring VMI is deleted")
-			err = virtClient.VirtualMachineInstance(testsuite.GetTestNamespace(vmi)).Delete(vmi.Name, &v1.DeleteOptions{})
+			err = virtClient.VirtualMachineInstance(testsuite.GetTestNamespace(vmi)).Delete(context.Background(), vmi.Name, &v1.DeleteOptions{})
 			Expect(err).ToNot(HaveOccurred())
 			Eventually(func() (isVmiDeleted bool) {
 				vmi, err = virtClient.VirtualMachineInstance(testsuite.GetTestNamespace(vmi)).Get(context.Background(), vmi.Name, &v1.GetOptions{})
