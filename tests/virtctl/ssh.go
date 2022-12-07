@@ -1,6 +1,7 @@
 package virtctl
 
 import (
+	"context"
 	"crypto/ecdsa"
 	"os"
 	"path/filepath"
@@ -72,7 +73,7 @@ var _ = Describe("[sig-compute][virtctl]SSH", func() {
 		By("injecting a SSH public key into a VMI")
 		vmi := libvmi.NewAlpineWithTestTooling(
 			libvmi.WithCloudInitNoCloudUserData(libssh.RenderUserDataWithKey(pub), false))
-		vmi, err := virtClient.VirtualMachineInstance(util.NamespaceTestDefault).Create(vmi)
+		vmi, err := virtClient.VirtualMachineInstance(util.NamespaceTestDefault).Create(context.Background(), vmi)
 		Expect(err).ToNot(HaveOccurred())
 
 		vmi = tests.WaitUntilVMIReady(vmi, console.LoginToAlpine)

@@ -231,7 +231,7 @@ type StreamInterface interface {
 type VirtualMachineInstanceInterface interface {
 	Get(ctx context.Context, name string, options *metav1.GetOptions) (*v1.VirtualMachineInstance, error)
 	List(ctx context.Context, opts *metav1.ListOptions) (*v1.VirtualMachineInstanceList, error)
-	Create(instance *v1.VirtualMachineInstance) (*v1.VirtualMachineInstance, error)
+	Create(ctx context.Context, instance *v1.VirtualMachineInstance) (*v1.VirtualMachineInstance, error)
 	Update(*v1.VirtualMachineInstance) (*v1.VirtualMachineInstance, error)
 	Delete(name string, options *metav1.DeleteOptions) error
 	Patch(name string, pt types.PatchType, data []byte, patchOptions *metav1.PatchOptions, subresources ...string) (result *v1.VirtualMachineInstance, err error)

@@ -77,7 +77,7 @@ var _ = Describe("[sig-compute]Dry-Run requests", func() {
 
 		It("[test_id:7628]delete a VirtualMachineInstance", func() {
 			By("Create a VirtualMachineInstance")
-			_, err := virtClient.VirtualMachineInstance(vmi.Namespace).Create(vmi)
+			_, err := virtClient.VirtualMachineInstance(vmi.Namespace).Create(context.Background(), vmi)
 			Expect(err).ToNot(HaveOccurred())
 
 			By("Make a Dry-Run request to delete a Virtual Machine")
@@ -96,7 +96,7 @@ var _ = Describe("[sig-compute]Dry-Run requests", func() {
 
 		It("[test_id:7629]update a VirtualMachineInstance", func() {
 			By("Create a VirtualMachineInstance")
-			_, err = virtClient.VirtualMachineInstance(vmi.Namespace).Create(vmi)
+			_, err = virtClient.VirtualMachineInstance(vmi.Namespace).Create(context.Background(), vmi)
 			Expect(err).ToNot(HaveOccurred())
 
 			By("Make a Dry-Run request to update a Virtual Machine")
@@ -119,7 +119,7 @@ var _ = Describe("[sig-compute]Dry-Run requests", func() {
 
 		It("[test_id:7630]patch a VirtualMachineInstance", func() {
 			By("Create a VirtualMachineInstance")
-			vmi, err := virtClient.VirtualMachineInstance(vmi.Namespace).Create(vmi)
+			vmi, err := virtClient.VirtualMachineInstance(vmi.Namespace).Create(context.Background(), vmi)
 			Expect(err).ToNot(HaveOccurred())
 
 			By("Make a Dry-Run request to patch a Virtual Machine")
@@ -226,7 +226,7 @@ var _ = Describe("[sig-compute]Dry-Run requests", func() {
 
 		BeforeEach(func() {
 			vmi := tests.NewRandomVMIWithEphemeralDisk(cd.ContainerDiskFor(cd.ContainerDiskAlpine))
-			vmi, err = virtClient.VirtualMachineInstance(vmi.Namespace).Create(vmi)
+			vmi, err = virtClient.VirtualMachineInstance(vmi.Namespace).Create(context.Background(), vmi)
 			Expect(err).ToNot(HaveOccurred())
 			vmim = tests.NewRandomMigration(vmi.Name, vmi.Namespace)
 		})

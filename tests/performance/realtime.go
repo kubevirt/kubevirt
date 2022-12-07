@@ -33,7 +33,7 @@ bootcmd:
 func byStartingTheVMI(vmi *v1.VirtualMachineInstance, virtClient kubecli.KubevirtClient) {
 	By("Starting a VirtualMachineInstance")
 	var err error
-	vmi, err = virtClient.VirtualMachineInstance(util.NamespaceTestDefault).Create(vmi)
+	vmi, err = virtClient.VirtualMachineInstance(util.NamespaceTestDefault).Create(context.Background(), vmi)
 	Expect(err).ToNot(HaveOccurred())
 	tests.WaitForSuccessfulVMIStart(vmi)
 }

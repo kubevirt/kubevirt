@@ -77,7 +77,7 @@ var _ = Describe("[Serial][sig-compute]GPU", Serial, func() {
 				},
 			}
 			randomVMI.Spec.Domain.Devices.GPUs = gpus
-			vmi, apiErr := virtClient.VirtualMachineInstance(util.NamespaceTestDefault).Create(randomVMI)
+			vmi, apiErr := virtClient.VirtualMachineInstance(util.NamespaceTestDefault).Create(context.Background(), randomVMI)
 			Expect(apiErr).ToNot(HaveOccurred())
 
 			By("Waiting for VMI to be scheduled")
@@ -115,7 +115,7 @@ var _ = Describe("[Serial][sig-compute]GPU", Serial, func() {
 				},
 			}
 			randomVMI.Spec.Domain.Devices.GPUs = gpus
-			vmi, apiErr := virtClient.VirtualMachineInstance(util.NamespaceTestDefault).Create(randomVMI)
+			vmi, apiErr := virtClient.VirtualMachineInstance(util.NamespaceTestDefault).Create(context.Background(), randomVMI)
 			Expect(apiErr).ToNot(HaveOccurred())
 			tests.WaitForSuccessfulVMIStart(vmi)
 			domain, err := tests.GetRunningVirtualMachineInstanceDomainXML(virtClient, vmi)

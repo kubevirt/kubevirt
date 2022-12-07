@@ -83,7 +83,7 @@ var _ = Describe("[Serial][sig-compute]VMIDefaults", Serial, func() {
 
 		It("[test_id:4115]Should be applied to VMIs", func() {
 			// create the VMI first
-			_, err = virtClient.VirtualMachineInstance(testsuite.GetTestNamespace(nil)).Create(vmi)
+			_, err = virtClient.VirtualMachineInstance(testsuite.GetTestNamespace(nil)).Create(context.Background(), vmi)
 			Expect(err).ToNot(HaveOccurred())
 
 			newVMI, err := virtClient.VirtualMachineInstance(testsuite.GetTestNamespace(nil)).Get(context.Background(), vmi.Name, &metav1.GetOptions{})
@@ -100,7 +100,7 @@ var _ = Describe("[Serial][sig-compute]VMIDefaults", Serial, func() {
 			// Drop the disks to ensure they are added in by setDefaultVolumeDisk
 			vmi.Spec.Domain.Devices.Disks = []v1.Disk{}
 
-			_, err = virtClient.VirtualMachineInstance(testsuite.GetTestNamespace(nil)).Create(vmi)
+			_, err = virtClient.VirtualMachineInstance(testsuite.GetTestNamespace(nil)).Create(context.Background(), vmi)
 			Expect(err).ToNot(HaveOccurred())
 
 			newVMI, err := virtClient.VirtualMachineInstance(testsuite.GetTestNamespace(nil)).Get(context.Background(), vmi.Name, &metav1.GetOptions{})
@@ -131,7 +131,7 @@ var _ = Describe("[Serial][sig-compute]VMIDefaults", Serial, func() {
 
 		It("[test_id:4556]Should be present in domain", func() {
 			By("Creating a virtual machine")
-			vmi, err = virtClient.VirtualMachineInstance(testsuite.GetTestNamespace(nil)).Create(vmi)
+			vmi, err = virtClient.VirtualMachineInstance(testsuite.GetTestNamespace(nil)).Create(context.Background(), vmi)
 			Expect(err).ToNot(HaveOccurred())
 
 			By("Waiting for successful start")
@@ -165,7 +165,7 @@ var _ = Describe("[Serial][sig-compute]VMIDefaults", Serial, func() {
 			tests.UpdateKubeVirtConfigValueAndWait(*kvConfigurationCopy)
 
 			By("Creating a virtual machine")
-			vmi, err = virtClient.VirtualMachineInstance(testsuite.GetTestNamespace(nil)).Create(vmi)
+			vmi, err = virtClient.VirtualMachineInstance(testsuite.GetTestNamespace(nil)).Create(context.Background(), vmi)
 			Expect(err).ToNot(HaveOccurred())
 
 			By("Waiting for successful start")
@@ -207,7 +207,7 @@ var _ = Describe("[Serial][sig-compute]VMIDefaults", Serial, func() {
 			By("Creating a virtual machine with autoAttachmemballoon set to false")
 			f := false
 			vmi.Spec.Domain.Devices.AutoattachMemBalloon = &f
-			vmi, err = virtClient.VirtualMachineInstance(testsuite.GetTestNamespace(nil)).Create(vmi)
+			vmi, err = virtClient.VirtualMachineInstance(testsuite.GetTestNamespace(nil)).Create(context.Background(), vmi)
 			Expect(err).ToNot(HaveOccurred())
 
 			By("Waiting for successful start")
@@ -236,7 +236,7 @@ var _ = Describe("[Serial][sig-compute]VMIDefaults", Serial, func() {
 				Name: "foo-1",
 			})
 
-			vmi, err = virtClient.VirtualMachineInstance(testsuite.GetTestNamespace(nil)).Create(vmi)
+			vmi, err = virtClient.VirtualMachineInstance(testsuite.GetTestNamespace(nil)).Create(context.Background(), vmi)
 			Expect(err).ToNot(HaveOccurred())
 
 			Expect(vmi.Spec.Domain.Devices.Inputs).ToNot(BeEmpty(), "There should be input devices")

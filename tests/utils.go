@@ -268,7 +268,7 @@ func RunVMI(vmi *v1.VirtualMachineInstance, timeout int) *v1.VirtualMachineInsta
 
 	var obj *v1.VirtualMachineInstance
 	Eventually(func() error {
-		obj, err = virtCli.VirtualMachineInstance(testsuite.GetTestNamespace(vmi)).Create(vmi)
+		obj, err = virtCli.VirtualMachineInstance(testsuite.GetTestNamespace(vmi)).Create(context.Background(), vmi)
 		return err
 	}, timeout, 1*time.Second).ShouldNot(HaveOccurred())
 	return obj
@@ -1636,7 +1636,7 @@ func CreateVmiOnNodeLabeled(vmi *v1.VirtualMachineInstance, nodeLabel, labelValu
 		},
 	}
 
-	vmi, err = virtClient.VirtualMachineInstance(testsuite.GetTestNamespace(vmi)).Create(vmi)
+	vmi, err = virtClient.VirtualMachineInstance(testsuite.GetTestNamespace(vmi)).Create(context.Background(), vmi)
 	ExpectWithOffset(1, err).ToNot(HaveOccurred())
 	return vmi
 }

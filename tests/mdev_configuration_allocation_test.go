@@ -181,7 +181,7 @@ var _ = Describe("[Serial][sig-compute]MediatedDevices", Serial, func() {
 				},
 			}
 			vmi.Spec.Domain.Devices.GPUs = vGPUs
-			createdVmi, err := virtClient.VirtualMachineInstance(testsuite.GetTestNamespace(vmi)).Create(vmi)
+			createdVmi, err := virtClient.VirtualMachineInstance(testsuite.GetTestNamespace(vmi)).Create(context.Background(), vmi)
 			Expect(err).ToNot(HaveOccurred())
 			vmi = createdVmi
 			tests.WaitForSuccessfulVMIStart(vmi)
@@ -217,7 +217,7 @@ var _ = Describe("[Serial][sig-compute]MediatedDevices", Serial, func() {
 				},
 			}
 			vmi.Spec.Domain.Devices.GPUs = vGPUs
-			createdVmi, err := virtClient.VirtualMachineInstance(testsuite.GetTestNamespace(vmi)).Create(vmi)
+			createdVmi, err := virtClient.VirtualMachineInstance(testsuite.GetTestNamespace(vmi)).Create(context.Background(), vmi)
 			Expect(err).ToNot(HaveOccurred())
 			vmi = createdVmi
 			tests.WaitForSuccessfulVMIStart(vmi)
@@ -262,7 +262,7 @@ var _ = Describe("[Serial][sig-compute]MediatedDevices", Serial, func() {
 				},
 			}
 			vmi.Spec.Domain.Devices.GPUs = vGPUs
-			createdVmi, err := virtClient.VirtualMachineInstance(testsuite.GetTestNamespace(vmi)).Create(vmi)
+			createdVmi, err := virtClient.VirtualMachineInstance(testsuite.GetTestNamespace(vmi)).Create(context.Background(), vmi)
 			Expect(err).ToNot(HaveOccurred())
 			vmi = createdVmi
 			tests.WaitForSuccessfulVMIStart(vmi)

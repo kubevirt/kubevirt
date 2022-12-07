@@ -20,6 +20,7 @@
 package watch
 
 import (
+	"context"
 	"fmt"
 	"sync"
 	"time"
@@ -301,7 +302,7 @@ func (c *VMIReplicaSet) scale(rs *virtv1.VirtualMachineInstanceReplicaSet, vmis 
 				// TODO check if vmi labels exist, and when make sure that they match. For now just override them
 				vmi.ObjectMeta.Labels = rs.Spec.Template.ObjectMeta.Labels
 				vmi.ObjectMeta.OwnerReferences = []metav1.OwnerReference{OwnerRef(rs)}
-				vmi, err := c.clientset.VirtualMachineInstance(rs.ObjectMeta.Namespace).Create(vmi)
+				vmi, err := c.clientset.VirtualMachineInstance(rs.ObjectMeta.Namespace).Create(context.Background(), vmi)
 				if err != nil {
 					c.expectations.CreationObserved(rsKey)
 					c.recorder.Eventf(rs, k8score.EventTypeWarning, FailedCreateVirtualMachineReason, "Error creating virtual machine instance: %v", err)

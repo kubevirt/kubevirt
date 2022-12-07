@@ -698,7 +698,7 @@ func createVMIAndWait(vmi *v1.VirtualMachineInstance) (*v1.VirtualMachineInstanc
 		panic(err)
 	}
 
-	vmi, err = virtClient.VirtualMachineInstance(util.NamespaceTestDefault).Create(vmi)
+	vmi, err = virtClient.VirtualMachineInstance(util.NamespaceTestDefault).Create(context.Background(), vmi)
 	if err != nil {
 		return nil, err
 	}

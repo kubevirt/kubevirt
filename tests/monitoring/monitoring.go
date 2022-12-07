@@ -573,7 +573,7 @@ var _ = Describe("[Serial][sig-monitoring]Prometheus Alerts", Serial, func() {
 			vmi := tests.NewRandomVMI()
 
 			for i := 0; i < 60; i++ {
-				_, _ = virtClient.VirtualMachineInstance(util.NamespaceTestDefault).Create(vmi)
+				_, _ = virtClient.VirtualMachineInstance(util.NamespaceTestDefault).Create(context.Background(), vmi)
 				_ = virtClient.VirtualMachineInstance(util.NamespaceTestDefault).Delete(vmi.Name, &metav1.DeleteOptions{})
 
 				time.Sleep(500 * time.Millisecond)
@@ -596,7 +596,7 @@ var _ = Describe("[Serial][sig-monitoring]Prometheus Alerts", Serial, func() {
 			vmi := tests.NewRandomVMI()
 
 			for i := 0; i < 60; i++ {
-				_, _ = virtClient.VirtualMachineInstance(util.NamespaceTestDefault).Create(vmi)
+				_, _ = virtClient.VirtualMachineInstance(util.NamespaceTestDefault).Create(context.Background(), vmi)
 				_ = virtClient.VirtualMachineInstance(util.NamespaceTestDefault).Delete(vmi.Name, &metav1.DeleteOptions{})
 
 				time.Sleep(500 * time.Millisecond)

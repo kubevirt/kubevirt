@@ -3191,7 +3191,7 @@ var _ = Describe("[rfe_id:393][crit:high][vendor:cnv-qe@redhat.com][level:system
 			It("[sig-compute][test_id:3243]should recreate the PDB if VMIs with similar names are recreated", func() {
 				for x := 0; x < 3; x++ {
 					By("creating the VMI")
-					_, err := virtClient.VirtualMachineInstance(vmi.Namespace).Create(vmi)
+					_, err := virtClient.VirtualMachineInstance(vmi.Namespace).Create(context.Background(), vmi)
 					Expect(err).ToNot(HaveOccurred())
 
 					By("checking that the PDB appeared")
@@ -3220,7 +3220,7 @@ var _ = Describe("[rfe_id:393][crit:high][vendor:cnv-qe@redhat.com][level:system
 
 			It("[sig-compute][test_id:7680]should delete PDBs created by an old virt-controller", func() {
 				By("creating the VMI")
-				createdVMI, err := virtClient.VirtualMachineInstance(vmi.Namespace).Create(vmi)
+				createdVMI, err := virtClient.VirtualMachineInstance(vmi.Namespace).Create(context.Background(), vmi)
 				Expect(err).ToNot(HaveOccurred())
 				By("waiting for VMI")
 				tests.WaitForSuccessfulVMIStartWithTimeout(createdVMI, 60)
@@ -3575,7 +3575,7 @@ var _ = Describe("[rfe_id:393][crit:high][vendor:cnv-qe@redhat.com][level:system
 
 				By("starting four VMIs on that node")
 				for _, vmi := range vmis {
-					_, err := virtClient.VirtualMachineInstance(vmi.Namespace).Create(vmi)
+					_, err := virtClient.VirtualMachineInstance(vmi.Namespace).Create(context.Background(), vmi)
 					Expect(err).ToNot(HaveOccurred())
 				}
 
@@ -3770,7 +3770,7 @@ var _ = Describe("[rfe_id:393][crit:high][vendor:cnv-qe@redhat.com][level:system
 			}
 
 			By("Starting hugepages VMI")
-			_, err = virtClient.VirtualMachineInstance(hugepagesVmi.Namespace).Create(hugepagesVmi)
+			_, err = virtClient.VirtualMachineInstance(hugepagesVmi.Namespace).Create(context.Background(), hugepagesVmi)
 			Expect(err).ToNot(HaveOccurred())
 			tests.WaitForSuccessfulVMIStart(hugepagesVmi)
 
@@ -3808,7 +3808,7 @@ var _ = Describe("[rfe_id:393][crit:high][vendor:cnv-qe@redhat.com][level:system
 			}
 
 			By("Starting a VirtualMachineInstance")
-			cpuVMI, err = virtClient.VirtualMachineInstance(cpuVMI.Namespace).Create(cpuVMI)
+			cpuVMI, err = virtClient.VirtualMachineInstance(cpuVMI.Namespace).Create(context.Background(), cpuVMI)
 			Expect(err).ToNot(HaveOccurred())
 			tests.WaitForSuccessfulVMIStart(cpuVMI)
 
@@ -3833,7 +3833,7 @@ var _ = Describe("[rfe_id:393][crit:high][vendor:cnv-qe@redhat.com][level:system
 				}
 
 				By("Starting a VirtualMachineInstance")
-				cpuVMI, err = virtClient.VirtualMachineInstance(cpuVMI.Namespace).Create(cpuVMI)
+				cpuVMI, err = virtClient.VirtualMachineInstance(cpuVMI.Namespace).Create(context.Background(), cpuVMI)
 				Expect(err).ToNot(HaveOccurred())
 				tests.WaitForSuccessfulVMIStart(cpuVMI)
 
@@ -3850,7 +3850,7 @@ var _ = Describe("[rfe_id:393][crit:high][vendor:cnv-qe@redhat.com][level:system
 		vmi.Spec.Domain.Firmware = utils.GetVMIKernelBoot().Spec.Domain.Firmware
 
 		By("Starting a VirtualMachineInstance")
-		vmi, err = virtClient.VirtualMachineInstance(vmi.Namespace).Create(vmi)
+		vmi, err = virtClient.VirtualMachineInstance(vmi.Namespace).Create(context.Background(), vmi)
 		Expect(err).ToNot(HaveOccurred())
 		tests.WaitForSuccessfulVMIStart(vmi)
 

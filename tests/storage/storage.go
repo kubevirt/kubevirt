@@ -156,7 +156,7 @@ var _ = SIGDescribe("Storage", func() {
 			It("should pause VMI on IO error", func() {
 				By("Creating VMI with faulty disk")
 				vmi := libvmi.NewAlpine(libvmi.WithPersistentVolumeClaim("pvc-disk", pvc.Name))
-				vmi, err := virtClient.VirtualMachineInstance(testsuite.GetTestNamespace(vmi)).Create(vmi)
+				vmi, err := virtClient.VirtualMachineInstance(testsuite.GetTestNamespace(vmi)).Create(context.Background(), vmi)
 				Expect(err).ToNot(HaveOccurred(), failedCreateVMI)
 
 				tests.WaitForSuccessfulVMIStartWithTimeoutIgnoreWarnings(vmi, 180)
@@ -221,7 +221,7 @@ var _ = SIGDescribe("Storage", func() {
 				By("Creating VMI with faulty disk")
 				vmi := libvmi.NewAlpine(libvmi.WithPersistentVolumeClaim("faulty-disk", pvc.Name))
 
-				vmi, err := virtClient.VirtualMachineInstance(testsuite.GetTestNamespace(vmi)).Create(vmi)
+				vmi, err := virtClient.VirtualMachineInstance(testsuite.GetTestNamespace(vmi)).Create(context.Background(), vmi)
 				Expect(err).ToNot(HaveOccurred(), failedCreateVMI)
 
 				tests.WaitForSuccessfulVMIStartWithTimeoutIgnoreWarnings(vmi, 180)
@@ -758,7 +758,7 @@ var _ = SIGDescribe("Storage", func() {
 				vmi = tests.NewRandomVMIWithHostDisk("somepath", virtv1.HostDiskExistsOrCreate, "")
 				virtClient, err := kubecli.GetKubevirtClient()
 				Expect(err).ToNot(HaveOccurred())
-				_, err = virtClient.VirtualMachineInstance(testsuite.GetTestNamespace(vmi)).Create(vmi)
+				_, err = virtClient.VirtualMachineInstance(testsuite.GetTestNamespace(vmi)).Create(context.Background(), vmi)
 				Expect(err).To(HaveOccurred())
 				Expect(err.Error()).To(ContainSubstring("HostDisk feature gate is not enabled"))
 			})
@@ -767,7 +767,7 @@ var _ = SIGDescribe("Storage", func() {
 				vmi := libvmi.NewFedora(libvmi.WithFilesystemDV("something"))
 				virtClient, err := kubecli.GetKubevirtClient()
 				Expect(err).ToNot(HaveOccurred())
-				_, err = virtClient.VirtualMachineInstance(testsuite.GetTestNamespace(vmi)).Create(vmi)
+				_, err = virtClient.VirtualMachineInstance(testsuite.GetTestNamespace(vmi)).Create(context.Background(), vmi)
 				Expect(err).To(HaveOccurred())
 				Expect(err.Error()).To(ContainSubstring("virtiofs feature gate is not enabled"))
 			})
@@ -911,7 +911,7 @@ var _ = SIGDescribe("Storage", func() {
 								break
 							}
 						}
-						_, err = virtClient.VirtualMachineInstance(testsuite.GetTestNamespace(vmi)).Create(vmi)
+						_, err = virtClient.VirtualMachineInstance(testsuite.GetTestNamespace(vmi)).Create(context.Background(), vmi)
 						Expect(err).To(HaveOccurred())
 					})
 				})
@@ -920,7 +920,7 @@ var _ = SIGDescribe("Storage", func() {
 					It("[test_id:852]Should fail to start VMI", func() {
 						By(startingVMInstance)
 						vmi = tests.NewRandomVMIWithHostDisk("/data/unknown.img", "unknown", "")
-						_, err = virtClient.VirtualMachineInstance(testsuite.GetTestNamespace(vmi)).Create(vmi)
+						_, err = virtClient.VirtualMachineInstance(testsuite.GetTestNamespace(vmi)).Create(context.Background(), vmi)
 						Expect(err).To(HaveOccurred())
 					})
 				})
@@ -1451,7 +1451,7 @@ var _ = SIGDescribe("Storage", func() {
 				By("Creating VMI with LUN disk")
 				vmi := libvmi.NewAlpine()
 				addPVCLunDisk(vmi, "lun0", pvc.ObjectMeta.Name)
-				vmi, err := virtClient.VirtualMachineInstance(testsuite.GetTestNamespace(vmi)).Create(vmi)
+				vmi, err := virtClient.VirtualMachineInstance(testsuite.GetTestNamespace(vmi)).Create(context.Background(), vmi)
 				Expect(err).ToNot(HaveOccurred(), failedCreateVMI)
 
 				tests.WaitForSuccessfulVMIStartWithTimeoutIgnoreWarnings(vmi, 180)

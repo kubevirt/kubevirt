@@ -56,7 +56,7 @@ var _ = Describe("[sig-compute]VMI with external kernel boot", func() {
 	Context("with external alpine-based kernel & initrd images", func() {
 		It("[test_id:7748]ensure successful boot", func() {
 			vmi := utils.GetVMIKernelBoot()
-			obj, err := virtClient.VirtualMachineInstance(testsuite.GetTestNamespace(vmi)).Create(vmi)
+			obj, err := virtClient.VirtualMachineInstance(testsuite.GetTestNamespace(vmi)).Create(context.Background(), vmi)
 			Expect(err).ToNot(HaveOccurred())
 			tests.WaitForSuccessfulVMIStart(obj)
 		})
@@ -71,7 +71,7 @@ var _ = Describe("[sig-compute]VMI with external kernel boot", func() {
 			Expect(vmi.Spec.Domain.Devices.Disks).ToNot(BeEmpty())
 
 			By("Ensuring VMI can boot")
-			vmi, err = virtClient.VirtualMachineInstance(testsuite.GetTestNamespace(vmi)).Create(vmi)
+			vmi, err = virtClient.VirtualMachineInstance(testsuite.GetTestNamespace(vmi)).Create(context.Background(), vmi)
 			Expect(err).ToNot(HaveOccurred())
 			tests.WaitForSuccessfulVMIStart(vmi)
 
@@ -108,7 +108,7 @@ var _ = Describe("[sig-compute]VMI with external kernel boot", func() {
 			vmi := utils.GetVMIKernelBoot()
 			kernelBoot := vmi.Spec.Domain.Firmware.KernelBoot
 			kernelBoot.Container.Image = ""
-			_, err := virtClient.VirtualMachineInstance(testsuite.GetTestNamespace(vmi)).Create(vmi)
+			_, err := virtClient.VirtualMachineInstance(testsuite.GetTestNamespace(vmi)).Create(context.Background(), vmi)
 			Expect(err).To(HaveOccurred())
 			Expect(err.Error()).To(ContainSubstring("denied the request: spec.domain.firmware.kernelBoot.container must be defined with an image"))
 		})
@@ -118,7 +118,7 @@ var _ = Describe("[sig-compute]VMI with external kernel boot", func() {
 			kernelBoot := vmi.Spec.Domain.Firmware.KernelBoot
 			kernelBoot.Container.KernelPath = ""
 			kernelBoot.Container.InitrdPath = ""
-			_, err := virtClient.VirtualMachineInstance(testsuite.GetTestNamespace(vmi)).Create(vmi)
+			_, err := virtClient.VirtualMachineInstance(testsuite.GetTestNamespace(vmi)).Create(context.Background(), vmi)
 			Expect(err).To(HaveOccurred())
 			Expect(err.Error()).To(ContainSubstring("denied the request: spec.domain.firmware.kernelBoot.container must be defined with at least one of the following: kernelPath, initrdPath"))
 		})
@@ -136,7 +136,7 @@ var _ = Describe("[sig-compute]VMI with external kernel boot", func() {
 		It("ensure successful boot", func() {
 			vmi := getVMIKernelBoot()
 
-			obj, err := virtClient.VirtualMachineInstance(testsuite.GetTestNamespace(vmi)).Create(vmi)
+			obj, err := virtClient.VirtualMachineInstance(testsuite.GetTestNamespace(vmi)).Create(context.Background(), vmi)
 			Expect(err).ToNot(HaveOccurred())
 			tests.WaitForSuccessfulVMIStart(obj)
 		})
@@ -154,7 +154,7 @@ var _ = Describe("[sig-compute]VMI with external kernel boot", func() {
 			Expect(vmi.Spec.Domain.Devices.Disks).ToNot(BeEmpty())
 
 			By("Ensuring VMI can boot")
-			vmi, err = virtClient.VirtualMachineInstance(testsuite.GetTestNamespace(vmi)).Create(vmi)
+			vmi, err = virtClient.VirtualMachineInstance(testsuite.GetTestNamespace(vmi)).Create(context.Background(), vmi)
 			Expect(err).ToNot(HaveOccurred())
 			tests.WaitForSuccessfulVMIStart(vmi)
 

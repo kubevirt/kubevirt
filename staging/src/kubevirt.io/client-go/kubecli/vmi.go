@@ -316,13 +316,13 @@ func (v *vmis) List(ctx context.Context, options *k8smetav1.ListOptions) (vmiLis
 	return
 }
 
-func (v *vmis) Create(vmi *v1.VirtualMachineInstance) (result *v1.VirtualMachineInstance, err error) {
+func (v *vmis) Create(ctx context.Context, vmi *v1.VirtualMachineInstance) (result *v1.VirtualMachineInstance, err error) {
 	result = &v1.VirtualMachineInstance{}
 	err = v.restClient.Post().
 		Namespace(v.namespace).
 		Resource(v.resource).
 		Body(vmi).
-		Do(context.Background()).
+		Do(ctx).
 		Into(result)
 	result.SetGroupVersionKind(v1.VirtualMachineInstanceGroupVersionKind)
 	return

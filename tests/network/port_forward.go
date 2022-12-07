@@ -20,6 +20,7 @@
 package network
 
 import (
+	"context"
 	"fmt"
 	"io"
 	"os/exec"
@@ -167,7 +168,7 @@ func createCirrosVMIWithPortsAndBlockUntilReady(virtClient kubecli.KubevirtClien
 		libvmi.WithInterface(libvmi.InterfaceDeviceWithMasqueradeBinding(ports...)),
 	)
 
-	vmi, err := virtClient.VirtualMachineInstance(util.NamespaceTestDefault).Create(vmi)
+	vmi, err := virtClient.VirtualMachineInstance(util.NamespaceTestDefault).Create(context.Background(), vmi)
 	Expect(err).ToNot(HaveOccurred())
 	vmi = tests.WaitUntilVMIReady(vmi, console.LoginToCirros)
 

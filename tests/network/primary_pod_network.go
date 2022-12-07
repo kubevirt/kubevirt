@@ -92,7 +92,7 @@ var _ = SIGDescribe("Primary Pod Network", func() {
 					vmi, err = newFedoraWithGuestAgentAndDefaultInterface(libvmi.InterfaceDeviceWithBridgeBinding(libvmi.DefaultInterfaceName))
 					Expect(err).NotTo(HaveOccurred())
 
-					vmi, err = virtClient.VirtualMachineInstance(util.NamespaceTestDefault).Create(vmi)
+					vmi, err = virtClient.VirtualMachineInstance(util.NamespaceTestDefault).Create(context.Background(), vmi)
 					Expect(err).NotTo(HaveOccurred())
 					tests.WaitForSuccessfulVMIStart(vmi)
 					Eventually(matcher.ThisVMI(vmi), 12*time.Minute, 2*time.Second).Should(matcher.HaveConditionTrue(v1.VirtualMachineInstanceAgentConnected))
@@ -133,7 +133,7 @@ var _ = SIGDescribe("Primary Pod Network", func() {
 					tmpVmi, err := newFedoraWithGuestAgentAndDefaultInterface(libvmi.InterfaceDeviceWithMasqueradeBinding())
 					Expect(err).NotTo(HaveOccurred())
 
-					tmpVmi, err = virtClient.VirtualMachineInstance(util.NamespaceTestDefault).Create(tmpVmi)
+					tmpVmi, err = virtClient.VirtualMachineInstance(util.NamespaceTestDefault).Create(context.Background(), tmpVmi)
 					Expect(err).NotTo(HaveOccurred())
 					vmi = tests.WaitUntilVMIReady(tmpVmi, console.LoginToFedora)
 
@@ -175,7 +175,7 @@ var _ = SIGDescribe("Primary Pod Network", func() {
 func setupVMI(virtClient kubecli.KubevirtClient, vmi *v1.VirtualMachineInstance) *v1.VirtualMachineInstance {
 	By("Creating the VMI")
 	var err error
-	vmi, err = virtClient.VirtualMachineInstance(util.NamespaceTestDefault).Create(vmi)
+	vmi, err = virtClient.VirtualMachineInstance(util.NamespaceTestDefault).Create(context.Background(), vmi)
 	Expect(err).NotTo(HaveOccurred(), "VMI should be successfully created")
 
 	By("Waiting until the VMI gets ready")

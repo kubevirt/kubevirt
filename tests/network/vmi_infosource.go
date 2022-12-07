@@ -89,7 +89,7 @@ var _ = SIGDescribe("Infosource", func() {
 				libvmi.WithCloudInitNoCloudUserData(manipulateGuestLinksScript(primaryInterfaceNewMac, dummyInterfaceMac), false))
 
 			var err error
-			vmi, err = virtClient.VirtualMachineInstance(util.NamespaceTestDefault).Create(vmiSpec)
+			vmi, err = virtClient.VirtualMachineInstance(util.NamespaceTestDefault).Create(context.Background(), vmiSpec)
 			Expect(err).NotTo(HaveOccurred())
 			tests.WaitForSuccessfulVMIStart(vmi)
 			Eventually(matcher.ThisVMI(vmi), 12*time.Minute, 2*time.Second).Should(matcher.HaveConditionTrue(v1.VirtualMachineInstanceAgentConnected))
