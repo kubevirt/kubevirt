@@ -427,7 +427,7 @@ var _ = Describe("[rfe_id:1177][crit:medium][vendor:cnv-qe@redhat.com][level:com
 			Expect(virtClient.VirtualMachine(newVM.Namespace).Delete(newVM.Name, &k8smetav1.DeleteOptions{})).To(Succeed())
 			// Wait until VMI is gone
 			Eventually(func() int {
-				vmis, err := virtClient.VirtualMachineInstance(newVM.Namespace).List(&k8smetav1.ListOptions{})
+				vmis, err := virtClient.VirtualMachineInstance(newVM.Namespace).List(context.Background(), &k8smetav1.ListOptions{})
 				Expect(err).ToNot(HaveOccurred())
 				return len(vmis.Items)
 			}, 300*time.Second, 2*time.Second).Should(BeZero(), "The VirtualMachineInstance did not disappear")

@@ -1,6 +1,7 @@
 package main
 
 import (
+	"context"
 	"fmt"
 	"log"
 	"os"
@@ -35,7 +36,7 @@ func main() {
 	if err != nil {
 		log.Fatalf("cannot obtain KubeVirt vm list: %v\n", err)
 	}
-	vmiList, err := virtClient.VirtualMachineInstance(namespace).List(&k8smetav1.ListOptions{})
+	vmiList, err := virtClient.VirtualMachineInstance(namespace).List(context.Background(), &k8smetav1.ListOptions{})
 	if err != nil {
 		log.Fatalf("cannot obtain KubeVirt vmi list: %v\n", err)
 	}

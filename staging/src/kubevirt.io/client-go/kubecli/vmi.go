@@ -301,13 +301,13 @@ func (v *vmis) Get(ctx context.Context, name string, options *k8smetav1.GetOptio
 	return
 }
 
-func (v *vmis) List(options *k8smetav1.ListOptions) (vmiList *v1.VirtualMachineInstanceList, err error) {
+func (v *vmis) List(ctx context.Context, options *k8smetav1.ListOptions) (vmiList *v1.VirtualMachineInstanceList, err error) {
 	vmiList = &v1.VirtualMachineInstanceList{}
 	err = v.restClient.Get().
 		Resource(v.resource).
 		Namespace(v.namespace).
 		VersionedParams(options, scheme.ParameterCodec).
-		Do(context.Background()).
+		Do(ctx).
 		Into(vmiList)
 	for _, vmi := range vmiList.Items {
 		vmi.SetGroupVersionKind(v1.VirtualMachineInstanceGroupVersionKind)

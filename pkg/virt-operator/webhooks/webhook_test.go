@@ -1,6 +1,7 @@
 package webhooks
 
 import (
+	"context"
 	"fmt"
 
 	"github.com/golang/mock/gomock"
@@ -51,7 +52,7 @@ var _ = Describe("Webhook", func() {
 		})
 
 		It("should allow the deletion if no workload exists", func() {
-			vmiInterface.EXPECT().List(gomock.Any()).Return(&k6tv1.VirtualMachineInstanceList{}, nil)
+			vmiInterface.EXPECT().List(context.Background(), gomock.Any()).Return(&k6tv1.VirtualMachineInstanceList{}, nil)
 			vmInterface.EXPECT().List(gomock.Any()).Return(&k6tv1.VirtualMachineList{}, nil)
 			vmirsInterface.EXPECT().List(gomock.Any()).Return(&k6tv1.VirtualMachineInstanceReplicaSetList{}, nil)
 
@@ -60,14 +61,14 @@ var _ = Describe("Webhook", func() {
 		})
 
 		It("should deny the deletion if a VMI exists", func() {
-			vmiInterface.EXPECT().List(gomock.Any()).Return(&k6tv1.VirtualMachineInstanceList{Items: []k6tv1.VirtualMachineInstance{{}}}, nil)
+			vmiInterface.EXPECT().List(context.Background(), gomock.Any()).Return(&k6tv1.VirtualMachineInstanceList{Items: []k6tv1.VirtualMachineInstance{{}}}, nil)
 
 			response := admitter.Admit(&admissionv1.AdmissionReview{Request: &admissionv1.AdmissionRequest{Namespace: "test", Name: "kubevirt"}})
 			Expect(response.Allowed).To(BeFalse())
 		})
 
 		It("should deny the deletion if a VM exists", func() {
-			vmiInterface.EXPECT().List(gomock.Any()).Return(&k6tv1.VirtualMachineInstanceList{}, nil)
+			vmiInterface.EXPECT().List(context.Background(), gomock.Any()).Return(&k6tv1.VirtualMachineInstanceList{}, nil)
 			vmInterface.EXPECT().List(gomock.Any()).Return(&k6tv1.VirtualMachineList{Items: []k6tv1.VirtualMachine{{}}}, nil)
 
 			response := admitter.Admit(&admissionv1.AdmissionReview{Request: &admissionv1.AdmissionRequest{Namespace: "test", Name: "kubevirt"}})
@@ -75,7 +76,7 @@ var _ = Describe("Webhook", func() {
 		})
 
 		It("should deny the deletion if a VMIRS exists", func() {
-			vmiInterface.EXPECT().List(gomock.Any()).Return(&k6tv1.VirtualMachineInstanceList{}, nil)
+			vmiInterface.EXPECT().List(context.Background(), gomock.Any()).Return(&k6tv1.VirtualMachineInstanceList{}, nil)
 			vmInterface.EXPECT().List(gomock.Any()).Return(&k6tv1.VirtualMachineList{}, nil)
 			vmirsInterface.EXPECT().List(gomock.Any()).Return(&k6tv1.VirtualMachineInstanceReplicaSetList{Items: []k6tv1.VirtualMachineInstanceReplicaSet{{}}}, nil)
 
@@ -84,14 +85,14 @@ var _ = Describe("Webhook", func() {
 		})
 
 		It("should deny the deletion if checking VMIs fails", func() {
-			vmiInterface.EXPECT().List(gomock.Any()).Return(&k6tv1.VirtualMachineInstanceList{}, fmt.Errorf("whatever"))
+			vmiInterface.EXPECT().List(context.Background(), gomock.Any()).Return(&k6tv1.VirtualMachineInstanceList{}, fmt.Errorf("whatever"))
 
 			response := admitter.Admit(&admissionv1.AdmissionReview{Request: &admissionv1.AdmissionRequest{Namespace: "test", Name: "kubevirt"}})
 			Expect(response.Allowed).To(BeFalse())
 		})
 
 		It("should deny the deletion if checking VMs fails", func() {
-			vmiInterface.EXPECT().List(gomock.Any()).Return(&k6tv1.VirtualMachineInstanceList{}, nil)
+			vmiInterface.EXPECT().List(context.Background(), gomock.Any()).Return(&k6tv1.VirtualMachineInstanceList{}, nil)
 			vmInterface.EXPECT().List(gomock.Any()).Return(&k6tv1.VirtualMachineList{}, fmt.Errorf("whatever"))
 
 			response := admitter.Admit(&admissionv1.AdmissionReview{Request: &admissionv1.AdmissionRequest{Namespace: "test", Name: "kubevirt"}})
@@ -99,7 +100,7 @@ var _ = Describe("Webhook", func() {
 		})
 
 		It("should deny the deletion if checking VMIRS fails", func() {
-			vmiInterface.EXPECT().List(gomock.Any()).Return(&k6tv1.VirtualMachineInstanceList{}, nil)
+			vmiInterface.EXPECT().List(context.Background(), gomock.Any()).Return(&k6tv1.VirtualMachineInstanceList{}, nil)
 			vmInterface.EXPECT().List(gomock.Any()).Return(&k6tv1.VirtualMachineList{}, nil)
 			vmirsInterface.EXPECT().List(gomock.Any()).Return(&k6tv1.VirtualMachineInstanceReplicaSetList{}, fmt.Errorf("whatever"))
 

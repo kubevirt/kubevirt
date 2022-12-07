@@ -82,7 +82,7 @@ func AllVMIs(namespace string) func() ([]virtv1.VirtualMachineInstance, error) {
 		if err != nil {
 			return nil, err
 		}
-		list, err := virtClient.VirtualMachineInstance(namespace).List(&k8smetav1.ListOptions{})
+		list, err := virtClient.VirtualMachineInstance(namespace).List(context.Background(), &k8smetav1.ListOptions{})
 		return list.Items, err
 	}
 }

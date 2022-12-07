@@ -1,6 +1,8 @@
 package lookup
 
 import (
+	"context"
+
 	"github.com/golang/mock/gomock"
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
@@ -42,7 +44,7 @@ var _ = Describe("Lookup", func() {
 		vmi2 := createVirtualMachineInstance("vmi2", "node01", virtv1.Failed)
 		vmis := []virtv1.VirtualMachineInstance{*vmi1, *vmi2}
 
-		vmiInterface.EXPECT().List(gomock.Any()).Return(&virtv1.VirtualMachineInstanceList{
+		vmiInterface.EXPECT().List(context.Background(), gomock.Any()).Return(&virtv1.VirtualMachineInstanceList{
 			Items: vmis,
 		}, nil)
 
@@ -56,7 +58,7 @@ var _ = Describe("Lookup", func() {
 		vmi2 := createVirtualMachineInstance("vmi2", "node01", virtv1.Failed)
 		vmis := []virtv1.VirtualMachineInstance{*vmi1, *vmi2}
 
-		vmiInterface.EXPECT().List(gomock.Any()).Return(&virtv1.VirtualMachineInstanceList{
+		vmiInterface.EXPECT().List(context.Background(), gomock.Any()).Return(&virtv1.VirtualMachineInstanceList{
 			Items: vmis,
 		}, nil)
 
@@ -69,7 +71,7 @@ var _ = Describe("Lookup", func() {
 	DescribeTable("should filter out nonactive vmis", func(phase virtv1.VirtualMachineInstancePhase) {
 		vmi := createVirtualMachineInstance("vmi2", "node01", phase)
 
-		vmiInterface.EXPECT().List(gomock.Any()).Return(&virtv1.VirtualMachineInstanceList{
+		vmiInterface.EXPECT().List(context.Background(), gomock.Any()).Return(&virtv1.VirtualMachineInstanceList{
 			Items: []virtv1.VirtualMachineInstance{*vmi},
 		}, nil)
 

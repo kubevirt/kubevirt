@@ -1,6 +1,7 @@
 package webhooks
 
 import (
+	"context"
 	"fmt"
 
 	admissionv1 "k8s.io/api/admission/v1"
@@ -59,7 +60,7 @@ func (k *KubeVirtDeletionAdmitter) Admit(review *admissionv1.AdmissionReview) *a
 		return validating_webhooks.NewPassingAdmissionResponse()
 	}
 
-	vmis, err := k.client.VirtualMachineInstance(metav1.NamespaceAll).List(&metav1.ListOptions{Limit: 2})
+	vmis, err := k.client.VirtualMachineInstance(metav1.NamespaceAll).List(context.Background(), &metav1.ListOptions{Limit: 2})
 
 	if err != nil {
 		return webhookutils.ToAdmissionResponseError(err)
