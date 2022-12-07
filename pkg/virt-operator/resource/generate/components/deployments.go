@@ -573,7 +573,7 @@ func NewOperatorDeployment(namespace, repository, imagePrefix, version, verbosit
 							},
 							Env: []corev1.EnvVar{
 								{
-									Name:  operatorutil.OldOperatorImageEnvName,
+									Name:  operatorutil.VirtOperatorImageEnvName,
 									Value: image,
 								},
 								{
