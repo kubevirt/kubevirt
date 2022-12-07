@@ -1,3 +1,83 @@
+## 2.5.1
+
+### Fixes
+- skipped tests only show as 'S' when running with -v [3ab38ae]
+- Fix typo in docs/index.md (#1082) [55fc58d]
+- Fix typo in docs/index.md (#1081) [8a14f1f]
+- Fix link notation in docs/index.md (#1080) [2669612]
+- Fix typo in `--progress` deprecation message (#1076) [b4b7edc]
+
+### Maintenance
+- chore: Included githubactions in the dependabot config (#976) [baea341]
+- Bump golang.org/x/sys from 0.1.0 to 0.2.0 (#1075) [9646297]
+
+## 2.5.0
+
+### Ginkgo output now includes a timeline-view of the spec
+
+This commit changes Ginkgo's default output.  Spec details are now
+presented as a **timeline** that includes events that occur during the spec
+lifecycle interleaved with any GinkgoWriter content.  This makes is much easier
+to understand the flow of a spec and where a given failure occurs.
+
+The --progress, --slow-spec-threshold, --always-emit-ginkgo-writer flags
+and the SuppressProgressReporting decorator have all been deprecated.  Instead
+the existing -v and -vv flags better capture the level of verbosity to display.  However,
+a new --show-node-events flag is added to include node `> Enter` and `< Exit` events
+in the spec timeline.
+
+In addition, JUnit reports now include the timeline (rendered with -vv) and custom JUnit
+reports can be configured and generated using
+`GenerateJUnitReportWithConfig(report types.Report, dst string, config JunitReportConfig)`
+
+Code should continue to work unchanged with this version of Ginkgo - however if you have tooling that
+was relying on the specific output format of Ginkgo you _may_ run into issues.  Ginkgo's console output is not guaranteed to be stable for tooling and automation purposes.  You should, instead, use Ginkgo's JSON format
+to build tooling on top of as it has stronger guarantees to be stable from version to version.
+
+### Features
+- Provide details about which timeout expired [0f2fa27]
+
+### Fixes
+- Add Support Policy to docs [c70867a]
+
+### Maintenance
+- Bump github.com/onsi/gomega from 1.22.1 to 1.23.0 (#1070) [bb3b4e2]
+
+## 2.4.0
+
+### Features
+
+- DeferCleanup supports functions with multiple-return values [5e33c75]
+- Add GinkgoLogr (#1067) [bf78c28]
+- Introduction of 'MustPassRepeatedly' decorator (#1051) [047c02f]
+
+### Fixes
+- correcting some typos (#1064) [1403d3c]
+- fix flaky internal_integration interupt specs [2105ba3]
+- Correct busted link in README [be6b5b9]
+
+### Maintenance
+- Bump actions/checkout from 2 to 3 (#1062) [8a2f483]
+- Bump golang.org/x/tools from 0.1.12 to 0.2.0 (#1065) [529c4e8]
+- Bump github/codeql-action from 1 to 2 (#1061) [da09146]
+- Bump actions/setup-go from 2 to 3 (#1060) [918040d]
+- Bump github.com/onsi/gomega from 1.22.0 to 1.22.1 (#1053) [2098e4d]
+- Bump nokogiri from 1.13.8 to 1.13.9 in /docs (#1066) [1d74122]
+- Add GHA to dependabot config [4442772]
+
+## 2.3.1
+
+## Fixes
+Several users were invoking `ginkgo` by installing the latest version of the cli via `go install github.com/onsi/ginkgo/v2/ginkgo@latest`.  When 2.3.0 was released this resulted in an influx of issues as CI systems failed due to a change in the internal contract between the Ginkgo CLI and the Ginkgo library.  Ginkgo only supports running the same version of the library as the cli (which is why both are packaged in the same repository).
+
+With this patch release, the ginkgo CLI can now identify a version mismatch and emit a helpful error message.
+
+- Ginkgo cli can identify version mismatches and emit a helpful error message [bc4ae2f]
+- further emphasize that a version match is required when running Ginkgo on CI and/or locally [2691dd8]
+
+### Maintenance
+- bump gomega to v1.22.0 [822a937]
+
 ## 2.3.0
 
 ### Interruptible Nodes and Timeouts

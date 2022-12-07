@@ -47,19 +47,19 @@ type Node struct {
 	ReportEachBody       func(types.SpecReport)
 	ReportAfterSuiteBody func(types.Report)
 
-	MarkedFocus                     bool
-	MarkedPending                   bool
-	MarkedSerial                    bool
-	MarkedOrdered                   bool
-	MarkedOncePerOrdered            bool
-	MarkedSuppressProgressReporting bool
-	FlakeAttempts                   int
-	Labels                          Labels
-	PollProgressAfter               time.Duration
-	PollProgressInterval            time.Duration
-	NodeTimeout                     time.Duration
-	SpecTimeout                     time.Duration
-	GracePeriod                     time.Duration
+	MarkedFocus          bool
+	MarkedPending        bool
+	MarkedSerial         bool
+	MarkedOrdered        bool
+	MarkedOncePerOrdered bool
+	FlakeAttempts        int
+	MustPassRepeatedly   int
+	Labels               Labels
+	PollProgressAfter    time.Duration
+	PollProgressInterval time.Duration
+	NodeTimeout          time.Duration
+	SpecTimeout          time.Duration
+	GracePeriod          time.Duration
 
 	NodeIDWhereCleanupWasGenerated uint
 }
@@ -80,6 +80,7 @@ const OncePerOrdered = honorsOrderedType(true)
 const SuppressProgressReporting = suppressProgressReporting(true)
 
 type FlakeAttempts uint
+type MustPassRepeatedly uint
 type Offset uint
 type Done chan<- interface{} // Deprecated Done Channel for asynchronous testing
 type Labels []string
@@ -137,6 +138,8 @@ func isDecoration(arg interface{}) bool {
 	case t == reflect.TypeOf(SuppressProgressReporting):
 		return true
 	case t == reflect.TypeOf(FlakeAttempts(0)):
+		return true
+	case t == reflect.TypeOf(MustPassRepeatedly(0)):
 		return true
 	case t == reflect.TypeOf(Labels{}):
 		return true
@@ -244,14 +247,16 @@ func NewNode(deprecationTracker *types.DeprecationTracker, nodeType types.NodeTy
 				appendError(types.GinkgoErrors.InvalidDecoratorForNodeType(node.CodeLocation, nodeType, "OncePerOrdered"))
 			}
 		case t == reflect.TypeOf(SuppressProgressReporting):
-			node.MarkedSuppressProgressReporting = bool(arg.(suppressProgressReporting))
-			if nodeType.Is(types.NodeTypeContainer) {
-				appendError(types.GinkgoErrors.InvalidDecoratorForNodeType(node.CodeLocation, nodeType, "SuppressProgressReporting"))
-			}
+			deprecationTracker.TrackDeprecation(types.Deprecations.SuppressProgressReporting())
 		case t == reflect.TypeOf(FlakeAttempts(0)):
 			node.FlakeAttempts = int(arg.(FlakeAttempts))
 			if !nodeType.Is(types.NodeTypesForContainerAndIt) {
 				appendError(types.GinkgoErrors.InvalidDecoratorForNodeType(node.CodeLocation, nodeType, "FlakeAttempts"))
+			}
+		case t == reflect.TypeOf(MustPassRepeatedly(0)):
+			node.MustPassRepeatedly = int(arg.(MustPassRepeatedly))
+			if !nodeType.Is(types.NodeTypesForContainerAndIt) {
+				appendError(types.GinkgoErrors.InvalidDecoratorForNodeType(node.CodeLocation, nodeType, "MustPassRepeatedly"))
 			}
 		case t == reflect.TypeOf(PollProgressAfter(0)):
 			node.PollProgressAfter = time.Duration(arg.(PollProgressAfter))
@@ -403,6 +408,10 @@ func NewNode(deprecationTracker *types.DeprecationTracker, nodeType types.NodeTy
 		appendError(types.GinkgoErrors.UnknownDecorator(node.CodeLocation, nodeType, arg))
 	}
 
+	if node.FlakeAttempts > 0 && node.MustPassRepeatedly > 0 {
+		appendError(types.GinkgoErrors.InvalidDeclarationOfFlakeAttemptsAndMustPassRepeatedly(node.CodeLocation, nodeType))
+	}
+
 	if len(errors) > 0 {
 		return Node{}, errors
 	}
@@ -495,6 +504,8 @@ func extractSynchronizedBeforeSuiteAllProcsBody(arg interface{}) (func(SpecConte
 	}, hasContext
 }
 
+var errInterface = reflect.TypeOf((*error)(nil)).Elem()
+
 func NewCleanupNode(deprecationTracker *types.DeprecationTracker, fail func(string, types.CodeLocation), args ...interface{}) (Node, []error) {
 	decorations, remainingArgs := PartitionDecorations(args...)
 	baseOffset := 2
@@ -517,7 +528,7 @@ func NewCleanupNode(deprecationTracker *types.DeprecationTracker, fail func(stri
 	}
 
 	callback := reflect.ValueOf(remainingArgs[0])
-	if !(callback.Kind() == reflect.Func && callback.Type().NumOut() <= 1) {
+	if !(callback.Kind() == reflect.Func) {
 		return Node{}, []error{types.GinkgoErrors.DeferCleanupInvalidFunction(cl)}
 	}
 
@@ -537,8 +548,12 @@ func NewCleanupNode(deprecationTracker *types.DeprecationTracker, fail func(stri
 	}
 
 	handleFailure := func(out []reflect.Value) {
-		if len(out) == 1 && !out[0].IsNil() {
-			fail(fmt.Sprintf("DeferCleanup callback returned error: %v", out[0]), cl)
+		if len(out) == 0 {
+			return
+		}
+		last := out[len(out)-1]
+		if last.Type().Implements(errInterface) && !last.IsNil() {
+			fail(fmt.Sprintf("DeferCleanup callback returned error: %v", last), cl)
 		}
 	}
 
@@ -840,6 +855,26 @@ func (n Nodes) FirstNodeMarkedOrdered() Node {
 		}
 	}
 	return Node{}
+}
+
+func (n Nodes) GetMaxFlakeAttempts() int {
+	maxFlakeAttempts := 0
+	for i := range n {
+		if n[i].FlakeAttempts > 0 {
+			maxFlakeAttempts = n[i].FlakeAttempts
+		}
+	}
+	return maxFlakeAttempts
+}
+
+func (n Nodes) GetMaxMustPassRepeatedly() int {
+	maxMustPassRepeatedly := 0
+	for i := range n {
+		if n[i].MustPassRepeatedly > 0 {
+			maxMustPassRepeatedly = n[i].MustPassRepeatedly
+		}
+	}
+	return maxMustPassRepeatedly
 }
 
 func unrollInterfaceSlice(args interface{}) []interface{} {
