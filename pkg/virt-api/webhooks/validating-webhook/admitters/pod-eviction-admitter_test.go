@@ -338,7 +338,7 @@ var _ = Describe("Pod eviction admitter", func() {
 				vmiClient.EXPECT().Get(context.Background(), vmi.Name, &metav1.GetOptions{}).Return(vmi, nil)
 
 				if markVMI {
-					vmiClient.EXPECT().Update(gomock.Any()).Return(nil, nil).AnyTimes()
+					vmiClient.EXPECT().Update(context.Background(), gomock.Any()).Return(nil, nil).AnyTimes()
 				}
 
 				resp := podEvictionAdmitter.Admit(ar)

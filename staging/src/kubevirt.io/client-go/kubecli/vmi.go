@@ -328,14 +328,14 @@ func (v *vmis) Create(ctx context.Context, vmi *v1.VirtualMachineInstance) (resu
 	return
 }
 
-func (v *vmis) Update(vmi *v1.VirtualMachineInstance) (result *v1.VirtualMachineInstance, err error) {
+func (v *vmis) Update(ctx context.Context, vmi *v1.VirtualMachineInstance) (result *v1.VirtualMachineInstance, err error) {
 	result = &v1.VirtualMachineInstance{}
 	err = v.restClient.Put().
 		Name(vmi.ObjectMeta.Name).
 		Namespace(v.namespace).
 		Resource(v.resource).
 		Body(vmi).
-		Do(context.Background()).
+		Do(ctx).
 		Into(result)
 	result.SetGroupVersionKind(v1.VirtualMachineInstanceGroupVersionKind)
 	return
