@@ -18,7 +18,7 @@ jobs:
     outputs:
       matrix: ${{ steps.set_branches.outputs.matrix }}
     steps:
-      - uses: actions/checkout@v2
+      - uses: actions/checkout@v3
         with:
           ref: main
           fetch-depth: 0
@@ -26,7 +26,7 @@ jobs:
       - id: set_branches
         run: |
           matrix=$(git for-each-ref --format='%(refname:short)' refs/remotes/origin | grep -e "origin/main" -e "origin/release-1.[0-9]\+$" | grep -v "release-1\.[0,1,2,3]$" | sed -r 's/origin\/(.*)/{"branch": "\1"}/g' | jq -s)
-          echo "::set-output name=matrix::{\"branches\":$(echo $matrix)}"
+          echo "name=matrix::{\"branches\":$(echo $matrix)}" >> ${GITHUB_OUTPUT}
 
   bump_components_version:
     name: Bump Components Versions
@@ -37,11 +37,11 @@ jobs:
       matrix: ${{fromJson(needs.set_bump_branches.outputs.matrix)}}
       fail-fast: false
     steps:
-      - uses: actions/checkout@v2
+      - uses: actions/checkout@v3
         with:
           ref: ${{ matrix.branches.branch }}
 
-      - uses: actions/setup-go@v2
+      - uses: actions/setup-go@v3
         with:
           go-version: '1.19' # The Go version to download (if necessary) and use.
 

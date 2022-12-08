@@ -29,11 +29,11 @@ jobs:
           echo "TARGET_BRANCH=${TARGET_BRANCH}" >> $GITHUB_ENV
           echo "TAGGED_VERSION=${TAGGED_VERSION}" >> $GITHUB_ENV
       - name: Setup Go
-        uses: actions/setup-go@v2
+        uses: actions/setup-go@v3
         with:
           go-version: '1.19'
       - name: Checkout the latest code of ${{ env.TARGET_BRANCH }} branch
-        uses: actions/checkout@v2
+        uses: actions/checkout@v3
         with:
           ref: ${{ env.TARGET_BRANCH }}
           fetch-depth: 2

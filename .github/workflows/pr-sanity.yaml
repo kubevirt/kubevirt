@@ -22,19 +22,18 @@ jobs:
 
     # Steps represent a sequence of tasks that will be executed as part of the job
     steps:
-      - uses: actions/checkout@v2
+      - uses: actions/checkout@v3
 
-      - uses: actions/setup-go@v2
+      - uses: actions/setup-go@v3
         with:
-         go-version: '1.19' # The Go version to download (if necessary) and use.
+          go-version: '1.19' # The Go version to download (if necessary) and use.
 
       - name: Do sanity checks
         run: make sanity
 
       - name: Run golangci-lint
-        uses: golangci/golangci-lint-action@v2.5.2
+        uses: golangci/golangci-lint-action@v3
         with:
-          skip-go-installation: true
           skip-pkg-cache: true
           args: --timeout=5m
 
