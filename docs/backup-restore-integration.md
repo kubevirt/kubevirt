@@ -103,23 +103,6 @@ spec:
 
 - ("kubevirt.io", "VirtualMachineClusterPreference", "", "cwindows")
 
-#### spec.dataVolumeTemplates
-
-```yaml
-...
-spec:
-  dataVolumeTemplates:
-  - metadata:
-      name: dv1
-  ...
-  - metadata:
-      name: dv2
-...
-```
-
-- ("cdi.kubevirt.io", "DataVolume", "ns1", "dv1")
-- ("cdi.kubevirt.io", "DataVolume", "ns1", "dv2")
-
 #### spec.template
 
 See [VirtualMachineInstance](#virtualmachineinstance-object-graph)
@@ -296,7 +279,7 @@ metadata:
 - ("kubevirt.io", "VirtualMachineInstance", "ns1", "vmirs1XXXX1") \*
 - ("kubevirt.io", "VirtualMachineInstance", "ns1", "vmirs1XXXX2") \*
 
-\* there are usually multiple VirtualMachineInstances corresponding to a VirtualMachineInstanceReplicaSet.  The backup process can look up the name of this pod by using the `kubevirt.io/vmReplicaSe=<name of VirtualMachineInstanceReplicaSet>` label selector.
+\* there are usually multiple VirtualMachineInstances corresponding to a VirtualMachineInstanceReplicaSet.  The backup process can look up the name of this pod by using the `kubevirt.io/vmReplicaSet=<name of VirtualMachineInstanceReplicaSet>` label selector.
 
 #### spec.template
 
