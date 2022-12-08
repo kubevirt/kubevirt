@@ -29,11 +29,14 @@ func CreatePodAndWaitUntil(pod *corev1.Pod, phaseToWait corev1.PodPhase) *corev1
 	virtClient, err := kubecli.GetKubevirtClient()
 	util.PanicOnError(err)
 
-	pod, err = virtClient.CoreV1().Pods(util.NamespaceTestDefault).Create(context.Background(), pod, metav1.CreateOptions{})
+	if pod.Namespace == "" {
+		pod.Namespace = util.NamespaceTestDefault
+	}
+	pod, err = virtClient.CoreV1().Pods(pod.Namespace).Create(context.Background(), pod, metav1.CreateOptions{})
 	Expect(err).ToNot(HaveOccurred(), "should succeed creating pod")
 
 	getStatus := func() corev1.PodPhase {
-		pod, err = virtClient.CoreV1().Pods(util.NamespaceTestDefault).Get(context.Background(), pod.Name, metav1.GetOptions{})
+		pod, err = virtClient.CoreV1().Pods(pod.Namespace).Get(context.Background(), pod.Name, metav1.GetOptions{})
 		Expect(err).ToNot(HaveOccurred())
 		return pod.Status.Phase
 	}

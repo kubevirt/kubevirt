@@ -1866,11 +1866,11 @@ func getVirtLauncherLogs(virtCli kubecli.KubevirtClient, vmi *v1.VirtualMachineI
 func pkillHandler(virtCli kubecli.KubevirtClient, node string) error {
 	pod := renderPkillAllPod("virt-handler")
 	pod.Spec.NodeName = node
-	createdPod, err := virtCli.CoreV1().Pods(util.NamespaceTestDefault).Create(context.Background(), pod, metav1.CreateOptions{})
+	createdPod, err := virtCli.CoreV1().Pods(pod.Namespace).Create(context.Background(), pod, metav1.CreateOptions{})
 	Expect(err).ToNot(HaveOccurred(), "Should create helper pod")
 
 	getStatus := func() k8sv1.PodPhase {
-		podG, err := virtCli.CoreV1().Pods(util.NamespaceTestDefault).Get(context.Background(), createdPod.Name, metav1.GetOptions{})
+		podG, err := virtCli.CoreV1().Pods(createdPod.Namespace).Get(context.Background(), createdPod.Name, metav1.GetOptions{})
 		Expect(err).ToNot(HaveOccurred(), "Should return current status")
 		return podG.Status.Phase
 	}
@@ -1883,13 +1883,13 @@ func pkillHandler(virtCli kubecli.KubevirtClient, node string) error {
 func pkillAllLaunchers(virtCli kubecli.KubevirtClient, node string) (*k8sv1.Pod, error) {
 	pod := renderPkillAllPod("virt-launcher")
 	pod.Spec.NodeName = node
-	return virtCli.CoreV1().Pods(util.NamespaceTestDefault).Create(context.Background(), pod, metav1.CreateOptions{})
+	return virtCli.CoreV1().Pods(pod.Namespace).Create(context.Background(), pod, metav1.CreateOptions{})
 }
 
 func pkillAllVMIs(virtCli kubecli.KubevirtClient, node string) error {
 	pod := renderPkillAllPod("qemu")
 	pod.Spec.NodeName = node
-	_, err := virtCli.CoreV1().Pods(util.NamespaceTestDefault).Create(context.Background(), pod, metav1.CreateOptions{})
+	_, err := virtCli.CoreV1().Pods(pod.Namespace).Create(context.Background(), pod, metav1.CreateOptions{})
 
 	return err
 }

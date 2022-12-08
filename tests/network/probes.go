@@ -62,7 +62,7 @@ var _ = SIGDescribe("[ref_id:1182]Probes", func() {
 			probeBackendPod = tests.StartTCPServerPod(family, int(port))
 		}
 		return probeBackendPod, func() error {
-			return virtClient.CoreV1().Pods(util.NamespaceTestDefault).Delete(context.Background(), probeBackendPod.Name, metav1.DeleteOptions{})
+			return virtClient.CoreV1().Pods(probeBackendPod.Namespace).Delete(context.Background(), probeBackendPod.Name, metav1.DeleteOptions{})
 		}
 	}
 

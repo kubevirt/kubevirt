@@ -1009,7 +1009,7 @@ var _ = SIGDescribe("Storage", func() {
 							},
 						},
 					}
-					pod, err = virtClient.CoreV1().Pods(util.NamespaceTestDefault).Create(context.Background(), pod, metav1.CreateOptions{})
+					pod, err = virtClient.CoreV1().Pods(pod.Namespace).Create(context.Background(), pod, metav1.CreateOptions{})
 					Expect(err).NotTo(HaveOccurred())
 
 					By("Waiting for hostPath pod to prepare the mounted directory")
@@ -1032,7 +1032,7 @@ var _ = SIGDescribe("Storage", func() {
 						tests.WaitForVirtualMachineToDisappearWithTimeout(vmi, 120)
 					}
 					Expect(virtClient.CoreV1().Pods(pod.Namespace).Delete(context.Background(), pod.Name, metav1.DeleteOptions{})).To(Succeed())
-					waitForPodToDisappearWithTimeout(pod.Name, 120)
+					waitForPodToDisappearWithTimeout(pod.Name, pod.Namespace, 120)
 				})
 
 				configureToleration := func(toleration int) {
@@ -1463,11 +1463,11 @@ var _ = SIGDescribe("Storage", func() {
 	})
 })
 
-func waitForPodToDisappearWithTimeout(podName string, seconds int) {
+func waitForPodToDisappearWithTimeout(podName, podNamespace string, seconds int) {
 	virtClient, err := kubecli.GetKubevirtClient()
 	ExpectWithOffset(1, err).ToNot(HaveOccurred())
 	EventuallyWithOffset(1, func() bool {
-		_, err := virtClient.CoreV1().Pods(util.NamespaceTestDefault).Get(context.Background(), podName, metav1.GetOptions{})
+		_, err := virtClient.CoreV1().Pods(podNamespace).Get(context.Background(), podName, metav1.GetOptions{})
 		return errors.IsNotFound(err)
 	}, seconds, 1*time.Second).Should(BeTrue())
 }
