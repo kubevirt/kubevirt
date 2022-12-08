@@ -596,7 +596,13 @@ func toApiReadOnly(src bool) *api.ReadOnly {
 	}
 	return nil
 }
-
+func getErrorPolicy(policy string) string {
+	errorPolicy := "stop"
+	if policy == "stop" || policy == "report" || policy == "ignore" || policy == "enospace" {
+		errorPolicy = policy
+	}
+	return errorPolicy
+}
 func toApiShareable(src bool) *api.Shareable {
 	if src {
 		return &api.Shareable{}
@@ -1706,7 +1712,24 @@ func Convert_v1_VirtualMachineInstance_To_api_Domain(vmi *v1.VirtualMachineInsta
 			domain.Spec.Devices.Controllers = append(domain.Spec.Devices.Controllers, pciRootPortController)
 		}
 	}
-
+	if needsPciBridgeController(vmi) {
+		pciRootIndex1Controller := api.Controller{
+			Type:   "pci",
+			Index:  "1",
+			Model:  "pci-bridge",
+			Alias:  api.NewUserDefinedAlias("pci-bridge.1"),
+			Driver: controllerDriver,
+		}
+		domain.Spec.Devices.Controllers = append(domain.Spec.Devices.Controllers, pciRootIndex1Controller)
+		pciRootIndex2Controller := api.Controller{
+			Type:   "pci",
+			Index:  "2",
+			Model:  "pci-bridge",
+			Alias:  api.NewUserDefinedAlias("pci-bridge.2"),
+			Driver: controllerDriver,
+		}
+		domain.Spec.Devices.Controllers = append(domain.Spec.Devices.Controllers, pciRootIndex2Controller)
+	}
 	if vmi.Spec.Domain.Clock != nil {
 		clock := vmi.Spec.Domain.Clock
 		newClock := &api.Clock{}
@@ -1960,6 +1983,23 @@ func needsHotplugController(vmi *v1.VirtualMachineInstance) bool {
 		if machine == nil {
 			return true
 		} else if machine != nil && strings.Contains(machine.Type, "q35") {
+			return true
+		} else if machine != nil && strings.Contains(machine.Type, "virt") {
+			return true
+		} else {
+			return false
+		}
+	}
+	return false
+}
+
+func needsPciBridgeController(vmi *v1.VirtualMachineInstance) bool {
+	if vmi != nil {
+		machine := vmi.Spec.Domain.Machine
+		if machine != nil && strings.Contains(machine.Type, "pc-i440fx") {
+			return true
+		}
+		if machine != nil && strings.Contains(machine.Type, "pc") {
 			return true
 		} else {
 			return false

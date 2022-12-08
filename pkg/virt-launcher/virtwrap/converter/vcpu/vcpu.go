@@ -2,6 +2,7 @@ package vcpu
 
 import (
 	"fmt"
+	"runtime"
 	"strconv"
 	"strings"
 
@@ -12,6 +13,7 @@ import (
 	k8sv1 "k8s.io/api/core/v1"
 
 	v12 "kubevirt.io/api/core/v1"
+	virtconfig "kubevirt.io/kubevirt/pkg/virt-config"
 
 	v1 "kubevirt.io/kubevirt/pkg/handler-launcher-com/cmd/v1"
 	"kubevirt.io/kubevirt/pkg/virt-launcher/virtwrap/api"
@@ -453,13 +455,16 @@ func AdjustDomainForTopologyAndCPUSet(domain *api.Domain, vmi *v12.VirtualMachin
 	if domain.Spec.Features == nil {
 		domain.Spec.Features = &api.Features{}
 	}
+
 	if domain.Spec.Features.KVM == nil {
 		domain.Spec.Features.KVM = &api.FeatureKVM{}
 	}
-	domain.Spec.Features.KVM.HintDedicated = &api.FeatureState{
-		State: "on",
-	}
+	if virtconfig.IsAMD64(runtime.GOARCH) {
+		domain.Spec.Features.KVM.HintDedicated = &api.FeatureState{
+			State: "on",
+		}
 
+	}
 	var emulatorThread uint32
 	if vmi.Spec.Domain.CPU.IsolateEmulatorThread {
 		emulatorThread, err = cpuPool.FitThread()

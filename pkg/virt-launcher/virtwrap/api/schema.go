@@ -605,8 +605,6 @@ type DiskSecret struct {
 
 type ReadOnly struct{}
 
-type Shareable struct{}
-
 type DiskSource struct {
 	Dev           string          `xml:"dev,attr,omitempty"`
 	File          string          `xml:"file,attr,omitempty"`
