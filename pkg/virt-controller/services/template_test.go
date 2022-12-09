@@ -3529,6 +3529,62 @@ var _ = Describe("Template", func() {
 			Entry("disabled", false, kubev1.SeccompProfileTypeRuntimeDefault),
 		)
 
+		It("should compute the correct security context when rendering hotplug attachment pods", func() {
+			vmi := api.NewMinimalVMI("fake-vmi")
+			ownerPod, err := svc.RenderLaunchManifest(vmi)
+			Expect(err).ToNot(HaveOccurred())
+
+			vmi.Status.SelinuxContext = "test_u:test_r:test_t:s0"
+			claimMap := map[string]*kubev1.PersistentVolumeClaim{}
+			pod, err := svc.RenderHotplugAttachmentPodTemplate([]*v1.Volume{}, ownerPod, vmi, claimMap, false)
+			Expect(err).ToNot(HaveOccurred())
+
+			runUser := int64(util.NonRootUID)
+			Expect(*pod.Spec.Containers[0].SecurityContext).To(Equal(kubev1.SecurityContext{
+				AllowPrivilegeEscalation: pointer.Bool(false),
+				RunAsNonRoot:             pointer.Bool(true),
+				RunAsUser:                &runUser,
+				SeccompProfile: &kubev1.SeccompProfile{
+					Type: kubev1.SeccompProfileTypeRuntimeDefault,
+				},
+				Capabilities: &kubev1.Capabilities{
+					Drop: []kubev1.Capability{"ALL"},
+				},
+				SELinuxOptions: &kubev1.SELinuxOptions{
+					Level: "s0",
+				},
+			}))
+		})
+
+		DescribeTable("should compute the correct security context when rendering hotplug attachment trigger pods", func(isBlock bool) {
+			vmi := api.NewMinimalVMI("fake-vmi")
+			ownerPod, err := svc.RenderLaunchManifest(vmi)
+			Expect(err).ToNot(HaveOccurred())
+
+			vmi.Status.SelinuxContext = "test_u:test_r:test_t:s0"
+			pod, err := svc.RenderHotplugAttachmentTriggerPodTemplate(&v1.Volume{}, ownerPod, vmi, "test", isBlock, false)
+			Expect(err).ToNot(HaveOccurred())
+
+			runUser := int64(util.NonRootUID)
+			Expect(*pod.Spec.Containers[0].SecurityContext).To(Equal(kubev1.SecurityContext{
+				AllowPrivilegeEscalation: pointer.Bool(false),
+				RunAsNonRoot:             pointer.Bool(true),
+				RunAsUser:                &runUser,
+				SeccompProfile: &kubev1.SeccompProfile{
+					Type: kubev1.SeccompProfileTypeRuntimeDefault,
+				},
+				Capabilities: &kubev1.Capabilities{
+					Drop: []kubev1.Capability{"ALL"},
+				},
+				SELinuxOptions: &kubev1.SELinuxOptions{
+					Level: "s0",
+				},
+			}))
+		},
+			Entry("when volume is a block device", true),
+			Entry("when volume is a filesystem", false),
+		)
+
 		It("Should run as non-root except compute", func() {
 			vmi := newMinimalWithContainerDisk("ranom")
 
