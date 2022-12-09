@@ -327,6 +327,10 @@ func (r *Reconciler) createOrUpdateComponentsWithCertificates(queue workqueue.Ra
 	certRenewBefore := GetCertRenewBefore(r.kv.Spec.CertificateRotationStrategy.SelfSigned)
 	caExportRenewBefore := GetCertRenewBefore(r.kv.Spec.CertificateRotationStrategy.SelfSigned)
 
+	if (caDuration != nil && certDuration != nil) && (caDuration.Milliseconds() < certDuration.Milliseconds()) {
+		return fmt.Errorf("failed to set KubeVirt ca duration and cert duration, Reason: cert duration %s after than ca duration %s", certDuration.String(), caDuration.String())
+	}
+
 	// create/update CA Certificate secret
 	caCert, err := r.createOrUpdateCACertificateSecret(queue, components.KubeVirtCASecretName, caDuration, caRenewBefore)
 	if err != nil {
