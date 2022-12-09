@@ -26,7 +26,7 @@ spec:
         effect: NoSchedule
       containers:
       - name: kube-sriov-cni
-        image: ghcr.io/k8snetworkplumbingwg/sriov-cni:v2.6.2
+        image: ghcr.io/k8snetworkplumbingwg/sriov-cni:v2.7.0
         imagePullPolicy: IfNotPresent
         securityContext:
           allowPrivilegeEscalation: false
