@@ -179,6 +179,14 @@ load(
     "git_repository",
 )
 
+# Dependency seems to be gone
+# TODO fix on bazeldnf side
+go_repository(
+    name = "com_github_xi2_xz",
+    commit = "48954b6210f8d154cb5f8484d3a3e1f83489309e",
+    importpath = "github.com/xi2/xz",
+)
+
 # Winrmcli dependencies
 go_repository(
     name = "com_github_masterzen_winrmcli",
