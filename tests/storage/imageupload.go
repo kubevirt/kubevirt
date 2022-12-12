@@ -341,6 +341,10 @@ var _ = SIGDescribe("[Serial]ImageUpload", Serial, func() {
 		}
 
 		DescribeTable("Should succeed", func(resource, targetName string, uploadDV bool, deleteFunc func(string)) {
+			storageClass, exists := libstorage.GetRWOFileSystemStorageClass()
+			if !exists {
+				Skip("Skip test when Filesystem storage is not present")
+			}
 			defer deleteFunc(targetName)
 
 			By("Upload archive content")
@@ -349,6 +353,7 @@ var _ = SIGDescribe("[Serial]ImageUpload", Serial, func() {
 				namespaceArg, testsuite.GetTestNamespace(nil),
 				"--archive-path", archivePath,
 				sizeArg, pvcSize,
+				"--storage-class", storageClass,
 				"--force-bind",
 				insecureArg)
 
