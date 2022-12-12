@@ -1221,27 +1221,15 @@ func WaitUntilVMIReadyIgnoreSelectedWarnings(vmi *v1.VirtualMachineInstance, log
 
 func WaitUntilVMIReadyWithContext(ctx context.Context, vmi *v1.VirtualMachineInstance, loginTo console.LoginToFunction) *v1.VirtualMachineInstance {
 	// Wait for VirtualMachineInstance start
-	WaitForSuccessfulVMIStartWithContext(ctx, vmi)
-	return LoginToVM(vmi, loginTo)
+	vmi = WaitForSuccessfulVMIStartWithContext(ctx, vmi)
+	Expect(loginTo(vmi)).To(Succeed())
+	return vmi
 }
 
 func WaitUntilVMIReadyWithContextIgnoreSelectedWarnings(ctx context.Context, vmi *v1.VirtualMachineInstance, loginTo console.LoginToFunction, warningsIgnoreList []string) *v1.VirtualMachineInstance {
 	// Wait for VirtualMachineInstance start
-	WaitForSuccessfulVMIStartWithContextIgnoreSelectedWarnings(ctx, vmi, warningsIgnoreList)
-	return LoginToVM(vmi, loginTo)
-}
-
-func LoginToVM(vmi *v1.VirtualMachineInstance, loginTo console.LoginToFunction) *v1.VirtualMachineInstance {
-	// Fetch the new VirtualMachineInstance with updated status
-	virtClient, err := kubecli.GetKubevirtClient()
-	Expect(err).ToNot(HaveOccurred())
-	vmi, err = virtClient.VirtualMachineInstance(vmi.Namespace).Get(context.Background(), vmi.Name, &metav1.GetOptions{})
-	ExpectWithOffset(1, err).ToNot(HaveOccurred())
-
-	// Lets make sure that the OS is up by waiting until we can login
-
-	ExpectWithOffset(1, loginTo(vmi)).To(Succeed())
-
+	vmi = WaitForSuccessfulVMIStartWithContextIgnoreSelectedWarnings(ctx, vmi, warningsIgnoreList)
+	Expect(loginTo(vmi)).To(Succeed())
 	return vmi
 }
 

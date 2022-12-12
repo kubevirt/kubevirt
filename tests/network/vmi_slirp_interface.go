@@ -167,7 +167,7 @@ var _ = SIGDescribe("Slirp Networking", func() {
 			vmi, err = virtClient.VirtualMachineInstance(testsuite.GetTestNamespace(nil)).Create(context.Background(), vmi)
 			Expect(err).ToNot(HaveOccurred())
 			vmi = tests.WaitForSuccessfulVMIStartIgnoreWarnings(vmi)
-			vmi = tests.LoginToVM(vmi, console.LoginToCirros)
+			Expect(console.LoginToCirros(vmi)).To(Succeed())
 
 			dns := "google.com"
 			if flags.ConnectivityCheckDNS != "" {
