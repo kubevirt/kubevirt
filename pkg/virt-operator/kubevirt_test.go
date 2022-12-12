@@ -151,14 +151,14 @@ type KubeVirtTestData struct {
 	mockEnvVarManager util.EnvVarManager
 }
 
-var mockEnvVarManager = &util.EnvVarManagerMock{}
-
 func (k *KubeVirtTestData) BeforeTest() {
 
-	k.mockEnvVarManager = mockEnvVarManager
+	k.mockEnvVarManager = &util.EnvVarManagerMock{}
 
 	err := k.mockEnvVarManager.Setenv(util.OldOperatorImageEnvName, fmt.Sprintf("%s/virt-operator:%s", "someregistry", "v9.9.9"))
 	Expect(err).NotTo(HaveOccurred())
+
+	util.DefaultEnvVarManager = k.mockEnvVarManager
 
 	k.defaultConfig = k.getConfig("", "")
 
@@ -348,6 +348,8 @@ func (k *KubeVirtTestData) BeforeTest() {
 
 func (k *KubeVirtTestData) AfterTest() {
 	close(k.stop)
+
+	util.DefaultEnvVarManager = nil
 
 	// Ensure that we add checks for expected events to every test
 	Expect(k.recorder.Events).To(BeEmpty())
@@ -1669,10 +1671,6 @@ func (k *KubeVirtTestData) getConfig(registry, version string) *util.KubeVirtDep
 }
 
 var _ = Describe("KubeVirt Operator", func() {
-
-	BeforeEach(func() {
-		util.DefaultEnvVarManager = mockEnvVarManager
-	})
 
 	Context("On valid KubeVirt object", func() {
 
