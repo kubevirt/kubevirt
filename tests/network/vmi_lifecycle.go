@@ -42,6 +42,7 @@ import (
 	"kubevirt.io/kubevirt/tests/console"
 	"kubevirt.io/kubevirt/tests/libnet"
 	"kubevirt.io/kubevirt/tests/libvmi"
+	"kubevirt.io/kubevirt/tests/libwait"
 )
 
 var _ = SIGDescribe("[crit:high][arm64][vendor:cnv-qe@redhat.com][level:component]", func() {
@@ -71,7 +72,7 @@ var _ = SIGDescribe("[crit:high][arm64][vendor:cnv-qe@redhat.com][level:componen
 				Expect(err).ToNot(HaveOccurred(), "Should submit VMI successfully")
 
 				// Start a VirtualMachineInstance with bridged networking
-				nodeName := tests.WaitForSuccessfulVMIStart(bridgeVMI).Status.NodeName
+				nodeName := libwait.WaitForSuccessfulVMIStart(bridgeVMI).Status.NodeName
 
 				verifyDummyNicForBridgeNetwork(bridgeVMI)
 
@@ -96,7 +97,7 @@ var _ = SIGDescribe("[crit:high][arm64][vendor:cnv-qe@redhat.com][level:componen
 				}, 100, 10).Should(Succeed(), "Should be able to start a new VM")
 
 				By("checking if the VMI with bridged networking is still running, it will verify the CNI didn't cause the pod to be killed")
-				bridgeVMI = tests.WaitForSuccessfulVMIStart(bridgeVMI)
+				bridgeVMI = libwait.WaitForSuccessfulVMIStart(bridgeVMI)
 			})
 
 			It("VMIs with Bridge Networking should work with Duplicate Address Detection (DAD)", func() {
@@ -113,7 +114,7 @@ var _ = SIGDescribe("[crit:high][arm64][vendor:cnv-qe@redhat.com][level:componen
 
 				// Start a VirtualMachineInstance with bridged networking
 				By("Waiting the VirtualMachineInstance start")
-				bridgeVMI = tests.WaitUntilVMIReady(bridgeVMI, console.LoginToCirros)
+				bridgeVMI = libwait.WaitUntilVMIReady(bridgeVMI, console.LoginToCirros)
 				verifyDummyNicForBridgeNetwork(bridgeVMI)
 
 				vmIP := libnet.GetVmiPrimaryIPByFamily(bridgeVMI, k8sv1.IPv4Protocol)

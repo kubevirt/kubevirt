@@ -20,6 +20,7 @@ go_library(
         "//tests/containerdisk:go_default_library",
         "//tests/framework/checks:go_default_library",
         "//tests/libvmi:go_default_library",
+        "//tests/libwait:go_default_library",
         "//tests/util:go_default_library",
         "//tools/perfscale-audit/api:go_default_library",
         "//tools/perfscale-audit/metric-client:go_default_library",

@@ -48,6 +48,7 @@ import (
 	"kubevirt.io/kubevirt/tests"
 	"kubevirt.io/kubevirt/tests/libnet"
 	"kubevirt.io/kubevirt/tests/libvmi"
+	"kubevirt.io/kubevirt/tests/libwait"
 	"kubevirt.io/kubevirt/tests/util"
 )
 
@@ -100,7 +101,7 @@ var _ = Describe("[Serial][sig-compute]Windows VirtualMachineInstance", Serial, 
 				var err error
 				windowsVMI, err = virtClient.VirtualMachineInstance(util.NamespaceTestDefault).Create(context.Background(), windowsVMI)
 				Expect(err).ToNot(HaveOccurred())
-				tests.WaitForSuccessfulVMIStartWithTimeout(windowsVMI, 360)
+				libwait.WaitForSuccessfulVMIStartWithTimeout(windowsVMI, 360)
 
 				cli = winrnLoginCommand(virtClient, windowsVMI)
 			})
@@ -162,7 +163,7 @@ var _ = Describe("[Serial][sig-compute]Windows VirtualMachineInstance", Serial, 
 				var err error
 				windowsVMI, err = virtClient.VirtualMachineInstance(util.NamespaceTestDefault).Create(context.Background(), windowsVMI)
 				Expect(err).ToNot(HaveOccurred())
-				tests.WaitForSuccessfulVMIStartWithTimeout(windowsVMI, 360)
+				libwait.WaitForSuccessfulVMIStartWithTimeout(windowsVMI, 360)
 
 				cli = winrnLoginCommand(virtClient, windowsVMI)
 			})
@@ -187,7 +188,7 @@ var _ = Describe("[Serial][sig-compute]Windows VirtualMachineInstance", Serial, 
 				var err error
 				windowsVMI, err = virtClient.VirtualMachineInstance(util.NamespaceTestDefault).Create(context.Background(), windowsVMI)
 				Expect(err).ToNot(HaveOccurred())
-				tests.WaitForSuccessfulVMIStartWithTimeout(windowsVMI, 420)
+				libwait.WaitForSuccessfulVMIStartWithTimeout(windowsVMI, 420)
 
 				cli = winrnLoginCommand(virtClient, windowsVMI)
 			})

@@ -41,6 +41,7 @@ import (
 
 	"kubevirt.io/kubevirt/tests"
 	"kubevirt.io/kubevirt/tests/libvmi"
+	"kubevirt.io/kubevirt/tests/libwait"
 	"kubevirt.io/kubevirt/tests/testsuite"
 )
 
@@ -314,7 +315,7 @@ var _ = Describe("[sig-compute]Subresource Api", func() {
 					Expect(err).ToNot(HaveOccurred())
 					return vmi.Status.Phase == v1.Running
 				}, 180*time.Second, time.Second).Should(BeTrue())
-				tests.WaitForSuccessfulVMIStartWithTimeout(vmi, 180)
+				libwait.WaitForSuccessfulVMIStartWithTimeout(vmi, 180)
 			})
 
 			It("[test_id:7476]Freeze without guest agent", func() {
@@ -350,7 +351,7 @@ var _ = Describe("[sig-compute]Subresource Api", func() {
 					Expect(err).ToNot(HaveOccurred())
 					return vmi.Status.Phase == v1.Running
 				}, 180*time.Second, time.Second).Should(BeTrue())
-				tests.WaitForSuccessfulVMIStartWithTimeout(vmi, 300)
+				libwait.WaitForSuccessfulVMIStartWithTimeout(vmi, 300)
 				Eventually(matcher.ThisVMI(vmi), 12*time.Minute, 2*time.Second).Should(matcher.HaveConditionTrue(v1.VirtualMachineInstanceAgentConnected))
 			})
 

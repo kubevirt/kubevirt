@@ -57,6 +57,7 @@ import (
 	"kubevirt.io/kubevirt/tests/flags"
 	"kubevirt.io/kubevirt/tests/libnet"
 	"kubevirt.io/kubevirt/tests/libvmi"
+	"kubevirt.io/kubevirt/tests/libwait"
 )
 
 const (
@@ -214,7 +215,7 @@ var _ = SIGDescribe("[rfe_id:694][crit:medium][vendor:cnv-qe@redhat.com][level:c
 				inboundVMI = libvmi.NewCirros()
 				inboundVMI, err = virtClient.VirtualMachineInstance(testsuite.GetTestNamespace(nil)).Create(context.Background(), inboundVMI)
 				Expect(err).ToNot(HaveOccurred())
-				inboundVMI = tests.WaitUntilVMIReady(inboundVMI, console.LoginToCirros)
+				inboundVMI = libwait.WaitUntilVMIReady(inboundVMI, console.LoginToCirros)
 				tests.StartTCPServer(inboundVMI, testPort, console.LoginToCirros)
 			})
 
@@ -268,8 +269,8 @@ var _ = SIGDescribe("[rfe_id:694][crit:medium][vendor:cnv-qe@redhat.com][level:c
 				outboundVMI, err = virtClient.VirtualMachineInstance(testsuite.GetTestNamespace(nil)).Create(context.Background(), outboundVMI)
 				Expect(err).ToNot(HaveOccurred())
 
-				inboundVMI = tests.WaitUntilVMIReady(inboundVMI, console.LoginToCirros)
-				outboundVMI = tests.WaitUntilVMIReady(outboundVMI, console.LoginToCirros)
+				inboundVMI = libwait.WaitUntilVMIReady(inboundVMI, console.LoginToCirros)
+				outboundVMI = libwait.WaitUntilVMIReady(outboundVMI, console.LoginToCirros)
 			})
 
 			// Unless an explicit interface model is specified, the default interface model is virtio.
@@ -306,7 +307,7 @@ var _ = SIGDescribe("[rfe_id:694][crit:medium][vendor:cnv-qe@redhat.com][level:c
 			libnet.SkipWhenClusterNotSupportIpv4()
 			outboundVMI := libvmi.NewCirros()
 			outboundVMI = runVMI(outboundVMI)
-			tests.WaitUntilVMIReady(outboundVMI, console.LoginToCirros)
+			libwait.WaitUntilVMIReady(outboundVMI, console.LoginToCirros)
 
 			By("checking the VirtualMachineInstance can fetch via HTTP")
 			err := console.SafeExpectBatch(outboundVMI, []expect.Batcher{
@@ -336,7 +337,7 @@ var _ = SIGDescribe("[rfe_id:694][crit:medium][vendor:cnv-qe@redhat.com][level:c
 			e1000VMI, err = virtClient.VirtualMachineInstance(testsuite.GetTestNamespace(nil)).Create(context.Background(), e1000VMI)
 			Expect(err).ToNot(HaveOccurred())
 
-			tests.WaitUntilVMIReady(e1000VMI, console.LoginToAlpine)
+			libwait.WaitUntilVMIReady(e1000VMI, console.LoginToAlpine)
 			// as defined in https://vendev.org/pci/ven_8086/
 			checkNetworkVendor(e1000VMI, "0x8086")
 		})
@@ -357,7 +358,7 @@ var _ = SIGDescribe("[rfe_id:694][crit:medium][vendor:cnv-qe@redhat.com][level:c
 			deadbeafVMI, err = virtClient.VirtualMachineInstance(testsuite.GetTestNamespace(nil)).Create(context.Background(), deadbeafVMI)
 			Expect(err).ToNot(HaveOccurred())
 
-			tests.WaitUntilVMIReady(deadbeafVMI, console.LoginToAlpine)
+			libwait.WaitUntilVMIReady(deadbeafVMI, console.LoginToAlpine)
 			checkMacAddress(deadbeafVMI, deadbeafVMI.Spec.Domain.Devices.Interfaces[0].MacAddress)
 		})
 	})
@@ -375,7 +376,7 @@ var _ = SIGDescribe("[rfe_id:694][crit:medium][vendor:cnv-qe@redhat.com][level:c
 			beafdeadVMI, err = virtClient.VirtualMachineInstance(testsuite.GetTestNamespace(nil)).Create(context.Background(), beafdeadVMI)
 			Expect(err).ToNot(HaveOccurred())
 
-			tests.WaitUntilVMIReady(beafdeadVMI, console.LoginToCirros)
+			libwait.WaitUntilVMIReady(beafdeadVMI, console.LoginToCirros)
 			checkMacAddress(beafdeadVMI, "be:af:00:00:de:ad")
 		})
 	})
@@ -408,7 +409,7 @@ var _ = SIGDescribe("[rfe_id:694][crit:medium][vendor:cnv-qe@redhat.com][level:c
 			deadbeafVMI, err = virtClient.VirtualMachineInstance(testsuite.GetTestNamespace(nil)).Create(context.Background(), deadbeafVMI)
 			Expect(err).ToNot(HaveOccurred())
 
-			tests.WaitUntilVMIReady(deadbeafVMI, console.LoginToAlpine)
+			libwait.WaitUntilVMIReady(deadbeafVMI, console.LoginToAlpine)
 			checkMacAddress(deadbeafVMI, deadbeafVMI.Spec.Domain.Devices.Interfaces[0].MacAddress)
 		})
 	})
@@ -425,7 +426,7 @@ var _ = SIGDescribe("[rfe_id:694][crit:medium][vendor:cnv-qe@redhat.com][level:c
 
 			detachedVMI, err = virtClient.VirtualMachineInstance(testsuite.GetTestNamespace(nil)).Create(context.Background(), detachedVMI)
 			Expect(err).ToNot(HaveOccurred())
-			tests.WaitUntilVMIReady(detachedVMI, console.LoginToAlpine)
+			libwait.WaitUntilVMIReady(detachedVMI, console.LoginToAlpine)
 
 			err := console.SafeExpectBatch(detachedVMI, []expect.Batcher{
 				&expect.BSnd{S: "\n"},
@@ -499,7 +500,7 @@ var _ = SIGDescribe("[rfe_id:694][crit:medium][vendor:cnv-qe@redhat.com][level:c
 			testVMI, err = virtClient.VirtualMachineInstance(testsuite.GetTestNamespace(nil)).Create(context.Background(), testVMI)
 			Expect(err).ToNot(HaveOccurred())
 
-			tests.WaitUntilVMIReady(testVMI, console.LoginToAlpine)
+			libwait.WaitUntilVMIReady(testVMI, console.LoginToAlpine)
 			checkPciAddress(testVMI, testVMI.Spec.Domain.Devices.Interfaces[0].PciAddress)
 		})
 	})
@@ -512,7 +513,7 @@ var _ = SIGDescribe("[rfe_id:694][crit:medium][vendor:cnv-qe@redhat.com][level:c
 			learningDisabledVMI, err = virtClient.VirtualMachineInstance(testsuite.GetTestNamespace(nil)).Create(context.Background(), learningDisabledVMI)
 			Expect(err).ToNot(HaveOccurred())
 
-			tests.WaitUntilVMIReady(learningDisabledVMI, console.LoginToAlpine)
+			libwait.WaitUntilVMIReady(learningDisabledVMI, console.LoginToAlpine)
 			checkLearningState(learningDisabledVMI, "0")
 		})
 	})
@@ -537,7 +538,7 @@ var _ = SIGDescribe("[rfe_id:694][crit:medium][vendor:cnv-qe@redhat.com][level:c
 				PrivateOptions: []v1.DHCPPrivateOptions{{Option: 240, Value: "private.options.kubevirt.io"}},
 			}
 
-			dhcpVMI = tests.WaitUntilVMIReady(tests.RunVMI(dhcpVMI, 40), console.LoginToFedora)
+			dhcpVMI = libwait.WaitUntilVMIReady(tests.RunVMI(dhcpVMI, 40), console.LoginToFedora)
 
 			err = console.SafeExpectBatch(dhcpVMI, []expect.Batcher{
 				&expect.BSnd{S: "\n"},
@@ -576,7 +577,7 @@ var _ = SIGDescribe("[rfe_id:694][crit:medium][vendor:cnv-qe@redhat.com][level:c
 				Nameservers: []string{"8.8.8.8", "4.2.2.1", DNSNameserverWithLeadingZeros},
 				Searches:    []string{"example.com"},
 			}
-			dnsVMI = tests.WaitUntilVMIReady(tests.RunVMI(dnsVMI, 40), console.LoginToCirros)
+			dnsVMI = libwait.WaitUntilVMIReady(tests.RunVMI(dnsVMI, 40), console.LoginToCirros)
 			err = console.SafeExpectBatch(dnsVMI, []expect.Batcher{
 				&expect.BSnd{S: "\n"},
 				&expect.BExp{R: console.PromptExpression},
@@ -700,14 +701,14 @@ var _ = SIGDescribe("[rfe_id:694][crit:medium][vendor:cnv-qe@redhat.com][level:c
 				clientVMI = masqueradeVMI([]v1.Port{}, networkCIDR)
 				clientVMI, err = virtClient.VirtualMachineInstance(testsuite.GetTestNamespace(nil)).Create(context.Background(), clientVMI)
 				Expect(err).ToNot(HaveOccurred())
-				clientVMI = tests.WaitUntilVMIReady(clientVMI, console.LoginToCirros)
+				clientVMI = libwait.WaitUntilVMIReady(clientVMI, console.LoginToCirros)
 
 				serverVMI = masqueradeVMI(ports, networkCIDR)
 
 				serverVMI.Labels = map[string]string{"expose": "server"}
 				serverVMI, err = virtClient.VirtualMachineInstance(testsuite.GetTestNamespace(nil)).Create(context.Background(), serverVMI)
 				Expect(err).ToNot(HaveOccurred())
-				serverVMI = tests.WaitUntilVMIReady(serverVMI, console.LoginToCirros)
+				serverVMI = libwait.WaitUntilVMIReady(serverVMI, console.LoginToCirros)
 				Expect(serverVMI.Status.Interfaces).To(HaveLen(1))
 				Expect(serverVMI.Status.Interfaces[0].IPs).NotTo(BeEmpty())
 
@@ -745,7 +746,7 @@ var _ = SIGDescribe("[rfe_id:694][crit:medium][vendor:cnv-qe@redhat.com][level:c
 				vmi := masqueradeVMI([]v1.Port{}, "")
 				vmi, err = virtClient.VirtualMachineInstance(testsuite.GetTestNamespace(nil)).Create(context.Background(), vmi)
 				Expect(err).ToNot(HaveOccurred())
-				vmi = tests.WaitUntilVMIReady(vmi, console.LoginToCirros)
+				vmi = libwait.WaitUntilVMIReady(vmi, console.LoginToCirros)
 
 				By("Checking ping (IPv4)")
 				Expect(libnet.PingFromVMConsole(vmi, ipv4Address, "-c 5", "-w 15")).To(Succeed())
@@ -761,7 +762,7 @@ var _ = SIGDescribe("[rfe_id:694][crit:medium][vendor:cnv-qe@redhat.com][level:c
 				Expect(err).ToNot(HaveOccurred())
 				clientVMI, err = virtClient.VirtualMachineInstance(testsuite.GetTestNamespace(nil)).Create(context.Background(), clientVMI)
 				Expect(err).ToNot(HaveOccurred())
-				clientVMI = tests.WaitUntilVMIReady(clientVMI, console.LoginToFedora)
+				clientVMI = libwait.WaitUntilVMIReady(clientVMI, console.LoginToFedora)
 
 				Expect(configureIpv6(clientVMI, networkCIDR)).To(Succeed(), "failed to configure ipv6 on client vmi")
 
@@ -771,7 +772,7 @@ var _ = SIGDescribe("[rfe_id:694][crit:medium][vendor:cnv-qe@redhat.com][level:c
 				serverVMI.Labels = map[string]string{"expose": "server"}
 				serverVMI, err = virtClient.VirtualMachineInstance(testsuite.GetTestNamespace(nil)).Create(context.Background(), serverVMI)
 				Expect(err).ToNot(HaveOccurred())
-				serverVMI = tests.WaitUntilVMIReady(serverVMI, console.LoginToFedora)
+				serverVMI = libwait.WaitUntilVMIReady(serverVMI, console.LoginToFedora)
 
 				Expect(configureIpv6(serverVMI, networkCIDR)).To(Succeed(), "failed to configure ipv6  on server vmi")
 
@@ -803,7 +804,7 @@ var _ = SIGDescribe("[rfe_id:694][crit:medium][vendor:cnv-qe@redhat.com][level:c
 				Expect(err).ToNot(HaveOccurred())
 				vmi, err = virtClient.VirtualMachineInstance(testsuite.GetTestNamespace(nil)).Create(context.Background(), vmi)
 				Expect(err).ToNot(HaveOccurred())
-				vmi = tests.WaitUntilVMIReady(vmi, console.LoginToFedora)
+				vmi = libwait.WaitUntilVMIReady(vmi, console.LoginToFedora)
 				Expect(configureIpv6(vmi, api.DefaultVMIpv6CIDR)).To(Succeed(), "failed to configure ipv6 on vmi")
 
 				By("Checking ping (IPv6) from vmi to cluster nodes gateway")
@@ -856,7 +857,7 @@ var _ = SIGDescribe("[rfe_id:694][crit:medium][vendor:cnv-qe@redhat.com][level:c
 
 				vmi, err = virtClient.VirtualMachineInstance(testsuite.GetTestNamespace(nil)).Create(context.Background(), vmi)
 				Expect(err).ToNot(HaveOccurred())
-				vmi = tests.WaitUntilVMIReady(vmi, console.LoginToCirros)
+				vmi = libwait.WaitUntilVMIReady(vmi, console.LoginToCirros)
 				virtHandlerPod, err := getVirtHandlerPod()
 				Expect(err).ToNot(HaveOccurred())
 
@@ -896,7 +897,7 @@ var _ = SIGDescribe("[rfe_id:694][crit:medium][vendor:cnv-qe@redhat.com][level:c
 
 				vmi, err = virtClient.VirtualMachineInstance(testsuite.GetTestNamespace(nil)).Create(context.Background(), vmi)
 				Expect(err).ToNot(HaveOccurred())
-				vmi = tests.WaitUntilVMIReady(vmi, console.LoginToFedora)
+				vmi = libwait.WaitUntilVMIReady(vmi, console.LoginToFedora)
 				virtHandlerPod, err := getVirtHandlerPod()
 				Expect(err).ToNot(HaveOccurred())
 
@@ -966,9 +967,9 @@ var _ = SIGDescribe("[rfe_id:694][crit:medium][vendor:cnv-qe@redhat.com][level:c
 				Expect(err).ToNot(HaveOccurred())
 
 				By("Wait for VMIs to be ready")
-				anotherVmi = tests.WaitUntilVMIReady(anotherVmi, console.LoginToAlpine)
+				anotherVmi = libwait.WaitUntilVMIReady(anotherVmi, console.LoginToAlpine)
 
-				vmi = tests.WaitUntilVMIReady(vmi, console.LoginToFedora)
+				vmi = libwait.WaitUntilVMIReady(vmi, console.LoginToFedora)
 			})
 
 			DescribeTable("should have the correct MTU", func(ipFamily k8sv1.IPFamily) {
@@ -1021,7 +1022,7 @@ var _ = SIGDescribe("[rfe_id:694][crit:medium][vendor:cnv-qe@redhat.com][level:c
 
 			vmi, err = virtClient.VirtualMachineInstance(testsuite.GetTestNamespace(nil)).Create(context.Background(), vmi)
 			Expect(err).ToNot(HaveOccurred())
-			tests.WaitUntilVMIReady(vmi, console.LoginToAlpine)
+			libwait.WaitUntilVMIReady(vmi, console.LoginToAlpine)
 			output := tests.RunCommandOnVmiPod(
 				vmi,
 				[]string{"/bin/bash", "-c", "/usr/sbin/ethtool -k k6t-eth0|grep tx-checksumming|awk '{ printf $2 }'"},
@@ -1047,7 +1048,7 @@ var _ = SIGDescribe("[rfe_id:694][crit:medium][vendor:cnv-qe@redhat.com][level:c
 })
 
 func waitUntilVMIReady(vmi *v1.VirtualMachineInstance, loginTo console.LoginToFunction) *v1.VirtualMachineInstance {
-	vmi = tests.WaitForSuccessfulVMIStart(vmi)
+	vmi = libwait.WaitForSuccessfulVMIStart(vmi)
 
 	// make sure that the OS is up by waiting until we can login
 	Expect(loginTo(vmi)).To(Succeed())
@@ -1099,7 +1100,7 @@ func runVMI(vmi *v1.VirtualMachineInstance) *v1.VirtualMachineInstance {
 
 	vmi, err = virtClient.VirtualMachineInstance(testsuite.GetTestNamespace(nil)).Create(context.Background(), vmi)
 	Expect(err).ToNot(HaveOccurred())
-	vmi = tests.WaitUntilVMIReady(vmi, console.LoginToCirros)
+	vmi = libwait.WaitUntilVMIReady(vmi, console.LoginToCirros)
 	return vmi
 }
 

@@ -38,6 +38,7 @@ import (
 
 	"kubevirt.io/kubevirt/tests/exec"
 	"kubevirt.io/kubevirt/tests/libvmi"
+	"kubevirt.io/kubevirt/tests/libwait"
 	"kubevirt.io/kubevirt/tests/testsuite"
 	"kubevirt.io/kubevirt/tests/util"
 
@@ -92,7 +93,7 @@ var _ = Describe("[rfe_id:151][crit:high][vendor:cnv-qe@redhat.com][level:compon
 		By("Waiting the VirtualMachineInstance start")
 		vmi, ok := obj.(*v1.VirtualMachineInstance)
 		Expect(ok).To(BeTrue(), "Object is not of type *v1.VirtualMachineInstance")
-		Expect(tests.WaitForSuccessfulVMIStart(obj).Status.NodeName).ToNot(BeEmpty())
+		Expect(libwait.WaitForSuccessfulVMIStart(obj).Status.NodeName).ToNot(BeEmpty())
 		return vmi
 	}
 
@@ -232,7 +233,7 @@ var _ = Describe("[rfe_id:151][crit:high][vendor:cnv-qe@redhat.com][level:compon
 				vm = tests.StartVirtualMachine(vm)
 				vmi, err = virtClient.VirtualMachineInstance(vm.Namespace).Get(context.Background(), vm.Name, &metav1.GetOptions{})
 				Expect(err).ToNot(HaveOccurred())
-				vmi = tests.WaitUntilVMIReady(vmi, console.LoginToFedora)
+				vmi = libwait.WaitUntilVMIReady(vmi, console.LoginToFedora)
 
 				By("Get VM cloud-init instance-id")
 				instanceId, err := getInstanceId(vmi)
@@ -244,7 +245,7 @@ var _ = Describe("[rfe_id:151][crit:high][vendor:cnv-qe@redhat.com][level:compon
 				tests.StartVirtualMachine(vm)
 				vmi, err = virtClient.VirtualMachineInstance(vm.Namespace).Get(context.Background(), vm.Name, &metav1.GetOptions{})
 				Expect(err).ToNot(HaveOccurred())
-				vmi = tests.WaitUntilVMIReady(vmi, console.LoginToFedora)
+				vmi = libwait.WaitUntilVMIReady(vmi, console.LoginToFedora)
 
 				By("Get VM cloud-init instance-id after restart")
 				newInstanceId, err := getInstanceId(vmi)
@@ -354,7 +355,7 @@ var _ = Describe("[rfe_id:151][crit:high][vendor:cnv-qe@redhat.com][level:compon
 				vmi := tests.NewRandomVMIWithEphemeralDiskAndUserdataNetworkData(
 					cd.ContainerDiskFor(cd.ContainerDiskCirros), "", testNetworkData, false)
 				LaunchVMI(vmi)
-				tests.WaitUntilVMIReady(vmi, console.LoginToCirros)
+				libwait.WaitUntilVMIReady(vmi, console.LoginToCirros)
 
 				CheckCloudInitIsoSize(vmi, cloudinit.DataSourceNoCloud)
 
@@ -369,7 +370,7 @@ var _ = Describe("[rfe_id:151][crit:high][vendor:cnv-qe@redhat.com][level:compon
 				vmi := tests.NewRandomVMIWithEphemeralDiskAndUserdataNetworkData(
 					cd.ContainerDiskFor(cd.ContainerDiskCirros), "", testNetworkData, true)
 				LaunchVMI(vmi)
-				tests.WaitUntilVMIReady(vmi, console.LoginToCirros)
+				libwait.WaitUntilVMIReady(vmi, console.LoginToCirros)
 
 				CheckCloudInitIsoSize(vmi, cloudinit.DataSourceNoCloud)
 
@@ -418,7 +419,7 @@ var _ = Describe("[rfe_id:151][crit:high][vendor:cnv-qe@redhat.com][level:compon
 				}
 
 				LaunchVMI(vmi)
-				tests.WaitUntilVMIReady(vmi, console.LoginToCirros)
+				libwait.WaitUntilVMIReady(vmi, console.LoginToCirros)
 
 				CheckCloudInitIsoSize(vmi, cloudinit.DataSourceNoCloud)
 
@@ -445,7 +446,7 @@ var _ = Describe("[rfe_id:151][crit:high][vendor:cnv-qe@redhat.com][level:compon
 					cd.ContainerDiskFor(cd.ContainerDiskCirros), "", testNetworkData, false)
 
 				LaunchVMI(vmi)
-				tests.WaitUntilVMIReady(vmi, console.LoginToCirros)
+				libwait.WaitUntilVMIReady(vmi, console.LoginToCirros)
 
 				CheckCloudInitIsoSize(vmi, cloudinit.DataSourceConfigDrive)
 
@@ -466,7 +467,7 @@ var _ = Describe("[rfe_id:151][crit:high][vendor:cnv-qe@redhat.com][level:compon
 				}
 				vmi.Annotations[v1.InstancetypeAnnotation] = testInstancetype
 				vmi = LaunchVMI(vmi)
-				tests.WaitUntilVMIReady(vmi, console.LoginToCirros)
+				libwait.WaitUntilVMIReady(vmi, console.LoginToCirros)
 				CheckCloudInitIsoSize(vmi, cloudinit.DataSourceConfigDrive)
 
 				domXml, err := tests.GetRunningVirtualMachineInstanceDomainXML(virtClient, vmi)
@@ -512,7 +513,7 @@ var _ = Describe("[rfe_id:151][crit:high][vendor:cnv-qe@redhat.com][level:compon
 				vmi := tests.NewRandomVMIWithEphemeralDiskAndConfigDriveUserdataNetworkData(
 					cd.ContainerDiskFor(cd.ContainerDiskCirros), "", testNetworkData, true)
 				LaunchVMI(vmi)
-				tests.WaitUntilVMIReady(vmi, console.LoginToCirros)
+				libwait.WaitUntilVMIReady(vmi, console.LoginToCirros)
 
 				CheckCloudInitIsoSize(vmi, cloudinit.DataSourceConfigDrive)
 				By("mouting cloudinit iso")
@@ -561,7 +562,7 @@ var _ = Describe("[rfe_id:151][crit:high][vendor:cnv-qe@redhat.com][level:compon
 				}
 
 				LaunchVMI(vmi)
-				tests.WaitUntilVMIReady(vmi, console.LoginToCirros)
+				libwait.WaitUntilVMIReady(vmi, console.LoginToCirros)
 
 				CheckCloudInitIsoSize(vmi, cloudinit.DataSourceConfigDrive)
 
@@ -637,7 +638,7 @@ var _ = Describe("[rfe_id:151][crit:high][vendor:cnv-qe@redhat.com][level:compon
 				}
 
 				LaunchVMI(vmi)
-				tests.WaitUntilVMIReady(vmi, console.LoginToCirros)
+				libwait.WaitUntilVMIReady(vmi, console.LoginToCirros)
 
 				CheckCloudInitIsoSize(vmi, cloudinit.DataSourceConfigDrive)
 

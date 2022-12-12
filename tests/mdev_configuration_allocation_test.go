@@ -29,6 +29,7 @@ import (
 	"kubevirt.io/kubevirt/tests/console"
 	. "kubevirt.io/kubevirt/tests/framework/matcher"
 	"kubevirt.io/kubevirt/tests/libnode"
+	"kubevirt.io/kubevirt/tests/libwait"
 )
 
 var _ = Describe("[Serial][sig-compute]MediatedDevices", Serial, func() {
@@ -184,7 +185,7 @@ var _ = Describe("[Serial][sig-compute]MediatedDevices", Serial, func() {
 			createdVmi, err := virtClient.VirtualMachineInstance(testsuite.GetTestNamespace(vmi)).Create(context.Background(), vmi)
 			Expect(err).ToNot(HaveOccurred())
 			vmi = createdVmi
-			tests.WaitForSuccessfulVMIStart(vmi)
+			libwait.WaitForSuccessfulVMIStart(vmi)
 			Expect(console.LoginToFedora(vmi)).To(Succeed())
 
 			By("Making sure the device is present inside the VMI")
@@ -220,7 +221,7 @@ var _ = Describe("[Serial][sig-compute]MediatedDevices", Serial, func() {
 			createdVmi, err := virtClient.VirtualMachineInstance(testsuite.GetTestNamespace(vmi)).Create(context.Background(), vmi)
 			Expect(err).ToNot(HaveOccurred())
 			vmi = createdVmi
-			tests.WaitForSuccessfulVMIStart(vmi)
+			libwait.WaitForSuccessfulVMIStart(vmi)
 
 			domXml, err := tests.GetRunningVirtualMachineInstanceDomainXML(virtClient, vmi)
 			Expect(err).ToNot(HaveOccurred())
@@ -265,7 +266,7 @@ var _ = Describe("[Serial][sig-compute]MediatedDevices", Serial, func() {
 			createdVmi, err := virtClient.VirtualMachineInstance(testsuite.GetTestNamespace(vmi)).Create(context.Background(), vmi)
 			Expect(err).ToNot(HaveOccurred())
 			vmi = createdVmi
-			tests.WaitForSuccessfulVMIStart(vmi)
+			libwait.WaitForSuccessfulVMIStart(vmi)
 			Expect(console.LoginToFedora(vmi)).To(Succeed())
 
 			By("Verifying that an expected amount of devices has been created")

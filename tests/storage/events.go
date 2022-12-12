@@ -34,6 +34,7 @@ import (
 	"kubevirt.io/client-go/kubecli"
 
 	"kubevirt.io/kubevirt/tests"
+	"kubevirt.io/kubevirt/tests/libwait"
 )
 
 const (
@@ -87,7 +88,7 @@ var _ = SIGDescribe("[Serial]K8s IO events", Serial, func() {
 			return err
 		}, 100*time.Second, time.Second).Should(BeNil(), "Failed to create vmi")
 
-		tests.WaitForSuccessfulVMIStartWithTimeoutIgnoreWarnings(vmi, 240)
+		libwait.WaitForSuccessfulVMIStartWithTimeoutIgnoreWarnings(vmi, 240)
 
 		By("Expecting  paused event on VMI ")
 		Eventually(func() bool {
@@ -103,6 +104,6 @@ var _ = SIGDescribe("[Serial]K8s IO events", Serial, func() {
 		}, 30*time.Second, 5*time.Second).Should(BeTrue())
 		err := virtClient.VirtualMachineInstance(testsuite.GetTestNamespace(vmi)).Delete(context.Background(), vmi.ObjectMeta.Name, &metav1.DeleteOptions{})
 		Expect(err).ToNot(HaveOccurred(), "Failed to delete VMI")
-		tests.WaitForVirtualMachineToDisappearWithTimeout(vmi, 120)
+		libwait.WaitForVirtualMachineToDisappearWithTimeout(vmi, 120)
 	})
 })

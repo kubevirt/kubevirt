@@ -81,6 +81,7 @@ import (
 	"kubevirt.io/kubevirt/tests/framework/matcher"
 	. "kubevirt.io/kubevirt/tests/framework/matcher"
 	"kubevirt.io/kubevirt/tests/libstorage"
+	"kubevirt.io/kubevirt/tests/libwait"
 	"kubevirt.io/kubevirt/tests/testsuite"
 	util2 "kubevirt.io/kubevirt/tests/util"
 )
@@ -756,7 +757,7 @@ var _ = Describe("[Serial][sig-operator]Operator", Serial, func() {
 			for _, vmi := range vmis {
 				vmi, err := virtClient.VirtualMachineInstance(testsuite.GetTestNamespace(vmi)).Create(context.Background(), vmi)
 				Expect(err).ToNot(HaveOccurred(), "Create VMI successfully")
-				tests.WaitForSuccessfulVMIStart(vmi)
+				libwait.WaitForSuccessfulVMIStart(vmi)
 			}
 		}
 
@@ -1336,7 +1337,7 @@ spec:
 			vmi := tests.NewRandomVMIWithEphemeralDisk(cd.ContainerDiskFor(cd.ContainerDiskCirros))
 			vmi, err = virtClient.VirtualMachineInstance(testsuite.GetTestNamespace(vmi)).Create(context.Background(), vmi)
 			Expect(err).ToNot(HaveOccurred())
-			tests.WaitForSuccessfulVMIStart(vmi)
+			libwait.WaitForSuccessfulVMIStart(vmi)
 
 			By("getting virt-launcher")
 			uid := vmi.GetObjectMeta().GetUID()
@@ -1492,7 +1493,7 @@ spec:
 			vmi := tests.NewRandomVMI()
 			vmi, err = virtClient.VirtualMachineInstance(testsuite.GetTestNamespace(vmi)).Create(context.Background(), vmi)
 			Expect(err).NotTo(HaveOccurred())
-			tests.WaitForSuccessfulVMIStart(vmi)
+			libwait.WaitForSuccessfulVMIStart(vmi)
 
 			By("Getting virt-launcher")
 			uid := vmi.GetObjectMeta().GetUID()
@@ -1546,7 +1547,7 @@ spec:
 			vmi := tests.NewRandomVMI()
 			vmi, err = virtClient.VirtualMachineInstance(testsuite.GetTestNamespace(vmi)).Create(context.Background(), vmi)
 			Expect(err).NotTo(HaveOccurred())
-			tests.WaitForSuccessfulVMIStart(vmi)
+			libwait.WaitForSuccessfulVMIStart(vmi)
 
 			By("Getting virt-launcher")
 			uid := vmi.GetObjectMeta().GetUID()
@@ -2055,7 +2056,7 @@ spec:
 			vmi := tests.NewRandomVMIWithEphemeralDisk(cd.ContainerDiskFor(cd.ContainerDiskAlpine))
 			vmi, err := virtClient.VirtualMachineInstance(testsuite.GetTestNamespace(vmi)).Create(context.Background(), vmi)
 			Expect(err).ShouldNot(HaveOccurred(), "Create VMI successfully")
-			tests.WaitForSuccessfulVMIStart(vmi)
+			libwait.WaitForSuccessfulVMIStart(vmi)
 
 			By("Verifying virt-launcher image is also prefixed")
 			pod := tests.GetRunningPodByVirtualMachineInstance(vmi, vmi.Namespace)
@@ -2349,7 +2350,7 @@ spec:
 				vmi := tests.NewRandomVMIWithEphemeralDisk(cd.ContainerDiskFor(cd.ContainerDiskCirros))
 				vmi, err = virtClient.VirtualMachineInstance(testsuite.GetTestNamespace(vmi)).Create(context.Background(), vmi)
 				Expect(err).ToNot(HaveOccurred())
-				tests.WaitForSuccessfulVMIStart(vmi)
+				libwait.WaitForSuccessfulVMIStart(vmi)
 
 				uid := vmi.GetObjectMeta().GetUID()
 				labelSelector := fmt.Sprintf(v1.CreatedByLabel + "=" + string(uid))

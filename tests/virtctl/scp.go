@@ -15,10 +15,10 @@ import (
 
 	"kubevirt.io/client-go/kubecli"
 
-	"kubevirt.io/kubevirt/tests"
 	"kubevirt.io/kubevirt/tests/clientcmd"
 	"kubevirt.io/kubevirt/tests/console"
 	"kubevirt.io/kubevirt/tests/libvmi"
+	"kubevirt.io/kubevirt/tests/libwait"
 	"kubevirt.io/kubevirt/tests/util"
 )
 
@@ -86,7 +86,7 @@ var _ = Describe("[sig-compute][virtctl]SCP", func() {
 		vmi, err := virtClient.VirtualMachineInstance(util.NamespaceTestDefault).Create(context.Background(), vmi)
 		Expect(err).ToNot(HaveOccurred())
 
-		vmi = tests.WaitUntilVMIReady(vmi, console.LoginToAlpine)
+		vmi = libwait.WaitUntilVMIReady(vmi, console.LoginToAlpine)
 
 		By("copying a file to the VMI")
 		copyFn(keyFile, vmi.Name+":"+"./keyfile", false)
@@ -109,7 +109,7 @@ var _ = Describe("[sig-compute][virtctl]SCP", func() {
 		vmi, err := virtClient.VirtualMachineInstance(util.NamespaceTestDefault).Create(context.Background(), vmi)
 		Expect(err).ToNot(HaveOccurred())
 
-		vmi = tests.WaitUntilVMIReady(vmi, console.LoginToAlpine)
+		vmi = libwait.WaitUntilVMIReady(vmi, console.LoginToAlpine)
 
 		By("creating a few random files")
 		copyFromDir := filepath.Join(GinkgoT().TempDir(), "sourcedir")

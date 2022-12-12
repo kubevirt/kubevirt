@@ -44,6 +44,7 @@ import (
 	cd "kubevirt.io/kubevirt/tests/containerdisk"
 	"kubevirt.io/kubevirt/tests/libnode"
 	"kubevirt.io/kubevirt/tests/libvmi"
+	"kubevirt.io/kubevirt/tests/libwait"
 )
 
 var _ = Describe("[sig-compute]MultiQueue", func() {
@@ -77,7 +78,7 @@ var _ = Describe("[sig-compute]MultiQueue", func() {
 			By("Creating and starting the VMI")
 			vmi, err = virtClient.VirtualMachineInstance(testsuite.GetTestNamespace(vmi)).Create(context.Background(), vmi)
 			Expect(err).ToNot(HaveOccurred())
-			vmi = tests.WaitForSuccessfulVMIStartWithTimeout(vmi, 360)
+			vmi = libwait.WaitForSuccessfulVMIStartWithTimeout(vmi, 360)
 
 			By("Checking if we can login")
 			Expect(console.LoginToFedora(vmi)).To(Succeed())
@@ -106,7 +107,7 @@ var _ = Describe("[sig-compute]MultiQueue", func() {
 			Expect(err).ToNot(HaveOccurred())
 
 			By("Waiting for VMI to start")
-			tests.WaitForSuccessfulVMIStart(vmi)
+			libwait.WaitForSuccessfulVMIStart(vmi)
 
 			getOptions := metav1.GetOptions{}
 			var newVMI *v1.VirtualMachineInstance
@@ -141,7 +142,7 @@ var _ = Describe("[sig-compute]MultiQueue", func() {
 			By("Creating and starting the VMI")
 			vmi, err := virtClient.VirtualMachineInstance(testsuite.GetTestNamespace(vmi)).Create(context.Background(), vmi)
 			Expect(err).ToNot(HaveOccurred())
-			tests.WaitForSuccessfulVMIStartWithTimeout(vmi, 360)
+			libwait.WaitForSuccessfulVMIStartWithTimeout(vmi, 360)
 
 			By("Fetching Domain XML from running pod")
 			domain, err := tests.GetRunningVirtualMachineInstanceDomainXML(virtClient, vmi)

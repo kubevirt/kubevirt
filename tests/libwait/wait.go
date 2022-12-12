@@ -17,7 +17,7 @@
  *
  */
 
-package tests
+package libwait
 
 import (
 	"context"
@@ -46,12 +46,12 @@ func WaitForVMIStartOrFailed(obj runtime.Object, seconds int, wp watcher.Warning
 }
 
 // Block until the specified VirtualMachineInstance started and return the target node name.
-func waitForVMIStart(ctx context.Context, obj runtime.Object, seconds int, wp watcher.WarningsPolicy) *v1.VirtualMachineInstance {
+func WaitForVMIStart(ctx context.Context, obj runtime.Object, seconds int, wp watcher.WarningsPolicy) *v1.VirtualMachineInstance {
 	return waitForVMIPhase(ctx, []v1.VirtualMachineInstancePhase{v1.Running}, obj, seconds, wp, false)
 }
 
 // Block until the specified VirtualMachineInstance scheduled and return the target node name.
-func waitForVMIScheduling(obj runtime.Object, seconds int, wp watcher.WarningsPolicy) *v1.VirtualMachineInstance {
+func WaitForVMIScheduling(obj runtime.Object, seconds int, wp watcher.WarningsPolicy) *v1.VirtualMachineInstance {
 	ctx, cancel := context.WithCancel(context.Background())
 	defer cancel()
 	return waitForVMIPhase(ctx, []v1.VirtualMachineInstancePhase{v1.Scheduling, v1.Scheduled, v1.Running}, obj, seconds, wp, false)
@@ -107,21 +107,21 @@ func WaitForSuccessfulVMIStartIgnoreWarnings(vmi runtime.Object) *v1.VirtualMach
 	ctx, cancel := context.WithCancel(context.Background())
 	defer cancel()
 	wp := watcher.WarningsPolicy{FailOnWarnings: false}
-	return waitForVMIStart(ctx, vmi, 180, wp)
+	return WaitForVMIStart(ctx, vmi, 180, wp)
 }
 
 func WaitForSuccessfulVMIStartWithTimeout(vmi runtime.Object, seconds int) *v1.VirtualMachineInstance {
 	ctx, cancel := context.WithCancel(context.Background())
 	defer cancel()
 	wp := watcher.WarningsPolicy{FailOnWarnings: true}
-	return waitForVMIStart(ctx, vmi, seconds, wp)
+	return WaitForVMIStart(ctx, vmi, seconds, wp)
 }
 
 func WaitForSuccessfulVMIStartWithTimeoutIgnoreWarnings(vmi runtime.Object, seconds int) *v1.VirtualMachineInstance {
 	ctx, cancel := context.WithCancel(context.Background())
 	defer cancel()
 	wp := watcher.WarningsPolicy{FailOnWarnings: false}
-	return waitForVMIStart(ctx, vmi, seconds, wp)
+	return WaitForVMIStart(ctx, vmi, seconds, wp)
 }
 
 func WaitForVirtualMachineToDisappearWithTimeout(vmi *v1.VirtualMachineInstance, seconds int) {
@@ -176,10 +176,10 @@ func WaitUntilVMIReadyWithContextIgnoreSelectedWarnings(ctx context.Context, vmi
 
 func WaitForSuccessfulVMIStartWithContext(ctx context.Context, vmi runtime.Object) *v1.VirtualMachineInstance {
 	wp := watcher.WarningsPolicy{FailOnWarnings: true}
-	return waitForVMIStart(ctx, vmi, 360, wp)
+	return WaitForVMIStart(ctx, vmi, 360, wp)
 }
 
 func WaitForSuccessfulVMIStartWithContextIgnoreSelectedWarnings(ctx context.Context, vmi runtime.Object, warningsIgnoreList []string) *v1.VirtualMachineInstance {
 	wp := watcher.WarningsPolicy{FailOnWarnings: true, WarningsIgnoreList: warningsIgnoreList}
-	return waitForVMIStart(ctx, vmi, 360, wp)
+	return WaitForVMIStart(ctx, vmi, 360, wp)
 }

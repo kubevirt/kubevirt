@@ -30,6 +30,7 @@ import (
 	"k8s.io/utils/pointer"
 
 	"kubevirt.io/kubevirt/tests/libvmi"
+	"kubevirt.io/kubevirt/tests/libwait"
 	"kubevirt.io/kubevirt/tests/testsuite"
 	"kubevirt.io/kubevirt/tests/util"
 
@@ -135,7 +136,7 @@ var _ = Describe("[Serial][sig-compute]VMIDefaults", Serial, func() {
 			Expect(err).ToNot(HaveOccurred())
 
 			By("Waiting for successful start")
-			tests.WaitForSuccessfulVMIStart(vmi)
+			libwait.WaitForSuccessfulVMIStart(vmi)
 
 			By("Getting domain of vmi")
 			domain, err := tests.GetRunningVMIDomainSpec(vmi)
@@ -169,7 +170,7 @@ var _ = Describe("[Serial][sig-compute]VMIDefaults", Serial, func() {
 			Expect(err).ToNot(HaveOccurred())
 
 			By("Waiting for successful start")
-			tests.WaitForSuccessfulVMIStart(vmi)
+			libwait.WaitForSuccessfulVMIStart(vmi)
 
 			By("Getting domain of vmi")
 			domain, err := tests.GetRunningVMIDomainSpec(vmi)
@@ -211,7 +212,7 @@ var _ = Describe("[Serial][sig-compute]VMIDefaults", Serial, func() {
 			Expect(err).ToNot(HaveOccurred())
 
 			By("Waiting for successful start")
-			tests.WaitForSuccessfulVMIStart(vmi)
+			libwait.WaitForSuccessfulVMIStart(vmi)
 
 			By("Getting domain of vmi")
 			domain, err := tests.GetRunningVMIDomainSpec(vmi)

@@ -61,6 +61,7 @@ import (
 	"kubevirt.io/kubevirt/tests/libdv"
 	"kubevirt.io/kubevirt/tests/libstorage"
 	"kubevirt.io/kubevirt/tests/libvmi"
+	"kubevirt.io/kubevirt/tests/libwait"
 	"kubevirt.io/kubevirt/tests/testsuite"
 	"kubevirt.io/kubevirt/tests/util"
 )
@@ -258,7 +259,7 @@ var _ = SIGDescribe("DataVolume Integration", func() {
 
 					err = virtClient.VirtualMachineInstance(vmi.Namespace).Delete(context.Background(), vmi.Name, &metav1.DeleteOptions{})
 					Expect(err).ToNot(HaveOccurred())
-					tests.WaitForVirtualMachineToDisappearWithTimeout(vmi, 120)
+					libwait.WaitForVirtualMachineToDisappearWithTimeout(vmi, 120)
 				}
 				libstorage.DeleteDataVolume(&dataVolume)
 			})
@@ -294,7 +295,7 @@ var _ = SIGDescribe("DataVolume Integration", func() {
 				}
 
 				for idx := 0; idx < numVmis; idx++ {
-					tests.WaitForSuccessfulVMIStartWithTimeoutIgnoreWarnings(vmis[idx], 500)
+					libwait.WaitForSuccessfulVMIStartWithTimeoutIgnoreWarnings(vmis[idx], 500)
 					By(checkingVMInstanceConsoleExpectedOut)
 					Expect(console.LoginToAlpine(vmis[idx])).To(Succeed())
 
@@ -332,7 +333,7 @@ var _ = SIGDescribe("DataVolume Integration", func() {
 
 				err = virtClient.VirtualMachineInstance(vmi.Namespace).Delete(context.Background(), vmi.Name, &metav1.DeleteOptions{})
 				Expect(err).ToNot(HaveOccurred())
-				tests.WaitForVirtualMachineToDisappearWithTimeout(vmi, 120)
+				libwait.WaitForVirtualMachineToDisappearWithTimeout(vmi, 120)
 				libstorage.DeleteDataVolume(&dataVolume)
 			})
 

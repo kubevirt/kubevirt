@@ -21,6 +21,7 @@ import (
 	"kubevirt.io/kubevirt/tests/exec"
 	"kubevirt.io/kubevirt/tests/framework/checks"
 	"kubevirt.io/kubevirt/tests/libvmi"
+	"kubevirt.io/kubevirt/tests/libwait"
 	"kubevirt.io/kubevirt/tests/util"
 )
 
@@ -57,7 +58,7 @@ func byStartingTheVMI(vmi *v1.VirtualMachineInstance, virtClient kubecli.Kubevir
 	var err error
 	vmi, err = virtClient.VirtualMachineInstance(util.NamespaceTestDefault).Create(context.Background(), vmi)
 	Expect(err).ToNot(HaveOccurred())
-	tests.WaitForSuccessfulVMIStart(vmi)
+	libwait.WaitForSuccessfulVMIStart(vmi)
 }
 
 var _ = Describe("[sig-compute-realtime][Serial]Realtime", Serial, func() {

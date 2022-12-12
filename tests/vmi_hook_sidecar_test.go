@@ -40,6 +40,7 @@ import (
 	"kubevirt.io/kubevirt/tests/clientcmd"
 	cd "kubevirt.io/kubevirt/tests/containerdisk"
 	"kubevirt.io/kubevirt/tests/flags"
+	"kubevirt.io/kubevirt/tests/libwait"
 	"kubevirt.io/kubevirt/tests/testsuite"
 	"kubevirt.io/kubevirt/tests/util"
 )
@@ -82,7 +83,7 @@ var _ = Describe("[sig-compute]HookSidecars", func() {
 				By("Starting a VMI")
 				vmi, err = virtClient.VirtualMachineInstance(testsuite.GetTestNamespace(nil)).Create(context.Background(), vmi)
 				Expect(err).ToNot(HaveOccurred())
-				tests.WaitForSuccessfulVMIStart(vmi)
+				libwait.WaitForSuccessfulVMIStart(vmi)
 			})
 
 			It("[test_id:3156]should successfully start with hook sidecar annotation for v1alpha2", func() {
@@ -90,7 +91,7 @@ var _ = Describe("[sig-compute]HookSidecars", func() {
 				vmi, err = virtClient.VirtualMachineInstance(testsuite.GetTestNamespace(nil)).Create(context.Background(), vmi)
 				vmi.ObjectMeta.Annotations = RenderSidecar(hooksv1alpha2.Version)
 				Expect(err).ToNot(HaveOccurred())
-				tests.WaitForSuccessfulVMIStart(vmi)
+				libwait.WaitForSuccessfulVMIStart(vmi)
 			})
 
 			It("[test_id:3157]should call Collect and OnDefineDomain on the hook sidecar", func() {
@@ -98,7 +99,7 @@ var _ = Describe("[sig-compute]HookSidecars", func() {
 				vmi, err = virtClient.VirtualMachineInstance(testsuite.GetTestNamespace(nil)).Create(context.Background(), vmi)
 				Expect(err).ToNot(HaveOccurred())
 				logs := func() string { return getHookSidecarLogs(virtClient, vmi) }
-				tests.WaitForSuccessfulVMIStart(vmi)
+				libwait.WaitForSuccessfulVMIStart(vmi)
 				Eventually(logs,
 					11*time.Second,
 					500*time.Millisecond).
@@ -113,7 +114,7 @@ var _ = Describe("[sig-compute]HookSidecars", func() {
 				By("Reading domain XML using virsh")
 				clientcmd.SkipIfNoCmd("kubectl")
 				vmi, err = virtClient.VirtualMachineInstance(testsuite.GetTestNamespace(nil)).Create(context.Background(), vmi)
-				tests.WaitForSuccessfulVMIStart(vmi)
+				libwait.WaitForSuccessfulVMIStart(vmi)
 				domainXml, err := tests.GetRunningVirtualMachineInstanceDomainXML(virtClient, vmi)
 				Expect(err).NotTo(HaveOccurred())
 				Expect(domainXml).Should(ContainSubstring("<sysinfo type='smbios'>"))

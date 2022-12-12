@@ -43,6 +43,7 @@ import (
 	"kubevirt.io/kubevirt/tests"
 	cd "kubevirt.io/kubevirt/tests/containerdisk"
 	"kubevirt.io/kubevirt/tests/libnode"
+	"kubevirt.io/kubevirt/tests/libwait"
 )
 
 var _ = Describe("[sig-compute]IOThreads", func() {
@@ -73,7 +74,7 @@ var _ = Describe("[sig-compute]IOThreads", func() {
 			vmi, err := virtClient.VirtualMachineInstance(testsuite.GetTestNamespace(vmi)).Create(context.Background(), vmi)
 			Expect(err).ToNot(HaveOccurred())
 
-			tests.WaitForSuccessfulVMIStart(vmi)
+			libwait.WaitForSuccessfulVMIStart(vmi)
 
 			getOptions := metav1.GetOptions{}
 			var newVMI *v1.VirtualMachineInstance
@@ -106,7 +107,7 @@ var _ = Describe("[sig-compute]IOThreads", func() {
 			vmi, err := virtClient.VirtualMachineInstance(testsuite.GetTestNamespace(vmi)).Create(context.Background(), vmi)
 			Expect(err).ToNot(HaveOccurred())
 
-			tests.WaitForSuccessfulVMIStart(vmi)
+			libwait.WaitForSuccessfulVMIStart(vmi)
 
 			getOptions := metav1.GetOptions{}
 			var newVMI *v1.VirtualMachineInstance
@@ -167,7 +168,7 @@ var _ = Describe("[sig-compute]IOThreads", func() {
 			vmi, err := virtClient.VirtualMachineInstance(testsuite.GetTestNamespace(vmi)).Create(context.Background(), vmi)
 			Expect(err).ToNot(HaveOccurred())
 
-			tests.WaitForSuccessfulVMIStart(vmi)
+			libwait.WaitForSuccessfulVMIStart(vmi)
 
 			getOptions := metav1.GetOptions{}
 			var newVMI *v1.VirtualMachineInstance
@@ -249,7 +250,7 @@ var _ = Describe("[sig-compute]IOThreads", func() {
 			By("Starting a VirtualMachineInstance")
 			vmi, err := virtClient.VirtualMachineInstance(testsuite.GetTestNamespace(vmi)).Create(context.Background(), vmi)
 			Expect(err).ToNot(HaveOccurred())
-			tests.WaitForSuccessfulVMIStart(vmi)
+			libwait.WaitForSuccessfulVMIStart(vmi)
 
 			getOptions := metav1.GetOptions{}
 			var newVMI *v1.VirtualMachineInstance

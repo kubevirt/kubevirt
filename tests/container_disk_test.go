@@ -44,6 +44,7 @@ import (
 	"kubevirt.io/kubevirt/tests/console"
 	cd "kubevirt.io/kubevirt/tests/containerdisk"
 	"kubevirt.io/kubevirt/tests/libvmi"
+	"kubevirt.io/kubevirt/tests/libwait"
 )
 
 var _ = Describe("[rfe_id:588][crit:medium][vendor:cnv-qe@redhat.com][level:component][sig-compute]ContainerDisk", func() {
@@ -59,7 +60,7 @@ var _ = Describe("[rfe_id:588][crit:medium][vendor:cnv-qe@redhat.com][level:comp
 	verifyContainerDiskVMI := func(vmi *v1.VirtualMachineInstance, obj runtime.Object) {
 		_, ok := obj.(*v1.VirtualMachineInstance)
 		Expect(ok).To(BeTrue(), "Object is not of type *v1.VirtualMachineInstance")
-		tests.WaitForSuccessfulVMIStart(obj)
+		libwait.WaitForSuccessfulVMIStart(obj)
 
 		// Verify Registry Disks are Online
 		pods, err := virtClient.CoreV1().Pods(testsuite.GetTestNamespace(vmi)).List(context.Background(), tests.UnfinishedVMIPodSelector(vmi))
@@ -109,13 +110,13 @@ var _ = Describe("[rfe_id:588][crit:medium][vendor:cnv-qe@redhat.com][level:comp
 					By("Starting the VirtualMachineInstance")
 					obj, err := virtClient.RestClient().Post().Resource("virtualmachineinstances").Namespace(testsuite.GetTestNamespace(vmi)).Body(vmi).Do(context.Background()).Get()
 					Expect(err).ToNot(HaveOccurred())
-					tests.WaitForSuccessfulVMIStart(obj)
+					libwait.WaitForSuccessfulVMIStart(obj)
 
 					By("Stopping the VirtualMachineInstance")
 					_, err = virtClient.RestClient().Delete().Resource("virtualmachineinstances").Namespace(vmi.GetObjectMeta().GetNamespace()).Name(vmi.GetObjectMeta().GetName()).Do(context.Background()).Get()
 					Expect(err).ToNot(HaveOccurred())
 					By("Waiting until the VirtualMachineInstance is gone")
-					tests.WaitForVirtualMachineToDisappearWithTimeout(vmi, 120)
+					libwait.WaitForVirtualMachineToDisappearWithTimeout(vmi, 120)
 				}
 			})
 		})
@@ -130,7 +131,7 @@ var _ = Describe("[rfe_id:588][crit:medium][vendor:cnv-qe@redhat.com][level:comp
 				By("Starting the VirtualMachineInstance")
 				vmi, err := virtClient.VirtualMachineInstance(testsuite.GetTestNamespace(vmi)).Create(context.Background(), vmi)
 				Expect(err).ToNot(HaveOccurred())
-				tests.WaitForSuccessfulVMIStart(vmi)
+				libwait.WaitForSuccessfulVMIStart(vmi)
 				startedVMI, err := virtClient.VirtualMachineInstance(testsuite.GetTestNamespace(vmi)).Get(context.Background(), vmi.ObjectMeta.Name, &metav1.GetOptions{})
 				Expect(err).ToNot(HaveOccurred())
 				By("Checking that the VirtualMachineInstance spec did not change")
@@ -238,7 +239,7 @@ var _ = Describe("[rfe_id:588][crit:medium][vendor:cnv-qe@redhat.com][level:comp
 				vmi = tests.RunVMIAndExpectLaunch(vmi, 60)
 
 				By("Ensuring VMI is running by logging in")
-				tests.WaitUntilVMIReady(vmi, console.LoginToAlpine)
+				libwait.WaitUntilVMIReady(vmi, console.LoginToAlpine)
 
 				By("Fetching virt-launcher Pod")
 				pod, err := libvmi.GetPodByVirtualMachineInstance(vmi, testsuite.GetTestNamespace(vmi))

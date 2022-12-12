@@ -47,6 +47,7 @@ import (
 
 	"kubevirt.io/kubevirt/tests"
 	"kubevirt.io/kubevirt/tests/libnode"
+	"kubevirt.io/kubevirt/tests/libwait"
 
 	"kubevirt.io/client-go/kubecli"
 
@@ -212,7 +213,7 @@ var _ = Describe("[Serial][sig-compute]SwapTest", Serial, func() {
 			Expect(virtClient.VirtualMachineInstance(vmi.Namespace).Delete(context.Background(), vmi.Name, &metav1.DeleteOptions{})).To(Succeed())
 
 			By("Waiting for VMI to disappear")
-			tests.WaitForVirtualMachineToDisappearWithTimeout(vmi, 240)
+			libwait.WaitForVirtualMachineToDisappearWithTimeout(vmi, 240)
 
 			kv = util.GetCurrentKv(virtClient)
 			kv.Spec.Configuration.MigrationConfiguration = oldMigrationConfiguration
@@ -288,8 +289,8 @@ var _ = Describe("[Serial][sig-compute]SwapTest", Serial, func() {
 			Expect(virtClient.VirtualMachineInstance(vmiToMigrate.Namespace).Delete(context.Background(), vmiToMigrate.Name, &metav1.DeleteOptions{})).To(Succeed())
 
 			By("Waiting for VMIs to disappear")
-			tests.WaitForVirtualMachineToDisappearWithTimeout(vmiToFillTargetNodeMem, 240)
-			tests.WaitForVirtualMachineToDisappearWithTimeout(vmiToMigrate, 240)
+			libwait.WaitForVirtualMachineToDisappearWithTimeout(vmiToFillTargetNodeMem, 240)
+			libwait.WaitForVirtualMachineToDisappearWithTimeout(vmiToMigrate, 240)
 		})
 
 	})

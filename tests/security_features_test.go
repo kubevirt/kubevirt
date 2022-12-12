@@ -42,6 +42,7 @@ import (
 	"kubevirt.io/kubevirt/tests/console"
 	cd "kubevirt.io/kubevirt/tests/containerdisk"
 	"kubevirt.io/kubevirt/tests/libvmi"
+	"kubevirt.io/kubevirt/tests/libwait"
 )
 
 const (
@@ -90,7 +91,7 @@ var _ = Describe("[Serial][sig-compute]SecurityFeatures", Serial, func() {
 				By("Starting a VirtualMachineInstance")
 				vmi, err = virtClient.VirtualMachineInstance(testsuite.GetTestNamespace(nil)).Create(context.Background(), vmi)
 				Expect(err).ToNot(HaveOccurred())
-				tests.WaitForSuccessfulVMIStart(vmi)
+				libwait.WaitForSuccessfulVMIStart(vmi)
 
 				By("Check virt-launcher pod SecurityContext values")
 				vmiPod := tests.GetRunningPodByVirtualMachineInstance(vmi, testsuite.GetTestNamespace(vmi))
@@ -102,7 +103,7 @@ var _ = Describe("[Serial][sig-compute]SecurityFeatures", Serial, func() {
 				By("Starting a VirtualMachineInstance")
 				vmi, err = virtClient.VirtualMachineInstance(testsuite.GetTestNamespace(nil)).Create(context.Background(), vmi)
 				Expect(err).ToNot(HaveOccurred())
-				tests.WaitForSuccessfulVMIStart(vmi)
+				libwait.WaitForSuccessfulVMIStart(vmi)
 
 				By("Check virt-launcher pod SecurityContext values")
 				vmiPod := tests.GetRunningPodByVirtualMachineInstance(vmi, testsuite.GetTestNamespace(vmi))
@@ -120,7 +121,7 @@ var _ = Describe("[Serial][sig-compute]SecurityFeatures", Serial, func() {
 				By("Starting a VirtualMachineInstance")
 				vmi, err = virtClient.VirtualMachineInstance(testsuite.GetTestNamespace(nil)).Create(context.Background(), vmi)
 				Expect(err).ToNot(HaveOccurred())
-				tests.WaitForSuccessfulVMIStart(vmi)
+				libwait.WaitForSuccessfulVMIStart(vmi)
 
 				domSpec, err := tests.GetRunningVMIDomainSpec(vmi)
 				Expect(err).ToNot(HaveOccurred())
@@ -160,10 +161,10 @@ var _ = Describe("[Serial][sig-compute]SecurityFeatures", Serial, func() {
 				By("Starting a New VMI")
 				vmi, err = virtClient.VirtualMachineInstance(testsuite.NamespacePrivileged).Create(context.Background(), vmi)
 				Expect(err).ToNot(HaveOccurred())
-				tests.WaitForSuccessfulVMIStart(vmi)
+				libwait.WaitForSuccessfulVMIStart(vmi)
 
 				By("Ensuring VMI is running by logging in")
-				tests.WaitUntilVMIReady(vmi, console.LoginToAlpine)
+				libwait.WaitUntilVMIReady(vmi, console.LoginToAlpine)
 
 				By("Fetching virt-launcher Pod")
 				pod, err := libvmi.GetPodByVirtualMachineInstance(vmi, testsuite.NamespacePrivileged)
@@ -192,10 +193,10 @@ var _ = Describe("[Serial][sig-compute]SecurityFeatures", Serial, func() {
 				By("Starting a New VMI")
 				vmi, err = virtClient.VirtualMachineInstance(testsuite.NamespacePrivileged).Create(context.Background(), vmi)
 				Expect(err).ToNot(HaveOccurred())
-				tests.WaitForSuccessfulVMIStart(vmi)
+				libwait.WaitForSuccessfulVMIStart(vmi)
 
 				By("Ensuring VMI is running by logging in")
-				tests.WaitUntilVMIReady(vmi, console.LoginToAlpine)
+				libwait.WaitUntilVMIReady(vmi, console.LoginToAlpine)
 
 				By("Fetching virt-launcher Pod")
 				domSpec, err := tests.GetRunningVMIDomainSpec(vmi)
@@ -235,10 +236,10 @@ var _ = Describe("[Serial][sig-compute]SecurityFeatures", Serial, func() {
 			By("Starting a New VMI")
 			vmi, err = virtClient.VirtualMachineInstance(testsuite.GetTestNamespace(nil)).Create(context.Background(), vmi)
 			Expect(err).ToNot(HaveOccurred())
-			tests.WaitForSuccessfulVMIStart(vmi)
+			libwait.WaitForSuccessfulVMIStart(vmi)
 
 			By("Ensuring VMI is running by logging in")
-			tests.WaitUntilVMIReady(vmi, console.LoginToAlpine)
+			libwait.WaitUntilVMIReady(vmi, console.LoginToAlpine)
 
 			By("Fetching virt-launcher Pod")
 			pod, err := libvmi.GetPodByVirtualMachineInstance(vmi, testsuite.GetTestNamespace(vmi))

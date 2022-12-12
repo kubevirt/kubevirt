@@ -49,6 +49,7 @@ import (
 	"kubevirt.io/kubevirt/tests/libnet"
 	"kubevirt.io/kubevirt/tests/libnode"
 	"kubevirt.io/kubevirt/tests/libvmi"
+	"kubevirt.io/kubevirt/tests/libwait"
 	"kubevirt.io/kubevirt/tests/testsuite"
 )
 
@@ -215,7 +216,7 @@ var _ = SIGDescribe("[Serial]Multus", Serial, func() {
 
 				detachedVMI, err = virtClient.VirtualMachineInstance(testsuite.GetTestNamespace(nil)).Create(context.Background(), detachedVMI)
 				Expect(err).ToNot(HaveOccurred())
-				tests.WaitUntilVMIReady(detachedVMI, console.LoginToAlpine)
+				libwait.WaitUntilVMIReady(detachedVMI, console.LoginToAlpine)
 
 				Expect(libnet.PingFromVMConsole(detachedVMI, ptpGateway)).To(Succeed())
 			})
@@ -235,7 +236,7 @@ var _ = SIGDescribe("[Serial]Multus", Serial, func() {
 
 				detachedVMI, err = virtClient.VirtualMachineInstance(testsuite.GetTestNamespace(nil)).Create(context.Background(), detachedVMI)
 				Expect(err).ToNot(HaveOccurred())
-				tests.WaitUntilVMIReady(detachedVMI, console.LoginToAlpine)
+				libwait.WaitUntilVMIReady(detachedVMI, console.LoginToAlpine)
 
 				Expect(libnet.PingFromVMConsole(detachedVMI, ptpGateway)).To(Succeed())
 			})
@@ -256,7 +257,7 @@ var _ = SIGDescribe("[Serial]Multus", Serial, func() {
 
 				detachedVMI, err = virtClient.VirtualMachineInstance(testsuite.GetTestNamespace(nil)).Create(context.Background(), detachedVMI)
 				Expect(err).ToNot(HaveOccurred())
-				tests.WaitUntilVMIReady(detachedVMI, console.LoginToCirros)
+				libwait.WaitUntilVMIReady(detachedVMI, console.LoginToCirros)
 
 				cmdCheck := "sudo /sbin/cirros-dhcpc up eth1 > /dev/null\n"
 				err = console.SafeExpectBatch(detachedVMI, []expect.Batcher{
@@ -301,7 +302,7 @@ var _ = SIGDescribe("[Serial]Multus", Serial, func() {
 
 				detachedVMI, err = virtClient.VirtualMachineInstance(testsuite.GetTestNamespace(nil)).Create(context.Background(), detachedVMI)
 				Expect(err).ToNot(HaveOccurred())
-				tests.WaitUntilVMIReady(detachedVMI, console.LoginToAlpine)
+				libwait.WaitUntilVMIReady(detachedVMI, console.LoginToAlpine)
 
 				By("checking virtual machine instance can ping using ptp cni plugin")
 				Expect(libnet.PingFromVMConsole(detachedVMI, ptpGateway)).To(Succeed())
@@ -348,7 +349,7 @@ var _ = SIGDescribe("[Serial]Multus", Serial, func() {
 				interfaces[0].MacAddress = customMacAddress
 
 				vmiOne := createVMIOnNode(interfaces, networks)
-				tests.WaitUntilVMIReady(vmiOne, console.LoginToAlpine)
+				libwait.WaitUntilVMIReady(vmiOne, console.LoginToAlpine)
 
 				By("Configuring static IP address to ptp interface.")
 				Expect(configInterface(vmiOne, "eth0", ptpSubnetIP1+ptpSubnetMask)).To(Succeed())
@@ -403,8 +404,8 @@ var _ = SIGDescribe("[Serial]Multus", Serial, func() {
 				vmiOne := createVMIOnNode(interfaces, networks)
 				vmiTwo := createVMIOnNode(interfaces, networks)
 
-				tests.WaitUntilVMIReady(vmiOne, console.LoginToAlpine)
-				tests.WaitUntilVMIReady(vmiTwo, console.LoginToAlpine)
+				libwait.WaitUntilVMIReady(vmiOne, console.LoginToAlpine)
+				libwait.WaitUntilVMIReady(vmiTwo, console.LoginToAlpine)
 
 				Expect(configureAlpineInterfaceIP(vmiOne, ifaceName, staticIPVm1)).To(Succeed())
 				By(fmt.Sprintf("checking virtual machine interface %s state", ifaceName))
@@ -455,7 +456,7 @@ var _ = SIGDescribe("[Serial]Multus", Serial, func() {
 					libvmi.WithCloudInitNoCloudNetworkData(cloudInitNetworkDataWithStaticIPsByMac(linuxBridgeInterfaceWithCustomMac.Name, customMacAddress, ptpSubnetIP1+ptpSubnetMask)))
 				vmiOne = tests.CreateVmiOnNode(vmiOne, nodes.Items[0].Name)
 
-				vmiOne = tests.WaitUntilVMIReady(vmiOne, console.LoginToFedora)
+				vmiOne = libwait.WaitUntilVMIReady(vmiOne, console.LoginToFedora)
 				Eventually(matcher.ThisVMI(vmiOne), 12*time.Minute, 2*time.Second).Should(matcher.HaveConditionTrue(v1.VirtualMachineInstanceAgentConnected))
 
 				By("Verifying the desired custom MAC is the one that were actually configured on the interface.")
@@ -475,7 +476,7 @@ var _ = SIGDescribe("[Serial]Multus", Serial, func() {
 				Expect(strings.Contains(out, customMacAddress)).To(BeFalse())
 
 				By("Ping from the VM with the custom MAC to the other VM.")
-				tests.WaitUntilVMIReady(vmiTwo, console.LoginToFedora)
+				libwait.WaitUntilVMIReady(vmiTwo, console.LoginToFedora)
 				Expect(libnet.PingFromVMConsole(vmiOne, ptpSubnetIP2)).To(Succeed())
 			})
 		})
@@ -493,7 +494,7 @@ var _ = SIGDescribe("[Serial]Multus", Serial, func() {
 
 				vmiOne := createVMIOnNode(interfaces, networks)
 
-				tests.WaitUntilVMIReady(vmiOne, console.LoginToAlpine)
+				libwait.WaitUntilVMIReady(vmiOne, console.LoginToAlpine)
 
 				updatedVmi, err := virtClient.VirtualMachineInstance(testsuite.GetTestNamespace(vmiOne)).Get(context.Background(), vmiOne.Name, &metav1.GetOptions{})
 				Expect(err).ToNot(HaveOccurred())
@@ -549,7 +550,7 @@ var _ = SIGDescribe("[Serial]Multus", Serial, func() {
 				vmi, err = virtClient.VirtualMachineInstance(testsuite.GetTestNamespace(nil)).Create(context.Background(), vmi)
 				Expect(err).ToNot(HaveOccurred())
 
-				vmi = tests.WaitUntilVMIReady(vmi, console.LoginToFedora)
+				vmi = libwait.WaitUntilVMIReady(vmi, console.LoginToFedora)
 				Expect(getPodInterfaceMtu(vmi)).To(Equal(getVmiInterfaceMtu(vmi)))
 			})
 		})
@@ -630,8 +631,8 @@ var _ = SIGDescribe("[Serial]Multus", Serial, func() {
 					libvmi.WithCloudInitNoCloudNetworkData(cloudInitNetworkDataWithStaticIPsByDevice("eth0", targetVMIPAddress+bridgeSubnetMask)))
 				targetVmi = tests.CreateVmiOnNode(targetVmi, nodes.Items[0].Name)
 
-				vmiUnderTest = tests.WaitUntilVMIReady(vmiUnderTest, console.LoginToFedora)
-				tests.WaitUntilVMIReady(targetVmi, console.LoginToFedora)
+				vmiUnderTest = libwait.WaitUntilVMIReady(vmiUnderTest, console.LoginToFedora)
+				libwait.WaitUntilVMIReady(targetVmi, console.LoginToFedora)
 
 				Expect(libnet.PingFromVMConsole(vmiUnderTest, targetVMIPAddress)).To(Succeed(), "Ping target IP with original MAC should succeed")
 
@@ -685,7 +686,7 @@ var _ = SIGDescribe("[Serial]Multus", Serial, func() {
 				By("Starting a VirtualMachineInstance")
 				agentVMI, err = virtClient.VirtualMachineInstance(testsuite.GetTestNamespace(nil)).Create(context.Background(), agentVMI)
 				Expect(err).ToNot(HaveOccurred(), "Should create VMI successfully")
-				tests.WaitForSuccessfulVMIStart(agentVMI)
+				libwait.WaitForSuccessfulVMIStart(agentVMI)
 
 				// Need to wait for cloud init to finish and start the agent inside the vmi.
 				Eventually(matcher.ThisVMI(agentVMI), 12*time.Minute, 2*time.Second).Should(matcher.HaveConditionTrue(v1.VirtualMachineInstanceAgentConnected))

@@ -71,6 +71,7 @@ import (
 	"k8s.io/utils/pointer"
 
 	"kubevirt.io/kubevirt/tests/libvmi"
+	"kubevirt.io/kubevirt/tests/libwait"
 
 	"k8s.io/apimachinery/pkg/util/strategicpatch"
 
@@ -687,7 +688,7 @@ var _ = Describe("[rfe_id:393][crit:high][vendor:cnv-qe@redhat.com][level:system
 			Expect(virtClient.VirtualMachineInstance(vmi.Namespace).Delete(context.Background(), vmi.Name, &metav1.DeleteOptions{})).To(Succeed())
 
 			By("Waiting for VMI to disappear")
-			tests.WaitForVirtualMachineToDisappearWithTimeout(vmi, 120)
+			libwait.WaitForVirtualMachineToDisappearWithTimeout(vmi, 120)
 		}
 
 		Context("with a bridge network interface", func() {
@@ -723,7 +724,7 @@ var _ = Describe("[rfe_id:393][crit:high][vendor:cnv-qe@redhat.com][level:system
 				Expect(virtClient.VirtualMachineInstance(vmi.Namespace).Delete(context.Background(), vmi.Name, &metav1.DeleteOptions{})).To(Succeed())
 
 				By("Waiting for VMI to disappear")
-				tests.WaitForVirtualMachineToDisappearWithTimeout(vmi, 120)
+				libwait.WaitForVirtualMachineToDisappearWithTimeout(vmi, 120)
 			})
 		})
 		Context("[Serial] with bandwidth limitations", Serial, func() {
@@ -798,7 +799,7 @@ var _ = Describe("[rfe_id:393][crit:high][vendor:cnv-qe@redhat.com][level:system
 				Expect(virtClient.VirtualMachineInstance(vmi.Namespace).Delete(context.Background(), vmi.Name, &metav1.DeleteOptions{})).To(Succeed())
 
 				By("Waiting for VMI to disappear")
-				tests.WaitForVirtualMachineToDisappearWithTimeout(vmi, 240)
+				libwait.WaitForVirtualMachineToDisappearWithTimeout(vmi, 240)
 			})
 			It("should be successfully migrate with a WriteBack disk cache", func() {
 				vmi := libvmi.NewAlpineWithTestTooling(
@@ -832,7 +833,7 @@ var _ = Describe("[rfe_id:393][crit:high][vendor:cnv-qe@redhat.com][level:system
 				Expect(virtClient.VirtualMachineInstance(vmi.Namespace).Delete(context.Background(), vmi.Name, &metav1.DeleteOptions{})).To(Succeed())
 
 				By("Waiting for VMI to disappear")
-				tests.WaitForVirtualMachineToDisappearWithTimeout(vmi, 240)
+				libwait.WaitForVirtualMachineToDisappearWithTimeout(vmi, 240)
 			})
 
 			It("[test_id:6970]should migrate vmi with cdroms on various bus types", func() {
@@ -1003,7 +1004,7 @@ var _ = Describe("[rfe_id:393][crit:high][vendor:cnv-qe@redhat.com][level:system
 				Expect(virtClient.VirtualMachineInstance(vmi.Namespace).Delete(context.Background(), vmi.Name, &metav1.DeleteOptions{})).To(Succeed())
 
 				By("Waiting for VMI to disappear")
-				tests.WaitForVirtualMachineToDisappearWithTimeout(vmi, 240)
+				libwait.WaitForVirtualMachineToDisappearWithTimeout(vmi, 240)
 			})
 
 			It("should migrate vmi with a usb disk", func() {
@@ -1064,7 +1065,7 @@ var _ = Describe("[rfe_id:393][crit:high][vendor:cnv-qe@redhat.com][level:system
 				Expect(virtClient.VirtualMachineInstance(vmi.Namespace).Delete(context.Background(), vmi.Name, &metav1.DeleteOptions{})).To(Succeed())
 
 				By("Waiting for VMI to disappear")
-				tests.WaitForVirtualMachineToDisappearWithTimeout(vmi, 240)
+				libwait.WaitForVirtualMachineToDisappearWithTimeout(vmi, 240)
 
 			})
 
@@ -1125,7 +1126,7 @@ var _ = Describe("[rfe_id:393][crit:high][vendor:cnv-qe@redhat.com][level:system
 				Expect(virtClient.VirtualMachineInstance(vmi.Namespace).Delete(context.Background(), vmi.Name, &metav1.DeleteOptions{})).To(Succeed())
 
 				By("Waiting for VMI to disappear")
-				tests.WaitForVirtualMachineToDisappearWithTimeout(vmi, 240)
+				libwait.WaitForVirtualMachineToDisappearWithTimeout(vmi, 240)
 
 			})
 
@@ -1159,7 +1160,7 @@ var _ = Describe("[rfe_id:393][crit:high][vendor:cnv-qe@redhat.com][level:system
 				Expect(virtClient.VirtualMachineInstance(vmi.Namespace).Delete(context.Background(), vmi.Name, &metav1.DeleteOptions{})).To(Succeed())
 
 				By("Waiting for VMI to disappear")
-				tests.WaitForVirtualMachineToDisappearWithTimeout(vmi, 240)
+				libwait.WaitForVirtualMachineToDisappearWithTimeout(vmi, 240)
 
 			})
 			It("[test_id:6973]should be able to successfully migrate with a paused vmi", func() {
@@ -1277,7 +1278,7 @@ var _ = Describe("[rfe_id:393][crit:high][vendor:cnv-qe@redhat.com][level:system
 				Expect(virtClient.VirtualMachineInstance(vmi.Namespace).Delete(context.Background(), vmi.Name, &metav1.DeleteOptions{})).To(Succeed())
 
 				By("Waiting for VMI to disappear")
-				tests.WaitForVirtualMachineToDisappearWithTimeout(vmi, 240)
+				libwait.WaitForVirtualMachineToDisappearWithTimeout(vmi, 240)
 			})
 
 			It("should automatically cancel pending target pod after a catch all timeout period", func() {
@@ -1338,7 +1339,7 @@ var _ = Describe("[rfe_id:393][crit:high][vendor:cnv-qe@redhat.com][level:system
 				Expect(virtClient.VirtualMachineInstance(vmi.Namespace).Delete(context.Background(), vmi.Name, &metav1.DeleteOptions{})).To(Succeed())
 
 				By("Waiting for VMI to disappear")
-				tests.WaitForVirtualMachineToDisappearWithTimeout(vmi, 240)
+				libwait.WaitForVirtualMachineToDisappearWithTimeout(vmi, 240)
 			})
 		})
 		Context("[Serial] with auto converge enabled", Serial, func() {
@@ -1379,7 +1380,7 @@ var _ = Describe("[rfe_id:393][crit:high][vendor:cnv-qe@redhat.com][level:system
 				Expect(virtClient.VirtualMachineInstance(vmi.Namespace).Delete(context.Background(), vmi.Name, &metav1.DeleteOptions{})).To(Succeed())
 
 				By("Waiting for VMI to disappear")
-				tests.WaitForVirtualMachineToDisappearWithTimeout(vmi, 240)
+				libwait.WaitForVirtualMachineToDisappearWithTimeout(vmi, 240)
 			})
 		})
 		Context("with setting guest time", func() {
@@ -1480,7 +1481,7 @@ var _ = Describe("[rfe_id:393][crit:high][vendor:cnv-qe@redhat.com][level:system
 				Expect(virtClient.VirtualMachineInstance(vmi.Namespace).Delete(context.Background(), vmi.Name, &metav1.DeleteOptions{})).To(Succeed())
 
 				By("Waiting for VMI to disappear")
-				tests.WaitForVirtualMachineToDisappearWithTimeout(vmi, 120)
+				libwait.WaitForVirtualMachineToDisappearWithTimeout(vmi, 120)
 				libstorage.DeleteDataVolume(&dataVolume)
 			})
 			It("[test_id:1479][storage-req] should migrate a vmi with a shared block disk", func() {
@@ -1504,7 +1505,7 @@ var _ = Describe("[rfe_id:393][crit:high][vendor:cnv-qe@redhat.com][level:system
 				Expect(virtClient.VirtualMachineInstance(vmi.Namespace).Delete(context.Background(), vmi.Name, &metav1.DeleteOptions{})).To(Succeed())
 
 				By("Waiting for VMI to disappear")
-				tests.WaitForVirtualMachineToDisappearWithTimeout(vmi, 120)
+				libwait.WaitForVirtualMachineToDisappearWithTimeout(vmi, 120)
 			})
 			It("[test_id:6974]should reject additional migrations on the same VMI if the first one is not finished", func() {
 				vmi := tests.NewRandomFedoraVMIWithGuestAgent()
@@ -1551,7 +1552,7 @@ var _ = Describe("[rfe_id:393][crit:high][vendor:cnv-qe@redhat.com][level:system
 				Expect(virtClient.VirtualMachineInstance(vmi.Namespace).Delete(context.Background(), vmi.Name, &metav1.DeleteOptions{})).To(Succeed())
 
 				By("Waiting for VMI to disappear")
-				tests.WaitForVirtualMachineToDisappearWithTimeout(vmi, 120)
+				libwait.WaitForVirtualMachineToDisappearWithTimeout(vmi, 120)
 			})
 		})
 		Context("[storage-req]with an Alpine shared block volume PVC", func() {
@@ -1580,7 +1581,7 @@ var _ = Describe("[rfe_id:393][crit:high][vendor:cnv-qe@redhat.com][level:system
 				Expect(virtClient.VirtualMachineInstance(vmi.Namespace).Delete(context.Background(), vmi.Name, &metav1.DeleteOptions{})).To(Succeed())
 
 				By("Waiting for VMI to disappear")
-				tests.WaitForVirtualMachineToDisappearWithTimeout(vmi, 120)
+				libwait.WaitForVirtualMachineToDisappearWithTimeout(vmi, 120)
 			})
 			It("[release-blocker][test_id:1377]should be successfully migrated multiple times", func() {
 				// Start the VirtualMachineInstance with the PVC attached
@@ -1602,7 +1603,7 @@ var _ = Describe("[rfe_id:393][crit:high][vendor:cnv-qe@redhat.com][level:system
 				Expect(virtClient.VirtualMachineInstance(vmi.Namespace).Delete(context.Background(), vmi.Name, &metav1.DeleteOptions{})).To(Succeed())
 
 				By("Waiting for VMI to disappear")
-				tests.WaitForVirtualMachineToDisappearWithTimeout(vmi, 120)
+				libwait.WaitForVirtualMachineToDisappearWithTimeout(vmi, 120)
 			})
 		})
 		Context("[storage-req]with an Alpine shared block volume PVC", func() {
@@ -1634,7 +1635,7 @@ var _ = Describe("[rfe_id:393][crit:high][vendor:cnv-qe@redhat.com][level:system
 				Expect(virtClient.VirtualMachineInstance(vmi.Namespace).Delete(context.Background(), vmi.Name, &metav1.DeleteOptions{})).To(Succeed())
 
 				By("Waiting for VMI to disappear")
-				tests.WaitForVirtualMachineToDisappearWithTimeout(vmi, 120)
+				libwait.WaitForVirtualMachineToDisappearWithTimeout(vmi, 120)
 			})
 		})
 		Context("with a Fedora shared NFS PVC (using nfs ipv4 address), cloud init and service account", func() {
@@ -1789,7 +1790,7 @@ var _ = Describe("[rfe_id:393][crit:high][vendor:cnv-qe@redhat.com][level:system
 				Expect(virtClient.VirtualMachineInstance(vmi.Namespace).Delete(context.Background(), vmi.Name, &metav1.DeleteOptions{})).To(Succeed())
 
 				By("Waiting for VMI to disappear")
-				tests.WaitForVirtualMachineToDisappearWithTimeout(vmi, 240)
+				libwait.WaitForVirtualMachineToDisappearWithTimeout(vmi, 240)
 
 			},
 				Entry("[test_id:8609] with simple VMI", func() *v1.VirtualMachineInstance {
@@ -1876,7 +1877,7 @@ var _ = Describe("[rfe_id:393][crit:high][vendor:cnv-qe@redhat.com][level:system
 				Expect(virtClient.VirtualMachineInstance(vmi.Namespace).Delete(context.Background(), vmi.Name, &metav1.DeleteOptions{})).To(Succeed())
 
 				By("Waiting for VMI to disappear")
-				tests.WaitForVirtualMachineToDisappearWithTimeout(vmi, 240)
+				libwait.WaitForVirtualMachineToDisappearWithTimeout(vmi, 240)
 
 			},
 				Entry("with simple VMI", func() *v1.VirtualMachineInstance {
@@ -1931,7 +1932,7 @@ var _ = Describe("[rfe_id:393][crit:high][vendor:cnv-qe@redhat.com][level:system
 					Expect(virtClient.VirtualMachineInstance(vmi.Namespace).Delete(context.Background(), vmi.Name, &metav1.DeleteOptions{})).To(Succeed())
 
 					By("Waiting for VMI to disappear")
-					tests.WaitForVirtualMachineToDisappearWithTimeout(vmi, 240)
+					libwait.WaitForVirtualMachineToDisappearWithTimeout(vmi, 240)
 				})
 
 				It("[test_id:6977]should not secure migrations with TLS", func() {
@@ -2168,7 +2169,7 @@ var _ = Describe("[rfe_id:393][crit:high][vendor:cnv-qe@redhat.com][level:system
 				Expect(virtClient.VirtualMachineInstance(vmi.Namespace).Delete(context.Background(), vmi.Name, &metav1.DeleteOptions{})).To(Succeed())
 
 				By("Waiting for VMI to disappear")
-				tests.WaitForVirtualMachineToDisappearWithTimeout(vmi, 240)
+				libwait.WaitForVirtualMachineToDisappearWithTimeout(vmi, 240)
 			})
 		})
 
@@ -2225,7 +2226,7 @@ var _ = Describe("[rfe_id:393][crit:high][vendor:cnv-qe@redhat.com][level:system
 				Expect(virtClient.VirtualMachineInstance(vmi.Namespace).Delete(context.Background(), vmi.Name, &metav1.DeleteOptions{})).To(Succeed())
 
 				By("Waiting for VMI to disappear")
-				tests.WaitForVirtualMachineToDisappearWithTimeout(vmi, 240)
+				libwait.WaitForVirtualMachineToDisappearWithTimeout(vmi, 240)
 			})
 
 			It("[test_id:6978][QUARANTINE] Should detect a failed migration", func() {
@@ -2318,7 +2319,7 @@ var _ = Describe("[rfe_id:393][crit:high][vendor:cnv-qe@redhat.com][level:system
 				Expect(virtClient.VirtualMachineInstance(vmi.Namespace).Delete(context.Background(), vmi.Name, &metav1.DeleteOptions{})).To(Succeed())
 
 				By("Waiting for VMI to disappear")
-				tests.WaitForVirtualMachineToDisappearWithTimeout(vmi, 240)
+				libwait.WaitForVirtualMachineToDisappearWithTimeout(vmi, 240)
 			})
 
 			It("old finalized migrations should get garbage collected", func() {
@@ -2365,7 +2366,7 @@ var _ = Describe("[rfe_id:393][crit:high][vendor:cnv-qe@redhat.com][level:system
 				Expect(virtClient.VirtualMachineInstance(vmi.Namespace).Delete(context.Background(), vmi.Name, &metav1.DeleteOptions{})).To(Succeed())
 
 				By("Waiting for VMI to disappear")
-				tests.WaitForVirtualMachineToDisappearWithTimeout(vmi, 240)
+				libwait.WaitForVirtualMachineToDisappearWithTimeout(vmi, 240)
 			})
 
 			It("[test_id:6979]Target pod should exit after failed migration", func() {
@@ -2405,7 +2406,7 @@ var _ = Describe("[rfe_id:393][crit:high][vendor:cnv-qe@redhat.com][level:system
 				Expect(virtClient.VirtualMachineInstance(vmi.Namespace).Delete(context.Background(), vmi.Name, &metav1.DeleteOptions{})).To(Succeed())
 
 				By("Waiting for VMI to disappear")
-				tests.WaitForVirtualMachineToDisappearWithTimeout(vmi, 240)
+				libwait.WaitForVirtualMachineToDisappearWithTimeout(vmi, 240)
 			})
 
 			It("[test_id:6980]Migration should fail if target pod fails during target preparation", func() {
@@ -2468,7 +2469,7 @@ var _ = Describe("[rfe_id:393][crit:high][vendor:cnv-qe@redhat.com][level:system
 				Expect(virtClient.VirtualMachineInstance(vmi.Namespace).Delete(context.Background(), vmi.Name, &metav1.DeleteOptions{})).To(Succeed())
 
 				By("Waiting for VMI to disappear")
-				tests.WaitForVirtualMachineToDisappearWithTimeout(vmi, 240)
+				libwait.WaitForVirtualMachineToDisappearWithTimeout(vmi, 240)
 			})
 			It("Migration should generate empty isos of the right size on the target", func() {
 				By("Creating a VMI with cloud-init and config maps")
@@ -2560,7 +2561,7 @@ var _ = Describe("[rfe_id:393][crit:high][vendor:cnv-qe@redhat.com][level:system
 				Expect(virtClient.VirtualMachineInstance(vmi.Namespace).Delete(context.Background(), vmi.Name, &metav1.DeleteOptions{})).To(Succeed())
 
 				By("Waiting for VMI to disappear")
-				tests.WaitForVirtualMachineToDisappearWithTimeout(vmi, 240)
+				libwait.WaitForVirtualMachineToDisappearWithTimeout(vmi, 240)
 			})
 		})
 		Context("[storage-req]with an Alpine non-shared block volume PVC", func() {
@@ -2590,7 +2591,7 @@ var _ = Describe("[rfe_id:393][crit:high][vendor:cnv-qe@redhat.com][level:system
 				Expect(virtClient.VirtualMachineInstance(vmi.Namespace).Delete(context.Background(), vmi.Name, &metav1.DeleteOptions{})).To(Succeed())
 
 				By("Waiting for VMI to disappear")
-				tests.WaitForVirtualMachineToDisappearWithTimeout(vmi, 120)
+				libwait.WaitForVirtualMachineToDisappearWithTimeout(vmi, 120)
 			})
 		})
 
@@ -2649,7 +2650,7 @@ var _ = Describe("[rfe_id:393][crit:high][vendor:cnv-qe@redhat.com][level:system
 				confirmVMIPostMigrationAborted(vmi, migrationUID, 180)
 
 				By("Waiting for the migration object to disappear")
-				tests.WaitForMigrationToDisappearWithTimeout(migration, 240)
+				libwait.WaitForMigrationToDisappearWithTimeout(migration, 240)
 
 				// delete VMI
 				By("Deleting the VMI")
@@ -2680,14 +2681,14 @@ var _ = Describe("[rfe_id:393][crit:high][vendor:cnv-qe@redhat.com][level:system
 				confirmVMIPostMigrationAborted(vmi, string(migration.UID), 180)
 
 				By("Waiting for the migration object to disappear")
-				tests.WaitForMigrationToDisappearWithTimeout(migration, 240)
+				libwait.WaitForMigrationToDisappearWithTimeout(migration, 240)
 
 				// delete VMI
 				By("Deleting the VMI")
 				Expect(virtClient.VirtualMachineInstance(vmi.Namespace).Delete(context.Background(), vmi.Name, &metav1.DeleteOptions{})).To(Succeed())
 
 				By("Waiting for VMI to disappear")
-				tests.WaitForVirtualMachineToDisappearWithTimeout(vmi, 240)
+				libwait.WaitForVirtualMachineToDisappearWithTimeout(vmi, 240)
 			},
 				Entry("[sig-compute][test_id:3241]cancel a migration by deleting vmim object", false),
 				Entry("[sig-compute][test_id:8583]cancel a migration with virtctl", true),
@@ -2726,7 +2727,7 @@ var _ = Describe("[rfe_id:393][crit:high][vendor:cnv-qe@redhat.com][level:system
 				cancelMigration(migration, vmi.Name, with_virtctl)
 
 				By("Waiting for the migration object to disappear")
-				tests.WaitForMigrationToDisappearWithTimeout(migration, 240)
+				libwait.WaitForMigrationToDisappearWithTimeout(migration, 240)
 
 				By("Retrieving the VMI post migration")
 				vmi, err = virtClient.VirtualMachineInstance(vmi.Namespace).Get(context.Background(), vmi.Name, &metav1.GetOptions{})
@@ -2743,7 +2744,7 @@ var _ = Describe("[rfe_id:393][crit:high][vendor:cnv-qe@redhat.com][level:system
 				Expect(virtClient.VirtualMachineInstance(vmi.Namespace).Delete(context.Background(), vmi.Name, &metav1.DeleteOptions{})).To(Succeed())
 
 				By("Waiting for VMI to disappear")
-				tests.WaitForVirtualMachineToDisappearWithTimeout(vmi, 240)
+				libwait.WaitForVirtualMachineToDisappearWithTimeout(vmi, 240)
 			},
 				Entry("[sig-compute][test_id:8584]cancel a migration by deleting vmim object", false),
 				Entry("[sig-compute][test_id:8585]cancel a migration with virtctl", true),
@@ -3142,7 +3143,7 @@ var _ = Describe("[rfe_id:393][crit:high][vendor:cnv-qe@redhat.com][level:system
 			Expect(virtClient.VirtualMachineInstance(vmi.Namespace).Delete(context.Background(), vmi.Name, &metav1.DeleteOptions{})).To(Succeed())
 
 			By("Waiting for VMI to disappear")
-			tests.WaitForVirtualMachineToDisappearWithTimeout(vmi, 120)
+			libwait.WaitForVirtualMachineToDisappearWithTimeout(vmi, 120)
 		})
 	})
 
@@ -3201,7 +3202,7 @@ var _ = Describe("[rfe_id:393][crit:high][vendor:cnv-qe@redhat.com][level:system
 						return pdbs.Items
 					}, 3*time.Second, 500*time.Millisecond).Should(HaveLen(1))
 					By("waiting for VMI")
-					tests.WaitForSuccessfulVMIStartWithTimeout(vmi, 60)
+					libwait.WaitForSuccessfulVMIStartWithTimeout(vmi, 60)
 
 					By("deleting the VMI")
 					Expect(virtClient.VirtualMachineInstance(vmi.Namespace).Delete(context.Background(), vmi.Name, &metav1.DeleteOptions{})).To(Succeed())
@@ -3223,7 +3224,7 @@ var _ = Describe("[rfe_id:393][crit:high][vendor:cnv-qe@redhat.com][level:system
 				createdVMI, err := virtClient.VirtualMachineInstance(vmi.Namespace).Create(context.Background(), vmi)
 				Expect(err).ToNot(HaveOccurred())
 				By("waiting for VMI")
-				tests.WaitForSuccessfulVMIStartWithTimeout(createdVMI, 60)
+				libwait.WaitForSuccessfulVMIStartWithTimeout(createdVMI, 60)
 
 				By("Adding a fake old virt-controller PDB")
 				two := intstr.FromInt(2)
@@ -3581,7 +3582,7 @@ var _ = Describe("[rfe_id:393][crit:high][vendor:cnv-qe@redhat.com][level:system
 
 				By("waiting until the VMIs are ready")
 				for _, vmi := range vmis {
-					tests.WaitForSuccessfulVMIStartWithTimeout(vmi, 180)
+					libwait.WaitForSuccessfulVMIStartWithTimeout(vmi, 180)
 				}
 
 				By("selecting a node as the target")
@@ -3772,7 +3773,7 @@ var _ = Describe("[rfe_id:393][crit:high][vendor:cnv-qe@redhat.com][level:system
 			By("Starting hugepages VMI")
 			_, err = virtClient.VirtualMachineInstance(hugepagesVmi.Namespace).Create(context.Background(), hugepagesVmi)
 			Expect(err).ToNot(HaveOccurred())
-			tests.WaitForSuccessfulVMIStart(hugepagesVmi)
+			libwait.WaitForSuccessfulVMIStart(hugepagesVmi)
 
 			By("starting the migration")
 			migration := tests.NewRandomMigration(hugepagesVmi.Name, hugepagesVmi.Namespace)
@@ -3786,7 +3787,7 @@ var _ = Describe("[rfe_id:393][crit:high][vendor:cnv-qe@redhat.com][level:system
 			Expect(virtClient.VirtualMachineInstance(hugepagesVmi.Namespace).Delete(context.Background(), hugepagesVmi.Name, &metav1.DeleteOptions{})).To(Succeed())
 
 			By("Waiting for VMI to disappear")
-			tests.WaitForVirtualMachineToDisappearWithTimeout(hugepagesVmi, 240)
+			libwait.WaitForVirtualMachineToDisappearWithTimeout(hugepagesVmi, 240)
 		},
 			Entry("[test_id:6983]hugepages-2Mi", "2Mi", "64Mi"),
 			Entry("[test_id:6984]hugepages-1Gi", "1Gi", "1Gi"),
@@ -3810,7 +3811,7 @@ var _ = Describe("[rfe_id:393][crit:high][vendor:cnv-qe@redhat.com][level:system
 			By("Starting a VirtualMachineInstance")
 			cpuVMI, err = virtClient.VirtualMachineInstance(cpuVMI.Namespace).Create(context.Background(), cpuVMI)
 			Expect(err).ToNot(HaveOccurred())
-			tests.WaitForSuccessfulVMIStart(cpuVMI)
+			libwait.WaitForSuccessfulVMIStart(cpuVMI)
 
 			By("Performing a migration")
 			migration := tests.NewRandomMigration(cpuVMI.Name, cpuVMI.Namespace)
@@ -3835,7 +3836,7 @@ var _ = Describe("[rfe_id:393][crit:high][vendor:cnv-qe@redhat.com][level:system
 				By("Starting a VirtualMachineInstance")
 				cpuVMI, err = virtClient.VirtualMachineInstance(cpuVMI.Namespace).Create(context.Background(), cpuVMI)
 				Expect(err).ToNot(HaveOccurred())
-				tests.WaitForSuccessfulVMIStart(cpuVMI)
+				libwait.WaitForSuccessfulVMIStart(cpuVMI)
 
 				By("Performing a migration")
 				migration := tests.NewRandomMigration(cpuVMI.Name, cpuVMI.Namespace)
@@ -3852,7 +3853,7 @@ var _ = Describe("[rfe_id:393][crit:high][vendor:cnv-qe@redhat.com][level:system
 		By("Starting a VirtualMachineInstance")
 		vmi, err = virtClient.VirtualMachineInstance(vmi.Namespace).Create(context.Background(), vmi)
 		Expect(err).ToNot(HaveOccurred())
-		tests.WaitForSuccessfulVMIStart(vmi)
+		libwait.WaitForSuccessfulVMIStart(vmi)
 
 		pod := tests.GetRunningPodByVirtualMachineInstance(vmi, vmi.Namespace)
 		By("Verifying that all relevant images are without the digest on the source")
@@ -4173,7 +4174,7 @@ var _ = Describe("[rfe_id:393][crit:high][vendor:cnv-qe@redhat.com][level:system
 			vmi := tests.CreateVmiOnNodeLabeled(migratableVMI, testLabel1, "true")
 
 			By("waiting until the VirtualMachineInstance starts")
-			tests.WaitForSuccessfulVMIStartWithTimeout(vmi, 120)
+			libwait.WaitForSuccessfulVMIStartWithTimeout(vmi, 120)
 			vmi, err = virtClient.VirtualMachineInstance(vmi.Namespace).Get(context.Background(), vmi.Name, &metav1.GetOptions{})
 			Expect(err).ToNot(HaveOccurred())
 
@@ -4264,7 +4265,7 @@ var _ = Describe("[rfe_id:393][crit:high][vendor:cnv-qe@redhat.com][level:system
 			Expect(virtClient.VirtualMachineInstance(vmi.Namespace).Delete(context.Background(), vmi.Name, &metav1.DeleteOptions{})).To(Succeed(), "Failed to delete the VMI")
 
 			By("Waiting for VMI to disappear")
-			tests.WaitForVirtualMachineToDisappearWithTimeout(vmi, 240)
+			libwait.WaitForVirtualMachineToDisappearWithTimeout(vmi, 240)
 		})
 	})
 
@@ -4288,7 +4289,7 @@ var _ = Describe("[rfe_id:393][crit:high][vendor:cnv-qe@redhat.com][level:system
 		Expect(virtClient.VirtualMachineInstance(vmi.Namespace).Delete(context.Background(), vmi.Name, &metav1.DeleteOptions{})).To(Succeed())
 
 		By("Waiting for VMI to disappear")
-		tests.WaitForVirtualMachineToDisappearWithTimeout(vmi, 120)
+		libwait.WaitForVirtualMachineToDisappearWithTimeout(vmi, 120)
 	})
 
 	Context("with a live-migration in flight", func() {

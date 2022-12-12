@@ -14,6 +14,7 @@ import (
 
 	"kubevirt.io/client-go/log"
 
+	"kubevirt.io/kubevirt/tests/libwait"
 	"kubevirt.io/kubevirt/tests/testsuite"
 	"kubevirt.io/kubevirt/tests/util"
 
@@ -190,7 +191,7 @@ var _ = SIGDescribe("[Serial]ImageUpload", Serial, func() {
 					err = virtClient.VirtualMachineInstance(testsuite.GetTestNamespace(vmi)).Delete(context.Background(), vmi.Name, &metav1.DeleteOptions{})
 					Expect(err).ToNot(HaveOccurred())
 				}()
-				tests.WaitForSuccessfulVMIStartIgnoreWarnings(vmi)
+				libwait.WaitForSuccessfulVMIStartIgnoreWarnings(vmi)
 				vmi, err = virtClient.VirtualMachineInstance(testsuite.GetTestNamespace(vmi)).Get(context.Background(), vmi.Name, &metav1.GetOptions{})
 				Expect(err).ToNot(HaveOccurred())
 			}

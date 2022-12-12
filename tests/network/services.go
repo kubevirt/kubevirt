@@ -43,6 +43,7 @@ import (
 	"kubevirt.io/kubevirt/tests/libnet"
 	netservice "kubevirt.io/kubevirt/tests/libnet/service"
 	"kubevirt.io/kubevirt/tests/libvmi"
+	"kubevirt.io/kubevirt/tests/libwait"
 )
 
 const (
@@ -76,7 +77,7 @@ var _ = SIGDescribe("Services", func() {
 		createdVMI, err := virtClient.VirtualMachineInstance(util.NamespaceTestDefault).Create(context.Background(), vmi)
 		Expect(err).ToNot(HaveOccurred())
 
-		return tests.WaitUntilVMIReady(createdVMI, loginTo)
+		return libwait.WaitUntilVMIReady(createdVMI, loginTo)
 	}
 
 	cleanupVMI := func(virtClient kubecli.KubevirtClient, vmi *v1.VirtualMachineInstance) {

@@ -53,6 +53,7 @@ import (
 	"kubevirt.io/kubevirt/tests/console"
 	"kubevirt.io/kubevirt/tests/libnet"
 	"kubevirt.io/kubevirt/tests/libvmi"
+	"kubevirt.io/kubevirt/tests/libwait"
 )
 
 const (
@@ -164,7 +165,7 @@ var istioTests = func(vmType VmType) {
 			Expect(err).ShouldNot(HaveOccurred())
 
 			By("Waiting for VMI to be ready")
-			tests.WaitUntilVMIReady(vmi, console.LoginToAlpine)
+			libwait.WaitUntilVMIReady(vmi, console.LoginToAlpine)
 		})
 		Describe("Live Migration", func() {
 			var (
@@ -236,7 +237,7 @@ var istioTests = func(vmType VmType) {
 
 				bastionVMI, err = virtClient.VirtualMachineInstance(namespace).Create(context.Background(), bastionVMI)
 				Expect(err).ToNot(HaveOccurred())
-				bastionVMI = tests.WaitUntilVMIReady(bastionVMI, console.LoginToCirros)
+				bastionVMI = libwait.WaitUntilVMIReady(bastionVMI, console.LoginToCirros)
 			})
 			Context("With VMI having explicit ports specified", func() {
 				BeforeEach(func() {

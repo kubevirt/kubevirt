@@ -38,6 +38,7 @@ import (
 	"kubevirt.io/kubevirt/tests/libdv"
 	"kubevirt.io/kubevirt/tests/libstorage"
 	"kubevirt.io/kubevirt/tests/libvmi"
+	"kubevirt.io/kubevirt/tests/libwait"
 	"kubevirt.io/kubevirt/tests/util"
 )
 
@@ -446,7 +447,7 @@ var _ = SIGDescribe("VirtualMachineSnapshot Tests", func() {
 				})
 
 				vm, vmi = createAndStartVM(vm)
-				tests.WaitForSuccessfulVMIStartWithTimeout(vmi, 300)
+				libwait.WaitForSuccessfulVMIStartWithTimeout(vmi, 300)
 				Eventually(matcher.ThisVMI(vmi), 12*time.Minute, 2*time.Second).Should(matcher.HaveConditionTrue(v1.VirtualMachineInstanceAgentConnected))
 
 				initialMemory := vmi.Spec.Domain.Resources.Requests[corev1.ResourceMemory]
@@ -525,7 +526,7 @@ var _ = SIGDescribe("VirtualMachineSnapshot Tests", func() {
 				})
 
 				vm, vmi = createAndStartVM(vm)
-				tests.WaitForSuccessfulVMIStartWithTimeout(vmi, 300)
+				libwait.WaitForSuccessfulVMIStartWithTimeout(vmi, 300)
 
 				snapshot = newSnapshot()
 
@@ -547,7 +548,7 @@ var _ = SIGDescribe("VirtualMachineSnapshot Tests", func() {
 				vm = tests.NewRandomVirtualMachine(vmi, false)
 
 				vm, vmi = createAndStartVM(vm)
-				tests.WaitForSuccessfulVMIStartWithTimeout(vmi, 300)
+				libwait.WaitForSuccessfulVMIStartWithTimeout(vmi, 300)
 				Eventually(matcher.ThisVMI(vmi), 12*time.Minute, 2*time.Second).Should(matcher.HaveConditionTrue(v1.VirtualMachineInstanceAgentConnected))
 
 				snapshot = newSnapshot()
@@ -725,7 +726,7 @@ var _ = SIGDescribe("VirtualMachineSnapshot Tests", func() {
 				vm = tests.NewRandomVirtualMachine(vmi, false)
 
 				vm, vmi = createAndStartVM(vm)
-				tests.WaitForSuccessfulVMIStartWithTimeout(vmi, 300)
+				libwait.WaitForSuccessfulVMIStartWithTimeout(vmi, 300)
 				Eventually(matcher.ThisVMI(vmi), 12*time.Minute, 2*time.Second).Should(matcher.HaveConditionTrue(v1.VirtualMachineInstanceAgentConnected))
 
 				By("Logging into Fedora")
@@ -783,7 +784,7 @@ var _ = SIGDescribe("VirtualMachineSnapshot Tests", func() {
 				vm.Spec.Running = &running
 
 				vm, vmi = createAndStartVM(vm)
-				tests.WaitForSuccessfulVMIStartWithTimeout(vmi, 300)
+				libwait.WaitForSuccessfulVMIStartWithTimeout(vmi, 300)
 
 				By("Calling Velero pre-backup hook")
 				_, stderr, err := callVeleroHook(vmi, VELERO_PREBACKUP_HOOK_CONTAINER_ANNOTATION, VELERO_PREBACKUP_HOOK_COMMAND_ANNOTATION)
@@ -803,7 +804,7 @@ var _ = SIGDescribe("VirtualMachineSnapshot Tests", func() {
 				vm = tests.NewRandomVirtualMachine(vmi, false)
 
 				vm, vmi = createAndStartVM(vm)
-				tests.WaitForSuccessfulVMIStartWithTimeout(vmi, 300)
+				libwait.WaitForSuccessfulVMIStartWithTimeout(vmi, 300)
 				Eventually(matcher.ThisVMI(vmi), 12*time.Minute, 2*time.Second).Should(matcher.HaveConditionTrue(v1.VirtualMachineInstanceAgentConnected))
 
 				By("Logging into Fedora")
