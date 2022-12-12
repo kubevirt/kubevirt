@@ -32,7 +32,7 @@ var _ = Describe("PCI Address", func() {
 	It("is parsed into a domain PCI Address spec", func() {
 		Expect(device.NewPciAddressField("0000:81:11.1")).To(Equal(
 			&api.Address{
-				Type:     "pci",
+				Type:     api.AddressPCI,
 				Domain:   "0x0000",
 				Bus:      "0x81",
 				Slot:     "0x11",

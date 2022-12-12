@@ -31,7 +31,7 @@ func NewPciAddressField(address string) (*api.Address, error) {
 	}
 
 	return &api.Address{
-		Type:     "pci",
+		Type:     api.AddressPCI,
 		Domain:   "0x" + dbsfFields[0],
 		Bus:      "0x" + dbsfFields[1],
 		Slot:     "0x" + dbsfFields[2],

@@ -1630,7 +1630,7 @@ var _ = Describe("Converter", func() {
 			v1.SetObjectDefaults_VirtualMachineInstance(vmi)
 			vmi.Spec.Domain.Devices.Disks[0].Disk.PciAddress = "0000:81:01.0"
 			test_address := api.Address{
-				Type:     "pci",
+				Type:     api.AddressPCI,
 				Domain:   "0x0000",
 				Bus:      "0x81",
 				Slot:     "0x01",
@@ -1823,7 +1823,7 @@ var _ = Describe("Converter", func() {
 		When("NIC PCI address is specified on VMI", func() {
 			const pciAddress = "0000:81:01.0"
 			expectedPCIAddress := api.Address{
-				Type:     "pci",
+				Type:     api.AddressPCI,
 				Domain:   "0x0000",
 				Bus:      "0x81",
 				Slot:     "0x01",
