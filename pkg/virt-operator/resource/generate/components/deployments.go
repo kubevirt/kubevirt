@@ -375,7 +375,7 @@ func NewApiServerDeployment(namespace, repository, imagePrefix, version, product
 	container.Resources = corev1.ResourceRequirements{
 		Requests: corev1.ResourceList{
 			corev1.ResourceCPU:    resource.MustParse("5m"),
-			corev1.ResourceMemory: resource.MustParse("300Mi"),
+			corev1.ResourceMemory: resource.MustParse("400Mi"),
 		},
 	}
 
