@@ -78,8 +78,13 @@ var _ = SIGDescribe("[crit:high][arm64][vendor:cnv-qe@redhat.com][level:componen
 				By("restarting kubelet")
 				pod := renderPkillAllPod("kubelet")
 				pod.Spec.NodeName = nodeName
-				_, err = virtClient.CoreV1().Pods(testsuite.GetTestNamespace(pod)).Create(context.Background(), pod, metav1.CreateOptions{})
+				pod, err = virtClient.CoreV1().Pods(testsuite.GetTestNamespace(pod)).Create(context.Background(), pod, metav1.CreateOptions{})
 				Expect(err).ToNot(HaveOccurred())
+				Eventually(func() k8sv1.PodPhase {
+					pod, err = virtClient.CoreV1().Pods(testsuite.GetTestNamespace(pod)).Get(context.Background(), pod.Name, metav1.GetOptions{})
+					Expect(err).ToNot(HaveOccurred())
+					return pod.Status.Phase
+				}, 50, 5).Should(Equal(k8sv1.PodSucceeded))
 
 				By("starting another VMI on the same node, to verify kubelet is running again")
 				newVMI := libvmi.NewCirros()
