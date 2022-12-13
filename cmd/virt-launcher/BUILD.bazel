@@ -71,9 +71,6 @@ xattrs(
             "cap_net_bind_service",
         ],
     },
-    selinux_labels = {
-        "/usr/bin/virt-launcher": "system_u:object_r:container_file_t:s0",
-    },
     tar = ":virt-launcher-tar",
 )
 
