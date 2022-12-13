@@ -965,6 +965,8 @@ var _ = Describe("Restore controller", func() {
 				preferenceOriginalCR   *appsv1.ControllerRevision
 			)
 
+			const vmCreationFailureMessage = "something failed during VirtualMachine creation"
+
 			expectCreateVM := func(vm *v1.VirtualMachine) {
 				newVMUID := vm.UID
 				vm.UID = ""
@@ -988,14 +990,36 @@ var _ = Describe("Restore controller", func() {
 					}).Return(expectedUpdatedVM, nil)
 			}
 
-			expectUpdateVMRestoreUpdatingTargetSpec := func(vmRestore *snapshotv1.VirtualMachineRestore) {
+			expectUpdateVMRestoreUpdatingTargetSpec := func(vmRestore *snapshotv1.VirtualMachineRestore, resourceVersion string) {
 				expectedUpdatedRestore := vmRestore.DeepCopy()
-				expectedUpdatedRestore.ResourceVersion = "1"
+				expectedUpdatedRestore.ResourceVersion = resourceVersion
 				expectedUpdatedRestore.Status.Conditions = []snapshotv1.Condition{
 					newProgressingCondition(corev1.ConditionTrue, "Updating target spec"),
 					newReadyCondition(corev1.ConditionFalse, "Waiting for target update"),
 				}
 				expectVMRestoreUpdate(kubevirtClient, expectedUpdatedRestore)
+			}
+
+			expectUpdateVMRestoreFailure := func(vmRestore *snapshotv1.VirtualMachineRestore, resourceVersion, failureReason string) {
+				expectedUpdatedRestore := vmRestore.DeepCopy()
+				expectedUpdatedRestore.ResourceVersion = resourceVersion
+				expectedUpdatedRestore.Status.Conditions = []snapshotv1.Condition{
+					newProgressingCondition(corev1.ConditionFalse, failureReason),
+					newReadyCondition(corev1.ConditionFalse, failureReason),
+				}
+				expectVMRestoreUpdate(kubevirtClient, expectedUpdatedRestore)
+			}
+
+			expectCreateVMFailure := func(vm *v1.VirtualMachine) {
+				newVMUID := vm.UID
+				vm.UID = ""
+				vm.ResourceVersion = ""
+				vm.Annotations = map[string]string{"restore.kubevirt.io/lastRestoreUID": "restore-uid"}
+				vmInterface.EXPECT().
+					Create(vm).
+					Do(func(objs ...interface{}) {
+						vm.UID = newVMUID
+					}).Return(vm, fmt.Errorf(vmCreationFailureMessage))
 			}
 
 			getInstancetypeOriginalCR := func() *appsv1.ControllerRevision { return instancetypeOriginalCR }
@@ -1050,7 +1074,7 @@ var _ = Describe("Restore controller", func() {
 					expectCreateControllerRevisionAlreadyExists(k8sClient, getExpectedCR())
 					expectUpdateVMRestoreInProgress(originalVM)
 					expectUpdateVMRestored(originalVM)
-					expectUpdateVMRestoreUpdatingTargetSpec(restore)
+					expectUpdateVMRestoreUpdatingTargetSpec(restore, "1")
 
 					addVirtualMachineRestore(restore)
 					controller.processVMRestoreWorkItem()
@@ -1126,7 +1150,91 @@ var _ = Describe("Restore controller", func() {
 						newVM.Spec.Preference.RevisionName = expectedCreatedCR.Name
 					}
 					expectCreateVM(newVM)
-					expectUpdateVMRestoreUpdatingTargetSpec(restore)
+					expectUpdateVMRestoreUpdatingTargetSpec(restore, "1")
+
+					addVirtualMachineRestore(restore)
+					controller.processVMRestoreWorkItem()
+				},
+				Entry("and referenced instancetype",
+					func() *v1.InstancetypeMatcher {
+						return &v1.InstancetypeMatcher{
+							Name:         instancetypeObj.Name,
+							Kind:         instancetypeapi.SingularResourceName,
+							RevisionName: instancetypeOriginalCR.Name,
+						}
+					}, func() *v1.InstancetypeMatcher {
+						return &v1.InstancetypeMatcher{
+							Name:         instancetypeObj.Name,
+							Kind:         instancetypeapi.SingularResourceName,
+							RevisionName: instancetypeSnapshotCR.Name,
+						}
+					}, nilPrefrenceMatcher, nilPrefrenceMatcher, getInstancetypeOriginalCR,
+				),
+				Entry("and referenced preference", nilInstancetypeMatcher, nilInstancetypeMatcher,
+					func() *v1.PreferenceMatcher {
+						return &v1.PreferenceMatcher{
+							Name:         preferenceObj.Name,
+							Kind:         instancetypeapi.SingularPreferenceResourceName,
+							RevisionName: preferenceOriginalCR.Name,
+						}
+					},
+					func() *v1.PreferenceMatcher {
+						return &v1.PreferenceMatcher{
+							Name:         preferenceObj.Name,
+							Kind:         instancetypeapi.SingularPreferenceResourceName,
+							RevisionName: preferenceSnapshotCR.Name,
+						}
+					}, getPreferenceOriginalCR,
+				),
+			)
+			DescribeTable("with a failure during VirtualMachine creation",
+				func(getVMInstancetypeMatcher, getSnapshotInstancetypeMatcher func() *v1.InstancetypeMatcher, getVMPreferenceMatcher, getSnapshotPreferenceMatcher func() *v1.PreferenceMatcher, getExpectedCR func() *appsv1.ControllerRevision) {
+					originalVM.Spec.Instancetype = getVMInstancetypeMatcher()
+					originalVM.Spec.Preference = getVMPreferenceMatcher()
+					vmSource.Add(originalVM)
+
+					vmSnapshotContent.Spec.Source.VirtualMachine.Spec.Instancetype = getSnapshotInstancetypeMatcher()
+					vmSnapshotContent.Spec.Source.VirtualMachine.Spec.Preference = getSnapshotPreferenceMatcher()
+					vmSnapshotContentSource.Add(vmSnapshotContent)
+
+					// Ensure we restore into a new VM
+					newVM := originalVM.DeepCopy()
+					newVM.Name = "newvm"
+					newVM.UID = "newvm-uid"
+					restore.Spec.Target.Name = newVM.Name
+
+					originalCR := getExpectedCR()
+					expectedCreatedCR := originalCR.DeepCopy()
+					expectedCreatedCR.Name = strings.Replace(expectedCreatedCR.Name, originalVM.Name, newVM.Name, 1)
+					expectedCreatedCR.OwnerReferences = nil
+					expectControllerRevisionCreate(k8sClient, expectedCreatedCR)
+
+					// We need to be able to find the created CR from the controller so add it to the source
+					expectedCreatedCR.Namespace = testNamespace
+					crSource.Add(expectedCreatedCR)
+
+					expectedUpdatedCR := expectedCreatedCR.DeepCopy()
+					expectedUpdatedCR.ResourceVersion = "5"
+					expectedUpdatedCR.OwnerReferences = []metav1.OwnerReference{*metav1.NewControllerRef(newVM, kubevirtv1.VirtualMachineGroupVersionKind)}
+					expectControllerRevisionUpdate(k8sClient, expectedUpdatedCR)
+
+					if newVM.Spec.Instancetype != nil {
+						newVM.Spec.Instancetype.RevisionName = expectedCreatedCR.Name
+					}
+					if newVM.Spec.Preference != nil {
+						newVM.Spec.Preference.RevisionName = expectedCreatedCR.Name
+					}
+
+					expectCreateVMFailure(newVM)
+					expectUpdateVMRestoreFailure(restore, "1", vmCreationFailureMessage)
+
+					addVirtualMachineRestore(restore)
+					controller.processVMRestoreWorkItem()
+
+					// We have already created the ControllerRevision but that shouldn't stop the reconcile from progressing
+					expectCreateControllerRevisionAlreadyExists(k8sClient, expectedCreatedCR)
+					expectCreateVM(newVM)
+					expectUpdateVMRestoreUpdatingTargetSpec(restore, "2")
 
 					addVirtualMachineRestore(restore)
 					controller.processVMRestoreWorkItem()

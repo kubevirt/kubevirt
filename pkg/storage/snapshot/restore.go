@@ -658,7 +658,9 @@ func (t *vmRestoreTarget) restoreInstancetypeControllerRevision(vmSnapshotRevisi
 	restoredCR.Name = restoredCRName
 
 	restoredCR, err = t.controller.Client.AppsV1().ControllerRevisions(vm.Namespace).Create(context.Background(), restoredCR, metav1.CreateOptions{})
-	if err != nil {
+	// This might not be our first time through the reconcile loop so accommodate previous calls to restoreInstancetypeControllerRevision by ignoring unexpected existing CRs for now.
+	// TODO - Check the contents of the existing CR here against that of the snapshot CR
+	if err != nil && !errors.IsAlreadyExists(err) {
 		return nil, err
 	}
 
