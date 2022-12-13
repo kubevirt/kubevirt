@@ -88,6 +88,16 @@ function wait_for_istio_ready() {
     fi
 }
 
+# copy_istio_cni_conf_files copy the generated Istio CNI net conf file
+# (at '/etc/cni/multus/net.d/') to where Multus expect CNI net conf files ('/etc/cni/net.d/')
+function copy_istio_cni_conf_files() {
+    if [ "$KUBEVIRT_DEPLOY_ISTIO" == "true" ] && [ "$KUBEVIRT_WITH_CNAO" == "true" ]; then
+        for nodeNum in $(seq -f "%02g" 1 $KUBEVIRT_NUM_NODES); do
+            $ssh node${nodeNum} -- sudo cp -uv /etc/cni/multus/net.d/*istio*.conf /etc/cni/net.d/
+        done
+    fi
+}
+
 function deploy_cdi() {
     if [ "$KUBEVIRT_DEPLOY_CDI" == "true" ]; then
         $kubectl create -f /opt/cdi-*-operator.yaml
@@ -155,4 +165,8 @@ function up() {
         sleep 5
     done
 
+    # FIXME: remove 'copy_istio_cni_conf_files()' as soon as [1] and [2] are resolved
+    # [1] https://github.com/kubevirt/kubevirtci/issues/906
+    # [2] https://github.com/k8snetworkplumbingwg/multus-cni/issues/982
+    copy_istio_cni_conf_files
 }
