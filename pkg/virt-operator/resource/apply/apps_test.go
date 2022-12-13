@@ -26,6 +26,7 @@ import (
 
 	"kubevirt.io/kubevirt/tests"
 
+	"kubevirt.io/kubevirt/pkg/apimachinery/patch"
 	"kubevirt.io/kubevirt/pkg/testutils"
 	"kubevirt.io/kubevirt/pkg/virt-operator/resource/generate/rbac"
 
@@ -52,7 +53,6 @@ import (
 	"kubevirt.io/client-go/kubecli"
 
 	"kubevirt.io/kubevirt/pkg/controller"
-	utiltypes "kubevirt.io/kubevirt/pkg/util/types"
 	"kubevirt.io/kubevirt/pkg/virt-operator/resource/generate/components"
 	"kubevirt.io/kubevirt/pkg/virt-operator/util"
 )
@@ -380,7 +380,7 @@ var _ = Describe("Apply Apps", func() {
 					Expect(ok).To(BeTrue())
 					patched = true
 
-					patches, err := utiltypes.UnmarshalPatch(a.GetPatch())
+					patches, err := patch.UnmarshalPatch(a.GetPatch())
 					Expect(err).ToNot(HaveOccurred())
 
 					var dsSpec *appsv1.DaemonSetSpec
@@ -458,7 +458,7 @@ var _ = Describe("Apply Apps", func() {
 					Expect(ok).To(BeTrue())
 					patched = true
 
-					patches := []utiltypes.PatchOperation{}
+					patches := []patch.PatchOperation{}
 					json.Unmarshal(a.GetPatch(), &patches)
 
 					var annotations map[string]string
@@ -518,7 +518,7 @@ var _ = Describe("Apply Apps", func() {
 						Expect(ok).To(BeTrue())
 						patched = true
 
-						patches := []utiltypes.PatchOperation{}
+						patches := []patch.PatchOperation{}
 						json.Unmarshal(a.GetPatch(), &patches)
 
 						var annotations map[string]string

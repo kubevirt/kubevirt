@@ -74,8 +74,8 @@ import (
 	v1 "kubevirt.io/api/core/v1"
 	"kubevirt.io/client-go/kubecli"
 
+	"kubevirt.io/kubevirt/pkg/apimachinery/patch"
 	clusterutil "kubevirt.io/kubevirt/pkg/util/cluster"
-	k6ttypes "kubevirt.io/kubevirt/pkg/util/types"
 	"kubevirt.io/kubevirt/pkg/virt-controller/leaderelectionconfig"
 	nodelabellerutil "kubevirt.io/kubevirt/pkg/virt-handler/node-labeller/util"
 	"kubevirt.io/kubevirt/pkg/virt-operator/resource/generate/components"
@@ -477,7 +477,7 @@ var _ = Describe("[Serial][sig-compute]Infrastructure", Serial, func() {
 							taints = append(taints, taint)
 						}
 					}
-					patchData, err := k6ttypes.GenerateTestReplacePatch("/spec/taints", selectedNode.Spec.Taints, taints)
+					patchData, err := patch.GenerateTestReplacePatch("/spec/taints", selectedNode.Spec.Taints, taints)
 					Expect(err).NotTo(HaveOccurred())
 					selectedNode, err = virtClient.CoreV1().Nodes().Patch(context.Background(), selectedNode.Name, types.JSONPatchType, patchData, metav1.PatchOptions{})
 					Expect(err).NotTo(HaveOccurred())
@@ -567,7 +567,7 @@ var _ = Describe("[Serial][sig-compute]Infrastructure", Serial, func() {
 					Effect: k8sv1.TaintEffectNoExecute,
 				})
 
-				patchData, err := k6ttypes.GenerateTestReplacePatch("/spec/taints", selectedNode.Spec.Taints, taints)
+				patchData, err := patch.GenerateTestReplacePatch("/spec/taints", selectedNode.Spec.Taints, taints)
 				Expect(err).ToNot(HaveOccurred())
 				selectedNode, err = virtClient.CoreV1().Nodes().Patch(context.Background(), selectedNode.Name, types.JSONPatchType, patchData, metav1.PatchOptions{})
 				Expect(err).ToNot(HaveOccurred())

@@ -41,8 +41,8 @@ import (
 
 	v1 "kubevirt.io/api/core/v1"
 
+	"kubevirt.io/kubevirt/pkg/apimachinery/patch"
 	"kubevirt.io/kubevirt/pkg/testutils"
-	utiltypes "kubevirt.io/kubevirt/pkg/util/types"
 	"kubevirt.io/kubevirt/pkg/virt-api/webhooks"
 	virtconfig "kubevirt.io/kubevirt/pkg/virt-config"
 	nodelabellerutil "kubevirt.io/kubevirt/pkg/virt-handler/node-labeller/util"
@@ -91,14 +91,14 @@ var _ = Describe("VirtualMachineInstance Mutator", func() {
 		vmiSpec := &v1.VirtualMachineInstanceSpec{}
 		vmiMeta := &k8smetav1.ObjectMeta{}
 		vmiStatus := &v1.VirtualMachineInstanceStatus{}
-		patch := []utiltypes.PatchOperation{
+		patchOps := []patch.PatchOperation{
 			{Value: vmiSpec},
 			{Value: vmiMeta},
 			{Value: vmiStatus},
 		}
-		err := json.Unmarshal(resp.Patch, &patch)
+		err := json.Unmarshal(resp.Patch, &patchOps)
 		Expect(err).ToNot(HaveOccurred())
-		Expect(patch).NotTo(BeEmpty())
+		Expect(patchOps).NotTo(BeEmpty())
 
 		return vmiMeta, vmiSpec, vmiStatus
 	}
@@ -130,12 +130,12 @@ var _ = Describe("VirtualMachineInstance Mutator", func() {
 
 		By("Getting the VMI spec from the response")
 		vmiStatus := &v1.VirtualMachineInstanceStatus{}
-		patch := []utiltypes.PatchOperation{
+		patchOps := []patch.PatchOperation{
 			{Value: vmiStatus},
 		}
-		err = json.Unmarshal(resp.Patch, &patch)
+		err = json.Unmarshal(resp.Patch, &patchOps)
 		Expect(err).ToNot(HaveOccurred())
-		if len(patch) == 0 {
+		if len(patchOps) == 0 {
 			return &newVMI.Status
 		}
 

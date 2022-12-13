@@ -18,10 +18,10 @@ go_library(
     importpath = "kubevirt.io/kubevirt/tests/storage",
     visibility = ["//visibility:public"],
     deps = [
+        "//pkg/apimachinery/patch:go_default_library",
         "//pkg/certificates/triple/cert:go_default_library",
         "//pkg/host-disk:go_default_library",
         "//pkg/storage/types:go_default_library",
-        "//pkg/util/types:go_default_library",
         "//pkg/virt-config:go_default_library",
         "//pkg/virt-launcher/virtwrap/converter:go_default_library",
         "//pkg/virt-operator/resource/generate/components:go_default_library",

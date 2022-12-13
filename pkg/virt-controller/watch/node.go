@@ -20,9 +20,9 @@ import (
 	"kubevirt.io/client-go/kubecli"
 	"kubevirt.io/client-go/log"
 
+	"kubevirt.io/kubevirt/pkg/apimachinery/patch"
 	"kubevirt.io/kubevirt/pkg/controller"
 	"kubevirt.io/kubevirt/pkg/util/lookup"
-	k6ttypes "kubevirt.io/kubevirt/pkg/util/types"
 )
 
 const (
@@ -252,11 +252,11 @@ func (c *NodeController) createAndApplyFailedVMINodeUnresponsivePatch(vmi *virtv
 	c.recorder.Event(vmi, v1.EventTypeNormal, NodeUnresponsiveReason, fmt.Sprintf("virt-handler on node %s is not responsive, marking VMI as failed", vmi.Status.NodeName))
 	logger.V(2).Infof("Moving vmi %s in namespace %s on unresponsive node to failed state", vmi.Name, vmi.Namespace)
 
-	patch, err := generateFailedVMIPatch(vmi.Status.Reason)
+	patchBytes, err := generateFailedVMIPatch(vmi.Status.Reason)
 	if err != nil {
 		return err
 	}
-	_, err = c.clientset.VirtualMachineInstance(vmi.Namespace).Patch(vmi.Name, types.JSONPatchType, patch, &metav1.PatchOptions{})
+	_, err = c.clientset.VirtualMachineInstance(vmi.Namespace).Patch(vmi.Name, types.JSONPatchType, patchBytes, &metav1.PatchOptions{})
 	if err != nil {
 		logger.Reason(err).Errorf("Failed to move vmi %s in namespace %s to final state", vmi.Name, vmi.Namespace)
 		return err
@@ -271,13 +271,13 @@ func generateFailedVMIPatch(reason string) ([]byte, error) {
 		reasonOp = "replace"
 	}
 
-	return k6ttypes.GeneratePatchPayload(
-		k6ttypes.PatchOperation{
-			Op:    k6ttypes.PatchReplaceOp,
+	return patch.GeneratePatchPayload(
+		patch.PatchOperation{
+			Op:    patch.PatchReplaceOp,
 			Path:  "/status/phase",
 			Value: virtv1.Failed,
 		},
-		k6ttypes.PatchOperation{
+		patch.PatchOperation{
 			Op:    reasonOp,
 			Path:  "/status/reason",
 			Value: NodeUnresponsiveReason,

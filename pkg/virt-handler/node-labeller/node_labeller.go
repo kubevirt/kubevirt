@@ -40,7 +40,7 @@ import (
 	"kubevirt.io/client-go/kubecli"
 	"kubevirt.io/client-go/log"
 
-	utiltype "kubevirt.io/kubevirt/pkg/util/types"
+	"kubevirt.io/kubevirt/pkg/apimachinery/patch"
 	virtconfig "kubevirt.io/kubevirt/pkg/virt-config"
 	"kubevirt.io/kubevirt/pkg/virt-handler/node-labeller/api"
 	"kubevirt.io/kubevirt/pkg/virt-handler/node-labeller/util"
@@ -215,13 +215,13 @@ func skipNode(node *v1.Node) bool {
 }
 
 func (n *NodeLabeller) patchNode(originalNode, node *v1.Node) error {
-	p := make([]utiltype.PatchOperation, 0)
+	p := make([]patch.PatchOperation, 0)
 	if !equality.Semantic.DeepEqual(originalNode.Labels, node.Labels) {
-		p = append(p, utiltype.PatchOperation{
+		p = append(p, patch.PatchOperation{
 			Op:    "test",
 			Path:  "/metadata/labels",
 			Value: originalNode.Labels,
-		}, utiltype.PatchOperation{
+		}, patch.PatchOperation{
 			Op:    "replace",
 			Path:  "/metadata/labels",
 			Value: node.Labels,
@@ -229,11 +229,11 @@ func (n *NodeLabeller) patchNode(originalNode, node *v1.Node) error {
 	}
 
 	if !equality.Semantic.DeepEqual(originalNode.Annotations, node.Annotations) {
-		p = append(p, utiltype.PatchOperation{
+		p = append(p, patch.PatchOperation{
 			Op:    "test",
 			Path:  "/metadata/annotations",
 			Value: originalNode.Annotations,
-		}, utiltype.PatchOperation{
+		}, patch.PatchOperation{
 			Op:    "replace",
 			Path:  "/metadata/annotations",
 			Value: node.Annotations,

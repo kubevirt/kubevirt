@@ -49,8 +49,8 @@ import (
 	fakeclientset "kubevirt.io/client-go/generated/kubevirt/clientset/versioned/fake"
 	instancetypeclientset "kubevirt.io/client-go/generated/kubevirt/clientset/versioned/typed/instancetype/v1alpha2"
 
+	"kubevirt.io/kubevirt/pkg/apimachinery/patch"
 	"kubevirt.io/kubevirt/pkg/testutils"
-	utiltypes "kubevirt.io/kubevirt/pkg/util/types"
 	"kubevirt.io/kubevirt/pkg/virt-api/webhooks"
 )
 
@@ -91,13 +91,13 @@ var _ = Describe("VirtualMachine Mutator", func() {
 		By("Getting the VM spec from the response")
 		vmSpec := &v1.VirtualMachineSpec{}
 		vmMeta := &k8smetav1.ObjectMeta{}
-		patch := []utiltypes.PatchOperation{
+		patchOps := []patch.PatchOperation{
 			{Value: vmSpec},
 			{Value: vmMeta},
 		}
-		err := json.Unmarshal(resp.Patch, &patch)
+		err := json.Unmarshal(resp.Patch, &patchOps)
 		Expect(err).ToNot(HaveOccurred())
-		Expect(patch).NotTo(BeEmpty())
+		Expect(patchOps).NotTo(BeEmpty())
 
 		return vmSpec, vmMeta
 	}

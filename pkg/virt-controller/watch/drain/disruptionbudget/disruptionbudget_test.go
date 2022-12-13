@@ -23,8 +23,8 @@ import (
 	v1 "kubevirt.io/api/core/v1"
 	"kubevirt.io/client-go/kubecli"
 
+	"kubevirt.io/kubevirt/pkg/apimachinery/patch"
 	"kubevirt.io/kubevirt/pkg/testutils"
-	kubevirttypes "kubevirt.io/kubevirt/pkg/util/types"
 	virtconfig "kubevirt.io/kubevirt/pkg/virt-config"
 	"kubevirt.io/kubevirt/pkg/virt-controller/watch/drain/disruptionbudget"
 )
@@ -105,14 +105,14 @@ var _ = Describe("Disruptionbudget", func() {
 
 	shouldExpectPDBPatch := func(vmi *v1.VirtualMachineInstance) {
 		kubeClient.Fake.PrependReactor("patch", "poddisruptionbudgets", func(action testing.Action) (handled bool, obj runtime.Object, err error) {
-			patch, ok := action.(testing.PatchAction)
+			patchAction, ok := action.(testing.PatchAction)
 			Expect(ok).To(BeTrue())
-			Expect(patch.GetName()).To(Equal("pdb-" + vmi.Name))
-			Expect(patch.GetPatchType()).To(Equal(types.JSONPatchType))
+			Expect(patchAction.GetName()).To(Equal("pdb-" + vmi.Name))
+			Expect(patchAction.GetPatchType()).To(Equal(types.JSONPatchType))
 
 			expectedPatch := fmt.Sprintf(`[{ "op": "replace", "path": "/spec/minAvailable", "value": 1 }, { "op": "remove", "path": "/metadata/labels/%s" }]`,
-				kubevirttypes.EscapeJSONPointer(v1.MigrationNameLabel))
-			Expect(string(patch.GetPatch())).To(Equal(expectedPatch))
+				patch.EscapeJSONPointer(v1.MigrationNameLabel))
+			Expect(string(patchAction.GetPatch())).To(Equal(expectedPatch))
 			return true, &policyv1.PodDisruptionBudget{}, nil
 		})
 	}

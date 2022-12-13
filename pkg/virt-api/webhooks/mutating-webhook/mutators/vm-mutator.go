@@ -32,8 +32,8 @@ import (
 	"kubevirt.io/api/instancetype/v1alpha2"
 	"kubevirt.io/client-go/log"
 
+	"kubevirt.io/kubevirt/pkg/apimachinery/patch"
 	"kubevirt.io/kubevirt/pkg/instancetype"
-	utiltypes "kubevirt.io/kubevirt/pkg/util/types"
 	webhookutils "kubevirt.io/kubevirt/pkg/util/webhooks"
 	"kubevirt.io/kubevirt/pkg/virt-api/webhooks"
 	virtconfig "kubevirt.io/kubevirt/pkg/virt-config"
@@ -101,14 +101,14 @@ func (mutator *VMsMutator) Mutate(ar *admissionv1.AdmissionReview) *admissionv1.
 	mutator.setDefaultMachineType(&vm, preferenceSpec)
 	mutator.setPreferenceStorageClassName(&vm, preferenceSpec)
 
-	patchBytes, err := utiltypes.GeneratePatchPayload(
-		utiltypes.PatchOperation{
-			Op:    utiltypes.PatchReplaceOp,
+	patchBytes, err := patch.GeneratePatchPayload(
+		patch.PatchOperation{
+			Op:    patch.PatchReplaceOp,
 			Path:  "/spec",
 			Value: vm.Spec,
 		},
-		utiltypes.PatchOperation{
-			Op:    utiltypes.PatchReplaceOp,
+		patch.PatchOperation{
+			Op:    patch.PatchReplaceOp,
 			Path:  "/metadata",
 			Value: vm.ObjectMeta,
 		},

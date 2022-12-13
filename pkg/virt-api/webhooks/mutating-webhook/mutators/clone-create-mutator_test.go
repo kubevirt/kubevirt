@@ -3,6 +3,8 @@ package mutators
 import (
 	"encoding/json"
 
+	"kubevirt.io/kubevirt/pkg/apimachinery/patch"
+
 	"kubevirt.io/kubevirt/tests/util"
 
 	. "github.com/onsi/ginkgo/v2"
@@ -16,8 +18,6 @@ import (
 	"kubevirt.io/api/clone"
 	clonev1alpha1 "kubevirt.io/api/clone/v1alpha1"
 	"kubevirt.io/client-go/kubecli"
-
-	utiltypes "kubevirt.io/kubevirt/pkg/util/types"
 )
 
 var _ = Describe("Clone mutating webhook", func() {
@@ -79,7 +79,7 @@ func mutate(vmClone *clonev1alpha1.VirtualMachineClone) *clonev1alpha1.VirtualMa
 	Expect(resp.Allowed).Should(BeTrue())
 
 	cloneSpec := &clonev1alpha1.VirtualMachineCloneSpec{}
-	patch := []utiltypes.PatchOperation{
+	patch := []patch.PatchOperation{
 		{Value: cloneSpec},
 	}
 

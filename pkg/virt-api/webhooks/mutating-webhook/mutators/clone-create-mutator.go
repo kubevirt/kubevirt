@@ -32,7 +32,7 @@ import (
 	"kubevirt.io/api/clone"
 	clonev1alpha1 "kubevirt.io/api/clone/v1alpha1"
 
-	utiltypes "kubevirt.io/kubevirt/pkg/util/types"
+	"kubevirt.io/kubevirt/pkg/apimachinery/patch"
 	webhookutils "kubevirt.io/kubevirt/pkg/util/webhooks"
 )
 
@@ -59,16 +59,16 @@ func (mutator *CloneCreateMutator) Mutate(ar *admissionv1.AdmissionReview) *admi
 
 	mutateClone(vmClone)
 
-	var patch []utiltypes.PatchOperation
+	var patchOps []patch.PatchOperation
 	var value interface{}
 	value = vmClone.Spec
-	patch = append(patch, utiltypes.PatchOperation{
+	patchOps = append(patchOps, patch.PatchOperation{
 		Op:    "replace",
 		Path:  "/spec",
 		Value: value,
 	})
 
-	patchBytes, err := json.Marshal(patch)
+	patchBytes, err := json.Marshal(patchOps)
 	if err != nil {
 		return webhookutils.ToAdmissionResponseError(err)
 	}
