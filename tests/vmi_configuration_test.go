@@ -1623,7 +1623,11 @@ var _ = Describe("[sig-compute]Configurations", func() {
 		Context("with Clock and timezone", func() {
 
 			It("[sig-compute][test_id:5268]guest should see timezone", func() {
-				vmi := libvmi.NewCirros()
+				nodes := libnode.GetAllSchedulableNodes(virtClient)
+				Expect(nodes.Items).ToNot(BeEmpty())
+				targetNode := nodes.Items[0]
+				vmi := libvmi.NewCirros(libvmi.WithNodeSelectorFor(&targetNode))
+
 				timezone := "America/New_York"
 				tz := v1.ClockOffsetTimezone(timezone)
 				vmi.Spec.Domain.Clock = &v1.Clock{
@@ -1642,10 +1646,15 @@ var _ = Describe("[sig-compute]Configurations", func() {
 
 				By("Logging to VMI")
 				Expect(console.LoginToCirros(vmi)).To(Succeed())
-
-				loc, err := time.LoadLocation(timezone)
+				cmds := []string{
+					"sh",
+					"-c",
+					fmt.Sprintf(`TZ=":%v" date "+%%a, %%d %%b %%Y %%H:%%M:%%S %%Z"`, timezone),
+				}
+				stdout, stderr, err := tests.ExecuteCommandOnNodeThroughVirtHandler(virtClient, targetNode.Name, cmds)
+				Expect(err).ToNot(HaveOccurred(), "Exited with err info:\n stderr:\n%v\n and stdout:\n%v\n", stderr, stdout)
+				now, err := time.Parse(time.RFC1123, strings.TrimSuffix(stdout, "\n"))
 				Expect(err).ToNot(HaveOccurred())
-				now := time.Now().In(loc)
 				nowplus := now.Add(20 * time.Second)
 				nowminus := now.Add(-20 * time.Second)
 				By("Checking hardware clock time")
