@@ -23,6 +23,8 @@ source hack/common.sh
 source hack/config.sh
 source hack/version.sh
 
+source hack/go-build-functests.sh
+
 if [ -z "$1" ]; then
     target="install"
 else

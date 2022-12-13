@@ -60,12 +60,6 @@ OPERATOR_MANIFEST_PATH=$MANIFESTS_OUT_DIR/release/kubevirt-operator.yaml
 TESTING_MANIFEST_PATH=$MANIFESTS_OUT_DIR/testing
 KUBEVIRT_CRI="$(determine_cri_bin)"
 
-function build_func_tests() {
-    mkdir -p "${TESTS_OUT_DIR}/"
-    GOPROXY=off \
-        go test -c "${KUBEVIRT_DIR}/tests" -o "${TESTS_OUT_DIR}/tests.test"
-}
-
 function build_func_tests_image() {
     local bin_name=tests
     cp ${KUBEVIRT_DIR}/tests/{Dockerfile,entrypoint.sh} \
