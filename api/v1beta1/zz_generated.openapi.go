@@ -593,6 +593,7 @@ func schema_kubevirt_hyperconverged_cluster_operator_api_v1beta1_HyperConvergedW
 						},
 					},
 				},
+				Required: []string{"workloadUpdateMethods"},
 			},
 		},
 		Dependencies: []string{

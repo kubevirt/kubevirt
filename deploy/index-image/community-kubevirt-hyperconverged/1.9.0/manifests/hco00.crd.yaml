@@ -2290,6 +2290,8 @@ spec:
                       type: string
                     type: array
                     x-kubernetes-list-type: atomic
+                required:
+                - workloadUpdateMethods
                 type: object
               workloads:
                 description: workloads HyperConvergedConfig influences the pod configuration
