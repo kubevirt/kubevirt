@@ -23,18 +23,17 @@ import (
 
 	k8sv1 "k8s.io/api/core/v1"
 	"k8s.io/client-go/tools/cache"
-	"kubevirt.io/client-go/kubecli"
 )
 
 const PSALabel = "pod-security.kubernetes.io/enforce"
 
-func IsNamespacePrivilegedWithStore(namespaceStore cache.Store, client kubecli.KubevirtClient, namespace string) (bool, error) {
+func IsNamespacePrivilegedWithStore(namespaceStore cache.Store, namespace string) (bool, error) {
 	obj, exists, err := namespaceStore.GetByKey(namespace)
 	if err != nil {
-		return false, fmt.Errorf("Failed to get namespace, %w", err)
+		return false, fmt.Errorf("failed to get namespace, %w", err)
 	}
 	if !exists {
-		return false, fmt.Errorf("Namespace %s not observed, %w", namespace, err)
+		return false, fmt.Errorf("namespace %s not observed, %w", namespace, err)
 	}
 	return IsNamespacePrivileged(obj.(*k8sv1.Namespace)), nil
 }

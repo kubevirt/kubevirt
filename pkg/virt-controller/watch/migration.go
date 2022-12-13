@@ -841,7 +841,7 @@ func (c *MigrationController) handleTargetPodHandoff(migration *virtv1.VirtualMa
 
 	if vmiCopy.Status.MigrationState.MigrationConfiguration.AllowPostCopy != nil &&
 		*vmiCopy.Status.MigrationState.MigrationConfiguration.AllowPostCopy {
-		isPrivileged, err := psa.IsNamespacePrivilegedWithStore(c.namespaceStore, c.clientset, vmiCopy.Namespace)
+		isPrivileged, err := psa.IsNamespacePrivilegedWithStore(c.namespaceStore, vmiCopy.Namespace)
 		if err != nil {
 			return err
 		}
