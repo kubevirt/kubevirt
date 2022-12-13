@@ -638,7 +638,61 @@ var _ = Describe("[Serial][sig-monitoring]Prometheus Alerts", Serial, func() {
 			tests.WaitForVirtualMachineToDisappearWithTimeout(vmi, 240)
 		})
 	})
+
+	Context("Warning alerts", func() {
+		alerts := []string{
+			"KubeVirtComponentExceedsRequestedCPU",
+			"KubeVirtComponentExceedsRequestedMemory",
+		}
+
+		BeforeEach(func() {
+			virtClient, err = kubecli.GetKubevirtClient()
+			util.PanicOnError(err)
+
+			scales = make(map[string]*autoscalingv1.Scale, 1)
+			backupScale(virtOperator.deploymentName)
+
+			updateScale(virtOperator.deploymentName, 0)
+			reduceAlertPendingTime()
+		})
+
+		AfterEach(func() {
+			revertScale(virtOperator.deploymentName)
+
+			time.Sleep(10 * time.Second)
+			for _, alert := range alerts {
+				waitUntilAlertDoesNotExist(alert)
+			}
+		})
+
+		It("should fire KubeVirtComponentExceedsRequestedCPU and KubeVirtComponentExceedsRequestedMemory alerts", func() {
+			By("updating virt-api deployment CPU and Memory requests")
+			originalResourceCpu, originalResourceMemory := updateDeploymentResourcesRequest(virtClient, virtApi.deploymentName, resource.MustParse("0m"), resource.MustParse("0Mi"))
+
+			By("waiting for KubeVirtComponentExceedsRequestedCPU and KubeVirtComponentExceedsRequestedMemory alerts")
+			verifyAlertExist("KubeVirtComponentExceedsRequestedCPU")
+			verifyAlertExist("KubeVirtComponentExceedsRequestedMemory")
+
+			By("reverting virt-api deployment CPU and Memory requests")
+			updateDeploymentResourcesRequest(virtClient, virtApi.deploymentName, originalResourceCpu, originalResourceMemory)
+		})
+	})
 })
+
+func updateDeploymentResourcesRequest(virtClient kubecli.KubevirtClient, deploymentName string, cpu, memory resource.Quantity) (originalResourceCpu, originalResourceMemory resource.Quantity) {
+	deployment, err := virtClient.AppsV1().Deployments(flags.KubeVirtInstallNamespace).Get(context.Background(), deploymentName, metav1.GetOptions{})
+	Expect(err).ToNot(HaveOccurred())
+
+	originalResourceCpu = deployment.Spec.Template.Spec.Containers[0].Resources.Requests[corev1.ResourceCPU]
+	originalResourceMemory = deployment.Spec.Template.Spec.Containers[0].Resources.Requests[corev1.ResourceMemory]
+
+	deployment.Spec.Template.Spec.Containers[0].Resources.Requests[corev1.ResourceCPU] = cpu
+	deployment.Spec.Template.Spec.Containers[0].Resources.Requests[corev1.ResourceMemory] = memory
+	_, err = virtClient.AppsV1().Deployments(flags.KubeVirtInstallNamespace).Update(context.Background(), deployment, metav1.UpdateOptions{})
+	Expect(err).ToNot(HaveOccurred())
+
+	return
+}
 
 func checkRequiredAnnotations(rule promv1.Rule) {
 	ExpectWithOffset(1, rule.Annotations).To(HaveKeyWithValue("summary", Not(BeEmpty())),
