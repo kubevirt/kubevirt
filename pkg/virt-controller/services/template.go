@@ -483,7 +483,8 @@ func (t *templateService) renderLaunchManifest(vmi *v1.VirtualMachineInstance, i
 			Hostname:  hostName,
 			Subdomain: vmi.Spec.Subdomain,
 			SecurityContext: &k8sv1.PodSecurityContext{
-				RunAsUser: &userId,
+				RunAsUser:      &userId,
+				SeccompProfile: &k8sv1.SeccompProfile{Type: k8sv1.SeccompProfileTypeUnconfined},
 			},
 			TerminationGracePeriodSeconds: &gracePeriodKillAfter,
 			RestartPolicy:                 k8sv1.RestartPolicyNever,
