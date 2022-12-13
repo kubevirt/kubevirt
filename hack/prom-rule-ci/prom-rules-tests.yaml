@@ -9,13 +9,13 @@ tests:
   # Pod is using more CPU than expected
   - interval: 1m
     input_series:
-      - series: 'node_namespace_pod_container:container_cpu_usage_seconds_total:sum_rate{namespace="ci",pod="virt-controller-8546c99968-x9jgg",node="node1"}'
-        values: '2+0x10'
+      - series: 'container_cpu_usage_seconds_total{namespace="ci",container="virt-controller",pod="virt-controller-8546c99968-x9jgg",node="node1",image="kubevirt:5000/virt-controller"}'
+        values: '0+1x10'
       - series: 'kube_pod_container_resource_requests{namespace="ci",container="virt-controller",resource="cpu",pod="virt-controller-8546c99968-x9jgg",node="node1"}'
-        values: '0+0x6'
+        values: '0+0x10'
 
     alert_rule_test:
-      - eval_time: 5m
+      - eval_time: 10m
         alertname: KubeVirtComponentExceedsRequestedCPU
         exp_alerts:
           - exp_annotations:
@@ -30,15 +30,14 @@ tests:
               container: "virt-controller"
               namespace: ci
               node: node1
-              resource: cpu
 
   # Pod is using more memory than expected
   - interval: 1m
     input_series:
-      - series: 'container_memory_working_set_bytes{namespace="ci",container="",pod="virt-controller-8546c99968-x9jgg",node="node1"}'
-        values: "157286400 157286400 157286400 157286400 157286400 157286400 157286400 157286400"
+      - series: 'container_memory_working_set_bytes{namespace="ci",container="virt-controller",pod="virt-controller-8546c99968-x9jgg",node="node1",image="kubevirt:5000/virt-controller"}'
+        values: "157286400+0x6"
       - series: 'kube_pod_container_resource_requests{namespace="ci",container="virt-controller",resource="memory",pod="virt-controller-8546c99968-x9jgg",node="node1"}'
-        values: "118325248 118325248 118325248 118325248 118325248 118325248 118325248 118325248"
+        values: "118325248+0x6"
 
     alert_rule_test:
       - eval_time: 5m
@@ -52,11 +51,10 @@ tests:
               severity: "warning"
               kubernetes_operator_part_of: "kubevirt"
               kubernetes_operator_component: "kubevirt"
-              namespace: ci
-              node: "node1"
               pod: "virt-controller-8546c99968-x9jgg"
-              resource: "memory"
-              container: virt-controller
+              container: "virt-controller"
+              namespace: ci
+              node: node1
 
   # Alerts to test whether our operators are up or not
   - interval: 1m

@@ -471,7 +471,7 @@ func NewPrometheusRuleSpec(ns string, workloadUpdatesEnabled bool) *v1.Prometheu
 					},
 					{
 						Alert: "KubeVirtComponentExceedsRequestedMemory",
-						Expr:  intstr.FromString(fmt.Sprintf(`((kube_pod_container_resource_requests{namespace="%s",container=~"virt-controller|virt-api|virt-handler|virt-operator",resource="memory"}) - on(pod) group_left(node) container_memory_working_set_bytes{container="",namespace="%s"}) < 0`, ns, ns)),
+						Expr:  intstr.FromString(fmt.Sprintf(`kube_pod_container_resource_requests{namespace="%s",container=~"virt-controller|virt-api|virt-handler|virt-operator",resource="memory"} - on(node, namespace, pod, container) container_memory_working_set_bytes{image!=""} < 0`, ns)),
 						For:   "5m",
 						Annotations: map[string]string{
 							"description": "Container {{ $labels.container }} in pod {{ $labels.pod }} memory usage exceeds the memory requested",
@@ -485,7 +485,7 @@ func NewPrometheusRuleSpec(ns string, workloadUpdatesEnabled bool) *v1.Prometheu
 					{
 						Alert: "KubeVirtComponentExceedsRequestedCPU",
 						Expr: intstr.FromString(
-							fmt.Sprintf(`((kube_pod_container_resource_requests{namespace="%s",container=~"virt-controller|virt-api|virt-handler|virt-operator",resource="cpu"}) - on(pod) group_left(node) node_namespace_pod_container:container_cpu_usage_seconds_total:sum_rate{namespace="%s"}) < 0`, ns, ns),
+							fmt.Sprintf(`kube_pod_container_resource_requests{namespace="%s",container=~"virt-controller|virt-api|virt-handler|virt-operator",resource="cpu"} - on(node, namespace, pod, container) rate(container_cpu_usage_seconds_total{image!=""}[5m]) < 0`, ns),
 						),
 						For: "5m",
 						Annotations: map[string]string{
