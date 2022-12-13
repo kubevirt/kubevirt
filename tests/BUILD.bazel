@@ -226,6 +226,7 @@ go_test(
         "//tests/libnet:go_default_library",
         "//tests/libnode:go_default_library",
         "//tests/libreplicaset:go_default_library",
+        "//tests/libssh:go_default_library",
         "//tests/libstorage:go_default_library",
         "//tests/libvmi:go_default_library",
         "//tests/monitoring:go_default_library",

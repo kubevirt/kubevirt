@@ -27,6 +27,7 @@ rm -rf "${TESTS_OUT_DIR}"
 mkdir -p "${TESTS_OUT_DIR}/tools"
 mkdir -p "${CMD_OUT_DIR}/dump"
 mkdir -p "${CMD_OUT_DIR}/virtctl"
+mkdir -p "${CMD_OUT_DIR}/example-guest-agent"
 
 # The --remote_download_toplevel command does not work with run targets out of
 # the box. In order to make run targets work with reduced artifact downloads,
@@ -39,7 +40,8 @@ bazel build \
     //tools/manifest-templator:templator \
     //vendor/github.com/onsi/ginkgo/v2/ginkgo:ginkgo \
     //tests:go_default_test \
-    //tools/junit-merger:junit-merger
+    //tools/junit-merger:junit-merger \
+    //cmd/example-guest-agent:example-guest-agent
 
 bazel run \
     --config=${HOST_ARCHITECTURE} \
@@ -56,3 +58,6 @@ bazel run \
 bazel run \
     --config=${HOST_ARCHITECTURE} \
     :build-virtctl -- ${CMD_OUT_DIR}/virtctl/virtctl
+bazel run \
+    --config=${HOST_ARCHITECTURE} \
+    :build-example-guest-agent -- ${CMD_OUT_DIR}/example-guest-agent/example-guest-agent

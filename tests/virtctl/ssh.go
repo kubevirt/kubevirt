@@ -9,6 +9,8 @@ import (
 	. "github.com/onsi/gomega"
 	"golang.org/x/crypto/ssh"
 
+	"kubevirt.io/kubevirt/tests/libssh"
+
 	"kubevirt.io/client-go/kubecli"
 
 	"kubevirt.io/kubevirt/tests"
@@ -61,15 +63,15 @@ var _ = Describe("[sig-compute][virtctl]SSH", func() {
 		Expect(os.Setenv("SSH_AUTH_SOCK", "/dev/null")).To(Succeed())
 		keyFile = filepath.Join(GinkgoT().TempDir(), "id_rsa")
 		var priv *ecdsa.PrivateKey
-		priv, pub, err = NewKeyPair()
+		priv, pub, err = libssh.NewKeyPair()
 		Expect(err).ToNot(HaveOccurred())
-		Expect(DumpPrivateKey(priv, keyFile)).To(Succeed())
+		Expect(libssh.DumpPrivateKey(priv, keyFile)).To(Succeed())
 	})
 
 	DescribeTable("should succeed to execute a command on the VM", func(cmdFn func(string)) {
 		By("injecting a SSH public key into a VMI")
 		vmi := libvmi.NewAlpineWithTestTooling(
-			libvmi.WithCloudInitNoCloudUserData(renderUserDataWithKey(pub), false))
+			libvmi.WithCloudInitNoCloudUserData(libssh.RenderUserDataWithKey(pub), false))
 		vmi, err := virtClient.VirtualMachineInstance(util.NamespaceTestDefault).Create(vmi)
 		Expect(err).ToNot(HaveOccurred())
 
