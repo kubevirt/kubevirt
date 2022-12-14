@@ -35,3 +35,10 @@ const (
 	ClusterSingularPreferenceResourceName = "virtualmachineclusterpreference"
 	ClusterPluralPreferenceResourceName   = ClusterSingularPreferenceResourceName + "s"
 )
+
+const (
+	DefaultInstancetypeAnnotation     = "instancetype.kubevirt.io/default-instancetype"
+	DefaultInstancetypeKindAnnotation = "instancetype.kubevirt.io/default-instancetype-kind"
+	DefaultPreferenceAnnotation       = "instancetype.kubevirt.io/default-preference"
+	DefaultPreferenceKindAnnotation   = "instancetype.kubevirt.io/default-preference-kind"
+)

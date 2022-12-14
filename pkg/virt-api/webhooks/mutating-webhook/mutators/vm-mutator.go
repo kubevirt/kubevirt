@@ -25,6 +25,7 @@ import (
 
 	admissionv1 "k8s.io/api/admission/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	k8sfield "k8s.io/apimachinery/pkg/util/validation/field"
 
 	v1 "kubevirt.io/api/core/v1"
 	apiinstancetype "kubevirt.io/api/instancetype"
@@ -61,8 +62,39 @@ func (mutator *VMsMutator) Mutate(ar *admissionv1.AdmissionReview) *admissionv1.
 		return webhookutils.ToAdmissionResponseError(err)
 	}
 
+	// Validate the InstancetypeMatcher before proceeding, the schema check above isn't enough
+	// as we need to ensure at least one of the optional Name or InferFromVolume attributes are present.
+	if causes := validateInstancetypeMatcher(&vm); len(causes) > 0 {
+		return webhookutils.ToAdmissionResponse(causes)
+	}
+
+	if causes := validatePreferenceMatcher(&vm); len(causes) > 0 {
+		return webhookutils.ToAdmissionResponse(causes)
+	}
+
 	// Set VM defaults
 	log.Log.Object(&vm).V(4).Info("Apply defaults")
+
+	if err = mutator.inferDefaultInstancetype(&vm); err != nil {
+		log.Log.Reason(err).Error("admission failed, unable to set default instancetype")
+		return &admissionv1.AdmissionResponse{
+			Result: &metav1.Status{
+				Message: err.Error(),
+				Code:    http.StatusBadRequest,
+			},
+		}
+	}
+
+	if err = mutator.inferDefaultPreference(&vm); err != nil {
+		log.Log.Reason(err).Error("admission failed, unable to set default preference")
+		return &admissionv1.AdmissionResponse{
+			Result: &metav1.Status{
+				Message: err.Error(),
+				Code:    http.StatusBadRequest,
+			},
+		}
+	}
+
 	mutator.setDefaultInstancetypeKind(&vm)
 	mutator.setDefaultPreferenceKind(&vm)
 	preferenceSpec := mutator.getPreferenceSpec(&vm)
@@ -151,6 +183,28 @@ func (mutator *VMsMutator) setPreferenceStorageClassName(vm *v1.VirtualMachine, 
 	}
 }
 
+func (mutator *VMsMutator) inferDefaultInstancetype(vm *v1.VirtualMachine) error {
+	instancetypeMatcher, err := mutator.InstancetypeMethods.InferDefaultInstancetype(vm)
+	if err != nil {
+		return err
+	}
+	if instancetypeMatcher != nil {
+		vm.Spec.Instancetype = instancetypeMatcher
+	}
+	return nil
+}
+
+func (mutator *VMsMutator) inferDefaultPreference(vm *v1.VirtualMachine) error {
+	preferenceMatcher, err := mutator.InstancetypeMethods.InferDefaultPreference(vm)
+	if err != nil {
+		return err
+	}
+	if preferenceMatcher != nil {
+		vm.Spec.Preference = preferenceMatcher
+	}
+	return nil
+}
+
 func (mutator *VMsMutator) setDefaultInstancetypeKind(vm *v1.VirtualMachine) {
 	if vm.Spec.Instancetype == nil {
 		return
@@ -169,4 +223,68 @@ func (mutator *VMsMutator) setDefaultPreferenceKind(vm *v1.VirtualMachine) {
 	if vm.Spec.Preference.Kind == "" {
 		vm.Spec.Preference.Kind = apiinstancetype.ClusterSingularPreferenceResourceName
 	}
+}
+
+func validateInstancetypeMatcher(vm *v1.VirtualMachine) []metav1.StatusCause {
+	if vm.Spec.Instancetype == nil {
+		return nil
+	}
+	if vm.Spec.Instancetype.Name == "" && vm.Spec.Instancetype.InferFromVolume == "" {
+		return []metav1.StatusCause{{
+			Type:    metav1.CauseTypeFieldValueNotFound,
+			Message: fmt.Sprintf("Either Name or InferFromVolume should be provided within the InstancetypeMatcher"),
+			Field:   k8sfield.NewPath("spec", "instancetype").String(),
+		}}
+	}
+	if vm.Spec.Instancetype.InferFromVolume != "" {
+		var causes []metav1.StatusCause
+		if vm.Spec.Instancetype.Name != "" {
+			causes = append(causes, metav1.StatusCause{
+				Type:    metav1.CauseTypeFieldValueNotFound,
+				Message: fmt.Sprintf("Name should not be provided when InferFromVolume is used within the InstancetypeMatcher"),
+				Field:   k8sfield.NewPath("spec", "instancetype", "name").String(),
+			})
+		}
+		if vm.Spec.Instancetype.Kind != "" {
+			causes = append(causes, metav1.StatusCause{
+				Type:    metav1.CauseTypeFieldValueNotFound,
+				Message: fmt.Sprintf("Kind should not be provided when InferFromVolume is used within the InstancetypeMatcher"),
+				Field:   k8sfield.NewPath("spec", "instancetype", "kind").String(),
+			})
+		}
+		return causes
+	}
+	return nil
+}
+
+func validatePreferenceMatcher(vm *v1.VirtualMachine) []metav1.StatusCause {
+	if vm.Spec.Preference == nil {
+		return nil
+	}
+	if vm.Spec.Preference.Name == "" && vm.Spec.Preference.InferFromVolume == "" {
+		return []metav1.StatusCause{{
+			Type:    metav1.CauseTypeFieldValueNotFound,
+			Message: fmt.Sprintf("Either Name or InferFromVolume should be provided within the PreferenceMatcher"),
+			Field:   k8sfield.NewPath("spec", "preference").String(),
+		}}
+	}
+	if vm.Spec.Preference.InferFromVolume != "" {
+		var causes []metav1.StatusCause
+		if vm.Spec.Preference.Name != "" {
+			causes = append(causes, metav1.StatusCause{
+				Type:    metav1.CauseTypeFieldValueNotFound,
+				Message: fmt.Sprintf("Name should not be provided when InferFromVolume is used within the PreferenceMatcher"),
+				Field:   k8sfield.NewPath("spec", "preference", "name").String(),
+			})
+		}
+		if vm.Spec.Preference.Kind != "" {
+			causes = append(causes, metav1.StatusCause{
+				Type:    metav1.CauseTypeFieldValueNotFound,
+				Message: fmt.Sprintf("Kind should not be provided when InferFromVolume is used within the PreferenceMatcher"),
+				Field:   k8sfield.NewPath("spec", "preference", "kind").String(),
+			})
+		}
+		return causes
+	}
+	return nil
 }

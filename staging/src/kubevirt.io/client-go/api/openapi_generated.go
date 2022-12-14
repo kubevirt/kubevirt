@@ -17125,8 +17125,14 @@ func schema_kubevirtio_api_core_v1_InstancetypeMatcher(ref common.ReferenceCallb
 							Format:      "",
 						},
 					},
+					"inferFromVolume": {
+						SchemaProps: spec.SchemaProps{
+							Description: "InferFromVolume lists the name of a volume that should be used to infer or discover the instancetype to be used through known annotations on the underlying resource. Once applied to the InstancetypeMatcher this field is removed.",
+							Type:        []string{"string"},
+							Format:      "",
+						},
+					},
 				},
-				Required: []string{"name"},
 			},
 		},
 	}
@@ -19175,8 +19181,14 @@ func schema_kubevirtio_api_core_v1_PreferenceMatcher(ref common.ReferenceCallbac
 							Format:      "",
 						},
 					},
+					"inferFromVolume": {
+						SchemaProps: spec.SchemaProps{
+							Description: "InferFromVolume lists the name of a volume that should be used to infer or discover the preference to be used through known annotations on the underlying resource. Once applied to the PreferenceMatcher this field is removed.",
+							Type:        []string{"string"},
+							Format:      "",
+						},
+					},
 				},
-				Required: []string{"name"},
 			},
 		},
 	}

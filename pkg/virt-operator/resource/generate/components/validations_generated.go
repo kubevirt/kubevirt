@@ -3695,6 +3695,12 @@ var CRDsValidation map[string]string = map[string]string{
           description: InstancetypeMatcher references a instancetype that is used
             to fill fields in Template
           properties:
+            inferFromVolume:
+              description: InferFromVolume lists the name of a volume that should
+                be used to infer or discover the instancetype to be used through known
+                annotations on the underlying resource. Once applied to the InstancetypeMatcher
+                this field is removed.
+              type: string
             kind:
               description: 'Kind specifies which instancetype resource is referenced.
                 Allowed values are: "VirtualMachineInstancetype" and "VirtualMachineClusterInstancetype".
@@ -3709,13 +3715,17 @@ var CRDsValidation map[string]string = map[string]string{
                 to be used. This is initially captured the first time the instancetype
                 is applied to the VirtualMachineInstance.
               type: string
-          required:
-          - name
           type: object
         preference:
           description: PreferenceMatcher references a set of preference that is used
             to fill fields in Template
           properties:
+            inferFromVolume:
+              description: InferFromVolume lists the name of a volume that should
+                be used to infer or discover the preference to be used through known
+                annotations on the underlying resource. Once applied to the PreferenceMatcher
+                this field is removed.
+              type: string
             kind:
               description: 'Kind specifies which preference resource is referenced.
                 Allowed values are: "VirtualMachinePreference" and "VirtualMachineClusterPreference".
@@ -3730,8 +3740,6 @@ var CRDsValidation map[string]string = map[string]string{
                 to be used. This is initially captured the first time the instancetype
                 is applied to the VirtualMachineInstance.
               type: string
-          required:
-          - name
           type: object
         runStrategy:
           description: Running state indicates the requested running state of the
@@ -16140,6 +16148,12 @@ var CRDsValidation map[string]string = map[string]string{
                   description: InstancetypeMatcher references a instancetype that
                     is used to fill fields in Template
                   properties:
+                    inferFromVolume:
+                      description: InferFromVolume lists the name of a volume that
+                        should be used to infer or discover the instancetype to be
+                        used through known annotations on the underlying resource.
+                        Once applied to the InstancetypeMatcher this field is removed.
+                      type: string
                     kind:
                       description: 'Kind specifies which instancetype resource is
                         referenced. Allowed values are: "VirtualMachineInstancetype"
@@ -16156,13 +16170,17 @@ var CRDsValidation map[string]string = map[string]string{
                         to be used. This is initially captured the first time the
                         instancetype is applied to the VirtualMachineInstance.
                       type: string
-                  required:
-                  - name
                   type: object
                 preference:
                   description: PreferenceMatcher references a set of preference that
                     is used to fill fields in Template
                   properties:
+                    inferFromVolume:
+                      description: InferFromVolume lists the name of a volume that
+                        should be used to infer or discover the preference to be used
+                        through known annotations on the underlying resource. Once
+                        applied to the PreferenceMatcher this field is removed.
+                      type: string
                     kind:
                       description: 'Kind specifies which preference resource is referenced.
                         Allowed values are: "VirtualMachinePreference" and "VirtualMachineClusterPreference".
@@ -16179,8 +16197,6 @@ var CRDsValidation map[string]string = map[string]string{
                         to be used. This is initially captured the first time the
                         instancetype is applied to the VirtualMachineInstance.
                       type: string
-                  required:
-                  - name
                   type: object
                 runStrategy:
                   description: Running state indicates the requested running state
@@ -20736,6 +20752,13 @@ var CRDsValidation map[string]string = map[string]string{
                       description: InstancetypeMatcher references a instancetype that
                         is used to fill fields in Template
                       properties:
+                        inferFromVolume:
+                          description: InferFromVolume lists the name of a volume
+                            that should be used to infer or discover the instancetype
+                            to be used through known annotations on the underlying
+                            resource. Once applied to the InstancetypeMatcher this
+                            field is removed.
+                          type: string
                         kind:
                           description: 'Kind specifies which instancetype resource
                             is referenced. Allowed values are: "VirtualMachineInstancetype"
@@ -20753,13 +20776,18 @@ var CRDsValidation map[string]string = map[string]string{
                             is initially captured the first time the instancetype
                             is applied to the VirtualMachineInstance.
                           type: string
-                      required:
-                      - name
                       type: object
                     preference:
                       description: PreferenceMatcher references a set of preference
                         that is used to fill fields in Template
                       properties:
+                        inferFromVolume:
+                          description: InferFromVolume lists the name of a volume
+                            that should be used to infer or discover the preference
+                            to be used through known annotations on the underlying
+                            resource. Once applied to the PreferenceMatcher this field
+                            is removed.
+                          type: string
                         kind:
                           description: 'Kind specifies which preference resource is
                             referenced. Allowed values are: "VirtualMachinePreference"
@@ -20777,8 +20805,6 @@ var CRDsValidation map[string]string = map[string]string{
                             initially captured the first time the instancetype is
                             applied to the VirtualMachineInstance.
                           type: string
-                      required:
-                      - name
                       type: object
                     runStrategy:
                       description: Running state indicates the requested running state
