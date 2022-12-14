@@ -1198,7 +1198,7 @@ var _ = SIGDescribe("VirtualMachineSnapshot Tests", func() {
 						}, BeNil()),
 						WithTransform(func(vm *v1.VirtualMachine) []string {
 							return vm.Finalizers
-						}, BeEmpty())),
+						}, BeEquivalentTo([]string{v1.VirtualMachineControllerFinalizer}))),
 					"SnapshotInProgress should be empty")
 
 				Expect(snapshot.Status.CreationTime).To(BeNil())
