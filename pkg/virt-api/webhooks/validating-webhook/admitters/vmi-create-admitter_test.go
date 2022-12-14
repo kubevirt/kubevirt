@@ -2857,6 +2857,23 @@ var _ = Describe("Validating VMICreate Admitter", func() {
 			Expect(causes[0].Field).To(Equal("fake[1].name"))
 		})
 
+		It("should reject disks with SATA and read-only set", func() {
+			vmi := api.NewMinimalVMI("testvmi")
+
+			vmi.Spec.Domain.Devices.Disks = append(vmi.Spec.Domain.Devices.Disks, v1.Disk{
+				Name: "testdisk",
+				DiskDevice: v1.DiskDevice{
+					Disk: &v1.DiskTarget{
+						Bus:      v1.DiskBusSATA,
+						ReadOnly: true,
+					},
+				},
+			})
+			causes := validateDisks(k8sfield.NewPath("disks"), vmi.Spec.Domain.Devices.Disks)
+			Expect(causes).To(HaveLen(1))
+			Expect(causes[0].Field).To(Equal("disks[0].disk.bus"))
+		})
+
 		It("should reject disks with PCI address on a non-virtio bus ", func() {
 			vmi := api.NewMinimalVMI("testvmi")
 
