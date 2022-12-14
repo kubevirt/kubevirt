@@ -603,6 +603,67 @@ var _ = SIGDescribe("Hotplug", func() {
 			Entry("DataVolume", addDVVolumeVM, removeVolumeVM),
 			Entry("PersistentVolume", addPVCVolumeVM, removeVolumeVM),
 		)
+
+		It("[Serial]Should preserve access to block devices if virt-handler crashes", func() {
+			blockDevices := []string{"/dev/disk0"}
+
+			By("Adding a hotplug block volume")
+			dv := createDataVolumeAndWaitForImport(sc, corev1.PersistentVolumeBlock)
+			blockDevices = append(blockDevices, fmt.Sprintf("/var/run/kubevirt/hotplug-disks/%s", dv.Name))
+			addDVVolumeVM(vm.Name, vm.Namespace, dv.Name, dv.Name, v1.DiskBusSCSI, false, "")
+
+			By("Verifying the volume has been added to the template spec")
+			verifyVolumeAndDiskVMAdded(virtClient, vm, dv.Name)
+
+			By("Starting the VM")
+			vm = tests.StartVirtualMachine(vm)
+			vmi, err := virtClient.VirtualMachineInstance(vm.Namespace).Get(vm.Name, &metav1.GetOptions{})
+			Expect(err).ToNot(HaveOccurred())
+
+			By("Verifying the volume is attached and usable")
+			verifyVolumeAndDiskVMIAdded(virtClient, vmi, dv.Name)
+			verifyVolumeStatus(vmi, v1.VolumeReady, "", dv.Name)
+			getVmiConsoleAndLogin(vmi)
+			targets := verifyHotplugAttachedAndUseable(vmi, []string{dv.Name})
+			Expect(targets).To(HaveLen(1))
+
+			By("Deleting virt-handler pod")
+			virtHandlerPod, err := libnode.GetVirtHandlerPod(virtClient, vmi.Status.NodeName)
+			Expect(err).ToNot(HaveOccurred())
+			Eventually(func() bool {
+				err := virtClient.CoreV1().
+					Pods(virtHandlerPod.GetObjectMeta().GetNamespace()).
+					Delete(context.Background(), virtHandlerPod.GetObjectMeta().GetName(), metav1.DeleteOptions{})
+				return errors.IsNotFound(err)
+			}, 60*time.Second, 1*time.Second).Should(BeTrue(), "virt-handler pod is expected to be deleted")
+
+			By("Waiting for virt-handler pod to restart")
+			Eventually(func() bool {
+				virtHandlerPod, err = libnode.GetVirtHandlerPod(virtClient, vmi.Status.NodeName)
+				return err == nil && virtHandlerPod.Status.Phase == corev1.PodRunning
+			}, 60*time.Second, 1*time.Second).Should(BeTrue(), "virt-handler pod is expected to be restarted")
+
+			By("Adding another hotplug block volume")
+			dv = createDataVolumeAndWaitForImport(sc, corev1.PersistentVolumeBlock)
+			blockDevices = append(blockDevices, fmt.Sprintf("/var/run/kubevirt/hotplug-disks/%s", dv.Name))
+			addDVVolumeVM(vm.Name, vm.Namespace, dv.Name, dv.Name, v1.DiskBusSCSI, false, "")
+
+			By("Verifying the volume is attached and usable")
+			verifyVolumeAndDiskVMIAdded(virtClient, vmi, dv.Name)
+			verifyVolumeStatus(vmi, v1.VolumeReady, "", dv.Name)
+			getVmiConsoleAndLogin(vmi)
+			targets = verifyHotplugAttachedAndUseable(vmi, []string{dv.Name})
+			Expect(targets).To(HaveLen(1))
+
+			By("Verifying the block devices are still accessible")
+			for _, dev := range blockDevices {
+				By(fmt.Sprintf("Verifying %s", dev))
+				output := tests.RunCommandOnVmiPod(vmi, []string{
+					"dd", fmt.Sprintf("if=%s", dev), "of=/dev/null", "bs=1", "count=1", "status=none",
+				})
+				Expect(output).To(BeEmpty())
+			}
+		})
 	})
 
 	Context("WFFC storage", func() {
