@@ -216,6 +216,7 @@ func NewController(
 		hostCpuModel:                hostCpuModel,
 		vmiExpectations:             controller.NewUIDTrackingControllerExpectations(controller.NewControllerExpectations()),
 		sriovHotplugExecutorPool:    executor.NewRateLimitedExecutorPool(executor.NewExponentialLimitedBackoffCreator()),
+		ioErrorRetryManager:         NewFailRetryManager("io-error-retry", 10*time.Second, 3*time.Minute, 30*time.Second),
 	}
 
 	vmiSourceInformer.AddEventHandler(cache.ResourceEventHandlerFuncs{
@@ -305,6 +306,7 @@ type VirtualMachineController struct {
 	capabilities                *nodelabellerapi.Capabilities
 	hostCpuModel                string
 	vmiExpectations             *controller.UIDTrackingControllerExpectations
+	ioErrorRetryManager         *FailRetryManager
 }
 
 type virtLauncherCriticalSecurebootError struct {
@@ -1444,6 +1446,8 @@ func (c *VirtualMachineController) Run(threadiness int, stopCh chan struct{}) {
 		close(heartBeatDone)
 	}()
 
+	go c.ioErrorRetryManager.Run(stopCh)
+
 	// Start the actual work
 	for i := 0; i < threadiness; i++ {
 		go wait.Until(c.runWorker, time.Second, stopCh)
@@ -1759,6 +1763,14 @@ func (d *VirtualMachineController) defaultExecute(key string,
 		}
 		if vmi.Status.Phase == phase {
 			shouldUpdate = true
+		}
+
+		if shouldDelay, delay := d.ioErrorRetryManager.ShouldDelay(string(vmi.UID), func() bool {
+			return isIOError(shouldUpdate, domainExists, domain)
+		}); shouldDelay {
+			shouldUpdate = false
+			log.Log.Object(vmi).Infof("Delay vm update for %f seconds", delay.Seconds())
+			d.Queue.AddAfter(key, delay)
 		}
 	}
 
@@ -3161,4 +3173,8 @@ func (d *VirtualMachineController) handleMigrationAbort(vmi *v1.VirtualMachineIn
 
 	d.recorder.Event(vmi, k8sv1.EventTypeNormal, v1.Migrating.String(), "VirtualMachineInstance is aborting migration.")
 	return nil
+}
+
+func isIOError(shouldUpdate, domainExists bool, domain *api.Domain) bool {
+	return shouldUpdate && domainExists && domain.Status.Status == api.Paused && domain.Status.Reason == api.ReasonPausedIOError
 }
