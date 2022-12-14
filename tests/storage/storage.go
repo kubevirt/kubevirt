@@ -264,7 +264,7 @@ var _ = SIGDescribe("Storage", func() {
 					}
 				})
 				DescribeTable("started", func(newVMI VMICreationFunc, storageEngine string, family k8sv1.IPFamily, imageOwnedByQEMU bool) {
-					libnet.SkipWhenClusterNotSupportIPFamily(virtClient, family)
+					libnet.SkipWhenClusterNotSupportIPFamily(family)
 
 					var nodeName string
 					// Start the VirtualMachineInstance with the PVC attached
@@ -627,7 +627,7 @@ var _ = SIGDescribe("Storage", func() {
 
 				// The following case is mostly similar to the alpine PVC test above, except using different VirtualMachineInstance.
 				DescribeTable("started", func(newVMI VMICreationFunc, storageEngine string, family k8sv1.IPFamily) {
-					libnet.SkipWhenClusterNotSupportIPFamily(virtClient, family)
+					libnet.SkipWhenClusterNotSupportIPFamily(family)
 
 					// Start the VirtualMachineInstance with the PVC attached
 					if storageEngine == "nfs" {

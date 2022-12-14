@@ -77,7 +77,7 @@ var _ = SIGDescribe("Slirp Networking", func() {
 		virtClient, err = kubecli.GetKubevirtClient()
 		util.PanicOnError(err)
 
-		libnet.SkipWhenClusterNotSupportIpv4(virtClient)
+		libnet.SkipWhenClusterNotSupportIpv4()
 
 		kv := util.GetCurrentKv(virtClient)
 		currentConfiguration = kv.Spec.Configuration

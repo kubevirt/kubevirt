@@ -64,7 +64,7 @@ var _ = SIGDescribe("Port-forward", func() {
 		)
 
 		setup := func(ipFamily k8sv1.IPFamily) {
-			libnet.SkipWhenClusterNotSupportIPFamily(virtClient, ipFamily)
+			libnet.SkipWhenClusterNotSupportIPFamily(ipFamily)
 
 			if ipFamily == k8sv1.IPv6Protocol {
 				Skip(skipIPv6Message)

@@ -78,7 +78,7 @@ var _ = SIGDescribe("[ref_id:1182]Probes", func() {
 		httpProbe := createHTTPProbe(period, initialSeconds, port)
 
 		DescribeTable("should succeed", func(readinessProbe *v1.Probe, ipFamily corev1.IPFamily) {
-			libnet.SkipWhenClusterNotSupportIPFamily(virtClient, ipFamily)
+			libnet.SkipWhenClusterNotSupportIPFamily(ipFamily)
 
 			if ipFamily == corev1.IPv6Protocol {
 				By("Create a support pod which will reply to kubelet's probes ...")
@@ -180,7 +180,7 @@ var _ = SIGDescribe("[ref_id:1182]Probes", func() {
 		httpProbe := createHTTPProbe(period, initialSeconds, port)
 
 		DescribeTable("should not fail the VMI", func(livenessProbe *v1.Probe, ipFamily corev1.IPFamily) {
-			libnet.SkipWhenClusterNotSupportIPFamily(virtClient, ipFamily)
+			libnet.SkipWhenClusterNotSupportIPFamily(ipFamily)
 
 			if ipFamily == corev1.IPv6Protocol {
 

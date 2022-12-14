@@ -135,7 +135,7 @@ var _ = SIGDescribe("[Serial] Passt", Serial, func() {
 						Expect(console.LoginToAlpine(clientVMI)).To(Succeed())
 					}
 					DescribeTable("Client server connectivity", func(ports []v1.Port, tcpPort int, ipFamily k8sv1.IPFamily) {
-						libnet.SkipWhenClusterNotSupportIPFamily(virtClient, ipFamily)
+						libnet.SkipWhenClusterNotSupportIPFamily(ipFamily)
 
 						By("starting a client VMI")
 						startClientVMI()
@@ -197,7 +197,7 @@ EOL`, inetSuffix, serverIP, serverPort)
 						}, 60*time.Second)
 					}
 					DescribeTable("Client server connectivity", func(ipFamily k8sv1.IPFamily) {
-						libnet.SkipWhenClusterNotSupportIPFamily(virtClient, ipFamily)
+						libnet.SkipWhenClusterNotSupportIPFamily(ipFamily)
 
 						const SERVER_PORT = 1700
 
@@ -236,7 +236,7 @@ EOL`, inetSuffix, serverIP, serverPort)
 			})
 
 			It("[outside_connectivity]should be able to reach the outside world [IPv4]", func() {
-				libnet.SkipWhenClusterNotSupportIpv4(virtClient)
+				libnet.SkipWhenClusterNotSupportIpv4()
 				ipv4Address := "8.8.8.8"
 				if flags.IPV4ConnectivityCheckAddress != "" {
 					ipv4Address = flags.IPV4ConnectivityCheckAddress
@@ -261,7 +261,7 @@ EOL`, inetSuffix, serverIP, serverPort)
 			})
 
 			It("[outside_connectivity]should be able to reach the outside world [IPv6]", func() {
-				libnet.SkipWhenClusterNotSupportIpv6(virtClient)
+				libnet.SkipWhenClusterNotSupportIpv6()
 				// Cluster nodes subnet (docker network gateway)
 				// Docker network subnet cidr definition:
 				// https://github.com/kubevirt/project-infra/blob/master/github/ci/shared-deployments/files/docker-daemon-mirror.conf#L5
