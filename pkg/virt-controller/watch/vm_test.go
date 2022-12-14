@@ -150,9 +150,15 @@ var _ = Describe("VirtualMachine", func() {
 		})
 
 		shouldExpectVMIFinalizerRemoval := func(vmi *virtv1.VirtualMachineInstance) {
-			patch := `[{ "op": "test", "path": "/metadata/finalizers", "value": ["kubevirt.io/virtualMachineControllerFinalize"] }, { "op": "replace", "path": "/metadata/finalizers", "value": [] }]`
+			patch := fmt.Sprintf(`[{ "op": "test", "path": "/metadata/finalizers", "value": ["%s"] }, { "op": "replace", "path": "/metadata/finalizers", "value": [] }]`, virtv1.VirtualMachineControllerFinalizer)
 
 			vmiInterface.EXPECT().Patch(context.Background(), vmi.Name, types.JSONPatchType, []byte(patch), &metav1.PatchOptions{}).Return(vmi, nil)
+		}
+
+		shouldExpectVMFinalizerRemoval := func(vm *virtv1.VirtualMachine) {
+			patch := fmt.Sprintf(`[{ "op": "test", "path": "/metadata/finalizers", "value": ["%s"] }, { "op": "replace", "path": "/metadata/finalizers", "value": [] }]`, virtv1.VirtualMachineControllerFinalizer)
+
+			vmInterface.EXPECT().Patch(vm.Name, types.JSONPatchType, []byte(patch), &metav1.PatchOptions{}).Return(vm, nil)
 		}
 
 		shouldExpectDataVolumeCreationPriorityClass := func(uid types.UID, labels map[string]string, annotations map[string]string, priorityClassName string, idx *int) {
@@ -329,12 +335,12 @@ var _ = Describe("VirtualMachine", func() {
 
 			vmInterface.EXPECT().Update(gomock.Any()).Do(func(arg interface{}) {
 				Expect(arg.(*virtv1.VirtualMachine).Spec.Template.Spec.Volumes[0].Name).To(Equal("vol1"))
-			}).Return(nil, nil)
+			}).Return(vm, nil)
 
 			vmInterface.EXPECT().UpdateStatus(gomock.Any()).Do(func(arg interface{}) {
 				// vol request shouldn't be cleared until update status observes the new volume change
 				Expect(arg.(*virtv1.VirtualMachine).Status.VolumeRequests).To(HaveLen(1))
-			}).Return(nil, nil)
+			}).Return(vm, nil)
 
 			controller.Execute()
 		},
@@ -378,12 +384,12 @@ var _ = Describe("VirtualMachine", func() {
 
 			vmInterface.EXPECT().Update(gomock.Any()).Do(func(arg interface{}) {
 				Expect(arg.(*virtv1.VirtualMachine).Spec.Template.Spec.Volumes).To(BeEmpty())
-			}).Return(nil, nil)
+			}).Return(vm, nil)
 
 			vmInterface.EXPECT().UpdateStatus(gomock.Any()).Do(func(arg interface{}) {
 				// vol request shouldn't be cleared until update status observes the new volume change occured
 				Expect(arg.(*virtv1.VirtualMachine).Status.VolumeRequests).To(HaveLen(1))
-			}).Return(nil, nil)
+			}).Return(vm, nil)
 
 			controller.Execute()
 		},
@@ -1894,7 +1900,7 @@ var _ = Describe("VirtualMachine", func() {
 
 				vmInterface.EXPECT().Update(gomock.Any()).Do(func(arg interface{}) {
 					Expect(arg.(*virtv1.VirtualMachine).Spec.Template.Spec.Volumes[0].Name).To(Equal(testPVCName))
-				}).Return(nil, nil)
+				}).Return(vm, nil)
 				vmInterface.EXPECT().UpdateStatus(gomock.Any()).Times(1).Return(vm, nil)
 
 				controller.Execute()
@@ -2109,7 +2115,7 @@ var _ = Describe("VirtualMachine", func() {
 
 				vmInterface.EXPECT().Update(gomock.Any()).Do(func(arg interface{}) {
 					Expect(arg.(*virtv1.VirtualMachine).Spec.Template.Spec.Volumes).To(BeEmpty())
-				}).Return(nil, nil)
+				}).Return(vm, nil)
 				vmInterface.EXPECT().UpdateStatus(gomock.Any()).Times(1).Return(vm, nil)
 
 				controller.Execute()
@@ -2679,6 +2685,7 @@ var _ = Describe("VirtualMachine", func() {
 
 					addVirtualMachine(vm)
 
+					shouldExpectVMFinalizerRemoval(vm)
 					vmInterface.EXPECT().UpdateStatus(gomock.Any()).Times(1).Do(func(obj interface{}) {
 						objVM := obj.(*virtv1.VirtualMachine)
 						Expect(objVM.Status.PrintableStatus).To(Equal(virtv1.VirtualMachineStatusTerminating))
@@ -4054,6 +4061,7 @@ func DefaultVirtualMachineWithNames(started bool, vmName string, vmiName string)
 	vmi.Status.Phase = virtv1.Running
 	vmi.Finalizers = append(vmi.Finalizers, virtv1.VirtualMachineControllerFinalizer)
 	vm := VirtualMachineFromVMI(vmName, vmi, started)
+	vm.Finalizers = append(vm.Finalizers, virtv1.VirtualMachineControllerFinalizer)
 	vmi.OwnerReferences = []metav1.OwnerReference{{
 		APIVersion:         virtv1.VirtualMachineGroupVersionKind.GroupVersion().String(),
 		Kind:               virtv1.VirtualMachineGroupVersionKind.Kind,
