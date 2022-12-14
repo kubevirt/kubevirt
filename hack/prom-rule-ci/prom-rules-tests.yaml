@@ -551,7 +551,7 @@ tests:
         alertname: KubevirtVmHighMemoryUsage
         exp_alerts:
           - exp_annotations:
-              description: "Container compute in pod virt-launcher-testvm-123 in namespace ns-test free memory is less than 20 MB and it is close to requested memory"
+              description: "Container compute in pod virt-launcher-testvm-123 in namespace ns-test free memory is less than 50 MB and it is close to requested memory"
               summary: "VM is at risk of being evicted and in serious cases of memory exhaustion being terminated by the runtime."
               runbook_url: "https://kubevirt.io/monitoring/runbooks/KubevirtVmHighMemoryUsage"
             exp_labels:
@@ -577,7 +577,7 @@ tests:
         alertname: KubevirtVmHighMemoryUsage
         exp_alerts:
           - exp_annotations:
-              description: "Container compute in pod virt-launcher-testvm-123 in namespace ns-test free memory is less than 20 MB and it is close to requested memory"
+              description: "Container compute in pod virt-launcher-testvm-123 in namespace ns-test free memory is less than 50 MB and it is close to requested memory"
               summary: "VM is at risk of being evicted and in serious cases of memory exhaustion being terminated by the runtime."
               runbook_url: "https://kubevirt.io/monitoring/runbooks/KubevirtVmHighMemoryUsage"
             exp_labels:
@@ -603,7 +603,7 @@ tests:
         alertname: KubevirtVmHighMemoryUsage
         exp_alerts:
           - exp_annotations:
-              description: "Container compute in pod virt-launcher-testvm-123 in namespace ns-test free memory is less than 20 MB and it is close to requested memory"
+              description: "Container compute in pod virt-launcher-testvm-123 in namespace ns-test free memory is less than 50 MB and it is close to requested memory"
               summary: "VM is at risk of being evicted and in serious cases of memory exhaustion being terminated by the runtime."
               runbook_url: "https://kubevirt.io/monitoring/runbooks/KubevirtVmHighMemoryUsage"
             exp_labels:

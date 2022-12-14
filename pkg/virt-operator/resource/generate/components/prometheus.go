@@ -436,7 +436,7 @@ func NewPrometheusRuleSpec(ns string, workloadUpdatesEnabled bool) *v1.Prometheu
 						Expr:  intstr.FromString("kubevirt_vm_container_free_memory_bytes_based_on_working_set_bytes < 52428800 or kubevirt_vm_container_free_memory_bytes_based_on_rss < 52428800"),
 						For:   "1m",
 						Annotations: map[string]string{
-							"description": "Container {{ $labels.container }} in pod {{ $labels.pod }} in namespace {{ $labels.namespace }} free memory is less than 20 MB and it is close to requested memory",
+							"description": "Container {{ $labels.container }} in pod {{ $labels.pod }} in namespace {{ $labels.namespace }} free memory is less than 50 MB and it is close to requested memory",
 							"summary":     "VM is at risk of being evicted and in serious cases of memory exhaustion being terminated by the runtime.",
 							"runbook_url": runbookUrlBasePath + "KubevirtVmHighMemoryUsage",
 						},

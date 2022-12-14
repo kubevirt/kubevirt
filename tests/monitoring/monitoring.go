@@ -40,6 +40,8 @@ import (
 	"kubevirt.io/kubevirt/tests/clientcmd"
 
 	"kubevirt.io/kubevirt/tests"
+	"kubevirt.io/kubevirt/tests/console"
+	"kubevirt.io/kubevirt/tests/exec"
 	"kubevirt.io/kubevirt/tests/flags"
 	"kubevirt.io/kubevirt/tests/framework/checks"
 	"kubevirt.io/kubevirt/tests/libvmi"
@@ -643,6 +645,7 @@ var _ = Describe("[Serial][sig-monitoring]Prometheus Alerts", Serial, func() {
 		alerts := []string{
 			"KubeVirtComponentExceedsRequestedCPU",
 			"KubeVirtComponentExceedsRequestedMemory",
+			"KubevirtVmHighMemoryUsage",
 		}
 
 		BeforeEach(func() {
@@ -675,6 +678,35 @@ var _ = Describe("[Serial][sig-monitoring]Prometheus Alerts", Serial, func() {
 
 			By("reverting virt-api deployment CPU and Memory requests")
 			updateDeploymentResourcesRequest(virtClient, virtApi.deploymentName, originalResourceCpu, originalResourceMemory)
+		})
+
+		It("should fire KubevirtVmHighMemoryUsage alert", func() {
+			By("starting VMI")
+			vmi := libvmi.NewAlpine()
+			vmi, err = virtClient.VirtualMachineInstance(util.NamespaceTestDefault).Create(vmi)
+			Expect(err).ToNot(HaveOccurred(), "should start vmi")
+			tests.WaitForSuccessfulVMIStart(vmi)
+
+			By("expecting the VirtualMachineInstance console")
+			Expect(console.LoginToAlpine(vmi)).To(Succeed())
+
+			By("fill up the vmi pod memory")
+			vmiPod := tests.GetRunningPodByVirtualMachineInstance(vmi, util.NamespaceTestDefault)
+			vmiPodRequestMemory := vmiPod.Spec.Containers[0].Resources.Requests.Memory().Value()
+
+			_, err := exec.ExecuteCommandOnPod(
+				virtClient,
+				vmiPod,
+				vmiPod.Spec.Containers[0].Name,
+				[]string{"/usr/bin/bash", "-c", fmt.Sprintf("cat <( </dev/zero head -c %d) <(sleep 150) | tail", vmiPodRequestMemory)},
+			)
+			Expect(err).ToNot(HaveOccurred())
+
+			By("waiting for KubevirtVmHighMemoryUsage alert")
+			verifyAlertExist("KubevirtVmHighMemoryUsage")
+
+			By("deleting the VirtualMachineInstance")
+			Expect(virtClient.VirtualMachineInstance(vmi.Namespace).Delete(vmi.Name, &metav1.DeleteOptions{})).To(Succeed())
 		})
 	})
 })
