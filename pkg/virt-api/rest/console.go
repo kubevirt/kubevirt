@@ -24,7 +24,10 @@ func (app *SubresourceAPIApp) ConsoleRequestHandler(request *restful.Request, re
 		}),
 	)
 
-	streamer.Handle(request, response)
+	err := streamer.Handle(request, response)
+	if err != nil {
+		log.Log.Infof("ConsoleRequestHandler() handle error: %v", err)
+	}
 }
 
 func validateVMIForConsole(vmi *v1.VirtualMachineInstance) *errors.StatusError {

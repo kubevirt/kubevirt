@@ -6,6 +6,8 @@ import (
 	"net"
 	"time"
 
+	"kubevirt.io/kubevirt/pkg/virt-handler/rest"
+
 	restful "github.com/emicklei/go-restful"
 	"github.com/gorilla/websocket"
 	"k8s.io/apimachinery/pkg/api/errors"
@@ -90,7 +92,7 @@ func (s *Streamer) Handle(request *restful.Request, response *restful.Response) 
 	go s.cleanupOnClosedContext(ctx, clientConn, serverConn)
 
 	if s.keepAliveClient != nil {
-		go s.keepAliveClient(context.Background(), clientConn, cancel)
+		go s.keepAliveClient(ctx, clientConn, cancel)
 	}
 
 	results := make(chan streamFuncResult, 2)
@@ -135,18 +137,27 @@ func clientConnectionUpgrade(request *restful.Request, response *restful.Respons
 
 func (s *Streamer) cleanupOnClosedContext(ctx context.Context, clientConn *websocket.Conn, serverConn net.Conn) {
 	<-ctx.Done()
-	serverConn.Close()
-	clientConn.Close()
+	log.Log.Infof("ihol3 cleanupOnClosedContext(): deleting sockets")
+	rest.CloseSocket(serverConn)
+	rest.CloseSocket(clientConn)
 }
 
 const keepAliveTimeout = 1 * time.Minute
 
 func keepAliveClientStream(ctx context.Context, conn *websocket.Conn, cancel func()) {
+	log.Log.Infof("ihol3 keepAliveClientStream() getting in")
+
 	pingTicker := time.NewTicker(1 * time.Second)
 	defer pingTicker.Stop()
-	conn.SetReadDeadline(time.Now().Add(keepAliveTimeout))
+	err := conn.SetReadDeadline(time.Now().Add(keepAliveTimeout))
+	if err != nil {
+		log.Log.Infof("ihol3 keepAliveClientStream() SetReadDeadline error: %v", err)
+	}
 	conn.SetPongHandler(func(string) error {
-		conn.SetReadDeadline(time.Now().Add(keepAliveTimeout))
+		err := conn.SetReadDeadline(time.Now().Add(keepAliveTimeout))
+		if err != nil {
+			log.Log.Infof("ihol3 keepAliveClientStream() SetPongHandler error: %v", err)
+		}
 		return nil
 	})
 
@@ -156,7 +167,7 @@ func keepAliveClientStream(ctx context.Context, conn *websocket.Conn, cancel fun
 			return
 		case <-pingTicker.C:
 			if err := conn.WriteControl(websocket.PingMessage, []byte("keep alive"), time.Now().Add(keepAliveTimeout)); err != nil {
-				log.Log.Reason(err).Error("Failed to write control message to client websocket connection")
+				log.Log.Reason(err).Error("ihol3 Failed to write control message to client websocket connection")
 				cancel()
 				return
 			}

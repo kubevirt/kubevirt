@@ -24,7 +24,10 @@ func (app *SubresourceAPIApp) VNCRequestHandler(request *restful.Request, respon
 		}),
 	)
 
-	streamer.Handle(request, response)
+	err := streamer.Handle(request, response)
+	if err != nil {
+		log.Log.Infof("VNCRequestHandler() handle error: %v", err)
+	}
 }
 
 func validateVMIForVNC(vmi *v1.VirtualMachineInstance) *errors.StatusError {

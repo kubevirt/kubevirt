@@ -54,6 +54,32 @@ func Dial(address string, tlsConfig *tls.Config) (*websocket.Conn, *http.Respons
 	return dialer.Dial(address, nil)
 }
 
+//// slightly modified function signature:
+//// - context has been added in order to propagate cancelation
+//// - I do not return the number of bytes written, has it is not useful in my use case
+//func CopyHelper(stopCh chan struct{}, dst io.Writer, src io.Reader) error {
+//
+//	// Copy will call the Reader and Writer interface multiple time, in order
+//	// to copy by chunk (avoiding loading the whole file in memory).
+//	// I insert the ability to cancel before read time as it is the earliest
+//	// possible in the call process.
+//	_, err := io.Copy(out, readerFunc(func(p []byte) (int, error) {
+//
+//		// golang non-blocking channel: https://gobyexample.com/non-blocking-channel-operations
+//		select {
+//
+//		// if context has been canceled
+//		case <-stopCh:
+//			// stop process and propagate "context canceled" error
+//			return 0, ctx.Err()
+//		default:
+//			// otherwise just run default io.Reader implementation
+//			return in.Read(p)
+//		}
+//	}))
+//	return err
+//}
+
 func Copy(dst *websocket.Conn, src *websocket.Conn) (int64, error) {
 	return io.Copy(dst.UnderlyingConn(), src.UnderlyingConn())
 }

@@ -50,6 +50,12 @@ type ConsoleHandler struct {
 	vmiInformer          cache.SharedIndexInformer
 	usbredir             map[types.UID]UsbredirHandlerVMI
 	usbredirLock         *sync.Mutex
+
+	vncSocketNames     map[types.UID]string
+	consoleSocketNames map[types.UID]string
+
+	allVncSockets    []chan struct{}
+	allSerialSockets []chan struct{}
 }
 
 type UsbredirHandlerVMI struct {
@@ -66,10 +72,18 @@ func NewConsoleHandler(podIsolationDetector isolation.PodIsolationDetector, vmiI
 		usbredirLock:         &sync.Mutex{},
 		vmiInformer:          vmiInformer,
 		usbredir:             make(map[types.UID]UsbredirHandlerVMI),
+
+		vncSocketNames:     map[types.UID]string{},
+		consoleSocketNames: map[types.UID]string{},
+
+		allVncSockets:    []chan struct{}{},
+		allSerialSockets: []chan struct{}{},
 	}
 }
 
 func (t *ConsoleHandler) USBRedirHandler(request *restful.Request, response *restful.Response) {
+	log.Log.Infof("ihol3 incoming connection: USBRedirHandler()")
+
 	vmi, code, err := getVMI(request, t.vmiInformer)
 	if err != nil {
 		log.Log.Object(vmi).Reason(err).Error(failedRetrieveVMI)
@@ -133,6 +147,15 @@ func (t *ConsoleHandler) USBRedirHandler(request *restful.Request, response *res
 }
 
 func (t *ConsoleHandler) VNCHandler(request *restful.Request, response *restful.Response) {
+	log.Log.Infof("ihol3 incoming connection: VNCHandler()")
+	defer func() {
+		log.Log.Infof("ihol3 VNCHandler(): closing body")
+		err := request.Request.Body.Close()
+		if err != nil {
+			log.Log.Infof("ihol3 VNCHandler() error closing body request: %v", err)
+		}
+	}()
+
 	vmi, code, err := getVMI(request, t.vmiInformer)
 	if err != nil {
 		log.Log.Object(vmi).Reason(err).Error(failedRetrieveVMI)
@@ -146,12 +169,22 @@ func (t *ConsoleHandler) VNCHandler(request *restful.Request, response *restful.
 		return
 	}
 	uid := vmi.GetUID()
-	stopChn := newStopChan(uid, t.vncLock, t.vncStopChans)
+	stopChn := newStopChan(uid, t.vncLock, t.vncStopChans, t.vncSocketNames, unixSocketPath)
 	defer deleteStopChan(uid, stopChn, t.vncLock, t.vncStopChans)
 	t.stream(vmi, request, response, unixSocketPath, stopChn)
 }
 
 func (t *ConsoleHandler) SerialHandler(request *restful.Request, response *restful.Response) {
+	log.Log.Infof("ihol3 incoming connection: SerialHandler()")
+
+	defer func() {
+		log.Log.Infof("ihol3 SerialHandler(): closing body")
+		err := request.Request.Body.Close()
+		if err != nil {
+			log.Log.Infof("ihol3 SerialHandler() error closing body request: %v", err)
+		}
+	}()
+
 	vmi, code, err := getVMI(request, t.vmiInformer)
 	if err != nil {
 		log.Log.Object(vmi).Reason(err).Error(failedRetrieveVMI)
@@ -165,22 +198,33 @@ func (t *ConsoleHandler) SerialHandler(request *restful.Request, response *restf
 		return
 	}
 	uid := vmi.GetUID()
-	stopCh := newStopChan(uid, t.serialLock, t.serialStopChans)
+	stopCh := newStopChan(uid, t.serialLock, t.serialStopChans, t.consoleSocketNames, unixSocketPath)
 	defer deleteStopChan(uid, stopCh, t.serialLock, t.serialStopChans)
 	t.stream(vmi, request, response, unixSocketPath, stopCh)
 }
 
-func newStopChan(uid types.UID, lock *sync.Mutex, stopChans map[types.UID](chan struct{})) chan struct{} {
+func newStopChan(uid types.UID, lock *sync.Mutex, stopChans map[types.UID](chan struct{}), socketNames map[types.UID]string, unixSocketPath string) chan struct{} {
 	lock.Lock()
 	defer lock.Unlock()
 	// close current connection, if exists
 	if c, ok := stopChans[uid]; ok {
 		delete(stopChans, uid)
 		close(c)
+
+		socketName, ok := socketNames[uid]
+		if !ok {
+			log.Log.Infof("ihol3 ERROR!!!!! socket name doesn't exist!! :O")
+		}
+
+		log.Log.Infof("ihol3 Deleted stop channel for socket %s", socketName)
 	}
 	// create a stop channel for the new connection
 	stopCh := make(chan struct{})
 	stopChans[uid] = stopCh
+
+	log.Log.Infof("ihol3 Creating stop channel for socket %s", unixSocketPath)
+	socketNames[uid] = unixSocketPath
+
 	return stopCh
 }
 
@@ -191,6 +235,7 @@ func deleteStopChan(uid types.UID, stopChn chan struct{}, lock *sync.Mutex, stop
 	if c, ok := stopChans[uid]; ok && c == stopChn {
 		delete(stopChans, uid)
 	}
+	close(stopChn)
 }
 
 func (t *ConsoleHandler) getUnixSocketPath(vmi *v1.VirtualMachineInstance, socketName string) (string, error) {
@@ -207,6 +252,17 @@ func (t *ConsoleHandler) getUnixSocketPath(vmi *v1.VirtualMachineInstance, socke
 	return socketPath, nil
 }
 
+type Closable interface {
+	Close() error
+}
+
+func CloseSocket(con Closable) {
+	err := con.Close()
+	if err != nil {
+		log.Log.Infof("ihol3 error closing socket: %v", err.Error())
+	}
+}
+
 func (t *ConsoleHandler) stream(vmi *v1.VirtualMachineInstance, request *restful.Request, response *restful.Response, unixSocketPath string, stopCh chan struct{}) {
 	var upgrader = kubecli.NewUpgrader()
 	clientSocket, err := upgrader.Upgrade(response.ResponseWriter, request.Request, nil)
@@ -215,9 +271,9 @@ func (t *ConsoleHandler) stream(vmi *v1.VirtualMachineInstance, request *restful
 		response.WriteError(http.StatusInternalServerError, err)
 		return
 	}
-	defer clientSocket.Close()
+	defer CloseSocket(clientSocket)
 
-	log.Log.Object(vmi).Infof("Websocket connection upgraded")
+	log.Log.Object(vmi).Infof("Websocket connection upgraded (ihol3) :D")
 	log.Log.Object(vmi).Infof("Connecting to %s", unixSocketPath)
 
 	fd, err := net.Dial("unix", unixSocketPath)
@@ -226,7 +282,7 @@ func (t *ConsoleHandler) stream(vmi *v1.VirtualMachineInstance, request *restful
 		response.WriteHeader(http.StatusInternalServerError)
 		return
 	}
-	defer fd.Close()
+	defer CloseSocket(fd)
 
 	log.Log.Object(vmi).Infof("Connected to %s", unixSocketPath)
 

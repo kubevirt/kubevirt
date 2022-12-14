@@ -308,7 +308,8 @@ func NewClient(socketPath string) (LauncherClient, error) {
 }
 
 func NewClientWithInfoClient(infoClient info.CmdInfoClient, conn *grpc.ClientConn) (LauncherClient, error) {
-	ctx, _ := context.WithTimeout(context.Background(), shortTimeout)
+	ctx, cancel := context.WithTimeout(context.Background(), shortTimeout)
+	defer cancel()
 	info, err := infoClient.Info(ctx, &info.CmdInfoRequest{})
 	if err != nil {
 		return nil, fmt.Errorf("could not check cmd server version: %v", err)
@@ -336,7 +337,10 @@ func newV1Client(client cmdv1.CmdClient, conn *grpc.ClientConn) LauncherClient {
 }
 
 func (c *VirtLauncherClient) Close() {
-	c.conn.Close()
+	err := c.conn.Close()
+	if err != nil {
+		log.Log.Infof("ihol3 error closing socket: %v", err.Error())
+	}
 }
 
 func (c *VirtLauncherClient) genericSendVMICmd(cmdName string,

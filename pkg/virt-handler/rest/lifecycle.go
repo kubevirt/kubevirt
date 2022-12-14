@@ -56,6 +56,8 @@ func NewLifecycleHandler(recorder record.EventRecorder, vmiInformer cache.Shared
 }
 
 func (lh *LifecycleHandler) PauseHandler(request *restful.Request, response *restful.Response) {
+	log.Log.Infof("ihol3 incoming connection: PauseHandler()")
+
 	vmi, client, err := lh.getVMILauncherClient(request, response)
 	if err != nil {
 		return
@@ -72,6 +74,8 @@ func (lh *LifecycleHandler) PauseHandler(request *restful.Request, response *res
 }
 
 func (lh *LifecycleHandler) UnpauseHandler(request *restful.Request, response *restful.Response) {
+	log.Log.Infof("ihol3 incoming connection: UnpauseHandler()")
+
 	vmi, client, err := lh.getVMILauncherClient(request, response)
 	if err != nil {
 		return
@@ -88,6 +92,8 @@ func (lh *LifecycleHandler) UnpauseHandler(request *restful.Request, response *r
 }
 
 func (lh *LifecycleHandler) FreezeHandler(request *restful.Request, response *restful.Response) {
+	log.Log.Infof("ihol3 incoming connection: FreezeHandler()")
+
 	vmi, client, err := lh.getVMILauncherClient(request, response)
 	if err != nil {
 		return
@@ -129,6 +135,8 @@ func (lh *LifecycleHandler) FreezeHandler(request *restful.Request, response *re
 }
 
 func (lh *LifecycleHandler) UnfreezeHandler(request *restful.Request, response *restful.Response) {
+	log.Log.Infof("ihol3 incoming connection: UnfreezeHandler()")
+
 	vmi, client, err := lh.getVMILauncherClient(request, response)
 	if err != nil {
 		return
@@ -145,6 +153,8 @@ func (lh *LifecycleHandler) UnfreezeHandler(request *restful.Request, response *
 }
 
 func (lh *LifecycleHandler) SoftRebootHandler(request *restful.Request, response *restful.Response) {
+	log.Log.Infof("ihol3 incoming connection: SoftRebootHandler()")
+
 	vmi, client, err := lh.getVMILauncherClient(request, response)
 	if err != nil {
 		return
@@ -162,11 +172,25 @@ func (lh *LifecycleHandler) SoftRebootHandler(request *restful.Request, response
 }
 
 func (lh *LifecycleHandler) GetGuestInfo(request *restful.Request, response *restful.Response) {
+	log.Log.Infof("ihol3 incoming connection: GetGuestInfo()")
+
 	log.Log.Info("Retreiving guestinfo")
 	vmi, client, err := lh.getVMILauncherClient(request, response)
 	if err != nil {
 		return
 	}
+	defer func() {
+		client.Close()
+		log.Log.Infof("ihol3 connection to GetGuestInfo() is closed.")
+	}()
+
+	defer func() {
+		log.Log.Infof("ihol3 GetGuestInfo(): closing body")
+		err = request.Request.Body.Close()
+		if err != nil {
+			log.Log.Infof("ihol3 GetGuestInfo() error closing body request: %v", err)
+		}
+	}()
 
 	log.Log.Object(vmi).Infof("Retreiving guestinfo from %s", vmi.Name)
 
@@ -182,6 +206,8 @@ func (lh *LifecycleHandler) GetGuestInfo(request *restful.Request, response *res
 }
 
 func (lh *LifecycleHandler) GetUsers(request *restful.Request, response *restful.Response) {
+	log.Log.Infof("ihol3 incoming connection: GetUsers()")
+
 	vmi, client, err := lh.getVMILauncherClient(request, response)
 	if err != nil {
 		return
@@ -200,6 +226,8 @@ func (lh *LifecycleHandler) GetUsers(request *restful.Request, response *restful
 }
 
 func (lh *LifecycleHandler) GetFilesystems(request *restful.Request, response *restful.Response) {
+	log.Log.Infof("ihol3 incoming connection: GetFilesystems()")
+
 	vmi, client, err := lh.getVMILauncherClient(request, response)
 	if err != nil {
 		return
