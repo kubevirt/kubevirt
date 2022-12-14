@@ -154,6 +154,12 @@ var _ = Describe("VirtualMachine", func() {
 			vmiInterface.EXPECT().Patch(context.Background(), vmi.Name, types.JSONPatchType, []byte(patch), &metav1.PatchOptions{}).Return(vmi, nil)
 		}
 
+		shouldExpectVMFinalizerAddition := func(vm *virtv1.VirtualMachine) {
+			patch := fmt.Sprintf(`[{ "op": "test", "path": "/metadata/finalizers", "value": null }, { "op": "replace", "path": "/metadata/finalizers", "value": ["%s"] }]`, virtv1.VirtualMachineControllerFinalizer)
+
+			vmInterface.EXPECT().Patch(vm.Name, types.JSONPatchType, []byte(patch), &metav1.PatchOptions{}).Return(vm, nil)
+		}
+
 		shouldExpectVMFinalizerRemoval := func(vm *virtv1.VirtualMachine) {
 			patch := fmt.Sprintf(`[{ "op": "test", "path": "/metadata/finalizers", "value": ["%s"] }, { "op": "replace", "path": "/metadata/finalizers", "value": [] }]`, virtv1.VirtualMachineControllerFinalizer)
 
@@ -1384,6 +1390,60 @@ var _ = Describe("VirtualMachine", func() {
 			controller.Execute()
 
 			testutils.ExpectEvent(recorder, SuccessfulDeleteVirtualMachineReason)
+		})
+
+		It("should add controller finalizer if VirtualMachine does not have it", func() {
+			vm, _ := DefaultVirtualMachine(false)
+			vm.Finalizers = nil
+
+			addVirtualMachine(vm)
+
+			shouldExpectVMFinalizerAddition(vm)
+			vmInterface.EXPECT().UpdateStatus(gomock.Any()).Times(1).Return(vm, nil)
+
+			controller.Execute()
+		})
+
+		It("should add controller finalizer only once", func() {
+			//DefaultVirtualMachine already set finalizer
+			vm, _ := DefaultVirtualMachine(false)
+			Expect(vm.Finalizers).To(HaveLen(1))
+			Expect(vm.Finalizers[0]).To(BeEquivalentTo(virtv1.VirtualMachineControllerFinalizer))
+			addVirtualMachine(vm)
+
+			//Expect only update status, not Patch on vmInterface
+			vmInterface.EXPECT().UpdateStatus(gomock.Any()).Times(1).Return(vm, nil)
+
+			controller.Execute()
+		})
+
+		It("should delete VirtualMachineInstance when VirtualMachine marked for deletion", func() {
+			vm, vmi := DefaultVirtualMachine(true)
+			vm.DeletionTimestamp = now()
+
+			addVirtualMachine(vm)
+			vmiFeeder.Add(vmi)
+
+			vmiInterface.EXPECT().Delete(context.Background(), gomock.Any(), gomock.Any()).Return(nil)
+
+			vmInterface.EXPECT().UpdateStatus(gomock.Any()).Times(1).Return(vm, nil)
+
+			controller.Execute()
+
+			testutils.ExpectEvent(recorder, SuccessfulDeleteVirtualMachineReason)
+		})
+
+		It("should remove controller finalizer once VirtualMachineInstance is gone", func() {
+			//DefaultVirtualMachine already set finalizer
+			vm, _ := DefaultVirtualMachine(true)
+			vm.DeletionTimestamp = now()
+
+			addVirtualMachine(vm)
+
+			shouldExpectVMFinalizerRemoval(vm)
+			vmInterface.EXPECT().UpdateStatus(gomock.Any()).Times(1).Return(vm, nil)
+
+			controller.Execute()
 		})
 
 		DescribeTable("should not delete VirtualMachineInstance when vmi failed", func(runStrategy virtv1.VirtualMachineRunStrategy) {
