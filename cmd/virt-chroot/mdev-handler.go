@@ -7,7 +7,6 @@ import (
 	"time"
 
 	"github.com/spf13/cobra"
-	utilwait "k8s.io/apimachinery/pkg/util/wait"
 )
 
 var mdevBasePath string = "/sys/bus/mdev/devices"
@@ -90,20 +89,25 @@ func NewRemoveMDEVCommand() *cobra.Command {
 }
 
 func isInterfaceAvailable(interfacePath string) bool {
-	connectionInterval := 1 * time.Second
-	connectionTimeout := 5 * time.Second
+	const connectionInterval = 1 * time.Second
+	const connectionTimeout = 5 * time.Second
 
-	err := utilwait.PollImmediate(connectionInterval, connectionTimeout, func() (done bool, err error) {
-		_, err = os.Stat(interfacePath)
-		if err != nil {
-			return false, nil
+	timeout := time.After(connectionTimeout)
+
+	ticker := time.NewTicker(connectionInterval)
+	defer ticker.Stop()
+	for {
+		select {
+		case <-timeout:
+			fmt.Printf("interface %s is not available after multiple tries\n", interfacePath)
+			return false
+		case <-ticker.C:
+			_, err := os.Stat(interfacePath)
+			if err != nil {
+				continue
+			}
+			return true
 		}
-		return true, nil
-	})
 
-	if err != nil {
-		fmt.Printf("interface %s is not available after multiple tries\n", interfacePath)
-		return false
 	}
-	return true
 }
