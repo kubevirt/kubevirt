@@ -14,6 +14,7 @@ import (
 
 	diskutils "kubevirt.io/kubevirt/pkg/ephemeral-disk-utils"
 	hostdisk "kubevirt.io/kubevirt/pkg/host-disk"
+	"kubevirt.io/kubevirt/pkg/network/namescheme"
 	"kubevirt.io/kubevirt/pkg/safepath"
 	"kubevirt.io/kubevirt/pkg/storage/types"
 	"kubevirt.io/kubevirt/pkg/virt-handler/isolation"
@@ -113,11 +114,12 @@ func getTapDevices(vmi *v1.VirtualMachineInstance) []string {
 		}
 	}
 
+	networkNameScheme := namescheme.CreateNetworkNameScheme(vmi.Spec.Networks)
 	tapDevices := []string{}
 	for _, net := range vmi.Spec.Networks {
-		_, ok := macvtap[net.Name]
-		if ok {
-			tapDevices = append(tapDevices, net.Multus.NetworkName)
+		_, isMacvtapNetwork := macvtap[net.Name]
+		if podInterfaceName, exists := networkNameScheme[net.Name]; isMacvtapNetwork && exists {
+			tapDevices = append(tapDevices, podInterfaceName)
 		}
 	}
 	return tapDevices
