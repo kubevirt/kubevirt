@@ -48,6 +48,17 @@ spec:
                     description: RangeStart defines the first mac in range
                     type: string
                 type: object
+              kubeSecondaryDNS:
+                description: KubeSecondaryDNS plugin allows to support FQDN for VMI's
+                  secondary networks
+                properties:
+                  domain:
+                    description: Domain defines the FQDN domain
+                    type: string
+                  nameServerIP:
+                    description: NameServerIp defines the name server IP
+                    type: string
+                type: object
               linuxBridge:
                 description: LinuxBridge plugin allows users to create a bridge and
                   add the host and the container to it
@@ -1676,6 +1687,17 @@ spec:
                     type: string
                   rangeStart:
                     description: RangeStart defines the first mac in range
+                    type: string
+                type: object
+              kubeSecondaryDNS:
+                description: KubeSecondaryDNS plugin allows to support FQDN for VMI's
+                  secondary networks
+                properties:
+                  domain:
+                    description: Domain defines the FQDN domain
+                    type: string
+                  nameServerIP:
+                    description: NameServerIp defines the name server IP
                     type: string
                 type: object
               linuxBridge:
