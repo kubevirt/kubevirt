@@ -8,6 +8,8 @@ import (
 	"io"
 	"time"
 
+	"kubevirt.io/kubevirt/tests/framework/kubevirt"
+
 	k8sv1 "k8s.io/api/core/v1"
 
 	"kubevirt.io/kubevirt/tests/flags"
@@ -87,8 +89,7 @@ func ConfirmVMIPostMigration(virtClient kubecli.KubevirtClient, vmi *v1.VirtualM
 }
 
 func setOrClearDedicatedMigrationNetwork(nad string, set bool) *v1.KubeVirt {
-	virtClient, err := kubecli.GetKubevirtClient()
-	Expect(err).ToNot(HaveOccurred())
+	virtClient := kubevirt.Client()
 
 	kv := util.GetCurrentKv(virtClient)
 

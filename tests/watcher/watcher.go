@@ -26,6 +26,8 @@ import (
 	"strings"
 	"time"
 
+	"kubevirt.io/kubevirt/tests/framework/kubevirt"
+
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
 
@@ -37,7 +39,6 @@ import (
 	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/apimachinery/pkg/watch"
 
-	"kubevirt.io/client-go/kubecli"
 	"kubevirt.io/client-go/log"
 )
 
@@ -120,10 +121,7 @@ func (w *ObjectEventWatcher) Watch(ctx context.Context, processFunc ProcessFunc,
 		Expect(err).ToNot(HaveOccurred())
 	}
 
-	cli, err := kubecli.GetKubevirtClient()
-	if err != nil {
-		panic(err)
-	}
+	cli := kubevirt.Client()
 
 	f := processFunc
 

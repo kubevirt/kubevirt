@@ -53,6 +53,7 @@ import (
 
 	"kubevirt.io/kubevirt/tests/exec"
 	"kubevirt.io/kubevirt/tests/framework/checks"
+	"kubevirt.io/kubevirt/tests/framework/kubevirt"
 	"kubevirt.io/kubevirt/tests/framework/matcher"
 	. "kubevirt.io/kubevirt/tests/framework/matcher"
 
@@ -114,8 +115,7 @@ var _ = Describe("[sig-compute]Configurations", decorators.SigCompute, func() {
 	}
 
 	BeforeEach(func() {
-		virtClient, err = kubecli.GetKubevirtClient()
-		util.PanicOnError(err)
+		virtClient = kubevirt.Client()
 	})
 
 	Context("with all devices on the root PCI bus", func() {
@@ -3135,12 +3135,9 @@ var _ = Describe("[sig-compute]Configurations", decorators.SigCompute, func() {
 })
 
 func createRuntimeClass(name, handler string) error {
-	virtCli, err := kubecli.GetKubevirtClient()
-	if err != nil {
-		return err
-	}
+	virtCli := kubevirt.Client()
 
-	_, err = virtCli.NodeV1().RuntimeClasses().Create(
+	_, err := virtCli.NodeV1().RuntimeClasses().Create(
 		context.Background(),
 		&nodev1.RuntimeClass{
 			ObjectMeta: metav1.ObjectMeta{Name: name},
@@ -3152,10 +3149,7 @@ func createRuntimeClass(name, handler string) error {
 }
 
 func deleteRuntimeClass(name string) error {
-	virtCli, err := kubecli.GetKubevirtClient()
-	if err != nil {
-		return err
-	}
+	virtCli := kubevirt.Client()
 
 	return virtCli.NodeV1().RuntimeClasses().Delete(context.Background(), name, metav1.DeleteOptions{})
 }

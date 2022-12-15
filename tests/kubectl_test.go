@@ -7,6 +7,7 @@ import (
 	"kubevirt.io/kubevirt/tests/decorators"
 
 	"kubevirt.io/kubevirt/tests/framework/checks"
+	"kubevirt.io/kubevirt/tests/framework/kubevirt"
 	"kubevirt.io/kubevirt/tests/testsuite"
 
 	"kubevirt.io/kubevirt/tests/libvmi"
@@ -17,8 +18,6 @@ import (
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
-
-	"kubevirt.io/kubevirt/tests/util"
 
 	v1 "kubevirt.io/api/core/v1"
 	"kubevirt.io/client-go/kubecli"
@@ -89,8 +88,7 @@ var _ = Describe("[sig-compute]oc/kubectl integration", decorators.SigCompute, f
 		)
 
 		BeforeEach(func() {
-			virtCli, err = kubecli.GetKubevirtClient()
-			util.PanicOnError(err)
+			virtCli = kubevirt.Client()
 
 			vm = tests.NewRandomVirtualMachine(tests.NewRandomVMI(), false)
 			vm, err = virtCli.VirtualMachine(testsuite.GetTestNamespace(vm)).Create(vm)
@@ -156,8 +154,7 @@ var _ = Describe("[sig-compute]oc/kubectl integration", decorators.SigCompute, f
 		BeforeEach(func() {
 			checks.SkipIfMigrationIsNotPossible()
 
-			virtClient, err = kubecli.GetKubevirtClient()
-			Expect(err).ToNot(HaveOccurred())
+			virtClient = kubevirt.Client()
 		})
 
 		Context("'kubectl get vmim'", func() {

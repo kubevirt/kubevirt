@@ -25,6 +25,7 @@ import (
 	"strings"
 	"time"
 
+	"kubevirt.io/kubevirt/tests/framework/kubevirt"
 	"kubevirt.io/kubevirt/tests/libnode"
 
 	. "github.com/onsi/ginkgo/v2"
@@ -36,7 +37,6 @@ import (
 	"k8s.io/utils/pointer"
 
 	v1 "kubevirt.io/api/core/v1"
-	"kubevirt.io/client-go/kubecli"
 
 	"kubevirt.io/kubevirt/tests/exec"
 	"kubevirt.io/kubevirt/tests/flags"
@@ -52,8 +52,7 @@ const (
 
 func NodeNameWithHandler() string {
 	listOptions := metav1.ListOptions{LabelSelector: v1.AppLabel + "=virt-handler"}
-	virtClient, err := kubecli.GetKubevirtClient()
-	Expect(err).ToNot(HaveOccurred())
+	virtClient := kubevirt.Client()
 	virtHandlerPods, err := virtClient.CoreV1().Pods(flags.KubeVirtInstallNamespace).List(context.Background(), listOptions)
 	Expect(err).ToNot(HaveOccurred())
 	node, err := virtClient.CoreV1().Nodes().Get(context.Background(), virtHandlerPods.Items[0].Spec.NodeName, metav1.GetOptions{})
@@ -62,10 +61,7 @@ func NodeNameWithHandler() string {
 }
 
 func ExecuteCommandInVirtHandlerPod(nodeName string, args []string) (stdout string, err error) {
-	virtClient, err := kubecli.GetKubevirtClient()
-	if err != nil {
-		return stdout, err
-	}
+	virtClient := kubevirt.Client()
 
 	pod, err := libnode.GetVirtHandlerPod(virtClient, nodeName)
 	if err != nil {
@@ -147,8 +143,7 @@ func FixErrorDevice(nodeName string) {
 }
 
 func executeDeviceMapperOnNode(nodeName string, cmd []string) {
-	virtClient, err := kubecli.GetKubevirtClient()
-	Expect(err).ToNot(HaveOccurred())
+	virtClient := kubevirt.Client()
 
 	// Image that happens to have dmsetup
 	image := fmt.Sprintf("%s/vm-killer:%s", flags.KubeVirtRepoPrefix, flags.KubeVirtVersionTag)
@@ -174,7 +169,7 @@ func executeDeviceMapperOnNode(nodeName string, cmd []string) {
 			},
 		},
 	}
-	pod, err = virtClient.CoreV1().Pods(testsuite.NamespacePrivileged).Create(context.Background(), pod, metav1.CreateOptions{})
+	pod, err := virtClient.CoreV1().Pods(testsuite.NamespacePrivileged).Create(context.Background(), pod, metav1.CreateOptions{})
 	Expect(err).ToNot(HaveOccurred())
 
 	Eventually(ThisPod(pod), 30).Should(HaveSucceeded())
@@ -191,10 +186,7 @@ func CreatePVandPVCwithFaultyDisk(nodeName, devicePath, namespace string) (*core
 }
 
 func CreatePVandPVCwithSCSIDisk(nodeName, devicePath, namespace, storageClass, pvName, pvcName string) (*corev1.PersistentVolume, *corev1.PersistentVolumeClaim, error) {
-	virtClient, err := kubecli.GetKubevirtClient()
-	if err != nil {
-		return nil, nil, err
-	}
+	virtClient := kubevirt.Client()
 
 	size := resource.MustParse("8Mi")
 	volumeMode := corev1.PersistentVolumeBlock
@@ -231,7 +223,7 @@ func CreatePVandPVCwithSCSIDisk(nodeName, devicePath, namespace, storageClass, p
 			},
 		},
 	}
-	pv, err = virtClient.CoreV1().PersistentVolumes().Create(context.Background(), pv, metav1.CreateOptions{})
+	pv, err := virtClient.CoreV1().PersistentVolumes().Create(context.Background(), pv, metav1.CreateOptions{})
 	if err != nil {
 		return nil, nil, err
 	}

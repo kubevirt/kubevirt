@@ -29,6 +29,7 @@ import (
 
 	"kubevirt.io/kubevirt/tests/decorators"
 
+	"kubevirt.io/kubevirt/tests/framework/kubevirt"
 	"kubevirt.io/kubevirt/tests/framework/matcher"
 
 	k8sv1 "k8s.io/api/core/v1"
@@ -264,10 +265,7 @@ var _ = Describe("[Serial][sig-monitoring]Prometheus Alerts", Serial, decorators
 	}
 
 	BeforeEach(func() {
-		virtClient, err = kubecli.GetKubevirtClient()
-		Expect(err).ToNot(HaveOccurred())
-		Expect(virtClient).ToNot(BeNil())
-
+		virtClient = kubevirt.Client()
 		checks.SkipIfPrometheusRuleIsNotEnabled(virtClient)
 	})
 
@@ -503,8 +501,7 @@ var _ = Describe("[Serial][sig-monitoring]Prometheus Alerts", Serial, decorators
 		var crb *rbacv1.ClusterRoleBinding
 
 		BeforeEach(func() {
-			virtClient, err = kubecli.GetKubevirtClient()
-			util.PanicOnError(err)
+			virtClient = kubevirt.Client()
 
 			scales = make(map[string]*autoscalingv1.Scale, 1)
 			backupScale(virtOperator.deploymentName)

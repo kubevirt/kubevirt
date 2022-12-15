@@ -7,6 +7,7 @@ import (
 	"time"
 
 	"kubevirt.io/kubevirt/tests/decorators"
+	"kubevirt.io/kubevirt/tests/framework/kubevirt"
 
 	virtconfig "kubevirt.io/kubevirt/pkg/virt-config"
 
@@ -39,11 +40,9 @@ var _ = Describe("[Serial][sig-compute] Hyper-V enlightenments", Serial, decorat
 
 	var (
 		virtClient kubecli.KubevirtClient
-		err        error
 	)
 	BeforeEach(func() {
-		virtClient, err = kubecli.GetKubevirtClient()
-		util.PanicOnError(err)
+		virtClient = kubevirt.Client()
 	})
 
 	Context("VMI with HyperV re-enlightenment enabled", func() {
@@ -263,8 +262,8 @@ var _ = Describe("[Serial][sig-compute] Hyper-V enlightenments", Serial, decorat
 				},
 			}
 			vmi = tests.RunVMIAndExpectLaunch(vmi, 90)
-			Expect(err).ToNot(HaveOccurred(), "Should create VMI")
 
+			var err error
 			vmi, err = virtClient.VirtualMachineInstance(vmi.Namespace).Get(context.Background(), vmi.Name, &metav1.GetOptions{})
 			Expect(err).ToNot(HaveOccurred(), "Should get VMI")
 			Expect(vmi.Spec.Domain.Features.Hyperv.EVMCS).ToNot(BeNil(), "evmcs should not be nil")

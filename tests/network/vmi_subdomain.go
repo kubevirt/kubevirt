@@ -23,6 +23,8 @@ import (
 	"context"
 	"fmt"
 
+	"kubevirt.io/kubevirt/tests/framework/kubevirt"
+
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
 
@@ -51,9 +53,7 @@ var _ = SIGDescribe("Subdomain", func() {
 	)
 
 	BeforeEach(func() {
-		var err error
-		virtClient, err = kubecli.GetKubevirtClient()
-		Expect(err).NotTo(HaveOccurred(), "Should successfully initialize an API client")
+		virtClient = kubevirt.Client()
 
 		// Should be skipped as long as masquerade binding doesn't have dhcpv6 + ra (issue- https://github.com/kubevirt/kubevirt/issues/7184)
 		libnet.SkipWhenClusterNotSupportIpv4()

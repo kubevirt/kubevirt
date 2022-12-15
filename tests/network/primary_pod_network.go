@@ -23,6 +23,8 @@ import (
 	"context"
 	"time"
 
+	"kubevirt.io/kubevirt/tests/framework/kubevirt"
+
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
 
@@ -44,9 +46,7 @@ import (
 var _ = SIGDescribe("Primary Pod Network", func() {
 	var virtClient kubecli.KubevirtClient
 	BeforeEach(func() {
-		var err error
-		virtClient, err = kubecli.GetKubevirtClient()
-		Expect(err).NotTo(HaveOccurred(), "Should successfully initialize an API client")
+		virtClient = kubevirt.Client()
 	})
 
 	Describe("Status", func() {

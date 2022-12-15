@@ -24,6 +24,8 @@ import (
 	"fmt"
 	"time"
 
+	"kubevirt.io/kubevirt/tests/framework/kubevirt"
+
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
 
@@ -55,7 +57,6 @@ const (
 
 var _ = SIGDescribe("Control Plane Performance Density Testing", func() {
 	var (
-		err        error
 		virtClient kubecli.KubevirtClient
 		startTime  time.Time
 		endTime    time.Time
@@ -63,8 +64,7 @@ var _ = SIGDescribe("Control Plane Performance Density Testing", func() {
 	)
 	BeforeEach(func() {
 		skipIfNoPerformanceTests()
-		virtClient, err = kubecli.GetKubevirtClient()
-		util.PanicOnError(err)
+		virtClient = kubevirt.Client()
 
 		if !primed {
 			By("Create primer VMI")

@@ -18,6 +18,7 @@ import (
 	"kubevirt.io/kubevirt/tests"
 	"kubevirt.io/kubevirt/tests/console"
 	"kubevirt.io/kubevirt/tests/framework/checks"
+	"kubevirt.io/kubevirt/tests/framework/kubevirt"
 	"kubevirt.io/kubevirt/tests/libvmi"
 )
 
@@ -35,8 +36,7 @@ var _ = Describe("[sig-compute]AMD Secure Encrypted Virtualization (SEV)", decor
 		)
 
 		BeforeEach(func() {
-			virtClient, err = kubecli.GetKubevirtClient()
-			Expect(err).ToNot(HaveOccurred())
+			virtClient = kubevirt.Client()
 
 			nodeName = tests.NodeNameWithHandler()
 			Expect(nodeName).ToNot(BeEmpty())

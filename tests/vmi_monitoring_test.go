@@ -35,6 +35,7 @@ import (
 
 	"kubevirt.io/kubevirt/tests"
 	"kubevirt.io/kubevirt/tests/console"
+	"kubevirt.io/kubevirt/tests/framework/kubevirt"
 	"kubevirt.io/kubevirt/tests/libvmi"
 )
 
@@ -43,9 +44,7 @@ var _ = Describe("[sig-compute]Health Monitoring", decorators.SigCompute, func()
 	var virtClient kubecli.KubevirtClient
 
 	BeforeEach(func() {
-		var err error
-		virtClient, err = kubecli.GetKubevirtClient()
-		Expect(err).ToNot(HaveOccurred())
+		virtClient = kubevirt.Client()
 	})
 
 	Describe("A VirtualMachineInstance with a watchdog device", func() {

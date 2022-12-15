@@ -43,6 +43,7 @@ import (
 	"kubevirt.io/kubevirt/tests/exec"
 	"kubevirt.io/kubevirt/tests/flags"
 	"kubevirt.io/kubevirt/tests/framework/checks"
+	"kubevirt.io/kubevirt/tests/framework/kubevirt"
 	"kubevirt.io/kubevirt/tests/framework/matcher"
 	"kubevirt.io/kubevirt/tests/libnode"
 	"kubevirt.io/kubevirt/tests/testsuite"
@@ -61,7 +62,6 @@ const (
 
 var _ = Describe("[Serial][ref_id:2717][sig-compute]KubeVirt control plane resilience", Serial, decorators.SigCompute, func() {
 
-	var err error
 	var virtCli kubecli.KubevirtClient
 
 	RegisterFailHandler(Fail)
@@ -69,8 +69,7 @@ var _ = Describe("[Serial][ref_id:2717][sig-compute]KubeVirt control plane resil
 	controlPlaneDeploymentNames := []string{"virt-api", "virt-controller"}
 
 	BeforeEach(func() {
-		virtCli, err = kubecli.GetKubevirtClient()
-		Expect(err).ToNot(HaveOccurred())
+		virtCli = kubevirt.Client()
 	})
 
 	Context("pod eviction", func() {

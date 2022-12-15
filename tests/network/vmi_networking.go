@@ -33,6 +33,7 @@ import (
 
 	"kubevirt.io/kubevirt/tests/exec"
 	"kubevirt.io/kubevirt/tests/framework/checks"
+	"kubevirt.io/kubevirt/tests/framework/kubevirt"
 	"kubevirt.io/kubevirt/tests/testsuite"
 
 	expect "github.com/google/goexpect"
@@ -80,8 +81,7 @@ var _ = SIGDescribe("[rfe_id:694][crit:medium][vendor:cnv-qe@redhat.com][level:c
 	)
 
 	BeforeEach(func() {
-		virtClient, err = kubecli.GetKubevirtClient()
-		util.PanicOnError(err)
+		virtClient = kubevirt.Client()
 
 		kv := util.GetCurrentKv(virtClient)
 		currentConfiguration = kv.Spec.Configuration
@@ -450,8 +450,7 @@ var _ = SIGDescribe("[rfe_id:694][crit:medium][vendor:cnv-qe@redhat.com][level:c
 			waitUntilVMIReady(vmi, console.LoginToAlpine)
 
 			By("Checking that the pod did not request a tun device")
-			virtClient, err := kubecli.GetKubevirtClient()
-			Expect(err).ToNot(HaveOccurred())
+			virtClient := kubevirt.Client()
 
 			By("Looking up pod using VMI's label")
 			pods, err := virtClient.CoreV1().Pods(testsuite.GetTestNamespace(nil)).List(context.Background(), tests.UnfinishedVMIPodSelector(vmi))
@@ -1097,9 +1096,9 @@ func vmiHasCustomMacAddress(vmi *v1.VirtualMachineInstance) bool {
 }
 
 func runVMI(vmi *v1.VirtualMachineInstance) *v1.VirtualMachineInstance {
-	virtClient, err := kubecli.GetKubevirtClient()
-	util.PanicOnError(err)
+	virtClient := kubevirt.Client()
 
+	var err error
 	vmi, err = virtClient.VirtualMachineInstance(testsuite.GetTestNamespace(nil)).Create(context.Background(), vmi)
 	Expect(err).ToNot(HaveOccurred())
 	vmi = libwait.WaitUntilVMIReady(vmi, console.LoginToCirros)

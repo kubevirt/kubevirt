@@ -29,6 +29,7 @@ import (
 	"kubevirt.io/kubevirt/tests/decorators"
 
 	"kubevirt.io/kubevirt/tests/framework/checks"
+	"kubevirt.io/kubevirt/tests/framework/kubevirt"
 
 	expect "github.com/google/goexpect"
 
@@ -133,8 +134,7 @@ var _ = Describe("[Serial][sig-compute]SwapTest", Serial, decorators.SigCompute,
 	BeforeEach(func() {
 		checks.SkipIfMigrationIsNotPossible()
 
-		virtClient, err = kubecli.GetKubevirtClient()
-		util.PanicOnError(err)
+		virtClient = kubevirt.Client()
 
 		nodes := libnode.GetAllSchedulableNodes(virtClient)
 		Expect(len(nodes.Items)).To(BeNumerically(">", 1),

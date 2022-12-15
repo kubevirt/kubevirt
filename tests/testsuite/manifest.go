@@ -29,13 +29,14 @@ import (
 	"path/filepath"
 	"strings"
 
+	"kubevirt.io/kubevirt/tests/framework/kubevirt"
+
 	k8serrors "k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
 	"k8s.io/apimachinery/pkg/runtime/schema"
 	"k8s.io/apimachinery/pkg/util/yaml"
 
-	"kubevirt.io/client-go/kubecli"
 	"kubevirt.io/client-go/log"
 
 	"kubevirt.io/kubevirt/tests/util"
@@ -90,8 +91,7 @@ func ReadManifestYamlFile(pathToManifest string) []unstructured.Unstructured {
 }
 
 func ApplyRawManifest(object unstructured.Unstructured) error {
-	virtCli, err := kubecli.GetKubevirtClient()
-	util.PanicOnError(err)
+	virtCli := kubevirt.Client()
 
 	uri := composeResourceURI(object)
 	jsonbody, err := object.MarshalJSON()
@@ -106,8 +106,7 @@ func ApplyRawManifest(object unstructured.Unstructured) error {
 }
 
 func DeleteRawManifest(object unstructured.Unstructured) error {
-	virtCli, err := kubecli.GetKubevirtClient()
-	util.PanicOnError(err)
+	virtCli := kubevirt.Client()
 
 	uri := composeResourceURI(object)
 	uri = path.Join(uri, object.GetName())
@@ -117,7 +116,7 @@ func DeleteRawManifest(object unstructured.Unstructured) error {
 
 	log.DefaultLogger().Infof("Calling DELETE on testing manifest: %s", uri)
 	result := virtCli.CoreV1().RESTClient().Delete().RequestURI(uri).Body(options).Do(context.Background())
-	if err = result.Error(); err != nil && !k8serrors.IsNotFound(err) {
+	if err := result.Error(); err != nil && !k8serrors.IsNotFound(err) {
 		panic(fmt.Errorf("ERROR: Can not delete %s err: %#v %s\n", object.GetName(), err, object))
 
 	}

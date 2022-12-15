@@ -22,6 +22,7 @@ import (
 	virtconfig "kubevirt.io/kubevirt/pkg/virt-config"
 	"kubevirt.io/kubevirt/tests"
 	"kubevirt.io/kubevirt/tests/console"
+	"kubevirt.io/kubevirt/tests/framework/kubevirt"
 	"kubevirt.io/kubevirt/tests/libwait"
 )
 
@@ -31,14 +32,12 @@ const (
 
 var _ = Describe("[Serial][sig-compute]HostDevices", Serial, decorators.SigCompute, func() {
 	var (
-		err        error
 		virtClient kubecli.KubevirtClient
 		config     v1.KubeVirtConfiguration
 	)
 
 	BeforeEach(func() {
-		virtClient, err = kubecli.GetKubevirtClient()
-		util.PanicOnError(err)
+		virtClient = kubevirt.Client()
 		kv := util.GetCurrentKv(virtClient)
 		config = kv.Spec.Configuration
 	})

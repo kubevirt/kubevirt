@@ -36,6 +36,7 @@ import (
 	kubevirtv1 "kubevirt.io/api/core/v1"
 
 	cd "kubevirt.io/kubevirt/tests/containerdisk"
+	"kubevirt.io/kubevirt/tests/framework/kubevirt"
 	"kubevirt.io/kubevirt/tests/libvmi"
 	"kubevirt.io/kubevirt/tests/libwait"
 
@@ -53,8 +54,7 @@ var _ = Describe("[sig-compute]VMI with external kernel boot", decorators.SigCom
 	var err error
 
 	BeforeEach(func() {
-		virtClient, err = kubecli.GetKubevirtClient()
-		Expect(err).ToNot(HaveOccurred())
+		virtClient = kubevirt.Client()
 	})
 
 	Context("with external alpine-based kernel & initrd images", func() {

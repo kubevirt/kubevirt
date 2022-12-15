@@ -40,6 +40,7 @@ import (
 	"kubevirt.io/kubevirt/pkg/virt-launcher/virtwrap/api"
 	"kubevirt.io/kubevirt/tests/flags"
 	"kubevirt.io/kubevirt/tests/framework/checks"
+	"kubevirt.io/kubevirt/tests/framework/kubevirt"
 	"kubevirt.io/kubevirt/tests/libvmi"
 
 	"kubevirt.io/client-go/kubecli"
@@ -54,8 +55,7 @@ var _ = Describe("[sig-compute]VSOCK", Serial, decorators.SigCompute, func() {
 
 	BeforeEach(func() {
 		checks.SkipTestIfNoFeatureGate(virtconfig.VSOCKGate)
-		virtClient, err = kubecli.GetKubevirtClient()
-		Expect(err).ToNot(HaveOccurred())
+		virtClient = kubevirt.Client()
 	})
 
 	Context("VM creation", func() {
@@ -185,8 +185,7 @@ var _ = Describe("[sig-compute]VSOCK", Serial, decorators.SigCompute, func() {
 		Expect(tests.StartExampleGuestAgent(vmi, useTLS, 1234)).To(Succeed())
 		time.Sleep(2 * time.Second)
 
-		virtClient, err := kubecli.GetKubevirtClient()
-		Expect(err).NotTo(HaveOccurred())
+		virtClient := kubevirt.Client()
 
 		By("Connect to the guest via API")
 		cliConn, svrConn := net.Pipe()
@@ -232,8 +231,7 @@ var _ = Describe("[sig-compute]VSOCK", Serial, decorators.SigCompute, func() {
 	)
 
 	It("should return err if the port is invalid", func() {
-		virtClient, err := kubecli.GetKubevirtClient()
-		Expect(err).NotTo(HaveOccurred())
+		virtClient := kubevirt.Client()
 
 		By("Creating a VMI with VSOCK enabled")
 		vmi := tests.NewRandomFedoraVMI()
@@ -246,8 +244,7 @@ var _ = Describe("[sig-compute]VSOCK", Serial, decorators.SigCompute, func() {
 	})
 
 	It("should return err if no app listerns on the port", func() {
-		virtClient, err := kubecli.GetKubevirtClient()
-		Expect(err).NotTo(HaveOccurred())
+		virtClient := kubevirt.Client()
 
 		By("Creating a VMI with VSOCK enabled")
 		vmi := tests.NewRandomFedoraVMI()

@@ -29,6 +29,7 @@ import (
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
 
+	"kubevirt.io/kubevirt/tests/framework/kubevirt"
 	"kubevirt.io/kubevirt/tests/framework/matcher"
 	"kubevirt.io/kubevirt/tests/util"
 
@@ -46,7 +47,6 @@ import (
 
 var _ = Describe("[sig-compute]Guest Access Credentials", decorators.SigCompute, func() {
 
-	var err error
 	var virtClient kubecli.KubevirtClient
 
 	var (
@@ -55,8 +55,7 @@ var _ = Describe("[sig-compute]Guest Access Credentials", decorators.SigCompute,
 	)
 
 	BeforeEach(func() {
-		virtClient, err = kubecli.GetKubevirtClient()
-		util.PanicOnError(err)
+		virtClient = kubevirt.Client()
 
 		LaunchVMI = tests.VMILauncherIgnoreWarnings(virtClient)
 	})

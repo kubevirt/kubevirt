@@ -24,6 +24,8 @@ import (
 	"fmt"
 	"time"
 
+	"kubevirt.io/kubevirt/tests/framework/kubevirt"
+
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
 
@@ -35,7 +37,6 @@ import (
 	"k8s.io/utils/pointer"
 
 	v1 "kubevirt.io/api/core/v1"
-	"kubevirt.io/client-go/kubecli"
 
 	"kubevirt.io/kubevirt/pkg/util/net/ip"
 	"kubevirt.io/kubevirt/tests/flags"
@@ -148,8 +149,7 @@ func NewPVC(name, size, storageClass string) *k8sv1.PersistentVolumeClaim {
 }
 
 func createPVC(pvc *k8sv1.PersistentVolumeClaim, namespace string) *k8sv1.PersistentVolumeClaim {
-	virtCli, err := kubecli.GetKubevirtClient()
-	util.PanicOnError(err)
+	virtCli := kubevirt.Client()
 
 	createdPvc, err := virtCli.CoreV1().PersistentVolumeClaims(namespace).Create(context.Background(), pvc, metav1.CreateOptions{})
 	if !errors.IsAlreadyExists(err) {
@@ -208,8 +208,7 @@ func CreatePVC(os, namespace, size, storageClass string, recycledPV bool) *k8sv1
 }
 
 func DeleteAllSeparateDeviceHostPathPvs() {
-	virtClient, err := kubecli.GetKubevirtClient()
-	util.PanicOnError(err)
+	virtClient := kubevirt.Client()
 
 	pvList, err := virtClient.CoreV1().PersistentVolumes().List(context.Background(), metav1.ListOptions{})
 	util.PanicOnError(err)
@@ -225,8 +224,7 @@ func DeleteAllSeparateDeviceHostPathPvs() {
 
 func CreateAllSeparateDeviceHostPathPvs(osName, namespace string) {
 	CreateStorageClass(StorageClassHostPathSeparateDevice, &wffc)
-	virtClient, err := kubecli.GetKubevirtClient()
-	util.PanicOnError(err)
+	virtClient := kubevirt.Client()
 	Eventually(func() int {
 		nodes := libnode.GetAllSchedulableNodes(virtClient)
 		if len(nodes.Items) > 0 {
@@ -239,8 +237,7 @@ func CreateAllSeparateDeviceHostPathPvs(osName, namespace string) {
 }
 
 func createSeparateDeviceHostPathPv(osName, namespace, nodeName string) {
-	virtCli, err := kubecli.GetKubevirtClient()
-	util.PanicOnError(err)
+	virtCli := kubevirt.Client()
 	name := fmt.Sprintf("separate-device-%s-pv", nodeName)
 	pv := &k8sv1.PersistentVolume{
 		ObjectMeta: metav1.ObjectMeta{
@@ -280,7 +277,7 @@ func createSeparateDeviceHostPathPv(osName, namespace, nodeName string) {
 		},
 	}
 
-	_, err = virtCli.CoreV1().PersistentVolumes().Create(context.Background(), pv, metav1.CreateOptions{})
+	_, err := virtCli.CoreV1().PersistentVolumes().Create(context.Background(), pv, metav1.CreateOptions{})
 	if !errors.IsAlreadyExists(err) {
 		util.PanicOnError(err)
 	}
@@ -296,8 +293,7 @@ func createHostPathPvWithSize(osName, namespace, hostPath, size string) string {
 }
 
 func CreateHostPathPvWithSizeAndStorageClass(osName, namespace, hostPath, size, sc string) string {
-	virtCli, err := kubecli.GetKubevirtClient()
-	util.PanicOnError(err)
+	virtCli := kubevirt.Client()
 
 	quantity, err := resource.ParseQuantity(size)
 	util.PanicOnError(err)
@@ -352,32 +348,29 @@ func CreateHostPathPvWithSizeAndStorageClass(osName, namespace, hostPath, size, 
 }
 
 func DeletePVC(os, namespace string) {
-	virtCli, err := kubecli.GetKubevirtClient()
-	util.PanicOnError(err)
+	virtCli := kubevirt.Client()
 
 	name := fmt.Sprintf("disk-%s", os)
-	err = virtCli.CoreV1().PersistentVolumeClaims(namespace).Delete(context.Background(), name, metav1.DeleteOptions{})
+	err := virtCli.CoreV1().PersistentVolumeClaims(namespace).Delete(context.Background(), name, metav1.DeleteOptions{})
 	if !errors.IsNotFound(err) {
 		util.PanicOnError(err)
 	}
 }
 
 func DeletePV(os string) {
-	virtCli, err := kubecli.GetKubevirtClient()
-	util.PanicOnError(err)
+	virtCli := kubevirt.Client()
 
 	name := fmt.Sprintf("%s-disk-for-tests", os)
-	err = virtCli.CoreV1().PersistentVolumes().Delete(context.Background(), name, metav1.DeleteOptions{})
+	err := virtCli.CoreV1().PersistentVolumes().Delete(context.Background(), name, metav1.DeleteOptions{})
 	if !errors.IsNotFound(err) {
 		util.PanicOnError(err)
 	}
 }
 
 func CreateNFSPvAndPvc(name string, namespace string, size string, nfsTargetIP string, os string) {
-	virtCli, err := kubecli.GetKubevirtClient()
-	util.PanicOnError(err)
+	virtCli := kubevirt.Client()
 
-	_, err = virtCli.CoreV1().PersistentVolumes().Create(context.Background(), newNFSPV(name, namespace, size, nfsTargetIP, os), metav1.CreateOptions{})
+	_, err := virtCli.CoreV1().PersistentVolumes().Create(context.Background(), newNFSPV(name, namespace, size, nfsTargetIP, os), metav1.CreateOptions{})
 	if !errors.IsAlreadyExists(err) {
 		util.PanicOnError(err)
 	}

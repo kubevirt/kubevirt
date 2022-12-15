@@ -31,6 +31,7 @@ import (
 	k8sv1 "k8s.io/api/core/v1"
 
 	"kubevirt.io/kubevirt/tests/framework/checks"
+	"kubevirt.io/kubevirt/tests/framework/kubevirt"
 	"kubevirt.io/kubevirt/tests/testsuite"
 
 	expect "github.com/google/goexpect"
@@ -39,7 +40,6 @@ import (
 	. "github.com/onsi/gomega"
 
 	netservice "kubevirt.io/kubevirt/tests/libnet/service"
-	"kubevirt.io/kubevirt/tests/util"
 
 	batchv1 "k8s.io/api/batch/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
@@ -136,8 +136,7 @@ var istioTests = func(vmType VmType) {
 			)
 		}
 		BeforeEach(func() {
-			virtClient, err = kubecli.GetKubevirtClient()
-			util.PanicOnError(err)
+			virtClient = kubevirt.Client()
 
 			libnet.SkipWhenClusterNotSupportIpv4()
 

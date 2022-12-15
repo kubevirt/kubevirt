@@ -48,6 +48,7 @@ go_library(
         "//tests/exec:go_default_library",
         "//tests/flags:go_default_library",
         "//tests/framework/checks:go_default_library",
+        "//tests/framework/kubevirt:go_default_library",
         "//tests/framework/matcher:go_default_library",
         "//tests/libnet:go_default_library",
         "//tests/libnet/cluster:go_default_library",

@@ -35,6 +35,7 @@ import (
 	"k8s.io/apimachinery/pkg/api/errors"
 
 	"kubevirt.io/kubevirt/tests/framework/checks"
+	"kubevirt.io/kubevirt/tests/framework/kubevirt"
 	"kubevirt.io/kubevirt/tests/framework/matcher"
 	storageframework "kubevirt.io/kubevirt/tests/framework/storage"
 
@@ -93,8 +94,7 @@ var _ = SIGDescribe("Storage", func() {
 	var virtClient kubecli.KubevirtClient
 
 	BeforeEach(func() {
-		virtClient, err = kubecli.GetKubevirtClient()
-		Expect(err).ToNot(HaveOccurred())
+		virtClient = kubevirt.Client()
 		tests.SetupAlpineHostPath()
 	})
 
@@ -759,8 +759,7 @@ var _ = SIGDescribe("Storage", func() {
 			It("[test_id:4620]HostDisk, it should fail to start a VMI", func() {
 				tests.DisableFeatureGate(virtconfig.HostDiskGate)
 				vmi = tests.NewRandomVMIWithHostDisk("somepath", virtv1.HostDiskExistsOrCreate, "")
-				virtClient, err := kubecli.GetKubevirtClient()
-				Expect(err).ToNot(HaveOccurred())
+				virtClient := kubevirt.Client()
 				_, err = virtClient.VirtualMachineInstance(testsuite.GetTestNamespace(vmi)).Create(context.Background(), vmi)
 				Expect(err).To(HaveOccurred())
 				Expect(err.Error()).To(ContainSubstring("HostDisk feature gate is not enabled"))
@@ -768,8 +767,7 @@ var _ = SIGDescribe("Storage", func() {
 			It("VirtioFS, it should fail to start a VMI", func() {
 				tests.DisableFeatureGate(virtconfig.VirtIOFSGate)
 				vmi := libvmi.NewFedora(libvmi.WithFilesystemDV("something"))
-				virtClient, err := kubecli.GetKubevirtClient()
-				Expect(err).ToNot(HaveOccurred())
+				virtClient := kubevirt.Client()
 				_, err = virtClient.VirtualMachineInstance(testsuite.GetTestNamespace(vmi)).Create(context.Background(), vmi)
 				Expect(err).To(HaveOccurred())
 				Expect(err.Error()).To(ContainSubstring("virtiofs feature gate is not enabled"))
@@ -1146,8 +1144,7 @@ var _ = SIGDescribe("Storage", func() {
 				)
 				vmi = tests.RunVMI(vmi, 10)
 
-				virtClient, err := kubecli.GetKubevirtClient()
-				Expect(err).ToNot(HaveOccurred())
+				virtClient := kubevirt.Client()
 
 				Eventually(func() bool {
 					vmi, err = virtClient.VirtualMachineInstance(vmi.Namespace).Get(context.Background(), vmi.Name, &metav1.GetOptions{})
@@ -1470,8 +1467,7 @@ var _ = SIGDescribe("Storage", func() {
 })
 
 func waitForPodToDisappearWithTimeout(podName string, seconds int) {
-	virtClient, err := kubecli.GetKubevirtClient()
-	ExpectWithOffset(1, err).ToNot(HaveOccurred())
+	virtClient := kubevirt.Client()
 	EventuallyWithOffset(1, func() bool {
 		_, err := virtClient.CoreV1().Pods(testsuite.GetTestNamespace(nil)).Get(context.Background(), podName, metav1.GetOptions{})
 		return errors.IsNotFound(err)

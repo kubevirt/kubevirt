@@ -27,6 +27,7 @@ import (
 	"time"
 
 	"kubevirt.io/kubevirt/tests/decorators"
+	"kubevirt.io/kubevirt/tests/framework/kubevirt"
 
 	expect "github.com/google/goexpect"
 	storagev1 "k8s.io/api/storage/v1"
@@ -65,7 +66,6 @@ import (
 	"kubevirt.io/kubevirt/tests/libvmi"
 	"kubevirt.io/kubevirt/tests/libwait"
 	"kubevirt.io/kubevirt/tests/testsuite"
-	"kubevirt.io/kubevirt/tests/util"
 )
 
 const (
@@ -86,8 +86,7 @@ var _ = SIGDescribe("DataVolume Integration", func() {
 	var err error
 
 	BeforeEach(func() {
-		virtClient, err = kubecli.GetKubevirtClient()
-		util.PanicOnError(err)
+		virtClient = kubevirt.Client()
 
 		if !libstorage.HasCDI() {
 			Skip("Skip DataVolume tests when CDI is not present")
@@ -1244,8 +1243,7 @@ func addClonePermission(client kubecli.KubevirtClient, role *rbacv1.Role, sa, sa
 }
 
 func volumeExpansionAllowed(sc string) bool {
-	virtClient, err := kubecli.GetKubevirtClient()
-	Expect(err).ToNot(HaveOccurred())
+	virtClient := kubevirt.Client()
 	storageClass, err := virtClient.StorageV1().StorageClasses().Get(context.Background(), sc, metav1.GetOptions{})
 	Expect(err).ToNot(HaveOccurred())
 	return storageClass.AllowVolumeExpansion != nil &&

@@ -5,12 +5,12 @@ import (
 	"fmt"
 	"time"
 
+	"kubevirt.io/kubevirt/tests/framework/kubevirt"
+
 	batchv1 "k8s.io/api/batch/v1"
 	k8sv1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/util/wait"
-
-	"kubevirt.io/client-go/kubecli"
 )
 
 const (
@@ -31,10 +31,7 @@ func WaitForJobToFail(job *batchv1.Job, timeout time.Duration) error {
 }
 
 func waitForJob(job *batchv1.Job, toSucceed bool, timeout time.Duration) error {
-	virtClient, err := kubecli.GetKubevirtClient()
-	if err != nil {
-		return err
-	}
+	virtClient := kubevirt.Client()
 
 	jobFailedError := func(job *batchv1.Job) error {
 		if toSucceed {
@@ -50,7 +47,8 @@ func waitForJob(job *batchv1.Job, toSucceed bool, timeout time.Duration) error {
 	}
 
 	const finish = true
-	err = wait.PollImmediate(time.Second, timeout, func() (bool, error) {
+	err := wait.PollImmediate(time.Second, timeout, func() (bool, error) {
+		var err error
 		job, err = virtClient.BatchV1().Jobs(job.Namespace).Get(context.Background(), job.Name, metav1.GetOptions{})
 		if err != nil {
 			return finish, err
