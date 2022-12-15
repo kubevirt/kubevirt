@@ -2621,16 +2621,14 @@ spec:
 				patchKvInfra(infra, false, "")
 
 				By(fmt.Sprintf("Expecting %d replicas of virt-api and virt-controller", replicas))
-				Eventually(func() bool {
+				Eventually(func() []k8sv1.Pod {
 					for _, name := range []string{"virt-api", "virt-controller"} {
 						pods, err := virtClient.CoreV1().Pods(flags.KubeVirtInstallNamespace).List(context.Background(), metav1.ListOptions{LabelSelector: fmt.Sprintf("%s=%s", v1.AppLabel, name)})
 						Expect(err).ToNot(HaveOccurred())
-						if len(pods.Items) != int(replicas) {
-							return false
-						}
+						return pods.Items
 					}
-					return true
-				}, 60*time.Second, 1*time.Second).Should(BeTrue())
+					return nil
+				}, 120*time.Second, 1*time.Second).Should(HaveLen(int(replicas)), fmt.Sprintf("Replicas of virt-api and virt-controller are not %d", replicas))
 
 				if replicas == 1 {
 					By(fmt.Sprintf("Expecting PDBs to disppear"))
@@ -2642,19 +2640,17 @@ spec:
 							}
 						}
 						return true
-					}, 60*time.Second, 1*time.Second).Should(BeTrue())
+					}, 60*time.Second, 1*time.Second).Should(BeTrue(), "PDBs have not disappeared")
 				} else {
 					By(fmt.Sprintf("Expecting minAvailable to become %d on the PDBs", replicas-1))
-					Eventually(func() bool {
+					Eventually(func() int {
 						for _, name := range []string{"virt-api", "virt-controller"} {
 							pdb, err := virtClient.PolicyV1().PodDisruptionBudgets(flags.KubeVirtInstallNamespace).Get(context.Background(), name+"-pdb", metav1.GetOptions{})
 							Expect(err).ToNot(HaveOccurred())
-							if pdb.Spec.MinAvailable.IntValue() != int(replicas-1) {
-								return false
-							}
+							return pdb.Spec.MinAvailable.IntValue()
 						}
-						return true
-					}, 60*time.Second, 1*time.Second).Should(BeTrue())
+						return -1
+					}, 60*time.Second, 1*time.Second).Should(BeEquivalentTo(int(replicas-1)), fmt.Sprintf("minAvailable is not become %d on the PDBs", replicas-1))
 				}
 			}
 		})
