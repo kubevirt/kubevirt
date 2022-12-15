@@ -20,6 +20,7 @@
 package metadata
 
 import (
+	"fmt"
 	"sync"
 )
 
@@ -86,4 +87,10 @@ func (d *SafeData[T]) notify() {
 	case d.dirtyChanel <- struct{}{}:
 	default:
 	}
+}
+
+func (d *SafeData[T]) String() string {
+	d.m.Lock()
+	defer d.m.Unlock()
+	return fmt.Sprintf("%v", d.data)
 }

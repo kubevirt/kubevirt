@@ -432,12 +432,13 @@ func (l *LibvirtDomainManager) initializeMigrationMetadata(vmi *v1.VirtualMachin
 	}
 
 	now := metav1.Now()
-	l.metadataCache.Migration.Store(
-		api.MigrationMetadata{
-			UID:            vmi.Status.MigrationState.MigrationUID,
-			StartTimestamp: &now,
-			Mode:           migrationMode,
-		})
+	m := api.MigrationMetadata{
+		UID:            vmi.Status.MigrationState.MigrationUID,
+		StartTimestamp: &now,
+		Mode:           migrationMode,
+	}
+	l.metadataCache.Migration.Store(m)
+	log.Log.V(4).Infof("initialize migration metadata: %v", m)
 	return false, nil
 }
 
@@ -487,6 +488,12 @@ func (l *LibvirtDomainManager) setMigrationResultHelper(failed bool, completed b
 			migrationMetadata.EndTimestamp = &now
 		}
 	})
+
+	logger := log.Log
+	if !failed {
+		logger = logger.V(4)
+	}
+	logger.Infof("set migration result in metadata: %s", l.metadataCache.Migration.String())
 	return nil
 }
 
@@ -944,4 +951,5 @@ func (l *LibvirtDomainManager) updateVMIMigrationMode(mode v1.MigrationMode) {
 	l.metadataCache.Migration.WithSafeBlock(func(migrationMetadata *api.MigrationMetadata, _ bool) {
 		migrationMetadata.Mode = mode
 	})
+	log.Log.V(4).Infof("Migration mode set in metadata: %s", l.metadataCache.Migration.String())
 }

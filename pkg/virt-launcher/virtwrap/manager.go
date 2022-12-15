@@ -1225,6 +1225,7 @@ func (l *LibvirtDomainManager) initializeMemoryDumpMetadata(dumpPath string) {
 			StartTimestamp: &now,
 		}
 	})
+	log.Log.V(4).Infof("initialize memory dump metadata: %s", l.metadataCache.MemoryDump.String())
 }
 
 func (l *LibvirtDomainManager) setMemoryDumpResult(failed bool, reason string) {
@@ -1240,6 +1241,7 @@ func (l *LibvirtDomainManager) setMemoryDumpResult(failed bool, reason string) {
 		memoryDumpMetadata.Failed = failed
 		memoryDumpMetadata.FailureReason = reason
 	})
+	log.Log.V(4).Infof("set memory dump results in metadata: %s", l.metadataCache.MemoryDump.String())
 	return
 }
 
@@ -1442,6 +1444,7 @@ func (l *LibvirtDomainManager) MarkGracefulShutdownVMI() {
 	l.metadataCache.GracePeriod.WithSafeBlock(func(gracePeriodMetadata *api.GracePeriodMetadata, _ bool) {
 		gracePeriodMetadata.MarkedForGracefulShutdown = pointer.Bool(true)
 	})
+	log.Log.V(4).Infof("Marked for graceful shutdown in metadata: %s", l.metadataCache.GracePeriod.String())
 }
 
 func (l *LibvirtDomainManager) SignalShutdownVMI(vmi *v1.VirtualMachineInstance) error {
@@ -1481,6 +1484,7 @@ func (l *LibvirtDomainManager) SignalShutdownVMI(vmi *v1.VirtualMachineInstance)
 				gracePeriodMetadata.DeletionTimestamp = &now
 			}
 		})
+		log.Log.V(4).Infof("Graceful period set in metadata: %s", l.metadataCache.GracePeriod.String())
 	}
 
 	return nil
