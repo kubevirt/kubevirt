@@ -65,6 +65,7 @@ import (
 
 	"kubevirt.io/kubevirt/pkg/monitoring/perfscale"
 	vmiprom "kubevirt.io/kubevirt/pkg/monitoring/vmistats" // import for prometheus metrics
+	vmprom "kubevirt.io/kubevirt/pkg/monitoring/vmstats"
 	"kubevirt.io/kubevirt/pkg/service"
 	"kubevirt.io/kubevirt/pkg/util"
 	"kubevirt.io/kubevirt/pkg/util/webhooks"
@@ -460,6 +461,7 @@ func (vca *VirtControllerApp) onStartedLeading() func(ctx context.Context) {
 			vca.disruptionBudgetControllerThreads)
 
 		vmiprom.SetupVMICollector(vca.vmiInformer, vca.clusterConfig)
+		vmprom.SetupVMCollector(vca.vmInformer)
 		perfscale.RegisterPerfScaleMetrics(vca.vmiInformer)
 
 		go vca.evacuationController.Run(vca.evacuationControllerThreads, stop)

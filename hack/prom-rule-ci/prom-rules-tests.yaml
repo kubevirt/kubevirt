@@ -685,3 +685,120 @@ tests:
             value: 103706112
           - labels: 'kubevirt_vmi_memory_used_bytes{container="virt-handler", name="vm-example-2", namespace="default", node="node-1"}'
             value: 234329980
+
+  - interval: 1m
+    input_series:
+      # time:  0   1   2   3   4   5   6   7   8   9   10  11
+      - series: 'kubevirt_vm_starting_status_last_transition_timestamp_seconds{name="starting-vm-1", namespace="ns-test"}'
+        values: "_   _   _   _   0   240 240 240 240 240 240 0"
+      - series: 'kubevirt_vm_starting_status_last_transition_timestamp_seconds{name="starting-vm-2", namespace="ns-test"}'
+        values: "_   _   _   0   0   60  60  0   0   0   0   0"
+
+    alert_rule_test:
+      - eval_time: 3m
+        alertname: KubeVirtVMStuckInStartingState
+        exp_alerts: []
+
+      - eval_time: 4m
+        alertname: KubeVirtVMStuckInStartingState
+        exp_alerts: []
+
+      - eval_time: 8m
+        alertname: KubeVirtVMStuckInStartingState
+        exp_alerts: []
+
+      - eval_time: 10m
+        alertname: KubeVirtVMStuckInStartingState
+        exp_alerts:
+          - exp_annotations:
+              description: "VirtualMachine starting-vm-1 is in starting state for 6m 0s"
+              summary: "A Virtual Machine has been in an unwanted starting state for more than 5 minutes"
+              runbook_url: "https://kubevirt.io/monitoring/runbooks/KubeVirtVMStuckInStartingState"
+            exp_labels:
+              severity: "warning"
+              kubernetes_operator_part_of: "kubevirt"
+              kubernetes_operator_component: "kubevirt"
+              name: "starting-vm-1"
+              namespace: "ns-test"
+
+      - eval_time: 11m
+        alertname: KubeVirtVMStuckInStartingState
+        exp_alerts: []
+
+  - interval: 1m
+    input_series:
+      # time:  0   1   2   3   4   5   6   7   8   9   10  11
+      - series: 'kubevirt_vm_migrating_status_last_transition_timestamp_seconds{name="migrating-vm-1", namespace="ns-test"}'
+        values: "_   _   _   _   0   240 240 240 240 240 240 0"
+      - series: 'kubevirt_vm_migrating_status_last_transition_timestamp_seconds{name="migrating-vm-2", namespace="ns-test"}'
+        values: "_   _   _   0   0   60  60  0   0   0   0   0"
+
+    alert_rule_test:
+      - eval_time: 3m
+        alertname: KubeVirtVMStuckInMigratingState
+        exp_alerts: []
+
+      - eval_time: 4m
+        alertname: KubeVirtVMStuckInMigratingState
+        exp_alerts: []
+
+      - eval_time: 8m
+        alertname: KubeVirtVMStuckInMigratingState
+        exp_alerts: []
+
+      - eval_time: 10m
+        alertname: KubeVirtVMStuckInMigratingState
+        exp_alerts:
+          - exp_annotations:
+              description: "VirtualMachine migrating-vm-1 is in migrating state for 6m 0s"
+              summary: "A Virtual Machine has been in an unwanted migrating state for more than 5 minutes"
+              runbook_url: "https://kubevirt.io/monitoring/runbooks/KubeVirtVMStuckInMigratingState"
+            exp_labels:
+              severity: "warning"
+              kubernetes_operator_part_of: "kubevirt"
+              kubernetes_operator_component: "kubevirt"
+              name: "migrating-vm-1"
+              namespace: "ns-test"
+
+      - eval_time: 11m
+        alertname: KubeVirtVMStuckInMigratingState
+        exp_alerts: []
+
+  - interval: 1m
+    input_series:
+      # time:  0   1   2   3   4   5   6   7   8   9   10  11
+      - series: 'kubevirt_vm_error_status_last_transition_timestamp_seconds{name="error-vm-1", namespace="ns-test"}'
+        values: "_   _   _   _   0   240 240 240 240 240 240 0"
+      - series: 'kubevirt_vm_error_status_last_transition_timestamp_seconds{name="error-vm-2", namespace="ns-test"}'
+        values: "_   _   _   0   0   60  60  0   0   0   0   0"
+
+    alert_rule_test:
+      - eval_time: 3m
+        alertname: KubeVirtVMStuckInErrorState
+        exp_alerts: []
+
+      - eval_time: 4m
+        alertname: KubeVirtVMStuckInErrorState
+        exp_alerts: []
+
+      - eval_time: 8m
+        alertname: KubeVirtVMStuckInErrorState
+        exp_alerts: []
+
+      - eval_time: 10m
+        alertname: KubeVirtVMStuckInErrorState
+        exp_alerts:
+          - exp_annotations:
+              description: "VirtualMachine error-vm-1 is in error state for 6m 0s"
+              summary: "A Virtual Machine has been in an unwanted error state for more than 5 minutes"
+              runbook_url: "https://kubevirt.io/monitoring/runbooks/KubeVirtVMStuckInErrorState"
+            exp_labels:
+              severity: "warning"
+              kubernetes_operator_part_of: "kubevirt"
+              kubernetes_operator_component: "kubevirt"
+              name: "error-vm-1"
+              namespace: "ns-test"
+
+      - eval_time: 11m
+        alertname: KubeVirtVMStuckInErrorState
+        exp_alerts: []
