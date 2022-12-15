@@ -2330,6 +2330,14 @@ func validateDisks(field *k8sfield.Path, disks []v1.Disk) []metav1.StatusCause {
 					})
 
 				}
+				// sata disks (in contrast to sata cdroms) don't support readOnly
+				if disk.Disk != nil && bus == v1.DiskBusSATA && disk.Disk.ReadOnly {
+					causes = append(causes, metav1.StatusCause{
+						Type:    metav1.CauseTypeFieldValueInvalid,
+						Message: fmt.Sprintf("%s hard-disks do not support read-only.", bus),
+						Field:   field.Index(idx).Child("disk", "bus").String(),
+					})
+				}
 			}
 
 			// Reject defining DedicatedIOThread to a disk with SATA bus since this configuration
