@@ -846,7 +846,7 @@ func (c *MigrationController) handleTargetPodHandoff(migration *virtv1.VirtualMa
 			return err
 		}
 
-		if !isPrivileged {
+		if !isPrivileged && !c.clusterConfig.PSASeccompAllowsUserfaultfd() {
 			vmiCopy.Status.MigrationState.MigrationConfiguration.AllowPostCopy = pointer.Bool(false)
 			log.Log.Object(vmi).Warningf("PostCopy disabled for migration %s/%s as the namespace is not privileged", migration.Namespace, migration.Name)
 			c.recorder.Eventf(migration, k8sv1.EventTypeWarning, WarningPostCopyNotAllowed, "Disabled PostCopy as the namespace is not privileged.")

@@ -53,6 +53,8 @@ const (
 	DockerSELinuxMCSWorkaround = "DockerSELinuxMCSWorkaround"
 	PSA                        = "PSA"
 	VSOCKGate                  = "VSOCK"
+	// PSASeccompAllowsUserfaultfd tells us that the seccomp policy on the nodes allow the userfaultfd syscall, which is needed for post-copy migrations
+	PSASeccompAllowsUserfaultfd = "PSASeccompAllowsUserfaultfd"
 )
 
 var deprecatedFeatureGates = [...]string{
@@ -180,10 +182,10 @@ func (config *ClusterConfig) DockerSELinuxMCSWorkaroundEnabled() bool {
 	return config.isFeatureGateEnabled(DockerSELinuxMCSWorkaround)
 }
 
-func (config *ClusterConfig) PSAEnabled() bool {
-	return config.isFeatureGateEnabled(PSA)
-}
-
 func (config *ClusterConfig) VSOCKEnabled() bool {
 	return config.isFeatureGateEnabled(VSOCKGate)
+}
+
+func (config *ClusterConfig) PSASeccompAllowsUserfaultfd() bool {
+	return config.isFeatureGateEnabled(PSASeccompAllowsUserfaultfd)
 }

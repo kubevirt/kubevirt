@@ -81,6 +81,7 @@ const qemuTimeoutJitterRange = 120
 
 const (
 	CAP_NET_BIND_SERVICE = "NET_BIND_SERVICE"
+	CAP_NET_RAW          = "NET_RAW"
 	CAP_SYS_NICE         = "SYS_NICE"
 )
 
@@ -261,8 +262,9 @@ func (t *templateService) RenderMigrationManifest(vmi *v1.VirtualMachineInstance
 		return nil, err
 	}
 
-	// PostCopy needs the userfaultfd syscall which is restricted in the RuntimeDefault seccomp profile
-	if migrationConfiguration.AllowPostCopy != nil && *migrationConfiguration.AllowPostCopy {
+	// PostCopy needs the userfaultfd syscall which can be restricted in the RuntimeDefault seccomp profile
+	if migrationConfiguration.AllowPostCopy != nil && *migrationConfiguration.AllowPostCopy &&
+		!t.clusterConfig.PSASeccompAllowsUserfaultfd() {
 		podManifest.Spec.SecurityContext.SeccompProfile.Type = k8sv1.SeccompProfileTypeUnconfined
 	}
 	return podManifest, err

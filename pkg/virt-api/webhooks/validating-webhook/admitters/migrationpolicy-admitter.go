@@ -24,6 +24,8 @@ import (
 	"encoding/json"
 	"fmt"
 
+	virtconfig "kubevirt.io/kubevirt/pkg/virt-config"
+
 	k8sfield "k8s.io/apimachinery/pkg/util/validation/field"
 
 	"kubevirt.io/api/migrations"
@@ -41,13 +43,15 @@ import (
 
 // MigrationPolicyAdmitter validates VirtualMachineSnapshots
 type MigrationPolicyAdmitter struct {
-	Client kubecli.KubevirtClient
+	ClusterConfig *virtconfig.ClusterConfig
+	Client        kubecli.KubevirtClient
 }
 
 // NewMigrationPolicyAdmitter creates a MigrationPolicyAdmitter
-func NewMigrationPolicyAdmitter(client kubecli.KubevirtClient) *MigrationPolicyAdmitter {
+func NewMigrationPolicyAdmitter(clusterConfig *virtconfig.ClusterConfig, client kubecli.KubevirtClient) *MigrationPolicyAdmitter {
 	return &MigrationPolicyAdmitter{
-		Client: client,
+		ClusterConfig: clusterConfig,
+		Client:        client,
 	}
 }
 
@@ -99,7 +103,7 @@ func (admitter *MigrationPolicyAdmitter) Admit(ar *admissionv1.AdmissionReview) 
 			return webhookutils.ToAdmissionResponseError(err)
 		}
 
-		if !psa.IsNamespacePrivileged(namespace) {
+		if !admitter.ClusterConfig.PSASeccompAllowsUserfaultfd() && !psa.IsNamespacePrivileged(namespace) {
 			causes = append(causes, metav1.StatusCause{
 				Type:    metav1.CauseTypeFieldValueInvalid,
 				Message: "PostCopy is not allowed if the namespace is unprivileged",
