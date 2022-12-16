@@ -116,6 +116,10 @@ function _add_common_params() {
         params=" --enable-istio $params"
     fi
 
+     if [ $KUBEVIRT_PSA == "true" ]; then
+        params=" --enable-psa $params"
+    fi
+
     if [ $KUBEVIRT_DEPLOY_NFS_CSI == "true" ]; then
         params=" --enable-nfs-csi $params"
     fi
@@ -145,6 +149,10 @@ function _add_common_params() {
 
     if [ -n "$KUBEVIRT_REALTIME_SCHEDULER" ]; then
         params=" --enable-realtime-scheduler $params"
+    fi
+
+    if [ -n "$KUBEVIRT_FIPS" ]; then
+        params=" --enable-fips $params"
     fi
 
     if [ -n "$KUBEVIRTCI_PROXY" ]; then
