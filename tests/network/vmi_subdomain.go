@@ -56,7 +56,7 @@ var _ = SIGDescribe("Subdomain", func() {
 		Expect(err).NotTo(HaveOccurred(), "Should successfully initialize an API client")
 
 		// Should be skipped as long as masquerade binding doesn't have dhcpv6 + ra (issue- https://github.com/kubevirt/kubevirt/issues/7184)
-		libnet.SkipWhenClusterNotSupportIpv4(virtClient)
+		libnet.SkipWhenClusterNotSupportIpv4()
 	})
 
 	Context("with a headless service given", func() {

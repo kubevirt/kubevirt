@@ -252,7 +252,7 @@ var _ = SIGDescribe("Macvtap", func() {
 
 			BeforeEach(func() {
 				// TODO test also the IPv6 address (issue- https://github.com/kubevirt/kubevirt/issues/7506)
-				libnet.SkipWhenClusterNotSupportIpv4(virtClient)
+				libnet.SkipWhenClusterNotSupportIpv4()
 				Expect(libnet.PingFromVMConsole(clientVMI, serverIP)).To(Succeed(), "connectivity is expected *before* migrating the VMI")
 			})
 

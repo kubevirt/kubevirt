@@ -192,7 +192,7 @@ var _ = SIGDescribe("[Serial]Multus", Serial, func() {
 		Context("VirtualMachineInstance with cni ptp plugin interface", func() {
 			var networkData string
 			BeforeEach(func() {
-				libnet.SkipWhenClusterNotSupportIpv4(virtClient)
+				libnet.SkipWhenClusterNotSupportIpv4()
 				networkData, err = libnet.NewNetworkData(
 					libnet.WithEthernet("eth0",
 						libnet.WithDHCP4Enabled(),
@@ -279,7 +279,7 @@ var _ = SIGDescribe("[Serial]Multus", Serial, func() {
 
 		Context("VirtualMachineInstance with multus network as default network", func() {
 			It("[test_id:1751]should create a virtual machine with one interface with multus default network definition", func() {
-				libnet.SkipWhenClusterNotSupportIpv4(virtClient)
+				libnet.SkipWhenClusterNotSupportIpv4()
 				networkData, err := libnet.NewNetworkData(
 					libnet.WithEthernet("eth0",
 						libnet.WithDHCP4Enabled(),

@@ -109,10 +109,10 @@ var _ = SIGDescribe("[rfe_id:253][crit:medium][vendor:cnv-qe@redhat.com][level:c
 
 	skipIfNotSupportedCluster := func(ipFamily ipFamily) {
 		if includesIpv4(ipFamily) {
-			libnet.SkipWhenClusterNotSupportIpv4(virtClient)
+			libnet.SkipWhenClusterNotSupportIpv4()
 		}
 		if inlcudesIpv6(ipFamily) {
-			libnet.SkipWhenClusterNotSupportIpv6(virtClient)
+			libnet.SkipWhenClusterNotSupportIpv6()
 		}
 		if isDualStack(ipFamily) {
 			checks.SkipIfVersionBelow("Dual stack service requires v1.20 and above", "1.20")
@@ -327,7 +327,7 @@ var _ = SIGDescribe("[rfe_id:253][crit:medium][vendor:cnv-qe@redhat.com][level:c
 				checks.SkipIfVersionBelow("IPFamilyPolicy property on a service requires v1.20 and above", "1.20")
 
 				if ipFamiyPolicy == k8sv1.IPFamilyPolicyRequireDualStack {
-					libnet.SkipWhenNotDualStackCluster(virtClient)
+					libnet.SkipWhenNotDualStackCluster()
 				}
 
 				calcNumOfClusterIPs := func() int {
@@ -335,7 +335,7 @@ var _ = SIGDescribe("[rfe_id:253][crit:medium][vendor:cnv-qe@redhat.com][level:c
 					case k8sv1.IPFamilyPolicySingleStack:
 						return 1
 					case k8sv1.IPFamilyPolicyPreferDualStack:
-						isClusterDualStack, err := cluster.DualStack(virtClient)
+						isClusterDualStack, err := cluster.DualStack()
 						ExpectWithOffset(1, err).NotTo(HaveOccurred(), "should have been able to infer if the cluster is dual stack")
 						if isClusterDualStack {
 							return 2

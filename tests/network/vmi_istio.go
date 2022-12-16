@@ -132,7 +132,7 @@ var istioTests = func(vmType VmType) {
 			virtClient, err = kubecli.GetKubevirtClient()
 			util.PanicOnError(err)
 
-			libnet.SkipWhenClusterNotSupportIpv4(virtClient)
+			libnet.SkipWhenClusterNotSupportIpv4()
 
 			By("Create NetworkAttachmentDefinition")
 			nad := generateIstioCNINetworkAttachmentDefinition()
