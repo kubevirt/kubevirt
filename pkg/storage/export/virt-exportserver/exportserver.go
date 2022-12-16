@@ -526,7 +526,8 @@ func vmHandler(filePath string, vi []VolumeInfo) http.Handler {
 			if err != nil {
 				if errors.Is(err, os.ErrNotExist) {
 					log.Log.Reason(err).Info("external path information not found")
-					w.WriteHeader(http.StatusInternalServerError)
+					// No external link data supplied by controller
+					w.WriteHeader(http.StatusNotFound)
 				} else {
 					log.Log.Reason(err).Error("error reading external path")
 					w.WriteHeader(http.StatusInternalServerError)

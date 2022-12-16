@@ -146,9 +146,12 @@ func (app *exportProxyApp) proxyHandler(w http.ResponseWriter, r *http.Request) 
 
 	p := &httputil.ReverseProxy{
 		Director: func(req *http.Request) {
+			query := req.URL.Query()
+			query.Set("externalURI", "true")
 			req.URL.Scheme = "https"
 			req.URL.Host = host
 			req.URL.Path = targetPath
+			req.URL.RawQuery = query.Encode()
 			log.Log.Infof("Proxying to %s", req.URL.String())
 			if _, ok := req.Header["User-Agent"]; !ok {
 				// explicitly disable User-Agent so it's not set to default value
