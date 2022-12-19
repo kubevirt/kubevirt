@@ -124,6 +124,9 @@ deps-sync:
 rpm-deps:
 	SYNC_VENDOR=true hack/dockerized "CUSTOM_REPO=${CUSTOM_REPO} SINGLE_ARCH=${SINGLE_ARCH} LIBVIRT_VERSION=${LIBVIRT_VERSION} QEMU_VERSION=${QEMU_VERSION} SEABIOS_VERSION=${SEABIOS_VERSION} EDK2_VERSION=${EDK2_VERSION} LIBGUESTFS_VERSION=${LIBGUESTFS_VERSION} PASST_VERSION=${PASST_VERSION} ./hack/rpm-deps.sh"
 
+bump-images:
+	hack/dockerized "./hack/rpm-deps.sh && ./hack/bump-distroless.sh"
+
 verify-rpm-deps:
 	SYNC_VENDOR=true hack/dockerized " ./hack/verify-rpm-deps.sh"
 

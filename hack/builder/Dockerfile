@@ -41,7 +41,8 @@ RUN dnf install -y dnf-plugins-core && \
         jq \
         wget \
         rubygems \
-        diffutils && \
+        diffutils \
+        skopeo && \
     dnf clean -y all
 
 # Avoids the need to install sssd-client by disabling lookups
