@@ -6,7 +6,7 @@ on:
       - v1.*
 jobs:
   publish_hco:
-    if: (github.repository == 'kubevirt/hyperconverged-cluster-operator')
+    if: (github.repository == 'kubevirt/hyperconverged-cluster-operator' && !contains(github.ref, 'unstable'))
     name: Publish HCO tagged version to community-operators
     runs-on: ubuntu-latest
     env:
