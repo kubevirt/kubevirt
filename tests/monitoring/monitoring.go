@@ -22,7 +22,6 @@ package monitoring
 import (
 	"context"
 	"fmt"
-	"net/http"
 	"regexp"
 	"strconv"
 	"strings"
@@ -643,9 +642,6 @@ var _ = Describe("[Serial][sig-monitoring]Prometheus Alerts", Serial, func() {
 func checkRequiredAnnotations(rule promv1.Rule) {
 	ExpectWithOffset(1, rule.Annotations).To(HaveKeyWithValue("summary", Not(BeEmpty())),
 		fmt.Sprintf("%s summary is missing or empty", rule.Alert))
-	ExpectWithOffset(1, rule.Annotations).To(HaveKeyWithValue("runbook_url", Not(BeEmpty())),
-		fmt.Sprintf("%s runbook_url is missing or empty", rule.Alert))
-	checkRunbookUrlAvailability(rule)
 }
 
 func checkRequiredLabels(rule promv1.Rule) {
@@ -655,10 +651,4 @@ func checkRequiredLabels(rule promv1.Rule) {
 		fmt.Sprintf("%s kubernetes_operator_part_of label is missing or not valid", rule.Alert))
 	ExpectWithOffset(1, rule.Labels).To(HaveKeyWithValue("kubernetes_operator_component", "kubevirt"),
 		fmt.Sprintf("%s kubernetes_operator_component label is missing or not valid", rule.Alert))
-}
-
-func checkRunbookUrlAvailability(rule promv1.Rule) {
-	resp, err := http.Head(rule.Annotations["runbook_url"])
-	ExpectWithOffset(2, err).ToNot(HaveOccurred(), fmt.Sprintf("%s runbook is not available", rule.Alert))
-	ExpectWithOffset(2, resp.StatusCode).Should(Equal(http.StatusOK), fmt.Sprintf("%s runbook is not available", rule.Alert))
 }
