@@ -21,7 +21,6 @@ package network
 
 import (
 	"context"
-	"fmt"
 	"time"
 
 	"kubevirt.io/kubevirt/tests/framework/kubevirt"
@@ -29,7 +28,6 @@ import (
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
 
-	nadv1 "github.com/k8snetworkplumbingwg/network-attachment-definition-client/pkg/apis/k8s.cni.cncf.io/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 
 	kvirtv1 "kubevirt.io/api/core/v1"
@@ -40,6 +38,7 @@ import (
 	network "kubevirt.io/kubevirt/pkg/network/setup"
 	netvmispec "kubevirt.io/kubevirt/pkg/network/vmispec"
 	"kubevirt.io/kubevirt/tests/framework/matcher"
+	"kubevirt.io/kubevirt/tests/libnet"
 	"kubevirt.io/kubevirt/tests/libvmi"
 	"kubevirt.io/kubevirt/tests/libwait"
 	"kubevirt.io/kubevirt/tests/util"
@@ -74,7 +73,7 @@ var _ = SIGDescribe("Infosource", func() {
 
 		BeforeEach(func() {
 			By("Create NetworkAttachmentDefinition")
-			Expect(createNAD(virtClient, util.NamespaceTestDefault, nadName)).To(Succeed())
+			Expect(libnet.CreateNAD(util.NamespaceTestDefault, nadName)).To(Succeed())
 
 			defaultBridgeInterface := libvmi.InterfaceDeviceWithBridgeBinding(primaryNetwork)
 			secondaryLinuxBridgeInterface1 := libvmi.InterfaceDeviceWithBridgeBinding(secondaryNetwork1.Name)
@@ -163,16 +162,6 @@ var _ = SIGDescribe("Infosource", func() {
 	})
 })
 
-func newNetworkAttachmentDefinition(networkName string) *nadv1.NetworkAttachmentDefinition {
-	config := fmt.Sprintf(`{"cniVersion": "0.3.1", "name": "%s", "type": "cnv-bridge", "bridge": "%s"}`, networkName, networkName)
-	return &nadv1.NetworkAttachmentDefinition{
-		ObjectMeta: metav1.ObjectMeta{
-			Name: networkName,
-		},
-		Spec: nadv1.NetworkAttachmentDefinitionSpec{Config: config},
-	}
-}
-
 func dummyInterfaceExists(vmi *kvirtv1.VirtualMachineInstance) bool {
 	for i := range vmi.Status.Interfaces {
 		if vmi.Status.Interfaces[i].InterfaceName == dummyInterfaceName {
@@ -180,12 +169,6 @@ func dummyInterfaceExists(vmi *kvirtv1.VirtualMachineInstance) bool {
 		}
 	}
 	return false
-}
-
-func createNAD(virtClient kubecli.KubevirtClient, namespace, nadName string) error {
-	nadSpec := newNetworkAttachmentDefinition(nadName)
-	_, err := virtClient.NetworkClient().K8sCniCncfIoV1().NetworkAttachmentDefinitions(namespace).Create(context.TODO(), nadSpec, metav1.CreateOptions{})
-	return err
 }
 
 func manipulateGuestLinksScript(eth0NewMac, dummyInterfaceMac string) string {
