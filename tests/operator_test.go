@@ -82,6 +82,7 @@ import (
 	"kubevirt.io/kubevirt/tests/framework/checks"
 	"kubevirt.io/kubevirt/tests/framework/matcher"
 	. "kubevirt.io/kubevirt/tests/framework/matcher"
+	"kubevirt.io/kubevirt/tests/libnet"
 	"kubevirt.io/kubevirt/tests/libstorage"
 	"kubevirt.io/kubevirt/tests/libwait"
 	"kubevirt.io/kubevirt/tests/testsuite"
@@ -736,6 +737,29 @@ var _ = Describe("[Serial][sig-operator]Operator", Serial, decorators.SigOperato
 
 				vmis = append(vmis, vmi)
 			}
+
+			lastVMIIndex := len(vmis) - 1
+			vmi := vmis[lastVMIIndex]
+			const nadName = "secondarynet"
+
+			Expect(libnet.CreateNAD(virtClient, vmi.GetNamespace(), nadName)).To(Succeed())
+
+			vmi.Spec.Domain.Devices.Interfaces = append(
+				vmi.Spec.Domain.Devices.Interfaces,
+				v1.Interface{
+					Name:                   "tenant-blue",
+					InterfaceBindingMethod: v1.InterfaceBindingMethod{Bridge: &v1.InterfaceBridge{}},
+				},
+			)
+			vmi.Spec.Networks = append(
+				vmi.Spec.Networks,
+				v1.Network{
+					Name: "tenant-blue",
+					NetworkSource: v1.NetworkSource{Multus: &v1.MultusNetwork{
+						NetworkName: nadName,
+					}},
+				},
+			)
 
 			return vmis
 		}
