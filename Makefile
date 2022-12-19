@@ -15,6 +15,11 @@ bazel-generate:
 bazel-build:
 	hack/dockerized "export BUILD_ARCH=${BUILD_ARCH} && export DOCKER_TAG=${DOCKER_TAG} && hack/bazel-fmt.sh && hack/bazel-build.sh"
 
+bazel-build-functests:
+	hack/dockerized "hack/bazel-fmt.sh && hack/bazel-build-functests.sh"
+
+build-functests: bazel-build-functests
+
 bazel-build-image-bundle:
 	hack/dockerized "export BUILD_ARCH=${BUILD_ARCH} && hack/bazel-fmt.sh && DOCKER_PREFIX=${DOCKER_PREFIX} DOCKER_TAG=${DOCKER_TAG} IMAGE_PREFIX=${IMAGE_PREFIX} hack/bazel-build-image-bundle.sh"
 
@@ -56,6 +61,9 @@ client-python:
 go-build:
 	hack/dockerized "export KUBEVIRT_NO_BAZEL=true && KUBEVIRT_VERSION=${KUBEVIRT_VERSION} KUBEVIRT_GO_BUILD_TAGS=${KUBEVIRT_GO_BUILD_TAGS} ./hack/build-go.sh install ${WHAT}" && ./hack/build-copy-artifacts.sh ${WHAT}
 
+go-build-functests:
+	hack/dockerized "export KUBEVIRT_NO_BAZEL=true && KUBEVIRT_GO_BUILD_TAGS=${KUBEVIRT_GO_BUILD_TAGS} ./hack/go-build-functests.sh"
+
 gosec:
 	hack/dockerized "GOSEC=${GOSEC} ARTIFACTS=${ARTIFACTS} ./hack/gosec.sh"
 
@@ -69,9 +77,6 @@ go-test: go-build
 	SYNC_OUT=false hack/dockerized "export KUBEVIRT_NO_BAZEL=true && KUBEVIRT_GO_BUILD_TAGS=${KUBEVIRT_GO_BUILD_TAGS} ./hack/build-go.sh test ${WHAT}"
 
 test: bazel-test
-
-build-functests:
-	hack/dockerized "hack/bazel-fmt.sh && hack/build-func-tests.sh"
 
 functest: build-functests
 	hack/functests.sh
