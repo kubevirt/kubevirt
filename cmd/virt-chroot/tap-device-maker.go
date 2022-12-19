@@ -13,7 +13,10 @@ import (
 
 func createTapDevice(name string, owner uint, group uint, queueNumber int, mtu int) error {
 	tapDevice := &netlink.Tuntap{
-		LinkAttrs:  netlink.LinkAttrs{Name: name},
+		LinkAttrs: netlink.LinkAttrs{
+			Name: name,
+			MTU:  mtu,
+		},
 		Mode:       unix.IFF_TAP,
 		NonPersist: false,
 		Queues:     queueNumber,
@@ -38,10 +41,6 @@ func createTapDevice(name string, owner uint, group uint, queueNumber int, mtu i
 	})
 	if err != nil {
 		return fmt.Errorf("failed to create tap device named %s. Reason: %v", name, err)
-	}
-
-	if err := netlink.LinkSetMTU(tapDevice, mtu); err != nil {
-		return fmt.Errorf("failed to set MTU on tap device named %s. Reason: %v", name, err)
 	}
 
 	fmt.Printf("Successfully created tap device %s, attempt %d\n", name, attempt)
