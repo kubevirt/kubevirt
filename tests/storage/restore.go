@@ -1711,8 +1711,8 @@ var _ = SIGDescribe("VirtualMachineRestore Tests", func() {
 					}
 					Expect(foundMemoryDump).To(BeFalse())
 				},
-					Entry("to the same VM", false),
-					Entry("to a new VM", true),
+					Entry("[test_id:8923]to the same VM", false),
+					Entry("[test_id:8924]to a new VM", true),
 				)
 			})
 
