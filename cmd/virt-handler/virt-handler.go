@@ -34,6 +34,7 @@ import (
 	"time"
 
 	kvtls "kubevirt.io/kubevirt/pkg/util/tls"
+	"kubevirt.io/kubevirt/pkg/virt-handler/seccomp"
 	"kubevirt.io/kubevirt/pkg/virt-handler/vsock"
 
 	"github.com/emicklei/go-restful"
@@ -137,6 +138,7 @@ type virtHandlerApp struct {
 	VirtPrivateDir            string
 	VirtLibDir                string
 	KubeletPodsDir            string
+	KubeletRoot               string
 	WatchdogTimeoutDuration   time.Duration
 	MaxDevices                int
 	MaxRequestsInFlight       int
@@ -308,6 +310,7 @@ func (app *virtHandlerApp) Run() {
 	// set log verbosity
 	app.clusterConfig.SetConfigModifiedCallback(app.shouldChangeLogVerbosity)
 	app.clusterConfig.SetConfigModifiedCallback(app.shouldChangeRateLimiter)
+	app.clusterConfig.SetConfigModifiedCallback(app.shouldInstallKubevirtSeccompProfile)
 	app.clusterConfig.SetConfigModifiedCallback(app.shouldInstallSELinuxPolicy)
 
 	if err := app.setupTLS(factory); err != nil {
@@ -419,7 +422,7 @@ func (app *virtHandlerApp) Run() {
 		panic(fmt.Errorf("failed to detect the presence of selinux: %v", err))
 	}
 
-	cache.WaitForCacheSync(stop, vmiSourceInformer.HasSynced, factory.CRD().HasSynced)
+	cache.WaitForCacheSync(stop, vmiSourceInformer.HasSynced, factory.CRD().HasSynced, factory.KubeVirt().HasSynced)
 
 	go vmController.Run(10, stop)
 
@@ -519,6 +522,23 @@ func (app *virtHandlerApp) shouldInstallSELinuxPolicy() {
 	}
 }
 
+// Update virt-handler rate limiter
+func (app *virtHandlerApp) shouldInstallKubevirtSeccompProfile() {
+	enabled := app.clusterConfig.KubevirtSeccompProfileEnabled()
+	if !enabled {
+		log.DefaultLogger().Info("Kubevirt Seccomp profile is not enabled")
+		return
+	}
+
+	installPath := filepath.Join("/proc/1/root", app.KubeletRoot)
+	if err := seccomp.InstallPolicy(installPath); err != nil {
+		log.DefaultLogger().Errorf("Failed to install Kubevirt Seccomp profile, %v", err)
+		return
+	}
+	log.DefaultLogger().Infof("Kubevirt Seccomp profile was installed at %s", installPath)
+
+}
+
 func (app *virtHandlerApp) runPrometheusServer(errCh chan error) {
 	mux := restful.NewContainer()
 	webService := new(restful.WebService)
@@ -591,6 +611,9 @@ func (app *virtHandlerApp) AddFlags() {
 
 	flag.StringVar(&app.KubeletPodsDir, "kubelet-pods-dir", util.KubeletPodsDir,
 		"Path for pod directory (matching host's path for kubelet root)")
+
+	flag.StringVar(&app.KubeletRoot, "kubelet-root", util.KubeletRoot,
+		"Path for Kubelet root")
 
 	flag.StringVar(&app.caConfigMapName, "ca-configmap-name", defaultCAConfigMapName,
 		"The name of configmap containing CA certificates to authenticate requests presenting client certificates with matching CommonName")
