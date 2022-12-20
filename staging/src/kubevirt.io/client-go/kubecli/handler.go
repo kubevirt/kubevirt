@@ -214,25 +214,34 @@ func (v *virtHandlerConn) Pod() (pod *v1.Pod, err error) {
 	return v.pod, err
 }
 
+func (v *virtHandlerConn) doRequest(req *http.Request) (response string, err error) {
+	resp, err := v.httpClient.Do(req)
+	if err != nil {
+		return
+	}
+	defer resp.Body.Close()
+
+	if resp.StatusCode < 200 || resp.StatusCode > 299 {
+		return "", fmt.Errorf("unexpected return code %d (%s)", resp.StatusCode, resp.Status)
+	}
+
+	responseBytes, err := io.ReadAll(resp.Body)
+	if err != nil {
+		return "", fmt.Errorf("cannot read response body %v", err)
+	}
+
+	return string(responseBytes), nil
+}
+
 func (v *virtHandlerConn) Put(url string, body io.ReadCloser) error {
 	req, err := http.NewRequest(http.MethodPut, url, body)
 	if err != nil {
 		return err
 	}
 
-	resp, err := v.httpClient.Do(req)
+	_, err = v.doRequest(req)
 	if err != nil {
 		return err
-	}
-	defer resp.Body.Close()
-
-	if resp.StatusCode < 200 || resp.StatusCode > 299 {
-		return fmt.Errorf("unexpected return code %s", resp.Status)
-	}
-
-	_, err = io.ReadAll(resp.Body)
-	if err != nil {
-		return fmt.Errorf("cannot read get body %s", resp.Status)
 	}
 
 	return nil
@@ -245,24 +254,12 @@ func (v *virtHandlerConn) Get(url string) (string, error) {
 	}
 
 	req.Header.Add("Accept", "application/json")
-	resp, err := v.httpClient.Do(req)
+	response, err := v.doRequest(req)
 	if err != nil {
 		return "", err
 	}
 
-	if resp.StatusCode < 200 || resp.StatusCode > 299 {
-		return "", fmt.Errorf("unexpected return code %s", resp.Status)
-	}
-
-	defer resp.Body.Close()
-	responseData, err := io.ReadAll(resp.Body)
-	if err != nil {
-		return "", fmt.Errorf("cannot read get body %s", resp.Status)
-	}
-
-	responseString := string(responseData)
-
-	return responseString, nil
+	return response, nil
 }
 
 func (v *virtHandlerConn) GuestInfoURI(vmi *virtv1.VirtualMachineInstance) (string, error) {
