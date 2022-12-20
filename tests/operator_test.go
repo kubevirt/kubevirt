@@ -30,10 +30,9 @@ import (
 	"os"
 	"os/exec"
 	"path/filepath"
-	"strconv"
-
 	"regexp"
 	"sort"
+	"strconv"
 	"strings"
 	"time"
 
@@ -59,6 +58,8 @@ import (
 	"k8s.io/client-go/util/retry"
 	aggregatorclient "k8s.io/kube-aggregator/pkg/client/clientset_generated/clientset"
 	"k8s.io/utils/pointer"
+
+	"kubevirt.io/kubevirt/tests/libvmi"
 
 	v1 "kubevirt.io/api/core/v1"
 	snapshotv1 "kubevirt.io/api/snapshot/v1alpha1"
@@ -2627,9 +2628,29 @@ spec:
 		It("[test_id:4928]should dynamically update workloads config", func() {
 			labelKey := "kubevirt-test"
 			labelValue := "test-label"
+
+			affinity := &k8sv1.Affinity{
+				NodeAffinity: &k8sv1.NodeAffinity{
+					PreferredDuringSchedulingIgnoredDuringExecution: []k8sv1.PreferredSchedulingTerm{
+						{
+							Weight: 4,
+							Preference: k8sv1.NodeSelectorTerm{
+								MatchExpressions: []k8sv1.NodeSelectorRequirement{
+									{
+										Key:      "someting",
+										Operator: "In",
+										Values:   []string{"value"},
+									},
+								},
+							},
+						},
+					},
+				},
+			}
 			workloads := v1.ComponentConfig{
 				NodePlacement: &v1.NodePlacement{
 					NodeSelector: map[string]string{labelKey: labelValue},
+					Affinity:     affinity,
 				},
 			}
 			patchKvWorkloads(&workloads, false, "")
@@ -2643,6 +2664,32 @@ spec:
 				return true
 			}, 60*time.Second, 1*time.Second).Should(BeTrue())
 
+			vmi := libvmi.NewCirros()
+			vmi, err := virtClient.VirtualMachineInstance(util2.NamespaceTestDefault).Create(vmi)
+			Expect(err).ToNot(HaveOccurred())
+			// It can happen that the heartbeat did not mark a node unschedulable
+			// If we get scheduled to a node where virt-handler ran before, we may get evicted from the kubelet
+			// The VMI will go to failed. This is still fine for us, we just want to check if our preferred affinity got added.
+			Eventually(ThisVMI(vmi)).Should(Or(HavePhase(v1.Scheduling), HavePhase(v1.Scheduled), HavePhase(v1.Running), HavePhase(v1.Failed)))
+			pod := tests.GetPodByVirtualMachineInstance(vmi)
+
+			expectedNodeAffinity := affinity.NodeAffinity.DeepCopy()
+
+			// We can also check that the affinity gets merged with other affinity constraints from virt-controller
+			expectedNodeAffinity.RequiredDuringSchedulingIgnoredDuringExecution = &k8sv1.NodeSelector{
+				NodeSelectorTerms: []k8sv1.NodeSelectorTerm{
+					{
+						MatchExpressions: []k8sv1.NodeSelectorRequirement{
+							{
+								Key:      "node-labeller.kubevirt.io/obsolete-host-model",
+								Operator: "DoesNotExist",
+								Values:   nil,
+							},
+						},
+					},
+				},
+			}
+			Expect(pod.Spec.Affinity.NodeAffinity).To(Equal(expectedNodeAffinity))
 			patchKvWorkloads(nil, false, "")
 		})
 
