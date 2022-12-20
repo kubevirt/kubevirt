@@ -520,7 +520,8 @@ func (app *virtHandlerApp) runServer(errCh chan error, consoleHandler *rest.Cons
 		Addr:    fmt.Sprintf("%s:%d", app.ServiceListen.BindAddress, app.consoleServerPort),
 		Handler: restful.DefaultContainer,
 		// we use migration TLS also for console connections (initiated by virt-api)
-		TLSConfig: app.serverTLSConfig,
+		TLSConfig:   app.serverTLSConfig,
+		IdleTimeout: 60 * time.Second,
 	}
 	errCh <- server.ListenAndServeTLS("", "")
 }
