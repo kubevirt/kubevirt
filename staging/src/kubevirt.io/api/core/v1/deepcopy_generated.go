@@ -4311,6 +4311,13 @@ func (in *VirtualMachineInstanceMigrationState) DeepCopyInto(out *VirtualMachine
 		*out = make([]int, len(*in))
 		copy(*out, *in)
 	}
+	if in.VmToPodIfaceMapping != nil {
+		in, out := &in.VmToPodIfaceMapping, &out.VmToPodIfaceMapping
+		*out = make(map[string]string, len(*in))
+		for key, val := range *in {
+			(*out)[key] = val
+		}
+	}
 	return
 }
 

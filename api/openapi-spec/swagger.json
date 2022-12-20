@@ -18726,6 +18726,13 @@
      "targetPod": {
       "description": "The target pod that the VMI is moving to",
       "type": "string"
+     },
+     "vmToPodIfaceMapping": {
+      "description": "Holds the association between the VMI and pod interface names",
+      "type": "object",
+      "additionalProperties": {
+       "type": "string"
+      }
      }
     }
    },

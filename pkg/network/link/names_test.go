@@ -32,7 +32,7 @@ var _ = Describe("Common Methods", func() {
 			Expect(virtnetlink.GenerateTapDeviceName("eth0")).To(Equal("tap0"))
 		})
 		It("Should return another tap device name with one digits suffix", func() {
-			Expect(virtnetlink.GenerateTapDeviceName("net1")).To(Equal("tap1"))
+			Expect(virtnetlink.GenerateTapDeviceName("net1")).To(Equal("tapnet1"))
 		})
 		It("Should return a tap device name with three digits suffix", func() {
 			Expect(virtnetlink.GenerateTapDeviceName("eth123")).To(Equal("tap123"))

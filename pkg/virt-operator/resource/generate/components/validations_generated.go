@@ -11019,6 +11019,12 @@ var CRDsValidation map[string]string = map[string]string{
             targetPod:
               description: The target pod that the VMI is moving to
               type: string
+            vmToPodIfaceMapping:
+              additionalProperties:
+                type: string
+              description: Holds the association between the VMI and pod interface
+                names
+              type: object
           type: object
         migrationTransport:
           description: This represents the migration transport

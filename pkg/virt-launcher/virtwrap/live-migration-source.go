@@ -47,6 +47,7 @@ import (
 	cmdclient "kubevirt.io/kubevirt/pkg/virt-handler/cmd-client"
 	migrationproxy "kubevirt.io/kubevirt/pkg/virt-handler/migration-proxy"
 
+	virtnetlink "kubevirt.io/kubevirt/pkg/network/link"
 	"kubevirt.io/kubevirt/pkg/virt-launcher/virtwrap/cli"
 	"kubevirt.io/kubevirt/pkg/virt-launcher/virtwrap/device/hostdevice"
 	"kubevirt.io/kubevirt/pkg/virt-launcher/virtwrap/device/hostdevice/sriov"
@@ -254,6 +255,16 @@ func shouldOverrideForDedicatedCPUTarget(section []string, strict bool) bool {
 	return false
 }
 
+func shouldOverrideForInterfaceTargetNames(section []string, strict bool) bool {
+	if (!strict || len(section) == 2) &&
+		len(section) >= 2 &&
+		section[0] == "domain" &&
+		section[1] == "devices" {
+		return true
+	}
+	return false
+}
+
 // This returns domain xml without the migration metadata section, as it is only relevant to the source domain
 // Note: Unfortunately we can't just use UnMarshall + Marshall here, as that leads to unwanted XML alterations
 func migratableDomXML(dom cli.VirDomain, vmi *v1.VirtualMachineInstance, domSpec *api.DomainSpec) (string, error) {
@@ -278,6 +289,19 @@ func migratableDomXML(dom cli.VirDomain, vmi *v1.VirtualMachineInstance, domSpec
 			return "", err
 		}
 		domain, err = generateDomainForTargetCPUSetAndTopology(vmi, domSpec)
+		if err != nil {
+			return "", err
+		}
+	}
+
+	if mustPatchInterfaceTargetNames(vmi) {
+		// We need to replace the old interface target names that were assigned
+		// in the source node with the new interface target names assigned in
+		// the target node
+		if err := xml.Unmarshal([]byte(xmlstr), &domain); err != nil {
+			return "", err
+		}
+		domain, err = generateDomainForUpdatedPodInterfaceNames(vmi, domSpec)
 		if err != nil {
 			return "", err
 		}
@@ -317,6 +341,13 @@ func migratableDomXML(dom cli.VirDomain, vmi *v1.VirtualMachineInstance, domSpec
 					return "", err
 				}
 			}
+
+			if mustPatchInterfaceTargetNames(vmi) && shouldOverrideForInterfaceTargetNames(location, exactLocation) {
+				err = injectNewSection(encoder, domain, location, log.Log.Object(vmi))
+				if err != nil {
+					return "", err
+				}
+			}
 		case xml.EndElement:
 			newLocation = location[:len(location)-1]
 		}
@@ -328,6 +359,10 @@ func migratableDomXML(dom cli.VirDomain, vmi *v1.VirtualMachineInstance, domSpec
 			continue // We're inside domain/metadata/kubevirt/migration, continue will skip elements
 		}
 		if vmi.IsCPUDedicated() && shouldOverrideForDedicatedCPUTarget(location, insideBlock) {
+			continue
+		}
+
+		if mustPatchInterfaceTargetNames(vmi) && shouldOverrideForInterfaceTargetNames(location, insideBlock) {
 			continue
 		}
 
@@ -343,6 +378,10 @@ func migratableDomXML(dom cli.VirDomain, vmi *v1.VirtualMachineInstance, domSpec
 	}
 
 	return string(buf.Bytes()), nil
+}
+
+func mustPatchInterfaceTargetNames(vmi *v1.VirtualMachineInstance) bool {
+	return vmi.Status.MigrationState != nil && len(vmi.Status.MigrationState.VmToPodIfaceMapping) > 0
 }
 
 func (d *migrationDisks) isSharedVolume(name string) bool {
@@ -1077,4 +1116,28 @@ func (l *LibvirtDomainManager) updateVMIMigrationMode(dom cli.VirDomain, vmi *v1
 	defer d.Free()
 
 	return nil
+}
+
+func generateDomainForUpdatedPodInterfaceNames(vmi *v1.VirtualMachineInstance, domSpec *api.DomainSpec) (*api.Domain, error) {
+	domain := api.NewMinimalDomain(vmi.Name)
+	domain.Spec = *domSpec
+
+	if vmi.Status.MigrationState == nil {
+		return nil, fmt.Errorf("provided vmi does not have the migration state set")
+	}
+	interfaceMappingScheme := vmi.Status.MigrationState.VmToPodIfaceMapping
+	for i, iface := range domain.Spec.Devices.Interfaces {
+		if podIfaceName, wasFound := interfaceMappingScheme[iface.Alias.GetName()]; wasFound {
+			domain.Spec.Devices.Interfaces[i].Target = generateInterfaceTargetForPodInterface(podIfaceName)
+		}
+	}
+
+	return domain, nil
+}
+
+func generateInterfaceTargetForPodInterface(podIfaceName string) *api.InterfaceTarget {
+	return &api.InterfaceTarget{
+		Device:  virtnetlink.GenerateTapDeviceName(podIfaceName),
+		Managed: "no",
+	}
 }

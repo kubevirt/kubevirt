@@ -84,6 +84,7 @@ import (
 	"kubevirt.io/kubevirt/pkg/executor"
 	hostdisk "kubevirt.io/kubevirt/pkg/host-disk"
 	neterrors "kubevirt.io/kubevirt/pkg/network/errors"
+	"kubevirt.io/kubevirt/pkg/network/namescheme"
 	pvctypes "kubevirt.io/kubevirt/pkg/storage/types"
 	virtutil "kubevirt.io/kubevirt/pkg/util"
 	virtconfig "kubevirt.io/kubevirt/pkg/virt-config"
@@ -744,6 +745,8 @@ func (d *VirtualMachineController) migrationTargetUpdateVMIStatus(vmi *v1.Virtua
 				return err
 			}
 		}
+
+		vmiCopy.Status.MigrationState.VmToPodIfaceMapping = namescheme.CreateNetworkNameScheme(vmi.Spec.Networks)
 	}
 
 	// update the VMI if necessary

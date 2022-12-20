@@ -31,6 +31,8 @@ import (
 	"sync"
 	"time"
 
+	"kubevirt.io/kubevirt/pkg/network/namescheme"
+
 	"k8s.io/utils/pointer"
 
 	"kubevirt.io/kubevirt/pkg/safepath"
@@ -1690,6 +1692,7 @@ var _ = Describe("VirtualMachineInstance", func() {
 			updatedVmi := vmi.DeepCopy()
 			updatedVmi.Status.MigrationState.TargetNodeAddress = controller.migrationIpAddress
 			updatedVmi.Status.MigrationState.TargetDirectMigrationNodePorts = destSrcPorts
+			updatedVmi.Status.MigrationState.VmToPodIfaceMapping = namescheme.CreateNetworkNameScheme(vmi.Spec.Networks)
 
 			client.EXPECT().Ping()
 			client.EXPECT().SyncMigrationTarget(vmi, gomock.Any())

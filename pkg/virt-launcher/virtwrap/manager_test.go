@@ -2486,6 +2486,89 @@ var _ = Describe("migratableDomXML", func() {
 		By("ensuring the generated XML is accurate")
 		Expect(newXML).To(Equal(expectedXML), "the target XML is not as expected")
 	})
+
+	It("should change the target pod interface names according to migration metadata", func() {
+		domXML := `<domain type="kvm" id="1">
+  <name>kubevirt</name>
+  <metadata>
+    <kubevirt xmlns="http://kubevirt.io">
+      <uid>d38cac9c-435b-42d5-960e-06e8d41146e8</uid>
+      <migration>
+         <uid>d38cac9c-435b-42d5-960e-06e8d41146e8</uid>
+         <failed>false</failed>
+      </migration>
+      <graceperiod>
+        <deletionGracePeriodSeconds>0</deletionGracePeriodSeconds>
+      </graceperiod>
+    </kubevirt>
+  </metadata>
+  <devices>
+    <interface type="ethernet">
+      <target dev="tap0" managed="no"/>
+      <alias name="ua-defaultnet"/>
+    </interface>
+    <interface type="ethernet">
+      <target dev="tap1" managed="no"/>
+      <alias name="ua-tenantnet"/>
+    </interface>
+  </devices>
+</domain>`
+
+		expectedXML := `<domain type="kvm" id="1">
+  <name>kubevirt</name>
+  <metadata>
+    <kubevirt xmlns="http://kubevirt.io">
+      <uid>d38cac9c-435b-42d5-960e-06e8d41146e8</uid>
+      
+      <graceperiod>
+        <deletionGracePeriodSeconds>0</deletionGracePeriodSeconds>
+      </graceperiod>
+    </kubevirt>
+  </metadata>
+  <devices>
+    <interface type="ethernet">
+      <source></source>
+      <target dev="tap0" managed="no"></target>
+      <alias name="ua-defaultnet"></alias>
+    </interface>
+    <interface type="ethernet">
+      <source></source>
+      <target dev="tap1234" managed="no"></target>
+      <alias name="ua-tenantnet"></alias>
+    </interface>
+  </devices>
+</domain>`
+
+		By("creating a VMI with multiple interfaces")
+		vmi := newVMI("testns", "kubevirt")
+		const networkName = "tenantnet"
+		vmi.Spec.Domain.Devices.Interfaces = append(vmi.Spec.Domain.Devices.Interfaces, v1.Interface{
+			Name:                   networkName,
+			InterfaceBindingMethod: v1.InterfaceBindingMethod{Bridge: &v1.InterfaceBridge{}},
+		})
+		vmi.Spec.Networks = append(vmi.Spec.Networks, v1.Network{
+			Name: networkName,
+			NetworkSource: v1.NetworkSource{Multus: &v1.MultusNetwork{
+				NetworkName: networkName,
+			}},
+		})
+
+		By("saving the interface mapping scheme in the VMI status")
+		vmi.Status.MigrationState = &v1.VirtualMachineInstanceMigrationState{
+			VmToPodIfaceMapping: map[string]string{"defaultnetwork": "eth0", networkName: "1234"},
+		}
+
+		By("generated the domain XML for a migration to that target")
+		mockDomain.EXPECT().GetXMLDesc(libvirt.DOMAIN_XML_MIGRATABLE).MaxTimes(1).Return(domXML, nil)
+		domSpec := &api.DomainSpec{}
+		Expect(xml.Unmarshal([]byte(domXML), domSpec)).To(Succeed())
+
+		newXML, err := migratableDomXML(mockDomain, vmi, domSpec)
+		Expect(err).ToNot(HaveOccurred(), "failed to generate target domain XML")
+
+		By("ensuring the generated XML is accurate")
+		Expect(newXML).To(Equal(expectedXML), "the target XML is not as expected")
+	})
 })
 
 var _ = Describe("Manager helper functions", func() {

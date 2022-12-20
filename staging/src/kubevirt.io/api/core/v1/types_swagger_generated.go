@@ -186,6 +186,7 @@ func (VirtualMachineInstanceMigrationState) SwaggerDoc() map[string]string {
 		"migrationConfiguration":         "Migration configurations to apply",
 		"targetCPUSet":                   "If the VMI requires dedicated CPUs, this field will\nhold the dedicated CPU set on the target node\n+listType=atomic",
 		"targetNodeTopology":             "If the VMI requires dedicated CPUs, this field will\nhold the numa topology on the target node",
+		"vmToPodIfaceMapping":            "Holds the association between the VMI and pod interface names",
 	}
 }
 

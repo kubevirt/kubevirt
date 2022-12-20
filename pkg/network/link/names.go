@@ -21,10 +21,11 @@ package link
 
 import (
 	"fmt"
+	"strings"
 )
 
 func GenerateTapDeviceName(podInterfaceName string) string {
-	return "tap" + podInterfaceName[3:]
+	return "tap" + strings.TrimPrefix(podInterfaceName, "eth")
 }
 
 func GenerateNewBridgedVmiInterfaceName(originalPodInterfaceName string) string {

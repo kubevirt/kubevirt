@@ -646,6 +646,8 @@ type VirtualMachineInstanceMigrationState struct {
 	// If the VMI requires dedicated CPUs, this field will
 	// hold the numa topology on the target node
 	TargetNodeTopology string `json:"targetNodeTopology,omitempty"`
+	// Holds the association between the VMI and pod interface names
+	VmToPodIfaceMapping map[string]string `json:"vmToPodIfaceMapping,omitempty"`
 }
 
 type MigrationAbortStatus string
