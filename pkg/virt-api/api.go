@@ -78,7 +78,7 @@ const (
 	// Default address that virt-api listens on.
 	defaultHost = "0.0.0.0"
 
-	defaultConsoleServerPort = 8186
+	DefaultConsoleServerPort = 8186
 
 	defaultCAConfigMapName     = "kubevirt-ca"
 	defaultTlsCertFilePath     = "/etc/virt-api/certificates/tls.crt"
@@ -1077,7 +1077,7 @@ func (app *virtAPIApp) AddFlags() {
 		"swagger-ui location")
 	flag.BoolVar(&app.SubresourcesOnly, "subresources-only", false,
 		"Only serve subresource endpoints")
-	flag.IntVar(&app.consoleServerPort, "console-server-port", defaultConsoleServerPort,
+	flag.IntVar(&app.consoleServerPort, "console-server-port", DefaultConsoleServerPort,
 		"The port virt-handler listens on for console requests")
 	flag.StringVar(&app.caConfigMapName, "ca-configmap-name", defaultCAConfigMapName,
 		"The name of configmap containing CA certificates to authenticate requests presenting client certificates with matching CommonName")
