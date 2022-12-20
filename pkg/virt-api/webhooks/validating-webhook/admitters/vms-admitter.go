@@ -214,6 +214,13 @@ func (admitter *VMsAdmitter) applyInstancetypeToVm(vm *v1.VirtualMachine) []meta
 func (admitter *VMsAdmitter) authorizeVirtualMachineSpec(ar *admissionv1.AdmissionRequest, vm *v1.VirtualMachine) ([]metav1.StatusCause, error) {
 	var causes []metav1.StatusCause
 
+	// Skip DataVolumeTemplates validation if we want to delete the vm
+	// This allows the vm controller to remove the finalizers
+	// also when, for example, the datasource is already gone.
+	if vm.DeletionTimestamp != nil {
+		return causes, nil
+	}
+
 	for idx, dataVolume := range vm.Spec.DataVolumeTemplates {
 		cloneSource, err := typesutil.GetCloneSourceWithInformers(vm, &dataVolume.Spec, admitter.DataSourceInformer)
 		if err != nil {
@@ -268,7 +275,6 @@ func (admitter *VMsAdmitter) authorizeVirtualMachineSpec(ar *admissionv1.Admissi
 				Field:   k8sfield.NewPath("spec", "dataVolumeTemplates").Index(idx).String(),
 			})
 		}
-
 	}
 
 	return causes, nil
