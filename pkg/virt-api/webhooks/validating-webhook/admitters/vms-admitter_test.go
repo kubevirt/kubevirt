@@ -706,6 +706,49 @@ var _ = Describe("Validating VM Admitter", func() {
 		Expect(resp.Allowed).To(BeTrue())
 	})
 
+	It("should accept DataVolumeTemplate with deleted sourceRef if vm is going to be deleted", func() {
+		vmi := api.NewMinimalVMI("testvmi")
+		vmi.Spec.Domain.Devices.Disks = append(vmi.Spec.Domain.Devices.Disks, v1.Disk{
+			Name: "testdisk",
+		})
+		vmi.Spec.Volumes = append(vmi.Spec.Volumes, v1.Volume{
+			Name: "testdisk",
+			VolumeSource: v1.VolumeSource{
+				DataVolume: &v1.DataVolumeSource{
+					Name: "dv1",
+				},
+			},
+		})
+
+		vm := &v1.VirtualMachine{
+			Spec: v1.VirtualMachineSpec{
+				Running: &notRunning,
+				Template: &v1.VirtualMachineInstanceTemplateSpec{
+					Spec: vmi.Spec,
+				},
+			},
+		}
+		now := metav1.Now()
+		vm.DeletionTimestamp = &now
+
+		vm.Spec.DataVolumeTemplates = append(vm.Spec.DataVolumeTemplates, v1.DataVolumeTemplateSpec{
+			ObjectMeta: metav1.ObjectMeta{
+				Name: "dv1",
+			},
+			Spec: cdiv1.DataVolumeSpec{
+				PVC: &k8sv1.PersistentVolumeClaimSpec{},
+				SourceRef: &cdiv1.DataVolumeSourceRef{
+					Kind: "DataSource",
+					Name: "fakeName",
+				},
+			},
+		})
+
+		testutils.AddDataVolumeAPI(crdInformer)
+		resp := admitVm(vmsAdmitter, vm)
+		Expect(resp.Allowed).To(BeTrue())
+	})
+
 	It("should reject invalid DataVolumeTemplate with no Volume reference in VMI template", func() {
 		vmi := api.NewMinimalVMI("testvmi")
 		vmi.Spec.Domain.Devices.Disks = append(vmi.Spec.Domain.Devices.Disks, v1.Disk{
