@@ -1,22 +1,13 @@
 #!/usr/bin/env bash
 
-export KUBEVIRTCI_PODMAN_SOCKET=${KUBEVIRTCI_PODMAN_SOCKET:-"/run/podman/podman.sock"}
-
-detect_podman() {
-    if curl --unix-socket "${KUBEVIRTCI_PODMAN_SOCKET}" http://d/v3.0.0/libpod/info >/dev/null 2>&1; then
-        echo "podman --remote --url=unix://${KUBEVIRTCI_PODMAN_SOCKET}"
-    fi
-}
-
 determine_cri_bin() {
     if [ "${KUBEVIRT_CRI}" = "podman" ]; then
-        detect_podman
+        echo podman
     elif [ "${KUBEVIRT_CRI}" = "docker" ]; then
         echo docker
     else
-        local podman=$(detect_podman)
-        if [ -n "$podman" ]; then
-            echo "$podman"
+        if podman ps >/dev/null 2>&1; then
+            echo podman
         elif docker ps >/dev/null 2>&1; then
             echo docker
         else
