@@ -79,6 +79,9 @@ go-test: go-build
 
 test: bazel-test
 
+fuzz:
+	hack/dockerized "./hack/fuzz.sh"
+
 functest: build-functests
 	hack/functests.sh
 

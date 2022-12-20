@@ -23,8 +23,9 @@ build --define gotags=selinux
 # let our unit tests produce our own junit reports
 test --action_env=GO_TEST_WRAP=0
 
-test --test_tag_filters=-cov
-coverage --test_tag_filters=-nocov
+test --test_tag_filters=-cov,-fuzz
+test:fuzz --test_tag_filters=fuzz
+coverage --test_tag_filters=-nocov,-fuzz
 
 # Import user settings which may override the defaults
 try-import user.bazelrc
