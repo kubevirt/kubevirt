@@ -214,9 +214,15 @@ func (v *virtHandlerConn) Put(url string, body io.ReadCloser) error {
 	if err != nil {
 		return err
 	}
+	defer resp.Body.Close()
 
 	if resp.StatusCode < 200 || resp.StatusCode > 299 {
 		return fmt.Errorf("unexpected return code %s", resp.Status)
+	}
+
+	_, err = io.ReadAll(resp.Body)
+	if err != nil {
+		return fmt.Errorf("cannot read get body %s", resp.Status)
 	}
 
 	return nil
