@@ -37,6 +37,7 @@ import (
 	admissionv1 "k8s.io/api/admission/v1"
 	"k8s.io/apimachinery/pkg/api/equality"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	"k8s.io/apimachinery/pkg/util/validation/field"
 
 	v1 "kubevirt.io/api/core/v1"
 	"kubevirt.io/client-go/kubecli"
@@ -95,6 +96,12 @@ func (admitter *KubeVirtUpdateAdmitter) Admit(ar *admissionv1.AdmissionReview) *
 			results = append(results,
 				validateWorkloadPlacement(newKV.Namespace, newKV.Spec.Workloads.NodePlacement, admitter.Client)...)
 		}
+	}
+
+	if !equality.Semantic.DeepEqual(currKV.Spec.Configuration.SeccompConfiguration, newKV.Spec.Configuration.SeccompConfiguration) {
+		results = append(results,
+			validateSeccompConfiguration(field.NewPath("spec").Child("configuration", "seccompConfiguration"), newKV.Spec.Configuration.SeccompConfiguration)...)
+
 	}
 
 	if newKV.Spec.Infra != nil {
@@ -244,6 +251,42 @@ func validateTLSConfiguration(tlsConfiguration *v1.TLSConfiguration) []metav1.St
 	}
 
 	return statuses
+}
+
+func validateSeccompConfiguration(field *field.Path, seccompConf *v1.SeccompConfiguration) []metav1.StatusCause {
+	statuses := []metav1.StatusCause{}
+	if seccompConf == nil || seccompConf.VirtualMachineInstanceProfile == nil {
+		return statuses
+	}
+
+	customProfile := seccompConf.VirtualMachineInstanceProfile.CustomProfile
+	customProfileField := field.Child("virtualMachineInstanceProfile").Child("customProfile")
+
+	if customProfile != nil {
+		if customProfile.LocalhostProfile != nil && customProfile.RuntimeDefaultProfile {
+			localhostProfileField := customProfileField.Child("localhostProfile")
+			runtimeDefaultProfileField := customProfileField.Child("runtimeDefaultProfile")
+			statuses = append(statuses, metav1.StatusCause{
+				Type:    metav1.CauseTypeFieldValueInvalid,
+				Field:   localhostProfileField.String(),
+				Message: fmt.Sprintf("%s cannot be set when %s is set", localhostProfileField.String(), runtimeDefaultProfileField.String()),
+			})
+			statuses = append(statuses, metav1.StatusCause{
+				Type:    metav1.CauseTypeFieldValueInvalid,
+				Field:   runtimeDefaultProfileField.String(),
+				Message: fmt.Sprintf("%s cannot be set when %s is set", runtimeDefaultProfileField.String(), localhostProfileField.String()),
+			})
+		}
+	} else {
+		statuses = append(statuses, metav1.StatusCause{
+			Type:    metav1.CauseTypeFieldValueInvalid,
+			Field:   customProfileField.String(),
+			Message: fmt.Sprintf("%s needs to be set", customProfileField.String()),
+		})
+	}
+
+	return statuses
+
 }
 
 func validateWorkloadPlacement(namespace string, placementConfig *v1.NodePlacement, client kubecli.KubevirtClient) []metav1.StatusCause {

@@ -25,11 +25,40 @@ import (
 
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
+	"k8s.io/apimachinery/pkg/util/validation/field"
+	"k8s.io/utils/pointer"
 
 	v1 "kubevirt.io/api/core/v1"
 )
 
 var _ = Describe("Validating KubeVirtUpdate Admitter", func() {
+
+	test := field.NewPath("test")
+	vmProfileField := test.Child("virtualMachineInstanceProfile")
+
+	DescribeTable("validateSeccompConfiguration", func(seccompConfiguration *v1.SeccompConfiguration, expectedFields []string) {
+		causes := validateSeccompConfiguration(test, seccompConfiguration)
+		Expect(causes).To(HaveLen(len(expectedFields)))
+		for _, cause := range causes {
+			Expect(cause.Field).To(BeElementOf(expectedFields))
+		}
+
+	},
+		Entry("don't specifying custom ", &v1.SeccompConfiguration{
+			VirtualMachineInstanceProfile: &v1.VirtualMachineInstanceProfile{
+				CustomProfile: nil,
+			},
+		}, []string{vmProfileField.Child("customProfile").String()}),
+
+		Entry("having custom local and runtimeDefault Profile", &v1.SeccompConfiguration{
+			VirtualMachineInstanceProfile: &v1.VirtualMachineInstanceProfile{
+				CustomProfile: &v1.CustomProfile{
+					RuntimeDefaultProfile: true,
+					LocalhostProfile:      pointer.String("somethingNotImportant"),
+				},
+			},
+		}, []string{vmProfileField.Child("customProfile", "runtimeDefaultProfile").String(), vmProfileField.Child("customProfile", "localhostProfile").String()}),
+	)
 
 	DescribeTable("test validateCustomizeComponents", func(cc v1.CustomizeComponents, expectedCauses int) {
 		causes := validateCustomizeComponents(cc)

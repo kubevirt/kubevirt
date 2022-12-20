@@ -968,6 +968,25 @@ var CRDsValidation map[string]string = map[string]string{
                   type: array
                   x-kubernetes-list-type: atomic
               type: object
+            seccompConfiguration:
+              description: SeccompConfiguration holds Seccomp configuration for Kubevirt
+                components
+              properties:
+                virtualMachineInstanceProfile:
+                  description: VirtualMachineInstanceProfile defines what profile
+                    should be used with virt-launcher. Defaults to none
+                  properties:
+                    customProfile:
+                      description: CustomProfile allows to request arbitrary profile
+                        for virt-launcher
+                      properties:
+                        localhostProfile:
+                          type: string
+                        runtimeDefaultProfile:
+                          type: boolean
+                      type: object
+                  type: object
+              type: object
             selinuxLauncherType:
               type: string
             smbios:

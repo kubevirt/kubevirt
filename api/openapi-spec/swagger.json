@@ -15623,6 +15623,17 @@
      }
     }
    },
+   "v1.CustomProfile": {
+    "type": "object",
+    "properties": {
+     "localhostProfile": {
+      "type": "string"
+     },
+     "runtimeDefaultProfile": {
+      "type": "boolean"
+     }
+    }
+   },
    "v1.CustomizeComponents": {
     "type": "object",
     "properties": {
@@ -16874,6 +16885,9 @@
      "permittedHostDevices": {
       "$ref": "#/definitions/v1.PermittedHostDevices"
      },
+     "seccompConfiguration": {
+      "$ref": "#/definitions/v1.SeccompConfiguration"
+     },
      "selinuxLauncherType": {
       "type": "string"
      },
@@ -17898,6 +17912,16 @@
      }
     }
    },
+   "v1.SeccompConfiguration": {
+    "description": "SeccompConfiguration holds Seccomp configuration for Kubevirt components",
+    "type": "object",
+    "properties": {
+     "virtualMachineInstanceProfile": {
+      "description": "VirtualMachineInstanceProfile defines what profile should be used with virt-launcher. Defaults to none",
+      "$ref": "#/definitions/v1.VirtualMachineInstanceProfile"
+     }
+    }
+   },
    "v1.SecretVolumeSource": {
     "description": "SecretVolumeSource adapts a Secret into a volume.",
     "type": "object",
@@ -18864,6 +18888,15 @@
      "selector": {
       "description": "Selector is a label query over a set of VMIs. Required.",
       "$ref": "#/definitions/k8s.io.apimachinery.pkg.apis.meta.v1.LabelSelector"
+     }
+    }
+   },
+   "v1.VirtualMachineInstanceProfile": {
+    "type": "object",
+    "properties": {
+     "customProfile": {
+      "description": "CustomProfile allows to request arbitrary profile for virt-launcher",
+      "$ref": "#/definitions/v1.CustomProfile"
      }
     }
    },
