@@ -524,6 +524,10 @@ func (t *templateService) renderLaunchManifest(vmi *v1.VirtualMachineInstance, i
 	}
 
 	setNodeAffinityForPod(vmi, &pod)
+	workloadPlacement := t.clusterConfig.GetConfigFromKubeVirtCR().Spec.Workloads
+	if workloadPlacement != nil && workloadPlacement.NodePlacement != nil {
+		pod.Spec.Affinity = AppendNonDaemonsetApplicableAffinity(pod.Spec.Affinity, workloadPlacement.NodePlacement.Affinity)
+	}
 
 	serviceAccountName := serviceAccount(vmi.Spec.Volumes...)
 	if len(serviceAccountName) > 0 {

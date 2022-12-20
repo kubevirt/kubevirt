@@ -72,20 +72,7 @@ var _ = Describe("Template", func() {
 	var config *virtconfig.ClusterConfig
 	var kvInformer cache.SharedIndexInformer
 
-	kv := &v1.KubeVirt{
-		ObjectMeta: metav1.ObjectMeta{
-			Name:      "kubevirt",
-			Namespace: "kubevirt",
-		},
-		Spec: v1.KubeVirtSpec{
-			Configuration: v1.KubeVirtConfiguration{
-				DeveloperConfiguration: &v1.DeveloperConfiguration{},
-			},
-		},
-		Status: v1.KubeVirtStatus{
-			Phase: v1.KubeVirtPhaseDeploying,
-		},
-	}
+	var kv *v1.KubeVirt
 
 	enableFeatureGate := func(featureGate string) {
 		kvConfig := kv.DeepCopy()
@@ -98,6 +85,21 @@ var _ = Describe("Template", func() {
 	}
 
 	BeforeEach(func() {
+		kv = &v1.KubeVirt{
+			ObjectMeta: metav1.ObjectMeta{
+				Name:      "kubevirt",
+				Namespace: "kubevirt",
+			},
+			Spec: v1.KubeVirtSpec{
+				Configuration: v1.KubeVirtConfiguration{
+					DeveloperConfiguration: &v1.DeveloperConfiguration{},
+				},
+			},
+			Status: v1.KubeVirtStatus{
+				Phase: v1.KubeVirtPhaseDeploying,
+			},
+		}
+
 		ctrl = gomock.NewController(GinkgoT())
 		virtClient = kubecli.NewMockKubevirtClient(ctrl)
 	})
@@ -1537,6 +1539,30 @@ var _ = Describe("Template", func() {
 				Expect(err).ToNot(HaveOccurred())
 
 				Expect(pod.Spec.Affinity).To(BeEquivalentTo(&kubev1.Affinity{NodeAffinity: &nodeAffinity}))
+			})
+
+			It("should add preferred affinities from the KubeVirt config to existing VMI affinity", func() {
+				kv.Spec.Workloads = &v1.ComponentConfig{NodePlacement: &v1.NodePlacement{
+					Affinity: getFullyPopulatedAffinity(),
+				}}
+				config, kvInformer, svc = configFactory(defaultArch)
+				vmi := v1.VirtualMachineInstance{
+					ObjectMeta: metav1.ObjectMeta{Name: "testvmi", Namespace: "default", UID: "1234"},
+					Spec: v1.VirtualMachineInstanceSpec{
+						Affinity: getFullyPopulatedAffinity(),
+						Domain: v1.DomainSpec{
+							Devices: v1.Devices{
+								DisableHotplug: true,
+							},
+							CPU: &v1.CPU{
+								Model: "Conroe",
+							},
+						},
+					},
+				}
+				pod, err := svc.RenderLaunchManifest(&vmi)
+				Expect(err).ToNot(HaveOccurred())
+				Expect(pod.Spec.Affinity).To(BeEquivalentTo(getDoublePopulatedAffinityWithoutDuplicatedRequiredNodeConstraints()))
 			})
 
 			It("should add pod affinity to pod", func() {

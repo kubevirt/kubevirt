@@ -3,6 +3,7 @@ load("@io_bazel_rules_go//go:def.bzl", "go_library", "go_test")
 go_library(
     name = "go_default_library",
     srcs = [
+        "affinity.go",
         "multus_annotations.go",
         "nodeselectorrenderer.go",
         "rendercontainer.go",
@@ -50,6 +51,7 @@ go_library(
 go_test(
     name = "go_default_test",
     srcs = [
+        "affinity_test.go",
         "multus_annotations_test.go",
         "nodeselectorrenderer_test.go",
         "rendercontainer_test.go",
