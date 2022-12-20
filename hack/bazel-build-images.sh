@@ -23,14 +23,24 @@ source hack/common.sh
 source hack/bootstrap.sh
 source hack/config.sh
 
+BUILD_TARGETS=(${BUILD_TARGETS:-":build-other-images \
+cmd/virt-operator:virt-operator-image \
+cmd/virt-api:virt-api-image \
+cmd/virt-controller:virt-controller-image \
+cmd/virt-handler:virt-handler-image \
+cmd/virt-launcher:virt-launcher-image \
+cmd/libguestfs:libguestfs-tools-image \
+tests:conformance_image"})
+
 # vars are uninteresting for the build step, they are interesting for the push step only
-bazel build \
-    --config=${ARCHITECTURE} \
-    --define container_prefix= \
-    --define image_prefix= \
-    --define container_tag= \
-    //:build-other-images //cmd/virt-operator:virt-operator-image //cmd/virt-api:virt-api-image \
-    //cmd/virt-controller:virt-controller-image //cmd/virt-handler:virt-handler-image //cmd/virt-launcher:virt-launcher-image //cmd/libguestfs:libguestfs-tools-image //tests:conformance_image
+for target in ${BUILD_TARGETS[@]}; do
+  bazel build \
+      --config=${ARCHITECTURE} \
+      --define container_prefix= \
+      --define image_prefix= \
+      --define container_tag= \
+      //${target}
+done
 
 rm -rf ${DIGESTS_DIR}
 mkdir -p ${DIGESTS_DIR}
