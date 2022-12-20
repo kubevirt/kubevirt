@@ -230,7 +230,7 @@ func setImage(virtClient kubecli.KubevirtClient) error {
 	} else if info.Tag != "" {
 		imageName = fmt.Sprintf("%s:%s", imageName, info.Tag)
 	} else {
-		return fmt.Errorf("Either the digest or the tag for the image have been specified")
+		return fmt.Errorf("Neither the digest nor the tag for the image has been specified")
 	}
 
 	// Set the registry
