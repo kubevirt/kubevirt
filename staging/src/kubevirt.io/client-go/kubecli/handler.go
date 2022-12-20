@@ -4,7 +4,6 @@ import (
 	"context"
 	"fmt"
 	"io"
-	"io/ioutil"
 	"net/http"
 
 	v1 "k8s.io/api/core/v1"
@@ -250,7 +249,7 @@ func (v *virtHandlerConn) Get(url string) (string, error) {
 	}
 
 	defer resp.Body.Close()
-	responseData, err := ioutil.ReadAll(resp.Body)
+	responseData, err := io.ReadAll(resp.Body)
 	if err != nil {
 		return "", fmt.Errorf("cannot read get body %s", resp.Status)
 	}
