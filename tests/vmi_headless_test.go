@@ -21,7 +21,13 @@ package tests_test
 
 import (
 	"fmt"
+	"strconv"
 	"strings"
+	"time"
+
+	"kubevirt.io/kubevirt/tests/framework/matcher"
+
+	virt_api "kubevirt.io/kubevirt/pkg/virt-api"
 
 	. "github.com/onsi/ginkgo"
 	. "github.com/onsi/gomega"
@@ -157,6 +163,74 @@ var _ = Describe("[rfe_id:609][sig-compute]VMIheadless", func() {
 					}
 				}
 				Expect(vncCount).To(Equal(1), "should have exactly one VNC device")
+			})
+
+			It("[Serial] multiple HTTP calls should re-use connections and not grow the number of open connections in virt-launcher", Serial, func() {
+				getHandlerConnectionCount := func() int {
+					cmd := []string{"bash", "-c", fmt.Sprintf("ss -ntlap | grep %d | wc -l", virt_api.DefaultConsoleServerPort)}
+					stdout, stderr, err := tests.ExecuteCommandOnNodeThroughVirtHandler(virtClient, vmi.Status.NodeName, cmd)
+					Expect(err).ToNot(HaveOccurred())
+					Expect(stderr).To(BeEmpty())
+
+					stdout = strings.TrimSpace(stdout)
+					stdout = strings.ReplaceAll(stdout, "\n", "")
+
+					handlerCons, err := strconv.Atoi(stdout)
+					Expect(err).ToNot(HaveOccurred())
+
+					return handlerCons
+				}
+
+				getClientCalls := func(vmi *v1.VirtualMachineInstance) []func() {
+					vmiInterface := virtClient.VirtualMachineInstance(vmi.Namespace)
+					expectNoErr := func(err error) {
+						ExpectWithOffset(2, err).ToNot(HaveOccurred())
+					}
+
+					return []func(){
+						func() {
+							_, err := vmiInterface.GuestOsInfo(vmi.Name)
+							expectNoErr(err)
+						},
+						func() {
+							_, err := vmiInterface.FilesystemList(vmi.Name)
+							expectNoErr(err)
+						},
+						func() {
+							_, err := vmiInterface.UserList(vmi.Name)
+							expectNoErr(err)
+						},
+						func() {
+							_, err := vmiInterface.VNC(vmi.Name)
+							expectNoErr(err)
+						},
+						func() {
+							_, err := vmiInterface.SerialConsole(vmi.Name, &kubecli.SerialConsoleOptions{ConnectionTimeout: 30 * time.Second})
+							expectNoErr(err)
+						},
+					}
+				}
+
+				By("Running the VMI")
+				vmi = tests.NewRandomFedoraVMIWithGuestAgent()
+				vmi = tests.RunVMIAndExpectLaunch(vmi, 30)
+
+				By("VMI has the guest agent connected condition")
+				Eventually(matcher.ThisVMI(vmi), 30*time.Second, 2*time.Second).Should(matcher.HaveConditionTrue(v1.VirtualMachineInstanceAgentConnected), "should have agent connected condition")
+				origHandlerCons := getHandlerConnectionCount()
+
+				By("Making multiple requests")
+				const numberOfRequests = 20
+				clientCalls := getClientCalls(vmi)
+				for i := 0; i < numberOfRequests; i++ {
+					for _, clientCallFunc := range clientCalls {
+						clientCallFunc()
+					}
+					time.Sleep(200 * time.Millisecond)
+				}
+
+				By("Expecting the number of connections to not grow")
+				Expect(getHandlerConnectionCount()-origHandlerCons).To(BeNumerically("<=", len(clientCalls)), "number of connections is not expected to grow")
 			})
 
 		})
