@@ -22,6 +22,8 @@ package mutators
 import (
 	"encoding/json"
 
+	"kubevirt.io/kubevirt/pkg/apimachinery/patch"
+
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
 	admissionv1 "k8s.io/api/admission/v1"
@@ -29,8 +31,6 @@ import (
 	"k8s.io/apimachinery/pkg/runtime"
 
 	v1 "kubevirt.io/api/core/v1"
-
-	utiltypes "kubevirt.io/kubevirt/pkg/util/types"
 )
 
 var _ = Describe("VirtualMachineInstanceMigration Mutator", func() {
@@ -57,13 +57,13 @@ var _ = Describe("VirtualMachineInstanceMigration Mutator", func() {
 		By("Getting the VMI spec from the response")
 		migrationSpec := &v1.VirtualMachineInstanceMigrationSpec{}
 		migrationMeta := &k8smetav1.ObjectMeta{}
-		patch := []utiltypes.PatchOperation{
+		patchOps := []patch.PatchOperation{
 			{Value: migrationSpec},
 			{Value: migrationMeta},
 		}
-		err = json.Unmarshal(resp.Patch, &patch)
+		err = json.Unmarshal(resp.Patch, &patchOps)
 		Expect(err).ToNot(HaveOccurred())
-		Expect(patch).NotTo(BeEmpty())
+		Expect(patchOps).NotTo(BeEmpty())
 
 		return migrationSpec, migrationMeta
 	}

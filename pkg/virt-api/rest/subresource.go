@@ -49,11 +49,11 @@ import (
 
 	cdiv1 "kubevirt.io/containerized-data-importer-api/pkg/apis/core/v1beta1"
 
+	"kubevirt.io/kubevirt/pkg/apimachinery/patch"
 	"kubevirt.io/kubevirt/pkg/controller"
 	"kubevirt.io/kubevirt/pkg/instancetype"
 	storagetypes "kubevirt.io/kubevirt/pkg/storage/types"
 	kutil "kubevirt.io/kubevirt/pkg/util"
-	k6ttypes "kubevirt.io/kubevirt/pkg/util/types"
 	virtconfig "kubevirt.io/kubevirt/pkg/virt-config"
 )
 
@@ -971,13 +971,13 @@ func generateVMVolumeRequestPatch(vm *v1.VirtualMachine, volumeRequest *v1.Virtu
 		}
 	}
 
-	patchBytes, err := k6ttypes.GeneratePatchPayload(
-		k6ttypes.PatchOperation{
-			Op:    k6ttypes.PatchTestOp,
+	patchBytes, err := patch.GeneratePatchPayload(
+		patch.PatchOperation{
+			Op:    patch.PatchTestOp,
 			Path:  "/status/volumeRequests",
 			Value: vm.Status.VolumeRequests,
 		},
-		k6ttypes.PatchOperation{
+		patch.PatchOperation{
 			Op:    getPatchVerb(vm.Status.VolumeRequests),
 			Path:  "/status/volumeRequests",
 			Value: vmCopy.Status.VolumeRequests,

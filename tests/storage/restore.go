@@ -32,8 +32,8 @@ import (
 	. "kubevirt.io/kubevirt/tests/framework/matcher"
 	"kubevirt.io/kubevirt/tests/libinstancetype"
 
+	"kubevirt.io/kubevirt/pkg/apimachinery/patch"
 	typesStorage "kubevirt.io/kubevirt/pkg/storage/types"
-	typesutil "kubevirt.io/kubevirt/pkg/util/types"
 	"kubevirt.io/kubevirt/tests"
 	"kubevirt.io/kubevirt/tests/console"
 	cd "kubevirt.io/kubevirt/tests/containerdisk"
@@ -343,7 +343,7 @@ var _ = SIGDescribe("VirtualMachineRestore Tests", func() {
 
 				initialRequestedMemory := resource.MustParse("128Mi")
 				increasedRequestedMemory := resource.MustParse("256Mi")
-				patchData, err := typesutil.GenerateTestReplacePatch(
+				patchData, err := patch.GenerateTestReplacePatch(
 					"/spec/template/spec/domain/resources/requests/"+string(corev1.ResourceMemory),
 					initialRequestedMemory,
 					increasedRequestedMemory,
@@ -1383,9 +1383,9 @@ var _ = SIGDescribe("VirtualMachineRestore Tests", func() {
 						*updatedVM.Status.RestoreInProgress == restore.Name
 				}, 180*time.Second, 3*time.Second).Should(BeTrue())
 
-				patchData, err := typesutil.GeneratePatchPayload(
-					typesutil.PatchOperation{
-						Op:    typesutil.PatchAddOp,
+				patchData, err := patch.GeneratePatchPayload(
+					patch.PatchOperation{
+						Op:    patch.PatchAddOp,
 						Path:  "/spec/running",
 						Value: true,
 					},
@@ -1522,9 +1522,9 @@ var _ = SIGDescribe("VirtualMachineRestore Tests", func() {
 				newMemory := resource.MustParse("2Gi")
 				Expect(newMemory).ToNot(Equal(initialMemory))
 
-				patchData, err := typesutil.GeneratePatchPayload(
-					typesutil.PatchOperation{
-						Op:    typesutil.PatchReplaceOp,
+				patchData, err := patch.GeneratePatchPayload(
+					patch.PatchOperation{
+						Op:    patch.PatchReplaceOp,
 						Path:  "/spec/template/spec/domain/resources/requests/" + string(corev1.ResourceMemory),
 						Value: newMemory,
 					},

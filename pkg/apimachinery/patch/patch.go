@@ -17,7 +17,7 @@
  *
  */
 
-package types
+package patch
 
 import (
 	"encoding/json"

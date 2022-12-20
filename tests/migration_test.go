@@ -29,6 +29,7 @@ import (
 	"strings"
 	"sync"
 
+	"kubevirt.io/kubevirt/pkg/apimachinery/patch"
 	"kubevirt.io/kubevirt/pkg/virt-controller/watch/topology"
 
 	"kubevirt.io/kubevirt/tests/exec"
@@ -38,7 +39,6 @@ import (
 	"kubevirt.io/kubevirt/pkg/virt-handler/cgroup"
 
 	"kubevirt.io/kubevirt/pkg/util/hardware"
-	utiltypes "kubevirt.io/kubevirt/pkg/util/types"
 	"kubevirt.io/kubevirt/pkg/virt-controller/watch"
 
 	virtconfig "kubevirt.io/kubevirt/pkg/virt-config"
@@ -4400,8 +4400,8 @@ var _ = Describe("[rfe_id:393][crit:high][vendor:cnv-qe@redhat.com][level:system
 			_ = runMigrationAndExpectFailure(migration, tests.MigrationWaitTime)
 
 			By("Patch VMI")
-			patch := []byte(fmt.Sprintf(`[{"op": "remove", "path": "/metadata/annotations/%s"}]`, utiltypes.EscapeJSONPointer(v1.FuncTestForceLauncherMigrationFailureAnnotation)))
-			_, err := virtClient.VirtualMachineInstance(vmi.Namespace).Patch(vmi.Name, types.JSONPatchType, patch, &metav1.PatchOptions{})
+			patchBytes := []byte(fmt.Sprintf(`[{"op": "remove", "path": "/metadata/annotations/%s"}]`, patch.EscapeJSONPointer(v1.FuncTestForceLauncherMigrationFailureAnnotation)))
+			_, err := virtClient.VirtualMachineInstance(vmi.Namespace).Patch(vmi.Name, types.JSONPatchType, patchBytes, &metav1.PatchOptions{})
 			Expect(err).ToNot(HaveOccurred())
 
 			By("Try again with backoff")

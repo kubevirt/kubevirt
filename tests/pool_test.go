@@ -34,7 +34,7 @@ import (
 	"k8s.io/apimachinery/pkg/types"
 	"k8s.io/apimachinery/pkg/util/rand"
 
-	k6ttypes "kubevirt.io/kubevirt/pkg/util/types"
+	"kubevirt.io/kubevirt/pkg/apimachinery/patch"
 
 	cdiv1 "kubevirt.io/containerized-data-importer-api/pkg/apis/core/v1beta1"
 
@@ -381,8 +381,8 @@ var _ = Describe("[sig-compute]VirtualMachinePool", func() {
 		newPool, err = virtClient.VirtualMachinePool(newPool.ObjectMeta.Namespace).Get(context.Background(), newPool.ObjectMeta.Name, v12.GetOptions{})
 		Expect(err).ToNot(HaveOccurred())
 
-		patchData, err := k6ttypes.GeneratePatchPayload(k6ttypes.PatchOperation{
-			Op:    k6ttypes.PatchAddOp,
+		patchData, err := patch.GeneratePatchPayload(patch.PatchOperation{
+			Op:    patch.PatchAddOp,
 			Path:  fmt.Sprintf("/spec/virtualMachineTemplate/metadata/labels/%s", newLabelKey),
 			Value: newLabelValue,
 		})
@@ -440,8 +440,8 @@ var _ = Describe("[sig-compute]VirtualMachinePool", func() {
 		Expect(err).ToNot(HaveOccurred())
 
 		// Make a VMI template change
-		patchData, err := k6ttypes.GeneratePatchPayload(k6ttypes.PatchOperation{
-			Op:    k6ttypes.PatchAddOp,
+		patchData, err := patch.GeneratePatchPayload(patch.PatchOperation{
+			Op:    patch.PatchAddOp,
 			Path:  fmt.Sprintf("/spec/virtualMachineTemplate/spec/template/metadata/labels/%s", newLabelKey),
 			Value: newLabelValue,
 		})
@@ -535,7 +535,7 @@ var _ = Describe("[sig-compute]VirtualMachinePool", func() {
 
 		// set new replica count while still being paused
 		By("Updating the number of replicas")
-		patchData, err := k6ttypes.GenerateTestReplacePatch("/spec/replicas", pool.Spec.Replicas, tests.NewInt32(1))
+		patchData, err := patch.GenerateTestReplacePatch("/spec/replicas", pool.Spec.Replicas, tests.NewInt32(1))
 		Expect(err).ToNot(HaveOccurred())
 		pool, err = virtClient.VirtualMachinePool(pool.ObjectMeta.Namespace).Patch(context.Background(), pool.Name, types.JSONPatchType, patchData, metav1.PatchOptions{})
 		Expect(err).ToNot(HaveOccurred())

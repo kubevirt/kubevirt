@@ -24,8 +24,8 @@ import (
 	"kubevirt.io/client-go/log"
 	"kubevirt.io/containerized-data-importer-api/pkg/apis/core/v1beta1"
 
+	"kubevirt.io/kubevirt/pkg/apimachinery/patch"
 	utils "kubevirt.io/kubevirt/pkg/util"
-	utiltypes "kubevirt.io/kubevirt/pkg/util/types"
 )
 
 type Methods interface {
@@ -198,17 +198,17 @@ func (m *methods) storePreferenceRevision(vm *virtv1.VirtualMachine) (*appsv1.Co
 }
 
 func GenerateRevisionNamePatch(instancetypeRevision, preferenceRevision *appsv1.ControllerRevision) ([]byte, error) {
-	var patches []utiltypes.PatchOperation
+	var patches []patch.PatchOperation
 
 	if instancetypeRevision != nil {
 		patches = append(patches,
-			utiltypes.PatchOperation{
-				Op:    utiltypes.PatchTestOp,
+			patch.PatchOperation{
+				Op:    patch.PatchTestOp,
 				Path:  "/spec/instancetype/revisionName",
 				Value: nil,
 			},
-			utiltypes.PatchOperation{
-				Op:    utiltypes.PatchAddOp,
+			patch.PatchOperation{
+				Op:    patch.PatchAddOp,
 				Path:  "/spec/instancetype/revisionName",
 				Value: instancetypeRevision.Name,
 			},
@@ -217,13 +217,13 @@ func GenerateRevisionNamePatch(instancetypeRevision, preferenceRevision *appsv1.
 
 	if preferenceRevision != nil {
 		patches = append(patches,
-			utiltypes.PatchOperation{
-				Op:    utiltypes.PatchTestOp,
+			patch.PatchOperation{
+				Op:    patch.PatchTestOp,
 				Path:  "/spec/preference/revisionName",
 				Value: nil,
 			},
-			utiltypes.PatchOperation{
-				Op:    utiltypes.PatchAddOp,
+			patch.PatchOperation{
+				Op:    patch.PatchAddOp,
 				Path:  "/spec/preference/revisionName",
 				Value: preferenceRevision.Name,
 			},
@@ -234,7 +234,7 @@ func GenerateRevisionNamePatch(instancetypeRevision, preferenceRevision *appsv1.
 		return nil, nil
 	}
 
-	payload, err := utiltypes.GeneratePatchPayload(patches...)
+	payload, err := patch.GeneratePatchPayload(patches...)
 	if err != nil {
 		// This is a programmer's error and should not happen
 		return nil, fmt.Errorf("failed to generate patch payload: %w", err)

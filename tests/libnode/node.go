@@ -28,8 +28,6 @@ import (
 
 	"kubevirt.io/kubevirt/pkg/util/nodes"
 
-	utiltype "kubevirt.io/kubevirt/pkg/util/types"
-
 	"k8s.io/apimachinery/pkg/api/equality"
 
 	. "github.com/onsi/gomega"
@@ -45,6 +43,7 @@ import (
 	virtconfig "kubevirt.io/kubevirt/pkg/virt-config"
 	"kubevirt.io/kubevirt/pkg/virt-controller/services"
 
+	"kubevirt.io/kubevirt/pkg/apimachinery/patch"
 	"kubevirt.io/kubevirt/tests/flags"
 	"kubevirt.io/kubevirt/tests/framework/cleanup"
 	"kubevirt.io/kubevirt/tests/util"
@@ -100,10 +99,10 @@ func CleanNodes() {
 		newJson, err := json.Marshal(new)
 		Expect(err).ToNot(HaveOccurred())
 
-		patch, err := strategicpatch.CreateTwoWayMergePatch(old, newJson, node)
+		patchBytes, err := strategicpatch.CreateTwoWayMergePatch(old, newJson, node)
 		Expect(err).ToNot(HaveOccurred())
 
-		_, err = virtCli.CoreV1().Nodes().Patch(context.Background(), node.Name, types.StrategicMergePatchType, patch, k8smetav1.PatchOptions{})
+		_, err = virtCli.CoreV1().Nodes().Patch(context.Background(), node.Name, types.StrategicMergePatchType, patchBytes, k8smetav1.PatchOptions{})
 		Expect(err).ToNot(HaveOccurred())
 	}
 }
@@ -135,7 +134,7 @@ const (
 )
 
 func patchLabelAnnotationHelper(virtCli kubecli.KubevirtClient, nodeName string, newMap, oldMap map[string]string, mapType mapType) (*k8sv1.Node, error) {
-	p := []utiltype.PatchOperation{
+	p := []patch.PatchOperation{
 		{
 			Op:    "test",
 			Path:  "/metadata/" + string(mapType) + "s",
@@ -258,10 +257,10 @@ func Taint(nodeName string, key string, effect k8sv1.TaintEffect) {
 	newJson, err := json.Marshal(new)
 	Expect(err).ToNot(HaveOccurred())
 
-	patch, err := strategicpatch.CreateTwoWayMergePatch(old, newJson, node)
+	patchBytes, err := strategicpatch.CreateTwoWayMergePatch(old, newJson, node)
 	Expect(err).ToNot(HaveOccurred())
 
-	_, err = virtCli.CoreV1().Nodes().Patch(context.Background(), node.Name, types.StrategicMergePatchType, patch, k8smetav1.PatchOptions{})
+	_, err = virtCli.CoreV1().Nodes().Patch(context.Background(), node.Name, types.StrategicMergePatchType, patchBytes, k8smetav1.PatchOptions{})
 	Expect(err).ToNot(HaveOccurred())
 }
 

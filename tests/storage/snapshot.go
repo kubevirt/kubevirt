@@ -19,6 +19,8 @@ import (
 	"k8s.io/apimachinery/pkg/util/rand"
 	"k8s.io/utils/pointer"
 
+	"kubevirt.io/kubevirt/pkg/apimachinery/patch"
+
 	"kubevirt.io/kubevirt/tests/exec"
 	"kubevirt.io/kubevirt/tests/framework/matcher"
 	. "kubevirt.io/kubevirt/tests/framework/matcher"
@@ -29,7 +31,6 @@ import (
 	"kubevirt.io/client-go/kubecli"
 	cdiv1 "kubevirt.io/containerized-data-importer-api/pkg/apis/core/v1beta1"
 
-	typesutil "kubevirt.io/kubevirt/pkg/util/types"
 	"kubevirt.io/kubevirt/tests"
 	"kubevirt.io/kubevirt/tests/console"
 	cd "kubevirt.io/kubevirt/tests/containerdisk"
@@ -453,7 +454,7 @@ var _ = SIGDescribe("VirtualMachineSnapshot Tests", func() {
 
 				//update vm to make sure vm revision is saved in the snapshot
 				By("Updating the VM template spec")
-				patchData, err := typesutil.GenerateTestReplacePatch(
+				patchData, err := patch.GenerateTestReplacePatch(
 					"/spec/template/spec/domain/resources/requests/"+string(corev1.ResourceMemory),
 					initialMemory,
 					newMemory,

@@ -24,8 +24,8 @@ import (
 	"kubevirt.io/client-go/kubecli"
 	cdiv1beta1 "kubevirt.io/containerized-data-importer-api/pkg/apis/core/v1beta1"
 
+	"kubevirt.io/kubevirt/pkg/apimachinery/patch"
 	"kubevirt.io/kubevirt/pkg/controller"
-	k6ttypes "kubevirt.io/kubevirt/pkg/util/types"
 	"kubevirt.io/kubevirt/tests"
 	"kubevirt.io/kubevirt/tests/libstorage"
 	"kubevirt.io/kubevirt/tests/libvmi"
@@ -511,7 +511,7 @@ var _ = Describe("[crit:medium][vendor:cnv-qe@redhat.com][level:component][sig-c
 
 			By("Updating the VirtualMachineInstancetype vCPU count")
 			newInstancetypeCPUGuest := originalInstancetypeCPUGuest + 1
-			patchData, err := k6ttypes.GenerateTestReplacePatch("/spec/cpu/guest", originalInstancetypeCPUGuest, newInstancetypeCPUGuest)
+			patchData, err := patch.GenerateTestReplacePatch("/spec/cpu/guest", originalInstancetypeCPUGuest, newInstancetypeCPUGuest)
 			Expect(err).ToNot(HaveOccurred())
 			updatedInstancetype, err := virtClient.VirtualMachineInstancetype(util.NamespaceTestDefault).Patch(context.Background(), instancetype.Name, types.JSONPatchType, patchData, metav1.PatchOptions{})
 			Expect(err).ToNot(HaveOccurred())

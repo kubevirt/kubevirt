@@ -47,7 +47,7 @@ import (
 	instancetypeapi "kubevirt.io/api/instancetype"
 	instanceType "kubevirt.io/api/instancetype/v1alpha2"
 
-	k6ttypes "kubevirt.io/kubevirt/pkg/util/types"
+	"kubevirt.io/kubevirt/pkg/apimachinery/patch"
 	virtconfig "kubevirt.io/kubevirt/pkg/virt-config"
 
 	"kubevirt.io/kubevirt/tests"
@@ -122,8 +122,8 @@ var _ = SIGDescribe("DataVolume Integration", func() {
 			Expect(console.LoginToCirros(vmi)).To(Succeed())
 
 			By("Expanding PVC")
-			patchData, err := k6ttypes.GeneratePatchPayload(k6ttypes.PatchOperation{
-				Op:    k6ttypes.PatchAddOp,
+			patchData, err := patch.GeneratePatchPayload(patch.PatchOperation{
+				Op:    patch.PatchAddOp,
 				Path:  "/spec/resources/requests/storage",
 				Value: resource.MustParse("2Gi"),
 			})

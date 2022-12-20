@@ -165,6 +165,7 @@ go_test(
     embed = [":go_default_library"],
     visibility = ["//visibility:public"],
     deps = [
+        "//pkg/apimachinery/patch:go_default_library",
         "//pkg/certificates/triple:go_default_library",
         "//pkg/certificates/triple/cert:go_default_library",
         "//pkg/cloud-init:go_default_library",
@@ -181,7 +182,6 @@ go_test(
         "//pkg/util/migrations:go_default_library",
         "//pkg/util/net/dns:go_default_library",
         "//pkg/util/tls:go_default_library",
-        "//pkg/util/types:go_default_library",
         "//pkg/virt-config:go_default_library",
         "//pkg/virt-controller/leaderelectionconfig:go_default_library",
         "//pkg/virt-controller/services:go_default_library",

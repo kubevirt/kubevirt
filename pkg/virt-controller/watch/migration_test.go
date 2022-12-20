@@ -25,6 +25,7 @@ import (
 	"strings"
 	"time"
 
+	apimachpatch "kubevirt.io/kubevirt/pkg/apimachinery/patch"
 	virtcontroller "kubevirt.io/kubevirt/pkg/controller"
 
 	"k8s.io/apimachinery/pkg/api/resource"
@@ -62,7 +63,6 @@ import (
 	"kubevirt.io/client-go/kubecli"
 
 	"kubevirt.io/kubevirt/pkg/testutils"
-	utiltype "kubevirt.io/kubevirt/pkg/util/types"
 	"kubevirt.io/kubevirt/pkg/virt-controller/services"
 )
 
@@ -150,14 +150,14 @@ var _ = Describe("Migration watcher", func() {
 
 	shouldExpectPDBPatch := func(vmi *virtv1.VirtualMachineInstance, vmim *virtv1.VirtualMachineInstanceMigration) {
 		kubeClient.Fake.PrependReactor("patch", "poddisruptionbudgets", func(action testing.Action) (handled bool, obj k8sruntime.Object, err error) {
-			patch, ok := action.(testing.PatchAction)
+			patchAction, ok := action.(testing.PatchAction)
 			Expect(ok).To(BeTrue())
-			Expect(patch.GetPatchType()).To(Equal(types.StrategicMergePatchType))
+			Expect(patchAction.GetPatchType()).To(Equal(types.StrategicMergePatchType))
 
 			expectedPatch := fmt.Sprintf(`{"spec":{"minAvailable": 2},"metadata":{"labels":{"%s": "%s"}}}`, virtv1.MigrationNameLabel, vmim.Name)
-			Expect(string(patch.GetPatch())).To(Equal(expectedPatch))
+			Expect(string(patchAction.GetPatch())).To(Equal(expectedPatch))
 
-			pdb := newPDB(patch.GetName(), vmi, 2)
+			pdb := newPDB(patchAction.GetName(), vmi, 2)
 			pdb.Labels = map[string]string{
 				virtv1.MigrationNameLabel: vmim.Name,
 			}
@@ -1281,7 +1281,7 @@ var _ = Describe("Migration watcher", func() {
 
 				vmiInterface.EXPECT().Patch(vmi.Name, types.JSONPatchType, gomock.Any(), &metav1.PatchOptions{}).DoAndReturn(func(name interface{}, ptype interface{}, vmiStatusPatch []byte, options interface{}) (*virtv1.VirtualMachineInstance, error) {
 
-					vmiSP, err := utiltype.UnmarshalPatch(vmiStatusPatch)
+					vmiSP, err := apimachpatch.UnmarshalPatch(vmiStatusPatch)
 					Expect(err).ToNot(HaveOccurred())
 					Expect(vmiSP).To(HaveLen(2))
 

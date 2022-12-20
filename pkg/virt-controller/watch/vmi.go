@@ -44,13 +44,13 @@ import (
 	"kubevirt.io/client-go/log"
 	cdiv1 "kubevirt.io/containerized-data-importer-api/pkg/apis/core/v1beta1"
 
+	"kubevirt.io/kubevirt/pkg/apimachinery/patch"
 	"kubevirt.io/kubevirt/pkg/controller"
 	"kubevirt.io/kubevirt/pkg/network/sriov"
 	"kubevirt.io/kubevirt/pkg/network/vmispec"
 	storagetypes "kubevirt.io/kubevirt/pkg/storage/types"
 	"kubevirt.io/kubevirt/pkg/util"
 	traceUtils "kubevirt.io/kubevirt/pkg/util/trace"
-	patchtypes "kubevirt.io/kubevirt/pkg/util/types"
 	virtconfig "kubevirt.io/kubevirt/pkg/virt-config"
 	"kubevirt.io/kubevirt/pkg/virt-controller/services"
 	"kubevirt.io/kubevirt/pkg/virt-controller/watch/topology"
@@ -662,7 +662,7 @@ func prepareAnnotationsPatchAddOp(key, value string) (string, error) {
 		return "", fmt.Errorf("failed to prepare new annotation patchOp for key %s: %v", key, err)
 	}
 
-	key = patchtypes.EscapeJSONPointer(key)
+	key = patch.EscapeJSONPointer(key)
 	return fmt.Sprintf(`{ "op": "add", "path": "/metadata/annotations/%s", "value": %s }`, key, string(valueBytes)), nil
 
 }

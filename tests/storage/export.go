@@ -56,8 +56,8 @@ import (
 	"kubevirt.io/client-go/log"
 	cdiv1 "kubevirt.io/containerized-data-importer-api/pkg/apis/core/v1beta1"
 
+	"kubevirt.io/kubevirt/pkg/apimachinery/patch"
 	certutil "kubevirt.io/kubevirt/pkg/certificates/triple/cert"
-	k6ttypes "kubevirt.io/kubevirt/pkg/util/types"
 	"kubevirt.io/kubevirt/pkg/virt-operator/resource/generate/components"
 	"kubevirt.io/kubevirt/tests"
 	"kubevirt.io/kubevirt/tests/clientcmd"
@@ -372,14 +372,14 @@ var _ = SIGDescribe("Export", func() {
 	populateArchiveContent := func(sc string, volumeMode k8sv1.PersistentVolumeMode) (*k8sv1.PersistentVolumeClaim, string) {
 		pvc, md5sum := populateKubeVirtContent(sc, volumeMode)
 
-		patchData, err := k6ttypes.GeneratePatchPayload(
-			k6ttypes.PatchOperation{
-				Op:    k6ttypes.PatchAddOp,
-				Path:  "/metadata/annotations/" + k6ttypes.EscapeJSONPointer(annContentType),
+		patchData, err := patch.GeneratePatchPayload(
+			patch.PatchOperation{
+				Op:    patch.PatchAddOp,
+				Path:  "/metadata/annotations/" + patch.EscapeJSONPointer(annContentType),
 				Value: "archive",
 			},
-			k6ttypes.PatchOperation{
-				Op:    k6ttypes.PatchAddOp,
+			patch.PatchOperation{
+				Op:    patch.PatchAddOp,
 				Path:  "/metadata/ownerReferences",
 				Value: []metav1.OwnerReference{},
 			},

@@ -23,11 +23,12 @@ import (
 	"encoding/json"
 	"fmt"
 
+	"kubevirt.io/kubevirt/pkg/apimachinery/patch"
+
 	admissionv1 "k8s.io/api/admission/v1"
 
 	v1 "kubevirt.io/api/core/v1"
 
-	utiltypes "kubevirt.io/kubevirt/pkg/util/types"
 	webhookutils "kubevirt.io/kubevirt/pkg/util/webhooks"
 	"kubevirt.io/kubevirt/pkg/virt-api/webhooks"
 )
@@ -63,14 +64,14 @@ func (mutator *MigrationCreateMutator) Mutate(ar *admissionv1.AdmissionReview) *
 	// Add a finalizer
 	migration.Finalizers = append(migration.Finalizers, v1.VirtualMachineInstanceMigrationFinalizer)
 
-	patchBytes, err := utiltypes.GeneratePatchPayload(
-		utiltypes.PatchOperation{
-			Op:    utiltypes.PatchReplaceOp,
+	patchBytes, err := patch.GeneratePatchPayload(
+		patch.PatchOperation{
+			Op:    patch.PatchReplaceOp,
 			Path:  "/spec",
 			Value: migration.Spec,
 		},
-		utiltypes.PatchOperation{
-			Op:    utiltypes.PatchReplaceOp,
+		patch.PatchOperation{
+			Op:    patch.PatchReplaceOp,
 			Path:  "/metadata",
 			Value: migration.ObjectMeta,
 		},
