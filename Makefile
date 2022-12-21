@@ -23,6 +23,9 @@ build-functests: bazel-build-functests
 bazel-build-image-bundle:
 	hack/dockerized "export BUILD_ARCH=${BUILD_ARCH} && hack/bazel-fmt.sh && DOCKER_PREFIX=${DOCKER_PREFIX} DOCKER_TAG=${DOCKER_TAG} IMAGE_PREFIX=${IMAGE_PREFIX} hack/bazel-build-image-bundle.sh"
 
+multi-arch-build:
+	BUILD_ARCH=${BUILD_ARCH} && DOCKER_PREFIX=${DOCKER_PREFIX} DOCKER_TAG=${DOCKER_TAG} DOCKER_TAG_ALT=${DOCKER_TAG_ALT} IMAGE_PREFIX=${IMAGE_PREFIX} IMAGE_PREFIX_ALT=${IMAGE_PREFIX_ALT} ./hack/multi-arch.sh
+
 bazel-build-verify: bazel-build
 	./hack/dockerized "hack/bazel-fmt.sh"
 	./hack/verify-generate.sh
@@ -218,6 +221,7 @@ lint:
 	bazel-build \
 	bazel-build-image-bundle \
 	bazel-build-images \
+	multi-arch-build \
 	bazel-push-images \
 	bazel-test \
 	functest-image-build \
