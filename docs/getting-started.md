@@ -64,6 +64,10 @@ container-selinux releases 2.193.0 and newer include the necessary permissions f
 **Note:** adding the `DisableCustomSELinuxPolicy` feature gate to an existing cluster will disable the use of the custom policy for new VMIs,
 but will **not** automatically uninstall the policy from the nodes. That can be done manually if needed, by running `semodule -r virt_launcher` on every node.
 
+### FIPS support
+
+FIPS-enabled nodes are supported for all workloads except TPM-enabled VMIs.
+
 ## Building
 
 The KubeVirt build system runs completely inside Docker. 
