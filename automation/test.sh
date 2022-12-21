@@ -23,7 +23,7 @@ export TIMESTAMP=${TIMESTAMP:-1}
 
 export WORKSPACE="${WORKSPACE:-$PWD}"
 readonly ARTIFACTS_PATH="${ARTIFACTS-$WORKSPACE/exported-artifacts}"
-readonly TEMPLATES_SERVER="https://templates.ovirt.org/kubevirt/"
+readonly TEMPLATES_SERVER="gs://kubevirt-vm-images"
 readonly BAZEL_CACHE="${BAZEL_CACHE:-http://bazel-cache.kubevirt-prow.svc.cluster.local:8080/kubevirt.io/kubevirt}"
 
 if [ -z $TARGET ]; then
@@ -136,7 +136,7 @@ safe_download() (
     # Remote file includes only sha1 w/o filename suffix
     for i in $(seq 1 $retry);
     do
-      remote_sha1="$(curl -s "${remote_sha1_url}")"
+      remote_sha1="$(gsutil cat ${remote_sha1_url})"
       if [[ "$remote_sha1" != "" ]]; then
         break
       fi
@@ -145,7 +145,7 @@ safe_download() (
     if [[ "$(cat "$local_sha1_file")" != "$remote_sha1" ]]; then
         echo "${download_to} is not up to date, corrupted or doesn't exist."
         echo "Downloading file from: ${remote_sha1_url}"
-        curl "$download_from" --output "$download_to"
+        gsutil cp $download_from $download_to
         sha1sum "$download_to" | cut -d " " -f1 > "$local_sha1_file"
         [[ "$(cat "$local_sha1_file")" == "$remote_sha1" ]] || {
             echo "${download_to} is corrupted"
@@ -156,17 +156,6 @@ safe_download() (
     fi
 )
 
-if [[ $TARGET =~ os-.* ]] || [[ $TARGET =~ (okd|ocp)-.* ]]; then
-    # Create images directory
-    if [[ ! -d $RHEL_NFS_DIR ]]; then
-        mkdir -p $RHEL_NFS_DIR
-    fi
-
-    # Download RHEL image
-    rhel_image_url="${TEMPLATES_SERVER}/rhel7.img"
-    rhel_image="$RHEL_NFS_DIR/disk.img"
-    safe_download "$RHEL_LOCK_PATH" "$rhel_image_url" "$rhel_image" || exit 1
-fi
 
 if [[ $TARGET =~ windows_sysprep.* ]]; then
   # Create images directory
