@@ -120,7 +120,7 @@ const (
 )
 
 // Merge all Tolerations, Affinity and NodeSelectos from NodePlacement into pod spec
-func injectPlacementMetadata(componentConfig *v1.ComponentConfig, podSpec *corev1.PodSpec) {
+func InjectPlacementMetadata(componentConfig *v1.ComponentConfig, podSpec *corev1.PodSpec) {
 	if podSpec == nil {
 		podSpec = &corev1.PodSpec{}
 	}

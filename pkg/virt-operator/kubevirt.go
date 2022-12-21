@@ -704,7 +704,7 @@ func (c *KubeVirtController) execute(key string) error {
 	return syncError
 }
 
-func (c *KubeVirtController) generateInstallStrategyJob(config *operatorutil.KubeVirtDeploymentConfig) (*batchv1.Job, error) {
+func (c *KubeVirtController) generateInstallStrategyJob(infraPlacement *v1.ComponentConfig, config *operatorutil.KubeVirtDeploymentConfig) (*batchv1.Job, error) {
 
 	operatorImage := config.VirtOperatorImage
 	if operatorImage == "" {
@@ -785,6 +785,7 @@ func (c *KubeVirtController) generateInstallStrategyJob(config *operatorutil.Kub
 		},
 	}
 
+	apply.InjectPlacementMetadata(infraPlacement, &job.Spec.Template.Spec)
 	env := job.Spec.Template.Spec.Containers[0].Env
 	extraEnv := util.NewEnvVarMap(config.GetExtraEnv())
 	job.Spec.Template.Spec.Containers[0].Env = append(env, *extraEnv...)
@@ -953,7 +954,7 @@ func (c *KubeVirtController) loadInstallStrategy(kv *v1.KubeVirt) (*install.Stra
 	}
 
 	// 4. execute a job to generate the install strategy for the target version of KubeVirt that's being installed/updated
-	job, err := c.generateInstallStrategyJob(config)
+	job, err := c.generateInstallStrategyJob(kv.Spec.Infra, config)
 	if err != nil {
 		return nil, true, err
 	}
