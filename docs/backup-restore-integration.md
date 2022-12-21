@@ -36,6 +36,8 @@ The [VirtualMachineSnapshot API](https://kubevirt.io/user-guide/operations/snaps
 
 ## Building the KubeVirt Object Graph
 
+![Object Graph Example](backup-graph.png "VM Graph")
+
 In this section, KubeVirt resources and their relationships will be explored by showing how yaml snippets map to nodes in an object graph.
 
 Nodes in the object graph are represented by the following tuple:
