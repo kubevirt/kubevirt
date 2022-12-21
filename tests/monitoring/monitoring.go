@@ -651,6 +651,8 @@ func checkRequiredAnnotations(rule promv1.Rule) {
 func checkRequiredLabels(rule promv1.Rule) {
 	ExpectWithOffset(1, rule.Labels).To(HaveKeyWithValue("severity", BeElementOf("info", "warning", "critical")),
 		fmt.Sprintf("%s severity label is missing or not valid", rule.Alert))
+	ExpectWithOffset(1, rule.Labels).To(HaveKeyWithValue("operator_health_impact", BeElementOf("none", "warning", "critical")),
+		fmt.Sprintf("%s operator_health_impact label is missing or not valid", rule.Alert))
 	ExpectWithOffset(1, rule.Labels).To(HaveKeyWithValue("kubernetes_operator_part_of", "kubevirt"),
 		fmt.Sprintf("%s kubernetes_operator_part_of label is missing or not valid", rule.Alert))
 	ExpectWithOffset(1, rule.Labels).To(HaveKeyWithValue("kubernetes_operator_component", "kubevirt"),

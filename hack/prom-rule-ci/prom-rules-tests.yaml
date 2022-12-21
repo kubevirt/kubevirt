@@ -24,6 +24,7 @@ tests:
               runbook_url: "https://kubevirt.io/monitoring/runbooks/KubeVirtComponentExceedsRequestedCPU"
             exp_labels:
               severity: "warning"
+              operator_health_impact: "none"
               kubernetes_operator_part_of: "kubevirt"
               kubernetes_operator_component: "kubevirt"
               pod: "virt-controller-8546c99968-x9jgg"
@@ -50,6 +51,7 @@ tests:
               runbook_url: "https://kubevirt.io/monitoring/runbooks/KubeVirtComponentExceedsRequestedMemory"
             exp_labels:
               severity: "warning"
+              operator_health_impact: "none"
               kubernetes_operator_part_of: "kubevirt"
               kubernetes_operator_component: "kubevirt"
               namespace: ci
@@ -88,6 +90,7 @@ tests:
               runbook_url: "https://kubevirt.io/monitoring/runbooks/VirtAPIDown"
             exp_labels:
               severity: "critical"
+              operator_health_impact: "critical"
               kubernetes_operator_part_of: "kubevirt"
               kubernetes_operator_component: "kubevirt"
       - eval_time: 10m
@@ -98,6 +101,7 @@ tests:
               runbook_url: "https://kubevirt.io/monitoring/runbooks/VirtControllerDown"
             exp_labels:
               severity: "critical"
+              operator_health_impact: "critical"
               kubernetes_operator_part_of: "kubevirt"
               kubernetes_operator_component: "kubevirt"
       - eval_time: 10m
@@ -108,6 +112,7 @@ tests:
               runbook_url: "https://kubevirt.io/monitoring/runbooks/VirtOperatorDown"
             exp_labels:
               severity: "critical"
+              operator_health_impact: "critical"
               kubernetes_operator_part_of: "kubevirt"
               kubernetes_operator_component: "kubevirt"
       # it must trigger when operators are not healthy
@@ -119,6 +124,7 @@ tests:
               runbook_url: "https://kubevirt.io/monitoring/runbooks/VirtAPIDown"
             exp_labels:
               severity: "critical"
+              operator_health_impact: "critical"
               kubernetes_operator_part_of: "kubevirt"
               kubernetes_operator_component: "kubevirt"
       - eval_time: 16m
@@ -129,6 +135,7 @@ tests:
               runbook_url: "https://kubevirt.io/monitoring/runbooks/VirtControllerDown"
             exp_labels:
               severity: "critical"
+              operator_health_impact: "critical"
               kubernetes_operator_part_of: "kubevirt"
               kubernetes_operator_component: "kubevirt"
       - eval_time: 16m
@@ -139,6 +146,7 @@ tests:
               runbook_url: "https://kubevirt.io/monitoring/runbooks/VirtOperatorDown"
             exp_labels:
               severity: "critical"
+              operator_health_impact: "critical"
               kubernetes_operator_part_of: "kubevirt"
               kubernetes_operator_component: "kubevirt"
       # it must not trigger when operators are healthy
@@ -189,6 +197,7 @@ tests:
             exp_labels:
               node: "node01"
               severity: "warning"
+              operator_health_impact: "none"
               kubernetes_operator_part_of: "kubevirt"
               kubernetes_operator_component: "kubevirt"
 
@@ -230,6 +239,7 @@ tests:
             exp_labels:
               node: "node01"
               severity: "warning"
+              operator_health_impact: "none"
               kubernetes_operator_part_of: "kubevirt"
               kubernetes_operator_component: "kubevirt"
 
@@ -254,6 +264,7 @@ tests:
               runbook_url: "https://kubevirt.io/monitoring/runbooks/LowReadyVirtControllersCount"
             exp_labels:
               severity: "warning"
+              operator_health_impact: "warning"
               kubernetes_operator_part_of: "kubevirt"
               kubernetes_operator_component: "kubevirt"
 
@@ -276,6 +287,7 @@ tests:
               runbook_url: "https://kubevirt.io/monitoring/runbooks/NoReadyVirtController"
             exp_labels:
               severity: "critical"
+              operator_health_impact: "critical"
               kubernetes_operator_part_of: "kubevirt"
               kubernetes_operator_component: "kubevirt"
   # All virt controllers are not ready (ImagePullBackOff)
@@ -297,6 +309,7 @@ tests:
               runbook_url: "https://kubevirt.io/monitoring/runbooks/NoReadyVirtController"
             exp_labels:
               severity: "critical"
+              operator_health_impact: "critical"
               kubernetes_operator_part_of: "kubevirt"
               kubernetes_operator_component: "kubevirt"
 
@@ -319,6 +332,7 @@ tests:
               runbook_url: "https://kubevirt.io/monitoring/runbooks/NoReadyVirtOperator"
             exp_labels:
               severity: "critical"
+              operator_health_impact: "critical"
               kubernetes_operator_part_of: "kubevirt"
               kubernetes_operator_component: "kubevirt"
 
@@ -341,6 +355,7 @@ tests:
               runbook_url: "https://kubevirt.io/monitoring/runbooks/NoReadyVirtOperator"
             exp_labels:
               severity: "critical"
+              operator_health_impact: "critical"
               kubernetes_operator_part_of: "kubevirt"
               kubernetes_operator_component: "kubevirt"
 
@@ -381,6 +396,7 @@ tests:
               runbook_url: "https://kubevirt.io/monitoring/runbooks/VirtControllerRESTErrorsBurst"
             exp_labels:
               severity: "critical"
+              operator_health_impact: "critical"
               kubernetes_operator_part_of: "kubevirt"
               kubernetes_operator_component: "kubevirt"
       - eval_time: 20m
@@ -391,6 +407,7 @@ tests:
               runbook_url: "https://kubevirt.io/monitoring/runbooks/VirtOperatorRESTErrorsBurst"
             exp_labels:
               severity: "critical"
+              operator_health_impact: "critical"
               kubernetes_operator_part_of: "kubevirt"
               kubernetes_operator_component: "kubevirt"
       - eval_time: 20m
@@ -401,6 +418,7 @@ tests:
               runbook_url: "https://kubevirt.io/monitoring/runbooks/VirtHandlerRESTErrorsBurst"
             exp_labels:
               severity: "critical"
+              operator_health_impact: "critical"
               kubernetes_operator_part_of: "kubevirt"
               kubernetes_operator_component: "kubevirt"
       - eval_time: 20m
@@ -411,6 +429,7 @@ tests:
               runbook_url: "https://kubevirt.io/monitoring/runbooks/VirtApiRESTErrorsBurst"
             exp_labels:
               severity: "critical"
+              operator_health_impact: "critical"
               kubernetes_operator_part_of: "kubevirt"
               kubernetes_operator_component: "kubevirt"
 
@@ -450,6 +469,7 @@ tests:
               runbook_url: "https://kubevirt.io/monitoring/runbooks/VirtControllerRESTErrorsHigh"
             exp_labels:
               severity: "warning"
+              operator_health_impact: "warning"
               kubernetes_operator_part_of: "kubevirt"
               kubernetes_operator_component: "kubevirt"
       - eval_time: 100m
@@ -460,6 +480,7 @@ tests:
               runbook_url: "https://kubevirt.io/monitoring/runbooks/VirtOperatorRESTErrorsHigh"
             exp_labels:
               severity: "warning"
+              operator_health_impact: "warning"
               kubernetes_operator_part_of: "kubevirt"
               kubernetes_operator_component: "kubevirt"
       - eval_time: 100m
@@ -470,6 +491,7 @@ tests:
               runbook_url: "https://kubevirt.io/monitoring/runbooks/VirtHandlerRESTErrorsHigh"
             exp_labels:
               severity: "warning"
+              operator_health_impact: "warning"
               kubernetes_operator_part_of: "kubevirt"
               kubernetes_operator_component: "kubevirt"
       - eval_time: 100m
@@ -480,6 +502,7 @@ tests:
               runbook_url: "https://kubevirt.io/monitoring/runbooks/VirtApiRESTErrorsHigh"
             exp_labels:
               severity: "warning"
+              operator_health_impact: "warning"
               kubernetes_operator_part_of: "kubevirt"
               kubernetes_operator_component: "kubevirt"
 
@@ -501,6 +524,7 @@ tests:
               runbook_url: "https://kubevirt.io/monitoring/runbooks/LowKVMNodesCount"
             exp_labels:
               severity: "warning"
+              operator_health_impact: "warning"
               kubernetes_operator_part_of: "kubevirt"
               kubernetes_operator_component: "kubevirt"
 
@@ -522,6 +546,7 @@ tests:
               runbook_url: "https://kubevirt.io/monitoring/runbooks/LowKVMNodesCount"
             exp_labels:
               severity: "warning"
+              operator_health_impact: "warning"
               kubernetes_operator_part_of: "kubevirt"
               kubernetes_operator_component: "kubevirt"
 
@@ -558,6 +583,7 @@ tests:
               runbook_url: "https://kubevirt.io/monitoring/runbooks/KubevirtVmHighMemoryUsage"
             exp_labels:
               severity: "warning"
+              operator_health_impact: "none"
               kubernetes_operator_part_of: "kubevirt"
               kubernetes_operator_component: "kubevirt"
               pod: "virt-launcher-testvm-123"
@@ -584,6 +610,7 @@ tests:
               runbook_url: "https://kubevirt.io/monitoring/runbooks/KubevirtVmHighMemoryUsage"
             exp_labels:
               severity: "warning"
+              operator_health_impact: "none"
               kubernetes_operator_part_of: "kubevirt"
               kubernetes_operator_component: "kubevirt"
               pod: "virt-launcher-testvm-123"
@@ -610,6 +637,7 @@ tests:
               runbook_url: "https://kubevirt.io/monitoring/runbooks/KubevirtVmHighMemoryUsage"
             exp_labels:
               severity: "warning"
+              operator_health_impact: "none"
               kubernetes_operator_part_of: "kubevirt"
               kubernetes_operator_component: "kubevirt"
               pod: "virt-launcher-testvm-123"
@@ -647,6 +675,7 @@ tests:
               runbook_url: "https://kubevirt.io/monitoring/runbooks/VMCannotBeEvicted"
             exp_labels:
               severity: "warning"
+              operator_health_impact: "none"
               kubernetes_operator_part_of: "kubevirt"
               kubernetes_operator_component: "kubevirt"
               name: "vm-evict-nonmigratable"
@@ -719,6 +748,7 @@ tests:
               runbook_url: "https://kubevirt.io/monitoring/runbooks/KubeVirtVMIExcessiveMigrations"
             exp_labels:
               severity: "warning"
+              operator_health_impact: "none"
               kubernetes_operator_part_of: "kubevirt"
               kubernetes_operator_component: "kubevirt"
               vmi: vmi-example-1
@@ -731,6 +761,7 @@ tests:
               runbook_url: "https://kubevirt.io/monitoring/runbooks/KubeVirtVMIExcessiveMigrations"
             exp_labels:
               severity: "warning"
+              operator_health_impact: "none"
               kubernetes_operator_part_of: "kubevirt"
               kubernetes_operator_component: "kubevirt"
               vmi: vmi-example-1
@@ -769,6 +800,7 @@ tests:
               runbook_url: "https://kubevirt.io/monitoring/runbooks/KubeVirtVMStuckInStartingState"
             exp_labels:
               severity: "warning"
+              operator_health_impact: "none"
               kubernetes_operator_part_of: "kubevirt"
               kubernetes_operator_component: "kubevirt"
               name: "starting-vm-1"
@@ -808,6 +840,7 @@ tests:
               runbook_url: "https://kubevirt.io/monitoring/runbooks/KubeVirtVMStuckInMigratingState"
             exp_labels:
               severity: "warning"
+              operator_health_impact: "none"
               kubernetes_operator_part_of: "kubevirt"
               kubernetes_operator_component: "kubevirt"
               name: "migrating-vm-1"
@@ -847,6 +880,7 @@ tests:
               runbook_url: "https://kubevirt.io/monitoring/runbooks/KubeVirtVMStuckInErrorState"
             exp_labels:
               severity: "warning"
+              operator_health_impact: "none"
               kubernetes_operator_part_of: "kubevirt"
               kubernetes_operator_component: "kubevirt"
               name: "error-vm-1"
