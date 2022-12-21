@@ -58,6 +58,7 @@ type alerts struct {
 	downAlert            string
 	noReadyAlert         string
 	restErrorsBurtsAlert string
+	restErrorsHighAlert  string
 	lowCountAlert        string
 }
 
@@ -66,6 +67,7 @@ var (
 		deploymentName:       "virt-api",
 		downAlert:            "VirtAPIDown",
 		restErrorsBurtsAlert: "VirtApiRESTErrorsBurst",
+		restErrorsHighAlert:  "VirtApiRESTErrorsHigh",
 		lowCountAlert:        "LowVirtAPICount",
 	}
 	virtController = alerts{
@@ -73,17 +75,20 @@ var (
 		downAlert:            "VirtControllerDown",
 		noReadyAlert:         "NoReadyVirtController",
 		restErrorsBurtsAlert: "VirtControllerRESTErrorsBurst",
+		restErrorsHighAlert:  "VirtControllerRESTErrorsHigh",
 		lowCountAlert:        "LowVirtControllersCount",
 	}
 	virtHandler = alerts{
 		deploymentName:       "virt-handler",
 		restErrorsBurtsAlert: "VirtHandlerRESTErrorsBurst",
+		restErrorsHighAlert:  "VirtHandlerRESTErrorsHigh",
 	}
 	virtOperator = alerts{
 		deploymentName:       "virt-operator",
 		downAlert:            "VirtOperatorDown",
 		noReadyAlert:         "NoReadyVirtOperator",
 		restErrorsBurtsAlert: "VirtOperatorRESTErrorsBurst",
+		restErrorsHighAlert:  "VirtOperatorRESTErrorsHigh",
 		lowCountAlert:        "LowVirtOperatorCount",
 	}
 )
@@ -351,14 +356,16 @@ var _ = Describe("[Serial][sig-monitoring]Monitoring", Serial, decorators.SigMon
 		BeforeEach(func() {
 			virtClient = kubevirt.Client()
 
-			scales = make(map[string]*autoscalingv1.Scale, 1)
-			backupScale(virtOperator.deploymentName)
-
 			crb, err = virtClient.RbacV1().ClusterRoleBindings().Get(context.Background(), "kubevirt-operator", metav1.GetOptions{})
 			util.PanicOnError(err)
 
-			reduceAlertPendingTime()
 			increaseRateLimit()
+
+			scales = make(map[string]*autoscalingv1.Scale, 1)
+			backupScale(virtOperator.deploymentName)
+			updateScale(virtOperator.deploymentName, 0)
+
+			reduceAlertPendingTime()
 		})
 
 		AfterEach(func() {
@@ -378,83 +385,58 @@ var _ = Describe("[Serial][sig-monitoring]Monitoring", Serial, decorators.SigMon
 			waitUntilAlertDoesNotExist(virtHandler.downAlert)
 		})
 
-		It("VirtApiRESTErrorsBurst should be triggered when requests to virt-api are failing", func() {
-			for i := 0; i < 120; i++ {
-				cmd := clientcmd.NewVirtctlCommand("vnc", "test"+rand.String(6))
+		It("VirtApiRESTErrorsBurst and VirtApiRESTErrorsHigh should be triggered when requests to virt-api are failing", func() {
+			randVmName := rand.String(6)
+
+			Eventually(func(g Gomega) {
+				cmd := clientcmd.NewVirtctlCommand("vnc", randVmName)
 				err := cmd.Execute()
 				Expect(err).To(HaveOccurred())
 
-				time.Sleep(500 * time.Millisecond)
-
-				err = checkAlert(virtApi.restErrorsBurtsAlert)
-				if err == nil {
-					return
-				}
-			}
-
-			verifyAlertExist(virtApi.restErrorsBurtsAlert)
+				g.Expect(checkAlert(virtApi.restErrorsBurtsAlert)).To(Not(HaveOccurred()))
+				g.Expect(checkAlert(virtApi.restErrorsHighAlert)).To(Not(HaveOccurred()))
+			}, 5*time.Minute, 500*time.Millisecond).Should(Succeed())
 		})
 
-		It("VirtOperatorRESTErrorsBurst should be triggered when requests to virt-operator are failing", func() {
+		It("VirtOperatorRESTErrorsBurst and VirtOperatorRESTErrorsHigh should be triggered when requests to virt-operator are failing", func() {
+			revertScale(virtOperator.deploymentName)
 			err = virtClient.RbacV1().ClusterRoleBindings().Delete(context.Background(), crb.Name, metav1.DeleteOptions{})
 			Expect(err).ToNot(HaveOccurred())
 
-			for i := 0; i < 60; i++ {
-				time.Sleep(500 * time.Millisecond)
-
-				err := checkAlert(virtOperator.restErrorsBurtsAlert)
-				if err == nil {
-					return
-				}
-			}
-
-			verifyAlertExist(virtOperator.restErrorsBurtsAlert)
+			Eventually(func(g Gomega) {
+				g.Expect(checkAlert(virtOperator.restErrorsBurtsAlert)).To(Not(HaveOccurred()))
+				g.Expect(checkAlert(virtOperator.restErrorsHighAlert)).To(Not(HaveOccurred()))
+			}, 5*time.Minute, 500*time.Millisecond).Should(Succeed())
 		})
 
-		It("VirtControllerRESTErrorsBurst should be triggered when requests to virt-controller are failing", func() {
-			updateScale(virtOperator.deploymentName, 0)
-
+		It("VirtControllerRESTErrorsBurst and VirtControllerRESTErrorsHigh should be triggered when requests to virt-controller are failing", func() {
 			err = virtClient.RbacV1().ClusterRoleBindings().Delete(context.Background(), "kubevirt-controller", metav1.DeleteOptions{})
 			Expect(err).ToNot(HaveOccurred())
 
 			vmi := tests.NewRandomVMI()
 
-			for i := 0; i < 60; i++ {
+			Eventually(func(g Gomega) {
 				_, _ = virtClient.VirtualMachineInstance(util.NamespaceTestDefault).Create(context.Background(), vmi)
 				_ = virtClient.VirtualMachineInstance(util.NamespaceTestDefault).Delete(context.Background(), vmi.Name, &metav1.DeleteOptions{})
 
-				time.Sleep(500 * time.Millisecond)
-
-				err := checkAlert(virtController.restErrorsBurtsAlert)
-				if err == nil {
-					return
-				}
-			}
-
-			verifyAlertExist(virtController.restErrorsBurtsAlert)
+				g.Expect(checkAlert(virtController.restErrorsBurtsAlert)).To(Not(HaveOccurred()))
+				g.Expect(checkAlert(virtController.restErrorsHighAlert)).To(Not(HaveOccurred()))
+			}, 5*time.Minute, 500*time.Millisecond).Should(Succeed())
 		})
 
-		It("VirtHandlerRESTErrorsBurst should be triggered when requests to virt-handler are failing", func() {
-			updateScale(virtOperator.deploymentName, 0)
-
+		It("VirtHandlerRESTErrorsBurst and VirtHandlerRESTErrorsHigh should be triggered when requests to virt-handler are failing", func() {
 			err = virtClient.RbacV1().ClusterRoleBindings().Delete(context.Background(), "kubevirt-handler", metav1.DeleteOptions{})
 			Expect(err).ToNot(HaveOccurred())
 
 			vmi := tests.NewRandomVMI()
 
-			for i := 0; i < 60; i++ {
+			Eventually(func(g Gomega) {
 				_, _ = virtClient.VirtualMachineInstance(util.NamespaceTestDefault).Create(context.Background(), vmi)
 				_ = virtClient.VirtualMachineInstance(util.NamespaceTestDefault).Delete(context.Background(), vmi.Name, &metav1.DeleteOptions{})
 
-				time.Sleep(500 * time.Millisecond)
-
-				err := checkAlert(virtHandler.restErrorsBurtsAlert)
-				if err == nil {
-					return
-				}
-			}
-
-			verifyAlertExist(virtHandler.restErrorsBurtsAlert)
+				g.Expect(checkAlert(virtHandler.restErrorsBurtsAlert)).To(Not(HaveOccurred()))
+				g.Expect(checkAlert(virtHandler.restErrorsHighAlert)).To(Not(HaveOccurred()))
+			}, 5*time.Minute, 500*time.Millisecond).Should(Succeed())
 		})
 	})
 
