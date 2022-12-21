@@ -70,6 +70,7 @@ if [ "$KUBEVIRT_E2E_PARALLEL" == "true" ]; then
     trap "_out/tests/junit-merger -o ${ARTIFACTS}/junit.functest.xml '${ARTIFACTS}/partial.*.xml'" EXIT
     parallel_test_args=""
     serial_test_args=""
+    k8s_reporter_path="${ARTIFACTS}/k8s-reporter"
 
     if [ -n "$KUBEVIRT_E2E_SKIP" ]; then
         parallel_test_args="${parallel_test_args} --skip=\\[Serial\\]|${KUBEVIRT_E2E_SKIP}"
@@ -89,6 +90,7 @@ if [ "$KUBEVIRT_E2E_PARALLEL" == "true" ]; then
     set +e
     functest --nodes=${KUBEVIRT_E2E_PARALLEL_NODES} ${parallel_test_args} ${KUBEVIRT_FUNC_TEST_GINKGO_ARGS}
     return_value="$?"
+    [ -d "${k8s_reporter_path}" ] && mv "${k8s_reporter_path}" "${k8s_reporter_path}"-parallel
     set -e
     if [ "$return_value" -ne 0 ] && ! [ "$KUBEVIRT_E2E_RUN_ALL_SUITES" == "true" ]; then
         exit "$return_value"
