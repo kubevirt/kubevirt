@@ -1,0 +1,1013 @@
+[
+  {
+    "number": 14,
+    "state": "fixed",
+    "dependency": {
+      "package": {
+        "ecosystem": "go",
+        "name": "github.com/opencontainers/runc"
+      },
+      "manifest_path": "go.sum",
+      "scope": "runtime"
+    },
+    "security_advisory": {
+      "ghsa_id": "GHSA-f3fp-gc8g-vw66",
+      "cve_id": "CVE-2022-29162",
+      "summary": "Default inheritable capabilities for linux container should be empty",
+      "description": "### Impact\n\nA bug was found in runc where `runc exec --cap` executed processes with non-empty inheritable Linux process capabilities, creating an atypical Linux environment and enabling programs with inheritable file capabilities to elevate those capabilities to the permitted set during execve(2).\n\nThis bug did not affect the container security sandbox as the inheritable set never contained more capabilities than were included in the container's bounding set.\n\n### Patches\nThis bug has been fixed in runc 1.1.2. Users should update to this version as soon as possible.\n\nThis fix changes `runc exec --cap` behavior such that the additional capabilities granted to the process being executed (as specified via `--cap` arguments) do not include inheritable capabilities.\n\nIn addition, `runc spec` is changed to not set any inheritable capabilities in the created example OCI spec (`config.json`) file.\n\n### Credits\nThe opencontainers project would like to thank [Andrew G. Morgan](https://github.com/AndrewGMorgan) for responsibly disclosing this issue in accordance with the [opencontainers org security policy](https://github.com/opencontainers/.github/blob/master/SECURITY.md).\n\n### For more information\nIf you have any questions or comments about this advisory:\n\n* [Open an issue](https://github.com/opencontainers/runc/issues/new)\n* Email us at [security@opencontainers.org](mailto:security@opencontainers.org) if you think you’ve found a security bug",
+      "severity": "medium",
+      "identifiers": [
+        {
+          "value": "GHSA-f3fp-gc8g-vw66",
+          "type": "GHSA"
+        },
+        {
+          "value": "CVE-2022-29162",
+          "type": "CVE"
+        }
+      ],
+      "references": [
+        {
+          "url": "https://github.com/opencontainers/runc/security/advisories/GHSA-f3fp-gc8g-vw66"
+        },
+        {
+          "url": "https://nvd.nist.gov/vuln/detail/CVE-2022-29162"
+        },
+        {
+          "url": "https://github.com/opencontainers/runc/commit/d04de3a9b72d7a2455c1885fc75eb36d02cd17b5"
+        },
+        {
+          "url": "https://github.com/opencontainers/runc/releases/tag/v1.1.2"
+        },
+        {
+          "url": "https://lists.fedoraproject.org/archives/list/package-announce@lists.fedoraproject.org/message/AVPZBV7ISA7QKRPTC7ZXWKMIQI2HZEBB/"
+        },
+        {
+          "url": "https://lists.fedoraproject.org/archives/list/package-announce@lists.fedoraproject.org/message/D77CKD3AXPMU4PMQIQI5Q74SI4JATNND/"
+        },
+        {
+          "url": "https://lists.fedoraproject.org/archives/list/package-announce@lists.fedoraproject.org/message/GPQU4YC4AAY54JDXGDQHJEYKSXXG5T2Y/"
+        },
+        {
+          "url": "https://github.com/advisories/GHSA-f3fp-gc8g-vw66"
+        }
+      ],
+      "published_at": "2022-05-24T17:36:56Z",
+      "updated_at": "2022-06-03T21:08:34Z",
+      "withdrawn_at": null,
+      "vulnerabilities": [
+        {
+          "package": {
+            "ecosystem": "go",
+            "name": "github.com/opencontainers/runc"
+          },
+          "severity": "medium",
+          "vulnerable_version_range": "< 1.1.2",
+          "first_patched_version": {
+            "identifier": "1.1.2"
+          }
+        }
+      ],
+      "cvss": {
+        "vector_string": "CVSS:3.1/AV:L/AC:L/PR:N/UI:N/S:U/C:L/I:L/A:L",
+        "score": 5.9
+      },
+      "cwes": [
+        {
+          "cwe_id": "CWE-276",
+          "name": "Incorrect Default Permissions"
+        }
+      ]
+    },
+    "security_vulnerability": {
+      "package": {
+        "ecosystem": "go",
+        "name": "github.com/opencontainers/runc"
+      },
+      "severity": "medium",
+      "vulnerable_version_range": "< 1.1.2",
+      "first_patched_version": {
+        "identifier": "1.1.2"
+      }
+    },
+    "url": "https://api.github.com/repos/kubevirt/kubevirt/dependabot/alerts/14",
+    "html_url": "https://github.com/kubevirt/kubevirt/security/dependabot/14",
+    "created_at": "2022-05-24T17:40:06Z",
+    "updated_at": "2022-07-18T21:25:47Z",
+    "dismissed_at": null,
+    "dismissed_by": null,
+    "dismissed_reason": null,
+    "dismissed_comment": null,
+    "fixed_at": "2022-07-18T21:25:47Z"
+  },
+  {
+    "number": 13,
+    "state": "fixed",
+    "dependency": {
+      "package": {
+        "ecosystem": "go",
+        "name": "github.com/kubernetes-csi/external-snapshotter/v2"
+      },
+      "manifest_path": "staging/src/kubevirt.io/client-go/go.sum",
+      "scope": null
+    },
+    "security_advisory": {
+      "ghsa_id": "GHSA-hwrr-rhmm-vcvf",
+      "cve_id": "CVE-2020-8569",
+      "summary": "NULL Pointer Dereference in Kubernetes CSI snapshot-controller",
+      "description": "Kubernetes CSI snapshot-controller prior to v2.1.3 and v3.0.2 could panic when processing a VolumeSnapshot custom resource when:\n\n- The VolumeSnapshot referenced a non-existing PersistentVolumeClaim and the VolumeSnapshot did not reference any VolumeSnapshotClass.\n- The snapshot-controller crashes, is automatically restarted by Kubernetes, and processes the same VolumeSnapshot custom resource after the restart, entering an endless crashloop.\n\nOnly the volume snapshot feature is affected by this vulnerability. When exploited, users canâ€™t take snapshots of their volumes or delete the snapshots. All other Kubernetes functionality is not affected.",
+      "severity": "medium",
+      "identifiers": [
+        {
+          "value": "GHSA-hwrr-rhmm-vcvf",
+          "type": "GHSA"
+        },
+        {
+          "value": "CVE-2020-8569",
+          "type": "CVE"
+        }
+      ],
+      "references": [
+        {
+          "url": "https://nvd.nist.gov/vuln/detail/CVE-2020-8569"
+        },
+        {
+          "url": "https://github.com/kubernetes-csi/external-snapshotter/issues/380"
+        },
+        {
+          "url": "https://groups.google.com/g/kubernetes-security-announce/c/1EzCr1qUxxU"
+        },
+        {
+          "url": "https://github.com/advisories/GHSA-hwrr-rhmm-vcvf"
+        }
+      ],
+      "published_at": "2022-02-15T01:57:18Z",
+      "updated_at": "2022-08-13T03:06:15Z",
+      "withdrawn_at": null,
+      "vulnerabilities": [
+        {
+          "package": {
+            "ecosystem": "go",
+            "name": "github.com/kubernetes-csi/external-snapshotter/v2"
+          },
+          "severity": "medium",
+          "vulnerable_version_range": ">= 2.0.0, < 2.1.3",
+          "first_patched_version": {
+            "identifier": "2.1.3"
+          }
+        },
+        {
+          "package": {
+            "ecosystem": "go",
+            "name": "github.com/kubernetes-csi/external-snapshotter/v3"
+          },
+          "severity": "medium",
+          "vulnerable_version_range": ">= 3.0.0, < 3.0.2",
+          "first_patched_version": {
+            "identifier": "3.0.2"
+          }
+        }
+      ],
+      "cvss": {
+        "vector_string": "CVSS:3.1/AV:N/AC:L/PR:L/UI:N/S:U/C:N/I:N/A:H",
+        "score": 6.5
+      },
+      "cwes": [
+        {
+          "cwe_id": "CWE-476",
+          "name": "NULL Pointer Dereference"
+        }
+      ]
+    },
+    "security_vulnerability": {
+      "package": {
+        "ecosystem": "go",
+        "name": "github.com/kubernetes-csi/external-snapshotter/v2"
+      },
+      "severity": "medium",
+      "vulnerable_version_range": ">= 2.0.0, < 2.1.3",
+      "first_patched_version": {
+        "identifier": "2.1.3"
+      }
+    },
+    "url": "https://api.github.com/repos/kubevirt/kubevirt/dependabot/alerts/13",
+    "html_url": "https://github.com/kubevirt/kubevirt/security/dependabot/13",
+    "created_at": "2022-04-20T20:56:31Z",
+    "updated_at": "2022-04-23T16:50:00Z",
+    "dismissed_at": null,
+    "dismissed_by": null,
+    "dismissed_reason": null,
+    "dismissed_comment": null,
+    "fixed_at": "2022-04-23T16:50:00Z"
+  },
+  {
+    "number": 12,
+    "state": "fixed",
+    "dependency": {
+      "package": {
+        "ecosystem": "go",
+        "name": "github.com/gogo/protobuf"
+      },
+      "manifest_path": "cluster-up/cluster/kind-1.22-sriov/certcreator/go.sum",
+      "scope": "runtime"
+    },
+    "security_advisory": {
+      "ghsa_id": "GHSA-c3h9-896r-86jm",
+      "cve_id": "CVE-2021-3121",
+      "summary": "Improper Input Validation in GoGo Protobuf",
+      "description": "An issue was discovered in GoGo Protobuf before 1.3.2. plugin/unmarshal/unmarshal.go lacks certain index validation, aka the \"skippy peanut butter\" issue.",
+      "severity": "high",
+      "identifiers": [
+        {
+          "value": "GHSA-c3h9-896r-86jm",
+          "type": "GHSA"
+        },
+        {
+          "value": "CVE-2021-3121",
+          "type": "CVE"
+        }
+      ],
+      "references": [
+        {
+          "url": "https://nvd.nist.gov/vuln/detail/CVE-2021-3121"
+        },
+        {
+          "url": "https://github.com/gogo/protobuf/commit/b03c65ea87cdc3521ede29f62fe3ce239267c1bc"
+        },
+        {
+          "url": "https://discuss.hashicorp.com/t/hcsec-2021-23-consul-exposed-to-denial-of-service-in-gogo-protobuf-dependency/29025"
+        },
+        {
+          "url": "https://github.com/gogo/protobuf/compare/v1.3.1...v1.3.2"
+        },
+        {
+          "url": "https://lists.apache.org/thread.html/r68032132c0399c29d6cdc7bd44918535da54060a10a12b1591328bff@%3Cnotifications.skywalking.apache.org%3E"
+        },
+        {
+          "url": "https://lists.apache.org/thread.html/r88d69555cb74a129a7bf84838073b61259b4a3830190e05a3b87994e@%3Ccommits.pulsar.apache.org%3E"
+        },
+        {
+          "url": "https://lists.apache.org/thread.html/rc1e9ff22c5641d73701ba56362fb867d40ed287cca000b131dcf4a44@%3Ccommits.pulsar.apache.org%3E"
+        },
+        {
+          "url": "https://security.netapp.com/advisory/ntap-20210219-0006/"
+        },
+        {
+          "url": "https://github.com/advisories/GHSA-c3h9-896r-86jm"
+        }
+      ],
+      "published_at": "2022-03-28T20:28:00Z",
+      "updated_at": "2022-03-29T21:02:00Z",
+      "withdrawn_at": null,
+      "vulnerabilities": [
+        {
+          "package": {
+            "ecosystem": "go",
+            "name": "github.com/gogo/protobuf"
+          },
+          "severity": "high",
+          "vulnerable_version_range": "< 1.3.2",
+          "first_patched_version": {
+            "identifier": "1.3.2"
+          }
+        }
+      ],
+      "cvss": {
+        "vector_string": "CVSS:3.1/AV:N/AC:L/PR:N/UI:N/S:U/C:L/I:L/A:H",
+        "score": 8.6
+      },
+      "cwes": [
+        {
+          "cwe_id": "CWE-20",
+          "name": "Improper Input Validation"
+        },
+        {
+          "cwe_id": "CWE-129",
+          "name": "Improper Validation of Array Index"
+        }
+      ]
+    },
+    "security_vulnerability": {
+      "package": {
+        "ecosystem": "go",
+        "name": "github.com/gogo/protobuf"
+      },
+      "severity": "high",
+      "vulnerable_version_range": "< 1.3.2",
+      "first_patched_version": {
+        "identifier": "1.3.2"
+      }
+    },
+    "url": "https://api.github.com/repos/kubevirt/kubevirt/dependabot/alerts/12",
+    "html_url": "https://github.com/kubevirt/kubevirt/security/dependabot/12",
+    "created_at": "2022-03-29T21:11:31Z",
+    "updated_at": "2022-12-14T05:11:46Z",
+    "dismissed_at": null,
+    "dismissed_by": null,
+    "dismissed_reason": null,
+    "dismissed_comment": null,
+    "fixed_at": "2022-12-14T05:11:46Z"
+  },
+  {
+    "number": 11,
+    "state": "open",
+    "dependency": {
+      "package": {
+        "ecosystem": "go",
+        "name": "github.com/gogo/protobuf"
+      },
+      "manifest_path": "staging/src/kubevirt.io/client-go/examples/listvms/go.sum",
+      "scope": "runtime"
+    },
+    "security_advisory": {
+      "ghsa_id": "GHSA-c3h9-896r-86jm",
+      "cve_id": "CVE-2021-3121",
+      "summary": "Improper Input Validation in GoGo Protobuf",
+      "description": "An issue was discovered in GoGo Protobuf before 1.3.2. plugin/unmarshal/unmarshal.go lacks certain index validation, aka the \"skippy peanut butter\" issue.",
+      "severity": "high",
+      "identifiers": [
+        {
+          "value": "GHSA-c3h9-896r-86jm",
+          "type": "GHSA"
+        },
+        {
+          "value": "CVE-2021-3121",
+          "type": "CVE"
+        }
+      ],
+      "references": [
+        {
+          "url": "https://nvd.nist.gov/vuln/detail/CVE-2021-3121"
+        },
+        {
+          "url": "https://github.com/gogo/protobuf/commit/b03c65ea87cdc3521ede29f62fe3ce239267c1bc"
+        },
+        {
+          "url": "https://discuss.hashicorp.com/t/hcsec-2021-23-consul-exposed-to-denial-of-service-in-gogo-protobuf-dependency/29025"
+        },
+        {
+          "url": "https://github.com/gogo/protobuf/compare/v1.3.1...v1.3.2"
+        },
+        {
+          "url": "https://lists.apache.org/thread.html/r68032132c0399c29d6cdc7bd44918535da54060a10a12b1591328bff@%3Cnotifications.skywalking.apache.org%3E"
+        },
+        {
+          "url": "https://lists.apache.org/thread.html/r88d69555cb74a129a7bf84838073b61259b4a3830190e05a3b87994e@%3Ccommits.pulsar.apache.org%3E"
+        },
+        {
+          "url": "https://lists.apache.org/thread.html/rc1e9ff22c5641d73701ba56362fb867d40ed287cca000b131dcf4a44@%3Ccommits.pulsar.apache.org%3E"
+        },
+        {
+          "url": "https://security.netapp.com/advisory/ntap-20210219-0006/"
+        },
+        {
+          "url": "https://github.com/advisories/GHSA-c3h9-896r-86jm"
+        }
+      ],
+      "published_at": "2022-03-28T20:28:00Z",
+      "updated_at": "2022-03-29T21:02:00Z",
+      "withdrawn_at": null,
+      "vulnerabilities": [
+        {
+          "package": {
+            "ecosystem": "go",
+            "name": "github.com/gogo/protobuf"
+          },
+          "severity": "high",
+          "vulnerable_version_range": "< 1.3.2",
+          "first_patched_version": {
+            "identifier": "1.3.2"
+          }
+        }
+      ],
+      "cvss": {
+        "vector_string": "CVSS:3.1/AV:N/AC:L/PR:N/UI:N/S:U/C:L/I:L/A:H",
+        "score": 8.6
+      },
+      "cwes": [
+        {
+          "cwe_id": "CWE-20",
+          "name": "Improper Input Validation"
+        },
+        {
+          "cwe_id": "CWE-129",
+          "name": "Improper Validation of Array Index"
+        }
+      ]
+    },
+    "security_vulnerability": {
+      "package": {
+        "ecosystem": "go",
+        "name": "github.com/gogo/protobuf"
+      },
+      "severity": "high",
+      "vulnerable_version_range": "< 1.3.2",
+      "first_patched_version": {
+        "identifier": "1.3.2"
+      }
+    },
+    "url": "https://api.github.com/repos/kubevirt/kubevirt/dependabot/alerts/11",
+    "html_url": "https://github.com/kubevirt/kubevirt/security/dependabot/11",
+    "created_at": "2022-03-29T21:04:26Z",
+    "updated_at": "2022-03-29T21:04:26Z",
+    "dismissed_at": null,
+    "dismissed_by": null,
+    "dismissed_reason": null,
+    "dismissed_comment": null,
+    "fixed_at": null
+  },
+  {
+    "number": 10,
+    "state": "fixed",
+    "dependency": {
+      "package": {
+        "ecosystem": "go",
+        "name": "github.com/gogo/protobuf"
+      },
+      "manifest_path": "cluster-up/cluster/kind-1.19-sriov/certcreator/go.sum",
+      "scope": null
+    },
+    "security_advisory": {
+      "ghsa_id": "GHSA-c3h9-896r-86jm",
+      "cve_id": "CVE-2021-3121",
+      "summary": "Improper Input Validation in GoGo Protobuf",
+      "description": "An issue was discovered in GoGo Protobuf before 1.3.2. plugin/unmarshal/unmarshal.go lacks certain index validation, aka the \"skippy peanut butter\" issue.",
+      "severity": "high",
+      "identifiers": [
+        {
+          "value": "GHSA-c3h9-896r-86jm",
+          "type": "GHSA"
+        },
+        {
+          "value": "CVE-2021-3121",
+          "type": "CVE"
+        }
+      ],
+      "references": [
+        {
+          "url": "https://nvd.nist.gov/vuln/detail/CVE-2021-3121"
+        },
+        {
+          "url": "https://github.com/gogo/protobuf/commit/b03c65ea87cdc3521ede29f62fe3ce239267c1bc"
+        },
+        {
+          "url": "https://discuss.hashicorp.com/t/hcsec-2021-23-consul-exposed-to-denial-of-service-in-gogo-protobuf-dependency/29025"
+        },
+        {
+          "url": "https://github.com/gogo/protobuf/compare/v1.3.1...v1.3.2"
+        },
+        {
+          "url": "https://lists.apache.org/thread.html/r68032132c0399c29d6cdc7bd44918535da54060a10a12b1591328bff@%3Cnotifications.skywalking.apache.org%3E"
+        },
+        {
+          "url": "https://lists.apache.org/thread.html/r88d69555cb74a129a7bf84838073b61259b4a3830190e05a3b87994e@%3Ccommits.pulsar.apache.org%3E"
+        },
+        {
+          "url": "https://lists.apache.org/thread.html/rc1e9ff22c5641d73701ba56362fb867d40ed287cca000b131dcf4a44@%3Ccommits.pulsar.apache.org%3E"
+        },
+        {
+          "url": "https://security.netapp.com/advisory/ntap-20210219-0006/"
+        },
+        {
+          "url": "https://github.com/advisories/GHSA-c3h9-896r-86jm"
+        }
+      ],
+      "published_at": "2022-03-28T20:28:00Z",
+      "updated_at": "2022-03-29T21:02:00Z",
+      "withdrawn_at": null,
+      "vulnerabilities": [
+        {
+          "package": {
+            "ecosystem": "go",
+            "name": "github.com/gogo/protobuf"
+          },
+          "severity": "high",
+          "vulnerable_version_range": "< 1.3.2",
+          "first_patched_version": {
+            "identifier": "1.3.2"
+          }
+        }
+      ],
+      "cvss": {
+        "vector_string": "CVSS:3.1/AV:N/AC:L/PR:N/UI:N/S:U/C:L/I:L/A:H",
+        "score": 8.6
+      },
+      "cwes": [
+        {
+          "cwe_id": "CWE-20",
+          "name": "Improper Input Validation"
+        },
+        {
+          "cwe_id": "CWE-129",
+          "name": "Improper Validation of Array Index"
+        }
+      ]
+    },
+    "security_vulnerability": {
+      "package": {
+        "ecosystem": "go",
+        "name": "github.com/gogo/protobuf"
+      },
+      "severity": "high",
+      "vulnerable_version_range": "< 1.3.2",
+      "first_patched_version": {
+        "identifier": "1.3.2"
+      }
+    },
+    "url": "https://api.github.com/repos/kubevirt/kubevirt/dependabot/alerts/10",
+    "html_url": "https://github.com/kubevirt/kubevirt/security/dependabot/10",
+    "created_at": "2022-03-29T21:04:26Z",
+    "updated_at": "2022-04-08T11:39:52Z",
+    "dismissed_at": null,
+    "dismissed_by": null,
+    "dismissed_reason": null,
+    "dismissed_comment": null,
+    "fixed_at": "2022-04-08T11:39:52Z"
+  },
+  {
+    "number": 8,
+    "state": "fixed",
+    "dependency": {
+      "package": {
+        "ecosystem": "go",
+        "name": "gopkg.in/yaml.v2"
+      },
+      "manifest_path": "staging/src/kubevirt.io/client-go/examples/listvms/go.sum",
+      "scope": null
+    },
+    "security_advisory": {
+      "ghsa_id": "GHSA-wxc4-f4m6-wwqv",
+      "cve_id": "CVE-2019-11254",
+      "summary": "Excessive Platform Resource Consumption within a Loop in Kubernetes",
+      "description": "The Kubernetes API Server component in versions 1.1-1.14, and versions prior to 1.15.10, 1.16.7 and 1.17.3 allows an authorized user who sends malicious YAML payloads to cause the kube-apiserver to consume excessive CPU cycles while parsing YAML.",
+      "severity": "medium",
+      "identifiers": [
+        {
+          "value": "GHSA-wxc4-f4m6-wwqv",
+          "type": "GHSA"
+        },
+        {
+          "value": "CVE-2019-11254",
+          "type": "CVE"
+        }
+      ],
+      "references": [
+        {
+          "url": "https://nvd.nist.gov/vuln/detail/CVE-2019-11254"
+        },
+        {
+          "url": "https://github.com/kubernetes/kubernetes/issues/89535"
+        },
+        {
+          "url": "https://github.com/kubernetes/kubernetes/pull/87467/commits/b86df2bec4f377afc0ca03482ffad2f0a49a83b8"
+        },
+        {
+          "url": "https://github.com/go-yaml/yaml/commit/53403b58ad1b561927d19068c655246f2db79d48"
+        },
+        {
+          "url": "https://groups.google.com/d/msg/kubernetes-announce/ALL9s73E5ck/4yHe8J-PBAAJ"
+        },
+        {
+          "url": "https://security.netapp.com/advisory/ntap-20200413-0003/"
+        },
+        {
+          "url": "https://github.com/advisories/GHSA-wxc4-f4m6-wwqv"
+        }
+      ],
+      "published_at": "2021-12-20T16:55:06Z",
+      "updated_at": "2022-08-13T03:06:01Z",
+      "withdrawn_at": null,
+      "vulnerabilities": [
+        {
+          "package": {
+            "ecosystem": "go",
+            "name": "gopkg.in/yaml.v2"
+          },
+          "severity": "medium",
+          "vulnerable_version_range": "< 2.2.8",
+          "first_patched_version": {
+            "identifier": "2.2.8"
+          }
+        }
+      ],
+      "cvss": {
+        "vector_string": "CVSS:3.1/AV:N/AC:L/PR:L/UI:N/S:U/C:N/I:N/A:H",
+        "score": 6.5
+      },
+      "cwes": [
+        {
+          "cwe_id": "CWE-1050",
+          "name": "Excessive Platform Resource Consumption within a Loop"
+        }
+      ]
+    },
+    "security_vulnerability": {
+      "package": {
+        "ecosystem": "go",
+        "name": "gopkg.in/yaml.v2"
+      },
+      "severity": "medium",
+      "vulnerable_version_range": "< 2.2.8",
+      "first_patched_version": {
+        "identifier": "2.2.8"
+      }
+    },
+    "url": "https://api.github.com/repos/kubevirt/kubevirt/dependabot/alerts/8",
+    "html_url": "https://github.com/kubevirt/kubevirt/security/dependabot/8",
+    "created_at": "2021-12-21T20:18:54Z",
+    "updated_at": "2022-03-27T05:58:04Z",
+    "dismissed_at": null,
+    "dismissed_by": null,
+    "dismissed_reason": null,
+    "dismissed_comment": null,
+    "fixed_at": "2022-03-27T05:58:04Z"
+  },
+  {
+    "number": 7,
+    "state": "fixed",
+    "dependency": {
+      "package": {
+        "ecosystem": "go",
+        "name": "gopkg.in/yaml.v2"
+      },
+      "manifest_path": "cluster-up/cluster/kind-1.22-sriov/certcreator/go.sum",
+      "scope": "runtime"
+    },
+    "security_advisory": {
+      "ghsa_id": "GHSA-wxc4-f4m6-wwqv",
+      "cve_id": "CVE-2019-11254",
+      "summary": "Excessive Platform Resource Consumption within a Loop in Kubernetes",
+      "description": "The Kubernetes API Server component in versions 1.1-1.14, and versions prior to 1.15.10, 1.16.7 and 1.17.3 allows an authorized user who sends malicious YAML payloads to cause the kube-apiserver to consume excessive CPU cycles while parsing YAML.",
+      "severity": "medium",
+      "identifiers": [
+        {
+          "value": "GHSA-wxc4-f4m6-wwqv",
+          "type": "GHSA"
+        },
+        {
+          "value": "CVE-2019-11254",
+          "type": "CVE"
+        }
+      ],
+      "references": [
+        {
+          "url": "https://nvd.nist.gov/vuln/detail/CVE-2019-11254"
+        },
+        {
+          "url": "https://github.com/kubernetes/kubernetes/issues/89535"
+        },
+        {
+          "url": "https://github.com/kubernetes/kubernetes/pull/87467/commits/b86df2bec4f377afc0ca03482ffad2f0a49a83b8"
+        },
+        {
+          "url": "https://github.com/go-yaml/yaml/commit/53403b58ad1b561927d19068c655246f2db79d48"
+        },
+        {
+          "url": "https://groups.google.com/d/msg/kubernetes-announce/ALL9s73E5ck/4yHe8J-PBAAJ"
+        },
+        {
+          "url": "https://security.netapp.com/advisory/ntap-20200413-0003/"
+        },
+        {
+          "url": "https://github.com/advisories/GHSA-wxc4-f4m6-wwqv"
+        }
+      ],
+      "published_at": "2021-12-20T16:55:06Z",
+      "updated_at": "2022-08-13T03:06:01Z",
+      "withdrawn_at": null,
+      "vulnerabilities": [
+        {
+          "package": {
+            "ecosystem": "go",
+            "name": "gopkg.in/yaml.v2"
+          },
+          "severity": "medium",
+          "vulnerable_version_range": "< 2.2.8",
+          "first_patched_version": {
+            "identifier": "2.2.8"
+          }
+        }
+      ],
+      "cvss": {
+        "vector_string": "CVSS:3.1/AV:N/AC:L/PR:L/UI:N/S:U/C:N/I:N/A:H",
+        "score": 6.5
+      },
+      "cwes": [
+        {
+          "cwe_id": "CWE-1050",
+          "name": "Excessive Platform Resource Consumption within a Loop"
+        }
+      ]
+    },
+    "security_vulnerability": {
+      "package": {
+        "ecosystem": "go",
+        "name": "gopkg.in/yaml.v2"
+      },
+      "severity": "medium",
+      "vulnerable_version_range": "< 2.2.8",
+      "first_patched_version": {
+        "identifier": "2.2.8"
+      }
+    },
+    "url": "https://api.github.com/repos/kubevirt/kubevirt/dependabot/alerts/7",
+    "html_url": "https://github.com/kubevirt/kubevirt/security/dependabot/7",
+    "created_at": "2021-12-21T20:18:54Z",
+    "updated_at": "2022-12-14T05:11:46Z",
+    "dismissed_at": null,
+    "dismissed_by": null,
+    "dismissed_reason": null,
+    "dismissed_comment": null,
+    "fixed_at": "2022-12-14T05:11:46Z"
+  },
+  {
+    "number": 6,
+    "state": "fixed",
+    "dependency": {
+      "package": {
+        "ecosystem": "go",
+        "name": "gopkg.in/yaml.v2"
+      },
+      "manifest_path": "cluster-up/cluster/kind-1.19-sriov/certcreator/go.sum",
+      "scope": null
+    },
+    "security_advisory": {
+      "ghsa_id": "GHSA-wxc4-f4m6-wwqv",
+      "cve_id": "CVE-2019-11254",
+      "summary": "Excessive Platform Resource Consumption within a Loop in Kubernetes",
+      "description": "The Kubernetes API Server component in versions 1.1-1.14, and versions prior to 1.15.10, 1.16.7 and 1.17.3 allows an authorized user who sends malicious YAML payloads to cause the kube-apiserver to consume excessive CPU cycles while parsing YAML.",
+      "severity": "medium",
+      "identifiers": [
+        {
+          "value": "GHSA-wxc4-f4m6-wwqv",
+          "type": "GHSA"
+        },
+        {
+          "value": "CVE-2019-11254",
+          "type": "CVE"
+        }
+      ],
+      "references": [
+        {
+          "url": "https://nvd.nist.gov/vuln/detail/CVE-2019-11254"
+        },
+        {
+          "url": "https://github.com/kubernetes/kubernetes/issues/89535"
+        },
+        {
+          "url": "https://github.com/kubernetes/kubernetes/pull/87467/commits/b86df2bec4f377afc0ca03482ffad2f0a49a83b8"
+        },
+        {
+          "url": "https://github.com/go-yaml/yaml/commit/53403b58ad1b561927d19068c655246f2db79d48"
+        },
+        {
+          "url": "https://groups.google.com/d/msg/kubernetes-announce/ALL9s73E5ck/4yHe8J-PBAAJ"
+        },
+        {
+          "url": "https://security.netapp.com/advisory/ntap-20200413-0003/"
+        },
+        {
+          "url": "https://github.com/advisories/GHSA-wxc4-f4m6-wwqv"
+        }
+      ],
+      "published_at": "2021-12-20T16:55:06Z",
+      "updated_at": "2022-08-13T03:06:01Z",
+      "withdrawn_at": null,
+      "vulnerabilities": [
+        {
+          "package": {
+            "ecosystem": "go",
+            "name": "gopkg.in/yaml.v2"
+          },
+          "severity": "medium",
+          "vulnerable_version_range": "< 2.2.8",
+          "first_patched_version": {
+            "identifier": "2.2.8"
+          }
+        }
+      ],
+      "cvss": {
+        "vector_string": "CVSS:3.1/AV:N/AC:L/PR:L/UI:N/S:U/C:N/I:N/A:H",
+        "score": 6.5
+      },
+      "cwes": [
+        {
+          "cwe_id": "CWE-1050",
+          "name": "Excessive Platform Resource Consumption within a Loop"
+        }
+      ]
+    },
+    "security_vulnerability": {
+      "package": {
+        "ecosystem": "go",
+        "name": "gopkg.in/yaml.v2"
+      },
+      "severity": "medium",
+      "vulnerable_version_range": "< 2.2.8",
+      "first_patched_version": {
+        "identifier": "2.2.8"
+      }
+    },
+    "url": "https://api.github.com/repos/kubevirt/kubevirt/dependabot/alerts/6",
+    "html_url": "https://github.com/kubevirt/kubevirt/security/dependabot/6",
+    "created_at": "2021-12-21T20:18:54Z",
+    "updated_at": "2022-04-08T11:39:52Z",
+    "dismissed_at": null,
+    "dismissed_by": null,
+    "dismissed_reason": null,
+    "dismissed_comment": null,
+    "fixed_at": "2022-04-08T11:39:52Z"
+  },
+  {
+    "number": 5,
+    "state": "fixed",
+    "dependency": {
+      "package": {
+        "ecosystem": "go",
+        "name": "github.com/gorilla/websocket"
+      },
+      "manifest_path": "staging/src/kubevirt.io/client-go/examples/listvms/go.sum",
+      "scope": null
+    },
+    "security_advisory": {
+      "ghsa_id": "GHSA-3xh2-74w9-5vxm",
+      "cve_id": "CVE-2020-27813",
+      "summary": "Integer overflow in github.com/gorilla/websocket",
+      "description": "An integer overflow vulnerability exists with the length of websocket frames received via a websocket connection. An attacker would use this flaw to cause a denial of service attack on an HTTP Server allowing websocket connections.",
+      "severity": "high",
+      "identifiers": [
+        {
+          "value": "GHSA-3xh2-74w9-5vxm",
+          "type": "GHSA"
+        },
+        {
+          "value": "CVE-2020-27813",
+          "type": "CVE"
+        }
+      ],
+      "references": [
+        {
+          "url": "https://github.com/gorilla/websocket/security/advisories/GHSA-jf24-p9p9-4rjh"
+        },
+        {
+          "url": "https://nvd.nist.gov/vuln/detail/CVE-2020-27813"
+        },
+        {
+          "url": "https://github.com/gorilla/websocket/pull/537"
+        },
+        {
+          "url": "https://github.com/gorilla/websocket/commit/5b740c29263eb386f33f265561c8262522f19d37"
+        },
+        {
+          "url": "https://bugzilla.redhat.com/show_bug.cgi?id=1902111"
+        },
+        {
+          "url": "https://lists.debian.org/debian-lts-announce/2021/01/msg00008.html"
+        },
+        {
+          "url": "https://github.com/advisories/GHSA-3xh2-74w9-5vxm"
+        }
+      ],
+      "published_at": "2021-05-18T21:08:02Z",
+      "updated_at": "2022-08-13T03:06:42Z",
+      "withdrawn_at": null,
+      "vulnerabilities": [
+        {
+          "package": {
+            "ecosystem": "go",
+            "name": "github.com/gorilla/websocket"
+          },
+          "severity": "high",
+          "vulnerable_version_range": "< 1.4.1",
+          "first_patched_version": {
+            "identifier": "1.4.1"
+          }
+        }
+      ],
+      "cvss": {
+        "vector_string": "CVSS:3.1/AV:N/AC:L/PR:N/UI:N/S:U/C:N/I:N/A:H",
+        "score": 7.5
+      },
+      "cwes": [
+        {
+          "cwe_id": "CWE-190",
+          "name": "Integer Overflow or Wraparound"
+        },
+        {
+          "cwe_id": "CWE-400",
+          "name": "Uncontrolled Resource Consumption"
+        }
+      ]
+    },
+    "security_vulnerability": {
+      "package": {
+        "ecosystem": "go",
+        "name": "github.com/gorilla/websocket"
+      },
+      "severity": "high",
+      "vulnerable_version_range": "< 1.4.1",
+      "first_patched_version": {
+        "identifier": "1.4.1"
+      }
+    },
+    "url": "https://api.github.com/repos/kubevirt/kubevirt/dependabot/alerts/5",
+    "html_url": "https://github.com/kubevirt/kubevirt/security/dependabot/5",
+    "created_at": "2021-12-09T09:01:53Z",
+    "updated_at": "2022-03-27T05:58:03Z",
+    "dismissed_at": null,
+    "dismissed_by": null,
+    "dismissed_reason": null,
+    "dismissed_comment": null,
+    "fixed_at": "2022-03-27T05:58:03Z"
+  },
+  {
+    "number": 3,
+    "state": "fixed",
+    "dependency": {
+      "package": {
+        "ecosystem": "go",
+        "name": "go.mongodb.org/mongo-driver"
+      },
+      "manifest_path": "go.sum",
+      "scope": null
+    },
+    "security_advisory": {
+      "ghsa_id": "GHSA-f6mq-5m25-4r72",
+      "cve_id": "CVE-2021-20329",
+      "summary": "Improper Validation of Specified Type of Input",
+      "description": "Specific cstrings input may not be properly validated in the MongoDB Go Driver when marshalling Go objects into BSON. A malicious user could use a Go object with specific string to potentially inject additional fields into marshalled documents. This issue affects all MongoDB GO Drivers up to (and including) 1.5.0.",
+      "severity": "medium",
+      "identifiers": [
+        {
+          "value": "GHSA-f6mq-5m25-4r72",
+          "type": "GHSA"
+        },
+        {
+          "value": "CVE-2021-20329",
+          "type": "CVE"
+        }
+      ],
+      "references": [
+        {
+          "url": "https://nvd.nist.gov/vuln/detail/CVE-2021-20329"
+        },
+        {
+          "url": "https://github.com/mongodb/mongo-go-driver/releases/tag/v1.5.1"
+        },
+        {
+          "url": "https://github.com/advisories/GHSA-f6mq-5m25-4r72"
+        }
+      ],
+      "published_at": "2021-06-15T16:08:16Z",
+      "updated_at": "2022-08-13T03:06:43Z",
+      "withdrawn_at": null,
+      "vulnerabilities": [
+        {
+          "package": {
+            "ecosystem": "go",
+            "name": "go.mongodb.org/mongo-driver"
+          },
+          "severity": "medium",
+          "vulnerable_version_range": "< 1.5.1",
+          "first_patched_version": {
+            "identifier": "1.5.1"
+          }
+        }
+      ],
+      "cvss": {
+        "vector_string": "CVSS:3.1/AV:N/AC:H/PR:L/UI:N/S:U/C:H/I:H/A:N",
+        "score": 6.8
+      },
+      "cwes": [
+        {
+          "cwe_id": "CWE-20",
+          "name": "Improper Input Validation"
+        },
+        {
+          "cwe_id": "CWE-1287",
+          "name": "Improper Validation of Specified Type of Input"
+        }
+      ]
+    },
+    "security_vulnerability": {
+      "package": {
+        "ecosystem": "go",
+        "name": "go.mongodb.org/mongo-driver"
+      },
+      "severity": "medium",
+      "vulnerable_version_range": "< 1.5.1",
+      "first_patched_version": {
+        "identifier": "1.5.1"
+      }
+    },
+    "url": "https://api.github.com/repos/kubevirt/kubevirt/dependabot/alerts/3",
+    "html_url": "https://github.com/kubevirt/kubevirt/security/dependabot/3",
+    "created_at": "2021-10-27T19:09:20Z",
+    "updated_at": "2022-03-27T05:58:03Z",
+    "dismissed_at": null,
+    "dismissed_by": null,
+    "dismissed_reason": null,
+    "dismissed_comment": null,
+    "fixed_at": "2022-03-27T05:58:03Z"
+  }
+]

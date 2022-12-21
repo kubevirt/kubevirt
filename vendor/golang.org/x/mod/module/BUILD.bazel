@@ -1,0 +1,16 @@
+load("@io_bazel_rules_go//go:def.bzl", "go_library")
+
+go_library(
+    name = "go_default_library",
+    srcs = [
+        "module.go",
+        "pseudo.go",
+    ],
+    importmap = "kubevirt.io/kubevirt/vendor/golang.org/x/mod/module",
+    importpath = "golang.org/x/mod/module",
+    visibility = ["//visibility:public"],
+    deps = [
+        "//vendor/golang.org/x/mod/internal/lazyregexp:go_default_library",
+        "//vendor/golang.org/x/mod/semver:go_default_library",
+    ],
+)
