@@ -20322,6 +20322,12 @@ func schema_kubevirtio_api_core_v1_VSOCKOptions(ref common.ReferenceCallback) co
 							Format: "int64",
 						},
 					},
+					"useTLS": {
+						SchemaProps: spec.SchemaProps{
+							Type:   []string{"boolean"},
+							Format: "",
+						},
+					},
 				},
 				Required: []string{"targetPort"},
 			},

@@ -1,0 +1,14 @@
+syntax = "proto3";
+
+package kubevirt.vsock.system.v1;
+option go_package = "v1";
+
+service System {
+ rpc CABundle(EmptyRequest) returns (Bundle) {}
+}
+
+message Bundle {
+  bytes Raw = 1;
+}
+
+message EmptyRequest {}

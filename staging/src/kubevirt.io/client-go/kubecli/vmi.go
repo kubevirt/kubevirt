@@ -499,5 +499,10 @@ func (v *vmis) VSOCK(name string, options *v1.VSOCKOptions) (StreamInterface, er
 	}
 	queryParams := url.Values{}
 	queryParams.Add("port", strconv.FormatUint(uint64(options.TargetPort), 10))
+	useTLS := true
+	if options.UseTLS != nil {
+		useTLS = *options.UseTLS
+	}
+	queryParams.Add("tls", strconv.FormatBool(useTLS))
 	return asyncSubresourceHelper(v.config, v.resource, v.namespace, name, "vsock", queryParams)
 }

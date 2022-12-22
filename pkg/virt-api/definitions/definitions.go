@@ -664,6 +664,7 @@ func SubResourcePath(subResource string) string {
 
 const (
 	PortParamName     = "port"
+	TLSParamName      = "tls"
 	PortPath          = "/{port:[0-9]+}"
 	ProtocolParamName = "protocol"
 	ProtocolPath      = "/{protocol:tcp|udp}"
@@ -681,4 +682,8 @@ func noop(_ *restful.Request, _ *restful.Response) {}
 
 func VSOCKPortParameter(ws *restful.WebService) *restful.Parameter {
 	return ws.QueryParameter(PortParamName, "The port which the VSOCK application listens to.").DataType("integer").Required(true)
+}
+
+func VSOCKTLSParameter(ws *restful.WebService) *restful.Parameter {
+	return ws.QueryParameter(TLSParamName, "Weather to request a TLS encrypted session from the VSOCK application.").DataType("boolean").Required(false)
 }

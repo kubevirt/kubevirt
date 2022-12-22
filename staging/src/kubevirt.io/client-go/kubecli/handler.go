@@ -54,7 +54,7 @@ type VirtHandlerConn interface {
 	ConsoleURI(vmi *virtv1.VirtualMachineInstance) (string, error)
 	USBRedirURI(vmi *virtv1.VirtualMachineInstance) (string, error)
 	VNCURI(vmi *virtv1.VirtualMachineInstance) (string, error)
-	VSOCKURI(vmi *virtv1.VirtualMachineInstance, port string) (string, error)
+	VSOCKURI(vmi *virtv1.VirtualMachineInstance, port string, tls string) (string, error)
 	PauseURI(vmi *virtv1.VirtualMachineInstance) (string, error)
 	UnpauseURI(vmi *virtv1.VirtualMachineInstance) (string, error)
 	FreezeURI(vmi *virtv1.VirtualMachineInstance) (string, error)
@@ -174,12 +174,12 @@ func (v *virtHandlerConn) VNCURI(vmi *virtv1.VirtualMachineInstance) (string, er
 	return v.formatURI(vncTemplateURI, vmi)
 }
 
-func (v *virtHandlerConn) VSOCKURI(vmi *virtv1.VirtualMachineInstance, port string) (string, error) {
+func (v *virtHandlerConn) VSOCKURI(vmi *virtv1.VirtualMachineInstance, port string, tls string) (string, error) {
 	baseURI, err := v.formatURI(vsockTemplateURI, vmi)
 	if err != nil {
 		return "", err
 	}
-	return fmt.Sprintf("%s?port=%s", baseURI, port), nil
+	return fmt.Sprintf("%s?port=%s&tls=%s", baseURI, port, tls), nil
 }
 
 func (v *virtHandlerConn) FreezeURI(vmi *virtv1.VirtualMachineInstance) (string, error) {

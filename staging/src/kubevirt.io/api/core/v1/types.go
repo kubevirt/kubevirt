@@ -2145,6 +2145,7 @@ type ScreenshotOptions struct {
 
 type VSOCKOptions struct {
 	TargetPort uint32 `json:"targetPort"`
+	UseTLS     *bool  `json:"useTLS,omitempty"`
 }
 
 // RemoveVolumeOptions is provided when dynamically hot unplugging volume and disk

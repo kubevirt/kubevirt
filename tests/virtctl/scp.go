@@ -2,7 +2,6 @@ package virtctl
 
 import (
 	"crypto/ecdsa"
-	"fmt"
 	"io/ioutil"
 	"os"
 	"path/filepath"
@@ -10,6 +9,8 @@ import (
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
 	"golang.org/x/crypto/ssh"
+
+	"kubevirt.io/kubevirt/tests/libssh"
 
 	"kubevirt.io/client-go/kubecli"
 
@@ -72,15 +73,15 @@ var _ = Describe("[sig-compute][virtctl]SCP", func() {
 		Expect(os.Setenv("SSH_AUTH_SOCK", "/dev/null")).To(Succeed())
 		keyFile = filepath.Join(GinkgoT().TempDir(), "id_rsa")
 		var priv *ecdsa.PrivateKey
-		priv, pub, err = NewKeyPair()
+		priv, pub, err = libssh.NewKeyPair()
 		Expect(err).ToNot(HaveOccurred())
-		Expect(DumpPrivateKey(priv, keyFile)).To(Succeed())
+		Expect(libssh.DumpPrivateKey(priv, keyFile)).To(Succeed())
 	})
 
 	DescribeTable("should copy a local file back and forth", func(copyFn func(string, string, bool)) {
 		By("injecting a SSH public key into a VMI")
 		vmi := libvmi.NewAlpineWithTestTooling(
-			libvmi.WithCloudInitNoCloudUserData(renderUserDataWithKey(pub), false))
+			libvmi.WithCloudInitNoCloudUserData(libssh.RenderUserDataWithKey(pub), false))
 		vmi, err := virtClient.VirtualMachineInstance(util.NamespaceTestDefault).Create(vmi)
 		Expect(err).ToNot(HaveOccurred())
 
@@ -103,7 +104,7 @@ var _ = Describe("[sig-compute][virtctl]SCP", func() {
 	DescribeTable("should copy a local directory back and forth", func(copyFn func(string, string, bool)) {
 		By("injecting a SSH public key into a VMI")
 		vmi := libvmi.NewAlpineWithTestTooling(
-			libvmi.WithCloudInitNoCloudUserData(renderUserDataWithKey(pub), false))
+			libvmi.WithCloudInitNoCloudUserData(libssh.RenderUserDataWithKey(pub), false))
 		vmi, err := virtClient.VirtualMachineInstance(util.NamespaceTestDefault).Create(vmi)
 		Expect(err).ToNot(HaveOccurred())
 
@@ -131,14 +132,6 @@ var _ = Describe("[sig-compute][virtctl]SCP", func() {
 		Entry("using the local scp method", copyLocal),
 	)
 })
-
-func renderUserDataWithKey(key ssh.PublicKey) string {
-	return fmt.Sprintf(`#!/bin/sh
-mkdir -p /root/.ssh/
-echo "%s" > /root/.ssh/authorized_keys
-chown -R root:root /root/.ssh
-`, string(ssh.MarshalAuthorizedKey(key)))
-}
 
 func compareFile(file1 string, file2 string) {
 	expected, err := ioutil.ReadFile(file1)
