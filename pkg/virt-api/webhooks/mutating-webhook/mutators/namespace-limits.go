@@ -93,10 +93,10 @@ func defaultVMIResourceRequirements(limitRange *k8sv1.LimitRange) k8sv1.Resource
 		limit := limitRange.Spec.Limits[i]
 		if limit.Type == k8sv1.LimitTypeContainer {
 			for k, v := range limit.DefaultRequest {
-				requirements.Requests[k8sv1.ResourceName(k)] = v
+				requirements.Requests[k8sv1.ResourceName(k)] = v.DeepCopy()
 			}
 			for k, v := range limit.Default {
-				requirements.Limits[k8sv1.ResourceName(k)] = v
+				requirements.Limits[k8sv1.ResourceName(k)] = v.DeepCopy()
 			}
 		}
 	}
