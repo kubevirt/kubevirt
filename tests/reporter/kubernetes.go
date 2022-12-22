@@ -7,6 +7,8 @@ import (
 	"encoding/json"
 	"fmt"
 
+	"kubevirt.io/kubevirt/tests/libnode"
+
 	"os"
 	"path/filepath"
 	"regexp"
@@ -263,7 +265,7 @@ func (r *KubernetesReporter) logDMESG(virtCli kubecli.KubevirtClient, logsdir st
 				return
 			}
 			defer f.Close()
-			pod, err := kubecli.NewVirtHandlerClient(virtCli).Namespace(flags.KubeVirtInstallNamespace).ForNode(node).Pod()
+			pod, err := libnode.GetVirtHandlerPod(virtCli, node)
 			if err != nil {
 				fmt.Fprintf(os.Stderr, failedGetVirtHandlerPodFmt, node, err)
 				return
@@ -337,7 +339,7 @@ func (r *KubernetesReporter) logAuditLogs(virtCli kubecli.KubevirtClient, logsdi
 				return
 			}
 			defer f.Close()
-			pod, err := kubecli.NewVirtHandlerClient(virtCli).Namespace(flags.KubeVirtInstallNamespace).ForNode(node).Pod()
+			pod, err := libnode.GetVirtHandlerPod(virtCli, node)
 			if err != nil {
 				fmt.Fprintf(os.Stderr, failedGetVirtHandlerPodFmt, node, err)
 				return
@@ -552,7 +554,7 @@ func (r *KubernetesReporter) logJournal(virtCli kubecli.KubevirtClient, logsdir 
 	logDuration := strconv.FormatInt(int64(duration/time.Second), 10)
 
 	for _, node := range nodes {
-		pod, err := kubecli.NewVirtHandlerClient(virtCli).Namespace(flags.KubeVirtInstallNamespace).ForNode(node).Pod()
+		pod, err := libnode.GetVirtHandlerPod(virtCli, node)
 		if err != nil {
 			fmt.Fprintf(os.Stderr, failedGetVirtHandlerPodFmt, node, err)
 			continue
@@ -1053,7 +1055,7 @@ func (r *KubernetesReporter) logClusterOverview() {
 	}
 }
 
-//getNodesWithVirtLauncher returns all node where a virt-launcher pod ran (finished) or still runs
+// getNodesWithVirtLauncher returns all node where a virt-launcher pod ran (finished) or still runs
 func getNodesWithVirtLauncher(virtCli kubecli.KubevirtClient) []string {
 	pods, err := virtCli.CoreV1().Pods(v1.NamespaceAll).List(context.Background(), metav1.ListOptions{LabelSelector: fmt.Sprintf(virtLauncherNameFmt, v12.AppLabel)})
 	if err != nil {

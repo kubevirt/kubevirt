@@ -44,6 +44,7 @@ import (
 	netutils "k8s.io/utils/net"
 
 	"kubevirt.io/kubevirt/tests/framework/matcher"
+	"kubevirt.io/kubevirt/tests/libnode"
 
 	"kubevirt.io/kubevirt/tests/libreplicaset"
 
@@ -737,7 +738,7 @@ var _ = Describe("[Serial][sig-compute]Infrastructure", func() {
 			prepareVMIForTests(nodeName)
 
 			By("Finding the virt-handler prometheus endpoint")
-			pod, err = kubecli.NewVirtHandlerClient(virtClient).Namespace(flags.KubeVirtInstallNamespace).ForNode(nodeName).Pod()
+			pod, err = libnode.GetVirtHandlerPod(virtClient, nodeName)
 			Expect(err).ToNot(HaveOccurred(), "Should find the virt-handler pod")
 			for _, ip := range pod.Status.PodIPs {
 				handlerMetricIPs = append(handlerMetricIPs, ip.IP)

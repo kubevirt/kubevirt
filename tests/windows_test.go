@@ -28,6 +28,8 @@ import (
 	"strings"
 	"time"
 
+	"kubevirt.io/kubevirt/tests/libnode"
+
 	. "github.com/onsi/ginkgo"
 	. "github.com/onsi/gomega"
 	k8sv1 "k8s.io/api/core/v1"
@@ -279,7 +281,7 @@ var _ = Describe("[Serial][sig-compute]Windows VirtualMachineInstance", func() {
 					winVmiPod := tests.GetRunningPodByVirtualMachineInstance(windowsVMI, windowsVMI.Namespace)
 					nodeName := winVmiPod.Spec.NodeName
 
-					pod, err := kubecli.NewVirtHandlerClient(virtClient).Namespace(flags.KubeVirtInstallNamespace).ForNode(nodeName).Pod()
+					pod, err := libnode.GetVirtHandlerPod(virtClient, nodeName)
 					if err != nil {
 						return nil, fmt.Errorf("failed to get virt-handler pod on node %s: %v", nodeName, err)
 					}

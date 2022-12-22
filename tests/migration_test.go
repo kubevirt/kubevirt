@@ -30,6 +30,8 @@ import (
 	"strings"
 	"sync"
 
+	"kubevirt.io/kubevirt/tests/libnode"
+
 	"kubevirt.io/kubevirt/pkg/util/hardware"
 	"kubevirt.io/kubevirt/pkg/virt-controller/watch"
 
@@ -1495,7 +1497,7 @@ var _ = Describe("[Serial][rfe_id:393][crit:high][vendor:cnv-qe@redhat.com][leve
 					By("checking if we fail to connect with our own cert")
 					tlsConfig := temporaryTLSConfig()
 
-					handler, err := kubecli.NewVirtHandlerClient(virtClient).Namespace(flags.KubeVirtInstallNamespace).ForNode(vmi.Status.MigrationState.TargetNode).Pod()
+					handler, err := libnode.GetVirtHandlerPod(virtClient, vmi.Status.MigrationState.TargetNode)
 					Expect(err).ToNot(HaveOccurred())
 
 					var wg sync.WaitGroup
@@ -1571,7 +1573,7 @@ var _ = Describe("[Serial][rfe_id:393][crit:high][vendor:cnv-qe@redhat.com][leve
 					By("checking if we fail to connect with our own cert")
 					tlsConfig := temporaryTLSConfig()
 
-					handler, err := kubecli.NewVirtHandlerClient(virtClient).Namespace(flags.KubeVirtInstallNamespace).ForNode(vmi.Status.MigrationState.TargetNode).Pod()
+					handler, err := libnode.GetVirtHandlerPod(virtClient, vmi.Status.MigrationState.TargetNode)
 					Expect(err).ToNot(HaveOccurred())
 
 					var wg sync.WaitGroup

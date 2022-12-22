@@ -48,6 +48,8 @@ import (
 	"sync"
 	"time"
 
+	"kubevirt.io/kubevirt/tests/libnode"
+
 	migrationsv1 "kubevirt.io/api/migrations/v1alpha1"
 
 	expect "github.com/google/goexpect"
@@ -3865,7 +3867,7 @@ func RemoveHostDiskImage(diskPath string, nodeName string) {
 	virtClient, err := kubecli.GetKubevirtClient()
 	util2.PanicOnError(err)
 	path := filepath.Join("/proc/1/root", diskPath)
-	virtHandlerPod, err := kubecli.NewVirtHandlerClient(virtClient).Namespace(flags.KubeVirtInstallNamespace).ForNode(nodeName).Pod()
+	virtHandlerPod, err := libnode.GetVirtHandlerPod(virtClient, nodeName)
 	Expect(err).ToNot(HaveOccurred())
 	_, _, err = ExecuteCommandOnPodV2(virtClient, virtHandlerPod, "virt-handler", []string{"rm", "-rf", path})
 	Expect(err).ToNot(HaveOccurred())
