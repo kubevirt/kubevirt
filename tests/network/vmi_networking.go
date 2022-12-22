@@ -27,6 +27,8 @@ import (
 	"strings"
 	"time"
 
+	"kubevirt.io/kubevirt/tests/libnode"
+
 	"kubevirt.io/kubevirt/tests/framework/checks"
 
 	expect "github.com/google/goexpect"
@@ -814,7 +816,7 @@ var _ = SIGDescribe("[rfe_id:694][crit:medium][vendor:cnv-qe@redhat.com][level:c
 
 			getVirtHandlerPod := func() (*k8sv1.Pod, error) {
 				node := vmi.Status.NodeName
-				pod, err := kubecli.NewVirtHandlerClient(virtClient).Namespace(flags.KubeVirtInstallNamespace).ForNode(node).Pod()
+				pod, err := libnode.GetVirtHandlerPod(virtClient, node)
 				if err != nil {
 					return nil, fmt.Errorf("failed to get virt-handler pod on node %s: %v", node, err)
 				}

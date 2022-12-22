@@ -57,7 +57,6 @@ import (
 	"kubevirt.io/kubevirt/tests/clientcmd"
 	"kubevirt.io/kubevirt/tests/console"
 	cd "kubevirt.io/kubevirt/tests/containerdisk"
-	"kubevirt.io/kubevirt/tests/flags"
 	"kubevirt.io/kubevirt/tests/libnode"
 	"kubevirt.io/kubevirt/tests/libvmi"
 	"kubevirt.io/kubevirt/tests/testsuite"
@@ -664,7 +663,7 @@ var _ = Describe("[rfe_id:273][crit:high][arm64][vendor:cnv-qe@redhat.com][level
 				nodeName := tests.WaitForSuccessfulVMIStart(vmi).Status.NodeName
 
 				By("triggering a device plugin re-registration on that node")
-				pod, err := kubecli.NewVirtHandlerClient(virtClient).Namespace(flags.KubeVirtInstallNamespace).ForNode(nodeName).Pod()
+				pod, err := libnode.GetVirtHandlerPod(virtClient, nodeName)
 				Expect(err).ToNot(HaveOccurred())
 
 				_, _, err = tests.ExecuteCommandOnPodV2(virtClient, pod,
@@ -679,7 +678,7 @@ var _ = Describe("[rfe_id:273][crit:high][arm64][vendor:cnv-qe@redhat.com][level
 				Expect(err).ToNot(HaveOccurred())
 
 				By("checking if we see the device plugin restart in the logs")
-				virtHandlerPod, err := kubecli.NewVirtHandlerClient(virtClient).Namespace(flags.KubeVirtInstallNamespace).ForNode(nodeName).Pod()
+				virtHandlerPod, err := libnode.GetVirtHandlerPod(virtClient, nodeName)
 				Expect(err).ToNot(HaveOccurred(), "Should get virthandler client for node")
 
 				handlerName := virtHandlerPod.GetObjectMeta().GetName()
@@ -729,7 +728,7 @@ var _ = Describe("[rfe_id:273][crit:high][arm64][vendor:cnv-qe@redhat.com][level
 				// the VMI. Otherwise virt-controller may move the VMI to failed instead of the node controller.
 				nodeName = tests.WaitForSuccessfulVMIStartIgnoreWarnings(vmi).Status.NodeName
 
-				virtHandler, err = kubecli.NewVirtHandlerClient(virtClient).Namespace(flags.KubeVirtInstallNamespace).ForNode(nodeName).Pod()
+				virtHandler, err = libnode.GetVirtHandlerPod(virtClient, nodeName)
 				Expect(err).ToNot(HaveOccurred(), "Should get virthandler client")
 
 				ds, err := virtClient.AppsV1().DaemonSets(virtHandler.Namespace).Get(context.Background(), "virt-handler", metav1.GetOptions{})
@@ -1303,7 +1302,7 @@ var _ = Describe("[rfe_id:273][crit:high][arm64][vendor:cnv-qe@redhat.com][level
 					libvmi.WithNetwork(v1.DefaultPodNetwork()),
 					libvmi.WithInterface(libvmi.InterfaceDeviceWithMasqueradeBinding()),
 				)
-				virtHandlerPod, err := kubecli.NewVirtHandlerClient(virtClient).Namespace(flags.KubeVirtInstallNamespace).ForNode(node).Pod()
+				virtHandlerPod, err := libnode.GetVirtHandlerPod(virtClient, node)
 				Expect(err).ToNot(HaveOccurred(), "Should get virthandler client for node")
 
 				handlerName := virtHandlerPod.GetObjectMeta().GetName()
@@ -1662,7 +1661,7 @@ var _ = Describe("[rfe_id:273][crit:high][arm64][vendor:cnv-qe@redhat.com][level
 				Expect(nodes.Items).ToNot(BeEmpty(), "There should be some compute node")
 				node := nodes.Items[0].Name
 
-				virtHandlerPod, err := kubecli.NewVirtHandlerClient(virtClient).Namespace(flags.KubeVirtInstallNamespace).ForNode(node).Pod()
+				virtHandlerPod, err := libnode.GetVirtHandlerPod(virtClient, node)
 				Expect(err).ToNot(HaveOccurred(), "Should get virthandler for node")
 
 				handlerName := virtHandlerPod.GetObjectMeta().GetName()

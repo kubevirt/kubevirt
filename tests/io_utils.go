@@ -25,6 +25,8 @@ import (
 	"strings"
 	"time"
 
+	"kubevirt.io/kubevirt/tests/libnode"
+
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
 	corev1 "k8s.io/api/core/v1"
@@ -64,7 +66,7 @@ func ExecuteCommandInVirtHandlerPod(nodeName string, args []string) (stdout stri
 		return stdout, err
 	}
 
-	pod, err := kubecli.NewVirtHandlerClient(virtClient).Namespace(flags.KubeVirtInstallNamespace).ForNode(nodeName).Pod()
+	pod, err := libnode.GetVirtHandlerPod(virtClient, nodeName)
 	if err != nil {
 		return stdout, err
 	}

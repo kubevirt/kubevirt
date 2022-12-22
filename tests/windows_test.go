@@ -44,7 +44,6 @@ import (
 
 	"kubevirt.io/kubevirt/pkg/network/dns"
 	"kubevirt.io/kubevirt/tests"
-	"kubevirt.io/kubevirt/tests/flags"
 	"kubevirt.io/kubevirt/tests/libnet"
 	"kubevirt.io/kubevirt/tests/libvmi"
 	"kubevirt.io/kubevirt/tests/util"
@@ -203,7 +202,7 @@ var _ = Describe("[Serial][sig-compute]Windows VirtualMachineInstance", func() {
 					winVmiPod := tests.GetRunningPodByVirtualMachineInstance(windowsVMI, windowsVMI.Namespace)
 					nodeName := winVmiPod.Spec.NodeName
 
-					pod, err := kubecli.NewVirtHandlerClient(virtClient).Namespace(flags.KubeVirtInstallNamespace).ForNode(nodeName).Pod()
+					pod, err := libnode.GetVirtHandlerPod(virtClient, nodeName)
 					if err != nil {
 						return nil, fmt.Errorf("failed to get virt-handler pod on node %s: %v", nodeName, err)
 					}
