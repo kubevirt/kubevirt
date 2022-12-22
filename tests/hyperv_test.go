@@ -259,15 +259,16 @@ var _ = Describe("[Serial][sig-compute] Hyper-V enlightenments", Serial, func() 
 					EVMCS: featureState,
 				},
 			}
-
-			vmi, err := virtClient.VirtualMachineInstance(util.NamespaceTestDefault).Create(vmi)
+			vmi = tests.RunVMIAndExpectScheduling(vmi, 60)
 			Expect(err).ToNot(HaveOccurred(), "Should create VMI")
 
 			vmi, err = virtClient.VirtualMachineInstance(vmi.Namespace).Get(vmi.Name, &metav1.GetOptions{})
 			Expect(err).ToNot(HaveOccurred(), "Should get VMI")
 			Expect(vmi.Spec.Domain.Features.Hyperv.EVMCS).ToNot(BeNil(), "evmcs should not be nil")
 			Expect(vmi.Spec.Domain.CPU).ToNot(BeNil(), "cpu topology can't be nil")
-			pod := libvmi.GetPodByVirtualMachineInstance(vmi, vmi.Namespace)
+			pod, err := libvmi.GetPodByVirtualMachineInstance(vmi, vmi.Namespace)
+			Expect(err).ToNot(HaveOccurred())
+
 			if featureState.Enabled == nil || *featureState.Enabled == true {
 				Expect(vmi.Spec.Domain.Features.Hyperv.VAPIC).ToNot(BeNil(), "vapic should not be nil")
 				Expect(vmi.Spec.Domain.CPU.Features).To(HaveLen(1), "cpu topology has to contain 1 feature")
