@@ -28,6 +28,7 @@ import (
 	"net/http"
 	"strings"
 	"sync"
+	"time"
 
 	"github.com/emicklei/go-restful"
 	v12 "k8s.io/api/core/v1"
@@ -70,9 +71,17 @@ type SubresourceAPIApp struct {
 	credentialsLock         *sync.Mutex
 	statusUpdater           *status.VMStatusUpdater
 	clusterConfig           *virtconfig.ClusterConfig
+	handlerHttpClient       *http.Client
 }
 
 func NewSubresourceAPIApp(virtCli kubecli.KubevirtClient, consoleServerPort int, tlsConfiguration *tls.Config, clusterConfig *virtconfig.ClusterConfig) *SubresourceAPIApp {
+	httpClient := &http.Client{
+		Transport: &http.Transport{
+			TLSClientConfig: tlsConfiguration,
+		},
+		Timeout: 10 * time.Second,
+	}
+
 	return &SubresourceAPIApp{
 		virtCli:                 virtCli,
 		consoleServerPort:       consoleServerPort,
@@ -81,6 +90,7 @@ func NewSubresourceAPIApp(virtCli kubecli.KubevirtClient, consoleServerPort int,
 		handlerTLSConfiguration: tlsConfiguration,
 		statusUpdater:           status.NewVMStatusUpdater(virtCli),
 		clusterConfig:           clusterConfig,
+		handlerHttpClient:       httpClient,
 	}
 }
 
@@ -128,7 +138,7 @@ func (app *SubresourceAPIApp) putRequestHandler(request *restful.Request, respon
 	if dryRun {
 		return
 	}
-	err := conn.Put(url, app.handlerTLSConfiguration, request.Request.Body)
+	err := conn.Put(url, request.Request.Body)
 	if err != nil {
 		writeError(errors.NewInternalError(err), response)
 		return
@@ -143,7 +153,7 @@ func (app *SubresourceAPIApp) httpGetRequestHandler(request *restful.Request, re
 		return
 	}
 
-	resp, conErr := conn.Get(url, app.handlerTLSConfiguration)
+	resp, conErr := conn.Get(url)
 	if conErr != nil {
 		log.Log.Errorf(getRequestErrFmt, conErr.Error())
 		response.WriteError(http.StatusInternalServerError, conErr)
@@ -173,7 +183,7 @@ func (app *SubresourceAPIApp) getVirtHandlerConnForVMI(vmi *v1.VirtualMachineIns
 	if !vmi.IsRunning() {
 		return nil, goerror.New(fmt.Sprintf("Unable to connect to VirtualMachineInstance because phase is %s instead of %s", vmi.Status.Phase, v1.Running))
 	}
-	return kubecli.NewVirtHandlerClient(app.virtCli).Port(app.consoleServerPort).ForNode(vmi.Status.NodeName), nil
+	return kubecli.NewVirtHandlerClient(app.virtCli, app.handlerHttpClient).Port(app.consoleServerPort).ForNode(vmi.Status.NodeName), nil
 }
 
 func getChangeRequestJson(vm *v1.VirtualMachine, changes ...v1.VirtualMachineStateChangeRequest) (string, error) {
