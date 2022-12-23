@@ -36,7 +36,6 @@ import (
 	"k8s.io/apimachinery/pkg/util/net"
 
 	"github.com/spf13/pflag"
-	utilwait "k8s.io/apimachinery/pkg/util/wait"
 	"k8s.io/client-go/util/retry"
 
 	"kubevirt.io/client-go/log"
@@ -166,15 +165,28 @@ func RunAndMonitor(containerDiskDir string) (int, error) {
 		}
 
 		// Wait for 10 seconds for the qemu process to disappear
-		err = utilwait.PollImmediate(1*time.Second, 10*time.Second, func() (bool, error) {
-			pid, _ := findPid(qemuProcessCommandPrefix)
-			if pid == 0 {
-				return true, nil
+		timeout := time.After(10 * time.Second)
+		ticker := time.NewTicker(time.Second)
+		defer ticker.Stop()
+		period := make(chan struct{}, 1)
+
+		go func() {
+			period <- struct{}{}
+			for range ticker.C {
+				period <- struct{}{}
 			}
-			return false, nil
-		})
-		if err != nil {
-			return 1, err
+		}()
+
+		for {
+			select {
+			case <-timeout:
+				return 1, err
+			case <-period:
+				pid, _ := findPid(qemuProcessCommandPrefix)
+				if pid == 0 {
+					return exitCode, nil
+				}
+			}
 		}
 	}
 	return exitCode, nil
