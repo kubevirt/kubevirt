@@ -35,7 +35,6 @@ import (
 	"github.com/go-kit/kit/log"
 	"github.com/golang/glog"
 	flag "github.com/spf13/pflag"
-	v1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/runtime/schema"
 	"k8s.io/apimachinery/pkg/types"
 )
@@ -223,24 +222,6 @@ func (l FilteredLogger) Object(obj LoggableObject) *FilteredLogger {
 	logParams = append(logParams, "name", name)
 	logParams = append(logParams, "kind", kind)
 	logParams = append(logParams, "uid", uid)
-
-	l.with(logParams...)
-	return &l
-}
-
-func (l FilteredLogger) ObjectRef(obj *v1.ObjectReference) *FilteredLogger {
-
-	if obj == nil {
-		return &l
-	}
-
-	logParams := make([]interface{}, 0)
-	if obj.Namespace != "" {
-		logParams = append(logParams, "namespace", obj.Namespace)
-	}
-	logParams = append(logParams, "name", obj.Name)
-	logParams = append(logParams, "kind", obj.Kind)
-	logParams = append(logParams, "uid", obj.UID)
 
 	l.with(logParams...)
 	return &l
