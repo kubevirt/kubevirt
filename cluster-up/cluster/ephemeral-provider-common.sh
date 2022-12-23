@@ -116,7 +116,7 @@ function _add_common_params() {
         params=" --enable-istio $params"
     fi
 
-     if [ $KUBEVIRT_PSA == "true" ]; then
+    if [ $KUBEVIRT_PSA == "true" ]; then
         params=" --enable-psa $params"
     fi
 
