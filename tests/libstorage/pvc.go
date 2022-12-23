@@ -57,7 +57,7 @@ func RenderPodWithPVC(name string, cmd []string, args []string, pvc *k8sv1.Persi
 	pod := &k8sv1.Pod{
 		ObjectMeta: metav1.ObjectMeta{
 			GenerateName: name,
-			Namespace:    util.NamespaceTestDefault,
+			Namespace:    pvc.Namespace,
 			Labels: map[string]string{
 				v1.AppLabel: "test",
 			},
@@ -147,11 +147,11 @@ func NewPVC(name, size, storageClass string) *k8sv1.PersistentVolumeClaim {
 	}
 }
 
-func createPVC(pvc *k8sv1.PersistentVolumeClaim) *k8sv1.PersistentVolumeClaim {
+func createPVC(pvc *k8sv1.PersistentVolumeClaim, namespace string) *k8sv1.PersistentVolumeClaim {
 	virtCli, err := kubecli.GetKubevirtClient()
 	util.PanicOnError(err)
 
-	createdPvc, err := virtCli.CoreV1().PersistentVolumeClaims(util.NamespaceTestDefault).Create(context.Background(), pvc, metav1.CreateOptions{})
+	createdPvc, err := virtCli.CoreV1().PersistentVolumeClaims(namespace).Create(context.Background(), pvc, metav1.CreateOptions{})
 	if !errors.IsAlreadyExists(err) {
 		util.PanicOnError(err)
 	}
@@ -159,7 +159,7 @@ func createPVC(pvc *k8sv1.PersistentVolumeClaim) *k8sv1.PersistentVolumeClaim {
 	return createdPvc
 }
 
-func CreateFSPVC(name, size string) *k8sv1.PersistentVolumeClaim {
+func CreateFSPVC(name, namespace, size string) *k8sv1.PersistentVolumeClaim {
 	sc, exists := GetRWOFileSystemStorageClass()
 	if !exists {
 		Skip("Skip test when RWOFileSystem storage class is not present")
@@ -168,10 +168,10 @@ func CreateFSPVC(name, size string) *k8sv1.PersistentVolumeClaim {
 	volumeMode := k8sv1.PersistentVolumeFilesystem
 	pvc.Spec.VolumeMode = &volumeMode
 
-	return createPVC(pvc)
+	return createPVC(pvc, namespace)
 }
 
-func CreateBlockPVC(name, size string) *k8sv1.PersistentVolumeClaim {
+func CreateBlockPVC(name, namespace, size string) *k8sv1.PersistentVolumeClaim {
 	sc, exists := GetRWOBlockStorageClass()
 	if !exists {
 		Skip("Skip test when RWOBlock storage class is not present")
@@ -180,15 +180,15 @@ func CreateBlockPVC(name, size string) *k8sv1.PersistentVolumeClaim {
 	volumeMode := k8sv1.PersistentVolumeBlock
 	pvc.Spec.VolumeMode = &volumeMode
 
-	return createPVC(pvc)
+	return createPVC(pvc, namespace)
 }
 
-func CreateHostPathPVC(os, size string) {
+func CreateHostPathPVC(os, namespace, size string) {
 	sc := "manual"
-	CreatePVC(os, size, sc, false)
+	CreatePVC(os, namespace, size, sc, false)
 }
 
-func CreatePVC(os, size, storageClass string, recycledPV bool) *k8sv1.PersistentVolumeClaim {
+func CreatePVC(os, namespace, size, storageClass string, recycledPV bool) *k8sv1.PersistentVolumeClaim {
 	pvcName := fmt.Sprintf("disk-%s", os)
 
 	selector := map[string]string{
@@ -197,14 +197,14 @@ func CreatePVC(os, size, storageClass string, recycledPV bool) *k8sv1.Persistent
 
 	// If the PV is not recycled, it will have a namespace related test label which  we should match
 	if !recycledPV {
-		selector[cleanup.TestLabelForNamespace(util.NamespaceTestDefault)] = ""
+		selector[cleanup.TestLabelForNamespace(namespace)] = ""
 	}
 
 	pvc := NewPVC(pvcName, size, storageClass)
 	pvc.Spec.Selector = &metav1.LabelSelector{
 		MatchLabels: selector,
 	}
-	return createPVC(pvc)
+	return createPVC(pvc, namespace)
 }
 
 func DeleteAllSeparateDeviceHostPathPvs() {
@@ -223,7 +223,7 @@ func DeleteAllSeparateDeviceHostPathPvs() {
 	DeleteStorageClass(StorageClassHostPathSeparateDevice)
 }
 
-func CreateAllSeparateDeviceHostPathPvs(osName string) {
+func CreateAllSeparateDeviceHostPathPvs(osName, namespace string) {
 	CreateStorageClass(StorageClassHostPathSeparateDevice, &wffc)
 	virtClient, err := kubecli.GetKubevirtClient()
 	util.PanicOnError(err)
@@ -231,23 +231,23 @@ func CreateAllSeparateDeviceHostPathPvs(osName string) {
 		nodes := libnode.GetAllSchedulableNodes(virtClient)
 		if len(nodes.Items) > 0 {
 			for _, node := range nodes.Items {
-				createSeparateDeviceHostPathPv(osName, node.Name)
+				createSeparateDeviceHostPathPv(osName, namespace, node.Name)
 			}
 		}
 		return len(nodes.Items)
 	}, 5*time.Minute, 10*time.Second).ShouldNot(BeZero(), "no schedulable nodes found")
 }
 
-func createSeparateDeviceHostPathPv(osName, nodeName string) {
+func createSeparateDeviceHostPathPv(osName, namespace, nodeName string) {
 	virtCli, err := kubecli.GetKubevirtClient()
 	util.PanicOnError(err)
 	name := fmt.Sprintf("separate-device-%s-pv", nodeName)
 	pv := &k8sv1.PersistentVolume{
 		ObjectMeta: metav1.ObjectMeta{
-			Name: fmt.Sprintf("%s-%s", name, util.NamespaceTestDefault),
+			Name: fmt.Sprintf("%s-%s", name, namespace),
 			Labels: map[string]string{
-				util.KubevirtIoTest: osName,
-				cleanup.TestLabelForNamespace(util.NamespaceTestDefault): "",
+				util.KubevirtIoTest:                      osName,
+				cleanup.TestLabelForNamespace(namespace): "",
 			},
 		},
 		Spec: k8sv1.PersistentVolumeSpec{
@@ -286,16 +286,16 @@ func createSeparateDeviceHostPathPv(osName, nodeName string) {
 	}
 }
 
-func CreateHostPathPv(osName, hostPath string) string {
-	return createHostPathPvWithSize(osName, hostPath, "1Gi")
+func CreateHostPathPv(osName, namespace, hostPath string) string {
+	return createHostPathPvWithSize(osName, namespace, hostPath, "1Gi")
 }
 
-func createHostPathPvWithSize(osName, hostPath, size string) string {
+func createHostPathPvWithSize(osName, namespace, hostPath, size string) string {
 	sc := "manual"
-	return CreateHostPathPvWithSizeAndStorageClass(osName, hostPath, size, sc)
+	return CreateHostPathPvWithSizeAndStorageClass(osName, namespace, hostPath, size, sc)
 }
 
-func CreateHostPathPvWithSizeAndStorageClass(osName, hostPath, size, sc string) string {
+func CreateHostPathPvWithSizeAndStorageClass(osName, namespace, hostPath, size, sc string) string {
 	virtCli, err := kubecli.GetKubevirtClient()
 	util.PanicOnError(err)
 
@@ -307,10 +307,10 @@ func CreateHostPathPvWithSizeAndStorageClass(osName, hostPath, size, sc string) 
 	name := fmt.Sprintf("%s-disk-for-tests-%s", osName, rand.String(12))
 	pv := &k8sv1.PersistentVolume{
 		ObjectMeta: metav1.ObjectMeta{
-			Name: fmt.Sprintf("%s-%s", name, util.NamespaceTestDefault),
+			Name: fmt.Sprintf("%s-%s", name, namespace),
 			Labels: map[string]string{
-				util.KubevirtIoTest: osName,
-				cleanup.TestLabelForNamespace(util.NamespaceTestDefault): "",
+				util.KubevirtIoTest:                      osName,
+				cleanup.TestLabelForNamespace(namespace): "",
 			},
 		},
 		Spec: k8sv1.PersistentVolumeSpec{
@@ -351,12 +351,12 @@ func CreateHostPathPvWithSizeAndStorageClass(osName, hostPath, size, sc string) 
 	return libnode.SchedulableNode
 }
 
-func DeletePVC(os string) {
+func DeletePVC(os, namespace string) {
 	virtCli, err := kubecli.GetKubevirtClient()
 	util.PanicOnError(err)
 
 	name := fmt.Sprintf("disk-%s", os)
-	err = virtCli.CoreV1().PersistentVolumeClaims(util.NamespaceTestDefault).Delete(context.Background(), name, metav1.DeleteOptions{})
+	err = virtCli.CoreV1().PersistentVolumeClaims(namespace).Delete(context.Background(), name, metav1.DeleteOptions{})
 	if !errors.IsNotFound(err) {
 		util.PanicOnError(err)
 	}

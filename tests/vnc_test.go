@@ -36,6 +36,7 @@ import (
 	"github.com/mitchellh/go-vnc"
 
 	"kubevirt.io/kubevirt/tests/clientcmd"
+	"kubevirt.io/kubevirt/tests/testsuite"
 	"kubevirt.io/kubevirt/tests/util"
 
 	"github.com/gorilla/websocket"
@@ -65,7 +66,7 @@ var _ = Describe("[rfe_id:127][crit:medium][arm64][vendor:cnv-qe@redhat.com][lev
 			util.PanicOnError(err)
 
 			vmi = tests.NewRandomVMI()
-			Expect(virtClient.RestClient().Post().Resource("virtualmachineinstances").Namespace(util.NamespaceTestDefault).Body(vmi).Do(context.Background()).Error()).To(Succeed())
+			Expect(virtClient.RestClient().Post().Resource("virtualmachineinstances").Namespace(testsuite.GetTestNamespace(vmi)).Body(vmi).Do(context.Background()).Error()).To(Succeed())
 			tests.WaitForSuccessfulVMIStart(vmi)
 		})
 

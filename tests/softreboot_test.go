@@ -38,13 +38,14 @@ import (
 	"kubevirt.io/kubevirt/tests/console"
 	"kubevirt.io/kubevirt/tests/framework/matcher"
 	"kubevirt.io/kubevirt/tests/libvmi"
+	"kubevirt.io/kubevirt/tests/testsuite"
 	"kubevirt.io/kubevirt/tests/util"
 )
 
 func waitForVMIRebooted(vmi *v1.VirtualMachineInstance, login func(vmi *v1.VirtualMachineInstance) error) {
 	By(fmt.Sprintf("Waiting for vmi %s rebooted", vmi.Name))
 	if vmi.Namespace == "" {
-		vmi.Namespace = util.NamespaceTestDefault
+		vmi.Namespace = testsuite.GetTestNamespace(vmi)
 	}
 	time.Sleep(30 * time.Second)
 	Expect(login(vmi)).To(Succeed())
@@ -85,7 +86,7 @@ var _ = Describe("[crit:medium][vendor:cnv-qe@redhat.com][level:component][sig-c
 
 				Eventually(matcher.ThisVMI(vmi), 12*time.Minute, 2*time.Second).Should(matcher.HaveConditionTrue(v1.VirtualMachineInstanceAgentConnected))
 
-				err := virtClient.VirtualMachineInstance(util.NamespaceTestDefault).SoftReboot(vmi.Name)
+				err := virtClient.VirtualMachineInstance(testsuite.GetTestNamespace(vmi)).SoftReboot(vmi.Name)
 				Expect(err).ToNot(HaveOccurred())
 
 				waitForVMIRebooted(vmi, console.LoginToFedora)
@@ -99,7 +100,7 @@ var _ = Describe("[crit:medium][vendor:cnv-qe@redhat.com][level:component][sig-c
 				Expect(console.LoginToCirros(vmi)).To(Succeed())
 				Eventually(matcher.ThisVMI(vmi), 30*time.Second, 2*time.Second).Should(matcher.HaveConditionMissingOrFalse(v1.VirtualMachineInstanceAgentConnected))
 
-				err := virtClient.VirtualMachineInstance(util.NamespaceTestDefault).SoftReboot(vmi.Name)
+				err := virtClient.VirtualMachineInstance(testsuite.GetTestNamespace(vmi)).SoftReboot(vmi.Name)
 				Expect(err).ToNot(HaveOccurred())
 
 				waitForVMIRebooted(vmi, console.LoginToCirros)
@@ -112,7 +113,7 @@ var _ = Describe("[crit:medium][vendor:cnv-qe@redhat.com][level:component][sig-c
 
 				Eventually(matcher.ThisVMI(vmi), 12*time.Minute, 2*time.Second).Should(matcher.HaveConditionTrue(v1.VirtualMachineInstanceAgentConnected))
 
-				command := clientcmd.NewRepeatableVirtctlCommand(virtctlsoftreboot.COMMAND_SOFT_REBOOT, "--namespace", util.NamespaceTestDefault, vmi.Name)
+				command := clientcmd.NewRepeatableVirtctlCommand(virtctlsoftreboot.COMMAND_SOFT_REBOOT, "--namespace", testsuite.GetTestNamespace(vmi), vmi.Name)
 				Expect(command()).To(Succeed())
 
 				waitForVMIRebooted(vmi, console.LoginToFedora)
@@ -126,7 +127,7 @@ var _ = Describe("[crit:medium][vendor:cnv-qe@redhat.com][level:component][sig-c
 				Expect(console.LoginToCirros(vmi)).To(Succeed())
 				Eventually(matcher.ThisVMI(vmi), 30*time.Second, 2*time.Second).Should(matcher.HaveConditionMissingOrFalse(v1.VirtualMachineInstanceAgentConnected))
 
-				command := clientcmd.NewRepeatableVirtctlCommand(virtctlsoftreboot.COMMAND_SOFT_REBOOT, "--namespace", util.NamespaceTestDefault, vmi.Name)
+				command := clientcmd.NewRepeatableVirtctlCommand(virtctlsoftreboot.COMMAND_SOFT_REBOOT, "--namespace", testsuite.GetTestNamespace(vmi), vmi.Name)
 				Expect(command()).To(Succeed())
 
 				waitForVMIRebooted(vmi, console.LoginToCirros)
@@ -140,7 +141,7 @@ var _ = Describe("[crit:medium][vendor:cnv-qe@redhat.com][level:component][sig-c
 				Expect(console.LoginToCirros(vmi)).To(Succeed())
 				Eventually(matcher.ThisVMI(vmi), 30*time.Second, 2*time.Second).Should(matcher.HaveConditionMissingOrFalse(v1.VirtualMachineInstanceAgentConnected))
 
-				command := clientcmd.NewRepeatableVirtctlCommand(virtctlsoftreboot.COMMAND_SOFT_REBOOT, "--namespace", util.NamespaceTestDefault, vmi.Name)
+				command := clientcmd.NewRepeatableVirtctlCommand(virtctlsoftreboot.COMMAND_SOFT_REBOOT, "--namespace", testsuite.GetTestNamespace(vmi), vmi.Name)
 				err := command()
 				Expect(err).To(HaveOccurred())
 				Expect(err.Error()).To(ContainSubstring("VMI neither have the agent connected nor the ACPI feature enabled"))
@@ -152,22 +153,22 @@ var _ = Describe("[crit:medium][vendor:cnv-qe@redhat.com][level:component][sig-c
 				vmi = tests.RunVMIAndExpectLaunch(libvmi.NewFedora(), vmiLaunchTimeout)
 				Eventually(matcher.ThisVMI(vmi), 12*time.Minute, 2*time.Second).Should(matcher.HaveConditionTrue(v1.VirtualMachineInstanceAgentConnected))
 
-				command := clientcmd.NewRepeatableVirtctlCommand(virtctlpause.COMMAND_PAUSE, "vmi", "--namespace", util.NamespaceTestDefault, vmi.Name)
+				command := clientcmd.NewRepeatableVirtctlCommand(virtctlpause.COMMAND_PAUSE, "vmi", "--namespace", testsuite.GetTestNamespace(vmi), vmi.Name)
 				Expect(command()).To(Succeed())
 				Eventually(matcher.ThisVMI(vmi), 30*time.Second, 2*time.Second).Should(matcher.HaveConditionTrue(v1.VirtualMachineInstancePaused))
 
-				command = clientcmd.NewRepeatableVirtctlCommand(virtctlsoftreboot.COMMAND_SOFT_REBOOT, "--namespace", util.NamespaceTestDefault, vmi.Name)
+				command = clientcmd.NewRepeatableVirtctlCommand(virtctlsoftreboot.COMMAND_SOFT_REBOOT, "--namespace", testsuite.GetTestNamespace(vmi), vmi.Name)
 				err := command()
 				Expect(err).To(HaveOccurred())
 				Expect(err.Error()).To(ContainSubstring("VMI is paused"))
 
-				command = clientcmd.NewRepeatableVirtctlCommand(virtctlpause.COMMAND_UNPAUSE, "vmi", "--namespace", util.NamespaceTestDefault, vmi.Name)
+				command = clientcmd.NewRepeatableVirtctlCommand(virtctlpause.COMMAND_UNPAUSE, "vmi", "--namespace", testsuite.GetTestNamespace(vmi), vmi.Name)
 				Expect(command()).To(Succeed())
 				Eventually(matcher.ThisVMI(vmi), 30*time.Second, 2*time.Second).Should(matcher.HaveConditionMissingOrFalse(v1.VirtualMachineInstancePaused))
 
 				Eventually(matcher.ThisVMI(vmi), 12*time.Minute, 2*time.Second).Should(matcher.HaveConditionTrue(v1.VirtualMachineInstanceAgentConnected))
 
-				command = clientcmd.NewRepeatableVirtctlCommand(virtctlsoftreboot.COMMAND_SOFT_REBOOT, "--namespace", util.NamespaceTestDefault, vmi.Name)
+				command = clientcmd.NewRepeatableVirtctlCommand(virtctlsoftreboot.COMMAND_SOFT_REBOOT, "--namespace", testsuite.GetTestNamespace(vmi), vmi.Name)
 				Expect(command()).To(Succeed())
 
 				waitForVMIRebooted(vmi, console.LoginToFedora)

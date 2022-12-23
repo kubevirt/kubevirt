@@ -44,6 +44,7 @@ import (
 	"k8s.io/utils/pointer"
 
 	"kubevirt.io/kubevirt/tests/framework/matcher"
+	"kubevirt.io/kubevirt/tests/testsuite"
 	"kubevirt.io/kubevirt/tests/util"
 
 	v1 "kubevirt.io/api/core/v1"
@@ -91,7 +92,7 @@ var _ = Describe("[rfe_id:1177][crit:medium][vendor:cnv-qe@redhat.com][level:com
 			// change the name of a required field (like domain) so validation will fail
 			jsonString := strings.Replace(string(jsonBytes), "domain", "not-a-domain", -1)
 
-			result := virtClient.RestClient().Post().Resource("virtualmachines").Namespace(util.NamespaceTestDefault).Body([]byte(jsonString)).SetHeader("Content-Type", "application/json").Do(context.Background())
+			result := virtClient.RestClient().Post().Resource("virtualmachines").Namespace(testsuite.GetTestNamespace(newVM)).Body([]byte(jsonString)).SetHeader("Content-Type", "application/json").Do(context.Background())
 			// Verify validation failed.
 			statusCode := 0
 			result.StatusCode(&statusCode)
@@ -108,7 +109,7 @@ var _ = Describe("[rfe_id:1177][crit:medium][vendor:cnv-qe@redhat.com][level:com
 			})
 			newVM := tests.NewRandomVirtualMachine(template, false)
 
-			result := virtClient.RestClient().Post().Resource("virtualmachines").Namespace(util.NamespaceTestDefault).Body(newVM).Do(context.Background())
+			result := virtClient.RestClient().Post().Resource("virtualmachines").Namespace(testsuite.GetTestNamespace(newVM)).Body(newVM).Do(context.Background())
 
 			// Verify validation failed.
 			statusCode := 0
@@ -145,7 +146,7 @@ var _ = Describe("[rfe_id:1177][crit:medium][vendor:cnv-qe@redhat.com][level:com
 		createVirtualMachine := func(running bool, template *v1.VirtualMachineInstance) *v1.VirtualMachine {
 			By("Creating VirtualMachine")
 			vm := tests.NewRandomVirtualMachine(template, running)
-			newVM, err := virtClient.VirtualMachine(util.NamespaceTestDefault).Create(vm)
+			newVM, err := virtClient.VirtualMachine(testsuite.GetTestNamespace(vm)).Create(vm)
 			Expect(err).ToNot(HaveOccurred())
 			return newVM
 		}
@@ -185,17 +186,17 @@ var _ = Describe("[rfe_id:1177][crit:medium][vendor:cnv-qe@redhat.com][level:com
 		}
 
 		newVirtualMachineInstanceWithFileDisk := func() (*v1.VirtualMachineInstance, *cdiv1.DataVolume) {
-			return tests.NewRandomVirtualMachineInstanceWithFileDisk(cd.DataVolumeImportUrlForContainerDisk(cd.ContainerDiskAlpine), util.NamespaceTestDefault, corev1.ReadWriteOnce)
+			return tests.NewRandomVirtualMachineInstanceWithFileDisk(cd.DataVolumeImportUrlForContainerDisk(cd.ContainerDiskAlpine), testsuite.GetTestNamespace(nil), corev1.ReadWriteOnce)
 		}
 
 		newVirtualMachineInstanceWithBlockDisk := func() (*v1.VirtualMachineInstance, *cdiv1.DataVolume) {
-			return tests.NewRandomVirtualMachineInstanceWithBlockDisk(cd.DataVolumeImportUrlForContainerDisk(cd.ContainerDiskAlpine), util.NamespaceTestDefault, corev1.ReadWriteOnce)
+			return tests.NewRandomVirtualMachineInstanceWithBlockDisk(cd.DataVolumeImportUrlForContainerDisk(cd.ContainerDiskAlpine), testsuite.GetTestNamespace(nil), corev1.ReadWriteOnce)
 		}
 
 		createVirtualMachine := func(running bool, template *v1.VirtualMachineInstance) *v1.VirtualMachine {
 			By("Creating VirtualMachine")
 			vm := tests.NewRandomVirtualMachine(template, running)
-			newVM, err := virtClient.VirtualMachine(util.NamespaceTestDefault).Create(vm)
+			newVM, err := virtClient.VirtualMachine(testsuite.GetTestNamespace(vm)).Create(vm)
 			Expect(err).ToNot(HaveOccurred())
 			return newVM
 		}
@@ -214,7 +215,7 @@ var _ = Describe("[rfe_id:1177][crit:medium][vendor:cnv-qe@redhat.com][level:com
 
 			newVM = NewRandomVirtualMachineWithRunStrategy(template, runStrategy)
 
-			newVM, err = virtClient.VirtualMachine(util.NamespaceTestDefault).Create(newVM)
+			newVM, err = virtClient.VirtualMachine(testsuite.GetTestNamespace(newVM)).Create(newVM)
 			Expect(err).ToNot(HaveOccurred())
 
 			return newVM
@@ -332,7 +333,7 @@ var _ = Describe("[rfe_id:1177][crit:medium][vendor:cnv-qe@redhat.com][level:com
 			jsonString = strings.Replace(jsonString, match(oldMemory), request, -1)
 
 			By("Verify VM can be created")
-			result := virtClient.RestClient().Post().Resource("virtualmachines").Namespace(util.NamespaceTestDefault).Body([]byte(jsonString)).SetHeader("Content-Type", "application/json").Do(context.Background())
+			result := virtClient.RestClient().Post().Resource("virtualmachines").Namespace(testsuite.GetTestNamespace(vm)).Body([]byte(jsonString)).SetHeader("Content-Type", "application/json").Do(context.Background())
 			statusCode := 0
 			result.StatusCode(&statusCode)
 			Expect(statusCode).To(Equal(http.StatusCreated))
@@ -408,7 +409,7 @@ var _ = Describe("[rfe_id:1177][crit:medium][vendor:cnv-qe@redhat.com][level:com
 			defer libstorage.DeleteDataVolume(&dv)
 			newVM := createVirtualMachine(true, template)
 			Eventually(func() bool {
-				vm, err := virtClient.VirtualMachine(util.NamespaceTestDefault).Get(newVM.Name, &k8smetav1.GetOptions{})
+				vm, err := virtClient.VirtualMachine(testsuite.GetTestNamespace(newVM)).Get(newVM.Name, &k8smetav1.GetOptions{})
 				Expect(err).ToNot(HaveOccurred())
 				return vm.Status.Ready
 			}, 300*time.Second, 1*time.Second).Should(BeTrue())
@@ -861,9 +862,9 @@ var _ = Describe("[rfe_id:1177][crit:medium][vendor:cnv-qe@redhat.com][level:com
 			By("Creating a VM with a DataVolume cloned from an invalid source")
 			// Registry URL scheme validated in CDI
 			vm := tests.NewRandomVMWithDataVolumeWithRegistryImport("docker://no.such/image",
-				util.NamespaceTestDefault, storageClassName, k8sv1.ReadWriteOnce)
+				testsuite.GetTestNamespace(nil), storageClassName, k8sv1.ReadWriteOnce)
 			vm.Spec.Running = pointer.BoolPtr(true)
-			_, err = virtClient.VirtualMachine(util.NamespaceTestDefault).Create(vm)
+			_, err = virtClient.VirtualMachine(testsuite.GetTestNamespace(vm)).Create(vm)
 			Expect(err).ToNot(HaveOccurred())
 
 			vmPrintableStatus := func() v1.VirtualMachinePrintableStatus {
@@ -1736,7 +1737,7 @@ var _ = Describe("[rfe_id:1177][crit:medium][vendor:cnv-qe@redhat.com][level:com
 					newVM.Spec.Template.ObjectMeta.Annotations = map[string]string{
 						v1.KeepLauncherAfterFailureAnnotation: keepLauncher,
 					}
-					newVM, err := virtClient.VirtualMachine(util.NamespaceTestDefault).Create(newVM)
+					newVM, err := virtClient.VirtualMachine(testsuite.GetTestNamespace(newVM)).Create(newVM)
 					Expect(err).ToNot(HaveOccurred())
 
 					By("Starting the VMI with virtctl")
@@ -2075,12 +2076,12 @@ var _ = Describe("[rfe_id:1177][crit:medium][vendor:cnv-qe@redhat.com][level:com
 
 					By("Ensuring user has the admin rights for the test namespace project")
 					// This simulates the ordinary user as an admin in this project
-					stdOut, stdErr, err = clientcmd.RunCommand(k8sClient, "adm", "policy", "add-role-to-user", "admin", testUser, "--namespace", util.NamespaceTestDefault)
+					stdOut, stdErr, err = clientcmd.RunCommand(k8sClient, "adm", "policy", "add-role-to-user", "admin", testUser)
 					Expect(err).ToNot(HaveOccurred(), "ERR: %s", stdOut+stdErr)
 				})
 
 				AfterEach(func() {
-					stdOut, stdErr, err := clientcmd.RunCommand(k8sClient, "adm", "policy", "remove-role-from-user", "admin", testUser, "--namespace", util.NamespaceTestDefault)
+					stdOut, stdErr, err := clientcmd.RunCommand(k8sClient, "adm", "policy", "remove-role-from-user", "admin", testUser)
 					Expect(err).ToNot(HaveOccurred(), "ERR: %s", stdOut+stdErr)
 
 					stdOut, stdErr, err = clientcmd.RunCommand(k8sClient, "delete", "user", testUser)
@@ -2104,12 +2105,12 @@ var _ = Describe("[rfe_id:1177][crit:medium][vendor:cnv-qe@redhat.com][level:com
 			Context("should fail without right rights", func() {
 				BeforeEach(func() {
 					By("Ensuring the cluster has new test serviceaccount")
-					stdOut, stdErr, err := clientcmd.RunCommandWithNS(util.NamespaceTestDefault, k8sClient, "create", "serviceaccount", testUser)
+					stdOut, stdErr, err := clientcmd.RunCommandWithNS(testsuite.GetTestNamespace(nil), k8sClient, "create", "serviceaccount", testUser)
 					Expect(err).ToNot(HaveOccurred(), "ERR: %s", stdOut+stdErr)
 				})
 
 				AfterEach(func() {
-					stdOut, stdErr, err := clientcmd.RunCommandWithNS(util.NamespaceTestDefault, k8sClient, "delete", "serviceaccount", testUser)
+					stdOut, stdErr, err := clientcmd.RunCommandWithNS(testsuite.GetTestNamespace(nil), k8sClient, "delete", "serviceaccount", testUser)
 					Expect(err).ToNot(HaveOccurred(), "ERR: %s", stdOut+stdErr)
 				})
 
@@ -2141,7 +2142,7 @@ var _ = Describe("[rfe_id:1177][crit:medium][vendor:cnv-qe@redhat.com][level:com
 			vm.Spec.Template.ObjectMeta.Annotations = map[string]string{
 				v1.FuncTestLauncherFailFastAnnotation: "",
 			}
-			newVM, err := virtClient.VirtualMachine(util.NamespaceTestDefault).Create(vm)
+			newVM, err := virtClient.VirtualMachine(testsuite.GetTestNamespace(vm)).Create(vm)
 			Expect(err).ToNot(HaveOccurred())
 
 			By("waiting for crash loop state")
@@ -2207,7 +2208,7 @@ var _ = Describe("[rfe_id:1177][crit:medium][vendor:cnv-qe@redhat.com][level:com
 			curVM.Spec.Template.ObjectMeta.Annotations = map[string]string{
 				v1.FuncTestLauncherFailFastAnnotation: "",
 			}
-			newVM, err := virtClient.VirtualMachine(util.NamespaceTestDefault).Create(curVM)
+			newVM, err := virtClient.VirtualMachine(testsuite.GetTestNamespace(curVM)).Create(curVM)
 			Expect(err).ToNot(HaveOccurred())
 
 			By("waiting for crash loop state")

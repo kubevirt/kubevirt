@@ -54,6 +54,7 @@ import (
 	"kubevirt.io/kubevirt/tests/libnode"
 	"kubevirt.io/kubevirt/tests/libstorage"
 	"kubevirt.io/kubevirt/tests/libvmi"
+	"kubevirt.io/kubevirt/tests/testsuite"
 	"kubevirt.io/kubevirt/tests/util"
 )
 
@@ -98,7 +99,7 @@ var _ = SIGDescribe("Hotplug", func() {
 	}
 
 	deleteVirtualMachine := func(vm *v1.VirtualMachine) error {
-		return virtClient.VirtualMachine(util.NamespaceTestDefault).Delete(vm.Name, &metav1.DeleteOptions{})
+		return virtClient.VirtualMachine(testsuite.GetTestNamespace(vm)).Delete(vm.Name, &metav1.DeleteOptions{})
 	}
 
 	getAddVolumeOptions := func(volumeName string, bus v1.DiskBus, volumeSource *v1.HotplugVolumeSource, dryRun bool, cache v1.DriverCache) *v1.AddVolumeOptions {
@@ -428,10 +429,10 @@ var _ = SIGDescribe("Hotplug", func() {
 	}
 
 	createAndStartWFFCStorageHotplugVM := func() *v1.VirtualMachine {
-		vm, err := virtClient.VirtualMachine(util.NamespaceTestDefault).Create(tests.NewRandomVirtualMachine(libvmi.NewCirros(), true))
+		vm, err := virtClient.VirtualMachine(testsuite.GetTestNamespace(nil)).Create(tests.NewRandomVirtualMachine(libvmi.NewCirros(), true))
 		Expect(err).ToNot(HaveOccurred())
 		Eventually(func() bool {
-			vm, err := virtClient.VirtualMachine(util.NamespaceTestDefault).Get(vm.Name, &metav1.GetOptions{})
+			vm, err := virtClient.VirtualMachine(testsuite.GetTestNamespace(vm)).Get(vm.Name, &metav1.GetOptions{})
 			Expect(err).ToNot(HaveOccurred())
 			return vm.Status.Ready
 		}, 300*time.Second, 1*time.Second).Should(BeTrue())
@@ -484,7 +485,7 @@ var _ = SIGDescribe("Hotplug", func() {
 			libdv.WithForceBindAnnotation(),
 		)
 
-		dvBlock, err = virtClient.CdiClient().CdiV1beta1().DataVolumes(util.NamespaceTestDefault).Create(context.Background(), dvBlock, metav1.CreateOptions{})
+		dvBlock, err = virtClient.CdiClient().CdiV1beta1().DataVolumes(testsuite.GetTestNamespace(dvBlock)).Create(context.Background(), dvBlock, metav1.CreateOptions{})
 		Expect(err).ToNot(HaveOccurred())
 		libstorage.EventuallyDV(dvBlock, 240, HaveSucceeded())
 		return dvBlock
@@ -526,7 +527,7 @@ var _ = SIGDescribe("Hotplug", func() {
 		)
 		BeforeEach(func() {
 			By("Creating VirtualMachine")
-			vm, err = virtClient.VirtualMachine(util.NamespaceTestDefault).Create(tests.NewRandomVirtualMachine(libvmi.NewCirros(), false))
+			vm, err = virtClient.VirtualMachine(testsuite.GetTestNamespace(nil)).Create(tests.NewRandomVirtualMachine(libvmi.NewCirros(), false))
 			Expect(err).ToNot(HaveOccurred())
 		})
 
@@ -584,7 +585,7 @@ var _ = SIGDescribe("Hotplug", func() {
 					libdv.WithPVC(libdv.PVCWithStorageClass(sc), libdv.PVCWithVolumeSize(cd.BlankVolumeSize)),
 				)
 
-				dv, err = virtClient.CdiClient().CdiV1beta1().DataVolumes(util.NamespaceTestDefault).Create(context.TODO(), dv, metav1.CreateOptions{})
+				dv, err = virtClient.CdiClient().CdiV1beta1().DataVolumes(testsuite.GetTestNamespace(vm)).Create(context.TODO(), dv, metav1.CreateOptions{})
 				Expect(err).ToNot(HaveOccurred())
 				dvNames = append(dvNames, dv.Name)
 			}
@@ -652,10 +653,10 @@ var _ = SIGDescribe("Hotplug", func() {
 				}
 				vmi := libvmi.NewCirros(opts...)
 
-				vm, err = virtClient.VirtualMachine(util.NamespaceTestDefault).Create(tests.NewRandomVirtualMachine(vmi, true))
+				vm, err = virtClient.VirtualMachine(testsuite.GetTestNamespace(vmi)).Create(tests.NewRandomVirtualMachine(vmi, true))
 				Expect(err).ToNot(HaveOccurred())
 				Eventually(func() bool {
-					vm, err := virtClient.VirtualMachine(util.NamespaceTestDefault).Get(vm.Name, &metav1.GetOptions{})
+					vm, err := virtClient.VirtualMachine(testsuite.GetTestNamespace(vmi)).Get(vm.Name, &metav1.GetOptions{})
 					Expect(err).ToNot(HaveOccurred())
 					return vm.Status.Ready
 				}, 300*time.Second, 1*time.Second).Should(BeTrue())
@@ -1070,7 +1071,7 @@ var _ = SIGDescribe("Hotplug", func() {
 				}
 
 				dv = libdv.NewDataVolume(
-					libdv.WithNamespace(util.NamespaceTestDefault),
+					libdv.WithNamespace(testsuite.GetTestNamespace(nil)),
 					libdv.WithRegistryURLSource(url),
 					libdv.WithPVC(
 						libdv.PVCWithStorageClass(storageClass),
@@ -1097,11 +1098,11 @@ var _ = SIGDescribe("Hotplug", func() {
 				tests.AddUserData(vmi, "cloud-init", "#!/bin/bash\necho 'hello'\n")
 
 				vm := tests.NewRandomVirtualMachine(vmi, true)
-				vm, err = virtClient.VirtualMachine(util.NamespaceTestDefault).Create(vm)
+				vm, err = virtClient.VirtualMachine(testsuite.GetTestNamespace(vm)).Create(vm)
 				Expect(err).ToNot(HaveOccurred())
 
 				Eventually(func() bool {
-					vm, err := virtClient.VirtualMachine(util.NamespaceTestDefault).Get(vm.Name, &metav1.GetOptions{})
+					vm, err := virtClient.VirtualMachine(testsuite.GetTestNamespace(vm)).Get(vm.Name, &metav1.GetOptions{})
 					Expect(err).ToNot(HaveOccurred())
 					return vm.Status.Ready
 				}, 300*time.Second, 1*time.Second).Should(BeTrue())
@@ -1129,8 +1130,8 @@ var _ = SIGDescribe("Hotplug", func() {
 
 		BeforeEach(func() {
 			libstorage.CreateStorageClass(storageClassHostPath, &immediateBinding)
-			pvNode := libstorage.CreateHostPathPvWithSizeAndStorageClass(tests.CustomHostPath, hotplugPvPath, "1Gi", storageClassHostPath)
-			libstorage.CreatePVC(tests.CustomHostPath, "1Gi", storageClassHostPath, false)
+			pvNode := libstorage.CreateHostPathPvWithSizeAndStorageClass(tests.CustomHostPath, testsuite.GetTestNamespace(nil), hotplugPvPath, "1Gi", storageClassHostPath)
+			libstorage.CreatePVC(tests.CustomHostPath, testsuite.GetTestNamespace(nil), "1Gi", storageClassHostPath, false)
 
 			opts := []libvmi.Option{}
 			if pvNode != "" {
@@ -1138,10 +1139,10 @@ var _ = SIGDescribe("Hotplug", func() {
 			}
 			vmi := libvmi.NewCirros(opts...)
 
-			vm, err = virtClient.VirtualMachine(util.NamespaceTestDefault).Create(tests.NewRandomVirtualMachine(vmi, true))
+			vm, err = virtClient.VirtualMachine(testsuite.GetTestNamespace(vmi)).Create(tests.NewRandomVirtualMachine(vmi, true))
 			Expect(err).ToNot(HaveOccurred())
 			Eventually(func() bool {
-				vm, err := virtClient.VirtualMachine(util.NamespaceTestDefault).Get(vm.Name, &metav1.GetOptions{})
+				vm, err := virtClient.VirtualMachine(testsuite.GetTestNamespace(vmi)).Get(vm.Name, &metav1.GetOptions{})
 				Expect(err).ToNot(HaveOccurred())
 				return vm.Status.Ready
 			}, 300*time.Second, 1*time.Second).Should(BeTrue())
@@ -1186,10 +1187,10 @@ var _ = SIGDescribe("Hotplug", func() {
 			vmi := libvmi.NewCirros()
 			policy := v1.IOThreadsPolicyShared
 			vmi.Spec.Domain.IOThreadsPolicy = &policy
-			vm, err = virtClient.VirtualMachine(util.NamespaceTestDefault).Create(tests.NewRandomVirtualMachine(vmi, true))
+			vm, err = virtClient.VirtualMachine(testsuite.GetTestNamespace(vmi)).Create(tests.NewRandomVirtualMachine(vmi, true))
 			Expect(err).ToNot(HaveOccurred())
 			Eventually(func() bool {
-				vm, err := virtClient.VirtualMachine(util.NamespaceTestDefault).Get(vm.Name, &metav1.GetOptions{})
+				vm, err := virtClient.VirtualMachine(testsuite.GetTestNamespace(vmi)).Get(vm.Name, &metav1.GetOptions{})
 				Expect(err).ToNot(HaveOccurred())
 				return vm.Status.Ready
 			}, 300*time.Second, 1*time.Second).Should(BeTrue())
@@ -1206,7 +1207,7 @@ var _ = SIGDescribe("Hotplug", func() {
 				libdv.WithPVC(libdv.PVCWithStorageClass(sc), libdv.PVCWithVolumeSize(cd.BlankVolumeSize)),
 			)
 
-			dv, err = virtClient.CdiClient().CdiV1beta1().DataVolumes(util.NamespaceTestDefault).Create(context.TODO(), dv, metav1.CreateOptions{})
+			dv, err = virtClient.CdiClient().CdiV1beta1().DataVolumes(testsuite.GetTestNamespace(dv)).Create(context.TODO(), dv, metav1.CreateOptions{})
 			Expect(err).ToNot(HaveOccurred())
 
 			vmi, err := virtClient.VirtualMachineInstance(vm.Namespace).Get(vm.Name, &metav1.GetOptions{})
@@ -1238,11 +1239,11 @@ var _ = SIGDescribe("Hotplug", func() {
 		)
 
 		BeforeEach(func() {
-			libstorage.CreateAllSeparateDeviceHostPathPvs(tests.CustomHostPath)
-			vm, err = virtClient.VirtualMachine(util.NamespaceTestDefault).Create(tests.NewRandomVirtualMachine(libvmi.NewCirros(), true))
+			libstorage.CreateAllSeparateDeviceHostPathPvs(tests.CustomHostPath, testsuite.GetTestNamespace(nil))
+			vm, err = virtClient.VirtualMachine(testsuite.GetTestNamespace(nil)).Create(tests.NewRandomVirtualMachine(libvmi.NewCirros(), true))
 			Expect(err).ToNot(HaveOccurred())
 			Eventually(func() bool {
-				vm, err := virtClient.VirtualMachine(util.NamespaceTestDefault).Get(vm.Name, &metav1.GetOptions{})
+				vm, err := virtClient.VirtualMachine(testsuite.GetTestNamespace(nil)).Get(vm.Name, &metav1.GetOptions{})
 				Expect(err).ToNot(HaveOccurred())
 				return vm.Status.Ready
 			}, 300*time.Second, 1*time.Second).Should(BeTrue())
@@ -1261,7 +1262,7 @@ var _ = SIGDescribe("Hotplug", func() {
 				),
 			)
 
-			dv, err = virtClient.CdiClient().CdiV1beta1().DataVolumes(util.NamespaceTestDefault).Create(context.TODO(), dv, metav1.CreateOptions{})
+			dv, err = virtClient.CdiClient().CdiV1beta1().DataVolumes(testsuite.GetTestNamespace(dv)).Create(context.TODO(), dv, metav1.CreateOptions{})
 			Expect(err).ToNot(HaveOccurred())
 
 			vmi, err := virtClient.VirtualMachineInstance(vm.Namespace).Get(vm.Name, &metav1.GetOptions{})
@@ -1312,10 +1313,10 @@ var _ = SIGDescribe("Hotplug", func() {
 				libdv.WithPVC(libdv.PVCWithStorageClass(sc), libdv.PVCWithVolumeSize(cd.BlankVolumeSize)),
 			)
 
-			dv, err = virtClient.CdiClient().CdiV1beta1().DataVolumes(util.NamespaceTestDefault).Create(context.TODO(), dv, metav1.CreateOptions{})
+			dv, err = virtClient.CdiClient().CdiV1beta1().DataVolumes(testsuite.GetTestNamespace(vmi)).Create(context.TODO(), dv, metav1.CreateOptions{})
 			Expect(err).ToNot(HaveOccurred())
 			Eventually(func() error {
-				_, err = virtClient.CdiClient().CdiV1beta1().DataVolumes(util.NamespaceTestDefault).Get(context.TODO(), dv.Name, metav1.GetOptions{})
+				_, err = virtClient.CdiClient().CdiV1beta1().DataVolumes(testsuite.GetTestNamespace(vmi)).Get(context.TODO(), dv.Name, metav1.GetOptions{})
 				return err
 			}, 40*time.Second, 2*time.Second).Should(Succeed())
 
@@ -1345,10 +1346,10 @@ var _ = SIGDescribe("Hotplug", func() {
 				libdv.WithPVC(libdv.PVCWithStorageClass(sc), libdv.PVCWithVolumeSize(cd.BlankVolumeSize)),
 			)
 
-			dv, err = virtClient.CdiClient().CdiV1beta1().DataVolumes(util.NamespaceTestDefault).Create(context.TODO(), dv, metav1.CreateOptions{})
+			dv, err = virtClient.CdiClient().CdiV1beta1().DataVolumes(testsuite.GetTestNamespace(vmi)).Create(context.TODO(), dv, metav1.CreateOptions{})
 			Expect(err).ToNot(HaveOccurred())
 			Eventually(func() error {
-				_, err = virtClient.CdiClient().CdiV1beta1().DataVolumes(util.NamespaceTestDefault).Get(context.TODO(), dv.Name, metav1.GetOptions{})
+				_, err = virtClient.CdiClient().CdiV1beta1().DataVolumes(testsuite.GetTestNamespace(vmi)).Get(context.TODO(), dv.Name, metav1.GetOptions{})
 				return err
 			}, 40*time.Second, 2*time.Second).Should(Succeed())
 

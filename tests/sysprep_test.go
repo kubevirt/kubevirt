@@ -29,6 +29,7 @@ import (
 
 	"kubevirt.io/kubevirt/tests/exec"
 	"kubevirt.io/kubevirt/tests/framework/checks"
+	"kubevirt.io/kubevirt/tests/testsuite"
 
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
@@ -300,11 +301,11 @@ var _ = Describe("[Serial][Sysprep][sig-compute]Syspreped VirtualMachineInstance
 		virtClient, err = kubecli.GetKubevirtClient()
 		util.PanicOnError(err)
 		checks.SkipIfMissingRequiredImage(virtClient, tests.DiskWindowsSysprep)
-		libstorage.CreatePVC(OSWindowsSysprep, "35Gi", libstorage.Config.StorageClassWindows, true)
+		libstorage.CreatePVC(OSWindowsSysprep, testsuite.GetTestNamespace(nil), "35Gi", libstorage.Config.StorageClassWindows, true)
 		answerFileWithKey := insertProductKeyToAnswerFileTemplate(answerFileTemplate)
-		tests.CreateConfigMap("sysprepautounattend", map[string]string{"Autounattend.xml": answerFileWithKey, "Unattend.xml": answerFileWithKey})
 		windowsVMI = tests.NewRandomVMI()
 		windowsVMI.Spec = getWindowsSysprepVMISpec()
+		tests.CreateConfigMap("sysprepautounattend", windowsVMI.Namespace, map[string]string{"Autounattend.xml": answerFileWithKey, "Unattend.xml": answerFileWithKey})
 		tests.AddExplicitPodNetworkInterface(windowsVMI)
 		windowsVMI.Spec.Domain.Devices.Interfaces[0].Model = "e1000"
 	})

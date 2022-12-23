@@ -70,6 +70,9 @@ xattrs(
         "/usr/bin/virt-launcher": [
             "cap_net_bind_service",
         ],
+        "/usr/bin/virt-launcher-monitor": [
+            "cap_net_bind_service",
+        ],
     },
     tar = ":virt-launcher-tar",
 )

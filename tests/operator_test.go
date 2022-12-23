@@ -718,8 +718,8 @@ var _ = Describe("[Serial][sig-operator]Operator", Serial, func() {
 					"password": "community",
 				}
 
-				tests.CreateConfigMap(configMapName, config_data)
-				tests.CreateSecret(secretName, secret_data)
+				tests.CreateConfigMap(configMapName, vmi.Namespace, config_data)
+				tests.CreateSecret(secretName, vmi.Namespace, secret_data)
 
 				tests.AddUserData(vmi, "cloud-init", "#!/bin/bash\necho 'hello'\n")
 				tests.AddConfigMapDisk(vmi, configMapName, configMapName)
@@ -754,7 +754,7 @@ var _ = Describe("[Serial][sig-operator]Operator", Serial, func() {
 
 		startAllVMIs = func(vmis []*v1.VirtualMachineInstance) {
 			for _, vmi := range vmis {
-				vmi, err := virtClient.VirtualMachineInstance(util2.NamespaceTestDefault).Create(vmi)
+				vmi, err := virtClient.VirtualMachineInstance(testsuite.GetTestNamespace(vmi)).Create(vmi)
 				Expect(err).ToNot(HaveOccurred(), "Create VMI successfully")
 				tests.WaitForSuccessfulVMIStart(vmi)
 			}
@@ -833,7 +833,7 @@ var _ = Describe("[Serial][sig-operator]Operator", Serial, func() {
 			// the results
 			Eventually(func() error {
 				By("Verifying only a single successful migration took place for each vmi")
-				migrationList, err := virtClient.VirtualMachineInstanceMigration(util2.NamespaceTestDefault).List(&metav1.ListOptions{})
+				migrationList, err := virtClient.VirtualMachineInstanceMigration(testsuite.GetTestNamespace(nil)).List(&metav1.ListOptions{})
 				Expect(err).ToNot(HaveOccurred(), "retrieving migrations")
 				for _, vmi := range vmis {
 					count := 0
@@ -1334,14 +1334,14 @@ spec:
 
 			By("starting a VM")
 			vmi := tests.NewRandomVMIWithEphemeralDisk(cd.ContainerDiskFor(cd.ContainerDiskCirros))
-			vmi, err = virtClient.VirtualMachineInstance(util2.NamespaceTestDefault).Create(vmi)
+			vmi, err = virtClient.VirtualMachineInstance(testsuite.GetTestNamespace(vmi)).Create(vmi)
 			Expect(err).ToNot(HaveOccurred())
 			tests.WaitForSuccessfulVMIStart(vmi)
 
 			By("getting virt-launcher")
 			uid := vmi.GetObjectMeta().GetUID()
 			labelSelector := fmt.Sprintf(v1.CreatedByLabel + "=" + string(uid))
-			pods, err := virtClient.CoreV1().Pods(util2.NamespaceTestDefault).List(context.Background(), metav1.ListOptions{LabelSelector: labelSelector})
+			pods, err := virtClient.CoreV1().Pods(testsuite.GetTestNamespace(vmi)).List(context.Background(), metav1.ListOptions{LabelSelector: labelSelector})
 			Expect(err).ToNot(HaveOccurred(), "Should list pods")
 			Expect(pods.Items).To(HaveLen(1))
 			Expect(usesSha(pods.Items[0].Spec.Containers[0].Image)).To(BeTrue(), "launcher pod should use shasum")
@@ -1490,14 +1490,14 @@ spec:
 
 			By("Starting a VMI")
 			vmi := tests.NewRandomVMI()
-			vmi, err = virtClient.VirtualMachineInstance(util2.NamespaceTestDefault).Create(vmi)
+			vmi, err = virtClient.VirtualMachineInstance(testsuite.GetTestNamespace(vmi)).Create(vmi)
 			Expect(err).NotTo(HaveOccurred())
 			tests.WaitForSuccessfulVMIStart(vmi)
 
 			By("Getting virt-launcher")
 			uid := vmi.GetObjectMeta().GetUID()
 			labelSelector := fmt.Sprintf(v1.CreatedByLabel + "=" + string(uid))
-			pods, err := virtClient.CoreV1().Pods(util2.NamespaceTestDefault).List(context.Background(), metav1.ListOptions{LabelSelector: labelSelector})
+			pods, err := virtClient.CoreV1().Pods(testsuite.GetTestNamespace(vmi)).List(context.Background(), metav1.ListOptions{LabelSelector: labelSelector})
 			Expect(err).NotTo(HaveOccurred(), "Should list pods")
 			Expect(pods.Items).To(HaveLen(1))
 			Expect(pods.Items[0].Spec.ImagePullSecrets).To(HaveLen(0))
@@ -1544,14 +1544,14 @@ spec:
 
 			By("Starting a VMI")
 			vmi := tests.NewRandomVMI()
-			vmi, err = virtClient.VirtualMachineInstance(util2.NamespaceTestDefault).Create(vmi)
+			vmi, err = virtClient.VirtualMachineInstance(testsuite.GetTestNamespace(vmi)).Create(vmi)
 			Expect(err).NotTo(HaveOccurred())
 			tests.WaitForSuccessfulVMIStart(vmi)
 
 			By("Getting virt-launcher")
 			uid := vmi.GetObjectMeta().GetUID()
 			labelSelector := fmt.Sprintf(v1.CreatedByLabel + "=" + string(uid))
-			pods, err := virtClient.CoreV1().Pods(util2.NamespaceTestDefault).List(context.Background(), metav1.ListOptions{LabelSelector: labelSelector})
+			pods, err := virtClient.CoreV1().Pods(testsuite.GetTestNamespace(vmi)).List(context.Background(), metav1.ListOptions{LabelSelector: labelSelector})
 			Expect(err).NotTo(HaveOccurred(), "Should list pods")
 			Expect(pods.Items).To(HaveLen(1))
 			Expect(pods.Items[0].Spec.ImagePullSecrets).To(HaveLen(0))
@@ -1716,13 +1716,13 @@ spec:
 				// NOTE: we are using virtctl explicitly here because we want to start the VM
 				// using the subresource endpoint in the same way virtctl performs this.
 				By("Starting VM with virtctl")
-				startCommand := clientcmd.NewRepeatableVirtctlCommand("start", "--namespace", util2.NamespaceTestDefault, vmYaml.vmName)
+				startCommand := clientcmd.NewRepeatableVirtctlCommand("start", "--namespace", testsuite.GetTestNamespace(nil), vmYaml.vmName)
 				Expect(startCommand()).To(Succeed())
 
 				By(fmt.Sprintf("Waiting for VM with %s api to become ready", vmYaml.apiVersion))
 
 				Eventually(func() bool {
-					virtualMachine, err := virtClient.VirtualMachine(util2.NamespaceTestDefault).Get(vmYaml.vmName, &metav1.GetOptions{})
+					virtualMachine, err := virtClient.VirtualMachine(testsuite.GetTestNamespace(nil)).Get(vmYaml.vmName, &metav1.GetOptions{})
 					Expect(err).ToNot(HaveOccurred())
 					if virtualMachine.Status.Ready {
 						return true
@@ -1762,7 +1762,7 @@ spec:
 					// We are using our internal client here on purpose to ensure we can interact
 					// with previously created objects that may have been created using a different
 					// api version from the latest one our client uses.
-					virtualMachine, err := virtClient.VirtualMachine(util2.NamespaceTestDefault).Get(vmYaml.vmName, &metav1.GetOptions{})
+					virtualMachine, err := virtClient.VirtualMachine(testsuite.GetTestNamespace(nil)).Get(vmYaml.vmName, &metav1.GetOptions{})
 					Expect(err).ToNot(HaveOccurred())
 					if !virtualMachine.Status.Ready {
 						return false
@@ -1778,7 +1778,7 @@ spec:
 				By(fmt.Sprintf("Ensure vm %s vmsnapshots exist and ready ", vmYaml.vmName))
 				for _, snapshot := range vmYaml.vmSnapshots {
 					Eventually(func() bool {
-						vmSnapshot, err := virtClient.VirtualMachineSnapshot(util2.NamespaceTestDefault).Get(context.Background(), snapshot.vmSnapshotName, metav1.GetOptions{})
+						vmSnapshot, err := virtClient.VirtualMachineSnapshot(testsuite.GetTestNamespace(nil)).Get(context.Background(), snapshot.vmSnapshotName, metav1.GetOptions{})
 						Expect(err).ToNot(HaveOccurred())
 						if !(vmSnapshot.Status != nil && vmSnapshot.Status.ReadyToUse != nil && *vmSnapshot.Status.ReadyToUse) {
 							return false
@@ -1798,7 +1798,7 @@ spec:
 				// completes while we wait for the kubernetes apiserver to detect our
 				// subresource api server is online and ready to serve requests.
 				Eventually(func() error {
-					vmi, err := virtClient.VirtualMachineInstance(util2.NamespaceTestDefault).Get(vmYaml.vmName, &metav1.GetOptions{})
+					vmi, err := virtClient.VirtualMachineInstance(testsuite.GetTestNamespace(nil)).Get(vmYaml.vmName, &metav1.GetOptions{})
 					Expect(err).ToNot(HaveOccurred())
 					if err := console.LoginToCirros(vmi); err != nil {
 						return err
@@ -1807,14 +1807,14 @@ spec:
 				}, 60*time.Second, 1*time.Second).Should(BeNil())
 
 				By("Stopping VM with virtctl")
-				stopFn := clientcmd.NewRepeatableVirtctlCommand("stop", "--namespace", util2.NamespaceTestDefault, vmYaml.vmName)
+				stopFn := clientcmd.NewRepeatableVirtctlCommand("stop", "--namespace", testsuite.GetTestNamespace(nil), vmYaml.vmName)
 				Eventually(func() error {
 					return stopFn()
 				}, 30*time.Second, 1*time.Second).Should(BeNil())
 
 				By("Waiting for VMI to stop")
 				Eventually(func() bool {
-					_, err := virtClient.VirtualMachineInstance(util2.NamespaceTestDefault).Get(vmYaml.vmName, &metav1.GetOptions{})
+					_, err := virtClient.VirtualMachineInstance(testsuite.GetTestNamespace(nil)).Get(vmYaml.vmName, &metav1.GetOptions{})
 					if err != nil && errors.IsNotFound(err) {
 						return true
 					} else if err != nil {
@@ -1829,7 +1829,7 @@ spec:
 
 				By("Ensuring we can Modify the VM Spec")
 				Eventually(func() error {
-					vm, err := virtClient.VirtualMachine(util2.NamespaceTestDefault).Get(vmYaml.vmName, &metav1.GetOptions{})
+					vm, err := virtClient.VirtualMachine(testsuite.GetTestNamespace(nil)).Get(vmYaml.vmName, &metav1.GetOptions{})
 					if err != nil {
 						return err
 					}
@@ -1847,16 +1847,16 @@ spec:
 
 				// change run stategy to halted to be able to restore the vm
 				Eventually(func() bool {
-					vm, err := virtClient.VirtualMachine(util2.NamespaceTestDefault).Get(vmYaml.vmName, &metav1.GetOptions{})
+					vm, err := virtClient.VirtualMachine(testsuite.GetTestNamespace(nil)).Get(vmYaml.vmName, &metav1.GetOptions{})
 					if err != nil {
 						return false
 					}
 					vm.Spec.RunStrategy = &runStrategyHalted
-					_, err = virtClient.VirtualMachine(util2.NamespaceTestDefault).Update(vm)
+					_, err = virtClient.VirtualMachine(testsuite.GetTestNamespace(vm)).Update(vm)
 					if err != nil {
 						return false
 					}
-					updatedVM, err := virtClient.VirtualMachine(util2.NamespaceTestDefault).Get(vmYaml.vmName, &metav1.GetOptions{})
+					updatedVM, err := virtClient.VirtualMachine(testsuite.GetTestNamespace(vm)).Get(vmYaml.vmName, &metav1.GetOptions{})
 					Expect(err).ToNot(HaveOccurred())
 					return updatedVM.Spec.Running == nil && updatedVM.Spec.RunStrategy != nil && *updatedVM.Spec.RunStrategy == runStrategyHalted
 				}, 30*time.Second, 3*time.Second).Should(BeTrue())
@@ -1866,7 +1866,7 @@ spec:
 					_, _, err = clientcmd.RunCommand(k8sClient, "create", "-f", snapshot.restoreYamlFile, "--cache-dir", newClientCacheDir)
 					Expect(err).ToNot(HaveOccurred())
 					Eventually(func() bool {
-						r, err := virtClient.VirtualMachineRestore(util2.NamespaceTestDefault).Get(context.Background(), snapshot.restoreName, metav1.GetOptions{})
+						r, err := virtClient.VirtualMachineRestore(testsuite.GetTestNamespace(nil)).Get(context.Background(), snapshot.restoreName, metav1.GetOptions{})
 						if err != nil {
 							return false
 						}
@@ -1880,7 +1880,7 @@ spec:
 
 				By("Waiting for VM to be removed")
 				Eventually(func() bool {
-					_, err := virtClient.VirtualMachine(util2.NamespaceTestDefault).Get(vmYaml.vmName, &metav1.GetOptions{})
+					_, err := virtClient.VirtualMachine(testsuite.GetTestNamespace(nil)).Get(vmYaml.vmName, &metav1.GetOptions{})
 					if err != nil && errors.IsNotFound(err) {
 						return true
 					}
@@ -1968,7 +1968,7 @@ spec:
 				Expect(err).ToNot(HaveOccurred())
 
 				By("creating a simple VMI")
-				_, err = virtClient.VirtualMachineInstance(util2.NamespaceTestDefault).Create(tests.NewRandomVMIWithEphemeralDisk(cd.ContainerDiskFor(cd.ContainerDiskCirros)))
+				_, err = virtClient.VirtualMachineInstance(testsuite.GetTestNamespace(nil)).Create(tests.NewRandomVMIWithEphemeralDisk(cd.ContainerDiskFor(cd.ContainerDiskCirros)))
 				Expect(err).ToNot(HaveOccurred())
 
 				By("Deleting KubeVirt object")
@@ -2053,7 +2053,7 @@ spec:
 
 			By("Verifying VMs are working")
 			vmi := tests.NewRandomVMIWithEphemeralDisk(cd.ContainerDiskFor(cd.ContainerDiskAlpine))
-			vmi, err := virtClient.VirtualMachineInstance(util2.NamespaceTestDefault).Create(vmi)
+			vmi, err := virtClient.VirtualMachineInstance(testsuite.GetTestNamespace(vmi)).Create(vmi)
 			Expect(err).ShouldNot(HaveOccurred(), "Create VMI successfully")
 			tests.WaitForSuccessfulVMIStart(vmi)
 
@@ -2067,7 +2067,7 @@ spec:
 			}
 
 			By("Deleting VM")
-			err = virtClient.VirtualMachineInstance(util2.NamespaceTestDefault).Delete(vmi.Name, &metav1.DeleteOptions{})
+			err = virtClient.VirtualMachineInstance(testsuite.GetTestNamespace(vmi)).Delete(vmi.Name, &metav1.DeleteOptions{})
 			Expect(err).ShouldNot(HaveOccurred(), "Delete VMI successfully")
 
 			By("Restore Operator using original imagePrefix ")
@@ -2347,13 +2347,13 @@ spec:
 
 				By("Checking if virt-launcher is assigned to kubevirt-controller SCC")
 				vmi := tests.NewRandomVMIWithEphemeralDisk(cd.ContainerDiskFor(cd.ContainerDiskCirros))
-				vmi, err = virtClient.VirtualMachineInstance(util2.NamespaceTestDefault).Create(vmi)
+				vmi, err = virtClient.VirtualMachineInstance(testsuite.GetTestNamespace(vmi)).Create(vmi)
 				Expect(err).ToNot(HaveOccurred())
 				tests.WaitForSuccessfulVMIStart(vmi)
 
 				uid := vmi.GetObjectMeta().GetUID()
 				labelSelector := fmt.Sprintf(v1.CreatedByLabel + "=" + string(uid))
-				pods, err = virtClient.CoreV1().Pods(util2.NamespaceTestDefault).List(context.Background(), metav1.ListOptions{LabelSelector: labelSelector})
+				pods, err = virtClient.CoreV1().Pods(testsuite.GetTestNamespace(vmi)).List(context.Background(), metav1.ListOptions{LabelSelector: labelSelector})
 				Expect(err).ToNot(HaveOccurred(), "Should get virt-launcher")
 				Expect(pods.Items).To(HaveLen(1))
 				Expect(pods.Items[0].Annotations[OpenShiftSCCLabel]).To(
@@ -2391,7 +2391,7 @@ spec:
 
 			// This tests starting infrastructure with and without the DataVolumes feature gate
 			var foundSC bool
-			vm, foundSC = tests.NewRandomVMWithDataVolume(cd.DataVolumeImportUrlForContainerDisk(cd.ContainerDiskAlpine), util2.NamespaceTestDefault)
+			vm, foundSC = tests.NewRandomVMWithDataVolume(cd.DataVolumeImportUrlForContainerDisk(cd.ContainerDiskAlpine), testsuite.GetTestNamespace(nil))
 			if !foundSC {
 				Skip("Skip test when Filesystem storage is not present")
 			}
@@ -2427,7 +2427,7 @@ spec:
 			// Verify posting a VM with DataVolumeTemplate fails when DataVolumes
 			// feature gate is disabled
 			By("Expecting Error to Occur when posting VM with DataVolume")
-			_, err = virtClient.VirtualMachine(util2.NamespaceTestDefault).Create(vm)
+			_, err = virtClient.VirtualMachine(testsuite.GetTestNamespace(nil)).Create(vm)
 			Expect(err).To(HaveOccurred())
 
 			// Enable DataVolumes by reinstalling CDI
@@ -2439,7 +2439,7 @@ spec:
 
 			// Verify we can post a VM with DataVolumeTemplates successfully
 			By("Expecting Error to not occur when posting VM with DataVolume")
-			vm, err = virtClient.VirtualMachine(util2.NamespaceTestDefault).Create(vm)
+			vm, err = virtClient.VirtualMachine(testsuite.GetTestNamespace(nil)).Create(vm)
 			Expect(err).ToNot(HaveOccurred())
 
 			By("Expecting VM to start successfully")

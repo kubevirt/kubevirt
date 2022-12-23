@@ -27,6 +27,7 @@ import (
 	. "github.com/onsi/gomega"
 	k8sv1 "k8s.io/api/core/v1"
 
+	"kubevirt.io/kubevirt/tests/testsuite"
 	"kubevirt.io/kubevirt/tests/util"
 
 	v1 "kubevirt.io/api/core/v1"
@@ -104,12 +105,12 @@ var _ = Describe("[rfe_id:127][posneg:negative][crit:medium][vendor:cnv-qe@redha
 				type vmiBuilder func() *v1.VirtualMachineInstance
 
 				newVirtualMachineInstanceWithAlpineFileDisk := func() *v1.VirtualMachineInstance {
-					vmi, _ := tests.NewRandomVirtualMachineInstanceWithFileDisk(cd.DataVolumeImportUrlForContainerDisk(cd.ContainerDiskAlpine), util.NamespaceTestDefault, k8sv1.ReadWriteOnce)
+					vmi, _ := tests.NewRandomVirtualMachineInstanceWithFileDisk(cd.DataVolumeImportUrlForContainerDisk(cd.ContainerDiskAlpine), testsuite.GetTestNamespace(nil), k8sv1.ReadWriteOnce)
 					return vmi
 				}
 
 				newVirtualMachineInstanceWithAlpineBlockDisk := func() *v1.VirtualMachineInstance {
-					vmi, _ := tests.NewRandomVirtualMachineInstanceWithBlockDisk(cd.DataVolumeImportUrlForContainerDisk(cd.ContainerDiskAlpine), util.NamespaceTestDefault, k8sv1.ReadWriteOnce)
+					vmi, _ := tests.NewRandomVirtualMachineInstanceWithBlockDisk(cd.DataVolumeImportUrlForContainerDisk(cd.ContainerDiskAlpine), testsuite.GetTestNamespace(nil), k8sv1.ReadWriteOnce)
 					return vmi
 				}
 
@@ -160,7 +161,7 @@ var _ = Describe("[rfe_id:127][posneg:negative][crit:medium][vendor:cnv-qe@redha
 			It("[test_id:1592]should wait until the virtual machine is in running state and return a stream interface", func() {
 				vmi := libvmi.NewAlpine()
 				By("Creating a new VirtualMachineInstance")
-				vmi, err := virtClient.VirtualMachineInstance(util.NamespaceTestDefault).Create(vmi)
+				vmi, err := virtClient.VirtualMachineInstance(testsuite.GetTestNamespace(vmi)).Create(vmi)
 				Expect(err).ToNot(HaveOccurred())
 
 				By("and connecting to it very quickly. Hopefully the VM is not yet up")
@@ -172,7 +173,7 @@ var _ = Describe("[rfe_id:127][posneg:negative][crit:medium][vendor:cnv-qe@redha
 				vmi := libvmi.NewAlpine(withNodeAffinityTo("kubernetes.io/hostname", "nonexistent"))
 
 				By("Creating a new VirtualMachineInstance")
-				vmi, err := virtClient.VirtualMachineInstance(util.NamespaceTestDefault).Create(vmi)
+				vmi, err := virtClient.VirtualMachineInstance(testsuite.GetTestNamespace(vmi)).Create(vmi)
 				Expect(err).ToNot(HaveOccurred())
 
 				_, err = virtClient.VirtualMachineInstance(vmi.Namespace).SerialConsole(vmi.Name, &kubecli.SerialConsoleOptions{ConnectionTimeout: 30 * time.Second})

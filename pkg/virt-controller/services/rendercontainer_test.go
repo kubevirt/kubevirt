@@ -64,6 +64,10 @@ var _ = Describe("Container spec renderer", func() {
 					},
 				))
 		})
+
+		It("AllowPrivilegeEscalation should be set to false", func() {
+			Expect(*specRenderer.Render(exampleCommand).SecurityContext.AllowPrivilegeEscalation).Should(BeFalse())
+		})
 	})
 
 	Context("with privileged option", func() {
@@ -86,11 +90,6 @@ var _ = Describe("Container spec renderer", func() {
 		Context("a VMI running as root", func() {
 			BeforeEach(func() {
 				specRenderer = NewContainerSpecRenderer(containerName, img, pullPolicy, WithCapabilities(simplestVMI()))
-			})
-
-			It("must request to drop the NET_RAW capability", func() {
-				Expect(specRenderer.Render(exampleCommand).SecurityContext.Capabilities.Drop).Should(
-					Equal([]k8sv1.Capability{CAP_NET_RAW}))
 			})
 
 			It("must request to add the NET_BIND_SERVICE and SYS_NICE capabilities", func() {
@@ -173,6 +172,22 @@ var _ = Describe("Container spec renderer", func() {
 
 		It("the resource requirements are rendered into the container", func() {
 			Expect(specRenderer.Render(exampleCommand).Resources).To(Equal(expectedResource))
+		})
+	})
+
+	Context("with no capabilities option", func() {
+		It("all capabilities should be dropped", func() {
+			specRenderer = NewContainerSpecRenderer(containerName, img, pullPolicy, WithNoCapabilities())
+			Expect(specRenderer.Render(exampleCommand).SecurityContext.Capabilities.Drop).To(Equal([]k8sv1.Capability{"ALL"}))
+		})
+	})
+
+	Context("with drop-all capabilities option", func() {
+		It("all capabilities should be dropped, but added caps should be kept", func() {
+			vmi := simplestVMI()
+			specRenderer = NewContainerSpecRenderer(containerName, img, pullPolicy, WithCapabilities(vmi), WithDropALLCapabilities())
+			Expect(specRenderer.Render(exampleCommand).SecurityContext.Capabilities.Drop).To(Equal([]k8sv1.Capability{"ALL"}))
+			Expect(specRenderer.Render(exampleCommand).SecurityContext.Capabilities.Add).ToNot(BeEmpty())
 		})
 	})
 

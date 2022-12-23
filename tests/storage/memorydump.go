@@ -36,6 +36,7 @@ import (
 	"kubevirt.io/kubevirt/tests/exec"
 	"kubevirt.io/kubevirt/tests/framework/checks"
 	"kubevirt.io/kubevirt/tests/libstorage"
+	"kubevirt.io/kubevirt/tests/testsuite"
 	"kubevirt.io/kubevirt/tests/util"
 
 	k8sv1 "k8s.io/api/core/v1"
@@ -409,7 +410,7 @@ var _ = SIGDescribe("Memory dump", func() {
 
 			vm = createAndStartVM()
 
-			memoryDumpPVC = libstorage.CreateFSPVC(memoryDumpPVCName, "500Mi")
+			memoryDumpPVC = libstorage.CreateFSPVC(memoryDumpPVCName, testsuite.GetTestNamespace(vm), "500Mi")
 		})
 
 		AfterEach(func() {
@@ -460,7 +461,7 @@ var _ = SIGDescribe("Memory dump", func() {
 			By("Running remove memory dump to pvc: " + memoryDumpPVCName)
 			removeMemoryDumpAndVerify(vm, memoryDumpPVCName, previousOutput, removeMemoryDumpVirtctl)
 
-			memoryDumpPVC2 = libstorage.CreateFSPVC(memoryDumpPVCName2, "500Mi")
+			memoryDumpPVC2 = libstorage.CreateFSPVC(memoryDumpPVCName2, testsuite.GetTestNamespace(vm), "500Mi")
 			By("Running memory dump to other pvc: " + memoryDumpPVCName2)
 			previousOutput = createMemoryDumpAndVerify(vm, memoryDumpPVCName2, previousOutput, memoryDumpVirtctl)
 
@@ -506,7 +507,7 @@ var _ = SIGDescribe("Memory dump", func() {
 
 		It("[test_id:8501]Run memory dump with pvc too small should fail", func() {
 			By("Trying to get memory dump with small pvc")
-			memoryDumpSmallPVC = libstorage.CreateFSPVC(memoryDumpSmallPVCName, "200Mi")
+			memoryDumpSmallPVC = libstorage.CreateFSPVC(memoryDumpSmallPVCName, testsuite.GetTestNamespace(vm), "200Mi")
 			commandAndArgs := []string{commandMemoryDump, "get", vm.Name, fmt.Sprintf(virtCtlClaimName, memoryDumpSmallPVCName), virtCtlNamespace, vm.Namespace}
 			memorydumpCommand := clientcmd.NewRepeatableVirtctlCommand(commandAndArgs...)
 			Eventually(func() string {

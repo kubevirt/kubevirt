@@ -71,6 +71,7 @@ var _ = Describe("Template", func() {
 	var virtClient *kubecli.MockKubevirtClient
 	var config *virtconfig.ClusterConfig
 	var kvInformer cache.SharedIndexInformer
+	var nonRootUser int64
 
 	kv := &v1.KubeVirt{
 		ObjectMeta: metav1.ObjectMeta{
@@ -154,6 +155,7 @@ var _ = Describe("Template", func() {
 			Expect(err).To(Not(HaveOccurred()))
 			return config, kvInformer, svc
 		}
+		nonRootUser = util.NonRootUID
 	})
 
 	AfterEach(func() {
@@ -1479,6 +1481,7 @@ var _ = Describe("Template", func() {
 				Expect(pod.Spec.Containers[1].Resources.Limits.Memory().Cmp(mem)).To(BeZero())
 				Expect(pod.Spec.Containers[1].Resources.Limits.Cpu().Cmp(cpu)).To(BeZero())
 
+				// The VMI is considered root (not non-root), and thefore should enable CAP_SYS_NICE
 				found := false
 				caps := pod.Spec.Containers[0].SecurityContext.Capabilities
 				for _, cap := range caps.Add {
@@ -2696,6 +2699,9 @@ var _ = Describe("Template", func() {
 					ObjectMeta: metav1.ObjectMeta{
 						Name: "testvmi", Namespace: "default", UID: "1234",
 					},
+					Status: v1.VirtualMachineInstanceStatus{
+						RuntimeUser: util.NonRootUID,
+					},
 				}
 				pod, err := svc.RenderLaunchManifest(&vmi)
 				Expect(err).ToNot(HaveOccurred())
@@ -2706,7 +2712,7 @@ var _ = Describe("Template", func() {
 
 				caps := pod.Spec.Containers[0].SecurityContext.Capabilities
 
-				Expect(caps.Drop).To(ContainElement(kubev1.Capability(CAP_NET_RAW)), "Expected compute container to drop NET_RAW capability")
+				Expect(caps.Drop).To(ContainElement(kubev1.Capability("ALL")), "Expected compute container to drop all capabilities")
 			})
 
 			It("Should require tun device if explicitly requested", func() {
@@ -2720,6 +2726,9 @@ var _ = Describe("Template", func() {
 						Name: "testvmi", Namespace: "default", UID: "1234",
 					},
 					Spec: v1.VirtualMachineInstanceSpec{Domain: domain},
+					Status: v1.VirtualMachineInstanceStatus{
+						RuntimeUser: util.NonRootUID,
+					},
 				}
 				pod, err := svc.RenderLaunchManifest(&vmi)
 				Expect(err).ToNot(HaveOccurred())
@@ -2730,7 +2739,7 @@ var _ = Describe("Template", func() {
 
 				caps := pod.Spec.Containers[0].SecurityContext.Capabilities
 
-				Expect(caps.Drop).To(ContainElement(kubev1.Capability(CAP_NET_RAW)), "Expected compute container to drop NET_RAW capability")
+				Expect(caps.Drop).To(ContainElement(kubev1.Capability("ALL")), "Expected compute container to drop all capabilities")
 			})
 
 			It("Should not require tun device if explicitly rejected", func() {
@@ -2744,6 +2753,9 @@ var _ = Describe("Template", func() {
 						Name: "testvmi", Namespace: "default", UID: "1234",
 					},
 					Spec: v1.VirtualMachineInstanceSpec{Domain: domain},
+					Status: v1.VirtualMachineInstanceStatus{
+						RuntimeUser: util.NonRootUID,
+					},
 				}
 				pod, err := svc.RenderLaunchManifest(&vmi)
 				Expect(err).ToNot(HaveOccurred())
@@ -2753,7 +2765,7 @@ var _ = Describe("Template", func() {
 
 				caps := pod.Spec.Containers[0].SecurityContext.Capabilities
 
-				Expect(caps.Drop).To(ContainElement(kubev1.Capability(CAP_NET_RAW)), "Expected compute container to drop NET_RAW capability")
+				Expect(caps.Drop).To(ContainElement(kubev1.Capability("ALL")), "Expected compute container to drop all capabilities")
 			})
 		})
 
@@ -3397,12 +3409,191 @@ var _ = Describe("Template", func() {
 			for _, container := range pod.Spec.Containers {
 				if container.Name == "compute" {
 					Expect(container.SecurityContext.Capabilities.Add).To(
-						ContainElements(kubev1.Capability("NET_BIND_SERVICE")))
+						ContainElement(kubev1.Capability("NET_BIND_SERVICE")))
 					return
 				}
 			}
 			Expect(false).To(BeTrue())
 		})
+
+		DescribeTable("should require the correct set of capabilites", func(
+			getVMI func() *v1.VirtualMachineInstance,
+			containerName string,
+			addedCaps []kubev1.Capability,
+			droppedCaps []kubev1.Capability) {
+			vmi := getVMI()
+
+			pod, err := svc.RenderLaunchManifest(vmi)
+			Expect(err).ToNot(HaveOccurred())
+
+			for _, container := range pod.Spec.Containers {
+				if container.Name == containerName {
+					Expect(container.SecurityContext.Capabilities.Add).To(Equal(addedCaps))
+					Expect(container.SecurityContext.Capabilities.Drop).To(Equal(droppedCaps))
+					return
+				}
+			}
+			Expect(false).To(BeTrue())
+		},
+			Entry("on a root virt-launcher", func() *v1.VirtualMachineInstance {
+				return api.NewMinimalVMI("fake-vmi")
+			}, "compute", []kubev1.Capability{CAP_NET_BIND_SERVICE, CAP_SYS_NICE}, nil),
+			Entry("on a non-root virt-launcher", func() *v1.VirtualMachineInstance {
+				vmi := api.NewMinimalVMI("fake-vmi")
+				vmi.Status.RuntimeUser = uint64(nonRootUser)
+				return vmi
+			}, "compute", []kubev1.Capability{CAP_NET_BIND_SERVICE}, []kubev1.Capability{"ALL"}),
+			Entry("on a sidecar container", func() *v1.VirtualMachineInstance {
+				vmi := api.NewMinimalVMI("fake-vmi")
+				vmi.Status.RuntimeUser = uint64(nonRootUser)
+				vmi.Annotations = map[string]string{
+					"hooks.kubevirt.io/hookSidecars": `[{"args": ["--version", "v1alpha2"],"image": "test/test:test", "imagePullPolicy": "IfNotPresent"}]`,
+				}
+				return vmi
+			}, "hook-sidecar-0", nil, []kubev1.Capability{"ALL"}),
+		)
+
+		DescribeTable("should compute the correct security context", func(
+			getVMI func() *v1.VirtualMachineInstance,
+			securityContext *kubev1.PodSecurityContext) {
+			vmi := getVMI()
+
+			pod, err := svc.RenderLaunchManifest(vmi)
+			Expect(err).ToNot(HaveOccurred())
+
+			Expect(pod.Spec.SecurityContext).To(Equal(securityContext))
+		},
+			Entry("on a root virt-launcher", func() *v1.VirtualMachineInstance {
+				return api.NewMinimalVMI("fake-vmi")
+			}, &kubev1.PodSecurityContext{
+				RunAsUser: new(int64),
+				SeccompProfile: &kubev1.SeccompProfile{
+					Type: kubev1.SeccompProfileTypeUnconfined,
+				},
+			}),
+			Entry("on a non-root virt-launcher", func() *v1.VirtualMachineInstance {
+				vmi := api.NewMinimalVMI("fake-vmi")
+				vmi.Status.RuntimeUser = uint64(nonRootUser)
+				return vmi
+			}, &kubev1.PodSecurityContext{
+				RunAsUser:    &nonRootUser,
+				RunAsGroup:   &nonRootUser,
+				RunAsNonRoot: pointer.Bool(true),
+				SeccompProfile: &kubev1.SeccompProfile{
+					Type: kubev1.SeccompProfileTypeRuntimeDefault,
+				},
+			}),
+			Entry("on a passt vmi", func() *v1.VirtualMachineInstance {
+				nonRootUser := util.NonRootUID
+				vmi := api.NewMinimalVMI("fake-vmi")
+				vmi.Status.RuntimeUser = uint64(nonRootUser)
+				vmi.Spec.Domain.Devices.Interfaces = []v1.Interface{{
+					InterfaceBindingMethod: v1.InterfaceBindingMethod{
+						Passt: &v1.InterfacePasst{},
+					},
+				}}
+				return vmi
+			}, &kubev1.PodSecurityContext{
+				RunAsUser:    &nonRootUser,
+				RunAsGroup:   &nonRootUser,
+				RunAsNonRoot: pointer.Bool(true),
+				SeccompProfile: &kubev1.SeccompProfile{
+					Type: kubev1.SeccompProfileTypeUnconfined,
+				},
+				SELinuxOptions: &kubev1.SELinuxOptions{
+					Type: "virt_launcher.process",
+				},
+			}),
+			Entry("on a virtiofs vmi", func() *v1.VirtualMachineInstance {
+				nonRootUser := util.NonRootUID
+				vmi := api.NewMinimalVMI("fake-vmi")
+				vmi.Status.RuntimeUser = uint64(nonRootUser)
+				vmi.Spec.Domain.Devices.Filesystems = []v1.Filesystem{{
+					Virtiofs: &v1.FilesystemVirtiofs{},
+				}}
+				return vmi
+			}, &kubev1.PodSecurityContext{
+				RunAsUser:    &nonRootUser,
+				RunAsGroup:   &nonRootUser,
+				RunAsNonRoot: pointer.Bool(true),
+				SeccompProfile: &kubev1.SeccompProfile{
+					Type: kubev1.SeccompProfileTypeUnconfined,
+				},
+			}),
+		)
+
+		DescribeTable("should compute the correct security context when migrating and postcopy is", func(postCopyEnabled bool, expectedSeccompProfile kubev1.SeccompProfileType) {
+			vmi := api.NewMinimalVMI("fake-vmi")
+			vmi.Status.RuntimeUser = uint64(nonRootUser)
+			pod, err := svc.RenderLaunchManifest(vmi)
+			Expect(err).ToNot(HaveOccurred())
+
+			migrationConfig := &v1.MigrationConfiguration{
+				AllowPostCopy: pointer.Bool(postCopyEnabled),
+			}
+			pod, err = svc.RenderMigrationManifest(vmi, pod, migrationConfig)
+			Expect(err).ToNot(HaveOccurred())
+			Expect(pod.Spec.SecurityContext.SeccompProfile.Type).To(Equal(expectedSeccompProfile))
+		},
+			Entry("enabled", true, kubev1.SeccompProfileTypeUnconfined),
+			Entry("disabled", false, kubev1.SeccompProfileTypeRuntimeDefault),
+		)
+
+		It("should compute the correct security context when rendering hotplug attachment pods", func() {
+			vmi := api.NewMinimalVMI("fake-vmi")
+			ownerPod, err := svc.RenderLaunchManifest(vmi)
+			Expect(err).ToNot(HaveOccurred())
+
+			vmi.Status.SelinuxContext = "test_u:test_r:test_t:s0"
+			claimMap := map[string]*kubev1.PersistentVolumeClaim{}
+			pod, err := svc.RenderHotplugAttachmentPodTemplate([]*v1.Volume{}, ownerPod, vmi, claimMap, false)
+			Expect(err).ToNot(HaveOccurred())
+
+			runUser := int64(util.NonRootUID)
+			Expect(*pod.Spec.Containers[0].SecurityContext).To(Equal(kubev1.SecurityContext{
+				AllowPrivilegeEscalation: pointer.Bool(false),
+				RunAsNonRoot:             pointer.Bool(true),
+				RunAsUser:                &runUser,
+				SeccompProfile: &kubev1.SeccompProfile{
+					Type: kubev1.SeccompProfileTypeRuntimeDefault,
+				},
+				Capabilities: &kubev1.Capabilities{
+					Drop: []kubev1.Capability{"ALL"},
+				},
+				SELinuxOptions: &kubev1.SELinuxOptions{
+					Level: "s0",
+				},
+			}))
+		})
+
+		DescribeTable("should compute the correct security context when rendering hotplug attachment trigger pods", func(isBlock bool) {
+			vmi := api.NewMinimalVMI("fake-vmi")
+			ownerPod, err := svc.RenderLaunchManifest(vmi)
+			Expect(err).ToNot(HaveOccurred())
+
+			vmi.Status.SelinuxContext = "test_u:test_r:test_t:s0"
+			pod, err := svc.RenderHotplugAttachmentTriggerPodTemplate(&v1.Volume{}, ownerPod, vmi, "test", isBlock, false)
+			Expect(err).ToNot(HaveOccurred())
+
+			runUser := int64(util.NonRootUID)
+			Expect(*pod.Spec.Containers[0].SecurityContext).To(Equal(kubev1.SecurityContext{
+				AllowPrivilegeEscalation: pointer.Bool(false),
+				RunAsNonRoot:             pointer.Bool(true),
+				RunAsUser:                &runUser,
+				SeccompProfile: &kubev1.SeccompProfile{
+					Type: kubev1.SeccompProfileTypeRuntimeDefault,
+				},
+				Capabilities: &kubev1.Capabilities{
+					Drop: []kubev1.Capability{"ALL"},
+				},
+				SELinuxOptions: &kubev1.SELinuxOptions{
+					Level: "s0",
+				},
+			}))
+		},
+			Entry("when volume is a block device", true),
+			Entry("when volume is a filesystem", false),
+		)
 
 		It("Should run as non-root except compute", func() {
 			vmi := newMinimalWithContainerDisk("ranom")

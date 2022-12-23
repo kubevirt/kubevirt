@@ -18,7 +18,7 @@ import (
 	"kubevirt.io/kubevirt/tests/clientcmd"
 	"kubevirt.io/kubevirt/tests/exec"
 	"kubevirt.io/kubevirt/tests/libstorage"
-	"kubevirt.io/kubevirt/tests/util"
+	"kubevirt.io/kubevirt/tests/testsuite"
 )
 
 type fakeAttacher struct {
@@ -51,14 +51,14 @@ var _ = SIGDescribe("[rfe_id:6364]Guestfs", func() {
 	}
 
 	execCommandLibguestfsPod := func(podName string, c []string) (string, string, error) {
-		pod, err := virtClient.CoreV1().Pods(util.NamespaceTestDefault).Get(context.Background(), podName, metav1.GetOptions{})
+		pod, err := virtClient.CoreV1().Pods(testsuite.GetTestNamespace(nil)).Get(context.Background(), podName, metav1.GetOptions{})
 		Expect(err).ToNot(HaveOccurred())
 		return exec.ExecuteCommandOnPodWithResults(virtClient, pod, "libguestfs", c)
 	}
 
 	createPVCFilesystem := func(name string) {
 		quantity, _ := resource.ParseQuantity("500Mi")
-		_, err := virtClient.CoreV1().PersistentVolumeClaims(util.NamespaceTestDefault).Create(context.Background(), &corev1.PersistentVolumeClaim{
+		_, err := virtClient.CoreV1().PersistentVolumeClaims(testsuite.GetTestNamespace(nil)).Create(context.Background(), &corev1.PersistentVolumeClaim{
 			ObjectMeta: metav1.ObjectMeta{Name: name},
 			Spec: corev1.PersistentVolumeClaimSpec{
 				AccessModes: []corev1.PersistentVolumeAccessMode{corev1.ReadWriteOnce},
@@ -98,7 +98,7 @@ var _ = SIGDescribe("[rfe_id:6364]Guestfs", func() {
 
 	runGuestfsOnPVC := func(f *fakeAttacher, pvcClaim string, options ...string) {
 		podName := getGuestfsPodName(pvcClaim)
-		o := append([]string{"guestfs", pvcClaim, "--namespace", util.NamespaceTestDefault}, options...)
+		o := append([]string{"guestfs", pvcClaim, "--namespace", testsuite.GetTestNamespace(nil)}, options...)
 		if setGroup {
 			o = append(o, "--fsGroup", testGroup)
 		}
@@ -106,7 +106,7 @@ var _ = SIGDescribe("[rfe_id:6364]Guestfs", func() {
 		go guestfsWithSync(f, guestfsCmd)
 		// Waiting until the libguestfs pod is running
 		Eventually(func() bool {
-			pod, _ := virtClient.CoreV1().Pods(util.NamespaceTestDefault).Get(context.Background(), podName, metav1.GetOptions{})
+			pod, _ := virtClient.CoreV1().Pods(testsuite.GetTestNamespace(nil)).Get(context.Background(), podName, metav1.GetOptions{})
 			ready := false
 			for _, status := range pod.Status.ContainerStatuses {
 				if status.State.Running != nil {
@@ -178,7 +178,7 @@ var _ = SIGDescribe("[rfe_id:6364]Guestfs", func() {
 			runGuestfsOnPVC(f, pvcClaim)
 			options := []string{"guestfs",
 				pvcClaim,
-				"--namespace", util.NamespaceTestDefault}
+				"--namespace", testsuite.GetTestNamespace(nil)}
 			if setGroup {
 				options = append(options, "--fsGroup", testGroup)
 			}
@@ -188,7 +188,7 @@ var _ = SIGDescribe("[rfe_id:6364]Guestfs", func() {
 
 		It("[posneg:positive][test_id:6479]Should successfully run guestfs command on a block-based PVC", func() {
 			pvcClaim = "pvc-block"
-			libstorage.CreateBlockPVC(pvcClaim, "500Mi")
+			libstorage.CreateBlockPVC(pvcClaim, testsuite.GetTestNamespace(nil), "500Mi")
 			runGuestfsOnPVC(f, pvcClaim)
 			stdout, stderr, err := execCommandLibguestfsPod(getGuestfsPodName(pvcClaim), []string{"guestfish", "-a", "/dev/vda", "run"})
 			Expect(stderr).To(Equal(""))

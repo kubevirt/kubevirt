@@ -5,6 +5,7 @@ import (
 	"time"
 
 	"kubevirt.io/kubevirt/tests/framework/checks"
+	"kubevirt.io/kubevirt/tests/testsuite"
 
 	"kubevirt.io/kubevirt/tests/libvmi"
 
@@ -90,13 +91,13 @@ var _ = Describe("[sig-compute]oc/kubectl integration", func() {
 			util.PanicOnError(err)
 
 			vm = tests.NewRandomVirtualMachine(tests.NewRandomVMI(), false)
-			vm, err = virtCli.VirtualMachine(util.NamespaceTestDefault).Create(vm)
+			vm, err = virtCli.VirtualMachine(testsuite.GetTestNamespace(vm)).Create(vm)
 			Expect(err).NotTo(HaveOccurred())
 			tests.StartVirtualMachine(vm)
 		})
 
 		AfterEach(func() {
-			virtCli.VirtualMachine(util.NamespaceTestDefault).Delete(vm.Name, &metav1.DeleteOptions{})
+			virtCli.VirtualMachine(testsuite.GetTestNamespace(vm)).Delete(vm.Name, &metav1.DeleteOptions{})
 		})
 
 		DescribeTable("should verify set of columns for", func(verb, resource string, expectedHeader []string) {

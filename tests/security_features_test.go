@@ -30,6 +30,7 @@ import (
 
 	"kubevirt.io/kubevirt/tests/exec"
 	"kubevirt.io/kubevirt/tests/framework/checks"
+	"kubevirt.io/kubevirt/tests/testsuite"
 	"kubevirt.io/kubevirt/tests/util"
 
 	v1 "kubevirt.io/api/core/v1"
@@ -43,7 +44,6 @@ import (
 )
 
 const (
-	capNetRaw         k8sv1.Capability = "NET_RAW"
 	capSysNice        k8sv1.Capability = "SYS_NICE"
 	capNetBindService k8sv1.Capability = "NET_BIND_SERVICE"
 )
@@ -87,24 +87,24 @@ var _ = Describe("[Serial][sig-compute]SecurityFeatures", Serial, func() {
 			It("[test_id:2953]Ensure virt-launcher pod securityContext type is correctly set", func() {
 
 				By("Starting a VirtualMachineInstance")
-				vmi, err = virtClient.VirtualMachineInstance(util.NamespaceTestDefault).Create(vmi)
+				vmi, err = virtClient.VirtualMachineInstance(testsuite.GetTestNamespace(nil)).Create(vmi)
 				Expect(err).ToNot(HaveOccurred())
 				tests.WaitForSuccessfulVMIStart(vmi)
 
 				By("Check virt-launcher pod SecurityContext values")
-				vmiPod := tests.GetRunningPodByVirtualMachineInstance(vmi, util.NamespaceTestDefault)
+				vmiPod := tests.GetRunningPodByVirtualMachineInstance(vmi, testsuite.GetTestNamespace(vmi))
 				Expect(vmiPod.Spec.SecurityContext.SELinuxOptions).To(Equal(&k8sv1.SELinuxOptions{Type: "container_t"}))
 			})
 
 			It("[test_id:2895]Make sure the virt-launcher pod is not priviledged", func() {
 
 				By("Starting a VirtualMachineInstance")
-				vmi, err = virtClient.VirtualMachineInstance(util.NamespaceTestDefault).Create(vmi)
+				vmi, err = virtClient.VirtualMachineInstance(testsuite.GetTestNamespace(nil)).Create(vmi)
 				Expect(err).ToNot(HaveOccurred())
 				tests.WaitForSuccessfulVMIStart(vmi)
 
 				By("Check virt-launcher pod SecurityContext values")
-				vmiPod := tests.GetRunningPodByVirtualMachineInstance(vmi, util.NamespaceTestDefault)
+				vmiPod := tests.GetRunningPodByVirtualMachineInstance(vmi, testsuite.GetTestNamespace(vmi))
 				for _, containerSpec := range vmiPod.Spec.Containers {
 					if containerSpec.Name == "compute" {
 						container = containerSpec
@@ -117,7 +117,7 @@ var _ = Describe("[Serial][sig-compute]SecurityFeatures", Serial, func() {
 			It("[test_id:4297]Make sure qemu processes are MCS constrained", func() {
 
 				By("Starting a VirtualMachineInstance")
-				vmi, err = virtClient.VirtualMachineInstance(util.NamespaceTestDefault).Create(vmi)
+				vmi, err = virtClient.VirtualMachineInstance(testsuite.GetTestNamespace(nil)).Create(vmi)
 				Expect(err).ToNot(HaveOccurred())
 				tests.WaitForSuccessfulVMIStart(vmi)
 
@@ -125,7 +125,7 @@ var _ = Describe("[Serial][sig-compute]SecurityFeatures", Serial, func() {
 				Expect(err).ToNot(HaveOccurred())
 				emulator := "[/]" + strings.TrimPrefix(domSpec.Devices.Emulator, "/")
 
-				pod := tests.GetRunningPodByVirtualMachineInstance(vmi, util.NamespaceTestDefault)
+				pod := tests.GetRunningPodByVirtualMachineInstance(vmi, testsuite.GetTestNamespace(vmi))
 				qemuProcessSelinuxContext, err := exec.ExecuteCommandOnPod(
 					virtClient,
 					pod,
@@ -140,7 +140,7 @@ var _ = Describe("[Serial][sig-compute]SecurityFeatures", Serial, func() {
 				By("Checking that qemu-kvm process has SELinux category_set")
 				Expect(strings.Split(qemuProcessSelinuxContext, ":")).To(HaveLen(5))
 
-				err = virtClient.VirtualMachineInstance(util.NamespaceTestDefault).Delete(vmi.Name, &metav1.DeleteOptions{})
+				err = virtClient.VirtualMachineInstance(testsuite.GetTestNamespace(vmi)).Delete(vmi.Name, &metav1.DeleteOptions{})
 				Expect(err).ToNot(HaveOccurred())
 			})
 		})
@@ -154,9 +154,10 @@ var _ = Describe("[Serial][sig-compute]SecurityFeatures", Serial, func() {
 				tests.UpdateKubeVirtConfigValueAndWait(*config)
 
 				vmi = tests.NewRandomVMIWithEphemeralDisk(cd.ContainerDiskFor(cd.ContainerDiskAlpine))
+				vmi.Namespace = testsuite.NamespacePrivileged
 
 				By("Starting a New VMI")
-				vmi, err = virtClient.VirtualMachineInstance(util.NamespaceTestDefault).Create(vmi)
+				vmi, err = virtClient.VirtualMachineInstance(testsuite.NamespacePrivileged).Create(vmi)
 				Expect(err).ToNot(HaveOccurred())
 				tests.WaitForSuccessfulVMIStart(vmi)
 
@@ -164,14 +165,14 @@ var _ = Describe("[Serial][sig-compute]SecurityFeatures", Serial, func() {
 				tests.WaitUntilVMIReady(vmi, console.LoginToAlpine)
 
 				By("Fetching virt-launcher Pod")
-				pod, err := libvmi.GetPodByVirtualMachineInstance(vmi, util.NamespaceTestDefault)
+				pod, err := libvmi.GetPodByVirtualMachineInstance(vmi, testsuite.NamespacePrivileged)
 				Expect(err).ToNot(HaveOccurred())
 
 				By("Verifying SELinux context contains custom type")
 				Expect(pod.Spec.SecurityContext.SELinuxOptions.Type).To(Equal(superPrivilegedType))
 
 				By("Deleting the VMI")
-				err = virtClient.VirtualMachineInstance(util.NamespaceTestDefault).Delete(vmi.Name, &metav1.DeleteOptions{})
+				err = virtClient.VirtualMachineInstance(testsuite.NamespacePrivileged).Delete(vmi.Name, &metav1.DeleteOptions{})
 				Expect(err).ToNot(HaveOccurred())
 			})
 		})
@@ -185,9 +186,10 @@ var _ = Describe("[Serial][sig-compute]SecurityFeatures", Serial, func() {
 				tests.UpdateKubeVirtConfigValueAndWait(*config)
 
 				vmi = tests.NewRandomVMIWithEphemeralDisk(cd.ContainerDiskFor(cd.ContainerDiskAlpine))
+				vmi.Namespace = testsuite.NamespacePrivileged
 
 				By("Starting a New VMI")
-				vmi, err = virtClient.VirtualMachineInstance(util.NamespaceTestDefault).Create(vmi)
+				vmi, err = virtClient.VirtualMachineInstance(testsuite.NamespacePrivileged).Create(vmi)
 				Expect(err).ToNot(HaveOccurred())
 				tests.WaitForSuccessfulVMIStart(vmi)
 
@@ -199,7 +201,7 @@ var _ = Describe("[Serial][sig-compute]SecurityFeatures", Serial, func() {
 				Expect(err).ToNot(HaveOccurred())
 				emulator := "[/]" + strings.TrimPrefix(domSpec.Devices.Emulator, "/")
 
-				pod, err := libvmi.GetPodByVirtualMachineInstance(vmi, util.NamespaceTestDefault)
+				pod, err := libvmi.GetPodByVirtualMachineInstance(vmi, testsuite.NamespacePrivileged)
 				Expect(err).ToNot(HaveOccurred())
 				qemuProcessSelinuxContext, err := exec.ExecuteCommandOnPod(
 					virtClient,
@@ -216,7 +218,7 @@ var _ = Describe("[Serial][sig-compute]SecurityFeatures", Serial, func() {
 				Expect(pod.Spec.SecurityContext.SELinuxOptions.Type).To(Equal(launcherType))
 
 				By("Deleting the VMI")
-				err = virtClient.VirtualMachineInstance(util.NamespaceTestDefault).Delete(vmi.Name, &metav1.DeleteOptions{})
+				err = virtClient.VirtualMachineInstance(testsuite.NamespacePrivileged).Delete(vmi.Name, &metav1.DeleteOptions{})
 				Expect(err).ToNot(HaveOccurred())
 			})
 		})
@@ -230,7 +232,7 @@ var _ = Describe("[Serial][sig-compute]SecurityFeatures", Serial, func() {
 			vmi = tests.NewRandomVMIWithEphemeralDisk(cd.ContainerDiskFor(cd.ContainerDiskAlpine))
 
 			By("Starting a New VMI")
-			vmi, err = virtClient.VirtualMachineInstance(util.NamespaceTestDefault).Create(vmi)
+			vmi, err = virtClient.VirtualMachineInstance(testsuite.GetTestNamespace(nil)).Create(vmi)
 			Expect(err).ToNot(HaveOccurred())
 			tests.WaitForSuccessfulVMIStart(vmi)
 
@@ -238,7 +240,7 @@ var _ = Describe("[Serial][sig-compute]SecurityFeatures", Serial, func() {
 			tests.WaitUntilVMIReady(vmi, console.LoginToAlpine)
 
 			By("Fetching virt-launcher Pod")
-			pod, err := libvmi.GetPodByVirtualMachineInstance(vmi, util.NamespaceTestDefault)
+			pod, err := libvmi.GetPodByVirtualMachineInstance(vmi, testsuite.GetTestNamespace(vmi))
 			Expect(err).ToNot(HaveOccurred())
 
 			for _, containerSpec := range pod.Spec.Containers {
@@ -250,7 +252,7 @@ var _ = Describe("[Serial][sig-compute]SecurityFeatures", Serial, func() {
 			caps := *container.SecurityContext.Capabilities
 			if !checks.HasFeature(virtconfig.Root) {
 				Expect(caps.Add).To(HaveLen(1), fmt.Sprintf("Found capabilities %s, expected NET_BIND_SERVICE", caps.Add))
-				Expect(caps.Add).To(ContainElements(k8sv1.Capability("NET_BIND_SERVICE")))
+				Expect(caps.Add).To(ContainElement(k8sv1.Capability("NET_BIND_SERVICE")))
 			} else {
 				Expect(caps.Add).To(HaveLen(2), fmt.Sprintf("Found capabilities %s, expected NET_BIND_SERVICE and SYS_NICE", caps.Add))
 				Expect(caps.Add).To(ContainElements(k8sv1.Capability("NET_BIND_SERVICE"), k8sv1.Capability("SYS_NICE")))
@@ -260,10 +262,11 @@ var _ = Describe("[Serial][sig-compute]SecurityFeatures", Serial, func() {
 			for _, capa := range caps.Add {
 				Expect(isLauncherCapabilityValid(capa)).To(BeTrue(), "Expected compute container of virt_launcher to be granted only specific capabilities")
 			}
-			By("Checking virt-launcher Pod's compute container has precisely the documented dropped capabilities")
-			Expect(caps.Drop).To(HaveLen(1))
-			for _, capa := range caps.Drop {
-				Expect(isLauncherCapabilityDropped(capa)).To(BeTrue(), "Expected compute container of virt_launcher to drop only specific capabilities")
+
+			if !checks.HasFeature(virtconfig.Root) {
+				By("Checking virt-launcher Pod's compute container has precisely the documented dropped capabilities")
+				Expect(caps.Drop).To(HaveLen(1))
+				Expect(caps.Drop[0]).To(Equal(k8sv1.Capability("ALL")), "Expected compute container of virt_launcher to drop all caps")
 			}
 		})
 	})
@@ -272,17 +275,7 @@ var _ = Describe("[Serial][sig-compute]SecurityFeatures", Serial, func() {
 func isLauncherCapabilityValid(capability k8sv1.Capability) bool {
 	switch capability {
 	case
-		capNetBindService,
-		capSysNice:
-		return true
-	}
-	return false
-}
-
-func isLauncherCapabilityDropped(capability k8sv1.Capability) bool {
-	switch capability {
-	case
-		capNetRaw:
+		capNetBindService, capSysNice:
 		return true
 	}
 	return false

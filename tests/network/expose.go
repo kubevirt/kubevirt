@@ -9,6 +9,7 @@ import (
 
 	"kubevirt.io/kubevirt/tests/console"
 	"kubevirt.io/kubevirt/tests/exec"
+	"kubevirt.io/kubevirt/tests/testsuite"
 
 	"kubevirt.io/kubevirt/tests/framework/checks"
 	"kubevirt.io/kubevirt/tests/libnet/cluster"
@@ -230,12 +231,12 @@ var _ = SIGDescribe("[rfe_id:253][crit:medium][vendor:cnv-qe@redhat.com][level:c
 
 				By("Waiting for kubernetes to create the relevant endpoint")
 				getEndpoint := func() error {
-					_, err := virtClient.CoreV1().Endpoints(util.NamespaceTestDefault).Get(context.Background(), serviceName, k8smetav1.GetOptions{})
+					_, err := virtClient.CoreV1().Endpoints(testsuite.GetTestNamespace(nil)).Get(context.Background(), serviceName, k8smetav1.GetOptions{})
 					return err
 				}
 				Eventually(getEndpoint, 60, 1).Should(BeNil())
 
-				endpoints, err := virtClient.CoreV1().Endpoints(util.NamespaceTestDefault).Get(context.Background(), serviceName, k8smetav1.GetOptions{})
+				endpoints, err := virtClient.CoreV1().Endpoints(testsuite.GetTestNamespace(nil)).Get(context.Background(), serviceName, k8smetav1.GetOptions{})
 				Expect(err).ToNot(HaveOccurred())
 
 				Expect(endpoints.Subsets).To(HaveLen(1))
@@ -243,7 +244,7 @@ var _ = SIGDescribe("[rfe_id:253][crit:medium][vendor:cnv-qe@redhat.com][level:c
 				Expect(endpoint.Ports).To(HaveLen(1))
 				Expect(endpoint.Ports[0].Port).To(Equal(int32(80)))
 
-				endpointSlices, err := virtClient.DiscoveryV1().EndpointSlices(util.NamespaceTestDefault).List(context.Background(), metav1.ListOptions{})
+				endpointSlices, err := virtClient.DiscoveryV1().EndpointSlices(testsuite.GetTestNamespace(nil)).List(context.Background(), metav1.ListOptions{})
 				Expect(err).ToNot(HaveOccurred())
 
 				numOfExpectedAddresses := 1
@@ -288,12 +289,12 @@ var _ = SIGDescribe("[rfe_id:253][crit:medium][vendor:cnv-qe@redhat.com][level:c
 
 				By("Waiting for kubernetes to create the relevant endpoint")
 				getEndpoint := func() error {
-					_, err := virtClient.CoreV1().Endpoints(util.NamespaceTestDefault).Get(context.Background(), serviceName, k8smetav1.GetOptions{})
+					_, err := virtClient.CoreV1().Endpoints(testsuite.GetTestNamespace(nil)).Get(context.Background(), serviceName, k8smetav1.GetOptions{})
 					return err
 				}
 				Eventually(getEndpoint, 60, 1).Should(BeNil())
 
-				endpoints, err := virtClient.CoreV1().Endpoints(util.NamespaceTestDefault).Get(context.Background(), serviceName, k8smetav1.GetOptions{})
+				endpoints, err := virtClient.CoreV1().Endpoints(testsuite.GetTestNamespace(nil)).Get(context.Background(), serviceName, k8smetav1.GetOptions{})
 				Expect(err).ToNot(HaveOccurred())
 
 				Expect(endpoints.Subsets).To(HaveLen(1))
@@ -563,12 +564,12 @@ var _ = SIGDescribe("[rfe_id:253][crit:medium][vendor:cnv-qe@redhat.com][level:c
 			vmrs.Labels = map[string]string{"expose": "vmirs"}
 
 			By("Start the replica set")
-			vmrs, err = virtClient.ReplicaSet(util.NamespaceTestDefault).Create(vmrs)
+			vmrs, err = virtClient.ReplicaSet(testsuite.GetTestNamespace(nil)).Create(vmrs)
 			Expect(err).ToNot(HaveOccurred())
 
 			By("Checking the number of ready replicas")
 			Eventually(func() int {
-				rs, err := virtClient.ReplicaSet(util.NamespaceTestDefault).Get(vmrs.ObjectMeta.Name, k8smetav1.GetOptions{})
+				rs, err := virtClient.ReplicaSet(testsuite.GetTestNamespace(nil)).Get(vmrs.ObjectMeta.Name, k8smetav1.GetOptions{})
 				Expect(err).ToNot(HaveOccurred())
 				return int(rs.Status.ReadyReplicas)
 			}, 120*time.Second, 1*time.Second).Should(Equal(numberOfVMs))
@@ -678,7 +679,7 @@ var _ = SIGDescribe("[rfe_id:253][crit:medium][vendor:cnv-qe@redhat.com][level:c
 			var serviceName string
 
 			BeforeEach(func() {
-				vm, err = createStoppedVM(virtClient, util.NamespaceTestDefault)
+				vm, err = createStoppedVM(virtClient, testsuite.GetTestNamespace(nil))
 				Expect(err).NotTo(HaveOccurred(), "should create a stopped VM.")
 			})
 

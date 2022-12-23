@@ -32,6 +32,7 @@ import (
 
 	"kubevirt.io/kubevirt/tests/clientcmd"
 	"kubevirt.io/kubevirt/tests/framework/checks"
+	"kubevirt.io/kubevirt/tests/testsuite"
 
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
@@ -270,7 +271,7 @@ var _ = Describe("[Serial][sig-compute]Templates", Serial, func() {
 			BeforeEach(func() {
 				const OSRhel = "rhel"
 				checks.SkipIfNoRhelImage(virtClient)
-				libstorage.CreatePVC(OSRhel, "15Gi", libstorage.Config.StorageClassRhel, true)
+				libstorage.CreatePVC(OSRhel, testsuite.GetTestNamespace(nil), "15Gi", libstorage.Config.StorageClassRhel, true)
 				AssertTemplateSetupSuccess(vmsgen.GetTestTemplateRHEL7(), nil)()
 			})
 

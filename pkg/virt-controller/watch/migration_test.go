@@ -27,6 +27,7 @@ import (
 
 	apimachpatch "kubevirt.io/kubevirt/pkg/apimachinery/patch"
 	virtcontroller "kubevirt.io/kubevirt/pkg/controller"
+	"kubevirt.io/kubevirt/pkg/psa"
 
 	"k8s.io/apimachinery/pkg/api/resource"
 	"k8s.io/utils/pointer"
@@ -1599,14 +1600,6 @@ var _ = Describe("Migration watcher", func() {
 				},
 				true,
 			),
-			Entry("allow post copy",
-				func(p *migrationsv1.MigrationPolicySpec) { p.AllowPostCopy = pointer.BoolPtr(true) },
-				func(c *virtv1.MigrationConfiguration) {
-					Expect(c.AllowPostCopy).ToNot(BeNil())
-					Expect(*c.AllowPostCopy).To(BeTrue())
-				},
-				true,
-			),
 			Entry("deny post copy",
 				func(p *migrationsv1.MigrationPolicySpec) { p.AllowPostCopy = pointer.BoolPtr(false) },
 				func(c *virtv1.MigrationConfiguration) {
@@ -1620,6 +1613,49 @@ var _ = Describe("Migration watcher", func() {
 				func(c *virtv1.MigrationConfiguration) {},
 				false,
 			),
+		)
+
+		DescribeTable("postcopy should be", func(privilegedNamespace bool) {
+			By("Defining a namespace")
+			namespace := &k8sv1.Namespace{
+				TypeMeta: metav1.TypeMeta{Kind: "Namespace"},
+				ObjectMeta: metav1.ObjectMeta{
+					Name: "namespace",
+				},
+			}
+
+			if privilegedNamespace {
+				namespace.Labels = map[string]string{
+					psa.PSALabel: "privileged",
+				}
+			}
+
+			Expect(namespaceStore.Add(namespace)).To(Succeed())
+			vmi.Namespace = namespace.Name
+
+			By("Defining migration policy, matching it to vmi and posting it into the cluster")
+			migrationPolicy := tests.PreparePolicyAndVMI(vmi)
+			migrationPolicy.Spec.AllowPostCopy = pointer.BoolPtr(true)
+			addMigrationPolicies(*migrationPolicy)
+
+			By("Expecting right patch to occur")
+			expectedConfigs := getDefaultMigrationConfiguration()
+			expectedConfigs.AllowPostCopy = pointer.BoolPtr(privilegedNamespace)
+			patch := getExpectedVmiPatch(true, expectedConfigs, migrationPolicy)
+			shouldExpectVirtualMachineInstancePatch(vmi, patch)
+
+			virtClient.EXPECT().VirtualMachineInstance(namespace.Name).Return(vmiInterface).AnyTimes()
+
+			By("Running the controller")
+			controller.Execute()
+
+			if !privilegedNamespace {
+				testutils.ExpectEvent(recorder, WarningPostCopyNotAllowed)
+			}
+			testutils.ExpectEvent(recorder, SuccessfulHandOverPodReason)
+		},
+			Entry("allowed in a privileged namespace", true),
+			Entry("denied in a non-privileged namespace", false),
 		)
 
 	})

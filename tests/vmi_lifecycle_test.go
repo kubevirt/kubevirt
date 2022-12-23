@@ -138,12 +138,12 @@ var _ = Describe("[rfe_id:273][crit:high][arm64][vendor:cnv-qe@redhat.com][level
 
 	Describe("[rfe_id:273][crit:high][vendor:cnv-qe@redhat.com][level:component]Creating a VirtualMachineInstance", func() {
 		It("[test_id:1619]should success", func() {
-			_, err := virtClient.VirtualMachineInstance(util.NamespaceTestDefault).Create(vmi)
+			_, err := virtClient.VirtualMachineInstance(testsuite.GetTestNamespace(vmi)).Create(vmi)
 			Expect(err).ToNot(HaveOccurred(), "Create VMI successfully")
 		})
 
 		It("[test_id:1620]should start it", func() {
-			vmi, err := virtClient.VirtualMachineInstance(util.NamespaceTestDefault).Create(vmi)
+			vmi, err := virtClient.VirtualMachineInstance(testsuite.GetTestNamespace(vmi)).Create(vmi)
 			Expect(err).ToNot(HaveOccurred(), "Create VMI successfully")
 			tests.WaitForSuccessfulVMIStart(vmi)
 		})
@@ -151,19 +151,19 @@ var _ = Describe("[rfe_id:273][crit:high][arm64][vendor:cnv-qe@redhat.com][level
 		It("[test_id:6095]should start in paused state if start strategy set to paused", func() {
 			strategy := v1.StartStrategyPaused
 			vmi.Spec.StartStrategy = &strategy
-			vmi, err := virtClient.VirtualMachineInstance(util.NamespaceTestDefault).Create(vmi)
+			vmi, err := virtClient.VirtualMachineInstance(testsuite.GetTestNamespace(vmi)).Create(vmi)
 			Expect(err).ToNot(HaveOccurred(), "Create VMI successfully")
 			tests.WaitForSuccessfulVMIStart(vmi)
 			Eventually(matcher.ThisVMI(vmi), 30*time.Second, 2*time.Second).Should(matcher.HaveConditionTrue(v1.VirtualMachineInstancePaused))
 
 			By("Unpausing VMI")
-			command := clientcmd.NewRepeatableVirtctlCommand("unpause", "vmi", "--namespace", util.NamespaceTestDefault, vmi.Name)
+			command := clientcmd.NewRepeatableVirtctlCommand("unpause", "vmi", "--namespace", testsuite.GetTestNamespace(vmi), vmi.Name)
 			Expect(command()).To(Succeed())
 			Eventually(matcher.ThisVMI(vmi), 30*time.Second, 2*time.Second).Should(matcher.HaveConditionMissingOrFalse(v1.VirtualMachineInstancePaused))
 		})
 
 		It("[test_id:1621]should attach virt-launcher to it", func() {
-			vmi, err := virtClient.VirtualMachineInstance(util.NamespaceTestDefault).Create(vmi)
+			vmi, err := virtClient.VirtualMachineInstance(testsuite.GetTestNamespace(vmi)).Create(vmi)
 			Expect(err).ToNot(HaveOccurred(), "Create VMI successfully")
 			tests.WaitForSuccessfulVMIStart(vmi)
 
@@ -180,7 +180,7 @@ var _ = Describe("[rfe_id:273][crit:high][arm64][vendor:cnv-qe@redhat.com][level
 				"testannotation": "annotation from vmi",
 			}
 
-			vmi, err := virtClient.VirtualMachineInstance(util.NamespaceTestDefault).Create(vmi)
+			vmi, err := virtClient.VirtualMachineInstance(testsuite.GetTestNamespace(vmi)).Create(vmi)
 			Expect(err).ToNot(HaveOccurred(), "Create VMI successfully")
 			tests.WaitForSuccessfulVMIStart(vmi)
 
@@ -196,7 +196,7 @@ var _ = Describe("[rfe_id:273][crit:high][arm64][vendor:cnv-qe@redhat.com][level
 				"kubernetes.io/test": "test",
 			}
 
-			vmi, err := virtClient.VirtualMachineInstance(util.NamespaceTestDefault).Create(vmi)
+			vmi, err := virtClient.VirtualMachineInstance(testsuite.GetTestNamespace(vmi)).Create(vmi)
 			Expect(err).ToNot(HaveOccurred(), "Create VMI successfully")
 			tests.WaitForSuccessfulVMIStart(vmi)
 
@@ -211,7 +211,7 @@ var _ = Describe("[rfe_id:273][crit:high][arm64][vendor:cnv-qe@redhat.com][level
 			strategy := v1.EvictionStrategyExternal
 			vmi.Spec.EvictionStrategy = &strategy
 
-			vmi, err := virtClient.VirtualMachineInstance(util.NamespaceTestDefault).Create(vmi)
+			vmi, err := virtClient.VirtualMachineInstance(testsuite.GetTestNamespace(vmi)).Create(vmi)
 			Expect(err).ToNot(HaveOccurred(), "Create VMI successfully")
 			tests.WaitForSuccessfulVMIStart(vmi)
 
@@ -241,7 +241,7 @@ var _ = Describe("[rfe_id:273][crit:high][arm64][vendor:cnv-qe@redhat.com][level
 		})
 
 		It("[test_id:1622]should log libvirtd logs", func() {
-			vmi, err := virtClient.VirtualMachineInstance(util.NamespaceTestDefault).Create(vmi)
+			vmi, err := virtClient.VirtualMachineInstance(testsuite.GetTestNamespace(vmi)).Create(vmi)
 			Expect(err).ToNot(HaveOccurred(), "Create VMI successfully")
 			tests.WaitForSuccessfulVMIStart(vmi)
 
@@ -270,7 +270,7 @@ var _ = Describe("[rfe_id:273][crit:high][arm64][vendor:cnv-qe@redhat.com][level
 
 			vmi := libvmi.New(options...)
 
-			vmi, err = virtClient.VirtualMachineInstance(util.NamespaceTestDefault).Create(vmi)
+			vmi, err = virtClient.VirtualMachineInstance(testsuite.GetTestNamespace(vmi)).Create(vmi)
 			Expect(err).ToNot(HaveOccurred(), "Create VMI successfully")
 			tests.WaitForSuccessfulVMIStart(vmi)
 
@@ -315,7 +315,7 @@ var _ = Describe("[rfe_id:273][crit:high][arm64][vendor:cnv-qe@redhat.com][level
 				Name: "testdisk2",
 			})
 
-			result := virtClient.RestClient().Post().Resource("virtualmachineinstances").Namespace(util.NamespaceTestDefault).Body(vmi).Do(context.Background())
+			result := virtClient.RestClient().Post().Resource("virtualmachineinstances").Namespace(testsuite.GetTestNamespace(vmi)).Body(vmi).Do(context.Background())
 
 			// Verify validation failed.
 			statusCode := 0
@@ -333,13 +333,13 @@ var _ = Describe("[rfe_id:273][crit:high][arm64][vendor:cnv-qe@redhat.com][level
 		})
 
 		It("[test_id:1624]should reject PATCH if schema is invalid", func() {
-			err := virtClient.RestClient().Post().Resource("virtualmachineinstances").Namespace(util.NamespaceTestDefault).Body(vmi).Do(context.Background()).Error()
+			err := virtClient.RestClient().Post().Resource("virtualmachineinstances").Namespace(testsuite.GetTestNamespace(vmi)).Body(vmi).Do(context.Background()).Error()
 			Expect(err).ToNot(HaveOccurred(), "Send POST successfully")
 
 			// Add a disk without a volume reference (this is in valid)
 			patchStr := fmt.Sprintf("{\"apiVersion\":\"kubevirt.io/%s\",\"kind\":\"VirtualMachineInstance\",\"spec\":{\"domain\":{\"devices\":{\"disks\":[{\"disk\":{\"bus\":\"virtio\"},\"name\":\"fakedisk\"}]}}}}", v1.ApiLatestVersion)
 
-			result := virtClient.RestClient().Patch(types.MergePatchType).Resource("virtualmachineinstances").Namespace(util.NamespaceTestDefault).Name(vmi.Name).Body([]byte(patchStr)).Do(context.Background())
+			result := virtClient.RestClient().Patch(types.MergePatchType).Resource("virtualmachineinstances").Namespace(testsuite.GetTestNamespace(vmi)).Name(vmi.Name).Body([]byte(patchStr)).Do(context.Background())
 
 			// Verify validation failed.
 			statusCode := 0
@@ -354,7 +354,7 @@ var _ = Describe("[rfe_id:273][crit:high][arm64][vendor:cnv-qe@redhat.com][level
 			})
 			It("[test_id:1625]should start it", func() {
 				By("Creating a VirtualMachineInstance with a long name")
-				vmi, err := virtClient.VirtualMachineInstance(util.NamespaceTestDefault).Create(vmi)
+				vmi, err := virtClient.VirtualMachineInstance(testsuite.GetTestNamespace(vmi)).Create(vmi)
 				Expect(err).ToNot(HaveOccurred(), "cannot create VirtualMachineInstance %q: %v", vmi.Name, err)
 				Expect(len(vmi.Name)).To(BeNumerically(">", 63), "VirtualMachineInstance %q name is not longer than 63 characters", vmi.Name)
 
@@ -371,10 +371,10 @@ var _ = Describe("[rfe_id:273][crit:high][arm64][vendor:cnv-qe@redhat.com][level
 		Context("when it already exist", func() {
 			It("[test_id:1626]should be rejected", func() {
 				By("Creating a VirtualMachineInstance")
-				err := virtClient.RestClient().Post().Resource("virtualmachineinstances").Namespace(util.NamespaceTestDefault).Body(vmi).Do(context.Background()).Error()
+				err := virtClient.RestClient().Post().Resource("virtualmachineinstances").Namespace(testsuite.GetTestNamespace(vmi)).Body(vmi).Do(context.Background()).Error()
 				Expect(err).ToNot(HaveOccurred(), "Should create VMI successfully")
 				By("Creating the same VirtualMachineInstance second time")
-				b, err := virtClient.RestClient().Post().Resource("virtualmachineinstances").Namespace(util.NamespaceTestDefault).Body(vmi).DoRaw(context.Background())
+				b, err := virtClient.RestClient().Post().Resource("virtualmachineinstances").Namespace(testsuite.GetTestNamespace(vmi)).Body(vmi).DoRaw(context.Background())
 				Expect(err).To(HaveOccurred(), "Second VMI should be rejected")
 				By("Checking that POST return status equals to 409")
 				status := metav1.Status{}
@@ -396,7 +396,7 @@ var _ = Describe("[rfe_id:273][crit:high][arm64][vendor:cnv-qe@redhat.com][level
 				vmi = tests.AddBootOrderToDisk(vmi, "disk2", &cirrosBootOrder)
 
 				By("starting VirtualMachineInstance")
-				vmi, err = virtClient.VirtualMachineInstance(util.NamespaceTestDefault).Create(vmi)
+				vmi, err = virtClient.VirtualMachineInstance(testsuite.GetTestNamespace(vmi)).Create(vmi)
 				Expect(err).ToNot(HaveOccurred(), "VMI should be created successfully")
 
 				By("Waiting the VirtualMachineInstance start")
@@ -506,7 +506,7 @@ var _ = Describe("[rfe_id:273][crit:high][arm64][vendor:cnv-qe@redhat.com][level
 				vmi.Spec.NodeSelector = map[string]string{k8sv1.LabelOSStable: "not-existing-os"}
 				vmi = tests.RunVMIAndExpectScheduling(vmi, 30)
 
-				pods, err := virtClient.CoreV1().Pods(util.NamespaceTestDefault).List(context.Background(), metav1.ListOptions{})
+				pods, err := virtClient.CoreV1().Pods(testsuite.GetTestNamespace(vmi)).List(context.Background(), metav1.ListOptions{})
 				Expect(err).ToNot(HaveOccurred())
 
 				for _, pod := range pods.Items {
@@ -530,7 +530,7 @@ var _ = Describe("[rfe_id:273][crit:high][arm64][vendor:cnv-qe@redhat.com][level
 				vmi.Spec.NodeSelector = map[string]string{k8sv1.LabelOSStable: "linux"}
 				tests.RunVMIAndExpectLaunch(vmi, 60)
 
-				pods, err := virtClient.CoreV1().Pods(util.NamespaceTestDefault).List(context.Background(), metav1.ListOptions{})
+				pods, err := virtClient.CoreV1().Pods(testsuite.GetTestNamespace(vmi)).List(context.Background(), metav1.ListOptions{})
 				Expect(err).ToNot(HaveOccurred())
 
 				for _, pod := range pods.Items {
@@ -552,7 +552,7 @@ var _ = Describe("[rfe_id:273][crit:high][arm64][vendor:cnv-qe@redhat.com][level
 
 		Context("when virt-launcher crashes", func() {
 			It("[Serial][test_id:1631]should be stopped and have Failed phase", Serial, func() {
-				vmi, err := virtClient.VirtualMachineInstance(util.NamespaceTestDefault).Create(vmi)
+				vmi, err := virtClient.VirtualMachineInstance(testsuite.GetTestNamespace(vmi)).Create(vmi)
 				Expect(err).ToNot(HaveOccurred(), "Should create VMI successfully")
 
 				nodeName := tests.WaitForSuccessfulVMIStart(vmi).Status.NodeName
@@ -584,7 +584,7 @@ var _ = Describe("[rfe_id:273][crit:high][arm64][vendor:cnv-qe@redhat.com][level
 			// Also the virt-handler crash-loop plays a role here. We could also change the daemon-set but then we would not check the crash behaviour.
 			It("[test_id:1632]should recover and continue management", func() {
 
-				vmi, err := virtClient.VirtualMachineInstance(util.NamespaceTestDefault).Create(vmi)
+				vmi, err := virtClient.VirtualMachineInstance(testsuite.GetTestNamespace(vmi)).Create(vmi)
 				Expect(err).ToNot(HaveOccurred(), "Should submit VMI successfully")
 
 				// Start a VirtualMachineInstance
@@ -617,7 +617,7 @@ var _ = Describe("[rfe_id:273][crit:high][arm64][vendor:cnv-qe@redhat.com][level
 				By("checking that it can still start VMIs")
 				newVMI := libvmi.NewCirros()
 				newVMI.Spec.NodeSelector = map[string]string{"kubernetes.io/hostname": nodeName}
-				newVMI, err = virtClient.VirtualMachineInstance(util.NamespaceTestDefault).Create(newVMI)
+				newVMI, err = virtClient.VirtualMachineInstance(testsuite.GetTestNamespace(vmi)).Create(newVMI)
 				Expect(err).ToNot(HaveOccurred())
 
 				tests.WaitForSuccessfulVMIStart(newVMI)
@@ -656,7 +656,7 @@ var _ = Describe("[rfe_id:273][crit:high][arm64][vendor:cnv-qe@redhat.com][level
 			It("[test_id:3198]device plugins should re-register if the kubelet restarts", func() {
 
 				By("starting a VMI on a node")
-				vmi, err := virtClient.VirtualMachineInstance(util.NamespaceTestDefault).Create(vmi)
+				vmi, err := virtClient.VirtualMachineInstance(testsuite.GetTestNamespace(vmi)).Create(vmi)
 				Expect(err).ToNot(HaveOccurred(), "Should submit VMI successfully")
 
 				// Start a VirtualMachineInstance
@@ -703,7 +703,7 @@ var _ = Describe("[rfe_id:273][crit:high][arm64][vendor:cnv-qe@redhat.com][level
 				By("starting another VMI on the same node, to verify devices still work")
 				newVMI := libvmi.NewCirros()
 				newVMI.Spec.NodeSelector = map[string]string{"kubernetes.io/hostname": nodeName}
-				newVMI, err = virtClient.VirtualMachineInstance(util.NamespaceTestDefault).Create(newVMI)
+				newVMI, err = virtClient.VirtualMachineInstance(testsuite.GetTestNamespace(vmi)).Create(newVMI)
 				Expect(err).ToNot(HaveOccurred())
 
 				tests.WaitForSuccessfulVMIStart(newVMI)
@@ -721,7 +721,7 @@ var _ = Describe("[rfe_id:273][crit:high][arm64][vendor:cnv-qe@redhat.com][level
 
 				// Schedule a vmi and make sure that virt-handler gets evicted from the node where the vmi was started
 				vmi = libvmi.NewCirros()
-				vmi, err = virtClient.VirtualMachineInstance(util.NamespaceTestDefault).Create(vmi)
+				vmi, err = virtClient.VirtualMachineInstance(testsuite.GetTestNamespace(vmi)).Create(vmi)
 				Expect(err).ToNot(HaveOccurred(), "Should create VMI successfully")
 
 				// Ensure that the VMI is running. This is necessary to ensure that virt-handler is fully responsible for
@@ -847,7 +847,7 @@ var _ = Describe("[rfe_id:273][crit:high][arm64][vendor:cnv-qe@redhat.com][level
 				vmi := libvmi.NewCirros()
 				vmi.Spec.Tolerations = []k8sv1.Toleration{{Key: "test", Value: "123"}}
 				addNodeAffinityToVMI(vmi, nodes.Items[0].Name)
-				vmi, err = virtClient.VirtualMachineInstance(util.NamespaceTestDefault).Create(vmi)
+				vmi, err = virtClient.VirtualMachineInstance(testsuite.GetTestNamespace(vmi)).Create(vmi)
 				Expect(err).ToNot(HaveOccurred(), "Should create VMI")
 				tests.WaitForSuccessfulVMIStart(vmi)
 			})
@@ -855,7 +855,7 @@ var _ = Describe("[rfe_id:273][crit:high][arm64][vendor:cnv-qe@redhat.com][level
 			It("[test_id:1636]the vmi without tolerations should not be scheduled", func() {
 				vmi := libvmi.NewCirros()
 				addNodeAffinityToVMI(vmi, nodes.Items[0].Name)
-				vmi, err = virtClient.VirtualMachineInstance(util.NamespaceTestDefault).Create(vmi)
+				vmi, err = virtClient.VirtualMachineInstance(testsuite.GetTestNamespace(vmi)).Create(vmi)
 				Expect(err).ToNot(HaveOccurred(), "Should create VMI")
 				By("Waiting for the VirtualMachineInstance to be unschedulable")
 				Eventually(func() string {
@@ -883,7 +883,7 @@ var _ = Describe("[rfe_id:273][crit:high][arm64][vendor:cnv-qe@redhat.com][level
 			It("[test_id:1637]the vmi with node affinity and no conflicts should be scheduled", func() {
 				vmi := libvmi.NewCirros()
 				addNodeAffinityToVMI(vmi, nodes.Items[0].Name)
-				vmi, err = virtClient.VirtualMachineInstance(util.NamespaceTestDefault).Create(vmi)
+				vmi, err = virtClient.VirtualMachineInstance(testsuite.GetTestNamespace(vmi)).Create(vmi)
 				Expect(err).ToNot(HaveOccurred(), "Should create VMI")
 				tests.WaitForSuccessfulVMIStart(vmi)
 				curVMI, err := virtClient.VirtualMachineInstance(vmi.Namespace).Get(vmi.Name, &metav1.GetOptions{})
@@ -895,7 +895,7 @@ var _ = Describe("[rfe_id:273][crit:high][arm64][vendor:cnv-qe@redhat.com][level
 			It("[test_id:1638]the vmi with node affinity and anti-pod affinity should not be scheduled", func() {
 				vmi := libvmi.NewCirros()
 				addNodeAffinityToVMI(vmi, nodes.Items[0].Name)
-				vmi, err = virtClient.VirtualMachineInstance(util.NamespaceTestDefault).Create(vmi)
+				vmi, err = virtClient.VirtualMachineInstance(testsuite.GetTestNamespace(vmi)).Create(vmi)
 				Expect(err).ToNot(HaveOccurred(), "Should create VMI")
 				tests.WaitForSuccessfulVMIStart(vmi)
 				curVMI, err := virtClient.VirtualMachineInstance(vmi.Namespace).Get(vmi.Name, &metav1.GetOptions{})
@@ -918,7 +918,7 @@ var _ = Describe("[rfe_id:273][crit:high][arm64][vendor:cnv-qe@redhat.com][level
 					},
 				}
 
-				vmiB, err = virtClient.VirtualMachineInstance(util.NamespaceTestDefault).Create(vmiB)
+				vmiB, err = virtClient.VirtualMachineInstance(testsuite.GetTestNamespace(vmiB)).Create(vmiB)
 				Expect(err).ToNot(HaveOccurred(), "Should create VMIB")
 
 				By("Waiting for the VirtualMachineInstance to be unschedulable")
@@ -971,7 +971,7 @@ var _ = Describe("[rfe_id:273][crit:high][arm64][vendor:cnv-qe@redhat.com][level
 
 				vmi := libvmi.NewCirros()
 
-				vmi, err = virtClient.VirtualMachineInstance(util.NamespaceTestDefault).Create(vmi)
+				vmi, err = virtClient.VirtualMachineInstance(testsuite.GetTestNamespace(vmi)).Create(vmi)
 				Expect(err).ToNot(HaveOccurred(), "Should create VMI")
 				tests.WaitForSuccessfulVMIStart(vmi)
 				curVMI, err := virtClient.VirtualMachineInstance(vmi.Namespace).Get(vmi.Name, &metav1.GetOptions{})
@@ -989,7 +989,7 @@ var _ = Describe("[rfe_id:273][crit:high][arm64][vendor:cnv-qe@redhat.com][level
 				vmi.Spec.Domain.CPU = &v1.CPU{
 					Model: vmiCPUModel,
 				}
-				vmi, err = virtClient.VirtualMachineInstance(util.NamespaceTestDefault).Create(vmi)
+				vmi, err = virtClient.VirtualMachineInstance(testsuite.GetTestNamespace(vmi)).Create(vmi)
 				Expect(err).ToNot(HaveOccurred(), "Should create VMI")
 				tests.WaitForSuccessfulVMIStart(vmi)
 
@@ -1001,7 +1001,7 @@ var _ = Describe("[rfe_id:273][crit:high][arm64][vendor:cnv-qe@redhat.com][level
 
 			It("[sig-compute][test_id:3201]should set cpu model to default when vmi does not have it set and default cpu model is not set", func() {
 				vmi := libvmi.NewCirros()
-				vmi, err = virtClient.VirtualMachineInstance(util.NamespaceTestDefault).Create(vmi)
+				vmi, err = virtClient.VirtualMachineInstance(testsuite.GetTestNamespace(vmi)).Create(vmi)
 				Expect(err).ToNot(HaveOccurred(), "Should create VMI")
 
 				tests.WaitForSuccessfulVMIStart(vmi)
@@ -1094,7 +1094,7 @@ var _ = Describe("[rfe_id:273][crit:high][arm64][vendor:cnv-qe@redhat.com][level
 					Model: supportedCPU,
 				}
 
-				vmi, err = virtClient.VirtualMachineInstance(util.NamespaceTestDefault).Create(vmi)
+				vmi, err = virtClient.VirtualMachineInstance(testsuite.GetTestNamespace(vmi)).Create(vmi)
 				Expect(err).ToNot(HaveOccurred(), "Should create VMI")
 				tests.WaitForSuccessfulVMIStart(vmi)
 
@@ -1116,7 +1116,7 @@ var _ = Describe("[rfe_id:273][crit:high][arm64][vendor:cnv-qe@redhat.com][level
 				//Make sure the vmi should try to be scheduled only on master node
 				vmi.Spec.NodeSelector = map[string]string{"kubernetes.io/hostname": node.Name}
 
-				vmi, err = virtClient.VirtualMachineInstance(util.NamespaceTestDefault).Create(vmi)
+				vmi, err = virtClient.VirtualMachineInstance(testsuite.GetTestNamespace(vmi)).Create(vmi)
 				Expect(err).ToNot(HaveOccurred(), "Should create VMI")
 
 				By("Waiting for the VirtualMachineInstance to be unschedulable")
@@ -1159,7 +1159,7 @@ var _ = Describe("[rfe_id:273][crit:high][arm64][vendor:cnv-qe@redhat.com][level
 					},
 				}
 
-				vmi, err = virtClient.VirtualMachineInstance(util.NamespaceTestDefault).Create(vmi)
+				vmi, err = virtClient.VirtualMachineInstance(testsuite.GetTestNamespace(vmi)).Create(vmi)
 				Expect(err).ToNot(HaveOccurred(), "Should create VMI")
 				tests.WaitForSuccessfulVMIStart(vmi)
 			})
@@ -1238,7 +1238,7 @@ var _ = Describe("[rfe_id:273][crit:high][arm64][vendor:cnv-qe@redhat.com][level
 					},
 				}
 
-				vmi, err = virtClient.VirtualMachineInstance(util.NamespaceTestDefault).Create(vmi)
+				vmi, err = virtClient.VirtualMachineInstance(testsuite.GetTestNamespace(vmi)).Create(vmi)
 				Expect(err).ToNot(HaveOccurred(), "Should create VMI")
 
 				By("Waiting for the VirtualMachineInstance to be unschedulable")
@@ -1271,7 +1271,7 @@ var _ = Describe("[rfe_id:273][crit:high][arm64][vendor:cnv-qe@redhat.com][level
 				// the specific node - the feature policy 'forbid' will deny shceduling on that node.
 				addNodeAffinityToVMI(vmi, node.Name)
 
-				vmi, err = virtClient.VirtualMachineInstance(util.NamespaceTestDefault).Create(vmi)
+				vmi, err = virtClient.VirtualMachineInstance(testsuite.GetTestNamespace(vmi)).Create(vmi)
 				Expect(err).ToNot(HaveOccurred(), "Should create VMI")
 
 				By("Waiting for the VirtualMachineInstance to be unschedulable")
@@ -1290,7 +1290,11 @@ var _ = Describe("[rfe_id:273][crit:high][arm64][vendor:cnv-qe@redhat.com][level
 		})
 
 		Context("with non default namespace", func() {
-			DescribeTable("[rfe_id:273][crit:high][vendor:cnv-qe@redhat.com][level:component]should log libvirt start and stop lifecycle events of the domain", func(namespace *string) {
+			DescribeTable("[rfe_id:273][crit:high][vendor:cnv-qe@redhat.com][level:component]should log libvirt start and stop lifecycle events of the domain", func(alternativeNamespace bool) {
+				namespace := testsuite.GetTestNamespace(nil)
+				if alternativeNamespace {
+					namespace = testsuite.NamespaceTestAlternative
+				}
 
 				nodes := libnode.GetAllSchedulableNodes(virtClient)
 				Expect(nodes.Items).ToNot(BeEmpty(), "There should be some compute node")
@@ -1314,7 +1318,7 @@ var _ = Describe("[rfe_id:273][crit:high][arm64][vendor:cnv-qe@redhat.com][level
 				vmi.Spec.NodeSelector = map[string]string{"kubernetes.io/hostname": node}
 
 				// Start the VirtualMachineInstance and wait for the confirmation of the start
-				vmi, err = virtClient.VirtualMachineInstance(*namespace).Create(vmi)
+				vmi, err = virtClient.VirtualMachineInstance(namespace).Create(vmi)
 				Expect(err).ToNot(HaveOccurred(), "Should create VMI")
 				tests.WaitForSuccessfulVMIStart(vmi)
 
@@ -1326,7 +1330,7 @@ var _ = Describe("[rfe_id:273][crit:high][arm64][vendor:cnv-qe@redhat.com][level
 					return string(data)
 				}, 30, 0.5).Should(MatchRegexp(`"kind":"Domain","level":"info","msg":"Domain is in state Running reason Unknown","name":"%s"`, vmi.GetObjectMeta().GetName()), "Should verify from logs that domain is running")
 				// Check the VirtualMachineInstance Namespace
-				Expect(vmi.GetObjectMeta().GetNamespace()).To(Equal(*namespace), "VMI should run in the right namespace")
+				Expect(vmi.GetObjectMeta().GetNamespace()).To(Equal(namespace), "VMI should run in the right namespace")
 
 				// Delete the VirtualMachineInstance and wait for the confirmation of the delete
 				By("Deleting the VirtualMachineInstance")
@@ -1356,8 +1360,8 @@ var _ = Describe("[rfe_id:273][crit:high][arm64][vendor:cnv-qe@redhat.com][level
 					MatchRegexp(`"kind":"Domain","level":"info","msg":"Domain is in state Shutoff reason Destroyed","name":"%s"`, vmi.GetObjectMeta().GetName()), // Domain was destroyed because the launcher pod is gone
 				), "Logs should confirm pod deletion")
 			},
-				Entry("[test_id:1641]Default test namespace", &util.NamespaceTestDefault),
-				Entry("[test_id:1642]Alternative test namespace", &testsuite.NamespaceTestAlternative),
+				Entry("[test_id:1641]Default test namespace", false),
+				Entry("[test_id:1642]Alternative test namespace", true),
 			)
 		})
 
@@ -1374,7 +1378,7 @@ var _ = Describe("[rfe_id:273][crit:high][arm64][vendor:cnv-qe@redhat.com][level
 			})
 
 			It("[test_id:1643]should enable emulation in virt-launcher", func() {
-				vmi, err := virtClient.VirtualMachineInstance(util.NamespaceTestDefault).Create(vmi)
+				vmi, err := virtClient.VirtualMachineInstance(testsuite.GetTestNamespace(vmi)).Create(vmi)
 				Expect(err).ToNot(HaveOccurred())
 
 				tests.WaitForSuccessfulVMIStart(vmi)
@@ -1401,19 +1405,19 @@ var _ = Describe("[rfe_id:273][crit:high][arm64][vendor:cnv-qe@redhat.com][level
 			})
 
 			It("[test_id:1644]should be reflected in domain XML", func() {
-				err := virtClient.RestClient().Post().Resource("virtualmachineinstances").Namespace(util.NamespaceTestDefault).Body(vmi).Do(context.Background()).Error()
+				err := virtClient.RestClient().Post().Resource("virtualmachineinstances").Namespace(testsuite.GetTestNamespace(vmi)).Body(vmi).Do(context.Background()).Error()
 				Expect(err).ToNot(HaveOccurred(), "Should post the VMI")
 
 				listOptions := metav1.ListOptions{}
 
 				Eventually(func() int {
-					podList, err := virtClient.CoreV1().Pods(util.NamespaceTestDefault).List(context.Background(), listOptions)
+					podList, err := virtClient.CoreV1().Pods(testsuite.GetTestNamespace(vmi)).List(context.Background(), listOptions)
 					Expect(err).ToNot(HaveOccurred(), "Should list the pods")
 					return len(podList.Items)
 				}, 75, 0.5).Should(Equal(1), "There should be only one pod")
 
 				Eventually(func() error {
-					podList, err := virtClient.CoreV1().Pods(util.NamespaceTestDefault).List(context.Background(), listOptions)
+					podList, err := virtClient.CoreV1().Pods(testsuite.GetTestNamespace(vmi)).List(context.Background(), listOptions)
 					Expect(err).ToNot(HaveOccurred(), "Should list the pods")
 					for _, item := range podList.Items {
 						if strings.HasPrefix(item.Name, vmi.ObjectMeta.GenerateName) {
@@ -1426,7 +1430,7 @@ var _ = Describe("[rfe_id:273][crit:high][arm64][vendor:cnv-qe@redhat.com][level
 				getOptions := metav1.GetOptions{}
 				var newVMI *v1.VirtualMachineInstance
 
-				newVMI, err = virtClient.VirtualMachineInstance(util.NamespaceTestDefault).Get(vmi.Name, &getOptions)
+				newVMI, err = virtClient.VirtualMachineInstance(testsuite.GetTestNamespace(newVMI)).Get(vmi.Name, &getOptions)
 				Expect(err).ToNot(HaveOccurred(), "Should get VMI")
 
 				domain := &api.Domain{}
@@ -1445,7 +1449,7 @@ var _ = Describe("[rfe_id:273][crit:high][arm64][vendor:cnv-qe@redhat.com][level
 			})
 
 			It("[test_id:1645]should request a TUN device but not KVM", func() {
-				vmi, err := virtClient.VirtualMachineInstance(util.NamespaceTestDefault).Create(vmi)
+				vmi, err := virtClient.VirtualMachineInstance(testsuite.GetTestNamespace(vmi)).Create(vmi)
 				Expect(err).ToNot(HaveOccurred())
 
 				tests.WaitForSuccessfulVMIStart(vmi)
@@ -1483,7 +1487,7 @@ var _ = Describe("[rfe_id:273][crit:high][arm64][vendor:cnv-qe@redhat.com][level
 			})
 
 			It("[test_id:1646]should request a KVM and TUN device", func() {
-				vmi, err := virtClient.VirtualMachineInstance(util.NamespaceTestDefault).Create(vmi)
+				vmi, err := virtClient.VirtualMachineInstance(testsuite.GetTestNamespace(vmi)).Create(vmi)
 				Expect(err).ToNot(HaveOccurred())
 
 				tests.WaitForSuccessfulVMIStart(vmi)
@@ -1508,7 +1512,7 @@ var _ = Describe("[rfe_id:273][crit:high][arm64][vendor:cnv-qe@redhat.com][level
 			})
 
 			It("[test_id:1647]should not enable emulation in virt-launcher", func() {
-				vmi, err := virtClient.VirtualMachineInstance(util.NamespaceTestDefault).Create(vmi)
+				vmi, err := virtClient.VirtualMachineInstance(testsuite.GetTestNamespace(vmi)).Create(vmi)
 				Expect(err).ToNot(HaveOccurred())
 
 				tests.WaitForSuccessfulVMIStart(vmi)
@@ -1554,7 +1558,7 @@ var _ = Describe("[rfe_id:273][crit:high][arm64][vendor:cnv-qe@redhat.com][level
 	Describe("[rfe_id:273][crit:high][vendor:cnv-qe@redhat.com][level:component]Get a VirtualMachineInstance", func() {
 		Context("when that not exist", func() {
 			It("[test_id:1649]should return 404", func() {
-				b, err := virtClient.RestClient().Get().Resource("virtualmachineinstances").Namespace(util.NamespaceTestDefault).Name("nonexistnt").DoRaw(context.Background())
+				b, err := virtClient.RestClient().Get().Resource("virtualmachineinstances").Namespace(testsuite.GetTestNamespace(vmi)).Name("nonexistnt").DoRaw(context.Background())
 				Expect(err).To(HaveOccurred(), "Should get VMIs")
 				status := metav1.Status{}
 				err = json.Unmarshal(b, &status)
@@ -1567,12 +1571,12 @@ var _ = Describe("[rfe_id:273][crit:high][arm64][vendor:cnv-qe@redhat.com][level
 	Describe("[rfe_id:273][crit:high][vendor:cnv-qe@redhat.com][level:component]Delete a VirtualMachineInstance's Pod", func() {
 		It("[test_id:1650]should result in the VirtualMachineInstance moving to a finalized state", func() {
 			By("Creating the VirtualMachineInstance")
-			obj, err := virtClient.VirtualMachineInstance(util.NamespaceTestDefault).Create(vmi)
+			obj, err := virtClient.VirtualMachineInstance(testsuite.GetTestNamespace(vmi)).Create(vmi)
 			Expect(err).ToNot(HaveOccurred(), "Should create VMI")
 			tests.WaitForSuccessfulVMIStart(obj)
 
 			By("Verifying VirtualMachineInstance's pod is active")
-			pods, err := virtClient.CoreV1().Pods(util.NamespaceTestDefault).List(context.Background(), tests.UnfinishedVMIPodSelector(vmi))
+			pods, err := virtClient.CoreV1().Pods(testsuite.GetTestNamespace(vmi)).List(context.Background(), tests.UnfinishedVMIPodSelector(vmi))
 			Expect(err).ToNot(HaveOccurred(), "Should list pods")
 			Expect(pods.Items).To(HaveLen(1), "There should be only one pod")
 			pod := pods.Items[0]
@@ -1601,13 +1605,13 @@ var _ = Describe("[rfe_id:273][crit:high][arm64][vendor:cnv-qe@redhat.com][level
 			It("[test_id:1651]should result in pod being terminated", func() {
 
 				By("Creating the VirtualMachineInstance")
-				obj, err := virtClient.VirtualMachineInstance(util.NamespaceTestDefault).Create(vmi)
+				obj, err := virtClient.VirtualMachineInstance(testsuite.GetTestNamespace(vmi)).Create(vmi)
 				Expect(err).ToNot(HaveOccurred(), "Should create VMI")
 				tests.WaitForSuccessfulVMIStart(obj)
 
 				podSelector := tests.UnfinishedVMIPodSelector(vmi)
 				By("Verifying VirtualMachineInstance's pod is active")
-				pods, err := virtClient.CoreV1().Pods(util.NamespaceTestDefault).List(context.Background(), podSelector)
+				pods, err := virtClient.CoreV1().Pods(testsuite.GetTestNamespace(vmi)).List(context.Background(), podSelector)
 				Expect(err).ToNot(HaveOccurred(), "Should list pods")
 				Expect(pods.Items).To(HaveLen(1), "There should be only one pod")
 
@@ -1616,7 +1620,7 @@ var _ = Describe("[rfe_id:273][crit:high][arm64][vendor:cnv-qe@redhat.com][level
 
 				By("Verifying VirtualMachineInstance's pod terminates")
 				Eventually(func() int {
-					pods, err := virtClient.CoreV1().Pods(util.NamespaceTestDefault).List(context.Background(), podSelector)
+					pods, err := virtClient.CoreV1().Pods(testsuite.GetTestNamespace(vmi)).List(context.Background(), podSelector)
 					Expect(err).ToNot(HaveOccurred(), "Should list pods")
 					return len(pods.Items)
 				}, 75, 0.5).Should(Equal(0), "There should be no pods")
@@ -1635,7 +1639,7 @@ var _ = Describe("[rfe_id:273][crit:high][arm64][vendor:cnv-qe@redhat.com][level
 				}
 
 				By("Creating the VirtualMachineInstance")
-				vmi, err := virtClient.VirtualMachineInstance(util.NamespaceTestDefault).Create(vmi)
+				vmi, err := virtClient.VirtualMachineInstance(testsuite.GetTestNamespace(vmi)).Create(vmi)
 				Expect(err).ToNot(HaveOccurred(), "Should create VMI")
 
 				// wait until booted
@@ -1646,7 +1650,7 @@ var _ = Describe("[rfe_id:273][crit:high][arm64][vendor:cnv-qe@redhat.com][level
 
 				By("Verifying VirtualMachineInstance's status is Succeeded")
 				Eventually(func() v1.VirtualMachineInstancePhase {
-					currVMI, err := virtClient.VirtualMachineInstance(util.NamespaceTestDefault).Get(vmi.Name, &metav1.GetOptions{})
+					currVMI, err := virtClient.VirtualMachineInstance(testsuite.GetTestNamespace(vmi)).Get(vmi.Name, &metav1.GetOptions{})
 					Expect(err).ToNot(HaveOccurred(), "Should get VMI")
 					return currVMI.Status.Phase
 				}, gracePeriod+5, 0.5).Should(Equal(v1.Succeeded), "VMI should be succeeded")
@@ -1678,7 +1682,7 @@ var _ = Describe("[rfe_id:273][crit:high][arm64][vendor:cnv-qe@redhat.com][level
 				vmi.Spec.NodeSelector = map[string]string{"kubernetes.io/hostname": node}
 
 				By("Creating the VirtualMachineInstance")
-				obj, err := virtClient.VirtualMachineInstance(util.NamespaceTestDefault).Create(vmi)
+				obj, err := virtClient.VirtualMachineInstance(testsuite.GetTestNamespace(vmi)).Create(vmi)
 				Expect(err).ToNot(HaveOccurred(), "Should create VMI")
 				tests.WaitForSuccessfulVMIStart(obj)
 
@@ -1712,7 +1716,7 @@ var _ = Describe("[rfe_id:273][crit:high][arm64][vendor:cnv-qe@redhat.com][level
 	Describe("[Serial][rfe_id:273][crit:high][vendor:cnv-qe@redhat.com][level:component]Killed VirtualMachineInstance", Serial, func() {
 		It("[test_id:1656]should be in Failed phase", func() {
 			By("Starting a VirtualMachineInstance")
-			obj, err := virtClient.VirtualMachineInstance(util.NamespaceTestDefault).Create(vmi)
+			obj, err := virtClient.VirtualMachineInstance(testsuite.GetTestNamespace(vmi)).Create(vmi)
 			Expect(err).ToNot(HaveOccurred(), "Should create VMI")
 
 			nodeName := tests.WaitForSuccessfulVMIStart(obj).Status.NodeName
@@ -1728,7 +1732,7 @@ var _ = Describe("[rfe_id:273][crit:high][arm64][vendor:cnv-qe@redhat.com][level
 
 			By("Checking that the VirtualMachineInstance has 'Failed' phase")
 			Eventually(func() v1.VirtualMachineInstancePhase {
-				failedVMI, err := virtClient.VirtualMachineInstance(util.NamespaceTestDefault).Get(vmi.Name, &metav1.GetOptions{})
+				failedVMI, err := virtClient.VirtualMachineInstance(testsuite.GetTestNamespace(vmi)).Get(vmi.Name, &metav1.GetOptions{})
 				Expect(err).ToNot(HaveOccurred(), "Should get VMI")
 				return failedVMI.Status.Phase
 			}, 10, 1).Should(Equal(v1.Failed), "VMI should be failed")
@@ -1737,7 +1741,7 @@ var _ = Describe("[rfe_id:273][crit:high][arm64][vendor:cnv-qe@redhat.com][level
 
 		It("[test_id:1657]should be left alone by virt-handler", func() {
 			By("Starting a VirtualMachineInstance")
-			obj, err := virtClient.VirtualMachineInstance(util.NamespaceTestDefault).Create(vmi)
+			obj, err := virtClient.VirtualMachineInstance(testsuite.GetTestNamespace(vmi)).Create(vmi)
 			Expect(err).ToNot(HaveOccurred(), "Should create VMI")
 
 			nodeName := tests.WaitForSuccessfulVMIStart(obj).Status.NodeName
@@ -1868,11 +1872,11 @@ func getVirtLauncherLogs(virtCli kubecli.KubevirtClient, vmi *v1.VirtualMachineI
 func pkillHandler(virtCli kubecli.KubevirtClient, node string) error {
 	pod := renderPkillAllPod("virt-handler")
 	pod.Spec.NodeName = node
-	createdPod, err := virtCli.CoreV1().Pods(util.NamespaceTestDefault).Create(context.Background(), pod, metav1.CreateOptions{})
+	createdPod, err := virtCli.CoreV1().Pods(testsuite.GetTestNamespace(pod)).Create(context.Background(), pod, metav1.CreateOptions{})
 	Expect(err).ToNot(HaveOccurred(), "Should create helper pod")
 
 	getStatus := func() k8sv1.PodPhase {
-		podG, err := virtCli.CoreV1().Pods(util.NamespaceTestDefault).Get(context.Background(), createdPod.Name, metav1.GetOptions{})
+		podG, err := virtCli.CoreV1().Pods(testsuite.GetTestNamespace(pod)).Get(context.Background(), createdPod.Name, metav1.GetOptions{})
 		Expect(err).ToNot(HaveOccurred(), "Should return current status")
 		return podG.Status.Phase
 	}
@@ -1885,13 +1889,13 @@ func pkillHandler(virtCli kubecli.KubevirtClient, node string) error {
 func pkillAllLaunchers(virtCli kubecli.KubevirtClient, node string) (*k8sv1.Pod, error) {
 	pod := renderPkillAllPod("virt-launcher")
 	pod.Spec.NodeName = node
-	return virtCli.CoreV1().Pods(util.NamespaceTestDefault).Create(context.Background(), pod, metav1.CreateOptions{})
+	return virtCli.CoreV1().Pods(testsuite.GetTestNamespace(pod)).Create(context.Background(), pod, metav1.CreateOptions{})
 }
 
 func pkillAllVMIs(virtCli kubecli.KubevirtClient, node string) error {
 	pod := renderPkillAllPod("qemu")
 	pod.Spec.NodeName = node
-	_, err := virtCli.CoreV1().Pods(util.NamespaceTestDefault).Create(context.Background(), pod, metav1.CreateOptions{})
+	_, err := virtCli.CoreV1().Pods(testsuite.GetTestNamespace(pod)).Create(context.Background(), pod, metav1.CreateOptions{})
 
 	return err
 }

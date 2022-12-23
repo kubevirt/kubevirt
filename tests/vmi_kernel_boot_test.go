@@ -35,8 +35,7 @@ import (
 
 	cd "kubevirt.io/kubevirt/tests/containerdisk"
 	"kubevirt.io/kubevirt/tests/libvmi"
-
-	"kubevirt.io/kubevirt/tests/util"
+	"kubevirt.io/kubevirt/tests/testsuite"
 
 	"kubevirt.io/client-go/kubecli"
 
@@ -57,7 +56,7 @@ var _ = Describe("[sig-compute]VMI with external kernel boot", func() {
 	Context("with external alpine-based kernel & initrd images", func() {
 		It("[test_id:7748]ensure successful boot", func() {
 			vmi := utils.GetVMIKernelBoot()
-			obj, err := virtClient.VirtualMachineInstance(util.NamespaceTestDefault).Create(vmi)
+			obj, err := virtClient.VirtualMachineInstance(testsuite.GetTestNamespace(vmi)).Create(vmi)
 			Expect(err).ToNot(HaveOccurred())
 			tests.WaitForSuccessfulVMIStart(obj)
 		})
@@ -72,7 +71,7 @@ var _ = Describe("[sig-compute]VMI with external kernel boot", func() {
 			Expect(vmi.Spec.Domain.Devices.Disks).ToNot(BeEmpty())
 
 			By("Ensuring VMI can boot")
-			vmi, err = virtClient.VirtualMachineInstance(util.NamespaceTestDefault).Create(vmi)
+			vmi, err = virtClient.VirtualMachineInstance(testsuite.GetTestNamespace(vmi)).Create(vmi)
 			Expect(err).ToNot(HaveOccurred())
 			tests.WaitForSuccessfulVMIStart(vmi)
 
@@ -80,10 +79,10 @@ var _ = Describe("[sig-compute]VMI with external kernel boot", func() {
 			virtLauncherPod := tests.GetRunningPodByVirtualMachineInstance(vmi, vmi.Namespace)
 
 			By("Ensuring VMI is deleted")
-			err = virtClient.VirtualMachineInstance(util.NamespaceTestDefault).Delete(vmi.Name, &v1.DeleteOptions{})
+			err = virtClient.VirtualMachineInstance(testsuite.GetTestNamespace(vmi)).Delete(vmi.Name, &v1.DeleteOptions{})
 			Expect(err).ToNot(HaveOccurred())
 			Eventually(func() (isVmiDeleted bool) {
-				vmi, err = virtClient.VirtualMachineInstance(util.NamespaceTestDefault).Get(vmi.Name, &v1.GetOptions{})
+				vmi, err = virtClient.VirtualMachineInstance(testsuite.GetTestNamespace(vmi)).Get(vmi.Name, &v1.GetOptions{})
 				if errors.IsNotFound(err) {
 					return true
 				}
@@ -109,7 +108,7 @@ var _ = Describe("[sig-compute]VMI with external kernel boot", func() {
 			vmi := utils.GetVMIKernelBoot()
 			kernelBoot := vmi.Spec.Domain.Firmware.KernelBoot
 			kernelBoot.Container.Image = ""
-			_, err := virtClient.VirtualMachineInstance(util.NamespaceTestDefault).Create(vmi)
+			_, err := virtClient.VirtualMachineInstance(testsuite.GetTestNamespace(vmi)).Create(vmi)
 			Expect(err).To(HaveOccurred())
 			Expect(err.Error()).To(ContainSubstring("denied the request: spec.domain.firmware.kernelBoot.container must be defined with an image"))
 		})
@@ -119,7 +118,7 @@ var _ = Describe("[sig-compute]VMI with external kernel boot", func() {
 			kernelBoot := vmi.Spec.Domain.Firmware.KernelBoot
 			kernelBoot.Container.KernelPath = ""
 			kernelBoot.Container.InitrdPath = ""
-			_, err := virtClient.VirtualMachineInstance(util.NamespaceTestDefault).Create(vmi)
+			_, err := virtClient.VirtualMachineInstance(testsuite.GetTestNamespace(vmi)).Create(vmi)
 			Expect(err).To(HaveOccurred())
 			Expect(err.Error()).To(ContainSubstring("denied the request: spec.domain.firmware.kernelBoot.container must be defined with at least one of the following: kernelPath, initrdPath"))
 		})
@@ -137,7 +136,7 @@ var _ = Describe("[sig-compute]VMI with external kernel boot", func() {
 		It("ensure successful boot", func() {
 			vmi := getVMIKernelBoot()
 
-			obj, err := virtClient.VirtualMachineInstance(util.NamespaceTestDefault).Create(vmi)
+			obj, err := virtClient.VirtualMachineInstance(testsuite.GetTestNamespace(vmi)).Create(vmi)
 			Expect(err).ToNot(HaveOccurred())
 			tests.WaitForSuccessfulVMIStart(obj)
 		})
@@ -155,7 +154,7 @@ var _ = Describe("[sig-compute]VMI with external kernel boot", func() {
 			Expect(vmi.Spec.Domain.Devices.Disks).ToNot(BeEmpty())
 
 			By("Ensuring VMI can boot")
-			vmi, err = virtClient.VirtualMachineInstance(util.NamespaceTestDefault).Create(vmi)
+			vmi, err = virtClient.VirtualMachineInstance(testsuite.GetTestNamespace(vmi)).Create(vmi)
 			Expect(err).ToNot(HaveOccurred())
 			tests.WaitForSuccessfulVMIStart(vmi)
 
@@ -163,10 +162,10 @@ var _ = Describe("[sig-compute]VMI with external kernel boot", func() {
 			virtLauncherPod := tests.GetRunningPodByVirtualMachineInstance(vmi, vmi.Namespace)
 
 			By("Ensuring VMI is deleted")
-			err = virtClient.VirtualMachineInstance(util.NamespaceTestDefault).Delete(vmi.Name, &v1.DeleteOptions{})
+			err = virtClient.VirtualMachineInstance(testsuite.GetTestNamespace(vmi)).Delete(vmi.Name, &v1.DeleteOptions{})
 			Expect(err).ToNot(HaveOccurred())
 			Eventually(func() (isVmiDeleted bool) {
-				vmi, err = virtClient.VirtualMachineInstance(util.NamespaceTestDefault).Get(vmi.Name, &v1.GetOptions{})
+				vmi, err = virtClient.VirtualMachineInstance(testsuite.GetTestNamespace(vmi)).Get(vmi.Name, &v1.GetOptions{})
 				if errors.IsNotFound(err) {
 					return true
 				}

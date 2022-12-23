@@ -835,7 +835,7 @@ func (app *virtAPIApp) registerValidatingWebhooks(informers *webhooks.Informers)
 		validating_webhook.ServePodEvictionInterceptor(w, r, app.clusterConfig, app.virtCli)
 	})
 	http.HandleFunc(components.MigrationPolicyCreateValidatePath, func(w http.ResponseWriter, r *http.Request) {
-		validating_webhook.ServeMigrationPolicies(w, r, app.virtCli)
+		validating_webhook.ServeMigrationPolicies(w, r, app.clusterConfig, app.virtCli)
 	})
 	http.HandleFunc(components.VMCloneCreateValidatePath, func(w http.ResponseWriter, r *http.Request) {
 		validating_webhook.ServeVirtualMachineClones(w, r, app.clusterConfig, app.virtCli)

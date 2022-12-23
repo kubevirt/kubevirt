@@ -82,7 +82,6 @@ const qemuTimeoutJitterRange = 120
 const (
 	CAP_NET_BIND_SERVICE = "NET_BIND_SERVICE"
 	CAP_NET_RAW          = "NET_RAW"
-	CAP_SYS_ADMIN        = "SYS_ADMIN"
 	CAP_SYS_NICE         = "SYS_NICE"
 )
 
@@ -130,7 +129,7 @@ const (
 const customSELinuxType = "virt_launcher.process"
 
 type TemplateService interface {
-	RenderMigrationManifest(vmi *v1.VirtualMachineInstance, sourcePod *k8sv1.Pod) (*k8sv1.Pod, error)
+	RenderMigrationManifest(vmi *v1.VirtualMachineInstance, sourcePod *k8sv1.Pod, migrationConfiguration *v1.MigrationConfiguration) (*k8sv1.Pod, error)
 	RenderLaunchManifest(vmi *v1.VirtualMachineInstance) (*k8sv1.Pod, error)
 	RenderHotplugAttachmentPodTemplate(volume []*v1.Volume, ownerPod *k8sv1.Pod, vmi *v1.VirtualMachineInstance, claimMap map[string]*k8sv1.PersistentVolumeClaim, tempPod bool) (*k8sv1.Pod, error)
 	RenderHotplugAttachmentTriggerPodTemplate(volume *v1.Volume, ownerPod *k8sv1.Pod, vmi *v1.VirtualMachineInstance, pvcName string, isBlock bool, tempPod bool) (*k8sv1.Pod, error)
@@ -253,12 +252,22 @@ func (t *templateService) RenderLaunchManifestNoVm(vmi *v1.VirtualMachineInstanc
 	return t.renderLaunchManifest(vmi, nil, true)
 }
 
-func (t *templateService) RenderMigrationManifest(vmi *v1.VirtualMachineInstance, pod *k8sv1.Pod) (*k8sv1.Pod, error) {
+func (t *templateService) RenderMigrationManifest(vmi *v1.VirtualMachineInstance, pod *k8sv1.Pod, migrationConfiguration *v1.MigrationConfiguration) (*k8sv1.Pod, error) {
 	reproducibleImageIDs, err := containerdisk.ExtractImageIDsFromSourcePod(vmi, pod)
 	if err != nil {
 		return nil, fmt.Errorf("can not proceed with the migration when no reproducible image digest can be detected: %v", err)
 	}
-	return t.renderLaunchManifest(vmi, reproducibleImageIDs, false)
+	podManifest, err := t.renderLaunchManifest(vmi, reproducibleImageIDs, false)
+	if err != nil {
+		return nil, err
+	}
+
+	// PostCopy needs the userfaultfd syscall which can be restricted in the RuntimeDefault seccomp profile
+	if migrationConfiguration.AllowPostCopy != nil && *migrationConfiguration.AllowPostCopy &&
+		!t.clusterConfig.PSASeccompAllowsUserfaultfd() {
+		podManifest.Spec.SecurityContext.SeccompProfile.Type = k8sv1.SeccompProfileTypeUnconfined
+	}
+	return podManifest, err
 }
 
 func (t *templateService) RenderLaunchManifest(vmi *v1.VirtualMachineInstance) (*k8sv1.Pod, error) {
@@ -277,6 +286,33 @@ func generateQemuTimeoutWithJitter(qemuTimeoutBaseSeconds int) string {
 	timeout := rand.Intn(qemuTimeoutJitterRange) + qemuTimeoutBaseSeconds
 
 	return fmt.Sprintf("%ds", timeout)
+}
+
+func computeSecurityContext(vmi *v1.VirtualMachineInstance) *k8sv1.PodSecurityContext {
+	psc := &k8sv1.PodSecurityContext{}
+
+	if util.IsNonRootVMI(vmi) {
+		nonRootUser := int64(util.NonRootUID)
+		psc.RunAsUser = &nonRootUser
+		psc.RunAsGroup = &nonRootUser
+		psc.RunAsNonRoot = pointer.Bool(true)
+		psc.SeccompProfile = &k8sv1.SeccompProfile{
+			Type: k8sv1.SeccompProfileTypeRuntimeDefault,
+		}
+	} else {
+		rootUser := int64(util.RootUser)
+		psc.RunAsUser = &rootUser
+		psc.SeccompProfile = &k8sv1.SeccompProfile{
+			Type: k8sv1.SeccompProfileTypeUnconfined,
+		}
+	}
+
+	if util.IsPasstVMI(vmi) || util.IsVMIVirtiofsEnabled(vmi) {
+		psc.SeccompProfile = &k8sv1.SeccompProfile{
+			Type: k8sv1.SeccompProfileTypeUnconfined,
+		}
+	}
+	return psc
 }
 
 func (t *templateService) renderLaunchManifest(vmi *v1.VirtualMachineInstance, imageIDs map[string]string, tempPod bool) (*k8sv1.Pod, error) {
@@ -480,11 +516,9 @@ func (t *templateService) renderLaunchManifest(vmi *v1.VirtualMachineInstance, i
 			},
 		},
 		Spec: k8sv1.PodSpec{
-			Hostname:  hostName,
-			Subdomain: vmi.Spec.Subdomain,
-			SecurityContext: &k8sv1.PodSecurityContext{
-				RunAsUser: &userId,
-			},
+			Hostname:                      hostName,
+			Subdomain:                     vmi.Spec.Subdomain,
+			SecurityContext:               computeSecurityContext(vmi),
 			TerminationGracePeriodSeconds: &gracePeriodKillAfter,
 			RestartPolicy:                 k8sv1.RestartPolicyNever,
 			Containers:                    containers,
@@ -500,11 +534,6 @@ func (t *templateService) renderLaunchManifest(vmi *v1.VirtualMachineInstance, i
 			Tolerations:                   vmi.Spec.Tolerations,
 			TopologySpreadConstraints:     vmi.Spec.TopologySpreadConstraints,
 		},
-	}
-
-	if nonRoot {
-		pod.Spec.SecurityContext.RunAsGroup = &userId
-		pod.Spec.SecurityContext.RunAsNonRoot = &nonRoot
 	}
 
 	alignPodMultiCategorySecurity(&pod, vmi, t.clusterConfig.GetSELinuxLauncherType(), t.clusterConfig.DockerSELinuxMCSWorkaroundEnabled())
@@ -584,6 +613,7 @@ func newSidecarContainerRenderer(sidecarName string, vmiSpec *v1.VirtualMachineI
 
 	if util.IsNonRootVMI(vmiSpec) {
 		sidecarOpts = append(sidecarOpts, WithNonRoot(userId))
+		sidecarOpts = append(sidecarOpts, WithDropALLCapabilities())
 	}
 	return NewContainerSpecRenderer(
 		sidecarName,
@@ -597,6 +627,7 @@ func (t *templateService) newInitContainerRenderer(vmiSpec *v1.VirtualMachineIns
 	cpInitContainerOpts := []Option{
 		WithVolumeMounts(initContainerVolumeMount),
 		WithResourceRequirements(initContainerResources),
+		WithNoCapabilities(),
 	}
 
 	if util.IsNonRootVMI(vmiSpec) {
@@ -619,6 +650,7 @@ func (t *templateService) newContainerSpecRenderer(vmi *v1.VirtualMachineInstanc
 	}
 	if util.IsNonRootVMI(vmi) {
 		computeContainerOpts = append(computeContainerOpts, WithNonRoot(userId))
+		computeContainerOpts = append(computeContainerOpts, WithDropALLCapabilities())
 	}
 	if t.IsPPC64() {
 		computeContainerOpts = append(computeContainerOpts, WithPrivileged())
@@ -710,6 +742,7 @@ func sidecarContainerName(i int) string {
 
 func (t *templateService) RenderHotplugAttachmentPodTemplate(volumes []*v1.Volume, ownerPod *k8sv1.Pod, vmi *v1.VirtualMachineInstance, claimMap map[string]*k8sv1.PersistentVolumeClaim, tempPod bool) (*k8sv1.Pod, error) {
 	zero := int64(0)
+	runUser := int64(util.NonRootUID)
 	sharedMount := k8sv1.MountPropagationHostToContainer
 	command := []string{"/bin/sh", "-c", "/usr/bin/container-disk --copy-path /path/hp"}
 
@@ -744,6 +777,15 @@ func (t *templateService) RenderHotplugAttachmentPodTemplate(volumes []*v1.Volum
 						},
 					},
 					SecurityContext: &k8sv1.SecurityContext{
+						AllowPrivilegeEscalation: pointer.Bool(false),
+						RunAsNonRoot:             pointer.Bool(true),
+						RunAsUser:                &runUser,
+						SeccompProfile: &k8sv1.SeccompProfile{
+							Type: k8sv1.SeccompProfileTypeRuntimeDefault,
+						},
+						Capabilities: &k8sv1.Capabilities{
+							Drop: []k8sv1.Capability{"ALL"},
+						},
 						SELinuxOptions: &k8sv1.SELinuxOptions{
 							// If SELinux is enabled on the host, this level will be adjusted below to match the level
 							// of its companion virt-launcher pod to allow it to consume our disk images.
@@ -836,6 +878,7 @@ func (t *templateService) RenderHotplugAttachmentPodTemplate(volumes []*v1.Volum
 
 func (t *templateService) RenderHotplugAttachmentTriggerPodTemplate(volume *v1.Volume, ownerPod *k8sv1.Pod, vmi *v1.VirtualMachineInstance, pvcName string, isBlock bool, tempPod bool) (*k8sv1.Pod, error) {
 	zero := int64(0)
+	runUser := int64(util.NonRootUID)
 	sharedMount := k8sv1.MountPropagationHostToContainer
 	var command []string
 	if tempPod {
@@ -884,6 +927,15 @@ func (t *templateService) RenderHotplugAttachmentTriggerPodTemplate(volume *v1.V
 						},
 					},
 					SecurityContext: &k8sv1.SecurityContext{
+						AllowPrivilegeEscalation: pointer.Bool(false),
+						RunAsNonRoot:             pointer.Bool(true),
+						RunAsUser:                &runUser,
+						SeccompProfile: &k8sv1.SeccompProfile{
+							Type: k8sv1.SeccompProfileTypeRuntimeDefault,
+						},
+						Capabilities: &k8sv1.Capabilities{
+							Drop: []k8sv1.Capability{"ALL"},
+						},
 						SELinuxOptions: &k8sv1.SELinuxOptions{
 							Level: "s0",
 						},

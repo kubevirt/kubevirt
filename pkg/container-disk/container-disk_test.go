@@ -344,6 +344,27 @@ var _ = Describe("ContainerDisk", func() {
 				Entry("image with registry and shasum and custom port and group", "myregistry.io:5000/mygroup/myimage@sha256:123534", "myregistry.io:5000/mygroup/myimage"),
 			)
 		})
+
+		Context("when generating the container", func() {
+			DescribeTable("when generating the container", func(testFunc func(*k8sv1.Container)) {
+				vmi := api.NewMinimalVMI("myvmi")
+				appendContainerDisk(vmi, "disk1")
+
+				pod := createMigrationSourcePod(vmi)
+				imageIDs, err := ExtractImageIDsFromSourcePod(vmi, pod)
+				Expect(err).ToNot(HaveOccurred())
+
+				newContainers := GenerateContainers(vmi, imageIDs, "a-name", "something")
+				testFunc(&newContainers[0])
+			},
+				Entry("AllowPrivilegeEscalation should be false", func(c *k8sv1.Container) {
+					Expect(*c.SecurityContext.AllowPrivilegeEscalation).To(BeFalse())
+				}),
+				Entry("all capabilities should be dropped", func(c *k8sv1.Container) {
+					Expect(c.SecurityContext.Capabilities.Drop).To(Equal([]k8sv1.Capability{"ALL"}))
+				}),
+			)
+		})
 	})
 })
 

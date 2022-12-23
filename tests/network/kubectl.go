@@ -37,6 +37,7 @@ import (
 	"kubevirt.io/kubevirt/tests"
 	"kubevirt.io/kubevirt/tests/clientcmd"
 	"kubevirt.io/kubevirt/tests/libvmi"
+	"kubevirt.io/kubevirt/tests/testsuite"
 	"kubevirt.io/kubevirt/tests/util"
 )
 
@@ -69,7 +70,7 @@ var _ = SIGDescribe("kubectl", func() {
 	})
 
 	It("should verify vmi ip value match primary interface ip value", func() {
-		Expect(createBridgeNetworkAttachmentDefinition(util.NamespaceTestDefault, linuxBridgeNetworkName, bridgeCNIType, bridgeName)).
+		Expect(createBridgeNetworkAttachmentDefinition(testsuite.GetTestNamespace(nil), linuxBridgeNetworkName, bridgeCNIType, bridgeName)).
 			To(Succeed())
 
 		vmi := libvmi.New(
@@ -82,7 +83,7 @@ var _ = SIGDescribe("kubectl", func() {
 			libvmi.WithInterface(libvmi.InterfaceDeviceWithBridgeBinding(linuxBridgeIfaceName2)),
 		)
 
-		vmi, err = virtClient.VirtualMachineInstance(util.NamespaceTestDefault).Create(vmi)
+		vmi, err = virtClient.VirtualMachineInstance(testsuite.GetTestNamespace(nil)).Create(vmi)
 		Expect(err).ToNot(HaveOccurred())
 		vmi = tests.WaitForSuccessfulVMIStart(vmi)
 

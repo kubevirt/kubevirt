@@ -46,6 +46,7 @@ import (
 
 	"kubevirt.io/kubevirt/pkg/testutils"
 	"kubevirt.io/kubevirt/tests"
+	"kubevirt.io/kubevirt/tests/libvmi"
 	"kubevirt.io/kubevirt/tests/util"
 )
 
@@ -259,7 +260,12 @@ var _ = Describe("Clone", func() {
 	})
 
 	BeforeEach(func() {
-		sourceVM = tests.NewRandomVirtualMachine(tests.NewRandomVMI(), false)
+		sourceVMI := libvmi.New(
+			libvmi.WithInterface(libvmi.InterfaceDeviceWithMasqueradeBinding()),
+			libvmi.WithNetwork(virtv1.DefaultPodNetwork()),
+		)
+		sourceVMI.Namespace = testNamespace
+		sourceVM = tests.NewRandomVirtualMachine(sourceVMI, false)
 		sourceVM.Spec.Running = nil
 		runStrategy := virtv1.RunStrategyHalted
 		sourceVM.Spec.RunStrategy = &runStrategy

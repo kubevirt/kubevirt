@@ -29,7 +29,7 @@ import (
 	k8sv1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 
-	"kubevirt.io/kubevirt/tests/util"
+	"kubevirt.io/kubevirt/tests/testsuite"
 
 	"kubevirt.io/client-go/kubecli"
 
@@ -69,7 +69,7 @@ var _ = SIGDescribe("[Serial]K8s IO events", Serial, func() {
 
 		nodeName = tests.NodeNameWithHandler()
 		tests.CreateFaultyDisk(nodeName, deviceName)
-		pv, pvc, err = tests.CreatePVandPVCwithFaultyDisk(nodeName, "/dev/mapper/"+deviceName, util.NamespaceTestDefault)
+		pv, pvc, err = tests.CreatePVandPVCwithFaultyDisk(nodeName, "/dev/mapper/"+deviceName, testsuite.GetTestNamespace(nil))
 		Expect(err).NotTo(HaveOccurred(), "Failed to create PV and PVC for faulty disk")
 	})
 	AfterEach(func() {
@@ -83,7 +83,7 @@ var _ = SIGDescribe("[Serial]K8s IO events", Serial, func() {
 		vmi := tests.NewRandomVMIWithPVC(pvc.Name)
 		Eventually(func() error {
 			var err error
-			vmi, err = virtClient.VirtualMachineInstance(util.NamespaceTestDefault).Create(vmi)
+			vmi, err = virtClient.VirtualMachineInstance(testsuite.GetTestNamespace(vmi)).Create(vmi)
 			return err
 		}, 100*time.Second, time.Second).Should(BeNil(), "Failed to create vmi")
 
@@ -91,7 +91,7 @@ var _ = SIGDescribe("[Serial]K8s IO events", Serial, func() {
 
 		By("Expecting  paused event on VMI ")
 		Eventually(func() bool {
-			events, err := virtClient.CoreV1().Events(util.NamespaceTestDefault).List(context.Background(), metav1.ListOptions{})
+			events, err := virtClient.CoreV1().Events(testsuite.GetTestNamespace(vmi)).List(context.Background(), metav1.ListOptions{})
 			Expect(err).ToNot(HaveOccurred())
 			for _, e := range events.Items {
 				if isExpectedIOEvent(e, vmi.Name) {
@@ -101,7 +101,7 @@ var _ = SIGDescribe("[Serial]K8s IO events", Serial, func() {
 
 			return false
 		}, 30*time.Second, 5*time.Second).Should(BeTrue())
-		err := virtClient.VirtualMachineInstance(util.NamespaceTestDefault).Delete(vmi.ObjectMeta.Name, &metav1.DeleteOptions{})
+		err := virtClient.VirtualMachineInstance(testsuite.GetTestNamespace(vmi)).Delete(vmi.ObjectMeta.Name, &metav1.DeleteOptions{})
 		Expect(err).ToNot(HaveOccurred(), "Failed to delete VMI")
 		tests.WaitForVirtualMachineToDisappearWithTimeout(vmi, 120)
 	})

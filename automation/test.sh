@@ -77,15 +77,6 @@ else
   export KUBEVIRT_PROVIDER=${TARGET}
 fi
 
-if [[ $TARGET =~ psa ]]; then
-  export KUBEVIRT_DEPLOY_CDI=false
-  if [[ -z $FEATURE_GATES ]]; then
-    export FEATURE_GATES="PSA"
-  else
-    export FEATURE_GATES="${FEATURE_GATES},PSA"
-  fi
-fi
-
 # Single-node single-replica test lanes need nfs csi to run sig-storage tests
 if [[ $KUBEVIRT_NUM_NODES = "1" && $KUBEVIRT_INFRA_REPLICAS = "1" ]]; then
   export KUBEVIRT_DEPLOY_NFS_CSI=true
