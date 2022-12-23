@@ -36,8 +36,8 @@ import (
 	"github.com/golang/glog"
 	flag "github.com/spf13/pflag"
 	v1 "k8s.io/api/core/v1"
-	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
-	k8sruntime "k8s.io/apimachinery/pkg/runtime"
+	"k8s.io/apimachinery/pkg/runtime/schema"
+	"k8s.io/apimachinery/pkg/types"
 	"k8s.io/client-go/tools/cache"
 )
 
@@ -64,9 +64,12 @@ var LogLevelNames = map[LogLevel]string{
 
 var lock sync.Mutex
 
+// Interface to avoid dependency
 type LoggableObject interface {
-	metav1.ObjectMetaAccessor
-	k8sruntime.Object
+	GetName() string
+	GetNamespace() string
+	GetUID() types.UID
+	GetObjectKind() schema.ObjectKind
 }
 
 type FilteredLogger struct {
@@ -228,9 +231,9 @@ func (l FilteredLogger) Key(key string, kind string) *FilteredLogger {
 
 func (l FilteredLogger) Object(obj LoggableObject) *FilteredLogger {
 
-	name := obj.GetObjectMeta().GetName()
-	namespace := obj.GetObjectMeta().GetNamespace()
-	uid := obj.GetObjectMeta().GetUID()
+	name := obj.GetName()
+	namespace := obj.GetNamespace()
+	uid := obj.GetUID()
 	kind := obj.GetObjectKind().GroupVersionKind().Kind
 
 	logParams := make([]interface{}, 0)
