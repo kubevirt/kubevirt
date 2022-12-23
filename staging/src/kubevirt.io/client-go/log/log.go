@@ -38,7 +38,6 @@ import (
 	v1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/runtime/schema"
 	"k8s.io/apimachinery/pkg/types"
-	"k8s.io/client-go/tools/cache"
 )
 
 const (
@@ -208,25 +207,6 @@ func (l FilteredLogger) log(skipFrames int, params ...interface{}) error {
 		return log.WithPrefix(l.logger, logParams...).Log(params...)
 	}
 	return nil
-}
-
-func (l FilteredLogger) Key(key string, kind string) *FilteredLogger {
-	if key == "" {
-		return &l
-
-	}
-	name, namespace, err := cache.SplitMetaNamespaceKey(key)
-	if err != nil {
-		return &l
-	}
-	logParams := make([]interface{}, 0)
-	if namespace != "" {
-		logParams = append(logParams, "namespace", namespace)
-	}
-	logParams = append(logParams, "name", name)
-	logParams = append(logParams, "kind", kind)
-	l.with(logParams...)
-	return &l
 }
 
 func (l FilteredLogger) Object(obj LoggableObject) *FilteredLogger {

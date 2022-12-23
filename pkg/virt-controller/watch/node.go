@@ -163,7 +163,18 @@ func (c *NodeController) execute(key string) error {
 		node = obj.(*v1.Node)
 		logger = logger.Object(node)
 	} else {
-		logger = logger.Key(key, "Node")
+		namespace, name, err := cache.SplitMetaNamespaceKey(key)
+		if err == nil {
+			params := []string{}
+			if namespace != "" {
+				params = append(params, "namespace", namespace)
+
+			}
+			params = append(params, "name", name)
+			params = append(params, "kind", "Node")
+			logger = logger.With(params)
+		}
+
 	}
 
 	unresponsive, err := isNodeUnresponsive(node, c.heartBeatTimeout)
