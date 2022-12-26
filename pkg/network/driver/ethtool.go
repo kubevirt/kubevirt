@@ -1,4 +1,4 @@
-package link
+package driver
 
 // Origin: https://github.com/weaveworks/weave/blob/master/net/ethtool.go
 

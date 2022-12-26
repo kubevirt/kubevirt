@@ -43,7 +43,6 @@ import (
 	dhcpserver "kubevirt.io/kubevirt/pkg/network/dhcp/server"
 	dhcpserverv6 "kubevirt.io/kubevirt/pkg/network/dhcp/serverv6"
 	"kubevirt.io/kubevirt/pkg/network/dns"
-	"kubevirt.io/kubevirt/pkg/network/link"
 	"kubevirt.io/kubevirt/pkg/virt-handler/selinux"
 )
 
@@ -397,7 +396,7 @@ func (h *NetworkUtilsHandler) BindTapDeviceToBridge(tapName string, bridgeName s
 }
 
 func (h *NetworkUtilsHandler) DisableTXOffloadChecksum(ifaceName string) error {
-	if err := link.EthtoolTXOff(ifaceName); err != nil {
+	if err := EthtoolTXOff(ifaceName); err != nil {
 		log.Log.Reason(err).Errorf("Failed to set tx offload for interface %s off", ifaceName)
 		return err
 	}
