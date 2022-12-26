@@ -23,7 +23,6 @@ import (
 	"fmt"
 	"net"
 
-	"github.com/coreos/go-iptables/iptables"
 	"github.com/vishvananda/netlink"
 
 	. "github.com/onsi/ginkgo/v2"
@@ -32,6 +31,7 @@ import (
 	v1 "kubevirt.io/api/core/v1"
 
 	"kubevirt.io/kubevirt/pkg/network/cache"
+	netdriver "kubevirt.io/kubevirt/pkg/network/driver"
 	"kubevirt.io/kubevirt/pkg/network/namescheme"
 )
 
@@ -48,35 +48,35 @@ var _ = Describe("Common Methods", func() {
 	}
 	Context("GenerateMasqueradeGatewayAndVmIPAddrs function", func() {
 		It("Should return 2 addresses", func() {
-			gw, vm, err := GenerateMasqueradeGatewayAndVmIPAddrs(createNetwork("10.0.0.0/30", ""), iptables.ProtocolIPv4)
+			gw, vm, err := GenerateMasqueradeGatewayAndVmIPAddrs(createNetwork("10.0.0.0/30", ""), netdriver.IPv4)
 			Expect(err).ToNot(HaveOccurred())
 			Expect(gw.IPNet.String()).To(Equal(("10.0.0.1/30")))
 			Expect(vm.IPNet.String()).To(Equal("10.0.0.2/30"))
 		})
 		It("Should return 2 IPV6 addresses", func() {
-			gw, vm, err := GenerateMasqueradeGatewayAndVmIPAddrs(createNetwork("", "fd10:0:2::/120"), iptables.ProtocolIPv6)
+			gw, vm, err := GenerateMasqueradeGatewayAndVmIPAddrs(createNetwork("", "fd10:0:2::/120"), netdriver.IPv6)
 			Expect(err).ToNot(HaveOccurred())
 			Expect(gw.IPNet.String()).To(Equal("fd10:0:2::1/120"))
 			Expect(vm.IPNet.String()).To(Equal("fd10:0:2::2/120"))
 		})
 		It("Should return 2 default addresses", func() {
-			gw, vm, err := GenerateMasqueradeGatewayAndVmIPAddrs(createNetwork("", ""), iptables.ProtocolIPv4)
+			gw, vm, err := GenerateMasqueradeGatewayAndVmIPAddrs(createNetwork("", ""), netdriver.IPv4)
 			Expect(err).ToNot(HaveOccurred())
 			Expect(gw.IPNet.String()).To(Equal("10.0.2.1/24"))
 			Expect(vm.IPNet.String()).To(Equal("10.0.2.2/24"))
 		})
 		It("Should return 2 default IPV6 addresses", func() {
-			gw, vm, err := GenerateMasqueradeGatewayAndVmIPAddrs(createNetwork("", ""), iptables.ProtocolIPv6)
+			gw, vm, err := GenerateMasqueradeGatewayAndVmIPAddrs(createNetwork("", ""), netdriver.IPv6)
 			Expect(err).ToNot(HaveOccurred())
 			Expect(gw.IPNet.String()).To(Equal("fd10:0:2::1/120"))
 			Expect(vm.IPNet.String()).To(Equal("fd10:0:2::2/120"))
 		})
 		It("Should fail when the subnet is too small", func() {
-			_, _, err := GenerateMasqueradeGatewayAndVmIPAddrs(createNetwork("10.0.0.0/31", ""), iptables.ProtocolIPv4)
+			_, _, err := GenerateMasqueradeGatewayAndVmIPAddrs(createNetwork("10.0.0.0/31", ""), netdriver.IPv4)
 			Expect(err).To(HaveOccurred())
 		})
 		It("Should fail when the IPV6 subnet is too small", func() {
-			_, _, err := GenerateMasqueradeGatewayAndVmIPAddrs(createNetwork("", "fd10:0:2::/127"), iptables.ProtocolIPv6)
+			_, _, err := GenerateMasqueradeGatewayAndVmIPAddrs(createNetwork("", "fd10:0:2::/127"), netdriver.IPv6)
 			Expect(err).To(HaveOccurred())
 		})
 	})

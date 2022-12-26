@@ -6,7 +6,6 @@ import (
 	"strconv"
 	"strings"
 
-	"github.com/coreos/go-iptables/iptables"
 	"github.com/vishvananda/netlink"
 
 	v1 "kubevirt.io/api/core/v1"
@@ -88,7 +87,7 @@ func (b *MasqueradePodNetworkConfigurator) DiscoverPodNetworkInterface(podIfaceN
 }
 
 func (b *MasqueradePodNetworkConfigurator) computeIPv4GatewayAndVmIp() error {
-	ipv4Gateway, ipv4, err := virtnetlink.GenerateMasqueradeGatewayAndVmIPAddrs(b.vmiSpecNetwork, iptables.ProtocolIPv4)
+	ipv4Gateway, ipv4, err := virtnetlink.GenerateMasqueradeGatewayAndVmIPAddrs(b.vmiSpecNetwork, netdriver.IPv4)
 	if err != nil {
 		return err
 	}
@@ -99,7 +98,7 @@ func (b *MasqueradePodNetworkConfigurator) computeIPv4GatewayAndVmIp() error {
 }
 
 func (b *MasqueradePodNetworkConfigurator) computeIPv6GatewayAndVmIp() error {
-	ipv6Gateway, ipv6, err := virtnetlink.GenerateMasqueradeGatewayAndVmIPAddrs(b.vmiSpecNetwork, iptables.ProtocolIPv6)
+	ipv6Gateway, ipv6, err := virtnetlink.GenerateMasqueradeGatewayAndVmIPAddrs(b.vmiSpecNetwork, netdriver.IPv6)
 	if err != nil {
 		return err
 	}
@@ -141,7 +140,7 @@ func (b *MasqueradePodNetworkConfigurator) PreparePodNetworkInterface() error {
 			log.Log.Reason(err).Errorf("failed to configure routing of local addresses for %s", api.DefaultBridgeName)
 			return err
 		}
-		err = b.createNatRules(iptables.ProtocolIPv4)
+		err = b.createNatRules(netdriver.IPv4)
 		if err != nil {
 			log.Log.Reason(err).Errorf("failed to create ipv4 nat rules for vm error: %v", err)
 			return err
@@ -154,7 +153,7 @@ func (b *MasqueradePodNetworkConfigurator) PreparePodNetworkInterface() error {
 		return err
 	}
 	if ipv6Enabled {
-		err = b.createNatRules(iptables.ProtocolIPv6)
+		err = b.createNatRules(netdriver.IPv6)
 		if err != nil {
 			log.Log.Reason(err).Errorf("failed to create ipv6 nat rules for vm error: %v", err)
 			return err
@@ -213,120 +212,120 @@ func (b *MasqueradePodNetworkConfigurator) createBridge() error {
 	return nil
 }
 
-func GetLoopbackAdrress(proto iptables.Protocol) string {
-	if proto == iptables.ProtocolIPv4 {
+func GetLoopbackAdrress(ipVersion netdriver.IPVersion) string {
+	if ipVersion == netdriver.IPv4 {
 		return "127.0.0.1"
 	} else {
 		return "::1"
 	}
 }
 
-func (b *MasqueradePodNetworkConfigurator) createNatRules(protocol iptables.Protocol) error {
-	err := b.handler.ConfigureIpForwarding(protocol)
+func (b *MasqueradePodNetworkConfigurator) createNatRules(ipVersion netdriver.IPVersion) error {
+	err := b.handler.ConfigureIpForwarding(ipVersion)
 	if err != nil {
 		log.Log.Reason(err).Errorf("failed to configure ip forwarding")
 		return err
 	}
 
 	if b.handler.CheckNftables() == nil {
-		return b.createNatRulesUsingNftables(protocol)
+		return b.createNatRulesUsingNftables(ipVersion)
 	}
 	return fmt.Errorf("Couldn't configure ip nat rules")
 }
 
-func (b *MasqueradePodNetworkConfigurator) createNatRulesUsingNftables(proto iptables.Protocol) error {
-	err := b.handler.NftablesNewTable(proto, "nat")
+func (b *MasqueradePodNetworkConfigurator) createNatRulesUsingNftables(ipVersion netdriver.IPVersion) error {
+	err := b.handler.NftablesNewTable(ipVersion, "nat")
 	if err != nil {
 		return err
 	}
 
-	err = b.handler.NftablesNewChain(proto, "nat", "prerouting { type nat hook prerouting priority -100; }")
+	err = b.handler.NftablesNewChain(ipVersion, "nat", "prerouting { type nat hook prerouting priority -100; }")
 	if err != nil {
 		return err
 	}
 
-	err = b.handler.NftablesNewChain(proto, "nat", "input { type nat hook input priority 100; }")
+	err = b.handler.NftablesNewChain(ipVersion, "nat", "input { type nat hook input priority 100; }")
 	if err != nil {
 		return err
 	}
 
-	err = b.handler.NftablesNewChain(proto, "nat", "output { type nat hook output priority -100; }")
+	err = b.handler.NftablesNewChain(ipVersion, "nat", "output { type nat hook output priority -100; }")
 	if err != nil {
 		return err
 	}
 
-	err = b.handler.NftablesNewChain(proto, "nat", "postrouting { type nat hook postrouting priority 100; }")
+	err = b.handler.NftablesNewChain(ipVersion, "nat", "postrouting { type nat hook postrouting priority 100; }")
 	if err != nil {
 		return err
 	}
 
-	err = b.handler.NftablesNewChain(proto, "nat", "KUBEVIRT_PREINBOUND")
+	err = b.handler.NftablesNewChain(ipVersion, "nat", "KUBEVIRT_PREINBOUND")
 	if err != nil {
 		return err
 	}
 
-	err = b.handler.NftablesNewChain(proto, "nat", "KUBEVIRT_POSTINBOUND")
+	err = b.handler.NftablesNewChain(ipVersion, "nat", "KUBEVIRT_POSTINBOUND")
 	if err != nil {
 		return err
 	}
 
-	err = b.handler.NftablesAppendRule(proto, "nat", "postrouting", b.handler.GetNFTIPString(proto), "saddr", b.geVmIfaceIpByProtocol(proto), "counter", "masquerade")
+	err = b.handler.NftablesAppendRule(ipVersion, "nat", "postrouting", b.handler.GetNFTIPString(ipVersion), "saddr", b.geVmIfaceIpByProtocol(ipVersion), "counter", "masquerade")
 	if err != nil {
 		return err
 	}
 
-	err = b.handler.NftablesAppendRule(proto, "nat", "prerouting", "iifname", b.podNicLink.Attrs().Name, "counter", "jump", "KUBEVIRT_PREINBOUND")
+	err = b.handler.NftablesAppendRule(ipVersion, "nat", "prerouting", "iifname", b.podNicLink.Attrs().Name, "counter", "jump", "KUBEVIRT_PREINBOUND")
 	if err != nil {
 		return err
 	}
 
-	err = b.handler.NftablesAppendRule(proto, "nat", "postrouting", "oifname", b.bridgeInterfaceName, "counter", "jump", "KUBEVIRT_POSTINBOUND")
+	err = b.handler.NftablesAppendRule(ipVersion, "nat", "postrouting", "oifname", b.bridgeInterfaceName, "counter", "jump", "KUBEVIRT_POSTINBOUND")
 	if err != nil {
 		return err
 	}
 
-	err = b.skipForwardingForPortsUsingNftables(proto, b.portsUsedByLiveMigration())
+	err = b.skipForwardingForPortsUsingNftables(ipVersion, b.portsUsedByLiveMigration())
 	if err != nil {
 		return err
 	}
 
-	addressesToDnat, err := b.getDstAddressesToDnat(proto)
+	addressesToDnat, err := b.getDstAddressesToDnat(ipVersion)
 	if err != nil {
 		return err
 	}
 
 	if len(b.vmiSpecIface.Ports) == 0 {
 		if istio.ProxyInjectionEnabled(b.vmi) {
-			err = b.skipForwardingForPortsUsingNftables(proto, istio.ReservedPorts())
+			err = b.skipForwardingForPortsUsingNftables(ipVersion, istio.ReservedPorts())
 			if err != nil {
 				return err
 			}
 			for _, nonProxiedPort := range istio.NonProxiedPorts() {
-				err = b.forwardPortUsingNftables(proto, nonProxiedPort)
+				err = b.forwardPortUsingNftables(ipVersion, nonProxiedPort)
 				if err != nil {
 					return err
 				}
 			}
 		}
 
-		err = b.handler.NftablesAppendRule(proto, "nat", "KUBEVIRT_POSTINBOUND",
-			b.handler.GetNFTIPString(proto), "saddr", b.getSrcAddressesToSnat(proto),
-			"counter", "snat", "to", b.getGatewayByProtocol(proto))
+		err = b.handler.NftablesAppendRule(ipVersion, "nat", "KUBEVIRT_POSTINBOUND",
+			b.handler.GetNFTIPString(ipVersion), "saddr", b.getSrcAddressesToSnat(ipVersion),
+			"counter", "snat", "to", b.getGatewayByProtocol(ipVersion))
 		if err != nil {
 			return err
 		}
 
 		if !istio.ProxyInjectionEnabled(b.vmi) {
-			err = b.handler.NftablesAppendRule(proto, "nat", "KUBEVIRT_PREINBOUND",
-				"counter", "dnat", "to", b.geVmIfaceIpByProtocol(proto))
+			err = b.handler.NftablesAppendRule(ipVersion, "nat", "KUBEVIRT_PREINBOUND",
+				"counter", "dnat", "to", b.geVmIfaceIpByProtocol(ipVersion))
 			if err != nil {
 				return err
 			}
 		}
 
-		err = b.handler.NftablesAppendRule(proto, "nat", "output",
-			b.handler.GetNFTIPString(proto), "daddr", addressesToDnat,
-			"counter", "dnat", "to", b.geVmIfaceIpByProtocol(proto))
+		err = b.handler.NftablesAppendRule(ipVersion, "nat", "output",
+			b.handler.GetNFTIPString(ipVersion), "daddr", addressesToDnat,
+			"counter", "dnat", "to", b.geVmIfaceIpByProtocol(ipVersion))
 		if err != nil {
 			return err
 		}
@@ -339,29 +338,29 @@ func (b *MasqueradePodNetworkConfigurator) createNatRulesUsingNftables(proto ipt
 			port.Protocol = "tcp"
 		}
 
-		err = b.handler.NftablesAppendRule(proto, "nat", "KUBEVIRT_POSTINBOUND",
+		err = b.handler.NftablesAppendRule(ipVersion, "nat", "KUBEVIRT_POSTINBOUND",
 			strings.ToLower(port.Protocol),
 			"dport",
 			strconv.Itoa(int(port.Port)),
-			b.handler.GetNFTIPString(proto), "saddr", b.getSrcAddressesToSnat(proto),
-			"counter", "snat", "to", b.getGatewayByProtocol(proto))
+			b.handler.GetNFTIPString(ipVersion), "saddr", b.getSrcAddressesToSnat(ipVersion),
+			"counter", "snat", "to", b.getGatewayByProtocol(ipVersion))
 		if err != nil {
 			return err
 		}
 
 		if !istio.ProxyInjectionEnabled(b.vmi) {
-			err = b.handler.NftablesAppendRule(proto, "nat", "KUBEVIRT_PREINBOUND",
+			err = b.handler.NftablesAppendRule(ipVersion, "nat", "KUBEVIRT_PREINBOUND",
 				strings.ToLower(port.Protocol),
 				"dport",
 				strconv.Itoa(int(port.Port)),
-				"counter", "dnat", "to", b.geVmIfaceIpByProtocol(proto))
+				"counter", "dnat", "to", b.geVmIfaceIpByProtocol(ipVersion))
 			if err != nil {
 				return err
 			}
 		} else {
 			for _, nonProxiedPort := range istio.NonProxiedPorts() {
 				if int(port.Port) == nonProxiedPort {
-					err = b.forwardPortUsingNftables(proto, nonProxiedPort)
+					err = b.forwardPortUsingNftables(ipVersion, nonProxiedPort)
 					if err != nil {
 						return err
 					}
@@ -369,12 +368,12 @@ func (b *MasqueradePodNetworkConfigurator) createNatRulesUsingNftables(proto ipt
 			}
 		}
 
-		err = b.handler.NftablesAppendRule(proto, "nat", "output",
-			b.handler.GetNFTIPString(proto), "daddr", addressesToDnat,
+		err = b.handler.NftablesAppendRule(ipVersion, "nat", "output",
+			b.handler.GetNFTIPString(ipVersion), "daddr", addressesToDnat,
 			strings.ToLower(port.Protocol),
 			"dport",
 			strconv.Itoa(int(port.Port)),
-			"counter", "dnat", "to", b.geVmIfaceIpByProtocol(proto))
+			"counter", "dnat", "to", b.geVmIfaceIpByProtocol(ipVersion))
 		if err != nil {
 			return err
 		}
@@ -383,16 +382,16 @@ func (b *MasqueradePodNetworkConfigurator) createNatRulesUsingNftables(proto ipt
 	return nil
 }
 
-func (b *MasqueradePodNetworkConfigurator) skipForwardingForPortsUsingNftables(proto iptables.Protocol, ports []string) error {
+func (b *MasqueradePodNetworkConfigurator) skipForwardingForPortsUsingNftables(ipVersion netdriver.IPVersion, ports []string) error {
 	if len(ports) == 0 {
 		return nil
 	}
 	chainWhereDnatIsPerformed := "output"
 	chainWhereSnatIsPerformed := "KUBEVIRT_POSTINBOUND"
 	for _, chain := range []string{chainWhereDnatIsPerformed, chainWhereSnatIsPerformed} {
-		err := b.handler.NftablesAppendRule(proto, "nat", chain,
+		err := b.handler.NftablesAppendRule(ipVersion, "nat", chain,
 			"tcp", "dport", fmt.Sprintf(strFmt, strings.Join(ports, ", ")),
-			b.handler.GetNFTIPString(proto), "saddr", getLoopbackAdrress(proto),
+			b.handler.GetNFTIPString(ipVersion), "saddr", getLoopbackAdrress(ipVersion),
 			"counter", "return")
 		if err != nil {
 			return err
@@ -401,39 +400,39 @@ func (b *MasqueradePodNetworkConfigurator) skipForwardingForPortsUsingNftables(p
 	return nil
 }
 
-func (b *MasqueradePodNetworkConfigurator) forwardPortUsingNftables(proto iptables.Protocol, port int) error {
-	return b.handler.NftablesAppendRule(proto, "nat", "KUBEVIRT_PREINBOUND",
+func (b *MasqueradePodNetworkConfigurator) forwardPortUsingNftables(ipVersion netdriver.IPVersion, port int) error {
+	return b.handler.NftablesAppendRule(ipVersion, "nat", "KUBEVIRT_PREINBOUND",
 		"tcp", "dport", fmt.Sprintf("%d", port), "counter",
-		"dnat", "to", b.geVmIfaceIpByProtocol(proto))
+		"dnat", "to", b.geVmIfaceIpByProtocol(ipVersion))
 }
 
-func (b *MasqueradePodNetworkConfigurator) getGatewayByProtocol(proto iptables.Protocol) string {
-	if proto == iptables.ProtocolIPv4 {
+func (b *MasqueradePodNetworkConfigurator) getGatewayByProtocol(ipVersion netdriver.IPVersion) string {
+	if ipVersion == netdriver.IPv4 {
 		return b.vmGatewayAddr.IP.String()
 	} else {
 		return b.vmGatewayIpv6Addr.IP.String()
 	}
 }
 
-func (b *MasqueradePodNetworkConfigurator) geVmIfaceIpByProtocol(proto iptables.Protocol) string {
-	if proto == iptables.ProtocolIPv4 {
+func (b *MasqueradePodNetworkConfigurator) geVmIfaceIpByProtocol(ipVersion netdriver.IPVersion) string {
+	if ipVersion == netdriver.IPv4 {
 		return b.vmIPv4Addr.IP.String()
 	} else {
 		return b.vmIPv6Addr.IP.String()
 	}
 }
 
-func (b *MasqueradePodNetworkConfigurator) getSrcAddressesToSnat(proto iptables.Protocol) string {
-	addresses := []string{getLoopbackAdrress(proto)}
-	if istio.ProxyInjectionEnabled(b.vmi) && proto == iptables.ProtocolIPv4 {
+func (b *MasqueradePodNetworkConfigurator) getSrcAddressesToSnat(ipVersion netdriver.IPVersion) string {
+	addresses := []string{getLoopbackAdrress(ipVersion)}
+	if istio.ProxyInjectionEnabled(b.vmi) && ipVersion == netdriver.IPv4 {
 		addresses = append(addresses, istio.GetLoopbackAddress())
 	}
 	return fmt.Sprintf(strFmt, strings.Join(addresses, ", "))
 }
 
-func (b *MasqueradePodNetworkConfigurator) getDstAddressesToDnat(proto iptables.Protocol) (string, error) {
-	addresses := []string{getLoopbackAdrress(proto)}
-	if istio.ProxyInjectionEnabled(b.vmi) && proto == iptables.ProtocolIPv4 {
+func (b *MasqueradePodNetworkConfigurator) getDstAddressesToDnat(ipVersion netdriver.IPVersion) (string, error) {
+	addresses := []string{getLoopbackAdrress(ipVersion)}
+	if istio.ProxyInjectionEnabled(b.vmi) && ipVersion == netdriver.IPv4 {
 		ipv4, _, err := b.handler.ReadIPAddressesFromLink(b.podNicLink.Attrs().Name)
 		if err != nil {
 			return "", err
@@ -443,8 +442,8 @@ func (b *MasqueradePodNetworkConfigurator) getDstAddressesToDnat(proto iptables.
 	return fmt.Sprintf(strFmt, strings.Join(addresses, ", ")), nil
 }
 
-func getLoopbackAdrress(proto iptables.Protocol) string {
-	if proto == iptables.ProtocolIPv4 {
+func getLoopbackAdrress(ipVersion netdriver.IPVersion) string {
+	if ipVersion == netdriver.IPv4 {
 		return "127.0.0.1"
 	} else {
 		return "::1"
