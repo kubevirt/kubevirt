@@ -50,7 +50,7 @@ var _ = Describe("CNA Operand", func() {
 				cl.Get(context.TODO(),
 					types.NamespacedName{Name: expectedResource.Name, Namespace: expectedResource.Namespace},
 					foundResource),
-			).ToNot(HaveOccurred())
+			).To(Succeed())
 			Expect(foundResource.Name).To(Equal(expectedResource.Name))
 			Expect(foundResource.Labels).Should(HaveKeyWithValue(hcoutil.AppLabel, commonTestUtils.Name))
 			Expect(foundResource.Namespace).To(Equal(expectedResource.Namespace))
@@ -112,7 +112,7 @@ var _ = Describe("CNA Operand", func() {
 				cl.Get(context.TODO(),
 					types.NamespacedName{Name: existingResource.Name, Namespace: existingResource.Namespace},
 					foundResource),
-			).ToNot(HaveOccurred())
+			).To(Succeed())
 			Expect(foundResource.Spec.ImagePullPolicy).To(BeEmpty())
 
 			Expect(req.Conditions).To(BeEmpty())
@@ -147,7 +147,7 @@ var _ = Describe("CNA Operand", func() {
 				cl.Get(context.TODO(),
 					types.NamespacedName{Name: existingResource.Name, Namespace: existingResource.Namespace},
 					foundResource),
-			).ToNot(HaveOccurred())
+			).To(Succeed())
 
 			Expect(existingResource.Spec.PlacementConfiguration).To(BeNil())
 			Expect(foundResource.Spec.PlacementConfiguration).ToNot(BeNil())
@@ -182,7 +182,7 @@ var _ = Describe("CNA Operand", func() {
 				cl.Get(context.TODO(),
 					types.NamespacedName{Name: existingResource.Name, Namespace: existingResource.Namespace},
 					foundResource),
-			).ToNot(HaveOccurred())
+			).To(Succeed())
 
 			Expect(existingResource.Spec.PlacementConfiguration).ToNot(BeNil())
 			Expect(foundResource.Spec.PlacementConfiguration).To(BeNil())
@@ -217,7 +217,7 @@ var _ = Describe("CNA Operand", func() {
 				cl.Get(context.TODO(),
 					types.NamespacedName{Name: existingResource.Name, Namespace: existingResource.Namespace},
 					foundResource),
-			).ToNot(HaveOccurred())
+			).To(Succeed())
 
 			Expect(existingResource.Spec.PlacementConfiguration).ToNot(BeNil())
 			Expect(existingResource.Spec.PlacementConfiguration.Infra.Tolerations).To(HaveLen(2))
@@ -264,7 +264,7 @@ var _ = Describe("CNA Operand", func() {
 				cl.Get(context.TODO(),
 					types.NamespacedName{Name: existingResource.Name, Namespace: existingResource.Namespace},
 					foundResource),
-			).ToNot(HaveOccurred())
+			).To(Succeed())
 
 			Expect(existingResource.Spec.PlacementConfiguration.Infra.Tolerations).To(HaveLen(3))
 			Expect(existingResource.Spec.PlacementConfiguration.Workloads.Tolerations).To(HaveLen(3))
@@ -306,7 +306,7 @@ var _ = Describe("CNA Operand", func() {
 				cl.Get(context.TODO(),
 					types.NamespacedName{Name: existingResource.Name, Namespace: existingResource.Namespace},
 					foundResource),
-			).ToNot(HaveOccurred())
+			).To(Succeed())
 
 			Expect(foundResource.Spec.SelfSignConfiguration).ToNot(BeNil())
 			selfSignedConfig := foundResource.Spec.SelfSignConfiguration
@@ -333,7 +333,7 @@ var _ = Describe("CNA Operand", func() {
 				cl.Get(context.TODO(),
 					types.NamespacedName{Name: existingResource.Name, Namespace: existingResource.Namespace},
 					foundResource),
-			).ToNot(HaveOccurred())
+			).To(Succeed())
 
 			Expect(existingResource.Spec.SelfSignConfiguration).To(BeNil())
 
@@ -380,7 +380,7 @@ var _ = Describe("CNA Operand", func() {
 				cl.Get(context.TODO(),
 					types.NamespacedName{Name: existingResource.Name, Namespace: existingResource.Namespace},
 					foundResource),
-			).ToNot(HaveOccurred())
+			).To(Succeed())
 
 			Expect(existingResource.Spec.SelfSignConfiguration).ToNot(BeNil())
 			existingSelfSignedConfig := existingResource.Spec.SelfSignConfiguration
@@ -436,7 +436,7 @@ var _ = Describe("CNA Operand", func() {
 				cl.Get(context.TODO(),
 					types.NamespacedName{Name: existingResource.Name, Namespace: existingResource.Namespace},
 					foundResource),
-			).ToNot(HaveOccurred())
+			).To(Succeed())
 
 			Expect(existingResource.Spec.SelfSignConfiguration).ToNot(BeNil())
 			existingSelfSignedConfig := existingResource.Spec.SelfSignConfiguration
@@ -456,52 +456,70 @@ var _ = Describe("CNA Operand", func() {
 		})
 
 		type ovsAnnotationParams struct {
-			annotationExists  bool
+			ovsExists         bool
+			setAnnotation     bool
 			annotationValue   string
 			ovsDeployExpected bool
 		}
 		DescribeTable("when reconciling ovs-cni", func(o ovsAnnotationParams) {
-			hcoOVSConfig := commonTestUtils.NewHco()
-			hcoOVSConfig.Annotations = map[string]string{}
-
-			if o.annotationExists {
-				hcoOVSConfig.Annotations["deployOVS"] = o.annotationValue
+			existingCNAO, err := NewNetworkAddons(hco)
+			Expect(err).ToNot(HaveOccurred())
+			if o.ovsExists {
+				existingCNAO.Spec.Ovs = &networkaddonsshared.Ovs{}
 			}
 
-			existingResource, err := NewNetworkAddons(hcoOVSConfig)
-			Expect(err).ToNot(HaveOccurred())
+			if o.setAnnotation {
+				hco.Annotations = map[string]string{
+					"deployOVS": o.annotationValue,
+				}
+			}
 
-			cl := commonTestUtils.InitClient([]runtime.Object{hco, existingResource})
+			cl := commonTestUtils.InitClient([]runtime.Object{hco, existingCNAO})
 			handler := (*genericOperand)(newCnaHandler(cl, commonTestUtils.GetScheme()))
 			res := handler.ensure(req)
 			Expect(res.UpgradeDone).To(BeFalse())
 			Expect(res.Err).ToNot(HaveOccurred())
 
-			foundResource := &networkaddonsv1.NetworkAddonsConfig{}
+			foundCNAO := &networkaddonsv1.NetworkAddonsConfig{}
 			Expect(
 				cl.Get(context.TODO(),
-					types.NamespacedName{Name: existingResource.Name, Namespace: existingResource.Namespace},
-					foundResource),
-			).ToNot(HaveOccurred())
+					types.NamespacedName{Name: existingCNAO.Name, Namespace: existingCNAO.Namespace},
+					foundCNAO),
+			).To(Succeed())
 
 			if o.ovsDeployExpected {
-				Expect(existingResource.Spec.Ovs).ToNot(BeNil(), "Ovs spec should be added")
+				Expect(foundCNAO.Spec.Ovs).ToNot(BeNil(), "OVS spec should be added")
 			} else {
-				Expect(existingResource.Spec.Ovs).To(BeNil(), "Ovs spec should not be added")
+				Expect(foundCNAO.Spec.Ovs).To(BeNil(), "OVS spec should not be added")
 			}
 		},
-			Entry("should have ovs if deployOVS annotation is set to true", ovsAnnotationParams{
-				annotationExists:  true,
+			Entry("should have OVS if deployOVS annotation is set to true", ovsAnnotationParams{
+				ovsExists:         false,
+				setAnnotation:     true,
 				annotationValue:   "true",
 				ovsDeployExpected: true,
 			}),
-			Entry("should not have ovs if deployOVS annotation is not set to true", ovsAnnotationParams{
-				annotationExists:  true,
+			Entry("should not have ovs if deployOVS annotation is set to false", ovsAnnotationParams{
+				ovsExists:         true,
+				setAnnotation:     true,
 				annotationValue:   "false",
 				ovsDeployExpected: false,
 			}),
+			Entry("should not have ovs if deployOVS annotation is not set to true", ovsAnnotationParams{
+				ovsExists:         true,
+				setAnnotation:     true,
+				annotationValue:   "someValue",
+				ovsDeployExpected: false,
+			}),
+			Entry("should not have ovs if deployOVS annotation is empty", ovsAnnotationParams{
+				ovsExists:         true,
+				setAnnotation:     true,
+				annotationValue:   "",
+				ovsDeployExpected: false,
+			}),
 			Entry("should not have ovs if deployOVS annotation does not exist", ovsAnnotationParams{
-				annotationExists:  false,
+				ovsExists:         false,
+				setAnnotation:     false,
 				annotationValue:   "",
 				ovsDeployExpected: false,
 			}),
@@ -606,7 +624,7 @@ var _ = Describe("CNA Operand", func() {
 			}))
 		})
 
-		It("should override ann existing upgrade condition, if the operand one is false", func() {
+		It("should override an existing upgrade condition, if the operand one is false", func() {
 			expectedResource, err := NewNetworkAddons(hco)
 			req.Conditions.SetStatusCondition(metav1.Condition{
 				Type:    hcov1beta1.ConditionUpgradeable,
@@ -712,7 +730,7 @@ var _ = Describe("CNA Operand", func() {
 					cl.Get(context.TODO(),
 						types.NamespacedName{Name: expectedResource.Name, Namespace: expectedResource.Namespace},
 						cna),
-				).ToNot(HaveOccurred())
+				).To(Succeed())
 
 				Expect(cna).ToNot(BeNil())
 				Expect(cna.Spec.KubeMacPool.RangeStart).Should(Equal("1.1.1.1.1.1"))
@@ -777,7 +795,7 @@ var _ = Describe("CNA Operand", func() {
 					cl.Get(context.TODO(),
 						types.NamespacedName{Name: expectedResource.Name, Namespace: expectedResource.Namespace},
 						cna),
-				).ToNot(HaveOccurred())
+				).To(Succeed())
 
 				Expect(cna.Spec.KubeMacPool.RangeStart).Should(Equal("1.1.1.1.1.1"))
 				Expect(cna.Spec.KubeMacPool.RangeEnd).Should(Equal("5.5.5.5.5.5"))
@@ -809,7 +827,7 @@ var _ = Describe("CNA Operand", func() {
 					cl.Get(context.TODO(),
 						types.NamespacedName{Name: expectedResource.Name, Namespace: expectedResource.Namespace},
 						cna),
-				).ToNot(HaveOccurred())
+				).To(Succeed())
 
 				Expect(cna.Spec.KubeMacPool.RangeStart).To(BeEmpty())
 				Expect(cna.Spec.KubeMacPool.RangeEnd).To(BeEmpty())
@@ -906,7 +924,7 @@ var _ = Describe("CNA Operand", func() {
 					cl.Get(context.TODO(),
 						types.NamespacedName{Name: existingResource.Name, Namespace: existingResource.Namespace},
 						foundResource),
-				).ToNot(HaveOccurred())
+				).To(Succeed())
 
 				Expect(foundResource.Spec.TLSSecurityProfile).To(Equal(modernTLSSecurityProfile))
 
@@ -937,7 +955,7 @@ var _ = Describe("CNA Operand", func() {
 					cl.Get(context.TODO(),
 						types.NamespacedName{Name: existingResource.Name, Namespace: existingResource.Namespace},
 						foundResource),
-				).ToNot(HaveOccurred())
+				).To(Succeed())
 
 				Expect(foundResource.Spec.TLSSecurityProfile).To(Equal(hco.Spec.TLSSecurityProfile))
 				Expect(foundResource.Spec.TLSSecurityProfile).ToNot(Equal(existingResource.Spec.TLSSecurityProfile))
