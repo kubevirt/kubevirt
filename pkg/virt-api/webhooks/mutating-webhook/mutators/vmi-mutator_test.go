@@ -812,9 +812,23 @@ var _ = Describe("VirtualMachineInstance Mutator", func() {
 				},
 			}, nil),
 
+		Entry("if EVMCS is explicitly false ", api.NewMinimalVMI("testvmi"),
+			&v1.FeatureHyperv{
+				EVMCS: &v1.FeatureState{Enabled: pointer.BoolPtr(false)},
+			},
+			nil,
+		),
+
 		Entry("if hyperV does contain EVMCS", api.NewMinimalVMI("testvmi"),
 			&v1.FeatureHyperv{
 				EVMCS: &v1.FeatureState{},
+			}, &v1.CPU{
+				Features: cpuFeatures,
+			}),
+
+		Entry("if EVMCS is explicitly true ", api.NewMinimalVMI("testvmi"),
+			&v1.FeatureHyperv{
+				EVMCS: &v1.FeatureState{Enabled: pointer.BoolPtr(true)},
 			}, &v1.CPU{
 				Features: cpuFeatures,
 			}),

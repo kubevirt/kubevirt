@@ -121,6 +121,7 @@ go_test(
         "credentials_test.go",
         "dryrun_test.go",
         "flavor_test.go",
+        "hyperv_test.go",
         "infra_test.go",
         "kubectl_test.go",
         "mdev_configuration_allocation_test.go",
