@@ -1125,7 +1125,6 @@ func prepareVmiConsole(vmi v12.VirtualMachineInstance, vmiType string) error {
 
 func (r *KubernetesReporter) executeNodeCommands(virtCli kubecli.KubevirtClient, logsdir string, pod *v1.Pod) {
 	const networkPrefix = "nsenter -t 1 -n -- "
-	hostPrefix := fmt.Sprintf("%s --mount %s exec -- ", virt_chroot.GetChrootBinaryPath(), virt_chroot.GetChrootMountNamespace())
 
 	cmds := []commands{
 		{command: networkPrefix + ipAddrName, fileNameSuffix: "ipaddress"},
@@ -1135,8 +1134,6 @@ func (r *KubernetesReporter) executeNodeCommands(virtCli kubecli.KubevirtClient,
 		{command: networkPrefix + bridgeJVlanShow, fileNameSuffix: "brvlan"},
 		{command: networkPrefix + bridgeFdb, fileNameSuffix: "brfdb"},
 		{command: networkPrefix + "nft list ruleset", fileNameSuffix: "nftlist"},
-
-		{command: hostPrefix + "/usr/bin/" + networkPrefix + "/usr/sbin/iptables --list -v", fileNameSuffix: "iptables"},
 	}
 
 	if tests.IsRunningOnKindInfra() {
