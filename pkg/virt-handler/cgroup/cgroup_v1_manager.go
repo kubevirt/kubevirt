@@ -29,7 +29,9 @@ type v1Manager struct {
 	getCurrentlyDefinedRules getCurrentlyDefinedRulesFunc
 }
 
-func newV1Manager(config *runc_configs.Cgroup, controllerPaths map[string]string) (Manager, error) {
+func newV1Manager(controllerPaths map[string]string) (Manager, error) {
+	config := getDeafulCgroupConfig()
+
 	runcManager, err := runc_fs.NewManager(config, controllerPaths)
 	if err != nil {
 		return nil, fmt.Errorf("cannot initialize new cgroup manager. err: %v", err)
@@ -198,7 +200,7 @@ func (v *v1Manager) CreateChildCgroup(name string, subSystem string) error {
 }
 
 func (v *v1Manager) GetCgroupThreads() ([]int, error) {
-	return getCgroupThreadsHelper(v, "tasks")
+	return getCgroupThreadsHelper(v, v1ThreadsProcsFilename)
 }
 
 func (v *v1Manager) SetCpuSet(subcgroup string, cpulist []int) error {

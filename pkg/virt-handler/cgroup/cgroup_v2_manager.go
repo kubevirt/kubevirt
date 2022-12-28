@@ -6,17 +6,40 @@ import (
 	"path/filepath"
 	"strconv"
 
+	"kubevirt.io/client-go/log"
+
 	runc_cgroups "github.com/opencontainers/runc/libcontainer/cgroups"
 	runc_fs "github.com/opencontainers/runc/libcontainer/cgroups/fs2"
 	runc_configs "github.com/opencontainers/runc/libcontainer/configs"
 	"github.com/opencontainers/runc/libcontainer/devices"
 
-	"kubevirt.io/client-go/log"
-
 	"kubevirt.io/kubevirt/pkg/util"
 )
 
 var rulesPerPid = make(map[string][]*devices.Rule)
+
+type cgroupV2File string
+
+const (
+	subtreeControl cgroupV2File = "cgroup.subtree_control"
+	cgroupType     cgroupV2File = "cgroup.type"
+)
+
+type cgroupV2Type string
+
+const (
+	domain         cgroupV2Type = "domain"
+	threaded       cgroupV2Type = "threaded"
+	domainThreaded cgroupV2Type = "domainThreaded"
+	domainInvalid  cgroupV2Type = "domainInvalid"
+)
+
+type cgroupV2SubtreeCtrlAction string
+
+const (
+	subtreeCtrlAdd    cgroupV2SubtreeCtrlAction = "+"
+	subtreeCtrlRemove cgroupV2SubtreeCtrlAction = "-"
+)
 
 type v2Manager struct {
 	runc_cgroups.Manager
@@ -25,7 +48,9 @@ type v2Manager struct {
 	execVirtChroot execVirtChrootFunc
 }
 
-func newV2Manager(config *runc_configs.Cgroup, dirPath string) (Manager, error) {
+func newV2Manager(dirPath string) (Manager, error) {
+	config := getDeafulCgroupConfig()
+
 	runcManager, err := runc_fs.NewManager(config, dirPath)
 	if err != nil {
 		return nil, err
@@ -137,7 +162,7 @@ func (v *v2Manager) AttachTID(subSystem string, subCgroup string, tid int) error
 }
 
 func (v *v2Manager) GetCgroupThreads() ([]int, error) {
-	return getCgroupThreadsHelper(v, "cgroup.threads")
+	return getCgroupThreadsHelper(v, v2ThreadsFilename)
 }
 
 func (v *v2Manager) SetCpuSet(subcgroup string, cpulist []int) error {

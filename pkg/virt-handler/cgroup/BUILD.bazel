@@ -6,6 +6,7 @@ go_library(
         "cgroup.go",
         "cgroup_v1_manager.go",
         "cgroup_v2_manager.go",
+        "consts.go",
         "generated_mock_cgroup.go",
         "util.go",
     ],
