@@ -1,6 +1,8 @@
 package cgroup
 
 import (
+	"fmt"
+
 	"github.com/golang/mock/gomock"
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
@@ -133,4 +135,52 @@ var _ = Describe("cgroup manager", func() {
 		Entry("for v2", V2),
 	)
 
+	Context("formatCgroupPaths()", func() {
+
+		newMap := func(keyValuePairs ...string) map[string]string {
+			ExpectWithOffset(1, len(keyValuePairs)%2 == 0).To(BeTrue(), fmt.Sprintf("keyValuePairs's len is expected to be equal. Actual length: %d", len(keyValuePairs)))
+
+			ret := make(map[string]string, len(keyValuePairs)/2)
+			for i := 0; i < len(keyValuePairs); i += 2 {
+				key, value := keyValuePairs[i], keyValuePairs[i+1]
+				ret[key] = value
+			}
+
+			return ret
+		}
+
+		DescribeTable("should format properly", func(version CgroupVersion, origPaths, expectedPaths map[string]string) {
+			formattedPaths := formatCgroupPaths(origPaths, version)
+			Expect(formattedPaths).To(Equal(expectedPaths))
+		},
+			Entry("v1: with /proc/1/root/sys/fs/cgroup as prefix", V1,
+				newMap("cpuset", "/proc/1/root/sys/fs/cgroup/cpuset/something"),
+				newMap("cpuset", "/cpuset/something"),
+			),
+			Entry("v1: with /sys/fs/cgroup as prefix", V1,
+				newMap("cpuset", "/sys/fs/cgroup/cpuset/something"),
+				newMap("cpuset", "/cpuset/something"),
+			),
+			Entry("v1: without / as a prefix", V1,
+				newMap("cpuset", "cpuset/something"),
+				newMap("cpuset", "/cpuset/something"),
+			),
+			Entry("v1: without / as a prefix with multiple subsystems", V1,
+				newMap("cpuset", "cpuset/something", "devices", "devices/something"),
+				newMap("cpuset", "/cpuset/something", "devices", "/devices/something"),
+			),
+
+			Entry("v2: with /proc/1/root/sys/fs/cgroup as prefix", V2,
+				newMap("", "/proc/1/root/sys/fs/cgroup/something"),
+				newMap("", "/sys/fs/cgroup/something"),
+			),
+			Entry("v2: with /sys/fs/cgroup as prefix", V2,
+				newMap("", "/sys/fs/cgroup/something"),
+				newMap("", "/sys/fs/cgroup/something"),
+			),
+		)
+	})
+
 })
+
+func y() {}

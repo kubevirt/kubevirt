@@ -12,6 +12,7 @@ import (
 	"strings"
 
 	"github.com/opencontainers/runc/libcontainer/cgroups"
+	"github.com/opencontainers/runc/libcontainer/configs"
 
 	"github.com/opencontainers/runc/libcontainer/devices"
 
@@ -22,24 +23,6 @@ import (
 )
 
 type CgroupVersion string
-
-const (
-	cgroupStr = "cgroup"
-
-	procMountPoint = "/proc"
-
-	HostRootPath       = procMountPoint + "/1/root"
-	cgroupBasePath     = "/sys/fs/" + cgroupStr
-	HostCgroupBasePath = HostRootPath + cgroupBasePath
-)
-
-// Templates for logging / error messages
-const (
-	V1 CgroupVersion = "v1"
-	V2 CgroupVersion = "v2"
-
-	loggingVerbosity = 2
-)
 
 var (
 	defaultDeviceRules []*devices.Rule
@@ -237,4 +220,55 @@ func setCpuSetHelper(manager Manager, subCgroup string, cpusList []int) error {
 	wVal := strings.Trim(strings.Replace(fmt.Sprint(cpusList), " ", ",", -1), "[]")
 
 	return runc_cgroups.WriteFile(subSysPath, "cpuset.cpus", wVal)
+}
+
+func getDeafulCgroupConfig() *configs.Cgroup {
+	const isRootless = false
+
+	return &configs.Cgroup{
+		Path:      HostCgroupBasePath,
+		Resources: &configs.Resources{},
+		Rootless:  isRootless,
+	}
+}
+
+func formatCgroupPaths(controllerPaths map[string]string, cgroupVersion CgroupVersion) map[string]string {
+	if cgroupVersion == V2 {
+		newPath := controllerPaths[""]
+
+		if strings.HasPrefix(newPath, HostRootPath) {
+			newPath = strings.ReplaceAll(newPath, HostRootPath, "")
+		}
+		if !strings.HasPrefix(newPath, cgroupBasePath) {
+			newPath = filepath.Join(cgroupBasePath, newPath)
+		}
+
+		controllerPaths[""] = newPath
+		return controllerPaths
+	}
+
+	for subsystem, path := range controllerPaths {
+		if path == "" {
+			continue
+		}
+
+		newPath := path
+
+		if strings.HasPrefix(newPath, HostCgroupBasePath) {
+			newPath = strings.ReplaceAll(newPath, HostCgroupBasePath, "")
+		} else if strings.HasPrefix(newPath, cgroupBasePath) {
+			newPath = strings.ReplaceAll(newPath, cgroupBasePath, "")
+		}
+
+		if !strings.HasPrefix(newPath, subsystem) && !strings.HasPrefix(newPath, "/"+subsystem) {
+			newPath = filepath.Join(subsystem, newPath)
+		}
+		if !strings.HasPrefix(newPath, "/") {
+			newPath = filepath.Join("/", newPath)
+		}
+
+		controllerPaths[subsystem] = newPath
+	}
+
+	return controllerPaths
 }
