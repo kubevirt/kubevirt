@@ -9,7 +9,7 @@ metadata:
     certified: "false"
     console.openshift.io/disable-operand-delete: "true"
     containerImage: quay.io/kubevirt/hyperconverged-cluster-operator:1.9.0-unstable
-    createdAt: "2022-12-16 05:13:40"
+    createdAt: "2022-12-28 16:11:02"
     description: A unified operator deploying and controlling KubeVirt and its supporting
       operators with opinionated defaults
     operatorframework.io/initialization-resource: '{"apiVersion":"hco.kubevirt.io/v1beta1","kind":"HyperConverged","metadata":{"annotations":{"deployOVS":"false"},"name":"kubevirt-hyperconverged","namespace":"kubevirt-hyperconverged"},"spec":{}}'
@@ -2584,7 +2584,7 @@ spec:
                 - name: CDI_VERSION
                   value: v1.55.2
                 - name: NETWORK_ADDONS_VERSION
-                  value: v0.83.0
+                  value: v0.83.1
                 - name: SSP_VERSION
                   value: v0.16.2
                 - name: TTO_VERSION
@@ -2793,15 +2793,15 @@ spec:
                 - name: KUBE_RBAC_PROXY_IMAGE
                   value: quay.io/openshift/origin-kube-rbac-proxy@sha256:baedb268ac66456018fb30af395bb3d69af5fff3252ff5d549f0231b1ebb6901
                 - name: KUBE_SECONDARY_DNS_IMAGE
-                  value: ghcr.io/kubevirt/kubesecondarydns@sha256:9bb0e7784cab32a8683f56b3d370b4ab5efed339fa372a8f3ca2e0408e1f8f19
+                  value: ghcr.io/kubevirt/kubesecondarydns@sha256:52baadf22ae10da4987b623b0c7a632429d09c5c080d96ded1086596a519d442
                 - name: CORE_DNS_IMAGE
                   value: k8s.gcr.io/coredns/coredns@sha256:5b6ec0d6de9baaf3e92d0f66cd96a25b9edbce8716f5f15dcd1a616b3abd590e
                 - name: OPERATOR_IMAGE
-                  value: quay.io/kubevirt/cluster-network-addons-operator@sha256:e13aa4cdd6778ff0f0e961dd1fcf44416bdd615acf4cd3b37374fd2a7ed68598
+                  value: quay.io/kubevirt/cluster-network-addons-operator@sha256:bf06c464c68eba0c912259c7fc04dbc0e9f20255dbfc56487124bcbaa79da6d6
                 - name: OPERATOR_NAME
                   value: cluster-network-addons-operator
                 - name: OPERATOR_VERSION
-                  value: v0.83.0
+                  value: v0.83.1
                 - name: OPERATOR_NAMESPACE
                   valueFrom:
                     fieldRef:
@@ -2819,7 +2819,7 @@ spec:
                   value: openshift-monitoring
                 - name: MONITORING_SERVICE_ACCOUNT
                   value: prometheus-k8s
-                image: quay.io/kubevirt/cluster-network-addons-operator@sha256:e13aa4cdd6778ff0f0e961dd1fcf44416bdd615acf4cd3b37374fd2a7ed68598
+                image: quay.io/kubevirt/cluster-network-addons-operator@sha256:bf06c464c68eba0c912259c7fc04dbc0e9f20255dbfc56487124bcbaa79da6d6
                 imagePullPolicy: IfNotPresent
                 name: cluster-network-addons-operator
                 resources:
@@ -3717,7 +3717,7 @@ spec:
     name: cdi-uploadproxy
   - image: quay.io/kubevirt/cdi-uploadserver@sha256:a4333ccd149390661d1e997088c775210e68ee829d7f11f3e30bd1d78dcc7bc4
     name: cdi-uploadserver
-  - image: quay.io/kubevirt/cluster-network-addons-operator@sha256:e13aa4cdd6778ff0f0e961dd1fcf44416bdd615acf4cd3b37374fd2a7ed68598
+  - image: quay.io/kubevirt/cluster-network-addons-operator@sha256:bf06c464c68eba0c912259c7fc04dbc0e9f20255dbfc56487124bcbaa79da6d6
     name: cluster-network-addons-operator
   - image: quay.io/kubevirt/cni-default-plugins@sha256:c0d14ab010f44bf733aff02b77eb4b5a0ce38fd0c4918a7ecf6941a7bebd72df
     name: cni-default-plugins
@@ -3741,7 +3741,7 @@ spec:
     name: hyperconverged-cluster-webhook
   - image: quay.io/kubevirt/kubemacpool@sha256:0cc5ad824fc163d6dea5e9bd872467c691eaa9a88944008b5d746495b2a72214
     name: kubemacpool
-  - image: ghcr.io/kubevirt/kubesecondarydns@sha256:9bb0e7784cab32a8683f56b3d370b4ab5efed339fa372a8f3ca2e0408e1f8f19
+  - image: ghcr.io/kubevirt/kubesecondarydns@sha256:52baadf22ae10da4987b623b0c7a632429d09c5c080d96ded1086596a519d442
     name: kubesecondarydns
   - image: quay.io/kubevirt-ui/kubevirt-plugin@sha256:253cb213f052faec5b41e56860133ebb7508715f6abe691b2609c9e36dec62ab
     name: kubevirt-plugin
