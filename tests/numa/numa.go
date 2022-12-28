@@ -8,6 +8,8 @@ import (
 	"strings"
 	"time"
 
+	"kubevirt.io/kubevirt/tests/libnode"
+
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
 	k8sv1 "k8s.io/api/core/v1"
@@ -21,7 +23,6 @@ import (
 	"kubevirt.io/kubevirt/tests"
 	"kubevirt.io/kubevirt/tests/console"
 	"kubevirt.io/kubevirt/tests/exec"
-	"kubevirt.io/kubevirt/tests/flags"
 	"kubevirt.io/kubevirt/tests/framework/checks"
 	"kubevirt.io/kubevirt/tests/libvmi"
 	"kubevirt.io/kubevirt/tests/util"
@@ -57,7 +58,7 @@ var _ = Describe("[sig-compute][Serial]NUMA", Serial, func() {
 		Expect(err).ToNot(HaveOccurred())
 		cpuVMI = tests.WaitForSuccessfulVMIStart(cpuVMI)
 		By("Fetching the numa memory mapping")
-		handler, err := kubecli.NewVirtHandlerClient(virtClient).Namespace(flags.KubeVirtInstallNamespace).ForNode(cpuVMI.Status.NodeName).Pod()
+		handler, err := libnode.GetVirtHandlerPod(virtClient, cpuVMI.Status.NodeName)
 		Expect(err).ToNot(HaveOccurred())
 		pid := getQEMUPID(virtClient, handler, cpuVMI)
 
