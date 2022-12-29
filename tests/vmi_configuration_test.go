@@ -30,7 +30,9 @@ import (
 	"time"
 	"unicode"
 
+	hw_utils "kubevirt.io/kubevirt/pkg/util/hardware"
 	"kubevirt.io/kubevirt/pkg/virt-handler/cgroup"
+
 	"kubevirt.io/kubevirt/tests/decorators"
 
 	"k8s.io/apimachinery/pkg/util/rand"
@@ -2349,11 +2351,6 @@ var _ = Describe("[sig-compute]Configurations", decorators.SigCompute, func() {
 					util.PanicOnError(fmt.Errorf("could not find the compute container"))
 				}
 
-				pinnedCPUsList, err := libvmi.GetComputeCpuset(readyPod)
-				Expect(err).ToNot(HaveOccurred())
-
-				Expect(pinnedCPUsList).To(HaveLen(int(cpuVmi.Spec.Domain.CPU.Cores)))
-
 				By("Expecting the VirtualMachineInstance console")
 				Expect(console.LoginToCirros(cpuVmi)).To(Succeed())
 
@@ -2424,7 +2421,6 @@ var _ = Describe("[sig-compute]Configurations", decorators.SigCompute, func() {
 				Expect(m > 83886080).To(BeTrue(), "83886080 B = 80 Mi")
 			})
 			DescribeTable("[test_id:4023]should start a vmi with dedicated cpus and isolated emulator thread", func(resources *v1.ResourceRequirements) {
-
 				cpuVmi := libvmi.NewCirros()
 				cpuVmi.Spec.Domain.CPU = &v1.CPU{
 					Cores:                 2,
@@ -2466,23 +2462,6 @@ var _ = Describe("[sig-compute]Configurations", decorators.SigCompute, func() {
 				pinnedCPUsList, err := libvmi.GetComputeCpuset(readyPod)
 				Expect(err).ToNot(HaveOccurred())
 
-				pids, err := libvmi.ListCgroupThreads(readyPod, cgroup.Thread, cgroup.CgroupSubsystemCpuset)
-				Expect(err).ToNot(HaveOccurred())
-
-				getProcessNameErrors := 0
-				By("Expecting only vcpu threads on root of pod cgroup")
-				for _, pid := range pids {
-					Expect(err).ToNot(HaveOccurred())
-					output, err := tests.GetProcessName(readyPod, "compute", pid)
-					if err != nil {
-						getProcessNameErrors++
-						continue
-					}
-					Expect(output).To(ContainSubstring("CPU "))
-					Expect(output).To(ContainSubstring("KVM"))
-				}
-				Expect(getProcessNameErrors).Should(BeNumerically("<=", 1))
-
 				// 1 additioan pcpus should be allocated on the pod for the emulation threads
 				Expect(pinnedCPUsList).To(HaveLen(int(cpuVmi.Spec.Domain.CPU.Cores) + 1))
 
@@ -2508,6 +2487,169 @@ var _ = Describe("[sig-compute]Configurations", decorators.SigCompute, func() {
 				Entry("without resource requirements set", nil),
 			)
 
+			Context("cgroups", func() {
+				var vmi *v1.VirtualMachineInstance
+				var pod *k8sv1.Pod
+				const numberOfCores = 2
+
+				BeforeEach(func() {
+					vmi = libvmi.NewCirros()
+					vmi.Spec.Domain.CPU = &v1.CPU{
+						Cores:                 numberOfCores,
+						DedicatedCPUPlacement: true,
+					}
+
+					By("Starting a VirtualMachineInstance")
+					vmi, err = virtClient.VirtualMachineInstance(util.NamespaceTestDefault).Create(vmi)
+					Expect(err).ToNot(HaveOccurred())
+					vmi = tests.WaitForSuccessfulVMIStart(vmi)
+
+					pod = tests.GetRunningPodByVirtualMachineInstance(vmi, vmi.Namespace)
+				})
+
+				It("[test_id:TODO]should make sure pod and vmi are of QoS guaranteed", func() {
+					By("Checking that the VMI QOS is guaranteed")
+					vmi, err := virtClient.VirtualMachineInstance(util.NamespaceTestDefault).Get(vmi.Name, &metav1.GetOptions{})
+					Expect(err).ToNot(HaveOccurred())
+					Expect(vmi.Status.QOSClass).ToNot(BeNil())
+					Expect(*vmi.Status.QOSClass).To(Equal(kubev1.PodQOSGuaranteed))
+
+					Expect(isNodeHasCPUManagerLabel(vmi.Status.NodeName)).To(BeTrue())
+
+					By("Checking that the pod QOS is guaranteed")
+					podQos := pod.Status.QOSClass
+					Expect(podQos).To(Equal(kubev1.PodQOSGuaranteed))
+				})
+
+				It("[test_id:TODO]should pin threads and processes to the right cgroup in emulator container", func() {
+					By("Checking that dedicated cgroup contains all vCPUs")
+					pids, err := libvmi.ListCgroupThreadsFromContainer(pod, services.EmulatorContainerName, cgroup.Thread, cgroup.CgroupSubsystemCpuset, cgroup.EmulatorContainerCgroupEmulator, cgroup.EmulatorContainerCgroupVcpu)
+					Expect(err).ToNot(HaveOccurred())
+					Expect(pids).ToNot(BeEmpty())
+
+					virtClient, err := kubecli.GetKubevirtClient()
+					Expect(err).ToNot(HaveOccurred())
+
+					getProcessName := func(pid int) (string, error) {
+						targetPath := fmt.Sprintf("/proc/%d/comm", pid)
+						output, stderr, err := libnode.ExecuteCommandOnNodeThroughVirtHandler(virtClient, pod.Spec.NodeName, []string{"cat", targetPath})
+						if err != nil || stderr != "" {
+							return "", fmt.Errorf("err: %v. stderr: %s", err, stderr)
+						}
+
+						return output, nil
+					}
+
+					getProcessNameErrors := 0
+					vcpusFound := 0
+					var processNames []string
+					By("Expecting only vcpu threads on root of pod cgroup")
+					for _, pid := range pids {
+						output, err := getProcessName(pid)
+						if err != nil {
+							getProcessNameErrors++
+							continue
+						}
+
+						processNames = append(processNames, output)
+						if strings.Contains(output, "CPU ") && strings.Contains(output, "KVM") {
+							vcpusFound++
+						}
+					}
+
+					Expect(vcpusFound).To(BeEquivalentTo(vmi.Spec.Domain.CPU.Cores), fmt.Sprintf("vcpu threads count should be the same as the VMI's cpus. Processes found: %v pids: %v, errors: %v", processNames, pids, getProcessNameErrors))
+					// The cat process already spawns in the dedicated cgroup and immediately dies, therefor one error is expected
+					Expect(getProcessNameErrors).Should(BeNumerically("<=", 1))
+
+					By("Expecting the VirtualMachineInstance console")
+					Expect(console.LoginToCirros(vmi)).To(Succeed())
+
+					By("Checking the number of CPU cores under guest OS")
+					Expect(console.SafeExpectBatch(vmi, []expect.Batcher{
+						&expect.BSnd{S: "grep -c ^processor /proc/cpuinfo\n"},
+						&expect.BExp{R: strconv.Itoa(numberOfCores)},
+					}, 15)).To(Succeed())
+				})
+
+				It("[test_id:TODO]should make sure the right cpuset is configured", func() {
+					mergeIntSlices := func(slices ...[]int) []int {
+						intSet := map[int]struct{}{}
+
+						for _, slice := range slices {
+							for _, element := range slice {
+								intSet[element] = struct{}{}
+							}
+						}
+
+						ret := make([]int, len(intSet))
+						for element, _ := range intSet {
+							ret = append(ret, element)
+						}
+
+						return ret
+					}
+					areIntSlicesEquivalent := func(s1, s2 []int) bool {
+						for _, e1 := range s1 {
+							found := false
+
+							for _, e2 := range s2 {
+								if e1 == e2 {
+									found = true
+									break
+								}
+							}
+
+							if !found {
+								return false
+							}
+						}
+						return true
+					}
+
+					By("Getting the different cpusets")
+					emulatorRootCpuset, err := libvmi.GetCpuset(pod, services.EmulatorContainerName)
+					Expect(err).ToNot(HaveOccurred())
+
+					emulatorAmbassadorCpuset, err := libvmi.GetCpusetWithSubPath(pod, services.EmulatorContainerName, cgroup.EmulatorContainerCgroupAmbassador)
+					Expect(err).ToNot(HaveOccurred())
+
+					emulatorEmulatorCpuset, err := libvmi.GetCpusetWithSubPath(pod, services.EmulatorContainerName, cgroup.EmulatorContainerCgroupEmulator)
+					Expect(err).ToNot(HaveOccurred())
+
+					emulatorVcpuCpuset, err := libvmi.GetCpusetWithSubPath(pod, services.EmulatorContainerName, filepath.Join(cgroup.EmulatorContainerCgroupEmulator, cgroup.EmulatorContainerCgroupVcpu))
+					Expect(err).ToNot(HaveOccurred())
+
+					emulatorHousekeepingCpuset, err := libvmi.GetCpusetWithSubPath(pod, services.EmulatorContainerName, filepath.Join(cgroup.EmulatorContainerCgroupEmulator, cgroup.EmulatorContainerCgroupHousekeeping))
+					Expect(err).ToNot(HaveOccurred())
+
+					sharedCpuset, err := libvmi.GetComputeCpuset(pod)
+					Expect(err).ToNot(HaveOccurred())
+
+					vmiNumberOfCpus := int(hw_utils.GetNumberOfVCPUs(vmi.Spec.Domain.CPU))
+					mergedCpuSet := mergeIntSlices(emulatorAmbassadorCpuset, emulatorEmulatorCpuset, emulatorVcpuCpuset, emulatorHousekeepingCpuset)
+
+					By("Making sure cpusets aer being configured as expected")
+					Expect(areIntSlicesEquivalent(emulatorAmbassadorCpuset, sharedCpuset), fmt.Sprintf("ambassador cpuset (%v) is expected to be equivalent to shared cpuset (%v)", emulatorAmbassadorCpuset, sharedCpuset))
+					Expect(areIntSlicesEquivalent(emulatorHousekeepingCpuset, sharedCpuset), fmt.Sprintf("emulator housekeeping cpuset (%v) is expected to be equivalent to shared cpuset (%v)", emulatorHousekeepingCpuset, sharedCpuset))
+					Expect(emulatorVcpuCpuset).To(HaveLen(vmiNumberOfCpus), "vcpu cpuset is expected to be at the same length as the amount of requested CPUs")
+
+					doesVcpuCpusetContainsSharedCpu := false
+					var vcpuSharedCpu int
+					for i, sharedCpu := range sharedCpuset {
+						for _, vcpuCpu := range emulatorVcpuCpuset {
+							if sharedCpu == vcpuCpu {
+								doesVcpuCpusetContainsSharedCpu = true
+								vcpuSharedCpu = i
+								break
+							}
+						}
+					}
+					Expect(doesVcpuCpusetContainsSharedCpu).To(BeFalse(), fmt.Sprintf("vcpu cpuset (%v), contains a shared cpu (%v)", emulatorVcpuCpuset, vcpuSharedCpu))
+
+					Expect(areIntSlicesEquivalent(emulatorRootCpuset, mergedCpuSet), fmt.Sprintf("emulator root cgroup cpuset (%v) must contain all of the other cpusets combined (%v)", emulatorRootCpuset, mergedCpuSet))
+				})
+			})
+
 			It("[test_id:4024]should fail the vmi creation if IsolateEmulatorThread requested without dedicated cpus", func() {
 				cpuVmi := libvmi.NewCirros()
 				cpuVmi.Spec.Domain.CPU = &v1.CPU{
@@ -2525,7 +2667,8 @@ var _ = Describe("[sig-compute]Configurations", decorators.SigCompute, func() {
 				cpuVmi.Spec.Domain.CPU = &v1.CPU{
 					DedicatedCPUPlacement: true,
 				}
-				cpuVmi.Spec.Domain.Resources.Requests[k8sv1.ResourceCPU] = resource.MustParse("2")
+				const numOfCpus = "1"
+				cpuVmi.Spec.Domain.Resources.Requests[k8sv1.ResourceCPU] = resource.MustParse(numOfCpus)
 
 				By("Starting a VirtualMachineInstance")
 				cpuVmi, err = virtClient.VirtualMachineInstance(testsuite.GetTestNamespace(cpuVmi)).Create(context.Background(), cpuVmi)
@@ -2539,7 +2682,7 @@ var _ = Describe("[sig-compute]Configurations", decorators.SigCompute, func() {
 				By("Checking the number of CPU cores under guest OS")
 				Expect(console.SafeExpectBatch(cpuVmi, []expect.Batcher{
 					&expect.BSnd{S: "grep -c ^processor /proc/cpuinfo\n"},
-					&expect.BExp{R: "2"},
+					&expect.BExp{R: numOfCpus},
 				}, 15)).To(Succeed())
 			})
 
@@ -2590,7 +2733,7 @@ var _ = Describe("[sig-compute]Configurations", decorators.SigCompute, func() {
 					DedicatedCPUPlacement: true,
 				}
 
-				cpuVmi.Spec.Domain.Resources.Requests[k8sv1.ResourceCPU] = resource.MustParse("2")
+				cpuVmi.Spec.Domain.Resources.Requests[k8sv1.ResourceCPU] = resource.MustParse("1")
 				Vmi.Spec.Domain.Resources.Requests[k8sv1.ResourceCPU] = resource.MustParse("1")
 				Vmi.Spec.NodeSelector = map[string]string{v1.CPUManager: "true"}
 
