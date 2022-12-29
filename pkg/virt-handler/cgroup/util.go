@@ -258,8 +258,8 @@ func getDeafulCgroupConfig() *configs.Cgroup {
 func formatCgroupPaths(controllerPaths map[string]string) map[string]string {
 	if runc_cgroups.IsCgroup2UnifiedMode() {
 		newPath := controllerPaths[""]
-		if !strings.HasPrefix(newPath, cgroupBasePath) {
-			newPath = filepath.Join(cgroupBasePath, newPath)
+		if !strings.HasPrefix(newPath, BasePath) {
+			newPath = filepath.Join(BasePath, newPath)
 		} else if strings.HasPrefix(newPath, HostRootPath) {
 			newPath = strings.ReplaceAll(newPath, HostRootPath, "")
 		}
@@ -273,8 +273,8 @@ func formatCgroupPaths(controllerPaths map[string]string) map[string]string {
 			newPath := path
 			if strings.Contains(newPath, HostCgroupBasePath) {
 				newPath = strings.ReplaceAll(newPath, HostCgroupBasePath, "")
-			} else if strings.Contains(newPath, cgroupBasePath) {
-				newPath = strings.ReplaceAll(newPath, cgroupBasePath, "")
+			} else if strings.Contains(newPath, BasePath) {
+				newPath = strings.ReplaceAll(newPath, BasePath, "")
 			}
 
 			if !strings.Contains(newPath, subsystem) {
@@ -320,9 +320,9 @@ func attachTask(id int, dirPath, filename string) error {
 // GetGlobalCpuSetPath returns the CPU set of the main cgroup slice
 func GetGlobalCpuSetPath() string {
 	if runc_cgroups.IsCgroup2UnifiedMode() {
-		return filepath.Join(cgroupBasePath, "cpuset.cpus.effective")
+		return filepath.Join(BasePath, "cpuset.cpus.effective")
 	}
-	return filepath.Join(cgroupBasePath, "cpuset", "cpuset.cpus")
+	return filepath.Join(BasePath, "cpuset", "cpuset.cpus")
 }
 
 func getCpuSetPath(manager Manager, cpusetFile string) (cpusetList []int, err error) {

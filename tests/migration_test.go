@@ -40,9 +40,6 @@ import (
 	"kubevirt.io/kubevirt/tests/framework/matcher"
 	"kubevirt.io/kubevirt/tests/testsuite"
 
-	"kubevirt.io/kubevirt/pkg/virt-handler/cgroup"
-
-	"kubevirt.io/kubevirt/pkg/util/hardware"
 	"kubevirt.io/kubevirt/pkg/virt-controller/watch"
 
 	virtconfig "kubevirt.io/kubevirt/pkg/virt-config"
@@ -4027,7 +4024,6 @@ var _ = Describe("[rfe_id:393][crit:high][vendor:cnv-qe@redhat.com][level:system
 			workerLabel   = "node-role.kubernetes.io/worker"
 			testLabel1    = "kubevirt.io/testlabel1"
 			testLabel2    = "kubevirt.io/testlabel2"
-			cgroupVersion cgroup.CgroupVersion
 		)
 
 		parseVCPUPinOutput := func(vcpuPinOutput string) []int {
@@ -4060,41 +4056,21 @@ var _ = Describe("[rfe_id:393][crit:high][vendor:cnv-qe@redhat.com][level:system
 			return parseVCPUPinOutput(stdout)
 		}
 
-		parseSysCpuSet := func(cpuset string) []int {
-			set, err := hardware.ParseCPUSetLine(cpuset, 5000)
-			Expect(err).ToNot(HaveOccurred())
-			return set
-		}
-
-		getPodCPUSet := func(pod *k8sv1.Pod) []int {
-
-			var cpusetPath string
-			if cgroupVersion == cgroup.V2 {
-				cpusetPath = "/sys/fs/cgroup/cpuset.cpus.effective"
-			} else {
-				cpusetPath = "/sys/fs/cgroup/cpuset/cpuset.cpus"
-			}
-
-			stdout, stderr, err := exec.ExecuteCommandOnPodWithResults(virtClient,
-				pod,
-				"compute",
-				[]string{"cat", cpusetPath})
-			Expect(err).ToNot(HaveOccurred())
-			Expect(stderr).To(BeEmpty())
-
-			return parseSysCpuSet(strings.TrimSpace(stdout))
-		}
-
 		getVirtLauncherCPUSet := func(vmi *v1.VirtualMachineInstance) []int {
 			pod, err := tests.GetRunningPodByLabel(string(vmi.GetUID()), v1.CreatedByLabel, vmi.Namespace, vmi.Status.NodeName)
 			Expect(err).ToNot(HaveOccurred())
 
-			return getPodCPUSet(pod)
+			cpuset, err := libvmi.GetComputeCpuset(pod)
+			Expect(err).ToNot(HaveOccurred())
+
+			return cpuset
 		}
 
 		hasCommonCores := func(vmi *v1.VirtualMachineInstance, pod *k8sv1.Pod) bool {
 			set1 := getVirtLauncherCPUSet(vmi)
-			set2 := getPodCPUSet(pod)
+			set2, err := libvmi.GetComputeCpuset(pod)
+			Expect(err).ToNot(HaveOccurred())
+
 			for _, corei := range set1 {
 				for _, corej := range set2 {
 					if corei == corej {
@@ -4178,9 +4154,6 @@ var _ = Describe("[rfe_id:393][crit:high][vendor:cnv-qe@redhat.com][level:system
 			libwait.WaitForSuccessfulVMIStartWithTimeout(vmi, 120)
 			vmi, err = virtClient.VirtualMachineInstance(vmi.Namespace).Get(context.Background(), vmi.Name, &metav1.GetOptions{})
 			Expect(err).ToNot(HaveOccurred())
-
-			By("determining cgroups version")
-			cgroupVersion = getVMIsCgroupVersion(vmi, virtClient)
 
 			By("ensuring the VMI started on the correct node")
 			Expect(vmi.Status.NodeName).To(Equal(nodes[0].Name))
@@ -4587,31 +4560,6 @@ func libvirtDomainIsPersistent(virtClient kubecli.KubevirtClient, vmi *v1.Virtua
 		return false, fmt.Errorf("could not dump libvirt domxml (remotely on pod): %v: %s", err, stderr)
 	}
 	return strings.Contains(stdout, vmi.Namespace+"_"+vmi.Name), nil
-}
-
-func getVMIsCgroupVersion(vmi *v1.VirtualMachineInstance, virtClient kubecli.KubevirtClient) cgroup.CgroupVersion {
-	pod, err := tests.GetRunningPodByLabel(string(vmi.GetUID()), v1.CreatedByLabel, vmi.Namespace, vmi.Status.NodeName)
-	Expect(err).ToNot(HaveOccurred())
-
-	return getPodsCgroupVersion(pod, virtClient)
-}
-
-func getPodsCgroupVersion(pod *k8sv1.Pod, virtClient kubecli.KubevirtClient) cgroup.CgroupVersion {
-	stdout, stderr, err := exec.ExecuteCommandOnPodWithResults(virtClient,
-		pod,
-		"compute",
-		[]string{"stat", "/sys/fs/cgroup/", "-f", "-c", "%T"})
-
-	Expect(err).ToNot(HaveOccurred())
-	Expect(stderr).To(BeEmpty())
-
-	cgroupFsType := strings.TrimSpace(stdout)
-
-	if cgroupFsType == "cgroup2fs" {
-		return cgroup.V2
-	} else {
-		return cgroup.V1
-	}
 }
 
 func withEvictionStrategy(evictionStrategy v1.EvictionStrategy) libvmi.Option {
