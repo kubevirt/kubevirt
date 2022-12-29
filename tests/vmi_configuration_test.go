@@ -30,6 +30,7 @@ import (
 	"time"
 	"unicode"
 
+	"kubevirt.io/kubevirt/pkg/virt-handler/cgroup"
 	"kubevirt.io/kubevirt/tests/decorators"
 
 	"k8s.io/apimachinery/pkg/util/rand"
@@ -68,7 +69,6 @@ import (
 	kubevirt_hooks_v1alpha2 "kubevirt.io/kubevirt/pkg/hooks/v1alpha2"
 	"kubevirt.io/kubevirt/pkg/testutils"
 	"kubevirt.io/kubevirt/pkg/util/cluster"
-	hw_utils "kubevirt.io/kubevirt/pkg/util/hardware"
 	virtconfig "kubevirt.io/kubevirt/pkg/virt-config"
 	"kubevirt.io/kubevirt/pkg/virt-launcher/virtwrap/api"
 	"kubevirt.io/kubevirt/tests"
@@ -2349,11 +2349,7 @@ var _ = Describe("[sig-compute]Configurations", decorators.SigCompute, func() {
 					util.PanicOnError(fmt.Errorf("could not find the compute container"))
 				}
 
-				output, err := tests.GetPodCPUSet(readyPod)
-				log.Log.Infof("%v", output)
-				Expect(err).ToNot(HaveOccurred())
-				output = strings.TrimSuffix(output, "\n")
-				pinnedCPUsList, err := hw_utils.ParseCPUSetLine(output, 100)
+				pinnedCPUsList, err := libvmi.GetComputeCpuset(readyPod)
 				Expect(err).ToNot(HaveOccurred())
 
 				Expect(pinnedCPUsList).To(HaveLen(int(cpuVmi.Spec.Domain.CPU.Cores)))
@@ -2467,24 +2463,17 @@ var _ = Describe("[sig-compute]Configurations", decorators.SigCompute, func() {
 					util.PanicOnError(fmt.Errorf("could not find the compute container"))
 				}
 
-				output, err := tests.GetPodCPUSet(readyPod)
-				log.Log.Infof("%v", output)
-				Expect(err).ToNot(HaveOccurred())
-				output = strings.TrimSuffix(output, "\n")
-				pinnedCPUsList, err := hw_utils.ParseCPUSetLine(output, 100)
+				pinnedCPUsList, err := libvmi.GetComputeCpuset(readyPod)
 				Expect(err).ToNot(HaveOccurred())
 
-				output, err = tests.ListCgroupThreads(readyPod)
+				pids, err := libvmi.ListCgroupThreads(readyPod, cgroup.Thread, cgroup.CgroupSubsystemCpuset)
 				Expect(err).ToNot(HaveOccurred())
-				pids := strings.Split(output, "\n")
 
 				getProcessNameErrors := 0
 				By("Expecting only vcpu threads on root of pod cgroup")
 				for _, pid := range pids {
-					if len(pid) == 0 {
-						continue
-					}
-					output, err = tests.GetProcessName(readyPod, pid)
+					Expect(err).ToNot(HaveOccurred())
+					output, err := tests.GetProcessName(readyPod, "compute", pid)
 					if err != nil {
 						getProcessNameErrors++
 						continue

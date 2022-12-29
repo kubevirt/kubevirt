@@ -350,66 +350,15 @@ func getPodsByLabel(label, labelType, namespace string) (*k8sv1.PodList, error) 
 	return pods, nil
 }
 
-func GetProcessName(pod *k8sv1.Pod, pid string) (output string, err error) {
+func GetProcessName(pod *k8sv1.Pod, containerName string, pid int) (output string, err error) {
 	virtClient := kubevirt.Client()
 
-	fPath := "/proc/" + pid + "/comm"
+	fPath := "/proc/" + fmt.Sprintf("%d", pid) + "/comm"
 	output, err = exec.ExecuteCommandOnPod(
 		virtClient,
 		pod,
-		"compute",
+		containerName,
 		[]string{"cat", fPath},
-	)
-
-	return
-}
-
-func ListCgroupThreads(pod *k8sv1.Pod) (output string, err error) {
-	virtClient := kubevirt.Client()
-
-	output, err = exec.ExecuteCommandOnPod(
-		virtClient,
-		pod,
-		"compute",
-		[]string{"cat", "/sys/fs/cgroup/cpuset/tasks"},
-	)
-
-	if err == nil {
-		// Cgroup V1
-		return
-	}
-	output, err = exec.ExecuteCommandOnPod(
-		virtClient,
-		pod,
-		"compute",
-		[]string{"cat", "/sys/fs/cgroup/cgroup.threads"},
-	)
-	return
-}
-
-func GetPodCPUSet(pod *k8sv1.Pod) (output string, err error) {
-	const (
-		cgroupV1cpusetPath = "/sys/fs/cgroup/cpuset/cpuset.cpus"
-		cgroupV2cpusetPath = "/sys/fs/cgroup/cpuset.cpus.effective"
-	)
-
-	virtClient := kubevirt.Client()
-	output, err = exec.ExecuteCommandOnPod(
-		virtClient,
-		pod,
-		"compute",
-		[]string{"cat", cgroupV2cpusetPath},
-	)
-
-	if err == nil {
-		return
-	}
-
-	output, err = exec.ExecuteCommandOnPod(
-		virtClient,
-		pod,
-		"compute",
-		[]string{"cat", cgroupV1cpusetPath},
 	)
 
 	return
@@ -2194,14 +2143,6 @@ func GetIdOfLauncher(vmi *v1.VirtualMachineInstance) string {
 	Expect(err).NotTo(HaveOccurred())
 
 	return strings.TrimSpace(podOutput)
-}
-
-func ExecuteCommandOnNodeThroughVirtHandler(virtCli kubecli.KubevirtClient, nodeName string, command []string) (stdout string, stderr string, err error) {
-	virtHandlerPod, err := libnode.GetVirtHandlerPod(virtCli, nodeName)
-	if err != nil {
-		return "", "", err
-	}
-	return exec.ExecuteCommandOnPodWithResults(virtCli, virtHandlerPod, components.VirtHandlerName, command)
 }
 
 func GetKubevirtVMMetricsFunc(virtClient *kubecli.KubevirtClient, pod *k8sv1.Pod) func(string) string {

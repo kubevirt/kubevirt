@@ -27,6 +27,8 @@ import (
 	"time"
 
 	"kubevirt.io/kubevirt/tests/framework/kubevirt"
+	"kubevirt.io/kubevirt/tests/libnode"
+
 	"kubevirt.io/kubevirt/tests/framework/matcher"
 
 	virt_api "kubevirt.io/kubevirt/pkg/virt-api"
@@ -174,7 +176,7 @@ var _ = Describe("[rfe_id:609][sig-compute]VMIheadless", decorators.SigCompute, 
 			It("[Serial] multiple HTTP calls should re-use connections and not grow the number of open connections in virt-launcher", Serial, func() {
 				getHandlerConnectionCount := func() int {
 					cmd := []string{"bash", "-c", fmt.Sprintf("ss -ntlap | grep %d | wc -l", virt_api.DefaultConsoleServerPort)}
-					stdout, stderr, err := tests.ExecuteCommandOnNodeThroughVirtHandler(virtClient, vmi.Status.NodeName, cmd)
+					stdout, stderr, err := libnode.ExecuteCommandOnNodeThroughVirtHandler(virtClient, vmi.Status.NodeName, cmd)
 					Expect(err).ToNot(HaveOccurred())
 					Expect(stderr).To(BeEmpty())
 

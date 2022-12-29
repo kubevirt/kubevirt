@@ -4,8 +4,8 @@ const (
 	// Cgroup paths
 	procMountPoint     = "/proc"
 	HostRootPath       = procMountPoint + "/1/root"
-	cgroupBasePath     = "/sys/fs/" + cgroupStr
-	HostCgroupBasePath = HostRootPath + cgroupBasePath
+	BasePath           = "/sys/fs/" + cgroupStr
+	HostCgroupBasePath = HostRootPath + BasePath
 )
 
 const (
