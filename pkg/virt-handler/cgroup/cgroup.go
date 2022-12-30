@@ -68,7 +68,7 @@ type Manager interface {
 	SetCpuSet(subcgroup string, cpulist []int) error
 
 	// Create new child cgroup
-	CreateChildCgroup(name string, subSystem string) error
+	CreateChildCgroup(name string, subSystems ...string) (Manager, error)
 
 	// Get list of threads attached to cgroup
 	GetCgroupThreads() ([]int, error)

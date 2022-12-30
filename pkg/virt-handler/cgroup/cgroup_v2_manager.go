@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"os"
 	"path/filepath"
+	"strings"
 
 	"kubevirt.io/client-go/log"
 
@@ -100,44 +101,62 @@ func (v *v2Manager) GetCpuSet() (string, error) {
 	return getCpuSetPath(v, "cpuset.cpus.effective")
 }
 
-func (v *v2Manager) CreateChildCgroup(name string, subSystem string) error {
-	subSysPath, err := v.GetBasePathToHostSubsystem(subSystem)
+func (v *v2Manager) mutateSubtreeControl(subSystems string, action cgroupV2SubtreeCtrlAction) error {
+	return runc_cgroups.WriteFile(v.dirPath, string(subtreeControl), fmt.Sprintf("%s%s", string(action), subSystems))
+}
+
+func (v *v2Manager) CreateChildCgroup(name string, subSystems ...string) (Manager, error) {
+	newGroupPath := filepath.Join(v.dirPath, name)
+	log.Log.V(detailedLogVerbosity).Infof("Creating new child cgroup at %s", newGroupPath)
+
+	if _, err := os.Stat(newGroupPath); !errors.Is(err, os.ErrNotExist) {
+		log.Log.V(detailedLogVerbosity).Infof(cgroupAlreadyExistsErrFmt, newGroupPath)
+		return NewManagerFromPath(map[string]string{"": newGroupPath})
+	}
+
+	// Remove unnecessary subsystems from subtree control. This is crucial in order to make the cgroup threaded
+	curSubtreeSubsystems, err := runc_cgroups.ReadFile(v.dirPath, string(subtreeControl))
 	if err != nil {
-		return err
+		return nil, err
 	}
 
-	newGroupPath := filepath.Join(subSysPath, name)
-	if _, err = os.Stat(newGroupPath); !errors.Is(err, os.ErrNotExist) {
-		return nil
+	for _, curSubtreeSubsystem := range strings.Split(curSubtreeSubsystems, " ") {
+		if curSubtreeSubsystem == "" {
+			continue
+		}
+
+		for _, subSystem := range subSystems {
+			if curSubtreeSubsystem == subSystem {
+				continue
+			}
+		}
+
+		err := v.mutateSubtreeControl(curSubtreeSubsystem, subtreeCtrlRemove)
+		if err != nil {
+			return nil, err
+		}
 	}
 
-	// Write "+subsystem" to cgroup.subtree_control
-	wVal := "+" + subSystem
-	err = runc_cgroups.WriteFile(subSysPath, "cgroup.subtree_control", wVal)
-	if err != nil {
-		return err
+	// Configure the given subsystems to be inherited by the new cgroup
+	for _, subSystem := range subSystems {
+		err := v.mutateSubtreeControl(subSystem, subtreeCtrlAdd)
+		if err != nil {
+			return nil, err
+		}
 	}
 
-	// Create new cgroup directory
+	// Create a new cgroup directory
 	err = util.MkdirAllWithNosec(newGroupPath)
 	if err != nil {
-		log.Log.Infof("mkdir %s failed", newGroupPath)
-		return err
+		return nil, fmt.Errorf("failed creating cgroup directory %s: %v", newGroupPath, err)
 	}
 
-	// Enable threaded cgroup controller
-	err = runc_cgroups.WriteFile(newGroupPath, "cgroup.type", "threaded")
+	newManager, err := NewManagerFromPath(map[string]string{"": newGroupPath})
 	if err != nil {
-		return err
+		return newManager, err
 	}
 
-	// Write "+subsystem" to newcgroup/cgroup.subtree_control
-	wVal = "+" + subSystem
-	err = runc_cgroups.WriteFile(newGroupPath, "cgroup.subtree_control", wVal)
-	if err != nil {
-		return err
-	}
-	return nil
+	return newManager, nil
 }
 
 func (v *v2Manager) attachTask(id int, taskType TaskType) error {
