@@ -2,9 +2,9 @@ package cgroup
 
 import (
 	"errors"
+	"fmt"
 	"os"
 	"path/filepath"
-	"strconv"
 
 	"kubevirt.io/client-go/log"
 
@@ -140,25 +140,18 @@ func (v *v2Manager) CreateChildCgroup(name string, subSystem string) error {
 	return nil
 }
 
-// Attach TID to cgroup. Optionally on a subcgroup of
-// the pods control group (if subcgroup != nil).
-func (v *v2Manager) AttachTID(subSystem string, subCgroup string, tid int) error {
-	cgroupPath, err := v.GetBasePathToHostSubsystem(subSystem)
-	if err != nil {
-		return err
-	}
-	if subCgroup != "" {
-		cgroupPath = filepath.Join(cgroupPath, subCgroup)
-	}
-
-	wVal := strconv.Itoa(tid)
-
-	err = runc_cgroups.WriteFile(cgroupPath, "cgroup.threads", wVal)
-	if err != nil {
-		return err
+func (v *v2Manager) attachTask(id int, taskType TaskType) error {
+	var targetFile string
+	switch taskType {
+	case Thread:
+		targetFile = v2ThreadsFilename
+	case Process:
+		targetFile = procsFilename
+	default:
+		return fmt.Errorf("task type %v is not valid", taskType)
 	}
 
-	return nil
+	return attachTask(id, v.dirPath, targetFile)
 }
 
 func (v *v2Manager) GetCgroupThreads() ([]int, error) {
