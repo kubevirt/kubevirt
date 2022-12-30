@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"os"
 	"path/filepath"
+	"strings"
 
 	"kubevirt.io/client-go/log"
 
@@ -100,44 +101,63 @@ func (v *v2Manager) GetCpuSet() (string, error) {
 	return getCpuSetPath(v, "cpuset.cpus.effective")
 }
 
-func (v *v2Manager) CreateChildCgroup(name string, subSystem string) error {
-	subSysPath, err := v.GetBasePathToHostSubsystem(subSystem)
+func (v *v2Manager) mutateSubtreeControl(subSystem string, action cgroupV2SubtreeCtrlAction) error {
+	curSubtreeSubsystemsStr, err := runc_cgroups.ReadFile(v.dirPath, string(subtreeControl))
 	if err != nil {
 		return err
 	}
 
-	newGroupPath := filepath.Join(subSysPath, name)
-	if _, err = os.Stat(newGroupPath); !errors.Is(err, os.ErrNotExist) {
-		return nil
+	curSubtreeSubsystemsStr = strings.TrimSpace(curSubtreeSubsystemsStr)
+	curSubtreeSubsystems := strings.Split(curSubtreeSubsystemsStr, " ")
+
+	subsystemAlreadyExists := doesStrSliceContainsElement(subSystem, curSubtreeSubsystems)
+
+	log.Log.V(detailedLogVerbosity).Infof("mutateSubtreeControl(): subsystem: %s, action: %s, cur subsystems: %v", subSystem, string(action), curSubtreeSubsystems)
+
+	switch action {
+	case subtreeCtrlAdd:
+		if subsystemAlreadyExists {
+			log.Log.V(detailedLogVerbosity).Infof("mutateSubtreeControl(): skipping adding subsystem %s since it's already added", subSystem)
+			return nil
+		}
+	case subtreeCtrlRemove:
+		if !subsystemAlreadyExists {
+			log.Log.V(detailedLogVerbosity).Infof("mutateSubtreeControl(): skipping removing subsystem %s since it's not added", subSystem)
+			return nil
+		}
 	}
 
-	// Write "+subsystem" to cgroup.subtree_control
-	wVal := "+" + subSystem
-	err = runc_cgroups.WriteFile(subSysPath, "cgroup.subtree_control", wVal)
-	if err != nil {
-		return err
+	return runc_cgroups.WriteFile(v.dirPath, string(subtreeControl), fmt.Sprintf("%s%s", string(action), subSystem))
+}
+
+func (v *v2Manager) CreateChildCgroup(name string, subSystems ...string) (Manager, error) {
+	newGroupPath := filepath.Join(v.dirPath, name)
+	log.Log.V(detailedLogVerbosity).Infof("Creating new child cgroup at %s", newGroupPath)
+
+	if _, err := os.Stat(newGroupPath); !errors.Is(err, os.ErrNotExist) {
+		log.Log.V(detailedLogVerbosity).Infof(cgroupAlreadyExistsErrFmt, newGroupPath)
+		return NewManagerFromPath(map[string]string{"": newGroupPath})
 	}
 
-	// Create new cgroup directory
-	err = util.MkdirAllWithNosec(newGroupPath)
-	if err != nil {
-		log.Log.Infof("mkdir %s failed", newGroupPath)
-		return err
+	if len(subSystems) > 0 && !(len(subSystems) == 1 && subSystems[0] == "") {
+		err := v.setSubtreeControl(subSystems...)
+		if err != nil {
+			return nil, err
+		}
 	}
 
-	// Enable threaded cgroup controller
-	err = runc_cgroups.WriteFile(newGroupPath, "cgroup.type", "threaded")
+	// Create a new cgroup directory
+	err := util.MkdirAllWithNosec(newGroupPath)
 	if err != nil {
-		return err
+		return nil, fmt.Errorf("failed creating cgroup directory %s: %v", newGroupPath, err)
 	}
 
-	// Write "+subsystem" to newcgroup/cgroup.subtree_control
-	wVal = "+" + subSystem
-	err = runc_cgroups.WriteFile(newGroupPath, "cgroup.subtree_control", wVal)
+	newManager, err := NewManagerFromPath(map[string]string{"": newGroupPath})
 	if err != nil {
-		return err
+		return newManager, err
 	}
-	return nil
+
+	return newManager, nil
 }
 
 func (v *v2Manager) attachTask(id int, taskType TaskType) error {
@@ -160,4 +180,56 @@ func (v *v2Manager) GetCgroupThreads() ([]int, error) {
 
 func (v *v2Manager) SetCpuSet(subcgroup string, cpulist []int) error {
 	return setCpuSetHelper(v, subcgroup, cpulist)
+}
+
+func (v *v2Manager) setSubtreeControl(subSystems ...string) error {
+	// Remove unnecessary subsystems from subtree control. This is crucial in order to make the cgroup threaded
+	curSubtreeSubsystemsStr, err := runc_cgroups.ReadFile(v.dirPath, string(subtreeControl))
+	if err != nil {
+		return nil
+	}
+
+	const (
+		msgPrefix      = "setSubtreeControl(): "
+		skippingMsgFmt = msgPrefix + "skipping %s"
+		addingMsgFmt   = msgPrefix + "adding %s"
+		removingMsgFmt = msgPrefix + "removing %s"
+	)
+
+	curSubtreeSubsystemsStr = strings.TrimSpace(curSubtreeSubsystemsStr)
+	curSubtreeSubsystems := strings.Split(curSubtreeSubsystemsStr, " ")
+	log.Log.V(detailedLogVerbosity).Infof("setSubtreeControl(): current subsystems: %v, expected subsystems: %v", curSubtreeSubsystems, subSystems)
+
+	for _, curSubtreeSubsystem := range curSubtreeSubsystems {
+		if curSubtreeSubsystem == "" {
+			continue
+		}
+
+		if doesStrSliceContainsElement(curSubtreeSubsystem, subSystems) {
+			log.Log.V(detailedLogVerbosity).Infof(skippingMsgFmt, curSubtreeSubsystem)
+			continue
+		}
+		log.Log.V(detailedLogVerbosity).Infof(removingMsgFmt, curSubtreeSubsystem)
+
+		err := v.mutateSubtreeControl(curSubtreeSubsystem, subtreeCtrlRemove)
+		if err != nil {
+			return nil
+		}
+	}
+
+	// Configure the given subsystems to be inherited by the new cgroup
+	for _, subSystem := range subSystems {
+		if doesStrSliceContainsElement(subSystem, curSubtreeSubsystems) {
+			log.Log.V(detailedLogVerbosity).Infof(skippingMsgFmt, subSystem)
+			continue
+		}
+		log.Log.V(detailedLogVerbosity).Infof(addingMsgFmt, subSystem)
+
+		err := v.mutateSubtreeControl(subSystem, subtreeCtrlAdd)
+		if err != nil {
+			return nil
+		}
+	}
+
+	return nil
 }

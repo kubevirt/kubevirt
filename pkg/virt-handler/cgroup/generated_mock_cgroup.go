@@ -82,24 +82,20 @@ func (_mr *_MockManagerRecorder) SetCpuSet(arg0, arg1 interface{}) *gomock.Call 
 	return _mr.mock.ctrl.RecordCall(_mr.mock, "SetCpuSet", arg0, arg1)
 }
 
-func (_m *MockManager) CreateChildCgroup(name string, subSystem string) error {
-	ret := _m.ctrl.Call(_m, "CreateChildCgroup", name, subSystem)
-	ret0, _ := ret[0].(error)
-	return ret0
+func (_m *MockManager) CreateChildCgroup(name string, subSystems ...string) (Manager, error) {
+	_s := []interface{}{name}
+	for _, _x := range subSystems {
+		_s = append(_s, _x)
+	}
+	ret := _m.ctrl.Call(_m, "CreateChildCgroup", _s...)
+	ret0, _ := ret[0].(Manager)
+	ret1, _ := ret[1].(error)
+	return ret0, ret1
 }
 
-func (_mr *_MockManagerRecorder) CreateChildCgroup(arg0, arg1 interface{}) *gomock.Call {
-	return _mr.mock.ctrl.RecordCall(_mr.mock, "CreateChildCgroup", arg0, arg1)
-}
-
-func (_m *MockManager) AttachTID(subSystem string, subCgroup string, tid int) error {
-	ret := _m.ctrl.Call(_m, "AttachTID", subSystem, subCgroup, tid)
-	ret0, _ := ret[0].(error)
-	return ret0
-}
-
-func (_mr *_MockManagerRecorder) AttachTID(arg0, arg1, arg2 interface{}) *gomock.Call {
-	return _mr.mock.ctrl.RecordCall(_mr.mock, "AttachTID", arg0, arg1, arg2)
+func (_mr *_MockManagerRecorder) CreateChildCgroup(arg0 interface{}, arg1 ...interface{}) *gomock.Call {
+	_s := append([]interface{}{arg0}, arg1...)
+	return _mr.mock.ctrl.RecordCall(_mr.mock, "CreateChildCgroup", _s...)
 }
 
 func (_m *MockManager) GetCgroupThreads() ([]int, error) {

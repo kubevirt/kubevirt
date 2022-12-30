@@ -298,3 +298,12 @@ func attachTask(id int, dirPath, filename string) error {
 
 	return nil
 }
+
+func doesStrSliceContainsElement(element string, s []string) bool {
+	for _, sElemment := range s {
+		if sElemment == element {
+			return true
+		}
+	}
+	return false
+}
