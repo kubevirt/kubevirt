@@ -267,3 +267,29 @@ func formatCgroupPaths(controllerPaths map[string]string) map[string]string {
 
 	return controllerPaths
 }
+
+// Note: task type is ignored for V1, subSystem is ignored for V2
+func attachTask(id int, dirPath, filename string) error {
+	// This function is needed since runc doesn't support attaching threads properly.
+	// An issue is opened to track that: https://github.com/opencontainers/runc/issues/3617.
+
+	idStr := strconv.Itoa(id)
+
+	curTasks, err := runc_cgroups.ReadFile(dirPath, filename)
+	if err != nil {
+		return err
+	}
+
+	if strings.Contains(curTasks, idStr) {
+		// id is already attached
+		log.Log.V(detailedLogVerbosity).Infof("id %d already attached to %s", id, filepath.Join(dirPath, filename))
+		return nil
+	}
+
+	err = runc_cgroups.WriteFile(dirPath, filename, idStr)
+	if err != nil {
+		return err
+	}
+
+	return nil
+}

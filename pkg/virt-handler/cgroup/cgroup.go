@@ -39,6 +39,13 @@ import (
 
 //go:generate mockgen -source $GOFILE -package=$GOPACKAGE -destination=generated_mock_$GOFILE
 
+type TaskType int
+
+const (
+	Thread TaskType = iota
+	Process
+)
+
 // Manager is the only interface to use in order to inspect, update or define cgroup properties.
 // This interface is agnostic to cgroups version (supports v1 and v2) and is completely transparent from the
 // users perspective. To achieve this "runc"'s cgroup manager is being levitated. This package's implementation
@@ -62,9 +69,6 @@ type Manager interface {
 
 	// Create new child cgroup
 	CreateChildCgroup(name string, subSystem string) error
-
-	// Attach TID to cgroup
-	AttachTID(subSystem string, subCgroup string, tid int) error
 
 	// Get list of threads attached to cgroup
 	GetCgroupThreads() ([]int, error)

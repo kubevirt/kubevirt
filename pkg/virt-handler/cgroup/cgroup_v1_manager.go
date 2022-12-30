@@ -7,7 +7,6 @@ import (
 	"io"
 	"os"
 	"path/filepath"
-	"strconv"
 
 	"kubevirt.io/client-go/log"
 
@@ -139,25 +138,13 @@ func rw_filecontents(fReadPath string, fWritePath string) (err error) {
 	return nil
 }
 
-// Attach TID to cgroup. Optionally on a subcgroup of
-// the pods control group (if subcgroup != nil).
-func (v *v1Manager) AttachTID(subSystem string, subCgroup string, tid int) error {
-	cgroupPath, err := v.GetBasePathToHostSubsystem(subSystem)
-	if err != nil {
-		return err
-	}
-	if subCgroup != "" {
-		cgroupPath = filepath.Join(cgroupPath, subCgroup)
-	}
-
-	wVal := strconv.Itoa(tid)
-
-	err = runc_cgroups.WriteFile(cgroupPath, "tasks", wVal)
+func (v *v1Manager) attachTask(id int, subSystem string) error {
+	subSystemPath, err := v.GetBasePathToHostSubsystem(subSystem)
 	if err != nil {
 		return err
 	}
 
-	return nil
+	return attachTask(id, subSystemPath, v1ThreadsProcsFilename)
 }
 
 func init_cgroup(groupPath string, newCgroupName string, subSystem string) (err error) {
