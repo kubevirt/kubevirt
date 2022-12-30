@@ -3,14 +3,13 @@ apiVersion: kubevirt.io/v1
 kind: VirtualMachineInstance
 metadata:
   labels:
-    special: vmi-fedora-isolated
-  name: vmi-fedora-isolated
+    special: vmi-fedora-dedicated
+  name: vmi-fedora-dedicated
 spec:
   domain:
     cpu:
       cores: 1
       dedicatedCpuPlacement: true
-      isolateEmulatorThread: true
     devices:
       disks:
       - disk:
