@@ -57,6 +57,7 @@ const (
 	VmiSata              = "vmi-sata"
 	VmiFedora            = "vmi-fedora"
 	VmiFedoraIsolated    = "vmi-fedora-isolated"
+	VmiFedoraDedicated   = "vmi-fedora-dedicated"
 	VmiSecureBoot        = "vmi-secureboot"
 	VmiAlpineEFI         = "vmi-alpine-efi"
 	VmiNoCloud           = "vmi-nocloud"
@@ -160,20 +161,29 @@ func getBaseVMISpec() *v1.VirtualMachineInstanceSpec {
 	}
 }
 
+func setVmiName(vmi *v1.VirtualMachineInstance, name string) {
+	vmi.Name = name
+
+	if vmi.Labels == nil {
+		vmi.Labels = map[string]string{}
+	}
+
+	vmi.Labels["special"] = name
+}
+
 func getBaseVMI(name string) *v1.VirtualMachineInstance {
 	baseVMISpec := getBaseVMISpec()
 
-	return &v1.VirtualMachineInstance{
+	vmi := &v1.VirtualMachineInstance{
 		TypeMeta: metav1.TypeMeta{
 			APIVersion: v1.GroupVersion.String(),
 			Kind:       "VirtualMachineInstance",
 		},
-		ObjectMeta: metav1.ObjectMeta{
-			Name:   name,
-			Labels: map[string]string{"special": name},
-		},
 		Spec: *baseVMISpec,
 	}
+
+	setVmiName(vmi, name)
+	return vmi
 }
 
 func initFedoraWithDisk(spec *v1.VirtualMachineInstanceSpec, containerDisk string) *v1.VirtualMachineInstanceSpec {
@@ -187,13 +197,7 @@ func initFedora(spec *v1.VirtualMachineInstanceSpec) *v1.VirtualMachineInstanceS
 	addRNG(spec) // without RNG, newer fedora images may hang waiting for entropy sources
 	return spec
 }
-func initFedoraIsolated(spec *v1.VirtualMachineInstanceSpec) *v1.VirtualMachineInstanceSpec {
-	addContainerDisk(spec, fmt.Sprintf(strFmt, DockerPrefix, imageFedora, DockerTag), v1.DiskBusVirtio)
-	addRNG(spec) // without RNG, newer fedora images may hang waiting for entropy sources
 
-	addDedicatedAndIsolatedCPU(spec)
-	return spec
-}
 func enableNetworkInterfaceMultiqueue(spec *v1.VirtualMachineInstanceSpec, enable bool) {
 	spec.Domain.Devices.NetworkInterfaceMultiQueue = &enable
 }
@@ -211,16 +215,6 @@ func setDefaultNetworkAndInterface(spec *v1.VirtualMachineInstanceSpec, bindingM
 			NetworkSource: networkSource},
 	}
 
-	return spec
-}
-
-func addDedicatedAndIsolatedCPU(spec *v1.VirtualMachineInstanceSpec) *v1.VirtualMachineInstanceSpec {
-	cpu := &v1.CPU{
-		IsolateEmulatorThread: true,
-		DedicatedCPUPlacement: true,
-		Cores:                 1,
-	}
-	spec.Domain.CPU = cpu
 	return spec
 }
 
@@ -471,11 +465,31 @@ func GetVMIEphemeralFedora() *v1.VirtualMachineInstance {
 	return vmi
 }
 
+func setRealtimeVmi(vmi *v1.VirtualMachineInstance, isDedicatedCpu, isIsolatedEmulatorThread bool) {
+	if vmi == nil {
+		return
+	}
+
+	if vmi.Spec.Domain.CPU == nil {
+		vmi.Spec.Domain.CPU = &v1.CPU{}
+	}
+
+	vmi.Spec.Domain.CPU.DedicatedCPUPlacement = isDedicatedCpu
+	vmi.Spec.Domain.CPU.IsolateEmulatorThread = isIsolatedEmulatorThread
+	vmi.Spec.Domain.CPU.Cores = 1
+}
+
 func GetVMIEphemeralFedoraIsolated() *v1.VirtualMachineInstance {
-	vmi := getBaseVMI(VmiFedora)
-	vmi.Spec.Domain.Resources.Requests[k8sv1.ResourceMemory] = resource.MustParse("1024M")
-	initFedoraIsolated(&vmi.Spec)
-	addNoCloudDiskWitUserData(&vmi.Spec, generateCloudConfigString(cloudConfigUserPassword))
+	vmi := GetVMIEphemeralFedora()
+	setVmiName(vmi, vmi.Name+"-isolated")
+	setRealtimeVmi(vmi, true, true)
+	return vmi
+}
+
+func GetVMIEphemeralFedoraDedicated() *v1.VirtualMachineInstance {
+	vmi := GetVMIEphemeralFedora()
+	setVmiName(vmi, vmi.Name+"-dedicated")
+	setRealtimeVmi(vmi, true, false)
 	return vmi
 }
 
