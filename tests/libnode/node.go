@@ -22,6 +22,7 @@ package libnode
 import (
 	"context"
 	"encoding/json"
+	"net/http"
 	"strings"
 
 	. "github.com/onsi/gomega"
@@ -250,4 +251,8 @@ func GetArch() string {
 	nodes := GetAllSchedulableNodes(virtCli).Items
 	Expect(nodes).ToNot(BeEmpty(), "There should be some node")
 	return nodes[0].Status.NodeInfo.Architecture
+}
+
+func GetVirtHandlerPod(virtCli kubecli.KubevirtClient, nodeName string) (*k8sv1.Pod, error) {
+	return kubecli.NewVirtHandlerClient(virtCli, &http.Client{}).Namespace(flags.KubeVirtInstallNamespace).ForNode(nodeName).Pod()
 }

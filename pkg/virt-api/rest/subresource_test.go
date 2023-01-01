@@ -31,6 +31,7 @@ import (
 	"strconv"
 	"strings"
 	"sync"
+	"time"
 
 	"github.com/golang/mock/gomock"
 	"k8s.io/apimachinery/pkg/runtime"
@@ -141,6 +142,12 @@ var _ = Describe("VirtualMachineInstance Subresources", func() {
 		app.credentialsLock = &sync.Mutex{}
 		app.handlerTLSConfiguration = &tls.Config{InsecureSkipVerify: true}
 		app.clusterConfig = config
+		app.handlerHttpClient = &http.Client{
+			Transport: &http.Transport{
+				TLSClientConfig: app.handlerTLSConfiguration,
+			},
+			Timeout: 10 * time.Second,
+		}
 
 		request = restful.NewRequest(&http.Request{})
 		recorder = httptest.NewRecorder()
