@@ -25,7 +25,8 @@ import (
 	"strings"
 	"time"
 
-	"kubevirt.io/kubevirt/tests/framework/matcher"
+	"github.com/onsi/gomega/gstruct"
+	v12 "k8s.io/apimachinery/pkg/apis/meta/v1"
 
 	virt_api "kubevirt.io/kubevirt/pkg/virt-api"
 
@@ -216,7 +217,16 @@ var _ = Describe("[rfe_id:609][sig-compute]VMIheadless", func() {
 				vmi = tests.RunVMIAndExpectLaunch(vmi, 30)
 
 				By("VMI has the guest agent connected condition")
-				Eventually(matcher.ThisVMI(vmi), 30*time.Second, 2*time.Second).Should(matcher.HaveConditionTrue(v1.VirtualMachineInstanceAgentConnected), "should have agent connected condition")
+				Eventually(func() []v1.VirtualMachineInstanceCondition {
+					vmi, err = virtClient.VirtualMachineInstance(vmi.Namespace).Get(vmi.Name, &v12.GetOptions{})
+					Expect(err).ToNot(HaveOccurred(), "Should get VMI ")
+					return vmi.Status.Conditions
+				}, 30*time.Second, 2).Should(
+					ContainElement(
+						gstruct.MatchFields(
+							gstruct.IgnoreExtras,
+							gstruct.Fields{"Type": Equal(v1.VirtualMachineInstanceAgentConnected)})),
+					"Should have agent connected condition")
 				origHandlerCons := getHandlerConnectionCount()
 
 				By("Making multiple requests")
