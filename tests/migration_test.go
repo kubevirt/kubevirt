@@ -493,9 +493,8 @@ var _ = Describe("[rfe_id:393][crit:high][vendor:cnv-qe@redhat.com][level:system
 			libnet.SkipWhenNotDualStackCluster(virtClient)
 		}
 
-		vmiNodeOrig := vmi.Status.NodeName
 		By("Finding the prometheus endpoint")
-		pod, err = kubecli.NewVirtHandlerClient(virtClient).Namespace(flags.KubeVirtInstallNamespace).ForNode(vmiNodeOrig).Pod()
+		pod, err = libnode.GetVirtHandlerPod(virtClient, vmi.Status.NodeName)
 		Expect(err).ToNot(HaveOccurred(), "Should find the virt-handler pod")
 		for _, ip := range pod.Status.PodIPs {
 			metricsIPs = append(metricsIPs, ip.IP)
@@ -1991,7 +1990,7 @@ var _ = Describe("[rfe_id:393][crit:high][vendor:cnv-qe@redhat.com][level:system
 					By("checking if we fail to connect with our own cert")
 					tlsConfig := temporaryTLSConfig()
 
-					handler, err := kubecli.NewVirtHandlerClient(virtClient).Namespace(flags.KubeVirtInstallNamespace).ForNode(vmi.Status.MigrationState.TargetNode).Pod()
+					handler, err := libnode.GetVirtHandlerPod(virtClient, vmi.Status.MigrationState.TargetNode)
 					Expect(err).ToNot(HaveOccurred())
 
 					var wg sync.WaitGroup
@@ -2069,7 +2068,7 @@ var _ = Describe("[rfe_id:393][crit:high][vendor:cnv-qe@redhat.com][level:system
 					By("checking if we fail to connect with our own cert")
 					tlsConfig := temporaryTLSConfig()
 
-					handler, err := kubecli.NewVirtHandlerClient(virtClient).Namespace(flags.KubeVirtInstallNamespace).ForNode(vmi.Status.MigrationState.TargetNode).Pod()
+					handler, err := libnode.GetVirtHandlerPod(virtClient, vmi.Status.MigrationState.TargetNode)
 					Expect(err).ToNot(HaveOccurred())
 
 					var wg sync.WaitGroup

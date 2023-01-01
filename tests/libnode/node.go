@@ -23,6 +23,7 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
+	"net/http"
 	"strings"
 	"time"
 
@@ -351,4 +352,8 @@ func SetNodeUnschedulable(nodeName string, virtCli kubecli.KubevirtClient) {
 
 func SetNodeSchedulable(nodeName string, virtCli kubecli.KubevirtClient) {
 	setNodeSchedualability(nodeName, virtCli, true)
+}
+
+func GetVirtHandlerPod(virtCli kubecli.KubevirtClient, nodeName string) (*k8sv1.Pod, error) {
+	return kubecli.NewVirtHandlerClient(virtCli, &http.Client{}).Namespace(flags.KubeVirtInstallNamespace).ForNode(nodeName).Pod()
 }
