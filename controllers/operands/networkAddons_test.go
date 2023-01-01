@@ -525,6 +525,63 @@ var _ = Describe("CNA Operand", func() {
 			}),
 		)
 
+		type ksdAnnotationParams struct {
+			ksdExists         bool
+			setFeatureGate    bool
+			featureGateValue  bool
+			ksdDeployExpected bool
+		}
+		DescribeTable("when reconciling kube-secondary-dns", func(o ksdAnnotationParams) {
+			existingCNAO, err := NewNetworkAddons(hco)
+			Expect(err).ToNot(HaveOccurred())
+			if o.ksdExists {
+				existingCNAO.Spec.KubeSecondaryDNS = &networkaddonsshared.KubeSecondaryDNS{}
+			}
+
+			if o.setFeatureGate {
+				deployKubeSecondaryDNS := o.featureGateValue
+				hco.Spec.FeatureGates.DeployKubeSecondaryDNS = &deployKubeSecondaryDNS
+			}
+
+			cl := commonTestUtils.InitClient([]runtime.Object{hco, existingCNAO})
+			handler := (*genericOperand)(newCnaHandler(cl, commonTestUtils.GetScheme()))
+			res := handler.ensure(req)
+			Expect(res.UpgradeDone).To(BeFalse())
+			Expect(res.Err).ToNot(HaveOccurred())
+
+			foundCNAO := &networkaddonsv1.NetworkAddonsConfig{}
+			Expect(
+				cl.Get(context.TODO(),
+					types.NamespacedName{Name: existingCNAO.Name, Namespace: existingCNAO.Namespace},
+					foundCNAO),
+			).To(Succeed())
+
+			if o.ksdDeployExpected {
+				Expect(foundCNAO.Spec.KubeSecondaryDNS).ToNot(BeNil(), "KSD spec should be added")
+			} else {
+				Expect(foundCNAO.Spec.KubeSecondaryDNS).To(BeNil(), "KSD spec should not be added")
+			}
+		},
+			Entry("should have KSD if feature gate is set to true", ksdAnnotationParams{
+				ksdExists:         false,
+				setFeatureGate:    true,
+				featureGateValue:  true,
+				ksdDeployExpected: true,
+			}),
+			Entry("should not have KSD if feature gate is set to false", ksdAnnotationParams{
+				ksdExists:         true,
+				setFeatureGate:    true,
+				featureGateValue:  false,
+				ksdDeployExpected: false,
+			}),
+			Entry("should not have KSD if feature gate does not exist", ksdAnnotationParams{
+				ksdExists:         true,
+				setFeatureGate:    false,
+				featureGateValue:  false,
+				ksdDeployExpected: false,
+			}),
+		)
+
 		It("should handle conditions", func() {
 			expectedResource, err := NewNetworkAddons(hco)
 			Expect(err).ToNot(HaveOccurred())

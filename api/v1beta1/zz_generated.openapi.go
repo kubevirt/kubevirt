@@ -219,6 +219,14 @@ func schema_kubevirt_hyperconverged_cluster_operator_api_v1beta1_HyperConvergedF
 							Format:      "",
 						},
 					},
+					"deployKubeSecondaryDNS": {
+						SchemaProps: spec.SchemaProps{
+							Description: "Deploy KubeSecondaryDNS by CNAO",
+							Default:     false,
+							Type:        []string{"boolean"},
+							Format:      "",
+						},
+					},
 					"nonRoot": {
 						SchemaProps: spec.SchemaProps{
 							Description: "Enables rootless virt-launcher.",

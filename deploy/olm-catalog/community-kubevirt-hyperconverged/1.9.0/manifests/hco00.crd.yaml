@@ -52,6 +52,7 @@ spec:
                   duration: 24h0m0s
                   renewBefore: 12h0m0s
               featureGates:
+                deployKubeSecondaryDNS: false
                 deployTektonTaskResources: false
                 enableCommonBootImageImport: true
                 nonRoot: true
@@ -862,6 +863,7 @@ spec:
                 type: string
               featureGates:
                 default:
+                  deployKubeSecondaryDNS: false
                   deployTektonTaskResources: false
                   enableCommonBootImageImport: true
                   nonRoot: true
@@ -870,6 +872,10 @@ spec:
                   a flag to `true` will enable the feature. Setting `false` or removing
                   the feature gate, disables the feature.
                 properties:
+                  deployKubeSecondaryDNS:
+                    default: false
+                    description: Deploy KubeSecondaryDNS by CNAO
+                    type: boolean
                   deployTektonTaskResources:
                     default: false
                     description: deploy resources (kubevirt tekton tasks and example

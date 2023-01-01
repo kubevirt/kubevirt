@@ -52,6 +52,10 @@ func SetObjectDefaults_HyperConverged(in *HyperConverged) {
 		var ptrVar1 bool = false
 		in.Spec.FeatureGates.DeployTektonTaskResources = &ptrVar1
 	}
+	if in.Spec.FeatureGates.DeployKubeSecondaryDNS == nil {
+		var ptrVar1 bool = false
+		in.Spec.FeatureGates.DeployKubeSecondaryDNS = &ptrVar1
+	}
 	if in.Spec.FeatureGates.NonRoot == nil {
 		var ptrVar1 bool = true
 		in.Spec.FeatureGates.NonRoot = &ptrVar1

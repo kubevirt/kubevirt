@@ -160,6 +160,11 @@ reverted back to false.
 
 **Default**: `false`
 
+### deployKubeSecondaryDNS Feature Gate
+Set the `deployKubeSecondaryDNS` feature gate to true to allow deploying KubeSecondaryDNS by CNAO.
+For additional information, see here: [KubeSecondaryDNS](https://github.com/kubevirt/kubesecondarydns)
+
+**Default**: `false`
 
 ### nonRoot Feature Gate
 Set the `nonRoot` feature gate to false in order to not run your virtual machines in rootless virt-launcher.
@@ -184,6 +189,7 @@ spec:
     withHostPassthroughCPU: true
     enableCommonBootImageImport: true
     deployTektonTaskResources: true
+    deployKubeSecondaryDNS: true
 ```
 
 ## Live Migration Configurations

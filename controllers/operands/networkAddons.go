@@ -143,6 +143,10 @@ func NewNetworkAddons(hc *hcov1beta1.HyperConverged, opts ...string) (*networkad
 		KubeMacPool: &networkaddonsshared.KubeMacPool{},
 	}
 
+	if hc.Spec.FeatureGates.DeployKubeSecondaryDNS != nil && *hc.Spec.FeatureGates.DeployKubeSecondaryDNS {
+		cnaoSpec.KubeSecondaryDNS = &networkaddonsshared.KubeSecondaryDNS{}
+	}
+
 	cnaoSpec.Ovs = hcoAnnotation2CnaoSpec(hc.ObjectMeta.Annotations)
 	cnaoInfra := hcoConfig2CnaoPlacement(hc.Spec.Infra.NodePlacement)
 	cnaoWorkloads := hcoConfig2CnaoPlacement(hc.Spec.Workloads.NodePlacement)
