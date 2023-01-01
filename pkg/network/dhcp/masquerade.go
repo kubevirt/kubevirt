@@ -20,8 +20,6 @@
 package dhcp
 
 import (
-	"github.com/coreos/go-iptables/iptables"
-
 	v1 "kubevirt.io/api/core/v1"
 	"kubevirt.io/client-go/log"
 
@@ -55,7 +53,7 @@ func (d *MasqueradeConfigGenerator) Generate() (*cache.DHCPConfig, error) {
 		return nil, err
 	}
 	if ipv4Enabled {
-		ipv4Gateway, ipv4, err := virtnetlink.GenerateMasqueradeGatewayAndVmIPAddrs(d.vmiSpecNetwork, iptables.ProtocolIPv4)
+		ipv4Gateway, ipv4, err := virtnetlink.GenerateMasqueradeGatewayAndVmIPAddrs(d.vmiSpecNetwork, netdriver.IPv4)
 		if err != nil {
 			return nil, err
 		}
@@ -71,7 +69,7 @@ func (d *MasqueradeConfigGenerator) Generate() (*cache.DHCPConfig, error) {
 	}
 
 	if ipv6Enabled {
-		ipv6Gateway, ipv6, err := virtnetlink.GenerateMasqueradeGatewayAndVmIPAddrs(d.vmiSpecNetwork, iptables.ProtocolIPv6)
+		ipv6Gateway, ipv6, err := virtnetlink.GenerateMasqueradeGatewayAndVmIPAddrs(d.vmiSpecNetwork, netdriver.IPv6)
 		if err != nil {
 			return nil, err
 		}

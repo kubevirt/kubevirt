@@ -27,7 +27,6 @@ import (
 	"os"
 	"os/exec"
 
-	"github.com/coreos/go-iptables/iptables"
 	"github.com/vishvananda/netlink"
 
 	"kubevirt.io/kubevirt/pkg/virt-launcher/virtwrap/converter"
@@ -43,7 +42,6 @@ import (
 	dhcpserver "kubevirt.io/kubevirt/pkg/network/dhcp/server"
 	dhcpserverv6 "kubevirt.io/kubevirt/pkg/network/dhcp/serverv6"
 	"kubevirt.io/kubevirt/pkg/network/dns"
-	"kubevirt.io/kubevirt/pkg/network/link"
 	"kubevirt.io/kubevirt/pkg/virt-handler/selinux"
 )
 
@@ -52,6 +50,13 @@ const (
 	allowForwarding             = "1"
 	LibvirtUserAndGroupId       = "0"
 	allowRouteLocalNet          = "1"
+)
+
+type IPVersion int
+
+const (
+	IPv4 IPVersion = 4
+	IPv6 IPVersion = 6
 )
 
 type NetworkHandler interface {
@@ -74,16 +79,16 @@ type NetworkHandler interface {
 	HasIPv4GlobalUnicastAddress(interfaceName string) (bool, error)
 	HasIPv6GlobalUnicastAddress(interfaceName string) (bool, error)
 	IsIpv4Primary() (bool, error)
-	ConfigureIpForwarding(proto iptables.Protocol) error
+	ConfigureIpForwarding(ipVersion IPVersion) error
 	ConfigureRouteLocalNet(string) error
 	ConfigureIpv4ArpIgnore() error
 	ConfigurePingGroupRange() error
 	ConfigureUnprivilegedPortStart(string) error
-	NftablesNewChain(proto iptables.Protocol, table, chain string) error
-	NftablesNewTable(proto iptables.Protocol, name string) error
-	NftablesAppendRule(proto iptables.Protocol, table, chain string, rulespec ...string) error
+	NftablesNewChain(ipVersion IPVersion, table, chain string) error
+	NftablesNewTable(ipVersion IPVersion, name string) error
+	NftablesAppendRule(ipVersion IPVersion, table, chain string, rulespec ...string) error
 	CheckNftables() error
-	GetNFTIPString(proto iptables.Protocol) string
+	GetNFTIPString(ipVersion IPVersion) string
 	CreateTapDevice(tapName string, queueNumber uint32, launcherPID int, mtu int, tapOwner string) error
 	BindTapDeviceToBridge(tapName string, bridgeName string) error
 	DisableTXOffloadChecksum(ifaceName string) error
@@ -140,9 +145,9 @@ func (h *NetworkUtilsHandler) ConfigureIpv4ArpIgnore() error {
 	return err
 }
 
-func (h *NetworkUtilsHandler) ConfigureIpForwarding(proto iptables.Protocol) error {
+func (h *NetworkUtilsHandler) ConfigureIpForwarding(ipVersion IPVersion) error {
 	var forwarding string
-	if proto == iptables.ProtocolIPv6 {
+	if ipVersion == IPv6 {
 		forwarding = sysctl.NetIPv6Forwarding
 	} else {
 		forwarding = sysctl.NetIPv4Forwarding
@@ -213,9 +218,9 @@ func (h *NetworkUtilsHandler) IsIpv4Primary() (bool, error) {
 	return !netutils.IsIPv6String(podIP), nil
 }
 
-func (h *NetworkUtilsHandler) NftablesNewTable(proto iptables.Protocol, name string) error {
+func (h *NetworkUtilsHandler) NftablesNewTable(ipVersion IPVersion, name string) error {
 	// #nosec g204 no risk to use GetNFTIPString as  argument as it returns either "ipv6" or "ip" strings
-	output, err := exec.Command("nft", "add", "table", h.GetNFTIPString(proto), name).CombinedOutput()
+	output, err := exec.Command("nft", "add", "table", h.GetNFTIPString(ipVersion), name).CombinedOutput()
 	if err != nil {
 		return fmt.Errorf("%s, error: %s", string(output), err.Error())
 	}
@@ -223,9 +228,9 @@ func (h *NetworkUtilsHandler) NftablesNewTable(proto iptables.Protocol, name str
 	return nil
 }
 
-func (h *NetworkUtilsHandler) NftablesNewChain(proto iptables.Protocol, table, chain string) error {
+func (h *NetworkUtilsHandler) NftablesNewChain(ipVersion IPVersion, table, chain string) error {
 	// #nosec g204 no risk to use GetNFTIPString as  argument as it returns either "ipv6" or "ip" strings
-	output, err := exec.Command("nft", "add", "chain", h.GetNFTIPString(proto), table, chain).CombinedOutput()
+	output, err := exec.Command("nft", "add", "chain", h.GetNFTIPString(ipVersion), table, chain).CombinedOutput()
 	if err != nil {
 		return fmt.Errorf("%s, error: %s", string(output), err.Error())
 	}
@@ -233,8 +238,8 @@ func (h *NetworkUtilsHandler) NftablesNewChain(proto iptables.Protocol, table, c
 	return nil
 }
 
-func (h *NetworkUtilsHandler) NftablesAppendRule(proto iptables.Protocol, table, chain string, rulespec ...string) error {
-	cmd := append([]string{"add", "rule", h.GetNFTIPString(proto), table, chain}, rulespec...)
+func (h *NetworkUtilsHandler) NftablesAppendRule(ipVersion IPVersion, table, chain string, rulespec ...string) error {
+	cmd := append([]string{"add", "rule", h.GetNFTIPString(ipVersion), table, chain}, rulespec...)
 	// #nosec No risk for attacket injection. CMD variables are predefined strings
 	output, err := exec.Command("nft", cmd...).CombinedOutput()
 	if err != nil {
@@ -244,8 +249,8 @@ func (h *NetworkUtilsHandler) NftablesAppendRule(proto iptables.Protocol, table,
 	return nil
 }
 
-func (h *NetworkUtilsHandler) GetNFTIPString(proto iptables.Protocol) string {
-	if proto == iptables.ProtocolIPv6 {
+func (h *NetworkUtilsHandler) GetNFTIPString(ipVersion IPVersion) string {
+	if ipVersion == IPv6 {
 		return "ip6"
 	}
 	return "ip"
@@ -397,7 +402,7 @@ func (h *NetworkUtilsHandler) BindTapDeviceToBridge(tapName string, bridgeName s
 }
 
 func (h *NetworkUtilsHandler) DisableTXOffloadChecksum(ifaceName string) error {
-	if err := link.EthtoolTXOff(ifaceName); err != nil {
+	if err := EthtoolTXOff(ifaceName); err != nil {
 		log.Log.Reason(err).Errorf("Failed to set tx offload for interface %s off", ifaceName)
 		return err
 	}

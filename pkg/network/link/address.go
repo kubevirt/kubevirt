@@ -23,13 +23,13 @@ import (
 	"fmt"
 	"net"
 
-	"github.com/coreos/go-iptables/iptables"
 	"github.com/vishvananda/netlink"
 
 	v1 "kubevirt.io/api/core/v1"
 	"kubevirt.io/client-go/log"
 
 	"kubevirt.io/kubevirt/pkg/network/cache"
+	netdriver "kubevirt.io/kubevirt/pkg/network/driver"
 	"kubevirt.io/kubevirt/pkg/virt-launcher/virtwrap/api"
 )
 
@@ -64,9 +64,9 @@ func inc(ip net.IP) {
 	}
 }
 
-func GenerateMasqueradeGatewayAndVmIPAddrs(vmiSpecNetwork *v1.Network, protocol iptables.Protocol) (*netlink.Addr, *netlink.Addr, error) {
+func GenerateMasqueradeGatewayAndVmIPAddrs(vmiSpecNetwork *v1.Network, ipVersion netdriver.IPVersion) (*netlink.Addr, *netlink.Addr, error) {
 	var cidrToConfigure string
-	if protocol == iptables.ProtocolIPv4 {
+	if ipVersion == netdriver.IPv4 {
 		if vmiSpecNetwork.Pod.VMNetworkCIDR == "" {
 			cidrToConfigure = api.DefaultVMCIDR
 		} else {
@@ -75,7 +75,7 @@ func GenerateMasqueradeGatewayAndVmIPAddrs(vmiSpecNetwork *v1.Network, protocol 
 
 	}
 
-	if protocol == iptables.ProtocolIPv6 {
+	if ipVersion == netdriver.IPv6 {
 		if vmiSpecNetwork.Pod.VMIPv6NetworkCIDR == "" {
 			cidrToConfigure = api.DefaultVMIpv6CIDR
 		} else {

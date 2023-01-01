@@ -62,9 +62,6 @@ github.com/cilium/ebpf/link
 # github.com/containernetworking/plugins v0.9.1
 ## explicit; go 1.14
 github.com/containernetworking/plugins/pkg/ns
-# github.com/coreos/go-iptables v0.5.0
-## explicit
-github.com/coreos/go-iptables/iptables
 # github.com/coreos/go-semver v0.3.0
 ## explicit
 github.com/coreos/go-semver/semver
