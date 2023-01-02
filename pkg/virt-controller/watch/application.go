@@ -516,7 +516,7 @@ func (vca *VirtControllerApp) onStartedLeading() func(ctx context.Context) {
 
 		go vca.evacuationController.Run(vca.evacuationControllerThreads, stop)
 		go vca.disruptionBudgetController.Run(vca.disruptionBudgetControllerThreads, stop)
-		go vca.nodeController.Run(vca.nodeControllerThreads, stop)
+		go vca.nodeController.Run(stop)
 		go vca.vmiController.Run(vca.vmiControllerThreads, stop)
 		go vca.rsController.Run(vca.rsControllerThreads, stop)
 		go vca.poolController.Run(vca.poolControllerThreads, stop)
@@ -602,7 +602,7 @@ func (vca *VirtControllerApp) initCommon() {
 	)
 
 	recorder := vca.newRecorder(k8sv1.NamespaceAll, "node-controller")
-	vca.nodeController = NewNodeController(vca.clientSet, vca.nodeInformer, vca.vmiInformer, recorder)
+	vca.nodeController = NewNodeController(vca.clientSet, vca.nodeInformer, recorder)
 	vca.migrationController = NewMigrationController(
 		vca.templateService,
 		vca.vmiInformer,
