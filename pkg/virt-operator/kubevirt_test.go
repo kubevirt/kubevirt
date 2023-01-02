@@ -1842,8 +1842,7 @@ var _ = Describe("KubeVirt Operator", func() {
 
 		})
 
-		It("should delete old serviceMonitor on update", func(done Done) {
-			defer close(done)
+		It("should delete old serviceMonitor on update", func() {
 
 			kvTestData := KubeVirtTestData{}
 			kvTestData.BeforeTest()
@@ -2152,7 +2151,7 @@ var _ = Describe("KubeVirt Operator", func() {
 			envKey := rand.String(10)
 			envVal := rand.String(10)
 			config.PassthroughEnvVars = map[string]string{envKey: envVal}
-			job, err := kvTestData.controller.generateInstallStrategyJob(config)
+			job, err := kvTestData.controller.generateInstallStrategyJob(&v1.ComponentConfig{}, config)
 
 			Expect(err).ToNot(HaveOccurred())
 			Expect(job.Spec.Template.Spec.Containers[0].Env).To(ContainElement(k8sv1.EnvVar{Name: envKey, Value: envVal}))
@@ -2168,7 +2167,7 @@ var _ = Describe("KubeVirt Operator", func() {
 			Expect(err).ToNot(HaveOccurred())
 			config := kvTestData.getConfig("registry", "v1.1.1")
 
-			job, err := kvTestData.controller.generateInstallStrategyJob(config)
+			job, err := kvTestData.controller.generateInstallStrategyJob(&v1.ComponentConfig{}, config)
 			Expect(err).ToNot(HaveOccurred())
 
 			Expect(job.Spec.Template.Spec.Containers).ToNot(BeEmpty())
@@ -2254,6 +2253,43 @@ var _ = Describe("KubeVirt Operator", func() {
 
 		})
 
+		It("should apply the infra placement config on the install job", func() {
+			kvTestData := KubeVirtTestData{}
+			kvTestData.BeforeTest()
+			defer kvTestData.AfterTest()
+
+			kv := &v1.KubeVirt{
+				ObjectMeta: metav1.ObjectMeta{
+					Name:       "test-install",
+					Namespace:  NAMESPACE,
+					Finalizers: []string{util.KubeVirtFinalizer},
+				},
+				Status: v1.KubeVirtStatus{},
+			}
+
+			affinity := &k8sv1.Affinity{
+				NodeAffinity: &k8sv1.NodeAffinity{RequiredDuringSchedulingIgnoredDuringExecution: &k8sv1.NodeSelector{
+					NodeSelectorTerms: []k8sv1.NodeSelectorTerm{
+						{MatchExpressions: []k8sv1.NodeSelectorRequirement{
+							{
+								Key:      "test",
+								Operator: "In",
+								Values:   []string{"something"},
+							},
+						}},
+					},
+				},
+				},
+			}
+			job, err := kvTestData.controller.generateInstallStrategyJob(&v1.ComponentConfig{
+				NodePlacement: &v1.NodePlacement{Affinity: affinity},
+			}, util.GetTargetConfigFromKV(kv))
+			Expect(err).ToNot(HaveOccurred())
+
+			Expect(job.Spec.Template.Spec.Affinity).To(Equal(affinity))
+
+		})
+
 		It("should label install strategy creation job", func() {
 			kvTestData := KubeVirtTestData{}
 			kvTestData.BeforeTest()
@@ -2268,7 +2304,7 @@ var _ = Describe("KubeVirt Operator", func() {
 				Status: v1.KubeVirtStatus{},
 			}
 
-			job, err := kvTestData.controller.generateInstallStrategyJob(util.GetTargetConfigFromKV(kv))
+			job, err := kvTestData.controller.generateInstallStrategyJob(nil, util.GetTargetConfigFromKV(kv))
 			Expect(err).ToNot(HaveOccurred())
 
 			Expect(job.Spec.Template.ObjectMeta.Labels).Should(HaveKeyWithValue(v1.AppLabel, virtOperatorJobAppLabel))
@@ -2288,7 +2324,7 @@ var _ = Describe("KubeVirt Operator", func() {
 				Status: v1.KubeVirtStatus{},
 			}
 
-			job, err := kvTestData.controller.generateInstallStrategyJob(util.GetTargetConfigFromKV(kv))
+			job, err := kvTestData.controller.generateInstallStrategyJob(&v1.ComponentConfig{}, util.GetTargetConfigFromKV(kv))
 			Expect(err).ToNot(HaveOccurred())
 
 			// will only create a new job after 10 seconds has passed.
@@ -2325,7 +2361,7 @@ var _ = Describe("KubeVirt Operator", func() {
 				Status: v1.KubeVirtStatus{},
 			}
 
-			job, err := kvTestData.controller.generateInstallStrategyJob(util.GetTargetConfigFromKV(kv))
+			job, err := kvTestData.controller.generateInstallStrategyJob(kv.Spec.Infra, util.GetTargetConfigFromKV(kv))
 			Expect(err).ToNot(HaveOccurred())
 
 			job.Status.CompletionTime = now()
@@ -2357,7 +2393,7 @@ var _ = Describe("KubeVirt Operator", func() {
 			kvTestData.addKubeVirt(kv)
 			kvTestData.addInstallStrategy(kvTestData.defaultConfig)
 
-			job, err := kvTestData.controller.generateInstallStrategyJob(util.GetTargetConfigFromKV(kv))
+			job, err := kvTestData.controller.generateInstallStrategyJob(kv.Spec.Infra, util.GetTargetConfigFromKV(kv))
 			Expect(err).ToNot(HaveOccurred())
 
 			job.Status.CompletionTime = now()
@@ -3012,7 +3048,7 @@ var _ = Describe("KubeVirt Operator", func() {
 			resource.Name = fmt.Sprintf("%s-%s", resource.Name, rand.String(10))
 			kvTestData.addResource(resource, kvTestData.defaultConfig, nil)
 
-			job, err := kvTestData.controller.generateInstallStrategyJob(util.GetTargetConfigFromKV(kv))
+			job, err := kvTestData.controller.generateInstallStrategyJob(kv.Spec.Infra, util.GetTargetConfigFromKV(kv))
 			Expect(err).ToNot(HaveOccurred())
 
 			job.Status.CompletionTime = now()
