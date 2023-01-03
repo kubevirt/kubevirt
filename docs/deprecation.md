@@ -81,5 +81,17 @@ Afterwards, a mail should be sent to kubevirt-dev mailing list (kubevirt-dev@goo
 about the removal. If there are no objections, the object can be removed. Otherwise, a new removal date
 can be discussed according to the context.
 
+### Feature Behavior
+This refers to any changes in features behavior that might surprise the user or break backwards compatibility.
+
+As an example, let's say that a certain feature can be enabled via Kubevirt CR that affects only worker nodes,
+and that feature is changed to also affect control-plane nodes. This is considered a feature behavior change.
+Internal details that are not exposed to the end-user as guarantees that are part of our API aren't considered
+as feature behavior changes.
+
+The process is identical to the process of deprecating API (see above), except the number of releases before
+the final behavior change should be 3 releases (roughly 1 year).
+
+
 ## Discussion
 An ongoing discussion takes part in the following issue: https://github.com/kubevirt/kubevirt/issues/7745
