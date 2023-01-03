@@ -1,6 +1,7 @@
 package lookup
 
 import (
+	"context"
 	"fmt"
 
 	v1 "k8s.io/api/core/v1"
@@ -16,7 +17,7 @@ func VirtualMachinesOnNode(cli kubecli.KubevirtClient, nodeName string) ([]*virt
 	if err != nil {
 		return nil, err
 	}
-	list, err := cli.VirtualMachineInstance(v1.NamespaceAll).List(&metav1.ListOptions{
+	list, err := cli.VirtualMachineInstance(v1.NamespaceAll).List(context.Background(), &metav1.ListOptions{
 		LabelSelector: labelSelector.String(),
 	})
 

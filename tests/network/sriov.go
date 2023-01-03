@@ -20,6 +20,7 @@
 package network
 
 import (
+	"context"
 	"encoding/json"
 	"encoding/xml"
 	"fmt"
@@ -144,7 +145,7 @@ var _ = Describe("[Serial]SRIOV", Serial, func() {
 					AlignedCPUs: alignedCPUsInt,
 				},
 			}
-			vmi, err = virtClient.VirtualMachineInstance(util.NamespaceTestDefault).Get(vmi.Name, &k8smetav1.GetOptions{})
+			vmi, err = virtClient.VirtualMachineInstance(util.NamespaceTestDefault).Get(context.Background(), vmi.Name, &k8smetav1.GetOptions{})
 			Expect(err).ToNot(HaveOccurred())
 
 			metadataStruct := cloudinit.ConfigDriveMetadata{
@@ -207,7 +208,7 @@ var _ = Describe("[Serial]SRIOV", Serial, func() {
 					Tags:    []string{"specialNet"},
 				},
 			}
-			vmi, err = virtClient.VirtualMachineInstance(util.NamespaceTestDefault).Get(vmi.Name, &k8smetav1.GetOptions{})
+			vmi, err = virtClient.VirtualMachineInstance(util.NamespaceTestDefault).Get(context.Background(), vmi.Name, &k8smetav1.GetOptions{})
 			Expect(err).ToNot(HaveOccurred())
 
 			metadataStruct := cloudinit.ConfigDriveMetadata{
@@ -308,7 +309,7 @@ var _ = Describe("[Serial]SRIOV", Serial, func() {
 			By("checking virtual machine instance has an interface with the requested MAC address")
 			ifaceName, err := findIfaceByMAC(virtClient, vmi, mac, 140*time.Second)
 			Expect(err).NotTo(HaveOccurred())
-			vmi, err = virtClient.VirtualMachineInstance(vmi.Namespace).Get(vmi.Name, &k8smetav1.GetOptions{})
+			vmi, err = virtClient.VirtualMachineInstance(vmi.Namespace).Get(context.Background(), vmi.Name, &k8smetav1.GetOptions{})
 			Expect(err).NotTo(HaveOccurred())
 			Expect(checkMacAddress(vmi, ifaceName, mac)).To(Succeed())
 
@@ -344,7 +345,7 @@ var _ = Describe("[Serial]SRIOV", Serial, func() {
 
 				ifaceName, err := findIfaceByMAC(virtClient, vmi, mac, 30*time.Second)
 				Expect(err).NotTo(HaveOccurred())
-				vmi, err = virtClient.VirtualMachineInstance(vmi.Namespace).Get(vmi.Name, &k8smetav1.GetOptions{})
+				vmi, err = virtClient.VirtualMachineInstance(vmi.Namespace).Get(context.Background(), vmi.Name, &k8smetav1.GetOptions{})
 				Expect(err).NotTo(HaveOccurred())
 				Expect(checkMacAddress(vmi, ifaceName, mac)).To(Succeed(), "SR-IOV VF is expected to exist in the guest")
 			})
@@ -359,7 +360,7 @@ var _ = Describe("[Serial]SRIOV", Serial, func() {
 				// the guest-agent.
 				ifaceName, err := findIfaceByMAC(virtClient, vmi, mac, 30*time.Second)
 				Expect(err).NotTo(HaveOccurred())
-				updatedVMI, err := virtClient.VirtualMachineInstance(vmi.Namespace).Get(vmi.Name, &k8smetav1.GetOptions{})
+				updatedVMI, err := virtClient.VirtualMachineInstance(vmi.Namespace).Get(context.Background(), vmi.Name, &k8smetav1.GetOptions{})
 				Expect(err).NotTo(HaveOccurred())
 				Expect(checkMacAddress(updatedVMI, ifaceName, mac)).To(Succeed(), "SR-IOV VF is expected to exist in the guest after migration")
 			})
@@ -648,7 +649,7 @@ func defaultCloudInitNetworkData() string {
 func findIfaceByMAC(virtClient kubecli.KubevirtClient, vmi *v1.VirtualMachineInstance, mac string, timeout time.Duration) (string, error) {
 	var ifaceName string
 	err := wait.Poll(timeout, 5*time.Second, func() (done bool, err error) {
-		vmi, err := virtClient.VirtualMachineInstance(vmi.GetNamespace()).Get(vmi.GetName(), &k8smetav1.GetOptions{})
+		vmi, err := virtClient.VirtualMachineInstance(vmi.GetNamespace()).Get(context.Background(), vmi.GetName(), &k8smetav1.GetOptions{})
 		if err != nil {
 			return false, err
 		}
@@ -697,7 +698,7 @@ func createVMIAndWait(vmi *v1.VirtualMachineInstance) (*v1.VirtualMachineInstanc
 		panic(err)
 	}
 
-	vmi, err = virtClient.VirtualMachineInstance(util.NamespaceTestDefault).Create(vmi)
+	vmi, err = virtClient.VirtualMachineInstance(util.NamespaceTestDefault).Create(context.Background(), vmi)
 	if err != nil {
 		return nil, err
 	}
@@ -719,7 +720,7 @@ func waitVMI(vmi *v1.VirtualMachineInstance) (*v1.VirtualMachineInstance, error)
 
 	Eventually(matcher.ThisVMI(vmi), 12*time.Minute, 2*time.Second).Should(matcher.HaveConditionTrue(v1.VirtualMachineInstanceAgentConnected))
 
-	return virtClient.VirtualMachineInstance(vmi.Namespace).Get(vmi.Name, &k8smetav1.GetOptions{})
+	return virtClient.VirtualMachineInstance(vmi.Namespace).Get(context.Background(), vmi.Name, &k8smetav1.GetOptions{})
 }
 
 // deleteVMI deletes the specified VMI and waits for its absence.
@@ -733,7 +734,7 @@ func deleteVMI(vmi *v1.VirtualMachineInstance) error {
 	}
 
 	GinkgoWriter.Println("sriov:", vmi.Name, "deletion started")
-	if err = virtClient.VirtualMachineInstance(vmi.Namespace).Delete(vmi.Name, &k8smetav1.DeleteOptions{}); err != nil {
+	if err = virtClient.VirtualMachineInstance(vmi.Namespace).Delete(context.Background(), vmi.Name, &k8smetav1.DeleteOptions{}); err != nil {
 		if k8serrors.IsNotFound(err) {
 			return nil
 		}
@@ -742,7 +743,7 @@ func deleteVMI(vmi *v1.VirtualMachineInstance) error {
 
 	const timeout = 30 * time.Second
 	return wait.PollImmediate(1*time.Second, timeout, func() (done bool, err error) {
-		_, err = virtClient.VirtualMachineInstance(vmi.Namespace).Get(vmi.Name, &k8smetav1.GetOptions{})
+		_, err = virtClient.VirtualMachineInstance(vmi.Namespace).Get(context.Background(), vmi.Name, &k8smetav1.GetOptions{})
 		if k8serrors.IsNotFound(err) {
 			return true, nil
 		}

@@ -268,7 +268,7 @@ func RunVMI(vmi *v1.VirtualMachineInstance, timeout int) *v1.VirtualMachineInsta
 
 	var obj *v1.VirtualMachineInstance
 	Eventually(func() error {
-		obj, err = virtCli.VirtualMachineInstance(testsuite.GetTestNamespace(vmi)).Create(vmi)
+		obj, err = virtCli.VirtualMachineInstance(testsuite.GetTestNamespace(vmi)).Create(context.Background(), vmi)
 		return err
 	}, timeout, 1*time.Second).ShouldNot(HaveOccurred())
 	return obj
@@ -315,7 +315,7 @@ func getRunningPodByVirtualMachineInstance(vmi *v1.VirtualMachineInstance, names
 		return nil, err
 	}
 
-	vmi, err = virtCli.VirtualMachineInstance(namespace).Get(vmi.Name, &metav1.GetOptions{})
+	vmi, err = virtCli.VirtualMachineInstance(namespace).Get(context.Background(), vmi.Name, &metav1.GetOptions{})
 	if err != nil {
 		return nil, err
 	}
@@ -1116,7 +1116,7 @@ func waitForVMIPhase(ctx context.Context, phases []v1.VirtualMachineInstancePhas
 	// Fetch the VirtualMachineInstance, to make sure we have a resourceVersion as a starting point for the watch
 	// FIXME: This may start watching too late and we may miss some warnings
 	if vmi.ResourceVersion == "" {
-		vmi, err = virtClient.VirtualMachineInstance(vmi.Namespace).Get(vmi.Name, &metav1.GetOptions{})
+		vmi, err = virtClient.VirtualMachineInstance(vmi.Namespace).Get(context.Background(), vmi.Name, &metav1.GetOptions{})
 		ExpectWithOffset(1, err).ToNot(HaveOccurred())
 	}
 
@@ -1138,7 +1138,7 @@ func waitForVMIPhase(ctx context.Context, phases []v1.VirtualMachineInstancePhas
 	timeoutMsg := fmt.Sprintf("Timed out waiting for VMI %s to enter %s phase(s)", vmi.Name, phases)
 	// FIXME the event order is wrong. First the document should be updated
 	EventuallyWithOffset(1, func() v1.VirtualMachineInstancePhase {
-		vmi, err = virtClient.VirtualMachineInstance(vmi.Namespace).Get(vmi.Name, &metav1.GetOptions{})
+		vmi, err = virtClient.VirtualMachineInstance(vmi.Namespace).Get(context.Background(), vmi.Name, &metav1.GetOptions{})
 		ExpectWithOffset(1, err).ToNot(HaveOccurred())
 
 		Expect(vmi.Status.Phase == v1.Succeeded).To(BeFalse(), "VMI %s unexpectedly stopped. State: %s", vmi.Name, vmi.Status.Phase)
@@ -1177,7 +1177,7 @@ func WaitForVirtualMachineToDisappearWithTimeout(vmi *v1.VirtualMachineInstance,
 	virtClient, err := kubecli.GetKubevirtClient()
 	ExpectWithOffset(1, err).ToNot(HaveOccurred())
 	EventuallyWithOffset(1, func() error {
-		_, err := virtClient.VirtualMachineInstance(vmi.Namespace).Get(vmi.Name, &metav1.GetOptions{})
+		_, err := virtClient.VirtualMachineInstance(vmi.Namespace).Get(context.Background(), vmi.Name, &metav1.GetOptions{})
 		return err
 	}, seconds, 1*time.Second).Should(SatisfyAll(HaveOccurred(), WithTransform(errors.IsNotFound, BeTrue())), "The VMI should be gone within the given timeout")
 }
@@ -1235,7 +1235,7 @@ func LoginToVM(vmi *v1.VirtualMachineInstance, loginTo console.LoginToFunction) 
 	// Fetch the new VirtualMachineInstance with updated status
 	virtClient, err := kubecli.GetKubevirtClient()
 	Expect(err).ToNot(HaveOccurred())
-	vmi, err = virtClient.VirtualMachineInstance(vmi.Namespace).Get(vmi.Name, &metav1.GetOptions{})
+	vmi, err = virtClient.VirtualMachineInstance(vmi.Namespace).Get(context.Background(), vmi.Name, &metav1.GetOptions{})
 	ExpectWithOffset(1, err).ToNot(HaveOccurred())
 
 	// Lets make sure that the OS is up by waiting until we can login
@@ -1454,7 +1454,7 @@ func GetRunningVirtualMachineInstanceDomainXML(virtClient kubecli.KubevirtClient
 	}
 
 	// get current vmi
-	freshVMI, err := virtClient.VirtualMachineInstance(vmi.Namespace).Get(vmi.Name, &metav1.GetOptions{})
+	freshVMI, err := virtClient.VirtualMachineInstance(vmi.Namespace).Get(context.Background(), vmi.Name, &metav1.GetOptions{})
 	if err != nil {
 		return "", fmt.Errorf("failed to get vmi, %s", err)
 	}
@@ -1553,7 +1553,7 @@ func UnfinishedVMIPodSelector(vmi *v1.VirtualMachineInstance) metav1.ListOptions
 	virtClient, err := kubecli.GetKubevirtClient()
 	util2.PanicOnError(err)
 
-	vmi, err = virtClient.VirtualMachineInstance(vmi.Namespace).Get(vmi.Name, &metav1.GetOptions{})
+	vmi, err = virtClient.VirtualMachineInstance(vmi.Namespace).Get(context.Background(), vmi.Name, &metav1.GetOptions{})
 	Expect(err).ToNot(HaveOccurred())
 
 	fieldSelectorStr := "status.phase!=" + string(k8sv1.PodFailed) +
@@ -1636,7 +1636,7 @@ func CreateVmiOnNodeLabeled(vmi *v1.VirtualMachineInstance, nodeLabel, labelValu
 		},
 	}
 
-	vmi, err = virtClient.VirtualMachineInstance(testsuite.GetTestNamespace(vmi)).Create(vmi)
+	vmi, err = virtClient.VirtualMachineInstance(testsuite.GetTestNamespace(vmi)).Create(context.Background(), vmi)
 	ExpectWithOffset(1, err).ToNot(HaveOccurred())
 	return vmi
 }
@@ -1742,7 +1742,7 @@ func StopVirtualMachineWithTimeout(vm *v1.VirtualMachine, timeout time.Duration)
 	Expect(err).ToNot(HaveOccurred())
 	// Observe the VirtualMachineInstance deleted
 	Eventually(func() bool {
-		_, err = virtClient.VirtualMachineInstance(updatedVM.Namespace).Get(updatedVM.Name, &metav1.GetOptions{})
+		_, err = virtClient.VirtualMachineInstance(updatedVM.Namespace).Get(context.Background(), updatedVM.Name, &metav1.GetOptions{})
 		if errors.IsNotFound(err) {
 			return true
 		}
@@ -1777,7 +1777,7 @@ func StartVirtualMachine(vm *v1.VirtualMachine) *v1.VirtualMachine {
 	Expect(err).ToNot(HaveOccurred())
 	// Observe the VirtualMachineInstance created
 	Eventually(func() error {
-		_, err := virtClient.VirtualMachineInstance(updatedVM.Namespace).Get(updatedVM.Name, &metav1.GetOptions{})
+		_, err := virtClient.VirtualMachineInstance(updatedVM.Namespace).Get(context.Background(), updatedVM.Name, &metav1.GetOptions{})
 		return err
 	}, 300*time.Second, 1*time.Second).Should(Succeed())
 	By("VMI has the running condition")
@@ -2441,7 +2441,7 @@ func StartVMAndExpectRunning(virtClient kubecli.KubevirtClient, vm *v1.VirtualMa
 
 	// Observe the VirtualMachineInstance created
 	Eventually(func() error {
-		_, err := virtClient.VirtualMachineInstance(updatedVM.Namespace).Get(updatedVM.Name, &metav1.GetOptions{})
+		_, err := virtClient.VirtualMachineInstance(updatedVM.Namespace).Get(context.Background(), updatedVM.Name, &metav1.GetOptions{})
 		return err
 	}, 300*time.Second, 1*time.Second).Should(Succeed())
 

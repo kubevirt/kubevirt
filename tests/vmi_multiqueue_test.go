@@ -20,6 +20,7 @@
 package tests_test
 
 import (
+	"context"
 	"encoding/xml"
 	"fmt"
 
@@ -74,7 +75,7 @@ var _ = Describe("[sig-compute]MultiQueue", func() {
 			vmi.Spec.Domain.Devices.Interfaces[0].Model = interfaceModel
 
 			By("Creating and starting the VMI")
-			vmi, err = virtClient.VirtualMachineInstance(testsuite.GetTestNamespace(vmi)).Create(vmi)
+			vmi, err = virtClient.VirtualMachineInstance(testsuite.GetTestNamespace(vmi)).Create(context.Background(), vmi)
 			Expect(err).ToNot(HaveOccurred())
 			vmi = tests.WaitForSuccessfulVMIStartWithTimeout(vmi, 360)
 
@@ -101,7 +102,7 @@ var _ = Describe("[sig-compute]MultiQueue", func() {
 			tests.AddEphemeralDisk(vmi, "disk1", v1.DiskBusVirtio, cd.ContainerDiskFor(cd.ContainerDiskCirros))
 
 			By("Creating VMI with 2 disks, 3 CPUs and multi-queue enabled")
-			vmi, err := virtClient.VirtualMachineInstance(testsuite.GetTestNamespace(vmi)).Create(vmi)
+			vmi, err := virtClient.VirtualMachineInstance(testsuite.GetTestNamespace(vmi)).Create(context.Background(), vmi)
 			Expect(err).ToNot(HaveOccurred())
 
 			By("Waiting for VMI to start")
@@ -111,7 +112,7 @@ var _ = Describe("[sig-compute]MultiQueue", func() {
 			var newVMI *v1.VirtualMachineInstance
 
 			By("Fetching VMI from cluster")
-			newVMI, err = virtClient.VirtualMachineInstance(testsuite.GetTestNamespace(vmi)).Get(vmi.Name, &getOptions)
+			newVMI, err = virtClient.VirtualMachineInstance(testsuite.GetTestNamespace(vmi)).Get(context.Background(), vmi.Name, &getOptions)
 			Expect(err).ToNot(HaveOccurred())
 
 			By("Verifying VMI")
@@ -138,7 +139,7 @@ var _ = Describe("[sig-compute]MultiQueue", func() {
 			vmi.Spec.Domain.Devices.NetworkInterfaceMultiQueue = pointer.Bool(true)
 
 			By("Creating and starting the VMI")
-			vmi, err := virtClient.VirtualMachineInstance(testsuite.GetTestNamespace(vmi)).Create(vmi)
+			vmi, err := virtClient.VirtualMachineInstance(testsuite.GetTestNamespace(vmi)).Create(context.Background(), vmi)
 			Expect(err).ToNot(HaveOccurred())
 			tests.WaitForSuccessfulVMIStartWithTimeout(vmi, 360)
 

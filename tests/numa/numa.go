@@ -2,6 +2,7 @@ package numa
 
 import (
 	"bufio"
+	"context"
 	"fmt"
 	"regexp"
 	"strconv"
@@ -54,7 +55,7 @@ var _ = Describe("[sig-compute][Serial]NUMA", Serial, func() {
 		}
 
 		By("Starting a VirtualMachineInstance")
-		cpuVMI, err = virtClient.VirtualMachineInstance(util.NamespaceTestDefault).Create(cpuVMI)
+		cpuVMI, err = virtClient.VirtualMachineInstance(util.NamespaceTestDefault).Create(context.Background(), cpuVMI)
 		Expect(err).ToNot(HaveOccurred())
 		cpuVMI = tests.WaitForSuccessfulVMIStart(cpuVMI)
 		By("Fetching the numa memory mapping")

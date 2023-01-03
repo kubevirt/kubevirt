@@ -73,7 +73,7 @@ var _ = SIGDescribe("Services", func() {
 	}
 
 	readyVMI := func(vmi *v1.VirtualMachineInstance, loginTo console.LoginToFunction) *v1.VirtualMachineInstance {
-		createdVMI, err := virtClient.VirtualMachineInstance(util.NamespaceTestDefault).Create(vmi)
+		createdVMI, err := virtClient.VirtualMachineInstance(util.NamespaceTestDefault).Create(context.Background(), vmi)
 		Expect(err).ToNot(HaveOccurred())
 
 		return tests.WaitUntilVMIReady(createdVMI, loginTo)
@@ -81,11 +81,11 @@ var _ = SIGDescribe("Services", func() {
 
 	cleanupVMI := func(virtClient kubecli.KubevirtClient, vmi *v1.VirtualMachineInstance) {
 		By("Deleting the VMI")
-		Expect(virtClient.VirtualMachineInstance(util.NamespaceTestDefault).Delete(vmi.GetName(), &k8smetav1.DeleteOptions{})).To(Succeed())
+		Expect(virtClient.VirtualMachineInstance(util.NamespaceTestDefault).Delete(context.Background(), vmi.GetName(), &k8smetav1.DeleteOptions{})).To(Succeed())
 
 		By("Waiting for the VMI to be gone")
 		Eventually(func() error {
-			_, err := virtClient.VirtualMachineInstance(util.NamespaceTestDefault).Get(vmi.GetName(), &k8smetav1.GetOptions{})
+			_, err := virtClient.VirtualMachineInstance(util.NamespaceTestDefault).Get(context.Background(), vmi.GetName(), &k8smetav1.GetOptions{})
 			return err
 		}, 2*time.Minute, time.Second).Should(SatisfyAll(HaveOccurred(), WithTransform(errors.IsNotFound, BeTrue())), "The VMI should be gone within the given timeout")
 	}

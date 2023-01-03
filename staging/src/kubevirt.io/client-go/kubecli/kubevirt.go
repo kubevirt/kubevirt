@@ -26,6 +26,7 @@ package kubecli
 */
 
 import (
+	"context"
 	"io"
 	"net"
 	"time"
@@ -228,11 +229,11 @@ type StreamInterface interface {
 }
 
 type VirtualMachineInstanceInterface interface {
-	Get(name string, options *metav1.GetOptions) (*v1.VirtualMachineInstance, error)
-	List(opts *metav1.ListOptions) (*v1.VirtualMachineInstanceList, error)
-	Create(instance *v1.VirtualMachineInstance) (*v1.VirtualMachineInstance, error)
-	Update(*v1.VirtualMachineInstance) (*v1.VirtualMachineInstance, error)
-	Delete(name string, options *metav1.DeleteOptions) error
+	Get(ctx context.Context, name string, options *metav1.GetOptions) (*v1.VirtualMachineInstance, error)
+	List(ctx context.Context, opts *metav1.ListOptions) (*v1.VirtualMachineInstanceList, error)
+	Create(ctx context.Context, instance *v1.VirtualMachineInstance) (*v1.VirtualMachineInstance, error)
+	Update(ctx context.Context, instance *v1.VirtualMachineInstance) (*v1.VirtualMachineInstance, error)
+	Delete(ctx context.Context, name string, options *metav1.DeleteOptions) error
 	Patch(name string, pt types.PatchType, data []byte, patchOptions *metav1.PatchOptions, subresources ...string) (result *v1.VirtualMachineInstance, err error)
 	Watch(opts metav1.ListOptions) (watch.Interface, error)
 	SerialConsole(name string, options *SerialConsoleOptions) (StreamInterface, error)

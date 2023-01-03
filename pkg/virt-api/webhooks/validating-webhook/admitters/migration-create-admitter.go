@@ -20,6 +20,7 @@
 package admitters
 
 import (
+	"context"
 	"encoding/json"
 	"fmt"
 
@@ -91,7 +92,7 @@ func (admitter *MigrationCreateAdmitter) Admit(ar *admissionv1.AdmissionReview) 
 		return webhookutils.ToAdmissionResponse(causes)
 	}
 
-	vmi, err := admitter.VirtClient.VirtualMachineInstance(migration.Namespace).Get(migration.Spec.VMIName, &metav1.GetOptions{})
+	vmi, err := admitter.VirtClient.VirtualMachineInstance(migration.Namespace).Get(context.Background(), migration.Spec.VMIName, &metav1.GetOptions{})
 	if errors.IsNotFound(err) {
 		// ensure VMI exists for the migration
 		return webhookutils.ToAdmissionResponseError(fmt.Errorf("the VMI \"%s/%s\" does not exist", migration.Namespace, migration.Spec.VMIName))

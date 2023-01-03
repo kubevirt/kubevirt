@@ -75,7 +75,7 @@ var _ = Describe("[rfe_id:588][crit:medium][vendor:cnv-qe@redhat.com][level:comp
 			return rs.Status.Replicas
 		}, 90*time.Second, time.Second).Should(Equal(int32(scale)))
 
-		vmis, err := virtClient.VirtualMachineInstance(testsuite.GetTestNamespace(rs)).List(&v12.ListOptions{})
+		vmis, err := virtClient.VirtualMachineInstance(testsuite.GetTestNamespace(rs)).List(context.Background(), &v12.ListOptions{})
 		Expect(err).ToNot(HaveOccurred())
 		Expect(tests.NotDeleted(vmis)).To(HaveLen(int(scale)))
 	}
@@ -109,7 +109,7 @@ var _ = Describe("[rfe_id:588][crit:medium][vendor:cnv-qe@redhat.com][level:comp
 			return s.Status.Replicas
 		}, 90*time.Second, time.Second).Should(Equal(int32(expected)))
 
-		vmis, err := virtClient.VirtualMachineInstance(testsuite.GetTestNamespace(nil)).List(&v12.ListOptions{})
+		vmis, err := virtClient.VirtualMachineInstance(testsuite.GetTestNamespace(nil)).List(context.Background(), &v12.ListOptions{})
 		ExpectWithOffset(1, err).ToNot(HaveOccurred())
 		ExpectWithOffset(1, tests.NotDeleted(vmis)).To(HaveLen(int(min)))
 		err = virtClient.AutoscalingV1().HorizontalPodAutoscalers(testsuite.GetTestNamespace(nil)).Delete(context.Background(), name, v12.DeleteOptions{})
@@ -279,7 +279,7 @@ var _ = Describe("[rfe_id:588][crit:medium][vendor:cnv-qe@redhat.com][level:comp
 		// Wait until VMIs are gone
 		By("Waiting until all VMIs are gone")
 		Eventually(func() int {
-			vmis, err := virtClient.VirtualMachineInstance(newRS.ObjectMeta.Namespace).List(&v12.ListOptions{})
+			vmis, err := virtClient.VirtualMachineInstance(newRS.ObjectMeta.Namespace).List(context.Background(), &v12.ListOptions{})
 			Expect(err).ToNot(HaveOccurred())
 			return len(vmis.Items)
 		}, 120*time.Second, 1*time.Second).Should(BeZero())
@@ -291,7 +291,7 @@ var _ = Describe("[rfe_id:588][crit:medium][vendor:cnv-qe@redhat.com][level:comp
 		doScale(newRS.ObjectMeta.Name, 2)
 
 		// Check for owner reference
-		vmis, err := virtClient.VirtualMachineInstance(newRS.ObjectMeta.Namespace).List(&v12.ListOptions{})
+		vmis, err := virtClient.VirtualMachineInstance(newRS.ObjectMeta.Namespace).List(context.Background(), &v12.ListOptions{})
 		Expect(vmis.Items).To(HaveLen(2))
 		Expect(err).ToNot(HaveOccurred())
 		for _, vmi := range vmis.Items {
@@ -314,7 +314,7 @@ var _ = Describe("[rfe_id:588][crit:medium][vendor:cnv-qe@redhat.com][level:comp
 		}, 60*time.Second, 1*time.Second).Should(BeTrue())
 
 		By("Checking if two VMIs are orphaned and still exist")
-		vmis, err = virtClient.VirtualMachineInstance(newRS.ObjectMeta.Namespace).List(&v12.ListOptions{})
+		vmis, err = virtClient.VirtualMachineInstance(newRS.ObjectMeta.Namespace).List(context.Background(), &v12.ListOptions{})
 		Expect(vmis.Items).To(HaveLen(2))
 
 		By("Checking a VirtualMachineInstance owner references")
@@ -381,7 +381,7 @@ var _ = Describe("[rfe_id:588][crit:medium][vendor:cnv-qe@redhat.com][level:comp
 		rs := newReplicaSet()
 		doScale(rs.ObjectMeta.Name, int32(2))
 
-		vmis, err := virtClient.VirtualMachineInstance(testsuite.GetTestNamespace(rs)).List(&v12.ListOptions{})
+		vmis, err := virtClient.VirtualMachineInstance(testsuite.GetTestNamespace(rs)).List(context.Background(), &v12.ListOptions{})
 		Expect(err).ToNot(HaveOccurred())
 		Expect(vmis.Items).ToNot(BeEmpty())
 
@@ -397,7 +397,7 @@ var _ = Describe("[rfe_id:588][crit:medium][vendor:cnv-qe@redhat.com][level:comp
 
 		By("Checking that the VM disappeared")
 		Eventually(func() bool {
-			_, err := virtClient.VirtualMachineInstance(testsuite.GetTestNamespace(rs)).Get(vmi.Name, &v12.GetOptions{})
+			_, err := virtClient.VirtualMachineInstance(testsuite.GetTestNamespace(rs)).Get(context.Background(), vmi.Name, &v12.GetOptions{})
 			if errors.IsNotFound(err) {
 				return true
 			}
@@ -405,7 +405,7 @@ var _ = Describe("[rfe_id:588][crit:medium][vendor:cnv-qe@redhat.com][level:comp
 		}, 120*time.Second, time.Second).Should(BeTrue())
 
 		By("Checking number of RS VM's to see that we got a replacement")
-		vmis, err = virtClient.VirtualMachineInstance(testsuite.GetTestNamespace(rs)).List(&v12.ListOptions{})
+		vmis, err = virtClient.VirtualMachineInstance(testsuite.GetTestNamespace(rs)).List(context.Background(), &v12.ListOptions{})
 		Expect(err).ToNot(HaveOccurred())
 		Expect(vmis.Items).Should(HaveLen(2))
 	})
@@ -424,13 +424,13 @@ var _ = Describe("[rfe_id:588][crit:medium][vendor:cnv-qe@redhat.com][level:comp
 
 		doScale(rs.ObjectMeta.Name, int32(2))
 
-		vmis, err := virtClient.VirtualMachineInstance(testsuite.GetTestNamespace(rs)).List(&v12.ListOptions{})
+		vmis, err := virtClient.VirtualMachineInstance(testsuite.GetTestNamespace(rs)).List(context.Background(), &v12.ListOptions{})
 		Expect(err).ToNot(HaveOccurred())
 		Expect(vmis.Items).ToNot(BeEmpty())
 
 		By("Waiting until the VMIs are running")
 		Eventually(func() int {
-			vmis, err := virtClient.VirtualMachineInstance(testsuite.GetTestNamespace(rs)).List(&v12.ListOptions{})
+			vmis, err := virtClient.VirtualMachineInstance(testsuite.GetTestNamespace(rs)).List(context.Background(), &v12.ListOptions{})
 			Expect(err).ToNot(HaveOccurred())
 			return len(tests.Running(vmis))
 		}, 40*time.Second, time.Second).Should(Equal(2))
@@ -448,13 +448,13 @@ var _ = Describe("[rfe_id:588][crit:medium][vendor:cnv-qe@redhat.com][level:comp
 		By("Checking that then number of VMIs increases to three")
 		Expect(err).ToNot(HaveOccurred())
 		Eventually(func() int {
-			vmis, err = virtClient.VirtualMachineInstance(testsuite.GetTestNamespace(rs)).List(&v12.ListOptions{})
+			vmis, err = virtClient.VirtualMachineInstance(testsuite.GetTestNamespace(rs)).List(context.Background(), &v12.ListOptions{})
 			Expect(err).ToNot(HaveOccurred())
 			return len(vmis.Items)
 		}, 20*time.Second, time.Second).Should(Equal(3))
 
 		By("Checking that the shutting donw VMI is still running, reporting the pod deletion and being marked for deletion")
-		vmi, err = virtClient.VirtualMachineInstance(testsuite.GetTestNamespace(rs)).Get(vmi.Name, &v12.GetOptions{})
+		vmi, err = virtClient.VirtualMachineInstance(testsuite.GetTestNamespace(rs)).Get(context.Background(), vmi.Name, &v12.GetOptions{})
 		Expect(err).ToNot(HaveOccurred())
 		Expect(vmi.Status.Phase).To(Equal(v1.Running))
 		Expect(controller.NewVirtualMachineInstanceConditionManager().

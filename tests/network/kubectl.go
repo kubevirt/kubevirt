@@ -20,6 +20,7 @@
 package network
 
 import (
+	"context"
 	"fmt"
 	"strings"
 	"time"
@@ -83,7 +84,7 @@ var _ = SIGDescribe("kubectl", func() {
 			libvmi.WithInterface(libvmi.InterfaceDeviceWithBridgeBinding(linuxBridgeIfaceName2)),
 		)
 
-		vmi, err = virtClient.VirtualMachineInstance(testsuite.GetTestNamespace(nil)).Create(vmi)
+		vmi, err = virtClient.VirtualMachineInstance(testsuite.GetTestNamespace(nil)).Create(context.Background(), vmi)
 		Expect(err).ToNot(HaveOccurred())
 		vmi = tests.WaitForSuccessfulVMIStart(vmi)
 

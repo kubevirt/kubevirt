@@ -1,6 +1,7 @@
 package watch
 
 import (
+	"context"
 	"encoding/json"
 	"fmt"
 	"strings"
@@ -154,7 +155,7 @@ var _ = Describe("Node controller with", func() {
 				return true, nil, nil
 			})
 
-			vmiInterface.EXPECT().List(gomock.Any()).Return(&virtv1.VirtualMachineInstanceList{}, nil)
+			vmiInterface.EXPECT().List(context.Background(), gomock.Any()).Return(&virtv1.VirtualMachineInstanceList{}, nil)
 
 			controller.Execute()
 			testutils.ExpectEvent(recorder, NodeUnresponsiveReason)
@@ -204,7 +205,7 @@ var _ = Describe("Node controller with", func() {
 				return true, &k8sv1.PodList{}, nil
 			})
 
-			vmiInterface.EXPECT().List(gomock.Any()).Return(&virtv1.VirtualMachineInstanceList{Items: []virtv1.VirtualMachineInstance{*vmi}}, nil)
+			vmiInterface.EXPECT().List(context.Background(), gomock.Any()).Return(&virtv1.VirtualMachineInstanceList{Items: []virtv1.VirtualMachineInstance{*vmi}}, nil)
 			vmiInterface.EXPECT().Patch(vmi.Name, types.JSONPatchType, gomock.Any(), &v1.PatchOptions{})
 
 			controller.Execute()
@@ -238,7 +239,7 @@ var _ = Describe("Node controller with", func() {
 				return true, &k8sv1.PodList{}, nil
 			})
 
-			vmiInterface.EXPECT().List(gomock.Any()).Return(&virtv1.VirtualMachineInstanceList{Items: []virtv1.VirtualMachineInstance{*vmi}}, nil)
+			vmiInterface.EXPECT().List(context.Background(), gomock.Any()).Return(&virtv1.VirtualMachineInstanceList{Items: []virtv1.VirtualMachineInstance{*vmi}}, nil)
 			vmiInterface.EXPECT().Patch(vmi.Name, types.JSONPatchType, gomock.Any(), &v1.PatchOptions{})
 
 			controller.Execute()
@@ -259,7 +260,7 @@ var _ = Describe("Node controller with", func() {
 				return true, &k8sv1.PodList{}, nil
 			})
 
-			vmiInterface.EXPECT().List(gomock.Any()).Return(&virtv1.VirtualMachineInstanceList{Items: []virtv1.VirtualMachineInstance{*vmi}}, nil)
+			vmiInterface.EXPECT().List(context.Background(), gomock.Any()).Return(&virtv1.VirtualMachineInstanceList{Items: []virtv1.VirtualMachineInstance{*vmi}}, nil)
 			vmiInterface.EXPECT().Patch(vmi.Name, types.JSONPatchType, gomock.Any(), &v1.PatchOptions{})
 
 			controller.Execute()
@@ -280,7 +281,7 @@ var _ = Describe("Node controller with", func() {
 				return true, &k8sv1.PodList{}, nil
 			})
 
-			vmiInterface.EXPECT().List(gomock.Any()).Return(&virtv1.VirtualMachineInstanceList{Items: []virtv1.VirtualMachineInstance{*vmi}}, nil)
+			vmiInterface.EXPECT().List(context.Background(), gomock.Any()).Return(&virtv1.VirtualMachineInstanceList{Items: []virtv1.VirtualMachineInstance{*vmi}}, nil)
 			vmiInterface.EXPECT().Patch(vmi.Name, types.JSONPatchType, gomock.Any(), &v1.PatchOptions{})
 
 			controller.Execute()
@@ -301,7 +302,7 @@ var _ = Describe("Node controller with", func() {
 				return true, &k8sv1.PodList{Items: []k8sv1.Pod{*NewUnhealthyPodForVirtualMachine("whatever", vmi)}}, nil
 			})
 
-			vmiInterface.EXPECT().List(gomock.Any()).Return(&virtv1.VirtualMachineInstanceList{Items: []virtv1.VirtualMachineInstance{*vmi}}, nil)
+			vmiInterface.EXPECT().List(context.Background(), gomock.Any()).Return(&virtv1.VirtualMachineInstanceList{Items: []virtv1.VirtualMachineInstance{*vmi}}, nil)
 			vmiInterface.EXPECT().Patch(vmi.Name, types.JSONPatchType, gomock.Any(), &v1.PatchOptions{})
 
 			controller.Execute()

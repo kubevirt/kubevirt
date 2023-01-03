@@ -184,7 +184,7 @@ var _ = Describe("[Serial][sig-compute]VirtualMachineClone Tests", Serial, func(
 	expectVMRunnable := func(vm *virtv1.VirtualMachine, login loginFunction) *virtv1.VirtualMachine {
 		By(fmt.Sprintf("Starting VM %s", vm.Name))
 		vm = StartVirtualMachine(vm)
-		targetVMI, err := virtClient.VirtualMachineInstance(vm.Namespace).Get(vm.Name, &v1.GetOptions{})
+		targetVMI, err := virtClient.VirtualMachineInstance(vm.Namespace).Get(context.Background(), vm.Name, &v1.GetOptions{})
 		Expect(err).ShouldNot(HaveOccurred())
 
 		err = login(targetVMI)

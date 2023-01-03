@@ -1,6 +1,7 @@
 package performance
 
 import (
+	"context"
 	"fmt"
 	"strconv"
 	"strings"
@@ -32,7 +33,7 @@ bootcmd:
 func byStartingTheVMI(vmi *v1.VirtualMachineInstance, virtClient kubecli.KubevirtClient) {
 	By("Starting a VirtualMachineInstance")
 	var err error
-	vmi, err = virtClient.VirtualMachineInstance(util.NamespaceTestDefault).Create(vmi)
+	vmi, err = virtClient.VirtualMachineInstance(util.NamespaceTestDefault).Create(context.Background(), vmi)
 	Expect(err).ToNot(HaveOccurred())
 	tests.WaitForSuccessfulVMIStart(vmi)
 }
@@ -73,7 +74,7 @@ var _ = SIGDescribe("CPU latency tests for measuring realtime VMs performance", 
 		)
 		byStartingTheVMI(vmi, virtClient)
 		By("validating VMI is up and running")
-		vmi, err = virtClient.VirtualMachineInstance(util.NamespaceTestDefault).Get(vmi.Name, &k8smetav1.GetOptions{})
+		vmi, err = virtClient.VirtualMachineInstance(util.NamespaceTestDefault).Get(context.Background(), vmi.Name, &k8smetav1.GetOptions{})
 		Expect(err).ToNot(HaveOccurred())
 		Expect(vmi.Status.Phase).To(Equal(v1.Running))
 		Expect(console.LoginToFedora(vmi)).To(Succeed())

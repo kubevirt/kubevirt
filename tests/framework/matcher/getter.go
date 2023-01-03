@@ -47,7 +47,7 @@ func ThisVMIWith(namespace string, name string) func() (*virtv1.VirtualMachineIn
 		if err != nil {
 			return nil, err
 		}
-		p, err = virtClient.VirtualMachineInstance(namespace).Get(name, &k8smetav1.GetOptions{})
+		p, err = virtClient.VirtualMachineInstance(namespace).Get(context.Background(), name, &k8smetav1.GetOptions{})
 		if errors.IsNotFound(err) {
 			return nil, nil
 		}
@@ -82,7 +82,7 @@ func AllVMIs(namespace string) func() ([]virtv1.VirtualMachineInstance, error) {
 		if err != nil {
 			return nil, err
 		}
-		list, err := virtClient.VirtualMachineInstance(namespace).List(&k8smetav1.ListOptions{})
+		list, err := virtClient.VirtualMachineInstance(namespace).List(context.Background(), &k8smetav1.ListOptions{})
 		return list.Items, err
 	}
 }

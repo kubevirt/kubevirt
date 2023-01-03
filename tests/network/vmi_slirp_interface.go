@@ -20,6 +20,7 @@
 package network
 
 import (
+	"context"
 	"fmt"
 	"strings"
 	"time"
@@ -106,7 +107,7 @@ var _ = SIGDescribe("Slirp Networking", func() {
 
 		DescribeTable("should be able to", func(vmiRef **v1.VirtualMachineInstance) {
 			vmi := *vmiRef
-			vmi, err = virtClient.VirtualMachineInstance(testsuite.GetTestNamespace(nil)).Create(vmi)
+			vmi, err = virtClient.VirtualMachineInstance(testsuite.GetTestNamespace(nil)).Create(context.Background(), vmi)
 			Expect(err).ToNot(HaveOccurred())
 			tests.WaitForSuccessfulVMIStartIgnoreWarnings(vmi)
 			tests.GenerateHelloWorldServer(vmi, 80, "tcp", console.LoginToCirros, true)
@@ -163,7 +164,7 @@ var _ = SIGDescribe("Slirp Networking", func() {
 
 		DescribeTable("[outside_connectivity]should be able to communicate with the outside world", func(vmiRef **v1.VirtualMachineInstance) {
 			vmi := *vmiRef
-			vmi, err = virtClient.VirtualMachineInstance(testsuite.GetTestNamespace(nil)).Create(vmi)
+			vmi, err = virtClient.VirtualMachineInstance(testsuite.GetTestNamespace(nil)).Create(context.Background(), vmi)
 			Expect(err).ToNot(HaveOccurred())
 			vmi = tests.WaitForSuccessfulVMIStartIgnoreWarnings(vmi)
 			vmi = tests.LoginToVM(vmi, console.LoginToCirros)
@@ -206,7 +207,7 @@ var _ = SIGDescribe("Slirp Networking", func() {
 			vmi.Spec.Networks = nil
 			tests.AddEphemeralDisk(vmi, "disk0", v1.DiskBusVirtio, cd.ContainerDiskFor(cd.ContainerDiskCirros))
 
-			vmi, err = virtClient.VirtualMachineInstance(testsuite.GetTestNamespace(nil)).Create(vmi)
+			vmi, err = virtClient.VirtualMachineInstance(testsuite.GetTestNamespace(nil)).Create(context.Background(), vmi)
 			Expect(err).To(HaveOccurred())
 		})
 	})

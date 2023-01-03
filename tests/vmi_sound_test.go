@@ -20,6 +20,7 @@
 package tests_test
 
 import (
+	"context"
 	"encoding/xml"
 	"fmt"
 
@@ -93,7 +94,7 @@ func createSoundVMI(virtClient kubecli.KubevirtClient, soundDevice string) (*v1.
 			Model: model,
 		}
 	}
-	return virtClient.VirtualMachineInstance(util.NamespaceTestDefault).Create(randomVmi)
+	return virtClient.VirtualMachineInstance(util.NamespaceTestDefault).Create(context.Background(), randomVmi)
 }
 
 func checkXMLSoundCard(virtClient kubecli.KubevirtClient, vmi *v1.VirtualMachineInstance, model string) {

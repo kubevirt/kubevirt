@@ -578,7 +578,7 @@ var _ = SIGDescribe("[rfe_id:253][crit:medium][vendor:cnv-qe@redhat.com][level:c
 			// TODO: add label to list options
 			// check size of list
 			// remove check for owner
-			vms, err := virtClient.VirtualMachineInstance(vmrs.ObjectMeta.Namespace).List(&k8smetav1.ListOptions{})
+			vms, err := virtClient.VirtualMachineInstance(vmrs.ObjectMeta.Namespace).List(context.Background(), &k8smetav1.ListOptions{})
 			Expect(err).ToNot(HaveOccurred())
 			for _, vm := range vms.Items {
 				if vm.OwnerReferences != nil {
@@ -648,7 +648,7 @@ var _ = SIGDescribe("[rfe_id:253][crit:medium][vendor:cnv-qe@redhat.com][level:c
 			By("Getting the running VMI")
 			var vmi *v1.VirtualMachineInstance
 			Eventually(func() bool {
-				vmi, err = virtClient.VirtualMachineInstance(namespace).Get(name, &k8smetav1.GetOptions{})
+				vmi, err = virtClient.VirtualMachineInstance(namespace).Get(context.Background(), name, &k8smetav1.GetOptions{})
 				Expect(err).ToNot(HaveOccurred())
 				return vmi.Status.Phase == v1.Running
 			}, 120*time.Second, 1*time.Second).Should(BeTrue())
@@ -740,7 +740,7 @@ var _ = SIGDescribe("[rfe_id:253][crit:medium][vendor:cnv-qe@redhat.com][level:c
 				runJobsAgainstService(svc, vmObj.Namespace, tests.NewHelloWorldJobTCP)
 
 				// Retrieve the current VMI UID, to be compared with the new UID after restart.
-				vmi, err = virtClient.VirtualMachineInstance(vmObj.Namespace).Get(vmObj.Name, &k8smetav1.GetOptions{})
+				vmi, err = virtClient.VirtualMachineInstance(vmObj.Namespace).Get(context.Background(), vmObj.Name, &k8smetav1.GetOptions{})
 				Expect(err).ToNot(HaveOccurred())
 				vmiUIdBeforeRestart := vmi.GetObjectMeta().GetUID()
 
@@ -751,7 +751,7 @@ var _ = SIGDescribe("[rfe_id:253][crit:medium][vendor:cnv-qe@redhat.com][level:c
 
 				By("Verifying the VMI is back up AFTER restart (in Running status with new UID).")
 				Eventually(func() bool {
-					vmi, err = virtClient.VirtualMachineInstance(vmObj.Namespace).Get(vmObj.Name, &k8smetav1.GetOptions{})
+					vmi, err = virtClient.VirtualMachineInstance(vmObj.Namespace).Get(context.Background(), vmObj.Name, &k8smetav1.GetOptions{})
 					if errors.IsNotFound(err) {
 						return false
 					}

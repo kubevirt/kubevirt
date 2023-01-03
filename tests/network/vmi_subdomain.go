@@ -80,7 +80,7 @@ var _ = SIGDescribe("Subdomain", func() {
 			}
 			vmiSpec.Labels = map[string]string{selectorLabelKey: selectorLabelValue}
 
-			vmi, err := virtClient.VirtualMachineInstance(util.NamespaceTestDefault).Create(vmiSpec)
+			vmi, err := virtClient.VirtualMachineInstance(util.NamespaceTestDefault).Create(context.Background(), vmiSpec)
 			Expect(err).ToNot(HaveOccurred())
 			vmi = tests.WaitUntilVMIReady(vmi, console.LoginToFedora)
 
@@ -108,7 +108,7 @@ var _ = SIGDescribe("Subdomain", func() {
 					"svc.cluster.local", "cluster.local", util.NamespaceTestDefault + ".this.is.just.a.very.long.dummy"},
 			}
 
-			vmi, err := virtClient.VirtualMachineInstance(util.NamespaceTestDefault).Create(vmiSpec)
+			vmi, err := virtClient.VirtualMachineInstance(util.NamespaceTestDefault).Create(context.Background(), vmiSpec)
 			Expect(err).ToNot(HaveOccurred())
 			vmi = tests.WaitUntilVMIReady(vmi, console.LoginToFedora)
 
@@ -131,7 +131,7 @@ var _ = SIGDescribe("Subdomain", func() {
 			Searches:    []string{"example.com"},
 		}
 
-		vmi, err := virtClient.VirtualMachineInstance(util.NamespaceTestDefault).Create(vmiSpec)
+		vmi, err := virtClient.VirtualMachineInstance(util.NamespaceTestDefault).Create(context.Background(), vmiSpec)
 		Expect(err).ToNot(HaveOccurred())
 		vmi = tests.WaitUntilVMIReady(vmi, console.LoginToFedora)
 

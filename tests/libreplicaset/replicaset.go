@@ -1,6 +1,7 @@
 package libreplicaset
 
 import (
+	"context"
 	"fmt"
 	"time"
 
@@ -36,7 +37,7 @@ func DoScaleWithScaleSubresource(virtClient kubecli.KubevirtClient, name string,
 		return s.Status.Replicas
 	}, 90*time.Second, time.Second).Should(Equal(scale))
 
-	vmis, err := virtClient.VirtualMachineInstance(testsuite.GetTestNamespace(nil)).List(&v12.ListOptions{})
+	vmis, err := virtClient.VirtualMachineInstance(testsuite.GetTestNamespace(nil)).List(context.Background(), &v12.ListOptions{})
 	ExpectWithOffset(1, err).ToNot(HaveOccurred())
 	ExpectWithOffset(1, tests.NotDeleted(vmis)).To(HaveLen(int(scale)))
 }

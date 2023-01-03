@@ -144,7 +144,7 @@ var _ = Describe("MemoryDump", func() {
 			Return(vmiInterface).
 			Times(1)
 
-		vmiInterface.EXPECT().Get(vmName, gomock.Any()).Return(vmi, nil).Times(1)
+		vmiInterface.EXPECT().Get(context.Background(), vmName, gomock.Any()).Return(vmi, nil).Times(1)
 	}
 
 	pvcSpec := func() *k8sv1.PersistentVolumeClaim {
@@ -258,7 +258,7 @@ var _ = Describe("MemoryDump", func() {
 	It("should fail call memory dump subresource with create-claim no vmi", func() {
 		expectGetVMNoAssociatedMemoryDump()
 		kubecli.MockKubevirtClientInstance.EXPECT().VirtualMachineInstance(k8smetav1.NamespaceDefault).Return(vmiInterface).Times(1)
-		vmiInterface.EXPECT().Get(vmName, &k8smetav1.GetOptions{}).Return(nil, errors.NewNotFound(v1.Resource("virtualmachineinstance"), vmName))
+		vmiInterface.EXPECT().Get(context.Background(), vmName, &k8smetav1.GetOptions{}).Return(nil, errors.NewNotFound(v1.Resource("virtualmachineinstance"), vmName))
 		commandAndArgs := []string{"memory-dump", "get", "testvm", claimNameFlag, createClaimFlag}
 		cmd := clientcmd.NewVirtctlCommand(commandAndArgs...)
 		res := cmd.Execute()

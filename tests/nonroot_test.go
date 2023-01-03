@@ -1,6 +1,8 @@
 package tests_test
 
 import (
+	"context"
+
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
 
@@ -27,7 +29,7 @@ var _ = Describe("[sig-compute]NonRoot feature", func() {
 			Expect(checks.HasFeature(virtconfig.NonRoot)).To(BeTrue())
 
 			vmi := tests.NewRandomVMI()
-			vmi, err = virtClient.VirtualMachineInstance(util.NamespaceTestDefault).Create(vmi)
+			vmi, err = virtClient.VirtualMachineInstance(util.NamespaceTestDefault).Create(context.Background(), vmi)
 			Expect(err).NotTo(HaveOccurred())
 
 			By("Check that runtimeuser was set on creation")

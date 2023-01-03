@@ -1,6 +1,7 @@
 package tests_test
 
 import (
+	"context"
 	"fmt"
 	"strings"
 
@@ -76,7 +77,7 @@ var _ = Describe("[Serial][sig-compute]HostDevices", Serial, func() {
 			By("Creating a Fedora VMI with the sound card as a host device")
 			randomVMI := tests.NewRandomFedoraVMIWithGuestAgent()
 			randomVMI.Spec.Domain.Devices.HostDevices = hostDevs
-			vmi, err := virtClient.VirtualMachineInstance(util.NamespaceTestDefault).Create(randomVMI)
+			vmi, err := virtClient.VirtualMachineInstance(util.NamespaceTestDefault).Create(context.Background(), randomVMI)
 			Expect(err).ToNot(HaveOccurred())
 			tests.WaitForSuccessfulVMIStart(vmi)
 			Expect(console.LoginToFedora(vmi)).To(Succeed())
@@ -89,7 +90,7 @@ var _ = Describe("[Serial][sig-compute]HostDevices", Serial, func() {
 				}, 15)).To(Succeed(), "Device not found")
 			}
 			// Make sure to delete the VMI before ending the test otherwise a device could still be taken
-			err = virtClient.VirtualMachineInstance(util.NamespaceTestDefault).Delete(vmi.ObjectMeta.Name, &metav1.DeleteOptions{})
+			err = virtClient.VirtualMachineInstance(util.NamespaceTestDefault).Delete(context.Background(), vmi.ObjectMeta.Name, &metav1.DeleteOptions{})
 			Expect(err).ToNot(HaveOccurred(), failedDeleteVMI)
 			tests.WaitForVirtualMachineToDisappearWithTimeout(vmi, 180)
 		},

@@ -20,6 +20,7 @@
 package tests_test
 
 import (
+	"context"
 	"fmt"
 	"strconv"
 	"strings"
@@ -109,7 +110,7 @@ var _ = Describe("[Serial][sig-compute]SwapTest", Serial, func() {
 
 	confirmMigrationMode := func(vmi *virtv1.VirtualMachineInstance, expectedMode virtv1.MigrationMode) {
 		By("Retrieving the VMI post migration")
-		vmi, err = virtClient.VirtualMachineInstance(vmi.Namespace).Get(vmi.Name, &metav1.GetOptions{})
+		vmi, err = virtClient.VirtualMachineInstance(vmi.Namespace).Get(context.Background(), vmi.Name, &metav1.GetOptions{})
 		Expect(err).ToNot(HaveOccurred(), fmt.Sprintf("couldn't find vmi err: %v \n", err))
 
 		By("Verifying the VMI's migration mode")
@@ -208,7 +209,7 @@ var _ = Describe("[Serial][sig-compute]SwapTest", Serial, func() {
 			Expect(console.LoginToFedora(vmi)).To(Succeed())
 
 			By("Deleting the VMI")
-			Expect(virtClient.VirtualMachineInstance(vmi.Namespace).Delete(vmi.Name, &metav1.DeleteOptions{})).To(Succeed())
+			Expect(virtClient.VirtualMachineInstance(vmi.Namespace).Delete(context.Background(), vmi.Name, &metav1.DeleteOptions{})).To(Succeed())
 
 			By("Waiting for VMI to disappear")
 			tests.WaitForVirtualMachineToDisappearWithTimeout(vmi, 240)
@@ -283,8 +284,8 @@ var _ = Describe("[Serial][sig-compute]SwapTest", Serial, func() {
 				"at this point the node should has use more memory than totalMemKib "+
 					"we check this to insure we migrated into memory overcommited node")
 			By("Deleting the VMIs")
-			Expect(virtClient.VirtualMachineInstance(vmiToFillTargetNodeMem.Namespace).Delete(vmiToFillTargetNodeMem.Name, &metav1.DeleteOptions{})).To(Succeed())
-			Expect(virtClient.VirtualMachineInstance(vmiToMigrate.Namespace).Delete(vmiToMigrate.Name, &metav1.DeleteOptions{})).To(Succeed())
+			Expect(virtClient.VirtualMachineInstance(vmiToFillTargetNodeMem.Namespace).Delete(context.Background(), vmiToFillTargetNodeMem.Name, &metav1.DeleteOptions{})).To(Succeed())
+			Expect(virtClient.VirtualMachineInstance(vmiToMigrate.Namespace).Delete(context.Background(), vmiToMigrate.Name, &metav1.DeleteOptions{})).To(Succeed())
 
 			By("Waiting for VMIs to disappear")
 			tests.WaitForVirtualMachineToDisappearWithTimeout(vmiToFillTargetNodeMem, 240)

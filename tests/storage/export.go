@@ -1155,7 +1155,7 @@ var _ = SIGDescribe("Export", func() {
 	}
 
 	createVMI := func(vmi *virtv1.VirtualMachineInstance) *virtv1.VirtualMachineInstance {
-		vmi, err := virtClient.VirtualMachineInstance(vmi.Namespace).Create(vmi)
+		vmi, err := virtClient.VirtualMachineInstance(vmi.Namespace).Create(context.Background(), vmi)
 		Expect(err).ToNot(HaveOccurred())
 		for _, volume := range vmi.Spec.Volumes {
 			if volume.DataVolume != nil {
@@ -1189,7 +1189,7 @@ var _ = SIGDescribe("Export", func() {
 	}
 
 	deleteVMI := func(vmi *virtv1.VirtualMachineInstance) {
-		err := virtClient.VirtualMachineInstance(vmi.Namespace).Delete(vmi.Name, &metav1.DeleteOptions{})
+		err := virtClient.VirtualMachineInstance(vmi.Namespace).Delete(context.Background(), vmi.Name, &metav1.DeleteOptions{})
 		Expect(err).ToNot(HaveOccurred())
 	}
 
@@ -1454,7 +1454,7 @@ var _ = SIGDescribe("Export", func() {
 		vm.Spec.Running = pointer.BoolPtr(true)
 		vm = createVM(vm)
 		Eventually(func() virtv1.VirtualMachineInstancePhase {
-			vmi, err := virtClient.VirtualMachineInstance(vm.Namespace).Get(vm.Name, &metav1.GetOptions{})
+			vmi, err := virtClient.VirtualMachineInstance(vm.Namespace).Get(context.Background(), vm.Name, &metav1.GetOptions{})
 			if errors.IsNotFound(err) {
 				return ""
 			}
@@ -1495,7 +1495,7 @@ var _ = SIGDescribe("Export", func() {
 		vmi := tests.NewRandomVMIWithDataVolume(dataVolume.Name)
 		vmi = createVMI(vmi)
 		Eventually(func() virtv1.VirtualMachineInstancePhase {
-			vmi, err := virtClient.VirtualMachineInstance(vmi.Namespace).Get(vmi.Name, &metav1.GetOptions{})
+			vmi, err := virtClient.VirtualMachineInstance(vmi.Namespace).Get(context.Background(), vmi.Name, &metav1.GetOptions{})
 			if errors.IsNotFound(err) {
 				return ""
 			}
@@ -1723,7 +1723,7 @@ var _ = SIGDescribe("Export", func() {
 			vm.Spec.Running = pointer.BoolPtr(true)
 			vm = createVM(vm)
 			Eventually(func() virtv1.VirtualMachineInstancePhase {
-				vmi, err := virtClient.VirtualMachineInstance(vm.Namespace).Get(vm.Name, &metav1.GetOptions{})
+				vmi, err := virtClient.VirtualMachineInstance(vm.Namespace).Get(context.Background(), vm.Name, &metav1.GetOptions{})
 				if errors.IsNotFound(err) {
 					return ""
 				}
@@ -1884,7 +1884,7 @@ var _ = SIGDescribe("Export", func() {
 				vm.Spec.Running = pointer.BoolPtr(true)
 				vm = createVM(vm)
 				Eventually(func() virtv1.VirtualMachineInstancePhase {
-					vmi, err := virtClient.VirtualMachineInstance(vm.Namespace).Get(vm.Name, &metav1.GetOptions{})
+					vmi, err := virtClient.VirtualMachineInstance(vm.Namespace).Get(context.Background(), vm.Name, &metav1.GetOptions{})
 					if errors.IsNotFound(err) {
 						return ""
 					}

@@ -83,7 +83,7 @@ var _ = SIGDescribe("[Serial]K8s IO events", Serial, func() {
 		vmi := tests.NewRandomVMIWithPVC(pvc.Name)
 		Eventually(func() error {
 			var err error
-			vmi, err = virtClient.VirtualMachineInstance(testsuite.GetTestNamespace(vmi)).Create(vmi)
+			vmi, err = virtClient.VirtualMachineInstance(testsuite.GetTestNamespace(vmi)).Create(context.Background(), vmi)
 			return err
 		}, 100*time.Second, time.Second).Should(BeNil(), "Failed to create vmi")
 
@@ -101,7 +101,7 @@ var _ = SIGDescribe("[Serial]K8s IO events", Serial, func() {
 
 			return false
 		}, 30*time.Second, 5*time.Second).Should(BeTrue())
-		err := virtClient.VirtualMachineInstance(testsuite.GetTestNamespace(vmi)).Delete(vmi.ObjectMeta.Name, &metav1.DeleteOptions{})
+		err := virtClient.VirtualMachineInstance(testsuite.GetTestNamespace(vmi)).Delete(context.Background(), vmi.ObjectMeta.Name, &metav1.DeleteOptions{})
 		Expect(err).ToNot(HaveOccurred(), "Failed to delete VMI")
 		tests.WaitForVirtualMachineToDisappearWithTimeout(vmi, 120)
 	})
