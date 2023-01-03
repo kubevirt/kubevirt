@@ -114,7 +114,7 @@ func createLibvirtConnection(runWithNonRoot bool) virtcli.Connection {
 	user := ""
 	if runWithNonRoot {
 		user = putil.NonRootUserString
-		libvirtUri = "qemu+unix:///session?socket=/var/run/libvirt/virtqemud-sock"
+		libvirtUri = "qemu:///session"
 	}
 
 	domainConn, err := virtcli.NewConnection(libvirtUri, user, "", 10*time.Second)
@@ -127,7 +127,6 @@ func createLibvirtConnection(runWithNonRoot bool) virtcli.Connection {
 
 func startDomainEventMonitoring(
 	notifier *notifyclient.Notifier,
-	virtShareDir string,
 	domainConn virtcli.Connection,
 	deleteNotificationSent chan watch.Event,
 	vmi *v1.VirtualMachineInstance,
@@ -450,7 +449,7 @@ func main() {
 
 	events := make(chan watch.Event, 2)
 	// Send domain notifications to virt-handler
-	startDomainEventMonitoring(notifier, *virtShareDir, domainConn, events, vmi, domainName, &agentStore, *qemuAgentSysInterval, *qemuAgentFileInterval, *qemuAgentUserInterval, *qemuAgentVersionInterval, *qemuAgentFSFreezeStatusInterval)
+	startDomainEventMonitoring(notifier, domainConn, events, vmi, domainName, &agentStore, *qemuAgentSysInterval, *qemuAgentFileInterval, *qemuAgentUserInterval, *qemuAgentVersionInterval, *qemuAgentFSFreezeStatusInterval)
 
 	c := make(chan os.Signal, 1)
 	signal.Notify(c, os.Interrupt,
