@@ -62,5 +62,24 @@ Afterwards, a mail should be sent to kubevirt-dev mailing list (kubevirt-dev@goo
 about the removal. If there are no objections, the metadata can be removed. Otherwise, a new removal date
 can be discussed according to the context.
 
+### API
+Although the following only mentions API objects, it's also relevant for their APIs (e.g. object fields),
+Kubevirt CR configuration, etc. Obviously, for fields / configs deprecation the step about adding a
+deprecated annotations can be skipped. However, a warning should always be triggered for any usage of all
+of the above mentioned.
+
+#### Deprecation
+In order to deprecate an API object the following actions need to be taken:
+* The deprecated object needs to contain a warning about the object being deprecated. The warning should also
+  state whenever the object would be removed (see below).
+* A mail should be sent to kubevirt-dev mailing list (kubevirt-dev@googlegroups.com) to inform about the deprecation.
+
+#### Removal
+A deprecated object will not be removed for at least 5 release cycles, which means roughly 1.5 years.
+
+Afterwards, a mail should be sent to kubevirt-dev mailing list (kubevirt-dev@googlegroups.com) to inform
+about the removal. If there are no objections, the object can be removed. Otherwise, a new removal date
+can be discussed according to the context.
+
 ## Discussion
 An ongoing discussion takes part in the following issue: https://github.com/kubevirt/kubevirt/issues/7745
