@@ -39,5 +39,28 @@ In order to deprecate a feature gate the following conditions must be met:
 
 After the above deprecation process, the feature gate should remain as a no-op with a warning popping up.
 
+### Metadata (e.g. labels / annotations)
+Kubevirt adds certain labels / annotations to both objects that are created by us (e.g. VMs) and cluster-wide
+objects (e.g. Nodes). This metadata is exposed to the end-user which might use it and depend on it.
+
+Usually, metadata needs to be deprecated if it has a non-intuitive / irrelevant name or reflects data that is no
+longer relevant / useful.
+
+#### Deprecation
+In order to deprecate metadata the following conditions must be met:
+* A mail should be sent to kubevirt-dev mailing list (kubevirt-dev@googlegroups.com) to inform about the deprecation.
+* In case the metadata is being renamed / changed, the new metadata (e.g. label) should be added alongside the deprecated
+one.
+
+For example, if we want to deprecate a label named `kubevirt.io/badNonIntuitiveName` to
+`kubevirt.io/greatNewName`, both labels should appear.
+
+#### Removal
+Deprecated metadata will not be removed for at least 3 release cycles, which means roughly 1 year.
+
+Afterwards, a mail should be sent to kubevirt-dev mailing list (kubevirt-dev@googlegroups.com) to inform
+about the removal. If there are no objections, the metadata can be removed. Otherwise, a new removal date
+can be discussed according to the context.
+
 ## Discussion
 An ongoing discussion takes part in the following issue: https://github.com/kubevirt/kubevirt/issues/7745
