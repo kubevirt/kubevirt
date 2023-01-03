@@ -194,7 +194,7 @@ container_image(
         "//conditions:default": "amd64",
     }),
     base = ":version-container",
-    entrypoint = ["/usr/bin/virt-launcher"],
+    entrypoint = ["/usr/bin/virt-launcher-monitor"],
     tars = [":setcaps"],
     visibility = ["//visibility:public"],
 )
