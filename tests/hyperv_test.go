@@ -257,8 +257,7 @@ var _ = Describe("[Serial][sig-compute] Hyper-V enlightenments", func() {
 				var err error
 				var node *k8sv1.Node
 
-				suiteConfig, _ := GinkgoConfiguration()
-				Expect(suiteConfig.ParallelTotal).To(Equal(1), "stopping / resuming node-labeller is supported for serial tests only")
+				Expect(CurrentSpecReport().IsSerial).To(BeTrue(), "stopping / resuming node-labeller is supported for serial tests only")
 
 				By(fmt.Sprintf("Patching node to %s include %s label", nodeName, v1.LabellerSkipNodeAnnotation))
 				key, value := v1.LabellerSkipNodeAnnotation, "true"
