@@ -171,7 +171,7 @@ func (CloudCredentialStatus) SwaggerDoc() map[string]string {
 }
 
 var map_Config = map[string]string{
-	"":       "Config provides information to configure the config operator. It handles installation, migration or synchronization of cloud based cluster configurations like AWS or Azure.\n\nCompatibility level 1: Stable within a major release for a minimum of 12 months or 3 minor releases (whichever is longer).",
+	"":       "Config specifies the behavior of the config operator which is responsible for creating the initial configuration of other components on the cluster.  The operator also handles installation, migration or synchronization of cloud configurations for AWS and Azure cloud based clusters\n\nCompatibility level 1: Stable within a major release for a minimum of 12 months or 3 minor releases (whichever is longer).",
 	"spec":   "spec is the specification of the desired behavior of the Config Operator.",
 	"status": "status defines the observed status of the Config Operator.",
 }
@@ -222,10 +222,11 @@ var map_ConsoleCustomization = map[string]string{
 	"documentationBaseURL": "documentationBaseURL links to external documentation are shown in various sections of the web console.  Providing documentationBaseURL will override the default documentation URL. Invalid value will prevent a console rollout.",
 	"customProductName":    "customProductName is the name that will be displayed in page titles, logo alt text, and the about dialog instead of the normal OpenShift product name.",
 	"customLogoFile":       "customLogoFile replaces the default OpenShift logo in the masthead and about dialog. It is a reference to a ConfigMap in the openshift-config namespace. This can be created with a command like 'oc create configmap custom-logo --from-file=/path/to/file -n openshift-config'. Image size must be less than 1 MB due to constraints on the ConfigMap size. The ConfigMap key should include a file extension so that the console serves the file with the correct MIME type. Recommended logo specifications: Dimensions: Max height of 68px and max width of 200px SVG format preferred",
-	"developerCatalog":     "developerCatalog allows to configure the shown developer catalog categories.",
+	"developerCatalog":     "developerCatalog allows to configure the shown developer catalog categories (filters) and types (sub-catalogs).",
 	"projectAccess":        "projectAccess allows customizing the available list of ClusterRoles in the Developer perspective Project access page which can be used by a project admin to specify roles to other users and restrict access within the project. If set, the list will replace the default ClusterRole options.",
 	"quickStarts":          "quickStarts allows customization of available ConsoleQuickStart resources in console.",
 	"addPage":              "addPage allows customizing actions on the Add page in developer perspective.",
+	"perspectives":         "perspectives allows enabling/disabling of perspective(s) that user can see in the Perspective switcher dropdown.",
 }
 
 func (ConsoleCustomization) SwaggerDoc() map[string]string {
@@ -292,10 +293,54 @@ func (DeveloperConsoleCatalogCategoryMeta) SwaggerDoc() map[string]string {
 var map_DeveloperConsoleCatalogCustomization = map[string]string{
 	"":           "DeveloperConsoleCatalogCustomization allow cluster admin to configure developer catalog.",
 	"categories": "categories which are shown in the developer catalog.",
+	"types":      "types allows enabling or disabling of sub-catalog types that user can see in the Developer catalog. When omitted, all the sub-catalog types will be shown.",
 }
 
 func (DeveloperConsoleCatalogCustomization) SwaggerDoc() map[string]string {
 	return map_DeveloperConsoleCatalogCustomization
+}
+
+var map_DeveloperConsoleCatalogTypes = map[string]string{
+	"":         "DeveloperConsoleCatalogTypes defines the state of the sub-catalog types.",
+	"state":    "state defines if a list of catalog types should be enabled or disabled.",
+	"enabled":  "enabled is a list of developer catalog types (sub-catalogs IDs) that will be shown to users. Types (sub-catalogs) are added via console plugins, the available types (sub-catalog IDs) are available in the console on the cluster configuration page, or when editing the YAML in the console. Example: \"Devfile\", \"HelmChart\", \"BuilderImage\" If the list is non-empty, a new type will not be shown to the user until it is added to list. If the list is empty the complete developer catalog will be shown.",
+	"disabled": "disabled is a list of developer catalog types (sub-catalogs IDs) that are not shown to users. Types (sub-catalogs) are added via console plugins, the available types (sub-catalog IDs) are available in the console on the cluster configuration page, or when editing the YAML in the console. Example: \"Devfile\", \"HelmChart\", \"BuilderImage\" If the list is empty or all the available sub-catalog types are added, then the complete developer catalog should be hidden.",
+}
+
+func (DeveloperConsoleCatalogTypes) SwaggerDoc() map[string]string {
+	return map_DeveloperConsoleCatalogTypes
+}
+
+var map_Perspective = map[string]string{
+	"":                "Perspective defines a perspective that cluster admins want to show/hide in the perspective switcher dropdown",
+	"id":              "id defines the id of the perspective. Example: \"dev\", \"admin\". The available perspective ids can be found in the code snippet section next to the yaml editor. Incorrect or unknown ids will be ignored.",
+	"visibility":      "visibility defines the state of perspective along with access review checks if needed for that perspective.",
+	"pinnedResources": "pinnedResources defines the list of default pinned resources that users will see on the perspective navigation if they have not customized these pinned resources themselves. The list of available Kubernetes resources could be read via `kubectl api-resources`. The console will also provide a configuration UI and a YAML snippet that will list the available resources that can be pinned to the navigation. Incorrect or unknown resources will be ignored.",
+}
+
+func (Perspective) SwaggerDoc() map[string]string {
+	return map_Perspective
+}
+
+var map_PerspectiveVisibility = map[string]string{
+	"":             "PerspectiveVisibility defines the criteria to show/hide a perspective",
+	"state":        "state defines the perspective is enabled or disabled or access review check is required.",
+	"accessReview": "accessReview defines required and missing access review checks.",
+}
+
+func (PerspectiveVisibility) SwaggerDoc() map[string]string {
+	return map_PerspectiveVisibility
+}
+
+var map_PinnedResourceReference = map[string]string{
+	"":         "PinnedResourceReference includes the group, version and type of resource",
+	"group":    "group is the API Group of the Resource. Enter empty string for the core group. This value should consist of only lowercase alphanumeric characters, hyphens and periods. Example: \"\", \"apps\", \"build.openshift.io\", etc.",
+	"version":  "version is the API Version of the Resource. This value should consist of only lowercase alphanumeric characters. Example: \"v1\", \"v1beta1\", etc.",
+	"resource": "resource is the type that is being referenced. It is normally the plural form of the resource kind in lowercase. This value should consist of only lowercase alphanumeric characters and hyphens. Example: \"deployments\", \"deploymentconfigs\", \"pods\", etc.",
+}
+
+func (PinnedResourceReference) SwaggerDoc() map[string]string {
+	return map_PinnedResourceReference
 }
 
 var map_ProjectAccess = map[string]string{
@@ -316,6 +361,16 @@ func (QuickStarts) SwaggerDoc() map[string]string {
 	return map_QuickStarts
 }
 
+var map_ResourceAttributesAccessReview = map[string]string{
+	"":         "ResourceAttributesAccessReview defines the visibility of the perspective depending on the access review checks. `required` and  `missing` can work together esp. in the case where the cluster admin wants to show another perspective to users without specific permissions. Out of `required` and `missing` atleast one property should be non-empty.",
+	"required": "required defines a list of permission checks. The perspective will only be shown when all checks are successful. When omitted, the access review is skipped and the perspective will not be shown unless it is required to do so based on the configuration of the missing access review list.",
+	"missing":  "missing defines a list of permission checks. The perspective will only be shown when at least one check fails. When omitted, the access review is skipped and the perspective will not be shown unless it is required to do so based on the configuration of the required access review list.",
+}
+
+func (ResourceAttributesAccessReview) SwaggerDoc() map[string]string {
+	return map_ResourceAttributesAccessReview
+}
+
 var map_StatuspageProvider = map[string]string{
 	"":       "StatuspageProvider provides identity for statuspage account.",
 	"pageID": "pageID is the unique ID assigned by Statuspage for your page. This must be a public page.",
@@ -323,6 +378,16 @@ var map_StatuspageProvider = map[string]string{
 
 func (StatuspageProvider) SwaggerDoc() map[string]string {
 	return map_StatuspageProvider
+}
+
+var map_CSIDriverConfigSpec = map[string]string{
+	"":           "CSIDriverConfigSpec defines configuration spec that can be used to optionally configure a specific CSI Driver.",
+	"driverType": "driverType indicates type of CSI driver for which the driverConfig is being applied to.\n\nValid values are:\n\n* vSphere\n\nAllows configuration of vsphere CSI driver topology.",
+	"vSphere":    "vsphere is used to configure the vsphere CSI driver.",
+}
+
+func (CSIDriverConfigSpec) SwaggerDoc() map[string]string {
+	return map_CSIDriverConfigSpec
 }
 
 var map_ClusterCSIDriver = map[string]string{
@@ -344,7 +409,9 @@ func (ClusterCSIDriverList) SwaggerDoc() map[string]string {
 }
 
 var map_ClusterCSIDriverSpec = map[string]string{
-	"": "ClusterCSIDriverSpec is the desired behavior of CSI driver operator",
+	"":                  "ClusterCSIDriverSpec is the desired behavior of CSI driver operator",
+	"storageClassState": "StorageClassState determines if CSI operator should create and manage storage classes. If this field value is empty or Managed - CSI operator will continuously reconcile storage class and create if necessary. If this field value is Unmanaged - CSI operator will not reconcile any previously created storage class. If this field value is Removed - CSI operator will delete the storage class it created previously. When omitted, this means the user has no opinion and the platform chooses a reasonable default, which is subject to change over time. The current default behaviour is Managed.",
+	"driverConfig":      "driverConfig can be used to specify platform specific driver configuration. When omitted, this means no opinion and the platform is left to choose reasonable defaults. These defaults are subject to change over time.",
 }
 
 func (ClusterCSIDriverSpec) SwaggerDoc() map[string]string {
@@ -357,6 +424,15 @@ var map_ClusterCSIDriverStatus = map[string]string{
 
 func (ClusterCSIDriverStatus) SwaggerDoc() map[string]string {
 	return map_ClusterCSIDriverStatus
+}
+
+var map_VSphereCSIDriverConfigSpec = map[string]string{
+	"":                   "VSphereCSIDriverConfigSpec defines properties that can be configured for vsphere CSI driver.",
+	"topologyCategories": "topologyCategories indicates tag categories with which vcenter resources such as hostcluster or datacenter were tagged with. If cluster Infrastructure object has a topology, values specified in Infrastructure object will be used and modifications to topologyCategories will be rejected.",
+}
+
+func (VSphereCSIDriverConfigSpec) SwaggerDoc() map[string]string {
+	return map_VSphereCSIDriverConfigSpec
 }
 
 var map_CSISnapshotController = map[string]string{
@@ -403,6 +479,16 @@ func (DNS) SwaggerDoc() map[string]string {
 	return map_DNS
 }
 
+var map_DNSCache = map[string]string{
+	"":            "DNSCache defines the fields for configuring DNS caching.",
+	"positiveTTL": "positiveTTL is optional and specifies the amount of time that a positive response should be cached.\n\nIf configured, it must be a value of 1s (1 second) or greater up to a theoretical maximum of several years. This field expects an unsigned duration string of decimal numbers, each with optional fraction and a unit suffix, e.g. \"100s\", \"1m30s\", \"12h30m10s\". Values that are fractions of a second are rounded down to the nearest second. If the configured value is less than 1s, the default value will be used. If not configured, the value will be 0s and OpenShift will use a default value of 900 seconds unless noted otherwise in the respective Corefile for your version of OpenShift. The default value of 900 seconds is subject to change.",
+	"negativeTTL": "negativeTTL is optional and specifies the amount of time that a negative response should be cached.\n\nIf configured, it must be a value of 1s (1 second) or greater up to a theoretical maximum of several years. This field expects an unsigned duration string of decimal numbers, each with optional fraction and a unit suffix, e.g. \"100s\", \"1m30s\", \"12h30m10s\". Values that are fractions of a second are rounded down to the nearest second. If the configured value is less than 1s, the default value will be used. If not configured, the value will be 0s and OpenShift will use a default value of 30 seconds unless noted otherwise in the respective Corefile for your version of OpenShift. The default value of 30 seconds is subject to change.",
+}
+
+func (DNSCache) SwaggerDoc() map[string]string {
+	return map_DNSCache
+}
+
 var map_DNSList = map[string]string{
 	"": "DNSList contains a list of DNS\n\nCompatibility level 1: Stable within a major release for a minimum of 12 months or 3 minor releases (whichever is longer).",
 }
@@ -421,6 +507,16 @@ func (DNSNodePlacement) SwaggerDoc() map[string]string {
 	return map_DNSNodePlacement
 }
 
+var map_DNSOverTLSConfig = map[string]string{
+	"":           "DNSOverTLSConfig describes optional DNSTransportConfig fields that should be captured.",
+	"serverName": "serverName is the upstream server to connect to when forwarding DNS queries. This is required when Transport is set to \"TLS\". ServerName will be validated against the DNS naming conventions in RFC 1123 and should match the TLS certificate installed in the upstream resolver(s).",
+	"caBundle":   "caBundle references a ConfigMap that must contain either a single CA Certificate or a CA Bundle. This allows cluster administrators to provide their own CA or CA bundle for validating the certificate of upstream resolvers.\n\n1. The configmap must contain a `ca-bundle.crt` key. 2. The value must be a PEM encoded CA certificate or CA bundle. 3. The administrator must create this configmap in the openshift-config namespace. 4. The upstream server certificate must contain a Subject Alternative Name (SAN) that matches ServerName.",
+}
+
+func (DNSOverTLSConfig) SwaggerDoc() map[string]string {
+	return map_DNSOverTLSConfig
+}
+
 var map_DNSSpec = map[string]string{
 	"":                  "DNSSpec is the specification of the desired behavior of the DNS.",
 	"servers":           "servers is a list of DNS resolvers that provide name query delegation for one or more subdomains outside the scope of the cluster domain. If servers consists of more than one Server, longest suffix match will be used to determine the Server.\n\nFor example, if there are two Servers, one for \"foo.com\" and another for \"a.foo.com\", and the name query is for \"www.a.foo.com\", it will be routed to the Server with Zone \"a.foo.com\".\n\nIf this field is nil, no servers are created.",
@@ -429,6 +525,7 @@ var map_DNSSpec = map[string]string{
 	"managementState":   "managementState indicates whether the DNS operator should manage cluster DNS",
 	"operatorLogLevel":  "operatorLogLevel controls the logging level of the DNS Operator. Valid values are: \"Normal\", \"Debug\", \"Trace\". Defaults to \"Normal\". setting operatorLogLevel: Trace will produce extremely verbose logs.",
 	"logLevel":          "logLevel describes the desired logging verbosity for CoreDNS. Any one of the following values may be specified: * Normal logs errors from upstream resolvers. * Debug logs errors, NXDOMAIN responses, and NODATA responses. * Trace logs errors and all responses.\n Setting logLevel: Trace will produce extremely verbose logs.\nValid values are: \"Normal\", \"Debug\", \"Trace\". Defaults to \"Normal\".",
+	"cache":             "cache describes the caching configuration that applies to all server blocks listed in the Corefile. This field allows a cluster admin to optionally configure: * positiveTTL which is a duration for which positive responses should be cached. * negativeTTL which is a duration for which negative responses should be cached. If this is not configured, OpenShift will configure positive and negative caching with a default value that is subject to change. At the time of writing, the default positiveTTL is 900 seconds and the default negativeTTL is 30 seconds or as noted in the respective Corefile for your version of OpenShift.",
 }
 
 func (DNSSpec) SwaggerDoc() map[string]string {
@@ -446,10 +543,21 @@ func (DNSStatus) SwaggerDoc() map[string]string {
 	return map_DNSStatus
 }
 
+var map_DNSTransportConfig = map[string]string{
+	"":          "DNSTransportConfig groups related configuration parameters used for configuring forwarding to upstream resolvers that support DNS-over-TLS.",
+	"transport": "transport allows cluster administrators to opt-in to using a DNS-over-TLS connection between cluster DNS and an upstream resolver(s). Configuring TLS as the transport at this level without configuring a CABundle will result in the system certificates being used to verify the serving certificate of the upstream resolver(s).\n\nPossible values: \"\" (empty) - This means no explicit choice has been made and the platform chooses the default which is subject to change over time. The current default is \"Cleartext\". \"Cleartext\" - Cluster admin specified cleartext option. This results in the same functionality as an empty value but may be useful when a cluster admin wants to be more explicit about the transport, or wants to switch from \"TLS\" to \"Cleartext\" explicitly. \"TLS\" - This indicates that DNS queries should be sent over a TLS connection. If Transport is set to TLS, you MUST also set ServerName. If a port is not included with the upstream IP, port 853 will be tried by default per RFC 7858 section 3.1; https://datatracker.ietf.org/doc/html/rfc7858#section-3.1.",
+	"tls":       "tls contains the additional configuration options to use when Transport is set to \"TLS\".",
+}
+
+func (DNSTransportConfig) SwaggerDoc() map[string]string {
+	return map_DNSTransportConfig
+}
+
 var map_ForwardPlugin = map[string]string{
-	"":          "ForwardPlugin defines a schema for configuring the CoreDNS forward plugin.",
-	"upstreams": "upstreams is a list of resolvers to forward name queries for subdomains of Zones. Each instance of CoreDNS performs health checking of Upstreams. When a healthy upstream returns an error during the exchange, another resolver is tried from Upstreams. The Upstreams are selected in the order specified in Policy. Each upstream is represented by an IP address or IP:port if the upstream listens on a port other than 53.\n\nA maximum of 15 upstreams is allowed per ForwardPlugin.",
-	"policy":    "policy is used to determine the order in which upstream servers are selected for querying. Any one of the following values may be specified:\n\n* \"Random\" picks a random upstream server for each query. * \"RoundRobin\" picks upstream servers in a round-robin order, moving to the next server for each new query. * \"Sequential\" tries querying upstream servers in a sequential order until one responds, starting with the first server for each new query.\n\nThe default value is \"Random\"",
+	"":                "ForwardPlugin defines a schema for configuring the CoreDNS forward plugin.",
+	"upstreams":       "upstreams is a list of resolvers to forward name queries for subdomains of Zones. Each instance of CoreDNS performs health checking of Upstreams. When a healthy upstream returns an error during the exchange, another resolver is tried from Upstreams. The Upstreams are selected in the order specified in Policy. Each upstream is represented by an IP address or IP:port if the upstream listens on a port other than 53.\n\nA maximum of 15 upstreams is allowed per ForwardPlugin.",
+	"policy":          "policy is used to determine the order in which upstream servers are selected for querying. Any one of the following values may be specified:\n\n* \"Random\" picks a random upstream server for each query. * \"RoundRobin\" picks upstream servers in a round-robin order, moving to the next server for each new query. * \"Sequential\" tries querying upstream servers in a sequential order until one responds, starting with the first server for each new query.\n\nThe default value is \"Random\"",
+	"transportConfig": "transportConfig is used to configure the transport type, server name, and optional custom CA or CA bundle to use when forwarding DNS requests to an upstream resolver.\n\nThe default value is \"\" (empty) which results in a standard cleartext connection being used when forwarding DNS requests to an upstream resolver.",
 }
 
 func (ForwardPlugin) SwaggerDoc() map[string]string {
@@ -479,9 +587,10 @@ func (Upstream) SwaggerDoc() map[string]string {
 }
 
 var map_UpstreamResolvers = map[string]string{
-	"":          "UpstreamResolvers defines a schema for configuring the CoreDNS forward plugin in the specific case of the default (\".\") server. It defers from ForwardPlugin in the default values it accepts: * At least one upstream should be specified. * the default policy is Sequential",
-	"upstreams": "Upstreams is a list of resolvers to forward name queries for the \".\" domain. Each instance of CoreDNS performs health checking of Upstreams. When a healthy upstream returns an error during the exchange, another resolver is tried from Upstreams. The Upstreams are selected in the order specified in Policy.\n\nA maximum of 15 upstreams is allowed per ForwardPlugin. If no Upstreams are specified, /etc/resolv.conf is used by default",
-	"policy":    "Policy is used to determine the order in which upstream servers are selected for querying. Any one of the following values may be specified:\n\n* \"Random\" picks a random upstream server for each query. * \"RoundRobin\" picks upstream servers in a round-robin order, moving to the next server for each new query. * \"Sequential\" tries querying upstream servers in a sequential order until one responds, starting with the first server for each new query.\n\nThe default value is \"Sequential\"",
+	"":                "UpstreamResolvers defines a schema for configuring the CoreDNS forward plugin in the specific case of the default (\".\") server. It defers from ForwardPlugin in the default values it accepts: * At least one upstream should be specified. * the default policy is Sequential",
+	"upstreams":       "Upstreams is a list of resolvers to forward name queries for the \".\" domain. Each instance of CoreDNS performs health checking of Upstreams. When a healthy upstream returns an error during the exchange, another resolver is tried from Upstreams. The Upstreams are selected in the order specified in Policy.\n\nA maximum of 15 upstreams is allowed per ForwardPlugin. If no Upstreams are specified, /etc/resolv.conf is used by default",
+	"policy":          "Policy is used to determine the order in which upstream servers are selected for querying. Any one of the following values may be specified:\n\n* \"Random\" picks a random upstream server for each query. * \"RoundRobin\" picks upstream servers in a round-robin order, moving to the next server for each new query. * \"Sequential\" tries querying upstream servers in a sequential order until one responds, starting with the first server for each new query.\n\nThe default value is \"Sequential\"",
+	"transportConfig": "transportConfig is used to configure the transport type, server name, and optional custom CA or CA bundle to use when forwarding DNS requests to an upstream resolver.\n\nThe default value is \"\" (empty) which results in a standard cleartext connection being used when forwarding DNS requests to an upstream resolver.",
 }
 
 func (UpstreamResolvers) SwaggerDoc() map[string]string {
@@ -506,7 +615,8 @@ func (EtcdList) SwaggerDoc() map[string]string {
 }
 
 var map_AWSClassicLoadBalancerParameters = map[string]string{
-	"": "AWSClassicLoadBalancerParameters holds configuration parameters for an AWS Classic load balancer.",
+	"":                      "AWSClassicLoadBalancerParameters holds configuration parameters for an AWS Classic load balancer.",
+	"connectionIdleTimeout": "connectionIdleTimeout specifies the maximum time period that a connection may be idle before the load balancer closes the connection.  The value must be parseable as a time duration value; see <https://pkg.go.dev/time#ParseDuration>.  A nil or zero value means no opinion, in which case a default value is used.  The default value for this field is 60s.  This default is subject to change.",
 }
 
 func (AWSClassicLoadBalancerParameters) SwaggerDoc() map[string]string {
@@ -596,8 +706,11 @@ func (HTTPCompressionPolicy) SwaggerDoc() map[string]string {
 }
 
 var map_HostNetworkStrategy = map[string]string{
-	"":         "HostNetworkStrategy holds parameters for the HostNetwork endpoint publishing strategy.",
-	"protocol": "protocol specifies whether the IngressController expects incoming connections to use plain TCP or whether the IngressController expects PROXY protocol.\n\nPROXY protocol can be used with load balancers that support it to communicate the source addresses of client connections when forwarding those connections to the IngressController.  Using PROXY protocol enables the IngressController to report those source addresses instead of reporting the load balancer's address in HTTP headers and logs.  Note that enabling PROXY protocol on the IngressController will cause connections to fail if you are not using a load balancer that uses PROXY protocol to forward connections to the IngressController.  See http://www.haproxy.org/download/2.2/doc/proxy-protocol.txt for information about PROXY protocol.\n\nThe following values are valid for this field:\n\n* The empty string. * \"TCP\". * \"PROXY\".\n\nThe empty string specifies the default, which is TCP without PROXY protocol.  Note that the default is subject to change.",
+	"":          "HostNetworkStrategy holds parameters for the HostNetwork endpoint publishing strategy.",
+	"protocol":  "protocol specifies whether the IngressController expects incoming connections to use plain TCP or whether the IngressController expects PROXY protocol.\n\nPROXY protocol can be used with load balancers that support it to communicate the source addresses of client connections when forwarding those connections to the IngressController.  Using PROXY protocol enables the IngressController to report those source addresses instead of reporting the load balancer's address in HTTP headers and logs.  Note that enabling PROXY protocol on the IngressController will cause connections to fail if you are not using a load balancer that uses PROXY protocol to forward connections to the IngressController.  See http://www.haproxy.org/download/2.2/doc/proxy-protocol.txt for information about PROXY protocol.\n\nThe following values are valid for this field:\n\n* The empty string. * \"TCP\". * \"PROXY\".\n\nThe empty string specifies the default, which is TCP without PROXY protocol.  Note that the default is subject to change.",
+	"httpPort":  "httpPort is the port on the host which should be used to listen for HTTP requests. This field should be set when port 80 is already in use. The value should not coincide with the NodePort range of the cluster. When the value is 0 or is not specified it defaults to 80.",
+	"httpsPort": "httpsPort is the port on the host which should be used to listen for HTTPS requests. This field should be set when port 443 is already in use. The value should not coincide with the NodePort range of the cluster. When the value is 0 or is not specified it defaults to 443.",
+	"statsPort": "statsPort is the port on the host where the stats from the router are published. The value should not coincide with the NodePort range of the cluster. If an external load balancer is configured to forward connections to this IngressController, the load balancer should use this port for health checks. The load balancer can send HTTP probes on this port on a given node, with the path /healthz/ready to determine if the ingress controller is ready to receive traffic on the node. For proper operation the load balancer must not forward traffic to a node until the health check reports ready. The load balancer should also stop forwarding requests within a maximum of 45 seconds after /healthz/ready starts reporting not-ready. Probing every 5 to 10 seconds, with a 5-second timeout and with a threshold of two successful or failed requests to become healthy or unhealthy respectively, are well-tested values. When the value is 0 or is not specified it defaults to 1936.",
 }
 
 func (HostNetworkStrategy) SwaggerDoc() map[string]string {
@@ -696,7 +809,7 @@ var map_IngressControllerSpec = map[string]string{
 	"":                           "IngressControllerSpec is the specification of the desired behavior of the IngressController.",
 	"domain":                     "domain is a DNS name serviced by the ingress controller and is used to configure multiple features:\n\n* For the LoadBalancerService endpoint publishing strategy, domain is\n  used to configure DNS records. See endpointPublishingStrategy.\n\n* When using a generated default certificate, the certificate will be valid\n  for domain and its subdomains. See defaultCertificate.\n\n* The value is published to individual Route statuses so that end-users\n  know where to target external DNS records.\n\ndomain must be unique among all IngressControllers, and cannot be updated.\n\nIf empty, defaults to ingress.config.openshift.io/cluster .spec.domain.",
 	"httpErrorCodePages":         "httpErrorCodePages specifies a configmap with custom error pages. The administrator must create this configmap in the openshift-config namespace. This configmap should have keys in the format \"error-page-<error code>.http\", where <error code> is an HTTP error code. For example, \"error-page-503.http\" defines an error page for HTTP 503 responses. Currently only error pages for 503 and 404 responses can be customized. Each value in the configmap should be the full response, including HTTP headers. Eg- https://raw.githubusercontent.com/openshift/router/fadab45747a9b30cc3f0a4b41ad2871f95827a93/images/router/haproxy/conf/error-page-503.http If this field is empty, the ingress controller uses the default error pages.",
-	"replicas":                   "replicas is the desired number of ingress controller replicas. If unset, defaults to 2.",
+	"replicas":                   "replicas is the desired number of ingress controller replicas. If unset, the default depends on the value of the defaultPlacement field in the cluster config.openshift.io/v1/ingresses status.\n\nThe value of replicas is set based on the value of a chosen field in the Infrastructure CR. If defaultPlacement is set to ControlPlane, the chosen field will be controlPlaneTopology. If it is set to Workers the chosen field will be infrastructureTopology. Replicas will then be set to 1 or 2 based whether the chosen field's value is SingleReplica or HighlyAvailable, respectively.\n\nThese defaults are subject to change.",
 	"endpointPublishingStrategy": "endpointPublishingStrategy is used to publish the ingress controller endpoints to other networks, enable load balancer integrations, etc.\n\nIf unset, the default is based on infrastructure.config.openshift.io/cluster .status.platform:\n\n  AWS:          LoadBalancerService (with External scope)\n  Azure:        LoadBalancerService (with External scope)\n  GCP:          LoadBalancerService (with External scope)\n  IBMCloud:     LoadBalancerService (with External scope)\n  AlibabaCloud: LoadBalancerService (with External scope)\n  Libvirt:      HostNetwork\n\nAny other platform types (including None) default to HostNetwork.\n\nendpointPublishingStrategy cannot be updated.",
 	"defaultCertificate":         "defaultCertificate is a reference to a secret containing the default certificate served by the ingress controller. When Routes don't specify their own certificate, defaultCertificate is used.\n\nThe secret must contain the following keys and data:\n\n  tls.crt: certificate file contents\n  tls.key: key file contents\n\nIf unset, a wildcard certificate is automatically generated and used. The certificate is valid for the ingress controller domain (and subdomains) and the generated certificate's CA will be automatically integrated with the cluster's trust store.\n\nIf a wildcard certificate is used and shared by multiple HTTP/2 enabled routes (which implies ALPN) then clients (i.e., notably browsers) are at liberty to reuse open connections. This means a client can reuse a connection to another route and that is likely to fail. This behaviour is generally known as connection coalescing.\n\nThe in-use certificate (whether generated or user-specified) will be automatically integrated with OpenShift's built-in OAuth server.",
 	"namespaceSelector":          "namespaceSelector is used to filter the set of namespaces serviced by the ingress controller. This is useful for implementing shards.\n\nIf unset, the default is no filtering.",
@@ -726,6 +839,8 @@ var map_IngressControllerStatus = map[string]string{
 	"conditions":                 "conditions is a list of conditions and their status.\n\nAvailable means the ingress controller deployment is available and servicing route and ingress resources (i.e, .status.availableReplicas equals .spec.replicas)\n\nThere are additional conditions which indicate the status of other ingress controller features and capabilities.\n\n  * LoadBalancerManaged\n  - True if the following conditions are met:\n    * The endpoint publishing strategy requires a service load balancer.\n  - False if any of those conditions are unsatisfied.\n\n  * LoadBalancerReady\n  - True if the following conditions are met:\n    * A load balancer is managed.\n    * The load balancer is ready.\n  - False if any of those conditions are unsatisfied.\n\n  * DNSManaged\n  - True if the following conditions are met:\n    * The endpoint publishing strategy and platform support DNS.\n    * The ingress controller domain is set.\n    * dns.config.openshift.io/cluster configures DNS zones.\n  - False if any of those conditions are unsatisfied.\n\n  * DNSReady\n  - True if the following conditions are met:\n    * DNS is managed.\n    * DNS records have been successfully created.\n  - False if any of those conditions are unsatisfied.",
 	"tlsProfile":                 "tlsProfile is the TLS connection configuration that is in effect.",
 	"observedGeneration":         "observedGeneration is the most recent generation observed.",
+	"namespaceSelector":          "namespaceSelector is the actual namespaceSelector in use.",
+	"routeSelector":              "routeSelector is the actual routeSelector in use.",
 }
 
 func (IngressControllerStatus) SwaggerDoc() map[string]string {
@@ -743,6 +858,9 @@ var map_IngressControllerTuningOptions = map[string]string{
 	"serverFinTimeout":            "serverFinTimeout defines how long a connection will be held open while waiting for the server/backend response to the client closing the connection.\n\nIf unset, the default timeout is 1s",
 	"tunnelTimeout":               "tunnelTimeout defines how long a tunnel connection (including websockets) will be held open while the tunnel is idle.\n\nIf unset, the default timeout is 1h",
 	"tlsInspectDelay":             "tlsInspectDelay defines how long the router can hold data to find a matching route.\n\nSetting this too short can cause the router to fall back to the default certificate for edge-terminated or reencrypt routes even when a better matching certificate could be used.\n\nIf unset, the default inspect delay is 5s",
+	"healthCheckInterval":         "healthCheckInterval defines how long the router waits between two consecutive health checks on its configured backends.  This value is applied globally as a default for all routes, but may be overridden per-route by the route annotation \"router.openshift.io/haproxy.health.check.interval\".\n\nExpects an unsigned duration string of decimal numbers, each with optional fraction and a unit suffix, eg \"300ms\", \"1.5h\" or \"2h45m\". Valid time units are \"ns\", \"us\" (or \"µs\" U+00B5 or \"μs\" U+03BC), \"ms\", \"s\", \"m\", \"h\".\n\nSetting this to less than 5s can cause excess traffic due to too frequent TCP health checks and accompanying SYN packet storms.  Alternatively, setting this too high can result in increased latency, due to backend servers that are no longer available, but haven't yet been detected as such.\n\nAn empty or zero healthCheckInterval means no opinion and IngressController chooses a default, which is subject to change over time. Currently the default healthCheckInterval value is 5s.\n\nCurrently the minimum allowed value is 1s and the maximum allowed value is 2147483647ms (24.85 days).  Both are subject to change over time.",
+	"maxConnections":              "maxConnections defines the maximum number of simultaneous connections that can be established per HAProxy process. Increasing this value allows each ingress controller pod to handle more connections but at the cost of additional system resources being consumed.\n\nPermitted values are: empty, 0, -1, and the range 2000-2000000.\n\nIf this field is empty or 0, the IngressController will use the default value of 50000, but the default is subject to change in future releases.\n\nIf the value is -1 then HAProxy will dynamically compute a maximum value based on the available ulimits in the running container. Selecting -1 (i.e., auto) will result in a large value being computed (~520000 on OpenShift >=4.10 clusters) and therefore each HAProxy process will incur significant memory usage compared to the current default of 50000.\n\nSetting a value that is greater than the current operating system limit will prevent the HAProxy process from starting.\n\nIf you choose a discrete value (e.g., 750000) and the router pod is migrated to a new node, there's no guarantee that that new node has identical ulimits configured. In such a scenario the pod would fail to start. If you have nodes with different ulimits configured (e.g., different tuned profiles) and you choose a discrete value then the guidance is to use -1 and let the value be computed dynamically at runtime.\n\nYou can monitor memory usage for router containers with the following metric: 'container_memory_working_set_bytes{container=\"router\",namespace=\"openshift-ingress\"}'.\n\nYou can monitor memory usage of individual HAProxy processes in router containers with the following metric: 'container_memory_working_set_bytes{container=\"router\",namespace=\"openshift-ingress\"}/container_processes{container=\"router\",namespace=\"openshift-ingress\"}'.",
+	"reloadInterval":              "reloadInterval defines the minimum interval at which the router is allowed to reload to accept new changes. Increasing this value can prevent the accumulation of HAProxy processes, depending on the scenario. Increasing this interval can also lessen load imbalance on a backend's servers when using the roundrobin balancing algorithm. Alternatively, decreasing this value may decrease latency since updates to HAProxy's configuration can take effect more quickly.\n\nThe value must be a time duration value; see <https://pkg.go.dev/time#ParseDuration>. Currently, the minimum value allowed is 1s, and the maximum allowed value is 120s. Minimum and maximum allowed values may change in future versions of OpenShift. Note that if a duration outside of these bounds is provided, the value of reloadInterval will be capped/floored and not rejected (e.g. a duration of over 120s will be capped to 120s; the IngressController will not reject and replace this disallowed value with the default).\n\nA zero value for reloadInterval tells the IngressController to choose the default, which is currently 5s and subject to change without notice.\n\nThis field expects an unsigned duration string of decimal numbers, each with optional fraction and a unit suffix, e.g. \"300ms\", \"1.5h\" or \"2h45m\". Valid time units are \"ns\", \"us\" (or \"µs\" U+00B5 or \"μs\" U+03BC), \"ms\", \"s\", \"m\", \"h\".\n\nNote: Setting a value significantly larger than the default of 5s can cause latency in observing updates to routes and their endpoints. HAProxy's configuration will be reloaded less frequently, and newly created routes will not be served until the subsequent reload.",
 }
 
 func (IngressControllerTuningOptions) SwaggerDoc() map[string]string {
@@ -750,9 +868,11 @@ func (IngressControllerTuningOptions) SwaggerDoc() map[string]string {
 }
 
 var map_LoadBalancerStrategy = map[string]string{
-	"":                   "LoadBalancerStrategy holds parameters for a load balancer.",
-	"scope":              "scope indicates the scope at which the load balancer is exposed. Possible values are \"External\" and \"Internal\".",
-	"providerParameters": "providerParameters holds desired load balancer information specific to the underlying infrastructure provider.\n\nIf empty, defaults will be applied. See specific providerParameters fields for details about their defaults.",
+	"":                    "LoadBalancerStrategy holds parameters for a load balancer.",
+	"scope":               "scope indicates the scope at which the load balancer is exposed. Possible values are \"External\" and \"Internal\".",
+	"allowedSourceRanges": "allowedSourceRanges specifies an allowlist of IP address ranges to which access to the load balancer should be restricted.  Each range must be specified using CIDR notation (e.g. \"10.0.0.0/8\" or \"fd00::/8\"). If no range is specified, \"0.0.0.0/0\" for IPv4 and \"::/0\" for IPv6 are used by default, which allows all source addresses.\n\nTo facilitate migration from earlier versions of OpenShift that did not have the allowedSourceRanges field, you may set the service.beta.kubernetes.io/load-balancer-source-ranges annotation on the \"router-<ingresscontroller name>\" service in the \"openshift-ingress\" namespace, and this annotation will take effect if allowedSourceRanges is empty on OpenShift 4.12.",
+	"providerParameters":  "providerParameters holds desired load balancer information specific to the underlying infrastructure provider.\n\nIf empty, defaults will be applied. See specific providerParameters fields for details about their defaults.",
+	"dnsManagementPolicy": "dnsManagementPolicy indicates if the lifecycle of the wildcard DNS record associated with the load balancer service will be managed by the ingress operator. It defaults to Managed. Valid values are: Managed and Unmanaged.",
 }
 
 func (LoadBalancerStrategy) SwaggerDoc() map[string]string {
@@ -772,7 +892,7 @@ func (LoggingDestination) SwaggerDoc() map[string]string {
 
 var map_NodePlacement = map[string]string{
 	"":             "NodePlacement describes node scheduling configuration for an ingress controller.",
-	"nodeSelector": "nodeSelector is the node selector applied to ingress controller deployments.\n\nIf unset, the default is:\n\n  kubernetes.io/os: linux\n  node-role.kubernetes.io/worker: ''\n\nIf set, the specified selector is used and replaces the default.",
+	"nodeSelector": "nodeSelector is the node selector applied to ingress controller deployments.\n\nIf set, the specified selector is used and replaces the default.\n\nIf unset, the default depends on the value of the defaultPlacement field in the cluster config.openshift.io/v1/ingresses status.\n\nWhen defaultPlacement is Workers, the default is:\n\n  kubernetes.io/os: linux\n  node-role.kubernetes.io/worker: ''\n\nWhen defaultPlacement is ControlPlane, the default is:\n\n  kubernetes.io/os: linux\n  node-role.kubernetes.io/master: ''\n\nThese defaults are subject to change.\n\nNote that using nodeSelector.matchExpressions is not supported.  Only nodeSelector.matchLabels may be used.  This is a limitation of the Kubernetes API: the pod spec does not allow complex expressions for node selectors.",
 	"tolerations":  "tolerations is a list of tolerations applied to ingress controller deployments.\n\nThe default is an empty list.\n\nSee https://kubernetes.io/docs/concepts/configuration/taint-and-toleration/",
 }
 
@@ -790,7 +910,8 @@ func (NodePortStrategy) SwaggerDoc() map[string]string {
 }
 
 var map_PrivateStrategy = map[string]string{
-	"": "PrivateStrategy holds parameters for the Private endpoint publishing strategy.",
+	"":         "PrivateStrategy holds parameters for the Private endpoint publishing strategy.",
+	"protocol": "protocol specifies whether the IngressController expects incoming connections to use plain TCP or whether the IngressController expects PROXY protocol.\n\nPROXY protocol can be used with load balancers that support it to communicate the source addresses of client connections when forwarding those connections to the IngressController.  Using PROXY protocol enables the IngressController to report those source addresses instead of reporting the load balancer's address in HTTP headers and logs.  Note that enabling PROXY protocol on the IngressController will cause connections to fail if you are not using a load balancer that uses PROXY protocol to forward connections to the IngressController.  See http://www.haproxy.org/download/2.2/doc/proxy-protocol.txt for information about PROXY protocol.\n\nThe following values are valid for this field:\n\n* The empty string. * \"TCP\". * \"PROXY\".\n\nThe empty string specifies the default, which is TCP without PROXY protocol.  Note that the default is subject to change.",
 }
 
 func (PrivateStrategy) SwaggerDoc() map[string]string {
@@ -799,7 +920,7 @@ func (PrivateStrategy) SwaggerDoc() map[string]string {
 
 var map_ProviderLoadBalancerParameters = map[string]string{
 	"":     "ProviderLoadBalancerParameters holds desired load balancer information specific to the underlying infrastructure provider.",
-	"type": "type is the underlying infrastructure provider for the load balancer. Allowed values are \"AWS\", \"Azure\", \"BareMetal\", \"GCP\", \"OpenStack\", and \"VSphere\".",
+	"type": "type is the underlying infrastructure provider for the load balancer. Allowed values are \"AWS\", \"Azure\", \"BareMetal\", \"GCP\", \"Nutanix\", \"OpenStack\", and \"VSphere\".",
 	"aws":  "aws provides configuration settings that are specific to AWS load balancers.\n\nIf empty, defaults will be applied. See specific aws fields for details about their defaults.",
 	"gcp":  "gcp provides configuration settings that are specific to GCP load balancers.\n\nIf empty, defaults will be applied. See specific gcp fields for details about their defaults.",
 }
@@ -830,6 +951,77 @@ func (SyslogLoggingDestinationParameters) SwaggerDoc() map[string]string {
 	return map_SyslogLoggingDestinationParameters
 }
 
+var map_GatherStatus = map[string]string{
+	"":                   "gatherStatus provides information about the last known gather event.",
+	"lastGatherTime":     "lastGatherTime is the last time when Insights data gathering finished. An empty value means that no data has been gathered yet.",
+	"lastGatherDuration": "lastGatherDuration is the total time taken to process all gatherers during the last gather event.",
+	"gatherers":          "gatherers is a list of active gatherers (and their statuses) in the last gathering.",
+}
+
+func (GatherStatus) SwaggerDoc() map[string]string {
+	return map_GatherStatus
+}
+
+var map_GathererStatus = map[string]string{
+	"":                   "gathererStatus represents information about a particular data gatherer.",
+	"conditions":         "conditions provide details on the status of each gatherer.",
+	"name":               "name is the name of the gatherer.",
+	"lastGatherDuration": "lastGatherDuration represents the time spent gathering.",
+}
+
+func (GathererStatus) SwaggerDoc() map[string]string {
+	return map_GathererStatus
+}
+
+var map_HealthCheck = map[string]string{
+	"":            "healthCheck represents an Insights health check attributes.",
+	"description": "description provides basic description of the healtcheck.",
+	"totalRisk":   "totalRisk of the healthcheck. Indicator of the total risk posed by the detected issue; combination of impact and likelihood. The values can be from 1 to 4, and the higher the number, the more important the issue.",
+	"advisorURI":  "advisorURI provides the URL link to the Insights Advisor.",
+	"state":       "state determines what the current state of the health check is. Health check is enabled by default and can be disabled by the user in the Insights advisor user interface.",
+}
+
+func (HealthCheck) SwaggerDoc() map[string]string {
+	return map_HealthCheck
+}
+
+var map_InsightsOperator = map[string]string{
+	"":       "\n\nInsightsOperator holds cluster-wide information about the Insights Operator.\n\nCompatibility level 1: Stable within a major release for a minimum of 12 months or 3 minor releases (whichever is longer).",
+	"spec":   "spec is the specification of the desired behavior of the Insights.",
+	"status": "status is the most recently observed status of the Insights operator.",
+}
+
+func (InsightsOperator) SwaggerDoc() map[string]string {
+	return map_InsightsOperator
+}
+
+var map_InsightsOperatorList = map[string]string{
+	"": "InsightsOperatorList is a collection of items\n\nCompatibility level 1: Stable within a major release for a minimum of 12 months or 3 minor releases (whichever is longer).",
+}
+
+func (InsightsOperatorList) SwaggerDoc() map[string]string {
+	return map_InsightsOperatorList
+}
+
+var map_InsightsOperatorStatus = map[string]string{
+	"gatherStatus":   "gatherStatus provides basic information about the last Insights data gathering. When omitted, this means no data gathering has taken place yet.",
+	"insightsReport": "insightsReport provides general Insights analysis results. When omitted, this means no data gathering has taken place yet.",
+}
+
+func (InsightsOperatorStatus) SwaggerDoc() map[string]string {
+	return map_InsightsOperatorStatus
+}
+
+var map_InsightsReport = map[string]string{
+	"":             "insightsReport provides Insights health check report based on the most recently sent Insights data.",
+	"downloadedAt": "downloadedAt is the time when the last Insights report was downloaded. An empty value means that there has not been any Insights report downloaded yet and it usually appears in disconnected clusters (or clusters when the Insights data gathering is disabled).",
+	"healthChecks": "healthChecks provides basic information about active Insights health checks in a cluster.",
+}
+
+func (InsightsReport) SwaggerDoc() map[string]string {
+	return map_InsightsReport
+}
+
 var map_KubeAPIServer = map[string]string{
 	"":       "KubeAPIServer provides information to configure an operator to manage kube-apiserver.\n\nCompatibility level 1: Stable within a major release for a minimum of 12 months or 3 minor releases (whichever is longer).",
 	"spec":   "spec is the specification of the desired behavior of the Kubernetes API Server",
@@ -847,6 +1039,23 @@ var map_KubeAPIServerList = map[string]string{
 
 func (KubeAPIServerList) SwaggerDoc() map[string]string {
 	return map_KubeAPIServerList
+}
+
+var map_KubeAPIServerStatus = map[string]string{
+	"serviceAccountIssuers": "serviceAccountIssuers tracks history of used service account issuers. The item without expiration time represents the currently used service account issuer. The other items represents service account issuers that were used previously and are still being trusted. The default expiration for the items is set by the platform and it defaults to 24h. see: https://kubernetes.io/docs/tasks/configure-pod-container/configure-service-account/#service-account-token-volume-projection",
+}
+
+func (KubeAPIServerStatus) SwaggerDoc() map[string]string {
+	return map_KubeAPIServerStatus
+}
+
+var map_ServiceAccountIssuerStatus = map[string]string{
+	"name":           "name is the name of the service account issuer",
+	"expirationTime": "expirationTime is the time after which this service account issuer will be pruned and removed from the trusted list of service account issuers.",
+}
+
+func (ServiceAccountIssuerStatus) SwaggerDoc() map[string]string {
+	return map_ServiceAccountIssuerStatus
 }
 
 var map_KubeControllerManager = map[string]string{
@@ -926,6 +1135,15 @@ func (DefaultNetworkDefinition) SwaggerDoc() map[string]string {
 	return map_DefaultNetworkDefinition
 }
 
+var map_EgressIPConfig = map[string]string{
+	"":                                "EgressIPConfig defines the configuration knobs for egressip",
+	"reachabilityTotalTimeoutSeconds": "reachabilityTotalTimeout configures the EgressIP node reachability check total timeout in seconds. If the EgressIP node cannot be reached within this timeout, the node is declared down. Setting a large value may cause the EgressIP feature to react slowly to node changes. In particular, it may react slowly for EgressIP nodes that really have a genuine problem and are unreachable. When omitted, this means the user has no opinion and the platform is left to choose a reasonable default, which is subject to change over time. The current default is 1 second. A value of 0 disables the EgressIP node's reachability check.",
+}
+
+func (EgressIPConfig) SwaggerDoc() map[string]string {
+	return map_EgressIPConfig
+}
+
 var map_ExportNetworkFlows = map[string]string{
 	"netFlow": "netFlow defines the NetFlow configuration.",
 	"sFlow":   "sFlow defines the SFlow configuration.",
@@ -934,6 +1152,16 @@ var map_ExportNetworkFlows = map[string]string{
 
 func (ExportNetworkFlows) SwaggerDoc() map[string]string {
 	return map_ExportNetworkFlows
+}
+
+var map_FeaturesMigration = map[string]string{
+	"egressIP":       "egressIP specifies whether or not the Egress IP configuration is migrated automatically when changing the cluster default network provider. If unset, this property defaults to 'true' and Egress IP configure is migrated.",
+	"egressFirewall": "egressFirewall specifies whether or not the Egress Firewall configuration is migrated automatically when changing the cluster default network provider. If unset, this property defaults to 'true' and Egress Firewall configure is migrated.",
+	"multicast":      "multicast specifies whether or not the multicast configuration is migrated automatically when changing the cluster default network provider. If unset, this property defaults to 'true' and multicast configure is migrated.",
+}
+
+func (FeaturesMigration) SwaggerDoc() map[string]string {
+	return map_FeaturesMigration
 }
 
 var map_GatewayConfig = map[string]string{
@@ -977,7 +1205,7 @@ var map_KuryrConfig = map[string]string{
 	"daemonProbesPort":             "The port kuryr-daemon will listen for readiness and liveness requests.",
 	"controllerProbesPort":         "The port kuryr-controller will listen for readiness and liveness requests.",
 	"openStackServiceNetwork":      "openStackServiceNetwork contains the CIDR of network from which to allocate IPs for OpenStack Octavia's Amphora VMs. Please note that with Amphora driver Octavia uses two IPs from that network for each loadbalancer - one given by OpenShift and second for VRRP connections. As the first one is managed by OpenShift's and second by Neutron's IPAMs, those need to come from different pools. Therefore `openStackServiceNetwork` needs to be at least twice the size of `serviceNetwork`, and whole `serviceNetwork` must be overlapping with `openStackServiceNetwork`. cluster-network-operator will then make sure VRRP IPs are taken from the ranges inside `openStackServiceNetwork` that are not overlapping with `serviceNetwork`, effectivly preventing conflicts. If not set cluster-network-operator will use `serviceNetwork` expanded by decrementing the prefix size by 1.",
-	"enablePortPoolsPrepopulation": "enablePortPoolsPrepopulation when true will make Kuryr prepopulate each newly created port pool with a minimum number of ports. Kuryr uses Neutron port pooling to fight the fact that it takes a significant amount of time to create one. Instead of creating it when pod is being deployed, Kuryr keeps a number of ports ready to be attached to pods. By default port prepopulation is disabled.",
+	"enablePortPoolsPrepopulation": "enablePortPoolsPrepopulation when true will make Kuryr prepopulate each newly created port pool with a minimum number of ports. Kuryr uses Neutron port pooling to fight the fact that it takes a significant amount of time to create one. It creates a number of ports when the first pod that is configured to use the dedicated network for pods is created in a namespace, and keeps them ready to be attached to pods. Port prepopulation is disabled by default.",
 	"poolMaxPorts":                 "poolMaxPorts sets a maximum number of free ports that are being kept in a port pool. If the number of ports exceeds this setting, free ports will get deleted. Setting 0 will disable this upper bound, effectively preventing pools from shrinking and this is the default value. For more information about port pools see enablePortPoolsPrepopulation setting.",
 	"poolMinPorts":                 "poolMinPorts sets a minimum number of free ports that should be kept in a port pool. If the number of ports is lower than this setting, new ports will get created and added to pool. The default is 1. For more information about port pools see enablePortPoolsPrepopulation setting.",
 	"poolBatchPorts":               "poolBatchPorts sets a number of ports that should be created in a single batch request to extend the port pool. The default is 3. For more information about port pools see enablePortPoolsPrepopulation setting.",
@@ -1036,6 +1264,7 @@ var map_NetworkMigration = map[string]string{
 	"":            "NetworkMigration represents the cluster network configuration.",
 	"networkType": "networkType is the target type of network migration. Set this to the target network type to allow changing the default network. If unset, the operation of changing cluster default network plugin will be rejected. The supported values are OpenShiftSDN, OVNKubernetes",
 	"mtu":         "mtu contains the MTU migration configuration. Set this to allow changing the MTU values for the default network. If unset, the operation of changing the MTU for the default network will be rejected.",
+	"features":    "features contains the features migration configuration. Set this to migrate feature configuration when changing the cluster default network provider. if unset, the default operation is to migrate all the configuration of supported features.",
 }
 
 func (NetworkMigration) SwaggerDoc() map[string]string {
@@ -1077,6 +1306,9 @@ var map_OVNKubernetesConfig = map[string]string{
 	"ipsecConfig":         "ipsecConfig enables and configures IPsec for pods on the pod network within the cluster.",
 	"policyAuditConfig":   "policyAuditConfig is the configuration for network policy audit events. If unset, reported defaults are used.",
 	"gatewayConfig":       "gatewayConfig holds the configuration for node gateway options.",
+	"v4InternalSubnet":    "v4InternalSubnet is a v4 subnet used internally by ovn-kubernetes in case the default one is being already used by something else. It must not overlap with any other subnet being used by OpenShift or by the node network. The size of the subnet must be larger than the number of nodes. The value cannot be changed after installation. Default is 100.64.0.0/16",
+	"v6InternalSubnet":    "v6InternalSubnet is a v6 subnet used internally by ovn-kubernetes in case the default one is being already used by something else. It must not overlap with any other subnet being used by OpenShift or by the node network. The size of the subnet must be larger than the number of nodes. The value cannot be changed after installation. Default is fd98::/48",
+	"egressIPConfig":      "egressIPConfig holds the configuration for EgressIP options.",
 }
 
 func (OVNKubernetesConfig) SwaggerDoc() map[string]string {

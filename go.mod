@@ -13,7 +13,7 @@ require (
 	github.com/kubevirt/tekton-tasks-operator/api v0.4.1
 	github.com/onsi/ginkgo/v2 v2.5.1
 	github.com/onsi/gomega v1.24.1
-	github.com/openshift/api v3.9.1-0.20190924102528-32369d4db2ad+incompatible
+	github.com/openshift/api v0.0.0
 	github.com/openshift/custom-resource-status v1.1.2
 	github.com/openshift/library-go v0.0.0-20221129182131-19da1bc0df5f
 	github.com/operator-framework/api v0.17.1
@@ -178,18 +178,15 @@ replace (
 	github.com/openshift/machine-api-operator => github.com/openshift/machine-api-operator v0.2.1-0.20191025120018-fb3724fc7bdf
 )
 
-// Aligning with https://github.com/kubevirt/containerized-data-importer-api/blob/release-v1.41.1
-replace (
-	github.com/openshift/api => github.com/openshift/api v0.0.0-20220315184754-d7c10d0b647e
-	github.com/openshift/client-go => github.com/openshift/client-go v0.0.0-20200521150516-05eb9880269c
-	sigs.k8s.io/structured-merge-diff => sigs.k8s.io/structured-merge-diff v1.0.2
-)
+replace sigs.k8s.io/structured-merge-diff => sigs.k8s.io/structured-merge-diff v1.0.2
 
 replace github.com/docker/docker => github.com/moby/moby v1.4.2-0.20200203170920-46ec8731fbce // Required by Helm
 
 replace vbom.ml/util => github.com/fvbommel/util v0.0.0-20180919145318-efcd4e0f9787
 
 replace bitbucket.org/ww/goautoneg => github.com/munnerz/goautoneg v0.0.0-20120707110453-a547fc61f48d
+
+replace github.com/openshift/api => github.com/openshift/api v0.0.0-20221220162201-efeef9d83325
 
 // Fixes various security issues forcing newer versions of affected dependencies,
 // prune the list once not explicitly required

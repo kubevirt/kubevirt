@@ -13,4 +13,7 @@ spec:
       name: quay.io/kubevirt/centos8-container-disk-images
     importPolicy:
       scheduled: true
+      importMode: Legacy
     name: latest
+    referencePolicy:
+      type: Source

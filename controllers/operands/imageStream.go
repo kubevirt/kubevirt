@@ -64,6 +64,7 @@ func (iso imageStreamOperand) ensure(req *common.HcoRequest) *EnsureResult {
 		if err = objectreferencesv1.RemoveObjectReference(&req.Instance.Status.RelatedObjects, *objectRef); err != nil {
 			return res.Error(err)
 		}
+		req.StatusDirty = true
 	}
 
 	return res.SetUpgradeDone(req.ComponentUpgradeInProgress)

@@ -149,8 +149,8 @@ github.com/onsi/gomega/matchers/support/goraph/edge
 github.com/onsi/gomega/matchers/support/goraph/node
 github.com/onsi/gomega/matchers/support/goraph/util
 github.com/onsi/gomega/types
-# github.com/openshift/api v3.9.1-0.20190924102528-32369d4db2ad+incompatible => github.com/openshift/api v0.0.0-20220315184754-d7c10d0b647e
-## explicit; go 1.16
+# github.com/openshift/api v0.0.0 => github.com/openshift/api v0.0.0-20221220162201-efeef9d83325
+## explicit; go 1.18
 github.com/openshift/api/config/v1
 github.com/openshift/api/console/v1
 github.com/openshift/api/console/v1alpha1
@@ -756,12 +756,11 @@ sigs.k8s.io/yaml
 # github.com/appscode/jsonpatch => github.com/appscode/jsonpatch v1.0.1
 # github.com/go-kit/kit => github.com/go-kit/kit v0.12.0
 # github.com/openshift/machine-api-operator => github.com/openshift/machine-api-operator v0.2.1-0.20191025120018-fb3724fc7bdf
-# github.com/openshift/api => github.com/openshift/api v0.0.0-20220315184754-d7c10d0b647e
-# github.com/openshift/client-go => github.com/openshift/client-go v0.0.0-20200521150516-05eb9880269c
 # sigs.k8s.io/structured-merge-diff => sigs.k8s.io/structured-merge-diff v1.0.2
 # github.com/docker/docker => github.com/moby/moby v1.4.2-0.20200203170920-46ec8731fbce
 # vbom.ml/util => github.com/fvbommel/util v0.0.0-20180919145318-efcd4e0f9787
 # bitbucket.org/ww/goautoneg => github.com/munnerz/goautoneg v0.0.0-20120707110453-a547fc61f48d
+# github.com/openshift/api => github.com/openshift/api v0.0.0-20221220162201-efeef9d83325
 # github.com/dgrijalva/jwt-go => github.com/dgrijalva/jwt-go/v4 v4.0.0-preview1
 # github.com/gorilla/websocket => github.com/gorilla/websocket v1.4.2
 # golang.org/x/crypto => golang.org/x/crypto v0.0.0-20220525230936-793ad666bf5e

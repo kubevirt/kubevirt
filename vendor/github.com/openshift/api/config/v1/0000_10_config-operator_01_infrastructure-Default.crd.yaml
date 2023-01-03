@@ -6,6 +6,7 @@ metadata:
     include.release.openshift.io/ibm-cloud-managed: "true"
     include.release.openshift.io/self-managed-high-availability: "true"
     include.release.openshift.io/single-node-developer: "true"
+    release.openshift.io/feature-set: Default
   name: infrastructures.config.openshift.io
 spec:
   group: config.openshift.io
@@ -80,6 +81,28 @@ spec:
                     equinixMetal:
                       description: EquinixMetal contains settings specific to the Equinix Metal infrastructure provider.
                       type: object
+                    external:
+                      description: ExternalPlatformType represents generic infrastructure provider. Platform-specific components should be supplemented separately.
+                      type: object
+                      properties:
+                        cloudControllerManager:
+                          description: CloudControllerManager contains settings specific to the external Cloud Controller Manager (a.k.a. CCM or CPI)
+                          type: object
+                          properties:
+                            state:
+                              description: "state determines whether or not an external Cloud Controller Manager is expected to be installed within the cluster. https://kubernetes.io/docs/tasks/administer-cluster/running-cloud-controller/#running-cloud-controller-manager \n When set to \"External\", new nodes will be tainted as uninitialized when created, preventing them from running workloads until they are initialized by the cloud controller manager. When omitted or set to \"None\", new nodes will be not tainted and no extra initialization from the cloud controller manager is expected."
+                              type: string
+                              enum:
+                                - ""
+                                - External
+                                - None
+                        platformName:
+                          description: PlatformName holds the arbitrary string representing the infrastructure provider name, expected to be set at the installation time. This field is solely for informational and reporting purposes and is not expected to be used for decision-making.
+                          type: string
+                          default: Unknown
+                          x-kubernetes-validations:
+                            - rule: oldSelf == 'Unknown' || self == oldSelf
+                              message: platform name cannot be changed once set
                     gcp:
                       description: GCP contains settings specific to the Google Cloud Platform infrastructure provider.
                       type: object
@@ -92,6 +115,61 @@ spec:
                     nutanix:
                       description: Nutanix contains settings specific to the Nutanix infrastructure provider.
                       type: object
+                      required:
+                        - prismCentral
+                        - prismElements
+                      properties:
+                        prismCentral:
+                          description: prismCentral holds the endpoint address and port to access the Nutanix Prism Central. When a cluster-wide proxy is installed, by default, this endpoint will be accessed via the proxy. Should you wish for communication with this endpoint not to be proxied, please add the endpoint to the proxy spec.noProxy list.
+                          type: object
+                          required:
+                            - address
+                            - port
+                          properties:
+                            address:
+                              description: address is the endpoint address (DNS name or IP address) of the Nutanix Prism Central or Element (cluster)
+                              type: string
+                              maxLength: 256
+                            port:
+                              description: port is the port number to access the Nutanix Prism Central or Element (cluster)
+                              type: integer
+                              format: int32
+                              maximum: 65535
+                              minimum: 1
+                        prismElements:
+                          description: prismElements holds one or more endpoint address and port data to access the Nutanix Prism Elements (clusters) of the Nutanix Prism Central. Currently we only support one Prism Element (cluster) for an OpenShift cluster, where all the Nutanix resources (VMs, subnets, volumes, etc.) used in the OpenShift cluster are located. In the future, we may support Nutanix resources (VMs, etc.) spread over multiple Prism Elements (clusters) of the Prism Central.
+                          type: array
+                          items:
+                            description: NutanixPrismElementEndpoint holds the name and endpoint data for a Prism Element (cluster)
+                            type: object
+                            required:
+                              - endpoint
+                              - name
+                            properties:
+                              endpoint:
+                                description: endpoint holds the endpoint address and port data of the Prism Element (cluster). When a cluster-wide proxy is installed, by default, this endpoint will be accessed via the proxy. Should you wish for communication with this endpoint not to be proxied, please add the endpoint to the proxy spec.noProxy list.
+                                type: object
+                                required:
+                                  - address
+                                  - port
+                                properties:
+                                  address:
+                                    description: address is the endpoint address (DNS name or IP address) of the Nutanix Prism Central or Element (cluster)
+                                    type: string
+                                    maxLength: 256
+                                  port:
+                                    description: port is the port number to access the Nutanix Prism Central or Element (cluster)
+                                    type: integer
+                                    format: int32
+                                    maximum: 65535
+                                    minimum: 1
+                              name:
+                                description: name is the name of the Prism Element (cluster). This value will correspond with the cluster field configured on other resources (eg Machines, PVCs, etc).
+                                type: string
+                                maxLength: 256
+                          x-kubernetes-list-map-keys:
+                            - name
+                          x-kubernetes-list-type: map
                     openstack:
                       description: OpenStack contains settings specific to the OpenStack infrastructure provider.
                       type: object
@@ -144,6 +222,7 @@ spec:
                         - PowerVS
                         - AlibabaCloud
                         - Nutanix
+                        - External
                     vsphere:
                       description: VSphere contains settings specific to the VSphere infrastructure provider.
                       type: object
@@ -198,6 +277,7 @@ spec:
                     - PowerVS
                     - AlibabaCloud
                     - Nutanix
+                    - External
                 platformStatus:
                   description: platformStatus holds status information specific to the underlying infrastructure provider.
                   type: object
@@ -313,11 +393,25 @@ spec:
                       type: object
                       properties:
                         apiServerInternalIP:
-                          description: apiServerInternalIP is an IP address to contact the Kubernetes API server that can be used by components inside the cluster, like kubelets using the infrastructure rather than Kubernetes networking. It is the IP that the Infrastructure.status.apiServerInternalURI points to. It is the IP for a self-hosted load balancer in front of the API servers.
+                          description: "apiServerInternalIP is an IP address to contact the Kubernetes API server that can be used by components inside the cluster, like kubelets using the infrastructure rather than Kubernetes networking. It is the IP that the Infrastructure.status.apiServerInternalURI points to. It is the IP for a self-hosted load balancer in front of the API servers. \n Deprecated: Use APIServerInternalIPs instead."
                           type: string
+                        apiServerInternalIPs:
+                          description: apiServerInternalIPs are the IP addresses to contact the Kubernetes API server that can be used by components inside the cluster, like kubelets using the infrastructure rather than Kubernetes networking. These are the IPs for a self-hosted load balancer in front of the API servers. In dual stack clusters this list contains two IPs otherwise only one.
+                          type: array
+                          format: ip
+                          maxItems: 2
+                          items:
+                            type: string
                         ingressIP:
-                          description: ingressIP is an external IP which routes to the default ingress controller. The IP is a suitable target of a wildcard DNS record used to resolve default route host names.
+                          description: "ingressIP is an external IP which routes to the default ingress controller. The IP is a suitable target of a wildcard DNS record used to resolve default route host names. \n Deprecated: Use IngressIPs instead."
                           type: string
+                        ingressIPs:
+                          description: ingressIPs are the external IPs which route to the default ingress controller. The IPs are suitable targets of a wildcard DNS record used to resolve default route host names. In dual stack clusters this list contains two IPs otherwise only one.
+                          type: array
+                          format: ip
+                          maxItems: 2
+                          items:
+                            type: string
                         nodeDNSIP:
                           description: nodeDNSIP is the IP address for the internal DNS used by the nodes. Unlike the one managed by the DNS operator, `NodeDNSIP` provides name resolution for the nodes themselves. There is no DNS-as-a-service for BareMetal deployments. In order to minimize necessary changes to the datacenter DNS, a DNS service is hosted as a static pod to serve those hostnames to the nodes in the cluster.
                           type: string
@@ -331,6 +425,9 @@ spec:
                         ingressIP:
                           description: ingressIP is an external IP which routes to the default ingress controller. The IP is a suitable target of a wildcard DNS record used to resolve default route host names.
                           type: string
+                    external:
+                      description: External contains settings specific to the generic External infrastructure provider.
+                      type: object
                     gcp:
                       description: GCP contains settings specific to the Google Cloud Platform infrastructure provider.
                       type: object
@@ -347,6 +444,9 @@ spec:
                       properties:
                         cisInstanceCRN:
                           description: CISInstanceCRN is the CRN of the Cloud Internet Services instance managing the DNS zone for the cluster's base domain
+                          type: string
+                        dnsInstanceCRN:
+                          description: DNSInstanceCRN is the CRN of the DNS Services instance managing the DNS zone for the cluster's base domain
                           type: string
                         location:
                           description: Location is where the cluster has been deployed
@@ -372,24 +472,52 @@ spec:
                       type: object
                       properties:
                         apiServerInternalIP:
-                          description: apiServerInternalIP is an IP address to contact the Kubernetes API server that can be used by components inside the cluster, like kubelets using the infrastructure rather than Kubernetes networking. It is the IP that the Infrastructure.status.apiServerInternalURI points to. It is the IP for a self-hosted load balancer in front of the API servers.
+                          description: "apiServerInternalIP is an IP address to contact the Kubernetes API server that can be used by components inside the cluster, like kubelets using the infrastructure rather than Kubernetes networking. It is the IP that the Infrastructure.status.apiServerInternalURI points to. It is the IP for a self-hosted load balancer in front of the API servers. \n Deprecated: Use APIServerInternalIPs instead."
                           type: string
+                        apiServerInternalIPs:
+                          description: apiServerInternalIPs are the IP addresses to contact the Kubernetes API server that can be used by components inside the cluster, like kubelets using the infrastructure rather than Kubernetes networking. These are the IPs for a self-hosted load balancer in front of the API servers. In dual stack clusters this list contains two IPs otherwise only one.
+                          type: array
+                          format: ip
+                          maxItems: 2
+                          items:
+                            type: string
                         ingressIP:
-                          description: ingressIP is an external IP which routes to the default ingress controller. The IP is a suitable target of a wildcard DNS record used to resolve default route host names.
+                          description: "ingressIP is an external IP which routes to the default ingress controller. The IP is a suitable target of a wildcard DNS record used to resolve default route host names. \n Deprecated: Use IngressIPs instead."
                           type: string
+                        ingressIPs:
+                          description: ingressIPs are the external IPs which route to the default ingress controller. The IPs are suitable targets of a wildcard DNS record used to resolve default route host names. In dual stack clusters this list contains two IPs otherwise only one.
+                          type: array
+                          format: ip
+                          maxItems: 2
+                          items:
+                            type: string
                     openstack:
                       description: OpenStack contains settings specific to the OpenStack infrastructure provider.
                       type: object
                       properties:
                         apiServerInternalIP:
-                          description: apiServerInternalIP is an IP address to contact the Kubernetes API server that can be used by components inside the cluster, like kubelets using the infrastructure rather than Kubernetes networking. It is the IP that the Infrastructure.status.apiServerInternalURI points to. It is the IP for a self-hosted load balancer in front of the API servers.
+                          description: "apiServerInternalIP is an IP address to contact the Kubernetes API server that can be used by components inside the cluster, like kubelets using the infrastructure rather than Kubernetes networking. It is the IP that the Infrastructure.status.apiServerInternalURI points to. It is the IP for a self-hosted load balancer in front of the API servers. \n Deprecated: Use APIServerInternalIPs instead."
                           type: string
+                        apiServerInternalIPs:
+                          description: apiServerInternalIPs are the IP addresses to contact the Kubernetes API server that can be used by components inside the cluster, like kubelets using the infrastructure rather than Kubernetes networking. These are the IPs for a self-hosted load balancer in front of the API servers. In dual stack clusters this list contains two IPs otherwise only one.
+                          type: array
+                          format: ip
+                          maxItems: 2
+                          items:
+                            type: string
                         cloudName:
                           description: cloudName is the name of the desired OpenStack cloud in the client configuration file (`clouds.yaml`).
                           type: string
                         ingressIP:
-                          description: ingressIP is an external IP which routes to the default ingress controller. The IP is a suitable target of a wildcard DNS record used to resolve default route host names.
+                          description: "ingressIP is an external IP which routes to the default ingress controller. The IP is a suitable target of a wildcard DNS record used to resolve default route host names. \n Deprecated: Use IngressIPs instead."
                           type: string
+                        ingressIPs:
+                          description: ingressIPs are the external IPs which route to the default ingress controller. The IPs are suitable targets of a wildcard DNS record used to resolve default route host names. In dual stack clusters this list contains two IPs otherwise only one.
+                          type: array
+                          format: ip
+                          maxItems: 2
+                          items:
+                            type: string
                         nodeDNSIP:
                           description: nodeDNSIP is the IP address for the internal DNS used by the nodes. Unlike the one managed by the DNS operator, `NodeDNSIP` provides name resolution for the nodes themselves. There is no DNS-as-a-service for OpenStack deployments. In order to minimize necessary changes to the datacenter DNS, a DNS service is hosted as a static pod to serve those hostnames to the nodes in the cluster.
                           type: string
@@ -398,11 +526,25 @@ spec:
                       type: object
                       properties:
                         apiServerInternalIP:
-                          description: apiServerInternalIP is an IP address to contact the Kubernetes API server that can be used by components inside the cluster, like kubelets using the infrastructure rather than Kubernetes networking. It is the IP that the Infrastructure.status.apiServerInternalURI points to. It is the IP for a self-hosted load balancer in front of the API servers.
+                          description: "apiServerInternalIP is an IP address to contact the Kubernetes API server that can be used by components inside the cluster, like kubelets using the infrastructure rather than Kubernetes networking. It is the IP that the Infrastructure.status.apiServerInternalURI points to. It is the IP for a self-hosted load balancer in front of the API servers. \n Deprecated: Use APIServerInternalIPs instead."
                           type: string
+                        apiServerInternalIPs:
+                          description: apiServerInternalIPs are the IP addresses to contact the Kubernetes API server that can be used by components inside the cluster, like kubelets using the infrastructure rather than Kubernetes networking. These are the IPs for a self-hosted load balancer in front of the API servers. In dual stack clusters this list contains two IPs otherwise only one.
+                          type: array
+                          format: ip
+                          maxItems: 2
+                          items:
+                            type: string
                         ingressIP:
-                          description: ingressIP is an external IP which routes to the default ingress controller. The IP is a suitable target of a wildcard DNS record used to resolve default route host names.
+                          description: "ingressIP is an external IP which routes to the default ingress controller. The IP is a suitable target of a wildcard DNS record used to resolve default route host names. \n Deprecated: Use IngressIPs instead."
                           type: string
+                        ingressIPs:
+                          description: ingressIPs are the external IPs which route to the default ingress controller. The IPs are suitable targets of a wildcard DNS record used to resolve default route host names. In dual stack clusters this list contains two IPs otherwise only one.
+                          type: array
+                          format: ip
+                          maxItems: 2
+                          items:
+                            type: string
                         nodeDNSIP:
                           description: 'deprecated: as of 4.6, this field is no longer set or honored.  It will be removed in a future release.'
                           type: string
@@ -412,6 +554,9 @@ spec:
                       properties:
                         cisInstanceCRN:
                           description: CISInstanceCRN is the CRN of the Cloud Internet Services instance managing the DNS zone for the cluster's base domain
+                          type: string
+                        dnsInstanceCRN:
+                          description: DNSInstanceCRN is the CRN of the DNS Services instance managing the DNS zone for the cluster's base domain
                           type: string
                         region:
                           description: region holds the default Power VS region for new Power VS resources created by the cluster.
@@ -458,16 +603,31 @@ spec:
                         - PowerVS
                         - AlibabaCloud
                         - Nutanix
+                        - External
                     vsphere:
                       description: VSphere contains settings specific to the VSphere infrastructure provider.
                       type: object
                       properties:
                         apiServerInternalIP:
-                          description: apiServerInternalIP is an IP address to contact the Kubernetes API server that can be used by components inside the cluster, like kubelets using the infrastructure rather than Kubernetes networking. It is the IP that the Infrastructure.status.apiServerInternalURI points to. It is the IP for a self-hosted load balancer in front of the API servers.
+                          description: "apiServerInternalIP is an IP address to contact the Kubernetes API server that can be used by components inside the cluster, like kubelets using the infrastructure rather than Kubernetes networking. It is the IP that the Infrastructure.status.apiServerInternalURI points to. It is the IP for a self-hosted load balancer in front of the API servers. \n Deprecated: Use APIServerInternalIPs instead."
                           type: string
+                        apiServerInternalIPs:
+                          description: apiServerInternalIPs are the IP addresses to contact the Kubernetes API server that can be used by components inside the cluster, like kubelets using the infrastructure rather than Kubernetes networking. These are the IPs for a self-hosted load balancer in front of the API servers. In dual stack clusters this list contains two IPs otherwise only one.
+                          type: array
+                          format: ip
+                          maxItems: 2
+                          items:
+                            type: string
                         ingressIP:
-                          description: ingressIP is an external IP which routes to the default ingress controller. The IP is a suitable target of a wildcard DNS record used to resolve default route host names.
+                          description: "ingressIP is an external IP which routes to the default ingress controller. The IP is a suitable target of a wildcard DNS record used to resolve default route host names. \n Deprecated: Use IngressIPs instead."
                           type: string
+                        ingressIPs:
+                          description: ingressIPs are the external IPs which route to the default ingress controller. The IPs are suitable targets of a wildcard DNS record used to resolve default route host names. In dual stack clusters this list contains two IPs otherwise only one.
+                          type: array
+                          format: ip
+                          maxItems: 2
+                          items:
+                            type: string
                         nodeDNSIP:
                           description: nodeDNSIP is the IP address for the internal DNS used by the nodes. Unlike the one managed by the DNS operator, `NodeDNSIP` provides name resolution for the nodes themselves. There is no DNS-as-a-service for vSphere deployments. In order to minimize necessary changes to the datacenter DNS, a DNS service is hosted as a static pod to serve those hostnames to the nodes in the cluster.
                           type: string

@@ -3,6 +3,7 @@ kind: CustomResourceDefinition
 metadata:
   annotations:
     api-approved.openshift.io: https://github.com/openshift/api/pull/481
+    capability.openshift.io/name: Console
     description: Extension for customizing OpenShift web console links
     displayName: ConsoleLinks
     include.release.openshift.io/ibm-cloud-managed: "true"
@@ -109,6 +110,7 @@ spec:
                           type: object
                           additionalProperties:
                             type: string
+                      x-kubernetes-map-type: atomic
                     namespaces:
                       description: namespaces is an array of namespace names in which the dashboard link should appear.
                       type: array
