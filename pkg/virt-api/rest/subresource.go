@@ -1296,7 +1296,7 @@ func (app *SubresourceAPIApp) VMAddInterfaceRequestHandler(request *restful.Requ
 
 // VMRemoveInterfaceRequestHandler handles the subresource for hot plugging a volume and disk.
 func (app *SubresourceAPIApp) VMRemoveInterfaceRequestHandler(request *restful.Request, response *restful.Response) {
-	app.removeInterfaceRequestHandler(request, response, app.vmInterfacePatchStatus)
+	app.removeInterfaceRequestHandler(request, response, app.vmInterfacePatchStatus, extractRemoveIfaceOptions)
 }
 
 // VMIAddVolumeRequestHandler handles the subresource for hot plugging a volume and disk.
@@ -1748,7 +1748,7 @@ func (app *SubresourceAPIApp) VMIAddInterfaceRequestHandler(request *restful.Req
 
 // VMIRemoveInterfaceRequestHandler handles the subresource for hot plugging a volume and disk.
 func (app *SubresourceAPIApp) VMIRemoveInterfaceRequestHandler(request *restful.Request, response *restful.Response) {
-	app.removeInterfaceRequestHandler(request, response, app.vmiInterfacePatch)
+	app.removeInterfaceRequestHandler(request, response, app.vmiInterfacePatch, extractRemoveIfaceOptions)
 }
 
 func (app *SubresourceAPIApp) addInterfaceRequestHandler(request *restful.Request, response *restful.Response, ephemeral bool) {
@@ -1806,17 +1806,20 @@ func (app *SubresourceAPIApp) addInterfaceRequestHandler(request *restful.Reques
 
 type patchIfacesFn func(vmName, namespace string, interfaceRequest *v1.VirtualMachineInterfaceRequest) *errors.StatusError
 
+type extractIfaceOptsFn func(request *restful.Request) (v1.VirtualMachineInterfaceRequest, error)
+
 func (app *SubresourceAPIApp) removeInterfaceRequestHandler(
 	request *restful.Request,
 	response *restful.Response,
 	patchIfacesFn patchIfacesFn,
+	extractIfaceOptsFn extractIfaceOptsFn,
 ) {
 	if !app.clusterConfig.HotplugNetworkInterfacesEnabled() {
 		writeError(errors.NewBadRequest("Unable to Add Interface because HotplugNICs feature gate is not enabled."), response)
 		return
 	}
 
-	opts, err := extractRemoveIfaceOptions(request)
+	opts, err := extractIfaceOptsFn(request)
 	if err != nil {
 		writeError(errors.NewBadRequest(err.Error()), response)
 		return
