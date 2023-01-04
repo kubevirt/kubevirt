@@ -3637,10 +3637,13 @@ var _ = Describe("Validating VMICreate Admitter", func() {
 				},
 			}
 
-			causes := webhooks.ValidateVirtualMachineInstanceArm64Setting(k8sfield.NewPath("spec"), &vmi.Spec)
+			causes := webhooks.ValidateVirtualMachineInstanceArm64Setting(k8sfield.NewPath("fake"), &vmi.Spec)
 			Expect(causes).To(HaveLen(1))
+			Expect(causes[0].Field).To(Equal("fake.domain.firmware.bootloader.bios"))
+			Expect(causes[0].Message).To(Equal("Arm64 does not support bios boot, please change to uefi boot"))
 		})
 
+		// When setting UEFI default bootloader, UEFI secure bootloader would be applied which is not supported on Arm64
 		It("should reject UEFI default bootloader", func() {
 			vmi := api.NewMinimalVMI("testvmi")
 			vmi.Spec.Domain.Firmware = &v1.Firmware{
@@ -3649,8 +3652,10 @@ var _ = Describe("Validating VMICreate Admitter", func() {
 				},
 			}
 
-			causes := webhooks.ValidateVirtualMachineInstanceArm64Setting(k8sfield.NewPath("spec"), &vmi.Spec)
+			causes := webhooks.ValidateVirtualMachineInstanceArm64Setting(k8sfield.NewPath("fake"), &vmi.Spec)
 			Expect(causes).To(HaveLen(1))
+			Expect(causes[0].Field).To(Equal("fake.domain.firmware.bootloader.efi.secureboot"))
+			Expect(causes[0].Message).To(Equal("UEFI secure boot is currently not supported on aarch64 Arch"))
 		})
 
 		It("should reject UEFI secure bootloader", func() {
@@ -3664,16 +3669,20 @@ var _ = Describe("Validating VMICreate Admitter", func() {
 				},
 			}
 
-			causes := webhooks.ValidateVirtualMachineInstanceArm64Setting(k8sfield.NewPath("spec"), &vmi.Spec)
+			causes := webhooks.ValidateVirtualMachineInstanceArm64Setting(k8sfield.NewPath("fake"), &vmi.Spec)
 			Expect(causes).To(HaveLen(1))
+			Expect(causes[0].Field).To(Equal("fake.domain.firmware.bootloader.efi.secureboot"))
+			Expect(causes[0].Message).To(Equal("UEFI secure boot is currently not supported on aarch64 Arch"))
 		})
 
 		It("should reject setting cpu model to host-model", func() {
 			vmi := api.NewMinimalVMI("testvmi")
 			vmi.Spec.Domain.CPU = &v1.CPU{Model: "host-model"}
 
-			causes := webhooks.ValidateVirtualMachineInstanceArm64Setting(k8sfield.NewPath("spec"), &vmi.Spec)
+			causes := webhooks.ValidateVirtualMachineInstanceArm64Setting(k8sfield.NewPath("fake"), &vmi.Spec)
 			Expect(causes).To(HaveLen(1))
+			Expect(causes[0].Field).To(Equal("fake.domain.cpu.model"))
+			Expect(causes[0].Message).To(Equal("Arm64 not support CPU host-model"))
 		})
 	})
 
