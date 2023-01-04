@@ -279,13 +279,13 @@ func (v *vmis) Pause(ctx context.Context, name string, pauseOptions *v1.PauseOpt
 	return v.restClient.Put().AbsPath(uri).Body(body).Do(ctx).Error()
 }
 
-func (v *vmis) Unpause(name string, unpauseOptions *v1.UnpauseOptions) error {
+func (v *vmis) Unpause(ctx context.Context, name string, unpauseOptions *v1.UnpauseOptions) error {
 	body, err := json.Marshal(unpauseOptions)
 	if err != nil {
 		return fmt.Errorf("Cannot Marshal to json: %s", err)
 	}
 	uri := fmt.Sprintf(vmiSubresourceURL, v1.ApiStorageVersion, v.namespace, name, "unpause")
-	return v.restClient.Put().AbsPath(uri).Body(body).Do(context.Background()).Error()
+	return v.restClient.Put().AbsPath(uri).Body(body).Do(ctx).Error()
 }
 
 func (v *vmis) Get(ctx context.Context, name string, options *k8smetav1.GetOptions) (vmi *v1.VirtualMachineInstance, err error) {

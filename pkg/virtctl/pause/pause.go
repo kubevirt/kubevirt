@@ -164,13 +164,13 @@ func (vc *VirtCommand) Run(args []string) error {
 				return fmt.Errorf("Error getting VirtualMachine %s: %v", resourceName, err)
 			}
 			vmiName := vm.Name
-			err = virtClient.VirtualMachineInstance(namespace).Unpause(vmiName, &kubevirtV1.UnpauseOptions{DryRun: dryRunOption})
+			err = virtClient.VirtualMachineInstance(namespace).Unpause(context.Background(), vmiName, &kubevirtV1.UnpauseOptions{DryRun: dryRunOption})
 			if err != nil {
 				return fmt.Errorf("Error unpausing VirtualMachineInstance %s: %v", vmiName, err)
 			}
 			printLog(vmiName, vc.command)
 		case ARG_VMI_LONG, ARG_VMI_SHORT:
-			err = virtClient.VirtualMachineInstance(namespace).Unpause(resourceName, &kubevirtV1.UnpauseOptions{DryRun: dryRunOption})
+			err = virtClient.VirtualMachineInstance(namespace).Unpause(context.Background(), resourceName, &kubevirtV1.UnpauseOptions{DryRun: dryRunOption})
 			if err != nil {
 				return fmt.Errorf("Error unpausing VirtualMachineInstance %s: %v", resourceName, err)
 			}

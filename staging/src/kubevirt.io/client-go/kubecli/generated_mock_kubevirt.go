@@ -1108,14 +1108,14 @@ func (_mr *_MockVirtualMachineInstanceInterfaceRecorder) Pause(arg0, arg1, arg2 
 	return _mr.mock.ctrl.RecordCall(_mr.mock, "Pause", arg0, arg1, arg2)
 }
 
-func (_m *MockVirtualMachineInstanceInterface) Unpause(name string, unpauseOptions *v120.UnpauseOptions) error {
-	ret := _m.ctrl.Call(_m, "Unpause", name, unpauseOptions)
+func (_m *MockVirtualMachineInstanceInterface) Unpause(ctx context.Context, name string, unpauseOptions *v120.UnpauseOptions) error {
+	ret := _m.ctrl.Call(_m, "Unpause", ctx, name, unpauseOptions)
 	ret0, _ := ret[0].(error)
 	return ret0
 }
 
-func (_mr *_MockVirtualMachineInstanceInterfaceRecorder) Unpause(arg0, arg1 interface{}) *gomock.Call {
-	return _mr.mock.ctrl.RecordCall(_mr.mock, "Unpause", arg0, arg1)
+func (_mr *_MockVirtualMachineInstanceInterfaceRecorder) Unpause(arg0, arg1, arg2 interface{}) *gomock.Call {
+	return _mr.mock.ctrl.RecordCall(_mr.mock, "Unpause", arg0, arg1, arg2)
 }
 
 func (_m *MockVirtualMachineInstanceInterface) Freeze(name string, unfreezeTimeout time.Duration) error {
