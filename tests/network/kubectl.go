@@ -35,9 +35,9 @@ import (
 
 	"kubevirt.io/kubevirt/pkg/network/vmispec"
 
-	"kubevirt.io/kubevirt/tests"
 	"kubevirt.io/kubevirt/tests/clientcmd"
 	"kubevirt.io/kubevirt/tests/libvmi"
+	"kubevirt.io/kubevirt/tests/libwait"
 	"kubevirt.io/kubevirt/tests/testsuite"
 	"kubevirt.io/kubevirt/tests/util"
 )
@@ -86,7 +86,7 @@ var _ = SIGDescribe("kubectl", func() {
 
 		vmi, err = virtClient.VirtualMachineInstance(testsuite.GetTestNamespace(nil)).Create(context.Background(), vmi)
 		Expect(err).ToNot(HaveOccurred())
-		vmi = tests.WaitForSuccessfulVMIStart(vmi)
+		vmi = libwait.WaitForSuccessfulVMIStart(vmi)
 
 		primaryIfaceStatus := vmispec.LookupInterfaceStatusByName(vmi.Status.Interfaces, defaultPodNetworkName)
 		Expect(primaryIfaceStatus).ToNot(BeNil())

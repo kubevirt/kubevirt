@@ -59,6 +59,7 @@ import (
 	"kubevirt.io/kubevirt/pkg/downwardmetrics/vhostmd/api"
 
 	"kubevirt.io/kubevirt/tests/libvmi"
+	"kubevirt.io/kubevirt/tests/libwait"
 
 	k8sv1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
@@ -453,7 +454,7 @@ var _ = Describe("[Serial][sig-compute]Infrastructure", Serial, func() {
 		Expect(err).ToNot(HaveOccurred(), "Should create VMI")
 
 		By("Waiting until the VM is ready")
-		return tests.WaitForSuccessfulVMIStart(obj).Status.NodeName
+		return libwait.WaitForSuccessfulVMIStart(obj).Status.NodeName
 	}
 
 	Describe("[rfe_id:4126][crit:medium][vendor:cnv-qe@redhat.com][level:component]Taints and toleration", func() {
@@ -1180,7 +1181,7 @@ var _ = Describe("[Serial][sig-compute]Infrastructure", Serial, func() {
 				By("Starting a new VirtualMachineInstance")
 				obj, err := virtClient.RestClient().Post().Resource("virtualmachineinstances").Namespace(testsuite.GetTestNamespace(vmi)).Body(vmi).Do(context.Background()).Get()
 				Expect(err).ToNot(HaveOccurred())
-				tests.WaitForSuccessfulVMIStart(obj)
+				libwait.WaitForSuccessfulVMIStart(obj)
 			})
 		})
 

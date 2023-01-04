@@ -20,6 +20,7 @@ import (
 	virtconfig "kubevirt.io/kubevirt/pkg/virt-config"
 	"kubevirt.io/kubevirt/tests"
 	"kubevirt.io/kubevirt/tests/console"
+	"kubevirt.io/kubevirt/tests/libwait"
 )
 
 const (
@@ -79,7 +80,7 @@ var _ = Describe("[Serial][sig-compute]HostDevices", Serial, func() {
 			randomVMI.Spec.Domain.Devices.HostDevices = hostDevs
 			vmi, err := virtClient.VirtualMachineInstance(util.NamespaceTestDefault).Create(context.Background(), randomVMI)
 			Expect(err).ToNot(HaveOccurred())
-			tests.WaitForSuccessfulVMIStart(vmi)
+			libwait.WaitForSuccessfulVMIStart(vmi)
 			Expect(console.LoginToFedora(vmi)).To(Succeed())
 
 			By("Making sure the sound card is present inside the VMI")
@@ -92,7 +93,7 @@ var _ = Describe("[Serial][sig-compute]HostDevices", Serial, func() {
 			// Make sure to delete the VMI before ending the test otherwise a device could still be taken
 			err = virtClient.VirtualMachineInstance(util.NamespaceTestDefault).Delete(context.Background(), vmi.ObjectMeta.Name, &metav1.DeleteOptions{})
 			Expect(err).ToNot(HaveOccurred(), failedDeleteVMI)
-			tests.WaitForVirtualMachineToDisappearWithTimeout(vmi, 180)
+			libwait.WaitForVirtualMachineToDisappearWithTimeout(vmi, 180)
 		},
 			Entry("Should successfully passthrough an emulated PCI device", []string{"8086:2668"}),
 			Entry("Should successfully passthrough 2 emulated PCI devices", []string{"8086:2668", "8086:2415"}),

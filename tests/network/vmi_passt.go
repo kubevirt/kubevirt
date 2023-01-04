@@ -39,6 +39,7 @@ import (
 	"kubevirt.io/kubevirt/tests/framework/checks"
 	"kubevirt.io/kubevirt/tests/libnet"
 	"kubevirt.io/kubevirt/tests/libvmi"
+	"kubevirt.io/kubevirt/tests/libwait"
 	"kubevirt.io/kubevirt/tests/testsuite"
 	"kubevirt.io/kubevirt/tests/util"
 )
@@ -66,7 +67,7 @@ var _ = SIGDescribe("[Serial] Passt", Serial, func() {
 
 			vmi, err = virtClient.VirtualMachineInstance(testsuite.NamespacePrivileged).Create(context.Background(), vmi)
 			Expect(err).ToNot(HaveOccurred())
-			vmi = tests.WaitUntilVMIReady(vmi, console.LoginToAlpine)
+			vmi = libwait.WaitUntilVMIReady(vmi, console.LoginToAlpine)
 
 			Expect(vmi.Status.Interfaces).To(HaveLen(1))
 			Expect(vmi.Status.Interfaces[0].IPs).NotTo(BeEmpty())
@@ -86,7 +87,7 @@ var _ = SIGDescribe("[Serial] Passt", Serial, func() {
 
 					serverVMI, err = virtClient.VirtualMachineInstance(testsuite.NamespacePrivileged).Create(context.Background(), serverVMI)
 					Expect(err).ToNot(HaveOccurred())
-					serverVMI = tests.WaitForSuccessfulVMIStartIgnoreWarnings(serverVMI)
+					serverVMI = libwait.WaitForSuccessfulVMIStartIgnoreWarnings(serverVMI)
 					Expect(console.LoginToAlpine(serverVMI)).To(Succeed())
 				}
 
@@ -133,7 +134,7 @@ var _ = SIGDescribe("[Serial] Passt", Serial, func() {
 
 						clientVMI, err = virtClient.VirtualMachineInstance(testsuite.NamespacePrivileged).Create(context.Background(), clientVMI)
 						Expect(err).ToNot(HaveOccurred())
-						clientVMI = tests.WaitForSuccessfulVMIStartIgnoreWarnings(clientVMI)
+						clientVMI = libwait.WaitForSuccessfulVMIStartIgnoreWarnings(clientVMI)
 						Expect(console.LoginToAlpine(clientVMI)).To(Succeed())
 					}
 					DescribeTable("Client server connectivity", func(ports []v1.Port, tcpPort int, ipFamily k8sv1.IPFamily) {
@@ -205,7 +206,7 @@ EOL`, inetSuffix, serverIP, serverPort)
 
 						By("Starting server VMI")
 						startServerVMI([]v1.Port{{Port: SERVER_PORT, Protocol: "UDP"}})
-						serverVMI = tests.WaitForSuccessfulVMIStartIgnoreWarnings(serverVMI)
+						serverVMI = libwait.WaitForSuccessfulVMIStartIgnoreWarnings(serverVMI)
 						Expect(console.LoginToAlpine(serverVMI)).To(Succeed())
 
 						By("Starting a UDP server")
@@ -218,7 +219,7 @@ EOL`, inetSuffix, serverIP, serverPort)
 						)
 						clientVMI, err = virtClient.VirtualMachineInstance(testsuite.NamespacePrivileged).Create(context.Background(), clientVMI)
 						Expect(err).ToNot(HaveOccurred())
-						clientVMI = tests.WaitForSuccessfulVMIStartIgnoreWarnings(clientVMI)
+						clientVMI = libwait.WaitForSuccessfulVMIStartIgnoreWarnings(clientVMI)
 						Expect(console.LoginToAlpine(clientVMI)).To(Succeed())
 
 						By("Starting and verifying UDP client")
@@ -254,7 +255,7 @@ EOL`, inetSuffix, serverIP, serverPort)
 				)
 				vmi, err = virtClient.VirtualMachineInstance(testsuite.NamespacePrivileged).Create(context.Background(), vmi)
 				Expect(err).ToNot(HaveOccurred())
-				vmi = tests.WaitForSuccessfulVMIStartIgnoreWarnings(vmi)
+				vmi = libwait.WaitForSuccessfulVMIStartIgnoreWarnings(vmi)
 				Expect(console.LoginToAlpine(vmi)).To(Succeed())
 
 				By("Checking ping (IPv4)")
@@ -279,7 +280,7 @@ EOL`, inetSuffix, serverIP, serverPort)
 				Expect(err).ToNot(HaveOccurred())
 				vmi, err = virtClient.VirtualMachineInstance(testsuite.NamespacePrivileged).Create(context.Background(), vmi)
 				Expect(err).ToNot(HaveOccurred())
-				vmi = tests.WaitForSuccessfulVMIStartIgnoreWarnings(vmi)
+				vmi = libwait.WaitForSuccessfulVMIStartIgnoreWarnings(vmi)
 				Expect(console.LoginToAlpine(vmi)).To(Succeed())
 
 				By("Checking ping (IPv6) from VM to cluster nodes gateway")

@@ -52,6 +52,7 @@ import (
 	launcherApi "kubevirt.io/kubevirt/pkg/virt-launcher/virtwrap/api"
 
 	"kubevirt.io/kubevirt/tests"
+	"kubevirt.io/kubevirt/tests/libwait"
 )
 
 var _ = Describe("[rfe_id:127][crit:medium][arm64][vendor:cnv-qe@redhat.com][level:component][sig-compute]VNC", func() {
@@ -67,7 +68,7 @@ var _ = Describe("[rfe_id:127][crit:medium][arm64][vendor:cnv-qe@redhat.com][lev
 
 			vmi = tests.NewRandomVMI()
 			Expect(virtClient.RestClient().Post().Resource("virtualmachineinstances").Namespace(testsuite.GetTestNamespace(vmi)).Body(vmi).Do(context.Background()).Error()).To(Succeed())
-			tests.WaitForSuccessfulVMIStart(vmi)
+			libwait.WaitForSuccessfulVMIStart(vmi)
 		})
 
 		Context("with VNC connection", func() {

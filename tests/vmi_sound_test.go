@@ -35,6 +35,7 @@ import (
 	"kubevirt.io/kubevirt/tests"
 	"kubevirt.io/kubevirt/tests/console"
 	"kubevirt.io/kubevirt/tests/libvmi"
+	"kubevirt.io/kubevirt/tests/libwait"
 	"kubevirt.io/kubevirt/tests/util"
 )
 
@@ -53,7 +54,7 @@ var _ = Describe("[crit:medium][vendor:cnv-qe@redhat.com][level:component][sig-c
 		BeforeEach(func() {
 			vmi, err = createSoundVMI(virtClient, "test-model-empty")
 			Expect(err).ToNot(HaveOccurred())
-			vmi = tests.WaitUntilVMIReady(vmi, console.LoginToCirros)
+			vmi = libwait.WaitUntilVMIReady(vmi, console.LoginToCirros)
 		})
 
 		It("should create an ich9 sound device on empty model", func() {
@@ -65,7 +66,7 @@ var _ = Describe("[crit:medium][vendor:cnv-qe@redhat.com][level:component][sig-c
 		BeforeEach(func() {
 			vmi, err = createSoundVMI(virtClient, "ich9")
 			Expect(err).ToNot(HaveOccurred())
-			vmi = tests.WaitUntilVMIReady(vmi, console.LoginToCirros)
+			vmi = libwait.WaitUntilVMIReady(vmi, console.LoginToCirros)
 		})
 
 		It("should create ich9 sound device on ich9 model ", func() {

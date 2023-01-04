@@ -29,6 +29,7 @@ import (
 	"kubevirt.io/kubevirt/tests"
 	"kubevirt.io/kubevirt/tests/console"
 	"kubevirt.io/kubevirt/tests/libvmi"
+	"kubevirt.io/kubevirt/tests/libwait"
 	"kubevirt.io/kubevirt/tests/util"
 )
 
@@ -79,7 +80,7 @@ var _ = Describe("[Serial][sig-compute] Hyper-V enlightenments", Serial, func() 
 				By("Creating a windows VM")
 				reEnlightenmentVMI, err = virtClient.VirtualMachineInstance(util.NamespaceTestDefault).Create(context.Background(), reEnlightenmentVMI)
 				Expect(err).ToNot(HaveOccurred())
-				reEnlightenmentVMI = tests.WaitForSuccessfulVMIStartWithTimeout(reEnlightenmentVMI, 360)
+				reEnlightenmentVMI = libwait.WaitForSuccessfulVMIStartWithTimeout(reEnlightenmentVMI, 360)
 
 				By("Migrating the VM")
 				migration := tests.NewRandomMigration(reEnlightenmentVMI.Name, reEnlightenmentVMI.Namespace)
@@ -94,7 +95,7 @@ var _ = Describe("[Serial][sig-compute] Hyper-V enlightenments", Serial, func() 
 				By("Creating a windows VM")
 				reEnlightenmentVMI, err = virtClient.VirtualMachineInstance(util.NamespaceTestDefault).Create(context.Background(), reEnlightenmentVMI)
 				Expect(err).ToNot(HaveOccurred())
-				reEnlightenmentVMI = tests.WaitForSuccessfulVMIStartWithTimeout(reEnlightenmentVMI, 360)
+				reEnlightenmentVMI = libwait.WaitForSuccessfulVMIStartWithTimeout(reEnlightenmentVMI, 360)
 
 				virtLauncherPod := tests.GetPodByVirtualMachineInstance(reEnlightenmentVMI)
 
@@ -149,7 +150,7 @@ var _ = Describe("[Serial][sig-compute] Hyper-V enlightenments", Serial, func() 
 				By("Creating a windows VM")
 				reEnlightenmentVMI, err = virtClient.VirtualMachineInstance(util.NamespaceTestDefault).Create(context.Background(), reEnlightenmentVMI)
 				Expect(err).ToNot(HaveOccurred())
-				tests.WaitForSuccessfulVMIStartWithTimeout(reEnlightenmentVMI, 360)
+				libwait.WaitForSuccessfulVMIStartWithTimeout(reEnlightenmentVMI, 360)
 				Expect(console.LoginToAlpine(reEnlightenmentVMI)).To(Succeed())
 			})
 
@@ -158,7 +159,7 @@ var _ = Describe("[Serial][sig-compute] Hyper-V enlightenments", Serial, func() 
 				By("Creating a windows VM")
 				reEnlightenmentVMI, err = virtClient.VirtualMachineInstance(util.NamespaceTestDefault).Create(context.Background(), reEnlightenmentVMI)
 				Expect(err).ToNot(HaveOccurred())
-				tests.WaitForSuccessfulVMIStartWithTimeout(reEnlightenmentVMI, 360)
+				libwait.WaitForSuccessfulVMIStartWithTimeout(reEnlightenmentVMI, 360)
 
 				conditionManager := controller.NewVirtualMachineInstanceConditionManager()
 				isNonMigratable := func() error {
@@ -244,7 +245,7 @@ var _ = Describe("[Serial][sig-compute] Hyper-V enlightenments", Serial, func() 
 
 				vmi, err := virtClient.VirtualMachineInstance(util.NamespaceTestDefault).Create(context.Background(), vmi)
 				Expect(err).ToNot(HaveOccurred(), "Should create VMI when using %v", label)
-				tests.WaitForSuccessfulVMIStart(vmi)
+				libwait.WaitForSuccessfulVMIStart(vmi)
 
 				_, err = virtClient.VirtualMachineInstance(vmi.Namespace).Get(context.Background(), vmi.Name, &metav1.GetOptions{})
 				Expect(err).ToNot(HaveOccurred(), "Should get VMI when using %v", label)

@@ -27,6 +27,7 @@ import (
 	"kubevirt.io/kubevirt/tests/console"
 	"kubevirt.io/kubevirt/tests/libnet"
 	"kubevirt.io/kubevirt/tests/libvmi"
+	"kubevirt.io/kubevirt/tests/libwait"
 	"kubevirt.io/kubevirt/tests/testsuite"
 )
 
@@ -410,7 +411,7 @@ func createClientVmi(namespace string, virtClient kubecli.KubevirtClient) (*v1.V
 		return nil, err
 	}
 
-	clientVMI = tests.WaitUntilVMIReady(clientVMI, console.LoginToAlpine)
+	clientVMI = libwait.WaitUntilVMIReady(clientVMI, console.LoginToAlpine)
 	return clientVMI, nil
 }
 
@@ -434,7 +435,7 @@ func createServerVmi(virtClient kubecli.KubevirtClient, namespace string, server
 	if err != nil {
 		return nil, err
 	}
-	serverVMI = tests.WaitUntilVMIReady(serverVMI, console.LoginToAlpine)
+	serverVMI = libwait.WaitUntilVMIReady(serverVMI, console.LoginToAlpine)
 
 	By("Start HTTP server at serverVMI on ports 80 and 81")
 	tests.HTTPServer.Start(serverVMI, 80)

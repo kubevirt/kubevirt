@@ -40,6 +40,7 @@ import (
 	"kubevirt.io/kubevirt/tests/libnet"
 	"kubevirt.io/kubevirt/tests/libnode"
 	"kubevirt.io/kubevirt/tests/libvmi"
+	"kubevirt.io/kubevirt/tests/libwait"
 	"kubevirt.io/kubevirt/tests/testsuite"
 	"kubevirt.io/kubevirt/tests/util"
 )
@@ -104,7 +105,7 @@ var _ = SIGDescribe("Macvtap", func() {
 		} else {
 			vmi = newAlpineVMIWithMacvtapNetwork(networkName)
 		}
-		vmi = tests.WaitUntilVMIReady(
+		vmi = libwait.WaitUntilVMIReady(
 			tests.CreateVmiOnNode(vmi, nodeName),
 			console.LoginToAlpine)
 		// configure the client VMI

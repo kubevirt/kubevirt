@@ -38,6 +38,7 @@ import (
 	"kubevirt.io/kubevirt/tests/console"
 	"kubevirt.io/kubevirt/tests/libnet"
 	"kubevirt.io/kubevirt/tests/libvmi"
+	"kubevirt.io/kubevirt/tests/libwait"
 )
 
 var _ = SIGDescribe("Primary Pod Network", func() {
@@ -94,7 +95,7 @@ var _ = SIGDescribe("Primary Pod Network", func() {
 
 					vmi, err = virtClient.VirtualMachineInstance(util.NamespaceTestDefault).Create(context.Background(), vmi)
 					Expect(err).NotTo(HaveOccurred())
-					tests.WaitForSuccessfulVMIStart(vmi)
+					libwait.WaitForSuccessfulVMIStart(vmi)
 					Eventually(matcher.ThisVMI(vmi), 12*time.Minute, 2*time.Second).Should(matcher.HaveConditionTrue(v1.VirtualMachineInstanceAgentConnected))
 				})
 
@@ -135,7 +136,7 @@ var _ = SIGDescribe("Primary Pod Network", func() {
 
 					tmpVmi, err = virtClient.VirtualMachineInstance(util.NamespaceTestDefault).Create(context.Background(), tmpVmi)
 					Expect(err).NotTo(HaveOccurred())
-					vmi = tests.WaitUntilVMIReady(tmpVmi, console.LoginToFedora)
+					vmi = libwait.WaitUntilVMIReady(tmpVmi, console.LoginToFedora)
 
 					Eventually(matcher.ThisVMI(vmi), 12*time.Minute, 2*time.Second).Should(matcher.HaveConditionTrue(v1.VirtualMachineInstanceAgentConnected))
 				})
@@ -179,7 +180,7 @@ func setupVMI(virtClient kubecli.KubevirtClient, vmi *v1.VirtualMachineInstance)
 	Expect(err).NotTo(HaveOccurred(), "VMI should be successfully created")
 
 	By("Waiting until the VMI gets ready")
-	vmi = tests.WaitUntilVMIReady(vmi, console.LoginToAlpine)
+	vmi = libwait.WaitUntilVMIReady(vmi, console.LoginToAlpine)
 
 	return vmi
 }

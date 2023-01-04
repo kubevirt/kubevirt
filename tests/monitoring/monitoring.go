@@ -42,6 +42,7 @@ import (
 	"kubevirt.io/kubevirt/tests/flags"
 	"kubevirt.io/kubevirt/tests/framework/checks"
 	"kubevirt.io/kubevirt/tests/libvmi"
+	"kubevirt.io/kubevirt/tests/libwait"
 	"kubevirt.io/kubevirt/tests/util"
 
 	autoscalingv1 "k8s.io/api/autoscaling/v1"
@@ -328,7 +329,7 @@ var _ = Describe("[Serial][sig-monitoring]Prometheus Alerts", Serial, func() {
 
 			By("Delete VMIs")
 			Expect(virtClient.VirtualMachineInstance(vmi.Namespace).Delete(context.Background(), vmi.Name, &metav1.DeleteOptions{})).To(Succeed())
-			tests.WaitForVirtualMachineToDisappearWithTimeout(vmi, 240)
+			libwait.WaitForVirtualMachineToDisappearWithTimeout(vmi, 240)
 		})
 
 		It("Should correctly update metrics on failing VMIM", func() {
@@ -357,7 +358,7 @@ var _ = Describe("[Serial][sig-monitoring]Prometheus Alerts", Serial, func() {
 
 			By("Deleting the VMI")
 			Expect(virtClient.VirtualMachineInstance(vmi.Namespace).Delete(context.Background(), vmi.Name, &metav1.DeleteOptions{})).To(Succeed())
-			tests.WaitForVirtualMachineToDisappearWithTimeout(vmi, 240)
+			libwait.WaitForVirtualMachineToDisappearWithTimeout(vmi, 240)
 		})
 	})
 
@@ -634,7 +635,7 @@ var _ = Describe("[Serial][sig-monitoring]Prometheus Alerts", Serial, func() {
 			Expect(virtClient.VirtualMachineInstance(vmi.Namespace).Delete(context.Background(), vmi.Name, &metav1.DeleteOptions{})).To(Succeed())
 
 			By("Waiting for VMI to disappear")
-			tests.WaitForVirtualMachineToDisappearWithTimeout(vmi, 240)
+			libwait.WaitForVirtualMachineToDisappearWithTimeout(vmi, 240)
 		})
 	})
 })

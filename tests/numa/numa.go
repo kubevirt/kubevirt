@@ -26,6 +26,7 @@ import (
 	"kubevirt.io/kubevirt/tests/exec"
 	"kubevirt.io/kubevirt/tests/framework/checks"
 	"kubevirt.io/kubevirt/tests/libvmi"
+	"kubevirt.io/kubevirt/tests/libwait"
 	"kubevirt.io/kubevirt/tests/util"
 )
 
@@ -57,7 +58,7 @@ var _ = Describe("[sig-compute][Serial]NUMA", Serial, func() {
 		By("Starting a VirtualMachineInstance")
 		cpuVMI, err = virtClient.VirtualMachineInstance(util.NamespaceTestDefault).Create(context.Background(), cpuVMI)
 		Expect(err).ToNot(HaveOccurred())
-		cpuVMI = tests.WaitForSuccessfulVMIStart(cpuVMI)
+		cpuVMI = libwait.WaitForSuccessfulVMIStart(cpuVMI)
 		By("Fetching the numa memory mapping")
 		handler, err := libnode.GetVirtHandlerPod(virtClient, cpuVMI.Status.NodeName)
 		Expect(err).ToNot(HaveOccurred())

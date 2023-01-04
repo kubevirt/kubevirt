@@ -46,6 +46,7 @@ import (
 	"kubevirt.io/kubevirt/tests/flags"
 	"kubevirt.io/kubevirt/tests/libnet"
 	"kubevirt.io/kubevirt/tests/libvmi"
+	"kubevirt.io/kubevirt/tests/libwait"
 )
 
 var _ = SIGDescribe("Slirp Networking", func() {
@@ -109,7 +110,7 @@ var _ = SIGDescribe("Slirp Networking", func() {
 			vmi := *vmiRef
 			vmi, err = virtClient.VirtualMachineInstance(testsuite.GetTestNamespace(nil)).Create(context.Background(), vmi)
 			Expect(err).ToNot(HaveOccurred())
-			tests.WaitForSuccessfulVMIStartIgnoreWarnings(vmi)
+			libwait.WaitForSuccessfulVMIStartIgnoreWarnings(vmi)
 			tests.GenerateHelloWorldServer(vmi, 80, "tcp", console.LoginToCirros, true)
 
 			By("have containerPort in the pod manifest")
@@ -166,8 +167,8 @@ var _ = SIGDescribe("Slirp Networking", func() {
 			vmi := *vmiRef
 			vmi, err = virtClient.VirtualMachineInstance(testsuite.GetTestNamespace(nil)).Create(context.Background(), vmi)
 			Expect(err).ToNot(HaveOccurred())
-			vmi = tests.WaitForSuccessfulVMIStartIgnoreWarnings(vmi)
-			vmi = tests.LoginToVM(vmi, console.LoginToCirros)
+			vmi = libwait.WaitForSuccessfulVMIStartIgnoreWarnings(vmi)
+			Expect(console.LoginToCirros(vmi)).To(Succeed())
 
 			dns := "google.com"
 			if flags.ConnectivityCheckDNS != "" {

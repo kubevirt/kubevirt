@@ -11,6 +11,7 @@ import (
 	virtconfig "kubevirt.io/kubevirt/pkg/virt-config"
 	"kubevirt.io/kubevirt/tests"
 	"kubevirt.io/kubevirt/tests/framework/checks"
+	"kubevirt.io/kubevirt/tests/libwait"
 	"kubevirt.io/kubevirt/tests/util"
 )
 
@@ -35,7 +36,7 @@ var _ = Describe("[sig-compute]NonRoot feature", func() {
 			By("Check that runtimeuser was set on creation")
 			Expect(vmi.Status.RuntimeUser).To(Equal(uint64(107)))
 
-			tests.WaitForSuccessfulVMIStart(vmi)
+			libwait.WaitForSuccessfulVMIStart(vmi)
 
 			By("Check that user used is equal to 107")
 			Expect(tests.GetIdOfLauncher(vmi)).To(Equal("107"))

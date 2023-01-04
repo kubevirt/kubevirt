@@ -41,6 +41,7 @@ import (
 	"kubevirt.io/kubevirt/tests/libdv"
 	"kubevirt.io/kubevirt/tests/libstorage"
 	"kubevirt.io/kubevirt/tests/libvmi"
+	"kubevirt.io/kubevirt/tests/libwait"
 	"kubevirt.io/kubevirt/tests/testsuite"
 	"kubevirt.io/kubevirt/tests/util"
 )
@@ -1477,7 +1478,7 @@ var _ = SIGDescribe("VirtualMachineRestore Tests", func() {
 				})
 
 				vm, vmi = createAndStartVM(vm)
-				tests.WaitForSuccessfulVMIStartWithTimeout(vmi, 300)
+				libwait.WaitForSuccessfulVMIStartWithTimeout(vmi, 300)
 				Eventually(matcher.ThisVMI(vmi), 12*time.Minute, 2*time.Second).Should(matcher.HaveConditionTrue(v1.VirtualMachineInstanceAgentConnected))
 
 				doRestore("/dev/vdc", console.LoginToFedora, onlineSnapshot, getTargetVMName(restoreToNewVM, newVmName))

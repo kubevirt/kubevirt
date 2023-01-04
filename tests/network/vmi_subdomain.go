@@ -33,11 +33,11 @@ import (
 	v1 "kubevirt.io/api/core/v1"
 	"kubevirt.io/client-go/kubecli"
 
-	"kubevirt.io/kubevirt/tests"
 	"kubevirt.io/kubevirt/tests/console"
 	"kubevirt.io/kubevirt/tests/libnet"
 	netservice "kubevirt.io/kubevirt/tests/libnet/service"
 	"kubevirt.io/kubevirt/tests/libvmi"
+	"kubevirt.io/kubevirt/tests/libwait"
 	"kubevirt.io/kubevirt/tests/util"
 )
 
@@ -82,7 +82,7 @@ var _ = SIGDescribe("Subdomain", func() {
 
 			vmi, err := virtClient.VirtualMachineInstance(util.NamespaceTestDefault).Create(context.Background(), vmiSpec)
 			Expect(err).ToNot(HaveOccurred())
-			vmi = tests.WaitUntilVMIReady(vmi, console.LoginToFedora)
+			vmi = libwait.WaitUntilVMIReady(vmi, console.LoginToFedora)
 
 			Expect(assertFQDNinGuest(vmi, expectedFQDN)).To(Succeed(), "failed to get expected FQDN")
 		},
@@ -110,7 +110,7 @@ var _ = SIGDescribe("Subdomain", func() {
 
 			vmi, err := virtClient.VirtualMachineInstance(util.NamespaceTestDefault).Create(context.Background(), vmiSpec)
 			Expect(err).ToNot(HaveOccurred())
-			vmi = tests.WaitUntilVMIReady(vmi, console.LoginToFedora)
+			vmi = libwait.WaitUntilVMIReady(vmi, console.LoginToFedora)
 
 			Expect(assertFQDNinGuest(vmi, expectedFQDN)).To(Succeed(), "failed to get expected FQDN")
 		})
@@ -133,7 +133,7 @@ var _ = SIGDescribe("Subdomain", func() {
 
 		vmi, err := virtClient.VirtualMachineInstance(util.NamespaceTestDefault).Create(context.Background(), vmiSpec)
 		Expect(err).ToNot(HaveOccurred())
-		vmi = tests.WaitUntilVMIReady(vmi, console.LoginToFedora)
+		vmi = libwait.WaitUntilVMIReady(vmi, console.LoginToFedora)
 
 		Expect(assertFQDNinGuest(vmi, expectedFQDN)).To(Not(Succeed()), "found unexpected FQDN")
 		Expect(assertSearchEntriesinGuest(vmi, "search example.com")).To(Succeed(), "failed to get expected search entries")

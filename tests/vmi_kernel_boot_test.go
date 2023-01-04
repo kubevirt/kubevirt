@@ -35,6 +35,8 @@ import (
 
 	cd "kubevirt.io/kubevirt/tests/containerdisk"
 	"kubevirt.io/kubevirt/tests/libvmi"
+	"kubevirt.io/kubevirt/tests/libwait"
+
 	"kubevirt.io/kubevirt/tests/testsuite"
 
 	"kubevirt.io/client-go/kubecli"
@@ -58,7 +60,7 @@ var _ = Describe("[sig-compute]VMI with external kernel boot", func() {
 			vmi := utils.GetVMIKernelBoot()
 			obj, err := virtClient.VirtualMachineInstance(testsuite.GetTestNamespace(vmi)).Create(context.Background(), vmi)
 			Expect(err).ToNot(HaveOccurred())
-			tests.WaitForSuccessfulVMIStart(obj)
+			libwait.WaitForSuccessfulVMIStart(obj)
 		})
 
 		It("ensure successful boot and deletion when VMI has a disk defined", func() {
@@ -73,7 +75,7 @@ var _ = Describe("[sig-compute]VMI with external kernel boot", func() {
 			By("Ensuring VMI can boot")
 			vmi, err = virtClient.VirtualMachineInstance(testsuite.GetTestNamespace(vmi)).Create(context.Background(), vmi)
 			Expect(err).ToNot(HaveOccurred())
-			tests.WaitForSuccessfulVMIStart(vmi)
+			libwait.WaitForSuccessfulVMIStart(vmi)
 
 			By("Fetching virt-launcher pod")
 			virtLauncherPod := tests.GetRunningPodByVirtualMachineInstance(vmi, vmi.Namespace)
@@ -138,7 +140,7 @@ var _ = Describe("[sig-compute]VMI with external kernel boot", func() {
 
 			obj, err := virtClient.VirtualMachineInstance(testsuite.GetTestNamespace(vmi)).Create(context.Background(), vmi)
 			Expect(err).ToNot(HaveOccurred())
-			tests.WaitForSuccessfulVMIStart(obj)
+			libwait.WaitForSuccessfulVMIStart(obj)
 		})
 
 		It("ensure successful boot and deletion when VMI has a disk defined", func() {
@@ -156,7 +158,7 @@ var _ = Describe("[sig-compute]VMI with external kernel boot", func() {
 			By("Ensuring VMI can boot")
 			vmi, err = virtClient.VirtualMachineInstance(testsuite.GetTestNamespace(vmi)).Create(context.Background(), vmi)
 			Expect(err).ToNot(HaveOccurred())
-			tests.WaitForSuccessfulVMIStart(vmi)
+			libwait.WaitForSuccessfulVMIStart(vmi)
 
 			By("Fetching virt-launcher pod")
 			virtLauncherPod := tests.GetRunningPodByVirtualMachineInstance(vmi, vmi.Namespace)
