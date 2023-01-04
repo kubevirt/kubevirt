@@ -3684,6 +3684,34 @@ var _ = Describe("Validating VMICreate Admitter", func() {
 			Expect(causes[0].Field).To(Equal("fake.domain.cpu.model"))
 			Expect(causes[0].Message).To(Equal("Arm64 not support CPU host-model"))
 		})
+
+		It("should reject setting watchdog device", func() {
+			vmi := api.NewMinimalVMI("testvmi")
+			vmi.Spec.Domain.Devices.Watchdog = &v1.Watchdog{
+				Name: "mywatchdog",
+				WatchdogDevice: v1.WatchdogDevice{
+					I6300ESB: &v1.I6300ESBWatchdog{
+						Action: v1.WatchdogActionPoweroff,
+					},
+				},
+			}
+			causes := webhooks.ValidateVirtualMachineInstanceArm64Setting(k8sfield.NewPath("fake"), &vmi.Spec)
+			Expect(causes).To(HaveLen(1))
+			Expect(causes[0].Field).To(Equal("fake.domain.devices.watchdog"))
+			Expect(causes[0].Message).To(Equal("Arm64 not support Watchdog device"))
+		})
+
+		It("should reject setting sound device", func() {
+			vmi := api.NewMinimalVMI("testvmi")
+			vmi.Spec.Domain.Devices.Sound = &v1.SoundDevice{
+				Name:  "test-audio-device",
+				Model: "ich9",
+			}
+			causes := webhooks.ValidateVirtualMachineInstanceArm64Setting(k8sfield.NewPath("fake"), &vmi.Spec)
+			Expect(causes).To(HaveLen(1))
+			Expect(causes[0].Field).To(Equal("fake.domain.devices.sound"))
+			Expect(causes[0].Message).To(Equal("Arm64 not support sound device"))
+		})
 	})
 
 	Context("with realtime", func() {
