@@ -39,6 +39,8 @@ func ValidateVirtualMachineInstanceArm64Setting(field *k8sfield.Path, spec *v1.V
 	validateBootOptions(field, spec, &statusCauses)
 	validateCPUModel(field, spec, &statusCauses)
 	validateDiskBus(field, spec, &statusCauses)
+	validateWatchdog(field, spec, &statusCauses)
+	validateSoundDevice(field, spec, &statusCauses)
 	return statusCauses
 }
 
@@ -109,6 +111,26 @@ func validateDiskBus(field *k8sfield.Path, spec *v1.VirtualMachineInstanceSpec, 
 				})
 			}
 		}
+	}
+}
+
+func validateWatchdog(field *k8sfield.Path, spec *v1.VirtualMachineInstanceSpec, statusCauses *[]metav1.StatusCause) {
+	if spec.Domain.Devices.Watchdog != nil {
+		*statusCauses = append(*statusCauses, metav1.StatusCause{
+			Type:    metav1.CauseTypeFieldValueNotSupported,
+			Message: "Arm64 not support Watchdog device",
+			Field:   field.Child("domain", "devices", "watchdog").String(),
+		})
+	}
+}
+
+func validateSoundDevice(field *k8sfield.Path, spec *v1.VirtualMachineInstanceSpec, statusCauses *[]metav1.StatusCause) {
+	if spec.Domain.Devices.Sound != nil {
+		*statusCauses = append(*statusCauses, metav1.StatusCause{
+			Type:    metav1.CauseTypeFieldValueNotSupported,
+			Message: "Arm64 not support sound device",
+			Field:   field.Child("domain", "devices", "sound").String(),
+		})
 	}
 }
 
