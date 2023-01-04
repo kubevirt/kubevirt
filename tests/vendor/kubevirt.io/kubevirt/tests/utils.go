@@ -137,8 +137,8 @@ func TestCleanup() {
 
 func SetupAlpineHostPath() {
 	const osAlpineHostPath = "alpine-host-path"
-	libstorage.CreateHostPathPv(osAlpineHostPath, testsuite.HostPathAlpine)
-	libstorage.CreateHostPathPVC(osAlpineHostPath, defaultDiskSize)
+	libstorage.CreateHostPathPv(osAlpineHostPath, testsuite.GetTestNamespace(nil), testsuite.HostPathAlpine)
+	libstorage.CreateHostPathPVC(osAlpineHostPath, testsuite.GetTestNamespace(nil), defaultDiskSize)
 }
 
 func GetSupportedCPUFeatures(nodes k8sv1.NodeList) []string {
@@ -188,10 +188,10 @@ func GetSupportedCPUModels(nodes k8sv1.NodeList) []string {
 	return cpus
 }
 
-func CreateConfigMap(name string, data map[string]string) {
+func CreateConfigMap(name, namespace string, data map[string]string) {
 	virtCli, err := kubecli.GetKubevirtClient()
 	util2.PanicOnError(err)
-	_, err = virtCli.CoreV1().ConfigMaps(util2.NamespaceTestDefault).Create(context.Background(), &k8sv1.ConfigMap{
+	_, err = virtCli.CoreV1().ConfigMaps(namespace).Create(context.Background(), &k8sv1.ConfigMap{
 		ObjectMeta: metav1.ObjectMeta{Name: name},
 		Data:       data,
 	}, metav1.CreateOptions{})
@@ -201,11 +201,11 @@ func CreateConfigMap(name string, data map[string]string) {
 	}
 }
 
-func CreateSecret(name string, data map[string]string) {
+func CreateSecret(name, namespace string, data map[string]string) {
 	virtCli, err := kubecli.GetKubevirtClient()
 	util2.PanicOnError(err)
 
-	_, err = virtCli.CoreV1().Secrets(util2.NamespaceTestDefault).Create(context.Background(), &k8sv1.Secret{
+	_, err = virtCli.CoreV1().Secrets(namespace).Create(context.Background(), &k8sv1.Secret{
 		ObjectMeta: metav1.ObjectMeta{Name: name},
 		StringData: data,
 	}, metav1.CreateOptions{})
@@ -242,21 +242,21 @@ func PrometheusRuleEnabled() bool {
 	return prometheusRuleEnabled
 }
 
-func DeleteConfigMap(name string) {
+func DeleteConfigMap(name, namespace string) {
 	virtCli, err := kubecli.GetKubevirtClient()
 	util2.PanicOnError(err)
 
-	err = virtCli.CoreV1().ConfigMaps(util2.NamespaceTestDefault).Delete(context.Background(), name, metav1.DeleteOptions{})
+	err = virtCli.CoreV1().ConfigMaps(namespace).Delete(context.Background(), name, metav1.DeleteOptions{})
 	if !errors.IsNotFound(err) {
 		util2.PanicOnError(err)
 	}
 }
 
-func DeleteSecret(name string) {
+func DeleteSecret(name, namespace string) {
 	virtCli, err := kubecli.GetKubevirtClient()
 	util2.PanicOnError(err)
 
-	err = virtCli.CoreV1().Secrets(util2.NamespaceTestDefault).Delete(context.Background(), name, metav1.DeleteOptions{})
+	err = virtCli.CoreV1().Secrets(namespace).Delete(context.Background(), name, metav1.DeleteOptions{})
 	if !errors.IsNotFound(err) {
 		util2.PanicOnError(err)
 	}
@@ -268,7 +268,7 @@ func RunVMI(vmi *v1.VirtualMachineInstance, timeout int) *v1.VirtualMachineInsta
 
 	var obj *v1.VirtualMachineInstance
 	Eventually(func() error {
-		obj, err = virtCli.VirtualMachineInstance(util2.NamespaceTestDefault).Create(vmi)
+		obj, err = virtCli.VirtualMachineInstance(testsuite.GetTestNamespace(vmi)).Create(context.Background(), vmi)
 		return err
 	}, timeout, 1*time.Second).ShouldNot(HaveOccurred())
 	return obj
@@ -315,7 +315,7 @@ func getRunningPodByVirtualMachineInstance(vmi *v1.VirtualMachineInstance, names
 		return nil, err
 	}
 
-	vmi, err = virtCli.VirtualMachineInstance(namespace).Get(vmi.Name, &metav1.GetOptions{})
+	vmi, err = virtCli.VirtualMachineInstance(namespace).Get(context.Background(), vmi.Name, &metav1.GetOptions{})
 	if err != nil {
 		return nil, err
 	}
@@ -552,7 +552,7 @@ func NewRandomVMI() *v1.VirtualMachineInstance {
 		libvmi.WithInterface(libvmi.InterfaceDeviceWithMasqueradeBinding()),
 		libvmi.WithNetwork(v1.DefaultPodNetwork()),
 	)
-	vmi.ObjectMeta.Namespace = util2.NamespaceTestDefault
+	vmi.ObjectMeta.Namespace = testsuite.GetTestNamespace(vmi)
 	vmi.Spec.Domain.Resources.Requests = k8sv1.ResourceList{}
 
 	if checks.IsARM64(testsuite.Arch) {
@@ -903,7 +903,7 @@ func DeletePvAndPvc(name string) {
 		util2.PanicOnError(err)
 	}
 
-	err = virtCli.CoreV1().PersistentVolumeClaims(util2.NamespaceTestDefault).Delete(context.Background(), name, metav1.DeleteOptions{})
+	err = virtCli.CoreV1().PersistentVolumeClaims(testsuite.GetTestNamespace(nil)).Delete(context.Background(), name, metav1.DeleteOptions{})
 	if !errors.IsNotFound(err) {
 		util2.PanicOnError(err)
 	}
@@ -957,6 +957,9 @@ func AddHostDisk(vmi *v1.VirtualMachineInstance, path string, diskType v1.HostDi
 			HostDisk: &hostDisk,
 		},
 	})
+
+	// hostdisk needs a privileged namespace
+	vmi.Namespace = testsuite.NamespacePrivileged
 }
 
 func NewRandomVMIWithHostDisk(diskPath string, diskType v1.HostDiskType, nodeName string) *v1.VirtualMachineInstance {
@@ -1113,7 +1116,7 @@ func waitForVMIPhase(ctx context.Context, phases []v1.VirtualMachineInstancePhas
 	// Fetch the VirtualMachineInstance, to make sure we have a resourceVersion as a starting point for the watch
 	// FIXME: This may start watching too late and we may miss some warnings
 	if vmi.ResourceVersion == "" {
-		vmi, err = virtClient.VirtualMachineInstance(vmi.Namespace).Get(vmi.Name, &metav1.GetOptions{})
+		vmi, err = virtClient.VirtualMachineInstance(vmi.Namespace).Get(context.Background(), vmi.Name, &metav1.GetOptions{})
 		ExpectWithOffset(1, err).ToNot(HaveOccurred())
 	}
 
@@ -1135,7 +1138,7 @@ func waitForVMIPhase(ctx context.Context, phases []v1.VirtualMachineInstancePhas
 	timeoutMsg := fmt.Sprintf("Timed out waiting for VMI %s to enter %s phase(s)", vmi.Name, phases)
 	// FIXME the event order is wrong. First the document should be updated
 	EventuallyWithOffset(1, func() v1.VirtualMachineInstancePhase {
-		vmi, err = virtClient.VirtualMachineInstance(vmi.Namespace).Get(vmi.Name, &metav1.GetOptions{})
+		vmi, err = virtClient.VirtualMachineInstance(vmi.Namespace).Get(context.Background(), vmi.Name, &metav1.GetOptions{})
 		ExpectWithOffset(1, err).ToNot(HaveOccurred())
 
 		Expect(vmi.Status.Phase == v1.Succeeded).To(BeFalse(), "VMI %s unexpectedly stopped. State: %s", vmi.Name, vmi.Status.Phase)
@@ -1174,7 +1177,7 @@ func WaitForVirtualMachineToDisappearWithTimeout(vmi *v1.VirtualMachineInstance,
 	virtClient, err := kubecli.GetKubevirtClient()
 	ExpectWithOffset(1, err).ToNot(HaveOccurred())
 	EventuallyWithOffset(1, func() error {
-		_, err := virtClient.VirtualMachineInstance(vmi.Namespace).Get(vmi.Name, &metav1.GetOptions{})
+		_, err := virtClient.VirtualMachineInstance(vmi.Namespace).Get(context.Background(), vmi.Name, &metav1.GetOptions{})
 		return err
 	}, seconds, 1*time.Second).Should(SatisfyAll(HaveOccurred(), WithTransform(errors.IsNotFound, BeTrue())), "The VMI should be gone within the given timeout")
 }
@@ -1232,7 +1235,7 @@ func LoginToVM(vmi *v1.VirtualMachineInstance, loginTo console.LoginToFunction) 
 	// Fetch the new VirtualMachineInstance with updated status
 	virtClient, err := kubecli.GetKubevirtClient()
 	Expect(err).ToNot(HaveOccurred())
-	vmi, err = virtClient.VirtualMachineInstance(vmi.Namespace).Get(vmi.Name, &metav1.GetOptions{})
+	vmi, err = virtClient.VirtualMachineInstance(vmi.Namespace).Get(context.Background(), vmi.Name, &metav1.GetOptions{})
 	ExpectWithOffset(1, err).ToNot(HaveOccurred())
 
 	// Lets make sure that the OS is up by waiting until we can login
@@ -1273,6 +1276,7 @@ func NewBool(x bool) *bool {
 
 func RenderPrivilegedPod(name string, cmd []string, args []string) *k8sv1.Pod {
 	pod := RenderPod(name, cmd, args)
+	pod.Namespace = testsuite.NamespacePrivileged
 	pod.Spec.HostPID = true
 	pod.Spec.SecurityContext = &k8sv1.PodSecurityContext{
 		RunAsUser: new(int64),
@@ -1346,14 +1350,14 @@ func RunPodInNamespace(pod *k8sv1.Pod, namespace string) *k8sv1.Pod {
 }
 
 func RunPod(pod *k8sv1.Pod) *k8sv1.Pod {
-	return RunPodInNamespace(pod, util2.NamespaceTestDefault)
+	return RunPodInNamespace(pod, testsuite.GetTestNamespace(pod))
 }
 
 func RunPodAndExpectCompletion(pod *k8sv1.Pod) *k8sv1.Pod {
 	virtClient, err := kubecli.GetKubevirtClient()
 	util2.PanicOnError(err)
 
-	pod, err = virtClient.CoreV1().Pods(util2.NamespaceTestDefault).Create(context.Background(), pod, metav1.CreateOptions{})
+	pod, err = virtClient.CoreV1().Pods(testsuite.GetTestNamespace(pod)).Create(context.Background(), pod, metav1.CreateOptions{})
 	Expect(err).ToNot(HaveOccurred())
 	Eventually(ThisPod(pod), 120).Should(BeInPhase(k8sv1.PodSucceeded))
 
@@ -1411,8 +1415,6 @@ func DeleteAlpineWithNonQEMUPermissions() {
 }
 
 func renderContainerSpec(imgPath string, name string, cmd []string, args []string) k8sv1.Container {
-	nonRootUser := int64(1042)
-
 	return k8sv1.Container{
 		Name:    name,
 		Image:   imgPath,
@@ -1422,7 +1424,6 @@ func renderContainerSpec(imgPath string, name string, cmd []string, args []strin
 			Privileged:               NewBool(false),
 			AllowPrivilegeEscalation: NewBool(false),
 			RunAsNonRoot:             NewBool(true),
-			RunAsUser:                &nonRootUser,
 			SeccompProfile: &k8sv1.SeccompProfile{
 				Type: k8sv1.SeccompProfileTypeRuntimeDefault,
 			},
@@ -1447,13 +1448,13 @@ func renderPrivilegedContainerSpec(imgPath string, name string, cmd []string, ar
 }
 
 func GetRunningVirtualMachineInstanceDomainXML(virtClient kubecli.KubevirtClient, vmi *v1.VirtualMachineInstance) (string, error) {
-	vmiPod, err := getRunningPodByVirtualMachineInstance(vmi, util2.NamespaceTestDefault)
+	vmiPod, err := getRunningPodByVirtualMachineInstance(vmi, testsuite.GetTestNamespace(vmi))
 	if err != nil {
 		return "", err
 	}
 
 	// get current vmi
-	freshVMI, err := virtClient.VirtualMachineInstance(vmi.Namespace).Get(vmi.Name, &metav1.GetOptions{})
+	freshVMI, err := virtClient.VirtualMachineInstance(vmi.Namespace).Get(context.Background(), vmi.Name, &metav1.GetOptions{})
 	if err != nil {
 		return "", fmt.Errorf("failed to get vmi, %s", err)
 	}
@@ -1478,7 +1479,7 @@ func GetRunningVirtualMachineInstanceDomainXML(virtClient kubecli.KubevirtClient
 }
 
 func LibvirtDomainIsPaused(virtClient kubecli.KubevirtClient, vmi *v1.VirtualMachineInstance) (bool, error) {
-	vmiPod, err := getRunningPodByVirtualMachineInstance(vmi, util2.NamespaceTestDefault)
+	vmiPod, err := getRunningPodByVirtualMachineInstance(vmi, testsuite.GetTestNamespace(vmi))
 	if err != nil {
 		return false, err
 	}
@@ -1552,7 +1553,7 @@ func UnfinishedVMIPodSelector(vmi *v1.VirtualMachineInstance) metav1.ListOptions
 	virtClient, err := kubecli.GetKubevirtClient()
 	util2.PanicOnError(err)
 
-	vmi, err = virtClient.VirtualMachineInstance(vmi.Namespace).Get(vmi.Name, &metav1.GetOptions{})
+	vmi, err = virtClient.VirtualMachineInstance(vmi.Namespace).Get(context.Background(), vmi.Name, &metav1.GetOptions{})
 	Expect(err).ToNot(HaveOccurred())
 
 	fieldSelectorStr := "status.phase!=" + string(k8sv1.PodFailed) +
@@ -1575,7 +1576,7 @@ func RemoveHostDiskImage(diskPath string, nodeName string) {
 	virtClient, err := kubecli.GetKubevirtClient()
 	util2.PanicOnError(err)
 	procPath := filepath.Join("/proc/1/root", diskPath)
-	virtHandlerPod, err := kubecli.NewVirtHandlerClient(virtClient).Namespace(flags.KubeVirtInstallNamespace).ForNode(nodeName).Pod()
+	virtHandlerPod, err := libnode.GetVirtHandlerPod(virtClient, nodeName)
 	Expect(err).ToNot(HaveOccurred())
 	_, _, err = exec.ExecuteCommandOnPodWithResults(virtClient, virtHandlerPod, "virt-handler", []string{"rm", "-rf", procPath})
 	Expect(err).ToNot(HaveOccurred())
@@ -1635,7 +1636,7 @@ func CreateVmiOnNodeLabeled(vmi *v1.VirtualMachineInstance, nodeLabel, labelValu
 		},
 	}
 
-	vmi, err = virtClient.VirtualMachineInstance(util2.NamespaceTestDefault).Create(vmi)
+	vmi, err = virtClient.VirtualMachineInstance(testsuite.GetTestNamespace(vmi)).Create(context.Background(), vmi)
 	ExpectWithOffset(1, err).ToNot(HaveOccurred())
 	return vmi
 }
@@ -1650,7 +1651,7 @@ func RunCommandOnVmiPod(vmi *v1.VirtualMachineInstance, command []string) string
 	virtClient, err := kubecli.GetKubevirtClient()
 	util2.PanicOnError(err)
 
-	pods, err := virtClient.CoreV1().Pods(util2.NamespaceTestDefault).List(context.Background(), UnfinishedVMIPodSelector(vmi))
+	pods, err := virtClient.CoreV1().Pods(testsuite.GetTestNamespace(vmi)).List(context.Background(), UnfinishedVMIPodSelector(vmi))
 	ExpectWithOffset(1, err).ToNot(HaveOccurred())
 	ExpectWithOffset(1, pods.Items).NotTo(BeEmpty())
 	vmiPod := pods.Items[0]
@@ -1671,7 +1672,7 @@ func RunCommandOnVmiTargetPod(vmi *v1.VirtualMachineInstance, command []string) 
 	virtClient, err := kubecli.GetKubevirtClient()
 	util2.PanicOnError(err)
 
-	pods, err := virtClient.CoreV1().Pods(util2.NamespaceTestDefault).List(context.Background(), metav1.ListOptions{})
+	pods, err := virtClient.CoreV1().Pods(vmi.Namespace).List(context.Background(), metav1.ListOptions{})
 	ExpectWithOffset(1, err).ToNot(HaveOccurred())
 	ExpectWithOffset(1, pods.Items).NotTo(BeEmpty())
 	var vmiPod *k8sv1.Pod
@@ -1741,7 +1742,7 @@ func StopVirtualMachineWithTimeout(vm *v1.VirtualMachine, timeout time.Duration)
 	Expect(err).ToNot(HaveOccurred())
 	// Observe the VirtualMachineInstance deleted
 	Eventually(func() bool {
-		_, err = virtClient.VirtualMachineInstance(updatedVM.Namespace).Get(updatedVM.Name, &metav1.GetOptions{})
+		_, err = virtClient.VirtualMachineInstance(updatedVM.Namespace).Get(context.Background(), updatedVM.Name, &metav1.GetOptions{})
 		if errors.IsNotFound(err) {
 			return true
 		}
@@ -1776,7 +1777,7 @@ func StartVirtualMachine(vm *v1.VirtualMachine) *v1.VirtualMachine {
 	Expect(err).ToNot(HaveOccurred())
 	// Observe the VirtualMachineInstance created
 	Eventually(func() error {
-		_, err := virtClient.VirtualMachineInstance(updatedVM.Namespace).Get(updatedVM.Name, &metav1.GetOptions{})
+		_, err := virtClient.VirtualMachineInstance(updatedVM.Namespace).Get(context.Background(), updatedVM.Name, &metav1.GetOptions{})
 		return err
 	}, 300*time.Second, 1*time.Second).Should(Succeed())
 	By("VMI has the running condition")
@@ -2278,7 +2279,7 @@ func RandTmpDir() string {
 func VMILauncherIgnoreWarnings(virtClient kubecli.KubevirtClient) func(vmi *v1.VirtualMachineInstance) *v1.VirtualMachineInstance {
 	return func(vmi *v1.VirtualMachineInstance) *v1.VirtualMachineInstance {
 		By(StartingVMInstance)
-		obj, err := virtClient.RestClient().Post().Resource("virtualmachineinstances").Namespace(util2.NamespaceTestDefault).Body(vmi).Do(context.Background()).Get()
+		obj, err := virtClient.RestClient().Post().Resource("virtualmachineinstances").Namespace(testsuite.GetTestNamespace(vmi)).Body(vmi).Do(context.Background()).Get()
 		Expect(err).ToNot(HaveOccurred())
 
 		By("Waiting the VirtualMachineInstance start")
@@ -2381,7 +2382,7 @@ func GetIdOfLauncher(vmi *v1.VirtualMachineInstance) string {
 	virtClient, err := kubecli.GetKubevirtClient()
 	util2.PanicOnError(err)
 
-	vmiPod := GetRunningPodByVirtualMachineInstance(vmi, util2.NamespaceTestDefault)
+	vmiPod := GetRunningPodByVirtualMachineInstance(vmi, testsuite.GetTestNamespace(vmi))
 	podOutput, err := exec.ExecuteCommandOnPod(
 		virtClient,
 		vmiPod,
@@ -2394,7 +2395,7 @@ func GetIdOfLauncher(vmi *v1.VirtualMachineInstance) string {
 }
 
 func ExecuteCommandOnNodeThroughVirtHandler(virtCli kubecli.KubevirtClient, nodeName string, command []string) (stdout string, stderr string, err error) {
-	virtHandlerPod, err := kubecli.NewVirtHandlerClient(virtCli).Namespace(flags.KubeVirtInstallNamespace).ForNode(nodeName).Pod()
+	virtHandlerPod, err := libnode.GetVirtHandlerPod(virtCli, nodeName)
 	if err != nil {
 		return "", "", err
 	}
@@ -2440,7 +2441,7 @@ func StartVMAndExpectRunning(virtClient kubecli.KubevirtClient, vm *v1.VirtualMa
 
 	// Observe the VirtualMachineInstance created
 	Eventually(func() error {
-		_, err := virtClient.VirtualMachineInstance(updatedVM.Namespace).Get(updatedVM.Name, &metav1.GetOptions{})
+		_, err := virtClient.VirtualMachineInstance(updatedVM.Namespace).Get(context.Background(), updatedVM.Name, &metav1.GetOptions{})
 		return err
 	}, 300*time.Second, 1*time.Second).Should(Succeed())
 
@@ -2473,17 +2474,17 @@ func dvSizeBySourceURL(url string) string {
 }
 
 func GetDefaultVirtApiDeployment(namespace string, config *util.KubeVirtDeploymentConfig) (*v12.Deployment, error) {
-	return components.NewApiServerDeployment(namespace, config.GetImageRegistry(), config.GetImagePrefix(), config.GetApiVersion(), "", "", "", config.VirtApiImage, config.GetImagePullPolicy(), config.GetVerbosity(), config.GetExtraEnv())
+	return components.NewApiServerDeployment(namespace, config.GetImageRegistry(), config.GetImagePrefix(), config.GetApiVersion(), "", "", "", config.VirtApiImage, config.GetImagePullPolicy(), config.GetImagePullSecrets(), config.GetVerbosity(), config.GetExtraEnv())
 }
 
 func GetDefaultVirtControllerDeployment(namespace string, config *util.KubeVirtDeploymentConfig) (*v12.Deployment, error) {
-	return components.NewControllerDeployment(namespace, config.GetImageRegistry(), config.GetImagePrefix(), config.GetControllerVersion(), config.GetLauncherVersion(), config.GetExportServerVersion(), "", "", "", config.VirtControllerImage, config.VirtLauncherImage, config.VirtExportServerImage, config.GetImagePullPolicy(), config.GetVerbosity(), config.GetExtraEnv())
+	return components.NewControllerDeployment(namespace, config.GetImageRegistry(), config.GetImagePrefix(), config.GetControllerVersion(), config.GetLauncherVersion(), config.GetExportServerVersion(), "", "", "", config.VirtControllerImage, config.VirtLauncherImage, config.VirtExportServerImage, config.GetImagePullPolicy(), config.GetImagePullSecrets(), config.GetVerbosity(), config.GetExtraEnv())
 }
 
 func GetDefaultVirtHandlerDaemonSet(namespace string, config *util.KubeVirtDeploymentConfig) (*v12.DaemonSet, error) {
-	return components.NewHandlerDaemonSet(namespace, config.GetImageRegistry(), config.GetImagePrefix(), config.GetHandlerVersion(), "", "", "", config.GetLauncherVersion(), config.VirtHandlerImage, config.VirtLauncherImage, config.GetImagePullPolicy(), nil, config.GetVerbosity(), config.GetExtraEnv())
+	return components.NewHandlerDaemonSet(namespace, config.GetImageRegistry(), config.GetImagePrefix(), config.GetHandlerVersion(), "", "", "", config.GetLauncherVersion(), config.VirtHandlerImage, config.VirtLauncherImage, config.GetImagePullPolicy(), config.GetImagePullSecrets(), nil, config.GetVerbosity(), config.GetExtraEnv())
 }
 
 func GetDefaultExportProxyDeployment(namespace string, config *util.KubeVirtDeploymentConfig) (*v12.Deployment, error) {
-	return components.NewExportProxyDeployment(namespace, config.GetImageRegistry(), config.GetImagePrefix(), config.GetExportProxyVersion(), "", "", "", config.VirtExportProxyImage, config.GetImagePullPolicy(), config.GetVerbosity(), config.GetExtraEnv())
+	return components.NewExportProxyDeployment(namespace, config.GetImageRegistry(), config.GetImagePrefix(), config.GetExportProxyVersion(), "", "", "", config.VirtExportProxyImage, config.GetImagePullPolicy(), config.GetImagePullSecrets(), config.GetVerbosity(), config.GetExtraEnv())
 }

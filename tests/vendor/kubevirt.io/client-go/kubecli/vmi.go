@@ -288,26 +288,26 @@ func (v *vmis) Unpause(name string, unpauseOptions *v1.UnpauseOptions) error {
 	return v.restClient.Put().AbsPath(uri).Body(body).Do(context.Background()).Error()
 }
 
-func (v *vmis) Get(name string, options *k8smetav1.GetOptions) (vmi *v1.VirtualMachineInstance, err error) {
+func (v *vmis) Get(ctx context.Context, name string, options *k8smetav1.GetOptions) (vmi *v1.VirtualMachineInstance, err error) {
 	vmi = &v1.VirtualMachineInstance{}
 	err = v.restClient.Get().
 		Resource(v.resource).
 		Namespace(v.namespace).
 		Name(name).
 		VersionedParams(options, scheme.ParameterCodec).
-		Do(context.Background()).
+		Do(ctx).
 		Into(vmi)
 	vmi.SetGroupVersionKind(v1.VirtualMachineInstanceGroupVersionKind)
 	return
 }
 
-func (v *vmis) List(options *k8smetav1.ListOptions) (vmiList *v1.VirtualMachineInstanceList, err error) {
+func (v *vmis) List(ctx context.Context, options *k8smetav1.ListOptions) (vmiList *v1.VirtualMachineInstanceList, err error) {
 	vmiList = &v1.VirtualMachineInstanceList{}
 	err = v.restClient.Get().
 		Resource(v.resource).
 		Namespace(v.namespace).
 		VersionedParams(options, scheme.ParameterCodec).
-		Do(context.Background()).
+		Do(ctx).
 		Into(vmiList)
 	for _, vmi := range vmiList.Items {
 		vmi.SetGroupVersionKind(v1.VirtualMachineInstanceGroupVersionKind)
@@ -316,38 +316,38 @@ func (v *vmis) List(options *k8smetav1.ListOptions) (vmiList *v1.VirtualMachineI
 	return
 }
 
-func (v *vmis) Create(vmi *v1.VirtualMachineInstance) (result *v1.VirtualMachineInstance, err error) {
+func (v *vmis) Create(ctx context.Context, vmi *v1.VirtualMachineInstance) (result *v1.VirtualMachineInstance, err error) {
 	result = &v1.VirtualMachineInstance{}
 	err = v.restClient.Post().
 		Namespace(v.namespace).
 		Resource(v.resource).
 		Body(vmi).
-		Do(context.Background()).
+		Do(ctx).
 		Into(result)
 	result.SetGroupVersionKind(v1.VirtualMachineInstanceGroupVersionKind)
 	return
 }
 
-func (v *vmis) Update(vmi *v1.VirtualMachineInstance) (result *v1.VirtualMachineInstance, err error) {
+func (v *vmis) Update(ctx context.Context, vmi *v1.VirtualMachineInstance) (result *v1.VirtualMachineInstance, err error) {
 	result = &v1.VirtualMachineInstance{}
 	err = v.restClient.Put().
 		Name(vmi.ObjectMeta.Name).
 		Namespace(v.namespace).
 		Resource(v.resource).
 		Body(vmi).
-		Do(context.Background()).
+		Do(ctx).
 		Into(result)
 	result.SetGroupVersionKind(v1.VirtualMachineInstanceGroupVersionKind)
 	return
 }
 
-func (v *vmis) Delete(name string, options *k8smetav1.DeleteOptions) error {
+func (v *vmis) Delete(ctx context.Context, name string, options *k8smetav1.DeleteOptions) error {
 	return v.restClient.Delete().
 		Namespace(v.namespace).
 		Resource(v.resource).
 		Name(name).
 		Body(options).
-		Do(context.Background()).
+		Do(ctx).
 		Error()
 }
 
@@ -499,5 +499,10 @@ func (v *vmis) VSOCK(name string, options *v1.VSOCKOptions) (StreamInterface, er
 	}
 	queryParams := url.Values{}
 	queryParams.Add("port", strconv.FormatUint(uint64(options.TargetPort), 10))
+	useTLS := true
+	if options.UseTLS != nil {
+		useTLS = *options.UseTLS
+	}
+	queryParams.Add("tls", strconv.FormatBool(useTLS))
 	return asyncSubresourceHelper(v.config, v.resource, v.namespace, name, "vsock", queryParams)
 }

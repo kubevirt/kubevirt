@@ -82,7 +82,8 @@ func NewPrometheusService(namespace string) *corev1.Service {
 					Protocol: corev1.ProtocolTCP,
 				},
 			},
-			Type: corev1.ServiceTypeClusterIP,
+			Type:      corev1.ServiceTypeClusterIP,
+			ClusterIP: corev1.ClusterIPNone,
 		},
 	}
 }
@@ -151,7 +152,7 @@ func NewExportProxyService(namespace string) *corev1.Service {
 	}
 }
 
-func newPodTemplateSpec(podName, imageName, repository, version, productName, productVersion, productComponent, image string, pullPolicy corev1.PullPolicy, podAffinity *corev1.Affinity, envVars *[]corev1.EnvVar) (*corev1.PodTemplateSpec, error) {
+func newPodTemplateSpec(podName, imageName, repository, version, productName, productVersion, productComponent, image string, pullPolicy corev1.PullPolicy, imagePullSecrets []corev1.LocalObjectReference, podAffinity *corev1.Affinity, envVars *[]corev1.EnvVar) (*corev1.PodTemplateSpec, error) {
 
 	if image == "" {
 		image = fmt.Sprintf("%s/%s%s", repository, imageName, AddVersionSeparatorPrefix(version))
@@ -177,6 +178,10 @@ func newPodTemplateSpec(podName, imageName, repository, version, productName, pr
 				},
 			},
 		},
+	}
+
+	if len(imagePullSecrets) > 0 {
+		podTemplateSpec.Spec.ImagePullSecrets = imagePullSecrets
 	}
 
 	if productVersion != "" {
@@ -236,9 +241,9 @@ func attachCertificateSecret(spec *corev1.PodSpec, secretName string, mountPath 
 	spec.Containers[0].VolumeMounts = append(spec.Containers[0].VolumeMounts, secretVolumeMount)
 }
 
-func newBaseDeployment(deploymentName, imageName, namespace, repository, version, productName, productVersion, productComponent, image string, pullPolicy corev1.PullPolicy, podAffinity *corev1.Affinity, envVars *[]corev1.EnvVar) (*appsv1.Deployment, error) {
+func newBaseDeployment(deploymentName, imageName, namespace, repository, version, productName, productVersion, productComponent, image string, pullPolicy corev1.PullPolicy, imagePullSecrets []corev1.LocalObjectReference, podAffinity *corev1.Affinity, envVars *[]corev1.EnvVar) (*appsv1.Deployment, error) {
 
-	podTemplateSpec, err := newPodTemplateSpec(deploymentName, imageName, repository, version, productName, productVersion, productComponent, image, pullPolicy, podAffinity, envVars)
+	podTemplateSpec, err := newPodTemplateSpec(deploymentName, imageName, repository, version, productName, productVersion, productComponent, image, pullPolicy, imagePullSecrets, podAffinity, envVars)
 	if err != nil {
 		return nil, err
 	}
@@ -306,12 +311,12 @@ func newPodAntiAffinity(key, topologyKey string, operator metav1.LabelSelectorOp
 	}
 }
 
-func NewApiServerDeployment(namespace, repository, imagePrefix, version, productName, productVersion, productComponent, image string, pullPolicy corev1.PullPolicy, verbosity string, extraEnv map[string]string) (*appsv1.Deployment, error) {
+func NewApiServerDeployment(namespace, repository, imagePrefix, version, productName, productVersion, productComponent, image string, pullPolicy corev1.PullPolicy, imagePullSecrets []corev1.LocalObjectReference, verbosity string, extraEnv map[string]string) (*appsv1.Deployment, error) {
 	podAntiAffinity := newPodAntiAffinity(kubevirtLabelKey, kubernetesHostnameTopologyKey, metav1.LabelSelectorOpIn, []string{VirtAPIName})
 	deploymentName := VirtAPIName
 	imageName := fmt.Sprintf("%s%s", imagePrefix, deploymentName)
 	env := operatorutil.NewEnvVarMap(extraEnv)
-	deployment, err := newBaseDeployment(deploymentName, imageName, namespace, repository, version, productName, productVersion, productComponent, image, pullPolicy, podAntiAffinity, env)
+	deployment, err := newBaseDeployment(deploymentName, imageName, namespace, repository, version, productName, productVersion, productComponent, image, pullPolicy, imagePullSecrets, podAntiAffinity, env)
 	if err != nil {
 		return nil, err
 	}
@@ -370,7 +375,7 @@ func NewApiServerDeployment(namespace, repository, imagePrefix, version, product
 	container.Resources = corev1.ResourceRequirements{
 		Requests: corev1.ResourceList{
 			corev1.ResourceCPU:    resource.MustParse("5m"),
-			corev1.ResourceMemory: resource.MustParse("300Mi"),
+			corev1.ResourceMemory: resource.MustParse("400Mi"),
 		},
 	}
 
@@ -384,12 +389,12 @@ func NewApiServerDeployment(namespace, repository, imagePrefix, version, product
 	return deployment, nil
 }
 
-func NewControllerDeployment(namespace, repository, imagePrefix, controllerVersion, launcherVersion, exportServerVersion, productName, productVersion, productComponent, image, launcherImage, exporterImage string, pullPolicy corev1.PullPolicy, verbosity string, extraEnv map[string]string) (*appsv1.Deployment, error) {
+func NewControllerDeployment(namespace, repository, imagePrefix, controllerVersion, launcherVersion, exportServerVersion, productName, productVersion, productComponent, image, launcherImage, exporterImage string, pullPolicy corev1.PullPolicy, imagePullSecrets []corev1.LocalObjectReference, verbosity string, extraEnv map[string]string) (*appsv1.Deployment, error) {
 	podAntiAffinity := newPodAntiAffinity(kubevirtLabelKey, kubernetesHostnameTopologyKey, metav1.LabelSelectorOpIn, []string{VirtControllerName})
 	deploymentName := VirtControllerName
 	imageName := fmt.Sprintf("%s%s", imagePrefix, deploymentName)
 	env := operatorutil.NewEnvVarMap(extraEnv)
-	deployment, err := newBaseDeployment(deploymentName, imageName, namespace, repository, controllerVersion, productName, productVersion, productComponent, image, pullPolicy, podAntiAffinity, env)
+	deployment, err := newBaseDeployment(deploymentName, imageName, namespace, repository, controllerVersion, productName, productVersion, productComponent, image, pullPolicy, imagePullSecrets, podAntiAffinity, env)
 	if err != nil {
 		return nil, err
 	}
@@ -422,6 +427,7 @@ func NewControllerDeployment(namespace, repository, imagePrefix, controllerVersi
 		"-v",
 		verbosity,
 	}
+
 	container.Ports = []corev1.ContainerPort{
 		{
 			Name:          "metrics",
@@ -573,7 +579,7 @@ func NewOperatorDeployment(namespace, repository, imagePrefix, version, verbosit
 							},
 							Env: []corev1.EnvVar{
 								{
-									Name:  operatorutil.OldOperatorImageEnvName,
+									Name:  operatorutil.VirtOperatorImageEnvName,
 									Value: image,
 								},
 								{
@@ -625,12 +631,12 @@ func NewOperatorDeployment(namespace, repository, imagePrefix, version, verbosit
 	return deployment, nil
 }
 
-func NewExportProxyDeployment(namespace, repository, imagePrefix, version, productName, productVersion, productComponent, image string, pullPolicy corev1.PullPolicy, verbosity string, extraEnv map[string]string) (*appsv1.Deployment, error) {
+func NewExportProxyDeployment(namespace, repository, imagePrefix, version, productName, productVersion, productComponent, image string, pullPolicy corev1.PullPolicy, imagePullSecrets []corev1.LocalObjectReference, verbosity string, extraEnv map[string]string) (*appsv1.Deployment, error) {
 	podAntiAffinity := newPodAntiAffinity(kubevirtLabelKey, kubernetesHostnameTopologyKey, metav1.LabelSelectorOpIn, []string{VirtAPIName})
 	deploymentName := VirtExportProxyName
 	imageName := fmt.Sprintf("%s%s", imagePrefix, deploymentName)
 	env := operatorutil.NewEnvVarMap(extraEnv)
-	deployment, err := newBaseDeployment(deploymentName, imageName, namespace, repository, version, productName, productVersion, productComponent, image, pullPolicy, podAntiAffinity, env)
+	deployment, err := newBaseDeployment(deploymentName, imageName, namespace, repository, version, productName, productVersion, productComponent, image, pullPolicy, imagePullSecrets, podAntiAffinity, env)
 	if err != nil {
 		return nil, err
 	}

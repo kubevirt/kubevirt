@@ -225,6 +225,11 @@ func (in *HyperConvergedFeatureGates) DeepCopyInto(out *HyperConvergedFeatureGat
 		*out = new(bool)
 		**out = **in
 	}
+	if in.DeployKubeSecondaryDNS != nil {
+		in, out := &in.DeployKubeSecondaryDNS, &out.DeployKubeSecondaryDNS
+		*out = new(bool)
+		**out = **in
+	}
 	if in.NonRoot != nil {
 		in, out := &in.NonRoot, &out.NonRoot
 		*out = new(bool)

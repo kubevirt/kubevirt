@@ -61,6 +61,7 @@ go_test(
         "apiservices_test.go",
         "components_suite_test.go",
         "crds_test.go",
+        "deployments_test.go",
         "secrets_test.go",
         "webhooks_test.go",
     ],

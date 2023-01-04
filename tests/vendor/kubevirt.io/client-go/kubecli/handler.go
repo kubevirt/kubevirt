@@ -2,12 +2,9 @@ package kubecli
 
 import (
 	"context"
-	"crypto/tls"
 	"fmt"
 	"io"
-	"io/ioutil"
 	"net/http"
-	"time"
 
 	v1 "k8s.io/api/core/v1"
 	k8smetav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
@@ -35,9 +32,10 @@ const (
 	filesystemListTemplateURI = "https://%s:%v/v1/namespaces/%s/virtualmachineinstances/%s/filesystemlist"
 )
 
-func NewVirtHandlerClient(client KubevirtClient) VirtHandlerClient {
+func NewVirtHandlerClient(virtCli KubevirtClient, httpCli *http.Client) VirtHandlerClient {
 	return &virtHandler{
-		client:          client,
+		virtCli:         virtCli,
+		httpCli:         httpCli,
 		virtHandlerPort: 0,
 		namespace:       "",
 	}
@@ -54,30 +52,32 @@ type VirtHandlerConn interface {
 	ConsoleURI(vmi *virtv1.VirtualMachineInstance) (string, error)
 	USBRedirURI(vmi *virtv1.VirtualMachineInstance) (string, error)
 	VNCURI(vmi *virtv1.VirtualMachineInstance) (string, error)
-	VSOCKURI(vmi *virtv1.VirtualMachineInstance, port string) (string, error)
+	VSOCKURI(vmi *virtv1.VirtualMachineInstance, port string, tls string) (string, error)
 	PauseURI(vmi *virtv1.VirtualMachineInstance) (string, error)
 	UnpauseURI(vmi *virtv1.VirtualMachineInstance) (string, error)
 	FreezeURI(vmi *virtv1.VirtualMachineInstance) (string, error)
 	UnfreezeURI(vmi *virtv1.VirtualMachineInstance) (string, error)
 	SoftRebootURI(vmi *virtv1.VirtualMachineInstance) (string, error)
 	Pod() (pod *v1.Pod, err error)
-	Put(url string, tlsConfig *tls.Config, body io.ReadCloser) error
-	Get(url string, tlsConfig *tls.Config) (string, error)
+	Put(url string, body io.ReadCloser) error
+	Get(url string) (string, error)
 	GuestInfoURI(vmi *virtv1.VirtualMachineInstance) (string, error)
 	UserListURI(vmi *virtv1.VirtualMachineInstance) (string, error)
 	FilesystemListURI(vmi *virtv1.VirtualMachineInstance) (string, error)
 }
 
 type virtHandler struct {
-	client          KubevirtClient
+	virtCli         KubevirtClient
+	httpCli         *http.Client
 	virtHandlerPort int
 	namespace       string
 }
 
 type virtHandlerConn struct {
-	pod  *v1.Pod
-	err  error
-	port int
+	pod        *v1.Pod
+	err        error
+	port       int
+	httpClient *http.Client
 }
 
 func (v *virtHandler) Namespace(namespace string) VirtHandlerClient {
@@ -90,8 +90,12 @@ func (v *virtHandler) Port(port int) VirtHandlerClient {
 	return v
 }
 func (v *virtHandler) ForNode(nodeName string) VirtHandlerConn {
-	conn := &virtHandlerConn{}
 	var err error
+
+	conn := &virtHandlerConn{
+		httpClient: v.httpCli,
+	}
+
 	namespace := v.namespace
 	if namespace == "" {
 		namespace, err = util.GetNamespace()
@@ -120,7 +124,7 @@ func (v *virtHandler) getVirtHandler(nodeName string, namespace string) (*v1.Pod
 		return nil, false, err
 	}
 
-	pods, err := v.client.CoreV1().Pods(namespace).List(context.Background(),
+	pods, err := v.virtCli.CoreV1().Pods(namespace).List(context.Background(),
 		k8smetav1.ListOptions{
 			FieldSelector: handlerNodeSelector.String(),
 			LabelSelector: labelSelector.String()})
@@ -174,12 +178,12 @@ func (v *virtHandlerConn) VNCURI(vmi *virtv1.VirtualMachineInstance) (string, er
 	return v.formatURI(vncTemplateURI, vmi)
 }
 
-func (v *virtHandlerConn) VSOCKURI(vmi *virtv1.VirtualMachineInstance, port string) (string, error) {
+func (v *virtHandlerConn) VSOCKURI(vmi *virtv1.VirtualMachineInstance, port string, tls string) (string, error) {
 	baseURI, err := v.formatURI(vsockTemplateURI, vmi)
 	if err != nil {
 		return "", err
 	}
-	return fmt.Sprintf("%s?port=%s", baseURI, port), nil
+	return fmt.Sprintf("%s?port=%s&tls=%s", baseURI, port, tls), nil
 }
 
 func (v *virtHandlerConn) FreezeURI(vmi *virtv1.VirtualMachineInstance) (string, error) {
@@ -210,65 +214,52 @@ func (v *virtHandlerConn) Pod() (pod *v1.Pod, err error) {
 	return v.pod, err
 }
 
-func (v *virtHandlerConn) Put(url string, tlsConfig *tls.Config, body io.ReadCloser) error {
+func (v *virtHandlerConn) doRequest(req *http.Request) (response string, err error) {
+	resp, err := v.httpClient.Do(req)
+	if err != nil {
+		return
+	}
+	defer resp.Body.Close()
 
-	client := http.Client{
-		Transport: &http.Transport{
-			TLSClientConfig: tlsConfig,
-		},
-		Timeout: 10 * time.Second,
+	if resp.StatusCode < 200 || resp.StatusCode > 299 {
+		return "", fmt.Errorf("unexpected return code %d (%s)", resp.StatusCode, resp.Status)
 	}
 
+	responseBytes, err := io.ReadAll(resp.Body)
+	if err != nil {
+		return "", fmt.Errorf("cannot read response body %v", err)
+	}
+
+	return string(responseBytes), nil
+}
+
+func (v *virtHandlerConn) Put(url string, body io.ReadCloser) error {
 	req, err := http.NewRequest(http.MethodPut, url, body)
 	if err != nil {
 		return err
 	}
 
-	resp, err := client.Do(req)
+	_, err = v.doRequest(req)
 	if err != nil {
 		return err
-	}
-
-	if resp.StatusCode < 200 || resp.StatusCode > 299 {
-		return fmt.Errorf("unexpected return code %s", resp.Status)
 	}
 
 	return nil
 }
 
-func (v *virtHandlerConn) Get(url string, tlsConfig *tls.Config) (string, error) {
-
-	client := http.Client{
-		Transport: &http.Transport{
-			TLSClientConfig: tlsConfig,
-		},
-		Timeout: 10 * time.Second,
-	}
-
+func (v *virtHandlerConn) Get(url string) (string, error) {
 	req, err := http.NewRequest(http.MethodGet, url, nil)
 	if err != nil {
 		return "", err
 	}
 
 	req.Header.Add("Accept", "application/json")
-	resp, err := client.Do(req)
+	response, err := v.doRequest(req)
 	if err != nil {
 		return "", err
 	}
 
-	if resp.StatusCode < 200 || resp.StatusCode > 299 {
-		return "", fmt.Errorf("unexpected return code %s", resp.Status)
-	}
-
-	defer resp.Body.Close()
-	responseData, err := ioutil.ReadAll(resp.Body)
-	if err != nil {
-		return "", fmt.Errorf("cannot read get body %s", resp.Status)
-	}
-
-	responseString := string(responseData)
-
-	return responseString, nil
+	return response, nil
 }
 
 func (v *virtHandlerConn) GuestInfoURI(vmi *virtv1.VirtualMachineInstance) (string, error) {

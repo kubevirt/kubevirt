@@ -71,6 +71,12 @@ func WithAnnotation(key, value string) Option {
 	}
 }
 
+func WithNamespace(namespace string) Option {
+	return func(vmi *v1.VirtualMachineInstance) {
+		vmi.Namespace = namespace
+	}
+}
+
 // WithTerminationGracePeriod specifies the termination grace period in seconds.
 func WithTerminationGracePeriod(seconds int64) Option {
 	return func(vmi *v1.VirtualMachineInstance) {

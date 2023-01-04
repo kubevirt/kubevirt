@@ -453,6 +453,7 @@ func (KubeVirtSpec) SwaggerDoc() map[string]string {
 		"imageTag":                "The image tag to use for the continer images installed.\nDefaults to the same tag as the operator's container image.",
 		"imageRegistry":           "The image registry to pull the container images from\nDefaults to the same registry the operator's container image is pulled from.",
 		"imagePullPolicy":         "The ImagePullPolicy to use.",
+		"imagePullSecrets":        "The imagePullSecrets to pull the container images from\nDefaults to none\n+listType=atomic",
 		"monitorNamespace":        "The namespace Prometheus is deployed in\nDefaults to openshift-monitor",
 		"serviceMonitorNamespace": "The namespace the service monitor will be deployed\n When ServiceMonitorNamespace is set, then we'll install the service monitor object in that namespace\notherwise we will use the monitoring namespace.",
 		"monitorAccount":          "The name of the Prometheus service account that needs read-access to KubeVirt endpoints\nDefaults to prometheus-k8s",
@@ -810,18 +811,20 @@ func (ClusterProfilerRequest) SwaggerDoc() map[string]string {
 
 func (InstancetypeMatcher) SwaggerDoc() map[string]string {
 	return map[string]string{
-		"":             "InstancetypeMatcher references a instancetype that is used to fill fields in the VMI template.",
-		"name":         "Name is the name of the VirtualMachineInstancetype or VirtualMachineClusterInstancetype",
-		"kind":         "Kind specifies which instancetype resource is referenced.\nAllowed values are: \"VirtualMachineInstancetype\" and \"VirtualMachineClusterInstancetype\".\nIf not specified, \"VirtualMachineClusterInstancetype\" is used by default.\n\n+optional",
-		"revisionName": "RevisionName specifies a ControllerRevision containing a specific copy of the\nVirtualMachineInstancetype or VirtualMachineClusterInstancetype to be used. This is initially\ncaptured the first time the instancetype is applied to the VirtualMachineInstance.\n\n+optional",
+		"":                "InstancetypeMatcher references a instancetype that is used to fill fields in the VMI template.",
+		"name":            "Name is the name of the VirtualMachineInstancetype or VirtualMachineClusterInstancetype\n\n+optional",
+		"kind":            "Kind specifies which instancetype resource is referenced.\nAllowed values are: \"VirtualMachineInstancetype\" and \"VirtualMachineClusterInstancetype\".\nIf not specified, \"VirtualMachineClusterInstancetype\" is used by default.\n\n+optional",
+		"revisionName":    "RevisionName specifies a ControllerRevision containing a specific copy of the\nVirtualMachineInstancetype or VirtualMachineClusterInstancetype to be used. This is initially\ncaptured the first time the instancetype is applied to the VirtualMachineInstance.\n\n+optional",
+		"inferFromVolume": "InferFromVolume lists the name of a volume that should be used to infer or discover the instancetype\nto be used through known annotations on the underlying resource. Once applied to the InstancetypeMatcher\nthis field is removed.\n\n+optional",
 	}
 }
 
 func (PreferenceMatcher) SwaggerDoc() map[string]string {
 	return map[string]string{
-		"":             "PreferenceMatcher references a set of preference that is used to fill fields in the VMI template.",
-		"name":         "Name is the name of the VirtualMachinePreference or VirtualMachineClusterPreference",
-		"kind":         "Kind specifies which preference resource is referenced.\nAllowed values are: \"VirtualMachinePreference\" and \"VirtualMachineClusterPreference\".\nIf not specified, \"VirtualMachineClusterPreference\" is used by default.\n\n+optional",
-		"revisionName": "RevisionName specifies a ControllerRevision containing a specific copy of the\nVirtualMachinePreference or VirtualMachineClusterPreference to be used. This is\ninitially captured the first time the instancetype is applied to the VirtualMachineInstance.\n\n+optional",
+		"":                "PreferenceMatcher references a set of preference that is used to fill fields in the VMI template.",
+		"name":            "Name is the name of the VirtualMachinePreference or VirtualMachineClusterPreference\n\n+optional",
+		"kind":            "Kind specifies which preference resource is referenced.\nAllowed values are: \"VirtualMachinePreference\" and \"VirtualMachineClusterPreference\".\nIf not specified, \"VirtualMachineClusterPreference\" is used by default.\n\n+optional",
+		"revisionName":    "RevisionName specifies a ControllerRevision containing a specific copy of the\nVirtualMachinePreference or VirtualMachineClusterPreference to be used. This is\ninitially captured the first time the instancetype is applied to the VirtualMachineInstance.\n\n+optional",
+		"inferFromVolume": "InferFromVolume lists the name of a volume that should be used to infer or discover the preference\nto be used through known annotations on the underlying resource. Once applied to the PreferenceMatcher\nthis field is removed.\n\n+optional",
 	}
 }

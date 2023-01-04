@@ -6,7 +6,7 @@ go_library(
         "domain.go",
         "matchers.go",
         "mock_config.go",
-        "mock_flavor.go",
+        "mock_instancetype.go",
         "mock_queue.go",
     ],
     importpath = "kubevirt.io/kubevirt/pkg/testutils",

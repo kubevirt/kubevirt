@@ -4,6 +4,7 @@ import (
 	"strconv"
 
 	k8sv1 "k8s.io/api/core/v1"
+	"k8s.io/utils/pointer"
 
 	v1 "kubevirt.io/api/core/v1"
 
@@ -86,9 +87,32 @@ func WithPrivileged() Option {
 
 func WithCapabilities(vmi *v1.VirtualMachineInstance) Option {
 	return func(renderer *ContainerSpecRenderer) {
+		if renderer.capabilities == nil {
+			renderer.capabilities = &k8sv1.Capabilities{
+				Add: requiredCapabilities(vmi),
+			}
+		} else {
+			renderer.capabilities.Add = requiredCapabilities(vmi)
+		}
+	}
+}
+
+func WithDropALLCapabilities() Option {
+	return func(renderer *ContainerSpecRenderer) {
+		if renderer.capabilities == nil {
+			renderer.capabilities = &k8sv1.Capabilities{
+				Drop: []k8sv1.Capability{"ALL"},
+			}
+		} else {
+			renderer.capabilities.Drop = []k8sv1.Capability{"ALL"}
+		}
+	}
+}
+
+func WithNoCapabilities() Option {
+	return func(renderer *ContainerSpecRenderer) {
 		renderer.capabilities = &k8sv1.Capabilities{
-			Add:  requiredCapabilities(vmi),
-			Drop: []k8sv1.Capability{CAP_NET_RAW},
+			Drop: []k8sv1.Capability{"ALL"},
 		}
 	}
 }
@@ -168,7 +192,9 @@ func securityContext(userId int64, privileged bool, requiredCapabilities *k8sv1.
 
 	if isNonRoot {
 		context.RunAsGroup = &userId
+		context.AllowPrivilegeEscalation = pointer.Bool(false)
 	}
+
 	return context
 }
 

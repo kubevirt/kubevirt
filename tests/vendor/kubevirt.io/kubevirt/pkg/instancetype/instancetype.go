@@ -22,9 +22,10 @@ import (
 	generatedscheme "kubevirt.io/client-go/generated/kubevirt/clientset/versioned/scheme"
 	"kubevirt.io/client-go/kubecli"
 	"kubevirt.io/client-go/log"
+	"kubevirt.io/containerized-data-importer-api/pkg/apis/core/v1beta1"
 
+	"kubevirt.io/kubevirt/pkg/apimachinery/patch"
 	utils "kubevirt.io/kubevirt/pkg/util"
-	utiltypes "kubevirt.io/kubevirt/pkg/util/types"
 )
 
 type Methods interface {
@@ -32,6 +33,8 @@ type Methods interface {
 	ApplyToVmi(field *k8sfield.Path, instancetypespec *instancetypev1alpha2.VirtualMachineInstancetypeSpec, prefernceSpec *instancetypev1alpha2.VirtualMachinePreferenceSpec, vmiSpec *virtv1.VirtualMachineInstanceSpec) Conflicts
 	FindPreferenceSpec(vm *virtv1.VirtualMachine) (*instancetypev1alpha2.VirtualMachinePreferenceSpec, error)
 	StoreControllerRevisions(vm *virtv1.VirtualMachine) error
+	InferDefaultInstancetype(vm *virtv1.VirtualMachine) (*virtv1.InstancetypeMatcher, error)
+	InferDefaultPreference(vm *virtv1.VirtualMachine) (*virtv1.PreferenceMatcher, error)
 }
 
 type Conflicts []*k8sfield.Path
@@ -195,17 +198,17 @@ func (m *methods) storePreferenceRevision(vm *virtv1.VirtualMachine) (*appsv1.Co
 }
 
 func GenerateRevisionNamePatch(instancetypeRevision, preferenceRevision *appsv1.ControllerRevision) ([]byte, error) {
-	var patches []utiltypes.PatchOperation
+	var patches []patch.PatchOperation
 
 	if instancetypeRevision != nil {
 		patches = append(patches,
-			utiltypes.PatchOperation{
-				Op:    utiltypes.PatchTestOp,
+			patch.PatchOperation{
+				Op:    patch.PatchTestOp,
 				Path:  "/spec/instancetype/revisionName",
 				Value: nil,
 			},
-			utiltypes.PatchOperation{
-				Op:    utiltypes.PatchAddOp,
+			patch.PatchOperation{
+				Op:    patch.PatchAddOp,
 				Path:  "/spec/instancetype/revisionName",
 				Value: instancetypeRevision.Name,
 			},
@@ -214,13 +217,13 @@ func GenerateRevisionNamePatch(instancetypeRevision, preferenceRevision *appsv1.
 
 	if preferenceRevision != nil {
 		patches = append(patches,
-			utiltypes.PatchOperation{
-				Op:    utiltypes.PatchTestOp,
+			patch.PatchOperation{
+				Op:    patch.PatchTestOp,
 				Path:  "/spec/preference/revisionName",
 				Value: nil,
 			},
-			utiltypes.PatchOperation{
-				Op:    utiltypes.PatchAddOp,
+			patch.PatchOperation{
+				Op:    patch.PatchAddOp,
 				Path:  "/spec/preference/revisionName",
 				Value: preferenceRevision.Name,
 			},
@@ -231,7 +234,7 @@ func GenerateRevisionNamePatch(instancetypeRevision, preferenceRevision *appsv1.
 		return nil, nil
 	}
 
-	payload, err := utiltypes.GeneratePatchPayload(patches...)
+	payload, err := patch.GeneratePatchPayload(patches...)
 	if err != nil {
 		// This is a programmer's error and should not happen
 		return nil, fmt.Errorf("failed to generate patch payload: %w", err)
@@ -519,6 +522,137 @@ func (m *methods) findClusterInstancetype(vm *virtv1.VirtualMachine) (*instancet
 	}
 
 	return instancetype, nil
+}
+
+func (m *methods) InferDefaultInstancetype(vm *virtv1.VirtualMachine) (*virtv1.InstancetypeMatcher, error) {
+	if vm.Spec.Instancetype == nil || vm.Spec.Instancetype.InferFromVolume == "" {
+		return nil, nil
+	}
+	defaultName, defaultKind, err := m.inferDefaultsFromVolumes(vm, vm.Spec.Instancetype.InferFromVolume, apiinstancetype.DefaultInstancetypeAnnotation, apiinstancetype.DefaultInstancetypeKindAnnotation)
+	if err != nil {
+		return nil, err
+	}
+	return &v1.InstancetypeMatcher{
+		Name: defaultName,
+		Kind: defaultKind,
+	}, nil
+}
+
+func (m *methods) InferDefaultPreference(vm *virtv1.VirtualMachine) (*virtv1.PreferenceMatcher, error) {
+	if vm.Spec.Preference == nil || vm.Spec.Preference.InferFromVolume == "" {
+		return nil, nil
+	}
+	defaultName, defaultKind, err := m.inferDefaultsFromVolumes(vm, vm.Spec.Preference.InferFromVolume, apiinstancetype.DefaultPreferenceAnnotation, apiinstancetype.DefaultPreferenceKindAnnotation)
+	if err != nil {
+		return nil, err
+	}
+	return &v1.PreferenceMatcher{
+		Name: defaultName,
+		Kind: defaultKind,
+	}, nil
+}
+
+/*
+Defaults will be inferred from the following combinations of DataVolumeSources, DataVolumeTemplates, DataSources and PVCs:
+
+Volume -> PersistentVolumeClaimVolumeSource -> PersistentVolumeClaim
+Volume -> DataVolumeSource -> DataVolume
+Volume -> DataVolumeSource -> DataVolumeSourcePVC -> PersistentVolumeClaim
+Volume -> DataVolumeSource -> DataVolumeSourceRef -> DataSource
+Volume -> DataVolumeSource -> DataVolumeSourceRef -> DataSource -> PersistentVolumeClaim
+Volume -> DataVolumeSource -> DataVolumeTemplate -> DataVolumeSourcePVC -> PersistentVolumeClaim
+Volume -> DataVolumeSource -> DataVolumeTemplate -> DataVolumeSourceRef -> DataSource
+Volume -> DataVolumeSource -> DataVolumeTemplate -> DataVolumeSourceRef -> DataSource -> PersistentVolumeClaim
+*/
+func (m *methods) inferDefaultsFromVolumes(vm *virtv1.VirtualMachine, inferFromVolumeName, defaultNameAnnotation, defaultKindAnnotation string) (string, string, error) {
+	for _, volume := range vm.Spec.Template.Spec.Volumes {
+		if volume.Name != inferFromVolumeName {
+			continue
+		}
+		if volume.PersistentVolumeClaim != nil {
+			return m.inferDefaultsFromPVC(volume.PersistentVolumeClaim.ClaimName, vm.Namespace, defaultNameAnnotation, defaultKindAnnotation)
+		}
+		if volume.DataVolume != nil {
+			return m.inferDefaultsFromDataVolume(vm, volume.DataVolume.Name, defaultNameAnnotation, defaultKindAnnotation)
+		}
+		return "", "", fmt.Errorf("unable to infer defaults from volume %s as type is not supported", inferFromVolumeName)
+	}
+	return "", "", fmt.Errorf("unable to find volume %s to infer defaults", inferFromVolumeName)
+}
+
+func inferDefaultsFromAnnotations(annotations map[string]string, defaultNameAnnotation, defaultKindAnnotation string) (string, string, error) {
+	defaultName, hasAnnotation := annotations[defaultNameAnnotation]
+	if !hasAnnotation {
+		return "", "", fmt.Errorf("unable to find required %s annotation on the volume", defaultNameAnnotation)
+	}
+	return defaultName, annotations[defaultKindAnnotation], nil
+}
+
+func (m *methods) inferDefaultsFromPVC(pvcName, pvcNamespace, defaultNameAnnotation, defaultKindAnnotation string) (string, string, error) {
+	pvc, err := m.clientset.CoreV1().PersistentVolumeClaims(pvcNamespace).Get(context.Background(), pvcName, metav1.GetOptions{})
+	if err != nil {
+		return "", "", err
+	}
+	return inferDefaultsFromAnnotations(pvc.Annotations, defaultNameAnnotation, defaultKindAnnotation)
+}
+
+func (m *methods) inferDefaultsFromDataVolume(vm *virtv1.VirtualMachine, dvName, defaultNameAnnotation, defaultKindAnnotation string) (string, string, error) {
+	if len(vm.Spec.DataVolumeTemplates) > 0 {
+		for _, dvt := range vm.Spec.DataVolumeTemplates {
+			if dvt.Name != dvName {
+				continue
+			}
+			return m.inferDefaultsFromDataVolumeSpec(&dvt.Spec, defaultNameAnnotation, defaultKindAnnotation)
+		}
+	}
+	dv, err := m.clientset.CdiClient().CdiV1beta1().DataVolumes(vm.Namespace).Get(context.Background(), dvName, metav1.GetOptions{})
+	if err != nil {
+		// Handle garbage collected DataVolumes by attempting to lookup the PVC using the name of the DataVolume in the VM namespace
+		if errors.IsNotFound(err) {
+			return m.inferDefaultsFromPVC(dvName, vm.Namespace, defaultNameAnnotation, defaultKindAnnotation)
+		}
+		return "", "", err
+	}
+	// Check the DataVolume for any annotations before checking the underlying PVC
+	defaultName, defaultKind, err := inferDefaultsFromAnnotations(dv.Annotations, defaultNameAnnotation, defaultKindAnnotation)
+	if err == nil {
+		return defaultName, defaultKind, nil
+	}
+	return m.inferDefaultsFromDataVolumeSpec(&dv.Spec, defaultNameAnnotation, defaultKindAnnotation)
+}
+
+func (m *methods) inferDefaultsFromDataVolumeSpec(dataVolumeSpec *v1beta1.DataVolumeSpec, defaultNameAnnotation, defaultKindAnnotation string) (string, string, error) {
+	if dataVolumeSpec != nil && dataVolumeSpec.Source != nil && dataVolumeSpec.Source.PVC != nil {
+		return m.inferDefaultsFromPVC(dataVolumeSpec.Source.PVC.Name, dataVolumeSpec.Source.PVC.Namespace, defaultNameAnnotation, defaultKindAnnotation)
+	}
+	if dataVolumeSpec != nil && dataVolumeSpec.SourceRef != nil {
+		return m.inferDefaultsFromDataVolumeSourceRef(dataVolumeSpec.SourceRef, defaultNameAnnotation, defaultKindAnnotation)
+	}
+	return "", "", fmt.Errorf("unable to infer defaults from DataVolumeSpec as DataVolumeSource is not supported")
+}
+
+func (m *methods) inferDefaultsFromDataSource(dataSourceName, dataSourceNamespace, defaultNameAnnotation, defaultKindAnnotation string) (string, string, error) {
+	ds, err := m.clientset.CdiClient().CdiV1beta1().DataSources(dataSourceNamespace).Get(context.Background(), dataSourceName, metav1.GetOptions{})
+	if err != nil {
+		return "", "", err
+	}
+	// Check the DataSource for any annotations before checking the underlying PVC
+	defaultName, defaultKind, err := inferDefaultsFromAnnotations(ds.Annotations, defaultNameAnnotation, defaultKindAnnotation)
+	if err == nil {
+		return defaultName, defaultKind, nil
+	}
+	if ds.Spec.Source.PVC != nil {
+		return m.inferDefaultsFromPVC(ds.Spec.Source.PVC.Name, ds.Spec.Source.PVC.Namespace, defaultNameAnnotation, defaultKindAnnotation)
+	}
+	return "", "", fmt.Errorf("unable to infer defaults from DataSource that doesn't provide DataVolumeSourcePVC")
+}
+
+func (m *methods) inferDefaultsFromDataVolumeSourceRef(sourceRef *v1beta1.DataVolumeSourceRef, defaultNameAnnotation, defaultKindAnnotation string) (string, string, error) {
+	switch sourceRef.Kind {
+	case "DataSource":
+		return m.inferDefaultsFromDataSource(sourceRef.Name, *sourceRef.Namespace, defaultNameAnnotation, defaultKindAnnotation)
+	}
+	return "", "", fmt.Errorf("unable to infer defaults from DataVolumeSourceRef as Kind %s is not supported", sourceRef.Kind)
 }
 
 func applyCpu(field *k8sfield.Path, instancetypeSpec *instancetypev1alpha2.VirtualMachineInstancetypeSpec, preferenceSpec *instancetypev1alpha2.VirtualMachinePreferenceSpec, vmiSpec *virtv1.VirtualMachineInstanceSpec) Conflicts {
