@@ -17,6 +17,7 @@ import (
 )
 
 var _ = Describe("test clusterInfo", func() {
+	const baseDomain = "basedomain"
 	var (
 		clusterVersion = &openshiftconfigv1.ClusterVersion{
 			ObjectMeta: metav1.ObjectMeta{
@@ -60,6 +61,15 @@ var _ = Describe("test clusterInfo", func() {
 				},
 			},
 		}
+
+		dns = &openshiftconfigv1.DNS{
+			ObjectMeta: metav1.ObjectMeta{
+				Name: "cluster",
+			},
+			Spec: openshiftconfigv1.DNSSpec{
+				BaseDomain: baseDomain,
+			},
+		}
 	)
 
 	testScheme := scheme.Scheme
@@ -95,13 +105,17 @@ var _ = Describe("test clusterInfo", func() {
 		os.Setenv(OperatorConditionNameEnvVar, "aValue")
 		cl := fake.NewClientBuilder().
 			WithScheme(testScheme).
-			WithRuntimeObjects(clusterVersion, infrastructure, ingress, apiServer).
+			WithRuntimeObjects(clusterVersion, infrastructure, ingress, apiServer, dns).
 			Build()
 		err := GetClusterInfo().Init(context.TODO(), cl, logger)
 		Expect(err).ToNot(HaveOccurred())
 
 		Expect(GetClusterInfo().IsOpenshift()).To(BeTrue(), "should return true for IsOpenshift()")
 		Expect(GetClusterInfo().IsManagedByOLM()).To(BeTrue(), "should return true for IsManagedByOLM()")
+
+		By("Check clusterInfo additional fields (for openshift)", func() {
+			Expect(GetClusterInfo().GetBaseDomain()).To(Equal(baseDomain), "should return expected base domain")
+		})
 	})
 
 	It("check Init on openshift, without OLM", func() {
@@ -109,7 +123,7 @@ var _ = Describe("test clusterInfo", func() {
 
 		cl := fake.NewClientBuilder().
 			WithScheme(testScheme).
-			WithRuntimeObjects(clusterVersion, infrastructure, ingress, apiServer).
+			WithRuntimeObjects(clusterVersion, infrastructure, ingress, apiServer, dns).
 			Build()
 		err := GetClusterInfo().Init(context.TODO(), cl, logger)
 		Expect(err).ToNot(HaveOccurred())
@@ -138,7 +152,7 @@ var _ = Describe("test clusterInfo", func() {
 			os.Setenv(OperatorConditionNameEnvVar, "aValue")
 			cl := fake.NewClientBuilder().
 				WithScheme(testScheme).
-				WithRuntimeObjects(clusterVersion, testInfrastructure, ingress, apiServer).
+				WithRuntimeObjects(clusterVersion, testInfrastructure, ingress, apiServer, dns).
 				Build()
 			err := GetClusterInfo().Init(context.TODO(), cl, logger)
 			Expect(err).ToNot(HaveOccurred())
@@ -272,7 +286,7 @@ var _ = Describe("test clusterInfo", func() {
 					os.Setenv(OperatorConditionNameEnvVar, "aValue")
 					cl = fake.NewClientBuilder().
 						WithScheme(testScheme).
-						WithRuntimeObjects(clusterVersion, infrastructure, ingress, testApiServer).
+						WithRuntimeObjects(clusterVersion, infrastructure, ingress, testApiServer, dns).
 						Build()
 				}
 				err := GetClusterInfo().Init(context.TODO(), cl, logger)
@@ -444,7 +458,7 @@ var _ = Describe("test clusterInfo", func() {
 
 			cl := fake.NewClientBuilder().
 				WithScheme(testScheme).
-				WithRuntimeObjects(clusterVersion, infrastructure, ingress, testApiServer).
+				WithRuntimeObjects(clusterVersion, infrastructure, ingress, testApiServer, dns).
 				Build()
 			err := GetClusterInfo().Init(context.TODO(), cl, logger)
 			Expect(err).ToNot(HaveOccurred())

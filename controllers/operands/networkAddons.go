@@ -145,6 +145,10 @@ func NewNetworkAddons(hc *hcov1beta1.HyperConverged, opts ...string) (*networkad
 
 	if hc.Spec.FeatureGates.DeployKubeSecondaryDNS != nil && *hc.Spec.FeatureGates.DeployKubeSecondaryDNS {
 		cnaoSpec.KubeSecondaryDNS = &networkaddonsshared.KubeSecondaryDNS{}
+		baseDomain := hcoutil.GetClusterInfo().GetBaseDomain()
+		if baseDomain != "" {
+			cnaoSpec.KubeSecondaryDNS.Domain = baseDomain
+		}
 	}
 
 	cnaoSpec.Ovs = hcoAnnotation2CnaoSpec(hc.ObjectMeta.Annotations)

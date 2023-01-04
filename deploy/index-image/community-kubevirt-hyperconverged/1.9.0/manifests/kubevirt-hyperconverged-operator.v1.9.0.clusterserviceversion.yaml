@@ -437,6 +437,12 @@ spec:
           - list
           - watch
         - apiGroups:
+          - config.openshift.io
+          resources:
+          - dnses
+          verbs:
+          - get
+        - apiGroups:
           - coordination.k8s.io
           resources:
           - leases

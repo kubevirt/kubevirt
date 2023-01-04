@@ -128,7 +128,16 @@ var _ = Describe("HyperconvergedController", func() {
 					},
 				}
 
-				resources := []runtime.Object{clusterVersion, infrastructure, ingress, apiServer}
+				dns := &openshiftconfigv1.DNS{
+					ObjectMeta: metav1.ObjectMeta{
+						Name: "cluster",
+					},
+					Spec: openshiftconfigv1.DNSSpec{
+						BaseDomain: commonTestUtils.BaseDomain,
+					},
+				}
+
+				resources := []runtime.Object{clusterVersion, infrastructure, ingress, apiServer, dns}
 				cl := commonTestUtils.InitClient(resources)
 
 				err := hcoutil.GetClusterInfo().Init(context.TODO(), cl, logger)

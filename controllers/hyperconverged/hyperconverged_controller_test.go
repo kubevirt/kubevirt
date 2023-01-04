@@ -1087,11 +1087,20 @@ var _ = Describe("HyperconvergedController", func() {
 					},
 				}
 
+				dns := &openshiftconfigv1.DNS{
+					ObjectMeta: metav1.ObjectMeta{
+						Name: "cluster",
+					},
+					Spec: openshiftconfigv1.DNSSpec{
+						BaseDomain: commonTestUtils.BaseDomain,
+					},
+				}
+
 				expected := getBasicDeployment()
 				Expect(expected.hco.Spec.TLSSecurityProfile).To(BeNil())
 
 				resources := expected.toArray()
-				resources = append(resources, clusterVersion, infrastructure, ingress, apiServer)
+				resources = append(resources, clusterVersion, infrastructure, ingress, apiServer, dns)
 				cl := commonTestUtils.InitClient(resources)
 
 				logger := zap.New(zap.WriteTo(GinkgoWriter), zap.UseDevMode(true)).WithName("hyperconverged_controller_test")

@@ -211,8 +211,9 @@ func (matcher *RepresentConditionMatcher) NegatedFailureMessage(actual interface
 }
 
 const (
-	RSName  = "hco-operator"
-	podName = RSName + "-12345"
+	RSName     = "hco-operator"
+	podName    = RSName + "-12345"
+	BaseDomain = "basedomain"
 )
 
 var ( // own resources
@@ -291,6 +292,9 @@ func (ClusterInfoMock) IsInfrastructureHighlyAvailable() bool {
 func (ClusterInfoMock) GetDomain() string {
 	return "domain"
 }
+func (ClusterInfoMock) GetBaseDomain() string {
+	return BaseDomain
+}
 func (c ClusterInfoMock) IsConsolePluginImageProvided() bool {
 	return true
 }
@@ -338,6 +342,9 @@ func (ClusterInfoSNOMock) IsInfrastructureHighlyAvailable() bool {
 }
 func (ClusterInfoSNOMock) GetDomain() string {
 	return "domain"
+}
+func (ClusterInfoSNOMock) GetBaseDomain() string {
+	return BaseDomain
 }
 func (c ClusterInfoSNOMock) GetPod() *corev1.Pod {
 	return pod
@@ -398,6 +405,9 @@ func (ClusterInfoSRCPHAIMock) GetCSV() *csvv1alpha1.ClusterServiceVersion {
 }
 func (ClusterInfoSRCPHAIMock) GetDomain() string {
 	return "domain"
+}
+func (ClusterInfoSRCPHAIMock) GetBaseDomain() string {
+	return BaseDomain
 }
 func (ClusterInfoSRCPHAIMock) IsConsolePluginImageProvided() bool {
 	return true

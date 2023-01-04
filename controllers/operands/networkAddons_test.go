@@ -526,12 +526,14 @@ var _ = Describe("CNA Operand", func() {
 		)
 
 		type ksdAnnotationParams struct {
-			ksdExists         bool
-			setFeatureGate    bool
-			featureGateValue  bool
-			ksdDeployExpected bool
+			ksdExists          bool
+			setFeatureGate     bool
+			featureGateValue   bool
+			ksdDeployExpected  bool
+			expectedBaseDomain string
 		}
-		DescribeTable("when reconciling kube-secondary-dns", func(o ksdAnnotationParams) {
+
+		ksdTester := func(o ksdAnnotationParams) {
 			existingCNAO, err := NewNetworkAddons(hco)
 			Expect(err).ToNot(HaveOccurred())
 			if o.ksdExists {
@@ -558,29 +560,76 @@ var _ = Describe("CNA Operand", func() {
 
 			if o.ksdDeployExpected {
 				Expect(foundCNAO.Spec.KubeSecondaryDNS).ToNot(BeNil(), "KSD spec should be added")
+				Expect(foundCNAO.Spec.KubeSecondaryDNS.Domain).To(Equal(o.expectedBaseDomain),
+					"Expected domain should be set on KSD spec")
 			} else {
 				Expect(foundCNAO.Spec.KubeSecondaryDNS).To(BeNil(), "KSD spec should not be added")
 			}
-		},
-			Entry("should have KSD if feature gate is set to true", ksdAnnotationParams{
-				ksdExists:         false,
-				setFeatureGate:    true,
-				featureGateValue:  true,
-				ksdDeployExpected: true,
-			}),
-			Entry("should not have KSD if feature gate is set to false", ksdAnnotationParams{
-				ksdExists:         true,
-				setFeatureGate:    true,
-				featureGateValue:  false,
-				ksdDeployExpected: false,
-			}),
-			Entry("should not have KSD if feature gate does not exist", ksdAnnotationParams{
-				ksdExists:         true,
-				setFeatureGate:    false,
-				featureGateValue:  false,
-				ksdDeployExpected: false,
-			}),
-		)
+		}
+
+		Context("With K8s", func() {
+			DescribeTable("when reconciling kube-secondary-dns", ksdTester,
+				Entry("should have KSD if feature gate is set to true", ksdAnnotationParams{
+					ksdExists:          false,
+					setFeatureGate:     true,
+					featureGateValue:   true,
+					ksdDeployExpected:  true,
+					expectedBaseDomain: "",
+				}),
+				Entry("should not have KSD if feature gate is set to false", ksdAnnotationParams{
+					ksdExists:          true,
+					setFeatureGate:     true,
+					featureGateValue:   false,
+					ksdDeployExpected:  false,
+					expectedBaseDomain: "",
+				}),
+				Entry("should not have KSD if feature gate does not exist", ksdAnnotationParams{
+					ksdExists:          true,
+					setFeatureGate:     false,
+					featureGateValue:   false,
+					ksdDeployExpected:  false,
+					expectedBaseDomain: "",
+				}),
+			)
+		})
+
+		Context("With Openshift Mock", func() {
+			BeforeEach(func() {
+				getClusterInfo := hcoutil.GetClusterInfo
+
+				hcoutil.GetClusterInfo = func() hcoutil.ClusterInfo {
+					return &commonTestUtils.ClusterInfoMock{}
+				}
+
+				DeferCleanup(func() {
+					hcoutil.GetClusterInfo = getClusterInfo
+				})
+			})
+
+			DescribeTable("when reconciling kube-secondary-dns", ksdTester,
+				Entry("should have KSD if feature gate is set to true", ksdAnnotationParams{
+					ksdExists:          false,
+					setFeatureGate:     true,
+					featureGateValue:   true,
+					ksdDeployExpected:  true,
+					expectedBaseDomain: commonTestUtils.BaseDomain,
+				}),
+				Entry("should not have KSD if feature gate is set to false", ksdAnnotationParams{
+					ksdExists:          true,
+					setFeatureGate:     true,
+					featureGateValue:   false,
+					ksdDeployExpected:  false,
+					expectedBaseDomain: "",
+				}),
+				Entry("should not have KSD if feature gate does not exist", ksdAnnotationParams{
+					ksdExists:          true,
+					setFeatureGate:     false,
+					featureGateValue:   false,
+					ksdDeployExpected:  false,
+					expectedBaseDomain: "",
+				}),
+			)
+		})
 
 		It("should handle conditions", func() {
 			expectedResource, err := NewNetworkAddons(hco)

@@ -446,7 +446,7 @@ var (
 )
 
 func GetClusterPermissions() []rbacv1.PolicyRule {
-
+	const configOpenshiftIO = "config.openshift.io"
 	return []rbacv1.PolicyRule{
 		{
 			APIGroups: stringListToSlice(util.APIVersionGroup),
@@ -524,14 +524,19 @@ func GetClusterPermissions() []rbacv1.PolicyRule {
 		},
 		roleWithAllPermissions("console.openshift.io", stringListToSlice("consoleclidownloads", "consolequickstarts")),
 		{
-			APIGroups: stringListToSlice("config.openshift.io"),
+			APIGroups: stringListToSlice(configOpenshiftIO),
 			Resources: stringListToSlice("clusterversions", "infrastructures", "ingresses"),
 			Verbs:     stringListToSlice("get", "list"),
 		},
 		{
-			APIGroups: stringListToSlice("config.openshift.io"),
+			APIGroups: stringListToSlice(configOpenshiftIO),
 			Resources: stringListToSlice("apiservers"),
 			Verbs:     stringListToSlice("get", "list", "watch"),
+		},
+		{
+			APIGroups: stringListToSlice(configOpenshiftIO),
+			Resources: stringListToSlice("dnses"),
+			Verbs:     stringListToSlice("get"),
 		},
 		roleWithAllPermissions("coordination.k8s.io", stringListToSlice("leases")),
 		roleWithAllPermissions("route.openshift.io", stringListToSlice("routes")),
