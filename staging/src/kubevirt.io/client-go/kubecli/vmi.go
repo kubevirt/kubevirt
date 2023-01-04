@@ -270,13 +270,13 @@ func (v *vmis) SoftReboot(name string) error {
 	return v.restClient.Put().AbsPath(uri).Do(context.Background()).Error()
 }
 
-func (v *vmis) Pause(name string, pauseOptions *v1.PauseOptions) error {
+func (v *vmis) Pause(ctx context.Context, name string, pauseOptions *v1.PauseOptions) error {
 	body, err := json.Marshal(pauseOptions)
 	if err != nil {
 		return fmt.Errorf("Cannot Marshal to json: %s", err)
 	}
 	uri := fmt.Sprintf(vmiSubresourceURL, v1.ApiStorageVersion, v.namespace, name, "pause")
-	return v.restClient.Put().AbsPath(uri).Body(body).Do(context.Background()).Error()
+	return v.restClient.Put().AbsPath(uri).Body(body).Do(ctx).Error()
 }
 
 func (v *vmis) Unpause(name string, unpauseOptions *v1.UnpauseOptions) error {

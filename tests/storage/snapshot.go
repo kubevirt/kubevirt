@@ -810,7 +810,7 @@ var _ = SIGDescribe("VirtualMachineSnapshot Tests", func() {
 				Expect(console.LoginToFedora(vmi)).To(Succeed())
 
 				By("Pausing the VirtualMachineInstance")
-				err := virtClient.VirtualMachineInstance(vmi.Namespace).Pause(vmi.Name, &v1.PauseOptions{})
+				err := virtClient.VirtualMachineInstance(vmi.Namespace).Pause(context.Background(), vmi.Name, &v1.PauseOptions{})
 				Expect(err).ToNot(HaveOccurred())
 				Eventually(matcher.ThisVMI(vmi), 30*time.Second, 2*time.Second).Should(matcher.HaveConditionTrue(v1.VirtualMachineInstancePaused))
 

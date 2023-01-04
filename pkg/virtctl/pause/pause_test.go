@@ -1,6 +1,8 @@
 package pause_test
 
 import (
+	"context"
+
 	"github.com/golang/mock/gomock"
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
@@ -51,7 +53,7 @@ var _ = Describe("Pausing", func() {
 		vmi := api.NewMinimalVMI(vmName)
 
 		kubecli.MockKubevirtClientInstance.EXPECT().VirtualMachineInstance(k8smetav1.NamespaceDefault).Return(vmiInterface).Times(1)
-		vmiInterface.EXPECT().Pause(vmi.Name, pauseOptions).Return(nil).Times(1)
+		vmiInterface.EXPECT().Pause(context.Background(), vmi.Name, pauseOptions).Return(nil).Times(1)
 
 		var command *cobra.Command
 		if len(pauseOptions.DryRun) == 0 {
@@ -96,7 +98,7 @@ var _ = Describe("Pausing", func() {
 		kubecli.MockKubevirtClientInstance.EXPECT().VirtualMachineInstance(k8smetav1.NamespaceDefault).Return(vmiInterface).Times(1)
 
 		vmInterface.EXPECT().Get(vm.Name, &k8smetav1.GetOptions{}).Return(vm, nil).Times(1)
-		vmiInterface.EXPECT().Pause(vm.Name, pauseOptions).Return(nil).Times(1)
+		vmiInterface.EXPECT().Pause(context.Background(), vm.Name, pauseOptions).Return(nil).Times(1)
 
 		var command *cobra.Command
 		if len(pauseOptions.DryRun) == 0 {

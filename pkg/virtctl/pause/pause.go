@@ -20,6 +20,7 @@
 package pause
 
 import (
+	"context"
 	"fmt"
 	"strings"
 
@@ -131,7 +132,7 @@ func (vc *VirtCommand) Run(args []string) error {
 				return fmt.Errorf("Error getting VirtualMachine %s: %v", resourceName, err)
 			}
 			vmiName := vm.Name
-			err = virtClient.VirtualMachineInstance(namespace).Pause(vmiName, &kubevirtV1.PauseOptions{DryRun: dryRunOption})
+			err = virtClient.VirtualMachineInstance(namespace).Pause(context.Background(), vmiName, &kubevirtV1.PauseOptions{DryRun: dryRunOption})
 			if err != nil {
 				if errors.IsNotFound(err) {
 					runningStrategy, err := vm.RunStrategy()
@@ -149,7 +150,7 @@ func (vc *VirtCommand) Run(args []string) error {
 			printLog(vmiName, vc.command)
 
 		case ARG_VMI_LONG, ARG_VMI_SHORT:
-			err = virtClient.VirtualMachineInstance(namespace).Pause(resourceName, &kubevirtV1.PauseOptions{DryRun: dryRunOption})
+			err = virtClient.VirtualMachineInstance(namespace).Pause(context.Background(), resourceName, &kubevirtV1.PauseOptions{DryRun: dryRunOption})
 			if err != nil {
 				return fmt.Errorf("Error pausing VirtualMachineInstance %s: %v", resourceName, err)
 			}
