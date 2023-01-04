@@ -2207,7 +2207,7 @@ var _ = Describe("VirtualMachineInstance Subresources", func() {
 			}
 		}
 
-		DescribeTable("Should succeed a dynamic interface request", func(addOpts *v1.AddInterfaceOptions, removeOpts *v1.RemoveInterfaceOptions, mockScenario func(addOpts *v1.AddInterfaceOptions, removeOpts *v1.RemoveInterfaceOptions)) {
+		DescribeTable("Should succeed a dynamic interface add request", func(addOpts *v1.AddInterfaceOptions, removeOpts *v1.RemoveInterfaceOptions, mockScenario func(addOpts *v1.AddInterfaceOptions, removeOpts *v1.RemoveInterfaceOptions)) {
 			enableFeatureGate(virtconfig.HotplugNetworkIfacesGate)
 
 			mockScenario(addOpts, removeOpts)
@@ -2223,20 +2223,20 @@ var _ = Describe("VirtualMachineInstance Subresources", func() {
 			}, nil, successfulMockScenarioForVMI),
 		)
 
-		DescribeTable("Should fail whenever the RemoveInterface endpoint is used", func(addOpts *v1.AddInterfaceOptions, removeOpts *v1.RemoveInterfaceOptions, mockScenario func(addOpts *v1.AddInterfaceOptions, removeOpts *v1.RemoveInterfaceOptions)) {
+		DescribeTable("Should succeed a dynamic interface remove request", func(addOpts *v1.AddInterfaceOptions, removeOpts *v1.RemoveInterfaceOptions, mockScenario func(addOpts *v1.AddInterfaceOptions, removeOpts *v1.RemoveInterfaceOptions)) {
 			enableFeatureGate(virtconfig.HotplugNetworkIfacesGate)
 
 			mockScenario(addOpts, removeOpts)
-			Expect(response.StatusCode()).To(Equal(http.StatusBadRequest))
+			Expect(response.StatusCode()).To(Equal(http.StatusAccepted))
 		},
 			Entry("VM with a valid remove interface request", nil, &v1.RemoveInterfaceOptions{
 				NetworkName:   networkToRemove,
 				InterfaceName: ifaceToRemove,
-			}, failedMockScenarioForVM),
+			}, successfulMockScenarioForVMI),
 			Entry("VMI with a valid remove interface request", nil, &v1.RemoveInterfaceOptions{
 				NetworkName:   networkToRemove,
 				InterfaceName: ifaceToRemove,
-			}, failedMockScenarioForVMI),
+			}, successfulMockScenarioForVMI),
 		)
 
 		DescribeTable("Should fail on invalid requests for a dynamic interfaces", func(addOpts *v1.AddInterfaceOptions, removeOpts *v1.RemoveInterfaceOptions, mockScenario func(addOpts *v1.AddInterfaceOptions, removeOpts *v1.RemoveInterfaceOptions), featuresToEnable ...string) {
@@ -2247,34 +2247,38 @@ var _ = Describe("VirtualMachineInstance Subresources", func() {
 			mockScenario(addOpts, removeOpts)
 			Expect(response.StatusCode()).To(Equal(http.StatusBadRequest))
 		},
-			Entry("VM with an invalid add interface request that's missing a network name", &v1.AddInterfaceOptions{
-				InterfaceName: ifaceToHotplug,
-			}, nil, failedMockScenarioForVM, virtconfig.HotplugNetworkIfacesGate),
-			Entry("VM with an invalid add interface request that's missing the interface name", &v1.AddInterfaceOptions{
-				NetworkName: networkToHotplug,
-			}, nil, failedMockScenarioForVM, virtconfig.HotplugNetworkIfacesGate),
+			Entry("VM with an invalid add interface request that's missing a network name",
+				&v1.AddInterfaceOptions{InterfaceName: ifaceToHotplug},
+				nil,
+				failedMockScenarioForVM,
+				virtconfig.HotplugNetworkIfacesGate),
+			Entry("VM with an invalid add interface request that's missing the interface name",
+				&v1.AddInterfaceOptions{NetworkName: networkToHotplug},
+				nil,
+				failedMockScenarioForVM,
+				virtconfig.HotplugNetworkIfacesGate),
 			Entry(
 				"VMI with a invalid remove interface request missing the network name",
 				nil,
-				&v1.RemoveInterfaceOptions{},
+				&v1.RemoveInterfaceOptions{InterfaceName: ifaceToRemove},
 				failedMockScenarioForVMI,
 				virtconfig.HotplugNetworkIfacesGate,
 			),
 			Entry(
 				"VMI with a invalid remove interface request missing the interface name",
 				nil,
-				&v1.RemoveInterfaceOptions{},
+				&v1.RemoveInterfaceOptions{NetworkName: networkToRemove},
 				failedMockScenarioForVMI,
 				virtconfig.HotplugNetworkIfacesGate,
 			),
-			Entry("VMI with a valid remove interface request but no feature gate", nil, &v1.RemoveInterfaceOptions{
-				NetworkName:   networkToRemove,
-				InterfaceName: ifaceToRemove,
-			}, failedMockScenarioForVMI),
-			Entry("VM with a valid add interface request but no feature gate", &v1.AddInterfaceOptions{
-				NetworkName:   networkToHotplug,
-				InterfaceName: ifaceToHotplug,
-			}, nil, failedMockScenarioForVM),
+			Entry("VMI with a valid remove interface request but no feature gate",
+				nil,
+				&v1.RemoveInterfaceOptions{NetworkName: networkToRemove, InterfaceName: ifaceToRemove},
+				failedMockScenarioForVMI),
+			Entry("VM with a valid add interface request but no feature gate",
+				&v1.AddInterfaceOptions{NetworkName: networkToHotplug, InterfaceName: ifaceToHotplug},
+				nil,
+				failedMockScenarioForVM),
 		)
 
 		DescribeTable("Should generate expected vmi patch", func(interfaceRequest *v1.VirtualMachineInterfaceRequest, expectedPatch string) {

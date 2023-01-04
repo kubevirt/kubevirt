@@ -1296,7 +1296,7 @@ func (app *SubresourceAPIApp) VMAddInterfaceRequestHandler(request *restful.Requ
 
 // VMRemoveInterfaceRequestHandler handles the subresource for hot plugging a volume and disk.
 func (app *SubresourceAPIApp) VMRemoveInterfaceRequestHandler(request *restful.Request, response *restful.Response) {
-	app.removeInterfaceRequestHandler(request, response, false)
+	app.removeInterfaceRequestHandler(request, response, app.vmInterfacePatchStatus)
 }
 
 // VMIAddVolumeRequestHandler handles the subresource for hot plugging a volume and disk.
@@ -1748,7 +1748,7 @@ func (app *SubresourceAPIApp) VMIAddInterfaceRequestHandler(request *restful.Req
 
 // VMIRemoveInterfaceRequestHandler handles the subresource for hot plugging a volume and disk.
 func (app *SubresourceAPIApp) VMIRemoveInterfaceRequestHandler(request *restful.Request, response *restful.Response) {
-	app.removeInterfaceRequestHandler(request, response, true)
+	app.removeInterfaceRequestHandler(request, response, app.vmiInterfacePatch)
 }
 
 func (app *SubresourceAPIApp) addInterfaceRequestHandler(request *restful.Request, response *restful.Response, ephemeral bool) {
@@ -1804,9 +1804,72 @@ func (app *SubresourceAPIApp) addInterfaceRequestHandler(request *restful.Reques
 	response.WriteHeader(http.StatusAccepted)
 }
 
-func (app *SubresourceAPIApp) removeInterfaceRequestHandler(_ *restful.Request, response *restful.Response, _ bool) {
-	writeError(errors.NewBadRequest("The Remove Interface endpoint is currently not implemented ..."), response)
-	return
+type patchIfacesFn func(vmName, namespace string, interfaceRequest *v1.VirtualMachineInterfaceRequest) *errors.StatusError
+
+func (app *SubresourceAPIApp) removeInterfaceRequestHandler(
+	request *restful.Request,
+	response *restful.Response,
+	patchIfacesFn patchIfacesFn,
+) {
+	if !app.clusterConfig.HotplugNetworkInterfacesEnabled() {
+		writeError(errors.NewBadRequest("Unable to Add Interface because HotplugNICs feature gate is not enabled."), response)
+		return
+	}
+
+	opts, err := extractRemoveIfaceOptions(request)
+	if err != nil {
+		writeError(errors.NewBadRequest(err.Error()), response)
+		return
+	}
+
+	name := request.PathParameter("name")
+	namespace := request.PathParameter("namespace")
+	if err := patchIfacesFn(name, namespace, &opts); err != nil {
+		writeError(errors.NewBadRequest(err.Error()), response)
+		return
+	}
+	response.WriteHeader(http.StatusAccepted)
+}
+
+func extractRemoveIfaceOptions(request *restful.Request) (v1.VirtualMachineInterfaceRequest, error) {
+	var ifaceRequest v1.VirtualMachineInterfaceRequest
+	removeIfaceOpts, err := decodeRequestBody[v1.RemoveInterfaceOptions](request)
+	if err != nil {
+		return ifaceRequest, err
+	}
+	if err := validateRemoveIfaceOptions(removeIfaceOpts); err != nil {
+		return ifaceRequest, err
+
+	}
+	return v1.VirtualMachineInterfaceRequest{
+		RemoveInterfaceOptions: &removeIfaceOpts,
+	}, nil
+}
+
+func validateRemoveIfaceOptions(opts v1.RemoveInterfaceOptions) error {
+	if opts.NetworkName == "" {
+		return fmt.Errorf("RemoveInterfaceOptions requires name to be set")
+	} else if opts.InterfaceName == "" {
+		return fmt.Errorf("RemoveInterfaceOptions requires interface name to not be empty")
+	}
+	return nil
+}
+
+func decodeRequestBody[T any](request *restful.Request) (T, error) {
+	var body T
+	if request == nil || request.Request == nil || request.Request.Body == nil {
+		return body, errors.NewBadRequest("Request is invalid, a new name is expected as the request body")
+	}
+	defer request.Request.Body.Close()
+
+	const requestBufferSize = 1024
+	err := yaml.NewYAMLOrJSONDecoder(request.Request.Body, requestBufferSize).Decode(&body)
+	switch err {
+	case io.EOF, nil:
+		return body, nil
+	default:
+		return body, fmt.Errorf("can not unmarshal Request body to struct, error: %v", err)
+	}
 }
 
 func (app *SubresourceAPIApp) vmiInterfacePatch(vmName string, namespace string, interfaceRequest *v1.VirtualMachineInterfaceRequest) *errors.StatusError {
