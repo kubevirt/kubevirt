@@ -27,6 +27,8 @@ import (
 	"k8s.io/client-go/tools/record"
 	"k8s.io/client-go/util/workqueue"
 
+	"kubevirt.io/kubevirt/pkg/util/status"
+
 	virtv1 "kubevirt.io/api/core/v1"
 	poolv1 "kubevirt.io/api/pool/v1alpha1"
 	"kubevirt.io/client-go/kubecli"
@@ -47,6 +49,7 @@ type PoolController struct {
 	recorder         record.EventRecorder
 	expectations     *controller.UIDTrackingControllerExpectations
 	burstReplicas    uint
+	statusUpdater    *status.VMPStatusUpdater
 }
 
 const (
@@ -86,6 +89,7 @@ func NewPoolController(clientset kubecli.KubevirtClient,
 		recorder:         recorder,
 		expectations:     controller.NewUIDTrackingControllerExpectations(controller.NewControllerExpectations()),
 		burstReplicas:    burstReplicas,
+		statusUpdater:    status.NewVMPStatusUpdater(clientset),
 	}
 
 	c.poolInformer.AddEventHandler(cache.ResourceEventHandlerFuncs{
@@ -1217,7 +1221,7 @@ func (c *PoolController) updateStatus(origPool *poolv1.VirtualMachinePool, vms [
 	pool.Status.Replicas = int32(len(vms))
 
 	if !equality.Semantic.DeepEqual(pool.Status, origPool.Status) {
-		_, err := c.clientset.VirtualMachinePool(pool.Namespace).Update(context.Background(), pool, metav1.UpdateOptions{})
+		err := c.statusUpdater.UpdateStatus(pool)
 		if err != nil {
 			return err
 		}
