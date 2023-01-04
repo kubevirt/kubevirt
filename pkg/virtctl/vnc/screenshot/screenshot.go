@@ -1,6 +1,7 @@
 package screenshot
 
 import (
+	"context"
 	"fmt"
 	"os"
 
@@ -63,7 +64,7 @@ func (s *Screenshot) Run(_ *cobra.Command, args []string) error {
 
 	// setup connection with VM
 	vmi := args[0]
-	screenshot, err := virtCli.VirtualMachineInstance(namespace).Screenshot(vmi, &v1.ScreenshotOptions{MoveCursor: s.moveCursor})
+	screenshot, err := virtCli.VirtualMachineInstance(namespace).Screenshot(context.Background(), vmi, &v1.ScreenshotOptions{MoveCursor: s.moveCursor})
 	if err != nil {
 		return fmt.Errorf("Can't access VMI %s: %v", vmi, err)
 	}

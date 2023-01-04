@@ -454,14 +454,14 @@ func (v *vmis) FilesystemList(name string) (v1.VirtualMachineInstanceFileSystemL
 	return fsList, err
 }
 
-func (v *vmis) Screenshot(name string, screenshotOptions *v1.ScreenshotOptions) ([]byte, error) {
+func (v *vmis) Screenshot(ctx context.Context, name string, screenshotOptions *v1.ScreenshotOptions) ([]byte, error) {
 	moveCursor := "false"
 	if screenshotOptions.MoveCursor == true {
 		moveCursor = "true"
 	}
 
 	uri := fmt.Sprintf(vmiSubresourceURL, v1.ApiStorageVersion, v.namespace, name, "vnc/screenshot")
-	res := v.restClient.Get().AbsPath(uri).Param("moveCursor", moveCursor).Do(context.Background())
+	res := v.restClient.Get().AbsPath(uri).Param("moveCursor", moveCursor).Do(ctx)
 	raw, err := res.Raw()
 	if err != nil {
 		return nil, res.Error()
