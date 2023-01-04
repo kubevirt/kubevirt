@@ -21,7 +21,18 @@ package tests_test
 
 import (
 	"fmt"
+	"strconv"
 	"strings"
+	"time"
+
+	"kubevirt.io/kubevirt/tests/libnode"
+
+	"github.com/onsi/gomega/gstruct"
+	v12 "k8s.io/apimachinery/pkg/apis/meta/v1"
+
+	"kubevirt.io/kubevirt/pkg/virt-operator/resource/generate/components"
+
+	virt_api "kubevirt.io/kubevirt/pkg/virt-api"
 
 	. "github.com/onsi/ginkgo"
 	. "github.com/onsi/gomega"
@@ -157,6 +168,92 @@ var _ = Describe("[rfe_id:609][sig-compute]VMIheadless", func() {
 					}
 				}
 				Expect(vncCount).To(Equal(1), "should have exactly one VNC device")
+			})
+
+			It("[Serial] multiple HTTP calls should re-use connections and not grow the number of open connections in virt-launcher", func() {
+
+				executeCommandOnNodeThroughVirtHandler := func(virtCli kubecli.KubevirtClient, nodeName string, command []string) (stdout string, stderr string, err error) {
+					virtHandlerPod, err := libnode.GetVirtHandlerPod(virtCli, nodeName)
+					if err != nil {
+						return "", "", err
+					}
+					return tests.ExecuteCommandOnPodV2(virtCli, virtHandlerPod, components.VirtHandlerName, command)
+				}
+
+				getHandlerConnectionCount := func() int {
+					cmd := []string{"bash", "-c", fmt.Sprintf("ss -ntlap | grep %d | wc -l", virt_api.DefaultConsoleServerPort)}
+					stdout, stderr, err := executeCommandOnNodeThroughVirtHandler(virtClient, vmi.Status.NodeName, cmd)
+					Expect(err).ToNot(HaveOccurred())
+					Expect(stderr).To(BeEmpty())
+
+					stdout = strings.TrimSpace(stdout)
+					stdout = strings.ReplaceAll(stdout, "\n", "")
+
+					handlerCons, err := strconv.Atoi(stdout)
+					Expect(err).ToNot(HaveOccurred())
+
+					return handlerCons
+				}
+
+				getClientCalls := func(vmi *v1.VirtualMachineInstance) []func() {
+					vmiInterface := virtClient.VirtualMachineInstance(vmi.Namespace)
+					expectNoErr := func(err error) {
+						ExpectWithOffset(2, err).ToNot(HaveOccurred())
+					}
+
+					return []func(){
+						func() {
+							_, err := vmiInterface.GuestOsInfo(vmi.Name)
+							expectNoErr(err)
+						},
+						func() {
+							_, err := vmiInterface.FilesystemList(vmi.Name)
+							expectNoErr(err)
+						},
+						func() {
+							_, err := vmiInterface.UserList(vmi.Name)
+							expectNoErr(err)
+						},
+						func() {
+							_, err := vmiInterface.VNC(vmi.Name)
+							expectNoErr(err)
+						},
+						func() {
+							_, err := vmiInterface.SerialConsole(vmi.Name, &kubecli.SerialConsoleOptions{ConnectionTimeout: 30 * time.Second})
+							expectNoErr(err)
+						},
+					}
+				}
+
+				By("Running the VMI")
+				vmi = tests.NewRandomFedoraVMIWithGuestAgent()
+				vmi = tests.RunVMIAndExpectLaunch(vmi, 30)
+
+				By("VMI has the guest agent connected condition")
+				Eventually(func() []v1.VirtualMachineInstanceCondition {
+					vmi, err = virtClient.VirtualMachineInstance(vmi.Namespace).Get(vmi.Name, &v12.GetOptions{})
+					Expect(err).ToNot(HaveOccurred(), "Should get VMI ")
+					return vmi.Status.Conditions
+				}, 30*time.Second, 2).Should(
+					ContainElement(
+						gstruct.MatchFields(
+							gstruct.IgnoreExtras,
+							gstruct.Fields{"Type": Equal(v1.VirtualMachineInstanceAgentConnected)})),
+					"Should have agent connected condition")
+				origHandlerCons := getHandlerConnectionCount()
+
+				By("Making multiple requests")
+				const numberOfRequests = 20
+				clientCalls := getClientCalls(vmi)
+				for i := 0; i < numberOfRequests; i++ {
+					for _, clientCallFunc := range clientCalls {
+						clientCallFunc()
+					}
+					time.Sleep(200 * time.Millisecond)
+				}
+
+				By("Expecting the number of connections to not grow")
+				Expect(getHandlerConnectionCount()-origHandlerCons).To(BeNumerically("<=", len(clientCalls)), "number of connections is not expected to grow")
 			})
 
 		})
