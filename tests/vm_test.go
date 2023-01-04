@@ -1027,7 +1027,7 @@ var _ = Describe("[rfe_id:1177][crit:medium][vendor:cnv-qe@redhat.com][level:com
 				}, 360*time.Second, 1*time.Second).Should(BeTrue())
 
 				By("setting up a watch for vmi")
-				lw, err := virtClient.VirtualMachineInstance(newVMI.Namespace).Watch(metav1.ListOptions{})
+				lw, err := virtClient.VirtualMachineInstance(newVMI.Namespace).Watch(context.Background(), metav1.ListOptions{})
 				Expect(err).ToNot(HaveOccurred())
 
 				terminatationGracePeriodUpdated := func(stopCn <-chan bool, eventsCn <-chan watch.Event, updated chan<- bool) {

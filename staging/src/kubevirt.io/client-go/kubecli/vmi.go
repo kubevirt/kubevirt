@@ -365,13 +365,13 @@ func (v *vmis) Patch(ctx context.Context, name string, pt types.PatchType, data 
 	return
 }
 
-func (v *vmis) Watch(opts metav1.ListOptions) (watch.Interface, error) {
+func (v *vmis) Watch(ctx context.Context, opts metav1.ListOptions) (watch.Interface, error) {
 	opts.Watch = true
 	return v.restClient.Get().
 		Resource(v.resource).
 		Namespace(v.namespace).
 		VersionedParams(&opts, scheme.ParameterCodec).
-		Watch(context.Background())
+		Watch(ctx)
 }
 
 // enrichError checks the response body for a k8s Status object and extracts the error from it.

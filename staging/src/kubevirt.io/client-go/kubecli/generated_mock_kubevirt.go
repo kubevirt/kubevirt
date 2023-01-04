@@ -1032,15 +1032,15 @@ func (_mr *_MockVirtualMachineInstanceInterfaceRecorder) Patch(arg0, arg1, arg2,
 	return _mr.mock.ctrl.RecordCall(_mr.mock, "Patch", _s...)
 }
 
-func (_m *MockVirtualMachineInstanceInterface) Watch(opts v12.ListOptions) (watch.Interface, error) {
-	ret := _m.ctrl.Call(_m, "Watch", opts)
+func (_m *MockVirtualMachineInstanceInterface) Watch(ctx context.Context, opts v12.ListOptions) (watch.Interface, error) {
+	ret := _m.ctrl.Call(_m, "Watch", ctx, opts)
 	ret0, _ := ret[0].(watch.Interface)
 	ret1, _ := ret[1].(error)
 	return ret0, ret1
 }
 
-func (_mr *_MockVirtualMachineInstanceInterfaceRecorder) Watch(arg0 interface{}) *gomock.Call {
-	return _mr.mock.ctrl.RecordCall(_mr.mock, "Watch", arg0)
+func (_mr *_MockVirtualMachineInstanceInterfaceRecorder) Watch(arg0, arg1 interface{}) *gomock.Call {
+	return _mr.mock.ctrl.RecordCall(_mr.mock, "Watch", arg0, arg1)
 }
 
 func (_m *MockVirtualMachineInstanceInterface) SerialConsole(name string, options *SerialConsoleOptions) (StreamInterface, error) {
