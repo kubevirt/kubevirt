@@ -1291,12 +1291,12 @@ func (app *SubresourceAPIApp) VMRemoveVolumeRequestHandler(request *restful.Requ
 
 // VMAddInterfaceRequestHandler handles the subresource for hot plugging a volume and disk.
 func (app *SubresourceAPIApp) VMAddInterfaceRequestHandler(request *restful.Request, response *restful.Response) {
-	app.addInterfaceRequestHandler(request, response, false)
+	app.interfaceRequestHandler(request, response, app.vmInterfacePatchStatus, extractAddIfaceOptions)
 }
 
 // VMRemoveInterfaceRequestHandler handles the subresource for hot plugging a volume and disk.
 func (app *SubresourceAPIApp) VMRemoveInterfaceRequestHandler(request *restful.Request, response *restful.Response) {
-	app.removeInterfaceRequestHandler(request, response, app.vmInterfacePatchStatus, extractRemoveIfaceOptions)
+	app.interfaceRequestHandler(request, response, app.vmInterfacePatchStatus, extractRemoveIfaceOptions)
 }
 
 // VMIAddVolumeRequestHandler handles the subresource for hot plugging a volume and disk.
@@ -1743,72 +1743,19 @@ func ApplyInterfaceRequestOnVMISpec(vmiSpec *v1.VirtualMachineInstanceSpec, requ
 
 // VMIAddInterfaceRequestHandler handles the subresource for hot plugging a volume and disk.
 func (app *SubresourceAPIApp) VMIAddInterfaceRequestHandler(request *restful.Request, response *restful.Response) {
-	app.addInterfaceRequestHandler(request, response, true)
+	app.interfaceRequestHandler(request, response, app.vmiInterfacePatch, extractAddIfaceOptions)
 }
 
 // VMIRemoveInterfaceRequestHandler handles the subresource for hot plugging a volume and disk.
 func (app *SubresourceAPIApp) VMIRemoveInterfaceRequestHandler(request *restful.Request, response *restful.Response) {
-	app.removeInterfaceRequestHandler(request, response, app.vmiInterfacePatch, extractRemoveIfaceOptions)
-}
-
-func (app *SubresourceAPIApp) addInterfaceRequestHandler(request *restful.Request, response *restful.Response, ephemeral bool) {
-	name := request.PathParameter("name")
-	namespace := request.PathParameter("namespace")
-
-	if !app.clusterConfig.HotplugNetworkInterfacesEnabled() {
-		writeError(errors.NewBadRequest("Unable to Add Interface because HotplugNICs feature gate is not enabled."), response)
-		return
-	}
-
-	opts := &v1.AddInterfaceOptions{}
-	if request.Request.Body != nil {
-		defer request.Request.Body.Close()
-		err := yaml.NewYAMLOrJSONDecoder(request.Request.Body, 1024).Decode(opts)
-		switch err {
-		case io.EOF, nil:
-			break
-		default:
-			writeError(errors.NewBadRequest(fmt.Sprintf("Can not unmarshal Request body to struct, error: %s", err)), response)
-			return
-		}
-	} else {
-		writeError(errors.NewBadRequest("Request with no body, a new name is expected as the request body"), response)
-		return
-	}
-
-	if opts.NetworkName == "" {
-		writeError(errors.NewBadRequest("AddInterfaceOptions requires name to be set"), response)
-		return
-	} else if opts.InterfaceName == "" {
-		writeError(errors.NewBadRequest("AddInterfaceOptions requires disk to not be nil"), response)
-		return
-	}
-
-	interfaceRequest := v1.VirtualMachineInterfaceRequest{
-		AddInterfaceOptions: opts,
-	}
-
-	// inject into VMI if ephemeral, else set as a request on the VM to both make permanent and hotplug.
-	if ephemeral {
-		if err := app.vmiInterfacePatch(name, namespace, &interfaceRequest); err != nil {
-			writeError(err, response)
-			return
-		}
-	} else {
-		if err := app.vmInterfacePatchStatus(name, namespace, &interfaceRequest); err != nil {
-			writeError(err, response)
-			return
-		}
-	}
-
-	response.WriteHeader(http.StatusAccepted)
+	app.interfaceRequestHandler(request, response, app.vmiInterfacePatch, extractRemoveIfaceOptions)
 }
 
 type patchIfacesFn func(vmName, namespace string, interfaceRequest *v1.VirtualMachineInterfaceRequest) *errors.StatusError
 
 type extractIfaceOptsFn func(request *restful.Request) (v1.VirtualMachineInterfaceRequest, error)
 
-func (app *SubresourceAPIApp) removeInterfaceRequestHandler(
+func (app *SubresourceAPIApp) interfaceRequestHandler(
 	request *restful.Request,
 	response *restful.Response,
 	patchIfacesFn patchIfacesFn,
@@ -1832,6 +1779,30 @@ func (app *SubresourceAPIApp) removeInterfaceRequestHandler(
 		return
 	}
 	response.WriteHeader(http.StatusAccepted)
+}
+
+func extractAddIfaceOptions(request *restful.Request) (v1.VirtualMachineInterfaceRequest, error) {
+	var ifaceRequest v1.VirtualMachineInterfaceRequest
+	addIfaceOpts, err := decodeRequestBody[v1.AddInterfaceOptions](request)
+	if err != nil {
+		return ifaceRequest, err
+	}
+	if err := validateAddIfaceOptions(addIfaceOpts); err != nil {
+		return ifaceRequest, err
+
+	}
+	return v1.VirtualMachineInterfaceRequest{
+		AddInterfaceOptions: &addIfaceOpts,
+	}, nil
+}
+
+func validateAddIfaceOptions(opts v1.AddInterfaceOptions) error {
+	if opts.NetworkName == "" {
+		return fmt.Errorf("RemoveInterfaceOptions requires name to be set")
+	} else if opts.InterfaceName == "" {
+		return fmt.Errorf("RemoveInterfaceOptions requires interface name to not be empty")
+	}
+	return nil
 }
 
 func extractRemoveIfaceOptions(request *restful.Request) (v1.VirtualMachineInterfaceRequest, error) {
