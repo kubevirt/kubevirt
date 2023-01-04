@@ -152,7 +152,8 @@ var _ = Describe("Pod eviction admitter", func() {
 			data := fmt.Sprintf(`[{ "op": "add", "path": "/status/evacuationNodeName", "value": "%s" }]`, nodeName)
 			vmiClient.
 				EXPECT().
-				Patch(vmi.Name,
+				Patch(context.Background(),
+					vmi.Name,
 					types.JSONPatchType,
 					[]byte(data),
 					&metav1.PatchOptions{}).
@@ -207,7 +208,8 @@ var _ = Describe("Pod eviction admitter", func() {
 			data := fmt.Sprintf(`[{ "op": "add", "path": "/status/evacuationNodeName", "value": "%s" }]`, nodeName)
 			vmiClient.
 				EXPECT().
-				Patch(vmi.Name,
+				Patch(context.Background(),
+					vmi.Name,
 					types.JSONPatchType,
 					[]byte(data),
 					&metav1.PatchOptions{}).
@@ -257,7 +259,8 @@ var _ = Describe("Pod eviction admitter", func() {
 				data := fmt.Sprintf(`[{ "op": "add", "path": "/status/evacuationNodeName", "value": "%s" }]`, nodeName)
 				vmiClient.
 					EXPECT().
-					Patch(vmi.Name,
+					Patch(context.Background(),
+						vmi.Name,
 						types.JSONPatchType,
 						[]byte(data),
 						&metav1.PatchOptions{}).
@@ -449,7 +452,8 @@ var _ = Describe("Pod eviction admitter", func() {
 			data := fmt.Sprintf(`[{ "op": "add", "path": "/status/evacuationNodeName", "value": "%s" }]`, nodeName)
 			vmiClient.
 				EXPECT().
-				Patch(vmi.Name,
+				Patch(context.Background(),
+					vmi.Name,
 					types.JSONPatchType,
 					[]byte(data),
 					&metav1.PatchOptions{}).

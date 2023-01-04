@@ -351,7 +351,7 @@ func (v *vmis) Delete(ctx context.Context, name string, options *k8smetav1.Delet
 		Error()
 }
 
-func (v *vmis) Patch(name string, pt types.PatchType, data []byte, patchOptions *k8smetav1.PatchOptions, subresources ...string) (result *v1.VirtualMachineInstance, err error) {
+func (v *vmis) Patch(ctx context.Context, name string, pt types.PatchType, data []byte, patchOptions *k8smetav1.PatchOptions, subresources ...string) (result *v1.VirtualMachineInstance, err error) {
 	result = &v1.VirtualMachineInstance{}
 	err = v.restClient.Patch(pt).
 		Namespace(v.namespace).
@@ -360,7 +360,7 @@ func (v *vmis) Patch(name string, pt types.PatchType, data []byte, patchOptions 
 		Name(name).
 		VersionedParams(patchOptions, scheme.ParameterCodec).
 		Body(data).
-		Do(context.Background()).
+		Do(ctx).
 		Into(result)
 	return
 }
