@@ -58,6 +58,8 @@ spec:
                 nonRoot: true
                 withHostPassthroughCPU: false
               liveMigrationConfig:
+                allowAutoConverge: false
+                allowPostCopy: false
                 completionTimeoutPerGiB: 800
                 parallelMigrationsPerCluster: 5
                 parallelOutboundMigrationsPerNode: 2
@@ -1899,6 +1901,8 @@ spec:
                 type: object
               liveMigrationConfig:
                 default:
+                  allowAutoConverge: false
+                  allowPostCopy: false
                   completionTimeoutPerGiB: 800
                   parallelMigrationsPerCluster: 5
                   parallelOutboundMigrationsPerNode: 2
@@ -1906,6 +1910,21 @@ spec:
                 description: Live migration limits and timeouts are applied so that
                   migration processes do not overwhelm the cluster.
                 properties:
+                  allowAutoConverge:
+                    default: false
+                    description: AllowAutoConverge allows the platform to compromise
+                      performance/availability of VMIs to guarantee successful VMI
+                      live migrations. Defaults to false
+                    type: boolean
+                  allowPostCopy:
+                    default: false
+                    description: AllowPostCopy enables post-copy live migrations.
+                      Such migrations allow even the busiest VMIs to successfully
+                      live-migrate. However, events like a network failure can cause
+                      a VMI crash. If set to true, migrations will still start in
+                      pre-copy, but switch to post-copy when CompletionTimeoutPerGiB
+                      triggers. Defaults to false
+                    type: boolean
                   bandwidthPerMigration:
                     description: Bandwidth limit of each migration, in MiB/s.
                     pattern: ^(\+|-)?(([0-9]+(\.[0-9]*)?)|(\.[0-9]+))(([KMGTPE]i)|[numkMGTPE]|([eE](\+|-)?(([0-9]+(\.[0-9]*)?)|(\.[0-9]+))))?$

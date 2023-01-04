@@ -452,6 +452,8 @@ func hcLiveMigrationToKv(lm hcov1beta1.LiveMigrationConfigurations) (*kubevirtco
 		ParallelMigrationsPerCluster:      lm.ParallelMigrationsPerCluster,
 		ProgressTimeout:                   lm.ProgressTimeout,
 		Network:                           lm.Network,
+		AllowAutoConverge:                 lm.AllowAutoConverge,
+		AllowPostCopy:                     lm.AllowPostCopy,
 	}, nil
 }
 

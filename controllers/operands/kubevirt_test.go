@@ -252,6 +252,8 @@ Version: 1.2.3`)
 			Expect(*mc.ParallelOutboundMigrationsPerNode).Should(Equal(uint32(2)))
 			Expect(*mc.ProgressTimeout).Should(Equal(int64(150)))
 			Expect(mc.Network).Should(BeNil())
+			Expect(*mc.AllowAutoConverge).Should(BeFalse())
+			Expect(*mc.AllowPostCopy).Should(BeFalse())
 		})
 
 		It("should find if present", func() {
@@ -335,6 +337,8 @@ Version: 1.2.3`)
 				ParallelOutboundMigrationsPerNode: &wrongNumeric32Value,
 				ProgressTimeout:                   &wrongNumeric64Value,
 				Network:                           &network,
+				AllowAutoConverge:                 pointer.Bool(false),
+				AllowPostCopy:                     pointer.Bool(false),
 			}
 
 			cl := commonTestUtils.InitClient([]runtime.Object{hco, existKv})
@@ -388,6 +392,8 @@ Version: 1.2.3`)
 			Expect(*mc.ParallelOutboundMigrationsPerNode).Should(Equal(uint32(2)))
 			Expect(*mc.ProgressTimeout).Should(Equal(int64(150)))
 			Expect(mc.Network).Should(BeNil())
+			Expect(*mc.AllowAutoConverge).Should(BeFalse())
+			Expect(*mc.AllowPostCopy).Should(BeFalse())
 		})
 
 		It("should fail if the SMBIOS is wrongly formatted mandatory configurations", func() {
@@ -519,6 +525,8 @@ Version: 1.2.3`)
 			hco.Spec.LiveMigrationConfig.ParallelMigrationsPerCluster = &parallelMigrationsPerCluster
 			hco.Spec.LiveMigrationConfig.ProgressTimeout = &progressTimeout
 			hco.Spec.LiveMigrationConfig.Network = &network
+			hco.Spec.LiveMigrationConfig.AllowAutoConverge = pointer.Bool(true)
+			hco.Spec.LiveMigrationConfig.AllowPostCopy = pointer.Bool(true)
 
 			cl := commonTestUtils.InitClient([]runtime.Object{hco, existKv})
 			handler := (*genericOperand)(newKubevirtHandler(cl, commonTestUtils.GetScheme()))
@@ -543,6 +551,8 @@ Version: 1.2.3`)
 			Expect(*mc.ParallelMigrationsPerCluster).To(Equal(parallelMigrationsPerCluster))
 			Expect(*mc.ProgressTimeout).To(Equal(progressTimeout))
 			Expect(*mc.Network).To(Equal(network))
+			Expect(*mc.AllowAutoConverge).To(BeTrue())
+			Expect(*mc.AllowPostCopy).To(BeTrue())
 
 			// ObjectReference should have been updated
 			Expect(hco.Status.RelatedObjects).To(Not(BeNil()))
@@ -2843,6 +2853,8 @@ Version: 1.2.3`)
 				ParallelOutboundMigrationsPerNode: &parallelOutboundMigrationsPerNode,
 				ProgressTimeout:                   &progressTimeout,
 				Network:                           &network,
+				AllowAutoConverge:                 pointer.Bool(true),
+				AllowPostCopy:                     pointer.Bool(true),
 			}
 			mc, err := hcLiveMigrationToKv(lmc)
 			Expect(err).ToNot(HaveOccurred())
@@ -2853,6 +2865,8 @@ Version: 1.2.3`)
 			Expect(*mc.ParallelOutboundMigrationsPerNode).Should(Equal(parallelOutboundMigrationsPerNode))
 			Expect(*mc.ProgressTimeout).Should(Equal(progressTimeout))
 			Expect(*mc.Network).Should(Equal(network))
+			Expect(*mc.AllowAutoConverge).Should(BeTrue())
+			Expect(*mc.AllowPostCopy).Should(BeTrue())
 		})
 
 		It("should create valid empty KV LM config from a valid empty HC LM config", func() {
@@ -2866,6 +2880,8 @@ Version: 1.2.3`)
 			Expect(mc.ParallelOutboundMigrationsPerNode).Should(BeNil())
 			Expect(mc.ProgressTimeout).Should(BeNil())
 			Expect(mc.Network).Should(BeNil())
+			Expect(mc.AllowAutoConverge).Should(BeNil())
+			Expect(mc.AllowPostCopy).Should(BeNil())
 		})
 
 		It("should return error if the value of the BandwidthPerMigration field is not valid", func() {
@@ -2877,6 +2893,8 @@ Version: 1.2.3`)
 				ParallelOutboundMigrationsPerNode: &parallelOutboundMigrationsPerNode,
 				ProgressTimeout:                   &progressTimeout,
 				Network:                           &network,
+				AllowAutoConverge:                 pointer.Bool(true),
+				AllowPostCopy:                     pointer.Bool(true),
 			}
 			mc, err := hcLiveMigrationToKv(lmc)
 			Expect(err).To(HaveOccurred())

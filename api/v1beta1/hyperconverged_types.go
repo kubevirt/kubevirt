@@ -55,7 +55,7 @@ type HyperConvergedSpec struct {
 
 	// Live migration limits and timeouts are applied so that migration processes do not
 	// overwhelm the cluster.
-	// +kubebuilder:default={"completionTimeoutPerGiB": 800, "parallelMigrationsPerCluster": 5, "parallelOutboundMigrationsPerNode": 2, "progressTimeout": 150}
+	// +kubebuilder:default={"completionTimeoutPerGiB": 800, "parallelMigrationsPerCluster": 5, "parallelOutboundMigrationsPerNode": 2, "progressTimeout": 150, "allowAutoConverge": false, "allowPostCopy": false}
 	// +optional
 	LiveMigrationConfig LiveMigrationConfigurations `json:"liveMigrationConfig,omitempty"`
 
@@ -253,6 +253,22 @@ type LiveMigrationConfigurations struct {
 	// The migrations will be performed over a dedicated multus network to minimize disruption to tenant workloads due to network saturation when VM live migrations are triggered.
 	// +optional
 	Network *string `json:"network,omitempty"`
+
+	// AllowAutoConverge allows the platform to compromise performance/availability of VMIs to
+	// guarantee successful VMI live migrations. Defaults to false
+	// +optional
+	// +kubebuilder:default=false
+	// +default=false
+	AllowAutoConverge *bool `json:"allowAutoConverge,omitempty"`
+
+	// AllowPostCopy enables post-copy live migrations. Such migrations allow even the busiest VMIs
+	// to successfully live-migrate. However, events like a network failure can cause a VMI crash.
+	// If set to true, migrations will still start in pre-copy, but switch to post-copy when
+	// CompletionTimeoutPerGiB triggers. Defaults to false
+	// +optional
+	// +kubebuilder:default=false
+	// +default=false
+	AllowPostCopy *bool `json:"allowPostCopy,omitempty"`
 }
 
 // HyperConvergedFeatureGates is a set of optional feature gates to enable or disable new features that are not enabled
@@ -542,7 +558,7 @@ type HyperConverged struct {
 	metav1.TypeMeta   `json:",inline"`
 	metav1.ObjectMeta `json:"metadata,omitempty"`
 
-	// +kubebuilder:default={"certConfig": {"ca": {"duration": "48h0m0s", "renewBefore": "24h0m0s"}, "server": {"duration": "24h0m0s", "renewBefore": "12h0m0s"}}, "featureGates": {"withHostPassthroughCPU": false, "enableCommonBootImageImport": true, "deployTektonTaskResources": false, "deployKubeSecondaryDNS": false, "nonRoot": true}, "liveMigrationConfig": {"completionTimeoutPerGiB": 800, "parallelMigrationsPerCluster": 5, "parallelOutboundMigrationsPerNode": 2, "progressTimeout": 150}, "uninstallStrategy": "BlockUninstallIfWorkloadsExist"}
+	// +kubebuilder:default={"certConfig": {"ca": {"duration": "48h0m0s", "renewBefore": "24h0m0s"}, "server": {"duration": "24h0m0s", "renewBefore": "12h0m0s"}}, "featureGates": {"withHostPassthroughCPU": false, "enableCommonBootImageImport": true, "deployTektonTaskResources": false, "deployKubeSecondaryDNS": false, "nonRoot": true}, "liveMigrationConfig": {"completionTimeoutPerGiB": 800, "parallelMigrationsPerCluster": 5, "parallelOutboundMigrationsPerNode": 2, "progressTimeout": 150, "allowAutoConverge": false, "allowPostCopy": false}, "uninstallStrategy": "BlockUninstallIfWorkloadsExist"}
 	// +optional
 	Spec   HyperConvergedSpec   `json:"spec,omitempty"`
 	Status HyperConvergedStatus `json:"status,omitempty"`

@@ -235,6 +235,20 @@ The name of a [Multus](https://github.com/k8snetworkplumbingwg/multus-cni) netwo
 
 **default**: unset
 
+### allowAutoConverge
+
+It allows the platform to compromise performance/availability of VMIs to guarantee successful VMI live migrations.
+
+**default**: false
+
+### allowPostCopy
+
+It enables post-copy live migrations. Such migrations allow even the busiest VMIs to successfully live-migrate.
+However, events like a network failure can cause a VMI crash.
+If set to true, migrations will still start in pre-copy, but switch to post-copy when CompletionTimeoutPerGiB triggers.
+
+**default**: false
+
 ### Example
 
 ```yaml
@@ -249,6 +263,8 @@ spec:
     parallelMigrationsPerCluster: 5
     parallelOutboundMigrationsPerNode: 2
     progressTimeout: 150
+    allowAutoConverge: false
+    allowPostCopy: false
 ```
 
 ## Automatic Configuration of Mediated Devices (including vGPUs)

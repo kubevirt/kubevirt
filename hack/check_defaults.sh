@@ -23,7 +23,7 @@ ${KUBECTL_BINARY} get hco -n "${INSTALLED_NAMESPACE}" kubevirt-hyperconverged -o
 
 CERTCONFIGDEFAULTS='{"ca":{"duration":"48h0m0s","renewBefore":"24h0m0s"},"server":{"duration":"24h0m0s","renewBefore":"12h0m0s"}}'
 FGDEFAULTS='{"deployKubeSecondaryDNS":false,"deployTektonTaskResources":false,"enableCommonBootImageImport":true,"nonRoot":true,"withHostPassthroughCPU":false}'
-LMDEFAULTS='{"completionTimeoutPerGiB":800,"parallelMigrationsPerCluster":5,"parallelOutboundMigrationsPerNode":2,"progressTimeout":150}'
+LMDEFAULTS='{"allowAutoConverge":false,"allowPostCopy":false,"completionTimeoutPerGiB":800,"parallelMigrationsPerCluster":5,"parallelOutboundMigrationsPerNode":2,"progressTimeout":150}'
 PERMITTED_HOST_DEVICES_DEFAULT1='{"pciDeviceSelector":"10DE:1DB6","resourceName":"nvidia.com/GV100GL_Tesla_V100"}'
 PERMITTED_HOST_DEVICES_DEFAULT2='{"pciDeviceSelector":"10DE:1EB8","resourceName":"nvidia.com/TU104GL_Tesla_T4"}'
 WORKLOAD_UPDATE_STRATEGY_DEFAULT='{"batchEvictionInterval":"1m0s","batchEvictionSize":10,"workloadUpdateMethods":["LiveMigrate"]}'
@@ -53,6 +53,9 @@ LMPATHS=(
     "/spec/liveMigrationConfig/bandwidthPerMigration"
     "/spec/liveMigrationConfig/completionTimeoutPerGiB"
     "/spec/liveMigrationConfig/progressTimeout"
+    "/spec/liveMigrationConfig/network"
+    "/spec/liveMigrationConfig/allowAutoConverge"
+    "/spec/liveMigrationConfig/allowPostCopy"
     "/spec/liveMigrationConfig"
     "/spec"
 )

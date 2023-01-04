@@ -16,7 +16,7 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  *
- * Copyright 2022 Red Hat, Inc.
+ * Copyright 2023 Red Hat, Inc.
  *
  */
 
@@ -75,6 +75,14 @@ func SetObjectDefaults_HyperConverged(in *HyperConverged) {
 	if in.Spec.LiveMigrationConfig.ProgressTimeout == nil {
 		var ptrVar1 int64 = 150
 		in.Spec.LiveMigrationConfig.ProgressTimeout = &ptrVar1
+	}
+	if in.Spec.LiveMigrationConfig.AllowAutoConverge == nil {
+		var ptrVar1 bool = false
+		in.Spec.LiveMigrationConfig.AllowAutoConverge = &ptrVar1
+	}
+	if in.Spec.LiveMigrationConfig.AllowPostCopy == nil {
+		var ptrVar1 bool = false
+		in.Spec.LiveMigrationConfig.AllowPostCopy = &ptrVar1
 	}
 	if in.Spec.CertConfig.CA.Duration == nil {
 		if err := json.Unmarshal([]byte(`"48h0m0s"`), &in.Spec.CertConfig.CA.Duration); err != nil {

@@ -19,6 +19,8 @@ spec:
     withHostPassthroughCPU: false
   infra: {}
   liveMigrationConfig:
+    allowAutoConverge: false
+    allowPostCopy: false
     completionTimeoutPerGiB: 800
     parallelMigrationsPerCluster: 5
     parallelOutboundMigrationsPerNode: 2
