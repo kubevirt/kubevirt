@@ -153,7 +153,6 @@ github.com/onsi/gomega/types
 ## explicit; go 1.18
 github.com/openshift/api/config/v1
 github.com/openshift/api/console/v1
-github.com/openshift/api/console/v1alpha1
 github.com/openshift/api/image/docker10
 github.com/openshift/api/image/dockerpre012
 github.com/openshift/api/image/v1

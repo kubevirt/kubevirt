@@ -7,7 +7,7 @@ import (
 	"reflect"
 
 	log "github.com/go-logr/logr"
-	consolev1alpha1 "github.com/openshift/api/console/v1alpha1"
+	consolev1 "github.com/openshift/api/console/v1"
 	operatorv1 "github.com/openshift/api/operator/v1"
 	appsv1 "k8s.io/api/apps/v1"
 	corev1 "k8s.io/api/core/v1"
@@ -204,25 +204,28 @@ func NewKvUiNginxCm(hc *hcov1beta1.HyperConverged) *corev1.ConfigMap {
 	}
 }
 
-func NewKvConsolePlugin(hc *hcov1beta1.HyperConverged) *consolev1alpha1.ConsolePlugin {
-	return &consolev1alpha1.ConsolePlugin{
+func NewKvConsolePlugin(hc *hcov1beta1.HyperConverged) *consolev1.ConsolePlugin {
+	return &consolev1.ConsolePlugin{
 		ObjectMeta: metav1.ObjectMeta{
 			Name:   kvUIPluginName,
 			Labels: getLabels(hc, hcoutil.AppComponentDeployment),
 		},
-		Spec: consolev1alpha1.ConsolePluginSpec{
+		Spec: consolev1.ConsolePluginSpec{
 			DisplayName: "Kubevirt Console Plugin",
-			Service: consolev1alpha1.ConsolePluginService{
-				Name:      kvUIPluginSvcName,
-				Namespace: hc.Namespace,
-				Port:      hcoutil.UiPluginServerPort,
-				BasePath:  "/",
+			Backend: consolev1.ConsolePluginBackend{
+				Type: consolev1.Service,
+				Service: &consolev1.ConsolePluginService{
+					Name:      kvUIPluginSvcName,
+					Namespace: hc.Namespace,
+					Port:      hcoutil.UiPluginServerPort,
+					BasePath:  "/",
+				},
 			},
 		},
 	}
 }
 
-func newConsolePluginHandler(Client client.Client, Scheme *runtime.Scheme, required *consolev1alpha1.ConsolePlugin) Operand {
+func newConsolePluginHandler(Client client.Client, Scheme *runtime.Scheme, required *consolev1.ConsolePlugin) Operand {
 	h := &genericOperand{
 		Client: Client,
 		Scheme: Scheme,
@@ -234,7 +237,7 @@ func newConsolePluginHandler(Client client.Client, Scheme *runtime.Scheme, requi
 }
 
 type consolePluginHooks struct {
-	required *consolev1alpha1.ConsolePlugin
+	required *consolev1.ConsolePlugin
 }
 
 func (h consolePluginHooks) getFullCr(_ *hcov1beta1.HyperConverged) (client.Object, error) {
@@ -242,7 +245,7 @@ func (h consolePluginHooks) getFullCr(_ *hcov1beta1.HyperConverged) (client.Obje
 }
 
 func (h consolePluginHooks) getEmptyCr() client.Object {
-	return &consolev1alpha1.ConsolePlugin{
+	return &consolev1.ConsolePlugin{
 		ObjectMeta: metav1.ObjectMeta{
 			Name: h.required.Name,
 		},
@@ -252,7 +255,7 @@ func (h consolePluginHooks) getEmptyCr() client.Object {
 func (consolePluginHooks) justBeforeComplete(_ *common.HcoRequest) { /* no implementation */ }
 
 func (h consolePluginHooks) updateCr(req *common.HcoRequest, Client client.Client, exists runtime.Object, _ runtime.Object) (bool, bool, error) {
-	found, ok := exists.(*consolev1alpha1.ConsolePlugin)
+	found, ok := exists.(*consolev1.ConsolePlugin)
 
 	if !ok {
 		return false, false, errors.New("can't convert to ConsolePlugin")

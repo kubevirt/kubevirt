@@ -45,6 +45,8 @@ import (
 	kubevirtcorev1 "kubevirt.io/api/core/v1"
 	cdiv1beta1 "kubevirt.io/containerized-data-importer-api/pkg/apis/core/v1beta1"
 	sspv1beta1 "kubevirt.io/ssp-operator/api/v1beta1"
+
+	objectreferencesv1 "github.com/openshift/custom-resource-status/objectreferences/v1"
 )
 
 // name and namespace of our primary resource
@@ -421,6 +423,84 @@ var _ = Describe("HyperconvergedController", func() {
 				Expect(err).ToNot(HaveOccurred())
 				// This fails when resource versions are not up-to-date
 				Expect(latestHCO.Status.RelatedObjects).To(ContainElement(*kubevirtRef))
+			})
+
+			It("should update APIVersion of objects in relatedObjects", func() {
+
+				expected := getBasicDeployment()
+				cl := expected.initClient()
+				r := initReconciler(cl, nil)
+
+				// Reconcile to get all related objects under HCO's status
+				res, err := r.Reconcile(context.TODO(), request)
+				Expect(err).ToNot(HaveOccurred())
+				Expect(res).Should(Equal(reconcile.Result{}))
+
+				// Get the latest objects
+				HCO := &hcov1beta1.HyperConverged{}
+				Expect(
+					cl.Get(context.TODO(),
+						types.NamespacedName{Name: expected.hco.Name, Namespace: expected.hco.Namespace},
+						HCO),
+				).ToNot(HaveOccurred())
+
+				// Mock an outdated APIVersion on one of the resources
+				consolePlugin := &consolev1.ConsolePlugin{}
+				Expect(
+					cl.Get(context.TODO(),
+						types.NamespacedName{Name: expected.consolePlugin.Name, Namespace: expected.consolePlugin.Namespace},
+						consolePlugin),
+				).ToNot(HaveOccurred())
+				newCpRef, err := reference.GetReference(cl.Scheme(), consolePlugin)
+				Expect(err).ToNot(HaveOccurred())
+				outdatedCpRef := newCpRef.DeepCopy()
+				outdatedCpRef.APIVersion = "console.openshift.io/v1alpha1"
+				Expect(objectreferencesv1.RemoveObjectReference(&HCO.Status.RelatedObjects, *newCpRef)).ToNot(HaveOccurred())
+				Expect(objectreferencesv1.SetObjectReference(&HCO.Status.RelatedObjects, *outdatedCpRef)).ToNot(HaveOccurred())
+				Expect(
+					cl.Status().Update(context.TODO(), HCO),
+				).ToNot(HaveOccurred())
+
+				HCO = &hcov1beta1.HyperConverged{}
+				Expect(
+					cl.Get(context.TODO(),
+						types.NamespacedName{Name: expected.hco.Name, Namespace: expected.hco.Namespace},
+						HCO),
+				).ToNot(HaveOccurred())
+				Expect(HCO.Status.RelatedObjects).ToNot(ContainElement(*newCpRef))
+				Expect(HCO.Status.RelatedObjects).To(ContainElement(*outdatedCpRef))
+
+				// Update Kubevirt (an example of secondary CR)
+				foundKubevirt := &kubevirtcorev1.KubeVirt{}
+				Expect(
+					cl.Get(context.TODO(),
+						types.NamespacedName{Name: expected.kv.Name, Namespace: expected.kv.Namespace},
+						foundKubevirt),
+				).ToNot(HaveOccurred())
+				foundKubevirt.Labels = map[string]string{"key": "value"}
+				Expect(cl.Update(context.TODO(), foundKubevirt)).ToNot(HaveOccurred())
+
+				// mock a reconciliation triggered by a change in secondary CR
+				ph, err := getSecondaryCRPlaceholder()
+				Expect(err).ToNot(HaveOccurred())
+				rq := request
+				rq.NamespacedName = ph
+
+				// Reconcile again to update HCO's status
+				res, err = r.Reconcile(context.TODO(), request)
+				Expect(err).ToNot(HaveOccurred())
+				Expect(res).Should(Equal(reconcile.Result{}))
+
+				// Get the latest objects
+				Expect(
+					cl.Get(context.TODO(),
+						types.NamespacedName{Name: expected.hco.Name, Namespace: expected.hco.Namespace},
+						HCO),
+				).ToNot(HaveOccurred())
+
+				Expect(HCO.Status.RelatedObjects).ToNot(ContainElement(*outdatedCpRef))
+				Expect(HCO.Status.RelatedObjects).To(ContainElement(*newCpRef))
+
 			})
 
 			It("should update resource versions of objects in relatedObjects even when there is no update on secondary CR", func() {

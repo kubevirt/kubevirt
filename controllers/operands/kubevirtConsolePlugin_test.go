@@ -6,7 +6,7 @@ import (
 
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
-	consolev1alpha1 "github.com/openshift/api/console/v1alpha1"
+	consolev1 "github.com/openshift/api/console/v1"
 	operatorv1 "github.com/openshift/api/operator/v1"
 	appsv1 "k8s.io/api/apps/v1"
 	v1 "k8s.io/api/core/v1"
@@ -51,7 +51,7 @@ var _ = Describe("Kubevirt Console Plugin", func() {
 			Expect(res.UpgradeDone).To(BeFalse())
 			Expect(res.Err).ToNot(HaveOccurred())
 
-			foundResource := &consolev1alpha1.ConsolePlugin{}
+			foundResource := &consolev1.ConsolePlugin{}
 			Expect(
 				cl.Get(context.TODO(),
 					types.NamespacedName{Name: expectedResource.Name, Namespace: expectedResource.Namespace},
@@ -85,8 +85,7 @@ var _ = Describe("Kubevirt Console Plugin", func() {
 			expectedResource := NewKvConsolePlugin(hco)
 			outdatedResource := NewKvConsolePlugin(hco)
 
-			outdatedResource.Spec.Service.Port = int32(6666)
-			outdatedResource.Spec.Service.BasePath = "/fakepath"
+			outdatedResource.Spec.Backend.Service.Port = int32(6666)
 			outdatedResource.Spec.DisplayName = "fake plugin name"
 
 			cl := commonTestUtils.InitClient([]runtime.Object{hco, outdatedResource, expectedConsoleConfig})
@@ -98,7 +97,7 @@ var _ = Describe("Kubevirt Console Plugin", func() {
 			Expect(res.Updated).To(BeTrue())
 			Expect(res.Err).ToNot(HaveOccurred())
 
-			foundResource := &consolev1alpha1.ConsolePlugin{}
+			foundResource := &consolev1.ConsolePlugin{}
 			Expect(
 				cl.Get(context.TODO(),
 					types.NamespacedName{Name: expectedResource.Name, Namespace: expectedResource.Namespace},
@@ -132,7 +131,7 @@ var _ = Describe("Kubevirt Console Plugin", func() {
 			Expect(res.Updated).To(BeTrue())
 			Expect(res.Err).ToNot(HaveOccurred())
 
-			foundResource := &consolev1alpha1.ConsolePlugin{}
+			foundResource := &consolev1.ConsolePlugin{}
 			Expect(
 				cl.Get(context.TODO(),
 					types.NamespacedName{Name: expectedResource.Name, Namespace: expectedResource.Namespace},
@@ -157,7 +156,7 @@ var _ = Describe("Kubevirt Console Plugin", func() {
 			Expect(res.Updated).To(BeTrue())
 			Expect(res.Err).ToNot(HaveOccurred())
 
-			foundResource := &consolev1alpha1.ConsolePlugin{}
+			foundResource := &consolev1.ConsolePlugin{}
 			Expect(
 				cl.Get(context.TODO(),
 					types.NamespacedName{Name: expectedResource.Name, Namespace: expectedResource.Namespace},
@@ -182,7 +181,7 @@ var _ = Describe("Kubevirt Console Plugin", func() {
 			Expect(res.Updated).To(BeTrue())
 			Expect(res.Err).ToNot(HaveOccurred())
 
-			foundResource := &consolev1alpha1.ConsolePlugin{}
+			foundResource := &consolev1.ConsolePlugin{}
 			Expect(
 				cl.Get(context.TODO(),
 					types.NamespacedName{Name: expectedResource.Name, Namespace: expectedResource.Namespace},

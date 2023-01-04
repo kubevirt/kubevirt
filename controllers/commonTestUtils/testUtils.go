@@ -10,7 +10,6 @@ import (
 	gomegatypes "github.com/onsi/gomega/types"
 	openshiftconfigv1 "github.com/openshift/api/config/v1"
 	consolev1 "github.com/openshift/api/console/v1"
-	consolev1alpha1 "github.com/openshift/api/console/v1alpha1"
 	imagev1 "github.com/openshift/api/image/v1"
 	operatorv1 "github.com/openshift/api/operator/v1"
 	routev1 "github.com/openshift/api/route/v1"
@@ -155,12 +154,11 @@ func GetScheme() *runtime.Scheme {
 		networkaddonsv1.AddToScheme,
 		sspv1beta1.AddToScheme,
 		ttov1alpha1.AddToScheme,
-		consolev1.AddToScheme,
 		monitoringv1.AddToScheme,
 		apiextensionsv1.AddToScheme,
 		routev1.Install,
 		imagev1.Install,
-		consolev1alpha1.Install,
+		consolev1.Install,
 		operatorv1.Install,
 		openshiftconfigv1.Install,
 	} {

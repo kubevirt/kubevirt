@@ -8,7 +8,6 @@ import (
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
 	consolev1 "github.com/openshift/api/console/v1"
-	consolev1alpha1 "github.com/openshift/api/console/v1alpha1"
 	operatorv1 "github.com/openshift/api/operator/v1"
 	routev1 "github.com/openshift/api/route/v1"
 	conditionsv1 "github.com/openshift/custom-resource-status/conditions/v1"
@@ -130,7 +129,7 @@ type BasicExpected struct {
 	hcoCRD               *apiextensionsv1.CustomResourceDefinition
 	consolePluginDeploy  *appsv1.Deployment
 	consolePluginSvc     *corev1.Service
-	consolePlugin        *consolev1alpha1.ConsolePlugin
+	consolePlugin        *consolev1.ConsolePlugin
 	consoleConfig        *operatorv1.Console
 }
 
