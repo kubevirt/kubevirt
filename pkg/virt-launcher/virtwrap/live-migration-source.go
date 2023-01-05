@@ -305,6 +305,8 @@ func migratableDomXML(dom cli.VirDomain, vmi *v1.VirtualMachineInstance, domSpec
 		if err != nil {
 			return "", err
 		}
+	} else {
+		log.Log.Infof("DEBUGMACHINE: not needed to patch stuff up.")
 	}
 
 	decoder := xml.NewDecoder(bytes.NewReader([]byte(xmlstr)))
@@ -347,6 +349,9 @@ func migratableDomXML(dom cli.VirDomain, vmi *v1.VirtualMachineInstance, domSpec
 				if err != nil {
 					return "", err
 				}
+			} else {
+				log.Log.Infof("DEBUGMACHINE: must patch ? %t", mustPatchInterfaceTargetNames(vmi))
+				log.Log.Infof("DEBUGMACHINE: should override ? %t", shouldOverrideForInterfaceTargetNames(location, exactLocation))
 			}
 		case xml.EndElement:
 			newLocation = location[:len(location)-1]
@@ -1129,6 +1134,7 @@ func generateDomainForUpdatedPodInterfaceNames(vmi *v1.VirtualMachineInstance, d
 	for i, iface := range domain.Spec.Devices.Interfaces {
 		if podIfaceName, wasFound := interfaceMappingScheme[iface.Alias.GetName()]; wasFound {
 			domain.Spec.Devices.Interfaces[i].Target = generateInterfaceTargetForPodInterface(podIfaceName)
+			log.Log.Infof("DEBUGMACHINE: patched stuff for pod iface: %s", podIfaceName)
 		}
 	}
 
