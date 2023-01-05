@@ -60,7 +60,7 @@ var _ = Describe("VMNetworkConfigurator", func() {
 			})
 			It("should propagate errors when phase2 is called", func() {
 				var domain *api.Domain
-				err := vmNetworkConfigurator.SetupPodNetworkPhase2(domain)
+				err := vmNetworkConfigurator.SetupPodNetworkPhase2(domain, nil)
 				Expect(err).To(MatchError("Network not implemented"))
 			})
 		})

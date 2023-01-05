@@ -149,26 +149,26 @@ var _ = Describe("podNIC", func() {
 		Context("and starting the DHCP server fails", func() {
 			BeforeEach(func() {
 				mockDHCPConfigurator.EXPECT().Generate().Return(&cache.DHCPConfig{}, nil)
-				mockDHCPConfigurator.EXPECT().EnsureDHCPServerStarted(gomock.Any(), gomock.Any(), gomock.Any()).Return(fmt.Errorf("Fake EnsureDHCPServerStarted failure"))
+				mockDHCPConfigurator.EXPECT().EnsureDHCPServerStarted(gomock.Any(), gomock.Any(), gomock.Any(), gomock.Any()).Return(fmt.Errorf("Fake EnsureDHCPServerStarted failure"))
 				podnic.domainGenerator = &fakeLibvirtSpecGenerator{
 					shouldGenerateFail: false,
 				}
 			})
 			It("phase2 should panic", func() {
-				Expect(func() { _ = podnic.PlugPhase2(domain) }).To(Panic())
+				Expect(func() { _ = podnic.PlugPhase2(nil, domain) }).To(Panic())
 			})
 		})
 		Context("and starting the DHCP server succeed", func() {
 			BeforeEach(func() {
 				dhcpConfig := &cache.DHCPConfig{}
 				mockDHCPConfigurator.EXPECT().Generate().Return(dhcpConfig, nil)
-				mockDHCPConfigurator.EXPECT().EnsureDHCPServerStarted(namescheme.PrimaryPodInterfaceName, *dhcpConfig, vmi.Spec.Domain.Devices.Interfaces[0].DHCPOptions).Return(nil)
+				mockDHCPConfigurator.EXPECT().EnsureDHCPServerStarted(namescheme.PrimaryPodInterfaceName, *dhcpConfig, vmi.Spec.Domain.Devices.Interfaces[0].DHCPOptions, nil).Return(nil)
 				podnic.domainGenerator = &fakeLibvirtSpecGenerator{
 					shouldGenerateFail: false,
 				}
 			})
 			It("phase2 should succeed", func() {
-				Expect(podnic.PlugPhase2(domain)).To(Succeed())
+				Expect(podnic.PlugPhase2(nil, domain)).To(Succeed())
 			})
 
 		})
@@ -211,7 +211,7 @@ var _ = Describe("podNIC", func() {
 				Expect(err).ToNot(HaveOccurred())
 			})
 			It("should not crash", func() {
-				Expect(podnic.PlugPhase2(&api.Domain{})).To(Succeed())
+				Expect(podnic.PlugPhase2(nil, &api.Domain{})).To(Succeed())
 			})
 		})
 	})

@@ -4,6 +4,8 @@
 package dhcp
 
 import (
+	context "context"
+
 	gomock "github.com/golang/mock/gomock"
 	v1 "kubevirt.io/api/core/v1"
 
@@ -31,14 +33,14 @@ func (_m *MockConfigurator) EXPECT() *_MockConfiguratorRecorder {
 	return _m.recorder
 }
 
-func (_m *MockConfigurator) EnsureDHCPServerStarted(podInterfaceName string, dhcpConfig cache.DHCPConfig, dhcpOptions *v1.DHCPOptions) error {
-	ret := _m.ctrl.Call(_m, "EnsureDHCPServerStarted", podInterfaceName, dhcpConfig, dhcpOptions)
+func (_m *MockConfigurator) EnsureDHCPServerStarted(ctx context.Context, podInterfaceName string, dhcpConfig cache.DHCPConfig, dhcpOptions *v1.DHCPOptions) error {
+	ret := _m.ctrl.Call(_m, "EnsureDHCPServerStarted", ctx, podInterfaceName, dhcpConfig, dhcpOptions)
 	ret0, _ := ret[0].(error)
 	return ret0
 }
 
-func (_mr *_MockConfiguratorRecorder) EnsureDHCPServerStarted(arg0, arg1, arg2 interface{}) *gomock.Call {
-	return _mr.mock.ctrl.RecordCall(_mr.mock, "EnsureDHCPServerStarted", arg0, arg1, arg2)
+func (_mr *_MockConfiguratorRecorder) EnsureDHCPServerStarted(arg0, arg1, arg2, arg3 interface{}) *gomock.Call {
+	return _mr.mock.ctrl.RecordCall(_mr.mock, "EnsureDHCPServerStarted", arg0, arg1, arg2, arg3)
 }
 
 func (_m *MockConfigurator) Generate() (*cache.DHCPConfig, error) {

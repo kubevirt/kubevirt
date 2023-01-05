@@ -2,11 +2,13 @@ package network
 
 import (
 	"fmt"
+	"strings"
 
 	v1 "kubevirt.io/api/core/v1"
 	"kubevirt.io/client-go/log"
 
 	"kubevirt.io/kubevirt/pkg/network/cache"
+	"kubevirt.io/kubevirt/pkg/virt-launcher/virtwrap/api"
 )
 
 type ConcreteController struct {
@@ -82,6 +84,45 @@ func ReadyInterfacesToHotplug(vmi *v1.VirtualMachineInstance) []v1.Network {
 	}
 
 	return ifacesToHotplug
+}
+
+// InterfacesToUnplug return slice of ifaces names with ready=true that exist in the VMI status but not is spec
+func InterfacesToUnplug(vmi *v1.VirtualMachineInstance) []string {
+	var ifacesNames []string
+	indexedIfacesFromSpec := indexedNetworksFromSpec(vmi.Spec.Networks)
+	ifacesFromStatus := vmi.Status.Interfaces
+	if len(indexedIfacesFromSpec) == len(ifacesFromStatus) {
+		return nil
+	}
+
+	for _, ifaceFromStatus := range ifacesFromStatus {
+		if _, exists := indexedIfacesFromSpec[ifaceFromStatus.Name]; !exists {
+			ifacesNames = append(ifacesNames, ifaceFromStatus.Name)
+		}
+	}
+
+	return ifacesNames
+}
+
+func FilterDomainInterfaceByName(ifaceNames []string, domainIfaces []api.Interface, sanitizeIfaceNameFn func(api.Interface) string) []api.Interface {
+	domainIfacesBySanitizedAlias := make(map[string]api.Interface, len(domainIfaces))
+	for _, domainIface := range domainIfaces {
+		sanitizedDomainIfaceName := sanitizeIfaceNameFn(domainIface)
+		domainIfacesBySanitizedAlias[sanitizedDomainIfaceName] = domainIface
+	}
+
+	var filteredSlice []api.Interface
+	for _, element := range ifaceNames {
+		if iface, exist := domainIfacesBySanitizedAlias[element]; exist {
+			filteredSlice = append(filteredSlice, iface)
+		}
+	}
+	return filteredSlice
+}
+
+func SanitizeDomainDeviceIfaceAliasName(iface api.Interface) string {
+	name := strings.TrimPrefix(iface.Alias.GetName(), api.UserAliasPrefix)
+	return strings.TrimPrefix(name, HotplugDomainAliasPrefix)
 }
 
 func selectAll() func(v1.VirtualMachineInstanceNetworkInterface) bool {

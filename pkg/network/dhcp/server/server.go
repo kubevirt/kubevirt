@@ -21,6 +21,7 @@ package server
 
 import (
 	"bytes"
+	"context"
 	"encoding/binary"
 	"fmt"
 	"net"
@@ -35,6 +36,7 @@ import (
 	v1 "kubevirt.io/api/core/v1"
 	"kubevirt.io/client-go/log"
 
+	"kubevirt.io/kubevirt/pkg/network/dhcp/connection"
 	"kubevirt.io/kubevirt/pkg/network/dns"
 )
 
@@ -50,6 +52,7 @@ const (
 var searchDomainValidationRegex = regexp.MustCompile(`^(?:[_a-z0-9](?:[_a-z0-9-]{0,61}[a-z0-9])?\.)*(?:[a-z](?:[a-z0-9-]{0,61}[a-z0-9])?)?$`)
 
 func SingleClientDHCPServer(
+	ctx context.Context,
 	clientMAC net.HardwareAddr,
 	clientIP net.IP,
 	clientMask net.IPMask,
@@ -60,7 +63,8 @@ func SingleClientDHCPServer(
 	routes *[]netlink.Route,
 	searchDomains []string,
 	mtu uint16,
-	customDHCPOptions *v1.DHCPOptions) error {
+	customDHCPOptions *v1.DHCPOptions,
+) error {
 
 	log.Log.Info("Starting SingleClientDHCPServer")
 
@@ -86,12 +90,12 @@ func SingleClientDHCPServer(
 	if err != nil {
 		return err
 	}
-	defer closeDHCPServerIgnoringError(l)
-	err = dhcp.Serve(l, handler)
-	if err != nil {
-		return err
-	}
-	return nil
+
+	go func() {
+		connection.CloseWithContext(ctx, l, serverIface)
+	}()
+
+	return dhcp.Serve(l, handler)
 }
 
 func closeDHCPServerIgnoringError(l ServeIfConn) {

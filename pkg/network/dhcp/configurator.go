@@ -22,6 +22,7 @@
 package dhcp
 
 import (
+	"context"
 	"errors"
 	"fmt"
 	"os"
@@ -37,7 +38,7 @@ import (
 const defaultDHCPStartedDirectory = "/var/run/kubevirt-private"
 
 type Configurator interface {
-	EnsureDHCPServerStarted(podInterfaceName string, dhcpConfig cache.DHCPConfig, dhcpOptions *v1.DHCPOptions) error
+	EnsureDHCPServerStarted(ctx context.Context, podInterfaceName string, dhcpConfig cache.DHCPConfig, dhcpOptions *v1.DHCPOptions) error
 	Generate() (*cache.DHCPConfig, error)
 }
 
@@ -84,14 +85,14 @@ func NewMasqueradeConfigurator(advertisingIfaceName string, handler netdriver.Ne
 	}
 }
 
-func (d *configurator) EnsureDHCPServerStarted(podInterfaceName string, dhcpConfig cache.DHCPConfig, dhcpOptions *v1.DHCPOptions) error {
+func (d *configurator) EnsureDHCPServerStarted(ctx context.Context, podInterfaceName string, dhcpConfig cache.DHCPConfig, dhcpOptions *v1.DHCPOptions) error {
 	if dhcpConfig.IPAMDisabled {
 		return nil
 	}
 	dhcpStartedFile := d.getDHCPStartedFilePath(podInterfaceName)
 	_, err := os.Stat(dhcpStartedFile)
 	if errors.Is(err, os.ErrNotExist) {
-		if err := d.handler.StartDHCP(&dhcpConfig, d.advertisingIfaceName, dhcpOptions); err != nil {
+		if err := d.handler.StartDHCP(ctx, &dhcpConfig, d.advertisingIfaceName, dhcpOptions); err != nil {
 			return fmt.Errorf("failed to start DHCP server for interface %s", podInterfaceName)
 		}
 		newFile, err := os.Create(dhcpStartedFile)

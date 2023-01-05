@@ -20,6 +20,7 @@
 package serverv6
 
 import (
+	"context"
 	"fmt"
 	"net"
 	"time"
@@ -29,6 +30,8 @@ import (
 	"github.com/insomniacslk/dhcp/iana"
 
 	"kubevirt.io/client-go/log"
+
+	"kubevirt.io/kubevirt/pkg/network/dhcp/connection"
 )
 
 const (
@@ -40,7 +43,7 @@ type DHCPv6Handler struct {
 	modifiers []dhcpv6.Modifier
 }
 
-func SingleClientDHCPv6Server(clientIP net.IP, serverIfaceName string) error {
+func SingleClientDHCPv6Server(ctx context.Context, clientIP net.IP, serverIfaceName string) error {
 	log.Log.Info("Starting SingleClientDHCPv6Server")
 
 	iface, err := net.InterfaceByName(serverIfaceName)
@@ -59,6 +62,10 @@ func SingleClientDHCPv6Server(clientIP net.IP, serverIfaceName string) error {
 	if err != nil {
 		return fmt.Errorf("couldn't create DHCPv6 server: %v", err)
 	}
+
+	go func() {
+		connection.CloseWithContext(ctx, conn, serverIfaceName)
+	}()
 
 	s, err := server6.NewServer("", nil, handler.ServeDHCPv6, server6.WithConn(conn))
 	if err != nil {

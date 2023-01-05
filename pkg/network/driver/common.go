@@ -22,6 +22,7 @@
 package driver
 
 import (
+	"context"
 	"fmt"
 	"net"
 	"os"
@@ -70,7 +71,7 @@ type NetworkHandler interface {
 	ParseAddr(s string) (*netlink.Addr, error)
 	LinkSetHardwareAddr(link netlink.Link, hwaddr net.HardwareAddr) error
 	LinkSetMaster(link netlink.Link, master *netlink.Bridge) error
-	StartDHCP(nic *cache.DHCPConfig, bridgeInterfaceName string, dhcpOptions *v1.DHCPOptions) error
+	StartDHCP(ctx context.Context, nic *cache.DHCPConfig, bridgeInterfaceName string, dhcpOptions *v1.DHCPOptions) error
 	HasIPv4GlobalUnicastAddress(interfaceName string) (bool, error)
 	HasIPv6GlobalUnicastAddress(interfaceName string) (bool, error)
 	IsIpv4Primary() (bool, error)
@@ -294,7 +295,7 @@ func (h *NetworkUtilsHandler) ReadIPAddressesFromLink(interfaceName string) (str
 	return ipv4, ipv6, nil
 }
 
-func (h *NetworkUtilsHandler) StartDHCP(nic *cache.DHCPConfig, bridgeInterfaceName string, dhcpOptions *v1.DHCPOptions) error {
+func (h *NetworkUtilsHandler) StartDHCP(ctx context.Context, nic *cache.DHCPConfig, bridgeInterfaceName string, dhcpOptions *v1.DHCPOptions) error {
 	log.Log.V(4).Infof("StartDHCP network Nic: %+v", nic)
 	nameservers, searchDomains, err := converter.GetResolvConfDetailsFromPod()
 	if err != nil {
@@ -311,6 +312,7 @@ func (h *NetworkUtilsHandler) StartDHCP(nic *cache.DHCPConfig, bridgeInterfaceNa
 		// but ignore dhcp errors when the vm is destroyed or shutting down
 		go func() {
 			if err = DHCPServer(
+				ctx,
 				nic.MAC,
 				nic.IP.IP,
 				nic.IP.Mask,
@@ -323,7 +325,7 @@ func (h *NetworkUtilsHandler) StartDHCP(nic *cache.DHCPConfig, bridgeInterfaceNa
 				nic.Mtu,
 				dhcpOptions,
 			); err != nil {
-				log.Log.Errorf("failed to run DHCP: %v", err)
+				log.Log.Reason(err).Errorf("failed to run DHCPv4 server for interface %q", nic.Name)
 				panic(err)
 			}
 		}()
@@ -332,10 +334,11 @@ func (h *NetworkUtilsHandler) StartDHCP(nic *cache.DHCPConfig, bridgeInterfaceNa
 	if nic.IPv6.IPNet != nil {
 		go func() {
 			if err = DHCPv6Server(
+				ctx,
 				nic.IPv6.IP,
 				bridgeInterfaceName,
 			); err != nil {
-				log.Log.Reason(err).Error("failed to run DHCPv6")
+				log.Log.Reason(err).Errorf("failed to run DHCPv6 server for interface %q", nic.Name)
 				panic(err)
 			}
 		}()

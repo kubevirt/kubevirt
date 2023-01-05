@@ -153,6 +153,7 @@ type LibvirtDomainManager struct {
 	disksInfo                map[string]*cmdv1.DiskInfo
 	cancelSafetyUnfreezeChan chan struct{}
 	migrateInfoStats         *stats.DomainJobInfo
+	dhcpServersContexts      map[string]contextStore
 }
 
 type pausedVMIs struct {
@@ -198,6 +199,7 @@ func newLibvirtDomainManager(connection cli.Connection, virtShareDir, ephemeralD
 		disksInfo:                map[string]*cmdv1.DiskInfo{},
 		cancelSafetyUnfreezeChan: make(chan struct{}),
 		migrateInfoStats:         &stats.DomainJobInfo{},
+		dhcpServersContexts:      map[string]contextStore{},
 	}
 
 	manager.hotplugHostDevicesInProgress = make(chan struct{}, maxConcurrentHotplugHostDevices)
@@ -558,9 +560,19 @@ func (l *LibvirtDomainManager) preStartHook(vmi *v1.VirtualMachineInstance, doma
 		}
 	}
 
-	err = netsetup.NewVMNetworkConfigurator(vmi, cache.CacheCreator{}).SetupPodNetworkPhase2(domain)
+	ifacesCtxs := make(map[string]context.Context, len(vmi.Spec.Domain.Devices.Interfaces))
+	ifacesCtxStores := make(map[string]contextStore, len(vmi.Spec.Domain.Devices.Interfaces))
+	for _, iface := range vmi.Spec.Domain.Devices.Interfaces {
+		ctx, cancel := context.WithCancel(context.Background())
+		ifacesCtxs[iface.Name] = ctx
+		ifacesCtxStores[iface.Name] = contextStore{ctx, cancel}
+	}
+	err = netsetup.NewVMNetworkConfigurator(vmi, cache.CacheCreator{}).SetupPodNetworkPhase2(domain, ifacesCtxs)
 	if err != nil {
 		return domain, fmt.Errorf("preparing the pod network failed: %v", err)
+	}
+	for ifaceName, ctxStore := range ifacesCtxStores {
+		l.dhcpServersContexts[vmiIfaceKey(vmi.UID, ifaceName)] = ctxStore
 	}
 
 	// Create ephemeral disk for container disks
@@ -981,9 +993,13 @@ func (l *LibvirtDomainManager) SyncVMI(vmi *v1.VirtualMachineInstance, allowEmul
 	for _, networkName := range ifacesMissingInDomain(netsetup.ReadyInterfacesToHotplug(vmi), oldSpec) {
 		log.Log.Infof("will hot plug %s", networkName)
 
-		if err := vmConfigurator.StartDHCP(domain, networkName); err != nil {
+		ctx, cancel := context.WithCancel(context.Background())
+		ctx = context.WithValue(ctx, "serverName", networkName)
+		if err := vmConfigurator.StartDHCP(ctx, domain, networkName); err != nil {
+			cancel()
 			return nil, err
 		}
+		l.dhcpServersContexts[vmiIfaceKey(vmi.UID, networkName)] = contextStore{ctx: ctx, cancel: cancel}
 
 		domainIfaceFromCache, err := cache.ReadDomainInterfaceCache(cacheClient, "self", networkName)
 		if err != nil {
@@ -1005,8 +1021,30 @@ func (l *LibvirtDomainManager) SyncVMI(vmi *v1.VirtualMachineInstance, allowEmul
 		}
 	}
 
-	// TODO: check if VirtualMachineInstance Spec and Domain Spec are equal or if we have to sync
+	domainIfaceToRemove := netsetup.FilterDomainInterfaceByName(
+		netsetup.InterfacesToUnplug(vmi),
+		oldSpec.Devices.Interfaces,
+		netsetup.SanitizeDomainDeviceIfaceAliasName,
+	)
+
+	// stop dhcp servers
+	for _, iface := range domainIfaceToRemove {
+		ifaceName := netsetup.SanitizeDomainDeviceIfaceAliasName(iface)
+		dhcpKey := vmiIfaceKey(vmi.UID, ifaceName)
+		ctx, exists := l.dhcpServersContexts[dhcpKey]
+		if exists {
+			if err := vmConfigurator.StopDHCP(ctx.ctx, ctx.cancel, domain, ifaceName); err != nil {
+				return nil, err
+			}
+		}
+		delete(l.dhcpServersContexts, dhcpKey)
+	}
+
 	return &oldSpec, nil
+}
+
+func vmiIfaceKey(uid types.UID, ifaceName string) string {
+	return fmt.Sprintf("%s.%s", uid, ifaceName)
 }
 
 func getSourceFile(disk api.Disk) string {

@@ -20,6 +20,7 @@
 package network
 
 import (
+	"context"
 	"fmt"
 
 	v1 "kubevirt.io/api/core/v1"
@@ -113,25 +114,40 @@ func (n *VMNetworkConfigurator) CreatePodAuxiliaryInfra(pid int, ifaceName strin
 	return nil
 }
 
-func (n *VMNetworkConfigurator) SetupPodNetworkPhase2(domain *api.Domain) error {
+func (n *VMNetworkConfigurator) SetupPodNetworkPhase2(domain *api.Domain, ifacesCtxMap map[string]context.Context) error {
 	nics, err := n.getPhase2NICs(domain)
 	if err != nil {
 		return err
 	}
 	for _, nic := range nics {
-		if err := nic.PlugPhase2(domain); err != nil {
+		ctx := ifacesCtxMap[nic.vmiSpecIface.Name]
+		if err := nic.PlugPhase2(ctx, domain); err != nil {
 			return fmt.Errorf("failed plugging phase2 at nic '%s': %w", nic.podInterfaceName, err)
 		}
 	}
 	return nil
 }
-func (n *VMNetworkConfigurator) StartDHCP(domain *api.Domain, ifaceName string) error {
+
+func (n *VMNetworkConfigurator) StartDHCP(ctx context.Context, domain *api.Domain, ifaceName string) error {
 	nics, err := n.getPhase2NICsWithGenerator(domain, newHotplugPodNicGenerator(ifaceName))
 	if err != nil {
 		return err
 	}
 	for _, nic := range nics {
-		if err := nic.StartDHCP(); err != nil {
+		if err := nic.StartDHCP(ctx); err != nil {
+			return err
+		}
+	}
+	return nil
+}
+
+func (n *VMNetworkConfigurator) StopDHCP(ctx context.Context, cancel context.CancelFunc, domain *api.Domain, ifaceName string) error {
+	nics, err := n.getPhase2NICsWithGenerator(domain, newHotUnplugPodNicGenerator(ifaceName))
+	if err != nil {
+		return err
+	}
+	for _, nic := range nics {
+		if err := nic.StopDHCP(ctx, cancel); err != nil {
 			return err
 		}
 	}
