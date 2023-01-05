@@ -25,6 +25,7 @@ const (
 	unsafeModificationAlert       = "KubevirtHyperconvergedClusterOperatorUSModification"
 	installationNotCompletedAlert = "KubevirtHyperconvergedClusterOperatorInstallationNotCompletedAlert"
 	severityAlertLabelKey         = "severity"
+	healthImpactAlertLabelKey     = "operator_health_impact"
 	partOfAlertLabelKey           = "kubernetes_operator_part_of"
 	partOfAlertLabelValue         = "kubevirt"
 	componentAlertLabelKey        = "kubernetes_operator_component"
@@ -131,9 +132,10 @@ func createOutOfBandUpdateAlertRule() monitoringv1.Rule {
 			"runbook_url": outOfBandUpdateRunbookUrl,
 		},
 		Labels: map[string]string{
-			severityAlertLabelKey:  "warning",
-			partOfAlertLabelKey:    partOfAlertLabelValue,
-			componentAlertLabelKey: componentAlertLabelValue,
+			severityAlertLabelKey:     "warning",
+			healthImpactAlertLabelKey: "warning",
+			partOfAlertLabelKey:       partOfAlertLabelValue,
+			componentAlertLabelKey:    componentAlertLabelValue,
 		},
 	}
 }
@@ -148,9 +150,10 @@ func createUnsafeModificationAlertRule() monitoringv1.Rule {
 			"runbook_url": unsafeModificationRunbookUrl,
 		},
 		Labels: map[string]string{
-			severityAlertLabelKey:  "info",
-			partOfAlertLabelKey:    partOfAlertLabelValue,
-			componentAlertLabelKey: componentAlertLabelValue,
+			severityAlertLabelKey:     "info",
+			healthImpactAlertLabelKey: "warning",
+			partOfAlertLabelKey:       partOfAlertLabelValue,
+			componentAlertLabelKey:    componentAlertLabelValue,
 		},
 	}
 }
@@ -166,9 +169,10 @@ func createInstallationNotCompletedAlertRule() monitoringv1.Rule {
 		},
 		For: "1h",
 		Labels: map[string]string{
-			severityAlertLabelKey:  "info",
-			partOfAlertLabelKey:    partOfAlertLabelValue,
-			componentAlertLabelKey: componentAlertLabelValue,
+			severityAlertLabelKey:     "info",
+			healthImpactAlertLabelKey: "critical",
+			partOfAlertLabelKey:       partOfAlertLabelValue,
+			componentAlertLabelKey:    componentAlertLabelValue,
 		},
 	}
 }
