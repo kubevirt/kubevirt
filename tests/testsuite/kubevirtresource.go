@@ -98,6 +98,7 @@ func AdjustKubeVirtResource() {
 		virtconfig.VSOCKGate,
 		virtconfig.HotplugNetworkIfacesGate,
 	)
+	kv.Spec.Configuration.DeveloperConfiguration.LogVerbosity = &v1.LogVerbosity{VirtLauncher: 4}
 
 	if kv.Spec.Configuration.NetworkConfiguration == nil {
 		testDefaultPermitSlirpInterface := true
