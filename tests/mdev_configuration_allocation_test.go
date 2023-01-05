@@ -8,6 +8,8 @@ import (
 	"strings"
 	"time"
 
+	"kubevirt.io/kubevirt/tests/decorators"
+
 	"kubevirt.io/kubevirt/tests/framework/cleanup"
 	"kubevirt.io/kubevirt/tests/testsuite"
 
@@ -32,7 +34,7 @@ import (
 	"kubevirt.io/kubevirt/tests/libwait"
 )
 
-var _ = Describe("[Serial][sig-compute]MediatedDevices", Serial, func() {
+var _ = Describe("[Serial][sig-compute]MediatedDevices", Serial, decorators.VGPU, decorators.SigCompute, func() {
 	var err error
 	var virtClient kubecli.KubevirtClient
 

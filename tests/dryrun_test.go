@@ -24,6 +24,8 @@ import (
 	"fmt"
 	"time"
 
+	"kubevirt.io/kubevirt/tests/decorators"
+
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
 
@@ -46,7 +48,7 @@ import (
 	"kubevirt.io/kubevirt/tests/util"
 )
 
-var _ = Describe("[sig-compute]Dry-Run requests", func() {
+var _ = Describe("[sig-compute]Dry-Run requests", decorators.SigCompute, func() {
 	var err error
 	var virtClient kubecli.KubevirtClient
 	var restClient *rest.RESTClient
@@ -220,7 +222,7 @@ var _ = Describe("[sig-compute]Dry-Run requests", func() {
 		})
 	})
 
-	Context("Migrations", func() {
+	Context("Migrations", decorators.SigComputeMigrations, func() {
 		var vmim *v1.VirtualMachineInstanceMigration
 		resource := "virtualmachineinstancemigrations"
 

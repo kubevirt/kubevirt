@@ -26,6 +26,8 @@ import (
 	"strings"
 	"time"
 
+	"kubevirt.io/kubevirt/tests/decorators"
+
 	expect "github.com/google/goexpect"
 	storagev1 "k8s.io/api/storage/v1"
 
@@ -92,7 +94,7 @@ var _ = SIGDescribe("DataVolume Integration", func() {
 		}
 	})
 
-	Context("[storage-req]PVC expansion", func() {
+	Context("[storage-req]PVC expansion", decorators.StorageReq, func() {
 		DescribeTable("PVC expansion is detected by VM and can be fully used", func(volumeMode k8sv1.PersistentVolumeMode) {
 			checks.SkipTestIfNoFeatureGate(virtconfig.ExpandDisksGate)
 			if !libstorage.HasCDI() {
@@ -869,7 +871,7 @@ var _ = SIGDescribe("DataVolume Integration", func() {
 				Expect(dv.Spec.Source.PVC.Name).To(Equal(ds.Spec.Source.PVC.Name))
 			})
 
-			DescribeTable("[storage-req] deny then allow clone request", func(role *rbacv1.Role, allServiceAccounts, allServiceAccountsInNamespace bool) {
+			DescribeTable("[storage-req] deny then allow clone request", decorators.StorageReq, func(role *rbacv1.Role, allServiceAccounts, allServiceAccountsInNamespace bool) {
 				_, err := virtClient.VirtualMachine(vm.Namespace).Create(vm)
 				Expect(err).To(HaveOccurred())
 				Expect(err.Error()).To(ContainSubstring("Authorization failed, message is:"))

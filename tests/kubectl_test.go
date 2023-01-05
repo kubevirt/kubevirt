@@ -4,6 +4,8 @@ import (
 	"strings"
 	"time"
 
+	"kubevirt.io/kubevirt/tests/decorators"
+
 	"kubevirt.io/kubevirt/tests/framework/checks"
 	"kubevirt.io/kubevirt/tests/testsuite"
 
@@ -24,7 +26,7 @@ import (
 	"kubevirt.io/kubevirt/tests"
 )
 
-var _ = Describe("[sig-compute]oc/kubectl integration", func() {
+var _ = Describe("[sig-compute]oc/kubectl integration", decorators.SigCompute, func() {
 	var (
 		k8sClient, result string
 		err               error

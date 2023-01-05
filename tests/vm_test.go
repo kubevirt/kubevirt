@@ -28,6 +28,8 @@ import (
 	"strings"
 	"time"
 
+	"kubevirt.io/kubevirt/tests/decorators"
+
 	expect "github.com/google/goexpect"
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
@@ -63,7 +65,7 @@ import (
 	"kubevirt.io/kubevirt/tools/vms-generator/utils"
 )
 
-var _ = Describe("[rfe_id:1177][crit:medium][vendor:cnv-qe@redhat.com][level:component][sig-compute]VirtualMachine", func() {
+var _ = Describe("[rfe_id:1177][crit:medium][vendor:cnv-qe@redhat.com][level:component][sig-compute]VirtualMachine", decorators.SigCompute, func() {
 
 	var err error
 	var virtClient kubecli.KubevirtClient
@@ -415,8 +417,8 @@ var _ = Describe("[rfe_id:1177][crit:medium][vendor:cnv-qe@redhat.com][level:com
 			}, 300*time.Second, 1*time.Second).Should(BeTrue())
 		},
 			Entry("with ContainerDisk", newVirtualMachineInstanceWithContainerDisk),
-			Entry("[Serial][storage-req]with Filesystem Disk", Serial, newVirtualMachineInstanceWithFileDisk),
-			Entry("[Serial][storage-req]with Block Disk", Serial, newVirtualMachineInstanceWithBlockDisk),
+			Entry("[Serial][storage-req]with Filesystem Disk", Serial, decorators.StorageReq, newVirtualMachineInstanceWithFileDisk),
+			Entry("[Serial][storage-req]with Block Disk", Serial, decorators.StorageReq, newVirtualMachineInstanceWithBlockDisk),
 		)
 
 		DescribeTable("[test_id:1521]should remove VirtualMachineInstance once the VM is marked for deletion", func(createTemplate vmiBuilder) {
@@ -433,8 +435,8 @@ var _ = Describe("[rfe_id:1177][crit:medium][vendor:cnv-qe@redhat.com][level:com
 			}, 300*time.Second, 2*time.Second).Should(BeZero(), "The VirtualMachineInstance did not disappear")
 		},
 			Entry("with ContainerDisk", newVirtualMachineInstanceWithContainerDisk),
-			Entry("[Serial][storage-req]with Filesystem Disk", Serial, newVirtualMachineInstanceWithFileDisk),
-			Entry("[Serial][storage-req]with Block Disk", Serial, newVirtualMachineInstanceWithBlockDisk),
+			Entry("[Serial][storage-req]with Filesystem Disk", Serial, decorators.StorageReq, newVirtualMachineInstanceWithFileDisk),
+			Entry("[Serial][storage-req]with Block Disk", Serial, decorators.StorageReq, newVirtualMachineInstanceWithBlockDisk),
 		)
 
 		It("[test_id:1522]should remove owner references on the VirtualMachineInstance if it is orphan deleted", func() {
@@ -557,8 +559,8 @@ var _ = Describe("[rfe_id:1177][crit:medium][vendor:cnv-qe@redhat.com][level:com
 			stopVM(vm)
 		},
 			Entry("with ContainerDisk", newVirtualMachineInstanceWithContainerDisk),
-			Entry("[Serial][storage-req]with Filesystem Disk", Serial, newVirtualMachineInstanceWithFileDisk),
-			Entry("[Serial][storage-req]with Block Disk", Serial, newVirtualMachineInstanceWithBlockDisk),
+			Entry("[Serial][storage-req]with Filesystem Disk", Serial, decorators.StorageReq, newVirtualMachineInstanceWithFileDisk),
+			Entry("[Serial][storage-req]with Block Disk", Serial, decorators.StorageReq, newVirtualMachineInstanceWithBlockDisk),
 		)
 
 		It("[test_id:1526]should start and stop VirtualMachineInstance multiple times", func() {

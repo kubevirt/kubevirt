@@ -25,6 +25,8 @@ import (
 	"strings"
 	"time"
 
+	"kubevirt.io/kubevirt/tests/decorators"
+
 	expect "github.com/google/goexpect"
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
@@ -49,7 +51,7 @@ import (
 	"kubevirt.io/kubevirt/tests/libwait"
 )
 
-var _ = SIGDescribe("Slirp Networking", func() {
+var _ = SIGDescribe("Slirp Networking", decorators.Networking, func() {
 
 	var err error
 	var virtClient kubecli.KubevirtClient

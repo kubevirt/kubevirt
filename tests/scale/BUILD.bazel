@@ -8,6 +8,7 @@ go_library(
     deps = [
         "//pkg/virt-operator/resource/generate/components:go_default_library",
         "//staging/src/kubevirt.io/client-go/kubecli:go_default_library",
+        "//tests/decorators:go_default_library",
         "//tests/util:go_default_library",
         "//vendor/github.com/onsi/ginkgo/v2:go_default_library",
         "//vendor/github.com/onsi/gomega:go_default_library",

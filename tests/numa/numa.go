@@ -11,6 +11,8 @@ import (
 
 	"kubevirt.io/kubevirt/tests/libnode"
 
+	"kubevirt.io/kubevirt/tests/decorators"
+
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
 	k8sv1 "k8s.io/api/core/v1"
@@ -30,7 +32,7 @@ import (
 	"kubevirt.io/kubevirt/tests/util"
 )
 
-var _ = Describe("[sig-compute][Serial]NUMA", Serial, func() {
+var _ = Describe("[sig-compute][Serial]NUMA", Serial, decorators.SigCompute, func() {
 
 	var virtClient kubecli.KubevirtClient
 	BeforeEach(func() {

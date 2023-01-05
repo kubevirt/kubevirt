@@ -24,6 +24,8 @@ import (
 	"fmt"
 	"time"
 
+	"kubevirt.io/kubevirt/tests/decorators"
+
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
 	corev1 "k8s.io/api/core/v1"
@@ -56,7 +58,7 @@ const (
 	newLabelValue = "newvalue"
 )
 
-var _ = Describe("[sig-compute]VirtualMachinePool", func() {
+var _ = Describe("[sig-compute]VirtualMachinePool", decorators.SigCompute, func() {
 	var err error
 	var virtClient kubecli.KubevirtClient
 

@@ -24,6 +24,8 @@ import (
 	"encoding/xml"
 	"fmt"
 
+	"kubevirt.io/kubevirt/tests/decorators"
+
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
 
@@ -47,7 +49,7 @@ import (
 	"kubevirt.io/kubevirt/tests/libwait"
 )
 
-var _ = Describe("[sig-compute]MultiQueue", func() {
+var _ = Describe("[sig-compute]MultiQueue", decorators.SigCompute, func() {
 	var err error
 	var virtClient kubecli.KubevirtClient
 

@@ -23,6 +23,8 @@ import (
 	"fmt"
 	"runtime"
 
+	"kubevirt.io/kubevirt/tests/decorators"
+
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
 
@@ -31,7 +33,7 @@ import (
 	"kubevirt.io/client-go/kubecli"
 )
 
-var _ = Describe("[sig-compute]Version", func() {
+var _ = Describe("[sig-compute]Version", decorators.SigCompute, func() {
 
 	var err error
 	var virtClient kubecli.KubevirtClient

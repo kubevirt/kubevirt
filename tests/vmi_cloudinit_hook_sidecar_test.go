@@ -25,6 +25,8 @@ import (
 	"path/filepath"
 	"time"
 
+	"kubevirt.io/kubevirt/tests/decorators"
+
 	expect "github.com/google/goexpect"
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
@@ -44,7 +46,7 @@ import (
 
 const cloudinitHookSidecarImage = "example-cloudinit-hook-sidecar"
 
-var _ = Describe("[sig-compute]CloudInitHookSidecars", func() {
+var _ = Describe("[sig-compute]CloudInitHookSidecars", decorators.SigCompute, func() {
 
 	var err error
 	var virtClient kubecli.KubevirtClient

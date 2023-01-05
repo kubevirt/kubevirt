@@ -27,6 +27,8 @@ import (
 	"strings"
 	"time"
 
+	"kubevirt.io/kubevirt/tests/decorators"
+
 	"kubevirt.io/kubevirt/tests/exec"
 	"kubevirt.io/kubevirt/tests/framework/checks"
 	"kubevirt.io/kubevirt/tests/testsuite"
@@ -291,7 +293,7 @@ const (
 	windowsSysprepedVMIPassword = "Gauranga"
 )
 
-var _ = Describe("[Serial][Sysprep][sig-compute]Syspreped VirtualMachineInstance", Serial, func() {
+var _ = Describe("[Serial][Sysprep][sig-compute]Syspreped VirtualMachineInstance", Serial, decorators.Sysprep, decorators.SigCompute, func() {
 	var err error
 	var virtClient kubecli.KubevirtClient
 

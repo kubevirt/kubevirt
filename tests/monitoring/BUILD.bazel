@@ -13,6 +13,7 @@ go_library(
         "//staging/src/kubevirt.io/client-go/kubecli:go_default_library",
         "//tests:go_default_library",
         "//tests/clientcmd:go_default_library",
+        "//tests/decorators:go_default_library",
         "//tests/flags:go_default_library",
         "//tests/framework/checks:go_default_library",
         "//tests/framework/matcher:go_default_library",

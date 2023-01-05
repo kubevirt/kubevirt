@@ -26,6 +26,8 @@ import (
 	"strings"
 	"time"
 
+	"kubevirt.io/kubevirt/tests/decorators"
+
 	k8sv1 "k8s.io/api/core/v1"
 
 	"kubevirt.io/kubevirt/tests/framework/checks"
@@ -167,7 +169,7 @@ var istioTests = func(vmType VmType) {
 			By("Waiting for VMI to be ready")
 			libwait.WaitUntilVMIReady(vmi, console.LoginToAlpine)
 		})
-		Describe("Live Migration", func() {
+		Describe("Live Migration", decorators.SigComputeMigrations, func() {
 			var (
 				sourcePodName string
 			)

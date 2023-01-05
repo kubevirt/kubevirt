@@ -23,6 +23,8 @@ import (
 	"context"
 	"time"
 
+	"kubevirt.io/kubevirt/tests/decorators"
+
 	expect "github.com/google/goexpect"
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
@@ -36,7 +38,7 @@ import (
 	"kubevirt.io/kubevirt/tests/libvmi"
 )
 
-var _ = Describe("[sig-compute]Health Monitoring", func() {
+var _ = Describe("[sig-compute]Health Monitoring", decorators.SigCompute, func() {
 
 	var virtClient kubecli.KubevirtClient
 

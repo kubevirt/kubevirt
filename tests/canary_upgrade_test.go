@@ -25,6 +25,8 @@ import (
 	"sync"
 	"time"
 
+	"kubevirt.io/kubevirt/tests/decorators"
+
 	"kubevirt.io/kubevirt/tests/framework/checks"
 
 	appsv1 "k8s.io/api/apps/v1"
@@ -43,7 +45,7 @@ import (
 	. "github.com/onsi/gomega"
 )
 
-var _ = Describe("[Serial][sig-operator]virt-handler canary upgrade", Serial, func() {
+var _ = Describe("[Serial][sig-operator]virt-handler canary upgrade", Serial, decorators.SigOperator, func() {
 
 	var err error
 	var originalKV *v1.KubeVirt

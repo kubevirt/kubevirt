@@ -4,6 +4,8 @@ import (
 	"context"
 	"time"
 
+	"kubevirt.io/kubevirt/tests/decorators"
+
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
 	v1 "k8s.io/apimachinery/pkg/apis/meta/v1"
@@ -14,7 +16,7 @@ import (
 	"kubevirt.io/kubevirt/tests/util"
 )
 
-var _ = Describe("[sig-compute] virt-api scaling", func() {
+var _ = Describe("[sig-compute] virt-api scaling", decorators.SigCompute, func() {
 
 	var virtClient kubecli.KubevirtClient
 

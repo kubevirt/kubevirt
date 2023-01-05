@@ -6,6 +6,8 @@ import (
 	"strings"
 	"time"
 
+	"kubevirt.io/kubevirt/tests/decorators"
+
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
 
@@ -669,7 +671,7 @@ var _ = SIGDescribe("VirtualMachineRestore Tests", func() {
 		})
 	})
 
-	Context("[storage-req]", func() {
+	Context("[storage-req]", decorators.StorageReq, func() {
 		Context("With a more complicated VM", func() {
 			var (
 				newVmName            string

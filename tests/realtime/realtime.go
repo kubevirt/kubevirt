@@ -5,6 +5,8 @@ import (
 	"strconv"
 	"strings"
 
+	"kubevirt.io/kubevirt/tests/decorators"
+
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
 	"k8s.io/apimachinery/pkg/api/resource"
@@ -61,7 +63,7 @@ func byStartingTheVMI(vmi *v1.VirtualMachineInstance, virtClient kubecli.Kubevir
 	libwait.WaitForSuccessfulVMIStart(vmi)
 }
 
-var _ = Describe("[sig-compute-realtime][Serial]Realtime", Serial, func() {
+var _ = Describe("[sig-compute-realtime][Serial]Realtime", Serial, decorators.SigComputeRealtime, func() {
 
 	var virtClient kubecli.KubevirtClient
 

@@ -47,6 +47,7 @@ import (
 
 	"kubevirt.io/kubevirt/tests"
 	"kubevirt.io/kubevirt/tests/console"
+	"kubevirt.io/kubevirt/tests/decorators"
 	"kubevirt.io/kubevirt/tests/exec"
 	"kubevirt.io/kubevirt/tests/framework/checks"
 	"kubevirt.io/kubevirt/tests/framework/matcher"
@@ -71,7 +72,7 @@ const (
 	sriovnetLinkEnabled = "sriov-linked"
 )
 
-var _ = Describe("[Serial]SRIOV", Serial, func() {
+var _ = Describe("[Serial]SRIOV", Serial, decorators.SRIOV, func() {
 
 	var virtClient kubecli.KubevirtClient
 

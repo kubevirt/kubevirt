@@ -23,6 +23,8 @@ import (
 	"fmt"
 	"time"
 
+	"kubevirt.io/kubevirt/tests/decorators"
+
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
 
@@ -66,7 +68,7 @@ func withoutACPI() libvmi.Option {
 
 const vmiLaunchTimeout = 360
 
-var _ = Describe("[crit:medium][vendor:cnv-qe@redhat.com][level:component][sig-compute]Soft reboot", func() {
+var _ = Describe("[crit:medium][vendor:cnv-qe@redhat.com][level:component][sig-compute]Soft reboot", decorators.SigCompute, func() {
 
 	var err error
 	var virtClient kubecli.KubevirtClient

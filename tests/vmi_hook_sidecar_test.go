@@ -24,6 +24,8 @@ import (
 	"fmt"
 	"time"
 
+	"kubevirt.io/kubevirt/tests/decorators"
+
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
 
@@ -50,7 +52,7 @@ const (
 	sidecarContainerName = "hook-sidecar-0"
 )
 
-var _ = Describe("[sig-compute]HookSidecars", func() {
+var _ = Describe("[sig-compute]HookSidecars", decorators.SigCompute, func() {
 
 	var err error
 	var virtClient kubecli.KubevirtClient

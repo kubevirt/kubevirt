@@ -3,6 +3,8 @@ package tests_test
 import (
 	"encoding/xml"
 
+	"kubevirt.io/kubevirt/tests/decorators"
+
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
 
@@ -16,7 +18,7 @@ import (
 	"kubevirt.io/kubevirt/tests/libvmi"
 )
 
-var _ = Describe("[sig-compute]Controller devices", func() {
+var _ = Describe("[sig-compute]Controller devices", decorators.SigCompute, func() {
 	var err error
 	var virtClient kubecli.KubevirtClient
 

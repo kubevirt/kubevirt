@@ -27,6 +27,8 @@ import (
 	"strings"
 	"time"
 
+	"kubevirt.io/kubevirt/tests/decorators"
+
 	"kubevirt.io/kubevirt/tests/exec"
 	"kubevirt.io/kubevirt/tests/libvmi"
 
@@ -1085,7 +1087,7 @@ var _ = SIGDescribe("Storage", func() {
 			})
 		})
 
-		Context("[rfe_id:2288][crit:high][vendor:cnv-qe@redhat.com][level:component][storage-req] With Cirros BlockMode PVC", func() {
+		Context("[rfe_id:2288][crit:high][vendor:cnv-qe@redhat.com][level:component][storage-req] With Cirros BlockMode PVC", decorators.StorageReq, func() {
 			var dataVolume *cdiv1.DataVolume
 
 			BeforeEach(func() {
@@ -1119,7 +1121,7 @@ var _ = SIGDescribe("Storage", func() {
 			})
 		})
 
-		Context("[storage-req][rfe_id:2288][crit:high][vendor:cnv-qe@redhat.com][level:component]With Alpine block volume PVC", func() {
+		Context("[storage-req][rfe_id:2288][crit:high][vendor:cnv-qe@redhat.com][level:component]With Alpine block volume PVC", decorators.StorageReq, func() {
 
 			It("[test_id:3139]should be successfully started", func() {
 				By("Create a VMIWithPVC")
@@ -1230,7 +1232,7 @@ var _ = SIGDescribe("Storage", func() {
 
 		})
 
-		Context("[storage-req] With a volumeMode block backed ephemeral disk", func() {
+		Context("[storage-req] With a volumeMode block backed ephemeral disk", decorators.StorageReq, func() {
 			var dataVolume *cdiv1.DataVolume
 
 			BeforeEach(func() {

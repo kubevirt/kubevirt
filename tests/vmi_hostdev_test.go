@@ -5,6 +5,8 @@ import (
 	"fmt"
 	"strings"
 
+	"kubevirt.io/kubevirt/tests/decorators"
+
 	expect "github.com/google/goexpect"
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
@@ -27,7 +29,7 @@ const (
 	failedDeleteVMI = "Failed to delete VMI"
 )
 
-var _ = Describe("[Serial][sig-compute]HostDevices", Serial, func() {
+var _ = Describe("[Serial][sig-compute]HostDevices", Serial, decorators.SigCompute, func() {
 	var (
 		err        error
 		virtClient kubecli.KubevirtClient

@@ -24,6 +24,8 @@ import (
 	"fmt"
 	"time"
 
+	"kubevirt.io/kubevirt/tests/decorators"
+
 	k8sv1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/api/resource"
 
@@ -45,7 +47,7 @@ import (
 	"kubevirt.io/kubevirt/tools/vms-generator/utils"
 )
 
-var _ = Describe("[sig-compute]VMI with external kernel boot", func() {
+var _ = Describe("[sig-compute]VMI with external kernel boot", decorators.SigCompute, func() {
 
 	var virtClient kubecli.KubevirtClient
 	var err error

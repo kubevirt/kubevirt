@@ -6,6 +6,8 @@ import (
 	"strings"
 	"time"
 
+	"kubevirt.io/kubevirt/tests/decorators"
+
 	virtconfig "kubevirt.io/kubevirt/pkg/virt-config"
 
 	"kubevirt.io/kubevirt/pkg/virt-controller/services"
@@ -33,7 +35,7 @@ import (
 	"kubevirt.io/kubevirt/tests/util"
 )
 
-var _ = Describe("[Serial][sig-compute] Hyper-V enlightenments", Serial, func() {
+var _ = Describe("[Serial][sig-compute] Hyper-V enlightenments", Serial, decorators.SigCompute, func() {
 
 	var (
 		virtClient kubecli.KubevirtClient

@@ -27,6 +27,8 @@ import (
 	"strings"
 	"time"
 
+	"kubevirt.io/kubevirt/tests/decorators"
+
 	"kubevirt.io/kubevirt/tests/framework/matcher"
 
 	k8sv1 "k8s.io/api/core/v1"
@@ -91,7 +93,7 @@ var (
 	}
 )
 
-var _ = Describe("[Serial][sig-monitoring]Prometheus Alerts", Serial, func() {
+var _ = Describe("[Serial][sig-monitoring]Prometheus Alerts", Serial, decorators.SigMonitoring, func() {
 
 	var err error
 	var virtClient kubecli.KubevirtClient
@@ -611,7 +613,7 @@ var _ = Describe("[Serial][sig-monitoring]Prometheus Alerts", Serial, func() {
 		})
 	})
 
-	Context("Migration Alerts", func() {
+	Context("Migration Alerts", decorators.SigComputeMigrations, func() {
 		It("KubeVirtVMIExcessiveMigrations should be triggered when a VMI has been migrated more than 12 times during the last 24 hours", func() {
 			By("Starting the VirtualMachineInstance")
 			opts := append(libvmi.WithMasqueradeNetworking(), libvmi.WithResourceMemory("2Mi"))

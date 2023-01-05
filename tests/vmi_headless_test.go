@@ -29,6 +29,8 @@ import (
 
 	virt_api "kubevirt.io/kubevirt/pkg/virt-api"
 
+	"kubevirt.io/kubevirt/tests/decorators"
+
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
 	kubev1 "k8s.io/api/core/v1"
@@ -46,7 +48,7 @@ import (
 	"kubevirt.io/kubevirt/tests/libvmi"
 )
 
-var _ = Describe("[rfe_id:609][sig-compute]VMIheadless", func() {
+var _ = Describe("[rfe_id:609][sig-compute]VMIheadless", decorators.SigCompute, func() {
 
 	var err error
 	var virtClient kubecli.KubevirtClient

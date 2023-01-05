@@ -5,6 +5,8 @@ import (
 	"fmt"
 	"time"
 
+	"kubevirt.io/kubevirt/tests/decorators"
+
 	expect "github.com/google/goexpect"
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
@@ -19,7 +21,7 @@ import (
 	"kubevirt.io/kubevirt/tests/libvmi"
 )
 
-var _ = Describe("[sig-compute]AMD Secure Encrypted Virtualization (SEV)", func() {
+var _ = Describe("[sig-compute]AMD Secure Encrypted Virtualization (SEV)", decorators.SigCompute, func() {
 	BeforeEach(func() {
 		checks.SkipTestIfNoFeatureGate(virtconfig.WorkloadEncryptionSEV)
 	})

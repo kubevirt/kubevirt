@@ -24,6 +24,8 @@ import (
 	"fmt"
 	"strings"
 
+	"kubevirt.io/kubevirt/tests/decorators"
+
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
 	k8sv1 "k8s.io/api/core/v1"
@@ -50,7 +52,7 @@ const (
 	capNetBindService k8sv1.Capability = "NET_BIND_SERVICE"
 )
 
-var _ = Describe("[Serial][sig-compute]SecurityFeatures", Serial, func() {
+var _ = Describe("[Serial][sig-compute]SecurityFeatures", Serial, decorators.SigCompute, func() {
 	var err error
 	var virtClient kubecli.KubevirtClient
 

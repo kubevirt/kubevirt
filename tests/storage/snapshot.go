@@ -6,6 +6,8 @@ import (
 	"strings"
 	"time"
 
+	"kubevirt.io/kubevirt/tests/decorators"
+
 	expect "github.com/google/goexpect"
 	vsv1 "github.com/kubernetes-csi/external-snapshotter/client/v4/apis/volumesnapshot/v1"
 	. "github.com/onsi/ginkgo/v2"
@@ -291,7 +293,7 @@ var _ = SIGDescribe("VirtualMachineSnapshot Tests", func() {
 		})
 	})
 
-	Context("[storage-req]", func() {
+	Context("[storage-req]", decorators.StorageReq, func() {
 		var (
 			snapshotStorageClass string
 		)
